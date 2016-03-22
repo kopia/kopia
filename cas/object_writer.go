@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"unicode/utf8"
 
 	"github.com/kopia/kopia/content"
@@ -78,7 +79,7 @@ func (w *objectWriter) Write(data []byte) (n int, err error) {
 					// We're at the beginning of a buffer, fail if the buffer is too small.
 					return 0, fmt.Errorf("object writer buffer too small, need: %v, have: %v", remaining, room)
 				}
-				if err := w.flushBuffer(); err != nil {
+				if err := w.flushBuffer(false); err != nil {
 					return 0, err
 				}
 
@@ -87,7 +88,7 @@ func (w *objectWriter) Write(data []byte) (n int, err error) {
 
 			w.buffer.Write(data[0:room])
 
-			if err := w.flushBuffer(); err != nil {
+			if err := w.flushBuffer(false); err != nil {
 				return 0, err
 			}
 			data = data[room:]
@@ -97,13 +98,20 @@ func (w *objectWriter) Write(data []byte) (n int, err error) {
 	return len(data), nil
 }
 
-func (w *objectWriter) flushBuffer() error {
-	if w.buffer != nil {
-		data := w.buffer.Bytes()
-		length := w.buffer.Len()
+func (w *objectWriter) flushBuffer(force bool) error {
+	if w.buffer != nil || force {
+		var data []byte
+		var b io.ReadCloser
+		var length int
+		if w.buffer != nil {
+			data = w.buffer.Bytes()
+			length = w.buffer.Len()
 
-		b := w.mgr.bufferManager.returnBufferOnClose(w.buffer)
-		w.buffer = nil
+			b = w.mgr.bufferManager.returnBufferOnClose(w.buffer)
+			w.buffer = nil
+		} else {
+			b = ioutil.NopCloser(bytes.NewBuffer(nil))
+		}
 
 		objectID, transformer := w.mgr.formatter.Do(data, string(w.objectType)+w.prefix)
 		b = transformer(b)
@@ -165,9 +173,11 @@ func (w *objectWriter) Result(forceStored bool) (content.ObjectID, error) {
 		}
 	}
 
-	w.flushBuffer()
+	w.flushBuffer(forceStored)
 	defer func() {
-		w.listWriter.Close()
+		if w.listWriter != nil {
+			w.listWriter.Close()
+		}
 	}()
 
 	if w.flushedObjectCount == 1 {

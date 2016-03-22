@@ -147,6 +147,10 @@ func NewObjectManager(
 		maxBlobSize:       f.MaxBlobSize,
 	}
 
+	if mgr.maxBlobSize == 0 {
+		mgr.maxBlobSize = 16 * 1024 * 1024
+	}
+
 	var hashFunc func() hash.Hash
 
 	hashAlgo := f.Algorithm

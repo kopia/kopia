@@ -229,7 +229,7 @@ func TestWriterListOfListsOfListsChunk(t *testing.T) {
 	}
 }
 
-func TestEncryption(t *testing.T) {
+func TestHMAC(t *testing.T) {
 	data := map[string][]byte{}
 	content := bytes.Repeat([]byte{0xcd}, 50)
 
@@ -346,6 +346,46 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 						t.Errorf("incorrect data read for %v/%v: expected: %v, got: %v", forceStored, size, expected, got)
 					}
 				}
+			}
+		}
+	}
+}
+
+func TestFormats(t *testing.T) {
+	cases := []struct {
+		format Format
+		hashes map[string]content.ObjectID
+	}{
+		{
+			format: Format{
+				Algorithm: "md5",
+			},
+			hashes: map[string]content.ObjectID{
+				"": "Cd41d8cd98f00b204e9800998ecf8427e",
+				"The quick brown fox jumps over the lazy dog": "C9e107d9d372bb6826bd81d3542a419d6",
+			},
+		},
+	}
+
+	for _, c := range cases {
+		data := map[string][]byte{}
+		st := storage.NewMapRepository(data)
+
+		mgr, err := NewObjectManager(st, c.format)
+		if err != nil {
+			t.Errorf("cannot create manager: %v", err)
+			continue
+		}
+
+		for k, v := range c.hashes {
+			w := mgr.NewWriter()
+			w.Write([]byte(k))
+			oid, err := w.Result(true)
+			if err != nil {
+				t.Errorf("error: %v", err)
+			}
+			if oid != v {
+				t.Errorf("invalid oid for %v/%v: %v expected %v", c.format.Algorithm, k, oid, v)
 			}
 		}
 	}
