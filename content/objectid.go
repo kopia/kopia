@@ -142,11 +142,11 @@ func (c ObjectID) EncryptionInfo() ObjectEncryptionInfo {
 	return NoEncryption
 }
 
-func newInlineBinaryObjectID(data []byte) ObjectID {
+func NewInlineBinaryObjectID(data []byte) ObjectID {
 	return ObjectID("B" + base64.StdEncoding.EncodeToString(data))
 }
 
-func newInlineTextObjectID(text string) ObjectID {
+func NewInlineTextObjectID(text string) ObjectID {
 	return ObjectID("T" + text)
 }
 
