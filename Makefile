@@ -1,5 +1,13 @@
+all: lint vet build
+
 build:
-	go install github.com/kopia/kopia/cmd/kopia
+	go build github.com/kopia/kopia/...
+
+lint:
+	golint github.com/kopia/kopia/...
+
+vet:
+	go vet github.com/kopia/kopia/...
 
 deps:
 	go get -u -t -v github.com/kopia/kopia/...

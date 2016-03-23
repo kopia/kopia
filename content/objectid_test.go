@@ -41,7 +41,7 @@ func TestParseObjectIDEncryptionInfo(t *testing.T) {
 		expected ObjectEncryptionInfo
 	}{
 		{"B", NoEncryption},
-		{"BAQIDBA==", NoEncryption},
+		{"BAQIDBA", NoEncryption},
 		{"T", NoEncryption},
 		{"T:foo", NoEncryption},
 		{"Tfoo\nbar", NoEncryption},

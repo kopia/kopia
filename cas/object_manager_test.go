@@ -20,7 +20,7 @@ func testFormat() Format {
 	return Format{
 		MaxBlobSize:       200,
 		MaxInlineBlobSize: 20,
-		Algorithm:         "md5",
+		Hash:              "md5",
 	}
 }
 
@@ -56,8 +56,9 @@ func TestWriters(t *testing.T) {
 	}{
 		{[]byte{}, "B"},
 		{[]byte("quick brown fox"), "Tquick brown fox"},
-		{[]byte{1, 2, 3, 4}, "BAQIDBA=="},
-		{[]byte{0xc2, 0x28}, "Bwig="}, // invalid UTF-8, will be represented as binary
+		{[]byte{1, 2, 3, 4}, "BAQIDBA"},
+		{[]byte{10, 13, 9}, "T\n\r\t"},
+		{[]byte{0xc2, 0x28}, "Bwig"}, // invalid UTF-8, will be represented as binary
 		{
 			[]byte("the quick brown fox jumps over the lazy dog"),
 			"CX77add1d5f41223d5582fca736a5cb335",
@@ -234,7 +235,7 @@ func TestHMAC(t *testing.T) {
 	content := bytes.Repeat([]byte{0xcd}, 50)
 
 	s := testFormat()
-	s.Algorithm = "hmac-md5"
+	s.Hash = "hmac-md5"
 	s.Secret = []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25}
 
 	mgr, err := NewObjectManager(storage.NewMapRepository(data), s)
@@ -260,7 +261,7 @@ func TestReader(t *testing.T) {
 		payload []byte
 	}{
 		{"B", []byte{}},
-		{"BAQIDBA==", []byte{1, 2, 3, 4}},
+		{"BAQIDBA", []byte{1, 2, 3, 4}},
 		{"T", []byte{}},
 		{"Tfoo\nbar", []byte("foo\nbar")},
 		{"Cabcdef", storedPayload},
@@ -358,7 +359,7 @@ func TestFormats(t *testing.T) {
 	}{
 		{
 			format: Format{
-				Algorithm: "md5",
+				Hash: "md5",
 			},
 			hashes: map[string]content.ObjectID{
 				"": "Cd41d8cd98f00b204e9800998ecf8427e",
@@ -367,7 +368,7 @@ func TestFormats(t *testing.T) {
 		},
 		{
 			format: Format{
-				Algorithm: "hmac-md5",
+				Hash: "hmac-md5",
 			},
 			hashes: map[string]content.ObjectID{
 				"": "C74e6f7298a9c2d168935f58c001bad88",
@@ -376,8 +377,8 @@ func TestFormats(t *testing.T) {
 		},
 		{
 			format: Format{
-				Algorithm: "hmac-md5",
-				Secret:    []byte("key"),
+				Hash:   "hmac-md5",
+				Secret: []byte("key"),
 			},
 			hashes: map[string]content.ObjectID{
 				"The quick brown fox jumps over the lazy dog": "C80070713463e7749b90c2dc24911e275",
@@ -385,8 +386,8 @@ func TestFormats(t *testing.T) {
 		},
 		{
 			format: Format{
-				Algorithm: "hmac-sha1",
-				Secret:    []byte("key"),
+				Hash:   "hmac-sha1",
+				Secret: []byte("key"),
 			},
 			hashes: map[string]content.ObjectID{
 				"The quick brown fox jumps over the lazy dog": "Cde7c9b85b8b78aa6bc8a7a36f70a90701c9db4d9",
@@ -394,8 +395,8 @@ func TestFormats(t *testing.T) {
 		},
 		{
 			format: Format{
-				Algorithm: "hmac-sha256",
-				Secret:    []byte("key"),
+				Hash:   "hmac-sha256",
+				Secret: []byte("key"),
 			},
 			hashes: map[string]content.ObjectID{
 				"The quick brown fox jumps over the lazy dog": "Cf7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8",
@@ -403,8 +404,8 @@ func TestFormats(t *testing.T) {
 		},
 		{
 			format: Format{
-				Algorithm: "hmac-sha512",
-				Secret:    []byte("key"),
+				Hash:   "hmac-sha512",
+				Secret: []byte("key"),
 			},
 			hashes: map[string]content.ObjectID{
 				"The quick brown fox jumps over the lazy dog": "Cb42af09057bac1e2d41708e48a902e09b5ff7f12ab428a4fe86653c73dd248fb82f948a549f7b791a5b41915ee4d1ec3935357e4e2317250d0372afa2ebeeb3a",
@@ -430,7 +431,7 @@ func TestFormats(t *testing.T) {
 				t.Errorf("error: %v", err)
 			}
 			if oid != v {
-				t.Errorf("invalid oid for %v/%v: %v expected %v", c.format.Algorithm, k, oid, v)
+				t.Errorf("invalid oid for %v/%v: %v expected %v", c.format.Hash, k, oid, v)
 			}
 		}
 	}

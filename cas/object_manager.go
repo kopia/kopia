@@ -121,20 +121,6 @@ func EnableLogging() ObjectManagerOption {
 	}
 }
 
-func MaxInlineBlobSize(sizeBytes int) ObjectManagerOption {
-	return func(o *objectManager) error {
-		o.maxInlineBlobSize = sizeBytes
-		return nil
-	}
-}
-
-func MaxBlobSize(sizeBytes int) ObjectManagerOption {
-	return func(o *objectManager) error {
-		o.maxBlobSize = sizeBytes
-		return nil
-	}
-}
-
 // NewObjectManager creates new ObjectManager with the specified repository, options, and key provider.
 func NewObjectManager(
 	r storage.Repository,
@@ -153,7 +139,7 @@ func NewObjectManager(
 
 	var hashFunc func() hash.Hash
 
-	hashAlgo := f.Algorithm
+	hashAlgo := f.Hash
 	hf := strings.TrimPrefix(hashAlgo, "hmac-")
 
 	switch hf {

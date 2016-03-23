@@ -14,24 +14,15 @@ type PutOptions struct {
 	IgnoreLimits bool
 }
 
-// Repository encapsulates storage for blocks of data.
-type RepositoryWriter interface {
+// Repository encapsulates API for connecting to blob storage
+type Repository interface {
 	// BlockExists determines whether the specified block existts.
 	PutBlock(id BlockID, data io.ReadCloser, options PutOptions) error
 	DeleteBlock(id BlockID) error
 	Flush() error
-}
-
-// Repository encapsulates storage for blocks of data.
-type RepositoryReader interface {
 	BlockExists(id BlockID) (bool, error)
 	GetBlock(id BlockID) ([]byte, error)
 	ListBlocks(prefix BlockID) chan (BlockMetadata)
-}
-
-type Repository interface {
-	RepositoryReader
-	RepositoryWriter
 	Configuration() RepositoryConfiguration
 }
 

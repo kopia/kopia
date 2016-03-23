@@ -11,16 +11,24 @@ const (
 	masterKeySize = 32
 )
 
+// UserPrivateKey encapsulates secret key belonging to a user.
 type UserPrivateKey struct {
 	key [32]byte
 }
 
+// UserPublicKey encapsulates public key belonging to a user.
+type UserPublicKey struct {
+	key [32]byte
+}
+
+// Bytes returns the private key bytes.
 func (prv UserPrivateKey) Bytes() []byte {
 	r := make([]byte, 32)
 	copy(r, prv.key[:])
 	return r
 }
 
+// PublicKey returns public key associated with the private key.
 func (prv UserPrivateKey) PublicKey() *UserPublicKey {
 	pub := &UserPublicKey{}
 
@@ -36,8 +44,4 @@ func newPrivateKey(key []byte) (*UserPrivateKey, error) {
 	k := &UserPrivateKey{}
 	copy(k.key[:], key)
 	return k, nil
-}
-
-type UserPublicKey struct {
-	key [32]byte
 }

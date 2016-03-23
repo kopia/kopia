@@ -6,17 +6,22 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/kopia/kopia/storage"
+)
+
+var (
+	binaryEncoding = base64.RawURLEncoding
 )
 
 // ObjectIDType describes the type of the chunk.
 type ObjectIDType string
 
-var NoEncryption = ObjectEncryptionInfo("")
-
+// EncryptionMode specifies encryption mode used to encrypt an object.
 type EncryptionMode byte
 
+// Supported encryption modes.
 const (
 	ObjectEncryptionNone EncryptionMode = iota
 	ObjectEncryptionModeAES256
@@ -24,8 +29,13 @@ const (
 	objectEncryptionInvalid
 )
 
+// ObjectEncryptionInfo represents encryption info associated with ObjectID.
 type ObjectEncryptionInfo string
 
+// NoEncryption indicates that the object is not encrypted.
+var NoEncryption = ObjectEncryptionInfo("")
+
+// Mode returns EncryptionMode for the object.
 func (oei ObjectEncryptionInfo) Mode() EncryptionMode {
 	if len(oei) == 0 {
 		return ObjectEncryptionNone
@@ -106,7 +116,7 @@ func (c ObjectID) InlineData() []byte {
 		return []byte(payload)
 
 	case ObjectIDTypeBinary:
-		decodedPayload, err := base64.StdEncoding.DecodeString(payload)
+		decodedPayload, err := binaryEncoding.DecodeString(payload)
 		if err == nil {
 			return decodedPayload
 		}
@@ -122,14 +132,15 @@ func (c ObjectID) BlockID() storage.BlockID {
 		firstColon := strings.Index(content, ":")
 		if firstColon > 0 {
 			return storage.BlockID(content[0:firstColon])
-		} else {
-			return storage.BlockID(content)
 		}
+
+		return storage.BlockID(content)
 	}
 
 	return ""
 }
 
+// EncryptionInfo returns ObjectEncryptionInfo for the ObjectID.
 func (c ObjectID) EncryptionInfo() ObjectEncryptionInfo {
 	if c.Type().IsStored() {
 		content := string(c[1:])
@@ -142,12 +153,20 @@ func (c ObjectID) EncryptionInfo() ObjectEncryptionInfo {
 	return NoEncryption
 }
 
-func NewInlineBinaryObjectID(data []byte) ObjectID {
-	return ObjectID("B" + base64.StdEncoding.EncodeToString(data))
-}
+// NewInlineObjectID returns new ObjectID containing inline binary or text-encoded data.
+func NewInlineObjectID(data []byte) ObjectID {
+	if !utf8.Valid(data) {
+		return ObjectID("B" + binaryEncoding.EncodeToString(data))
+	}
 
-func NewInlineTextObjectID(text string) ObjectID {
-	return ObjectID("T" + text)
+	for _, b := range data {
+		if b < 32 && (b != 9 && b != 10 && b != 13) {
+			// Any other character indicates binary content.
+			return ObjectID("B" + binaryEncoding.EncodeToString(data))
+		}
+	}
+
+	return ObjectID("T" + string(data))
 }
 
 // ParseObjectID converts the specified string into ObjectID.
@@ -161,7 +180,7 @@ func ParseObjectID(objectIDString string) (ObjectID, error) {
 			return ObjectID(objectIDString), nil
 
 		case "B":
-			if _, err := base64.StdEncoding.DecodeString(content); err == nil {
+			if _, err := binaryEncoding.DecodeString(content); err == nil {
 				return ObjectID(objectIDString), nil
 			}
 

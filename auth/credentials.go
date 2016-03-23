@@ -8,6 +8,7 @@ import (
 	"golang.org/x/crypto/pbkdf2"
 )
 
+// Credentials encapsulates user credentials.
 type Credentials interface {
 	Username() string
 	PrivateKey() *UserPrivateKey
@@ -46,6 +47,7 @@ func (pc *credentials) deriveKeyFromPassword() {
 	pc.privateKey = pk
 }
 
+// Password returns Credentials object with static username and password.
 func Password(username, password string) Credentials {
 	return &credentials{
 		username: username,
@@ -55,6 +57,7 @@ func Password(username, password string) Credentials {
 	}
 }
 
+// PasswordPrompt returns Credentials object that will prompt user for password using the specified callback function.
 func PasswordPrompt(username string, prompt func() string) Credentials {
 	return &credentials{
 		username:       username,
@@ -62,6 +65,7 @@ func PasswordPrompt(username string, prompt func() string) Credentials {
 	}
 }
 
+// Key returns Credentials object with specified username and key bytes.
 func Key(username string, key []byte) (Credentials, error) {
 	pk, err := newPrivateKey(key)
 	if err != nil {
@@ -74,6 +78,7 @@ func Key(username string, key []byte) (Credentials, error) {
 	}, nil
 }
 
+// KeyFromFile returns Credentials object with specified username and with key read from the specified file.
 func KeyFromFile(username string, fileName string) (Credentials, error) {
 	k, err := ioutil.ReadFile(fileName)
 	if err != nil {

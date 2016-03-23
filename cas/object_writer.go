@@ -2,12 +2,9 @@ package cas
 
 import (
 	"bytes"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"unicode/utf8"
 
 	"github.com/kopia/kopia/content"
 	"github.com/kopia/kopia/storage"
@@ -148,28 +145,11 @@ func newObjectWriter(cfg objectWriterConfig, objectType content.ObjectIDType) *o
 func (w *objectWriter) Result(forceStored bool) (content.ObjectID, error) {
 	if !forceStored && w.flushedObjectCount == 0 {
 		if w.buffer == nil {
-			return content.NewInlineBinaryObjectID(nil), nil
+			return "B", nil
 		}
 
 		if w.buffer.Len() < w.mgr.maxInlineBlobSize {
-			data := w.buffer.Bytes()
-			if !utf8.Valid(data) {
-				return content.NewInlineBinaryObjectID(data), nil
-			}
-
-			// If the binary represents valid UTF8, try encoding it as text (JSON) or binary chunk
-			// and pick the one that has shorter representation.
-			dataString := string(data)
-			jsonData, _ := json.Marshal(dataString)
-
-			jsonLen := len(jsonData)
-			base64Len := base64.StdEncoding.EncodedLen(len(data))
-
-			if jsonLen < base64Len {
-				return content.NewInlineTextObjectID(dataString), nil
-			}
-
-			return content.NewInlineBinaryObjectID(data), nil
+			return content.NewInlineObjectID(w.buffer.Bytes()), nil
 		}
 	}
 
