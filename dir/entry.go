@@ -1,6 +1,12 @@
-package content
+package dir
 
-import "os"
+import (
+	"io"
+	"os"
+	"time"
+
+	"github.com/kopia/kopia/content"
+)
 
 // EntryType describes the type of an backup entry.
 type EntryType string
@@ -46,4 +52,23 @@ func FileModeToType(mode os.FileMode) EntryType {
 	default:
 		return EntryTypeFile
 	}
+}
+
+// Entry stores attributes of a single entry in a directory.
+type Entry struct {
+	Name     string
+	Size     int64
+	Type     EntryType
+	ModTime  time.Time
+	Mode     int16 // 0000 .. 0777
+	UserID   uint32
+	GroupID  uint32
+	ObjectID content.ObjectID
+	Open     func() (io.ReadCloser, error)
+}
+
+// Directory contains access to contents of directory, both in original order and indexed by name.
+type Directory struct {
+	Ordered []*Entry
+	ByName  map[string]*Entry
 }
