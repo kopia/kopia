@@ -1,6 +1,7 @@
 package dir
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"time"
@@ -54,6 +55,9 @@ func FileModeToType(mode os.FileMode) EntryType {
 	}
 }
 
+// Opener opens the contents of directory entry for reading.
+type Opener func() (io.ReadCloser, error)
+
 // Entry stores attributes of a single entry in a directory.
 type Entry struct {
 	Name     string
@@ -64,7 +68,15 @@ type Entry struct {
 	UserID   uint32
 	GroupID  uint32
 	ObjectID content.ObjectID
-	Open     func() (io.ReadCloser, error)
+
+	Open Opener
+}
+
+func (e *Entry) String() string {
+	return fmt.Sprintf(
+		"name: '%v' type: %v modTime: %v size: %v oid: '%v' uid: %v gid: %v",
+		e.Name, e.Type, e.ModTime, e.Size, e.ObjectID, e.UserID, e.GroupID,
+	)
 }
 
 // Directory contains access to contents of directory, both in original order and indexed by name.
