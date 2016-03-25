@@ -127,6 +127,9 @@ func NewObjectManager(
 	f Format,
 	options ...ObjectManagerOption,
 ) (ObjectManager, error) {
+	if f.Version != "1" {
+		return nil, fmt.Errorf("unsupported repository version: %v", f.Version)
+	}
 	mgr := &objectManager{
 		repository:        r,
 		maxInlineBlobSize: f.MaxInlineBlobSize,

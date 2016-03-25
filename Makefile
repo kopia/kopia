@@ -1,4 +1,4 @@
-all: lint vet build
+all: lint vet build test
 
 build:
 	go build github.com/kopia/kopia/...
