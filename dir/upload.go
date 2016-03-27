@@ -14,12 +14,9 @@ import (
 )
 
 type uploader struct {
-	mgr    cas.ObjectManager
-	lister Lister
-}
-
-func (u uploader) UploadDir(path string, previous content.ObjectID) (content.ObjectID, error) {
-	return u.uploadDirInternal(path, previous)
+	mgr       cas.ObjectManager
+	lister    Lister
+	hashCache hashCache
 }
 
 func (u uploader) UploadFile(path string) (content.ObjectID, error) {
@@ -51,47 +48,27 @@ func (u uploader) uploadFileInternal(path string) (content.ObjectID, uint32, err
 	return result, computeChecksum(filepath.Base(file.Name()), s.Size(), s.ModTime()), nil
 }
 
-func (u uploader) uploadDirInternal(path string, previous content.ObjectID) (content.ObjectID, error) {
+func (u uploader) UploadDir(path string) (content.ObjectID, error) {
 	listing, err := u.lister.List(path)
 	if err != nil {
 		return content.NullObjectID, err
 	}
 
-	var previousListing Listing
-
-	if previous != "" {
-		d, err := u.mgr.Open(previous)
-		if err == nil {
-			previousListing, _ = ReadListing(d)
-		}
-	}
+	_ = u.hashCache.GetCachedListing(path)
 
 	// Process all directories first, in canonical order before any files.
-	for _, d := range listing.Directories {
-		p := previousListing.FindDirectoryByName(d.Name)
-		var prevObjectID content.ObjectID
-
-		if p != nil {
-			prevObjectID = p.ObjectID
-		}
-
-		objectID, err := u.uploadDirInternal(
-			filepath.Join(path, d.Name),
-			prevObjectID,
-		)
-		if err != nil {
-			return content.NullObjectID, err
-		}
-
-		d.ObjectID = objectID
-	}
-
-	// Upload all files.
-	for _, f := range listing.Files {
-		fullPath := filepath.Join(path, f.Name)
-		f.ObjectID, err = u.UploadFile(fullPath)
-		if err != nil {
-			return content.NullObjectID, fmt.Errorf("unable to hash file: %s", err)
+	for _, e := range listing.Entries {
+		fullPath := filepath.Join(path, e.Name)
+		if e.Type == EntryTypeDirectory {
+			e.ObjectID, err = u.UploadDir(fullPath)
+			if err != nil {
+				return content.NullObjectID, err
+			}
+		} else {
+			e.ObjectID, err = u.UploadFile(fullPath)
+			if err != nil {
+				return content.NullObjectID, fmt.Errorf("unable to hash file: %s", err)
+			}
 		}
 	}
 
@@ -103,13 +80,8 @@ func (u uploader) uploadDirInternal(path string, previous content.ObjectID) (con
 
 	dw := NewWriter(writer)
 
-	for _, d := range listing.Directories {
+	for _, d := range listing.Entries {
 		if err := dw.WriteEntry(d); err != nil {
-			return "", err
-		}
-	}
-	for _, f := range listing.Files {
-		if err := dw.WriteEntry(f); err != nil {
 			return "", err
 		}
 	}

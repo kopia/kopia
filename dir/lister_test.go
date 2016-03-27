@@ -37,7 +37,7 @@ func TestLister(t *testing.T) {
 		t.Errorf("error when listing empty directory: %v", err)
 	}
 
-	if len(listing.Directories)+len(listing.Files) > 0 {
+	if len(listing.Entries) > 0 {
 		t.Errorf("expected empty directory, got %v", listing)
 	}
 
@@ -54,23 +54,23 @@ func TestLister(t *testing.T) {
 		t.Errorf("error when listing directory with files: %v", err)
 	}
 
-	if len(listing.Files) != 3 || len(listing.Directories) != 2 {
-		t.Errorf("expected 3 files, got: %v", listing)
+	if len(listing.Entries) != 5 {
+		t.Errorf("expected 5 files, got: %v", listing)
 	} else {
 		goodCount := 0
-		if listing.Files[0].Name == "f1" && listing.Files[0].Size == 5 && listing.Files[0].Type == EntryTypeFile {
+		if listing.Entries[0].Name == "f1" && listing.Entries[0].Size == 5 && listing.Entries[0].Type == EntryTypeFile {
 			goodCount++
 		}
-		if listing.Files[1].Name == "f2" && listing.Files[1].Size == 4 && listing.Files[1].Type == EntryTypeFile {
+		if listing.Entries[1].Name == "f2" && listing.Entries[1].Size == 4 && listing.Entries[1].Type == EntryTypeFile {
 			goodCount++
 		}
-		if listing.Files[2].Name == "f3" && listing.Files[2].Size == 3 && listing.Files[2].Type == EntryTypeFile {
+		if listing.Entries[2].Name == "f3" && listing.Entries[2].Size == 3 && listing.Entries[2].Type == EntryTypeFile {
 			goodCount++
 		}
-		if listing.Directories[0].Name == "y" && listing.Directories[0].Size == 0 && listing.Directories[0].Type == EntryTypeDirectory {
+		if listing.Entries[3].Name == "y" && listing.Entries[3].Size == 0 && listing.Entries[3].Type == EntryTypeDirectory {
 			goodCount++
 		}
-		if listing.Directories[1].Name == "z" && listing.Directories[1].Size == 0 && listing.Directories[1].Type == EntryTypeDirectory {
+		if listing.Entries[4].Name == "z" && listing.Entries[4].Size == 0 && listing.Entries[4].Type == EntryTypeDirectory {
 			goodCount++
 		}
 		if goodCount != 5 {

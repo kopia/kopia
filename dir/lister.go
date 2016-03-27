@@ -9,8 +9,7 @@ import (
 
 // Listing encapsulates list of items in a directory.
 type Listing struct {
-	Directories []*Entry
-	Files       []*Entry
+	Entries []*Entry
 }
 
 func findEntryByName(entries []*Entry, name string) *Entry {
@@ -26,21 +25,14 @@ func findEntryByName(entries []*Entry, name string) *Entry {
 	return nil
 }
 
-func (l Listing) FindDirectoryByName(name string) *Entry {
-	return findEntryByName(l.Directories, name)
-}
-
-func (l Listing) FindFileByName(name string) *Entry {
-	return findEntryByName(l.Files, name)
+func (l Listing) FindEntryName(name string) *Entry {
+	return findEntryByName(l.Entries, name)
 }
 
 func (l Listing) String() string {
 	s := ""
-	for i, d := range l.Directories {
-		s += fmt.Sprintf("dir[%v] = %v\n", i, d)
-	}
-	for i, f := range l.Files {
-		s += fmt.Sprintf("file[%v] = %v\n", i, f)
+	for i, f := range l.Entries {
+		s += fmt.Sprintf("entry[%v] = %v\n", i, f)
 	}
 
 	return s
@@ -73,11 +65,7 @@ func (l *filesystemLister) List(path string) (Listing, error) {
 			return listing, err
 		}
 
-		if e.Type == EntryTypeDirectory {
-			listing.Directories = append(listing.Directories, e)
-		} else {
-			listing.Files = append(listing.Files, e)
-		}
+		listing.Entries = append(listing.Entries, e)
 	}
 
 	return listing, nil

@@ -72,7 +72,7 @@ func TestUpload(t *testing.T) {
 		lister: NewFilesystemLister(),
 	}
 
-	oid, err := u.UploadDir(sourceDir, "")
+	oid, err := u.UploadDir(sourceDir)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
