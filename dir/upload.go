@@ -19,9 +19,7 @@ type uploader struct {
 }
 
 func (u uploader) UploadDir(path string, previous content.ObjectID) (content.ObjectID, error) {
-	oid, _, err := u.uploadDirInternal(path, previous, 0)
-
-	return oid, err
+	return u.uploadDirInternal(path, previous)
 }
 
 func (u uploader) UploadFile(path string) (content.ObjectID, error) {
@@ -53,10 +51,10 @@ func (u uploader) uploadFileInternal(path string) (content.ObjectID, uint32, err
 	return result, computeChecksum(filepath.Base(file.Name()), s.Size(), s.ModTime()), nil
 }
 
-func (u uploader) uploadDirInternal(path string, previous content.ObjectID, previousCRC32 uint32) (content.ObjectID, uint32, error) {
+func (u uploader) uploadDirInternal(path string, previous content.ObjectID) (content.ObjectID, error) {
 	listing, err := u.lister.List(path)
 	if err != nil {
-		return content.NullObjectID, 0, err
+		return content.NullObjectID, err
 	}
 
 	var previousListing Listing
@@ -68,53 +66,32 @@ func (u uploader) uploadDirInternal(path string, previous content.ObjectID, prev
 		}
 	}
 
-	h := crc32.NewIEEE()
-
 	// Process all directories first, in canonical order before any files.
 	for _, d := range listing.Directories {
 		p := previousListing.FindDirectoryByName(d.Name)
 		var prevObjectID content.ObjectID
-		var prevCRC uint32
 
 		if p != nil {
-			prevCRC = p.MetadataCRC32
 			prevObjectID = p.ObjectID
 		}
 
-		objectID, metadataChecksum, err := u.uploadDirInternal(
+		objectID, err := u.uploadDirInternal(
 			filepath.Join(path, d.Name),
 			prevObjectID,
-			prevCRC,
 		)
 		if err != nil {
-			return content.NullObjectID, 0, err
+			return content.NullObjectID, err
 		}
 
 		d.ObjectID = objectID
-		h.Write([]byte{0})
-		binary.Write(h, binary.LittleEndian, metadataChecksum)
-	}
-
-	// Process files, for each file read cached chunk ID from streaming cache.
-	for _, f := range listing.Files {
-		h.Write([]byte{0})
-		binary.Write(h, binary.LittleEndian, f.MetadataCRC32)
-	}
-
-	dirMetadataChecksum := h.Sum32()
-
-	if dirMetadataChecksum == previousCRC32 {
-		return previous, dirMetadataChecksum, nil
 	}
 
 	// Upload all files.
 	for _, f := range listing.Files {
 		fullPath := filepath.Join(path, f.Name)
-		if f.ObjectID == content.NullObjectID {
-			f.ObjectID, err = u.UploadFile(fullPath)
-			if err != nil {
-				return content.NullObjectID, 0, fmt.Errorf("unable to hash file: %s", err)
-			}
+		f.ObjectID, err = u.UploadFile(fullPath)
+		if err != nil {
+			return content.NullObjectID, fmt.Errorf("unable to hash file: %s", err)
 		}
 	}
 
@@ -128,21 +105,16 @@ func (u uploader) uploadDirInternal(path string, previous content.ObjectID, prev
 
 	for _, d := range listing.Directories {
 		if err := dw.WriteEntry(d); err != nil {
-			return "", 0, err
+			return "", err
 		}
 	}
 	for _, f := range listing.Files {
 		if err := dw.WriteEntry(f); err != nil {
-			return "", 0, err
+			return "", err
 		}
 	}
 
-	if directoryObjectID, err := writer.Result(true); err == nil {
-		return directoryObjectID, dirMetadataChecksum, nil
-	}
-
-	return "", 0, err
-
+	return writer.Result(true)
 }
 
 func computeChecksum(fileName string, size int64, modTime time.Time) uint32 {

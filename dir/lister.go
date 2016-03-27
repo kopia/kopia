@@ -2,10 +2,8 @@ package dir
 
 import (
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"sort"
 )
 
@@ -96,9 +94,6 @@ func entryFromFileSystemInfo(parentDir string, fi os.FileInfo) (*Entry, error) {
 		Mode:    int16(fi.Mode().Perm()),
 		ModTime: fi.ModTime(),
 		Type:    FileModeToType(fi.Mode()),
-		Open: func() (io.ReadCloser, error) {
-			return os.Open(filepath.Join(parentDir, fi.Name()))
-		},
 	}
 
 	if e.Type == EntryTypeFile {

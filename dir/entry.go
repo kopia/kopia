@@ -2,7 +2,6 @@ package dir
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"time"
 
@@ -57,18 +56,14 @@ func FileModeToType(mode os.FileMode) EntryType {
 
 // Entry stores attributes of a single entry in a directory.
 type Entry struct {
-	Name          string
-	Size          int64
-	Type          EntryType
-	ModTime       time.Time
-	Mode          int16 // 0000 .. 0777
-	UserID        uint32
-	GroupID       uint32
-	ObjectID      content.ObjectID
-	MetadataCRC32 uint32
-
-	List func() (Listing, error)
-	Open func() (io.ReadCloser, error)
+	Name     string
+	Size     int64
+	Type     EntryType
+	ModTime  time.Time
+	Mode     int16 // 0000 .. 0777
+	UserID   uint32
+	GroupID  uint32
+	ObjectID content.ObjectID
 }
 
 func (e *Entry) String() string {
