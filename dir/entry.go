@@ -55,21 +55,20 @@ func FileModeToType(mode os.FileMode) EntryType {
 	}
 }
 
-// Opener opens the contents of directory entry for reading.
-type Opener func() (io.ReadCloser, error)
-
 // Entry stores attributes of a single entry in a directory.
 type Entry struct {
-	Name     string
-	Size     int64
-	Type     EntryType
-	ModTime  time.Time
-	Mode     int16 // 0000 .. 0777
-	UserID   uint32
-	GroupID  uint32
-	ObjectID content.ObjectID
+	Name          string
+	Size          int64
+	Type          EntryType
+	ModTime       time.Time
+	Mode          int16 // 0000 .. 0777
+	UserID        uint32
+	GroupID       uint32
+	ObjectID      content.ObjectID
+	MetadataCRC32 uint32
 
-	Open Opener
+	List func() (Listing, error)
+	Open func() (io.ReadCloser, error)
 }
 
 func (e *Entry) String() string {

@@ -6,12 +6,34 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 )
 
 // Listing encapsulates list of items in a directory.
 type Listing struct {
 	Directories []*Entry
 	Files       []*Entry
+}
+
+func findEntryByName(entries []*Entry, name string) *Entry {
+	i := sort.Search(
+		len(entries),
+		func(i int) bool { return entries[i].Name >= name },
+	)
+
+	if i < len(entries) && entries[i].Name == name {
+		return entries[i]
+	}
+
+	return nil
+}
+
+func (l Listing) FindDirectoryByName(name string) *Entry {
+	return findEntryByName(l.Directories, name)
+}
+
+func (l Listing) FindFileByName(name string) *Entry {
+	return findEntryByName(l.Files, name)
 }
 
 func (l Listing) String() string {
@@ -68,19 +90,15 @@ func NewFilesystemLister() Lister {
 	return &filesystemLister{}
 }
 
-func openFileFunc(parentDir string, fi os.FileInfo) Opener {
-	return func() (io.ReadCloser, error) {
-		return os.Open(filepath.Join(parentDir, fi.Name()))
-	}
-}
-
 func entryFromFileSystemInfo(parentDir string, fi os.FileInfo) (*Entry, error) {
 	e := &Entry{
 		Name:    fi.Name(),
 		Mode:    int16(fi.Mode().Perm()),
 		ModTime: fi.ModTime(),
 		Type:    FileModeToType(fi.Mode()),
-		Open:    openFileFunc(parentDir, fi),
+		Open: func() (io.ReadCloser, error) {
+			return os.Open(filepath.Join(parentDir, fi.Name()))
+		},
 	}
 
 	if e.Type == EntryTypeFile {
