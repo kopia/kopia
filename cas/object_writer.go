@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"sync/atomic"
 
 	"github.com/kopia/kopia/content"
 	"github.com/kopia/kopia/storage"
@@ -110,8 +111,9 @@ func (w *objectWriter) flushBuffer(force bool) error {
 			b = ioutil.NopCloser(bytes.NewBuffer(nil))
 		}
 
-		objectID, transformer := w.mgr.formatter.Do(data, string(w.objectType)+w.prefix)
-		b = transformer(b)
+		atomic.AddInt32(&w.mgr.stats.HashedBlocks, 1)
+		objectID, transformer := w.mgr.formatter.Do(data, string(w.objectType)+w.prefix, &w.mgr.stats)
+		b = newCountingReader(transformer(b), &w.mgr.stats.UploadedBytes)
 
 		if err := w.mgr.repository.PutBlock(objectID.BlockID(), b, storage.PutOptions{}); err != nil {
 			return fmt.Errorf(

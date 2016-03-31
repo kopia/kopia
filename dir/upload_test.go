@@ -7,24 +7,10 @@ import (
 	"path/filepath"
 
 	"github.com/kopia/kopia/cas"
-	"github.com/kopia/kopia/content"
 	"github.com/kopia/kopia/storage"
 
 	"testing"
 )
-
-type mapHashCache map[string]content.ObjectID
-
-func (m mapHashCache) Put(path string, oid content.ObjectID) {
-	log.Printf("put(%v,%v)", path, oid)
-	m[path] = oid
-}
-
-func (m mapHashCache) Get(path string) content.ObjectID {
-	oid := m[path]
-	log.Printf("get(%v)=%v", path, oid)
-	return oid
-}
 
 func TestUpload(t *testing.T) {
 	var err error
@@ -81,40 +67,51 @@ func TestUpload(t *testing.T) {
 		return
 	}
 
-	hc := mapHashCache{}
-
-	u, err := NewUploader(objectManager, hc)
+	u, err := NewUploader(objectManager)
 	if err != nil {
 		t.Errorf("unable to create uploader: %v", err)
 		return
 	}
 
-	oid, err := u.UploadDir(sourceDir)
+	oid, err := u.UploadDir(sourceDir, "")
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
+	log.Printf("v = %#v", objectManager.Stats())
 
 	log.Printf("oid: %v", oid)
 
-	oid2, err := u.UploadDir(sourceDir)
+	oid2, err := u.UploadDir(sourceDir, oid)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
-	log.Printf("oid2: %v", oid)
+	log.Printf("v = %#v", objectManager.Stats())
+	log.Printf("oid2: %v", oid2)
 
 	if oid2 != oid {
 		t.Errorf("expected oid==oid2, got %v and %v", oid, oid2)
 	}
 
 	ioutil.WriteFile(filepath.Join(sourceDir, "d2/d1/f3"), []byte{1, 2, 3, 4, 5}, 0777)
-	oid3, err := u.UploadDir(sourceDir)
+	oid3, err := u.UploadDir(sourceDir, oid2)
+	log.Printf("v = %#v", objectManager.Stats())
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
-	log.Printf("oid3: %v", oid)
+	log.Printf("oid3: %v", oid3)
 
 	if oid2 == oid3 {
 		t.Errorf("expected oid3!=oid2, got %v and %v", oid3, oid2)
 	}
 
+	oid4, err := u.UploadDir(sourceDir, "")
+	log.Printf("v = %#v", objectManager.Stats())
+	if err != nil {
+		t.Errorf("upload failed: %v", err)
+	}
+	log.Printf("oid4: %v", oid4)
+
+	if oid3 != oid4 {
+		t.Errorf("expected oid3!=oid4, got %v and %v", oid3, oid4)
+	}
 }

@@ -26,6 +26,14 @@ type ObjectManager interface {
 	Flush() error
 	Repository() storage.Repository
 	Close()
+
+	Stats() ObjectManagerStats
+}
+
+type ObjectManagerStats struct {
+	HashedBytes   int64
+	HashedBlocks  int32
+	UploadedBytes int64
 }
 
 type objectManager struct {
@@ -33,6 +41,7 @@ type objectManager struct {
 	verbose       bool
 	formatter     objectFormatter
 	bufferManager *bufferManager
+	stats         ObjectManagerStats
 
 	maxInlineBlobSize int
 	maxBlobSize       int
@@ -45,6 +54,10 @@ func (mgr *objectManager) Close() {
 
 func (mgr *objectManager) Flush() error {
 	return mgr.repository.Flush()
+}
+
+func (mgr *objectManager) Stats() ObjectManagerStats {
+	return mgr.stats
 }
 
 func (mgr *objectManager) Repository() storage.Repository {

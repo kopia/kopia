@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"hash"
 	"io"
+	"sync/atomic"
 
 	"github.com/kopia/kopia/content"
 )
@@ -17,17 +18,18 @@ import (
 type streamTransformer func(io.ReadCloser) io.ReadCloser
 
 type objectFormatter interface {
-	Do(b []byte, prefix string) (content.ObjectID, streamTransformer)
+	Do(b []byte, prefix string, stats *ObjectManagerStats) (content.ObjectID, streamTransformer)
 }
 
 type nonEncryptingFormatter struct {
 	hash func() hash.Hash
 }
 
-func (f *nonEncryptingFormatter) Do(b []byte, prefix string) (content.ObjectID, streamTransformer) {
+func (f *nonEncryptingFormatter) Do(b []byte, prefix string, stats *ObjectManagerStats) (content.ObjectID, streamTransformer) {
 	h := f.hash()
 	h.Write(b)
 	blockID := hex.EncodeToString(h.Sum(nil))
+	atomic.AddInt64(&stats.HashedBytes, int64(len(b)))
 
 	return content.ObjectID(prefix + blockID), func(r io.ReadCloser) io.ReadCloser { return r }
 }
@@ -42,11 +44,12 @@ type aesEncryptingFormatter struct {
 	masterContentSecret []byte
 }
 
-func (f *aesEncryptingFormatter) Do(b []byte, prefix string) (content.ObjectID, streamTransformer) {
+func (f *aesEncryptingFormatter) Do(b []byte, prefix string, stats *ObjectManagerStats) (content.ObjectID, streamTransformer) {
 	// Compute HMAC-SHA512 of the content
 	s := hmac.New(sha512.New, f.masterContentSecret)
 	s.Write(b)
 	contentHash := s.Sum(nil)
+	atomic.AddInt64(&stats.HashedBytes, int64(len(b)))
 
 	// Split the hash into two portions - encryption key and content ID.
 	aesKey := contentHash[0:32]

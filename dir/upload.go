@@ -1,26 +1,36 @@
 package dir
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 
 	"github.com/kopia/kopia/cas"
 	"github.com/kopia/kopia/content"
 )
 
+var ErrUploadCancelled = errors.New("upload cancelled")
+
 // Uploader supports efficient uploading files and directories to CAS storage.
 type Uploader interface {
 	UploadFile(path string) (content.ObjectID, error)
-	UploadDir(path string) (content.ObjectID, error)
+	UploadDir(path string, previousObjectID content.ObjectID) (content.ObjectID, error)
+	Cancel()
 }
 
 type uploader struct {
-	mgr       cas.ObjectManager
-	lister    Lister
-	hashCache HashCache
+	mgr    cas.ObjectManager
+	lister Lister
+
+	cancelled int32
+}
+
+func (u *uploader) isCancelled() bool {
+	return atomic.LoadInt32(&u.cancelled) != 0
 }
 
 func (u *uploader) UploadFile(path string) (content.ObjectID, error) {
@@ -45,17 +55,20 @@ func (u *uploader) UploadFile(path string) (content.ObjectID, error) {
 	return result, nil
 }
 
-func (u *uploader) UploadDir(path string) (content.ObjectID, error) {
+func (u *uploader) UploadDir(path string, previous content.ObjectID) (content.ObjectID, error) {
+	if u.isCancelled() {
+		return previous, ErrUploadCancelled
+	}
+
 	listing, err := u.lister.List(path)
 	if err != nil {
 		return content.NullObjectID, err
 	}
 
-	cachedOID := u.hashCache.Get(path)
 	var cached Listing
 
-	if cachedOID != "" {
-		if r, err := u.mgr.Open(cachedOID); err == nil {
+	if previous != "" {
+		if r, err := u.mgr.Open(previous); err == nil {
 			cached, err = ReadDir(r)
 			if err != nil {
 				log.Printf("WARNING: unable to cached read directory: %v", err)
@@ -77,7 +90,12 @@ func (u *uploader) UploadDir(path string) (content.ObjectID, error) {
 		directoryMatchesCache = directoryMatchesCache && cachedMetadataMatches
 
 		if e.Type == EntryTypeDirectory {
-			e.ObjectID, err = u.UploadDir(fullPath)
+			var previousSubdirObjectID content.ObjectID
+			if cachedEntry != nil {
+				previousSubdirObjectID = cachedEntry.ObjectID
+			}
+
+			e.ObjectID, err = u.UploadDir(fullPath, previousSubdirObjectID)
 			if err != nil {
 				return content.NullObjectID, err
 			}
@@ -96,8 +114,8 @@ func (u *uploader) UploadDir(path string) (content.ObjectID, error) {
 		}
 	}
 
-	if directoryMatchesCache && cachedOID != "" {
-		return cachedOID, nil
+	if directoryMatchesCache && previous != "" {
+		return previous, nil
 	}
 
 	writer := u.mgr.NewWriter(
@@ -108,24 +126,18 @@ func (u *uploader) UploadDir(path string) (content.ObjectID, error) {
 
 	WriteDir(writer, listing)
 
-	oid, err := writer.Result(true)
-	if err == nil {
-		u.hashCache.Put(path, oid)
-	}
+	return writer.Result(true)
+}
 
-	return oid, err
+func (u *uploader) Cancel() {
+	atomic.StoreInt32(&u.cancelled, 1)
 }
 
 // NewUploader creates new Uploader object for the specified ObjectManager
-func NewUploader(mgr cas.ObjectManager, hashCache HashCache) (Uploader, error) {
+func NewUploader(mgr cas.ObjectManager) (Uploader, error) {
 	u := &uploader{
-		mgr:       mgr,
-		lister:    &filesystemLister{},
-		hashCache: hashCache,
-	}
-
-	if u.hashCache == nil {
-		u.hashCache = &nullHashCache{}
+		mgr:    mgr,
+		lister: &filesystemLister{},
 	}
 
 	return u, nil
