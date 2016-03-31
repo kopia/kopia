@@ -12,7 +12,9 @@ type Listing struct {
 	Entries []*Entry
 }
 
-func findEntryByName(entries []*Entry, name string) *Entry {
+// FindEntryName returns the pointer to an Entry with a given name or nil if not found.
+func (l Listing) FindEntryName(name string) *Entry {
+	entries := l.Entries
 	i := sort.Search(
 		len(entries),
 		func(i int) bool { return entries[i].Name >= name },
@@ -23,10 +25,6 @@ func findEntryByName(entries []*Entry, name string) *Entry {
 	}
 
 	return nil
-}
-
-func (l Listing) FindEntryName(name string) *Entry {
-	return findEntryByName(l.Entries, name)
 }
 
 func (l Listing) String() string {
@@ -71,17 +69,14 @@ func (l *filesystemLister) List(path string) (Listing, error) {
 	return listing, nil
 }
 
-// NewFilesystemLister creates a Lister that can be used to list contents of filesystem directories.
-func NewFilesystemLister() Lister {
-	return &filesystemLister{}
-}
-
 func entryFromFileSystemInfo(parentDir string, fi os.FileInfo) (*Entry, error) {
 	e := &Entry{
-		Name:    fi.Name(),
-		Mode:    int16(fi.Mode().Perm()),
-		ModTime: fi.ModTime(),
-		Type:    FileModeToType(fi.Mode()),
+		EntryMetadata: EntryMetadata{
+			Name:    fi.Name(),
+			Mode:    int16(fi.Mode().Perm()),
+			ModTime: fi.ModTime().UTC(),
+			Type:    FileModeToType(fi.Mode()),
+		},
 	}
 
 	if e.Type == EntryTypeFile {

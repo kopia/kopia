@@ -21,7 +21,7 @@ func TestLister(t *testing.T) {
 
 	defer os.RemoveAll(tmp)
 
-	lister := NewFilesystemLister()
+	lister := &filesystemLister{}
 
 	var listing Listing
 

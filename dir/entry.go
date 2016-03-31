@@ -54,16 +54,31 @@ func FileModeToType(mode os.FileMode) EntryType {
 	}
 }
 
+// EntryMetadata stores metadata about a directory entry but not to its content.
+type EntryMetadata struct {
+	Name    string
+	Size    int64
+	Type    EntryType
+	ModTime time.Time
+	Mode    int16 // 0000 .. 0777
+	UserID  uint32
+	GroupID uint32
+}
+
 // Entry stores attributes of a single entry in a directory.
 type Entry struct {
-	Name     string
-	Size     int64
-	Type     EntryType
-	ModTime  time.Time
-	Mode     int16 // 0000 .. 0777
-	UserID   uint32
-	GroupID  uint32
+	EntryMetadata
+
 	ObjectID content.ObjectID
+}
+
+func (e *Entry) metadataEquals(other *Entry) bool {
+	if other == nil {
+		return false
+	}
+
+	return e.EntryMetadata == other.EntryMetadata
+
 }
 
 func (e *Entry) String() string {

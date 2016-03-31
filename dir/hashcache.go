@@ -2,15 +2,17 @@ package dir
 
 import "github.com/kopia/kopia/content"
 
-type cachedListing struct {
-	Listing
-
-	objectID content.ObjectID
+type HashCache interface {
+	Put(path string, oid content.ObjectID)
+	Get(path string) content.ObjectID
 }
 
-type hashCache struct {
+type nullHashCache struct {
 }
 
-func (hc hashCache) GetCachedListing(path string) cachedListing {
-	return cachedListing{}
+func (hc *nullHashCache) Put(path string, oid content.ObjectID) {
+}
+
+func (hc *nullHashCache) Get(path string) content.ObjectID {
+	return ""
 }

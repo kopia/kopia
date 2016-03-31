@@ -13,37 +13,45 @@ func TestWriter(t *testing.T) {
 	w := NewWriter(b)
 
 	w.WriteEntry(&Entry{
-		Type:     EntryTypeDirectory,
-		Name:     "d1",
-		Mode:     0555,
-		ModTime:  time.Unix(1458876568, 0),
+		EntryMetadata: EntryMetadata{
+			Type:    EntryTypeDirectory,
+			Name:    "d1",
+			Mode:    0555,
+			ModTime: time.Unix(1458876568, 0),
+		},
 		ObjectID: "foo",
 	})
 
 	w.WriteEntry(&Entry{
-		Type:     EntryTypeDirectory,
-		Name:     "d2",
-		Mode:     0754,
-		ModTime:  time.Unix(1451871568, 0),
+		EntryMetadata: EntryMetadata{
+			Type:    EntryTypeDirectory,
+			Name:    "d2",
+			Mode:    0754,
+			ModTime: time.Unix(1451871568, 0),
+		},
 		ObjectID: "bar",
 	})
 
 	w.WriteEntry(&Entry{
-		Type:     EntryTypeFile,
-		Name:     "f1",
-		Mode:     0644,
-		ModTime:  time.Unix(1451871368, 0),
+		EntryMetadata: EntryMetadata{
+			Type:    EntryTypeFile,
+			Name:    "f1",
+			Mode:    0644,
+			ModTime: time.Unix(1451871368, 0),
+			Size:    123456,
+		},
 		ObjectID: "baz",
-		Size:     123456,
 	})
 
 	w.WriteEntry(&Entry{
-		Type:     EntryTypeFile,
-		Name:     "f2",
-		Mode:     0644,
-		ModTime:  time.Unix(1451871331, 123456789),
+		EntryMetadata: EntryMetadata{
+			Type:    EntryTypeFile,
+			Name:    "f2",
+			Mode:    0644,
+			ModTime: time.Unix(1451871331, 123456789),
+			Size:    12,
+		},
 		ObjectID: "qoo",
-		Size:     12,
 	})
 
 	assertLines(

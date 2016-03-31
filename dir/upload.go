@@ -1,33 +1,32 @@
 package dir
 
 import (
-	"encoding/binary"
 	"fmt"
-	"hash/crc32"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/kopia/kopia/cas"
 	"github.com/kopia/kopia/content"
 )
 
+// Uploader supports efficient uploading files and directories to CAS storage.
+type Uploader interface {
+	UploadFile(path string) (content.ObjectID, error)
+	UploadDir(path string) (content.ObjectID, error)
+}
+
 type uploader struct {
 	mgr       cas.ObjectManager
 	lister    Lister
-	hashCache hashCache
+	hashCache HashCache
 }
 
-func (u uploader) UploadFile(path string) (content.ObjectID, error) {
-	oid, _, err := u.uploadFileInternal(path)
-	return oid, err
-}
-
-func (u uploader) uploadFileInternal(path string) (content.ObjectID, uint32, error) {
+func (u *uploader) UploadFile(path string) (content.ObjectID, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return content.NullObjectID, 0, fmt.Errorf("unable to open file %s: %v", path, err)
+		return content.NullObjectID, fmt.Errorf("unable to open file %s: %v", path, err)
 	}
 	defer file.Close()
 
@@ -40,30 +39,55 @@ func (u uploader) uploadFileInternal(path string) (content.ObjectID, uint32, err
 	io.Copy(writer, file)
 	result, err := writer.Result(false)
 	if err != nil {
-		return content.NullObjectID, 0, err
+		return content.NullObjectID, err
 	}
 
-	s, err := file.Stat()
-
-	return result, computeChecksum(filepath.Base(file.Name()), s.Size(), s.ModTime()), nil
+	return result, nil
 }
 
-func (u uploader) UploadDir(path string) (content.ObjectID, error) {
+func (u *uploader) UploadDir(path string) (content.ObjectID, error) {
 	listing, err := u.lister.List(path)
 	if err != nil {
 		return content.NullObjectID, err
 	}
 
-	_ = u.hashCache.GetCachedListing(path)
+	cachedOID := u.hashCache.Get(path)
+	var cached Listing
 
-	// Process all directories first, in canonical order before any files.
+	if cachedOID != "" {
+		if r, err := u.mgr.Open(cachedOID); err == nil {
+			cached, err = ReadDir(r)
+			if err != nil {
+				log.Printf("WARNING: unable to cached read directory: %v", err)
+			}
+		}
+	}
+
+	directoryMatchesCache := len(cached.Entries) == len(listing.Entries)
 	for _, e := range listing.Entries {
 		fullPath := filepath.Join(path, e.Name)
+
+		// See if we had this name during previous pass.
+		cachedEntry := cached.FindEntryName(e.Name)
+
+		// ... and whether file metadata is identical to the previous one.
+		cachedMetadataMatches := e.metadataEquals(cachedEntry)
+
+		// If not, directoryMatchesCache becomes false.
+		directoryMatchesCache = directoryMatchesCache && cachedMetadataMatches
+
 		if e.Type == EntryTypeDirectory {
 			e.ObjectID, err = u.UploadDir(fullPath)
 			if err != nil {
 				return content.NullObjectID, err
 			}
+
+			if cachedEntry != nil && e.ObjectID != cachedEntry.ObjectID {
+				directoryMatchesCache = false
+			}
+		} else if cachedMetadataMatches {
+			// Avoid hashing by reusing previous object ID.
+			e.ObjectID = cachedEntry.ObjectID
 		} else {
 			e.ObjectID, err = u.UploadFile(fullPath)
 			if err != nil {
@@ -72,35 +96,37 @@ func (u uploader) UploadDir(path string) (content.ObjectID, error) {
 		}
 	}
 
+	if directoryMatchesCache && cachedOID != "" {
+		return cachedOID, nil
+	}
+
 	writer := u.mgr.NewWriter(
 		cas.WithDescription("DIR:"+path),
 		cas.WithBlockNamePrefix("D"),
 	)
 	defer writer.Close()
 
-	dw := NewWriter(writer)
+	WriteDir(writer, listing)
 
-	for _, d := range listing.Entries {
-		if err := dw.WriteEntry(d); err != nil {
-			return "", err
-		}
+	oid, err := writer.Result(true)
+	if err == nil {
+		u.hashCache.Put(path, oid)
 	}
 
-	return writer.Result(true)
+	return oid, err
 }
 
-func computeChecksum(fileName string, size int64, modTime time.Time) uint32 {
-	hash := crc32.NewIEEE()
-	binary.Write(hash, binary.LittleEndian, size)
-	binary.Write(hash, binary.LittleEndian, modTime.UnixNano())
-	binary.Write(hash, binary.LittleEndian, []byte(fileName))
-	return hash.Sum32()
-}
-
-func entryObjectIDOrEmpty(e *Entry) content.ObjectID {
-	if e == nil {
-		return content.NullObjectID
+// NewUploader creates new Uploader object for the specified ObjectManager
+func NewUploader(mgr cas.ObjectManager, hashCache HashCache) (Uploader, error) {
+	u := &uploader{
+		mgr:       mgr,
+		lister:    &filesystemLister{},
+		hashCache: hashCache,
 	}
 
-	return e.ObjectID
+	if u.hashCache == nil {
+		u.hashCache = &nullHashCache{}
+	}
+
+	return u, nil
 }

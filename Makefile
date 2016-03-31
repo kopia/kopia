@@ -1,4 +1,4 @@
-all: lint vet build test
+all: test lint vet build
 
 build:
 	go build github.com/kopia/kopia/...
@@ -20,3 +20,6 @@ dev-deps:
 
 test:
 	go test -timeout 30s github.com/kopia/kopia/...
+
+vtest:
+	go test -v -timeout 30s github.com/kopia/kopia/...

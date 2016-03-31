@@ -1,15 +1,20 @@
 package dir
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"strconv"
 	"time"
+
+	"github.com/kopia/kopia/content"
 )
 
 var (
-	header  = []byte("DIRECTORY:v1\n")
+	header  = []byte("DIRECTORY:v1")
 	newLine = []byte("\n")
 )
 
@@ -29,7 +34,7 @@ type serializedDirectoryEntryV1 struct {
 	FileSize *int64    `json:"size,omitempty,string"`
 	Mode     string    `json:"mode"`
 	ModTime  time.Time `json:"modified,omitempty"`
-	OwnerID  uint32    `json:"uid,omitempty"`
+	UserID   uint32    `json:"uid,omitempty"`
 	GroupID  uint32    `json:"gid,omitempty"`
 	ObjectID string    `json:"objectID"`
 }
@@ -40,7 +45,7 @@ func serializeManifestEntry(e *Entry) []byte {
 		Type:     string(e.Type),
 		Mode:     strconv.FormatInt(int64(e.Mode), 8),
 		ObjectID: string(e.ObjectID),
-		OwnerID:  e.UserID,
+		UserID:   e.UserID,
 		GroupID:  e.GroupID,
 	}
 
@@ -62,6 +67,9 @@ func (w *writer) WriteEntry(e *Entry) error {
 
 	if w.lastEntryType == "" {
 		if _, err := w.objectWriter.Write(header); err != nil {
+			return err
+		}
+		if _, err := w.objectWriter.Write(newLine); err != nil {
 			return err
 		}
 	} else {
@@ -86,4 +94,65 @@ func NewWriter(w io.Writer) Writer {
 	return &writer{
 		objectWriter: w,
 	}
+}
+
+func WriteDir(w io.Writer, listing Listing) error {
+	dw := NewWriter(w)
+
+	for _, d := range listing.Entries {
+		if err := dw.WriteEntry(d); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func ReadDir(r io.Reader) (Listing, error) {
+	var err error
+
+	s := bufio.NewScanner(r)
+	if !s.Scan() {
+		return Listing{}, fmt.Errorf("empty file")
+	}
+
+	if !bytes.Equal(s.Bytes(), header) {
+		return Listing{}, fmt.Errorf("invalid header: expected '%v' got '%v'", header, s.Bytes())
+	}
+
+	l := Listing{}
+
+	for s.Scan() {
+		line := s.Bytes()
+		var v serializedDirectoryEntryV1
+		if err := json.Unmarshal(line, &v); err != nil {
+			return Listing{}, nil
+		}
+
+		e := &Entry{}
+		e.Name = v.Name
+		e.UserID = v.UserID
+		e.GroupID = v.GroupID
+		e.ObjectID, err = content.ParseObjectID(v.ObjectID)
+		if err != nil {
+			return Listing{}, nil
+		}
+		m, err := strconv.ParseInt(v.Mode, 8, 16)
+		if err != nil {
+			return Listing{}, nil
+		}
+		e.Mode = int16(m)
+		e.ModTime = v.ModTime
+		e.Type = EntryType(v.Type)
+		if e.Type == EntryTypeFile {
+			if v.FileSize == nil {
+				return Listing{}, fmt.Errorf("missing file size")
+			}
+
+			e.Size = *v.FileSize
+		}
+
+		l.Entries = append(l.Entries, e)
+	}
+	return l, nil
 }
