@@ -1,15 +1,19 @@
 package cas
 
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/sha512"
+	"encoding/hex"
 	"fmt"
 	"hash"
 	"io"
+	"io/ioutil"
 	"strings"
+	"sync/atomic"
 
 	"github.com/kopia/kopia/content"
 	"github.com/kopia/kopia/storage"
@@ -45,6 +49,8 @@ type objectManager struct {
 
 	maxInlineBlobSize int
 	maxBlobSize       int
+
+	hashFunc func() hash.Hash
 }
 
 func (mgr *objectManager) Close() {
@@ -178,7 +184,7 @@ func NewObjectManager(
 		}
 	}
 
-	mgr.formatter = newNonEncryptingFormatter(hashFunc)
+	mgr.hashFunc = hashFunc
 
 	for _, o := range options {
 		if err := o(mgr); err != nil {
@@ -190,4 +196,22 @@ func NewObjectManager(
 	mgr.bufferManager = newBufferManager(mgr.maxBlobSize)
 
 	return mgr, nil
+}
+
+func (mgr *objectManager) hashBufferForWriting(buffer *bytes.Buffer) (storage.BlockID, io.ReadCloser) {
+	var data []byte
+	if buffer != nil {
+		data = buffer.Bytes()
+	}
+
+	h := mgr.hashFunc()
+	h.Write(data)
+	blockID := storage.BlockID(hex.EncodeToString(h.Sum(nil)))
+	atomic.AddInt64(&mgr.stats.HashedBytes, int64(len(data)))
+
+	if buffer == nil {
+		return blockID, ioutil.NopCloser(bytes.NewBuffer(nil))
+	}
+
+	return blockID, mgr.bufferManager.returnBufferOnClose(buffer)
 }

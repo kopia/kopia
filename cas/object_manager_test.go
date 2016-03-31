@@ -327,7 +327,7 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 
 			reader, err := mgr.Open(objectID)
 			if err != nil {
-				t.Errorf("cannot get reader for %v/%v: %v", forceStored, size, err)
+				t.Errorf("cannot get reader for %v/%v: %v %v", forceStored, size, objectID, err)
 				continue
 			}
 

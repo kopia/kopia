@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"sync/atomic"
 
 	"github.com/kopia/kopia/content"
 	"github.com/kopia/kopia/storage"
@@ -98,24 +96,16 @@ func (w *objectWriter) Write(data []byte) (n int, err error) {
 
 func (w *objectWriter) flushBuffer(force bool) error {
 	if w.buffer != nil || force {
-		var data []byte
-		var b io.ReadCloser
 		var length int
 		if w.buffer != nil {
-			data = w.buffer.Bytes()
 			length = w.buffer.Len()
-
-			b = w.mgr.bufferManager.returnBufferOnClose(w.buffer)
-			w.buffer = nil
-		} else {
-			b = ioutil.NopCloser(bytes.NewBuffer(nil))
 		}
 
-		atomic.AddInt32(&w.mgr.stats.HashedBlocks, 1)
-		objectID, transformer := w.mgr.formatter.Do(data, string(w.objectType)+w.prefix, &w.mgr.stats)
-		b = newCountingReader(transformer(b), &w.mgr.stats.UploadedBytes)
+		blockID, readCloser := w.mgr.hashBufferForWriting(w.buffer)
+		w.buffer = nil
+		objectID := content.ObjectID(string(w.objectType) + w.prefix + string(blockID))
 
-		if err := w.mgr.repository.PutBlock(objectID.BlockID(), b, storage.PutOptions{}); err != nil {
+		if err := w.mgr.repository.PutBlock(objectID.BlockID(), readCloser, storage.PutOptions{}); err != nil {
 			return fmt.Errorf(
 				"error when flushing chunk %d of %s to %#v: %#v",
 				w.flushedObjectCount,
