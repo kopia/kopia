@@ -60,7 +60,7 @@ func (u *uploader) UploadDir(path string, previous cas.ObjectID) (cas.ObjectID, 
 		return previous, ErrUploadCancelled
 	}
 
-	listing, err := u.lister.List(path)
+	dir, err := u.lister.List(path)
 	if err != nil {
 		return cas.NullObjectID, err
 	}
@@ -69,15 +69,15 @@ func (u *uploader) UploadDir(path string, previous cas.ObjectID) (cas.ObjectID, 
 
 	if previous != "" {
 		if r, err := u.mgr.Open(previous); err == nil {
-			cached, err = ReadDir(r)
+			err = cached.readJSON(r)
 			if err != nil {
 				log.Printf("WARNING: unable to cached read directory: %v", err)
 			}
 		}
 	}
 
-	directoryMatchesCache := len(cached.Entries) == len(listing.Entries)
-	for _, e := range listing.Entries {
+	directoryMatchesCache := len(cached.Entries) == len(dir.Entries)
+	for _, e := range dir.Entries {
 		fullPath := filepath.Join(path, e.Name)
 
 		// See if we had this name during previous pass.
@@ -124,7 +124,7 @@ func (u *uploader) UploadDir(path string, previous cas.ObjectID) (cas.ObjectID, 
 	)
 	defer writer.Close()
 
-	WriteDir(writer, listing)
+	dir.writeJSON(writer)
 
 	return writer.Result(true)
 }

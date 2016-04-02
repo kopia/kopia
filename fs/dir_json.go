@@ -18,11 +18,6 @@ var (
 	newLine = []byte("\n")
 )
 
-// Writer allows writing directories.
-type Writer interface {
-	WriteEntry(e *Entry) error
-}
-
 type writer struct {
 	lastEntryType EntryType
 	objectWriter  io.Writer
@@ -89,15 +84,10 @@ func (w *writer) WriteEntry(e *Entry) error {
 	return nil
 }
 
-// NewWriter creates a Writer object that writes directory contents to the specified underlying writer.
-func NewWriter(w io.Writer) Writer {
-	return &writer{
+func (dir Directory) writeJSON(w io.Writer) error {
+	dw := &writer{
 		objectWriter: w,
 	}
-}
-
-func WriteDir(w io.Writer, dir Directory) error {
-	dw := NewWriter(w)
 
 	for _, d := range dir.Entries {
 		if err := dw.WriteEntry(d); err != nil {
@@ -108,25 +98,25 @@ func WriteDir(w io.Writer, dir Directory) error {
 	return nil
 }
 
-func ReadDir(r io.Reader) (Directory, error) {
+func (dir *Directory) readJSON(r io.Reader) error {
 	var err error
 
 	s := bufio.NewScanner(r)
 	if !s.Scan() {
-		return Directory{}, fmt.Errorf("empty file")
+		return fmt.Errorf("empty file")
 	}
 
 	if !bytes.Equal(s.Bytes(), header) {
-		return Directory{}, fmt.Errorf("invalid header: expected '%v' got '%v'", header, s.Bytes())
+		return fmt.Errorf("invalid header: expected '%v' got '%v'", header, s.Bytes())
 	}
 
-	l := Directory{}
+	var entries []*Entry
 
 	for s.Scan() {
 		line := s.Bytes()
 		var v serializedDirectoryEntryV1
 		if err := json.Unmarshal(line, &v); err != nil {
-			return Directory{}, nil
+			return nil
 		}
 
 		e := &Entry{}
@@ -135,24 +125,26 @@ func ReadDir(r io.Reader) (Directory, error) {
 		e.GroupID = v.GroupID
 		e.ObjectID, err = cas.ParseObjectID(v.ObjectID)
 		if err != nil {
-			return Directory{}, nil
+			return nil
 		}
 		m, err := strconv.ParseInt(v.Mode, 8, 16)
 		if err != nil {
-			return Directory{}, nil
+			return nil
 		}
 		e.Mode = int16(m)
 		e.ModTime = v.ModTime
 		e.Type = EntryType(v.Type)
 		if e.Type == EntryTypeFile {
 			if v.FileSize == nil {
-				return Directory{}, fmt.Errorf("missing file size")
+				return fmt.Errorf("missing file size")
 			}
 
 			e.Size = *v.FileSize
 		}
 
-		l.Entries = append(l.Entries, e)
+		entries = append(entries, e)
 	}
-	return l, nil
+
+	dir.Entries = entries
+	return nil
 }
