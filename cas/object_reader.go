@@ -11,10 +11,6 @@ import (
 	"github.com/kopia/kopia/storage"
 )
 
-type repositoryReader interface {
-	GetBlock(id storage.BlockID) ([]byte, error)
-}
-
 type seekTableEntry struct {
 	startOffset int64
 	length      int64
@@ -34,7 +30,7 @@ func (r *seekTableEntry) String() string {
 }
 
 type objectReader struct {
-	repository repositoryReader
+	repository storage.Repository
 
 	seekTable []seekTableEntry
 

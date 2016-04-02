@@ -8,10 +8,6 @@ import (
 	"github.com/kopia/kopia/storage"
 )
 
-type blockHasher interface {
-	hashBuffer(data []byte) string
-}
-
 // ObjectWriter allows writing content to the repository and supports automatic deduplication and encryption
 // of written data.
 type ObjectWriter interface {
