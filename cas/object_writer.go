@@ -101,9 +101,8 @@ func (w *objectWriter) flushBuffer(force bool) error {
 			length = w.buffer.Len()
 		}
 
-		blockID, readCloser := w.mgr.hashBufferForWriting(w.buffer)
+		objectID, readCloser := w.mgr.hashBufferForWriting(w.buffer, string(w.objectType)+w.prefix)
 		w.buffer = nil
-		objectID := content.ObjectID(string(w.objectType) + w.prefix + string(blockID))
 
 		if err := w.mgr.repository.PutBlock(objectID.BlockID(), readCloser, storage.PutOptions{}); err != nil {
 			return fmt.Errorf(

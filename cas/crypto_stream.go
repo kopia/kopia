@@ -42,7 +42,9 @@ func (er *encryptingReader) Read(b []byte) (int, error) {
 			b = b[n:]
 			if err == io.EOF {
 				er.source = nil
-				er.checksum = bytes.NewReader(er.hash.Sum(nil))
+				if er.hash != nil {
+					er.checksum = bytes.NewReader(er.hash.Sum(nil))
+				}
 			} else if err != nil {
 				return read, err
 			}
@@ -66,9 +68,11 @@ func (er *encryptingReader) Read(b []byte) (int, error) {
 }
 
 func (er *encryptingReader) addToChecksum(b []byte) {
-	n, err := er.hash.Write(b)
-	if err != nil || n != len(b) {
-		panic("unexpected hashing error")
+	if er.hash != nil {
+		n, err := er.hash.Write(b)
+		if err != nil || n != len(b) {
+			panic("unexpected hashing error")
+		}
 	}
 }
 

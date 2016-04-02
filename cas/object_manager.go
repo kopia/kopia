@@ -2,6 +2,8 @@ package cas
 
 import (
 	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/hmac"
 	"crypto/md5"
 	"crypto/sha1"
@@ -18,6 +20,10 @@ import (
 	"github.com/kopia/kopia/content"
 	"github.com/kopia/kopia/storage"
 )
+
+// Since we never share keys, using constant IV is fine.
+// Instead of using all-zero, we use this one.
+var constantIV = []byte("kopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopia")
 
 // ObjectManager manages objects stored in a repository and allows reading and writing them.
 type ObjectManager interface {
@@ -40,6 +46,8 @@ type ObjectManagerStats struct {
 	UploadedBytes int64
 }
 
+type keygenFunc func([]byte) (key []byte, locator []byte)
+
 type objectManager struct {
 	repository    storage.Repository
 	verbose       bool
@@ -50,7 +58,9 @@ type objectManager struct {
 	maxInlineBlobSize int
 	maxBlobSize       int
 
-	hashFunc func() hash.Hash
+	hashFunc     func() hash.Hash
+	createCipher func([]byte) (cipher.Block, error)
+	keygen       keygenFunc
 }
 
 func (mgr *objectManager) Close() {
@@ -186,6 +196,18 @@ func NewObjectManager(
 
 	mgr.hashFunc = hashFunc
 
+	switch f.Encryption {
+	case "aes-128":
+		mgr.createCipher = aes.NewCipher
+		mgr.keygen = splitHash(16)
+	case "aes-192":
+		mgr.createCipher = aes.NewCipher
+		mgr.keygen = splitHash(24)
+	case "aes-256":
+		mgr.createCipher = aes.NewCipher
+		mgr.keygen = splitHash(32)
+	}
+
 	for _, o := range options {
 		if err := o(mgr); err != nil {
 			mgr.Close()
@@ -198,7 +220,14 @@ func NewObjectManager(
 	return mgr, nil
 }
 
-func (mgr *objectManager) hashBufferForWriting(buffer *bytes.Buffer) (storage.BlockID, io.ReadCloser) {
+func splitHash(keySize int) keygenFunc {
+	return func(b []byte) ([]byte, []byte) {
+		p := len(b) - keySize
+		return b[p:], b[0:p]
+	}
+}
+
+func (mgr *objectManager) hashBufferForWriting(buffer *bytes.Buffer, prefix string) (content.ObjectID, io.ReadCloser) {
 	var data []byte
 	if buffer != nil {
 		data = buffer.Bytes()
@@ -206,12 +235,38 @@ func (mgr *objectManager) hashBufferForWriting(buffer *bytes.Buffer) (storage.Bl
 
 	h := mgr.hashFunc()
 	h.Write(data)
-	blockID := storage.BlockID(hex.EncodeToString(h.Sum(nil)))
+	contentHash := h.Sum(nil)
+
+	var objectID content.ObjectID
+	var cryptoKey []byte
+
+	if mgr.createCipher != nil {
+		cryptoKey, contentHash = mgr.keygen(contentHash)
+		objectID = content.ObjectID(prefix + hex.EncodeToString(contentHash) + ":" + hex.EncodeToString(cryptoKey))
+	} else {
+		objectID = content.ObjectID(prefix + hex.EncodeToString(contentHash))
+	}
+
 	atomic.AddInt64(&mgr.stats.HashedBytes, int64(len(data)))
 
 	if buffer == nil {
-		return blockID, ioutil.NopCloser(bytes.NewBuffer(nil))
+		return objectID, ioutil.NopCloser(bytes.NewBuffer(nil))
 	}
 
-	return blockID, mgr.bufferManager.returnBufferOnClose(buffer)
+	readCloser := mgr.bufferManager.returnBufferOnClose(buffer)
+
+	if cryptoKey != nil {
+		c, err := mgr.createCipher(cryptoKey)
+		if err != nil {
+			panic("can't create cipher")
+		}
+
+		// Since we're not sharing the key, all-zero IV is ok.
+		// We don't need to worry about separate MAC either, since hashing content produces object ID.
+		ctr := cipher.NewCTR(c, constantIV[0:c.BlockSize()])
+
+		readCloser = newEncryptingReader(readCloser, nil, ctr, nil)
+	}
+
+	return objectID, readCloser
 }

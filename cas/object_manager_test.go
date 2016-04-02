@@ -418,6 +418,39 @@ func TestFormats(t *testing.T) {
 				"The quick brown fox jumps over the lazy dog": "Cb42af09057bac1e2d41708e48a902e09b5ff7f12ab428a4fe86653c73dd248fb82f948a549f7b791a5b41915ee4d1ec3935357e4e2317250d0372afa2ebeeb3a",
 			},
 		},
+		{
+			format: Format{
+				Version:    "1",
+				Hash:       "hmac-sha512",
+				Secret:     []byte("key"),
+				Encryption: "aes-128",
+			},
+			oids: map[string]content.ObjectID{
+				"The quick brown fox jumps over the lazy dog": "Cb42af09057bac1e2d41708e48a902e09b5ff7f12ab428a4fe86653c73dd248fb82f948a549f7b791a5b41915ee4d1ec3:935357e4e2317250d0372afa2ebeeb3a",
+			},
+		},
+		{
+			format: Format{
+				Version:    "1",
+				Hash:       "hmac-sha512",
+				Secret:     []byte("key"),
+				Encryption: "aes-192",
+			},
+			oids: map[string]content.ObjectID{
+				"The quick brown fox jumps over the lazy dog": "Cb42af09057bac1e2d41708e48a902e09b5ff7f12ab428a4fe86653c73dd248fb82f948a549f7b791:a5b41915ee4d1ec3935357e4e2317250d0372afa2ebeeb3a",
+			},
+		},
+		{
+			format: Format{
+				Version:    "1",
+				Hash:       "hmac-sha512",
+				Secret:     []byte("key"),
+				Encryption: "aes-256",
+			},
+			oids: map[string]content.ObjectID{
+				"The quick brown fox jumps over the lazy dog": "Cb42af09057bac1e2d41708e48a902e09b5ff7f12ab428a4fe86653c73dd248fb:82f948a549f7b791a5b41915ee4d1ec3935357e4e2317250d0372afa2ebeeb3a",
+			},
+		},
 	}
 
 	for _, c := range cases {
