@@ -1,4 +1,4 @@
-package storage
+package blob
 
 import (
 	"encoding/json"
@@ -22,16 +22,16 @@ import (
 )
 
 const (
-	gcsRepositoryType = "gcs"
-	gcsTokenCacheDir  = ".kopia"
+	gcsStorageType   = "gcs"
+	gcsTokenCacheDir = ".kopia"
 
 	// Those are not really secret, since the app is installed.
 	googleCloudClientID     = "194841383482-nmn10h4mnllnsvou7qr55tfh5jsmtkap.apps.googleusercontent.com"
 	googleCloudClientSecret = "ZL52E96Q7iRCD9YXVA7U6UaI"
 )
 
-// GCSRepositoryOptions defines options Google Cloud Storage-backed repository.
-type GCSRepositoryOptions struct {
+// GCSStorageOptions defines options Google Cloud Storage-backed blob.
+type GCSStorageOptions struct {
 	// BucketName is the name of the GCS bucket where data is stored.
 	BucketName string `json:"bucket"`
 
@@ -39,13 +39,13 @@ type GCSRepositoryOptions struct {
 	Prefix string `json:"prefix,omitempty"`
 
 	// TokenCacheFile is the name of the file that will persist the OAuth2 token.
-	// If not specified, the token will be persisted in GCSRepositoryOptions.
+	// If not specified, the token will be persisted in GCSStorageOptions.
 	TokenCacheFile string `json:"tokenCacheFile,omitempty"`
 
 	// Token stored the OAuth2 token (when TokenCacheFile is empty)
 	Token *oauth2.Token `json:"token,omitempty"`
 
-	// ReadOnly causes the repository to be configured without write permissions, to prevent accidental
+	// ReadOnly causes the storage to be configured without write permissions, to prevent accidental
 	// modifications to the data.
 	ReadOnly bool `json:"readonly"`
 
@@ -53,12 +53,12 @@ type GCSRepositoryOptions struct {
 	IgnoreDefaultCredentials bool `json:"ignoreDefaultCredentials"`
 }
 
-type gcsRepository struct {
-	GCSRepositoryOptions
+type gcsStorage struct {
+	GCSStorageOptions
 	objectsService *gcsclient.ObjectsService
 }
 
-func (gcs *gcsRepository) BlockExists(b BlockID) (bool, error) {
+func (gcs *gcsStorage) BlockExists(b BlockID) (bool, error) {
 	_, err := gcs.objectsService.Get(gcs.BucketName, gcs.getObjectNameString(b)).Do()
 
 	if err == nil {
@@ -68,7 +68,7 @@ func (gcs *gcsRepository) BlockExists(b BlockID) (bool, error) {
 	return false, err
 }
 
-func (gcs *gcsRepository) GetBlock(b BlockID) ([]byte, error) {
+func (gcs *gcsStorage) GetBlock(b BlockID) ([]byte, error) {
 	v, err := gcs.objectsService.Get(gcs.BucketName, gcs.getObjectNameString(b)).Download()
 	if err != nil {
 		if err, ok := err.(*googleapi.Error); ok {
@@ -85,7 +85,7 @@ func (gcs *gcsRepository) GetBlock(b BlockID) ([]byte, error) {
 	return ioutil.ReadAll(v.Body)
 }
 
-func (gcs *gcsRepository) PutBlock(b BlockID, data io.ReadCloser, options PutOptions) error {
+func (gcs *gcsStorage) PutBlock(b BlockID, data io.ReadCloser, options PutOptions) error {
 	object := gcsclient.Object{
 		Name: gcs.getObjectNameString(b),
 	}
@@ -98,7 +98,7 @@ func (gcs *gcsRepository) PutBlock(b BlockID, data io.ReadCloser, options PutOpt
 	return err
 }
 
-func (gcs *gcsRepository) DeleteBlock(b BlockID) error {
+func (gcs *gcsStorage) DeleteBlock(b BlockID) error {
 	err := gcs.objectsService.Delete(gcs.BucketName, string(b)).Do()
 	if err != nil {
 		return fmt.Errorf("unable to delete block %s: %v", b, err)
@@ -107,11 +107,11 @@ func (gcs *gcsRepository) DeleteBlock(b BlockID) error {
 	return nil
 }
 
-func (gcs *gcsRepository) getObjectNameString(b BlockID) string {
+func (gcs *gcsStorage) getObjectNameString(b BlockID) string {
 	return gcs.Prefix + string(b)
 }
 
-func (gcs *gcsRepository) ListBlocks(prefix BlockID) chan (BlockMetadata) {
+func (gcs *gcsStorage) ListBlocks(prefix BlockID) chan (BlockMetadata) {
 	ch := make(chan BlockMetadata, 100)
 
 	go func() {
@@ -148,14 +148,14 @@ func (gcs *gcsRepository) ListBlocks(prefix BlockID) chan (BlockMetadata) {
 	return ch
 }
 
-func (gcs *gcsRepository) Flush() error {
+func (gcs *gcsStorage) Flush() error {
 	return nil
 }
 
-func (gcs *gcsRepository) Configuration() RepositoryConfiguration {
-	return RepositoryConfiguration{
-		gcsRepositoryType,
-		&gcs.GCSRepositoryOptions,
+func (gcs *gcsStorage) Configuration() StorageConfiguration {
+	return StorageConfiguration{
+		gcsStorageType,
+		&gcs.GCSStorageOptions,
 	}
 }
 
@@ -180,17 +180,17 @@ func saveToken(file string, token *oauth2.Token) {
 	json.NewEncoder(f).Encode(token)
 }
 
-// NewGCSRepository creates new Google Cloud Storage-backed repository with specified options:
+// NewGCSStorage creates new Google Cloud Storage-backed storage with specified options:
 //
 // - the 'BucketName' field is required and all other parameters are optional.
 //
 // By default the connection reuses credentials managed by (https://cloud.google.com/sdk/),
 // but this can be disabled by setting IgnoreDefaultCredentials to true.
-func NewGCSRepository(options *GCSRepositoryOptions) (Repository, error) {
+func NewGCSStorage(options *GCSStorageOptions) (Storage, error) {
 	ctx := context.TODO()
 
-	gcs := &gcsRepository{
-		GCSRepositoryOptions: *options,
+	gcs := &gcsStorage{
+		GCSStorageOptions: *options,
 	}
 
 	if gcs.BucketName == "" {
@@ -227,7 +227,7 @@ func NewGCSRepository(options *GCSRepositoryOptions) (Repository, error) {
 			token = gcs.Token
 		} else {
 			if gcs.TokenCacheFile == "" {
-				// Cache file not provided, token will be saved in repository configuration.
+				// Cache file not provided, token will be saved in storage configuration.
 				token, err = tokenFromWeb(ctx, config)
 				if err != nil {
 					return nil, fmt.Errorf("cannot retrieve OAuth2 token: %v", err)
@@ -373,12 +373,12 @@ func authPrompt(url string, state string) (authenticationCode string, err error)
 }
 
 func init() {
-	AddSupportedRepository(
-		gcsRepositoryType,
+	AddSupportedStorage(
+		gcsStorageType,
 		func() interface{} {
-			return &GCSRepositoryOptions{}
+			return &GCSStorageOptions{}
 		},
-		func(cfg interface{}) (Repository, error) {
-			return NewGCSRepository(cfg.(*GCSRepositoryOptions))
+		func(cfg interface{}) (Storage, error) {
+			return NewGCSStorage(cfg.(*GCSStorageOptions))
 		})
 }

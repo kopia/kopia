@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/kopia/kopia/storage"
+	"github.com/kopia/kopia/blob"
 )
 
-// ObjectWriter allows writing content to the repository and supports automatic deduplication and encryption
+// ObjectWriter allows writing content to the storage and supports automatic deduplication and encryption
 // of written data.
 type ObjectWriter interface {
 	io.WriteCloser
@@ -19,7 +19,7 @@ type ObjectWriter interface {
 // objectWriterConfig
 type objectWriterConfig struct {
 	mgr        *objectManager
-	putOptions storage.PutOptions
+	putOptions blob.PutOptions
 }
 
 type objectWriter struct {
@@ -99,7 +99,7 @@ func (w *objectWriter) flushBuffer(force bool) error {
 		objectID, readCloser := w.mgr.hashBufferForWriting(w.buffer, string(w.objectType)+w.prefix)
 		w.buffer = nil
 
-		if err := w.mgr.repository.PutBlock(objectID.BlockID(), readCloser, storage.PutOptions{}); err != nil {
+		if err := w.mgr.storage.PutBlock(objectID.BlockID(), readCloser, blob.PutOptions{}); err != nil {
 			return fmt.Errorf(
 				"error when flushing chunk %d of %s to %#v: %#v",
 				w.flushedObjectCount,
@@ -158,7 +158,7 @@ func (w *objectWriter) Result(forceStored bool) (ObjectID, error) {
 // WriterOption is an option that can be passed to ObjectManager.NewWriter()
 type WriterOption func(*objectWriter)
 
-// WithBlockNamePrefix causes the ObjectWriter to prefix any blocks emitted to the repository with a given string.
+// WithBlockNamePrefix causes the ObjectWriter to prefix any blocks emitted to the storage with a given string.
 func WithBlockNamePrefix(prefix string) WriterOption {
 	return func(w *objectWriter) {
 		w.prefix = prefix
@@ -172,8 +172,8 @@ func WithDescription(description string) WriterOption {
 	}
 }
 
-// WithPutOptions causes the ObjectWriter to use the specified options when writing blocks to the repository.
-func WithPutOptions(options storage.PutOptions) WriterOption {
+// WithPutOptions causes the ObjectWriter to use the specified options when writing blocks to the blob.
+func WithPutOptions(options blob.PutOptions) WriterOption {
 	return func(w *objectWriter) {
 		w.putOptions = options
 	}

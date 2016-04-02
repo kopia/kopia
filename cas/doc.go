@@ -1,2 +1,2 @@
-// Package cas implements Content-Addressable Storage on top of blob stores.
+// Package cas implements Content-Addressable Storage on top of BLOB storage.
 package cas

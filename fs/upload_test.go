@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/cas"
-	"github.com/kopia/kopia/storage"
 
 	"testing"
 )
@@ -52,7 +52,7 @@ func TestUpload(t *testing.T) {
 		Hash:    "md5",
 	}
 
-	repo, err := storage.NewFSRepository(&storage.FSRepositoryOptions{
+	repo, err := blob.NewFSStorage(&blob.FSStorageOptions{
 		Path: repoDir,
 	})
 

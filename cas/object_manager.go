@@ -17,23 +17,23 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/kopia/kopia/storage"
+	"github.com/kopia/kopia/blob"
 )
 
 // Since we never share keys, using constant IV is fine.
 // Instead of using all-zero, we use this one.
 var constantIV = []byte("kopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopia")
 
-// ObjectManager manages objects stored in a repository and allows reading and writing them.
+// ObjectManager manages objects stored in a storage and allows reading and writing them.
 type ObjectManager interface {
-	// NewWriter opens an ObjectWriter for writing new content to the repository.
+	// NewWriter opens an ObjectWriter for writing new content to the blob.
 	NewWriter(options ...WriterOption) ObjectWriter
 
 	// Open creates an io.ReadSeeker for reading object with a specified ID.
 	Open(objectID ObjectID) (io.ReadSeeker, error)
 
 	Flush() error
-	Repository() storage.Repository
+	Storage() blob.Storage
 	Close()
 
 	Stats() ObjectManagerStats
@@ -49,7 +49,7 @@ type ObjectManagerStats struct {
 type keygenFunc func([]byte) (key []byte, locator []byte)
 
 type objectManager struct {
-	repository    storage.Repository
+	storage       blob.Storage
 	verbose       bool
 	bufferManager *bufferManager
 	stats         ObjectManagerStats
@@ -68,22 +68,22 @@ func (mgr *objectManager) Close() {
 }
 
 func (mgr *objectManager) Flush() error {
-	return mgr.repository.Flush()
+	return mgr.storage.Flush()
 }
 
 func (mgr *objectManager) Stats() ObjectManagerStats {
 	return mgr.stats
 }
 
-func (mgr *objectManager) Repository() storage.Repository {
-	return mgr.repository
+func (mgr *objectManager) Storage() blob.Storage {
+	return mgr.storage
 }
 
 func (mgr *objectManager) NewWriter(options ...WriterOption) ObjectWriter {
 	result := newObjectWriter(
 		objectWriterConfig{
 			mgr:        mgr,
-			putOptions: storage.PutOptions{},
+			putOptions: blob.PutOptions{},
 		},
 		ObjectIDTypeStored)
 
@@ -111,7 +111,7 @@ func (mgr *objectManager) Open(objectID ObjectID) (io.ReadSeeker, error) {
 		totalLength := seekTable[len(seekTable)-1].endOffset()
 
 		return &objectReader{
-			repository:  mgr.repository,
+			storage:     mgr.storage,
 			seekTable:   seekTable,
 			totalLength: totalLength,
 		}, nil
@@ -122,44 +122,44 @@ func (mgr *objectManager) Open(objectID ObjectID) (io.ReadSeeker, error) {
 // ObjectManagerOption controls the behavior of ObjectManager.
 type ObjectManagerOption func(o *objectManager) error
 
-// WriteBack is an ObjectManagerOption that enables asynchronous writes to the repository using the pool
+// WriteBack is an ObjectManagerOption that enables asynchronous writes to the storage using the pool
 // of goroutines.
 func WriteBack(workerCount int) ObjectManagerOption {
 	return func(o *objectManager) error {
-		o.repository = storage.NewWriteBackWrapper(o.repository, workerCount)
+		o.storage = blob.NewWriteBackWrapper(o.storage, workerCount)
 		return nil
 	}
 }
 
 // WriteLimit is an ObjectManagerOption that sets the limit on the number of bytes that can be written
-// to the repository in this ObjectManager session. Once the limit is reached, the repository will
+// to the storage in this ObjectManager session. Once the limit is reached, the storage will
 // return ErrWriteLimitExceeded.
 func WriteLimit(maxBytes int64) ObjectManagerOption {
 	return func(o *objectManager) error {
-		o.repository = storage.NewWriteLimitWrapper(o.repository, maxBytes)
+		o.storage = blob.NewWriteLimitWrapper(o.storage, maxBytes)
 		return nil
 	}
 }
 
-// EnableLogging is an ObjectManagerOption that causes all repository access to be logged.
+// EnableLogging is an ObjectManagerOption that causes all storage access to be logged.
 func EnableLogging() ObjectManagerOption {
 	return func(o *objectManager) error {
-		o.repository = storage.NewLoggingWrapper(o.repository)
+		o.storage = blob.NewLoggingWrapper(o.storage)
 		return nil
 	}
 }
 
-// NewObjectManager creates new ObjectManager with the specified repository, options, and key provider.
+// NewObjectManager creates new ObjectManager with the specified storage, options, and key provider.
 func NewObjectManager(
-	r storage.Repository,
+	r blob.Storage,
 	f Format,
 	options ...ObjectManagerOption,
 ) (ObjectManager, error) {
 	if f.Version != "1" {
-		return nil, fmt.Errorf("unsupported repository version: %v", f.Version)
+		return nil, fmt.Errorf("unsupported storage version: %v", f.Version)
 	}
 	mgr := &objectManager{
-		repository:        r,
+		storage:           r,
 		maxInlineBlobSize: f.MaxInlineBlobSize,
 		maxBlobSize:       f.MaxBlobSize,
 	}

@@ -8,13 +8,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kopia/kopia/storage"
+	"github.com/kopia/kopia/blob"
 )
 
 type seekTableEntry struct {
 	startOffset int64
 	length      int64
-	blockID     storage.BlockID
+	blockID     blob.BlockID
 }
 
 func (r *seekTableEntry) endOffset() int64 {
@@ -30,7 +30,7 @@ func (r *seekTableEntry) String() string {
 }
 
 type objectReader struct {
-	repository storage.Repository
+	storage blob.Storage
 
 	seekTable []seekTableEntry
 
@@ -85,7 +85,7 @@ func (r *objectReader) Read(buffer []byte) (int, error) {
 
 func (r *objectReader) openCurrentChunk() error {
 	blockID := r.seekTable[r.currentChunkIndex].blockID
-	blockData, err := r.repository.GetBlock(blockID)
+	blockData, err := r.storage.GetBlock(blockID)
 	if err != nil {
 		return err
 	}
@@ -164,7 +164,7 @@ func (mgr *objectManager) newRawReader(objectID ObjectID) (io.ReadSeeker, error)
 	}
 
 	blockID := objectID.BlockID()
-	payload, err := mgr.repository.GetBlock(blockID)
+	payload, err := mgr.storage.GetBlock(blockID)
 	if err != nil {
 		return nil, err
 	}

@@ -1,19 +1,19 @@
-package storage
+package blob
 
 import (
 	"io"
 	"sync/atomic"
 )
 
-type writeLimitRepository struct {
-	Repository
+type writeLimitStorage struct {
+	Storage
 
 	remainingBytes int64
 }
 
 type writeLimitReadCloser struct {
 	io.ReadCloser
-	repo *writeLimitRepository
+	repo *writeLimitStorage
 }
 
 func (s *writeLimitReadCloser) Read(b []byte) (int, error) {
@@ -22,24 +22,24 @@ func (s *writeLimitReadCloser) Read(b []byte) (int, error) {
 	return n, err
 }
 
-func (s *writeLimitRepository) PutBlock(id BlockID, data io.ReadCloser, options PutOptions) error {
+func (s *writeLimitStorage) PutBlock(id BlockID, data io.ReadCloser, options PutOptions) error {
 	if !options.IgnoreLimits {
 		if atomic.LoadInt64(&s.remainingBytes) <= 0 {
 			return ErrWriteLimitExceeded
 		}
 	}
 
-	return s.Repository.PutBlock(id, &writeLimitReadCloser{
+	return s.Storage.PutBlock(id, &writeLimitReadCloser{
 		ReadCloser: data,
 		repo:       s,
 	}, options)
 }
 
-// NewWriteLimitWrapper returns a Repository wrapper that limits the number of bytes written to a cas.
+// NewWriteLimitWrapper returns a Storage wrapper that limits the number of bytes written to a cas.
 // Once reached, the writes will return ErrWriteLimitExceeded
-func NewWriteLimitWrapper(wrapped Repository, bytes int64) Repository {
-	return &writeLimitRepository{
-		Repository:     wrapped,
+func NewWriteLimitWrapper(wrapped Storage, bytes int64) Storage {
+	return &writeLimitStorage{
+		Storage:        wrapped,
 		remainingBytes: bytes,
 	}
 }

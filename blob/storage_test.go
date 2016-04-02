@@ -1,4 +1,4 @@
-package storage
+package blob
 
 import (
 	"bytes"
@@ -7,25 +7,25 @@ import (
 	"testing"
 )
 
-func TestLoggingRepository(t *testing.T) {
+func TestLoggingStorage(t *testing.T) {
 	data := map[string][]byte{}
-	r := NewLoggingWrapper(NewMapRepository(data))
+	r := NewLoggingWrapper(NewMapStorage(data))
 	if r == nil {
 		t.Errorf("unexpected result: %v", r)
 	}
-	verifyRepository(t, r)
+	verifyStorage(t, r)
 }
 
-func TestMapRepository(t *testing.T) {
+func TestMapStorage(t *testing.T) {
 	data := map[string][]byte{}
-	r := NewMapRepository(data)
+	r := NewMapStorage(data)
 	if r == nil {
 		t.Errorf("unexpected result: %v", r)
 	}
-	verifyRepository(t, r)
+	verifyStorage(t, r)
 }
 
-func TestFileRepository(t *testing.T) {
+func TestFileStorage(t *testing.T) {
 	// Test varioush shard configurations.
 	for _, shardSpec := range [][]int{
 		[]int{0},
@@ -39,18 +39,18 @@ func TestFileRepository(t *testing.T) {
 		path, _ := ioutil.TempDir("", "r-fs")
 		defer os.RemoveAll(path)
 
-		r, err := NewFSRepository(&FSRepositoryOptions{
+		r, err := NewFSStorage(&FSStorageOptions{
 			Path:            path,
 			DirectoryShards: shardSpec,
 		})
 		if r == nil || err != nil {
 			t.Errorf("unexpected result: %v %v", r, err)
 		}
-		verifyRepository(t, r)
+		verifyStorage(t, r)
 	}
 }
 
-func verifyRepository(t *testing.T, r Repository) {
+func verifyStorage(t *testing.T, r Storage) {
 	blocks := []struct {
 		blk      BlockID
 		contents []byte

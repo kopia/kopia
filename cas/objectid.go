@@ -8,7 +8,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/kopia/kopia/storage"
+	"github.com/kopia/kopia/blob"
 )
 
 var (
@@ -71,10 +71,10 @@ const (
 	// ObjectIDTypeBinary represents binary inline object ID
 	ObjectIDTypeBinary ObjectIDType = "B"
 
-	// ObjectIDTypeStored represents ID of object whose data is stored directly in a single repository block indicated by BlockID.
+	// ObjectIDTypeStored represents ID of object whose data is stored directly in a single storage block indicated by BlockID.
 	ObjectIDTypeStored ObjectIDType = "C"
 
-	// ObjectIDTypeList represents ID of an object whose data is stored in mutliple repository blocks.
+	// ObjectIDTypeList represents ID of an object whose data is stored in mutliple storage blocks.
 	// The value of the ObjectID is the list chunk, which lists object IDs that need to be concatenated
 	// to form the contents.
 	ObjectIDTypeList ObjectIDType = "L" // list chunk
@@ -85,7 +85,7 @@ const (
 	NullObjectID ObjectID = ""
 )
 
-// IsStored determines whether data for the given chunk type is stored in the repository
+// IsStored determines whether data for the given chunk type is stored in the storage
 // (as opposed to being stored inline as part of ObjectID itself).
 func (ct ObjectIDType) IsStored() bool {
 	switch ct {
@@ -98,7 +98,7 @@ func (ct ObjectIDType) IsStored() bool {
 }
 
 // ObjectID represents the identifier of a chunk.
-// Identifiers can either refer to data block stored in a Repository, or contain small amounts
+// Identifiers can either refer to data block stored in a Storage, or contain small amounts
 // of payload directly (useful for short ASCII or binary files).
 type ObjectID string
 
@@ -125,16 +125,16 @@ func (c ObjectID) InlineData() []byte {
 	return nil
 }
 
-// BlockID returns identifier of the repository block. For inline chunk IDs, an empty string is returned.
-func (c ObjectID) BlockID() storage.BlockID {
+// BlockID returns identifier of the storage block. For inline chunk IDs, an empty string is returned.
+func (c ObjectID) BlockID() blob.BlockID {
 	if c.Type().IsStored() {
 		content := string(c[1:])
 		firstColon := strings.Index(content, ":")
 		if firstColon > 0 {
-			return storage.BlockID(content[0:firstColon])
+			return blob.BlockID(content[0:firstColon])
 		}
 
-		return storage.BlockID(content)
+		return blob.BlockID(content)
 	}
 
 	return ""

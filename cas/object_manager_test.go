@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kopia/kopia/storage"
+	"github.com/kopia/kopia/blob"
 )
 
 func testFormat() Format {
@@ -40,7 +40,7 @@ func getMd5LObjectID(data []byte) string {
 
 func setupTest(t *testing.T) (data map[string][]byte, mgr ObjectManager) {
 	data = map[string][]byte{}
-	st := storage.NewMapRepository(data)
+	st := blob.NewMapStorage(data)
 
 	mgr, err := NewObjectManager(st, testFormat())
 	if err != nil {
@@ -87,11 +87,11 @@ func TestWriters(t *testing.T) {
 
 		if !c.objectID.Type().IsStored() {
 			if len(data) != 0 {
-				t.Errorf("unexpected data written to the repository: %v", data)
+				t.Errorf("unexpected data written to the storage: %v", data)
 			}
 		} else {
 			if len(data) != 1 {
-				t.Errorf("unexpected data written to the repository: %v", data)
+				t.Errorf("unexpected data written to the storage: %v", data)
 			}
 		}
 	}
@@ -139,7 +139,7 @@ func TestWriterListChunk(t *testing.T) {
 		contentMd5Sum50:                contentBytes[0:50],
 		getMd5Digest(listChunkContent): listChunkContent,
 	}) {
-		t.Errorf("invalid repository contents: %v", data)
+		t.Errorf("invalid storage contents: %v", data)
 	}
 }
 
@@ -172,7 +172,7 @@ func TestWriterListOfListsChunk(t *testing.T) {
 		getMd5Digest(list2ChunkContent):       list2ChunkContent,
 		getMd5Digest(listOfListsChunkContent): listOfListsChunkContent,
 	}) {
-		t.Errorf("invalid repository contents: %v", data)
+		t.Errorf("invalid storage contents: %v", data)
 	}
 }
 
@@ -226,7 +226,7 @@ func TestWriterListOfListsOfListsChunk(t *testing.T) {
 		getMd5Digest(list2ChunkContent):  list2ChunkContent,
 		getMd5Digest(list3ChunkContent):  list3ChunkContent,
 	}) {
-		t.Errorf("invalid repository contents: %v", data)
+		t.Errorf("invalid storage contents: %v", data)
 	}
 }
 
@@ -238,7 +238,7 @@ func TestHMAC(t *testing.T) {
 	s.Hash = "hmac-md5"
 	s.Secret = []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25}
 
-	mgr, err := NewObjectManager(storage.NewMapRepository(data), s)
+	mgr, err := NewObjectManager(blob.NewMapStorage(data), s)
 	if err != nil {
 		t.Errorf("cannot create manager: %v", err)
 	}
@@ -300,7 +300,7 @@ func TestReaderStoredBlockNotFound(t *testing.T) {
 		t.Errorf("cannot parse object ID: %v", err)
 	}
 	reader, err := mgr.Open(objectID)
-	if err != storage.ErrBlockNotFound || reader != nil {
+	if err != blob.ErrBlockNotFound || reader != nil {
 		t.Errorf("unexpected result: reader: %v err: %v", reader, err)
 	}
 }
@@ -454,7 +454,7 @@ func TestFormats(t *testing.T) {
 
 	for _, c := range cases {
 		data := map[string][]byte{}
-		st := storage.NewMapRepository(data)
+		st := blob.NewMapStorage(data)
 
 		mgr, err := NewObjectManager(st, c.format)
 		if err != nil {

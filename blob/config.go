@@ -1,17 +1,17 @@
-package storage
+package blob
 
 import (
 	"encoding/json"
 )
 
-// RepositoryConfiguration is a JSON-serializable description of Repository and its configuration.
-type RepositoryConfiguration struct {
+// StorageConfiguration is a JSON-serializable description of Storage and its configuration.
+type StorageConfiguration struct {
 	Type   string
 	Config interface{}
 }
 
-// UnmarshalJSON parses the JSON-encoded data into RepositoryConfiguration.
-func (c *RepositoryConfiguration) UnmarshalJSON(b []byte) error {
+// UnmarshalJSON parses the JSON-encoded data into StorageConfiguration.
+func (c *StorageConfiguration) UnmarshalJSON(b []byte) error {
 	raw := struct {
 		Type string          `json:"type"`
 		Data json.RawMessage `json:"config"`
@@ -30,8 +30,8 @@ func (c *RepositoryConfiguration) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// MarshalJSON returns JSON-encoded repository configuration.
-func (c *RepositoryConfiguration) MarshalJSON() ([]byte, error) {
+// MarshalJSON returns JSON-encoded storage configuration.
+func (c *StorageConfiguration) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		Type string      `json:"type"`
 		Data interface{} `json:"config"`

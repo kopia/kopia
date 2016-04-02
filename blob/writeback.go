@@ -1,7 +1,7 @@
 // Wrapper which implements asynchronous (write-back) PutBlock and DeleteBlock operation
 // useful for slower backends (cloud).
 
-package storage
+package blob
 
 import (
 	"fmt"
@@ -10,8 +10,8 @@ import (
 	"sync/atomic"
 )
 
-type writeBackRepository struct {
-	Repository
+type writeBackStorage struct {
+	Storage
 
 	channel       chan writeBackRequest
 	deferredError atomic.Value
@@ -25,7 +25,7 @@ type writeBackRequest struct {
 	debugInfo     string
 }
 
-func (wb *writeBackRepository) PutBlock(blockID BlockID, data io.ReadCloser, options PutOptions) error {
+func (wb *writeBackStorage) PutBlock(blockID BlockID, data io.ReadCloser, options PutOptions) error {
 	err := wb.getDeferredError()
 	if err != nil {
 		data.Close()
@@ -34,14 +34,14 @@ func (wb *writeBackRepository) PutBlock(blockID BlockID, data io.ReadCloser, opt
 
 	wb.channel <- writeBackRequest{
 		action: func() error {
-			return wb.Repository.PutBlock(blockID, data, options)
+			return wb.Storage.PutBlock(blockID, data, options)
 		},
 		debugInfo: fmt.Sprintf("Put(%s)", blockID),
 	}
 	return nil
 }
 
-func (wb *writeBackRepository) getDeferredError() error {
+func (wb *writeBackStorage) getDeferredError() error {
 	deferredError := wb.deferredError.Load()
 	if deferredError != nil {
 		return deferredError.(error)
@@ -50,17 +50,17 @@ func (wb *writeBackRepository) getDeferredError() error {
 	return nil
 }
 
-func (wb *writeBackRepository) DeleteBlock(blockID BlockID) error {
+func (wb *writeBackStorage) DeleteBlock(blockID BlockID) error {
 	wb.channel <- writeBackRequest{
 		action: func() error {
-			return wb.Repository.DeleteBlock(blockID)
+			return wb.Storage.DeleteBlock(blockID)
 		},
 		debugInfo: fmt.Sprintf("Delete(%s)", blockID),
 	}
 	return nil
 }
 
-func (wb *writeBackRepository) Flush() error {
+func (wb *writeBackStorage) Flush() error {
 	rwg := sync.WaitGroup{}
 	rwg.Add(1)
 
@@ -82,10 +82,10 @@ func (wb *writeBackRepository) Flush() error {
 	// Now release them all.
 	rwg.Done()
 
-	return wb.Repository.Flush()
+	return wb.Storage.Flush()
 }
 
-func (wb *writeBackRepository) processRequest(req writeBackRequest) {
+func (wb *writeBackStorage) processRequest(req writeBackRequest) {
 	if req.workerPaused != nil {
 		req.workerPaused.Done()
 		req.workerRelease.Wait()
@@ -101,12 +101,12 @@ func (wb *writeBackRepository) processRequest(req writeBackRequest) {
 	}
 }
 
-// NewWriteBackWrapper returns a Repository wrapper that processes writes asynchronously using the specified
+// NewWriteBackWrapper returns a Storage wrapper that processes writes asynchronously using the specified
 // number of worker goroutines. This wrapper is best used with Repositories that exhibit high latency.
-func NewWriteBackWrapper(wrapped Repository, workerCount int) Repository {
+func NewWriteBackWrapper(wrapped Storage, workerCount int) Storage {
 	ch := make(chan writeBackRequest, workerCount)
-	result := &writeBackRepository{
-		Repository:  wrapped,
+	result := &writeBackStorage{
+		Storage:     wrapped,
 		channel:     ch,
 		workerCount: workerCount,
 	}

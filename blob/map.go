@@ -1,4 +1,4 @@
-package storage
+package blob
 
 import (
 	"io"
@@ -9,23 +9,23 @@ import (
 	"time"
 )
 
-type mapRepository struct {
+type mapStorage struct {
 	data  map[string][]byte
 	mutex sync.RWMutex
 }
 
-func (s *mapRepository) Configuration() RepositoryConfiguration {
-	return RepositoryConfiguration{}
+func (s *mapStorage) Configuration() StorageConfiguration {
+	return StorageConfiguration{}
 }
 
-func (s *mapRepository) BlockExists(id BlockID) (bool, error) {
+func (s *mapStorage) BlockExists(id BlockID) (bool, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	_, ok := s.data[string(id)]
 	return ok, nil
 }
 
-func (s *mapRepository) GetBlock(id BlockID) ([]byte, error) {
+func (s *mapStorage) GetBlock(id BlockID) ([]byte, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -37,7 +37,7 @@ func (s *mapRepository) GetBlock(id BlockID) ([]byte, error) {
 	return nil, ErrBlockNotFound
 }
 
-func (s *mapRepository) PutBlock(id BlockID, data io.ReadCloser, options PutOptions) error {
+func (s *mapStorage) PutBlock(id BlockID, data io.ReadCloser, options PutOptions) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -51,7 +51,7 @@ func (s *mapRepository) PutBlock(id BlockID, data io.ReadCloser, options PutOpti
 	return nil
 }
 
-func (s *mapRepository) DeleteBlock(id BlockID) error {
+func (s *mapStorage) DeleteBlock(id BlockID) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -59,7 +59,7 @@ func (s *mapRepository) DeleteBlock(id BlockID) error {
 	return nil
 }
 
-func (s *mapRepository) ListBlocks(prefix BlockID) chan (BlockMetadata) {
+func (s *mapStorage) ListBlocks(prefix BlockID) chan (BlockMetadata) {
 	ch := make(chan (BlockMetadata))
 	fixedTime := time.Now()
 	go func() {
@@ -88,12 +88,12 @@ func (s *mapRepository) ListBlocks(prefix BlockID) chan (BlockMetadata) {
 	return ch
 }
 
-func (s *mapRepository) Flush() error {
+func (s *mapStorage) Flush() error {
 	return nil
 }
 
-// NewMapRepository returns an implementation of Repository backed by the contents of given map.
+// NewMapStorage returns an implementation of Storage backed by the contents of given map.
 // Used primarily for testing.
-func NewMapRepository(data map[string][]byte) Repository {
-	return &mapRepository{data: data}
+func NewMapStorage(data map[string][]byte) Storage {
+	return &mapStorage{data: data}
 }

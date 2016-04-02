@@ -1,2 +1,2 @@
-// Package fs implements filesystem layer on top content-addressable storage.
+// Package fs implements filesystem layer on top Content-Addressable Storage layer.
 package fs

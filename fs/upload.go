@@ -15,7 +15,7 @@ import (
 // ErrUploadCancelled is returned when the upload gets cancelled.
 var ErrUploadCancelled = errors.New("upload cancelled")
 
-// Uploader supports efficient uploading files and directories to CAS storage.
+// Uploader supports efficient uploading files and directories to CAS.
 type Uploader interface {
 	UploadFile(path string) (cas.ObjectID, error)
 	UploadDir(path string, previousObjectID cas.ObjectID) (cas.ObjectID, error)

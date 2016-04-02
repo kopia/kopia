@@ -1,4 +1,4 @@
-package storage
+package blob
 
 import (
 	"fmt"
@@ -12,9 +12,9 @@ import (
 )
 
 const (
-	fsRepositoryType = "fs"
+	fsStorageType = "fs"
 
-	fsRepositoryChunkSuffix = ".f"
+	fsStorageChunkSuffix = ".f"
 )
 
 var (
@@ -23,12 +23,12 @@ var (
 	fsDefaultDirMode  os.FileMode = 0775
 )
 
-type fsRepository struct {
-	FSRepositoryOptions
+type fsStorage struct {
+	FSStorageOptions
 }
 
-// FSRepositoryOptions defines options for Filesystem-backed repository.
-type FSRepositoryOptions struct {
+// FSStorageOptions defines options for Filesystem-backed blob.
+type FSStorageOptions struct {
 	Path string `json:"path"`
 
 	DirectoryShards []int `json:"dirShards"`
@@ -40,7 +40,7 @@ type FSRepositoryOptions struct {
 	FileGID *int `json:"gid,omitempty"`
 }
 
-func (fs *fsRepository) BlockExists(blockID BlockID) (bool, error) {
+func (fs *fsStorage) BlockExists(blockID BlockID) (bool, error) {
 	_, path := fs.getShardedPathAndFilePath(blockID)
 	_, err := os.Stat(path)
 	if err == nil {
@@ -54,7 +54,7 @@ func (fs *fsRepository) BlockExists(blockID BlockID) (bool, error) {
 	return false, err
 }
 
-func (fs *fsRepository) GetBlock(blockID BlockID) ([]byte, error) {
+func (fs *fsStorage) GetBlock(blockID BlockID) ([]byte, error) {
 	_, path := fs.getShardedPathAndFilePath(blockID)
 	d, err := ioutil.ReadFile(path)
 	if err == nil {
@@ -69,18 +69,18 @@ func (fs *fsRepository) GetBlock(blockID BlockID) ([]byte, error) {
 }
 
 func getBlockIDFromFileName(name string) (BlockID, bool) {
-	if strings.HasSuffix(name, fsRepositoryChunkSuffix) {
-		return BlockID(name[0 : len(name)-len(fsRepositoryChunkSuffix)]), true
+	if strings.HasSuffix(name, fsStorageChunkSuffix) {
+		return BlockID(name[0 : len(name)-len(fsStorageChunkSuffix)]), true
 	}
 
 	return BlockID(""), false
 }
 
 func makeFileName(blockID BlockID) string {
-	return string(blockID) + fsRepositoryChunkSuffix
+	return string(blockID) + fsStorageChunkSuffix
 }
 
-func (fs *fsRepository) ListBlocks(prefix BlockID) chan (BlockMetadata) {
+func (fs *fsStorage) ListBlocks(prefix BlockID) chan (BlockMetadata) {
 	result := make(chan (BlockMetadata))
 
 	prefixString := string(prefix)
@@ -127,7 +127,7 @@ func (fs *fsRepository) ListBlocks(prefix BlockID) chan (BlockMetadata) {
 	return result
 }
 
-func (fs *fsRepository) PutBlock(blockID BlockID, data io.ReadCloser, options PutOptions) error {
+func (fs *fsStorage) PutBlock(blockID BlockID, data io.ReadCloser, options PutOptions) error {
 	// Close the data reader regardless of whether we use it or not.
 	defer data.Close()
 
@@ -165,7 +165,7 @@ func (fs *fsRepository) PutBlock(blockID BlockID, data io.ReadCloser, options Pu
 	return nil
 }
 
-func (fs *fsRepository) DeleteBlock(blockID BlockID) error {
+func (fs *fsStorage) DeleteBlock(blockID BlockID) error {
 	_, path := fs.getShardedPathAndFilePath(blockID)
 	err := os.Remove(path)
 	if err == nil || os.IsNotExist(err) {
@@ -175,11 +175,11 @@ func (fs *fsRepository) DeleteBlock(blockID BlockID) error {
 	return err
 }
 
-func (fs *fsRepository) Flush() error {
+func (fs *fsStorage) Flush() error {
 	return nil
 }
 
-func (fs *fsRepository) getShardDirectory(blockID BlockID) (string, BlockID) {
+func (fs *fsStorage) getShardDirectory(blockID BlockID) (string, BlockID) {
 	shardPath := fs.Path
 	blockIDString := string(blockID)
 	if len(blockIDString) < 20 {
@@ -193,7 +193,7 @@ func (fs *fsRepository) getShardDirectory(blockID BlockID) (string, BlockID) {
 	return shardPath, BlockID(blockIDString)
 }
 
-func (fs *fsRepository) getShardedPathAndFilePath(blockID BlockID) (string, string) {
+func (fs *fsStorage) getShardedPathAndFilePath(blockID BlockID) (string, string) {
 	shardPath, blockID := fs.getShardDirectory(blockID)
 	result := filepath.Join(shardPath, makeFileName(blockID))
 	return shardPath, result
@@ -216,23 +216,23 @@ func parseShardString(shardString string) ([]int, error) {
 	return result, nil
 }
 
-func (fs *fsRepository) Configuration() RepositoryConfiguration {
-	return RepositoryConfiguration{
-		fsRepositoryType,
-		&fs.FSRepositoryOptions,
+func (fs *fsStorage) Configuration() StorageConfiguration {
+	return StorageConfiguration{
+		fsStorageType,
+		&fs.FSStorageOptions,
 	}
 }
 
-// NewFSRepository creates new fs-backed repository in a specified directory.
-func NewFSRepository(options *FSRepositoryOptions) (Repository, error) {
+// NewFSStorage creates new fs-backed storage in a specified directory.
+func NewFSStorage(options *FSStorageOptions) (Storage, error) {
 	var err error
 
 	if _, err = os.Stat(options.Path); err != nil {
-		return nil, fmt.Errorf("cannot access repository path: %v", err)
+		return nil, fmt.Errorf("cannot access storage path: %v", err)
 	}
 
-	r := &fsRepository{
-		FSRepositoryOptions: *options,
+	r := &fsStorage{
+		FSStorageOptions: *options,
 	}
 
 	if r.DirectoryShards == nil {
@@ -251,10 +251,10 @@ func NewFSRepository(options *FSRepositoryOptions) (Repository, error) {
 }
 
 func init() {
-	AddSupportedRepository(
-		fsRepositoryType,
-		func() interface{} { return &FSRepositoryOptions{} },
-		func(cfg interface{}) (Repository, error) {
-			return NewFSRepository(cfg.(*FSRepositoryOptions))
+	AddSupportedStorage(
+		fsStorageType,
+		func() interface{} { return &FSStorageOptions{} },
+		func(cfg interface{}) (Storage, error) {
+			return NewFSStorage(cfg.(*FSStorageOptions))
 		})
 }
