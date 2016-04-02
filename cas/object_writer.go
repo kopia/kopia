@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/kopia/kopia/content"
 	"github.com/kopia/kopia/storage"
 )
 
@@ -18,7 +17,7 @@ type blockHasher interface {
 type ObjectWriter interface {
 	io.WriteCloser
 
-	Result(forceStored bool) (content.ObjectID, error)
+	Result(forceStored bool) (ObjectID, error)
 }
 
 // objectWriterConfig
@@ -36,10 +35,10 @@ type objectWriter struct {
 	prefix             string
 	listWriter         *objectWriter
 	flushedObjectCount int
-	lastFlushedObject  content.ObjectID
+	lastFlushedObject  ObjectID
 
 	description string
-	objectType  content.ObjectIDType
+	objectType  ObjectIDType
 
 	atomicWrites bool
 }
@@ -116,7 +115,7 @@ func (w *objectWriter) flushBuffer(force bool) error {
 		w.flushedObjectCount++
 		w.lastFlushedObject = objectID
 		if w.listWriter == nil {
-			w.listWriter = newObjectWriter(w.objectWriterConfig, content.ObjectIDTypeList)
+			w.listWriter = newObjectWriter(w.objectWriterConfig, ObjectIDTypeList)
 			w.listWriter.description = "LIST(" + w.description + ")"
 			w.listWriter.atomicWrites = true
 		}
@@ -126,21 +125,21 @@ func (w *objectWriter) flushBuffer(force bool) error {
 	return nil
 }
 
-func newObjectWriter(cfg objectWriterConfig, objectType content.ObjectIDType) *objectWriter {
+func newObjectWriter(cfg objectWriterConfig, objectType ObjectIDType) *objectWriter {
 	return &objectWriter{
 		objectWriterConfig: cfg,
 		objectType:         objectType,
 	}
 }
 
-func (w *objectWriter) Result(forceStored bool) (content.ObjectID, error) {
+func (w *objectWriter) Result(forceStored bool) (ObjectID, error) {
 	if !forceStored && w.flushedObjectCount == 0 {
 		if w.buffer == nil {
 			return "B", nil
 		}
 
 		if w.buffer.Len() < w.mgr.maxInlineBlobSize {
-			return content.NewInlineObjectID(w.buffer.Bytes()), nil
+			return NewInlineObjectID(w.buffer.Bytes()), nil
 		}
 	}
 
@@ -154,7 +153,7 @@ func (w *objectWriter) Result(forceStored bool) (content.ObjectID, error) {
 	if w.flushedObjectCount == 1 {
 		return w.lastFlushedObject, nil
 	} else if w.flushedObjectCount == 0 {
-		return content.NullObjectID, nil
+		return NullObjectID, nil
 	} else {
 		return w.listWriter.Result(true)
 	}

@@ -17,7 +17,6 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/kopia/kopia/content"
 	"github.com/kopia/kopia/storage"
 )
 
@@ -31,7 +30,7 @@ type ObjectManager interface {
 	NewWriter(options ...WriterOption) ObjectWriter
 
 	// Open creates an io.ReadSeeker for reading object with a specified ID.
-	Open(objectID content.ObjectID) (io.ReadSeeker, error)
+	Open(objectID ObjectID) (io.ReadSeeker, error)
 
 	Flush() error
 	Repository() storage.Repository
@@ -87,7 +86,7 @@ func (mgr *objectManager) NewWriter(options ...WriterOption) ObjectWriter {
 			mgr:        mgr,
 			putOptions: storage.PutOptions{},
 		},
-		content.ObjectIDTypeStored)
+		ObjectIDTypeStored)
 
 	for _, option := range options {
 		option(result)
@@ -96,13 +95,13 @@ func (mgr *objectManager) NewWriter(options ...WriterOption) ObjectWriter {
 	return result
 }
 
-func (mgr *objectManager) Open(objectID content.ObjectID) (io.ReadSeeker, error) {
+func (mgr *objectManager) Open(objectID ObjectID) (io.ReadSeeker, error) {
 	r, err := mgr.newRawReader(objectID)
 	if err != nil {
 		return nil, err
 	}
 
-	if objectID.Type() == content.ObjectIDTypeList {
+	if objectID.Type() == ObjectIDTypeList {
 		seekTable := make([]seekTableEntry, 0, 100)
 
 		seekTable, err = mgr.flattenListChunk(seekTable, objectID, r)
@@ -228,7 +227,7 @@ func splitHash(keySize int) keygenFunc {
 	}
 }
 
-func (mgr *objectManager) hashBufferForWriting(buffer *bytes.Buffer, prefix string) (content.ObjectID, io.ReadCloser) {
+func (mgr *objectManager) hashBufferForWriting(buffer *bytes.Buffer, prefix string) (ObjectID, io.ReadCloser) {
 	var data []byte
 	if buffer != nil {
 		data = buffer.Bytes()
@@ -238,14 +237,14 @@ func (mgr *objectManager) hashBufferForWriting(buffer *bytes.Buffer, prefix stri
 	h.Write(data)
 	contentHash := h.Sum(nil)
 
-	var objectID content.ObjectID
+	var objectID ObjectID
 	var cryptoKey []byte
 
 	if mgr.createCipher != nil {
 		cryptoKey, contentHash = mgr.keygen(contentHash)
-		objectID = content.ObjectID(prefix + hex.EncodeToString(contentHash) + ":" + hex.EncodeToString(cryptoKey))
+		objectID = ObjectID(prefix + hex.EncodeToString(contentHash) + ":" + hex.EncodeToString(cryptoKey))
 	} else {
-		objectID = content.ObjectID(prefix + hex.EncodeToString(contentHash))
+		objectID = ObjectID(prefix + hex.EncodeToString(contentHash))
 	}
 
 	atomic.AddInt64(&mgr.stats.HashedBytes, int64(len(data)))

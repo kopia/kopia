@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/kopia/kopia/content"
+	"github.com/kopia/kopia/cas"
 )
 
 var (
@@ -133,7 +133,7 @@ func ReadDir(r io.Reader) (Listing, error) {
 		e.Name = v.Name
 		e.UserID = v.UserID
 		e.GroupID = v.GroupID
-		e.ObjectID, err = content.ParseObjectID(v.ObjectID)
+		e.ObjectID, err = cas.ParseObjectID(v.ObjectID)
 		if err != nil {
 			return Listing{}, nil
 		}

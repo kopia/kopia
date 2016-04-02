@@ -10,7 +10,6 @@ import (
 	"sync/atomic"
 
 	"github.com/kopia/kopia/cas"
-	"github.com/kopia/kopia/content"
 )
 
 // ErrUploadCancelled is returned when the upload gets cancelled.
@@ -18,8 +17,8 @@ var ErrUploadCancelled = errors.New("upload cancelled")
 
 // Uploader supports efficient uploading files and directories to CAS storage.
 type Uploader interface {
-	UploadFile(path string) (content.ObjectID, error)
-	UploadDir(path string, previousObjectID content.ObjectID) (content.ObjectID, error)
+	UploadFile(path string) (cas.ObjectID, error)
+	UploadDir(path string, previousObjectID cas.ObjectID) (cas.ObjectID, error)
 	Cancel()
 }
 
@@ -34,10 +33,10 @@ func (u *uploader) isCancelled() bool {
 	return atomic.LoadInt32(&u.cancelled) != 0
 }
 
-func (u *uploader) UploadFile(path string) (content.ObjectID, error) {
+func (u *uploader) UploadFile(path string) (cas.ObjectID, error) {
 	file, err := os.Open(path)
 	if err != nil {
-		return content.NullObjectID, fmt.Errorf("unable to open file %s: %v", path, err)
+		return cas.NullObjectID, fmt.Errorf("unable to open file %s: %v", path, err)
 	}
 	defer file.Close()
 
@@ -50,20 +49,20 @@ func (u *uploader) UploadFile(path string) (content.ObjectID, error) {
 	io.Copy(writer, file)
 	result, err := writer.Result(false)
 	if err != nil {
-		return content.NullObjectID, err
+		return cas.NullObjectID, err
 	}
 
 	return result, nil
 }
 
-func (u *uploader) UploadDir(path string, previous content.ObjectID) (content.ObjectID, error) {
+func (u *uploader) UploadDir(path string, previous cas.ObjectID) (cas.ObjectID, error) {
 	if u.isCancelled() {
 		return previous, ErrUploadCancelled
 	}
 
 	listing, err := u.lister.List(path)
 	if err != nil {
-		return content.NullObjectID, err
+		return cas.NullObjectID, err
 	}
 
 	var cached Listing
@@ -91,14 +90,14 @@ func (u *uploader) UploadDir(path string, previous content.ObjectID) (content.Ob
 		directoryMatchesCache = directoryMatchesCache && cachedMetadataMatches
 
 		if e.Type == EntryTypeDirectory {
-			var previousSubdirObjectID content.ObjectID
+			var previousSubdirObjectID cas.ObjectID
 			if cachedEntry != nil {
 				previousSubdirObjectID = cachedEntry.ObjectID
 			}
 
 			e.ObjectID, err = u.UploadDir(fullPath, previousSubdirObjectID)
 			if err != nil {
-				return content.NullObjectID, err
+				return cas.NullObjectID, err
 			}
 
 			if cachedEntry != nil && e.ObjectID != cachedEntry.ObjectID {
@@ -110,7 +109,7 @@ func (u *uploader) UploadDir(path string, previous content.ObjectID) (content.Ob
 		} else {
 			e.ObjectID, err = u.UploadFile(fullPath)
 			if err != nil {
-				return content.NullObjectID, fmt.Errorf("unable to hash file: %s", err)
+				return cas.NullObjectID, fmt.Errorf("unable to hash file: %s", err)
 			}
 		}
 	}

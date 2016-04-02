@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/kopia/kopia/content"
+	"github.com/kopia/kopia/cas"
 )
 
 // EntryType describes the type of an backup entry.
@@ -69,7 +69,7 @@ type EntryMetadata struct {
 type Entry struct {
 	EntryMetadata
 
-	ObjectID content.ObjectID
+	ObjectID cas.ObjectID
 }
 
 func (e *Entry) metadataEquals(other *Entry) bool {

@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kopia/kopia/content"
 	"github.com/kopia/kopia/storage"
 )
 
@@ -162,7 +161,7 @@ func (r *objectReader) Seek(offset int64, whence int) (int64, error) {
 	return r.currentPosition, nil
 }
 
-func (mgr *objectManager) newRawReader(objectID content.ObjectID) (io.ReadSeeker, error) {
+func (mgr *objectManager) newRawReader(objectID ObjectID) (io.ReadSeeker, error) {
 	inline := objectID.InlineData()
 	if inline != nil {
 		return bytes.NewReader(inline), nil
@@ -174,7 +173,7 @@ func (mgr *objectManager) newRawReader(objectID content.ObjectID) (io.ReadSeeker
 		return nil, err
 	}
 
-	if objectID.EncryptionInfo().Mode() == content.ObjectEncryptionNone {
+	if objectID.EncryptionInfo().Mode() == ObjectEncryptionNone {
 		return bytes.NewReader(payload), nil
 	}
 
@@ -183,7 +182,7 @@ func (mgr *objectManager) newRawReader(objectID content.ObjectID) (io.ReadSeeker
 
 func (mgr *objectManager) flattenListChunk(
 	seekTable []seekTableEntry,
-	listObjectID content.ObjectID,
+	listObjectID ObjectID,
 	rawReader io.Reader) ([]seekTableEntry, error) {
 
 	scanner := bufio.NewScanner(rawReader)
@@ -197,13 +196,13 @@ func (mgr *objectManager) flattenListChunk(
 
 		length, err := strconv.ParseInt(c[0:comma], 10, 64)
 
-		objectID, err := content.ParseObjectID(c[comma+1:])
+		objectID, err := ParseObjectID(c[comma+1:])
 		if err != nil {
 			return nil, fmt.Errorf("unsupported entry '%v' in list '%s': %#v", c, listObjectID, err)
 		}
 
 		switch objectID.Type() {
-		case content.ObjectIDTypeList:
+		case ObjectIDTypeList:
 			subreader, err := mgr.newRawReader(objectID)
 			if err != nil {
 				return nil, err
@@ -214,7 +213,7 @@ func (mgr *objectManager) flattenListChunk(
 				return nil, err
 			}
 
-		case content.ObjectIDTypeStored:
+		case ObjectIDTypeStored:
 			var startOffset int64
 			if len(seekTable) > 0 {
 				startOffset = seekTable[len(seekTable)-1].endOffset()

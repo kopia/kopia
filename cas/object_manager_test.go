@@ -12,7 +12,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kopia/kopia/content"
 	"github.com/kopia/kopia/storage"
 )
 
@@ -53,7 +52,7 @@ func setupTest(t *testing.T) (data map[string][]byte, mgr ObjectManager) {
 func TestWriters(t *testing.T) {
 	cases := []struct {
 		data     []byte
-		objectID content.ObjectID
+		objectID ObjectID
 	}{
 		{[]byte{}, "B"},
 		{[]byte("quick brown fox"), "Tquick brown fox"},
@@ -269,7 +268,7 @@ func TestReader(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		objectID, err := content.ParseObjectID(c.text)
+		objectID, err := ParseObjectID(c.text)
 		if err != nil {
 			t.Errorf("cannot parse object ID: %v", err)
 			continue
@@ -296,7 +295,7 @@ func TestReader(t *testing.T) {
 func TestReaderStoredBlockNotFound(t *testing.T) {
 	_, mgr := setupTest(t)
 
-	objectID, err := content.ParseObjectID("Cno-such-block")
+	objectID, err := ParseObjectID("Cno-such-block")
 	if err != nil {
 		t.Errorf("cannot parse object ID: %v", err)
 	}
@@ -356,14 +355,14 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 func TestFormats(t *testing.T) {
 	cases := []struct {
 		format Format
-		oids   map[string]content.ObjectID
+		oids   map[string]ObjectID
 	}{
 		{
 			format: Format{
 				Version: "1",
 				Hash:    "md5",
 			},
-			oids: map[string]content.ObjectID{
+			oids: map[string]ObjectID{
 				"": "Cd41d8cd98f00b204e9800998ecf8427e",
 				"The quick brown fox jumps over the lazy dog": "C9e107d9d372bb6826bd81d3542a419d6",
 			},
@@ -373,7 +372,7 @@ func TestFormats(t *testing.T) {
 				Version: "1",
 				Hash:    "hmac-md5",
 			},
-			oids: map[string]content.ObjectID{
+			oids: map[string]ObjectID{
 				"": "C74e6f7298a9c2d168935f58c001bad88",
 				"The quick brown fox jumps over the lazy dog": "Cad262969c53bc16032f160081c4a07a0",
 			},
@@ -384,7 +383,7 @@ func TestFormats(t *testing.T) {
 				Hash:    "hmac-md5",
 				Secret:  []byte("key"),
 			},
-			oids: map[string]content.ObjectID{
+			oids: map[string]ObjectID{
 				"The quick brown fox jumps over the lazy dog": "C80070713463e7749b90c2dc24911e275",
 			},
 		},
@@ -394,7 +393,7 @@ func TestFormats(t *testing.T) {
 				Hash:    "hmac-sha1",
 				Secret:  []byte("key"),
 			},
-			oids: map[string]content.ObjectID{
+			oids: map[string]ObjectID{
 				"The quick brown fox jumps over the lazy dog": "Cde7c9b85b8b78aa6bc8a7a36f70a90701c9db4d9",
 			},
 		},
@@ -404,7 +403,7 @@ func TestFormats(t *testing.T) {
 				Hash:    "hmac-sha256",
 				Secret:  []byte("key"),
 			},
-			oids: map[string]content.ObjectID{
+			oids: map[string]ObjectID{
 				"The quick brown fox jumps over the lazy dog": "Cf7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8",
 			},
 		},
@@ -414,7 +413,7 @@ func TestFormats(t *testing.T) {
 				Hash:    "hmac-sha512",
 				Secret:  []byte("key"),
 			},
-			oids: map[string]content.ObjectID{
+			oids: map[string]ObjectID{
 				"The quick brown fox jumps over the lazy dog": "Cb42af09057bac1e2d41708e48a902e09b5ff7f12ab428a4fe86653c73dd248fb82f948a549f7b791a5b41915ee4d1ec3935357e4e2317250d0372afa2ebeeb3a",
 			},
 		},
@@ -425,7 +424,7 @@ func TestFormats(t *testing.T) {
 				Secret:     []byte("key"),
 				Encryption: "aes-128",
 			},
-			oids: map[string]content.ObjectID{
+			oids: map[string]ObjectID{
 				"The quick brown fox jumps over the lazy dog": "Cb42af09057bac1e2d41708e48a902e09b5ff7f12ab428a4fe86653c73dd248fb82f948a549f7b791a5b41915ee4d1ec3:935357e4e2317250d0372afa2ebeeb3a",
 			},
 		},
@@ -436,7 +435,7 @@ func TestFormats(t *testing.T) {
 				Secret:     []byte("key"),
 				Encryption: "aes-192",
 			},
-			oids: map[string]content.ObjectID{
+			oids: map[string]ObjectID{
 				"The quick brown fox jumps over the lazy dog": "Cb42af09057bac1e2d41708e48a902e09b5ff7f12ab428a4fe86653c73dd248fb82f948a549f7b791:a5b41915ee4d1ec3935357e4e2317250d0372afa2ebeeb3a",
 			},
 		},
@@ -447,7 +446,7 @@ func TestFormats(t *testing.T) {
 				Secret:     []byte("key"),
 				Encryption: "aes-256",
 			},
-			oids: map[string]content.ObjectID{
+			oids: map[string]ObjectID{
 				"The quick brown fox jumps over the lazy dog": "Cb42af09057bac1e2d41708e48a902e09b5ff7f12ab428a4fe86653c73dd248fb:82f948a549f7b791a5b41915ee4d1ec3935357e4e2317250d0372afa2ebeeb3a",
 			},
 		},
