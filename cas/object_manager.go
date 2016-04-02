@@ -40,6 +40,7 @@ type ObjectManager interface {
 	Stats() ObjectManagerStats
 }
 
+// ObjectManagerStats exposes statistics about ObjectManager operation
 type ObjectManagerStats struct {
 	HashedBytes   int64
 	HashedBlocks  int32

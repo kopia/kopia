@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -170,27 +169,15 @@ func (mgr *objectManager) newRawReader(objectID content.ObjectID) (io.ReadSeeker
 	}
 
 	blockID := objectID.BlockID()
-	ext := filepath.Ext(string(blockID))
 	payload, err := mgr.repository.GetBlock(blockID)
 	if err != nil {
 		return nil, err
 	}
 
-	switch ext {
-	case "":
-		// Unencrypted data
+	if objectID.EncryptionInfo().Mode() == content.ObjectEncryptionNone {
 		return bytes.NewReader(payload), nil
-
-	case ".e":
-		return mgr.decryptPayload(payload)
-
-	default:
-		return nil, fmt.Errorf("unsupported block format: %v", blockID)
-
 	}
-}
 
-func (mgr *objectManager) decryptPayload(b []byte) (io.ReadSeeker, error) {
 	return nil, nil
 }
 

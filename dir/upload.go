@@ -13,6 +13,7 @@ import (
 	"github.com/kopia/kopia/content"
 )
 
+// ErrUploadCancelled is returned when the upload gets cancelled.
 var ErrUploadCancelled = errors.New("upload cancelled")
 
 // Uploader supports efficient uploading files and directories to CAS storage.
