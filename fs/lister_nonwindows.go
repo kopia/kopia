@@ -1,6 +1,6 @@
 // +build !windows
 
-package dir
+package fs
 
 import (
 	"fmt"
