@@ -23,22 +23,22 @@ func TestLister(t *testing.T) {
 
 	lister := &filesystemLister{}
 
-	var listing Listing
+	var dir Directory
 
 	// Try listing directory that does not exist.
-	listing, err = lister.List(fmt.Sprintf("/no-such-dir-%v", time.Now().Nanosecond()))
+	dir, err = lister.List(fmt.Sprintf("/no-such-dir-%v", time.Now().Nanosecond()))
 	if err == nil {
-		t.Errorf("expected error when listing directory that does not exist.")
+		t.Errorf("expected error when dir directory that does not exist.")
 	}
 
 	// Now list an empty directory that does not exist.
-	listing, err = lister.List(tmp)
+	dir, err = lister.List(tmp)
 	if err != nil {
-		t.Errorf("error when listing empty directory: %v", err)
+		t.Errorf("error when dir empty directory: %v", err)
 	}
 
-	if len(listing.Entries) > 0 {
-		t.Errorf("expected empty directory, got %v", listing)
+	if len(dir.Entries) > 0 {
+		t.Errorf("expected empty directory, got %v", dir)
 	}
 
 	// Now list a directory with 3 files.
@@ -49,32 +49,32 @@ func TestLister(t *testing.T) {
 	os.Mkdir(filepath.Join(tmp, "z"), 0777)
 	os.Mkdir(filepath.Join(tmp, "y"), 0777)
 
-	listing, err = lister.List(tmp)
+	dir, err = lister.List(tmp)
 	if err != nil {
-		t.Errorf("error when listing directory with files: %v", err)
+		t.Errorf("error when dir directory with files: %v", err)
 	}
 
-	if len(listing.Entries) != 5 {
-		t.Errorf("expected 5 files, got: %v", listing)
+	if len(dir.Entries) != 5 {
+		t.Errorf("expected 5 files, got: %v", dir)
 	} else {
 		goodCount := 0
-		if listing.Entries[0].Name == "f1" && listing.Entries[0].Size == 5 && listing.Entries[0].Type == EntryTypeFile {
+		if dir.Entries[0].Name == "f1" && dir.Entries[0].Size == 5 && dir.Entries[0].Type == EntryTypeFile {
 			goodCount++
 		}
-		if listing.Entries[1].Name == "f2" && listing.Entries[1].Size == 4 && listing.Entries[1].Type == EntryTypeFile {
+		if dir.Entries[1].Name == "f2" && dir.Entries[1].Size == 4 && dir.Entries[1].Type == EntryTypeFile {
 			goodCount++
 		}
-		if listing.Entries[2].Name == "f3" && listing.Entries[2].Size == 3 && listing.Entries[2].Type == EntryTypeFile {
+		if dir.Entries[2].Name == "f3" && dir.Entries[2].Size == 3 && dir.Entries[2].Type == EntryTypeFile {
 			goodCount++
 		}
-		if listing.Entries[3].Name == "y" && listing.Entries[3].Size == 0 && listing.Entries[3].Type == EntryTypeDirectory {
+		if dir.Entries[3].Name == "y" && dir.Entries[3].Size == 0 && dir.Entries[3].Type == EntryTypeDirectory {
 			goodCount++
 		}
-		if listing.Entries[4].Name == "z" && listing.Entries[4].Size == 0 && listing.Entries[4].Type == EntryTypeDirectory {
+		if dir.Entries[4].Name == "z" && dir.Entries[4].Size == 0 && dir.Entries[4].Type == EntryTypeDirectory {
 			goodCount++
 		}
 		if goodCount != 5 {
-			t.Errorf("invalid listing data:\n%v", listing)
+			t.Errorf("invalid dir data:\n%v", dir)
 		}
 	}
 }

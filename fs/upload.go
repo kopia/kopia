@@ -65,7 +65,7 @@ func (u *uploader) UploadDir(path string, previous cas.ObjectID) (cas.ObjectID, 
 		return cas.NullObjectID, err
 	}
 
-	var cached Listing
+	var cached Directory
 
 	if previous != "" {
 		if r, err := u.mgr.Open(previous); err == nil {

@@ -96,10 +96,10 @@ func NewWriter(w io.Writer) Writer {
 	}
 }
 
-func WriteDir(w io.Writer, listing Listing) error {
+func WriteDir(w io.Writer, dir Directory) error {
 	dw := NewWriter(w)
 
-	for _, d := range listing.Entries {
+	for _, d := range dir.Entries {
 		if err := dw.WriteEntry(d); err != nil {
 			return err
 		}
@@ -108,25 +108,25 @@ func WriteDir(w io.Writer, listing Listing) error {
 	return nil
 }
 
-func ReadDir(r io.Reader) (Listing, error) {
+func ReadDir(r io.Reader) (Directory, error) {
 	var err error
 
 	s := bufio.NewScanner(r)
 	if !s.Scan() {
-		return Listing{}, fmt.Errorf("empty file")
+		return Directory{}, fmt.Errorf("empty file")
 	}
 
 	if !bytes.Equal(s.Bytes(), header) {
-		return Listing{}, fmt.Errorf("invalid header: expected '%v' got '%v'", header, s.Bytes())
+		return Directory{}, fmt.Errorf("invalid header: expected '%v' got '%v'", header, s.Bytes())
 	}
 
-	l := Listing{}
+	l := Directory{}
 
 	for s.Scan() {
 		line := s.Bytes()
 		var v serializedDirectoryEntryV1
 		if err := json.Unmarshal(line, &v); err != nil {
-			return Listing{}, nil
+			return Directory{}, nil
 		}
 
 		e := &Entry{}
@@ -135,18 +135,18 @@ func ReadDir(r io.Reader) (Listing, error) {
 		e.GroupID = v.GroupID
 		e.ObjectID, err = cas.ParseObjectID(v.ObjectID)
 		if err != nil {
-			return Listing{}, nil
+			return Directory{}, nil
 		}
 		m, err := strconv.ParseInt(v.Mode, 8, 16)
 		if err != nil {
-			return Listing{}, nil
+			return Directory{}, nil
 		}
 		e.Mode = int16(m)
 		e.ModTime = v.ModTime
 		e.Type = EntryType(v.Type)
 		if e.Type == EntryTypeFile {
 			if v.FileSize == nil {
-				return Listing{}, fmt.Errorf("missing file size")
+				return Directory{}, fmt.Errorf("missing file size")
 			}
 
 			e.Size = *v.FileSize

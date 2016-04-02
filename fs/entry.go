@@ -87,9 +87,3 @@ func (e *Entry) String() string {
 		e.Name, e.Type, e.ModTime, e.Size, e.ObjectID, e.UserID, e.GroupID,
 	)
 }
-
-// Directory contains access to contents of directory, both in original order and indexed by name.
-type Directory struct {
-	Ordered []*Entry
-	ByName  map[string]*Entry
-}
