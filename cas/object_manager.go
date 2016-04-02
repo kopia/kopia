@@ -51,7 +51,6 @@ type keygenFunc func([]byte) (key []byte, locator []byte)
 type objectManager struct {
 	repository    storage.Repository
 	verbose       bool
-	formatter     objectFormatter
 	bufferManager *bufferManager
 	stats         ObjectManagerStats
 
