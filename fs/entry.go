@@ -54,7 +54,7 @@ func FileModeToType(mode os.FileMode) EntryType {
 	}
 }
 
-// EntryMetadata stores metadata about a directory entry but not to its content.
+// EntryMetadata stores metadata about a directory entry but not related its content.
 type EntryMetadata struct {
 	Name    string
 	Size    int64
@@ -78,7 +78,6 @@ func (e *Entry) metadataEquals(other *Entry) bool {
 	}
 
 	return e.EntryMetadata == other.EntryMetadata
-
 }
 
 func (e *Entry) String() string {
