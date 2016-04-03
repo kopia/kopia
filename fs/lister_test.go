@@ -3,6 +3,7 @@ package fs
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -37,8 +38,10 @@ func TestLister(t *testing.T) {
 		t.Errorf("error when dir empty directory: %v", err)
 	}
 
-	if len(dir.Entries) > 0 {
-		t.Errorf("expected empty directory, got %v", dir)
+	ae := readAllEntries(dir)
+
+	if len(ae) > 0 {
+		t.Errorf("expected empty directory, got %v", ae)
 	}
 
 	// Now list a directory with 3 files.
@@ -54,27 +57,37 @@ func TestLister(t *testing.T) {
 		t.Errorf("error when dir directory with files: %v", err)
 	}
 
-	if len(dir.Entries) != 5 {
-		t.Errorf("expected 5 files, got: %v", dir)
-	} else {
-		goodCount := 0
-		if dir.Entries[0].Name == "f1" && dir.Entries[0].Size == 5 && dir.Entries[0].Type == EntryTypeFile {
-			goodCount++
-		}
-		if dir.Entries[1].Name == "f2" && dir.Entries[1].Size == 4 && dir.Entries[1].Type == EntryTypeFile {
-			goodCount++
-		}
-		if dir.Entries[2].Name == "f3" && dir.Entries[2].Size == 3 && dir.Entries[2].Type == EntryTypeFile {
-			goodCount++
-		}
-		if dir.Entries[3].Name == "y" && dir.Entries[3].Size == 0 && dir.Entries[3].Type == EntryTypeDirectory {
-			goodCount++
-		}
-		if dir.Entries[4].Name == "z" && dir.Entries[4].Size == 0 && dir.Entries[4].Type == EntryTypeDirectory {
-			goodCount++
-		}
-		if goodCount != 5 {
-			t.Errorf("invalid dir data:\n%v", dir)
-		}
+	ae = readAllEntries(dir)
+
+	goodCount := 0
+
+	if ae[0].Name == "f1" && ae[0].Size == 5 && ae[0].Type == EntryTypeFile {
+		goodCount++
 	}
+	if ae[1].Name == "f2" && ae[1].Size == 4 && ae[1].Type == EntryTypeFile {
+		goodCount++
+	}
+	if ae[2].Name == "f3" && ae[2].Size == 3 && ae[2].Type == EntryTypeFile {
+		goodCount++
+	}
+	if ae[3].Name == "y" && ae[3].Size == 0 && ae[3].Type == EntryTypeDirectory {
+		goodCount++
+	}
+	if ae[4].Name == "z" && ae[4].Size == 0 && ae[4].Type == EntryTypeDirectory {
+		goodCount++
+	}
+	if goodCount != 5 {
+		t.Errorf("invalid dir data:\n%v", ae)
+	}
+}
+
+func readAllEntries(dir Directory) []*Entry {
+	var entries []*Entry
+	for d := range dir {
+		if d.Error != nil {
+			log.Fatalf("got error listing directory: %v", d.Error)
+		}
+		entries = append(entries, d.Entry)
+	}
+	return entries
 }

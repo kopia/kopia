@@ -41,6 +41,11 @@ func (s *mapStorage) PutBlock(id BlockID, data io.ReadCloser, options PutOptions
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
+	if _, ok := s.data[string(id)]; ok {
+		data.Close()
+		return nil
+	}
+
 	c, err := ioutil.ReadAll(data)
 	data.Close()
 	if err != nil {

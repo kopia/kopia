@@ -9,54 +9,49 @@ import (
 )
 
 func TestJSON(t *testing.T) {
-	dir := Directory{
-		Entries: []*Entry{
-			&Entry{
-				EntryMetadata: EntryMetadata{
-					Type:    EntryTypeDirectory,
-					Name:    "d1",
-					Mode:    0555,
-					ModTime: time.Unix(1458876568, 0),
-				},
-				ObjectID: "foo",
-			},
-
-			&Entry{
-				EntryMetadata: EntryMetadata{
-					Type:    EntryTypeDirectory,
-					Name:    "d2",
-					Mode:    0754,
-					ModTime: time.Unix(1451871568, 0),
-				},
-				ObjectID: "bar",
-			},
-
-			&Entry{
-				EntryMetadata: EntryMetadata{
-					Type:    EntryTypeFile,
-					Name:    "f1",
-					Mode:    0644,
-					ModTime: time.Unix(1451871368, 0),
-					Size:    123456,
-				},
-				ObjectID: "baz",
-			},
-
-			&Entry{
-				EntryMetadata: EntryMetadata{
-					Type:    EntryTypeFile,
-					Name:    "f2",
-					Mode:    0644,
-					ModTime: time.Unix(1451871331, 123456789),
-					Size:    12,
-				},
-				ObjectID: "qoo",
-			},
-		},
-	}
-
 	b := bytes.NewBuffer(nil)
-	dir.writeJSON(b)
+	writeDirectoryHeader(b)
+	writeDirectoryEntry(b, &Entry{
+		EntryMetadata: EntryMetadata{
+			Type:    EntryTypeDirectory,
+			Name:    "d1",
+			Mode:    0555,
+			ModTime: time.Unix(1458876568, 0),
+		},
+		ObjectID: "foo",
+	})
+
+	writeDirectoryEntry(b, &Entry{
+		EntryMetadata: EntryMetadata{
+			Type:    EntryTypeDirectory,
+			Name:    "d2",
+			Mode:    0754,
+			ModTime: time.Unix(1451871568, 0),
+		},
+		ObjectID: "bar",
+	})
+
+	writeDirectoryEntry(b, &Entry{
+		EntryMetadata: EntryMetadata{
+			Type:    EntryTypeFile,
+			Name:    "f1",
+			Mode:    0644,
+			ModTime: time.Unix(1451871368, 0),
+			Size:    123456,
+		},
+		ObjectID: "baz",
+	})
+
+	writeDirectoryEntry(b, &Entry{
+		EntryMetadata: EntryMetadata{
+			Type:    EntryTypeFile,
+			Name:    "f2",
+			Mode:    0644,
+			ModTime: time.Unix(1451871331, 123456789),
+			Size:    12,
+		},
+		ObjectID: "qoo",
+	})
 
 	assertLines(
 		t,

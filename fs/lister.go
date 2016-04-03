@@ -1,8 +1,12 @@
 package fs
 
 import (
-	"io/ioutil"
+	"io"
 	"os"
+)
+
+const (
+	directoryReadAhead = 1024
 )
 
 // Lister lists contents of filesystem directories.
@@ -13,32 +17,40 @@ type Lister interface {
 type filesystemLister struct {
 }
 
-func (d *filesystemLister) List(path string) (Directory, error) {
-	listing := Directory{}
-	entries, err := ioutil.ReadDir(path)
-	if err != nil {
-		return listing, err
-	}
-
-	for _, fi := range entries {
-		switch fi.Name() {
-		case ".":
-		case "..":
-			continue
-		}
-
-		e, err := entryFromFileSystemInfo(path, fi)
-		if err != nil {
-			return listing, err
-		}
-
-		listing.Entries = append(listing.Entries, e)
-	}
-
-	return listing, nil
+type localStreamingDirectory struct {
+	dir     *os.File
+	pending []os.FileInfo
 }
 
-func entryFromFileSystemInfo(parentDir string, fi os.FileInfo) (*Entry, error) {
+func (d *filesystemLister) List(path string) (Directory, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+
+	ch := make(Directory, 16)
+	go func() {
+		for {
+			fileInfos, err := f.Readdir(16)
+			for _, fi := range fileInfos {
+				ch <- entryFromFileSystemInfo(path, fi)
+			}
+			if err == nil {
+				continue
+			}
+			if err == io.EOF {
+				break
+			}
+			ch <- EntryOrError{Error: err}
+		}
+		f.Close()
+		close(ch)
+	}()
+
+	return ch, nil
+}
+
+func entryFromFileSystemInfo(parentDir string, fi os.FileInfo) EntryOrError {
 	e := &Entry{
 		EntryMetadata: EntryMetadata{
 			Name:    fi.Name(),
@@ -53,8 +65,8 @@ func entryFromFileSystemInfo(parentDir string, fi os.FileInfo) (*Entry, error) {
 	}
 
 	if err := populatePlatformSpecificEntryDetails(e, fi); err != nil {
-		return nil, err
+		return EntryOrError{Error: err}
 	}
 
-	return e, nil
+	return EntryOrError{Entry: e}
 }

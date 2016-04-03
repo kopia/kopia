@@ -101,7 +101,7 @@ func TestUpload(t *testing.T) {
 	log.Printf("oid3: %v", oid3)
 
 	if oid2 == oid3 {
-		t.Errorf("expected oid3!=oid2, got %v and %v", oid3, oid2)
+		t.Errorf("expected oid3!=oid2, got %v", oid3)
 	}
 
 	oid4, err := u.UploadDir(sourceDir, "")

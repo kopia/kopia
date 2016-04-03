@@ -14,8 +14,8 @@ import (
 )
 
 var (
-	header  = []byte("DIRECTORY:v1")
-	newLine = []byte("\n")
+	directoryHeader = []byte("DIRECTORY:v1")
+	newLine         = []byte("\n")
 )
 
 type writer struct {
@@ -55,96 +55,84 @@ func serializeManifestEntry(e *Entry) []byte {
 	return jsonBytes
 }
 
-func (w *writer) WriteEntry(e *Entry) error {
+func writeDirectoryHeader(w io.Writer) error {
+	if _, err := w.Write(directoryHeader); err != nil {
+		return err
+	}
+	if _, err := w.Write(newLine); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func writeDirectoryEntry(w io.Writer, e *Entry) error {
 	if e.Type == "" {
 		return errors.New("missing entry type")
 	}
 
-	if w.lastEntryType == "" {
-		if _, err := w.objectWriter.Write(header); err != nil {
-			return err
-		}
-		if _, err := w.objectWriter.Write(newLine); err != nil {
-			return err
-		}
-	} else {
-		if w.lastEntryType != e.Type && e.Type == EntryTypeDirectory {
-			return errors.New("directories must be added before non-directories")
-		}
-	}
-	w.lastEntryType = e.Type
-
 	s := serializeManifestEntry(e)
-	if _, err := w.objectWriter.Write(s); err != nil {
+	if _, err := w.Write(s); err != nil {
 		return err
 	}
-	if _, err := w.objectWriter.Write(newLine); err != nil {
+	if _, err := w.Write(newLine); err != nil {
 		return err
-	}
-	return nil
-}
-
-func (dir Directory) writeJSON(w io.Writer) error {
-	dw := &writer{
-		objectWriter: w,
-	}
-
-	for _, d := range dir.Entries {
-		if err := dw.WriteEntry(d); err != nil {
-			return err
-		}
 	}
 
 	return nil
 }
 
-func (dir *Directory) readJSON(r io.Reader) error {
-	var err error
-
+func ReadDirectory(r io.Reader) (Directory, error) {
 	s := bufio.NewScanner(r)
 	if !s.Scan() {
-		return fmt.Errorf("empty file")
+		return nil, fmt.Errorf("empty file")
 	}
 
-	if !bytes.Equal(s.Bytes(), header) {
-		return fmt.Errorf("invalid header: expected '%v' got '%v'", header, s.Bytes())
+	if !bytes.Equal(s.Bytes(), directoryHeader) {
+		return nil, fmt.Errorf("invalid directoryHeader: expected '%v' got '%v'", directoryHeader, s.Bytes())
 	}
 
-	var entries []*Entry
+	ch := make(Directory)
+	go func() {
+		var err error
 
-	for s.Scan() {
-		line := s.Bytes()
-		var v serializedDirectoryEntryV1
-		if err := json.Unmarshal(line, &v); err != nil {
-			return nil
-		}
-
-		e := &Entry{}
-		e.Name = v.Name
-		e.UserID = v.UserID
-		e.GroupID = v.GroupID
-		e.ObjectID, err = cas.ParseObjectID(v.ObjectID)
-		if err != nil {
-			return nil
-		}
-		m, err := strconv.ParseInt(v.Mode, 8, 16)
-		if err != nil {
-			return nil
-		}
-		e.Mode = int16(m)
-		e.ModTime = v.ModTime
-		e.Type = EntryType(v.Type)
-		if e.Type == EntryTypeFile {
-			if v.FileSize == nil {
-				return fmt.Errorf("missing file size")
+		for s.Scan() {
+			line := s.Bytes()
+			var v serializedDirectoryEntryV1
+			if err := json.Unmarshal(line, &v); err != nil {
+				ch <- EntryOrError{Error: err}
 			}
 
-			e.Size = *v.FileSize
+			e := &Entry{}
+			e.Name = v.Name
+			e.UserID = v.UserID
+			e.GroupID = v.GroupID
+			e.ObjectID, err = cas.ParseObjectID(v.ObjectID)
+			if err != nil {
+				ch <- EntryOrError{Error: err}
+				continue
+			}
+			m, err := strconv.ParseInt(v.Mode, 8, 16)
+			if err != nil {
+				ch <- EntryOrError{Error: err}
+				continue
+			}
+			e.Mode = int16(m)
+			e.ModTime = v.ModTime
+			e.Type = EntryType(v.Type)
+			if e.Type == EntryTypeFile {
+				if v.FileSize == nil {
+					ch <- EntryOrError{Error: fmt.Errorf("missing file size")}
+					continue
+				}
+
+				e.Size = *v.FileSize
+			}
+
+			ch <- EntryOrError{Entry: e}
 		}
+		close(ch)
+	}()
 
-		entries = append(entries, e)
-	}
-
-	dir.Entries = entries
-	return nil
+	return ch, nil
 }

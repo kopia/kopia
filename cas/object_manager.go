@@ -40,6 +40,7 @@ type ObjectManager interface {
 	Storage() blob.Storage
 	Close()
 
+	ResetStats()
 	Stats() ObjectManagerStats
 }
 
@@ -48,14 +49,17 @@ type ObjectManagerStats struct {
 	HashedBytes  int64
 	HashedBlocks int32
 
+	BlocksReadFromStorage int32
 	BytesReadFromStorage  int64
-	BytesWrittenToStorage int64
+
+	BlocksWrittenToStorage int32
+	BytesWrittenToStorage  int64
 
 	EncryptedBytes int64
 	DecryptedBytes int64
 
-	InvalidBlobs int32
-	ValidBlobs   int32
+	InvalidBlocks int32
+	ValidBlocks   int32
 }
 
 type keygenFunc func([]byte) (key []byte, locator []byte)
@@ -81,6 +85,10 @@ func (mgr *objectManager) Close() {
 
 func (mgr *objectManager) Flush() error {
 	return mgr.storage.Flush()
+}
+
+func (mgr *objectManager) ResetStats() {
+	mgr.stats = ObjectManagerStats{}
 }
 
 func (mgr *objectManager) Stats() ObjectManagerStats {
@@ -264,6 +272,7 @@ func (mgr *objectManager) hashBufferForWriting(buffer *bytes.Buffer, prefix stri
 		objectID = ObjectID(prefix + hex.EncodeToString(contentHash))
 	}
 
+	atomic.AddInt32(&mgr.stats.HashedBlocks, 1)
 	atomic.AddInt64(&mgr.stats.HashedBytes, int64(len(data)))
 
 	if buffer == nil {
@@ -362,6 +371,7 @@ func (mgr *objectManager) newRawReader(objectID ObjectID) (io.ReadSeeker, error)
 		return nil, err
 	}
 
+	atomic.AddInt32(&mgr.stats.BlocksReadFromStorage, 1)
 	atomic.AddInt64(&mgr.stats.BytesReadFromStorage, int64(len(payload)))
 
 	if objectID.EncryptionInfo() == NoEncryption {
@@ -404,10 +414,10 @@ func (mgr *objectManager) verifyChecksum(data []byte, blockID blob.BlockID) erro
 	payloadHash, _ := mgr.hashBuffer(data)
 	checksum := hex.EncodeToString(payloadHash)
 	if !strings.HasSuffix(string(blockID), checksum) {
-		atomic.AddInt32(&mgr.stats.InvalidBlobs, 1)
+		atomic.AddInt32(&mgr.stats.InvalidBlocks, 1)
 		return fmt.Errorf("invalid checksum for blob: '%v'", blockID)
 	}
 
-	atomic.AddInt32(&mgr.stats.ValidBlobs, 1)
+	atomic.AddInt32(&mgr.stats.ValidBlocks, 1)
 	return nil
 }

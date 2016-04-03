@@ -4,12 +4,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"sync/atomic"
 
 	"github.com/kopia/kopia/cas"
+)
+
+const (
+	maxDirReadAheadCount = 256
 )
 
 // ErrUploadCancelled is returned when the upload gets cancelled.
@@ -55,6 +58,38 @@ func (u *uploader) UploadFile(path string) (cas.ObjectID, error) {
 	return result, nil
 }
 
+type readaheadDirectory struct {
+	src                 Directory
+	unreadEntriesByName map[string]*Entry
+}
+
+func (ra *readaheadDirectory) FindByName(name string) *Entry {
+	if e, ok := ra.unreadEntriesByName[name]; ok {
+		delete(ra.unreadEntriesByName, name)
+		return e
+	}
+
+	for ra.src != nil && len(ra.unreadEntriesByName) < maxDirReadAheadCount {
+		next, ok := <-ra.src
+		if !ok {
+			ra.src = nil
+			break
+		}
+		if next.Error == nil {
+			if next.Entry.Name == name {
+				return next.Entry
+			}
+			ra.unreadEntriesByName[next.Entry.Name] = next.Entry
+		}
+	}
+
+	return nil
+}
+
+func (ra *readaheadDirectory) hasUnreadEntries() bool {
+	return len(ra.unreadEntriesByName) > 0
+}
+
 func (u *uploader) UploadDir(path string, previous cas.ObjectID) (cas.ObjectID, error) {
 	if u.isCancelled() {
 		return previous, ErrUploadCancelled
@@ -65,23 +100,34 @@ func (u *uploader) UploadDir(path string, previous cas.ObjectID) (cas.ObjectID, 
 		return cas.NullObjectID, err
 	}
 
-	var cached Directory
+	var cached = emptyDirectory
 
 	if previous != "" {
 		if r, err := u.mgr.Open(previous); err == nil {
-			err = cached.readJSON(r)
-			if err != nil {
-				log.Printf("WARNING: unable to cached read directory: %v", err)
-			}
+			cached, _ = ReadDirectory(r)
 		}
 	}
 
-	directoryMatchesCache := len(cached.Entries) == len(dir.Entries)
-	for _, e := range dir.Entries {
+	ra := readaheadDirectory{
+		src:                 cached,
+		unreadEntriesByName: map[string]*Entry{},
+	}
+
+	writer := u.mgr.NewWriter(
+		cas.WithDescription("DIR:"+path),
+		cas.WithBlockNamePrefix("D"),
+	)
+
+	writeDirectoryHeader(writer)
+	defer writer.Close()
+
+	directoryMatchesCache := true
+	for de := range dir {
+		e := de.Entry
 		fullPath := filepath.Join(path, e.Name)
 
 		// See if we had this name during previous pass.
-		cachedEntry := cached.FindEntryName(e.Name)
+		cachedEntry := ra.FindByName(e.Name)
 
 		// ... and whether file metadata is identical to the previous one.
 		cachedMetadataMatches := e.metadataEquals(cachedEntry)
@@ -112,19 +158,18 @@ func (u *uploader) UploadDir(path string, previous cas.ObjectID) (cas.ObjectID, 
 				return cas.NullObjectID, fmt.Errorf("unable to hash file: %s", err)
 			}
 		}
+
+		writeDirectoryEntry(writer, e)
+	}
+
+	if ra.hasUnreadEntries() {
+		directoryMatchesCache = false
 	}
 
 	if directoryMatchesCache && previous != "" {
+		// Avoid hashing directory listingif every entry matched the previous (possibly ignoring ordering).
 		return previous, nil
 	}
-
-	writer := u.mgr.NewWriter(
-		cas.WithDescription("DIR:"+path),
-		cas.WithBlockNamePrefix("D"),
-	)
-	defer writer.Close()
-
-	dir.writeJSON(writer)
 
 	return writer.Result(true)
 }
