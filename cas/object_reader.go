@@ -1,12 +1,8 @@
 package cas
 
 import (
-	"bufio"
-	"bytes"
 	"fmt"
 	"io"
-	"strconv"
-	"strings"
 
 	"github.com/kopia/kopia/blob"
 )
@@ -155,81 +151,4 @@ func (r *objectReader) Seek(offset int64, whence int) (int64, error) {
 	r.currentPosition = offset
 
 	return r.currentPosition, nil
-}
-
-func (mgr *objectManager) newRawReader(objectID ObjectID) (io.ReadSeeker, error) {
-	inline := objectID.InlineData()
-	if inline != nil {
-		return bytes.NewReader(inline), nil
-	}
-
-	blockID := objectID.BlockID()
-	payload, err := mgr.storage.GetBlock(blockID)
-	if err != nil {
-		return nil, err
-	}
-
-	if objectID.EncryptionInfo().Mode() == ObjectEncryptionNone {
-		return bytes.NewReader(payload), nil
-	}
-
-	return nil, nil
-}
-
-func (mgr *objectManager) flattenListChunk(
-	seekTable []seekTableEntry,
-	listObjectID ObjectID,
-	rawReader io.Reader) ([]seekTableEntry, error) {
-
-	scanner := bufio.NewScanner(rawReader)
-
-	for scanner.Scan() {
-		c := scanner.Text()
-		comma := strings.Index(c, ",")
-		if comma <= 0 {
-			return nil, fmt.Errorf("unsupported entry '%v' in list '%s'", c, listObjectID)
-		}
-
-		length, err := strconv.ParseInt(c[0:comma], 10, 64)
-
-		objectID, err := ParseObjectID(c[comma+1:])
-		if err != nil {
-			return nil, fmt.Errorf("unsupported entry '%v' in list '%s': %#v", c, listObjectID, err)
-		}
-
-		switch objectID.Type() {
-		case ObjectIDTypeList:
-			subreader, err := mgr.newRawReader(objectID)
-			if err != nil {
-				return nil, err
-			}
-
-			seekTable, err = mgr.flattenListChunk(seekTable, objectID, subreader)
-			if err != nil {
-				return nil, err
-			}
-
-		case ObjectIDTypeStored:
-			var startOffset int64
-			if len(seekTable) > 0 {
-				startOffset = seekTable[len(seekTable)-1].endOffset()
-			} else {
-				startOffset = 0
-			}
-
-			seekTable = append(
-				seekTable,
-				seekTableEntry{
-					blockID:     objectID.BlockID(),
-					startOffset: startOffset,
-					length:      length,
-				})
-
-		default:
-			return nil, fmt.Errorf("unsupported entry '%v' in list '%v'", objectID, listObjectID)
-
-		}
-	}
-
-	return seekTable, nil
 }

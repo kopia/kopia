@@ -6,6 +6,7 @@ import (
 )
 
 // Directory represents contents of a directory.
+// All entries are sorted by name.
 type Directory struct {
 	Entries []*Entry
 }

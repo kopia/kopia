@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"strconv"
 	"strings"
 	"unicode/utf8"
 
@@ -18,51 +17,11 @@ var (
 // ObjectIDType describes the type of the chunk.
 type ObjectIDType string
 
-// EncryptionMode specifies encryption mode used to encrypt an object.
-type EncryptionMode byte
-
-// Supported encryption modes.
-const (
-	ObjectEncryptionNone EncryptionMode = iota
-	ObjectEncryptionModeAES256
-	objectEncryptionMax
-	objectEncryptionInvalid
-)
-
 // ObjectEncryptionInfo represents encryption info associated with ObjectID.
 type ObjectEncryptionInfo string
 
 // NoEncryption indicates that the object is not encrypted.
 var NoEncryption = ObjectEncryptionInfo("")
-
-// Mode returns EncryptionMode for the object.
-func (oei ObjectEncryptionInfo) Mode() EncryptionMode {
-	if len(oei) == 0 {
-		return ObjectEncryptionNone
-	}
-
-	if len(oei)%2 != 0 {
-		return objectEncryptionInvalid
-	}
-
-	v, err := strconv.ParseInt(string(oei[0:2]), 16, 8)
-	if err != nil {
-		return objectEncryptionInvalid
-	}
-
-	m := EncryptionMode(v)
-	switch m {
-	case ObjectEncryptionModeAES256:
-		if len(oei) != 66 {
-			return objectEncryptionInvalid
-		}
-
-	default:
-		return objectEncryptionInvalid
-	}
-
-	return m
-}
 
 const (
 	// ObjectIDTypeText represents text-only inline object ID
@@ -195,13 +154,9 @@ func ParseObjectID(objectIDString string) (ObjectID, error) {
 
 				if firstColon > 0 {
 					b, err := hex.DecodeString(content[firstColon+1:])
-					if err == nil && len(b) > 0 {
+					if err == nil && len(b) > 0 && len(b)%2 == 0 {
 						// Valid chunk ID with encryption info.
-						oid := ObjectID(objectIDString)
-
-						if oid.EncryptionInfo().Mode() < objectEncryptionMax {
-							return oid, nil
-						}
+						return ObjectID(objectIDString), nil
 					}
 				}
 			}

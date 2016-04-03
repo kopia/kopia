@@ -1,6 +1,7 @@
 package cas
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
@@ -10,10 +11,13 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"hash"
 	"io"
 	"io/ioutil"
+	"log"
+	"strconv"
 	"strings"
 	"sync/atomic"
 
@@ -41,9 +45,17 @@ type ObjectManager interface {
 
 // ObjectManagerStats exposes statistics about ObjectManager operation
 type ObjectManagerStats struct {
-	HashedBytes   int64
-	HashedBlocks  int32
-	UploadedBytes int64
+	HashedBytes  int64
+	HashedBlocks int32
+
+	BytesReadFromStorage  int64
+	BytesWrittenToStorage int64
+
+	EncryptedBytes int64
+	DecryptedBytes int64
+
+	InvalidBlobs int32
+	ValidBlobs   int32
 }
 
 type keygenFunc func([]byte) (key []byte, locator []byte)
@@ -222,8 +234,20 @@ func NewObjectManager(
 func splitHash(keySize int) keygenFunc {
 	return func(b []byte) ([]byte, []byte) {
 		p := len(b) - keySize
-		return b[p:], b[0:p]
+		return b[0:p], b[p:]
 	}
+}
+
+func (mgr *objectManager) hashBuffer(data []byte) ([]byte, []byte) {
+	h := mgr.hashFunc()
+	h.Write(data)
+	contentHash := h.Sum(nil)
+
+	if mgr.keygen != nil {
+		return mgr.keygen(contentHash)
+	}
+
+	return contentHash, nil
 }
 
 func (mgr *objectManager) hashBufferForWriting(buffer *bytes.Buffer, prefix string) (ObjectID, io.ReadCloser) {
@@ -232,15 +256,9 @@ func (mgr *objectManager) hashBufferForWriting(buffer *bytes.Buffer, prefix stri
 		data = buffer.Bytes()
 	}
 
-	h := mgr.hashFunc()
-	h.Write(data)
-	contentHash := h.Sum(nil)
-
+	contentHash, cryptoKey := mgr.hashBuffer(data)
 	var objectID ObjectID
-	var cryptoKey []byte
-
-	if mgr.createCipher != nil {
-		cryptoKey, contentHash = mgr.keygen(contentHash)
+	if cryptoKey != nil {
 		objectID = ObjectID(prefix + hex.EncodeToString(contentHash) + ":" + hex.EncodeToString(cryptoKey))
 	} else {
 		objectID = ObjectID(prefix + hex.EncodeToString(contentHash))
@@ -253,19 +271,143 @@ func (mgr *objectManager) hashBufferForWriting(buffer *bytes.Buffer, prefix stri
 	}
 
 	readCloser := mgr.bufferManager.returnBufferOnClose(buffer)
+	readCloser = newCountingReader(readCloser, &mgr.stats.BytesWrittenToStorage)
 
 	if cryptoKey != nil {
 		c, err := mgr.createCipher(cryptoKey)
 		if err != nil {
-			panic("can't create cipher")
+			log.Printf("can't create cipher: %v", err)
+			panic("can't encrypt block")
 		}
 
 		// Since we're not sharing the key, all-zero IV is ok.
 		// We don't need to worry about separate MAC either, since hashing content produces object ID.
 		ctr := cipher.NewCTR(c, constantIV[0:c.BlockSize()])
 
-		readCloser = newEncryptingReader(readCloser, nil, ctr, nil)
+		readCloser = newCountingReader(
+			newEncryptingReader(readCloser, nil, ctr, nil),
+			&mgr.stats.EncryptedBytes)
 	}
 
 	return objectID, readCloser
+}
+
+func (mgr *objectManager) flattenListChunk(
+	seekTable []seekTableEntry,
+	listObjectID ObjectID,
+	rawReader io.Reader) ([]seekTableEntry, error) {
+
+	scanner := bufio.NewScanner(rawReader)
+
+	for scanner.Scan() {
+		c := scanner.Text()
+		comma := strings.Index(c, ",")
+		if comma <= 0 {
+			return nil, fmt.Errorf("unsupported entry '%v' in list '%s'", c, listObjectID)
+		}
+
+		length, err := strconv.ParseInt(c[0:comma], 10, 64)
+
+		objectID, err := ParseObjectID(c[comma+1:])
+		if err != nil {
+			return nil, fmt.Errorf("unsupported entry '%v' in list '%s': %#v", c, listObjectID, err)
+		}
+
+		switch objectID.Type() {
+		case ObjectIDTypeList:
+			subreader, err := mgr.newRawReader(objectID)
+			if err != nil {
+				return nil, err
+			}
+
+			seekTable, err = mgr.flattenListChunk(seekTable, objectID, subreader)
+			if err != nil {
+				return nil, err
+			}
+
+		case ObjectIDTypeStored:
+			var startOffset int64
+			if len(seekTable) > 0 {
+				startOffset = seekTable[len(seekTable)-1].endOffset()
+			} else {
+				startOffset = 0
+			}
+
+			seekTable = append(
+				seekTable,
+				seekTableEntry{
+					blockID:     objectID.BlockID(),
+					startOffset: startOffset,
+					length:      length,
+				})
+
+		default:
+			return nil, fmt.Errorf("unsupported entry '%v' in list '%v'", objectID, listObjectID)
+
+		}
+	}
+
+	return seekTable, nil
+}
+
+func (mgr *objectManager) newRawReader(objectID ObjectID) (io.ReadSeeker, error) {
+	inline := objectID.InlineData()
+	if inline != nil {
+		return bytes.NewReader(inline), nil
+	}
+
+	blockID := objectID.BlockID()
+	payload, err := mgr.storage.GetBlock(blockID)
+	if err != nil {
+		return nil, err
+	}
+
+	atomic.AddInt64(&mgr.stats.BytesReadFromStorage, int64(len(payload)))
+
+	if objectID.EncryptionInfo() == NoEncryption {
+		if err := mgr.verifyChecksum(payload, objectID.BlockID()); err != nil {
+			return nil, err
+		}
+		return bytes.NewReader(payload), nil
+	}
+
+	if mgr.createCipher == nil {
+		return nil, errors.New("encrypted object cannot be used with non-encrypted ObjectManager")
+	}
+
+	cryptoKey, err := hex.DecodeString(string(objectID.EncryptionInfo()))
+	if err != nil {
+		return nil, errors.New("malformed encryption key")
+	}
+
+	blockCipher, err := mgr.createCipher(cryptoKey)
+	if err != nil {
+		return nil, errors.New("cannot create cipher")
+	}
+
+	iv := constantIV[0:blockCipher.BlockSize()]
+	ctr := cipher.NewCTR(blockCipher, iv)
+	ctr.XORKeyStream(payload, payload)
+
+	// Since the encryption key is a function of data, we must be able to generate exactly the same key
+	// after decrypting the content. This serves as a checksum.
+	atomic.AddInt64(&mgr.stats.DecryptedBytes, int64(len(payload)))
+
+	if err := mgr.verifyChecksum(payload, objectID.BlockID()); err != nil {
+		return nil, err
+	}
+
+	return bytes.NewReader(payload), nil
+}
+
+func (mgr *objectManager) verifyChecksum(data []byte, blockID blob.BlockID) error {
+	payloadHash, _ := mgr.hashBuffer(data)
+	checksum := hex.EncodeToString(payloadHash)
+	if !strings.HasSuffix(string(blockID), checksum) {
+		atomic.AddInt32(&mgr.stats.InvalidBlobs, 1)
+		return fmt.Errorf("invalid checksum for blob: '%v'", blockID)
+	}
+
+	atomic.AddInt32(&mgr.stats.ValidBlobs, 1)
+	return nil
 }

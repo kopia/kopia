@@ -254,7 +254,7 @@ func TestReader(t *testing.T) {
 	data, mgr := setupTest(t)
 
 	storedPayload := []byte("foo\nbar")
-	data["abcdef"] = storedPayload
+	data["a76999788386641a3ec798554f1fe7e6"] = storedPayload
 
 	cases := []struct {
 		text    string
@@ -264,7 +264,7 @@ func TestReader(t *testing.T) {
 		{"BAQIDBA", []byte{1, 2, 3, 4}},
 		{"T", []byte{}},
 		{"Tfoo\nbar", []byte("foo\nbar")},
-		{"Cabcdef", storedPayload},
+		{"Ca76999788386641a3ec798554f1fe7e6", storedPayload},
 	}
 
 	for _, c := range cases {
@@ -288,6 +288,29 @@ func TestReader(t *testing.T) {
 		if !bytes.Equal(d, c.payload) {
 			t.Errorf("incorrect payload for %v: expected: %v got: %v", objectID, c.payload, d)
 			continue
+		}
+	}
+}
+
+func TestMalformedStoredData(t *testing.T) {
+	data, mgr := setupTest(t)
+
+	cases := [][]byte{
+		[]byte("foo\nba"),
+		[]byte("foo\nbar1"),
+	}
+
+	for _, c := range cases {
+		data["a76999788386641a3ec798554f1fe7e6"] = c
+		objectID, err := ParseObjectID("Ca76999788386641a3ec798554f1fe7e6")
+		if err != nil {
+			t.Errorf("cannot parse object ID: %v", err)
+			continue
+		}
+
+		reader, err := mgr.Open(objectID)
+		if err == nil || reader != nil {
+			t.Errorf("expected error for %x", c)
 		}
 	}
 }
@@ -456,6 +479,7 @@ func TestFormats(t *testing.T) {
 		data := map[string][]byte{}
 		st := blob.NewMapStorage(data)
 
+		t.Logf("verifying %#v", c.format)
 		mgr, err := NewObjectManager(st, c.format)
 		if err != nil {
 			t.Errorf("cannot create manager: %v", err)
@@ -463,8 +487,9 @@ func TestFormats(t *testing.T) {
 		}
 
 		for k, v := range c.oids {
+			bytesToWrite := []byte(k)
 			w := mgr.NewWriter()
-			w.Write([]byte(k))
+			w.Write(bytesToWrite)
 			oid, err := w.Result(true)
 			if err != nil {
 				t.Errorf("error: %v", err)
@@ -472,6 +497,80 @@ func TestFormats(t *testing.T) {
 			if oid != v {
 				t.Errorf("invalid oid for %v/%v: %v expected %v", c.format.Hash, k, oid, v)
 			}
+
+			rc, err := mgr.Open(oid)
+			if err != nil {
+				t.Errorf("open failed: %v", err)
+				continue
+			}
+			bytesRead, err := ioutil.ReadAll(rc)
+			if err != nil {
+				t.Errorf("error reading: %v", err)
+			}
+			if !bytes.Equal(bytesRead, bytesToWrite) {
+				t.Errorf("data mismatch, read:%x vs written:%v", bytesRead, bytesToWrite)
+			}
 		}
+	}
+}
+
+func TestInvalidEncryptionKey(t *testing.T) {
+	data := map[string][]byte{}
+	st := blob.NewMapStorage(data)
+	format := Format{
+		Version:    "1",
+		Hash:       "hmac-sha512",
+		Secret:     []byte("key"),
+		Encryption: "aes-256",
+	}
+
+	mgr, err := NewObjectManager(st, format)
+	if err != nil {
+		t.Errorf("cannot create manager: %v", err)
+	}
+
+	bytesToWrite := make([]byte, 1024)
+	for i := range bytesToWrite {
+		bytesToWrite[i] = byte(i)
+	}
+
+	w := mgr.NewWriter()
+	w.Write(bytesToWrite)
+	oid, err := w.Result(true)
+	if err != nil {
+		t.Errorf("error: %v", err)
+	}
+
+	rc, err := mgr.Open(oid)
+	if err != nil || rc == nil {
+		t.Errorf("error opening valid ObjectID: %v", err)
+		return
+	}
+
+	// Key too short
+	rc, err = mgr.Open(oid[0 : len(oid)-2])
+	if err == nil || rc != nil {
+		t.Errorf("expected error when opening malformed object")
+	}
+
+	// Key too long
+	rc, err = mgr.Open(oid + "ff")
+	if err == nil || rc != nil {
+		t.Errorf("expected error when opening malformed object")
+	}
+
+	// Invalid key
+	lastByte, _ := hex.DecodeString(string(oid[len(oid)-2:]))
+	lastByte[0]++
+	rc, err = mgr.Open(oid[0:len(oid)-2] + ObjectID(hex.EncodeToString(lastByte)))
+	if err == nil || rc != nil {
+		t.Errorf("expected error when opening malformed object: %v", err)
+	}
+
+	// Now corrupt the data
+	data[string(oid.BlockID())][0] ^= 1
+	rc, err = mgr.Open(oid)
+	if err == nil || rc != nil {
+		t.Errorf("expected error when opening object with corrupt data")
 	}
 }

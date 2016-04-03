@@ -49,12 +49,12 @@ func TestParseObjectIDEncryptionInfo(t *testing.T) {
 		{"Cabcdef", NoEncryption},
 		{"Labcdef", NoEncryption},
 		{
-			"Cabcdef:0100112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
-			ObjectEncryptionInfo("0100112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"),
+			"Cabcdef:00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+			ObjectEncryptionInfo("00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"),
 		},
 		{
-			"Labcdef:0100112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
-			ObjectEncryptionInfo("0100112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"),
+			"Labcdef:00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+			ObjectEncryptionInfo("00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"),
 		},
 	}
 
