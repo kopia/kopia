@@ -3,6 +3,9 @@ all: test lint vet build
 build:
 	go build github.com/kopia/kopia/...
 
+play:
+	go run cmd/playground/main.go
+
 lint:
 	golint github.com/kopia/kopia/...
 

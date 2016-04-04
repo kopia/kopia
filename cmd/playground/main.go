@@ -4,6 +4,7 @@ import (
 	"io"
 	"log"
 	"time"
+	"unsafe"
 
 	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/cas"
@@ -18,9 +19,12 @@ type highLatencyStorage struct {
 }
 
 func (hls *highLatencyStorage) PutBlock(id blob.BlockID, data io.ReadCloser, options blob.PutOptions) error {
-	time.Sleep(hls.writeDelay)
-	return hls.Storage.PutBlock(id, data, options)
+	go func() {
+		time.Sleep(hls.writeDelay)
+		hls.Storage.PutBlock(id, data, options)
+	}()
 
+	return nil
 }
 
 func (hls *highLatencyStorage) GetBlock(id blob.BlockID) ([]byte, error) {
@@ -49,13 +53,17 @@ func uploadAndTime(omgr cas.ObjectManager, dir string, previous cas.ObjectID) ca
 }
 
 func main() {
+	var e fs.Entry
+
+	log.Println(unsafe.Sizeof(e))
+
 	data := map[string][]byte{}
 	st := blob.NewMapStorage(data)
 
 	st = &highLatencyStorage{
 		Storage:    st,
 		writeDelay: 1 * time.Millisecond,
-		readDelay:  1 * time.Millisecond,
+		readDelay:  5 * time.Millisecond,
 	}
 	format := cas.Format{
 		Version: "1",

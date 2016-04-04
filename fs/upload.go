@@ -91,6 +91,18 @@ func (ra *readaheadDirectory) hasUnreadEntries() bool {
 }
 
 func (u *uploader) UploadDir(path string, previous cas.ObjectID) (cas.ObjectID, error) {
+	var cached = emptyDirectory
+
+	if previous != "" {
+		if r, err := u.mgr.Open(previous); err == nil {
+			cached, _ = ReadDirectory(r)
+		}
+	}
+
+	return u.uploadDirInternal(path, previous, cached)
+}
+
+func (u *uploader) uploadDirInternal(path string, previous cas.ObjectID, previousDir Directory) (cas.ObjectID, error) {
 	if u.isCancelled() {
 		return previous, ErrUploadCancelled
 	}
@@ -100,16 +112,8 @@ func (u *uploader) UploadDir(path string, previous cas.ObjectID) (cas.ObjectID, 
 		return cas.NullObjectID, err
 	}
 
-	var cached = emptyDirectory
-
-	if previous != "" {
-		if r, err := u.mgr.Open(previous); err == nil {
-			cached, _ = ReadDirectory(r)
-		}
-	}
-
 	ra := readaheadDirectory{
-		src:                 cached,
+		src:                 previousDir,
 		unreadEntriesByName: map[string]*Entry{},
 	}
 
