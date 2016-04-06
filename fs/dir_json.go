@@ -4,10 +4,9 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"strconv"
+	"os"
 	"time"
 
 	"github.com/kopia/kopia/cas"
@@ -18,37 +17,68 @@ var (
 	newLine         = []byte("\n")
 )
 
-type writer struct {
-	lastEntryType EntryType
-	objectWriter  io.Writer
-}
-
 type serializedDirectoryEntryV1 struct {
-	Name     string    `json:"name"`
-	Type     string    `json:"type"`
-	FileSize *int64    `json:"size,omitempty,string"`
-	Mode     string    `json:"mode"`
-	ModTime  time.Time `json:"modified,omitempty"`
-	UserID   uint32    `json:"uid,omitempty"`
-	GroupID  uint32    `json:"gid,omitempty"`
-	ObjectID string    `json:"objectID"`
+	XName     string    `json:"name"`
+	XFileMode uint32    `json:"mode"`
+	XFileSize int64     `json:"size,omitempty,string"`
+	XModTime  time.Time `json:"modified,omitempty"`
+	XUserID   uint32    `json:"uid,omitempty"`
+	XGroupID  uint32    `json:"gid,omitempty"`
+	XObjectID string    `json:"oid,omitempty"`
 }
 
-func serializeManifestEntry(e *Entry) []byte {
-	s := serializedDirectoryEntryV1{
-		Name:     e.Name,
-		Type:     string(e.Type),
-		Mode:     strconv.FormatInt(int64(e.Mode), 8),
-		ObjectID: string(e.ObjectID),
-		UserID:   e.UserID,
-		GroupID:  e.GroupID,
+func (de *serializedDirectoryEntryV1) Name() string {
+	return de.XName
+}
+
+func (de *serializedDirectoryEntryV1) Mode() os.FileMode {
+	return os.FileMode(de.XFileMode)
+}
+
+func (de *serializedDirectoryEntryV1) IsDir() bool {
+	return de.Mode().IsDir()
+}
+
+func (de *serializedDirectoryEntryV1) Size() int64 {
+	if de.Mode().IsRegular() {
+		return de.XFileSize
 	}
 
-	s.ModTime = e.ModTime.UTC()
+	return 0
+}
 
-	if e.Type == EntryTypeFile {
-		fs := e.Size
-		s.FileSize = &fs
+func (de *serializedDirectoryEntryV1) UserID() uint32 {
+	return de.XUserID
+}
+
+func (de *serializedDirectoryEntryV1) GroupID() uint32 {
+	return de.XGroupID
+}
+
+func (de *serializedDirectoryEntryV1) ModTime() time.Time {
+	return de.XModTime
+}
+
+func (de *serializedDirectoryEntryV1) ObjectID() cas.ObjectID {
+	return cas.ObjectID(de.XObjectID)
+}
+
+func (de *serializedDirectoryEntryV1) Sys() interface{} {
+	return nil
+}
+
+func serializeManifestEntry(e Entry) []byte {
+	s := serializedDirectoryEntryV1{
+		XName:     e.Name(),
+		XFileMode: uint32(e.Mode()),
+		XObjectID: string(e.ObjectID()),
+		XUserID:   e.UserID(),
+		XGroupID:  e.GroupID(),
+		XModTime:  e.ModTime().UTC(),
+	}
+
+	if e.Mode().IsRegular() {
+		s.XFileSize = e.Size()
 	}
 
 	jsonBytes, _ := json.Marshal(s)
@@ -66,11 +96,7 @@ func writeDirectoryHeader(w io.Writer) error {
 	return nil
 }
 
-func writeDirectoryEntry(w io.Writer, e *Entry) error {
-	if e.Type == "" {
-		return errors.New("missing entry type")
-	}
-
+func writeDirectoryEntry(w io.Writer, e Entry) error {
 	s := serializeManifestEntry(e)
 	if _, err := w.Write(s); err != nil {
 		return err
@@ -94,42 +120,15 @@ func ReadDirectory(r io.Reader) (Directory, error) {
 
 	ch := make(Directory)
 	go func() {
-		var err error
-
 		for s.Scan() {
 			line := s.Bytes()
 			var v serializedDirectoryEntryV1
 			if err := json.Unmarshal(line, &v); err != nil {
 				ch <- EntryOrError{Error: err}
-			}
-
-			e := &Entry{}
-			e.Name = v.Name
-			e.UserID = v.UserID
-			e.GroupID = v.GroupID
-			e.ObjectID, err = cas.ParseObjectID(v.ObjectID)
-			if err != nil {
-				ch <- EntryOrError{Error: err}
 				continue
 			}
-			m, err := strconv.ParseInt(v.Mode, 8, 16)
-			if err != nil {
-				ch <- EntryOrError{Error: err}
-				continue
-			}
-			e.Mode = int16(m)
-			e.ModTime = v.ModTime
-			e.Type = EntryType(v.Type)
-			if e.Type == EntryTypeFile {
-				if v.FileSize == nil {
-					ch <- EntryOrError{Error: fmt.Errorf("missing file size")}
-					continue
-				}
 
-				e.Size = *v.FileSize
-			}
-
-			ch <- EntryOrError{Entry: e}
+			ch <- EntryOrError{Entry: &v}
 		}
 		close(ch)
 	}()

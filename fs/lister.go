@@ -3,6 +3,8 @@ package fs
 import (
 	"io"
 	"os"
+
+	"github.com/kopia/kopia/cas"
 )
 
 const (
@@ -50,23 +52,26 @@ func (d *filesystemLister) List(path string) (Directory, error) {
 	return ch, nil
 }
 
+type filesystemEntry struct {
+	os.FileInfo
+
+	objectID cas.ObjectID
+}
+
+func (fse *filesystemEntry) Size() int64 {
+	if fse.Mode().IsRegular() {
+		return fse.FileInfo.Size()
+	}
+
+	return 0
+}
+
+func (fse *filesystemEntry) ObjectID() cas.ObjectID {
+	return fse.objectID
+}
+
 func entryFromFileSystemInfo(parentDir string, fi os.FileInfo) EntryOrError {
-	e := &Entry{
-		EntryMetadata: EntryMetadata{
-			Name:    fi.Name(),
-			Mode:    int16(fi.Mode().Perm()),
-			ModTime: fi.ModTime().UTC(),
-			Type:    FileModeToType(fi.Mode()),
-		},
-	}
-
-	if e.Type == EntryTypeFile {
-		e.Size = fi.Size()
-	}
-
-	if err := populatePlatformSpecificEntryDetails(e, fi); err != nil {
-		return EntryOrError{Error: err}
-	}
-
-	return EntryOrError{Entry: e}
+	return EntryOrError{Entry: &filesystemEntry{
+		FileInfo: fi,
+	}}
 }

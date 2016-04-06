@@ -60,10 +60,10 @@ func (u *uploader) UploadFile(path string) (cas.ObjectID, error) {
 
 type readaheadDirectory struct {
 	src                 Directory
-	unreadEntriesByName map[string]*Entry
+	unreadEntriesByName map[string]Entry
 }
 
-func (ra *readaheadDirectory) FindByName(name string) *Entry {
+func (ra *readaheadDirectory) FindByName(name string) Entry {
 	if e, ok := ra.unreadEntriesByName[name]; ok {
 		delete(ra.unreadEntriesByName, name)
 		return e
@@ -76,10 +76,10 @@ func (ra *readaheadDirectory) FindByName(name string) *Entry {
 			break
 		}
 		if next.Error == nil {
-			if next.Entry.Name == name {
+			if next.Entry.Name() == name {
 				return next.Entry
 			}
-			ra.unreadEntriesByName[next.Entry.Name] = next.Entry
+			ra.unreadEntriesByName[next.Entry.Name()] = next.Entry
 		}
 	}
 
@@ -114,7 +114,7 @@ func (u *uploader) uploadDirInternal(path string, previous cas.ObjectID, previou
 
 	ra := readaheadDirectory{
 		src:                 previousDir,
-		unreadEntriesByName: map[string]*Entry{},
+		unreadEntriesByName: map[string]Entry{},
 	}
 
 	writer := u.mgr.NewWriter(
@@ -128,41 +128,44 @@ func (u *uploader) uploadDirInternal(path string, previous cas.ObjectID, previou
 	directoryMatchesCache := true
 	for de := range dir {
 		e := de.Entry
-		fullPath := filepath.Join(path, e.Name)
+		fullPath := filepath.Join(path, e.Name())
 
 		// See if we had this name during previous pass.
-		cachedEntry := ra.FindByName(e.Name)
+		cachedEntry := ra.FindByName(e.Name())
 
 		// ... and whether file metadata is identical to the previous one.
-		cachedMetadataMatches := e.metadataEquals(cachedEntry)
+		cachedMetadataMatches := metadataEquals(e, cachedEntry)
 
 		// If not, directoryMatchesCache becomes false.
 		directoryMatchesCache = directoryMatchesCache && cachedMetadataMatches
 
-		if e.Type == EntryTypeDirectory {
+		var oid cas.ObjectID
+
+		if e.IsDir() {
 			var previousSubdirObjectID cas.ObjectID
 			if cachedEntry != nil {
-				previousSubdirObjectID = cachedEntry.ObjectID
+				previousSubdirObjectID = cachedEntry.ObjectID()
 			}
 
-			e.ObjectID, err = u.UploadDir(fullPath, previousSubdirObjectID)
+			oid, err = u.UploadDir(fullPath, previousSubdirObjectID)
 			if err != nil {
 				return cas.NullObjectID, err
 			}
 
-			if cachedEntry != nil && e.ObjectID != cachedEntry.ObjectID {
+			if cachedEntry != nil && oid != cachedEntry.ObjectID() {
 				directoryMatchesCache = false
 			}
 		} else if cachedMetadataMatches {
 			// Avoid hashing by reusing previous object ID.
-			e.ObjectID = cachedEntry.ObjectID
+			oid = cachedEntry.ObjectID()
 		} else {
-			e.ObjectID, err = u.UploadFile(fullPath)
+			oid, err = u.UploadFile(fullPath)
 			if err != nil {
 				return cas.NullObjectID, fmt.Errorf("unable to hash file: %s", err)
 			}
 		}
 
+		e = &entryWithObjectID{Entry: e, oid: oid}
 		writeDirectoryEntry(writer, e)
 	}
 

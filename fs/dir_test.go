@@ -3,70 +3,37 @@ package fs
 import (
 	"bytes"
 	"strings"
-	"time"
-
 	"testing"
 )
 
-func TestJSON(t *testing.T) {
-	b := bytes.NewBuffer(nil)
-	writeDirectoryHeader(b)
-	writeDirectoryEntry(b, &Entry{
-		EntryMetadata: EntryMetadata{
-			Type:    EntryTypeDirectory,
-			Name:    "d1",
-			Mode:    0555,
-			ModTime: time.Unix(1458876568, 0),
-		},
-		ObjectID: "foo",
-	})
+func TestJSONRoundTrip(t *testing.T) {
+	data := strings.Join(
+		[]string{
+			"DIRECTORY:v1",
+			`{"name":"subdir","mode":2147484141,"modified":"2016-04-06T02:34:10Z","uid":501,"gid":20,"oid":"C1234"}`,
+			`{"name":"config.go","mode":420,"size":"937","modified":"2016-04-02T02:39:44Z","uid":501,"gid":20,"oid":"C4321"}`,
+			`{"name":"constants.go","mode":420,"size":"13","modified":"2016-04-02T02:36:19Z","uid":501,"gid":20}`,
+			`{"name":"doc.go","mode":420,"size":"112","modified":"2016-04-02T02:45:54Z","uid":501,"gid":20}`,
+			`{"name":"errors.go","mode":420,"size":"506","modified":"2016-04-02T02:41:03Z","uid":501,"gid":20}`,
+		}, "\n") + "\n"
 
-	writeDirectoryEntry(b, &Entry{
-		EntryMetadata: EntryMetadata{
-			Type:    EntryTypeDirectory,
-			Name:    "d2",
-			Mode:    0754,
-			ModTime: time.Unix(1451871568, 0),
-		},
-		ObjectID: "bar",
-	})
+	d, err := ReadDirectory(strings.NewReader(data))
+	if err != nil {
+		t.Errorf("can't read: %v", err)
+		return
+	}
+	b2 := bytes.NewBuffer(nil)
+	writeDirectoryHeader(b2)
+	for e := range d {
+		if e.Error != nil {
+			t.Errorf("parse error: %v", e.Error)
+			continue
+		}
+		t.Logf("writing %#v", e.Entry)
+		writeDirectoryEntry(b2, e.Entry)
+	}
 
-	writeDirectoryEntry(b, &Entry{
-		EntryMetadata: EntryMetadata{
-			Type:    EntryTypeFile,
-			Name:    "f1",
-			Mode:    0644,
-			ModTime: time.Unix(1451871368, 0),
-			Size:    123456,
-		},
-		ObjectID: "baz",
-	})
-
-	writeDirectoryEntry(b, &Entry{
-		EntryMetadata: EntryMetadata{
-			Type:    EntryTypeFile,
-			Name:    "f2",
-			Mode:    0644,
-			ModTime: time.Unix(1451871331, 123456789),
-			Size:    12,
-		},
-		ObjectID: "qoo",
-	})
-
-	assertLines(
-		t,
-		string(b.Bytes()),
-		"DIRECTORY:v1",
-		`{"name":"d1","type":"d","mode":"555","modified":"2016-03-25T03:29:28Z","objectID":"foo"}`,
-		`{"name":"d2","type":"d","mode":"754","modified":"2016-01-04T01:39:28Z","objectID":"bar"}`,
-		`{"name":"f1","type":"f","size":"123456","mode":"644","modified":"2016-01-04T01:36:08Z","objectID":"baz"}`,
-		`{"name":"f2","type":"f","size":"12","mode":"644","modified":"2016-01-04T01:35:31.123456789Z","objectID":"qoo"}`,
-	)
-}
-
-func assertLines(t *testing.T, text string, expectedLines ...string) {
-	expected := strings.Join(expectedLines, "\n") + "\n"
-	if text != expected {
-		t.Errorf("expected: '%v' got '%v'", expected, text)
+	if !bytes.Equal(b2.Bytes(), []byte(data)) {
+		t.Errorf("t: %v", string(b2.Bytes()))
 	}
 }

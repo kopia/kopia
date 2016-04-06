@@ -3,7 +3,7 @@ package fs
 // Directory represents contents of a directory.
 
 type EntryOrError struct {
-	Entry *Entry
+	Entry Entry
 	Error error
 }
 

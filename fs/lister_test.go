@@ -61,19 +61,19 @@ func TestLister(t *testing.T) {
 
 	goodCount := 0
 
-	if ae[0].Name == "f1" && ae[0].Size == 5 && ae[0].Type == EntryTypeFile {
+	if ae[0].Name() == "f1" && ae[0].Size() == 5 && ae[0].Mode().IsRegular() {
 		goodCount++
 	}
-	if ae[1].Name == "f2" && ae[1].Size == 4 && ae[1].Type == EntryTypeFile {
+	if ae[1].Name() == "f2" && ae[1].Size() == 4 && ae[1].Mode().IsRegular() {
 		goodCount++
 	}
-	if ae[2].Name == "f3" && ae[2].Size == 3 && ae[2].Type == EntryTypeFile {
+	if ae[2].Name() == "f3" && ae[2].Size() == 3 && ae[2].Mode().IsRegular() {
 		goodCount++
 	}
-	if ae[3].Name == "y" && ae[3].Size == 0 && ae[3].Type == EntryTypeDirectory {
+	if ae[3].Name() == "y" && ae[3].Size() == 0 && ae[3].Mode().IsDir() {
 		goodCount++
 	}
-	if ae[4].Name == "z" && ae[4].Size == 0 && ae[4].Type == EntryTypeDirectory {
+	if ae[4].Name() == "z" && ae[4].Size() == 0 && ae[4].Mode().IsDir() {
 		goodCount++
 	}
 	if goodCount != 5 {
@@ -81,8 +81,8 @@ func TestLister(t *testing.T) {
 	}
 }
 
-func readAllEntries(dir Directory) []*Entry {
-	var entries []*Entry
+func readAllEntries(dir Directory) []Entry {
+	var entries []Entry
 	for d := range dir {
 		if d.Error != nil {
 			log.Fatalf("got error listing directory: %v", d.Error)

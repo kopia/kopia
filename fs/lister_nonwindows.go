@@ -2,18 +2,20 @@
 
 package fs
 
-import (
-	"fmt"
-	"os"
-	"syscall"
-)
+import "syscall"
 
-func populatePlatformSpecificEntryDetails(e *Entry, fileInfo os.FileInfo) error {
-	if stat, ok := fileInfo.Sys().(*syscall.Stat_t); ok {
-		e.UserID = stat.Uid
-		e.GroupID = stat.Gid
-		return nil
+func (e *filesystemEntry) UserID() uint32 {
+	if stat, ok := e.Sys().(*syscall.Stat_t); ok {
+		return stat.Uid
 	}
 
-	return fmt.Errorf("unable to retrieve platform-specific file information")
+	return 0
+}
+
+func (e *filesystemEntry) GroupID() uint32 {
+	if stat, ok := e.Sys().(*syscall.Stat_t); ok {
+		return stat.Gid
+	}
+
+	return 0
 }
