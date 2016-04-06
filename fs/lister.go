@@ -29,27 +29,25 @@ func (d *filesystemLister) List(path string) (Directory, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer f.Close()
 
-	ch := make(Directory, 16)
-	go func() {
-		for {
-			fileInfos, err := f.Readdir(16)
-			for _, fi := range fileInfos {
-				ch <- entryFromFileSystemInfo(path, fi)
-			}
-			if err == nil {
-				continue
-			}
-			if err == io.EOF {
-				break
-			}
-			ch <- EntryOrError{Error: err}
+	var dir Directory
+
+	for {
+		fileInfos, err := f.Readdir(16)
+		for _, fi := range fileInfos {
+			dir = append(dir, entryFromFileSystemInfo(fi))
 		}
-		f.Close()
-		close(ch)
-	}()
+		if err == nil {
+			continue
+		}
+		if err == io.EOF {
+			break
+		}
+		return nil, err
+	}
 
-	return ch, nil
+	return dir, nil
 }
 
 type filesystemEntry struct {
@@ -70,8 +68,8 @@ func (fse *filesystemEntry) ObjectID() cas.ObjectID {
 	return fse.objectID
 }
 
-func entryFromFileSystemInfo(parentDir string, fi os.FileInfo) EntryOrError {
-	return EntryOrError{Entry: &filesystemEntry{
+func entryFromFileSystemInfo(fi os.FileInfo) Entry {
+	return &filesystemEntry{
 		FileInfo: fi,
-	}}
+	}
 }

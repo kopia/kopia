@@ -118,20 +118,17 @@ func ReadDirectory(r io.Reader) (Directory, error) {
 		return nil, fmt.Errorf("invalid directoryHeader: expected '%v' got '%v'", directoryHeader, s.Bytes())
 	}
 
-	ch := make(Directory)
-	go func() {
-		for s.Scan() {
-			line := s.Bytes()
-			var v serializedDirectoryEntryV1
-			if err := json.Unmarshal(line, &v); err != nil {
-				ch <- EntryOrError{Error: err}
-				continue
-			}
+	var dir Directory
 
-			ch <- EntryOrError{Entry: &v}
+	for s.Scan() {
+		line := s.Bytes()
+		var v serializedDirectoryEntryV1
+		if err := json.Unmarshal(line, &v); err != nil {
+			return nil, err
 		}
-		close(ch)
-	}()
 
-	return ch, nil
+		dir = append(dir, &v)
+	}
+
+	return dir, nil
 }

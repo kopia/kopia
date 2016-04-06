@@ -58,38 +58,6 @@ func (u *uploader) UploadFile(path string) (cas.ObjectID, error) {
 	return result, nil
 }
 
-type readaheadDirectory struct {
-	src                 Directory
-	unreadEntriesByName map[string]Entry
-}
-
-func (ra *readaheadDirectory) FindByName(name string) Entry {
-	if e, ok := ra.unreadEntriesByName[name]; ok {
-		delete(ra.unreadEntriesByName, name)
-		return e
-	}
-
-	for ra.src != nil && len(ra.unreadEntriesByName) < maxDirReadAheadCount {
-		next, ok := <-ra.src
-		if !ok {
-			ra.src = nil
-			break
-		}
-		if next.Error == nil {
-			if next.Entry.Name() == name {
-				return next.Entry
-			}
-			ra.unreadEntriesByName[next.Entry.Name()] = next.Entry
-		}
-	}
-
-	return nil
-}
-
-func (ra *readaheadDirectory) hasUnreadEntries() bool {
-	return len(ra.unreadEntriesByName) > 0
-}
-
 func (u *uploader) UploadDir(path string, previous cas.ObjectID) (cas.ObjectID, error) {
 	var cached = emptyDirectory
 
@@ -112,11 +80,6 @@ func (u *uploader) uploadDirInternal(path string, previous cas.ObjectID, previou
 		return cas.NullObjectID, err
 	}
 
-	ra := readaheadDirectory{
-		src:                 previousDir,
-		unreadEntriesByName: map[string]Entry{},
-	}
-
 	writer := u.mgr.NewWriter(
 		cas.WithDescription("DIR:"+path),
 		cas.WithBlockNamePrefix("D"),
@@ -125,13 +88,13 @@ func (u *uploader) uploadDirInternal(path string, previous cas.ObjectID, previou
 	writeDirectoryHeader(writer)
 	defer writer.Close()
 
-	directoryMatchesCache := true
-	for de := range dir {
-		e := de.Entry
+	directoryMatchesCache := len(previousDir) == len(dir)
+
+	for _, e := range dir {
 		fullPath := filepath.Join(path, e.Name())
 
 		// See if we had this name during previous pass.
-		cachedEntry := ra.FindByName(e.Name())
+		cachedEntry := previousDir.FindByName(e.Name())
 
 		// ... and whether file metadata is identical to the previous one.
 		cachedMetadataMatches := metadataEquals(e, cachedEntry)
@@ -167,10 +130,6 @@ func (u *uploader) uploadDirInternal(path string, previous cas.ObjectID, previou
 
 		e = &entryWithObjectID{Entry: e, oid: oid}
 		writeDirectoryEntry(writer, e)
-	}
-
-	if ra.hasUnreadEntries() {
-		directoryMatchesCache = false
 	}
 
 	if directoryMatchesCache && previous != "" {

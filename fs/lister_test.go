@@ -3,7 +3,6 @@ package fs
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -38,10 +37,8 @@ func TestLister(t *testing.T) {
 		t.Errorf("error when dir empty directory: %v", err)
 	}
 
-	ae := readAllEntries(dir)
-
-	if len(ae) > 0 {
-		t.Errorf("expected empty directory, got %v", ae)
+	if len(dir) > 0 {
+		t.Errorf("expected empty directory, got %v", dir)
 	}
 
 	// Now list a directory with 3 files.
@@ -57,37 +54,24 @@ func TestLister(t *testing.T) {
 		t.Errorf("error when dir directory with files: %v", err)
 	}
 
-	ae = readAllEntries(dir)
-
 	goodCount := 0
 
-	if ae[0].Name() == "f1" && ae[0].Size() == 5 && ae[0].Mode().IsRegular() {
+	if dir[0].Name() == "f1" && dir[0].Size() == 5 && dir[0].Mode().IsRegular() {
 		goodCount++
 	}
-	if ae[1].Name() == "f2" && ae[1].Size() == 4 && ae[1].Mode().IsRegular() {
+	if dir[1].Name() == "f2" && dir[1].Size() == 4 && dir[1].Mode().IsRegular() {
 		goodCount++
 	}
-	if ae[2].Name() == "f3" && ae[2].Size() == 3 && ae[2].Mode().IsRegular() {
+	if dir[2].Name() == "f3" && dir[2].Size() == 3 && dir[2].Mode().IsRegular() {
 		goodCount++
 	}
-	if ae[3].Name() == "y" && ae[3].Size() == 0 && ae[3].Mode().IsDir() {
+	if dir[3].Name() == "y" && dir[3].Size() == 0 && dir[3].Mode().IsDir() {
 		goodCount++
 	}
-	if ae[4].Name() == "z" && ae[4].Size() == 0 && ae[4].Mode().IsDir() {
+	if dir[4].Name() == "z" && dir[4].Size() == 0 && dir[4].Mode().IsDir() {
 		goodCount++
 	}
 	if goodCount != 5 {
-		t.Errorf("invalid dir data:\n%v", ae)
+		t.Errorf("invalid dir data:\n%v", dir)
 	}
-}
-
-func readAllEntries(dir Directory) []Entry {
-	var entries []Entry
-	for d := range dir {
-		if d.Error != nil {
-			log.Fatalf("got error listing directory: %v", d.Error)
-		}
-		entries = append(entries, d.Entry)
-	}
-	return entries
 }

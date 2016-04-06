@@ -24,13 +24,8 @@ func TestJSONRoundTrip(t *testing.T) {
 	}
 	b2 := bytes.NewBuffer(nil)
 	writeDirectoryHeader(b2)
-	for e := range d {
-		if e.Error != nil {
-			t.Errorf("parse error: %v", e.Error)
-			continue
-		}
-		t.Logf("writing %#v", e.Entry)
-		writeDirectoryEntry(b2, e.Entry)
+	for _, e := range d {
+		writeDirectoryEntry(b2, e)
 	}
 
 	if !bytes.Equal(b2.Bytes(), []byte(data)) {
