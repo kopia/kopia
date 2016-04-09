@@ -21,7 +21,7 @@ var ErrUploadCancelled = errors.New("upload cancelled")
 // Uploader supports efficient uploading files and directories to CAS.
 type Uploader interface {
 	UploadFile(path string) (cas.ObjectID, error)
-	UploadDir(path string, previousObjectID cas.ObjectID) (cas.ObjectID, error)
+	UploadDir(path string, previousObjectID cas.ObjectID) (cas.ObjectID, cas.ObjectID, error)
 	Cancel()
 }
 
@@ -58,19 +58,29 @@ func (u *uploader) UploadFile(path string) (cas.ObjectID, error) {
 	return result, nil
 }
 
-func (u *uploader) UploadDir(path string, previous cas.ObjectID) (cas.ObjectID, error) {
-	var cached = emptyDirectory
+func (u *uploader) UploadDir(path string, previous cas.ObjectID) (cas.ObjectID, cas.ObjectID, error) {
+	var cached Directory
 
 	if previous != "" {
 		if r, err := u.mgr.Open(previous); err == nil {
-			cached, _ = ReadDirectory(r)
+			cached, _ = ReadDirectory(r, "")
 		}
 	}
 
-	return u.uploadDirInternal(path, previous, cached)
+	manifestWriter := u.mgr.NewWriter(
+		cas.WithDescription("HASHCACHE:"+path),
+		cas.WithBlockNamePrefix("H"),
+	)
+	oid, err := u.uploadDirInternal(path, manifestWriter, previous, cached)
+	if err != nil {
+		return oid, cas.NullObjectID, err
+	}
+
+	manifestOid, err := manifestWriter.Result(true)
+	return oid, manifestOid, nil
 }
 
-func (u *uploader) uploadDirInternal(path string, previous cas.ObjectID, previousDir Directory) (cas.ObjectID, error) {
+func (u *uploader) uploadDirInternal(path string, manifestWriter io.Writer, previous cas.ObjectID, previousDir Directory) (cas.ObjectID, error) {
 	if u.isCancelled() {
 		return previous, ErrUploadCancelled
 	}
@@ -94,7 +104,7 @@ func (u *uploader) uploadDirInternal(path string, previous cas.ObjectID, previou
 		fullPath := filepath.Join(path, e.Name())
 
 		// See if we had this name during previous pass.
-		cachedEntry := previousDir.FindByName(e.Name())
+		cachedEntry := previousDir.FindByName(e.IsDir(), e.Name())
 
 		// ... and whether file metadata is identical to the previous one.
 		cachedMetadataMatches := metadataEquals(e, cachedEntry)
@@ -110,7 +120,7 @@ func (u *uploader) uploadDirInternal(path string, previous cas.ObjectID, previou
 				previousSubdirObjectID = cachedEntry.ObjectID()
 			}
 
-			oid, err = u.UploadDir(fullPath, previousSubdirObjectID)
+			oid, err = u.uploadDirInternal(fullPath, manifestWriter, previousSubdirObjectID, nil)
 			if err != nil {
 				return cas.NullObjectID, err
 			}
@@ -130,14 +140,18 @@ func (u *uploader) uploadDirInternal(path string, previous cas.ObjectID, previou
 
 		e = &entryWithObjectID{Entry: e, oid: oid}
 		writeDirectoryEntry(writer, e)
+		writeDirectoryEntry(manifestWriter, e)
 	}
 
+	var oid cas.ObjectID
 	if directoryMatchesCache && previous != "" {
 		// Avoid hashing directory listingif every entry matched the previous (possibly ignoring ordering).
-		return previous, nil
+		oid, err = previous, nil
+	} else {
+		oid, err = writer.Result(true)
 	}
 
-	return writer.Result(true)
+	return oid, err
 }
 
 func (u *uploader) Cancel() {

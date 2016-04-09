@@ -73,15 +73,15 @@ func TestUpload(t *testing.T) {
 		return
 	}
 
-	oid, err := u.UploadDir(sourceDir, "")
+	oid, metadataOID, err := u.UploadDir(sourceDir, "")
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
 	log.Printf("v = %#v", objectManager.Stats())
 
-	log.Printf("oid: %v", oid)
+	log.Printf("oid: %v metadataOID: %v", oid, metadataOID)
 
-	oid2, err := u.UploadDir(sourceDir, oid)
+	oid2, metadataOID2, err := u.UploadDir(sourceDir, oid)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
@@ -92,8 +92,12 @@ func TestUpload(t *testing.T) {
 		t.Errorf("expected oid==oid2, got %v and %v", oid, oid2)
 	}
 
+	if metadataOID2 != metadataOID {
+		t.Errorf("expected metadataOID2==metadataOID, got %v and %v", metadataOID2, metadataOID)
+	}
+
 	ioutil.WriteFile(filepath.Join(sourceDir, "d2/d1/f3"), []byte{1, 2, 3, 4, 5}, 0777)
-	oid3, err := u.UploadDir(sourceDir, oid2)
+	oid3, metadataOID3, err := u.UploadDir(sourceDir, oid2)
 	log.Printf("v = %#v", objectManager.Stats())
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
@@ -104,7 +108,11 @@ func TestUpload(t *testing.T) {
 		t.Errorf("expected oid3!=oid2, got %v", oid3)
 	}
 
-	oid4, err := u.UploadDir(sourceDir, "")
+	if metadataOID2 == metadataOID3 {
+		t.Errorf("expected metadataOID3!=metadataOID2, got %v", metadataOID3)
+	}
+
+	oid4, metadataOID4, err := u.UploadDir(sourceDir, "")
 	log.Printf("v = %#v", objectManager.Stats())
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
@@ -113,5 +121,8 @@ func TestUpload(t *testing.T) {
 
 	if oid3 != oid4 {
 		t.Errorf("expected oid3!=oid4, got %v and %v", oid3, oid4)
+	}
+	if metadataOID3 != metadataOID4 {
+		t.Errorf("expected metadataOID3!=metadataOID4, got %v and %v", metadataOID3, metadataOID4)
 	}
 }

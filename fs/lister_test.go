@@ -56,19 +56,20 @@ func TestLister(t *testing.T) {
 
 	goodCount := 0
 
-	if dir[0].Name() == "f1" && dir[0].Size() == 5 && dir[0].Mode().IsRegular() {
+	// Directories are first.
+	if dir[0].Name() == "y" && dir[0].Size() == 0 && dir[0].Mode().IsDir() {
 		goodCount++
 	}
-	if dir[1].Name() == "f2" && dir[1].Size() == 4 && dir[1].Mode().IsRegular() {
+	if dir[1].Name() == "z" && dir[1].Size() == 0 && dir[1].Mode().IsDir() {
 		goodCount++
 	}
-	if dir[2].Name() == "f3" && dir[2].Size() == 3 && dir[2].Mode().IsRegular() {
+	if dir[2].Name() == "f1" && dir[2].Size() == 5 && dir[2].Mode().IsRegular() {
 		goodCount++
 	}
-	if dir[3].Name() == "y" && dir[3].Size() == 0 && dir[3].Mode().IsDir() {
+	if dir[3].Name() == "f2" && dir[3].Size() == 4 && dir[3].Mode().IsRegular() {
 		goodCount++
 	}
-	if dir[4].Name() == "z" && dir[4].Size() == 0 && dir[4].Mode().IsDir() {
+	if dir[4].Name() == "f3" && dir[4].Size() == 3 && dir[4].Mode().IsRegular() {
 		goodCount++
 	}
 	if goodCount != 5 {

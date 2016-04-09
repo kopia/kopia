@@ -108,7 +108,8 @@ func writeDirectoryEntry(w io.Writer, e Entry) error {
 	return nil
 }
 
-func ReadDirectory(r io.Reader) (Directory, error) {
+// ReadDirectory reads the directory from a JSON stream.
+func ReadDirectory(r io.Reader, namePrefix string) (Directory, error) {
 	s := bufio.NewScanner(r)
 	if !s.Scan() {
 		return nil, fmt.Errorf("empty file")
@@ -126,6 +127,8 @@ func ReadDirectory(r io.Reader) (Directory, error) {
 		if err := json.Unmarshal(line, &v); err != nil {
 			return nil, err
 		}
+
+		v.XName = namePrefix + v.XName
 
 		dir = append(dir, &v)
 	}

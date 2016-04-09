@@ -3,6 +3,7 @@ package fs
 import (
 	"io"
 	"os"
+	"sort"
 
 	"github.com/kopia/kopia/cas"
 )
@@ -19,11 +20,6 @@ type Lister interface {
 type filesystemLister struct {
 }
 
-type localStreamingDirectory struct {
-	dir     *os.File
-	pending []os.FileInfo
-}
-
 func (d *filesystemLister) List(path string) (Directory, error) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -36,7 +32,10 @@ func (d *filesystemLister) List(path string) (Directory, error) {
 	for {
 		fileInfos, err := f.Readdir(16)
 		for _, fi := range fileInfos {
-			dir = append(dir, entryFromFileSystemInfo(fi))
+			e := &filesystemEntry{
+				FileInfo: fi,
+			}
+			dir = append(dir, e)
 		}
 		if err == nil {
 			continue
@@ -46,6 +45,8 @@ func (d *filesystemLister) List(path string) (Directory, error) {
 		}
 		return nil, err
 	}
+
+	sort.Sort(sortedDirectory(dir))
 
 	return dir, nil
 }
@@ -66,10 +67,4 @@ func (fse *filesystemEntry) Size() int64 {
 
 func (fse *filesystemEntry) ObjectID() cas.ObjectID {
 	return fse.objectID
-}
-
-func entryFromFileSystemInfo(fi os.FileInfo) Entry {
-	return &filesystemEntry{
-		FileInfo: fi,
-	}
 }
