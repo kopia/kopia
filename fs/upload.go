@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"compress/gzip"
 	"errors"
 	"fmt"
 	"io"
@@ -71,7 +72,15 @@ func (u *uploader) UploadDir(path string, previous cas.ObjectID) (cas.ObjectID, 
 		cas.WithDescription("HASHCACHE:"+path),
 		cas.WithBlockNamePrefix("H"),
 	)
-	oid, err := u.uploadDirInternal(path, manifestWriter, previous, cached)
+	gzWriter, _ := gzip.NewWriterLevel(manifestWriter, gzip.BestCompression)
+	dw := newDirectoryWriter(gzWriter)
+	oid, err := u.uploadDirInternal(path, dw, previous, cached)
+	if err != nil {
+		dw.Close()
+		return oid, cas.NullObjectID, err
+	}
+
+	err = dw.Close()
 	if err != nil {
 		return oid, cas.NullObjectID, err
 	}
@@ -80,7 +89,7 @@ func (u *uploader) UploadDir(path string, previous cas.ObjectID) (cas.ObjectID, 
 	return oid, manifestOid, nil
 }
 
-func (u *uploader) uploadDirInternal(path string, manifestWriter io.Writer, previous cas.ObjectID, previousDir Directory) (cas.ObjectID, error) {
+func (u *uploader) uploadDirInternal(path string, manifest *directoryWriter, previous cas.ObjectID, previousDir Directory) (cas.ObjectID, error) {
 	if u.isCancelled() {
 		return previous, ErrUploadCancelled
 	}
@@ -95,7 +104,7 @@ func (u *uploader) uploadDirInternal(path string, manifestWriter io.Writer, prev
 		cas.WithBlockNamePrefix("D"),
 	)
 
-	writeDirectoryHeader(writer)
+	dw := newDirectoryWriter(writer)
 	defer writer.Close()
 
 	directoryMatchesCache := len(previousDir) == len(dir)
@@ -120,7 +129,7 @@ func (u *uploader) uploadDirInternal(path string, manifestWriter io.Writer, prev
 				previousSubdirObjectID = cachedEntry.ObjectID()
 			}
 
-			oid, err = u.uploadDirInternal(fullPath, manifestWriter, previousSubdirObjectID, nil)
+			oid, err = u.uploadDirInternal(fullPath, manifest, previousSubdirObjectID, nil)
 			if err != nil {
 				return cas.NullObjectID, err
 			}
@@ -139,8 +148,8 @@ func (u *uploader) uploadDirInternal(path string, manifestWriter io.Writer, prev
 		}
 
 		e = &entryWithObjectID{Entry: e, oid: oid}
-		writeDirectoryEntry(writer, e)
-		writeDirectoryEntry(manifestWriter, e)
+		dw.WriteEntry(e)
+		manifest.WriteEntry(e)
 	}
 
 	var oid cas.ObjectID

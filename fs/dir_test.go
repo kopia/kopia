@@ -9,24 +9,32 @@ import (
 func TestDirectory(t *testing.T) {
 	data := strings.Join(
 		[]string{
-			"DIRECTORY:v1",
-			`{"name":"subdir","mode":2147484141,"modified":"2016-04-06T02:34:10Z","uid":501,"gid":20,"oid":"C1234"}`,
-			`{"name":"config.go","mode":420,"size":"937","modified":"2016-04-02T02:39:44Z","uid":501,"gid":20,"oid":"C4321"}`,
-			`{"name":"constants.go","mode":420,"size":"13","modified":"2016-04-02T02:36:19Z","uid":501,"gid":20}`,
-			`{"name":"doc.go","mode":420,"size":"112","modified":"2016-04-02T02:45:54Z","uid":501,"gid":20}`,
-			`{"name":"errors.go","mode":420,"size":"506","modified":"2016-04-02T02:41:03Z","uid":501,"gid":20}`,
+			`{`,
+			`"format":{"version":1},`,
+			`"entries":[`,
+			`  {"d":"subdir","p":"420","t":"2016-04-06T02:34:10Z","o":"500:100","oid":"C1234"},`,
+			`  {"f":"config.go","p":"420","s":"937","t":"2016-04-02T02:39:44.123456789Z","o":"500:100","oid":"C4321"},`,
+			`  {"f":"constants.go","p":"420","s":"13","t":"2016-04-02T02:36:19Z","o":"500:100"},`,
+			`  {"f":"doc.go","p":"420","s":"112","t":"2016-04-02T02:45:54Z","o":"500:100"},`,
+			`  {"f":"errors.go","p":"420","s":"506","t":"2016-04-02T02:41:03Z","o":"500:100"}`,
+			`]}`,
 		}, "\n") + "\n"
+
+	t.Logf("data: %v", data)
 
 	d, err := ReadDirectory(strings.NewReader(data), "")
 	if err != nil {
 		t.Errorf("can't read: %v", err)
 		return
 	}
+
 	b2 := bytes.NewBuffer(nil)
-	writeDirectoryHeader(b2)
+	dw := newDirectoryWriter(b2)
+
 	for _, e := range d {
-		writeDirectoryEntry(b2, e)
+		dw.WriteEntry(e)
 	}
+	dw.Close()
 
 	if !bytes.Equal(b2.Bytes(), []byte(data)) {
 		t.Errorf("data does not round trip: %v", string(b2.Bytes()))

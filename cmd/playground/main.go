@@ -1,9 +1,8 @@
 package main
 
 import (
-	"fmt"
+	"compress/gzip"
 	"io"
-	"io/ioutil"
 	"log"
 	"sync"
 	"sync/atomic"
@@ -184,15 +183,19 @@ func walkTree(omgr cas.ObjectManager, path string, oid cas.ObjectID) chan fs.Ent
 }
 
 func readCached(omgr cas.ObjectManager, manifestOID cas.ObjectID) {
-	r, err := omgr.Open(manifestOID)
+	var r io.Reader
+	var err error
+	r, err = omgr.Open(manifestOID)
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
 
-	v, _ := ioutil.ReadAll(r)
+	r, err = gzip.NewReader(r)
 
-	//fmt.Println(string(v))
-	fmt.Printf("len: %v\n", len(v))
+	t0 := time.Now()
+	fs.ReadDirectory(r, "")
+	dt := time.Since(t0)
+	log.Printf("parsed in %v", dt)
 }
 
 func main() {
@@ -219,27 +222,31 @@ func main() {
 		return
 	}
 
-	oid, manifestOID := uploadAndTime(omgr, "/Users/jarek/Projects/Kopia", "")
-	readCached(omgr, manifestOID)
-	// uploadAndTime(omgr, "/Users/jarek/Projects/Kopia", "")
-	// uploadAndTime(omgr, "/Users/jarek/Projects/Kopia", oid)
 	time.Sleep(1 * time.Second)
-	for i := 0; i < 1; i++ {
-		t0 := time.Now()
-		c := 0
-		d := 0
-		allGantt = nil
-		for e := range walkTree(omgr, "BASE/", oid) {
-			//log.Printf("e: %v %v", e.Name(), e.ObjectID())
-			if e.IsDir() {
-				d++
-			}
-			c++
-		}
-		dt := time.Since(t0)
-		log.Printf("walk took %v and returned %v (%v dirs)", dt, c, d)
-		// for _, e := range allGantt {
-		// 	fmt.Printf("%v,%v,%v\n", e.dir, e.from.Sub(t0).Nanoseconds()/1000, e.to.Sub(e.from).Nanoseconds()/1000)
-		// }
-	}
+
+	_, manifestOID := uploadAndTime(omgr, "/Users/jarek/Projects/Kopia", "")
+	omgr.ResetStats()
+	readCached(omgr, manifestOID)
+	log.Printf("stats: %#v", omgr.Stats())
+	// // uploadAndTime(omgr, "/Users/jarek/Projects/Kopia", "")
+	// // uploadAndTime(omgr, "/Users/jarek/Projects/Kopia", oid)
+	// time.Sleep(1 * time.Second)
+	// for i := 0; i < 1; i++ {
+	// 	t0 := time.Now()
+	// 	c := 0
+	// 	d := 0
+	// 	allGantt = nil
+	// 	for e := range walkTree(omgr, "BASE/", oid) {
+	// 		//log.Printf("e: %v %v", e.Name(), e.ObjectID())
+	// 		if e.IsDir() {
+	// 			d++
+	// 		}
+	// 		c++
+	// 	}
+	// 	dt := time.Since(t0)
+	// 	log.Printf("walk took %v and returned %v (%v dirs)", dt, c, d)
+	// 	// for _, e := range allGantt {
+	// 	// 	fmt.Printf("%v,%v,%v\n", e.dir, e.from.Sub(t0).Nanoseconds()/1000, e.to.Sub(e.from).Nanoseconds()/1000)
+	// 	// }
+	// }
 }
