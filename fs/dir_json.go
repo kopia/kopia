@@ -201,6 +201,33 @@ func (dr *directoryReader) ReadNext() (Entry, error) {
 
 		return &de, nil
 	}
+
+	// Expect ']'
+	t, err := dr.decoder.Token()
+	if err != nil {
+		return nil, fmt.Errorf("invalid directory data: %v", err)
+	}
+
+	if t != json.Delim(']') {
+		return nil, fmt.Errorf("invalid directory data: expected ']', got %v", t)
+	}
+
+	// Expect '}'
+	t, err = dr.decoder.Token()
+	if err != nil {
+		return nil, fmt.Errorf("invalid directory data: %v", err)
+	}
+
+	if t != json.Delim('}') {
+		return nil, fmt.Errorf("invalid directory data: expected ']', got %v", t)
+	}
+
+	// Expect end of file
+	t, err = dr.decoder.Token()
+	if err != io.EOF {
+		return nil, fmt.Errorf("invalid directory data: expected EOF, got %v", t)
+	}
+
 	return nil, io.EOF
 }
 
