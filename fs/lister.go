@@ -4,8 +4,6 @@ import (
 	"io"
 	"os"
 	"sort"
-
-	"github.com/kopia/kopia/cas"
 )
 
 const (
@@ -32,9 +30,18 @@ func (d *filesystemLister) List(path string) (Directory, error) {
 	for {
 		fileInfos, err := f.Readdir(16)
 		for _, fi := range fileInfos {
-			e := &filesystemEntry{
-				FileInfo: fi,
+			e := &Entry{
+				Name:     fi.Name(),
+				FileMode: fi.Mode(),
+				ModTime:  fi.ModTime(),
 			}
+
+			if fi.Mode().IsRegular() {
+				e.FileSize = fi.Size()
+			}
+
+			e.populatePlatformSpecificEntryDetails(fi)
+
 			dir = append(dir, e)
 		}
 		if err == nil {
@@ -49,22 +56,4 @@ func (d *filesystemLister) List(path string) (Directory, error) {
 	sort.Sort(sortedDirectory(dir))
 
 	return dir, nil
-}
-
-type filesystemEntry struct {
-	os.FileInfo
-
-	objectID cas.ObjectID
-}
-
-func (fse *filesystemEntry) Size() int64 {
-	if fse.Mode().IsRegular() {
-		return fse.FileInfo.Size()
-	}
-
-	return 0
-}
-
-func (fse *filesystemEntry) ObjectID() cas.ObjectID {
-	return fse.objectID
 }

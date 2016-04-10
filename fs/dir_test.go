@@ -55,19 +55,19 @@ func TestDirectory(t *testing.T) {
 		e := d.FindByName(c.isDir, c.name)
 		if e == nil {
 			t.Errorf("not found, but expected to be found: %v/%v", c.name, c.isDir)
-		} else if e.Name() != c.name {
-			t.Errorf("incorrect name: %v/%v got %v", c.name, c.isDir, e.Name())
+		} else if e.Name != c.name {
+			t.Errorf("incorrect name: %v/%v got %v", c.name, c.isDir, e.Name)
 		}
 
 		if e := d.FindByName(!c.isDir, c.name); e != nil {
-			t.Errorf("found %v, but expected to be found: %v/%v", e.Name(), c.name, c.isDir)
+			t.Errorf("found %v, but expected to be found: %v/%v", e.Name, c.name, c.isDir)
 		}
 	}
 
 	if e := d.FindByName(true, "nosuchdir"); e != nil {
-		t.Errorf("found %v, but expected to be found", e.Name())
+		t.Errorf("found %v, but expected to be found", e.Name)
 	}
 	if e := d.FindByName(false, "nosuchfile"); e != nil {
-		t.Errorf("found %v, but expected to be found", e.Name())
+		t.Errorf("found %v, but expected to be found", e.Name)
 	}
 }

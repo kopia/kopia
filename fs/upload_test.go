@@ -86,7 +86,7 @@ func TestUpload(t *testing.T) {
 		t.Errorf("upload failed: %v", err)
 	}
 	log.Printf("v = %#v", objectManager.Stats())
-	log.Printf("oid2: %v", oid2)
+	log.Printf("oid2: %v metadataOID2: %v", oid2, metadataOID2)
 
 	if oid2 != oid {
 		t.Errorf("expected oid==oid2, got %v and %v", oid, oid2)
@@ -97,12 +97,12 @@ func TestUpload(t *testing.T) {
 	}
 
 	ioutil.WriteFile(filepath.Join(sourceDir, "d2/d1/f3"), []byte{1, 2, 3, 4, 5}, 0777)
-	oid3, metadataOID3, err := u.UploadDir(sourceDir, oid2)
+	oid3, metadataOID3, err := u.UploadDir(sourceDir, oid)
 	log.Printf("v = %#v", objectManager.Stats())
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
-	log.Printf("oid3: %v", oid3)
+	log.Printf("oid3: %v metadataOID3: %v", oid3, metadataOID3)
 
 	if oid2 == oid3 {
 		t.Errorf("expected oid3!=oid2, got %v", oid3)

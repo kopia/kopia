@@ -21,16 +21,6 @@ var (
 	invalidDirectoryDataError = errors.New("invalid directory data")
 )
 
-type directoryEntry struct {
-	name     string
-	fileMode uint32
-	fileSize int64
-	modTime  time.Time
-	userID   uint32
-	groupID  uint32
-	objectID string
-}
-
 type jsonDirectoryEntry struct {
 	FileName    string    `json:"f,omitempty"`
 	DirName     string    `json:"d,omitempty"`
@@ -41,56 +31,16 @@ type jsonDirectoryEntry struct {
 	ObjectID    string    `json:"oid,omitempty"`
 }
 
-func (de *directoryEntry) Name() string {
-	return de.name
-}
-
-func (de *directoryEntry) Mode() os.FileMode {
-	return os.FileMode(de.fileMode)
-}
-
-func (de *directoryEntry) IsDir() bool {
-	return de.Mode().IsDir()
-}
-
-func (de *directoryEntry) Size() int64 {
-	if de.Mode().IsRegular() {
-		return de.fileSize
-	}
-
-	return 0
-}
-
-func (de *directoryEntry) UserID() uint32 {
-	return de.userID
-}
-
-func (de *directoryEntry) GroupID() uint32 {
-	return de.groupID
-}
-
-func (de *directoryEntry) ModTime() time.Time {
-	return de.modTime
-}
-
-func (de *directoryEntry) ObjectID() cas.ObjectID {
-	return cas.ObjectID(de.objectID)
-}
-
-func (de *directoryEntry) Sys() interface{} {
-	return nil
-}
-
-func (de *directoryEntry) fromJSON(jde *jsonDirectoryEntry) error {
+func (de *Entry) fromJSON(jde *jsonDirectoryEntry) error {
 	var mode uint32
 
 	switch {
 	case jde.DirName != "":
-		de.name = jde.DirName
+		de.Name = jde.DirName
 		mode = uint32(os.ModeDir)
 
 	case jde.FileName != "":
-		de.name = jde.FileName
+		de.Name = jde.FileName
 		mode = 0
 	}
 
@@ -102,19 +52,19 @@ func (de *directoryEntry) fromJSON(jde *jsonDirectoryEntry) error {
 		mode |= uint32(s)
 	}
 
-	de.fileMode = mode
-	de.modTime = jde.Time
+	de.FileMode = os.FileMode(mode)
+	de.ModTime = jde.Time
 	if jde.Owner != "" {
-		fmt.Sscanf(jde.Owner, "%d:%d", &de.userID, &de.groupID)
+		fmt.Sscanf(jde.Owner, "%d:%d", &de.UserID, &de.GroupID)
 	}
-	de.objectID = jde.ObjectID
+	de.ObjectID = cas.ObjectID(jde.ObjectID)
 
 	if jde.Size != "" {
 		s, err := strconv.ParseInt(jde.Size, 10, 64)
 		if err != nil {
 			return err
 		}
-		de.fileSize = s
+		de.FileSize = s
 	}
 	return nil
 }
@@ -127,22 +77,21 @@ type directoryWriter struct {
 	separator []byte
 }
 
-func (dw *directoryWriter) WriteEntry(e Entry) error {
+func (dw *directoryWriter) WriteEntry(e *Entry) error {
 	var jde jsonDirectoryEntry
 
-	m := e.Mode()
-	switch m & os.ModeType {
+	switch e.FileMode & os.ModeType {
 	case os.ModeDir:
-		jde.DirName = e.Name()
+		jde.DirName = e.Name
 	default:
-		jde.FileName = e.Name()
-		jde.Size = strconv.FormatInt(e.Size(), 10)
+		jde.FileName = e.Name
+		jde.Size = strconv.FormatInt(e.FileSize, 10)
 	}
 
-	jde.Permissions = strconv.FormatInt(int64(e.Mode()&os.ModePerm), 8)
-	jde.Time = e.ModTime()
-	jde.Owner = fmt.Sprintf("%d:%d", e.UserID(), e.GroupID())
-	jde.ObjectID = string(e.ObjectID())
+	jde.Permissions = strconv.FormatInt(int64(e.FileMode&os.ModePerm), 8)
+	jde.Time = e.ModTime
+	jde.Owner = fmt.Sprintf("%d:%d", e.UserID, e.GroupID)
+	jde.ObjectID = string(e.ObjectID)
 
 	v, _ := json.Marshal(&jde)
 
@@ -187,14 +136,14 @@ type directoryReader struct {
 	decoder *json.Decoder
 }
 
-func (dr *directoryReader) ReadNext() (Entry, error) {
+func (dr *directoryReader) ReadNext() (*Entry, error) {
 	if dr.decoder.More() {
 		var jde jsonDirectoryEntry
 		if err := dr.decoder.Decode(&jde); err != nil {
 			return nil, err
 		}
 
-		var de directoryEntry
+		var de Entry
 		if err := de.fromJSON(&jde); err != nil {
 			return nil, err
 		}

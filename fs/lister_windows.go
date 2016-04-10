@@ -2,6 +2,6 @@ package fs
 
 import "os"
 
-func populatePlatformSpecificEntryDetails(e *Entry, fileInfo os.FileInfo) error {
+func (e *Entry) populatePlatformSpecificEntryDetails(fi os.FileInfo) error {
 	return nil
 }

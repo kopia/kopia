@@ -60,7 +60,7 @@ func uploadAndTime(omgr cas.ObjectManager, dir string, previous cas.ObjectID) (c
 }
 
 type subdirEntry struct {
-	entry      fs.Entry
+	entry      *fs.Entry
 	dirChannel chan fs.Directory
 }
 
@@ -75,7 +75,7 @@ type gantt struct {
 var allGantt []*gantt
 var ganttMutex sync.Mutex
 
-func walkTree2(ch chan fs.Entry, omgr cas.ObjectManager, path string, dir fs.Directory) {
+func walkTree2(ch chan *fs.Entry, omgr cas.ObjectManager, path string, dir fs.Directory) {
 	//log.Printf("walkTree2(%s)", path)
 	m := map[int]chan fs.Directory{}
 
@@ -108,7 +108,7 @@ func walkTree2(ch chan fs.Entry, omgr cas.ObjectManager, path string, dir fs.Dir
 				//log.Printf("worker %v loading %v", id, se.entry.ObjectID())
 				//defer close(se.dirChannel)
 
-				d, err := omgr.Open(se.entry.ObjectID())
+				d, err := omgr.Open(se.entry.ObjectID)
 				if err != nil {
 					log.Printf("ERROR: %v", err)
 					return
@@ -120,10 +120,10 @@ func walkTree2(ch chan fs.Entry, omgr cas.ObjectManager, path string, dir fs.Dir
 				g.from = time.Now()
 
 				atomic.AddInt32(&parallelReads, 1)
-				dir, err := fs.ReadDirectory(d, se.entry.Name()+"/")
+				dir, err := fs.ReadDirectory(d, se.entry.Name+"/")
 				atomic.AddInt32(&parallelReads, -1)
 				g.to = time.Now()
-				g.dir = se.entry.Name()
+				g.dir = se.entry.Name
 
 				ganttMutex.Lock()
 				allGantt = append(allGantt, g)
@@ -155,14 +155,14 @@ func walkTree2(ch chan fs.Entry, omgr cas.ObjectManager, path string, dir fs.Dir
 		//log.Printf("%v[%v] = %v", path, i, e.Name())
 		if e.IsDir() {
 			subdir := <-m[i]
-			walkTree2(ch, omgr, e.Name()+"/", subdir)
+			walkTree2(ch, omgr, e.Name+"/", subdir)
 		}
 		ch <- e
 	}
 }
 
-func walkTree(omgr cas.ObjectManager, path string, oid cas.ObjectID) chan fs.Entry {
-	ch := make(chan fs.Entry, 20)
+func walkTree(omgr cas.ObjectManager, path string, oid cas.ObjectID) chan *fs.Entry {
+	ch := make(chan *fs.Entry, 20)
 	go func() {
 		d, err := omgr.Open(oid)
 		defer close(ch)

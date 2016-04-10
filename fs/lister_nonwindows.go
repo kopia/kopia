@@ -2,20 +2,16 @@
 
 package fs
 
-import "syscall"
+import (
+	"os"
+	"syscall"
+)
 
-func (e *filesystemEntry) UserID() uint32 {
-	if stat, ok := e.Sys().(*syscall.Stat_t); ok {
-		return stat.Uid
+func (e *Entry) populatePlatformSpecificEntryDetails(fi os.FileInfo) error {
+	if stat, ok := fi.Sys().(*syscall.Stat_t); ok {
+		e.UserID = stat.Uid
+		e.GroupID = stat.Gid
 	}
 
-	return 0
-}
-
-func (e *filesystemEntry) GroupID() uint32 {
-	if stat, ok := e.Sys().(*syscall.Stat_t); ok {
-		return stat.Gid
-	}
-
-	return 0
+	return nil
 }

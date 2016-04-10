@@ -1,7 +1,6 @@
 package fs
 
 import (
-	"compress/gzip"
 	"errors"
 	"fmt"
 	"io"
@@ -72,8 +71,7 @@ func (u *uploader) UploadDir(path string, previous cas.ObjectID) (cas.ObjectID, 
 		cas.WithDescription("HASHCACHE:"+path),
 		cas.WithBlockNamePrefix("H"),
 	)
-	gzWriter, _ := gzip.NewWriterLevel(manifestWriter, gzip.BestCompression)
-	dw := newDirectoryWriter(gzWriter)
+	dw := newDirectoryWriter(manifestWriter)
 	oid, err := u.uploadDirInternal(path, dw, previous, cached)
 	if err != nil {
 		dw.Close()
@@ -110,10 +108,10 @@ func (u *uploader) uploadDirInternal(path string, manifest *directoryWriter, pre
 	directoryMatchesCache := len(previousDir) == len(dir)
 
 	for _, e := range dir {
-		fullPath := filepath.Join(path, e.Name())
+		fullPath := filepath.Join(path, e.Name)
 
 		// See if we had this name during previous pass.
-		cachedEntry := previousDir.FindByName(e.IsDir(), e.Name())
+		cachedEntry := previousDir.FindByName(e.IsDir(), e.Name)
 
 		// ... and whether file metadata is identical to the previous one.
 		cachedMetadataMatches := metadataEquals(e, cachedEntry)
@@ -126,7 +124,7 @@ func (u *uploader) uploadDirInternal(path string, manifest *directoryWriter, pre
 		if e.IsDir() {
 			var previousSubdirObjectID cas.ObjectID
 			if cachedEntry != nil {
-				previousSubdirObjectID = cachedEntry.ObjectID()
+				previousSubdirObjectID = cachedEntry.ObjectID
 			}
 
 			oid, err = u.uploadDirInternal(fullPath, manifest, previousSubdirObjectID, nil)
@@ -134,12 +132,12 @@ func (u *uploader) uploadDirInternal(path string, manifest *directoryWriter, pre
 				return cas.NullObjectID, err
 			}
 
-			if cachedEntry != nil && oid != cachedEntry.ObjectID() {
+			if cachedEntry != nil && oid != cachedEntry.ObjectID {
 				directoryMatchesCache = false
 			}
 		} else if cachedMetadataMatches {
 			// Avoid hashing by reusing previous object ID.
-			oid = cachedEntry.ObjectID()
+			oid = cachedEntry.ObjectID
 		} else {
 			oid, err = u.UploadFile(fullPath)
 			if err != nil {
@@ -147,7 +145,7 @@ func (u *uploader) uploadDirInternal(path string, manifest *directoryWriter, pre
 			}
 		}
 
-		e = &entryWithObjectID{Entry: e, oid: oid}
+		e.ObjectID = oid
 		dw.WriteEntry(e)
 		manifest.WriteEntry(e)
 	}
