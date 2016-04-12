@@ -12,15 +12,13 @@ func TestDirectory(t *testing.T) {
 			`{`,
 			`"format":{"version":1},`,
 			`"entries":[`,
-			`  {"d":"subdir","p":"420","t":"2016-04-06T02:34:10Z","o":"500:100","oid":"C1234"},`,
-			`  {"f":"config.go","p":"420","s":"937","t":"2016-04-02T02:39:44.123456789Z","o":"500:100","oid":"C4321"},`,
-			`  {"f":"constants.go","p":"420","s":"13","t":"2016-04-02T02:36:19Z","o":"500:100"},`,
-			`  {"f":"doc.go","p":"420","s":"112","t":"2016-04-02T02:45:54Z","o":"500:100"},`,
-			`  {"f":"errors.go","p":"420","s":"506","t":"2016-04-02T02:41:03Z","o":"500:100"}`,
+			`  {"name":"config.go","mode":"420","size":"937","modTime":"2016-04-02T02:39:44.123456789Z","owner":"500:100","oid":"C4321"},`,
+			`  {"name":"constants.go","mode":"420","size":"13","modTime":"2016-04-02T02:36:19Z","owner":"500:100"},`,
+			`  {"name":"doc.go","mode":"420","size":"112","modTime":"2016-04-02T02:45:54Z","owner":"500:100"},`,
+			`  {"name":"errors.go","mode":"420","size":"506","modTime":"2016-04-02T02:41:03Z","owner":"500:100"},`,
+			`  {"name":"subdir","mode":"d:420","modTime":"2016-04-06T02:34:10Z","owner":"500:100","oid":"C1234"}`,
 			`]}`,
 		}, "\n") + "\n"
-
-	t.Logf("data: %v", data)
 
 	d, err := ReadDirectory(strings.NewReader(data), "")
 	if err != nil {
@@ -41,33 +39,67 @@ func TestDirectory(t *testing.T) {
 	}
 
 	cases := []struct {
-		isDir bool
-		name  string
+		name string
 	}{
-		{true, "subdir"},
-		{false, "config.go"},
-		{false, "constants.go"},
-		{false, "doc.go"},
-		{false, "errors.go"},
+		{"subdir"},
+		{"config.go"},
+		{"constants.go"},
+		{"doc.go"},
+		{"errors.go"},
 	}
 
 	for _, c := range cases {
-		e := d.FindByName(c.isDir, c.name)
+		e := d.FindByName(c.name)
 		if e == nil {
-			t.Errorf("not found, but expected to be found: %v/%v", c.name, c.isDir)
+			t.Errorf("not found, but expected to be found: %v", c.name)
 		} else if e.Name != c.name {
-			t.Errorf("incorrect name: %v/%v got %v", c.name, c.isDir, e.Name)
-		}
-
-		if e := d.FindByName(!c.isDir, c.name); e != nil {
-			t.Errorf("found %v, but expected to be found: %v/%v", e.Name, c.name, c.isDir)
+			t.Errorf("incorrect name: %v got %v", c.name, e.Name)
 		}
 	}
 
-	if e := d.FindByName(true, "nosuchdir"); e != nil {
+	if e := d.FindByName("nosuchdir"); e != nil {
 		t.Errorf("found %v, but expected to be found", e.Name)
 	}
-	if e := d.FindByName(false, "nosuchfile"); e != nil {
-		t.Errorf("found %v, but expected to be found", e.Name)
+}
+
+func TestDirectoryNameOrder(t *testing.T) {
+	sortedNames := []string{
+		"a/a/a",
+		"a/a/",
+		"a/b",
+		"a/b1",
+		"a/b2",
+		"a/",
+		"bar/a/a",
+		"bar/a/",
+		"bar/a.b",
+		"bar/a.c/",
+		"bar/a1/a",
+		"bar/a1/",
+		"bar/a2",
+		"bar/a3",
+		"bar/",
+		"foo/a/a",
+		"foo/a/",
+		"foo/b",
+		"foo/c/a",
+		"foo/c/",
+		"foo/d/",
+		"foo/e1/",
+		"foo/e2/",
+		"foo/",
+		"goo/a/a",
+		"goo/a/",
+		"goo/",
+	}
+
+	for i, n1 := range sortedNames {
+		for j, n2 := range sortedNames {
+			expected := i <= j
+			actual := isLessOrEqual(n1, n2)
+			if actual != expected {
+				t.Errorf("unexpected value for isLessOrEqual('%v','%v'), expected: %v, got: %v", n1, n2, expected, actual)
+			}
+		}
 	}
 }

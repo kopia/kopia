@@ -1,8 +1,8 @@
 package main
 
 import (
-	"compress/gzip"
 	"io"
+	"io/ioutil"
 	"log"
 	"sync"
 	"sync/atomic"
@@ -190,10 +190,12 @@ func readCached(omgr cas.ObjectManager, manifestOID cas.ObjectID) {
 		log.Fatalf("Error: %v", err)
 	}
 
-	r, err = gzip.NewReader(r)
+	//r, err = gzip.NewReader(r)
 
 	t0 := time.Now()
-	fs.ReadDirectory(r, "")
+	//fs.ReadDirectory(r, "")
+	v, _ := ioutil.ReadAll(r)
+	log.Printf("%v", string(v))
 	dt := time.Since(t0)
 	log.Printf("parsed in %v", dt)
 }
@@ -206,11 +208,11 @@ func main() {
 	data := map[string][]byte{}
 	st := blob.NewMapStorage(data)
 
-	st = &highLatencyStorage{
-		Storage:    st,
-		writeDelay: 1 * time.Millisecond,
-		readDelay:  10 * time.Millisecond,
-	}
+	// st = &highLatencyStorage{
+	// 	Storage:    st,
+	// 	writeDelay: 0 * time.Millisecond,
+	// 	readDelay:  0 * time.Millisecond,
+	// }
 	format := cas.Format{
 		Version: "1",
 		Hash:    "md5",
@@ -224,12 +226,13 @@ func main() {
 
 	time.Sleep(1 * time.Second)
 
-	_, manifestOID := uploadAndTime(omgr, "/Users/jarek/Projects/Kopia", "")
-	omgr.ResetStats()
-	readCached(omgr, manifestOID)
-	log.Printf("stats: %#v", omgr.Stats())
-	// // uploadAndTime(omgr, "/Users/jarek/Projects/Kopia", "")
-	// // uploadAndTime(omgr, "/Users/jarek/Projects/Kopia", oid)
+	path := "/Users/jarek/Projects/Kopia/src/github.com/kopia/"
+
+	_, manifestOID := uploadAndTime(omgr, path, "")
+	log.Printf("second time")
+	uploadAndTime(omgr, path, manifestOID)
+	log.Printf("finished second time")
+	//readCached(omgr, manifestOID)
 	// time.Sleep(1 * time.Second)
 	// for i := 0; i < 1; i++ {
 	// 	t0 := time.Now()

@@ -53,7 +53,7 @@ func (d *filesystemLister) List(path string) (Directory, error) {
 		return nil, err
 	}
 
-	sort.Sort(sortedDirectory(dir))
+	sort.Sort(dir)
 
 	return dir, nil
 }

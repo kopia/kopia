@@ -3,70 +3,120 @@ package fs
 import (
 	"encoding/binary"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/kopia/kopia/cas"
 )
 
-const (
-	maxDirectoryEntrySize = 65000
-)
-
-var (
-	invalidDirectoryDataError = errors.New("invalid directory data")
-)
+const modeChars = "dalTLDpSugct"
 
 type jsonDirectoryEntry struct {
-	FileName    string    `json:"f,omitempty"`
-	DirName     string    `json:"d,omitempty"`
-	Permissions string    `json:"p,omitempty"`
-	Size        string    `json:"s,omitempty"`
-	Time        time.Time `json:"t"`
-	Owner       string    `json:"o,omitempty"`
-	ObjectID    string    `json:"oid,omitempty"`
+	Name     string    `json:"name"`
+	Mode     string    `json:"mode"`
+	Size     string    `json:"size,omitempty"`
+	Time     time.Time `json:"modTime"`
+	Owner    string    `json:"owner,omitempty"`
+	ObjectID string    `json:"oid,omitempty"`
 }
 
 func (de *Entry) fromJSON(jde *jsonDirectoryEntry) error {
-	var mode uint32
+	de.Name = jde.Name
 
-	switch {
-	case jde.DirName != "":
-		de.Name = jde.DirName
-		mode = uint32(os.ModeDir)
-
-	case jde.FileName != "":
-		de.Name = jde.FileName
-		mode = 0
+	if mode, err := parseFileModeAndPermissions(jde.Mode); err == nil {
+		de.FileMode = mode
+	} else {
+		return fmt.Errorf("invalid mode: %v", err)
 	}
 
-	if jde.Permissions != "" {
-		s, err := strconv.ParseUint(jde.Permissions, 8, 32)
-		if err != nil {
-			return err
-		}
-		mode |= uint32(s)
-	}
-
-	de.FileMode = os.FileMode(mode)
 	de.ModTime = jde.Time
+
 	if jde.Owner != "" {
-		fmt.Sscanf(jde.Owner, "%d:%d", &de.UserID, &de.GroupID)
+		if c, err := fmt.Sscanf(jde.Owner, "%d:%d", &de.UserID, &de.GroupID); err != nil || c != 2 {
+			return fmt.Errorf("invalid owner: %v", err)
+		}
 	}
 	de.ObjectID = cas.ObjectID(jde.ObjectID)
 
 	if jde.Size != "" {
-		s, err := strconv.ParseInt(jde.Size, 10, 64)
-		if err != nil {
-			return err
+		if s, err := strconv.ParseInt(jde.Size, 10, 64); err == nil {
+			de.FileSize = s
+		} else {
+			return fmt.Errorf("invalid size: %v", err)
 		}
-		de.FileSize = s
 	}
 	return nil
+}
+
+// parseFileModeAndPermissions converts file mode string to os.FileMode
+func parseFileModeAndPermissions(s string) (os.FileMode, error) {
+	colon := strings.IndexByte(s, ':')
+	if colon < 0 {
+		return parseFilePermissions(s)
+	}
+
+	var mode os.FileMode
+
+	if m, err := parseFileMode(s[0:colon]); err == nil {
+		mode |= m
+	} else {
+		return 0, err
+	}
+
+	if m, err := parseFilePermissions(s[colon+1:]); err == nil {
+		mode |= m
+	} else {
+		return 0, err
+	}
+
+	return mode, nil
+}
+
+func parseFileMode(s string) (os.FileMode, error) {
+	var mode os.FileMode
+	for _, c := range s {
+		switch c {
+		case 'd':
+			mode |= os.ModeDir
+		case 'a':
+			mode |= os.ModeAppend
+		case 'l':
+			mode |= os.ModeExclusive
+		case 'T':
+			mode |= os.ModeTemporary
+		case 'L':
+			mode |= os.ModeSymlink
+		case 'D':
+			mode |= os.ModeDevice
+		case 'p':
+			mode |= os.ModeNamedPipe
+		case 'S':
+			mode |= os.ModeSocket
+		case 'u':
+			mode |= os.ModeSetuid
+		case 'g':
+			mode |= os.ModeSetgid
+		case 'c':
+			mode |= os.ModeCharDevice
+		case 't':
+			mode |= os.ModeSticky
+		default:
+			return 0, fmt.Errorf("unsupported mode: '%v'", c)
+		}
+	}
+	return mode, nil
+}
+
+func parseFilePermissions(perm string) (os.FileMode, error) {
+	s, err := strconv.ParseUint(perm, 8, 32)
+	if err != nil {
+		return 0, err
+	}
+	return os.FileMode(s), nil
 }
 
 type directoryWriter struct {
@@ -75,23 +125,28 @@ type directoryWriter struct {
 	writer    io.Writer
 	buf       []byte
 	separator []byte
+
+	lastNameWritten string
 }
 
 func (dw *directoryWriter) WriteEntry(e *Entry) error {
-	var jde jsonDirectoryEntry
-
-	switch e.FileMode & os.ModeType {
-	case os.ModeDir:
-		jde.DirName = e.Name
-	default:
-		jde.FileName = e.Name
-		jde.Size = strconv.FormatInt(e.FileSize, 10)
+	if dw.lastNameWritten != "" {
+		if isLessOrEqual(e.Name, dw.lastNameWritten) {
+			return fmt.Errorf("out-of-order directory entry, previous '%v' current '%v'", dw.lastNameWritten, e.Name)
+		}
+		dw.lastNameWritten = e.Name
+	}
+	jde := jsonDirectoryEntry{
+		Name:     e.Name,
+		Mode:     formatModeAndPermissions(e.FileMode),
+		Time:     e.ModTime.UTC(),
+		Owner:    fmt.Sprintf("%d:%d", e.UserID, e.GroupID),
+		ObjectID: string(e.ObjectID),
 	}
 
-	jde.Permissions = strconv.FormatInt(int64(e.FileMode&os.ModePerm), 8)
-	jde.Time = e.ModTime
-	jde.Owner = fmt.Sprintf("%d:%d", e.UserID, e.GroupID)
-	jde.ObjectID = string(e.ObjectID)
+	if e.FileMode.IsRegular() {
+		jde.Size = strconv.FormatInt(e.FileSize, 10)
+	}
 
 	v, _ := json.Marshal(&jde)
 
@@ -100,6 +155,24 @@ func (dw *directoryWriter) WriteEntry(e *Entry) error {
 	dw.separator = []byte(",\n  ")
 
 	return nil
+}
+
+func formatModeAndPermissions(m os.FileMode) string {
+	const str = "dalTLDpSugct"
+	var buf [32]byte
+	w := 0
+	for i, c := range str {
+		if m&(1<<uint(32-1-i)) != 0 {
+			buf[w] = byte(c)
+			w++
+		}
+	}
+	if w > 0 {
+		buf[w] = ':'
+		w++
+	}
+
+	return string(buf[:w]) + strconv.FormatInt(int64(m&os.ModePerm), 8)
 }
 
 func (dw *directoryWriter) Close() error {
@@ -151,37 +224,50 @@ func (dr *directoryReader) ReadNext() (*Entry, error) {
 		return &de, nil
 	}
 
-	// Expect ']'
-	t, err := dr.decoder.Token()
-	if err != nil {
-		return nil, fmt.Errorf("invalid directory data: %v", err)
+	if err := ensureDelimiter(dr.decoder, json.Delim(']')); err != nil {
+		return nil, invalidDirectoryError(err)
 	}
 
-	if t != json.Delim(']') {
-		return nil, fmt.Errorf("invalid directory data: expected ']', got %v", t)
-	}
-
-	// Expect '}'
-	t, err = dr.decoder.Token()
-	if err != nil {
-		return nil, fmt.Errorf("invalid directory data: %v", err)
-	}
-
-	if t != json.Delim('}') {
-		return nil, fmt.Errorf("invalid directory data: expected ']', got %v", t)
-	}
-
-	// Expect end of file
-	t, err = dr.decoder.Token()
-	if err != io.EOF {
-		return nil, fmt.Errorf("invalid directory data: expected EOF, got %v", t)
+	if err := ensureDelimiter(dr.decoder, json.Delim('}')); err != nil {
+		return nil, invalidDirectoryError(err)
 	}
 
 	return nil, io.EOF
 }
 
+func invalidDirectoryError(cause error) error {
+	return fmt.Errorf("invalid directory data: %v", cause)
+}
+
 type directoryFormat struct {
 	Version int `json:"version"`
+}
+
+func ensureDelimiter(d *json.Decoder, expected json.Delim) error {
+	t, err := d.Token()
+	if err != nil {
+		return err
+	}
+
+	if t != expected {
+		return fmt.Errorf("expected '%v', got %v", expected.String(), t)
+	}
+
+	return nil
+}
+func ensureStringToken(d *json.Decoder, expected string) error {
+	t, err := d.Token()
+	if err != nil {
+		return err
+	}
+
+	if s, ok := t.(string); ok {
+		if s == expected {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("expected '%v', got '%v'", expected, t)
 }
 
 func newDirectoryReader(r io.Reader) (*directoryReader, error) {
@@ -189,62 +275,30 @@ func newDirectoryReader(r io.Reader) (*directoryReader, error) {
 		decoder: json.NewDecoder(r),
 	}
 
-	var t json.Token
-	var err error
-
-	// Expect opening '{'
-	t, err = dr.decoder.Token()
-	if err != nil {
-		return nil, fmt.Errorf("invalid directory data: %v", err)
+	if err := ensureDelimiter(dr.decoder, json.Delim('{')); err != nil {
+		return nil, invalidDirectoryError(err)
 	}
 
-	if t != json.Delim('{') {
-		return nil, fmt.Errorf("invalid directory data: expected '{', got %v", t)
-	}
-
-	// Expect "format"
-	t, err = dr.decoder.Token()
-	if err != nil {
-		return nil, fmt.Errorf("invalid directory data: %v", err)
-	}
-
-	if s, ok := t.(string); ok {
-		if s != "format" {
-			return nil, fmt.Errorf("invalid directory data: expected 'format', got '%v'", s)
-		}
-	} else {
-		return nil, fmt.Errorf("invalid directory data: expected 'format', got '%v'", t)
+	if err := ensureStringToken(dr.decoder, "format"); err != nil {
+		return nil, invalidDirectoryError(err)
 	}
 
 	// Parse format and trailing comma
 	var format directoryFormat
-	err = dr.decoder.Decode(&format)
-	if err != nil {
-		return nil, fmt.Errorf("invalid directory data: %v", err)
+	if err := dr.decoder.Decode(&format); err != nil {
+		return nil, invalidDirectoryError(err)
 	}
 
-	// Expect "entries"
-	t, err = dr.decoder.Token()
-	if err != nil {
-		return nil, fmt.Errorf("invalid directory data: %v", err)
+	if format.Version != 1 {
+		return nil, invalidDirectoryError(fmt.Errorf("unsupported version: %v", format.Version))
 	}
 
-	if s, ok := t.(string); ok {
-		if s != "entries" {
-			return nil, fmt.Errorf("invalid directory data: expected 'entries', got '%v'", s)
-		}
-	} else {
-		return nil, fmt.Errorf("invalid directory data: expected 'entries', got '%v'", t)
+	if err := ensureStringToken(dr.decoder, "entries"); err != nil {
+		return nil, invalidDirectoryError(err)
 	}
 
-	// Expect opening '['
-	t, err = dr.decoder.Token()
-	if err != nil {
-		return nil, fmt.Errorf("invalid directory data: %v", err)
-	}
-
-	if t != json.Delim('[') {
-		return nil, fmt.Errorf("invalid directory data: expected '[', got %v", t)
+	if err := ensureDelimiter(dr.decoder, json.Delim('[')); err != nil {
+		return nil, invalidDirectoryError(err)
 	}
 
 	return dr, nil
