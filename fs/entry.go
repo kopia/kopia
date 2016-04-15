@@ -10,14 +10,6 @@ import (
 	"github.com/kopia/kopia/cas"
 )
 
-// import (
-// 	"os"
-// 	"strings"
-// 	"time"
-
-// 	"github.com/kopia/kopia/cas"
-// )
-
 // Entry stores attributes of a single entry in a directory.
 type Entry struct {
 	Name     string
@@ -66,10 +58,6 @@ func isLessOrEqual(name1, name2 string) bool {
 	}
 
 	return len(parts1) <= len(parts2)
-}
-
-func (e *Entry) IsDir() bool {
-	return e.FileMode.IsDir()
 }
 
 func (e *Entry) metadataHash() uint64 {

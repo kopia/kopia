@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"io"
+	"os"
 	"path/filepath"
 	"sync/atomic"
 
@@ -19,9 +20,11 @@ const (
 // ErrUploadCancelled is returned when the upload gets cancelled.
 var ErrUploadCancelled = errors.New("upload cancelled")
 
+// UploadResult stores results of an upload.
 type UploadResult struct {
 	ObjectID   cas.ObjectID
 	ManifestID cas.ObjectID
+	Cancelled  bool
 
 	Stats struct {
 		CachedDirectories    int
@@ -131,7 +134,8 @@ func (u *uploader) uploadDirInternal(
 
 		var hash uint64
 
-		if e.IsDir() {
+		switch e.FileMode & os.ModeType {
+		case os.ModeDir:
 			oid, h, wasCached, err := u.uploadDirInternal(result, fullPath, entryRelativePath, hcw, mr)
 			if err != nil {
 				return cas.NullObjectID, 0, false, err
@@ -140,7 +144,9 @@ func (u *uploader) uploadDirInternal(
 			hash = h
 			allCached = allCached && wasCached
 			e.ObjectID = oid
-		} else {
+
+		case 0:
+			// regular file
 			// See if we had this name during previous pass.
 			cachedEntry := mr.findEntry(entryRelativePath)
 
@@ -161,6 +167,9 @@ func (u *uploader) uploadDirInternal(
 					return cas.NullObjectID, 0, false, fmt.Errorf("unable to hash file: %s", err)
 				}
 			}
+
+		default:
+			return cas.NullObjectID, 0, false, fmt.Errorf("file type %v not supported", e.FileMode)
 		}
 
 		dirHasher.Write([]byte(e.Name))
@@ -171,7 +180,7 @@ func (u *uploader) uploadDirInternal(
 			return cas.NullObjectID, 0, false, err
 		}
 
-		if !e.IsDir() {
+		if !e.FileMode.IsDir() {
 			if err := hcw.WriteEntry(hashCacheEntry{
 				Name:     entryRelativePath,
 				Hash:     e.metadataHash(),

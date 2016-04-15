@@ -61,7 +61,7 @@ func (hcr *hashcacheReader) readahead() {
 		hcr.nextEntry = nil
 		if hcr.scanner.Scan() {
 			var err error
-			e := &hashCacheEntry{}
+			e := hcr.nextManifestEntry()
 			parts := strings.Split(hcr.scanner.Text(), "|")
 			if len(parts) == 3 {
 				e.Name = parts[0]
@@ -83,9 +83,9 @@ func (hcr *hashcacheReader) nextManifestEntry() *hashCacheEntry {
 	hcr.odd = !hcr.odd
 	if hcr.odd {
 		return &hcr.entry1
-	} else {
-		return &hcr.entry0
 	}
+
+	return &hcr.entry0
 }
 
 type hashcacheWriter struct {
@@ -109,7 +109,7 @@ func (hcw *hashcacheWriter) WriteEntry(e hashCacheEntry) error {
 		hcw.lastNameWritten = e.Name
 	}
 
-	fmt.Fprintf(hcw.writer, "%v|0x%x|%v\n", e.Name, e.Hash, e.ObjectID)
+	fmt.Fprintf(hcw.writer, "%v|%v|%v\n", e.Name, e.Hash, e.ObjectID)
 
 	return nil
 }

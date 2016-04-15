@@ -84,7 +84,7 @@ func walkTree2(ch chan *fs.Entry, omgr cas.ObjectManager, path string, dir fs.Di
 
 	subdirCount := 0
 	for i, e := range dir {
-		if e.IsDir() {
+		if e.FileMode.IsDir() {
 			m[i] = make(chan fs.Directory, 10)
 			subdirCount++
 		}
@@ -153,7 +153,7 @@ func walkTree2(ch chan *fs.Entry, omgr cas.ObjectManager, path string, dir fs.Di
 
 	for i, e := range dir {
 		//log.Printf("%v[%v] = %v", path, i, e.Name())
-		if e.IsDir() {
+		if e.FileMode.IsDir() {
 			subdir := <-m[i]
 			walkTree2(ch, omgr, e.Name+"/", subdir)
 		}
