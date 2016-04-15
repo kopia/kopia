@@ -9,7 +9,7 @@ import (
 
 func (e *Entry) populatePlatformSpecificEntryDetails(fi os.FileInfo) error {
 	if stat, ok := fi.Sys().(*syscall.Stat_t); ok {
-		e.UserID = stat.Uid
+		e.OwnerID = stat.Uid
 		e.GroupID = stat.Gid
 	}
 

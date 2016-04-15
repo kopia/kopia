@@ -232,4 +232,5 @@ func main() {
 	log.Printf("finished: %#v", *r1)
 	r2 := uploadAndTime(omgr, path, r1.ManifestID)
 	log.Printf("finished second time: %#v", *r2)
+	readCached(omgr, r2.ManifestID)
 }

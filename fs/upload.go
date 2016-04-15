@@ -73,14 +73,12 @@ func (u *uploader) UploadFile(path string) (cas.ObjectID, error) {
 func (u *uploader) UploadDir(path string, previousManifestID cas.ObjectID) (*UploadResult, error) {
 	//log.Printf("UploadDir", path)
 	//defer log.Printf("finishing UploadDir", path)
-	var hcr hashcacheReader
+	var mr uploadManifestReader
 	var err error
 
 	if previousManifestID != "" {
 		if r, err := u.mgr.Open(previousManifestID); err == nil {
-			if dr, err := newDirectoryReader(r); err == nil {
-				hcr.Open(dr)
-			}
+			mr.Open(r)
 		}
 	}
 
@@ -88,16 +86,18 @@ func (u *uploader) UploadDir(path string, previousManifestID cas.ObjectID) (*Upl
 		cas.WithDescription("HASHCACHE:"+path),
 		cas.WithBlockNamePrefix("H"),
 	)
-	dw := newDirectoryWriter(manifestWriter)
+	mw := uploadManifestWriter{
+		writer: manifestWriter,
+	}
 
 	result := &UploadResult{}
-	result.ObjectID, _, err = u.uploadDirInternal(result, path, ".", dw, &hcr)
+	result.ObjectID, _, err = u.uploadDirInternal(result, path, ".", &mw, &mr)
 	if err != nil {
-		dw.Close()
+		manifestWriter.Close()
 		return result, err
 	}
 
-	err = dw.Close()
+	err = mw.Close()
 	if err != nil {
 		return result, err
 	}
@@ -110,8 +110,8 @@ func (u *uploader) uploadDirInternal(
 	result *UploadResult,
 	path string,
 	relativePath string,
-	hcw *directoryWriter,
-	hcr *hashcacheReader,
+	mw *uploadManifestWriter,
+	mr *uploadManifestReader,
 ) (cas.ObjectID, bool, error) {
 	dir, err := u.lister.List(path)
 	if err != nil {
@@ -133,7 +133,7 @@ func (u *uploader) uploadDirInternal(
 		entryRelativePath := relativePath + "/" + e.Name
 
 		if e.IsDir() {
-			oid, wasCached, err := u.uploadDirInternal(result, fullPath, entryRelativePath, hcw, hcr)
+			oid, wasCached, err := u.uploadDirInternal(result, fullPath, entryRelativePath, mw, mr)
 			if err != nil {
 				return cas.NullObjectID, false, err
 			}
@@ -142,17 +142,17 @@ func (u *uploader) uploadDirInternal(
 			e.ObjectID = oid
 		} else {
 			// See if we had this name during previous pass.
-			cachedEntry, numSkipped := hcr.GetEntry(entryRelativePath)
+			cachedEntry, numSkipped := mr.GetEntry(entryRelativePath)
 
 			// ... and whether file metadata is identical to the previous one.
-			cacheMatches := metadataEquals(e, cachedEntry)
+			cacheMatches := (cachedEntry != nil) && cachedEntry.Hash == e.metadataHash()
 
 			allCached = allCached && cacheMatches && numSkipped == 0
 
 			if cacheMatches {
 				result.Stats.CachedFiles++
 				// Avoid hashing by reusing previous object ID.
-				e.ObjectID = cachedEntry.ObjectID
+				e.ObjectID = cas.ObjectID(cachedEntry.ObjectID)
 			} else {
 				result.Stats.NonCachedFiles++
 				e.ObjectID, err = u.UploadFile(fullPath)
@@ -166,30 +166,46 @@ func (u *uploader) uploadDirInternal(
 			return cas.NullObjectID, false, err
 		}
 
-		if e.IsDir() {
-			e.Name = entryRelativePath + "/"
-		} else {
-			e.Name = entryRelativePath
-		}
-		if err := hcw.WriteEntry(e); err != nil {
-			return cas.NullObjectID, false, err
+		if !e.IsDir() {
+			manifestEntry := manifestEntry{
+				Name:     entryRelativePath,
+				Hash:     e.metadataHash(),
+				ObjectID: string(e.ObjectID),
+			}
+			if err := mw.WriteEntry(manifestEntry); err != nil {
+				return cas.NullObjectID, false, err
+			}
 		}
 	}
 
 	var directoryOID cas.ObjectID
 
-	cachedDirEntry, numSkipped := hcr.GetEntry(relativePath + "/")
+	cachedDirEntry, numSkipped := mr.GetEntry(relativePath + "/")
 	allCached = allCached && cachedDirEntry != nil && numSkipped == 0
 
 	if allCached {
 		// Avoid hashing directory listing if every entry matched the cache.
 		result.Stats.CachedDirectories++
-		return cachedDirEntry.ObjectID, true, nil
+		directoryOID = cas.ObjectID(cachedDirEntry.ObjectID)
 	} else {
 		result.Stats.NonCachedDirectories++
 		directoryOID, err = writer.Result(true)
-		return directoryOID, false, err
+		if err != nil {
+			return directoryOID, false, err
+		}
 	}
+
+	dirManifestEntry := manifestEntry{
+		Name:     relativePath + "/",
+		ObjectID: string(directoryOID),
+		Hash:     0,
+	}
+
+	if err := mw.WriteEntry(dirManifestEntry); err != nil {
+		return cas.NullObjectID, false, err
+	}
+
+	return directoryOID, allCached, nil
 }
 
 func (u *uploader) Cancel() {

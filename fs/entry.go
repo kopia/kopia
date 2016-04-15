@@ -1,7 +1,8 @@
 package fs
 
 import (
-	"log"
+	"encoding/binary"
+	"hash/fnv"
 	"os"
 	"strings"
 	"time"
@@ -23,7 +24,7 @@ type Entry struct {
 	FileMode os.FileMode
 	FileSize int64
 	ModTime  time.Time
-	UserID   uint32
+	OwnerID  uint32
 	GroupID  uint32
 	ObjectID cas.ObjectID
 }
@@ -71,35 +72,12 @@ func (e *Entry) IsDir() bool {
 	return e.FileMode.IsDir()
 }
 
-func metadataEquals(e1, e2 *Entry) bool {
-	if (e1 != nil) != (e2 != nil) {
-		return false
-	}
-
-	if e1.FileMode != e2.FileMode {
-		log.Printf("a1")
-		return false
-	}
-
-	if e1.ModTime.UnixNano() != e2.ModTime.UnixNano() {
-		log.Printf("a2")
-		return false
-	}
-
-	if e1.FileSize != e2.FileSize {
-		log.Printf("a3")
-		return false
-	}
-
-	if e1.UserID != e2.UserID {
-		log.Printf("a4")
-		return false
-	}
-
-	if e1.GroupID != e2.GroupID {
-		log.Printf("a5")
-		return false
-	}
-
-	return true
+func (e *Entry) metadataHash() uint64 {
+	h := fnv.New64a()
+	binary.Write(h, binary.LittleEndian, e.ModTime.UnixNano())
+	binary.Write(h, binary.LittleEndian, e.FileMode)
+	binary.Write(h, binary.LittleEndian, e.FileSize)
+	binary.Write(h, binary.LittleEndian, e.OwnerID)
+	binary.Write(h, binary.LittleEndian, e.GroupID)
+	return h.Sum64()
 }

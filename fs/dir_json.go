@@ -17,7 +17,7 @@ const modeChars = "dalTLDpSugct"
 
 type jsonDirectoryEntry struct {
 	Name     string    `json:"name"`
-	Mode     string    `json:"mode"`
+	Mode     string    `json:"mode,omitempty"`
 	Size     string    `json:"size,omitempty"`
 	Time     time.Time `json:"modTime"`
 	Owner    string    `json:"owner,omitempty"`
@@ -36,7 +36,7 @@ func (de *Entry) fromJSON(jde *jsonDirectoryEntry) error {
 	de.ModTime = jde.Time
 
 	if jde.Owner != "" {
-		if c, err := fmt.Sscanf(jde.Owner, "%d:%d", &de.UserID, &de.GroupID); err != nil || c != 2 {
+		if c, err := fmt.Sscanf(jde.Owner, "%d:%d", &de.OwnerID, &de.GroupID); err != nil || c != 2 {
 			return fmt.Errorf("invalid owner: %v", err)
 		}
 	}
@@ -136,11 +136,12 @@ func (dw *directoryWriter) WriteEntry(e *Entry) error {
 		}
 		dw.lastNameWritten = e.Name
 	}
+
 	jde := jsonDirectoryEntry{
 		Name:     e.Name,
 		Mode:     formatModeAndPermissions(e.FileMode),
 		Time:     e.ModTime.UTC(),
-		Owner:    fmt.Sprintf("%d:%d", e.UserID, e.GroupID),
+		Owner:    fmt.Sprintf("%d:%d", e.OwnerID, e.GroupID),
 		ObjectID: string(e.ObjectID),
 	}
 
