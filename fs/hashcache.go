@@ -1,62 +1,40 @@
 package fs
 
 import (
-	"encoding/json"
+	"bufio"
 	"fmt"
 	"io"
+	"strconv"
+	"strings"
 )
 
-type manifestEntry struct {
-	Name     string `json:"name"`
-	Hash     uint64 `json:"hash,omitempty,string"`
-	ObjectID string `json:"oid"`
+type hashCacheEntry struct {
+	Name     string
+	Hash     uint64
+	ObjectID string
 }
 
-type uploadManifestReader struct {
-	reader    io.Reader
-	decoder   *json.Decoder
-	nextEntry *manifestEntry
+type hashcacheReader struct {
+	scanner   *bufio.Scanner
+	nextEntry *hashCacheEntry
+	entry0    hashCacheEntry
+	entry1    hashCacheEntry
+	odd       bool
+	first     bool
 }
 
-func (hcr *uploadManifestReader) Open(r io.Reader) error {
-	hcr.decoder = json.NewDecoder(r)
-
-	if err := ensureDelimiter(hcr.decoder, json.Delim('{')); err != nil {
-		return invalidDirectoryError(err)
-	}
-
-	if err := ensureStringToken(hcr.decoder, "format"); err != nil {
-		return invalidDirectoryError(err)
-	}
-
-	// Parse format and trailing comma
-	var format directoryFormat
-	if err := hcr.decoder.Decode(&format); err != nil {
-		return invalidDirectoryError(err)
-	}
-
-	if format.Version != 1 {
-		return invalidDirectoryError(fmt.Errorf("unsupported version: %v", format.Version))
-	}
-
-	if err := ensureStringToken(hcr.decoder, "entries"); err != nil {
-		return invalidDirectoryError(err)
-	}
-
-	if err := ensureDelimiter(hcr.decoder, json.Delim('[')); err != nil {
-		return invalidDirectoryError(err)
-	}
-
+func (hcr *hashcacheReader) open(r io.Reader) error {
+	hcr.scanner = bufio.NewScanner(r)
+	hcr.nextEntry = nil
+	hcr.first = true
 	hcr.readahead()
 	return nil
 }
 
-func (hcr *uploadManifestReader) GetEntry(relativeName string) (*manifestEntry, int) {
-	skipCount := 0
+func (hcr *hashcacheReader) GetEntry(relativeName string) *hashCacheEntry {
 	//log.Printf("looking for %v", relativeName)
 	for hcr.nextEntry != nil && isLess(hcr.nextEntry.Name, relativeName) {
 		hcr.readahead()
-		skipCount++
 	}
 
 	if hcr.nextEntry != nil && relativeName == hcr.nextEntry.Name {
@@ -64,89 +42,74 @@ func (hcr *uploadManifestReader) GetEntry(relativeName string) (*manifestEntry, 
 		e := hcr.nextEntry
 		hcr.nextEntry = nil
 		hcr.readahead()
-		return e, skipCount
+		return e
 	}
-
-	// if hcr.reader != nil {
-	// 	log.Printf("*** not found hashcache entry: %v", relativeName)
-	// }
-
-	return nil, skipCount
-}
-
-func (hcr *uploadManifestReader) readahead() {
-	if hcr.reader != nil {
-		hcr.nextEntry = nil
-		if hcr.decoder.More() {
-			var me manifestEntry
-			if err := hcr.decoder.Decode(&me); err == nil {
-				hcr.nextEntry = &me
-			} else {
-				hcr.reader = nil
-			}
-		}
-	}
-}
-
-func newManifestReader(r io.Reader) (*uploadManifestReader, error) {
-	dr := &uploadManifestReader{
-		decoder: json.NewDecoder(r),
-	}
-
-	if err := ensureDelimiter(dr.decoder, json.Delim('{')); err != nil {
-		return nil, invalidDirectoryError(err)
-	}
-
-	if err := ensureStringToken(dr.decoder, "format"); err != nil {
-		return nil, invalidDirectoryError(err)
-	}
-
-	// Parse format and trailing comma
-	var format directoryFormat
-	if err := dr.decoder.Decode(&format); err != nil {
-		return nil, invalidDirectoryError(err)
-	}
-
-	if format.Version != 1 {
-		return nil, invalidDirectoryError(fmt.Errorf("unsupported version: %v", format.Version))
-	}
-
-	if err := ensureStringToken(dr.decoder, "entries"); err != nil {
-		return nil, invalidDirectoryError(err)
-	}
-
-	if err := ensureDelimiter(dr.decoder, json.Delim('[')); err != nil {
-		return nil, invalidDirectoryError(err)
-	}
-
-	return dr, nil
-}
-
-type uploadManifestWriter struct {
-	writer    io.Writer
-	buf       []byte
-	separator []byte
-
-	lastNameWritten string
-}
-
-func (dw *uploadManifestWriter) WriteEntry(e manifestEntry) error {
-	if dw.lastNameWritten != "" {
-		if isLessOrEqual(e.Name, dw.lastNameWritten) {
-			return fmt.Errorf("out-of-order directory entry, previous '%v' current '%v'", dw.lastNameWritten, e.Name)
-		}
-		dw.lastNameWritten = e.Name
-	}
-
-	v, _ := json.Marshal(&e)
-
-	dw.writer.Write(dw.separator)
-	dw.writer.Write(v)
-	dw.separator = []byte(",\n  ")
 
 	return nil
 }
 
-func (dw *uploadManifestWriter) Close() error {
+func (hcr *hashcacheReader) readahead() {
+	if hcr.scanner != nil {
+		if hcr.first {
+			hcr.first = false
+			if !hcr.scanner.Scan() || hcr.scanner.Text() != "HASHCACHE:v1" {
+				hcr.scanner = nil
+				return
+			}
+		}
+
+		hcr.nextEntry = nil
+		if hcr.scanner.Scan() {
+			var err error
+			e := hcr.nextManifestEntry()
+			parts := strings.Split(hcr.scanner.Text(), "\t")
+			if len(parts) == 3 {
+				e.Name = parts[0]
+				e.Hash, err = strconv.ParseUint(parts[1], 16, 64)
+				e.ObjectID = parts[2]
+				if err == nil {
+					hcr.nextEntry = e
+				}
+			}
+		}
+	}
+
+	if hcr.nextEntry == nil {
+		hcr.scanner = nil
+	}
+}
+
+func (hcr *hashcacheReader) nextManifestEntry() *hashCacheEntry {
+	hcr.odd = !hcr.odd
+	if hcr.odd {
+		return &hcr.entry1
+	} else {
+		return &hcr.entry0
+	}
+}
+
+type hashcacheWriter struct {
+	writer          io.Writer
+	lastNameWritten string
+}
+
+func newHashCacheWriter(w io.Writer) *hashcacheWriter {
+	hcw := &hashcacheWriter{
+		writer: w,
+	}
+	io.WriteString(w, "HASHCACHE:v1\n")
+	return hcw
+}
+
+func (hcw *hashcacheWriter) WriteEntry(e hashCacheEntry) error {
+	if hcw.lastNameWritten != "" {
+		if isLessOrEqual(e.Name, hcw.lastNameWritten) {
+			return fmt.Errorf("out-of-order directory entry, previous '%v' current '%v'", hcw.lastNameWritten, e.Name)
+		}
+		hcw.lastNameWritten = e.Name
+	}
+
+	fmt.Fprintf(hcw.writer, "%v\t%x\t%v\n", e.Name, e.Hash, e.ObjectID)
+
 	return nil
 }
