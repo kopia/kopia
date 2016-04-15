@@ -73,51 +73,51 @@ func TestUpload(t *testing.T) {
 		return
 	}
 
-	oid, metadataOID, err := u.UploadDir(sourceDir, "")
+	r1, err := u.UploadDir(sourceDir, "")
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
 
-	oid2, metadataOID2, err := u.UploadDir(sourceDir, oid)
+	r2, err := u.UploadDir(sourceDir, r1.ObjectID)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
 
-	if oid2 != oid {
-		t.Errorf("expected oid==oid2, got %v and %v", oid, oid2)
+	if r2.ObjectID != r1.ObjectID {
+		t.Errorf("expected r1.ObjectID==r2.ObjectID, got %v and %v", r1.ObjectID, r2.ObjectID)
 	}
 
-	if metadataOID2 != metadataOID {
-		t.Errorf("expected metadataOID2==metadataOID, got %v and %v", metadataOID2, metadataOID)
+	if r2.ManifestID != r1.ManifestID {
+		t.Errorf("expected r2.ManifestID==r1.ManifestID, got %v and %v", r2.ManifestID, r1.ManifestID)
 	}
 
-	// Add one more file, the oid should change.
+	// Add one more file, the r1.ObjectID should change.
 	ioutil.WriteFile(filepath.Join(sourceDir, "d2/d1/f3"), []byte{1, 2, 3, 4, 5}, 0777)
-	oid3, metadataOID3, err := u.UploadDir(sourceDir, oid)
+	r3, err := u.UploadDir(sourceDir, r1.ObjectID)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
 
-	if oid2 == oid3 {
-		t.Errorf("expected oid3!=oid2, got %v", oid3)
+	if r2.ObjectID == r3.ObjectID {
+		t.Errorf("expected r3.ObjectID!=r2.ObjectID, got %v", r3.ObjectID)
 	}
 
-	if metadataOID2 == metadataOID3 {
-		t.Errorf("expected metadataOID3!=metadataOID2, got %v", metadataOID3)
+	if r2.ManifestID == r3.ManifestID {
+		t.Errorf("expected r3.ManifestID!=r2.ManifestID, got %v", r3.ManifestID)
 	}
 
 	// Now remove the added file, OID should be identical to the original before the file got added.
 	os.Remove(filepath.Join(sourceDir, "d2/d1/f3"))
 
-	oid4, metadataOID4, err := u.UploadDir(sourceDir, "")
+	r4, err := u.UploadDir(sourceDir, "")
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
 
-	if oid4 != oid {
-		t.Errorf("expected oid3==oid, got %v and %v", oid4, oid)
+	if r4.ObjectID != r1.ObjectID {
+		t.Errorf("expected r3.ObjectID==r1.ObjectID, got %v and %v", r4.ObjectID, r1.ObjectID)
 	}
-	if metadataOID4 != metadataOID {
-		t.Errorf("expected metadataOID3==metadataOID4, got %v and %v", metadataOID4, metadataOID)
+	if r4.ManifestID != r1.ManifestID {
+		t.Errorf("expected r3.ManifestID==r4.ManifestID, got %v and %v", r4.ManifestID, r1.ManifestID)
 	}
 }

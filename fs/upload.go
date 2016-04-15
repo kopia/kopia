@@ -18,10 +18,22 @@ const (
 // ErrUploadCancelled is returned when the upload gets cancelled.
 var ErrUploadCancelled = errors.New("upload cancelled")
 
+type UploadResult struct {
+	ObjectID   cas.ObjectID
+	ManifestID cas.ObjectID
+
+	Stats struct {
+		CachedDirectories    int
+		CachedFiles          int
+		NonCachedDirectories int
+		NonCachedFiles       int
+	}
+}
+
 // Uploader supports efficient uploading files and directories to CAS.
 type Uploader interface {
 	UploadFile(path string) (cas.ObjectID, error)
-	UploadDir(path string, previousObjectID cas.ObjectID) (objectID cas.ObjectID, manifestObjectID cas.ObjectID, err error)
+	UploadDir(path string, previousManifestID cas.ObjectID) (*UploadResult, error)
 	Cancel()
 }
 
@@ -58,13 +70,14 @@ func (u *uploader) UploadFile(path string) (cas.ObjectID, error) {
 	return result, nil
 }
 
-func (u *uploader) UploadDir(path string, previous cas.ObjectID) (cas.ObjectID, cas.ObjectID, error) {
+func (u *uploader) UploadDir(path string, previousManifestID cas.ObjectID) (*UploadResult, error) {
 	//log.Printf("UploadDir", path)
 	//defer log.Printf("finishing UploadDir", path)
 	var hcr hashcacheReader
+	var err error
 
-	if previous != "" {
-		if r, err := u.mgr.Open(previous); err == nil {
+	if previousManifestID != "" {
+		if r, err := u.mgr.Open(previousManifestID); err == nil {
 			if dr, err := newDirectoryReader(r); err == nil {
 				hcr.Open(dr)
 			}
@@ -76,22 +89,30 @@ func (u *uploader) UploadDir(path string, previous cas.ObjectID) (cas.ObjectID, 
 		cas.WithBlockNamePrefix("H"),
 	)
 	dw := newDirectoryWriter(manifestWriter)
-	oid, _, err := u.uploadDirInternal(path, ".", dw, &hcr)
+
+	result := &UploadResult{}
+	result.ObjectID, _, err = u.uploadDirInternal(result, path, ".", dw, &hcr)
 	if err != nil {
 		dw.Close()
-		return oid, cas.NullObjectID, err
+		return result, err
 	}
 
 	err = dw.Close()
 	if err != nil {
-		return oid, cas.NullObjectID, err
+		return result, err
 	}
 
-	manifestOid, err := manifestWriter.Result(true)
-	return oid, manifestOid, nil
+	result.ManifestID, err = manifestWriter.Result(true)
+	return result, nil
 }
 
-func (u *uploader) uploadDirInternal(path string, relativePath string, hcw *directoryWriter, hcr *hashcacheReader) (cas.ObjectID, bool, error) {
+func (u *uploader) uploadDirInternal(
+	result *UploadResult,
+	path string,
+	relativePath string,
+	hcw *directoryWriter,
+	hcr *hashcacheReader,
+) (cas.ObjectID, bool, error) {
 	dir, err := u.lister.List(path)
 	if err != nil {
 		return cas.NullObjectID, false, err
@@ -112,7 +133,7 @@ func (u *uploader) uploadDirInternal(path string, relativePath string, hcw *dire
 		entryRelativePath := relativePath + "/" + e.Name
 
 		if e.IsDir() {
-			oid, wasCached, err := u.uploadDirInternal(fullPath, entryRelativePath, hcw, hcr)
+			oid, wasCached, err := u.uploadDirInternal(result, fullPath, entryRelativePath, hcw, hcr)
 			if err != nil {
 				return cas.NullObjectID, false, err
 			}
@@ -129,9 +150,11 @@ func (u *uploader) uploadDirInternal(path string, relativePath string, hcw *dire
 			allCached = allCached && cacheMatches && numSkipped == 0
 
 			if cacheMatches {
+				result.Stats.CachedFiles++
 				// Avoid hashing by reusing previous object ID.
 				e.ObjectID = cachedEntry.ObjectID
 			} else {
+				result.Stats.NonCachedFiles++
 				e.ObjectID, err = u.UploadFile(fullPath)
 				if err != nil {
 					return cas.NullObjectID, false, fmt.Errorf("unable to hash file: %s", err)
@@ -155,13 +178,15 @@ func (u *uploader) uploadDirInternal(path string, relativePath string, hcw *dire
 
 	var directoryOID cas.ObjectID
 
-	dirEntry, numSkipped := hcr.GetEntry(relativePath + "/")
-	allCached = allCached && dirEntry != nil && numSkipped == 0
+	cachedDirEntry, numSkipped := hcr.GetEntry(relativePath + "/")
+	allCached = allCached && cachedDirEntry != nil && numSkipped == 0
 
 	if allCached {
 		// Avoid hashing directory listing if every entry matched the cache.
-		return dirEntry.ObjectID, true, nil
+		result.Stats.CachedDirectories++
+		return cachedDirEntry.ObjectID, true, nil
 	} else {
+		result.Stats.NonCachedDirectories++
 		directoryOID, err = writer.Result(true)
 		return directoryOID, false, err
 	}

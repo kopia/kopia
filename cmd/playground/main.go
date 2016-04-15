@@ -39,7 +39,7 @@ func (hls *highLatencyStorage) GetBlock(id blob.BlockID) ([]byte, error) {
 	return hls.Storage.GetBlock(id)
 }
 
-func uploadAndTime(omgr cas.ObjectManager, dir string, previous cas.ObjectID) (cas.ObjectID, cas.ObjectID) {
+func uploadAndTime(omgr cas.ObjectManager, dir string, previous cas.ObjectID) *fs.UploadResult {
 	log.Println("---")
 	uploader, err := fs.NewUploader(omgr)
 	if err != nil {
@@ -48,15 +48,15 @@ func uploadAndTime(omgr cas.ObjectManager, dir string, previous cas.ObjectID) (c
 
 	omgr.ResetStats()
 	t0 := time.Now()
-	oid, manifestOID, err := uploader.UploadDir(dir, previous)
+	res, err := uploader.UploadDir(dir, previous)
 	if err != nil {
 		log.Fatalf("Error uploading: %v", err)
 	}
 	dt := time.Since(t0)
 
-	log.Printf("Uploaded: %v in %v", oid, dt)
+	log.Printf("Uploaded: %v in %v", res.ObjectID, dt)
 	log.Printf("Stats: %#v", omgr.Stats())
-	return oid, manifestOID
+	return res
 }
 
 type subdirEntry struct {
@@ -228,28 +228,8 @@ func main() {
 
 	path := "/Users/jarek/Projects/Kopia/src/github.com/kopia/"
 
-	_, manifestOID := uploadAndTime(omgr, path, "")
-	log.Printf("second time")
-	uploadAndTime(omgr, path, manifestOID)
-	log.Printf("finished second time")
-	//readCached(omgr, manifestOID)
-	// time.Sleep(1 * time.Second)
-	// for i := 0; i < 1; i++ {
-	// 	t0 := time.Now()
-	// 	c := 0
-	// 	d := 0
-	// 	allGantt = nil
-	// 	for e := range walkTree(omgr, "BASE/", oid) {
-	// 		//log.Printf("e: %v %v", e.Name(), e.ObjectID())
-	// 		if e.IsDir() {
-	// 			d++
-	// 		}
-	// 		c++
-	// 	}
-	// 	dt := time.Since(t0)
-	// 	log.Printf("walk took %v and returned %v (%v dirs)", dt, c, d)
-	// 	// for _, e := range allGantt {
-	// 	// 	fmt.Printf("%v,%v,%v\n", e.dir, e.from.Sub(t0).Nanoseconds()/1000, e.to.Sub(e.from).Nanoseconds()/1000)
-	// 	// }
-	// }
+	r1 := uploadAndTime(omgr, path, "")
+	log.Printf("finished: %#v", *r1)
+	r2 := uploadAndTime(omgr, path, r1.ManifestID)
+	log.Printf("finished second time: %#v", *r2)
 }
