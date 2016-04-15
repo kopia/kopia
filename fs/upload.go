@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"hash/fnv"
 	"io"
-	"os"
 	"path/filepath"
 	"sync/atomic"
 
@@ -49,10 +48,10 @@ func (u *uploader) isCancelled() bool {
 	return atomic.LoadInt32(&u.cancelled) != 0
 }
 
-func (u *uploader) uploadFile(path string) (cas.ObjectID, uint64, error) {
-	file, err := os.Open(path)
+func (u *uploader) uploadFile(path string, e *Entry) (*Entry, uint64, error) {
+	file, e2, err := u.lister.Open(path)
 	if err != nil {
-		return cas.NullObjectID, 0, fmt.Errorf("unable to open file %s: %v", path, err)
+		return nil, 0, fmt.Errorf("unable to open file %s: %v", path, err)
 	}
 	defer file.Close()
 
@@ -63,12 +62,12 @@ func (u *uploader) uploadFile(path string) (cas.ObjectID, uint64, error) {
 	defer writer.Close()
 
 	io.Copy(writer, file)
-	result, err := writer.Result(false)
+	e2.ObjectID, err = writer.Result(false)
 	if err != nil {
-		return cas.NullObjectID, 0, err
+		return nil, 0, err
 	}
 
-	return result, 0, nil
+	return e2, e2.metadataHash(), nil
 }
 
 func (u *uploader) UploadDir(path string, previousManifestID cas.ObjectID) (*UploadResult, error) {
@@ -123,6 +122,8 @@ func (u *uploader) uploadDirInternal(
 	allCached := true
 
 	dirHasher := fnv.New64a()
+	dirHasher.Write([]byte(relativePath))
+	dirHasher.Write([]byte{0})
 
 	for _, e := range dir {
 		fullPath := filepath.Join(path, e.Name)
@@ -135,12 +136,13 @@ func (u *uploader) uploadDirInternal(
 			if err != nil {
 				return cas.NullObjectID, 0, false, err
 			}
+			//log.Printf("dirHash: %v %v", fullPath, h)
 			hash = h
 			allCached = allCached && wasCached
 			e.ObjectID = oid
 		} else {
 			// See if we had this name during previous pass.
-			cachedEntry := mr.GetEntry(entryRelativePath)
+			cachedEntry := mr.findEntry(entryRelativePath)
 
 			// ... and whether file metadata is identical to the previous one.
 			cacheMatches := (cachedEntry != nil) && cachedEntry.Hash == e.metadataHash()
@@ -154,13 +156,15 @@ func (u *uploader) uploadDirInternal(
 				hash = cachedEntry.Hash
 			} else {
 				result.Stats.NonCachedFiles++
-				e.ObjectID, hash, err = u.uploadFile(fullPath)
+				e, hash, err = u.uploadFile(fullPath, e)
 				if err != nil {
 					return cas.NullObjectID, 0, false, fmt.Errorf("unable to hash file: %s", err)
 				}
 			}
 		}
 
+		dirHasher.Write([]byte(e.Name))
+		dirHasher.Write([]byte{0})
 		binary.Write(dirHasher, binary.LittleEndian, hash)
 
 		if err := dw.WriteEntry(e); err != nil {
@@ -171,7 +175,7 @@ func (u *uploader) uploadDirInternal(
 			if err := hcw.WriteEntry(hashCacheEntry{
 				Name:     entryRelativePath,
 				Hash:     e.metadataHash(),
-				ObjectID: string(e.ObjectID),
+				ObjectID: e.ObjectID,
 			}); err != nil {
 				return cas.NullObjectID, 0, false, err
 			}
@@ -181,7 +185,7 @@ func (u *uploader) uploadDirInternal(
 	var directoryOID cas.ObjectID
 	dirHash := dirHasher.Sum64()
 
-	cachedDirEntry := mr.GetEntry(relativePath + "/")
+	cachedDirEntry := mr.findEntry(relativePath + "/")
 	allCached = allCached && cachedDirEntry != nil && cachedDirEntry.Hash == dirHash
 
 	if allCached {
@@ -198,7 +202,7 @@ func (u *uploader) uploadDirInternal(
 
 	if err := hcw.WriteEntry(hashCacheEntry{
 		Name:     relativePath + "/",
-		ObjectID: string(directoryOID),
+		ObjectID: directoryOID,
 		Hash:     dirHash,
 	}); err != nil {
 		return cas.NullObjectID, 0, false, err

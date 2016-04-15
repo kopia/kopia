@@ -6,12 +6,14 @@ import (
 	"io"
 	"strconv"
 	"strings"
+
+	"github.com/kopia/kopia/cas"
 )
 
 type hashCacheEntry struct {
 	Name     string
 	Hash     uint64
-	ObjectID string
+	ObjectID cas.ObjectID
 }
 
 type hashcacheReader struct {
@@ -31,14 +33,12 @@ func (hcr *hashcacheReader) open(r io.Reader) error {
 	return nil
 }
 
-func (hcr *hashcacheReader) GetEntry(relativeName string) *hashCacheEntry {
-	//log.Printf("looking for %v", relativeName)
+func (hcr *hashcacheReader) findEntry(relativeName string) *hashCacheEntry {
 	for hcr.nextEntry != nil && isLess(hcr.nextEntry.Name, relativeName) {
 		hcr.readahead()
 	}
 
 	if hcr.nextEntry != nil && relativeName == hcr.nextEntry.Name {
-		//log.Printf("*** found hashcache entry: %v", relativeName)
 		e := hcr.nextEntry
 		hcr.nextEntry = nil
 		hcr.readahead()
@@ -61,12 +61,12 @@ func (hcr *hashcacheReader) readahead() {
 		hcr.nextEntry = nil
 		if hcr.scanner.Scan() {
 			var err error
-			e := hcr.nextManifestEntry()
-			parts := strings.Split(hcr.scanner.Text(), "\t")
+			e := &hashCacheEntry{}
+			parts := strings.Split(hcr.scanner.Text(), "|")
 			if len(parts) == 3 {
 				e.Name = parts[0]
-				e.Hash, err = strconv.ParseUint(parts[1], 16, 64)
-				e.ObjectID = parts[2]
+				e.Hash, err = strconv.ParseUint(parts[1], 0, 64)
+				e.ObjectID = cas.ObjectID(parts[2])
 				if err == nil {
 					hcr.nextEntry = e
 				}
@@ -109,7 +109,7 @@ func (hcw *hashcacheWriter) WriteEntry(e hashCacheEntry) error {
 		hcw.lastNameWritten = e.Name
 	}
 
-	fmt.Fprintf(hcw.writer, "%v\t%x\t%v\n", e.Name, e.Hash, e.ObjectID)
+	fmt.Fprintf(hcw.writer, "%v|0x%x|%v\n", e.Name, e.Hash, e.ObjectID)
 
 	return nil
 }

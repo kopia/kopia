@@ -76,7 +76,9 @@ func (e *Entry) metadataHash() uint64 {
 	h := fnv.New64a()
 	binary.Write(h, binary.LittleEndian, e.ModTime.UnixNano())
 	binary.Write(h, binary.LittleEndian, e.FileMode)
-	binary.Write(h, binary.LittleEndian, e.FileSize)
+	if e.FileMode.IsRegular() {
+		binary.Write(h, binary.LittleEndian, e.FileSize)
+	}
 	binary.Write(h, binary.LittleEndian, e.OwnerID)
 	binary.Write(h, binary.LittleEndian, e.GroupID)
 	return h.Sum64()
