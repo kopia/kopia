@@ -29,3 +29,6 @@ vtest:
 
 doc:
 	godoc -http=:33333
+
+coverage:
+	./coverage.sh

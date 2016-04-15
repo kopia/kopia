@@ -14,11 +14,12 @@ func (hcr *hashcacheReader) Open(dr *directoryReader) {
 	hcr.readahead()
 }
 
-func (hcr *hashcacheReader) GetEntry(relativeName string) *Entry {
+func (hcr *hashcacheReader) GetEntry(relativeName string) (*Entry, int) {
+	skipCount := 0
 	//log.Printf("looking for %v", relativeName)
 	for hcr.nextEntry != nil && isLess(hcr.nextEntry.Name, relativeName) {
-		hcr.skippedCount++
 		hcr.readahead()
+		skipCount++
 	}
 
 	if hcr.nextEntry != nil && relativeName == hcr.nextEntry.Name {
@@ -26,14 +27,14 @@ func (hcr *hashcacheReader) GetEntry(relativeName string) *Entry {
 		e := hcr.nextEntry
 		hcr.nextEntry = nil
 		hcr.readahead()
-		return e
+		return e, skipCount
 	}
 
 	// if hcr.reader != nil {
 	// 	log.Printf("*** not found hashcache entry: %v", relativeName)
 	// }
 
-	return nil
+	return nil, skipCount
 }
 
 func (hcr *hashcacheReader) SkippedCount() int {

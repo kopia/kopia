@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -22,7 +21,7 @@ var ErrUploadCancelled = errors.New("upload cancelled")
 // Uploader supports efficient uploading files and directories to CAS.
 type Uploader interface {
 	UploadFile(path string) (cas.ObjectID, error)
-	UploadDir(path string, previousObjectID cas.ObjectID) (cas.ObjectID, cas.ObjectID, error)
+	UploadDir(path string, previousObjectID cas.ObjectID) (objectID cas.ObjectID, manifestObjectID cas.ObjectID, err error)
 	Cancel()
 }
 
@@ -93,9 +92,6 @@ func (u *uploader) UploadDir(path string, previous cas.ObjectID) (cas.ObjectID, 
 }
 
 func (u *uploader) uploadDirInternal(path string, relativePath string, hcw *directoryWriter, hcr *hashcacheReader) (cas.ObjectID, bool, error) {
-	//log.Printf("entering %v", path)
-	//defer log.Printf("exiting %v", path)
-
 	dir, err := u.lister.List(path)
 	if err != nil {
 		return cas.NullObjectID, false, err
@@ -111,37 +107,37 @@ func (u *uploader) uploadDirInternal(path string, relativePath string, hcw *dire
 
 	allCached := true
 
-	s0 := hcr.SkippedCount()
 	for _, e := range dir {
 		fullPath := filepath.Join(path, e.Name)
 		entryRelativePath := relativePath + "/" + e.Name
 
-		var oid cas.ObjectID
-		var cached bool
-
 		if e.IsDir() {
-			oid, cached, err = u.uploadDirInternal(fullPath, entryRelativePath, hcw, hcr)
+			oid, wasCached, err := u.uploadDirInternal(fullPath, entryRelativePath, hcw, hcr)
 			if err != nil {
 				return cas.NullObjectID, false, err
 			}
+
+			allCached = allCached && wasCached
+			e.ObjectID = oid
 		} else {
 			// See if we had this name during previous pass.
-			cachedEntry := hcr.GetEntry(entryRelativePath)
-			// ... and whether file metadata is identical to the previous one.
-			cached = metadataEquals(e, cachedEntry)
+			cachedEntry, numSkipped := hcr.GetEntry(entryRelativePath)
 
-			if cached {
+			// ... and whether file metadata is identical to the previous one.
+			cacheMatches := metadataEquals(e, cachedEntry)
+
+			allCached = allCached && cacheMatches && numSkipped == 0
+
+			if cacheMatches {
 				// Avoid hashing by reusing previous object ID.
-				oid = cachedEntry.ObjectID
+				e.ObjectID = cachedEntry.ObjectID
 			} else {
-				oid, err = u.UploadFile(fullPath)
+				e.ObjectID, err = u.UploadFile(fullPath)
 				if err != nil {
 					return cas.NullObjectID, false, fmt.Errorf("unable to hash file: %s", err)
 				}
 			}
 		}
-		allCached = allCached && cached
-		e.ObjectID = oid
 
 		if err := dw.WriteEntry(e); err != nil {
 			return cas.NullObjectID, false, err
@@ -157,21 +153,17 @@ func (u *uploader) uploadDirInternal(path string, relativePath string, hcw *dire
 		}
 	}
 
-	dirEntry := hcr.GetEntry(relativePath + "/")
-	s1 := hcr.SkippedCount()
-	if s0 != s1 {
-		allCached = false
-	}
+	var directoryOID cas.ObjectID
 
-	log.Printf("allCached: %v %v", relativePath, allCached)
+	dirEntry, numSkipped := hcr.GetEntry(relativePath + "/")
+	allCached = allCached && dirEntry != nil && numSkipped == 0
 
-	var oid cas.ObjectID
-	if allCached && dirEntry != nil {
-		// Avoid hashing directory listingif every entry matched the previous (possibly ignoring ordering).
+	if allCached {
+		// Avoid hashing directory listing if every entry matched the cache.
 		return dirEntry.ObjectID, true, nil
 	} else {
-		oid, err = writer.Result(true)
-		return oid, false, err
+		directoryOID, err = writer.Result(true)
+		return directoryOID, false, err
 	}
 }
 
