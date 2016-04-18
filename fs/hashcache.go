@@ -62,14 +62,14 @@ func (hcr *hashcacheReader) readahead() {
 		if hcr.scanner.Scan() {
 			var err error
 			e := hcr.nextManifestEntry()
-			parts := strings.Split(hcr.scanner.Text(), "|")
-			if len(parts) == 3 {
-				e.Name = parts[0]
-				e.Hash, err = strconv.ParseUint(parts[1], 0, 64)
-				e.ObjectID = cas.ObjectID(parts[2])
-				if err == nil {
-					hcr.nextEntry = e
-				}
+			t := hcr.scanner.Text()
+			p0 := strings.IndexByte(t, '|')
+			p1 := strings.LastIndexByte(t, '|')
+			e.Name = t[0:p0]
+			e.Hash, err = strconv.ParseUint(t[p0+1:p1], 0, 64)
+			e.ObjectID = cas.ObjectID(t[p1+1:])
+			if err == nil {
+				hcr.nextEntry = e
 			}
 		}
 	}

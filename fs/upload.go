@@ -52,7 +52,7 @@ func (u *uploader) isCancelled() bool {
 }
 
 func (u *uploader) uploadFile(path string, e *Entry) (*Entry, uint64, error) {
-	file, e2, err := u.lister.Open(path)
+	file, err := u.lister.Open(path)
 	if err != nil {
 		return nil, 0, fmt.Errorf("unable to open file %s: %v", path, err)
 	}
@@ -64,10 +64,23 @@ func (u *uploader) uploadFile(path string, e *Entry) (*Entry, uint64, error) {
 	)
 	defer writer.Close()
 
-	io.Copy(writer, file)
+	written, err := io.Copy(writer, file)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	e2, err := file.Entry()
+	if err != nil {
+		return nil, 0, err
+	}
+
 	e2.ObjectID, err = writer.Result(false)
 	if err != nil {
 		return nil, 0, err
+	}
+
+	if written != e2.FileSize {
+		// file changed
 	}
 
 	return e2, e2.metadataHash(), nil
@@ -145,6 +158,15 @@ func (u *uploader) uploadDirInternal(
 			allCached = allCached && wasCached
 			e.ObjectID = oid
 
+		case os.ModeSymlink:
+			l, err := os.Readlink(fullPath)
+			if err != nil {
+				return cas.NullObjectID, 0, false, err
+			}
+
+			e.ObjectID = cas.NewInlineObjectID([]byte(l))
+			hash = e.metadataHash()
+
 		case 0:
 			// regular file
 			// See if we had this name during previous pass.
@@ -172,9 +194,11 @@ func (u *uploader) uploadDirInternal(
 			return cas.NullObjectID, 0, false, fmt.Errorf("file type %v not supported", e.FileMode)
 		}
 
-		dirHasher.Write([]byte(e.Name))
-		dirHasher.Write([]byte{0})
-		binary.Write(dirHasher, binary.LittleEndian, hash)
+		if hash != 0 {
+			dirHasher.Write([]byte(e.Name))
+			dirHasher.Write([]byte{0})
+			binary.Write(dirHasher, binary.LittleEndian, hash)
+		}
 
 		if err := dw.WriteEntry(e); err != nil {
 			return cas.NullObjectID, 0, false, err
@@ -226,9 +250,13 @@ func (u *uploader) Cancel() {
 
 // NewUploader creates new Uploader object for the specified ObjectManager
 func NewUploader(mgr cas.ObjectManager) (Uploader, error) {
+	return newUploaderLister(mgr, &filesystemLister{})
+}
+
+func newUploaderLister(mgr cas.ObjectManager, lister Lister) (Uploader, error) {
 	u := &uploader{
 		mgr:    mgr,
-		lister: &filesystemLister{},
+		lister: lister,
 	}
 
 	return u, nil

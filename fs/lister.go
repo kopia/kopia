@@ -11,27 +11,41 @@ const (
 	directoryReadAhead = 1024
 )
 
+// EntryReadCloser allows reading from a file and retrieving *Entry for its metadata.
+type EntryReadCloser interface {
+	io.ReadCloser
+	Entry() (*Entry, error)
+}
+
 // Lister lists contents of filesystem directories.
 type Lister interface {
 	List(path string) (Directory, error)
-	Open(path string) (io.ReadCloser, *Entry, error)
+	Open(path string) (EntryReadCloser, error)
 }
 
 type filesystemLister struct {
 }
 
-func (d *filesystemLister) Open(path string) (io.ReadCloser, *Entry, error) {
+type filesystemEntryReadCloser struct {
+	*os.File
+}
+
+func (erc *filesystemEntryReadCloser) Entry() (*Entry, error) {
+	fi, err := erc.Stat()
+	if err != nil {
+		return nil, err
+	}
+
+	return entryFromFileInfo(fi), nil
+}
+
+func (d *filesystemLister) Open(path string) (EntryReadCloser, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	fi, err := f.Stat()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return f, entryFromFileInfo(fi), nil
+	return &filesystemEntryReadCloser{f}, nil
 }
 
 func (d *filesystemLister) List(path string) (Directory, error) {

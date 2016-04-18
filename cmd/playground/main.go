@@ -208,11 +208,11 @@ func main() {
 	data := map[string][]byte{}
 	st := blob.NewMapStorage(data)
 
-	// st = &highLatencyStorage{
-	// 	Storage:    st,
-	// 	writeDelay: 0 * time.Millisecond,
-	// 	readDelay:  0 * time.Millisecond,
-	// }
+	st = &highLatencyStorage{
+		Storage:    st,
+		writeDelay: 50 * time.Millisecond,
+		readDelay:  50 * time.Millisecond,
+	}
 	format := cas.Format{
 		Version: "1",
 		Hash:    "md5",
@@ -224,13 +224,19 @@ func main() {
 		return
 	}
 
-	time.Sleep(1 * time.Second)
-
-	path := "/Users/jarek/Projects/Kopia/src/github.com/kopia/"
+	path := "/Users/jarek/Projects/Kopia"
 
 	r1 := uploadAndTime(omgr, path, "")
 	log.Printf("finished: %#v", *r1)
+	time.Sleep(1 * time.Second)
 	r2 := uploadAndTime(omgr, path, r1.ManifestID)
 	log.Printf("finished second time: %#v", *r2)
+
+	var totalBlockSize int64
+	for _, v := range data {
+		//		log.Printf("  %v = %v", k, len(v))
+		totalBlockSize += int64(len(v))
+	}
+	log.Printf("Total blocks: %v size: %v", len(data), totalBlockSize)
 	//readCached(omgr, r2.ManifestID)
 }
