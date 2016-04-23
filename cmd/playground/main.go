@@ -1,9 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
+	"math"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -201,6 +203,12 @@ func readCached(omgr cas.ObjectManager, manifestOID cas.ObjectID) {
 }
 
 func main() {
+	for i := 0; i < 10; i++ {
+		ts := time.Now().UnixNano()
+		fmt.Printf("ts: %x\n", math.MaxInt64-ts)
+		time.Sleep(1 * time.Second)
+	}
+
 	var e fs.Entry
 
 	log.Println(unsafe.Sizeof(e))
@@ -214,8 +222,8 @@ func main() {
 		readDelay:  50 * time.Millisecond,
 	}
 	format := cas.Format{
-		Version: "1",
-		Hash:    "md5",
+		Version:      "1",
+		ObjectFormat: "md5",
 	}
 
 	omgr, err := cas.NewObjectManager(st, format)
@@ -239,4 +247,11 @@ func main() {
 	}
 	log.Printf("Total blocks: %v size: %v", len(data), totalBlockSize)
 	//readCached(omgr, r2.ManifestID)
+}
+
+type Config struct {
+	storage blob.StorageConfiguration `json:"storage"`
+}
+
+func t() {
 }

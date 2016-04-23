@@ -70,8 +70,8 @@ func newUploadTestHarness() *uploadTestHarness {
 	}
 
 	format := cas.Format{
-		Version: "1",
-		Hash:    "md5",
+		Version:      "1",
+		ObjectFormat: "md5",
 	}
 
 	objectManager, err := cas.NewObjectManager(repo, format)

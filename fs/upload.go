@@ -204,7 +204,7 @@ func (u *uploader) uploadDirInternal(
 			return cas.NullObjectID, 0, false, err
 		}
 
-		if !e.FileMode.IsDir() {
+		if !e.FileMode.IsDir() && e.ObjectID.Type().IsStored() {
 			if err := hcw.WriteEntry(hashCacheEntry{
 				Name:     entryRelativePath,
 				Hash:     e.metadataHash(),
@@ -214,6 +214,8 @@ func (u *uploader) uploadDirInternal(
 			}
 		}
 	}
+
+	dw.Close()
 
 	var directoryOID cas.ObjectID
 	dirHash := dirHasher.Sum64()

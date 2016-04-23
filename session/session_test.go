@@ -35,8 +35,8 @@ func TestA(t *testing.T) {
 	defer sess.Close()
 
 	om, err := sess.InitObjectManager(cas.Format{
-		Version: "1",
-		Hash:    "sha1",
+		Version:      "1",
+		ObjectFormat: "sha1",
 	})
 
 	if err != nil {

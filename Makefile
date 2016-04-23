@@ -1,4 +1,7 @@
-all: test lint vet build
+all: install test lint vet
+
+install:
+	go install github.com/kopia/kopia/cmd/kopia
 
 build:
 	go build github.com/kopia/kopia/...

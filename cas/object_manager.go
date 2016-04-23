@@ -3,13 +3,8 @@ package cas
 import (
 	"bufio"
 	"bytes"
-	"crypto/aes"
 	"crypto/cipher"
 	"crypto/hmac"
-	"crypto/md5"
-	"crypto/sha1"
-	"crypto/sha256"
-	"crypto/sha512"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -24,9 +19,27 @@ import (
 	"github.com/kopia/kopia/blob"
 )
 
+const (
+	minLocatorSizeBytes = 16
+)
+
 // Since we never share keys, using constant IV is fine.
 // Instead of using all-zero, we use this one.
 var constantIV = []byte("kopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopia")
+
+func nonHMAC(hf func() hash.Hash) func(secret []byte) func() hash.Hash {
+	return func(secret []byte) func() hash.Hash {
+		return hf
+	}
+}
+
+func withHMAC(hf func() hash.Hash) func(secret []byte) func() hash.Hash {
+	return func(key []byte) func() hash.Hash {
+		return func() hash.Hash {
+			return hmac.New(hf, key)
+		}
+	}
+}
 
 // ObjectManager manages objects stored in a storage and allows reading and writing them.
 type ObjectManager interface {
@@ -62,7 +75,7 @@ type ObjectManagerStats struct {
 	ValidBlocks   int32
 }
 
-type keygenFunc func([]byte) (key []byte, locator []byte)
+type keygenFunc func([]byte) (blockIDBytes []byte, key []byte)
 
 type objectManager struct {
 	storage       blob.Storage
@@ -169,6 +182,12 @@ func EnableLogging() ObjectManagerOption {
 	}
 }
 
+func hmacFunc(key []byte, hf func() hash.Hash) func() hash.Hash {
+	return func() hash.Hash {
+		return hmac.New(hf, key)
+	}
+}
+
 // NewObjectManager creates new ObjectManager with the specified storage, options, and key provider.
 func NewObjectManager(
 	r blob.Storage,
@@ -188,44 +207,14 @@ func NewObjectManager(
 		mgr.maxBlobSize = 16 * 1024 * 1024
 	}
 
-	var hashFunc func() hash.Hash
-
-	hashAlgo := f.Hash
-	hf := strings.TrimPrefix(hashAlgo, "hmac-")
-
-	switch hf {
-	case "md5":
-		hashFunc = md5.New
-	case "sha1":
-		hashFunc = sha1.New
-	case "sha256":
-		hashFunc = sha256.New
-	case "sha512":
-		hashFunc = sha512.New
-	default:
-		return nil, fmt.Errorf("unknown hash function: %v", hf)
+	sf := SupportedFormats.Find(f.ObjectFormat)
+	if sf == nil {
+		return nil, fmt.Errorf("unknown object format: %v", f.ObjectFormat)
 	}
 
-	if strings.HasPrefix(hashAlgo, "hmac-") {
-		rawHashFunc := hashFunc
-		hashFunc = func() hash.Hash {
-			return hmac.New(rawHashFunc, f.Secret)
-		}
-	}
-
-	mgr.hashFunc = hashFunc
-
-	switch f.Encryption {
-	case "aes-128":
-		mgr.createCipher = aes.NewCipher
-		mgr.keygen = splitHash(16)
-	case "aes-192":
-		mgr.createCipher = aes.NewCipher
-		mgr.keygen = splitHash(24)
-	case "aes-256":
-		mgr.createCipher = aes.NewCipher
-		mgr.keygen = splitHash(32)
-	}
+	mgr.hashFunc = sf.hashFuncMaker(f.Secret)
+	mgr.createCipher = sf.createCipher
+	mgr.keygen = sf.keygen
 
 	for _, o := range options {
 		if err := o(mgr); err != nil {
@@ -239,10 +228,14 @@ func NewObjectManager(
 	return mgr, nil
 }
 
-func splitHash(keySize int) keygenFunc {
+func splitKeyGenerator(blockIDSize int, keySize int) keygenFunc {
 	return func(b []byte) ([]byte, []byte) {
-		p := len(b) - keySize
-		return b[0:p], b[p:]
+		if len(b) < blockIDSize+keySize {
+			panic(fmt.Sprintf("hash result too short: %v, blockIDsize: %v keySize: %v", len(b), blockIDSize, keySize))
+		}
+		blockIDBytes := b[0:blockIDSize]
+		key := b[blockIDSize : blockIDSize+keySize]
+		return blockIDBytes, key
 	}
 }
 

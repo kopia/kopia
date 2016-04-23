@@ -3,6 +3,7 @@ package session
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -11,6 +12,8 @@ import (
 	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/cas"
 )
+
+var ErrConfigNotFound = errors.New("config not found")
 
 type Session interface {
 	io.Closer
@@ -32,7 +35,7 @@ func (s *session) Close() error {
 func (s *session) getPrivateBlock(blkID blob.BlockID) ([]byte, error) {
 	b, err := s.storage.GetBlock(blkID)
 	if err != nil {
-		return nil, fmt.Errorf("unable to read block %v: %v", blkID, err)
+		return nil, err
 	}
 
 	return b, err
@@ -79,6 +82,9 @@ func (s *session) InitObjectManager(format cas.Format) (cas.ObjectManager, error
 func (s *session) OpenObjectManager() (cas.ObjectManager, error) {
 	b, err := s.getPrivateBlock(s.getConfigBlockID())
 	if err != nil {
+		if err == blob.ErrBlockNotFound {
+			return nil, ErrConfigNotFound
+		}
 		return nil, err
 	}
 

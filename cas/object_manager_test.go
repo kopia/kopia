@@ -20,7 +20,7 @@ func testFormat() Format {
 		Version:           "1",
 		MaxBlobSize:       200,
 		MaxInlineBlobSize: 20,
-		Hash:              "md5",
+		ObjectFormat:      "md5",
 	}
 }
 
@@ -235,7 +235,7 @@ func TestHMAC(t *testing.T) {
 	content := bytes.Repeat([]byte{0xcd}, 50)
 
 	s := testFormat()
-	s.Hash = "hmac-md5"
+	s.ObjectFormat = "hmac-md5"
 	s.Secret = []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25}
 
 	mgr, err := NewObjectManager(blob.NewMapStorage(data), s)
@@ -382,8 +382,8 @@ func TestFormats(t *testing.T) {
 	}{
 		{
 			format: Format{
-				Version: "1",
-				Hash:    "md5",
+				Version:      "1",
+				ObjectFormat: "md5",
 			},
 			oids: map[string]ObjectID{
 				"": "Cd41d8cd98f00b204e9800998ecf8427e",
@@ -392,8 +392,8 @@ func TestFormats(t *testing.T) {
 		},
 		{
 			format: Format{
-				Version: "1",
-				Hash:    "hmac-md5",
+				Version:      "1",
+				ObjectFormat: "hmac-md5",
 			},
 			oids: map[string]ObjectID{
 				"": "C74e6f7298a9c2d168935f58c001bad88",
@@ -402,9 +402,9 @@ func TestFormats(t *testing.T) {
 		},
 		{
 			format: Format{
-				Version: "1",
-				Hash:    "hmac-md5",
-				Secret:  []byte("key"),
+				Version:      "1",
+				ObjectFormat: "hmac-md5",
+				Secret:       []byte("key"),
 			},
 			oids: map[string]ObjectID{
 				"The quick brown fox jumps over the lazy dog": "C80070713463e7749b90c2dc24911e275",
@@ -412,9 +412,9 @@ func TestFormats(t *testing.T) {
 		},
 		{
 			format: Format{
-				Version: "1",
-				Hash:    "hmac-sha1",
-				Secret:  []byte("key"),
+				Version:      "1",
+				ObjectFormat: "hmac-sha1",
+				Secret:       []byte("key"),
 			},
 			oids: map[string]ObjectID{
 				"The quick brown fox jumps over the lazy dog": "Cde7c9b85b8b78aa6bc8a7a36f70a90701c9db4d9",
@@ -422,9 +422,9 @@ func TestFormats(t *testing.T) {
 		},
 		{
 			format: Format{
-				Version: "1",
-				Hash:    "hmac-sha256",
-				Secret:  []byte("key"),
+				Version:      "1",
+				ObjectFormat: "hmac-sha256",
+				Secret:       []byte("key"),
 			},
 			oids: map[string]ObjectID{
 				"The quick brown fox jumps over the lazy dog": "Cf7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8",
@@ -432,9 +432,9 @@ func TestFormats(t *testing.T) {
 		},
 		{
 			format: Format{
-				Version: "1",
-				Hash:    "hmac-sha512",
-				Secret:  []byte("key"),
+				Version:      "1",
+				ObjectFormat: "hmac-sha512",
+				Secret:       []byte("key"),
 			},
 			oids: map[string]ObjectID{
 				"The quick brown fox jumps over the lazy dog": "Cb42af09057bac1e2d41708e48a902e09b5ff7f12ab428a4fe86653c73dd248fb82f948a549f7b791a5b41915ee4d1ec3935357e4e2317250d0372afa2ebeeb3a",
@@ -442,32 +442,29 @@ func TestFormats(t *testing.T) {
 		},
 		{
 			format: Format{
-				Version:    "1",
-				Hash:       "hmac-sha512",
-				Secret:     []byte("key"),
-				Encryption: "aes-128",
+				Version:      "1",
+				ObjectFormat: "hmac-sha256-aes128",
+				Secret:       []byte("key"),
 			},
 			oids: map[string]ObjectID{
-				"The quick brown fox jumps over the lazy dog": "Cb42af09057bac1e2d41708e48a902e09b5ff7f12ab428a4fe86653c73dd248fb82f948a549f7b791a5b41915ee4d1ec3:935357e4e2317250d0372afa2ebeeb3a",
+				"The quick brown fox jumps over the lazy dog": "Cf7bc83f430538424b13298e6aa6fb143:ef4d59a14946175997479dbc2d1a3cd8",
 			},
 		},
 		{
 			format: Format{
-				Version:    "1",
-				Hash:       "hmac-sha512",
-				Secret:     []byte("key"),
-				Encryption: "aes-192",
+				Version:      "1",
+				ObjectFormat: "hmac-sha384-aes256",
+				Secret:       []byte("key"),
 			},
 			oids: map[string]ObjectID{
-				"The quick brown fox jumps over the lazy dog": "Cb42af09057bac1e2d41708e48a902e09b5ff7f12ab428a4fe86653c73dd248fb82f948a549f7b791:a5b41915ee4d1ec3935357e4e2317250d0372afa2ebeeb3a",
+				"The quick brown fox jumps over the lazy dog": "Cd7f4727e2c0b39ae0f1e40cc96f60242:d5b7801841cea6fc592c5d3e1ae50700582a96cf35e1e554995fe4e03381c237",
 			},
 		},
 		{
 			format: Format{
-				Version:    "1",
-				Hash:       "hmac-sha512",
-				Secret:     []byte("key"),
-				Encryption: "aes-256",
+				Version:      "1",
+				ObjectFormat: "hmac-sha512-aes256",
+				Secret:       []byte("key"),
 			},
 			oids: map[string]ObjectID{
 				"The quick brown fox jumps over the lazy dog": "Cb42af09057bac1e2d41708e48a902e09b5ff7f12ab428a4fe86653c73dd248fb:82f948a549f7b791a5b41915ee4d1ec3935357e4e2317250d0372afa2ebeeb3a",
@@ -495,7 +492,7 @@ func TestFormats(t *testing.T) {
 				t.Errorf("error: %v", err)
 			}
 			if oid != v {
-				t.Errorf("invalid oid for %v/%v: %v expected %v", c.format.Hash, k, oid, v)
+				t.Errorf("invalid oid for %v/%v: %v expected %v", c.format.ObjectFormat, k, oid, v)
 			}
 
 			rc, err := mgr.Open(oid)
@@ -518,10 +515,9 @@ func TestInvalidEncryptionKey(t *testing.T) {
 	data := map[string][]byte{}
 	st := blob.NewMapStorage(data)
 	format := Format{
-		Version:    "1",
-		Hash:       "hmac-sha512",
-		Secret:     []byte("key"),
-		Encryption: "aes-256",
+		Version:      "1",
+		ObjectFormat: "hmac-sha512-aes256",
+		Secret:       []byte("key"),
 	}
 
 	mgr, err := NewObjectManager(st, format)
