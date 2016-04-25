@@ -275,7 +275,7 @@ func (mgr *objectManager) hashBufferForWriting(buffer *bytes.Buffer, prefix stri
 	readCloser := mgr.bufferManager.returnBufferOnClose(buffer)
 	readCloser = newCountingReader(readCloser, &mgr.stats.BytesWrittenToStorage)
 
-	if cryptoKey != nil {
+	if mgr.createCipher != nil {
 		c, err := mgr.createCipher(cryptoKey)
 		if err != nil {
 			log.Printf("can't create cipher: %v", err)
