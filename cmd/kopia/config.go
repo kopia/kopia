@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/user"
 	"path/filepath"
 
 	"github.com/kopia/kopia/auth"
@@ -37,6 +38,10 @@ func configFileName() string {
 }
 
 func getDefaultConfigFileName() string {
+	u, err := user.Current()
+	if err == nil && u.Uid == "0" {
+		return "/etc/kopia/config.json"
+	}
 	return filepath.Join(getHomeDir(), ".kopia/config.json")
 }
 
