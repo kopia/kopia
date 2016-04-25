@@ -52,6 +52,7 @@ func (w *objectWriter) Close() error {
 }
 
 func (w *objectWriter) Write(data []byte) (n int, err error) {
+	dataLen := len(data)
 	remaining := len(data)
 	w.totalLength += int64(remaining)
 
@@ -86,7 +87,7 @@ func (w *objectWriter) Write(data []byte) (n int, err error) {
 			remaining = len(data)
 		}
 	}
-	return len(data), nil
+	return dataLen, nil
 }
 
 func (w *objectWriter) flushBuffer(force bool) error {
