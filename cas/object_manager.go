@@ -259,7 +259,7 @@ func (mgr *objectManager) hashBufferForWriting(buffer *bytes.Buffer, prefix stri
 
 	contentHash, cryptoKey := mgr.hashBuffer(data)
 	var objectID ObjectID
-	if cryptoKey != nil {
+	if len(cryptoKey) > 0 {
 		objectID = ObjectID(prefix + hex.EncodeToString(contentHash) + ":" + hex.EncodeToString(cryptoKey))
 	} else {
 		objectID = ObjectID(prefix + hex.EncodeToString(contentHash))

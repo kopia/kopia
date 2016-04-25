@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -52,6 +53,7 @@ func (u *uploader) isCancelled() bool {
 }
 
 func (u *uploader) uploadFile(path string, e *Entry) (*Entry, uint64, error) {
+	log.Printf("Uploading file %v", path)
 	file, err := u.lister.Open(path)
 	if err != nil {
 		return nil, 0, fmt.Errorf("unable to open file %s: %v", path, err)
@@ -87,6 +89,8 @@ func (u *uploader) uploadFile(path string, e *Entry) (*Entry, uint64, error) {
 }
 
 func (u *uploader) UploadDir(path string, previousManifestID cas.ObjectID) (*UploadResult, error) {
+	log.Printf("Uploading dir %v", path)
+	defer log.Printf("Finished uploading dir %v", path)
 	//log.Printf("UploadDir", path)
 	//defer log.Printf("finishing UploadDir", path)
 	var mr hashcacheReader

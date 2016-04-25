@@ -13,7 +13,8 @@ import (
 )
 
 var (
-	configFile = app.Flag("config_file", "Specify config filename.").Default(getDefaultConfigFileName()).String()
+	configFile   = app.Flag("config", "Specify config filename.").Default(getDefaultConfigFileName()).String()
+	traceStorage = app.Flag("trace-storage", "Enables tracing of storage operations.").Bool()
 )
 
 func failOnError(err error) {
@@ -83,7 +84,9 @@ func openSession() (session.Session, error) {
 		return nil, err
 	}
 
-	storage = blob.NewLoggingWrapper(storage)
+	if *traceStorage {
+		storage = blob.NewLoggingWrapper(storage)
+	}
 
 	var creds auth.Credentials
 

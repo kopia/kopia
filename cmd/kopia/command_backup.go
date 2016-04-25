@@ -8,10 +8,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/backup"
 
 	"github.com/kopia/kopia/cas"
-	"github.com/kopia/kopia/content"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -55,11 +54,7 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 	}
 	defer mgr.Close()
 
-	if err != nil {
-		return err
-	}
-
-	uploader, err := fs.NewUploader(mgr)
+	bgen, err := backup.NewGenerator(mgr)
 	if err != nil {
 		return err
 	}
@@ -69,23 +64,23 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 		if err != nil {
 			return fmt.Errorf("invalid directory: '%s': %s", backupDirectory, err)
 		}
-		metadata := content.BackupMetadata{
-			Directory: filepath.Clean(dir),
+
+		manifest := backup.Manifest{
+			SourceDirectory: filepath.Clean(dir),
 
 			HostName:    getBackupHostName(),
-			User:        getBackupUser(),
+			UserName:    getBackupUser(),
 			Description: *backupDescription,
 		}
 
-		if len(metadata.Description) > backupMaxDescriptionLength {
+		if len(manifest.Description) > backupMaxDescriptionLength {
 			return fmt.Errorf("description too long")
 		}
 
-		r, err := uploader.UploadDir(backupDirectory, "")
-		if err != nil {
+		if err := bgen.Backup(&manifest); err != nil {
 			return err
 		}
-		log.Printf("Root: %v", r.ObjectID)
+		log.Printf("Root: %v", manifest.RootObjectID)
 	}
 
 	return nil
