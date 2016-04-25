@@ -78,6 +78,8 @@ func openSession() (session.Session, error) {
 		return nil, err
 	}
 
+	storage = blob.NewLoggingWrapper(storage)
+
 	var creds auth.Credentials
 
 	return session.New(storage, creds)
