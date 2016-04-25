@@ -113,6 +113,7 @@ func (w *objectWriter) flushBuffer(force bool) error {
 		w.lastFlushedObject = objectID
 		if w.listWriter == nil {
 			w.listWriter = newObjectWriter(w.objectWriterConfig, ObjectIDTypeList)
+			w.listWriter.prefix = w.prefix
 			w.listWriter.description = "LIST(" + w.description + ")"
 			w.listWriter.atomicWrites = true
 		}
