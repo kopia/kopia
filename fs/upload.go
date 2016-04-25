@@ -89,8 +89,6 @@ func (u *uploader) uploadFile(path string, e *Entry) (*Entry, uint64, error) {
 }
 
 func (u *uploader) UploadDir(path string, previousManifestID cas.ObjectID) (*UploadResult, error) {
-	log.Printf("Uploading dir %v", path)
-	defer log.Printf("Finished uploading dir %v", path)
 	//log.Printf("UploadDir", path)
 	//defer log.Printf("finishing UploadDir", path)
 	var mr hashcacheReader
@@ -126,6 +124,8 @@ func (u *uploader) uploadDirInternal(
 	hcw *hashcacheWriter,
 	mr *hashcacheReader,
 ) (cas.ObjectID, uint64, bool, error) {
+	log.Printf("Uploading dir %v", path)
+	defer log.Printf("Finished uploading dir %v", path)
 	dir, err := u.lister.List(path)
 	if err != nil {
 		return cas.NullObjectID, 0, false, err
