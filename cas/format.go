@@ -33,22 +33,26 @@ func (oif *ObjectIDFormat) IsEncrypted() bool {
 	return oif.createCipher != nil
 }
 
+// HashSizeBits returns the number of bits returned by hash function.
 func (oif *ObjectIDFormat) HashSizeBits() int {
 	hf := oif.hashFuncMaker(nil)
 	return hf().Size() * 8
 }
 
-func (oif *ObjectIDFormat) ObjectIDLength() int {
+// BlockIDLength returns the number of characters in a stored block ID.
+func (oif *ObjectIDFormat) BlockIDLength() int {
 	hf := oif.hashFuncMaker(nil)
 	if oif.keygen == nil {
-		return hf().Size()
+		return hf().Size() * 2
 	}
 
 	h := hf().Sum(nil)
 	blockID, _ := oif.keygen(h)
-	return len(blockID)
+	return len(blockID) * 2
 }
 
+// EncryptionKeySizeBits returns the size of encryption key in bits,
+// or zero if no encryption is used in this format.
 func (oif *ObjectIDFormat) EncryptionKeySizeBits() int {
 	if oif.keygen == nil {
 		return 0

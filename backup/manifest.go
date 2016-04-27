@@ -2,6 +2,7 @@ package backup
 
 import "time"
 
+// Manifest stores information about single backup.
 type Manifest struct {
 	StartTime time.Time `json:"time"`
 	EndTime   time.Time `json:"time"`

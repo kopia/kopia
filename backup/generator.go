@@ -23,6 +23,7 @@ var (
 	zeroByte = []byte{0}
 )
 
+// Generator allows creation of backups.
 type Generator interface {
 	Backup(m *Manifest) error
 }
@@ -74,14 +75,15 @@ func (bg *backupGenerator) Backup(m *Manifest) error {
 	m.HashCacheID = string(r.ManifestID)
 	m.EndTime = time.Now()
 
-	blockId := fmt.Sprintf("%v.%08x", backupSetID, math.MaxInt64-m.StartTime.UnixNano())
+	blockID := blob.BlockID(fmt.Sprintf("%v.%08x", backupSetID, math.MaxInt64-m.StartTime.UnixNano()))
 	buf := bytes.NewBuffer(nil)
 	json.NewEncoder(buf).Encode(&m)
-	st.PutBlock(blob.BlockID(blockId), ioutil.NopCloser(buf), blob.PutOptions{})
+	st.PutBlock(blockID, ioutil.NopCloser(buf), blob.PutOptions{})
 
 	return nil
 }
 
+// NewGenerator creates new backup generator.
 func NewGenerator(omgr cas.ObjectManager) (Generator, error) {
 	return &backupGenerator{
 		omgr: omgr,

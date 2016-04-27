@@ -111,7 +111,7 @@ func getCustomFormat() string {
 		if o.IsEncrypted() {
 			encryptionString = fmt.Sprintf("%d-bit", o.EncryptionKeySizeBits())
 		}
-		fmt.Printf("  %2v | %-30v | %4v | %10v | %15v |\n", i+1, o.Name, o.HashSizeBits(), encryptionString, o.ObjectIDLength()*2)
+		fmt.Printf("  %2v | %-30v | %4v | %10v | %15v |\n", i+1, o.Name, o.HashSizeBits(), encryptionString, o.BlockIDLength())
 	}
 	fmt.Println(strings.Repeat("-", 76) + "+")
 

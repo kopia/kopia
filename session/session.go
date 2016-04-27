@@ -13,6 +13,7 @@ import (
 	"github.com/kopia/kopia/cas"
 )
 
+// ErrConfigNotFound indicates that configuration is not found.
 var ErrConfigNotFound = errors.New("config not found")
 
 type Session interface {
