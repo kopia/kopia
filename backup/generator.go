@@ -52,8 +52,8 @@ func (bg *backupGenerator) Backup(m *Manifest) error {
 
 	backupSetID := "B" + hex.EncodeToString(h.Sum(nil))
 	st := bg.omgr.Storage()
-	hashCacheID := cas.NullObjectID
-	for b := range st.ListBlocks(blob.BlockID(backupSetID + ".")) {
+	var hashCacheID cas.ObjectID
+	for b := range st.ListBlocks(backupSetID + ".") {
 		log.Printf("Found block: %v", b)
 		if bd, err := st.GetBlock(b.BlockID); err == nil {
 			var oldManifest Manifest
@@ -75,7 +75,7 @@ func (bg *backupGenerator) Backup(m *Manifest) error {
 	m.HashCacheID = string(r.ManifestID)
 	m.EndTime = time.Now()
 
-	blockID := blob.BlockID(fmt.Sprintf("%v.%08x", backupSetID, math.MaxInt64-m.StartTime.UnixNano()))
+	blockID := string(fmt.Sprintf("%v.%08x", backupSetID, math.MaxInt64-m.StartTime.UnixNano()))
 	buf := bytes.NewBuffer(nil)
 	json.NewEncoder(buf).Encode(&m)
 	st.PutBlock(blockID, ioutil.NopCloser(buf), blob.PutOptions{})

@@ -403,7 +403,7 @@ func (mgr *objectManager) newRawReader(objectID ObjectID) (io.ReadSeeker, error)
 	return bytes.NewReader(payload), nil
 }
 
-func (mgr *objectManager) verifyChecksum(data []byte, blockID blob.BlockID) error {
+func (mgr *objectManager) verifyChecksum(data []byte, blockID string) error {
 	payloadHash, _ := mgr.hashBuffer(data)
 	checksum := hex.EncodeToString(payloadHash)
 	if !strings.HasSuffix(string(blockID), checksum) {

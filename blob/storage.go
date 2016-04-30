@@ -5,9 +5,6 @@ import (
 	"time"
 )
 
-// BlockID represents the identifier of a block stored in BLOB Storage.
-type BlockID string
-
 // PutOptions controls the behavior of Storage.PutBlock()
 type PutOptions struct {
 	Overwrite    bool
@@ -17,19 +14,19 @@ type PutOptions struct {
 // Storage encapsulates API for connecting to blob storage
 type Storage interface {
 	// BlockExists determines whether the specified block existts.
-	PutBlock(id BlockID, data io.ReadCloser, options PutOptions) error
-	DeleteBlock(id BlockID) error
+	PutBlock(id string, data io.ReadCloser, options PutOptions) error
+	DeleteBlock(id string) error
 	Flush() error
-	BlockExists(id BlockID) (bool, error)
-	GetBlock(id BlockID) ([]byte, error)
-	ListBlocks(prefix BlockID) chan (BlockMetadata)
+	BlockExists(id string) (bool, error)
+	GetBlock(id string) ([]byte, error)
+	ListBlocks(prefix string) chan (BlockMetadata)
 	Configuration() StorageConfiguration
 }
 
 // BlockMetadata represents metadata about a single block in a blob.
 // If Error field is set, no other field values should be assumed to be correct.
 type BlockMetadata struct {
-	BlockID   BlockID
+	BlockID   string
 	Length    uint64
 	TimeStamp time.Time
 	Error     error

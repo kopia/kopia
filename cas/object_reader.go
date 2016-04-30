@@ -10,7 +10,7 @@ import (
 type seekTableEntry struct {
 	startOffset int64
 	length      int64
-	blockID     blob.BlockID
+	blockID     string
 }
 
 func (r *seekTableEntry) endOffset() int64 {

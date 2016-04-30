@@ -9,13 +9,13 @@ type loggingStorage struct {
 	Storage
 }
 
-func (s *loggingStorage) BlockExists(id BlockID) (bool, error) {
+func (s *loggingStorage) BlockExists(id string) (bool, error) {
 	result, err := s.Storage.BlockExists(id)
 	log.Printf("BlockExists(%#v)=%#v,%#v", id, result, err)
 	return result, err
 }
 
-func (s *loggingStorage) GetBlock(id BlockID) ([]byte, error) {
+func (s *loggingStorage) GetBlock(id string) ([]byte, error) {
 	result, err := s.Storage.GetBlock(id)
 	if len(result) < 20 {
 		log.Printf("GetBlock(%#v)=(%#v, %#v)", id, result, err)
@@ -25,19 +25,19 @@ func (s *loggingStorage) GetBlock(id BlockID) ([]byte, error) {
 	return result, err
 }
 
-func (s *loggingStorage) PutBlock(id BlockID, data io.ReadCloser, options PutOptions) error {
+func (s *loggingStorage) PutBlock(id string, data io.ReadCloser, options PutOptions) error {
 	err := s.Storage.PutBlock(id, data, options)
 	log.Printf("PutBlock(%#v, %#v)=%#v", id, options, err)
 	return err
 }
 
-func (s *loggingStorage) DeleteBlock(id BlockID) error {
+func (s *loggingStorage) DeleteBlock(id string) error {
 	err := s.Storage.DeleteBlock(id)
 	log.Printf("DeleteBlock(%#v)=%#v", id, err)
 	return err
 }
 
-func (s *loggingStorage) ListBlocks(prefix BlockID) chan (BlockMetadata) {
+func (s *loggingStorage) ListBlocks(prefix string) chan (BlockMetadata) {
 	log.Printf("ListBlocks(%#v)", prefix)
 	return s.Storage.ListBlocks(prefix)
 }

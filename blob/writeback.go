@@ -25,7 +25,7 @@ type writeBackRequest struct {
 	debugInfo     string
 }
 
-func (wb *writeBackStorage) PutBlock(blockID BlockID, data io.ReadCloser, options PutOptions) error {
+func (wb *writeBackStorage) PutBlock(blockID string, data io.ReadCloser, options PutOptions) error {
 	err := wb.getDeferredError()
 	if err != nil {
 		data.Close()
@@ -50,7 +50,7 @@ func (wb *writeBackStorage) getDeferredError() error {
 	return nil
 }
 
-func (wb *writeBackStorage) DeleteBlock(blockID BlockID) error {
+func (wb *writeBackStorage) DeleteBlock(blockID string) error {
 	wb.channel <- writeBackRequest{
 		action: func() error {
 			return wb.Storage.DeleteBlock(blockID)

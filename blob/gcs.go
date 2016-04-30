@@ -58,7 +58,7 @@ type gcsStorage struct {
 	objectsService *gcsclient.ObjectsService
 }
 
-func (gcs *gcsStorage) BlockExists(b BlockID) (bool, error) {
+func (gcs *gcsStorage) BlockExists(b string) (bool, error) {
 	_, err := gcs.objectsService.Get(gcs.BucketName, gcs.getObjectNameString(b)).Do()
 
 	if err == nil {
@@ -68,7 +68,7 @@ func (gcs *gcsStorage) BlockExists(b BlockID) (bool, error) {
 	return false, err
 }
 
-func (gcs *gcsStorage) GetBlock(b BlockID) ([]byte, error) {
+func (gcs *gcsStorage) GetBlock(b string) ([]byte, error) {
 	v, err := gcs.objectsService.Get(gcs.BucketName, gcs.getObjectNameString(b)).Download()
 	if err != nil {
 		if err, ok := err.(*googleapi.Error); ok {
@@ -85,7 +85,7 @@ func (gcs *gcsStorage) GetBlock(b BlockID) ([]byte, error) {
 	return ioutil.ReadAll(v.Body)
 }
 
-func (gcs *gcsStorage) PutBlock(b BlockID, data io.ReadCloser, options PutOptions) error {
+func (gcs *gcsStorage) PutBlock(b string, data io.ReadCloser, options PutOptions) error {
 	object := gcsclient.Object{
 		Name: gcs.getObjectNameString(b),
 	}
@@ -98,7 +98,7 @@ func (gcs *gcsStorage) PutBlock(b BlockID, data io.ReadCloser, options PutOption
 	return err
 }
 
-func (gcs *gcsStorage) DeleteBlock(b BlockID) error {
+func (gcs *gcsStorage) DeleteBlock(b string) error {
 	err := gcs.objectsService.Delete(gcs.BucketName, string(b)).Do()
 	if err != nil {
 		return fmt.Errorf("unable to delete block %s: %v", b, err)
@@ -107,11 +107,11 @@ func (gcs *gcsStorage) DeleteBlock(b BlockID) error {
 	return nil
 }
 
-func (gcs *gcsStorage) getObjectNameString(b BlockID) string {
+func (gcs *gcsStorage) getObjectNameString(b string) string {
 	return gcs.Prefix + string(b)
 }
 
-func (gcs *gcsStorage) ListBlocks(prefix BlockID) chan (BlockMetadata) {
+func (gcs *gcsStorage) ListBlocks(prefix string) chan (BlockMetadata) {
 	ch := make(chan BlockMetadata, 100)
 
 	go func() {
@@ -127,7 +127,7 @@ func (gcs *gcsStorage) ListBlocks(prefix BlockID) chan (BlockMetadata) {
 					}
 				} else {
 					ch <- BlockMetadata{
-						BlockID:   BlockID(o.Name)[len(gcs.Prefix):],
+						BlockID:   string(o.Name)[len(gcs.Prefix):],
 						Length:    o.Size,
 						TimeStamp: t,
 					}

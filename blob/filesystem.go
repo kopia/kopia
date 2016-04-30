@@ -40,7 +40,7 @@ type FSStorageOptions struct {
 	FileGID *int `json:"gid,omitempty"`
 }
 
-func (fs *fsStorage) BlockExists(blockID BlockID) (bool, error) {
+func (fs *fsStorage) BlockExists(blockID string) (bool, error) {
 	_, path := fs.getShardedPathAndFilePath(blockID)
 	_, err := os.Stat(path)
 	if err == nil {
@@ -54,7 +54,7 @@ func (fs *fsStorage) BlockExists(blockID BlockID) (bool, error) {
 	return false, err
 }
 
-func (fs *fsStorage) GetBlock(blockID BlockID) ([]byte, error) {
+func (fs *fsStorage) GetBlock(blockID string) ([]byte, error) {
 	_, path := fs.getShardedPathAndFilePath(blockID)
 	d, err := ioutil.ReadFile(path)
 	if err == nil {
@@ -68,19 +68,19 @@ func (fs *fsStorage) GetBlock(blockID BlockID) ([]byte, error) {
 	return nil, err
 }
 
-func getBlockIDFromFileName(name string) (BlockID, bool) {
+func getstringFromFileName(name string) (string, bool) {
 	if strings.HasSuffix(name, fsStorageChunkSuffix) {
-		return BlockID(name[0 : len(name)-len(fsStorageChunkSuffix)]), true
+		return string(name[0 : len(name)-len(fsStorageChunkSuffix)]), true
 	}
 
-	return BlockID(""), false
+	return string(""), false
 }
 
-func makeFileName(blockID BlockID) string {
+func makeFileName(blockID string) string {
 	return string(blockID) + fsStorageChunkSuffix
 }
 
-func (fs *fsStorage) ListBlocks(prefix BlockID) chan (BlockMetadata) {
+func (fs *fsStorage) ListBlocks(prefix string) chan (BlockMetadata) {
 	result := make(chan (BlockMetadata))
 
 	prefixString := string(prefix)
@@ -105,10 +105,10 @@ func (fs *fsStorage) ListBlocks(prefix BlockID) chan (BlockMetadata) {
 					if match {
 						walkDir(directory+"/"+e.Name(), currentPrefix+e.Name())
 					}
-				} else if fullID, ok := getBlockIDFromFileName(currentPrefix + e.Name()); ok {
+				} else if fullID, ok := getstringFromFileName(currentPrefix + e.Name()); ok {
 					if strings.HasPrefix(string(fullID), prefixString) {
 						result <- BlockMetadata{
-							BlockID:   BlockID(fullID),
+							BlockID:   fullID,
 							Length:    uint64(e.Size()),
 							TimeStamp: e.ModTime(),
 						}
@@ -127,7 +127,7 @@ func (fs *fsStorage) ListBlocks(prefix BlockID) chan (BlockMetadata) {
 	return result
 }
 
-func (fs *fsStorage) PutBlock(blockID BlockID, data io.ReadCloser, options PutOptions) error {
+func (fs *fsStorage) PutBlock(blockID string, data io.ReadCloser, options PutOptions) error {
 	// Close the data reader regardless of whether we use it or not.
 	defer data.Close()
 
@@ -165,7 +165,7 @@ func (fs *fsStorage) PutBlock(blockID BlockID, data io.ReadCloser, options PutOp
 	return nil
 }
 
-func (fs *fsStorage) DeleteBlock(blockID BlockID) error {
+func (fs *fsStorage) DeleteBlock(blockID string) error {
 	_, path := fs.getShardedPathAndFilePath(blockID)
 	err := os.Remove(path)
 	if err == nil || os.IsNotExist(err) {
@@ -179,7 +179,7 @@ func (fs *fsStorage) Flush() error {
 	return nil
 }
 
-func (fs *fsStorage) getShardDirectory(blockID BlockID) (string, BlockID) {
+func (fs *fsStorage) getShardDirectory(blockID string) (string, string) {
 	shardPath := fs.Path
 	blockIDString := string(blockID)
 	if len(blockIDString) < 20 {
@@ -190,10 +190,10 @@ func (fs *fsStorage) getShardDirectory(blockID BlockID) (string, BlockID) {
 		blockIDString = blockIDString[size:]
 	}
 
-	return shardPath, BlockID(blockIDString)
+	return shardPath, string(blockIDString)
 }
 
-func (fs *fsStorage) getShardedPathAndFilePath(blockID BlockID) (string, string) {
+func (fs *fsStorage) getShardedPathAndFilePath(blockID string) (string, string) {
 	shardPath, blockID := fs.getShardDirectory(blockID)
 	result := filepath.Join(shardPath, makeFileName(blockID))
 	return shardPath, result

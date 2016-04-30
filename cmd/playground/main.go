@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"log"
 	"math"
+	"net/url"
+	"os"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -27,7 +29,7 @@ type highLatencyStorage struct {
 	writeDelay time.Duration
 }
 
-func (hls *highLatencyStorage) PutBlock(id blob.BlockID, data io.ReadCloser, options blob.PutOptions) error {
+func (hls *highLatencyStorage) PutBlock(id string, data io.ReadCloser, options blob.PutOptions) error {
 	go func() {
 		time.Sleep(hls.writeDelay)
 		hls.Storage.PutBlock(id, data, options)
@@ -36,7 +38,7 @@ func (hls *highLatencyStorage) PutBlock(id blob.BlockID, data io.ReadCloser, opt
 	return nil
 }
 
-func (hls *highLatencyStorage) GetBlock(id blob.BlockID) ([]byte, error) {
+func (hls *highLatencyStorage) GetBlock(id string) ([]byte, error) {
 	time.Sleep(hls.readDelay)
 	return hls.Storage.GetBlock(id)
 }
@@ -203,6 +205,10 @@ func readCached(omgr cas.ObjectManager, manifestOID cas.ObjectID) {
 }
 
 func main() {
+	u, err := url.Parse("local://c:/ala")
+	log.Printf("u: %v o: %v", u.Path, u.Opaque)
+	//u.Query().Get("a")
+	os.Exit(0)
 	for i := 0; i < 10; i++ {
 		ts := time.Now().UnixNano()
 		fmt.Printf("ts: %x\n", math.MaxInt64-ts)

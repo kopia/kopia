@@ -29,7 +29,7 @@ func TestParseMalformedObjectID(t *testing.T) {
 
 	for _, c := range cases {
 		v, err := ParseObjectID(c)
-		if v != NullObjectID || err == nil || !strings.HasPrefix(err.Error(), "malformed chunk id") {
+		if v != "" || err == nil || !strings.HasPrefix(err.Error(), "malformed chunk id") {
 			t.Errorf("unexpected result for %v: v: %v err: %v", c, v, err)
 		}
 	}

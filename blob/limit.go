@@ -22,7 +22,7 @@ func (s *writeLimitReadCloser) Read(b []byte) (int, error) {
 	return n, err
 }
 
-func (s *writeLimitStorage) PutBlock(id BlockID, data io.ReadCloser, options PutOptions) error {
+func (s *writeLimitStorage) PutBlock(id string, data io.ReadCloser, options PutOptions) error {
 	if !options.IgnoreLimits {
 		if atomic.LoadInt64(&s.remainingBytes) <= 0 {
 			return ErrWriteLimitExceeded

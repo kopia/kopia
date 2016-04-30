@@ -52,13 +52,13 @@ func TestFileStorage(t *testing.T) {
 
 func verifyStorage(t *testing.T, r Storage) {
 	blocks := []struct {
-		blk      BlockID
+		blk      string
 		contents []byte
 	}{
-		{blk: BlockID("abcdbbf4f0507d054ed5a80a5b65086f602b"), contents: []byte{}},
-		{blk: BlockID("zxce0e35630770c54668a8cfb4e414c6bf8f"), contents: []byte{1}},
-		{blk: BlockID("abff4585856ebf0748fd989e1dd623a8963d"), contents: bytes.Repeat([]byte{1}, 1000)},
-		{blk: BlockID("abgc3dca496d510f492c858a2df1eb824e62"), contents: bytes.Repeat([]byte{1}, 10000)},
+		{blk: string("abcdbbf4f0507d054ed5a80a5b65086f602b"), contents: []byte{}},
+		{blk: string("zxce0e35630770c54668a8cfb4e414c6bf8f"), contents: []byte{1}},
+		{blk: string("abff4585856ebf0748fd989e1dd623a8963d"), contents: bytes.Repeat([]byte{1}, 1000)},
+		{blk: string("abgc3dca496d510f492c858a2df1eb824e62"), contents: bytes.Repeat([]byte{1}, 10000)},
 	}
 
 	// First verify that blocks don't exist.
@@ -94,7 +94,7 @@ func verifyStorage(t *testing.T, r Storage) {
 	}
 
 	// List
-	ch := r.ListBlocks(BlockID("ab"))
+	ch := r.ListBlocks(string("ab"))
 	e1, ok := <-ch
 	if !ok || e1.BlockID != blocks[0].blk {
 		t.Errorf("missing result 0")

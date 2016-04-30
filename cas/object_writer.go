@@ -151,7 +151,7 @@ func (w *objectWriter) Result(forceStored bool) (ObjectID, error) {
 	if w.flushedObjectCount == 1 {
 		return w.lastFlushedObject, nil
 	} else if w.flushedObjectCount == 0 {
-		return NullObjectID, nil
+		return "", nil
 	} else {
 		return w.listWriter.Result(true)
 	}

@@ -18,14 +18,14 @@ func (s *mapStorage) Configuration() StorageConfiguration {
 	return StorageConfiguration{}
 }
 
-func (s *mapStorage) BlockExists(id BlockID) (bool, error) {
+func (s *mapStorage) BlockExists(id string) (bool, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	_, ok := s.data[string(id)]
 	return ok, nil
 }
 
-func (s *mapStorage) GetBlock(id BlockID) ([]byte, error) {
+func (s *mapStorage) GetBlock(id string) ([]byte, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -37,7 +37,7 @@ func (s *mapStorage) GetBlock(id BlockID) ([]byte, error) {
 	return nil, ErrBlockNotFound
 }
 
-func (s *mapStorage) PutBlock(id BlockID, data io.ReadCloser, options PutOptions) error {
+func (s *mapStorage) PutBlock(id string, data io.ReadCloser, options PutOptions) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -56,7 +56,7 @@ func (s *mapStorage) PutBlock(id BlockID, data io.ReadCloser, options PutOptions
 	return nil
 }
 
-func (s *mapStorage) DeleteBlock(id BlockID) error {
+func (s *mapStorage) DeleteBlock(id string) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -64,7 +64,7 @@ func (s *mapStorage) DeleteBlock(id BlockID) error {
 	return nil
 }
 
-func (s *mapStorage) ListBlocks(prefix BlockID) chan (BlockMetadata) {
+func (s *mapStorage) ListBlocks(prefix string) chan (BlockMetadata) {
 	ch := make(chan (BlockMetadata))
 	fixedTime := time.Now()
 	go func() {
@@ -83,7 +83,7 @@ func (s *mapStorage) ListBlocks(prefix BlockID) chan (BlockMetadata) {
 		for _, k := range keys {
 			v := s.data[k]
 			ch <- BlockMetadata{
-				BlockID:   BlockID(k),
+				BlockID:   string(k),
 				Length:    uint64(len(v)),
 				TimeStamp: fixedTime,
 			}

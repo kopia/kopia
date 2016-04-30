@@ -128,7 +128,7 @@ func (u *uploader) uploadDirInternal(
 	defer log.Printf("Finished uploading dir %v", path)
 	dir, err := u.lister.List(path)
 	if err != nil {
-		return cas.NullObjectID, 0, false, err
+		return "", 0, false, err
 	}
 
 	writer := u.mgr.NewWriter(
@@ -155,7 +155,7 @@ func (u *uploader) uploadDirInternal(
 		case os.ModeDir:
 			oid, h, wasCached, err := u.uploadDirInternal(result, fullPath, entryRelativePath, hcw, mr)
 			if err != nil {
-				return cas.NullObjectID, 0, false, err
+				return "", 0, false, err
 			}
 			//log.Printf("dirHash: %v %v", fullPath, h)
 			hash = h
@@ -165,7 +165,7 @@ func (u *uploader) uploadDirInternal(
 		case os.ModeSymlink:
 			l, err := os.Readlink(fullPath)
 			if err != nil {
-				return cas.NullObjectID, 0, false, err
+				return "", 0, false, err
 			}
 
 			e.ObjectID = cas.NewInlineObjectID([]byte(l))
@@ -190,12 +190,12 @@ func (u *uploader) uploadDirInternal(
 				result.Stats.NonCachedFiles++
 				e, hash, err = u.uploadFile(fullPath, e)
 				if err != nil {
-					return cas.NullObjectID, 0, false, fmt.Errorf("unable to hash file: %s", err)
+					return "", 0, false, fmt.Errorf("unable to hash file: %s", err)
 				}
 			}
 
 		default:
-			return cas.NullObjectID, 0, false, fmt.Errorf("file type %v not supported", e.FileMode)
+			return "", 0, false, fmt.Errorf("file type %v not supported", e.FileMode)
 		}
 
 		if hash != 0 {
@@ -205,7 +205,7 @@ func (u *uploader) uploadDirInternal(
 		}
 
 		if err := dw.WriteEntry(e); err != nil {
-			return cas.NullObjectID, 0, false, err
+			return "", 0, false, err
 		}
 
 		if !e.FileMode.IsDir() && e.ObjectID.Type().IsStored() {
@@ -214,7 +214,7 @@ func (u *uploader) uploadDirInternal(
 				Hash:     e.metadataHash(),
 				ObjectID: e.ObjectID,
 			}); err != nil {
-				return cas.NullObjectID, 0, false, err
+				return "", 0, false, err
 			}
 		}
 	}
@@ -244,7 +244,7 @@ func (u *uploader) uploadDirInternal(
 		ObjectID: directoryOID,
 		Hash:     dirHash,
 	}); err != nil {
-		return cas.NullObjectID, 0, false, err
+		return "", 0, false, err
 	}
 
 	return directoryOID, dirHash, allCached, nil

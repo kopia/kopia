@@ -33,7 +33,7 @@ func (s *session) Close() error {
 	return nil
 }
 
-func (s *session) getPrivateBlock(blkID blob.BlockID) ([]byte, error) {
+func (s *session) getPrivateBlock(blkID string) ([]byte, error) {
 	b, err := s.storage.GetBlock(blkID)
 	if err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func (s *session) getPrivateBlock(blkID blob.BlockID) ([]byte, error) {
 	return b, err
 }
 
-func (s *session) encryptBlockWithPublicKey(blkID blob.BlockID, data io.ReadCloser, options blob.PutOptions) error {
+func (s *session) encryptBlockWithPublicKey(blkID string, data io.ReadCloser, options blob.PutOptions) error {
 	err := s.storage.PutBlock(blkID, data, options)
 	if err != nil {
 		return fmt.Errorf("unable to write block %v: %v", blkID, err)
@@ -51,12 +51,12 @@ func (s *session) encryptBlockWithPublicKey(blkID blob.BlockID, data io.ReadClos
 	return err
 }
 
-func (s *session) getConfigBlockID() blob.BlockID {
+func (s *session) getConfigstring() string {
 	if s.creds == nil {
-		return blob.BlockID("config.json")
+		return string("config.json")
 	}
 
-	return blob.BlockID("users." + s.creds.Username() + ".config.json")
+	return string("users." + s.creds.Username() + ".config.json")
 }
 
 func (s *session) InitObjectManager(format cas.Format) (cas.ObjectManager, error) {
@@ -71,7 +71,7 @@ func (s *session) InitObjectManager(format cas.Format) (cas.ObjectManager, error
 	}
 
 	if err := s.encryptBlockWithPublicKey(
-		s.getConfigBlockID(),
+		s.getConfigstring(),
 		ioutil.NopCloser(bytes.NewBuffer(b)),
 		blob.PutOptions{}); err != nil {
 		return nil, err
@@ -81,7 +81,7 @@ func (s *session) InitObjectManager(format cas.Format) (cas.ObjectManager, error
 }
 
 func (s *session) OpenObjectManager() (cas.ObjectManager, error) {
-	b, err := s.getPrivateBlock(s.getConfigBlockID())
+	b, err := s.getPrivateBlock(s.getConfigstring())
 	if err != nil {
 		if err == blob.ErrBlockNotFound {
 			return nil, ErrConfigNotFound

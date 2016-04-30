@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"strings"
 	"unicode/utf8"
-
-	"github.com/kopia/kopia/blob"
 )
 
 var (
@@ -30,18 +28,13 @@ const (
 	// ObjectIDTypeBinary represents binary inline object ID
 	ObjectIDTypeBinary ObjectIDType = "B"
 
-	// ObjectIDTypeStored represents ID of object whose data is stored directly in a single storage block indicated by BlockID.
+	// ObjectIDTypeStored represents ID of object whose data is stored directly in a single storage block indicated by string.
 	ObjectIDTypeStored ObjectIDType = "C"
 
 	// ObjectIDTypeList represents ID of an object whose data is stored in mutliple storage blocks.
 	// The value of the ObjectID is the list chunk, which lists object IDs that need to be concatenated
 	// to form the contents.
 	ObjectIDTypeList ObjectIDType = "L" // list chunk
-)
-
-const (
-	// NullObjectID represents empty object ID.
-	NullObjectID ObjectID = ""
 )
 
 // IsStored determines whether data for the given chunk type is stored in the storage
@@ -85,15 +78,15 @@ func (c ObjectID) InlineData() []byte {
 }
 
 // BlockID returns identifier of the storage block. For inline chunk IDs, an empty string is returned.
-func (c ObjectID) BlockID() blob.BlockID {
+func (c ObjectID) BlockID() string {
 	if c.Type().IsStored() {
 		content := string(c[1:])
 		firstColon := strings.Index(content, ":")
 		if firstColon > 0 {
-			return blob.BlockID(content[0:firstColon])
+			return string(content[0:firstColon])
 		}
 
-		return blob.BlockID(content)
+		return string(content)
 	}
 
 	return ""
@@ -163,5 +156,5 @@ func ParseObjectID(objectIDString string) (ObjectID, error) {
 		}
 	}
 
-	return NullObjectID, fmt.Errorf("malformed chunk id: '%s'", objectIDString)
+	return "", fmt.Errorf("malformed chunk id: '%s'", objectIDString)
 }
