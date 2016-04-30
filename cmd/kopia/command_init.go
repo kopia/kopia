@@ -37,7 +37,7 @@ func runInitCommandForRepository(s blob.Storage, defaultSalt string) error {
 		return err
 	}
 
-	_, err = sess.OpenObjectManager()
+	_, err = sess.OpenRepository()
 	switch err {
 	case session.ErrConfigNotFound:
 		// all good, config not found.
@@ -78,7 +78,7 @@ func runInitCommandForRepository(s blob.Storage, defaultSalt string) error {
 
 	fmt.Printf("Initializing repository with format: '%v'\n", format.ObjectFormat)
 
-	if _, err := sess.InitObjectManager(format); err != nil {
+	if _, err := sess.InitRepository(format); err != nil {
 		return err
 	}
 

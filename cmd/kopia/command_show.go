@@ -16,7 +16,7 @@ var (
 )
 
 func runShowCommand(context *kingpin.ParseContext) error {
-	mgr, err := mustOpenSession().OpenObjectManager()
+	mgr, err := mustOpenSession().OpenRepository()
 	if err != nil {
 		return err
 	}

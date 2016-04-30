@@ -18,7 +18,7 @@ type ObjectWriter interface {
 
 // objectWriterConfig
 type objectWriterConfig struct {
-	mgr        *objectManager
+	mgr        *repo
 	putOptions blob.PutOptions
 }
 
@@ -157,7 +157,7 @@ func (w *objectWriter) Result(forceStored bool) (ObjectID, error) {
 	}
 }
 
-// WriterOption is an option that can be passed to ObjectManager.NewWriter()
+// WriterOption is an option that can be passed to Repository.NewWriter()
 type WriterOption func(*objectWriter)
 
 // WithBlockNamePrefix causes the ObjectWriter to prefix any blocks emitted to the storage with a given string.

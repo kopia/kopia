@@ -15,7 +15,7 @@ type Manager interface {
 }
 
 type manager struct {
-	omgr  cas.ObjectManager
+	repo  cas.Repository
 	cache *dirCache
 }
 
@@ -47,12 +47,12 @@ func (mgr *manager) readDirectory(oid cas.ObjectID) (fs.Directory, error) {
 }
 
 func (mgr *manager) open(oid cas.ObjectID) (io.ReadSeeker, error) {
-	return mgr.omgr.Open(oid)
+	return mgr.repo.Open(oid)
 }
 
-func NewManager(omgr cas.ObjectManager) Manager {
+func NewManager(repo cas.Repository) Manager {
 	return &manager{
-		omgr:  omgr,
+		repo:  repo,
 		cache: newDirCache(10000, 1000000),
 	}
 }

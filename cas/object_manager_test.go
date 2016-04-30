@@ -38,11 +38,11 @@ func getMd5LObjectID(data []byte) string {
 	return fmt.Sprintf("L%s", getMd5Digest(data))
 }
 
-func setupTest(t *testing.T) (data map[string][]byte, mgr ObjectManager) {
+func setupTest(t *testing.T) (data map[string][]byte, repo Repository) {
 	data = map[string][]byte{}
 	st := blob.NewMapStorage(data)
 
-	mgr, err := NewObjectManager(st, testFormat())
+	repo, err := NewRepository(st, testFormat())
 	if err != nil {
 		t.Errorf("cannot create manager: %v", err)
 	}
@@ -67,9 +67,9 @@ func TestWriters(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		data, mgr := setupTest(t)
+		data, repo := setupTest(t)
 
-		writer := mgr.NewWriter(
+		writer := repo.NewWriter(
 			WithBlockNamePrefix("X"),
 		)
 
@@ -99,10 +99,10 @@ func TestWriters(t *testing.T) {
 }
 
 func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
-	_, mgr := setupTest(t)
+	_, repo := setupTest(t)
 
 	bytes := make([]byte, 100)
-	writer := mgr.NewWriter(
+	writer := repo.NewWriter(
 		WithBlockNamePrefix("X"),
 	)
 	writer.Write(bytes[0:50])
@@ -114,7 +114,7 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 }
 
 func TestWriterListChunk(t *testing.T) {
-	data, mgr := setupTest(t)
+	data, repo := setupTest(t)
 
 	contentBytes := make([]byte, 250)
 	contentMd5Sum200 := getMd5Digest(contentBytes[0:200])  // hash of 200 zero bytes
@@ -122,7 +122,7 @@ func TestWriterListChunk(t *testing.T) {
 	listChunkContent := []byte("200,C" + contentMd5Sum200 + "\n50,C" + contentMd5Sum50 + "\n")
 	listChunkObjectID := getMd5LObjectID(listChunkContent)
 
-	writer := mgr.NewWriter()
+	writer := repo.NewWriter()
 	writer.Write(contentBytes)
 	result, err := writer.Result(false)
 	if err != nil {
@@ -144,7 +144,7 @@ func TestWriterListChunk(t *testing.T) {
 }
 
 func TestWriterListOfListsChunk(t *testing.T) {
-	data, mgr := setupTest(t)
+	data, repo := setupTest(t)
 
 	contentBytes := make([]byte, 1400)
 	chunk1Id := getMd5CObjectID(contentBytes[0:200]) // hash of 200 zero bytes
@@ -158,7 +158,7 @@ func TestWriterListOfListsChunk(t *testing.T) {
 	listOfListsChunkContent := []byte(list1ObjectID + "\n" + list2ObjectID + "\n")
 	listOfListsObjectID := getMd5LObjectID(listOfListsChunkContent)
 
-	writer := mgr.NewWriter()
+	writer := repo.NewWriter()
 	writer.Write(contentBytes)
 	result, err := writer.Result(false)
 	if string(result) != listOfListsObjectID || err != nil {
@@ -177,7 +177,7 @@ func TestWriterListOfListsChunk(t *testing.T) {
 }
 
 func TestWriterListOfListsOfListsChunk(t *testing.T) {
-	data, mgr := setupTest(t)
+	data, repo := setupTest(t)
 
 	writtenData := make([]byte, 10000)
 	chunk1Id := getMd5CObjectID(writtenData[0:200]) // hash of 200 zero bytes
@@ -211,7 +211,7 @@ func TestWriterListOfListsOfListsChunk(t *testing.T) {
 	list3ChunkContent := []byte(strings.Repeat(string(list2ObjectID)+"\n", 2))
 	list3ObjectID := getMd5LObjectID(list3ChunkContent)
 
-	writer := mgr.NewWriter()
+	writer := repo.NewWriter()
 	writer.Write(writtenData)
 
 	result, err := writer.Result(false)
@@ -238,11 +238,11 @@ func TestHMAC(t *testing.T) {
 	s.ObjectFormat = "hmac-md5"
 	s.Secret = []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25}
 
-	mgr, err := NewObjectManager(blob.NewMapStorage(data), s)
+	repo, err := NewRepository(blob.NewMapStorage(data), s)
 	if err != nil {
 		t.Errorf("cannot create manager: %v", err)
 	}
-	w := mgr.NewWriter()
+	w := repo.NewWriter()
 	w.Write(content)
 	result, err := w.Result(false)
 	if string(result) != "C697eaf0aca3a3aea3a75164746ffaa79" {
@@ -251,7 +251,7 @@ func TestHMAC(t *testing.T) {
 }
 
 func TestReader(t *testing.T) {
-	data, mgr := setupTest(t)
+	data, repo := setupTest(t)
 
 	storedPayload := []byte("foo\nbar")
 	data["a76999788386641a3ec798554f1fe7e6"] = storedPayload
@@ -274,7 +274,7 @@ func TestReader(t *testing.T) {
 			continue
 		}
 
-		reader, err := mgr.Open(objectID)
+		reader, err := repo.Open(objectID)
 		if err != nil {
 			t.Errorf("cannot create reader for %v: %v", objectID, err)
 			continue
@@ -293,7 +293,7 @@ func TestReader(t *testing.T) {
 }
 
 func TestMalformedStoredData(t *testing.T) {
-	data, mgr := setupTest(t)
+	data, repo := setupTest(t)
 
 	cases := [][]byte{
 		[]byte("foo\nba"),
@@ -308,7 +308,7 @@ func TestMalformedStoredData(t *testing.T) {
 			continue
 		}
 
-		reader, err := mgr.Open(objectID)
+		reader, err := repo.Open(objectID)
 		if err == nil || reader != nil {
 			t.Errorf("expected error for %x", c)
 		}
@@ -316,20 +316,20 @@ func TestMalformedStoredData(t *testing.T) {
 }
 
 func TestReaderStoredBlockNotFound(t *testing.T) {
-	_, mgr := setupTest(t)
+	_, repo := setupTest(t)
 
 	objectID, err := ParseObjectID("Cno-such-block")
 	if err != nil {
 		t.Errorf("cannot parse object ID: %v", err)
 	}
-	reader, err := mgr.Open(objectID)
+	reader, err := repo.Open(objectID)
 	if err != blob.ErrBlockNotFound || reader != nil {
 		t.Errorf("unexpected result: reader: %v err: %v", reader, err)
 	}
 }
 
 func TestEndToEndReadAndSeek(t *testing.T) {
-	_, mgr := setupTest(t)
+	_, repo := setupTest(t)
 
 	for _, forceStored := range []bool{false, true} {
 		for _, size := range []int{1, 199, 200, 201, 9999, 512434} {
@@ -337,7 +337,7 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 			randomData := make([]byte, size)
 			cryptorand.Read(randomData)
 
-			writer := mgr.NewWriter(
+			writer := repo.NewWriter(
 				WithBlockNamePrefix("X"),
 			)
 			writer.Write(randomData)
@@ -347,7 +347,7 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 				continue
 			}
 
-			reader, err := mgr.Open(objectID)
+			reader, err := repo.Open(objectID)
 			if err != nil {
 				t.Errorf("cannot get reader for %v/%v: %v %v", forceStored, size, objectID, err)
 				continue
@@ -477,7 +477,7 @@ func TestFormats(t *testing.T) {
 		st := blob.NewMapStorage(data)
 
 		t.Logf("verifying %#v", c.format)
-		mgr, err := NewObjectManager(st, c.format)
+		repo, err := NewRepository(st, c.format)
 		if err != nil {
 			t.Errorf("cannot create manager: %v", err)
 			continue
@@ -485,7 +485,7 @@ func TestFormats(t *testing.T) {
 
 		for k, v := range c.oids {
 			bytesToWrite := []byte(k)
-			w := mgr.NewWriter()
+			w := repo.NewWriter()
 			w.Write(bytesToWrite)
 			oid, err := w.Result(true)
 			if err != nil {
@@ -495,7 +495,7 @@ func TestFormats(t *testing.T) {
 				t.Errorf("invalid oid for %v/%v: %v expected %v", c.format.ObjectFormat, k, oid, v)
 			}
 
-			rc, err := mgr.Open(oid)
+			rc, err := repo.Open(oid)
 			if err != nil {
 				t.Errorf("open failed: %v", err)
 				continue
@@ -520,7 +520,7 @@ func TestInvalidEncryptionKey(t *testing.T) {
 		Secret:       []byte("key"),
 	}
 
-	mgr, err := NewObjectManager(st, format)
+	repo, err := NewRepository(st, format)
 	if err != nil {
 		t.Errorf("cannot create manager: %v", err)
 	}
@@ -530,27 +530,27 @@ func TestInvalidEncryptionKey(t *testing.T) {
 		bytesToWrite[i] = byte(i)
 	}
 
-	w := mgr.NewWriter()
+	w := repo.NewWriter()
 	w.Write(bytesToWrite)
 	oid, err := w.Result(true)
 	if err != nil {
 		t.Errorf("error: %v", err)
 	}
 
-	rc, err := mgr.Open(oid)
+	rc, err := repo.Open(oid)
 	if err != nil || rc == nil {
 		t.Errorf("error opening valid ObjectID: %v", err)
 		return
 	}
 
 	// Key too short
-	rc, err = mgr.Open(oid[0 : len(oid)-2])
+	rc, err = repo.Open(oid[0 : len(oid)-2])
 	if err == nil || rc != nil {
 		t.Errorf("expected error when opening malformed object")
 	}
 
 	// Key too long
-	rc, err = mgr.Open(oid + "ff")
+	rc, err = repo.Open(oid + "ff")
 	if err == nil || rc != nil {
 		t.Errorf("expected error when opening malformed object")
 	}
@@ -558,14 +558,14 @@ func TestInvalidEncryptionKey(t *testing.T) {
 	// Invalid key
 	lastByte, _ := hex.DecodeString(string(oid[len(oid)-2:]))
 	lastByte[0]++
-	rc, err = mgr.Open(oid[0:len(oid)-2] + ObjectID(hex.EncodeToString(lastByte)))
+	rc, err = repo.Open(oid[0:len(oid)-2] + ObjectID(hex.EncodeToString(lastByte)))
 	if err == nil || rc != nil {
 		t.Errorf("expected error when opening malformed object: %v", err)
 	}
 
 	// Now corrupt the data
 	data[string(oid.BlockID())][0] ^= 1
-	rc, err = mgr.Open(oid)
+	rc, err = repo.Open(oid)
 	if err == nil || rc != nil {
 		t.Errorf("expected error when opening object with corrupt data")
 	}

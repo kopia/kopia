@@ -13,12 +13,12 @@ import (
 )
 
 type uploadTestHarness struct {
-	sourceDir     string
-	repoDir       string
-	objectManager cas.ObjectManager
-	repo          blob.Storage
-	lister        *perPathLister
-	uploader      Uploader
+	sourceDir string
+	repoDir   string
+	repo      cas.Repository
+	storage   blob.Storage
+	lister    *perPathLister
+	uploader  Uploader
 }
 
 var errTest = fmt.Errorf("test error")
@@ -61,12 +61,12 @@ func newUploadTestHarness() *uploadTestHarness {
 		panic("cannot create temp directory: " + err.Error())
 	}
 
-	repo, err := blob.NewFSStorage(&blob.FSStorageOptions{
+	storage, err := blob.NewFSStorage(&blob.FSStorageOptions{
 		Path: repoDir,
 	})
 
 	if err != nil {
-		panic("cannot create repo directory: " + err.Error())
+		panic("cannot create storage directory: " + err.Error())
 	}
 
 	format := cas.Format{
@@ -74,9 +74,9 @@ func newUploadTestHarness() *uploadTestHarness {
 		ObjectFormat: "md5",
 	}
 
-	objectManager, err := cas.NewObjectManager(repo, format)
+	repo, err := cas.NewRepository(storage, format)
 	if err != nil {
-		panic("unable to create object manager: " + err.Error())
+		panic("unable to create repository: " + err.Error())
 	}
 
 	// Prepare directory contents.
@@ -97,9 +97,9 @@ func newUploadTestHarness() *uploadTestHarness {
 	ioutil.WriteFile(filepath.Join(sourceDir, "d2/d1/f2"), []byte{1, 2, 3, 4}, 0777)
 
 	th := &uploadTestHarness{
-		sourceDir:     sourceDir,
-		repoDir:       repoDir,
-		objectManager: objectManager,
+		sourceDir: sourceDir,
+		repoDir:   repoDir,
+		repo:      repo,
 		lister: &perPathLister{
 			listFunc:      map[string]func(string) (Directory, error){},
 			openFunc:      map[string]func(string) (EntryReadCloser, error){},
@@ -107,7 +107,7 @@ func newUploadTestHarness() *uploadTestHarness {
 		},
 	}
 
-	th.uploader, err = newUploaderLister(th.objectManager, th.lister)
+	th.uploader, err = newUploaderLister(th.repo, th.lister)
 	if err != nil {
 		panic("can't create uploader: " + err.Error())
 	}
@@ -121,7 +121,7 @@ func TestUpload(t *testing.T) {
 
 	var err error
 
-	u, err := NewUploader(th.objectManager)
+	u, err := NewUploader(th.repo)
 	if err != nil {
 		t.Errorf("unable to create uploader: %v", err)
 		return

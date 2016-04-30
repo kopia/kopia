@@ -34,7 +34,7 @@ func TestA(t *testing.T) {
 	sess, err := New(storage, nil)
 	defer sess.Close()
 
-	om, err := sess.InitObjectManager(cas.Format{
+	om, err := sess.InitRepository(cas.Format{
 		Version:      "1",
 		ObjectFormat: "sha1",
 	})

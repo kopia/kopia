@@ -41,8 +41,8 @@ func withHMAC(hf func() hash.Hash) func(secret []byte) func() hash.Hash {
 	}
 }
 
-// ObjectManager manages objects stored in a storage and allows reading and writing them.
-type ObjectManager interface {
+// Repository objects addressed by their content allows reading and writing them.
+type Repository interface {
 	// NewWriter opens an ObjectWriter for writing new content to the blob.
 	NewWriter(options ...WriterOption) ObjectWriter
 
@@ -54,11 +54,11 @@ type ObjectManager interface {
 	Close()
 
 	ResetStats()
-	Stats() ObjectManagerStats
+	Stats() RepositoryStats
 }
 
-// ObjectManagerStats exposes statistics about ObjectManager operation
-type ObjectManagerStats struct {
+// RepositoryStats exposes statistics about Repository operation
+type RepositoryStats struct {
 	HashedBytes  int64
 	HashedBlocks int32
 
@@ -77,11 +77,11 @@ type ObjectManagerStats struct {
 
 type keygenFunc func([]byte) (blockIDBytes []byte, key []byte)
 
-type objectManager struct {
+type repo struct {
 	storage       blob.Storage
 	verbose       bool
 	bufferManager *bufferManager
-	stats         ObjectManagerStats
+	stats         RepositoryStats
 
 	maxInlineBlobSize int
 	maxBlobSize       int
@@ -91,28 +91,28 @@ type objectManager struct {
 	keygen       keygenFunc
 }
 
-func (mgr *objectManager) Close() {
+func (mgr *repo) Close() {
 	mgr.Flush()
 	mgr.bufferManager.close()
 }
 
-func (mgr *objectManager) Flush() error {
+func (mgr *repo) Flush() error {
 	return mgr.storage.Flush()
 }
 
-func (mgr *objectManager) ResetStats() {
-	mgr.stats = ObjectManagerStats{}
+func (mgr *repo) ResetStats() {
+	mgr.stats = RepositoryStats{}
 }
 
-func (mgr *objectManager) Stats() ObjectManagerStats {
+func (mgr *repo) Stats() RepositoryStats {
 	return mgr.stats
 }
 
-func (mgr *objectManager) Storage() blob.Storage {
+func (mgr *repo) Storage() blob.Storage {
 	return mgr.storage
 }
 
-func (mgr *objectManager) NewWriter(options ...WriterOption) ObjectWriter {
+func (mgr *repo) NewWriter(options ...WriterOption) ObjectWriter {
 	result := newObjectWriter(
 		objectWriterConfig{
 			mgr:        mgr,
@@ -127,7 +127,7 @@ func (mgr *objectManager) NewWriter(options ...WriterOption) ObjectWriter {
 	return result
 }
 
-func (mgr *objectManager) Open(objectID ObjectID) (io.ReadSeeker, error) {
+func (mgr *repo) Open(objectID ObjectID) (io.ReadSeeker, error) {
 	r, err := mgr.newRawReader(objectID)
 	if err != nil {
 		return nil, err
@@ -152,31 +152,31 @@ func (mgr *objectManager) Open(objectID ObjectID) (io.ReadSeeker, error) {
 	return r, err
 }
 
-// ObjectManagerOption controls the behavior of ObjectManager.
-type ObjectManagerOption func(o *objectManager) error
+// RepositoryOption controls the behavior of Repository.
+type RepositoryOption func(o *repo) error
 
-// WriteBack is an ObjectManagerOption that enables asynchronous writes to the storage using the pool
+// WriteBack is an RepositoryOption that enables asynchronous writes to the storage using the pool
 // of goroutines.
-func WriteBack(workerCount int) ObjectManagerOption {
-	return func(o *objectManager) error {
+func WriteBack(workerCount int) RepositoryOption {
+	return func(o *repo) error {
 		o.storage = blob.NewWriteBackWrapper(o.storage, workerCount)
 		return nil
 	}
 }
 
-// WriteLimit is an ObjectManagerOption that sets the limit on the number of bytes that can be written
-// to the storage in this ObjectManager session. Once the limit is reached, the storage will
+// WriteLimit is an RepositoryOption that sets the limit on the number of bytes that can be written
+// to the storage in this Repository session. Once the limit is reached, the storage will
 // return ErrWriteLimitExceeded.
-func WriteLimit(maxBytes int64) ObjectManagerOption {
-	return func(o *objectManager) error {
+func WriteLimit(maxBytes int64) RepositoryOption {
+	return func(o *repo) error {
 		o.storage = blob.NewWriteLimitWrapper(o.storage, maxBytes)
 		return nil
 	}
 }
 
-// EnableLogging is an ObjectManagerOption that causes all storage access to be logged.
-func EnableLogging() ObjectManagerOption {
-	return func(o *objectManager) error {
+// EnableLogging is an RepositoryOption that causes all storage access to be logged.
+func EnableLogging() RepositoryOption {
+	return func(o *repo) error {
 		o.storage = blob.NewLoggingWrapper(o.storage)
 		return nil
 	}
@@ -188,16 +188,16 @@ func hmacFunc(key []byte, hf func() hash.Hash) func() hash.Hash {
 	}
 }
 
-// NewObjectManager creates new ObjectManager with the specified storage, options, and key provider.
-func NewObjectManager(
+// NewRepository creates new Repository with the specified storage, options, and key provider.
+func NewRepository(
 	r blob.Storage,
 	f Format,
-	options ...ObjectManagerOption,
-) (ObjectManager, error) {
+	options ...RepositoryOption,
+) (Repository, error) {
 	if f.Version != "1" {
 		return nil, fmt.Errorf("unsupported storage version: %v", f.Version)
 	}
-	mgr := &objectManager{
+	mgr := &repo{
 		storage:           r,
 		maxInlineBlobSize: f.MaxInlineBlobSize,
 		maxBlobSize:       f.MaxBlobSize,
@@ -239,7 +239,7 @@ func splitKeyGenerator(blockIDSize int, keySize int) keygenFunc {
 	}
 }
 
-func (mgr *objectManager) hashBuffer(data []byte) ([]byte, []byte) {
+func (mgr *repo) hashBuffer(data []byte) ([]byte, []byte) {
 	h := mgr.hashFunc()
 	h.Write(data)
 	contentHash := h.Sum(nil)
@@ -251,7 +251,7 @@ func (mgr *objectManager) hashBuffer(data []byte) ([]byte, []byte) {
 	return contentHash, nil
 }
 
-func (mgr *objectManager) hashBufferForWriting(buffer *bytes.Buffer, prefix string) (ObjectID, io.ReadCloser) {
+func (mgr *repo) hashBufferForWriting(buffer *bytes.Buffer, prefix string) (ObjectID, io.ReadCloser) {
 	var data []byte
 	if buffer != nil {
 		data = buffer.Bytes()
@@ -294,7 +294,7 @@ func (mgr *objectManager) hashBufferForWriting(buffer *bytes.Buffer, prefix stri
 	return objectID, readCloser
 }
 
-func (mgr *objectManager) flattenListChunk(
+func (mgr *repo) flattenListChunk(
 	seekTable []seekTableEntry,
 	listObjectID ObjectID,
 	rawReader io.Reader) ([]seekTableEntry, error) {
@@ -352,7 +352,7 @@ func (mgr *objectManager) flattenListChunk(
 	return seekTable, nil
 }
 
-func (mgr *objectManager) newRawReader(objectID ObjectID) (io.ReadSeeker, error) {
+func (mgr *repo) newRawReader(objectID ObjectID) (io.ReadSeeker, error) {
 	inline := objectID.InlineData()
 	if inline != nil {
 		return bytes.NewReader(inline), nil
@@ -375,7 +375,7 @@ func (mgr *objectManager) newRawReader(objectID ObjectID) (io.ReadSeeker, error)
 	}
 
 	if mgr.createCipher == nil {
-		return nil, errors.New("encrypted object cannot be used with non-encrypted ObjectManager")
+		return nil, errors.New("encrypted object cannot be used with non-encrypted Repository")
 	}
 
 	cryptoKey, err := hex.DecodeString(string(objectID.EncryptionInfo()))
@@ -403,7 +403,7 @@ func (mgr *objectManager) newRawReader(objectID ObjectID) (io.ReadSeeker, error)
 	return bytes.NewReader(payload), nil
 }
 
-func (mgr *objectManager) verifyChecksum(data []byte, blockID string) error {
+func (mgr *repo) verifyChecksum(data []byte, blockID string) error {
 	payloadHash, _ := mgr.hashBuffer(data)
 	checksum := hex.EncodeToString(payloadHash)
 	if !strings.HasSuffix(string(blockID), checksum) {

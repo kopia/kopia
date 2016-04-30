@@ -19,8 +19,8 @@ var ErrConfigNotFound = errors.New("config not found")
 type Session interface {
 	io.Closer
 
-	InitObjectManager(f cas.Format) (cas.ObjectManager, error)
-	OpenObjectManager() (cas.ObjectManager, error)
+	InitRepository(f cas.Format) (cas.Repository, error)
+	OpenRepository() (cas.Repository, error)
 }
 
 type session struct {
@@ -59,8 +59,8 @@ func (s *session) getConfigstring() string {
 	return string("users." + s.creds.Username() + ".config.json")
 }
 
-func (s *session) InitObjectManager(format cas.Format) (cas.ObjectManager, error) {
-	mgr, err := cas.NewObjectManager(s.storage, format)
+func (s *session) InitRepository(format cas.Format) (cas.Repository, error) {
+	mgr, err := cas.NewRepository(s.storage, format)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func (s *session) InitObjectManager(format cas.Format) (cas.ObjectManager, error
 	return mgr, nil
 }
 
-func (s *session) OpenObjectManager() (cas.ObjectManager, error) {
+func (s *session) OpenRepository() (cas.Repository, error) {
 	b, err := s.getPrivateBlock(s.getConfigstring())
 	if err != nil {
 		if err == blob.ErrBlockNotFound {
@@ -95,7 +95,7 @@ func (s *session) OpenObjectManager() (cas.ObjectManager, error) {
 		return nil, err
 	}
 
-	return cas.NewObjectManager(s.storage, format)
+	return cas.NewRepository(s.storage, format)
 }
 
 func New(storage blob.Storage, creds auth.Credentials) (Session, error) {

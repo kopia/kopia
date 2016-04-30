@@ -37,7 +37,7 @@ var (
 )
 
 func runBackupCommand(context *kingpin.ParseContext) error {
-	var options []cas.ObjectManagerOption
+	var options []cas.RepositoryOption
 
 	if *backupWriteBack > 0 {
 		options = append(options, cas.WriteBack(*backupWriteBack))
@@ -48,7 +48,7 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 
 	}
 
-	mgr, err := mustOpenSession().OpenObjectManager()
+	mgr, err := mustOpenSession().OpenRepository()
 	if err != nil {
 		return err
 	}

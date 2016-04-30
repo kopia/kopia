@@ -29,12 +29,12 @@ func (r *root) Root() (fusefs.Node, error) {
 }
 
 func runMountCommand(context *kingpin.ParseContext) error {
-	omgr, err := mustOpenSession().OpenObjectManager()
+	repo, err := mustOpenSession().OpenRepository()
 	if err != nil {
 		return err
 	}
 
-	mgr := vfs.NewManager(omgr)
+	mgr := vfs.NewManager(repo)
 
 	fuseConnection, err := fuse.Mount(
 		*mountPoint,

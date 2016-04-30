@@ -29,11 +29,11 @@ type Generator interface {
 }
 
 type backupGenerator struct {
-	omgr cas.ObjectManager
+	repo cas.Repository
 }
 
 func (bg *backupGenerator) Backup(m *Manifest) error {
-	uploader, err := fs.NewUploader(bg.omgr)
+	uploader, err := fs.NewUploader(bg.repo)
 	if err != nil {
 		return err
 	}
@@ -51,7 +51,7 @@ func (bg *backupGenerator) Backup(m *Manifest) error {
 	h.Write(zeroByte)
 
 	backupSetID := "B" + hex.EncodeToString(h.Sum(nil))
-	st := bg.omgr.Storage()
+	st := bg.repo.Storage()
 	var hashCacheID cas.ObjectID
 	for b := range st.ListBlocks(backupSetID + ".") {
 		log.Printf("Found block: %v", b)
@@ -84,8 +84,8 @@ func (bg *backupGenerator) Backup(m *Manifest) error {
 }
 
 // NewGenerator creates new backup generator.
-func NewGenerator(omgr cas.ObjectManager) (Generator, error) {
+func NewGenerator(repo cas.Repository) (Generator, error) {
 	return &backupGenerator{
-		omgr: omgr,
+		repo: repo,
 	}, nil
 }

@@ -42,7 +42,7 @@ type Uploader interface {
 }
 
 type uploader struct {
-	mgr    cas.ObjectManager
+	mgr    cas.Repository
 	lister Lister
 
 	cancelled int32
@@ -254,12 +254,12 @@ func (u *uploader) Cancel() {
 	atomic.StoreInt32(&u.cancelled, 1)
 }
 
-// NewUploader creates new Uploader object for the specified ObjectManager
-func NewUploader(mgr cas.ObjectManager) (Uploader, error) {
+// NewUploader creates new Uploader object for the specified Repository
+func NewUploader(mgr cas.Repository) (Uploader, error) {
 	return newUploaderLister(mgr, &filesystemLister{})
 }
 
-func newUploaderLister(mgr cas.ObjectManager, lister Lister) (Uploader, error) {
+func newUploaderLister(mgr cas.Repository, lister Lister) (Uploader, error) {
 	u := &uploader{
 		mgr:    mgr,
 		lister: lister,

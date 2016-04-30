@@ -43,14 +43,14 @@ func (hls *highLatencyStorage) GetBlock(id string) ([]byte, error) {
 	return hls.Storage.GetBlock(id)
 }
 
-func uploadAndTime(omgr cas.ObjectManager, dir string, previous cas.ObjectID) *fs.UploadResult {
+func uploadAndTime(repo cas.Repository, dir string, previous cas.ObjectID) *fs.UploadResult {
 	log.Println("---")
-	uploader, err := fs.NewUploader(omgr)
+	uploader, err := fs.NewUploader(repo)
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
 
-	omgr.ResetStats()
+	repo.ResetStats()
 	t0 := time.Now()
 	res, err := uploader.UploadDir(dir, previous)
 	if err != nil {
@@ -59,7 +59,7 @@ func uploadAndTime(omgr cas.ObjectManager, dir string, previous cas.ObjectID) *f
 	dt := time.Since(t0)
 
 	log.Printf("Uploaded: %v in %v", res.ObjectID, dt)
-	log.Printf("Stats: %#v", omgr.Stats())
+	log.Printf("Stats: %#v", repo.Stats())
 	return res
 }
 
@@ -79,7 +79,7 @@ type gantt struct {
 var allGantt []*gantt
 var ganttMutex sync.Mutex
 
-func walkTree2(ch chan *fs.Entry, omgr cas.ObjectManager, path string, dir fs.Directory) {
+func walkTree2(ch chan *fs.Entry, repo cas.Repository, path string, dir fs.Directory) {
 	//log.Printf("walkTree2(%s)", path)
 	m := map[int]chan fs.Directory{}
 
@@ -112,7 +112,7 @@ func walkTree2(ch chan *fs.Entry, omgr cas.ObjectManager, path string, dir fs.Di
 				//log.Printf("worker %v loading %v", id, se.entry.ObjectID())
 				//defer close(se.dirChannel)
 
-				d, err := omgr.Open(se.entry.ObjectID)
+				d, err := repo.Open(se.entry.ObjectID)
 				if err != nil {
 					log.Printf("ERROR: %v", err)
 					return
@@ -159,16 +159,16 @@ func walkTree2(ch chan *fs.Entry, omgr cas.ObjectManager, path string, dir fs.Di
 		//log.Printf("%v[%v] = %v", path, i, e.Name())
 		if e.FileMode.IsDir() {
 			subdir := <-m[i]
-			walkTree2(ch, omgr, e.Name+"/", subdir)
+			walkTree2(ch, repo, e.Name+"/", subdir)
 		}
 		ch <- e
 	}
 }
 
-func walkTree(omgr cas.ObjectManager, path string, oid cas.ObjectID) chan *fs.Entry {
+func walkTree(repo cas.Repository, path string, oid cas.ObjectID) chan *fs.Entry {
 	ch := make(chan *fs.Entry, 20)
 	go func() {
-		d, err := omgr.Open(oid)
+		d, err := repo.Open(oid)
 		defer close(ch)
 		if err != nil {
 			log.Printf("ERROR: %v", err)
@@ -181,15 +181,15 @@ func walkTree(omgr cas.ObjectManager, path string, oid cas.ObjectID) chan *fs.En
 			return
 		}
 
-		walkTree2(ch, omgr, path, dir)
+		walkTree2(ch, repo, path, dir)
 	}()
 	return ch
 }
 
-func readCached(omgr cas.ObjectManager, manifestOID cas.ObjectID) {
+func readCached(repo cas.Repository, manifestOID cas.ObjectID) {
 	var r io.Reader
 	var err error
-	r, err = omgr.Open(manifestOID)
+	r, err = repo.Open(manifestOID)
 	if err != nil {
 		log.Fatalf("Error: %v", err)
 	}
@@ -232,7 +232,7 @@ func main() {
 		ObjectFormat: "md5",
 	}
 
-	omgr, err := cas.NewObjectManager(st, format)
+	repo, err := cas.NewRepository(st, format)
 	if err != nil {
 		log.Printf("Error: %v", err)
 		return
@@ -240,10 +240,10 @@ func main() {
 
 	path := "/Users/jarek/Projects/Kopia"
 
-	r1 := uploadAndTime(omgr, path, "")
+	r1 := uploadAndTime(repo, path, "")
 	log.Printf("finished: %#v", *r1)
 	time.Sleep(1 * time.Second)
-	r2 := uploadAndTime(omgr, path, r1.ManifestID)
+	r2 := uploadAndTime(repo, path, r1.ManifestID)
 	log.Printf("finished second time: %#v", *r2)
 
 	var totalBlockSize int64
@@ -252,7 +252,7 @@ func main() {
 		totalBlockSize += int64(len(v))
 	}
 	log.Printf("Total blocks: %v size: %v", len(data), totalBlockSize)
-	//readCached(omgr, r2.ManifestID)
+	//readCached(repo, r2.ManifestID)
 }
 
 type Config struct {
