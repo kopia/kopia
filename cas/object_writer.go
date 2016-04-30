@@ -18,7 +18,7 @@ type ObjectWriter interface {
 
 // objectWriterConfig
 type objectWriterConfig struct {
-	mgr        *repo
+	mgr        *repository
 	putOptions blob.PutOptions
 }
 

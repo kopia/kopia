@@ -77,7 +77,7 @@ type RepositoryStats struct {
 
 type keygenFunc func([]byte) (blockIDBytes []byte, key []byte)
 
-type repo struct {
+type repository struct {
 	storage       blob.Storage
 	verbose       bool
 	bufferManager *bufferManager
@@ -91,28 +91,28 @@ type repo struct {
 	keygen       keygenFunc
 }
 
-func (mgr *repo) Close() {
+func (mgr *repository) Close() {
 	mgr.Flush()
 	mgr.bufferManager.close()
 }
 
-func (mgr *repo) Flush() error {
+func (mgr *repository) Flush() error {
 	return mgr.storage.Flush()
 }
 
-func (mgr *repo) ResetStats() {
+func (mgr *repository) ResetStats() {
 	mgr.stats = RepositoryStats{}
 }
 
-func (mgr *repo) Stats() RepositoryStats {
+func (mgr *repository) Stats() RepositoryStats {
 	return mgr.stats
 }
 
-func (mgr *repo) Storage() blob.Storage {
+func (mgr *repository) Storage() blob.Storage {
 	return mgr.storage
 }
 
-func (mgr *repo) NewWriter(options ...WriterOption) ObjectWriter {
+func (mgr *repository) NewWriter(options ...WriterOption) ObjectWriter {
 	result := newObjectWriter(
 		objectWriterConfig{
 			mgr:        mgr,
@@ -127,7 +127,7 @@ func (mgr *repo) NewWriter(options ...WriterOption) ObjectWriter {
 	return result
 }
 
-func (mgr *repo) Open(objectID ObjectID) (io.ReadSeeker, error) {
+func (mgr *repository) Open(objectID ObjectID) (io.ReadSeeker, error) {
 	r, err := mgr.newRawReader(objectID)
 	if err != nil {
 		return nil, err
@@ -153,12 +153,12 @@ func (mgr *repo) Open(objectID ObjectID) (io.ReadSeeker, error) {
 }
 
 // RepositoryOption controls the behavior of Repository.
-type RepositoryOption func(o *repo) error
+type RepositoryOption func(o *repository) error
 
 // WriteBack is an RepositoryOption that enables asynchronous writes to the storage using the pool
 // of goroutines.
 func WriteBack(workerCount int) RepositoryOption {
-	return func(o *repo) error {
+	return func(o *repository) error {
 		o.storage = blob.NewWriteBackWrapper(o.storage, workerCount)
 		return nil
 	}
@@ -168,7 +168,7 @@ func WriteBack(workerCount int) RepositoryOption {
 // to the storage in this Repository session. Once the limit is reached, the storage will
 // return ErrWriteLimitExceeded.
 func WriteLimit(maxBytes int64) RepositoryOption {
-	return func(o *repo) error {
+	return func(o *repository) error {
 		o.storage = blob.NewWriteLimitWrapper(o.storage, maxBytes)
 		return nil
 	}
@@ -176,7 +176,7 @@ func WriteLimit(maxBytes int64) RepositoryOption {
 
 // EnableLogging is an RepositoryOption that causes all storage access to be logged.
 func EnableLogging() RepositoryOption {
-	return func(o *repo) error {
+	return func(o *repository) error {
 		o.storage = blob.NewLoggingWrapper(o.storage)
 		return nil
 	}
@@ -197,7 +197,7 @@ func NewRepository(
 	if f.Version != "1" {
 		return nil, fmt.Errorf("unsupported storage version: %v", f.Version)
 	}
-	mgr := &repo{
+	mgr := &repository{
 		storage:           r,
 		maxInlineBlobSize: f.MaxInlineBlobSize,
 		maxBlobSize:       f.MaxBlobSize,
@@ -239,7 +239,7 @@ func splitKeyGenerator(blockIDSize int, keySize int) keygenFunc {
 	}
 }
 
-func (mgr *repo) hashBuffer(data []byte) ([]byte, []byte) {
+func (mgr *repository) hashBuffer(data []byte) ([]byte, []byte) {
 	h := mgr.hashFunc()
 	h.Write(data)
 	contentHash := h.Sum(nil)
@@ -251,7 +251,7 @@ func (mgr *repo) hashBuffer(data []byte) ([]byte, []byte) {
 	return contentHash, nil
 }
 
-func (mgr *repo) hashBufferForWriting(buffer *bytes.Buffer, prefix string) (ObjectID, io.ReadCloser) {
+func (mgr *repository) hashBufferForWriting(buffer *bytes.Buffer, prefix string) (ObjectID, io.ReadCloser) {
 	var data []byte
 	if buffer != nil {
 		data = buffer.Bytes()
@@ -294,7 +294,7 @@ func (mgr *repo) hashBufferForWriting(buffer *bytes.Buffer, prefix string) (Obje
 	return objectID, readCloser
 }
 
-func (mgr *repo) flattenListChunk(
+func (mgr *repository) flattenListChunk(
 	seekTable []seekTableEntry,
 	listObjectID ObjectID,
 	rawReader io.Reader) ([]seekTableEntry, error) {
@@ -352,7 +352,7 @@ func (mgr *repo) flattenListChunk(
 	return seekTable, nil
 }
 
-func (mgr *repo) newRawReader(objectID ObjectID) (io.ReadSeeker, error) {
+func (mgr *repository) newRawReader(objectID ObjectID) (io.ReadSeeker, error) {
 	inline := objectID.InlineData()
 	if inline != nil {
 		return bytes.NewReader(inline), nil
@@ -403,7 +403,7 @@ func (mgr *repo) newRawReader(objectID ObjectID) (io.ReadSeeker, error) {
 	return bytes.NewReader(payload), nil
 }
 
-func (mgr *repo) verifyChecksum(data []byte, blockID string) error {
+func (mgr *repository) verifyChecksum(data []byte, blockID string) error {
 	payloadHash, _ := mgr.hashBuffer(data)
 	checksum := hex.EncodeToString(payloadHash)
 	if !strings.HasSuffix(string(blockID), checksum) {
