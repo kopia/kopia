@@ -5,6 +5,7 @@ import (
 	"io"
 	"io/ioutil"
 	"math/rand"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -12,8 +13,7 @@ import (
 )
 
 const (
-	fsStorageType = "fs"
-
+	fsStorageType        = "file"
 	fsStorageChunkSuffix = ".f"
 )
 
@@ -38,6 +38,96 @@ type FSStorageOptions struct {
 
 	FileUID *int `json:"uid,omitempty"`
 	FileGID *int `json:"gid,omitempty"`
+}
+
+func (fso *FSStorageOptions) fileMode() os.FileMode {
+	if fso.FileMode == 0 {
+		return fsDefaultFileMode
+	}
+
+	return fso.FileMode
+}
+
+func (fso *FSStorageOptions) dirMode() os.FileMode {
+	if fso.DirectoryMode == 0 {
+		return fsDefaultDirMode
+	}
+
+	return fso.DirectoryMode
+}
+
+func (fso *FSStorageOptions) shards() []int {
+	if fso.DirectoryShards == nil {
+		return fsDefaultShards
+	}
+
+	return fso.DirectoryShards
+}
+
+// ParseURL parses the given URL into FSStorageOptions.
+func (fso *FSStorageOptions) ParseURL(u *url.URL) error {
+	if u.Scheme != "file" {
+		return fmt.Errorf("invalid scheme, expected 'file'")
+	}
+
+	if u.Opaque != "" {
+		fso.Path = u.Opaque
+	} else {
+		fso.Path = u.Path
+	}
+	fso.FileUID = getIntPtrValue(u, "uid", 10)
+	fso.FileGID = getIntPtrValue(u, "gid", 10)
+	fso.FileMode = getFileModeValue(u, "filemode", 0)
+	fso.DirectoryMode = getFileModeValue(u, "dirmode", 0)
+	if s := u.Query().Get("shards"); s != "" {
+		parts := strings.Split(s, ".")
+		shards := make([]int, len(parts))
+		for i, p := range parts {
+			var err error
+			shards[i], err = strconv.Atoi(p)
+			if err != nil {
+				return err
+			}
+		}
+		fso.DirectoryShards = shards
+	}
+	return nil
+}
+
+// ToURL converts the FSStorageOptions to URL.
+func (fso *FSStorageOptions) ToURL() *url.URL {
+	u := &url.URL{}
+	u.Scheme = "file"
+	if fso.Path[0] == '/' {
+		u.Path = fso.Path
+	} else {
+		u.Opaque = fso.Path
+	}
+	q := u.Query()
+	if fso.FileUID != nil {
+		q.Add("uid", strconv.Itoa(*fso.FileUID))
+	}
+	if fso.FileGID != nil {
+		q.Add("gid", strconv.Itoa(*fso.FileGID))
+	}
+	if fso.FileMode != 0 {
+		q.Add("filemode", strconv.FormatUint(uint64(fso.FileMode), 8))
+	}
+	if fso.DirectoryMode != 0 {
+		q.Add("dirmode", strconv.FormatUint(uint64(fso.DirectoryMode), 8))
+	}
+	if fso.DirectoryShards != nil {
+		shardsString := ""
+		for i, s := range fso.DirectoryShards {
+			if i > 0 {
+				shardsString += "."
+			}
+			shardsString += fmt.Sprintf("%v", s)
+		}
+		q.Add("shards", shardsString)
+	}
+	u.RawQuery = q.Encode()
+	return u
 }
 
 func (fs *fsStorage) BlockExists(blockID string) (bool, error) {
@@ -136,12 +226,12 @@ func (fs *fsStorage) PutBlock(blockID string, data io.ReadCloser, options PutOpt
 	// Open temporary file, create dir if required.
 	tempFile := fmt.Sprintf("%s.tmp.%d", path, rand.Int())
 	flags := os.O_CREATE | os.O_WRONLY | os.O_EXCL
-	f, err := os.OpenFile(tempFile, flags, fs.FileMode)
+	f, err := os.OpenFile(tempFile, flags, fs.fileMode())
 	if os.IsNotExist(err) {
-		if err = os.MkdirAll(shardPath, fs.DirectoryMode); err != nil {
+		if err = os.MkdirAll(shardPath, fs.dirMode()); err != nil {
 			return fmt.Errorf("cannot create directory: %v", err)
 		}
-		f, err = os.OpenFile(tempFile, flags, fs.FileMode)
+		f, err = os.OpenFile(tempFile, flags, fs.fileMode())
 	}
 
 	if err != nil {
@@ -185,7 +275,7 @@ func (fs *fsStorage) getShardDirectory(blockID string) (string, string) {
 	if len(blockIDString) < 20 {
 		return shardPath, blockID
 	}
-	for _, size := range fs.DirectoryShards {
+	for _, size := range fs.shards() {
 		shardPath = filepath.Join(shardPath, blockIDString[0:size])
 		blockIDString = blockIDString[size:]
 	}
@@ -235,26 +325,14 @@ func NewFSStorage(options *FSStorageOptions) (Storage, error) {
 		FSStorageOptions: *options,
 	}
 
-	if r.DirectoryShards == nil {
-		r.DirectoryShards = fsDefaultShards
-	}
-
-	if r.DirectoryMode == 0 {
-		r.DirectoryMode = fsDefaultDirMode
-	}
-
-	if r.FileMode == 0 {
-		r.FileMode = fsDefaultFileMode
-	}
-
 	return r, nil
 }
 
 func init() {
 	AddSupportedStorage(
 		fsStorageType,
-		func() interface{} { return &FSStorageOptions{} },
-		func(cfg interface{}) (Storage, error) {
-			return NewFSStorage(cfg.(*FSStorageOptions))
+		func() StorageOptions { return &FSStorageOptions{} },
+		func(o StorageOptions) (Storage, error) {
+			return NewFSStorage(o.(*FSStorageOptions))
 		})
 }

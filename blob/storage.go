@@ -2,6 +2,7 @@ package blob
 
 import (
 	"io"
+	"net/url"
 	"time"
 )
 
@@ -30,4 +31,9 @@ type BlockMetadata struct {
 	Length    uint64
 	TimeStamp time.Time
 	Error     error
+}
+
+type StorageOptions interface {
+	ParseURL(u *url.URL) error
+	ToURL() *url.URL
 }

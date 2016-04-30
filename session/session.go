@@ -8,9 +8,9 @@ import (
 	"io"
 	"io/ioutil"
 
-	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/cas"
+	"github.com/kopia/kopia/vault"
 )
 
 // ErrConfigNotFound indicates that configuration is not found.
@@ -25,7 +25,7 @@ type Session interface {
 
 type session struct {
 	storage blob.Storage
-	creds   auth.Credentials
+	creds   vault.Credentials
 	format  cas.Format
 }
 
@@ -98,7 +98,7 @@ func (s *session) OpenRepository() (cas.Repository, error) {
 	return cas.NewRepository(s.storage, format)
 }
 
-func New(storage blob.Storage, creds auth.Credentials) (Session, error) {
+func New(storage blob.Storage, creds vault.Credentials) (Session, error) {
 	sess := &session{
 		storage: storage,
 		creds:   creds,

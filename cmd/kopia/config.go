@@ -6,10 +6,10 @@ import (
 	"os/user"
 	"path/filepath"
 
-	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/config"
 	"github.com/kopia/kopia/session"
+	"github.com/kopia/kopia/vault"
 )
 
 var (
@@ -88,7 +88,7 @@ func openSession() (session.Session, error) {
 		storage = blob.NewLoggingWrapper(storage)
 	}
 
-	var creds auth.Credentials
+	var creds vault.Credentials
 
 	return session.New(storage, creds)
 }

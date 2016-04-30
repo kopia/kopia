@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 )
 
-// StorageConfiguration is a JSON-serializable description of Storage and its configuration.
+// StorageConfiguration is a JSON-serializable description of Storage and its options.
 type StorageConfiguration struct {
 	Type   string
-	Config interface{}
+	Config StorageOptions
 }
 
 // UnmarshalJSON parses the JSON-encoded data into StorageConfiguration.

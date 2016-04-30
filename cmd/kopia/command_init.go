@@ -7,13 +7,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/kopia/kopia/auth"
-
-	"github.com/kopia/kopia/config"
-
 	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/cas"
+	"github.com/kopia/kopia/config"
 	"github.com/kopia/kopia/session"
+	"github.com/kopia/kopia/vault"
 )
 
 var (
@@ -30,7 +28,7 @@ var (
 )
 
 func runInitCommandForRepository(s blob.Storage, defaultSalt string) error {
-	var creds auth.Credentials
+	var creds vault.Credentials
 
 	sess, err := session.New(s, creds)
 	if err != nil {

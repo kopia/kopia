@@ -43,10 +43,56 @@ func TestFileStorage(t *testing.T) {
 			Path:            path,
 			DirectoryShards: shardSpec,
 		})
+
 		if r == nil || err != nil {
 			t.Errorf("unexpected result: %v %v", r, err)
 		}
+
+		verifyStorageConfiguration(t, r)
 		verifyStorage(t, r)
+	}
+}
+
+func TestFileStorageOptions(t *testing.T) {
+	cases := []struct {
+		o   FSStorageOptions
+		url string
+	}{
+		{FSStorageOptions{Path: "/blah"}, "file:///blah"},
+		{FSStorageOptions{Path: "/blah", FileMode: 0123}, "file:///blah?filemode=123"},
+		{FSStorageOptions{Path: "/blah", DirectoryMode: 0123}, "file:///blah?dirmode=123"},
+		{FSStorageOptions{Path: "/blah", FileMode: 0432, DirectoryMode: 0123}, "file:///blah?dirmode=123&filemode=432"},
+		{FSStorageOptions{Path: "/blah", FileMode: 0432, DirectoryMode: 0123, DirectoryShards: []int{1, 2, 3}}, "file:///blah?dirmode=123&filemode=432&shards=1.2.3"},
+		{FSStorageOptions{Path: "c:\\winpath"}, "file:c:\\winpath"},
+	}
+
+	for i, c := range cases {
+		u := c.o.ToURL().String()
+		if u != c.url {
+			t.Errorf("case #%v, expected url: %v, got %v", i, c.url, u)
+		}
+
+		o2 := FSStorageOptions{}
+		err := o2.ParseURL(c.o.ToURL())
+		if err != nil {
+			t.Errorf("URL does not round-trip: %v", err)
+		}
+		if o2.ToURL().String() != c.o.ToURL().String() {
+			t.Errorf("URL does not round-trip: %v vs %v", o2.ToURL().String(), c.o.ToURL().String())
+		}
+	}
+}
+
+func verifyStorageConfiguration(t *testing.T, r Storage) {
+	r2, err := NewStorageFromURL(r.Configuration().Config.ToURL())
+	if err != nil {
+		t.Errorf("cannot create storage from URL: %v", err)
+	} else {
+		url1 := r.Configuration().Config.ToURL().String()
+		url2 := r2.Configuration().Config.ToURL().String()
+		if url1 != url2 {
+			t.Errorf("URL does not round-trip: %v vs %v", url1, url2)
+		}
 	}
 }
 

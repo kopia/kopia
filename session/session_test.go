@@ -19,7 +19,7 @@ func TestA(t *testing.T) {
 
 	// cfg := LoadConfig("kopia.config")
 	sc := blob.StorageConfiguration{
-		Type: "fs",
+		Type: "file",
 		Config: &blob.FSStorageOptions{
 			Path: tmpDir,
 		},

@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"os/exec"
 	"time"
@@ -51,6 +52,22 @@ type GCSStorageOptions struct {
 
 	// IgnoreDefaultCredentials disables the use of credentials managed by Google Cloud SDK (gcloud).
 	IgnoreDefaultCredentials bool `json:"ignoreDefaultCredentials"`
+}
+
+func (gso *GCSStorageOptions) ParseURL(u *url.URL) error {
+	if u.Scheme != "gcs" {
+		return fmt.Errorf("invalid scheme, expected 'file'")
+	}
+
+	gso.BucketName = u.Host
+	return nil
+}
+
+func (gso *GCSStorageOptions) ToURL() *url.URL {
+	u := &url.URL{}
+	u.Scheme = "gcs"
+	u.Host = gso.BucketName
+	return u
 }
 
 type gcsStorage struct {
@@ -375,10 +392,10 @@ func authPrompt(url string, state string) (authenticationCode string, err error)
 func init() {
 	AddSupportedStorage(
 		gcsStorageType,
-		func() interface{} {
+		func() StorageOptions {
 			return &GCSStorageOptions{}
 		},
-		func(cfg interface{}) (Storage, error) {
-			return NewGCSStorage(cfg.(*GCSStorageOptions))
+		func(o StorageOptions) (Storage, error) {
+			return NewGCSStorage(o.(*GCSStorageOptions))
 		})
 }

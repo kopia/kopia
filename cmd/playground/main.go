@@ -205,8 +205,8 @@ func readCached(repo cas.Repository, manifestOID cas.ObjectID) {
 }
 
 func main() {
-	u, err := url.Parse("local://c:/ala")
-	log.Printf("u: %v o: %v", u.Path, u.Opaque)
+	u, err := url.Parse("file:d:\\path")
+	log.Printf("path: %v opaque: %v scheme:%v", u.Path, u.Opaque, u.Scheme)
 	//u.Query().Get("a")
 	os.Exit(0)
 	for i := 0; i < 10; i++ {

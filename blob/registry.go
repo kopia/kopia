@@ -1,27 +1,31 @@
 package blob
 
-import "fmt"
+import (
+	"fmt"
+	"net/url"
+)
 
 var (
-	factories = map[string]storageFactory{}
+	factories = map[string]*storageFactory{}
 )
 
 // StorageFactory allows creation of repositories in a generic way.
 type storageFactory struct {
-	defaultConfigFunc func() interface{}
-	createStorageFunc func(interface{}) (Storage, error)
+	defaultConfigFunc func() StorageOptions
+	createStorageFunc func(StorageOptions) (Storage, error)
 }
 
 // AddSupportedStorage registers factory function to create storage with a given type name.
 func AddSupportedStorage(
-	storageType string,
-	defaultConfigFunc func() interface{},
-	createStorageFunc func(interface{}) (Storage, error)) {
+	urlScheme string,
+	defaultConfigFunc func() StorageOptions,
+	createStorageFunc func(StorageOptions) (Storage, error)) {
 
-	factories[storageType] = storageFactory{
+	f := &storageFactory{
 		defaultConfigFunc: defaultConfigFunc,
 		createStorageFunc: createStorageFunc,
 	}
+	factories[urlScheme] = f
 }
 
 // NewStorage creates new storage based on StorageConfiguration.
@@ -32,4 +36,18 @@ func NewStorage(cfg StorageConfiguration) (Storage, error) {
 	}
 
 	return nil, fmt.Errorf("unknown storage type: %s", cfg.Type)
+}
+
+// NewStorageFromURL creates new storage based on a URL.
+// The storage type must be previously registered using AddSupportedStorage.
+func NewStorageFromURL(u *url.URL) (Storage, error) {
+	if factory, ok := factories[u.Scheme]; ok {
+		o := factory.defaultConfigFunc()
+		if err := o.ParseURL(u); err != nil {
+			return nil, err
+		}
+
+		return factory.createStorageFunc(o)
+	}
+	return nil, fmt.Errorf("unknown storage type: %s", u.Scheme)
 }
