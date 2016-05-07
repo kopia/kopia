@@ -29,7 +29,7 @@ const (
 	ObjectIDTypeBinary ObjectIDType = "B"
 
 	// ObjectIDTypeStored represents ID of object whose data is stored directly in a single storage block indicated by string.
-	ObjectIDTypeStored ObjectIDType = "C"
+	ObjectIDTypeStored ObjectIDType = "D"
 
 	// ObjectIDTypeList represents ID of an object whose data is stored in mutliple storage blocks.
 	// The value of the ObjectID is the list chunk, which lists object IDs that need to be concatenated
@@ -124,19 +124,19 @@ func NewInlineObjectID(data []byte) ObjectID {
 // ParseObjectID converts the specified string into ObjectID.
 func ParseObjectID(objectIDString string) (ObjectID, error) {
 	if len(objectIDString) >= 1 {
-		chunkType := objectIDString[0:1]
+		chunkType := ObjectIDType(objectIDString[0])
 		content := objectIDString[1:]
 
 		switch chunkType {
-		case "T":
+		case ObjectIDTypeText:
 			return ObjectID(objectIDString), nil
 
-		case "B":
+		case ObjectIDTypeBinary:
 			if _, err := binaryEncoding.DecodeString(content); err == nil {
 				return ObjectID(objectIDString), nil
 			}
 
-		case "C", "L":
+		case ObjectIDTypeList, ObjectIDTypeStored:
 			firstColon := strings.Index(content, ":")
 			lastColon := strings.LastIndex(content, ":")
 			if firstColon == lastColon {

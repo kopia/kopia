@@ -31,7 +31,7 @@ func getMd5Digest(data []byte) string {
 }
 
 func getMd5CObjectID(data []byte) string {
-	return fmt.Sprintf("C%s", getMd5Digest(data))
+	return fmt.Sprintf("D%s", getMd5Digest(data))
 }
 
 func getMd5LObjectID(data []byte) string {
@@ -61,9 +61,9 @@ func TestWriters(t *testing.T) {
 		{[]byte{0xc2, 0x28}, "Bwig"}, // invalid UTF-8, will be represented as binary
 		{
 			[]byte("the quick brown fox jumps over the lazy dog"),
-			"CX77add1d5f41223d5582fca736a5cb335",
+			"DX77add1d5f41223d5582fca736a5cb335",
 		},
-		{make([]byte, 100), "CX6d0bb00954ceb7fbee436bb55a8397a9"}, // 100 zero bytes
+		{make([]byte, 100), "DX6d0bb00954ceb7fbee436bb55a8397a9"}, // 100 zero bytes
 	}
 
 	for _, c := range cases {
@@ -108,7 +108,7 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	writer.Write(bytes[0:50])
 	writer.Write(bytes[0:50])
 	result, err := writer.Result(false)
-	if string(result) != "CX6d0bb00954ceb7fbee436bb55a8397a9" {
+	if string(result) != "DX6d0bb00954ceb7fbee436bb55a8397a9" {
 		t.Errorf("unexpected result: %v err: %v", result, err)
 	}
 }
@@ -119,7 +119,7 @@ func TestWriterListChunk(t *testing.T) {
 	contentBytes := make([]byte, 250)
 	contentMd5Sum200 := getMd5Digest(contentBytes[0:200])  // hash of 200 zero bytes
 	contentMd5Sum50 := getMd5Digest(contentBytes[200:250]) // hash of 50 zero bytes
-	listChunkContent := []byte("200,C" + contentMd5Sum200 + "\n50,C" + contentMd5Sum50 + "\n")
+	listChunkContent := []byte("200,D" + contentMd5Sum200 + "\n50,D" + contentMd5Sum50 + "\n")
 	listChunkObjectID := getMd5LObjectID(listChunkContent)
 
 	writer := repo.NewWriter()
@@ -245,7 +245,7 @@ func TestHMAC(t *testing.T) {
 	w := repo.NewWriter()
 	w.Write(content)
 	result, err := w.Result(false)
-	if string(result) != "C697eaf0aca3a3aea3a75164746ffaa79" {
+	if string(result) != "D697eaf0aca3a3aea3a75164746ffaa79" {
 		t.Errorf("unexpected result: %v err: %v", result, err)
 	}
 }
@@ -264,7 +264,7 @@ func TestReader(t *testing.T) {
 		{"BAQIDBA", []byte{1, 2, 3, 4}},
 		{"T", []byte{}},
 		{"Tfoo\nbar", []byte("foo\nbar")},
-		{"Ca76999788386641a3ec798554f1fe7e6", storedPayload},
+		{"Da76999788386641a3ec798554f1fe7e6", storedPayload},
 	}
 
 	for _, c := range cases {
@@ -302,7 +302,7 @@ func TestMalformedStoredData(t *testing.T) {
 
 	for _, c := range cases {
 		data["a76999788386641a3ec798554f1fe7e6"] = c
-		objectID, err := ParseObjectID("Ca76999788386641a3ec798554f1fe7e6")
+		objectID, err := ParseObjectID("Da76999788386641a3ec798554f1fe7e6")
 		if err != nil {
 			t.Errorf("cannot parse object ID: %v", err)
 			continue
@@ -318,7 +318,7 @@ func TestMalformedStoredData(t *testing.T) {
 func TestReaderStoredBlockNotFound(t *testing.T) {
 	_, repo := setupTest(t)
 
-	objectID, err := ParseObjectID("Cno-such-block")
+	objectID, err := ParseObjectID("Dno-such-block")
 	if err != nil {
 		t.Errorf("cannot parse object ID: %v", err)
 	}
@@ -386,8 +386,8 @@ func TestFormats(t *testing.T) {
 				ObjectFormat: "md5",
 			},
 			oids: map[string]ObjectID{
-				"": "Cd41d8cd98f00b204e9800998ecf8427e",
-				"The quick brown fox jumps over the lazy dog": "C9e107d9d372bb6826bd81d3542a419d6",
+				"": "Dd41d8cd98f00b204e9800998ecf8427e",
+				"The quick brown fox jumps over the lazy dog": "D9e107d9d372bb6826bd81d3542a419d6",
 			},
 		},
 		{
@@ -396,8 +396,8 @@ func TestFormats(t *testing.T) {
 				ObjectFormat: "hmac-md5",
 			},
 			oids: map[string]ObjectID{
-				"": "C74e6f7298a9c2d168935f58c001bad88",
-				"The quick brown fox jumps over the lazy dog": "Cad262969c53bc16032f160081c4a07a0",
+				"": "D74e6f7298a9c2d168935f58c001bad88",
+				"The quick brown fox jumps over the lazy dog": "Dad262969c53bc16032f160081c4a07a0",
 			},
 		},
 		{
@@ -407,7 +407,7 @@ func TestFormats(t *testing.T) {
 				Secret:       []byte("key"),
 			},
 			oids: map[string]ObjectID{
-				"The quick brown fox jumps over the lazy dog": "C80070713463e7749b90c2dc24911e275",
+				"The quick brown fox jumps over the lazy dog": "D80070713463e7749b90c2dc24911e275",
 			},
 		},
 		{
@@ -417,7 +417,7 @@ func TestFormats(t *testing.T) {
 				Secret:       []byte("key"),
 			},
 			oids: map[string]ObjectID{
-				"The quick brown fox jumps over the lazy dog": "Cde7c9b85b8b78aa6bc8a7a36f70a90701c9db4d9",
+				"The quick brown fox jumps over the lazy dog": "Dde7c9b85b8b78aa6bc8a7a36f70a90701c9db4d9",
 			},
 		},
 		{
@@ -427,7 +427,7 @@ func TestFormats(t *testing.T) {
 				Secret:       []byte("key"),
 			},
 			oids: map[string]ObjectID{
-				"The quick brown fox jumps over the lazy dog": "Cf7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8",
+				"The quick brown fox jumps over the lazy dog": "Df7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8",
 			},
 		},
 		{
@@ -437,7 +437,7 @@ func TestFormats(t *testing.T) {
 				Secret:       []byte("key"),
 			},
 			oids: map[string]ObjectID{
-				"The quick brown fox jumps over the lazy dog": "Cb42af09057bac1e2d41708e48a902e09b5ff7f12ab428a4fe86653c73dd248fb82f948a549f7b791a5b41915ee4d1ec3935357e4e2317250d0372afa2ebeeb3a",
+				"The quick brown fox jumps over the lazy dog": "Db42af09057bac1e2d41708e48a902e09b5ff7f12ab428a4fe86653c73dd248fb82f948a549f7b791a5b41915ee4d1ec3935357e4e2317250d0372afa2ebeeb3a",
 			},
 		},
 		{
@@ -447,7 +447,7 @@ func TestFormats(t *testing.T) {
 				Secret:       []byte("key"),
 			},
 			oids: map[string]ObjectID{
-				"The quick brown fox jumps over the lazy dog": "Cf7bc83f430538424b13298e6aa6fb143:ef4d59a14946175997479dbc2d1a3cd8",
+				"The quick brown fox jumps over the lazy dog": "Df7bc83f430538424b13298e6aa6fb143:ef4d59a14946175997479dbc2d1a3cd8",
 			},
 		},
 		{
@@ -457,7 +457,7 @@ func TestFormats(t *testing.T) {
 				Secret:       []byte("key"),
 			},
 			oids: map[string]ObjectID{
-				"The quick brown fox jumps over the lazy dog": "Cd7f4727e2c0b39ae0f1e40cc96f60242:d5b7801841cea6fc592c5d3e1ae50700582a96cf35e1e554995fe4e03381c237",
+				"The quick brown fox jumps over the lazy dog": "Dd7f4727e2c0b39ae0f1e40cc96f60242:d5b7801841cea6fc592c5d3e1ae50700582a96cf35e1e554995fe4e03381c237",
 			},
 		},
 		{
@@ -467,7 +467,7 @@ func TestFormats(t *testing.T) {
 				Secret:       []byte("key"),
 			},
 			oids: map[string]ObjectID{
-				"The quick brown fox jumps over the lazy dog": "Cb42af09057bac1e2d41708e48a902e09b5ff7f12ab428a4fe86653c73dd248fb:82f948a549f7b791a5b41915ee4d1ec3935357e4e2317250d0372afa2ebeeb3a",
+				"The quick brown fox jumps over the lazy dog": "Db42af09057bac1e2d41708e48a902e09b5ff7f12ab428a4fe86653c73dd248fb:82f948a549f7b791a5b41915ee4d1ec3935357e4e2317250d0372afa2ebeeb3a",
 			},
 		},
 	}
