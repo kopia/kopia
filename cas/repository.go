@@ -191,7 +191,7 @@ func hmacFunc(key []byte, hf func() hash.Hash) func() hash.Hash {
 // NewRepository creates new Repository with the specified storage, options, and key provider.
 func NewRepository(
 	r blob.Storage,
-	f Format,
+	f *Format,
 	options ...RepositoryOption,
 ) (Repository, error) {
 	if f.Version != "1" {

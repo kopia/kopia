@@ -10,7 +10,6 @@ import (
 
 	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/cas"
-	"github.com/kopia/kopia/vault"
 )
 
 // ErrConfigNotFound indicates that configuration is not found.
@@ -25,7 +24,6 @@ type Session interface {
 
 type session struct {
 	storage blob.Storage
-	creds   vault.Credentials
 	format  cas.Format
 }
 
@@ -52,15 +50,11 @@ func (s *session) encryptBlockWithPublicKey(blkID string, data io.ReadCloser, op
 }
 
 func (s *session) getConfigstring() string {
-	if s.creds == nil {
-		return string("config.json")
-	}
-
-	return string("users." + s.creds.Username() + ".config.json")
+	return string("config.json")
 }
 
 func (s *session) InitRepository(format cas.Format) (cas.Repository, error) {
-	mgr, err := cas.NewRepository(s.storage, format)
+	mgr, err := cas.NewRepository(s.storage, &format)
 	if err != nil {
 		return nil, err
 	}
@@ -95,13 +89,12 @@ func (s *session) OpenRepository() (cas.Repository, error) {
 		return nil, err
 	}
 
-	return cas.NewRepository(s.storage, format)
+	return cas.NewRepository(s.storage, &format)
 }
 
-func New(storage blob.Storage, creds vault.Credentials) (Session, error) {
+func New(storage blob.Storage) (Session, error) {
 	sess := &session{
 		storage: storage,
-		creds:   creds,
 	}
 	return sess, nil
 }

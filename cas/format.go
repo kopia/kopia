@@ -4,10 +4,12 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/md5"
+	"crypto/rand"
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/sha512"
 	"hash"
+	"io"
 )
 
 // Format describes the format of object data.
@@ -17,6 +19,20 @@ type Format struct {
 	Secret            []byte `json:"secret,omitempty"`
 	MaxInlineBlobSize int    `json:"maxInlineBlobSize"`
 	MaxBlobSize       int    `json:"maxBlobSize"`
+}
+
+func NewFormat() (*Format, error) {
+	f := &Format{
+		Version:      "1",
+		Secret:       make([]byte, 32),
+		ObjectFormat: "hmac-sha256",
+	}
+
+	_, err := io.ReadFull(rand.Reader, f.Secret)
+	if err != nil {
+		return f, err
+	}
+	return f, nil
 }
 
 // ObjectIDFormat describes single format ObjectID

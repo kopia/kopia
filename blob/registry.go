@@ -40,7 +40,11 @@ func NewStorage(cfg StorageConfiguration) (Storage, error) {
 
 // NewStorageFromURL creates new storage based on a URL.
 // The storage type must be previously registered using AddSupportedStorage.
-func NewStorageFromURL(u *url.URL) (Storage, error) {
+func NewStorageFromURL(storageURL string) (Storage, error) {
+	u, err := url.Parse(storageURL)
+	if err != nil {
+		return nil, err
+	}
 	if factory, ok := factories[u.Scheme]; ok {
 		o := factory.defaultConfigFunc()
 		if err := o.ParseURL(u); err != nil {

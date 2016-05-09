@@ -58,12 +58,12 @@ func TestFileStorageOptions(t *testing.T) {
 		o   FSStorageOptions
 		url string
 	}{
-		{FSStorageOptions{Path: "/blah"}, "file:///blah"},
-		{FSStorageOptions{Path: "/blah", FileMode: 0123}, "file:///blah?filemode=123"},
-		{FSStorageOptions{Path: "/blah", DirectoryMode: 0123}, "file:///blah?dirmode=123"},
-		{FSStorageOptions{Path: "/blah", FileMode: 0432, DirectoryMode: 0123}, "file:///blah?dirmode=123&filemode=432"},
-		{FSStorageOptions{Path: "/blah", FileMode: 0432, DirectoryMode: 0123, DirectoryShards: []int{1, 2, 3}}, "file:///blah?dirmode=123&filemode=432&shards=1.2.3"},
-		{FSStorageOptions{Path: "c:\\winpath"}, "file:c:\\winpath"},
+		{FSStorageOptions{Path: "/blah"}, "filesystem:/blah"},
+		{FSStorageOptions{Path: "/blah", FileMode: 0123}, "filesystem:/blah?filemode=123"},
+		{FSStorageOptions{Path: "/blah", DirectoryMode: 0123}, "filesystem:/blah?dirmode=123"},
+		{FSStorageOptions{Path: "/blah", FileMode: 0432, DirectoryMode: 0123}, "filesystem:/blah?dirmode=123&filemode=432"},
+		{FSStorageOptions{Path: "/blah", FileMode: 0432, DirectoryMode: 0123, DirectoryShards: []int{1, 2, 3}}, "filesystem:/blah?dirmode=123&filemode=432&shards=1.2.3"},
+		{FSStorageOptions{Path: "c:\\winpath"}, "filesystem:c:\\winpath"},
 	}
 
 	for i, c := range cases {

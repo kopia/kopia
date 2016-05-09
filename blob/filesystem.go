@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	fsStorageType        = "file"
+	fsStorageType        = "filesystem"
 	fsStorageChunkSuffix = ".f"
 )
 
@@ -31,10 +31,10 @@ type fsStorage struct {
 type FSStorageOptions struct {
 	Path string `json:"path"`
 
-	DirectoryShards []int `json:"dirShards"`
+	DirectoryShards []int `json:"dirShards,omitempty"`
 
-	FileMode      os.FileMode `json:"fileMode"`
-	DirectoryMode os.FileMode `json:"dirMode"`
+	FileMode      os.FileMode `json:"fileMode,omitempty"`
+	DirectoryMode os.FileMode `json:"dirMode,omitempty"`
 
 	FileUID *int `json:"uid,omitempty"`
 	FileGID *int `json:"gid,omitempty"`
@@ -66,9 +66,11 @@ func (fso *FSStorageOptions) shards() []int {
 
 // ParseURL parses the given URL into FSStorageOptions.
 func (fso *FSStorageOptions) ParseURL(u *url.URL) error {
-	if u.Scheme != "file" {
+	if u.Scheme != fsStorageType {
 		return fmt.Errorf("invalid scheme, expected 'file'")
 	}
+
+	//log.Printf("u.Upaque: %v u.Path: %v", u.Opaque, u.Path)
 
 	if u.Opaque != "" {
 		fso.Path = u.Opaque
@@ -97,12 +99,8 @@ func (fso *FSStorageOptions) ParseURL(u *url.URL) error {
 // ToURL converts the FSStorageOptions to URL.
 func (fso *FSStorageOptions) ToURL() *url.URL {
 	u := &url.URL{}
-	u.Scheme = "file"
-	if fso.Path[0] == '/' {
-		u.Path = fso.Path
-	} else {
-		u.Opaque = fso.Path
-	}
+	u.Scheme = "filesystem"
+	u.Opaque = fso.Path
 	q := u.Query()
 	if fso.FileUID != nil {
 		q.Add("uid", strconv.Itoa(*fso.FileUID))

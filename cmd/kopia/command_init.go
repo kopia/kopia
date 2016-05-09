@@ -4,14 +4,11 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 
 	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/cas"
-	"github.com/kopia/kopia/config"
 	"github.com/kopia/kopia/session"
-	"github.com/kopia/kopia/vault"
 )
 
 var (
@@ -28,9 +25,7 @@ var (
 )
 
 func runInitCommandForRepository(s blob.Storage, defaultSalt string) error {
-	var creds vault.Credentials
-
-	sess, err := session.New(s, creds)
+	sess, err := session.New(s)
 	if err != nil {
 		return err
 	}
@@ -80,16 +75,16 @@ func runInitCommandForRepository(s blob.Storage, defaultSalt string) error {
 		return err
 	}
 
-	cfg := config.Config{
-		Storage: s.Configuration(),
-	}
+	// cfg := config.Config{
+	// 	Storage: s.Configuration(),
+	// }
 
-	f, err := os.Create(configFileName())
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	cfg.SaveTo(f)
+	// f, err := os.Create(configFileName())
+	// if err != nil {
+	// 	return err
+	// }
+	// defer f.Close()
+	// cfg.SaveTo(f)
 
 	return nil
 }
