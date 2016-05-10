@@ -19,11 +19,11 @@ import (
 var (
 	traceStorage = app.Flag("trace-storage", "Enables tracing of storage operations.").Hidden().Bool()
 
-	vaultPath    = app.Flag("vault", "Specify the vault to use.").String()
-	password     = app.Flag("password", "Vault password").String()
-	passwordFile = app.Flag("passwordfile", "Read password from a file").ExistingFile()
-	key          = app.Flag("key", "Vault key").String()
-	keyFile      = app.Flag("keyfile", "Read vault key from a file").ExistingFile()
+	vaultPath    = app.Flag("vault", "Specify the vault to use.").Envar("KOPIA_VAULT").String()
+	password     = app.Flag("password", "Vault password").Envar("KOPIA_PASSWORD").String()
+	passwordFile = app.Flag("passwordfile", "Read password from a file").Envar("KOPIA_PASSWORD_FILE").ExistingFile()
+	key          = app.Flag("key", "Vault key (hexadecimal)").Envar("KOPIA_KEY").String()
+	keyFile      = app.Flag("keyfile", "Key key file").Envar("KOPIA_KEY_FILE").ExistingFile()
 )
 
 func failOnError(err error) {
@@ -95,9 +95,16 @@ func openVault() (*vault.Vault, error) {
 	}
 
 	if *vaultPath == "" {
-		return nil, fmt.Errorf("vault not connected, use --vault")
+		return nil, fmt.Errorf("vault not connected and not specified, use --vault")
 	}
 
+	return openVaultSpecifiedByFlag()
+}
+
+func openVaultSpecifiedByFlag() (*vault.Vault, error) {
+	if *vaultPath == "" {
+		return nil, fmt.Errorf("--vault must be specified")
+	}
 	storage, err := blob.NewStorageFromURL(*vaultPath)
 	if err != nil {
 		return nil, err
