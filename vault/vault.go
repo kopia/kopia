@@ -176,7 +176,7 @@ func (v *Vault) OpenRepository() (repo.Repository, error) {
 }
 
 func (v *Vault) Get(id string, content interface{}) error {
-	j, err := v.Storage.GetBlock(id)
+	j, err := v.readEncryptedBlock(id)
 	if err != nil {
 		return nil
 	}
@@ -189,7 +189,7 @@ func (v *Vault) Put(id string, content interface{}) error {
 	if err != nil {
 		return err
 	}
-	return v.Storage.PutBlock(id, ioutil.NopCloser(bytes.NewBuffer(j)), blob.PutOptions{Overwrite: true})
+	return v.writeEncryptedBlock(id, j)
 }
 
 func (v *Vault) List(prefix string) ([]string, error) {
