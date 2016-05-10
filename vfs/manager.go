@@ -6,8 +6,8 @@ import (
 
 	fusefs "bazil.org/fuse/fs"
 
-	"github.com/kopia/kopia/cas"
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/repo"
 )
 
 type Manager interface {
@@ -15,7 +15,7 @@ type Manager interface {
 }
 
 type manager struct {
-	repo  cas.Repository
+	repo  repo.Repository
 	cache *dirCache
 }
 
@@ -29,7 +29,7 @@ func (mgr *manager) NewNodeFromEntry(e *fs.Entry) fusefs.Node {
 	}
 }
 
-func (mgr *manager) readDirectory(oid cas.ObjectID) (fs.Directory, error) {
+func (mgr *manager) readDirectory(oid repo.ObjectID) (fs.Directory, error) {
 	if d := mgr.cache.Get(oid); d != nil {
 		return d, nil
 	}
@@ -46,11 +46,11 @@ func (mgr *manager) readDirectory(oid cas.ObjectID) (fs.Directory, error) {
 	return d, nil
 }
 
-func (mgr *manager) open(oid cas.ObjectID) (io.ReadSeeker, error) {
+func (mgr *manager) open(oid repo.ObjectID) (io.ReadSeeker, error) {
 	return mgr.repo.Open(oid)
 }
 
-func NewManager(repo cas.Repository) Manager {
+func NewManager(repo repo.Repository) Manager {
 	return &manager{
 		repo:  repo,
 		cache: newDirCache(10000, 1000000),

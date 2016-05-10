@@ -8,7 +8,7 @@ Usage:
 Common subcommands:
 
   init <provider> [<args> ...]
-    Connects to the backup cas.
+    Connects to the backup repo.
 
   backup [<flags>] <directory>...
     Copies local directory to backup repository.

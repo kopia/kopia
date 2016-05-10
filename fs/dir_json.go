@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kopia/kopia/cas"
+	"github.com/kopia/kopia/repo"
 )
 
 const modeChars = "dalTLDpSugct"
@@ -40,7 +40,7 @@ func (de *Entry) fromJSON(jde *jsonDirectoryEntry) error {
 			return fmt.Errorf("invalid owner: %v", err)
 		}
 	}
-	de.ObjectID = cas.ObjectID(jde.ObjectID)
+	de.ObjectID = repo.ObjectID(jde.ObjectID)
 
 	if jde.Size != "" {
 		if s, err := strconv.ParseInt(jde.Size, 10, 64); err == nil {

@@ -7,8 +7,8 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/kopia/kopia/cas"
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/repo"
 )
 
 type dirCache struct {
@@ -17,12 +17,12 @@ type dirCache struct {
 	totalEntriesSize    int
 	maxEntries          int
 	maxTotalEntriesSize int
-	entries             map[cas.ObjectID]*dirCacheEntry
+	entries             map[repo.ObjectID]*dirCacheEntry
 	sorted              *list.List
 }
 
 type dirCacheEntry struct {
-	oid       cas.ObjectID
+	oid       repo.ObjectID
 	dir       fs.Directory
 	listEntry *list.Element
 	totalSize int
@@ -32,7 +32,7 @@ func (dce *dirCacheEntry) String() string {
 	return fmt.Sprintf("dir: %v items", len(dce.dir))
 }
 
-func (dc *dirCache) Add(oid cas.ObjectID, d fs.Directory) {
+func (dc *dirCache) Add(oid repo.ObjectID, d fs.Directory) {
 	dc.Lock()
 	defer dc.Unlock()
 
@@ -65,7 +65,7 @@ func (dc *dirCache) Add(oid cas.ObjectID, d fs.Directory) {
 	}
 }
 
-func (dc *dirCache) Get(oid cas.ObjectID) fs.Directory {
+func (dc *dirCache) Get(oid repo.ObjectID) fs.Directory {
 	dc.Lock()
 	defer dc.Unlock()
 
@@ -101,7 +101,7 @@ func newDirCache(maxEntries int, maxTotalEntriesSize int) *dirCache {
 	return &dirCache{
 		maxEntries:          maxEntries,
 		maxTotalEntriesSize: maxTotalEntriesSize,
-		entries:             map[cas.ObjectID]*dirCacheEntry{},
+		entries:             map[repo.ObjectID]*dirCacheEntry{},
 		sorted:              list.New(),
 	}
 }

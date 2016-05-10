@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kopia/kopia/cas"
+	"github.com/kopia/kopia/repo"
 )
 
 // Entry stores attributes of a single entry in a directory.
@@ -18,7 +18,7 @@ type Entry struct {
 	ModTime  time.Time
 	OwnerID  uint32
 	GroupID  uint32
-	ObjectID cas.ObjectID
+	ObjectID repo.ObjectID
 }
 
 func isLess(name1, name2 string) bool {

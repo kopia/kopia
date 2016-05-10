@@ -1,4 +1,4 @@
-package cas
+package repo
 
 import (
 	"bytes"
@@ -15,8 +15,8 @@ import (
 	"github.com/kopia/kopia/blob"
 )
 
-func testFormat() Format {
-	return Format{
+func testFormat() *Format {
+	return &Format{
 		Version:           "1",
 		MaxBlobSize:       200,
 		MaxInlineBlobSize: 20,
@@ -376,24 +376,31 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 }
 
 func TestFormats(t *testing.T) {
+	makeFormat := func(objectFormat string) *Format {
+		return &Format{
+			Version:      "1",
+			ObjectFormat: objectFormat,
+			Secret:       []byte("key"),
+			MaxBlobSize:  10000,
+		}
+	}
+
 	cases := []struct {
-		format Format
+		format *Format
 		oids   map[string]ObjectID
 	}{
 		{
-			format: Format{
-				Version:      "1",
-				ObjectFormat: "md5",
-			},
+			format: makeFormat("md5"),
 			oids: map[string]ObjectID{
 				"": "Dd41d8cd98f00b204e9800998ecf8427e",
 				"The quick brown fox jumps over the lazy dog": "D9e107d9d372bb6826bd81d3542a419d6",
 			},
 		},
 		{
-			format: Format{
+			format: &Format{
 				Version:      "1",
 				ObjectFormat: "hmac-md5",
+				MaxBlobSize:  10000,
 			},
 			oids: map[string]ObjectID{
 				"": "D74e6f7298a9c2d168935f58c001bad88",
@@ -401,71 +408,43 @@ func TestFormats(t *testing.T) {
 			},
 		},
 		{
-			format: Format{
-				Version:      "1",
-				ObjectFormat: "hmac-md5",
-				Secret:       []byte("key"),
-			},
+			format: makeFormat("hmac-md5"),
 			oids: map[string]ObjectID{
 				"The quick brown fox jumps over the lazy dog": "D80070713463e7749b90c2dc24911e275",
 			},
 		},
 		{
-			format: Format{
-				Version:      "1",
-				ObjectFormat: "hmac-sha1",
-				Secret:       []byte("key"),
-			},
+			format: makeFormat("hmac-sha1"),
 			oids: map[string]ObjectID{
 				"The quick brown fox jumps over the lazy dog": "Dde7c9b85b8b78aa6bc8a7a36f70a90701c9db4d9",
 			},
 		},
 		{
-			format: Format{
-				Version:      "1",
-				ObjectFormat: "hmac-sha256",
-				Secret:       []byte("key"),
-			},
+			format: makeFormat("hmac-sha256"),
 			oids: map[string]ObjectID{
 				"The quick brown fox jumps over the lazy dog": "Df7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8",
 			},
 		},
 		{
-			format: Format{
-				Version:      "1",
-				ObjectFormat: "hmac-sha512",
-				Secret:       []byte("key"),
-			},
+			format: makeFormat("hmac-sha512"),
 			oids: map[string]ObjectID{
 				"The quick brown fox jumps over the lazy dog": "Db42af09057bac1e2d41708e48a902e09b5ff7f12ab428a4fe86653c73dd248fb82f948a549f7b791a5b41915ee4d1ec3935357e4e2317250d0372afa2ebeeb3a",
 			},
 		},
 		{
-			format: Format{
-				Version:      "1",
-				ObjectFormat: "hmac-sha256-aes128",
-				Secret:       []byte("key"),
-			},
+			format: makeFormat("hmac-sha256-aes128"),
 			oids: map[string]ObjectID{
 				"The quick brown fox jumps over the lazy dog": "Df7bc83f430538424b13298e6aa6fb143:ef4d59a14946175997479dbc2d1a3cd8",
 			},
 		},
 		{
-			format: Format{
-				Version:      "1",
-				ObjectFormat: "hmac-sha384-aes256",
-				Secret:       []byte("key"),
-			},
+			format: makeFormat("hmac-sha384-aes256"),
 			oids: map[string]ObjectID{
 				"The quick brown fox jumps over the lazy dog": "Dd7f4727e2c0b39ae0f1e40cc96f60242:d5b7801841cea6fc592c5d3e1ae50700582a96cf35e1e554995fe4e03381c237",
 			},
 		},
 		{
-			format: Format{
-				Version:      "1",
-				ObjectFormat: "hmac-sha512-aes256",
-				Secret:       []byte("key"),
-			},
+			format: makeFormat("hmac-sha512-aes256"),
 			oids: map[string]ObjectID{
 				"The quick brown fox jumps over the lazy dog": "Db42af09057bac1e2d41708e48a902e09b5ff7f12ab428a4fe86653c73dd248fb:82f948a549f7b791a5b41915ee4d1ec3935357e4e2317250d0372afa2ebeeb3a",
 			},
@@ -518,11 +497,13 @@ func TestInvalidEncryptionKey(t *testing.T) {
 		Version:      "1",
 		ObjectFormat: "hmac-sha512-aes256",
 		Secret:       []byte("key"),
+		MaxBlobSize:  1000,
 	}
 
-	repo, err := NewRepository(st, format)
+	repo, err := NewRepository(st, &format)
 	if err != nil {
 		t.Errorf("cannot create manager: %v", err)
+		return
 	}
 
 	bytesToWrite := make([]byte, 1024)

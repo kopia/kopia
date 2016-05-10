@@ -14,8 +14,8 @@ import (
 	"unsafe"
 
 	"github.com/kopia/kopia/blob"
-	"github.com/kopia/kopia/cas"
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/repo"
 )
 
 const (
@@ -43,7 +43,7 @@ func (hls *highLatencyStorage) GetBlock(id string) ([]byte, error) {
 	return hls.Storage.GetBlock(id)
 }
 
-func uploadAndTime(repo cas.Repository, dir string, previous cas.ObjectID) *fs.UploadResult {
+func uploadAndTime(repo repo.Repository, dir string, previous repo.ObjectID) *fs.UploadResult {
 	log.Println("---")
 	uploader, err := fs.NewUploader(repo)
 	if err != nil {
@@ -79,7 +79,7 @@ type gantt struct {
 var allGantt []*gantt
 var ganttMutex sync.Mutex
 
-func walkTree2(ch chan *fs.Entry, repo cas.Repository, path string, dir fs.Directory) {
+func walkTree2(ch chan *fs.Entry, repo repo.Repository, path string, dir fs.Directory) {
 	//log.Printf("walkTree2(%s)", path)
 	m := map[int]chan fs.Directory{}
 
@@ -165,7 +165,7 @@ func walkTree2(ch chan *fs.Entry, repo cas.Repository, path string, dir fs.Direc
 	}
 }
 
-func walkTree(repo cas.Repository, path string, oid cas.ObjectID) chan *fs.Entry {
+func walkTree(repo repo.Repository, path string, oid repo.ObjectID) chan *fs.Entry {
 	ch := make(chan *fs.Entry, 20)
 	go func() {
 		d, err := repo.Open(oid)
@@ -186,7 +186,7 @@ func walkTree(repo cas.Repository, path string, oid cas.ObjectID) chan *fs.Entry
 	return ch
 }
 
-func readCached(repo cas.Repository, manifestOID cas.ObjectID) {
+func readCached(repo repo.Repository, manifestOID repo.ObjectID) {
 	var r io.Reader
 	var err error
 	r, err = repo.Open(manifestOID)
@@ -227,12 +227,12 @@ func main() {
 		writeDelay: 50 * time.Millisecond,
 		readDelay:  50 * time.Millisecond,
 	}
-	format := cas.Format{
+	format := repo.Format{
 		Version:      "1",
 		ObjectFormat: "md5",
 	}
 
-	repo, err := cas.NewRepository(st, format)
+	repo, err := repo.NewRepository(st, &format)
 	if err != nil {
 		log.Printf("Error: %v", err)
 		return

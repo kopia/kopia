@@ -7,8 +7,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/backup"
-
-	"github.com/kopia/kopia/cas"
+	"github.com/kopia/kopia/repo"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -21,14 +20,14 @@ var (
 )
 
 func runBackupsCommand(context *kingpin.ParseContext) error {
-	var options []cas.RepositoryOption
+	var options []repo.RepositoryOption
 
 	if *backupWriteBack > 0 {
-		options = append(options, cas.WriteBack(*backupWriteBack))
+		options = append(options, repo.WriteBack(*backupWriteBack))
 	}
 
 	if *backupWriteLimit > 0 {
-		options = append(options, cas.WriteLimit(*backupWriteLimit*1000000))
+		options = append(options, repo.WriteLimit(*backupWriteLimit*1000000))
 
 	}
 

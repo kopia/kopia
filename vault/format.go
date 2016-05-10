@@ -6,7 +6,7 @@ import (
 	"io"
 
 	"github.com/kopia/kopia/blob"
-	"github.com/kopia/kopia/cas"
+	"github.com/kopia/kopia/repo"
 )
 
 const (
@@ -45,5 +45,5 @@ func NewFormat() *Format {
 
 type RepositoryConfig struct {
 	Storage blob.StorageConfiguration `json:"storage"`
-	Format  *cas.Format               `json:"repository"`
+	Format  *repo.Format              `json:"repository"`
 }

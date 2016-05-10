@@ -35,7 +35,7 @@ func (s *writeLimitStorage) PutBlock(id string, data io.ReadCloser, options PutO
 	}, options)
 }
 
-// NewWriteLimitWrapper returns a Storage wrapper that limits the number of bytes written to a cas.
+// NewWriteLimitWrapper returns a Storage wrapper that limits the number of bytes written to a repo.
 // Once reached, the writes will return ErrWriteLimitExceeded
 func NewWriteLimitWrapper(wrapped Storage, bytes int64) Storage {
 	return &writeLimitStorage{

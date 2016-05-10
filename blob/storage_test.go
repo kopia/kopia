@@ -84,7 +84,7 @@ func TestFileStorageOptions(t *testing.T) {
 }
 
 func verifyStorageConfiguration(t *testing.T, r Storage) {
-	r2, err := NewStorageFromURL(r.Configuration().Config.ToURL())
+	r2, err := NewStorageFromURL(r.Configuration().Config.ToURL().String())
 	if err != nil {
 		t.Errorf("cannot create storage from URL: %v", err)
 	} else {

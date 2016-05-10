@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/kopia/kopia/cas"
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/vault"
 
 	"github.com/kopia/kopia/blob"
@@ -37,8 +37,8 @@ func vaultFormat() *vault.Format {
 	return f
 }
 
-func repositoryFormat() (*cas.Format, error) {
-	f, err := cas.NewFormat()
+func repositoryFormat() (*repo.Format, error) {
+	f, err := repo.NewFormat()
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +100,7 @@ func runCreateCommand(context *kingpin.ParseContext) error {
 	}
 
 	// Make repository to make sure the format is supported.
-	_, err = cas.NewRepository(repositoryStorage, repoFormat)
+	_, err = repo.NewRepository(repositoryStorage, repoFormat)
 	if err != nil {
 		return fmt.Errorf("unable to initialize repository: %v", err)
 	}
@@ -124,7 +124,7 @@ func runCreateCommand(context *kingpin.ParseContext) error {
 
 func getCustomFormat() string {
 	if *createCustomFormat != "" {
-		if cas.SupportedFormats.Find(*createCustomFormat) == nil {
+		if repo.SupportedFormats.Find(*createCustomFormat) == nil {
 			fmt.Printf("Format '%s' is not recognized.\n", *createCustomFormat)
 		}
 		return *createCustomFormat
@@ -132,7 +132,7 @@ func getCustomFormat() string {
 
 	fmt.Printf("  %2v | %-30v | %v | %v | %v |\n", "#", "Format", "Hash", "Encryption", "Block ID Length")
 	fmt.Println(strings.Repeat("-", 76) + "+")
-	for i, o := range cas.SupportedFormats {
+	for i, o := range repo.SupportedFormats {
 		encryptionString := ""
 		if o.IsEncrypted() {
 			encryptionString = fmt.Sprintf("%d-bit", o.EncryptionKeySizeBits())
@@ -141,15 +141,15 @@ func getCustomFormat() string {
 	}
 	fmt.Println(strings.Repeat("-", 76) + "+")
 
-	fmt.Printf("Select format (1-%d): ", len(cas.SupportedFormats))
+	fmt.Printf("Select format (1-%d): ", len(repo.SupportedFormats))
 	for {
 		var number int
 
-		if n, err := fmt.Scanf("%d\n", &number); n == 1 && err == nil && number >= 1 && number <= len(cas.SupportedFormats) {
-			fmt.Printf("You selected '%v'\n", cas.SupportedFormats[number-1].Name)
-			return cas.SupportedFormats[number-1].Name
+		if n, err := fmt.Scanf("%d\n", &number); n == 1 && err == nil && number >= 1 && number <= len(repo.SupportedFormats) {
+			fmt.Printf("You selected '%v'\n", repo.SupportedFormats[number-1].Name)
+			return repo.SupportedFormats[number-1].Name
 		}
 
-		fmt.Printf("Invalid selection. Select format (1-%d): ", len(cas.SupportedFormats))
+		fmt.Printf("Invalid selection. Select format (1-%d): ", len(repo.SupportedFormats))
 	}
 }

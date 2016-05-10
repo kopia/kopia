@@ -5,8 +5,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/fs"
-
-	"github.com/kopia/kopia/cas"
+	"github.com/kopia/kopia/repo"
 )
 
 var (
@@ -19,7 +18,7 @@ type Generator interface {
 }
 
 type backupGenerator struct {
-	repo cas.Repository
+	repo repo.Repository
 }
 
 func (bg *backupGenerator) Backup(m *Manifest, old *Manifest) error {
@@ -29,10 +28,10 @@ func (bg *backupGenerator) Backup(m *Manifest, old *Manifest) error {
 	}
 
 	m.StartTime = time.Now()
-	var hashCacheID cas.ObjectID
+	var hashCacheID repo.ObjectID
 
 	if old != nil {
-		hashCacheID = cas.ObjectID(old.HashCacheID)
+		hashCacheID = repo.ObjectID(old.HashCacheID)
 		log.Printf("Using hash cache ID: %v", hashCacheID)
 	} else {
 		log.Printf("No hash cache.")
@@ -50,7 +49,7 @@ func (bg *backupGenerator) Backup(m *Manifest, old *Manifest) error {
 }
 
 // NewGenerator creates new backup generator.
-func NewGenerator(repo cas.Repository) (Generator, error) {
+func NewGenerator(repo repo.Repository) (Generator, error) {
 	return &backupGenerator{
 		repo: repo,
 	}, nil

@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/kopia/kopia/blob"
-	"github.com/kopia/kopia/cas"
+	"github.com/kopia/kopia/repo"
 
 	"testing"
 )
@@ -15,7 +15,7 @@ import (
 type uploadTestHarness struct {
 	sourceDir string
 	repoDir   string
-	repo      cas.Repository
+	repo      repo.Repository
 	storage   blob.Storage
 	lister    *perPathLister
 	uploader  Uploader
@@ -69,12 +69,14 @@ func newUploadTestHarness() *uploadTestHarness {
 		panic("cannot create storage directory: " + err.Error())
 	}
 
-	format := cas.Format{
-		Version:      "1",
-		ObjectFormat: "md5",
+	format := repo.Format{
+		Version:           "1",
+		ObjectFormat:      "md5",
+		MaxBlobSize:       1000,
+		MaxInlineBlobSize: 0,
 	}
 
-	repo, err := cas.NewRepository(storage, format)
+	repo, err := repo.NewRepository(storage, &format)
 	if err != nil {
 		panic("unable to create repository: " + err.Error())
 	}

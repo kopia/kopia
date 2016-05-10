@@ -6,15 +6,15 @@ import (
 	"bazil.org/fuse"
 	fusefs "bazil.org/fuse/fs"
 
-	"github.com/kopia/kopia/cas"
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/vfs"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
-	mountCommand = app.Command("mount", "Show contents of a CAS object.")
+	mountCommand = app.Command("mount", "Mount repository object as a local filesystem.")
 
 	mountObjectID = mountCommand.Arg("objectID", "Directory to mount").Required().String()
 	mountPoint    = mountCommand.Arg("mountPoint", "Mount point").Required().ExistingDir()
@@ -29,12 +29,12 @@ func (r *root) Root() (fusefs.Node, error) {
 }
 
 func runMountCommand(context *kingpin.ParseContext) error {
-	repo, err := mustOpenVault().OpenRepository()
+	r, err := mustOpenVault().OpenRepository()
 	if err != nil {
 		return err
 	}
 
-	mgr := vfs.NewManager(repo)
+	mgr := vfs.NewManager(r)
 
 	fuseConnection, err := fuse.Mount(
 		*mountPoint,
@@ -48,7 +48,7 @@ func runMountCommand(context *kingpin.ParseContext) error {
 		mgr.NewNodeFromEntry(&fs.Entry{
 			Name:     "<root>",
 			FileMode: os.ModeDir | 0555,
-			ObjectID: cas.ObjectID(*mountObjectID),
+			ObjectID: repo.ObjectID(*mountObjectID),
 		}),
 	})
 

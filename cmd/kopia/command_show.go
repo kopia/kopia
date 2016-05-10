@@ -4,15 +4,15 @@ import (
 	"io"
 	"os"
 
-	"github.com/kopia/kopia/cas"
+	"github.com/kopia/kopia/repo"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
-	showCommand = app.Command("show", "Show contents of a CAS object.")
+	showCommand = app.Command("show", "Show contents of a repository object.")
 
-	showObjectIDs = showCommand.Arg("objectID", "Directories to back up").Required().Strings()
+	showObjectIDs = showCommand.Arg("objectID", "IDs of objects to show").Required().Strings()
 )
 
 func runShowCommand(context *kingpin.ParseContext) error {
@@ -22,7 +22,7 @@ func runShowCommand(context *kingpin.ParseContext) error {
 	}
 
 	for _, oid := range *showObjectIDs {
-		r, err := mgr.Open(cas.ObjectID(oid))
+		r, err := mgr.Open(repo.ObjectID(oid))
 		if err != nil {
 			return err
 		}

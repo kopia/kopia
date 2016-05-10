@@ -7,13 +7,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kopia/kopia/cas"
+	"github.com/kopia/kopia/repo"
 )
 
 type hashCacheEntry struct {
 	Name     string
 	Hash     uint64
-	ObjectID cas.ObjectID
+	ObjectID repo.ObjectID
 }
 
 type hashcacheReader struct {
@@ -67,7 +67,7 @@ func (hcr *hashcacheReader) readahead() {
 			p1 := strings.LastIndexByte(t, '|')
 			e.Name = t[0:p0]
 			e.Hash, err = strconv.ParseUint(t[p0+1:p1], 0, 64)
-			e.ObjectID = cas.ObjectID(t[p1+1:])
+			e.ObjectID = repo.ObjectID(t[p1+1:])
 			if err == nil {
 				hcr.nextEntry = e
 			}

@@ -14,7 +14,7 @@ import (
 	"io/ioutil"
 
 	"github.com/kopia/kopia/blob"
-	"github.com/kopia/kopia/cas"
+	"github.com/kopia/kopia/repo"
 
 	"golang.org/x/crypto/hkdf"
 	"golang.org/x/crypto/pbkdf2"
@@ -161,7 +161,7 @@ func (v *Vault) RepositoryConfig() (*RepositoryConfig, error) {
 	return &rc, nil
 }
 
-func (v *Vault) OpenRepository() (cas.Repository, error) {
+func (v *Vault) OpenRepository() (repo.Repository, error) {
 	rc, err := v.RepositoryConfig()
 	if err != nil {
 		return nil, err
@@ -172,7 +172,7 @@ func (v *Vault) OpenRepository() (cas.Repository, error) {
 		return nil, fmt.Errorf("unable to open repository: %v", err)
 	}
 
-	return cas.NewRepository(storage, rc.Format)
+	return repo.NewRepository(storage, rc.Format)
 }
 
 func (v *Vault) Get(id string, content interface{}) error {

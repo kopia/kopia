@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"sync/atomic"
 
-	"github.com/kopia/kopia/cas"
+	"github.com/kopia/kopia/repo"
 )
 
 const (
@@ -23,8 +23,8 @@ var ErrUploadCancelled = errors.New("upload cancelled")
 
 // UploadResult stores results of an upload.
 type UploadResult struct {
-	ObjectID   cas.ObjectID
-	ManifestID cas.ObjectID
+	ObjectID   repo.ObjectID
+	ManifestID repo.ObjectID
 	Cancelled  bool
 
 	Stats struct {
@@ -35,14 +35,14 @@ type UploadResult struct {
 	}
 }
 
-// Uploader supports efficient uploading files and directories to CAS.
+// Uploader supports efficient uploading files and directories to repository.
 type Uploader interface {
-	UploadDir(path string, previousManifestID cas.ObjectID) (*UploadResult, error)
+	UploadDir(path string, previousManifestID repo.ObjectID) (*UploadResult, error)
 	Cancel()
 }
 
 type uploader struct {
-	mgr    cas.Repository
+	mgr    repo.Repository
 	lister Lister
 
 	cancelled int32
@@ -61,8 +61,8 @@ func (u *uploader) uploadFile(path string, e *Entry) (*Entry, uint64, error) {
 	defer file.Close()
 
 	writer := u.mgr.NewWriter(
-		cas.WithDescription("FILE:"+path),
-		cas.WithBlockNamePrefix("F"),
+		repo.WithDescription("FILE:"+path),
+		repo.WithBlockNamePrefix("F"),
 	)
 	defer writer.Close()
 
@@ -88,7 +88,7 @@ func (u *uploader) uploadFile(path string, e *Entry) (*Entry, uint64, error) {
 	return e2, e2.metadataHash(), nil
 }
 
-func (u *uploader) UploadDir(path string, previousManifestID cas.ObjectID) (*UploadResult, error) {
+func (u *uploader) UploadDir(path string, previousManifestID repo.ObjectID) (*UploadResult, error) {
 	//log.Printf("UploadDir", path)
 	//defer log.Printf("finishing UploadDir", path)
 	var mr hashcacheReader
@@ -101,8 +101,8 @@ func (u *uploader) UploadDir(path string, previousManifestID cas.ObjectID) (*Upl
 	}
 
 	mw := u.mgr.NewWriter(
-		cas.WithDescription("HASHCACHE:"+path),
-		cas.WithBlockNamePrefix("H"),
+		repo.WithDescription("HASHCACHE:"+path),
+		repo.WithBlockNamePrefix("H"),
 	)
 	defer mw.Close()
 	hcw := newHashCacheWriter(mw)
@@ -123,7 +123,7 @@ func (u *uploader) uploadDirInternal(
 	relativePath string,
 	hcw *hashcacheWriter,
 	mr *hashcacheReader,
-) (cas.ObjectID, uint64, bool, error) {
+) (repo.ObjectID, uint64, bool, error) {
 	log.Printf("Uploading dir %v", path)
 	defer log.Printf("Finished uploading dir %v", path)
 	dir, err := u.lister.List(path)
@@ -132,8 +132,8 @@ func (u *uploader) uploadDirInternal(
 	}
 
 	writer := u.mgr.NewWriter(
-		cas.WithDescription("DIR:"+path),
-		cas.WithBlockNamePrefix("D"),
+		repo.WithDescription("DIR:"+path),
+		repo.WithBlockNamePrefix("D"),
 	)
 
 	dw := newDirectoryWriter(writer)
@@ -168,7 +168,7 @@ func (u *uploader) uploadDirInternal(
 				return "", 0, false, err
 			}
 
-			e.ObjectID = cas.NewInlineObjectID([]byte(l))
+			e.ObjectID = repo.NewInlineObjectID([]byte(l))
 			hash = e.metadataHash()
 
 		case 0:
@@ -184,7 +184,7 @@ func (u *uploader) uploadDirInternal(
 			if cacheMatches {
 				result.Stats.CachedFiles++
 				// Avoid hashing by reusing previous object ID.
-				e.ObjectID = cas.ObjectID(cachedEntry.ObjectID)
+				e.ObjectID = repo.ObjectID(cachedEntry.ObjectID)
 				hash = cachedEntry.Hash
 			} else {
 				result.Stats.NonCachedFiles++
@@ -221,7 +221,7 @@ func (u *uploader) uploadDirInternal(
 
 	dw.Close()
 
-	var directoryOID cas.ObjectID
+	var directoryOID repo.ObjectID
 	dirHash := dirHasher.Sum64()
 
 	cachedDirEntry := mr.findEntry(relativePath + "/")
@@ -230,7 +230,7 @@ func (u *uploader) uploadDirInternal(
 	if allCached {
 		// Avoid hashing directory listing if every entry matched the cache.
 		result.Stats.CachedDirectories++
-		directoryOID = cas.ObjectID(cachedDirEntry.ObjectID)
+		directoryOID = repo.ObjectID(cachedDirEntry.ObjectID)
 	} else {
 		result.Stats.NonCachedDirectories++
 		directoryOID, err = writer.Result(true)
@@ -255,11 +255,11 @@ func (u *uploader) Cancel() {
 }
 
 // NewUploader creates new Uploader object for the specified Repository
-func NewUploader(mgr cas.Repository) (Uploader, error) {
+func NewUploader(mgr repo.Repository) (Uploader, error) {
 	return newUploaderLister(mgr, &filesystemLister{})
 }
 
-func newUploaderLister(mgr cas.Repository, lister Lister) (Uploader, error) {
+func newUploaderLister(mgr repo.Repository, lister Lister) (Uploader, error) {
 	u := &uploader{
 		mgr:    mgr,
 		lister: lister,
