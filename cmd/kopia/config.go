@@ -13,12 +13,11 @@ import (
 
 	"golang.org/x/crypto/ssh/terminal"
 
-	"github.com/kopia/kopia/session"
 	"github.com/kopia/kopia/vault"
 )
 
 var (
-	traceStorage = app.Flag("trace-storage", "Enables tracing of storage operations.").Bool()
+	traceStorage = app.Flag("trace-storage", "Enables tracing of storage operations.").Hidden().Bool()
 
 	vaultPath    = app.Flag("vault", "Specify the vault to use.").String()
 	password     = app.Flag("password", "Vault password").String()
@@ -34,8 +33,8 @@ func failOnError(err error) {
 	}
 }
 
-func mustOpenSession() session.Session {
-	s, err := openSession()
+func mustOpenVault() *vault.Vault {
+	s, err := openVault()
 	failOnError(err)
 	return s
 }
@@ -46,48 +45,6 @@ func getHomeDir() string {
 
 func vaultConfigFileName() string {
 	return filepath.Join(getHomeDir(), ".kopia/vault.config")
-}
-
-// func loadConfig() (*config.Config, error) {
-// 	path := configFileName()
-// 	if path == "" {
-// 		return nil, fmt.Errorf("Cannot find config file. You may pass --config_file to specify config file location.")
-// 	}
-
-// 	var cfg config.Config
-
-// 	//log.Printf("Loading config file from %v", path)
-// 	f, err := os.Open(path)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("Error opening configuration file: %v", err)
-// 	}
-// 	defer f.Close()
-
-// 	err = cfg.Load(f)
-// 	if err == nil {
-// 		return &cfg, nil
-// 	}
-
-// 	return nil, fmt.Errorf("Error loading configuration file: %v", err)
-// }
-
-func openSession() (session.Session, error) {
-	return nil, nil
-	// cfg, err := loadConfig()
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// storage, err := blob.NewStorage(cfg.Storage)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// if *traceStorage {
-	// 	storage = blob.NewLoggingWrapper(storage)
-	// }
-
-	// return session.New(storage)
 }
 
 type vaultConfig struct {

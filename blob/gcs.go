@@ -136,6 +136,9 @@ func (gcs *gcsStorage) ListBlocks(prefix string) chan (BlockMetadata) {
 		page, _ := gcs.objectsService.List(gcs.BucketName).
 			Prefix(ps).Do()
 		for {
+			if page == nil {
+				break
+			}
 			for _, o := range page.Items {
 				t, e := time.Parse(time.RFC3339, o.TimeCreated)
 				if e != nil {

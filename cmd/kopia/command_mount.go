@@ -29,7 +29,7 @@ func (r *root) Root() (fusefs.Node, error) {
 }
 
 func runMountCommand(context *kingpin.ParseContext) error {
-	repo, err := mustOpenSession().OpenRepository()
+	repo, err := mustOpenVault().OpenRepository()
 	if err != nil {
 		return err
 	}

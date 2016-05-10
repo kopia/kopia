@@ -37,12 +37,13 @@ func (f *Format) ensureUniqueID() error {
 
 func NewFormat() *Format {
 	return &Format{
+		Version:    "1",
 		Encryption: "aes-256",
 		Checksum:   "hmac-sha-256",
 	}
 }
 
 type RepositoryConfig struct {
-	Storage    blob.StorageConfiguration `json:"storage"`
-	Repository *cas.Format               `json:"repository"`
+	Storage blob.StorageConfiguration `json:"storage"`
+	Format  *cas.Format               `json:"repository"`
 }

@@ -28,16 +28,18 @@ func runRepositoryInfoCommand(context *kingpin.ParseContext) error {
 	fmt.Println("  Checksum:  ", v.Format.Checksum)
 	fmt.Println("  Master Key:", hex.EncodeToString(v.MasterKey))
 
-	vc, err := v.Repository()
+	rc, err := v.RepositoryConfig()
 	if err != nil {
 		return err
 	}
 
 	fmt.Println("Repository:")
-	fmt.Println("  Address:  ", vc.Storage.Config.ToURL())
-	fmt.Println("  Version:  ", vc.Repository.Version)
-	fmt.Println("  Secret:   ", len(vc.Repository.Secret), "bytes")
-	fmt.Println("  ID Format:", vc.Repository.ObjectFormat)
+	fmt.Println("  Address:         ", rc.Storage.Config.ToURL())
+	fmt.Println("  Version:         ", rc.Format.Version)
+	fmt.Println("  Secret:          ", len(rc.Format.Secret), "bytes")
+	fmt.Println("  ID Format:       ", rc.Format.ObjectFormat)
+	fmt.Println("  Blob Size:       ", rc.Format.MaxBlobSize)
+	fmt.Println("  Inline Blob Size:", rc.Format.MaxInlineBlobSize)
 
 	return nil
 }

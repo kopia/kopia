@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/kopia/kopia/cas"
 	"github.com/kopia/kopia/vault"
@@ -19,6 +20,9 @@ var (
 	createInlineBlobSize = createCommand.Flag("inline-blob-size", "Maximum size of an inline data chunk in bytes.").Default("32768").Int()
 
 	createVaultEncryptionFormat = createCommand.Flag("vaultencryption", "Vault encryption format").String()
+	createSecurity              = createCommand.Flag("security", "Security mode, one of 'none', 'default' or 'custom'.").Default("default").Enum("none", "default", "custom")
+	createCustomFormat          = createCommand.Flag("object-format", "Specifies custom object format to be used").String()
+	createOverwrite             = createCommand.Flag("overwrite", "Overwrite existing data.").Bool()
 )
 
 func init() {
@@ -39,6 +43,9 @@ func repositoryFormat() (*cas.Format, error) {
 		return nil, err
 	}
 
+	f.MaxBlobSize = *createMaxBlobSize
+	f.MaxInlineBlobSize = *createInlineBlobSize
+
 	return f, nil
 }
 
@@ -50,8 +57,8 @@ func openStorageAndEnsureEmpty(url string) (blob.Storage, error) {
 	ch := s.ListBlocks("")
 	_, hasData := <-ch
 
-	if hasData {
-		return nil, fmt.Errorf("found existing data in %v", url)
+	if hasData && !*createOverwrite {
+		return nil, fmt.Errorf("found existing data in %v, specify --overwrite to use anyway", url)
 	}
 
 	return s, nil
@@ -59,10 +66,12 @@ func openStorageAndEnsureEmpty(url string) (blob.Storage, error) {
 }
 
 func runCreateCommand(context *kingpin.ParseContext) error {
+	if *vaultPath == "" {
+		return fmt.Errorf("--vault is required")
+	}
 	vaultStorage, err := openStorageAndEnsureEmpty(*vaultPath)
 	if err != nil {
 		return fmt.Errorf("unable to get vault storage: %v", err)
-		return err
 	}
 
 	repositoryStorage, err := openStorageAndEnsureEmpty(*createCommandRepository)
@@ -76,7 +85,6 @@ func runCreateCommand(context *kingpin.ParseContext) error {
 	}
 
 	var v *vault.Vault
-
 	if masterKey != nil {
 		v, err = vault.CreateWithKey(vaultStorage, vaultFormat(), masterKey)
 	} else {
@@ -98,8 +106,8 @@ func runCreateCommand(context *kingpin.ParseContext) error {
 	}
 
 	v.SetRepository(vault.RepositoryConfig{
-		Storage:    repositoryStorage.Configuration(),
-		Repository: repoFormat,
+		Storage: repositoryStorage.Configuration(),
+		Format:  repoFormat,
 	})
 
 	if *createCommandOnly {
@@ -112,4 +120,36 @@ func runCreateCommand(context *kingpin.ParseContext) error {
 	fmt.Println("Created and connected to vault:", *vaultPath)
 
 	return err
+}
+
+func getCustomFormat() string {
+	if *createCustomFormat != "" {
+		if cas.SupportedFormats.Find(*createCustomFormat) == nil {
+			fmt.Printf("Format '%s' is not recognized.\n", *createCustomFormat)
+		}
+		return *createCustomFormat
+	}
+
+	fmt.Printf("  %2v | %-30v | %v | %v | %v |\n", "#", "Format", "Hash", "Encryption", "Block ID Length")
+	fmt.Println(strings.Repeat("-", 76) + "+")
+	for i, o := range cas.SupportedFormats {
+		encryptionString := ""
+		if o.IsEncrypted() {
+			encryptionString = fmt.Sprintf("%d-bit", o.EncryptionKeySizeBits())
+		}
+		fmt.Printf("  %2v | %-30v | %4v | %10v | %15v |\n", i+1, o.Name, o.HashSizeBits(), encryptionString, o.BlockIDLength())
+	}
+	fmt.Println(strings.Repeat("-", 76) + "+")
+
+	fmt.Printf("Select format (1-%d): ", len(cas.SupportedFormats))
+	for {
+		var number int
+
+		if n, err := fmt.Scanf("%d\n", &number); n == 1 && err == nil && number >= 1 && number <= len(cas.SupportedFormats) {
+			fmt.Printf("You selected '%v'\n", cas.SupportedFormats[number-1].Name)
+			return cas.SupportedFormats[number-1].Name
+		}
+
+		fmt.Printf("Invalid selection. Select format (1-%d): ", len(cas.SupportedFormats))
+	}
 }

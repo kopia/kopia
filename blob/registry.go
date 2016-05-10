@@ -3,6 +3,7 @@ package blob
 import (
 	"fmt"
 	"net/url"
+	"strings"
 )
 
 var (
@@ -41,6 +42,10 @@ func NewStorage(cfg StorageConfiguration) (Storage, error) {
 // NewStorageFromURL creates new storage based on a URL.
 // The storage type must be previously registered using AddSupportedStorage.
 func NewStorageFromURL(storageURL string) (Storage, error) {
+	if strings.HasPrefix(storageURL, "/") {
+		storageURL = fmt.Sprintf("filesystem:%v", storageURL)
+	}
+
 	u, err := url.Parse(storageURL)
 	if err != nil {
 		return nil, err

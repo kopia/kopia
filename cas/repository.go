@@ -197,6 +197,9 @@ func NewRepository(
 	if f.Version != "1" {
 		return nil, fmt.Errorf("unsupported storage version: %v", f.Version)
 	}
+	if f.MaxBlobSize < 100 {
+		return nil, fmt.Errorf("MaxBlobSize is not set")
+	}
 	mgr := &repository{
 		storage:           r,
 		maxInlineBlobSize: f.MaxInlineBlobSize,

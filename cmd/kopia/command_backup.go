@@ -1,12 +1,15 @@
 package main
 
 import (
+	"crypto/rand"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"os/user"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/kopia/kopia/backup"
 
@@ -48,7 +51,12 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 
 	}
 
-	mgr, err := mustOpenSession().OpenRepository()
+	vlt, err := openVault()
+	if err != nil {
+		return err
+	}
+
+	mgr, err := vlt.OpenRepository()
 	if err != nil {
 		return err
 	}
@@ -66,6 +74,7 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 		}
 
 		manifest := backup.Manifest{
+			StartTime:       time.Now(),
 			SourceDirectory: filepath.Clean(dir),
 
 			HostName:    getBackupHostName(),
@@ -77,10 +86,35 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 			return fmt.Errorf("description too long")
 		}
 
-		if err := bgen.Backup(&manifest); err != nil {
+		previous, err := vlt.List("B" + manifest.SourceID() + ".")
+		if err != nil {
+			return fmt.Errorf("error listing previous backups")
+		}
+
+		var oldManifest *backup.Manifest
+
+		if len(previous) > 0 {
+			var m backup.Manifest
+			if err := vlt.Get(previous[0], &m); err != nil {
+				return fmt.Errorf("error loading previous backup: %vlt", err)
+			}
+			oldManifest = &m
+		}
+
+		uniqueID := make([]byte, 8)
+		rand.Read(uniqueID)
+		fileID := fmt.Sprintf("B%v.%08x.%x", manifest.SourceID(), math.MaxInt64-manifest.StartTime.UnixNano(), uniqueID)
+
+		if err := bgen.Backup(&manifest, oldManifest); err != nil {
 			return err
 		}
-		log.Printf("Root: %v", manifest.RootObjectID)
+
+		err = vlt.Put(fileID, &manifest)
+		if err != nil {
+			return fmt.Errorf("cannot save manifest: %vlt", err)
+		}
+
+		log.Printf("Root: %vlt", manifest.RootObjectID)
 	}
 
 	return nil

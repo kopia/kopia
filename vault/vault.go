@@ -14,6 +14,7 @@ import (
 	"io/ioutil"
 
 	"github.com/kopia/kopia/blob"
+	"github.com/kopia/kopia/cas"
 
 	"golang.org/x/crypto/hkdf"
 	"golang.org/x/crypto/pbkdf2"
@@ -23,7 +24,9 @@ const (
 	formatBlock           = "format"
 	checksumBlock         = "checksum"
 	repositoryConfigBlock = "repo"
-	minPasswordLength     = 12
+
+	minPasswordLength = 12
+	minKeyLength      = 16
 )
 
 var (
@@ -63,7 +66,9 @@ func (v *Vault) writeEncryptedBlock(name string, content []byte) error {
 	hash.Write(cipherText[0:ivPlusContentLength])
 	copy(cipherText[ivPlusContentLength:], hash.Sum(nil))
 
-	return v.Storage.PutBlock(name, ioutil.NopCloser(bytes.NewBuffer(cipherText)), blob.PutOptions{})
+	return v.Storage.PutBlock(name, ioutil.NopCloser(bytes.NewBuffer(cipherText)), blob.PutOptions{
+		Overwrite: true,
+	})
 }
 
 func (v *Vault) readEncryptedBlock(name string) ([]byte, error) {
@@ -82,7 +87,7 @@ func (v *Vault) readEncryptedBlock(name string) ([]byte, error) {
 	expectedChecksum := hash.Sum(nil)
 	actualChecksum := cipherText[p:]
 	if !hmac.Equal(expectedChecksum, actualChecksum) {
-		return nil, fmt.Errorf("cannot read encrypted block.")
+		return nil, fmt.Errorf("cannot read encrypted block: incorrect checksum")
 	}
 
 	blk, err := v.newCipher()
@@ -140,16 +145,63 @@ func (v *Vault) SetRepository(rc RepositoryConfig) error {
 	return v.writeEncryptedBlock(repositoryConfigBlock, b)
 }
 
-func (v *Vault) Repository() (RepositoryConfig, error) {
+func (v *Vault) RepositoryConfig() (*RepositoryConfig, error) {
 	var rc RepositoryConfig
 
 	b, err := v.readEncryptedBlock(repositoryConfigBlock)
 	if err != nil {
-		return rc, fmt.Errorf("unable to read repository: %v", err)
+		return nil, fmt.Errorf("unable to read repository: %v", err)
 	}
 
 	err = json.Unmarshal(b, &rc)
-	return rc, err
+	if err != nil {
+		return nil, err
+	}
+
+	return &rc, nil
+}
+
+func (v *Vault) OpenRepository() (cas.Repository, error) {
+	rc, err := v.RepositoryConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	storage, err := blob.NewStorage(rc.Storage)
+	if err != nil {
+		return nil, fmt.Errorf("unable to open repository: %v", err)
+	}
+
+	return cas.NewRepository(storage, rc.Format)
+}
+
+func (v *Vault) Get(id string, content interface{}) error {
+	j, err := v.Storage.GetBlock(id)
+	if err != nil {
+		return nil
+	}
+
+	return json.Unmarshal(j, content)
+}
+
+func (v *Vault) Put(id string, content interface{}) error {
+	j, err := json.Marshal(content)
+	if err != nil {
+		return err
+	}
+	return v.Storage.PutBlock(id, ioutil.NopCloser(bytes.NewBuffer(j)), blob.PutOptions{Overwrite: true})
+}
+
+func (v *Vault) List(prefix string) ([]string, error) {
+	var result []string
+
+	for b := range v.Storage.ListBlocks(prefix) {
+		if b.Error != nil {
+			return result, b.Error
+		}
+		result = append(result, b.BlockID)
+	}
+	return result, nil
 }
 
 func CreateWithPassword(storage blob.Storage, format *Format, password string) (*Vault, error) {
@@ -165,20 +217,9 @@ func CreateWithPassword(storage blob.Storage, format *Format, password string) (
 }
 
 func CreateWithKey(storage blob.Storage, format *Format, masterKey []byte) (*Vault, error) {
-	ok, err := storage.BlockExists(formatBlock)
-	if ok {
-		return nil, fmt.Errorf("vault already exists")
+	if len(masterKey) < minKeyLength {
+		return nil, fmt.Errorf("key too short, must be at least %v bytes, got %v", minKeyLength, len(masterKey))
 	}
-	if err != nil {
-		return nil, err
-	}
-
-	formatBytes, err := json.Marshal(&format)
-	if err != nil {
-		return nil, err
-	}
-
-	storage.PutBlock(formatBlock, ioutil.NopCloser(bytes.NewBuffer(formatBytes)), blob.PutOptions{})
 
 	v := Vault{
 		Storage:   storage,
@@ -189,6 +230,15 @@ func CreateWithKey(storage blob.Storage, format *Format, masterKey []byte) (*Vau
 	if err := v.Format.ensureUniqueID(); err != nil {
 		return nil, err
 	}
+
+	formatBytes, err := json.Marshal(&v.Format)
+	if err != nil {
+		return nil, err
+	}
+
+	storage.PutBlock(formatBlock, ioutil.NopCloser(bytes.NewBuffer(formatBytes)), blob.PutOptions{
+		Overwrite: true,
+	})
 
 	vv := make([]byte, 512)
 	if _, err := io.ReadFull(rand.Reader, vv); err != nil {
