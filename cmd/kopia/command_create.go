@@ -1,8 +1,9 @@
 package main
 
 import (
+	"crypto/rand"
 	"fmt"
-	"strings"
+	"io"
 
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/vault"
@@ -12,16 +13,12 @@ import (
 )
 
 var (
-	createCommand           = app.Command("create", "Create new vault and optionally connect to it")
-	createCommandRepository = createCommand.Flag("repository", "Repository path").Required().String()
-	createCommandOnly       = createCommand.Flag("only", "Only create, don't connect.").Bool()
-
-	createMaxBlobSize    = createCommand.Flag("max-blob-size", "Maximum size of a data chunk in bytes.").Default("4000000").Int()
-	createInlineBlobSize = createCommand.Flag("inline-blob-size", "Maximum size of an inline data chunk in bytes.").Default("32768").Int()
-
-	createVaultEncryptionFormat = createCommand.Flag("vaultencryption", "Vault encryption format").String()
-	createSecurity              = createCommand.Flag("security", "Security mode, one of 'none', 'default' or 'custom'.").Default("default").Enum("none", "default", "custom")
-	createCustomFormat          = createCommand.Flag("object-format", "Specifies custom object format to be used").String()
+	createCommand               = app.Command("create", "Create new vault.")
+	createCommandRepository     = createCommand.Flag("repository", "Repository path.").Required().String()
+	createMaxBlobSize           = createCommand.Flag("max-blob-size", "Maximum size of a data chunk in bytes.").Default("20000000").Int()
+	createInlineBlobSize        = createCommand.Flag("inline-blob-size", "Maximum size of an inline data chunk in bytes.").Default("32768").Int()
+	createVaultEncryptionFormat = createCommand.Flag("vault-encryption", "Vault encryption format").Default("aes-256").Enum(supportedVaultEncryptionFormats()...)
+	createObjectFormat          = createCommand.Flag("object-format", "Specifies custom object format to be used").Default("hmac-sha256").Enum(supportedObjectFormats()...)
 	createOverwrite             = createCommand.Flag("overwrite", "Overwrite existing data.").Bool()
 )
 
@@ -29,22 +26,33 @@ func init() {
 	createCommand.Action(runCreateCommand)
 }
 
-func vaultFormat() *vault.Format {
-	f := vault.NewFormat()
-	if *createVaultEncryptionFormat != "" {
-		f.Encryption = *createVaultEncryptionFormat
+func vaultFormat() (*vault.Format, error) {
+	f := &vault.Format{
+		Version:  "1",
+		Checksum: "hmac-sha-256",
 	}
-	return f
-}
-
-func repositoryFormat() (*repo.Format, error) {
-	f, err := repo.NewFormat()
+	f.UniqueID = make([]byte, 32)
+	_, err := io.ReadFull(rand.Reader, f.UniqueID)
 	if err != nil {
 		return nil, err
 	}
+	f.Encryption = *createVaultEncryptionFormat
+	return f, nil
+}
 
-	f.MaxBlobSize = *createMaxBlobSize
-	f.MaxInlineBlobSize = *createInlineBlobSize
+func repositoryFormat() (*repo.Format, error) {
+	f := &repo.Format{
+		Version:           "1",
+		Secret:            make([]byte, 32),
+		MaxBlobSize:       *createMaxBlobSize,
+		MaxInlineBlobSize: *createInlineBlobSize,
+		ObjectFormat:      *createObjectFormat,
+	}
+
+	_, err := io.ReadFull(rand.Reader, f.Secret)
+	if err != nil {
+		return nil, err
+	}
 
 	return f, nil
 }
@@ -79,24 +87,39 @@ func runCreateCommand(context *kingpin.ParseContext) error {
 		return fmt.Errorf("unable to get repository storage: %v", err)
 	}
 
+	repoFormat, err := repositoryFormat()
+	if err != nil {
+		return fmt.Errorf("unable to initialize repository format: %v", err)
+	}
+
+	fmt.Printf(
+		"Initializing repository in '%s' with format '%v' and maximum object size %v.\n",
+		repositoryStorage.Configuration().Config.ToURL().String(),
+		repoFormat.ObjectFormat,
+		repoFormat.MaxBlobSize)
+
 	masterKey, password, err := getKeyOrPassword(true)
 	if err != nil {
 		return fmt.Errorf("unable to get credentials: %v", err)
 	}
 
 	var v *vault.Vault
+	vf, err := vaultFormat()
+	if err != nil {
+		return fmt.Errorf("unable to initialize vault format: %v", err)
+	}
+
+	fmt.Printf(
+		"Initializing vault in '%s' with encryption '%v'.\n",
+		vaultStorage.Configuration().Config.ToURL().String(),
+		vf.Encryption)
 	if masterKey != nil {
-		v, err = vault.CreateWithKey(vaultStorage, vaultFormat(), masterKey)
+		v, err = vault.CreateWithKey(vaultStorage, vf, masterKey)
 	} else {
-		v, err = vault.CreateWithPassword(vaultStorage, vaultFormat(), password)
+		v, err = vault.CreateWithPassword(vaultStorage, vf, password)
 	}
 	if err != nil {
 		return fmt.Errorf("cannot create vault: %v", err)
-	}
-
-	repoFormat, err := repositoryFormat()
-	if err != nil {
-		return fmt.Errorf("unable to initialize repository format: %v", err)
 	}
 
 	// Make repository to make sure the format is supported.
@@ -105,51 +128,28 @@ func runCreateCommand(context *kingpin.ParseContext) error {
 		return fmt.Errorf("unable to initialize repository: %v", err)
 	}
 
-	v.SetRepository(vault.RepositoryConfig{
+	if err := v.SetRepository(vault.RepositoryConfig{
 		Storage: repositoryStorage.Configuration(),
 		Format:  repoFormat,
-	})
-
-	if *createCommandOnly {
-		fmt.Println("Created vault:", *vaultPath)
-		return nil
+	}); err != nil {
+		return fmt.Errorf("unable to save repository configuration in vault: %v", err)
 	}
 
-	persistVaultConfig(v)
-
-	fmt.Println("Created and connected to vault:", *vaultPath)
-
-	return err
+	return nil
 }
 
-func getCustomFormat() string {
-	if *createCustomFormat != "" {
-		if repo.SupportedFormats.Find(*createCustomFormat) == nil {
-			fmt.Printf("Format '%s' is not recognized.\n", *createCustomFormat)
-		}
-		return *createCustomFormat
+func supportedVaultEncryptionFormats() []string {
+	return []string{
+		"none",
+		"aes-128",
+		"aes-256",
 	}
+}
 
-	fmt.Printf("  %2v | %-30v | %v | %v | %v |\n", "#", "Format", "Hash", "Encryption", "Block ID Length")
-	fmt.Println(strings.Repeat("-", 76) + "+")
-	for i, o := range repo.SupportedFormats {
-		encryptionString := ""
-		if o.IsEncrypted() {
-			encryptionString = fmt.Sprintf("%d-bit", o.EncryptionKeySizeBits())
-		}
-		fmt.Printf("  %2v | %-30v | %4v | %10v | %15v |\n", i+1, o.Name, o.HashSizeBits(), encryptionString, o.BlockIDLength())
+func supportedObjectFormats() []string {
+	var r []string
+	for _, o := range repo.SupportedFormats {
+		r = append(r, o.Name)
 	}
-	fmt.Println(strings.Repeat("-", 76) + "+")
-
-	fmt.Printf("Select format (1-%d): ", len(repo.SupportedFormats))
-	for {
-		var number int
-
-		if n, err := fmt.Scanf("%d\n", &number); n == 1 && err == nil && number >= 1 && number <= len(repo.SupportedFormats) {
-			fmt.Printf("You selected '%v'\n", repo.SupportedFormats[number-1].Name)
-			return repo.SupportedFormats[number-1].Name
-		}
-
-		fmt.Printf("Invalid selection. Select format (1-%d): ", len(repo.SupportedFormats))
-	}
+	return r
 }

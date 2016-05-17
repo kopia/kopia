@@ -15,8 +15,8 @@ import (
 var (
 	backupsCommand    = app.Command("backups", "List backup history.")
 	backupsDirectory  = backupsCommand.Arg("directory", "Directory to show history of").ExistingDir()
-	backupsAll        = backupsCommand.Flag("all", "Show history of all backups").Bool()
-	maxResultsPerPath = backupsCommand.Flag("maxresults", "Maximum number of results").Default("100").Int()
+	backupsAll        = backupsCommand.Flag("all", "Show history of all backups.").Bool()
+	maxResultsPerPath = backupsCommand.Flag("maxresults", "Maximum number of results.").Default("100").Int()
 )
 
 func runBackupsCommand(context *kingpin.ParseContext) error {

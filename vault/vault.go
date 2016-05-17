@@ -25,8 +25,8 @@ const (
 	checksumBlock         = "checksum"
 	repositoryConfigBlock = "repo"
 
-	minPasswordLength = 12
-	minKeyLength      = 16
+	MinPasswordLength = 12
+	MinKeyLength      = 16
 )
 
 var (
@@ -120,6 +120,14 @@ func (v *Vault) newChecksum() (hash.Hash, error) {
 
 func (v *Vault) newCipher() (cipher.Block, error) {
 	switch v.Format.Encryption {
+	case "aes-128":
+		k := make([]byte, 16)
+		v.deriveKey(purposeAESKey, k)
+		return aes.NewCipher(k)
+	case "aes-192":
+		k := make([]byte, 24)
+		v.deriveKey(purposeAESKey, k)
+		return aes.NewCipher(k)
 	case "aes-256":
 		k := make([]byte, 32)
 		v.deriveKey(purposeAESKey, k)
@@ -209,16 +217,16 @@ func CreateWithPassword(storage blob.Storage, format *Format, password string) (
 		return nil, err
 	}
 
-	if len(password) < minPasswordLength {
-		return nil, fmt.Errorf("password too short, must be at least %v characters, got %v", minPasswordLength, len(password))
+	if len(password) < MinPasswordLength {
+		return nil, fmt.Errorf("password too short, must be at least %v characters, got %v", MinPasswordLength, len(password))
 	}
 	masterKey := pbkdf2.Key([]byte(password), format.UniqueID, pbkdf2Rounds, masterKeySize, sha256.New)
 	return CreateWithKey(storage, format, masterKey)
 }
 
 func CreateWithKey(storage blob.Storage, format *Format, masterKey []byte) (*Vault, error) {
-	if len(masterKey) < minKeyLength {
-		return nil, fmt.Errorf("key too short, must be at least %v bytes, got %v", minKeyLength, len(masterKey))
+	if len(masterKey) < MinKeyLength {
+		return nil, fmt.Errorf("key too short, must be at least %v bytes, got %v", MinKeyLength, len(masterKey))
 	}
 
 	v := Vault{

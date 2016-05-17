@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 )
 
-// StorageConfiguration is a JSON-serializable description of Storage and its options.
 type StorageConfiguration struct {
 	Type   string
 	Config StorageOptions
@@ -31,7 +30,7 @@ func (c *StorageConfiguration) UnmarshalJSON(b []byte) error {
 }
 
 // MarshalJSON returns JSON-encoded storage configuration.
-func (c *StorageConfiguration) MarshalJSON() ([]byte, error) {
+func (c StorageConfiguration) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		Type string      `json:"type"`
 		Data interface{} `json:"config"`

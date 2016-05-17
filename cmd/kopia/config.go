@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -20,10 +21,10 @@ var (
 	traceStorage = app.Flag("trace-storage", "Enables tracing of storage operations.").Hidden().Bool()
 
 	vaultPath    = app.Flag("vault", "Specify the vault to use.").Envar("KOPIA_VAULT").String()
-	password     = app.Flag("password", "Vault password").Envar("KOPIA_PASSWORD").String()
-	passwordFile = app.Flag("passwordfile", "Read password from a file").Envar("KOPIA_PASSWORD_FILE").ExistingFile()
-	key          = app.Flag("key", "Vault key (hexadecimal)").Envar("KOPIA_KEY").String()
-	keyFile      = app.Flag("keyfile", "Key key file").Envar("KOPIA_KEY_FILE").ExistingFile()
+	password     = app.Flag("password", "Vault password.").Envar("KOPIA_PASSWORD").String()
+	passwordFile = app.Flag("passwordfile", "Read vault password from a file.").Envar("KOPIA_PASSWORD_FILE").ExistingFile()
+	key          = app.Flag("key", "Specify vault master key (hexadecimal).").Envar("KOPIA_KEY").String()
+	keyFile      = app.Flag("keyfile", "Read vault master key from file.").Envar("KOPIA_KEY_FILE").ExistingFile()
 )
 
 func failOnError(err error) {
@@ -63,8 +64,15 @@ func persistVaultConfig(v *vault.Vault) error {
 		return err
 	}
 	defer f.Close()
-	json.NewEncoder(f).Encode(vc)
-	return nil
+
+	b, err := json.MarshalIndent(&vc, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	_, err = f.Write(b)
+
+	return err
 }
 
 func getPersistedVaultConfig() *vaultConfig {
@@ -95,7 +103,7 @@ func openVault() (*vault.Vault, error) {
 	}
 
 	if *vaultPath == "" {
-		return nil, fmt.Errorf("vault not connected and not specified, use --vault")
+		return nil, fmt.Errorf("vault not connected and not specified, use --vault or run 'kopia connect'")
 	}
 
 	return openVaultSpecifiedByFlag()
@@ -117,10 +125,12 @@ func openVaultSpecifiedByFlag() (*vault.Vault, error) {
 
 	if masterKey != nil {
 		return vault.OpenWithKey(storage, masterKey)
-	} else {
-		return vault.OpenWithPassword(storage, password)
 	}
+
+	return vault.OpenWithPassword(storage, password)
 }
+
+var errPasswordTooShort = errors.New("password too short")
 
 func getKeyOrPassword(isNew bool) ([]byte, string, error) {
 	if *key != "" {
@@ -153,16 +163,20 @@ func getKeyOrPassword(isNew bool) ([]byte, string, error) {
 
 		return nil, strings.TrimSpace(string(f)), nil
 	}
-
 	if isNew {
 		for {
-			fmt.Printf("Enter password: ")
+			fmt.Printf("Enter password to create new vault: ")
 			p1, err := askPass()
+			fmt.Println()
+			if err == errPasswordTooShort {
+				fmt.Printf("Password too short, must be at least %v characters, you entered %v. Try again.", vault.MinPasswordLength, len(p1))
+				fmt.Println()
+				continue
+			}
 			if err != nil {
 				return nil, "", err
 			}
-			fmt.Println()
-			fmt.Printf("Enter password again: ")
+			fmt.Printf("Re-enter password for verification: ")
 			p2, err := askPass()
 			if err != nil {
 				return nil, "", err
@@ -175,7 +189,7 @@ func getKeyOrPassword(isNew bool) ([]byte, string, error) {
 			}
 		}
 	} else {
-		fmt.Printf("Enter password: ")
+		fmt.Printf("Enter password to open vault: ")
 		p1, err := askPass()
 		if err != nil {
 			return nil, "", err
@@ -191,5 +205,11 @@ func askPass() (string, error) {
 		return "", err
 	}
 
-	return string(b), nil
+	p := string(b)
+
+	if len(p) < vault.MinPasswordLength {
+		return p, errPasswordTooShort
+	}
+
+	return p, nil
 }

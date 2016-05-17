@@ -25,6 +25,8 @@ type Manifest struct {
 	TotalFileSize  int64 `json:"totalSize"`
 }
 
+// SourceID generates unique identifier of the backup source, which is a
+// SHA1 hash of the host name, username and source directory.
 func (m Manifest) SourceID() string {
 	h := sha1.New()
 	io.WriteString(h, m.HostName)

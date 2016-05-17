@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	connectCommand = app.Command("connect", "Create new vault and optionally connect to it")
+	connectCommand = app.Command("connect", "Connect to a vault.")
 )
 
 func init() {

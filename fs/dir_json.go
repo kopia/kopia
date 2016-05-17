@@ -305,6 +305,7 @@ func newDirectoryReader(r io.Reader) (*directoryReader, error) {
 	return dr, nil
 }
 
+// ReadDirectory loads the serialized Directory from the specified Reader.
 func ReadDirectory(r io.Reader, namePrefix string) (Directory, error) {
 	dr, err := newDirectoryReader(r)
 	if err != nil {

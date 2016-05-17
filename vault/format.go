@@ -13,6 +13,8 @@ const (
 	minUniqueIDLength = 32
 )
 
+// Format describes the format of a Vault.
+// Contents of this structure are serialized in plain text in the Vault storage.
 type Format struct {
 	Version    string `json:"version"`
 	UniqueID   []byte `json:"uniqueID"`
@@ -33,14 +35,6 @@ func (f *Format) ensureUniqueID() error {
 	}
 
 	return nil
-}
-
-func NewFormat() *Format {
-	return &Format{
-		Version:    "1",
-		Encryption: "aes-256",
-		Checksum:   "hmac-sha-256",
-	}
 }
 
 type RepositoryConfig struct {
