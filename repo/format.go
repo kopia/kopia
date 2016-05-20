@@ -3,11 +3,20 @@ package repo
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/hmac"
 	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/sha512"
 	"hash"
+	"io"
+
+	"golang.org/x/crypto/hkdf"
+)
+
+var (
+	hkdfInfoBlockID   = []byte("BlockID")
+	hkdfInfoCryptoKey = []byte("CryptoKey")
 )
 
 // Format describes the format of object data.
@@ -21,46 +30,11 @@ type Format struct {
 
 // ObjectIDFormat describes single format ObjectID
 type ObjectIDFormat struct {
-	Name string
+	Name        string
+	IsEncrypted bool
 
-	hashFuncMaker func(secret []byte) func() hash.Hash
-	createCipher  func([]byte) (cipher.Block, error)
-	keygen        keygenFunc
-}
-
-// IsEncrypted determines whether the ObjectIDFormat is encrypted.
-func (oif *ObjectIDFormat) IsEncrypted() bool {
-	return oif.createCipher != nil
-}
-
-// HashSizeBits returns the number of bits returned by hash function.
-func (oif *ObjectIDFormat) HashSizeBits() int {
-	hf := oif.hashFuncMaker(nil)
-	return hf().Size() * 8
-}
-
-// BlockIDLength returns the number of characters in a stored block ID.
-func (oif *ObjectIDFormat) BlockIDLength() int {
-	hf := oif.hashFuncMaker(nil)
-	if oif.keygen == nil {
-		return hf().Size() * 2
-	}
-
-	h := hf().Sum(nil)
-	blockID, _ := oif.keygen(h)
-	return len(blockID) * 2
-}
-
-// EncryptionKeySizeBits returns the size of encryption key in bits,
-// or zero if no encryption is used in this format.
-func (oif *ObjectIDFormat) EncryptionKeySizeBits() int {
-	if oif.keygen == nil {
-		return 0
-	}
-	hf := oif.hashFuncMaker(nil)
-	h := hf().Sum(nil)
-	_, key := oif.keygen(h)
-	return len(key) * 8
+	hashBuffer   func(data []byte, secret []byte) ([]byte, []byte)
+	createCipher func(key []byte) (cipher.Block, error)
 }
 
 // ObjectIDFormats is a collection of ObjectIDFormat
@@ -77,27 +51,82 @@ func (fmts ObjectIDFormats) Find(name string) *ObjectIDFormat {
 	return nil
 }
 
-// SupportedFormats contains supported repository formats.
-var SupportedFormats = ObjectIDFormats{
-	// Non-encrypted formats.
-	&ObjectIDFormat{"md5", nonHMAC(md5.New), nil, nil},
-	&ObjectIDFormat{"hmac-md5", withHMAC(md5.New), nil, nil},
-	&ObjectIDFormat{"sha1", nonHMAC(sha1.New), nil, nil},
-	&ObjectIDFormat{"hmac-sha1", withHMAC(sha1.New), nil, nil},
-	&ObjectIDFormat{"sha256", nonHMAC(sha256.New), nil, nil},
-	&ObjectIDFormat{"hmac-sha256", withHMAC(sha256.New), nil, nil},
-	&ObjectIDFormat{"sha512-256", nonHMAC(sha512.New512_256), nil, nil},
-	&ObjectIDFormat{"hmac-sha512-256", withHMAC(sha512.New512_256), nil, nil},
-	&ObjectIDFormat{"sha512", nonHMAC(sha512.New), nil, nil},
-	&ObjectIDFormat{"hmac-sha512", withHMAC(sha512.New), nil, nil},
-	&ObjectIDFormat{"sha256-trunc128", nonHMAC(sha256.New), nil, splitKeyGenerator(16, 0)},
-	&ObjectIDFormat{"hmac-sha256-trunc128", withHMAC(sha256.New), nil, splitKeyGenerator(16, 0)},
-	&ObjectIDFormat{"sha512-trunc128", nonHMAC(sha512.New), nil, splitKeyGenerator(16, 0)},
-	&ObjectIDFormat{"hmac-sha512-trunc128", withHMAC(sha512.New), nil, splitKeyGenerator(16, 0)},
-
-	// Encrypted formats
-	&ObjectIDFormat{"hmac-sha512-aes256", withHMAC(sha512.New), aes.NewCipher, splitKeyGenerator(32, 32)},
-	&ObjectIDFormat{"hmac-sha384-aes256", withHMAC(sha512.New384), aes.NewCipher, splitKeyGenerator(16, 32)},
-	&ObjectIDFormat{"hmac-sha256-aes128", withHMAC(sha256.New), aes.NewCipher, splitKeyGenerator(16, 16)},
-	&ObjectIDFormat{"hmac-sha512-256-aes128", withHMAC(sha512.New512_256), aes.NewCipher, splitKeyGenerator(16, 16)},
+func nonEncryptedFormat(name string, hf func() hash.Hash, hashSize int) *ObjectIDFormat {
+	return &ObjectIDFormat{
+		Name: name,
+		hashBuffer: func(data []byte, secret []byte) ([]byte, []byte) {
+			return hashContent(hf, data, secret)[0:hashSize], nil
+		},
+	}
 }
+
+func hashContent(hf func() hash.Hash, data []byte, secret []byte) []byte {
+	var h hash.Hash
+
+	if secret != nil {
+		h = hmac.New(hf, secret)
+	} else {
+		h = hf()
+	}
+	h.Write(data)
+	return h.Sum(nil)
+}
+
+func encryptedFormat(
+	name string,
+	hf func() hash.Hash,
+	blockIDSize int,
+	createCipher func(key []byte) (cipher.Block, error),
+	keySize int,
+) *ObjectIDFormat {
+	return &ObjectIDFormat{
+		Name: name,
+		hashBuffer: func(data []byte, secret []byte) ([]byte, []byte) {
+			contentHash := hashContent(sha512.New, data, secret)
+
+			s1 := hkdf.New(sha256.New, contentHash, nil, hkdfInfoBlockID)
+			blockID := make([]byte, blockIDSize)
+			io.ReadFull(s1, blockID)
+
+			s2 := hkdf.New(sha256.New, contentHash, nil, hkdfInfoCryptoKey)
+			cryptoKey := make([]byte, keySize)
+			io.ReadFull(s2, cryptoKey)
+
+			return blockID, cryptoKey
+		},
+		createCipher: createCipher,
+	}
+}
+
+func buildObjectIDFormats() ObjectIDFormats {
+	var result ObjectIDFormats
+
+	for _, h := range []struct {
+		name     string
+		hash     func() hash.Hash
+		hashSize int
+	}{
+		{"md5", md5.New, md5.Size},
+		{"sha1", sha1.New, sha1.Size},
+		{"sha224", sha256.New224, sha256.Size224},
+		{"sha256", sha256.New, sha256.Size},
+		{"sha256t128", sha256.New, 16},
+		{"sha256t160", sha256.New, 20},
+		{"sha384", sha512.New384, sha512.Size384},
+		{"sha512t128", sha512.New, 16},
+		{"sha512t160", sha512.New, 20},
+		{"sha512-224", sha512.New512_224, sha512.Size224},
+		{"sha512-256", sha512.New512_256, sha512.Size256},
+		{"sha512", sha512.New, sha512.Size},
+	} {
+		result = append(result, nonEncryptedFormat(h.name, h.hash, h.hashSize))
+		result = append(result, encryptedFormat(h.name+"-aes128", h.hash, h.hashSize, aes.NewCipher, 16))
+		result = append(result, encryptedFormat(h.name+"-aes192", h.hash, h.hashSize, aes.NewCipher, 24))
+		result = append(result, encryptedFormat(h.name+"-aes256", h.hash, h.hashSize, aes.NewCipher, 32))
+	}
+
+	return result
+}
+
+// SupportedFormats contains supported repository formats.
+var SupportedFormats = buildObjectIDFormats()

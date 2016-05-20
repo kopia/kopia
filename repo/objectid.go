@@ -12,6 +12,10 @@ var (
 	binaryEncoding = base64.RawURLEncoding
 )
 
+const (
+	objectIDEncryptionInfoSeparator = "."
+)
+
 // ObjectIDType describes the type of the chunk.
 type ObjectIDType string
 
@@ -81,9 +85,9 @@ func (c ObjectID) InlineData() []byte {
 func (c ObjectID) BlockID() string {
 	if c.Type().IsStored() {
 		content := string(c[1:])
-		firstColon := strings.Index(content, ":")
-		if firstColon > 0 {
-			return string(content[0:firstColon])
+		firstSeparator := strings.Index(content, objectIDEncryptionInfoSeparator)
+		if firstSeparator > 0 {
+			return string(content[0:firstSeparator])
 		}
 
 		return string(content)
@@ -96,9 +100,9 @@ func (c ObjectID) BlockID() string {
 func (c ObjectID) EncryptionInfo() ObjectEncryptionInfo {
 	if c.Type().IsStored() {
 		content := string(c[1:])
-		firstColon := strings.Index(content, ":")
-		if firstColon > 0 {
-			return ObjectEncryptionInfo(content[firstColon+1:])
+		firstSeparator := strings.Index(content, objectIDEncryptionInfoSeparator)
+		if firstSeparator > 0 {
+			return ObjectEncryptionInfo(content[firstSeparator+1:])
 		}
 	}
 
@@ -137,16 +141,16 @@ func ParseObjectID(objectIDString string) (ObjectID, error) {
 			}
 
 		case ObjectIDTypeList, ObjectIDTypeStored:
-			firstColon := strings.Index(content, ":")
-			lastColon := strings.LastIndex(content, ":")
-			if firstColon == lastColon {
-				if firstColon == -1 {
-					// Found zero colons in the ID - no encryption info.
+			firstSeparator := strings.Index(content, objectIDEncryptionInfoSeparator)
+			lastSeparator := strings.LastIndex(content, objectIDEncryptionInfoSeparator)
+			if firstSeparator == lastSeparator {
+				if firstSeparator == -1 {
+					// Found zero Separators in the ID - no encryption info.
 					return ObjectID(objectIDString), nil
 				}
 
-				if firstColon > 0 {
-					b, err := hex.DecodeString(content[firstColon+1:])
+				if firstSeparator > 0 {
+					b, err := hex.DecodeString(content[firstSeparator+1:])
 					if err == nil && len(b) > 0 && len(b)%2 == 0 {
 						// Valid chunk ID with encryption info.
 						return ObjectID(objectIDString), nil

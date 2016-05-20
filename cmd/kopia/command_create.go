@@ -18,7 +18,7 @@ var (
 	createMaxBlobSize           = createCommand.Flag("max-blob-size", "Maximum size of a data chunk in bytes.").Default("20000000").Int()
 	createInlineBlobSize        = createCommand.Flag("inline-blob-size", "Maximum size of an inline data chunk in bytes.").Default("32768").Int()
 	createVaultEncryptionFormat = createCommand.Flag("vault-encryption", "Vault encryption format").Default("aes-256").Enum(supportedVaultEncryptionFormats()...)
-	createObjectFormat          = createCommand.Flag("object-format", "Specifies custom object format to be used").Default("hmac-sha256").Enum(supportedObjectFormats()...)
+	createObjectFormat          = createCommand.Flag("object-format", "Specifies custom object format to be used").Default("sha256t128-aes256").Enum(supportedObjectFormats()...)
 	createOverwrite             = createCommand.Flag("overwrite", "Overwrite existing data.").Bool()
 )
 

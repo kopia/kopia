@@ -97,7 +97,10 @@ func (w *objectWriter) flushBuffer(force bool) error {
 			length = w.buffer.Len()
 		}
 
-		objectID, readCloser := w.mgr.hashBufferForWriting(w.buffer, string(w.objectType)+w.prefix)
+		objectID, readCloser, err := w.mgr.hashBufferForWriting(w.buffer, string(w.objectType)+w.prefix)
+		if err != nil {
+			return err
+		}
 		w.buffer = nil
 
 		if err := w.mgr.storage.PutBlock(objectID.BlockID(), readCloser, blob.PutOptions{}); err != nil {
@@ -136,7 +139,7 @@ func (w *objectWriter) Result(forceStored bool) (ObjectID, error) {
 			return "B", nil
 		}
 
-		if w.buffer.Len() < w.mgr.maxInlineBlobSize {
+		if w.buffer.Len() < w.mgr.format.MaxInlineBlobSize {
 			return NewInlineObjectID(w.buffer.Bytes()), nil
 		}
 	}

@@ -11,7 +11,6 @@ import (
 	"hash"
 	"io"
 	"io/ioutil"
-	"log"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -26,20 +25,6 @@ const (
 // Since we never share keys, using constant IV is fine.
 // Instead of using all-zero, we use this one.
 var constantIV = []byte("kopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopia")
-
-func nonHMAC(hf func() hash.Hash) func(secret []byte) func() hash.Hash {
-	return func(secret []byte) func() hash.Hash {
-		return hf
-	}
-}
-
-func withHMAC(hf func() hash.Hash) func(secret []byte) func() hash.Hash {
-	return func(key []byte) func() hash.Hash {
-		return func() hash.Hash {
-			return hmac.New(hf, key)
-		}
-	}
-}
 
 // Repository objects addressed by their content allows reading and writing them.
 type Repository interface {
@@ -83,12 +68,8 @@ type repository struct {
 	bufferManager *bufferManager
 	stats         RepositoryStats
 
-	maxInlineBlobSize int
-	maxBlobSize       int
-
-	hashFunc     func() hash.Hash
-	createCipher func([]byte) (cipher.Block, error)
-	keygen       keygenFunc
+	format   Format
+	idFormat ObjectIDFormat
 }
 
 func (mgr *repository) Close() {
@@ -200,24 +181,18 @@ func NewRepository(
 	if f.MaxBlobSize < 100 {
 		return nil, fmt.Errorf("MaxBlobSize is not set")
 	}
-	mgr := &repository{
-		storage:           r,
-		maxInlineBlobSize: f.MaxInlineBlobSize,
-		maxBlobSize:       f.MaxBlobSize,
-	}
-
-	if mgr.maxBlobSize == 0 {
-		mgr.maxBlobSize = 16 * 1024 * 1024
-	}
 
 	sf := SupportedFormats.Find(f.ObjectFormat)
 	if sf == nil {
 		return nil, fmt.Errorf("unknown object format: %v", f.ObjectFormat)
 	}
 
-	mgr.hashFunc = sf.hashFuncMaker(f.Secret)
-	mgr.createCipher = sf.createCipher
-	mgr.keygen = sf.keygen
+	mgr := &repository{
+		storage: r,
+		format:  *f,
+	}
+
+	mgr.idFormat = *sf
 
 	for _, o := range options {
 		if err := o(mgr); err != nil {
@@ -226,44 +201,35 @@ func NewRepository(
 		}
 	}
 
-	mgr.bufferManager = newBufferManager(mgr.maxBlobSize)
+	mgr.bufferManager = newBufferManager(mgr.format.MaxBlobSize)
 
 	return mgr, nil
 }
 
-func splitKeyGenerator(blockIDSize int, keySize int) keygenFunc {
-	return func(b []byte) ([]byte, []byte) {
-		if len(b) < blockIDSize+keySize {
-			panic(fmt.Sprintf("hash result too short: %v, blockIDsize: %v keySize: %v", len(b), blockIDSize, keySize))
-		}
-		blockIDBytes := b[0:blockIDSize]
-		key := b[blockIDSize : blockIDSize+keySize]
-		return blockIDBytes, key
-	}
-}
-
 func (mgr *repository) hashBuffer(data []byte) ([]byte, []byte) {
-	h := mgr.hashFunc()
-	h.Write(data)
-	contentHash := h.Sum(nil)
-
-	if mgr.keygen != nil {
-		return mgr.keygen(contentHash)
-	}
-
-	return contentHash, nil
+	return mgr.idFormat.hashBuffer(data, mgr.format.Secret)
 }
 
-func (mgr *repository) hashBufferForWriting(buffer *bytes.Buffer, prefix string) (ObjectID, io.ReadCloser) {
+func (mgr *repository) hashBufferForWriting(buffer *bytes.Buffer, prefix string) (ObjectID, io.ReadCloser, error) {
 	var data []byte
 	if buffer != nil {
 		data = buffer.Bytes()
 	}
 
+	var blockCipher cipher.Block
+
 	contentHash, cryptoKey := mgr.hashBuffer(data)
+	if cryptoKey != nil {
+		var err error
+		blockCipher, err = mgr.idFormat.createCipher(cryptoKey)
+		if err != nil {
+			return "", nil, err
+		}
+	}
+
 	var objectID ObjectID
 	if len(cryptoKey) > 0 {
-		objectID = ObjectID(prefix + hex.EncodeToString(contentHash) + ":" + hex.EncodeToString(cryptoKey))
+		objectID = ObjectID(prefix + hex.EncodeToString(contentHash) + objectIDEncryptionInfoSeparator + hex.EncodeToString(cryptoKey))
 	} else {
 		objectID = ObjectID(prefix + hex.EncodeToString(contentHash))
 	}
@@ -272,29 +238,23 @@ func (mgr *repository) hashBufferForWriting(buffer *bytes.Buffer, prefix string)
 	atomic.AddInt64(&mgr.stats.HashedBytes, int64(len(data)))
 
 	if buffer == nil {
-		return objectID, ioutil.NopCloser(bytes.NewBuffer(nil))
+		return objectID, ioutil.NopCloser(bytes.NewBuffer(nil)), nil
 	}
 
 	readCloser := mgr.bufferManager.returnBufferOnClose(buffer)
 	readCloser = newCountingReader(readCloser, &mgr.stats.BytesWrittenToStorage)
 
-	if mgr.createCipher != nil {
-		c, err := mgr.createCipher(cryptoKey)
-		if err != nil {
-			log.Printf("can't create cipher: %v", err)
-			panic("can't encrypt block")
-		}
-
+	if len(cryptoKey) > 0 {
 		// Since we're not sharing the key, all-zero IV is ok.
 		// We don't need to worry about separate MAC either, since hashing content produces object ID.
-		ctr := cipher.NewCTR(c, constantIV[0:c.BlockSize()])
+		ctr := cipher.NewCTR(blockCipher, constantIV[0:blockCipher.BlockSize()])
 
 		readCloser = newCountingReader(
 			newEncryptingReader(readCloser, nil, ctr, nil),
 			&mgr.stats.EncryptedBytes)
 	}
 
-	return objectID, readCloser
+	return objectID, readCloser, nil
 }
 
 func (mgr *repository) flattenListChunk(
@@ -377,16 +337,12 @@ func (mgr *repository) newRawReader(objectID ObjectID) (io.ReadSeeker, error) {
 		return bytes.NewReader(payload), nil
 	}
 
-	if mgr.createCipher == nil {
-		return nil, errors.New("encrypted object cannot be used with non-encrypted Repository")
-	}
-
 	cryptoKey, err := hex.DecodeString(string(objectID.EncryptionInfo()))
 	if err != nil {
 		return nil, errors.New("malformed encryption key")
 	}
 
-	blockCipher, err := mgr.createCipher(cryptoKey)
+	blockCipher, err := mgr.idFormat.createCipher(cryptoKey)
 	if err != nil {
 		return nil, errors.New("cannot create cipher")
 	}
