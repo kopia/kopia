@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -48,58 +47,28 @@ func vaultConfigFileName() string {
 	return filepath.Join(getHomeDir(), ".kopia/vault.config")
 }
 
-type vaultConfig struct {
-	Storage blob.StorageConfiguration `json:"storage"`
-	Key     []byte                    `json:"key,omitempty"`
-}
-
 func persistVaultConfig(v *vault.Vault) error {
-	vc := vaultConfig{
-		Storage: v.Storage.Configuration(),
-		Key:     v.MasterKey,
-	}
-
-	f, err := os.Create(vaultConfigFileName())
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	b, err := json.MarshalIndent(&vc, "", "  ")
+	cfg, err := v.Token()
 	if err != nil {
 		return err
 	}
 
-	_, err = f.Write(b)
-
-	return err
+	return ioutil.WriteFile(vaultConfigFileName(), []byte(cfg), 0600)
 }
 
-func getPersistedVaultConfig() *vaultConfig {
-	var vc vaultConfig
-
-	f, err := os.Open(vaultConfigFileName())
-	if err == nil {
-		err = json.NewDecoder(f).Decode(&vc)
-		f.Close()
-		if err != nil {
-			return nil
-		}
-		return &vc
+func getPersistedVaultConfig() string {
+	f, err := ioutil.ReadFile(vaultConfigFileName())
+	if err != nil {
+		return ""
 	}
 
-	return nil
+	return string(f)
 }
 
 func openVault() (*vault.Vault, error) {
 	vc := getPersistedVaultConfig()
-	if vc != nil {
-		storage, err := blob.NewStorage(vc.Storage)
-		if err != nil {
-			return nil, err
-		}
-
-		return vault.OpenWithMasterKey(storage, vc.Key)
+	if vc != "" {
+		return vault.OpenWithToken(vc)
 	}
 
 	if *vaultPath == "" {

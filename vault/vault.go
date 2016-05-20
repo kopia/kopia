@@ -7,6 +7,7 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"hash"
@@ -32,9 +33,9 @@ var (
 
 // Vault is a secure storage for the secrets.
 type Vault struct {
-	Storage   blob.Storage
-	MasterKey []byte
-	Format    Format
+	storage   blob.Storage
+	masterKey []byte
+	format    Format
 }
 
 func (v *Vault) writeEncryptedBlock(name string, content []byte) error {
@@ -63,13 +64,13 @@ func (v *Vault) writeEncryptedBlock(name string, content []byte) error {
 	hash.Write(cipherText[0:ivPlusContentLength])
 	copy(cipherText[ivPlusContentLength:], hash.Sum(nil))
 
-	return v.Storage.PutBlock(name, ioutil.NopCloser(bytes.NewBuffer(cipherText)), blob.PutOptions{
+	return v.storage.PutBlock(name, ioutil.NopCloser(bytes.NewBuffer(cipherText)), blob.PutOptions{
 		Overwrite: true,
 	})
 }
 
 func (v *Vault) readEncryptedBlock(name string) ([]byte, error) {
-	cipherText, err := v.Storage.GetBlock(name)
+	cipherText, err := v.storage.GetBlock(name)
 	if err != nil {
 		return nil, err
 	}
@@ -103,20 +104,20 @@ func (v *Vault) readEncryptedBlock(name string) ([]byte, error) {
 }
 
 func (v *Vault) newChecksum() (hash.Hash, error) {
-	switch v.Format.Checksum {
+	switch v.format.Checksum {
 	case "hmac-sha-256":
 		key := make([]byte, 32)
 		v.deriveKey(purposeChecksumSecret, key)
 		return hmac.New(sha256.New, key), nil
 
 	default:
-		return nil, fmt.Errorf("unsupported checksum format: %v", v.Format.Checksum)
+		return nil, fmt.Errorf("unsupported checksum format: %v", v.format.Checksum)
 	}
 
 }
 
 func (v *Vault) newCipher() (cipher.Block, error) {
-	switch v.Format.Encryption {
+	switch v.format.Encryption {
 	case "aes-128":
 		k := make([]byte, 16)
 		v.deriveKey(purposeAESKey, k)
@@ -130,13 +131,13 @@ func (v *Vault) newCipher() (cipher.Block, error) {
 		v.deriveKey(purposeAESKey, k)
 		return aes.NewCipher(k)
 	default:
-		return nil, fmt.Errorf("unsupported encryption format: %v", v.Format.Encryption)
+		return nil, fmt.Errorf("unsupported encryption format: %v", v.format.Encryption)
 	}
 
 }
 
 func (v *Vault) deriveKey(purpose []byte, key []byte) error {
-	k := hkdf.New(sha256.New, v.MasterKey, v.Format.UniqueID, purpose)
+	k := hkdf.New(sha256.New, v.masterKey, v.format.UniqueID, purpose)
 	_, err := io.ReadFull(k, key)
 	return err
 }
@@ -200,13 +201,34 @@ func (v *Vault) Put(id string, content interface{}) error {
 func (v *Vault) List(prefix string) ([]string, error) {
 	var result []string
 
-	for b := range v.Storage.ListBlocks(prefix) {
+	for b := range v.storage.ListBlocks(prefix) {
 		if b.Error != nil {
 			return result, b.Error
 		}
 		result = append(result, b.BlockID)
 	}
 	return result, nil
+}
+
+type vaultConfig struct {
+	Storage blob.StorageConfiguration `json:"storage"`
+	Key     []byte                    `json:"key,omitempty"`
+}
+
+// Token returns a persistent opaque string that encodes the configuration of vault storage
+// and its credentials in a way that can be later used to open the vault.
+func (v *Vault) Token() (string, error) {
+	vc := vaultConfig{
+		Storage: v.storage.Configuration(),
+		Key:     v.masterKey,
+	}
+
+	b, err := json.Marshal(&vc)
+	if err != nil {
+		return "", err
+	}
+
+	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
 // Create creates a Vault in the specified storage.
@@ -216,17 +238,17 @@ func Create(storage blob.Storage, format *Format, creds Credentials) (*Vault, er
 	}
 
 	v := Vault{
-		Storage: storage,
-		Format:  *format,
+		storage: storage,
+		format:  *format,
 	}
-	v.Format.Version = "1"
-	if err := v.Format.ensureUniqueID(); err != nil {
+	v.format.Version = "1"
+	if err := v.format.ensureUniqueID(); err != nil {
 		return nil, err
 	}
 
-	v.MasterKey = creds.getMasterKey(v.Format.UniqueID)
+	v.masterKey = creds.getMasterKey(v.format.UniqueID)
 
-	formatBytes, err := json.Marshal(&v.Format)
+	formatBytes, err := json.Marshal(&v.format)
 	if err != nil {
 		return nil, err
 	}
@@ -248,10 +270,10 @@ func Create(storage blob.Storage, format *Format, creds Credentials) (*Vault, er
 	return Open(storage, creds)
 }
 
-// OpenWithPassword opens a vault.
+// Open opens a vault.
 func Open(storage blob.Storage, creds Credentials) (*Vault, error) {
 	v := Vault{
-		Storage: storage,
+		storage: storage,
 	}
 
 	f, err := storage.GetBlock(formatBlock)
@@ -259,12 +281,12 @@ func Open(storage blob.Storage, creds Credentials) (*Vault, error) {
 		return nil, err
 	}
 
-	err = json.Unmarshal(f, &v.Format)
+	err = json.Unmarshal(f, &v.format)
 	if err != nil {
 		return nil, err
 	}
 
-	v.MasterKey = creds.getMasterKey(v.Format.UniqueID)
+	v.masterKey = creds.getMasterKey(v.format.UniqueID)
 
 	if _, err := v.readEncryptedBlock(checksumBlock); err != nil {
 		return nil, err
@@ -273,26 +295,28 @@ func Open(storage blob.Storage, creds Credentials) (*Vault, error) {
 	return &v, nil
 }
 
-// OpenWithMasterKey opens a master key-protected vault.
-func OpenWithMasterKey(storage blob.Storage, masterKey []byte) (*Vault, error) {
-	v := Vault{
-		Storage:   storage,
-		MasterKey: masterKey,
-	}
-
-	f, err := storage.GetBlock(formatBlock)
+// OpenWithToken opens a vault with storage configuration and credentials in the specified token.
+func OpenWithToken(token string) (*Vault, error) {
+	b, err := base64.RawURLEncoding.DecodeString(token)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid vault token")
 	}
 
-	err = json.Unmarshal(f, &v.Format)
+	var vc vaultConfig
+	err = json.Unmarshal(b, &vc)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid vault token")
 	}
 
-	if _, err := v.readEncryptedBlock(checksumBlock); err != nil {
-		return nil, err
+	st, err := blob.NewStorage(vc.Storage)
+	if err != nil {
+		return nil, fmt.Errorf("cannot open vault storage: %v", err)
 	}
 
-	return &v, nil
+	creds, err := MasterKey(vc.Key)
+	if err != nil {
+		return nil, fmt.Errorf("invalid vault token")
+	}
+
+	return Open(st, creds)
 }
