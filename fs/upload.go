@@ -61,8 +61,7 @@ func (u *uploader) uploadFile(path string, e *Entry) (*Entry, uint64, error) {
 	defer file.Close()
 
 	writer := u.mgr.NewWriter(
-		repo.WithDescription("FILE:"+path),
-		repo.WithBlockNamePrefix("F"),
+		repo.WithDescription("FILE:" + path),
 	)
 	defer writer.Close()
 
@@ -132,8 +131,7 @@ func (u *uploader) uploadDirInternal(
 	}
 
 	writer := u.mgr.NewWriter(
-		repo.WithDescription("DIR:"+path),
-		repo.WithBlockNamePrefix("D"),
+		repo.WithDescription("DIR:" + path),
 	)
 
 	dw := newDirectoryWriter(writer)

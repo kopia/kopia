@@ -84,7 +84,7 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 		}
 
 		if count < *maxResultsPerPath {
-			log.Printf("  %v %v", m.RootObjectID, m.StartTime.Format(time.RFC850))
+			log.Printf("  %v %v", m.RootObjectID, m.StartTime.Format(time.RFC822))
 			count++
 		}
 	}

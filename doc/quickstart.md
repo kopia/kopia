@@ -11,7 +11,7 @@ Key Concepts
     - Object ID is comprised of the type, the identifier of the block (Block ID) where the contents are stored and the encryption key. Example block ID:
 
     ```
-    DD7ce4f067c179664...e746337031644a:715b50351785a6...439637a2c8e50c7
+    D7ce4f067c179664...e746337031644a.715b50351785a6...439637a2c8e50c7
     |\------------------------------/ \------------------------------/
     type          block id                      encryption key
     ```
@@ -41,9 +41,9 @@ There are three types of object IDs:
 
 Some examples (note that block IDs and encryption keys have been shortened for illustration purposes):
 
-* `D7ce4f067c:715b503c8` - is a *Data* object stored in block `7ce4f067c` and encrypted with key `715b503c8`
+* `D7ce4f067c.715b503c8` - is a *Data* object stored in block `7ce4f067c` and encrypted with key `715b503c8`
 
-* `L43637a2c8:715b50351` - is a *List* object stored in block `43637a2c8` and encrypted with key `715b50351`
+* `L43637a2c8.715b50351` - is a *List* object stored in block `43637a2c8` and encrypted with key `715b50351`
 
 * `Tquick brown fox` - is an *Inline Text* object representing the text `quick brown fox`
 

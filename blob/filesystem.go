@@ -18,7 +18,7 @@ const (
 )
 
 var (
-	fsDefaultShards               = []int{1, 3, 3}
+	fsDefaultShards               = []int{3, 3}
 	fsDefaultFileMode os.FileMode = 0664
 	fsDefaultDirMode  os.FileMode = 0775
 )
