@@ -17,19 +17,12 @@ import (
 	"github.com/kopia/kopia/repo"
 
 	"golang.org/x/crypto/hkdf"
-	"golang.org/x/crypto/pbkdf2"
 )
 
 const (
 	formatBlock           = "format"
 	checksumBlock         = "checksum"
 	repositoryConfigBlock = "repo"
-
-	// MinPasswordLength is the minimum allowed length of a password in charcters.
-	MinPasswordLength = 12
-
-	// MinMasterKeyLength is the minimum allowed length of a master key, in bytes.
-	MinMasterKeyLength = 16
 )
 
 var (
@@ -216,34 +209,22 @@ func (v *Vault) List(prefix string) ([]string, error) {
 	return result, nil
 }
 
-// CreateWithPassword creates a password-protected Vault in the specified storage.
-func CreateWithPassword(storage blob.Storage, format *Format, password string) (*Vault, error) {
+// Create creates a Vault in the specified storage.
+func Create(storage blob.Storage, format *Format, creds Credentials) (*Vault, error) {
 	if err := format.ensureUniqueID(); err != nil {
 		return nil, err
 	}
 
-	if len(password) < MinPasswordLength {
-		return nil, fmt.Errorf("password too short, must be at least %v characters, got %v", MinPasswordLength, len(password))
-	}
-	masterKey := pbkdf2.Key([]byte(password), format.UniqueID, pbkdf2Rounds, masterKeySize, sha256.New)
-	return CreateWithMasterKey(storage, format, masterKey)
-}
-
-// CreateWithMasterKey creates a master key-protected Vault in the specified storage.
-func CreateWithMasterKey(storage blob.Storage, format *Format, masterKey []byte) (*Vault, error) {
-	if len(masterKey) < MinMasterKeyLength {
-		return nil, fmt.Errorf("key too short, must be at least %v bytes, got %v", MinMasterKeyLength, len(masterKey))
-	}
-
 	v := Vault{
-		Storage:   storage,
-		MasterKey: masterKey,
-		Format:    *format,
+		Storage: storage,
+		Format:  *format,
 	}
 	v.Format.Version = "1"
 	if err := v.Format.ensureUniqueID(); err != nil {
 		return nil, err
 	}
+
+	v.MasterKey = creds.getMasterKey(v.Format.UniqueID)
 
 	formatBytes, err := json.Marshal(&v.Format)
 	if err != nil {
@@ -264,11 +245,11 @@ func CreateWithMasterKey(storage blob.Storage, format *Format, masterKey []byte)
 		return nil, err
 	}
 
-	return OpenWithMasterKey(storage, masterKey)
+	return Open(storage, creds)
 }
 
-// OpenWithPassword opens a password-protected vault.
-func OpenWithPassword(storage blob.Storage, password string) (*Vault, error) {
+// OpenWithPassword opens a vault.
+func Open(storage blob.Storage, creds Credentials) (*Vault, error) {
 	v := Vault{
 		Storage: storage,
 	}
@@ -283,7 +264,7 @@ func OpenWithPassword(storage blob.Storage, password string) (*Vault, error) {
 		return nil, err
 	}
 
-	v.MasterKey = pbkdf2.Key([]byte(password), v.Format.UniqueID, pbkdf2Rounds, masterKeySize, sha256.New)
+	v.MasterKey = creds.getMasterKey(v.Format.UniqueID)
 
 	if _, err := v.readEncryptedBlock(checksumBlock); err != nil {
 		return nil, err

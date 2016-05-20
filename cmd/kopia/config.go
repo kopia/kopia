@@ -118,50 +118,46 @@ func openVaultSpecifiedByFlag() (*vault.Vault, error) {
 		return nil, err
 	}
 
-	masterKey, password, err := getKeyOrPassword(false)
+	creds, err := getVaultCredentials(false)
 	if err != nil {
 		return nil, err
 	}
 
-	if masterKey != nil {
-		return vault.OpenWithMasterKey(storage, masterKey)
-	}
-
-	return vault.OpenWithPassword(storage, password)
+	return vault.Open(storage, creds)
 }
 
 var errPasswordTooShort = errors.New("password too short")
 
-func getKeyOrPassword(isNew bool) ([]byte, string, error) {
+func getVaultCredentials(isNew bool) (vault.Credentials, error) {
 	if *key != "" {
 		k, err := hex.DecodeString(*key)
 		if err != nil {
-			return nil, "", fmt.Errorf("invalid key format: %v", err)
+			return nil, fmt.Errorf("invalid key format: %v", err)
 		}
 
-		return k, "", nil
+		return vault.MasterKey(k)
 	}
 
 	if *password != "" {
-		return nil, strings.TrimSpace(*password), nil
+		return vault.Password(strings.TrimSpace(*password))
 	}
 
 	if *keyFile != "" {
 		key, err := ioutil.ReadFile(*keyFile)
 		if err != nil {
-			return nil, "", fmt.Errorf("unable to read key file: %v", err)
+			return nil, fmt.Errorf("unable to read key file: %v", err)
 		}
 
-		return key, "", nil
+		return vault.MasterKey(key)
 	}
 
 	if *passwordFile != "" {
 		f, err := ioutil.ReadFile(*passwordFile)
 		if err != nil {
-			return nil, "", fmt.Errorf("unable to read password file: %v", err)
+			return nil, fmt.Errorf("unable to read password file: %v", err)
 		}
 
-		return nil, strings.TrimSpace(string(f)), nil
+		return vault.Password(strings.TrimSpace(string(f)))
 	}
 	if isNew {
 		for {
@@ -174,28 +170,28 @@ func getKeyOrPassword(isNew bool) ([]byte, string, error) {
 				continue
 			}
 			if err != nil {
-				return nil, "", err
+				return nil, err
 			}
 			fmt.Printf("Re-enter password for verification: ")
 			p2, err := askPass()
 			if err != nil {
-				return nil, "", err
+				return nil, err
 			}
 			fmt.Println()
 			if p1 != p2 {
 				fmt.Println("Passwords don't match!")
 			} else {
-				return nil, p1, nil
+				return vault.Password(p1)
 			}
 		}
 	} else {
 		fmt.Printf("Enter password to open vault: ")
 		p1, err := askPass()
 		if err != nil {
-			return nil, "", err
+			return nil, err
 		}
 		fmt.Println()
-		return nil, p1, nil
+		return vault.Password(p1)
 	}
 }
 

@@ -100,12 +100,11 @@ func runCreateCommand(context *kingpin.ParseContext) error {
 		repoFormat.ObjectFormat,
 		repoFormat.MaxBlobSize)
 
-	masterKey, password, err := getKeyOrPassword(true)
+	creds, err := getVaultCredentials(true)
 	if err != nil {
 		return fmt.Errorf("unable to get credentials: %v", err)
 	}
 
-	var vlt *vault.Vault
 	vf, err := vaultFormat()
 	if err != nil {
 		return fmt.Errorf("unable to initialize vault format: %v", err)
@@ -115,11 +114,7 @@ func runCreateCommand(context *kingpin.ParseContext) error {
 		"Initializing vault in '%s' with encryption '%v'.\n",
 		vaultStorage.Configuration().Config.ToURL().String(),
 		vf.Encryption)
-	if masterKey != nil {
-		vlt, err = vault.CreateWithMasterKey(vaultStorage, vf, masterKey)
-	} else {
-		vlt, err = vault.CreateWithPassword(vaultStorage, vf, password)
-	}
+	vlt, err := vault.Create(vaultStorage, vf, creds)
 	if err != nil {
 		return fmt.Errorf("cannot create vault: %v", err)
 	}
