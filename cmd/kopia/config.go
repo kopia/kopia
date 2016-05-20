@@ -20,11 +20,11 @@ import (
 var (
 	traceStorage = app.Flag("trace-storage", "Enables tracing of storage operations.").Hidden().Bool()
 
-	vaultPath    = app.Flag("vault", "Specify the vault to use.").Envar("KOPIA_VAULT").String()
-	password     = app.Flag("password", "Vault password.").Envar("KOPIA_PASSWORD").String()
-	passwordFile = app.Flag("passwordfile", "Read vault password from a file.").Envar("KOPIA_PASSWORD_FILE").ExistingFile()
-	key          = app.Flag("key", "Specify vault master key (hexadecimal).").Envar("KOPIA_KEY").String()
-	keyFile      = app.Flag("keyfile", "Read vault master key from file.").Envar("KOPIA_KEY_FILE").ExistingFile()
+	vaultPath    = app.Flag("vault", "Specify the vault to use.").PlaceHolder("PATH").Envar("KOPIA_VAULT").Short('v').String()
+	password     = app.Flag("password", "Vault password.").Envar("KOPIA_PASSWORD").Short('p').String()
+	passwordFile = app.Flag("passwordfile", "Read vault password from a file.").PlaceHolder("FILENAME").Envar("KOPIA_PASSWORD_FILE").ExistingFile()
+	key          = app.Flag("key", "Specify vault master key (hexadecimal).").Envar("KOPIA_KEY").Short('k').String()
+	keyFile      = app.Flag("keyfile", "Read vault master key from file.").PlaceHolder("FILENAME").Envar("KOPIA_KEY_FILE").ExistingFile()
 )
 
 func failOnError(err error) {
@@ -99,7 +99,7 @@ func openVault() (*vault.Vault, error) {
 			return nil, err
 		}
 
-		return vault.OpenWithKey(storage, vc.Key)
+		return vault.OpenWithMasterKey(storage, vc.Key)
 	}
 
 	if *vaultPath == "" {
@@ -124,7 +124,7 @@ func openVaultSpecifiedByFlag() (*vault.Vault, error) {
 	}
 
 	if masterKey != nil {
-		return vault.OpenWithKey(storage, masterKey)
+		return vault.OpenWithMasterKey(storage, masterKey)
 	}
 
 	return vault.OpenWithPassword(storage, password)

@@ -13,13 +13,15 @@ import (
 )
 
 var (
-	createCommand               = app.Command("create", "Create new vault.")
-	createCommandRepository     = createCommand.Flag("repository", "Repository path.").Required().String()
-	createMaxBlobSize           = createCommand.Flag("max-blob-size", "Maximum size of a data chunk in bytes.").Default("20000000").Int()
-	createInlineBlobSize        = createCommand.Flag("inline-blob-size", "Maximum size of an inline data chunk in bytes.").Default("32768").Int()
-	createVaultEncryptionFormat = createCommand.Flag("vault-encryption", "Vault encryption format").Default("aes-256").Enum(supportedVaultEncryptionFormats()...)
-	createObjectFormat          = createCommand.Flag("object-format", "Specifies custom object format to be used").Default("sha256t128-aes256").Enum(supportedObjectFormats()...)
-	createOverwrite             = createCommand.Flag("overwrite", "Overwrite existing data.").Bool()
+	createCommand           = app.Command("create", "Create new vault and repository.")
+	createCommandRepository = createCommand.Flag("repository", "Repository path.").Required().String()
+	createObjectFormat      = createCommand.Flag("repo-format", "Format of repository objects.").PlaceHolder("FORMAT").Default("sha256t128-aes256").Enum(supportedObjectFormats()...)
+
+	createMaxBlobSize           = createCommand.Flag("max-blob-size", "Maximum size of a data chunk.").PlaceHolder("BYTES").Default("20000000").Int()
+	createInlineBlobSize        = createCommand.Flag("inline-blob-size", "Maximum size of an inline data chunk.").PlaceHolder("BYTES").Default("32768").Int()
+	createVaultEncryptionFormat = createCommand.Flag("vault-format", "Vault encryption format.").PlaceHolder("FORMAT").Default("aes-256").Enum(supportedVaultEncryptionFormats()...)
+	createOverwrite             = createCommand.Flag("overwrite", "Overwrite existing data (DANGEROUS).").Bool()
+	createOnly                  = createCommand.Flag("create-only", "Create the vault, but don't connect to it.").Short('c').Bool()
 )
 
 func init() {
@@ -103,7 +105,7 @@ func runCreateCommand(context *kingpin.ParseContext) error {
 		return fmt.Errorf("unable to get credentials: %v", err)
 	}
 
-	var v *vault.Vault
+	var vlt *vault.Vault
 	vf, err := vaultFormat()
 	if err != nil {
 		return fmt.Errorf("unable to initialize vault format: %v", err)
@@ -114,9 +116,9 @@ func runCreateCommand(context *kingpin.ParseContext) error {
 		vaultStorage.Configuration().Config.ToURL().String(),
 		vf.Encryption)
 	if masterKey != nil {
-		v, err = vault.CreateWithKey(vaultStorage, vf, masterKey)
+		vlt, err = vault.CreateWithMasterKey(vaultStorage, vf, masterKey)
 	} else {
-		v, err = vault.CreateWithPassword(vaultStorage, vf, password)
+		vlt, err = vault.CreateWithPassword(vaultStorage, vf, password)
 	}
 	if err != nil {
 		return fmt.Errorf("cannot create vault: %v", err)
@@ -128,11 +130,19 @@ func runCreateCommand(context *kingpin.ParseContext) error {
 		return fmt.Errorf("unable to initialize repository: %v", err)
 	}
 
-	if err := v.SetRepository(vault.RepositoryConfig{
+	if err := vlt.SetRepository(vault.RepositoryConfig{
 		Storage: repositoryStorage.Configuration(),
 		Format:  repoFormat,
 	}); err != nil {
 		return fmt.Errorf("unable to save repository configuration in vault: %v", err)
+	}
+
+	if !*createOnly {
+		if err := persistVaultConfig(vlt); err != nil {
+			return err
+		}
+
+		fmt.Println("Connected to vault:", *vaultPath)
 	}
 
 	return nil

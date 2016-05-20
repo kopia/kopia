@@ -19,7 +19,10 @@ func runConnectCommand(context *kingpin.ParseContext) error {
 	if err != nil {
 		return fmt.Errorf("unable to open vault: %v", err)
 	}
-	persistVaultConfig(vlt)
+	if err := persistVaultConfig(vlt); err != nil {
+		return err
+	}
+
 	fmt.Println("Connected to vault:", *vaultPath)
 
 	return err

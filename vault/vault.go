@@ -25,8 +25,11 @@ const (
 	checksumBlock         = "checksum"
 	repositoryConfigBlock = "repo"
 
+	// MinPasswordLength is the minimum allowed length of a password in charcters.
 	MinPasswordLength = 12
-	MinKeyLength      = 16
+
+	// MinMasterKeyLength is the minimum allowed length of a master key, in bytes.
+	MinMasterKeyLength = 16
 )
 
 var (
@@ -34,6 +37,7 @@ var (
 	purposeChecksumSecret = []byte("CHECKSUM")
 )
 
+// Vault is a secure storage for the secrets.
 type Vault struct {
 	Storage   blob.Storage
 	MasterKey []byte
@@ -212,6 +216,7 @@ func (v *Vault) List(prefix string) ([]string, error) {
 	return result, nil
 }
 
+// CreateWithPassword creates a password-protected Vault in the specified storage.
 func CreateWithPassword(storage blob.Storage, format *Format, password string) (*Vault, error) {
 	if err := format.ensureUniqueID(); err != nil {
 		return nil, err
@@ -221,12 +226,13 @@ func CreateWithPassword(storage blob.Storage, format *Format, password string) (
 		return nil, fmt.Errorf("password too short, must be at least %v characters, got %v", MinPasswordLength, len(password))
 	}
 	masterKey := pbkdf2.Key([]byte(password), format.UniqueID, pbkdf2Rounds, masterKeySize, sha256.New)
-	return CreateWithKey(storage, format, masterKey)
+	return CreateWithMasterKey(storage, format, masterKey)
 }
 
-func CreateWithKey(storage blob.Storage, format *Format, masterKey []byte) (*Vault, error) {
-	if len(masterKey) < MinKeyLength {
-		return nil, fmt.Errorf("key too short, must be at least %v bytes, got %v", MinKeyLength, len(masterKey))
+// CreateWithMasterKey creates a master key-protected Vault in the specified storage.
+func CreateWithMasterKey(storage blob.Storage, format *Format, masterKey []byte) (*Vault, error) {
+	if len(masterKey) < MinMasterKeyLength {
+		return nil, fmt.Errorf("key too short, must be at least %v bytes, got %v", MinMasterKeyLength, len(masterKey))
 	}
 
 	v := Vault{
@@ -258,9 +264,10 @@ func CreateWithKey(storage blob.Storage, format *Format, masterKey []byte) (*Vau
 		return nil, err
 	}
 
-	return OpenWithKey(storage, masterKey)
+	return OpenWithMasterKey(storage, masterKey)
 }
 
+// OpenWithPassword opens a password-protected vault.
 func OpenWithPassword(storage blob.Storage, password string) (*Vault, error) {
 	v := Vault{
 		Storage: storage,
@@ -285,7 +292,8 @@ func OpenWithPassword(storage blob.Storage, password string) (*Vault, error) {
 	return &v, nil
 }
 
-func OpenWithKey(storage blob.Storage, masterKey []byte) (*Vault, error) {
+// OpenWithMasterKey opens a master key-protected vault.
+func OpenWithMasterKey(storage blob.Storage, masterKey []byte) (*Vault, error) {
 	v := Vault{
 		Storage:   storage,
 		MasterKey: masterKey,
