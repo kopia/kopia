@@ -16,15 +16,16 @@ import (
 
 var (
 	genPasswordCommand          = app.Command("genpasswd", "Generate memorable password - inspired by http://xkcd.com/936/")
-	genPasswordWordsSource      = genPasswordCommand.Flag("word-list", "Dictionary words URL or file name").Default("http://kopia.github.io/words/en.txt").String()
-	genPasswordWordsPerPassword = genPasswordCommand.Flag("words-per-password", "Number of words per password.").Short('w').Default("6").Int()
-	genPasswordWordSeparator    = genPasswordCommand.Flag("words-separator", "Word separator.").Default("-").Short('s').String()
-	genPasswordUppercase        = genPasswordCommand.Flag("uppercase", "Use upper-case versions of words.").Short('u').Bool()
-	genPasswordCapitalize       = genPasswordCommand.Flag("capitalize", "Use capitalized versions of words.").Short('c').Bool()
-	genPasswordL33t             = genPasswordCommand.Flag("l33t", "Use common substitutions o->0, s->$, etc.").Short('l').Bool()
-	genPasswordMinWordLength    = genPasswordCommand.Flag("min-word-length", "Minimum dictionary word length.").Default("4").Int()
-	genPasswordMaxWordLength    = genPasswordCommand.Flag("max-word-length", "Maximum dictionary word length.").Default("8").Int()
 	genPasswordCount            = genPasswordCommand.Flag("num-passwords", "Number of passwords to generate.").Short('n').Default("20").Int()
+	genPasswordWordsPerPassword = genPasswordCommand.Flag("words-per-password", "Number of words per password.").Short('w').Default("6").Int()
+
+	genPasswordWordsSource   = genPasswordCommand.Flag("word-list", "Path or URL to the word list.").Default("http://kopia.github.io/words/en.txt").String()
+	genPasswordWordSeparator = genPasswordCommand.Flag("words-separator", "Word separator.").Default("-").Short('s').String()
+	genPasswordUppercase     = genPasswordCommand.Flag("uppercase", "Use upper-case versions of words.").Short('u').Bool()
+	genPasswordCapitalize    = genPasswordCommand.Flag("capitalize", "Use capitalized versions of words.").Short('c').Bool()
+	genPasswordL33t          = genPasswordCommand.Flag("l33t", "Use common substitutions o->0, s->$, etc.").Short('l').Bool()
+	genPasswordMinWordLength = genPasswordCommand.Flag("min-word-length", "Minimum dictionary word length.").Default("4").Int()
+	genPasswordMaxWordLength = genPasswordCommand.Flag("max-word-length", "Maximum dictionary word length.").Default("8").Int()
 
 	l33tSubstTable = map[string]string{
 		"a": "4",
@@ -114,6 +115,9 @@ func getWordList() ([]string, error) {
 }
 
 func runGenPassword(context *kingpin.ParseContext) error {
+	if *genPasswordWordsPerPassword < 1 || *genPasswordWordsPerPassword > 8 {
+		return fmt.Errorf("--words-per-password must be between 1 and 8")
+	}
 	usableWords, err := getWordList()
 	if err != nil {
 		return fmt.Errorf("unable to read word list: %v", err)
