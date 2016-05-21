@@ -1,20 +1,9 @@
 /*
-The 'kopia' utility support screating and accessing backups from command line.
+The 'kopia' utility supports creating and accessing backups from command line.
 
 Usage:
 
   $ kopia [<flags>] <subcommand> [<args> ...]
-
-Common subcommands:
-
-  init <provider> [<args> ...]
-    Connects to the backup repo.
-
-  backup [<flags>] <directory>...
-    Copies local directory to backup repository.
-
-  mount --objectID=CHUNKID <mountpoint>
-    Mounts remote backup as local directory.
 
 Use 'kopia help' to see more details.
 */

@@ -13,7 +13,7 @@ You can download pre-built `kopia` binary from http://kopia.github.io/download. 
 
 ### Installation From Source
 
-To build Kopia from source you need to have the latest version of [Go](https://golang.org/dl/) installed and run the following commands:
+To build Kopia from source you need the latest version of [Go](https://golang.org/dl/) and run the following commands:
 
 ```
 mkdir $HOME/kopia
@@ -22,7 +22,7 @@ go get github.com/kopia/kopia
 go install github.com/kopia/kopia/cmd/kopia
 ```
 
-This will automatically download and build kopia and put the resulting binary in `$HOME/kopia/bin`. For convenience it's best to add this directory to system `PATH` or copy it to a directory already in the path, such as `/usr/local/bin`.
+This will automatically download and build kopia and put the resulting binary in `$HOME/kopia/bin`. For convenience it's best to add this directory to system `PATH` or copy/symlink it to a directory already in the path, such as `/usr/local/bin`.
 
 ## Getting Started
 

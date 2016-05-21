@@ -44,48 +44,39 @@ func (v *Vault) writeEncryptedBlock(name string, content []byte) error {
 		return err
 	}
 
-	hash, err := v.newChecksum()
-	if err != nil {
-		return err
+	if blk != nil {
+		hash, err := v.newChecksum()
+		if err != nil {
+			return err
+		}
+
+		ivLength := blk.BlockSize()
+		ivPlusContentLength := ivLength + len(content)
+		cipherText := make([]byte, ivPlusContentLength+hash.Size())
+
+		// Store IV at the beginning of ciphertext.
+		iv := cipherText[0:ivLength]
+		if _, err := io.ReadFull(rand.Reader, iv); err != nil {
+			return err
+		}
+
+		ctr := cipher.NewCTR(blk, iv)
+		ctr.XORKeyStream(cipherText[ivLength:], content)
+		hash.Write(cipherText[0:ivPlusContentLength])
+		copy(cipherText[ivPlusContentLength:], hash.Sum(nil))
+
+		content = cipherText
 	}
 
-	ivLength := blk.BlockSize()
-	ivPlusContentLength := ivLength + len(content)
-	cipherText := make([]byte, ivPlusContentLength+hash.Size())
-
-	// Store IV at the beginning of ciphertext.
-	iv := cipherText[0:ivLength]
-	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
-		return err
-	}
-
-	ctr := cipher.NewCTR(blk, iv)
-	ctr.XORKeyStream(cipherText[ivLength:], content)
-	hash.Write(cipherText[0:ivPlusContentLength])
-	copy(cipherText[ivPlusContentLength:], hash.Sum(nil))
-
-	return v.storage.PutBlock(name, ioutil.NopCloser(bytes.NewBuffer(cipherText)), blob.PutOptions{
+	return v.storage.PutBlock(name, ioutil.NopCloser(bytes.NewBuffer(content)), blob.PutOptions{
 		Overwrite: true,
 	})
 }
 
 func (v *Vault) readEncryptedBlock(name string) ([]byte, error) {
-	cipherText, err := v.storage.GetBlock(name)
+	content, err := v.storage.GetBlock(name)
 	if err != nil {
 		return nil, err
-	}
-
-	hash, err := v.newChecksum()
-	if err != nil {
-		return nil, err
-	}
-
-	p := len(cipherText) - hash.Size()
-	hash.Write(cipherText[0:p])
-	expectedChecksum := hash.Sum(nil)
-	actualChecksum := cipherText[p:]
-	if !hmac.Equal(expectedChecksum, actualChecksum) {
-		return nil, fmt.Errorf("cannot read encrypted block: incorrect checksum")
 	}
 
 	blk, err := v.newCipher()
@@ -93,14 +84,33 @@ func (v *Vault) readEncryptedBlock(name string) ([]byte, error) {
 		return nil, err
 	}
 
-	ivLength := blk.BlockSize()
+	if blk != nil {
 
-	plainText := make([]byte, len(cipherText)-ivLength-hash.Size())
-	iv := cipherText[0:blk.BlockSize()]
+		hash, err := v.newChecksum()
+		if err != nil {
+			return nil, err
+		}
 
-	ctr := cipher.NewCTR(blk, iv)
-	ctr.XORKeyStream(plainText, cipherText[ivLength:len(cipherText)-hash.Size()])
-	return plainText, nil
+		p := len(content) - hash.Size()
+		hash.Write(content[0:p])
+		expectedChecksum := hash.Sum(nil)
+		actualChecksum := content[p:]
+		if !hmac.Equal(expectedChecksum, actualChecksum) {
+			return nil, fmt.Errorf("cannot read encrypted block: incorrect checksum")
+		}
+
+		ivLength := blk.BlockSize()
+
+		plainText := make([]byte, len(content)-ivLength-hash.Size())
+		iv := content[0:blk.BlockSize()]
+
+		ctr := cipher.NewCTR(blk, iv)
+		ctr.XORKeyStream(plainText, content[ivLength:len(content)-hash.Size()])
+
+		content = plainText
+	}
+
+	return content, nil
 }
 
 func (v *Vault) newChecksum() (hash.Hash, error) {
@@ -118,6 +128,8 @@ func (v *Vault) newChecksum() (hash.Hash, error) {
 
 func (v *Vault) newCipher() (cipher.Block, error) {
 	switch v.format.Encryption {
+	case "none":
+		return nil, nil
 	case "aes-128":
 		k := make([]byte, 16)
 		v.deriveKey(purposeAESKey, k)
@@ -181,6 +193,7 @@ func (v *Vault) OpenRepository() (repo.Repository, error) {
 	return repo.NewRepository(storage, rc.Format)
 }
 
+// Get deserializes JSON data stored in the vault into the specified content structure.
 func (v *Vault) Get(id string, content interface{}) error {
 	j, err := v.readEncryptedBlock(id)
 	if err != nil {
@@ -190,6 +203,7 @@ func (v *Vault) Get(id string, content interface{}) error {
 	return json.Unmarshal(j, content)
 }
 
+// Put stores the contents of an item stored in a vault with a given ID.
 func (v *Vault) Put(id string, content interface{}) error {
 	j, err := json.Marshal(content)
 	if err != nil {

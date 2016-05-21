@@ -10,10 +10,9 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/blob"
+	"github.com/kopia/kopia/vault"
 
 	"golang.org/x/crypto/ssh/terminal"
-
-	"github.com/kopia/kopia/vault"
 )
 
 var (

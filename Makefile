@@ -30,7 +30,7 @@ test:
 vtest:
 	go test -v -timeout 30s github.com/kopia/kopia/...
 
-doc:
+godoc:
 	godoc -http=:33333
 
 coverage:

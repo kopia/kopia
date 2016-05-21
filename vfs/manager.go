@@ -10,6 +10,7 @@ import (
 	"github.com/kopia/kopia/repo"
 )
 
+// Manager exposes FUSE filesystem nodes based on repository entries.
 type Manager interface {
 	NewNodeFromEntry(e *fs.Entry) fusefs.Node
 }
@@ -50,6 +51,7 @@ func (mgr *manager) open(oid repo.ObjectID) (io.ReadSeeker, error) {
 	return mgr.repo.Open(oid)
 }
 
+// NewManager returns new vfs.Manager that
 func NewManager(repo repo.Repository) Manager {
 	return &manager{
 		repo:  repo,

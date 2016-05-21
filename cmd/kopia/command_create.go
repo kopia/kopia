@@ -5,21 +5,21 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/vault"
+	"gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/kopia/kopia/blob"
-	"gopkg.in/alecthomas/kingpin.v2"
+	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/vault"
 )
 
 var (
 	createCommand           = app.Command("create", "Create new vault and repository.")
 	createCommandRepository = createCommand.Flag("repository", "Repository path.").Required().String()
-	createObjectFormat      = createCommand.Flag("repo-format", "Format of repository objects.").PlaceHolder("FORMAT").Default("sha256t128-aes256").Enum(supportedObjectFormats()...)
+	createObjectFormat      = createCommand.Flag("repo-format", "Format of repository objects.").PlaceHolder("FORMAT").Default("sha256t160-aes192").Enum(supportedObjectFormats()...)
 
 	createMaxBlobSize           = createCommand.Flag("max-blob-size", "Maximum size of a data chunk.").PlaceHolder("BYTES").Default("20000000").Int()
 	createInlineBlobSize        = createCommand.Flag("inline-blob-size", "Maximum size of an inline data chunk.").PlaceHolder("BYTES").Default("32768").Int()
-	createVaultEncryptionFormat = createCommand.Flag("vault-format", "Vault encryption format.").PlaceHolder("FORMAT").Default("aes-256").Enum(supportedVaultEncryptionFormats()...)
+	createVaultEncryptionFormat = createCommand.Flag("vault-encryption", "Vault encryption.").PlaceHolder("FORMAT").Default("aes-256").Enum(supportedVaultEncryptionFormats()...)
 	createOverwrite             = createCommand.Flag("overwrite", "Overwrite existing data (DANGEROUS).").Bool()
 	createOnly                  = createCommand.Flag("create-only", "Create the vault, but don't connect to it.").Short('c').Bool()
 )
@@ -100,14 +100,14 @@ func runCreateCommand(context *kingpin.ParseContext) error {
 		repoFormat.ObjectFormat,
 		repoFormat.MaxBlobSize)
 
-	creds, err := getVaultCredentials(true)
-	if err != nil {
-		return fmt.Errorf("unable to get credentials: %v", err)
-	}
-
 	vf, err := vaultFormat()
 	if err != nil {
 		return fmt.Errorf("unable to initialize vault format: %v", err)
+	}
+
+	creds, err := getVaultCredentials(true)
+	if err != nil {
+		return fmt.Errorf("unable to get credentials: %v", err)
 	}
 
 	fmt.Printf(
@@ -147,6 +147,7 @@ func supportedVaultEncryptionFormats() []string {
 	return []string{
 		"none",
 		"aes-128",
+		"aes-192",
 		"aes-256",
 	}
 }
