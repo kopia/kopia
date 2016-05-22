@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"path/filepath"
-	"time"
 
 	"github.com/kopia/kopia/backup"
 	"github.com/kopia/kopia/repo"
@@ -72,7 +71,7 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 	for _, n := range previous {
 		var m backup.Manifest
 		if err := vlt.Get(n, &m); err != nil {
-			return fmt.Errorf("error loading previous backup: %vlt", err)
+			return fmt.Errorf("error loading previous backup: %v", err)
 		}
 
 		if m.HostName != lastHost || m.UserName != lastUser || m.SourceDirectory != lastDir {
@@ -84,7 +83,7 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 		}
 
 		if count < *maxResultsPerPath {
-			log.Printf("  %v %v", m.RootObjectID, m.StartTime.Format(time.RFC822))
+			log.Printf("  %v %v", m.RootObjectID, m.StartTime.Format("2006-01-02 15:04:05 MST"))
 			count++
 		}
 	}

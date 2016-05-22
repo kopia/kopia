@@ -95,7 +95,7 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 		if len(previous) > 0 {
 			var m backup.Manifest
 			if err := vlt.Get(previous[0], &m); err != nil {
-				return fmt.Errorf("error loading previous backup: %vlt", err)
+				return fmt.Errorf("error loading previous backup: %v", err)
 			}
 			oldManifest = &m
 		}
@@ -110,10 +110,10 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 
 		err = vlt.Put(fileID, &manifest)
 		if err != nil {
-			return fmt.Errorf("cannot save manifest: %vlt", err)
+			return fmt.Errorf("cannot save manifest: %v", err)
 		}
 
-		log.Printf("Root: %vlt", manifest.RootObjectID)
+		log.Printf("Root: %v", manifest.RootObjectID)
 	}
 
 	return nil
