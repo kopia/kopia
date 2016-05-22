@@ -9,7 +9,6 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"os/exec"
 	"time"
@@ -23,8 +22,7 @@ import (
 )
 
 const (
-	gcsStorageType   = "gcs"
-	gcsTokenCacheDir = ".kopia"
+	gcsStorageType = "gcs"
 
 	// Those are not really secret, since the app is installed.
 	googleCloudClientID     = "194841383482-nmn10h4mnllnsvou7qr55tfh5jsmtkap.apps.googleusercontent.com"
@@ -43,7 +41,7 @@ type GCSStorageOptions struct {
 	// If not specified, the token will be persisted in GCSStorageOptions.
 	TokenCacheFile string `json:"tokenCacheFile,omitempty"`
 
-	// Token stored the OAuth2 token (when TokenCacheFile is empty)
+	// Token is the OAuth2 token (when TokenCacheFile is empty)
 	Token *oauth2.Token `json:"token,omitempty"`
 
 	// ReadOnly causes the storage to be configured without write permissions, to prevent accidental
@@ -52,22 +50,6 @@ type GCSStorageOptions struct {
 
 	// IgnoreDefaultCredentials disables the use of credentials managed by Google Cloud SDK (gcloud).
 	IgnoreDefaultCredentials bool `json:"ignoreDefaultCredentials"`
-}
-
-func (gso *GCSStorageOptions) ParseURL(u *url.URL) error {
-	if u.Scheme != "gcs" {
-		return fmt.Errorf("invalid scheme, expected 'file'")
-	}
-
-	gso.BucketName = u.Host
-	return nil
-}
-
-func (gso *GCSStorageOptions) ToURL() *url.URL {
-	u := &url.URL{}
-	u.Scheme = "gcs"
-	u.Host = gso.BucketName
-	return u
 }
 
 type gcsStorage struct {
@@ -395,10 +377,10 @@ func authPrompt(url string, state string) (authenticationCode string, err error)
 func init() {
 	AddSupportedStorage(
 		gcsStorageType,
-		func() StorageOptions {
+		func() interface{} {
 			return &GCSStorageOptions{}
 		},
-		func(o StorageOptions) (Storage, error) {
+		func(o interface{}) (Storage, error) {
 			return NewGCSStorage(o.(*GCSStorageOptions))
 		})
 }

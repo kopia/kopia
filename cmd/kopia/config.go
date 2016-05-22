@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/vault"
 
 	"golang.org/x/crypto/ssh/terminal"
@@ -81,7 +80,7 @@ func openVaultSpecifiedByFlag() (*vault.Vault, error) {
 	if *vaultPath == "" {
 		return nil, fmt.Errorf("--vault must be specified")
 	}
-	storage, err := blob.NewStorageFromURL(*vaultPath)
+	storage, err := newStorageFromURL(*vaultPath)
 	if err != nil {
 		return nil, err
 	}

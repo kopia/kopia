@@ -26,7 +26,6 @@ func runRepositoryInfoCommand(context *kingpin.ParseContext) error {
 	}
 
 	fmt.Println("Repository:")
-	fmt.Println("  Address:         ", rc.Storage.Config.ToURL())
 	fmt.Println("  Version:         ", rc.Format.Version)
 	fmt.Println("  Secret:          ", len(rc.Format.Secret), "bytes")
 	fmt.Println("  ID Format:       ", rc.Format.ObjectFormat)

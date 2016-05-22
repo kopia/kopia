@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 )
 
+// StorageConfiguration represents JSON-serializable configuration of a blob storage.
 type StorageConfiguration struct {
 	Type   string
-	Config StorageOptions
+	Config interface{}
 }
 
 // UnmarshalJSON parses the JSON-encoded data into StorageConfiguration.

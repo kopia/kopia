@@ -60,7 +60,7 @@ func repositoryFormat() (*repo.Format, error) {
 }
 
 func openStorageAndEnsureEmpty(url string) (blob.Storage, error) {
-	s, err := blob.NewStorageFromURL(url)
+	s, err := newStorageFromURL(url)
 	if err != nil {
 		return nil, err
 	}
@@ -95,8 +95,7 @@ func runCreateCommand(context *kingpin.ParseContext) error {
 	}
 
 	fmt.Printf(
-		"Initializing repository in '%s' with format '%v' and maximum object size %v.\n",
-		repositoryStorage.Configuration().Config.ToURL().String(),
+		"Initializing repository in with format '%v' and maximum object size %v.\n",
 		repoFormat.ObjectFormat,
 		repoFormat.MaxBlobSize)
 
@@ -111,8 +110,7 @@ func runCreateCommand(context *kingpin.ParseContext) error {
 	}
 
 	fmt.Printf(
-		"Initializing vault in '%s' with encryption '%v'.\n",
-		vaultStorage.Configuration().Config.ToURL().String(),
+		"Initializing vault with encryption '%v'.\n",
 		vf.Encryption)
 	vlt, err := vault.Create(vaultStorage, vf, creds)
 	if err != nil {
