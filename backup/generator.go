@@ -1,7 +1,8 @@
 package backup
 
 import (
-	"log"
+	"fmt"
+	"os"
 	"time"
 
 	"github.com/kopia/kopia/fs"
@@ -32,18 +33,28 @@ func (bg *backupGenerator) Backup(m *Manifest, old *Manifest) error {
 
 	if old != nil {
 		hashCacheID = repo.ObjectID(old.HashCacheID)
-		log.Printf("Using hash cache ID: %v", hashCacheID)
-	} else {
-		log.Printf("No hash cache.")
 	}
-	r, err := uploader.UploadDir(m.SourceDirectory, hashCacheID)
+
+	st, err := os.Stat(m.Source)
 	if err != nil {
 		return err
 	}
 
+	var r *fs.UploadResult
+	switch st.Mode() & os.ModeType {
+	case os.ModeDir:
+		r, err = uploader.UploadDir(m.Source, hashCacheID)
+	case 0: // regular
+		r, err = uploader.UploadFile(m.Source)
+	default:
+		return fmt.Errorf("unsupported source: %v", m.Source)
+	}
+	m.EndTime = time.Now()
+	if err != nil {
+		return err
+	}
 	m.RootObjectID = string(r.ObjectID)
 	m.HashCacheID = string(r.ManifestID)
-	m.EndTime = time.Now()
 
 	return nil
 }

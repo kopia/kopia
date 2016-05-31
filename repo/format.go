@@ -9,9 +9,6 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"hash"
-	"io"
-
-	"golang.org/x/crypto/hkdf"
 )
 
 var (
@@ -51,11 +48,22 @@ func (fmts ObjectIDFormats) Find(name string) *ObjectIDFormat {
 	return nil
 }
 
+func fold(b []byte, size int) []byte {
+	if len(b) == size {
+		return b
+	}
+
+	for i := size; i < len(b); i++ {
+		b[i%size] ^= b[i]
+	}
+	return b[0:size]
+}
+
 func nonEncryptedFormat(name string, hf func() hash.Hash, hashSize int) *ObjectIDFormat {
 	return &ObjectIDFormat{
 		Name: name,
 		hashBuffer: func(data []byte, secret []byte) ([]byte, []byte) {
-			return hashContent(hf, data, secret)[0:hashSize], nil
+			return fold(hashContent(hf, data, secret), hashSize), nil
 		},
 	}
 }
@@ -83,15 +91,8 @@ func encryptedFormat(
 		Name: name,
 		hashBuffer: func(data []byte, secret []byte) ([]byte, []byte) {
 			contentHash := hashContent(sha512.New, data, secret)
-
-			s1 := hkdf.New(sha256.New, contentHash, nil, hkdfInfoBlockID)
-			blockID := make([]byte, blockIDSize)
-			io.ReadFull(s1, blockID)
-
-			s2 := hkdf.New(sha256.New, contentHash, nil, hkdfInfoCryptoKey)
-			cryptoKey := make([]byte, keySize)
-			io.ReadFull(s2, cryptoKey)
-
+			blockID := fold(hashContent(hf, hkdfInfoBlockID, contentHash), blockIDSize)
+			cryptoKey := fold(hashContent(hf, hkdfInfoCryptoKey, contentHash), keySize)
 			return blockID, cryptoKey
 		},
 		createCipher: createCipher,
@@ -110,11 +111,11 @@ func buildObjectIDFormats() ObjectIDFormats {
 		{"sha1", sha1.New, sha1.Size},
 		{"sha224", sha256.New224, sha256.Size224},
 		{"sha256", sha256.New, sha256.Size},
-		{"sha256t128", sha256.New, 16},
-		{"sha256t160", sha256.New, 20},
+		{"sha256-fold128", sha256.New, 16},
+		{"sha256-fold160", sha256.New, 20},
 		{"sha384", sha512.New384, sha512.Size384},
-		{"sha512t128", sha512.New, 16},
-		{"sha512t160", sha512.New, 20},
+		{"sha512-fold128", sha512.New, 16},
+		{"sha512-fold160", sha512.New, 20},
 		{"sha512-224", sha512.New512_224, sha512.Size224},
 		{"sha512-256", sha512.New512_256, sha512.Size256},
 		{"sha512", sha512.New, sha512.Size},

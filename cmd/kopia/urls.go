@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/url"
 	"os"
 	"strconv"
@@ -12,7 +11,6 @@ import (
 )
 
 func newStorageFromURL(urlString string) (blob.Storage, error) {
-	log.Printf("NewStorageFromURl: %v", urlString)
 	if strings.HasPrefix(urlString, "/") {
 		urlString = "file://" + urlString
 	}
@@ -31,7 +29,7 @@ func newStorageFromURL(urlString string) (blob.Storage, error) {
 
 		return blob.NewFSStorage(&fso)
 
-	case "gcs":
+	case "gs", "gcs":
 		var gcso blob.GCSStorageOptions
 		if err := parseGoogleCloudStorageURL(&gcso, u); err != nil {
 			return nil, err
@@ -44,7 +42,6 @@ func newStorageFromURL(urlString string) (blob.Storage, error) {
 }
 
 func parseFilesystemURL(fso *blob.FSStorageOptions, u *url.URL) error {
-	log.Printf("u.Upaque: %v u.Path: %v", u.Opaque, u.Path)
 	if u.Opaque != "" {
 		fso.Path = u.Opaque
 	} else {

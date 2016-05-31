@@ -7,7 +7,6 @@ import (
 	fusefs "bazil.org/fuse/fs"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/vfs"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
@@ -16,7 +15,7 @@ import (
 var (
 	mountCommand = app.Command("mount", "Mount repository object as a local filesystem.")
 
-	mountObjectID = mountCommand.Arg("objectID", "Directory to mount").Required().String()
+	mountObjectID = mountCommand.Arg("path", "Identifier of the directory to mount.").Required().String()
 	mountPoint    = mountCommand.Arg("mountPoint", "Mount point").Required().ExistingDir()
 )
 
@@ -29,7 +28,9 @@ func (r *root) Root() (fusefs.Node, error) {
 }
 
 func runMountCommand(context *kingpin.ParseContext) error {
-	r, err := mustOpenVault().OpenRepository()
+	vlt := mustOpenVault()
+
+	r, err := vlt.OpenRepository()
 	if err != nil {
 		return err
 	}
@@ -44,11 +45,16 @@ func runMountCommand(context *kingpin.ParseContext) error {
 		fuse.VolumeName("Kopia"),
 	)
 
+	oid, err := ParseObjectID(*mountObjectID, vlt)
+	if err != nil {
+		return err
+	}
+
 	fusefs.Serve(fuseConnection, &root{
 		mgr.NewNodeFromEntry(&fs.Entry{
 			Name:     "<root>",
 			FileMode: os.ModeDir | 0555,
-			ObjectID: repo.ObjectID(*mountObjectID),
+			ObjectID: oid,
 		}),
 	})
 

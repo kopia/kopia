@@ -153,7 +153,7 @@ func (dw *directoryWriter) WriteEntry(e *Entry) error {
 
 	dw.writer.Write(dw.separator)
 	dw.writer.Write(v)
-	dw.separator = []byte(",\n  ")
+	dw.separator = []byte(",")
 
 	return nil
 }
@@ -177,7 +177,7 @@ func formatModeAndPermissions(m os.FileMode) string {
 }
 
 func (dw *directoryWriter) Close() error {
-	dw.writer.Write([]byte("\n]}\n"))
+	dw.writer.Write([]byte("]}"))
 	return nil
 }
 
@@ -196,11 +196,11 @@ func newDirectoryWriter(w io.Writer) *directoryWriter {
 	var f directoryFormat
 	f.Version = 1
 
-	io.WriteString(w, "{\n\"format\":")
+	io.WriteString(w, "{\"format\":")
 	b, _ := json.Marshal(&f)
 	w.Write(b)
-	io.WriteString(w, ",\n\"entries\":[")
-	dw.separator = []byte("\n  ")
+	io.WriteString(w, ",\"entries\":[")
+	dw.separator = []byte("")
 
 	return dw
 }

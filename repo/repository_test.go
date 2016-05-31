@@ -445,27 +445,33 @@ func TestFormats(t *testing.T) {
 			},
 		},
 		{
-			format: makeFormat("sha256t128-aes128"),
+			format: makeFormat("sha256-fold128-aes128"),
 			oids: map[string]ObjectID{
-				"The quick brown fox jumps over the lazy dog": "D4e43650cb2ce7b5a6a2a8d614c13d9b3.f73b9fed1f355b3603e066fb24a39970",
+				"The quick brown fox jumps over the lazy dog": "D028e74c630aee6400db4f84d49d1ed08.2825273c3344999e26081d99bcaf3f18",
 			},
 		},
 		{
 			format: makeFormat("sha256-aes128"),
 			oids: map[string]ObjectID{
-				"The quick brown fox jumps over the lazy dog": "D4e43650cb2ce7b5a6a2a8d614c13d9b37c6ee13c4543481074d2c8cf3f597a13.f73b9fed1f355b3603e066fb24a39970",
+				"The quick brown fox jumps over the lazy dog": "D26bb3fee9e83a7f6ff8397f33460cd0d24354b28ae2d41b6f2376fbe7db12005.2825273c3344999e26081d99bcaf3f18",
 			},
 		},
 		{
 			format: makeFormat("sha384-aes256"),
 			oids: map[string]ObjectID{
-				"The quick brown fox jumps over the lazy dog": "D4e43650cb2ce7b5a6a2a8d614c13d9b37c6ee13c4543481074d2c8cf3f597a136dba4c0e67d5d644049c98ee5369bc0a.f73b9fed1f355b3603e066fb24a39970ac10cbd143babc7f487ef263fe38aeff",
+				"The quick brown fox jumps over the lazy dog": "D08edca658caee5ae86c9f1e4ccea26b1a43b0ddb04502c5f1b1cba051a756a9eba440bb6991b23323e37556ec5cf4f88.7a753377319650870f5cba47c30b608675542f206fa67d94dcbb9a0ccce7f467",
 			},
 		},
 		{
 			format: makeFormat("sha512-aes256"),
 			oids: map[string]ObjectID{
-				"The quick brown fox jumps over the lazy dog": "D4e43650cb2ce7b5a6a2a8d614c13d9b37c6ee13c4543481074d2c8cf3f597a136dba4c0e67d5d644049c98ee5369bc0aaa0e75feaeadd42eb54a9d64f9d0a51d.f73b9fed1f355b3603e066fb24a39970ac10cbd143babc7f487ef263fe38aeff",
+				"The quick brown fox jumps over the lazy dog": "Deee04ad71248ef4ffec5159558e80e2791e32299cfb79a1e063cc5f4a71cd61ca2c1b110e3ae2e83635a8626a3a27e4805eb745c40b5a4ebd4c9372602e5ab65.1c0b1b58ce05b7b8b05cfce27a485ddf97bde5159f6946357ec7795236f36a84",
+			},
+		},
+		{
+			format: makeFormat("sha512-fold128-aes192"),
+			oids: map[string]ObjectID{
+				"The quick brown fox jumps over the lazy dog": "Dd829ad027ee4ff394f6a61615eb30d16.0ab00e0e0e156927f0be63372e8449d7bf2316c43d46e626",
 			},
 		},
 	}

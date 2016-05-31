@@ -12,13 +12,13 @@ func TestDirectory(t *testing.T) {
 			`{`,
 			`"format":{"version":1},`,
 			`"entries":[`,
-			`  {"name":"config.go","mode":"420","size":"937","modTime":"2016-04-02T02:39:44.123456789Z","owner":"500:100","oid":"C4321"},`,
-			`  {"name":"constants.go","mode":"420","size":"13","modTime":"2016-04-02T02:36:19Z","owner":"500:100"},`,
-			`  {"name":"doc.go","mode":"420","size":"112","modTime":"2016-04-02T02:45:54Z","owner":"500:100"},`,
-			`  {"name":"errors.go","mode":"420","size":"506","modTime":"2016-04-02T02:41:03Z","owner":"500:100"},`,
-			`  {"name":"subdir","mode":"d:420","modTime":"2016-04-06T02:34:10Z","owner":"500:100","oid":"C1234"}`,
+			`{"name":"config.go","mode":"420","size":"937","modTime":"2016-04-02T02:39:44.123456789Z","owner":"500:100","oid":"C4321"},`,
+			`{"name":"constants.go","mode":"420","size":"13","modTime":"2016-04-02T02:36:19Z","owner":"500:100"},`,
+			`{"name":"doc.go","mode":"420","size":"112","modTime":"2016-04-02T02:45:54Z","owner":"500:100"},`,
+			`{"name":"errors.go","mode":"420","size":"506","modTime":"2016-04-02T02:41:03Z","owner":"500:100"},`,
+			`{"name":"subdir","mode":"d:420","modTime":"2016-04-06T02:34:10Z","owner":"500:100","oid":"C1234"}`,
 			`]}`,
-		}, "\n") + "\n"
+		}, "")
 
 	d, err := ReadDirectory(strings.NewReader(data), "")
 	if err != nil {

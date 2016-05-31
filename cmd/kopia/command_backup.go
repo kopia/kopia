@@ -2,7 +2,10 @@ package main
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"log"
 	"math"
 	"os"
@@ -22,9 +25,9 @@ const (
 )
 
 var (
-	backupCommand = app.Command("backup", "Copies local directory to backup repository.")
+	backupCommand = app.Command("backup", "Copies local files or directories to backup repository.")
 
-	backupDirectories = backupCommand.Arg("directory", "Directories to back up").Required().ExistingDirs()
+	backupSources = backupCommand.Arg("source", "Files or directories to back up.").Required().ExistingFilesOrDirs()
 
 	backupHostName    = backupCommand.Flag("host", "Override backup hostname.").String()
 	backupUser        = backupCommand.Flag("user", "Override backup user.").String()
@@ -66,15 +69,15 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 		return err
 	}
 
-	for _, backupDirectory := range *backupDirectories {
+	for _, backupDirectory := range *backupSources {
 		dir, err := filepath.Abs(backupDirectory)
 		if err != nil {
-			return fmt.Errorf("invalid directory: '%s': %s", backupDirectory, err)
+			return fmt.Errorf("invalid source: '%s': %s", backupDirectory, err)
 		}
 
 		manifest := backup.Manifest{
-			StartTime:       time.Now(),
-			SourceDirectory: filepath.Clean(dir),
+			StartTime: time.Now(),
+			Source:    filepath.Clean(dir),
 
 			HostName:    getBackupHostName(),
 			UserName:    getBackupUser(),
@@ -100,13 +103,19 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 			oldManifest = &m
 		}
 
-		uniqueID := make([]byte, 8)
-		rand.Read(uniqueID)
-		fileID := fmt.Sprintf("B%v.%08x.%x", manifest.SourceID(), math.MaxInt64-manifest.StartTime.UnixNano(), uniqueID)
-
 		if err := bgen.Backup(&manifest, oldManifest); err != nil {
 			return err
 		}
+
+		handleID, err := vlt.SaveObjectID(repo.ObjectID(manifest.RootObjectID))
+		if err != nil {
+			return err
+		}
+
+		uniqueID := make([]byte, 8)
+		rand.Read(uniqueID)
+		fileID := fmt.Sprintf("B%v.%08x.%x", manifest.SourceID(), math.MaxInt64-manifest.StartTime.UnixNano(), uniqueID)
+		manifest.Handle = handleID
 
 		err = vlt.Put(fileID, &manifest)
 		if err != nil {
@@ -114,9 +123,21 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 		}
 
 		log.Printf("Root: %v", manifest.RootObjectID)
+		log.Printf("Key: %v", handleID)
 	}
 
 	return nil
+}
+
+func hashObjectID(oid string) string {
+	h := sha256.New()
+	io.WriteString(h, oid)
+	sum := h.Sum(nil)
+	foldLen := 16
+	for i := foldLen; i < len(sum); i++ {
+		sum[i%foldLen] ^= sum[i]
+	}
+	return hex.EncodeToString(sum[0:foldLen])
 }
 
 func getBackupUser() string {

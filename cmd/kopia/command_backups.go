@@ -7,16 +7,55 @@ import (
 
 	"github.com/kopia/kopia/backup"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/vault"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
-	backupsCommand    = app.Command("backups", "List backup history.")
-	backupsDirectory  = backupsCommand.Arg("directory", "Directory to show history of").ExistingDir()
-	backupsAll        = backupsCommand.Flag("all", "Show history of all backups.").Bool()
+	backupsCommand    = app.Command("backups", "List history of file or directory backups.")
+	backupsPath       = backupsCommand.Arg("source", "File or directory to show history of.").String()
 	maxResultsPerPath = backupsCommand.Flag("maxresults", "Maximum number of results.").Default("100").Int()
 )
+
+func findBackups(vlt *vault.Vault, path string) ([]string, string, error) {
+	var relPath string
+
+	for len(path) > 0 {
+		manifest := backup.Manifest{
+			Source:   path,
+			HostName: getBackupHostName(),
+			UserName: getBackupUser(),
+		}
+
+		prefix := manifest.SourceID() + "."
+
+		list, err := vlt.List("B" + prefix)
+		if err != nil {
+			return nil, "", err
+		}
+
+		if len(list) > 0 {
+			return list, relPath, nil
+		}
+
+		if len(relPath) > 0 {
+			relPath = filepath.Base(path) + "/" + relPath
+		} else {
+			relPath = filepath.Base(path)
+		}
+
+		log.Printf("No backups of %v@%v:%v", manifest.UserName, manifest.HostName, manifest.Source)
+
+		parent := filepath.Dir(path)
+		if parent == path {
+			break
+		}
+		path = parent
+	}
+
+	return nil, "", nil
+}
 
 func runBackupsCommand(context *kingpin.ParseContext) error {
 	var options []repo.RepositoryOption
@@ -41,31 +80,30 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 	}
 	defer mgr.Close()
 
-	var prefix string
+	var previous []string
+	var relPath string
 
-	if !*backupsAll {
-
-		dir, err := filepath.Abs(*backupsDirectory)
+	if *backupsPath != "" {
+		path, err := filepath.Abs(*backupsPath)
 		if err != nil {
-			return fmt.Errorf("invalid directory: '%s': %s", *backupsDirectory, err)
+			return fmt.Errorf("invalid directory: '%s': %s", *backupsPath, err)
 		}
 
-		manifest := backup.Manifest{
-			SourceDirectory: filepath.Clean(dir),
-			HostName:        getBackupHostName(),
-			UserName:        getBackupUser(),
+		previous, relPath, err = findBackups(vlt, filepath.Clean(path))
+		if relPath != "" {
+			relPath = "/" + relPath
 		}
-		prefix = manifest.SourceID() + "."
+	} else {
+		previous, err = vlt.List("B")
 	}
 
-	previous, err := vlt.List("B" + prefix)
 	if err != nil {
-		return fmt.Errorf("error listing previous backups")
+		return fmt.Errorf("cannot list backups: %v", err)
 	}
 
 	var lastHost string
 	var lastUser string
-	var lastDir string
+	var lastSource string
 	var count int
 
 	for _, n := range previous {
@@ -74,16 +112,16 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 			return fmt.Errorf("error loading previous backup: %v", err)
 		}
 
-		if m.HostName != lastHost || m.UserName != lastUser || m.SourceDirectory != lastDir {
-			log.Printf("%v @ %v : %v", m.UserName, m.HostName, m.SourceDirectory)
-			lastDir = m.SourceDirectory
+		if m.HostName != lastHost || m.UserName != lastUser || m.Source != lastSource {
+			log.Printf("%v@%v:%v", m.UserName, m.HostName, m.Source)
+			lastSource = m.Source
 			lastUser = m.UserName
 			lastHost = m.HostName
 			count = 0
 		}
 
 		if count < *maxResultsPerPath {
-			log.Printf("  %v %v", m.RootObjectID, m.StartTime.Format("2006-01-02 15:04:05 MST"))
+			log.Printf("  %v%v %v", m.Handle, relPath, m.StartTime.Format("2006-01-02 15:04:05 MST"))
 			count++
 		}
 	}

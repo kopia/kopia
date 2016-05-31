@@ -16,9 +16,10 @@ type Manifest struct {
 	UserName    string `json:"userName"`
 	Description string `json:"description"`
 
-	SourceDirectory string `json:"source"`
-	RootObjectID    string `json:"root"`
-	HashCacheID     string `json:"hashCache"`
+	Handle       string `json:"handle"`
+	Source       string `json:"source"`
+	RootObjectID string `json:"root"`
+	HashCacheID  string `json:"hashCache"`
 
 	FileCount      int64 `json:"fileCount"`
 	DirectoryCount int64 `json:"dirCount"`
@@ -33,7 +34,7 @@ func (m Manifest) SourceID() string {
 	h.Write(zeroByte)
 	io.WriteString(h, m.UserName)
 	h.Write(zeroByte)
-	io.WriteString(h, m.SourceDirectory)
+	io.WriteString(h, m.Source)
 	h.Write(zeroByte)
 	return hex.EncodeToString(h.Sum(nil))
 }

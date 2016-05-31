@@ -38,6 +38,7 @@ type UploadResult struct {
 // Uploader supports efficient uploading files and directories to repository.
 type Uploader interface {
 	UploadDir(path string, previousManifestID repo.ObjectID) (*UploadResult, error)
+	UploadFile(path string) (*UploadResult, error)
 	Cancel()
 }
 
@@ -52,7 +53,7 @@ func (u *uploader) isCancelled() bool {
 	return atomic.LoadInt32(&u.cancelled) != 0
 }
 
-func (u *uploader) uploadFile(path string, e *Entry) (*Entry, uint64, error) {
+func (u *uploader) uploadFileInternal(path string, forceStored bool) (*Entry, uint64, error) {
 	log.Printf("Uploading file %v", path)
 	file, err := u.lister.Open(path)
 	if err != nil {
@@ -75,7 +76,7 @@ func (u *uploader) uploadFile(path string, e *Entry) (*Entry, uint64, error) {
 		return nil, 0, err
 	}
 
-	e2.ObjectID, err = writer.Result(false)
+	e2.ObjectID, err = writer.Result(forceStored)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -85,6 +86,13 @@ func (u *uploader) uploadFile(path string, e *Entry) (*Entry, uint64, error) {
 	}
 
 	return e2, e2.metadataHash(), nil
+}
+
+func (u *uploader) UploadFile(path string) (*UploadResult, error) {
+	result := &UploadResult{}
+	e, _, err := u.uploadFileInternal(path, true)
+	result.ObjectID = e.ObjectID
+	return result, err
 }
 
 func (u *uploader) UploadDir(path string, previousManifestID repo.ObjectID) (*UploadResult, error) {
@@ -107,7 +115,7 @@ func (u *uploader) UploadDir(path string, previousManifestID repo.ObjectID) (*Up
 	hcw := newHashCacheWriter(mw)
 
 	result := &UploadResult{}
-	result.ObjectID, _, _, err = u.uploadDirInternal(result, path, ".", hcw, &mr)
+	result.ObjectID, _, _, err = u.uploadDirInternal(result, path, ".", hcw, &mr, true)
 	if err != nil {
 		return result, err
 	}
@@ -122,6 +130,7 @@ func (u *uploader) uploadDirInternal(
 	relativePath string,
 	hcw *hashcacheWriter,
 	mr *hashcacheReader,
+	forceStored bool,
 ) (repo.ObjectID, uint64, bool, error) {
 	log.Printf("Uploading dir %v", path)
 	defer log.Printf("Finished uploading dir %v", path)
@@ -151,7 +160,7 @@ func (u *uploader) uploadDirInternal(
 
 		switch e.FileMode & os.ModeType {
 		case os.ModeDir:
-			oid, h, wasCached, err := u.uploadDirInternal(result, fullPath, entryRelativePath, hcw, mr)
+			oid, h, wasCached, err := u.uploadDirInternal(result, fullPath, entryRelativePath, hcw, mr, false)
 			if err != nil {
 				return "", 0, false, err
 			}
@@ -186,7 +195,7 @@ func (u *uploader) uploadDirInternal(
 				hash = cachedEntry.Hash
 			} else {
 				result.Stats.NonCachedFiles++
-				e, hash, err = u.uploadFile(fullPath, e)
+				e, hash, err = u.uploadFileInternal(fullPath, false)
 				if err != nil {
 					return "", 0, false, fmt.Errorf("unable to hash file: %s", err)
 				}
@@ -231,7 +240,7 @@ func (u *uploader) uploadDirInternal(
 		directoryOID = repo.ObjectID(cachedDirEntry.ObjectID)
 	} else {
 		result.Stats.NonCachedDirectories++
-		directoryOID, err = writer.Result(true)
+		directoryOID, err = writer.Result(forceStored)
 		if err != nil {
 			return directoryOID, 0, false, err
 		}

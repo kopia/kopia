@@ -8,11 +8,13 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"hash"
 	"io"
 	"io/ioutil"
+	"strings"
 
 	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/repo"
@@ -24,6 +26,9 @@ const (
 	formatBlock           = "format"
 	checksumBlock         = "checksum"
 	repositoryConfigBlock = "repo"
+
+	storedObjectIDPrefix      = "v"
+	storedObjectIDLengthBytes = 8
 )
 
 var (
@@ -193,6 +198,10 @@ func (v *Vault) OpenRepository() (repo.Repository, error) {
 	return repo.NewRepository(storage, rc.Format)
 }
 
+func (v *Vault) GetRaw(id string) ([]byte, error) {
+	return v.readEncryptedBlock(id)
+}
+
 // Get deserializes JSON data stored in the vault into the specified content structure.
 func (v *Vault) Get(id string, content interface{}) error {
 	j, err := v.readEncryptedBlock(id)
@@ -243,6 +252,55 @@ func (v *Vault) Token() (string, error) {
 	}
 
 	return base64.RawURLEncoding.EncodeToString(b), nil
+}
+
+type objectIDData struct {
+	ObjectID string `json:"objectID"`
+}
+
+func (v *Vault) SaveObjectID(oid repo.ObjectID) (string, error) {
+	h := hmac.New(sha256.New, v.format.UniqueID)
+	h.Write([]byte(oid))
+	sum := h.Sum(nil)
+	for i := storedObjectIDLengthBytes; i < len(sum); i++ {
+		sum[i%storedObjectIDLengthBytes] ^= sum[i]
+	}
+	sum = sum[0:storedObjectIDLengthBytes]
+	key := storedObjectIDPrefix + hex.EncodeToString(sum)
+
+	var d objectIDData
+	d.ObjectID = string(oid)
+
+	if err := v.Put(key, &d); err != nil {
+		return "", err
+	}
+
+	return key, nil
+}
+
+func (v *Vault) ResolveObjectID(id string) (repo.ObjectID, error) {
+	if !strings.HasPrefix(id, storedObjectIDPrefix) {
+		return repo.ParseObjectID(id)
+	}
+
+	matches, err := v.List(id)
+	if err != nil {
+		return "", err
+	}
+
+	switch len(matches) {
+	case 0:
+		return "", fmt.Errorf("object not found: %v", id)
+	case 1:
+		var d objectIDData
+		if err := v.Get(matches[0], &d); err != nil {
+			return "", err
+		}
+		return repo.ParseObjectID(d.ObjectID)
+
+	default:
+		return "", fmt.Errorf("ambiguous object ID: %v", id)
+	}
 }
 
 // Create creates a Vault in the specified storage.

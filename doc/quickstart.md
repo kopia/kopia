@@ -1,7 +1,7 @@
 Quick Start
 ===
 
-Kopia is a simple tool for managing encrypted backups in the cloud.
+Kopia is a simple command-line tool for managing encrypted backups in the cloud.
 
 Key Concepts
 ---
