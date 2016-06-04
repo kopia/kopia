@@ -61,7 +61,7 @@ func persistVaultConfig(v *vault.Vault) error {
 	}
 
 	fname := vaultConfigFileName()
-	log.Printf("saving configuration %v", fname)
+	log.Printf("Saving vault configuration to '%v'.", fname)
 	if err := os.MkdirAll(filepath.Dir(fname), 0700); err != nil {
 		return err
 	}
