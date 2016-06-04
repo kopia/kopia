@@ -47,7 +47,7 @@ func parseNestedObjectID(current repo.ObjectID, id string, r repo.Repository) (r
 
 		dir, err := fs.ReadDirectory(d, "")
 		if err != nil {
-			return "", fmt.Errorf("entry not found '%v': parent is not a directory.", head)
+			return "", fmt.Errorf("entry not found '%v': parent is not a directory", head)
 		}
 
 		e := dir.FindByName(head)
