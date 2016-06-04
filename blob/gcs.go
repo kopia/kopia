@@ -10,8 +10,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 	"time"
+
+	"github.com/skratchdot/open-golang/open"
 
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
@@ -89,10 +90,12 @@ func (gcs *gcsStorage) PutBlock(b string, data io.ReadCloser, options PutOptions
 		Name: gcs.getObjectNameString(b),
 	}
 	defer data.Close()
-	_, err := gcs.objectsService.Insert(gcs.BucketName, &object).
-		IfGenerationMatch(0).
-		Media(data).
-		Do()
+
+	call := gcs.objectsService.Insert(gcs.BucketName, &object).Media(data)
+	if !options.Overwrite {
+		call = call.IfGenerationMatch(0)
+	}
+	_, err := call.Do()
 
 	return err
 }
@@ -328,15 +331,7 @@ func tokenFromWeb(ctx context.Context, config *oauth2.Config) (*oauth2.Token, er
 }
 
 func openURL(url string) error {
-	try := []string{"xdg-open", "google-chrome", "open"}
-	for _, bin := range try {
-		err := exec.Command(bin, url).Run()
-		if err == nil {
-			return nil
-		}
-	}
-	log.Printf("Error opening URL in browser.")
-	return fmt.Errorf("Error opening URL in browser")
+	return open.Start(url)
 }
 
 func authPrompt(url string, state string) (authenticationCode string, err error) {

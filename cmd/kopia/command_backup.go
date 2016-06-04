@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -150,7 +151,15 @@ func getBackupUser() string {
 		log.Fatalf("Cannot determine current user: %s", err)
 	}
 
-	return currentUser.Username
+	u := currentUser.Username
+	if runtime.GOOS == "windows" {
+		if p := strings.Index(u, "\\"); p >= 0 {
+			// On Windows ignore domain name.
+			u = u[p+1:]
+		}
+	}
+
+	return u
 }
 
 func getBackupHostName() string {

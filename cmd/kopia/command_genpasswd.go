@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"math"
 	"net/http"
-	"os"
 	"strings"
 
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -63,27 +62,26 @@ func l33t(w string) []string {
 }
 
 func getWordList() ([]string, error) {
-	// Read the words file, that is typically 2-5MB, not a big deal.
-	allWords, err := ioutil.ReadFile(*genPasswordWordsSource)
-	if err != nil {
-		if os.IsNotExist(err) {
-			// File not found, try URL.
-			fmt.Printf("Downloading word list from %v ...\n", *genPasswordWordsSource)
-			resp, err := http.Get(*genPasswordWordsSource)
-			if err != nil {
-				return nil, err
-			}
-			defer resp.Body.Close()
+	var allWords []byte
+	var err error
 
-			allWords, err = ioutil.ReadAll(resp.Body)
-			if err != nil {
-				return nil, err
-			}
-		} else {
+	// Read the words file, that is typically 2-5MB, not a big deal.
+	if strings.HasPrefix(*genPasswordWordsSource, "http") {
+		// File not found, try URL.
+		fmt.Printf("Downloading word list from %v ...\n", *genPasswordWordsSource)
+		resp, err := http.Get(*genPasswordWordsSource)
+		if err != nil {
 			return nil, err
 		}
+		defer resp.Body.Close()
+		allWords, err = ioutil.ReadAll(resp.Body)
 	} else {
 		fmt.Printf("Using word list from file: %v\n", *genPasswordWordsSource)
+		allWords, err = ioutil.ReadFile(*genPasswordWordsSource)
+	}
+
+	if err != nil {
+		return nil, err
 	}
 
 	words := bytes.Split(allWords, []byte("\n"))

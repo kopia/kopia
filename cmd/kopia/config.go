@@ -5,13 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
+	"github.com/bgentry/speakeasy"
 	"github.com/kopia/kopia/vault"
-
-	"golang.org/x/crypto/ssh/terminal"
 )
 
 var (
@@ -38,6 +39,14 @@ func mustOpenVault() *vault.Vault {
 }
 
 func getHomeDir() string {
+	if runtime.GOOS == "windows" {
+		home := os.Getenv("HOMEDRIVE") + os.Getenv("HOMEPATH")
+		if home == "" {
+			home = os.Getenv("USERPROFILE")
+		}
+		return home
+	}
+
 	return os.Getenv("HOME")
 }
 
@@ -51,7 +60,13 @@ func persistVaultConfig(v *vault.Vault) error {
 		return err
 	}
 
-	return ioutil.WriteFile(vaultConfigFileName(), []byte(cfg), 0600)
+	fname := vaultConfigFileName()
+	log.Printf("saving configuration %v", fname)
+	if err := os.MkdirAll(filepath.Dir(fname), 0700); err != nil {
+		return err
+	}
+
+	return ioutil.WriteFile(fname, []byte(cfg), 0600)
 }
 
 func getPersistedVaultConfig() string {
@@ -128,9 +143,7 @@ func getVaultCredentials(isNew bool) (vault.Credentials, error) {
 	}
 	if isNew {
 		for {
-			fmt.Printf("Enter password to create new vault: ")
-			p1, err := askPass()
-			fmt.Println()
+			p1, err := askPass("Enter password to create new vault: ")
 			if err == errPasswordTooShort {
 				fmt.Printf("Password too short, must be at least %v characters, you entered %v. Try again.", vault.MinPasswordLength, len(p1))
 				fmt.Println()
@@ -139,12 +152,10 @@ func getVaultCredentials(isNew bool) (vault.Credentials, error) {
 			if err != nil {
 				return nil, err
 			}
-			fmt.Printf("Re-enter password for verification: ")
-			p2, err := askPass()
+			p2, err := askPass("Re-enter password for verification: ")
 			if err != nil {
 				return nil, err
 			}
-			fmt.Println()
 			if p1 != p2 {
 				fmt.Println("Passwords don't match!")
 			} else {
@@ -152,8 +163,7 @@ func getVaultCredentials(isNew bool) (vault.Credentials, error) {
 			}
 		}
 	} else {
-		fmt.Printf("Enter password to open vault: ")
-		p1, err := askPass()
+		p1, err := askPass("Enter password to open vault: ")
 		if err != nil {
 			return nil, err
 		}
@@ -162,8 +172,8 @@ func getVaultCredentials(isNew bool) (vault.Credentials, error) {
 	}
 }
 
-func askPass() (string, error) {
-	b, err := terminal.ReadPassword(0)
+func askPass(prompt string) (string, error) {
+	b, err := speakeasy.Ask(prompt)
 	if err != nil {
 		return "", err
 	}
