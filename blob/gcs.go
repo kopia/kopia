@@ -72,7 +72,7 @@ func (gcs *gcsStorage) GetBlock(b string) ([]byte, error) {
 	v, err := gcs.objectsService.Get(gcs.BucketName, gcs.getObjectNameString(b)).Download()
 	if err != nil {
 		if err, ok := err.(*googleapi.Error); ok {
-			if err.Code == 404 {
+			if err.Code == http.StatusNotFound {
 				return nil, ErrBlockNotFound
 			}
 		}
@@ -86,23 +86,25 @@ func (gcs *gcsStorage) GetBlock(b string) ([]byte, error) {
 }
 
 func (gcs *gcsStorage) PutBlock(b string, data io.ReadCloser, options PutOptions) error {
+	defer data.Close()
+
 	object := gcsclient.Object{
 		Name: gcs.getObjectNameString(b),
 	}
-	defer data.Close()
 
-	t0 := time.Now()
 	call := gcs.objectsService.Insert(gcs.BucketName, &object).Media(data)
 	if !options.Overwrite {
+		if ok, _ := gcs.BlockExists(b); ok {
+			return nil
+		}
+
 		call = call.IfGenerationMatch(0)
 	}
 	_, err := call.Do()
-	dt := time.Since(t0)
-	log.Printf("PutBlock completed in %v and returned %v", dt, err)
 
 	if err != nil {
 		if err, ok := err.(*googleapi.Error); ok {
-			if err.Code == 412 {
+			if err.Code == http.StatusPreconditionFailed {
 				// Condition not met indicates that the block already exists.
 				return nil
 			}
@@ -206,6 +208,8 @@ func saveToken(file string, token *oauth2.Token) {
 func NewGCSStorage(options *GCSStorageOptions) (Storage, error) {
 	ctx := context.TODO()
 
+	//ctx = httptrace.WithClientTrace(ctx, &httptrace.ClientTrace{})
+
 	gcs := &gcsStorage{
 		GCSStorageOptions: *options,
 	}
@@ -226,7 +230,7 @@ func NewGCSStorage(options *GCSStorageOptions) (Storage, error) {
 	var err error
 
 	if !gcs.IgnoreDefaultCredentials {
-		client, _ = google.DefaultClient(context.TODO(), scope)
+		client, _ = google.DefaultClient(ctx, scope)
 	}
 
 	if client == nil {
