@@ -15,7 +15,6 @@ import (
 var (
 	backupsCommand    = app.Command("backups", "List backup history.")
 	backupsDirectory  = backupsCommand.Arg("directory", "Directory to show history of").ExistingDir()
-	backupsAll        = backupsCommand.Flag("all", "Show history of all backups.").Bool()
 	maxResultsPerPath = backupsCommand.Flag("maxresults", "Maximum number of results.").Default("100").Int()
 )
 
@@ -44,8 +43,7 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 
 	var prefix string
 
-	if !*backupsAll {
-
+	if *backupsDirectory != "" {
 		dir, err := filepath.Abs(*backupsDirectory)
 		if err != nil {
 			return fmt.Errorf("invalid directory: '%s': %s", *backupsDirectory, err)
@@ -72,7 +70,7 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 	for _, n := range previous {
 		var m backup.Manifest
 		if err := vlt.Get(n, &m); err != nil {
-			return fmt.Errorf("error loading previous backup: %vlt", err)
+			return fmt.Errorf("error loading previous backup: %v", err)
 		}
 
 		if m.HostName != lastHost || m.UserName != lastUser || m.SourceDirectory != lastDir {

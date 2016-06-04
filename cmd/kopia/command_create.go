@@ -72,7 +72,6 @@ func openStorageAndEnsureEmpty(url string) (blob.Storage, error) {
 	}
 
 	return s, nil
-
 }
 
 func runCreateCommand(context *kingpin.ParseContext) error {
