@@ -91,11 +91,23 @@ func (gcs *gcsStorage) PutBlock(b string, data io.ReadCloser, options PutOptions
 	}
 	defer data.Close()
 
+	t0 := time.Now()
 	call := gcs.objectsService.Insert(gcs.BucketName, &object).Media(data)
 	if !options.Overwrite {
 		call = call.IfGenerationMatch(0)
 	}
 	_, err := call.Do()
+	dt := time.Since(t0)
+	log.Printf("PutBlock completed in %v and returned %v", dt, err)
+
+	if err != nil {
+		if err, ok := err.(*googleapi.Error); ok {
+			if err.Code == 412 {
+				// Condition not met indicates that the block already exists.
+				return nil
+			}
+		}
+	}
 
 	return err
 }
