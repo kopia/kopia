@@ -2,10 +2,11 @@ package repo
 
 import (
 	"bytes"
-	"io"
 	"log"
 	"sync"
 	"sync/atomic"
+
+	"github.com/kopia/kopia/blob"
 )
 
 // bufferManager manages pool of reusable bytes.Buffer objects.
@@ -30,7 +31,7 @@ func (mgr *bufferManager) returnBuffer(b *bytes.Buffer) {
 	mgr.pool.Put(b)
 }
 
-func (mgr *bufferManager) returnBufferOnClose(b *bytes.Buffer) io.ReadCloser {
+func (mgr *bufferManager) returnBufferOnClose(b *bytes.Buffer) blob.BlockReader {
 	return &returnOnCloser{
 		buffer: b,
 		mgr:    mgr,
@@ -55,6 +56,10 @@ func (roc *returnOnCloser) Read(b []byte) (int, error) {
 func (roc *returnOnCloser) Close() error {
 	roc.mgr.returnBuffer(roc.buffer)
 	return nil
+}
+
+func (roc *returnOnCloser) Len() int {
+	return roc.buffer.Len()
 }
 
 func newBufferManager(blockSize int) *bufferManager {

@@ -1,9 +1,6 @@
 package blob
 
-import (
-	"io"
-	"log"
-)
+import "log"
 
 type loggingStorage struct {
 	Storage
@@ -25,9 +22,9 @@ func (s *loggingStorage) GetBlock(id string) ([]byte, error) {
 	return result, err
 }
 
-func (s *loggingStorage) PutBlock(id string, data io.ReadCloser, options PutOptions) error {
+func (s *loggingStorage) PutBlock(id string, data BlockReader, options PutOptions) error {
 	err := s.Storage.PutBlock(id, data, options)
-	log.Printf("PutBlock(%#v, %#v)=%#v", id, options, err)
+	log.Printf("PutBlock(%#v, %#v, %#v bytes)=%#v", id, options, data.Len(), err)
 	return err
 }
 

@@ -97,13 +97,13 @@ func (w *objectWriter) flushBuffer(force bool) error {
 			length = w.buffer.Len()
 		}
 
-		objectID, readCloser, err := w.mgr.hashBufferForWriting(w.buffer, string(w.objectType)+w.prefix)
+		objectID, blockReader, err := w.mgr.hashBufferForWriting(w.buffer, string(w.objectType)+w.prefix)
 		if err != nil {
 			return err
 		}
 		w.buffer = nil
 
-		if err := w.mgr.storage.PutBlock(objectID.BlockID(), readCloser, blob.PutOptions{}); err != nil {
+		if err := w.mgr.storage.PutBlock(objectID.BlockID(), blockReader, blob.PutOptions{}); err != nil {
 			return fmt.Errorf(
 				"error when flushing chunk %d of %s to %#v: %#v",
 				w.flushedObjectCount,

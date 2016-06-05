@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"hash"
 	"io"
-	"io/ioutil"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -210,7 +209,7 @@ func (mgr *repository) hashBuffer(data []byte) ([]byte, []byte) {
 	return mgr.idFormat.hashBuffer(data, mgr.format.Secret)
 }
 
-func (mgr *repository) hashBufferForWriting(buffer *bytes.Buffer, prefix string) (ObjectID, io.ReadCloser, error) {
+func (mgr *repository) hashBufferForWriting(buffer *bytes.Buffer, prefix string) (ObjectID, blob.BlockReader, error) {
 	var data []byte
 	if buffer != nil {
 		data = buffer.Bytes()
@@ -238,23 +237,23 @@ func (mgr *repository) hashBufferForWriting(buffer *bytes.Buffer, prefix string)
 	atomic.AddInt64(&mgr.stats.HashedBytes, int64(len(data)))
 
 	if buffer == nil {
-		return objectID, ioutil.NopCloser(bytes.NewBuffer(nil)), nil
+		return objectID, blob.NewBlockReader(bytes.NewBuffer(nil)), nil
 	}
 
-	readCloser := mgr.bufferManager.returnBufferOnClose(buffer)
-	readCloser = newCountingReader(readCloser, &mgr.stats.BytesWrittenToStorage)
+	blockReader := mgr.bufferManager.returnBufferOnClose(buffer)
+	blockReader = newCountingReader(blockReader, &mgr.stats.BytesWrittenToStorage)
 
 	if len(cryptoKey) > 0 {
 		// Since we're not sharing the key, all-zero IV is ok.
 		// We don't need to worry about separate MAC either, since hashing content produces object ID.
 		ctr := cipher.NewCTR(blockCipher, constantIV[0:blockCipher.BlockSize()])
 
-		readCloser = newCountingReader(
-			newEncryptingReader(readCloser, nil, ctr, nil),
+		blockReader = newCountingReader(
+			newEncryptingReader(blockReader, ctr),
 			&mgr.stats.EncryptedBytes)
 	}
 
-	return objectID, readCloser, nil
+	return objectID, blockReader, nil
 }
 
 func (mgr *repository) flattenListChunk(

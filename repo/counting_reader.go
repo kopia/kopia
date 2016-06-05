@@ -1,26 +1,27 @@
 package repo
 
 import (
-	"io"
 	"sync/atomic"
+
+	"github.com/kopia/kopia/blob"
 )
 
 // countingReader wraps an io.ReadCloser and counts bytes read.
 type countingReader struct {
-	io.ReadCloser
+	blob.BlockReader
 
 	counter *int64
 }
 
 func (cr *countingReader) Read(b []byte) (int, error) {
-	n, err := cr.ReadCloser.Read(b)
+	n, err := cr.BlockReader.Read(b)
 	atomic.AddInt64(cr.counter, int64(n))
 	return n, err
 }
 
-func newCountingReader(source io.ReadCloser, counter *int64) io.ReadCloser {
+func newCountingReader(source blob.BlockReader, counter *int64) blob.BlockReader {
 	return &countingReader{
-		ReadCloser: source,
-		counter:    counter,
+		BlockReader: source,
+		counter:     counter,
 	}
 }

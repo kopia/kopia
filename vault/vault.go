@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"hash"
 	"io"
-	"io/ioutil"
 	"strings"
 
 	"github.com/kopia/kopia/blob"
@@ -73,7 +72,7 @@ func (v *Vault) writeEncryptedBlock(name string, content []byte) error {
 		content = cipherText
 	}
 
-	return v.storage.PutBlock(name, ioutil.NopCloser(bytes.NewBuffer(content)), blob.PutOptions{
+	return v.storage.PutBlock(name, blob.NewBlockReader(bytes.NewBuffer(content)), blob.PutOptions{
 		Overwrite: true,
 	})
 }
@@ -303,6 +302,10 @@ func (v *Vault) ResolveObjectID(id string) (repo.ObjectID, error) {
 	}
 }
 
+func (v *Vault) Remove(id string) error {
+	return v.storage.DeleteBlock(id)
+}
+
 // Create creates a Vault in the specified storage.
 func Create(storage blob.Storage, format *Format, creds Credentials) (*Vault, error) {
 	if err := format.ensureUniqueID(); err != nil {
@@ -325,7 +328,7 @@ func Create(storage blob.Storage, format *Format, creds Credentials) (*Vault, er
 		return nil, err
 	}
 
-	storage.PutBlock(formatBlock, ioutil.NopCloser(bytes.NewBuffer(formatBytes)), blob.PutOptions{
+	storage.PutBlock(formatBlock, blob.NewBlockReader(bytes.NewBuffer(formatBytes)), blob.PutOptions{
 		Overwrite: true,
 	})
 

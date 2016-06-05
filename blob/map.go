@@ -1,7 +1,6 @@
 package blob
 
 import (
-	"io"
 	"io/ioutil"
 	"sort"
 	"strings"
@@ -37,7 +36,7 @@ func (s *mapStorage) GetBlock(id string) ([]byte, error) {
 	return nil, ErrBlockNotFound
 }
 
-func (s *mapStorage) PutBlock(id string, data io.ReadCloser, options PutOptions) error {
+func (s *mapStorage) PutBlock(id string, data BlockReader, options PutOptions) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 

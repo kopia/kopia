@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -85,19 +84,23 @@ func (gcs *gcsStorage) GetBlock(b string) ([]byte, error) {
 	return ioutil.ReadAll(v.Body)
 }
 
-func (gcs *gcsStorage) PutBlock(b string, data io.ReadCloser, options PutOptions) error {
+func (gcs *gcsStorage) PutBlock(b string, data BlockReader, options PutOptions) error {
 	defer data.Close()
-
 	object := gcsclient.Object{
 		Name: gcs.getObjectNameString(b),
 	}
 
-	call := gcs.objectsService.Insert(gcs.BucketName, &object).Media(data)
+	call := gcs.objectsService.Insert(gcs.BucketName, &object).Media(
+		data,
+		googleapi.ContentType("application/octet-stream"),
+		googleapi.ChunkSize(data.Len()), // specify exact chunk size to ensure data is uploaded in one shot
+	)
 	if !options.Overwrite {
 		if ok, _ := gcs.BlockExists(b); ok {
 			return nil
 		}
 
+		// To avoid the race, also check this server-side.
 		call = call.IfGenerationMatch(0)
 	}
 	_, err := call.Do()
@@ -276,7 +279,6 @@ func NewGCSStorage(options *GCSStorageOptions) (Storage, error) {
 	gcs.objectsService = svc.Objects
 
 	return gcs, nil
-
 }
 
 func readGcsTokenFromFile(filePath string) (*oauth2.Token, error) {
