@@ -71,34 +71,29 @@ type repository struct {
 	idFormat ObjectIDFormat
 }
 
-func (mgr *repository) Close() {
-	mgr.Flush()
-	mgr.bufferManager.close()
+func (repo *repository) Close() {
+	repo.Flush()
+	repo.bufferManager.close()
 }
 
-func (mgr *repository) Flush() error {
-	return mgr.storage.Flush()
+func (repo *repository) Flush() error {
+	return repo.storage.Flush()
 }
 
-func (mgr *repository) ResetStats() {
-	mgr.stats = RepositoryStats{}
+func (repo *repository) ResetStats() {
+	repo.stats = RepositoryStats{}
 }
 
-func (mgr *repository) Stats() RepositoryStats {
-	return mgr.stats
+func (repo *repository) Stats() RepositoryStats {
+	return repo.stats
 }
 
-func (mgr *repository) Storage() blob.Storage {
-	return mgr.storage
+func (repo *repository) Storage() blob.Storage {
+	return repo.storage
 }
 
-func (mgr *repository) NewWriter(options ...WriterOption) ObjectWriter {
-	result := newObjectWriter(
-		objectWriterConfig{
-			mgr:        mgr,
-			putOptions: blob.PutOptions{},
-		},
-		ObjectIDTypeStored)
+func (repo *repository) NewWriter(options ...WriterOption) ObjectWriter {
+	result := newObjectWriter(repo, ObjectIDTypeStored)
 
 	for _, option := range options {
 		option(result)
@@ -107,8 +102,8 @@ func (mgr *repository) NewWriter(options ...WriterOption) ObjectWriter {
 	return result
 }
 
-func (mgr *repository) Open(objectID ObjectID) (io.ReadSeeker, error) {
-	r, err := mgr.newRawReader(objectID)
+func (repo *repository) Open(objectID ObjectID) (io.ReadSeeker, error) {
+	r, err := repo.newRawReader(objectID)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +111,7 @@ func (mgr *repository) Open(objectID ObjectID) (io.ReadSeeker, error) {
 	if objectID.Type() == ObjectIDTypeList {
 		seekTable := make([]seekTableEntry, 0, 100)
 
-		seekTable, err = mgr.flattenListChunk(seekTable, objectID, r)
+		seekTable, err = repo.flattenListChunk(seekTable, objectID, r)
 		if err != nil {
 			return nil, err
 		}
@@ -124,7 +119,7 @@ func (mgr *repository) Open(objectID ObjectID) (io.ReadSeeker, error) {
 		totalLength := seekTable[len(seekTable)-1].endOffset()
 
 		return &objectReader{
-			storage:     mgr.storage,
+			storage:     repo.storage,
 			seekTable:   seekTable,
 			totalLength: totalLength,
 		}, nil
@@ -186,30 +181,30 @@ func NewRepository(
 		return nil, fmt.Errorf("unknown object format: %v", f.ObjectFormat)
 	}
 
-	mgr := &repository{
+	repo := &repository{
 		storage: r,
 		format:  *f,
 	}
 
-	mgr.idFormat = *sf
+	repo.idFormat = *sf
 
 	for _, o := range options {
-		if err := o(mgr); err != nil {
-			mgr.Close()
+		if err := o(repo); err != nil {
+			repo.Close()
 			return nil, err
 		}
 	}
 
-	mgr.bufferManager = newBufferManager(mgr.format.MaxBlobSize)
+	repo.bufferManager = newBufferManager(repo.format.MaxBlobSize)
 
-	return mgr, nil
+	return repo, nil
 }
 
-func (mgr *repository) hashBuffer(data []byte) ([]byte, []byte) {
-	return mgr.idFormat.hashBuffer(data, mgr.format.Secret)
+func (repo *repository) hashBuffer(data []byte) ([]byte, []byte) {
+	return repo.idFormat.hashBuffer(data, repo.format.Secret)
 }
 
-func (mgr *repository) hashBufferForWriting(buffer *bytes.Buffer, prefix string) (ObjectID, blob.BlockReader, error) {
+func (repo *repository) hashBufferForWriting(buffer *bytes.Buffer, prefix string) (ObjectID, blob.BlockReader, error) {
 	var data []byte
 	if buffer != nil {
 		data = buffer.Bytes()
@@ -217,10 +212,10 @@ func (mgr *repository) hashBufferForWriting(buffer *bytes.Buffer, prefix string)
 
 	var blockCipher cipher.Block
 
-	contentHash, cryptoKey := mgr.hashBuffer(data)
+	contentHash, cryptoKey := repo.hashBuffer(data)
 	if cryptoKey != nil {
 		var err error
-		blockCipher, err = mgr.idFormat.createCipher(cryptoKey)
+		blockCipher, err = repo.idFormat.createCipher(cryptoKey)
 		if err != nil {
 			return "", nil, err
 		}
@@ -233,15 +228,15 @@ func (mgr *repository) hashBufferForWriting(buffer *bytes.Buffer, prefix string)
 		objectID = ObjectID(prefix + hex.EncodeToString(contentHash))
 	}
 
-	atomic.AddInt32(&mgr.stats.HashedBlocks, 1)
-	atomic.AddInt64(&mgr.stats.HashedBytes, int64(len(data)))
+	atomic.AddInt32(&repo.stats.HashedBlocks, 1)
+	atomic.AddInt64(&repo.stats.HashedBytes, int64(len(data)))
 
 	if buffer == nil {
 		return objectID, blob.NewBlockReader(bytes.NewBuffer(nil)), nil
 	}
 
-	blockReader := mgr.bufferManager.returnBufferOnClose(buffer)
-	blockReader = newCountingReader(blockReader, &mgr.stats.BytesWrittenToStorage)
+	blockReader := repo.bufferManager.returnBufferOnClose(buffer)
+	blockReader = newCountingReader(blockReader, &repo.stats.BytesWrittenToStorage)
 
 	if len(cryptoKey) > 0 {
 		// Since we're not sharing the key, all-zero IV is ok.
@@ -250,13 +245,13 @@ func (mgr *repository) hashBufferForWriting(buffer *bytes.Buffer, prefix string)
 
 		blockReader = newCountingReader(
 			newEncryptingReader(blockReader, ctr),
-			&mgr.stats.EncryptedBytes)
+			&repo.stats.EncryptedBytes)
 	}
 
 	return objectID, blockReader, nil
 }
 
-func (mgr *repository) flattenListChunk(
+func (repo *repository) flattenListChunk(
 	seekTable []seekTableEntry,
 	listObjectID ObjectID,
 	rawReader io.Reader) ([]seekTableEntry, error) {
@@ -279,12 +274,12 @@ func (mgr *repository) flattenListChunk(
 
 		switch objectID.Type() {
 		case ObjectIDTypeList:
-			subreader, err := mgr.newRawReader(objectID)
+			subreader, err := repo.newRawReader(objectID)
 			if err != nil {
 				return nil, err
 			}
 
-			seekTable, err = mgr.flattenListChunk(seekTable, objectID, subreader)
+			seekTable, err = repo.flattenListChunk(seekTable, objectID, subreader)
 			if err != nil {
 				return nil, err
 			}
@@ -314,23 +309,23 @@ func (mgr *repository) flattenListChunk(
 	return seekTable, nil
 }
 
-func (mgr *repository) newRawReader(objectID ObjectID) (io.ReadSeeker, error) {
+func (repo *repository) newRawReader(objectID ObjectID) (io.ReadSeeker, error) {
 	inline := objectID.InlineData()
 	if inline != nil {
 		return bytes.NewReader(inline), nil
 	}
 
 	blockID := objectID.BlockID()
-	payload, err := mgr.storage.GetBlock(blockID)
+	payload, err := repo.storage.GetBlock(blockID)
 	if err != nil {
 		return nil, err
 	}
 
-	atomic.AddInt32(&mgr.stats.BlocksReadFromStorage, 1)
-	atomic.AddInt64(&mgr.stats.BytesReadFromStorage, int64(len(payload)))
+	atomic.AddInt32(&repo.stats.BlocksReadFromStorage, 1)
+	atomic.AddInt64(&repo.stats.BytesReadFromStorage, int64(len(payload)))
 
 	if objectID.EncryptionInfo() == NoEncryption {
-		if err := mgr.verifyChecksum(payload, objectID.BlockID()); err != nil {
+		if err := repo.verifyChecksum(payload, objectID.BlockID()); err != nil {
 			return nil, err
 		}
 		return bytes.NewReader(payload), nil
@@ -341,7 +336,7 @@ func (mgr *repository) newRawReader(objectID ObjectID) (io.ReadSeeker, error) {
 		return nil, errors.New("malformed encryption key")
 	}
 
-	blockCipher, err := mgr.idFormat.createCipher(cryptoKey)
+	blockCipher, err := repo.idFormat.createCipher(cryptoKey)
 	if err != nil {
 		return nil, errors.New("cannot create cipher")
 	}
@@ -352,23 +347,23 @@ func (mgr *repository) newRawReader(objectID ObjectID) (io.ReadSeeker, error) {
 
 	// Since the encryption key is a function of data, we must be able to generate exactly the same key
 	// after decrypting the content. This serves as a checksum.
-	atomic.AddInt64(&mgr.stats.DecryptedBytes, int64(len(payload)))
+	atomic.AddInt64(&repo.stats.DecryptedBytes, int64(len(payload)))
 
-	if err := mgr.verifyChecksum(payload, objectID.BlockID()); err != nil {
+	if err := repo.verifyChecksum(payload, objectID.BlockID()); err != nil {
 		return nil, err
 	}
 
 	return bytes.NewReader(payload), nil
 }
 
-func (mgr *repository) verifyChecksum(data []byte, blockID string) error {
-	payloadHash, _ := mgr.hashBuffer(data)
+func (repo *repository) verifyChecksum(data []byte, blockID string) error {
+	payloadHash, _ := repo.hashBuffer(data)
 	checksum := hex.EncodeToString(payloadHash)
 	if !strings.HasSuffix(string(blockID), checksum) {
-		atomic.AddInt32(&mgr.stats.InvalidBlocks, 1)
+		atomic.AddInt32(&repo.stats.InvalidBlocks, 1)
 		return fmt.Errorf("invalid checksum for blob: '%v'", blockID)
 	}
 
-	atomic.AddInt32(&mgr.stats.ValidBlocks, 1)
+	atomic.AddInt32(&repo.stats.ValidBlocks, 1)
 	return nil
 }

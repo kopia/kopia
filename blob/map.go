@@ -36,7 +36,7 @@ func (s *mapStorage) GetBlock(id string) ([]byte, error) {
 	return nil, ErrBlockNotFound
 }
 
-func (s *mapStorage) PutBlock(id string, data BlockReader, options PutOptions) error {
+func (s *mapStorage) PutBlock(id string, data BlockReader, overwrite bool) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 

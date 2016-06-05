@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-
-	"github.com/kopia/kopia/blob"
 )
 
 // ObjectWriter allows writing content to the storage and supports automatic deduplication and encryption
@@ -16,14 +14,8 @@ type ObjectWriter interface {
 	Result(forceStored bool) (ObjectID, error)
 }
 
-// objectWriterConfig
-type objectWriterConfig struct {
-	mgr        *repository
-	putOptions blob.PutOptions
-}
-
 type objectWriter struct {
-	objectWriterConfig
+	repo *repository
 
 	buffer      *bytes.Buffer
 	totalLength int64
@@ -41,7 +33,7 @@ type objectWriter struct {
 
 func (w *objectWriter) Close() error {
 	if w.buffer != nil {
-		w.mgr.bufferManager.returnBuffer(w.buffer)
+		w.repo.bufferManager.returnBuffer(w.buffer)
 		w.buffer = nil
 	}
 	if w.listWriter != nil {
@@ -58,7 +50,7 @@ func (w *objectWriter) Write(data []byte) (n int, err error) {
 
 	for remaining > 0 {
 		if w.buffer == nil {
-			w.buffer = w.mgr.bufferManager.newBuffer()
+			w.buffer = w.repo.bufferManager.newBuffer()
 		}
 		room := w.buffer.Cap() - w.buffer.Len()
 
@@ -97,13 +89,13 @@ func (w *objectWriter) flushBuffer(force bool) error {
 			length = w.buffer.Len()
 		}
 
-		objectID, blockReader, err := w.mgr.hashBufferForWriting(w.buffer, string(w.objectType)+w.prefix)
+		objectID, blockReader, err := w.repo.hashBufferForWriting(w.buffer, string(w.objectType)+w.prefix)
 		if err != nil {
 			return err
 		}
 		w.buffer = nil
 
-		if err := w.mgr.storage.PutBlock(objectID.BlockID(), blockReader, blob.PutOptions{}); err != nil {
+		if err := w.repo.storage.PutBlock(objectID.BlockID(), blockReader, false); err != nil {
 			return fmt.Errorf(
 				"error when flushing chunk %d of %s to %#v: %#v",
 				w.flushedObjectCount,
@@ -115,7 +107,7 @@ func (w *objectWriter) flushBuffer(force bool) error {
 		w.flushedObjectCount++
 		w.lastFlushedObject = objectID
 		if w.listWriter == nil {
-			w.listWriter = newObjectWriter(w.objectWriterConfig, ObjectIDTypeList)
+			w.listWriter = newObjectWriter(w.repo, ObjectIDTypeList)
 			w.listWriter.prefix = w.prefix
 			w.listWriter.description = "LIST(" + w.description + ")"
 			w.listWriter.atomicWrites = true
@@ -126,9 +118,9 @@ func (w *objectWriter) flushBuffer(force bool) error {
 	return nil
 }
 
-func newObjectWriter(cfg objectWriterConfig, objectType ObjectIDType) *objectWriter {
+func newObjectWriter(repo *repository, objectType ObjectIDType) *objectWriter {
 	return &objectWriter{
-		objectWriterConfig: cfg,
+		repo: repo,
 		objectType:         objectType,
 	}
 }
@@ -139,7 +131,7 @@ func (w *objectWriter) Result(forceStored bool) (ObjectID, error) {
 			return "B", nil
 		}
 
-		if w.buffer.Len() < w.mgr.format.MaxInlineBlobSize {
+		if w.buffer.Len() < w.repo.format.MaxInlineBlobSize {
 			return NewInlineObjectID(w.buffer.Bytes()), nil
 		}
 	}
@@ -174,12 +166,5 @@ func WithBlockNamePrefix(prefix string) WriterOption {
 func WithDescription(description string) WriterOption {
 	return func(w *objectWriter) {
 		w.description = description
-	}
-}
-
-// WithPutOptions causes the ObjectWriter to use the specified options when writing blocks to the blob.
-func WithPutOptions(options blob.PutOptions) WriterOption {
-	return func(w *objectWriter) {
-		w.putOptions = options
 	}
 }

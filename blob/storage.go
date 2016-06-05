@@ -6,16 +6,9 @@ import (
 	"time"
 )
 
-// PutOptions controls the behavior of Storage.PutBlock()
-type PutOptions struct {
-	Overwrite    bool
-	IgnoreLimits bool
-}
-
 // Storage encapsulates API for connecting to blob storage
 type Storage interface {
-	// BlockExists determines whether the specified block existts.
-	PutBlock(id string, data BlockReader, options PutOptions) error
+	PutBlock(id string, data BlockReader, overwrite bool) error
 	DeleteBlock(id string) error
 	Flush() error
 	BlockExists(id string) (bool, error)

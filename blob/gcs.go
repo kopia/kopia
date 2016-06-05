@@ -84,7 +84,7 @@ func (gcs *gcsStorage) GetBlock(b string) ([]byte, error) {
 	return ioutil.ReadAll(v.Body)
 }
 
-func (gcs *gcsStorage) PutBlock(b string, data BlockReader, options PutOptions) error {
+func (gcs *gcsStorage) PutBlock(b string, data BlockReader, overwrite bool) error {
 	defer data.Close()
 	object := gcsclient.Object{
 		Name: gcs.getObjectNameString(b),
@@ -95,7 +95,7 @@ func (gcs *gcsStorage) PutBlock(b string, data BlockReader, options PutOptions) 
 		googleapi.ContentType("application/octet-stream"),
 		googleapi.ChunkSize(data.Len()), // specify exact chunk size to ensure data is uploaded in one shot
 	)
-	if !options.Overwrite {
+	if !overwrite {
 		if ok, _ := gcs.BlockExists(b); ok {
 			return nil
 		}
