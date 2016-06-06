@@ -72,7 +72,7 @@ func (v *Vault) writeEncryptedBlock(name string, content []byte) error {
 		content = cipherText
 	}
 
-	return v.storage.PutBlock(name, blob.NewBlockReader(bytes.NewBuffer(content)), true)
+	return v.storage.PutBlock(name, blob.NewBlockReader(bytes.NewBuffer(content)), blob.PutOptionsOverwrite)
 }
 
 func (v *Vault) readEncryptedBlock(name string) ([]byte, error) {
@@ -326,7 +326,7 @@ func Create(storage blob.Storage, format *Format, creds Credentials) (*Vault, er
 		return nil, err
 	}
 
-	storage.PutBlock(formatBlock, blob.NewBlockReader(bytes.NewBuffer(formatBytes)), true)
+	storage.PutBlock(formatBlock, blob.NewBlockReader(bytes.NewBuffer(formatBytes)), blob.PutOptionsOverwrite)
 
 	vv := make([]byte, 512)
 	if _, err := io.ReadFull(rand.Reader, vv); err != nil {

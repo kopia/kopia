@@ -6,9 +6,18 @@ import (
 	"time"
 )
 
+// PutOptions modify the behavior of Storage.PutBlock().
+type PutOptions int
+
+// Possible values of PutOptions
+const (
+	PutOptionsDefault   PutOptions = 0
+	PutOptionsOverwrite PutOptions = 1
+)
+
 // Storage encapsulates API for connecting to blob storage
 type Storage interface {
-	PutBlock(id string, data BlockReader, overwrite bool) error
+	PutBlock(id string, data BlockReader, options PutOptions) error
 	DeleteBlock(id string) error
 	Flush() error
 	BlockExists(id string) (bool, error)

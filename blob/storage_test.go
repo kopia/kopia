@@ -80,7 +80,7 @@ func verifyStorage(t *testing.T, r Storage) {
 
 	// Now add blocks.
 	for _, b := range blocks {
-		r.PutBlock(b.blk, NewBlockReader(bytes.NewBuffer(b.contents)), false)
+		r.PutBlock(b.blk, NewBlockReader(bytes.NewBuffer(b.contents)), PutOptionsDefault)
 
 		if x, err := r.BlockExists(b.blk); !x || err != nil {
 			t.Errorf("block does not exist after adding it: %v %v", b.blk, err)

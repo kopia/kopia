@@ -149,7 +149,7 @@ func (fs *fsStorage) ListBlocks(prefix string) chan (BlockMetadata) {
 	return result
 }
 
-func (fs *fsStorage) PutBlock(blockID string, data BlockReader, overwrite bool) error {
+func (fs *fsStorage) PutBlock(blockID string, data BlockReader, options PutOptions) error {
 	// Close the data reader regardless of whether we use it or not.
 	defer data.Close()
 
