@@ -93,7 +93,8 @@ func (gcs *gcsStorage) PutBlock(b string, data BlockReader, overwrite bool) erro
 	call := gcs.objectsService.Insert(gcs.BucketName, &object).Media(
 		data,
 		googleapi.ContentType("application/octet-stream"),
-		googleapi.ChunkSize(data.Len()), // specify exact chunk size to ensure data is uploaded in one shot
+		// Specify exact chunk size to ensure data is uploaded in one shot or not at all.
+		googleapi.ChunkSize(data.Len()), 
 	)
 	if !overwrite {
 		if ok, _ := gcs.BlockExists(b); ok {

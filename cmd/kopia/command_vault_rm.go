@@ -4,7 +4,7 @@ import "gopkg.in/alecthomas/kingpin.v2"
 
 var (
 	vaultRemoveCommand = vaultCommands.Command("rm", "Remove vault items")
-	vaultRemoveItems   = vaultRemoveCommand.Flag("item", "Items to remove").Strings()
+	vaultRemoveItems   = vaultRemoveCommand.Arg("item", "Items to remove").Strings()
 )
 
 func init() {
