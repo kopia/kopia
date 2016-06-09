@@ -38,6 +38,6 @@ func (f *Format) ensureUniqueID() error {
 }
 
 type RepositoryConfig struct {
-	Storage blob.ConnectionInfo `json:"storage"`
-	Format  *repo.Format        `json:"repository"`
+	Connection blob.ConnectionInfo `json:"connection"`
+	Format     *repo.Format        `json:"format"`
 }

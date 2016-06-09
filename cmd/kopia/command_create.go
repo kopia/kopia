@@ -129,8 +129,8 @@ func runCreateCommand(context *kingpin.ParseContext) error {
 	}
 
 	if err := vlt.SetRepository(vault.RepositoryConfig{
-		Storage: cip.ConnectionInfo(),
-		Format:  repoFormat,
+		Connection: cip.ConnectionInfo(),
+		Format:     repoFormat,
 	}); err != nil {
 		return fmt.Errorf("unable to save repository configuration in vault: %v", err)
 	}

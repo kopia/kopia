@@ -29,7 +29,7 @@ type Flusher interface {
 	Flush() error
 }
 
-// ConnectionInfoProvider exposes persistent ConnectionInfo for connecting to the storage.
+// ConnectionInfoProvider exposes persistent ConnectionInfo for connecting to the Storage.
 type ConnectionInfoProvider interface {
 	ConnectionInfo() ConnectionInfo
 }

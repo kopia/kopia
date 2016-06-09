@@ -21,6 +21,7 @@ const (
 	minLocatorSizeBytes = 16
 )
 
+// ObjectReader allows reading, seeking and closing of a repository object.
 type ObjectReader interface {
 	io.Reader
 	io.Seeker

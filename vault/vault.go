@@ -188,7 +188,7 @@ func (v *Vault) OpenRepository() (repo.Repository, error) {
 		return nil, err
 	}
 
-	storage, err := blob.NewStorage(rc.Storage)
+	storage, err := blob.NewStorage(rc.Connection)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open repository: %v", err)
 	}
@@ -232,8 +232,8 @@ func (v *Vault) List(prefix string) ([]string, error) {
 }
 
 type vaultConfig struct {
-	Connection blob.ConnectionInfo `json:"connection"`
-	Key        []byte              `json:"key,omitempty"`
+	ConnectionInfo blob.ConnectionInfo `json:"connection"`
+	Key            []byte              `json:"key,omitempty"`
 }
 
 // Token returns a persistent opaque string that encodes the configuration of vault storage
@@ -245,8 +245,8 @@ func (v *Vault) Token() (string, error) {
 	}
 
 	vc := vaultConfig{
-		Connection: cip.ConnectionInfo(),
-		Key:        v.masterKey,
+		ConnectionInfo: cip.ConnectionInfo(),
+		Key:            v.masterKey,
 	}
 
 	b, err := json.Marshal(&vc)
@@ -385,7 +385,7 @@ func OpenWithToken(token string) (*Vault, error) {
 		return nil, fmt.Errorf("invalid vault token")
 	}
 
-	st, err := blob.NewStorage(vc.Connection)
+	st, err := blob.NewStorage(vc.ConnectionInfo)
 	if err != nil {
 		return nil, fmt.Errorf("cannot open vault storage: %v", err)
 	}
