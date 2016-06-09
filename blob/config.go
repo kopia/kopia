@@ -4,14 +4,14 @@ import (
 	"encoding/json"
 )
 
-// StorageConfiguration represents JSON-serializable configuration of a blob storage.
-type StorageConfiguration struct {
+// ConnectionInfo represents JSON-serializable configuration of a blob storage.
+type ConnectionInfo struct {
 	Type   string
 	Config interface{}
 }
 
-// UnmarshalJSON parses the JSON-encoded data into StorageConfiguration.
-func (c *StorageConfiguration) UnmarshalJSON(b []byte) error {
+// UnmarshalJSON parses the JSON-encoded data into ConnectionInfo.
+func (c *ConnectionInfo) UnmarshalJSON(b []byte) error {
 	raw := struct {
 		Type string          `json:"type"`
 		Data json.RawMessage `json:"config"`
@@ -31,7 +31,7 @@ func (c *StorageConfiguration) UnmarshalJSON(b []byte) error {
 }
 
 // MarshalJSON returns JSON-encoded storage configuration.
-func (c StorageConfiguration) MarshalJSON() ([]byte, error) {
+func (c ConnectionInfo) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		Type string      `json:"type"`
 		Data interface{} `json:"config"`

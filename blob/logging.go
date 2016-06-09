@@ -1,6 +1,9 @@
 package blob
 
-import "log"
+import (
+	"io"
+	"log"
+)
 
 type loggingStorage struct {
 	Storage
@@ -40,8 +43,21 @@ func (s *loggingStorage) ListBlocks(prefix string) chan (BlockMetadata) {
 }
 
 func (s *loggingStorage) Flush() error {
-	log.Printf("Flush()")
-	return s.Storage.Flush()
+	if s, ok := s.Storage.(Flusher); ok {
+		log.Printf("Flush()")
+		return s.Flush()
+	}
+
+	return nil
+}
+
+func (s *loggingStorage) Close() error {
+	if c, ok := s.Storage.(io.Closer); ok {
+		log.Printf("Close()")
+		return c.Close()
+	}
+
+	return nil
 }
 
 // NewLoggingWrapper returns a Storage wrapper that logs all storage commands.

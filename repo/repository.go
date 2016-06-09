@@ -83,7 +83,11 @@ func (repo *repository) Close() {
 }
 
 func (repo *repository) Flush() error {
-	return repo.storage.Flush()
+	if f, ok := repo.storage.(blob.Flusher); ok {
+		return f.Flush()
+	}
+
+	return nil
 }
 
 func (repo *repository) ResetStats() {

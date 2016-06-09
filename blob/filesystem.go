@@ -238,8 +238,8 @@ func parseShardString(shardString string) ([]int, error) {
 	return result, nil
 }
 
-func (fs *fsStorage) Configuration() StorageConfiguration {
-	return StorageConfiguration{
+func (fs *fsStorage) ConnectionInfo() ConnectionInfo {
+	return ConnectionInfo{
 		fsStorageType,
 		&fs.FSStorageOptions,
 	}

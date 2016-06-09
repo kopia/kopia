@@ -17,15 +17,21 @@ const (
 
 // Storage encapsulates API for connecting to blob storage
 type Storage interface {
-	io.Closer
-
 	PutBlock(id string, data ReaderWithLength, options PutOptions) error
 	DeleteBlock(id string) error
-	Flush() error
 	BlockExists(id string) (bool, error)
 	GetBlock(id string) ([]byte, error)
 	ListBlocks(prefix string) chan (BlockMetadata)
-	Configuration() StorageConfiguration
+}
+
+// Flusher waits until all pending writes have completed.
+type Flusher interface {
+	Flush() error
+}
+
+// ConnectionInfoProvider exposes persistent ConnectionInfo for connecting to the storage.
+type ConnectionInfoProvider interface {
+	ConnectionInfo() ConnectionInfo
 }
 
 // ReaderWithLength supports reading from a block and returns its length.

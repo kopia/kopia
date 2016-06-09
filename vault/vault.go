@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"hash"
 	"io"
@@ -231,16 +232,21 @@ func (v *Vault) List(prefix string) ([]string, error) {
 }
 
 type vaultConfig struct {
-	Storage blob.StorageConfiguration `json:"storage"`
-	Key     []byte                    `json:"key,omitempty"`
+	Connection blob.ConnectionInfo `json:"connection"`
+	Key        []byte              `json:"key,omitempty"`
 }
 
 // Token returns a persistent opaque string that encodes the configuration of vault storage
 // and its credentials in a way that can be later used to open the vault.
 func (v *Vault) Token() (string, error) {
+	cip, ok := v.storage.(blob.ConnectionInfoProvider)
+	if !ok {
+		return "", errors.New("repository does not support persisting configuration")
+	}
+
 	vc := vaultConfig{
-		Storage: v.storage.Configuration(),
-		Key:     v.masterKey,
+		Connection: cip.ConnectionInfo(),
+		Key:        v.masterKey,
 	}
 
 	b, err := json.Marshal(&vc)
@@ -379,7 +385,7 @@ func OpenWithToken(token string) (*Vault, error) {
 		return nil, fmt.Errorf("invalid vault token")
 	}
 
-	st, err := blob.NewStorage(vc.Storage)
+	st, err := blob.NewStorage(vc.Connection)
 	if err != nil {
 		return nil, fmt.Errorf("cannot open vault storage: %v", err)
 	}

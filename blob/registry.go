@@ -25,9 +25,9 @@ func AddSupportedStorage(
 	factories[urlScheme] = f
 }
 
-// NewStorage creates new storage based on StorageConfiguration.
+// NewStorage creates new storage based on ConnectionInfo.
 // The storage type must be previously registered using AddSupportedStorage.
-func NewStorage(cfg StorageConfiguration) (Storage, error) {
+func NewStorage(cfg ConnectionInfo) (Storage, error) {
 	if factory, ok := factories[cfg.Type]; ok {
 		return factory.createStorageFunc(cfg.Config)
 	}

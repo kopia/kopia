@@ -81,7 +81,11 @@ func (wb *writeBackStorage) Flush() error {
 	// Now release them all.
 	rwg.Done()
 
-	return wb.Storage.Flush()
+	if f, ok := wb.Storage.(Flusher); ok {
+		return f.Flush()
+	}
+
+	return nil
 }
 
 func (wb *writeBackStorage) processRequest(req writeBackRequest) {

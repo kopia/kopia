@@ -13,10 +13,6 @@ type mapStorage struct {
 	mutex sync.RWMutex
 }
 
-func (s *mapStorage) Configuration() StorageConfiguration {
-	return StorageConfiguration{}
-}
-
 func (s *mapStorage) BlockExists(id string) (bool, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
@@ -90,14 +86,6 @@ func (s *mapStorage) ListBlocks(prefix string) chan (BlockMetadata) {
 		close(ch)
 	}()
 	return ch
-}
-
-func (s *mapStorage) Flush() error {
-	return nil
-}
-
-func (s *mapStorage) Close() error {
-	return nil
 }
 
 // NewMapStorage returns an implementation of Storage backed by the contents of given map.

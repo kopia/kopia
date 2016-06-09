@@ -175,8 +175,8 @@ func (gcs *gcsStorage) Flush() error {
 	return nil
 }
 
-func (gcs *gcsStorage) Configuration() StorageConfiguration {
-	return StorageConfiguration{
+func (gcs *gcsStorage) ConnectionInfo() ConnectionInfo {
+	return ConnectionInfo{
 		gcsStorageType,
 		&gcs.GCSStorageOptions,
 	}

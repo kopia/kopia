@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"io"
 
@@ -122,8 +123,13 @@ func runCreateCommand(context *kingpin.ParseContext) error {
 		return fmt.Errorf("unable to initialize repository: %v", err)
 	}
 
+	cip, ok := repositoryStorage.(blob.ConnectionInfoProvider)
+	if !ok {
+		return errors.New("repository does not support persisting configuration")
+	}
+
 	if err := vlt.SetRepository(vault.RepositoryConfig{
-		Storage: repositoryStorage.Configuration(),
+		Storage: cip.ConnectionInfo(),
 		Format:  repoFormat,
 	}); err != nil {
 		return fmt.Errorf("unable to save repository configuration in vault: %v", err)
