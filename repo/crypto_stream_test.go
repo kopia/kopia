@@ -45,7 +45,7 @@ func TestCryptoStream(t *testing.T) {
 			continue
 		}
 		enc := newEncryptingReader(
-			blob.NewBlockReader(bytes.NewBuffer(data)),
+			blob.NewReader(bytes.NewBuffer(data)),
 			s.cipher)
 		v, err := ioutil.ReadAll(enc)
 		actual := fmt.Sprintf("%x", v)

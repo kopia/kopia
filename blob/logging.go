@@ -22,7 +22,7 @@ func (s *loggingStorage) GetBlock(id string) ([]byte, error) {
 	return result, err
 }
 
-func (s *loggingStorage) PutBlock(id string, data BlockReader, options PutOptions) error {
+func (s *loggingStorage) PutBlock(id string, data ReaderWithLength, options PutOptions) error {
 	err := s.Storage.PutBlock(id, data, options)
 	log.Printf("PutBlock(%#v, options=%v, len=%v)=%#v", id, options, data.Len(), err)
 	return err

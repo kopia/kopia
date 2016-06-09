@@ -149,7 +149,7 @@ func (fs *fsStorage) ListBlocks(prefix string) chan (BlockMetadata) {
 	return result
 }
 
-func (fs *fsStorage) PutBlock(blockID string, data BlockReader, options PutOptions) error {
+func (fs *fsStorage) PutBlock(blockID string, data ReaderWithLength, options PutOptions) error {
 	// Close the data reader regardless of whether we use it or not.
 	defer data.Close()
 
@@ -243,6 +243,10 @@ func (fs *fsStorage) Configuration() StorageConfiguration {
 		fsStorageType,
 		&fs.FSStorageOptions,
 	}
+}
+
+func (fs *fsStorage) Close() error {
+	return nil
 }
 
 // NewFSStorage creates new fs-backed storage in a specified directory.

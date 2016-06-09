@@ -84,7 +84,7 @@ func (gcs *gcsStorage) GetBlock(b string) ([]byte, error) {
 	return ioutil.ReadAll(v.Body)
 }
 
-func (gcs *gcsStorage) PutBlock(b string, data BlockReader, options PutOptions) error {
+func (gcs *gcsStorage) PutBlock(b string, data ReaderWithLength, options PutOptions) error {
 	defer data.Close()
 	object := gcsclient.Object{
 		Name: gcs.getObjectNameString(b),
@@ -180,6 +180,11 @@ func (gcs *gcsStorage) Configuration() StorageConfiguration {
 		gcsStorageType,
 		&gcs.GCSStorageOptions,
 	}
+}
+
+func (gcs *gcsStorage) Close() error {
+	gcs.objectsService = nil
+	return nil
 }
 
 func tokenFromFile(file string) (*oauth2.Token, error) {

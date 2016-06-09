@@ -21,6 +21,12 @@ const (
 	minLocatorSizeBytes = 16
 )
 
+type ObjectReader interface {
+	io.Reader
+	io.Seeker
+	io.Closer
+}
+
 // Since we never share keys, using constant IV is fine.
 // Instead of using all-zero, we use this one.
 var constantIV = []byte("kopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopia")
@@ -31,7 +37,7 @@ type Repository interface {
 	NewWriter(options ...WriterOption) ObjectWriter
 
 	// Open creates an io.ReadSeeker for reading object with a specified ID.
-	Open(objectID ObjectID) (io.ReadSeeker, error)
+	Open(objectID ObjectID) (ObjectReader, error)
 
 	Flush() error
 	Storage() blob.Storage
@@ -102,7 +108,7 @@ func (repo *repository) NewWriter(options ...WriterOption) ObjectWriter {
 	return result
 }
 
-func (repo *repository) Open(objectID ObjectID) (io.ReadSeeker, error) {
+func (repo *repository) Open(objectID ObjectID) (ObjectReader, error) {
 	r, err := repo.newRawReader(objectID)
 	if err != nil {
 		return nil, err
@@ -124,6 +130,7 @@ func (repo *repository) Open(objectID ObjectID) (io.ReadSeeker, error) {
 			totalLength: totalLength,
 		}, nil
 	}
+
 	return r, err
 }
 
@@ -204,7 +211,7 @@ func (repo *repository) hashBuffer(data []byte) ([]byte, []byte) {
 	return repo.idFormat.hashBuffer(data, repo.format.Secret)
 }
 
-func (repo *repository) hashBufferForWriting(buffer *bytes.Buffer, prefix string) (ObjectID, blob.BlockReader, error) {
+func (repo *repository) hashBufferForWriting(buffer *bytes.Buffer, prefix string) (ObjectID, blob.ReaderWithLength, error) {
 	var data []byte
 	if buffer != nil {
 		data = buffer.Bytes()
@@ -232,7 +239,7 @@ func (repo *repository) hashBufferForWriting(buffer *bytes.Buffer, prefix string
 	atomic.AddInt64(&repo.stats.HashedBytes, int64(len(data)))
 
 	if buffer == nil {
-		return objectID, blob.NewBlockReader(bytes.NewBuffer(nil)), nil
+		return objectID, blob.NewReader(bytes.NewBuffer(nil)), nil
 	}
 
 	blockReader := repo.bufferManager.returnBufferOnClose(buffer)
@@ -309,10 +316,10 @@ func (repo *repository) flattenListChunk(
 	return seekTable, nil
 }
 
-func (repo *repository) newRawReader(objectID ObjectID) (io.ReadSeeker, error) {
+func (repo *repository) newRawReader(objectID ObjectID) (ObjectReader, error) {
 	inline := objectID.InlineData()
 	if inline != nil {
-		return bytes.NewReader(inline), nil
+		return newObjectReaderWithData(inline), nil
 	}
 
 	blockID := objectID.BlockID()
@@ -328,7 +335,7 @@ func (repo *repository) newRawReader(objectID ObjectID) (io.ReadSeeker, error) {
 		if err := repo.verifyChecksum(payload, objectID.BlockID()); err != nil {
 			return nil, err
 		}
-		return bytes.NewReader(payload), nil
+		return newObjectReaderWithData(payload), nil
 	}
 
 	cryptoKey, err := hex.DecodeString(string(objectID.EncryptionInfo()))
@@ -353,7 +360,7 @@ func (repo *repository) newRawReader(objectID ObjectID) (io.ReadSeeker, error) {
 		return nil, err
 	}
 
-	return bytes.NewReader(payload), nil
+	return newObjectReaderWithData(payload), nil
 }
 
 func (repo *repository) verifyChecksum(data []byte, blockID string) error {
@@ -366,4 +373,16 @@ func (repo *repository) verifyChecksum(data []byte, blockID string) error {
 
 	atomic.AddInt32(&repo.stats.ValidBlocks, 1)
 	return nil
+}
+
+type readerWithData struct {
+	io.ReadSeeker
+}
+
+func (rwd *readerWithData) Close() error {
+	return nil
+}
+
+func newObjectReaderWithData(data []byte) ObjectReader {
+	return &readerWithData{bytes.NewReader(data)}
 }

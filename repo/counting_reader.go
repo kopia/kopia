@@ -8,20 +8,20 @@ import (
 
 // countingReader wraps an io.ReadCloser and counts bytes read.
 type countingReader struct {
-	blob.BlockReader
+	blob.ReaderWithLength
 
 	counter *int64
 }
 
 func (cr *countingReader) Read(b []byte) (int, error) {
-	n, err := cr.BlockReader.Read(b)
+	n, err := cr.ReaderWithLength.Read(b)
 	atomic.AddInt64(cr.counter, int64(n))
 	return n, err
 }
 
-func newCountingReader(source blob.BlockReader, counter *int64) blob.BlockReader {
+func newCountingReader(source blob.ReaderWithLength, counter *int64) blob.ReaderWithLength {
 	return &countingReader{
-		BlockReader: source,
-		counter:     counter,
+		ReaderWithLength: source,
+		counter:          counter,
 	}
 }

@@ -9,7 +9,7 @@ import (
 
 // encryptingReader wraps an io.Reader and returns data encrypted using a stream cipher
 type encryptingReader struct {
-	source blob.BlockReader
+	source blob.ReaderWithLength
 	closer io.Closer
 
 	cipher cipher.Stream
@@ -50,7 +50,7 @@ func (er *encryptingReader) Close() error {
 	return nil
 }
 
-func newEncryptingReader(source blob.BlockReader, c cipher.Stream) blob.BlockReader {
+func newEncryptingReader(source blob.ReaderWithLength, c cipher.Stream) blob.ReaderWithLength {
 	return &encryptingReader{
 		source: source,
 		cipher: c,

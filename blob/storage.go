@@ -17,7 +17,9 @@ const (
 
 // Storage encapsulates API for connecting to blob storage
 type Storage interface {
-	PutBlock(id string, data BlockReader, options PutOptions) error
+	io.Closer
+
+	PutBlock(id string, data ReaderWithLength, options PutOptions) error
 	DeleteBlock(id string) error
 	Flush() error
 	BlockExists(id string) (bool, error)
@@ -26,22 +28,22 @@ type Storage interface {
 	Configuration() StorageConfiguration
 }
 
-// BlockReader supports reading from a block and returns its length.
-type BlockReader interface {
+// ReaderWithLength supports reading from a block and returns its length.
+type ReaderWithLength interface {
 	io.ReadCloser
 	Len() int
 }
 
-type bytesBlockReader struct {
+type bytesReaderWithLength struct {
 	*bytes.Buffer
 }
 
-// NewBlockReader wraps the provided buffer and returns a BlockReader.
-func NewBlockReader(b *bytes.Buffer) BlockReader {
-	return &bytesBlockReader{b}
+// NewReader wraps the provided buffer and returns a ReaderWithLength.
+func NewReader(b *bytes.Buffer) ReaderWithLength {
+	return &bytesReaderWithLength{b}
 }
 
-func (bbr *bytesBlockReader) Close() error {
+func (bbr *bytesReaderWithLength) Close() error {
 	return nil
 }
 

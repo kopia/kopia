@@ -31,7 +31,7 @@ func (mgr *bufferManager) returnBuffer(b *bytes.Buffer) {
 	mgr.pool.Put(b)
 }
 
-func (mgr *bufferManager) returnBufferOnClose(b *bytes.Buffer) blob.BlockReader {
+func (mgr *bufferManager) returnBufferOnClose(b *bytes.Buffer) blob.ReaderWithLength {
 	return &returnOnCloser{
 		buffer: b,
 		mgr:    mgr,

@@ -24,7 +24,7 @@ type writeBackRequest struct {
 	debugInfo     string
 }
 
-func (wb *writeBackStorage) PutBlock(blockID string, data BlockReader, options PutOptions) error {
+func (wb *writeBackStorage) PutBlock(blockID string, data ReaderWithLength, options PutOptions) error {
 	err := wb.getDeferredError()
 	if err != nil {
 		data.Close()

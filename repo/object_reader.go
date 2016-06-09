@@ -152,3 +152,7 @@ func (r *objectReader) Seek(offset int64, whence int) (int64, error) {
 
 	return r.currentPosition, nil
 }
+
+func (r *objectReader) Close() error {
+	return nil
+}

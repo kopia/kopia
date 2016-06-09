@@ -9,12 +9,12 @@ type writeLimitStorage struct {
 }
 
 type writeLimitReadCloser struct {
-	BlockReader
+	ReaderWithLength
 	repo *writeLimitStorage
 }
 
 func (s *writeLimitReadCloser) Read(b []byte) (int, error) {
-	n, err := s.BlockReader.Read(b)
+	n, err := s.ReaderWithLength.Read(b)
 	v := atomic.AddInt64(&s.repo.remainingBytes, int64(-n))
 	if v < 0 {
 
@@ -22,10 +22,10 @@ func (s *writeLimitReadCloser) Read(b []byte) (int, error) {
 	return n, err
 }
 
-func (s *writeLimitStorage) PutBlock(id string, data BlockReader, options PutOptions) error {
+func (s *writeLimitStorage) PutBlock(id string, data ReaderWithLength, options PutOptions) error {
 	return s.Storage.PutBlock(id, &writeLimitReadCloser{
-		BlockReader: data,
-		repo:        s,
+		ReaderWithLength: data,
+		repo:             s,
 	}, options)
 }
 
