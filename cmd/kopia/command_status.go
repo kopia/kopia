@@ -20,17 +20,17 @@ func runRepositoryInfoCommand(context *kingpin.ParseContext) error {
 		return err
 	}
 
-	rc, err := v.RepositoryConfig()
+	f, err := v.RepositoryFormat()
 	if err != nil {
 		return err
 	}
 
 	fmt.Println("Repository:")
-	fmt.Println("  Version:         ", rc.Format.Version)
-	fmt.Println("  Secret:          ", len(rc.Format.Secret), "bytes")
-	fmt.Println("  ID Format:       ", rc.Format.ObjectFormat)
-	fmt.Println("  Blob Size:       ", rc.Format.MaxBlobSize)
-	fmt.Println("  Inline Blob Size:", rc.Format.MaxInlineBlobSize)
+	fmt.Println("  Version:         ", f.Version)
+	fmt.Println("  Secret:          ", len(f.Secret), "bytes")
+	fmt.Println("  ID Format:       ", f.ObjectFormat)
+	fmt.Println("  Blob Size:       ", f.MaxBlobSize)
+	fmt.Println("  Inline Blob Size:", f.MaxInlineBlobSize)
 
 	return nil
 }

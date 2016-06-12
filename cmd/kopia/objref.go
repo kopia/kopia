@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/fs"
-
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/vault"
 )

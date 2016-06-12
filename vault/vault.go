@@ -157,7 +157,17 @@ func (v *Vault) deriveKey(purpose []byte, key []byte) error {
 	return err
 }
 
-func (v *Vault) SetRepository(rc RepositoryConfig) error {
+func (v *Vault) SetRepository(st blob.Storage, f *repo.Format) error {
+	cip, ok := st.(blob.ConnectionInfoProvider)
+	if !ok {
+		return errors.New("repository does not support persisting configuration")
+	}
+
+	rc := repositoryConfig{
+		Connection: cip.ConnectionInfo(),
+		Format:     f,
+	}
+
 	b, err := json.Marshal(&rc)
 	if err != nil {
 		return err
@@ -166,8 +176,8 @@ func (v *Vault) SetRepository(rc RepositoryConfig) error {
 	return v.writeEncryptedBlock(repositoryConfigBlock, b)
 }
 
-func (v *Vault) RepositoryConfig() (*RepositoryConfig, error) {
-	var rc RepositoryConfig
+func (v *Vault) repositoryConfig() (*repositoryConfig, error) {
+	var rc repositoryConfig
 
 	b, err := v.readEncryptedBlock(repositoryConfigBlock)
 	if err != nil {
@@ -182,8 +192,17 @@ func (v *Vault) RepositoryConfig() (*RepositoryConfig, error) {
 	return &rc, nil
 }
 
+func (v *Vault) RepositoryFormat() (*repo.Format, error) {
+	rc, err := v.repositoryConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	return rc.Format, nil
+}
+
 func (v *Vault) OpenRepository() (repo.Repository, error) {
-	rc, err := v.RepositoryConfig()
+	rc, err := v.repositoryConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -312,19 +331,15 @@ func (v *Vault) Remove(id string) error {
 
 // Create creates a Vault in the specified storage.
 func Create(storage blob.Storage, format *Format, creds Credentials) (*Vault, error) {
-	if err := format.ensureUniqueID(); err != nil {
-		return nil, err
-	}
-
 	v := Vault{
 		storage: storage,
 		format:  *format,
 	}
 	v.format.Version = "1"
-	if err := v.format.ensureUniqueID(); err != nil {
+	v.format.UniqueID = make([]byte, 32)
+	if _, err := io.ReadFull(rand.Reader, v.format.UniqueID); err != nil {
 		return nil, err
 	}
-
 	v.masterKey = creds.getMasterKey(v.format.UniqueID)
 
 	formatBytes, err := json.Marshal(&v.format)
@@ -376,13 +391,13 @@ func Open(storage blob.Storage, creds Credentials) (*Vault, error) {
 func OpenWithToken(token string) (*Vault, error) {
 	b, err := base64.RawURLEncoding.DecodeString(token)
 	if err != nil {
-		return nil, fmt.Errorf("invalid vault token")
+		return nil, fmt.Errorf("invalid vault base64 token: %v", err)
 	}
 
 	var vc vaultConfig
 	err = json.Unmarshal(b, &vc)
 	if err != nil {
-		return nil, fmt.Errorf("invalid vault token")
+		return nil, fmt.Errorf("invalid vault json token: %v", err)
 	}
 
 	st, err := blob.NewStorage(vc.ConnectionInfo)
