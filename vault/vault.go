@@ -50,6 +50,16 @@ type repositoryConfig struct {
 	Format     *repo.Format         `json:"format"`
 }
 
+// Storage returns the underlying blob storage that stores the repository.
+func (v *Vault) Storage() blob.Storage {
+	return v.storage
+}
+
+// Format returns the vault format.
+func (v *Vault) Format() Format {
+	return v.format
+}
+
 // Put saves the specified content in a vault under a specified name.
 func (v *Vault) Put(itemID string, content []byte) error {
 	if err := checkReservedName(itemID); err != nil {

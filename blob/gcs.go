@@ -187,6 +187,10 @@ func (gcs *gcsStorage) Close() error {
 	return nil
 }
 
+func (gcs *gcsStorage) String() string {
+	return fmt.Sprintf("gcs://%v/%v", gcs.BucketName, gcs.Prefix)
+}
+
 func tokenFromFile(file string) (*oauth2.Token, error) {
 	f, err := os.Open(file)
 	if err != nil {

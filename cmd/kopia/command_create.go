@@ -17,8 +17,8 @@ var (
 	createCommandRepository = createCommand.Flag("repository", "Repository path.").Default("colocated").String()
 	createObjectFormat      = createCommand.Flag("repo-format", "Format of repository objects.").PlaceHolder("FORMAT").Default("sha256-fold160-aes128").Enum(supportedObjectFormats()...)
 
-	createMaxBlobSize           = createCommand.Flag("max-blob-size", "Maximum size of a data chunk.").PlaceHolder("BYTES").Default("20000000").Int()
-	createInlineBlobSize        = createCommand.Flag("inline-blob-size", "Maximum size of an inline data chunk.").PlaceHolder("BYTES").Default("32768").Int()
+	createMaxBlobSize           = createCommand.Flag("max-blob-size", "Maximum size of a data chunk.").PlaceHolder("KB").Default("20480").Int()
+	createInlineBlobSize        = createCommand.Flag("inline-blob-size", "Maximum size of an inline data chunk.").PlaceHolder("KB").Default("32").Int()
 	createVaultEncryptionFormat = createCommand.Flag("vault-encryption", "Vault encryption.").PlaceHolder("FORMAT").Default("aes-256").Enum(supportedVaultEncryptionFormats()...)
 	createOverwrite             = createCommand.Flag("overwrite", "Overwrite existing data (DANGEROUS).").Bool()
 	createOnly                  = createCommand.Flag("create-only", "Create the vault, but don't connect to it.").Short('c').Bool()
@@ -46,8 +46,8 @@ func repositoryFormat() (*repo.Format, error) {
 	f := &repo.Format{
 		Version:           "1",
 		Secret:            make([]byte, 32),
-		MaxBlobSize:       *createMaxBlobSize,
-		MaxInlineBlobSize: *createInlineBlobSize,
+		MaxBlobSize:       *createMaxBlobSize * 1024,
+		MaxInlineBlobSize: *createInlineBlobSize * 1024,
 		ObjectFormat:      *createObjectFormat,
 	}
 
