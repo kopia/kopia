@@ -13,15 +13,19 @@ import (
 // The string can be:
 // - backupID (vxxxxxx/12312312)
 // -
-func ParseObjectID(id string, vlt vault.Reader) (repo.ObjectID, error) {
+func parseObjectID(id string, vlt *vault.Vault) (repo.ObjectID, error) {
 	head, tail := splitHeadTail(id)
 	if len(head) == 0 {
 		return "", fmt.Errorf("invalid object ID: %v", id)
 	}
 
-	oid, err := vlt.ResolveObjectID(head)
+	if !strings.HasPrefix(id, vault.StoredObjectIDPrefix) {
+		return repo.ParseObjectID(id)
+	}
+
+	oid, err := vlt.GetObjectID(head)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("can't retrieve vault object ID %v: %v", head, err)
 	}
 
 	if tail == "" {

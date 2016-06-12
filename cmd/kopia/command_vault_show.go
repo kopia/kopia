@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"os"
 
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -22,18 +21,12 @@ func showVaultObject(context *kingpin.ParseContext) error {
 		return err
 	}
 
-	var obj map[string]interface{}
-
-	if err := v.Get(*vaultShowID, &obj); err != nil {
-		return err
-	}
-
-	data, err := json.MarshalIndent(obj, "", "  ")
+	b, err := v.Get(*vaultShowID)
 	if err != nil {
 		return err
 	}
 
-	os.Stdout.Write(data)
+	os.Stdout.Write(b)
 
 	return nil
 }

@@ -29,7 +29,7 @@ func runShowCommand(context *kingpin.ParseContext) error {
 	}
 
 	for _, oidString := range *showObjectIDs {
-		oid, err := ParseObjectID(oidString, vlt)
+		oid, err := parseObjectID(oidString, vlt)
 		if err != nil {
 			return err
 		}

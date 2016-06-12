@@ -107,8 +107,8 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 	var count int
 
 	for _, n := range previous {
-		var m backup.Manifest
-		if err := vlt.Get(n, &m); err != nil {
+		m, err := loadBackupManifest(vlt, n)
+		if err != nil {
 			return fmt.Errorf("error loading previous backup: %v", err)
 		}
 

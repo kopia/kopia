@@ -47,7 +47,7 @@ func runMountCommand(context *kingpin.ParseContext) error {
 		fuse.VolumeName("Kopia"),
 	)
 
-	oid, err := ParseObjectID(*mountObjectID, vlt)
+	oid, err := parseObjectID(*mountObjectID, vlt)
 	if err != nil {
 		return err
 	}

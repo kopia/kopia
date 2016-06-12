@@ -108,22 +108,18 @@ func runCreateCommand(context *kingpin.ParseContext) error {
 		return fmt.Errorf("unable to get credentials: %v", err)
 	}
 
-	fmt.Printf(
-		"Initializing vault with encryption '%v'.\n",
-		vf.Encryption)
-	vlt, err := vault.Create(vaultStorage, vf, creds)
-	if err != nil {
-		return fmt.Errorf("cannot create vault: %v", err)
-	}
-
 	// Make repository to make sure the format is supported.
 	_, err = repo.NewRepository(repositoryStorage, repoFormat)
 	if err != nil {
 		return fmt.Errorf("unable to initialize repository: %v", err)
 	}
 
-	if err := vlt.SetRepository(repositoryStorage, repoFormat); err != nil {
-		return fmt.Errorf("unable to save repository configuration in vault: %v", err)
+	fmt.Printf(
+		"Initializing vault with encryption '%v'.\n",
+		vf.Encryption)
+	vlt, err := vault.Create(vaultStorage, vf, creds, repositoryStorage, repoFormat)
+	if err != nil {
+		return fmt.Errorf("cannot create vault: %v", err)
 	}
 
 	if !*createOnly {

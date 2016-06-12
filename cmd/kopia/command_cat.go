@@ -19,7 +19,7 @@ func runCatCommand(context *kingpin.ParseContext) error {
 		return err
 	}
 
-	oid, err := ParseObjectID(*catCommandPath, vlt)
+	oid, err := parseObjectID(*catCommandPath, vlt)
 	if err != nil {
 		return err
 	}

@@ -23,7 +23,7 @@ func runLSCommand(context *kingpin.ParseContext) error {
 		return err
 	}
 
-	oid, err := ParseObjectID(*lsCommandPath, vlt)
+	oid, err := parseObjectID(*lsCommandPath, vlt)
 	if err != nil {
 		return err
 	}

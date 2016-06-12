@@ -8,13 +8,11 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"hash"
 	"io"
-	"strings"
 
 	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/repo"
@@ -23,18 +21,18 @@ import (
 )
 
 const (
-	formatBlock           = "format"
-	checksumBlock         = "checksum"
+	formatBlockID         = "format"
+	checksumBlockID       = "checksum"
 	repositoryConfigBlock = "repo"
-
-	storedObjectIDPrefix      = "v"
-	storedObjectIDLengthBytes = 8
 )
 
 var (
 	purposeAESKey         = []byte("AES")
 	purposeChecksumSecret = []byte("CHECKSUM")
 )
+
+// ErrItemNotFound is an error returned when a vault item cannot be found.
+var ErrItemNotFound = errors.New("item not found")
 
 // Vault is a secure storage for the secrets.
 type Vault struct {
@@ -43,7 +41,13 @@ type Vault struct {
 	format    Format
 }
 
-func (v *Vault) writeEncryptedBlock(name string, content []byte) error {
+type repositoryConfig struct {
+	Connection blob.ConnectionInfo `json:"connection"`
+	Format     *repo.Format        `json:"format"`
+}
+
+// Put saves the specified content in a vault under a specified name.
+func (v *Vault) Put(itemID string, content []byte) error {
 	blk, err := v.newCipher()
 	if err != nil {
 		return err
@@ -73,11 +77,11 @@ func (v *Vault) writeEncryptedBlock(name string, content []byte) error {
 		content = cipherText
 	}
 
-	return v.storage.PutBlock(name, blob.NewReader(bytes.NewBuffer(content)), blob.PutOptionsOverwrite)
+	return v.storage.PutBlock(itemID, blob.NewReader(bytes.NewBuffer(content)), blob.PutOptionsOverwrite)
 }
 
-func (v *Vault) readEncryptedBlock(name string) ([]byte, error) {
-	content, err := v.storage.GetBlock(name)
+func (v *Vault) readEncryptedBlock(itemID string) ([]byte, error) {
+	content, err := v.storage.GetBlock(itemID)
 	if err != nil {
 		return nil, err
 	}
@@ -157,26 +161,7 @@ func (v *Vault) deriveKey(purpose []byte, key []byte) error {
 	return err
 }
 
-func (v *Vault) SetRepository(st blob.Storage, f *repo.Format) error {
-	cip, ok := st.(blob.ConnectionInfoProvider)
-	if !ok {
-		return errors.New("repository does not support persisting configuration")
-	}
-
-	rc := repositoryConfig{
-		Connection: cip.ConnectionInfo(),
-		Format:     f,
-	}
-
-	b, err := json.Marshal(&rc)
-	if err != nil {
-		return err
-	}
-
-	return v.writeEncryptedBlock(repositoryConfigBlock, b)
-}
-
-func (v *Vault) repositoryConfig() (*repositoryConfig, error) {
+func (v *Vault) repoConfig() (*repositoryConfig, error) {
 	var rc repositoryConfig
 
 	b, err := v.readEncryptedBlock(repositoryConfigBlock)
@@ -192,8 +177,9 @@ func (v *Vault) repositoryConfig() (*repositoryConfig, error) {
 	return &rc, nil
 }
 
+// RepositoryFormat returns the format of the repository.
 func (v *Vault) RepositoryFormat() (*repo.Format, error) {
-	rc, err := v.repositoryConfig()
+	rc, err := v.repoConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -201,8 +187,9 @@ func (v *Vault) RepositoryFormat() (*repo.Format, error) {
 	return rc.Format, nil
 }
 
+// OpenRepository connects to the repository the vault is associated with.
 func (v *Vault) OpenRepository() (repo.Repository, error) {
-	rc, err := v.repositoryConfig()
+	rc, err := v.repoConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -215,13 +202,13 @@ func (v *Vault) OpenRepository() (repo.Repository, error) {
 	return repo.NewRepository(storage, rc.Format)
 }
 
-func (v *Vault) GetRaw(id string) ([]byte, error) {
-	return v.readEncryptedBlock(id)
+// Get returns the contents of a specified vault item.
+func (v *Vault) Get(itemID string) ([]byte, error) {
+	return v.readEncryptedBlock(itemID)
 }
 
-// Get deserializes JSON data stored in the vault into the specified content structure.
-func (v *Vault) Get(id string, content interface{}) error {
-	j, err := v.readEncryptedBlock(id)
+func (v *Vault) getJSON(itemID string, content interface{}) error {
+	j, err := v.readEncryptedBlock(itemID)
 	if err != nil {
 		return nil
 	}
@@ -230,14 +217,15 @@ func (v *Vault) Get(id string, content interface{}) error {
 }
 
 // Put stores the contents of an item stored in a vault with a given ID.
-func (v *Vault) Put(id string, content interface{}) error {
+func (v *Vault) putJSON(id string, content interface{}) error {
 	j, err := json.Marshal(content)
 	if err != nil {
 		return err
 	}
-	return v.writeEncryptedBlock(id, j)
+	return v.Put(id, j)
 }
 
+// List returns the list of vault items matching the specified prefix.
 func (v *Vault) List(prefix string) ([]string, error) {
 	var result []string
 
@@ -276,90 +264,69 @@ func (v *Vault) Token() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
-type objectIDData struct {
-	ObjectID string `json:"objectID"`
-}
-
-func (v *Vault) SaveObjectID(oid repo.ObjectID) (string, error) {
-	h := hmac.New(sha256.New, v.format.UniqueID)
-	h.Write([]byte(oid))
-	sum := h.Sum(nil)
-	for i := storedObjectIDLengthBytes; i < len(sum); i++ {
-		sum[i%storedObjectIDLengthBytes] ^= sum[i]
-	}
-	sum = sum[0:storedObjectIDLengthBytes]
-	key := storedObjectIDPrefix + hex.EncodeToString(sum)
-
-	var d objectIDData
-	d.ObjectID = string(oid)
-
-	if err := v.Put(key, &d); err != nil {
-		return "", err
-	}
-
-	return key, nil
-}
-
-func (v *Vault) ResolveObjectID(id string) (repo.ObjectID, error) {
-	if !strings.HasPrefix(id, storedObjectIDPrefix) {
-		return repo.ParseObjectID(id)
-	}
-
-	matches, err := v.List(id)
-	if err != nil {
-		return "", err
-	}
-
-	switch len(matches) {
-	case 0:
-		return "", fmt.Errorf("object not found: %v", id)
-	case 1:
-		var d objectIDData
-		if err := v.Get(matches[0], &d); err != nil {
-			return "", err
-		}
-		return repo.ParseObjectID(d.ObjectID)
-
+// Remove deletes the specified vault item.
+func (v *Vault) Remove(itemID string) error {
+	switch itemID {
+	case formatBlockID, repositoryConfigBlock, checksumBlockID:
+		return fmt.Errorf("item cannot be deleted: %v", itemID)
 	default:
-		return "", fmt.Errorf("ambiguous object ID: %v", id)
+		return v.storage.DeleteBlock(itemID)
 	}
 }
 
-func (v *Vault) Remove(id string) error {
-	return v.storage.DeleteBlock(id)
-}
+// Create initializes a Vault attached to the specified repository.
+func Create(
+	vaultStorage blob.Storage,
+	vaultFormat *Format,
+	vaultCreds Credentials,
+	repoStorage blob.Storage,
+	repoFormat *repo.Format,
+) (*Vault, error) {
+	cip, ok := repoStorage.(blob.ConnectionInfoProvider)
+	if !ok {
+		return nil, errors.New("repository does not support persisting configuration")
+	}
 
-// Create creates a Vault in the specified storage.
-func Create(storage blob.Storage, format *Format, creds Credentials) (*Vault, error) {
 	v := Vault{
-		storage: storage,
-		format:  *format,
+		storage: vaultStorage,
+		format:  *vaultFormat,
 	}
 	v.format.Version = "1"
 	v.format.UniqueID = make([]byte, 32)
 	if _, err := io.ReadFull(rand.Reader, v.format.UniqueID); err != nil {
 		return nil, err
 	}
-	v.masterKey = creds.getMasterKey(v.format.UniqueID)
+	v.masterKey = vaultCreds.getMasterKey(v.format.UniqueID)
 
 	formatBytes, err := json.Marshal(&v.format)
 	if err != nil {
 		return nil, err
 	}
 
-	storage.PutBlock(formatBlock, blob.NewReader(bytes.NewBuffer(formatBytes)), blob.PutOptionsOverwrite)
+	vaultStorage.PutBlock(
+		formatBlockID,
+		blob.NewReader(bytes.NewBuffer(formatBytes)),
+		blob.PutOptionsOverwrite,
+	)
 
+	// Write encrypted checksum block consisting of random bytes with the proper checksum.
 	vv := make([]byte, 512)
 	if _, err := io.ReadFull(rand.Reader, vv); err != nil {
 		return nil, err
 	}
-
-	err = v.writeEncryptedBlock(checksumBlock, vv)
-	if err != nil {
+	if err := v.Put(checksumBlockID, vv); err != nil {
 		return nil, err
 	}
 
-	return Open(storage, creds)
+	// Write encrypted repository configuration block.
+	if err := v.putJSON(repositoryConfigBlock, &repositoryConfig{
+		Connection: cip.ConnectionInfo(),
+		Format:     repoFormat,
+	}); err != nil {
+		return nil, err
+	}
+
+	return &v, nil
 }
 
 // Open opens a vault.
@@ -368,7 +335,7 @@ func Open(storage blob.Storage, creds Credentials) (*Vault, error) {
 		storage: storage,
 	}
 
-	f, err := storage.GetBlock(formatBlock)
+	f, err := storage.GetBlock(formatBlockID)
 	if err != nil {
 		return nil, err
 	}
@@ -380,7 +347,7 @@ func Open(storage blob.Storage, creds Credentials) (*Vault, error) {
 
 	v.masterKey = creds.getMasterKey(v.format.UniqueID)
 
-	if _, err := v.readEncryptedBlock(checksumBlock); err != nil {
+	if _, err := v.readEncryptedBlock(checksumBlockID); err != nil {
 		return nil, err
 	}
 

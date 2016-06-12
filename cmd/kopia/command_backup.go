@@ -97,11 +97,7 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 		var oldManifest *backup.Manifest
 
 		if len(previous) > 0 {
-			var m backup.Manifest
-			if err := vlt.Get(previous[0], &m); err != nil {
-				return fmt.Errorf("error loading previous backup: %v", err)
-			}
-			oldManifest = &m
+			oldManifest, err = loadBackupManifest(vlt, previous[0])
 		}
 
 		if err := bgen.Backup(&manifest, oldManifest); err != nil {
@@ -118,7 +114,7 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 		fileID := fmt.Sprintf("B%v.%08x.%x", manifest.SourceID(), math.MaxInt64-manifest.StartTime.UnixNano(), uniqueID)
 		manifest.Handle = handleID
 
-		err = vlt.Put(fileID, &manifest)
+		err = saveBackupManifest(vlt, fileID, &manifest)
 		if err != nil {
 			return fmt.Errorf("cannot save manifest: %v", err)
 		}
