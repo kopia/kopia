@@ -59,6 +59,6 @@ func (vlt *Vault) GetObjectID(id string) (repo.ObjectID, error) {
 		return repo.ParseObjectID(d.ObjectID)
 
 	default:
-		return "", fmt.Errorf("ambiguous object ID: %vlt", id)
+		return "", fmt.Errorf("ambiguous object ID: %v", id)
 	}
 }

@@ -8,11 +8,6 @@ import (
 	"github.com/kopia/kopia/vault"
 )
 
-const (
-	storedObjectIDPrefix      = "v"
-	storedObjectIDLengthBytes = 8
-)
-
 func loadBackupManifest(vlt *vault.Vault, manifestID string) (*backup.Manifest, error) {
 	b, err := vlt.Get(manifestID)
 	if err != nil {

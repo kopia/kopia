@@ -19,7 +19,7 @@ const (
 	MinMasterKeyLength = 16
 )
 
-// Credentials em
+// Credentials encapsulates credentials used to encrypt a Vault.
 type Credentials interface {
 	getMasterKey(salt []byte) []byte
 }
