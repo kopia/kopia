@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"fmt"
 	"sync/atomic"
 
 	"github.com/kopia/kopia/blob"
@@ -17,6 +18,10 @@ func (cr *countingReader) Read(b []byte) (int, error) {
 	n, err := cr.ReaderWithLength.Read(b)
 	atomic.AddInt64(cr.counter, int64(n))
 	return n, err
+}
+
+func (cr *countingReader) String() string {
+	return fmt.Sprintf("countingReader(%v)", cr.ReaderWithLength)
 }
 
 func newCountingReader(source blob.ReaderWithLength, counter *int64) blob.ReaderWithLength {

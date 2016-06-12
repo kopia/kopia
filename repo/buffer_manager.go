@@ -2,6 +2,7 @@ package repo
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 	"sync"
 	"sync/atomic"
@@ -19,7 +20,9 @@ type bufferManager struct {
 // newBuffer returns a new or reused bytes.Buffer.
 func (mgr *bufferManager) newBuffer() *bytes.Buffer {
 	atomic.AddInt32(&mgr.outstandingCount, 1)
+	//log.Printf("getting buffer")
 
+	//debug.PrintStack()
 	b := mgr.pool.Get().(*bytes.Buffer)
 	b.Reset()
 	return b
@@ -27,6 +30,7 @@ func (mgr *bufferManager) newBuffer() *bytes.Buffer {
 
 // returnBuffer returns the give buffer to the pool
 func (mgr *bufferManager) returnBuffer(b *bytes.Buffer) {
+	//log.Printf("returning buffer")
 	atomic.AddInt32(&mgr.outstandingCount, -1)
 	mgr.pool.Put(b)
 }
@@ -40,7 +44,7 @@ func (mgr *bufferManager) returnBufferOnClose(b *bytes.Buffer) blob.ReaderWithLe
 
 func (mgr *bufferManager) close() {
 	if mgr.outstandingCount != 0 {
-		log.Println("WARNING: Found buffer leaks.")
+		log.Printf("WARNING: Found %v buffer leaks.", mgr.outstandingCount)
 	}
 }
 
@@ -60,6 +64,10 @@ func (roc *returnOnCloser) Close() error {
 
 func (roc *returnOnCloser) Len() int {
 	return roc.buffer.Len()
+}
+
+func (roc *returnOnCloser) String() string {
+	return fmt.Sprintf("returnOnClose(len=%v)", roc.Len())
 }
 
 func newBufferManager(blockSize int) *bufferManager {

@@ -2,6 +2,7 @@ package blob
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"time"
 )
@@ -51,6 +52,10 @@ func NewReader(b *bytes.Buffer) ReaderWithLength {
 
 func (bbr *bytesReaderWithLength) Close() error {
 	return nil
+}
+
+func (bbr *bytesReaderWithLength) String() string {
+	return fmt.Sprintf("buffer(len=%v)", bbr.Len())
 }
 
 // BlockMetadata represents metadata about a single block in a blob.

@@ -38,6 +38,7 @@ func (w *objectWriter) Close() error {
 		w.repo.bufferManager.returnBuffer(w.buffer)
 		w.buffer = nil
 	}
+
 	if w.listWriter != nil {
 		w.listWriter.Close()
 		w.listWriter = nil
@@ -85,17 +86,20 @@ func (w *objectWriter) Write(data []byte) (n int, err error) {
 }
 
 func (w *objectWriter) flushBuffer(force bool) error {
+	// log.Printf("flushing bufer")
+	// defer log.Printf("flushed")
 	if w.buffer != nil || force {
 		var length int
 		if w.buffer != nil {
 			length = w.buffer.Len()
 		}
 
-		objectID, blockReader, err := w.repo.hashBufferForWriting(w.buffer, string(w.objectType)+w.prefix)
+		b := w.buffer
+		w.buffer = nil
+		objectID, blockReader, err := w.repo.hashBufferForWriting(b, string(w.objectType)+w.prefix)
 		if err != nil {
 			return err
 		}
-		w.buffer = nil
 
 		if err := w.repo.storage.PutBlock(objectID.BlockID(), blockReader, blob.PutOptionsDefault); err != nil {
 			return fmt.Errorf(

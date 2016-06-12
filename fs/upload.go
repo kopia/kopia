@@ -43,7 +43,7 @@ type Uploader interface {
 }
 
 type uploader struct {
-	mgr    repo.Repository
+	repo   repo.Repository
 	lister Lister
 
 	cancelled int32
@@ -61,7 +61,7 @@ func (u *uploader) uploadFileInternal(path string, forceStored bool) (*Entry, ui
 	}
 	defer file.Close()
 
-	writer := u.mgr.NewWriter(
+	writer := u.repo.NewWriter(
 		repo.WithDescription("FILE:" + path),
 	)
 	defer writer.Close()
@@ -102,12 +102,12 @@ func (u *uploader) UploadDir(path string, previousManifestID repo.ObjectID) (*Up
 	var err error
 
 	if previousManifestID != "" {
-		if r, err := u.mgr.Open(previousManifestID); err == nil {
+		if r, err := u.repo.Open(previousManifestID); err == nil {
 			mr.open(r)
 		}
 	}
 
-	mw := u.mgr.NewWriter(
+	mw := u.repo.NewWriter(
 		repo.WithDescription("HASHCACHE:"+path),
 		repo.WithBlockNamePrefix("H"),
 	)
@@ -139,7 +139,7 @@ func (u *uploader) uploadDirInternal(
 		return "", 0, false, err
 	}
 
-	writer := u.mgr.NewWriter(
+	writer := u.repo.NewWriter(
 		repo.WithDescription("DIR:" + path),
 	)
 
@@ -262,13 +262,13 @@ func (u *uploader) Cancel() {
 }
 
 // NewUploader creates new Uploader object for the specified Repository
-func NewUploader(mgr repo.Repository) (Uploader, error) {
-	return newUploaderLister(mgr, &filesystemLister{})
+func NewUploader(repo repo.Repository) (Uploader, error) {
+	return newUploaderLister(repo, &filesystemLister{})
 }
 
-func newUploaderLister(mgr repo.Repository, lister Lister) (Uploader, error) {
+func newUploaderLister(repo repo.Repository, lister Lister) (Uploader, error) {
 	u := &uploader{
-		mgr:    mgr,
+		repo:   repo,
 		lister: lister,
 	}
 

@@ -2,6 +2,7 @@ package repo
 
 import (
 	"crypto/cipher"
+	"fmt"
 	"io"
 
 	"github.com/kopia/kopia/blob"
@@ -9,14 +10,14 @@ import (
 
 // encryptingReader wraps an io.Reader and returns data encrypted using a stream cipher
 type encryptingReader struct {
-	source blob.ReaderWithLength
+	source io.Reader
 	closer io.Closer
-
 	cipher cipher.Stream
+	length int
 }
 
 func (er *encryptingReader) Len() int {
-	return er.source.Len()
+	return er.length
 }
 
 func (er *encryptingReader) Read(b []byte) (int, error) {
@@ -43,16 +44,22 @@ func (er *encryptingReader) Read(b []byte) (int, error) {
 }
 
 func (er *encryptingReader) Close() error {
-	if er.source != nil {
-		return er.source.Close()
+	if er.closer != nil {
+		return er.closer.Close()
 	}
 
 	return nil
 }
 
+func (er *encryptingReader) String() string {
+	return fmt.Sprintf("encryptingReader(%v)", er.source)
+}
+
 func newEncryptingReader(source blob.ReaderWithLength, c cipher.Stream) blob.ReaderWithLength {
 	return &encryptingReader{
 		source: source,
+		closer: source,
+		length: source.Len(),
 		cipher: c,
 	}
 }
