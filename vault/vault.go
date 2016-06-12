@@ -25,7 +25,7 @@ const (
 	formatBlockID           = "format"
 	repositoryConfigBlockID = "repo"
 
-	colocatedVaultItemPrefix = "vlt"
+	colocatedVaultItemPrefix = "VLT"
 )
 
 var (

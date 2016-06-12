@@ -14,7 +14,7 @@ import (
 
 var (
 	createCommand           = app.Command("create", "Create new vault and repository.")
-	createCommandRepository = createCommand.Flag("repository", "Repository path.").Required().String()
+	createCommandRepository = createCommand.Flag("repository", "Repository path.").Default("colocated").String()
 	createObjectFormat      = createCommand.Flag("repo-format", "Format of repository objects.").PlaceHolder("FORMAT").Default("sha256-fold160-aes128").Enum(supportedObjectFormats()...)
 
 	createMaxBlobSize           = createCommand.Flag("max-blob-size", "Maximum size of a data chunk.").PlaceHolder("BYTES").Default("20000000").Int()
@@ -83,9 +83,15 @@ func runCreateCommand(context *kingpin.ParseContext) error {
 		return fmt.Errorf("unable to get vault storage: %v", err)
 	}
 
-	repositoryStorage, err := openStorageAndEnsureEmpty(*createCommandRepository)
-	if err != nil {
-		return fmt.Errorf("unable to get repository storage: %v", err)
+	var repositoryStorage blob.Storage
+
+	if *createCommandRepository == "colocated" {
+		repositoryStorage = vaultStorage
+	} else {
+		repositoryStorage, err = openStorageAndEnsureEmpty(*createCommandRepository)
+		if err != nil {
+			return fmt.Errorf("unable to get repository storage: %v", err)
+		}
 	}
 
 	repoFormat, err := repositoryFormat()
