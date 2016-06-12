@@ -13,7 +13,7 @@ import (
 	"testing"
 )
 
-func TestVault(t *testing.T) {
+func TestNonColocatedVault(t *testing.T) {
 	tmpDir, err := ioutil.TempDir("", "vault")
 	if err != nil {
 		t.Errorf("can't create temp dir: %v", err)
@@ -21,8 +21,27 @@ func TestVault(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	vaultStorage := mustCreateFileStorage(t, filepath.Join(tmpDir, "vlt"))
-	repoStorage := mustCreateFileStorage(t, filepath.Join(tmpDir, "repo"))
+	verifyVault(
+		t,
+		filepath.Join(tmpDir, "vlt"),
+		filepath.Join(tmpDir, "repo"))
+}
+
+func TestColocatedVault(t *testing.T) {
+	tmpDir, err := ioutil.TempDir("", "vault")
+	if err != nil {
+		t.Errorf("can't create temp dir: %v", err)
+		return
+	}
+	//defer os.RemoveAll(tmpDir)
+
+	// vault and repository in one storage
+	verifyVault(t, tmpDir, tmpDir)
+}
+
+func verifyVault(t *testing.T, vaultPath string, repoPath string) {
+	vaultStorage := mustCreateFileStorage(t, vaultPath)
+	repoStorage := mustCreateFileStorage(t, repoPath)
 
 	vaultCreds, err := Password("foo.bar.baz.foo.bar.baz")
 	if err != nil {
@@ -78,6 +97,7 @@ func TestVault(t *testing.T) {
 	v3, err := OpenWithToken(tok1)
 	if err != nil {
 		t.Errorf("can't open vault with token: %v", err)
+		return
 	}
 
 	if tok1 != tok2 {
@@ -145,11 +165,8 @@ func TestVault(t *testing.T) {
 
 	// Verify contents of vault items for both created and opened vault.
 	for _, v := range []*Vault{v1, v2, v3} {
-
-		rf, err := v.RepositoryFormat()
-		if err != nil {
-			t.Errorf("error getting repository format: %v", err)
-		} else if !reflect.DeepEqual(rf, repoFormat) {
+		rf := v.RepositoryFormat()
+		if !reflect.DeepEqual(rf, repoFormat) {
 			t.Errorf("invalid repository format: %v, but got %v", repoFormat, rf)
 		}
 		assertVaultItem(t, v, "foo", "test1")
@@ -166,7 +183,6 @@ func TestVault(t *testing.T) {
 
 		assertReservedName(t, v, formatBlockID)
 		assertReservedName(t, v, repositoryConfigBlockID)
-		assertReservedName(t, v, checksumBlockID)
 
 		oid, err := v.GetObjectID(saved1)
 		if err != nil {

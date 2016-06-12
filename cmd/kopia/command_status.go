@@ -20,10 +20,7 @@ func runRepositoryInfoCommand(context *kingpin.ParseContext) error {
 		return err
 	}
 
-	f, err := v.RepositoryFormat()
-	if err != nil {
-		return err
-	}
+	f := v.RepositoryFormat()
 
 	fmt.Println("Repository:")
 	fmt.Println("  Version:         ", f.Version)
