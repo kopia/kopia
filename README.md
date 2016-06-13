@@ -20,11 +20,10 @@ To build Kopia you need the latest version of [Go](https://golang.org/dl/) and r
 ```
 mkdir $HOME/kopia
 export GOPATH=$HOME/kopia
-go get github.com/kopia/kopia
-go install github.com/kopia/kopia/cmd/kopia
+go get github.com/kopia/kopia/cmd/kopia
 ```
 
-This will place Kopia binary in `$HOME/kopia/bin/kopia`. For convenience it's best to place it in a directory it the system `PATH`.
+This will download and compile Kopia and place the binary in `$HOME/kopia/bin/kopia`. For convenience it's best to place it in a directory it the system `PATH`.
 
 Setting up repository and vault
 ---
