@@ -1,6 +1,8 @@
 Kopia
 =====
 
+[![Build Status](https://travis-ci.org/kopia/kopia.svg?branch=master)](https://travis-ci.org/kopia/kopia)
+
 > _n. thing exactly replicated from the original (Polish)_
 
 Kopia is a simple, cross-platform tool for managing encrypted backups in the cloud. It provides fast, incremental backups, secure, client-side encryption and data deduplication.
