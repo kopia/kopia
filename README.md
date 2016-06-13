@@ -97,6 +97,14 @@ You can also show the contents of an single object in a repository by using:
 $ kopia show <backup-identifier>
 ```
 
+Licensing
+---
+Kopia is licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for the full license text.
+
+Disclaimer
+---
+
+Kopia is a personal project and is not affiliated with, supported or endorsed by Google.
 
 Cryptography Notice
 ---
