@@ -204,14 +204,7 @@ func TestUpload(t *testing.T) {
 		t.Errorf("upload failed: %v", err)
 	}
 
-	if r5.ObjectID != r1.ObjectID {
-		t.Errorf("expected r5.ObjectID==r1.ObjectID, got %v and %v", r5.ObjectID, r1.ObjectID)
-	}
-	if r5.ManifestID != r1.ManifestID {
-		t.Errorf("expected r5.ManifestID==r1.ManifestID, got %v and %v", r5.ManifestID, r1.ManifestID)
-	}
-
-	if r3.Stats.NonCachedFiles != 0 && r3.Stats.NonCachedDirectories != 3 {
+	if r5.Stats.NonCachedFiles != 0 && r5.Stats.NonCachedDirectories != 3 {
 		// no files are changed, but one file disappeared which caused "./d2/d1/", "./d2/" and "./" to be changed.
 		t.Errorf("unexpected r5 stats: %#v", r5.Stats)
 	}

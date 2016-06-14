@@ -3,7 +3,7 @@ language: go
 go:
   - 1.6
 
-install: make deps install
+install: make deps dev-deps install
 
 os:
   - linux
