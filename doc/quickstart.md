@@ -27,7 +27,6 @@ Key Concepts
   Supported backends include:
 
     - [Google Cloud Storage](https://cloud.google.com/storage/) (GCS)
-    - [Amazon Simple Storage Service](https://aws.amazon.com/s3/) (S3)
     - Local or remote filesystem
 
 Object IDs

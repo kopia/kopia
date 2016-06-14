@@ -2,6 +2,7 @@ Kopia
 =====
 
 [![Build Status](https://travis-ci.org/kopia/kopia.svg?branch=master)](https://travis-ci.org/kopia/kopia)
+[![GoDoc](https://godoc.org/github.com/kopia/kopia?status.svg)](https://godoc.org/github.com/kopia/kopia)
 
 > _n. thing exactly replicated from the original (Polish)_
 
