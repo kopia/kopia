@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 
 	"github.com/kopia/kopia/backup"
-	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/vault"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
@@ -58,17 +57,6 @@ func findBackups(vlt *vault.Vault, path string) ([]string, string, error) {
 }
 
 func runBackupsCommand(context *kingpin.ParseContext) error {
-	var options []repo.RepositoryOption
-
-	if *backupWriteBack > 0 {
-		options = append(options, repo.WriteBack(*backupWriteBack))
-	}
-
-	if *backupWriteLimit > 0 {
-		options = append(options, repo.WriteLimit(*backupWriteLimit*1000000))
-
-	}
-
 	vlt, err := openVault()
 	if err != nil {
 		return err
