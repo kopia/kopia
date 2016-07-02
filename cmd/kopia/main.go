@@ -17,11 +17,13 @@ import (
 )
 
 var (
-	app = kingpin.New("kopia", "Kopia - Online Backup").Version("0.0.1").Author("http://kopia.github.io/")
+	app = kingpin.New("kopia", "Kopia - Online Backup").Author("http://kopia.github.io/")
 )
 
 func main() {
 	log.SetFlags(0)
+	log.SetOutput(os.Stderr)
+	app.Version(buildVersion)
 	kingpin.MustParse(app.Parse(os.Args[1:]))
 	return
 }

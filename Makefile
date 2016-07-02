@@ -1,7 +1,10 @@
+VERSION=0.1-pre
+VERSION_SUFFIX=
+
 all: install test lint vet
 
 install:
-	go install github.com/kopia/kopia/cmd/kopia
+	go install -ldflags "-X main.buildVersion=$(VERSION) -X main.buildTime=`date -u '+%s'` -X main.buildGitHash=`git describe --dirty`" github.com/kopia/kopia/cmd/kopia
 
 build:
 	go build github.com/kopia/kopia/...
@@ -28,7 +31,7 @@ dev-deps:
 	go get -u github.com/newhook/go-symbols
 	go get -u github.com/sqs/goreturns
 
-test:
+test: install
 	go test -timeout 30s github.com/kopia/kopia/...
 
 vtest:
