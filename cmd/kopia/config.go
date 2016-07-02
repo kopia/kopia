@@ -18,11 +18,12 @@ import (
 var (
 	traceStorage = app.Flag("trace-storage", "Enables tracing of storage operations.").Hidden().Bool()
 
-	vaultPath    = app.Flag("vault", "Specify the vault to use.").PlaceHolder("PATH").Envar("KOPIA_VAULT").Short('v').String()
-	password     = app.Flag("password", "Vault password.").Envar("KOPIA_PASSWORD").Short('p').String()
-	passwordFile = app.Flag("passwordfile", "Read vault password from a file.").PlaceHolder("FILENAME").Envar("KOPIA_PASSWORD_FILE").ExistingFile()
-	key          = app.Flag("key", "Specify vault master key (hexadecimal).").Envar("KOPIA_KEY").Short('k').String()
-	keyFile      = app.Flag("keyfile", "Read vault master key from file.").PlaceHolder("FILENAME").Envar("KOPIA_KEY_FILE").ExistingFile()
+	vaultConfigPath = app.Flag("vaultconfig", "Specify the vault config file to use.").PlaceHolder("PATH").Envar("KOPIA_VAULTCONFIG").String()
+	vaultPath       = app.Flag("vault", "Specify the vault to use.").PlaceHolder("PATH").Envar("KOPIA_VAULT").Short('v').String()
+	password        = app.Flag("password", "Vault password.").Envar("KOPIA_PASSWORD").Short('p').String()
+	passwordFile    = app.Flag("passwordfile", "Read vault password from a file.").PlaceHolder("FILENAME").Envar("KOPIA_PASSWORD_FILE").ExistingFile()
+	key             = app.Flag("key", "Specify vault master key (hexadecimal).").Envar("KOPIA_KEY").Short('k').String()
+	keyFile         = app.Flag("keyfile", "Read vault master key from file.").PlaceHolder("FILENAME").Envar("KOPIA_KEY_FILE").ExistingFile()
 )
 
 func failOnError(err error) {
@@ -51,6 +52,9 @@ func getHomeDir() string {
 }
 
 func vaultConfigFileName() string {
+	if len(*vaultConfigPath) > 0 {
+		return *vaultConfigPath
+	}
 	return filepath.Join(getHomeDir(), ".kopia/vault.config")
 }
 
