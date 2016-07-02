@@ -1,6 +1,7 @@
 all: install test lint vet
 
 install:
+	@echo Building version: `git describe --dirty`
 	go install -ldflags "-X main.buildVersion=`git describe --dirty` -X main.buildTime=`date -u '+%s'`" github.com/kopia/kopia/cmd/kopia
 
 build:
