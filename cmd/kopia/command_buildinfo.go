@@ -31,7 +31,6 @@ func init() {
 
 func runBuildInfoCommand(context *kingpin.ParseContext) error {
 	fmt.Println("Version:", buildVersion)
-	fmt.Println("Hash:   ", buildGitHash)
 	fmt.Println("Built:  ", buildTimeString())
 	return nil
 }

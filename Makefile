@@ -1,10 +1,7 @@
-VERSION=0.1-pre
-VERSION_SUFFIX=
-
 all: install test lint vet
 
 install:
-	go install -ldflags "-X main.buildVersion=$(VERSION) -X main.buildTime=`date -u '+%s'` -X main.buildGitHash=`git describe --dirty`" github.com/kopia/kopia/cmd/kopia
+	go install -ldflags "-X main.buildVersion=`git describe --dirty` -X main.buildTime=`date -u '+%s'`" github.com/kopia/kopia/cmd/kopia
 
 build:
 	go build github.com/kopia/kopia/...
