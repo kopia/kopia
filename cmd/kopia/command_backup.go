@@ -38,8 +38,7 @@ var (
 	backupCheckpointEveryMB       = backupCommand.Flag("checkpoint_every_mb", "Checkpoint backup after each N megabytes (default=1000).").PlaceHolder("N").Default("1000").Int()
 	backupCheckpointUploadLimitMB = backupCommand.Flag("upload_limit_mb", "Stop the backup process after the specified amount of data (in MB) has been uploaded.").PlaceHolder("MB").Default("0").Int()
 
-	backupWriteBack  = backupCommand.Flag("async-write", "Perform updates asynchronously.").PlaceHolder("N").Default("0").Int()
-	backupWriteLimit = backupCommand.Flag("write-limit", "Stop backup after writing the given amount of data").PlaceHolder("MB").Default("0").Int64()
+	backupWriteBack = backupCommand.Flag("async-write", "Perform updates asynchronously.").PlaceHolder("N").Default("0").Int()
 )
 
 func runBackupCommand(context *kingpin.ParseContext) error {
@@ -47,11 +46,6 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 
 	if *backupWriteBack > 0 {
 		options = append(options, repo.WriteBack(*backupWriteBack))
-	}
-
-	if *backupWriteLimit > 0 {
-		options = append(options, repo.WriteLimit(*backupWriteLimit*1000000))
-
 	}
 
 	vlt, err := openVault()

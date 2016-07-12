@@ -3,6 +3,7 @@ package repo
 import (
 	"fmt"
 	"sync/atomic"
+	"unsafe"
 
 	"github.com/kopia/kopia/blob"
 )
@@ -25,6 +26,10 @@ func (cr *countingReader) String() string {
 }
 
 func newCountingReader(source blob.ReaderWithLength, counter *int64) blob.ReaderWithLength {
+	if uintptr(unsafe.Pointer(counter))&7 != 0 {
+		panic("counter address must be 64-bit aligned")
+	}
+
 	return &countingReader{
 		ReaderWithLength: source,
 		counter:          counter,

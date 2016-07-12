@@ -50,20 +50,19 @@ type Repository interface {
 
 // RepositoryStats exposes statistics about Repository operation
 type RepositoryStats struct {
-	HashedBytes  int64
-	HashedBlocks int32
-
-	BlocksReadFromStorage int32
+	// Keep int64 fields first to ensure they get aligned to at least 64-bit boundaries
+	// which is required for atomic access on ARM and x86-32.
+	HashedBytes           int64
 	BytesReadFromStorage  int64
+	BytesWrittenToStorage int64
+	EncryptedBytes        int64
+	DecryptedBytes        int64
 
+	HashedBlocks           int32
+	BlocksReadFromStorage  int32
 	BlocksWrittenToStorage int32
-	BytesWrittenToStorage  int64
-
-	EncryptedBytes int64
-	DecryptedBytes int64
-
-	InvalidBlocks int32
-	ValidBlocks   int32
+	InvalidBlocks          int32
+	ValidBlocks            int32
 }
 
 type keygenFunc func([]byte) (blockIDBytes []byte, key []byte)
@@ -72,7 +71,7 @@ type repository struct {
 	storage       blob.Storage
 	verbose       bool
 	bufferManager *bufferManager
-	stats         RepositoryStats
+	stats         *RepositoryStats
 
 	format   Format
 	idFormat ObjectIDFormat
@@ -92,11 +91,11 @@ func (repo *repository) Flush() error {
 }
 
 func (repo *repository) ResetStats() {
-	repo.stats = RepositoryStats{}
+	repo.stats = &RepositoryStats{}
 }
 
 func (repo *repository) Stats() RepositoryStats {
-	return repo.stats
+	return *repo.stats
 }
 
 func (repo *repository) Storage() blob.Storage {
@@ -151,16 +150,6 @@ func WriteBack(workerCount int) RepositoryOption {
 	}
 }
 
-// WriteLimit is an RepositoryOption that sets the limit on the number of bytes that can be written
-// to the storage in this Repository session. Once the limit is reached, the storage will
-// return ErrWriteLimitExceeded.
-func WriteLimit(maxBytes int64) RepositoryOption {
-	return func(o *repository) error {
-		o.storage = blob.NewWriteLimitWrapper(o.storage, maxBytes)
-		return nil
-	}
-}
-
 // EnableLogging is an RepositoryOption that causes all storage access to be logged.
 func EnableLogging() RepositoryOption {
 	return func(o *repository) error {
@@ -196,6 +185,7 @@ func NewRepository(
 	repo := &repository{
 		storage: r,
 		format:  *f,
+		stats:   &RepositoryStats{},
 	}
 
 	repo.idFormat = *sf

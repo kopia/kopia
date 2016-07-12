@@ -9,8 +9,4 @@ var (
 	// ErrInvalidChecksum is returned when a storage block is invalid, which may indicate
 	// that decryption has failed.
 	ErrInvalidChecksum = errors.New("invalid checksum")
-
-	// ErrWriteLimitExceeded is returned when the maximum amount of data has already been written
-	// to the blob.
-	ErrWriteLimitExceeded = errors.New("write limit exceeded")
 )
