@@ -2,6 +2,7 @@ language: go
 
 go:
   - 1.6
+  - tip
 
 install: make deps dev-deps install
 
