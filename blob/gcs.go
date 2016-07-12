@@ -11,8 +11,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/skratchdot/open-golang/open"
-
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
@@ -320,34 +318,24 @@ func writeTokenToFile(filePath string, token *oauth2.Token) error {
 }
 
 func tokenFromWeb(ctx context.Context, config *oauth2.Config) (*oauth2.Token, error) {
-	ch := make(chan string)
-	randState := fmt.Sprintf("st%d", time.Now().UnixNano())
-	ts := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		if req.URL.Path == "/favicon.ico" {
-			http.Error(rw, "", 404)
-			return
+	config.RedirectURL = "urn:ietf:wg:oauth:2.0:oob"
+	authURL := config.AuthCodeURL("")
+	var code string
+	for {
+		fmt.Println("Please open the following URL in your browser and paste the authorization code below:")
+		fmt.Println()
+		fmt.Println("  ", authURL)
+		fmt.Println()
+		fmt.Printf("Enter authorization code: ")
+		n, err := fmt.Scanf("%s", &code)
+		if err != nil {
+			return nil, err
 		}
-		if req.FormValue("state") != randState {
-			log.Printf("State doesn't match: req = %#v", req)
-			http.Error(rw, "", 500)
-			return
-		}
-		if code := req.FormValue("code"); code != "" {
-			fmt.Fprintf(rw, "<h1>Success</h1>Authorized.")
-			rw.(http.Flusher).Flush()
-			ch <- code
-			return
-		}
-		log.Printf("no code")
-		http.Error(rw, "", 500)
-	}))
-	defer ts.Close()
 
-	config.RedirectURL = ts.URL
-	authURL := config.AuthCodeURL(randState)
-	go openURL(authURL)
-	log.Printf("Authorize this app at: %s", authURL)
-	code := <-ch
+		if n == 1 && len(code) > 0 {
+			break
+		}
+	}
 	log.Printf("Got code: %s", code)
 
 	token, err := config.Exchange(ctx, code)
@@ -356,10 +344,6 @@ func tokenFromWeb(ctx context.Context, config *oauth2.Config) (*oauth2.Token, er
 	}
 
 	return token, nil
-}
-
-func openURL(url string) error {
-	return open.Start(url)
 }
 
 func authPrompt(url string, state string) (authenticationCode string, err error) {
