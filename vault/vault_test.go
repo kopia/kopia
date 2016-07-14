@@ -7,8 +7,9 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/storage"
+	"github.com/kopia/kopia/storage/filesystem"
 
 	"testing"
 )
@@ -304,9 +305,9 @@ func assertVaultItems(t *testing.T, v *Vault, prefix string, expected []string) 
 	}
 }
 
-func mustCreateFileStorage(t *testing.T, path string) blob.Storage {
+func mustCreateFileStorage(t *testing.T, path string) storage.Storage {
 	os.MkdirAll(path, 0700)
-	s, err := blob.NewFSStorage(&blob.FSStorageOptions{
+	s, err := filesystem.New(&filesystem.Options{
 		Path: path,
 	})
 	if err != nil {

@@ -5,12 +5,12 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	"github.com/kopia/kopia/blob"
+	"github.com/kopia/kopia/storage"
 )
 
 // countingReader wraps an io.ReadCloser and counts bytes read.
 type countingReader struct {
-	blob.ReaderWithLength
+	storage.ReaderWithLength
 
 	counter *int64
 }
@@ -25,7 +25,7 @@ func (cr *countingReader) String() string {
 	return fmt.Sprintf("countingReader(%v)", cr.ReaderWithLength)
 }
 
-func newCountingReader(source blob.ReaderWithLength, counter *int64) blob.ReaderWithLength {
+func newCountingReader(source storage.ReaderWithLength, counter *int64) storage.ReaderWithLength {
 	if uintptr(unsafe.Pointer(counter))&7 != 0 {
 		panic("counter address must be 64-bit aligned")
 	}

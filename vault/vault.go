@@ -15,8 +15,8 @@ import (
 	"io"
 	"strings"
 
-	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/storage"
 
 	"golang.org/x/crypto/hkdf"
 )
@@ -38,7 +38,7 @@ var ErrItemNotFound = errors.New("item not found")
 
 // Vault is a secure storage for the secrets.
 type Vault struct {
-	storage    blob.Storage
+	storage    storage.Storage
 	masterKey  []byte
 	format     Format
 	itemPrefix string
@@ -46,12 +46,12 @@ type Vault struct {
 }
 
 type repositoryConfig struct {
-	Connection *blob.ConnectionInfo `json:"connection"`
-	Format     *repo.Format         `json:"format"`
+	Connection *storage.ConnectionInfo `json:"connection"`
+	Format     *repo.Format            `json:"format"`
 }
 
 // Storage returns the underlying blob storage that stores the repository.
-func (v *Vault) Storage() blob.Storage {
+func (v *Vault) Storage() storage.Storage {
 	return v.storage
 }
 
@@ -101,15 +101,15 @@ func (v *Vault) writeEncryptedBlock(itemID string, content []byte) error {
 
 	return v.storage.PutBlock(
 		v.itemPrefix+itemID,
-		blob.NewReader(bytes.NewBuffer(content)),
-		blob.PutOptionsOverwrite,
+		storage.NewReader(bytes.NewBuffer(content)),
+		storage.PutOptionsOverwrite,
 	)
 }
 
 func (v *Vault) readEncryptedBlock(itemID string) ([]byte, error) {
 	content, err := v.storage.GetBlock(v.itemPrefix + itemID)
 	if err != nil {
-		if err == blob.ErrBlockNotFound {
+		if err == storage.ErrBlockNotFound {
 			return nil, ErrItemNotFound
 		}
 		return nil, fmt.Errorf("unexpected error reading %v: %v", itemID, err)
@@ -197,19 +197,19 @@ func (v *Vault) RepositoryFormat() *repo.Format {
 
 // OpenRepository connects to the repository the vault is associated with.
 func (v *Vault) OpenRepository() (repo.Repository, error) {
-	var storage blob.Storage
+	var st storage.Storage
 	var err error
 
 	if v.repoConfig.Connection != nil {
-		storage, err = blob.NewStorage(*v.repoConfig.Connection)
+		st, err = storage.NewStorage(*v.repoConfig.Connection)
 		if err != nil {
 			return nil, fmt.Errorf("unable to open repository: %v", err)
 		}
 	} else {
-		storage = v.storage
+		st = v.storage
 	}
 
-	return repo.NewRepository(storage, v.repoConfig.Format)
+	return repo.NewRepository(st, v.repoConfig.Format)
 }
 
 // Get returns the contents of a specified vault item.
@@ -263,14 +263,14 @@ func (v *Vault) Close() error {
 }
 
 type vaultConfig struct {
-	ConnectionInfo blob.ConnectionInfo `json:"connection"`
-	Key            []byte              `json:"key,omitempty"`
+	ConnectionInfo storage.ConnectionInfo `json:"connection"`
+	Key            []byte                 `json:"key,omitempty"`
 }
 
 // Token returns a persistent opaque string that encodes the configuration of vault storage
 // and its credentials in a way that can be later used to open the vault.
 func (v *Vault) Token() (string, error) {
-	cip, ok := v.storage.(blob.ConnectionInfoProvider)
+	cip, ok := v.storage.(storage.ConnectionInfoProvider)
 	if !ok {
 		return "", errors.New("repository does not support persisting configuration")
 	}
@@ -301,10 +301,10 @@ func (v *Vault) Remove(itemID string) error {
 
 // Create initializes a Vault attached to the specified repository.
 func Create(
-	vaultStorage blob.Storage,
+	vaultStorage storage.Storage,
 	vaultFormat *Format,
 	vaultCreds Credentials,
-	repoStorage blob.Storage,
+	repoStorage storage.Storage,
 	repoFormat *repo.Format,
 ) (*Vault, error) {
 	v := Vault{
@@ -317,7 +317,7 @@ func Create(
 		v.itemPrefix = colocatedVaultItemPrefix
 	}
 
-	cip, ok := repoStorage.(blob.ConnectionInfoProvider)
+	cip, ok := repoStorage.(storage.ConnectionInfoProvider)
 	if !ok {
 		return nil, errors.New("repository does not support persisting configuration")
 	}
@@ -336,8 +336,8 @@ func Create(
 
 	vaultStorage.PutBlock(
 		v.itemPrefix+formatBlockID,
-		blob.NewReader(bytes.NewBuffer(formatBytes)),
-		blob.PutOptionsOverwrite,
+		storage.NewReader(bytes.NewBuffer(formatBytes)),
+		storage.PutOptionsOverwrite,
 	)
 
 	// Write encrypted repository configuration block.
@@ -359,7 +359,7 @@ func Create(
 }
 
 // Open opens a vault.
-func Open(vaultStorage blob.Storage, vaultCreds Credentials) (*Vault, error) {
+func Open(vaultStorage storage.Storage, vaultCreds Credentials) (*Vault, error) {
 	v := Vault{
 		storage: vaultStorage,
 	}
@@ -367,7 +367,7 @@ func Open(vaultStorage blob.Storage, vaultCreds Credentials) (*Vault, error) {
 	var prefix string
 
 	f, err := vaultStorage.GetBlock(formatBlockID)
-	if err == blob.ErrBlockNotFound {
+	if err == storage.ErrBlockNotFound {
 		prefix = colocatedVaultItemPrefix
 		f, err = vaultStorage.GetBlock(prefix + formatBlockID)
 	}
@@ -407,7 +407,7 @@ func OpenWithToken(token string) (*Vault, error) {
 		return nil, fmt.Errorf("invalid vault json token: %v", err)
 	}
 
-	st, err := blob.NewStorage(vc.ConnectionInfo)
+	st, err := storage.NewStorage(vc.ConnectionInfo)
 	if err != nil {
 		return nil, fmt.Errorf("cannot open vault storage: %v", err)
 	}
@@ -438,17 +438,17 @@ func checkReservedName(itemID string) error {
 	return nil
 }
 
-func sameStorage(s1, s2 blob.Storage) bool {
+func sameStorage(s1, s2 storage.Storage) bool {
 	if s1 == s2 {
 		return true
 	}
 
-	cip1, ok := s1.(blob.ConnectionInfoProvider)
+	cip1, ok := s1.(storage.ConnectionInfoProvider)
 	if !ok {
 		return false
 	}
 
-	cip2, ok := s2.(blob.ConnectionInfoProvider)
+	cip2, ok := s2.(storage.ConnectionInfoProvider)
 	if !ok {
 		return false
 	}

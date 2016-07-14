@@ -1,12 +1,14 @@
-package blob
+package logging
 
 import (
 	"io"
 	"log"
+
+	"github.com/kopia/kopia/storage"
 )
 
 type loggingStorage struct {
-	Storage
+	storage.Storage
 }
 
 func (s *loggingStorage) BlockExists(id string) (bool, error) {
@@ -25,7 +27,7 @@ func (s *loggingStorage) GetBlock(id string) ([]byte, error) {
 	return result, err
 }
 
-func (s *loggingStorage) PutBlock(id string, data ReaderWithLength, options PutOptions) error {
+func (s *loggingStorage) PutBlock(id string, data storage.ReaderWithLength, options storage.PutOptions) error {
 	err := s.Storage.PutBlock(id, data, options)
 	log.Printf("PutBlock(%#v, options=%v, len=%v)=%#v", id, options, data.Len(), err)
 	return err
@@ -37,13 +39,13 @@ func (s *loggingStorage) DeleteBlock(id string) error {
 	return err
 }
 
-func (s *loggingStorage) ListBlocks(prefix string) chan (BlockMetadata) {
+func (s *loggingStorage) ListBlocks(prefix string) chan (storage.BlockMetadata) {
 	log.Printf("ListBlocks(%#v)", prefix)
 	return s.Storage.ListBlocks(prefix)
 }
 
 func (s *loggingStorage) Flush() error {
-	if s, ok := s.Storage.(Flusher); ok {
+	if s, ok := s.Storage.(storage.Flusher); ok {
 		log.Printf("Flush()")
 		return s.Flush()
 	}
@@ -60,7 +62,7 @@ func (s *loggingStorage) Close() error {
 	return nil
 }
 
-// NewLoggingWrapper returns a Storage wrapper that logs all storage commands.
-func NewLoggingWrapper(wrapped Storage) Storage {
+// NewWrapper returns a Storage wrapper that logs all storage commands.
+func NewWrapper(wrapped storage.Storage) storage.Storage {
 	return &loggingStorage{wrapped}
 }

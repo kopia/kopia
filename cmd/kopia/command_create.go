@@ -7,8 +7,8 @@ import (
 
 	"gopkg.in/alecthomas/kingpin.v2"
 
-	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/storage"
 	"github.com/kopia/kopia/vault"
 )
 
@@ -59,7 +59,7 @@ func repositoryFormat() (*repo.Format, error) {
 	return f, nil
 }
 
-func openStorageAndEnsureEmpty(url string) (blob.Storage, error) {
+func openStorageAndEnsureEmpty(url string) (storage.Storage, error) {
 	s, err := newStorageFromURL(url)
 	if err != nil {
 		return nil, err
@@ -83,7 +83,7 @@ func runCreateCommand(context *kingpin.ParseContext) error {
 		return fmt.Errorf("unable to get vault storage: %v", err)
 	}
 
-	var repositoryStorage blob.Storage
+	var repositoryStorage storage.Storage
 
 	if *createCommandRepository == "colocated" {
 		repositoryStorage = vaultStorage

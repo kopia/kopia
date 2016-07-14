@@ -1,7 +1,7 @@
 // Wrapper which implements asynchronous (write-back) PutBlock and DeleteBlock operation
 // useful for slower backends (cloud).
 
-package blob
+package storage
 
 import (
 	"fmt"

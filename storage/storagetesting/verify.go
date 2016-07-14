@@ -1,58 +1,14 @@
-package blob
+package storagetesting
 
 import (
 	"bytes"
-	"io/ioutil"
-	"os"
 	"testing"
+
+	"github.com/kopia/kopia/storage"
 )
 
-func TestLoggingStorage(t *testing.T) {
-	data := map[string][]byte{}
-	r := NewLoggingWrapper(NewMapStorage(data))
-	if r == nil {
-		t.Errorf("unexpected result: %v", r)
-	}
-	verifyStorage(t, r)
-}
-
-func TestMapStorage(t *testing.T) {
-	data := map[string][]byte{}
-	r := NewMapStorage(data)
-	if r == nil {
-		t.Errorf("unexpected result: %v", r)
-	}
-	verifyStorage(t, r)
-}
-
-func TestFileStorage(t *testing.T) {
-	// Test varioush shard configurations.
-	for _, shardSpec := range [][]int{
-		[]int{0},
-		[]int{1},
-		[]int{3, 3},
-		[]int{2},
-		[]int{1, 1},
-		[]int{1, 2},
-		[]int{2, 2, 2},
-	} {
-		path, _ := ioutil.TempDir("", "r-fs")
-		defer os.RemoveAll(path)
-
-		r, err := NewFSStorage(&FSStorageOptions{
-			Path:            path,
-			DirectoryShards: shardSpec,
-		})
-
-		if r == nil || err != nil {
-			t.Errorf("unexpected result: %v %v", r, err)
-		}
-
-		verifyStorage(t, r)
-	}
-}
-
-func verifyStorage(t *testing.T, r Storage) {
+// VerifyStorage verifies the behavior of the specified storage.
+func VerifyStorage(t *testing.T, r storage.Storage) {
 	blocks := []struct {
 		blk      string
 		contents []byte
@@ -70,7 +26,7 @@ func verifyStorage(t *testing.T, r Storage) {
 		}
 
 		data, err := r.GetBlock(b.blk)
-		if err != ErrBlockNotFound {
+		if err != storage.ErrBlockNotFound {
 			t.Errorf("unexpected error when calling GetBlock(%v): %v", b.blk, err)
 		}
 		if data != nil {
@@ -80,7 +36,7 @@ func verifyStorage(t *testing.T, r Storage) {
 
 	// Now add blocks.
 	for _, b := range blocks {
-		r.PutBlock(b.blk, NewReader(bytes.NewBuffer(b.contents)), PutOptionsDefault)
+		r.PutBlock(b.blk, storage.NewReader(bytes.NewBuffer(b.contents)), storage.PutOptionsDefault)
 
 		if x, err := r.BlockExists(b.blk); !x || err != nil {
 			t.Errorf("block does not exist after adding it: %v %v", b.blk, err)

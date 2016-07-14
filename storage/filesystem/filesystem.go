@@ -1,4 +1,4 @@
-package blob
+package filesystem
 
 import (
 	"fmt"
@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/kopia/kopia/storage"
 )
 
 const (
@@ -23,45 +25,9 @@ var (
 )
 
 type fsStorage struct {
-	FSStorageOptions
+	Options
 }
 
-// FSStorageOptions defines options for Filesystem-backed blob.
-type FSStorageOptions struct {
-	Path string `json:"path"`
-
-	DirectoryShards []int `json:"dirShards,omitempty"`
-
-	FileMode      os.FileMode `json:"fileMode,omitempty"`
-	DirectoryMode os.FileMode `json:"dirMode,omitempty"`
-
-	FileUID *int `json:"uid,omitempty"`
-	FileGID *int `json:"gid,omitempty"`
-}
-
-func (fso *FSStorageOptions) fileMode() os.FileMode {
-	if fso.FileMode == 0 {
-		return fsDefaultFileMode
-	}
-
-	return fso.FileMode
-}
-
-func (fso *FSStorageOptions) dirMode() os.FileMode {
-	if fso.DirectoryMode == 0 {
-		return fsDefaultDirMode
-	}
-
-	return fso.DirectoryMode
-}
-
-func (fso *FSStorageOptions) shards() []int {
-	if fso.DirectoryShards == nil {
-		return fsDefaultShards
-	}
-
-	return fso.DirectoryShards
-}
 func (fs *fsStorage) BlockExists(blockID string) (bool, error) {
 	_, path := fs.getShardedPathAndFilePath(blockID)
 	_, err := os.Stat(path)
@@ -84,7 +50,7 @@ func (fs *fsStorage) GetBlock(blockID string) ([]byte, error) {
 	}
 
 	if os.IsNotExist(err) {
-		return nil, ErrBlockNotFound
+		return nil, storage.ErrBlockNotFound
 	}
 
 	return nil, err
@@ -102,8 +68,8 @@ func makeFileName(blockID string) string {
 	return string(blockID) + fsStorageChunkSuffix
 }
 
-func (fs *fsStorage) ListBlocks(prefix string) chan (BlockMetadata) {
-	result := make(chan (BlockMetadata))
+func (fs *fsStorage) ListBlocks(prefix string) chan (storage.BlockMetadata) {
+	result := make(chan (storage.BlockMetadata))
 
 	prefixString := string(prefix)
 
@@ -129,7 +95,7 @@ func (fs *fsStorage) ListBlocks(prefix string) chan (BlockMetadata) {
 					}
 				} else if fullID, ok := getstringFromFileName(currentPrefix + e.Name()); ok {
 					if strings.HasPrefix(string(fullID), prefixString) {
-						result <- BlockMetadata{
+						result <- storage.BlockMetadata{
 							BlockID:   fullID,
 							Length:    uint64(e.Size()),
 							TimeStamp: e.ModTime(),
@@ -149,7 +115,7 @@ func (fs *fsStorage) ListBlocks(prefix string) chan (BlockMetadata) {
 	return result
 }
 
-func (fs *fsStorage) PutBlock(blockID string, data ReaderWithLength, options PutOptions) error {
+func (fs *fsStorage) PutBlock(blockID string, data storage.ReaderWithLength, options storage.PutOptions) error {
 	// Close the data reader regardless of whether we use it or not.
 	defer data.Close()
 
@@ -238,10 +204,10 @@ func parseShardString(shardString string) ([]int, error) {
 	return result, nil
 }
 
-func (fs *fsStorage) ConnectionInfo() ConnectionInfo {
-	return ConnectionInfo{
-		fsStorageType,
-		&fs.FSStorageOptions,
+func (fs *fsStorage) ConnectionInfo() storage.ConnectionInfo {
+	return storage.ConnectionInfo{
+		Type:   fsStorageType,
+		Config: &fs.Options,
 	}
 }
 
@@ -249,8 +215,8 @@ func (fs *fsStorage) Close() error {
 	return nil
 }
 
-// NewFSStorage creates new fs-backed storage in a specified directory.
-func NewFSStorage(options *FSStorageOptions) (Storage, error) {
+// New creates new filesystem-backed storage in a specified directory.
+func New(options *Options) (storage.Storage, error) {
 	var err error
 
 	if _, err = os.Stat(options.Path); err != nil {
@@ -258,17 +224,17 @@ func NewFSStorage(options *FSStorageOptions) (Storage, error) {
 	}
 
 	r := &fsStorage{
-		FSStorageOptions: *options,
+		Options: *options,
 	}
 
 	return r, nil
 }
 
 func init() {
-	AddSupportedStorage(
+	storage.AddSupportedStorage(
 		fsStorageType,
-		func() interface{} { return &FSStorageOptions{} },
-		func(o interface{}) (Storage, error) {
-			return NewFSStorage(o.(*FSStorageOptions))
+		func() interface{} { return &Options{} },
+		func(o interface{}) (storage.Storage, error) {
+			return New(o.(*Options))
 		})
 }

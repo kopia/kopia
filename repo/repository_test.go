@@ -12,7 +12,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kopia/kopia/blob"
+	"github.com/kopia/kopia/storage"
+	"github.com/kopia/kopia/storage/storagetesting"
 )
 
 func testFormat() *Format {
@@ -40,7 +41,7 @@ func getMd5LObjectID(data []byte) string {
 
 func setupTest(t *testing.T) (data map[string][]byte, repo Repository) {
 	data = map[string][]byte{}
-	st := blob.NewMapStorage(data)
+	st := storagetesting.NewMapStorage(data)
 
 	repo, err := NewRepository(st, testFormat())
 	if err != nil {
@@ -238,7 +239,7 @@ func TestHMAC(t *testing.T) {
 	s.ObjectFormat = "md5"
 	s.Secret = []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25}
 
-	repo, err := NewRepository(blob.NewMapStorage(data), s)
+	repo, err := NewRepository(storagetesting.NewMapStorage(data), s)
 	if err != nil {
 		t.Errorf("cannot create manager: %v", err)
 	}
@@ -323,7 +324,7 @@ func TestReaderStoredBlockNotFound(t *testing.T) {
 		t.Errorf("cannot parse object ID: %v", err)
 	}
 	reader, err := repo.Open(objectID)
-	if err != blob.ErrBlockNotFound || reader != nil {
+	if err != storage.ErrBlockNotFound || reader != nil {
 		t.Errorf("unexpected result: reader: %v err: %v", reader, err)
 	}
 }
@@ -478,7 +479,7 @@ func TestFormats(t *testing.T) {
 
 	for caseIndex, c := range cases {
 		data := map[string][]byte{}
-		st := blob.NewMapStorage(data)
+		st := storagetesting.NewMapStorage(data)
 
 		t.Logf("verifying %#v", c.format)
 		repo, err := NewRepository(st, c.format)
@@ -517,7 +518,7 @@ func TestFormats(t *testing.T) {
 
 func TestInvalidEncryptionKey(t *testing.T) {
 	data := map[string][]byte{}
-	st := blob.NewMapStorage(data)
+	st := storagetesting.NewMapStorage(data)
 	format := Format{
 		Version:      "1",
 		ObjectFormat: "sha512-aes256",

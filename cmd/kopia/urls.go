@@ -7,10 +7,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kopia/kopia/blob"
+	"github.com/kopia/kopia/storage"
+	fsstorage "github.com/kopia/kopia/storage/filesystem"
+	gcsstorage "github.com/kopia/kopia/storage/gcs"
 )
 
-func newStorageFromURL(urlString string) (blob.Storage, error) {
+func newStorageFromURL(urlString string) (storage.Storage, error) {
 	if strings.HasPrefix(urlString, "/") {
 		urlString = "file://" + urlString
 	}
@@ -22,26 +24,26 @@ func newStorageFromURL(urlString string) (blob.Storage, error) {
 
 	switch u.Scheme {
 	case "file":
-		var fso blob.FSStorageOptions
+		var fso fsstorage.Options
 		if err := parseFilesystemURL(&fso, u); err != nil {
 			return nil, err
 		}
 
-		return blob.NewFSStorage(&fso)
+		return fsstorage.New(&fso)
 
 	case "gs", "gcs":
-		var gcso blob.GCSStorageOptions
+		var gcso gcsstorage.Options
 		if err := parseGoogleCloudStorageURL(&gcso, u); err != nil {
 			return nil, err
 		}
-		return blob.NewGCSStorage(&gcso)
+		return gcsstorage.New(&gcso)
 
 	default:
 		return nil, fmt.Errorf("unrecognized storage type: %v", u.Scheme)
 	}
 }
 
-func parseFilesystemURL(fso *blob.FSStorageOptions, u *url.URL) error {
+func parseFilesystemURL(fso *fsstorage.Options, u *url.URL) error {
 	if u.Opaque != "" {
 		fso.Path = u.Opaque
 	} else {
@@ -66,7 +68,7 @@ func parseFilesystemURL(fso *blob.FSStorageOptions, u *url.URL) error {
 	return nil
 }
 
-func parseGoogleCloudStorageURL(gcso *blob.GCSStorageOptions, u *url.URL) error {
+func parseGoogleCloudStorageURL(gcso *gcsstorage.Options, u *url.URL) error {
 	gcso.BucketName = u.Host
 	gcso.Prefix = u.Path
 	return nil

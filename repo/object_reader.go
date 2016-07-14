@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/kopia/kopia/blob"
+	"github.com/kopia/kopia/storage"
 )
 
 type seekTableEntry struct {
@@ -26,7 +26,7 @@ func (r *seekTableEntry) String() string {
 }
 
 type objectReader struct {
-	storage blob.Storage
+	storage storage.Storage
 
 	seekTable []seekTableEntry
 

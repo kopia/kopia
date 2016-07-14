@@ -1,4 +1,4 @@
-package blob
+package storage
 
 import (
 	"bytes"
@@ -58,7 +58,7 @@ func (bbr *bytesReaderWithLength) String() string {
 	return fmt.Sprintf("buffer(len=%v)", bbr.Len())
 }
 
-// BlockMetadata represents metadata about a single block in a blob.
+// BlockMetadata represents metadata about a single block in a storage.
 // If Error field is set, no other field values should be assumed to be correct.
 type BlockMetadata struct {
 	BlockID   string

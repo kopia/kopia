@@ -6,8 +6,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/storage"
+	"github.com/kopia/kopia/storage/filesystem"
 
 	"testing"
 )
@@ -16,7 +17,7 @@ type uploadTestHarness struct {
 	sourceDir string
 	repoDir   string
 	repo      repo.Repository
-	storage   blob.Storage
+	storage   storage.Storage
 	lister    *perPathLister
 	uploader  Uploader
 }
@@ -61,7 +62,7 @@ func newUploadTestHarness() *uploadTestHarness {
 		panic("cannot create temp directory: " + err.Error())
 	}
 
-	storage, err := blob.NewFSStorage(&blob.FSStorageOptions{
+	storage, err := filesystem.New(&filesystem.Options{
 		Path: repoDir,
 	})
 

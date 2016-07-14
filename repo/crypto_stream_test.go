@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/kopia/kopia/blob"
+	"github.com/kopia/kopia/storage"
 
 	"testing"
 )
@@ -45,7 +45,7 @@ func TestCryptoStream(t *testing.T) {
 			continue
 		}
 		enc := newEncryptingReader(
-			blob.NewReader(bytes.NewBuffer(data)),
+			storage.NewReader(bytes.NewBuffer(data)),
 			s.cipher)
 		v, err := ioutil.ReadAll(enc)
 		actual := fmt.Sprintf("%x", v)

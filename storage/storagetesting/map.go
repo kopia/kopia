@@ -1,4 +1,4 @@
-package blob
+package storagetesting
 
 import (
 	"io/ioutil"
@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/kopia/kopia/storage"
 )
 
 type mapStorage struct {
@@ -29,10 +31,10 @@ func (s *mapStorage) GetBlock(id string) ([]byte, error) {
 		return data, nil
 	}
 
-	return nil, ErrBlockNotFound
+	return nil, storage.ErrBlockNotFound
 }
 
-func (s *mapStorage) PutBlock(id string, data ReaderWithLength, options PutOptions) error {
+func (s *mapStorage) PutBlock(id string, data storage.ReaderWithLength, options storage.PutOptions) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -59,8 +61,8 @@ func (s *mapStorage) DeleteBlock(id string) error {
 	return nil
 }
 
-func (s *mapStorage) ListBlocks(prefix string) chan (BlockMetadata) {
-	ch := make(chan (BlockMetadata))
+func (s *mapStorage) ListBlocks(prefix string) chan (storage.BlockMetadata) {
+	ch := make(chan (storage.BlockMetadata))
 	fixedTime := time.Now()
 	go func() {
 		s.mutex.RLock()
@@ -77,7 +79,7 @@ func (s *mapStorage) ListBlocks(prefix string) chan (BlockMetadata) {
 
 		for _, k := range keys {
 			v := s.data[k]
-			ch <- BlockMetadata{
+			ch <- storage.BlockMetadata{
 				BlockID:   string(k),
 				Length:    uint64(len(v)),
 				TimeStamp: fixedTime,
@@ -90,6 +92,6 @@ func (s *mapStorage) ListBlocks(prefix string) chan (BlockMetadata) {
 
 // NewMapStorage returns an implementation of Storage backed by the contents of given map.
 // Used primarily for testing.
-func NewMapStorage(data map[string][]byte) Storage {
+func NewMapStorage(data map[string][]byte) storage.Storage {
 	return &mapStorage{data: data}
 }

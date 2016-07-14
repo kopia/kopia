@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/kopia/kopia/blob"
+	"github.com/kopia/kopia/storage"
 )
 
 // encryptingReader wraps an io.Reader and returns data encrypted using a stream cipher
@@ -55,7 +55,7 @@ func (er *encryptingReader) String() string {
 	return fmt.Sprintf("encryptingReader(%v)", er.source)
 }
 
-func newEncryptingReader(source blob.ReaderWithLength, c cipher.Stream) blob.ReaderWithLength {
+func newEncryptingReader(source storage.ReaderWithLength, c cipher.Stream) storage.ReaderWithLength {
 	return &encryptingReader{
 		source: source,
 		closer: source,

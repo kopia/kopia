@@ -14,7 +14,8 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/kopia/kopia/blob"
+	"github.com/kopia/kopia/storage"
+	"github.com/kopia/kopia/storage/logging"
 )
 
 const (
@@ -34,14 +35,14 @@ var constantIV = []byte("kopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopia
 
 // Repository objects addressed by their content allows reading and writing them.
 type Repository interface {
-	// NewWriter opens an ObjectWriter for writing new content to the blob.
+	// NewWriter opens an ObjectWriter for writing new content to the storage.
 	NewWriter(options ...WriterOption) ObjectWriter
 
 	// Open creates an io.ReadSeeker for reading object with a specified ID.
 	Open(objectID ObjectID) (ObjectReader, error)
 
 	Flush() error
-	Storage() blob.Storage
+	Storage() storage.Storage
 	Close()
 
 	ResetStats()
@@ -68,7 +69,7 @@ type RepositoryStats struct {
 type keygenFunc func([]byte) (blockIDBytes []byte, key []byte)
 
 type repository struct {
-	storage       blob.Storage
+	storage       storage.Storage
 	verbose       bool
 	bufferManager *bufferManager
 	stats         *RepositoryStats
@@ -83,7 +84,7 @@ func (repo *repository) Close() {
 }
 
 func (repo *repository) Flush() error {
-	if f, ok := repo.storage.(blob.Flusher); ok {
+	if f, ok := repo.storage.(storage.Flusher); ok {
 		return f.Flush()
 	}
 
@@ -98,7 +99,7 @@ func (repo *repository) Stats() RepositoryStats {
 	return *repo.stats
 }
 
-func (repo *repository) Storage() blob.Storage {
+func (repo *repository) Storage() storage.Storage {
 	return repo.storage
 }
 
@@ -145,7 +146,7 @@ type RepositoryOption func(o *repository) error
 // of goroutines.
 func WriteBack(workerCount int) RepositoryOption {
 	return func(o *repository) error {
-		o.storage = blob.NewWriteBackWrapper(o.storage, workerCount)
+		o.storage = storage.NewWriteBackWrapper(o.storage, workerCount)
 		return nil
 	}
 }
@@ -153,7 +154,7 @@ func WriteBack(workerCount int) RepositoryOption {
 // EnableLogging is an RepositoryOption that causes all storage access to be logged.
 func EnableLogging() RepositoryOption {
 	return func(o *repository) error {
-		o.storage = blob.NewLoggingWrapper(o.storage)
+		o.storage = logging.NewWrapper(o.storage)
 		return nil
 	}
 }
@@ -166,7 +167,7 @@ func hmacFunc(key []byte, hf func() hash.Hash) func() hash.Hash {
 
 // NewRepository creates new Repository with the specified storage, options, and key provider.
 func NewRepository(
-	r blob.Storage,
+	r storage.Storage,
 	f *Format,
 	options ...RepositoryOption,
 ) (Repository, error) {
@@ -206,7 +207,7 @@ func (repo *repository) hashBuffer(data []byte) ([]byte, []byte) {
 	return repo.idFormat.hashBuffer(data, repo.format.Secret)
 }
 
-func (repo *repository) hashBufferForWriting(buffer *bytes.Buffer, prefix string) (ObjectID, blob.ReaderWithLength, error) {
+func (repo *repository) hashBufferForWriting(buffer *bytes.Buffer, prefix string) (ObjectID, storage.ReaderWithLength, error) {
 	var data []byte
 	if buffer != nil {
 		data = buffer.Bytes()
@@ -234,7 +235,7 @@ func (repo *repository) hashBufferForWriting(buffer *bytes.Buffer, prefix string
 	atomic.AddInt64(&repo.stats.HashedBytes, int64(len(data)))
 
 	if buffer == nil {
-		return objectID, blob.NewReader(bytes.NewBuffer(nil)), nil
+		return objectID, storage.NewReader(bytes.NewBuffer(nil)), nil
 	}
 
 	blockReader := repo.bufferManager.returnBufferOnClose(buffer)

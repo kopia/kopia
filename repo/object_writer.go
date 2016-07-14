@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/kopia/kopia/blob"
+	"github.com/kopia/kopia/storage"
 )
 
 // ObjectWriter allows writing content to the storage and supports automatic deduplication and encryption
@@ -101,7 +101,7 @@ func (w *objectWriter) flushBuffer(force bool) error {
 			return err
 		}
 
-		if err := w.repo.storage.PutBlock(objectID.BlockID(), blockReader, blob.PutOptionsDefault); err != nil {
+		if err := w.repo.storage.PutBlock(objectID.BlockID(), blockReader, storage.PutOptionsDefault); err != nil {
 			return fmt.Errorf(
 				"error when flushing chunk %d of %s to %#v: %#v",
 				w.flushedObjectCount,

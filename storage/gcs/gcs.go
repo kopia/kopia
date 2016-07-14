@@ -1,4 +1,4 @@
-package blob
+package gcs
 
 import (
 	"encoding/json"
@@ -7,9 +7,10 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"time"
+
+	"github.com/kopia/kopia/storage"
 
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
@@ -22,36 +23,13 @@ import (
 const (
 	gcsStorageType = "gcs"
 
-	// Those are not really secret, since the app is installed.
+	// Those are not really set, since the app is installed.
 	googleCloudClientID     = "194841383482-nmn10h4mnllnsvou7qr55tfh5jsmtkap.apps.googleusercontent.com"
 	googleCloudClientSecret = "ZL52E96Q7iRCD9YXVA7U6UaI"
 )
 
-// GCSStorageOptions defines options Google Cloud Storage-backed blob.
-type GCSStorageOptions struct {
-	// BucketName is the name of the GCS bucket where data is stored.
-	BucketName string `json:"bucket"`
-
-	// Prefix specifies additional string to prepend to all objects.
-	Prefix string `json:"prefix,omitempty"`
-
-	// TokenCacheFile is the name of the file that will persist the OAuth2 token.
-	// If not specified, the token will be persisted in GCSStorageOptions.
-	TokenCacheFile string `json:"tokenCacheFile,omitempty"`
-
-	// Token is the OAuth2 token (when TokenCacheFile is empty)
-	Token *oauth2.Token `json:"token,omitempty"`
-
-	// ReadOnly causes the storage to be configured without write permissions, to prevent accidental
-	// modifications to the data.
-	ReadOnly bool `json:"readonly"`
-
-	// IgnoreDefaultCredentials disables the use of credentials managed by Google Cloud SDK (gcloud).
-	IgnoreDefaultCredentials bool `json:"ignoreDefaultCredentials"`
-}
-
 type gcsStorage struct {
-	GCSStorageOptions
+	Options
 	objectsService *gcsclient.ObjectsService
 }
 
@@ -70,7 +48,7 @@ func (gcs *gcsStorage) GetBlock(b string) ([]byte, error) {
 	if err != nil {
 		if err, ok := err.(*googleapi.Error); ok {
 			if err.Code == http.StatusNotFound {
-				return nil, ErrBlockNotFound
+				return nil, storage.ErrBlockNotFound
 			}
 		}
 
@@ -82,7 +60,7 @@ func (gcs *gcsStorage) GetBlock(b string) ([]byte, error) {
 	return ioutil.ReadAll(v.Body)
 }
 
-func (gcs *gcsStorage) PutBlock(b string, data ReaderWithLength, options PutOptions) error {
+func (gcs *gcsStorage) PutBlock(b string, data storage.ReaderWithLength, options storage.PutOptions) error {
 	defer data.Close()
 	object := gcsclient.Object{
 		Name: gcs.getObjectNameString(b),
@@ -94,7 +72,7 @@ func (gcs *gcsStorage) PutBlock(b string, data ReaderWithLength, options PutOpti
 		// Specify exact chunk size to ensure data is uploaded in one shot or not at all.
 		googleapi.ChunkSize(data.Len()),
 	)
-	if options&PutOptionsOverwrite == 0 {
+	if options&storage.PutOptionsOverwrite == 0 {
 		if ok, _ := gcs.BlockExists(b); ok {
 			return nil
 		}
@@ -129,8 +107,8 @@ func (gcs *gcsStorage) getObjectNameString(b string) string {
 	return gcs.Prefix + string(b)
 }
 
-func (gcs *gcsStorage) ListBlocks(prefix string) chan (BlockMetadata) {
-	ch := make(chan BlockMetadata, 100)
+func (gcs *gcsStorage) ListBlocks(prefix string) chan (storage.BlockMetadata) {
+	ch := make(chan storage.BlockMetadata, 100)
 
 	go func() {
 		ps := gcs.getObjectNameString(prefix)
@@ -143,11 +121,11 @@ func (gcs *gcsStorage) ListBlocks(prefix string) chan (BlockMetadata) {
 			for _, o := range page.Items {
 				t, e := time.Parse(time.RFC3339, o.TimeCreated)
 				if e != nil {
-					ch <- BlockMetadata{
+					ch <- storage.BlockMetadata{
 						Error: e,
 					}
 				} else {
-					ch <- BlockMetadata{
+					ch <- storage.BlockMetadata{
 						BlockID:   string(o.Name)[len(gcs.Prefix):],
 						Length:    o.Size,
 						TimeStamp: t,
@@ -173,10 +151,10 @@ func (gcs *gcsStorage) Flush() error {
 	return nil
 }
 
-func (gcs *gcsStorage) ConnectionInfo() ConnectionInfo {
-	return ConnectionInfo{
-		gcsStorageType,
-		&gcs.GCSStorageOptions,
+func (gcs *gcsStorage) ConnectionInfo() storage.ConnectionInfo {
+	return storage.ConnectionInfo{
+		Type:   gcsStorageType,
+		Config: &gcs.Options,
 	}
 }
 
@@ -210,19 +188,19 @@ func saveToken(file string, token *oauth2.Token) {
 	json.NewEncoder(f).Encode(token)
 }
 
-// NewGCSStorage creates new Google Cloud Storage-backed storage with specified options:
+// New creates new Google Cloud Storage-backed storage with specified options:
 //
 // - the 'BucketName' field is required and all other parameters are optional.
 //
 // By default the connection reuses credentials managed by (https://cloud.google.com/sdk/),
 // but this can be disabled by setting IgnoreDefaultCredentials to true.
-func NewGCSStorage(options *GCSStorageOptions) (Storage, error) {
+func New(options *Options) (storage.Storage, error) {
 	ctx := context.TODO()
 
 	//ctx = httptrace.WithClientTrace(ctx, &httptrace.ClientTrace{})
 
 	gcs := &gcsStorage{
-		GCSStorageOptions: *options,
+		Options: *options,
 	}
 
 	if gcs.BucketName == "" {
@@ -346,48 +324,13 @@ func tokenFromWeb(ctx context.Context, config *oauth2.Config) (*oauth2.Token, er
 	return token, nil
 }
 
-func authPrompt(url string, state string) (authenticationCode string, err error) {
-	ch := make(chan string)
-
-	ts := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		if req.URL.Path == "/favicon.ico" {
-			http.Error(rw, "", 404)
-			return
-		}
-		if req.FormValue("state") != state {
-			log.Printf("State doesn't match: req = %#v", req)
-			http.Error(rw, "", 500)
-			return
-		}
-		if code := req.FormValue("code"); code != "" {
-			fmt.Fprintf(rw, "<h1>Success</h1>Authorized.")
-			rw.(http.Flusher).Flush()
-			ch <- code
-			return
-		}
-		log.Printf("no code")
-		http.Error(rw, "", 500)
-	}))
-	defer ts.Close()
-
-	log.Println("Go to", url)
-	var code string
-	n, err := fmt.Scanf("%s", &code)
-	if n == 1 {
-		return code, nil
-	}
-
-	return "", err
-
-}
-
 func init() {
-	AddSupportedStorage(
+	storage.AddSupportedStorage(
 		gcsStorageType,
 		func() interface{} {
-			return &GCSStorageOptions{}
+			return &Options{}
 		},
-		func(o interface{}) (Storage, error) {
-			return NewGCSStorage(o.(*GCSStorageOptions))
+		func(o interface{}) (storage.Storage, error) {
+			return New(o.(*Options))
 		})
 }

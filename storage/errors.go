@@ -1,9 +1,9 @@
-package blob
+package storage
 
 import "errors"
 
 var (
-	// ErrBlockNotFound is returned when a block cannot be found in blob.
+	// ErrBlockNotFound is returned when a block cannot be found in storage.
 	ErrBlockNotFound = errors.New("block not found")
 
 	// ErrInvalidChecksum is returned when a storage block is invalid, which may indicate

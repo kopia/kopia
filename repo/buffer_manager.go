@@ -7,7 +7,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/kopia/kopia/blob"
+	"github.com/kopia/kopia/storage"
 )
 
 // bufferManager manages pool of reusable bytes.Buffer objects.
@@ -35,7 +35,7 @@ func (mgr *bufferManager) returnBuffer(b *bytes.Buffer) {
 	mgr.pool.Put(b)
 }
 
-func (mgr *bufferManager) returnBufferOnClose(b *bytes.Buffer) blob.ReaderWithLength {
+func (mgr *bufferManager) returnBufferOnClose(b *bytes.Buffer) storage.ReaderWithLength {
 	return &returnOnCloser{
 		buffer: b,
 		mgr:    mgr,
