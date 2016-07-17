@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -112,8 +111,6 @@ func openVaultSpecifiedByFlag() (*vault.Vault, error) {
 	return vault.Open(storage, creds)
 }
 
-var errPasswordTooShort = errors.New("password too short")
-
 func getVaultCredentials(isNew bool) (vault.Credentials, error) {
 	if *key != "" {
 		k, err := hex.DecodeString(*key)
@@ -148,11 +145,6 @@ func getVaultCredentials(isNew bool) (vault.Credentials, error) {
 	if isNew {
 		for {
 			p1, err := askPass("Enter password to create new vault: ")
-			if err == errPasswordTooShort {
-				fmt.Printf("Password too short, must be at least %v characters, you entered %v. Try again.", vault.MinPasswordLength, len(p1))
-				fmt.Println()
-				continue
-			}
 			if err != nil {
 				return nil, err
 			}
@@ -177,16 +169,23 @@ func getVaultCredentials(isNew bool) (vault.Credentials, error) {
 }
 
 func askPass(prompt string) (string, error) {
-	b, err := speakeasy.Ask(prompt)
-	if err != nil {
-		return "", err
+	for {
+		b, err := speakeasy.Ask(prompt)
+		if err != nil {
+			return "", err
+		}
+
+		p := string(b)
+
+		if len(p) == 0 {
+			continue
+		}
+
+		if len(p) >= vault.MinPasswordLength {
+			return p, nil
+		}
+
+		fmt.Printf("Password too short, must be at least %v characters, you entered %v. Try again.", vault.MinPasswordLength, len(p))
+		fmt.Println()
 	}
-
-	p := string(b)
-
-	if len(p) < vault.MinPasswordLength {
-		return p, errPasswordTooShort
-	}
-
-	return p, nil
 }

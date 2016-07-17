@@ -7,8 +7,12 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/http/httptest"
 	"os"
+	"runtime"
 	"time"
+
+	"github.com/skratchdot/open-golang/open"
 
 	"github.com/kopia/kopia/storage"
 
@@ -296,6 +300,61 @@ func writeTokenToFile(filePath string, token *oauth2.Token) error {
 }
 
 func tokenFromWeb(ctx context.Context, config *oauth2.Config) (*oauth2.Token, error) {
+	if runtime.GOOS == "windows" {
+		return tokenFromWebLocalServer(ctx, config)
+	}
+
+	// On non-SSH Unix, that has X11 configured use local web server.
+	if os.Getenv("DISPLAY") != "" && os.Getenv("SSH_CLIENT") == "" {
+		return tokenFromWebLocalServer(ctx, config)
+	}
+
+	// Otherwise fall back to asking user to manually copy/paste the code.
+	return tokenFromWebManual(ctx, config)
+}
+
+func tokenFromWebLocalServer(ctx context.Context, config *oauth2.Config) (*oauth2.Token, error) {
+	ch := make(chan string)
+	randState := fmt.Sprintf("st%d", time.Now().UnixNano())
+	ts := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		if req.URL.Path == "/favicon.ico" {
+			http.Error(rw, "", 404)
+			return
+		}
+		if req.FormValue("state") != randState {
+			log.Printf("State doesn't match: req = %#v", req)
+			http.Error(rw, "", 500)
+			return
+		}
+		if code := req.FormValue("code"); code != "" {
+			fmt.Fprintf(rw, "<h1>Success</h1>Authorized.")
+			rw.(http.Flusher).Flush()
+			ch <- code
+			return
+		}
+		log.Printf("no code")
+		http.Error(rw, "", 500)
+	}))
+	defer ts.Close()
+
+	config.RedirectURL = ts.URL
+	authURL := config.AuthCodeURL(randState)
+	go open.Start(authURL)
+	fmt.Println("Opening URL in web browser to get OAuth2 authorization token:")
+	fmt.Println()
+	fmt.Println("  ", authURL)
+	fmt.Println()
+	code := <-ch
+
+	token, err := config.Exchange(ctx, code)
+	if err != nil {
+		return nil, fmt.Errorf("token exchange error: %v", err)
+	}
+
+	return token, nil
+}
+
+func tokenFromWebManual(ctx context.Context, config *oauth2.Config) (*oauth2.Token, error) {
 	config.RedirectURL = "urn:ietf:wg:oauth:2.0:oob"
 	authURL := config.AuthCodeURL("")
 	var code string
