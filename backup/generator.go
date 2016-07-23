@@ -2,7 +2,6 @@ package backup
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/kopia/kopia/fs"
@@ -23,10 +22,7 @@ type backupGenerator struct {
 }
 
 func (bg *backupGenerator) Backup(m *Manifest, old *Manifest) error {
-	uploader, err := fs.NewUploader(bg.repo)
-	if err != nil {
-		return err
-	}
+	uploader := fs.NewUploader(bg.repo)
 
 	m.StartTime = time.Now()
 	var hashCacheID repo.ObjectID
@@ -35,17 +31,14 @@ func (bg *backupGenerator) Backup(m *Manifest, old *Manifest) error {
 		hashCacheID = repo.ObjectID(old.HashCacheID)
 	}
 
-	st, err := os.Stat(m.Source)
-	if err != nil {
-		return err
-	}
+	entry, err := fs.NewFilesystemEntry(m.Source, nil)
 
 	var r *fs.UploadResult
-	switch st.Mode() & os.ModeType {
-	case os.ModeDir:
-		r, err = uploader.UploadDir(m.Source, hashCacheID)
-	case 0: // regular
-		r, err = uploader.UploadFile(m.Source)
+	switch entry := entry.(type) {
+	case fs.Directory:
+		r, err = uploader.UploadDir(entry, hashCacheID)
+	case fs.File:
+		r, err = uploader.UploadFile(entry)
 	default:
 		return fmt.Errorf("unsupported source: %v", m.Source)
 	}

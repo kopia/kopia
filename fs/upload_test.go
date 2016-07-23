@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/storage"
@@ -14,49 +13,20 @@ import (
 )
 
 type uploadTestHarness struct {
-	sourceDir string
+	sourceDir *inmemoryDirectory
 	repoDir   string
 	repo      repo.Repository
 	storage   storage.Storage
-	lister    *perPathLister
 	uploader  Uploader
 }
 
 var errTest = fmt.Errorf("test error")
 
-type perPathLister struct {
-	listFunc      map[string]func(path string) (Directory, error)
-	openFunc      map[string]func(path string) (EntryReadCloser, error)
-	defaultLister Lister
-}
-
-func (ppl *perPathLister) List(path string) (Directory, error) {
-	if f, ok := ppl.listFunc[path]; ok {
-		return f(path)
-	}
-
-	return ppl.defaultLister.List(path)
-}
-
-func (ppl *perPathLister) Open(path string) (EntryReadCloser, error) {
-	if f, ok := ppl.openFunc[path]; ok {
-		return f(path)
-	}
-
-	return ppl.defaultLister.Open(path)
-}
-
 func (th *uploadTestHarness) cleanup() {
-	os.RemoveAll(th.sourceDir)
 	os.RemoveAll(th.repoDir)
 }
 
 func newUploadTestHarness() *uploadTestHarness {
-	sourceDir, err := ioutil.TempDir("", "kopia-src")
-	if err != nil {
-		panic("cannot create temp directory: " + err.Error())
-	}
-
 	repoDir, err := ioutil.TempDir("", "kopia-repo")
 	if err != nil {
 		panic("cannot create temp directory: " + err.Error())
@@ -82,37 +52,31 @@ func newUploadTestHarness() *uploadTestHarness {
 		panic("unable to create repository: " + err.Error())
 	}
 
+	sourceDir := newInMemoryDirectory()
+	sourceDir.addFile("f1", []byte{1, 2, 3}, 0777)
+	sourceDir.addFile("f2", []byte{1, 2, 3, 4}, 0777)
+	sourceDir.addFile("f3", []byte{1, 2, 3, 4, 5}, 0777)
+
+	sourceDir.addDir("d1", 0777)
+	sourceDir.addDir("d1/d1", 0777)
+	sourceDir.addDir("d1/d2", 0777)
+	sourceDir.addDir("d2", 0777)
+	sourceDir.addDir("d2/d1", 0777)
+
 	// Prepare directory contents.
-	os.MkdirAll(filepath.Join(sourceDir, "d1/d1"), 0777)
-	os.MkdirAll(filepath.Join(sourceDir, "d1/d2"), 0777)
-	os.MkdirAll(filepath.Join(sourceDir, "d2/d1"), 0777)
-
-	ioutil.WriteFile(filepath.Join(sourceDir, "f1"), []byte{1, 2, 3}, 0777)
-	ioutil.WriteFile(filepath.Join(sourceDir, "f2"), []byte{1, 2, 3, 4}, 0777)
-	ioutil.WriteFile(filepath.Join(sourceDir, "f3"), []byte{1, 2, 3, 4, 5}, 0777)
-
-	ioutil.WriteFile(filepath.Join(sourceDir, "d1/d1/f1"), []byte{1, 2, 3}, 0777)
-	ioutil.WriteFile(filepath.Join(sourceDir, "d1/d1/f2"), []byte{1, 2, 3, 4}, 0777)
-	ioutil.WriteFile(filepath.Join(sourceDir, "d1/f2"), []byte{1, 2, 3, 4}, 0777)
-	ioutil.WriteFile(filepath.Join(sourceDir, "d1/d2/f1"), []byte{1, 2, 3}, 0777)
-	ioutil.WriteFile(filepath.Join(sourceDir, "d1/d2/f2"), []byte{1, 2, 3, 4}, 0777)
-	ioutil.WriteFile(filepath.Join(sourceDir, "d2/d1/f1"), []byte{1, 2, 3}, 0777)
-	ioutil.WriteFile(filepath.Join(sourceDir, "d2/d1/f2"), []byte{1, 2, 3, 4}, 0777)
+	sourceDir.addFile("d1/d1/f1", []byte{1, 2, 3}, 0777)
+	sourceDir.addFile("d1/d1/f2", []byte{1, 2, 3, 4}, 0777)
+	sourceDir.addFile("d1/f2", []byte{1, 2, 3, 4}, 0777)
+	sourceDir.addFile("d1/d2/f1", []byte{1, 2, 3}, 0777)
+	sourceDir.addFile("d1/d2/f2", []byte{1, 2, 3, 4}, 0777)
+	sourceDir.addFile("d2/d1/f1", []byte{1, 2, 3}, 0777)
+	sourceDir.addFile("d2/d1/f2", []byte{1, 2, 3, 4}, 0777)
 
 	th := &uploadTestHarness{
 		sourceDir: sourceDir,
 		repoDir:   repoDir,
 		repo:      repo,
-		lister: &perPathLister{
-			listFunc:      map[string]func(string) (Directory, error){},
-			openFunc:      map[string]func(string) (EntryReadCloser, error){},
-			defaultLister: &filesystemLister{},
-		},
-	}
-
-	th.uploader, err = newUploaderLister(th.repo, th.lister)
-	if err != nil {
-		panic("can't create uploader: " + err.Error())
+		uploader:  NewUploader(repo),
 	}
 
 	return th
@@ -122,20 +86,12 @@ func TestUpload(t *testing.T) {
 	th := newUploadTestHarness()
 	defer th.cleanup()
 
-	var err error
-
-	u, err := NewUploader(th.repo)
-	if err != nil {
-		t.Errorf("unable to create uploader: %v", err)
-		return
-	}
-
-	r1, err := u.UploadDir(th.sourceDir, "")
+	r1, err := th.uploader.UploadDir(th.sourceDir, "")
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
 
-	r2, err := u.UploadDir(th.sourceDir, r1.ManifestID)
+	r2, err := th.uploader.UploadDir(th.sourceDir, r1.ManifestID)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
@@ -159,8 +115,8 @@ func TestUpload(t *testing.T) {
 	}
 
 	// Add one more file, the r1.ObjectID should change.
-	ioutil.WriteFile(filepath.Join(th.sourceDir, "d2/d1/f3"), []byte{1, 2, 3, 4, 5}, 0777)
-	r3, err := u.UploadDir(th.sourceDir, r1.ManifestID)
+	th.sourceDir.addFile("d2/d1/f3", []byte{1, 2, 3, 4, 5}, 0777)
+	r3, err := th.uploader.UploadDir(th.sourceDir, r1.ManifestID)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
@@ -179,9 +135,9 @@ func TestUpload(t *testing.T) {
 	}
 
 	// Now remove the added file, OID should be identical to the original before the file got added.
-	os.Remove(filepath.Join(th.sourceDir, "d2/d1/f3"))
+	th.sourceDir.subdir("d2", "d1").remove("f3")
 
-	r4, err := u.UploadDir(th.sourceDir, r1.ManifestID)
+	r4, err := th.uploader.UploadDir(th.sourceDir, r1.ManifestID)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
@@ -200,7 +156,7 @@ func TestUpload(t *testing.T) {
 	}
 
 	// Upload again, this time using r3.ManifestID as base.
-	r5, err := u.UploadDir(th.sourceDir, r3.ManifestID)
+	r5, err := th.uploader.UploadDir(th.sourceDir, r3.ManifestID)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
@@ -218,7 +174,7 @@ func TestUpload_TopLevelDirectoryReadFailure(t *testing.T) {
 	th := newUploadTestHarness()
 	defer th.cleanup()
 
-	th.lister.listFunc[th.sourceDir] = failList
+	th.sourceDir.failReaddir(errTest)
 
 	r, err := th.uploader.UploadDir(th.sourceDir, "")
 	if err != errTest {
@@ -230,15 +186,11 @@ func TestUpload_TopLevelDirectoryReadFailure(t *testing.T) {
 	}
 }
 
-func failList(p string) (Directory, error) {
-	return nil, errTest
-}
-
 func TestUpload_SubDirectoryReadFailure(t *testing.T) {
 	th := newUploadTestHarness()
 	defer th.cleanup()
 
-	th.lister.listFunc[filepath.Join(th.sourceDir, "d1")] = failList
+	th.sourceDir.subdir("d1").failReaddir(errTest)
 
 	_, err := th.uploader.UploadDir(th.sourceDir, "")
 	if err == nil {

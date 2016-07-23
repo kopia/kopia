@@ -37,33 +37,38 @@ func parseObjectID(id string, vlt *vault.Vault) (repo.ObjectID, error) {
 		return "", fmt.Errorf("cannot open repository: %v", err)
 	}
 
-	return parseNestedObjectID(oid, tail, r)
+	dir := fs.NewRootDirectoryFromRepository(r, oid)
+	if err != nil {
+		return "", err
+	}
+
+	return parseNestedObjectID(dir, tail)
 }
 
-func parseNestedObjectID(current repo.ObjectID, id string, r repo.Repository) (repo.ObjectID, error) {
+func parseNestedObjectID(startingDir fs.Directory, id string) (repo.ObjectID, error) {
 	head, tail := splitHeadTail(id)
+	var current fs.Entry = startingDir
 	for head != "" {
-		d, err := r.Open(current)
+		dir, ok := current.(fs.Directory)
+		if !ok {
+			return "", fmt.Errorf("entry not found '%v': parent is not a directory", head)
+		}
+
+		entries, err := dir.Readdir()
 		if err != nil {
 			return "", err
 		}
 
-		dir, err := fs.ReadDirectory(d, "")
-		if err != nil {
-			return "", fmt.Errorf("entry not found '%v': parent is not a directory", head)
-		}
-
-		e := dir.FindByName(head)
+		e := entries.FindByName(head)
 		if e == nil {
 			return "", fmt.Errorf("entry not found: '%v'", head)
 		}
 
-		current = e.ObjectID
-
+		current = e
 		head, tail = splitHeadTail(tail)
 	}
 
-	return current, nil
+	return current.Metadata().ObjectID, nil
 }
 
 func splitHeadTail(id string) (string, string) {

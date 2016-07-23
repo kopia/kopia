@@ -7,7 +7,7 @@ import (
 	"syscall"
 )
 
-func (e *Entry) populatePlatformSpecificEntryDetails(fi os.FileInfo) error {
+func (e *EntryMetadata) populatePlatformSpecificEntryDetails(fi os.FileInfo) error {
 	if stat, ok := fi.Sys().(*syscall.Stat_t); ok {
 		e.OwnerID = stat.Uid
 		e.GroupID = stat.Gid

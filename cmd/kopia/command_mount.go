@@ -3,13 +3,9 @@
 package main
 
 import (
-	"os"
-
 	"bazil.org/fuse"
 	fusefs "bazil.org/fuse/fs"
-
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/vfs"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -37,8 +33,6 @@ func runMountCommand(context *kingpin.ParseContext) error {
 		return err
 	}
 
-	mgr := vfs.NewManager(r)
-
 	fuseConnection, err := fuse.Mount(
 		*mountPoint,
 		fuse.ReadOnly(),
@@ -52,13 +46,14 @@ func runMountCommand(context *kingpin.ParseContext) error {
 		return err
 	}
 
-	fusefs.Serve(fuseConnection, &root{
-		mgr.NewNodeFromEntry(&fs.Entry{
-			Name:     "<root>",
-			FileMode: os.ModeDir | 0555,
-			ObjectID: oid,
-		}),
-	})
+	dir := fs.NewRootDirectoryFromRepository(r, oid)
+
+	rootNode, err := fs.NewFuseDirectory(fs.Logging(dir).(fs.Directory))
+	if err != nil {
+		return err
+	}
+
+	fusefs.Serve(fuseConnection, &root{rootNode})
 
 	return nil
 }

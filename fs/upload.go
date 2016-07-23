@@ -7,8 +7,6 @@ import (
 	"hash/fnv"
 	"io"
 	"log"
-	"os"
-	"path/filepath"
 	"sync/atomic"
 
 	"github.com/kopia/kopia/repo"
@@ -37,14 +35,13 @@ type UploadResult struct {
 
 // Uploader supports efficient uploading files and directories to repository.
 type Uploader interface {
-	UploadDir(path string, previousManifestID repo.ObjectID) (*UploadResult, error)
-	UploadFile(path string) (*UploadResult, error)
+	UploadDir(dir Directory, previousManifestID repo.ObjectID) (*UploadResult, error)
+	UploadFile(file File) (*UploadResult, error)
 	Cancel()
 }
 
 type uploader struct {
-	repo   repo.Repository
-	lister Lister
+	repo repo.Repository
 
 	cancelled int32
 }
@@ -53,16 +50,16 @@ func (u *uploader) isCancelled() bool {
 	return atomic.LoadInt32(&u.cancelled) != 0
 }
 
-func (u *uploader) uploadFileInternal(path string, forceStored bool) (*Entry, uint64, error) {
-	log.Printf("Uploading file %v", path)
-	file, err := u.lister.Open(path)
+func (u *uploader) uploadFileInternal(f File, relativePath string, forceStored bool) (*EntryMetadata, uint64, error) {
+	log.Printf("Uploading file %v", relativePath)
+	file, err := f.Open()
 	if err != nil {
-		return nil, 0, fmt.Errorf("unable to open file %s: %v", path, err)
+		return nil, 0, fmt.Errorf("unable to open file: %v", err)
 	}
 	defer file.Close()
 
 	writer := u.repo.NewWriter(
-		repo.WithDescription("FILE:" + path),
+		repo.WithDescription("FILE:" + f.Metadata().Name),
 	)
 	defer writer.Close()
 
@@ -71,7 +68,7 @@ func (u *uploader) uploadFileInternal(path string, forceStored bool) (*Entry, ui
 		return nil, 0, err
 	}
 
-	e2, err := file.Entry()
+	e2, err := file.EntryMetadata()
 	if err != nil {
 		return nil, 0, err
 	}
@@ -88,16 +85,14 @@ func (u *uploader) uploadFileInternal(path string, forceStored bool) (*Entry, ui
 	return e2, e2.metadataHash(), nil
 }
 
-func (u *uploader) UploadFile(path string) (*UploadResult, error) {
+func (u *uploader) UploadFile(file File) (*UploadResult, error) {
 	result := &UploadResult{}
-	e, _, err := u.uploadFileInternal(path, true)
+	e, _, err := u.uploadFileInternal(file, file.Metadata().Name, true)
 	result.ObjectID = e.ObjectID
 	return result, err
 }
 
-func (u *uploader) UploadDir(path string, previousManifestID repo.ObjectID) (*UploadResult, error) {
-	//log.Printf("UploadDir", path)
-	//defer log.Printf("finishing UploadDir", path)
+func (u *uploader) UploadDir(dir Directory, previousManifestID repo.ObjectID) (*UploadResult, error) {
 	var mr hashcacheReader
 	var err error
 
@@ -108,14 +103,14 @@ func (u *uploader) UploadDir(path string, previousManifestID repo.ObjectID) (*Up
 	}
 
 	mw := u.repo.NewWriter(
-		repo.WithDescription("HASHCACHE:"+path),
+		repo.WithDescription("HASHCACHE:"+dir.Metadata().Name),
 		repo.WithBlockNamePrefix("H"),
 	)
 	defer mw.Close()
 	hcw := newHashCacheWriter(mw)
 
 	result := &UploadResult{}
-	result.ObjectID, _, _, err = u.uploadDirInternal(result, path, ".", hcw, &mr, true)
+	result.ObjectID, _, _, err = u.uploadDirInternal(result, dir, ".", hcw, &mr, true)
 	if err != nil {
 		return result, err
 	}
@@ -126,21 +121,22 @@ func (u *uploader) UploadDir(path string, previousManifestID repo.ObjectID) (*Up
 
 func (u *uploader) uploadDirInternal(
 	result *UploadResult,
-	path string,
+	dir Directory,
 	relativePath string,
 	hcw *hashcacheWriter,
 	mr *hashcacheReader,
 	forceStored bool,
 ) (repo.ObjectID, uint64, bool, error) {
-	log.Printf("Uploading dir %v", path)
-	defer log.Printf("Finished uploading dir %v", path)
-	dir, err := u.lister.List(path)
+	log.Printf("Uploading dir %v", relativePath)
+	defer log.Printf("Finished uploading dir %v", relativePath)
+
+	entries, err := dir.Readdir()
 	if err != nil {
 		return "", 0, false, err
 	}
 
 	writer := u.repo.NewWriter(
-		repo.WithDescription("DIR:" + path),
+		repo.WithDescription("DIR:" + relativePath),
 	)
 
 	dw := newDirectoryWriter(writer)
@@ -152,15 +148,15 @@ func (u *uploader) uploadDirInternal(
 	dirHasher.Write([]byte(relativePath))
 	dirHasher.Write([]byte{0})
 
-	for _, e := range dir {
-		fullPath := filepath.Join(path, e.Name)
+	for _, entry := range entries {
+		e := entry.Metadata()
 		entryRelativePath := relativePath + "/" + e.Name
 
 		var hash uint64
 
-		switch e.FileMode & os.ModeType {
-		case os.ModeDir:
-			oid, h, wasCached, err := u.uploadDirInternal(result, fullPath, entryRelativePath, hcw, mr, false)
+		switch entry := entry.(type) {
+		case Directory:
+			oid, h, wasCached, err := u.uploadDirInternal(result, entry, entryRelativePath, hcw, mr, false)
 			if err != nil {
 				return "", 0, false, err
 			}
@@ -169,8 +165,8 @@ func (u *uploader) uploadDirInternal(
 			allCached = allCached && wasCached
 			e.ObjectID = oid
 
-		case os.ModeSymlink:
-			l, err := os.Readlink(fullPath)
+		case Symlink:
+			l, err := entry.Readlink()
 			if err != nil {
 				return "", 0, false, err
 			}
@@ -178,7 +174,7 @@ func (u *uploader) uploadDirInternal(
 			e.ObjectID = repo.NewInlineObjectID([]byte(l))
 			hash = e.metadataHash()
 
-		case 0:
+		case File:
 			// regular file
 			// See if we had this name during previous pass.
 			cachedEntry := mr.findEntry(entryRelativePath)
@@ -195,14 +191,14 @@ func (u *uploader) uploadDirInternal(
 				hash = cachedEntry.Hash
 			} else {
 				result.Stats.NonCachedFiles++
-				e, hash, err = u.uploadFileInternal(fullPath, false)
+				e, hash, err = u.uploadFileInternal(entry, entryRelativePath, false)
 				if err != nil {
 					return "", 0, false, fmt.Errorf("unable to hash file: %s", err)
 				}
 			}
 
 		default:
-			return "", 0, false, fmt.Errorf("file type %v not supported", e.FileMode)
+			return "", 0, false, fmt.Errorf("file type %v not supported", entry.Metadata().FileMode)
 		}
 
 		if hash != 0 {
@@ -262,15 +258,8 @@ func (u *uploader) Cancel() {
 }
 
 // NewUploader creates new Uploader object for the specified Repository
-func NewUploader(repo repo.Repository) (Uploader, error) {
-	return newUploaderLister(repo, &filesystemLister{})
-}
-
-func newUploaderLister(repo repo.Repository, lister Lister) (Uploader, error) {
-	u := &uploader{
-		repo:   repo,
-		lister: lister,
+func NewUploader(repo repo.Repository) Uploader {
+	return &uploader{
+		repo: repo,
 	}
-
-	return u, nil
 }

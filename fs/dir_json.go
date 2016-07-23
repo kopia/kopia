@@ -1,7 +1,6 @@
 package fs
 
 import (
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -24,7 +23,7 @@ type jsonDirectoryEntry struct {
 	ObjectID string    `json:"oid,omitempty"`
 }
 
-func (de *Entry) fromJSON(jde *jsonDirectoryEntry) error {
+func (de *EntryMetadata) fromJSON(jde *jsonDirectoryEntry) error {
 	de.Name = jde.Name
 
 	if mode, err := parseFileModeAndPermissions(jde.Mode); err == nil {
@@ -129,7 +128,7 @@ type directoryWriter struct {
 	lastNameWritten string
 }
 
-func (dw *directoryWriter) WriteEntry(e *Entry) error {
+func (dw *directoryWriter) WriteEntry(e *EntryMetadata) error {
 	if dw.lastNameWritten != "" {
 		if isLessOrEqual(e.Name, dw.lastNameWritten) {
 			return fmt.Errorf("out-of-order directory entry, previous '%v' current '%v'", dw.lastNameWritten, e.Name)
@@ -181,13 +180,6 @@ func (dw *directoryWriter) Close() error {
 	return nil
 }
 
-func (*directoryWriter) serializeLengthPrefixedString(buf []byte, s string) int {
-	offset := binary.PutUvarint(buf, uint64(len(s)))
-	copy(buf[offset:], s)
-	offset += len(s)
-	return offset
-}
-
 func newDirectoryWriter(w io.Writer) *directoryWriter {
 	dw := &directoryWriter{
 		writer: w,
@@ -210,14 +202,14 @@ type directoryReader struct {
 	decoder *json.Decoder
 }
 
-func (dr *directoryReader) ReadNext() (*Entry, error) {
+func (dr *directoryReader) ReadNext() (*EntryMetadata, error) {
 	if dr.decoder.More() {
 		var jde jsonDirectoryEntry
 		if err := dr.decoder.Decode(&jde); err != nil {
 			return nil, err
 		}
 
-		var de Entry
+		var de EntryMetadata
 		if err := de.fromJSON(&jde); err != nil {
 			return nil, err
 		}
@@ -305,18 +297,18 @@ func newDirectoryReader(r io.Reader) (*directoryReader, error) {
 	return dr, nil
 }
 
-// ReadDirectory loads the serialized Directory from the specified Reader.
-func ReadDirectory(r io.Reader, namePrefix string) (Directory, error) {
+func ReadDirectoryMetadataEntries(r io.Reader, namePrefix string) ([]*EntryMetadata, error) {
 	dr, err := newDirectoryReader(r)
 	if err != nil {
 		return nil, err
 	}
 
-	var dir Directory
+	var entries []*EntryMetadata
+
 	for {
 		e, err := dr.ReadNext()
 		if e != nil {
-			dir = append(dir, e)
+			entries = append(entries, e)
 		}
 		if err != nil {
 			if err == io.EOF {
@@ -326,5 +318,5 @@ func ReadDirectory(r io.Reader, namePrefix string) (Directory, error) {
 		}
 	}
 
-	return dir, nil
+	return entries, nil
 }

@@ -27,10 +27,6 @@ func runLSCommand(context *kingpin.ParseContext) error {
 	if err != nil {
 		return err
 	}
-	r, err := mgr.Open(oid)
-	if err != nil {
-		return err
-	}
 
 	var prefix string
 	if !*lsCommandLong {
@@ -40,21 +36,23 @@ func runLSCommand(context *kingpin.ParseContext) error {
 		}
 	}
 
-	dir, err := fs.ReadDirectory(r, "")
-	if err != nil {
-		return fmt.Errorf("unable to read directory contents")
-	}
+	dir := fs.NewRootDirectoryFromRepository(mgr, oid)
 
 	if *lsCommandLong {
 		listDirectory(dir)
 	} else {
-		for _, e := range dir {
+		entries, err := dir.Readdir()
+		if err != nil {
+			return err
+		}
+		for _, e := range entries {
+			m := e.Metadata()
 			var suffix string
-			if e.FileMode.IsDir() {
+			if m.FileMode.IsDir() {
 				suffix = "/"
 			}
 
-			fmt.Println(prefix + e.Name + suffix)
+			fmt.Println(prefix + m.Name + suffix)
 		}
 	}
 
