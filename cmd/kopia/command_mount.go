@@ -46,9 +46,9 @@ func runMountCommand(context *kingpin.ParseContext) error {
 		return err
 	}
 
-	dir := fs.NewRootDirectoryFromRepository(r, oid)
+	dir := fs.NewRepositoryDirectory(r, oid)
 
-	rootNode, err := fs.NewFuseDirectory(fs.Logging(dir).(fs.Directory))
+	rootNode, err := fs.NewFuseDirectory(dir)
 	if err != nil {
 		return err
 	}

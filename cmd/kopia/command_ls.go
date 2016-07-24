@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/repo"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -36,29 +37,43 @@ func runLSCommand(context *kingpin.ParseContext) error {
 		}
 	}
 
-	dir := fs.NewRootDirectoryFromRepository(mgr, oid)
-
-	if *lsCommandLong {
-		listDirectory(dir)
-	} else {
-		entries, err := dir.Readdir()
-		if err != nil {
-			return err
-		}
-		for _, e := range entries {
-			m := e.Metadata()
-			var suffix string
-			if m.FileMode.IsDir() {
-				suffix = "/"
-			}
-
-			fmt.Println(prefix + m.Name + suffix)
-		}
+	dir := fs.NewRepositoryDirectory(mgr, oid)
+	entries, err := dir.Readdir()
+	if err != nil {
+		return err
 	}
+
+	listDirectory(prefix, entries, *lsCommandLong)
 
 	return nil
 }
 
 func init() {
 	lsCommand.Action(runLSCommand)
+}
+
+func listDirectory(prefix string, entries fs.Entries, longFormat bool) {
+	for _, e := range entries {
+		m := e.Metadata()
+		var info string
+		if longFormat {
+			var oid string
+			if m.ObjectID.Type().IsStored() {
+				oid = string(m.ObjectID)
+			} else if m.ObjectID.Type() == repo.ObjectIDTypeBinary {
+				oid = "<inline binary>"
+			} else if m.ObjectID.Type() == repo.ObjectIDTypeText {
+				oid = "<inline text>"
+			}
+			info = fmt.Sprintf("%v %9d %v %-30s %v", m.FileMode, m.FileSize, m.ModTime.Local().Format("02 Jan 06 15:04:05"), m.Name, oid)
+		} else {
+			var suffix string
+			if m.FileMode.IsDir() {
+				suffix = "/"
+			}
+
+			info = prefix + m.Name + suffix
+		}
+		fmt.Println(info)
+	}
 }

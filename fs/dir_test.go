@@ -20,7 +20,7 @@ func TestDirectory(t *testing.T) {
 			`]}`,
 		}, "")
 
-	d, err := ReadDirectoryMetadataEntries(strings.NewReader(data), "")
+	d, err := readDirectoryMetadataEntries(strings.NewReader(data), "")
 	if err != nil {
 		t.Errorf("can't read: %v", err)
 		return

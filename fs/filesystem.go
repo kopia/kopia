@@ -85,6 +85,7 @@ func (fsl *filesystemSymlink) Readlink() (string, error) {
 	return os.Readlink(fsl.path)
 }
 
+// NewFilesystemEntry returns fs.Entry for the specified path, the result will be one of supported entry types: File, Directory, Symlink.
 func NewFilesystemEntry(path string, parent Directory) (Entry, error) {
 	fi, err := os.Lstat(path)
 	if err != nil {
@@ -94,6 +95,7 @@ func NewFilesystemEntry(path string, parent Directory) (Entry, error) {
 	return entryFromFileInfo(fi, path, parent)
 }
 
+// NewFilesystemDirectory returns fs.Directory for the specified path.
 func NewFilesystemDirectory(path string, parent Directory) (Directory, error) {
 	e, err := NewFilesystemEntry(path, parent)
 	if err != nil {

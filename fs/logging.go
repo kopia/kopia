@@ -11,7 +11,7 @@ func (ld *loggingDirectory) Readdir() (Entries, error) {
 	entries, err := ld.Directory.Readdir()
 	loggingEntries := make(Entries, len(entries))
 	for i, entry := range entries {
-		loggingEntries[i] = Logging(entry)
+		loggingEntries[i] = newLoggingWrapper(entry)
 	}
 	return loggingEntries, err
 }
@@ -24,7 +24,8 @@ type loggingSymlink struct {
 	Symlink
 }
 
-func Logging(e Entry) Entry {
+// newLoggingWrapper returns an Entry that wraps another Entry and logs all method calls.
+func newLoggingWrapper(e Entry) Entry {
 	switch e := e.(type) {
 	case Directory:
 		return Directory(&loggingDirectory{e})

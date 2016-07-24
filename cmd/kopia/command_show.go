@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"os"
 
@@ -33,49 +32,58 @@ func runShowCommand(context *kingpin.ParseContext) error {
 		if err != nil {
 			return err
 		}
-		r, err := mgr.Open(oid)
-		if err != nil {
+
+		if err := showObject(mgr, oid); err != nil {
 			return err
-		}
-
-		switch {
-		case *showJSON:
-			var v map[string]interface{}
-
-			if err := json.NewDecoder(r).Decode(&v); err != nil {
-				return err
-			}
-
-			m, err := json.MarshalIndent(v, "", "  ")
-			if err != nil {
-				return err
-			}
-			os.Stdout.Write(m)
-		case *showDir:
-			metadata, err := fs.ReadDirectoryMetadataEntries(r, "")
-			if err != nil {
-				return err
-			}
-
-			for _, m := range metadata {
-				var oid string
-				if m.ObjectID.Type().IsStored() {
-					oid = string(m.ObjectID)
-				} else if m.ObjectID.Type() == repo.ObjectIDTypeBinary {
-					oid = "<inline binary>"
-				} else if m.ObjectID.Type() == repo.ObjectIDTypeText {
-					oid = "<inline text>"
-				}
-				info := fmt.Sprintf("%v %9d %v %-30s %v", m.FileMode, m.FileSize, m.ModTime.Local().Format("02 Jan 06 15:04:05"), m.Name, oid)
-				fmt.Println(info)
-			}
-
-		default:
-			io.Copy(os.Stdout, r)
 		}
 	}
 
 	return nil
+}
+
+func showObject(mgr repo.Repository, oid repo.ObjectID) error {
+	switch {
+	case *showJSON:
+		r, err := mgr.Open(oid)
+		if err != nil {
+			return err
+		}
+		defer r.Close()
+
+		var v map[string]interface{}
+
+		if err := json.NewDecoder(r).Decode(&v); err != nil {
+			return err
+		}
+
+		m, err := json.MarshalIndent(v, "", "  ")
+		if err != nil {
+			return err
+		}
+		os.Stdout.Write(m)
+		return nil
+
+	case *showDir:
+		metadata := fs.NewRepositoryDirectory(mgr, oid)
+
+		entries, err := metadata.Readdir()
+		if err != nil {
+			return err
+		}
+
+		listDirectory("", entries, true)
+		return nil
+
+	default:
+		r, err := mgr.Open(oid)
+		if err != nil {
+			return err
+		}
+		defer r.Close()
+
+		_, err = io.Copy(os.Stdout, r)
+		return err
+	}
 }
 
 func init() {

@@ -10,9 +10,6 @@ import (
 )
 
 // ParseObjectID interprets the given ID string and returns corresponding repo.ObjectID.
-// The string can be:
-// - backupID (vxxxxxx/12312312)
-// -
 func parseObjectID(id string, vlt *vault.Vault) (repo.ObjectID, error) {
 	head, tail := splitHeadTail(id)
 	if len(head) == 0 {
@@ -37,7 +34,7 @@ func parseObjectID(id string, vlt *vault.Vault) (repo.ObjectID, error) {
 		return "", fmt.Errorf("cannot open repository: %v", err)
 	}
 
-	dir := fs.NewRootDirectoryFromRepository(r, oid)
+	dir := fs.NewRepositoryDirectory(r, oid)
 	if err != nil {
 		return "", err
 	}
@@ -47,7 +44,8 @@ func parseObjectID(id string, vlt *vault.Vault) (repo.ObjectID, error) {
 
 func parseNestedObjectID(startingDir fs.Directory, id string) (repo.ObjectID, error) {
 	head, tail := splitHeadTail(id)
-	var current fs.Entry = startingDir
+	var current fs.Entry
+	current = startingDir
 	for head != "" {
 		dir, ok := current.(fs.Directory)
 		if !ok {
