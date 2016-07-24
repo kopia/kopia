@@ -1,11 +1,13 @@
 // +build !windows
 
-package fs
+package fuse
 
 import (
 	"fmt"
 	"io/ioutil"
 	"os"
+
+	"github.com/kopia/kopia/fs"
 
 	"bazil.org/fuse"
 	fusefs "bazil.org/fuse/fs"
@@ -14,7 +16,7 @@ import (
 )
 
 type fuseNode struct {
-	entry Entry
+	entry fs.Entry
 }
 
 func (n *fuseNode) Attr(ctx context.Context, a *fuse.Attr) error {
@@ -32,7 +34,7 @@ type fuseFileNode struct {
 }
 
 func (f *fuseFileNode) ReadAll(ctx context.Context) ([]byte, error) {
-	reader, err := f.entry.(File).Open()
+	reader, err := f.entry.(fs.File).Open()
 	if err != nil {
 		return nil, err
 	}
@@ -45,8 +47,8 @@ type fuseDirectoryNode struct {
 	fuseNode
 }
 
-func (dir *fuseDirectoryNode) directory() Directory {
-	return dir.entry.(Directory)
+func (dir *fuseDirectoryNode) directory() fs.Directory {
+	return dir.entry.(fs.Directory)
 }
 
 func (dir *fuseDirectoryNode) Lookup(ctx context.Context, fileName string) (fusefs.Node, error) {
@@ -68,7 +70,7 @@ func (dir *fuseDirectoryNode) Lookup(ctx context.Context, fileName string) (fuse
 
 }
 
-func (dir *fuseDirectoryNode) readPossiblyCachedReaddir() (Entries, error) {
+func (dir *fuseDirectoryNode) readPossiblyCachedReaddir() (fs.Entries, error) {
 	return dir.directory().Readdir()
 }
 
@@ -113,19 +115,20 @@ func (sl *fuseSymlinkNode) Readlink(ctx context.Context, req *fuse.ReadlinkReque
 	return string(sl.entry.Metadata().ObjectID), nil
 }
 
-func newFuseNode(e Entry) (fusefs.Node, error) {
+func newFuseNode(e fs.Entry) (fusefs.Node, error) {
 	switch e := e.(type) {
-	case Directory:
+	case fs.Directory:
 		return &fuseDirectoryNode{fuseNode{e}}, nil
-	case File:
+	case fs.File:
 		return &fuseFileNode{fuseNode{e}}, nil
-	case Symlink:
+	case fs.Symlink:
 		return &fuseSymlinkNode{fuseNode{e}}, nil
 	default:
 		return nil, fmt.Errorf("entry type not supported: %v", e.Metadata().FileMode)
 	}
 }
 
-func NewFuseDirectory(e Directory) (fusefs.Node, error) {
-	return newFuseNode(e)
+// NewDirectoryNode returns fusefs.Node for given fs.Directory
+func NewDirectoryNode(dir fs.Directory) fusefs.Node {
+	return &fuseDirectoryNode{fuseNode{dir}}
 }
