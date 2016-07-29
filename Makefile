@@ -24,14 +24,24 @@ vet:
 	go tool vet -all .
 
 deps:
-	go get -t -v -ldflags $(LDARGS) github.com/kopia/kopia/...
+	go get -t -v github.com/kopia/kopia/...
 
 release:
+	rm -rf $(RELEASE_TMP_DIR)
 	mkdir -p $(RELEASE_TMP_DIR)/$(RELEASE_NAME)/bin
-	go build -o $(RELEASE_TMP_DIR)/$(RELEASE_NAME)/bin/kopia -ldflags $(LDARGS) github.com/kopia/kopia/cmd/kopia
+	go build -o $(RELEASE_TMP_DIR)/$(RELEASE_NAME)/bin/kopia$(EXE_SUFFIX) -ldflags $(LDARGS) github.com/kopia/kopia/cmd/kopia
 	cp README.md LICENSE $(RELEASE_TMP_DIR)/$(RELEASE_NAME)
 	(cd $(RELEASE_TMP_DIR) && tar -cvzf $(RELEASE_NAME).tar.gz $(RELEASE_NAME)/)
 	mv $(RELEASE_TMP_DIR)/$(RELEASE_NAME).tar.gz .
+
+travis-setup: deps dev-deps
+
+travis-release: all
+	GOARCH=amd64 GOOS=windows EXE_SUFFIX=.exe make release
+	GOARCH=amd64 GOOS=linux make release
+	GOARCH=amd64 GOOS=darwin make release
+	GOARCH=arm GOOS=linux make release
+	rm -rf $(RELEASE_TMP_DIR)
 
 dev-deps:
 	go get -u golang.org/x/tools/cmd/gorename

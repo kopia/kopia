@@ -1,12 +1,8 @@
 language: go
 go:
 - 1.6
-- tip
-install: make deps dev-deps release
-script: make test
-os:
-- linux
-- osx
+install: make travis-setup
+script: make travis-release
 deploy:
   provider: releases
   api_key:
