@@ -1,6 +1,7 @@
 BUILD_VERSION ?= $(shell git describe --dirty)
 BUILD_INFO ?= $(USER)@$(shell hostname -s)_$(shell date +%Y%m%d_%H%M%S)
-RELEASE_VERSION ?= $(BUILD_VERSION)-$(shell go env GOOS)-$(shell go env GOARCH)
+RELEASE_SUFFIX ?= $(shell go env GOOS)-$(shell go env GOARCH)
+RELEASE_VERSION ?= $(BUILD_VERSION)-$(RELEASE_SUFFIX)
 RELEASE_NAME = kopia-$(RELEASE_VERSION)
 LDARGS="-X main.buildVersion=$(BUILD_VERSION) -X main.buildInfo=$(BUILD_INFO)"
 RELEASE_TMP_DIR = .release
@@ -32,15 +33,18 @@ release:
 	go build -o $(RELEASE_TMP_DIR)/$(RELEASE_NAME)/bin/kopia$(EXE_SUFFIX) -ldflags $(LDARGS) github.com/kopia/kopia/cmd/kopia
 	cp README.md LICENSE $(RELEASE_TMP_DIR)/$(RELEASE_NAME)
 	(cd $(RELEASE_TMP_DIR) && tar -cvzf $(RELEASE_NAME).tar.gz $(RELEASE_NAME)/)
-	mv $(RELEASE_TMP_DIR)/$(RELEASE_NAME).tar.gz .
+	(cd $(RELEASE_TMP_DIR) && zip -r $(RELEASE_NAME).zip $(RELEASE_NAME)/)
+	mv $(RELEASE_TMP_DIR)/$(RELEASE_NAME).{zip,tar.gz} .
 
 travis-setup: deps dev-deps
 
-travis-release: all
-	GOARCH=amd64 GOOS=windows EXE_SUFFIX=.exe make release
-	GOARCH=amd64 GOOS=linux make release
-	GOARCH=amd64 GOOS=darwin make release
-	GOARCH=arm GOOS=linux make release
+travis-release:
+	GOARCH=386 GOOS=windows EXE_SUFFIX=.exe RELEASE_SUFFIX=windows-x86 make release
+	GOARCH=amd64 GOOS=windows EXE_SUFFIX=.exe RELEASE_SUFFIX=windows-x64 make release
+	GOARCH=386 GOOS=linux RELEASE_SUFFIX=linux-x86 make release
+	GOARCH=amd64 GOOS=linux RELEASE_SUFFIX=linux-x64 make release
+	GOARCH=amd64 GOOS=darwin RELEASE_SUFFIX=macosx-x64 make release
+	GOARCH=arm GOOS=linux RELEASE_SUFFIX=linux-arm make release
 	rm -rf $(RELEASE_TMP_DIR)
 
 dev-deps:
