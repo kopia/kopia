@@ -34,7 +34,8 @@ release:
 	cp README.md LICENSE $(RELEASE_TMP_DIR)/$(RELEASE_NAME)
 	(cd $(RELEASE_TMP_DIR) && tar -cvzf $(RELEASE_NAME).tar.gz $(RELEASE_NAME)/)
 	(cd $(RELEASE_TMP_DIR) && zip -r $(RELEASE_NAME).zip $(RELEASE_NAME)/)
-	mv $(RELEASE_TMP_DIR)/$(RELEASE_NAME).{zip,tar.gz} .
+	mv $(RELEASE_TMP_DIR)/$(RELEASE_NAME).zip .
+	mv $(RELEASE_TMP_DIR)/$(RELEASE_NAME).tar.gz .
 
 travis-setup: deps dev-deps
 
