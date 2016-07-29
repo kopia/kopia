@@ -2,7 +2,7 @@ all: install test lint vet
 
 install:
 	@echo Building version: `git describe --dirty`
-	go install -ldflags "-X main.buildVersion=`git describe --dirty` -X main.buildTime=`date -u '+%s'`" github.com/kopia/kopia/cmd/kopia
+	go install -ldflags "-X main.buildVersion=`git describe --dirty` -X main.buildInfo=$(USER)@`hostname -s`/`date +%Y%m%d_%H%M%S`" github.com/kopia/kopia/cmd/kopia
 
 build:
 	go build github.com/kopia/kopia/...
@@ -17,7 +17,7 @@ vet:
 	go tool vet -all .
 
 deps:
-	go get -u -t -v github.com/kopia/kopia/...
+	go get -t -v -ldflags "-X main.buildVersion=`git describe --dirty` -X main.buildInfo=$(USER)@`hostname -s`/`date +%Y%m%d_%H%M%S`" github.com/kopia/kopia/...
 
 dev-deps:
 	go get -u golang.org/x/tools/cmd/gorename
