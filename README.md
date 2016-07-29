@@ -1,7 +1,8 @@
 Kopia
 =====
 
-[![Build Status](https://travis-ci.org/kopia/kopia.svg?branch=master)](https://travis-ci.org/kopia/kopia)
+[![Linux/macOS Build Status](https://travis-ci.org/kopia/kopia.svg?branch=master)](https://travis-ci.org/kopia/kopia)
+[![Windows Build status](https://ci.appveyor.com/api/projects/status/k2rqfb3mi5s12e1s?svg=true)](https://ci.appveyor.com/project/jkowalski/kopia)
 [![GoDoc](https://godoc.org/github.com/kopia/kopia?status.svg)](https://godoc.org/github.com/kopia/kopia)
 
 > _n. thing exactly replicated from the original (Polish)_
