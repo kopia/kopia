@@ -1,8 +1,15 @@
+BUILD_VERSION ?= $(shell git describe --dirty)
+BUILD_INFO ?= $(USER)@$(shell hostname -s)_$(shell date +%Y%m%d_%H%M%S)
+RELEASE_VERSION ?= $(BUILD_VERSION)-$(shell go env GOOS)-$(shell go env GOARCH)
+RELEASE_NAME = kopia-$(RELEASE_VERSION)
+LDARGS="-X main.buildVersion=$(BUILD_VERSION) -X main.buildInfo=$(BUILD_INFO)"
+RELEASE_TMP_DIR = .release
+
 all: install test lint vet
 
 install:
-	@echo Building version: `git describe --dirty`
-	go install -ldflags "-X main.buildVersion=`git describe --dirty` -X main.buildInfo=$(USER)@`hostname -s`/`date +%Y%m%d_%H%M%S`" github.com/kopia/kopia/cmd/kopia
+	@echo Building version: $(BUILD_INFO) / $(BUILD_VERSION)
+	go install -ldflags $(LDARGS) github.com/kopia/kopia/cmd/kopia
 
 build:
 	go build github.com/kopia/kopia/...
@@ -17,7 +24,14 @@ vet:
 	go tool vet -all .
 
 deps:
-	go get -t -v -ldflags "-X main.buildVersion=`git describe --dirty` -X main.buildInfo=$(USER)@`hostname -s`/`date +%Y%m%d_%H%M%S`" github.com/kopia/kopia/...
+	go get -t -v -ldflags $(LDARGS) github.com/kopia/kopia/...
+
+release:
+	mkdir -p $(RELEASE_TMP_DIR)/$(RELEASE_NAME)/bin
+	go build -o $(RELEASE_TMP_DIR)/$(RELEASE_NAME)/bin/kopia -ldflags $(LDARGS) github.com/kopia/kopia/cmd/kopia
+	cp README.md LICENSE $(RELEASE_TMP_DIR)/$(RELEASE_NAME)
+	(cd $(RELEASE_TMP_DIR) && tar -cvzf $(RELEASE_NAME).tar.gz $(RELEASE_NAME)/)
+	mv $(RELEASE_TMP_DIR)/$(RELEASE_NAME).tar.gz .
 
 dev-deps:
 	go get -u golang.org/x/tools/cmd/gorename
