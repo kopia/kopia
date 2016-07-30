@@ -1,4 +1,5 @@
 .DS_Store
 .release/
+.releases/
 kopia-*.tar.gz
 kopia-*.zip

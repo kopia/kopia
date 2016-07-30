@@ -10,7 +10,7 @@ deploy:
   provider: releases
   api_key:
     secure: MDSDX0cJgeuQMAbPei13K1FaNxPpfqz1mYLaiAUeaIIfT0C4by6HiovUJxCxImen4IFro2AP9cbWpsGK5KlHnNHbzk62f1a1MpVEv4+dFi4cOJXs/I1hnjE8xnC8x/OzgiPtqzF3xsMvdC7oXjtVc6BV/Txq1KoLbfK9beOXdC08LxoHPIb/KPMokPZeqfry/mkfkeG9nVMZklAf71ltF7JQ9vSp9oebLXwFfjx71+2NhVWKKX56KBdJTw5HTQeNW5s+5/ZJoM31LzCVG9dT1jF4Ob/6gJv5s302RX3wSoM3VbsHgEYpEMVSDHMKxJoIRB6jvsmVb9SY3cTNzyx9SpC8IQ+YmYxzzBD3MSpO8Sa2RPqqG+fh5udI85WBSJHSVnV/7bQKX/0r9oIUdgjzBwfowhvYSAOKdKO5x2pdTXwWgJu59CO+HZASOY0HJuLnpnMs7mpdu01hMuEjE+a5iVnoQkith3bNdtcNO2vvGnZqz5RAH8A4WGbcAT/EO1VGtx6iFJOowA1Zd5Ke/TJNnOViBesUnd29Mp5JQsKwglsyu6Abmh7jor+osdsu4u+Fg6Ui+EIoEgQ5pjsl9Cy2kLwmQgiBy3WCEYjARlz08/LKNU//ZWGhFrcYgfia/1xbwmaAZbd4fyxLvdWJ4rZ5JWKhEHB4Nc7Ab4fqk2ebZjw=
-  file: kopia-*.{zip,tar.gz}
+  file: .releases/*
   file_glob: true
   on:
     tags: true
