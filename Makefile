@@ -5,6 +5,7 @@ RELEASE_VERSION ?= $(BUILD_VERSION)-$(RELEASE_SUFFIX)
 RELEASE_NAME = kopia-$(RELEASE_VERSION)
 LDARGS="-X main.buildVersion=$(BUILD_VERSION) -X main.buildInfo=$(BUILD_INFO)"
 RELEASE_TMP_DIR = .release
+ZIP ?= 0
 
 all: install test lint vet
 
@@ -32,20 +33,21 @@ release:
 	mkdir -p $(RELEASE_TMP_DIR)/$(RELEASE_NAME)/bin
 	go build -o $(RELEASE_TMP_DIR)/$(RELEASE_NAME)/bin/kopia$(EXE_SUFFIX) -ldflags $(LDARGS) github.com/kopia/kopia/cmd/kopia
 	cp README.md LICENSE $(RELEASE_TMP_DIR)/$(RELEASE_NAME)
-	(cd $(RELEASE_TMP_DIR) && tar -cvzf $(RELEASE_NAME).tar.gz $(RELEASE_NAME)/)
-	(cd $(RELEASE_TMP_DIR) && zip -r $(RELEASE_NAME).zip $(RELEASE_NAME)/)
-	mv $(RELEASE_TMP_DIR)/$(RELEASE_NAME).zip .
-	mv $(RELEASE_TMP_DIR)/$(RELEASE_NAME).tar.gz .
+ifeq ($(GOOS), windows)
+	(cd $(RELEASE_TMP_DIR) && zip -r ../$(RELEASE_NAME).zip $(RELEASE_NAME)/)
+else
+	(cd $(RELEASE_TMP_DIR) && tar -cvzf ../$(RELEASE_NAME).tar.gz $(RELEASE_NAME)/)
+endif
 
 travis-setup: deps dev-deps
 
 travis-release:
-	GOARCH=386 GOOS=windows EXE_SUFFIX=.exe RELEASE_SUFFIX=windows-x86 make release
-	GOARCH=amd64 GOOS=windows EXE_SUFFIX=.exe RELEASE_SUFFIX=windows-x64 make release
-	GOARCH=386 GOOS=linux RELEASE_SUFFIX=linux-x86 make release
-	GOARCH=amd64 GOOS=linux RELEASE_SUFFIX=linux-x64 make release
-	GOARCH=amd64 GOOS=darwin RELEASE_SUFFIX=macosx-x64 make release
-	GOARCH=arm GOOS=linux RELEASE_SUFFIX=linux-arm make release
+	GOARCH=386 GOOS=windows EXE_SUFFIX=.exe RELEASE_SUFFIX=windows-x86 BUILD_INFO=$(BUILD_INFO) make release
+	GOARCH=amd64 GOOS=windows EXE_SUFFIX=.exe RELEASE_SUFFIX=windows-x64 BUILD_INFO=$(BUILD_INFO) make release
+	GOARCH=386 GOOS=linux RELEASE_SUFFIX=linux-x86 BUILD_INFO=$(BUILD_INFO) make release
+	GOARCH=amd64 GOOS=linux RELEASE_SUFFIX=linux-x64 BUILD_INFO=$(BUILD_INFO) make release
+	GOARCH=amd64 GOOS=darwin RELEASE_SUFFIX=macosx-x64 BUILD_INFO=$(BUILD_INFO) make release
+	GOARCH=arm GOOS=linux RELEASE_SUFFIX=linux-arm BUILD_INFO=$(BUILD_INFO) make release
 	rm -rf $(RELEASE_TMP_DIR)
 
 dev-deps:
