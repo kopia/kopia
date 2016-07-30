@@ -51,7 +51,7 @@ travis-release:
 	GOARCH=amd64 GOOS=darwin RELEASE_SUFFIX=macosx-x64 BUILD_INFO=$(BUILD_INFO) make release
 	GOARCH=arm GOOS=linux RELEASE_SUFFIX=linux-arm BUILD_INFO=$(BUILD_INFO) make release
 	rm -rf $(RELEASE_TMP_DIR)
-	(cd $(RELEASES_OUT_DIR) && sha256sum --tag kopia-* > CHECKSUM)
+	(cd $(RELEASES_OUT_DIR) && sha256sum kopia-* > CHECKSUM)
 
 dev-deps:
 	go get -u golang.org/x/tools/cmd/gorename
