@@ -17,7 +17,8 @@ import (
 )
 
 var (
-	app = kingpin.New("kopia", "Kopia - Online Backup").Author("http://kopia.github.io/")
+	app          = kingpin.New("kopia", "Kopia - Online Backup").Author("http://kopia.github.io/")
+	buildVersion = "UNKNOWN"
 )
 
 func main() {

@@ -3,7 +3,7 @@ BUILD_INFO ?= $(USER)@$(shell hostname -s)_$(shell date +%Y%m%d_%H%M%S)
 RELEASE_SUFFIX ?= $(shell go env GOOS)-$(shell go env GOARCH)
 RELEASE_VERSION ?= $(BUILD_VERSION)-$(RELEASE_SUFFIX)
 RELEASE_NAME = kopia-$(RELEASE_VERSION)
-LDARGS="-X main.buildVersion=$(BUILD_VERSION) -X main.buildInfo=$(BUILD_INFO)"
+LDARGS="-X main.buildVersion=$(BUILD_VERSION)"
 RELEASE_TMP_DIR = $(CURDIR)/.release
 RELEASES_OUT_DIR = $(CURDIR)/.releases
 ZIP ?= 0
@@ -44,14 +44,15 @@ travis-setup: deps dev-deps
 
 travis-release:
 	mkdir -p $(RELEASES_OUT_DIR)
-	GOARCH=386 GOOS=windows EXE_SUFFIX=.exe RELEASE_SUFFIX=windows-x86 BUILD_INFO=$(BUILD_INFO) make release
-	GOARCH=amd64 GOOS=windows EXE_SUFFIX=.exe RELEASE_SUFFIX=windows-x64 BUILD_INFO=$(BUILD_INFO) make release
-	GOARCH=386 GOOS=linux RELEASE_SUFFIX=linux-x86 BUILD_INFO=$(BUILD_INFO) make release
-	GOARCH=amd64 GOOS=linux RELEASE_SUFFIX=linux-x64 BUILD_INFO=$(BUILD_INFO) make release
-	GOARCH=amd64 GOOS=darwin RELEASE_SUFFIX=macosx-x64 BUILD_INFO=$(BUILD_INFO) make release
-	GOARCH=arm GOOS=linux RELEASE_SUFFIX=linux-arm BUILD_INFO=$(BUILD_INFO) make release
+	GOARCH=386 GOOS=windows EXE_SUFFIX=.exe RELEASE_SUFFIX=windows-x86 make release
+	GOARCH=amd64 GOOS=windows EXE_SUFFIX=.exe RELEASE_SUFFIX=windows-x64 make release
+	GOARCH=386 GOOS=linux RELEASE_SUFFIX=linux-x86 make release
+	GOARCH=amd64 GOOS=linux RELEASE_SUFFIX=linux-x64 make release
+	GOARCH=amd64 GOOS=darwin RELEASE_SUFFIX=macosx-x64 make release
+	GOARCH=arm GOOS=linux RELEASE_SUFFIX=linux-arm make release
 	rm -rf $(RELEASE_TMP_DIR)
 	(cd $(RELEASES_OUT_DIR) && sha256sum kopia-* > CHECKSUM)
+	(cd ../../.. && find  -name .git | xargs -Izzz /bin/bash -c "(cd zzz && echo -n 'zzz: ' && git describe --always --long --abbrev=40)") | sort > $(RELEASES_OUT_DIR)/BUILD_VERSIONS
 
 dev-deps:
 	go get -u golang.org/x/tools/cmd/gorename
