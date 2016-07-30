@@ -51,8 +51,8 @@ travis-release:
 	GOARCH=amd64 GOOS=darwin RELEASE_SUFFIX=macosx-x64 make release
 	GOARCH=arm GOOS=linux RELEASE_SUFFIX=linux-arm make release
 	rm -rf $(RELEASE_TMP_DIR)
-	(cd $(RELEASES_OUT_DIR) && sha256sum kopia-* > CHECKSUM)
-	(cd ../../.. && find  -name .git | xargs -Izzz /bin/bash -c "(cd zzz && echo -n 'zzz: ' && git describe --always --long --abbrev=40)") | sort > $(RELEASES_OUT_DIR)/BUILD_VERSIONS
+	(cd $(RELEASES_OUT_DIR) && sha256sum kopia-* > CHECKSUM.txt)
+	(cd ../../.. && find  -name .git | xargs -Izzz /bin/bash -c "(cd zzz && echo -n 'zzz: ' && git describe --always --long --abbrev=40)") | sort > $(RELEASES_OUT_DIR)/BUILD_INFO.txt
 
 dev-deps:
 	go get -u golang.org/x/tools/cmd/gorename
