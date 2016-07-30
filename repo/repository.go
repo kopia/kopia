@@ -27,6 +27,7 @@ type ObjectReader interface {
 	io.Reader
 	io.Seeker
 	io.Closer
+	Length() int64
 }
 
 // Since we never share keys, using constant IV is fine.
@@ -114,6 +115,15 @@ func (repo *repository) NewWriter(options ...WriterOption) ObjectWriter {
 }
 
 func (repo *repository) Open(objectID ObjectID) (ObjectReader, error) {
+	if start, length, baseID := objectID.SectionInfo(); baseID != "" {
+		baseReader, err := repo.Open(baseID)
+		if err != nil {
+			return nil, fmt.Errorf("cannot create base reader: %v", err)
+		}
+
+		return newObjectSectionReader(start, length, baseReader)
+	}
+
 	r, err := repo.newRawReader(objectID)
 	if err != nil {
 		return nil, err
@@ -373,12 +383,20 @@ func (repo *repository) verifyChecksum(data []byte, blockID string) error {
 
 type readerWithData struct {
 	io.ReadSeeker
+	length int64
 }
 
 func (rwd *readerWithData) Close() error {
 	return nil
 }
 
+func (rwd *readerWithData) Length() int64 {
+	return rwd.length
+}
+
 func newObjectReaderWithData(data []byte) ObjectReader {
-	return &readerWithData{bytes.NewReader(data)}
+	return &readerWithData{
+		ReadSeeker: bytes.NewReader(data),
+		length:     int64(len(data)),
+	}
 }

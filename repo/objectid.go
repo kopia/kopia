@@ -3,7 +3,9 @@ package repo
 import (
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 )
@@ -38,7 +40,11 @@ const (
 	// ObjectIDTypeList represents ID of an object whose data is stored in mutliple storage blocks.
 	// The value of the ObjectID is the list chunk, which lists object IDs that need to be concatenated
 	// to form the contents.
-	ObjectIDTypeList ObjectIDType = "L" // list chunk
+	ObjectIDTypeList ObjectIDType = "L"
+
+	// ObjectIDTypeSection represents ID of an object whose data is a section of another object.
+	// The format is S{offset},{length},{base}
+	ObjectIDTypeSection ObjectIDType = "S"
 )
 
 // IsStored determines whether data for the given chunk type is stored in the storage
@@ -79,6 +85,63 @@ func (c ObjectID) InlineData() []byte {
 	}
 
 	return nil
+}
+
+// parseNumberUntilComma parses a string of the form "{x},{remainder}" where x is a 64-bit number and remainder is arbitrary string.
+// Returns the number and remainder.
+func parseNumberUntilComma(s string) (int64, string, error) {
+	comma := strings.IndexByte(s, ',')
+	if comma < 0 {
+		return 0, "", errors.New("missing comma")
+	}
+
+	num, err := strconv.ParseInt(s[0:comma], 10, 64)
+	if err != nil {
+		return 0, "", err
+	}
+
+	return num, s[comma+1:], nil
+}
+
+func parseSectionInfoString(s string) (int64, int64, ObjectID, error) {
+	if ObjectIDType(s[0]) != ObjectIDTypeSection {
+		return 0, -1, "", errors.New("not a section object")
+	}
+
+	var start, length int64
+	var err error
+
+	start, s, err = parseNumberUntilComma(s[1:])
+	if err != nil {
+		return 0, -1, "", err
+	}
+
+	length, s, err = parseNumberUntilComma(s)
+	if err != nil {
+		return 0, -1, "", err
+	}
+
+	oid, err := ParseObjectID(s)
+	if err != nil {
+		return 0, -1, "", err
+	}
+
+	return start, length, oid, nil
+}
+
+// SectionInfo returns start, length and the base ID of a section object.
+func (c ObjectID) SectionInfo() (start int64, length int64, baseID ObjectID) {
+	if c.Type() != ObjectIDTypeSection {
+		return 0, 0, ""
+	}
+
+	start, length, oid, err := parseSectionInfoString(string(c))
+	if err != nil {
+		// This should not happen if we came in through ParseObjectID
+		panic("invalid section info: " + string(c))
+	}
+
+	return start, length, oid
 }
 
 // BlockID returns identifier of the storage block. For inline chunk IDs, an empty string is returned.
@@ -125,6 +188,11 @@ func NewInlineObjectID(data []byte) ObjectID {
 	return ObjectID("T" + string(data))
 }
 
+// NewSectionObjectID returns new ObjectID representing a section of an object with a given base ID, start offset and length.
+func NewSectionObjectID(start, length int64, baseID ObjectID) ObjectID {
+	return ObjectID(fmt.Sprintf("S%v,%v,%v", start, length, baseID))
+}
+
 // ParseObjectID converts the specified string into ObjectID.
 func ParseObjectID(objectIDString string) (ObjectID, error) {
 	if len(objectIDString) >= 1 {
@@ -132,6 +200,11 @@ func ParseObjectID(objectIDString string) (ObjectID, error) {
 		content := objectIDString[1:]
 
 		switch chunkType {
+		case ObjectIDTypeSection:
+			if _, _, _, err := parseSectionInfoString(objectIDString); err == nil {
+				return ObjectID(objectIDString), nil
+			}
+
 		case ObjectIDTypeText:
 			return ObjectID(objectIDString), nil
 

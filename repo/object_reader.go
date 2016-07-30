@@ -156,3 +156,7 @@ func (r *objectReader) Seek(offset int64, whence int) (int64, error) {
 func (r *objectReader) Close() error {
 	return nil
 }
+
+func (r *objectReader) Length() int64 {
+	return r.totalLength
+}

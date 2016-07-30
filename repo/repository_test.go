@@ -266,6 +266,12 @@ func TestReader(t *testing.T) {
 		{"T", []byte{}},
 		{"Tfoo\nbar", []byte("foo\nbar")},
 		{"Da76999788386641a3ec798554f1fe7e6", storedPayload},
+		{"S0,2,BAQIDBA", []byte{1, 2}},
+		{"S1,3,BAQIDBA", []byte{2, 3, 4}},
+		{"S1,5,BAQIDBA", []byte{2, 3, 4}},
+		{"S0,0,BAQIDBA", []byte{}},
+		{"S0,2,Da76999788386641a3ec798554f1fe7e6", storedPayload[0:2]},
+		{"S2,4,Da76999788386641a3ec798554f1fe7e6", storedPayload[2:6]},
 	}
 
 	for _, c := range cases {
@@ -290,6 +296,7 @@ func TestReader(t *testing.T) {
 			t.Errorf("incorrect payload for %v: expected: %v got: %v", objectID, c.payload, d)
 			continue
 		}
+
 	}
 }
 
@@ -348,29 +355,47 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 				continue
 			}
 
-			reader, err := repo.Open(objectID)
-			if err != nil {
-				t.Errorf("cannot get reader for %v/%v: %v %v", forceStored, size, objectID, err)
-				continue
+			verify(t, repo, objectID, randomData, fmt.Sprintf("%v %v/%v", objectID, forceStored, size))
+
+			if size > 1 {
+				sectionID := NewSectionObjectID(0, int64(size/2), objectID)
+				verify(t, repo, sectionID, randomData[0:10], fmt.Sprintf("%v %v/%v", sectionID, forceStored, size))
 			}
 
-			for i := 0; i < 20; i++ {
-				sampleSize := int(rand.Int31n(300))
-				seekOffset := int(rand.Int31n(int32(len(randomData))))
-				if seekOffset+sampleSize > len(randomData) {
-					sampleSize = len(randomData) - seekOffset
-				}
-				if sampleSize > 0 {
-					got := make([]byte, sampleSize)
-					reader.Seek(int64(seekOffset), 0)
-					reader.Read(got)
+			if size > 1 {
+				sectionID := NewSectionObjectID(int64(1), int64(size-1), objectID)
+				verify(t, repo, sectionID, randomData[1:], fmt.Sprintf("%v %v/%v", sectionID, forceStored, size))
+			}
+		}
+	}
+}
 
-					expected := randomData[seekOffset : seekOffset+sampleSize]
+func verify(t *testing.T, repo Repository, objectID ObjectID, expectedData []byte, testCaseID string) {
+	reader, err := repo.Open(objectID)
+	if err != nil {
+		t.Errorf("cannot get reader for %v: %v", testCaseID, err)
+		return
+	}
 
-					if !bytes.Equal(expected, got) {
-						t.Errorf("incorrect data read for %v/%v: expected: %v, got: %v", forceStored, size, expected, got)
-					}
-				}
+	for i := 0; i < 20; i++ {
+		sampleSize := int(rand.Int31n(300))
+		seekOffset := int(rand.Int31n(int32(len(expectedData))))
+		if seekOffset+sampleSize > len(expectedData) {
+			sampleSize = len(expectedData) - seekOffset
+		}
+		if sampleSize > 0 {
+			got := make([]byte, sampleSize)
+			if offset, err := reader.Seek(int64(seekOffset), 0); err != nil || offset != int64(seekOffset) {
+				t.Errorf("seek error: %v offset=%v expected:%v", err, offset, seekOffset)
+			}
+			if n, err := reader.Read(got); err != nil || n != sampleSize {
+				t.Errorf("invalid data: n=%v, expected=%v, err:%v", n, sampleSize, err)
+			}
+
+			expected := expectedData[seekOffset : seekOffset+sampleSize]
+
+			if !bytes.Equal(expected, got) {
+				t.Errorf("incorrect data read for %v: expected: %x, got: %x", testCaseID, expected, got)
 			}
 		}
 	}
