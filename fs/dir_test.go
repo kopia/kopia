@@ -1,65 +1,195 @@
 package fs
 
 import (
-	"bytes"
+	"os"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
-func TestDirectory(t *testing.T) {
+var (
+	time1 = mustParseTimestamp("2016-04-06T02:34:10Z")
+	time2 = mustParseTimestamp("2016-04-02T02:39:44.123456789Z")
+	time3 = mustParseTimestamp("2016-04-02T02:36:19Z")
+)
+
+func TestEmptyDirectory(t *testing.T) {
+	data := strings.Join(
+		[]string{
+			`{`,
+			`"format":{"version":1},`,
+			`"entries":[]`,
+			`}`,
+		}, "")
+
+	expectedEntries := []*EntryMetadata{}
+
+	verifyDirectory(t, data, expectedEntries)
+}
+
+func TestDirectoryWithOnlyBundle(t *testing.T) {
 	data := strings.Join(
 		[]string{
 			`{`,
 			`"format":{"version":1},`,
 			`"entries":[`,
-			`{"name":"config.go","mode":"420","size":"937","modTime":"2016-04-02T02:39:44.123456789Z","owner":"500:100","oid":"C4321"},`,
-			`{"name":"constants.go","mode":"420","size":"13","modTime":"2016-04-02T02:36:19Z","owner":"500:100"},`,
-			`{"name":"doc.go","mode":"420","size":"112","modTime":"2016-04-02T02:45:54Z","owner":"500:100"},`,
-			`{"name":"errors.go","mode":"420","size":"506","modTime":"2016-04-02T02:41:03Z","owner":"500:100"},`,
-			`{"name":"subdir","mode":"d:420","modTime":"2016-04-06T02:34:10Z","owner":"500:100","oid":"C1234"}`,
+			`{"name":"bundle1","size":"170","mode":"0","oid":"D5555","entries":[`,
+			`{"name":"a1","mode":"500","modTime":"2016-04-06T02:34:10Z","owner":"500:100","size":"50"},`,
+			`{"name":"z1","mode":"500","modTime":"2016-04-06T02:34:10Z","owner":"500:100","size":"120"}`,
+			`]}`,
 			`]}`,
 		}, "")
 
-	d, err := readDirectoryMetadataEntries(strings.NewReader(data))
+	expectedEntries := []*EntryMetadata{
+		&EntryMetadata{Name: "a1", FileMode: 0500, ModTime: time1, OwnerID: 500, GroupID: 100, FileSize: 50, ObjectID: "S0,50,D5555"},
+		&EntryMetadata{Name: "z1", FileMode: 0500, ModTime: time1, OwnerID: 500, GroupID: 100, FileSize: 120, ObjectID: "S50,120,D5555"},
+	}
+
+	verifyDirectory(t, data, expectedEntries)
+}
+
+func TestInconsistentBundleSize(t *testing.T) {
+	data := strings.Join(
+		[]string{
+			`{`,
+			`"format":{"version":1},`,
+			`"entries":[`,
+			`{"name":"bundle1","size":"170","mode":"0","oid":"D5555","entries":[`,
+			`{"name":"a1","mode":"500","modTime":"2016-04-06T02:34:10Z","owner":"500:100","size":"51"},`,
+			`{"name":"z1","mode":"500","modTime":"2016-04-06T02:34:10Z","owner":"500:100","size":"120"}`,
+			`]}`,
+			`]}`,
+		}, "")
+	verifyDirectoryError(t, data, "inconsistent size of 'bundle1': 170 (got 171)")
+}
+
+func TestInvalidBundleHeaderData(t *testing.T) {
+	data := strings.Join(
+		[]string{
+			`{`,
+			`"format":{"version":1},`,
+			`"entries":[`,
+			`{"name":"bundle1","size":"170","mode":"x","oid":"D5555","entries":[`,
+			`{"name":"z1","mode":"500","modTime":"2016-04-06T02:34:10Z","owner":"500:100","size":"120"}`,
+			`]}`,
+			`]}`,
+		}, "")
+	verifyDirectoryError(t, data, "invalid mode or permissions: 'x'")
+}
+
+func TestInvalidBundleEntryData(t *testing.T) {
+	data := strings.Join(
+		[]string{
+			`{`,
+			`"format":{"version":1},`,
+			`"entries":[`,
+			`{"name":"bundle1","size":"170","mode":"0","oid":"D5555","entries":[`,
+			`{"mode":"500","modTime":"2016-04-06T02:34:10Z","owner":"500:100","size":"51"},`,
+			`{"name":"z1","mode":"500","modTime":"2016-04-06T02:34:10Z","owner":"500:100","size":"120"}`,
+			`]}`,
+			`]}`,
+		}, "")
+	verifyDirectoryError(t, data, "empty entry name")
+}
+func TestDirectoryWithoutBundle(t *testing.T) {
+	data := strings.Join(
+		[]string{
+			`{`,
+			`"format":{"version":1},`,
+			`"entries":[`,
+			`{"name":"constants.go","mode":"420","size":"13","modTime":"2016-04-02T02:36:19Z","owner":"500:100","oid":"D5123"}`,
+			`]}`,
+		}, "")
+
+	expectedEntries := []*EntryMetadata{
+		&EntryMetadata{Name: "constants.go", FileMode: 0420, ModTime: time3, OwnerID: 500, GroupID: 100, FileSize: 13, ObjectID: "D5123"},
+	}
+
+	verifyDirectory(t, data, expectedEntries)
+}
+
+func TestDirectoryWithThreeBundles(t *testing.T) {
+	data := strings.Join(
+		[]string{
+			`{`,
+			`"format":{"version":1},`,
+			`"entries":[`,
+			`{"name":"bundle1","size":"170","mode":"0","oid":"D5555","entries":[`,
+			`{"name":"a1","mode":"500","modTime":"2016-04-06T02:34:10Z","owner":"500:100","size":"50"},`,
+			`{"name":"z1","mode":"500","modTime":"2016-04-06T02:34:10Z","owner":"500:100","size":"120"}`,
+			`]},`,
+			`{"name":"config.go","mode":"420","size":"937","modTime":"2016-04-02T02:39:44.123456789Z","owner":"500:100","oid":"D4321"},`,
+			`{"name":"constants.go","mode":"420","size":"13","modTime":"2016-04-02T02:36:19Z","owner":"500:100","oid":"D5123"},`,
+			`{"name":"subdir","mode":"d:755","modTime":"2016-04-06T02:34:10Z","owner":"500:100","oid":"D1234"},`,
+			`{"name":"bundle3","size":"7","mode":"0","oid":"D8888","entries":[`,
+			`{"name":"a3","mode":"500","modTime":"2016-04-06T02:34:10Z","owner":"500:100","size":"5"},`,
+			`{"name":"z3","mode":"500","modTime":"2016-04-06T02:34:10Z","owner":"500:100","size":"2"}`,
+			`]},`,
+			`{"name":"bundle2","size":"170","mode":"0","oid":"D6666","entries":[`,
+			`{"name":"a2","mode":"500","modTime":"2016-04-06T02:34:10Z","owner":"500:100","size":"150"},`,
+			`{"name":"z2","mode":"500","modTime":"2016-04-06T02:34:10Z","owner":"500:100","size":"20"}`,
+			`]}`,
+			`]}`,
+		}, "")
+
+	expectedEntries := []*EntryMetadata{
+		&EntryMetadata{Name: "a1", FileMode: 0500, ModTime: time1, OwnerID: 500, GroupID: 100, FileSize: 50, ObjectID: "S0,50,D5555"},
+		&EntryMetadata{Name: "a2", FileMode: 0500, ModTime: time1, OwnerID: 500, GroupID: 100, FileSize: 150, ObjectID: "S0,150,D6666"},
+		&EntryMetadata{Name: "a3", FileMode: 0500, ModTime: time1, OwnerID: 500, GroupID: 100, FileSize: 5, ObjectID: "S0,5,D8888"},
+		&EntryMetadata{Name: "config.go", FileMode: 0420, ModTime: time2, OwnerID: 500, GroupID: 100, FileSize: 937, ObjectID: "D4321"},
+		&EntryMetadata{Name: "constants.go", FileMode: 0420, ModTime: time3, OwnerID: 500, GroupID: 100, FileSize: 13, ObjectID: "D5123"},
+		&EntryMetadata{Name: "subdir", FileMode: os.ModeDir | 0755, ModTime: time1, OwnerID: 500, GroupID: 100, ObjectID: "D1234"},
+		&EntryMetadata{Name: "z1", FileMode: 0500, ModTime: time1, OwnerID: 500, GroupID: 100, FileSize: 120, ObjectID: "S50,120,D5555"},
+		&EntryMetadata{Name: "z2", FileMode: 0500, ModTime: time1, OwnerID: 500, GroupID: 100, FileSize: 20, ObjectID: "S150,20,D6666"},
+		&EntryMetadata{Name: "z3", FileMode: 0500, ModTime: time1, OwnerID: 500, GroupID: 100, FileSize: 2, ObjectID: "S5,2,D8888"},
+	}
+
+	verifyDirectory(t, data, expectedEntries)
+}
+
+func verifyDirectory(t *testing.T, data string, expectedEntries []*EntryMetadata) {
+	entries, err := readDirectoryMetadataEntries(strings.NewReader(data))
 	if err != nil {
-		t.Errorf("can't read: %v", err)
+		t.Errorf("can't read directory entries: %v", err)
 		return
 	}
 
-	b2 := bytes.NewBuffer(nil)
-	dw := newDirectoryWriter(b2)
-
-	for _, e := range d {
-		dw.WriteEntry(e)
-	}
-	dw.Close()
-
-	if !bytes.Equal(b2.Bytes(), []byte(data)) {
-		t.Errorf("data does not round trip: %v", string(b2.Bytes()))
+	if len(entries) != len(expectedEntries) {
+		t.Errorf("expected %v entries, got %v", len(expectedEntries), len(entries))
 	}
 
-	// cases := []struct {
-	// 	name string
-	// }{
-	// 	{"subdir"},
-	// 	{"config.go"},
-	// 	{"constants.go"},
-	// 	{"doc.go"},
-	// 	{"errors.go"},
-	// }
+	for i, expected := range expectedEntries {
+		if i < len(entries) {
+			actual := entries[i]
 
-	// for _, c := range cases {
-	// 	e := d.FindByName(c.name)
-	// 	if e == nil {
-	// 		t.Errorf("not found, but expected to be found: %v", c.name)
-	// 	} else if e.Name != c.name {
-	// 		t.Errorf("incorrect name: %v got %v", c.name, e.Name)
-	// 	}
-	// }
+			if !reflect.DeepEqual(expected, actual) {
+				t.Errorf("invalid entry at index %v:\nexpected: %#v\nactual:   %#v", i, expected, actual)
+			}
+		}
+	}
+}
 
-	// if e := d.FindByName("nosuchdir"); e != nil {
-	// 	t.Errorf("found %v, but expected to be found", e.Name)
-	// }
+func TestInvalidJSON(t *testing.T) {
+	verifyDirectoryError(t, "{invalid", "invalid character 'i'")
+	verifyDirectoryError(t, `{"format":{"version":1},"entries":[{"name":""}]}`, "empty entry name")
+	verifyDirectoryError(t, `{"format":{"version":1},"entries":[{"name":"x","mode":"x123"}]}`, "invalid mode or permissions: 'x123'")
+	verifyDirectoryError(t, `{"format":{"version":2},"entries":[]}`, "unsupported version: 2")
+}
+
+func verifyDirectoryError(t *testing.T, data, expectedError string) {
+	entries, err := readDirectoryMetadataEntries(strings.NewReader(data))
+	if err == nil {
+		t.Errorf("expected error %v, got no error", expectedError)
+	} else {
+		if !strings.Contains(err.Error(), expectedError) {
+			t.Errorf("expected error containing '%v', got '%v'", expectedError, err.Error())
+		}
+	}
+
+	if entries != nil {
+		t.Errorf("got unexpected result: %#v", entries)
+	}
 }
 
 func TestDirectoryNameOrder(t *testing.T) {
@@ -102,4 +232,12 @@ func TestDirectoryNameOrder(t *testing.T) {
 			}
 		}
 	}
+}
+
+func mustParseTimestamp(s string) time.Time {
+	t, err := time.Parse(time.RFC3339Nano, s)
+	if err != nil {
+		panic("cannot parse timestamp: " + s)
+	}
+	return t
 }

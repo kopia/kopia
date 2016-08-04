@@ -15,21 +15,29 @@ import (
 const modeChars = "dalTLDpSugct"
 
 type jsonDirectoryEntry struct {
-	Name     string    `json:"name"`
-	Mode     string    `json:"mode,omitempty"`
-	Size     string    `json:"size,omitempty"`
-	Time     time.Time `json:"modTime"`
-	Owner    string    `json:"owner,omitempty"`
-	ObjectID string    `json:"oid,omitempty"`
+	Name       string               `json:"name"`
+	Mode       string               `json:"mode,omitempty"`
+	Size       string               `json:"size,omitempty"`
+	Time       time.Time            `json:"modTime"`
+	Owner      string               `json:"owner,omitempty"`
+	ObjectID   string               `json:"oid,omitempty"`
+	SubEntries []jsonDirectoryEntry `json:"entries,omitempty"`
 }
 
 func (de *EntryMetadata) fromJSON(jde *jsonDirectoryEntry) error {
+	if jde.Name == "" {
+		return fmt.Errorf("empty entry name")
+	}
 	de.Name = jde.Name
 
-	if mode, err := parseFileModeAndPermissions(jde.Mode); err == nil {
-		de.FileMode = mode
+	if jde.Mode != "" {
+		if mode, err := parseFileModeAndPermissions(jde.Mode); err == nil {
+			de.FileMode = mode
+		} else {
+			return fmt.Errorf("invalid mode or permissions: '%v'", jde.Mode)
+		}
 	} else {
-		return fmt.Errorf("invalid mode: %v", err)
+		de.FileMode = 0777
 	}
 
 	de.ModTime = jde.Time
@@ -202,30 +210,20 @@ type directoryReader struct {
 	decoder *json.Decoder
 }
 
-func (dr *directoryReader) ReadNext() (*EntryMetadata, error) {
+func (dr *directoryReader) readNext(jde *jsonDirectoryEntry) error {
 	if dr.decoder.More() {
-		var jde jsonDirectoryEntry
-		if err := dr.decoder.Decode(&jde); err != nil {
-			return nil, err
-		}
-
-		var de EntryMetadata
-		if err := de.fromJSON(&jde); err != nil {
-			return nil, err
-		}
-
-		return &de, nil
+		return dr.decoder.Decode(&jde)
 	}
 
 	if err := ensureDelimiter(dr.decoder, json.Delim(']')); err != nil {
-		return nil, invalidDirectoryError(err)
+		return invalidDirectoryError(err)
 	}
 
 	if err := ensureDelimiter(dr.decoder, json.Delim('}')); err != nil {
-		return nil, invalidDirectoryError(err)
+		return invalidDirectoryError(err)
 	}
 
-	return nil, io.EOF
+	return io.EOF
 }
 
 func invalidDirectoryError(cause error) error {
@@ -304,19 +302,95 @@ func readDirectoryMetadataEntries(r io.Reader) ([]*EntryMetadata, error) {
 	}
 
 	var entries []*EntryMetadata
+	var bundles [][]*EntryMetadata
 
 	for {
-		e, err := dr.ReadNext()
-		if e != nil {
-			entries = append(entries, e)
-		}
-		if err != nil {
+		var e jsonDirectoryEntry
+
+		if err := dr.readNext(&e); err != nil {
 			if err == io.EOF {
 				break
 			}
+
 			return nil, err
+		}
+
+		var entryMetadata EntryMetadata
+		if err := entryMetadata.fromJSON(&e); err != nil {
+			return nil, err
+		}
+
+		if len(e.SubEntries) > 0 {
+			bundle := make([]*EntryMetadata, 0, len(e.SubEntries))
+
+			var currentOffset int64
+
+			var bundleEntry EntryMetadata
+			if err := bundleEntry.fromJSON(&e); err != nil {
+				return nil, err
+			}
+
+			for _, s := range e.SubEntries {
+				var subEntry EntryMetadata
+				if err := subEntry.fromJSON(&s); err != nil {
+					return nil, err
+				}
+				subEntry.ObjectID = repo.NewSectionObjectID(currentOffset, subEntry.FileSize, entryMetadata.ObjectID)
+				currentOffset += subEntry.FileSize
+				bundle = append(bundle, &subEntry)
+			}
+
+			if currentOffset != entryMetadata.FileSize {
+				return nil, fmt.Errorf("inconsistent size of '%v': %v (got %v)", entryMetadata.Name, entryMetadata.FileSize, currentOffset)
+			}
+
+			bundles = append(bundles, bundle)
+		} else {
+			entries = append(entries, &entryMetadata)
 		}
 	}
 
+	if len(bundles) > 0 {
+		if entries != nil {
+			bundles = append(bundles, entries)
+		}
+
+		entries = mergeSortN(bundles)
+	}
+
 	return entries, nil
+}
+
+func mergeSort2(b1, b2 []*EntryMetadata) []*EntryMetadata {
+	combinedLength := len(b1) + len(b2)
+	result := make([]*EntryMetadata, 0, combinedLength)
+
+	for len(b1) > 0 && len(b2) > 0 {
+		if isLess(b1[0].Name, b2[0].Name) {
+			result = append(result, b1[0])
+			b1 = b1[1:]
+		} else {
+			result = append(result, b2[0])
+			b2 = b2[1:]
+		}
+	}
+
+	result = append(result, b1...)
+	result = append(result, b2...)
+
+	return result
+}
+
+func mergeSortN(slices [][]*EntryMetadata) []*EntryMetadata {
+	switch len(slices) {
+	case 1:
+		return slices[0]
+	case 2:
+		return mergeSort2(slices[0], slices[1])
+	default:
+		mid := len(slices) / 2
+		return mergeSort2(
+			mergeSortN(slices[:mid]),
+			mergeSortN(slices[mid:]))
+	}
 }
