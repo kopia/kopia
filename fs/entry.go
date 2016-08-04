@@ -3,6 +3,7 @@ package fs
 import (
 	"encoding/binary"
 	"hash/fnv"
+	"io"
 	"os"
 	"sort"
 	"strings"
@@ -19,6 +20,12 @@ type Entry interface {
 
 // Entries is a list of entries sorted by name.
 type Entries []Entry
+
+// EntryMetadataReadCloser allows reading from a file and retrieving *EntryMetadata for its metadata.
+type EntryMetadataReadCloser interface {
+	io.ReadCloser
+	EntryMetadata() (*EntryMetadata, error)
+}
 
 // File represents an entry that is a file.
 type File interface {

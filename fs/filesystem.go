@@ -12,12 +12,6 @@ const (
 	directoryReadAhead = 1024
 )
 
-// EntryMetadataReadCloser allows reading from a file and retrieving *EntryMetadata for its metadata.
-type EntryMetadataReadCloser interface {
-	io.ReadCloser
-	EntryMetadata() (*EntryMetadata, error)
-}
-
 type filesystemEntry struct {
 	entry
 	path string
