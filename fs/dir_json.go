@@ -297,7 +297,7 @@ func newDirectoryReader(r io.Reader) (*directoryReader, error) {
 	return dr, nil
 }
 
-func readDirectoryMetadataEntries(r io.Reader, namePrefix string) ([]*EntryMetadata, error) {
+func readDirectoryMetadataEntries(r io.Reader) ([]*EntryMetadata, error) {
 	dr, err := newDirectoryReader(r)
 	if err != nil {
 		return nil, err

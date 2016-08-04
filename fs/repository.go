@@ -24,7 +24,7 @@ func (rd *repositoryDirectory) Readdir() (Entries, error) {
 	}
 	defer r.Close()
 
-	metadata, err := readDirectoryMetadataEntries(r, "")
+	metadata, err := readDirectoryMetadataEntries(r)
 	if err != nil {
 		return nil, err
 	}
