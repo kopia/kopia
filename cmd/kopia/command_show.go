@@ -1,13 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
-	"io"
+	"io/ioutil"
 	"os"
 
 	"github.com/kopia/kopia/repo"
-
-	"github.com/kopia/kopia/fs"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -17,7 +16,7 @@ var (
 
 	showObjectIDs = showCommand.Arg("id", "IDs of objects to show").Required().Strings()
 	showJSON      = showCommand.Flag("json", "Pretty-print JSON content").Short('j').Bool()
-	showDir       = showCommand.Flag("dir", "Pretty-print directory content").Short('d').Bool()
+	showRaw       = showCommand.Flag("raw", "Show raw content (disables format auto-detection)").Short('r').Bool()
 )
 
 func runShowCommand(context *kingpin.ParseContext) error {
@@ -42,48 +41,42 @@ func runShowCommand(context *kingpin.ParseContext) error {
 }
 
 func showObject(mgr repo.Repository, oid repo.ObjectID) error {
-	switch {
-	case *showJSON:
-		r, err := mgr.Open(oid)
-		if err != nil {
-			return err
-		}
-		defer r.Close()
-
-		var v map[string]interface{}
-
-		if err := json.NewDecoder(r).Decode(&v); err != nil {
-			return err
-		}
-
-		m, err := json.MarshalIndent(v, "", "  ")
-		if err != nil {
-			return err
-		}
-		os.Stdout.Write(m)
-		return nil
-
-	case *showDir:
-		metadata := fs.NewRepositoryDirectory(mgr, oid)
-
-		entries, err := metadata.Readdir()
-		if err != nil {
-			return err
-		}
-
-		listDirectory("", entries, true)
-		return nil
-
-	default:
-		r, err := mgr.Open(oid)
-		if err != nil {
-			return err
-		}
-		defer r.Close()
-
-		_, err = io.Copy(os.Stdout, r)
+	r, err := mgr.Open(oid)
+	if err != nil {
 		return err
 	}
+	defer r.Close()
+
+	rawdata, err := ioutil.ReadAll(r)
+	if err != nil {
+		return err
+	}
+
+	format := "raw"
+
+	if len(rawdata) > 2 && rawdata[0] == '{' && rawdata[len(rawdata)-1] == '}' {
+		format = "json"
+	}
+
+	if *showJSON {
+		format = "json"
+	}
+
+	if *showRaw {
+		format = "raw"
+	}
+
+	switch format {
+	case "json":
+		var buf bytes.Buffer
+
+		json.Indent(&buf, rawdata, "", "  ")
+		os.Stdout.Write(buf.Bytes())
+
+	default:
+		os.Stdout.Write(rawdata)
+	}
+	return nil
 }
 
 func init() {

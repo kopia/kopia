@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/kopia/kopia/fs"
@@ -53,19 +54,29 @@ func init() {
 }
 
 func listDirectory(prefix string, entries fs.Entries, longFormat bool) {
+	maxNameLen := 20
+	for _, e := range entries {
+		m := e.Metadata()
+		if l := len(m.Name); l > maxNameLen {
+			maxNameLen = l
+		}
+	}
+
+	maxNameLenString := strconv.Itoa(maxNameLen)
+
 	for _, e := range entries {
 		m := e.Metadata()
 		var info string
 		if longFormat {
 			var oid string
-			if m.ObjectID.Type().IsStored() {
-				oid = string(m.ObjectID)
-			} else if m.ObjectID.Type() == repo.ObjectIDTypeBinary {
+			if m.ObjectID.Type() == repo.ObjectIDTypeBinary {
 				oid = "<inline binary>"
 			} else if m.ObjectID.Type() == repo.ObjectIDTypeText {
 				oid = "<inline text>"
+			} else {
+				oid = string(m.ObjectID)
 			}
-			info = fmt.Sprintf("%v %9d %v %-30s %v", m.FileMode, m.FileSize, m.ModTime.Local().Format("02 Jan 06 15:04:05"), m.Name, oid)
+			info = fmt.Sprintf("%v %9d %v %-"+maxNameLenString+"s %v", m.FileMode, m.FileSize, m.ModTime.Local().Format("02 Jan 06 15:04:05"), m.Name, oid)
 		} else {
 			var suffix string
 			if m.FileMode.IsDir() {
