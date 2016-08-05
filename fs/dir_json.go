@@ -15,13 +15,14 @@ import (
 const modeChars = "dalTLDpSugct"
 
 type jsonDirectoryEntry struct {
-	Name       string               `json:"name"`
-	Mode       string               `json:"mode,omitempty"`
-	Size       string               `json:"size,omitempty"`
-	Time       time.Time            `json:"modTime"`
-	Owner      string               `json:"owner,omitempty"`
-	ObjectID   string               `json:"oid,omitempty"`
-	SubEntries []jsonDirectoryEntry `json:"entries,omitempty"`
+	Name        string               `json:"name"`
+	Mode        string               `json:"mode,omitempty"`
+	Size        string               `json:"size,omitempty"`
+	Time        time.Time            `json:"modTime"`
+	Owner       string               `json:"owner,omitempty"`
+	ObjectID    string               `json:"oid,omitempty"`
+	JSONContent json.RawMessage      `json:"content,omitempty"`
+	SubEntries  []jsonDirectoryEntry `json:"entries,omitempty"`
 }
 
 func (de *EntryMetadata) fromJSON(jde *jsonDirectoryEntry) error {
@@ -47,7 +48,12 @@ func (de *EntryMetadata) fromJSON(jde *jsonDirectoryEntry) error {
 			return fmt.Errorf("invalid owner: %v", err)
 		}
 	}
-	de.ObjectID = repo.ObjectID(jde.ObjectID)
+
+	if jde.JSONContent != nil {
+		de.ObjectID = repo.NewInlineObjectID([]byte(jde.JSONContent))
+	} else {
+		de.ObjectID = repo.ObjectID(jde.ObjectID)
+	}
 
 	if jde.Size != "" {
 		if s, err := strconv.ParseInt(jde.Size, 10, 64); err == nil {
@@ -164,11 +170,25 @@ func (dw *directoryWriter) WriteEntry(e *EntryMetadata, children []*EntryMetadat
 
 func toJSONEntry(e *EntryMetadata) jsonDirectoryEntry {
 	jde := jsonDirectoryEntry{
-		Name:     e.Name,
-		Mode:     formatModeAndPermissions(e.FileMode),
-		Time:     e.ModTime.UTC(),
-		Owner:    fmt.Sprintf("%d:%d", e.OwnerID, e.GroupID),
-		ObjectID: string(e.ObjectID),
+		Name:  e.Name,
+		Mode:  formatModeAndPermissions(e.FileMode),
+		Time:  e.ModTime.UTC(),
+		Owner: fmt.Sprintf("%d:%d", e.OwnerID, e.GroupID),
+	}
+
+	if e.ObjectID != "" {
+		inline := e.ObjectID.InlineData()
+		if len(inline) >= 2 && inline[0] == '{' && inline[len(inline)-1] == '}' {
+			m := map[string]interface{}{}
+
+			if json.Unmarshal(inline, &m) == nil {
+				jde.JSONContent = json.RawMessage(inline)
+			}
+		}
+	}
+
+	if jde.JSONContent == nil {
+		jde.ObjectID = string(e.ObjectID)
 	}
 
 	if e.FileMode.IsRegular() {
