@@ -136,7 +136,7 @@ type directoryWriter struct {
 	lastNameWritten string
 }
 
-func (dw *directoryWriter) WriteEntry(e *EntryMetadata) error {
+func (dw *directoryWriter) WriteEntry(e *EntryMetadata, children []*EntryMetadata) error {
 	if dw.lastNameWritten != "" {
 		if isLessOrEqual(e.Name, dw.lastNameWritten) {
 			return fmt.Errorf("out-of-order directory entry, previous '%v' current '%v'", dw.lastNameWritten, e.Name)
@@ -144,6 +144,25 @@ func (dw *directoryWriter) WriteEntry(e *EntryMetadata) error {
 		dw.lastNameWritten = e.Name
 	}
 
+	jde := toJSONEntry(e)
+
+	if len(children) > 0 {
+		jde.SubEntries = make([]jsonDirectoryEntry, len(children))
+		for i, se := range children {
+			jde.SubEntries[i] = toJSONEntry(se)
+		}
+	}
+
+	v, _ := json.Marshal(&jde)
+
+	dw.writer.Write(dw.separator)
+	dw.writer.Write(v)
+	dw.separator = []byte(",")
+
+	return nil
+}
+
+func toJSONEntry(e *EntryMetadata) jsonDirectoryEntry {
 	jde := jsonDirectoryEntry{
 		Name:     e.Name,
 		Mode:     formatModeAndPermissions(e.FileMode),
@@ -156,13 +175,7 @@ func (dw *directoryWriter) WriteEntry(e *EntryMetadata) error {
 		jde.Size = strconv.FormatInt(e.FileSize, 10)
 	}
 
-	v, _ := json.Marshal(&jde)
-
-	dw.writer.Write(dw.separator)
-	dw.writer.Write(v)
-	dw.separator = []byte(",")
-
-	return nil
+	return jde
 }
 
 func formatModeAndPermissions(m os.FileMode) string {

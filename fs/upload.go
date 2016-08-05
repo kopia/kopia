@@ -14,6 +14,7 @@ import (
 
 const (
 	maxDirReadAheadCount = 256
+	maxBundleFileSize    = 65536
 )
 
 // ErrUploadCancelled is returned when the upload gets cancelled.
@@ -85,6 +86,51 @@ func (u *uploader) uploadFileInternal(f File, relativePath string, forceStored b
 	return e2, e2.metadataHash(), nil
 }
 
+func (u *uploader) uploadBundleInternal(b *uploadBundle) (*EntryMetadata, uint64, error) {
+	bundleMetadata := b.Metadata()
+
+	log.Printf("uploading bundle %v (%v files)", bundleMetadata.Name, len(b.files))
+	defer log.Printf("finished uploading bundle")
+
+	writer := u.repo.NewWriter(
+		repo.WithDescription("BUNDLE:" + bundleMetadata.Name),
+	)
+	defer writer.Close()
+
+	var uploadedFiles []File
+	var err error
+
+	for _, fileEntry := range b.files {
+		file, err := fileEntry.Open()
+		if err != nil {
+			return nil, 0, err
+		}
+
+		fileMetadata, err := file.EntryMetadata()
+		if err != nil {
+			return nil, 0, err
+		}
+
+		written, err := io.Copy(writer, file)
+		if err != nil {
+			return nil, 0, err
+		}
+
+		fileMetadata.FileSize = written
+
+		uploadedFiles = append(uploadedFiles, &uploadedBundleFile{newEntry(fileMetadata, nil)})
+		file.Close()
+	}
+
+	b.files = uploadedFiles
+	bundleMetadata.ObjectID, err = writer.Result(true)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return bundleMetadata, bundleMetadata.metadataHash(), nil
+}
+
 func (u *uploader) UploadFile(file File) (*UploadResult, error) {
 	result := &UploadResult{}
 	e, _, err := u.uploadFileInternal(file, file.Metadata().Name, true)
@@ -135,6 +181,8 @@ func (u *uploader) uploadDirInternal(
 		return "", 0, false, err
 	}
 
+	entries = u.bundleEntries(entries)
+
 	writer := u.repo.NewWriter(
 		repo.WithDescription("DIR:" + relativePath),
 	)
@@ -153,6 +201,7 @@ func (u *uploader) uploadDirInternal(
 		entryRelativePath := relativePath + "/" + e.Name
 
 		var hash uint64
+		var childrenMetadata []*EntryMetadata
 
 		switch entry := entry.(type) {
 		case Directory:
@@ -173,6 +222,32 @@ func (u *uploader) uploadDirInternal(
 
 			e.ObjectID = repo.NewInlineObjectID([]byte(l))
 			hash = e.metadataHash()
+
+		case *uploadBundle:
+			// See if we had this name during previous pass.
+			cachedEntry := mr.findEntry(entryRelativePath)
+
+			// ... and whether file metadata is identical to the previous one.
+			cacheMatches := (cachedEntry != nil) && cachedEntry.Hash == e.metadataHash()
+
+			allCached = allCached && cacheMatches
+			childrenMetadata = make([]*EntryMetadata, len(entry.files))
+			for i, f := range entry.files {
+				childrenMetadata[i] = f.Metadata()
+			}
+
+			if cacheMatches {
+				result.Stats.CachedFiles++
+				// Avoid hashing by reusing previous object ID.
+				e.ObjectID = repo.ObjectID(cachedEntry.ObjectID)
+				hash = cachedEntry.Hash
+			} else {
+				result.Stats.NonCachedFiles++
+				e, hash, err = u.uploadBundleInternal(entry)
+				if err != nil {
+					return "", 0, false, fmt.Errorf("unable to hash file: %s", err)
+				}
+			}
 
 		case File:
 			// regular file
@@ -207,7 +282,7 @@ func (u *uploader) uploadDirInternal(
 			binary.Write(dirHasher, binary.LittleEndian, hash)
 		}
 
-		if err := dw.WriteEntry(e); err != nil {
+		if err := dw.WriteEntry(e, childrenMetadata); err != nil {
 			return "", 0, false, err
 		}
 
@@ -251,6 +326,83 @@ func (u *uploader) uploadDirInternal(
 	}
 
 	return directoryOID, dirHash, allCached, nil
+}
+
+type uploadBundle struct {
+	entry
+
+	files []File
+}
+
+func (b *uploadBundle) append(e File) {
+	b.files = append(b.files, e)
+	b.metadata.FileSize += e.Metadata().FileSize
+}
+
+type uploadedBundleFile struct {
+	entry
+}
+
+func (ubf *uploadedBundleFile) Open() (EntryMetadataReadCloser, error) {
+	panic("Open() is not meant to be called")
+}
+
+func (u *uploader) bundleEntries(entries Entries) Entries {
+	var bundleMap map[int]*uploadBundle
+
+	result := entries[:0]
+
+	for _, e := range entries {
+		switch e := e.(type) {
+		case File:
+			md := e.Metadata()
+			bundleNo := getBundleNumber(md)
+			if bundleNo != 0 {
+				// See if we already started this bundle.
+				b := bundleMap[bundleNo]
+				if b == nil {
+					if bundleMap == nil {
+						bundleMap = make(map[int]*uploadBundle)
+					}
+
+					bundleMetadata := &EntryMetadata{
+						Name: fmt.Sprintf("bundle-%v", bundleNo),
+					}
+
+					b = &uploadBundle{
+						entry: newEntry(bundleMetadata, nil),
+					}
+					bundleMap[bundleNo] = b
+
+					// Add the bundle instead of an entry.
+					result = append(result, b)
+				}
+
+				// Append entry to the bundle.
+				b.append(e)
+
+			} else {
+				// Append original entry
+				result = append(result, e)
+			}
+
+		default:
+			// Append original entry
+			result = append(result, e)
+		}
+	}
+
+	return result
+}
+
+func getBundleNumber(md *EntryMetadata) int {
+	// TODO(jkowalski): This is not ready yet, uncomment when ready.
+
+	// if md.FileMode.IsRegular() && md.FileSize < maxBundleFileSize {
+	// 	return md.ModTime.Year()*100 + int(md.ModTime.Month())
+	// }
+
+	return 0
 }
 
 func (u *uploader) Cancel() {
