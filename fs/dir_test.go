@@ -34,9 +34,9 @@ func TestDirectoryWithOnlyBundle(t *testing.T) {
 			`{`,
 			`"format":{"version":1},`,
 			`"entries":[`,
-			`{"name":"bundle1","size":"170","mode":"0","oid":"D5555","entries":[`,
-			`{"name":"a1","mode":"500","modTime":"2016-04-06T02:34:10Z","owner":"500:100","size":"50"},`,
-			`{"name":"z1","mode":"500","modTime":"2016-04-06T02:34:10Z","owner":"500:100","size":"120"}`,
+			`{"name":"bundle1","size":"170","perm":"0","oid":"D5555","entries":[`,
+			`{"name":"a1","perm":"500","mtime":"2016-04-06T02:34:10Z","owner":"500:100","size":"50"},`,
+			`{"name":"z1","perm":"500","mtime":"2016-04-06T02:34:10Z","owner":"500:100","size":"120"}`,
 			`]}`,
 			`]}`,
 		}, "")
@@ -55,9 +55,9 @@ func TestInconsistentBundleSize(t *testing.T) {
 			`{`,
 			`"format":{"version":1},`,
 			`"entries":[`,
-			`{"name":"bundle1","size":"170","mode":"0","oid":"D5555","entries":[`,
-			`{"name":"a1","mode":"500","modTime":"2016-04-06T02:34:10Z","owner":"500:100","size":"51"},`,
-			`{"name":"z1","mode":"500","modTime":"2016-04-06T02:34:10Z","owner":"500:100","size":"120"}`,
+			`{"name":"bundle1","size":"170","perm":"0","oid":"D5555","entries":[`,
+			`{"name":"a1","perm":"500","mtime":"2016-04-06T02:34:10Z","owner":"500:100","size":"51"},`,
+			`{"name":"z1","perm":"500","mtime":"2016-04-06T02:34:10Z","owner":"500:100","size":"120"}`,
 			`]}`,
 			`]}`,
 		}, "")
@@ -70,12 +70,12 @@ func TestInvalidBundleHeaderData(t *testing.T) {
 			`{`,
 			`"format":{"version":1},`,
 			`"entries":[`,
-			`{"name":"bundle1","size":"170","mode":"x","oid":"D5555","entries":[`,
-			`{"name":"z1","mode":"500","modTime":"2016-04-06T02:34:10Z","owner":"500:100","size":"120"}`,
+			`{"name":"bundle1","size":"170","perm":"x","oid":"D5555","entries":[`,
+			`{"name":"z1","perm":"500","mtime":"2016-04-06T02:34:10Z","owner":"500:100","size":"120"}`,
 			`]}`,
 			`]}`,
 		}, "")
-	verifyDirectoryError(t, data, "invalid mode or permissions: 'x'")
+	verifyDirectoryError(t, data, "invalid permissions: 'x'")
 }
 
 func TestInvalidBundleEntryData(t *testing.T) {
@@ -84,9 +84,9 @@ func TestInvalidBundleEntryData(t *testing.T) {
 			`{`,
 			`"format":{"version":1},`,
 			`"entries":[`,
-			`{"name":"bundle1","size":"170","mode":"0","oid":"D5555","entries":[`,
-			`{"mode":"500","modTime":"2016-04-06T02:34:10Z","owner":"500:100","size":"51"},`,
-			`{"name":"z1","mode":"500","modTime":"2016-04-06T02:34:10Z","owner":"500:100","size":"120"}`,
+			`{"name":"bundle1","size":"170","perm":"0","oid":"D5555","entries":[`,
+			`{"perm":"500","mtime":"2016-04-06T02:34:10Z","owner":"500:100","size":"51"},`,
+			`{"name":"z1","perm":"500","mtime":"2016-04-06T02:34:10Z","owner":"500:100","size":"120"}`,
 			`]}`,
 			`]}`,
 		}, "")
@@ -98,7 +98,7 @@ func TestDirectoryWithoutBundle(t *testing.T) {
 			`{`,
 			`"format":{"version":1},`,
 			`"entries":[`,
-			`{"name":"constants.go","mode":"420","size":"13","modTime":"2016-04-02T02:36:19Z","owner":"500:100","oid":"D5123"}`,
+			`{"name":"constants.go","perm":"420","size":"13","mtime":"2016-04-02T02:36:19Z","owner":"500:100","oid":"D5123"}`,
 			`]}`,
 		}, "")
 
@@ -115,20 +115,20 @@ func TestDirectoryWithThreeBundles(t *testing.T) {
 			`{`,
 			`"format":{"version":1},`,
 			`"entries":[`,
-			`{"name":"bundle1","size":"170","mode":"0","oid":"D5555","entries":[`,
-			`{"name":"a1","mode":"500","modTime":"2016-04-06T02:34:10Z","owner":"500:100","size":"50"},`,
-			`{"name":"z1","mode":"500","modTime":"2016-04-06T02:34:10Z","owner":"500:100","size":"120"}`,
+			`{"name":"bundle1","size":"170","perm":"0","oid":"D5555","entries":[`,
+			`{"name":"a1","perm":"500","mtime":"2016-04-06T02:34:10Z","owner":"500:100","size":"50"},`,
+			`{"name":"z1","perm":"500","mtime":"2016-04-06T02:34:10Z","owner":"500:100","size":"120"}`,
 			`]},`,
-			`{"name":"config.go","mode":"420","size":"937","modTime":"2016-04-02T02:39:44.123456789Z","owner":"500:100","oid":"D4321"},`,
-			`{"name":"constants.go","mode":"420","size":"13","modTime":"2016-04-02T02:36:19Z","owner":"500:100","oid":"D5123"},`,
-			`{"name":"subdir","mode":"d:755","modTime":"2016-04-06T02:34:10Z","owner":"500:100","oid":"D1234"},`,
-			`{"name":"bundle3","size":"7","mode":"0","oid":"D8888","entries":[`,
-			`{"name":"a3","mode":"500","modTime":"2016-04-06T02:34:10Z","owner":"500:100","size":"5"},`,
-			`{"name":"z3","mode":"500","modTime":"2016-04-06T02:34:10Z","owner":"500:100","size":"2"}`,
+			`{"name":"config.go","perm":"420","size":"937","mtime":"2016-04-02T02:39:44.123456789Z","owner":"500:100","oid":"D4321"},`,
+			`{"name":"constants.go","perm":"420","size":"13","mtime":"2016-04-02T02:36:19Z","owner":"500:100","oid":"D5123"},`,
+			`{"name":"subdir","type":"d","perm":"755","mtime":"2016-04-06T02:34:10Z","owner":"500:100","oid":"D1234"},`,
+			`{"name":"bundle3","size":"7","perm":"0","oid":"D8888","entries":[`,
+			`{"name":"a3","perm":"500","mtime":"2016-04-06T02:34:10Z","owner":"500:100","size":"5"},`,
+			`{"name":"z3","perm":"500","mtime":"2016-04-06T02:34:10Z","owner":"500:100","size":"2"}`,
 			`]},`,
-			`{"name":"bundle2","size":"170","mode":"0","oid":"D6666","entries":[`,
-			`{"name":"a2","mode":"500","modTime":"2016-04-06T02:34:10Z","owner":"500:100","size":"150"},`,
-			`{"name":"z2","mode":"500","modTime":"2016-04-06T02:34:10Z","owner":"500:100","size":"20"}`,
+			`{"name":"bundle2","size":"170","perm":"0","oid":"D6666","entries":[`,
+			`{"name":"a2","perm":"500","mtime":"2016-04-06T02:34:10Z","owner":"500:100","size":"150"},`,
+			`{"name":"z2","perm":"500","mtime":"2016-04-06T02:34:10Z","owner":"500:100","size":"20"}`,
 			`]}`,
 			`]}`,
 		}, "")
@@ -173,7 +173,7 @@ func verifyDirectory(t *testing.T, data string, expectedEntries []*EntryMetadata
 func TestInvalidJSON(t *testing.T) {
 	verifyDirectoryError(t, "{invalid", "invalid character 'i'")
 	verifyDirectoryError(t, `{"format":{"version":1},"entries":[{"name":""}]}`, "empty entry name")
-	verifyDirectoryError(t, `{"format":{"version":1},"entries":[{"name":"x","mode":"x123"}]}`, "invalid mode or permissions: 'x123'")
+	verifyDirectoryError(t, `{"format":{"version":1},"entries":[{"name":"x","perm":"x123"}]}`, "invalid permissions: 'x123'")
 	verifyDirectoryError(t, `{"format":{"version":2},"entries":[]}`, "unsupported version: 2")
 }
 

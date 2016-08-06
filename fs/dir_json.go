@@ -16,48 +16,57 @@ const modeChars = "dalTLDpSugct"
 
 type jsonDirectoryEntry struct {
 	Name        string               `json:"name"`
-	Mode        string               `json:"mode,omitempty"`
+	Type        string               `json:"type,omitempty"`
+	Permissions string               `json:"perm,omitempty"`
 	Size        string               `json:"size,omitempty"`
-	Time        time.Time            `json:"modTime"`
+	Time        *time.Time           `json:"mtime,omitempty"`
 	Owner       string               `json:"owner,omitempty"`
 	ObjectID    string               `json:"oid,omitempty"`
 	JSONContent json.RawMessage      `json:"content,omitempty"`
 	SubEntries  []jsonDirectoryEntry `json:"entries,omitempty"`
 }
 
-func (de *EntryMetadata) fromJSON(jde *jsonDirectoryEntry) error {
+func (em *EntryMetadata) fromJSON(jde *jsonDirectoryEntry) error {
 	if jde.Name == "" {
 		return fmt.Errorf("empty entry name")
 	}
-	de.Name = jde.Name
+	em.Name = jde.Name
 
-	if jde.Mode != "" {
-		if mode, err := parseFileModeAndPermissions(jde.Mode); err == nil {
-			de.FileMode = mode
+	if jde.Permissions != "" {
+		if m, err := parseFilePermissions(jde.Permissions); err == nil {
+			em.FileMode |= m
 		} else {
-			return fmt.Errorf("invalid mode or permissions: '%v'", jde.Mode)
+			return fmt.Errorf("invalid permissions: '%v'", jde.Permissions)
 		}
-	} else {
-		de.FileMode = 0777
 	}
 
-	de.ModTime = jde.Time
+	if jde.Type != "" {
+		if m, err := parseFileMode(jde.Type); err == nil {
+			em.FileMode |= m
+		} else {
+			return fmt.Errorf("invalid type: '%v'", jde.Type)
+		}
+	}
+
+	if jde.Time != nil {
+		em.ModTime = *jde.Time
+	}
 
 	if jde.Owner != "" {
-		if c, err := fmt.Sscanf(jde.Owner, "%d:%d", &de.OwnerID, &de.GroupID); err != nil || c != 2 {
+		if c, err := fmt.Sscanf(jde.Owner, "%d:%d", &em.OwnerID, &em.GroupID); err != nil || c != 2 {
 			return fmt.Errorf("invalid owner: %v", err)
 		}
 	}
 
 	if jde.JSONContent != nil {
-		de.ObjectID = repo.NewInlineObjectID([]byte(jde.JSONContent))
+		em.ObjectID = repo.NewInlineObjectID([]byte(jde.JSONContent))
 	} else {
-		de.ObjectID = repo.ObjectID(jde.ObjectID)
+		em.ObjectID = repo.ObjectID(jde.ObjectID)
 	}
 
 	if jde.Size != "" {
 		if s, err := strconv.ParseInt(jde.Size, 10, 64); err == nil {
-			de.FileSize = s
+			em.FileSize = s
 		} else {
 			return fmt.Errorf("invalid size: %v", err)
 		}
@@ -150,12 +159,12 @@ func (dw *directoryWriter) WriteEntry(e *EntryMetadata, children []*EntryMetadat
 		dw.lastNameWritten = e.Name
 	}
 
-	jde := toJSONEntry(e)
+	jde := e.toJSONEntry()
 
 	if len(children) > 0 {
 		jde.SubEntries = make([]jsonDirectoryEntry, len(children))
 		for i, se := range children {
-			jde.SubEntries[i] = toJSONEntry(se)
+			jde.SubEntries[i] = se.toJSONEntry()
 		}
 	}
 
@@ -168,16 +177,29 @@ func (dw *directoryWriter) WriteEntry(e *EntryMetadata, children []*EntryMetadat
 	return nil
 }
 
-func toJSONEntry(e *EntryMetadata) jsonDirectoryEntry {
-	jde := jsonDirectoryEntry{
-		Name:  e.Name,
-		Mode:  formatModeAndPermissions(e.FileMode),
-		Time:  e.ModTime.UTC(),
-		Owner: fmt.Sprintf("%d:%d", e.OwnerID, e.GroupID),
+func (em *EntryMetadata) toJSONEntry() jsonDirectoryEntry {
+	var jde jsonDirectoryEntry
+	jde.Name = em.Name
+
+	if (em.FileMode & os.ModeType) != 0 {
+		jde.Type = formatMode(em.FileMode)
 	}
 
-	if e.ObjectID != "" {
-		inline := e.ObjectID.InlineData()
+	if (em.FileMode & os.ModePerm) != 0 {
+		jde.Permissions = formatPermissions(em.FileMode)
+	}
+
+	if em.OwnerID > 0 || em.GroupID > 0 {
+		jde.Owner = fmt.Sprintf("%d:%d", em.OwnerID, em.GroupID)
+	}
+
+	if !em.ModTime.IsZero() {
+		utc := em.ModTime.UTC()
+		jde.Time = &utc
+	}
+
+	if em.ObjectID != "" {
+		inline := em.ObjectID.InlineData()
 		if len(inline) >= 2 && inline[0] == '{' && inline[len(inline)-1] == '}' {
 			m := map[string]interface{}{}
 
@@ -188,17 +210,17 @@ func toJSONEntry(e *EntryMetadata) jsonDirectoryEntry {
 	}
 
 	if jde.JSONContent == nil {
-		jde.ObjectID = string(e.ObjectID)
+		jde.ObjectID = string(em.ObjectID)
 	}
 
-	if e.FileMode.IsRegular() {
-		jde.Size = strconv.FormatInt(e.FileSize, 10)
+	if em.FileMode.IsRegular() {
+		jde.Size = strconv.FormatInt(em.FileSize, 10)
 	}
 
 	return jde
 }
 
-func formatModeAndPermissions(m os.FileMode) string {
+func formatMode(m os.FileMode) string {
 	const str = "dalTLDpSugct"
 	var buf [32]byte
 	w := 0
@@ -208,12 +230,12 @@ func formatModeAndPermissions(m os.FileMode) string {
 			w++
 		}
 	}
-	if w > 0 {
-		buf[w] = ':'
-		w++
-	}
 
-	return string(buf[:w]) + strconv.FormatInt(int64(m&os.ModePerm), 8)
+	return string(buf[:w])
+}
+
+func formatPermissions(m os.FileMode) string {
+	return strconv.FormatInt(int64(m&os.ModePerm), 8)
 }
 
 func (dw *directoryWriter) Close() error {
