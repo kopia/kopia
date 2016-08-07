@@ -25,30 +25,16 @@ func VerifyStorage(t *testing.T, r storage.Storage) {
 			t.Errorf("block exists or error: %v %v", b.blk, err)
 		}
 
-		data, err := r.GetBlock(b.blk)
-		if err != storage.ErrBlockNotFound {
-			t.Errorf("unexpected error when calling GetBlock(%v): %v", b.blk, err)
-		}
-		if data != nil {
-			t.Errorf("got data when calling GetBlock(%v): %v", b.blk, data)
-		}
+		AssertBlockExists(t, r, b.blk, false)
+		AssertGetBlockNotFound(t, r, b.blk)
 	}
 
 	// Now add blocks.
 	for _, b := range blocks {
 		r.PutBlock(b.blk, storage.NewReader(bytes.NewBuffer(b.contents)), storage.PutOptionsDefault)
 
-		if x, err := r.BlockExists(b.blk); !x || err != nil {
-			t.Errorf("block does not exist after adding it: %v %v", b.blk, err)
-		}
-
-		data, err := r.GetBlock(b.blk)
-		if err != nil {
-			t.Errorf("unexpected error when calling GetBlock(%v) after adding: %v", b.blk, err)
-		}
-		if !bytes.Equal(data, b.contents) {
-			t.Errorf("got data when calling GetBlock(%v): %v", b.blk, data)
-		}
+		AssertBlockExists(t, r, b.blk, true)
+		AssertGetBlock(t, r, b.blk, b.contents)
 	}
 
 	// List

@@ -18,6 +18,9 @@ const (
 
 // Storage encapsulates API for connecting to blob storage
 type Storage interface {
+	io.Closer
+	Flusher
+
 	PutBlock(id string, data ReaderWithLength, options PutOptions) error
 	DeleteBlock(id string) error
 	BlockExists(id string) (bool, error)

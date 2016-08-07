@@ -90,6 +90,14 @@ func (s *mapStorage) ListBlocks(prefix string) chan (storage.BlockMetadata) {
 	return ch
 }
 
+func (s *mapStorage) Flush() error {
+	return nil
+}
+
+func (s *mapStorage) Close() error {
+	return nil
+}
+
 // NewMapStorage returns an implementation of Storage backed by the contents of given map.
 // Used primarily for testing.
 func NewMapStorage(data map[string][]byte) storage.Storage {
