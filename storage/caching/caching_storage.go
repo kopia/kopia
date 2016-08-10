@@ -29,7 +29,7 @@ type cachingStorage struct {
 	db        *bolt.DB
 	sizeBytes int64
 
-	lockMap
+	*lockMap
 }
 
 func defaultGetCurrentTime() int64 {

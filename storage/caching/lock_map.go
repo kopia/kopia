@@ -32,8 +32,8 @@ func (l *lockMap) Unlock(id string) {
 	cv.L.Unlock()
 }
 
-func newLockMap() lockMap {
-	return lockMap{
+func newLockMap() *lockMap {
+	return &lockMap{
 		cond:  &sync.Cond{L: &sync.Mutex{}},
 		locks: map[string]bool{},
 	}
