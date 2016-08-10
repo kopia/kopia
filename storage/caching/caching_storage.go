@@ -28,6 +28,8 @@ type cachingStorage struct {
 	cache     storage.Storage
 	db        *bolt.DB
 	sizeBytes int64
+
+	lockMap
 }
 
 func defaultGetCurrentTime() int64 {
@@ -100,6 +102,9 @@ func (c *cachingStorage) BlockExists(id string) (bool, error) {
 		return entry.exists(), nil
 	}
 
+	c.Lock(id)
+	defer c.Unlock(id)
+
 	exists, err := c.master.BlockExists(id)
 	if err != nil {
 		return false, err
@@ -110,6 +115,9 @@ func (c *cachingStorage) BlockExists(id string) (bool, error) {
 }
 
 func (c *cachingStorage) DeleteBlock(id string) error {
+	c.Lock(id)
+	defer c.Unlock(id)
+
 	// Remove from cache first.
 	c.cache.DeleteBlock(id)
 
@@ -122,6 +130,9 @@ func (c *cachingStorage) DeleteBlock(id string) error {
 }
 
 func (c *cachingStorage) GetBlock(id string) ([]byte, error) {
+	c.Lock(id)
+	defer c.Unlock(id)
+
 	if blockCacheEntry, ok := c.getCacheEntry(id); ok {
 		if !blockCacheEntry.exists() {
 			return nil, storage.ErrBlockNotFound
@@ -136,9 +147,10 @@ func (c *cachingStorage) GetBlock(id string) ([]byte, error) {
 	b, err := c.master.GetBlock(id)
 
 	if err == nil {
+		l := int64(len(b))
 		data := storage.NewReader(bytes.NewBuffer(b))
 		c.cache.PutBlock(id, data, storage.PutOptionsOverwrite)
-		c.setCacheEntrySize(id, int64(data.Len()))
+		c.setCacheEntrySize(id, l)
 	} else if err == storage.ErrBlockNotFound {
 		c.setCacheEntrySize(id, sizeDoesNotExists)
 	}
@@ -147,6 +159,9 @@ func (c *cachingStorage) GetBlock(id string) ([]byte, error) {
 }
 
 func (c *cachingStorage) PutBlock(id string, data storage.ReaderWithLength, options storage.PutOptions) error {
+	c.Lock(id)
+	defer c.Unlock(id)
+
 	// Remove from cache first.
 	c.cache.DeleteBlock(id)
 	c.removeCacheEntry(id)
@@ -166,6 +181,7 @@ func (c *cachingStorage) Flush() error {
 
 func (c *cachingStorage) Close() error {
 	if c.db != nil {
+		c.evict()
 		c.db.Close()
 		c.db = nil
 	}
@@ -222,6 +238,7 @@ func NewWrapper(master storage.Storage, options Options) (storage.Storage, error
 		cache:     cs,
 		db:        db,
 		sizeBytes: sizeBytes,
+		lockMap:   newLockMap(),
 	}
 
 	return s, nil

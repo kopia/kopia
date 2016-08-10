@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
+	"time"
 )
 
 const (
@@ -23,6 +25,18 @@ func (e *blockCacheEntry) exists() bool {
 
 func (e *blockCacheEntry) isKnownSize() bool {
 	return e.size != sizeUnknown
+}
+
+func (e blockCacheEntry) GoString() string {
+	ts := time.Unix(e.accessTime/1000000000, e.accessTime%1000000000)
+	switch e.size {
+	case sizeDoesNotExists:
+		return fmt.Sprintf("entry[not-found;acc:%v]", ts)
+	case sizeUnknown:
+		return fmt.Sprintf("entry[exists-size-unknown;acc:%v]", ts)
+	default:
+		return fmt.Sprintf("entry[size:%v;acc:%v]", e.size, ts)
+	}
 }
 
 func (e *blockCacheEntry) serialize() []byte {
