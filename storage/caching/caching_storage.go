@@ -181,7 +181,6 @@ func (c *cachingStorage) Flush() error {
 
 func (c *cachingStorage) Close() error {
 	if c.db != nil {
-		c.evict()
 		c.db.Close()
 		c.db = nil
 	}
