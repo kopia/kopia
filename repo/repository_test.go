@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 
@@ -135,13 +136,11 @@ func TestWriterListChunk(t *testing.T) {
 	}
 
 	// We have 3 chunks - 200 zero bytes, 50 zero bytes and the list.
-	if !reflect.DeepEqual(data, map[string][]byte{
+	verifyStorageBlocks(t, writer.StorageBlocks(), data, map[string][]byte{
 		contentMd5Sum200:               contentBytes[0:200],
 		contentMd5Sum50:                contentBytes[0:50],
 		getMd5Digest(listChunkContent): listChunkContent,
-	}) {
-		t.Errorf("invalid storage contents: %v", data)
-	}
+	})
 }
 
 func TestWriterListOfListsChunk(t *testing.T) {
@@ -167,14 +166,12 @@ func TestWriterListOfListsChunk(t *testing.T) {
 	}
 
 	// We have 4 chunks - 200 zero bytes, 2 lists, and 1 list-of-lists.
-	if !reflect.DeepEqual(data, map[string][]byte{
+	verifyStorageBlocks(t, writer.StorageBlocks(), data, map[string][]byte{
 		getMd5Digest(contentBytes[0:200]):     contentBytes[0:200],
 		getMd5Digest(list1ChunkContent):       list1ChunkContent,
 		getMd5Digest(list2ChunkContent):       list2ChunkContent,
 		getMd5Digest(listOfListsChunkContent): listOfListsChunkContent,
-	}) {
-		t.Errorf("invalid storage contents: %v", data)
-	}
+	})
 }
 
 func TestWriterListOfListsOfListsChunk(t *testing.T) {
@@ -221,14 +218,12 @@ func TestWriterListOfListsOfListsChunk(t *testing.T) {
 	}
 
 	// We have 4 data blocks representing 10000 bytes of zero. Not bad!
-	if !reflect.DeepEqual(data, map[string][]byte{
+	verifyStorageBlocks(t, writer.StorageBlocks(), data, map[string][]byte{
 		getMd5Digest(writtenData[0:200]): writtenData[0:200],
 		getMd5Digest(list1ChunkContent):  list1ChunkContent,
 		getMd5Digest(list2ChunkContent):  list2ChunkContent,
 		getMd5Digest(list3ChunkContent):  list3ChunkContent,
-	}) {
-		t.Errorf("invalid storage contents: %v", data)
-	}
+	})
 }
 
 func TestHMAC(t *testing.T) {
@@ -600,5 +595,23 @@ func TestInvalidEncryptionKey(t *testing.T) {
 	rc, err = repo.Open(oid)
 	if err == nil || rc != nil {
 		t.Errorf("expected error when opening object with corrupt data")
+	}
+}
+
+func verifyStorageBlocks(t *testing.T, actual []string, data, expectedData map[string][]byte) {
+	actualCopy := append([]string(nil), actual...)
+	sort.Strings(actualCopy)
+	var expected []string
+	for k := range expectedData {
+		expected = append(expected, k)
+	}
+	sort.Strings(expected)
+
+	if !reflect.DeepEqual(expected, actualCopy) {
+		t.Errorf("updated blocks don't match. Expected: %#v, got %#v", expected, actualCopy)
+	}
+
+	if !reflect.DeepEqual(expectedData, data) {
+		t.Errorf("storage data does not match, expected: %v, got %v", expectedData, data)
 	}
 }

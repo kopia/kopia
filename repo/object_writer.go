@@ -14,6 +14,26 @@ type ObjectWriter interface {
 	io.WriteCloser
 
 	Result(forceStored bool) (ObjectID, error)
+	StorageBlocks() []string
+}
+
+type blockTracker struct {
+	blocks map[string]bool
+}
+
+func (t *blockTracker) addBlock(blockID string) {
+	if t.blocks == nil {
+		t.blocks = make(map[string]bool)
+	}
+	t.blocks[blockID] = true
+}
+
+func (t *blockTracker) blockIDs() []string {
+	result := make([]string, 0, len(t.blocks))
+	for k := range t.blocks {
+		result = append(result, k)
+	}
+	return result
 }
 
 type objectWriter struct {
@@ -29,6 +49,8 @@ type objectWriter struct {
 
 	description string
 	objectType  ObjectIDType
+
+	blockTracker *blockTracker
 
 	atomicWrites bool
 }
@@ -110,25 +132,24 @@ func (w *objectWriter) flushBuffer(force bool) error {
 				err)
 		}
 
+		w.blockTracker.addBlock(objectID.BlockID())
+
 		w.flushedObjectCount++
 		w.lastFlushedObject = objectID
 		if w.listWriter == nil {
-			w.listWriter = newObjectWriter(w.repo, ObjectIDTypeList)
-			w.listWriter.prefix = w.prefix
-			w.listWriter.description = "LIST(" + w.description + ")"
-			w.listWriter.atomicWrites = true
+			w.listWriter = &objectWriter{
+				repo:         w.repo,
+				objectType:   ObjectIDTypeList,
+				prefix:       w.prefix,
+				description:  "LIST(" + w.description + ")",
+				atomicWrites: true,
+				blockTracker: w.blockTracker,
+			}
 		}
 
 		fmt.Fprintf(w.listWriter, "%v,%v\n", length, objectID)
 	}
 	return nil
-}
-
-func newObjectWriter(repo *repository, objectType ObjectIDType) *objectWriter {
-	return &objectWriter{
-		repo:       repo,
-		objectType: objectType,
-	}
 }
 
 func (w *objectWriter) Result(forceStored bool) (ObjectID, error) {
@@ -156,6 +177,10 @@ func (w *objectWriter) Result(forceStored bool) (ObjectID, error) {
 	} else {
 		return w.listWriter.Result(true)
 	}
+}
+
+func (w *objectWriter) StorageBlocks() []string {
+	return w.blockTracker.blockIDs()
 }
 
 // WriterOption is an option that can be passed to Repository.NewWriter()

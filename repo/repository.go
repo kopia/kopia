@@ -105,7 +105,11 @@ func (repo *repository) Storage() storage.Storage {
 }
 
 func (repo *repository) NewWriter(options ...WriterOption) ObjectWriter {
-	result := newObjectWriter(repo, ObjectIDTypeStored)
+	result := &objectWriter{
+		repo:         repo,
+		objectType:   ObjectIDTypeStored,
+		blockTracker: &blockTracker{},
+	}
 
 	for _, option := range options {
 		option(result)
