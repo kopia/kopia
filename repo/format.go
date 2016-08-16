@@ -5,9 +5,10 @@ import (
 	"crypto/cipher"
 	"crypto/hmac"
 	"crypto/md5"
-	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/sha512"
+	"errors"
+	"fmt"
 	"hash"
 )
 
@@ -16,36 +17,83 @@ var (
 	hkdfInfoCryptoKey = []byte("CryptoKey")
 )
 
-// Format describes the format of object data.
-type Format struct {
-	Version           string `json:"version"`
-	ObjectFormat      string `json:"objectFormat"`
-	Secret            []byte `json:"secret,omitempty"`
-	MaxInlineBlobSize int    `json:"maxInlineBlobSize"`
-	MaxBlobSize       int    `json:"maxBlobSize"`
+// ObjectIDFormatInfo performs hashing and encryption of a data block.
+type ObjectIDFormatInfo interface {
+	Name() string
+	HashBuffer(data []byte, secret []byte) (blockID []byte, cryptoKey []byte)
+	CreateCipher(key []byte) (cipher.Block, error)
 }
 
-// ObjectIDFormat describes single format ObjectID
-type ObjectIDFormat struct {
-	Name        string
-	IsEncrypted bool
-
-	hashBuffer   func(data []byte, secret []byte) ([]byte, []byte)
-	createCipher func(key []byte) (cipher.Block, error)
+type unencryptedFormat struct {
+	name     string
+	hashCtor func() hash.Hash
+	fold     int
 }
 
-// ObjectIDFormats is a collection of ObjectIDFormat
-type ObjectIDFormats []*ObjectIDFormat
+func (fi *unencryptedFormat) Name() string {
+	return fi.name
+}
 
-// Find returns the ObjectIDFormat with a given name or nil if not found.
-func (fmts ObjectIDFormats) Find(name string) *ObjectIDFormat {
-	for _, f := range fmts {
-		if f.Name == name {
-			return f
+func (fi *unencryptedFormat) HashBuffer(data []byte, secret []byte) (blockID []byte, cryptoKey []byte) {
+	blockID = hashContent(fi.hashCtor, data, secret)
+	if fi.fold > 0 {
+		for i := fi.fold; i < len(blockID); i++ {
+			blockID[i%fi.fold] ^= blockID[i]
 		}
+		blockID = blockID[0:fi.fold]
+	}
+	return
+}
+
+func (fi *unencryptedFormat) CreateCipher(key []byte) (cipher.Block, error) {
+	return nil, errors.New("encryption not supported")
+
+}
+
+type encryptedFormat struct {
+	name         string
+	hashCtor     func() hash.Hash
+	createCipher func(key []byte) (cipher.Block, error)
+	keyBytes     int
+}
+
+func (fi *encryptedFormat) Name() string {
+	return fi.name
+}
+
+func (fi *encryptedFormat) HashBuffer(data []byte, secret []byte) (blockID []byte, cryptoKey []byte) {
+	h := hashContent(fi.hashCtor, data, secret)
+	p := len(h) - fi.keyBytes
+	blockID = h[0:p]
+	cryptoKey = h[p:]
+	return
+}
+
+func (fi *encryptedFormat) CreateCipher(key []byte) (cipher.Block, error) {
+	return fi.createCipher(key)
+
+}
+
+// SupportedFormats containes supported ObjectIDformats
+var SupportedFormats = map[ObjectIDFormat]ObjectIDFormatInfo{
+	ObjectIDFormat_TESTONLY_MD5:                     &unencryptedFormat{"TESTONLY_MD5", md5.New, 0},
+	ObjectIDFormat_UNENCYPTED_HMAC_SHA256:           &unencryptedFormat{"UNENCRYPTED_HMAC_SHA256", sha256.New, 0},
+	ObjectIDFormat_UNENCYPTED_HMAC_SHA256_128:       &unencryptedFormat{"UNENCRYPTED_HMAC_SHA256", sha256.New, 16},
+	ObjectIDFormat_ENCRYPTED_HMAC_SHA512_384_AES256: &encryptedFormat{"ENCRYPTED_HMAC_SHA512_384_AES256", sha512.New384, aes.NewCipher, 32},
+	ObjectIDFormat_ENCRYPTED_HMAC_SHA512_AES256:     &encryptedFormat{"ENCRYPTED_HMAC_SHA512_AES256", sha512.New, aes.NewCipher, 32},
+}
+
+// DefaultObjectFormat is the format that should be used by default when creating new repositories.
+var DefaultObjectFormat = SupportedFormats[ObjectIDFormat_ENCRYPTED_HMAC_SHA512_AES256]
+
+// ParseObjectIDFormat parses the given string and returns corresponding ObjectIDFormat.
+func ParseObjectIDFormat(s string) (ObjectIDFormat, error) {
+	v, ok := ObjectIDFormat_value[s]
+	if ok {
+		return ObjectIDFormat(v), nil
 	}
 
-	return nil
+	return ObjectIDFormat_INVALID, fmt.Errorf("unknown object ID format: %v", s)
 }
 
 func fold(b []byte, size int) []byte {
@@ -59,15 +107,6 @@ func fold(b []byte, size int) []byte {
 	return b[0:size]
 }
 
-func nonEncryptedFormat(name string, hf func() hash.Hash, hashSize int) *ObjectIDFormat {
-	return &ObjectIDFormat{
-		Name: name,
-		hashBuffer: func(data []byte, secret []byte) ([]byte, []byte) {
-			return fold(hashContent(hf, data, secret), hashSize), nil
-		},
-	}
-}
-
 func hashContent(hf func() hash.Hash, data []byte, secret []byte) []byte {
 	var h hash.Hash
 
@@ -79,55 +118,3 @@ func hashContent(hf func() hash.Hash, data []byte, secret []byte) []byte {
 	h.Write(data)
 	return h.Sum(nil)
 }
-
-func encryptedFormat(
-	name string,
-	hf func() hash.Hash,
-	blockIDSize int,
-	createCipher func(key []byte) (cipher.Block, error),
-	keySize int,
-) *ObjectIDFormat {
-	return &ObjectIDFormat{
-		Name: name,
-		hashBuffer: func(data []byte, secret []byte) ([]byte, []byte) {
-			contentHash := hashContent(sha512.New, data, secret)
-			blockID := fold(hashContent(hf, hkdfInfoBlockID, contentHash), blockIDSize)
-			cryptoKey := fold(hashContent(hf, hkdfInfoCryptoKey, contentHash), keySize)
-			return blockID, cryptoKey
-		},
-		createCipher: createCipher,
-	}
-}
-
-func buildObjectIDFormats() ObjectIDFormats {
-	var result ObjectIDFormats
-
-	for _, h := range []struct {
-		name     string
-		hash     func() hash.Hash
-		hashSize int
-	}{
-		{"md5", md5.New, md5.Size},
-		{"sha1", sha1.New, sha1.Size},
-		{"sha224", sha256.New224, sha256.Size224},
-		{"sha256", sha256.New, sha256.Size},
-		{"sha256-fold128", sha256.New, 16},
-		{"sha256-fold160", sha256.New, 20},
-		{"sha384", sha512.New384, sha512.Size384},
-		{"sha512-fold128", sha512.New, 16},
-		{"sha512-fold160", sha512.New, 20},
-		{"sha512-224", sha512.New512_224, sha512.Size224},
-		{"sha512-256", sha512.New512_256, sha512.Size256},
-		{"sha512", sha512.New, sha512.Size},
-	} {
-		result = append(result, nonEncryptedFormat(h.name, h.hash, h.hashSize))
-		result = append(result, encryptedFormat(h.name+"-aes128", h.hash, h.hashSize, aes.NewCipher, 16))
-		result = append(result, encryptedFormat(h.name+"-aes192", h.hash, h.hashSize, aes.NewCipher, 24))
-		result = append(result, encryptedFormat(h.name+"-aes256", h.hash, h.hashSize, aes.NewCipher, 32))
-	}
-
-	return result
-}
-
-// SupportedFormats contains supported repository formats.
-var SupportedFormats = buildObjectIDFormats()

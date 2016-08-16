@@ -5,6 +5,8 @@ import (
 	"encoding/hex"
 	"io"
 	"time"
+
+	"github.com/kopia/kopia/repo"
 )
 
 // Manifest stores information about single backup.
@@ -16,10 +18,10 @@ type Manifest struct {
 	UserName    string `json:"userName"`
 	Description string `json:"description"`
 
-	Handle       string `json:"handle"`
-	Source       string `json:"source"`
-	RootObjectID string `json:"root"`
-	HashCacheID  string `json:"hashCache"`
+	Handle       string        `json:"handle"`
+	Source       string        `json:"source"`
+	RootObjectID repo.ObjectID `json:"root"`
+	HashCacheID  repo.ObjectID `json:"hashCache"`
 
 	FileCount      int64 `json:"fileCount"`
 	DirectoryCount int64 `json:"dirCount"`

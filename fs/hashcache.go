@@ -4,36 +4,28 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"strconv"
-	"strings"
 
-	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/internal"
 )
 
-type hashCacheEntry struct {
-	Name     string
-	Hash     uint64
-	ObjectID repo.ObjectID
-}
-
 type hashcacheReader struct {
-	scanner   *bufio.Scanner
-	nextEntry *hashCacheEntry
-	entry0    hashCacheEntry
-	entry1    hashCacheEntry
+	reader    *internal.ProtoStreamReader
+	nextEntry *HashCacheEntry
+	entry0    HashCacheEntry
+	entry1    HashCacheEntry
 	odd       bool
 	first     bool
 }
 
 func (hcr *hashcacheReader) open(r io.Reader) error {
-	hcr.scanner = bufio.NewScanner(r)
+	hcr.reader = internal.NewProtoStreamReader(bufio.NewReader(r), internal.ProtoStreamTypeHashCache)
 	hcr.nextEntry = nil
 	hcr.first = true
 	hcr.readahead()
 	return nil
 }
 
-func (hcr *hashcacheReader) findEntry(relativeName string) *hashCacheEntry {
+func (hcr *hashcacheReader) findEntry(relativeName string) *HashCacheEntry {
 	for hcr.nextEntry != nil && isLess(hcr.nextEntry.Name, relativeName) {
 		hcr.readahead()
 	}
@@ -49,37 +41,20 @@ func (hcr *hashcacheReader) findEntry(relativeName string) *hashCacheEntry {
 }
 
 func (hcr *hashcacheReader) readahead() {
-	if hcr.scanner != nil {
-		if hcr.first {
-			hcr.first = false
-			if !hcr.scanner.Scan() || hcr.scanner.Text() != "HASHCACHE:v1" {
-				hcr.scanner = nil
-				return
-			}
-		}
-
+	if hcr.reader != nil {
 		hcr.nextEntry = nil
-		if hcr.scanner.Scan() {
-			var err error
-			e := hcr.nextManifestEntry()
-			t := hcr.scanner.Text()
-			p0 := strings.IndexByte(t, '|')
-			p1 := strings.LastIndexByte(t, '|')
-			e.Name = t[0:p0]
-			e.Hash, err = strconv.ParseUint(t[p0+1:p1], 0, 64)
-			e.ObjectID = repo.ObjectID(t[p1+1:])
-			if err == nil {
-				hcr.nextEntry = e
-			}
+		e := hcr.nextManifestEntry()
+		if err := hcr.reader.Read(e); err == nil {
+			hcr.nextEntry = e
 		}
 	}
 
 	if hcr.nextEntry == nil {
-		hcr.scanner = nil
+		hcr.reader = nil
 	}
 }
 
-func (hcr *hashcacheReader) nextManifestEntry() *hashCacheEntry {
+func (hcr *hashcacheReader) nextManifestEntry() *HashCacheEntry {
 	hcr.odd = !hcr.odd
 	if hcr.odd {
 		return &hcr.entry1
@@ -89,19 +64,18 @@ func (hcr *hashcacheReader) nextManifestEntry() *hashCacheEntry {
 }
 
 type hashcacheWriter struct {
-	writer          io.Writer
+	writer          *internal.ProtoStreamWriter
 	lastNameWritten string
 }
 
 func newHashCacheWriter(w io.Writer) *hashcacheWriter {
 	hcw := &hashcacheWriter{
-		writer: w,
+		writer: internal.NewProtoStreamWriter(w, internal.ProtoStreamTypeHashCache),
 	}
-	io.WriteString(w, "HASHCACHE:v1\n")
 	return hcw
 }
 
-func (hcw *hashcacheWriter) WriteEntry(e hashCacheEntry) error {
+func (hcw *hashcacheWriter) WriteEntry(e HashCacheEntry) error {
 	if hcw.lastNameWritten != "" {
 		if isLessOrEqual(e.Name, hcw.lastNameWritten) {
 			return fmt.Errorf("out-of-order directory entry, previous '%v' current '%v'", hcw.lastNameWritten, e.Name)
@@ -109,7 +83,7 @@ func (hcw *hashcacheWriter) WriteEntry(e hashCacheEntry) error {
 		hcw.lastNameWritten = e.Name
 	}
 
-	fmt.Fprintf(hcw.writer, "%v|%v|%v\n", e.Name, e.Hash, e.ObjectID)
+	hcw.writer.Write(&e)
 
 	return nil
 }

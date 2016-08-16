@@ -3,3 +3,4 @@
 .releases/
 kopia-*.tar.gz
 kopia-*.zip
+combined.cov

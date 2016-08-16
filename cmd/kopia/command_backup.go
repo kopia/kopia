@@ -113,7 +113,7 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 			return fmt.Errorf("cannot save manifest: %v", err)
 		}
 
-		log.Printf("Root: %v", manifest.RootObjectID)
+		log.Printf("Root: %v", manifest.RootObjectID.UIString())
 		log.Printf("Key: %v", handleID)
 	}
 

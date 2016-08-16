@@ -18,7 +18,7 @@ type repositoryFile repositoryEntry
 type repositorySymlink repositoryEntry
 
 func (rd *repositoryDirectory) Readdir() (Entries, error) {
-	r, err := rd.repo.Open(rd.entry.Metadata().ObjectID)
+	r, err := rd.repo.Open(*rd.entry.Metadata().ObjectId)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +38,7 @@ func (rd *repositoryDirectory) Readdir() (Entries, error) {
 }
 
 func (rf *repositoryFile) Open() (EntryMetadataReadCloser, error) {
-	r, err := rf.repo.Open(rf.entry.Metadata().ObjectID)
+	r, err := rf.repo.Open(*rf.entry.Metadata().ObjectId)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +51,7 @@ func (rsl *repositorySymlink) Readlink() (string, error) {
 }
 
 func newRepoEntry(r repo.Repository, md *EntryMetadata, parent Directory) Entry {
-	switch md.FileMode & os.ModeType {
+	switch md.FileMode() & os.ModeType {
 	case os.ModeDir:
 		return Directory(&repositoryDirectory{
 			entry: newEntry(md, parent),
@@ -71,7 +71,7 @@ func newRepoEntry(r repo.Repository, md *EntryMetadata, parent Directory) Entry 
 		})
 
 	default:
-		panic(fmt.Sprintf("not supported entry metadata type: %v", md.FileMode))
+		panic(fmt.Sprintf("not supported entry metadata type: %v", md.FileMode()))
 	}
 }
 
@@ -94,9 +94,9 @@ func withMetadata(rc io.ReadCloser, md *EntryMetadata) EntryMetadataReadCloser {
 // NewRepositoryDirectory returns Directory based on repository object with the specified ID.
 func NewRepositoryDirectory(r repo.Repository, objectID repo.ObjectID) Directory {
 	d := newRepoEntry(r, &EntryMetadata{
-		Name:     "/",
-		ObjectID: objectID,
-		FileMode: 0555 | os.ModeDir,
+		Name:               "/",
+		ObjectId:           &objectID,
+		ModeAndPermissions: 0555 | uint32(os.ModeDir),
 	}, nil)
 
 	return d.(Directory)

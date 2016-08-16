@@ -25,10 +25,10 @@ func (bg *backupGenerator) Backup(m *Manifest, old *Manifest) error {
 	uploader := fs.NewUploader(bg.repo)
 
 	m.StartTime = time.Now()
-	var hashCacheID repo.ObjectID
+	var hashCacheID *repo.ObjectID
 
 	if old != nil {
-		hashCacheID = repo.ObjectID(old.HashCacheID)
+		hashCacheID = &old.HashCacheID
 	}
 
 	entry, err := fs.NewFilesystemEntry(m.Source, nil)
@@ -46,8 +46,8 @@ func (bg *backupGenerator) Backup(m *Manifest, old *Manifest) error {
 	if err != nil {
 		return err
 	}
-	m.RootObjectID = string(r.ObjectID)
-	m.HashCacheID = string(r.ManifestID)
+	m.RootObjectID = r.ObjectID
+	m.HashCacheID = r.ManifestID
 
 	return nil
 }

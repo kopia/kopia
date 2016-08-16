@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package kopia.fs;
+option go_package = "github.com/kopia/kopia/internal";
+
+message TestProto {
+    string name = 1;
+}

@@ -8,8 +8,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-
-	"github.com/kopia/kopia/repo"
 )
 
 // Entry represents a filesystem entry, which can be Directory, File, or Symlink
@@ -43,17 +41,6 @@ type Directory interface {
 type Symlink interface {
 	Entry
 	Readlink() (string, error)
-}
-
-// EntryMetadata stores attributes of a single entry in a directory.
-type EntryMetadata struct {
-	Name     string
-	FileMode os.FileMode
-	FileSize int64
-	ModTime  time.Time
-	OwnerID  uint32
-	GroupID  uint32
-	ObjectID repo.ObjectID
 }
 
 type entry struct {
@@ -133,15 +120,24 @@ func isLessOrEqual(name1, name2 string) bool {
 	return len(parts1) <= len(parts2)
 }
 
+// FileMode returns the file mode and permissions.
+func (e *EntryMetadata) FileMode() os.FileMode {
+	return os.FileMode(e.ModeAndPermissions)
+}
+
+// ModTime returns the modification time.
+func (e *EntryMetadata) ModTime() time.Time {
+	return time.Unix(e.ModTimestampNano/1000000000, e.ModTimestampNano%1000000000)
+
+}
+
 func (e *EntryMetadata) metadataHash() uint64 {
 	h := fnv.New64a()
-	binary.Write(h, binary.LittleEndian, e.ModTime.UnixNano())
-	binary.Write(h, binary.LittleEndian, e.FileMode)
-	if e.FileMode.IsRegular() {
-		binary.Write(h, binary.LittleEndian, e.FileSize)
-	}
-	binary.Write(h, binary.LittleEndian, e.OwnerID)
-	binary.Write(h, binary.LittleEndian, e.GroupID)
+	binary.Write(h, binary.LittleEndian, e.ModTimestampNano)
+	binary.Write(h, binary.LittleEndian, e.ModeAndPermissions)
+	binary.Write(h, binary.LittleEndian, e.FileSize)
+	binary.Write(h, binary.LittleEndian, e.Uid)
+	binary.Write(h, binary.LittleEndian, e.Gid)
 	return h.Sum64()
 }
 

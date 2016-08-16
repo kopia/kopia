@@ -17,11 +17,20 @@ install:
 build:
 	go build github.com/kopia/kopia/...
 
+escape-analysis:
+	go build -gcflags '-m -l' github.com/kopia/kopia/...
+
+protos:
+	protoc --go_out=../../.. fs/*.proto
+	protoc --go_out=../../.. repo/*.proto
+	protoc --go_out=../../.. vault/*.proto
+	protoc --go_out=../../.. internal/*.proto
+
 play:
 	go run cmd/playground/main.go
 
 lint:
-	golint github.com/kopia/kopia/...
+	-golint github.com/kopia/kopia/... | grep -v .pb.go
 
 vet:
 	go tool vet -all .

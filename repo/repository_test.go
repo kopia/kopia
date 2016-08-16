@@ -1,28 +1,28 @@
 package repo
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/md5"
 	cryptorand "crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"math/rand"
-	"reflect"
-	"sort"
-	"strings"
 	"testing"
 
+	"github.com/kopia/kopia/internal"
 	"github.com/kopia/kopia/storage"
 	"github.com/kopia/kopia/storage/storagetesting"
 )
 
 func testFormat() *Format {
 	return &Format{
-		Version:           "1",
+		Version:           1,
 		MaxBlobSize:       200,
 		MaxInlineBlobSize: 20,
-		ObjectFormat:      "md5",
+		ObjectFormat:      ObjectIDFormat_TESTONLY_MD5,
 	}
 }
 
@@ -56,16 +56,15 @@ func TestWriters(t *testing.T) {
 		data     []byte
 		objectID ObjectID
 	}{
-		{[]byte{}, "B"},
-		{[]byte("quick brown fox"), "Tquick brown fox"},
-		{[]byte{1, 2, 3, 4}, "BAQIDBA"},
-		{[]byte{10, 13, 9}, "T\n\r\t"},
-		{[]byte{0xc2, 0x28}, "Bwig"}, // invalid UTF-8, will be represented as binary
+		{[]byte{}, NullObjectID},
+		{[]byte("quick brown fox"), ObjectID{Content: []byte("quick brown fox")}},
+		{[]byte{1, 2, 3, 4}, ObjectID{Content: []byte{1, 2, 3, 4}}},
+		{[]byte{0xc2, 0x28}, ObjectID{Content: []byte{0xc2, 0x28}}},
 		{
 			[]byte("the quick brown fox jumps over the lazy dog"),
-			"DX77add1d5f41223d5582fca736a5cb335",
+			ObjectID{StorageBlock: "X77add1d5f41223d5582fca736a5cb335"},
 		},
-		{make([]byte, 100), "DX6d0bb00954ceb7fbee436bb55a8397a9"}, // 100 zero bytes
+		{make([]byte, 100), ObjectID{StorageBlock: "X6d0bb00954ceb7fbee436bb55a8397a9"}}, // 100 zero bytes
 	}
 
 	for _, c := range cases {
@@ -83,11 +82,11 @@ func TestWriters(t *testing.T) {
 			continue
 		}
 
-		if result != c.objectID {
-			t.Errorf("incorrect result for %v, expected: %v got: %v", c.data, c.objectID, result)
+		if !result.Equals(c.objectID) {
+			t.Errorf("incorrect result for %v, expected: %v got: %v", c.data, c.objectID.UIString(), result)
 		}
 
-		if !c.objectID.Type().IsStored() {
+		if c.objectID.StorageBlock == "" {
 			if len(data) != 0 {
 				t.Errorf("unexpected data written to the storage: %v", data)
 			}
@@ -110,120 +109,74 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	writer.Write(bytes[0:50])
 	writer.Write(bytes[0:50])
 	result, err := writer.Result(false)
-	if string(result) != "DX6d0bb00954ceb7fbee436bb55a8397a9" {
+	if !result.Equals(ObjectID{StorageBlock: "X6d0bb00954ceb7fbee436bb55a8397a9"}) {
 		t.Errorf("unexpected result: %v err: %v", result, err)
 	}
 }
 
-func TestWriterListChunk(t *testing.T) {
-	data, repo := setupTest(t)
+func verifyIndirectBlock(t *testing.T, r Repository, oid ObjectID) {
+	for level := int32(0); level < oid.Indirect; level++ {
+		direct := oid
+		direct.Indirect = level
 
-	contentBytes := make([]byte, 250)
-	contentMd5Sum200 := getMd5Digest(contentBytes[0:200])  // hash of 200 zero bytes
-	contentMd5Sum50 := getMd5Digest(contentBytes[200:250]) // hash of 50 zero bytes
-	listChunkContent := []byte("200,D" + contentMd5Sum200 + "\n50,D" + contentMd5Sum50 + "\n")
-	listChunkObjectID := getMd5LObjectID(listChunkContent)
+		rd, err := r.Open(direct)
+		if err != nil {
+			t.Errorf("unable to open %v: %v", oid.String(), err)
+			return
+		}
+		defer rd.Close()
 
-	writer := repo.NewWriter()
-	writer.Write(contentBytes)
-	result, err := writer.Result(false)
-	if err != nil {
-		t.Errorf("error getting writer results: %v", err)
+		pr := internal.NewProtoStreamReader(bufio.NewReader(rd), internal.ProtoStreamTypeIndirect)
+		for {
+			var v IndirectObjectEntry
+			if err := pr.Read(&v); err != nil {
+				if err == io.EOF {
+					break
+				}
+				t.Errorf("err: %v", err)
+				break
+			}
+		}
 	}
-
-	if string(result) != listChunkObjectID {
-		t.Errorf("incorrect list chunk ID: %v, expected: %v", result, listChunkObjectID)
-	}
-
-	// We have 3 chunks - 200 zero bytes, 50 zero bytes and the list.
-	verifyStorageBlocks(t, writer.StorageBlocks(), data, map[string][]byte{
-		contentMd5Sum200:               contentBytes[0:200],
-		contentMd5Sum50:                contentBytes[0:50],
-		getMd5Digest(listChunkContent): listChunkContent,
-	})
 }
 
-func TestWriterListOfListsChunk(t *testing.T) {
-	data, repo := setupTest(t)
-
-	contentBytes := make([]byte, 1400)
-	chunk1Id := getMd5CObjectID(contentBytes[0:200]) // hash of 200 zero bytes
-
-	list1ChunkContent := []byte(strings.Repeat("200,"+chunk1Id+"\n", 5))
-	list1ObjectID := fmt.Sprintf("%v,%v", len(list1ChunkContent), getMd5LObjectID(list1ChunkContent))
-
-	list2ChunkContent := []byte(strings.Repeat("200,"+chunk1Id+"\n", 2))
-	list2ObjectID := fmt.Sprintf("%v,%v", len(list2ChunkContent), getMd5LObjectID(list2ChunkContent))
-
-	listOfListsChunkContent := []byte(list1ObjectID + "\n" + list2ObjectID + "\n")
-	listOfListsObjectID := getMd5LObjectID(listOfListsChunkContent)
-
-	writer := repo.NewWriter()
-	writer.Write(contentBytes)
-	result, err := writer.Result(false)
-	if string(result) != listOfListsObjectID || err != nil {
-		t.Errorf("unexpected result: %v expected: %v, err: %v", result, listOfListsObjectID, err)
+func TestIndirection(t *testing.T) {
+	cases := []struct {
+		dataLength          int
+		expectedBlockCount  int
+		expectedIndirection int32
+	}{
+		{dataLength: 200, expectedBlockCount: 1, expectedIndirection: 0},
+		{dataLength: 250, expectedBlockCount: 3, expectedIndirection: 1},
+		{dataLength: 1400, expectedBlockCount: 4, expectedIndirection: 2},
+		{dataLength: 2000, expectedBlockCount: 5, expectedIndirection: 2},
+		{dataLength: 3000, expectedBlockCount: 6, expectedIndirection: 2},
+		{dataLength: 4000, expectedBlockCount: 9, expectedIndirection: 3},
+		{dataLength: 10000, expectedBlockCount: 16, expectedIndirection: 3},
 	}
 
-	// We have 4 chunks - 200 zero bytes, 2 lists, and 1 list-of-lists.
-	verifyStorageBlocks(t, writer.StorageBlocks(), data, map[string][]byte{
-		getMd5Digest(contentBytes[0:200]):     contentBytes[0:200],
-		getMd5Digest(list1ChunkContent):       list1ChunkContent,
-		getMd5Digest(list2ChunkContent):       list2ChunkContent,
-		getMd5Digest(listOfListsChunkContent): listOfListsChunkContent,
-	})
-}
+	for _, c := range cases {
+		data, repo := setupTest(t)
 
-func TestWriterListOfListsOfListsChunk(t *testing.T) {
-	data, repo := setupTest(t)
+		contentBytes := make([]byte, c.dataLength)
 
-	writtenData := make([]byte, 10000)
-	chunk1Id := getMd5CObjectID(writtenData[0:200]) // hash of 200 zero bytes
+		writer := repo.NewWriter()
+		writer.Write(contentBytes)
+		result, err := writer.Result(false)
+		if err != nil {
+			t.Errorf("error getting writer results: %v", err)
+		}
 
-	// First level list chunk has 5 C[] chunk IDs, because that's how many IDs fit in one chunk.
-	// (that number 200 was chosen for a reason, to make testing easy)
-	//
-	//   200,Cfbaf48ec981a5eecdb57b929fdd426e8\n
-	//   200,Cfbaf48ec981a5eecdb57b929fdd426e8\n
-	//   200,Cfbaf48ec981a5eecdb57b929fdd426e8\n
-	//   200,Cfbaf48ec981a5eecdb57b929fdd426e8\n
-	//   200,Cfbaf48ec981a5eecdb57b929fdd426e8\n
-	list1ChunkContent := []byte(strings.Repeat("200,"+chunk1Id+"\n", 5))
-	list1ObjectID := fmt.Sprintf("%v,%v", len(list1ChunkContent), getMd5LObjectID(list1ChunkContent))
+		if result.Indirect != c.expectedIndirection {
+			t.Errorf("incorrect indirection level: %v, expected %v", result.Indirect, c.expectedIndirection)
+		}
 
-	// Second level lists L[] chunks from the first level. They have all the same content
-	// because all lists are identical.
-	//   190,L52760f658059fef754f5deabdd01df93\n
-	//   190,L52760f658059fef754f5deabdd01df93\n
-	//   190,L52760f658059fef754f5deabdd01df93\n
-	//   190,L52760f658059fef754f5deabdd01df93\n
-	//   190,L52760f658059fef754f5deabdd01df93\n
-	list2ChunkContent := []byte(strings.Repeat(string(list1ObjectID)+"\n", 5))
-	list2ObjectID := fmt.Sprintf("%v,%v", len(list2ChunkContent), getMd5LObjectID(list2ChunkContent))
+		if len(data) != c.expectedBlockCount {
+			t.Errorf("unexpected block count: %v, expected %v", len(data), c.expectedBlockCount)
+		}
 
-	// Now those lists are also identical and represent 5000 bytes each, so
-	// the top-level list-of-lists-of-lists will have 2 entries:
-	//
-	//   190,Lb99b28e34c87e4934b4cc5631bb38ee8\n
-	//   190,Lb99b28e34c87e4934b4cc5631bb38ee8\n
-	list3ChunkContent := []byte(strings.Repeat(string(list2ObjectID)+"\n", 2))
-	list3ObjectID := getMd5LObjectID(list3ChunkContent)
-
-	writer := repo.NewWriter()
-	writer.Write(writtenData)
-
-	result, err := writer.Result(false)
-	if string(result) != list3ObjectID {
-		t.Errorf("unexpected result: %v err: %v", result, err)
+		verifyIndirectBlock(t, repo, result)
 	}
-
-	// We have 4 data blocks representing 10000 bytes of zero. Not bad!
-	verifyStorageBlocks(t, writer.StorageBlocks(), data, map[string][]byte{
-		getMd5Digest(writtenData[0:200]): writtenData[0:200],
-		getMd5Digest(list1ChunkContent):  list1ChunkContent,
-		getMd5Digest(list2ChunkContent):  list2ChunkContent,
-		getMd5Digest(list3ChunkContent):  list3ChunkContent,
-	})
 }
 
 func TestHMAC(t *testing.T) {
@@ -231,7 +184,7 @@ func TestHMAC(t *testing.T) {
 	content := bytes.Repeat([]byte{0xcd}, 50)
 
 	s := testFormat()
-	s.ObjectFormat = "md5"
+	s.ObjectFormat = ObjectIDFormat_TESTONLY_MD5
 	s.Secret = []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25}
 
 	repo, err := NewRepository(storagetesting.NewMapStorage(data), s)
@@ -241,7 +194,7 @@ func TestHMAC(t *testing.T) {
 	w := repo.NewWriter()
 	w.Write(content)
 	result, err := w.Result(false)
-	if string(result) != "D697eaf0aca3a3aea3a75164746ffaa79" {
+	if result.UIString() != "D697eaf0aca3a3aea3a75164746ffaa79" {
 		t.Errorf("unexpected result: %v err: %v", result, err)
 	}
 }
@@ -258,8 +211,6 @@ func TestReader(t *testing.T) {
 	}{
 		{"B", []byte{}},
 		{"BAQIDBA", []byte{1, 2, 3, 4}},
-		{"T", []byte{}},
-		{"Tfoo\nbar", []byte("foo\nbar")},
 		{"Da76999788386641a3ec798554f1fe7e6", storedPayload},
 		{"S0,2,BAQIDBA", []byte{1, 2}},
 		{"S1,3,BAQIDBA", []byte{2, 3, 4}},
@@ -353,12 +304,12 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 			verify(t, repo, objectID, randomData, fmt.Sprintf("%v %v/%v", objectID, forceStored, size))
 
 			if size > 1 {
-				sectionID := NewSectionObjectID(0, int64(size/2), objectID)
+				sectionID := NewSectionObjectID(0, int64(size/2), &objectID)
 				verify(t, repo, sectionID, randomData[0:10], fmt.Sprintf("%v %v/%v", sectionID, forceStored, size))
 			}
 
 			if size > 1 {
-				sectionID := NewSectionObjectID(int64(1), int64(size-1), objectID)
+				sectionID := NewSectionObjectID(int64(1), int64(size-1), &objectID)
 				verify(t, repo, sectionID, randomData[1:], fmt.Sprintf("%v %v/%v", sectionID, forceStored, size))
 			}
 		}
@@ -397,9 +348,9 @@ func verify(t *testing.T, repo Repository, objectID ObjectID, expectedData []byt
 }
 
 func TestFormats(t *testing.T) {
-	makeFormat := func(objectFormat string) *Format {
+	makeFormat := func(objectFormat ObjectIDFormat) *Format {
 		return &Format{
-			Version:      "1",
+			Version:      1,
 			ObjectFormat: objectFormat,
 			Secret:       []byte("key"),
 			MaxBlobSize:  10000,
@@ -411,88 +362,78 @@ func TestFormats(t *testing.T) {
 		oids   map[string]ObjectID
 	}{
 		{
-			format: makeFormat("md5"), // MD5-HMAC with secret 'key'
+			format: makeFormat(ObjectIDFormat_TESTONLY_MD5), // MD5-HMAC with secret 'key'
 			oids: map[string]ObjectID{
-				"": "D63530468a04e386459855da0063b6596",
-				"The quick brown fox jumps over the lazy dog": "D80070713463e7749b90c2dc24911e275",
+				"": ObjectID{StorageBlock: "63530468a04e386459855da0063b6596"},
+				"The quick brown fox jumps over the lazy dog": ObjectID{StorageBlock: "80070713463e7749b90c2dc24911e275"},
 			},
 		},
 		{
 			format: &Format{
-				Version:      "1",
-				ObjectFormat: "md5",
+				Version:      1,
+				ObjectFormat: ObjectIDFormat_TESTONLY_MD5,
 				MaxBlobSize:  10000,
 				Secret:       []byte{}, // HMAC with zero-byte secret
 			},
 			oids: map[string]ObjectID{
-				"": "D74e6f7298a9c2d168935f58c001bad88",
-				"The quick brown fox jumps over the lazy dog": "Dad262969c53bc16032f160081c4a07a0",
+				"": ObjectID{StorageBlock: "74e6f7298a9c2d168935f58c001bad88"},
+				"The quick brown fox jumps over the lazy dog": ObjectID{StorageBlock: "ad262969c53bc16032f160081c4a07a0"},
 			},
 		},
 		{
 			format: &Format{
-				Version:      "1",
-				ObjectFormat: "md5",
+				Version:      1,
+				ObjectFormat: ObjectIDFormat_TESTONLY_MD5,
 				MaxBlobSize:  10000,
 				Secret:       nil, // non-HMAC version
 			},
 			oids: map[string]ObjectID{
-				"": "Dd41d8cd98f00b204e9800998ecf8427e",
-				"The quick brown fox jumps over the lazy dog": "D9e107d9d372bb6826bd81d3542a419d6",
+				"": ObjectID{StorageBlock: "d41d8cd98f00b204e9800998ecf8427e"},
+				"The quick brown fox jumps over the lazy dog": ObjectID{
+					StorageBlock: "9e107d9d372bb6826bd81d3542a419d6",
+				},
 			},
 		},
 		{
-			format: makeFormat("md5"),
+			format: makeFormat(ObjectIDFormat_TESTONLY_MD5),
 			oids: map[string]ObjectID{
-				"The quick brown fox jumps over the lazy dog": "D80070713463e7749b90c2dc24911e275",
+				"The quick brown fox jumps over the lazy dog": ObjectID{
+					StorageBlock: "80070713463e7749b90c2dc24911e275",
+				},
 			},
 		},
 		{
-			format: makeFormat("sha1"),
+			format: makeFormat(ObjectIDFormat_UNENCYPTED_HMAC_SHA256),
 			oids: map[string]ObjectID{
-				"The quick brown fox jumps over the lazy dog": "Dde7c9b85b8b78aa6bc8a7a36f70a90701c9db4d9",
+				"The quick brown fox jumps over the lazy dog": ObjectID{
+					StorageBlock: "f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8",
+				},
 			},
 		},
 		{
-			format: makeFormat("sha256"),
+			format: makeFormat(ObjectIDFormat_UNENCYPTED_HMAC_SHA256_128),
 			oids: map[string]ObjectID{
-				"The quick brown fox jumps over the lazy dog": "Df7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8",
+				"The quick brown fox jumps over the lazy dog": ObjectID{
+					StorageBlock: "18f1da557915937d2675055a87758d9b",
+				},
 			},
 		},
 		{
-			format: makeFormat("sha512"),
+			format: makeFormat(ObjectIDFormat_ENCRYPTED_HMAC_SHA512_384_AES256),
 			oids: map[string]ObjectID{
-				"The quick brown fox jumps over the lazy dog": "Db42af09057bac1e2d41708e48a902e09b5ff7f12ab428a4fe86653c73dd248fb82f948a549f7b791a5b41915ee4d1ec3935357e4e2317250d0372afa2ebeeb3a",
+				"The quick brown fox jumps over the lazy dog": ObjectID{
+					StorageBlock: "d7f4727e2c0b39ae0f1e40cc96f60242",
+					Encryption:   mustParseBase16("d5b7801841cea6fc592c5d3e1ae50700582a96cf35e1e554995fe4e03381c237"),
+				},
 			},
 		},
 		{
-			format: makeFormat("sha256-fold128-aes128"),
+			format: makeFormat(ObjectIDFormat_ENCRYPTED_HMAC_SHA512_AES256),
 			oids: map[string]ObjectID{
-				"The quick brown fox jumps over the lazy dog": "D028e74c630aee6400db4f84d49d1ed08.2825273c3344999e26081d99bcaf3f18",
-			},
-		},
-		{
-			format: makeFormat("sha256-aes128"),
-			oids: map[string]ObjectID{
-				"The quick brown fox jumps over the lazy dog": "D26bb3fee9e83a7f6ff8397f33460cd0d24354b28ae2d41b6f2376fbe7db12005.2825273c3344999e26081d99bcaf3f18",
-			},
-		},
-		{
-			format: makeFormat("sha384-aes256"),
-			oids: map[string]ObjectID{
-				"The quick brown fox jumps over the lazy dog": "D08edca658caee5ae86c9f1e4ccea26b1a43b0ddb04502c5f1b1cba051a756a9eba440bb6991b23323e37556ec5cf4f88.7a753377319650870f5cba47c30b608675542f206fa67d94dcbb9a0ccce7f467",
-			},
-		},
-		{
-			format: makeFormat("sha512-aes256"),
-			oids: map[string]ObjectID{
-				"The quick brown fox jumps over the lazy dog": "Deee04ad71248ef4ffec5159558e80e2791e32299cfb79a1e063cc5f4a71cd61ca2c1b110e3ae2e83635a8626a3a27e4805eb745c40b5a4ebd4c9372602e5ab65.1c0b1b58ce05b7b8b05cfce27a485ddf97bde5159f6946357ec7795236f36a84",
-			},
-		},
-		{
-			format: makeFormat("sha512-fold128-aes192"),
-			oids: map[string]ObjectID{
-				"The quick brown fox jumps over the lazy dog": "Dd829ad027ee4ff394f6a61615eb30d16.0ab00e0e0e156927f0be63372e8449d7bf2316c43d46e626",
+				"The quick brown fox jumps over the lazy dog": ObjectID{
+					StorageBlock: "b42af09057bac1e2d41708e48a902e09b5ff7f12ab428a4fe86653c73dd248fb",
+					Encryption:   mustParseBase16("82f948a549f7b791a5b41915ee4d1ec3935357e4e2317250d0372afa2ebeeb3a"),
+				},
 			},
 		},
 	}
@@ -501,7 +442,7 @@ func TestFormats(t *testing.T) {
 		data := map[string][]byte{}
 		st := storagetesting.NewMapStorage(data)
 
-		t.Logf("verifying %#v", c.format)
+		t.Logf("verifying %v", c.format.String())
 		repo, err := NewRepository(st, c.format)
 		if err != nil {
 			t.Errorf("cannot create manager: %v", err)
@@ -516,8 +457,8 @@ func TestFormats(t *testing.T) {
 			if err != nil {
 				t.Errorf("error: %v", err)
 			}
-			if oid != v {
-				t.Errorf("invalid oid for #%v %v/%v: %v expected %v", caseIndex, c.format.ObjectFormat, k, oid, v)
+			if !oid.Equals(v) {
+				t.Errorf("invalid oid for #%v %v/%v:\ngot:\n%#v\nexpected:\n%#v", caseIndex, c.format.ObjectFormat, k, oid.UIString(), v.UIString())
 			}
 
 			rc, err := repo.Open(oid)
@@ -540,8 +481,8 @@ func TestInvalidEncryptionKey(t *testing.T) {
 	data := map[string][]byte{}
 	st := storagetesting.NewMapStorage(data)
 	format := Format{
-		Version:      "1",
-		ObjectFormat: "sha512-aes256",
+		Version:      1,
+		ObjectFormat: ObjectIDFormat_ENCRYPTED_HMAC_SHA512_384_AES256,
 		Secret:       []byte("key"),
 		MaxBlobSize:  1000,
 	}
@@ -571,47 +512,42 @@ func TestInvalidEncryptionKey(t *testing.T) {
 	}
 
 	// Key too short
-	rc, err = repo.Open(oid[0 : len(oid)-2])
+	rc, err = repo.Open(replaceEncryption(oid, oid.Encryption[0:len(oid.Encryption)-2]))
 	if err == nil || rc != nil {
 		t.Errorf("expected error when opening malformed object")
 	}
 
 	// Key too long
-	rc, err = repo.Open(oid + "ff")
+	rc, err = repo.Open(replaceEncryption(oid, append(oid.Encryption, 0xFF)))
 	if err == nil || rc != nil {
 		t.Errorf("expected error when opening malformed object")
 	}
 
 	// Invalid key
-	lastByte, _ := hex.DecodeString(string(oid[len(oid)-2:]))
-	lastByte[0]++
-	rc, err = repo.Open(oid[0:len(oid)-2] + ObjectID(hex.EncodeToString(lastByte)))
+	corruptedKey := append([]byte(nil), oid.Encryption...)
+	corruptedKey[0]++
+	rc, err = repo.Open(replaceEncryption(oid, corruptedKey))
 	if err == nil || rc != nil {
 		t.Errorf("expected error when opening malformed object: %v", err)
 	}
 
 	// Now corrupt the data
-	data[string(oid.BlockID())][0] ^= 1
+	data[oid.StorageBlock][0] ^= 1
 	rc, err = repo.Open(oid)
 	if err == nil || rc != nil {
 		t.Errorf("expected error when opening object with corrupt data")
 	}
 }
 
-func verifyStorageBlocks(t *testing.T, actual []string, data, expectedData map[string][]byte) {
-	actualCopy := append([]string(nil), actual...)
-	sort.Strings(actualCopy)
-	var expected []string
-	for k := range expectedData {
-		expected = append(expected, k)
-	}
-	sort.Strings(expected)
+func replaceEncryption(oid ObjectID, newEncryption []byte) ObjectID {
+	oid.Encryption = newEncryption
+	return oid
+}
 
-	if !reflect.DeepEqual(expected, actualCopy) {
-		t.Errorf("updated blocks don't match. Expected: %#v, got %#v", expected, actualCopy)
+func mustParseBase16(s string) []byte {
+	b, err := hex.DecodeString(s)
+	if err != nil {
+		panic("invalid hex literal: " + s)
 	}
-
-	if !reflect.DeepEqual(expectedData, data) {
-		t.Errorf("storage data does not match, expected: %v, got %v", expectedData, data)
-	}
+	return b
 }

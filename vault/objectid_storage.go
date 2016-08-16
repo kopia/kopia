@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"fmt"
 
+	"github.com/golang/protobuf/proto"
+
 	"github.com/kopia/kopia/repo"
 )
 
@@ -16,14 +18,14 @@ const (
 	storedObjectIDLengthBytes = 8
 )
 
-type objectIDData struct {
-	ObjectID string `json:"objectID"`
-}
-
 // SaveObjectID stores the given object ID in an encrypted vault item and returns a unique ID.
 func (vlt *Vault) SaveObjectID(oid repo.ObjectID) (string, error) {
 	h := hmac.New(sha256.New, vlt.format.UniqueID)
-	h.Write([]byte(oid))
+	bytes, err := proto.Marshal(&oid)
+	if err != nil {
+		return "", err
+	}
+	h.Write(bytes)
 	sum := h.Sum(nil)
 	for i := storedObjectIDLengthBytes; i < len(sum); i++ {
 		sum[i%storedObjectIDLengthBytes] ^= sum[i]
@@ -31,10 +33,7 @@ func (vlt *Vault) SaveObjectID(oid repo.ObjectID) (string, error) {
 	sum = sum[0:storedObjectIDLengthBytes]
 	key := StoredObjectIDPrefix + hex.EncodeToString(sum)
 
-	var d objectIDData
-	d.ObjectID = string(oid)
-
-	if err := vlt.putJSON(key, &d); err != nil {
+	if err := vlt.Put(key, bytes); err != nil {
 		return "", err
 	}
 
@@ -45,20 +44,26 @@ func (vlt *Vault) SaveObjectID(oid repo.ObjectID) (string, error) {
 func (vlt *Vault) GetObjectID(id string) (repo.ObjectID, error) {
 	matches, err := vlt.List(id)
 	if err != nil {
-		return "", err
+		return repo.NullObjectID, err
 	}
 
 	switch len(matches) {
 	case 0:
-		return "", ErrItemNotFound
+		return repo.NullObjectID, ErrItemNotFound
 	case 1:
-		var d objectIDData
-		if err := vlt.getJSON(matches[0], &d); err != nil {
-			return "", err
+		b, err := vlt.Get(matches[0])
+		if err != nil {
+			return repo.NullObjectID, err
 		}
-		return repo.ParseObjectID(d.ObjectID)
+
+		var oid repo.ObjectID
+		if err := proto.Unmarshal(b, &oid); err != nil {
+			return repo.NullObjectID, err
+		}
+
+		return oid, nil
 
 	default:
-		return "", fmt.Errorf("ambiguous object ID: %v", id)
+		return repo.NullObjectID, fmt.Errorf("ambiguous object ID: %v", id)
 	}
 }

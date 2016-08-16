@@ -1,11 +1,12 @@
 package fs
 
 import (
-	"os"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/kopia/kopia/repo"
 )
 
 var (
@@ -14,147 +15,143 @@ var (
 	time3 = mustParseTimestamp("2016-04-02T02:36:19Z")
 )
 
-func TestEmptyDirectory(t *testing.T) {
-	data := strings.Join(
-		[]string{
-			`{`,
-			`"format":{"version":1},`,
-			`"entries":[]`,
-			`}`,
-		}, "")
-
-	expectedEntries := []*EntryMetadata{}
-
-	verifyDirectory(t, data, expectedEntries)
-}
-
-func TestDirectoryWithOnlyBundle(t *testing.T) {
-	data := strings.Join(
-		[]string{
-			`{`,
-			`"format":{"version":1},`,
-			`"entries":[`,
-			`{"name":"bundle1","size":"170","perm":"0","oid":"D5555","entries":[`,
-			`{"name":"a1","perm":"500","mtime":"2016-04-06T02:34:10Z","owner":"500:100","size":"50"},`,
-			`{"name":"z1","perm":"500","mtime":"2016-04-06T02:34:10Z","owner":"500:100","size":"120"}`,
-			`]}`,
-			`]}`,
-		}, "")
-
-	expectedEntries := []*EntryMetadata{
-		&EntryMetadata{Name: "a1", FileMode: 0500, ModTime: time1, OwnerID: 500, GroupID: 100, FileSize: 50, ObjectID: "S0,50,D5555"},
-		&EntryMetadata{Name: "z1", FileMode: 0500, ModTime: time1, OwnerID: 500, GroupID: 100, FileSize: 120, ObjectID: "S50,120,D5555"},
+func TestFlattenBundles(t *testing.T) {
+	base := &repo.ObjectID{StorageBlock: "5555"}
+	sources := []*EntryMetadata{
+		&EntryMetadata{
+			Name:     "bundle1",
+			FileSize: 170,
+			ObjectId: base,
+			BundledChildren: []*EntryMetadata{
+				&EntryMetadata{Name: "a1", FileSize: 50},
+				&EntryMetadata{Name: "z1", FileSize: 120},
+			},
+		},
 	}
 
-	verifyDirectory(t, data, expectedEntries)
-}
-
-func TestInconsistentBundleSize(t *testing.T) {
-	data := strings.Join(
-		[]string{
-			`{`,
-			`"format":{"version":1},`,
-			`"entries":[`,
-			`{"name":"bundle1","size":"170","perm":"0","oid":"D5555","entries":[`,
-			`{"name":"a1","perm":"500","mtime":"2016-04-06T02:34:10Z","owner":"500:100","size":"51"},`,
-			`{"name":"z1","perm":"500","mtime":"2016-04-06T02:34:10Z","owner":"500:100","size":"120"}`,
-			`]}`,
-			`]}`,
-		}, "")
-	verifyDirectoryError(t, data, "inconsistent size of 'bundle1': 170 (got 171)")
-}
-
-func TestInvalidBundleHeaderData(t *testing.T) {
-	data := strings.Join(
-		[]string{
-			`{`,
-			`"format":{"version":1},`,
-			`"entries":[`,
-			`{"name":"bundle1","size":"170","perm":"x","oid":"D5555","entries":[`,
-			`{"name":"z1","perm":"500","mtime":"2016-04-06T02:34:10Z","owner":"500:100","size":"120"}`,
-			`]}`,
-			`]}`,
-		}, "")
-	verifyDirectoryError(t, data, "invalid permissions: 'x'")
-}
-
-func TestInvalidBundleEntryData(t *testing.T) {
-	data := strings.Join(
-		[]string{
-			`{`,
-			`"format":{"version":1},`,
-			`"entries":[`,
-			`{"name":"bundle1","size":"170","perm":"0","oid":"D5555","entries":[`,
-			`{"perm":"500","mtime":"2016-04-06T02:34:10Z","owner":"500:100","size":"51"},`,
-			`{"name":"z1","perm":"500","mtime":"2016-04-06T02:34:10Z","owner":"500:100","size":"120"}`,
-			`]}`,
-			`]}`,
-		}, "")
-	verifyDirectoryError(t, data, "empty entry name")
-}
-func TestDirectoryWithoutBundle(t *testing.T) {
-	data := strings.Join(
-		[]string{
-			`{`,
-			`"format":{"version":1},`,
-			`"entries":[`,
-			`{"name":"constants.go","perm":"420","size":"13","mtime":"2016-04-02T02:36:19Z","owner":"500:100","oid":"D5123"}`,
-			`]}`,
-		}, "")
-
-	expectedEntries := []*EntryMetadata{
-		&EntryMetadata{Name: "constants.go", FileMode: 0420, ModTime: time3, OwnerID: 500, GroupID: 100, FileSize: 13, ObjectID: "D5123"},
-	}
-
-	verifyDirectory(t, data, expectedEntries)
-}
-
-func TestDirectoryWithThreeBundles(t *testing.T) {
-	data := strings.Join(
-		[]string{
-			`{`,
-			`"format":{"version":1},`,
-			`"entries":[`,
-			`{"name":"bundle1","size":"170","perm":"0","oid":"D5555","entries":[`,
-			`{"name":"a1","perm":"500","mtime":"2016-04-06T02:34:10Z","owner":"500:100","size":"50"},`,
-			`{"name":"z1","perm":"500","mtime":"2016-04-06T02:34:10Z","owner":"500:100","size":"120"}`,
-			`]},`,
-			`{"name":"config.go","perm":"420","size":"937","mtime":"2016-04-02T02:39:44.123456789Z","owner":"500:100","oid":"D4321"},`,
-			`{"name":"constants.go","perm":"420","size":"13","mtime":"2016-04-02T02:36:19Z","owner":"500:100","oid":"D5123"},`,
-			`{"name":"subdir","type":"d","perm":"755","mtime":"2016-04-06T02:34:10Z","owner":"500:100","oid":"D1234"},`,
-			`{"name":"bundle3","size":"7","perm":"0","oid":"D8888","entries":[`,
-			`{"name":"a3","perm":"500","mtime":"2016-04-06T02:34:10Z","owner":"500:100","size":"5"},`,
-			`{"name":"z3","perm":"500","mtime":"2016-04-06T02:34:10Z","owner":"500:100","size":"2"}`,
-			`]},`,
-			`{"name":"bundle2","size":"170","perm":"0","oid":"D6666","entries":[`,
-			`{"name":"a2","perm":"500","mtime":"2016-04-06T02:34:10Z","owner":"500:100","size":"150"},`,
-			`{"name":"z2","perm":"500","mtime":"2016-04-06T02:34:10Z","owner":"500:100","size":"20"}`,
-			`]}`,
-			`]}`,
-		}, "")
-
-	expectedEntries := []*EntryMetadata{
-		&EntryMetadata{Name: "a1", FileMode: 0500, ModTime: time1, OwnerID: 500, GroupID: 100, FileSize: 50, ObjectID: "S0,50,D5555"},
-		&EntryMetadata{Name: "a2", FileMode: 0500, ModTime: time1, OwnerID: 500, GroupID: 100, FileSize: 150, ObjectID: "S0,150,D6666"},
-		&EntryMetadata{Name: "a3", FileMode: 0500, ModTime: time1, OwnerID: 500, GroupID: 100, FileSize: 5, ObjectID: "S0,5,D8888"},
-		&EntryMetadata{Name: "config.go", FileMode: 0420, ModTime: time2, OwnerID: 500, GroupID: 100, FileSize: 937, ObjectID: "D4321"},
-		&EntryMetadata{Name: "constants.go", FileMode: 0420, ModTime: time3, OwnerID: 500, GroupID: 100, FileSize: 13, ObjectID: "D5123"},
-		&EntryMetadata{Name: "subdir", FileMode: os.ModeDir | 0755, ModTime: time1, OwnerID: 500, GroupID: 100, ObjectID: "D1234"},
-		&EntryMetadata{Name: "z1", FileMode: 0500, ModTime: time1, OwnerID: 500, GroupID: 100, FileSize: 120, ObjectID: "S50,120,D5555"},
-		&EntryMetadata{Name: "z2", FileMode: 0500, ModTime: time1, OwnerID: 500, GroupID: 100, FileSize: 20, ObjectID: "S150,20,D6666"},
-		&EntryMetadata{Name: "z3", FileMode: 0500, ModTime: time1, OwnerID: 500, GroupID: 100, FileSize: 2, ObjectID: "S5,2,D8888"},
-	}
-
-	verifyDirectory(t, data, expectedEntries)
-}
-
-func verifyDirectory(t *testing.T, data string, expectedEntries []*EntryMetadata) {
-	entries, err := readDirectoryMetadataEntries(strings.NewReader(data))
+	entries, err := flattenBundles(sources)
 	if err != nil {
 		t.Errorf("can't read directory entries: %v", err)
 		return
 	}
 
+	expectedEntries := []*EntryMetadata{
+		&EntryMetadata{Name: "a1", FileSize: 50, ObjectId: &repo.ObjectID{Section: &repo.ObjectID_Section{
+			Start:  0,
+			Length: 50,
+			Base:   base,
+		}}},
+		&EntryMetadata{Name: "z1", FileSize: 120, ObjectId: &repo.ObjectID{Section: &repo.ObjectID_Section{
+			Start:  50,
+			Length: 120,
+			Base:   base,
+		}}},
+	}
+
+	verifyDirectory(t, entries, expectedEntries)
+}
+
+func TestFlattenBundlesInconsistentBundleSize(t *testing.T) {
+	sources := []*EntryMetadata{
+		&EntryMetadata{
+			Name:     "bundle1",
+			FileSize: 171,
+			ObjectId: &repo.ObjectID{StorageBlock: "5555"},
+			BundledChildren: []*EntryMetadata{
+				&EntryMetadata{Name: "a1", FileSize: 50},
+				&EntryMetadata{Name: "z1", FileSize: 120},
+			},
+		},
+	}
+
+	_, err := flattenBundles(sources)
+	if err == nil {
+		t.Errorf("expected error")
+		return
+	}
+
+	if ok := strings.Contains(err.Error(), "inconsistent size of 'bundle1'"); !ok {
+		t.Errorf("invalid error: %v", err)
+	}
+}
+
+func TestFlattenThreeBundles(t *testing.T) {
+	base1 := &repo.ObjectID{StorageBlock: "5555"}
+	base2 := &repo.ObjectID{StorageBlock: "6666"}
+	base3 := &repo.ObjectID{StorageBlock: "7777"}
+	sources := []*EntryMetadata{
+		&EntryMetadata{
+			Name:     "bundle1",
+			FileSize: 170,
+			ObjectId: base1,
+			BundledChildren: []*EntryMetadata{
+				&EntryMetadata{Name: "a1", FileSize: 50},
+				&EntryMetadata{Name: "z1", FileSize: 120},
+			},
+		},
+		&EntryMetadata{
+			Name:     "bundle3",
+			FileSize: 7,
+			ObjectId: base3,
+			BundledChildren: []*EntryMetadata{
+				&EntryMetadata{Name: "a3", FileSize: 5},
+				&EntryMetadata{Name: "z3", FileSize: 2},
+			},
+		},
+		&EntryMetadata{
+			Name:     "bundle2",
+			FileSize: 300,
+			ObjectId: base2,
+			BundledChildren: []*EntryMetadata{
+				&EntryMetadata{Name: "a2", FileSize: 100},
+				&EntryMetadata{Name: "z2", FileSize: 200},
+			},
+		},
+	}
+
+	entries, err := flattenBundles(sources)
+	if err != nil {
+		t.Errorf("can't read directory entries: %v", err)
+		return
+	}
+
+	expectedEntries := []*EntryMetadata{
+		&EntryMetadata{Name: "a1", FileSize: 50, ObjectId: &repo.ObjectID{Section: &repo.ObjectID_Section{
+			Start:  0,
+			Length: 50,
+			Base:   base1,
+		}}},
+		&EntryMetadata{Name: "a2", FileSize: 100, ObjectId: &repo.ObjectID{Section: &repo.ObjectID_Section{
+			Start:  0,
+			Length: 100,
+			Base:   base2,
+		}}},
+		&EntryMetadata{Name: "a3", FileSize: 5, ObjectId: &repo.ObjectID{Section: &repo.ObjectID_Section{
+			Start:  0,
+			Length: 5,
+			Base:   base3,
+		}}},
+		&EntryMetadata{Name: "z1", FileSize: 120, ObjectId: &repo.ObjectID{Section: &repo.ObjectID_Section{
+			Start:  50,
+			Length: 120,
+			Base:   base1,
+		}}},
+		&EntryMetadata{Name: "z2", FileSize: 200, ObjectId: &repo.ObjectID{Section: &repo.ObjectID_Section{
+			Start:  100,
+			Length: 200,
+			Base:   base2,
+		}}},
+		&EntryMetadata{Name: "z3", FileSize: 2, ObjectId: &repo.ObjectID{Section: &repo.ObjectID_Section{
+			Start:  5,
+			Length: 2,
+			Base:   base3,
+		}}},
+	}
+
+	verifyDirectory(t, entries, expectedEntries)
+}
+
+func verifyDirectory(t *testing.T, entries []*EntryMetadata, expectedEntries []*EntryMetadata) {
 	if len(entries) != len(expectedEntries) {
 		t.Errorf("expected %v entries, got %v", len(expectedEntries), len(entries))
 	}
@@ -164,31 +161,10 @@ func verifyDirectory(t *testing.T, data string, expectedEntries []*EntryMetadata
 			actual := entries[i]
 
 			if !reflect.DeepEqual(expected, actual) {
-				t.Errorf("invalid entry at index %v:\nexpected: %#v\nactual:   %#v", i, expected, actual)
+				t.Errorf("invalid entry at index %v:\nexpected: %v\nactual:   %v", i,
+					expected.String(), actual.String())
 			}
 		}
-	}
-}
-
-func TestInvalidJSON(t *testing.T) {
-	verifyDirectoryError(t, "{invalid", "invalid character 'i'")
-	verifyDirectoryError(t, `{"format":{"version":1},"entries":[{"name":""}]}`, "empty entry name")
-	verifyDirectoryError(t, `{"format":{"version":1},"entries":[{"name":"x","perm":"x123"}]}`, "invalid permissions: 'x123'")
-	verifyDirectoryError(t, `{"format":{"version":2},"entries":[]}`, "unsupported version: 2")
-}
-
-func verifyDirectoryError(t *testing.T, data, expectedError string) {
-	entries, err := readDirectoryMetadataEntries(strings.NewReader(data))
-	if err == nil {
-		t.Errorf("expected error %v, got no error", expectedError)
-	} else {
-		if !strings.Contains(err.Error(), expectedError) {
-			t.Errorf("expected error containing '%v', got '%v'", expectedError, err.Error())
-		}
-	}
-
-	if entries != nil {
-		t.Errorf("got unexpected result: %#v", entries)
 	}
 }
 

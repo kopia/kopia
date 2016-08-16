@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package kopia.fs;
+option go_package = "github.com/kopia/kopia/fs";
+
+import "repo/objectid.proto";
+
+// EntryMetadata stores attributes of a single entry in a directory.
+message EntryMetadata {
+    string name = 1;
+    fixed32 mode_and_permissions = 2;
+    int64 file_size = 3;
+    sfixed64 mod_timestamp_nano = 4;
+    repo.ObjectID object_id = 5;
+    uint32 uid = 6;
+    uint32 gid = 7;
+
+    repeated EntryMetadata bundled_children = 8;
+}

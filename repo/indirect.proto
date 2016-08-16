@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package kopia.repo;
+option go_package = "github.com/kopia/kopia/repo";
+
+import "repo/objectid.proto";
+
+// IndirectObjectEntry represents an entry in indirect object proto stream.
+message IndirectObjectEntry {
+    int64 start = 1;
+    int64 length = 2;
+    repo.ObjectID object = 3;
+}

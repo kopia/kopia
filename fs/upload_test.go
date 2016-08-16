@@ -41,8 +41,8 @@ func newUploadTestHarness() *uploadTestHarness {
 	}
 
 	format := repo.Format{
-		Version:           "1",
-		ObjectFormat:      "md5",
+		Version:           1,
+		ObjectFormat:      repo.ObjectIDFormat_TESTONLY_MD5,
 		MaxBlobSize:       1000,
 		MaxInlineBlobSize: 0,
 	}
@@ -86,22 +86,22 @@ func TestUpload(t *testing.T) {
 	th := newUploadTestHarness()
 	defer th.cleanup()
 
-	r1, err := th.uploader.UploadDir(th.sourceDir, "")
+	r1, err := th.uploader.UploadDir(th.sourceDir, nil)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
 
-	r2, err := th.uploader.UploadDir(th.sourceDir, r1.ManifestID)
+	r2, err := th.uploader.UploadDir(th.sourceDir, &r1.ManifestID)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
 
-	if r2.ObjectID != r1.ObjectID {
-		t.Errorf("expected r1.ObjectID==r2.ObjectID, got %v and %v", r1.ObjectID, r2.ObjectID)
+	if !r2.ObjectID.Equals(r1.ObjectID) {
+		t.Errorf("expected r1.ObjectID==r2.ObjectID, got %v and %v", r1.ObjectID.UIString(), r2.ObjectID.UIString())
 	}
 
-	if r2.ManifestID != r1.ManifestID {
-		t.Errorf("expected r2.ManifestID==r1.ManifestID, got %v and %v", r2.ManifestID, r1.ManifestID)
+	if !r2.ManifestID.Equals(r1.ManifestID) {
+		t.Errorf("expected r2.ManifestID==r1.ManifestID, got %v and %v", r2.ManifestID.UIString(), r1.ManifestID.UIString())
 	}
 
 	if r1.Stats.CachedFiles+r1.Stats.CachedDirectories != 0 {
@@ -116,17 +116,17 @@ func TestUpload(t *testing.T) {
 
 	// Add one more file, the r1.ObjectID should change.
 	th.sourceDir.addFile("d2/d1/f3", []byte{1, 2, 3, 4, 5}, 0777)
-	r3, err := th.uploader.UploadDir(th.sourceDir, r1.ManifestID)
+	r3, err := th.uploader.UploadDir(th.sourceDir, &r1.ManifestID)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
 
-	if r2.ObjectID == r3.ObjectID {
-		t.Errorf("expected r3.ObjectID!=r2.ObjectID, got %v", r3.ObjectID)
+	if r2.ObjectID.Equals(r3.ObjectID) {
+		t.Errorf("expected r3.ObjectID!=r2.ObjectID, got %v", r3.ObjectID.UIString())
 	}
 
-	if r2.ManifestID == r3.ManifestID {
-		t.Errorf("expected r3.ManifestID!=r2.ManifestID, got %v", r3.ManifestID)
+	if r2.ManifestID.Equals(r3.ManifestID) {
+		t.Errorf("expected r3.ManifestID!=r2.ManifestID, got %v", r3.ManifestID.UIString())
 	}
 
 	if r3.Stats.NonCachedFiles != 1 && r3.Stats.NonCachedDirectories != 3 {
@@ -137,15 +137,15 @@ func TestUpload(t *testing.T) {
 	// Now remove the added file, OID should be identical to the original before the file got added.
 	th.sourceDir.subdir("d2", "d1").remove("f3")
 
-	r4, err := th.uploader.UploadDir(th.sourceDir, r1.ManifestID)
+	r4, err := th.uploader.UploadDir(th.sourceDir, &r1.ManifestID)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
 
-	if r4.ObjectID != r1.ObjectID {
+	if !r4.ObjectID.Equals(r1.ObjectID) {
 		t.Errorf("expected r4.ObjectID==r1.ObjectID, got %v and %v", r4.ObjectID, r1.ObjectID)
 	}
-	if r4.ManifestID != r1.ManifestID {
+	if !r4.ManifestID.Equals(r1.ManifestID) {
 		t.Errorf("expected r4.ManifestID==r1.ManifestID, got %v and %v", r4.ManifestID, r1.ManifestID)
 	}
 
@@ -156,7 +156,7 @@ func TestUpload(t *testing.T) {
 	}
 
 	// Upload again, this time using r3.ManifestID as base.
-	r5, err := th.uploader.UploadDir(th.sourceDir, r3.ManifestID)
+	r5, err := th.uploader.UploadDir(th.sourceDir, &r3.ManifestID)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
@@ -176,7 +176,7 @@ func TestUpload_TopLevelDirectoryReadFailure(t *testing.T) {
 
 	th.sourceDir.failReaddir(errTest)
 
-	r, err := th.uploader.UploadDir(th.sourceDir, "")
+	r, err := th.uploader.UploadDir(th.sourceDir, nil)
 	if err != errTest {
 		t.Errorf("expected error: %v", err)
 	}
@@ -192,7 +192,7 @@ func TestUpload_SubDirectoryReadFailure(t *testing.T) {
 
 	th.sourceDir.subdir("d1").failReaddir(errTest)
 
-	_, err := th.uploader.UploadDir(th.sourceDir, "")
+	_, err := th.uploader.UploadDir(th.sourceDir, nil)
 	if err == nil {
 		t.Errorf("expected error")
 	}

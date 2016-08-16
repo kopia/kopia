@@ -13,7 +13,7 @@ import (
 func parseObjectID(id string, vlt *vault.Vault) (repo.ObjectID, error) {
 	head, tail := splitHeadTail(id)
 	if len(head) == 0 {
-		return "", fmt.Errorf("invalid object ID: %v", id)
+		return repo.NullObjectID, fmt.Errorf("invalid object ID: %v", id)
 	}
 
 	if !strings.HasPrefix(id, vault.StoredObjectIDPrefix) {
@@ -22,7 +22,7 @@ func parseObjectID(id string, vlt *vault.Vault) (repo.ObjectID, error) {
 
 	oid, err := vlt.GetObjectID(head)
 	if err != nil {
-		return "", fmt.Errorf("can't retrieve vault object ID %v: %v", head, err)
+		return repo.NullObjectID, fmt.Errorf("can't retrieve vault object ID %v: %v", head, err)
 	}
 
 	if tail == "" {
@@ -31,12 +31,12 @@ func parseObjectID(id string, vlt *vault.Vault) (repo.ObjectID, error) {
 
 	r, err := vlt.OpenRepository()
 	if err != nil {
-		return "", fmt.Errorf("cannot open repository: %v", err)
+		return repo.NullObjectID, fmt.Errorf("cannot open repository: %v", err)
 	}
 
 	dir := fs.NewRepositoryDirectory(r, oid)
 	if err != nil {
-		return "", err
+		return repo.NullObjectID, err
 	}
 
 	return parseNestedObjectID(dir, tail)
@@ -49,24 +49,24 @@ func parseNestedObjectID(startingDir fs.Directory, id string) (repo.ObjectID, er
 	for head != "" {
 		dir, ok := current.(fs.Directory)
 		if !ok {
-			return "", fmt.Errorf("entry not found '%v': parent is not a directory", head)
+			return repo.NullObjectID, fmt.Errorf("entry not found '%v': parent is not a directory", head)
 		}
 
 		entries, err := dir.Readdir()
 		if err != nil {
-			return "", err
+			return repo.NullObjectID, err
 		}
 
 		e := entries.FindByName(head)
 		if e == nil {
-			return "", fmt.Errorf("entry not found: '%v'", head)
+			return repo.NullObjectID, fmt.Errorf("entry not found: '%v'", head)
 		}
 
 		current = e
 		head, tail = splitHeadTail(tail)
 	}
 
-	return current.Metadata().ObjectID, nil
+	return *current.Metadata().ObjectId, nil
 }
 
 func splitHeadTail(id string) (string, string) {

@@ -1,10 +1,18 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
+
+	"github.com/golang/protobuf/proto"
+	"github.com/kopia/kopia/fs"
+
+	"github.com/kopia/kopia/internal"
 
 	"github.com/kopia/kopia/repo"
 
@@ -54,8 +62,8 @@ func showObject(mgr repo.Repository, oid repo.ObjectID) error {
 
 	format := "raw"
 
-	if len(rawdata) > 2 && rawdata[0] == '{' && rawdata[len(rawdata)-1] == '}' {
-		format = "json"
+	if len(rawdata) >= 8 {
+		format = detectProtoFormat(rawdata[0:8])
 	}
 
 	if *showJSON {
@@ -73,10 +81,47 @@ func showObject(mgr repo.Repository, oid repo.ObjectID) error {
 		json.Indent(&buf, rawdata, "", "  ")
 		os.Stdout.Write(buf.Bytes())
 
+	case "dir":
+		return prettyPrintProtoStream(rawdata, internal.ProtoStreamTypeDir, &fs.EntryMetadata{})
+	case "indirect":
+		return prettyPrintProtoStream(rawdata, internal.ProtoStreamTypeIndirect, &repo.IndirectObjectEntry{})
+	case "hashcache":
+		return prettyPrintProtoStream(rawdata, internal.ProtoStreamTypeHashCache, &fs.HashCacheEntry{})
+
 	default:
 		os.Stdout.Write(rawdata)
 	}
 	return nil
+}
+
+func detectProtoFormat(b []byte) string {
+	switch {
+	case bytes.Equal(b, internal.ProtoStreamTypeDir):
+		return "dir"
+	case bytes.Equal(b, internal.ProtoStreamTypeIndirect):
+		return "indirect"
+	case bytes.Equal(b, internal.ProtoStreamTypeHashCache):
+		return "hashcache"
+	}
+	return "raw"
+}
+
+func prettyPrintProtoStream(data []byte, header []byte, pb proto.Message) error {
+	r := internal.NewProtoStreamReader(bufio.NewReader(bytes.NewReader(data)), header)
+	i := 0
+	for {
+		err := r.Read(pb)
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("[entry #%v]\n", i)
+		fmt.Println(proto.MarshalTextString(pb))
+		i++
+	}
 }
 
 func init() {

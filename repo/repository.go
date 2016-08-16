@@ -10,9 +10,12 @@ import (
 	"fmt"
 	"hash"
 	"io"
-	"strconv"
+	"io/ioutil"
+	"log"
 	"strings"
 	"sync/atomic"
+
+	"github.com/kopia/kopia/internal"
 
 	"github.com/kopia/kopia/storage"
 	"github.com/kopia/kopia/storage/logging"
@@ -76,7 +79,7 @@ type repository struct {
 	stats         *RepositoryStats
 
 	format   Format
-	idFormat ObjectIDFormat
+	idFormat ObjectIDFormatInfo
 }
 
 func (repo *repository) Close() {
@@ -107,7 +110,6 @@ func (repo *repository) Storage() storage.Storage {
 func (repo *repository) NewWriter(options ...WriterOption) ObjectWriter {
 	result := &objectWriter{
 		repo:         repo,
-		objectType:   ObjectIDTypeStored,
 		blockTracker: &blockTracker{},
 	}
 
@@ -119,24 +121,30 @@ func (repo *repository) NewWriter(options ...WriterOption) ObjectWriter {
 }
 
 func (repo *repository) Open(objectID ObjectID) (ObjectReader, error) {
-	if start, length, baseID := objectID.SectionInfo(); baseID != "" {
-		baseReader, err := repo.Open(baseID)
+	// log.Printf("Repository::Open %v", objectID.String())
+	// defer log.Printf("finished Repository::Open() %v", objectID.String())
+
+	if objectID.Section != nil {
+		if objectID.Section.Base == nil {
+			return nil, fmt.Errorf("invalid section base object")
+		}
+
+		baseReader, err := repo.Open(*objectID.Section.Base)
 		if err != nil {
 			return nil, fmt.Errorf("cannot create base reader: %v", err)
 		}
 
-		return newObjectSectionReader(start, length, baseReader)
+		return newObjectSectionReader(objectID.Section.Start, objectID.Section.Length, baseReader)
 	}
 
-	r, err := repo.newRawReader(objectID)
-	if err != nil {
-		return nil, err
-	}
+	if objectID.Indirect > 0 {
+		r, err := repo.Open(removeIndirection(objectID))
+		if err != nil {
+			return nil, err
+		}
+		defer r.Close()
 
-	if objectID.Type() == ObjectIDTypeList {
-		seekTable := make([]seekTableEntry, 0, 100)
-
-		seekTable, err = repo.flattenListChunk(seekTable, objectID, r)
+		seekTable, err := repo.flattenListChunk(r)
 		if err != nil {
 			return nil, err
 		}
@@ -144,13 +152,32 @@ func (repo *repository) Open(objectID ObjectID) (ObjectReader, error) {
 		totalLength := seekTable[len(seekTable)-1].endOffset()
 
 		return &objectReader{
-			storage:     repo.storage,
+			repo:        repo,
 			seekTable:   seekTable,
 			totalLength: totalLength,
 		}, nil
 	}
 
-	return r, err
+	return repo.newRawReader(objectID)
+}
+
+func dumpObject(repo *repository, oid ObjectID) {
+	oid.Indirect = 0
+	log.Printf("  dumping %v", oid.String())
+	defer log.Printf("  end of %v", oid.String())
+	r, err := repo.Open(oid)
+	if err != nil {
+		log.Printf("failed to open %v: %v", oid, err)
+		return
+	}
+	defer r.Close()
+
+	b, err := ioutil.ReadAll(r)
+	if err != nil {
+		log.Printf("failed to read %v: %v", oid, err)
+		return
+	}
+	log.Printf("%x", b)
 }
 
 // RepositoryOption controls the behavior of Repository.
@@ -185,14 +212,11 @@ func NewRepository(
 	f *Format,
 	options ...RepositoryOption,
 ) (Repository, error) {
-	if f.Version != "1" {
-		return nil, fmt.Errorf("unsupported storage version: %v", f.Version)
-	}
 	if f.MaxBlobSize < 100 {
 		return nil, fmt.Errorf("MaxBlobSize is not set")
 	}
 
-	sf := SupportedFormats.Find(f.ObjectFormat)
+	sf := SupportedFormats[f.ObjectFormat]
 	if sf == nil {
 		return nil, fmt.Errorf("unknown object format: %v", f.ObjectFormat)
 	}
@@ -203,7 +227,7 @@ func NewRepository(
 		stats:   &RepositoryStats{},
 	}
 
-	repo.idFormat = *sf
+	repo.idFormat = sf
 
 	for _, o := range options {
 		if err := o(repo); err != nil {
@@ -212,13 +236,13 @@ func NewRepository(
 		}
 	}
 
-	repo.bufferManager = newBufferManager(repo.format.MaxBlobSize)
+	repo.bufferManager = newBufferManager(int(repo.format.MaxBlobSize))
 
 	return repo, nil
 }
 
 func (repo *repository) hashBuffer(data []byte) ([]byte, []byte) {
-	return repo.idFormat.hashBuffer(data, repo.format.Secret)
+	return repo.idFormat.HashBuffer(data, repo.format.Secret)
 }
 
 func (repo *repository) hashBufferForWriting(buffer *bytes.Buffer, prefix string) (ObjectID, storage.ReaderWithLength, error) {
@@ -232,17 +256,18 @@ func (repo *repository) hashBufferForWriting(buffer *bytes.Buffer, prefix string
 	contentHash, cryptoKey := repo.hashBuffer(data)
 	if cryptoKey != nil {
 		var err error
-		blockCipher, err = repo.idFormat.createCipher(cryptoKey)
+		blockCipher, err = repo.idFormat.CreateCipher(cryptoKey)
 		if err != nil {
-			return "", nil, err
+			return NullObjectID, nil, err
 		}
 	}
 
-	var objectID ObjectID
+	objectID := ObjectID{
+		StorageBlock: prefix + hex.EncodeToString(contentHash),
+	}
+
 	if len(cryptoKey) > 0 {
-		objectID = ObjectID(prefix + hex.EncodeToString(contentHash) + objectIDEncryptionInfoSeparator + hex.EncodeToString(cryptoKey))
-	} else {
-		objectID = ObjectID(prefix + hex.EncodeToString(contentHash))
+		objectID.Encryption = cryptoKey
 	}
 
 	atomic.AddInt32(&repo.stats.HashedBlocks, 1)
@@ -268,71 +293,45 @@ func (repo *repository) hashBufferForWriting(buffer *bytes.Buffer, prefix string
 	return objectID, blockReader, nil
 }
 
-func (repo *repository) flattenListChunk(
-	seekTable []seekTableEntry,
-	listObjectID ObjectID,
-	rawReader io.Reader) ([]seekTableEntry, error) {
+func (repo *repository) flattenListChunk(rawReader io.Reader) ([]IndirectObjectEntry, error) {
 
-	scanner := bufio.NewScanner(rawReader)
+	r := bufio.NewReader(rawReader)
+	pr := internal.NewProtoStreamReader(r, internal.ProtoStreamTypeIndirect)
+	var seekTable []IndirectObjectEntry
 
-	for scanner.Scan() {
-		c := scanner.Text()
-		comma := strings.Index(c, ",")
-		if comma <= 0 {
-			return nil, fmt.Errorf("unsupported entry '%v' in list '%s'", c, listObjectID)
+	for {
+		var oe IndirectObjectEntry
+
+		err := pr.Read(&oe)
+		if err == io.EOF {
+			break
 		}
 
-		length, err := strconv.ParseInt(c[0:comma], 10, 64)
-
-		objectID, err := ParseObjectID(c[comma+1:])
 		if err != nil {
-			return nil, fmt.Errorf("unsupported entry '%v' in list '%s': %#v", c, listObjectID, err)
+			log.Printf("Failed to read proto: %v", err)
+			return nil, err
 		}
 
-		switch objectID.Type() {
-		case ObjectIDTypeList:
-			subreader, err := repo.newRawReader(objectID)
-			if err != nil {
-				return nil, err
-			}
-
-			seekTable, err = repo.flattenListChunk(seekTable, objectID, subreader)
-			if err != nil {
-				return nil, err
-			}
-
-		case ObjectIDTypeStored:
-			var startOffset int64
-			if len(seekTable) > 0 {
-				startOffset = seekTable[len(seekTable)-1].endOffset()
-			} else {
-				startOffset = 0
-			}
-
-			seekTable = append(
-				seekTable,
-				seekTableEntry{
-					blockID:     objectID.BlockID(),
-					startOffset: startOffset,
-					length:      length,
-				})
-
-		default:
-			return nil, fmt.Errorf("unsupported entry '%v' in list '%v'", objectID, listObjectID)
-
-		}
+		seekTable = append(seekTable, oe)
 	}
 
 	return seekTable, nil
 }
 
+func removeIndirection(o ObjectID) ObjectID {
+	if o.Indirect <= 0 {
+		panic("removeIndirection() called on a direct object")
+	}
+	o.Indirect--
+	return o
+}
+
 func (repo *repository) newRawReader(objectID ObjectID) (ObjectReader, error) {
-	inline := objectID.InlineData()
-	if inline != nil {
-		return newObjectReaderWithData(inline), nil
+	if objectID.Content != nil {
+		return newObjectReaderWithData(objectID.Content), nil
 	}
 
-	blockID := objectID.BlockID()
+	blockID := objectID.StorageBlock
 	payload, err := repo.storage.GetBlock(blockID)
 	if err != nil {
 		return nil, err
@@ -341,19 +340,14 @@ func (repo *repository) newRawReader(objectID ObjectID) (ObjectReader, error) {
 	atomic.AddInt32(&repo.stats.BlocksReadFromStorage, 1)
 	atomic.AddInt64(&repo.stats.BytesReadFromStorage, int64(len(payload)))
 
-	if objectID.EncryptionInfo() == NoEncryption {
-		if err := repo.verifyChecksum(payload, objectID.BlockID()); err != nil {
+	if objectID.Encryption == nil {
+		if err := repo.verifyChecksum(payload, objectID.StorageBlock); err != nil {
 			return nil, err
 		}
 		return newObjectReaderWithData(payload), nil
 	}
 
-	cryptoKey, err := hex.DecodeString(string(objectID.EncryptionInfo()))
-	if err != nil {
-		return nil, errors.New("malformed encryption key")
-	}
-
-	blockCipher, err := repo.idFormat.createCipher(cryptoKey)
+	blockCipher, err := repo.idFormat.CreateCipher(objectID.Encryption)
 	if err != nil {
 		return nil, errors.New("cannot create cipher")
 	}
@@ -366,7 +360,7 @@ func (repo *repository) newRawReader(objectID ObjectID) (ObjectReader, error) {
 	// after decrypting the content. This serves as a checksum.
 	atomic.AddInt64(&repo.stats.DecryptedBytes, int64(len(payload)))
 
-	if err := repo.verifyChecksum(payload, objectID.BlockID()); err != nil {
+	if err := repo.verifyChecksum(payload, objectID.StorageBlock); err != nil {
 		return nil, err
 	}
 

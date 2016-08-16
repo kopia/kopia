@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"bytes"
 	"strings"
 	"testing"
 )
@@ -17,19 +18,21 @@ func TestParseMalformedObjectID(t *testing.T) {
 		"Dab.",
 		"Dab.a",
 		"Dab.abc",
-		"Dab.00",
 		"Dab.011",
 		"L.",
 		"L.x",
 		"L.af",
 		"Lx.ag",
 		"Lab.",
+		"L1",
+		"L1,",
+		"L-1,X",
 		"Xsomething",
 	}
 
 	for _, c := range cases {
 		v, err := ParseObjectID(c)
-		if v != "" || err == nil || !strings.HasPrefix(err.Error(), "malformed chunk id") {
+		if !v.Equals(NullObjectID) || err == nil || !strings.HasPrefix(err.Error(), "malformed object id") {
 			t.Errorf("unexpected result for %v: v: %v err: %v", c, v, err)
 		}
 	}
@@ -38,24 +41,16 @@ func TestParseMalformedObjectID(t *testing.T) {
 func TestParseObjectIDEncryptionInfo(t *testing.T) {
 	cases := []struct {
 		objectID string
-		expected ObjectEncryptionInfo
+		expected []byte
 	}{
-		{"B", NoEncryption},
-		{"BAQIDBA", NoEncryption},
-		{"T", NoEncryption},
-		{"T:foo", NoEncryption},
-		{"Tfoo\nbar", NoEncryption},
-		{"Tfoo\nbar:baz", NoEncryption},
-		{"Dabcdef", NoEncryption},
-		{"Labcdef", NoEncryption},
-		{
-			"Dabcdef.00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
-			ObjectEncryptionInfo("00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"),
-		},
-		{
-			"Labcdef.00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
-			ObjectEncryptionInfo("00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"),
-		},
+		{"B", nil},
+		{"BAQIDBA", nil},
+		{"Dabcdef", nil},
+		{"I1,abcdef", nil},
+		{"I2,abcdef", nil},
+		{"Dabcdef.00112233", []byte{0x00, 0x11, 0x22, 0x33}},
+		{"I1,abcdef.0011223344", []byte{0x00, 0x11, 0x22, 0x33, 0x44}},
+		{"I2,abcdef.0011223344", []byte{0x00, 0x11, 0x22, 0x33, 0x44}},
 	}
 
 	for _, c := range cases {
@@ -65,9 +60,9 @@ func TestParseObjectIDEncryptionInfo(t *testing.T) {
 			continue
 		}
 
-		actual := objectID.EncryptionInfo()
-		if actual != c.expected {
-			t.Errorf("invalid encryption info for %v: %v, expected: %v", c.objectID, actual, c.expected)
+		actual := objectID.Encryption
+		if !bytes.Equal(actual, c.expected) {
+			t.Errorf("invalid encryption info for %v: %x, expected: %x", c.objectID, actual, c.expected)
 		}
 	}
 }

@@ -3,32 +3,16 @@ package repo
 import (
 	"fmt"
 	"io"
-
-	"github.com/kopia/kopia/storage"
 )
 
-type seekTableEntry struct {
-	startOffset int64
-	length      int64
-	blockID     string
-}
-
-func (r *seekTableEntry) endOffset() int64 {
-	return r.startOffset + int64(r.length)
-}
-
-func (r *seekTableEntry) String() string {
-	return fmt.Sprintf("start: %d len: %d end: %d block: %s",
-		r.startOffset,
-		r.length,
-		r.endOffset(),
-		r.blockID)
+func (i *IndirectObjectEntry) endOffset() int64 {
+	return i.Start + i.Length
 }
 
 type objectReader struct {
-	storage storage.Storage
+	repo Repository
 
-	seekTable []seekTableEntry
+	seekTable []IndirectObjectEntry
 
 	currentPosition int64 // Overall position in the objectReader
 	totalLength     int64 // Overall length
@@ -80,13 +64,19 @@ func (r *objectReader) Read(buffer []byte) (int, error) {
 }
 
 func (r *objectReader) openCurrentChunk() error {
-	blockID := r.seekTable[r.currentChunkIndex].blockID
-	blockData, err := r.storage.GetBlock(blockID)
+	st := r.seekTable[r.currentChunkIndex]
+	blockData, err := r.repo.Open(*st.Object)
 	if err != nil {
 		return err
 	}
+	defer blockData.Close()
 
-	r.currentChunkData = blockData
+	b := make([]byte, st.Length)
+	if _, err := io.ReadFull(blockData, b); err != nil {
+		return err
+	}
+
+	r.currentChunkData = b
 	r.currentChunkPosition = 0
 	return nil
 }
@@ -101,7 +91,7 @@ func (r *objectReader) findChunkIndexForOffset(offset int64) int {
 	for left <= right {
 		middle := (left + right) / 2
 
-		if offset < r.seekTable[middle].startOffset {
+		if offset < r.seekTable[middle].Start {
 			right = middle - 1
 			continue
 		}
@@ -136,7 +126,7 @@ func (r *objectReader) Seek(offset int64, whence int) (int64, error) {
 
 	index := r.findChunkIndexForOffset(offset)
 
-	chunkStartOffset := r.seekTable[index].startOffset
+	chunkStartOffset := r.seekTable[index].Start
 
 	if index != r.currentChunkIndex {
 		r.closeCurrentChunk()

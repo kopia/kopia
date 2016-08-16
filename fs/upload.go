@@ -36,7 +36,7 @@ type UploadResult struct {
 
 // Uploader supports efficient uploading files and directories to repository.
 type Uploader interface {
-	UploadDir(dir Directory, previousManifestID repo.ObjectID) (*UploadResult, error)
+	UploadDir(dir Directory, previousManifestID *repo.ObjectID) (*UploadResult, error)
 	UploadFile(file File) (*UploadResult, error)
 	Cancel()
 }
@@ -74,10 +74,12 @@ func (u *uploader) uploadFileInternal(f File, relativePath string, forceStored b
 		return nil, 0, err
 	}
 
-	e2.ObjectID, err = writer.Result(forceStored)
+	r, err := writer.Result(forceStored)
 	if err != nil {
 		return nil, 0, err
 	}
+
+	e2.ObjectId = &r
 
 	if written != e2.FileSize {
 		// file changed
@@ -123,10 +125,11 @@ func (u *uploader) uploadBundleInternal(b *uploadBundle) (*EntryMetadata, uint64
 	}
 
 	b.files = uploadedFiles
-	bundleMetadata.ObjectID, err = writer.Result(true)
+	r, err := writer.Result(true)
 	if err != nil {
 		return nil, 0, err
 	}
+	bundleMetadata.ObjectId = &r
 
 	return bundleMetadata, bundleMetadata.metadataHash(), nil
 }
@@ -134,16 +137,16 @@ func (u *uploader) uploadBundleInternal(b *uploadBundle) (*EntryMetadata, uint64
 func (u *uploader) UploadFile(file File) (*UploadResult, error) {
 	result := &UploadResult{}
 	e, _, err := u.uploadFileInternal(file, file.Metadata().Name, true)
-	result.ObjectID = e.ObjectID
+	result.ObjectID = *e.ObjectId
 	return result, err
 }
 
-func (u *uploader) UploadDir(dir Directory, previousManifestID repo.ObjectID) (*UploadResult, error) {
+func (u *uploader) UploadDir(dir Directory, previousManifestID *repo.ObjectID) (*UploadResult, error) {
 	var mr hashcacheReader
 	var err error
 
-	if previousManifestID != "" {
-		if r, err := u.repo.Open(previousManifestID); err == nil {
+	if previousManifestID != nil {
+		if r, err := u.repo.Open(*previousManifestID); err == nil {
 			mr.open(r)
 		}
 	}
@@ -178,7 +181,7 @@ func (u *uploader) uploadDirInternal(
 
 	entries, err := dir.Readdir()
 	if err != nil {
-		return "", 0, false, err
+		return repo.NullObjectID, 0, false, err
 	}
 
 	entries = u.bundleEntries(entries)
@@ -207,20 +210,22 @@ func (u *uploader) uploadDirInternal(
 		case Directory:
 			oid, h, wasCached, err := u.uploadDirInternal(result, entry, entryRelativePath, hcw, mr, false)
 			if err != nil {
-				return "", 0, false, err
+				return repo.NullObjectID, 0, false, err
 			}
 			//log.Printf("dirHash: %v %v", fullPath, h)
 			hash = h
 			allCached = allCached && wasCached
-			e.ObjectID = oid
+			e.ObjectId = &oid
 
 		case Symlink:
 			l, err := entry.Readlink()
 			if err != nil {
-				return "", 0, false, err
+				return repo.NullObjectID, 0, false, err
 			}
 
-			e.ObjectID = repo.NewInlineObjectID([]byte(l))
+			id := repo.NewInlineObjectID([]byte(l))
+
+			e.ObjectId = &id
 			hash = e.metadataHash()
 
 		case *uploadBundle:
@@ -239,13 +244,14 @@ func (u *uploader) uploadDirInternal(
 			if cacheMatches {
 				result.Stats.CachedFiles++
 				// Avoid hashing by reusing previous object ID.
-				e.ObjectID = repo.ObjectID(cachedEntry.ObjectID)
+				id := *cachedEntry.ObjectId
+				e.ObjectId = &id
 				hash = cachedEntry.Hash
 			} else {
 				result.Stats.NonCachedFiles++
 				e, hash, err = u.uploadBundleInternal(entry)
 				if err != nil {
-					return "", 0, false, fmt.Errorf("unable to hash file: %s", err)
+					return repo.NullObjectID, 0, false, fmt.Errorf("unable to hash file: %s", err)
 				}
 			}
 
@@ -262,18 +268,19 @@ func (u *uploader) uploadDirInternal(
 			if cacheMatches {
 				result.Stats.CachedFiles++
 				// Avoid hashing by reusing previous object ID.
-				e.ObjectID = repo.ObjectID(cachedEntry.ObjectID)
+				id := *cachedEntry.ObjectId
+				e.ObjectId = &id
 				hash = cachedEntry.Hash
 			} else {
 				result.Stats.NonCachedFiles++
 				e, hash, err = u.uploadFileInternal(entry, entryRelativePath, false)
 				if err != nil {
-					return "", 0, false, fmt.Errorf("unable to hash file: %s", err)
+					return repo.NullObjectID, 0, false, fmt.Errorf("unable to hash file: %s", err)
 				}
 			}
 
 		default:
-			return "", 0, false, fmt.Errorf("file type %v not supported", entry.Metadata().FileMode)
+			return repo.NullObjectID, 0, false, fmt.Errorf("file type %v not supported", entry.Metadata().FileMode())
 		}
 
 		if hash != 0 {
@@ -283,21 +290,19 @@ func (u *uploader) uploadDirInternal(
 		}
 
 		if err := dw.WriteEntry(e, childrenMetadata); err != nil {
-			return "", 0, false, err
+			return repo.NullObjectID, 0, false, err
 		}
 
-		if !e.FileMode.IsDir() && e.ObjectID.Type().IsStored() {
-			if err := hcw.WriteEntry(hashCacheEntry{
+		if !e.FileMode().IsDir() && e.ObjectId.StorageBlock != "" {
+			if err := hcw.WriteEntry(HashCacheEntry{
 				Name:     entryRelativePath,
-				Hash:     e.metadataHash(),
-				ObjectID: e.ObjectID,
+				Hash:     hash,
+				ObjectId: e.ObjectId,
 			}); err != nil {
-				return "", 0, false, err
+				return repo.NullObjectID, 0, false, err
 			}
 		}
 	}
-
-	dw.Close()
 
 	var directoryOID repo.ObjectID
 	dirHash := dirHasher.Sum64()
@@ -308,7 +313,7 @@ func (u *uploader) uploadDirInternal(
 	if allCached {
 		// Avoid hashing directory listing if every entry matched the cache.
 		result.Stats.CachedDirectories++
-		directoryOID = repo.ObjectID(cachedDirEntry.ObjectID)
+		directoryOID = *cachedDirEntry.ObjectId
 	} else {
 		result.Stats.NonCachedDirectories++
 		directoryOID, err = writer.Result(forceStored)
@@ -317,14 +322,15 @@ func (u *uploader) uploadDirInternal(
 		}
 	}
 
-	if err := hcw.WriteEntry(hashCacheEntry{
+	if err := hcw.WriteEntry(HashCacheEntry{
 		Name:     relativePath + "/",
-		ObjectID: directoryOID,
+		ObjectId: &directoryOID,
 		Hash:     dirHash,
 	}); err != nil {
-		return "", 0, false, err
+		return repo.NullObjectID, 0, false, err
 	}
 
+	// log.Printf("Dir: %v %v %v %v", relativePath, directoryOID.UIString(), dirHash, allCached)
 	return directoryOID, dirHash, allCached, nil
 }
 
@@ -398,8 +404,8 @@ func (u *uploader) bundleEntries(entries Entries) Entries {
 func getBundleNumber(md *EntryMetadata) int {
 	// TODO(jkowalski): This is not ready yet, uncomment when ready.
 
-	// if md.FileMode.IsRegular() && md.FileSize < maxBundleFileSize {
-	// 	return md.ModTime.Year()*100 + int(md.ModTime.Month())
+	// if md.FileMode().IsRegular() && md.FileSize < maxBundleFileSize {
+	// 	return md.ModTime().Year()*100 + int(md.ModTime().Month())
 	// }
 
 	return 0

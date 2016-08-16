@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package kopia.repo;
+option go_package = "github.com/kopia/kopia/repo";
+
+// ObjectID represents the identifier of a chunk.
+// Identifiers can either refer to data block stored in a Storage, or contain small amounts
+// of payload directly (useful for short ASCII or binary files).
+message ObjectID {
+    string storage_block = 1;
+    int32 indirect = 2;   // level of indirection (0==block data, 1=list of blocks, 2=list of lists, ...)
+    bytes encryption = 3;
+    bytes content = 4;
+    message Section {
+        ObjectID base = 1;
+        int64 start = 2;
+        int64 length = 3;
+    }
+
+    Section section = 5;
+}

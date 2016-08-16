@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/kopia/kopia/internal"
 	"github.com/kopia/kopia/storage"
 )
 
@@ -44,15 +45,15 @@ type objectWriter struct {
 
 	prefix             string
 	listWriter         *objectWriter
+	listProtoWriter    *internal.ProtoStreamWriter
+	listCurrentPos     int64
 	flushedObjectCount int
 	lastFlushedObject  ObjectID
 
-	description string
-	objectType  ObjectIDType
+	description   string
+	indirectLevel int32
 
 	blockTracker *blockTracker
-
-	atomicWrites bool
 }
 
 func (w *objectWriter) Close() error {
@@ -68,9 +69,13 @@ func (w *objectWriter) Close() error {
 	return nil
 }
 
-func (w *objectWriter) Write(data []byte) (n int, err error) {
-	dataLen := len(data)
-	remaining := len(data)
+func (w *objectWriter) WriteGather(dataSlices [][]byte) (n int, err error) {
+	dataLen := 0
+	for _, s := range dataSlices {
+		dataLen += len(s)
+	}
+
+	remaining := dataLen
 	w.totalLength += int64(remaining)
 
 	for remaining > 0 {
@@ -80,31 +85,43 @@ func (w *objectWriter) Write(data []byte) (n int, err error) {
 		room := w.buffer.Cap() - w.buffer.Len()
 
 		if remaining <= room {
-			w.buffer.Write(data)
+			for _, s := range dataSlices {
+				w.buffer.Write(s)
+			}
+			dataSlices = nil
 			remaining = 0
 		} else {
-			if w.atomicWrites {
-				if w.buffer == nil {
-					// We're at the beginning of a buffer, fail if the buffer is too small.
-					return 0, fmt.Errorf("object writer buffer too small, need: %v, have: %v", remaining, room)
-				}
-				if err := w.flushBuffer(false); err != nil {
-					return 0, err
-				}
+			for room > 0 {
+				var chunk []byte
 
-				continue
+				if len(dataSlices[0]) >= room {
+					chunk = dataSlices[0][0:room]
+					dataSlices[0] = dataSlices[0][len(chunk):]
+				} else {
+					chunk = dataSlices[0]
+					dataSlices[0] = nil
+				}
+				w.buffer.Write(chunk)
+				remaining -= len(chunk)
+				room -= len(chunk)
+				if len(dataSlices[0]) == 0 {
+					dataSlices = dataSlices[1:]
+				}
 			}
-
-			w.buffer.Write(data[0:room])
 
 			if err := w.flushBuffer(false); err != nil {
 				return 0, err
 			}
-			data = data[room:]
-			remaining = len(data)
 		}
 	}
 	return dataLen, nil
+}
+
+func (w *objectWriter) Write(data []byte) (n int, err error) {
+	var b [1][]byte
+
+	b[0] = data
+	return w.WriteGather(b[:])
 }
 
 func (w *objectWriter) flushBuffer(force bool) error {
@@ -118,36 +135,43 @@ func (w *objectWriter) flushBuffer(force bool) error {
 
 		b := w.buffer
 		w.buffer = nil
-		objectID, blockReader, err := w.repo.hashBufferForWriting(b, string(w.objectType)+w.prefix)
+		objectID, blockReader, err := w.repo.hashBufferForWriting(b, w.prefix)
 		if err != nil {
 			return err
 		}
 
-		if err := w.repo.storage.PutBlock(objectID.BlockID(), blockReader, storage.PutOptionsDefault); err != nil {
+		if err := w.repo.storage.PutBlock(objectID.StorageBlock, blockReader, storage.PutOptionsDefault); err != nil {
 			return fmt.Errorf(
 				"error when flushing chunk %d of %s to %#v: %#v",
 				w.flushedObjectCount,
 				w.description,
-				objectID.BlockID(),
+				objectID.StorageBlock,
 				err)
 		}
 
-		w.blockTracker.addBlock(objectID.BlockID())
+		w.blockTracker.addBlock(objectID.StorageBlock)
 
 		w.flushedObjectCount++
 		w.lastFlushedObject = objectID
 		if w.listWriter == nil {
 			w.listWriter = &objectWriter{
-				repo:         w.repo,
-				objectType:   ObjectIDTypeList,
-				prefix:       w.prefix,
-				description:  "LIST(" + w.description + ")",
-				atomicWrites: true,
-				blockTracker: w.blockTracker,
+				repo:          w.repo,
+				indirectLevel: w.indirectLevel + 1,
+				prefix:        w.prefix,
+				description:   "LIST(" + w.description + ")",
+				blockTracker:  w.blockTracker,
 			}
+			w.listProtoWriter = internal.NewProtoStreamWriter(w.listWriter, internal.ProtoStreamTypeIndirect)
+			w.listCurrentPos = 0
 		}
 
-		fmt.Fprintf(w.listWriter, "%v,%v\n", length, objectID)
+		w.listProtoWriter.Write(&IndirectObjectEntry{
+			Object: &objectID,
+			Start:  w.listCurrentPos,
+			Length: int64(length),
+		})
+
+		w.listCurrentPos += int64(length)
 	}
 	return nil
 }
@@ -155,10 +179,10 @@ func (w *objectWriter) flushBuffer(force bool) error {
 func (w *objectWriter) Result(forceStored bool) (ObjectID, error) {
 	if !forceStored && w.flushedObjectCount == 0 {
 		if w.buffer == nil {
-			return "B", nil
+			return NullObjectID, nil
 		}
 
-		if w.buffer.Len() < w.repo.format.MaxInlineBlobSize {
+		if w.buffer.Len() < int(w.repo.format.MaxInlineBlobSize) {
 			return NewInlineObjectID(w.buffer.Bytes()), nil
 		}
 	}
@@ -171,9 +195,10 @@ func (w *objectWriter) Result(forceStored bool) (ObjectID, error) {
 	}()
 
 	if w.flushedObjectCount == 1 {
+		w.lastFlushedObject.Indirect = w.indirectLevel
 		return w.lastFlushedObject, nil
 	} else if w.flushedObjectCount == 0 {
-		return "", nil
+		return NullObjectID, nil
 	} else {
 		return w.listWriter.Result(true)
 	}

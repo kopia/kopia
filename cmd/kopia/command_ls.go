@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/repo"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -69,17 +68,22 @@ func listDirectory(prefix string, entries fs.Entries, longFormat bool) {
 		var info string
 		if longFormat {
 			var oid string
-			if m.ObjectID.Type() == repo.ObjectIDTypeBinary {
-				oid = "<inline binary>"
-			} else if m.ObjectID.Type() == repo.ObjectIDTypeText {
-				oid = "<inline text>"
+			if m.ObjectId.Content != nil {
+				oid = "<inline content>"
 			} else {
-				oid = string(m.ObjectID)
+				oid = m.ObjectId.UIString()
 			}
-			info = fmt.Sprintf("%v %9d %v %-"+maxNameLenString+"s %v", m.FileMode, m.FileSize, m.ModTime.Local().Format("02 Jan 06 15:04:05"), m.Name, oid)
+			info = fmt.Sprintf(
+				"%v %9d %v %-"+maxNameLenString+"s %v",
+				m.FileMode(),
+				m.FileSize,
+				m.ModTime().Local().Format("02 Jan 06 15:04:05"),
+				m.Name,
+				oid,
+			)
 		} else {
 			var suffix string
-			if m.FileMode.IsDir() {
+			if m.FileMode().IsDir() {
 				suffix = "/"
 			}
 
