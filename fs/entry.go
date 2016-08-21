@@ -64,7 +64,7 @@ func (p *Permissions) UnmarshalJSON(b []byte) error {
 // EntryMetadata stores attributes of a single entry in a directory.
 type EntryMetadata struct {
 	Name            string           `json:"name,omitempty"`
-	Type            EntryType        `json:"type"`
+	Type            EntryType        `json:"type,omitempty"`
 	Permissions     Permissions      `json:"mode,omitempty"`
 	FileSize        int64            `json:"size,omitempty"`
 	ModTime         time.Time        `json:"mtime,omitempty"`

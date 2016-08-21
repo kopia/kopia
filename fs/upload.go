@@ -341,6 +341,10 @@ type uploadBundle struct {
 func (b *uploadBundle) append(e File) {
 	b.files = append(b.files, e)
 	b.metadata.FileSize += e.Metadata().FileSize
+	emt := e.Metadata().ModTime
+	if b.metadata.ModTime.IsZero() || b.metadata.ModTime.Before(emt) {
+		b.metadata.ModTime = emt
+	}
 }
 
 type uploadedBundleFile struct {
@@ -403,7 +407,7 @@ func getBundleNumber(md *EntryMetadata) int {
 	// TODO(jkowalski): This is not ready yet, uncomment when ready.
 
 	// if md.FileMode().IsRegular() && md.FileSize < maxBundleFileSize {
-	// 	return md.ModTime().Year()*100 + int(md.ModTime().Month())
+	// 	return md.ModTime.Year()*100 + int(md.ModTime.Month())
 	// }
 
 	return 0
