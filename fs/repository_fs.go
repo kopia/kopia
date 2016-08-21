@@ -18,7 +18,7 @@ type repositoryFile repositoryEntry
 type repositorySymlink repositoryEntry
 
 func (rd *repositoryDirectory) Readdir() (Entries, error) {
-	r, err := rd.repo.Open(*rd.entry.Metadata().ObjectID)
+	r, err := rd.repo.Open(rd.entry.Metadata().ObjectID)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +38,7 @@ func (rd *repositoryDirectory) Readdir() (Entries, error) {
 }
 
 func (rf *repositoryFile) Open() (EntryMetadataReadCloser, error) {
-	r, err := rf.repo.Open(*rf.entry.Metadata().ObjectID)
+	r, err := rf.repo.Open(rf.entry.Metadata().ObjectID)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func withMetadata(rc io.ReadCloser, md *EntryMetadata) EntryMetadataReadCloser {
 func NewRepositoryDirectory(r repo.Repository, objectID repo.ObjectID) Directory {
 	d := newRepoEntry(r, &EntryMetadata{
 		Name:     "/",
-		ObjectID: &objectID,
+		ObjectID: objectID,
 		Mode:     0555 | os.ModeDir,
 	}, nil)
 

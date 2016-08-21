@@ -79,7 +79,7 @@ func (u *uploader) uploadFileInternal(f File, relativePath string, forceStored b
 		return nil, 0, err
 	}
 
-	e2.ObjectID = &r
+	e2.ObjectID = r
 
 	if written != e2.FileSize {
 		// file changed
@@ -129,7 +129,7 @@ func (u *uploader) uploadBundleInternal(b *uploadBundle) (*EntryMetadata, uint64
 	if err != nil {
 		return nil, 0, err
 	}
-	bundleMetadata.ObjectID = &r
+	bundleMetadata.ObjectID = r
 
 	return bundleMetadata, bundleMetadata.metadataHash(), nil
 }
@@ -137,7 +137,7 @@ func (u *uploader) uploadBundleInternal(b *uploadBundle) (*EntryMetadata, uint64
 func (u *uploader) UploadFile(file File) (*UploadResult, error) {
 	result := &UploadResult{}
 	e, _, err := u.uploadFileInternal(file, file.Metadata().Name, true)
-	result.ObjectID = *e.ObjectID
+	result.ObjectID = e.ObjectID
 	return result, err
 }
 
@@ -215,7 +215,7 @@ func (u *uploader) uploadDirInternal(
 			//log.Printf("dirHash: %v %v", fullPath, h)
 			hash = h
 			allCached = allCached && wasCached
-			e.ObjectID = &oid
+			e.ObjectID = oid
 
 		case Symlink:
 			l, err := entry.Readlink()
@@ -223,9 +223,7 @@ func (u *uploader) uploadDirInternal(
 				return repo.NullObjectID, 0, false, err
 			}
 
-			id := repo.NewInlineObjectID([]byte(l))
-
-			e.ObjectID = &id
+			e.ObjectID = repo.NewInlineObjectID([]byte(l))
 			hash = e.metadataHash()
 
 		case *uploadBundle:
@@ -244,8 +242,7 @@ func (u *uploader) uploadDirInternal(
 			if cacheMatches {
 				result.Stats.CachedFiles++
 				// Avoid hashing by reusing previous object ID.
-				id := cachedEntry.ObjectID
-				e.ObjectID = &id
+				e.ObjectID = cachedEntry.ObjectID
 				hash = cachedEntry.Hash
 			} else {
 				result.Stats.NonCachedFiles++
@@ -268,8 +265,7 @@ func (u *uploader) uploadDirInternal(
 			if cacheMatches {
 				result.Stats.CachedFiles++
 				// Avoid hashing by reusing previous object ID.
-				id := cachedEntry.ObjectID
-				e.ObjectID = &id
+				e.ObjectID = cachedEntry.ObjectID
 				hash = cachedEntry.Hash
 			} else {
 				result.Stats.NonCachedFiles++
@@ -294,10 +290,10 @@ func (u *uploader) uploadDirInternal(
 		}
 
 		if !e.Mode.IsDir() && e.ObjectID.StorageBlock != "" {
-			if err := hcw.WriteEntry(HashCacheEntry{
+			if err := hcw.WriteEntry(hashCacheEntry{
 				Name:     entryRelativePath,
 				Hash:     hash,
-				ObjectID: *e.ObjectID,
+				ObjectID: e.ObjectID,
 			}); err != nil {
 				return repo.NullObjectID, 0, false, err
 			}
@@ -324,7 +320,7 @@ func (u *uploader) uploadDirInternal(
 		}
 	}
 
-	if err := hcw.WriteEntry(HashCacheEntry{
+	if err := hcw.WriteEntry(hashCacheEntry{
 		Name:     relativePath + "/",
 		ObjectID: directoryOID,
 		Hash:     dirHash,

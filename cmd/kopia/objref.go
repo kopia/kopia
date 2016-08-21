@@ -66,7 +66,7 @@ func parseNestedObjectID(startingDir fs.Directory, id string) (repo.ObjectID, er
 		head, tail = splitHeadTail(tail)
 	}
 
-	return *current.Metadata().ObjectID, nil
+	return current.Metadata().ObjectID, nil
 }
 
 func splitHeadTail(id string) (string, string) {

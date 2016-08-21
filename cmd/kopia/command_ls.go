@@ -77,7 +77,7 @@ func listDirectory(prefix string, entries fs.Entries, longFormat bool) {
 				"%v %9d %v %-"+maxNameLenString+"s %v",
 				m.Mode,
 				m.FileSize,
-				m.ModTime().Local().Format("02 Jan 06 15:04:05"),
+				m.ModTime.Local().Format("02 Jan 06 15:04:05"),
 				m.Name,
 				oid,
 			)

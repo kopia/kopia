@@ -26,7 +26,7 @@ func (n *fuseNode) Attr(ctx context.Context, a *fuse.Attr) error {
 	m := n.entry.Metadata()
 	a.Mode = m.Mode
 	a.Size = uint64(m.FileSize)
-	a.Mtime = m.ModTime()
+	a.Mtime = m.ModTime
 	a.Uid = m.UserID
 	a.Gid = m.GroupID
 	return nil

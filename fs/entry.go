@@ -23,11 +23,11 @@ type EntryMetadata struct {
 	Name            string           `json:"name,omitempty"`
 	Mode            os.FileMode      `json:"mode,omitempty"`
 	FileSize        int64            `json:"size,omitempty"`
-	ModTimeNano     int64            `json:"mtime,omitempty"`
-	ObjectID        *repo.ObjectID   `json:"oid,omitempty"`
+	ModTime         time.Time        `json:"mtime,omitempty"`
+	ObjectID        repo.ObjectID    `json:"obj,omitempty"`
 	UserID          uint32           `json:"uid,omitempty"`
 	GroupID         uint32           `json:"gid,omitempty"`
-	BundledChildren []*EntryMetadata `json:"children,omitempty"`
+	BundledChildren []*EntryMetadata `json:"bundled,omitempty"`
 }
 
 // Entries is a list of entries sorted by name.
@@ -134,14 +134,9 @@ func isLessOrEqual(name1, name2 string) bool {
 	return len(parts1) <= len(parts2)
 }
 
-// ModTime returns the modification time.
-func (e *EntryMetadata) ModTime() time.Time {
-	return time.Unix(e.ModTimeNano/1000000000, e.ModTimeNano%1000000000)
-}
-
 func (e *EntryMetadata) metadataHash() uint64 {
 	h := fnv.New64a()
-	binary.Write(h, binary.LittleEndian, e.ModTimeNano)
+	binary.Write(h, binary.LittleEndian, e.ModTime.UnixNano())
 	binary.Write(h, binary.LittleEndian, e.Mode)
 	binary.Write(h, binary.LittleEndian, e.FileSize)
 	binary.Write(h, binary.LittleEndian, e.UserID)

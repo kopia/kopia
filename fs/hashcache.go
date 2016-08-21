@@ -10,8 +10,8 @@ import (
 
 var hashCacheStreamType = "kopia:hashcache"
 
-// HashCacheEntry represents an entry in hash cache database about single file or directory.
-type HashCacheEntry struct {
+// hashCacheEntry represents an entry in hash cache database about single file or directory.
+type hashCacheEntry struct {
 	Name     string        `json:"name,omitempty"`
 	Hash     uint64        `json:"hash,omitempty"`
 	ObjectID repo.ObjectID `json:"oid,omitempty"`
@@ -19,9 +19,9 @@ type HashCacheEntry struct {
 
 type hashcacheReader struct {
 	reader    *jsonstream.Reader
-	nextEntry *HashCacheEntry
-	entry0    HashCacheEntry
-	entry1    HashCacheEntry
+	nextEntry *hashCacheEntry
+	entry0    hashCacheEntry
+	entry1    hashCacheEntry
 	odd       bool
 	first     bool
 }
@@ -38,7 +38,7 @@ func (hcr *hashcacheReader) open(r io.Reader) error {
 	return nil
 }
 
-func (hcr *hashcacheReader) findEntry(relativeName string) *HashCacheEntry {
+func (hcr *hashcacheReader) findEntry(relativeName string) *hashCacheEntry {
 	for hcr.nextEntry != nil && isLess(hcr.nextEntry.Name, relativeName) {
 		hcr.readahead()
 	}
@@ -67,7 +67,7 @@ func (hcr *hashcacheReader) readahead() {
 	}
 }
 
-func (hcr *hashcacheReader) nextManifestEntry() *HashCacheEntry {
+func (hcr *hashcacheReader) nextManifestEntry() *hashCacheEntry {
 	hcr.odd = !hcr.odd
 	if hcr.odd {
 		return &hcr.entry1
@@ -88,7 +88,7 @@ func newHashCacheWriter(w io.Writer) *hashcacheWriter {
 	return hcw
 }
 
-func (hcw *hashcacheWriter) WriteEntry(e HashCacheEntry) error {
+func (hcw *hashcacheWriter) WriteEntry(e hashCacheEntry) error {
 	if hcw.lastNameWritten != "" {
 		if isLessOrEqual(e.Name, hcw.lastNameWritten) {
 			return fmt.Errorf("out-of-order directory entry, previous '%v' current '%v'", hcw.lastNameWritten, e.Name)

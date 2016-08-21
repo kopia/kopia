@@ -21,7 +21,7 @@ func TestFlattenBundles(t *testing.T) {
 		&EntryMetadata{
 			Name:     "bundle1",
 			FileSize: 170,
-			ObjectID: &base,
+			ObjectID: base,
 			BundledChildren: []*EntryMetadata{
 				&EntryMetadata{Name: "a1", FileSize: 50},
 				&EntryMetadata{Name: "z1", FileSize: 120},
@@ -36,12 +36,12 @@ func TestFlattenBundles(t *testing.T) {
 	}
 
 	expectedEntries := []*EntryMetadata{
-		&EntryMetadata{Name: "a1", FileSize: 50, ObjectID: &repo.ObjectID{Section: &repo.ObjectIDSection{
+		&EntryMetadata{Name: "a1", FileSize: 50, ObjectID: repo.ObjectID{Section: &repo.ObjectIDSection{
 			Start:  0,
 			Length: 50,
 			Base:   base,
 		}}},
-		&EntryMetadata{Name: "z1", FileSize: 120, ObjectID: &repo.ObjectID{Section: &repo.ObjectIDSection{
+		&EntryMetadata{Name: "z1", FileSize: 120, ObjectID: repo.ObjectID{Section: &repo.ObjectIDSection{
 			Start:  50,
 			Length: 120,
 			Base:   base,
@@ -56,7 +56,7 @@ func TestFlattenBundlesInconsistentBundleSize(t *testing.T) {
 		&EntryMetadata{
 			Name:     "bundle1",
 			FileSize: 171,
-			ObjectID: &repo.ObjectID{StorageBlock: "5555"},
+			ObjectID: repo.ObjectID{StorageBlock: "5555"},
 			BundledChildren: []*EntryMetadata{
 				&EntryMetadata{Name: "a1", FileSize: 50},
 				&EntryMetadata{Name: "z1", FileSize: 120},
@@ -83,7 +83,7 @@ func TestFlattenThreeBundles(t *testing.T) {
 		&EntryMetadata{
 			Name:     "bundle1",
 			FileSize: 170,
-			ObjectID: &base1,
+			ObjectID: base1,
 			BundledChildren: []*EntryMetadata{
 				&EntryMetadata{Name: "a1", FileSize: 50},
 				&EntryMetadata{Name: "z1", FileSize: 120},
@@ -92,7 +92,7 @@ func TestFlattenThreeBundles(t *testing.T) {
 		&EntryMetadata{
 			Name:     "bundle3",
 			FileSize: 7,
-			ObjectID: &base3,
+			ObjectID: base3,
 			BundledChildren: []*EntryMetadata{
 				&EntryMetadata{Name: "a3", FileSize: 5},
 				&EntryMetadata{Name: "z3", FileSize: 2},
@@ -101,7 +101,7 @@ func TestFlattenThreeBundles(t *testing.T) {
 		&EntryMetadata{
 			Name:     "bundle2",
 			FileSize: 300,
-			ObjectID: &base2,
+			ObjectID: base2,
 			BundledChildren: []*EntryMetadata{
 				&EntryMetadata{Name: "a2", FileSize: 100},
 				&EntryMetadata{Name: "z2", FileSize: 200},
@@ -116,32 +116,32 @@ func TestFlattenThreeBundles(t *testing.T) {
 	}
 
 	expectedEntries := []*EntryMetadata{
-		&EntryMetadata{Name: "a1", FileSize: 50, ObjectID: &repo.ObjectID{Section: &repo.ObjectIDSection{
+		&EntryMetadata{Name: "a1", FileSize: 50, ObjectID: repo.ObjectID{Section: &repo.ObjectIDSection{
 			Start:  0,
 			Length: 50,
 			Base:   base1,
 		}}},
-		&EntryMetadata{Name: "a2", FileSize: 100, ObjectID: &repo.ObjectID{Section: &repo.ObjectIDSection{
+		&EntryMetadata{Name: "a2", FileSize: 100, ObjectID: repo.ObjectID{Section: &repo.ObjectIDSection{
 			Start:  0,
 			Length: 100,
 			Base:   base2,
 		}}},
-		&EntryMetadata{Name: "a3", FileSize: 5, ObjectID: &repo.ObjectID{Section: &repo.ObjectIDSection{
+		&EntryMetadata{Name: "a3", FileSize: 5, ObjectID: repo.ObjectID{Section: &repo.ObjectIDSection{
 			Start:  0,
 			Length: 5,
 			Base:   base3,
 		}}},
-		&EntryMetadata{Name: "z1", FileSize: 120, ObjectID: &repo.ObjectID{Section: &repo.ObjectIDSection{
+		&EntryMetadata{Name: "z1", FileSize: 120, ObjectID: repo.ObjectID{Section: &repo.ObjectIDSection{
 			Start:  50,
 			Length: 120,
 			Base:   base1,
 		}}},
-		&EntryMetadata{Name: "z2", FileSize: 200, ObjectID: &repo.ObjectID{Section: &repo.ObjectIDSection{
+		&EntryMetadata{Name: "z2", FileSize: 200, ObjectID: repo.ObjectID{Section: &repo.ObjectIDSection{
 			Start:  100,
 			Length: 200,
 			Base:   base2,
 		}}},
-		&EntryMetadata{Name: "z3", FileSize: 2, ObjectID: &repo.ObjectID{Section: &repo.ObjectIDSection{
+		&EntryMetadata{Name: "z3", FileSize: 2, ObjectID: repo.ObjectID{Section: &repo.ObjectIDSection{
 			Start:  5,
 			Length: 2,
 			Base:   base3,

@@ -107,9 +107,9 @@ func NewFilesystemDirectory(path string, parent Directory) (Directory, error) {
 
 func entryMetadataFromFileInfo(fi os.FileInfo) *EntryMetadata {
 	e := &EntryMetadata{
-		Name:        filepath.Base(fi.Name()),
-		Mode:        fi.Mode(),
-		ModTimeNano: fi.ModTime().UnixNano(),
+		Name:    filepath.Base(fi.Name()),
+		Mode:    fi.Mode(),
+		ModTime: fi.ModTime().UTC(),
 	}
 
 	if fi.Mode().IsRegular() {
