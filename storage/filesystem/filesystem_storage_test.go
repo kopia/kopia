@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/kopia/kopia/storage/storagetesting"
+	"github.com/kopia/kopia/internal/storagetesting"
 )
 
 func TestFileStorage(t *testing.T) {

@@ -1,3 +1,4 @@
+// Package gcs implements Storage based on Google Cloud Storage bucket.
 package gcs
 
 import (

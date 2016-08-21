@@ -1,3 +1,4 @@
+// Package filesystem implements filesystem-based Storage.
 package filesystem
 
 import (

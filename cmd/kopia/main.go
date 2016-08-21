@@ -1,5 +1,5 @@
 /*
-The 'kopia' utility supports creating and accessing backups from command line.
+Command-line tool for creating and accessing backups.
 
 Usage:
 

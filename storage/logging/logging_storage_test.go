@@ -3,7 +3,7 @@ package logging
 import (
 	"testing"
 
-	"github.com/kopia/kopia/storage/storagetesting"
+	"github.com/kopia/kopia/internal/storagetesting"
 )
 
 func TestLoggingStorage(t *testing.T) {

@@ -13,8 +13,8 @@ import (
 	"testing"
 
 	"github.com/kopia/kopia/internal/jsonstream"
+	"github.com/kopia/kopia/internal/storagetesting"
 	"github.com/kopia/kopia/storage"
-	"github.com/kopia/kopia/storage/storagetesting"
 )
 
 func testFormat() *Format {

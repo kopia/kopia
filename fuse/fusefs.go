@@ -1,5 +1,6 @@
 // +build !windows
 
+// Package fuse implements Node FUSE filesystem APIs for mounting contents of filesystem stored in repository.
 package fuse
 
 import (

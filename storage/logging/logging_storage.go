@@ -1,3 +1,4 @@
+// Package logging implements wrapper around Storage that logs all activity.
 package logging
 
 import (
@@ -6,9 +7,10 @@ import (
 	"github.com/kopia/kopia/storage"
 )
 
-// Printfer is
+// Printfer supports emitting formatted strings to arbitrary outputs.
+// The formatting language must be compatible with fmt.Sprintf().
 type Printfer interface {
-	Printf(string, ...interface{})
+	Printf(fmt string, args ...interface{})
 }
 
 type loggingStorage struct {

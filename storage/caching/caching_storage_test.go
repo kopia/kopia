@@ -10,8 +10,8 @@ import (
 
 	"github.com/kopia/kopia/storage"
 
+	"github.com/kopia/kopia/internal/storagetesting"
 	"github.com/kopia/kopia/storage/logging"
-	"github.com/kopia/kopia/storage/storagetesting"
 
 	"testing"
 )

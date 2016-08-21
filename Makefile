@@ -24,7 +24,7 @@ play:
 	go run cmd/playground/main.go
 
 lint:
-	-golint github.com/kopia/kopia/...
+	golint github.com/kopia/kopia/...
 
 vet:
 	go tool vet -all .
