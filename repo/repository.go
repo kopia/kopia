@@ -77,8 +77,8 @@ type repository struct {
 	bufferManager *bufferManager
 	stats         *RepositoryStats
 
-	format   Format
-	idFormat ObjectIDFormatInfo
+	format    Format
+	formatter ObjectFormatter
 }
 
 func (repo *repository) Close() {
@@ -222,7 +222,7 @@ func NewRepository(
 		stats:   &RepositoryStats{},
 	}
 
-	repo.idFormat = sf
+	repo.formatter = sf
 
 	for _, o := range options {
 		if err := o(repo); err != nil {
@@ -237,7 +237,7 @@ func NewRepository(
 }
 
 func (repo *repository) hashBuffer(data []byte) ([]byte, []byte) {
-	return repo.idFormat.HashBuffer(data, repo.format.Secret)
+	return repo.formatter.HashBuffer(data, repo.format.Secret)
 }
 
 func (repo *repository) hashBufferForWriting(buffer *bytes.Buffer, prefix string) (ObjectID, storage.ReaderWithLength, error) {
@@ -248,10 +248,10 @@ func (repo *repository) hashBufferForWriting(buffer *bytes.Buffer, prefix string
 
 	var blockCipher cipher.Block
 
-	contentHash, cryptoKey := repo.hashBuffer(data)
-	if cryptoKey != nil {
+	contentHash, encryptionKey := repo.hashBuffer(data)
+	if encryptionKey != nil {
 		var err error
-		blockCipher, err = repo.idFormat.CreateCipher(cryptoKey)
+		blockCipher, err = repo.formatter.CreateCipher(encryptionKey)
 		if err != nil {
 			return NullObjectID, nil, err
 		}
@@ -261,8 +261,8 @@ func (repo *repository) hashBufferForWriting(buffer *bytes.Buffer, prefix string
 		StorageBlock: prefix + hex.EncodeToString(contentHash),
 	}
 
-	if len(cryptoKey) > 0 {
-		objectID.Encryption = cryptoKey
+	if len(encryptionKey) > 0 {
+		objectID.EncryptionKey = encryptionKey
 	}
 
 	atomic.AddInt32(&repo.stats.HashedBlocks, 1)
@@ -275,7 +275,7 @@ func (repo *repository) hashBufferForWriting(buffer *bytes.Buffer, prefix string
 	blockReader := repo.bufferManager.returnBufferOnClose(buffer)
 	blockReader = newCountingReader(blockReader, &repo.stats.BytesWrittenToStorage)
 
-	if len(cryptoKey) > 0 {
+	if len(encryptionKey) > 0 {
 		// Since we're not sharing the key, all-zero IV is ok.
 		// We don't need to worry about separate MAC either, since hashing content produces object ID.
 		ctr := cipher.NewCTR(blockCipher, constantIV[0:blockCipher.BlockSize()])
@@ -338,14 +338,14 @@ func (repo *repository) newRawReader(objectID ObjectID) (ObjectReader, error) {
 	atomic.AddInt32(&repo.stats.BlocksReadFromStorage, 1)
 	atomic.AddInt64(&repo.stats.BytesReadFromStorage, int64(len(payload)))
 
-	if objectID.Encryption == nil {
+	if objectID.EncryptionKey == nil {
 		if err := repo.verifyChecksum(payload, objectID.StorageBlock); err != nil {
 			return nil, err
 		}
 		return newObjectReaderWithData(payload), nil
 	}
 
-	blockCipher, err := repo.idFormat.CreateCipher(objectID.Encryption)
+	blockCipher, err := repo.formatter.CreateCipher(objectID.EncryptionKey)
 	if err != nil {
 		return nil, errors.New("cannot create cipher")
 	}

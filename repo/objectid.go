@@ -10,25 +10,49 @@ import (
 	"fmt"
 )
 
-// ObjectID represents the identifier of a chunk.
-// Identifiers can either refer to data block stored in a Storage, or contain small amounts
-// of payload directly (useful for short ASCII or binary files).
+// ObjectID is an identifier of a repository object. Repository objects can be stored:
+//
+// 1. In a single storage block, this is the most common case for objects up to typically ~20MB.
+// Storage blocks are encrypted with key specified in EncryptionKey.
+//
+// 2. In a series of storage blocks with an indirect block pointing at them (multiple indirections are allowed). This is used for larger files.
+//
+// 3. Inline as part of the ObjectID (typically for very small or empty files).
+//
+// 4. As sections of other objects (bundles).
+//
+// ObjectIDs have standard string representation (returned by UIString() and accepted as input to ParseObjectID()) suitable for using
+// in user interfaces, such as command-line tools:
+//
+// Examples:
+//
+//   "B"                                      // empty object
+//   "BcXVpY2sgYnJvd24gZm94Cg=="              // inline content "quick brown fox" (base64-encoded)
+//   "D295754edeb35c17911b1fdf853f572fe"      // storage block
+//   "L1,2c33acbcba3569f943d9e8aaea7817c5"    // level-1 indirection block
+//   "L3,e18604fe53ee670558eb4234d2e55cb7"    // level-3 indirection block
+//   "Daad048fd5721b43adaa353c407d23ff6.5617c50fb1d71b6f7a2c4c8bacacef1d2222eaa4b2245a3714686c658f8af3d9"
+//                                            // encrypted storage block with 256-bit key
+//   "L2,87381a8631dcc86256233437338e27c4.81cf86361dbc9b7905f12f6f6b80d7ec0edd487eeb339e1193805e3f58ef9505"
+//                                            // encrypted level-2 indirection block with 256-bit key
+//
+//
 type ObjectID struct {
-	StorageBlock string           `json:"block,omitempty"`
-	Indirect     int32            `json:"indirect,omitempty"`
-	Encryption   []byte           `json:"encryption,omitempty"`
-	Content      []byte           `json:"content,omitempty"`
-	Section      *ObjectIDSection `json:"section,omitempty"`
+	StorageBlock  string           `json:"block,omitempty"`
+	EncryptionKey []byte           `json:"encryption,omitempty"`
+	Indirect      int32            `json:"indirect,omitempty"`
+	Content       []byte           `json:"content,omitempty"`
+	Section       *ObjectIDSection `json:"section,omitempty"`
 }
 
-// ObjectIDSection represents details about a section of ObjectID.
+// ObjectIDSection represents details about a section of a repository object.
 type ObjectIDSection struct {
 	Start  int64    `json:"start"`
 	Length int64    `json:"len"`
 	Base   ObjectID `json:"base"`
 }
 
-// NullObjectID is the identifier of an null object.
+// NullObjectID is the identifier of an null/empty object.
 var NullObjectID ObjectID
 
 const objectIDEncryptionInfoSeparator = "."
@@ -37,14 +61,14 @@ var (
 	inlineContentEncoding = base64.RawURLEncoding
 )
 
-// UIString returns the name of the repository object that is suitable for displaying in the UI.
+// UIString returns string representation of ObjectID that is suitable for displaying in the UI.
 // Note that the object ID name may contain its encryption key, which is sensitive.
 func (m *ObjectID) UIString() string {
 	if m.StorageBlock != "" {
 		var encryptionSuffix string
 
-		if m.Encryption != nil {
-			encryptionSuffix = "." + hex.EncodeToString(m.Encryption)
+		if m.EncryptionKey != nil {
+			encryptionSuffix = "." + hex.EncodeToString(m.EncryptionKey)
 		}
 
 		if m.Indirect > 0 {
@@ -65,15 +89,15 @@ func (m *ObjectID) UIString() string {
 	return "B"
 }
 
-// NewInlineObjectID returns new ObjectID containing inline binary or text-encoded data.
-func NewInlineObjectID(data []byte) ObjectID {
+// InlineObjectID returns ObjectID containing the specified content.
+func InlineObjectID(content []byte) ObjectID {
 	return ObjectID{
-		Content: data,
+		Content: content,
 	}
 }
 
-// NewSectionObjectID returns new ObjectID representing a section of an object with a given base ID, start offset and length.
-func NewSectionObjectID(start, length int64, baseID ObjectID) ObjectID {
+// SectionObjectID returns new ObjectID representing a section of an object with a given base ID, start offset and length.
+func SectionObjectID(start, length int64, baseID ObjectID) ObjectID {
 	return ObjectID{
 		Section: &ObjectIDSection{
 			Base:   baseID,
@@ -122,14 +146,15 @@ func parseSectionInfoString(s string) (int64, int64, ObjectID, error) {
 }
 
 // ParseObjectID converts the specified string into ObjectID.
-func ParseObjectID(objectIDString string) (ObjectID, error) {
-	if len(objectIDString) >= 1 {
-		chunkType := objectIDString[0]
-		content := objectIDString[1:]
+// The string format matches the output of UIString() method.
+func ParseObjectID(s string) (ObjectID, error) {
+	if len(s) >= 1 {
+		chunkType := s[0]
+		content := s[1:]
 
 		switch chunkType {
 		case 'S':
-			if start, length, base, err := parseSectionInfoString(objectIDString); err == nil {
+			if start, length, base, err := parseSectionInfoString(s); err == nil {
 				return ObjectID{Section: &ObjectIDSection{
 					Start:  start,
 					Length: length,
@@ -170,12 +195,15 @@ func ParseObjectID(objectIDString string) (ObjectID, error) {
 					b, err := hex.DecodeString(content[firstSeparator+1:])
 					if err == nil && len(b) > 0 {
 						// Valid chunk ID with encryption info.
-						return ObjectID{StorageBlock: content[0:firstSeparator], Encryption: b}, nil
+						return ObjectID{
+							StorageBlock:  content[0:firstSeparator],
+							EncryptionKey: b,
+						}, nil
 					}
 				}
 			}
 		}
 	}
 
-	return NullObjectID, fmt.Errorf("malformed object id: '%s'", objectIDString)
+	return NullObjectID, fmt.Errorf("malformed object id: '%s'", s)
 }

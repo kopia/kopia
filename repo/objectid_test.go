@@ -61,9 +61,9 @@ func TestParseObjectIDEncryptionInfo(t *testing.T) {
 			continue
 		}
 
-		actual := objectID.Encryption
+		actual := objectID.EncryptionKey
 		if !bytes.Equal(actual, c.expected) {
-			t.Errorf("invalid encryption info for %v: %x, expected: %x", c.objectID, actual, c.expected)
+			t.Errorf("invalid encryption key for %v: %x, expected: %x", c.objectID, actual, c.expected)
 		}
 	}
 }

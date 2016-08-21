@@ -311,12 +311,12 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 			verify(t, repo, objectID, randomData, fmt.Sprintf("%v %v/%v", objectID, forceStored, size))
 
 			if size > 1 {
-				sectionID := NewSectionObjectID(0, int64(size/2), objectID)
+				sectionID := SectionObjectID(0, int64(size/2), objectID)
 				verify(t, repo, sectionID, randomData[0:10], fmt.Sprintf("%v %v/%v", sectionID, forceStored, size))
 			}
 
 			if size > 1 {
-				sectionID := NewSectionObjectID(int64(1), int64(size-1), objectID)
+				sectionID := SectionObjectID(int64(1), int64(size-1), objectID)
 				verify(t, repo, sectionID, randomData[1:], fmt.Sprintf("%v %v/%v", sectionID, forceStored, size))
 			}
 		}
@@ -429,8 +429,8 @@ func TestFormats(t *testing.T) {
 			format: makeFormat("ENCRYPTED_HMAC_SHA512_384_AES256"),
 			oids: map[string]ObjectID{
 				"The quick brown fox jumps over the lazy dog": ObjectID{
-					StorageBlock: "d7f4727e2c0b39ae0f1e40cc96f60242",
-					Encryption:   mustParseBase16("d5b7801841cea6fc592c5d3e1ae50700582a96cf35e1e554995fe4e03381c237"),
+					StorageBlock:  "d7f4727e2c0b39ae0f1e40cc96f60242",
+					EncryptionKey: mustParseBase16("d5b7801841cea6fc592c5d3e1ae50700582a96cf35e1e554995fe4e03381c237"),
 				},
 			},
 		},
@@ -438,8 +438,8 @@ func TestFormats(t *testing.T) {
 			format: makeFormat("ENCRYPTED_HMAC_SHA512_AES256"),
 			oids: map[string]ObjectID{
 				"The quick brown fox jumps over the lazy dog": ObjectID{
-					StorageBlock: "b42af09057bac1e2d41708e48a902e09b5ff7f12ab428a4fe86653c73dd248fb",
-					Encryption:   mustParseBase16("82f948a549f7b791a5b41915ee4d1ec3935357e4e2317250d0372afa2ebeeb3a"),
+					StorageBlock:  "b42af09057bac1e2d41708e48a902e09b5ff7f12ab428a4fe86653c73dd248fb",
+					EncryptionKey: mustParseBase16("82f948a549f7b791a5b41915ee4d1ec3935357e4e2317250d0372afa2ebeeb3a"),
 				},
 			},
 		},
@@ -519,19 +519,19 @@ func TestInvalidEncryptionKey(t *testing.T) {
 	}
 
 	// Key too short
-	rc, err = repo.Open(replaceEncryption(oid, oid.Encryption[0:len(oid.Encryption)-2]))
+	rc, err = repo.Open(replaceEncryption(oid, oid.EncryptionKey[0:len(oid.EncryptionKey)-2]))
 	if err == nil || rc != nil {
 		t.Errorf("expected error when opening malformed object")
 	}
 
 	// Key too long
-	rc, err = repo.Open(replaceEncryption(oid, append(oid.Encryption, 0xFF)))
+	rc, err = repo.Open(replaceEncryption(oid, append(oid.EncryptionKey, 0xFF)))
 	if err == nil || rc != nil {
 		t.Errorf("expected error when opening malformed object")
 	}
 
 	// Invalid key
-	corruptedKey := append([]byte(nil), oid.Encryption...)
+	corruptedKey := append([]byte(nil), oid.EncryptionKey...)
 	corruptedKey[0]++
 	rc, err = repo.Open(replaceEncryption(oid, corruptedKey))
 	if err == nil || rc != nil {
@@ -547,7 +547,7 @@ func TestInvalidEncryptionKey(t *testing.T) {
 }
 
 func replaceEncryption(oid ObjectID, newEncryption []byte) ObjectID {
-	oid.Encryption = newEncryption
+	oid.EncryptionKey = newEncryption
 	return oid
 }
 

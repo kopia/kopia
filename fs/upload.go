@@ -223,7 +223,7 @@ func (u *uploader) uploadDirInternal(
 				return repo.NullObjectID, 0, false, err
 			}
 
-			e.ObjectID = repo.NewInlineObjectID([]byte(l))
+			e.ObjectID = repo.InlineObjectID([]byte(l))
 			hash = e.metadataHash()
 
 		case *uploadBundle:

@@ -71,7 +71,7 @@ func (imd *inmemoryDirectory) addChild(e Entry) {
 		panic("child name cannot contain '/'")
 	}
 	imd.children = append(imd.children, e)
-	sort.Sort(imd.children)
+	sort.Sort(sortedEntries(imd.children))
 }
 
 func (imd *inmemoryDirectory) resolveSubdir(name string) (*inmemoryDirectory, string) {

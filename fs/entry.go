@@ -137,9 +137,11 @@ func newEntry(md *EntryMetadata, parent Directory) entry {
 	return entry{parent, md}
 }
 
-func (e Entries) Len() int      { return len(e) }
-func (e Entries) Swap(i, j int) { e[i], e[j] = e[j], e[i] }
-func (e Entries) Less(i, j int) bool {
+type sortedEntries Entries
+
+func (e sortedEntries) Len() int      { return len(e) }
+func (e sortedEntries) Swap(i, j int) { e[i], e[j] = e[j], e[i] }
+func (e sortedEntries) Less(i, j int) bool {
 	return e[i].Metadata().Name < e[j].Metadata().Name
 }
 

@@ -70,7 +70,7 @@ func flattenBundles(source []*EntryMetadata) ([]*EntryMetadata, error) {
 			var currentOffset int64
 
 			for _, child := range bundle {
-				child.ObjectID = repo.NewSectionObjectID(currentOffset, child.FileSize, e.ObjectID)
+				child.ObjectID = repo.SectionObjectID(currentOffset, child.FileSize, e.ObjectID)
 				currentOffset += child.FileSize
 			}
 

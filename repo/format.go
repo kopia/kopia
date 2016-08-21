@@ -20,8 +20,8 @@ type Format struct {
 	MaxBlobSize       int32  `json:"maxBlobSize,omitempty"`
 }
 
-// ObjectIDFormatInfo performs hashing and encryption of a data block.
-type ObjectIDFormatInfo interface {
+// ObjectFormatter performs data hashing and encryption of a data block when storing object in a repository,
+type ObjectFormatter interface {
 	HashBuffer(data []byte, secret []byte) (blockID []byte, cryptoKey []byte)
 	CreateCipher(key []byte) (cipher.Block, error)
 }
@@ -64,7 +64,7 @@ func (fi *encryptedFormat) CreateCipher(key []byte) (cipher.Block, error) {
 }
 
 // SupportedFormats containes supported ObjectIDformats
-var SupportedFormats = map[string]ObjectIDFormatInfo{
+var SupportedFormats = map[string]ObjectFormatter{
 	"TESTONLY_MD5":                     &unencryptedFormat{md5.New, 0},
 	"UNENCRYPTED_HMAC_SHA256":          &unencryptedFormat{sha256.New, 0},
 	"UNENCRYPTED_HMAC_SHA256_128":      &unencryptedFormat{sha256.New, 16},
@@ -73,7 +73,7 @@ var SupportedFormats = map[string]ObjectIDFormatInfo{
 }
 
 // DefaultObjectFormat is the format that should be used by default when creating new repositories.
-var DefaultObjectFormat = "ENCRYPTED_HMAC_SHA512_AES256"
+var DefaultObjectFormat = "ENCRYPTED_HMAC_SHA512_384_AES256"
 
 func fold(b []byte, size int) []byte {
 	if len(b) == size {

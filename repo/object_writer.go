@@ -183,7 +183,7 @@ func (w *objectWriter) Result(forceStored bool) (ObjectID, error) {
 		}
 
 		if w.buffer.Len() < int(w.repo.format.MaxInlineBlobSize) {
-			return NewInlineObjectID(w.buffer.Bytes()), nil
+			return InlineObjectID(w.buffer.Bytes()), nil
 		}
 	}
 

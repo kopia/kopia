@@ -48,7 +48,7 @@ func (fsd *filesystemDirectory) Readdir() (Entries, error) {
 		return nil, err
 	}
 
-	sort.Sort(entries)
+	sort.Sort(sortedEntries(entries))
 
 	return entries, nil
 }
