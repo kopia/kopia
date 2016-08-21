@@ -1,6 +1,8 @@
 // +build !windows
 
-// Package fuse implements Node FUSE filesystem APIs for mounting contents of filesystem stored in repository.
+// Package fuse implements FUSE filesystem nodes for mounting contents of filesystem stored in repository.
+//
+// The FUSE implementation used is from bazil.org/fuse
 package fuse
 
 import (
@@ -129,7 +131,7 @@ func newFuseNode(e fs.Entry) (fusefs.Node, error) {
 	}
 }
 
-// NewDirectoryNode returns fusefs.Node for given fs.Directory
+// NewDirectoryNode returns FUSE Node for a given fs.Directory
 func NewDirectoryNode(dir fs.Directory) fusefs.Node {
 	return &fuseDirectoryNode{fuseNode{dir}}
 }
