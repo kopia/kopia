@@ -3,7 +3,6 @@ package fs
 import (
 	"fmt"
 	"io"
-	"os"
 
 	"github.com/kopia/kopia/repo"
 )
@@ -51,27 +50,27 @@ func (rsl *repositorySymlink) Readlink() (string, error) {
 }
 
 func newRepoEntry(r repo.Repository, md *EntryMetadata, parent Directory) Entry {
-	switch md.Mode & os.ModeType {
-	case os.ModeDir:
+	switch md.Type {
+	case EntryTypeDirectory:
 		return Directory(&repositoryDirectory{
 			entry: newEntry(md, parent),
 			repo:  r,
 		})
 
-	case os.ModeSymlink:
+	case EntryTypeSymlink:
 		return Symlink(&repositorySymlink{
 			entry: newEntry(md, parent),
 			repo:  r,
 		})
 
-	case 0:
+	case EntryTypeFile:
 		return File(&repositoryFile{
 			entry: newEntry(md, parent),
 			repo:  r,
 		})
 
 	default:
-		panic(fmt.Sprintf("not supported entry metadata type: %v", md.Mode))
+		panic(fmt.Sprintf("not supported entry metadata type: %v", md.Type))
 	}
 }
 
@@ -94,9 +93,10 @@ func withMetadata(rc io.ReadCloser, md *EntryMetadata) EntryMetadataReadCloser {
 // NewRepositoryDirectory returns Directory based on repository object with the specified ID.
 func NewRepositoryDirectory(r repo.Repository, objectID repo.ObjectID) Directory {
 	d := newRepoEntry(r, &EntryMetadata{
-		Name:     "/",
-		ObjectID: objectID,
-		Mode:     0555 | os.ModeDir,
+		Name:        "/",
+		ObjectID:    objectID,
+		Permissions: 0555,
+		Type:        EntryTypeDirectory,
 	}, nil)
 
 	return d.(Directory)

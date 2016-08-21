@@ -75,7 +75,7 @@ func listDirectory(prefix string, entries fs.Entries, longFormat bool) {
 			}
 			info = fmt.Sprintf(
 				"%v %9d %v %-"+maxNameLenString+"s %v",
-				m.Mode,
+				m.FileMode(),
 				m.FileSize,
 				m.ModTime.Local().Format("02 Jan 06 15:04:05"),
 				m.Name,
@@ -83,7 +83,7 @@ func listDirectory(prefix string, entries fs.Entries, longFormat bool) {
 			)
 		} else {
 			var suffix string
-			if m.Mode.IsDir() {
+			if m.FileMode().IsDir() {
 				suffix = "/"
 			}
 

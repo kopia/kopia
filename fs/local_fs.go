@@ -107,9 +107,10 @@ func NewFilesystemDirectory(path string, parent Directory) (Directory, error) {
 
 func entryMetadataFromFileInfo(fi os.FileInfo) *EntryMetadata {
 	e := &EntryMetadata{
-		Name:    filepath.Base(fi.Name()),
-		Mode:    fi.Mode(),
-		ModTime: fi.ModTime().UTC(),
+		Name:        filepath.Base(fi.Name()),
+		Type:        entryTypeFromFileMode(fi.Mode() & os.ModeType),
+		Permissions: Permissions(fi.Mode() & os.ModePerm),
+		ModTime:     fi.ModTime().UTC(),
 	}
 
 	if fi.Mode().IsRegular() {
@@ -118,6 +119,22 @@ func entryMetadataFromFileInfo(fi os.FileInfo) *EntryMetadata {
 
 	e.populatePlatformSpecificEntryDetails(fi)
 	return e
+}
+
+func entryTypeFromFileMode(t os.FileMode) EntryType {
+	switch t {
+	case 0:
+		return EntryTypeFile
+
+	case os.ModeSymlink:
+		return EntryTypeSymlink
+
+	case os.ModeDir:
+		return EntryTypeDirectory
+
+	default:
+		return EntryTypeDirectory
+	}
 }
 
 func entryFromFileInfo(fi os.FileInfo, path string, parent Directory) (Entry, error) {

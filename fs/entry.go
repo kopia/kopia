@@ -2,10 +2,12 @@ package fs
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"hash/fnv"
 	"io"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,16 +20,77 @@ type Entry interface {
 	Metadata() *EntryMetadata
 }
 
+// EntryType is a type of a filesystem entry.
+type EntryType string
+
+// Supported entry types.
+const (
+	EntryTypeUnknown   EntryType = ""  // unknown type
+	EntryTypeFile      EntryType = "f" // file
+	EntryTypeDirectory EntryType = "d" // directory
+	EntryTypeSymlink   EntryType = "s" // symbolic link
+)
+
+// Permissions encapsulates UNIX permissions for a filesystem entry.
+type Permissions int
+
+// MarshalJSON emits permissions as octal string.
+func (p Permissions) MarshalJSON() ([]byte, error) {
+	if p == 0 {
+		return nil, nil
+	}
+
+	s := "0" + strconv.FormatInt(int64(p), 8)
+	return json.Marshal(&s)
+}
+
+// UnmarshalJSON parses octal permissions string from JSON.
+func (p *Permissions) UnmarshalJSON(b []byte) error {
+	var s string
+
+	if err := json.Unmarshal(b, &s); err != nil {
+		return err
+	}
+
+	v, err := strconv.ParseInt(s, 0, 32)
+	if err != nil {
+		return err
+	}
+
+	*p = Permissions(v)
+	return nil
+}
+
 // EntryMetadata stores attributes of a single entry in a directory.
 type EntryMetadata struct {
 	Name            string           `json:"name,omitempty"`
-	Mode            os.FileMode      `json:"mode,omitempty"`
+	Type            EntryType        `json:"type"`
+	Permissions     Permissions      `json:"mode,omitempty"`
 	FileSize        int64            `json:"size,omitempty"`
 	ModTime         time.Time        `json:"mtime,omitempty"`
 	ObjectID        repo.ObjectID    `json:"obj,omitempty"`
 	UserID          uint32           `json:"uid,omitempty"`
 	GroupID         uint32           `json:"gid,omitempty"`
 	BundledChildren []*EntryMetadata `json:"bundled,omitempty"`
+}
+
+// FileMode returns os.FileMode corresponding to Type and Permissions of the entry metadata.
+func (e *EntryMetadata) FileMode() os.FileMode {
+	perm := os.FileMode(e.Permissions)
+
+	switch e.Type {
+	default:
+		return perm
+
+	case EntryTypeFile:
+		return perm
+
+	case EntryTypeDirectory:
+		return perm | os.ModeDir
+
+	case EntryTypeSymlink:
+		return perm | os.ModeSymlink
+	}
 }
 
 // Entries is a list of entries sorted by name.
@@ -137,7 +200,7 @@ func isLessOrEqual(name1, name2 string) bool {
 func (e *EntryMetadata) metadataHash() uint64 {
 	h := fnv.New64a()
 	binary.Write(h, binary.LittleEndian, e.ModTime.UnixNano())
-	binary.Write(h, binary.LittleEndian, e.Mode)
+	binary.Write(h, binary.LittleEndian, e.FileMode())
 	binary.Write(h, binary.LittleEndian, e.FileSize)
 	binary.Write(h, binary.LittleEndian, e.UserID)
 	binary.Write(h, binary.LittleEndian, e.GroupID)

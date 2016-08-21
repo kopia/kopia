@@ -24,7 +24,7 @@ type fuseNode struct {
 
 func (n *fuseNode) Attr(ctx context.Context, a *fuse.Attr) error {
 	m := n.entry.Metadata()
-	a.Mode = m.Mode
+	a.Mode = m.FileMode()
 	a.Size = uint64(m.FileSize)
 	a.Mtime = m.ModTime
 	a.Uid = m.UserID
@@ -91,17 +91,13 @@ func (dir *fuseDirectoryNode) ReadDirAll(ctx context.Context) ([]fuse.Dirent, er
 			Name: m.Name,
 		}
 
-		switch m.Mode & os.ModeType {
-		case os.ModeDir:
+		switch m.Type {
+		case fs.EntryTypeDirectory:
 			dirent.Type = fuse.DT_Dir
-		case 0:
+		case fs.EntryTypeFile:
 			dirent.Type = fuse.DT_File
-		case os.ModeSocket:
-			dirent.Type = fuse.DT_Socket
-		case os.ModeSymlink:
+		case fs.EntryTypeSymlink:
 			dirent.Type = fuse.DT_Link
-		case os.ModeNamedPipe:
-			dirent.Type = fuse.DT_FIFO
 		}
 
 		result = append(result, dirent)
@@ -127,7 +123,7 @@ func newFuseNode(e fs.Entry) (fusefs.Node, error) {
 	case fs.Symlink:
 		return &fuseSymlinkNode{fuseNode{e}}, nil
 	default:
-		return nil, fmt.Errorf("entry type not supported: %v", e.Metadata().Mode)
+		return nil, fmt.Errorf("entry type not supported: %v", e.Metadata().Type)
 	}
 }
 

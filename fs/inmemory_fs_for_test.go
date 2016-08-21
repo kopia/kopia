@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"os"
 	"sort"
 	"strings"
 )
@@ -29,14 +28,15 @@ type inmemoryDirectory struct {
 	readdirError error
 }
 
-func (imd *inmemoryDirectory) addFile(name string, content []byte, mode os.FileMode) *inmemoryFile {
+func (imd *inmemoryDirectory) addFile(name string, content []byte, permissions Permissions) *inmemoryFile {
 	imd, name = imd.resolveSubdir(name)
 	file := &inmemoryFile{
 		inmemoryEntry: inmemoryEntry{
 			parent: imd,
 			metadata: &EntryMetadata{
-				Name: name,
-				Mode: mode,
+				Name:        name,
+				Type:        EntryTypeFile,
+				Permissions: permissions,
 			},
 		},
 		source: bytes.NewBuffer(content),
@@ -47,15 +47,16 @@ func (imd *inmemoryDirectory) addFile(name string, content []byte, mode os.FileM
 	return file
 }
 
-func (imd *inmemoryDirectory) addDir(name string, mode os.FileMode) *inmemoryDirectory {
+func (imd *inmemoryDirectory) addDir(name string, permissions Permissions) *inmemoryDirectory {
 	imd, name = imd.resolveSubdir(name)
 
 	subdir := &inmemoryDirectory{
 		inmemoryEntry: inmemoryEntry{
 			parent: imd,
 			metadata: &EntryMetadata{
-				Name: name,
-				Mode: mode | os.ModeDir,
+				Name:        name,
+				Type:        EntryTypeDirectory,
+				Permissions: permissions,
 			},
 		},
 	}
@@ -88,7 +89,7 @@ func (imd *inmemoryDirectory) subdir(name ...string) *inmemoryDirectory {
 		if i2 == nil {
 			panic(fmt.Sprintf("'%s' not found in '%s'", n, i.metadata.Name))
 		}
-		if !i2.Metadata().Mode.IsDir() {
+		if !i2.Metadata().FileMode().IsDir() {
 			panic(fmt.Sprintf("'%s' is not a directory in '%s'", n, i.metadata.Name))
 		}
 

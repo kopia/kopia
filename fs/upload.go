@@ -276,7 +276,7 @@ func (u *uploader) uploadDirInternal(
 			}
 
 		default:
-			return repo.NullObjectID, 0, false, fmt.Errorf("file type %v not supported", entry.Metadata().Mode)
+			return repo.NullObjectID, 0, false, fmt.Errorf("file type %v not supported", entry.Metadata().Type)
 		}
 
 		if hash != 0 {
@@ -289,7 +289,7 @@ func (u *uploader) uploadDirInternal(
 			return repo.NullObjectID, 0, false, err
 		}
 
-		if !e.Mode.IsDir() && e.ObjectID.StorageBlock != "" {
+		if e.Type != EntryTypeDirectory && e.ObjectID.StorageBlock != "" {
 			if err := hcw.WriteEntry(hashCacheEntry{
 				Name:     entryRelativePath,
 				Hash:     hash,
