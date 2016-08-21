@@ -26,15 +26,16 @@ import (
 //
 // Examples:
 //
-//   "B"                                      // empty object
-//   "BcXVpY2sgYnJvd24gZm94Cg=="              // inline content "quick brown fox" (base64-encoded)
-//   "D295754edeb35c17911b1fdf853f572fe"      // storage block
-//   "L1,2c33acbcba3569f943d9e8aaea7817c5"    // level-1 indirection block
-//   "L3,e18604fe53ee670558eb4234d2e55cb7"    // level-3 indirection block
+//   "B"                                        // empty object
+//   "BcXVpY2sgYnJvd24gZm94Cg=="                // inline content "quick brown fox" (base64-encoded)
+//   "D295754edeb35c17911b1fdf853f572fe"        // storage block
+//   "L1,2c33acbcba3569f943d9e8aaea7817c5"      // level-1 indirection block
+//   "L3,e18604fe53ee670558eb4234d2e55cb7"      // level-3 indirection block
 //   "Daad048fd5721b43adaa353c407d23ff6.5617c50fb1d71b6f7a2c4c8bacacef1d2222eaa4b2245a3714686c658f8af3d9"
-//                                            // encrypted storage block with 256-bit key
+//                                              // encrypted storage block with 256-bit key
 //   "L2,87381a8631dcc86256233437338e27c4.81cf86361dbc9b7905f12f6f6b80d7ec0edd487eeb339e1193805e3f58ef9505"
-//                                            // encrypted level-2 indirection block with 256-bit key
+//                                              // encrypted level-2 indirection block with 256-bit key
+//   "S30,50,D295754edeb35c17911b1fdf853f572fe" // section of "D295754edeb35c17911b1fdf853f572fe" between [30,80)
 //
 //
 type ObjectID struct {
