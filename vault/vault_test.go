@@ -64,7 +64,7 @@ func verifyVault(t *testing.T, vaultPath string, repoPath string) {
 	repoFormat := &repo.Format{
 		Version:      1,
 		MaxBlobSize:  1000000,
-		ObjectFormat: repo.ObjectIDFormat_UNENCYPTED_HMAC_SHA256,
+		ObjectFormat: "UNENCRYPTED_HMAC_SHA256",
 		Secret:       []byte{1, 2, 3},
 	}
 
@@ -189,7 +189,7 @@ func verifyVault(t *testing.T, vaultPath string, repoPath string) {
 		if err != nil {
 			t.Errorf("error getting object ID: %v", err)
 		} else {
-			if !oid.Equals(oid1) {
+			if !reflect.DeepEqual(oid, oid1) {
 				t.Errorf("got invalid object ID: %v expected %v", oid, oid1)
 			}
 		}
@@ -198,7 +198,7 @@ func verifyVault(t *testing.T, vaultPath string, repoPath string) {
 		if err != nil {
 			t.Errorf("error getting object ID: %v", err)
 		} else {
-			if !oid.Equals(oid2) {
+			if !reflect.DeepEqual(oid, oid2) {
 				t.Errorf("got invalid object ID: %v expected %v", oid, oid2)
 			}
 		}

@@ -15,7 +15,7 @@ import (
 var (
 	createCommand           = app.Command("create", "Create new vault and repository.")
 	createCommandRepository = createCommand.Flag("repository", "Repository path.").Default("colocated").String()
-	createObjectFormat      = createCommand.Flag("repo-format", "Format of repository objects.").PlaceHolder("FORMAT").Default(repo.DefaultObjectFormat.Name()).Enum(supportedObjectFormats()...)
+	createObjectFormat      = createCommand.Flag("repo-format", "Format of repository objects.").PlaceHolder("FORMAT").Default(repo.DefaultObjectFormat).Enum(supportedObjectFormats()...)
 
 	createMaxBlobSize           = createCommand.Flag("max-blob-size", "Maximum size of a data chunk.").PlaceHolder("KB").Default("20480").Int()
 	createInlineBlobSize        = createCommand.Flag("inline-blob-size", "Maximum size of an inline data chunk.").PlaceHolder("KB").Default("32").Int()
@@ -43,20 +43,15 @@ func vaultFormat() (*vault.Format, error) {
 }
 
 func repositoryFormat() (*repo.Format, error) {
-	objectIDFormat, err := repo.ParseObjectIDFormat(*createObjectFormat)
-	if err != nil {
-		return nil, err
-	}
-
 	f := &repo.Format{
 		Version:           1,
 		Secret:            make([]byte, 32),
 		MaxBlobSize:       int32(*createMaxBlobSize * 1024),
 		MaxInlineBlobSize: int32(*createInlineBlobSize * 1024),
-		ObjectFormat:      objectIDFormat,
+		ObjectFormat:      *createObjectFormat,
 	}
 
-	_, err = io.ReadFull(rand.Reader, f.Secret)
+	_, err := io.ReadFull(rand.Reader, f.Secret)
 	if err != nil {
 		return nil, err
 	}
@@ -155,8 +150,8 @@ func supportedVaultEncryptionFormats() []string {
 
 func supportedObjectFormats() []string {
 	var r []string
-	for _, o := range repo.SupportedFormats {
-		r = append(r, o.Name())
+	for k := range repo.SupportedFormats {
+		r = append(r, k)
 	}
 	return r
 }

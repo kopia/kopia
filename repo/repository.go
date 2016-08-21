@@ -15,8 +15,7 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/kopia/kopia/internal"
-
+	"github.com/kopia/kopia/internal/jsonstream"
 	"github.com/kopia/kopia/storage"
 	"github.com/kopia/kopia/storage/logging"
 )
@@ -125,11 +124,7 @@ func (repo *repository) Open(objectID ObjectID) (ObjectReader, error) {
 	// defer log.Printf("finished Repository::Open() %v", objectID.String())
 
 	if objectID.Section != nil {
-		if objectID.Section.Base == nil {
-			return nil, fmt.Errorf("invalid section base object")
-		}
-
-		baseReader, err := repo.Open(*objectID.Section.Base)
+		baseReader, err := repo.Open(objectID.Section.Base)
 		if err != nil {
 			return nil, fmt.Errorf("cannot create base reader: %v", err)
 		}
@@ -163,8 +158,8 @@ func (repo *repository) Open(objectID ObjectID) (ObjectReader, error) {
 
 func dumpObject(repo *repository, oid ObjectID) {
 	oid.Indirect = 0
-	log.Printf("  dumping %v", oid.String())
-	defer log.Printf("  end of %v", oid.String())
+	log.Printf("  dumping %v", oid.UIString())
+	defer log.Printf("  end of %v", oid.UIString())
 	r, err := repo.Open(oid)
 	if err != nil {
 		log.Printf("failed to open %v: %v", oid, err)
@@ -293,14 +288,17 @@ func (repo *repository) hashBufferForWriting(buffer *bytes.Buffer, prefix string
 	return objectID, blockReader, nil
 }
 
-func (repo *repository) flattenListChunk(rawReader io.Reader) ([]IndirectObjectEntry, error) {
+func (repo *repository) flattenListChunk(rawReader io.Reader) ([]indirectObjectEntry, error) {
 
 	r := bufio.NewReader(rawReader)
-	pr := internal.NewProtoStreamReader(r, internal.ProtoStreamTypeIndirect)
-	var seekTable []IndirectObjectEntry
+	pr, err := jsonstream.NewReader(r, indirectStreamType)
+	if err != nil {
+		return nil, err
+	}
+	var seekTable []indirectObjectEntry
 
 	for {
-		var oe IndirectObjectEntry
+		var oe indirectObjectEntry
 
 		err := pr.Read(&oe)
 		if err == io.EOF {
@@ -308,7 +306,7 @@ func (repo *repository) flattenListChunk(rawReader io.Reader) ([]IndirectObjectE
 		}
 
 		if err != nil {
-			log.Printf("Failed to read proto: %v", err)
+			log.Printf("Failed to read indirect object: %v", err)
 			return nil, err
 		}
 

@@ -5,22 +5,27 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/kopia/kopia/internal"
-
+	"github.com/kopia/kopia/internal/jsonstream"
 	"github.com/kopia/kopia/repo"
 )
 
+var directoryStreamType = "kopia:directory"
+
 type directoryWriter struct {
-	w *internal.ProtoStreamWriter
+	w *jsonstream.Writer
 }
 
 func (dw *directoryWriter) WriteEntry(e *EntryMetadata, children []*EntryMetadata) error {
 	return dw.w.Write(e)
 }
 
+func (dw *directoryWriter) Close() error {
+	return dw.w.Close()
+}
+
 func newDirectoryWriter(w io.WriteCloser) *directoryWriter {
 	dw := &directoryWriter{
-		w: internal.NewProtoStreamWriter(w, internal.ProtoStreamTypeDir),
+		w: jsonstream.NewWriter(w, directoryStreamType),
 	}
 
 	return dw
@@ -31,7 +36,10 @@ func invalidDirectoryError(cause error) error {
 }
 
 func readDirectoryMetadataEntries(r io.Reader) ([]*EntryMetadata, error) {
-	psr := internal.NewProtoStreamReader(bufio.NewReader(r), internal.ProtoStreamTypeDir)
+	psr, err := jsonstream.NewReader(bufio.NewReader(r), directoryStreamType)
+	if err != nil {
+		return nil, err
+	}
 	var entries []*EntryMetadata
 	for {
 		e := &EntryMetadata{}
@@ -62,8 +70,8 @@ func flattenBundles(source []*EntryMetadata) ([]*EntryMetadata, error) {
 			var currentOffset int64
 
 			for _, child := range bundle {
-				id := repo.NewSectionObjectID(currentOffset, child.FileSize, e.ObjectId)
-				child.ObjectId = &id
+				id := repo.NewSectionObjectID(currentOffset, child.FileSize, *e.ObjectID)
+				child.ObjectID = &id
 				currentOffset += child.FileSize
 			}
 

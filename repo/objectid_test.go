@@ -2,6 +2,7 @@ package repo
 
 import (
 	"bytes"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -32,7 +33,7 @@ func TestParseMalformedObjectID(t *testing.T) {
 
 	for _, c := range cases {
 		v, err := ParseObjectID(c)
-		if !v.Equals(NullObjectID) || err == nil || !strings.HasPrefix(err.Error(), "malformed object id") {
+		if !reflect.DeepEqual(v, NullObjectID) || err == nil || !strings.HasPrefix(err.Error(), "malformed object id") {
 			t.Errorf("unexpected result for %v: v: %v err: %v", c, v, err)
 		}
 	}

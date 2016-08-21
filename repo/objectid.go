@@ -7,10 +7,26 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/golang/protobuf/proto"
-
 	"fmt"
 )
+
+// ObjectID represents the identifier of a chunk.
+// Identifiers can either refer to data block stored in a Storage, or contain small amounts
+// of payload directly (useful for short ASCII or binary files).
+type ObjectID struct {
+	StorageBlock string           `json:"block,omitempty"`
+	Indirect     int32            `json:"indirect,omitempty"`
+	Encryption   []byte           `json:"encryption,omitempty"`
+	Content      []byte           `json:"content,omitempty"`
+	Section      *ObjectIDSection `json:"section,omitempty"`
+}
+
+// ObjectIDSection represents details about a section of ObjectID.
+type ObjectIDSection struct {
+	Start  int64    `json:"start"`
+	Length int64    `json:"len"`
+	Base   ObjectID `json:"base"`
+}
 
 // NullObjectID is the identifier of an null object.
 var NullObjectID ObjectID
@@ -49,11 +65,6 @@ func (m *ObjectID) UIString() string {
 	return "B"
 }
 
-// Equals determines whether ObjectID is equal to another ObjectID.
-func (m *ObjectID) Equals(other ObjectID) bool {
-	return proto.Equal(m, &other)
-}
-
 // NewInlineObjectID returns new ObjectID containing inline binary or text-encoded data.
 func NewInlineObjectID(data []byte) ObjectID {
 	return ObjectID{
@@ -62,9 +73,9 @@ func NewInlineObjectID(data []byte) ObjectID {
 }
 
 // NewSectionObjectID returns new ObjectID representing a section of an object with a given base ID, start offset and length.
-func NewSectionObjectID(start, length int64, baseID *ObjectID) ObjectID {
+func NewSectionObjectID(start, length int64, baseID ObjectID) ObjectID {
 	return ObjectID{
-		Section: &ObjectID_Section{
+		Section: &ObjectIDSection{
 			Base:   baseID,
 			Start:  start,
 			Length: length,
@@ -119,10 +130,10 @@ func ParseObjectID(objectIDString string) (ObjectID, error) {
 		switch chunkType {
 		case 'S':
 			if start, length, base, err := parseSectionInfoString(objectIDString); err == nil {
-				return ObjectID{Section: &ObjectID_Section{
+				return ObjectID{Section: &ObjectIDSection{
 					Start:  start,
 					Length: length,
-					Base:   &base,
+					Base:   base,
 				}}, nil
 			}
 

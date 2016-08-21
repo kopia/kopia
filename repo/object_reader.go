@@ -5,14 +5,14 @@ import (
 	"io"
 )
 
-func (i *IndirectObjectEntry) endOffset() int64 {
+func (i *indirectObjectEntry) endOffset() int64 {
 	return i.Start + i.Length
 }
 
 type objectReader struct {
 	repo Repository
 
-	seekTable []IndirectObjectEntry
+	seekTable []indirectObjectEntry
 
 	currentPosition int64 // Overall position in the objectReader
 	totalLength     int64 // Overall length

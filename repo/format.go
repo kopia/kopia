@@ -8,39 +8,33 @@ import (
 	"crypto/sha256"
 	"crypto/sha512"
 	"errors"
-	"fmt"
 	"hash"
 )
 
-var (
-	hkdfInfoBlockID   = []byte("BlockID")
-	hkdfInfoCryptoKey = []byte("CryptoKey")
-)
+// Format describes the format of object data.
+type Format struct {
+	Version           int32  `json:"version,omitempty"`
+	ObjectFormat      string `json:"objectFormat,omitempty"`
+	Secret            []byte `json:"secret,omitempty"`
+	MaxInlineBlobSize int32  `json:"maxInlineBlobSize,omitempty"`
+	MaxBlobSize       int32  `json:"maxBlobSize,omitempty"`
+}
 
 // ObjectIDFormatInfo performs hashing and encryption of a data block.
 type ObjectIDFormatInfo interface {
-	Name() string
 	HashBuffer(data []byte, secret []byte) (blockID []byte, cryptoKey []byte)
 	CreateCipher(key []byte) (cipher.Block, error)
 }
 
 type unencryptedFormat struct {
-	name     string
 	hashCtor func() hash.Hash
 	fold     int
-}
-
-func (fi *unencryptedFormat) Name() string {
-	return fi.name
 }
 
 func (fi *unencryptedFormat) HashBuffer(data []byte, secret []byte) (blockID []byte, cryptoKey []byte) {
 	blockID = hashContent(fi.hashCtor, data, secret)
 	if fi.fold > 0 {
-		for i := fi.fold; i < len(blockID); i++ {
-			blockID[i%fi.fold] ^= blockID[i]
-		}
-		blockID = blockID[0:fi.fold]
+		blockID = fold(blockID, fi.fold)
 	}
 	return
 }
@@ -51,14 +45,9 @@ func (fi *unencryptedFormat) CreateCipher(key []byte) (cipher.Block, error) {
 }
 
 type encryptedFormat struct {
-	name         string
 	hashCtor     func() hash.Hash
 	createCipher func(key []byte) (cipher.Block, error)
 	keyBytes     int
-}
-
-func (fi *encryptedFormat) Name() string {
-	return fi.name
 }
 
 func (fi *encryptedFormat) HashBuffer(data []byte, secret []byte) (blockID []byte, cryptoKey []byte) {
@@ -75,26 +64,16 @@ func (fi *encryptedFormat) CreateCipher(key []byte) (cipher.Block, error) {
 }
 
 // SupportedFormats containes supported ObjectIDformats
-var SupportedFormats = map[ObjectIDFormat]ObjectIDFormatInfo{
-	ObjectIDFormat_TESTONLY_MD5:                     &unencryptedFormat{"TESTONLY_MD5", md5.New, 0},
-	ObjectIDFormat_UNENCYPTED_HMAC_SHA256:           &unencryptedFormat{"UNENCRYPTED_HMAC_SHA256", sha256.New, 0},
-	ObjectIDFormat_UNENCYPTED_HMAC_SHA256_128:       &unencryptedFormat{"UNENCRYPTED_HMAC_SHA256", sha256.New, 16},
-	ObjectIDFormat_ENCRYPTED_HMAC_SHA512_384_AES256: &encryptedFormat{"ENCRYPTED_HMAC_SHA512_384_AES256", sha512.New384, aes.NewCipher, 32},
-	ObjectIDFormat_ENCRYPTED_HMAC_SHA512_AES256:     &encryptedFormat{"ENCRYPTED_HMAC_SHA512_AES256", sha512.New, aes.NewCipher, 32},
+var SupportedFormats = map[string]ObjectIDFormatInfo{
+	"TESTONLY_MD5":                     &unencryptedFormat{md5.New, 0},
+	"UNENCRYPTED_HMAC_SHA256":          &unencryptedFormat{sha256.New, 0},
+	"UNENCRYPTED_HMAC_SHA256_128":      &unencryptedFormat{sha256.New, 16},
+	"ENCRYPTED_HMAC_SHA512_384_AES256": &encryptedFormat{sha512.New384, aes.NewCipher, 32},
+	"ENCRYPTED_HMAC_SHA512_AES256":     &encryptedFormat{sha512.New, aes.NewCipher, 32},
 }
 
 // DefaultObjectFormat is the format that should be used by default when creating new repositories.
-var DefaultObjectFormat = SupportedFormats[ObjectIDFormat_ENCRYPTED_HMAC_SHA512_AES256]
-
-// ParseObjectIDFormat parses the given string and returns corresponding ObjectIDFormat.
-func ParseObjectIDFormat(s string) (ObjectIDFormat, error) {
-	v, ok := ObjectIDFormat_value[s]
-	if ok {
-		return ObjectIDFormat(v), nil
-	}
-
-	return ObjectIDFormat_INVALID, fmt.Errorf("unknown object ID format: %v", s)
-}
+var DefaultObjectFormat = "ENCRYPTED_HMAC_SHA512_AES256"
 
 func fold(b []byte, size int) []byte {
 	if len(b) == size {

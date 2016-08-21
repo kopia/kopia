@@ -1,15 +1,24 @@
 package fs
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 
-	"github.com/kopia/kopia/internal"
+	"github.com/kopia/kopia/internal/jsonstream"
+	"github.com/kopia/kopia/repo"
 )
 
+var hashCacheStreamType = "kopia:hashcache"
+
+// HashCacheEntry represents an entry in hash cache database about single file or directory.
+type HashCacheEntry struct {
+	Name     string        `json:"name,omitempty"`
+	Hash     uint64        `json:"hash,omitempty"`
+	ObjectID repo.ObjectID `json:"oid,omitempty"`
+}
+
 type hashcacheReader struct {
-	reader    *internal.ProtoStreamReader
+	reader    *jsonstream.Reader
 	nextEntry *HashCacheEntry
 	entry0    HashCacheEntry
 	entry1    HashCacheEntry
@@ -18,7 +27,11 @@ type hashcacheReader struct {
 }
 
 func (hcr *hashcacheReader) open(r io.Reader) error {
-	hcr.reader = internal.NewProtoStreamReader(bufio.NewReader(r), internal.ProtoStreamTypeHashCache)
+	jsr, err := jsonstream.NewReader(r, hashCacheStreamType)
+	if err != nil {
+		return err
+	}
+	hcr.reader = jsr
 	hcr.nextEntry = nil
 	hcr.first = true
 	hcr.readahead()
@@ -64,13 +77,13 @@ func (hcr *hashcacheReader) nextManifestEntry() *HashCacheEntry {
 }
 
 type hashcacheWriter struct {
-	writer          *internal.ProtoStreamWriter
+	writer          *jsonstream.Writer
 	lastNameWritten string
 }
 
 func newHashCacheWriter(w io.Writer) *hashcacheWriter {
 	hcw := &hashcacheWriter{
-		writer: internal.NewProtoStreamWriter(w, internal.ProtoStreamTypeHashCache),
+		writer: jsonstream.NewWriter(w, hashCacheStreamType),
 	}
 	return hcw
 }

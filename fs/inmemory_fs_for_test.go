@@ -35,8 +35,8 @@ func (imd *inmemoryDirectory) addFile(name string, content []byte, mode os.FileM
 		inmemoryEntry: inmemoryEntry{
 			parent: imd,
 			metadata: &EntryMetadata{
-				Name:               name,
-				ModeAndPermissions: uint32(mode),
+				Name: name,
+				Mode: mode,
 			},
 		},
 		source: bytes.NewBuffer(content),
@@ -54,8 +54,8 @@ func (imd *inmemoryDirectory) addDir(name string, mode os.FileMode) *inmemoryDir
 		inmemoryEntry: inmemoryEntry{
 			parent: imd,
 			metadata: &EntryMetadata{
-				Name:               name,
-				ModeAndPermissions: uint32(mode | os.ModeDir),
+				Name: name,
+				Mode: mode | os.ModeDir,
 			},
 		},
 	}
@@ -88,7 +88,7 @@ func (imd *inmemoryDirectory) subdir(name ...string) *inmemoryDirectory {
 		if i2 == nil {
 			panic(fmt.Sprintf("'%s' not found in '%s'", n, i.metadata.Name))
 		}
-		if !i2.Metadata().FileMode().IsDir() {
+		if !i2.Metadata().Mode.IsDir() {
 			panic(fmt.Sprintf("'%s' is not a directory in '%s'", n, i.metadata.Name))
 		}
 

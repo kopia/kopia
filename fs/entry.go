@@ -8,12 +8,26 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/kopia/kopia/repo"
 )
 
 // Entry represents a filesystem entry, which can be Directory, File, or Symlink
 type Entry interface {
 	Parent() Directory
 	Metadata() *EntryMetadata
+}
+
+// EntryMetadata stores attributes of a single entry in a directory.
+type EntryMetadata struct {
+	Name            string           `json:"name,omitempty"`
+	Mode            os.FileMode      `json:"mode,omitempty"`
+	FileSize        int64            `json:"size,omitempty"`
+	ModTimeNano     int64            `json:"mtime,omitempty"`
+	ObjectID        *repo.ObjectID   `json:"oid,omitempty"`
+	UserID          uint32           `json:"uid,omitempty"`
+	GroupID         uint32           `json:"gid,omitempty"`
+	BundledChildren []*EntryMetadata `json:"children,omitempty"`
 }
 
 // Entries is a list of entries sorted by name.
@@ -120,24 +134,18 @@ func isLessOrEqual(name1, name2 string) bool {
 	return len(parts1) <= len(parts2)
 }
 
-// FileMode returns the file mode and permissions.
-func (e *EntryMetadata) FileMode() os.FileMode {
-	return os.FileMode(e.ModeAndPermissions)
-}
-
 // ModTime returns the modification time.
 func (e *EntryMetadata) ModTime() time.Time {
-	return time.Unix(e.ModTimestampNano/1000000000, e.ModTimestampNano%1000000000)
-
+	return time.Unix(e.ModTimeNano/1000000000, e.ModTimeNano%1000000000)
 }
 
 func (e *EntryMetadata) metadataHash() uint64 {
 	h := fnv.New64a()
-	binary.Write(h, binary.LittleEndian, e.ModTimestampNano)
-	binary.Write(h, binary.LittleEndian, e.ModeAndPermissions)
+	binary.Write(h, binary.LittleEndian, e.ModTimeNano)
+	binary.Write(h, binary.LittleEndian, e.Mode)
 	binary.Write(h, binary.LittleEndian, e.FileSize)
-	binary.Write(h, binary.LittleEndian, e.Uid)
-	binary.Write(h, binary.LittleEndian, e.Gid)
+	binary.Write(h, binary.LittleEndian, e.UserID)
+	binary.Write(h, binary.LittleEndian, e.GroupID)
 	return h.Sum64()
 }
 

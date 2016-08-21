@@ -4,9 +4,8 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
-
-	"github.com/golang/protobuf/proto"
 
 	"github.com/kopia/kopia/repo"
 )
@@ -21,7 +20,7 @@ const (
 // SaveObjectID stores the given object ID in an encrypted vault item and returns a unique ID.
 func (vlt *Vault) SaveObjectID(oid repo.ObjectID) (string, error) {
 	h := hmac.New(sha256.New, vlt.format.UniqueID)
-	bytes, err := proto.Marshal(&oid)
+	bytes, err := json.Marshal(&oid)
 	if err != nil {
 		return "", err
 	}
@@ -57,7 +56,7 @@ func (vlt *Vault) GetObjectID(id string) (repo.ObjectID, error) {
 		}
 
 		var oid repo.ObjectID
-		if err := proto.Unmarshal(b, &oid); err != nil {
+		if err := json.Unmarshal(b, &oid); err != nil {
 			return repo.NullObjectID, err
 		}
 

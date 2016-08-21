@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"reflect"
 
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/storage"
@@ -42,7 +43,7 @@ func newUploadTestHarness() *uploadTestHarness {
 
 	format := repo.Format{
 		Version:           1,
-		ObjectFormat:      repo.ObjectIDFormat_TESTONLY_MD5,
+		ObjectFormat:      "TESTONLY_MD5",
 		MaxBlobSize:       1000,
 		MaxInlineBlobSize: 0,
 	}
@@ -96,11 +97,11 @@ func TestUpload(t *testing.T) {
 		t.Errorf("upload failed: %v", err)
 	}
 
-	if !r2.ObjectID.Equals(r1.ObjectID) {
+	if !objectIDsEqual(r2.ObjectID, r1.ObjectID) {
 		t.Errorf("expected r1.ObjectID==r2.ObjectID, got %v and %v", r1.ObjectID.UIString(), r2.ObjectID.UIString())
 	}
 
-	if !r2.ManifestID.Equals(r1.ManifestID) {
+	if !objectIDsEqual(r2.ManifestID, r1.ManifestID) {
 		t.Errorf("expected r2.ManifestID==r1.ManifestID, got %v and %v", r2.ManifestID.UIString(), r1.ManifestID.UIString())
 	}
 
@@ -121,11 +122,11 @@ func TestUpload(t *testing.T) {
 		t.Errorf("upload failed: %v", err)
 	}
 
-	if r2.ObjectID.Equals(r3.ObjectID) {
+	if objectIDsEqual(r2.ObjectID, r3.ObjectID) {
 		t.Errorf("expected r3.ObjectID!=r2.ObjectID, got %v", r3.ObjectID.UIString())
 	}
 
-	if r2.ManifestID.Equals(r3.ManifestID) {
+	if objectIDsEqual(r2.ManifestID, r3.ManifestID) {
 		t.Errorf("expected r3.ManifestID!=r2.ManifestID, got %v", r3.ManifestID.UIString())
 	}
 
@@ -142,10 +143,10 @@ func TestUpload(t *testing.T) {
 		t.Errorf("upload failed: %v", err)
 	}
 
-	if !r4.ObjectID.Equals(r1.ObjectID) {
+	if !objectIDsEqual(r4.ObjectID, r1.ObjectID) {
 		t.Errorf("expected r4.ObjectID==r1.ObjectID, got %v and %v", r4.ObjectID, r1.ObjectID)
 	}
-	if !r4.ManifestID.Equals(r1.ManifestID) {
+	if !objectIDsEqual(r4.ManifestID, r1.ManifestID) {
 		t.Errorf("expected r4.ManifestID==r1.ManifestID, got %v and %v", r4.ManifestID, r1.ManifestID)
 	}
 
@@ -196,6 +197,10 @@ func TestUpload_SubDirectoryReadFailure(t *testing.T) {
 	if err == nil {
 		t.Errorf("expected error")
 	}
+}
+
+func objectIDsEqual(o1 repo.ObjectID, o2 repo.ObjectID) bool {
+	return reflect.DeepEqual(o1, o2)
 }
 
 func TestUpload_SubdirectoryDeleted(t *testing.T) {

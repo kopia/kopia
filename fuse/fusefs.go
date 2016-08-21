@@ -21,11 +21,11 @@ type fuseNode struct {
 
 func (n *fuseNode) Attr(ctx context.Context, a *fuse.Attr) error {
 	m := n.entry.Metadata()
-	a.Mode = m.FileMode()
+	a.Mode = m.Mode
 	a.Size = uint64(m.FileSize)
 	a.Mtime = m.ModTime()
-	a.Uid = m.Uid
-	a.Gid = m.Gid
+	a.Uid = m.UserID
+	a.Gid = m.GroupID
 	return nil
 }
 
@@ -88,7 +88,7 @@ func (dir *fuseDirectoryNode) ReadDirAll(ctx context.Context) ([]fuse.Dirent, er
 			Name: m.Name,
 		}
 
-		switch m.FileMode() & os.ModeType {
+		switch m.Mode & os.ModeType {
 		case os.ModeDir:
 			dirent.Type = fuse.DT_Dir
 		case 0:
@@ -124,7 +124,7 @@ func newFuseNode(e fs.Entry) (fusefs.Node, error) {
 	case fs.Symlink:
 		return &fuseSymlinkNode{fuseNode{e}}, nil
 	default:
-		return nil, fmt.Errorf("entry type not supported: %v", e.Metadata().FileMode())
+		return nil, fmt.Errorf("entry type not supported: %v", e.Metadata().Mode)
 	}
 }
 

@@ -1,7 +1,6 @@
 package repo
 
 import (
-	"bufio"
 	"bytes"
 	"crypto/md5"
 	cryptorand "crypto/rand"
@@ -10,9 +9,10 @@ import (
 	"io"
 	"io/ioutil"
 	"math/rand"
+	"reflect"
 	"testing"
 
-	"github.com/kopia/kopia/internal"
+	"github.com/kopia/kopia/internal/jsonstream"
 	"github.com/kopia/kopia/storage"
 	"github.com/kopia/kopia/storage/storagetesting"
 )
@@ -22,7 +22,7 @@ func testFormat() *Format {
 		Version:           1,
 		MaxBlobSize:       200,
 		MaxInlineBlobSize: 20,
-		ObjectFormat:      ObjectIDFormat_TESTONLY_MD5,
+		ObjectFormat:      "TESTONLY_MD5",
 	}
 }
 
@@ -82,7 +82,7 @@ func TestWriters(t *testing.T) {
 			continue
 		}
 
-		if !result.Equals(c.objectID) {
+		if !objectIDsEqual(result, c.objectID) {
 			t.Errorf("incorrect result for %v, expected: %v got: %v", c.data, c.objectID.UIString(), result)
 		}
 
@@ -96,7 +96,10 @@ func TestWriters(t *testing.T) {
 			}
 		}
 	}
+}
 
+func objectIDsEqual(o1 ObjectID, o2 ObjectID) bool {
+	return reflect.DeepEqual(o1, o2)
 }
 
 func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
@@ -109,7 +112,7 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	writer.Write(bytes[0:50])
 	writer.Write(bytes[0:50])
 	result, err := writer.Result(false)
-	if !result.Equals(ObjectID{StorageBlock: "X6d0bb00954ceb7fbee436bb55a8397a9"}) {
+	if !objectIDsEqual(result, ObjectID{StorageBlock: "X6d0bb00954ceb7fbee436bb55a8397a9"}) {
 		t.Errorf("unexpected result: %v err: %v", result, err)
 	}
 }
@@ -121,14 +124,18 @@ func verifyIndirectBlock(t *testing.T, r Repository, oid ObjectID) {
 
 		rd, err := r.Open(direct)
 		if err != nil {
-			t.Errorf("unable to open %v: %v", oid.String(), err)
+			t.Errorf("unable to open %v: %v", oid.UIString(), err)
 			return
 		}
 		defer rd.Close()
 
-		pr := internal.NewProtoStreamReader(bufio.NewReader(rd), internal.ProtoStreamTypeIndirect)
+		pr, err := jsonstream.NewReader(rd, indirectStreamType)
+		if err != nil {
+			t.Errorf("cannot open indirect stream: %v", err)
+			return
+		}
 		for {
-			var v IndirectObjectEntry
+			v := indirectObjectEntry{}
 			if err := pr.Read(&v); err != nil {
 				if err == io.EOF {
 					break
@@ -148,11 +155,11 @@ func TestIndirection(t *testing.T) {
 	}{
 		{dataLength: 200, expectedBlockCount: 1, expectedIndirection: 0},
 		{dataLength: 250, expectedBlockCount: 3, expectedIndirection: 1},
-		{dataLength: 1400, expectedBlockCount: 4, expectedIndirection: 2},
-		{dataLength: 2000, expectedBlockCount: 5, expectedIndirection: 2},
-		{dataLength: 3000, expectedBlockCount: 6, expectedIndirection: 2},
-		{dataLength: 4000, expectedBlockCount: 9, expectedIndirection: 3},
-		{dataLength: 10000, expectedBlockCount: 16, expectedIndirection: 3},
+		{dataLength: 1400, expectedBlockCount: 7, expectedIndirection: 3},
+		{dataLength: 2000, expectedBlockCount: 8, expectedIndirection: 3},
+		{dataLength: 3000, expectedBlockCount: 13, expectedIndirection: 4},
+		{dataLength: 4000, expectedBlockCount: 15, expectedIndirection: 4},
+		{dataLength: 10000, expectedBlockCount: 32, expectedIndirection: 5},
 	}
 
 	for _, c := range cases {
@@ -168,11 +175,11 @@ func TestIndirection(t *testing.T) {
 		}
 
 		if result.Indirect != c.expectedIndirection {
-			t.Errorf("incorrect indirection level: %v, expected %v", result.Indirect, c.expectedIndirection)
+			t.Errorf("incorrect indirection level for size: %v: %v, expected %v", c.dataLength, result.Indirect, c.expectedIndirection)
 		}
 
 		if len(data) != c.expectedBlockCount {
-			t.Errorf("unexpected block count: %v, expected %v", len(data), c.expectedBlockCount)
+			t.Errorf("unexpected block count for %v: %v, expected %v", c.dataLength, len(data), c.expectedBlockCount)
 		}
 
 		verifyIndirectBlock(t, repo, result)
@@ -184,7 +191,7 @@ func TestHMAC(t *testing.T) {
 	content := bytes.Repeat([]byte{0xcd}, 50)
 
 	s := testFormat()
-	s.ObjectFormat = ObjectIDFormat_TESTONLY_MD5
+	s.ObjectFormat = "TESTONLY_MD5"
 	s.Secret = []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25}
 
 	repo, err := NewRepository(storagetesting.NewMapStorage(data), s)
@@ -304,12 +311,12 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 			verify(t, repo, objectID, randomData, fmt.Sprintf("%v %v/%v", objectID, forceStored, size))
 
 			if size > 1 {
-				sectionID := NewSectionObjectID(0, int64(size/2), &objectID)
+				sectionID := NewSectionObjectID(0, int64(size/2), objectID)
 				verify(t, repo, sectionID, randomData[0:10], fmt.Sprintf("%v %v/%v", sectionID, forceStored, size))
 			}
 
 			if size > 1 {
-				sectionID := NewSectionObjectID(int64(1), int64(size-1), &objectID)
+				sectionID := NewSectionObjectID(int64(1), int64(size-1), objectID)
 				verify(t, repo, sectionID, randomData[1:], fmt.Sprintf("%v %v/%v", sectionID, forceStored, size))
 			}
 		}
@@ -348,7 +355,7 @@ func verify(t *testing.T, repo Repository, objectID ObjectID, expectedData []byt
 }
 
 func TestFormats(t *testing.T) {
-	makeFormat := func(objectFormat ObjectIDFormat) *Format {
+	makeFormat := func(objectFormat string) *Format {
 		return &Format{
 			Version:      1,
 			ObjectFormat: objectFormat,
@@ -362,7 +369,7 @@ func TestFormats(t *testing.T) {
 		oids   map[string]ObjectID
 	}{
 		{
-			format: makeFormat(ObjectIDFormat_TESTONLY_MD5), // MD5-HMAC with secret 'key'
+			format: makeFormat("TESTONLY_MD5"), // MD5-HMAC with secret 'key'
 			oids: map[string]ObjectID{
 				"": ObjectID{StorageBlock: "63530468a04e386459855da0063b6596"},
 				"The quick brown fox jumps over the lazy dog": ObjectID{StorageBlock: "80070713463e7749b90c2dc24911e275"},
@@ -371,7 +378,7 @@ func TestFormats(t *testing.T) {
 		{
 			format: &Format{
 				Version:      1,
-				ObjectFormat: ObjectIDFormat_TESTONLY_MD5,
+				ObjectFormat: "TESTONLY_MD5",
 				MaxBlobSize:  10000,
 				Secret:       []byte{}, // HMAC with zero-byte secret
 			},
@@ -383,7 +390,7 @@ func TestFormats(t *testing.T) {
 		{
 			format: &Format{
 				Version:      1,
-				ObjectFormat: ObjectIDFormat_TESTONLY_MD5,
+				ObjectFormat: "TESTONLY_MD5",
 				MaxBlobSize:  10000,
 				Secret:       nil, // non-HMAC version
 			},
@@ -395,7 +402,7 @@ func TestFormats(t *testing.T) {
 			},
 		},
 		{
-			format: makeFormat(ObjectIDFormat_TESTONLY_MD5),
+			format: makeFormat("TESTONLY_MD5"),
 			oids: map[string]ObjectID{
 				"The quick brown fox jumps over the lazy dog": ObjectID{
 					StorageBlock: "80070713463e7749b90c2dc24911e275",
@@ -403,7 +410,7 @@ func TestFormats(t *testing.T) {
 			},
 		},
 		{
-			format: makeFormat(ObjectIDFormat_UNENCYPTED_HMAC_SHA256),
+			format: makeFormat("UNENCRYPTED_HMAC_SHA256"),
 			oids: map[string]ObjectID{
 				"The quick brown fox jumps over the lazy dog": ObjectID{
 					StorageBlock: "f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8",
@@ -411,7 +418,7 @@ func TestFormats(t *testing.T) {
 			},
 		},
 		{
-			format: makeFormat(ObjectIDFormat_UNENCYPTED_HMAC_SHA256_128),
+			format: makeFormat("UNENCRYPTED_HMAC_SHA256_128"),
 			oids: map[string]ObjectID{
 				"The quick brown fox jumps over the lazy dog": ObjectID{
 					StorageBlock: "18f1da557915937d2675055a87758d9b",
@@ -419,7 +426,7 @@ func TestFormats(t *testing.T) {
 			},
 		},
 		{
-			format: makeFormat(ObjectIDFormat_ENCRYPTED_HMAC_SHA512_384_AES256),
+			format: makeFormat("ENCRYPTED_HMAC_SHA512_384_AES256"),
 			oids: map[string]ObjectID{
 				"The quick brown fox jumps over the lazy dog": ObjectID{
 					StorageBlock: "d7f4727e2c0b39ae0f1e40cc96f60242",
@@ -428,7 +435,7 @@ func TestFormats(t *testing.T) {
 			},
 		},
 		{
-			format: makeFormat(ObjectIDFormat_ENCRYPTED_HMAC_SHA512_AES256),
+			format: makeFormat("ENCRYPTED_HMAC_SHA512_AES256"),
 			oids: map[string]ObjectID{
 				"The quick brown fox jumps over the lazy dog": ObjectID{
 					StorageBlock: "b42af09057bac1e2d41708e48a902e09b5ff7f12ab428a4fe86653c73dd248fb",
@@ -442,7 +449,7 @@ func TestFormats(t *testing.T) {
 		data := map[string][]byte{}
 		st := storagetesting.NewMapStorage(data)
 
-		t.Logf("verifying %v", c.format.String())
+		t.Logf("verifying %v", c.format)
 		repo, err := NewRepository(st, c.format)
 		if err != nil {
 			t.Errorf("cannot create manager: %v", err)
@@ -457,7 +464,7 @@ func TestFormats(t *testing.T) {
 			if err != nil {
 				t.Errorf("error: %v", err)
 			}
-			if !oid.Equals(v) {
+			if !objectIDsEqual(oid, v) {
 				t.Errorf("invalid oid for #%v %v/%v:\ngot:\n%#v\nexpected:\n%#v", caseIndex, c.format.ObjectFormat, k, oid.UIString(), v.UIString())
 			}
 
@@ -482,7 +489,7 @@ func TestInvalidEncryptionKey(t *testing.T) {
 	st := storagetesting.NewMapStorage(data)
 	format := Format{
 		Version:      1,
-		ObjectFormat: ObjectIDFormat_ENCRYPTED_HMAC_SHA512_384_AES256,
+		ObjectFormat: "ENCRYPTED_HMAC_SHA512_384_AES256",
 		Secret:       []byte("key"),
 		MaxBlobSize:  1000,
 	}

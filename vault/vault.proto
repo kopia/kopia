@@ -1,4 +1,0 @@
-syntax = "proto3";
-
-package kopia.vault;
-option go_package = "github.com/kopia/kopia/vault";

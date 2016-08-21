@@ -68,14 +68,14 @@ func listDirectory(prefix string, entries fs.Entries, longFormat bool) {
 		var info string
 		if longFormat {
 			var oid string
-			if m.ObjectId.Content != nil {
+			if m.ObjectID.Content != nil {
 				oid = "<inline content>"
 			} else {
-				oid = m.ObjectId.UIString()
+				oid = m.ObjectID.UIString()
 			}
 			info = fmt.Sprintf(
 				"%v %9d %v %-"+maxNameLenString+"s %v",
-				m.FileMode(),
+				m.Mode,
 				m.FileSize,
 				m.ModTime().Local().Format("02 Jan 06 15:04:05"),
 				m.Name,
@@ -83,7 +83,7 @@ func listDirectory(prefix string, entries fs.Entries, longFormat bool) {
 			)
 		} else {
 			var suffix string
-			if m.FileMode().IsDir() {
+			if m.Mode.IsDir() {
 				suffix = "/"
 			}
 

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/kopia/kopia/internal"
+	"github.com/kopia/kopia/internal/jsonstream"
 	"github.com/kopia/kopia/storage"
 )
 
@@ -45,7 +45,7 @@ type objectWriter struct {
 
 	prefix             string
 	listWriter         *objectWriter
-	listProtoWriter    *internal.ProtoStreamWriter
+	listProtoWriter    *jsonstream.Writer
 	listCurrentPos     int64
 	flushedObjectCount int
 	lastFlushedObject  ObjectID
@@ -161,11 +161,11 @@ func (w *objectWriter) flushBuffer(force bool) error {
 				description:   "LIST(" + w.description + ")",
 				blockTracker:  w.blockTracker,
 			}
-			w.listProtoWriter = internal.NewProtoStreamWriter(w.listWriter, internal.ProtoStreamTypeIndirect)
+			w.listProtoWriter = jsonstream.NewWriter(w.listWriter, indirectStreamType)
 			w.listCurrentPos = 0
 		}
 
-		w.listProtoWriter.Write(&IndirectObjectEntry{
+		w.listProtoWriter.Write(&indirectObjectEntry{
 			Object: &objectID,
 			Start:  w.listCurrentPos,
 			Length: int64(length),
@@ -200,6 +200,7 @@ func (w *objectWriter) Result(forceStored bool) (ObjectID, error) {
 	} else if w.flushedObjectCount == 0 {
 		return NullObjectID, nil
 	} else {
+		w.listProtoWriter.Close()
 		return w.listWriter.Result(true)
 	}
 }
