@@ -63,13 +63,24 @@ func (fi *encryptedFormat) CreateCipher(key []byte) (cipher.Block, error) {
 
 }
 
-// SupportedFormats containes supported ObjectIDformats
-var SupportedFormats = map[string]ObjectFormatter{
-	"TESTONLY_MD5":                     &unencryptedFormat{md5.New, 0},
-	"UNENCRYPTED_HMAC_SHA256":          &unencryptedFormat{sha256.New, 0},
-	"UNENCRYPTED_HMAC_SHA256_128":      &unencryptedFormat{sha256.New, 16},
-	"ENCRYPTED_HMAC_SHA512_384_AES256": &encryptedFormat{sha512.New384, aes.NewCipher, 32},
-	"ENCRYPTED_HMAC_SHA512_AES256":     &encryptedFormat{sha512.New, aes.NewCipher, 32},
+// SupportedFormats is a map with an ObjectFormatter for each supported object format:
+//
+//   UNENCRYPTED_HMAC_SHA256_128          - unencrypted, block IDs are 128-bit (32 characters long)
+//   UNENCRYPTED_HMAC_SHA256              - unencrypted, block IDs are 256-bit (64 characters long)
+//   ENCRYPTED_HMAC_SHA512_384_AES256     - encrypted with AES-256, block IDs are 128-bit (32 characters long)
+//   ENCRYPTED_HMAC_SHA512_AES256         - encrypted with AES-256, block IDs are 256-bit (64 characters long)
+//
+// Additional formats can be supported by adding them to the map.
+var SupportedFormats map[string]ObjectFormatter
+
+func init() {
+	SupportedFormats = map[string]ObjectFormatter{
+		"TESTONLY_MD5":                     &unencryptedFormat{md5.New, 0},
+		"UNENCRYPTED_HMAC_SHA256":          &unencryptedFormat{sha256.New, 0},
+		"UNENCRYPTED_HMAC_SHA256_128":      &unencryptedFormat{sha256.New, 16},
+		"ENCRYPTED_HMAC_SHA512_384_AES256": &encryptedFormat{sha512.New384, aes.NewCipher, 32},
+		"ENCRYPTED_HMAC_SHA512_AES256":     &encryptedFormat{sha512.New, aes.NewCipher, 32},
+	}
 }
 
 // DefaultObjectFormat is the format that should be used by default when creating new repositories.
