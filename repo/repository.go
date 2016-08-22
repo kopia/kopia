@@ -5,12 +5,10 @@ import (
 	"bytes"
 	"crypto/cipher"
 	"crypto/hmac"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"hash"
 	"io"
-	"io/ioutil"
 	"log"
 	"strings"
 	"sync/atomic"
@@ -24,7 +22,7 @@ const (
 	minLocatorSizeBytes = 16
 )
 
-// ObjectReader allows reading, seeking and closing of a repository object.
+// ObjectReader allows reading, seeking, getting the length of and closing of a repository object.
 type ObjectReader interface {
 	io.Reader
 	io.Seeker
@@ -41,14 +39,18 @@ type Repository interface {
 	// NewWriter opens an ObjectWriter for writing new content to the storage.
 	NewWriter(options ...WriterOption) ObjectWriter
 
-	// Open creates an io.ReadSeeker for reading object with a specified ID.
+	// Open creates an ObjectReader for reading object with a specified ID.
 	Open(objectID ObjectID) (ObjectReader, error)
 
+	// Flush ensures that all pending writes have completed.
 	Flush() error
-	Storage() storage.Storage
-	Close()
 
-	ResetStats()
+	// Storage returns the underlying Storage.
+	Storage() storage.Storage
+
+	// Close
+	Close() error
+
 	Stats() RepositoryStats
 }
 
@@ -81,34 +83,33 @@ type repository struct {
 	formatter ObjectFormatter
 }
 
-func (repo *repository) Close() {
-	repo.Flush()
-	repo.bufferManager.close()
+func (r *repository) Close() error {
+	if err := r.Flush(); err != nil {
+		return err
+	}
+	r.bufferManager.close()
+	return nil
 }
 
-func (repo *repository) Flush() error {
-	if f, ok := repo.storage.(storage.Flusher); ok {
+func (r *repository) Flush() error {
+	if f, ok := r.storage.(storage.Flusher); ok {
 		return f.Flush()
 	}
 
 	return nil
 }
 
-func (repo *repository) ResetStats() {
-	repo.stats = &RepositoryStats{}
+func (r *repository) Stats() RepositoryStats {
+	return *r.stats
 }
 
-func (repo *repository) Stats() RepositoryStats {
-	return *repo.stats
+func (r *repository) Storage() storage.Storage {
+	return r.storage
 }
 
-func (repo *repository) Storage() storage.Storage {
-	return repo.storage
-}
-
-func (repo *repository) NewWriter(options ...WriterOption) ObjectWriter {
+func (r *repository) NewWriter(options ...WriterOption) ObjectWriter {
 	result := &objectWriter{
-		repo:         repo,
+		repo:         r,
 		blockTracker: &blockTracker{},
 	}
 
@@ -119,12 +120,12 @@ func (repo *repository) NewWriter(options ...WriterOption) ObjectWriter {
 	return result
 }
 
-func (repo *repository) Open(objectID ObjectID) (ObjectReader, error) {
+func (r *repository) Open(objectID ObjectID) (ObjectReader, error) {
 	// log.Printf("Repository::Open %v", objectID.String())
 	// defer log.Printf("finished Repository::Open() %v", objectID.String())
 
 	if objectID.Section != nil {
-		baseReader, err := repo.Open(objectID.Section.Base)
+		baseReader, err := r.Open(objectID.Section.Base)
 		if err != nil {
 			return nil, fmt.Errorf("cannot create base reader: %v", err)
 		}
@@ -133,13 +134,13 @@ func (repo *repository) Open(objectID ObjectID) (ObjectReader, error) {
 	}
 
 	if objectID.Indirect > 0 {
-		r, err := repo.Open(removeIndirection(objectID))
+		rd, err := r.Open(removeIndirection(objectID))
 		if err != nil {
 			return nil, err
 		}
 		defer r.Close()
 
-		seekTable, err := repo.flattenListChunk(r)
+		seekTable, err := r.flattenListChunk(rd)
 		if err != nil {
 			return nil, err
 		}
@@ -147,32 +148,13 @@ func (repo *repository) Open(objectID ObjectID) (ObjectReader, error) {
 		totalLength := seekTable[len(seekTable)-1].endOffset()
 
 		return &objectReader{
-			repo:        repo,
+			repo:        r,
 			seekTable:   seekTable,
 			totalLength: totalLength,
 		}, nil
 	}
 
-	return repo.newRawReader(objectID)
-}
-
-func dumpObject(repo *repository, oid ObjectID) {
-	oid.Indirect = 0
-	log.Printf("  dumping %v", oid.UIString())
-	defer log.Printf("  end of %v", oid.UIString())
-	r, err := repo.Open(oid)
-	if err != nil {
-		log.Printf("failed to open %v: %v", oid, err)
-		return
-	}
-	defer r.Close()
-
-	b, err := ioutil.ReadAll(r)
-	if err != nil {
-		log.Printf("failed to read %v: %v", oid, err)
-		return
-	}
-	log.Printf("%x", b)
+	return r.newRawReader(objectID)
 }
 
 // RepositoryOption controls the behavior of Repository.
@@ -201,14 +183,10 @@ func hmacFunc(key []byte, hf func() hash.Hash) func() hash.Hash {
 	}
 }
 
-// NewRepository creates new Repository with the specified storage, options, and key provider.
-func NewRepository(
-	r storage.Storage,
-	f *Format,
-	options ...RepositoryOption,
-) (Repository, error) {
-	if f.MaxBlobSize < 100 {
-		return nil, fmt.Errorf("MaxBlobSize is not set")
+// New creates a Repository with the specified storage, format and options.
+func New(s storage.Storage, f *Format, options ...RepositoryOption) (Repository, error) {
+	if f.MaxBlockSize < 100 {
+		return nil, fmt.Errorf("MaxBlockSize is not set")
 	}
 
 	sf := SupportedFormats[f.ObjectFormat]
@@ -216,31 +194,27 @@ func NewRepository(
 		return nil, fmt.Errorf("unknown object format: %v", f.ObjectFormat)
 	}
 
-	repo := &repository{
-		storage: r,
+	r := &repository{
+		storage: s,
 		format:  *f,
 		stats:   &RepositoryStats{},
 	}
 
-	repo.formatter = sf
+	r.formatter = sf
 
 	for _, o := range options {
-		if err := o(repo); err != nil {
-			repo.Close()
+		if err := o(r); err != nil {
+			r.Close()
 			return nil, err
 		}
 	}
 
-	repo.bufferManager = newBufferManager(int(repo.format.MaxBlobSize))
+	r.bufferManager = newBufferManager(int(r.format.MaxBlockSize))
 
-	return repo, nil
+	return r, nil
 }
 
-func (repo *repository) hashBuffer(data []byte) ([]byte, []byte) {
-	return repo.formatter.HashBuffer(data, repo.format.Secret)
-}
-
-func (repo *repository) hashBufferForWriting(buffer *bytes.Buffer, prefix string) (ObjectID, storage.ReaderWithLength, error) {
+func (r *repository) hashBufferForWriting(buffer *bytes.Buffer, prefix string) (ObjectID, storage.ReaderWithLength, error) {
 	var data []byte
 	if buffer != nil {
 		data = buffer.Bytes()
@@ -248,32 +222,32 @@ func (repo *repository) hashBufferForWriting(buffer *bytes.Buffer, prefix string
 
 	var blockCipher cipher.Block
 
-	contentHash, encryptionKey := repo.hashBuffer(data)
+	blockID, encryptionKey := r.formatter.ComputeBlockIDAndKey(data, r.format.Secret)
 	if encryptionKey != nil {
 		var err error
-		blockCipher, err = repo.formatter.CreateCipher(encryptionKey)
+		blockCipher, err = r.formatter.CreateCipher(encryptionKey)
 		if err != nil {
 			return NullObjectID, nil, err
 		}
 	}
 
 	objectID := ObjectID{
-		StorageBlock: prefix + hex.EncodeToString(contentHash),
+		StorageBlock: prefix + blockID,
 	}
 
 	if len(encryptionKey) > 0 {
 		objectID.EncryptionKey = encryptionKey
 	}
 
-	atomic.AddInt32(&repo.stats.HashedBlocks, 1)
-	atomic.AddInt64(&repo.stats.HashedBytes, int64(len(data)))
+	atomic.AddInt32(&r.stats.HashedBlocks, 1)
+	atomic.AddInt64(&r.stats.HashedBytes, int64(len(data)))
 
 	if buffer == nil {
 		return objectID, storage.NewReader(bytes.NewBuffer(nil)), nil
 	}
 
-	blockReader := repo.bufferManager.returnBufferOnClose(buffer)
-	blockReader = newCountingReader(blockReader, &repo.stats.BytesWrittenToStorage)
+	blockReader := r.bufferManager.returnBufferOnClose(buffer)
+	blockReader = newCountingReader(blockReader, &r.stats.BytesWrittenToStorage)
 
 	if len(encryptionKey) > 0 {
 		// Since we're not sharing the key, all-zero IV is ok.
@@ -282,16 +256,14 @@ func (repo *repository) hashBufferForWriting(buffer *bytes.Buffer, prefix string
 
 		blockReader = newCountingReader(
 			newEncryptingReader(blockReader, ctr),
-			&repo.stats.EncryptedBytes)
+			&r.stats.EncryptedBytes)
 	}
 
 	return objectID, blockReader, nil
 }
 
-func (repo *repository) flattenListChunk(rawReader io.Reader) ([]indirectObjectEntry, error) {
-
-	r := bufio.NewReader(rawReader)
-	pr, err := jsonstream.NewReader(r, indirectStreamType)
+func (r *repository) flattenListChunk(rawReader io.Reader) ([]indirectObjectEntry, error) {
+	pr, err := jsonstream.NewReader(bufio.NewReader(rawReader), indirectStreamType)
 	if err != nil {
 		return nil, err
 	}
@@ -324,28 +296,28 @@ func removeIndirection(o ObjectID) ObjectID {
 	return o
 }
 
-func (repo *repository) newRawReader(objectID ObjectID) (ObjectReader, error) {
+func (r *repository) newRawReader(objectID ObjectID) (ObjectReader, error) {
 	if objectID.Content != nil {
 		return newObjectReaderWithData(objectID.Content), nil
 	}
 
 	blockID := objectID.StorageBlock
-	payload, err := repo.storage.GetBlock(blockID)
+	payload, err := r.storage.GetBlock(blockID)
 	if err != nil {
 		return nil, err
 	}
 
-	atomic.AddInt32(&repo.stats.BlocksReadFromStorage, 1)
-	atomic.AddInt64(&repo.stats.BytesReadFromStorage, int64(len(payload)))
+	atomic.AddInt32(&r.stats.BlocksReadFromStorage, 1)
+	atomic.AddInt64(&r.stats.BytesReadFromStorage, int64(len(payload)))
 
 	if objectID.EncryptionKey == nil {
-		if err := repo.verifyChecksum(payload, objectID.StorageBlock); err != nil {
+		if err := r.verifyChecksum(payload, objectID.StorageBlock); err != nil {
 			return nil, err
 		}
 		return newObjectReaderWithData(payload), nil
 	}
 
-	blockCipher, err := repo.formatter.CreateCipher(objectID.EncryptionKey)
+	blockCipher, err := r.formatter.CreateCipher(objectID.EncryptionKey)
 	if err != nil {
 		return nil, errors.New("cannot create cipher")
 	}
@@ -356,24 +328,23 @@ func (repo *repository) newRawReader(objectID ObjectID) (ObjectReader, error) {
 
 	// Since the encryption key is a function of data, we must be able to generate exactly the same key
 	// after decrypting the content. This serves as a checksum.
-	atomic.AddInt64(&repo.stats.DecryptedBytes, int64(len(payload)))
+	atomic.AddInt64(&r.stats.DecryptedBytes, int64(len(payload)))
 
-	if err := repo.verifyChecksum(payload, objectID.StorageBlock); err != nil {
+	if err := r.verifyChecksum(payload, objectID.StorageBlock); err != nil {
 		return nil, err
 	}
 
 	return newObjectReaderWithData(payload), nil
 }
 
-func (repo *repository) verifyChecksum(data []byte, blockID string) error {
-	payloadHash, _ := repo.hashBuffer(data)
-	checksum := hex.EncodeToString(payloadHash)
-	if !strings.HasSuffix(string(blockID), checksum) {
-		atomic.AddInt32(&repo.stats.InvalidBlocks, 1)
+func (r *repository) verifyChecksum(data []byte, blockID string) error {
+	expectedBlockID, _ := r.formatter.ComputeBlockIDAndKey(data, r.format.Secret)
+	if !strings.HasSuffix(string(blockID), expectedBlockID) {
+		atomic.AddInt32(&r.stats.InvalidBlocks, 1)
 		return fmt.Errorf("invalid checksum for blob: '%v'", blockID)
 	}
 
-	atomic.AddInt32(&repo.stats.ValidBlocks, 1)
+	atomic.AddInt32(&r.stats.ValidBlocks, 1)
 	return nil
 }
 

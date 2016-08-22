@@ -19,10 +19,10 @@ import (
 
 func testFormat() *Format {
 	return &Format{
-		Version:           1,
-		MaxBlobSize:       200,
-		MaxInlineBlobSize: 20,
-		ObjectFormat:      "TESTONLY_MD5",
+		Version:                1,
+		MaxBlockSize:           200,
+		MaxInlineContentLength: 20,
+		ObjectFormat:           "TESTONLY_MD5",
 	}
 }
 
@@ -44,7 +44,7 @@ func setupTest(t *testing.T) (data map[string][]byte, repo Repository) {
 	data = map[string][]byte{}
 	st := storagetesting.NewMapStorage(data)
 
-	repo, err := NewRepository(st, testFormat())
+	repo, err := New(st, testFormat())
 	if err != nil {
 		t.Errorf("cannot create manager: %v", err)
 	}
@@ -194,7 +194,7 @@ func TestHMAC(t *testing.T) {
 	s.ObjectFormat = "TESTONLY_MD5"
 	s.Secret = []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25}
 
-	repo, err := NewRepository(storagetesting.NewMapStorage(data), s)
+	repo, err := New(storagetesting.NewMapStorage(data), s)
 	if err != nil {
 		t.Errorf("cannot create manager: %v", err)
 	}
@@ -360,7 +360,7 @@ func TestFormats(t *testing.T) {
 			Version:      1,
 			ObjectFormat: objectFormat,
 			Secret:       []byte("key"),
-			MaxBlobSize:  10000,
+			MaxBlockSize: 10000,
 		}
 	}
 
@@ -379,7 +379,7 @@ func TestFormats(t *testing.T) {
 			format: &Format{
 				Version:      1,
 				ObjectFormat: "TESTONLY_MD5",
-				MaxBlobSize:  10000,
+				MaxBlockSize: 10000,
 				Secret:       []byte{}, // HMAC with zero-byte secret
 			},
 			oids: map[string]ObjectID{
@@ -391,7 +391,7 @@ func TestFormats(t *testing.T) {
 			format: &Format{
 				Version:      1,
 				ObjectFormat: "TESTONLY_MD5",
-				MaxBlobSize:  10000,
+				MaxBlockSize: 10000,
 				Secret:       nil, // non-HMAC version
 			},
 			oids: map[string]ObjectID{
@@ -450,7 +450,7 @@ func TestFormats(t *testing.T) {
 		st := storagetesting.NewMapStorage(data)
 
 		t.Logf("verifying %v", c.format)
-		repo, err := NewRepository(st, c.format)
+		repo, err := New(st, c.format)
 		if err != nil {
 			t.Errorf("cannot create manager: %v", err)
 			continue
@@ -491,10 +491,10 @@ func TestInvalidEncryptionKey(t *testing.T) {
 		Version:      1,
 		ObjectFormat: "ENCRYPTED_HMAC_SHA512_384_AES256",
 		Secret:       []byte("key"),
-		MaxBlobSize:  1000,
+		MaxBlockSize: 1000,
 	}
 
-	repo, err := NewRepository(st, &format)
+	repo, err := New(st, &format)
 	if err != nil {
 		t.Errorf("cannot create manager: %v", err)
 		return

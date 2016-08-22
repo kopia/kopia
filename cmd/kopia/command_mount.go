@@ -47,7 +47,7 @@ func runMountCommand(context *kingpin.ParseContext) error {
 		return err
 	}
 
-	rootNode := kopiafuse.NewDirectoryNode(fs.NewRepositoryDirectory(r, oid))
+	rootNode := kopiafuse.NewDirectoryNode(fs.NewDirectory(r, oid))
 
 	fusefs.Serve(fuseConnection, &root{rootNode})
 

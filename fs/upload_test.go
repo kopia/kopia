@@ -42,13 +42,13 @@ func newUploadTestHarness() *uploadTestHarness {
 	}
 
 	format := repo.Format{
-		Version:           1,
-		ObjectFormat:      "TESTONLY_MD5",
-		MaxBlobSize:       1000,
-		MaxInlineBlobSize: 0,
+		Version:                1,
+		ObjectFormat:           "TESTONLY_MD5",
+		MaxBlockSize:           1000,
+		MaxInlineContentLength: 0,
 	}
 
-	repo, err := repo.NewRepository(storage, &format)
+	repo, err := repo.New(storage, &format)
 	if err != nil {
 		panic("unable to create repository: " + err.Error())
 	}

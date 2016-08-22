@@ -34,7 +34,7 @@ func parseObjectID(id string, vlt *vault.Vault) (repo.ObjectID, error) {
 		return repo.NullObjectID, fmt.Errorf("cannot open repository: %v", err)
 	}
 
-	dir := fs.NewRepositoryDirectory(r, oid)
+	dir := fs.NewDirectory(r, oid)
 	if err != nil {
 		return repo.NullObjectID, err
 	}

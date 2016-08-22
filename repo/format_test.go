@@ -8,7 +8,7 @@ func TestFormat(t *testing.T) {
 
 	for k, v := range SupportedFormats {
 		t.Logf("testing %v", k)
-		blk, key := v.HashBuffer(data, secret)
+		blk, key := v.ComputeBlockIDAndKey(data, secret)
 		if key != nil {
 			cipher, err := v.CreateCipher(key)
 			if err != nil || cipher == nil {

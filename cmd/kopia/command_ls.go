@@ -37,7 +37,7 @@ func runLSCommand(context *kingpin.ParseContext) error {
 		}
 	}
 
-	dir := fs.NewRepositoryDirectory(mgr, oid)
+	dir := fs.NewDirectory(mgr, oid)
 	entries, err := dir.Readdir()
 	if err != nil {
 		return err

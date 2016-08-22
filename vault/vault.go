@@ -209,7 +209,7 @@ func (v *Vault) OpenRepository() (repo.Repository, error) {
 		st = v.storage
 	}
 
-	return repo.NewRepository(st, v.repoConfig.Format)
+	return repo.New(st, v.repoConfig.Format)
 }
 
 // Get returns the contents of a specified vault item.

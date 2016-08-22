@@ -17,7 +17,7 @@ var (
 	createCommandRepository = createCommand.Flag("repository", "Repository path.").Default("colocated").String()
 	createObjectFormat      = createCommand.Flag("repo-format", "Format of repository objects.").PlaceHolder("FORMAT").Default(repo.DefaultObjectFormat).Enum(supportedObjectFormats()...)
 
-	createMaxBlobSize           = createCommand.Flag("max-blob-size", "Maximum size of a data chunk.").PlaceHolder("KB").Default("20480").Int()
+	createMaxBlockSize          = createCommand.Flag("max-blob-size", "Maximum size of a data chunk.").PlaceHolder("KB").Default("20480").Int()
 	createInlineBlobSize        = createCommand.Flag("inline-blob-size", "Maximum size of an inline data chunk.").PlaceHolder("KB").Default("32").Int()
 	createVaultEncryptionFormat = createCommand.Flag("vault-encryption", "Vault encryption.").PlaceHolder("FORMAT").Default("aes-256").Enum(supportedVaultEncryptionFormats()...)
 	createOverwrite             = createCommand.Flag("overwrite", "Overwrite existing data (DANGEROUS).").Bool()
@@ -44,11 +44,11 @@ func vaultFormat() (*vault.Format, error) {
 
 func repositoryFormat() (*repo.Format, error) {
 	f := &repo.Format{
-		Version:           1,
-		Secret:            make([]byte, 32),
-		MaxBlobSize:       int32(*createMaxBlobSize * 1024),
-		MaxInlineBlobSize: int32(*createInlineBlobSize * 1024),
-		ObjectFormat:      *createObjectFormat,
+		Version:                1,
+		Secret:                 make([]byte, 32),
+		MaxBlockSize:           int32(*createMaxBlockSize * 1024),
+		MaxInlineContentLength: int32(*createInlineBlobSize * 1024),
+		ObjectFormat:           *createObjectFormat,
 	}
 
 	_, err := io.ReadFull(rand.Reader, f.Secret)
@@ -102,7 +102,7 @@ func runCreateCommand(context *kingpin.ParseContext) error {
 	fmt.Printf(
 		"Initializing repository in with format %v and maximum object size %v.\n",
 		repoFormat.ObjectFormat,
-		repoFormat.MaxBlobSize)
+		repoFormat.MaxBlockSize)
 
 	vf, err := vaultFormat()
 	if err != nil {
@@ -115,7 +115,7 @@ func runCreateCommand(context *kingpin.ParseContext) error {
 	}
 
 	// Make repository to make sure the format is supported.
-	_, err = repo.NewRepository(repositoryStorage, repoFormat)
+	_, err = repo.New(repositoryStorage, repoFormat)
 	if err != nil {
 		return fmt.Errorf("unable to initialize repository: %v", err)
 	}

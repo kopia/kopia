@@ -41,8 +41,8 @@ func runRepositoryInfoCommand(context *kingpin.ParseContext) error {
 		fmt.Println("  Secret:          ", len(f.Secret), "bytes")
 	}
 	fmt.Println("  ID Format:       ", f.ObjectFormat)
-	fmt.Println("  Blob Size:       ", f.MaxBlobSize/1024, "KB")
-	fmt.Println("  Inline Blob Size:", f.MaxInlineBlobSize/1024, "KB")
+	fmt.Println("  Blob Size:       ", f.MaxBlockSize/1024, "KB")
+	fmt.Println("  Inline Blob Size:", f.MaxInlineContentLength/1024, "KB")
 	r, err := v.OpenRepository()
 	if err == nil {
 		fmt.Println("  Storage:         ", r.Storage())

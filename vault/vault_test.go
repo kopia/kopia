@@ -63,12 +63,12 @@ func verifyVault(t *testing.T, vaultPath string, repoPath string) {
 
 	repoFormat := &repo.Format{
 		Version:      1,
-		MaxBlobSize:  1000000,
+		MaxBlockSize: 1000000,
 		ObjectFormat: "UNENCRYPTED_HMAC_SHA256",
 		Secret:       []byte{1, 2, 3},
 	}
 
-	_, err = repo.NewRepository(repoStorage, repoFormat)
+	_, err = repo.New(repoStorage, repoFormat)
 	if err != nil {
 		t.Errorf("can't create repository: %v", err)
 		return

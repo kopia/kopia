@@ -90,8 +90,8 @@ func withMetadata(rc io.ReadCloser, md *EntryMetadata) EntryMetadataReadCloser {
 	}
 }
 
-// NewRepositoryDirectory returns Directory based on repository object with the specified ID.
-func NewRepositoryDirectory(r repo.Repository, objectID repo.ObjectID) Directory {
+// NewDirectory returns Directory based on repository object with the specified ID.
+func NewDirectory(r repo.Repository, objectID repo.ObjectID) Directory {
 	d := newRepoEntry(r, &EntryMetadata{
 		Name:        "/",
 		ObjectID:    objectID,

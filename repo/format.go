@@ -7,22 +7,27 @@ import (
 	"crypto/md5"
 	"crypto/sha256"
 	"crypto/sha512"
+	"encoding/hex"
 	"errors"
 	"hash"
 )
 
-// Format describes the format of object data.
+// Format describes the format of objects in a repository.
 type Format struct {
-	Version           int32  `json:"version,omitempty"`
-	ObjectFormat      string `json:"objectFormat,omitempty"`
-	Secret            []byte `json:"secret,omitempty"`
-	MaxInlineBlobSize int32  `json:"maxInlineBlobSize,omitempty"`
-	MaxBlobSize       int32  `json:"maxBlobSize,omitempty"`
+	Version                int32  `json:"version,omitempty"`                // version number, must be "1"
+	ObjectFormat           string `json:"objectFormat,omitempty"`           // identifier of object format
+	Secret                 []byte `json:"secret,omitempty"`                 // HMAC secret used to generate encryption keys
+	MaxInlineContentLength int32  `json:"maxInlineContentLength,omitempty"` // maximum size of object to be considered for inline storage within ObjectID
+	MaxBlockSize           int32  `json:"maxBlockSize,omitempty"`           // maximum size of storage block
 }
 
-// ObjectFormatter performs data hashing and encryption of a data block when storing object in a repository,
+// ObjectFormatter performs data block ID computation and encryption of a block of data when storing object in a repository,
 type ObjectFormatter interface {
-	HashBuffer(data []byte, secret []byte) (blockID []byte, cryptoKey []byte)
+	// ComputeBlockIDAndKey computes ID of the storage block and encryption key for the specified block of data.
+	// The secret should be used for HMAC.
+	ComputeBlockIDAndKey(data []byte, secret []byte) (blockID string, cryptoKey []byte)
+
+	// CreateCipher returns a new instance of a block cipher with the specified key.
 	CreateCipher(key []byte) (cipher.Block, error)
 }
 
@@ -31,11 +36,12 @@ type unencryptedFormat struct {
 	fold     int
 }
 
-func (fi *unencryptedFormat) HashBuffer(data []byte, secret []byte) (blockID []byte, cryptoKey []byte) {
-	blockID = hashContent(fi.hashCtor, data, secret)
+func (fi *unencryptedFormat) ComputeBlockIDAndKey(data []byte, secret []byte) (blockID string, cryptoKey []byte) {
+	h := hashContent(fi.hashCtor, data, secret)
 	if fi.fold > 0 {
-		blockID = fold(blockID, fi.fold)
+		h = fold(h, fi.fold)
 	}
+	blockID = hex.EncodeToString(h)
 	return
 }
 
@@ -50,10 +56,10 @@ type encryptedFormat struct {
 	keyBytes     int
 }
 
-func (fi *encryptedFormat) HashBuffer(data []byte, secret []byte) (blockID []byte, cryptoKey []byte) {
+func (fi *encryptedFormat) ComputeBlockIDAndKey(data []byte, secret []byte) (blockID string, cryptoKey []byte) {
 	h := hashContent(fi.hashCtor, data, secret)
 	p := len(h) - fi.keyBytes
-	blockID = h[0:p]
+	blockID = hex.EncodeToString(h[0:p])
 	cryptoKey = h[p:]
 	return
 }

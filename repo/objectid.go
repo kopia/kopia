@@ -63,28 +63,29 @@ var (
 )
 
 // UIString returns string representation of ObjectID that is suitable for displaying in the UI.
-// Note that the object ID name may contain its encryption key, which is sensitive.
-func (m *ObjectID) UIString() string {
-	if m.StorageBlock != "" {
+//
+// Note that the object ID name often contains its encryption key, which is sensitive and can be quite long (~100 characters long).
+func (oid *ObjectID) UIString() string {
+	if oid.StorageBlock != "" {
 		var encryptionSuffix string
 
-		if m.EncryptionKey != nil {
-			encryptionSuffix = "." + hex.EncodeToString(m.EncryptionKey)
+		if oid.EncryptionKey != nil {
+			encryptionSuffix = "." + hex.EncodeToString(oid.EncryptionKey)
 		}
 
-		if m.Indirect > 0 {
-			return fmt.Sprintf("L%v,%v%v", m.Indirect, m.StorageBlock, encryptionSuffix)
+		if oid.Indirect > 0 {
+			return fmt.Sprintf("L%v,%v%v", oid.Indirect, oid.StorageBlock, encryptionSuffix)
 		}
 
-		return "D" + m.StorageBlock + encryptionSuffix
+		return "D" + oid.StorageBlock + encryptionSuffix
 	}
 
-	if m.Content != nil {
-		return "B" + inlineContentEncoding.EncodeToString(m.Content)
+	if oid.Content != nil {
+		return "B" + inlineContentEncoding.EncodeToString(oid.Content)
 	}
 
-	if m.Section != nil {
-		return fmt.Sprintf("S%v,%v,%v", m.Section.Start, m.Section.Length, m.Section.Base.UIString())
+	if oid.Section != nil {
+		return fmt.Sprintf("S%v,%v,%v", oid.Section.Start, oid.Section.Length, oid.Section.Base.UIString())
 	}
 
 	return "B"
