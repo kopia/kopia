@@ -15,6 +15,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kopia/kopia/fs"
+
 	"github.com/kopia/kopia/backup"
 	"github.com/kopia/kopia/repo"
 
@@ -39,13 +41,15 @@ var (
 	backupCheckpointUploadLimitMB = backupCommand.Flag("upload_limit_mb", "Stop the backup process after the specified amount of data (in MB) has been uploaded.").PlaceHolder("MB").Default("0").Int()
 
 	backupWriteBack = backupCommand.Flag("async-write", "Perform updates asynchronously.").PlaceHolder("N").Default("0").Int()
+
+	backupExperimentalBundles = backupCommand.Flag("experimental-bundles", "Use experimental bundles.").Bool()
 )
 
 func runBackupCommand(context *kingpin.ParseContext) error {
-	var options []repo.RepositoryOption
+	var repoOptions []repo.RepositoryOption
 
 	if *backupWriteBack > 0 {
-		options = append(options, repo.WriteBack(*backupWriteBack))
+		repoOptions = append(repoOptions, repo.WriteBack(*backupWriteBack))
 	}
 
 	vlt, err := openVault()
@@ -53,13 +57,19 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 		return err
 	}
 
-	mgr, err := vlt.OpenRepository()
+	mgr, err := vlt.OpenRepository(repoOptions...)
 	if err != nil {
 		return err
 	}
 	defer mgr.Close()
 
-	bgen, err := backup.NewGenerator(mgr)
+	var options []fs.UploaderOption
+
+	if *backupExperimentalBundles {
+		options = append(options, fs.EnableBundling())
+	}
+
+	bgen, err := backup.NewGenerator(mgr, options...)
 	if err != nil {
 		return err
 	}
@@ -114,6 +124,7 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 		}
 
 		log.Printf("Root: %v", manifest.RootObjectID.UIString())
+		log.Printf("Hash Cache: %v", manifest.HashCacheID.UIString())
 		log.Printf("Key: %v", handleID)
 	}
 

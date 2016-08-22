@@ -16,6 +16,10 @@ type directoryWriter struct {
 }
 
 func (dw *directoryWriter) WriteEntry(e *EntryMetadata, children []*EntryMetadata) error {
+	if err := e.ObjectID.Validate(); err != nil {
+		panic("invalid object ID: " + err.Error())
+	}
+
 	return dw.w.Write(e)
 }
 

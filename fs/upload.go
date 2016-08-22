@@ -42,7 +42,8 @@ type Uploader interface {
 }
 
 type uploader struct {
-	repo repo.Repository
+	repo           repo.Repository
+	enableBundling bool
 
 	cancelled int32
 }
@@ -163,6 +164,8 @@ func (u *uploader) UploadDir(dir Directory, previousManifestID *repo.ObjectID) (
 	if err != nil {
 		return result, err
 	}
+
+	hcw.Close()
 
 	result.ManifestID, err = mw.Result(true)
 	return result, nil
@@ -364,7 +367,7 @@ func (u *uploader) bundleEntries(entries Entries) Entries {
 		switch e := e.(type) {
 		case File:
 			md := e.Metadata()
-			bundleNo := getBundleNumber(md)
+			bundleNo := u.getBundleNumber(md)
 			if bundleNo != 0 {
 				// See if we already started this bundle.
 				b := bundleMap[bundleNo]
@@ -403,12 +406,12 @@ func (u *uploader) bundleEntries(entries Entries) Entries {
 	return result
 }
 
-func getBundleNumber(md *EntryMetadata) int {
-	// TODO(jkowalski): This is not ready yet, uncomment when ready.
-
-	// if md.FileMode().IsRegular() && md.FileSize < maxBundleFileSize {
-	// 	return md.ModTime.Year()*100 + int(md.ModTime.Month())
-	// }
+func (u *uploader) getBundleNumber(md *EntryMetadata) int {
+	if u.enableBundling {
+		if md.FileMode().IsRegular() && md.FileSize < maxBundleFileSize {
+			return md.ModTime.Year()*100 + int(md.ModTime.Month())
+		}
+	}
 
 	return 0
 }
@@ -417,9 +420,25 @@ func (u *uploader) Cancel() {
 	atomic.StoreInt32(&u.cancelled, 1)
 }
 
+// UploaderOption modifies the behavior of uploader.
+type UploaderOption func(u *uploader)
+
+// EnableBundling allows uploader to create bundle objects.
+func EnableBundling() UploaderOption {
+	return func(u *uploader) {
+		u.enableBundling = true
+	}
+}
+
 // NewUploader creates new Uploader object for the specified Repository
-func NewUploader(repo repo.Repository) Uploader {
-	return &uploader{
+func NewUploader(repo repo.Repository, options ...UploaderOption) Uploader {
+	u := &uploader{
 		repo: repo,
 	}
+
+	for _, o := range options {
+		o(u)
+	}
+
+	return u
 }

@@ -57,6 +57,7 @@ func (hcr *hashcacheReader) readahead() {
 	if hcr.reader != nil {
 		hcr.nextEntry = nil
 		e := hcr.nextManifestEntry()
+		*e = hashCacheEntry{}
 		if err := hcr.reader.Read(e); err == nil {
 			hcr.nextEntry = e
 		}
@@ -89,6 +90,10 @@ func newHashCacheWriter(w io.Writer) *hashcacheWriter {
 }
 
 func (hcw *hashcacheWriter) WriteEntry(e hashCacheEntry) error {
+	if err := e.ObjectID.Validate(); err != nil {
+		panic("invalid object ID: " + err.Error())
+	}
+
 	if hcw.lastNameWritten != "" {
 		if isLessOrEqual(e.Name, hcw.lastNameWritten) {
 			return fmt.Errorf("out-of-order directory entry, previous '%v' current '%v'", hcw.lastNameWritten, e.Name)
@@ -99,4 +104,8 @@ func (hcw *hashcacheWriter) WriteEntry(e hashCacheEntry) error {
 	hcw.writer.Write(&e)
 
 	return nil
+}
+
+func (hcw *hashcacheWriter) Close() error {
+	return hcw.writer.Close()
 }

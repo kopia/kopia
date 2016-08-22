@@ -18,11 +18,12 @@ type Generator interface {
 }
 
 type backupGenerator struct {
-	repo repo.Repository
+	repo    repo.Repository
+	options []fs.UploaderOption
 }
 
 func (bg *backupGenerator) Backup(m *Manifest, old *Manifest) error {
-	uploader := fs.NewUploader(bg.repo)
+	uploader := fs.NewUploader(bg.repo, bg.options...)
 
 	m.StartTime = time.Now()
 	var hashCacheID *repo.ObjectID
@@ -53,8 +54,9 @@ func (bg *backupGenerator) Backup(m *Manifest, old *Manifest) error {
 }
 
 // NewGenerator creates new backup generator.
-func NewGenerator(repo repo.Repository) (Generator, error) {
+func NewGenerator(repo repo.Repository, options ...fs.UploaderOption) (Generator, error) {
 	return &backupGenerator{
-		repo: repo,
+		repo:    repo,
+		options: options,
 	}, nil
 }

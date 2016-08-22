@@ -91,6 +91,40 @@ func (oid *ObjectID) UIString() string {
 	return "B"
 }
 
+// Validate validates the ObjectID structure.
+func (oid *ObjectID) Validate() error {
+	var c int
+	if len(oid.StorageBlock) > 0 {
+		c++
+	}
+
+	if len(oid.Content) > 0 {
+		c++
+	}
+
+	if oid.Section != nil {
+		c++
+		if err := oid.Section.Base.Validate(); err != nil {
+			return fmt.Errorf("invalid section data in %+v", oid)
+		}
+	}
+
+	if c > 1 {
+		return fmt.Errorf("inconsistent block content: %+v", oid)
+	}
+
+	if oid.Indirect > 0 && len(oid.StorageBlock) == 0 {
+		return fmt.Errorf("indirect object without storage block: %+v", oid)
+	}
+
+	if oid.EncryptionKey != nil && len(oid.StorageBlock) == 0 {
+		return fmt.Errorf("encryption key without storage block: %+v", oid)
+
+	}
+
+	return nil
+}
+
 // InlineObjectID returns ObjectID containing the specified content.
 func InlineObjectID(content []byte) ObjectID {
 	return ObjectID{
