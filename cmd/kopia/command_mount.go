@@ -27,12 +27,7 @@ func (r *root) Root() (fusefs.Node, error) {
 }
 
 func runMountCommand(context *kingpin.ParseContext) error {
-	vlt := mustOpenVault()
-
-	r, err := vlt.OpenRepository()
-	if err != nil {
-		return err
-	}
+	vlt, r := mustOpenVaultAndRepository()
 
 	fuseConnection, err := fuse.Mount(
 		*mountPoint,

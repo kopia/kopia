@@ -16,12 +16,9 @@ func init() {
 }
 
 func listVaultContents(context *kingpin.ParseContext) error {
-	v, err := openVault()
-	if err != nil {
-		return err
-	}
+	vlt := mustOpenVault()
 
-	entries, err := v.List(*vaultListPrefix)
+	entries, err := vlt.List(*vaultListPrefix)
 	if err != nil {
 		return err
 	}

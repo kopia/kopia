@@ -18,11 +18,9 @@ var (
 )
 
 func runLSCommand(context *kingpin.ParseContext) error {
-	vlt := mustOpenVault()
-	mgr, err := vlt.OpenRepository()
-	if err != nil {
-		return err
-	}
+	vlt, r := mustOpenVaultAndRepository()
+	defer vlt.Close()
+	defer r.Close()
 
 	oid, err := parseObjectID(*lsCommandPath, vlt)
 	if err != nil {
@@ -37,7 +35,7 @@ func runLSCommand(context *kingpin.ParseContext) error {
 		}
 	}
 
-	dir := fs.NewDirectory(mgr, oid)
+	dir := fs.NewDirectory(r, oid)
 	entries, err := dir.Readdir()
 	if err != nil {
 		return err

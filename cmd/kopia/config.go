@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/bgentry/speakeasy"
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/vault"
 )
 
@@ -36,6 +37,31 @@ func mustOpenVault() *vault.Vault {
 	s, err := openVault()
 	failOnError(err)
 	return s
+}
+
+func mustOpenRepository(extraOptions ...repo.RepositoryOption) repo.Repository {
+	_, r := mustOpenVaultAndRepository(extraOptions...)
+	return r
+}
+
+func mustOpenVaultAndRepository(extraOptions ...repo.RepositoryOption) (*vault.Vault, repo.Repository) {
+	v := mustOpenVault()
+	r, err := v.OpenRepository(repositoryOptionsFromFlags(extraOptions)...)
+	failOnError(err)
+	return v, r
+}
+
+func repositoryOptionsFromFlags(extraOptions []repo.RepositoryOption) []repo.RepositoryOption {
+	var opts []repo.RepositoryOption
+
+	for _, o := range extraOptions {
+		opts = append(opts, o)
+	}
+
+	if *traceStorage {
+		opts = append(opts, repo.EnableLogging())
+	}
+	return opts
 }
 
 func getHomeDir() string {

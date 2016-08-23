@@ -20,11 +20,9 @@ var (
 )
 
 func runShowCommand(context *kingpin.ParseContext) error {
-	vlt := mustOpenVault()
-	mgr, err := vlt.OpenRepository()
-	if err != nil {
-		return err
-	}
+	vlt, r := mustOpenVaultAndRepository()
+	defer vlt.Close()
+	defer r.Close()
 
 	for _, oidString := range *showObjectIDs {
 		oid, err := parseObjectID(oidString, vlt)
@@ -32,7 +30,7 @@ func runShowCommand(context *kingpin.ParseContext) error {
 			return err
 		}
 
-		if err := showObject(mgr, oid); err != nil {
+		if err := showObject(r, oid); err != nil {
 			return err
 		}
 	}
@@ -40,14 +38,14 @@ func runShowCommand(context *kingpin.ParseContext) error {
 	return nil
 }
 
-func showObject(mgr repo.Repository, oid repo.ObjectID) error {
-	r, err := mgr.Open(oid)
+func showObject(r repo.Repository, oid repo.ObjectID) error {
+	rd, err := r.Open(oid)
 	if err != nil {
 		return err
 	}
-	defer r.Close()
+	defer rd.Close()
 
-	rawdata, err := ioutil.ReadAll(r)
+	rawdata, err := ioutil.ReadAll(rd)
 	if err != nil {
 		return err
 	}

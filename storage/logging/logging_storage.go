@@ -3,15 +3,10 @@ package logging
 
 import (
 	"log"
+	"time"
 
 	"github.com/kopia/kopia/storage"
 )
-
-// Printfer supports emitting formatted strings to arbitrary outputs.
-// The formatting language must be compatible with fmt.Sprintf().
-type Printfer interface {
-	Printf(fmt string, args ...interface{})
-}
 
 type loggingStorage struct {
 	base   storage.Storage
@@ -19,55 +14,84 @@ type loggingStorage struct {
 }
 
 func (s *loggingStorage) BlockExists(id string) (bool, error) {
+	t0 := time.Now()
 	result, err := s.base.BlockExists(id)
-	s.printf("BlockExists(%#v)=%#v,%#v", id, result, err)
+	dt := time.Since(t0)
+	s.printf(s.prefix()+"BlockExists(%#v)=%#v,%#v took %v", id, result, err, dt)
 	return result, err
 }
 
 func (s *loggingStorage) GetBlock(id string) ([]byte, error) {
+	t0 := time.Now()
 	result, err := s.base.GetBlock(id)
+	dt := time.Since(t0)
 	if len(result) < 20 {
-		s.printf("GetBlock(%#v)=(%#v, %#v)", id, result, err)
+		s.printf(s.prefix()+"GetBlock(%#v)=(%#v, %#v) took %v", id, result, err, dt)
 	} else {
-		s.printf("GetBlock(%#v)=({%#v bytes}, %#v)", id, len(result), err)
+		s.printf(s.prefix()+"GetBlock(%#v)=({%#v bytes}, %#v) took %v", id, len(result), err, dt)
 	}
 	return result, err
 }
 
 func (s *loggingStorage) PutBlock(id string, data storage.ReaderWithLength, options storage.PutOptions) error {
+	t0 := time.Now()
 	l := data.Len()
 	err := s.base.PutBlock(id, data, options)
-	s.printf("PutBlock(%#v, options=%v, len=%v)=%#v", id, options, l, err)
+	dt := time.Since(t0)
+	s.printf(s.prefix()+"PutBlock(%#v, options=%v, len=%v)=%#v took %v", id, options, l, err, dt)
 	return err
 }
 
 func (s *loggingStorage) DeleteBlock(id string) error {
+	t0 := time.Now()
 	err := s.base.DeleteBlock(id)
-	s.printf("DeleteBlock(%#v)=%#v", id, err)
+	dt := time.Since(t0)
+	s.printf(s.prefix()+"DeleteBlock(%#v)=%#v took %v", id, err, dt)
 	return err
 }
 
 func (s *loggingStorage) ListBlocks(prefix string) chan (storage.BlockMetadata) {
-	s.printf("ListBlocks(%#v)", prefix)
-	return s.base.ListBlocks(prefix)
+	t0 := time.Now()
+	ch := s.base.ListBlocks(prefix)
+	dt := time.Since(t0)
+	s.printf(s.prefix()+"ListBlocks(%#v) took %v", prefix, dt)
+	return ch
 }
 
 func (s *loggingStorage) Flush() error {
-	s.printf("Flush()")
-	return s.base.Flush()
+	t0 := time.Now()
+	err := s.base.Flush()
+	dt := time.Since(t0)
+	s.printf(s.prefix()+"Flush()=%#v took %v", err, dt)
+	return err
 }
 
 func (s *loggingStorage) Close() error {
-	s.printf("Close()")
-	return s.base.Close()
+	t0 := time.Now()
+	err := s.base.Close()
+	dt := time.Since(t0)
+	s.printf(s.prefix()+"Close()=%#v took %v", err, dt)
+	return err
 }
+
+func (s *loggingStorage) prefix() string {
+	return "[STORAGE] "
+}
+
+type Option func(s *loggingStorage)
 
 // NewWrapper returns a Storage wrapper that logs all storage commands.
-func NewWrapper(wrapped storage.Storage) storage.Storage {
-	return &loggingStorage{base: wrapped, printf: log.Printf}
+func NewWrapper(wrapped storage.Storage, options ...Option) storage.Storage {
+	s := &loggingStorage{base: wrapped, printf: log.Printf}
+	for _, o := range options {
+		o(s)
+	}
+	return s
 }
 
-// NewWrapperWithLogger returns a Storage wrapper that logs all storage commands to the specified logger.
-func NewWrapperWithLogger(wrapped storage.Storage, printfer Printfer) storage.Storage {
-	return &loggingStorage{base: wrapped, printf: printfer.Printf}
+// Output is a logging storage option that causes all output to be sent to a given function instead of log.Printf()
+func Output(outputFunc func(fmt string, args ...interface{})) Option {
+	return func(s *loggingStorage) {
+		s.printf = outputFunc
+	}
 }

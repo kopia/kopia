@@ -12,10 +12,7 @@ func init() {
 }
 
 func removeVaultItem(context *kingpin.ParseContext) error {
-	vlt, err := openVault()
-	if err != nil {
-		return err
-	}
+	vlt := mustOpenVault()
 
 	for _, v := range *vaultRemoveItems {
 		if err := vlt.Remove(v); err != nil {

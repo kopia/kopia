@@ -84,19 +84,16 @@ type repository struct {
 }
 
 func (r *repository) Close() error {
-	if err := r.Flush(); err != nil {
+	if err := r.storage.Close(); err != nil {
 		return err
 	}
 	r.bufferManager.close()
+
 	return nil
 }
 
 func (r *repository) Flush() error {
-	if f, ok := r.storage.(storage.Flusher); ok {
-		return f.Flush()
-	}
-
-	return nil
+	return r.storage.Flush()
 }
 
 func (r *repository) Stats() RepositoryStats {

@@ -17,21 +17,18 @@ func init() {
 }
 
 func runRepositoryInfoCommand(context *kingpin.ParseContext) error {
-	v, err := openVault()
-	if err != nil {
-		return err
-	}
+	vlt, r := mustOpenVaultAndRepository()
 
-	vf := v.Format()
+	vf := vlt.Format()
 	fmt.Println("Vault:")
 	fmt.Println("  Version:         ", vf.Version)
 	fmt.Println("  Unique ID:       ", hex.EncodeToString(vf.UniqueID))
 	fmt.Println("  Encryption:      ", vf.Encryption)
 	fmt.Println("  Checksum:        ", vf.Checksum)
-	fmt.Println("  Storage:         ", v.Storage())
+	fmt.Println("  Storage:         ", vlt.Storage())
 	fmt.Println()
 
-	f := v.RepositoryFormat()
+	f := vlt.RepositoryFormat()
 
 	fmt.Println("Repository:")
 	fmt.Println("  Version:         ", f.Version)
@@ -43,12 +40,7 @@ func runRepositoryInfoCommand(context *kingpin.ParseContext) error {
 	fmt.Println("  ID Format:       ", f.ObjectFormat)
 	fmt.Println("  Blob Size:       ", f.MaxBlockSize/1024, "KB")
 	fmt.Println("  Inline Blob Size:", f.MaxInlineContentLength/1024, "KB")
-	r, err := v.OpenRepository()
-	if err == nil {
-		fmt.Println("  Storage:         ", r.Storage())
-	} else {
-		fmt.Println("  WARNING: Cannot open repository.")
-	}
+	fmt.Println("  Storage:         ", r.Storage())
 
 	return nil
 }

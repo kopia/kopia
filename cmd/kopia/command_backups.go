@@ -57,19 +57,12 @@ func findBackups(vlt *vault.Vault, path string) ([]string, string, error) {
 }
 
 func runBackupsCommand(context *kingpin.ParseContext) error {
-	vlt, err := openVault()
-	if err != nil {
-		return err
-	}
-
-	mgr, err := vlt.OpenRepository()
-	if err != nil {
-		return err
-	}
-	defer mgr.Close()
+	vlt, r := mustOpenVaultAndRepository()
+	defer r.Close()
 
 	var previous []string
 	var relPath string
+	var err error
 
 	if *backupsPath != "" {
 		path, err := filepath.Abs(*backupsPath)

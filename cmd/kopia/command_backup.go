@@ -52,16 +52,8 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 		repoOptions = append(repoOptions, repo.WriteBack(*backupWriteBack))
 	}
 
-	vlt, err := openVault()
-	if err != nil {
-		return err
-	}
-
-	mgr, err := vlt.OpenRepository(repoOptions...)
-	if err != nil {
-		return err
-	}
-	defer mgr.Close()
+	vlt, r := mustOpenVaultAndRepository()
+	defer r.Close()
 
 	var options []fs.UploaderOption
 
@@ -69,7 +61,7 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 		options = append(options, fs.EnableBundling())
 	}
 
-	bgen, err := backup.NewGenerator(mgr, options...)
+	bgen, err := backup.NewGenerator(r, options...)
 	if err != nil {
 		return err
 	}
