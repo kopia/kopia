@@ -20,14 +20,14 @@ func TestParseMalformedObjectID(t *testing.T) {
 		"Dab.a",
 		"Dab.abc",
 		"Dab.011",
-		"L.",
-		"L.x",
-		"L.af",
-		"Lx.ag",
-		"Lab.",
-		"L1",
-		"L1,",
-		"L-1,X",
+		"I.",
+		"I.x",
+		"I.af",
+		"Ix.ag",
+		"Iab.",
+		"I1",
+		"I1,",
+		"I-1,X",
 		"Xsomething",
 	}
 
@@ -52,6 +52,8 @@ func TestParseObjectIDEncryptionInfo(t *testing.T) {
 		{"Dabcdef.00112233", []byte{0x00, 0x11, 0x22, 0x33}},
 		{"I1,abcdef.0011223344", []byte{0x00, 0x11, 0x22, 0x33, 0x44}},
 		{"I2,abcdef.0011223344", []byte{0x00, 0x11, 0x22, 0x33, 0x44}},
+		{"S1,2,Dabcdef.0011223344", nil},
+		{"S1,2,S3,4,Dabcdef.0011223344", nil},
 	}
 
 	for _, c := range cases {
@@ -64,6 +66,11 @@ func TestParseObjectIDEncryptionInfo(t *testing.T) {
 		actual := objectID.EncryptionKey
 		if !bytes.Equal(actual, c.expected) {
 			t.Errorf("invalid encryption key for %v: %x, expected: %x", c.objectID, actual, c.expected)
+		}
+
+		uiString := objectID.UIString()
+		if uiString != c.objectID {
+			t.Errorf("invalid object ID string: %v: expected: %v", uiString, c.objectID)
 		}
 	}
 }

@@ -17,6 +17,10 @@ import (
 	"github.com/kopia/kopia/storage"
 )
 
+func init() {
+	panicOnBufferLeaks = true
+}
+
 func testFormat() *Format {
 	return &Format{
 		Version:                1,
@@ -303,6 +307,7 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 			)
 			writer.Write(randomData)
 			objectID, err := writer.Result(forceStored)
+			writer.Close()
 			if err != nil {
 				t.Errorf("cannot get writer result for %v/%v: %v", forceStored, size, err)
 				continue

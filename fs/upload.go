@@ -207,7 +207,6 @@ func (u *uploader) uploadDirInternal(
 		entryRelativePath := relativePath + "/" + e.Name
 
 		var hash uint64
-		var childrenMetadata []*EntryMetadata
 
 		switch entry := entry.(type) {
 		case Directory:
@@ -237,10 +236,12 @@ func (u *uploader) uploadDirInternal(
 			cacheMatches := (cachedEntry != nil) && cachedEntry.Hash == e.metadataHash()
 
 			allCached = allCached && cacheMatches
-			childrenMetadata = make([]*EntryMetadata, len(entry.files))
+			childrenMetadata := make([]*EntryMetadata, len(entry.files))
 			for i, f := range entry.files {
 				childrenMetadata[i] = f.Metadata()
 			}
+
+			e.BundledChildren = childrenMetadata
 
 			if cacheMatches {
 				result.Stats.CachedFiles++
@@ -288,7 +289,7 @@ func (u *uploader) uploadDirInternal(
 			binary.Write(dirHasher, binary.LittleEndian, hash)
 		}
 
-		if err := dw.WriteEntry(e, childrenMetadata); err != nil {
+		if err := dw.WriteEntry(e); err != nil {
 			return repo.NullObjectID, 0, false, err
 		}
 
@@ -378,6 +379,7 @@ func (u *uploader) bundleEntries(entries Entries) Entries {
 
 					bundleMetadata := &EntryMetadata{
 						Name: fmt.Sprintf("bundle-%v", bundleNo),
+						Type: EntryTypeBundle,
 					}
 
 					b = &uploadBundle{

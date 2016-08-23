@@ -15,7 +15,7 @@ type directoryWriter struct {
 	w *jsonstream.Writer
 }
 
-func (dw *directoryWriter) WriteEntry(e *EntryMetadata, children []*EntryMetadata) error {
+func (dw *directoryWriter) WriteEntry(e *EntryMetadata) error {
 	if err := e.ObjectID.Validate(); err != nil {
 		panic("invalid object ID: " + err.Error())
 	}
@@ -33,10 +33,6 @@ func newDirectoryWriter(w io.WriteCloser) *directoryWriter {
 	}
 
 	return dw
-}
-
-func invalidDirectoryError(cause error) error {
-	return fmt.Errorf("invalid directory data: %v", cause)
 }
 
 func readDirectoryMetadataEntries(r io.Reader) ([]*EntryMetadata, error) {

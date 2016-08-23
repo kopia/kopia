@@ -10,6 +10,8 @@ import (
 	"github.com/kopia/kopia/storage"
 )
 
+var panicOnBufferLeaks = false
+
 // bufferManager manages pool of reusable bytes.Buffer objects.
 type bufferManager struct {
 	outstandingCount int32
@@ -44,7 +46,11 @@ func (mgr *bufferManager) returnBufferOnClose(b *bytes.Buffer) storage.ReaderWit
 
 func (mgr *bufferManager) close() {
 	if mgr.outstandingCount != 0 {
-		log.Printf("WARNING: Found %v buffer leaks.", mgr.outstandingCount)
+		if panicOnBufferLeaks {
+			log.Panicf("WARNING: Found %v buffer leaks.", mgr.outstandingCount)
+		} else {
+			log.Printf("WARNING: Found %v buffer leaks.", mgr.outstandingCount)
+		}
 	}
 }
 

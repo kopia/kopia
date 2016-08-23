@@ -29,11 +29,11 @@ import (
 //   "B"                                        // empty object
 //   "BcXVpY2sgYnJvd24gZm94Cg=="                // inline content "quick brown fox" (base64-encoded)
 //   "D295754edeb35c17911b1fdf853f572fe"        // storage block
-//   "L1,2c33acbcba3569f943d9e8aaea7817c5"      // level-1 indirection block
-//   "L3,e18604fe53ee670558eb4234d2e55cb7"      // level-3 indirection block
+//   "I1,2c33acbcba3569f943d9e8aaea7817c5"      // level-1 indirection block
+//   "I3,e18604fe53ee670558eb4234d2e55cb7"      // level-3 indirection block
 //   "Daad048fd5721b43adaa353c407d23ff6.5617c50fb1d71b6f7a2c4c8bacacef1d2222eaa4b2245a3714686c658f8af3d9"
 //                                              // encrypted storage block with 256-bit key
-//   "L2,87381a8631dcc86256233437338e27c4.81cf86361dbc9b7905f12f6f6b80d7ec0edd487eeb339e1193805e3f58ef9505"
+//   "I2,87381a8631dcc86256233437338e27c4.81cf86361dbc9b7905f12f6f6b80d7ec0edd487eeb339e1193805e3f58ef9505"
 //                                              // encrypted level-2 indirection block with 256-bit key
 //   "S30,50,D295754edeb35c17911b1fdf853f572fe" // section of "D295754edeb35c17911b1fdf853f572fe" between [30,80)
 //
@@ -74,7 +74,7 @@ func (oid *ObjectID) UIString() string {
 		}
 
 		if oid.Indirect > 0 {
-			return fmt.Sprintf("L%v,%v%v", oid.Indirect, oid.StorageBlock, encryptionSuffix)
+			return fmt.Sprintf("I%v,%v%v", oid.Indirect, oid.StorageBlock, encryptionSuffix)
 		}
 
 		return "D" + oid.StorageBlock + encryptionSuffix
@@ -215,8 +215,14 @@ func ParseObjectID(s string) (ObjectID, error) {
 				if err != nil {
 					break
 				}
+				if i <= 0 {
+					break
+				}
 				indirectLevel = int32(i)
 				content = content[comma+1:]
+				if content == "" {
+					break
+				}
 			}
 
 			firstSeparator := strings.Index(content, objectIDEncryptionInfoSeparator)
@@ -234,6 +240,7 @@ func ParseObjectID(s string) (ObjectID, error) {
 						return ObjectID{
 							StorageBlock:  content[0:firstSeparator],
 							EncryptionKey: b,
+							Indirect:      indirectLevel,
 						}, nil
 					}
 				}

@@ -29,6 +29,7 @@ const (
 	EntryTypeFile      EntryType = "f" // file
 	EntryTypeDirectory EntryType = "d" // directory
 	EntryTypeSymlink   EntryType = "s" // symbolic link
+	EntryTypeBundle    EntryType = "b" // bundle
 )
 
 // Permissions encapsulates UNIX permissions for a filesystem entry.
