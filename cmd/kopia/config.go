@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	traceStorage = app.Flag("trace-storage", "Enables tracing of storage operations.").Hidden().Bool()
+	traceStorage = app.Flag("trace-storage", "Enables tracing of storage operations.").Hidden().Envar("KOPIA_TRACE_STORAGE").Bool()
 
 	vaultConfigPath = app.Flag("vaultconfig", "Specify the vault config file to use.").PlaceHolder("PATH").Envar("KOPIA_VAULTCONFIG").String()
 	vaultPath       = app.Flag("vault", "Specify the vault to use.").PlaceHolder("PATH").Envar("KOPIA_VAULT").Short('v').String()
