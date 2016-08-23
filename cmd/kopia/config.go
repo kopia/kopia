@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -10,8 +11,11 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/kopia/kopia/storage/logging"
+
 	"github.com/bgentry/speakeasy"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/storage"
 	"github.com/kopia/kopia/vault"
 )
 
@@ -59,7 +63,7 @@ func repositoryOptionsFromFlags(extraOptions []repo.RepositoryOption) []repo.Rep
 	}
 
 	if *traceStorage {
-		opts = append(opts, repo.EnableLogging())
+		opts = append(opts, repo.EnableLogging(logging.Prefix("[REPOSITORY] ")))
 	}
 	return opts
 }
@@ -84,7 +88,7 @@ func vaultConfigFileName() string {
 }
 
 func persistVaultConfig(v *vault.Vault) error {
-	cfg, err := v.Token()
+	cfg, err := v.Config()
 	if err != nil {
 		return err
 	}
@@ -95,22 +99,50 @@ func persistVaultConfig(v *vault.Vault) error {
 		return err
 	}
 
-	return ioutil.WriteFile(fname, []byte(cfg), 0600)
+	f, err := os.Create(fname)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	return json.NewEncoder(f).Encode(cfg)
 }
 
-func getPersistedVaultConfig() string {
-	f, err := ioutil.ReadFile(vaultConfigFileName())
+func getPersistedVaultConfig() *vault.Config {
+	f, err := os.Open(vaultConfigFileName())
 	if err != nil {
-		return ""
+		return nil
+	}
+	defer f.Close()
+
+	vc := &vault.Config{}
+
+	if err := json.NewDecoder(f).Decode(vc); err != nil {
+		return nil
 	}
 
-	return string(f)
+	return vc
 }
 
 func openVault() (*vault.Vault, error) {
 	vc := getPersistedVaultConfig()
-	if vc != "" {
-		return vault.OpenWithToken(vc)
+	if vc != nil {
+		st, err := storage.NewStorage(vc.ConnectionInfo)
+		if err != nil {
+			return nil, fmt.Errorf("cannot open vault storage: %v", err)
+		}
+
+		if *traceStorage {
+			st = logging.NewWrapper(st, logging.Prefix("[VAULT] "))
+		}
+
+		creds, err := vault.MasterKey(vc.Key)
+		if err != nil {
+			st.Close()
+			return nil, fmt.Errorf("invalid vault config")
+		}
+
+		return vault.Open(st, creds)
 	}
 
 	if *vaultPath == "" {

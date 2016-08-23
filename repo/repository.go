@@ -167,9 +167,9 @@ func WriteBack(workerCount int) RepositoryOption {
 }
 
 // EnableLogging is an RepositoryOption that causes all storage access to be logged.
-func EnableLogging() RepositoryOption {
+func EnableLogging(options ...logging.Option) RepositoryOption {
 	return func(o *repository) error {
-		o.storage = logging.NewWrapper(o.storage)
+		o.storage = logging.NewWrapper(o.storage, options...)
 		return nil
 	}
 }

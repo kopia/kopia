@@ -11,13 +11,14 @@ import (
 type loggingStorage struct {
 	base   storage.Storage
 	printf func(string, ...interface{})
+	prefix string
 }
 
 func (s *loggingStorage) BlockExists(id string) (bool, error) {
 	t0 := time.Now()
 	result, err := s.base.BlockExists(id)
 	dt := time.Since(t0)
-	s.printf(s.prefix()+"BlockExists(%#v)=%#v,%#v took %v", id, result, err, dt)
+	s.printf(s.prefix+"BlockExists(%#v)=%#v,%#v took %v", id, result, err, dt)
 	return result, err
 }
 
@@ -26,9 +27,9 @@ func (s *loggingStorage) GetBlock(id string) ([]byte, error) {
 	result, err := s.base.GetBlock(id)
 	dt := time.Since(t0)
 	if len(result) < 20 {
-		s.printf(s.prefix()+"GetBlock(%#v)=(%#v, %#v) took %v", id, result, err, dt)
+		s.printf(s.prefix+"GetBlock(%#v)=(%#v, %#v) took %v", id, result, err, dt)
 	} else {
-		s.printf(s.prefix()+"GetBlock(%#v)=({%#v bytes}, %#v) took %v", id, len(result), err, dt)
+		s.printf(s.prefix+"GetBlock(%#v)=({%#v bytes}, %#v) took %v", id, len(result), err, dt)
 	}
 	return result, err
 }
@@ -38,7 +39,7 @@ func (s *loggingStorage) PutBlock(id string, data storage.ReaderWithLength, opti
 	l := data.Len()
 	err := s.base.PutBlock(id, data, options)
 	dt := time.Since(t0)
-	s.printf(s.prefix()+"PutBlock(%#v, options=%v, len=%v)=%#v took %v", id, options, l, err, dt)
+	s.printf(s.prefix+"PutBlock(%#v, options=%v, len=%v)=%#v took %v", id, options, l, err, dt)
 	return err
 }
 
@@ -46,7 +47,7 @@ func (s *loggingStorage) DeleteBlock(id string) error {
 	t0 := time.Now()
 	err := s.base.DeleteBlock(id)
 	dt := time.Since(t0)
-	s.printf(s.prefix()+"DeleteBlock(%#v)=%#v took %v", id, err, dt)
+	s.printf(s.prefix+"DeleteBlock(%#v)=%#v took %v", id, err, dt)
 	return err
 }
 
@@ -54,7 +55,7 @@ func (s *loggingStorage) ListBlocks(prefix string) chan (storage.BlockMetadata) 
 	t0 := time.Now()
 	ch := s.base.ListBlocks(prefix)
 	dt := time.Since(t0)
-	s.printf(s.prefix()+"ListBlocks(%#v) took %v", prefix, dt)
+	s.printf(s.prefix+"ListBlocks(%#v) took %v", prefix, dt)
 	return ch
 }
 
@@ -62,7 +63,7 @@ func (s *loggingStorage) Flush() error {
 	t0 := time.Now()
 	err := s.base.Flush()
 	dt := time.Since(t0)
-	s.printf(s.prefix()+"Flush()=%#v took %v", err, dt)
+	s.printf(s.prefix+"Flush()=%#v took %v", err, dt)
 	return err
 }
 
@@ -70,14 +71,11 @@ func (s *loggingStorage) Close() error {
 	t0 := time.Now()
 	err := s.base.Close()
 	dt := time.Since(t0)
-	s.printf(s.prefix()+"Close()=%#v took %v", err, dt)
+	s.printf(s.prefix+"Close()=%#v took %v", err, dt)
 	return err
 }
 
-func (s *loggingStorage) prefix() string {
-	return "[STORAGE] "
-}
-
+// Option modifies the behavior of logging storage wrapper.
 type Option func(s *loggingStorage)
 
 // NewWrapper returns a Storage wrapper that logs all storage commands.
@@ -86,6 +84,7 @@ func NewWrapper(wrapped storage.Storage, options ...Option) storage.Storage {
 	for _, o := range options {
 		o(s)
 	}
+
 	return s
 }
 
@@ -93,5 +92,12 @@ func NewWrapper(wrapped storage.Storage, options ...Option) storage.Storage {
 func Output(outputFunc func(fmt string, args ...interface{})) Option {
 	return func(s *loggingStorage) {
 		s.printf = outputFunc
+	}
+}
+
+// Prefix specifies prefix to be prepended to all log output.
+func Prefix(prefix string) Option {
+	return func(s *loggingStorage) {
+		s.prefix = prefix
 	}
 }

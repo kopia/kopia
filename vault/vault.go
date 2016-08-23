@@ -7,7 +7,6 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -262,32 +261,26 @@ func (v *Vault) Close() error {
 	return nil
 }
 
-type vaultConfig struct {
+// Config represents JSON-compatible configuration of the vault connection, including vault key.
+type Config struct {
 	ConnectionInfo storage.ConnectionInfo `json:"connection"`
 	Key            []byte                 `json:"key,omitempty"`
 }
 
-// Token returns a persistent opaque string that encodes the configuration of vault storage
-// and its credentials in a way that can be later used to open the vault.
-func (v *Vault) Token() (string, error) {
+// Config returns a configuration of vault storage its credentials that's suitable
+// for storing in configuration file.
+func (v *Vault) Config() (*Config, error) {
 	cip, ok := v.storage.(storage.ConnectionInfoProvider)
 	if !ok {
-		return "", errors.New("repository does not support persisting configuration")
+		return nil, errors.New("repository does not support persisting configuration")
 	}
 
 	ci := cip.ConnectionInfo()
 
-	vc := vaultConfig{
+	return &Config{
 		ConnectionInfo: ci,
 		Key:            v.masterKey,
-	}
-
-	b, err := json.Marshal(&vc)
-	if err != nil {
-		return "", err
-	}
-
-	return base64.RawURLEncoding.EncodeToString(b), nil
+	}, nil
 }
 
 // Remove deletes the specified vault item.
@@ -392,32 +385,6 @@ func Open(vaultStorage storage.Storage, vaultCreds Credentials) (*Vault, error) 
 	v.repoConfig = rc
 
 	return &v, nil
-}
-
-// OpenWithToken opens a vault with storage configuration and credentials in the specified token.
-func OpenWithToken(token string) (*Vault, error) {
-	b, err := base64.RawURLEncoding.DecodeString(token)
-	if err != nil {
-		return nil, fmt.Errorf("invalid vault base64 token: %v", err)
-	}
-
-	var vc vaultConfig
-	err = json.Unmarshal(b, &vc)
-	if err != nil {
-		return nil, fmt.Errorf("invalid vault json token: %v", err)
-	}
-
-	st, err := storage.NewStorage(vc.ConnectionInfo)
-	if err != nil {
-		return nil, fmt.Errorf("cannot open vault storage: %v", err)
-	}
-
-	creds, err := MasterKey(vc.Key)
-	if err != nil {
-		return nil, fmt.Errorf("invalid vault token")
-	}
-
-	return Open(st, creds)
 }
 
 func isReservedName(itemID string) bool {

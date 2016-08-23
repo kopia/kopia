@@ -86,23 +86,18 @@ func verifyVault(t *testing.T, vaultPath string, repoPath string) {
 		return
 	}
 
-	tok1, err := v1.Token()
+	cfg, err := v1.Config()
 	if err != nil {
 		t.Errorf("error getting token1 %v", err)
 	}
-	tok2, err := v2.Token()
+
+	cfg2, err := v2.Config()
 	if err != nil {
 		t.Errorf("error getting token2 %v", err)
 	}
 
-	v3, err := OpenWithToken(tok1)
-	if err != nil {
-		t.Errorf("can't open vault with token: %v", err)
-		return
-	}
-
-	if tok1 != tok2 {
-		t.Errorf("tokens don't match: %v vs %v", tok1, tok2)
+	if !reflect.DeepEqual(cfg, cfg2) {
+		t.Errorf("configurations are different: %+v vs %+v", cfg, cfg2)
 	}
 
 	_, err = Open(vaultStorage, otherVaultCreds)
@@ -165,7 +160,7 @@ func verifyVault(t *testing.T, vaultPath string, repoPath string) {
 	}
 
 	// Verify contents of vault items for both created and opened vault.
-	for _, v := range []*Vault{v1, v2, v3} {
+	for _, v := range []*Vault{v1, v2} {
 		rf := v.RepositoryFormat()
 		if !reflect.DeepEqual(rf, repoFormat) {
 			t.Errorf("invalid repository format: %v, but got %v", repoFormat, rf)

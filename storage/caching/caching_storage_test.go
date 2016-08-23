@@ -8,9 +8,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/kopia/kopia/storage"
-
 	"github.com/kopia/kopia/internal/storagetesting"
+	"github.com/kopia/kopia/storage"
 	"github.com/kopia/kopia/storage/logging"
 
 	"testing"
@@ -79,7 +78,7 @@ func TestCache(t *testing.T) {
 	master := storagetesting.NewMapStorage(masterData)
 
 	var tr tracer
-	master = logging.NewWrapperWithLogger(master, &tr)
+	master = logging.NewWrapper(master, logging.Output(tr.Printf))
 
 	cache, err := NewWrapper(master, Options{CacheDir: tmpdir})
 	defer cache.Close()
