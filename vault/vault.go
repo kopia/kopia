@@ -13,6 +13,7 @@ import (
 	"hash"
 	"io"
 	"strings"
+	"sync"
 
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/storage"
@@ -114,6 +115,10 @@ func (v *Vault) readEncryptedBlock(itemID string) ([]byte, error) {
 		return nil, fmt.Errorf("unexpected error reading %v: %v", itemID, err)
 	}
 
+	return v.decryptBlock(content)
+}
+
+func (v *Vault) decryptBlock(content []byte) ([]byte, error) {
 	blk, err := v.newCipher()
 	if err != nil {
 		return nil, err
@@ -358,18 +363,33 @@ func Open(vaultStorage storage.Storage, vaultCreds Credentials) (*Vault, error) 
 	}
 
 	var prefix string
+	var wg sync.WaitGroup
 
-	f, err := vaultStorage.GetBlock(formatBlockID)
-	if err == storage.ErrBlockNotFound {
+	var blocks [4][]byte
+
+	f := func(index int, name string) {
+		blocks[index], _ = vaultStorage.GetBlock(name)
+		wg.Done()
+	}
+
+	wg.Add(4)
+	go f(0, formatBlockID)
+	go f(1, repositoryConfigBlockID)
+	go f(2, colocatedVaultItemPrefix+formatBlockID)
+	go f(3, colocatedVaultItemPrefix+repositoryConfigBlockID)
+	wg.Wait()
+
+	if blocks[0] == nil && blocks[2] == nil {
+		return nil, fmt.Errorf("vault format block not found")
+	}
+
+	var offset = 0
+	if blocks[0] == nil {
 		prefix = colocatedVaultItemPrefix
-		f, err = vaultStorage.GetBlock(prefix + formatBlockID)
+		offset = 2
 	}
 
-	if err != nil {
-		return nil, err
-	}
-
-	err = json.Unmarshal(f, &v.format)
+	err := json.Unmarshal(blocks[offset], &v.format)
 	if err != nil {
 		return nil, err
 	}
@@ -377,8 +397,14 @@ func Open(vaultStorage storage.Storage, vaultCreds Credentials) (*Vault, error) 
 	v.masterKey = vaultCreds.getMasterKey(v.format.UniqueID)
 	v.itemPrefix = prefix
 
+	cfgData, err := v.decryptBlock(blocks[offset+1])
+	if err != nil {
+		return nil, err
+	}
+
 	var rc repositoryConfig
-	if err := v.getJSON(repositoryConfigBlockID, &rc); err != nil {
+
+	if err := json.Unmarshal(cfgData, &rc); err != nil {
 		return nil, err
 	}
 

@@ -17,9 +17,15 @@ import (
 )
 
 var (
-	app          = kingpin.New("kopia", "Kopia - Online Backup").Author("http://kopia.github.io/")
-	buildVersion = "UNKNOWN"
+	app              = kingpin.New("kopia", "Kopia - Online Backup").Author("http://kopia.github.io/")
+	appLogTimestamps = app.Flag("log-timestamps", "Log timestamps").Hidden().Action(enableLogTimestamps).Bool()
+	buildVersion     = "UNKNOWN"
 )
+
+func enableLogTimestamps(context *kingpin.ParseContext) error {
+	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
+	return nil
+}
 
 func main() {
 	log.SetFlags(0)
