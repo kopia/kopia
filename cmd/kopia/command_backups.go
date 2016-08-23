@@ -87,12 +87,7 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 	var lastSource string
 	var count int
 
-	for _, n := range previous {
-		m, err := loadBackupManifest(vlt, n)
-		if err != nil {
-			return fmt.Errorf("error loading previous backup: %v", err)
-		}
-
+	for _, m := range loadBackupManifests(vlt, previous) {
 		if m.HostName != lastHost || m.UserName != lastUser || m.Source != lastSource {
 			log.Printf("%v@%v:%v", m.UserName, m.HostName, m.Source)
 			lastSource = m.Source
@@ -108,6 +103,32 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 	}
 
 	return nil
+}
+
+func loadBackupManifests(vlt *vault.Vault, names []string) []*backup.Manifest {
+	result := make([]*backup.Manifest, len(names))
+	sem := make(chan bool, 5)
+
+	for i, n := range names {
+		sem <- true
+		go func(i int, n string) {
+			defer func() { <-sem }()
+
+			m, err := loadBackupManifest(vlt, n)
+			if err != nil {
+				log.Printf("WARNING: Unable to parse backup manifest %v: %v", n, err)
+				return
+			}
+			result[i] = m
+		}(i, n)
+	}
+
+	for i := 0; i < cap(sem); i++ {
+		sem <- true
+	}
+	close(sem)
+
+	return result
 }
 
 func init() {
