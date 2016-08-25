@@ -1,7 +1,6 @@
 package storagetesting
 
 import (
-	"io/ioutil"
 	"sort"
 	"strings"
 	"sync"
@@ -34,22 +33,15 @@ func (s *mapStorage) GetBlock(id string) ([]byte, error) {
 	return nil, storage.ErrBlockNotFound
 }
 
-func (s *mapStorage) PutBlock(id string, data storage.ReaderWithLength, options storage.PutOptions) error {
+func (s *mapStorage) PutBlock(id string, data []byte, options storage.PutOptions) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
 	if _, ok := s.data[string(id)]; ok {
-		data.Close()
 		return nil
 	}
 
-	c, err := ioutil.ReadAll(data)
-	data.Close()
-	if err != nil {
-		return err
-	}
-
-	s.data[string(id)] = c
+	s.data[string(id)] = append([]byte(nil), data...)
 	return nil
 }
 
@@ -88,10 +80,6 @@ func (s *mapStorage) ListBlocks(prefix string) chan (storage.BlockMetadata) {
 		close(ch)
 	}()
 	return ch
-}
-
-func (s *mapStorage) Flush() error {
-	return nil
 }
 
 func (s *mapStorage) Close() error {

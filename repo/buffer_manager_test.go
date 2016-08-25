@@ -28,11 +28,7 @@ func TestBufferManager(t *testing.T) {
 	if mgr.outstandingCount != 2 {
 		t.Errorf("unexpected outstandingCount: %v", mgr.outstandingCount)
 	}
-	closer := mgr.returnBufferOnClose(b)
-	closer.Close()
-	if mgr.outstandingCount != 1 {
-		t.Errorf("unexpected outstandingCount: %v", mgr.outstandingCount)
-	}
+	mgr.returnBuffer(b)
 	mgr.returnBuffer(b)
 	if mgr.outstandingCount != 0 {
 		t.Errorf("unexpected outstandingCount: %v", mgr.outstandingCount)

@@ -2,6 +2,7 @@
 package gcs
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -65,17 +66,16 @@ func (gcs *gcsStorage) GetBlock(b string) ([]byte, error) {
 	return ioutil.ReadAll(v.Body)
 }
 
-func (gcs *gcsStorage) PutBlock(b string, data storage.ReaderWithLength, options storage.PutOptions) error {
-	defer data.Close()
+func (gcs *gcsStorage) PutBlock(b string, data []byte, options storage.PutOptions) error {
 	object := gcsclient.Object{
 		Name: gcs.getObjectNameString(b),
 	}
 
 	call := gcs.objectsService.Insert(gcs.BucketName, &object).Media(
-		data,
+		bytes.NewReader(data),
 		googleapi.ContentType("application/octet-stream"),
 		// Specify exact chunk size to ensure data is uploaded in one shot or not at all.
-		googleapi.ChunkSize(data.Len()),
+		googleapi.ChunkSize(len(data)),
 	)
 	if options&storage.PutOptionsOverwrite == 0 {
 		if ok, _ := gcs.BlockExists(b); ok {
@@ -150,10 +150,6 @@ func (gcs *gcsStorage) ListBlocks(prefix string) chan (storage.BlockMetadata) {
 	}()
 
 	return ch
-}
-
-func (gcs *gcsStorage) Flush() error {
-	return nil
 }
 
 func (gcs *gcsStorage) ConnectionInfo() storage.ConnectionInfo {

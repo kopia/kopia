@@ -69,7 +69,7 @@ func (oid *ObjectID) UIString() string {
 	if oid.StorageBlock != "" {
 		var encryptionSuffix string
 
-		if oid.EncryptionKey != nil {
+		if len(oid.EncryptionKey) > 0 {
 			encryptionSuffix = "." + hex.EncodeToString(oid.EncryptionKey)
 		}
 
@@ -117,7 +117,7 @@ func (oid *ObjectID) Validate() error {
 		return fmt.Errorf("indirect object without storage block: %+v", oid)
 	}
 
-	if oid.EncryptionKey != nil && len(oid.StorageBlock) == 0 {
+	if len(oid.EncryptionKey) > 0 && len(oid.StorageBlock) == 0 {
 		return fmt.Errorf("encryption key without storage block: %+v", oid)
 
 	}

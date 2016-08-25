@@ -3,9 +3,7 @@ package repo
 import (
 	"bufio"
 	"bytes"
-	"crypto/cipher"
 	"crypto/hmac"
-	"errors"
 	"fmt"
 	"hash"
 	"io"
@@ -29,10 +27,6 @@ type ObjectReader interface {
 	io.Closer
 	Length() int64
 }
-
-// Since we never share keys, using constant IV is fine.
-// Instead of using all-zero, we use this one.
-var constantIV = []byte("kopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopia")
 
 // Repository objects addressed by their content allows reading and writing them.
 type Repository interface {
@@ -81,6 +75,8 @@ type repository struct {
 
 	format    Format
 	formatter ObjectFormatter
+
+	workerCount int
 }
 
 func (r *repository) Close() error {
@@ -93,7 +89,7 @@ func (r *repository) Close() error {
 }
 
 func (r *repository) Flush() error {
-	return r.storage.Flush()
+	return nil
 }
 
 func (r *repository) Stats() RepositoryStats {
@@ -124,7 +120,7 @@ func (r *repository) Open(objectID ObjectID) (ObjectReader, error) {
 	if objectID.Section != nil {
 		baseReader, err := r.Open(objectID.Section.Base)
 		if err != nil {
-			return nil, fmt.Errorf("cannot create base reader: %v", err)
+			return nil, fmt.Errorf("cannot create base reader: %+v %v", objectID.Section.Base, err)
 		}
 
 		return newObjectSectionReader(objectID.Section.Start, objectID.Section.Length, baseReader)
@@ -161,7 +157,7 @@ type RepositoryOption func(o *repository) error
 // of goroutines.
 func WriteBack(workerCount int) RepositoryOption {
 	return func(o *repository) error {
-		o.storage = storage.NewWriteBackWrapper(o.storage, workerCount)
+		o.workerCount = workerCount
 		return nil
 	}
 }
@@ -211,52 +207,60 @@ func New(s storage.Storage, f *Format, options ...RepositoryOption) (Repository,
 	return r, nil
 }
 
-func (r *repository) hashBufferForWriting(buffer *bytes.Buffer, prefix string) (ObjectID, storage.ReaderWithLength, error) {
+// hashEncryptAndWriteMaybeAsync computes hash of a given buffer, optionally encrypts and writes it to storage.
+// The write is not guaranteed to complete synchronously in case write-back is used, but by the time
+// Repository.Close() returns all writes are guaranteed be over.
+func (r *repository) hashEncryptAndWriteMaybeAsync(buffer *bytes.Buffer, prefix string) (ObjectID, error) {
 	var data []byte
 	if buffer != nil {
 		data = buffer.Bytes()
 	}
 
-	var blockCipher cipher.Block
+	var isAsync bool
 
-	blockID, encryptionKey := r.formatter.ComputeBlockIDAndKey(data, r.format.Secret)
-	if encryptionKey != nil {
-		var err error
-		blockCipher, err = r.formatter.CreateCipher(encryptionKey)
-		if err != nil {
-			return NullObjectID, nil, err
+	// Make sure we return buffer to the pool, but only if the request has not been asynchronous.
+	defer func() {
+		if !isAsync {
+			r.bufferManager.returnBuffer(buffer)
 		}
-	}
+	}()
 
-	objectID := ObjectID{
-		StorageBlock: prefix + blockID,
-	}
-
-	if len(encryptionKey) > 0 {
-		objectID.EncryptionKey = encryptionKey
-	}
-
+	// Hash the block and compute encryption key.
+	blockID, encryptionKey := r.formatter.ComputeBlockIDAndKey(data, r.format.Secret)
 	atomic.AddInt32(&r.stats.HashedBlocks, 1)
 	atomic.AddInt64(&r.stats.HashedBytes, int64(len(data)))
 
-	if buffer == nil {
-		return objectID, storage.NewReader(bytes.NewBuffer(nil)), nil
+	objectID := ObjectID{
+		StorageBlock:  prefix + blockID,
+		EncryptionKey: encryptionKey,
 	}
 
-	blockReader := r.bufferManager.returnBufferOnClose(buffer)
-	blockReader = newCountingReader(blockReader, &r.stats.BytesWrittenToStorage)
-
-	if len(encryptionKey) > 0 {
-		// Since we're not sharing the key, all-zero IV is ok.
-		// We don't need to worry about separate MAC either, since hashing content produces object ID.
-		ctr := cipher.NewCTR(blockCipher, constantIV[0:blockCipher.BlockSize()])
-
-		blockReader = newCountingReader(
-			newEncryptingReader(blockReader, ctr),
-			&r.stats.EncryptedBytes)
+	// Before performing encryption, check if the block is already there.
+	ok, err := r.storage.BlockExists(objectID.StorageBlock)
+	if err != nil {
+		// Don't know whether block exists in storage.
+		return NullObjectID, err
 	}
 
-	return objectID, blockReader, nil
+	if ok {
+		// Block already exists in storage, return without uploading.
+		return objectID, nil
+	}
+
+	// Encryption is requested, encrypt the block in-place.
+	if encryptionKey != nil {
+		data, err = r.formatter.Encrypt(data, encryptionKey)
+		if err != nil {
+			return NullObjectID, err
+		}
+	}
+
+	// Write the block
+	if err := r.storage.PutBlock(objectID.StorageBlock, data, storage.PutOptionsDefault); err != nil {
+		return NullObjectID, err
+	}
+
+	return objectID, nil
 }
 
 func (r *repository) flattenListChunk(rawReader io.Reader) ([]indirectObjectEntry, error) {
@@ -307,26 +311,16 @@ func (r *repository) newRawReader(objectID ObjectID) (ObjectReader, error) {
 	atomic.AddInt32(&r.stats.BlocksReadFromStorage, 1)
 	atomic.AddInt64(&r.stats.BytesReadFromStorage, int64(len(payload)))
 
-	if objectID.EncryptionKey == nil {
-		if err := r.verifyChecksum(payload, objectID.StorageBlock); err != nil {
+	if len(objectID.EncryptionKey) > 0 {
+		payload, err = r.formatter.Decrypt(payload, objectID.EncryptionKey)
+		atomic.AddInt64(&r.stats.DecryptedBytes, int64(len(payload)))
+		if err != nil {
 			return nil, err
 		}
-		return newObjectReaderWithData(payload), nil
 	}
-
-	blockCipher, err := r.formatter.CreateCipher(objectID.EncryptionKey)
-	if err != nil {
-		return nil, errors.New("cannot create cipher")
-	}
-
-	iv := constantIV[0:blockCipher.BlockSize()]
-	ctr := cipher.NewCTR(blockCipher, iv)
-	ctr.XORKeyStream(payload, payload)
 
 	// Since the encryption key is a function of data, we must be able to generate exactly the same key
 	// after decrypting the content. This serves as a checksum.
-	atomic.AddInt64(&r.stats.DecryptedBytes, int64(len(payload)))
-
 	if err := r.verifyChecksum(payload, objectID.StorageBlock); err != nil {
 		return nil, err
 	}

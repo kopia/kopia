@@ -2,7 +2,6 @@
 package caching
 
 import (
-	"bytes"
 	"fmt"
 	"log"
 	"os"
@@ -148,8 +147,7 @@ func (c *cachingStorage) GetBlock(id string) ([]byte, error) {
 
 	if err == nil {
 		l := int64(len(b))
-		data := storage.NewReader(bytes.NewBuffer(b))
-		c.cache.PutBlock(id, data, storage.PutOptionsOverwrite)
+		c.cache.PutBlock(id, b, storage.PutOptionsOverwrite)
 		c.setCacheEntrySize(id, l)
 	} else if err == storage.ErrBlockNotFound {
 		c.setCacheEntrySize(id, sizeDoesNotExists)
@@ -158,7 +156,7 @@ func (c *cachingStorage) GetBlock(id string) ([]byte, error) {
 	return b, err
 }
 
-func (c *cachingStorage) PutBlock(id string, data storage.ReaderWithLength, options storage.PutOptions) error {
+func (c *cachingStorage) PutBlock(id string, data []byte, options storage.PutOptions) error {
 	c.Lock(id)
 	defer c.Unlock(id)
 
@@ -171,12 +169,6 @@ func (c *cachingStorage) PutBlock(id string, data storage.ReaderWithLength, opti
 
 func (c *cachingStorage) ListBlocks(prefix string) chan storage.BlockMetadata {
 	return c.master.ListBlocks(prefix)
-}
-
-func (c *cachingStorage) Flush() error {
-	c.cache.Flush()
-	c.master.Flush()
-	return nil
 }
 
 func (c *cachingStorage) Close() error {

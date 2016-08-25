@@ -1,6 +1,7 @@
 package storagetesting
 
 import (
+	"bytes"
 	"fmt"
 	"path/filepath"
 	"reflect"
@@ -18,7 +19,7 @@ func AssertGetBlock(t *testing.T, s storage.Storage, block string, expected []by
 		return
 	}
 
-	if !reflect.DeepEqual(b, expected) {
+	if !bytes.Equal(b, expected) {
 		t.Errorf(errorPrefix()+"GetBlock(%v) returned %x, but expected %x", block, b, expected)
 	}
 }

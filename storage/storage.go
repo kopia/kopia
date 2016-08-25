@@ -1,8 +1,6 @@
 package storage
 
 import (
-	"bytes"
-	"fmt"
 	"io"
 	"time"
 )
@@ -19,46 +17,17 @@ const (
 // Storage encapsulates API for connecting to blob storage
 type Storage interface {
 	io.Closer
-	Flusher
 
-	PutBlock(id string, data ReaderWithLength, options PutOptions) error
+	PutBlock(id string, data []byte, options PutOptions) error
 	DeleteBlock(id string) error
 	BlockExists(id string) (bool, error)
 	GetBlock(id string) ([]byte, error)
 	ListBlocks(prefix string) chan (BlockMetadata)
 }
 
-// Flusher waits until all pending writes have completed.
-type Flusher interface {
-	Flush() error
-}
-
 // ConnectionInfoProvider exposes persistent ConnectionInfo for connecting to the Storage.
 type ConnectionInfoProvider interface {
 	ConnectionInfo() ConnectionInfo
-}
-
-// ReaderWithLength supports reading from a block and returns its length.
-type ReaderWithLength interface {
-	io.ReadCloser
-	Len() int
-}
-
-type bytesReaderWithLength struct {
-	*bytes.Buffer
-}
-
-// NewReader wraps the provided buffer and returns a ReaderWithLength.
-func NewReader(b *bytes.Buffer) ReaderWithLength {
-	return &bytesReaderWithLength{b}
-}
-
-func (bbr *bytesReaderWithLength) Close() error {
-	return nil
-}
-
-func (bbr *bytesReaderWithLength) String() string {
-	return fmt.Sprintf("buffer(len=%v)", bbr.Len())
 }
 
 // BlockMetadata represents metadata about a single block in a storage.

@@ -18,7 +18,7 @@ import (
 )
 
 func init() {
-	panicOnBufferLeaks = true
+	//panicOnBufferLeaks = true
 }
 
 func testFormat() *Format {
@@ -317,12 +317,12 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 
 			if size > 1 {
 				sectionID := SectionObjectID(0, int64(size/2), objectID)
-				verify(t, repo, sectionID, randomData[0:10], fmt.Sprintf("%v %v/%v", sectionID, forceStored, size))
+				verify(t, repo, sectionID, randomData[0:10], fmt.Sprintf("%+v %v/%v", sectionID, forceStored, size))
 			}
 
 			if size > 1 {
 				sectionID := SectionObjectID(int64(1), int64(size-1), objectID)
-				verify(t, repo, sectionID, randomData[1:], fmt.Sprintf("%v %v/%v", sectionID, forceStored, size))
+				verify(t, repo, sectionID, randomData[1:], fmt.Sprintf("%+v %v/%v", sectionID, forceStored, size))
 			}
 		}
 	}

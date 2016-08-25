@@ -6,7 +6,6 @@ import (
 	"io"
 
 	"github.com/kopia/kopia/internal/jsonstream"
-	"github.com/kopia/kopia/storage"
 )
 
 // ObjectWriter allows writing content to the storage and supports automatic deduplication and encryption
@@ -135,17 +134,13 @@ func (w *objectWriter) flushBuffer(force bool) error {
 
 		b := w.buffer
 		w.buffer = nil
-		objectID, blockReader, err := w.repo.hashBufferForWriting(b, w.prefix)
-		if err != nil {
-			return err
-		}
 
-		if err := w.repo.storage.PutBlock(objectID.StorageBlock, blockReader, storage.PutOptionsDefault); err != nil {
+		objectID, err := w.repo.hashEncryptAndWriteMaybeAsync(b, w.prefix)
+		if err != nil {
 			return fmt.Errorf(
-				"error when flushing chunk %d of %s to %#v: %#v",
+				"error when flushing chunk %d of %s: %#v",
 				w.flushedObjectCount,
 				w.description,
-				objectID.StorageBlock,
 				err)
 		}
 

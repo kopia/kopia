@@ -99,11 +99,7 @@ func (v *Vault) writeEncryptedBlock(itemID string, content []byte) error {
 		content = cipherText
 	}
 
-	return v.storage.PutBlock(
-		v.itemPrefix+itemID,
-		storage.NewReader(bytes.NewBuffer(content)),
-		storage.PutOptionsOverwrite,
-	)
+	return v.storage.PutBlock(v.itemPrefix+itemID, content, storage.PutOptionsOverwrite)
 }
 
 func (v *Vault) readEncryptedBlock(itemID string) ([]byte, error) {
@@ -332,11 +328,9 @@ func Create(
 		return nil, err
 	}
 
-	vaultStorage.PutBlock(
-		v.itemPrefix+formatBlockID,
-		storage.NewReader(bytes.NewBuffer(formatBytes)),
-		storage.PutOptionsOverwrite,
-	)
+	if err := vaultStorage.PutBlock(v.itemPrefix+formatBlockID, formatBytes, storage.PutOptionsOverwrite); err != nil {
+		return nil, err
+	}
 
 	// Write encrypted repository configuration block.
 	rc := repositoryConfig{

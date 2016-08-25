@@ -1,7 +1,6 @@
 package caching
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -128,7 +127,7 @@ func TestCache(t *testing.T) {
 	storagetesting.AssertGetBlockNotFound(t, cache, "z")
 	tr.assertNoActivity(t)
 
-	cache.PutBlock("z", storage.NewReader(bytes.NewBuffer(data1)), storage.PutOptionsDefault)
+	cache.PutBlock("z", data1, storage.PutOptionsDefault)
 	tr.assertActivityAndClear(t, "PutBlock")
 
 	storagetesting.AssertBlockExists(t, cache, "z", true)
@@ -136,14 +135,11 @@ func TestCache(t *testing.T) {
 	storagetesting.AssertGetBlock(t, cache, "z", data1)
 	tr.assertActivityAndClear(t, "GetBlock")
 
-	cache.PutBlock("x2", storage.NewReader(bytes.NewBuffer(data1)), storage.PutOptionsDefault)
+	cache.PutBlock("x2", data1, storage.PutOptionsDefault)
 	tr.assertActivityAndClear(t, "PutBlock")
 
 	storagetesting.AssertListResults(t, cache, "", "x", "x2", "z")
 	tr.assertActivityAndClear(t, "ListBlocks")
-
-	cache.Flush()
-	tr.assertActivityAndClear(t, "Flush")
 
 	cache.Close()
 	tr.assertActivityAndClear(t, "Close")

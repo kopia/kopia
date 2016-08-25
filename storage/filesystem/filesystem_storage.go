@@ -3,7 +3,6 @@ package filesystem
 
 import (
 	"fmt"
-	"io"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -116,10 +115,7 @@ func (fs *fsStorage) ListBlocks(prefix string) chan (storage.BlockMetadata) {
 	return result
 }
 
-func (fs *fsStorage) PutBlock(blockID string, data storage.ReaderWithLength, options storage.PutOptions) error {
-	// Close the data reader regardless of whether we use it or not.
-	defer data.Close()
-
+func (fs *fsStorage) PutBlock(blockID string, data []byte, options storage.PutOptions) error {
 	shardPath, path := fs.getShardedPathAndFilePath(blockID)
 
 	// Open temporary file, create dir if required.
@@ -137,8 +133,7 @@ func (fs *fsStorage) PutBlock(blockID string, data storage.ReaderWithLength, opt
 		return fmt.Errorf("cannot create temporary file: %v", err)
 	}
 
-	// Copy data to the temporary file.
-	io.Copy(f, data)
+	f.Write(data)
 	f.Close()
 
 	err = os.Rename(tempFile, path)
@@ -162,10 +157,6 @@ func (fs *fsStorage) DeleteBlock(blockID string) error {
 	}
 
 	return err
-}
-
-func (fs *fsStorage) Flush() error {
-	return nil
 }
 
 func (fs *fsStorage) getShardDirectory(blockID string) (string, string) {

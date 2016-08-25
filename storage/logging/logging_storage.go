@@ -34,12 +34,11 @@ func (s *loggingStorage) GetBlock(id string) ([]byte, error) {
 	return result, err
 }
 
-func (s *loggingStorage) PutBlock(id string, data storage.ReaderWithLength, options storage.PutOptions) error {
+func (s *loggingStorage) PutBlock(id string, data []byte, options storage.PutOptions) error {
 	t0 := time.Now()
-	l := data.Len()
 	err := s.base.PutBlock(id, data, options)
 	dt := time.Since(t0)
-	s.printf(s.prefix+"PutBlock(%#v, options=%v, len=%v)=%#v took %v", id, options, l, err, dt)
+	s.printf(s.prefix+"PutBlock(%#v, options=%v, len=%v)=%#v took %v", id, options, len(data), err, dt)
 	return err
 }
 
@@ -57,14 +56,6 @@ func (s *loggingStorage) ListBlocks(prefix string) chan (storage.BlockMetadata) 
 	dt := time.Since(t0)
 	s.printf(s.prefix+"ListBlocks(%#v) took %v", prefix, dt)
 	return ch
-}
-
-func (s *loggingStorage) Flush() error {
-	t0 := time.Now()
-	err := s.base.Flush()
-	dt := time.Since(t0)
-	s.printf(s.prefix+"Flush()=%#v took %v", err, dt)
-	return err
 }
 
 func (s *loggingStorage) Close() error {

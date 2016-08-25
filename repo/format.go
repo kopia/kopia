@@ -27,8 +27,13 @@ type ObjectFormatter interface {
 	// The secret should be used for HMAC.
 	ComputeBlockIDAndKey(data []byte, secret []byte) (blockID string, cryptoKey []byte)
 
-	// CreateCipher returns a new instance of a block cipher with the specified key.
-	CreateCipher(key []byte) (cipher.Block, error)
+	// Encrypt returns encrypted bytes corresponding to the given plaintext.
+	// Encryption in-place is allowed within original slice's capacity.
+	Encrypt(plainText []byte, key []byte) ([]byte, error)
+
+	// Decrypt returns unencrypted bytes corresponding to the given ciphertext.
+	// Decryption in-place is allowed within original slice's capacity.
+	Decrypt(cipherText []byte, key []byte) ([]byte, error)
 }
 
 type unencryptedFormat struct {
@@ -45,10 +50,17 @@ func (fi *unencryptedFormat) ComputeBlockIDAndKey(data []byte, secret []byte) (b
 	return
 }
 
-func (fi *unencryptedFormat) CreateCipher(key []byte) (cipher.Block, error) {
+func (fi *unencryptedFormat) Encrypt(plainText []byte, key []byte) ([]byte, error) {
 	return nil, errors.New("encryption not supported")
-
 }
+
+func (fi *unencryptedFormat) Decrypt(cipherText []byte, key []byte) ([]byte, error) {
+	return nil, errors.New("decryption not supported")
+}
+
+// Since we never share keys, using constant IV is fine.
+// Instead of using all-zero, we use this one.
+var constantIV = []byte("kopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopia")
 
 type encryptedFormat struct {
 	hashCtor     func() hash.Hash
@@ -64,9 +76,28 @@ func (fi *encryptedFormat) ComputeBlockIDAndKey(data []byte, secret []byte) (blo
 	return
 }
 
-func (fi *encryptedFormat) CreateCipher(key []byte) (cipher.Block, error) {
-	return fi.createCipher(key)
+func (fi *encryptedFormat) Encrypt(plainText []byte, key []byte) ([]byte, error) {
+	blockCipher, err := fi.createCipher(key)
+	if err != nil {
+		return nil, err
+	}
 
+	return xorKeyStream(plainText, blockCipher), nil
+}
+
+func (fi *encryptedFormat) Decrypt(cipherText []byte, key []byte) ([]byte, error) {
+	blockCipher, err := fi.createCipher(key)
+	if err != nil {
+		return nil, err
+	}
+
+	return xorKeyStream(cipherText, blockCipher), nil
+}
+
+func xorKeyStream(b []byte, blockCipher cipher.Block) []byte {
+	ctr := cipher.NewCTR(blockCipher, constantIV[0:blockCipher.BlockSize()])
+	ctr.XORKeyStream(b, b)
+	return b
 }
 
 // SupportedFormats is a map with an ObjectFormatter for each supported object format:
