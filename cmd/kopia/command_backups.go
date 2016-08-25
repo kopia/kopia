@@ -89,7 +89,7 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 
 	for _, m := range loadBackupManifests(vlt, previous) {
 		if m.HostName != lastHost || m.UserName != lastUser || m.Source != lastSource {
-			log.Printf("%v@%v:%v", m.UserName, m.HostName, m.Source)
+			fmt.Printf("%v@%v:%v\n", m.UserName, m.HostName, m.Source)
 			lastSource = m.Source
 			lastUser = m.UserName
 			lastHost = m.HostName
@@ -97,7 +97,7 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 		}
 
 		if count < *maxResultsPerPath {
-			log.Printf("  %v%v %v", m.Handle, relPath, m.StartTime.Format("2006-01-02 15:04:05 MST"))
+			fmt.Printf("  %v%v %v\n", m.Handle, relPath, m.StartTime.Format("2006-01-02 15:04:05 MST"))
 			count++
 		}
 	}
