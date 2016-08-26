@@ -15,10 +15,6 @@ import (
 	"github.com/kopia/kopia/storage/logging"
 )
 
-const (
-	minLocatorSizeBytes = 16
-)
-
 // ObjectReader allows reading, seeking, getting the length of and closing of a repository object.
 type ObjectReader interface {
 	io.Reader
@@ -37,6 +33,8 @@ type Stats struct {
 	EncryptedBytes int64 `json:"encryptedBytes,omitempty"`
 	DecryptedBytes int64 `json:"decryptedBytes,omitempty"`
 
+	CheckedBlocks int32 `json:"checkedBlocks,omitempty"`
+	PresentBlocks int32 `json:"presentBlocks,omitempty"`
 	HashedBlocks  int32 `json:"hashedBlocks,omitempty"`
 	BlocksRead    int32 `json:"readBlocks,omitempty"`
 	BlocksWritten int32 `json:"writtenBlocks,omitempty"`
@@ -237,15 +235,6 @@ func (r *Repository) hashEncryptAndWriteMaybeAsync(buffer *bytes.Buffer, prefix 
 		data = buffer.Bytes()
 	}
 
-	var isAsync bool
-
-	// Make sure we return buffer to the pool, but only if the request has not been asynchronous.
-	defer func() {
-		if !isAsync {
-			r.bufferManager.returnBuffer(buffer)
-		}
-	}()
-
 	if err := r.writeBackErrors.check(); err != nil {
 		return NullObjectID, err
 	}
@@ -260,9 +249,41 @@ func (r *Repository) hashEncryptAndWriteMaybeAsync(buffer *bytes.Buffer, prefix 
 		EncryptionKey: encryptionKey,
 	}
 
+	if r.writeBackWorkers > 0 {
+		// Tell the defer block not to return the buffer synchronously.
+		r.waitGroup.Add(1)
+		r.writeBackSemaphore.Lock()
+		go func() {
+			defer func() {
+			}()
+
+			if _, err := r.hashEncryptAndWrite(objectID, buffer, prefix); err != nil {
+				r.writeBackErrors.add(err)
+			}
+			r.writeBackSemaphore.Unlock()
+			r.waitGroup.Done()
+		}()
+
+		// async will fail later.
+		return objectID, nil
+	}
+
+	return r.hashEncryptAndWrite(objectID, buffer, prefix)
+}
+
+func (r *Repository) hashEncryptAndWrite(objectID ObjectID, buffer *bytes.Buffer, prefix string) (ObjectID, error) {
+	defer r.bufferManager.returnBuffer(buffer)
+
+	var data []byte
+	if buffer != nil {
+		data = buffer.Bytes()
+	}
+
 	// Before performing encryption, check if the block is already there.
 	blockSize, err := r.Storage.BlockSize(objectID.StorageBlock)
+	atomic.AddInt32(&r.Stats.CheckedBlocks, int32(1))
 	if err == nil && blockSize == int64(len(data)) {
+		atomic.AddInt32(&r.Stats.PresentBlocks, int32(1))
 		// Block already exists in storage, correct size, return without uploading.
 		return objectID, nil
 	}
@@ -273,38 +294,19 @@ func (r *Repository) hashEncryptAndWriteMaybeAsync(buffer *bytes.Buffer, prefix 
 	}
 
 	// Encryption is requested, encrypt the block in-place.
-	if encryptionKey != nil {
-		data, err = r.formatter.Encrypt(data, encryptionKey)
+	if objectID.EncryptionKey != nil {
+		atomic.AddInt64(&r.Stats.EncryptedBytes, int64(len(data)))
+		data, err = r.formatter.Encrypt(data, objectID.EncryptionKey)
 		if err != nil {
 			return NullObjectID, err
 		}
 	}
 
-	if r.writeBackWorkers > 0 {
-		// Tell the defer block not to return the buffer synchronously.
-		isAsync = true
+	atomic.AddInt32(&r.Stats.BlocksWritten, int32(1))
+	atomic.AddInt64(&r.Stats.BytesWritten, int64(len(data)))
 
-		r.waitGroup.Add(1)
-		r.writeBackSemaphore.Lock()
-		go func() {
-			defer func() {
-				r.bufferManager.returnBuffer(buffer)
-				r.writeBackSemaphore.Unlock()
-				r.waitGroup.Done()
-			}()
-
-			if err := r.Storage.PutBlock(objectID.StorageBlock, data, storage.PutOptionsDefault); err != nil {
-				r.writeBackErrors.add(err)
-			}
-		}()
-
-		// async will fail later.
-		return objectID, nil
-	}
-
-	// Synchronous case
 	if err := r.Storage.PutBlock(objectID.StorageBlock, data, storage.PutOptionsDefault); err != nil {
-		return NullObjectID, err
+		r.writeBackErrors.add(err)
 	}
 
 	return objectID, nil

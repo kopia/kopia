@@ -101,7 +101,7 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 			return err
 		}
 
-		handleID, err := vlt.SaveObjectID(repo.ObjectID(manifest.RootObjectID))
+		handleID, err := vlt.SaveObjectID(manifest.RootObjectID)
 		if err != nil {
 			return err
 		}
@@ -116,7 +116,7 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 			return fmt.Errorf("cannot save manifest: %v", err)
 		}
 
-		log.Printf("Root: %v", manifest.RootObjectID.UIString())
+		log.Printf("Root: %v", manifest.RootObjectID)
 		log.Printf("Hash Cache: %v", manifest.HashCacheID.UIString())
 		log.Printf("Key: %v", handleID)
 

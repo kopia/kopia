@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 
@@ -27,7 +28,7 @@ type hashcacheReader struct {
 }
 
 func (hcr *hashcacheReader) open(r io.Reader) error {
-	jsr, err := jsonstream.NewReader(r, hashCacheStreamType)
+	jsr, err := jsonstream.NewReader(bufio.NewReader(r), hashCacheStreamType)
 	if err != nil {
 		return err
 	}
