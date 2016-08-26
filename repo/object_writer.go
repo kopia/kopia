@@ -37,7 +37,7 @@ func (t *blockTracker) blockIDs() []string {
 }
 
 type objectWriter struct {
-	repo *repository
+	repo *Repository
 
 	buffer      *bytes.Buffer
 	totalLength int64

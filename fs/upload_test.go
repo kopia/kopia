@@ -16,7 +16,7 @@ import (
 type uploadTestHarness struct {
 	sourceDir *inmemoryDirectory
 	repoDir   string
-	repo      repo.Repository
+	repo      *repo.Repository
 	storage   storage.Storage
 	uploader  Uploader
 }

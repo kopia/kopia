@@ -42,7 +42,7 @@ type Uploader interface {
 }
 
 type uploader struct {
-	repo           repo.Repository
+	repo           *repo.Repository
 	enableBundling bool
 
 	cancelled int32
@@ -433,7 +433,7 @@ func EnableBundling() UploaderOption {
 }
 
 // NewUploader creates new Uploader object for the specified Repository
-func NewUploader(repo repo.Repository, options ...UploaderOption) Uploader {
+func NewUploader(repo *repo.Repository, options ...UploaderOption) Uploader {
 	u := &uploader{
 		repo: repo,
 	}

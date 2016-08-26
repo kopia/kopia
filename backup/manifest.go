@@ -26,6 +26,8 @@ type Manifest struct {
 	FileCount      int64 `json:"fileCount"`
 	DirectoryCount int64 `json:"dirCount"`
 	TotalFileSize  int64 `json:"totalSize"`
+
+	Stats *repo.Stats `json:"stats"`
 }
 
 // SourceID generates unique identifier of the backup source, which is a

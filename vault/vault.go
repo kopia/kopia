@@ -196,7 +196,7 @@ func (v *Vault) RepositoryFormat() *repo.Format {
 }
 
 // OpenRepository connects to the repository the vault is associated with.
-func (v *Vault) OpenRepository(options ...repo.RepositoryOption) (repo.Repository, error) {
+func (v *Vault) OpenRepository(options ...repo.RepositoryOption) (*repo.Repository, error) {
 	var st storage.Storage
 	var err error
 

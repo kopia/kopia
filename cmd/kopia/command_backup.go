@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -118,6 +119,9 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 		log.Printf("Root: %v", manifest.RootObjectID.UIString())
 		log.Printf("Hash Cache: %v", manifest.HashCacheID.UIString())
 		log.Printf("Key: %v", handleID)
+
+		b, _ := json.MarshalIndent(&manifest, "", "  ")
+		log.Printf("%s", string(b))
 	}
 
 	return nil

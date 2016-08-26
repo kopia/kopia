@@ -9,7 +9,7 @@ import (
 
 type repositoryEntry struct {
 	entry
-	repo repo.Repository
+	repo *repo.Repository
 }
 
 type repositoryDirectory repositoryEntry
@@ -49,7 +49,7 @@ func (rsl *repositorySymlink) Readlink() (string, error) {
 	panic("not implemented yet")
 }
 
-func newRepoEntry(r repo.Repository, md *EntryMetadata, parent Directory) Entry {
+func newRepoEntry(r *repo.Repository, md *EntryMetadata, parent Directory) Entry {
 	switch md.Type {
 	case EntryTypeDirectory:
 		return Directory(&repositoryDirectory{
@@ -91,7 +91,7 @@ func withMetadata(rc io.ReadCloser, md *EntryMetadata) EntryMetadataReadCloser {
 }
 
 // NewDirectory returns Directory based on repository object with the specified ID.
-func NewDirectory(r repo.Repository, objectID repo.ObjectID) Directory {
+func NewDirectory(r *repo.Repository, objectID repo.ObjectID) Directory {
 	d := newRepoEntry(r, &EntryMetadata{
 		Name:        "/",
 		ObjectID:    objectID,

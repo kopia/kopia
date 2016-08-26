@@ -6,5 +6,5 @@ import "github.com/kopia/kopia/repo"
 type Reader interface {
 	Get(id string) ([]byte, error)
 	List(prefix string) ([]string, error)
-	OpenRepository() (repo.Repository, error)
+	OpenRepository() (*repo.Repository, error)
 }

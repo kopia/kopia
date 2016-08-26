@@ -245,12 +245,13 @@ func assertVaultItem(t *testing.T, v *Vault, itemID string, expectedData string)
 	}
 }
 
-func assertRepositoryItem(t *testing.T, repository repo.Repository, oid repo.ObjectID, expectedData string) {
+func assertRepositoryItem(t *testing.T, repository *repo.Repository, oid repo.ObjectID, expectedData string) {
 	r, err := repository.Open(oid)
 	if err != nil {
 		t.Errorf("error opening item %v: %v", oid, err)
 		return
 	}
+	defer r.Close()
 
 	b, err := ioutil.ReadAll(r)
 	if err != nil {

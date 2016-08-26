@@ -43,12 +43,12 @@ func mustOpenVault() *vault.Vault {
 	return s
 }
 
-func mustOpenRepository(extraOptions ...repo.RepositoryOption) repo.Repository {
+func mustOpenRepository(extraOptions ...repo.RepositoryOption) *repo.Repository {
 	_, r := mustOpenVaultAndRepository(extraOptions...)
 	return r
 }
 
-func mustOpenVaultAndRepository(extraOptions ...repo.RepositoryOption) (*vault.Vault, repo.Repository) {
+func mustOpenVaultAndRepository(extraOptions ...repo.RepositoryOption) (*vault.Vault, *repo.Repository) {
 	v := mustOpenVault()
 	r, err := v.OpenRepository(repositoryOptionsFromFlags(extraOptions)...)
 	failOnError(err)

@@ -27,41 +27,21 @@ type ObjectReader interface {
 	Length() int64
 }
 
-// Repository objects addressed by their content allows reading and writing them.
-type Repository interface {
-	// NewWriter opens an ObjectWriter for writing new content to the storage.
-	NewWriter(options ...WriterOption) ObjectWriter
-
-	// Open creates an ObjectReader for reading object with a specified ID.
-	Open(objectID ObjectID) (ObjectReader, error)
-
-	// Flush ensures that all pending writes have completed.
-	Flush() error
-
-	// Storage returns the underlying Storage.
-	Storage() storage.Storage
-
-	// Close
-	Close() error
-
-	Stats() RepositoryStats
-}
-
-// RepositoryStats exposes statistics about Repository operation
-type RepositoryStats struct {
+// Stats exposes statistics about Repository operation
+type Stats struct {
 	// Keep int64 fields first to ensure they get aligned to at least 64-bit boundaries
 	// which is required for atomic access on ARM and x86-32.
-	HashedBytes           int64
-	BytesReadFromStorage  int64
-	BytesWrittenToStorage int64
-	EncryptedBytes        int64
-	DecryptedBytes        int64
+	HashedBytes    int64 `json:"hashedBytes,omitempty"`
+	BytesRead      int64 `json:"readBytes,omitempty"`
+	BytesWritten   int64 `json:"writtenBytes,omitempty"`
+	EncryptedBytes int64 `json:"encryptedBytes,omitempty"`
+	DecryptedBytes int64 `json:"decryptedBytes,omitempty"`
 
-	HashedBlocks           int32
-	BlocksReadFromStorage  int32
-	BlocksWrittenToStorage int32
-	InvalidBlocks          int32
-	ValidBlocks            int32
+	HashedBlocks  int32 `json:"hashedBlocks,omitempty"`
+	BlocksRead    int32 `json:"readBlocks,omitempty"`
+	BlocksWritten int32 `json:"writtenBlocks,omitempty"`
+	InvalidBlocks int32 `json:"invalidBlocks,omitempty"`
+	ValidBlocks   int32 `json:"validBlocks,omitempty"`
 }
 
 type empty struct{}
@@ -75,21 +55,20 @@ func (s semaphore) Unlock() {
 	<-s
 }
 
-type repository struct {
-	storage       storage.Storage
+// Repository implements a content-addressable storage on top of blob storage.
+type Repository struct {
+	Stats   Stats
+	Storage storage.Storage
+
 	verbose       bool
 	bufferManager *bufferManager
-	stats         *RepositoryStats
+	format        Format
+	formatter     ObjectFormatter
 
-	format    Format
-	formatter ObjectFormatter
-
-	writeBackWorkers int
-
+	writeBackWorkers   int
 	writeBackSemaphore semaphore
 	writeBackErrors    asyncErrors
-
-	waitGroup sync.WaitGroup
+	waitGroup          sync.WaitGroup
 }
 
 type asyncErrors struct {
@@ -122,9 +101,10 @@ func (e *asyncErrors) check() error {
 	}
 }
 
-func (r *repository) Close() error {
+// Close closes the connection to the underlying blob storage and releases any resources.
+func (r *Repository) Close() error {
 	r.Flush()
-	if err := r.storage.Close(); err != nil {
+	if err := r.Storage.Close(); err != nil {
 		return err
 	}
 	r.bufferManager.close()
@@ -132,22 +112,16 @@ func (r *repository) Close() error {
 	return nil
 }
 
-func (r *repository) Flush() error {
+// Flush waits for all in-flight writes to complete.
+func (r *Repository) Flush() error {
 	if r.writeBackWorkers > 0 {
 		r.waitGroup.Wait()
 	}
 	return nil
 }
 
-func (r *repository) Stats() RepositoryStats {
-	return *r.stats
-}
-
-func (r *repository) Storage() storage.Storage {
-	return r.storage
-}
-
-func (r *repository) NewWriter(options ...WriterOption) ObjectWriter {
+// NewWriter creates an ObjectWriter for writing to the repository.
+func (r *Repository) NewWriter(options ...WriterOption) ObjectWriter {
 	result := &objectWriter{
 		repo:         r,
 		blockTracker: &blockTracker{},
@@ -160,7 +134,8 @@ func (r *repository) NewWriter(options ...WriterOption) ObjectWriter {
 	return result
 }
 
-func (r *repository) Open(objectID ObjectID) (ObjectReader, error) {
+// Open creates new ObjectReader for reading given object from a repository.
+func (r *Repository) Open(objectID ObjectID) (ObjectReader, error) {
 	// log.Printf("Repository::Open %v", objectID.String())
 	// defer log.Printf("finished Repository::Open() %v", objectID.String())
 
@@ -201,12 +176,12 @@ func (r *repository) Open(objectID ObjectID) (ObjectReader, error) {
 }
 
 // RepositoryOption controls the behavior of Repository.
-type RepositoryOption func(o *repository) error
+type RepositoryOption func(o *Repository) error
 
 // WriteBack is an RepositoryOption that enables asynchronous writes to the storage using the pool
 // of goroutines.
 func WriteBack(writeBackWorkers int) RepositoryOption {
-	return func(o *repository) error {
+	return func(o *Repository) error {
 		o.writeBackWorkers = writeBackWorkers
 		return nil
 	}
@@ -214,14 +189,14 @@ func WriteBack(writeBackWorkers int) RepositoryOption {
 
 // EnableLogging is an RepositoryOption that causes all storage access to be logged.
 func EnableLogging(options ...logging.Option) RepositoryOption {
-	return func(o *repository) error {
-		o.storage = logging.NewWrapper(o.storage, options...)
+	return func(o *Repository) error {
+		o.Storage = logging.NewWrapper(o.Storage, options...)
 		return nil
 	}
 }
 
 // New creates a Repository with the specified storage, format and options.
-func New(s storage.Storage, f *Format, options ...RepositoryOption) (Repository, error) {
+func New(s storage.Storage, f *Format, options ...RepositoryOption) (*Repository, error) {
 	if f.MaxBlockSize < 100 {
 		return nil, fmt.Errorf("MaxBlockSize is not set")
 	}
@@ -231,10 +206,9 @@ func New(s storage.Storage, f *Format, options ...RepositoryOption) (Repository,
 		return nil, fmt.Errorf("unknown object format: %v", f.ObjectFormat)
 	}
 
-	r := &repository{
-		storage: s,
+	r := &Repository{
+		Storage: s,
 		format:  *f,
-		stats:   &RepositoryStats{},
 	}
 
 	r.formatter = sf
@@ -257,7 +231,7 @@ func New(s storage.Storage, f *Format, options ...RepositoryOption) (Repository,
 // hashEncryptAndWriteMaybeAsync computes hash of a given buffer, optionally encrypts and writes it to storage.
 // The write is not guaranteed to complete synchronously in case write-back is used, but by the time
 // Repository.Close() returns all writes are guaranteed be over.
-func (r *repository) hashEncryptAndWriteMaybeAsync(buffer *bytes.Buffer, prefix string) (ObjectID, error) {
+func (r *Repository) hashEncryptAndWriteMaybeAsync(buffer *bytes.Buffer, prefix string) (ObjectID, error) {
 	var data []byte
 	if buffer != nil {
 		data = buffer.Bytes()
@@ -278,8 +252,8 @@ func (r *repository) hashEncryptAndWriteMaybeAsync(buffer *bytes.Buffer, prefix 
 
 	// Hash the block and compute encryption key.
 	blockID, encryptionKey := r.formatter.ComputeBlockIDAndKey(data, r.format.Secret)
-	atomic.AddInt32(&r.stats.HashedBlocks, 1)
-	atomic.AddInt64(&r.stats.HashedBytes, int64(len(data)))
+	atomic.AddInt32(&r.Stats.HashedBlocks, 1)
+	atomic.AddInt64(&r.Stats.HashedBytes, int64(len(data)))
 
 	objectID := ObjectID{
 		StorageBlock:  prefix + blockID,
@@ -287,7 +261,7 @@ func (r *repository) hashEncryptAndWriteMaybeAsync(buffer *bytes.Buffer, prefix 
 	}
 
 	// Before performing encryption, check if the block is already there.
-	blockSize, err := r.storage.BlockSize(objectID.StorageBlock)
+	blockSize, err := r.Storage.BlockSize(objectID.StorageBlock)
 	if err == nil && blockSize == int64(len(data)) {
 		// Block already exists in storage, correct size, return without uploading.
 		return objectID, nil
@@ -319,7 +293,7 @@ func (r *repository) hashEncryptAndWriteMaybeAsync(buffer *bytes.Buffer, prefix 
 				r.waitGroup.Done()
 			}()
 
-			if err := r.storage.PutBlock(objectID.StorageBlock, data, storage.PutOptionsDefault); err != nil {
+			if err := r.Storage.PutBlock(objectID.StorageBlock, data, storage.PutOptionsDefault); err != nil {
 				r.writeBackErrors.add(err)
 			}
 		}()
@@ -329,14 +303,14 @@ func (r *repository) hashEncryptAndWriteMaybeAsync(buffer *bytes.Buffer, prefix 
 	}
 
 	// Synchronous case
-	if err := r.storage.PutBlock(objectID.StorageBlock, data, storage.PutOptionsDefault); err != nil {
+	if err := r.Storage.PutBlock(objectID.StorageBlock, data, storage.PutOptionsDefault); err != nil {
 		return NullObjectID, err
 	}
 
 	return objectID, nil
 }
 
-func (r *repository) flattenListChunk(rawReader io.Reader) ([]indirectObjectEntry, error) {
+func (r *Repository) flattenListChunk(rawReader io.Reader) ([]indirectObjectEntry, error) {
 	pr, err := jsonstream.NewReader(bufio.NewReader(rawReader), indirectStreamType)
 	if err != nil {
 		return nil, err
@@ -370,23 +344,23 @@ func removeIndirection(o ObjectID) ObjectID {
 	return o
 }
 
-func (r *repository) newRawReader(objectID ObjectID) (ObjectReader, error) {
+func (r *Repository) newRawReader(objectID ObjectID) (ObjectReader, error) {
 	if objectID.Content != nil {
 		return newObjectReaderWithData(objectID.Content), nil
 	}
 
 	blockID := objectID.StorageBlock
-	payload, err := r.storage.GetBlock(blockID)
+	payload, err := r.Storage.GetBlock(blockID)
 	if err != nil {
 		return nil, err
 	}
 
-	atomic.AddInt32(&r.stats.BlocksReadFromStorage, 1)
-	atomic.AddInt64(&r.stats.BytesReadFromStorage, int64(len(payload)))
+	atomic.AddInt32(&r.Stats.BlocksRead, 1)
+	atomic.AddInt64(&r.Stats.BytesRead, int64(len(payload)))
 
 	if len(objectID.EncryptionKey) > 0 {
 		payload, err = r.formatter.Decrypt(payload, objectID.EncryptionKey)
-		atomic.AddInt64(&r.stats.DecryptedBytes, int64(len(payload)))
+		atomic.AddInt64(&r.Stats.DecryptedBytes, int64(len(payload)))
 		if err != nil {
 			return nil, err
 		}
@@ -401,14 +375,14 @@ func (r *repository) newRawReader(objectID ObjectID) (ObjectReader, error) {
 	return newObjectReaderWithData(payload), nil
 }
 
-func (r *repository) verifyChecksum(data []byte, blockID string) error {
+func (r *Repository) verifyChecksum(data []byte, blockID string) error {
 	expectedBlockID, _ := r.formatter.ComputeBlockIDAndKey(data, r.format.Secret)
 	if !strings.HasSuffix(string(blockID), expectedBlockID) {
-		atomic.AddInt32(&r.stats.InvalidBlocks, 1)
+		atomic.AddInt32(&r.Stats.InvalidBlocks, 1)
 		return fmt.Errorf("invalid checksum for blob: '%v'", blockID)
 	}
 
-	atomic.AddInt32(&r.stats.ValidBlocks, 1)
+	atomic.AddInt32(&r.Stats.ValidBlocks, 1)
 	return nil
 }
 

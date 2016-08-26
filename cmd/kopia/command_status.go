@@ -40,7 +40,7 @@ func runRepositoryInfoCommand(context *kingpin.ParseContext) error {
 	fmt.Println("  ID Format:       ", f.ObjectFormat)
 	fmt.Println("  Blob Size:       ", f.MaxBlockSize/1024, "KB")
 	fmt.Println("  Inline Blob Size:", f.MaxInlineContentLength/1024, "KB")
-	fmt.Println("  Storage:         ", r.Storage())
+	fmt.Println("  Storage:         ", r.Storage)
 
 	return nil
 }

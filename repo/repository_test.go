@@ -44,7 +44,7 @@ func getMd5LObjectID(data []byte) string {
 	return fmt.Sprintf("L%s", getMd5Digest(data))
 }
 
-func setupTest(t *testing.T) (data map[string][]byte, repo Repository) {
+func setupTest(t *testing.T) (data map[string][]byte, repo *Repository) {
 	data = map[string][]byte{}
 	st := storagetesting.NewMapStorage(data)
 
@@ -123,7 +123,7 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	}
 }
 
-func verifyIndirectBlock(t *testing.T, r Repository, oid ObjectID) {
+func verifyIndirectBlock(t *testing.T, r *Repository, oid ObjectID) {
 	for level := int32(0); level < oid.Indirect; level++ {
 		direct := oid
 		direct.Indirect = level
@@ -331,7 +331,7 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 	}
 }
 
-func verify(t *testing.T, repo Repository, objectID ObjectID, expectedData []byte, testCaseID string) {
+func verify(t *testing.T, repo *Repository, objectID ObjectID, expectedData []byte, testCaseID string) {
 	reader, err := repo.Open(objectID)
 	if err != nil {
 		t.Errorf("cannot get reader for %v: %v", testCaseID, err)
