@@ -14,11 +14,15 @@ type mapStorage struct {
 	mutex sync.RWMutex
 }
 
-func (s *mapStorage) BlockExists(id string) (bool, error) {
+func (s *mapStorage) BlockSize(id string) (int64, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	_, ok := s.data[string(id)]
-	return ok, nil
+	d, ok := s.data[string(id)]
+	if !ok {
+		return 0, storage.ErrBlockNotFound
+	}
+
+	return int64(len(d)), nil
 }
 
 func (s *mapStorage) GetBlock(id string) ([]byte, error) {
@@ -73,7 +77,7 @@ func (s *mapStorage) ListBlocks(prefix string) chan (storage.BlockMetadata) {
 			v := s.data[k]
 			ch <- storage.BlockMetadata{
 				BlockID:   string(k),
-				Length:    uint64(len(v)),
+				Length:    int64(len(v)),
 				TimeStamp: fixedTime,
 			}
 		}

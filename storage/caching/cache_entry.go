@@ -11,7 +11,6 @@ import (
 const (
 	cacheEntryFormatVersion = 1
 	sizeDoesNotExists       = 0x4000000000000000
-	sizeUnknown             = 0x4000000000000001
 )
 
 type blockCacheEntry struct {
@@ -23,17 +22,11 @@ func (e *blockCacheEntry) exists() bool {
 	return e.size != sizeDoesNotExists
 }
 
-func (e *blockCacheEntry) isKnownSize() bool {
-	return e.size != sizeUnknown
-}
-
 func (e blockCacheEntry) GoString() string {
 	ts := time.Unix(e.accessTime/1000000000, e.accessTime%1000000000)
 	switch e.size {
 	case sizeDoesNotExists:
 		return fmt.Sprintf("entry[not-found;acc:%v]", ts)
-	case sizeUnknown:
-		return fmt.Sprintf("entry[exists-size-unknown;acc:%v]", ts)
 	default:
 		return fmt.Sprintf("entry[size:%v;acc:%v]", e.size, ts)
 	}

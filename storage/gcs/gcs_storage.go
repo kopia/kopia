@@ -39,23 +39,19 @@ type gcsStorage struct {
 	objectsService *gcsclient.ObjectsService
 }
 
-func (gcs *gcsStorage) BlockExists(b string) (bool, error) {
+func (gcs *gcsStorage) BlockSize(b string) (int64, error) {
 	call := gcs.objectsService.Get(gcs.BucketName, gcs.getObjectNameString(b))
-	_, err := retry(
+	v, err := retry(
 		"Get",
 		func() (interface{}, error) {
 			return call.Do()
 		})
 
-	if err == nil {
-		return true, nil
-	}
-
 	if isGoogleAPIError(err, http.StatusNotFound) {
-		return false, nil
+		return 0, storage.ErrBlockNotFound
 	}
 
-	return false, err
+	return int64(v.(*gcsclient.Object).Size), nil
 }
 
 func (gcs *gcsStorage) GetBlock(b string) ([]byte, error) {
@@ -159,7 +155,7 @@ func (gcs *gcsStorage) ListBlocks(prefix string) chan (storage.BlockMetadata) {
 				} else {
 					ch <- storage.BlockMetadata{
 						BlockID:   string(o.Name)[len(gcs.Prefix):],
-						Length:    o.Size,
+						Length:    int64(o.Size),
 						TimeStamp: t,
 					}
 				}

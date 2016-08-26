@@ -21,7 +21,7 @@ func VerifyStorage(t *testing.T, r storage.Storage) {
 
 	// First verify that blocks don't exist.
 	for _, b := range blocks {
-		if x, err := r.BlockExists(b.blk); x || err != nil {
+		if _, err := r.BlockSize(b.blk); err != storage.ErrBlockNotFound {
 			t.Errorf("block exists or error: %v %v", b.blk, err)
 		}
 

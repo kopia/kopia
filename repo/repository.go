@@ -287,15 +287,15 @@ func (r *repository) hashEncryptAndWriteMaybeAsync(buffer *bytes.Buffer, prefix 
 	}
 
 	// Before performing encryption, check if the block is already there.
-	ok, err := r.storage.BlockExists(objectID.StorageBlock)
-	if err != nil {
-		// Don't know whether block exists in storage.
-		return NullObjectID, err
+	blockSize, err := r.storage.BlockSize(objectID.StorageBlock)
+	if err == nil && blockSize == int64(len(data)) {
+		// Block already exists in storage, correct size, return without uploading.
+		return objectID, nil
 	}
 
-	if ok {
-		// Block already exists in storage, return without uploading.
-		return objectID, nil
+	if err != nil && err != storage.ErrBlockNotFound {
+		// Don't know whether block exists in storage.
+		return NullObjectID, err
 	}
 
 	// Encryption is requested, encrypt the block in-place.

@@ -34,14 +34,19 @@ func AssertGetBlockNotFound(t *testing.T, s storage.Storage, block string) {
 
 // AssertBlockExists asserts that BlockExists() the specified storage block returns the correct value.
 func AssertBlockExists(t *testing.T, s storage.Storage, block string, expected bool) {
-	e, err := s.BlockExists(block)
-	if err != nil {
-		t.Errorf(errorPrefix()+"BlockExists(%v) returned error %v, expected: %v", block, err, expected)
+	_, err := s.BlockSize(block)
+	var exists bool
+	if err == nil {
+		exists = true
+	} else if err == storage.ErrBlockNotFound {
+		exists = false
+	} else {
+		t.Errorf(errorPrefix()+"BlockSize(%v) returned error: %v", block, err)
 		return
 	}
 
-	if !reflect.DeepEqual(e, expected) {
-		t.Errorf(errorPrefix()+"BlockExists(%v) returned %v, but expected %v", block, e, expected)
+	if exists != expected {
+		t.Errorf(errorPrefix()+"BlockSize(%v) returned exists=%v, but expected %v", block, exists, expected)
 	}
 }
 

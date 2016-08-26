@@ -131,7 +131,8 @@ func TestCache(t *testing.T) {
 	tr.assertActivityAndClear(t, "PutBlock")
 
 	storagetesting.AssertBlockExists(t, cache, "z", true)
-	tr.assertActivityAndClear(t, "BlockExists")
+	tr.assertActivityAndClear(t, "BlockSize")
+
 	storagetesting.AssertGetBlock(t, cache, "z", data1)
 	tr.assertActivityAndClear(t, "GetBlock")
 

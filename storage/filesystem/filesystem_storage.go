@@ -28,18 +28,18 @@ type fsStorage struct {
 	Options
 }
 
-func (fs *fsStorage) BlockExists(blockID string) (bool, error) {
+func (fs *fsStorage) BlockSize(blockID string) (int64, error) {
 	_, path := fs.getShardedPathAndFilePath(blockID)
-	_, err := os.Stat(path)
+	s, err := os.Stat(path)
 	if err == nil {
-		return true, nil
+		return s.Size(), nil
 	}
 
 	if os.IsNotExist(err) {
-		return false, nil
+		return 0, storage.ErrBlockNotFound
 	}
 
-	return false, err
+	return 0, err
 }
 
 func (fs *fsStorage) GetBlock(blockID string) ([]byte, error) {
@@ -97,7 +97,7 @@ func (fs *fsStorage) ListBlocks(prefix string) chan (storage.BlockMetadata) {
 					if strings.HasPrefix(string(fullID), prefixString) {
 						result <- storage.BlockMetadata{
 							BlockID:   fullID,
-							Length:    uint64(e.Size()),
+							Length:    e.Size(),
 							TimeStamp: e.ModTime(),
 						}
 					}

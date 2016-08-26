@@ -14,11 +14,11 @@ type loggingStorage struct {
 	prefix string
 }
 
-func (s *loggingStorage) BlockExists(id string) (bool, error) {
+func (s *loggingStorage) BlockSize(id string) (int64, error) {
 	t0 := time.Now()
-	result, err := s.base.BlockExists(id)
+	result, err := s.base.BlockSize(id)
 	dt := time.Since(t0)
-	s.printf(s.prefix+"BlockExists(%#v)=%#v,%#v took %v", id, result, err, dt)
+	s.printf(s.prefix+"BlockSize(%#v)=%#v,%#v took %v", id, result, err, dt)
 	return result, err
 }
 

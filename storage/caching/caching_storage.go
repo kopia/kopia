@@ -96,21 +96,28 @@ func (c *cachingStorage) removeCacheEntry(block string) {
 	})
 }
 
-func (c *cachingStorage) BlockExists(id string) (bool, error) {
+func (c *cachingStorage) BlockSize(id string) (int64, error) {
 	if entry, ok := c.getCacheEntry(id); ok {
-		return entry.exists(), nil
+		if entry.exists() {
+			return entry.size, nil
+		}
+
+		return 0, storage.ErrBlockNotFound
 	}
 
 	c.Lock(id)
 	defer c.Unlock(id)
 
-	exists, err := c.master.BlockExists(id)
+	l, err := c.master.BlockSize(id)
 	if err != nil {
-		return false, err
+		if err == storage.ErrBlockNotFound {
+			c.setCacheEntrySize(id, sizeDoesNotExists)
+		}
+		return 0, err
 	}
 
-	c.setCacheEntrySize(id, sizeUnknown)
-	return exists, nil
+	c.setCacheEntrySize(id, l)
+	return l, nil
 }
 
 func (c *cachingStorage) DeleteBlock(id string) error {
@@ -137,8 +144,9 @@ func (c *cachingStorage) GetBlock(id string) ([]byte, error) {
 			return nil, storage.ErrBlockNotFound
 		}
 
-		if blockCacheEntry.isKnownSize() {
-			return c.cache.GetBlock(id)
+		v, err := c.cache.GetBlock(id)
+		if err == nil {
+			return v, nil
 		}
 	}
 

@@ -18,9 +18,9 @@ const (
 type Storage interface {
 	io.Closer
 
+	BlockSize(id string) (int64, error)
 	PutBlock(id string, data []byte, options PutOptions) error
 	DeleteBlock(id string) error
-	BlockExists(id string) (bool, error)
 	GetBlock(id string) ([]byte, error)
 	ListBlocks(prefix string) chan (BlockMetadata)
 }
@@ -34,7 +34,7 @@ type ConnectionInfoProvider interface {
 // If Error field is set, no other field values should be assumed to be correct.
 type BlockMetadata struct {
 	BlockID   string
-	Length    uint64
+	Length    int64
 	TimeStamp time.Time
 	Error     error
 }
