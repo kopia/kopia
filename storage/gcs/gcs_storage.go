@@ -40,35 +40,44 @@ type gcsStorage struct {
 }
 
 func (gcs *gcsStorage) BlockExists(b string) (bool, error) {
-	_, err := gcs.objectsService.Get(gcs.BucketName, gcs.getObjectNameString(b)).Do()
+	call := gcs.objectsService.Get(gcs.BucketName, gcs.getObjectNameString(b))
+	_, err := retry(
+		"Get",
+		func() (interface{}, error) {
+			return call.Do()
+		})
 
 	if err == nil {
 		return true, nil
 	}
-	if err, ok := err.(*googleapi.Error); ok {
-		if err.Code == http.StatusNotFound {
-			return false, nil
-		}
+
+	if isGoogleAPIError(err, http.StatusNotFound) {
+		return false, nil
 	}
 
 	return false, err
 }
 
 func (gcs *gcsStorage) GetBlock(b string) ([]byte, error) {
-	v, err := gcs.objectsService.Get(gcs.BucketName, gcs.getObjectNameString(b)).Download()
-	if err != nil {
-		if err, ok := err.(*googleapi.Error); ok {
-			if err.Code == http.StatusNotFound {
-				return nil, storage.ErrBlockNotFound
-			}
-		}
+	call := gcs.objectsService.Get(gcs.BucketName, gcs.getObjectNameString(b))
+	v, err := retry(
+		"Get",
+		func() (interface{}, error) {
+			return call.Download()
+		})
+	if isGoogleAPIError(err, http.StatusNotFound) {
+		return nil, storage.ErrBlockNotFound
+	}
 
+	if err != nil {
 		return nil, fmt.Errorf("unable to get block '%s': %v", b, err)
 	}
 
-	defer v.Body.Close()
+	dl := v.(*http.Response)
 
-	return ioutil.ReadAll(v.Body)
+	defer dl.Body.Close()
+
+	return ioutil.ReadAll(dl.Body)
 }
 
 func (gcs *gcsStorage) PutBlock(b string, data []byte, options storage.PutOptions) error {
@@ -86,22 +95,28 @@ func (gcs *gcsStorage) PutBlock(b string, data []byte, options storage.PutOption
 		// To avoid the race, check this server-side.
 		call = call.IfGenerationMatch(0)
 	}
-	_, err := call.Do()
 
-	if err != nil {
-		if err, ok := err.(*googleapi.Error); ok {
-			if err.Code == http.StatusPreconditionFailed {
-				// Condition not met indicates that the block already exists.
-				return nil
-			}
-		}
+	_, err := retry(
+		"Insert",
+		func() (interface{}, error) {
+			return call.Do()
+		})
+
+	if isGoogleAPIError(err, http.StatusPreconditionFailed) {
+		// Condition not met indicates that the block already exists.
+		return nil
 	}
 
 	return err
 }
 
 func (gcs *gcsStorage) DeleteBlock(b string) error {
-	err := gcs.objectsService.Delete(gcs.BucketName, string(b)).Do()
+	call := gcs.objectsService.Delete(gcs.BucketName, string(b))
+	_, err := retry(
+		"Delete",
+		func() (interface{}, error) {
+			return call.Do(), nil
+		})
 	if err != nil {
 		return fmt.Errorf("unable to delete block %s: %v", b, err)
 	}
@@ -118,13 +133,24 @@ func (gcs *gcsStorage) ListBlocks(prefix string) chan (storage.BlockMetadata) {
 
 	go func() {
 		ps := gcs.getObjectNameString(prefix)
-		page, _ := gcs.objectsService.List(gcs.BucketName).
-			Prefix(ps).Do()
+		page, err := retry(
+			"List",
+			func() (interface{}, error) {
+				return gcs.objectsService.List(gcs.BucketName).
+					Prefix(ps).Do()
+			})
+
 		for {
+			if err != nil {
+				ch <- storage.BlockMetadata{Error: err}
+				break
+			}
+
 			if page == nil {
 				break
 			}
-			for _, o := range page.Items {
+			objects := page.(*gcsclient.Objects)
+			for _, o := range objects.Items {
 				t, e := time.Parse(time.RFC3339, o.TimeCreated)
 				if e != nil {
 					ch <- storage.BlockMetadata{
@@ -139,10 +165,14 @@ func (gcs *gcsStorage) ListBlocks(prefix string) chan (storage.BlockMetadata) {
 				}
 			}
 
-			if page.NextPageToken != "" {
-				page, _ = gcs.objectsService.List(gcs.BucketName).
-					PageToken(ps).
-					Prefix(gcs.getObjectNameString(prefix)).Do()
+			if objects.NextPageToken != "" {
+				page, err = retry(
+					"List",
+					func() (interface{}, error) {
+						return gcs.objectsService.List(gcs.BucketName).
+							PageToken(objects.NextPageToken).
+							Prefix(ps).Do()
+					})
 			} else {
 				break
 			}
