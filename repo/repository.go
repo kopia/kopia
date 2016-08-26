@@ -23,25 +23,6 @@ type ObjectReader interface {
 	Length() int64
 }
 
-// Stats exposes statistics about Repository operation.
-type Stats struct {
-	// Keep int64 fields first to ensure they get aligned to at least 64-bit boundaries
-	// which is required for atomic access on ARM and x86-32.
-	HashedBytes    int64 `json:"hashedBytes,omitempty"`
-	BytesRead      int64 `json:"readBytes,omitempty"`
-	BytesWritten   int64 `json:"writtenBytes,omitempty"`
-	EncryptedBytes int64 `json:"encryptedBytes,omitempty"`
-	DecryptedBytes int64 `json:"decryptedBytes,omitempty"`
-
-	CheckedBlocks int32 `json:"checkedBlocks,omitempty"`
-	PresentBlocks int32 `json:"presentBlocks,omitempty"`
-	HashedBlocks  int32 `json:"hashedBlocks,omitempty"`
-	BlocksRead    int32 `json:"readBlocks,omitempty"`
-	BlocksWritten int32 `json:"writtenBlocks,omitempty"`
-	InvalidBlocks int32 `json:"invalidBlocks,omitempty"`
-	ValidBlocks   int32 `json:"validBlocks,omitempty"`
-}
-
 type empty struct{}
 type semaphore chan empty
 
@@ -302,8 +283,8 @@ func (r *Repository) hashEncryptAndWrite(objectID ObjectID, buffer *bytes.Buffer
 		}
 	}
 
-	atomic.AddInt32(&r.Stats.BlocksWritten, int32(1))
-	atomic.AddInt64(&r.Stats.BytesWritten, int64(len(data)))
+	atomic.AddInt32(&r.Stats.WrittenBlocks, int32(1))
+	atomic.AddInt64(&r.Stats.WrittenBytes, int64(len(data)))
 
 	if err := r.Storage.PutBlock(objectID.StorageBlock, data, storage.PutOptionsDefault); err != nil {
 		r.writeBackErrors.add(err)
@@ -357,8 +338,8 @@ func (r *Repository) newRawReader(objectID ObjectID) (ObjectReader, error) {
 		return nil, err
 	}
 
-	atomic.AddInt32(&r.Stats.BlocksRead, 1)
-	atomic.AddInt64(&r.Stats.BytesRead, int64(len(payload)))
+	atomic.AddInt32(&r.Stats.ReadBlocks, 1)
+	atomic.AddInt64(&r.Stats.ReadBytes, int64(len(payload)))
 
 	if len(objectID.EncryptionKey) > 0 {
 		payload, err = r.formatter.Decrypt(payload, objectID.EncryptionKey)
