@@ -3,12 +3,11 @@ package repo
 import (
 	"bufio"
 	"bytes"
-	"crypto/hmac"
 	"fmt"
-	"hash"
 	"io"
 	"log"
 	"strings"
+	"sync"
 	"sync/atomic"
 
 	"github.com/kopia/kopia/internal/jsonstream"
@@ -65,7 +64,16 @@ type RepositoryStats struct {
 	ValidBlocks            int32
 }
 
-type keygenFunc func([]byte) (blockIDBytes []byte, key []byte)
+type empty struct{}
+type semaphore chan empty
+
+func (s semaphore) Lock() {
+	s <- empty{}
+}
+
+func (s semaphore) Unlock() {
+	<-s
+}
 
 type repository struct {
 	storage       storage.Storage
@@ -76,10 +84,46 @@ type repository struct {
 	format    Format
 	formatter ObjectFormatter
 
-	workerCount int
+	writeBackWorkers int
+
+	writeBackSemaphore semaphore
+	writeBackErrors    asyncErrors
+
+	waitGroup sync.WaitGroup
+}
+
+type asyncErrors struct {
+	sync.RWMutex
+	errors []error
+}
+
+func (e *asyncErrors) add(err error) {
+	e.Lock()
+	e.errors = append(e.errors, err)
+	e.Unlock()
+}
+
+func (e *asyncErrors) check() error {
+	e.RLock()
+	defer e.RUnlock()
+
+	switch len(e.errors) {
+	case 0:
+		return nil
+	case 1:
+		return e.errors[0]
+	default:
+		msg := make([]string, len(e.errors))
+		for i, err := range e.errors {
+			msg[i] = err.Error()
+		}
+
+		return fmt.Errorf("%v errors: %v", len(e.errors), strings.Join(msg, ";"))
+	}
 }
 
 func (r *repository) Close() error {
+	r.Flush()
 	if err := r.storage.Close(); err != nil {
 		return err
 	}
@@ -89,6 +133,9 @@ func (r *repository) Close() error {
 }
 
 func (r *repository) Flush() error {
+	if r.writeBackWorkers > 0 {
+		r.waitGroup.Wait()
+	}
 	return nil
 }
 
@@ -116,6 +163,9 @@ func (r *repository) NewWriter(options ...WriterOption) ObjectWriter {
 func (r *repository) Open(objectID ObjectID) (ObjectReader, error) {
 	// log.Printf("Repository::Open %v", objectID.String())
 	// defer log.Printf("finished Repository::Open() %v", objectID.String())
+
+	// Flush any pending writes.
+	r.Flush()
 
 	if objectID.Section != nil {
 		baseReader, err := r.Open(objectID.Section.Base)
@@ -155,9 +205,9 @@ type RepositoryOption func(o *repository) error
 
 // WriteBack is an RepositoryOption that enables asynchronous writes to the storage using the pool
 // of goroutines.
-func WriteBack(workerCount int) RepositoryOption {
+func WriteBack(writeBackWorkers int) RepositoryOption {
 	return func(o *repository) error {
-		o.workerCount = workerCount
+		o.writeBackWorkers = writeBackWorkers
 		return nil
 	}
 }
@@ -167,12 +217,6 @@ func EnableLogging(options ...logging.Option) RepositoryOption {
 	return func(o *repository) error {
 		o.storage = logging.NewWrapper(o.storage, options...)
 		return nil
-	}
-}
-
-func hmacFunc(key []byte, hf func() hash.Hash) func() hash.Hash {
-	return func() hash.Hash {
-		return hmac.New(hf, key)
 	}
 }
 
@@ -203,6 +247,9 @@ func New(s storage.Storage, f *Format, options ...RepositoryOption) (Repository,
 	}
 
 	r.bufferManager = newBufferManager(int(r.format.MaxBlockSize))
+	if r.writeBackWorkers > 0 {
+		r.writeBackSemaphore = make(semaphore, r.writeBackWorkers)
+	}
 
 	return r, nil
 }
@@ -224,6 +271,10 @@ func (r *repository) hashEncryptAndWriteMaybeAsync(buffer *bytes.Buffer, prefix 
 			r.bufferManager.returnBuffer(buffer)
 		}
 	}()
+
+	if err := r.writeBackErrors.check(); err != nil {
+		return NullObjectID, err
+	}
 
 	// Hash the block and compute encryption key.
 	blockID, encryptionKey := r.formatter.ComputeBlockIDAndKey(data, r.format.Secret)
@@ -255,7 +306,29 @@ func (r *repository) hashEncryptAndWriteMaybeAsync(buffer *bytes.Buffer, prefix 
 		}
 	}
 
-	// Write the block
+	if r.writeBackWorkers > 0 {
+		// Tell the defer block not to return the buffer synchronously.
+		isAsync = true
+
+		r.waitGroup.Add(1)
+		r.writeBackSemaphore.Lock()
+		go func() {
+			defer func() {
+				r.bufferManager.returnBuffer(buffer)
+				r.writeBackSemaphore.Unlock()
+				r.waitGroup.Done()
+			}()
+
+			if err := r.storage.PutBlock(objectID.StorageBlock, data, storage.PutOptionsDefault); err != nil {
+				r.writeBackErrors.add(err)
+			}
+		}()
+
+		// async will fail later.
+		return objectID, nil
+	}
+
+	// Synchronous case
 	if err := r.storage.PutBlock(objectID.StorageBlock, data, storage.PutOptionsDefault); err != nil {
 		return NullObjectID, err
 	}

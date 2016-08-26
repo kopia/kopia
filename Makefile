@@ -14,6 +14,10 @@ install:
 	@echo Building version: $(BUILD_INFO) / $(BUILD_VERSION)
 	go install -ldflags $(LDARGS) github.com/kopia/kopia/cmd/kopia
 
+install-race:
+	@echo Building version: $(BUILD_INFO) / $(BUILD_VERSION)
+	go install -race -ldflags $(LDARGS) github.com/kopia/kopia/cmd/kopia
+
 build:
 	go build github.com/kopia/kopia/...
 

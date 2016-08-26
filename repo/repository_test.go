@@ -18,7 +18,7 @@ import (
 )
 
 func init() {
-	//panicOnBufferLeaks = true
+	panicOnBufferLeaks = true
 }
 
 func testFormat() *Format {
@@ -48,7 +48,7 @@ func setupTest(t *testing.T) (data map[string][]byte, repo Repository) {
 	data = map[string][]byte{}
 	st := storagetesting.NewMapStorage(data)
 
-	repo, err := New(st, testFormat())
+	repo, err := New(st, testFormat(), WriteBack(5))
 	if err != nil {
 		t.Errorf("cannot create manager: %v", err)
 	}
@@ -85,6 +85,8 @@ func TestWriters(t *testing.T) {
 			t.Errorf("error getting writer results for %v, expected: %v", c.data, c.objectID)
 			continue
 		}
+
+		repo.Flush()
 
 		if !objectIDsEqual(result, c.objectID) {
 			t.Errorf("incorrect result for %v, expected: %v got: %v", c.data, c.objectID.UIString(), result)
@@ -174,6 +176,7 @@ func TestIndirection(t *testing.T) {
 		writer := repo.NewWriter()
 		writer.Write(contentBytes)
 		result, err := writer.Result(false)
+		repo.Flush()
 		if err != nil {
 			t.Errorf("error getting writer results: %v", err)
 		}

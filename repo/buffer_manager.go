@@ -19,8 +19,6 @@ type bufferManager struct {
 // newBuffer returns a new or reused bytes.Buffer.
 func (mgr *bufferManager) newBuffer() *bytes.Buffer {
 	atomic.AddInt32(&mgr.outstandingCount, 1)
-	//debug.PrintStack()
-	//b := mgr.pool.Get().(*bytes.Buffer)
 	b := mgr.pool.New().(*bytes.Buffer)
 	b.Reset()
 	return b
@@ -28,7 +26,6 @@ func (mgr *bufferManager) newBuffer() *bytes.Buffer {
 
 // returnBuffer returns the give buffer to the pool
 func (mgr *bufferManager) returnBuffer(b *bytes.Buffer) {
-	//log.Printf("returning buffer")
 	atomic.AddInt32(&mgr.outstandingCount, -1)
 	mgr.pool.Put(b)
 }

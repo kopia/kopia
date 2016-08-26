@@ -52,7 +52,7 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 		repoOptions = append(repoOptions, repo.WriteBack(*backupWriteBack))
 	}
 
-	vlt, r := mustOpenVaultAndRepository()
+	vlt, r := mustOpenVaultAndRepository(repoOptions...)
 	defer r.Close()
 
 	var options []fs.UploaderOption
