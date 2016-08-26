@@ -27,7 +27,7 @@ type ObjectReader interface {
 	Length() int64
 }
 
-// Stats exposes statistics about Repository operation
+// Stats exposes statistics about Repository operation.
 type Stats struct {
 	// Keep int64 fields first to ensure they get aligned to at least 64-bit boundaries
 	// which is required for atomic access on ARM and x86-32.
@@ -57,8 +57,8 @@ func (s semaphore) Unlock() {
 
 // Repository implements a content-addressable storage on top of blob storage.
 type Repository struct {
-	Stats   Stats
-	Storage storage.Storage
+	Stats   Stats           // vital statistics
+	Storage storage.Storage // underlying blob storage
 
 	verbose       bool
 	bufferManager *bufferManager
