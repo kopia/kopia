@@ -45,6 +45,11 @@ func (gcs *gcsStorage) BlockExists(b string) (bool, error) {
 	if err == nil {
 		return true, nil
 	}
+	if err, ok := err.(*googleapi.Error); ok {
+		if err.Code == http.StatusNotFound {
+			return false, nil
+		}
+	}
 
 	return false, err
 }
@@ -78,11 +83,7 @@ func (gcs *gcsStorage) PutBlock(b string, data []byte, options storage.PutOption
 		googleapi.ChunkSize(len(data)),
 	)
 	if options&storage.PutOptionsOverwrite == 0 {
-		if ok, _ := gcs.BlockExists(b); ok {
-			return nil
-		}
-
-		// To avoid the race, also check this server-side.
+		// To avoid the race, check this server-side.
 		call = call.IfGenerationMatch(0)
 	}
 	_, err := call.Do()
