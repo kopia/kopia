@@ -6,7 +6,7 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/repofs"
+	"github.com/kopia/kopia/repofs"
 	"github.com/kopia/kopia/vault"
 )
 
@@ -67,7 +67,7 @@ func parseNestedObjectID(startingDir fs.Directory, id string) (repo.ObjectID, er
 		head, tail = splitHeadTail(tail)
 	}
 
-	return current.Metadata().ObjectID, nil
+	return current.(repo.HasObjectID).ObjectID(), nil
 }
 
 func splitHeadTail(id string) (string, string) {

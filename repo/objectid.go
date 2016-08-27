@@ -53,6 +53,11 @@ type ObjectIDSection struct {
 	Base   ObjectID `json:"base"`
 }
 
+// HasObjectID exposes the identifier of an object.
+type HasObjectID interface {
+	ObjectID() ObjectID
+}
+
 // NullObjectID is the identifier of an null/empty object.
 var NullObjectID ObjectID
 

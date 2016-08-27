@@ -11,6 +11,7 @@ var commaBytes = []byte(",\n")
 // Writer writes a stream of JSON objects.
 type Writer struct {
 	output    io.Writer
+	header    string
 	separator []byte
 }
 
@@ -23,6 +24,7 @@ func (w *Writer) Write(v interface{}) error {
 	if err != nil {
 		return err
 	}
+	// log.Printf("*** %v: %v", w.header, string(j))
 	if _, err := w.output.Write(j); err != nil {
 		return err
 	}
@@ -41,6 +43,7 @@ func (w *Writer) Finalize() error {
 func NewWriter(w io.Writer, header string) *Writer {
 	fmt.Fprintf(w, "{\"stream\":\"%v\",\"entries\":[\n", header)
 	return &Writer{
+		header: header,
 		output: w,
 	}
 }

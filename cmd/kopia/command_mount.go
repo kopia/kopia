@@ -6,7 +6,7 @@ import (
 	"bazil.org/fuse"
 	fusefs "bazil.org/fuse/fs"
 	kopiafuse "github.com/kopia/kopia/fuse"
-	"github.com/kopia/kopia/repo/repofs"
+	"github.com/kopia/kopia/repofs"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )

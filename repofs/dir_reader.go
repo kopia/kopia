@@ -1,26 +1,25 @@
-package dirstream
+package repofs
 
 import (
 	"bufio"
 	"fmt"
 	"io"
 
-	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/jsonstream"
 	"github.com/kopia/kopia/repo"
 )
 
 var directoryStreamType = "kopia:directory"
 
-// ReadEntries reads all the fs.EntryMetadata from the specified reader.
-func ReadEntries(r io.Reader) ([]*fs.EntryMetadata, error) {
+// readDirEntries reads all the dirEntry from the specified reader.
+func readDirEntries(r io.Reader) ([]*dirEntry, error) {
 	psr, err := jsonstream.NewReader(bufio.NewReader(r), directoryStreamType)
 	if err != nil {
 		return nil, err
 	}
-	var entries []*fs.EntryMetadata
+	var entries []*dirEntry
 	for {
-		e := &fs.EntryMetadata{}
+		e := &dirEntry{}
 		err := psr.Read(e)
 		if err == io.EOF {
 			break
@@ -36,12 +35,12 @@ func ReadEntries(r io.Reader) ([]*fs.EntryMetadata, error) {
 	return flattenBundles(entries)
 }
 
-func flattenBundles(source []*fs.EntryMetadata) ([]*fs.EntryMetadata, error) {
-	var entries []*fs.EntryMetadata
-	var bundles [][]*fs.EntryMetadata
+func flattenBundles(source []*dirEntry) ([]*dirEntry, error) {
+	var entries []*dirEntry
+	var bundles [][]*dirEntry
 
 	for _, e := range source {
-		if len(e.BundledChildren) > 0 {
+		if e.Type == entryTypeBundle {
 			bundle := e.BundledChildren
 			e.BundledChildren = nil
 
@@ -73,9 +72,9 @@ func flattenBundles(source []*fs.EntryMetadata) ([]*fs.EntryMetadata, error) {
 	return entries, nil
 }
 
-func mergeSort2(b1, b2 []*fs.EntryMetadata) []*fs.EntryMetadata {
+func mergeSort2(b1, b2 []*dirEntry) []*dirEntry {
 	combinedLength := len(b1) + len(b2)
-	result := make([]*fs.EntryMetadata, 0, combinedLength)
+	result := make([]*dirEntry, 0, combinedLength)
 
 	for len(b1) > 0 && len(b2) > 0 {
 		if b1[0].Name < b2[0].Name {
@@ -93,7 +92,7 @@ func mergeSort2(b1, b2 []*fs.EntryMetadata) []*fs.EntryMetadata {
 	return result
 }
 
-func mergeSortN(slices [][]*fs.EntryMetadata) []*fs.EntryMetadata {
+func mergeSortN(slices [][]*dirEntry) []*dirEntry {
 	switch len(slices) {
 	case 1:
 		return slices[0]

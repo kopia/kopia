@@ -6,7 +6,8 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/repo/repofs"
+	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repofs"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -36,8 +37,9 @@ func runLSCommand(context *kingpin.ParseContext) error {
 		}
 	}
 
-	dir := repofs.Directory(r, oid)
-	entries, err := dir.Readdir()
+	d := repofs.Directory(r, oid)
+
+	entries, err := d.Readdir()
 	if err != nil {
 		return err
 	}
@@ -54,8 +56,7 @@ func init() {
 func listDirectory(prefix string, entries fs.Entries, longFormat bool) {
 	maxNameLen := 20
 	for _, e := range entries {
-		m := e.Metadata()
-		if l := len(m.Name); l > maxNameLen {
+		if l := len(e.Metadata().Name); l > maxNameLen {
 			maxNameLen = l
 		}
 	}
@@ -66,11 +67,12 @@ func listDirectory(prefix string, entries fs.Entries, longFormat bool) {
 		m := e.Metadata()
 		var info string
 		if longFormat {
+			objectID := e.(repo.HasObjectID).ObjectID()
 			var oid string
-			if m.ObjectID.Content != nil {
+			if objectID.Content != nil {
 				oid = "<inline content>"
 			} else {
-				oid = m.ObjectID.UIString()
+				oid = objectID.UIString()
 			}
 			info = fmt.Sprintf(
 				"%v %9d %v %-"+maxNameLenString+"s %v",

@@ -1,4 +1,4 @@
-package upload
+package repofs
 
 import (
 	"encoding/binary"
@@ -10,7 +10,6 @@ import (
 	"sync/atomic"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/internal/dirstream"
 	"github.com/kopia/kopia/repo"
 )
 
@@ -22,18 +21,33 @@ const (
 // ErrUploadCancelled is returned when the upload gets cancelled.
 var ErrUploadCancelled = errors.New("upload cancelled")
 
+func hashEntryMetadata(w io.Writer, e *fs.EntryMetadata) {
+	binary.Write(w, binary.LittleEndian, e.Name)
+	binary.Write(w, binary.LittleEndian, e.ModTime.UnixNano())
+	binary.Write(w, binary.LittleEndian, e.FileMode())
+	binary.Write(w, binary.LittleEndian, e.FileSize)
+	binary.Write(w, binary.LittleEndian, e.UserID)
+	binary.Write(w, binary.LittleEndian, e.GroupID)
+}
+
 func metadataHash(e *fs.EntryMetadata) uint64 {
 	h := fnv.New64a()
-	binary.Write(h, binary.LittleEndian, e.ModTime.UnixNano())
-	binary.Write(h, binary.LittleEndian, e.FileMode())
-	binary.Write(h, binary.LittleEndian, e.FileSize)
-	binary.Write(h, binary.LittleEndian, e.UserID)
-	binary.Write(h, binary.LittleEndian, e.GroupID)
+	hashEntryMetadata(h, e)
 	return h.Sum64()
 }
 
-// Result stores results of an upload.
-type Result struct {
+func bundleHash(b *bundle) uint64 {
+	h := fnv.New64a()
+	hashEntryMetadata(h, b.metadata)
+	for i, f := range b.files {
+		binary.Write(h, binary.LittleEndian, i)
+		hashEntryMetadata(h, f.Metadata())
+	}
+	return h.Sum64()
+}
+
+// UploadResult stores results of an upload.
+type UploadResult struct {
 	ObjectID   repo.ObjectID
 	ManifestID repo.ObjectID
 	Cancelled  bool
@@ -48,8 +62,8 @@ type Result struct {
 
 // Uploader supports efficient uploading files and directories to repository.
 type Uploader interface {
-	UploadDir(dir fs.Directory, previousManifestID *repo.ObjectID) (*Result, error)
-	UploadFile(file fs.File) (*Result, error)
+	UploadDir(dir fs.Directory, previousManifestID *repo.ObjectID) (*UploadResult, error)
+	UploadFile(file fs.File) (*UploadResult, error)
 	Cancel()
 }
 
@@ -64,7 +78,7 @@ func (u *uploader) isCancelled() bool {
 	return atomic.LoadInt32(&u.cancelled) != 0
 }
 
-func (u *uploader) uploadFileInternal(f fs.File, relativePath string, forceStored bool) (*fs.EntryMetadata, uint64, error) {
+func (u *uploader) uploadFileInternal(f fs.File, relativePath string, forceStored bool) (*dirEntry, uint64, error) {
 	log.Printf("Uploading file %v", relativePath)
 	file, err := f.Open()
 	if err != nil {
@@ -92,16 +106,20 @@ func (u *uploader) uploadFileInternal(f fs.File, relativePath string, forceStore
 		return nil, 0, err
 	}
 
-	e2.ObjectID = r
+	de := newDirEntry(e2, r)
+	de.FileSize = written
 
-	if written != e2.FileSize {
-		// file changed
-	}
-
-	return e2, metadataHash(e2), nil
+	return de, metadataHash(&de.EntryMetadata), nil
 }
 
-func (u *uploader) uploadBundleInternal(b *bundle) (*fs.EntryMetadata, uint64, error) {
+func newDirEntry(md *fs.EntryMetadata, oid repo.ObjectID) *dirEntry {
+	return &dirEntry{
+		EntryMetadata: *md,
+		ObjectID:      oid,
+	}
+}
+
+func (u *uploader) uploadBundleInternal(b *bundle) (*dirEntry, uint64, error) {
 	bundleMetadata := b.Metadata()
 
 	log.Printf("uploading bundle %v (%v files)", bundleMetadata.Name, len(b.files))
@@ -114,6 +132,8 @@ func (u *uploader) uploadBundleInternal(b *bundle) (*fs.EntryMetadata, uint64, e
 
 	var uploadedFiles []fs.File
 	var err error
+
+	de := newDirEntry(bundleMetadata, repo.NullObjectID)
 
 	for _, fileEntry := range b.files {
 		file, err := fileEntry.Open()
@@ -132,29 +152,29 @@ func (u *uploader) uploadBundleInternal(b *bundle) (*fs.EntryMetadata, uint64, e
 		}
 
 		fileMetadata.FileSize = written
+		de.BundledChildren = append(de.BundledChildren, newDirEntry(fileMetadata, repo.NullObjectID))
 
 		uploadedFiles = append(uploadedFiles, &bundledFile{metadata: fileMetadata})
 		file.Close()
 	}
 
 	b.files = uploadedFiles
-	r, err := writer.Result(true)
+	de.ObjectID, err = writer.Result(true)
 	if err != nil {
 		return nil, 0, err
 	}
-	bundleMetadata.ObjectID = r
 
-	return bundleMetadata, metadataHash(bundleMetadata), nil
+	return de, bundleHash(b), nil
 }
 
-func (u *uploader) UploadFile(file fs.File) (*Result, error) {
-	result := &Result{}
+func (u *uploader) UploadFile(file fs.File) (*UploadResult, error) {
+	result := &UploadResult{}
 	e, _, err := u.uploadFileInternal(file, file.Metadata().Name, true)
 	result.ObjectID = e.ObjectID
 	return result, err
 }
 
-func (u *uploader) UploadDir(dir fs.Directory, previousManifestID *repo.ObjectID) (*Result, error) {
+func (u *uploader) UploadDir(dir fs.Directory, previousManifestID *repo.ObjectID) (*UploadResult, error) {
 	var mr hashcacheReader
 	var err error
 
@@ -171,7 +191,7 @@ func (u *uploader) UploadDir(dir fs.Directory, previousManifestID *repo.ObjectID
 	defer mw.Close()
 	hcw := newHashCacheWriter(mw)
 
-	result := &Result{}
+	result := &UploadResult{}
 	result.ObjectID, _, _, err = u.uploadDirInternal(result, dir, ".", hcw, &mr, true)
 	if err != nil {
 		return result, err
@@ -184,7 +204,7 @@ func (u *uploader) UploadDir(dir fs.Directory, previousManifestID *repo.ObjectID
 }
 
 func (u *uploader) uploadDirInternal(
-	result *Result,
+	result *UploadResult,
 	dir fs.Directory,
 	relativePath string,
 	hcw *hashcacheWriter,
@@ -205,7 +225,7 @@ func (u *uploader) uploadDirInternal(
 		repo.WithDescription("DIR:" + relativePath),
 	)
 
-	dw := dirstream.NewWriter(writer)
+	dw := newDirWriter(writer)
 	defer writer.Close()
 
 	allCached := true
@@ -218,6 +238,8 @@ func (u *uploader) uploadDirInternal(
 		e := entry.Metadata()
 		entryRelativePath := relativePath + "/" + e.Name
 
+		var de *dirEntry
+
 		var hash uint64
 
 		switch entry := entry.(type) {
@@ -229,7 +251,7 @@ func (u *uploader) uploadDirInternal(
 			//log.Printf("dirHash: %v %v", fullPath, h)
 			hash = h
 			allCached = allCached && wasCached
-			e.ObjectID = oid
+			de = newDirEntry(e, oid)
 
 		case fs.Symlink:
 			l, err := entry.Readlink()
@@ -237,7 +259,7 @@ func (u *uploader) uploadDirInternal(
 				return repo.NullObjectID, 0, false, err
 			}
 
-			e.ObjectID = repo.InlineObjectID([]byte(l))
+			de = newDirEntry(e, repo.InlineObjectID([]byte(l)))
 			hash = metadataHash(e)
 
 		case *bundle:
@@ -245,24 +267,23 @@ func (u *uploader) uploadDirInternal(
 			cachedEntry := mr.findEntry(entryRelativePath)
 
 			// ... and whether file metadata is identical to the previous one.
-			cacheMatches := (cachedEntry != nil) && cachedEntry.Hash == metadataHash(e)
+			cacheMatches := (cachedEntry != nil) && cachedEntry.Hash == bundleHash(entry)
 
 			allCached = allCached && cacheMatches
-			childrenMetadata := make([]*fs.EntryMetadata, len(entry.files))
+			childrenMetadata := make([]*dirEntry, len(entry.files))
 			for i, f := range entry.files {
-				childrenMetadata[i] = f.Metadata()
+				childrenMetadata[i] = newDirEntry(f.Metadata(), repo.NullObjectID)
 			}
-
-			e.BundledChildren = childrenMetadata
 
 			if cacheMatches {
 				result.Stats.CachedFiles++
 				// Avoid hashing by reusing previous object ID.
-				e.ObjectID = cachedEntry.ObjectID
+				de = newDirEntry(e, cachedEntry.ObjectID)
+				de.BundledChildren = childrenMetadata
 				hash = cachedEntry.Hash
 			} else {
 				result.Stats.NonCachedFiles++
-				e, hash, err = u.uploadBundleInternal(entry)
+				de, hash, err = u.uploadBundleInternal(entry)
 				if err != nil {
 					return repo.NullObjectID, 0, false, fmt.Errorf("unable to hash file: %s", err)
 				}
@@ -274,18 +295,19 @@ func (u *uploader) uploadDirInternal(
 			cachedEntry := mr.findEntry(entryRelativePath)
 
 			// ... and whether file metadata is identical to the previous one.
-			cacheMatches := (cachedEntry != nil) && cachedEntry.Hash == metadataHash(e)
+			computedHash := metadataHash(e)
+			cacheMatches := (cachedEntry != nil) && cachedEntry.Hash == computedHash
 
 			allCached = allCached && cacheMatches
 
 			if cacheMatches {
 				result.Stats.CachedFiles++
 				// Avoid hashing by reusing previous object ID.
-				e.ObjectID = cachedEntry.ObjectID
+				de = newDirEntry(e, cachedEntry.ObjectID)
 				hash = cachedEntry.Hash
 			} else {
 				result.Stats.NonCachedFiles++
-				e, hash, err = u.uploadFileInternal(entry, entryRelativePath, false)
+				de, hash, err = u.uploadFileInternal(entry, entryRelativePath, false)
 				if err != nil {
 					return repo.NullObjectID, 0, false, fmt.Errorf("unable to hash file: %s", err)
 				}
@@ -296,20 +318,20 @@ func (u *uploader) uploadDirInternal(
 		}
 
 		if hash != 0 {
-			dirHasher.Write([]byte(e.Name))
+			dirHasher.Write([]byte(de.Name))
 			dirHasher.Write([]byte{0})
 			binary.Write(dirHasher, binary.LittleEndian, hash)
 		}
 
-		if err := dw.WriteEntry(e); err != nil {
+		if err := dw.WriteEntry(de); err != nil {
 			return repo.NullObjectID, 0, false, err
 		}
 
-		if e.Type != fs.EntryTypeDirectory && e.ObjectID.StorageBlock != "" {
+		if de.Type != fs.EntryTypeDirectory && de.ObjectID.StorageBlock != "" {
 			if err := hcw.WriteEntry(hashCacheEntry{
 				Name:     entryRelativePath,
 				Hash:     hash,
-				ObjectID: e.ObjectID,
+				ObjectID: de.ObjectID,
 			}); err != nil {
 				return repo.NullObjectID, 0, false, err
 			}
@@ -321,13 +343,13 @@ func (u *uploader) uploadDirInternal(
 	var directoryOID repo.ObjectID
 	dirHash := dirHasher.Sum64()
 
-	cachedDirEntry := mr.findEntry(relativePath + "/")
-	allCached = allCached && cachedDirEntry != nil && cachedDirEntry.Hash == dirHash
+	cacheddirEntry := mr.findEntry(relativePath + "/")
+	allCached = allCached && cacheddirEntry != nil && cacheddirEntry.Hash == dirHash
 
 	if allCached {
 		// Avoid hashing directory listing if every entry matched the cache.
 		result.Stats.CachedDirectories++
-		directoryOID = cachedDirEntry.ObjectID
+		directoryOID = cacheddirEntry.ObjectID
 	} else {
 		result.Stats.NonCachedDirectories++
 		directoryOID, err = writer.Result(forceStored)
@@ -411,18 +433,18 @@ func (u *uploader) Cancel() {
 	atomic.StoreInt32(&u.cancelled, 1)
 }
 
-// Option modifies the behavior of uploader.
-type Option func(u *uploader)
+// UploadOption modifies the behavior of uploader.
+type UploadOption func(u *uploader)
 
 // EnableBundling allows uploader to create bundle objects.
-func EnableBundling() Option {
+func EnableBundling() UploadOption {
 	return func(u *uploader) {
 		u.enableBundling = true
 	}
 }
 
 // NewUploader creates new Uploader object for the specified Repository
-func NewUploader(repo *repo.Repository, options ...Option) Uploader {
+func NewUploader(repo *repo.Repository, options ...UploadOption) Uploader {
 	u := &uploader{
 		repo: repo,
 	}

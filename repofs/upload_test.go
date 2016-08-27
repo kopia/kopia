@@ -1,8 +1,9 @@
-package upload
+package repofs
 
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"reflect"
 
@@ -93,10 +94,12 @@ func TestUpload(t *testing.T) {
 		t.Errorf("upload failed: %v", err)
 	}
 
+	log.Printf("--------------------------")
 	r2, err := th.uploader.UploadDir(th.sourceDir, &r1.ManifestID)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
+	log.Printf("--------------------------")
 
 	if !objectIDsEqual(r2.ObjectID, r1.ObjectID) {
 		t.Errorf("expected r1.ObjectID==r2.ObjectID, got %v and %v", r1.ObjectID.UIString(), r2.ObjectID.UIString())
@@ -107,13 +110,13 @@ func TestUpload(t *testing.T) {
 	}
 
 	if r1.Stats.CachedFiles+r1.Stats.CachedDirectories != 0 {
-		t.Errorf("unexpected r1 stats: %#v", r1.Stats)
+		t.Errorf("unexpected r1 stats: %+v", r1.Stats)
 	}
 
 	// All non-cached files from r1 are now cached and there are no non-cached files or dirs since nothing changed.
 	if r2.Stats.CachedFiles+r2.Stats.CachedDirectories != r1.Stats.NonCachedFiles+r1.Stats.NonCachedDirectories ||
 		r2.Stats.NonCachedFiles+r2.Stats.NonCachedDirectories != 0 {
-		t.Errorf("unexpected r2 stats: %#v", r2.Stats)
+		t.Errorf("unexpected r2 stats: %+v, vs r1: %+v", r2.Stats, r1.Stats)
 	}
 
 	// Add one more file, the r1.ObjectID should change.
@@ -133,7 +136,7 @@ func TestUpload(t *testing.T) {
 
 	if r3.Stats.NonCachedFiles != 1 && r3.Stats.NonCachedDirectories != 3 {
 		// one file is not cached, which causes "./d2/d1/", "./d2/" and "./" to be changed.
-		t.Errorf("unexpected r3 stats: %#v", r3.Stats)
+		t.Errorf("unexpected r3 stats: %+v", r3.Stats)
 	}
 
 	// Now remove the added file, OID should be identical to the original before the file got added.
@@ -154,7 +157,7 @@ func TestUpload(t *testing.T) {
 	// Everything is still cached.
 	if r4.Stats.CachedFiles+r4.Stats.CachedDirectories != r1.Stats.NonCachedFiles+r1.Stats.NonCachedDirectories ||
 		r4.Stats.NonCachedFiles+r4.Stats.NonCachedDirectories != 0 {
-		t.Errorf("unexpected r4 stats: %#v", r4.Stats)
+		t.Errorf("unexpected r4 stats: %+v", r4.Stats)
 	}
 
 	// Upload again, this time using r3.ManifestID as base.
@@ -165,7 +168,7 @@ func TestUpload(t *testing.T) {
 
 	if r5.Stats.NonCachedFiles != 0 && r5.Stats.NonCachedDirectories != 3 {
 		// no files are changed, but one file disappeared which caused "./d2/d1/", "./d2/" and "./" to be changed.
-		t.Errorf("unexpected r5 stats: %#v", r5.Stats)
+		t.Errorf("unexpected r5 stats: %+v", r5.Stats)
 	}
 }
 

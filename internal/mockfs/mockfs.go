@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"sort"
 	"strings"
 
@@ -49,9 +50,12 @@ func (imd *Directory) AddFile(name string, content []byte, permissions fs.Permis
 				Name:        name,
 				Type:        fs.EntryTypeFile,
 				Permissions: permissions,
+				FileSize:    int64(len(content)),
 			},
 		},
-		source: bytes.NewBuffer(content),
+		source: func() (io.ReadCloser, error) {
+			return ioutil.NopCloser(bytes.NewBuffer(content)), nil
+		},
 	}
 
 	imd.addChild(file)
@@ -143,34 +147,29 @@ func (imd *Directory) Readdir() (fs.Entries, error) {
 type File struct {
 	entry
 
-	source     io.Reader
-	openError  error
+	source     func() (io.ReadCloser, error)
 	closeError error
 }
 
 type fileReader struct {
-	io.Reader
-	metadata   *fs.EntryMetadata
-	closeError error
+	io.ReadCloser
+	metadata *fs.EntryMetadata
 }
 
 func (ifr *fileReader) EntryMetadata() (*fs.EntryMetadata, error) {
 	return ifr.metadata, nil
 }
 
-func (ifr *fileReader) Close() error {
-	return ifr.closeError
-}
-
 // Open opens the file for reading, optionally simulating error.
 func (imf *File) Open() (fs.Reader, error) {
-	if imf.openError != nil {
-		return nil, imf.openError
+	r, err := imf.source()
+	if err != nil {
+		return nil, err
 	}
+
 	return &fileReader{
-		Reader:     imf.source,
+		ReadCloser: r,
 		metadata:   imf.metadata,
-		closeError: imf.closeError,
 	}, nil
 }
 

@@ -1,4 +1,3 @@
-// Package repofs implements virtual filesystem on top of Repository.
 package repofs
 
 import (
@@ -6,13 +5,18 @@ import (
 	"io"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/internal/dirstream"
 	"github.com/kopia/kopia/repo"
 )
 
+type dirEntry struct {
+	fs.EntryMetadata
+	ObjectID        repo.ObjectID `json:"obj,omitempty"`
+	BundledChildren []*dirEntry   `json:"bundled,omitempty"`
+}
+
 type repositoryEntry struct {
 	parent   fs.Directory
-	metadata *fs.EntryMetadata
+	metadata *dirEntry
 	repo     *repo.Repository
 }
 
@@ -21,7 +25,11 @@ func (e *repositoryEntry) Parent() fs.Directory {
 }
 
 func (e *repositoryEntry) Metadata() *fs.EntryMetadata {
-	return e.metadata
+	return &e.metadata.EntryMetadata
+}
+
+func (e *repositoryEntry) ObjectID() repo.ObjectID {
+	return e.metadata.ObjectID
 }
 
 type repositoryDirectory struct {
@@ -43,7 +51,7 @@ func (rd *repositoryDirectory) Readdir() (fs.Entries, error) {
 	}
 	defer r.Close()
 
-	metadata, err := dirstream.ReadEntries(r)
+	metadata, err := readDirEntries(r)
 	if err != nil {
 		return nil, err
 	}
@@ -57,19 +65,19 @@ func (rd *repositoryDirectory) Readdir() (fs.Entries, error) {
 }
 
 func (rf *repositoryFile) Open() (fs.Reader, error) {
-	r, err := rf.repo.Open(rf.Metadata().ObjectID)
+	r, err := rf.repo.Open(rf.metadata.ObjectID)
 	if err != nil {
 		return nil, err
 	}
 
-	return withMetadata(r, rf.metadata), nil
+	return withMetadata(r, &rf.metadata.EntryMetadata), nil
 }
 
 func (rsl *repositorySymlink) Readlink() (string, error) {
 	panic("not implemented yet")
 }
 
-func newRepoEntry(r *repo.Repository, md *fs.EntryMetadata, parent fs.Directory) fs.Entry {
+func newRepoEntry(r *repo.Repository, md *dirEntry, parent fs.Directory) fs.Entry {
 	re := repositoryEntry{
 		metadata: md,
 		parent:   parent,
@@ -109,11 +117,13 @@ func withMetadata(rc io.ReadCloser, md *fs.EntryMetadata) fs.Reader {
 // Directory returns fs.Directory based on repository object with the specified ID.
 // The existence or validity of the directory object is not validated until its contents are read.
 func Directory(r *repo.Repository, objectID repo.ObjectID) fs.Directory {
-	d := newRepoEntry(r, &fs.EntryMetadata{
-		Name:        "/",
-		ObjectID:    objectID,
-		Permissions: 0555,
-		Type:        fs.EntryTypeDirectory,
+	d := newRepoEntry(r, &dirEntry{
+		EntryMetadata: fs.EntryMetadata{
+			Name:        "/",
+			Permissions: 0555,
+			Type:        fs.EntryTypeDirectory,
+		},
+		ObjectID: objectID,
 	}, nil)
 
 	return d.(fs.Directory)

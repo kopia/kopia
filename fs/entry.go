@@ -8,8 +8,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/kopia/kopia/repo"
 )
 
 // Entry represents a filesystem entry, which can be Directory, File, or Symlink
@@ -61,15 +59,13 @@ func (p *Permissions) UnmarshalJSON(b []byte) error {
 
 // EntryMetadata stores attributes of a single entry in a directory.
 type EntryMetadata struct {
-	Name            string           `json:"name,omitempty"`
-	Type            EntryType        `json:"type,omitempty"`
-	Permissions     Permissions      `json:"mode,omitempty"`
-	FileSize        int64            `json:"size,omitempty"`
-	ModTime         time.Time        `json:"mtime,omitempty"`
-	ObjectID        repo.ObjectID    `json:"obj,omitempty"`
-	UserID          uint32           `json:"uid,omitempty"`
-	GroupID         uint32           `json:"gid,omitempty"`
-	BundledChildren []*EntryMetadata `json:"bundled,omitempty"`
+	Name        string      `json:"name,omitempty"`
+	Type        EntryType   `json:"type,omitempty"`
+	Permissions Permissions `json:"mode,omitempty"`
+	FileSize    int64       `json:"size,omitempty"`
+	ModTime     time.Time   `json:"mtime,omitempty"`
+	UserID      uint32      `json:"uid,omitempty"`
+	GroupID     uint32      `json:"gid,omitempty"`
 }
 
 // FileMode returns os.FileMode corresponding to Type and Permissions of the entry metadata.
@@ -94,7 +90,7 @@ func (e *EntryMetadata) FileMode() os.FileMode {
 // Entries is a list of entries sorted by name.
 type Entries []Entry
 
-// Reader allows reading from a file and retrieving *EntryMetadata for its metadata.
+// Reader allows reading from a file and retrieving its metadata.
 type Reader interface {
 	io.ReadCloser
 	EntryMetadata() (*EntryMetadata, error)

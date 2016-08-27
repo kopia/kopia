@@ -16,10 +16,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kopia/kopia/upload"
-
 	"github.com/kopia/kopia/backup"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repofs"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -56,10 +55,10 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 	vlt, r := mustOpenVaultAndRepository(repoOptions...)
 	defer r.Close()
 
-	var options []upload.Option
+	var options []repofs.UploadOption
 
 	if *backupExperimentalBundles {
-		options = append(options, upload.EnableBundling())
+		options = append(options, repofs.EnableBundling())
 	}
 
 	bgen, err := backup.NewGenerator(r, options...)
@@ -116,7 +115,7 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 			return fmt.Errorf("cannot save manifest: %v", err)
 		}
 
-		log.Printf("Root: %v", manifest.RootObjectID)
+		log.Printf("Root: %v", manifest.RootObjectID.UIString())
 		log.Printf("Hash Cache: %v", manifest.HashCacheID.UIString())
 		log.Printf("Key: %v", handleID)
 
