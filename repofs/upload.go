@@ -358,12 +358,14 @@ func (u *uploader) uploadDirInternal(
 		}
 	}
 
-	if err := hcw.WriteEntry(hashCacheEntry{
-		Name:     relativePath + "/",
-		ObjectID: directoryOID,
-		Hash:     dirHash,
-	}); err != nil {
-		return repo.NullObjectID, 0, false, err
+	if directoryOID.StorageBlock != "" {
+		if err := hcw.WriteEntry(hashCacheEntry{
+			Name:     relativePath + "/",
+			ObjectID: directoryOID,
+			Hash:     dirHash,
+		}); err != nil {
+			return repo.NullObjectID, 0, false, err
+		}
 	}
 
 	// log.Printf("Dir: %v %v %v %v", relativePath, directoryOID.UIString(), dirHash, allCached)
