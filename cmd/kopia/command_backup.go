@@ -17,8 +17,8 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/backup"
+	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repofs"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )

@@ -1,4 +1,4 @@
-package fs
+package localfs
 
 import (
 	"fmt"
@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/kopia/kopia/fs"
 
 	"testing"
 )
@@ -21,16 +23,16 @@ func TestFiles(t *testing.T) {
 
 	defer os.RemoveAll(tmp)
 
-	var dir Directory
+	var dir fs.Directory
 
 	// Try listing directory that does not exist.
-	dir, err = NewFilesystemDirectory(fmt.Sprintf("/no-such-dir-%v", time.Now().Nanosecond()), nil)
+	dir, err = Directory(fmt.Sprintf("/no-such-dir-%v", time.Now().Nanosecond()), nil)
 	if err == nil {
 		t.Errorf("expected error when dir directory that does not exist.")
 	}
 
 	// Now list an empty directory that does exist.
-	dir, err = NewFilesystemDirectory(tmp, nil)
+	dir, err = Directory(tmp, nil)
 	if err != nil {
 		t.Errorf("error when dir empty directory: %v", err)
 	}
@@ -52,7 +54,7 @@ func TestFiles(t *testing.T) {
 	os.Mkdir(filepath.Join(tmp, "z"), 0777)
 	os.Mkdir(filepath.Join(tmp, "y"), 0777)
 
-	dir, err = NewFilesystemDirectory(tmp, nil)
+	dir, err = Directory(tmp, nil)
 	if err != nil {
 		t.Errorf("error when dir directory with files: %v", err)
 	}

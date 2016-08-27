@@ -1,2 +1,2 @@
-// Package fs implements virtual filesystem abstraction layer.
+// Package fs defines virtual filesystem abstractions.
 package fs

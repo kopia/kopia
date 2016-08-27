@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repofs"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )

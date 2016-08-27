@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repofs"
 	"github.com/kopia/kopia/vault"
 )
 

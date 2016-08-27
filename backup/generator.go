@@ -5,8 +5,9 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/fs/localfs"
+	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repofs"
 )
 
 var (
@@ -33,7 +34,7 @@ func (bg *backupGenerator) Backup(m *Manifest, old *Manifest) error {
 		hashCacheID = &old.HashCacheID
 	}
 
-	entry, err := fs.NewFilesystemEntry(m.Source, nil)
+	entry, err := localfs.NewEntry(m.Source, nil)
 
 	var r *repofs.UploadResult
 	switch entry := entry.(type) {

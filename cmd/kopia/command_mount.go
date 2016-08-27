@@ -5,8 +5,8 @@ package main
 import (
 	"bazil.org/fuse"
 	fusefs "bazil.org/fuse/fs"
+	"github.com/kopia/kopia/fs/repofs"
 	kopiafuse "github.com/kopia/kopia/fuse"
-	"github.com/kopia/kopia/repofs"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
