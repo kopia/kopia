@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/repo"
 )
@@ -15,16 +14,14 @@ var (
 )
 
 // Generator allows creation of backups.
-type Generator interface {
-	Backup(m *Manifest, old *Manifest) error
-}
-
-type backupGenerator struct {
+type Generator struct {
 	repo    *repo.Repository
 	options []repofs.UploadOption
 }
 
-func (bg *backupGenerator) Backup(m *Manifest, old *Manifest) error {
+// Backup uploads contents of the specified filesystem entry (file or directory) to the repository and updates given manifest with statistics.
+// Old manifest, when provided can be used to speed up backups by utilizing hash cache.
+func (bg *Generator) Backup(entry fs.Entry, m *Manifest, old *Manifest) error {
 	uploader := repofs.NewUploader(bg.repo, bg.options...)
 
 	m.StartTime = time.Now()
@@ -34,9 +31,8 @@ func (bg *backupGenerator) Backup(m *Manifest, old *Manifest) error {
 		hashCacheID = &old.HashCacheID
 	}
 
-	entry, err := localfs.NewEntry(m.Source, nil)
-
 	var r *repofs.UploadResult
+	var err error
 	switch entry := entry.(type) {
 	case fs.Directory:
 		r, err = uploader.UploadDir(entry, hashCacheID)
@@ -58,8 +54,8 @@ func (bg *backupGenerator) Backup(m *Manifest, old *Manifest) error {
 }
 
 // NewGenerator creates new backup generator.
-func NewGenerator(repo *repo.Repository, options ...repofs.UploadOption) (Generator, error) {
-	return &backupGenerator{
+func NewGenerator(repo *repo.Repository, options ...repofs.UploadOption) (*Generator, error) {
+	return &Generator{
 		repo:    repo,
 		options: options,
 	}, nil

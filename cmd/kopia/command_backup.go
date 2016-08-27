@@ -96,7 +96,12 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 			oldManifest, err = loadBackupManifest(vlt, previous[0])
 		}
 
-		if err := bgen.Backup(&manifest, oldManifest); err != nil {
+		localEntry := mustGetLocalFSEntry(manifest.Source)
+		if err != nil {
+			return err
+		}
+
+		if err := bgen.Backup(localEntry, &manifest, oldManifest); err != nil {
 			return err
 		}
 

@@ -11,6 +11,10 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/kopia/kopia/fs/localfs"
+	"github.com/kopia/kopia/fs/loggingfs"
+
+	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/storage/logging"
 
 	"github.com/bgentry/speakeasy"
@@ -21,6 +25,7 @@ import (
 
 var (
 	traceStorage = app.Flag("trace-storage", "Enables tracing of storage operations.").Hidden().Envar("KOPIA_TRACE_STORAGE").Bool()
+	traceLocalFS = app.Flag("trace-localfs", "Enables tracing of local filesystem operations").Hidden().Envar("KOPIA_TRACE_STORAGE").Bool()
 
 	vaultConfigPath = app.Flag("vaultconfig", "Specify the vault config file to use.").PlaceHolder("PATH").Envar("KOPIA_VAULTCONFIG").String()
 	vaultPath       = app.Flag("vault", "Specify the vault to use.").PlaceHolder("PATH").Envar("KOPIA_VAULT").Short('v').String()
@@ -224,6 +229,19 @@ func getVaultCredentials(isNew bool) (vault.Credentials, error) {
 		fmt.Println()
 		return vault.Password(p1)
 	}
+}
+
+func mustGetLocalFSEntry(path string) fs.Entry {
+	e, err := localfs.NewEntry(path, nil)
+	if err == nil {
+		failOnError(err)
+	}
+
+	if *traceLocalFS {
+		return loggingfs.Wrap(e, loggingfs.Prefix("[LOCALFS] "))
+	}
+
+	return e
 }
 
 func askPass(prompt string) (string, error) {
