@@ -94,8 +94,8 @@ func (e *EntryMetadata) FileMode() os.FileMode {
 // Entries is a list of entries sorted by name.
 type Entries []Entry
 
-// EntryMetadataReadCloser allows reading from a file and retrieving *EntryMetadata for its metadata.
-type EntryMetadataReadCloser interface {
+// Reader allows reading from a file and retrieving *EntryMetadata for its metadata.
+type Reader interface {
 	io.ReadCloser
 	EntryMetadata() (*EntryMetadata, error)
 }
@@ -103,7 +103,7 @@ type EntryMetadataReadCloser interface {
 // File represents an entry that is a file.
 type File interface {
 	Entry
-	Open() (EntryMetadataReadCloser, error)
+	Open() (Reader, error)
 }
 
 // Directory represents contents of a directory.

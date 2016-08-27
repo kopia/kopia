@@ -40,6 +40,6 @@ func (f *bundledFile) Metadata() *fs.EntryMetadata {
 	return f.metadata
 }
 
-func (f *bundledFile) Open() (fs.EntryMetadataReadCloser, error) {
+func (f *bundledFile) Open() (fs.Reader, error) {
 	panic("Open() is not meant to be called")
 }

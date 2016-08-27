@@ -163,7 +163,7 @@ func (ifr *fileReader) Close() error {
 }
 
 // Open opens the file for reading, optionally simulating error.
-func (imf *File) Open() (fs.EntryMetadataReadCloser, error) {
+func (imf *File) Open() (fs.Reader, error) {
 	if imf.openError != nil {
 		return nil, imf.openError
 	}

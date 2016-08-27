@@ -66,7 +66,7 @@ func (erc *fileWithMetadata) EntryMetadata() (*EntryMetadata, error) {
 	return entryMetadataFromFileInfo(fi), nil
 }
 
-func (fsf *filesystemFile) Open() (EntryMetadataReadCloser, error) {
+func (fsf *filesystemFile) Open() (Reader, error) {
 	f, err := os.Open(fsf.path)
 	if err != nil {
 		return nil, err

@@ -56,7 +56,7 @@ func (rd *repositoryDirectory) Readdir() (fs.Entries, error) {
 	return entries, nil
 }
 
-func (rf *repositoryFile) Open() (fs.EntryMetadataReadCloser, error) {
+func (rf *repositoryFile) Open() (fs.Reader, error) {
 	r, err := rf.repo.Open(rf.Metadata().ObjectID)
 	if err != nil {
 		return nil, err
@@ -99,7 +99,7 @@ func (emrc *entryMetadataReadCloser) EntryMetadata() (*fs.EntryMetadata, error) 
 	return emrc.metadata, nil
 }
 
-func withMetadata(rc io.ReadCloser, md *fs.EntryMetadata) fs.EntryMetadataReadCloser {
+func withMetadata(rc io.ReadCloser, md *fs.EntryMetadata) fs.Reader {
 	return &entryMetadataReadCloser{
 		rc,
 		md,
