@@ -1,4 +1,4 @@
-package fs
+package upload
 
 import (
 	"bufio"
@@ -107,6 +107,6 @@ func (hcw *hashcacheWriter) WriteEntry(e hashCacheEntry) error {
 	return nil
 }
 
-func (hcw *hashcacheWriter) Close() error {
-	return hcw.writer.Close()
+func (hcw *hashcacheWriter) Finalize() error {
+	return hcw.writer.Finalize()
 }

@@ -5,8 +5,8 @@ package main
 import (
 	"bazil.org/fuse"
 	fusefs "bazil.org/fuse/fs"
-	"github.com/kopia/kopia/fs"
 	kopiafuse "github.com/kopia/kopia/fuse"
+	"github.com/kopia/kopia/repo/repofs"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -42,7 +42,7 @@ func runMountCommand(context *kingpin.ParseContext) error {
 		return err
 	}
 
-	rootNode := kopiafuse.NewDirectoryNode(fs.NewDirectory(r, oid))
+	rootNode := kopiafuse.NewDirectoryNode(repofs.Directory(r, oid))
 
 	fusefs.Serve(fuseConnection, &root{rootNode})
 

@@ -1,9 +1,7 @@
 package fs
 
 import (
-	"encoding/binary"
 	"encoding/json"
-	"hash/fnv"
 	"io"
 	"os"
 	"sort"
@@ -29,7 +27,6 @@ const (
 	EntryTypeFile      EntryType = "f" // file
 	EntryTypeDirectory EntryType = "d" // directory
 	EntryTypeSymlink   EntryType = "s" // symbolic link
-	EntryTypeBundle    EntryType = "b" // bundle
 )
 
 // Permissions encapsulates UNIX permissions for a filesystem entry.
@@ -159,55 +156,6 @@ func (e Entries) FindByName(n string) Entry {
 	}
 
 	return nil
-}
-
-func isLess(name1, name2 string) bool {
-	if name1 == name2 {
-		return false
-	}
-
-	return isLessOrEqual(name1, name2)
-}
-
-func split1(name string) (head, tail string) {
-	n := strings.IndexByte(name, '/')
-	if n >= 0 {
-		return name[0 : n+1], name[n+1:]
-	}
-
-	return name, ""
-}
-
-func isLessOrEqual(name1, name2 string) bool {
-	parts1 := strings.Split(name1, "/")
-	parts2 := strings.Split(name2, "/")
-
-	i := 0
-	for i < len(parts1) && i < len(parts2) {
-		if parts1[i] == parts2[i] {
-			i++
-			continue
-		}
-		if parts1[i] == "" {
-			return false
-		}
-		if parts2[i] == "" {
-			return true
-		}
-		return parts1[i] < parts2[i]
-	}
-
-	return len(parts1) <= len(parts2)
-}
-
-func (e *EntryMetadata) metadataHash() uint64 {
-	h := fnv.New64a()
-	binary.Write(h, binary.LittleEndian, e.ModTime.UnixNano())
-	binary.Write(h, binary.LittleEndian, e.FileMode())
-	binary.Write(h, binary.LittleEndian, e.FileSize)
-	binary.Write(h, binary.LittleEndian, e.UserID)
-	binary.Write(h, binary.LittleEndian, e.GroupID)
-	return h.Sum64()
 }
 
 // EntryPath returns a path of a given entry from its root node.

@@ -1,48 +1,26 @@
-package fs
+package dirstream
 
 import (
 	"bufio"
 	"fmt"
 	"io"
 
+	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/jsonstream"
 	"github.com/kopia/kopia/repo"
 )
 
 var directoryStreamType = "kopia:directory"
 
-type directoryWriter struct {
-	w *jsonstream.Writer
-}
-
-func (dw *directoryWriter) WriteEntry(e *EntryMetadata) error {
-	if err := e.ObjectID.Validate(); err != nil {
-		panic("invalid object ID: " + err.Error())
-	}
-
-	return dw.w.Write(e)
-}
-
-func (dw *directoryWriter) Close() error {
-	return dw.w.Close()
-}
-
-func newDirectoryWriter(w io.WriteCloser) *directoryWriter {
-	dw := &directoryWriter{
-		w: jsonstream.NewWriter(w, directoryStreamType),
-	}
-
-	return dw
-}
-
-func readDirectoryMetadataEntries(r io.Reader) ([]*EntryMetadata, error) {
+// ReadEntries reads all the fs.EntryMetadata from the specified reader.
+func ReadEntries(r io.Reader) ([]*fs.EntryMetadata, error) {
 	psr, err := jsonstream.NewReader(bufio.NewReader(r), directoryStreamType)
 	if err != nil {
 		return nil, err
 	}
-	var entries []*EntryMetadata
+	var entries []*fs.EntryMetadata
 	for {
-		e := &EntryMetadata{}
+		e := &fs.EntryMetadata{}
 		err := psr.Read(e)
 		if err == io.EOF {
 			break
@@ -58,9 +36,9 @@ func readDirectoryMetadataEntries(r io.Reader) ([]*EntryMetadata, error) {
 	return flattenBundles(entries)
 }
 
-func flattenBundles(source []*EntryMetadata) ([]*EntryMetadata, error) {
-	var entries []*EntryMetadata
-	var bundles [][]*EntryMetadata
+func flattenBundles(source []*fs.EntryMetadata) ([]*fs.EntryMetadata, error) {
+	var entries []*fs.EntryMetadata
+	var bundles [][]*fs.EntryMetadata
 
 	for _, e := range source {
 		if len(e.BundledChildren) > 0 {
@@ -95,12 +73,12 @@ func flattenBundles(source []*EntryMetadata) ([]*EntryMetadata, error) {
 	return entries, nil
 }
 
-func mergeSort2(b1, b2 []*EntryMetadata) []*EntryMetadata {
+func mergeSort2(b1, b2 []*fs.EntryMetadata) []*fs.EntryMetadata {
 	combinedLength := len(b1) + len(b2)
-	result := make([]*EntryMetadata, 0, combinedLength)
+	result := make([]*fs.EntryMetadata, 0, combinedLength)
 
 	for len(b1) > 0 && len(b2) > 0 {
-		if isLess(b1[0].Name, b2[0].Name) {
+		if b1[0].Name < b2[0].Name {
 			result = append(result, b1[0])
 			b1 = b1[1:]
 		} else {
@@ -115,7 +93,7 @@ func mergeSort2(b1, b2 []*EntryMetadata) []*EntryMetadata {
 	return result
 }
 
-func mergeSortN(slices [][]*EntryMetadata) []*EntryMetadata {
+func mergeSortN(slices [][]*fs.EntryMetadata) []*fs.EntryMetadata {
 	switch len(slices) {
 	case 1:
 		return slices[0]

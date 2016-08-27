@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/upload"
 
 	"github.com/kopia/kopia/backup"
 	"github.com/kopia/kopia/repo"
@@ -56,10 +56,10 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 	vlt, r := mustOpenVaultAndRepository(repoOptions...)
 	defer r.Close()
 
-	var options []fs.UploaderOption
+	var options []upload.Option
 
 	if *backupExperimentalBundles {
-		options = append(options, fs.EnableBundling())
+		options = append(options, upload.EnableBundling())
 	}
 
 	bgen, err := backup.NewGenerator(r, options...)

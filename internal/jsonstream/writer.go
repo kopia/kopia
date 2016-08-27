@@ -31,8 +31,8 @@ func (w *Writer) Write(v interface{}) error {
 	return nil
 }
 
-// Close writes the postamble to the JSON stream.
-func (w *Writer) Close() error {
+// Finalize writes the postamble to the JSON stream.
+func (w *Writer) Finalize() error {
 	fmt.Fprintf(w.output, "\n]}")
 	return nil
 }

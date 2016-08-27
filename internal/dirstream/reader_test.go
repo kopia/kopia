@@ -1,4 +1,4 @@
-package fs
+package dirstream
 
 import (
 	"reflect"
@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo"
 )
 
@@ -17,14 +18,14 @@ var (
 
 func TestFlattenBundles(t *testing.T) {
 	base := repo.ObjectID{StorageBlock: "5555"}
-	sources := []*EntryMetadata{
-		&EntryMetadata{
+	sources := []*fs.EntryMetadata{
+		&fs.EntryMetadata{
 			Name:     "bundle1",
 			FileSize: 170,
 			ObjectID: base,
-			BundledChildren: []*EntryMetadata{
-				&EntryMetadata{Name: "a1", FileSize: 50},
-				&EntryMetadata{Name: "z1", FileSize: 120},
+			BundledChildren: []*fs.EntryMetadata{
+				&fs.EntryMetadata{Name: "a1", FileSize: 50},
+				&fs.EntryMetadata{Name: "z1", FileSize: 120},
 			},
 		},
 	}
@@ -35,13 +36,13 @@ func TestFlattenBundles(t *testing.T) {
 		return
 	}
 
-	expectedEntries := []*EntryMetadata{
-		&EntryMetadata{Name: "a1", FileSize: 50, ObjectID: repo.ObjectID{Section: &repo.ObjectIDSection{
+	expectedEntries := []*fs.EntryMetadata{
+		&fs.EntryMetadata{Name: "a1", FileSize: 50, ObjectID: repo.ObjectID{Section: &repo.ObjectIDSection{
 			Start:  0,
 			Length: 50,
 			Base:   base,
 		}}},
-		&EntryMetadata{Name: "z1", FileSize: 120, ObjectID: repo.ObjectID{Section: &repo.ObjectIDSection{
+		&fs.EntryMetadata{Name: "z1", FileSize: 120, ObjectID: repo.ObjectID{Section: &repo.ObjectIDSection{
 			Start:  50,
 			Length: 120,
 			Base:   base,
@@ -52,14 +53,14 @@ func TestFlattenBundles(t *testing.T) {
 }
 
 func TestFlattenBundlesInconsistentBundleSize(t *testing.T) {
-	sources := []*EntryMetadata{
-		&EntryMetadata{
+	sources := []*fs.EntryMetadata{
+		&fs.EntryMetadata{
 			Name:     "bundle1",
 			FileSize: 171,
 			ObjectID: repo.ObjectID{StorageBlock: "5555"},
-			BundledChildren: []*EntryMetadata{
-				&EntryMetadata{Name: "a1", FileSize: 50},
-				&EntryMetadata{Name: "z1", FileSize: 120},
+			BundledChildren: []*fs.EntryMetadata{
+				&fs.EntryMetadata{Name: "a1", FileSize: 50},
+				&fs.EntryMetadata{Name: "z1", FileSize: 120},
 			},
 		},
 	}
@@ -79,32 +80,32 @@ func TestFlattenThreeBundles(t *testing.T) {
 	base1 := repo.ObjectID{StorageBlock: "5555"}
 	base2 := repo.ObjectID{StorageBlock: "6666"}
 	base3 := repo.ObjectID{StorageBlock: "7777"}
-	sources := []*EntryMetadata{
-		&EntryMetadata{
+	sources := []*fs.EntryMetadata{
+		&fs.EntryMetadata{
 			Name:     "bundle1",
 			FileSize: 170,
 			ObjectID: base1,
-			BundledChildren: []*EntryMetadata{
-				&EntryMetadata{Name: "a1", FileSize: 50},
-				&EntryMetadata{Name: "z1", FileSize: 120},
+			BundledChildren: []*fs.EntryMetadata{
+				&fs.EntryMetadata{Name: "a1", FileSize: 50},
+				&fs.EntryMetadata{Name: "z1", FileSize: 120},
 			},
 		},
-		&EntryMetadata{
+		&fs.EntryMetadata{
 			Name:     "bundle3",
 			FileSize: 7,
 			ObjectID: base3,
-			BundledChildren: []*EntryMetadata{
-				&EntryMetadata{Name: "a3", FileSize: 5},
-				&EntryMetadata{Name: "z3", FileSize: 2},
+			BundledChildren: []*fs.EntryMetadata{
+				&fs.EntryMetadata{Name: "a3", FileSize: 5},
+				&fs.EntryMetadata{Name: "z3", FileSize: 2},
 			},
 		},
-		&EntryMetadata{
+		&fs.EntryMetadata{
 			Name:     "bundle2",
 			FileSize: 300,
 			ObjectID: base2,
-			BundledChildren: []*EntryMetadata{
-				&EntryMetadata{Name: "a2", FileSize: 100},
-				&EntryMetadata{Name: "z2", FileSize: 200},
+			BundledChildren: []*fs.EntryMetadata{
+				&fs.EntryMetadata{Name: "a2", FileSize: 100},
+				&fs.EntryMetadata{Name: "z2", FileSize: 200},
 			},
 		},
 	}
@@ -115,33 +116,33 @@ func TestFlattenThreeBundles(t *testing.T) {
 		return
 	}
 
-	expectedEntries := []*EntryMetadata{
-		&EntryMetadata{Name: "a1", FileSize: 50, ObjectID: repo.ObjectID{Section: &repo.ObjectIDSection{
+	expectedEntries := []*fs.EntryMetadata{
+		&fs.EntryMetadata{Name: "a1", FileSize: 50, ObjectID: repo.ObjectID{Section: &repo.ObjectIDSection{
 			Start:  0,
 			Length: 50,
 			Base:   base1,
 		}}},
-		&EntryMetadata{Name: "a2", FileSize: 100, ObjectID: repo.ObjectID{Section: &repo.ObjectIDSection{
+		&fs.EntryMetadata{Name: "a2", FileSize: 100, ObjectID: repo.ObjectID{Section: &repo.ObjectIDSection{
 			Start:  0,
 			Length: 100,
 			Base:   base2,
 		}}},
-		&EntryMetadata{Name: "a3", FileSize: 5, ObjectID: repo.ObjectID{Section: &repo.ObjectIDSection{
+		&fs.EntryMetadata{Name: "a3", FileSize: 5, ObjectID: repo.ObjectID{Section: &repo.ObjectIDSection{
 			Start:  0,
 			Length: 5,
 			Base:   base3,
 		}}},
-		&EntryMetadata{Name: "z1", FileSize: 120, ObjectID: repo.ObjectID{Section: &repo.ObjectIDSection{
+		&fs.EntryMetadata{Name: "z1", FileSize: 120, ObjectID: repo.ObjectID{Section: &repo.ObjectIDSection{
 			Start:  50,
 			Length: 120,
 			Base:   base1,
 		}}},
-		&EntryMetadata{Name: "z2", FileSize: 200, ObjectID: repo.ObjectID{Section: &repo.ObjectIDSection{
+		&fs.EntryMetadata{Name: "z2", FileSize: 200, ObjectID: repo.ObjectID{Section: &repo.ObjectIDSection{
 			Start:  100,
 			Length: 200,
 			Base:   base2,
 		}}},
-		&EntryMetadata{Name: "z3", FileSize: 2, ObjectID: repo.ObjectID{Section: &repo.ObjectIDSection{
+		&fs.EntryMetadata{Name: "z3", FileSize: 2, ObjectID: repo.ObjectID{Section: &repo.ObjectIDSection{
 			Start:  5,
 			Length: 2,
 			Base:   base3,
@@ -151,7 +152,7 @@ func TestFlattenThreeBundles(t *testing.T) {
 	verifyDirectory(t, entries, expectedEntries)
 }
 
-func verifyDirectory(t *testing.T, entries []*EntryMetadata, expectedEntries []*EntryMetadata) {
+func verifyDirectory(t *testing.T, entries []*fs.EntryMetadata, expectedEntries []*fs.EntryMetadata) {
 	if len(entries) != len(expectedEntries) {
 		t.Errorf("expected %v entries, got %v", len(expectedEntries), len(entries))
 	}
@@ -163,48 +164,6 @@ func verifyDirectory(t *testing.T, entries []*EntryMetadata, expectedEntries []*
 			if !reflect.DeepEqual(expected, actual) {
 				t.Errorf("invalid entry at index %v:\nexpected: %#v\nactual:   %#v", i,
 					expected, actual)
-			}
-		}
-	}
-}
-
-func TestDirectoryNameOrder(t *testing.T) {
-	sortedNames := []string{
-		"a/a/a",
-		"a/a/",
-		"a/b",
-		"a/b1",
-		"a/b2",
-		"a/",
-		"bar/a/a",
-		"bar/a/",
-		"bar/a.b",
-		"bar/a.c/",
-		"bar/a1/a",
-		"bar/a1/",
-		"bar/a2",
-		"bar/a3",
-		"bar/",
-		"foo/a/a",
-		"foo/a/",
-		"foo/b",
-		"foo/c/a",
-		"foo/c/",
-		"foo/d/",
-		"foo/e1/",
-		"foo/e2/",
-		"foo/",
-		"goo/a/a",
-		"goo/a/",
-		"goo/",
-	}
-
-	for i, n1 := range sortedNames {
-		for j, n2 := range sortedNames {
-			expected := i <= j
-			actual := isLessOrEqual(n1, n2)
-			if actual != expected {
-				t.Errorf("unexpected value for isLessOrEqual('%v','%v'), expected: %v, got: %v", n1, n2, expected, actual)
 			}
 		}
 	}

@@ -6,6 +6,7 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/repofs"
 	"github.com/kopia/kopia/vault"
 )
 
@@ -34,7 +35,7 @@ func parseObjectID(id string, vlt *vault.Vault) (repo.ObjectID, error) {
 		return repo.NullObjectID, fmt.Errorf("cannot open repository: %v", err)
 	}
 
-	dir := fs.NewDirectory(r, oid)
+	dir := repofs.Directory(r, oid)
 	if err != nil {
 		return repo.NullObjectID, err
 	}

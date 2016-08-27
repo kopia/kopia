@@ -1,4 +1,4 @@
-package fs
+package upload
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 	"os"
 	"reflect"
 
+	"github.com/kopia/kopia/internal/mockfs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/storage"
 	"github.com/kopia/kopia/storage/filesystem"
@@ -14,7 +15,7 @@ import (
 )
 
 type uploadTestHarness struct {
-	sourceDir *inmemoryDirectory
+	sourceDir *mockfs.Directory
 	repoDir   string
 	repo      *repo.Repository
 	storage   storage.Storage
@@ -53,25 +54,25 @@ func newUploadTestHarness() *uploadTestHarness {
 		panic("unable to create repository: " + err.Error())
 	}
 
-	sourceDir := newInMemoryDirectory()
-	sourceDir.addFile("f1", []byte{1, 2, 3}, 0777)
-	sourceDir.addFile("f2", []byte{1, 2, 3, 4}, 0777)
-	sourceDir.addFile("f3", []byte{1, 2, 3, 4, 5}, 0777)
+	sourceDir := mockfs.NewDirectory()
+	sourceDir.AddFile("f1", []byte{1, 2, 3}, 0777)
+	sourceDir.AddFile("f2", []byte{1, 2, 3, 4}, 0777)
+	sourceDir.AddFile("f3", []byte{1, 2, 3, 4, 5}, 0777)
 
-	sourceDir.addDir("d1", 0777)
-	sourceDir.addDir("d1/d1", 0777)
-	sourceDir.addDir("d1/d2", 0777)
-	sourceDir.addDir("d2", 0777)
-	sourceDir.addDir("d2/d1", 0777)
+	sourceDir.AddDir("d1", 0777)
+	sourceDir.AddDir("d1/d1", 0777)
+	sourceDir.AddDir("d1/d2", 0777)
+	sourceDir.AddDir("d2", 0777)
+	sourceDir.AddDir("d2/d1", 0777)
 
 	// Prepare directory contents.
-	sourceDir.addFile("d1/d1/f1", []byte{1, 2, 3}, 0777)
-	sourceDir.addFile("d1/d1/f2", []byte{1, 2, 3, 4}, 0777)
-	sourceDir.addFile("d1/f2", []byte{1, 2, 3, 4}, 0777)
-	sourceDir.addFile("d1/d2/f1", []byte{1, 2, 3}, 0777)
-	sourceDir.addFile("d1/d2/f2", []byte{1, 2, 3, 4}, 0777)
-	sourceDir.addFile("d2/d1/f1", []byte{1, 2, 3}, 0777)
-	sourceDir.addFile("d2/d1/f2", []byte{1, 2, 3, 4}, 0777)
+	sourceDir.AddFile("d1/d1/f1", []byte{1, 2, 3}, 0777)
+	sourceDir.AddFile("d1/d1/f2", []byte{1, 2, 3, 4}, 0777)
+	sourceDir.AddFile("d1/f2", []byte{1, 2, 3, 4}, 0777)
+	sourceDir.AddFile("d1/d2/f1", []byte{1, 2, 3}, 0777)
+	sourceDir.AddFile("d1/d2/f2", []byte{1, 2, 3, 4}, 0777)
+	sourceDir.AddFile("d2/d1/f1", []byte{1, 2, 3}, 0777)
+	sourceDir.AddFile("d2/d1/f2", []byte{1, 2, 3, 4}, 0777)
 
 	th := &uploadTestHarness{
 		sourceDir: sourceDir,
@@ -116,7 +117,7 @@ func TestUpload(t *testing.T) {
 	}
 
 	// Add one more file, the r1.ObjectID should change.
-	th.sourceDir.addFile("d2/d1/f3", []byte{1, 2, 3, 4, 5}, 0777)
+	th.sourceDir.AddFile("d2/d1/f3", []byte{1, 2, 3, 4, 5}, 0777)
 	r3, err := th.uploader.UploadDir(th.sourceDir, &r1.ManifestID)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
@@ -136,7 +137,7 @@ func TestUpload(t *testing.T) {
 	}
 
 	// Now remove the added file, OID should be identical to the original before the file got added.
-	th.sourceDir.subdir("d2", "d1").remove("f3")
+	th.sourceDir.Subdir("d2", "d1").Remove("f3")
 
 	r4, err := th.uploader.UploadDir(th.sourceDir, &r1.ManifestID)
 	if err != nil {
@@ -175,7 +176,7 @@ func TestUpload_TopLevelDirectoryReadFailure(t *testing.T) {
 	th := newUploadTestHarness()
 	defer th.cleanup()
 
-	th.sourceDir.failReaddir(errTest)
+	th.sourceDir.FailReaddir(errTest)
 
 	r, err := th.uploader.UploadDir(th.sourceDir, nil)
 	if err != errTest {
@@ -191,7 +192,7 @@ func TestUpload_SubDirectoryReadFailure(t *testing.T) {
 	th := newUploadTestHarness()
 	defer th.cleanup()
 
-	th.sourceDir.subdir("d1").failReaddir(errTest)
+	th.sourceDir.Subdir("d1").FailReaddir(errTest)
 
 	_, err := th.uploader.UploadDir(th.sourceDir, nil)
 	if err == nil {

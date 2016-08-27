@@ -31,7 +31,7 @@ func TestStream(t *testing.T) {
 			t.Errorf("write error: %v", err)
 		}
 	}
-	w.Close()
+	w.Finalize()
 	log.Printf("wrote: %v", string(buf.Bytes()))
 	r, err := NewReader(bufio.NewReader(&buf), testHeader1)
 	if err != nil {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/upload"
 )
 
 var (
@@ -19,11 +20,11 @@ type Generator interface {
 
 type backupGenerator struct {
 	repo    *repo.Repository
-	options []fs.UploaderOption
+	options []upload.Option
 }
 
 func (bg *backupGenerator) Backup(m *Manifest, old *Manifest) error {
-	uploader := fs.NewUploader(bg.repo, bg.options...)
+	uploader := upload.NewUploader(bg.repo, bg.options...)
 
 	m.StartTime = time.Now()
 	var hashCacheID *repo.ObjectID
@@ -34,7 +35,7 @@ func (bg *backupGenerator) Backup(m *Manifest, old *Manifest) error {
 
 	entry, err := fs.NewFilesystemEntry(m.Source, nil)
 
-	var r *fs.UploadResult
+	var r *upload.Result
 	switch entry := entry.(type) {
 	case fs.Directory:
 		r, err = uploader.UploadDir(entry, hashCacheID)
@@ -56,7 +57,7 @@ func (bg *backupGenerator) Backup(m *Manifest, old *Manifest) error {
 }
 
 // NewGenerator creates new backup generator.
-func NewGenerator(repo *repo.Repository, options ...fs.UploaderOption) (Generator, error) {
+func NewGenerator(repo *repo.Repository, options ...upload.Option) (Generator, error) {
 	return &backupGenerator{
 		repo:    repo,
 		options: options,

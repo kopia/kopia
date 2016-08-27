@@ -195,7 +195,7 @@ func (w *objectWriter) Result(forceStored bool) (ObjectID, error) {
 	} else if w.flushedObjectCount == 0 {
 		return NullObjectID, nil
 	} else {
-		w.listProtoWriter.Close()
+		w.listProtoWriter.Finalize()
 		return w.listWriter.Result(true)
 	}
 }

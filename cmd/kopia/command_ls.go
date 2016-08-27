@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/repo/repofs"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -35,7 +36,7 @@ func runLSCommand(context *kingpin.ParseContext) error {
 		}
 	}
 
-	dir := fs.NewDirectory(r, oid)
+	dir := repofs.Directory(r, oid)
 	entries, err := dir.Readdir()
 	if err != nil {
 		return err
