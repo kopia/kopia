@@ -41,8 +41,6 @@ var (
 	backupCheckpointUploadLimitMB = backupCommand.Flag("upload_limit_mb", "Stop the backup process after the specified amount of data (in MB) has been uploaded.").PlaceHolder("MB").Default("0").Int()
 
 	backupWriteBack = backupCommand.Flag("async-write", "Perform updates asynchronously.").PlaceHolder("N").Default("0").Int()
-
-	backupExperimentalBundles = backupCommand.Flag("experimental-bundles", "Use experimental bundles.").Bool()
 )
 
 func runBackupCommand(context *kingpin.ParseContext) error {
@@ -56,10 +54,6 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 	defer r.Close()
 
 	var options []repofs.UploadOption
-
-	if *backupExperimentalBundles {
-		options = append(options, repofs.EnableBundling())
-	}
 
 	bgen, err := backup.NewGenerator(r, options...)
 	if err != nil {

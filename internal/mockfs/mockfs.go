@@ -140,7 +140,7 @@ func (imd *Directory) Readdir() (fs.Entries, error) {
 		return nil, imd.readdirError
 	}
 
-	return imd.children, nil
+	return append(fs.Entries(nil), imd.children...), nil
 }
 
 // File is an in-memory fs.File capable of simulating failures.

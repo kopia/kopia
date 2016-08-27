@@ -14,8 +14,7 @@ import (
 )
 
 const (
-	maxDirReadAheadCount = 256
-	maxBundleFileSize    = 65536
+	maxBundleFileSize = 65536
 )
 
 // ErrUploadCancelled is returned when the upload gets cancelled.
@@ -68,8 +67,7 @@ type Uploader interface {
 }
 
 type uploader struct {
-	repo           *repo.Repository
-	enableBundling bool
+	repo *repo.Repository
 
 	cancelled int32
 }
@@ -200,7 +198,7 @@ func (u *uploader) UploadDir(dir fs.Directory, previousManifestID *repo.ObjectID
 	hcw.Finalize()
 
 	result.ManifestID, err = mw.Result(true)
-	return result, nil
+	return result, err
 }
 
 func (u *uploader) uploadDirInternal(
@@ -422,10 +420,8 @@ func (u *uploader) bundleEntries(entries fs.Entries) fs.Entries {
 }
 
 func (u *uploader) getBundleNumber(md *fs.EntryMetadata) int {
-	if u.enableBundling {
-		if md.FileMode().IsRegular() && md.FileSize < maxBundleFileSize {
-			return md.ModTime.Year()*100 + int(md.ModTime.Month())
-		}
+	if md.FileMode().IsRegular() && md.FileSize < maxBundleFileSize {
+		return md.ModTime.Year()*100 + int(md.ModTime.Month())
 	}
 
 	return 0
@@ -437,13 +433,6 @@ func (u *uploader) Cancel() {
 
 // UploadOption modifies the behavior of uploader.
 type UploadOption func(u *uploader)
-
-// EnableBundling allows uploader to create bundle objects.
-func EnableBundling() UploadOption {
-	return func(u *uploader) {
-		u.enableBundling = true
-	}
-}
 
 // NewUploader creates new Uploader object for the specified Repository
 func NewUploader(repo *repo.Repository, options ...UploadOption) Uploader {
