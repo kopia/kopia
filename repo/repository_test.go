@@ -438,7 +438,7 @@ func TestFormats(t *testing.T) {
 			oids: map[string]ObjectID{
 				"The quick brown fox jumps over the lazy dog": ObjectID{
 					StorageBlock:  "d7f4727e2c0b39ae0f1e40cc96f60242",
-					EncryptionKey: mustParseBase16("d5b7801841cea6fc592c5d3e1ae50700582a96cf35e1e554995fe4e03381c237"),
+					EncryptionKey: "d5b7801841cea6fc592c5d3e1ae50700582a96cf35e1e554995fe4e03381c237",
 				},
 			},
 		},
@@ -447,7 +447,7 @@ func TestFormats(t *testing.T) {
 			oids: map[string]ObjectID{
 				"The quick brown fox jumps over the lazy dog": ObjectID{
 					StorageBlock:  "b42af09057bac1e2d41708e48a902e09b5ff7f12ab428a4fe86653c73dd248fb",
-					EncryptionKey: mustParseBase16("82f948a549f7b791a5b41915ee4d1ec3935357e4e2317250d0372afa2ebeeb3a"),
+					EncryptionKey: "82f948a549f7b791a5b41915ee4d1ec3935357e4e2317250d0372afa2ebeeb3a",
 				},
 			},
 		},
@@ -533,14 +533,13 @@ func TestInvalidEncryptionKey(t *testing.T) {
 	}
 
 	// Key too long
-	rc, err = repo.Open(replaceEncryption(oid, append(oid.EncryptionKey, 0xFF)))
+	rc, err = repo.Open(replaceEncryption(oid, oid.EncryptionKey+"FF"))
 	if err == nil || rc != nil {
 		t.Errorf("expected error when opening malformed object")
 	}
 
 	// Invalid key
-	corruptedKey := append([]byte(nil), oid.EncryptionKey...)
-	corruptedKey[0]++
+	corruptedKey := oid.EncryptionKey[2:] + oid.EncryptionKey[len(oid.EncryptionKey)-2:]
 	rc, err = repo.Open(replaceEncryption(oid, corruptedKey))
 	if err == nil || rc != nil {
 		t.Errorf("expected error when opening malformed object: %v", err)
@@ -554,15 +553,7 @@ func TestInvalidEncryptionKey(t *testing.T) {
 	}
 }
 
-func replaceEncryption(oid ObjectID, newEncryption []byte) ObjectID {
+func replaceEncryption(oid ObjectID, newEncryption string) ObjectID {
 	oid.EncryptionKey = newEncryption
 	return oid
-}
-
-func mustParseBase16(s string) []byte {
-	b, err := hex.DecodeString(s)
-	if err != nil {
-		panic("invalid hex literal: " + s)
-	}
-	return b
 }

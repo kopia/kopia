@@ -40,7 +40,7 @@ import (
 //
 type ObjectID struct {
 	StorageBlock  string           `json:"block,omitempty"`
-	EncryptionKey []byte           `json:"encryption,omitempty"`
+	EncryptionKey string           `json:"encryption,omitempty"`
 	Indirect      int32            `json:"indirect,omitempty"`
 	Content       []byte           `json:"content,omitempty"`
 	Section       *ObjectIDSection `json:"section,omitempty"`
@@ -75,7 +75,7 @@ func (oid *ObjectID) UIString() string {
 		var encryptionSuffix string
 
 		if len(oid.EncryptionKey) > 0 {
-			encryptionSuffix = "." + hex.EncodeToString(oid.EncryptionKey)
+			encryptionSuffix = "." + oid.EncryptionKey
 		}
 
 		if oid.Indirect > 0 {
@@ -239,12 +239,13 @@ func ParseObjectID(s string) (ObjectID, error) {
 				}
 
 				if firstSeparator > 0 {
-					b, err := hex.DecodeString(content[firstSeparator+1:])
+					enc := content[firstSeparator+1:]
+					b, err := hex.DecodeString(enc)
 					if err == nil && len(b) > 0 {
 						// Valid chunk ID with encryption info.
 						return ObjectID{
 							StorageBlock:  content[0:firstSeparator],
-							EncryptionKey: b,
+							EncryptionKey: enc,
 							Indirect:      indirectLevel,
 						}, nil
 					}
