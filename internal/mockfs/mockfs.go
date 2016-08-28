@@ -1,3 +1,4 @@
+// Package mockfs implements in-memory filesystem for testing.
 package mockfs
 
 import (
