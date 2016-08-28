@@ -20,7 +20,7 @@ type uploadTestHarness struct {
 	repoDir   string
 	repo      *repo.Repository
 	storage   storage.Storage
-	uploader  Uploader
+	uploader  *Uploader
 }
 
 var errTest = fmt.Errorf("test error")

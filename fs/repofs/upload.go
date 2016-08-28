@@ -2,12 +2,10 @@ package repofs
 
 import (
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"hash/fnv"
 	"io"
 	"log"
-	"sync/atomic"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo"
@@ -16,9 +14,6 @@ import (
 const (
 	maxBundleFileSize = 65536
 )
-
-// ErrUploadCancelled is returned when the upload gets cancelled.
-var ErrUploadCancelled = errors.New("upload cancelled")
 
 func hashEntryMetadata(w io.Writer, e *fs.EntryMetadata) {
 	binary.Write(w, binary.LittleEndian, e.Name)
@@ -60,23 +55,11 @@ type UploadResult struct {
 }
 
 // Uploader supports efficient uploading files and directories to repository.
-type Uploader interface {
-	UploadDir(dir fs.Directory, previousManifestID *repo.ObjectID) (*UploadResult, error)
-	UploadFile(file fs.File) (*UploadResult, error)
-	Cancel()
-}
-
-type uploader struct {
+type Uploader struct {
 	repo *repo.Repository
-
-	cancelled int32
 }
 
-func (u *uploader) isCancelled() bool {
-	return atomic.LoadInt32(&u.cancelled) != 0
-}
-
-func (u *uploader) uploadFileInternal(f fs.File, relativePath string, forceStored bool) (*dirEntry, uint64, error) {
+func (u *Uploader) uploadFileInternal(f fs.File, relativePath string, forceStored bool) (*dirEntry, uint64, error) {
 	log.Printf("Uploading file %v", relativePath)
 	file, err := f.Open()
 	if err != nil {
@@ -117,7 +100,7 @@ func newDirEntry(md *fs.EntryMetadata, oid repo.ObjectID) *dirEntry {
 	}
 }
 
-func (u *uploader) uploadBundleInternal(b *bundle) (*dirEntry, uint64, error) {
+func (u *Uploader) uploadBundleInternal(b *bundle) (*dirEntry, uint64, error) {
 	bundleMetadata := b.Metadata()
 
 	log.Printf("uploading bundle %v (%v files)", bundleMetadata.Name, len(b.files))
@@ -165,20 +148,24 @@ func (u *uploader) uploadBundleInternal(b *bundle) (*dirEntry, uint64, error) {
 	return de, bundleHash(b), nil
 }
 
-func (u *uploader) UploadFile(file fs.File) (*UploadResult, error) {
+// UploadFile uploads the specified File to the repository.
+func (u *Uploader) UploadFile(file fs.File) (*UploadResult, error) {
 	result := &UploadResult{}
 	e, _, err := u.uploadFileInternal(file, file.Metadata().Name, true)
 	result.ObjectID = e.ObjectID
 	return result, err
 }
 
-func (u *uploader) UploadDir(dir fs.Directory, previousManifestID *repo.ObjectID) (*UploadResult, error) {
-	var mr hashcacheReader
+// UploadDir uploads the specified Directory to the repository.
+// An optional ID of a hash-cache object may be provided, in which case the uploader will use its
+// contents to avoid hashing
+func (u *Uploader) UploadDir(dir fs.Directory, hashCacheID *repo.ObjectID) (*UploadResult, error) {
+	var hcr hashcacheReader
 	var err error
 
-	if previousManifestID != nil {
-		if r, err := u.repo.Open(*previousManifestID); err == nil {
-			mr.open(r)
+	if hashCacheID != nil {
+		if r, err := u.repo.Open(*hashCacheID); err == nil {
+			hcr.open(r)
 		}
 	}
 
@@ -190,7 +177,7 @@ func (u *uploader) UploadDir(dir fs.Directory, previousManifestID *repo.ObjectID
 	hcw := newHashCacheWriter(mw)
 
 	result := &UploadResult{}
-	result.ObjectID, _, _, err = u.uploadDirInternal(result, dir, ".", hcw, &mr, true)
+	result.ObjectID, _, _, err = u.uploadDirInternal(result, dir, ".", hcw, &hcr, true)
 	if err != nil {
 		return result, err
 	}
@@ -201,12 +188,12 @@ func (u *uploader) UploadDir(dir fs.Directory, previousManifestID *repo.ObjectID
 	return result, err
 }
 
-func (u *uploader) uploadDirInternal(
+func (u *Uploader) uploadDirInternal(
 	result *UploadResult,
 	dir fs.Directory,
 	relativePath string,
 	hcw *hashcacheWriter,
-	mr *hashcacheReader,
+	hcr *hashcacheReader,
 	forceStored bool,
 ) (repo.ObjectID, uint64, bool, error) {
 	log.Printf("Uploading dir %v", relativePath)
@@ -242,7 +229,7 @@ func (u *uploader) uploadDirInternal(
 
 		switch entry := entry.(type) {
 		case fs.Directory:
-			oid, h, wasCached, err := u.uploadDirInternal(result, entry, entryRelativePath, hcw, mr, false)
+			oid, h, wasCached, err := u.uploadDirInternal(result, entry, entryRelativePath, hcw, hcr, false)
 			if err != nil {
 				return repo.NullObjectID, 0, false, err
 			}
@@ -262,7 +249,7 @@ func (u *uploader) uploadDirInternal(
 
 		case *bundle:
 			// See if we had this name during previous pass.
-			cachedEntry := mr.findEntry(entryRelativePath)
+			cachedEntry := hcr.findEntry(entryRelativePath)
 
 			// ... and whether file metadata is identical to the previous one.
 			cacheMatches := (cachedEntry != nil) && cachedEntry.Hash == bundleHash(entry)
@@ -290,7 +277,7 @@ func (u *uploader) uploadDirInternal(
 		case fs.File:
 			// regular file
 			// See if we had this name during previous pass.
-			cachedEntry := mr.findEntry(entryRelativePath)
+			cachedEntry := hcr.findEntry(entryRelativePath)
 
 			// ... and whether file metadata is identical to the previous one.
 			computedHash := metadataHash(e)
@@ -341,7 +328,7 @@ func (u *uploader) uploadDirInternal(
 	var directoryOID repo.ObjectID
 	dirHash := dirHasher.Sum64()
 
-	cacheddirEntry := mr.findEntry(relativePath + "/")
+	cacheddirEntry := hcr.findEntry(relativePath + "/")
 	allCached = allCached && cacheddirEntry != nil && cacheddirEntry.Hash == dirHash
 
 	if allCached {
@@ -370,7 +357,7 @@ func (u *uploader) uploadDirInternal(
 	return directoryOID, dirHash, allCached, nil
 }
 
-func (u *uploader) bundleEntries(entries fs.Entries) fs.Entries {
+func (u *Uploader) bundleEntries(entries fs.Entries) fs.Entries {
 	var bundleMap map[int]*bundle
 
 	result := entries[:0]
@@ -419,7 +406,7 @@ func (u *uploader) bundleEntries(entries fs.Entries) fs.Entries {
 	return result
 }
 
-func (u *uploader) getBundleNumber(md *fs.EntryMetadata) int {
+func (u *Uploader) getBundleNumber(md *fs.EntryMetadata) int {
 	if md.FileMode().IsRegular() && md.FileSize < maxBundleFileSize {
 		return md.ModTime.Year()*100 + int(md.ModTime.Month())
 	}
@@ -427,16 +414,12 @@ func (u *uploader) getBundleNumber(md *fs.EntryMetadata) int {
 	return 0
 }
 
-func (u *uploader) Cancel() {
-	atomic.StoreInt32(&u.cancelled, 1)
-}
-
-// UploadOption modifies the behavior of uploader.
-type UploadOption func(u *uploader)
+// UploadOption modifies the behavior of Uploader.
+type UploadOption func(u *Uploader)
 
 // NewUploader creates new Uploader object for the specified Repository
-func NewUploader(repo *repo.Repository, options ...UploadOption) Uploader {
-	u := &uploader{
+func NewUploader(repo *repo.Repository, options ...UploadOption) *Uploader {
+	u := &Uploader{
 		repo: repo,
 	}
 
