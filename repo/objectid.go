@@ -3,6 +3,7 @@ package repo
 import (
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"strconv"
 	"strings"
@@ -40,10 +41,28 @@ import (
 //
 type ObjectID struct {
 	StorageBlock  string           `json:"block,omitempty"`
-	EncryptionKey string           `json:"encryption,omitempty"`
+	EncryptionKey []byte           `json:"encryption,omitempty"`
 	Indirect      int32            `json:"indirect,omitempty"`
 	Content       []byte           `json:"content,omitempty"`
 	Section       *ObjectIDSection `json:"section,omitempty"`
+}
+
+// MarshalJSON emits ObjectID in standard string format.
+func (oid *ObjectID) MarshalJSON() ([]byte, error) {
+	s := oid.UIString()
+	return json.Marshal(&s)
+}
+
+// UnmarshalJSON unmarshals Object ID from a JSON string.
+func (oid *ObjectID) UnmarshalJSON(b []byte) error {
+	var s string
+	err := json.Unmarshal(b, &s)
+	if err != nil {
+		return err
+	}
+
+	*oid, err = ParseObjectID(s)
+	return err
 }
 
 // ObjectIDSection represents details about a section of a repository object.
@@ -75,7 +94,7 @@ func (oid *ObjectID) UIString() string {
 		var encryptionSuffix string
 
 		if len(oid.EncryptionKey) > 0 {
-			encryptionSuffix = "." + oid.EncryptionKey
+			encryptionSuffix = "." + hex.EncodeToString(oid.EncryptionKey)
 		}
 
 		if oid.Indirect > 0 {
@@ -239,13 +258,12 @@ func ParseObjectID(s string) (ObjectID, error) {
 				}
 
 				if firstSeparator > 0 {
-					enc := content[firstSeparator+1:]
-					b, err := hex.DecodeString(enc)
+					b, err := hex.DecodeString(content[firstSeparator+1:])
 					if err == nil && len(b) > 0 {
 						// Valid chunk ID with encryption info.
 						return ObjectID{
 							StorageBlock:  content[0:firstSeparator],
-							EncryptionKey: enc,
+							EncryptionKey: b,
 							Indirect:      indirectLevel,
 						}, nil
 					}

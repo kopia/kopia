@@ -3,7 +3,6 @@ package repo
 import (
 	"bufio"
 	"bytes"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"log"
@@ -228,7 +227,7 @@ func (r *Repository) hashEncryptAndWriteMaybeAsync(buffer *bytes.Buffer, prefix 
 
 	objectID := ObjectID{
 		StorageBlock:  prefix + blockID,
-		EncryptionKey: hex.EncodeToString(encryptionKey),
+		EncryptionKey: encryptionKey,
 	}
 
 	if r.writeBackWorkers > 0 {
@@ -276,13 +275,9 @@ func (r *Repository) hashEncryptAndWrite(objectID ObjectID, buffer *bytes.Buffer
 	}
 
 	// Encryption is requested, encrypt the block in-place.
-	if len(objectID.EncryptionKey) > 0 {
+	if objectID.EncryptionKey != nil {
 		atomic.AddInt64(&r.Stats.EncryptedBytes, int64(len(data)))
-		b, err := hex.DecodeString(objectID.EncryptionKey)
-		if err != nil {
-			return NullObjectID, fmt.Errorf("invalid encryption key: %v", err)
-		}
-		data, err = r.formatter.Encrypt(data, b)
+		data, err = r.formatter.Encrypt(data, objectID.EncryptionKey)
 		if err != nil {
 			return NullObjectID, err
 		}
@@ -347,11 +342,7 @@ func (r *Repository) newRawReader(objectID ObjectID) (ObjectReader, error) {
 	atomic.AddInt64(&r.Stats.ReadBytes, int64(len(payload)))
 
 	if len(objectID.EncryptionKey) > 0 {
-		b, err := hex.DecodeString(objectID.EncryptionKey)
-		if err != nil {
-			return nil, fmt.Errorf("invalid encryption key: %v", err)
-		}
-		payload, err = r.formatter.Decrypt(payload, b)
+		payload, err = r.formatter.Decrypt(payload, objectID.EncryptionKey)
 		atomic.AddInt64(&r.Stats.DecryptedBytes, int64(len(payload)))
 		if err != nil {
 			return nil, err

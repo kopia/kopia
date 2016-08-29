@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"bytes"
 	"reflect"
 	"strings"
 	"testing"
@@ -41,18 +42,18 @@ func TestParseMalformedObjectID(t *testing.T) {
 func TestParseObjectIDEncryptionInfo(t *testing.T) {
 	cases := []struct {
 		objectID string
-		expected string
+		expected []byte
 	}{
-		{"B", ""},
-		{"BAQIDBA", ""},
-		{"Dabcdef", ""},
-		{"I1,abcdef", ""},
-		{"I2,abcdef", ""},
-		{"Dabcdef.00112233", "00112233"},
-		{"I1,abcdef.0011223344", "0011223344"},
-		{"I2,abcdef.0011223344", "0011223344"},
-		{"S1,2,Dabcdef.0011223344", ""},
-		{"S1,2,S3,4,Dabcdef.0011223344", ""},
+		{"B", nil},
+		{"BAQIDBA", nil},
+		{"Dabcdef", nil},
+		{"I1,abcdef", nil},
+		{"I2,abcdef", nil},
+		{"Dabcdef.00112233", []byte{0x00, 0x11, 0x22, 0x33}},
+		{"I1,abcdef.0011223344", []byte{0x00, 0x11, 0x22, 0x33, 0x44}},
+		{"I2,abcdef.0011223344", []byte{0x00, 0x11, 0x22, 0x33, 0x44}},
+		{"S1,2,Dabcdef.0011223344", nil},
+		{"S1,2,S3,4,Dabcdef.0011223344", nil},
 	}
 
 	for _, c := range cases {
@@ -63,8 +64,8 @@ func TestParseObjectIDEncryptionInfo(t *testing.T) {
 		}
 
 		actual := objectID.EncryptionKey
-		if actual != c.expected {
-			t.Errorf("invalid encryption key for %v: %v, expected: %v", c.objectID, actual, c.expected)
+		if !bytes.Equal(actual, c.expected) {
+			t.Errorf("invalid encryption key for %v: %x, expected: %x", c.objectID, actual, c.expected)
 		}
 
 		uiString := objectID.UIString()
