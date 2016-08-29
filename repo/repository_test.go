@@ -61,9 +61,11 @@ func TestWriters(t *testing.T) {
 		objectID ObjectID
 	}{
 		{[]byte{}, NullObjectID},
-		{[]byte("quick brown fox"), ObjectID{Content: []byte("quick brown fox")}},
-		{[]byte{1, 2, 3, 4}, ObjectID{Content: []byte{1, 2, 3, 4}}},
-		{[]byte{0xc2, 0x28}, ObjectID{Content: []byte{0xc2, 0x28}}},
+		{[]byte("quick brown fox"), ObjectID{TextContent: "quick brown fox"}},
+		{[]byte("foo\nbar"), ObjectID{TextContent: "foo\nbar"}},
+		{[]byte("\n\n\n"), ObjectID{BinaryContent: []byte{0xa, 0xa, 0xa}}}, // base64 is more efficient than JSON here (4 chars vs 6)
+		{[]byte{1, 2, 3, 4}, ObjectID{BinaryContent: []byte{1, 2, 3, 4}}},
+		{[]byte{0xc2, 0x28}, ObjectID{BinaryContent: []byte{0xc2, 0x28}}},
 		{
 			[]byte("the quick brown fox jumps over the lazy dog"),
 			ObjectID{StorageBlock: "X77add1d5f41223d5582fca736a5cb335"},
@@ -82,14 +84,14 @@ func TestWriters(t *testing.T) {
 
 		result, err := writer.Result(false)
 		if err != nil {
-			t.Errorf("error getting writer results for %v, expected: %v", c.data, c.objectID)
+			t.Errorf("error getting writer results for %v, expected: %v", c.data, c.objectID.UIString())
 			continue
 		}
 
 		repo.Flush()
 
 		if !objectIDsEqual(result, c.objectID) {
-			t.Errorf("incorrect result for %v, expected: %v got: %v", c.data, c.objectID.UIString(), result)
+			t.Errorf("incorrect result for %v, expected: %v got: %v %#v", c.data, c.objectID.UIString(), result.UIString(), result.BinaryContent)
 		}
 
 		if c.objectID.StorageBlock == "" {

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"fmt"
 )
@@ -40,11 +41,12 @@ import (
 //
 //
 type ObjectID struct {
-	StorageBlock  string           `json:"block,omitempty"`
-	EncryptionKey []byte           `json:"encryption,omitempty"`
-	Indirect      int32            `json:"indirect,omitempty"`
-	Content       []byte           `json:"content,omitempty"`
-	Section       *ObjectIDSection `json:"section,omitempty"`
+	StorageBlock  string
+	EncryptionKey []byte
+	Indirect      int32
+	TextContent   string
+	BinaryContent []byte
+	Section       *ObjectIDSection
 }
 
 // MarshalJSON emits ObjectID in standard string format.
@@ -104,8 +106,12 @@ func (oid *ObjectID) UIString() string {
 		return "D" + oid.StorageBlock + encryptionSuffix
 	}
 
-	if oid.Content != nil {
-		return "B" + inlineContentEncoding.EncodeToString(oid.Content)
+	if oid.BinaryContent != nil {
+		return "B" + inlineContentEncoding.EncodeToString(oid.BinaryContent)
+	}
+
+	if len(oid.TextContent) > 0 {
+		return "T" + oid.TextContent
 	}
 
 	if oid.Section != nil {
@@ -122,7 +128,11 @@ func (oid *ObjectID) Validate() error {
 		c++
 	}
 
-	if len(oid.Content) > 0 {
+	if len(oid.TextContent) > 0 {
+		c++
+	}
+
+	if len(oid.BinaryContent) > 0 {
 		c++
 	}
 
@@ -151,9 +161,51 @@ func (oid *ObjectID) Validate() error {
 
 // InlineObjectID returns ObjectID containing the specified content.
 func InlineObjectID(content []byte) ObjectID {
-	return ObjectID{
-		Content: content,
+	if !utf8.Valid(content) {
+		return ObjectID{
+			BinaryContent: content,
+		}
 	}
+
+	jsonLen := 0
+	binaryLen := inlineContentEncoding.EncodedLen(len(content))
+
+	for _, b := range content {
+		if b < 32 && (b != 9 && b != 10 && b != 13) {
+			return ObjectID{
+				BinaryContent: content,
+			}
+		}
+
+		if b == '\\' || b == '"' || b == 9 || b == 10 || b == 13 {
+			jsonLen += 2
+		} else if b < 128 {
+			jsonLen++
+		} else {
+			jsonLen += 6
+		}
+	}
+
+	if jsonLen < binaryLen {
+		return ObjectID{
+			TextContent: string(content),
+		}
+	}
+
+	return ObjectID{
+		BinaryContent: content,
+	}
+
+}
+
+func isText(data []byte) bool {
+	for _, b := range data {
+		if b < 32 && (b != 9 && b != 10 && b != 13) {
+			return false
+		}
+	}
+
+	return true
 }
 
 // SectionObjectID returns new ObjectID representing a section of an object with a given base ID, start offset and length.
@@ -224,8 +276,11 @@ func ParseObjectID(s string) (ObjectID, error) {
 
 		case 'B':
 			if v, err := inlineContentEncoding.DecodeString(content); err == nil {
-				return ObjectID{Content: v}, nil
+				return ObjectID{BinaryContent: v}, nil
 			}
+
+		case 'T':
+			return ObjectID{TextContent: content}, nil
 
 		case 'I', 'D':
 			var indirectLevel int32

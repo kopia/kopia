@@ -69,8 +69,10 @@ func listDirectory(prefix string, entries fs.Entries, longFormat bool) {
 		if longFormat {
 			objectID := e.(repo.HasObjectID).ObjectID()
 			var oid string
-			if objectID.Content != nil {
-				oid = "<inline content>"
+			if objectID.BinaryContent != nil {
+				oid = "<inline binary content>"
+			} else if objectID.TextContent != "" {
+				oid = "<inline text content>"
 			} else {
 				oid = objectID.UIString()
 			}

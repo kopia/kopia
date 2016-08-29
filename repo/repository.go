@@ -328,8 +328,12 @@ func removeIndirection(o ObjectID) ObjectID {
 }
 
 func (r *Repository) newRawReader(objectID ObjectID) (ObjectReader, error) {
-	if objectID.Content != nil {
-		return newObjectReaderWithData(objectID.Content), nil
+	if objectID.BinaryContent != nil {
+		return newObjectReaderWithData(objectID.BinaryContent), nil
+	}
+
+	if len(objectID.TextContent) > 0 {
+		return newObjectReaderWithData([]byte(objectID.TextContent)), nil
 	}
 
 	blockID := objectID.StorageBlock
