@@ -1,7 +1,6 @@
 package vault
 
 import (
-	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/hmac"
@@ -38,26 +37,12 @@ var ErrItemNotFound = errors.New("item not found")
 
 // Vault is a secure storage for the secrets.
 type Vault struct {
-	storage    storage.Storage
+	Storage    storage.Storage
+	Format     Format
+	RepoConfig RepositoryConfig
+
 	masterKey  []byte
-	format     Format
 	itemPrefix string
-	repoConfig repositoryConfig
-}
-
-type repositoryConfig struct {
-	Connection *storage.ConnectionInfo `json:"connection"`
-	Format     *repo.Format            `json:"format"`
-}
-
-// Storage returns the underlying blob storage that stores the repository.
-func (v *Vault) Storage() storage.Storage {
-	return v.storage
-}
-
-// Format returns the vault format.
-func (v *Vault) Format() Format {
-	return v.format
 }
 
 // Put saves the specified content in a vault under a specified name.
@@ -99,11 +84,11 @@ func (v *Vault) writeEncryptedBlock(itemID string, content []byte) error {
 		content = cipherText
 	}
 
-	return v.storage.PutBlock(v.itemPrefix+itemID, content, storage.PutOptionsOverwrite)
+	return v.Storage.PutBlock(v.itemPrefix+itemID, content, storage.PutOptionsOverwrite)
 }
 
 func (v *Vault) readEncryptedBlock(itemID string) ([]byte, error) {
-	content, err := v.storage.GetBlock(v.itemPrefix + itemID)
+	content, err := v.Storage.GetBlock(v.itemPrefix + itemID)
 	if err != nil {
 		if err == storage.ErrBlockNotFound {
 			return nil, ErrItemNotFound
@@ -150,20 +135,20 @@ func (v *Vault) decryptBlock(content []byte) ([]byte, error) {
 }
 
 func (v *Vault) newChecksum() (hash.Hash, error) {
-	switch v.format.Checksum {
+	switch v.Format.Checksum {
 	case "hmac-sha-256":
 		key := make([]byte, 32)
 		v.deriveKey(purposeChecksumSecret, key)
 		return hmac.New(sha256.New, key), nil
 
 	default:
-		return nil, fmt.Errorf("unsupported checksum format: %v", v.format.Checksum)
+		return nil, fmt.Errorf("unsupported checksum format: %v", v.Format.Checksum)
 	}
 
 }
 
 func (v *Vault) newCipher() (cipher.Block, error) {
-	switch v.format.Encryption {
+	switch v.Format.Encryption {
 	case "none":
 		return nil, nil
 	case "aes-128":
@@ -179,37 +164,15 @@ func (v *Vault) newCipher() (cipher.Block, error) {
 		v.deriveKey(purposeAESKey, k)
 		return aes.NewCipher(k)
 	default:
-		return nil, fmt.Errorf("unsupported encryption format: %v", v.format.Encryption)
+		return nil, fmt.Errorf("unsupported encryption format: %v", v.Format.Encryption)
 	}
 
 }
 
 func (v *Vault) deriveKey(purpose []byte, key []byte) error {
-	k := hkdf.New(sha256.New, v.masterKey, v.format.UniqueID, purpose)
+	k := hkdf.New(sha256.New, v.masterKey, v.Format.UniqueID, purpose)
 	_, err := io.ReadFull(k, key)
 	return err
-}
-
-// RepositoryFormat returns the format of the repository.
-func (v *Vault) RepositoryFormat() *repo.Format {
-	return v.repoConfig.Format
-}
-
-// OpenRepository connects to the repository the vault is associated with.
-func (v *Vault) OpenRepository(options ...repo.RepositoryOption) (*repo.Repository, error) {
-	var st storage.Storage
-	var err error
-
-	if v.repoConfig.Connection != nil {
-		st, err = storage.NewStorage(*v.repoConfig.Connection)
-		if err != nil {
-			return nil, fmt.Errorf("unable to open repository: %v", err)
-		}
-	} else {
-		st = v.storage
-	}
-
-	return repo.New(st, v.repoConfig.Format, options...)
 }
 
 // Get returns the contents of a specified vault item.
@@ -244,7 +207,7 @@ func (v *Vault) putJSON(id string, content interface{}) error {
 func (v *Vault) List(prefix string) ([]string, error) {
 	var result []string
 
-	for b := range v.storage.ListBlocks(v.itemPrefix + prefix) {
+	for b := range v.Storage.ListBlocks(v.itemPrefix + prefix) {
 		if b.Error != nil {
 			return result, b.Error
 		}
@@ -259,7 +222,7 @@ func (v *Vault) List(prefix string) ([]string, error) {
 
 // Close releases any resources held by Vault and closes repository connection.
 func (v *Vault) Close() error {
-	return nil
+	return v.Storage.Close()
 }
 
 // Config represents JSON-compatible configuration of the vault connection, including vault key.
@@ -271,7 +234,7 @@ type Config struct {
 // Config returns a configuration of vault storage its credentials that's suitable
 // for storing in configuration file.
 func (v *Vault) Config() (*Config, error) {
-	cip, ok := v.storage.(storage.ConnectionInfoProvider)
+	cip, ok := v.Storage.(storage.ConnectionInfoProvider)
 	if !ok {
 		return nil, errors.New("repository does not support persisting configuration")
 	}
@@ -290,7 +253,7 @@ func (v *Vault) Remove(itemID string) error {
 		return err
 	}
 
-	return v.storage.DeleteBlock(v.itemPrefix + itemID)
+	return v.Storage.DeleteBlock(v.itemPrefix + itemID)
 }
 
 // Create initializes a Vault attached to the specified repository.
@@ -302,11 +265,11 @@ func Create(
 	repoFormat *repo.Format,
 ) (*Vault, error) {
 	v := Vault{
-		storage: vaultStorage,
-		format:  *vaultFormat,
+		Storage: vaultStorage,
+		Format:  *vaultFormat,
 	}
 
-	if repoStorage == nil || sameStorage(repoStorage, vaultStorage) {
+	if repoStorage == nil {
 		repoStorage = vaultStorage
 		v.itemPrefix = colocatedVaultItemPrefix
 	}
@@ -316,14 +279,14 @@ func Create(
 		return nil, errors.New("repository does not support persisting configuration")
 	}
 
-	v.format.Version = "1"
-	v.format.UniqueID = make([]byte, 32)
-	if _, err := io.ReadFull(rand.Reader, v.format.UniqueID); err != nil {
+	v.Format.Version = "1"
+	v.Format.UniqueID = make([]byte, 32)
+	if _, err := io.ReadFull(rand.Reader, v.Format.UniqueID); err != nil {
 		return nil, err
 	}
-	v.masterKey = vaultCreds.getMasterKey(v.format.UniqueID)
+	v.masterKey = vaultCreds.getMasterKey(v.Format.UniqueID)
 
-	formatBytes, err := json.Marshal(&v.format)
+	formatBytes, err := json.Marshal(&v.Format)
 	if err != nil {
 		return nil, err
 	}
@@ -333,7 +296,7 @@ func Create(
 	}
 
 	// Write encrypted repository configuration block.
-	rc := repositoryConfig{
+	rc := RepositoryConfig{
 		Format: repoFormat,
 	}
 
@@ -346,14 +309,30 @@ func Create(
 		return nil, err
 	}
 
-	v.repoConfig = rc
+	v.RepoConfig = rc
 	return &v, nil
+}
+
+// CreateColocated initializes a Vault attached to a Repository sharing the same storage.
+func CreateColocated(
+	sharedStorage storage.Storage,
+	vaultFormat *Format,
+	vaultCreds Credentials,
+	repoFormat *repo.Format,
+) (*Vault, error) {
+	return Create(sharedStorage, vaultFormat, vaultCreds, nil, repoFormat)
+}
+
+// RepositoryConfig stores the configuration of the repository associated with the vault.
+type RepositoryConfig struct {
+	Connection *storage.ConnectionInfo `json:"connection"`
+	Format     *repo.Format            `json:"format"`
 }
 
 // Open opens a vault.
 func Open(vaultStorage storage.Storage, vaultCreds Credentials) (*Vault, error) {
 	v := Vault{
-		storage: vaultStorage,
+		Storage: vaultStorage,
 	}
 
 	var prefix string
@@ -383,12 +362,12 @@ func Open(vaultStorage storage.Storage, vaultCreds Credentials) (*Vault, error) 
 		offset = 2
 	}
 
-	err := json.Unmarshal(blocks[offset], &v.format)
+	err := json.Unmarshal(blocks[offset], &v.Format)
 	if err != nil {
 		return nil, err
 	}
 
-	v.masterKey = vaultCreds.getMasterKey(v.format.UniqueID)
+	v.masterKey = vaultCreds.getMasterKey(v.Format.UniqueID)
 	v.itemPrefix = prefix
 
 	cfgData, err := v.decryptBlock(blocks[offset+1])
@@ -396,13 +375,13 @@ func Open(vaultStorage storage.Storage, vaultCreds Credentials) (*Vault, error) 
 		return nil, err
 	}
 
-	var rc repositoryConfig
+	var rc RepositoryConfig
 
 	if err := json.Unmarshal(cfgData, &rc); err != nil {
 		return nil, err
 	}
 
-	v.repoConfig = rc
+	v.RepoConfig = rc
 
 	return &v, nil
 }
@@ -423,29 +402,4 @@ func checkReservedName(itemID string) error {
 	}
 
 	return nil
-}
-
-func sameStorage(s1, s2 storage.Storage) bool {
-	if s1 == s2 {
-		return true
-	}
-
-	cip1, ok := s1.(storage.ConnectionInfoProvider)
-	if !ok {
-		return false
-	}
-
-	cip2, ok := s2.(storage.ConnectionInfoProvider)
-	if !ok {
-		return false
-	}
-
-	c1 := cip1.ConnectionInfo()
-	c2 := cip2.ConnectionInfo()
-
-	b1, e1 := json.Marshal(c1)
-	b2, e2 := json.Marshal(c2)
-
-	same := e1 == nil && e2 == nil && bytes.Equal(b1, b2)
-	return same
 }

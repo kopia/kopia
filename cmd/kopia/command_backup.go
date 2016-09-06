@@ -50,12 +50,12 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 		repoOptions = append(repoOptions, repo.WriteBack(*backupWriteBack))
 	}
 
-	vlt, r := mustOpenVaultAndRepository(repoOptions...)
-	defer r.Close()
+	conn := mustOpenConnection(repoOptions...)
+	defer conn.Close()
 
 	var options []repofs.UploadOption
 
-	bgen, err := backup.NewGenerator(r, options...)
+	bgen, err := backup.NewGenerator(conn.Repository, options...)
 	if err != nil {
 		return err
 	}
@@ -79,7 +79,7 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 			return fmt.Errorf("description too long")
 		}
 
-		previous, err := vlt.List("B" + manifest.SourceID() + ".")
+		previous, err := conn.Vault.List("B" + manifest.SourceID() + ".")
 		if err != nil {
 			return fmt.Errorf("error listing previous backups")
 		}
@@ -87,7 +87,7 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 		var oldManifest *backup.Manifest
 
 		if len(previous) > 0 {
-			oldManifest, err = loadBackupManifest(vlt, previous[0])
+			oldManifest, err = loadBackupManifest(conn.Vault, previous[0])
 		}
 
 		localEntry := mustGetLocalFSEntry(manifest.Source)
@@ -99,7 +99,7 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 			return err
 		}
 
-		handleID, err := vlt.SaveObjectID(manifest.RootObjectID)
+		handleID, err := conn.Vault.SaveObjectID(manifest.RootObjectID)
 		if err != nil {
 			return err
 		}
@@ -109,7 +109,7 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 		fileID := fmt.Sprintf("B%v.%08x.%x", manifest.SourceID(), math.MaxInt64-manifest.StartTime.UnixNano(), uniqueID)
 		manifest.Handle = handleID
 
-		err = saveBackupManifest(vlt, fileID, &manifest)
+		err = saveBackupManifest(conn.Vault, fileID, &manifest)
 		if err != nil {
 			return fmt.Errorf("cannot save manifest: %v", err)
 		}

@@ -199,13 +199,12 @@ func (c *cachingStorage) Close() error {
 
 // Options provides options for the caching storage wrapper
 type Options struct {
-	CacheDir       string
-	CacheSizeBytes int64
-	_              struct{}
+	CacheDir       string `json:"cacheDir"`
+	CacheSizeBytes int64  `json:"cacheSizeBytes"`
 }
 
 // NewWrapper creates new caching storage wrapper.
-func NewWrapper(master storage.Storage, options Options) (storage.Storage, error) {
+func NewWrapper(master storage.Storage, options *Options) (storage.Storage, error) {
 	if options.CacheDir == "" {
 		return nil, fmt.Errorf("Cache directory must be specified")
 	}

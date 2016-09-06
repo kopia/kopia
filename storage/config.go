@@ -2,6 +2,7 @@ package storage
 
 import (
 	"encoding/json"
+	"fmt"
 )
 
 // ConnectionInfo represents JSON-serializable configuration of a blob storage.
@@ -22,7 +23,11 @@ func (c *ConnectionInfo) UnmarshalJSON(b []byte) error {
 	}
 
 	c.Type = raw.Type
-	c.Config = factories[raw.Type].defaultConfigFunc()
+	f := factories[raw.Type]
+	if f == nil {
+		return fmt.Errorf("storage type '%v' not registered", raw.Type)
+	}
+	c.Config = f.defaultConfigFunc()
 	if err := json.Unmarshal(raw.Data, c.Config); err != nil {
 		return err
 	}

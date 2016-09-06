@@ -68,7 +68,7 @@ func verifyVault(t *testing.T, vaultPath string, repoPath string) {
 		Secret:       []byte{1, 2, 3},
 	}
 
-	_, err = repo.New(repoStorage, repoFormat)
+	r, err := repo.New(repoStorage, repoFormat)
 	if err != nil {
 		t.Errorf("can't create repository: %v", err)
 		return
@@ -116,24 +116,14 @@ func verifyVault(t *testing.T, vaultPath string, repoPath string) {
 		t.Errorf("error putting: %v", err)
 	}
 
-	r1, err := v1.OpenRepository()
-	if err != nil {
-		t.Errorf("error opening v1 repository: %v", err)
-	}
-
-	r2, err := v2.OpenRepository()
-	if err != nil {
-		t.Errorf("error opening v1 repository: %v", err)
-	}
-
-	w1 := r1.NewWriter()
+	w1 := r.NewWriter()
 	w1.Write([]byte("foo"))
 	oid1, err := w1.Result(true)
 	if err != nil {
 		t.Errorf("Result error: %v", err)
 	}
 
-	w2 := r2.NewWriter()
+	w2 := r.NewWriter()
 	w2.Write([]byte("bar"))
 	oid2, err := w2.Result(true)
 	if err != nil {
@@ -161,7 +151,7 @@ func verifyVault(t *testing.T, vaultPath string, repoPath string) {
 
 	// Verify contents of vault items for both created and opened vault.
 	for _, v := range []*Vault{v1, v2} {
-		rf := v.RepositoryFormat()
+		rf := v.RepoConfig.Format
 		if !reflect.DeepEqual(rf, repoFormat) {
 			t.Errorf("invalid repository format: %v, but got %v", repoFormat, rf)
 		}
@@ -204,12 +194,6 @@ func verifyVault(t *testing.T, vaultPath string, repoPath string) {
 		}
 	}
 
-	// Make sure repository is shared, by checking that data written in one can be read by the other.
-	assertRepositoryItem(t, r1, oid1, "foo")
-	assertRepositoryItem(t, r1, oid2, "bar")
-	assertRepositoryItem(t, r2, oid1, "foo")
-	assertRepositoryItem(t, r2, oid2, "bar")
-
 	v1.Remove("bar")
 
 	for _, v := range []*Vault{v1, v2} {
@@ -242,26 +226,6 @@ func assertVaultItem(t *testing.T, v *Vault, itemID string, expectedData string)
 	bs := string(b)
 	if bs != expectedData {
 		t.Errorf("invalid data for '%v': expected: %v but got %v", itemID, expectedData, bs)
-	}
-}
-
-func assertRepositoryItem(t *testing.T, repository *repo.Repository, oid repo.ObjectID, expectedData string) {
-	r, err := repository.Open(oid)
-	if err != nil {
-		t.Errorf("error opening item %v: %v", oid, err)
-		return
-	}
-	defer r.Close()
-
-	b, err := ioutil.ReadAll(r)
-	if err != nil {
-		t.Errorf("error reading item %v: %v", oid, err)
-		return
-	}
-
-	bs := string(b)
-	if bs != expectedData {
-		t.Errorf("invalid data for '%v': expected: %v but got %v", oid, expectedData, bs)
 	}
 }
 

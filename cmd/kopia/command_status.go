@@ -17,18 +17,19 @@ func init() {
 }
 
 func runRepositoryInfoCommand(context *kingpin.ParseContext) error {
-	vlt, r := mustOpenVaultAndRepository()
+	conn := mustOpenConnection()
 
-	vf := vlt.Format()
+	vf := conn.Vault.Format
 	fmt.Println("Vault:")
 	fmt.Println("  Version:         ", vf.Version)
 	fmt.Println("  Unique ID:       ", hex.EncodeToString(vf.UniqueID))
 	fmt.Println("  Encryption:      ", vf.Encryption)
 	fmt.Println("  Checksum:        ", vf.Checksum)
-	fmt.Println("  Storage:         ", vlt.Storage())
+	fmt.Println("  Storage:         ", conn.Vault.Storage)
 	fmt.Println()
 
-	f := vlt.RepositoryFormat()
+	rc := conn.Vault.RepoConfig
+	f := rc.Format
 
 	fmt.Println("Repository:")
 	fmt.Println("  Version:         ", f.Version)
@@ -40,7 +41,7 @@ func runRepositoryInfoCommand(context *kingpin.ParseContext) error {
 	fmt.Println("  ID Format:       ", f.ObjectFormat)
 	fmt.Println("  Blob Size:       ", f.MaxBlockSize/1024, "KB")
 	fmt.Println("  Inline Blob Size:", f.MaxInlineContentLength/1024, "KB")
-	fmt.Println("  Storage:         ", r.Storage)
+	fmt.Println("  Storage:         ", conn.Repository.Storage)
 
 	return nil
 }

@@ -11,15 +11,14 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/bgentry/speakeasy"
+	"github.com/kopia/kopia"
+	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/fs/loggingfs"
-
-	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/storage/logging"
-
-	"github.com/bgentry/speakeasy"
+	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/storage"
+	"github.com/kopia/kopia/storage/logging"
 	"github.com/kopia/kopia/vault"
 )
 
@@ -35,6 +34,16 @@ var (
 	keyFile         = app.Flag("keyfile", "Read vault master key from file.").PlaceHolder("FILENAME").Envar("KOPIA_KEY_FILE").ExistingFile()
 )
 
+func mustLoadLocalConfig() *config.LocalConfig {
+	lc, err := loadLocalConfig()
+	failOnError(err)
+	return lc
+}
+
+func loadLocalConfig() (*config.LocalConfig, error) {
+	return config.LoadFromFile(vaultConfigFileName())
+}
+
 func failOnError(err error) {
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
@@ -42,22 +51,27 @@ func failOnError(err error) {
 	}
 }
 
-func mustOpenVault() *vault.Vault {
-	s, err := openVault()
+func openConnection(options ...repo.RepositoryOption) (*kopia.Connection, error) {
+	return kopia.Open(vaultConfigFileName(), connectionOptionsFromFlags(options...))
+}
+
+func connectionOptionsFromFlags(options ...repo.RepositoryOption) *kopia.ConnectionOptions {
+	opts := &kopia.ConnectionOptions{
+		CredentialsCallback: func() (vault.Credentials, error) { return getVaultCredentials(false) },
+		RepositoryOptions:   options,
+	}
+
+	if *traceStorage {
+		opts.TraceStorage = log.Printf
+	}
+
+	return opts
+}
+
+func mustOpenConnection(repoOptions ...repo.RepositoryOption) *kopia.Connection {
+	s, err := openConnection(repoOptions...)
 	failOnError(err)
 	return s
-}
-
-func mustOpenRepository(extraOptions ...repo.RepositoryOption) *repo.Repository {
-	_, r := mustOpenVaultAndRepository(extraOptions...)
-	return r
-}
-
-func mustOpenVaultAndRepository(extraOptions ...repo.RepositoryOption) (*vault.Vault, *repo.Repository) {
-	v := mustOpenVault()
-	r, err := v.OpenRepository(repositoryOptionsFromFlags(extraOptions)...)
-	failOnError(err)
-	return v, r
 }
 
 func repositoryOptionsFromFlags(extraOptions []repo.RepositoryOption) []repo.RepositoryOption {
@@ -98,63 +112,25 @@ func persistVaultConfig(v *vault.Vault) error {
 		return err
 	}
 
+	var lc config.LocalConfig
+	lc.VaultConnection = cfg
+
+	if v.RepoConfig.Connection != nil {
+		lc.RepoConnection = v.RepoConfig.Connection
+	}
+
 	fname := vaultConfigFileName()
 	log.Printf("Saving vault configuration to '%v'.", fname)
 	if err := os.MkdirAll(filepath.Dir(fname), 0700); err != nil {
 		return err
 	}
 
-	f, err := os.Create(fname)
+	d, err := json.MarshalIndent(&lc, "", "  ")
 	if err != nil {
 		return err
 	}
-	defer f.Close()
 
-	return json.NewEncoder(f).Encode(cfg)
-}
-
-func getPersistedVaultConfig() *vault.Config {
-	f, err := os.Open(vaultConfigFileName())
-	if err != nil {
-		return nil
-	}
-	defer f.Close()
-
-	vc := &vault.Config{}
-
-	if err := json.NewDecoder(f).Decode(vc); err != nil {
-		return nil
-	}
-
-	return vc
-}
-
-func openVault() (*vault.Vault, error) {
-	vc := getPersistedVaultConfig()
-	if vc != nil {
-		st, err := storage.NewStorage(vc.ConnectionInfo)
-		if err != nil {
-			return nil, fmt.Errorf("cannot open vault storage: %v", err)
-		}
-
-		if *traceStorage {
-			st = logging.NewWrapper(st, logging.Prefix("[VAULT] "))
-		}
-
-		creds, err := vault.MasterKey(vc.Key)
-		if err != nil {
-			st.Close()
-			return nil, fmt.Errorf("invalid vault config")
-		}
-
-		return vault.Open(st, creds)
-	}
-
-	if *vaultPath == "" {
-		return nil, fmt.Errorf("vault not connected and not specified, use --vault or run 'kopia connect'")
-	}
-
-	return openVaultSpecifiedByFlag()
+	return ioutil.WriteFile(fname, d, 0600)
 }
 
 func openVaultSpecifiedByFlag() (*vault.Vault, error) {

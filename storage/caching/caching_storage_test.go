@@ -79,7 +79,7 @@ func TestCache(t *testing.T) {
 	var tr tracer
 	master = logging.NewWrapper(master, logging.Output(tr.Printf))
 
-	cache, err := NewWrapper(master, Options{CacheDir: tmpdir})
+	cache, err := NewWrapper(master, &Options{CacheDir: tmpdir})
 	defer cache.Close()
 	if err != nil {
 		t.Errorf("cannot create cache: %v", err)

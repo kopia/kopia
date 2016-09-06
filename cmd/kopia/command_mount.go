@@ -27,7 +27,7 @@ func (r *root) Root() (fusefs.Node, error) {
 }
 
 func runMountCommand(context *kingpin.ParseContext) error {
-	vlt, r := mustOpenVaultAndRepository()
+	conn := mustOpenConnection()
 
 	fuseConnection, err := fuse.Mount(
 		*mountPoint,
@@ -37,12 +37,12 @@ func runMountCommand(context *kingpin.ParseContext) error {
 		fuse.VolumeName("Kopia"),
 	)
 
-	oid, err := parseObjectID(*mountObjectID, vlt)
+	oid, err := parseObjectID(*mountObjectID, conn.Vault, conn.Repository)
 	if err != nil {
 		return err
 	}
 
-	rootNode := kopiafuse.NewDirectoryNode(repofs.Directory(r, oid))
+	rootNode := kopiafuse.NewDirectoryNode(repofs.Directory(conn.Repository, oid))
 
 	fusefs.Serve(fuseConnection, &root{rootNode})
 

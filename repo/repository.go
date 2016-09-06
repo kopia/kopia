@@ -155,35 +155,30 @@ func (r *Repository) Open(objectID ObjectID) (ObjectReader, error) {
 }
 
 // RepositoryOption controls the behavior of Repository.
-type RepositoryOption func(o *Repository) error
+type RepositoryOption func(o *Repository)
 
 // WriteBack is an RepositoryOption that enables asynchronous writes to the storage using the pool
 // of goroutines.
 func WriteBack(writeBackWorkers int) RepositoryOption {
-	return func(o *Repository) error {
+	return func(o *Repository) {
 		o.writeBackWorkers = writeBackWorkers
-		return nil
 	}
 }
 
 // EnableLogging is an RepositoryOption that causes all storage access to be logged.
 func EnableLogging(options ...logging.Option) RepositoryOption {
-	return func(o *Repository) error {
+	return func(o *Repository) {
 		o.Storage = logging.NewWrapper(o.Storage, options...)
-		return nil
 	}
 }
 
 // New creates a Repository with the specified storage, format and options.
 func New(s storage.Storage, f *Format, options ...RepositoryOption) (*Repository, error) {
-	if f.MaxBlockSize < 100 {
-		return nil, fmt.Errorf("MaxBlockSize is not set")
+	if err := f.Validate(); err != nil {
+		return nil, err
 	}
 
 	sf := SupportedFormats[f.ObjectFormat]
-	if sf == nil {
-		return nil, fmt.Errorf("unknown object format: %v", f.ObjectFormat)
-	}
 
 	r := &Repository{
 		Storage: s,
@@ -193,10 +188,7 @@ func New(s storage.Storage, f *Format, options ...RepositoryOption) (*Repository
 	r.formatter = sf
 
 	for _, o := range options {
-		if err := o(r); err != nil {
-			r.Close()
-			return nil, err
-		}
+		o(r)
 	}
 
 	r.bufferManager = newBufferManager(int(r.format.MaxBlockSize))

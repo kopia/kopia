@@ -57,8 +57,8 @@ func findBackups(vlt *vault.Vault, path string) ([]string, string, error) {
 }
 
 func runBackupsCommand(context *kingpin.ParseContext) error {
-	vlt, r := mustOpenVaultAndRepository()
-	defer r.Close()
+	conn := mustOpenConnection()
+	defer conn.Close()
 
 	var previous []string
 	var relPath string
@@ -70,12 +70,12 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 			return fmt.Errorf("invalid directory: '%s': %s", *backupsPath, err)
 		}
 
-		previous, relPath, err = findBackups(vlt, filepath.Clean(path))
+		previous, relPath, err = findBackups(conn.Vault, filepath.Clean(path))
 		if relPath != "" {
 			relPath = "/" + relPath
 		}
 	} else {
-		previous, err = vlt.List("B")
+		previous, err = conn.Vault.List("B")
 	}
 
 	if err != nil {
@@ -87,7 +87,7 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 	var lastSource string
 	var count int
 
-	for _, m := range loadBackupManifests(vlt, previous) {
+	for _, m := range loadBackupManifests(conn.Vault, previous) {
 		if m.HostName != lastHost || m.UserName != lastUser || m.Source != lastSource {
 			fmt.Printf("%v@%v:%v\n", m.UserName, m.HostName, m.Source)
 			lastSource = m.Source

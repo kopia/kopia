@@ -9,6 +9,7 @@ import (
 	"crypto/sha512"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"hash"
 )
 
@@ -19,6 +20,24 @@ type Format struct {
 	Secret                 []byte `json:"secret,omitempty"`                 // HMAC secret used to generate encryption keys
 	MaxInlineContentLength int32  `json:"maxInlineContentLength,omitempty"` // maximum size of object to be considered for inline storage within ObjectID
 	MaxBlockSize           int32  `json:"maxBlockSize,omitempty"`           // maximum size of storage block
+}
+
+// Validate checks the validity of a Format and returns an error if invalid.
+func (f *Format) Validate() error {
+	if f.Version != 1 {
+		return fmt.Errorf("unsupported version: %v", f.Version)
+	}
+
+	if f.MaxBlockSize < 100 {
+		return fmt.Errorf("MaxBlockSize is not set")
+	}
+
+	sf := SupportedFormats[f.ObjectFormat]
+	if sf == nil {
+		return fmt.Errorf("unknown object format: %v", f.ObjectFormat)
+	}
+
+	return nil
 }
 
 // ObjectFormatter performs data block ID computation and encryption of a block of data when storing object in a repository,

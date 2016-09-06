@@ -417,3 +417,5 @@ func init() {
 			return New(o.(*Options))
 		})
 }
+
+var _ storage.ConnectionInfoProvider = &gcsStorage{}

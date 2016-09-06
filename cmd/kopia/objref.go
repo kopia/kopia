@@ -11,7 +11,7 @@ import (
 )
 
 // ParseObjectID interprets the given ID string and returns corresponding repo.ObjectID.
-func parseObjectID(id string, vlt *vault.Vault) (repo.ObjectID, error) {
+func parseObjectID(id string, vlt *vault.Vault, r *repo.Repository) (repo.ObjectID, error) {
 	head, tail := splitHeadTail(id)
 	if len(head) == 0 {
 		return repo.NullObjectID, fmt.Errorf("invalid object ID: %v", id)
@@ -28,11 +28,6 @@ func parseObjectID(id string, vlt *vault.Vault) (repo.ObjectID, error) {
 
 	if tail == "" {
 		return oid, nil
-	}
-
-	r, err := vlt.OpenRepository()
-	if err != nil {
-		return repo.NullObjectID, fmt.Errorf("cannot open repository: %v", err)
 	}
 
 	dir := repofs.Directory(r, oid)

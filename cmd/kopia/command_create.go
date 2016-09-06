@@ -83,17 +83,6 @@ func runCreateCommand(context *kingpin.ParseContext) error {
 		return fmt.Errorf("unable to get vault storage: %v", err)
 	}
 
-	var repositoryStorage storage.Storage
-
-	if *createCommandRepository == "colocated" {
-		repositoryStorage = vaultStorage
-	} else {
-		repositoryStorage, err = openStorageAndEnsureEmpty(*createCommandRepository)
-		if err != nil {
-			return fmt.Errorf("unable to get repository storage: %v", err)
-		}
-	}
-
 	repoFormat, err := repositoryFormat()
 	if err != nil {
 		return fmt.Errorf("unable to initialize repository format: %v", err)
@@ -114,16 +103,26 @@ func runCreateCommand(context *kingpin.ParseContext) error {
 		return fmt.Errorf("unable to get credentials: %v", err)
 	}
 
-	// Make repository to make sure the format is supported.
-	_, err = repo.New(repositoryStorage, repoFormat)
-	if err != nil {
-		return fmt.Errorf("unable to initialize repository: %v", err)
+	if err := repoFormat.Validate(); err != nil {
+		return fmt.Errorf("invalid format")
 	}
 
 	fmt.Printf(
 		"Initializing vault with encryption '%v'.\n",
 		vf.Encryption)
-	vlt, err := vault.Create(vaultStorage, vf, creds, repositoryStorage, repoFormat)
+
+	var vlt *vault.Vault
+
+	if *createCommandRepository == "colocated" {
+		vlt, err = vault.CreateColocated(vaultStorage, vf, creds, repoFormat)
+	} else {
+		repositoryStorage, err := openStorageAndEnsureEmpty(*createCommandRepository)
+		if err != nil {
+			return fmt.Errorf("unable to get repository storage: %v", err)
+		}
+		vlt, err = vault.Create(vaultStorage, vf, creds, repositoryStorage, repoFormat)
+	}
+
 	if err != nil {
 		return fmt.Errorf("cannot create vault: %v", err)
 	}
