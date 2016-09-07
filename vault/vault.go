@@ -35,10 +35,10 @@ var (
 // ErrItemNotFound is an error returned when a vault item cannot be found.
 var ErrItemNotFound = errors.New("item not found")
 
-// Vault is a secure storage for the secrets.
+// Vault is a secure storage for secrets such as repository object identifiers.
 type Vault struct {
-	Storage    storage.Storage
-	Format     Format
+	storage    storage.Storage
+	format     Format
 	RepoConfig RepositoryConfig
 
 	masterKey  []byte
@@ -84,11 +84,11 @@ func (v *Vault) writeEncryptedBlock(itemID string, content []byte) error {
 		content = cipherText
 	}
 
-	return v.Storage.PutBlock(v.itemPrefix+itemID, content, storage.PutOptionsOverwrite)
+	return v.storage.PutBlock(v.itemPrefix+itemID, content, storage.PutOptionsOverwrite)
 }
 
 func (v *Vault) readEncryptedBlock(itemID string) ([]byte, error) {
-	content, err := v.Storage.GetBlock(v.itemPrefix + itemID)
+	content, err := v.storage.GetBlock(v.itemPrefix + itemID)
 	if err != nil {
 		if err == storage.ErrBlockNotFound {
 			return nil, ErrItemNotFound
@@ -135,20 +135,20 @@ func (v *Vault) decryptBlock(content []byte) ([]byte, error) {
 }
 
 func (v *Vault) newChecksum() (hash.Hash, error) {
-	switch v.Format.Checksum {
+	switch v.format.Checksum {
 	case "hmac-sha-256":
 		key := make([]byte, 32)
 		v.deriveKey(purposeChecksumSecret, key)
 		return hmac.New(sha256.New, key), nil
 
 	default:
-		return nil, fmt.Errorf("unsupported checksum format: %v", v.Format.Checksum)
+		return nil, fmt.Errorf("unsupported checksum format: %v", v.format.Checksum)
 	}
 
 }
 
 func (v *Vault) newCipher() (cipher.Block, error) {
-	switch v.Format.Encryption {
+	switch v.format.Encryption {
 	case "none":
 		return nil, nil
 	case "aes-128":
@@ -164,13 +164,13 @@ func (v *Vault) newCipher() (cipher.Block, error) {
 		v.deriveKey(purposeAESKey, k)
 		return aes.NewCipher(k)
 	default:
-		return nil, fmt.Errorf("unsupported encryption format: %v", v.Format.Encryption)
+		return nil, fmt.Errorf("unsupported encryption format: %v", v.format.Encryption)
 	}
 
 }
 
 func (v *Vault) deriveKey(purpose []byte, key []byte) error {
-	k := hkdf.New(sha256.New, v.masterKey, v.Format.UniqueID, purpose)
+	k := hkdf.New(sha256.New, v.masterKey, v.format.UniqueID, purpose)
 	_, err := io.ReadFull(k, key)
 	return err
 }
@@ -207,7 +207,7 @@ func (v *Vault) putJSON(id string, content interface{}) error {
 func (v *Vault) List(prefix string) ([]string, error) {
 	var result []string
 
-	for b := range v.Storage.ListBlocks(v.itemPrefix + prefix) {
+	for b := range v.storage.ListBlocks(v.itemPrefix + prefix) {
 		if b.Error != nil {
 			return result, b.Error
 		}
@@ -222,7 +222,7 @@ func (v *Vault) List(prefix string) ([]string, error) {
 
 // Close releases any resources held by Vault and closes repository connection.
 func (v *Vault) Close() error {
-	return v.Storage.Close()
+	return v.storage.Close()
 }
 
 // Config represents JSON-compatible configuration of the vault connection, including vault key.
@@ -234,7 +234,7 @@ type Config struct {
 // Config returns a configuration of vault storage its credentials that's suitable
 // for storing in configuration file.
 func (v *Vault) Config() (*Config, error) {
-	cip, ok := v.Storage.(storage.ConnectionInfoProvider)
+	cip, ok := v.storage.(storage.ConnectionInfoProvider)
 	if !ok {
 		return nil, errors.New("repository does not support persisting configuration")
 	}
@@ -253,7 +253,7 @@ func (v *Vault) Remove(itemID string) error {
 		return err
 	}
 
-	return v.Storage.DeleteBlock(v.itemPrefix + itemID)
+	return v.storage.DeleteBlock(v.itemPrefix + itemID)
 }
 
 // Create initializes a Vault attached to the specified repository.
@@ -265,8 +265,8 @@ func Create(
 	repoFormat *repo.Format,
 ) (*Vault, error) {
 	v := Vault{
-		Storage: vaultStorage,
-		Format:  *vaultFormat,
+		storage: vaultStorage,
+		format:  *vaultFormat,
 	}
 
 	if repoStorage == nil {
@@ -279,14 +279,14 @@ func Create(
 		return nil, errors.New("repository does not support persisting configuration")
 	}
 
-	v.Format.Version = "1"
-	v.Format.UniqueID = make([]byte, 32)
-	if _, err := io.ReadFull(rand.Reader, v.Format.UniqueID); err != nil {
+	v.format.Version = "1"
+	v.format.UniqueID = make([]byte, 32)
+	if _, err := io.ReadFull(rand.Reader, v.format.UniqueID); err != nil {
 		return nil, err
 	}
-	v.masterKey = vaultCreds.getMasterKey(v.Format.UniqueID)
+	v.masterKey = vaultCreds.getMasterKey(v.format.UniqueID)
 
-	formatBytes, err := json.Marshal(&v.Format)
+	formatBytes, err := json.Marshal(&v.format)
 	if err != nil {
 		return nil, err
 	}
@@ -332,7 +332,7 @@ type RepositoryConfig struct {
 // Open opens a vault.
 func Open(vaultStorage storage.Storage, vaultCreds Credentials) (*Vault, error) {
 	v := Vault{
-		Storage: vaultStorage,
+		storage: vaultStorage,
 	}
 
 	var prefix string
@@ -362,12 +362,12 @@ func Open(vaultStorage storage.Storage, vaultCreds Credentials) (*Vault, error) 
 		offset = 2
 	}
 
-	err := json.Unmarshal(blocks[offset], &v.Format)
+	err := json.Unmarshal(blocks[offset], &v.format)
 	if err != nil {
 		return nil, err
 	}
 
-	v.masterKey = vaultCreds.getMasterKey(v.Format.UniqueID)
+	v.masterKey = vaultCreds.getMasterKey(v.format.UniqueID)
 	v.itemPrefix = prefix
 
 	cfgData, err := v.decryptBlock(blocks[offset+1])

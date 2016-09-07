@@ -19,7 +19,7 @@ const (
 
 // SaveObjectID stores the given object ID in an encrypted vault item and returns a unique ID.
 func (vlt *Vault) SaveObjectID(oid repo.ObjectID) (string, error) {
-	h := hmac.New(sha256.New, vlt.Format.UniqueID)
+	h := hmac.New(sha256.New, vlt.format.UniqueID)
 	bytes, err := json.Marshal(&oid)
 	if err != nil {
 		return "", err
