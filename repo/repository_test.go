@@ -84,14 +84,14 @@ func TestWriters(t *testing.T) {
 
 		result, err := writer.Result(false)
 		if err != nil {
-			t.Errorf("error getting writer results for %v, expected: %v", c.data, c.objectID.UIString())
+			t.Errorf("error getting writer results for %v, expected: %v", c.data, c.objectID.String())
 			continue
 		}
 
 		repo.Flush()
 
 		if !objectIDsEqual(result, c.objectID) {
-			t.Errorf("incorrect result for %v, expected: %v got: %v %#v", c.data, c.objectID.UIString(), result.UIString(), result.BinaryContent)
+			t.Errorf("incorrect result for %v, expected: %v got: %v %#v", c.data, c.objectID.String(), result.String(), result.BinaryContent)
 		}
 
 		if c.objectID.StorageBlock == "" {
@@ -132,7 +132,7 @@ func verifyIndirectBlock(t *testing.T, r *Repository, oid ObjectID) {
 
 		rd, err := r.Open(direct)
 		if err != nil {
-			t.Errorf("unable to open %v: %v", oid.UIString(), err)
+			t.Errorf("unable to open %v: %v", oid.String(), err)
 			return
 		}
 		defer rd.Close()
@@ -210,7 +210,7 @@ func TestHMAC(t *testing.T) {
 	w := repo.NewWriter()
 	w.Write(content)
 	result, err := w.Result(false)
-	if result.UIString() != "D697eaf0aca3a3aea3a75164746ffaa79" {
+	if result.String() != "D697eaf0aca3a3aea3a75164746ffaa79" {
 		t.Errorf("unexpected result: %v err: %v", result, err)
 	}
 }
@@ -475,7 +475,7 @@ func TestFormats(t *testing.T) {
 				t.Errorf("error: %v", err)
 			}
 			if !objectIDsEqual(oid, v) {
-				t.Errorf("invalid oid for #%v %v/%v:\ngot:\n%#v\nexpected:\n%#v", caseIndex, c.format.ObjectFormat, k, oid.UIString(), v.UIString())
+				t.Errorf("invalid oid for #%v %v/%v:\ngot:\n%#v\nexpected:\n%#v", caseIndex, c.format.ObjectFormat, k, oid.String(), v.String())
 			}
 
 			rc, err := repo.Open(oid)

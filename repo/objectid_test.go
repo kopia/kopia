@@ -68,7 +68,7 @@ func TestParseObjectIDEncryptionInfo(t *testing.T) {
 			t.Errorf("invalid encryption key for %v: %x, expected: %x", c.objectID, actual, c.expected)
 		}
 
-		uiString := objectID.UIString()
+		uiString := objectID.String()
 		if uiString != c.objectID {
 			t.Errorf("invalid object ID string: %v: expected: %v", uiString, c.objectID)
 		}

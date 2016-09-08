@@ -114,8 +114,8 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 			return fmt.Errorf("cannot save manifest: %v", err)
 		}
 
-		log.Printf("Root: %v", manifest.RootObjectID.UIString())
-		log.Printf("Hash Cache: %v", manifest.HashCacheID.UIString())
+		log.Printf("Root: %v", manifest.RootObjectID.String())
+		log.Printf("Hash Cache: %v", manifest.HashCacheID.String())
 		log.Printf("Key: %v", handleID)
 
 		b, _ := json.MarshalIndent(&manifest, "", "  ")

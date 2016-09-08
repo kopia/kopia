@@ -51,7 +51,7 @@ type ObjectID struct {
 
 // MarshalJSON emits ObjectID in standard string format.
 func (oid *ObjectID) MarshalJSON() ([]byte, error) {
-	s := oid.UIString()
+	s := oid.String()
 	return json.Marshal(&s)
 }
 
@@ -88,10 +88,10 @@ var (
 	inlineContentEncoding = base64.RawURLEncoding
 )
 
-// UIString returns string representation of ObjectID that is suitable for displaying in the UI.
+// String returns string representation of ObjectID that is suitable for displaying in the UI.
 //
 // Note that the object ID name often contains its encryption key, which is sensitive and can be quite long (~100 characters long).
-func (oid *ObjectID) UIString() string {
+func (oid *ObjectID) String() string {
 	if oid.StorageBlock != "" {
 		var encryptionSuffix string
 
@@ -115,7 +115,7 @@ func (oid *ObjectID) UIString() string {
 	}
 
 	if oid.Section != nil {
-		return fmt.Sprintf("S%v,%v,%v", oid.Section.Start, oid.Section.Length, oid.Section.Base.UIString())
+		return fmt.Sprintf("S%v,%v,%v", oid.Section.Start, oid.Section.Length, oid.Section.Base.String())
 	}
 
 	return "B"

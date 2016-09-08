@@ -102,11 +102,11 @@ func TestUpload(t *testing.T) {
 	log.Printf("--------------------------")
 
 	if !objectIDsEqual(r2.ObjectID, r1.ObjectID) {
-		t.Errorf("expected r1.ObjectID==r2.ObjectID, got %v and %v", r1.ObjectID.UIString(), r2.ObjectID.UIString())
+		t.Errorf("expected r1.ObjectID==r2.ObjectID, got %v and %v", r1.ObjectID.String(), r2.ObjectID.String())
 	}
 
 	if !objectIDsEqual(r2.ManifestID, r1.ManifestID) {
-		t.Errorf("expected r2.ManifestID==r1.ManifestID, got %v and %v", r2.ManifestID.UIString(), r1.ManifestID.UIString())
+		t.Errorf("expected r2.ManifestID==r1.ManifestID, got %v and %v", r2.ManifestID.String(), r1.ManifestID.String())
 	}
 
 	if r1.Stats.CachedFiles+r1.Stats.CachedDirectories != 0 {
@@ -127,11 +127,11 @@ func TestUpload(t *testing.T) {
 	}
 
 	if objectIDsEqual(r2.ObjectID, r3.ObjectID) {
-		t.Errorf("expected r3.ObjectID!=r2.ObjectID, got %v", r3.ObjectID.UIString())
+		t.Errorf("expected r3.ObjectID!=r2.ObjectID, got %v", r3.ObjectID.String())
 	}
 
 	if objectIDsEqual(r2.ManifestID, r3.ManifestID) {
-		t.Errorf("expected r3.ManifestID!=r2.ManifestID, got %v", r3.ManifestID.UIString())
+		t.Errorf("expected r3.ManifestID!=r2.ManifestID, got %v", r3.ManifestID.String())
 	}
 
 	if r3.Stats.NonCachedFiles != 1 && r3.Stats.NonCachedDirectories != 3 {

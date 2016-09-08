@@ -73,7 +73,7 @@ func listDirectory(prefix string, entries fs.Entries, longFormat bool) {
 			} else if objectID.TextContent != "" {
 				oid = "<inline text content>"
 			} else {
-				oid = objectID.UIString()
+				oid = objectID.String()
 			}
 			info = fmt.Sprintf(
 				"%v %9d %v %-"+maxNameLenString+"s %v",
