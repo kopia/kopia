@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/boltdb/bolt"
-	"github.com/kopia/kopia/storage"
-	"github.com/kopia/kopia/storage/filesystem"
+	"github.com/kopia/kopia/blob"
+	"github.com/kopia/kopia/blob/filesystem"
 )
 
 var (
@@ -23,8 +23,8 @@ const (
 )
 
 type cachingStorage struct {
-	master    storage.Storage
-	cache     storage.Storage
+	master    blob.Storage
+	cache     blob.Storage
 	db        *bolt.DB
 	sizeBytes int64
 
@@ -102,7 +102,7 @@ func (c *cachingStorage) BlockSize(id string) (int64, error) {
 			return entry.size, nil
 		}
 
-		return 0, storage.ErrBlockNotFound
+		return 0, blob.ErrBlockNotFound
 	}
 
 	c.Lock(id)
@@ -110,7 +110,7 @@ func (c *cachingStorage) BlockSize(id string) (int64, error) {
 
 	l, err := c.master.BlockSize(id)
 	if err != nil {
-		if err == storage.ErrBlockNotFound {
+		if err == blob.ErrBlockNotFound {
 			c.setCacheEntrySize(id, sizeDoesNotExists)
 		}
 		return 0, err
@@ -141,7 +141,7 @@ func (c *cachingStorage) GetBlock(id string) ([]byte, error) {
 
 	if blockCacheEntry, ok := c.getCacheEntry(id); ok {
 		if !blockCacheEntry.exists() {
-			return nil, storage.ErrBlockNotFound
+			return nil, blob.ErrBlockNotFound
 		}
 
 		v, err := c.cache.GetBlock(id)
@@ -155,16 +155,16 @@ func (c *cachingStorage) GetBlock(id string) ([]byte, error) {
 
 	if err == nil {
 		l := int64(len(b))
-		c.cache.PutBlock(id, b, storage.PutOptionsOverwrite)
+		c.cache.PutBlock(id, b, blob.PutOptionsOverwrite)
 		c.setCacheEntrySize(id, l)
-	} else if err == storage.ErrBlockNotFound {
+	} else if err == blob.ErrBlockNotFound {
 		c.setCacheEntrySize(id, sizeDoesNotExists)
 	}
 
 	return b, err
 }
 
-func (c *cachingStorage) PutBlock(id string, data []byte, options storage.PutOptions) error {
+func (c *cachingStorage) PutBlock(id string, data []byte, options blob.PutOptions) error {
 	c.Lock(id)
 	defer c.Unlock(id)
 
@@ -175,7 +175,7 @@ func (c *cachingStorage) PutBlock(id string, data []byte, options storage.PutOpt
 	return c.master.PutBlock(id, data, options)
 }
 
-func (c *cachingStorage) ListBlocks(prefix string) chan storage.BlockMetadata {
+func (c *cachingStorage) ListBlocks(prefix string) chan blob.BlockMetadata {
 	return c.master.ListBlocks(prefix)
 }
 
@@ -204,7 +204,7 @@ type Options struct {
 }
 
 // NewWrapper creates new caching storage wrapper.
-func NewWrapper(master storage.Storage, options *Options) (storage.Storage, error) {
+func NewWrapper(master blob.Storage, options *Options) (blob.Storage, error) {
 	if options.CacheDir == "" {
 		return nil, fmt.Errorf("Cache directory must be specified")
 	}
@@ -242,4 +242,4 @@ func NewWrapper(master storage.Storage, options *Options) (storage.Storage, erro
 	return s, nil
 }
 
-var _ storage.Storage = &cachingStorage{}
+var _ blob.Storage = &cachingStorage{}

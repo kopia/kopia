@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kopia/kopia/storage"
+	"github.com/kopia/kopia/blob"
 )
 
 const (
@@ -36,7 +36,7 @@ func (fs *fsStorage) BlockSize(blockID string) (int64, error) {
 	}
 
 	if os.IsNotExist(err) {
-		return 0, storage.ErrBlockNotFound
+		return 0, blob.ErrBlockNotFound
 	}
 
 	return 0, err
@@ -50,7 +50,7 @@ func (fs *fsStorage) GetBlock(blockID string) ([]byte, error) {
 	}
 
 	if os.IsNotExist(err) {
-		return nil, storage.ErrBlockNotFound
+		return nil, blob.ErrBlockNotFound
 	}
 
 	return nil, err
@@ -68,8 +68,8 @@ func makeFileName(blockID string) string {
 	return string(blockID) + fsStorageChunkSuffix
 }
 
-func (fs *fsStorage) ListBlocks(prefix string) chan (storage.BlockMetadata) {
-	result := make(chan (storage.BlockMetadata))
+func (fs *fsStorage) ListBlocks(prefix string) chan (blob.BlockMetadata) {
+	result := make(chan (blob.BlockMetadata))
 
 	prefixString := string(prefix)
 
@@ -95,7 +95,7 @@ func (fs *fsStorage) ListBlocks(prefix string) chan (storage.BlockMetadata) {
 					}
 				} else if fullID, ok := getstringFromFileName(currentPrefix + e.Name()); ok {
 					if strings.HasPrefix(string(fullID), prefixString) {
-						result <- storage.BlockMetadata{
+						result <- blob.BlockMetadata{
 							BlockID:   fullID,
 							Length:    e.Size(),
 							TimeStamp: e.ModTime(),
@@ -115,7 +115,7 @@ func (fs *fsStorage) ListBlocks(prefix string) chan (storage.BlockMetadata) {
 	return result
 }
 
-func (fs *fsStorage) PutBlock(blockID string, data []byte, options storage.PutOptions) error {
+func (fs *fsStorage) PutBlock(blockID string, data []byte, options blob.PutOptions) error {
 	shardPath, path := fs.getShardedPathAndFilePath(blockID)
 
 	// Open temporary file, create dir if required.
@@ -196,8 +196,8 @@ func parseShardString(shardString string) ([]int, error) {
 	return result, nil
 }
 
-func (fs *fsStorage) ConnectionInfo() storage.ConnectionInfo {
-	return storage.ConnectionInfo{
+func (fs *fsStorage) ConnectionInfo() blob.ConnectionInfo {
+	return blob.ConnectionInfo{
 		Type:   fsStorageType,
 		Config: &fs.Options,
 	}
@@ -208,7 +208,7 @@ func (fs *fsStorage) Close() error {
 }
 
 // New creates new filesystem-backed storage in a specified directory.
-func New(options *Options) (storage.Storage, error) {
+func New(options *Options) (blob.Storage, error) {
 	var err error
 
 	if _, err = os.Stat(options.Path); err != nil {
@@ -223,10 +223,10 @@ func New(options *Options) (storage.Storage, error) {
 }
 
 func init() {
-	storage.AddSupportedStorage(
+	blob.AddSupportedStorage(
 		fsStorageType,
 		func() interface{} { return &Options{} },
-		func(o interface{}) (storage.Storage, error) {
+		func(o interface{}) (blob.Storage, error) {
 			return New(o.(*Options))
 		})
 }

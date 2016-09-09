@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kopia/kopia/storage"
+	"github.com/kopia/kopia/blob"
 )
 
 type mapStorage struct {
@@ -19,7 +19,7 @@ func (s *mapStorage) BlockSize(id string) (int64, error) {
 	defer s.mutex.RUnlock()
 	d, ok := s.data[string(id)]
 	if !ok {
-		return 0, storage.ErrBlockNotFound
+		return 0, blob.ErrBlockNotFound
 	}
 
 	return int64(len(d)), nil
@@ -34,10 +34,10 @@ func (s *mapStorage) GetBlock(id string) ([]byte, error) {
 		return data, nil
 	}
 
-	return nil, storage.ErrBlockNotFound
+	return nil, blob.ErrBlockNotFound
 }
 
-func (s *mapStorage) PutBlock(id string, data []byte, options storage.PutOptions) error {
+func (s *mapStorage) PutBlock(id string, data []byte, options blob.PutOptions) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -57,8 +57,8 @@ func (s *mapStorage) DeleteBlock(id string) error {
 	return nil
 }
 
-func (s *mapStorage) ListBlocks(prefix string) chan (storage.BlockMetadata) {
-	ch := make(chan (storage.BlockMetadata))
+func (s *mapStorage) ListBlocks(prefix string) chan (blob.BlockMetadata) {
+	ch := make(chan (blob.BlockMetadata))
 	fixedTime := time.Now()
 	go func() {
 		s.mutex.RLock()
@@ -75,7 +75,7 @@ func (s *mapStorage) ListBlocks(prefix string) chan (storage.BlockMetadata) {
 
 		for _, k := range keys {
 			v := s.data[k]
-			ch <- storage.BlockMetadata{
+			ch <- blob.BlockMetadata{
 				BlockID:   string(k),
 				Length:    int64(len(v)),
 				TimeStamp: fixedTime,
@@ -92,6 +92,6 @@ func (s *mapStorage) Close() error {
 
 // NewMapStorage returns an implementation of Storage backed by the contents of given map.
 // Used primarily for testing.
-func NewMapStorage(data map[string][]byte) storage.Storage {
+func NewMapStorage(data map[string][]byte) blob.Storage {
 	return &mapStorage{data: data}
 }

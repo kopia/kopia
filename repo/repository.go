@@ -10,9 +10,9 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/kopia/kopia/blob"
+	"github.com/kopia/kopia/blob/logging"
 	"github.com/kopia/kopia/internal/jsonstream"
-	"github.com/kopia/kopia/storage"
-	"github.com/kopia/kopia/storage/logging"
 )
 
 // ObjectReader allows reading, seeking, getting the length of and closing of a repository object.
@@ -36,8 +36,8 @@ func (s semaphore) Unlock() {
 
 // Repository implements a content-addressable storage on top of blob storage.
 type Repository struct {
-	Stats   Stats           // vital statistics
-	storage storage.Storage // underlying blob storage
+	Stats   Stats        // vital statistics
+	storage blob.Storage // underlying blob storage
 
 	verbose       bool
 	bufferManager *bufferManager
@@ -173,7 +173,7 @@ func EnableLogging(options ...logging.Option) RepositoryOption {
 }
 
 // New creates a Repository with the specified storage, format and options.
-func New(s storage.Storage, f *Format, options ...RepositoryOption) (*Repository, error) {
+func New(s blob.Storage, f *Format, options ...RepositoryOption) (*Repository, error) {
 	if err := f.Validate(); err != nil {
 		return nil, err
 	}
@@ -261,7 +261,7 @@ func (r *Repository) hashEncryptAndWrite(objectID ObjectID, buffer *bytes.Buffer
 		return objectID, nil
 	}
 
-	if err != nil && err != storage.ErrBlockNotFound {
+	if err != nil && err != blob.ErrBlockNotFound {
 		// Don't know whether block exists in storage.
 		return NullObjectID, err
 	}
@@ -278,7 +278,7 @@ func (r *Repository) hashEncryptAndWrite(objectID ObjectID, buffer *bytes.Buffer
 	atomic.AddInt32(&r.Stats.WrittenBlocks, int32(1))
 	atomic.AddInt64(&r.Stats.WrittenBytes, int64(len(data)))
 
-	if err := r.storage.PutBlock(objectID.StorageBlock, data, storage.PutOptionsDefault); err != nil {
+	if err := r.storage.PutBlock(objectID.StorageBlock, data, blob.PutOptionsDefault); err != nil {
 		r.writeBackErrors.add(err)
 	}
 

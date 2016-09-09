@@ -12,9 +12,9 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/internal/jsonstream"
 	"github.com/kopia/kopia/internal/storagetesting"
-	"github.com/kopia/kopia/storage"
 )
 
 func init() {
@@ -293,7 +293,7 @@ func TestReaderStoredBlockNotFound(t *testing.T) {
 		t.Errorf("cannot parse object ID: %v", err)
 	}
 	reader, err := repo.Open(objectID)
-	if err != storage.ErrBlockNotFound || reader != nil {
+	if err != blob.ErrBlockNotFound || reader != nil {
 		t.Errorf("unexpected result: reader: %v err: %v", reader, err)
 	}
 }

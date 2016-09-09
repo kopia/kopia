@@ -16,7 +16,7 @@ import (
 
 	"github.com/skratchdot/open-golang/open"
 
-	"github.com/kopia/kopia/storage"
+	"github.com/kopia/kopia/blob"
 
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
@@ -48,7 +48,7 @@ func (gcs *gcsStorage) BlockSize(b string) (int64, error) {
 		})
 
 	if isGoogleAPIError(err, http.StatusNotFound) {
-		return 0, storage.ErrBlockNotFound
+		return 0, blob.ErrBlockNotFound
 	}
 
 	return int64(v.(*gcsclient.Object).Size), nil
@@ -62,7 +62,7 @@ func (gcs *gcsStorage) GetBlock(b string) ([]byte, error) {
 			return call.Download()
 		})
 	if isGoogleAPIError(err, http.StatusNotFound) {
-		return nil, storage.ErrBlockNotFound
+		return nil, blob.ErrBlockNotFound
 	}
 
 	if err != nil {
@@ -76,7 +76,7 @@ func (gcs *gcsStorage) GetBlock(b string) ([]byte, error) {
 	return ioutil.ReadAll(dl.Body)
 }
 
-func (gcs *gcsStorage) PutBlock(b string, data []byte, options storage.PutOptions) error {
+func (gcs *gcsStorage) PutBlock(b string, data []byte, options blob.PutOptions) error {
 	object := gcsclient.Object{
 		Name: gcs.getObjectNameString(b),
 	}
@@ -87,7 +87,7 @@ func (gcs *gcsStorage) PutBlock(b string, data []byte, options storage.PutOption
 		// Specify exact chunk size to ensure data is uploaded in one shot or not at all.
 		googleapi.ChunkSize(len(data)),
 	)
-	if options&storage.PutOptionsOverwrite == 0 {
+	if options&blob.PutOptionsOverwrite == 0 {
 		// To avoid the race, check this server-side.
 		call = call.IfGenerationMatch(0)
 	}
@@ -124,8 +124,8 @@ func (gcs *gcsStorage) getObjectNameString(b string) string {
 	return gcs.Prefix + string(b)
 }
 
-func (gcs *gcsStorage) ListBlocks(prefix string) chan (storage.BlockMetadata) {
-	ch := make(chan storage.BlockMetadata, 100)
+func (gcs *gcsStorage) ListBlocks(prefix string) chan (blob.BlockMetadata) {
+	ch := make(chan blob.BlockMetadata, 100)
 
 	go func() {
 		ps := gcs.getObjectNameString(prefix)
@@ -138,7 +138,7 @@ func (gcs *gcsStorage) ListBlocks(prefix string) chan (storage.BlockMetadata) {
 
 		for {
 			if err != nil {
-				ch <- storage.BlockMetadata{Error: err}
+				ch <- blob.BlockMetadata{Error: err}
 				break
 			}
 
@@ -149,11 +149,11 @@ func (gcs *gcsStorage) ListBlocks(prefix string) chan (storage.BlockMetadata) {
 			for _, o := range objects.Items {
 				t, e := time.Parse(time.RFC3339, o.TimeCreated)
 				if e != nil {
-					ch <- storage.BlockMetadata{
+					ch <- blob.BlockMetadata{
 						Error: e,
 					}
 				} else {
-					ch <- storage.BlockMetadata{
+					ch <- blob.BlockMetadata{
 						BlockID:   string(o.Name)[len(gcs.Prefix):],
 						Length:    int64(o.Size),
 						TimeStamp: t,
@@ -179,8 +179,8 @@ func (gcs *gcsStorage) ListBlocks(prefix string) chan (storage.BlockMetadata) {
 	return ch
 }
 
-func (gcs *gcsStorage) ConnectionInfo() storage.ConnectionInfo {
-	return storage.ConnectionInfo{
+func (gcs *gcsStorage) ConnectionInfo() blob.ConnectionInfo {
+	return blob.ConnectionInfo{
 		Type:   gcsStorageType,
 		Config: &gcs.Options,
 	}
@@ -222,7 +222,7 @@ func saveToken(file string, token *oauth2.Token) {
 //
 // By default the connection reuses credentials managed by (https://cloud.google.com/sdk/),
 // but this can be disabled by setting IgnoreDefaultCredentials to true.
-func New(options *Options) (storage.Storage, error) {
+func New(options *Options) (blob.Storage, error) {
 	ctx := context.TODO()
 
 	//ctx = httptrace.WithClientTrace(ctx, &httptrace.ClientTrace{})
@@ -408,14 +408,14 @@ func tokenFromWebManual(ctx context.Context, config *oauth2.Config) (*oauth2.Tok
 }
 
 func init() {
-	storage.AddSupportedStorage(
+	blob.AddSupportedStorage(
 		gcsStorageType,
 		func() interface{} {
 			return &Options{}
 		},
-		func(o interface{}) (storage.Storage, error) {
+		func(o interface{}) (blob.Storage, error) {
 			return New(o.(*Options))
 		})
 }
 
-var _ storage.ConnectionInfoProvider = &gcsStorage{}
+var _ blob.ConnectionInfoProvider = &gcsStorage{}

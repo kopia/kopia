@@ -5,11 +5,11 @@ import (
 	"log"
 	"time"
 
-	"github.com/kopia/kopia/storage"
+	"github.com/kopia/kopia/blob"
 )
 
 type loggingStorage struct {
-	base   storage.Storage
+	base   blob.Storage
 	printf func(string, ...interface{})
 	prefix string
 }
@@ -34,7 +34,7 @@ func (s *loggingStorage) GetBlock(id string) ([]byte, error) {
 	return result, err
 }
 
-func (s *loggingStorage) PutBlock(id string, data []byte, options storage.PutOptions) error {
+func (s *loggingStorage) PutBlock(id string, data []byte, options blob.PutOptions) error {
 	t0 := time.Now()
 	err := s.base.PutBlock(id, data, options)
 	dt := time.Since(t0)
@@ -50,7 +50,7 @@ func (s *loggingStorage) DeleteBlock(id string) error {
 	return err
 }
 
-func (s *loggingStorage) ListBlocks(prefix string) chan (storage.BlockMetadata) {
+func (s *loggingStorage) ListBlocks(prefix string) chan (blob.BlockMetadata) {
 	t0 := time.Now()
 	ch := s.base.ListBlocks(prefix)
 	dt := time.Since(t0)
@@ -70,7 +70,7 @@ func (s *loggingStorage) Close() error {
 type Option func(s *loggingStorage)
 
 // NewWrapper returns a Storage wrapper that logs all storage commands.
-func NewWrapper(wrapped storage.Storage, options ...Option) storage.Storage {
+func NewWrapper(wrapped blob.Storage, options ...Option) blob.Storage {
 	s := &loggingStorage{base: wrapped, printf: log.Printf}
 	for _, o := range options {
 		o(s)

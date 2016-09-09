@@ -4,11 +4,11 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/kopia/kopia/blob"
+	"github.com/kopia/kopia/blob/caching"
+	"github.com/kopia/kopia/blob/logging"
 	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/storage"
-	"github.com/kopia/kopia/storage/caching"
-	"github.com/kopia/kopia/storage/logging"
 	"github.com/kopia/kopia/vault"
 )
 
@@ -62,7 +62,7 @@ func Open(configFile string, options *ConnectionOptions) (*Connection, error) {
 		return nil, fmt.Errorf("invalid vault credentials: %v", err)
 	}
 
-	rawVaultStorage, err := storage.NewStorage(lc.VaultConnection.ConnectionInfo)
+	rawVaultStorage, err := blob.NewStorage(lc.VaultConnection.ConnectionInfo)
 	if err != nil {
 		return nil, fmt.Errorf("cannot open vault storage: %v", err)
 	}
@@ -80,12 +80,12 @@ func Open(configFile string, options *ConnectionOptions) (*Connection, error) {
 		return nil, fmt.Errorf("unable to open vault: %v", err)
 	}
 
-	var repositoryStorage storage.Storage
+	var repositoryStorage blob.Storage
 
 	if lc.RepoConnection == nil {
 		repositoryStorage = rawVaultStorage
 	} else {
-		repositoryStorage, err = storage.NewStorage(*lc.RepoConnection)
+		repositoryStorage, err = blob.NewStorage(*lc.RepoConnection)
 		if err != nil {
 			vaultStorage.Close()
 			return nil, err

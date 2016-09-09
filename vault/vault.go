@@ -14,8 +14,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/storage"
 
 	"golang.org/x/crypto/hkdf"
 )
@@ -37,7 +37,7 @@ var ErrItemNotFound = errors.New("item not found")
 
 // Vault is a secure storage for secrets such as repository object identifiers.
 type Vault struct {
-	storage    storage.Storage
+	storage    blob.Storage
 	format     Format
 	RepoConfig RepositoryConfig
 
@@ -84,13 +84,13 @@ func (v *Vault) writeEncryptedBlock(itemID string, content []byte) error {
 		content = cipherText
 	}
 
-	return v.storage.PutBlock(v.itemPrefix+itemID, content, storage.PutOptionsOverwrite)
+	return v.storage.PutBlock(v.itemPrefix+itemID, content, blob.PutOptionsOverwrite)
 }
 
 func (v *Vault) readEncryptedBlock(itemID string) ([]byte, error) {
 	content, err := v.storage.GetBlock(v.itemPrefix + itemID)
 	if err != nil {
-		if err == storage.ErrBlockNotFound {
+		if err == blob.ErrBlockNotFound {
 			return nil, ErrItemNotFound
 		}
 		return nil, fmt.Errorf("unexpected error reading %v: %v", itemID, err)
@@ -227,14 +227,14 @@ func (v *Vault) Close() error {
 
 // Config represents JSON-compatible configuration of the vault connection, including vault key.
 type Config struct {
-	ConnectionInfo storage.ConnectionInfo `json:"connection"`
-	Key            []byte                 `json:"key,omitempty"`
+	ConnectionInfo blob.ConnectionInfo `json:"connection"`
+	Key            []byte              `json:"key,omitempty"`
 }
 
 // Config returns a configuration of vault storage its credentials that's suitable
 // for storing in configuration file.
 func (v *Vault) Config() (*Config, error) {
-	cip, ok := v.storage.(storage.ConnectionInfoProvider)
+	cip, ok := v.storage.(blob.ConnectionInfoProvider)
 	if !ok {
 		return nil, errors.New("repository does not support persisting configuration")
 	}
@@ -258,10 +258,10 @@ func (v *Vault) Remove(itemID string) error {
 
 // Create initializes a Vault attached to the specified repository.
 func Create(
-	vaultStorage storage.Storage,
+	vaultStorage blob.Storage,
 	vaultFormat *Format,
 	vaultCreds Credentials,
-	repoStorage storage.Storage,
+	repoStorage blob.Storage,
 	repoFormat *repo.Format,
 ) (*Vault, error) {
 	v := Vault{
@@ -274,7 +274,7 @@ func Create(
 		v.itemPrefix = colocatedVaultItemPrefix
 	}
 
-	cip, ok := repoStorage.(storage.ConnectionInfoProvider)
+	cip, ok := repoStorage.(blob.ConnectionInfoProvider)
 	if !ok {
 		return nil, errors.New("repository does not support persisting configuration")
 	}
@@ -291,7 +291,7 @@ func Create(
 		return nil, err
 	}
 
-	if err := vaultStorage.PutBlock(v.itemPrefix+formatBlockID, formatBytes, storage.PutOptionsOverwrite); err != nil {
+	if err := vaultStorage.PutBlock(v.itemPrefix+formatBlockID, formatBytes, blob.PutOptionsOverwrite); err != nil {
 		return nil, err
 	}
 
@@ -315,7 +315,7 @@ func Create(
 
 // CreateColocated initializes a Vault attached to a Repository sharing the same storage.
 func CreateColocated(
-	sharedStorage storage.Storage,
+	sharedStorage blob.Storage,
 	vaultFormat *Format,
 	vaultCreds Credentials,
 	repoFormat *repo.Format,
@@ -325,12 +325,12 @@ func CreateColocated(
 
 // RepositoryConfig stores the configuration of the repository associated with the vault.
 type RepositoryConfig struct {
-	Connection *storage.ConnectionInfo `json:"connection"`
-	Format     *repo.Format            `json:"format"`
+	Connection *blob.ConnectionInfo `json:"connection"`
+	Format     *repo.Format         `json:"format"`
 }
 
 // Open opens a vault.
-func Open(vaultStorage storage.Storage, vaultCreds Credentials) (*Vault, error) {
+func Open(vaultStorage blob.Storage, vaultCreds Credentials) (*Vault, error) {
 	v := Vault{
 		storage: vaultStorage,
 	}

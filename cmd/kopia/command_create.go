@@ -7,8 +7,8 @@ import (
 
 	"gopkg.in/alecthomas/kingpin.v2"
 
+	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/storage"
 	"github.com/kopia/kopia/vault"
 )
 
@@ -59,7 +59,7 @@ func repositoryFormat() (*repo.Format, error) {
 	return f, nil
 }
 
-func openStorageAndEnsureEmpty(url string) (storage.Storage, error) {
+func openStorageAndEnsureEmpty(url string) (blob.Storage, error) {
 	s, err := newStorageFromURL(url)
 	if err != nil {
 		return nil, err

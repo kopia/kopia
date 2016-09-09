@@ -7,12 +7,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kopia/kopia/storage"
-	fsstorage "github.com/kopia/kopia/storage/filesystem"
-	gcsstorage "github.com/kopia/kopia/storage/gcs"
+	"github.com/kopia/kopia/blob"
+	fsstorage "github.com/kopia/kopia/blob/filesystem"
+	gcsstorage "github.com/kopia/kopia/blob/gcs"
 )
 
-func newStorageFromURL(urlString string) (storage.Storage, error) {
+func newStorageFromURL(urlString string) (blob.Storage, error) {
 	if strings.HasPrefix(urlString, "/") {
 		urlString = "file://" + urlString
 	}

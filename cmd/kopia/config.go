@@ -13,12 +13,12 @@ import (
 
 	"github.com/bgentry/speakeasy"
 	"github.com/kopia/kopia"
+	"github.com/kopia/kopia/blob/logging"
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/fs/loggingfs"
 	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/storage/logging"
 	"github.com/kopia/kopia/vault"
 )
 
