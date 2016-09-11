@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -51,8 +52,12 @@ func failOnError(err error) {
 	}
 }
 
+func getContext() context.Context {
+	return context.Background()
+}
+
 func openConnection(options ...repo.RepositoryOption) (*kopia.Connection, error) {
-	return kopia.Open(vaultConfigFileName(), connectionOptionsFromFlags(options...))
+	return kopia.Open(getContext(), vaultConfigFileName(), connectionOptionsFromFlags(options...))
 }
 
 func connectionOptionsFromFlags(options ...repo.RepositoryOption) *kopia.ConnectionOptions {
@@ -137,7 +142,7 @@ func openVaultSpecifiedByFlag() (*vault.Vault, error) {
 	if *vaultPath == "" {
 		return nil, fmt.Errorf("--vault must be specified")
 	}
-	storage, err := newStorageFromURL(*vaultPath)
+	storage, err := newStorageFromURL(getContext(), *vaultPath)
 	if err != nil {
 		return nil, err
 	}

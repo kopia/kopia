@@ -1,6 +1,7 @@
 package repofs
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -35,7 +36,7 @@ func newUploadTestHarness() *uploadTestHarness {
 		panic("cannot create temp directory: " + err.Error())
 	}
 
-	storage, err := filesystem.New(&filesystem.Options{
+	storage, err := filesystem.New(context.Background(), &filesystem.Options{
 		Path: repoDir,
 	})
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"os"
@@ -12,7 +13,7 @@ import (
 	gcsstorage "github.com/kopia/kopia/blob/gcs"
 )
 
-func newStorageFromURL(urlString string) (blob.Storage, error) {
+func newStorageFromURL(ctx context.Context, urlString string) (blob.Storage, error) {
 	if strings.HasPrefix(urlString, "/") {
 		urlString = "file://" + urlString
 	}
@@ -29,14 +30,14 @@ func newStorageFromURL(urlString string) (blob.Storage, error) {
 			return nil, err
 		}
 
-		return fsstorage.New(&fso)
+		return fsstorage.New(ctx, &fso)
 
 	case "gs", "gcs":
 		var gcso gcsstorage.Options
 		if err := parseGoogleCloudStorageURL(&gcso, u); err != nil {
 			return nil, err
 		}
-		return gcsstorage.New(&gcso)
+		return gcsstorage.New(ctx, &gcso)
 
 	default:
 		return nil, fmt.Errorf("unrecognized storage type: %v", u.Scheme)

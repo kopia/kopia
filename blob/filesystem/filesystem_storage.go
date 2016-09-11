@@ -2,6 +2,7 @@
 package filesystem
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -208,7 +209,7 @@ func (fs *fsStorage) Close() error {
 }
 
 // New creates new filesystem-backed storage in a specified directory.
-func New(options *Options) (blob.Storage, error) {
+func New(ctx context.Context, options *Options) (blob.Storage, error) {
 	var err error
 
 	if _, err = os.Stat(options.Path); err != nil {
@@ -226,7 +227,7 @@ func init() {
 	blob.AddSupportedStorage(
 		fsStorageType,
 		func() interface{} { return &Options{} },
-		func(o interface{}) (blob.Storage, error) {
-			return New(o.(*Options))
+		func(ctx context.Context, o interface{}) (blob.Storage, error) {
+			return New(ctx, o.(*Options))
 		})
 }

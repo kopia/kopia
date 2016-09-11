@@ -1,6 +1,7 @@
 package vault
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -267,7 +268,7 @@ func assertVaultItems(t *testing.T, v *Vault, prefix string, expected []string) 
 
 func mustCreateFileStorage(t *testing.T, path string) blob.Storage {
 	os.MkdirAll(path, 0700)
-	s, err := filesystem.New(&filesystem.Options{
+	s, err := filesystem.New(context.Background(), &filesystem.Options{
 		Path: path,
 	})
 	if err != nil {

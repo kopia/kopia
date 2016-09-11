@@ -2,6 +2,7 @@
 package caching
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -204,7 +205,7 @@ type Options struct {
 }
 
 // NewWrapper creates new caching storage wrapper.
-func NewWrapper(master blob.Storage, options *Options) (blob.Storage, error) {
+func NewWrapper(ctx context.Context, master blob.Storage, options *Options) (blob.Storage, error) {
 	if options.CacheDir == "" {
 		return nil, fmt.Errorf("Cache directory must be specified")
 	}
@@ -218,7 +219,7 @@ func NewWrapper(master blob.Storage, options *Options) (blob.Storage, error) {
 		return nil, fmt.Errorf("cannot open cache database: %v", err)
 	}
 
-	cs, err := filesystem.New(&filesystem.Options{
+	cs, err := filesystem.New(ctx, &filesystem.Options{
 		Path: cacheDataDir,
 	})
 

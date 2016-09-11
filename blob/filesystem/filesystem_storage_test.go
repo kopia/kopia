@@ -1,6 +1,7 @@
 package filesystem
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -22,7 +23,7 @@ func TestFileStorage(t *testing.T) {
 		path, _ := ioutil.TempDir("", "r-fs")
 		defer os.RemoveAll(path)
 
-		r, err := New(&Options{
+		r, err := New(context.Background(), &Options{
 			Path:            path,
 			DirectoryShards: shardSpec,
 		})

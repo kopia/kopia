@@ -3,6 +3,7 @@ package gcs
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,11 +15,8 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/skratchdot/open-golang/open"
-
 	"github.com/kopia/kopia/blob"
-
-	"golang.org/x/net/context"
+	"github.com/skratchdot/open-golang/open"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 
@@ -222,11 +220,7 @@ func saveToken(file string, token *oauth2.Token) {
 //
 // By default the connection reuses credentials managed by (https://cloud.google.com/sdk/),
 // but this can be disabled by setting IgnoreDefaultCredentials to true.
-func New(options *Options) (blob.Storage, error) {
-	ctx := context.TODO()
-
-	//ctx = httptrace.WithClientTrace(ctx, &httptrace.ClientTrace{})
-
+func New(ctx context.Context, options *Options) (blob.Storage, error) {
 	gcs := &gcsStorage{
 		Options: *options,
 	}
@@ -413,8 +407,8 @@ func init() {
 		func() interface{} {
 			return &Options{}
 		},
-		func(o interface{}) (blob.Storage, error) {
-			return New(o.(*Options))
+		func(ctx context.Context, o interface{}) (blob.Storage, error) {
+			return New(ctx, o.(*Options))
 		})
 }
 

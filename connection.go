@@ -1,6 +1,7 @@
 package kopia
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -42,7 +43,7 @@ func (c *Connection) Close() error {
 }
 
 // Open connects to the Vault and Repository specified in the specified configuration file.
-func Open(configFile string, options *ConnectionOptions) (*Connection, error) {
+func Open(ctx context.Context, configFile string, options *ConnectionOptions) (*Connection, error) {
 	lc, err := config.LoadFromFile(configFile)
 	if err != nil {
 		return nil, err
@@ -62,7 +63,7 @@ func Open(configFile string, options *ConnectionOptions) (*Connection, error) {
 		return nil, fmt.Errorf("invalid vault credentials: %v", err)
 	}
 
-	rawVaultStorage, err := blob.NewStorage(lc.VaultConnection.ConnectionInfo)
+	rawVaultStorage, err := blob.NewStorage(ctx, lc.VaultConnection.ConnectionInfo)
 	if err != nil {
 		return nil, fmt.Errorf("cannot open vault storage: %v", err)
 	}
@@ -85,7 +86,7 @@ func Open(configFile string, options *ConnectionOptions) (*Connection, error) {
 	if lc.RepoConnection == nil {
 		repositoryStorage = rawVaultStorage
 	} else {
-		repositoryStorage, err = blob.NewStorage(*lc.RepoConnection)
+		repositoryStorage, err = blob.NewStorage(ctx, *lc.RepoConnection)
 		if err != nil {
 			vaultStorage.Close()
 			return nil, err
@@ -97,7 +98,7 @@ func Open(configFile string, options *ConnectionOptions) (*Connection, error) {
 	}
 
 	if lc.Caching != nil {
-		rs, err := caching.NewWrapper(repositoryStorage, lc.Caching)
+		rs, err := caching.NewWrapper(ctx, repositoryStorage, lc.Caching)
 		if err != nil {
 			vaultStorage.Close()
 			repositoryStorage.Close()

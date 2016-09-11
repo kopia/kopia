@@ -60,7 +60,7 @@ func repositoryFormat() (*repo.Format, error) {
 }
 
 func openStorageAndEnsureEmpty(url string) (blob.Storage, error) {
-	s, err := newStorageFromURL(url)
+	s, err := newStorageFromURL(getContext(), url)
 	if err != nil {
 		return nil, err
 	}
