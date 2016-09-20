@@ -33,17 +33,10 @@ var (
 	passwordFile    = app.Flag("passwordfile", "Read vault password from a file.").PlaceHolder("FILENAME").Envar("KOPIA_PASSWORD_FILE").ExistingFile()
 	key             = app.Flag("key", "Specify vault master key (hexadecimal).").Envar("KOPIA_KEY").Short('k').String()
 	keyFile         = app.Flag("keyfile", "Read vault master key from file.").PlaceHolder("FILENAME").Envar("KOPIA_KEY_FILE").ExistingFile()
+
+	maxDownloadSpeed = app.Flag("max-download-speed", "Limit the download speed.").PlaceHolder("BYTES_PER_SEC").Int()
+	maxUploadSpeed   = app.Flag("max-upload-speed", "Limit the upload speed.").PlaceHolder("BYTES_PER_SEC").Int()
 )
-
-func mustLoadLocalConfig() *config.LocalConfig {
-	lc, err := loadLocalConfig()
-	failOnError(err)
-	return lc
-}
-
-func loadLocalConfig() (*config.LocalConfig, error) {
-	return config.LoadFromFile(vaultConfigFileName())
-}
 
 func failOnError(err error) {
 	if err != nil {
@@ -53,7 +46,8 @@ func failOnError(err error) {
 }
 
 func getContext() context.Context {
-	return context.Background()
+	ctx := context.Background()
+	return ctx
 }
 
 func openConnection(options ...repo.RepositoryOption) (*kopia.Connection, error) {
@@ -68,6 +62,14 @@ func connectionOptionsFromFlags(options ...repo.RepositoryOption) *kopia.Connect
 
 	if *traceStorage {
 		opts.TraceStorage = log.Printf
+	}
+
+	if *maxUploadSpeed != 0 {
+		opts.MaxUploadSpeed = *maxUploadSpeed
+	}
+
+	if *maxDownloadSpeed != 0 {
+		opts.MaxDownloadSpeed = *maxDownloadSpeed
 	}
 
 	return opts

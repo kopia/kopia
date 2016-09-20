@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 
 	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/blob/caching"
@@ -25,6 +26,9 @@ type ConnectionOptions struct {
 
 	TraceStorage      func(f string, args ...interface{})
 	RepositoryOptions []repo.RepositoryOption
+
+	MaxDownloadSpeed int
+	MaxUploadSpeed   int
 }
 
 // Close closes the underlying Vault and Repository.
@@ -63,7 +67,7 @@ func Open(ctx context.Context, configFile string, options *ConnectionOptions) (*
 		return nil, fmt.Errorf("invalid vault credentials: %v", err)
 	}
 
-	rawVaultStorage, err := blob.NewStorage(ctx, lc.VaultConnection.ConnectionInfo)
+	rawVaultStorage, err := newStorageWithOptions(ctx, lc.VaultConnection.ConnectionInfo, options)
 	if err != nil {
 		return nil, fmt.Errorf("cannot open vault storage: %v", err)
 	}
@@ -86,7 +90,7 @@ func Open(ctx context.Context, configFile string, options *ConnectionOptions) (*
 	if lc.RepoConnection == nil {
 		repositoryStorage = rawVaultStorage
 	} else {
-		repositoryStorage, err = blob.NewStorage(ctx, *lc.RepoConnection)
+		repositoryStorage, err = newStorageWithOptions(ctx, *lc.RepoConnection, options)
 		if err != nil {
 			vaultStorage.Close()
 			return nil, err
@@ -118,4 +122,22 @@ func Open(ctx context.Context, configFile string, options *ConnectionOptions) (*
 	}
 
 	return &conn, nil
+}
+
+func newStorageWithOptions(ctx context.Context, cfg blob.ConnectionInfo, options *ConnectionOptions) (blob.Storage, error) {
+	s, err := blob.NewStorage(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	if options.MaxUploadSpeed > 0 || options.MaxDownloadSpeed > 0 {
+		t, ok := s.(blob.Throttler)
+		if ok {
+			t.SetThrottle(options.MaxDownloadSpeed, options.MaxUploadSpeed)
+		} else {
+			log.Printf("Throttling not supported for '%v'.", cfg.Type)
+		}
+	}
+
+	return s, nil
 }

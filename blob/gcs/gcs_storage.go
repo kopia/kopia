@@ -15,12 +15,16 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/efarrer/iothrottler"
+
 	"github.com/kopia/kopia/blob"
 	"github.com/skratchdot/open-golang/open"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 
+	"github.com/kopia/kopia/internal/throttle"
 	"google.golang.org/api/googleapi"
+
 	gcsclient "google.golang.org/api/storage/v1"
 )
 
@@ -35,6 +39,9 @@ const (
 type gcsStorage struct {
 	Options
 	objectsService *gcsclient.ObjectsService
+
+	downloadThrottler *iothrottler.IOThrottlerPool
+	uploadThrottler   *iothrottler.IOThrottlerPool
 }
 
 func (gcs *gcsStorage) BlockSize(b string) (int64, error) {
@@ -193,6 +200,20 @@ func (gcs *gcsStorage) String() string {
 	return fmt.Sprintf("gcs://%v/%v", gcs.BucketName, gcs.Prefix)
 }
 
+func (gcs *gcsStorage) SetThrottle(downloadBytesPerSecond, uploadBytesPerSecond int) error {
+	gcs.downloadThrottler.SetBandwidth(toBandwidth(downloadBytesPerSecond))
+	gcs.uploadThrottler.SetBandwidth(toBandwidth(uploadBytesPerSecond))
+	return nil
+}
+
+func toBandwidth(bytesPerSecond int) iothrottler.Bandwidth {
+	if bytesPerSecond <= 0 {
+		return iothrottler.Unlimited
+	}
+
+	return iothrottler.Bandwidth(bytesPerSecond) * iothrottler.BytesPerSecond
+}
+
 func tokenFromFile(file string) (*oauth2.Token, error) {
 	f, err := os.Open(file)
 	if err != nil {
@@ -222,7 +243,9 @@ func saveToken(file string, token *oauth2.Token) {
 // but this can be disabled by setting IgnoreDefaultCredentials to true.
 func New(ctx context.Context, options *Options) (blob.Storage, error) {
 	gcs := &gcsStorage{
-		Options: *options,
+		Options:           *options,
+		downloadThrottler: iothrottler.NewIOThrottlerPool(iothrottler.Unlimited),
+		uploadThrottler:   iothrottler.NewIOThrottlerPool(iothrottler.Unlimited),
 	}
 
 	if gcs.BucketName == "" {
@@ -239,6 +262,13 @@ func New(ctx context.Context, options *Options) (blob.Storage, error) {
 	// Try to get default client if possible and not disabled by options.
 	var client *http.Client
 	var err error
+
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, &http.Client{
+		Transport: throttle.NewRoundTripper(
+			http.DefaultTransport,
+			gcs.downloadThrottler,
+			gcs.uploadThrottler),
+	})
 
 	if !gcs.IgnoreDefaultCredentials {
 		client, _ = google.DefaultClient(ctx, scope)
@@ -276,6 +306,7 @@ func New(ctx context.Context, options *Options) (blob.Storage, error) {
 				saveToken(gcs.TokenCacheFile, token)
 			}
 		}
+
 		client = config.Client(ctx, token)
 	}
 
@@ -413,3 +444,4 @@ func init() {
 }
 
 var _ blob.ConnectionInfoProvider = &gcsStorage{}
+var _ blob.Throttler = &gcsStorage{}

@@ -6,6 +6,7 @@ import (
 	"hash/fnv"
 	"io"
 	"log"
+	"time"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo"
@@ -61,6 +62,7 @@ type Uploader struct {
 
 func (u *Uploader) uploadFileInternal(f fs.File, relativePath string, forceStored bool) (*dirEntry, uint64, error) {
 	log.Printf("Uploading file %v", relativePath)
+	t0 := time.Now()
 	file, err := f.Open()
 	if err != nil {
 		return nil, 0, fmt.Errorf("unable to open file: %v", err)
@@ -89,8 +91,28 @@ func (u *Uploader) uploadFileInternal(f fs.File, relativePath string, forceStore
 
 	de := newDirEntry(e2, r)
 	de.FileSize = written
+	dt := time.Since(t0)
+	log.Printf("Uploaded file %v, %v bytes in %v. %v", relativePath, written, dt, bytesPerSecond(written, dt))
 
 	return de, metadataHash(&de.EntryMetadata), nil
+}
+
+func bytesPerSecond(bytes int64, duration time.Duration) string {
+	if duration == 0 {
+		return "0 B/s"
+	}
+
+	bps := float64(bytes) / duration.Seconds()
+
+	if bps >= 700000 {
+		return fmt.Sprintf("%.2f MB/s", bps/1000000)
+	}
+
+	if bps >= 700 {
+		return fmt.Sprintf("%.2f KB/s", bps/1000)
+	}
+
+	return fmt.Sprintf("%.2f B/s", bps)
 }
 
 func newDirEntry(md *fs.EntryMetadata, oid repo.ObjectID) *dirEntry {
@@ -104,7 +126,7 @@ func (u *Uploader) uploadBundleInternal(b *bundle) (*dirEntry, uint64, error) {
 	bundleMetadata := b.Metadata()
 
 	log.Printf("uploading bundle %v (%v files)", bundleMetadata.Name, len(b.files))
-	defer log.Printf("finished uploading bundle")
+	t0 := time.Now()
 
 	writer := u.repo.NewWriter(
 		repo.WithDescription("BUNDLE:" + bundleMetadata.Name),
@@ -115,6 +137,7 @@ func (u *Uploader) uploadBundleInternal(b *bundle) (*dirEntry, uint64, error) {
 	var err error
 
 	de := newDirEntry(bundleMetadata, repo.NullObjectID)
+	var totalBytes int64
 
 	for _, fileEntry := range b.files {
 		file, err := fileEntry.Open()
@@ -136,11 +159,14 @@ func (u *Uploader) uploadBundleInternal(b *bundle) (*dirEntry, uint64, error) {
 		de.BundledChildren = append(de.BundledChildren, newDirEntry(fileMetadata, repo.NullObjectID))
 
 		uploadedFiles = append(uploadedFiles, &bundledFile{metadata: fileMetadata})
+		totalBytes += written
 		file.Close()
 	}
 
 	b.files = uploadedFiles
 	de.ObjectID, err = writer.Result(true)
+	dt := time.Since(t0)
+	log.Printf("Uploaded bundle %v (%v files) %v bytes in %v. %v", bundleMetadata.Name, len(b.files), totalBytes, dt, bytesPerSecond(totalBytes, dt))
 	if err != nil {
 		return nil, 0, err
 	}

@@ -38,3 +38,8 @@ type BlockMetadata struct {
 	TimeStamp time.Time
 	Error     error
 }
+
+// Throttler is an interface optionally implemented by Storage that sets the upload throttle.
+type Throttler interface {
+	SetThrottle(downloadBytesPerSecond, uploadBytesPerSecond int) error
+}
