@@ -1,4 +1,4 @@
-package backup
+package repofs
 
 import (
 	"crypto/sha1"
@@ -9,8 +9,10 @@ import (
 	"github.com/kopia/kopia/repo"
 )
 
-// Manifest stores information about single backup.
-type Manifest struct {
+var zeroByte = []byte{0}
+
+// Snapshot stores information about a single filesystem snapshot.
+type Snapshot struct {
 	StartTime time.Time `json:"startTime"`
 	EndTime   time.Time `json:"endTime"`
 
@@ -32,13 +34,13 @@ type Manifest struct {
 
 // SourceID generates unique identifier of the backup source, which is a
 // SHA1 hash of the host name, username and source directory.
-func (m Manifest) SourceID() string {
+func (r Snapshot) SourceID() string {
 	h := sha1.New()
-	io.WriteString(h, m.HostName)
+	io.WriteString(h, r.HostName)
 	h.Write(zeroByte)
-	io.WriteString(h, m.UserName)
+	io.WriteString(h, r.UserName)
 	h.Write(zeroByte)
-	io.WriteString(h, m.Source)
+	io.WriteString(h, r.Source)
 	h.Write(zeroByte)
 	return hex.EncodeToString(h.Sum(nil))
 }

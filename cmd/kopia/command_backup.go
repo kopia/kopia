@@ -16,7 +16,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kopia/kopia/backup"
 	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/repo"
 
@@ -55,10 +54,7 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 
 	var options []repofs.UploadOption
 
-	bgen, err := backup.NewGenerator(conn.Repository, options...)
-	if err != nil {
-		return err
-	}
+	uploader := repofs.NewUploader(conn.Repository, options...)
 
 	for _, backupDirectory := range *backupSources {
 		dir, err := filepath.Abs(backupDirectory)
@@ -66,7 +62,7 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 			return fmt.Errorf("invalid source: '%s': %s", backupDirectory, err)
 		}
 
-		manifest := backup.Manifest{
+		manifest := repofs.Snapshot{
 			StartTime: time.Now(),
 			Source:    filepath.Clean(dir),
 
@@ -84,7 +80,7 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 			return fmt.Errorf("error listing previous backups")
 		}
 
-		var oldManifest *backup.Manifest
+		var oldManifest *repofs.Snapshot
 
 		if len(previous) > 0 {
 			oldManifest, err = loadBackupManifest(conn.Vault, previous[0])
@@ -95,7 +91,7 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 			return err
 		}
 
-		if err := bgen.Backup(localEntry, &manifest, oldManifest); err != nil {
+		if err := uploader.Upload(localEntry, &manifest, oldManifest); err != nil {
 			return err
 		}
 

@@ -41,8 +41,8 @@ func bundleHash(b *bundle) uint64 {
 	return h.Sum64()
 }
 
-// UploadResult stores results of an upload.
-type UploadResult struct {
+// uploadResult stores results of an upload.
+type uploadResult struct {
 	ObjectID   repo.ObjectID
 	ManifestID repo.ObjectID
 	Cancelled  bool
@@ -174,18 +174,50 @@ func (u *Uploader) uploadBundleInternal(b *bundle) (*dirEntry, uint64, error) {
 	return de, bundleHash(b), nil
 }
 
-// UploadFile uploads the specified File to the repository.
-func (u *Uploader) UploadFile(file fs.File) (*UploadResult, error) {
-	result := &UploadResult{}
+// Upload uploads contents of the specified filesystem entry (file or directory) to the repository and updates given manifest with statistics.
+// Old snapshot manifest, when provided can be used to speed up backups by utilizing hash cache.
+func (u *Uploader) Upload(entry fs.Entry, s *Snapshot, old *Snapshot) error {
+	s.StartTime = time.Now()
+	var hashCacheID *repo.ObjectID
+
+	if old != nil {
+		hashCacheID = &old.HashCacheID
+	}
+
+	var r *uploadResult
+	var err error
+	switch entry := entry.(type) {
+	case fs.Directory:
+		r, err = u.uploadDir(entry, hashCacheID)
+	case fs.File:
+		r, err = u.uploadFile(entry)
+	default:
+		return fmt.Errorf("unsupported source: %v", s.Source)
+	}
+	s.EndTime = time.Now()
+	if err != nil {
+		return err
+	}
+	s.RootObjectID = r.ObjectID
+	s.HashCacheID = r.ManifestID
+	stats := u.repo.Stats
+	s.Stats = &stats
+
+	return nil
+}
+
+// uploadFile uploads the specified File to the repository.
+func (u *Uploader) uploadFile(file fs.File) (*uploadResult, error) {
+	result := &uploadResult{}
 	e, _, err := u.uploadFileInternal(file, file.Metadata().Name, true)
 	result.ObjectID = e.ObjectID
 	return result, err
 }
 
-// UploadDir uploads the specified Directory to the repository.
+// uploadDir uploads the specified Directory to the repository.
 // An optional ID of a hash-cache object may be provided, in which case the uploader will use its
 // contents to avoid hashing
-func (u *Uploader) UploadDir(dir fs.Directory, hashCacheID *repo.ObjectID) (*UploadResult, error) {
+func (u *Uploader) uploadDir(dir fs.Directory, hashCacheID *repo.ObjectID) (*uploadResult, error) {
 	var hcr hashcacheReader
 	var err error
 
@@ -202,7 +234,7 @@ func (u *Uploader) UploadDir(dir fs.Directory, hashCacheID *repo.ObjectID) (*Upl
 	defer mw.Close()
 	hcw := newHashCacheWriter(mw)
 
-	result := &UploadResult{}
+	result := &uploadResult{}
 	result.ObjectID, _, _, err = u.uploadDirInternal(result, dir, ".", hcw, &hcr, true)
 	if err != nil {
 		return result, err
@@ -215,7 +247,7 @@ func (u *Uploader) UploadDir(dir fs.Directory, hashCacheID *repo.ObjectID) (*Upl
 }
 
 func (u *Uploader) uploadDirInternal(
-	result *UploadResult,
+	result *uploadResult,
 	dir fs.Directory,
 	relativePath string,
 	hcw *hashcacheWriter,

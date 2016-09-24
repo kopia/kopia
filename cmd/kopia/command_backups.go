@@ -5,7 +5,7 @@ import (
 	"log"
 	"path/filepath"
 
-	"github.com/kopia/kopia/backup"
+	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/vault"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
@@ -21,7 +21,7 @@ func findBackups(vlt *vault.Vault, path string) ([]string, string, error) {
 	var relPath string
 
 	for len(path) > 0 {
-		manifest := backup.Manifest{
+		manifest := repofs.Snapshot{
 			Source:   path,
 			HostName: getBackupHostName(),
 			UserName: getBackupUser(),
@@ -105,8 +105,8 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 	return nil
 }
 
-func loadBackupManifests(vlt *vault.Vault, names []string) []*backup.Manifest {
-	result := make([]*backup.Manifest, len(names))
+func loadBackupManifests(vlt *vault.Vault, names []string) []*repofs.Snapshot {
+	result := make([]*repofs.Snapshot, len(names))
 	sem := make(chan bool, 5)
 
 	for i, n := range names {

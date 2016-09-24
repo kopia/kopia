@@ -90,13 +90,13 @@ func TestUpload(t *testing.T) {
 	th := newUploadTestHarness()
 	defer th.cleanup()
 
-	r1, err := th.uploader.UploadDir(th.sourceDir, nil)
+	r1, err := th.uploader.uploadDir(th.sourceDir, nil)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
 
 	log.Printf("--------------------------")
-	r2, err := th.uploader.UploadDir(th.sourceDir, &r1.ManifestID)
+	r2, err := th.uploader.uploadDir(th.sourceDir, &r1.ManifestID)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
@@ -122,7 +122,7 @@ func TestUpload(t *testing.T) {
 
 	// Add one more file, the r1.ObjectID should change.
 	th.sourceDir.AddFile("d2/d1/f3", []byte{1, 2, 3, 4, 5}, 0777)
-	r3, err := th.uploader.UploadDir(th.sourceDir, &r1.ManifestID)
+	r3, err := th.uploader.uploadDir(th.sourceDir, &r1.ManifestID)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
@@ -143,7 +143,7 @@ func TestUpload(t *testing.T) {
 	// Now remove the added file, OID should be identical to the original before the file got added.
 	th.sourceDir.Subdir("d2", "d1").Remove("f3")
 
-	r4, err := th.uploader.UploadDir(th.sourceDir, &r1.ManifestID)
+	r4, err := th.uploader.uploadDir(th.sourceDir, &r1.ManifestID)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
@@ -162,7 +162,7 @@ func TestUpload(t *testing.T) {
 	}
 
 	// Upload again, this time using r3.ManifestID as base.
-	r5, err := th.uploader.UploadDir(th.sourceDir, &r3.ManifestID)
+	r5, err := th.uploader.uploadDir(th.sourceDir, &r3.ManifestID)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
@@ -182,7 +182,7 @@ func TestUpload_TopLevelDirectoryReadFailure(t *testing.T) {
 
 	th.sourceDir.FailReaddir(errTest)
 
-	r, err := th.uploader.UploadDir(th.sourceDir, nil)
+	r, err := th.uploader.uploadDir(th.sourceDir, nil)
 	if err != errTest {
 		t.Errorf("expected error: %v", err)
 	}
@@ -198,7 +198,7 @@ func TestUpload_SubDirectoryReadFailure(t *testing.T) {
 
 	th.sourceDir.Subdir("d1").FailReaddir(errTest)
 
-	_, err := th.uploader.UploadDir(th.sourceDir, nil)
+	_, err := th.uploader.uploadDir(th.sourceDir, nil)
 	if err == nil {
 		t.Errorf("expected error")
 	}
