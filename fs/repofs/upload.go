@@ -55,12 +55,12 @@ type uploadResult struct {
 	}
 }
 
-// Uploader supports efficient uploading files and directories to repository.
-type Uploader struct {
+// uploader supports efficient uploading files and directories to repository.
+type uploader struct {
 	repo *repo.Repository
 }
 
-func (u *Uploader) uploadFileInternal(f fs.File, relativePath string, forceStored bool) (*dirEntry, uint64, error) {
+func (u *uploader) uploadFileInternal(f fs.File, relativePath string, forceStored bool) (*dirEntry, uint64, error) {
 	log.Printf("Uploading file %v", relativePath)
 	t0 := time.Now()
 	file, err := f.Open()
@@ -122,7 +122,7 @@ func newDirEntry(md *fs.EntryMetadata, oid repo.ObjectID) *dirEntry {
 	}
 }
 
-func (u *Uploader) uploadBundleInternal(b *bundle) (*dirEntry, uint64, error) {
+func (u *uploader) uploadBundleInternal(b *bundle) (*dirEntry, uint64, error) {
 	bundleMetadata := b.Metadata()
 
 	log.Printf("uploading bundle %v (%v files)", bundleMetadata.Name, len(b.files))
@@ -176,7 +176,10 @@ func (u *Uploader) uploadBundleInternal(b *bundle) (*dirEntry, uint64, error) {
 
 // Upload uploads contents of the specified filesystem entry (file or directory) to the repository and updates given manifest with statistics.
 // Old snapshot manifest, when provided can be used to speed up backups by utilizing hash cache.
-func (u *Uploader) Upload(entry fs.Entry, s *Snapshot, old *Snapshot) error {
+func Upload(source fs.Entry, repository *repo.Repository, s *Snapshot, old *Snapshot) error {
+	u := &uploader{
+		repo: repository,
+	}
 	s.StartTime = time.Now()
 	var hashCacheID *repo.ObjectID
 
@@ -186,7 +189,7 @@ func (u *Uploader) Upload(entry fs.Entry, s *Snapshot, old *Snapshot) error {
 
 	var r *uploadResult
 	var err error
-	switch entry := entry.(type) {
+	switch entry := source.(type) {
 	case fs.Directory:
 		r, err = u.uploadDir(entry, hashCacheID)
 	case fs.File:
@@ -207,7 +210,7 @@ func (u *Uploader) Upload(entry fs.Entry, s *Snapshot, old *Snapshot) error {
 }
 
 // uploadFile uploads the specified File to the repository.
-func (u *Uploader) uploadFile(file fs.File) (*uploadResult, error) {
+func (u *uploader) uploadFile(file fs.File) (*uploadResult, error) {
 	result := &uploadResult{}
 	e, _, err := u.uploadFileInternal(file, file.Metadata().Name, true)
 	result.ObjectID = e.ObjectID
@@ -217,7 +220,7 @@ func (u *Uploader) uploadFile(file fs.File) (*uploadResult, error) {
 // uploadDir uploads the specified Directory to the repository.
 // An optional ID of a hash-cache object may be provided, in which case the uploader will use its
 // contents to avoid hashing
-func (u *Uploader) uploadDir(dir fs.Directory, hashCacheID *repo.ObjectID) (*uploadResult, error) {
+func (u *uploader) uploadDir(dir fs.Directory, hashCacheID *repo.ObjectID) (*uploadResult, error) {
 	var hcr hashcacheReader
 	var err error
 
@@ -246,7 +249,7 @@ func (u *Uploader) uploadDir(dir fs.Directory, hashCacheID *repo.ObjectID) (*upl
 	return result, err
 }
 
-func (u *Uploader) uploadDirInternal(
+func (u *uploader) uploadDirInternal(
 	result *uploadResult,
 	dir fs.Directory,
 	relativePath string,
@@ -415,7 +418,7 @@ func (u *Uploader) uploadDirInternal(
 	return directoryOID, dirHash, allCached, nil
 }
 
-func (u *Uploader) bundleEntries(entries fs.Entries) fs.Entries {
+func (u *uploader) bundleEntries(entries fs.Entries) fs.Entries {
 	var bundleMap map[int]*bundle
 
 	result := entries[:0]
@@ -464,26 +467,10 @@ func (u *Uploader) bundleEntries(entries fs.Entries) fs.Entries {
 	return result
 }
 
-func (u *Uploader) getBundleNumber(md *fs.EntryMetadata) int {
+func (u *uploader) getBundleNumber(md *fs.EntryMetadata) int {
 	if md.FileMode().IsRegular() && md.FileSize < maxBundleFileSize {
 		return md.ModTime.Year()*100 + int(md.ModTime.Month())
 	}
 
 	return 0
-}
-
-// UploadOption modifies the behavior of Uploader.
-type UploadOption func(u *Uploader)
-
-// NewUploader creates new Uploader object for the specified Repository
-func NewUploader(repo *repo.Repository, options ...UploadOption) *Uploader {
-	u := &Uploader{
-		repo: repo,
-	}
-
-	for _, o := range options {
-		o(u)
-	}
-
-	return u
 }

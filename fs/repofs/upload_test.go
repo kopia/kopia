@@ -21,7 +21,7 @@ type uploadTestHarness struct {
 	repoDir   string
 	repo      *repo.Repository
 	storage   blob.Storage
-	uploader  *Uploader
+	uploader  *uploader
 }
 
 var errTest = fmt.Errorf("test error")
@@ -80,7 +80,7 @@ func newUploadTestHarness() *uploadTestHarness {
 		sourceDir: sourceDir,
 		repoDir:   repoDir,
 		repo:      repo,
-		uploader:  NewUploader(repo),
+		uploader:  &uploader{repo},
 	}
 
 	return th

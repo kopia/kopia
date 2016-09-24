@@ -52,10 +52,6 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 	conn := mustOpenConnection(repoOptions...)
 	defer conn.Close()
 
-	var options []repofs.UploadOption
-
-	uploader := repofs.NewUploader(conn.Repository, options...)
-
 	for _, backupDirectory := range *backupSources {
 		dir, err := filepath.Abs(backupDirectory)
 		if err != nil {
@@ -91,7 +87,7 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 			return err
 		}
 
-		if err := uploader.Upload(localEntry, &manifest, oldManifest); err != nil {
+		if err := repofs.Upload(localEntry, conn.Repository, &manifest, oldManifest); err != nil {
 			return err
 		}
 
