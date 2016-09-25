@@ -21,13 +21,13 @@ func findBackups(vlt *vault.Vault, path string) ([]string, string, error) {
 	var relPath string
 
 	for len(path) > 0 {
-		manifest := repofs.Snapshot{
-			Source:   path,
-			HostName: getBackupHostName(),
+		sourceInfo := repofs.SnapshotSourceInfo{
+			Path:     path,
+			Host:     getBackupHostName(),
 			UserName: getBackupUser(),
 		}
 
-		prefix := manifest.SourceID() + "."
+		prefix := sourceInfo.HashString() + "."
 
 		list, err := vlt.List("B" + prefix)
 		if err != nil {
@@ -44,7 +44,7 @@ func findBackups(vlt *vault.Vault, path string) ([]string, string, error) {
 			relPath = filepath.Base(path)
 		}
 
-		log.Printf("No backups of %v@%v:%v", manifest.UserName, manifest.HostName, manifest.Source)
+		log.Printf("No backups of %v@%v:%v", sourceInfo.UserName, sourceInfo.Host, sourceInfo.Path)
 
 		parent := filepath.Dir(path)
 		if parent == path {
@@ -82,17 +82,13 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 		return fmt.Errorf("cannot list backups: %v", err)
 	}
 
-	var lastHost string
-	var lastUser string
-	var lastSource string
+	var lastSource repofs.SnapshotSourceInfo
 	var count int
 
 	for _, m := range loadBackupManifests(conn.Vault, previous) {
-		if m.HostName != lastHost || m.UserName != lastUser || m.Source != lastSource {
-			fmt.Printf("%v@%v:%v\n", m.UserName, m.HostName, m.Source)
+		if m.Source != lastSource {
+			fmt.Printf("%v@%v:%v\n", m.Source.UserName, m.Source.Host, m.Source.Path)
 			lastSource = m.Source
-			lastUser = m.UserName
-			lastHost = m.HostName
 			count = 0
 		}
 

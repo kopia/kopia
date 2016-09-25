@@ -176,11 +176,16 @@ func (u *uploader) uploadBundleInternal(b *bundle) (*dirEntry, uint64, error) {
 
 // Upload uploads contents of the specified filesystem entry (file or directory) to the repository and updates given manifest with statistics.
 // Old snapshot manifest, when provided can be used to speed up backups by utilizing hash cache.
-func Upload(source fs.Entry, repository *repo.Repository, s *Snapshot, old *Snapshot) error {
+func Upload(repository *repo.Repository, source fs.Entry, sourceInfo *SnapshotSourceInfo, old *Snapshot) (*Snapshot, error) {
 	u := &uploader{
 		repo: repository,
 	}
-	s.StartTime = time.Now()
+
+	s := &Snapshot{
+		Source:    *sourceInfo,
+		StartTime: time.Now(),
+	}
+
 	var hashCacheID *repo.ObjectID
 
 	if old != nil {
@@ -195,18 +200,18 @@ func Upload(source fs.Entry, repository *repo.Repository, s *Snapshot, old *Snap
 	case fs.File:
 		r, err = u.uploadFile(entry)
 	default:
-		return fmt.Errorf("unsupported source: %v", s.Source)
+		return nil, fmt.Errorf("unsupported source: %v", s.Source)
 	}
 	s.EndTime = time.Now()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	s.RootObjectID = r.ObjectID
 	s.HashCacheID = r.ManifestID
 	stats := u.repo.Stats
 	s.Stats = &stats
 
-	return nil
+	return s, nil
 }
 
 // uploadFile uploads the specified File to the repository.

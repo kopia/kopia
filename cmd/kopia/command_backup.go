@@ -14,7 +14,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"time"
 
 	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/repo"
@@ -58,20 +57,17 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 			return fmt.Errorf("invalid source: '%s': %s", backupDirectory, err)
 		}
 
-		manifest := repofs.Snapshot{
-			StartTime: time.Now(),
-			Source:    filepath.Clean(dir),
-
-			HostName:    getBackupHostName(),
-			UserName:    getBackupUser(),
-			Description: *backupDescription,
+		sourceInfo := repofs.SnapshotSourceInfo{
+			Path:     filepath.Clean(dir),
+			Host:     getBackupHostName(),
+			UserName: getBackupUser(),
 		}
 
-		if len(manifest.Description) > backupMaxDescriptionLength {
+		if len(*backupDescription) > backupMaxDescriptionLength {
 			return fmt.Errorf("description too long")
 		}
 
-		previous, err := conn.Vault.List("B" + manifest.SourceID() + ".")
+		previous, err := conn.Vault.List("B" + sourceInfo.HashString() + ".")
 		if err != nil {
 			return fmt.Errorf("error listing previous backups")
 		}
@@ -82,12 +78,13 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 			oldManifest, err = loadBackupManifest(conn.Vault, previous[0])
 		}
 
-		localEntry := mustGetLocalFSEntry(manifest.Source)
+		localEntry := mustGetLocalFSEntry(sourceInfo.Path)
 		if err != nil {
 			return err
 		}
 
-		if err := repofs.Upload(localEntry, conn.Repository, &manifest, oldManifest); err != nil {
+		manifest, err := repofs.Upload(conn.Repository, localEntry, &sourceInfo, oldManifest)
+		if err != nil {
 			return err
 		}
 
@@ -98,10 +95,11 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 
 		uniqueID := make([]byte, 8)
 		rand.Read(uniqueID)
-		fileID := fmt.Sprintf("B%v.%08x.%x", manifest.SourceID(), math.MaxInt64-manifest.StartTime.UnixNano(), uniqueID)
+		fileID := fmt.Sprintf("B%v.%08x.%x", sourceInfo.HashString(), math.MaxInt64-manifest.StartTime.UnixNano(), uniqueID)
 		manifest.Handle = handleID
+		manifest.Description = *backupDescription
 
-		err = saveBackupManifest(conn.Vault, fileID, &manifest)
+		err = saveBackupManifest(conn.Vault, fileID, manifest)
 		if err != nil {
 			return fmt.Errorf("cannot save manifest: %v", err)
 		}
