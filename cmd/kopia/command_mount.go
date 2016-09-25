@@ -5,6 +5,8 @@ package main
 import (
 	"bazil.org/fuse"
 	fusefs "bazil.org/fuse/fs"
+	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/fs/loggingfs"
 	"github.com/kopia/kopia/fs/repofs"
 	kopiafuse "github.com/kopia/kopia/fuse"
 
@@ -16,6 +18,7 @@ var (
 
 	mountObjectID = mountCommand.Arg("path", "Identifier of the directory to mount.").Required().String()
 	mountPoint    = mountCommand.Arg("mountPoint", "Mount point").Required().ExistingDir()
+	mountTraceFS  = mountCommand.Flag("trace-fs", "Trace filesystem operations").Bool()
 )
 
 type root struct {
@@ -42,7 +45,12 @@ func runMountCommand(context *kingpin.ParseContext) error {
 		return err
 	}
 
-	rootNode := kopiafuse.NewDirectoryNode(repofs.Directory(conn.Repository, oid))
+	entry := repofs.Directory(conn.Repository, oid)
+	if *mountTraceFS {
+		entry = loggingfs.Wrap(entry).(fs.Directory)
+	}
+
+	rootNode := kopiafuse.NewDirectoryNode(entry)
 
 	fusefs.Serve(fuseConnection, &root{rootNode})
 
