@@ -3,6 +3,7 @@ package repofs
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo"
@@ -74,7 +75,18 @@ func (rf *repositoryFile) Open() (fs.Reader, error) {
 }
 
 func (rsl *repositorySymlink) Readlink() (string, error) {
-	panic("not implemented yet")
+	r, err := rsl.repo.Open(rsl.metadata.ObjectID)
+	if err != nil {
+		return "", err
+	}
+
+	defer r.Close()
+	b, err := ioutil.ReadAll(r)
+	if err != nil {
+		return "", err
+	}
+
+	return string(b), nil
 }
 
 func newRepoEntry(r *repo.Repository, md *dirEntry, parent fs.Directory) fs.Entry {
