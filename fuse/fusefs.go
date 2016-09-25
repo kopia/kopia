@@ -20,6 +20,7 @@ import (
 
 type fuseNode struct {
 	entry fs.Entry
+	cache *Cache
 }
 
 func (n *fuseNode) Attr(ctx context.Context, a *fuse.Attr) error {
@@ -48,6 +49,7 @@ func (f *fuseFileNode) ReadAll(ctx context.Context) ([]byte, error) {
 
 type fuseDirectoryNode struct {
 	fuseNode
+	cacheID int64
 }
 
 func (dir *fuseDirectoryNode) directory() fs.Directory {
@@ -69,12 +71,12 @@ func (dir *fuseDirectoryNode) Lookup(ctx context.Context, fileName string) (fuse
 		return nil, fuse.ENOENT
 	}
 
-	return newFuseNode(e)
+	return newFuseNode(e, dir.cache)
 
 }
 
 func (dir *fuseDirectoryNode) readPossiblyCachedReaddir() (fs.Entries, error) {
-	return dir.directory().Readdir()
+	return dir.cache.getEntries(dir.cacheID, func() (fs.Entries, error) { return dir.directory().Readdir() })
 }
 
 func (dir *fuseDirectoryNode) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
@@ -114,20 +116,24 @@ func (sl *fuseSymlinkNode) Readlink(ctx context.Context, req *fuse.ReadlinkReque
 	return sl.entry.(fs.Symlink).Readlink()
 }
 
-func newFuseNode(e fs.Entry) (fusefs.Node, error) {
+func newFuseNode(e fs.Entry, cache *Cache) (fusefs.Node, error) {
 	switch e := e.(type) {
 	case fs.Directory:
-		return &fuseDirectoryNode{fuseNode{e}}, nil
+		return newDirectoryNode(e, cache), nil
 	case fs.File:
-		return &fuseFileNode{fuseNode{e}}, nil
+		return &fuseFileNode{fuseNode{e, cache}}, nil
 	case fs.Symlink:
-		return &fuseSymlinkNode{fuseNode{e}}, nil
+		return &fuseSymlinkNode{fuseNode{e, cache}}, nil
 	default:
 		return nil, fmt.Errorf("entry type not supported: %v", e.Metadata().Type)
 	}
 }
 
+func newDirectoryNode(dir fs.Directory, cache *Cache) fusefs.Node {
+	return &fuseDirectoryNode{fuseNode{dir, cache}, cache.allocateID()}
+}
+
 // NewDirectoryNode returns FUSE Node for a given fs.Directory
-func NewDirectoryNode(dir fs.Directory) fusefs.Node {
-	return &fuseDirectoryNode{fuseNode{dir}}
+func NewDirectoryNode(dir fs.Directory, cache *Cache) fusefs.Node {
+	return newDirectoryNode(dir, cache)
 }

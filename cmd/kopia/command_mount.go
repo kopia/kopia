@@ -16,9 +16,11 @@ import (
 var (
 	mountCommand = app.Command("mount", "Mount repository object as a local filesystem.")
 
-	mountObjectID = mountCommand.Arg("path", "Identifier of the directory to mount.").Required().String()
-	mountPoint    = mountCommand.Arg("mountPoint", "Mount point").Required().ExistingDir()
-	mountTraceFS  = mountCommand.Flag("trace-fs", "Trace filesystem operations").Bool()
+	mountObjectID             = mountCommand.Arg("path", "Identifier of the directory to mount.").Required().String()
+	mountPoint                = mountCommand.Arg("mountPoint", "Mount point").Required().ExistingDir()
+	mountTraceFS              = mountCommand.Flag("trace-fs", "Trace filesystem operations").Bool()
+	mountMaxCachedEntries     = mountCommand.Flag("max-cached-entries", "Limit the number of cached directories").Default("100000").Int()
+	mountMaxCachedDirectories = mountCommand.Flag("max-cached-dirs", "Limit the number of cached directories").Default("100").Int()
 )
 
 type root struct {
@@ -50,7 +52,11 @@ func runMountCommand(context *kingpin.ParseContext) error {
 		entry = loggingfs.Wrap(entry).(fs.Directory)
 	}
 
-	rootNode := kopiafuse.NewDirectoryNode(entry)
+	cache := kopiafuse.NewCache(
+		kopiafuse.MaxCachedDirectories(*mountMaxCachedDirectories),
+		kopiafuse.MaxCachedDirectoryEntries(*mountMaxCachedEntries),
+	)
+	rootNode := kopiafuse.NewDirectoryNode(entry, cache)
 
 	fusefs.Serve(fuseConnection, &root{rootNode})
 
