@@ -19,7 +19,7 @@ var (
 	mountObjectID             = mountCommand.Arg("path", "Identifier of the directory to mount.").Required().String()
 	mountPoint                = mountCommand.Arg("mountPoint", "Mount point").Required().ExistingDir()
 	mountTraceFS              = mountCommand.Flag("trace-fs", "Trace filesystem operations").Bool()
-	mountMaxCachedEntries     = mountCommand.Flag("max-cached-entries", "Limit the number of cached directories").Default("100000").Int()
+	mountMaxCachedEntries     = mountCommand.Flag("max-cached-entries", "Limit the number of cached directory entries").Default("100000").Int()
 	mountMaxCachedDirectories = mountCommand.Flag("max-cached-dirs", "Limit the number of cached directories").Default("100").Int()
 )
 
