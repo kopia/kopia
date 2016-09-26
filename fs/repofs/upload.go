@@ -1,6 +1,7 @@
 package repofs
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"hash/fnv"
@@ -60,7 +61,7 @@ type uploader struct {
 	repo *repo.Repository
 }
 
-func (u *uploader) uploadFileInternal(f fs.File, relativePath string, forceStored bool) (*dirEntry, uint64, error) {
+func (u *uploader) uploadFileInternal(ctx context.Context, f fs.File, relativePath string, forceStored bool) (*dirEntry, uint64, error) {
 	log.Printf("Uploading file %v", relativePath)
 	t0 := time.Now()
 	file, err := f.Open()
@@ -122,7 +123,7 @@ func newDirEntry(md *fs.EntryMetadata, oid repo.ObjectID) *dirEntry {
 	}
 }
 
-func (u *uploader) uploadBundleInternal(b *bundle) (*dirEntry, uint64, error) {
+func (u *uploader) uploadBundleInternal(ctx context.Context, b *bundle) (*dirEntry, uint64, error) {
 	bundleMetadata := b.Metadata()
 
 	log.Printf("uploading bundle %v (%v files)", bundleMetadata.Name, len(b.files))
@@ -176,7 +177,7 @@ func (u *uploader) uploadBundleInternal(b *bundle) (*dirEntry, uint64, error) {
 
 // Upload uploads contents of the specified filesystem entry (file or directory) to the repository and updates given manifest with statistics.
 // Old snapshot manifest, when provided can be used to speed up backups by utilizing hash cache.
-func Upload(repository *repo.Repository, source fs.Entry, sourceInfo *SnapshotSourceInfo, old *Snapshot) (*Snapshot, error) {
+func Upload(ctx context.Context, repository *repo.Repository, source fs.Entry, sourceInfo *SnapshotSourceInfo, old *Snapshot) (*Snapshot, error) {
 	u := &uploader{
 		repo: repository,
 	}
@@ -196,9 +197,9 @@ func Upload(repository *repo.Repository, source fs.Entry, sourceInfo *SnapshotSo
 	var err error
 	switch entry := source.(type) {
 	case fs.Directory:
-		r, err = u.uploadDir(entry, hashCacheID)
+		r, err = u.uploadDir(ctx, entry, hashCacheID)
 	case fs.File:
-		r, err = u.uploadFile(entry)
+		r, err = u.uploadFile(ctx, entry)
 	default:
 		return nil, fmt.Errorf("unsupported source: %v", s.Source)
 	}
@@ -215,9 +216,9 @@ func Upload(repository *repo.Repository, source fs.Entry, sourceInfo *SnapshotSo
 }
 
 // uploadFile uploads the specified File to the repository.
-func (u *uploader) uploadFile(file fs.File) (*uploadResult, error) {
+func (u *uploader) uploadFile(ctx context.Context, file fs.File) (*uploadResult, error) {
 	result := &uploadResult{}
-	e, _, err := u.uploadFileInternal(file, file.Metadata().Name, true)
+	e, _, err := u.uploadFileInternal(ctx, file, file.Metadata().Name, true)
 	result.ObjectID = e.ObjectID
 	return result, err
 }
@@ -225,7 +226,7 @@ func (u *uploader) uploadFile(file fs.File) (*uploadResult, error) {
 // uploadDir uploads the specified Directory to the repository.
 // An optional ID of a hash-cache object may be provided, in which case the uploader will use its
 // contents to avoid hashing
-func (u *uploader) uploadDir(dir fs.Directory, hashCacheID *repo.ObjectID) (*uploadResult, error) {
+func (u *uploader) uploadDir(ctx context.Context, dir fs.Directory, hashCacheID *repo.ObjectID) (*uploadResult, error) {
 	var hcr hashcacheReader
 	var err error
 
@@ -243,7 +244,7 @@ func (u *uploader) uploadDir(dir fs.Directory, hashCacheID *repo.ObjectID) (*upl
 	hcw := newHashCacheWriter(mw)
 
 	result := &uploadResult{}
-	result.ObjectID, _, _, err = u.uploadDirInternal(result, dir, ".", hcw, &hcr, true)
+	result.ObjectID, _, _, err = u.uploadDirInternal(ctx, result, dir, ".", hcw, &hcr, true)
 	if err != nil {
 		return result, err
 	}
@@ -255,6 +256,7 @@ func (u *uploader) uploadDir(dir fs.Directory, hashCacheID *repo.ObjectID) (*upl
 }
 
 func (u *uploader) uploadDirInternal(
+	ctx context.Context,
 	result *uploadResult,
 	dir fs.Directory,
 	relativePath string,
@@ -295,7 +297,7 @@ func (u *uploader) uploadDirInternal(
 
 		switch entry := entry.(type) {
 		case fs.Directory:
-			oid, h, wasCached, err := u.uploadDirInternal(result, entry, entryRelativePath, hcw, hcr, false)
+			oid, h, wasCached, err := u.uploadDirInternal(ctx, result, entry, entryRelativePath, hcw, hcr, false)
 			if err != nil {
 				return repo.NullObjectID, 0, false, err
 			}
@@ -334,7 +336,7 @@ func (u *uploader) uploadDirInternal(
 				hash = cachedEntry.Hash
 			} else {
 				result.Stats.NonCachedFiles++
-				de, hash, err = u.uploadBundleInternal(entry)
+				de, hash, err = u.uploadBundleInternal(ctx, entry)
 				if err != nil {
 					return repo.NullObjectID, 0, false, fmt.Errorf("unable to hash file: %s", err)
 				}
@@ -358,7 +360,7 @@ func (u *uploader) uploadDirInternal(
 				hash = cachedEntry.Hash
 			} else {
 				result.Stats.NonCachedFiles++
-				de, hash, err = u.uploadFileInternal(entry, entryRelativePath, false)
+				de, hash, err = u.uploadFileInternal(ctx, entry, entryRelativePath, false)
 				if err != nil {
 					return repo.NullObjectID, 0, false, fmt.Errorf("unable to hash file: %s", err)
 				}

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -41,7 +42,7 @@ var (
 	backupWriteBack = backupCommand.Flag("async-write", "Perform updates asynchronously.").PlaceHolder("N").Default("0").Int()
 )
 
-func runBackupCommand(context *kingpin.ParseContext) error {
+func runBackupCommand(c *kingpin.ParseContext) error {
 	var repoOptions []repo.RepositoryOption
 
 	if *backupWriteBack > 0 {
@@ -50,6 +51,8 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 
 	conn := mustOpenConnection(repoOptions...)
 	defer conn.Close()
+
+	ctx := context.Background()
 
 	for _, backupDirectory := range *backupSources {
 		dir, err := filepath.Abs(backupDirectory)
@@ -83,7 +86,7 @@ func runBackupCommand(context *kingpin.ParseContext) error {
 			return err
 		}
 
-		manifest, err := repofs.Upload(conn.Repository, localEntry, &sourceInfo, oldManifest)
+		manifest, err := repofs.Upload(ctx, conn.Repository, localEntry, &sourceInfo, oldManifest)
 		if err != nil {
 			return err
 		}
