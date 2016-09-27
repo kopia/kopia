@@ -42,26 +42,20 @@ func bundleHash(b *bundle) uint64 {
 	return h.Sum64()
 }
 
-// uploadResult stores results of an upload.
-type uploadResult struct {
-	ObjectID   repo.ObjectID
-	ManifestID repo.ObjectID
-	Cancelled  bool
+// uploadContext supports efficient uploading files and directories to repository.
+type uploadContext struct {
+	ctx context.Context
 
-	Stats struct {
-		CachedDirectories    int
-		CachedFiles          int
-		NonCachedDirectories int
-		NonCachedFiles       int
-	}
+	repo        *repo.Repository
+	cacheWriter *hashcacheWriter
+	cacheReader *hashcacheReader
+
+	stats *SnapshotStats
+
+	Cancelled bool
 }
 
-// uploader supports efficient uploading files and directories to repository.
-type uploader struct {
-	repo *repo.Repository
-}
-
-func (u *uploader) uploadFileInternal(ctx context.Context, f fs.File, relativePath string, forceStored bool) (*dirEntry, uint64, error) {
+func uploadFileInternal(u *uploadContext, f fs.File, relativePath string, forceStored bool) (*dirEntry, uint64, error) {
 	log.Printf("Uploading file %v", relativePath)
 	t0 := time.Now()
 	file, err := f.Open()
@@ -123,7 +117,7 @@ func newDirEntry(md *fs.EntryMetadata, oid repo.ObjectID) *dirEntry {
 	}
 }
 
-func (u *uploader) uploadBundleInternal(ctx context.Context, b *bundle) (*dirEntry, uint64, error) {
+func uploadBundleInternal(u *uploadContext, b *bundle) (*dirEntry, uint64, error) {
 	bundleMetadata := b.Metadata()
 
 	log.Printf("uploading bundle %v (%v files)", bundleMetadata.Name, len(b.files))
@@ -175,104 +169,56 @@ func (u *uploader) uploadBundleInternal(ctx context.Context, b *bundle) (*dirEnt
 	return de, bundleHash(b), nil
 }
 
-// Upload uploads contents of the specified filesystem entry (file or directory) to the repository and updates given manifest with statistics.
-// Old snapshot manifest, when provided can be used to speed up backups by utilizing hash cache.
-func Upload(ctx context.Context, repository *repo.Repository, source fs.Entry, sourceInfo *SnapshotSourceInfo, old *Snapshot) (*Snapshot, error) {
-	u := &uploader{
-		repo: repository,
-	}
-
-	s := &Snapshot{
-		Source:    *sourceInfo,
-		StartTime: time.Now(),
-	}
-
-	var hashCacheID *repo.ObjectID
-
-	if old != nil {
-		hashCacheID = &old.HashCacheID
-	}
-
-	var r *uploadResult
-	var err error
-	switch entry := source.(type) {
-	case fs.Directory:
-		r, err = u.uploadDir(ctx, entry, hashCacheID)
-	case fs.File:
-		r, err = u.uploadFile(ctx, entry)
-	default:
-		return nil, fmt.Errorf("unsupported source: %v", s.Source)
-	}
-	s.EndTime = time.Now()
-	if err != nil {
-		return nil, err
-	}
-	s.RootObjectID = r.ObjectID
-	s.HashCacheID = r.ManifestID
-	stats := u.repo.Stats
-	s.Stats = &stats
-
-	return s, nil
-}
-
 // uploadFile uploads the specified File to the repository.
-func (u *uploader) uploadFile(ctx context.Context, file fs.File) (*uploadResult, error) {
-	result := &uploadResult{}
-	e, _, err := u.uploadFileInternal(ctx, file, file.Metadata().Name, true)
-	result.ObjectID = e.ObjectID
-	return result, err
+func uploadFile(u *uploadContext, file fs.File) (repo.ObjectID, error) {
+	e, _, err := uploadFileInternal(u, file, file.Metadata().Name, true)
+	if err != nil {
+		return repo.NullObjectID, err
+	}
+	return e.ObjectID, nil
 }
 
 // uploadDir uploads the specified Directory to the repository.
-// An optional ID of a hash-cache object may be provided, in which case the uploader will use its
+// An optional ID of a hash-cache object may be provided, in which case the uploadContext will use its
 // contents to avoid hashing
-func (u *uploader) uploadDir(ctx context.Context, dir fs.Directory, hashCacheID *repo.ObjectID) (*uploadResult, error) {
-	var hcr hashcacheReader
+func uploadDir(u *uploadContext, dir fs.Directory) (repo.ObjectID, repo.ObjectID, error) {
 	var err error
-
-	if hashCacheID != nil {
-		if r, err := u.repo.Open(*hashCacheID); err == nil {
-			hcr.open(r)
-		}
-	}
 
 	mw := u.repo.NewWriter(
 		repo.WithDescription("HASHCACHE:"+dir.Metadata().Name),
 		repo.WithBlockNamePrefix("H"),
 	)
 	defer mw.Close()
-	hcw := newHashCacheWriter(mw)
+	u.cacheWriter = newHashCacheWriter(mw)
+	oid, _, _, err := uploadDirInternal(u, dir, ".", true)
+	u.cacheWriter.Finalize()
+	u.cacheWriter = nil
 
-	result := &uploadResult{}
-	result.ObjectID, _, _, err = u.uploadDirInternal(ctx, result, dir, ".", hcw, &hcr, true)
 	if err != nil {
-		return result, err
+		return repo.NullObjectID, repo.NullObjectID, err
 	}
 
-	hcw.Finalize()
-
-	result.ManifestID, err = mw.Result(true)
-	return result, err
+	hcid, err := mw.Result(true)
+	return oid, hcid, err
 }
 
-func (u *uploader) uploadDirInternal(
-	ctx context.Context,
-	result *uploadResult,
+func uploadDirInternal(
+	u *uploadContext,
 	dir fs.Directory,
 	relativePath string,
-	hcw *hashcacheWriter,
-	hcr *hashcacheReader,
 	forceStored bool,
 ) (repo.ObjectID, uint64, bool, error) {
 	log.Printf("Uploading dir %v", relativePath)
 	defer log.Printf("Finished uploading dir %v", relativePath)
+
+	u.stats.TotalDirectoryCount++
 
 	entries, err := dir.Readdir()
 	if err != nil {
 		return repo.NullObjectID, 0, false, err
 	}
 
-	entries = u.bundleEntries(entries)
+	entries = bundleEntries(u, entries)
 
 	writer := u.repo.NewWriter(
 		repo.WithDescription("DIR:" + relativePath),
@@ -297,7 +243,7 @@ func (u *uploader) uploadDirInternal(
 
 		switch entry := entry.(type) {
 		case fs.Directory:
-			oid, h, wasCached, err := u.uploadDirInternal(ctx, result, entry, entryRelativePath, hcw, hcr, false)
+			oid, h, wasCached, err := uploadDirInternal(u, entry, entryRelativePath, false)
 			if err != nil {
 				return repo.NullObjectID, 0, false, err
 			}
@@ -317,7 +263,7 @@ func (u *uploader) uploadDirInternal(
 
 		case *bundle:
 			// See if we had this name during previous pass.
-			cachedEntry := hcr.findEntry(entryRelativePath)
+			cachedEntry := u.cacheReader.findEntry(entryRelativePath)
 
 			// ... and whether file metadata is identical to the previous one.
 			cacheMatches := (cachedEntry != nil) && cachedEntry.Hash == bundleHash(entry)
@@ -329,23 +275,26 @@ func (u *uploader) uploadDirInternal(
 			}
 
 			if cacheMatches {
-				result.Stats.CachedFiles++
+				u.stats.CachedFiles++
 				// Avoid hashing by reusing previous object ID.
 				de = newDirEntry(e, cachedEntry.ObjectID)
 				de.BundledChildren = childrenMetadata
 				hash = cachedEntry.Hash
 			} else {
-				result.Stats.NonCachedFiles++
-				de, hash, err = u.uploadBundleInternal(ctx, entry)
+				u.stats.NonCachedFiles++
+				de, hash, err = uploadBundleInternal(u, entry)
 				if err != nil {
 					return repo.NullObjectID, 0, false, fmt.Errorf("unable to hash file: %s", err)
 				}
 			}
+			u.stats.TotalBundleCount++
+			u.stats.TotalBundleSize += de.FileSize
+			u.stats.TotalFileSize += de.FileSize
 
 		case fs.File:
 			// regular file
 			// See if we had this name during previous pass.
-			cachedEntry := hcr.findEntry(entryRelativePath)
+			cachedEntry := u.cacheReader.findEntry(entryRelativePath)
 
 			// ... and whether file metadata is identical to the previous one.
 			computedHash := metadataHash(e)
@@ -354,17 +303,20 @@ func (u *uploader) uploadDirInternal(
 			allCached = allCached && cacheMatches
 
 			if cacheMatches {
-				result.Stats.CachedFiles++
+				u.stats.CachedFiles++
 				// Avoid hashing by reusing previous object ID.
 				de = newDirEntry(e, cachedEntry.ObjectID)
 				hash = cachedEntry.Hash
 			} else {
-				result.Stats.NonCachedFiles++
-				de, hash, err = u.uploadFileInternal(ctx, entry, entryRelativePath, false)
+				u.stats.NonCachedFiles++
+				de, hash, err = uploadFileInternal(u, entry, entryRelativePath, false)
 				if err != nil {
 					return repo.NullObjectID, 0, false, fmt.Errorf("unable to hash file: %s", err)
 				}
 			}
+
+			u.stats.TotalFileCount++
+			u.stats.TotalFileSize += de.FileSize
 
 		default:
 			return repo.NullObjectID, 0, false, fmt.Errorf("file type %v not supported", entry.Metadata().Type)
@@ -381,7 +333,7 @@ func (u *uploader) uploadDirInternal(
 		}
 
 		if de.Type != fs.EntryTypeDirectory && de.ObjectID.StorageBlock != "" {
-			if err := hcw.WriteEntry(hashCacheEntry{
+			if err := u.cacheWriter.WriteEntry(hashCacheEntry{
 				Name:     entryRelativePath,
 				Hash:     hash,
 				ObjectID: de.ObjectID,
@@ -396,15 +348,15 @@ func (u *uploader) uploadDirInternal(
 	var directoryOID repo.ObjectID
 	dirHash := dirHasher.Sum64()
 
-	cacheddirEntry := hcr.findEntry(relativePath + "/")
+	cacheddirEntry := u.cacheReader.findEntry(relativePath + "/")
 	allCached = allCached && cacheddirEntry != nil && cacheddirEntry.Hash == dirHash
 
 	if allCached {
 		// Avoid hashing directory listing if every entry matched the cache.
-		result.Stats.CachedDirectories++
+		u.stats.CachedDirectories++
 		directoryOID = cacheddirEntry.ObjectID
 	} else {
-		result.Stats.NonCachedDirectories++
+		u.stats.NonCachedDirectories++
 		directoryOID, err = writer.Result(forceStored)
 		if err != nil {
 			return directoryOID, 0, false, err
@@ -412,7 +364,7 @@ func (u *uploader) uploadDirInternal(
 	}
 
 	if directoryOID.StorageBlock != "" {
-		if err := hcw.WriteEntry(hashCacheEntry{
+		if err := u.cacheWriter.WriteEntry(hashCacheEntry{
 			Name:     relativePath + "/",
 			ObjectID: directoryOID,
 			Hash:     dirHash,
@@ -425,7 +377,7 @@ func (u *uploader) uploadDirInternal(
 	return directoryOID, dirHash, allCached, nil
 }
 
-func (u *uploader) bundleEntries(entries fs.Entries) fs.Entries {
+func bundleEntries(u *uploadContext, entries fs.Entries) fs.Entries {
 	var bundleMap map[int]*bundle
 
 	result := entries[:0]
@@ -434,7 +386,7 @@ func (u *uploader) bundleEntries(entries fs.Entries) fs.Entries {
 		switch e := e.(type) {
 		case fs.File:
 			md := e.Metadata()
-			bundleNo := u.getBundleNumber(md)
+			bundleNo := getBundleNumber(u, md)
 			if bundleNo != 0 {
 				// See if we already started this bundle.
 				b := bundleMap[bundleNo]
@@ -474,10 +426,55 @@ func (u *uploader) bundleEntries(entries fs.Entries) fs.Entries {
 	return result
 }
 
-func (u *uploader) getBundleNumber(md *fs.EntryMetadata) int {
+func getBundleNumber(u *uploadContext, md *fs.EntryMetadata) int {
 	if md.FileMode().IsRegular() && md.FileSize < maxBundleFileSize {
 		return md.ModTime.Year()*100 + int(md.ModTime.Month())
 	}
 
 	return 0
+}
+
+// Upload uploads contents of the specified filesystem entry (file or directory) to the repository and updates given manifest with statistics.
+// Old snapshot manifest, when provided can be used to speed up backups by utilizing hash cache.
+func Upload(ctx context.Context, repository *repo.Repository, source fs.Entry, sourceInfo *SnapshotSourceInfo, old *Snapshot) (*Snapshot, error) {
+	u := &uploadContext{
+		ctx:         ctx,
+		repo:        repository,
+		cacheReader: &hashcacheReader{},
+		stats:       &SnapshotStats{},
+	}
+
+	s := &Snapshot{
+		Source: *sourceInfo,
+	}
+
+	if old != nil {
+		if r, err := u.repo.Open(old.HashCacheID); err == nil {
+			u.cacheReader.open(r)
+		}
+	}
+
+	var err error
+
+	s.StartTime = time.Now()
+
+	switch entry := source.(type) {
+	case fs.Directory:
+		s.RootObjectID, s.HashCacheID, err = uploadDir(u, entry)
+
+	case fs.File:
+		s.RootObjectID, err = uploadFile(u, entry)
+
+	default:
+		return nil, fmt.Errorf("unsupported source: %v", s.Source)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	s.EndTime = time.Now()
+	s.Stats = *u.stats
+	s.Stats.Repository = &u.repo.Stats
+
+	return s, nil
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"reflect"
 
@@ -21,7 +20,6 @@ type uploadTestHarness struct {
 	repoDir   string
 	repo      *repo.Repository
 	storage   blob.Storage
-	uploader  *uploader
 }
 
 var errTest = fmt.Errorf("test error")
@@ -80,7 +78,6 @@ func newUploadTestHarness() *uploadTestHarness {
 		sourceDir: sourceDir,
 		repoDir:   repoDir,
 		repo:      repo,
-		uploader:  &uploader{repo},
 	}
 
 	return th
@@ -91,87 +88,90 @@ func TestUpload(t *testing.T) {
 	defer th.cleanup()
 
 	ctx := context.Background()
-
-	r1, err := th.uploader.uploadDir(ctx, th.sourceDir, nil)
+	s1, err := Upload(ctx, th.repo, th.sourceDir, &SnapshotSourceInfo{}, nil)
 	if err != nil {
-		t.Errorf("upload failed: %v", err)
+		t.Errorf("Upload error: %v", err)
 	}
 
-	log.Printf("--------------------------")
-	r2, err := th.uploader.uploadDir(ctx, th.sourceDir, &r1.ManifestID)
+	s2, err := Upload(ctx, th.repo, th.sourceDir, &SnapshotSourceInfo{}, s1)
 	if err != nil {
-		t.Errorf("upload failed: %v", err)
-	}
-	log.Printf("--------------------------")
-
-	if !objectIDsEqual(r2.ObjectID, r1.ObjectID) {
-		t.Errorf("expected r1.ObjectID==r2.ObjectID, got %v and %v", r1.ObjectID.String(), r2.ObjectID.String())
+		t.Errorf("Upload error: %v", err)
 	}
 
-	if !objectIDsEqual(r2.ManifestID, r1.ManifestID) {
-		t.Errorf("expected r2.ManifestID==r1.ManifestID, got %v and %v", r2.ManifestID.String(), r1.ManifestID.String())
+	if !objectIDsEqual(s2.RootObjectID, s1.RootObjectID) {
+		t.Errorf("expected s1.RootObjectID==s2.RootObjectID, got %v and %v", s1.RootObjectID.String(), s2.RootObjectID.String())
 	}
 
-	if r1.Stats.CachedFiles+r1.Stats.CachedDirectories != 0 {
-		t.Errorf("unexpected r1 stats: %+v", r1.Stats)
+	if !objectIDsEqual(s2.HashCacheID, s1.HashCacheID) {
+		t.Errorf("expected s2.HashCacheID==s1.HashCacheID, got %v and %v", s2.HashCacheID.String(), s1.HashCacheID.String())
 	}
 
-	// All non-cached files from r1 are now cached and there are no non-cached files or dirs since nothing changed.
-	if r2.Stats.CachedFiles+r2.Stats.CachedDirectories != r1.Stats.NonCachedFiles+r1.Stats.NonCachedDirectories ||
-		r2.Stats.NonCachedFiles+r2.Stats.NonCachedDirectories != 0 {
-		t.Errorf("unexpected r2 stats: %+v, vs r1: %+v", r2.Stats, r1.Stats)
+	if s1.Stats.CachedFiles+s1.Stats.CachedDirectories != 0 {
+		t.Errorf("unexpected s1 stats: %+v", s1.Stats)
 	}
 
-	// Add one more file, the r1.ObjectID should change.
+	// All non-cached files from s1 are now cached and there are no non-cached files or dirs since nothing changed.
+	if s2.Stats.CachedFiles+s2.Stats.CachedDirectories != s1.Stats.NonCachedFiles+s1.Stats.NonCachedDirectories ||
+		s2.Stats.NonCachedFiles+s2.Stats.NonCachedDirectories != 0 {
+		t.Errorf("unexpected s2 stats: %+v, vs s1: %+v", s2.Stats, s1.Stats)
+	}
+
+	// Add one more file, the s1.RootObjectID should change.
 	th.sourceDir.AddFile("d2/d1/f3", []byte{1, 2, 3, 4, 5}, 0777)
-	r3, err := th.uploader.uploadDir(ctx, th.sourceDir, &r1.ManifestID)
+	s3, err := Upload(ctx, th.repo, th.sourceDir, &SnapshotSourceInfo{}, s1)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
 
-	if objectIDsEqual(r2.ObjectID, r3.ObjectID) {
-		t.Errorf("expected r3.ObjectID!=r2.ObjectID, got %v", r3.ObjectID.String())
+	if objectIDsEqual(s2.RootObjectID, s3.RootObjectID) {
+		t.Errorf("expected s3.RootObjectID!=s2.RootObjectID, got %v", s3.RootObjectID.String())
 	}
 
-	if objectIDsEqual(r2.ManifestID, r3.ManifestID) {
-		t.Errorf("expected r3.ManifestID!=r2.ManifestID, got %v", r3.ManifestID.String())
+	if objectIDsEqual(s2.HashCacheID, s3.HashCacheID) {
+		t.Errorf("expected s3.HashCacheID!=s2.HashCacheID, got %v", s3.HashCacheID.String())
 	}
 
-	if r3.Stats.NonCachedFiles != 1 && r3.Stats.NonCachedDirectories != 3 {
+	if s3.Stats.NonCachedFiles != 1 && s3.Stats.NonCachedDirectories != 3 {
 		// one file is not cached, which causes "./d2/d1/", "./d2/" and "./" to be changed.
-		t.Errorf("unexpected r3 stats: %+v", r3.Stats)
+		t.Errorf("unexpected s3 stats: %+v", s3.Stats)
 	}
 
 	// Now remove the added file, OID should be identical to the original before the file got added.
 	th.sourceDir.Subdir("d2", "d1").Remove("f3")
 
-	r4, err := th.uploader.uploadDir(ctx, th.sourceDir, &r1.ManifestID)
+	s4, err := Upload(ctx, th.repo, th.sourceDir, &SnapshotSourceInfo{}, s1)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
 
-	if !objectIDsEqual(r4.ObjectID, r1.ObjectID) {
-		t.Errorf("expected r4.ObjectID==r1.ObjectID, got %v and %v", r4.ObjectID, r1.ObjectID)
+	if !objectIDsEqual(s4.RootObjectID, s1.RootObjectID) {
+		t.Errorf("expected s4.RootObjectID==s1.RootObjectID, got %v and %v", s4.RootObjectID, s1.RootObjectID)
 	}
-	if !objectIDsEqual(r4.ManifestID, r1.ManifestID) {
-		t.Errorf("expected r4.ManifestID==r1.ManifestID, got %v and %v", r4.ManifestID, r1.ManifestID)
+	if !objectIDsEqual(s4.HashCacheID, s1.HashCacheID) {
+		t.Errorf("expected s4.HashCacheID==s1.HashCacheID, got %v and %v", s4.HashCacheID, s1.HashCacheID)
 	}
 
 	// Everything is still cached.
-	if r4.Stats.CachedFiles+r4.Stats.CachedDirectories != r1.Stats.NonCachedFiles+r1.Stats.NonCachedDirectories ||
-		r4.Stats.NonCachedFiles+r4.Stats.NonCachedDirectories != 0 {
-		t.Errorf("unexpected r4 stats: %+v", r4.Stats)
+	if s4.Stats.CachedFiles+s4.Stats.CachedDirectories != s1.Stats.NonCachedFiles+s1.Stats.NonCachedDirectories ||
+		s4.Stats.NonCachedFiles+s4.Stats.NonCachedDirectories != 0 {
+		t.Errorf("unexpected s4 stats: %+v", s4.Stats)
 	}
 
-	// Upload again, this time using r3.ManifestID as base.
-	r5, err := th.uploader.uploadDir(ctx, th.sourceDir, &r3.ManifestID)
+	s5, err := Upload(ctx, th.repo, th.sourceDir, &SnapshotSourceInfo{}, s3)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
 
-	if r5.Stats.NonCachedFiles != 0 && r5.Stats.NonCachedDirectories != 3 {
+	if !objectIDsEqual(s4.RootObjectID, s5.RootObjectID) {
+		t.Errorf("expected s4.RootObjectID==s5.RootObjectID, got %v and %v", s4.RootObjectID, s5.RootObjectID)
+	}
+	if !objectIDsEqual(s4.HashCacheID, s5.HashCacheID) {
+		t.Errorf("expected s4.HashCacheID==s5.HashCacheID, got %v and %v", s4.HashCacheID, s5.HashCacheID)
+	}
+
+	if s5.Stats.NonCachedFiles != 0 && s5.Stats.NonCachedDirectories != 3 {
 		// no files are changed, but one file disappeared which caused "./d2/d1/", "./d2/" and "./" to be changed.
-		t.Errorf("unexpected r5 stats: %+v", r5.Stats)
+		t.Errorf("unexpected s5 stats: %+v", s5.Stats)
 	}
 }
 
@@ -185,13 +185,13 @@ func TestUpload_TopLevelDirectoryReadFailure(t *testing.T) {
 	th.sourceDir.FailReaddir(errTest)
 	ctx := context.Background()
 
-	r, err := th.uploader.uploadDir(ctx, th.sourceDir, nil)
+	s, err := Upload(ctx, th.repo, th.sourceDir, &SnapshotSourceInfo{}, nil)
 	if err != errTest {
 		t.Errorf("expected error: %v", err)
 	}
 
-	if r == nil {
-		t.Errorf("result is null")
+	if s != nil {
+		t.Errorf("result not nil: %v", s)
 	}
 }
 
@@ -202,7 +202,7 @@ func TestUpload_SubDirectoryReadFailure(t *testing.T) {
 	th.sourceDir.Subdir("d1").FailReaddir(errTest)
 
 	ctx := context.Background()
-	_, err := th.uploader.uploadDir(ctx, th.sourceDir, nil)
+	_, err := Upload(ctx, th.repo, th.sourceDir, &SnapshotSourceInfo{}, nil)
 	if err == nil {
 		t.Errorf("expected error")
 	}

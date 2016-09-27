@@ -30,6 +30,22 @@ func (r SnapshotSourceInfo) HashString() string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
+// SnapshotStats keeps track of snapshot generation statistics.
+type SnapshotStats struct {
+	Repository *repo.Stats `json:"repo,omitempty"`
+
+	TotalDirectoryCount int   `json:"dirCount"`
+	TotalFileCount      int   `json:"fileCount"`
+	TotalFileSize       int64 `json:"totalSize"`
+	TotalBundleCount    int   `json:"bundleCount"`
+	TotalBundleSize     int64 `json:"totalBundleSize"`
+
+	CachedDirectories    int `json:"cachedDirectories"`
+	CachedFiles          int `json:"cachedFiles"`
+	NonCachedDirectories int `json:"nonCachedDirectories"`
+	NonCachedFiles       int `json:"nonCachedFiles"`
+}
+
 // Snapshot stores information about a single filesystem snapshot.
 type Snapshot struct {
 	Source SnapshotSourceInfo `json:"source"`
@@ -42,9 +58,5 @@ type Snapshot struct {
 	RootObjectID repo.ObjectID `json:"root"`
 	HashCacheID  repo.ObjectID `json:"hashCache"`
 
-	FileCount      int64 `json:"fileCount"`
-	DirectoryCount int64 `json:"dirCount"`
-	TotalFileSize  int64 `json:"totalSize"`
-
-	Stats *repo.Stats `json:"stats"`
+	Stats SnapshotStats `json:"stats"`
 }
