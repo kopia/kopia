@@ -21,13 +21,16 @@ func retry(desc string, f func() (interface{}, error)) (interface{}, error) {
 	retryCount := 0
 	for shouldRetry(err) && retryCount < maxRetryCount {
 		retryCount++
-		log.Printf("Got error when calling %v. Retrying (%v/%v)...", desc, retryCount, maxRetryCount)
+		log.Printf("Got error when calling %v. Retrying (%v/%v). Sleeping for %v", desc, retryCount, maxRetryCount, nextSleep)
 		time.Sleep(nextSleep)
 		nextSleep = time.Duration(float32(nextSleep) * multiplier)
 		if nextSleep > maxSleep {
 			nextSleep = maxSleep
 		}
 		v, err = f()
+	}
+	if retryCount > 0 {
+		log.Printf("Success calling %v after %v retries.", desc, retryCount)
 	}
 	return v, err
 }
