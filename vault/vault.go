@@ -284,7 +284,15 @@ func Create(
 	if _, err := io.ReadFull(rand.Reader, v.format.UniqueID); err != nil {
 		return nil, err
 	}
-	v.masterKey = vaultCreds.getMasterKey(v.format.UniqueID)
+	if v.format.KeyAlgo == "" {
+		v.format.KeyAlgo = defaultKeyAlgorithm
+
+	}
+	var err error
+	v.masterKey, err = vaultCreds.getMasterKey(&v.format)
+	if err != nil {
+		return nil, err
+	}
 
 	formatBytes, err := json.Marshal(&v.format)
 	if err != nil {
@@ -367,7 +375,10 @@ func Open(vaultStorage blob.Storage, vaultCreds Credentials) (*Vault, error) {
 		return nil, err
 	}
 
-	v.masterKey = vaultCreds.getMasterKey(v.format.UniqueID)
+	v.masterKey, err = vaultCreds.getMasterKey(&v.format)
+	if err != nil {
+		return nil, err
+	}
 	v.itemPrefix = prefix
 
 	cfgData, err := v.decryptBlock(blocks[offset+1])
