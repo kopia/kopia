@@ -185,7 +185,12 @@ func New(s blob.Storage, f *Format, options ...RepositoryOption) (*Repository, e
 		format:  *f,
 	}
 
-	r.formatter = sf
+	var err error
+
+	r.formatter, err = sf(f)
+	if err != nil {
+		return nil, err
+	}
 
 	for _, o := range options {
 		o(r)
@@ -213,14 +218,10 @@ func (r *Repository) hashEncryptAndWriteMaybeAsync(buffer *bytes.Buffer, prefix 
 	}
 
 	// Hash the block and compute encryption key.
-	blockID, encryptionKey := r.formatter.ComputeBlockIDAndKey(data, r.format.Secret)
+	objectID := r.formatter.ComputeObjectID(data)
+	objectID.StorageBlock = prefix + objectID.StorageBlock
 	atomic.AddInt32(&r.Stats.HashedBlocks, 1)
 	atomic.AddInt64(&r.Stats.HashedBytes, int64(len(data)))
-
-	objectID := ObjectID{
-		StorageBlock:  prefix + blockID,
-		EncryptionKey: encryptionKey,
-	}
 
 	if r.writeBackWorkers > 0 {
 		// Tell the defer block not to return the buffer synchronously.
@@ -266,13 +267,11 @@ func (r *Repository) hashEncryptAndWrite(objectID ObjectID, buffer *bytes.Buffer
 		return NullObjectID, err
 	}
 
-	// Encryption is requested, encrypt the block in-place.
-	if objectID.EncryptionKey != nil {
-		atomic.AddInt64(&r.Stats.EncryptedBytes, int64(len(data)))
-		data, err = r.formatter.Encrypt(data, objectID.EncryptionKey)
-		if err != nil {
-			return NullObjectID, err
-		}
+	// Encrypt the block in-place.
+	atomic.AddInt64(&r.Stats.EncryptedBytes, int64(len(data)))
+	data, err = r.formatter.Encrypt(data, objectID)
+	if err != nil {
+		return NullObjectID, err
 	}
 
 	atomic.AddInt32(&r.Stats.WrittenBlocks, int32(1))
@@ -337,12 +336,10 @@ func (r *Repository) newRawReader(objectID ObjectID) (ObjectReader, error) {
 	atomic.AddInt32(&r.Stats.ReadBlocks, 1)
 	atomic.AddInt64(&r.Stats.ReadBytes, int64(len(payload)))
 
-	if len(objectID.EncryptionKey) > 0 {
-		payload, err = r.formatter.Decrypt(payload, objectID.EncryptionKey)
-		atomic.AddInt64(&r.Stats.DecryptedBytes, int64(len(payload)))
-		if err != nil {
-			return nil, err
-		}
+	payload, err = r.formatter.Decrypt(payload, objectID)
+	atomic.AddInt64(&r.Stats.DecryptedBytes, int64(len(payload)))
+	if err != nil {
+		return nil, err
 	}
 
 	// Since the encryption key is a function of data, we must be able to generate exactly the same key
@@ -355,10 +352,10 @@ func (r *Repository) newRawReader(objectID ObjectID) (ObjectReader, error) {
 }
 
 func (r *Repository) verifyChecksum(data []byte, blockID string) error {
-	expectedBlockID, _ := r.formatter.ComputeBlockIDAndKey(data, r.format.Secret)
-	if !strings.HasSuffix(string(blockID), expectedBlockID) {
+	expected := r.formatter.ComputeObjectID(data)
+	if !strings.HasSuffix(blockID, expected.StorageBlock) {
 		atomic.AddInt32(&r.Stats.InvalidBlocks, 1)
-		return fmt.Errorf("invalid checksum for blob: '%v'", blockID)
+		return fmt.Errorf("invalid checksum for blob: '%v', expected %v", blockID, expected.StorageBlock)
 	}
 
 	atomic.AddInt32(&r.Stats.ValidBlocks, 1)

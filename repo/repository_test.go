@@ -390,18 +390,6 @@ func TestFormats(t *testing.T) {
 				Version:      1,
 				ObjectFormat: "TESTONLY_MD5",
 				MaxBlockSize: 10000,
-				Secret:       []byte{}, // HMAC with zero-byte secret
-			},
-			oids: map[string]ObjectID{
-				"": ObjectID{StorageBlock: "74e6f7298a9c2d168935f58c001bad88"},
-				"The quick brown fox jumps over the lazy dog": ObjectID{StorageBlock: "ad262969c53bc16032f160081c4a07a0"},
-			},
-		},
-		{
-			format: &Format{
-				Version:      1,
-				ObjectFormat: "TESTONLY_MD5",
-				MaxBlockSize: 10000,
 				Secret:       nil, // non-HMAC version
 			},
 			oids: map[string]ObjectID{
@@ -459,7 +447,6 @@ func TestFormats(t *testing.T) {
 		data := map[string][]byte{}
 		st := storagetesting.NewMapStorage(data)
 
-		t.Logf("verifying %v", c.format)
 		repo, err := New(st, c.format)
 		if err != nil {
 			t.Errorf("cannot create manager: %v", err)

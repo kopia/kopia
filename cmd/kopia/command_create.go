@@ -46,13 +46,17 @@ func repositoryFormat() (*repo.Format, error) {
 	f := &repo.Format{
 		Version:                1,
 		Secret:                 make([]byte, 32),
+		MasterKey:              make([]byte, 32),
 		MaxBlockSize:           int32(*createMaxBlockSize * 1024),
 		MaxInlineContentLength: int32(*createInlineBlobSize * 1024),
 		ObjectFormat:           *createObjectFormat,
 	}
 
-	_, err := io.ReadFull(rand.Reader, f.Secret)
-	if err != nil {
+	if _, err := io.ReadFull(rand.Reader, f.Secret); err != nil {
+		return nil, err
+	}
+
+	if _, err := io.ReadFull(rand.Reader, f.MasterKey); err != nil {
 		return nil, err
 	}
 
