@@ -30,7 +30,11 @@ func retry(desc string, f func() (interface{}, error)) (interface{}, error) {
 		v, err = f()
 	}
 	if retryCount > 0 {
-		log.Printf("Success calling %v after %v retries.", desc, retryCount)
+		if err == nil {
+			log.Printf("Success calling %v after %v retries.", desc, retryCount)
+		} else {
+			log.Printf("Permanent failure calling %v after %v retries.", desc, retryCount)
+		}
 	}
 	return v, err
 }
