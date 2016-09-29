@@ -201,7 +201,6 @@ func TestHMAC(t *testing.T) {
 
 	s := testFormat()
 	s.ObjectFormat = "TESTONLY_MD5"
-	s.Secret = []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25}
 
 	repo, err := New(storagetesting.NewMapStorage(data), s)
 	if err != nil {
@@ -210,8 +209,8 @@ func TestHMAC(t *testing.T) {
 	w := repo.NewWriter()
 	w.Write(content)
 	result, err := w.Result(false)
-	if result.String() != "D697eaf0aca3a3aea3a75164746ffaa79" {
-		t.Errorf("unexpected result: %v err: %v", result, err)
+	if result.String() != "D999732b72ceff665b3f7608411db66a4" {
+		t.Errorf("unexpected result: %v err: %v", result.String(), err)
 	}
 }
 
@@ -379,31 +378,15 @@ func TestFormats(t *testing.T) {
 		oids   map[string]ObjectID
 	}{
 		{
-			format: makeFormat("TESTONLY_MD5"), // MD5-HMAC with secret 'key'
-			oids: map[string]ObjectID{
-				"": ObjectID{StorageBlock: "63530468a04e386459855da0063b6596"},
-				"The quick brown fox jumps over the lazy dog": ObjectID{StorageBlock: "80070713463e7749b90c2dc24911e275"},
-			},
-		},
-		{
 			format: &Format{
 				Version:      1,
 				ObjectFormat: "TESTONLY_MD5",
 				MaxBlockSize: 10000,
-				Secret:       nil, // non-HMAC version
 			},
 			oids: map[string]ObjectID{
 				"": ObjectID{StorageBlock: "d41d8cd98f00b204e9800998ecf8427e"},
 				"The quick brown fox jumps over the lazy dog": ObjectID{
 					StorageBlock: "9e107d9d372bb6826bd81d3542a419d6",
-				},
-			},
-		},
-		{
-			format: makeFormat("TESTONLY_MD5"),
-			oids: map[string]ObjectID{
-				"The quick brown fox jumps over the lazy dog": ObjectID{
-					StorageBlock: "80070713463e7749b90c2dc24911e275",
 				},
 			},
 		},
@@ -419,7 +402,7 @@ func TestFormats(t *testing.T) {
 			format: makeFormat("UNENCRYPTED_HMAC_SHA256_128"),
 			oids: map[string]ObjectID{
 				"The quick brown fox jumps over the lazy dog": ObjectID{
-					StorageBlock: "18f1da557915937d2675055a87758d9b",
+					StorageBlock: "f7bc83f430538424b13298e6aa6fb143",
 				},
 			},
 		},

@@ -55,18 +55,16 @@ type ObjectFormatter interface {
 	Decrypt(cipherText []byte, oid ObjectID) ([]byte, error)
 }
 
+// digestFunction computes the digest (hash, optionally HMAC) of a given block of bytes.
+type digestFunction func([]byte) []byte
+
 // unencryptedFormat implements non-encrypted format.
 type unencryptedFormat struct {
-	hashCtor func() hash.Hash
-	fold     int
-	secret   []byte
+	digestFunc digestFunction
 }
 
 func (fi *unencryptedFormat) ComputeObjectID(data []byte) ObjectID {
-	h := hashContent(fi.hashCtor, data, fi.secret)
-	if fi.fold > 0 {
-		h = fold(h, fi.fold)
-	}
+	h := fi.digestFunc(data)
 
 	return ObjectID{StorageBlock: hex.EncodeToString(h)}
 }
@@ -86,14 +84,13 @@ var constantIV = []byte("kopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopia
 // convergentEncryptionFormat implements encrypted format where encryption key is derived from the data and HMAC secret and IV is constant.
 // By sharing HMAC secret alone, this allows multiple parties in posession of the same file to generate identical block IDs and encryption keys.
 type convergentEncryptionFormat struct {
-	hashCtor     func() hash.Hash
+	digestFunc   digestFunction
 	createCipher func(key []byte) (cipher.Block, error)
 	keyBytes     int
-	secret       []byte
 }
 
 func (fi *convergentEncryptionFormat) ComputeObjectID(data []byte) ObjectID {
-	h := hashContent(fi.hashCtor, data, fi.secret)
+	h := fi.digestFunc(data)
 	p := len(h) - fi.keyBytes
 
 	return ObjectID{StorageBlock: hex.EncodeToString(h[0:p]), EncryptionKey: h[p:]}
@@ -110,20 +107,13 @@ func (fi *convergentEncryptionFormat) Decrypt(cipherText []byte, oid ObjectID) (
 // syntheticIVEncryptionFormat implements encrypted format with single master AES key and StorageBlock==IV that's
 // derived from HMAC-SHA256(content, secret).
 type syntheticIVEncryptionFormat struct {
+	digestFunc   digestFunction
 	createCipher func(key []byte) (cipher.Block, error)
 	aesKey       []byte
-	hmacSecret   []byte
 }
 
 func (fi *syntheticIVEncryptionFormat) ComputeObjectID(data []byte) ObjectID {
-	h := hashContent(sha256.New, data, fi.hmacSecret)
-
-	// Fold the bits into 16 bytes required for the IV.
-	for i := aes.BlockSize; i < len(h); i++ {
-		h[i%aes.BlockSize] ^= h[i]
-	}
-
-	h = h[0:aes.BlockSize]
+	h := fi.digestFunc(data)
 	return ObjectID{StorageBlock: hex.EncodeToString(h)}
 }
 
@@ -174,25 +164,25 @@ var SupportedFormats map[string]func(f *Format) (ObjectFormatter, error)
 func init() {
 	SupportedFormats = map[string]func(f *Format) (ObjectFormatter, error){
 		"TESTONLY_MD5": func(f *Format) (ObjectFormatter, error) {
-			return &unencryptedFormat{md5.New, 0, f.Secret}, nil
+			return &unencryptedFormat{computeHash(md5.New, md5.Size)}, nil
 		},
 		"UNENCRYPTED_HMAC_SHA256": func(f *Format) (ObjectFormatter, error) {
-			return &unencryptedFormat{sha256.New, 0, f.Secret}, nil
+			return &unencryptedFormat{computeHMAC(sha256.New, f.Secret, sha256.Size)}, nil
 		},
 		"UNENCRYPTED_HMAC_SHA256_128": func(f *Format) (ObjectFormatter, error) {
-			return &unencryptedFormat{sha256.New, 16, f.Secret}, nil
+			return &unencryptedFormat{computeHMAC(sha256.New, f.Secret, 16)}, nil
 		},
 		"ENCRYPTED_HMAC_SHA512_384_AES256": func(f *Format) (ObjectFormatter, error) {
-			return &convergentEncryptionFormat{sha512.New384, aes.NewCipher, 32, f.Secret}, nil
+			return &convergentEncryptionFormat{computeHMAC(sha512.New384, f.Secret, sha512.Size384), aes.NewCipher, 32}, nil
 		},
 		"ENCRYPTED_HMAC_SHA512_AES256": func(f *Format) (ObjectFormatter, error) {
-			return &convergentEncryptionFormat{sha512.New, aes.NewCipher, 32, f.Secret}, nil
+			return &convergentEncryptionFormat{computeHMAC(sha512.New, f.Secret, sha512.Size), aes.NewCipher, 32}, nil
 		},
 		"ENCRYPTED_HMAC_SHA256_AES256_SIV": func(f *Format) (ObjectFormatter, error) {
 			if len(f.MasterKey) < 32 {
 				return nil, fmt.Errorf("master key is not set")
 			}
-			return &syntheticIVEncryptionFormat{aes.NewCipher, f.MasterKey, f.Secret}, nil
+			return &syntheticIVEncryptionFormat{computeHMAC(sha256.New, f.Secret, aes.BlockSize), aes.NewCipher, f.MasterKey}, nil
 		},
 	}
 }
@@ -200,25 +190,20 @@ func init() {
 // DefaultObjectFormat is the format that should be used by default when creating new repositories.
 var DefaultObjectFormat = "ENCRYPTED_HMAC_SHA256_AES256_SIV"
 
-func fold(b []byte, size int) []byte {
-	if len(b) == size {
-		return b
+// computeHash returns a digestFunction that computes a hash of a given block of bytes and truncates results to the given size.
+func computeHash(hf func() hash.Hash, truncate int) digestFunction {
+	return func(b []byte) []byte {
+		h := hf()
+		h.Write(b)
+		return h.Sum(nil)[0:truncate]
 	}
-
-	for i := size; i < len(b); i++ {
-		b[i%size] ^= b[i]
-	}
-	return b[0:size]
 }
 
-func hashContent(hf func() hash.Hash, data []byte, secret []byte) []byte {
-	var h hash.Hash
-
-	if len(secret) > 0 {
-		h = hmac.New(hf, secret)
-	} else {
-		h = hf()
+// computeHMAC returns a digestFunction that computes HMAC(hash, secret) of a given block of bytes and truncates results to the given size.
+func computeHMAC(hf func() hash.Hash, secret []byte, truncate int) digestFunction {
+	return func(b []byte) []byte {
+		h := hmac.New(hf, secret)
+		h.Write(b)
+		return h.Sum(nil)[0:truncate]
 	}
-	h.Write(data)
-	return h.Sum(nil)
 }
