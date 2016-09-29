@@ -58,8 +58,7 @@ func verifyVault(t *testing.T, vaultPath string, repoPath string) {
 	}
 
 	vaultFormat := &Format{
-		Encryption: "aes-256",
-		Checksum:   "hmac-sha-256",
+		EncryptionAlgorithm: "AES256_GCM",
 	}
 
 	repoFormat := &repo.Format{

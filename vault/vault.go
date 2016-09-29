@@ -3,13 +3,11 @@ package vault
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"hash"
 	"io"
 	"strings"
 	"sync"
@@ -28,12 +26,18 @@ const (
 )
 
 var (
-	purposeAESKey         = []byte("AES")
-	purposeChecksumSecret = []byte("CHECKSUM")
+	purposeAESKey   = []byte("AES")
+	purposeAuthData = []byte("CHECKSUM")
 )
 
 // ErrItemNotFound is an error returned when a vault item cannot be found.
 var ErrItemNotFound = errors.New("item not found")
+
+// SupportedEncryptionAlgorithms lists supported key derivation algorithms.
+var SupportedEncryptionAlgorithms = []string{
+	"AES256_GCM",
+	"NONE",
+}
 
 // Vault is a secure storage for secrets such as repository object identifiers.
 type Vault struct {
@@ -43,6 +47,9 @@ type Vault struct {
 
 	masterKey  []byte
 	itemPrefix string
+
+	aead     cipher.AEAD // authenticated encryption to use
+	authData []byte      // additional data to authenticate
 }
 
 // Put saves the specified content in a vault under a specified name.
@@ -55,33 +62,20 @@ func (v *Vault) Put(itemID string, content []byte) error {
 }
 
 func (v *Vault) writeEncryptedBlock(itemID string, content []byte) error {
-	blk, err := v.newCipher()
-	if err != nil {
-		return err
-	}
+	if v.aead != nil {
+		nonceLength := v.aead.NonceSize()
+		noncePlusContentLength := nonceLength + len(content)
+		cipherText := make([]byte, noncePlusContentLength+v.aead.Overhead())
 
-	if blk != nil {
-		hash, err := v.newChecksum()
-		if err != nil {
+		// Store nonce at the beginning of ciphertext.
+		nonce := cipherText[0:nonceLength]
+		if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
 			return err
 		}
 
-		ivLength := blk.BlockSize()
-		ivPlusContentLength := ivLength + len(content)
-		cipherText := make([]byte, ivPlusContentLength+hash.Size())
+		b := v.aead.Seal(cipherText[nonceLength:nonceLength], nonce, content, v.authData)
 
-		// Store IV at the beginning of ciphertext.
-		iv := cipherText[0:ivLength]
-		if _, err := io.ReadFull(rand.Reader, iv); err != nil {
-			return err
-		}
-
-		ctr := cipher.NewCTR(blk, iv)
-		ctr.XORKeyStream(cipherText[ivLength:], content)
-		hash.Write(cipherText[0:ivPlusContentLength])
-		copy(cipherText[ivPlusContentLength:], hash.Sum(nil))
-
-		content = cipherText
+		content = nonce[0 : nonceLength+len(b)]
 	}
 
 	return v.storage.PutBlock(v.itemPrefix+itemID, content, blob.PutOptionsOverwrite)
@@ -100,73 +94,13 @@ func (v *Vault) readEncryptedBlock(itemID string) ([]byte, error) {
 }
 
 func (v *Vault) decryptBlock(content []byte) ([]byte, error) {
-	blk, err := v.newCipher()
-	if err != nil {
-		return nil, err
-	}
-
-	if blk != nil {
-		hash, err := v.newChecksum()
-		if err != nil {
-			return nil, err
-		}
-
-		p := len(content) - hash.Size()
-		hash.Write(content[0:p])
-		expectedChecksum := hash.Sum(nil)
-		actualChecksum := content[p:]
-
-		if !hmac.Equal(expectedChecksum, actualChecksum) {
-			return nil, fmt.Errorf("cannot read encrypted block: incorrect checksum")
-		}
-
-		ivLength := blk.BlockSize()
-
-		plainText := make([]byte, len(content)-ivLength-hash.Size())
-		iv := content[0:blk.BlockSize()]
-
-		ctr := cipher.NewCTR(blk, iv)
-		ctr.XORKeyStream(plainText, content[ivLength:len(content)-hash.Size()])
-
-		content = plainText
+	if v.aead != nil {
+		nonce := content[0:v.aead.NonceSize()]
+		payload := content[v.aead.NonceSize():]
+		return v.aead.Open(payload[:0], nonce, payload, v.authData)
 	}
 
 	return content, nil
-}
-
-func (v *Vault) newChecksum() (hash.Hash, error) {
-	switch v.format.Checksum {
-	case "hmac-sha-256":
-		key := make([]byte, 32)
-		v.deriveKey(purposeChecksumSecret, key)
-		return hmac.New(sha256.New, key), nil
-
-	default:
-		return nil, fmt.Errorf("unsupported checksum format: %v", v.format.Checksum)
-	}
-
-}
-
-func (v *Vault) newCipher() (cipher.Block, error) {
-	switch v.format.Encryption {
-	case "none":
-		return nil, nil
-	case "aes-128":
-		k := make([]byte, 16)
-		v.deriveKey(purposeAESKey, k)
-		return aes.NewCipher(k)
-	case "aes-192":
-		k := make([]byte, 24)
-		v.deriveKey(purposeAESKey, k)
-		return aes.NewCipher(k)
-	case "aes-256":
-		k := make([]byte, 32)
-		v.deriveKey(purposeAESKey, k)
-		return aes.NewCipher(k)
-	default:
-		return nil, fmt.Errorf("unsupported encryption format: %v", v.format.Encryption)
-	}
-
 }
 
 func (v *Vault) deriveKey(purpose []byte, key []byte) error {
@@ -284,8 +218,8 @@ func Create(
 	if _, err := io.ReadFull(rand.Reader, v.format.UniqueID); err != nil {
 		return nil, err
 	}
-	if v.format.KeyAlgo == "" {
-		v.format.KeyAlgo = defaultKeyAlgorithm
+	if v.format.KeyAlgorithm == "" {
+		v.format.KeyAlgorithm = defaultKeyAlgorithm
 
 	}
 	var err error
@@ -301,6 +235,10 @@ func Create(
 
 	if err := vaultStorage.PutBlock(v.itemPrefix+formatBlockID, formatBytes, blob.PutOptionsOverwrite); err != nil {
 		return nil, err
+	}
+
+	if err := v.initCrypto(); err != nil {
+		return nil, fmt.Errorf("unable to initialize crypto: %v", err)
 	}
 
 	// Write encrypted repository configuration block.
@@ -381,6 +319,10 @@ func Open(vaultStorage blob.Storage, vaultCreds Credentials) (*Vault, error) {
 	}
 	v.itemPrefix = prefix
 
+	if err := v.initCrypto(); err != nil {
+		return nil, fmt.Errorf("unable to initialize crypto: %v", err)
+	}
+
 	cfgData, err := v.decryptBlock(blocks[offset+1])
 	if err != nil {
 		return nil, err
@@ -395,6 +337,34 @@ func Open(vaultStorage blob.Storage, vaultCreds Credentials) (*Vault, error) {
 	v.RepoConfig = rc
 
 	return &v, nil
+}
+
+func (v *Vault) initCrypto() error {
+	switch v.format.EncryptionAlgorithm {
+	case "NONE": // do nothing
+		return nil
+	case "AES256_GCM":
+		aesKey := make([]byte, 32)
+		if err := v.deriveKey(purposeAESKey, aesKey); err != nil {
+			return fmt.Errorf("cannot derive key: %v", err)
+		}
+		v.authData = make([]byte, 32)
+		if err := v.deriveKey(purposeAuthData, v.authData); err != nil {
+			return fmt.Errorf("cannot derive auth data: %v", err)
+		}
+
+		blk, err := aes.NewCipher(aesKey)
+		if err != nil {
+			return fmt.Errorf("cannot create cipher: %v", err)
+		}
+		v.aead, err = cipher.NewGCM(blk)
+		if err != nil {
+			return fmt.Errorf("cannot create cipher: %v", err)
+		}
+		return nil
+	default:
+		return fmt.Errorf("unknown encryption algorithm: '%v'", v.format.EncryptionAlgorithm)
+	}
 }
 
 func isReservedName(itemID string) bool {

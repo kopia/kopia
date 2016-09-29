@@ -21,6 +21,7 @@ const (
 	defaultKeyAlgorithm = "scrypt-65536-8-1"
 )
 
+// SupportedKeyAlgorithms lists supported key derivation algorithms.
 var SupportedKeyAlgorithms = []string{
 	"scrypt-65536-8-1",
 	"pbkdf2-sha256-100000",
@@ -53,7 +54,7 @@ type passwordCredentials struct {
 }
 
 func (pc *passwordCredentials) getMasterKey(f *Format) ([]byte, error) {
-	switch f.KeyAlgo {
+	switch f.KeyAlgorithm {
 	case "pbkdf2-sha256-100000":
 		return pbkdf2.Key([]byte(pc.password), f.UniqueID, 100000, passwordBasedKeySize, sha256.New), nil
 
@@ -61,7 +62,7 @@ func (pc *passwordCredentials) getMasterKey(f *Format) ([]byte, error) {
 		return scrypt.Key([]byte(pc.password), f.UniqueID, 65536, 8, 1, passwordBasedKeySize)
 
 	default:
-		return nil, fmt.Errorf("unsupported key algorithm: %v", f.KeyAlgo)
+		return nil, fmt.Errorf("unsupported key algorithm: %v", f.KeyAlgorithm)
 	}
 }
 

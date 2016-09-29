@@ -19,7 +19,7 @@ var (
 
 	createMaxBlockSize          = createCommand.Flag("max-blob-size", "Maximum size of a data chunk.").PlaceHolder("KB").Default("20480").Int()
 	createInlineBlobSize        = createCommand.Flag("inline-blob-size", "Maximum size of an inline data chunk.").PlaceHolder("KB").Default("32").Int()
-	createVaultEncryptionFormat = createCommand.Flag("vault-encryption", "Vault encryption.").PlaceHolder("FORMAT").Default("aes-256").Enum(supportedVaultEncryptionFormats()...)
+	createVaultEncryptionFormat = createCommand.Flag("vault-encryption", "Vault encryption.").PlaceHolder("FORMAT").Default(vault.SupportedEncryptionAlgorithms[0]).Enum(vault.SupportedEncryptionAlgorithms...)
 	createOverwrite             = createCommand.Flag("overwrite", "Overwrite existing data (DANGEROUS).").Bool()
 	createOnly                  = createCommand.Flag("create-only", "Create the vault, but don't connect to it.").Short('c').Bool()
 )
@@ -30,15 +30,14 @@ func init() {
 
 func vaultFormat() (*vault.Format, error) {
 	f := &vault.Format{
-		Version:  "1",
-		Checksum: "hmac-sha-256",
+		Version: "1",
 	}
 	f.UniqueID = make([]byte, 32)
 	_, err := io.ReadFull(rand.Reader, f.UniqueID)
 	if err != nil {
 		return nil, err
 	}
-	f.Encryption = *createVaultEncryptionFormat
+	f.EncryptionAlgorithm = *createVaultEncryptionFormat
 	return f, nil
 }
 
@@ -113,7 +112,7 @@ func runCreateCommand(context *kingpin.ParseContext) error {
 
 	fmt.Printf(
 		"Initializing vault with encryption '%v'.\n",
-		vf.Encryption)
+		vf.EncryptionAlgorithm)
 
 	var vlt *vault.Vault
 
@@ -140,15 +139,6 @@ func runCreateCommand(context *kingpin.ParseContext) error {
 	}
 
 	return nil
-}
-
-func supportedVaultEncryptionFormats() []string {
-	return []string{
-		"none",
-		"aes-128",
-		"aes-192",
-		"aes-256",
-	}
 }
 
 func supportedObjectFormats() []string {
