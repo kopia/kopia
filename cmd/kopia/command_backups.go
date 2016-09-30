@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/kopia/kopia/fs/repofs"
+	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/vault"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
@@ -93,12 +94,27 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 		}
 
 		if count < *maxResultsPerPath {
-			fmt.Printf("  %v%v %v\n", m.Handle, relPath, m.StartTime.Format("2006-01-02 15:04:05 MST"))
+			fmt.Printf(
+				"  %v%v %v %10v %v\n",
+				m.Handle,
+				relPath,
+				m.StartTime.Format("2006-01-02 15:04:05 MST"),
+				units.BytesString(m.Stats.TotalFileSize),
+				deltaBytes(m.Stats.Repository.WrittenBytes),
+			)
 			count++
 		}
 	}
 
 	return nil
+}
+
+func deltaBytes(b int64) string {
+	if b > 0 {
+		return "(+" + units.BytesString(b) + ")"
+	}
+
+	return "(no change)"
 }
 
 func loadBackupManifests(vlt *vault.Vault, names []string) []*repofs.Snapshot {

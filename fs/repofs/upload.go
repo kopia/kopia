@@ -9,6 +9,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/kopia/kopia/internal/units"
+
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo"
 )
@@ -97,17 +99,8 @@ func bytesPerSecond(bytes int64, duration time.Duration) string {
 		return "0 B/s"
 	}
 
-	bps := float64(bytes) / duration.Seconds()
-
-	if bps >= 700000 {
-		return fmt.Sprintf("%.2f MB/s", bps/1000000)
-	}
-
-	if bps >= 700 {
-		return fmt.Sprintf("%.2f KB/s", bps/1000)
-	}
-
-	return fmt.Sprintf("%.2f B/s", bps)
+	bps := float64(8*bytes) / duration.Seconds()
+	return units.BitsPerSecondsString(bps)
 }
 
 func newDirEntry(md *fs.EntryMetadata, oid repo.ObjectID) *dirEntry {
