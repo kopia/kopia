@@ -37,7 +37,7 @@ func (s semaphore) Unlock() {
 // Repository implements a content-addressable storage on top of blob storage.
 type Repository struct {
 	Stats   Stats        // vital statistics
-	storage blob.Storage // underlying blob storage
+	Storage blob.Storage // underlying blob storage
 
 	verbose       bool
 	bufferManager *bufferManager
@@ -83,7 +83,7 @@ func (e *asyncErrors) check() error {
 // Close closes the connection to the underlying blob storage and releases any resources.
 func (r *Repository) Close() error {
 	r.Flush()
-	if err := r.storage.Close(); err != nil {
+	if err := r.Storage.Close(); err != nil {
 		return err
 	}
 	r.bufferManager.close()
@@ -168,7 +168,7 @@ func WriteBack(writeBackWorkers int) RepositoryOption {
 // EnableLogging is an RepositoryOption that causes all storage access to be logged.
 func EnableLogging(options ...logging.Option) RepositoryOption {
 	return func(o *Repository) {
-		o.storage = logging.NewWrapper(o.storage, options...)
+		o.Storage = logging.NewWrapper(o.Storage, options...)
 	}
 }
 
@@ -181,7 +181,7 @@ func New(s blob.Storage, f *Format, options ...RepositoryOption) (*Repository, e
 	sf := SupportedFormats[f.ObjectFormat]
 
 	r := &Repository{
-		storage: s,
+		Storage: s,
 		format:  *f,
 	}
 
@@ -254,7 +254,7 @@ func (r *Repository) hashEncryptAndWrite(objectID ObjectID, buffer *bytes.Buffer
 	}
 
 	// Before performing encryption, check if the block is already there.
-	blockSize, err := r.storage.BlockSize(objectID.StorageBlock)
+	blockSize, err := r.Storage.BlockSize(objectID.StorageBlock)
 	atomic.AddInt32(&r.Stats.CheckedBlocks, int32(1))
 	if err == nil && blockSize == int64(len(data)) {
 		atomic.AddInt32(&r.Stats.PresentBlocks, int32(1))
@@ -277,7 +277,7 @@ func (r *Repository) hashEncryptAndWrite(objectID ObjectID, buffer *bytes.Buffer
 	atomic.AddInt32(&r.Stats.WrittenBlocks, int32(1))
 	atomic.AddInt64(&r.Stats.WrittenBytes, int64(len(data)))
 
-	if err := r.storage.PutBlock(objectID.StorageBlock, data, blob.PutOptionsDefault); err != nil {
+	if err := r.Storage.PutBlock(objectID.StorageBlock, data, blob.PutOptionsDefault); err != nil {
 		r.writeBackErrors.add(err)
 	}
 
@@ -328,7 +328,7 @@ func (r *Repository) newRawReader(objectID ObjectID) (ObjectReader, error) {
 	}
 
 	blockID := objectID.StorageBlock
-	payload, err := r.storage.GetBlock(blockID)
+	payload, err := r.Storage.GetBlock(blockID)
 	if err != nil {
 		return nil, err
 	}
