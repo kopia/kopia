@@ -135,7 +135,7 @@ func (r *Repository) Open(objectID ObjectID) (ObjectReader, error) {
 		if err != nil {
 			return nil, err
 		}
-		defer r.Close()
+		defer rd.Close()
 
 		seekTable, err := r.flattenListChunk(rd)
 		if err != nil {
