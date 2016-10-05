@@ -88,7 +88,7 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 
 	for _, m := range loadBackupManifests(conn.Vault, previous) {
 		if m.Source != lastSource {
-			fmt.Printf("%v@%v:%v\n", m.Source.UserName, m.Source.Host, m.Source.Path)
+			fmt.Printf("\n%v\n", m.Source)
 			lastSource = m.Source
 			count = 0
 		}

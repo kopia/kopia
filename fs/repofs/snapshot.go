@@ -3,6 +3,7 @@ package repofs
 import (
 	"crypto/sha1"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"time"
 
@@ -18,14 +19,18 @@ type SnapshotSourceInfo struct {
 	Path     string `json:"path"`
 }
 
+func (ssi SnapshotSourceInfo) String() string {
+	return fmt.Sprintf("%v@%v : %v", ssi.UserName, ssi.Host, ssi.Path)
+}
+
 // HashString generates hash of SnapshotSourceInfo.
-func (r SnapshotSourceInfo) HashString() string {
+func (ssi SnapshotSourceInfo) HashString() string {
 	h := sha1.New()
-	io.WriteString(h, r.Host)
+	io.WriteString(h, ssi.Host)
 	h.Write(zeroByte)
-	io.WriteString(h, r.UserName)
+	io.WriteString(h, ssi.UserName)
 	h.Write(zeroByte)
-	io.WriteString(h, r.Path)
+	io.WriteString(h, ssi.Path)
 	h.Write(zeroByte)
 	return hex.EncodeToString(h.Sum(nil))
 }

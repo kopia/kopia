@@ -21,8 +21,11 @@ import (
 const (
 	formatBlockID           = "format"
 	repositoryConfigBlockID = "repo"
+)
 
-	colocatedVaultItemPrefix = "VLT"
+const (
+	// ColocatedBlockPrefix is a prefix used for colocated vault blocks in a repository storage.
+	ColocatedBlockPrefix = "VLT"
 )
 
 var (
@@ -205,7 +208,7 @@ func Create(
 
 	if repoStorage == nil {
 		repoStorage = vaultStorage
-		v.itemPrefix = colocatedVaultItemPrefix
+		v.itemPrefix = ColocatedBlockPrefix
 	}
 
 	cip, ok := repoStorage.(blob.ConnectionInfoProvider)
@@ -294,8 +297,8 @@ func Open(vaultStorage blob.Storage, vaultCreds Credentials) (*Vault, error) {
 	wg.Add(4)
 	go f(0, formatBlockID)
 	go f(1, repositoryConfigBlockID)
-	go f(2, colocatedVaultItemPrefix+formatBlockID)
-	go f(3, colocatedVaultItemPrefix+repositoryConfigBlockID)
+	go f(2, ColocatedBlockPrefix+formatBlockID)
+	go f(3, ColocatedBlockPrefix+repositoryConfigBlockID)
 	wg.Wait()
 
 	if blocks[0] == nil && blocks[2] == nil {
@@ -304,7 +307,7 @@ func Open(vaultStorage blob.Storage, vaultCreds Credentials) (*Vault, error) {
 
 	var offset = 0
 	if blocks[0] == nil {
-		prefix = colocatedVaultItemPrefix
+		prefix = ColocatedBlockPrefix
 		offset = 2
 	}
 
