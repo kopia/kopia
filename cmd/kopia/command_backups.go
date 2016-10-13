@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"path/filepath"
+	"sort"
 
 	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/internal/units"
@@ -86,7 +87,10 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 	var lastSource repofs.SnapshotSourceInfo
 	var count int
 
-	for _, m := range loadBackupManifests(conn.Vault, previous) {
+	manifests := loadBackupManifests(conn.Vault, previous)
+	sort.Sort(manifestSorter(manifests))
+
+	for _, m := range manifests {
 		if m.Source != lastSource {
 			fmt.Printf("\n%v\n", m.Source)
 			lastSource = m.Source
@@ -108,6 +112,22 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 
 	return nil
 }
+
+type manifestSorter []*repofs.Snapshot
+
+func (b manifestSorter) Len() int { return len(b) }
+func (b manifestSorter) Less(i, j int) bool {
+	if b[i].Source.String() < b[j].Source.String() {
+		return true
+	}
+	if b[i].Source.String() > b[j].Source.String() {
+		return false
+	}
+
+	return b[i].StartTime.UnixNano() < b[j].StartTime.UnixNano()
+}
+
+func (b manifestSorter) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
 
 func deltaBytes(b int64) string {
 	if b > 0 {
