@@ -47,7 +47,7 @@ type gcsStorage struct {
 func (gcs *gcsStorage) BlockSize(b string) (int64, error) {
 	call := gcs.objectsService.Get(gcs.BucketName, gcs.getObjectNameString(b))
 	v, err := retry(
-		"Get",
+		"BlockSize",
 		func() (interface{}, error) {
 			return call.Do()
 		})

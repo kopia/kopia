@@ -18,6 +18,7 @@ import (
 
 	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/vault"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -29,7 +30,8 @@ const (
 var (
 	backupCommand = app.Command("backup", "Copies local files or directories to backup repository.")
 
-	backupSources = backupCommand.Arg("source", "Files or directories to back up.").Required().ExistingFilesOrDirs()
+	backupSources = backupCommand.Arg("source", "Files or directories to back up.").ExistingFilesOrDirs()
+	backupAll     = backupCommand.Flag("all", "Back-up all directories previously backed up by this user on this computer").Bool()
 
 	backupHostName    = backupCommand.Flag("host", "Override backup hostname.").String()
 	backupUser        = backupCommand.Flag("user", "Override backup user.").String()
@@ -54,7 +56,21 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 
 	ctx := context.Background()
 
-	for _, backupDirectory := range *backupSources {
+	sources := *backupSources
+	if *backupAll {
+		local, err := getLocalBackupPaths(conn.Vault)
+		if err != nil {
+			return err
+		}
+		sources = append(sources, local...)
+	}
+
+	if len(sources) == 0 {
+		return fmt.Errorf("No backup sources.")
+	}
+
+	for _, backupDirectory := range sources {
+		log.Printf("Backing up %v", backupDirectory)
 		dir, err := filepath.Abs(backupDirectory)
 		if err != nil {
 			return fmt.Errorf("invalid source: '%s': %s", backupDirectory, err)
@@ -116,6 +132,33 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 	}
 
 	return nil
+}
+
+func getLocalBackupPaths(vlt *vault.Vault) ([]string, error) {
+	u := getBackupUser()
+	h := getBackupHostName()
+	log.Printf("Looking for previous backups of '%v@%v'...", u, h)
+	backupItems, err := vlt.List("B")
+	if err != nil {
+		return nil, err
+	}
+
+	manifests := loadBackupManifests(vlt, backupItems)
+	var lastSource repofs.SnapshotSourceInfo
+
+	var result []string
+
+	for _, m := range manifests {
+		if m.Source != lastSource {
+			lastSource = m.Source
+
+			if m.Source.Host == h && m.Source.UserName == u {
+				result = append(result, m.Source.Path)
+			}
+		}
+	}
+
+	return result, nil
 }
 
 func hashObjectID(oid string) string {
