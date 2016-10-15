@@ -6,10 +6,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"io"
-	"log"
 	"time"
-
-	"github.com/kopia/kopia/internal/units"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo"
@@ -52,14 +49,17 @@ type uploadContext struct {
 	cacheWriter *hashcacheWriter
 	cacheReader *hashcacheReader
 
-	stats *SnapshotStats
+	stats    *SnapshotStats
+	progress UploadProgress
+
+	uploadBuf []byte
 
 	Cancelled bool
 }
 
 func uploadFileInternal(u *uploadContext, f fs.File, relativePath string, forceStored bool) (*dirEntry, uint64, error) {
-	log.Printf("Uploading file %v", relativePath)
-	t0 := time.Now()
+	u.progress.Started(relativePath, f.Metadata().FileSize)
+
 	file, err := f.Open()
 	if err != nil {
 		return nil, 0, fmt.Errorf("unable to open file: %v", err)
@@ -71,36 +71,69 @@ func uploadFileInternal(u *uploadContext, f fs.File, relativePath string, forceS
 	)
 	defer writer.Close()
 
-	written, err := io.Copy(writer, file)
+	written, err := copyWithProgress(u, relativePath, writer, file, 0, f.Metadata().FileSize)
 	if err != nil {
+		u.progress.Finished(relativePath, f.Metadata().FileSize, err)
 		return nil, 0, err
 	}
 
 	e2, err := file.EntryMetadata()
 	if err != nil {
+		u.progress.Finished(relativePath, f.Metadata().FileSize, err)
 		return nil, 0, err
 	}
 
 	r, err := writer.Result(forceStored)
 	if err != nil {
+		u.progress.Finished(relativePath, f.Metadata().FileSize, err)
 		return nil, 0, err
 	}
 
 	de := newDirEntry(e2, r)
 	de.FileSize = written
-	dt := time.Since(t0)
-	log.Printf("Uploaded file %v, %v bytes in %v. %v", relativePath, written, dt, bytesPerSecond(written, dt))
+
+	u.progress.Finished(relativePath, f.Metadata().FileSize, nil)
 
 	return de, metadataHash(&de.EntryMetadata), nil
 }
 
-func bytesPerSecond(bytes int64, duration time.Duration) string {
-	if duration == 0 {
-		return "0 B/s"
+func copyWithProgress(u *uploadContext, path string, dst io.Writer, src io.Reader, completed int64, length int64) (int64, error) {
+	if u.uploadBuf == nil {
+		u.uploadBuf = make([]byte, 128*1024) // 128 KB buffer
 	}
 
-	bps := float64(8*bytes) / duration.Seconds()
-	return units.BitsPerSecondsString(bps)
+	var written int64
+
+	for {
+		readBytes, readErr := src.Read(u.uploadBuf)
+		if readBytes > 0 {
+			wroteBytes, writeErr := dst.Write(u.uploadBuf[0:readBytes])
+			if wroteBytes > 0 {
+				written += int64(wroteBytes)
+				completed += int64(wroteBytes)
+				if length < completed {
+					length = completed
+				}
+				u.progress.Progress(path, completed, length)
+			}
+			if writeErr != nil {
+				return written, writeErr
+			}
+			if readBytes != wroteBytes {
+				return written, io.ErrShortWrite
+			}
+		}
+
+		if readErr != nil {
+			if readErr == io.EOF {
+				break
+			}
+
+			return written, readErr
+		}
+	}
+
+	return written, nil
 }
 
 func newDirEntry(md *fs.EntryMetadata, oid repo.ObjectID) *dirEntry {
@@ -110,15 +143,14 @@ func newDirEntry(md *fs.EntryMetadata, oid repo.ObjectID) *dirEntry {
 	}
 }
 
-func uploadBundleInternal(u *uploadContext, b *bundle) (*dirEntry, uint64, error) {
+func uploadBundleInternal(u *uploadContext, b *bundle, relativePath string) (*dirEntry, uint64, error) {
 	bundleMetadata := b.Metadata()
-
-	log.Printf("uploading bundle %v (%v files)", bundleMetadata.Name, len(b.files))
-	t0 := time.Now()
+	u.progress.Started(relativePath, b.Metadata().FileSize)
 
 	writer := u.repo.NewWriter(
 		repo.WithDescription("BUNDLE:" + bundleMetadata.Name),
 	)
+
 	defer writer.Close()
 
 	var uploadedFiles []fs.File
@@ -130,16 +162,19 @@ func uploadBundleInternal(u *uploadContext, b *bundle) (*dirEntry, uint64, error
 	for _, fileEntry := range b.files {
 		file, err := fileEntry.Open()
 		if err != nil {
+			u.progress.Finished(relativePath, totalBytes, err)
 			return nil, 0, err
 		}
 
 		fileMetadata, err := file.EntryMetadata()
 		if err != nil {
+			u.progress.Finished(relativePath, totalBytes, err)
 			return nil, 0, err
 		}
 
-		written, err := io.Copy(writer, file)
+		written, err := copyWithProgress(u, relativePath, writer, file, totalBytes, b.Metadata().FileSize)
 		if err != nil {
+			u.progress.Finished(relativePath, totalBytes, err)
 			return nil, 0, err
 		}
 
@@ -153,12 +188,13 @@ func uploadBundleInternal(u *uploadContext, b *bundle) (*dirEntry, uint64, error
 
 	b.files = uploadedFiles
 	de.ObjectID, err = writer.Result(true)
-	dt := time.Since(t0)
-	log.Printf("Uploaded bundle %v (%v files) %v bytes in %v. %v", bundleMetadata.Name, len(b.files), totalBytes, dt, bytesPerSecond(totalBytes, dt))
+	de.FileSize = totalBytes
 	if err != nil {
+		u.progress.Finished(relativePath, totalBytes, err)
 		return nil, 0, err
 	}
 
+	u.progress.Finished(relativePath, totalBytes, nil)
 	return de, bundleHash(b), nil
 }
 
@@ -201,8 +237,8 @@ func uploadDirInternal(
 	relativePath string,
 	forceStored bool,
 ) (repo.ObjectID, uint64, bool, error) {
-	log.Printf("Uploading dir %v", relativePath)
-	defer log.Printf("Finished uploading dir %v", relativePath)
+	u.progress.StartedDir(relativePath)
+	defer u.progress.FinishedDir(relativePath)
 
 	u.stats.TotalDirectoryCount++
 
@@ -269,13 +305,14 @@ func uploadDirInternal(
 
 			if cacheMatches {
 				u.stats.CachedFiles++
+				u.progress.Cached(entryRelativePath, entry.Metadata().FileSize)
 				// Avoid hashing by reusing previous object ID.
 				de = newDirEntry(e, cachedEntry.ObjectID)
 				de.BundledChildren = childrenMetadata
 				hash = cachedEntry.Hash
 			} else {
 				u.stats.NonCachedFiles++
-				de, hash, err = uploadBundleInternal(u, entry)
+				de, hash, err = uploadBundleInternal(u, entry, entryRelativePath)
 				if err != nil {
 					return repo.NullObjectID, 0, false, fmt.Errorf("unable to hash file: %s", err)
 				}
@@ -297,6 +334,7 @@ func uploadDirInternal(
 
 			if cacheMatches {
 				u.stats.CachedFiles++
+				u.progress.Cached(entryRelativePath, entry.Metadata().FileSize)
 				// Avoid hashing by reusing previous object ID.
 				de = newDirEntry(e, cachedEntry.ObjectID)
 				hash = cachedEntry.Hash
@@ -429,12 +467,24 @@ func getBundleNumber(u *uploadContext, md *fs.EntryMetadata) int {
 
 // Upload uploads contents of the specified filesystem entry (file or directory) to the repository and updates given manifest with statistics.
 // Old snapshot manifest, when provided can be used to speed up backups by utilizing hash cache.
-func Upload(ctx context.Context, repository *repo.Repository, source fs.Entry, sourceInfo *SnapshotSourceInfo, old *Snapshot) (*Snapshot, error) {
+func Upload(
+	ctx context.Context,
+	repository *repo.Repository,
+	source fs.Entry,
+	sourceInfo *SnapshotSourceInfo,
+	old *Snapshot,
+	progress UploadProgress,
+) (*Snapshot, error) {
+	if progress == nil {
+		progress = &nullUploadProgress{}
+	}
+
 	u := &uploadContext{
 		ctx:         ctx,
 		repo:        repository,
 		cacheReader: &hashcacheReader{},
 		stats:       &SnapshotStats{},
+		progress:    progress,
 	}
 
 	s := &Snapshot{

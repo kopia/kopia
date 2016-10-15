@@ -228,10 +228,7 @@ func (r *Repository) hashEncryptAndWriteMaybeAsync(buffer *bytes.Buffer, prefix 
 		r.waitGroup.Add(1)
 		r.writeBackSemaphore.Lock()
 		go func() {
-			defer func() {
-			}()
-
-			if _, err := r.hashEncryptAndWrite(objectID, buffer, prefix); err != nil {
+			if _, err := r.encryptAndMaybeWrite(objectID, buffer, prefix); err != nil {
 				r.writeBackErrors.add(err)
 			}
 			r.writeBackSemaphore.Unlock()
@@ -242,10 +239,10 @@ func (r *Repository) hashEncryptAndWriteMaybeAsync(buffer *bytes.Buffer, prefix 
 		return objectID, nil
 	}
 
-	return r.hashEncryptAndWrite(objectID, buffer, prefix)
+	return r.encryptAndMaybeWrite(objectID, buffer, prefix)
 }
 
-func (r *Repository) hashEncryptAndWrite(objectID ObjectID, buffer *bytes.Buffer, prefix string) (ObjectID, error) {
+func (r *Repository) encryptAndMaybeWrite(objectID ObjectID, buffer *bytes.Buffer, prefix string) (ObjectID, error) {
 	defer r.bufferManager.returnBuffer(buffer)
 
 	var data []byte

@@ -24,6 +24,8 @@ type uploadTestHarness struct {
 
 var errTest = fmt.Errorf("test error")
 
+var progress UploadProgress
+
 func (th *uploadTestHarness) cleanup() {
 	os.RemoveAll(th.repoDir)
 }
@@ -88,12 +90,12 @@ func TestUpload(t *testing.T) {
 	defer th.cleanup()
 
 	ctx := context.Background()
-	s1, err := Upload(ctx, th.repo, th.sourceDir, &SnapshotSourceInfo{}, nil)
+	s1, err := Upload(ctx, th.repo, th.sourceDir, &SnapshotSourceInfo{}, nil, progress)
 	if err != nil {
 		t.Errorf("Upload error: %v", err)
 	}
 
-	s2, err := Upload(ctx, th.repo, th.sourceDir, &SnapshotSourceInfo{}, s1)
+	s2, err := Upload(ctx, th.repo, th.sourceDir, &SnapshotSourceInfo{}, s1, progress)
 	if err != nil {
 		t.Errorf("Upload error: %v", err)
 	}
@@ -118,7 +120,7 @@ func TestUpload(t *testing.T) {
 
 	// Add one more file, the s1.RootObjectID should change.
 	th.sourceDir.AddFile("d2/d1/f3", []byte{1, 2, 3, 4, 5}, 0777)
-	s3, err := Upload(ctx, th.repo, th.sourceDir, &SnapshotSourceInfo{}, s1)
+	s3, err := Upload(ctx, th.repo, th.sourceDir, &SnapshotSourceInfo{}, s1, progress)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
@@ -139,7 +141,7 @@ func TestUpload(t *testing.T) {
 	// Now remove the added file, OID should be identical to the original before the file got added.
 	th.sourceDir.Subdir("d2", "d1").Remove("f3")
 
-	s4, err := Upload(ctx, th.repo, th.sourceDir, &SnapshotSourceInfo{}, s1)
+	s4, err := Upload(ctx, th.repo, th.sourceDir, &SnapshotSourceInfo{}, s1, progress)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
@@ -157,7 +159,7 @@ func TestUpload(t *testing.T) {
 		t.Errorf("unexpected s4 stats: %+v", s4.Stats)
 	}
 
-	s5, err := Upload(ctx, th.repo, th.sourceDir, &SnapshotSourceInfo{}, s3)
+	s5, err := Upload(ctx, th.repo, th.sourceDir, &SnapshotSourceInfo{}, s3, progress)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
@@ -185,7 +187,7 @@ func TestUpload_TopLevelDirectoryReadFailure(t *testing.T) {
 	th.sourceDir.FailReaddir(errTest)
 	ctx := context.Background()
 
-	s, err := Upload(ctx, th.repo, th.sourceDir, &SnapshotSourceInfo{}, nil)
+	s, err := Upload(ctx, th.repo, th.sourceDir, &SnapshotSourceInfo{}, nil, progress)
 	if err != errTest {
 		t.Errorf("expected error: %v", err)
 	}
@@ -202,7 +204,7 @@ func TestUpload_SubDirectoryReadFailure(t *testing.T) {
 	th.sourceDir.Subdir("d1").FailReaddir(errTest)
 
 	ctx := context.Background()
-	_, err := Upload(ctx, th.repo, th.sourceDir, &SnapshotSourceInfo{}, nil)
+	_, err := Upload(ctx, th.repo, th.sourceDir, &SnapshotSourceInfo{}, nil, progress)
 	if err == nil {
 		t.Errorf("expected error")
 	}

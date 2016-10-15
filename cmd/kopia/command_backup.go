@@ -102,7 +102,13 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 			return err
 		}
 
-		manifest, err := repofs.Upload(ctx, conn.Repository, localEntry, &sourceInfo, oldManifest)
+		manifest, err := repofs.Upload(
+			ctx,
+			conn.Repository,
+			localEntry,
+			&sourceInfo,
+			oldManifest,
+			&uploadProgress{})
 		if err != nil {
 			return err
 		}
