@@ -440,7 +440,7 @@ func bundleEntries(u *uploadContext, entries fs.Entries) fs.Entries {
 
 	switch {
 	case totalLength < maxFlatBundleSize:
-		getBundleNumber = func(md *fs.EntryMetadata) int { return 1 }
+		getBundleNumber = getFlatBundleNumber
 
 	case maxYearlyBundleSize < maxYearlyBundleSize:
 		getBundleNumber = getYearlyBundleNumber
@@ -504,6 +504,14 @@ func getMonthlyBundleNumber(md *fs.EntryMetadata) int {
 func getYearlyBundleNumber(md *fs.EntryMetadata) int {
 	if md.FileMode().IsRegular() && md.FileSize < maxBundleFileSize {
 		return md.ModTime.Year() * 100
+	}
+
+	return 0
+}
+
+func getFlatBundleNumber(md *fs.EntryMetadata) int {
+	if md.FileMode().IsRegular() && md.FileSize < maxBundleFileSize {
+		return 1
 	}
 
 	return 0
