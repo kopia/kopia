@@ -14,6 +14,9 @@ import (
 
 const (
 	maxBundleFileSize = 65536
+
+	maxFlatBundleSize   = 1000000
+	maxYearlyBundleSize = 5000000
 )
 
 func hashEntryMetadata(w io.Writer, e *fs.EntryMetadata) {
@@ -413,11 +416,44 @@ func bundleEntries(u *uploadContext, entries fs.Entries) fs.Entries {
 
 	result := entries[:0]
 
+	var totalLength int64
+	totalLengthByYear := map[int]int64{}
+	totalLengthByMonth := map[int]int64{}
+	var yearlyMax int64
+
 	for _, e := range entries {
 		switch e := e.(type) {
 		case fs.File:
 			md := e.Metadata()
-			bundleNo := getBundleNumber(u, md)
+			if md.FileMode().IsRegular() && md.FileSize < maxBundleFileSize {
+				totalLength += md.FileSize
+				totalLengthByMonth[md.ModTime.Year()*100+int(md.ModTime.Month())] += md.FileSize
+				totalLengthByYear[md.ModTime.Year()] += md.FileSize
+				if totalLengthByYear[md.ModTime.Year()] > yearlyMax {
+					yearlyMax = totalLengthByYear[md.ModTime.Year()]
+				}
+			}
+		}
+	}
+
+	var getBundleNumber func(md *fs.EntryMetadata) int
+
+	switch {
+	case totalLength < maxFlatBundleSize:
+		getBundleNumber = func(md *fs.EntryMetadata) int { return 1 }
+
+	case maxYearlyBundleSize < maxYearlyBundleSize:
+		getBundleNumber = getYearlyBundleNumber
+
+	default:
+		getBundleNumber = getMonthlyBundleNumber
+	}
+
+	for _, e := range entries {
+		switch e := e.(type) {
+		case fs.File:
+			md := e.Metadata()
+			bundleNo := getBundleNumber(md)
 			if bundleNo != 0 {
 				// See if we already started this bundle.
 				b := bundleMap[bundleNo]
@@ -457,9 +493,17 @@ func bundleEntries(u *uploadContext, entries fs.Entries) fs.Entries {
 	return result
 }
 
-func getBundleNumber(u *uploadContext, md *fs.EntryMetadata) int {
+func getMonthlyBundleNumber(md *fs.EntryMetadata) int {
 	if md.FileMode().IsRegular() && md.FileSize < maxBundleFileSize {
 		return md.ModTime.Year()*100 + int(md.ModTime.Month())
+	}
+
+	return 0
+}
+
+func getYearlyBundleNumber(md *fs.EntryMetadata) int {
+	if md.FileMode().IsRegular() && md.FileSize < maxBundleFileSize {
+		return md.ModTime.Year() * 100
 	}
 
 	return 0
