@@ -13,31 +13,30 @@ import (
 )
 
 type uploadProgress struct {
-	dirLevel     int
-	outputPrefix string
+	currentDir string
 
 	bar *pb.ProgressBar
 }
 
 func (p *uploadProgress) Cached(path string, length int64) {
-	log.Printf(p.outputPrefix+"Cached: %v %v", path, units.BytesString(length))
+	log.Printf("  Cached: %v %v", path, units.BytesString(length))
 }
 
 func (p *uploadProgress) StartedDir(path string) {
-	log.Printf("Processing directory: %v", path)
-	p.dirLevel++
-	p.outputPrefix = p.outputPrefix + "  "
 }
 
 func (p *uploadProgress) FinishedDir(path string) {
-	log.Printf("Finished directory: %v", path)
-	p.outputPrefix = p.outputPrefix[2:]
-	p.dirLevel--
 }
 
 func (p *uploadProgress) Started(path string, length int64) {
-	//log.Printf("STARTED %v %v", path, units.BytesString(length))
-	p.bar = pb.New64(length).Prefix(p.outputPrefix + filepath.Base(path))
+	dir := filepath.Dir(path)
+
+	if p.currentDir != dir {
+		p.currentDir = dir
+		log.Printf("Processing directory: %v", dir)
+	}
+
+	p.bar = pb.New64(length).Prefix("  " + filepath.Base(path))
 	p.bar.SetRefreshRate(time.Second)
 	p.bar.ShowSpeed = true
 	p.bar.ShowTimeLeft = true
