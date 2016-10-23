@@ -70,6 +70,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 	}
 
 	for _, backupDirectory := range sources {
+		conn.Repository.Stats.Reset()
 		log.Printf("Backing up %v", backupDirectory)
 		dir, err := filepath.Abs(backupDirectory)
 		if err != nil {

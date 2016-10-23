@@ -18,3 +18,8 @@ type Stats struct {
 	PresentBlocks int32 `json:"presentBlocks,omitempty"`
 	ValidBlocks   int32 `json:"validBlocks,omitempty"`
 }
+
+// Reset clears all repository statistics.
+func (s *Stats) Reset() {
+	*s = Stats{}
+}
