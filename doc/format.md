@@ -179,7 +179,7 @@ $ kopia show <object id>
 
 It lists all directory entries, sorted lexicographically with directory entry attributes such as length and permissions included. Each entry has an identifier of an object (`obj`) that contains the file contents or in the case of a directory the JSON object with subdirectory entries.
 
-Note that the directory name is not stored as part of the object, this allows moving preserving object IDs of moved directories.
+Note that the directory name is not stored as part of the object, this preserves object IDs of directories that have been moved around but not modified.
 
 ```json
 {
