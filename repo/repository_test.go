@@ -226,6 +226,7 @@ func TestReader(t *testing.T) {
 	}{
 		{"B", []byte{}},
 		{"BAQIDBA", []byte{1, 2, 3, 4}},
+		{"TFoo", []byte("Ffoo")},
 		{"Da76999788386641a3ec798554f1fe7e6", storedPayload},
 		{"S0,2,BAQIDBA", []byte{1, 2}},
 		{"S1,3,BAQIDBA", []byte{2, 3, 4}},
