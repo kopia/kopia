@@ -19,16 +19,10 @@ var (
 	maxResultsPerPath = backupsCommand.Flag("maxresults", "Maximum number of results.").Default("100").Int()
 )
 
-func findBackups(vlt *vault.Vault, path string) ([]string, string, error) {
+func findBackups(vlt *vault.Vault, sourceInfo repofs.SnapshotSourceInfo) ([]string, string, error) {
 	var relPath string
 
-	for len(path) > 0 {
-		sourceInfo := repofs.SnapshotSourceInfo{
-			Path:     path,
-			Host:     getBackupHostName(),
-			UserName: getBackupUser(),
-		}
-
+	for len(sourceInfo.Path) > 0 {
 		prefix := sourceInfo.HashString() + "."
 
 		list, err := vlt.List("B" + prefix)
@@ -41,18 +35,18 @@ func findBackups(vlt *vault.Vault, path string) ([]string, string, error) {
 		}
 
 		if len(relPath) > 0 {
-			relPath = filepath.Base(path) + "/" + relPath
+			relPath = filepath.Base(sourceInfo.Path) + "/" + relPath
 		} else {
-			relPath = filepath.Base(path)
+			relPath = filepath.Base(sourceInfo.Path)
 		}
 
 		log.Printf("No backups of %v@%v:%v", sourceInfo.UserName, sourceInfo.Host, sourceInfo.Path)
 
-		parent := filepath.Dir(path)
-		if parent == path {
+		parentPath := filepath.Dir(sourceInfo.Path)
+		if parentPath == sourceInfo.Path {
 			break
 		}
-		path = parent
+		sourceInfo.Path = parentPath
 	}
 
 	return nil, "", nil
@@ -67,12 +61,15 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 	var err error
 
 	if *backupsPath != "" {
-		path, err := filepath.Abs(*backupsPath)
+		si, err := repofs.ParseSourceSnashotInfo(
+			*backupsPath,
+			getHostName(),
+			getUserName())
 		if err != nil {
 			return fmt.Errorf("invalid directory: '%s': %s", *backupsPath, err)
 		}
 
-		previous, relPath, err = findBackups(conn.Vault, filepath.Clean(path))
+		previous, relPath, err = findBackups(conn.Vault, si)
 		if relPath != "" {
 			relPath = "/" + relPath
 		}
@@ -165,6 +162,4 @@ func loadBackupManifests(vlt *vault.Vault, names []string) []*repofs.Snapshot {
 
 func init() {
 	backupsCommand.Action(runBackupsCommand)
-	backupsCommand.Flag("host", "Override backup hostname.").StringVar(backupHostName)
-	backupsCommand.Flag("user", "Override backup user.").StringVar(backupUser)
 }

@@ -79,8 +79,8 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 
 		sourceInfo := repofs.SnapshotSourceInfo{
 			Path:     filepath.Clean(dir),
-			Host:     getBackupHostName(),
-			UserName: getBackupUser(),
+			Host:     getHostNameOrDefault(*backupHostName),
+			UserName: getUserOrDefault(*backupUser),
 		}
 
 		if len(*backupDescription) > backupMaxDescriptionLength {
@@ -142,8 +142,8 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 }
 
 func getLocalBackupPaths(vlt *vault.Vault) ([]string, error) {
-	u := getBackupUser()
-	h := getBackupHostName()
+	u := getHostNameOrDefault(*backupHostName)
+	h := getUserOrDefault(*backupUser)
 	log.Printf("Looking for previous backups of '%v@%v'...", u, h)
 	backupItems, err := vlt.List("B")
 	if err != nil {
@@ -179,19 +179,15 @@ func hashObjectID(oid string) string {
 	return hex.EncodeToString(sum[0:foldLen])
 }
 
-func getBackupUser() string {
-	return getUserOrDefault(*backupUser)
-}
-
-func getBackupHostName() string {
-	return getHostNameOrDefault(*backupHostName)
-}
-
 func getUserOrDefault(userName string) string {
 	if userName != "" {
 		return userName
 	}
 
+	return getUserName()
+}
+
+func getUserName() string {
 	currentUser, err := user.Current()
 	if err != nil {
 		log.Fatalf("Cannot determine current user: %s", err)
@@ -213,6 +209,10 @@ func getHostNameOrDefault(hostName string) string {
 		return hostName
 	}
 
+	return getHostName()
+}
+
+func getHostName() string {
 	hostname, err := os.Hostname()
 	if err != nil {
 		log.Fatalf("Unable to determine hostname: %s", err)
@@ -223,6 +223,7 @@ func getHostNameOrDefault(hostName string) string {
 
 	return hostname
 }
+
 func init() {
 	backupCommand.Action(runBackupCommand)
 }

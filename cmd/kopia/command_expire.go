@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -18,9 +17,9 @@ var (
 	expireCommand = app.Command("expire", "Remove old backups.")
 
 	expirationPolicies = map[string]func(){
-		"KEEP_ALL": expirationPolicyKeepAll,
-		"MANUAL":   expirationPolicyManual,
-		"DEFAULT":  expirationPolicyDefault,
+		"keep-all": expirationPolicyKeepAll,
+		"manual":   expirationPolicyManual,
+		"default":  expirationPolicyDefault,
 	}
 
 	expireKeepLatest  = expireCommand.Flag("keep-latest", "Number of most recent backups to keep per source").Int()
@@ -29,9 +28,10 @@ var (
 	expireKeepWeekly  = expireCommand.Flag("keep-weekly", "Number of most-recent weekly backups to keep per source").Int()
 	expireKeepMonthly = expireCommand.Flag("keep-monthly", "Number of most-recent monthly backups to keep per source").Int()
 	expireKeepAnnual  = expireCommand.Flag("keep-annual", "Number of most-recent annual backups to keep per source").Int()
-	expirePolicy      = expireCommand.Flag("policy", "Expiration policy to use: "+strings.Join(expirationPolicyNames(), ",")).Default("DEFAULT").Enum(expirationPolicyNames()...)
+	expirePolicy      = expireCommand.Flag("policy", "Expiration policy to use: "+strings.Join(expirationPolicyNames(), ",")).Required().Enum(expirationPolicyNames()...)
 	expireHost        = expireCommand.Flag("host", "Expire backups from a given host").Default("").String()
 	expireUser        = expireCommand.Flag("user", "Expire backups from a given user").Default("").String()
+	expireAll         = expireCommand.Flag("all", "Expire all backups").Bool()
 	expirePaths       = expireCommand.Arg("path", "Expire backups for a given paths only").Strings()
 
 	expireDelete = expireCommand.Flag("delete", "Whether to actually delete backups").Default("no").String()
@@ -149,27 +149,22 @@ func expire(snapshots []*repofs.Snapshot, snapshotNames []string) []string {
 }
 
 func getSnapshotNamesToExpire(v *vault.Vault) ([]string, error) {
-	if len(*expirePaths) == 0 {
+	if !*expireAll && len(*expirePaths) == 0 {
+		return nil, fmt.Errorf("Must specify paths to expire or --all")
+	}
+
+	if *expireAll {
 		fmt.Fprintf(os.Stderr, "Scanning all active snapshots...\n")
 		return v.List("B")
 	}
 
 	var result []string
 
-	hostName := getHostNameOrDefault(*expireHost)
-	user := getUserOrDefault(*expireUser)
-
 	for _, p := range *expirePaths {
-		path, err := filepath.Abs(p)
+		si, err := repofs.ParseSourceSnashotInfo(p, *expireHost, *expireUser)
 		if err != nil {
-			return nil, fmt.Errorf("invalid directory: '%s': %s", p, err)
+			return nil, fmt.Errorf("unable to parse %v: %v", p, err)
 		}
-
-		var si repofs.SnapshotSourceInfo
-
-		si.Host = hostName
-		si.UserName = user
-		si.Path = filepath.Clean(path)
 
 		log.Printf("Looking for backups of %v", si)
 
@@ -177,6 +172,8 @@ func getSnapshotNamesToExpire(v *vault.Vault) ([]string, error) {
 		if err != nil {
 			return nil, fmt.Errorf("error listing backups for %v: %v", si, err)
 		}
+
+		log.Printf("Found %v backups of %v", len(matches), si)
 
 		result = append(result, matches...)
 	}
