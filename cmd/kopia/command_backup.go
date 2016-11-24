@@ -180,8 +180,16 @@ func hashObjectID(oid string) string {
 }
 
 func getBackupUser() string {
-	if *backupUser != "" {
-		return *backupUser
+	return getUserOrDefault(*backupUser)
+}
+
+func getBackupHostName() string {
+	return getHostNameOrDefault(*backupHostName)
+}
+
+func getUserOrDefault(userName string) string {
+	if userName != "" {
+		return userName
 	}
 
 	currentUser, err := user.Current()
@@ -200,9 +208,9 @@ func getBackupUser() string {
 	return u
 }
 
-func getBackupHostName() string {
-	if *backupHostName != "" {
-		return *backupHostName
+func getHostNameOrDefault(hostName string) string {
+	if hostName != "" {
+		return hostName
 	}
 
 	hostname, err := os.Hostname()
@@ -215,7 +223,6 @@ func getBackupHostName() string {
 
 	return hostname
 }
-
 func init() {
 	backupCommand.Action(runBackupCommand)
 }

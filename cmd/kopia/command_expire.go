@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/kopia/kopia/fs/repofs"
+	"github.com/kopia/kopia/vault"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -14,15 +17,54 @@ import (
 var (
 	expireCommand = app.Command("expire", "Remove old backups.")
 
+	expirationPolicies = map[string]func(){
+		"KEEP_ALL": expirationPolicyKeepAll,
+		"MANUAL":   expirationPolicyManual,
+		"DEFAULT":  expirationPolicyDefault,
+	}
+
 	expireKeepLatest  = expireCommand.Flag("keep-latest", "Number of most recent backups to keep per source").Int()
 	expireKeepHourly  = expireCommand.Flag("keep-hourly", "Number of most-recent hourly backups to keep per source").Int()
 	expireKeepDaily   = expireCommand.Flag("keep-daily", "Number of most-recent daily backups to keep per source").Int()
 	expireKeepWeekly  = expireCommand.Flag("keep-weekly", "Number of most-recent weekly backups to keep per source").Int()
 	expireKeepMonthly = expireCommand.Flag("keep-monthly", "Number of most-recent monthly backups to keep per source").Int()
 	expireKeepAnnual  = expireCommand.Flag("keep-annual", "Number of most-recent annual backups to keep per source").Int()
+	expirePolicy      = expireCommand.Flag("policy", "Expiration policy to use: "+strings.Join(expirationPolicyNames(), ",")).Default("DEFAULT").Enum(expirationPolicyNames()...)
+	expireHost        = expireCommand.Flag("host", "Expire backups from a given host").Default("").String()
+	expireUser        = expireCommand.Flag("user", "Expire backups from a given user").Default("").String()
+	expirePaths       = expireCommand.Arg("path", "Expire backups for a given paths only").Strings()
 
 	expireDelete = expireCommand.Flag("delete", "Whether to actually delete backups").Default("no").String()
 )
+
+func expirationPolicyNames() []string {
+	var keys []string
+	for k := range expirationPolicies {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
+func expirationPolicyKeepAll() {
+	*expireKeepLatest = 1000000
+	*expireKeepHourly = 1000000
+	*expireKeepDaily = 1000000
+	*expireKeepWeekly = 1000000
+	*expireKeepMonthly = 1000000
+	*expireKeepAnnual = 1000000
+}
+
+func expirationPolicyDefault() {
+	*expireKeepLatest = 1
+	*expireKeepHourly = 48
+	*expireKeepDaily = 7
+	*expireKeepWeekly = 4
+	*expireKeepMonthly = 4
+	*expireKeepAnnual = 0
+}
+
+func expirationPolicyManual() {
+}
 
 func expire(snapshots []*repofs.Snapshot, snapshotNames []string) []string {
 	var toDelete []string
@@ -96,7 +138,7 @@ func expire(snapshots []*repofs.Snapshot, snapshotNames []string) []string {
 
 		tm := s.StartTime.Local().Format("2006-01-02 15:04:05 MST")
 		if len(keep) > 0 {
-			fmt.Printf("  keeping  %v %v\n", tm, keep)
+			fmt.Printf("  keeping  %v %v\n", tm, strings.Join(keep, ","))
 		} else {
 			fmt.Printf("  deleting %v\n", tm)
 			toDelete = append(toDelete, snapshotNames[i])
@@ -106,16 +148,62 @@ func expire(snapshots []*repofs.Snapshot, snapshotNames []string) []string {
 	return toDelete
 }
 
+func getSnapshotNamesToExpire(v *vault.Vault) ([]string, error) {
+	if len(*expirePaths) == 0 {
+		fmt.Fprintf(os.Stderr, "Scanning all active snapshots...\n")
+		return v.List("B")
+	}
+
+	var result []string
+
+	hostName := getHostNameOrDefault(*expireHost)
+	user := getUserOrDefault(*expireUser)
+
+	for _, p := range *expirePaths {
+		path, err := filepath.Abs(p)
+		if err != nil {
+			return nil, fmt.Errorf("invalid directory: '%s': %s", p, err)
+		}
+
+		var si repofs.SnapshotSourceInfo
+
+		si.Host = hostName
+		si.UserName = user
+		si.Path = filepath.Clean(path)
+
+		log.Printf("Looking for backups of %v", si)
+
+		matches, err := v.List("B" + si.HashString())
+		if err != nil {
+			return nil, fmt.Errorf("error listing backups for %v: %v", si, err)
+		}
+
+		result = append(result, matches...)
+	}
+
+	return result, nil
+}
+
 func runExpireCommand(context *kingpin.ParseContext) error {
 	conn := mustOpenConnection()
 	defer conn.Close()
+
+	log.Printf("Applying expiration policy: %v (override with --policy)", *expirePolicy)
+	expirationPolicies[*expirePolicy]()
 
 	if *expireKeepLatest+*expireKeepHourly+*expireKeepDaily+*expireKeepWeekly+*expireKeepMonthly+*expireKeepAnnual == 0 {
 		return fmt.Errorf("Must pass at least one of --keep-* arguments.")
 	}
 
-	fmt.Fprintf(os.Stderr, "Scanning active snapshots...\n")
-	snapshotNames, err := conn.Vault.List("B")
+	log.Printf("Will keep:")
+	log.Printf("  %v latest backups", *expireKeepLatest)
+	log.Printf("  %v last hourly backups", *expireKeepHourly)
+	log.Printf("  %v last daily backups", *expireKeepDaily)
+	log.Printf("  %v last weekly backups", *expireKeepWeekly)
+	log.Printf("  %v last monthly backups", *expireKeepMonthly)
+	log.Printf("  %v last annual backups", *expireKeepAnnual)
+
+	snapshotNames, err := getSnapshotNamesToExpire(conn.Vault)
 	if err != nil {
 		return err
 	}
