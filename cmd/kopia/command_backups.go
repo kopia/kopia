@@ -61,10 +61,7 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 	var err error
 
 	if *backupsPath != "" {
-		si, err := repofs.ParseSourceSnashotInfo(
-			*backupsPath,
-			getHostName(),
-			getUserName())
+		si, err := repofs.ParseSourceSnashotInfo(*backupsPath, getHostName(), getUserName())
 		if err != nil {
 			return fmt.Errorf("invalid directory: '%s': %s", *backupsPath, err)
 		}

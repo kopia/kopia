@@ -161,7 +161,7 @@ func getSnapshotNamesToExpire(v *vault.Vault) ([]string, error) {
 	var result []string
 
 	for _, p := range *expirePaths {
-		si, err := repofs.ParseSourceSnashotInfo(p, *expireHost, *expireUser)
+		si, err := repofs.ParseSourceSnashotInfo(p, getHostName(), getUserName())
 		if err != nil {
 			return nil, fmt.Errorf("unable to parse %v: %v", p, err)
 		}
@@ -185,7 +185,7 @@ func runExpireCommand(context *kingpin.ParseContext) error {
 	conn := mustOpenConnection()
 	defer conn.Close()
 
-	log.Printf("Applying expiration policy: %v (override with --policy)", *expirePolicy)
+	log.Printf("Applying expiration policy: %v", *expirePolicy)
 	expirationPolicies[*expirePolicy]()
 
 	if *expireKeepLatest+*expireKeepHourly+*expireKeepDaily+*expireKeepWeekly+*expireKeepMonthly+*expireKeepAnnual == 0 {
@@ -206,6 +206,7 @@ func runExpireCommand(context *kingpin.ParseContext) error {
 	}
 
 	snapshots := loadBackupManifests(conn.Vault, snapshotNames)
+	snapshots = filterHostAndUser(snapshots)
 	toDelete := expire(snapshots, snapshotNames)
 
 	fmt.Fprintf(os.Stderr, "\n*** ")
@@ -228,6 +229,28 @@ func runExpireCommand(context *kingpin.ParseContext) error {
 	}
 
 	return nil
+}
+
+func filterHostAndUser(snapshots []*repofs.Snapshot) []*repofs.Snapshot {
+	if *expireHost == "" && *expireUser == "" {
+		return snapshots
+	}
+
+	var result []*repofs.Snapshot
+
+	for _, s := range snapshots {
+		if *expireHost != "" && *expireHost != s.Source.Host {
+			continue
+		}
+
+		if *expireUser != "" && *expireUser != s.Source.UserName {
+			continue
+		}
+
+		result = append(result, s)
+	}
+
+	return result
 }
 
 func init() {

@@ -33,8 +33,6 @@ var (
 	backupSources = backupCommand.Arg("source", "Files or directories to back up.").ExistingFilesOrDirs()
 	backupAll     = backupCommand.Flag("all", "Back-up all directories previously backed up by this user on this computer").Bool()
 
-	backupHostName    = backupCommand.Flag("host", "Override backup hostname.").String()
-	backupUser        = backupCommand.Flag("user", "Override backup user.").String()
 	backupDescription = backupCommand.Flag("description", "Free-form backup description.").String()
 
 	backupCheckpointInterval      = backupCommand.Flag("checkpoint_interval", "Periodically flush backup (default=30m).").PlaceHolder("TIME").Default("30m").Duration()
@@ -77,11 +75,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 			return fmt.Errorf("invalid source: '%s': %s", backupDirectory, err)
 		}
 
-		sourceInfo := repofs.SnapshotSourceInfo{
-			Path:     filepath.Clean(dir),
-			Host:     getHostNameOrDefault(*backupHostName),
-			UserName: getUserOrDefault(*backupUser),
-		}
+		sourceInfo := repofs.SnapshotSourceInfo{Path: filepath.Clean(dir), Host: getHostName(), UserName: getUserName()}
 
 		if len(*backupDescription) > backupMaxDescriptionLength {
 			return fmt.Errorf("description too long")
@@ -142,8 +136,8 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 }
 
 func getLocalBackupPaths(vlt *vault.Vault) ([]string, error) {
-	u := getHostNameOrDefault(*backupHostName)
-	h := getUserOrDefault(*backupUser)
+	h := getHostName()
+	u := getUserName()
 	log.Printf("Looking for previous backups of '%v@%v'...", u, h)
 	backupItems, err := vlt.List("B")
 	if err != nil {
