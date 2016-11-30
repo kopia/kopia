@@ -64,7 +64,7 @@ Connected to vault: /mnt/my-usb-drive
 Backup and Restore
 ---
 
-To create a backup of a directory or file, use `kopia backup <path>`. It willwill print the identifier of a backup, which is a long string, that can be used to restore the file later. Because data in a repository is content-addressable, two files with identical contents, even in different directories or on different machines, will get the same backup identifier.
+To create a backup of a directory or file, use `kopia backup <path>`. It will print the identifier of a backup, which is a long string, that can be used to restore the file later. Because data in a repository is content-addressable, two files with identical contents, even in different directories or on different machines, will get the same backup identifier.
 
 ```
 $ kopia backup /path/to/dir
