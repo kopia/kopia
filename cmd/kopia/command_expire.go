@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kopia/kopia/fs/repofs"
+	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/vault"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
@@ -66,13 +66,13 @@ func expirationPolicyDefault() {
 func expirationPolicyManual() {
 }
 
-func expire(snapshots []*repofs.Snapshot, snapshotNames []string) []string {
+func expire(snapshots []*snapshot.Manifest, snapshotNames []string) []string {
 	var toDelete []string
 
 	var ids map[string]bool
 	var idCounters map[string]int
 
-	var lastSource repofs.SnapshotSourceInfo
+	var lastSource snapshot.SourceInfo
 
 	var annualCutoffTime time.Time
 	var monthlyCutoffTime time.Time
@@ -161,7 +161,7 @@ func getSnapshotNamesToExpire(v *vault.Vault) ([]string, error) {
 	var result []string
 
 	for _, p := range *expirePaths {
-		si, err := repofs.ParseSourceSnashotInfo(p, getHostName(), getUserName())
+		si, err := snapshot.ParseSourceInfo(p, getHostName(), getUserName())
 		if err != nil {
 			return nil, fmt.Errorf("unable to parse %v: %v", p, err)
 		}
@@ -184,6 +184,7 @@ func getSnapshotNamesToExpire(v *vault.Vault) ([]string, error) {
 func runExpireCommand(context *kingpin.ParseContext) error {
 	conn := mustOpenConnection()
 	defer conn.Close()
+	mgr := snapshot.NewManager(conn)
 
 	log.Printf("Applying expiration policy: %v", *expirePolicy)
 	expirationPolicies[*expirePolicy]()
@@ -205,7 +206,10 @@ func runExpireCommand(context *kingpin.ParseContext) error {
 		return err
 	}
 
-	snapshots := loadBackupManifests(conn.Vault, snapshotNames)
+	snapshots, err := mgr.LoadSnapshots(snapshotNames)
+	if err != nil {
+		return err
+	}
 	snapshots = filterHostAndUser(snapshots)
 	toDelete := expire(snapshots, snapshotNames)
 
@@ -231,12 +235,12 @@ func runExpireCommand(context *kingpin.ParseContext) error {
 	return nil
 }
 
-func filterHostAndUser(snapshots []*repofs.Snapshot) []*repofs.Snapshot {
+func filterHostAndUser(snapshots []*snapshot.Manifest) []*snapshot.Manifest {
 	if *expireHost == "" && *expireUser == "" {
 		return snapshots
 	}
 
-	var result []*repofs.Snapshot
+	var result []*snapshot.Manifest
 
 	for _, s := range snapshots {
 		if *expireHost != "" && *expireHost != s.Source.Host {

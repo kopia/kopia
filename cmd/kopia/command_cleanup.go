@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/internal/units"
+	"github.com/kopia/kopia/snapshot"
 
 	"github.com/kopia/kopia/vault"
 
@@ -140,6 +141,7 @@ func findAliveBlocks(ctx *cleanupContext, wi *cleanupWorkItem) error {
 func runCleanupCommand(context *kingpin.ParseContext) error {
 	conn := mustOpenConnection()
 	defer conn.Close()
+	mgr := snapshot.NewManager(conn)
 
 	log.Printf("Listing active snapshots...")
 	snapshotNames, err := conn.Vault.List("B")
@@ -168,7 +170,10 @@ func runCleanupCommand(context *kingpin.ParseContext) error {
 	var wg sync.WaitGroup
 	wg.Add(workerCount)
 
-	snapshots := loadBackupManifests(conn.Vault, snapshotNames)
+	snapshots, err := mgr.LoadSnapshots(snapshotNames)
+	if err != nil {
+		return err
+	}
 
 	for _, manifest := range snapshots {
 		ctx.queue.add(&cleanupWorkItem{manifest.RootObjectID, true, "root"})

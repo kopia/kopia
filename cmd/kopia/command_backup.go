@@ -18,6 +18,7 @@ import (
 
 	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/vault"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
@@ -52,11 +53,13 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 	conn := mustOpenConnection(repoOptions...)
 	defer conn.Close()
 
+	mgr := snapshot.NewManager(conn)
+
 	ctx := context.Background()
 
 	sources := *backupSources
 	if *backupAll {
-		local, err := getLocalBackupPaths(conn.Vault)
+		local, err := getLocalBackupPaths(mgr, conn.Vault)
 		if err != nil {
 			return err
 		}
@@ -75,7 +78,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 			return fmt.Errorf("invalid source: '%s': %s", backupDirectory, err)
 		}
 
-		sourceInfo := repofs.SnapshotSourceInfo{Path: filepath.Clean(dir), Host: getHostName(), UserName: getUserName()}
+		sourceInfo := snapshot.SourceInfo{Path: filepath.Clean(dir), Host: getHostName(), UserName: getUserName()}
 
 		if len(*backupDescription) > backupMaxDescriptionLength {
 			return fmt.Errorf("description too long")
@@ -86,10 +89,10 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 			return fmt.Errorf("error listing previous backups")
 		}
 
-		var oldManifest *repofs.Snapshot
+		var oldManifest *snapshot.Manifest
 
 		if len(previous) > 0 {
-			oldManifest, err = loadBackupManifest(conn.Vault, previous[0])
+			oldManifest, err = mgr.LoadSnapshot(previous[0])
 		}
 
 		localEntry := mustGetLocalFSEntry(sourceInfo.Path)
@@ -135,7 +138,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 	return nil
 }
 
-func getLocalBackupPaths(vlt *vault.Vault) ([]string, error) {
+func getLocalBackupPaths(mgr *snapshot.Manager, vlt *vault.Vault) ([]string, error) {
 	h := getHostName()
 	u := getUserName()
 	log.Printf("Looking for previous backups of '%v@%v'...", u, h)
@@ -144,8 +147,11 @@ func getLocalBackupPaths(vlt *vault.Vault) ([]string, error) {
 		return nil, err
 	}
 
-	manifests := loadBackupManifests(vlt, backupItems)
-	var lastSource repofs.SnapshotSourceInfo
+	manifests, err := mgr.LoadSnapshots(backupItems)
+	if err != nil {
+		return nil, err
+	}
+	var lastSource snapshot.SourceInfo
 
 	var result []string
 

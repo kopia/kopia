@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/internal/units"
+	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/vault"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
@@ -19,7 +19,7 @@ var (
 	maxResultsPerPath = backupsCommand.Flag("maxresults", "Maximum number of results.").Default("100").Int()
 )
 
-func findBackups(vlt *vault.Vault, sourceInfo repofs.SnapshotSourceInfo) ([]string, string, error) {
+func findBackups(vlt *vault.Vault, sourceInfo snapshot.SourceInfo) ([]string, string, error) {
 	var relPath string
 
 	for len(sourceInfo.Path) > 0 {
@@ -56,12 +56,14 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 	conn := mustOpenConnection()
 	defer conn.Close()
 
+	mgr := snapshot.NewManager(conn)
+
 	var previous []string
 	var relPath string
 	var err error
 
 	if *backupsPath != "" {
-		si, err := repofs.ParseSourceSnashotInfo(*backupsPath, getHostName(), getUserName())
+		si, err := snapshot.ParseSourceInfo(*backupsPath, getHostName(), getUserName())
 		if err != nil {
 			return fmt.Errorf("invalid directory: '%s': %s", *backupsPath, err)
 		}
@@ -78,10 +80,13 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 		return fmt.Errorf("cannot list backups: %v", err)
 	}
 
-	var lastSource repofs.SnapshotSourceInfo
+	var lastSource snapshot.SourceInfo
 	var count int
 
-	manifests := loadBackupManifests(conn.Vault, previous)
+	manifests, err := mgr.LoadSnapshots(previous)
+	if err != nil {
+		return err
+	}
 	sort.Sort(manifestSorter(manifests))
 
 	for _, m := range manifests {
@@ -107,7 +112,7 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 	return nil
 }
 
-type manifestSorter []*repofs.Snapshot
+type manifestSorter []*snapshot.Manifest
 
 func (b manifestSorter) Len() int { return len(b) }
 func (b manifestSorter) Less(i, j int) bool {
@@ -129,32 +134,6 @@ func deltaBytes(b int64) string {
 	}
 
 	return "(no change)"
-}
-
-func loadBackupManifests(vlt *vault.Vault, names []string) []*repofs.Snapshot {
-	result := make([]*repofs.Snapshot, len(names))
-	sem := make(chan bool, 5)
-
-	for i, n := range names {
-		sem <- true
-		go func(i int, n string) {
-			defer func() { <-sem }()
-
-			m, err := loadBackupManifest(vlt, n)
-			if err != nil {
-				log.Printf("WARNING: Unable to parse backup manifest %v: %v", n, err)
-				return
-			}
-			result[i] = m
-		}(i, n)
-	}
-
-	for i := 0; i < cap(sem); i++ {
-		sem <- true
-	}
-	close(sem)
-
-	return result
 }
 
 func init() {
