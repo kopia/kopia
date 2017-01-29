@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/snapshot"
-	"github.com/kopia/kopia/vault"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -148,32 +147,32 @@ func expire(snapshots []*snapshot.Manifest, snapshotNames []string) []string {
 	return toDelete
 }
 
-func getSnapshotNamesToExpire(v *vault.Vault) ([]string, error) {
+func getSnapshotNamesToExpire(mgr *snapshot.Manager) ([]string, error) {
 	if !*expireAll && len(*expirePaths) == 0 {
 		return nil, fmt.Errorf("Must specify paths to expire or --all")
 	}
 
 	if *expireAll {
 		fmt.Fprintf(os.Stderr, "Scanning all active snapshots...\n")
-		return v.List("B")
+		return mgr.ListSnapshotManifests(nil, -1)
 	}
 
 	var result []string
 
 	for _, p := range *expirePaths {
-		si, err := snapshot.ParseSourceInfo(p, getHostName(), getUserName())
+		src, err := snapshot.ParseSourceInfo(p, getHostName(), getUserName())
 		if err != nil {
 			return nil, fmt.Errorf("unable to parse %v: %v", p, err)
 		}
 
-		log.Printf("Looking for backups of %v", si)
+		log.Printf("Looking for backups of %v", src)
 
-		matches, err := v.List("B" + si.HashString())
+		matches, err := mgr.ListSnapshotManifests(&src, -1)
 		if err != nil {
-			return nil, fmt.Errorf("error listing backups for %v: %v", si, err)
+			return nil, fmt.Errorf("error listing backups for %v: %v", src, err)
 		}
 
-		log.Printf("Found %v backups of %v", len(matches), si)
+		log.Printf("Found %v backups of %v", len(matches), src)
 
 		result = append(result, matches...)
 	}
@@ -184,7 +183,6 @@ func getSnapshotNamesToExpire(v *vault.Vault) ([]string, error) {
 func runExpireCommand(context *kingpin.ParseContext) error {
 	conn := mustOpenConnection()
 	defer conn.Close()
-	mgr := snapshot.NewManager(conn)
 
 	log.Printf("Applying expiration policy: %v", *expirePolicy)
 	expirationPolicies[*expirePolicy]()
@@ -201,12 +199,12 @@ func runExpireCommand(context *kingpin.ParseContext) error {
 	log.Printf("  %v last monthly backups", *expireKeepMonthly)
 	log.Printf("  %v last annual backups", *expireKeepAnnual)
 
-	snapshotNames, err := getSnapshotNamesToExpire(conn.Vault)
+	snapshotNames, err := getSnapshotNamesToExpire(conn.SnapshotManager)
 	if err != nil {
 		return err
 	}
 
-	snapshots, err := mgr.LoadSnapshots(snapshotNames)
+	snapshots, err := conn.SnapshotManager.LoadSnapshots(snapshotNames)
 	if err != nil {
 		return err
 	}

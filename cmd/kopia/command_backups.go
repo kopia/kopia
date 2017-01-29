@@ -8,7 +8,6 @@ import (
 
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/snapshot"
-	"github.com/kopia/kopia/vault"
 
 	"strings"
 
@@ -21,13 +20,11 @@ var (
 	maxResultsPerPath = backupsCommand.Flag("maxresults", "Maximum number of results.").Default("100").Int()
 )
 
-func findBackups(vlt *vault.Vault, sourceInfo snapshot.SourceInfo) ([]string, string, error) {
+func findBackups(mgr *snapshot.Manager, sourceInfo snapshot.SourceInfo) ([]string, string, error) {
 	var relPath string
 
 	for len(sourceInfo.Path) > 0 {
-		prefix := sourceInfo.HashString() + "."
-
-		list, err := vlt.List("B" + prefix)
+		list, err := mgr.ListSnapshotManifests(&sourceInfo, -1)
 		if err != nil {
 			return nil, "", err
 		}
@@ -58,8 +55,6 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 	conn := mustOpenConnection()
 	defer conn.Close()
 
-	mgr := snapshot.NewManager(conn)
-
 	var previous []string
 	var relPath string
 	var err error
@@ -70,12 +65,12 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 			return fmt.Errorf("invalid directory: '%s': %s", *backupsPath, err)
 		}
 
-		previous, relPath, err = findBackups(conn.Vault, si)
+		previous, relPath, err = findBackups(conn.SnapshotManager, si)
 		if relPath != "" {
 			relPath = "/" + relPath
 		}
 	} else {
-		previous, err = conn.Vault.List("B")
+		previous, err = conn.SnapshotManager.ListSnapshotManifests(nil, -1)
 	}
 
 	if err != nil {
@@ -85,7 +80,7 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 	var lastSource snapshot.SourceInfo
 	var count int
 
-	manifests, err := mgr.LoadSnapshots(previous)
+	manifests, err := conn.SnapshotManager.LoadSnapshots(previous)
 	if err != nil {
 		return err
 	}

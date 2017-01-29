@@ -57,7 +57,7 @@ func (s *mapStorage) DeleteBlock(id string) error {
 	return nil
 }
 
-func (s *mapStorage) ListBlocks(prefix string) chan (blob.BlockMetadata) {
+func (s *mapStorage) ListBlocks(prefix string, limit int) chan (blob.BlockMetadata) {
 	ch := make(chan (blob.BlockMetadata))
 	fixedTime := time.Now()
 	go func() {
@@ -75,10 +75,15 @@ func (s *mapStorage) ListBlocks(prefix string) chan (blob.BlockMetadata) {
 
 		for _, k := range keys {
 			v := s.data[k]
-			ch <- blob.BlockMetadata{
-				BlockID:   string(k),
-				Length:    int64(len(v)),
-				TimeStamp: fixedTime,
+			if limit != 0 {
+				ch <- blob.BlockMetadata{
+					BlockID:   string(k),
+					Length:    int64(len(v)),
+					TimeStamp: fixedTime,
+				}
+				if limit > 0 {
+					limit--
+				}
 			}
 		}
 		close(ch)

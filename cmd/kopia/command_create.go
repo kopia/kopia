@@ -67,7 +67,7 @@ func openStorageAndEnsureEmpty(url string) (blob.Storage, error) {
 	if err != nil {
 		return nil, err
 	}
-	ch := s.ListBlocks("")
+	ch := s.ListBlocks("", 1)
 	_, hasData := <-ch
 
 	if hasData && !*createOverwrite {

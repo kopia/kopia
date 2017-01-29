@@ -7,8 +7,6 @@ import (
 
 	"strings"
 
-	"github.com/kopia/kopia"
-	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/vault"
 )
 
@@ -18,12 +16,11 @@ const backupPrefix = "B"
 // Manager manages filesystem snapshots.
 type Manager struct {
 	vault *vault.Vault
-	repo  *repo.Repository
 }
 
-// ListBackupSources lists all snapshot sources.
-func (m *Manager) ListBackupSources() ([]*SourceInfo, error) {
-	names, err := m.vault.List(backupPrefix)
+// Sources lists all snapshot sources.
+func (m *Manager) Sources() ([]*SourceInfo, error) {
+	names, err := m.vault.List(backupPrefix, -1)
 	if err != nil {
 		return nil, err
 	}
@@ -53,8 +50,8 @@ func (m *Manager) ListBackupSources() ([]*SourceInfo, error) {
 }
 
 // ListSnapshots lists all snapshots for a given source.
-func (m *Manager) ListSnapshots(si *SourceInfo) ([]*Manifest, error) {
-	names, err := m.vault.List(backupPrefix + si.HashString())
+func (m *Manager) ListSnapshots(si *SourceInfo, limit int) ([]*Manifest, error) {
+	names, err := m.vault.List(backupPrefix+si.HashString(), limit)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +59,7 @@ func (m *Manager) ListSnapshots(si *SourceInfo) ([]*Manifest, error) {
 	return m.LoadSnapshots(names)
 }
 
-// LoadSnapshot loads and parses a snapshot with a given ID from the Vault.
+// LoadSnapshot loads and parses a snapshot with a given ID.
 func (m *Manager) LoadSnapshot(manifestID string) (*Manifest, error) {
 	b, err := m.vault.Get(manifestID)
 	if err != nil {
@@ -77,10 +74,10 @@ func (m *Manager) LoadSnapshot(manifestID string) (*Manifest, error) {
 	return &s, nil
 }
 
-// LoadSnapshots efficiently loads and parses a given list of snapshot IDs from the vault.
+// LoadSnapshots efficiently loads and parses a given list of snapshot IDs.
 func (m *Manager) LoadSnapshots(names []string) ([]*Manifest, error) {
 	result := make([]*Manifest, len(names))
-	sem := make(chan bool, 5)
+	sem := make(chan bool, 50)
 
 	for i, n := range names {
 		sem <- true
@@ -104,10 +101,19 @@ func (m *Manager) LoadSnapshots(names []string) ([]*Manifest, error) {
 	return result, nil
 }
 
-// NewManager creates new snapshot manager.
-func NewManager(conn *kopia.Connection) *Manager {
-	return &Manager{
-		vault: conn.Vault,
-		repo:  conn.Repository,
+// ListSnapshotManifests returns the list of snapshot manifests for a given source or all sources if nil.
+// Limit specifies how mamy manifests to retrieve (-1 == unlimited).
+func (m *Manager) ListSnapshotManifests(src *SourceInfo, limit int) ([]string, error) {
+	var prefix string
+
+	if src != nil {
+		prefix = src.HashString()
 	}
+
+	return m.vault.List(backupPrefix+prefix, limit)
+}
+
+// NewManager creates new snapshot manager for a given vault and repository.
+func NewManager(vault *vault.Vault) *Manager {
+	return &Manager{vault}
 }

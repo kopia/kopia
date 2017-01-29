@@ -141,10 +141,11 @@ func (v *Vault) putJSON(id string, content interface{}) error {
 }
 
 // List returns the list of vault items matching the specified prefix.
-func (v *Vault) List(prefix string) ([]string, error) {
+// The 'limit' parameter specifies the maximum number of items to retrieve (-1 == unlimited).
+func (v *Vault) List(prefix string, limit int) ([]string, error) {
 	var result []string
 
-	for b := range v.storage.ListBlocks(v.itemPrefix + prefix) {
+	for b := range v.storage.ListBlocks(v.itemPrefix+prefix, limit) {
 		if b.Error != nil {
 			return result, b.Error
 		}

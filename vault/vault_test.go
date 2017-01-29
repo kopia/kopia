@@ -255,7 +255,7 @@ func assertReservedNameError(t *testing.T, method string, itemID string, err err
 }
 
 func assertVaultItems(t *testing.T, v *Vault, prefix string, expected []string) {
-	res, err := v.List(prefix)
+	res, err := v.List(prefix, -1)
 	if err != nil {
 		t.Errorf("error listing items beginning with %v: %v", prefix, err)
 	}

@@ -69,7 +69,7 @@ func makeFileName(blockID string) string {
 	return string(blockID) + fsStorageChunkSuffix
 }
 
-func (fs *fsStorage) ListBlocks(prefix string) chan (blob.BlockMetadata) {
+func (fs *fsStorage) ListBlocks(prefix string, limit int) chan (blob.BlockMetadata) {
 	result := make(chan (blob.BlockMetadata))
 
 	prefixString := string(prefix)
@@ -77,6 +77,11 @@ func (fs *fsStorage) ListBlocks(prefix string) chan (blob.BlockMetadata) {
 	var walkDir func(string, string)
 
 	walkDir = func(directory string, currentPrefix string) {
+		if limit == 0 {
+			// Short-circuit.
+			return
+		}
+
 		if entries, err := ioutil.ReadDir(directory); err == nil {
 			//log.Println("Walking", directory, "looking for", prefix)
 
@@ -96,10 +101,15 @@ func (fs *fsStorage) ListBlocks(prefix string) chan (blob.BlockMetadata) {
 					}
 				} else if fullID, ok := getstringFromFileName(currentPrefix + e.Name()); ok {
 					if strings.HasPrefix(string(fullID), prefixString) {
-						result <- blob.BlockMetadata{
-							BlockID:   fullID,
-							Length:    e.Size(),
-							TimeStamp: e.ModTime(),
+						if limit != 0 {
+							result <- blob.BlockMetadata{
+								BlockID:   fullID,
+								Length:    e.Size(),
+								TimeStamp: e.ModTime(),
+							}
+							if limit > 0 {
+								limit--
+							}
 						}
 					}
 				}

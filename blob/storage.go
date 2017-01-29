@@ -22,7 +22,7 @@ type Storage interface {
 	PutBlock(id string, data []byte, options PutOptions) error
 	DeleteBlock(id string) error
 	GetBlock(id string) ([]byte, error)
-	ListBlocks(prefix string) chan (BlockMetadata)
+	ListBlocks(prefix string, limit int) chan (BlockMetadata)
 }
 
 // ConnectionInfoProvider exposes persistent ConnectionInfo for connecting to the Storage.

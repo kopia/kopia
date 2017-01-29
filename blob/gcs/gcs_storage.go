@@ -129,7 +129,7 @@ func (gcs *gcsStorage) getObjectNameString(b string) string {
 	return gcs.Prefix + string(b)
 }
 
-func (gcs *gcsStorage) ListBlocks(prefix string) chan (blob.BlockMetadata) {
+func (gcs *gcsStorage) ListBlocks(prefix string, limit int) chan (blob.BlockMetadata) {
 	ch := make(chan blob.BlockMetadata, 100)
 
 	go func() {
@@ -147,21 +147,30 @@ func (gcs *gcsStorage) ListBlocks(prefix string) chan (blob.BlockMetadata) {
 				break
 			}
 
+			if limit == 0 {
+				break
+			}
+
 			if page == nil {
 				break
 			}
 			objects := page.(*gcsclient.Objects)
 			for _, o := range objects.Items {
 				t, e := time.Parse(time.RFC3339, o.TimeCreated)
-				if e != nil {
-					ch <- blob.BlockMetadata{
-						Error: e,
+				if limit != 0 {
+					if e != nil {
+						ch <- blob.BlockMetadata{
+							Error: e,
+						}
+					} else {
+						ch <- blob.BlockMetadata{
+							BlockID:   string(o.Name)[len(gcs.Prefix):],
+							Length:    int64(o.Size),
+							TimeStamp: t,
+						}
 					}
-				} else {
-					ch <- blob.BlockMetadata{
-						BlockID:   string(o.Name)[len(gcs.Prefix):],
-						Length:    int64(o.Size),
-						TimeStamp: t,
+					if limit > 0 {
+						limit--
 					}
 				}
 			}

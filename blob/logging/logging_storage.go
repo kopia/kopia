@@ -50,11 +50,11 @@ func (s *loggingStorage) DeleteBlock(id string) error {
 	return err
 }
 
-func (s *loggingStorage) ListBlocks(prefix string) chan (blob.BlockMetadata) {
+func (s *loggingStorage) ListBlocks(prefix string, limit int) chan (blob.BlockMetadata) {
 	t0 := time.Now()
-	ch := s.base.ListBlocks(prefix)
+	ch := s.base.ListBlocks(prefix, limit)
 	dt := time.Since(t0)
-	s.printf(s.prefix+"ListBlocks(%#v) took %v", prefix, dt)
+	s.printf(s.prefix+"ListBlocks(%#v, %v) took %v", prefix, limit, dt)
 	return ch
 }
 

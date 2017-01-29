@@ -38,7 +38,7 @@ func VerifyStorage(t *testing.T, r blob.Storage) {
 	}
 
 	// List
-	ch := r.ListBlocks(string("ab"))
+	ch := r.ListBlocks(string("ab"), -1)
 	e1, ok := <-ch
 	if !ok || e1.BlockID != blocks[0].blk {
 		t.Errorf("missing result 0")

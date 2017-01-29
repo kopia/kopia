@@ -176,8 +176,8 @@ func (c *cachingStorage) PutBlock(id string, data []byte, options blob.PutOption
 	return c.master.PutBlock(id, data, options)
 }
 
-func (c *cachingStorage) ListBlocks(prefix string) chan blob.BlockMetadata {
-	return c.master.ListBlocks(prefix)
+func (c *cachingStorage) ListBlocks(prefix string, limit int) chan blob.BlockMetadata {
+	return c.master.ListBlocks(prefix, limit)
 }
 
 func (c *cachingStorage) Close() error {

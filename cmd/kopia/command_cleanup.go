@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/internal/units"
-	"github.com/kopia/kopia/snapshot"
 
 	"github.com/kopia/kopia/vault"
 
@@ -141,10 +140,9 @@ func findAliveBlocks(ctx *cleanupContext, wi *cleanupWorkItem) error {
 func runCleanupCommand(context *kingpin.ParseContext) error {
 	conn := mustOpenConnection()
 	defer conn.Close()
-	mgr := snapshot.NewManager(conn)
 
 	log.Printf("Listing active snapshots...")
-	snapshotNames, err := conn.Vault.List("B")
+	snapshotNames, err := conn.SnapshotManager.ListSnapshotManifests(nil, -1)
 	if err != nil {
 		return err
 	}
@@ -170,7 +168,7 @@ func runCleanupCommand(context *kingpin.ParseContext) error {
 	var wg sync.WaitGroup
 	wg.Add(workerCount)
 
-	snapshots, err := mgr.LoadSnapshots(snapshotNames)
+	snapshots, err := conn.SnapshotManager.LoadSnapshots(snapshotNames)
 	if err != nil {
 		return err
 	}
@@ -213,7 +211,7 @@ func runCleanupCommand(context *kingpin.ParseContext) error {
 	var unreferencedBlocks int
 	var unreferencedBytes int64
 
-	for b := range conn.Repository.Storage.ListBlocks("") {
+	for b := range conn.Repository.Storage.ListBlocks("", -1) {
 		totalBlocks++
 		totalBytes += b.Length
 

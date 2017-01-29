@@ -19,7 +19,6 @@ import (
 	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
-	"github.com/kopia/kopia/vault"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -53,13 +52,11 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 	conn := mustOpenConnection(repoOptions...)
 	defer conn.Close()
 
-	mgr := snapshot.NewManager(conn)
-
 	ctx := context.Background()
 
 	sources := *backupSources
 	if *backupAll {
-		local, err := getLocalBackupPaths(mgr, conn.Vault)
+		local, err := getLocalBackupPaths(conn.SnapshotManager)
 		if err != nil {
 			return err
 		}
@@ -78,21 +75,21 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 			return fmt.Errorf("invalid source: '%s': %s", backupDirectory, err)
 		}
 
-		sourceInfo := snapshot.SourceInfo{Path: filepath.Clean(dir), Host: getHostName(), UserName: getUserName()}
+		sourceInfo := &snapshot.SourceInfo{Path: filepath.Clean(dir), Host: getHostName(), UserName: getUserName()}
 
 		if len(*backupDescription) > backupMaxDescriptionLength {
 			return fmt.Errorf("description too long")
 		}
 
-		previous, err := conn.Vault.List("B" + sourceInfo.HashString() + ".")
+		previous, err := conn.SnapshotManager.ListSnapshots(sourceInfo, 1)
 		if err != nil {
-			return fmt.Errorf("error listing previous backups")
+			return fmt.Errorf("error listing previous backups: %v", err)
 		}
 
 		var oldManifest *snapshot.Manifest
 
 		if len(previous) > 0 {
-			oldManifest, err = mgr.LoadSnapshot(previous[0])
+			oldManifest = previous[0]
 		}
 
 		localEntry := mustGetLocalFSEntry(sourceInfo.Path)
@@ -104,7 +101,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 			ctx,
 			conn.Repository,
 			localEntry,
-			&sourceInfo,
+			sourceInfo,
 			oldManifest,
 			&uploadProgress{})
 		if err != nil {
@@ -138,30 +135,21 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 	return nil
 }
 
-func getLocalBackupPaths(mgr *snapshot.Manager, vlt *vault.Vault) ([]string, error) {
+func getLocalBackupPaths(mgr *snapshot.Manager) ([]string, error) {
 	h := getHostName()
 	u := getUserName()
 	log.Printf("Looking for previous backups of '%v@%v'...", u, h)
-	backupItems, err := vlt.List("B")
-	if err != nil {
-		return nil, err
-	}
 
-	manifests, err := mgr.LoadSnapshots(backupItems)
+	sources, err := mgr.Sources()
 	if err != nil {
 		return nil, err
 	}
-	var lastSource snapshot.SourceInfo
 
 	var result []string
 
-	for _, m := range manifests {
-		if m.Source != lastSource {
-			lastSource = m.Source
-
-			if m.Source.Host == h && m.Source.UserName == u {
-				result = append(result, m.Source.Path)
-			}
+	for _, src := range sources {
+		if src.Host == h && src.UserName == u {
+			result = append(result, src.Path)
 		}
 	}
 

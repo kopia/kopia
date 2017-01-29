@@ -41,7 +41,7 @@ func (vlt *Vault) SaveObjectID(oid repo.ObjectID) (string, error) {
 
 // GetObjectID retrieves stored object ID from the vault item with a given ID and return it.
 func (vlt *Vault) GetObjectID(id string) (repo.ObjectID, error) {
-	matches, err := vlt.List(id)
+	matches, err := vlt.List(id, 2)
 	if err != nil {
 		return repo.NullObjectID, err
 	}
