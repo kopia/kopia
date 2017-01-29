@@ -10,6 +10,8 @@ import (
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/vault"
 
+	"strings"
+
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -116,11 +118,8 @@ type manifestSorter []*snapshot.Manifest
 
 func (b manifestSorter) Len() int { return len(b) }
 func (b manifestSorter) Less(i, j int) bool {
-	if b[i].Source.String() < b[j].Source.String() {
-		return true
-	}
-	if b[i].Source.String() > b[j].Source.String() {
-		return false
+	if c := strings.Compare(b[i].Source.String(), b[j].Source.String()); c != 0 {
+		return c < 0
 	}
 
 	return b[i].StartTime.UnixNano() < b[j].StartTime.UnixNano()
