@@ -119,7 +119,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 		manifest.Handle = handleID
 		manifest.Description = *backupDescription
 
-		err = saveBackupManifest(conn.Vault, fileID, manifest)
+		err = conn.SnapshotManager.SaveSnapshot(fileID, manifest)
 		if err != nil {
 			return fmt.Errorf("cannot save manifest: %v", err)
 		}

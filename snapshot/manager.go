@@ -74,6 +74,16 @@ func (m *Manager) LoadSnapshot(manifestID string) (*Manifest, error) {
 	return &s, nil
 }
 
+// SaveSnapshot persists given snapshot manifest with a given ID.
+func (m *Manager) SaveSnapshot(manifestID string, manifest *Manifest) error {
+	b, err := json.Marshal(manifest)
+	if err != nil {
+		return fmt.Errorf("cannot marshal backup manifest to JSON: %v", err)
+	}
+
+	return m.vault.Put(manifestID, b)
+}
+
 // LoadSnapshots efficiently loads and parses a given list of snapshot IDs.
 func (m *Manager) LoadSnapshots(names []string) ([]*Manifest, error) {
 	result := make([]*Manifest, len(names))
