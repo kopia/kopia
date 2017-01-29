@@ -1,4 +1,4 @@
-package repofs
+package hashcache
 
 import "testing"
 

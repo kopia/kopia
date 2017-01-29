@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/hashcache"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 )
@@ -50,8 +51,8 @@ type uploadContext struct {
 	ctx context.Context
 
 	repo        *repo.Repository
-	cacheWriter *hashcacheWriter
-	cacheReader *hashcacheReader
+	cacheWriter *hashcache.Writer
+	cacheReader *hashcache.Reader
 
 	stats    *snapshot.Stats
 	progress UploadProgress
@@ -222,7 +223,7 @@ func uploadDir(u *uploadContext, dir fs.Directory) (repo.ObjectID, repo.ObjectID
 		repo.WithBlockNamePrefix("H"),
 	)
 	defer mw.Close()
-	u.cacheWriter = newHashCacheWriter(mw)
+	u.cacheWriter = hashcache.NewWriter(mw)
 	oid, _, _, err := uploadDirInternal(u, dir, ".", true)
 	u.cacheWriter.Finalize()
 	u.cacheWriter = nil
@@ -296,7 +297,7 @@ func uploadDirInternal(
 
 		case *bundle:
 			// See if we had this name during previous pass.
-			cachedEntry := u.cacheReader.findEntry(entryRelativePath)
+			cachedEntry := u.cacheReader.FindEntry(entryRelativePath)
 
 			// ... and whether file metadata is identical to the previous one.
 			cacheMatches := (cachedEntry != nil) && cachedEntry.Hash == bundleHash(entry)
@@ -328,7 +329,7 @@ func uploadDirInternal(
 		case fs.File:
 			// regular file
 			// See if we had this name during previous pass.
-			cachedEntry := u.cacheReader.findEntry(entryRelativePath)
+			cachedEntry := u.cacheReader.FindEntry(entryRelativePath)
 
 			// ... and whether file metadata is identical to the previous one.
 			computedHash := metadataHash(e)
@@ -368,7 +369,7 @@ func uploadDirInternal(
 		}
 
 		if de.Type != fs.EntryTypeDirectory && de.ObjectID.StorageBlock != "" {
-			if err := u.cacheWriter.WriteEntry(hashCacheEntry{
+			if err := u.cacheWriter.WriteEntry(hashcache.Entry{
 				Name:     entryRelativePath,
 				Hash:     hash,
 				ObjectID: de.ObjectID,
@@ -383,7 +384,7 @@ func uploadDirInternal(
 	var directoryOID repo.ObjectID
 	dirHash := dirHasher.Sum64()
 
-	cacheddirEntry := u.cacheReader.findEntry(relativePath + "/")
+	cacheddirEntry := u.cacheReader.FindEntry(relativePath + "/")
 	allCached = allCached && cacheddirEntry != nil && cacheddirEntry.Hash == dirHash
 
 	if allCached {
@@ -399,7 +400,7 @@ func uploadDirInternal(
 	}
 
 	if directoryOID.StorageBlock != "" {
-		if err := u.cacheWriter.WriteEntry(hashCacheEntry{
+		if err := u.cacheWriter.WriteEntry(hashcache.Entry{
 			Name:     relativePath + "/",
 			ObjectID: directoryOID,
 			Hash:     dirHash,
@@ -535,7 +536,7 @@ func Upload(
 	u := &uploadContext{
 		ctx:         ctx,
 		repo:        repository,
-		cacheReader: &hashcacheReader{},
+		cacheReader: &hashcache.Reader{},
 		stats:       &snapshot.Stats{},
 		progress:    progress,
 	}
@@ -546,7 +547,7 @@ func Upload(
 
 	if old != nil {
 		if r, err := u.repo.Open(old.HashCacheID); err == nil {
-			u.cacheReader.open(r)
+			u.cacheReader.Open(r)
 		}
 	}
 
