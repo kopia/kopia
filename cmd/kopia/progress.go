@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/cheggaaa/pb"
-	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/internal/units"
+	"github.com/kopia/kopia/snapshot"
 )
 
 type uploadProgress struct {
@@ -55,4 +55,4 @@ func (p *uploadProgress) Progress(path string, completed, total int64) {
 	p.bar.Set64(completed)
 }
 
-var up repofs.UploadProgress = &uploadProgress{}
+var up snapshot.UploadProgress = &uploadProgress{}

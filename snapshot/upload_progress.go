@@ -1,4 +1,4 @@
-package repofs
+package snapshot
 
 // UploadProgress is invoked by by uploader to report status of file and directory uploads.
 type UploadProgress interface {

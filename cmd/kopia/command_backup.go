@@ -16,7 +16,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 
@@ -97,7 +96,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 			return err
 		}
 
-		manifest, err := repofs.Upload(
+		manifest, err := snapshot.Upload(
 			ctx,
 			conn.Repository,
 			localEntry,

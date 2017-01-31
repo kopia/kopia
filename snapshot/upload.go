@@ -1,4 +1,4 @@
-package repofs
+package snapshot
 
 import (
 	"context"
@@ -12,7 +12,6 @@ import (
 	"github.com/kopia/kopia/internal/dir"
 	"github.com/kopia/kopia/internal/hashcache"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/snapshot"
 )
 
 const (
@@ -55,7 +54,7 @@ type uploadContext struct {
 	cacheWriter *hashcache.Writer
 	cacheReader *hashcache.Reader
 
-	stats    *snapshot.Stats
+	stats    *Stats
 	progress UploadProgress
 
 	uploadBuf []byte
@@ -524,10 +523,10 @@ func Upload(
 	ctx context.Context,
 	repository *repo.Repository,
 	source fs.Entry,
-	sourceInfo *snapshot.SourceInfo,
-	old *snapshot.Manifest,
+	sourceInfo *SourceInfo,
+	old *Manifest,
 	progress UploadProgress,
-) (*snapshot.Manifest, error) {
+) (*Manifest, error) {
 	if progress == nil {
 		progress = &nullUploadProgress{}
 	}
@@ -536,11 +535,11 @@ func Upload(
 		ctx:         ctx,
 		repo:        repository,
 		cacheReader: &hashcache.Reader{},
-		stats:       &snapshot.Stats{},
+		stats:       &Stats{},
 		progress:    progress,
 	}
 
-	s := &snapshot.Manifest{
+	s := &Manifest{
 		Source: *sourceInfo,
 	}
 
