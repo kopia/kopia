@@ -2,14 +2,12 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
-	"math"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -112,14 +110,10 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 			return err
 		}
 
-		uniqueID := make([]byte, 8)
-		rand.Read(uniqueID)
-		fileID := fmt.Sprintf("B%v.%08x.%x", sourceInfo.HashString(), math.MaxInt64-manifest.StartTime.UnixNano(), uniqueID)
 		manifest.Handle = handleID
 		manifest.Description = *backupDescription
 
-		err = conn.SnapshotManager.SaveSnapshot(fileID, manifest)
-		if err != nil {
+		if _, err := conn.SnapshotManager.SaveSnapshot(manifest); err != nil {
 			return fmt.Errorf("cannot save manifest: %v", err)
 		}
 

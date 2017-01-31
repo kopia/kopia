@@ -1,10 +1,11 @@
 package snapshot
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"log"
-
+	"math"
 	"strings"
 
 	"github.com/kopia/kopia/vault"
@@ -74,14 +75,23 @@ func (m *Manager) LoadSnapshot(manifestID string) (*Manifest, error) {
 	return &s, nil
 }
 
-// SaveSnapshot persists given snapshot manifest with a given ID.
-func (m *Manager) SaveSnapshot(manifestID string, manifest *Manifest) error {
+// SaveSnapshot persists given snapshot manifest and returns manifest ID.
+func (m *Manager) SaveSnapshot(manifest *Manifest) (string, error) {
+	uniqueID := make([]byte, 8)
+	rand.Read(uniqueID)
+	ts := math.MaxInt64 - manifest.StartTime.UnixNano()
+	manifestID := fmt.Sprintf("%v%v.%08x.%x", backupPrefix, manifest.Source.HashString(), ts, uniqueID)
+
 	b, err := json.Marshal(manifest)
 	if err != nil {
-		return fmt.Errorf("cannot marshal backup manifest to JSON: %v", err)
+		return "", fmt.Errorf("cannot marshal backup manifest to JSON: %v", err)
 	}
 
-	return m.vault.Put(manifestID, b)
+	if err := m.vault.Put(manifestID, b); err != nil {
+		return "", err
+	}
+
+	return "", nil
 }
 
 // LoadSnapshots efficiently loads and parses a given list of snapshot IDs.
