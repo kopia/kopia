@@ -5,11 +5,10 @@ import (
 	"log"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/snapshot"
-
-	"strings"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -20,9 +19,7 @@ var (
 	maxResultsPerPath = backupsCommand.Flag("maxresults", "Maximum number of results.").Default("100").Int()
 )
 
-func findBackups(mgr *snapshot.Manager, sourceInfo snapshot.SourceInfo) ([]string, string, error) {
-	var relPath string
-
+func findBackups(mgr *snapshot.Manager, sourceInfo snapshot.SourceInfo) (manifestIDs []string, relPath string, err error) {
 	for len(sourceInfo.Path) > 0 {
 		list, err := mgr.ListSnapshotManifests(&sourceInfo, -1)
 		if err != nil {

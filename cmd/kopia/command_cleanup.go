@@ -8,14 +8,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kopia/kopia/internal/units"
-
-	"github.com/kopia/kopia/vault"
-
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/repofs"
-
+	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/vault"
+
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 

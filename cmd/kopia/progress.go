@@ -6,10 +6,8 @@ import (
 	"time"
 
 	"github.com/cheggaaa/pb"
-
-	"github.com/kopia/kopia/internal/units"
-
 	"github.com/kopia/kopia/fs/repofs"
+	"github.com/kopia/kopia/internal/units"
 )
 
 type uploadProgress struct {

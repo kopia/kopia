@@ -4,10 +4,11 @@ package main
 
 import (
 	"bazil.org/fuse"
-	fusefs "bazil.org/fuse/fs"
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/loggingfs"
 	"github.com/kopia/kopia/fs/repofs"
+
+	fusefs "bazil.org/fuse/fs"
 	kopiafuse "github.com/kopia/kopia/fuse"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"

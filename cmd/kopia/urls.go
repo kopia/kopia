@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/blob"
+
 	fsstorage "github.com/kopia/kopia/blob/filesystem"
 	gcsstorage "github.com/kopia/kopia/blob/gcs"
 )
