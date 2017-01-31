@@ -1,4 +1,4 @@
-package repofs
+package dir
 
 import (
 	"io"
@@ -6,18 +6,18 @@ import (
 	"github.com/kopia/kopia/internal/jsonstream"
 )
 
-// directoryWriter writes a stream of directory entries.
-type directoryWriter struct {
+// Writer writes a stream of directory entries.
+type Writer struct {
 	w *jsonstream.Writer
 }
 
 // WriteEntry writes the specified entry to the output.
-func (dw *directoryWriter) WriteEntry(e *dirEntry) error {
+func (dw *Writer) WriteEntry(e *Entry) error {
 	if err := e.ObjectID.Validate(); err != nil {
 		panic("invalid object ID: " + err.Error())
 	}
 
-	if e.Type == entryTypeBundle && len(e.BundledChildren) == 0 {
+	if e.Type == EntryTypeBundle && len(e.BundledChildren) == 0 {
 		panic("empty bundle!")
 	}
 
@@ -25,13 +25,13 @@ func (dw *directoryWriter) WriteEntry(e *dirEntry) error {
 }
 
 // Finalize writes the trailing data to the output stream.
-func (dw *directoryWriter) Finalize() error {
+func (dw *Writer) Finalize() error {
 	return dw.w.Finalize()
 }
 
-// newDirWriter returns new directoryWriter for with the specified output.
-func newDirWriter(w io.Writer) *directoryWriter {
-	dw := &directoryWriter{
+// NewWriter returns new directoryWriter for with the specified output.
+func NewWriter(w io.Writer) *Writer {
+	dw := &Writer{
 		w: jsonstream.NewWriter(w, directoryStreamType),
 	}
 

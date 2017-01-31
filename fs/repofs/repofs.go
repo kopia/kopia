@@ -6,18 +6,13 @@ import (
 	"io/ioutil"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/dir"
 	"github.com/kopia/kopia/repo"
 )
 
-type dirEntry struct {
-	fs.EntryMetadata
-	ObjectID        repo.ObjectID `json:"obj,omitempty"`
-	BundledChildren []*dirEntry   `json:"bundled,omitempty"`
-}
-
 type repositoryEntry struct {
 	parent   fs.Directory
-	metadata *dirEntry
+	metadata *dir.Entry
 	repo     *repo.Repository
 }
 
@@ -52,7 +47,7 @@ func (rd *repositoryDirectory) Readdir() (fs.Entries, error) {
 	}
 	defer r.Close()
 
-	metadata, err := readDirEntries(r)
+	metadata, err := dir.ReadEntries(r)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +84,7 @@ func (rsl *repositorySymlink) Readlink() (string, error) {
 	return string(b), nil
 }
 
-func newRepoEntry(r *repo.Repository, md *dirEntry, parent fs.Directory) fs.Entry {
+func newRepoEntry(r *repo.Repository, md *dir.Entry, parent fs.Directory) fs.Entry {
 	re := repositoryEntry{
 		metadata: md,
 		parent:   parent,
@@ -129,7 +124,7 @@ func withMetadata(rc io.ReadCloser, md *fs.EntryMetadata) fs.Reader {
 // Directory returns fs.Directory based on repository object with the specified ID.
 // The existence or validity of the directory object is not validated until its contents are read.
 func Directory(r *repo.Repository, objectID repo.ObjectID) fs.Directory {
-	d := newRepoEntry(r, &dirEntry{
+	d := newRepoEntry(r, &dir.Entry{
 		EntryMetadata: fs.EntryMetadata{
 			Name:        "/",
 			Permissions: 0555,

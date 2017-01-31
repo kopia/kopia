@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/dir"
 	"github.com/kopia/kopia/internal/hashcache"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
@@ -36,10 +37,10 @@ func metadataHash(e *fs.EntryMetadata) uint64 {
 	return h.Sum64()
 }
 
-func bundleHash(b *bundle) uint64 {
+func bundleHash(b *dir.Bundle) uint64 {
 	h := fnv.New64a()
-	hashEntryMetadata(h, b.metadata)
-	for i, f := range b.files {
+	hashEntryMetadata(h, b.Metadata())
+	for i, f := range b.Files {
 		binary.Write(h, binary.LittleEndian, i)
 		hashEntryMetadata(h, f.Metadata())
 	}
@@ -62,7 +63,7 @@ type uploadContext struct {
 	Cancelled bool
 }
 
-func uploadFileInternal(u *uploadContext, f fs.File, relativePath string, forceStored bool) (*dirEntry, uint64, error) {
+func uploadFileInternal(u *uploadContext, f fs.File, relativePath string, forceStored bool) (*dir.Entry, uint64, error) {
 	u.progress.Started(relativePath, f.Metadata().FileSize)
 
 	file, err := f.Open()
@@ -141,14 +142,14 @@ func copyWithProgress(u *uploadContext, path string, dst io.Writer, src io.Reade
 	return written, nil
 }
 
-func newDirEntry(md *fs.EntryMetadata, oid repo.ObjectID) *dirEntry {
-	return &dirEntry{
+func newDirEntry(md *fs.EntryMetadata, oid repo.ObjectID) *dir.Entry {
+	return &dir.Entry{
 		EntryMetadata: *md,
 		ObjectID:      oid,
 	}
 }
 
-func uploadBundleInternal(u *uploadContext, b *bundle, relativePath string) (*dirEntry, uint64, error) {
+func uploadBundleInternal(u *uploadContext, b *dir.Bundle, relativePath string) (*dir.Entry, uint64, error) {
 	bundleMetadata := b.Metadata()
 	u.progress.Started(relativePath, b.Metadata().FileSize)
 
@@ -164,7 +165,7 @@ func uploadBundleInternal(u *uploadContext, b *bundle, relativePath string) (*di
 	de := newDirEntry(bundleMetadata, repo.NullObjectID)
 	var totalBytes int64
 
-	for _, fileEntry := range b.files {
+	for _, fileEntry := range b.Files {
 		file, err := fileEntry.Open()
 		if err != nil {
 			u.progress.Finished(relativePath, totalBytes, err)
@@ -186,12 +187,12 @@ func uploadBundleInternal(u *uploadContext, b *bundle, relativePath string) (*di
 		fileMetadata.FileSize = written
 		de.BundledChildren = append(de.BundledChildren, newDirEntry(fileMetadata, repo.NullObjectID))
 
-		uploadedFiles = append(uploadedFiles, &bundledFile{metadata: fileMetadata})
+		uploadedFiles = append(uploadedFiles, dir.NewBundledFile(fileMetadata))
 		totalBytes += written
 		file.Close()
 	}
 
-	b.files = uploadedFiles
+	b.Files = uploadedFiles
 	de.ObjectID, err = writer.Result(true)
 	de.FileSize = totalBytes
 	if err != nil {
@@ -238,7 +239,7 @@ func uploadDir(u *uploadContext, dir fs.Directory) (repo.ObjectID, repo.ObjectID
 
 func uploadDirInternal(
 	u *uploadContext,
-	dir fs.Directory,
+	directory fs.Directory,
 	relativePath string,
 	forceStored bool,
 ) (repo.ObjectID, uint64, bool, error) {
@@ -247,7 +248,7 @@ func uploadDirInternal(
 
 	u.stats.TotalDirectoryCount++
 
-	entries, err := dir.Readdir()
+	entries, err := directory.Readdir()
 	if err != nil {
 		return repo.NullObjectID, 0, false, err
 	}
@@ -258,7 +259,7 @@ func uploadDirInternal(
 		repo.WithDescription("DIR:" + relativePath),
 	)
 
-	dw := newDirWriter(writer)
+	dw := dir.NewWriter(writer)
 	defer writer.Close()
 
 	allCached := true
@@ -271,7 +272,7 @@ func uploadDirInternal(
 		e := entry.Metadata()
 		entryRelativePath := relativePath + "/" + e.Name
 
-		var de *dirEntry
+		var de *dir.Entry
 
 		var hash uint64
 
@@ -295,7 +296,7 @@ func uploadDirInternal(
 			de = newDirEntry(e, repo.InlineObjectID([]byte(l)))
 			hash = metadataHash(e)
 
-		case *bundle:
+		case *dir.Bundle:
 			// See if we had this name during previous pass.
 			cachedEntry := u.cacheReader.FindEntry(entryRelativePath)
 
@@ -303,8 +304,8 @@ func uploadDirInternal(
 			cacheMatches := (cachedEntry != nil) && cachedEntry.Hash == bundleHash(entry)
 
 			allCached = allCached && cacheMatches
-			childrenMetadata := make([]*dirEntry, len(entry.files))
-			for i, f := range entry.files {
+			childrenMetadata := make([]*dir.Entry, len(entry.Files))
+			for i, f := range entry.Files {
 				childrenMetadata[i] = newDirEntry(f.Metadata(), repo.NullObjectID)
 			}
 
@@ -414,7 +415,7 @@ func uploadDirInternal(
 }
 
 func bundleEntries(u *uploadContext, entries fs.Entries) fs.Entries {
-	var bundleMap map[int]*bundle
+	var bundleMap map[int]*dir.Bundle
 
 	result := entries[:0]
 
@@ -461,17 +462,15 @@ func bundleEntries(u *uploadContext, entries fs.Entries) fs.Entries {
 				b := bundleMap[bundleNo]
 				if b == nil {
 					if bundleMap == nil {
-						bundleMap = make(map[int]*bundle)
+						bundleMap = make(map[int]*dir.Bundle)
 					}
 
 					bundleMetadata := &fs.EntryMetadata{
 						Name: fmt.Sprintf("bundle-%v", bundleNo),
-						Type: entryTypeBundle,
+						Type: dir.EntryTypeBundle,
 					}
 
-					b = &bundle{
-						metadata: bundleMetadata,
-					}
+					b = dir.NewBundle(bundleMetadata)
 					bundleMap[bundleNo] = b
 
 					// Add the bundle instead of an entry.
@@ -479,7 +478,7 @@ func bundleEntries(u *uploadContext, entries fs.Entries) fs.Entries {
 				}
 
 				// Append entry to the bundle.
-				b.append(e)
+				b.Append(e)
 
 			} else {
 				// Append original entry

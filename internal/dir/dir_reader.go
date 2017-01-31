@@ -1,4 +1,4 @@
-package repofs
+package dir
 
 import (
 	"bufio"
@@ -11,15 +11,15 @@ import (
 
 var directoryStreamType = "kopia:directory"
 
-// readDirEntries reads all the dirEntry from the specified reader.
-func readDirEntries(r io.Reader) ([]*dirEntry, error) {
+// ReadEntries reads all the Entry from the specified reader.
+func ReadEntries(r io.Reader) ([]*Entry, error) {
 	psr, err := jsonstream.NewReader(bufio.NewReader(r), directoryStreamType)
 	if err != nil {
 		return nil, err
 	}
-	var entries []*dirEntry
+	var entries []*Entry
 	for {
-		e := &dirEntry{}
+		e := &Entry{}
 		err := psr.Read(e)
 		if err == io.EOF {
 			break
@@ -35,12 +35,12 @@ func readDirEntries(r io.Reader) ([]*dirEntry, error) {
 	return flattenBundles(entries)
 }
 
-func flattenBundles(source []*dirEntry) ([]*dirEntry, error) {
-	var entries []*dirEntry
-	var bundles [][]*dirEntry
+func flattenBundles(source []*Entry) ([]*Entry, error) {
+	var entries []*Entry
+	var bundles [][]*Entry
 
 	for _, e := range source {
-		if e.Type == entryTypeBundle {
+		if e.Type == EntryTypeBundle {
 			bundle := e.BundledChildren
 			e.BundledChildren = nil
 
@@ -72,9 +72,9 @@ func flattenBundles(source []*dirEntry) ([]*dirEntry, error) {
 	return entries, nil
 }
 
-func mergeSort2(b1, b2 []*dirEntry) []*dirEntry {
+func mergeSort2(b1, b2 []*Entry) []*Entry {
 	combinedLength := len(b1) + len(b2)
-	result := make([]*dirEntry, 0, combinedLength)
+	result := make([]*Entry, 0, combinedLength)
 
 	for len(b1) > 0 && len(b2) > 0 {
 		if b1[0].Name < b2[0].Name {
@@ -92,7 +92,7 @@ func mergeSort2(b1, b2 []*dirEntry) []*dirEntry {
 	return result
 }
 
-func mergeSortN(slices [][]*dirEntry) []*dirEntry {
+func mergeSortN(slices [][]*Entry) []*Entry {
 	switch len(slices) {
 	case 1:
 		return slices[0]

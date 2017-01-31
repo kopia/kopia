@@ -1,4 +1,4 @@
-package repofs
+package dir
 
 import (
 	"reflect"
@@ -16,8 +16,8 @@ var (
 	time3 = mustParseTimestamp("2016-04-02T02:36:19Z")
 )
 
-func bundledFileEntry(n string, l int64) *dirEntry {
-	return &dirEntry{
+func bundledFileEntry(n string, l int64) *Entry {
+	return &Entry{
 		EntryMetadata: fs.EntryMetadata{
 			Name:     n,
 			FileSize: l,
@@ -26,8 +26,8 @@ func bundledFileEntry(n string, l int64) *dirEntry {
 	}
 }
 
-func entryWithSection(n string, l int64, start int64, length int64, baseID repo.ObjectID) *dirEntry {
-	return &dirEntry{
+func entryWithSection(n string, l int64, start int64, length int64, baseID repo.ObjectID) *Entry {
+	return &Entry{
 		EntryMetadata: fs.EntryMetadata{
 			Name:     n,
 			FileSize: l,
@@ -37,12 +37,12 @@ func entryWithSection(n string, l int64, start int64, length int64, baseID repo.
 	}
 }
 
-func bundleEntry(n string, l int64, oid repo.ObjectID, children []*dirEntry) *dirEntry {
-	return &dirEntry{
+func bundleEntry(n string, l int64, oid repo.ObjectID, children []*Entry) *Entry {
+	return &Entry{
 		EntryMetadata: fs.EntryMetadata{
 			Name:     n,
 			FileSize: l,
-			Type:     entryTypeBundle,
+			Type:     EntryTypeBundle,
 		},
 		ObjectID:        oid,
 		BundledChildren: children,
@@ -51,8 +51,8 @@ func bundleEntry(n string, l int64, oid repo.ObjectID, children []*dirEntry) *di
 
 func TestFlattenBundles(t *testing.T) {
 	base := repo.ObjectID{StorageBlock: "5555"}
-	sources := []*dirEntry{
-		bundleEntry("bundle1", 170, base, []*dirEntry{
+	sources := []*Entry{
+		bundleEntry("bundle1", 170, base, []*Entry{
 			bundledFileEntry("a1", 50),
 			bundledFileEntry("z1", 120),
 		}),
@@ -64,7 +64,7 @@ func TestFlattenBundles(t *testing.T) {
 		return
 	}
 
-	expectedEntries := []*dirEntry{
+	expectedEntries := []*Entry{
 		entryWithSection("a1", 50, 0, 50, base),
 		entryWithSection("z1", 120, 50, 120, base),
 	}
@@ -73,8 +73,8 @@ func TestFlattenBundles(t *testing.T) {
 }
 
 func TestFlattenBundlesInconsistentBundleSize(t *testing.T) {
-	sources := []*dirEntry{
-		bundleEntry("bundle1", 171, repo.ObjectID{StorageBlock: "5555"}, []*dirEntry{
+	sources := []*Entry{
+		bundleEntry("bundle1", 171, repo.ObjectID{StorageBlock: "5555"}, []*Entry{
 			bundledFileEntry("a1", 50),
 			bundledFileEntry("z1", 120),
 		}),
@@ -95,16 +95,16 @@ func TestFlattenThreeBundles(t *testing.T) {
 	base1 := repo.ObjectID{StorageBlock: "5555"}
 	base2 := repo.ObjectID{StorageBlock: "6666"}
 	base3 := repo.ObjectID{StorageBlock: "7777"}
-	sources := []*dirEntry{
-		bundleEntry("bundle1", 170, base1, []*dirEntry{
+	sources := []*Entry{
+		bundleEntry("bundle1", 170, base1, []*Entry{
 			bundledFileEntry("a1", 50),
 			bundledFileEntry("z1", 120),
 		}),
-		bundleEntry("bundle3", 7, base3, []*dirEntry{
+		bundleEntry("bundle3", 7, base3, []*Entry{
 			bundledFileEntry("a3", 5),
 			bundledFileEntry("z3", 2),
 		}),
-		bundleEntry("bundle2", 300, base2, []*dirEntry{
+		bundleEntry("bundle2", 300, base2, []*Entry{
 			bundledFileEntry("a2", 100),
 			bundledFileEntry("z2", 200),
 		}),
@@ -116,7 +116,7 @@ func TestFlattenThreeBundles(t *testing.T) {
 		return
 	}
 
-	expectedEntries := []*dirEntry{
+	expectedEntries := []*Entry{
 		entryWithSection("a1", 50, 0, 50, base1),
 		entryWithSection("a2", 100, 0, 100, base2),
 		entryWithSection("a3", 5, 0, 5, base3),
@@ -128,7 +128,7 @@ func TestFlattenThreeBundles(t *testing.T) {
 	verifyDirectory(t, entries, expectedEntries)
 }
 
-func verifyDirectory(t *testing.T, entries []*dirEntry, expectedEntries []*dirEntry) {
+func verifyDirectory(t *testing.T, entries []*Entry, expectedEntries []*Entry) {
 	if len(entries) != len(expectedEntries) {
 		t.Errorf("expected %v entries, got %v", len(expectedEntries), len(entries))
 	}
