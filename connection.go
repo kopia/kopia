@@ -11,12 +11,12 @@ import (
 	"github.com/kopia/kopia/blob/logging"
 	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/vault"
 
 	// Register well-known blob storage providers
 	_ "github.com/kopia/kopia/blob/filesystem"
 	_ "github.com/kopia/kopia/blob/gcs"
-	"github.com/kopia/kopia/snapshot"
 )
 
 // Connection represents open connection to Vault and Repository.
