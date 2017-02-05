@@ -184,6 +184,8 @@ func runExpireCommand(context *kingpin.ParseContext) error {
 	conn := mustOpenConnection()
 	defer conn.Close()
 
+	mgr := snapshot.NewManager(conn)
+
 	log.Printf("Applying expiration policy: %v", *expirePolicy)
 	expirationPolicies[*expirePolicy]()
 
@@ -199,12 +201,12 @@ func runExpireCommand(context *kingpin.ParseContext) error {
 	log.Printf("  %v last monthly backups", *expireKeepMonthly)
 	log.Printf("  %v last annual backups", *expireKeepAnnual)
 
-	snapshotNames, err := getSnapshotNamesToExpire(conn.SnapshotManager)
+	snapshotNames, err := getSnapshotNamesToExpire(mgr)
 	if err != nil {
 		return err
 	}
 
-	snapshots, err := conn.SnapshotManager.LoadSnapshots(snapshotNames)
+	snapshots, err := mgr.LoadSnapshots(snapshotNames)
 	if err != nil {
 		return err
 	}

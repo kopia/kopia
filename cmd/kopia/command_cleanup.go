@@ -12,6 +12,7 @@ import (
 	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/vault"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
@@ -139,8 +140,10 @@ func runCleanupCommand(context *kingpin.ParseContext) error {
 	conn := mustOpenConnection()
 	defer conn.Close()
 
+	mgr := snapshot.NewManager(conn)
+
 	log.Printf("Listing active snapshots...")
-	snapshotNames, err := conn.SnapshotManager.ListSnapshotManifests(nil, -1)
+	snapshotNames, err := mgr.ListSnapshotManifests(nil, -1)
 	if err != nil {
 		return err
 	}
@@ -166,7 +169,7 @@ func runCleanupCommand(context *kingpin.ParseContext) error {
 	var wg sync.WaitGroup
 	wg.Add(workerCount)
 
-	snapshots, err := conn.SnapshotManager.LoadSnapshots(snapshotNames)
+	snapshots, err := mgr.LoadSnapshots(snapshotNames)
 	if err != nil {
 		return err
 	}

@@ -8,6 +8,7 @@ import (
 	"math"
 	"strings"
 
+	"github.com/kopia/kopia"
 	"github.com/kopia/kopia/vault"
 )
 
@@ -133,7 +134,7 @@ func (m *Manager) ListSnapshotManifests(src *SourceInfo, limit int) ([]string, e
 	return m.vault.List(backupPrefix+prefix, limit)
 }
 
-// NewManager creates new snapshot manager for a given vault and repository.
-func NewManager(vault *vault.Vault) *Manager {
-	return &Manager{vault}
+// NewManager creates new snapshot manager for a given connection.
+func NewManager(conn *kopia.Connection) *Manager {
+	return &Manager{conn.Vault}
 }

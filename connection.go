@@ -11,7 +11,6 @@ import (
 	"github.com/kopia/kopia/blob/logging"
 	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/vault"
 
 	// Register well-known blob storage providers
@@ -21,9 +20,8 @@ import (
 
 // Connection represents open connection to Vault and Repository.
 type Connection struct {
-	Vault           *vault.Vault
-	Repository      *repo.Repository
-	SnapshotManager *snapshot.Manager
+	Vault      *vault.Vault
+	Repository *repo.Repository
 }
 
 // ConnectionOptions specifies the behavior of Connection.
@@ -126,7 +124,6 @@ func Open(ctx context.Context, configFile string, options *ConnectionOptions) (*
 		repositoryStorage.Close()
 		return nil, err
 	}
-	conn.SnapshotManager = snapshot.NewManager(conn.Vault)
 
 	return &conn, nil
 }

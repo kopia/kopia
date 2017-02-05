@@ -52,6 +52,8 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 	conn := mustOpenConnection()
 	defer conn.Close()
 
+	mgr := snapshot.NewManager(conn)
+
 	var previous []string
 	var relPath string
 	var err error
@@ -62,12 +64,12 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 			return fmt.Errorf("invalid directory: '%s': %s", *backupsPath, err)
 		}
 
-		previous, relPath, err = findBackups(conn.SnapshotManager, si)
+		previous, relPath, err = findBackups(mgr, si)
 		if relPath != "" {
 			relPath = "/" + relPath
 		}
 	} else {
-		previous, err = conn.SnapshotManager.ListSnapshotManifests(nil, -1)
+		previous, err = mgr.ListSnapshotManifests(nil, -1)
 	}
 
 	if err != nil {
@@ -77,7 +79,7 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 	var lastSource snapshot.SourceInfo
 	var count int
 
-	manifests, err := conn.SnapshotManager.LoadSnapshots(previous)
+	manifests, err := mgr.LoadSnapshots(previous)
 	if err != nil {
 		return err
 	}

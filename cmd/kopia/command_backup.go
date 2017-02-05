@@ -50,10 +50,11 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 	defer conn.Close()
 
 	ctx := context.Background()
+	mgr := snapshot.NewManager(conn)
 
 	sources := *backupSources
 	if *backupAll {
-		local, err := getLocalBackupPaths(conn.SnapshotManager)
+		local, err := getLocalBackupPaths(mgr)
 		if err != nil {
 			return err
 		}
@@ -78,7 +79,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 			return fmt.Errorf("description too long")
 		}
 
-		previous, err := conn.SnapshotManager.ListSnapshots(sourceInfo, 1)
+		previous, err := mgr.ListSnapshots(sourceInfo, 1)
 		if err != nil {
 			return fmt.Errorf("error listing previous backups: %v", err)
 		}
@@ -113,7 +114,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 		manifest.Handle = handleID
 		manifest.Description = *backupDescription
 
-		if _, err := conn.SnapshotManager.SaveSnapshot(manifest); err != nil {
+		if _, err := mgr.SaveSnapshot(manifest); err != nil {
 			return fmt.Errorf("cannot save manifest: %v", err)
 		}
 
