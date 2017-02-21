@@ -26,6 +26,10 @@ func (ssi SourceInfo) String() string {
 // SourceInfo. The path may be bare (in which case it's interpreted as local path and canonicalized)
 // or may be 'username@host:path' where path, username and host are not processed.
 func ParseSourceInfo(path string, hostname string, username string) (SourceInfo, error) {
+	if path == "(global)" {
+		return SourceInfo{}, nil
+	}
+
 	p1 := strings.Index(path, "@")
 	p2 := strings.Index(path, ":")
 
@@ -35,6 +39,18 @@ func ParseSourceInfo(path string, hostname string, username string) (SourceInfo,
 			Host:     path[p1+1 : p2],
 			Path:     path[p2+1:],
 		}, nil
+	}
+
+	if p1 >= 0 && p2 < 0 {
+		if p1+1 < len(path) {
+			// support @host and user@host without path
+			return SourceInfo{
+				UserName: path[0:p1],
+				Host:     path[p1+1:],
+			}, nil
+		}
+
+		return SourceInfo{}, fmt.Errorf("invalid hostname in %q", path)
 	}
 
 	absPath, err := filepath.Abs(path)

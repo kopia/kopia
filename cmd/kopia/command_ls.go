@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	lsCommand = app.Command("ls", "List a directory stored in repository object.").Alias("list")
+	lsCommand = app.Command("list", "List a directory stored in repository object.").Alias("ls")
 
 	lsCommandLong = lsCommand.Flag("long", "Long output").Short('l').Bool()
 	lsCommandPath = lsCommand.Arg("path", "Path").Required().String()

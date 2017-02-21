@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	vaultListCommand = vaultCommands.Command("ls", "List contents of a vault").Alias("list")
+	vaultListCommand = vaultCommands.Command("list", "List contents of a vault").Alias("ls")
 	vaultListPrefix  = vaultListCommand.Flag("prefix", "Prefix").String()
 )
 
