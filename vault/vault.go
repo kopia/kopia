@@ -55,6 +55,11 @@ type Vault struct {
 	authData []byte      // additional data to authenticate
 }
 
+// UniqueID returns the unique identifier of the vault.
+func (v *Vault) UniqueID() []byte {
+	return v.format.UniqueID
+}
+
 // Put saves the specified content in a vault under a specified name.
 func (v *Vault) Put(itemID string, content []byte) error {
 	if err := checkReservedName(itemID); err != nil {

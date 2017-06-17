@@ -1,9 +1,11 @@
 package snapshot
 
 import (
+	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
+	"hash"
 	"io"
 	"path/filepath"
 	"strings"
@@ -66,8 +68,13 @@ func ParseSourceInfo(path string, hostname string, username string) (SourceInfo,
 }
 
 // HashString generates hash of SourceInfo.
-func (ssi SourceInfo) HashString() string {
-	h := sha1.New()
+func (ssi SourceInfo) HashString(secret []byte) string {
+	var h hash.Hash
+	if len(secret) == 0 {
+		h = sha1.New()
+	} else {
+		h = hmac.New(sha1.New, secret)
+	}
 	io.WriteString(h, ssi.Host)
 	h.Write(zeroByte)
 	io.WriteString(h, ssi.UserName)

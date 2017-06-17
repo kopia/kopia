@@ -59,7 +59,7 @@ func (m *Manager) Sources() ([]*SourceInfo, error) {
 
 // ListSnapshots lists all snapshots for a given source.
 func (m *Manager) ListSnapshots(si *SourceInfo, limit int) ([]*Manifest, error) {
-	names, err := m.vault.List(backupPrefix+si.HashString(), limit)
+	names, err := m.vault.List(backupPrefix+si.HashString(m.vault.UniqueID()), limit)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (m *Manager) SaveSnapshot(manifest *Manifest) (string, error) {
 	uniqueID := make([]byte, 8)
 	rand.Read(uniqueID)
 	ts := math.MaxInt64 - manifest.StartTime.UnixNano()
-	manifestID := fmt.Sprintf("%v%v.%08x.%x", backupPrefix, manifest.Source.HashString(), ts, uniqueID)
+	manifestID := fmt.Sprintf("%v%v.%08x.%x", backupPrefix, manifest.Source.HashString(m.vault.UniqueID()), ts, uniqueID)
 
 	b, err := json.Marshal(manifest)
 	if err != nil {
@@ -134,7 +134,7 @@ func (m *Manager) ListSnapshotManifests(src *SourceInfo, limit int) ([]string, e
 	var prefix string
 
 	if src != nil {
-		prefix = src.HashString()
+		prefix = src.HashString(m.vault.UniqueID())
 	}
 
 	return m.vault.List(backupPrefix+prefix, limit)
@@ -164,7 +164,7 @@ func (m *Manager) GetPolicy(src *SourceInfo, fallback bool) (*Policy, error) {
 
 // SavePolicy persists the given snapshot policy.
 func (m *Manager) SavePolicy(p *Policy) error {
-	itemID := fmt.Sprintf("%v%v", policyPrefix, p.Source.HashString())
+	itemID := fmt.Sprintf("%v%v", policyPrefix, p.Source.HashString(m.vault.UniqueID()))
 
 	b, err := json.Marshal(p)
 	if err != nil {
@@ -175,7 +175,7 @@ func (m *Manager) SavePolicy(p *Policy) error {
 }
 
 func (m *Manager) getRawPolicy(src *SourceInfo) (*Policy, error) {
-	itemID := fmt.Sprintf("%v%v", policyPrefix, src.HashString())
+	itemID := fmt.Sprintf("%v%v", policyPrefix, src.HashString(m.vault.UniqueID()))
 
 	return m.getPolicyItem(itemID)
 }
