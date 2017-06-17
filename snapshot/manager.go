@@ -125,7 +125,14 @@ func (m *Manager) LoadSnapshots(names []string) ([]*Manifest, error) {
 	}
 	close(sem)
 
-	return result, nil
+	successful := result[:0]
+	for _, m := range result {
+		if m != nil {
+			successful = append(successful, m)
+		}
+	}
+
+	return successful, nil
 }
 
 // ListSnapshotManifests returns the list of snapshot manifests for a given source or all sources if nil.
@@ -227,7 +234,14 @@ func (m *Manager) ListPolicies() ([]*Policy, error) {
 	}
 	close(sem)
 
-	return result, nil
+	successful := result[:0]
+	for _, m := range result {
+		if m != nil {
+			successful = append(successful, m)
+		}
+	}
+
+	return successful, nil
 }
 
 // NewManager creates new snapshot manager for a given connection.
