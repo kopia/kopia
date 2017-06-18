@@ -55,11 +55,6 @@ type Vault struct {
 	authData []byte      // additional data to authenticate
 }
 
-// UniqueID returns the unique identifier of the vault.
-func (v *Vault) UniqueID() []byte {
-	return v.format.UniqueID
-}
-
 // Put saves the specified content in a vault under a specified name.
 func (v *Vault) Put(itemID string, content []byte) error {
 	if err := checkReservedName(itemID); err != nil {
@@ -111,10 +106,12 @@ func (v *Vault) decryptBlock(content []byte) ([]byte, error) {
 	return content, nil
 }
 
-func (v *Vault) deriveKey(purpose []byte, key []byte) error {
+// DeriveKey computes a key for a specific purpose and length using HKDF based on the master key.
+func (v *Vault) DeriveKey(purpose []byte, length int) []byte {
+	key := make([]byte, length)
 	k := hkdf.New(sha256.New, v.masterKey, v.format.UniqueID, purpose)
-	_, err := io.ReadFull(k, key)
-	return err
+	io.ReadFull(k, key)
+	return key
 }
 
 // Get returns the contents of a specified vault item.
@@ -383,14 +380,8 @@ func (v *Vault) initCrypto() error {
 	case "NONE": // do nothing
 		return nil
 	case "AES256_GCM":
-		aesKey := make([]byte, 32)
-		if err := v.deriveKey(purposeAESKey, aesKey); err != nil {
-			return fmt.Errorf("cannot derive key: %v", err)
-		}
-		v.authData = make([]byte, 32)
-		if err := v.deriveKey(purposeAuthData, v.authData); err != nil {
-			return fmt.Errorf("cannot derive auth data: %v", err)
-		}
+		aesKey := v.DeriveKey(purposeAESKey, 32)
+		v.authData = v.DeriveKey(purposeAuthData, 32)
 
 		blk, err := aes.NewCipher(aesKey)
 		if err != nil {

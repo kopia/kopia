@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	vaultShowCommand   = vaultCommands.Command("show", "Show contents of a vault item")
+	vaultShowCommand   = vaultCommands.Command("show", "Show contents of a vault item").Alias("cat")
 	vaultShowID        = vaultShowCommand.Arg("id", "ID of the vault item to show").String()
 	vaultShowJSON      = vaultShowCommand.Flag("json", "Pretty-print JSON").Short('j').Bool()
 	vaultShowNoNewLine = vaultShowCommand.Flag("nonewline", "Do not emit newline").Short('n').Bool()

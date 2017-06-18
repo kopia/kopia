@@ -28,7 +28,9 @@ var GlobalPolicySourceInfo = &SourceInfo{}
 
 // Manager manages filesystem snapshots.
 type Manager struct {
-	vault *vault.Vault
+	vault            *vault.Vault
+	snapshotIDSecret []byte
+	policyIDSecret   []byte
 }
 
 // ListSources lists all snapshot sources.
@@ -64,7 +66,7 @@ func (m *Manager) ListSources() ([]*SourceInfo, error) {
 
 // ListSnapshots lists all snapshots for a given source.
 func (m *Manager) ListSnapshots(si *SourceInfo, limit int) ([]*Manifest, error) {
-	names, err := m.vault.List(backupPrefix+si.HashString(m.vault.UniqueID()), limit)
+	names, err := m.vault.List(backupPrefix+si.HashString(m.snapshotIDSecret), limit)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +94,7 @@ func (m *Manager) SaveSnapshot(manifest *Manifest) (string, error) {
 	uniqueID := make([]byte, 8)
 	rand.Read(uniqueID)
 	ts := math.MaxInt64 - manifest.StartTime.UnixNano()
-	manifestID := fmt.Sprintf("%v%v.%08x.%x", backupPrefix, manifest.Source.HashString(m.vault.UniqueID()), ts, uniqueID)
+	manifestID := fmt.Sprintf("%v%v.%08x.%x", backupPrefix, manifest.Source.HashString(m.snapshotIDSecret), ts, uniqueID)
 
 	b, err := json.Marshal(manifest)
 	if err != nil {
@@ -146,7 +148,7 @@ func (m *Manager) ListSnapshotManifests(src *SourceInfo, limit int) ([]string, e
 	var prefix string
 
 	if src != nil {
-		prefix = src.HashString(m.vault.UniqueID())
+		prefix = src.HashString(m.snapshotIDSecret)
 	}
 
 	return m.vault.List(backupPrefix+prefix, limit)
@@ -225,7 +227,7 @@ func cloneSourceInfo(si SourceInfo) *SourceInfo {
 
 // SavePolicy persists the given snapshot policy.
 func (m *Manager) SavePolicy(p *Policy) error {
-	itemID := fmt.Sprintf("%v%v", policyPrefix, p.Source.HashString(m.vault.UniqueID()))
+	itemID := fmt.Sprintf("%v%v", policyPrefix, p.Source.HashString(m.policyIDSecret))
 
 	b, err := json.Marshal(p)
 	if err != nil {
@@ -237,7 +239,7 @@ func (m *Manager) SavePolicy(p *Policy) error {
 
 // RemovePolicy removes the policy for a given source
 func (m *Manager) RemovePolicy(src *SourceInfo) error {
-	itemID := fmt.Sprintf("%v%v", policyPrefix, src.HashString(m.vault.UniqueID()))
+	itemID := fmt.Sprintf("%v%v", policyPrefix, src.HashString(m.policyIDSecret))
 
 	return m.vault.Remove(itemID)
 }
@@ -245,7 +247,7 @@ func (m *Manager) RemovePolicy(src *SourceInfo) error {
 // GetPolicy retrieves the Policy for a given source, if defined.
 // Returns ErrPolicyNotFound if policy not defined.
 func (m *Manager) GetPolicy(src *SourceInfo) (*Policy, error) {
-	itemID := fmt.Sprintf("%v%v", policyPrefix, src.HashString(m.vault.UniqueID()))
+	itemID := fmt.Sprintf("%v%v", policyPrefix, src.HashString(m.policyIDSecret))
 
 	return m.getPolicyItem(itemID)
 }
@@ -309,5 +311,9 @@ func (m *Manager) ListPolicies() ([]*Policy, error) {
 
 // NewManager creates new snapshot manager for a given connection.
 func NewManager(conn *kopia.Connection) *Manager {
-	return &Manager{conn.Vault}
+	return &Manager{
+		conn.Vault,
+		conn.Vault.DeriveKey([]byte("snapshot-id"), 32),
+		conn.Vault.DeriveKey([]byte("policyID-id"), 32),
+	}
 }

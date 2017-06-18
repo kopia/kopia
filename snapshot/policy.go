@@ -21,6 +21,7 @@ var defaultExpirationPolicy = &ExpirationPolicy{
 	KeepDaily:   intPtr(7),
 	KeepWeekly:  intPtr(4),
 	KeepMonthly: intPtr(4),
+	KeepAnnual:  intPtr(0),
 }
 
 // FilesPolicy describes files to be uploaded when taking snapshots
