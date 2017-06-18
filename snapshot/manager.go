@@ -156,7 +156,7 @@ func (m *Manager) ListSnapshotManifests(src *SourceInfo, limit int) ([]string, e
 // with parent policies. The source must contain a path.
 func (m *Manager) GetEffectivePolicy(src *SourceInfo) (*Policy, error) {
 	if src == nil || src.Path == "" || src.Host == "" || src.UserName == "" {
-		return nil, errors.New("incomplete source info")
+		return nil, errors.New("effective policy can only be computed for paths")
 	}
 
 	tmp := *src

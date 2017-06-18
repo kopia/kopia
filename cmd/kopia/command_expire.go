@@ -15,63 +15,19 @@ import (
 var (
 	expireCommand = app.Command("expire", "Remove old backups.")
 
-	expirationPolicies = map[string]func(){
-		"keep-all": expirationPolicyKeepAll,
-		"manual":   expirationPolicyManual,
-		"default":  expirationPolicyDefault,
-	}
-
-	expireKeepLatest  = expireCommand.Flag("keep-latest", "Number of most recent backups to keep per source").Int()
-	expireKeepHourly  = expireCommand.Flag("keep-hourly", "Number of most-recent hourly backups to keep per source").Int()
-	expireKeepDaily   = expireCommand.Flag("keep-daily", "Number of most-recent daily backups to keep per source").Int()
-	expireKeepWeekly  = expireCommand.Flag("keep-weekly", "Number of most-recent weekly backups to keep per source").Int()
-	expireKeepMonthly = expireCommand.Flag("keep-monthly", "Number of most-recent monthly backups to keep per source").Int()
-	expireKeepAnnual  = expireCommand.Flag("keep-annual", "Number of most-recent annual backups to keep per source").Int()
-	expirePolicy      = expireCommand.Flag("policy", "Expiration policy to use: "+strings.Join(expirationPolicyNames(), ",")).Required().Enum(expirationPolicyNames()...)
-	expireHost        = expireCommand.Flag("host", "Expire backups from a given host").Default("").String()
-	expireUser        = expireCommand.Flag("user", "Expire backups from a given user").Default("").String()
-	expireAll         = expireCommand.Flag("all", "Expire all backups").Bool()
-	expirePaths       = expireCommand.Arg("path", "Expire backups for a given paths only").Strings()
+	expireHost  = expireCommand.Flag("host", "Expire backups from a given host").Default("").String()
+	expireUser  = expireCommand.Flag("user", "Expire backups from a given user").Default("").String()
+	expireAll   = expireCommand.Flag("all", "Expire all backups").Bool()
+	expirePaths = expireCommand.Arg("path", "Expire backups for a given paths only").Strings()
 
 	expireDelete = expireCommand.Flag("delete", "Whether to actually delete backups").Default("no").String()
 )
 
-func expirationPolicyNames() []string {
-	var keys []string
-	for k := range expirationPolicies {
-		keys = append(keys, k)
-	}
-	return keys
-}
-
-func expirationPolicyKeepAll() {
-	*expireKeepLatest = 1000000
-	*expireKeepHourly = 1000000
-	*expireKeepDaily = 1000000
-	*expireKeepWeekly = 1000000
-	*expireKeepMonthly = 1000000
-	*expireKeepAnnual = 1000000
-}
-
-func expirationPolicyDefault() {
-	*expireKeepLatest = 1
-	*expireKeepHourly = 48
-	*expireKeepDaily = 7
-	*expireKeepWeekly = 4
-	*expireKeepMonthly = 4
-	*expireKeepAnnual = 0
-}
-
-func expirationPolicyManual() {
-}
-
-func expire(snapshots []*snapshot.Manifest, snapshotNames []string) []string {
+func expireSnapshotsForSingleSource(snapshots []*snapshot.Manifest, pol *snapshot.Policy, snapshotNames []string) []string {
 	var toDelete []string
 
-	var ids map[string]bool
-	var idCounters map[string]int
-
-	var lastSource snapshot.SourceInfo
+	ids := make(map[string]bool)
+	idCounters := make(map[string]int)
 
 	var annualCutoffTime time.Time
 	var monthlyCutoffTime time.Time
@@ -79,34 +35,29 @@ func expire(snapshots []*snapshot.Manifest, snapshotNames []string) []string {
 	var hourlyCutoffTime time.Time
 	var weeklyCutoffTime time.Time
 
-	if *expireKeepAnnual > 0 {
-		annualCutoffTime = time.Now().AddDate(-*expireKeepAnnual, 0, 0)
+	if pol.Expiration.KeepAnnual != nil {
+		annualCutoffTime = time.Now().AddDate(-*pol.Expiration.KeepAnnual, 0, 0)
 	}
 
-	if *expireKeepMonthly > 0 {
-		monthlyCutoffTime = time.Now().AddDate(0, -*expireKeepMonthly, 0)
+	if pol.Expiration.KeepMonthly != nil {
+		monthlyCutoffTime = time.Now().AddDate(0, -*pol.Expiration.KeepMonthly, 0)
 	}
 
-	if *expireKeepDaily > 0 {
-		dailyCutoffTime = time.Now().AddDate(0, 0, -*expireKeepDaily)
+	if pol.Expiration.KeepDaily != nil {
+		dailyCutoffTime = time.Now().AddDate(0, 0, -*pol.Expiration.KeepDaily)
 	}
 
-	if *expireKeepHourly > 0 {
-		hourlyCutoffTime = time.Now().Add(time.Duration(-*expireKeepHourly) * time.Hour)
+	if pol.Expiration.KeepHourly != nil {
+		hourlyCutoffTime = time.Now().Add(time.Duration(-*pol.Expiration.KeepHourly) * time.Hour)
 	}
 
-	if *expireKeepWeekly > 0 {
-		weeklyCutoffTime = time.Now().AddDate(0, 0, -7**expireKeepWeekly)
+	if pol.Expiration.KeepWeekly != nil {
+		weeklyCutoffTime = time.Now().AddDate(0, 0, -7**pol.Expiration.KeepWeekly)
 	}
+
+	fmt.Printf("\n%v\n", pol.Source)
 
 	for i, s := range snapshots {
-		if s.Source != lastSource {
-			lastSource = s.Source
-			ids = make(map[string]bool)
-			idCounters = make(map[string]int)
-			fmt.Printf("\n%v\n", s.Source)
-		}
-
 		var keep []string
 
 		registerSnapshot := func(timePeriodID string, timePeriodType string, max int) {
@@ -117,22 +68,24 @@ func expire(snapshots []*snapshot.Manifest, snapshotNames []string) []string {
 			}
 		}
 
-		registerSnapshot(fmt.Sprintf("%v", i), "latest", *expireKeepLatest)
-		if s.StartTime.After(annualCutoffTime) {
-			registerSnapshot(s.StartTime.Format("2006"), "annual", *expireKeepAnnual)
+		if pol.Expiration.KeepLatest != nil {
+			registerSnapshot(fmt.Sprintf("%v", i), "latest", *pol.Expiration.KeepLatest)
 		}
-		if s.StartTime.After(monthlyCutoffTime) {
-			registerSnapshot(s.StartTime.Format("2006-01"), "monthly", *expireKeepMonthly)
+		if s.StartTime.After(annualCutoffTime) && pol.Expiration.KeepAnnual != nil {
+			registerSnapshot(s.StartTime.Format("2006"), "annual", *pol.Expiration.KeepAnnual)
 		}
-		if s.StartTime.After(weeklyCutoffTime) {
+		if s.StartTime.After(monthlyCutoffTime) && pol.Expiration.KeepMonthly != nil {
+			registerSnapshot(s.StartTime.Format("2006-01"), "monthly", *pol.Expiration.KeepMonthly)
+		}
+		if s.StartTime.After(weeklyCutoffTime) && pol.Expiration.KeepWeekly != nil {
 			yyyy, wk := s.StartTime.ISOWeek()
-			registerSnapshot(fmt.Sprintf("%04v-%02v", yyyy, wk), "weekly", *expireKeepWeekly)
+			registerSnapshot(fmt.Sprintf("%04v-%02v", yyyy, wk), "weekly", *pol.Expiration.KeepWeekly)
 		}
-		if s.StartTime.After(dailyCutoffTime) {
-			registerSnapshot(s.StartTime.Format("2006-01-02"), "daily", *expireKeepDaily)
+		if s.StartTime.After(dailyCutoffTime) && pol.Expiration.KeepDaily != nil {
+			registerSnapshot(s.StartTime.Format("2006-01-02"), "daily", *pol.Expiration.KeepDaily)
 		}
-		if s.StartTime.After(hourlyCutoffTime) {
-			registerSnapshot(s.StartTime.Format("2006-01-02 15"), "hourly", *expireKeepHourly)
+		if s.StartTime.After(hourlyCutoffTime) && pol.Expiration.KeepHourly != nil {
+			registerSnapshot(s.StartTime.Format("2006-01-02 15"), "hourly", *pol.Expiration.KeepHourly)
 		}
 
 		tm := s.StartTime.Local().Format("2006-01-02 15:04:05 MST")
@@ -180,27 +133,55 @@ func getSnapshotNamesToExpire(mgr *snapshot.Manager) ([]string, error) {
 	return result, nil
 }
 
+func expireSnapshots(mgr *snapshot.Manager, snapshots []*snapshot.Manifest, names []string) ([]string, error) {
+	var lastSource snapshot.SourceInfo
+	var pendingSnapshots []*snapshot.Manifest
+	var pendingNames []string
+	var toDelete []string
+
+	flush := func() error {
+		if len(pendingSnapshots) > 0 {
+			src := pendingSnapshots[0].Source
+			pol, err := mgr.GetEffectivePolicy(&src)
+			if err != nil {
+				return err
+			}
+			td := expireSnapshotsForSingleSource(pendingSnapshots, pol, pendingNames)
+			if len(td) == 0 {
+				fmt.Fprintf(os.Stderr, "Nothing to delete for %q.\n", src)
+			} else {
+				log.Printf("would delete %v out of %v snapshots for %q", len(td), len(pendingSnapshots), src)
+				toDelete = append(toDelete, td...)
+			}
+		}
+		pendingSnapshots = nil
+		pendingNames = nil
+		return nil
+	}
+
+	for i, s := range snapshots {
+		if s.Source != lastSource {
+			lastSource = s.Source
+			if err := flush(); err != nil {
+				return nil, err
+			}
+		}
+
+		pendingSnapshots = append(pendingSnapshots, s)
+		pendingNames = append(pendingNames, names[i])
+	}
+	if err := flush(); err != nil {
+		return nil, err
+	}
+
+	return toDelete, nil
+}
+
 func runExpireCommand(context *kingpin.ParseContext) error {
 	conn := mustOpenConnection()
 	defer conn.Close()
 
 	mgr := snapshot.NewManager(conn)
-
-	log.Printf("Applying expiration policy: %v", *expirePolicy)
-	expirationPolicies[*expirePolicy]()
-
-	if *expireKeepLatest+*expireKeepHourly+*expireKeepDaily+*expireKeepWeekly+*expireKeepMonthly+*expireKeepAnnual == 0 {
-		return fmt.Errorf("Must pass at least one of --keep-* arguments.")
-	}
-
-	log.Printf("Will keep:")
-	log.Printf("  %v latest backups", *expireKeepLatest)
-	log.Printf("  %v last hourly backups", *expireKeepHourly)
-	log.Printf("  %v last daily backups", *expireKeepDaily)
-	log.Printf("  %v last weekly backups", *expireKeepWeekly)
-	log.Printf("  %v last monthly backups", *expireKeepMonthly)
-	log.Printf("  %v last annual backups", *expireKeepAnnual)
-
 	snapshotNames, err := getSnapshotNamesToExpire(mgr)
 	if err != nil {
 		return err
@@ -211,7 +192,10 @@ func runExpireCommand(context *kingpin.ParseContext) error {
 		return err
 	}
 	snapshots = filterHostAndUser(snapshots)
-	toDelete := expire(snapshots, snapshotNames)
+	toDelete, err := expireSnapshots(mgr, snapshots, snapshotNames)
+	if err != nil {
+		return err
+	}
 
 	fmt.Fprintf(os.Stderr, "\n*** ")
 
@@ -222,11 +206,8 @@ func runExpireCommand(context *kingpin.ParseContext) error {
 
 	if *expireDelete == "yes" {
 		fmt.Fprintf(os.Stderr, "Deleting %v snapshots...\n", len(toDelete))
-		for _, n := range toDelete {
-			log.Printf("Removing %v", n)
-			if err := conn.Vault.Remove(n); err != nil {
-				return err
-			}
+		if err := conn.Vault.RemoveMany(toDelete); err != nil {
+			return err
 		}
 	} else {
 		fmt.Fprintf(os.Stderr, "%v snapshot(s) would be deleted. Pass --delete=yes to do it.\n", len(toDelete))

@@ -199,6 +199,36 @@ func (v *Vault) Remove(itemID string) error {
 	return v.storage.DeleteBlock(v.itemPrefix + itemID)
 }
 
+// RemoveMany efficiently removes multiple vault items in parallel.
+func (v *Vault) RemoveMany(itemIDs []string) error {
+	parallelism := 30
+	ch := make(chan string)
+	var wg sync.WaitGroup
+	errch := make(chan error, len(itemIDs))
+
+	for i := 0; i < parallelism; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			for id := range ch {
+				if err := v.Remove(id); err != nil {
+					errch <- err
+				}
+			}
+		}()
+	}
+
+	for _, id := range itemIDs {
+		ch <- id
+	}
+	close(ch)
+	wg.Wait()
+	close(errch)
+
+	return <-errch
+}
+
 // Create initializes a Vault attached to the specified repository.
 func Create(
 	vaultStorage blob.Storage,
