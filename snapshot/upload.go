@@ -524,6 +524,7 @@ func Upload(
 	repository *repo.Repository,
 	source fs.Entry,
 	sourceInfo *SourceInfo,
+	policy FilesPolicy,
 	old *Manifest,
 	progress UploadProgress,
 ) (*Manifest, error) {

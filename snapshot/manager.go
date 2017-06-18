@@ -3,12 +3,14 @@ package snapshot
 import (
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"math"
+	"path/filepath"
 	"strings"
 
-	"errors"
+	"sync"
 
 	"github.com/kopia/kopia"
 	"github.com/kopia/kopia/vault"
@@ -21,13 +23,16 @@ const policyPrefix = "P"
 // ErrPolicyNotFound is returned when the policy is not found.
 var ErrPolicyNotFound = errors.New("policy not found")
 
+// GlobalPolicySourceInfo is a source where global policy is attached.
+var GlobalPolicySourceInfo = &SourceInfo{}
+
 // Manager manages filesystem snapshots.
 type Manager struct {
 	vault *vault.Vault
 }
 
-// Sources lists all snapshot sources.
-func (m *Manager) Sources() ([]*SourceInfo, error) {
+// ListSources lists all snapshot sources.
+func (m *Manager) ListSources() ([]*SourceInfo, error) {
 	names, err := m.vault.List(backupPrefix, -1)
 	if err != nil {
 		return nil, err
@@ -147,26 +152,75 @@ func (m *Manager) ListSnapshotManifests(src *SourceInfo, limit int) ([]string, e
 	return m.vault.List(backupPrefix+prefix, limit)
 }
 
-// GetPolicy loads snapshot policy for a given source, optionally fall back to default.
-func (m *Manager) GetPolicy(src *SourceInfo, fallback bool) (*Policy, error) {
-	if p, err := m.getRawPolicy(src); err != ErrPolicyNotFound {
-		return p, err
+// GetEffectivePolicy calculates effective snapshot policy for a given source by combining the source-specifc policy (if any)
+// with parent policies. The source must contain a path.
+func (m *Manager) GetEffectivePolicy(src *SourceInfo) (*Policy, error) {
+	if src == nil || src.Path == "" || src.Host == "" || src.UserName == "" {
+		return nil, errors.New("incomplete source info")
 	}
 
-	if !fallback {
-		return nil, ErrPolicyNotFound
+	tmp := *src
+
+	var sources []*SourceInfo
+
+	for len(tmp.Path) > 0 {
+		sources = append(sources, cloneSourceInfo(tmp))
+		parentPath := filepath.Dir(tmp.Path)
+		if parentPath == tmp.Path {
+			break
+		}
+		tmp.Path = parentPath
 	}
 
-	if src.Path != "" {
-		userHostDefault := *src
-		userHostDefault.Path = ""
+	// username@host
+	tmp.Path = ""
+	sources = append(sources, cloneSourceInfo(tmp))
 
-		if p, err := m.getRawPolicy(&userHostDefault); err != ErrPolicyNotFound {
-			return p, nil
+	// @host
+	tmp.UserName = ""
+	sources = append(sources, cloneSourceInfo(tmp))
+
+	// global
+	tmp.Host = ""
+	sources = append(sources, cloneSourceInfo(tmp))
+
+	policies := make([]*Policy, len(sources))
+	errors := make([]error, len(sources))
+	var wg sync.WaitGroup
+	wg.Add(len(policies))
+
+	// Read all sources in parallel
+	for i := range sources {
+		go func(i int) {
+			defer wg.Done()
+
+			p, err := m.GetPolicy(sources[i])
+			if err == nil {
+				policies[i] = p
+			} else {
+				errors[i] = err
+			}
+		}(i)
+	}
+	wg.Wait()
+
+	// If all reads were successful or we got ErrPolicyNotFound, build a list of successful policies.
+	var foundPolicies []*Policy
+	for i := range sources {
+		if errors[i] == nil && policies[i] != nil {
+			foundPolicies = append(foundPolicies, policies[i])
+		} else if errors[i] != ErrPolicyNotFound {
+			return nil, fmt.Errorf("got unexpected error when loading policy for %v: %v", sources[i], errors[i])
 		}
 	}
 
-	return m.getRawPolicy(&SourceInfo{"", "", ""})
+	merged := mergePolicies(foundPolicies)
+	merged.Source = *src
+	return merged, nil
+}
+
+func cloneSourceInfo(si SourceInfo) *SourceInfo {
+	return &si
 }
 
 // SavePolicy persists the given snapshot policy.
@@ -181,7 +235,16 @@ func (m *Manager) SavePolicy(p *Policy) error {
 	return m.vault.Put(itemID, b)
 }
 
-func (m *Manager) getRawPolicy(src *SourceInfo) (*Policy, error) {
+// RemovePolicy removes the policy for a given source
+func (m *Manager) RemovePolicy(src *SourceInfo) error {
+	itemID := fmt.Sprintf("%v%v", policyPrefix, src.HashString(m.vault.UniqueID()))
+
+	return m.vault.Remove(itemID)
+}
+
+// GetPolicy retrieves the Policy for a given source, if defined.
+// Returns ErrPolicyNotFound if policy not defined.
+func (m *Manager) GetPolicy(src *SourceInfo) (*Policy, error) {
 	itemID := fmt.Sprintf("%v%v", policyPrefix, src.HashString(m.vault.UniqueID()))
 
 	return m.getPolicyItem(itemID)

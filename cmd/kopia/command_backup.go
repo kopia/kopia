@@ -74,6 +74,10 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 		}
 
 		sourceInfo := &snapshot.SourceInfo{Path: filepath.Clean(dir), Host: getHostName(), UserName: getUserName()}
+		policy, err := mgr.GetEffectivePolicy(sourceInfo)
+		if err != nil {
+			return fmt.Errorf("unable to get backup policy for source %v: %v", sourceInfo, err)
+		}
 
 		if len(*backupDescription) > backupMaxDescriptionLength {
 			return fmt.Errorf("description too long")
@@ -100,6 +104,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 			conn.Repository,
 			localEntry,
 			sourceInfo,
+			policy.Files,
 			oldManifest,
 			&uploadProgress{})
 		if err != nil {
@@ -134,7 +139,7 @@ func getLocalBackupPaths(mgr *snapshot.Manager) ([]string, error) {
 	u := getUserName()
 	log.Printf("Looking for previous backups of '%v@%v'...", u, h)
 
-	sources, err := mgr.Sources()
+	sources, err := mgr.ListSources()
 	if err != nil {
 		return nil, err
 	}

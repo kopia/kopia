@@ -19,13 +19,13 @@ func listPolicies(context *kingpin.ParseContext) error {
 	conn := mustOpenConnection()
 	mgr := snapshot.NewManager(conn)
 
-	entries, err := mgr.ListPolicies()
+	policies, err := mgr.ListPolicies()
 	if err != nil {
 		return err
 	}
 
-	for _, e := range entries {
-		fmt.Println(e)
+	for _, pol := range policies {
+		fmt.Println(pol.Source)
 	}
 
 	return nil

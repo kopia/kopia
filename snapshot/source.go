@@ -21,6 +21,14 @@ type SourceInfo struct {
 }
 
 func (ssi SourceInfo) String() string {
+	if ssi.Host == "" && ssi.Path == "" && ssi.UserName == "" {
+		return "(global)"
+	}
+
+	if ssi.Path == "" {
+		return fmt.Sprintf("%v@%v", ssi.UserName, ssi.Host)
+	}
+
 	return fmt.Sprintf("%v@%v:%v", ssi.UserName, ssi.Host, ssi.Path)
 }
 
