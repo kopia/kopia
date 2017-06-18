@@ -16,8 +16,7 @@ import (
 	"github.com/kopia/kopia/vault"
 )
 
-const sourcePrefix = "S"
-const backupPrefix = "B"
+const snapshotPrefix = "S"
 const policyPrefix = "P"
 
 // ErrPolicyNotFound is returned when the policy is not found.
@@ -35,7 +34,7 @@ type Manager struct {
 
 // ListSources lists all snapshot sources.
 func (m *Manager) ListSources() ([]*SourceInfo, error) {
-	names, err := m.vault.List(backupPrefix, -1)
+	names, err := m.vault.List(snapshotPrefix, -1)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +65,7 @@ func (m *Manager) ListSources() ([]*SourceInfo, error) {
 
 // ListSnapshots lists all snapshots for a given source.
 func (m *Manager) ListSnapshots(si *SourceInfo, limit int) ([]*Manifest, error) {
-	names, err := m.vault.List(backupPrefix+si.HashString(m.snapshotIDSecret), limit)
+	names, err := m.vault.List(m.snapshotIDPrefix(si), limit)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +93,7 @@ func (m *Manager) SaveSnapshot(manifest *Manifest) (string, error) {
 	uniqueID := make([]byte, 8)
 	rand.Read(uniqueID)
 	ts := math.MaxInt64 - manifest.StartTime.UnixNano()
-	manifestID := fmt.Sprintf("%v%v.%08x.%x", backupPrefix, manifest.Source.HashString(m.snapshotIDSecret), ts, uniqueID)
+	manifestID := fmt.Sprintf("%v.%08x.%x", m.snapshotIDPrefix(&manifest.Source), ts, uniqueID)
 
 	b, err := json.Marshal(manifest)
 	if err != nil {
@@ -145,13 +144,12 @@ func (m *Manager) LoadSnapshots(names []string) ([]*Manifest, error) {
 // ListSnapshotManifests returns the list of snapshot manifests for a given source or all sources if nil.
 // Limit specifies how mamy manifests to retrieve (-1 == unlimited).
 func (m *Manager) ListSnapshotManifests(src *SourceInfo, limit int) ([]string, error) {
-	var prefix string
-
+	prefix := snapshotPrefix
 	if src != nil {
-		prefix = src.HashString(m.snapshotIDSecret)
+		prefix = m.snapshotIDPrefix(src)
 	}
 
-	return m.vault.List(backupPrefix+prefix, limit)
+	return m.vault.List(prefix, limit)
 }
 
 // GetEffectivePolicy calculates effective snapshot policy for a given source by combining the source-specifc policy (if any)
@@ -227,29 +225,31 @@ func cloneSourceInfo(si SourceInfo) *SourceInfo {
 
 // SavePolicy persists the given snapshot policy.
 func (m *Manager) SavePolicy(p *Policy) error {
-	itemID := fmt.Sprintf("%v%v", policyPrefix, p.Source.HashString(m.policyIDSecret))
-
 	b, err := json.Marshal(p)
 	if err != nil {
 		return fmt.Errorf("cannot marshal policy to JSON: %v", err)
 	}
 
-	return m.vault.Put(itemID, b)
+	return m.vault.Put(m.policyID(&p.Source), b)
 }
 
 // RemovePolicy removes the policy for a given source
 func (m *Manager) RemovePolicy(src *SourceInfo) error {
-	itemID := fmt.Sprintf("%v%v", policyPrefix, src.HashString(m.policyIDSecret))
-
-	return m.vault.Remove(itemID)
+	return m.vault.Remove(m.policyID(src))
 }
 
 // GetPolicy retrieves the Policy for a given source, if defined.
 // Returns ErrPolicyNotFound if policy not defined.
 func (m *Manager) GetPolicy(src *SourceInfo) (*Policy, error) {
-	itemID := fmt.Sprintf("%v%v", policyPrefix, src.HashString(m.policyIDSecret))
+	return m.getPolicyItem(m.policyID(src))
+}
 
-	return m.getPolicyItem(itemID)
+func (m *Manager) snapshotIDPrefix(src *SourceInfo) string {
+	return fmt.Sprintf("%v%v", snapshotPrefix, src.HashString(m.snapshotIDSecret))
+}
+
+func (m *Manager) policyID(src *SourceInfo) string {
+	return fmt.Sprintf("%v%v", policyPrefix, src.HashString(m.policyIDSecret))
 }
 
 func (m *Manager) getPolicyItem(itemID string) (*Policy, error) {
