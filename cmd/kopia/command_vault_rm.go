@@ -3,7 +3,7 @@ package main
 import "gopkg.in/alecthomas/kingpin.v2"
 
 var (
-	vaultRemoveCommand = vaultCommands.Command("rm", "Remove vault items")
+	vaultRemoveCommand = vaultCommands.Command("rm", "Remove vault items").Hidden()
 	vaultRemoveItems   = vaultRemoveCommand.Arg("item", "Items to remove").Strings()
 )
 
