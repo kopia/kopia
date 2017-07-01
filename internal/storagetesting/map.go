@@ -57,10 +57,12 @@ func (s *mapStorage) DeleteBlock(id string) error {
 	return nil
 }
 
-func (s *mapStorage) ListBlocks(prefix string, limit int) chan (blob.BlockMetadata) {
-	ch := make(chan (blob.BlockMetadata))
+func (s *mapStorage) ListBlocks(prefix string) (chan blob.BlockMetadata, blob.CancelFunc) {
+	ch := make(chan blob.BlockMetadata)
+	cancelled := make(chan bool)
 	fixedTime := time.Now()
 	go func() {
+		defer close(ch)
 		s.mutex.RLock()
 		defer s.mutex.RUnlock()
 
@@ -75,20 +77,20 @@ func (s *mapStorage) ListBlocks(prefix string, limit int) chan (blob.BlockMetada
 
 		for _, k := range keys {
 			v := s.data[k]
-			if limit != 0 {
-				ch <- blob.BlockMetadata{
-					BlockID:   string(k),
-					Length:    int64(len(v)),
-					TimeStamp: fixedTime,
-				}
-				if limit > 0 {
-					limit--
-				}
+			select {
+			case <-cancelled:
+				return
+			case ch <- blob.BlockMetadata{
+				BlockID:   string(k),
+				Length:    int64(len(v)),
+				TimeStamp: fixedTime,
+			}:
 			}
 		}
-		close(ch)
 	}()
-	return ch
+	return ch, func() {
+		close(cancelled)
+	}
 }
 
 func (s *mapStorage) Close() error {

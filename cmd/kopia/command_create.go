@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"gopkg.in/alecthomas/kingpin.v2"
+	kingpin "gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/repo"
@@ -67,8 +67,9 @@ func openStorageAndEnsureEmpty(url string) (blob.Storage, error) {
 	if err != nil {
 		return nil, err
 	}
-	ch := s.ListBlocks("", 1)
+	ch, cancel := s.ListBlocks("")
 	_, hasData := <-ch
+	cancel()
 
 	if hasData && !*createOverwrite {
 		return nil, fmt.Errorf("found existing data in %v, specify --overwrite to use anyway", url)

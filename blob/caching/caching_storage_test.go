@@ -141,7 +141,7 @@ func TestCache(t *testing.T) {
 	tr.assertActivityAndClear(t, "PutBlock")
 
 	storagetesting.AssertListResults(t, cache, "", "x", "x2", "z")
-	tr.assertActivityAndClear(t, "ListBlocks")
+	tr.assertActivityAndClear(t, "ListBlocks", "Cancelled ListBlocks")
 
 	cache.Close()
 	tr.assertActivityAndClear(t, "Close")

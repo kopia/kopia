@@ -54,7 +54,9 @@ func AssertBlockExists(t *testing.T, s blob.Storage, block string, expected bool
 func AssertListResults(t *testing.T, s blob.Storage, prefix string, expected ...string) {
 	var names []string
 
-	for e := range s.ListBlocks(prefix, -1) {
+	blocks, cancel := s.ListBlocks(prefix)
+	defer cancel()
+	for e := range blocks {
 		names = append(names, e.BlockID)
 	}
 

@@ -129,10 +129,13 @@ func (gcs *gcsStorage) getObjectNameString(b string) string {
 	return gcs.Prefix + string(b)
 }
 
-func (gcs *gcsStorage) ListBlocks(prefix string, limit int) chan (blob.BlockMetadata) {
+func (gcs *gcsStorage) ListBlocks(prefix string) (chan blob.BlockMetadata, blob.CancelFunc) {
 	ch := make(chan blob.BlockMetadata, 100)
+	cancelled := make(chan bool)
 
 	go func() {
+		defer close(ch)
+
 		ps := gcs.getObjectNameString(prefix)
 		page, err := retry(
 			"List",
@@ -143,12 +146,12 @@ func (gcs *gcsStorage) ListBlocks(prefix string, limit int) chan (blob.BlockMeta
 
 		for {
 			if err != nil {
-				ch <- blob.BlockMetadata{Error: err}
-				break
-			}
-
-			if limit == 0 {
-				break
+				select {
+				case ch <- blob.BlockMetadata{Error: err}:
+					return
+				case <-cancelled:
+					return
+				}
 			}
 
 			if page == nil {
@@ -157,20 +160,23 @@ func (gcs *gcsStorage) ListBlocks(prefix string, limit int) chan (blob.BlockMeta
 			objects := page.(*gcsclient.Objects)
 			for _, o := range objects.Items {
 				t, e := time.Parse(time.RFC3339, o.TimeCreated)
-				if limit != 0 {
-					if e != nil {
-						ch <- blob.BlockMetadata{
-							Error: e,
-						}
-					} else {
-						ch <- blob.BlockMetadata{
-							BlockID:   string(o.Name)[len(gcs.Prefix):],
-							Length:    int64(o.Size),
-							TimeStamp: t,
-						}
+				if e != nil {
+					select {
+					case ch <- blob.BlockMetadata{
+						Error: e,
+					}:
+					case <-cancelled:
+						return
 					}
-					if limit > 0 {
-						limit--
+				} else {
+					select {
+					case ch <- blob.BlockMetadata{
+						BlockID:   string(o.Name)[len(gcs.Prefix):],
+						Length:    int64(o.Size),
+						TimeStamp: t,
+					}:
+					case <-cancelled:
+						return
 					}
 				}
 			}
@@ -187,10 +193,11 @@ func (gcs *gcsStorage) ListBlocks(prefix string, limit int) chan (blob.BlockMeta
 				break
 			}
 		}
-		close(ch)
 	}()
 
-	return ch
+	return ch, func() {
+		close(cancelled)
+	}
 }
 
 func (gcs *gcsStorage) ConnectionInfo() blob.ConnectionInfo {

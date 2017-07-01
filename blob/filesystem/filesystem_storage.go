@@ -69,19 +69,15 @@ func makeFileName(blockID string) string {
 	return string(blockID) + fsStorageChunkSuffix
 }
 
-func (fs *fsStorage) ListBlocks(prefix string, limit int) chan (blob.BlockMetadata) {
-	result := make(chan (blob.BlockMetadata))
+func (fs *fsStorage) ListBlocks(prefix string) (chan blob.BlockMetadata, blob.CancelFunc) {
+	result := make(chan blob.BlockMetadata)
+	cancelled := make(chan bool)
 
 	prefixString := string(prefix)
 
 	var walkDir func(string, string)
 
 	walkDir = func(directory string, currentPrefix string) {
-		if limit == 0 {
-			// Short-circuit.
-			return
-		}
-
 		if entries, err := ioutil.ReadDir(directory); err == nil {
 			//log.Println("Walking", directory, "looking for", prefix)
 
@@ -101,15 +97,14 @@ func (fs *fsStorage) ListBlocks(prefix string, limit int) chan (blob.BlockMetada
 					}
 				} else if fullID, ok := getstringFromFileName(currentPrefix + e.Name()); ok {
 					if strings.HasPrefix(string(fullID), prefixString) {
-						if limit != 0 {
-							result <- blob.BlockMetadata{
-								BlockID:   fullID,
-								Length:    e.Size(),
-								TimeStamp: e.ModTime(),
-							}
-							if limit > 0 {
-								limit--
-							}
+						select {
+						case <-cancelled:
+							return
+						case result <- blob.BlockMetadata{
+							BlockID:   fullID,
+							Length:    e.Size(),
+							TimeStamp: e.ModTime(),
+						}:
 						}
 					}
 				}
@@ -123,7 +118,9 @@ func (fs *fsStorage) ListBlocks(prefix string, limit int) chan (blob.BlockMetada
 	}
 
 	go walkDirAndClose(fs.Path)
-	return result
+	return result, func() {
+		close(cancelled)
+	}
 }
 
 func (fs *fsStorage) PutBlock(blockID string, data []byte, options blob.PutOptions) error {

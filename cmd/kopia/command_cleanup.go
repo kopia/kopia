@@ -212,7 +212,9 @@ func runCleanupCommand(context *kingpin.ParseContext) error {
 	var unreferencedBlocks int
 	var unreferencedBytes int64
 
-	for b := range conn.Repository.Storage.ListBlocks("", -1) {
+	blocks, cancel := conn.Repository.Storage.ListBlocks("")
+	defer cancel()
+	for b := range blocks {
 		totalBlocks++
 		totalBytes += b.Length
 

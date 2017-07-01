@@ -147,7 +147,12 @@ func (v *Vault) putJSON(id string, content interface{}) error {
 func (v *Vault) List(prefix string, limit int) ([]string, error) {
 	var result []string
 
-	for b := range v.storage.ListBlocks(v.itemPrefix+prefix, limit) {
+	ch, cancel := v.storage.ListBlocks(v.itemPrefix + prefix)
+	defer cancel()
+	for b := range ch {
+		if limit == 0 {
+			break
+		}
 		if b.Error != nil {
 			return result, b.Error
 		}
@@ -155,6 +160,9 @@ func (v *Vault) List(prefix string, limit int) ([]string, error) {
 		itemID := strings.TrimPrefix(b.BlockID, v.itemPrefix)
 		if !isReservedName(itemID) {
 			result = append(result, itemID)
+		}
+		if limit > 0 {
+			limit--
 		}
 	}
 	return result, nil

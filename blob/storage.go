@@ -14,6 +14,9 @@ const (
 	PutOptionsOverwrite PutOptions = 1
 )
 
+// CancelFunc requests cancellation of a storage operation.
+type CancelFunc func()
+
 // Storage encapsulates API for connecting to blob storage
 type Storage interface {
 	io.Closer
@@ -22,7 +25,7 @@ type Storage interface {
 	PutBlock(id string, data []byte, options PutOptions) error
 	DeleteBlock(id string) error
 	GetBlock(id string) ([]byte, error)
-	ListBlocks(prefix string, limit int) chan (BlockMetadata)
+	ListBlocks(prefix string) (chan (BlockMetadata), CancelFunc)
 }
 
 // ConnectionInfoProvider exposes persistent ConnectionInfo for connecting to the Storage.
