@@ -36,10 +36,12 @@ func (c *cleanupWorkItem) String() string {
 }
 
 type cleanupWorkQueue struct {
-	items      *list.List
-	cond       *sync.Cond
-	visited    map[string]bool
-	processing int
+	items          *list.List
+	cond           *sync.Cond
+	visited        map[string]bool
+	processing     int
+	totalCompleted int
+	totalPending   int
 }
 
 func (wq *cleanupWorkQueue) add(it *cleanupWorkItem) {
@@ -59,6 +61,7 @@ func (wq *cleanupWorkQueue) add(it *cleanupWorkItem) {
 	}
 
 	wq.visited[os] = true
+	wq.totalPending++
 
 	wq.items.PushBack(it)
 	wq.cond.Signal()
@@ -93,8 +96,18 @@ func (wq *cleanupWorkQueue) get() (*cleanupWorkItem, bool) {
 func (wq *cleanupWorkQueue) finished() {
 	wq.cond.L.Lock()
 	wq.processing--
+	wq.totalCompleted++
 	wq.cond.Signal()
 	wq.cond.L.Unlock()
+}
+
+func (wq *cleanupWorkQueue) stats() (totalCompleted int, processing int, totalPending int) {
+	wq.cond.L.Lock()
+	totalCompleted = wq.totalCompleted
+	processing = wq.processing
+	totalPending = wq.totalPending
+	wq.cond.L.Unlock()
+	return
 }
 
 type cleanupContext struct {
@@ -179,6 +192,9 @@ func runCleanupCommand(context *kingpin.ParseContext) error {
 		ctx.queue.add(&cleanupWorkItem{manifest.HashCacheID, false, "root-hashcache"})
 	}
 
+	_, _, queued := q.stats()
+	log.Printf("Found %v root objects.", queued)
+
 	go func() {
 		for iu := range ctx.inuseCollector {
 			ctx.inuse[iu] = true
@@ -195,7 +211,28 @@ func runCleanupCommand(context *kingpin.ParseContext) error {
 		}(i)
 	}
 
+	var statsWaitGroup sync.WaitGroup
+	statsWaitGroup.Add(1)
+	cancelStats := make(chan bool)
+
+	go func() {
+		defer statsWaitGroup.Done()
+
+		for {
+			select {
+			case <-cancelStats:
+				return
+			case <-time.After(1 * time.Second):
+				done, _, queued := q.stats()
+				log.Printf("Processed %v objects out of %v (%v objects/sec).", done, queued, int(float64(done)/time.Since(t0).Seconds()))
+			}
+		}
+	}()
+
 	wg.Wait()
+	close(cancelStats)
+
+	statsWaitGroup.Wait()
 	dt := time.Since(t0)
 
 	log.Printf("Found %v in-use objects in %v blocks in %v", len(ctx.queue.visited), len(ctx.inuse), dt)
