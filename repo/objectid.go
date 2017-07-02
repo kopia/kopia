@@ -91,7 +91,7 @@ var (
 // String returns string representation of ObjectID that is suitable for displaying in the UI.
 //
 // Note that the object ID name often contains its encryption key, which is sensitive and can be quite long (~100 characters long).
-func (oid *ObjectID) String() string {
+func (oid ObjectID) String() string {
 	if oid.StorageBlock != "" {
 		var encryptionSuffix string
 

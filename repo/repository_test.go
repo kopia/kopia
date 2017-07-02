@@ -191,6 +191,15 @@ func TestIndirection(t *testing.T) {
 			t.Errorf("unexpected block count for %v: %v, expected %v", c.dataLength, len(data), c.expectedBlockCount)
 		}
 
+		b, err := repo.GetStorageBlocks(result)
+		if err != nil {
+			t.Errorf("error getting storage blocks for %q: %v", result, err)
+		}
+
+		if got, want := len(b), c.expectedBlockCount; got != want {
+			t.Errorf("invalid block count for %v, got %v, wanted %v", result, got, want)
+		}
+
 		verifyIndirectBlock(t, repo, result)
 	}
 }
