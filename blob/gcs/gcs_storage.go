@@ -47,7 +47,7 @@ type gcsStorage struct {
 func (gcs *gcsStorage) BlockSize(b string) (int64, error) {
 	call := gcs.objectsService.Get(gcs.BucketName, gcs.getObjectNameString(b))
 	v, err := retry(
-		"BlockSize",
+		"BlockSize("+b+")",
 		func() (interface{}, error) {
 			return call.Do()
 		})
@@ -62,7 +62,7 @@ func (gcs *gcsStorage) BlockSize(b string) (int64, error) {
 func (gcs *gcsStorage) GetBlock(b string) ([]byte, error) {
 	call := gcs.objectsService.Get(gcs.BucketName, gcs.getObjectNameString(b))
 	v, err := retry(
-		"Get",
+		"Get("+b+")",
 		func() (interface{}, error) {
 			return call.Download()
 		})
@@ -98,7 +98,7 @@ func (gcs *gcsStorage) PutBlock(b string, data []byte, options blob.PutOptions) 
 	}
 
 	_, err := retry(
-		"Insert",
+		"Insert("+b+")",
 		func() (interface{}, error) {
 			return call.Do()
 		})
@@ -114,7 +114,7 @@ func (gcs *gcsStorage) PutBlock(b string, data []byte, options blob.PutOptions) 
 func (gcs *gcsStorage) DeleteBlock(b string) error {
 	call := gcs.objectsService.Delete(gcs.BucketName, string(b))
 	_, err := retry(
-		"Delete",
+		"Delete("+b+")",
 		func() (interface{}, error) {
 			return call.Do(), nil
 		})
@@ -138,7 +138,7 @@ func (gcs *gcsStorage) ListBlocks(prefix string) (chan blob.BlockMetadata, blob.
 
 		ps := gcs.getObjectNameString(prefix)
 		page, err := retry(
-			"List",
+			"List("+ps+")",
 			func() (interface{}, error) {
 				return gcs.objectsService.List(gcs.BucketName).
 					Prefix(ps).Do()
@@ -183,7 +183,7 @@ func (gcs *gcsStorage) ListBlocks(prefix string) (chan blob.BlockMetadata, blob.
 
 			if objects.NextPageToken != "" {
 				page, err = retry(
-					"List",
+					"List("+ps+")",
 					func() (interface{}, error) {
 						return gcs.objectsService.List(gcs.BucketName).
 							PageToken(objects.NextPageToken).
