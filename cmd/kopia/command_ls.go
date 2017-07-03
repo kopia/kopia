@@ -9,14 +9,17 @@ import (
 	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/repo"
 
+	"github.com/kopia/kopia"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
 	lsCommand = app.Command("list", "List a directory stored in repository object.").Alias("ls")
 
-	lsCommandLong = lsCommand.Flag("long", "Long output").Short('l').Bool()
-	lsCommandPath = lsCommand.Arg("path", "Path").Required().String()
+	lsCommandLong      = lsCommand.Flag("long", "Long output").Short('l').Bool()
+	lsCommandRecursive = lsCommand.Flag("recursive", "Recursive output").Short('r').Bool()
+	lsCommandShowOID   = lsCommand.Flag("show-object-id", "Show object IDs").Short('o').Bool()
+	lsCommandPath      = lsCommand.Arg("path", "Path").Required().String()
 )
 
 func runLSCommand(context *kingpin.ParseContext) error {
@@ -36,6 +39,14 @@ func runLSCommand(context *kingpin.ParseContext) error {
 		}
 	}
 
+	return listDirectory(conn, prefix, oid, "")
+}
+
+func init() {
+	lsCommand.Action(runLSCommand)
+}
+
+func listDirectory(conn *kopia.Connection, prefix string, oid repo.ObjectID, indent string) error {
 	d := repofs.Directory(conn.Repository, oid)
 
 	entries, err := d.Readdir()
@@ -43,19 +54,9 @@ func runLSCommand(context *kingpin.ParseContext) error {
 		return err
 	}
 
-	listDirectory(prefix, entries, *lsCommandLong)
-
-	return nil
-}
-
-func init() {
-	lsCommand.Action(runLSCommand)
-}
-
-func listDirectory(prefix string, entries fs.Entries, longFormat bool) {
 	maxNameLen := 20
 	for _, e := range entries {
-		if l := len(e.Metadata().Name); l > maxNameLen {
+		if l := len(nameToDisplay(prefix, e.Metadata())); l > maxNameLen {
 			maxNameLen = l
 		}
 	}
@@ -65,32 +66,50 @@ func listDirectory(prefix string, entries fs.Entries, longFormat bool) {
 	for _, e := range entries {
 		m := e.Metadata()
 		var info string
-		if longFormat {
-			objectID := e.(repo.HasObjectID).ObjectID()
-			var oid string
-			if objectID.BinaryContent != nil {
-				oid = "<inline binary content>"
-			} else if objectID.TextContent != "" {
-				oid = "<inline text content>"
-			} else {
-				oid = objectID.String()
-			}
+		objectID := e.(repo.HasObjectID).ObjectID()
+		var oid string
+		if objectID.BinaryContent != nil {
+			oid = "<inline binary content>"
+		} else if objectID.TextContent != "" {
+			oid = "<inline text content>"
+		} else {
+			oid = objectID.String()
+		}
+		if *lsCommandLong {
 			info = fmt.Sprintf(
 				"%v %9d %v %-"+maxNameLenString+"s %v",
 				m.FileMode(),
 				m.FileSize,
 				m.ModTime.Local().Format("02 Jan 06 15:04:05"),
-				m.Name,
+				nameToDisplay(prefix, m),
 				oid,
 			)
+		} else if *lsCommandShowOID {
+			info = fmt.Sprintf(
+				"%v %v",
+				nameToDisplay(prefix, m),
+				oid)
 		} else {
-			var suffix string
-			if m.FileMode().IsDir() {
-				suffix = "/"
-			}
-
-			info = prefix + m.Name + suffix
+			info = nameToDisplay(prefix, m)
 		}
 		fmt.Println(info)
+		if *lsCommandRecursive && m.FileMode().IsDir() {
+			listDirectory(conn, prefix+m.Name+"/", objectID, indent+"  ")
+		}
 	}
+
+	return nil
+}
+
+func nameToDisplay(prefix string, md *fs.EntryMetadata) string {
+	suffix := ""
+	if md.FileMode().IsDir() {
+		suffix = "/"
+
+	}
+	if *lsCommandLong || *lsCommandRecursive {
+		return prefix + md.Name + suffix
+	}
+
+	return md.Name
 }
