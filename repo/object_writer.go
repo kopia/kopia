@@ -68,59 +68,34 @@ func (w *objectWriter) Close() error {
 	return nil
 }
 
-func (w *objectWriter) WriteGather(dataSlices [][]byte) (n int, err error) {
-	dataLen := 0
-	for _, s := range dataSlices {
-		dataLen += len(s)
-	}
+func (w *objectWriter) Write(data []byte) (n int, err error) {
+	dataLen := len(data)
+	w.totalLength += int64(dataLen)
 
-	remaining := dataLen
-	w.totalLength += int64(remaining)
-
-	for remaining > 0 {
+	for len(data) > 0 {
 		if w.buffer == nil {
 			w.buffer = w.repo.bufferManager.newBuffer()
 		}
 		room := w.buffer.Cap() - w.buffer.Len()
 
-		if remaining <= room {
-			for _, s := range dataSlices {
-				w.buffer.Write(s)
-			}
-			dataSlices = nil
-			remaining = 0
-		} else {
-			for room > 0 {
-				var chunk []byte
+		if len(data) <= room {
+			w.buffer.Write(data)
+			return dataLen, nil
+		}
 
-				if len(dataSlices[0]) >= room {
-					chunk = dataSlices[0][0:room]
-					dataSlices[0] = dataSlices[0][len(chunk):]
-				} else {
-					chunk = dataSlices[0]
-					dataSlices[0] = nil
-				}
-				w.buffer.Write(chunk)
-				remaining -= len(chunk)
-				room -= len(chunk)
-				if len(dataSlices[0]) == 0 {
-					dataSlices = dataSlices[1:]
-				}
-			}
+		chunk := data
+		if len(data) >= room {
+			chunk = data[0:room]
+		}
 
-			if err := w.flushBuffer(false); err != nil {
-				return 0, err
-			}
+		data = data[len(chunk):]
+		w.buffer.Write(chunk)
+
+		if err := w.flushBuffer(false); err != nil {
+			return 0, err
 		}
 	}
 	return dataLen, nil
-}
-
-func (w *objectWriter) Write(data []byte) (n int, err error) {
-	var b [1][]byte
-
-	b[0] = data
-	return w.WriteGather(b[:])
 }
 
 func (w *objectWriter) flushBuffer(force bool) error {
