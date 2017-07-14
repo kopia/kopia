@@ -1,6 +1,11 @@
 package repo
 
-import "github.com/chmduquesne/rollinghash"
+import (
+	"math"
+
+	"github.com/chmduquesne/rollinghash"
+	"github.com/chmduquesne/rollinghash/buzhash32"
+)
 
 type objectSplitter interface {
 	add(b byte) bool
@@ -46,7 +51,27 @@ func (rs *rollingHashSplitter) add(b byte) bool {
 	return rs.rh.Sum32()&rs.mask == rs.allOnes
 }
 
-func newRollingHashSplitter(rh rollinghash.Hash32, bits uint) objectSplitter {
+func newRollingHashSplitter(rh rollinghash.Hash32, approxBlockSize int32) objectSplitter {
+	bits := rollingHashBits(approxBlockSize)
 	mask := ^(^uint32(0) << bits)
 	return &rollingHashSplitter{rh, mask, (uint32(0)) ^ mask}
+}
+
+func rollingHashBits(n int32) uint {
+	e := math.Log2(float64(n))
+	exp := math.Floor(e + 0.5)
+	return uint(exp)
+}
+
+//SupportedSplitters is a map of supported splitters their factory functions.
+var SupportedSplitters = map[string]func(*Format) objectSplitter{
+	"NEVER": func(f *Format) objectSplitter {
+		return newNeverSplitter()
+	},
+	"FIXED": func(f *Format) objectSplitter {
+		return newFixedSplitter(int(f.MaxBlockSize))
+	},
+	"ROLLING": func(f *Format) objectSplitter {
+		return newRollingHashSplitter(buzhash32.New(), f.MaxBlockSize)
+	},
 }
