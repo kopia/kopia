@@ -44,17 +44,33 @@ type rollingHashSplitter struct {
 	rh      rollinghash.Hash32
 	mask    uint32
 	allOnes uint32
+
+	currentBlockSize int32
+	minBlockSize     int32
+	maxBlockSize     int32
 }
 
 func (rs *rollingHashSplitter) add(b byte) bool {
 	rs.rh.Roll(b)
-	return rs.rh.Sum32()&rs.mask == rs.allOnes
+	rs.currentBlockSize++
+	if rs.currentBlockSize < rs.minBlockSize {
+		return false
+	}
+	if rs.currentBlockSize >= rs.maxBlockSize {
+		rs.currentBlockSize = 0
+		return true
+	}
+	if rs.rh.Sum32()&rs.mask == rs.allOnes {
+		rs.currentBlockSize = 0
+		return true
+	}
+	return false
 }
 
-func newRollingHashSplitter(rh rollinghash.Hash32, approxBlockSize int32) objectSplitter {
+func newRollingHashSplitter(rh rollinghash.Hash32, minBlockSize int32, approxBlockSize int32, maxBlockSize int32) objectSplitter {
 	bits := rollingHashBits(approxBlockSize)
 	mask := ^(^uint32(0) << bits)
-	return &rollingHashSplitter{rh, mask, (uint32(0)) ^ mask}
+	return &rollingHashSplitter{rh, mask, (uint32(0)) ^ mask, 0, minBlockSize, maxBlockSize}
 }
 
 func rollingHashBits(n int32) uint {
@@ -71,7 +87,7 @@ var SupportedSplitters = map[string]func(*Format) objectSplitter{
 	"FIXED": func(f *Format) objectSplitter {
 		return newFixedSplitter(int(f.MaxBlockSize))
 	},
-	"ROLLING": func(f *Format) objectSplitter {
-		return newRollingHashSplitter(buzhash32.New(), f.MaxBlockSize)
+	"DYNAMIC": func(f *Format) objectSplitter {
+		return newRollingHashSplitter(buzhash32.New(), f.MinBlockSize, f.ApproxBlockSize, f.MaxBlockSize)
 	},
 }

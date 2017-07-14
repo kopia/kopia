@@ -186,9 +186,20 @@ func New(s blob.Storage, f *Format, options ...RepositoryOption) (*Repository, e
 	r := &Repository{
 		Storage: s,
 		format:  *f,
-		newSplitter: func() objectSplitter {
-			return newFixedSplitter(int(f.MaxBlockSize))
-		},
+	}
+
+	sp := f.Splitter
+	if sp == "" {
+		sp = "FIXED"
+	}
+
+	os := SupportedSplitters[sp]
+	if os == nil {
+		return nil, fmt.Errorf("unsupported splitter %q", sp)
+	}
+
+	r.newSplitter = func() objectSplitter {
+		return os(f)
 	}
 
 	var err error

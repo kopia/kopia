@@ -18,9 +18,12 @@ type Format struct {
 	ObjectFormat           string `json:"objectFormat,omitempty"`           // identifier of object format
 	Secret                 []byte `json:"secret,omitempty"`                 // HMAC secret used to generate encryption keys
 	MaxInlineContentLength int32  `json:"maxInlineContentLength,omitempty"` // maximum size of object to be considered for inline storage within ObjectID
-	MaxBlockSize           int32  `json:"maxBlockSize,omitempty"`           // maximum size of storage block
 	MasterKey              []byte `json:"masterKey,omitempty"`              // master encryption key (SIV-mode encryption only)
-	ApproxBlockSize        int32  `json:"approxBlockSize,omitempty"`        // approximate size of storage block (used with rolling hash)
+	Splitter               string `json:"splitter,omitempty"`               // splitter used to break objects into storage blocks
+
+	MinBlockSize    int32 `json:"minBlockSize,omitempty"`    // minimum block size used with dynamic splitter
+	ApproxBlockSize int32 `json:"approxBlockSize,omitempty"` // approximate size of storage block (used with dynamic splitter)
+	MaxBlockSize    int32 `json:"maxBlockSize,omitempty"`    // maximum size of storage block
 }
 
 // Validate checks the validity of a Format and returns an error if invalid.
