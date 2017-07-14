@@ -53,6 +53,7 @@ type objectWriter struct {
 	indirectLevel int32
 
 	blockTracker *blockTracker
+	splitter     objectSplitter
 }
 
 func (w *objectWriter) Close() error {
@@ -72,29 +73,20 @@ func (w *objectWriter) Write(data []byte) (n int, err error) {
 	dataLen := len(data)
 	w.totalLength += int64(dataLen)
 
-	for len(data) > 0 {
+	for _, d := range data {
 		if w.buffer == nil {
 			w.buffer = w.repo.bufferManager.newBuffer()
 		}
-		room := w.buffer.Cap() - w.buffer.Len()
 
-		if len(data) <= room {
-			w.buffer.Write(data)
-			return dataLen, nil
-		}
+		w.buffer.WriteByte(d)
 
-		chunk := data
-		if len(data) >= room {
-			chunk = data[0:room]
-		}
-
-		data = data[len(chunk):]
-		w.buffer.Write(chunk)
-
-		if err := w.flushBuffer(false); err != nil {
-			return 0, err
+		if w.splitter.add(d) {
+			if err := w.flushBuffer(false); err != nil {
+				return 0, err
+			}
 		}
 	}
+
 	return dataLen, nil
 }
 
@@ -130,6 +122,7 @@ func (w *objectWriter) flushBuffer(force bool) error {
 				prefix:        w.prefix,
 				description:   "LIST(" + w.description + ")",
 				blockTracker:  w.blockTracker,
+				splitter:      w.repo.newSplitter(),
 			}
 			w.listProtoWriter = jsonstream.NewWriter(w.listWriter, indirectStreamType)
 			w.listCurrentPos = 0

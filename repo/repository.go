@@ -48,6 +48,8 @@ type Repository struct {
 	writeBackSemaphore semaphore
 	writeBackErrors    asyncErrors
 	waitGroup          sync.WaitGroup
+
+	newSplitter func() objectSplitter
 }
 
 type asyncErrors struct {
@@ -104,6 +106,7 @@ func (r *Repository) NewWriter(options ...WriterOption) ObjectWriter {
 	result := &objectWriter{
 		repo:         r,
 		blockTracker: &blockTracker{},
+		splitter:     r.newSplitter(),
 	}
 
 	for _, option := range options {
@@ -183,6 +186,9 @@ func New(s blob.Storage, f *Format, options ...RepositoryOption) (*Repository, e
 	r := &Repository{
 		Storage: s,
 		format:  *f,
+		newSplitter: func() objectSplitter {
+			return newFixedSplitter(int(f.MaxBlockSize))
+		},
 	}
 
 	var err error

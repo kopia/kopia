@@ -20,6 +20,7 @@ type Format struct {
 	MaxInlineContentLength int32  `json:"maxInlineContentLength,omitempty"` // maximum size of object to be considered for inline storage within ObjectID
 	MaxBlockSize           int32  `json:"maxBlockSize,omitempty"`           // maximum size of storage block
 	MasterKey              []byte `json:"masterKey,omitempty"`              // master encryption key (SIV-mode encryption only)
+	ApproxBlockSize        int32  `json:"approxBlockSize,omitempty"`        // approximate size of storage block (used with rolling hash)
 }
 
 // Validate checks the validity of a Format and returns an error if invalid.
