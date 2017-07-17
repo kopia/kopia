@@ -1,6 +1,6 @@
 // +build !windows
 
-package main
+package cli
 
 import (
 	"bazil.org/fuse"

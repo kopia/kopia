@@ -12,11 +12,11 @@ all: install test lint vet
 
 install:
 	@echo Building version: $(BUILD_INFO) / $(BUILD_VERSION)
-	go install -ldflags $(LDARGS) github.com/kopia/kopia/cmd/kopia
+	go install -ldflags $(LDARGS) github.com/kopia/kopia
 
 install-race:
 	@echo Building version: $(BUILD_INFO) / $(BUILD_VERSION)
-	go install -race -ldflags $(LDARGS) github.com/kopia/kopia/cmd/kopia
+	go install -race -ldflags $(LDARGS) github.com/kopia/kopia
 
 build:
 	go build github.com/kopia/kopia/...
@@ -39,7 +39,7 @@ deps:
 release:
 	rm -rf $(RELEASE_TMP_DIR)
 	mkdir -p $(RELEASE_TMP_DIR)/$(RELEASE_NAME)/bin
-	go build -o $(RELEASE_TMP_DIR)/$(RELEASE_NAME)/bin/kopia$(EXE_SUFFIX) -ldflags $(LDARGS) github.com/kopia/kopia/cmd/kopia
+	go build -o $(RELEASE_TMP_DIR)/$(RELEASE_NAME)/bin/kopia$(EXE_SUFFIX) -ldflags $(LDARGS) github.com/kopia/kopia
 	cp README.md LICENSE $(RELEASE_TMP_DIR)/$(RELEASE_NAME)
 ifeq ($(GOOS), windows)
 	(cd $(RELEASE_TMP_DIR) && zip -r $(RELEASES_OUT_DIR)/$(RELEASE_NAME).zip $(RELEASE_NAME)/)
