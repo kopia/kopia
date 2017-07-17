@@ -2,127 +2,91 @@
 package gcs
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net/http"
-	"net/http/httptest"
 	"os"
-	"runtime"
-	"time"
+
+	"google.golang.org/api/iterator"
 
 	"github.com/efarrer/iothrottler"
-
 	"github.com/kopia/kopia/blob"
-	"github.com/skratchdot/open-golang/open"
 	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
 
-	"github.com/kopia/kopia/internal/throttle"
-	"google.golang.org/api/googleapi"
-
-	gcsclient "google.golang.org/api/storage/v1"
+	"cloud.google.com/go/storage"
+	"google.golang.org/api/option"
 )
 
 const (
 	gcsStorageType = "gcs"
-
-	// Those are not really set, since the app is installed.
-	googleCloudClientID     = "194841383482-nmn10h4mnllnsvou7qr55tfh5jsmtkap.apps.googleusercontent.com"
-	googleCloudClientSecret = "ZL52E96Q7iRCD9YXVA7U6UaI"
 )
 
 type gcsStorage struct {
 	Options
-	objectsService *gcsclient.ObjectsService
+
+	ctx           context.Context
+	storageClient *storage.Client
+	bucket        *storage.BucketHandle
 
 	downloadThrottler *iothrottler.IOThrottlerPool
 	uploadThrottler   *iothrottler.IOThrottlerPool
 }
 
 func (gcs *gcsStorage) BlockSize(b string) (int64, error) {
-	call := gcs.objectsService.Get(gcs.BucketName, gcs.getObjectNameString(b))
-	v, err := retry(
-		"BlockSize("+b+")",
-		func() (interface{}, error) {
-			return call.Do()
-		})
-
-	if isGoogleAPIError(err, http.StatusNotFound) {
-		return 0, blob.ErrBlockNotFound
+	oh := gcs.bucket.Object(gcs.getObjectNameString(b))
+	a, err := oh.Attrs(context.Background())
+	if err != nil {
+		return 0, translateError(err)
 	}
 
-	return int64(v.(*gcsclient.Object).Size), nil
+	return a.Size, nil
 }
 
 func (gcs *gcsStorage) GetBlock(b string) ([]byte, error) {
-	call := gcs.objectsService.Get(gcs.BucketName, gcs.getObjectNameString(b))
-	v, err := retry(
-		"Get("+b+")",
-		func() (interface{}, error) {
-			return call.Download()
-		})
-	if isGoogleAPIError(err, http.StatusNotFound) {
-		return nil, blob.ErrBlockNotFound
-	}
-
+	reader, err := gcs.bucket.Object(gcs.getObjectNameString(b)).NewReader(gcs.ctx)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get block '%s': %v", b, err)
+		return nil, translateError(err)
 	}
+	defer reader.Close()
 
-	dl := v.(*http.Response)
+	return ioutil.ReadAll(reader)
+}
 
-	defer dl.Body.Close()
-
-	return ioutil.ReadAll(dl.Body)
+func translateError(err error) error {
+	switch err {
+	case nil:
+		return nil
+	case storage.ErrObjectNotExist:
+		return blob.ErrBlockNotFound
+	case storage.ErrObjectNotExist:
+		return blob.ErrBlockNotFound
+	default:
+		return err
+	}
 }
 
 func (gcs *gcsStorage) PutBlock(b string, data []byte, options blob.PutOptions) error {
-	object := gcsclient.Object{
-		Name: gcs.getObjectNameString(b),
+	writer := gcs.bucket.Object(gcs.getObjectNameString(b)).NewWriter(gcs.ctx)
+	throttledWriter, err := gcs.uploadThrottler.AddWriter(writer)
+	if err != nil {
+		return err
+	}
+	n, err := throttledWriter.Write(data)
+	if err != nil {
+		return translateError(err)
+	}
+	if n != len(data) {
+		return writer.CloseWithError(errors.New("truncated write"))
 	}
 
-	call := gcs.objectsService.Insert(gcs.BucketName, &object).Media(
-		bytes.NewReader(data),
-		googleapi.ContentType("application/octet-stream"),
-		// Specify exact chunk size to ensure data is uploaded in one shot or not at all.
-		googleapi.ChunkSize(len(data)),
-	)
-	if options&blob.PutOptionsOverwrite == 0 {
-		// To avoid the race, check this server-side.
-		call = call.IfGenerationMatch(0)
-	}
-
-	_, err := retry(
-		"Insert("+b+")",
-		func() (interface{}, error) {
-			return call.Do()
-		})
-
-	if isGoogleAPIError(err, http.StatusPreconditionFailed) {
-		// Condition not met indicates that the block already exists.
-		return nil
-	}
-
-	return err
+	return translateError(writer.Close())
 }
 
 func (gcs *gcsStorage) DeleteBlock(b string) error {
-	call := gcs.objectsService.Delete(gcs.BucketName, string(b))
-	_, err := retry(
-		"Delete("+b+")",
-		func() (interface{}, error) {
-			return call.Do(), nil
-		})
-	if err != nil {
-		return fmt.Errorf("unable to delete block %s: %v", b, err)
-	}
-
-	return nil
+	return translateError(gcs.bucket.Object(gcs.getObjectNameString(b)).Delete(gcs.ctx))
 }
 
 func (gcs *gcsStorage) getObjectNameString(b string) string {
@@ -136,61 +100,31 @@ func (gcs *gcsStorage) ListBlocks(prefix string) (chan blob.BlockMetadata, blob.
 	go func() {
 		defer close(ch)
 
-		ps := gcs.getObjectNameString(prefix)
-		page, err := retry(
-			"List("+ps+")",
-			func() (interface{}, error) {
-				return gcs.objectsService.List(gcs.BucketName).
-					Prefix(ps).Do()
-			})
+		lst := gcs.bucket.Objects(gcs.ctx, &storage.Query{
+			Prefix: gcs.getObjectNameString(prefix),
+		})
 
-		for {
-			if err != nil {
-				select {
-				case ch <- blob.BlockMetadata{Error: err}:
-					return
-				case <-cancelled:
-					return
-				}
+		oa, err := lst.Next()
+		for err == nil {
+			bm := blob.BlockMetadata{
+				BlockID:   oa.Name[len(gcs.Prefix):],
+				Length:    oa.Size,
+				TimeStamp: oa.Created,
 			}
+			select {
+			case ch <- bm:
+			case <-cancelled:
+				return
+			}
+			oa, err = lst.Next()
+		}
 
-			if page == nil {
-				break
-			}
-			objects := page.(*gcsclient.Objects)
-			for _, o := range objects.Items {
-				t, e := time.Parse(time.RFC3339, o.TimeCreated)
-				if e != nil {
-					select {
-					case ch <- blob.BlockMetadata{
-						Error: e,
-					}:
-					case <-cancelled:
-						return
-					}
-				} else {
-					select {
-					case ch <- blob.BlockMetadata{
-						BlockID:   string(o.Name)[len(gcs.Prefix):],
-						Length:    int64(o.Size),
-						TimeStamp: t,
-					}:
-					case <-cancelled:
-						return
-					}
-				}
-			}
-
-			if objects.NextPageToken != "" {
-				page, err = retry(
-					"List("+ps+")",
-					func() (interface{}, error) {
-						return gcs.objectsService.List(gcs.BucketName).
-							PageToken(objects.NextPageToken).
-							Prefix(ps).Do()
-					})
-			} else {
-				break
+		if err != iterator.Done {
+			select {
+			case ch <- blob.BlockMetadata{Error: translateError(err)}:
+				return
+			case <-cancelled:
+				return
 			}
 		}
 	}()
@@ -208,7 +142,7 @@ func (gcs *gcsStorage) ConnectionInfo() blob.ConnectionInfo {
 }
 
 func (gcs *gcsStorage) Close() error {
-	gcs.objectsService = nil
+	gcs.storageClient.Close()
 	return nil
 }
 
@@ -258,194 +192,33 @@ func saveToken(file string, token *oauth2.Token) {
 // By default the connection reuses credentials managed by (https://cloud.google.com/sdk/),
 // but this can be disabled by setting IgnoreDefaultCredentials to true.
 func New(ctx context.Context, options *Options) (blob.Storage, error) {
-	gcs := &gcsStorage{
-		Options:           *options,
-		downloadThrottler: iothrottler.NewIOThrottlerPool(iothrottler.Unlimited),
-		uploadThrottler:   iothrottler.NewIOThrottlerPool(iothrottler.Unlimited),
+	var cliOpts []option.ClientOption
+
+	if sa := os.Getenv("KOPIA_GCS_SERVICEACCOUNT"); sa != "" {
+		cliOpts = append(cliOpts, option.WithServiceAccountFile(sa))
 	}
 
-	if gcs.BucketName == "" {
-		return nil, errors.New("bucket name must be specified")
+	if sa := os.Getenv("KOPIA_GCS_READONLY"); sa != "" {
+		cliOpts = append(cliOpts, option.WithScopes(storage.ScopeReadOnly))
 	}
 
-	var scope string
-	if options.ReadOnly {
-		scope = gcsclient.DevstorageReadOnlyScope
-	} else {
-		scope = gcsclient.DevstorageReadWriteScope
-	}
-
-	// Try to get default client if possible and not disabled by options.
-	var client *http.Client
-	var err error
-
-	ctx = context.WithValue(ctx, oauth2.HTTPClient, &http.Client{
-		Transport: throttle.NewRoundTripper(
-			http.DefaultTransport,
-			gcs.downloadThrottler,
-			gcs.uploadThrottler),
-	})
-
-	if !gcs.IgnoreDefaultCredentials {
-		client, _ = google.DefaultClient(ctx, scope)
-	}
-
-	if client == nil {
-		// Fall back to asking user to authenticate.
-		config := &oauth2.Config{
-			ClientID:     googleCloudClientID,
-			ClientSecret: googleCloudClientSecret,
-			Endpoint:     google.Endpoint,
-			Scopes:       []string{scope},
-		}
-
-		var token *oauth2.Token
-		if gcs.Token != nil {
-			// Token was provided, use it.
-			token = gcs.Token
-		} else {
-			if gcs.TokenCacheFile == "" {
-				// Cache file not provided, token will be saved in storage configuration.
-				token, err = tokenFromWeb(ctx, config)
-				if err != nil {
-					return nil, fmt.Errorf("cannot retrieve OAuth2 token: %v", err)
-				}
-				gcs.Token = token
-			} else {
-				token, err = tokenFromFile(gcs.TokenCacheFile)
-				if err != nil {
-					token, err = tokenFromWeb(ctx, config)
-					if err != nil {
-						return nil, fmt.Errorf("cannot retrieve OAuth2 token: %v", err)
-					}
-				}
-				saveToken(gcs.TokenCacheFile, token)
-			}
-		}
-
-		client = config.Client(ctx, token)
-	}
-
-	svc, err := gcsclient.New(client)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to create GCS client: %v", err)
-	}
-
-	gcs.objectsService = svc.Objects
-
-	return gcs, nil
-}
-
-func readGcsTokenFromFile(filePath string) (*oauth2.Token, error) {
-	f, err := os.Open(filePath)
+	cli, err := storage.NewClient(ctx, cliOpts...)
 	if err != nil {
 		return nil, err
 	}
 
-	defer f.Close()
-
-	token := &oauth2.Token{}
-	err = json.NewDecoder(f).Decode(token)
-	if err != nil {
-		return nil, fmt.Errorf("Unable to decode token: %v", err)
+	if options.BucketName == "" {
+		return nil, errors.New("bucket name must be specified")
 	}
 
-	return token, err
-}
-
-func writeTokenToFile(filePath string, token *oauth2.Token) error {
-	f, err := os.Create(filePath)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	json.NewEncoder(f).Encode(*token)
-	return nil
-}
-
-func tokenFromWeb(ctx context.Context, config *oauth2.Config) (*oauth2.Token, error) {
-	if runtime.GOOS == "windows" {
-		return tokenFromWebLocalServer(ctx, config)
-	}
-
-	// On non-SSH Unix, that has X11 configured use local web server.
-	if os.Getenv("DISPLAY") != "" && os.Getenv("SSH_CLIENT") == "" {
-		return tokenFromWebLocalServer(ctx, config)
-	}
-
-	// Otherwise fall back to asking user to manually copy/paste the code.
-	return tokenFromWebManual(ctx, config)
-}
-
-func tokenFromWebLocalServer(ctx context.Context, config *oauth2.Config) (*oauth2.Token, error) {
-	ch := make(chan string)
-	randState := fmt.Sprintf("st%d", time.Now().UnixNano())
-	ts := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		if req.URL.Path == "/favicon.ico" {
-			http.Error(rw, "", 404)
-			return
-		}
-		if req.FormValue("state") != randState {
-			log.Printf("State doesn't match: req = %#v", req)
-			http.Error(rw, "", 500)
-			return
-		}
-		if code := req.FormValue("code"); code != "" {
-			fmt.Fprintf(rw, "<h1>Success</h1>Authorized.")
-			rw.(http.Flusher).Flush()
-			ch <- code
-			return
-		}
-		log.Printf("no code")
-		http.Error(rw, "", 500)
-	}))
-	defer ts.Close()
-
-	config.RedirectURL = ts.URL
-	authURL := config.AuthCodeURL(randState)
-	go open.Start(authURL)
-	fmt.Println("Opening URL in web browser to get OAuth2 authorization token:")
-	fmt.Println()
-	fmt.Println("  ", authURL)
-	fmt.Println()
-	code := <-ch
-
-	token, err := config.Exchange(ctx, code)
-	if err != nil {
-		return nil, fmt.Errorf("token exchange error: %v", err)
-	}
-
-	return token, nil
-}
-
-func tokenFromWebManual(ctx context.Context, config *oauth2.Config) (*oauth2.Token, error) {
-	config.RedirectURL = "urn:ietf:wg:oauth:2.0:oob"
-	authURL := config.AuthCodeURL("")
-	var code string
-	for {
-		fmt.Println("Please open the following URL in your browser and paste the authorization code below:")
-		fmt.Println()
-		fmt.Println("  ", authURL)
-		fmt.Println()
-		fmt.Printf("Enter authorization code: ")
-		n, err := fmt.Scanf("%s", &code)
-		if err != nil {
-			return nil, err
-		}
-
-		if n == 1 && len(code) > 0 {
-			break
-		}
-	}
-	log.Printf("Got code: %s", code)
-
-	token, err := config.Exchange(ctx, code)
-	if err != nil {
-		return nil, fmt.Errorf("token exchange error: %v", err)
-	}
-
-	return token, nil
+	return &gcsStorage{
+		Options:           *options,
+		ctx:               ctx,
+		storageClient:     cli,
+		bucket:            cli.Bucket(options.BucketName),
+		downloadThrottler: iothrottler.NewIOThrottlerPool(iothrottler.Unlimited),
+		uploadThrottler:   iothrottler.NewIOThrottlerPool(iothrottler.Unlimited),
+	}, nil
 }
 
 func init() {
