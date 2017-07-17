@@ -12,7 +12,6 @@ import (
 
 	"sync"
 
-	"github.com/kopia/kopia"
 	"github.com/kopia/kopia/vault"
 )
 
@@ -310,10 +309,10 @@ func (m *Manager) ListPolicies() ([]*Policy, error) {
 }
 
 // NewManager creates new snapshot manager for a given connection.
-func NewManager(conn *kopia.Connection) *Manager {
+func NewManager(vlt *vault.Vault) *Manager {
 	return &Manager{
-		conn.Vault,
-		conn.Vault.DeriveKey([]byte("snapshot-id"), 32),
-		conn.Vault.DeriveKey([]byte("policyID-id"), 32),
+		vlt,
+		vlt.DeriveKey([]byte("snapshot-id"), 32),
+		vlt.DeriveKey([]byte("policyID-id"), 32),
 	}
 }

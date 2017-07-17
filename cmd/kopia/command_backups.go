@@ -52,7 +52,7 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 	conn := mustOpenConnection()
 	defer conn.Close()
 
-	mgr := snapshot.NewManager(conn)
+	mgr := snapshot.NewManager(conn.Vault)
 
 	var previous []string
 	var relPath string

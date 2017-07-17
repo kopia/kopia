@@ -13,8 +13,8 @@ import (
 	"strings"
 
 	"github.com/bgentry/speakeasy"
-	"github.com/kopia/kopia"
 	"github.com/kopia/kopia/blob/logging"
+	"github.com/kopia/kopia/client"
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/fs/loggingfs"
@@ -50,12 +50,12 @@ func getContext() context.Context {
 	return ctx
 }
 
-func openConnection(options ...repo.RepositoryOption) (*kopia.Connection, error) {
-	return kopia.Open(getContext(), vaultConfigFileName(), connectionOptionsFromFlags(options...))
+func openConnection(options ...repo.RepositoryOption) (*client.Connection, error) {
+	return client.Open(getContext(), vaultConfigFileName(), connectionOptionsFromFlags(options...))
 }
 
-func connectionOptionsFromFlags(options ...repo.RepositoryOption) *kopia.ConnectionOptions {
-	opts := &kopia.ConnectionOptions{
+func connectionOptionsFromFlags(options ...repo.RepositoryOption) *client.Options {
+	opts := &client.Options{
 		CredentialsCallback: func() (vault.Credentials, error) { return getVaultCredentials(false) },
 		RepositoryOptions:   options,
 	}
@@ -75,7 +75,7 @@ func connectionOptionsFromFlags(options ...repo.RepositoryOption) *kopia.Connect
 	return opts
 }
 
-func mustOpenConnection(repoOptions ...repo.RepositoryOption) *kopia.Connection {
+func mustOpenConnection(repoOptions ...repo.RepositoryOption) *client.Connection {
 	s, err := openConnection(repoOptions...)
 	failOnError(err)
 	return s

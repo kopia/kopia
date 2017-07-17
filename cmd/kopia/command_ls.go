@@ -5,11 +5,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/kopia/kopia/client"
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/repo"
 
-	"github.com/kopia/kopia"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -46,7 +46,7 @@ func init() {
 	lsCommand.Action(runLSCommand)
 }
 
-func listDirectory(conn *kopia.Connection, prefix string, oid repo.ObjectID, indent string) error {
+func listDirectory(conn *client.Connection, prefix string, oid repo.ObjectID, indent string) error {
 	d := repofs.Directory(conn.Repository, oid)
 
 	entries, err := d.Readdir()

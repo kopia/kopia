@@ -1,4 +1,4 @@
-package kopia
+package client
 
 import (
 	"context"
@@ -24,17 +24,6 @@ type Connection struct {
 	Repository *repo.Repository
 }
 
-// ConnectionOptions specifies the behavior of Connection.
-type ConnectionOptions struct {
-	CredentialsCallback func() (vault.Credentials, error) // credentials required to open the vault, unless persisted
-
-	TraceStorage      func(f string, args ...interface{})
-	RepositoryOptions []repo.RepositoryOption
-
-	MaxDownloadSpeed int
-	MaxUploadSpeed   int
-}
-
 // Close closes the underlying Vault and Repository.
 func (c *Connection) Close() error {
 	if c.Vault != nil {
@@ -51,7 +40,7 @@ func (c *Connection) Close() error {
 }
 
 // Open connects to the Vault and Repository specified in the specified configuration file.
-func Open(ctx context.Context, configFile string, options *ConnectionOptions) (*Connection, error) {
+func Open(ctx context.Context, configFile string, options *Options) (*Connection, error) {
 	lc, err := config.LoadFromFile(configFile)
 	if err != nil {
 		return nil, err
@@ -128,7 +117,7 @@ func Open(ctx context.Context, configFile string, options *ConnectionOptions) (*
 	return &conn, nil
 }
 
-func newStorageWithOptions(ctx context.Context, cfg blob.ConnectionInfo, options *ConnectionOptions) (blob.Storage, error) {
+func newStorageWithOptions(ctx context.Context, cfg blob.ConnectionInfo, options *Options) (blob.Storage, error) {
 	s, err := blob.NewStorage(ctx, cfg)
 	if err != nil {
 		return nil, err

@@ -153,7 +153,7 @@ func runCleanupCommand(context *kingpin.ParseContext) error {
 	conn := mustOpenConnection()
 	defer conn.Close()
 
-	mgr := snapshot.NewManager(conn)
+	mgr := snapshot.NewManager(conn.Vault)
 
 	log.Printf("Listing active snapshots...")
 	snapshotNames, err := mgr.ListSnapshotManifests(nil, -1)

@@ -17,7 +17,7 @@ func init() {
 
 func listPolicies(context *kingpin.ParseContext) error {
 	conn := mustOpenConnection()
-	mgr := snapshot.NewManager(conn)
+	mgr := snapshot.NewManager(conn.Vault)
 
 	policies, err := mgr.ListPolicies()
 	if err != nil {

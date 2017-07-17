@@ -50,7 +50,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 	defer conn.Close()
 
 	ctx := context.Background()
-	mgr := snapshot.NewManager(conn)
+	mgr := snapshot.NewManager(conn.Vault)
 
 	sources := *backupSources
 	if *backupAll {
