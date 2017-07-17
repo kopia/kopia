@@ -88,6 +88,6 @@ var SupportedSplitters = map[string]func(*Format) objectSplitter{
 		return newFixedSplitter(int(f.MaxBlockSize))
 	},
 	"DYNAMIC": func(f *Format) objectSplitter {
-		return newRollingHashSplitter(buzhash32.New(), f.MinBlockSize, f.ApproxBlockSize, f.MaxBlockSize)
+		return newRollingHashSplitter(buzhash32.New(), f.MinBlockSize, f.AvgBlockSize, f.MaxBlockSize)
 	},
 }

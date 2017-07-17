@@ -21,9 +21,9 @@ type Format struct {
 	MasterKey              []byte `json:"masterKey,omitempty"`              // master encryption key (SIV-mode encryption only)
 	Splitter               string `json:"splitter,omitempty"`               // splitter used to break objects into storage blocks
 
-	MinBlockSize    int32 `json:"minBlockSize,omitempty"`    // minimum block size used with dynamic splitter
-	ApproxBlockSize int32 `json:"approxBlockSize,omitempty"` // approximate size of storage block (used with dynamic splitter)
-	MaxBlockSize    int32 `json:"maxBlockSize,omitempty"`    // maximum size of storage block
+	MinBlockSize int32 `json:"minBlockSize,omitempty"` // minimum block size used with dynamic splitter
+	AvgBlockSize int32 `json:"avgBlockSize,omitempty"` // approximate size of storage block (used with dynamic splitter)
+	MaxBlockSize int32 `json:"maxBlockSize,omitempty"` // maximum size of storage block
 }
 
 // Validate checks the validity of a Format and returns an error if invalid.

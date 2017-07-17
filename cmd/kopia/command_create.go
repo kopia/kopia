@@ -17,8 +17,11 @@ var (
 	createCommandRepository = createCommand.Flag("repository", "Repository path.").Default("colocated").String()
 	createObjectFormat      = createCommand.Flag("repo-format", "Format of repository objects.").PlaceHolder("FORMAT").Default(repo.DefaultObjectFormat).Enum(supportedObjectFormats()...)
 
-	createMaxBlockSize          = createCommand.Flag("max-blob-size", "Maximum size of a data chunk.").PlaceHolder("KB").Default("20480").Int()
-	createInlineBlobSize        = createCommand.Flag("inline-blob-size", "Maximum size of an inline data chunk.").PlaceHolder("KB").Default("32").Int()
+	createMinBlockSize          = createCommand.Flag("min-block-size", "Minimum size of a data block.").PlaceHolder("KB").Default("1024").Int()
+	createAvgBlockSize          = createCommand.Flag("avg-block-size", "Average size of a data block.").PlaceHolder("KB").Default("10240").Int()
+	createMaxBlockSize          = createCommand.Flag("max-block-size", "Maximum size of a data block.").PlaceHolder("KB").Default("20480").Int()
+	createObjectSplitter        = createCommand.Flag("object-splitter", "The splitter to use for new objects in the repository").Default("DYNAMIC").Enum(supportedObjectSplitters()...)
+	createInlineBlobSize        = createCommand.Flag("inline-blob-size", "Maximum size of an inline data object.").PlaceHolder("KB").Default("32").Int()
 	createVaultEncryptionFormat = createCommand.Flag("vault-encryption", "Vault encryption.").PlaceHolder("FORMAT").Default(vault.SupportedEncryptionAlgorithms[0]).Enum(vault.SupportedEncryptionAlgorithms...)
 	createOverwrite             = createCommand.Flag("overwrite", "Overwrite existing data (DANGEROUS).").Bool()
 	createOnly                  = createCommand.Flag("create-only", "Create the vault, but don't connect to it.").Short('c').Bool()
@@ -46,9 +49,13 @@ func repositoryFormat() (*repo.Format, error) {
 		Version:                1,
 		Secret:                 make([]byte, 32),
 		MasterKey:              make([]byte, 32),
-		MaxBlockSize:           int32(*createMaxBlockSize * 1024),
 		MaxInlineContentLength: int32(*createInlineBlobSize * 1024),
 		ObjectFormat:           *createObjectFormat,
+
+		Splitter:     *createObjectSplitter,
+		MinBlockSize: int32(*createMinBlockSize * 1024),
+		AvgBlockSize: int32(*createAvgBlockSize * 1024),
+		MaxBlockSize: int32(*createMaxBlockSize * 1024),
 	}
 
 	if _, err := io.ReadFull(rand.Reader, f.Secret); err != nil {
@@ -93,8 +100,9 @@ func runCreateCommand(context *kingpin.ParseContext) error {
 	}
 
 	fmt.Printf(
-		"Initializing repository in with format %v and maximum object size %v.\n",
+		"Initializing repository in with format %q, splitter %q and maximum object size %v.\n",
 		repoFormat.ObjectFormat,
+		repoFormat.Splitter,
 		repoFormat.MaxBlockSize)
 
 	vf, err := vaultFormat()
@@ -145,6 +153,14 @@ func runCreateCommand(context *kingpin.ParseContext) error {
 func supportedObjectFormats() []string {
 	var r []string
 	for k := range repo.SupportedFormats {
+		r = append(r, k)
+	}
+	return r
+}
+
+func supportedObjectSplitters() []string {
+	var r []string
+	for k := range repo.SupportedSplitters {
 		r = append(r, k)
 	}
 	return r
