@@ -1,4 +1,4 @@
-package vault
+package repo
 
 import (
 	"crypto/aes"
@@ -13,7 +13,6 @@ import (
 	"sync"
 
 	"github.com/kopia/kopia/blob"
-	"github.com/kopia/kopia/repo"
 
 	"golang.org/x/crypto/hkdf"
 )
@@ -237,7 +236,7 @@ func (v *Vault) RemoveMany(itemIDs []string) error {
 func Create(
 	vaultStorage blob.Storage,
 	vaultFormat *VaultFormat, vaultCreds Credentials,
-	repoFormat *repo.Format,
+	repoFormat *Format,
 ) (*Vault, error) {
 	v := Vault{
 		storage: vaultStorage,
@@ -287,7 +286,7 @@ func Create(
 
 // RepositoryConfig stores the configuration of the repository associated with the vault.
 type RepositoryConfig struct {
-	Format *repo.Format `json:"format"`
+	Format *Format `json:"format"`
 }
 
 // Open opens a vault.

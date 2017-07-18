@@ -1,4 +1,4 @@
-package vault
+package repo
 
 // VaultFormat describes the format of a Vault.
 // Contents of this structure are serialized in plain text in the Vault storage.

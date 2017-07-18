@@ -20,7 +20,6 @@ import (
 	"github.com/kopia/kopia/fs/loggingfs"
 	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/vault"
 )
 
 var (
@@ -56,7 +55,7 @@ func openConnection(options ...repo.RepositoryOption) (*client.Connection, error
 
 func connectionOptionsFromFlags(options ...repo.RepositoryOption) *client.Options {
 	opts := &client.Options{
-		CredentialsCallback: func() (vault.Credentials, error) { return getVaultCredentials(false) },
+		CredentialsCallback: func() (repo.Credentials, error) { return getVaultCredentials(false) },
 		RepositoryOptions:   options,
 	}
 
@@ -113,7 +112,7 @@ func vaultConfigFileName() string {
 	return filepath.Join(getHomeDir(), ".kopia/vault.config")
 }
 
-func persistVaultConfig(v *vault.Vault) error {
+func persistVaultConfig(v *repo.Vault) error {
 	cfg, err := v.Config()
 	if err != nil {
 		return err
@@ -136,7 +135,7 @@ func persistVaultConfig(v *vault.Vault) error {
 	return ioutil.WriteFile(fname, d, 0600)
 }
 
-func openVaultSpecifiedByFlag() (*vault.Vault, error) {
+func openVaultSpecifiedByFlag() (*repo.Vault, error) {
 	if *vaultPath == "" {
 		return nil, fmt.Errorf("--vault must be specified")
 	}
@@ -150,21 +149,21 @@ func openVaultSpecifiedByFlag() (*vault.Vault, error) {
 		return nil, err
 	}
 
-	return vault.Open(storage, creds)
+	return repo.Open(storage, creds)
 }
 
-func getVaultCredentials(isNew bool) (vault.Credentials, error) {
+func getVaultCredentials(isNew bool) (repo.Credentials, error) {
 	if *key != "" {
 		k, err := hex.DecodeString(*key)
 		if err != nil {
 			return nil, fmt.Errorf("invalid key format: %v", err)
 		}
 
-		return vault.MasterKey(k)
+		return repo.MasterKey(k)
 	}
 
 	if *password != "" {
-		return vault.Password(strings.TrimSpace(*password))
+		return repo.Password(strings.TrimSpace(*password))
 	}
 
 	if *keyFile != "" {
@@ -173,7 +172,7 @@ func getVaultCredentials(isNew bool) (vault.Credentials, error) {
 			return nil, fmt.Errorf("unable to read key file: %v", err)
 		}
 
-		return vault.MasterKey(key)
+		return repo.MasterKey(key)
 	}
 
 	if *passwordFile != "" {
@@ -182,7 +181,7 @@ func getVaultCredentials(isNew bool) (vault.Credentials, error) {
 			return nil, fmt.Errorf("unable to read password file: %v", err)
 		}
 
-		return vault.Password(strings.TrimSpace(string(f)))
+		return repo.Password(strings.TrimSpace(string(f)))
 	}
 	if isNew {
 		for {
@@ -197,7 +196,7 @@ func getVaultCredentials(isNew bool) (vault.Credentials, error) {
 			if p1 != p2 {
 				fmt.Println("Passwords don't match!")
 			} else {
-				return vault.Password(p1)
+				return repo.Password(p1)
 			}
 		}
 	} else {
@@ -206,7 +205,7 @@ func getVaultCredentials(isNew bool) (vault.Credentials, error) {
 			return nil, err
 		}
 		fmt.Println()
-		return vault.Password(p1)
+		return repo.Password(p1)
 	}
 }
 
@@ -236,11 +235,11 @@ func askPass(prompt string) (string, error) {
 			continue
 		}
 
-		if len(p) >= vault.MinPasswordLength {
+		if len(p) >= repo.MinPasswordLength {
 			return p, nil
 		}
 
-		fmt.Printf("Password too short, must be at least %v characters, you entered %v. Try again.", vault.MinPasswordLength, len(p))
+		fmt.Printf("Password too short, must be at least %v characters, you entered %v. Try again.", repo.MinPasswordLength, len(p))
 		fmt.Println()
 	}
 }

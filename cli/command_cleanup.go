@@ -13,7 +13,6 @@ import (
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
-	"github.com/kopia/kopia/vault"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -255,7 +254,7 @@ func runCleanupCommand(context *kingpin.ParseContext) error {
 		totalBlocks++
 		totalBytes += b.Length
 
-		if strings.HasPrefix(b.BlockID, vault.VaultBlockPrefix) {
+		if strings.HasPrefix(b.BlockID, repo.VaultBlockPrefix) {
 			ignoredBlocks++
 			ignoredBytes += b.Length
 			continue

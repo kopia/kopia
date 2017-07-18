@@ -9,7 +9,6 @@ import (
 
 	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/vault"
 )
 
 var (
@@ -21,7 +20,7 @@ var (
 	createMaxBlockSize          = createCommand.Flag("max-block-size", "Maximum size of a data block.").PlaceHolder("KB").Default("20480").Int()
 	createObjectSplitter        = createCommand.Flag("object-splitter", "The splitter to use for new objects in the repository").Default("DYNAMIC").Enum(supportedObjectSplitters()...)
 	createInlineBlobSize        = createCommand.Flag("inline-blob-size", "Maximum size of an inline data object.").PlaceHolder("KB").Default("32").Int()
-	createVaultEncryptionFormat = createCommand.Flag("vault-encryption", "Vault encryption.").PlaceHolder("FORMAT").Default(vault.SupportedEncryptionAlgorithms[0]).Enum(vault.SupportedEncryptionAlgorithms...)
+	createVaultEncryptionFormat = createCommand.Flag("vault-encryption", "Vault encryption.").PlaceHolder("FORMAT").Default(repo.SupportedEncryptionAlgorithms[0]).Enum(repo.SupportedEncryptionAlgorithms...)
 	createOverwrite             = createCommand.Flag("overwrite", "Overwrite existing data (DANGEROUS).").Bool()
 	createOnly                  = createCommand.Flag("create-only", "Create the vault, but don't connect to it.").Short('c').Bool()
 )
@@ -30,8 +29,8 @@ func init() {
 	createCommand.Action(runCreateCommand)
 }
 
-func vaultFormat() (*vault.VaultFormat, error) {
-	f := &vault.VaultFormat{
+func vaultFormat() (*repo.VaultFormat, error) {
+	f := &repo.VaultFormat{
 		Version: "1",
 	}
 	f.UniqueID = make([]byte, 32)
@@ -122,7 +121,7 @@ func runCreateCommand(context *kingpin.ParseContext) error {
 		"Initializing vault with encryption '%v'.\n",
 		vf.EncryptionAlgorithm)
 
-	vlt, err := vault.Create(vaultStorage, vf, creds, repoFormat)
+	vlt, err := repo.Create(vaultStorage, vf, creds, repoFormat)
 	if err != nil {
 		return fmt.Errorf("cannot create vault: %v", err)
 	}

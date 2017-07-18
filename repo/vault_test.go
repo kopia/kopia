@@ -1,4 +1,4 @@
-package vault
+package repo
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 
 	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/blob/filesystem"
-	"github.com/kopia/kopia/repo"
 
 	"testing"
 )
@@ -60,7 +59,7 @@ func verifyVault(t *testing.T, vaultPath string, repoPath string) {
 		EncryptionAlgorithm: "AES256_GCM",
 	}
 
-	repoFormat := &repo.Format{
+	repoFormat := &Format{
 		Version:      1,
 		MaxBlockSize: 1000000,
 		ObjectFormat: "UNENCRYPTED_HMAC_SHA256",

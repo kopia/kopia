@@ -12,7 +12,7 @@ import (
 
 	"sync"
 
-	"github.com/kopia/kopia/vault"
+	"github.com/kopia/kopia/repo"
 )
 
 const snapshotPrefix = "S"
@@ -26,7 +26,7 @@ var GlobalPolicySourceInfo = &SourceInfo{}
 
 // Manager manages filesystem snapshots.
 type Manager struct {
-	vault            *vault.Vault
+	vault            *repo.Vault
 	snapshotIDSecret []byte
 	policyIDSecret   []byte
 }
@@ -253,7 +253,7 @@ func (m *Manager) policyID(src *SourceInfo) string {
 
 func (m *Manager) getPolicyItem(itemID string) (*Policy, error) {
 	b, err := m.vault.Get(itemID)
-	if err == vault.ErrItemNotFound {
+	if err == repo.ErrItemNotFound {
 		return nil, ErrPolicyNotFound
 	}
 
@@ -309,7 +309,7 @@ func (m *Manager) ListPolicies() ([]*Policy, error) {
 }
 
 // NewManager creates new snapshot manager for a given connection.
-func NewManager(vlt *vault.Vault) *Manager {
+func NewManager(vlt *repo.Vault) *Manager {
 	return &Manager{
 		vlt,
 		vlt.DeriveKey([]byte("snapshot-id"), 32),

@@ -11,7 +11,6 @@ import (
 	"github.com/kopia/kopia/blob/logging"
 	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/vault"
 
 	// Register well-known blob storage providers
 	_ "github.com/kopia/kopia/blob/filesystem"
@@ -20,7 +19,7 @@ import (
 
 // Connection represents open connection to Vault and Repository.
 type Connection struct {
-	Vault      *vault.Vault
+	Vault      *repo.Vault
 	Repository *repo.Repository
 }
 
@@ -46,9 +45,9 @@ func Open(ctx context.Context, configFile string, options *Options) (*Connection
 		return nil, err
 	}
 
-	var creds vault.Credentials
+	var creds repo.Credentials
 	if len(lc.VaultConnection.Key) > 0 {
-		creds, err = vault.MasterKey(lc.VaultConnection.Key)
+		creds, err = repo.MasterKey(lc.VaultConnection.Key)
 	} else {
 		if options.CredentialsCallback == nil {
 			return nil, errors.New("vault key not persisted and no credentials specified")
@@ -72,7 +71,7 @@ func Open(ctx context.Context, configFile string, options *Options) (*Connection
 	}
 
 	var conn Connection
-	conn.Vault, err = vault.Open(vaultStorage, creds)
+	conn.Vault, err = repo.Open(vaultStorage, creds)
 	if err != nil {
 		rawVaultStorage.Close()
 		return nil, fmt.Errorf("unable to open vault: %v", err)

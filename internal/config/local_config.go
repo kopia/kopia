@@ -7,14 +7,14 @@ import (
 	"os"
 
 	"github.com/kopia/kopia/blob/caching"
-	"github.com/kopia/kopia/vault"
+	"github.com/kopia/kopia/repo"
 
 	"github.com/kopia/kopia/blob"
 )
 
 // LocalConfig is a configuration of Kopia.
 type LocalConfig struct {
-	VaultConnection *vault.Config        `json:"vault,omitempty"`
+	VaultConnection *repo.Config         `json:"vault,omitempty"`
 	RepoConnection  *blob.ConnectionInfo `json:"repository,omitempty"` // can be nil indicating the same connection as for the vault
 	Caching         *caching.Options     `json:"caching,omitempty"`
 }

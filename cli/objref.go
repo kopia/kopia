@@ -7,11 +7,10 @@ import (
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/vault"
 )
 
 // ParseObjectID interprets the given ID string and returns corresponding repo.ObjectID.
-func parseObjectID(id string, vlt *vault.Vault, r *repo.Repository) (repo.ObjectID, error) {
+func parseObjectID(id string, vlt *repo.Vault, r *repo.Repository) (repo.ObjectID, error) {
 	head, tail := splitHeadTail(id)
 	if len(head) == 0 {
 		return repo.NullObjectID, fmt.Errorf("invalid object ID: %v", id)
