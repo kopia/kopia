@@ -24,8 +24,8 @@ const (
 )
 
 const (
-	// ColocatedBlockPrefix is a prefix used for colocated vault blocks in a repository storage.
-	ColocatedBlockPrefix = "VLT"
+	// VaultBlockPrefix is a prefix used for vault blocks in a repository storage.
+	VaultBlockPrefix = "VLT"
 )
 
 var (
@@ -48,8 +48,7 @@ type Vault struct {
 	format     Format
 	RepoConfig RepositoryConfig
 
-	masterKey  []byte
-	itemPrefix string
+	masterKey []byte
 
 	aead     cipher.AEAD // authenticated encryption to use
 	authData []byte      // additional data to authenticate
@@ -81,11 +80,11 @@ func (v *Vault) writeEncryptedBlock(itemID string, content []byte) error {
 		content = nonce[0 : nonceLength+len(b)]
 	}
 
-	return v.storage.PutBlock(v.itemPrefix+itemID, content, blob.PutOptionsOverwrite)
+	return v.storage.PutBlock(VaultBlockPrefix+itemID, content, blob.PutOptionsOverwrite)
 }
 
 func (v *Vault) readEncryptedBlock(itemID string) ([]byte, error) {
-	content, err := v.storage.GetBlock(v.itemPrefix + itemID)
+	content, err := v.storage.GetBlock(VaultBlockPrefix + itemID)
 	if err != nil {
 		if err == blob.ErrBlockNotFound {
 			return nil, ErrItemNotFound
@@ -147,7 +146,7 @@ func (v *Vault) putJSON(id string, content interface{}) error {
 func (v *Vault) List(prefix string, limit int) ([]string, error) {
 	var result []string
 
-	ch, cancel := v.storage.ListBlocks(v.itemPrefix + prefix)
+	ch, cancel := v.storage.ListBlocks(VaultBlockPrefix + prefix)
 	defer cancel()
 	for b := range ch {
 		if limit == 0 {
@@ -157,7 +156,7 @@ func (v *Vault) List(prefix string, limit int) ([]string, error) {
 			return result, b.Error
 		}
 
-		itemID := strings.TrimPrefix(b.BlockID, v.itemPrefix)
+		itemID := strings.TrimPrefix(b.BlockID, VaultBlockPrefix)
 		if !isReservedName(itemID) {
 			result = append(result, itemID)
 		}
@@ -201,7 +200,7 @@ func (v *Vault) Remove(itemID string) error {
 		return err
 	}
 
-	return v.storage.DeleteBlock(v.itemPrefix + itemID)
+	return v.storage.DeleteBlock(VaultBlockPrefix + itemID)
 }
 
 // RemoveMany efficiently removes multiple vault items in parallel.
@@ -239,22 +238,11 @@ func Create(
 	vaultStorage blob.Storage,
 	vaultFormat *Format,
 	vaultCreds Credentials,
-	repoStorage blob.Storage,
 	repoFormat *repo.Format,
 ) (*Vault, error) {
 	v := Vault{
 		storage: vaultStorage,
 		format:  *vaultFormat,
-	}
-
-	if repoStorage == nil {
-		repoStorage = vaultStorage
-		v.itemPrefix = ColocatedBlockPrefix
-	}
-
-	cip, ok := repoStorage.(blob.ConnectionInfoProvider)
-	if !ok {
-		return nil, errors.New("repository does not support persisting configuration")
 	}
 
 	v.format.Version = "1"
@@ -277,7 +265,7 @@ func Create(
 		return nil, err
 	}
 
-	if err := vaultStorage.PutBlock(v.itemPrefix+formatBlockID, formatBytes, blob.PutOptionsOverwrite); err != nil {
+	if err := vaultStorage.PutBlock(VaultBlockPrefix+formatBlockID, formatBytes, blob.PutOptionsOverwrite); err != nil {
 		return nil, err
 	}
 
@@ -290,11 +278,6 @@ func Create(
 		Format: repoFormat,
 	}
 
-	if repoStorage != vaultStorage {
-		ci := cip.ConnectionInfo()
-		rc.Connection = &ci
-	}
-
 	if err := v.putJSON(repositoryConfigBlockID, &rc); err != nil {
 		return nil, err
 	}
@@ -303,20 +286,9 @@ func Create(
 	return &v, nil
 }
 
-// CreateColocated initializes a Vault attached to a Repository sharing the same storage.
-func CreateColocated(
-	sharedStorage blob.Storage,
-	vaultFormat *Format,
-	vaultCreds Credentials,
-	repoFormat *repo.Format,
-) (*Vault, error) {
-	return Create(sharedStorage, vaultFormat, vaultCreds, nil, repoFormat)
-}
-
 // RepositoryConfig stores the configuration of the repository associated with the vault.
 type RepositoryConfig struct {
-	Connection *blob.ConnectionInfo `json:"connection"`
-	Format     *repo.Format         `json:"format"`
+	Format *repo.Format `json:"format"`
 }
 
 // Open opens a vault.
@@ -325,7 +297,6 @@ func Open(vaultStorage blob.Storage, vaultCreds Credentials) (*Vault, error) {
 		storage: vaultStorage,
 	}
 
-	var prefix string
 	var wg sync.WaitGroup
 
 	var blocks [4][]byte
@@ -335,23 +306,16 @@ func Open(vaultStorage blob.Storage, vaultCreds Credentials) (*Vault, error) {
 		wg.Done()
 	}
 
-	wg.Add(4)
-	go f(0, formatBlockID)
-	go f(1, repositoryConfigBlockID)
-	go f(2, ColocatedBlockPrefix+formatBlockID)
-	go f(3, ColocatedBlockPrefix+repositoryConfigBlockID)
+	wg.Add(2)
+	go f(0, VaultBlockPrefix+formatBlockID)
+	go f(1, VaultBlockPrefix+repositoryConfigBlockID)
 	wg.Wait()
 
-	if blocks[0] == nil && blocks[2] == nil {
+	if blocks[0] == nil {
 		return nil, fmt.Errorf("vault format block not found")
 	}
 
 	var offset = 0
-	if blocks[0] == nil {
-		prefix = ColocatedBlockPrefix
-		offset = 2
-	}
-
 	err := json.Unmarshal(blocks[offset], &v.format)
 	if err != nil {
 		return nil, err
@@ -361,7 +325,6 @@ func Open(vaultStorage blob.Storage, vaultCreds Credentials) (*Vault, error) {
 	if err != nil {
 		return nil, err
 	}
-	v.itemPrefix = prefix
 
 	if err := v.initCrypto(); err != nil {
 		return nil, fmt.Errorf("unable to initialize crypto: %v", err)

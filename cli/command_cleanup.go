@@ -255,7 +255,7 @@ func runCleanupCommand(context *kingpin.ParseContext) error {
 		totalBlocks++
 		totalBytes += b.Length
 
-		if strings.HasPrefix(b.BlockID, vault.ColocatedBlockPrefix) {
+		if strings.HasPrefix(b.BlockID, vault.VaultBlockPrefix) {
 			ignoredBlocks++
 			ignoredBytes += b.Length
 			continue

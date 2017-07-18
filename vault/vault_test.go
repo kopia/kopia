@@ -43,7 +43,6 @@ func TestColocatedVault(t *testing.T) {
 
 func verifyVault(t *testing.T, vaultPath string, repoPath string) {
 	vaultStorage := mustCreateFileStorage(t, vaultPath)
-	repoStorage := mustCreateFileStorage(t, repoPath)
 
 	vaultCreds, err := Password("foo.bar.baz.foo.bar.baz")
 	if err != nil {
@@ -68,13 +67,13 @@ func verifyVault(t *testing.T, vaultPath string, repoPath string) {
 		Secret:       []byte{1, 2, 3},
 	}
 
-	r, err := repo.New(repoStorage, repoFormat)
+	r, err := repo.New(vaultStorage, repoFormat)
 	if err != nil {
 		t.Errorf("can't create repository: %v", err)
 		return
 	}
 
-	v1, err := Create(vaultStorage, vaultFormat, vaultCreds, repoStorage, repoFormat)
+	v1, err := Create(vaultStorage, vaultFormat, vaultCreds, repoFormat)
 	if err != nil {
 		t.Errorf("can't create vault: %v", err)
 		return

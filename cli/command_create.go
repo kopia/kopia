@@ -13,9 +13,8 @@ import (
 )
 
 var (
-	createCommand           = app.Command("create", "Create new vault and repository.")
-	createCommandRepository = createCommand.Flag("repository", "Repository path.").Default("colocated").String()
-	createObjectFormat      = createCommand.Flag("repo-format", "Format of repository objects.").PlaceHolder("FORMAT").Default(repo.DefaultObjectFormat).Enum(supportedObjectFormats()...)
+	createCommand      = app.Command("create", "Create new vault and repository.")
+	createObjectFormat = createCommand.Flag("repo-format", "Format of repository objects.").PlaceHolder("FORMAT").Default(repo.DefaultObjectFormat).Enum(supportedObjectFormats()...)
 
 	createMinBlockSize          = createCommand.Flag("min-block-size", "Minimum size of a data block.").PlaceHolder("KB").Default("1024").Int()
 	createAvgBlockSize          = createCommand.Flag("avg-block-size", "Average size of a data block.").PlaceHolder("KB").Default("10240").Int()
@@ -123,18 +122,7 @@ func runCreateCommand(context *kingpin.ParseContext) error {
 		"Initializing vault with encryption '%v'.\n",
 		vf.EncryptionAlgorithm)
 
-	var vlt *vault.Vault
-
-	if *createCommandRepository == "colocated" {
-		vlt, err = vault.CreateColocated(vaultStorage, vf, creds, repoFormat)
-	} else {
-		repositoryStorage, err := openStorageAndEnsureEmpty(*createCommandRepository)
-		if err != nil {
-			return fmt.Errorf("unable to get repository storage: %v", err)
-		}
-		vlt, err = vault.Create(vaultStorage, vf, creds, repositoryStorage, repoFormat)
-	}
-
+	vlt, err := vault.Create(vaultStorage, vf, creds, repoFormat)
 	if err != nil {
 		return fmt.Errorf("cannot create vault: %v", err)
 	}

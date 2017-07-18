@@ -130,8 +130,6 @@ func decodeHexSuffix(s string, length int) ([]byte, error) {
 //
 //   UNENCRYPTED_HMAC_SHA256_128          - unencrypted, block IDs are 128-bit (32 characters long)
 //   UNENCRYPTED_HMAC_SHA256              - unencrypted, block IDs are 256-bit (64 characters long)
-//   ENCRYPTED_HMAC_SHA512_384_AES256     - encrypted with AES-256, block IDs are 128-bit (32 characters long)
-//   ENCRYPTED_HMAC_SHA512_AES256         - encrypted with AES-256, block IDs are 256-bit (64 characters long)
 //   ENCRYPTED_HMAC_SHA256_AES256_SIV     - encrypted with AES-256 (shared key), IV==FOLD(HMAC-SHA256(content), 128)
 //
 // Additional formats can be supported by adding them to the map.

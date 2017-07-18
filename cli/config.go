@@ -122,10 +122,6 @@ func persistVaultConfig(v *vault.Vault) error {
 	var lc config.LocalConfig
 	lc.VaultConnection = cfg
 
-	if v.RepoConfig.Connection != nil {
-		lc.RepoConnection = v.RepoConfig.Connection
-	}
-
 	fname := vaultConfigFileName()
 	log.Printf("Saving vault configuration to '%v'.", fname)
 	if err := os.MkdirAll(filepath.Dir(fname), 0700); err != nil {
