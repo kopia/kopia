@@ -33,7 +33,7 @@ func (r *root) Root() (fusefs.Node, error) {
 }
 
 func runMountCommand(context *kingpin.ParseContext) error {
-	rep := mustConnectToRepository(nil)
+	rep := mustOpenRepository(nil)
 
 	fuseConnection, err := fuse.Mount(
 		*mountPoint,

@@ -13,7 +13,7 @@ Unlike other cloud backup solutions, the user in full control of backup storage 
 > **NOTICE**:
 >
 > Kopia is still in early stages of development and is **not ready for general use**.
-> The repository and vault data format are subject to change, including backwards-incompatible changes. Use at your own risk.
+> The repository data format is subject to change, including backwards-incompatible changes. Use at your own risk.
 
 Getting Started
 ---

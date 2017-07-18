@@ -178,7 +178,7 @@ func expireSnapshots(mgr *snapshot.Manager, snapshots []*snapshot.Manifest, name
 }
 
 func runExpireCommand(context *kingpin.ParseContext) error {
-	rep := mustConnectToRepository(nil)
+	rep := mustOpenRepository(nil)
 	defer rep.Close()
 
 	mgr := snapshot.NewManager(rep)
@@ -206,7 +206,7 @@ func runExpireCommand(context *kingpin.ParseContext) error {
 
 	if *expireDelete == "yes" {
 		fmt.Fprintf(os.Stderr, "Deleting %v snapshots...\n", len(toDelete))
-		if err := rep.Vault.RemoveMany(toDelete); err != nil {
+		if err := rep.RemoveMany(toDelete); err != nil {
 			return err
 		}
 	} else {

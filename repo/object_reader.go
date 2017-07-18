@@ -10,7 +10,7 @@ func (i *indirectObjectEntry) endOffset() int64 {
 }
 
 type objectReader struct {
-	repo *casManager
+	repo *ObjectManager
 
 	seekTable []indirectObjectEntry
 

@@ -149,7 +149,7 @@ func findAliveBlocks(ctx *cleanupContext, wi *cleanupWorkItem) error {
 }
 
 func runCleanupCommand(context *kingpin.ParseContext) error {
-	rep := mustConnectToRepository(nil)
+	rep := mustOpenRepository(nil)
 	defer rep.Close()
 
 	mgr := snapshot.NewManager(rep)
@@ -254,7 +254,7 @@ func runCleanupCommand(context *kingpin.ParseContext) error {
 		totalBlocks++
 		totalBytes += b.Length
 
-		if strings.HasPrefix(b.BlockID, repo.VaultBlockPrefix) {
+		if strings.HasPrefix(b.BlockID, repo.MetadataBlockPrefix) {
 			ignoredBlocks++
 			ignoredBytes += b.Length
 			continue
@@ -262,11 +262,11 @@ func runCleanupCommand(context *kingpin.ParseContext) error {
 
 		if !ctx.inuse[b.BlockID] {
 			if time.Since(b.TimeStamp) < *cleanupIgnoreAge {
-				log.Printf("Ignored unreferenced block: %v (%v) at %v", b.BlockID, units.BytesString(b.Length), b.TimeStamp.Local())
+				log.Printf("Ignored unreferenced block: %v (%v) at %v", b.BlockID, units.BytesStringBase10(b.Length), b.TimeStamp.Local())
 				ignoredBlocks++
 				ignoredBytes += b.Length
 			} else {
-				log.Printf("Unreferenced block: %v (%v) at %v", b.BlockID, units.BytesString(b.Length), b.TimeStamp.Local())
+				log.Printf("Unreferenced block: %v (%v) at %v", b.BlockID, units.BytesStringBase10(b.Length), b.TimeStamp.Local())
 				unreferencedBlocks++
 				unreferencedBytes += b.Length
 			}
@@ -276,10 +276,10 @@ func runCleanupCommand(context *kingpin.ParseContext) error {
 		}
 	}
 
-	log.Printf("Found %v (%v) total blocks.", totalBlocks, units.BytesString(totalBytes))
-	log.Printf("Ignored %v blocks (%v).", ignoredBlocks, units.BytesString(ignoredBytes))
-	log.Printf("In-use objects: %v, %v blocks (%v)", len(ctx.queue.visited), inuseBlocks, units.BytesString(inuseBytes))
-	log.Printf("Unreferenced: %v blocks (%v)", unreferencedBlocks, units.BytesString(unreferencedBytes))
+	log.Printf("Found %v (%v) total blocks.", totalBlocks, units.BytesStringBase10(totalBytes))
+	log.Printf("Ignored %v blocks (%v).", ignoredBlocks, units.BytesStringBase10(ignoredBytes))
+	log.Printf("In-use objects: %v, %v blocks (%v)", len(ctx.queue.visited), inuseBlocks, units.BytesStringBase10(inuseBytes))
+	log.Printf("Unreferenced: %v blocks (%v)", unreferencedBlocks, units.BytesStringBase10(unreferencedBytes))
 
 	return nil
 }

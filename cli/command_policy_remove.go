@@ -18,7 +18,7 @@ func init() {
 }
 
 func removePolicy(context *kingpin.ParseContext) error {
-	rep := mustConnectToRepository(nil)
+	rep := mustOpenRepository(nil)
 	mgr := snapshot.NewManager(rep)
 
 	targets, err := policyTargets(policyRemoveGlobal, policyRemoveTargets)

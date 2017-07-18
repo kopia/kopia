@@ -5,29 +5,35 @@ import (
 	"strings"
 )
 
-var unitPrefixes = []string{"", "K", "M", "G", "T"}
+var base10UnitPrefixes = []string{"", "K", "M", "G", "T"}
+var base2UnitPrefixes = []string{"", "Ki", "Mi", "Gi", "Ti"}
 
 func niceNumber(f float64) string {
 	return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.1f", f), "0"), ".")
 }
 
-func toDecimalUnitString(f float64, suffix string) string {
-	for i := range unitPrefixes {
-		if f < 900 {
-			return fmt.Sprintf("%v %v%v", niceNumber(f), unitPrefixes[i], suffix)
+func toDecimalUnitString(f float64, thousand float64, prefixes []string, suffix string) string {
+	for i := range prefixes {
+		if f < 0.9*thousand {
+			return fmt.Sprintf("%v %v%v", niceNumber(f), prefixes[i], suffix)
 		}
-		f = f / float64(1000)
+		f = f / thousand
 	}
 
-	return fmt.Sprintf("%v %v%v", niceNumber(f), unitPrefixes[len(unitPrefixes)-1], suffix)
+	return fmt.Sprintf("%v %v%v", niceNumber(f), prefixes[len(prefixes)-1], suffix)
 }
 
-// BytesString formats the given value as bytes with the appropriate suffix (KB, MB, GB, ...)
-func BytesString(b int64) string {
-	return toDecimalUnitString(float64(b), "B")
+// BytesStringBase10 formats the given value as bytes with the appropriate base-10 suffix (KB, MB, GB, ...)
+func BytesStringBase10(b int64) string {
+	return toDecimalUnitString(float64(b), 1000, base10UnitPrefixes, "B")
+}
+
+// BytesStringBase2 formats the given value as bytes with the appropriate base-2 suffix (KiB, MiB, GiB, ...)
+func BytesStringBase2(b int64) string {
+	return toDecimalUnitString(float64(b), 1024.0, base2UnitPrefixes, "B")
 }
 
 // BitsPerSecondsString formats the given value bits per second with the appropriate suffix (Kbit/s, Mbit/s, Gbit/s, ...)
 func BitsPerSecondsString(bps float64) string {
-	return toDecimalUnitString(bps, "bit/s")
+	return toDecimalUnitString(bps, 1000, base10UnitPrefixes, "bit/s")
 }

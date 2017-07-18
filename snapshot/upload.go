@@ -71,9 +71,9 @@ func uploadFileInternal(u *uploadContext, f fs.File, relativePath string, forceS
 	}
 	defer file.Close()
 
-	writer := u.repo.NewWriter(
-		repo.WithDescription("FILE:" + f.Metadata().Name),
-	)
+	writer := u.repo.NewWriter(repo.WriterOptions{
+		Description: "FILE:" + f.Metadata().Name,
+	})
 	defer writer.Close()
 
 	written, err := copyWithProgress(u, relativePath, writer, file, 0, f.Metadata().FileSize)
@@ -152,9 +152,9 @@ func uploadBundleInternal(u *uploadContext, b *dir.Bundle, relativePath string) 
 	bundleMetadata := b.Metadata()
 	u.progress.Started(relativePath, b.Metadata().FileSize)
 
-	writer := u.repo.NewWriter(
-		repo.WithDescription("BUNDLE:" + bundleMetadata.Name),
-	)
+	writer := u.repo.NewWriter(repo.WriterOptions{
+		Description: "BUNDLE:" + bundleMetadata.Name,
+	})
 
 	defer writer.Close()
 
@@ -218,10 +218,10 @@ func uploadFile(u *uploadContext, file fs.File) (repo.ObjectID, error) {
 func uploadDir(u *uploadContext, dir fs.Directory) (repo.ObjectID, repo.ObjectID, error) {
 	var err error
 
-	mw := u.repo.NewWriter(
-		repo.WithDescription("HASHCACHE:"+dir.Metadata().Name),
-		repo.WithBlockNamePrefix("H"),
-	)
+	mw := u.repo.NewWriter(repo.WriterOptions{
+		Description:     "HASHCACHE:" + dir.Metadata().Name,
+		BlockNamePrefix: "H",
+	})
 	defer mw.Close()
 	u.cacheWriter = hashcache.NewWriter(mw)
 	oid, _, _, err := uploadDirInternal(u, dir, ".", true)
@@ -254,9 +254,9 @@ func uploadDirInternal(
 
 	entries = bundleEntries(u, entries)
 
-	writer := u.repo.NewWriter(
-		repo.WithDescription("DIR:" + relativePath),
-	)
+	writer := u.repo.NewWriter(repo.WriterOptions{
+		Description: "DIR:" + relativePath,
+	})
 
 	dw := dir.NewWriter(writer)
 	defer writer.Close()
@@ -570,7 +570,7 @@ func Upload(
 
 	s.EndTime = time.Now()
 	s.Stats = *u.stats
-	s.Stats.Repository = &u.repo.Stats
+	s.Stats.Repository = u.repo.Stats()
 
 	return s, nil
 }

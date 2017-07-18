@@ -22,7 +22,7 @@ var (
 )
 
 func runLSCommand(context *kingpin.ParseContext) error {
-	rep := mustConnectToRepository(nil)
+	rep := mustOpenRepository(nil)
 	defer rep.Close()
 
 	oid, err := parseObjectID(*lsCommandPath, rep)

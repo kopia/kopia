@@ -1,13 +1,12 @@
 package cli
 
 import (
-	"os"
-
+	"github.com/kopia/kopia/repo"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
-	disconnectCommand = app.Command("disconnect", "Connect to a vault.")
+	disconnectCommand = app.Command("disconnect", "Disconnect from a repository.")
 )
 
 func init() {
@@ -15,9 +14,5 @@ func init() {
 }
 
 func runDisconnectCommand(context *kingpin.ParseContext) error {
-	fn := vaultConfigFileName()
-	if _, err := os.Stat(fn); err == nil {
-		return os.Remove(fn)
-	}
-	return nil
+	return repo.Disconnect(repositoryConfigFileName())
 }

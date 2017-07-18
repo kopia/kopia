@@ -40,13 +40,9 @@ var (
 )
 
 func runBackupCommand(c *kingpin.ParseContext) error {
-	var repoOptions []repo.RepositoryOption
-
-	if *backupWriteBack > 0 {
-		repoOptions = append(repoOptions, repo.WriteBack(*backupWriteBack))
-	}
-
-	rep := mustConnectToRepository(repoOptions)
+	rep := mustOpenRepository(&repo.Options{
+		WriteBack: *backupWriteBack,
+	})
 	defer rep.Close()
 
 	ctx := context.Background()
@@ -66,7 +62,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 	}
 
 	for _, backupDirectory := range sources {
-		rep.Stats.Reset()
+		rep.ResetStats()
 		log.Printf("Backing up %v", backupDirectory)
 		dir, err := filepath.Abs(backupDirectory)
 		if err != nil {

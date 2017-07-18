@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -14,7 +13,6 @@ import (
 
 	"github.com/bgentry/speakeasy"
 	"github.com/kopia/kopia/auth"
-	"github.com/kopia/kopia/blob/logging"
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/fs/loggingfs"
@@ -25,12 +23,11 @@ var (
 	traceStorage = app.Flag("trace-storage", "Enables tracing of storage operations.").Hidden().Envar("KOPIA_TRACE_STORAGE").Bool()
 	traceLocalFS = app.Flag("trace-localfs", "Enables tracing of local filesystem operations").Hidden().Envar("KOPIA_TRACE_STORAGE").Bool()
 
-	vaultConfigPath = app.Flag("vaultconfig", "Specify the vault config file to use.").PlaceHolder("PATH").Envar("KOPIA_VAULTCONFIG").String()
-	vaultPath       = app.Flag("vault", "Specify the vault to use.").PlaceHolder("PATH").Envar("KOPIA_VAULT").Short('v').String()
-	password        = app.Flag("password", "Vault password.").Envar("KOPIA_PASSWORD").Short('p').String()
-	passwordFile    = app.Flag("passwordfile", "Read vault password from a file.").PlaceHolder("FILENAME").Envar("KOPIA_PASSWORD_FILE").ExistingFile()
-	key             = app.Flag("key", "Specify vault master key (hexadecimal).").Envar("KOPIA_KEY").Short('k').String()
-	keyFile         = app.Flag("keyfile", "Read vault master key from file.").PlaceHolder("FILENAME").Envar("KOPIA_KEY_FILE").ExistingFile()
+	configPath   = app.Flag("config-file", "Specify the config file to use.").PlaceHolder("PATH").Envar("KOPIA_CONFIG_PATH").String()
+	password     = app.Flag("password", "Repository password.").Envar("KOPIA_PASSWORD").Short('p').String()
+	passwordFile = app.Flag("passwordfile", "Read repository password from a file.").PlaceHolder("FILENAME").Envar("KOPIA_PASSWORD_FILE").ExistingFile()
+	key          = app.Flag("key", "Specify master key (hexadecimal).").Envar("KOPIA_KEY").Short('k').String()
+	keyFile      = app.Flag("keyfile", "Read master key from file.").PlaceHolder("FILENAME").Envar("KOPIA_KEY_FILE").ExistingFile()
 
 	maxDownloadSpeed = app.Flag("max-download-speed", "Limit the download speed.").PlaceHolder("BYTES_PER_SEC").Int()
 	maxUploadSpeed   = app.Flag("max-upload-speed", "Limit the upload speed.").PlaceHolder("BYTES_PER_SEC").Int()
@@ -48,15 +45,15 @@ func getContext() context.Context {
 	return ctx
 }
 
-func connectToRepository(options []repo.RepositoryOption) (*repo.Repository, error) {
-	return repo.Connect(getContext(), vaultConfigFileName(), connectOptionsFromFlags(options))
+func openRepository(opts *repo.Options) (*repo.Repository, error) {
+	return repo.Open(getContext(), repositoryConfigFileName(), applyOptionsFromFlags(opts))
 }
 
-func connectOptionsFromFlags(options []repo.RepositoryOption) *repo.ConnectOptions {
-	opts := &repo.ConnectOptions{
-		CredentialsCallback: func() (auth.Credentials, error) { return getVaultCredentials(false) },
-		RepositoryOptions:   options,
+func applyOptionsFromFlags(opts *repo.Options) *repo.Options {
+	if opts == nil {
+		opts = &repo.Options{}
 	}
+	opts.CredentialsCallback = func() (auth.Credentials, error) { return getRepositoryCredentials(false) }
 
 	if *traceStorage {
 		opts.TraceStorage = log.Printf
@@ -73,23 +70,10 @@ func connectOptionsFromFlags(options []repo.RepositoryOption) *repo.ConnectOptio
 	return opts
 }
 
-func mustConnectToRepository(repoOptions []repo.RepositoryOption) *repo.Repository {
-	s, err := connectToRepository(repoOptions)
+func mustOpenRepository(opts *repo.Options) *repo.Repository {
+	s, err := openRepository(opts)
 	failOnError(err)
 	return s
-}
-
-func repositoryOptionsFromFlags(extraOptions []repo.RepositoryOption) []repo.RepositoryOption {
-	var opts []repo.RepositoryOption
-
-	for _, o := range extraOptions {
-		opts = append(opts, o)
-	}
-
-	if *traceStorage {
-		opts = append(opts, repo.EnableLogging(logging.Prefix("[REPOSITORY] ")))
-	}
-	return opts
 }
 
 func getHomeDir() string {
@@ -104,54 +88,14 @@ func getHomeDir() string {
 	return os.Getenv("HOME")
 }
 
-func vaultConfigFileName() string {
-	if len(*vaultConfigPath) > 0 {
-		return *vaultConfigPath
+func repositoryConfigFileName() string {
+	if len(*configPath) > 0 {
+		return *configPath
 	}
-	return filepath.Join(getHomeDir(), ".kopia/vault.config")
+	return filepath.Join(getHomeDir(), ".kopia/repository.config")
 }
 
-func persistVaultConfig(r *repo.Vault) error {
-	cfg, err := r.Config()
-	if err != nil {
-		return err
-	}
-
-	var lc repo.LocalConfig
-	lc.VaultConnection = cfg
-
-	fname := vaultConfigFileName()
-	log.Printf("Saving vault configuration to '%v'.", fname)
-	if err := os.MkdirAll(filepath.Dir(fname), 0700); err != nil {
-		return err
-	}
-
-	d, err := json.MarshalIndent(&lc, "", "  ")
-	if err != nil {
-		return err
-	}
-
-	return ioutil.WriteFile(fname, d, 0600)
-}
-
-func openVaultSpecifiedByFlag() (*repo.Vault, error) {
-	if *vaultPath == "" {
-		return nil, fmt.Errorf("--vault must be specified")
-	}
-	storage, err := newStorageFromURL(getContext(), *vaultPath)
-	if err != nil {
-		return nil, err
-	}
-
-	creds, err := getVaultCredentials(false)
-	if err != nil {
-		return nil, err
-	}
-
-	return repo.Open(storage, creds)
-}
-
-func getVaultCredentials(isNew bool) (auth.Credentials, error) {
+func getRepositoryCredentials(isNew bool) (auth.Credentials, error) {
 	if *key != "" {
 		k, err := hex.DecodeString(*key)
 		if err != nil {
@@ -184,7 +128,7 @@ func getVaultCredentials(isNew bool) (auth.Credentials, error) {
 	}
 	if isNew {
 		for {
-			p1, err := askPass("Enter password to create new vault: ")
+			p1, err := askPass("Enter password to create new repository: ")
 			if err != nil {
 				return nil, err
 			}
@@ -199,7 +143,7 @@ func getVaultCredentials(isNew bool) (auth.Credentials, error) {
 			}
 		}
 	} else {
-		p1, err := askPass("Enter password to open vault: ")
+		p1, err := askPass("Enter password to open repository: ")
 		if err != nil {
 			return nil, err
 		}

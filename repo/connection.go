@@ -2,87 +2,153 @@ package repo
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"os"
+	"path/filepath"
 
 	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/blob"
-	"github.com/kopia/kopia/blob/caching"
 	"github.com/kopia/kopia/blob/logging"
+	"github.com/kopia/kopia/internal/config"
 
 	// Register well-known blob storage providers
 	_ "github.com/kopia/kopia/blob/filesystem"
 	_ "github.com/kopia/kopia/blob/gcs"
 )
 
-// Connect connects to the Repository specified in the specified configuration file.
-func Connect(ctx context.Context, configFile string, options *ConnectOptions) (*Repository, error) {
-	lc, err := LoadFromFile(configFile)
+// Options provides configuration parameters for connection to a repository.
+type Options struct {
+	CredentialsCallback func() (auth.Credentials, error)    // Provides credentials required to open the repository if not persisted.
+	TraceStorage        func(f string, args ...interface{}) // Logs all storage access using provided Printf-style function
+	MaxDownloadSpeed    int                                 // Limits download speed.
+	MaxUploadSpeed      int                                 // Limits upload speed.
+	WriteBack           int                                 // Causes all object writes to be asynchronous with the specified number of workers.
+}
+
+// Open opens a Repository specified in the configuration file.
+func Open(ctx context.Context, configFile string, options *Options) (*Repository, error) {
+	if options == nil {
+		options = &Options{}
+	}
+
+	configFile, err := filepath.Abs(configFile)
+	if err != nil {
+		return nil, err
+	}
+
+	lc, err := config.LoadFromFile(configFile)
 	if err != nil {
 		return nil, err
 	}
 
 	var creds auth.Credentials
-	if len(lc.VaultConnection.Key) > 0 {
-		creds, err = auth.MasterKey(lc.VaultConnection.Key)
+	if len(lc.Connection.Key) > 0 {
+		creds, err = auth.MasterKey(lc.Connection.Key)
 	} else {
 		if options.CredentialsCallback == nil {
-			return nil, errors.New("vault key not persisted and no credentials specified")
+			return nil, errors.New("key not persisted and no credentials specified")
 		}
 		creds, err = options.CredentialsCallback()
 	}
 
 	if err != nil {
-		return nil, fmt.Errorf("invalid vault credentials: %v", err)
+		return nil, fmt.Errorf("invalid credentials: %v", err)
 	}
 
-	rawVaultStorage, err := newStorageWithOptions(ctx, lc.VaultConnection.ConnectionInfo, options)
+	st, err := newStorageWithOptions(ctx, lc.Connection.ConnectionInfo, options)
 	if err != nil {
-		return nil, fmt.Errorf("cannot open vault storage: %v", err)
+		return nil, fmt.Errorf("cannot open storage: %v", err)
 	}
 
-	vaultStorage := rawVaultStorage
-
-	if options.TraceStorage != nil {
-		vaultStorage = logging.NewWrapper(vaultStorage, logging.Prefix("[VAULT] "), logging.Output(options.TraceStorage))
-	}
-
-	vlt, err := Open(vaultStorage, creds)
+	r, err := connect(ctx, st, creds, options)
 	if err != nil {
-		rawVaultStorage.Close()
-		return nil, fmt.Errorf("unable to open vault: %v", err)
-	}
-
-	repositoryStorage := rawVaultStorage
-	if options.TraceStorage != nil {
-		repositoryStorage = logging.NewWrapper(repositoryStorage, logging.Prefix("[STORAGE] "), logging.Output(options.TraceStorage))
-	}
-
-	if lc.Caching != nil {
-		rs, err := caching.NewWrapper(ctx, repositoryStorage, lc.Caching)
-		if err != nil {
-			vaultStorage.Close()
-			repositoryStorage.Close()
-			return nil, err
-		}
-		repositoryStorage = rs
-		if options.TraceStorage != nil {
-			repositoryStorage = logging.NewWrapper(repositoryStorage, logging.Prefix("[CACHE] "), logging.Output(options.TraceStorage))
-		}
-	}
-
-	r, err := NewRepository(repositoryStorage, vlt.RepoConfig.Format)
-	if err != nil {
-		vaultStorage.Close()
-		repositoryStorage.Close()
+		st.Close()
 		return nil, err
 	}
-	r.Vault = vlt
+
+	r.ConfigFile = configFile
+	r.CacheDirectory = applyDefaultString(lc.CacheDirectory, filepath.Join(filepath.Dir(configFile), "cache"))
+
 	return r, nil
 }
 
-func newStorageWithOptions(ctx context.Context, cfg blob.ConnectionInfo, options *ConnectOptions) (blob.Storage, error) {
+// ConnectOptions specifies options when persisting configuration to connect to a repository.
+type ConnectOptions struct {
+	PersistCredentials bool
+	CacheDirectory     string
+}
+
+// Connect connects to the repository in the specified storage and persists the configuration and credentials in the file provided.
+func Connect(ctx context.Context, configFile string, st blob.Storage, creds auth.Credentials, opt ConnectOptions) error {
+	r, err := connect(ctx, st, creds, nil)
+	if err != nil {
+		return err
+	}
+
+	cfg, err := r.connectionConfiguration()
+	if err != nil {
+		return err
+	}
+
+	var lc config.LocalConfig
+	lc.Connection = cfg
+
+	if !opt.PersistCredentials {
+		lc.Connection.Key = nil
+	}
+
+	d, err := json.MarshalIndent(&lc, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(filepath.Dir(configFile), 0700); err != nil {
+		return err
+	}
+
+	return ioutil.WriteFile(configFile, d, 0600)
+}
+
+func connect(ctx context.Context, st blob.Storage, creds auth.Credentials, options *Options) (*Repository, error) {
+	if options == nil {
+		options = &Options{}
+	}
+	if options.TraceStorage != nil {
+		st = logging.NewWrapper(st, logging.Prefix("[STORAGE] "), logging.Output(options.TraceStorage))
+	}
+
+	mm, err := newMetadataManager(st, creds)
+	if err != nil {
+		return nil, fmt.Errorf("unable to open metadata manager: %v", err)
+	}
+
+	om, err := newObjectManager(st, mm.repoConfig.Format, options)
+	if err != nil {
+		return nil, fmt.Errorf("unable to open object manager: %v", err)
+	}
+
+	return &Repository{
+		ObjectManager:   om,
+		MetadataManager: mm,
+		Storage:         st,
+	}, nil
+}
+
+// Disconnect removes the specified configuration file and any local cache directories.
+func Disconnect(configFile string) error {
+	_, err := config.LoadFromFile(configFile)
+	if err != nil {
+		return err
+	}
+
+	return os.Remove(configFile)
+}
+
+func newStorageWithOptions(ctx context.Context, cfg blob.ConnectionInfo, options *Options) (blob.Storage, error) {
 	s, err := blob.NewStorage(ctx, cfg)
 	if err != nil {
 		return nil, err

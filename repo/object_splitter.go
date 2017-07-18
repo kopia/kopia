@@ -3,13 +3,45 @@ package repo
 import (
 	"math"
 
+	"sort"
+
 	"github.com/chmduquesne/rollinghash"
 	"github.com/chmduquesne/rollinghash/buzhash32"
+	"github.com/kopia/kopia/internal/config"
 )
 
 type objectSplitter interface {
 	add(b byte) bool
 }
+
+// SupportedObjectSplitters is a list of supported object splitters including:
+//
+//    NEVER    - prevents objects from ever splitting
+//    FIXED    - always splits large objects exactly at the maximum block size boundary
+//    DYNAMIC  - dynamicaly splits large objects based on rolling hash of contents.
+var SupportedObjectSplitters []string
+
+var objectSplitterFactories = map[string]func(*config.RepositoryObjectFormat) objectSplitter{
+	"NEVER": func(f *config.RepositoryObjectFormat) objectSplitter {
+		return newNeverSplitter()
+	},
+	"FIXED": func(f *config.RepositoryObjectFormat) objectSplitter {
+		return newFixedSplitter(int(f.MaxBlockSize))
+	},
+	"DYNAMIC": func(f *config.RepositoryObjectFormat) objectSplitter {
+		return newRollingHashSplitter(buzhash32.New(), f.MinBlockSize, f.AvgBlockSize, f.MaxBlockSize)
+	},
+}
+
+func init() {
+	for k := range objectSplitterFactories {
+		SupportedObjectSplitters = append(SupportedObjectSplitters, k)
+	}
+	sort.Strings(SupportedObjectSplitters)
+}
+
+// DefaultObjectSplitter is the name of the splitter used by default for new repositories.
+const DefaultObjectSplitter = "DYNAMIC"
 
 type neverSplitter struct{}
 
@@ -45,9 +77,9 @@ type rollingHashSplitter struct {
 	mask    uint32
 	allOnes uint32
 
-	currentBlockSize int32
-	minBlockSize     int32
-	maxBlockSize     int32
+	currentBlockSize int
+	minBlockSize     int
+	maxBlockSize     int
 }
 
 func (rs *rollingHashSplitter) add(b byte) bool {
@@ -67,27 +99,14 @@ func (rs *rollingHashSplitter) add(b byte) bool {
 	return false
 }
 
-func newRollingHashSplitter(rh rollinghash.Hash32, minBlockSize int32, approxBlockSize int32, maxBlockSize int32) objectSplitter {
+func newRollingHashSplitter(rh rollinghash.Hash32, minBlockSize int, approxBlockSize int, maxBlockSize int) objectSplitter {
 	bits := rollingHashBits(approxBlockSize)
 	mask := ^(^uint32(0) << bits)
 	return &rollingHashSplitter{rh, mask, (uint32(0)) ^ mask, 0, minBlockSize, maxBlockSize}
 }
 
-func rollingHashBits(n int32) uint {
+func rollingHashBits(n int) uint {
 	e := math.Log2(float64(n))
 	exp := math.Floor(e + 0.5)
 	return uint(exp)
-}
-
-//SupportedSplitters is a map of supported splitters their factory functions.
-var SupportedSplitters = map[string]func(*Format) objectSplitter{
-	"NEVER": func(f *Format) objectSplitter {
-		return newNeverSplitter()
-	},
-	"FIXED": func(f *Format) objectSplitter {
-		return newFixedSplitter(int(f.MaxBlockSize))
-	},
-	"DYNAMIC": func(f *Format) objectSplitter {
-		return newRollingHashSplitter(buzhash32.New(), f.MinBlockSize, f.AvgBlockSize, f.MaxBlockSize)
-	},
 }

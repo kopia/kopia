@@ -17,7 +17,7 @@ type uploadProgress struct {
 }
 
 func (p *uploadProgress) Cached(path string, length int64) {
-	log.Printf("  Cached: %v %v", path, units.BytesString(length))
+	log.Printf("  Cached: %v %v", path, units.BytesStringBase10(length))
 }
 
 func (p *uploadProgress) StartedDir(path string) {

@@ -4,15 +4,16 @@ import (
 	"bytes"
 	"crypto/rand"
 	"crypto/sha1"
-
 	"testing"
+
+	"github.com/kopia/kopia/internal/config"
 )
 
 func TestObjectFormatters(t *testing.T) {
 	secret := []byte("secret")
-	f := &Format{Secret: secret, MasterKey: make([]byte, 32)}
+	f := &config.RepositoryObjectFormat{Secret: secret, MasterKey: make([]byte, 32)}
 
-	for k, v := range SupportedFormats {
+	for k, v := range objectFormatterFactories {
 		data := make([]byte, 100)
 		rand.Read(data)
 

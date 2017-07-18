@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/kopia/kopia/blob"
+	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/internal/jsonstream"
 	"github.com/kopia/kopia/internal/storagetesting"
 )
@@ -21,8 +22,8 @@ func init() {
 	panicOnBufferLeaks = true
 }
 
-func testFormat() *Format {
-	return &Format{
+func testFormat() config.RepositoryObjectFormat {
+	return config.RepositoryObjectFormat{
 		Version:                1,
 		MaxBlockSize:           200,
 		MaxInlineContentLength: 20,
@@ -44,11 +45,13 @@ func getMd5LObjectID(data []byte) string {
 	return fmt.Sprintf("L%s", getMd5Digest(data))
 }
 
-func setupTest(t *testing.T) (data map[string][]byte, repo *casManager) {
+func setupTest(t *testing.T) (data map[string][]byte, om *ObjectManager) {
 	data = map[string][]byte{}
 	st := storagetesting.NewMapStorage(data)
 
-	repo, err := newCASManager(st, testFormat(), WriteBack(5))
+	om, err := newObjectManager(st, testFormat(), &Options{
+		WriteBack: 5,
+	})
 	if err != nil {
 		t.Errorf("cannot create manager: %v", err)
 	}
@@ -76,9 +79,9 @@ func TestWriters(t *testing.T) {
 	for _, c := range cases {
 		data, repo := setupTest(t)
 
-		writer := repo.NewWriter(
-			WithBlockNamePrefix("X"),
-		)
+		writer := repo.NewWriter(WriterOptions{
+			BlockNamePrefix: "X",
+		})
 
 		writer.Write(c.data)
 
@@ -114,9 +117,9 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	_, repo := setupTest(t)
 
 	bytes := make([]byte, 100)
-	writer := repo.NewWriter(
-		WithBlockNamePrefix("X"),
-	)
+	writer := repo.NewWriter(WriterOptions{
+		BlockNamePrefix: "X",
+	})
 	writer.Write(bytes[0:50])
 	writer.Write(bytes[0:50])
 	result, err := writer.Result(false)
@@ -125,7 +128,7 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	}
 }
 
-func verifyIndirectBlock(t *testing.T, r *casManager, oid ObjectID) {
+func verifyIndirectBlock(t *testing.T, r *ObjectManager, oid ObjectID) {
 	for level := int32(0); level < oid.Indirect; level++ {
 		direct := oid
 		direct.Indirect = level
@@ -175,7 +178,7 @@ func TestIndirection(t *testing.T) {
 
 		contentBytes := make([]byte, c.dataLength)
 
-		writer := repo.NewWriter()
+		writer := repo.NewWriter(WriterOptions{})
 		writer.Write(contentBytes)
 		result, err := writer.Result(false)
 		repo.writeBack.flush()
@@ -211,11 +214,11 @@ func TestHMAC(t *testing.T) {
 	s := testFormat()
 	s.ObjectFormat = "TESTONLY_MD5"
 
-	repo, err := newCASManager(storagetesting.NewMapStorage(data), s)
+	repo, err := newObjectManager(storagetesting.NewMapStorage(data), s, nil)
 	if err != nil {
 		t.Errorf("cannot create manager: %v", err)
 	}
-	w := repo.NewWriter()
+	w := repo.NewWriter(WriterOptions{})
 	w.Write(content)
 	result, err := w.Result(false)
 	if result.String() != "D999732b72ceff665b3f7608411db66a4" {
@@ -316,9 +319,9 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 			randomData := make([]byte, size)
 			cryptorand.Read(randomData)
 
-			writer := repo.NewWriter(
-				WithBlockNamePrefix("X"),
-			)
+			writer := repo.NewWriter(WriterOptions{
+				BlockNamePrefix: "X",
+			})
 			writer.Write(randomData)
 			objectID, err := writer.Result(forceStored)
 			writer.Close()
@@ -342,7 +345,7 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 	}
 }
 
-func verify(t *testing.T, repo *casManager, objectID ObjectID, expectedData []byte, testCaseID string) {
+func verify(t *testing.T, repo *ObjectManager, objectID ObjectID, expectedData []byte, testCaseID string) {
 	reader, err := repo.Open(objectID)
 	if err != nil {
 		t.Errorf("cannot get reader for %v: %v", testCaseID, err)
@@ -374,8 +377,8 @@ func verify(t *testing.T, repo *casManager, objectID ObjectID, expectedData []by
 }
 
 func TestFormats(t *testing.T) {
-	makeFormat := func(objectFormat string) *Format {
-		return &Format{
+	makeFormat := func(objectFormat string) config.RepositoryObjectFormat {
+		return config.RepositoryObjectFormat{
 			Version:      1,
 			ObjectFormat: objectFormat,
 			Secret:       []byte("key"),
@@ -384,11 +387,11 @@ func TestFormats(t *testing.T) {
 	}
 
 	cases := []struct {
-		format *Format
+		format config.RepositoryObjectFormat
 		oids   map[string]ObjectID
 	}{
 		{
-			format: &Format{
+			format: config.RepositoryObjectFormat{
 				Version:      1,
 				ObjectFormat: "TESTONLY_MD5",
 				MaxBlockSize: 10000,
@@ -422,7 +425,7 @@ func TestFormats(t *testing.T) {
 		data := map[string][]byte{}
 		st := storagetesting.NewMapStorage(data)
 
-		repo, err := newCASManager(st, c.format)
+		repo, err := newObjectManager(st, c.format, nil)
 		if err != nil {
 			t.Errorf("cannot create manager: %v", err)
 			continue
@@ -430,7 +433,7 @@ func TestFormats(t *testing.T) {
 
 		for k, v := range c.oids {
 			bytesToWrite := []byte(k)
-			w := repo.NewWriter()
+			w := repo.NewWriter(WriterOptions{})
 			w.Write(bytesToWrite)
 			oid, err := w.Result(true)
 			if err != nil {

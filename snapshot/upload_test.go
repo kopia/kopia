@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"reflect"
 
 	"github.com/kopia/kopia/blob"
@@ -13,6 +14,8 @@ import (
 	"github.com/kopia/kopia/repo"
 
 	"testing"
+
+	"github.com/kopia/kopia/auth"
 )
 
 type uploadTestHarness struct {
@@ -31,6 +34,7 @@ func (th *uploadTestHarness) cleanup() {
 }
 
 func newUploadTestHarness() *uploadTestHarness {
+	ctx := context.Background()
 	repoDir, err := ioutil.TempDir("", "kopia-repo")
 	if err != nil {
 		panic("cannot create temp directory: " + err.Error())
@@ -44,16 +48,27 @@ func newUploadTestHarness() *uploadTestHarness {
 		panic("cannot create storage directory: " + err.Error())
 	}
 
-	format := repo.Format{
-		Version:                1,
-		ObjectFormat:           "TESTONLY_MD5",
-		MaxBlockSize:           1000,
-		MaxInlineContentLength: 0,
+	creds, err := auth.Password("foofoofoofoofoofoofoofoo")
+	if err != nil {
+		panic("unable to create credentials: " + err.Error())
 	}
 
-	repo, err := repo.NewRepository(storage, &format)
-	if err != nil {
+	if err := repo.Initialize(storage, &repo.NewRepositoryOptions{
+		MaxInlineContentLength: -1,
+	}, creds); err != nil {
 		panic("unable to create repository: " + err.Error())
+	}
+
+	configFile := filepath.Join(repoDir, ".kopia.config")
+	if err := repo.Connect(ctx, configFile, storage, creds, repo.ConnectOptions{
+		PersistCredentials: true,
+	}); err != nil {
+		panic("unable to connect to repository: " + err.Error())
+	}
+
+	repo, err := repo.Open(ctx, configFile, nil)
+	if err != nil {
+		panic("unable to open repository: " + err.Error())
 	}
 
 	sourceDir := mockfs.NewDirectory()

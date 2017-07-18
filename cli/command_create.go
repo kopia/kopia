@@ -1,70 +1,48 @@
 package cli
 
 import (
-	"crypto/rand"
 	"fmt"
-	"io"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/kopia/kopia/blob"
+	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 )
 
 var (
-	createCommand      = app.Command("create", "Create new vault and repository.")
-	createObjectFormat = createCommand.Flag("repo-format", "Format of repository objects.").PlaceHolder("FORMAT").Default(repo.DefaultObjectFormat).Enum(supportedObjectFormats()...)
+	createCommand            = app.Command("create", "Create new repository in a specified location.")
+	createRepositoryLocation = createCommand.Arg("location", "Location where to create the repository").Required().String()
 
-	createMinBlockSize          = createCommand.Flag("min-block-size", "Minimum size of a data block.").PlaceHolder("KB").Default("1024").Int()
-	createAvgBlockSize          = createCommand.Flag("avg-block-size", "Average size of a data block.").PlaceHolder("KB").Default("10240").Int()
-	createMaxBlockSize          = createCommand.Flag("max-block-size", "Maximum size of a data block.").PlaceHolder("KB").Default("20480").Int()
-	createObjectSplitter        = createCommand.Flag("object-splitter", "The splitter to use for new objects in the repository").Default("DYNAMIC").Enum(supportedObjectSplitters()...)
-	createInlineBlobSize        = createCommand.Flag("inline-blob-size", "Maximum size of an inline data object.").PlaceHolder("KB").Default("32").Int()
-	createVaultEncryptionFormat = createCommand.Flag("vault-encryption", "Vault encryption.").PlaceHolder("FORMAT").Default(repo.SupportedEncryptionAlgorithms[0]).Enum(repo.SupportedEncryptionAlgorithms...)
-	createOverwrite             = createCommand.Flag("overwrite", "Overwrite existing data (DANGEROUS).").Bool()
-	createOnly                  = createCommand.Flag("create-only", "Create the vault, but don't connect to it.").Short('c').Bool()
+	createMetadataEncryptionFormat = createCommand.Flag("metadata-encryption", "Metadata item encryption.").PlaceHolder("FORMAT").Default(repo.SupportedMetadataEncryptionAlgorithms[0]).Enum(repo.SupportedMetadataEncryptionAlgorithms...)
+	createObjectFormat             = createCommand.Flag("object-format", "Format of repository objects.").PlaceHolder("FORMAT").Default(repo.DefaultObjectFormat).Enum(repo.SupportedObjectFormats...)
+	createObjectSplitter           = createCommand.Flag("object-splitter", "The splitter to use for new objects in the repository").Default("DYNAMIC").Enum(repo.SupportedObjectSplitters...)
+
+	createMinBlockSize = createCommand.Flag("min-block-size", "Minimum size of a data block.").PlaceHolder("KB").Default("1024").Int()
+	createAvgBlockSize = createCommand.Flag("avg-block-size", "Average size of a data block.").PlaceHolder("KB").Default("10240").Int()
+	createMaxBlockSize = createCommand.Flag("max-block-size", "Maximum size of a data block.").PlaceHolder("KB").Default("20480").Int()
+
+	createInlineBlobSize = createCommand.Flag("inline-blob-size", "Maximum size of an inline data object.").PlaceHolder("KB").Default("32").Int()
+	createOverwrite      = createCommand.Flag("overwrite", "Overwrite existing data (DANGEROUS).").Bool()
+	createOnly           = createCommand.Flag("create-only", "Create repository, but don't connect to it.").Short('c').Bool()
 )
 
 func init() {
+	setupConnectOptions(createCommand)
 	createCommand.Action(runCreateCommand)
 }
 
-func vaultFormat() (*repo.VaultFormat, error) {
-	f := &repo.VaultFormat{
-		Version: "1",
-	}
-	f.UniqueID = make([]byte, 32)
-	_, err := io.ReadFull(rand.Reader, f.UniqueID)
-	if err != nil {
-		return nil, err
-	}
-	f.EncryptionAlgorithm = *createVaultEncryptionFormat
-	return f, nil
-}
-
-func repositoryFormat() (*repo.Format, error) {
-	f := &repo.Format{
-		Version:                1,
-		Secret:                 make([]byte, 32),
-		MasterKey:              make([]byte, 32),
-		MaxInlineContentLength: int32(*createInlineBlobSize * 1024),
-		ObjectFormat:           *createObjectFormat,
+func newRepositoryOptionsFromFlags() *repo.NewRepositoryOptions {
+	return &repo.NewRepositoryOptions{
+		MetadataEncryptionAlgorithm: *createMetadataEncryptionFormat,
+		MaxInlineContentLength:      *createInlineBlobSize * 1024,
+		ObjectFormat:                *createObjectFormat,
 
 		Splitter:     *createObjectSplitter,
-		MinBlockSize: int32(*createMinBlockSize * 1024),
-		AvgBlockSize: int32(*createAvgBlockSize * 1024),
-		MaxBlockSize: int32(*createMaxBlockSize * 1024),
+		MinBlockSize: *createMinBlockSize * 1024,
+		AvgBlockSize: *createAvgBlockSize * 1024,
+		MaxBlockSize: *createMaxBlockSize * 1024,
 	}
-
-	if _, err := io.ReadFull(rand.Reader, f.Secret); err != nil {
-		return nil, err
-	}
-
-	if _, err := io.ReadFull(rand.Reader, f.MasterKey); err != nil {
-		return nil, err
-	}
-
-	return f, nil
 }
 
 func openStorageAndEnsureEmpty(url string) (blob.Storage, error) {
@@ -83,72 +61,48 @@ func openStorageAndEnsureEmpty(url string) (blob.Storage, error) {
 	return s, nil
 }
 
-func runCreateCommand(context *kingpin.ParseContext) error {
-	if *vaultPath == "" {
-		return fmt.Errorf("--vault is required")
-	}
-	vaultStorage, err := openStorageAndEnsureEmpty(*vaultPath)
+func runCreateCommand(_ *kingpin.ParseContext) error {
+	st, err := openStorageAndEnsureEmpty(*createRepositoryLocation)
 	if err != nil {
-		return fmt.Errorf("unable to get vault storage: %v", err)
+		return fmt.Errorf("unable to get repository storage: %v", err)
 	}
 
-	repoFormat, err := repositoryFormat()
-	if err != nil {
-		return fmt.Errorf("unable to initialize repository format: %v", err)
-	}
+	options := newRepositoryOptionsFromFlags()
 
-	fmt.Printf(
-		"Initializing repository in with format %q, splitter %q and maximum object size %v.\n",
-		repoFormat.ObjectFormat,
-		repoFormat.Splitter,
-		repoFormat.MaxBlockSize)
-
-	vf, err := vaultFormat()
-	if err != nil {
-		return fmt.Errorf("unable to initialize vault format: %v", err)
-	}
-
-	creds, err := getVaultCredentials(true)
+	creds, err := getRepositoryCredentials(true)
 	if err != nil {
 		return fmt.Errorf("unable to get credentials: %v", err)
 	}
 
-	if err := repoFormat.Validate(); err != nil {
-		return fmt.Errorf("invalid format")
+	fmt.Printf("Initializing repository with:\n")
+	fmt.Printf("  metadata encryption: %v\n", options.MetadataEncryptionAlgorithm)
+	fmt.Printf("  object format:       %v\n", options.ObjectFormat)
+	switch options.Splitter {
+	case "DYNAMIC":
+		fmt.Printf("  object splitter:     DYNAMIC with block sizes (min:%v avg:%v max:%v)\n",
+			units.BytesStringBase2(int64(options.MinBlockSize)),
+			units.BytesStringBase2(int64(options.AvgBlockSize)),
+			units.BytesStringBase2(int64(options.MaxBlockSize)))
+
+	case "FIXED":
+		fmt.Printf("  object splitter:     FIXED with with block size: %v\n", units.BytesStringBase2(int64(options.MaxBlockSize)))
+
+	case "NEVER":
+		fmt.Printf("  object splitter:     NEVER\n")
 	}
 
-	fmt.Printf(
-		"Initializing vault with encryption '%v'.\n",
-		vf.EncryptionAlgorithm)
-
-	vlt, err := repo.Create(vaultStorage, vf, creds, repoFormat)
-	if err != nil {
-		return fmt.Errorf("cannot create vault: %v", err)
+	if err := repo.Initialize(st, options, creds); err != nil {
+		return fmt.Errorf("cannot initialize repository: %v", err)
 	}
 
 	if !*createOnly {
-		if err := persistVaultConfig(vlt); err != nil {
+		err := repo.Connect(getContext(), repositoryConfigFileName(), st, creds, connectOptions())
+		if err != nil {
 			return err
 		}
 
-		fmt.Println("Connected to vault:", *vaultPath)
+		fmt.Println("Connected to repository:", *createRepositoryLocation)
 	}
 
 	return nil
-}
-
-func supportedObjectFormats() []string {
-	var r []string
-	for k := range repo.SupportedFormats {
-		r = append(r, k)
-	}
-	return r
-}
-
-func supportedObjectSplitters() []string {
-	var r []string
-	for k := range repo.SupportedSplitters {
-		r = append(r, k)
-	}
-	return r
 }

@@ -13,7 +13,7 @@ var (
 )
 
 func runCatCommand(context *kingpin.ParseContext) error {
-	rep := mustConnectToRepository(nil)
+	rep := mustOpenRepository(nil)
 	defer rep.Close()
 
 	oid, err := parseObjectID(*catCommandPath, rep)

@@ -20,7 +20,7 @@ var (
 )
 
 func runShowCommand(context *kingpin.ParseContext) error {
-	rep := mustConnectToRepository(nil)
+	rep := mustOpenRepository(nil)
 	defer rep.Close()
 
 	for _, oidString := range *showObjectIDs {

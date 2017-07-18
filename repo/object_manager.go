@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 
 	"github.com/kopia/kopia/blob"
-	"github.com/kopia/kopia/blob/logging"
+	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/internal/jsonstream"
 )
 
@@ -22,15 +22,15 @@ type ObjectReader interface {
 	Length() int64
 }
 
-// casManager implements a content-addressable storage on top of blob storage.
-type casManager struct {
-	Stats   Stats        // vital statistics
-	Storage blob.Storage // underlying blob storage
+// ObjectManager implements a content-addressable storage on top of blob storage.
+type ObjectManager struct {
+	stats   Stats
+	storage blob.Storage
 
 	verbose       bool
 	bufferManager *bufferManager
-	format        Format
-	formatter     ObjectFormatter
+	format        config.RepositoryObjectFormat
+	formatter     objectFormatter
 
 	writeBack writebackManager
 
@@ -38,7 +38,7 @@ type casManager struct {
 }
 
 // Close closes the connection to the underlying blob storage and releases any resources.
-func (r *casManager) Close() error {
+func (r *ObjectManager) Close() error {
 	r.writeBack.flush()
 	r.bufferManager.close()
 
@@ -46,22 +46,18 @@ func (r *casManager) Close() error {
 }
 
 // NewWriter creates an ObjectWriter for writing to the repository.
-func (r *casManager) NewWriter(options ...WriterOption) ObjectWriter {
-	result := &objectWriter{
+func (r *ObjectManager) NewWriter(opt WriterOptions) ObjectWriter {
+	return &objectWriter{
 		repo:         r,
 		blockTracker: &blockTracker{},
 		splitter:     r.newSplitter(),
+		description:  opt.Description,
+		prefix:       opt.BlockNamePrefix,
 	}
-
-	for _, option := range options {
-		option(result)
-	}
-
-	return result
 }
 
 // Open creates new ObjectReader for reading given object from a repository.
-func (r *casManager) Open(objectID ObjectID) (ObjectReader, error) {
+func (r *ObjectManager) Open(objectID ObjectID) (ObjectReader, error) {
 	// log.Printf("Repository::Open %v", objectID.String())
 	// defer log.Printf("finished Repository::Open() %v", objectID.String())
 
@@ -101,60 +97,35 @@ func (r *casManager) Open(objectID ObjectID) (ObjectReader, error) {
 	return r.newRawReader(objectID)
 }
 
-// RepositoryOption controls the behavior of Repository.
-type RepositoryOption func(o *casManager)
-
-// WriteBack is an RepositoryOption that enables asynchronous writes to the storage using the pool
-// of goroutines.
-func WriteBack(writeBackWorkers int) RepositoryOption {
-	return func(o *casManager) {
-		o.writeBack.workers = writeBackWorkers
-	}
-}
-
-// EnableLogging is an RepositoryOption that causes all storage access to be logged.
-func EnableLogging(options ...logging.Option) RepositoryOption {
-	return func(o *casManager) {
-		o.Storage = logging.NewWrapper(o.Storage, options...)
-	}
-}
-
-// newCASManager creates a casManager with the specified storage, format and options.
-func newCASManager(s blob.Storage, f *Format, options ...RepositoryOption) (*casManager, error) {
-	if err := f.Validate(); err != nil {
+// newObjectManager creates an ObjectManager with the specified storage, format and options.
+func newObjectManager(s blob.Storage, f config.RepositoryObjectFormat, opts *Options) (*ObjectManager, error) {
+	if err := validateFormat(&f); err != nil {
 		return nil, err
 	}
 
-	sf := SupportedFormats[f.ObjectFormat]
-
-	r := &casManager{
-		Storage: s,
-		format:  *f,
+	sf := objectFormatterFactories[f.ObjectFormat]
+	r := &ObjectManager{
+		storage: s,
+		format:  f,
 	}
 
-	sp := f.Splitter
-	if sp == "" {
-		sp = "FIXED"
-	}
-
-	os := SupportedSplitters[sp]
+	os := objectSplitterFactories[applyDefaultString(f.Splitter, "FIXED")]
 	if os == nil {
-		return nil, fmt.Errorf("unsupported splitter %q", sp)
+		return nil, fmt.Errorf("unsupported splitter %q", f.Splitter)
 	}
 
 	r.newSplitter = func() objectSplitter {
-		return os(f)
+		return os(&r.format)
 	}
 
 	var err error
-
-	r.formatter, err = sf(f)
+	r.formatter, err = sf(&r.format)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, o := range options {
-		o(r)
+	if opts != nil {
+		r.writeBack.workers = opts.WriteBack
 	}
 
 	r.bufferManager = newBufferManager(int(r.format.MaxBlockSize))
@@ -168,7 +139,7 @@ func newCASManager(s blob.Storage, f *Format, options ...RepositoryOption) (*cas
 // hashEncryptAndWriteMaybeAsync computes hash of a given buffer, optionally encrypts and writes it to storage.
 // The write is not guaranteed to complete synchronously in case write-back is used, but by the time
 // Repository.Close() returns all writes are guaranteed be over.
-func (r *casManager) hashEncryptAndWriteMaybeAsync(buffer *bytes.Buffer, prefix string) (ObjectID, error) {
+func (r *ObjectManager) hashEncryptAndWriteMaybeAsync(buffer *bytes.Buffer, prefix string) (ObjectID, error) {
 	var data []byte
 	if buffer != nil {
 		data = buffer.Bytes()
@@ -181,8 +152,8 @@ func (r *casManager) hashEncryptAndWriteMaybeAsync(buffer *bytes.Buffer, prefix 
 	// Hash the block and compute encryption key.
 	objectID := r.formatter.ComputeObjectID(data)
 	objectID.StorageBlock = prefix + objectID.StorageBlock
-	atomic.AddInt32(&r.Stats.HashedBlocks, 1)
-	atomic.AddInt64(&r.Stats.HashedBytes, int64(len(data)))
+	atomic.AddInt32(&r.stats.HashedBlocks, 1)
+	atomic.AddInt64(&r.stats.HashedBytes, int64(len(data)))
 
 	if r.writeBack.enabled() {
 		r.writeBack.waitGroup.Add(1)
@@ -202,7 +173,7 @@ func (r *casManager) hashEncryptAndWriteMaybeAsync(buffer *bytes.Buffer, prefix 
 	return r.encryptAndMaybeWrite(objectID, buffer, prefix)
 }
 
-func (r *casManager) encryptAndMaybeWrite(objectID ObjectID, buffer *bytes.Buffer, prefix string) (ObjectID, error) {
+func (r *ObjectManager) encryptAndMaybeWrite(objectID ObjectID, buffer *bytes.Buffer, prefix string) (ObjectID, error) {
 	defer r.bufferManager.returnBuffer(buffer)
 
 	var data []byte
@@ -211,10 +182,10 @@ func (r *casManager) encryptAndMaybeWrite(objectID ObjectID, buffer *bytes.Buffe
 	}
 
 	// Before performing encryption, check if the block is already there.
-	blockSize, err := r.Storage.BlockSize(objectID.StorageBlock)
-	atomic.AddInt32(&r.Stats.CheckedBlocks, int32(1))
+	blockSize, err := r.storage.BlockSize(objectID.StorageBlock)
+	atomic.AddInt32(&r.stats.CheckedBlocks, int32(1))
 	if err == nil && blockSize == int64(len(data)) {
-		atomic.AddInt32(&r.Stats.PresentBlocks, int32(1))
+		atomic.AddInt32(&r.stats.PresentBlocks, int32(1))
 		// Block already exists in storage, correct size, return without uploading.
 		return objectID, nil
 	}
@@ -225,23 +196,23 @@ func (r *casManager) encryptAndMaybeWrite(objectID ObjectID, buffer *bytes.Buffe
 	}
 
 	// Encrypt the block in-place.
-	atomic.AddInt64(&r.Stats.EncryptedBytes, int64(len(data)))
+	atomic.AddInt64(&r.stats.EncryptedBytes, int64(len(data)))
 	data, err = r.formatter.Encrypt(data, objectID)
 	if err != nil {
 		return NullObjectID, err
 	}
 
-	atomic.AddInt32(&r.Stats.WrittenBlocks, int32(1))
-	atomic.AddInt64(&r.Stats.WrittenBytes, int64(len(data)))
+	atomic.AddInt32(&r.stats.WrittenBlocks, int32(1))
+	atomic.AddInt64(&r.stats.WrittenBytes, int64(len(data)))
 
-	if err := r.Storage.PutBlock(objectID.StorageBlock, data, blob.PutOptionsDefault); err != nil {
+	if err := r.storage.PutBlock(objectID.StorageBlock, data, blob.PutOptionsDefault); err != nil {
 		r.writeBack.errors.add(err)
 	}
 
 	return objectID, nil
 }
 
-func (r *casManager) flattenListChunk(rawReader io.Reader) ([]indirectObjectEntry, error) {
+func (r *ObjectManager) flattenListChunk(rawReader io.Reader) ([]indirectObjectEntry, error) {
 	pr, err := jsonstream.NewReader(bufio.NewReader(rawReader), indirectStreamType)
 	if err != nil {
 		return nil, err
@@ -275,7 +246,7 @@ func removeIndirection(o ObjectID) ObjectID {
 	return o
 }
 
-func (r *casManager) newRawReader(objectID ObjectID) (ObjectReader, error) {
+func (r *ObjectManager) newRawReader(objectID ObjectID) (ObjectReader, error) {
 	if objectID.BinaryContent != nil {
 		return newObjectReaderWithData(objectID.BinaryContent), nil
 	}
@@ -285,16 +256,16 @@ func (r *casManager) newRawReader(objectID ObjectID) (ObjectReader, error) {
 	}
 
 	blockID := objectID.StorageBlock
-	payload, err := r.Storage.GetBlock(blockID)
+	payload, err := r.storage.GetBlock(blockID)
 	if err != nil {
 		return nil, err
 	}
 
-	atomic.AddInt32(&r.Stats.ReadBlocks, 1)
-	atomic.AddInt64(&r.Stats.ReadBytes, int64(len(payload)))
+	atomic.AddInt32(&r.stats.ReadBlocks, 1)
+	atomic.AddInt64(&r.stats.ReadBytes, int64(len(payload)))
 
 	payload, err = r.formatter.Decrypt(payload, objectID)
-	atomic.AddInt64(&r.Stats.DecryptedBytes, int64(len(payload)))
+	atomic.AddInt64(&r.stats.DecryptedBytes, int64(len(payload)))
 	if err != nil {
 		return nil, err
 	}
@@ -308,14 +279,14 @@ func (r *casManager) newRawReader(objectID ObjectID) (ObjectReader, error) {
 	return newObjectReaderWithData(payload), nil
 }
 
-func (r *casManager) verifyChecksum(data []byte, blockID string) error {
+func (r *ObjectManager) verifyChecksum(data []byte, blockID string) error {
 	expected := r.formatter.ComputeObjectID(data)
 	if !strings.HasSuffix(blockID, expected.StorageBlock) {
-		atomic.AddInt32(&r.Stats.InvalidBlocks, 1)
+		atomic.AddInt32(&r.stats.InvalidBlocks, 1)
 		return fmt.Errorf("invalid checksum for blob: '%v', expected %v", blockID, expected.StorageBlock)
 	}
 
-	atomic.AddInt32(&r.Stats.ValidBlocks, 1)
+	atomic.AddInt32(&r.stats.ValidBlocks, 1)
 	return nil
 }
 

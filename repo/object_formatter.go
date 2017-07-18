@@ -9,24 +9,16 @@ import (
 	"encoding/hex"
 	"fmt"
 	"hash"
+
+	"strings"
+
+	"sort"
+
+	"github.com/kopia/kopia/internal/config"
 )
 
-// Format describes the format of objects in a repository.
-type Format struct {
-	Version                int32  `json:"version,omitempty"`                // version number, must be "1"
-	ObjectFormat           string `json:"objectFormat,omitempty"`           // identifier of object format
-	Secret                 []byte `json:"secret,omitempty"`                 // HMAC secret used to generate encryption keys
-	MaxInlineContentLength int32  `json:"maxInlineContentLength,omitempty"` // maximum size of object to be considered for inline storage within ObjectID
-	MasterKey              []byte `json:"masterKey,omitempty"`              // master encryption key (SIV-mode encryption only)
-	Splitter               string `json:"splitter,omitempty"`               // splitter used to break objects into storage blocks
-
-	MinBlockSize int32 `json:"minBlockSize,omitempty"` // minimum block size used with dynamic splitter
-	AvgBlockSize int32 `json:"avgBlockSize,omitempty"` // approximate size of storage block (used with dynamic splitter)
-	MaxBlockSize int32 `json:"maxBlockSize,omitempty"` // maximum size of storage block
-}
-
-// Validate checks the validity of a Format and returns an error if invalid.
-func (f *Format) Validate() error {
+// validateFormat checks the validity of RepositoryObjectFormat and returns an error if invalid.
+func validateFormat(f *config.RepositoryObjectFormat) error {
 	if f.Version != 1 {
 		return fmt.Errorf("unsupported version: %v", f.Version)
 	}
@@ -35,26 +27,22 @@ func (f *Format) Validate() error {
 		return fmt.Errorf("MaxBlockSize is not set")
 	}
 
-	sf := SupportedFormats[f.ObjectFormat]
-	if sf == nil {
+	if sf := objectFormatterFactories[f.ObjectFormat]; sf == nil {
 		return fmt.Errorf("unknown object format: %v", f.ObjectFormat)
 	}
 
 	return nil
 }
 
-// ObjectFormatter performs data block ID computation and encryption of a block of data when storing object in a repository,
-type ObjectFormatter interface {
-	// ComputeObjectID computes ID of the storage block and encryption key for the specified block of data
-	// and returns them in ObjectID.
+// ObjectFormatter performs data block ID computation and encryption of a block of data when storing object in a repository.
+type objectFormatter interface {
+	// ComputeObjectID computes ID of the storage block for the specified block of data and returns it in ObjectID.
 	ComputeObjectID(data []byte) ObjectID
 
-	// Encrypt returns encrypted bytes corresponding to the given plaintext.
-	// Encryption in-place is allowed within original slice's capacity. Encryption parameters are passed in ObjectID.
+	// Encrypt returns encrypted bytes corresponding to the given plaintext. May reuse the input slice.
 	Encrypt(plainText []byte, oid ObjectID) ([]byte, error)
 
-	// Decrypt returns unencrypted bytes corresponding to the given ciphertext.
-	// Decryption in-place is allowed within original slice's capacity. Encryption parameters are passed in ObjectID.
+	// Decrypt returns unencrypted bytes corresponding to the given ciphertext. May reuse the input slice.
 	Decrypt(cipherText []byte, oid ObjectID) ([]byte, error)
 }
 
@@ -126,37 +114,42 @@ func decodeHexSuffix(s string, length int) ([]byte, error) {
 	return hex.DecodeString(s[len(s)-length:])
 }
 
-// SupportedFormats is a map with an ObjectFormatter for each supported object format:
+// SupportedObjectFormats is a list of supported object formats including:
 //
 //   UNENCRYPTED_HMAC_SHA256_128          - unencrypted, block IDs are 128-bit (32 characters long)
 //   UNENCRYPTED_HMAC_SHA256              - unencrypted, block IDs are 256-bit (64 characters long)
 //   ENCRYPTED_HMAC_SHA256_AES256_SIV     - encrypted with AES-256 (shared key), IV==FOLD(HMAC-SHA256(content), 128)
-//
-// Additional formats can be supported by adding them to the map.
-var SupportedFormats map[string]func(f *Format) (ObjectFormatter, error)
+var SupportedObjectFormats []string
+
+var objectFormatterFactories = map[string]func(f *config.RepositoryObjectFormat) (objectFormatter, error){
+	"TESTONLY_MD5": func(f *config.RepositoryObjectFormat) (objectFormatter, error) {
+		return &unencryptedFormat{computeHash(md5.New, md5.Size)}, nil
+	},
+	"UNENCRYPTED_HMAC_SHA256": func(f *config.RepositoryObjectFormat) (objectFormatter, error) {
+		return &unencryptedFormat{computeHMAC(sha256.New, f.Secret, sha256.Size)}, nil
+	},
+	"UNENCRYPTED_HMAC_SHA256_128": func(f *config.RepositoryObjectFormat) (objectFormatter, error) {
+		return &unencryptedFormat{computeHMAC(sha256.New, f.Secret, 16)}, nil
+	},
+	"ENCRYPTED_HMAC_SHA256_AES256_SIV": func(f *config.RepositoryObjectFormat) (objectFormatter, error) {
+		if len(f.MasterKey) < 32 {
+			return nil, fmt.Errorf("master key is not set")
+		}
+		return &syntheticIVEncryptionFormat{computeHMAC(sha256.New, f.Secret, aes.BlockSize), aes.NewCipher, f.MasterKey}, nil
+	},
+}
 
 func init() {
-	SupportedFormats = map[string]func(f *Format) (ObjectFormatter, error){
-		"TESTONLY_MD5": func(f *Format) (ObjectFormatter, error) {
-			return &unencryptedFormat{computeHash(md5.New, md5.Size)}, nil
-		},
-		"UNENCRYPTED_HMAC_SHA256": func(f *Format) (ObjectFormatter, error) {
-			return &unencryptedFormat{computeHMAC(sha256.New, f.Secret, sha256.Size)}, nil
-		},
-		"UNENCRYPTED_HMAC_SHA256_128": func(f *Format) (ObjectFormatter, error) {
-			return &unencryptedFormat{computeHMAC(sha256.New, f.Secret, 16)}, nil
-		},
-		"ENCRYPTED_HMAC_SHA256_AES256_SIV": func(f *Format) (ObjectFormatter, error) {
-			if len(f.MasterKey) < 32 {
-				return nil, fmt.Errorf("master key is not set")
-			}
-			return &syntheticIVEncryptionFormat{computeHMAC(sha256.New, f.Secret, aes.BlockSize), aes.NewCipher, f.MasterKey}, nil
-		},
+	for k := range objectFormatterFactories {
+		if !strings.HasPrefix(k, "TESTONLY_") {
+			SupportedObjectFormats = append(SupportedObjectFormats, k)
+		}
 	}
+	sort.Strings(SupportedObjectFormats)
 }
 
 // DefaultObjectFormat is the format that should be used by default when creating new repositories.
-var DefaultObjectFormat = "ENCRYPTED_HMAC_SHA256_AES256_SIV"
+const DefaultObjectFormat = "ENCRYPTED_HMAC_SHA256_AES256_SIV"
 
 // computeHash returns a digestFunction that computes a hash of a given block of bytes and truncates results to the given size.
 func computeHash(hf func() hash.Hash, truncate int) digestFunction {

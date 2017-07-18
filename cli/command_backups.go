@@ -49,7 +49,7 @@ func findBackups(mgr *snapshot.Manager, sourceInfo snapshot.SourceInfo) (manifes
 }
 
 func runBackupsCommand(context *kingpin.ParseContext) error {
-	rep := mustConnectToRepository(nil)
+	rep := mustOpenRepository(nil)
 	defer rep.Close()
 
 	mgr := snapshot.NewManager(rep)
@@ -98,7 +98,7 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 				m.RootObjectID,
 				relPath,
 				m.StartTime.Format("2006-01-02 15:04:05 MST"),
-				units.BytesString(m.Stats.TotalFileSize),
+				units.BytesStringBase10(m.Stats.TotalFileSize),
 				deltaBytes(m.Stats.Repository.WrittenBytes),
 			)
 			count++
@@ -123,7 +123,7 @@ func (b manifestSorter) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
 
 func deltaBytes(b int64) string {
 	if b > 0 {
-		return "(+" + units.BytesString(b) + ")"
+		return "(+" + units.BytesStringBase10(b) + ")"
 	}
 
 	return "(no change)"

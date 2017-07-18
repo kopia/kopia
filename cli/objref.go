@@ -18,7 +18,7 @@ func parseObjectID(id string, r *repo.Repository) (repo.ObjectID, error) {
 
 	oid, err := repo.ParseObjectID(head)
 	if err != nil {
-		return repo.NullObjectID, fmt.Errorf("can't retrieve vault object ID %v: %v", head, err)
+		return repo.NullObjectID, fmt.Errorf("can't parse object ID %v: %v", head, err)
 	}
 
 	if tail == "" {

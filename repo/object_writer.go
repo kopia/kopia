@@ -37,7 +37,7 @@ func (t *blockTracker) blockIDs() []string {
 }
 
 type objectWriter struct {
-	repo *casManager
+	repo *ObjectManager
 
 	buffer      *bytes.Buffer
 	totalLength int64
@@ -172,19 +172,8 @@ func (w *objectWriter) StorageBlocks() []string {
 	return w.blockTracker.blockIDs()
 }
 
-// WriterOption is an option that can be passed to Repository.NewWriter()
-type WriterOption func(*objectWriter)
-
-// WithBlockNamePrefix causes the ObjectWriter to prefix any blocks emitted to the storage with a given string.
-func WithBlockNamePrefix(prefix string) WriterOption {
-	return func(w *objectWriter) {
-		w.prefix = prefix
-	}
-}
-
-// WithDescription is used for debugging only and causes the following string to be emitted in logs.
-func WithDescription(description string) WriterOption {
-	return func(w *objectWriter) {
-		w.description = description
-	}
+// WriterOptions can be passed to Repository.NewWriter()
+type WriterOptions struct {
+	BlockNamePrefix string
+	Description     string
 }

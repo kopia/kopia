@@ -117,7 +117,7 @@ func TestSplitterStability(t *testing.T) {
 
 func TestRollingHashBits(t *testing.T) {
 	cases := []struct {
-		blockSize int32
+		blockSize int
 		bits      uint
 	}{
 		{256, 8},
