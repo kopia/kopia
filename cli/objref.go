@@ -17,11 +17,7 @@ func parseObjectID(id string, vlt *vault.Vault, r *repo.Repository) (repo.Object
 		return repo.NullObjectID, fmt.Errorf("invalid object ID: %v", id)
 	}
 
-	if !strings.HasPrefix(id, vault.StoredObjectIDPrefix) {
-		return repo.ParseObjectID(id)
-	}
-
-	oid, err := vlt.GetObjectID(head)
+	oid, err := repo.ParseObjectID(head)
 	if err != nil {
 		return repo.NullObjectID, fmt.Errorf("can't retrieve vault object ID %v: %v", head, err)
 	}

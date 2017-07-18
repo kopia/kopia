@@ -67,12 +67,6 @@ func verifyVault(t *testing.T, vaultPath string, repoPath string) {
 		Secret:       []byte{1, 2, 3},
 	}
 
-	r, err := repo.New(vaultStorage, repoFormat)
-	if err != nil {
-		t.Errorf("can't create repository: %v", err)
-		return
-	}
-
 	v1, err := Create(vaultStorage, vaultFormat, vaultCreds, repoFormat)
 	if err != nil {
 		t.Errorf("can't create vault: %v", err)
@@ -115,39 +109,6 @@ func verifyVault(t *testing.T, vaultPath string, repoPath string) {
 		t.Errorf("error putting: %v", err)
 	}
 
-	w1 := r.NewWriter()
-	w1.Write([]byte("foo"))
-	oid1, err := w1.Result(true)
-	if err != nil {
-		t.Errorf("Result error: %v", err)
-	}
-
-	w2 := r.NewWriter()
-	w2.Write([]byte("bar"))
-	oid2, err := w2.Result(true)
-	if err != nil {
-		t.Errorf("Result error: %v", err)
-	}
-
-	saved1, err := v1.SaveObjectID(oid1)
-	if err != nil {
-		t.Errorf("error saving object ID: %v", err)
-	}
-	saved2, err := v2.SaveObjectID(oid1)
-	if err != nil {
-		t.Errorf("error saving object ID: %v", err)
-	}
-	saved3, err := v1.SaveObjectID(oid2)
-	if err != nil {
-		t.Errorf("error saving object ID: %v", err)
-	}
-	if saved1 != saved2 {
-		t.Errorf("save IDs don't match: %v %v", saved1, saved2)
-	}
-	if saved1 == saved3 {
-		t.Errorf("save IDs do match: %v, but should not", saved1)
-	}
-
 	// Verify contents of vault items for both created and opened vault.
 	for _, v := range []*Vault{v1, v2} {
 		rf := v.RepoConfig.Format
@@ -168,29 +129,6 @@ func verifyVault(t *testing.T, vaultPath string, repoPath string) {
 
 		assertReservedName(t, v, formatBlockID)
 		assertReservedName(t, v, repositoryConfigBlockID)
-
-		oid, err := v.GetObjectID(saved1)
-		if err != nil {
-			t.Errorf("error getting object ID: %v", err)
-		} else {
-			if !reflect.DeepEqual(oid, oid1) {
-				t.Errorf("got invalid object ID: %v expected %v", oid, oid1)
-			}
-		}
-
-		oid, err = v.GetObjectID(saved3)
-		if err != nil {
-			t.Errorf("error getting object ID: %v", err)
-		} else {
-			if !reflect.DeepEqual(oid, oid2) {
-				t.Errorf("got invalid object ID: %v expected %v", oid, oid2)
-			}
-		}
-
-		_, err = v.GetObjectID("no-such-saved-object-id")
-		if err != ErrItemNotFound {
-			t.Errorf("invalid error, got %v, but expected %v", err, ErrItemNotFound)
-		}
 	}
 
 	v1.Remove("bar")

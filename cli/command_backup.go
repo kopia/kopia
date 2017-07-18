@@ -111,12 +111,6 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 			return err
 		}
 
-		handleID, err := conn.Vault.SaveObjectID(manifest.RootObjectID)
-		if err != nil {
-			return err
-		}
-
-		manifest.Handle = handleID
 		manifest.Description = *backupDescription
 
 		if _, err := mgr.SaveSnapshot(manifest); err != nil {
@@ -125,7 +119,6 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 
 		log.Printf("Root: %v", manifest.RootObjectID.String())
 		log.Printf("Hash Cache: %v", manifest.HashCacheID.String())
-		log.Printf("Key: %v", handleID)
 
 		b, _ := json.MarshalIndent(&manifest, "", "  ")
 		log.Printf("%s", string(b))
