@@ -416,24 +416,6 @@ func TestFormats(t *testing.T) {
 				},
 			},
 		},
-		{
-			format: makeFormat("ENCRYPTED_HMAC_SHA512_384_AES256"),
-			oids: map[string]ObjectID{
-				"The quick brown fox jumps over the lazy dog": ObjectID{
-					StorageBlock:  "d7f4727e2c0b39ae0f1e40cc96f60242",
-					EncryptionKey: mustParseBase16("d5b7801841cea6fc592c5d3e1ae50700582a96cf35e1e554995fe4e03381c237"),
-				},
-			},
-		},
-		{
-			format: makeFormat("ENCRYPTED_HMAC_SHA512_AES256"),
-			oids: map[string]ObjectID{
-				"The quick brown fox jumps over the lazy dog": ObjectID{
-					StorageBlock:  "b42af09057bac1e2d41708e48a902e09b5ff7f12ab428a4fe86653c73dd248fb",
-					EncryptionKey: mustParseBase16("82f948a549f7b791a5b41915ee4d1ec3935357e4e2317250d0372afa2ebeeb3a"),
-				},
-			},
-		},
 	}
 
 	for caseIndex, c := range cases {
@@ -472,79 +454,4 @@ func TestFormats(t *testing.T) {
 			}
 		}
 	}
-}
-
-func TestInvalidEncryptionKey(t *testing.T) {
-	data := map[string][]byte{}
-	st := storagetesting.NewMapStorage(data)
-	format := Format{
-		Version:      1,
-		ObjectFormat: "ENCRYPTED_HMAC_SHA512_384_AES256",
-		Secret:       []byte("key"),
-		MaxBlockSize: 1000,
-	}
-
-	repo, err := New(st, &format)
-	if err != nil {
-		t.Errorf("cannot create manager: %v", err)
-		return
-	}
-
-	bytesToWrite := make([]byte, 1024)
-	for i := range bytesToWrite {
-		bytesToWrite[i] = byte(i)
-	}
-
-	w := repo.NewWriter()
-	w.Write(bytesToWrite)
-	oid, err := w.Result(true)
-	if err != nil {
-		t.Errorf("error: %v", err)
-	}
-
-	rc, err := repo.Open(oid)
-	if err != nil || rc == nil {
-		t.Errorf("error opening valid ObjectID: %v", err)
-		return
-	}
-
-	// Key too short
-	rc, err = repo.Open(replaceEncryption(oid, oid.EncryptionKey[0:len(oid.EncryptionKey)-2]))
-	if err == nil || rc != nil {
-		t.Errorf("expected error when opening malformed object")
-	}
-
-	// Key too long
-	rc, err = repo.Open(replaceEncryption(oid, append(oid.EncryptionKey, 0xFF)))
-	if err == nil || rc != nil {
-		t.Errorf("expected error when opening malformed object")
-	}
-
-	// Invalid key
-	corruptedKey := append([]byte(nil), oid.EncryptionKey...)
-	corruptedKey[0]++
-	rc, err = repo.Open(replaceEncryption(oid, corruptedKey))
-	if err == nil || rc != nil {
-		t.Errorf("expected error when opening malformed object: %v", err)
-	}
-
-	// Now corrupt the data
-	data[oid.StorageBlock][0] ^= 1
-	rc, err = repo.Open(oid)
-	if err == nil || rc != nil {
-		t.Errorf("expected error when opening object with corrupt data")
-	}
-}
-
-func replaceEncryption(oid ObjectID, newEncryption []byte) ObjectID {
-	oid.EncryptionKey = newEncryption
-	return oid
-}
-
-func mustParseBase16(s string) []byte {
-	b, err := hex.DecodeString(s)
-	if err != nil {
-		panic("invalid hex literal: " + s)
-	}
-	return b
 }

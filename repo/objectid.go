@@ -2,7 +2,6 @@ package repo
 
 import (
 	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"strconv"
@@ -33,16 +32,11 @@ import (
 //   "D295754edeb35c17911b1fdf853f572fe"        // storage block
 //   "I1,2c33acbcba3569f943d9e8aaea7817c5"      // level-1 indirection block
 //   "I3,e18604fe53ee670558eb4234d2e55cb7"      // level-3 indirection block
-//   "Daad048fd5721b43adaa353c407d23ff6.5617c50fb1d71b6f7a2c4c8bacacef1d2222eaa4b2245a3714686c658f8af3d9"
-//                                              // encrypted storage block with 256-bit key
-//   "I2,87381a8631dcc86256233437338e27c4.81cf86361dbc9b7905f12f6f6b80d7ec0edd487eeb339e1193805e3f58ef9505"
-//                                              // encrypted level-2 indirection block with 256-bit key
 //   "S30,50,D295754edeb35c17911b1fdf853f572fe" // section of "D295754edeb35c17911b1fdf853f572fe" between [30,80)
 //
 //
 type ObjectID struct {
 	StorageBlock  string
-	EncryptionKey []byte
 	Indirect      int32
 	TextContent   string
 	BinaryContent []byte
@@ -82,8 +76,6 @@ type HasObjectID interface {
 // NullObjectID is the identifier of an null/empty object.
 var NullObjectID ObjectID
 
-const objectIDEncryptionInfoSeparator = "."
-
 var (
 	inlineContentEncoding = base64.RawURLEncoding
 )
@@ -93,17 +85,11 @@ var (
 // Note that the object ID name often contains its encryption key, which is sensitive and can be quite long (~100 characters long).
 func (oid ObjectID) String() string {
 	if oid.StorageBlock != "" {
-		var encryptionSuffix string
-
-		if len(oid.EncryptionKey) > 0 {
-			encryptionSuffix = "." + hex.EncodeToString(oid.EncryptionKey)
-		}
-
 		if oid.Indirect > 0 {
-			return fmt.Sprintf("I%v,%v%v", oid.Indirect, oid.StorageBlock, encryptionSuffix)
+			return fmt.Sprintf("I%v,%v", oid.Indirect, oid.StorageBlock)
 		}
 
-		return "D" + oid.StorageBlock + encryptionSuffix
+		return "D" + oid.StorageBlock
 	}
 
 	if oid.BinaryContent != nil {
@@ -149,11 +135,6 @@ func (oid *ObjectID) Validate() error {
 
 	if oid.Indirect > 0 && len(oid.StorageBlock) == 0 {
 		return fmt.Errorf("indirect object without storage block: %+v", oid)
-	}
-
-	if len(oid.EncryptionKey) > 0 && len(oid.StorageBlock) == 0 {
-		return fmt.Errorf("encryption key without storage block: %+v", oid)
-
 	}
 
 	return nil
@@ -304,26 +285,7 @@ func ParseObjectID(s string) (ObjectID, error) {
 				}
 			}
 
-			firstSeparator := strings.Index(content, objectIDEncryptionInfoSeparator)
-			lastSeparator := strings.LastIndex(content, objectIDEncryptionInfoSeparator)
-			if firstSeparator == lastSeparator {
-				if firstSeparator == -1 {
-					// Found zero Separators in the ID - no encryption info.
-					return ObjectID{StorageBlock: content, Indirect: indirectLevel}, nil
-				}
-
-				if firstSeparator > 0 {
-					b, err := hex.DecodeString(content[firstSeparator+1:])
-					if err == nil && len(b) > 0 {
-						// Valid chunk ID with encryption info.
-						return ObjectID{
-							StorageBlock:  content[0:firstSeparator],
-							EncryptionKey: b,
-							Indirect:      indirectLevel,
-						}, nil
-					}
-				}
-			}
+			return ObjectID{StorageBlock: content, Indirect: indirectLevel}, nil
 		}
 	}
 

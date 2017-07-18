@@ -6,7 +6,6 @@ import (
 	"crypto/hmac"
 	"crypto/md5"
 	"crypto/sha256"
-	"crypto/sha512"
 	"encoding/hex"
 	"fmt"
 	"hash"
@@ -81,33 +80,6 @@ func (fi *unencryptedFormat) Decrypt(cipherText []byte, oid ObjectID) ([]byte, e
 	return cipherText, nil
 }
 
-// Since we never share keys, using constant IV is fine.
-// Instead of using all-zero, we use this one.
-var constantIV = []byte("kopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopiakopia")
-
-// convergentEncryptionFormat implements encrypted format where encryption key is derived from the data and HMAC secret and IV is constant.
-// By sharing HMAC secret alone, this allows multiple parties in posession of the same file to generate identical block IDs and encryption keys.
-type convergentEncryptionFormat struct {
-	digestFunc   digestFunction
-	createCipher func(key []byte) (cipher.Block, error)
-	keyBytes     int
-}
-
-func (fi *convergentEncryptionFormat) ComputeObjectID(data []byte) ObjectID {
-	h := fi.digestFunc(data)
-	p := len(h) - fi.keyBytes
-
-	return ObjectID{StorageBlock: hex.EncodeToString(h[0:p]), EncryptionKey: h[p:]}
-}
-
-func (fi *convergentEncryptionFormat) Encrypt(plainText []byte, oid ObjectID) ([]byte, error) {
-	return symmetricEncrypt(fi.createCipher, oid.EncryptionKey, constantIV, plainText)
-}
-
-func (fi *convergentEncryptionFormat) Decrypt(cipherText []byte, oid ObjectID) ([]byte, error) {
-	return symmetricEncrypt(fi.createCipher, oid.EncryptionKey, constantIV, cipherText)
-}
-
 // syntheticIVEncryptionFormat implements encrypted format with single master AES key and StorageBlock==IV that's
 // derived from HMAC-SHA256(content, secret).
 type syntheticIVEncryptionFormat struct {
@@ -175,12 +147,6 @@ func init() {
 		},
 		"UNENCRYPTED_HMAC_SHA256_128": func(f *Format) (ObjectFormatter, error) {
 			return &unencryptedFormat{computeHMAC(sha256.New, f.Secret, 16)}, nil
-		},
-		"ENCRYPTED_HMAC_SHA512_384_AES256": func(f *Format) (ObjectFormatter, error) {
-			return &convergentEncryptionFormat{computeHMAC(sha512.New384, f.Secret, sha512.Size384), aes.NewCipher, 32}, nil
-		},
-		"ENCRYPTED_HMAC_SHA512_AES256": func(f *Format) (ObjectFormatter, error) {
-			return &convergentEncryptionFormat{computeHMAC(sha512.New, f.Secret, sha512.Size), aes.NewCipher, 32}, nil
 		},
 		"ENCRYPTED_HMAC_SHA256_AES256_SIV": func(f *Format) (ObjectFormatter, error) {
 			if len(f.MasterKey) < 32 {
