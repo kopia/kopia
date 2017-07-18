@@ -18,8 +18,8 @@ func init() {
 }
 
 func removePolicy(context *kingpin.ParseContext) error {
-	conn := mustOpenConnection()
-	mgr := snapshot.NewManager(conn)
+	rep := mustConnectToRepository(nil)
+	mgr := snapshot.NewManager(rep)
 
 	targets, err := policyTargets(policyRemoveGlobal, policyRemoveTargets)
 	if err != nil {

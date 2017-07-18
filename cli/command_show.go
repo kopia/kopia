@@ -20,16 +20,16 @@ var (
 )
 
 func runShowCommand(context *kingpin.ParseContext) error {
-	conn := mustOpenConnection()
-	defer conn.Close()
+	rep := mustConnectToRepository(nil)
+	defer rep.Close()
 
 	for _, oidString := range *showObjectIDs {
-		oid, err := parseObjectID(oidString, conn)
+		oid, err := parseObjectID(oidString, rep)
 		if err != nil {
 			return err
 		}
 
-		if err := showObject(conn, oid); err != nil {
+		if err := showObject(rep, oid); err != nil {
 			return err
 		}
 	}

@@ -1,20 +1,17 @@
-// Package config stores persistent configuration of Kopia.
-package config
+package repo
 
 import (
 	"encoding/json"
 	"io"
 	"os"
 
-	"github.com/kopia/kopia/blob/caching"
-	"github.com/kopia/kopia/repo"
-
 	"github.com/kopia/kopia/blob"
+	"github.com/kopia/kopia/blob/caching"
 )
 
 // LocalConfig is a configuration of Kopia.
 type LocalConfig struct {
-	VaultConnection *repo.VaultConfig    `json:"vault,omitempty"`
+	VaultConnection *VaultConfig         `json:"vault,omitempty"`
 	RepoConnection  *blob.ConnectionInfo `json:"repository,omitempty"` // can be nil indicating the same connection as for the vault
 	Caching         *caching.Options     `json:"caching,omitempty"`
 }

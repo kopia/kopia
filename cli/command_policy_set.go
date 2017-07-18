@@ -36,8 +36,8 @@ func init() {
 }
 
 func setPolicy(context *kingpin.ParseContext) error {
-	conn := mustOpenConnection()
-	mgr := snapshot.NewManager(conn)
+	rep := mustConnectToRepository(nil)
+	mgr := snapshot.NewManager(rep)
 	_ = mgr
 
 	targets, err := policyTargets(policySetGlobal, policySetTargets)

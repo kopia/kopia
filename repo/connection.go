@@ -1,4 +1,4 @@
-package client
+package repo
 
 import (
 	"context"
@@ -10,17 +10,15 @@ import (
 	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/blob/caching"
 	"github.com/kopia/kopia/blob/logging"
-	"github.com/kopia/kopia/internal/config"
-	"github.com/kopia/kopia/repo"
 
 	// Register well-known blob storage providers
 	_ "github.com/kopia/kopia/blob/filesystem"
 	_ "github.com/kopia/kopia/blob/gcs"
 )
 
-// Open connects to the Repository specified in the specified configuration file.
-func Open(ctx context.Context, configFile string, options *Options) (*repo.Repository, error) {
-	lc, err := config.LoadFromFile(configFile)
+// Connect connects to the Repository specified in the specified configuration file.
+func Connect(ctx context.Context, configFile string, options *ConnectOptions) (*Repository, error) {
+	lc, err := LoadFromFile(configFile)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +48,7 @@ func Open(ctx context.Context, configFile string, options *Options) (*repo.Repos
 		vaultStorage = logging.NewWrapper(vaultStorage, logging.Prefix("[VAULT] "), logging.Output(options.TraceStorage))
 	}
 
-	vlt, err := repo.Open(vaultStorage, creds)
+	vlt, err := Open(vaultStorage, creds)
 	if err != nil {
 		rawVaultStorage.Close()
 		return nil, fmt.Errorf("unable to open vault: %v", err)
@@ -74,7 +72,7 @@ func Open(ctx context.Context, configFile string, options *Options) (*repo.Repos
 		}
 	}
 
-	r, err := repo.NewRepository(repositoryStorage, vlt.RepoConfig.Format)
+	r, err := NewRepository(repositoryStorage, vlt.RepoConfig.Format)
 	if err != nil {
 		vaultStorage.Close()
 		repositoryStorage.Close()
@@ -84,7 +82,7 @@ func Open(ctx context.Context, configFile string, options *Options) (*repo.Repos
 	return r, nil
 }
 
-func newStorageWithOptions(ctx context.Context, cfg blob.ConnectionInfo, options *Options) (blob.Storage, error) {
+func newStorageWithOptions(ctx context.Context, cfg blob.ConnectionInfo, options *ConnectOptions) (blob.Storage, error) {
 	s, err := blob.NewStorage(ctx, cfg)
 	if err != nil {
 		return nil, err

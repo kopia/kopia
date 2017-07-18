@@ -149,10 +149,10 @@ func findAliveBlocks(ctx *cleanupContext, wi *cleanupWorkItem) error {
 }
 
 func runCleanupCommand(context *kingpin.ParseContext) error {
-	conn := mustOpenConnection()
-	defer conn.Close()
+	rep := mustConnectToRepository(nil)
+	defer rep.Close()
 
-	mgr := snapshot.NewManager(conn)
+	mgr := snapshot.NewManager(rep)
 
 	log.Printf("Listing active snapshots...")
 	snapshotNames, err := mgr.ListSnapshotManifests(nil, -1)
@@ -167,7 +167,7 @@ func runCleanupCommand(context *kingpin.ParseContext) error {
 	}
 
 	ctx := &cleanupContext{
-		repo:           conn,
+		repo:           rep,
 		inuse:          map[string]bool{},
 		visited:        map[string]bool{},
 		queue:          q,
@@ -248,7 +248,7 @@ func runCleanupCommand(context *kingpin.ParseContext) error {
 	var unreferencedBlocks int
 	var unreferencedBytes int64
 
-	blocks, cancel := conn.Storage.ListBlocks("")
+	blocks, cancel := rep.Storage.ListBlocks("")
 	defer cancel()
 	for b := range blocks {
 		totalBlocks++

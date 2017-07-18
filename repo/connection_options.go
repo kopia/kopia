@@ -1,16 +1,15 @@
-package client
+package repo
 
 import (
 	"github.com/kopia/kopia/auth"
-	"github.com/kopia/kopia/repo"
 )
 
-// Options specifies the behavior of Connection.
-type Options struct {
+// ConnectOptions specifies the behavior of Connection.
+type ConnectOptions struct {
 	CredentialsCallback func() (auth.Credentials, error) // credentials required to open the vault, unless persisted
 
 	TraceStorage      func(f string, args ...interface{})
-	RepositoryOptions []repo.RepositoryOption
+	RepositoryOptions []RepositoryOption
 
 	MaxDownloadSpeed int
 	MaxUploadSpeed   int

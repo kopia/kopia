@@ -16,9 +16,9 @@ func init() {
 }
 
 func listVaultContents(context *kingpin.ParseContext) error {
-	conn := mustOpenConnection()
+	rep := mustConnectToRepository(nil)
 
-	entries, err := conn.Vault.List(*vaultListPrefix, -1)
+	entries, err := rep.Vault.List(*vaultListPrefix, -1)
 	if err != nil {
 		return err
 	}

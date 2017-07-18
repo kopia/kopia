@@ -12,10 +12,10 @@ func init() {
 }
 
 func removeVaultItem(context *kingpin.ParseContext) error {
-	conn := mustOpenConnection()
+	rep := mustConnectToRepository(nil)
 
 	for _, v := range *vaultRemoveItems {
-		if err := conn.Vault.Remove(v); err != nil {
+		if err := rep.Vault.Remove(v); err != nil {
 			return err
 		}
 	}

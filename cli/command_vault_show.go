@@ -20,9 +20,9 @@ func init() {
 }
 
 func showVaultObject(context *kingpin.ParseContext) error {
-	conn := mustOpenConnection()
+	rep := mustConnectToRepository(nil)
 
-	b, err := conn.Vault.Get(*vaultShowID)
+	b, err := rep.Vault.Get(*vaultShowID)
 	if err != nil {
 		return err
 	}

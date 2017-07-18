@@ -33,7 +33,7 @@ func (r *root) Root() (fusefs.Node, error) {
 }
 
 func runMountCommand(context *kingpin.ParseContext) error {
-	conn := mustOpenConnection()
+	rep := mustConnectToRepository(nil)
 
 	fuseConnection, err := fuse.Mount(
 		*mountPoint,
@@ -43,12 +43,12 @@ func runMountCommand(context *kingpin.ParseContext) error {
 		fuse.VolumeName("Kopia"),
 	)
 
-	oid, err := parseObjectID(*mountObjectID, conn)
+	oid, err := parseObjectID(*mountObjectID, rep)
 	if err != nil {
 		return err
 	}
 
-	entry := repofs.Directory(conn, oid)
+	entry := repofs.Directory(rep, oid)
 	if *mountTraceFS {
 		entry = loggingfs.Wrap(entry).(fs.Directory)
 	}

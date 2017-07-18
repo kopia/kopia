@@ -22,10 +22,10 @@ var (
 )
 
 func runLSCommand(context *kingpin.ParseContext) error {
-	conn := mustOpenConnection()
-	defer conn.Close()
+	rep := mustConnectToRepository(nil)
+	defer rep.Close()
 
-	oid, err := parseObjectID(*lsCommandPath, conn)
+	oid, err := parseObjectID(*lsCommandPath, rep)
 	if err != nil {
 		return err
 	}
@@ -38,15 +38,15 @@ func runLSCommand(context *kingpin.ParseContext) error {
 		}
 	}
 
-	return listDirectory(conn, prefix, oid, "")
+	return listDirectory(rep, prefix, oid, "")
 }
 
 func init() {
 	lsCommand.Action(runLSCommand)
 }
 
-func listDirectory(conn *repo.Repository, prefix string, oid repo.ObjectID, indent string) error {
-	d := repofs.Directory(conn, oid)
+func listDirectory(rep *repo.Repository, prefix string, oid repo.ObjectID, indent string) error {
+	d := repofs.Directory(rep, oid)
 
 	entries, err := d.Readdir()
 	if err != nil {
@@ -93,7 +93,7 @@ func listDirectory(conn *repo.Repository, prefix string, oid repo.ObjectID, inde
 		}
 		fmt.Println(info)
 		if *lsCommandRecursive && m.FileMode().IsDir() {
-			listDirectory(conn, prefix+m.Name+"/", objectID, indent+"  ")
+			listDirectory(rep, prefix+m.Name+"/", objectID, indent+"  ")
 		}
 	}
 

@@ -15,11 +15,9 @@ import (
 	"github.com/bgentry/speakeasy"
 	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/blob/logging"
-	"github.com/kopia/kopia/client"
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/fs/loggingfs"
-	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/repo"
 )
 
@@ -50,12 +48,12 @@ func getContext() context.Context {
 	return ctx
 }
 
-func openConnection(options ...repo.RepositoryOption) (*repo.Repository, error) {
-	return client.Open(getContext(), vaultConfigFileName(), connectionOptionsFromFlags(options...))
+func connectToRepository(options []repo.RepositoryOption) (*repo.Repository, error) {
+	return repo.Connect(getContext(), vaultConfigFileName(), connectOptionsFromFlags(options))
 }
 
-func connectionOptionsFromFlags(options ...repo.RepositoryOption) *client.Options {
-	opts := &client.Options{
+func connectOptionsFromFlags(options []repo.RepositoryOption) *repo.ConnectOptions {
+	opts := &repo.ConnectOptions{
 		CredentialsCallback: func() (auth.Credentials, error) { return getVaultCredentials(false) },
 		RepositoryOptions:   options,
 	}
@@ -75,8 +73,8 @@ func connectionOptionsFromFlags(options ...repo.RepositoryOption) *client.Option
 	return opts
 }
 
-func mustOpenConnection(repoOptions ...repo.RepositoryOption) *repo.Repository {
-	s, err := openConnection(repoOptions...)
+func mustConnectToRepository(repoOptions []repo.RepositoryOption) *repo.Repository {
+	s, err := connectToRepository(repoOptions)
 	failOnError(err)
 	return s
 }
@@ -119,7 +117,7 @@ func persistVaultConfig(r *repo.Vault) error {
 		return err
 	}
 
-	var lc config.LocalConfig
+	var lc repo.LocalConfig
 	lc.VaultConnection = cfg
 
 	fname := vaultConfigFileName()

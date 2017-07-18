@@ -46,11 +46,11 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 		repoOptions = append(repoOptions, repo.WriteBack(*backupWriteBack))
 	}
 
-	conn := mustOpenConnection(repoOptions...)
-	defer conn.Close()
+	rep := mustConnectToRepository(repoOptions)
+	defer rep.Close()
 
 	ctx := context.Background()
-	mgr := snapshot.NewManager(conn)
+	mgr := snapshot.NewManager(rep)
 
 	sources := *backupSources
 	if *backupAll {
@@ -66,7 +66,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 	}
 
 	for _, backupDirectory := range sources {
-		conn.Stats.Reset()
+		rep.Stats.Reset()
 		log.Printf("Backing up %v", backupDirectory)
 		dir, err := filepath.Abs(backupDirectory)
 		if err != nil {
@@ -101,7 +101,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 
 		manifest, err := snapshot.Upload(
 			ctx,
-			conn,
+			rep,
 			localEntry,
 			sourceInfo,
 			policy.Files,

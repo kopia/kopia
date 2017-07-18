@@ -49,10 +49,10 @@ func findBackups(mgr *snapshot.Manager, sourceInfo snapshot.SourceInfo) (manifes
 }
 
 func runBackupsCommand(context *kingpin.ParseContext) error {
-	conn := mustOpenConnection()
-	defer conn.Close()
+	rep := mustConnectToRepository(nil)
+	defer rep.Close()
 
-	mgr := snapshot.NewManager(conn)
+	mgr := snapshot.NewManager(rep)
 
 	var previous []string
 	var relPath string
