@@ -194,7 +194,6 @@ func (r *Repository) hashEncryptAndWriteMaybeAsync(buffer *bytes.Buffer, prefix 
 	atomic.AddInt64(&r.Stats.HashedBytes, int64(len(data)))
 
 	if r.writeBack.enabled() {
-		// Tell the defer block not to return the buffer synchronously.
 		r.writeBack.waitGroup.Add(1)
 		r.writeBack.semaphore.Lock()
 		go func() {
