@@ -145,13 +145,6 @@ func verifyVault(t *testing.T, vaultPath string, repoPath string) {
 		assertVaultItems(t, v, "baz", []string{"baz"})
 		assertVaultItems(t, v, "bazx", nil)
 	}
-
-	if err := v1.Close(); err != nil {
-		t.Errorf("v1.Close() error: %v", err)
-	}
-	if err := v2.Close(); err != nil {
-		t.Errorf("v2.Close() error: %v", err)
-	}
 }
 
 func assertVaultItem(t *testing.T, v *Vault, itemID string, expectedData string) {

@@ -24,12 +24,12 @@ func runShowCommand(context *kingpin.ParseContext) error {
 	defer conn.Close()
 
 	for _, oidString := range *showObjectIDs {
-		oid, err := parseObjectID(oidString, conn.Vault, conn.Repository)
+		oid, err := parseObjectID(oidString, conn)
 		if err != nil {
 			return err
 		}
 
-		if err := showObject(conn.Repository, oid); err != nil {
+		if err := showObject(conn, oid); err != nil {
 			return err
 		}
 	}

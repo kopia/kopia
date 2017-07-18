@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kopia/kopia/client"
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/repo"
@@ -26,7 +25,7 @@ func runLSCommand(context *kingpin.ParseContext) error {
 	conn := mustOpenConnection()
 	defer conn.Close()
 
-	oid, err := parseObjectID(*lsCommandPath, conn.Vault, conn.Repository)
+	oid, err := parseObjectID(*lsCommandPath, conn)
 	if err != nil {
 		return err
 	}
@@ -46,8 +45,8 @@ func init() {
 	lsCommand.Action(runLSCommand)
 }
 
-func listDirectory(conn *client.Connection, prefix string, oid repo.ObjectID, indent string) error {
-	d := repofs.Directory(conn.Repository, oid)
+func listDirectory(conn *repo.Repository, prefix string, oid repo.ObjectID, indent string) error {
+	d := repofs.Directory(conn, oid)
 
 	entries, err := d.Readdir()
 	if err != nil {

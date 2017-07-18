@@ -14,7 +14,7 @@ import (
 
 // LocalConfig is a configuration of Kopia.
 type LocalConfig struct {
-	VaultConnection *repo.Config         `json:"vault,omitempty"`
+	VaultConnection *repo.VaultConfig    `json:"vault,omitempty"`
 	RepoConnection  *blob.ConnectionInfo `json:"repository,omitempty"` // can be nil indicating the same connection as for the vault
 	Caching         *caching.Options     `json:"caching,omitempty"`
 }

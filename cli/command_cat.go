@@ -16,11 +16,11 @@ func runCatCommand(context *kingpin.ParseContext) error {
 	conn := mustOpenConnection()
 	defer conn.Close()
 
-	oid, err := parseObjectID(*catCommandPath, conn.Vault, conn.Repository)
+	oid, err := parseObjectID(*catCommandPath, conn)
 	if err != nil {
 		return err
 	}
-	r, err := conn.Repository.Open(oid)
+	r, err := conn.Open(oid)
 	if err != nil {
 		return err
 	}

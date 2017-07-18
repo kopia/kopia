@@ -152,7 +152,7 @@ func runCleanupCommand(context *kingpin.ParseContext) error {
 	conn := mustOpenConnection()
 	defer conn.Close()
 
-	mgr := snapshot.NewManager(conn.Vault)
+	mgr := snapshot.NewManager(conn)
 
 	log.Printf("Listing active snapshots...")
 	snapshotNames, err := mgr.ListSnapshotManifests(nil, -1)
@@ -167,7 +167,7 @@ func runCleanupCommand(context *kingpin.ParseContext) error {
 	}
 
 	ctx := &cleanupContext{
-		repo:           conn.Repository,
+		repo:           conn,
 		inuse:          map[string]bool{},
 		visited:        map[string]bool{},
 		queue:          q,
@@ -248,7 +248,7 @@ func runCleanupCommand(context *kingpin.ParseContext) error {
 	var unreferencedBlocks int
 	var unreferencedBytes int64
 
-	blocks, cancel := conn.Repository.Storage.ListBlocks("")
+	blocks, cancel := conn.Storage.ListBlocks("")
 	defer cancel()
 	for b := range blocks {
 		totalBlocks++

@@ -50,7 +50,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 	defer conn.Close()
 
 	ctx := context.Background()
-	mgr := snapshot.NewManager(conn.Vault)
+	mgr := snapshot.NewManager(conn)
 
 	sources := *backupSources
 	if *backupAll {
@@ -66,7 +66,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 	}
 
 	for _, backupDirectory := range sources {
-		conn.Repository.Stats.Reset()
+		conn.Stats.Reset()
 		log.Printf("Backing up %v", backupDirectory)
 		dir, err := filepath.Abs(backupDirectory)
 		if err != nil {
@@ -101,7 +101,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 
 		manifest, err := snapshot.Upload(
 			ctx,
-			conn.Repository,
+			conn,
 			localEntry,
 			sourceInfo,
 			policy.Files,

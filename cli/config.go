@@ -50,7 +50,7 @@ func getContext() context.Context {
 	return ctx
 }
 
-func openConnection(options ...repo.RepositoryOption) (*client.Connection, error) {
+func openConnection(options ...repo.RepositoryOption) (*repo.Repository, error) {
 	return client.Open(getContext(), vaultConfigFileName(), connectionOptionsFromFlags(options...))
 }
 
@@ -75,7 +75,7 @@ func connectionOptionsFromFlags(options ...repo.RepositoryOption) *client.Option
 	return opts
 }
 
-func mustOpenConnection(repoOptions ...repo.RepositoryOption) *client.Connection {
+func mustOpenConnection(repoOptions ...repo.RepositoryOption) *repo.Repository {
 	s, err := openConnection(repoOptions...)
 	failOnError(err)
 	return s
@@ -113,8 +113,8 @@ func vaultConfigFileName() string {
 	return filepath.Join(getHomeDir(), ".kopia/vault.config")
 }
 
-func persistVaultConfig(v *repo.Vault) error {
-	cfg, err := v.Config()
+func persistVaultConfig(r *repo.Vault) error {
+	cfg, err := r.Config()
 	if err != nil {
 		return err
 	}

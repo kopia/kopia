@@ -18,29 +18,8 @@ import (
 	_ "github.com/kopia/kopia/blob/gcs"
 )
 
-// Connection represents open connection to Vault and Repository.
-type Connection struct {
-	Vault      *repo.Vault
-	Repository *repo.Repository
-}
-
-// Close closes the underlying Vault and Repository.
-func (c *Connection) Close() error {
-	if c.Vault != nil {
-		c.Vault.Close()
-		c.Vault = nil
-	}
-
-	if c.Repository != nil {
-		c.Repository.Close()
-		c.Repository = nil
-	}
-
-	return nil
-}
-
-// Open connects to the Vault and Repository specified in the specified configuration file.
-func Open(ctx context.Context, configFile string, options *Options) (*Connection, error) {
+// Open connects to the Repository specified in the specified configuration file.
+func Open(ctx context.Context, configFile string, options *Options) (*repo.Repository, error) {
 	lc, err := config.LoadFromFile(configFile)
 	if err != nil {
 		return nil, err
@@ -71,25 +50,13 @@ func Open(ctx context.Context, configFile string, options *Options) (*Connection
 		vaultStorage = logging.NewWrapper(vaultStorage, logging.Prefix("[VAULT] "), logging.Output(options.TraceStorage))
 	}
 
-	var conn Connection
-	conn.Vault, err = repo.Open(vaultStorage, creds)
+	vlt, err := repo.Open(vaultStorage, creds)
 	if err != nil {
 		rawVaultStorage.Close()
 		return nil, fmt.Errorf("unable to open vault: %v", err)
 	}
 
-	var repositoryStorage blob.Storage
-
-	if lc.RepoConnection == nil {
-		repositoryStorage = rawVaultStorage
-	} else {
-		repositoryStorage, err = newStorageWithOptions(ctx, *lc.RepoConnection, options)
-		if err != nil {
-			vaultStorage.Close()
-			return nil, err
-		}
-	}
-
+	repositoryStorage := rawVaultStorage
 	if options.TraceStorage != nil {
 		repositoryStorage = logging.NewWrapper(repositoryStorage, logging.Prefix("[STORAGE] "), logging.Output(options.TraceStorage))
 	}
@@ -107,14 +74,14 @@ func Open(ctx context.Context, configFile string, options *Options) (*Connection
 		}
 	}
 
-	conn.Repository, err = repo.NewRepository(repositoryStorage, conn.Vault.RepoConfig.Format)
+	r, err := repo.NewRepository(repositoryStorage, vlt.RepoConfig.Format)
 	if err != nil {
 		vaultStorage.Close()
 		repositoryStorage.Close()
 		return nil, err
 	}
-
-	return &conn, nil
+	r.Vault = vlt
+	return r, nil
 }
 
 func newStorageWithOptions(ctx context.Context, cfg blob.ConnectionInfo, options *Options) (blob.Storage, error) {

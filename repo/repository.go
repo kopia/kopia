@@ -7,6 +7,7 @@ import (
 // Repository represents storage where both content-addressable and user-addressable data is kept.
 type Repository struct {
 	*casManager
+	*Vault
 	Storage blob.Storage
 }
 

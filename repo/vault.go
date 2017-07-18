@@ -167,20 +167,15 @@ func (v *Vault) List(prefix string, limit int) ([]string, error) {
 	return result, nil
 }
 
-// Close releases any resources held by Vault and closes repository connection.
-func (v *Vault) Close() error {
-	return v.storage.Close()
-}
-
-// Config represents JSON-compatible configuration of the vault connection, including vault key.
-type Config struct {
+// VaultConfig represents JSON-compatible configuration of the vault connection, including vault key.
+type VaultConfig struct {
 	ConnectionInfo blob.ConnectionInfo `json:"connection"`
 	Key            []byte              `json:"key,omitempty"`
 }
 
 // Config returns a configuration of vault storage its credentials that's suitable
 // for storing in configuration file.
-func (v *Vault) Config() (*Config, error) {
+func (v *Vault) Config() (*VaultConfig, error) {
 	cip, ok := v.storage.(blob.ConnectionInfoProvider)
 	if !ok {
 		return nil, errors.New("repository does not support persisting configuration")
@@ -188,7 +183,7 @@ func (v *Vault) Config() (*Config, error) {
 
 	ci := cip.ConnectionInfo()
 
-	return &Config{
+	return &VaultConfig{
 		ConnectionInfo: ci,
 		Key:            v.masterKey,
 	}, nil
