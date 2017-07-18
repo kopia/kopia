@@ -51,7 +51,7 @@ func newUploadTestHarness() *uploadTestHarness {
 		MaxInlineContentLength: 0,
 	}
 
-	repo, err := repo.New(storage, &format)
+	repo, err := repo.NewRepository(storage, &format)
 	if err != nil {
 		panic("unable to create repository: " + err.Error())
 	}

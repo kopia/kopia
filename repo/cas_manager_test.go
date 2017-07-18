@@ -44,11 +44,11 @@ func getMd5LObjectID(data []byte) string {
 	return fmt.Sprintf("L%s", getMd5Digest(data))
 }
 
-func setupTest(t *testing.T) (data map[string][]byte, repo *Repository) {
+func setupTest(t *testing.T) (data map[string][]byte, repo *casManager) {
 	data = map[string][]byte{}
 	st := storagetesting.NewMapStorage(data)
 
-	repo, err := New(st, testFormat(), WriteBack(5))
+	repo, err := newCASManager(st, testFormat(), WriteBack(5))
 	if err != nil {
 		t.Errorf("cannot create manager: %v", err)
 	}
@@ -88,7 +88,7 @@ func TestWriters(t *testing.T) {
 			continue
 		}
 
-		repo.Flush()
+		repo.writeBack.flush()
 
 		if !objectIDsEqual(result, c.objectID) {
 			t.Errorf("incorrect result for %v, expected: %v got: %v %#v", c.data, c.objectID.String(), result.String(), result.BinaryContent)
@@ -125,7 +125,7 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	}
 }
 
-func verifyIndirectBlock(t *testing.T, r *Repository, oid ObjectID) {
+func verifyIndirectBlock(t *testing.T, r *casManager, oid ObjectID) {
 	for level := int32(0); level < oid.Indirect; level++ {
 		direct := oid
 		direct.Indirect = level
@@ -178,7 +178,7 @@ func TestIndirection(t *testing.T) {
 		writer := repo.NewWriter()
 		writer.Write(contentBytes)
 		result, err := writer.Result(false)
-		repo.Flush()
+		repo.writeBack.flush()
 		if err != nil {
 			t.Errorf("error getting writer results: %v", err)
 		}
@@ -211,7 +211,7 @@ func TestHMAC(t *testing.T) {
 	s := testFormat()
 	s.ObjectFormat = "TESTONLY_MD5"
 
-	repo, err := New(storagetesting.NewMapStorage(data), s)
+	repo, err := newCASManager(storagetesting.NewMapStorage(data), s)
 	if err != nil {
 		t.Errorf("cannot create manager: %v", err)
 	}
@@ -342,7 +342,7 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 	}
 }
 
-func verify(t *testing.T, repo *Repository, objectID ObjectID, expectedData []byte, testCaseID string) {
+func verify(t *testing.T, repo *casManager, objectID ObjectID, expectedData []byte, testCaseID string) {
 	reader, err := repo.Open(objectID)
 	if err != nil {
 		t.Errorf("cannot get reader for %v: %v", testCaseID, err)
@@ -422,7 +422,7 @@ func TestFormats(t *testing.T) {
 		data := map[string][]byte{}
 		st := storagetesting.NewMapStorage(data)
 
-		repo, err := New(st, c.format)
+		repo, err := newCASManager(st, c.format)
 		if err != nil {
 			t.Errorf("cannot create manager: %v", err)
 			continue

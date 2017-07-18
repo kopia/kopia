@@ -95,7 +95,7 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 		if count < *maxResultsPerPath {
 			fmt.Printf(
 				"  %v%v %v %10v %v\n",
-				m.Handle,
+				m.RootObjectID,
 				relPath,
 				m.StartTime.Format("2006-01-02 15:04:05 MST"),
 				units.BytesString(m.Stats.TotalFileSize),

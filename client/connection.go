@@ -106,7 +106,7 @@ func Open(ctx context.Context, configFile string, options *Options) (*Connection
 		}
 	}
 
-	conn.Repository, err = repo.New(repositoryStorage, conn.Vault.RepoConfig.Format)
+	conn.Repository, err = repo.NewRepository(repositoryStorage, conn.Vault.RepoConfig.Format)
 	if err != nil {
 		vaultStorage.Close()
 		repositoryStorage.Close()

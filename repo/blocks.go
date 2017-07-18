@@ -1,7 +1,7 @@
 package repo
 
 // GetStorageBlocks returns the list of storage blocks used by the specified object ID.
-func (r *Repository) GetStorageBlocks(oid ObjectID) ([]string, error) {
+func (r *casManager) GetStorageBlocks(oid ObjectID) ([]string, error) {
 	result := map[string]bool{}
 	if err := r.addStorageBlocks(result, oid); err != nil {
 		return nil, err
@@ -14,7 +14,7 @@ func (r *Repository) GetStorageBlocks(oid ObjectID) ([]string, error) {
 	return b, nil
 }
 
-func (r *Repository) addStorageBlocks(result map[string]bool, oid ObjectID) error {
+func (r *casManager) addStorageBlocks(result map[string]bool, oid ObjectID) error {
 	if oid.Section != nil {
 		return r.addStorageBlocks(result, oid.Section.Base)
 	}

@@ -14,7 +14,6 @@ type Manifest struct {
 	StartTime   time.Time `json:"startTime"`
 	EndTime     time.Time `json:"endTime"`
 
-	Handle       string        `json:"handle"`
 	RootObjectID repo.ObjectID `json:"root"`
 	HashCacheID  repo.ObjectID `json:"hashCache"`
 

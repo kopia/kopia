@@ -22,8 +22,8 @@ type ObjectReader interface {
 	Length() int64
 }
 
-// Repository implements a content-addressable storage on top of blob storage.
-type Repository struct {
+// casManager implements a content-addressable storage on top of blob storage.
+type casManager struct {
 	Stats   Stats        // vital statistics
 	Storage blob.Storage // underlying blob storage
 
@@ -38,24 +38,15 @@ type Repository struct {
 }
 
 // Close closes the connection to the underlying blob storage and releases any resources.
-func (r *Repository) Close() error {
-	r.Flush()
-	if err := r.Storage.Close(); err != nil {
-		return err
-	}
+func (r *casManager) Close() error {
+	r.writeBack.flush()
 	r.bufferManager.close()
 
 	return nil
 }
 
-// Flush waits for all in-flight writes to complete.
-func (r *Repository) Flush() error {
-	r.writeBack.flush()
-	return nil
-}
-
 // NewWriter creates an ObjectWriter for writing to the repository.
-func (r *Repository) NewWriter(options ...WriterOption) ObjectWriter {
+func (r *casManager) NewWriter(options ...WriterOption) ObjectWriter {
 	result := &objectWriter{
 		repo:         r,
 		blockTracker: &blockTracker{},
@@ -70,12 +61,12 @@ func (r *Repository) NewWriter(options ...WriterOption) ObjectWriter {
 }
 
 // Open creates new ObjectReader for reading given object from a repository.
-func (r *Repository) Open(objectID ObjectID) (ObjectReader, error) {
+func (r *casManager) Open(objectID ObjectID) (ObjectReader, error) {
 	// log.Printf("Repository::Open %v", objectID.String())
 	// defer log.Printf("finished Repository::Open() %v", objectID.String())
 
 	// Flush any pending writes.
-	r.Flush()
+	r.writeBack.flush()
 
 	if objectID.Section != nil {
 		baseReader, err := r.Open(objectID.Section.Base)
@@ -111,32 +102,32 @@ func (r *Repository) Open(objectID ObjectID) (ObjectReader, error) {
 }
 
 // RepositoryOption controls the behavior of Repository.
-type RepositoryOption func(o *Repository)
+type RepositoryOption func(o *casManager)
 
 // WriteBack is an RepositoryOption that enables asynchronous writes to the storage using the pool
 // of goroutines.
 func WriteBack(writeBackWorkers int) RepositoryOption {
-	return func(o *Repository) {
+	return func(o *casManager) {
 		o.writeBack.workers = writeBackWorkers
 	}
 }
 
 // EnableLogging is an RepositoryOption that causes all storage access to be logged.
 func EnableLogging(options ...logging.Option) RepositoryOption {
-	return func(o *Repository) {
+	return func(o *casManager) {
 		o.Storage = logging.NewWrapper(o.Storage, options...)
 	}
 }
 
-// New creates a Repository with the specified storage, format and options.
-func New(s blob.Storage, f *Format, options ...RepositoryOption) (*Repository, error) {
+// newCASManager creates a casManager with the specified storage, format and options.
+func newCASManager(s blob.Storage, f *Format, options ...RepositoryOption) (*casManager, error) {
 	if err := f.Validate(); err != nil {
 		return nil, err
 	}
 
 	sf := SupportedFormats[f.ObjectFormat]
 
-	r := &Repository{
+	r := &casManager{
 		Storage: s,
 		format:  *f,
 	}
@@ -177,7 +168,7 @@ func New(s blob.Storage, f *Format, options ...RepositoryOption) (*Repository, e
 // hashEncryptAndWriteMaybeAsync computes hash of a given buffer, optionally encrypts and writes it to storage.
 // The write is not guaranteed to complete synchronously in case write-back is used, but by the time
 // Repository.Close() returns all writes are guaranteed be over.
-func (r *Repository) hashEncryptAndWriteMaybeAsync(buffer *bytes.Buffer, prefix string) (ObjectID, error) {
+func (r *casManager) hashEncryptAndWriteMaybeAsync(buffer *bytes.Buffer, prefix string) (ObjectID, error) {
 	var data []byte
 	if buffer != nil {
 		data = buffer.Bytes()
@@ -211,7 +202,7 @@ func (r *Repository) hashEncryptAndWriteMaybeAsync(buffer *bytes.Buffer, prefix 
 	return r.encryptAndMaybeWrite(objectID, buffer, prefix)
 }
 
-func (r *Repository) encryptAndMaybeWrite(objectID ObjectID, buffer *bytes.Buffer, prefix string) (ObjectID, error) {
+func (r *casManager) encryptAndMaybeWrite(objectID ObjectID, buffer *bytes.Buffer, prefix string) (ObjectID, error) {
 	defer r.bufferManager.returnBuffer(buffer)
 
 	var data []byte
@@ -250,7 +241,7 @@ func (r *Repository) encryptAndMaybeWrite(objectID ObjectID, buffer *bytes.Buffe
 	return objectID, nil
 }
 
-func (r *Repository) flattenListChunk(rawReader io.Reader) ([]indirectObjectEntry, error) {
+func (r *casManager) flattenListChunk(rawReader io.Reader) ([]indirectObjectEntry, error) {
 	pr, err := jsonstream.NewReader(bufio.NewReader(rawReader), indirectStreamType)
 	if err != nil {
 		return nil, err
@@ -284,7 +275,7 @@ func removeIndirection(o ObjectID) ObjectID {
 	return o
 }
 
-func (r *Repository) newRawReader(objectID ObjectID) (ObjectReader, error) {
+func (r *casManager) newRawReader(objectID ObjectID) (ObjectReader, error) {
 	if objectID.BinaryContent != nil {
 		return newObjectReaderWithData(objectID.BinaryContent), nil
 	}
@@ -317,7 +308,7 @@ func (r *Repository) newRawReader(objectID ObjectID) (ObjectReader, error) {
 	return newObjectReaderWithData(payload), nil
 }
 
-func (r *Repository) verifyChecksum(data []byte, blockID string) error {
+func (r *casManager) verifyChecksum(data []byte, blockID string) error {
 	expected := r.formatter.ComputeObjectID(data)
 	if !strings.HasSuffix(blockID, expected.StorageBlock) {
 		atomic.AddInt32(&r.Stats.InvalidBlocks, 1)
