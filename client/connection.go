@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/blob/caching"
 	"github.com/kopia/kopia/blob/logging"
@@ -45,9 +46,9 @@ func Open(ctx context.Context, configFile string, options *Options) (*Connection
 		return nil, err
 	}
 
-	var creds repo.Credentials
+	var creds auth.Credentials
 	if len(lc.VaultConnection.Key) > 0 {
-		creds, err = repo.MasterKey(lc.VaultConnection.Key)
+		creds, err = auth.MasterKey(lc.VaultConnection.Key)
 	} else {
 		if options.CredentialsCallback == nil {
 			return nil, errors.New("vault key not persisted and no credentials specified")

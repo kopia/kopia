@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/bgentry/speakeasy"
+	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/blob/logging"
 	"github.com/kopia/kopia/client"
 	"github.com/kopia/kopia/fs"
@@ -55,7 +56,7 @@ func openConnection(options ...repo.RepositoryOption) (*client.Connection, error
 
 func connectionOptionsFromFlags(options ...repo.RepositoryOption) *client.Options {
 	opts := &client.Options{
-		CredentialsCallback: func() (repo.Credentials, error) { return getVaultCredentials(false) },
+		CredentialsCallback: func() (auth.Credentials, error) { return getVaultCredentials(false) },
 		RepositoryOptions:   options,
 	}
 
@@ -152,18 +153,18 @@ func openVaultSpecifiedByFlag() (*repo.Vault, error) {
 	return repo.Open(storage, creds)
 }
 
-func getVaultCredentials(isNew bool) (repo.Credentials, error) {
+func getVaultCredentials(isNew bool) (auth.Credentials, error) {
 	if *key != "" {
 		k, err := hex.DecodeString(*key)
 		if err != nil {
 			return nil, fmt.Errorf("invalid key format: %v", err)
 		}
 
-		return repo.MasterKey(k)
+		return auth.MasterKey(k)
 	}
 
 	if *password != "" {
-		return repo.Password(strings.TrimSpace(*password))
+		return auth.Password(strings.TrimSpace(*password))
 	}
 
 	if *keyFile != "" {
@@ -172,7 +173,7 @@ func getVaultCredentials(isNew bool) (repo.Credentials, error) {
 			return nil, fmt.Errorf("unable to read key file: %v", err)
 		}
 
-		return repo.MasterKey(key)
+		return auth.MasterKey(key)
 	}
 
 	if *passwordFile != "" {
@@ -181,7 +182,7 @@ func getVaultCredentials(isNew bool) (repo.Credentials, error) {
 			return nil, fmt.Errorf("unable to read password file: %v", err)
 		}
 
-		return repo.Password(strings.TrimSpace(string(f)))
+		return auth.Password(strings.TrimSpace(string(f)))
 	}
 	if isNew {
 		for {
@@ -196,7 +197,7 @@ func getVaultCredentials(isNew bool) (repo.Credentials, error) {
 			if p1 != p2 {
 				fmt.Println("Passwords don't match!")
 			} else {
-				return repo.Password(p1)
+				return auth.Password(p1)
 			}
 		}
 	} else {
@@ -205,7 +206,7 @@ func getVaultCredentials(isNew bool) (repo.Credentials, error) {
 			return nil, err
 		}
 		fmt.Println()
-		return repo.Password(p1)
+		return auth.Password(p1)
 	}
 }
 
@@ -235,11 +236,11 @@ func askPass(prompt string) (string, error) {
 			continue
 		}
 
-		if len(p) >= repo.MinPasswordLength {
+		if len(p) >= auth.MinPasswordLength {
 			return p, nil
 		}
 
-		fmt.Printf("Password too short, must be at least %v characters, you entered %v. Try again.", repo.MinPasswordLength, len(p))
+		fmt.Printf("Password too short, must be at least %v characters, you entered %v. Try again.", auth.MinPasswordLength, len(p))
 		fmt.Println()
 	}
 }

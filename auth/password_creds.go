@@ -1,4 +1,4 @@
-package repo
+package auth
 
 import (
 	"crypto/sha256"
@@ -17,43 +17,22 @@ const (
 	// MinMasterKeyLength is the minimum allowed length of a master key, in bytes.
 	MinMasterKeyLength = 16
 
-	defaultKeyAlgorithm = "scrypt-65536-8-1"
+	// DefaultKeyDerivationAlgorithm is the key derivation algorithm for new configurations.
+	DefaultKeyDerivationAlgorithm = "scrypt-65536-8-1"
 )
 
-// SupportedKeyAlgorithms lists supported key derivation algorithms.
-var SupportedKeyAlgorithms = []string{
+// SupportedKeyDerivationAlgorithms lists supported key derivation algorithms.
+var SupportedKeyDerivationAlgorithms = []string{
 	"scrypt-65536-8-1",
 	"pbkdf2-sha256-100000",
-}
-
-// Credentials encapsulates credentials used to encrypt a Vault.
-type Credentials interface {
-	getMasterKey(f *VaultFormat) ([]byte, error)
-}
-
-type masterKeyCredentials struct {
-	key []byte
-}
-
-func (mkc *masterKeyCredentials) getMasterKey(f *VaultFormat) ([]byte, error) {
-	return mkc.key, nil
-}
-
-// MasterKey returns master key-based Credentials with the specified key.
-func MasterKey(key []byte) (Credentials, error) {
-	if len(key) < MinMasterKeyLength {
-		return nil, fmt.Errorf("master key too short")
-	}
-
-	return &masterKeyCredentials{key}, nil
 }
 
 type passwordCredentials struct {
 	password string
 }
 
-func (pc *passwordCredentials) getMasterKey(f *VaultFormat) ([]byte, error) {
-	switch f.KeyAlgorithm {
+func (pc *passwordCredentials) GetMasterKey(f Options) ([]byte, error) {
+	switch f.KeyDerivationAlgorithm {
 	case "pbkdf2-sha256-100000":
 		return pbkdf2.Key([]byte(pc.password), f.UniqueID, 100000, passwordBasedKeySize, sha256.New), nil
 
@@ -61,7 +40,7 @@ func (pc *passwordCredentials) getMasterKey(f *VaultFormat) ([]byte, error) {
 		return scrypt.Key([]byte(pc.password), f.UniqueID, 65536, 8, 1, passwordBasedKeySize)
 
 	default:
-		return nil, fmt.Errorf("unsupported key algorithm: %v", f.KeyAlgorithm)
+		return nil, fmt.Errorf("unsupported key algorithm: %v", f.KeyDerivationAlgorithm)
 	}
 }
 

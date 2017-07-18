@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/blob"
 
 	"golang.org/x/crypto/hkdf"
@@ -235,7 +236,7 @@ func (v *Vault) RemoveMany(itemIDs []string) error {
 // Create initializes a Vault attached to the specified repository.
 func Create(
 	vaultStorage blob.Storage,
-	vaultFormat *VaultFormat, vaultCreds Credentials,
+	vaultFormat *VaultFormat, vaultCreds auth.Credentials,
 	repoFormat *Format,
 ) (*Vault, error) {
 	v := Vault{
@@ -248,12 +249,12 @@ func Create(
 	if _, err := io.ReadFull(rand.Reader, v.format.UniqueID); err != nil {
 		return nil, err
 	}
-	if v.format.KeyAlgorithm == "" {
-		v.format.KeyAlgorithm = defaultKeyAlgorithm
+	if v.format.KeyDerivationAlgorithm == "" {
+		v.format.KeyDerivationAlgorithm = auth.DefaultKeyDerivationAlgorithm
 
 	}
 	var err error
-	v.masterKey, err = vaultCreds.getMasterKey(&v.format)
+	v.masterKey, err = vaultCreds.GetMasterKey(v.format.Options)
 	if err != nil {
 		return nil, err
 	}
@@ -290,7 +291,7 @@ type RepositoryConfig struct {
 }
 
 // Open opens a vault.
-func Open(vaultStorage blob.Storage, vaultCreds Credentials) (*Vault, error) {
+func Open(vaultStorage blob.Storage, vaultCreds auth.Credentials) (*Vault, error) {
 	v := Vault{
 		storage: vaultStorage,
 	}
@@ -319,7 +320,7 @@ func Open(vaultStorage blob.Storage, vaultCreds Credentials) (*Vault, error) {
 		return nil, err
 	}
 
-	v.masterKey, err = vaultCreds.getMasterKey(&v.format)
+	v.masterKey, err = vaultCreds.GetMasterKey(v.format.Options)
 	if err != nil {
 		return nil, err
 	}

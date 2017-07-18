@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/blob/filesystem"
 
@@ -43,13 +44,13 @@ func TestColocatedVault(t *testing.T) {
 func verifyVault(t *testing.T, vaultPath string, repoPath string) {
 	vaultStorage := mustCreateFileStorage(t, vaultPath)
 
-	vaultCreds, err := Password("foo.bar.baz.foo.bar.baz")
+	vaultCreds, err := auth.Password("foo.bar.baz.foo.bar.baz")
 	if err != nil {
 		t.Errorf("can't create password credentials: %v", err)
 		return
 	}
 
-	otherVaultCreds, err := Password("foo.bar.baz.foo.bar.baz0")
+	otherVaultCreds, err := auth.Password("foo.bar.baz.foo.bar.baz0")
 	if err != nil {
 		t.Errorf("can't create password credentials: %v", err)
 		return
