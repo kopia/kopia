@@ -45,7 +45,7 @@ var SupportedEncryptionAlgorithms = []string{
 // Vault is a secure storage for secrets such as repository object identifiers.
 type Vault struct {
 	storage    blob.Storage
-	format     Format
+	format     VaultFormat
 	RepoConfig RepositoryConfig
 
 	masterKey []byte
@@ -236,8 +236,7 @@ func (v *Vault) RemoveMany(itemIDs []string) error {
 // Create initializes a Vault attached to the specified repository.
 func Create(
 	vaultStorage blob.Storage,
-	vaultFormat *Format,
-	vaultCreds Credentials,
+	vaultFormat *VaultFormat, vaultCreds Credentials,
 	repoFormat *repo.Format,
 ) (*Vault, error) {
 	v := Vault{

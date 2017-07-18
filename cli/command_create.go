@@ -30,8 +30,8 @@ func init() {
 	createCommand.Action(runCreateCommand)
 }
 
-func vaultFormat() (*vault.Format, error) {
-	f := &vault.Format{
+func vaultFormat() (*vault.VaultFormat, error) {
+	f := &vault.VaultFormat{
 		Version: "1",
 	}
 	f.UniqueID = make([]byte, 32)

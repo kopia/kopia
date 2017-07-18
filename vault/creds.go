@@ -4,9 +4,8 @@ import (
 	"crypto/sha256"
 	"fmt"
 
-	"golang.org/x/crypto/scrypt"
-
 	"golang.org/x/crypto/pbkdf2"
+	"golang.org/x/crypto/scrypt"
 )
 
 const (
@@ -29,14 +28,14 @@ var SupportedKeyAlgorithms = []string{
 
 // Credentials encapsulates credentials used to encrypt a Vault.
 type Credentials interface {
-	getMasterKey(f *Format) ([]byte, error)
+	getMasterKey(f *VaultFormat) ([]byte, error)
 }
 
 type masterKeyCredentials struct {
 	key []byte
 }
 
-func (mkc *masterKeyCredentials) getMasterKey(f *Format) ([]byte, error) {
+func (mkc *masterKeyCredentials) getMasterKey(f *VaultFormat) ([]byte, error) {
 	return mkc.key, nil
 }
 
@@ -53,7 +52,7 @@ type passwordCredentials struct {
 	password string
 }
 
-func (pc *passwordCredentials) getMasterKey(f *Format) ([]byte, error) {
+func (pc *passwordCredentials) getMasterKey(f *VaultFormat) ([]byte, error) {
 	switch f.KeyAlgorithm {
 	case "pbkdf2-sha256-100000":
 		return pbkdf2.Key([]byte(pc.password), f.UniqueID, 100000, passwordBasedKeySize, sha256.New), nil

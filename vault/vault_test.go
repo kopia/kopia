@@ -56,7 +56,7 @@ func verifyVault(t *testing.T, vaultPath string, repoPath string) {
 		return
 	}
 
-	vaultFormat := &Format{
+	vaultFormat := &VaultFormat{
 		EncryptionAlgorithm: "AES256_GCM",
 	}
 
