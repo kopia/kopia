@@ -1,7 +1,7 @@
 .DS_Store
 .release/
 .releases/
-cmd/playground/
+playground/
 kopia-*.tar.gz
 kopia-*.zip
 combined.cov
