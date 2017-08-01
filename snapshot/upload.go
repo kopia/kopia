@@ -570,7 +570,7 @@ func Upload(
 
 	s.EndTime = time.Now()
 	s.Stats = *u.stats
-	s.Stats.Repository = u.repo.Stats()
+	s.Stats.Repository = u.repo.Status().Stats
 
 	return s, nil
 }
