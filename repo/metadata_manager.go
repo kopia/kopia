@@ -264,7 +264,7 @@ func newMetadataManager(st blob.Storage, creds auth.Credentials) (*MetadataManag
 		return nil, err
 	}
 
-	mm.masterKey, err = creds.GetMasterKey(mm.format.Options)
+	mm.masterKey, err = creds.GetMasterKey(mm.format.SecurityOptions)
 	if err != nil {
 		return nil, err
 	}

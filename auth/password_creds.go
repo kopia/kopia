@@ -31,7 +31,7 @@ type passwordCredentials struct {
 	password string
 }
 
-func (pc *passwordCredentials) GetMasterKey(f Options) ([]byte, error) {
+func (pc *passwordCredentials) GetMasterKey(f SecurityOptions) ([]byte, error) {
 	switch f.KeyDerivationAlgorithm {
 	case "pbkdf2-sha256-100000":
 		return pbkdf2.Key([]byte(pc.password), f.UniqueID, 100000, passwordBasedKeySize, sha256.New), nil

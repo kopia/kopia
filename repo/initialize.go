@@ -37,7 +37,7 @@ func Initialize(st blob.Storage, opt *NewRepositoryOptions, creds auth.Credentia
 	}
 
 	var err error
-	mm.masterKey, err = creds.GetMasterKey(mm.format.Options)
+	mm.masterKey, err = creds.GetMasterKey(mm.format.SecurityOptions)
 	if err != nil {
 		return err
 	}
@@ -69,7 +69,7 @@ func Initialize(st blob.Storage, opt *NewRepositoryOptions, creds auth.Credentia
 
 func metadataFormatFromOptions(opt *NewRepositoryOptions) config.MetadataFormat {
 	return config.MetadataFormat{
-		Options: auth.Options{
+		SecurityOptions: auth.SecurityOptions{
 			KeyDerivationAlgorithm: applyDefaultString(opt.KeyDerivationAlgorithm, auth.DefaultKeyDerivationAlgorithm),
 			UniqueID:               randomBytes(32),
 		},

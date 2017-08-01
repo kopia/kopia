@@ -6,7 +6,7 @@ type masterKeyCredentials struct {
 	key []byte
 }
 
-func (mkc *masterKeyCredentials) GetMasterKey(f Options) ([]byte, error) {
+func (mkc *masterKeyCredentials) GetMasterKey(f SecurityOptions) ([]byte, error) {
 	return mkc.key, nil
 }
 
