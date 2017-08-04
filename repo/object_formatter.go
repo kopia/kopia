@@ -126,16 +126,16 @@ var objectFormatterFactories = map[string]func(f *config.RepositoryObjectFormat)
 		return &unencryptedFormat{computeHash(md5.New, md5.Size)}, nil
 	},
 	"UNENCRYPTED_HMAC_SHA256": func(f *config.RepositoryObjectFormat) (objectFormatter, error) {
-		return &unencryptedFormat{computeHMAC(sha256.New, f.Secret, sha256.Size)}, nil
+		return &unencryptedFormat{computeHMAC(sha256.New, f.HMACSecret, sha256.Size)}, nil
 	},
 	"UNENCRYPTED_HMAC_SHA256_128": func(f *config.RepositoryObjectFormat) (objectFormatter, error) {
-		return &unencryptedFormat{computeHMAC(sha256.New, f.Secret, 16)}, nil
+		return &unencryptedFormat{computeHMAC(sha256.New, f.HMACSecret, 16)}, nil
 	},
 	"ENCRYPTED_HMAC_SHA256_AES256_SIV": func(f *config.RepositoryObjectFormat) (objectFormatter, error) {
 		if len(f.MasterKey) < 32 {
 			return nil, fmt.Errorf("master key is not set")
 		}
-		return &syntheticIVEncryptionFormat{computeHMAC(sha256.New, f.Secret, aes.BlockSize), aes.NewCipher, f.MasterKey}, nil
+		return &syntheticIVEncryptionFormat{computeHMAC(sha256.New, f.HMACSecret, aes.BlockSize), aes.NewCipher, f.MasterKey}, nil
 	},
 }
 

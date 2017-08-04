@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strconv"
 	"strings"
 	"sync/atomic"
 
@@ -32,6 +33,7 @@ type ObjectManager struct {
 	format        config.RepositoryObjectFormat
 	formatter     objectFormatter
 
+	packMgr   *packManager
 	writeBack writebackManager
 
 	newSplitter func() objectSplitter
@@ -47,13 +49,20 @@ func (r *ObjectManager) Close() error {
 
 // NewWriter creates an ObjectWriter for writing to the repository.
 func (r *ObjectManager) NewWriter(opt WriterOptions) ObjectWriter {
-	return &objectWriter{
-		repo:         r,
-		blockTracker: &blockTracker{},
-		splitter:     r.newSplitter(),
-		description:  opt.Description,
-		prefix:       opt.BlockNamePrefix,
+	w := &objectWriter{
+		repo:           r,
+		blockTracker:   &blockTracker{},
+		splitter:       r.newSplitter(),
+		description:    opt.Description,
+		prefix:         opt.BlockNamePrefix,
+		disablePacking: opt.disablePacking,
 	}
+
+	if opt.splitter != nil {
+		w.splitter = opt.splitter
+	}
+
+	return w
 }
 
 // Open creates new ObjectReader for reading given object from a repository.
@@ -63,6 +72,15 @@ func (r *ObjectManager) Open(objectID ObjectID) (ObjectReader, error) {
 
 	// Flush any pending writes.
 	r.writeBack.flush()
+
+	if objectID.PackID != "" {
+		var err error
+
+		objectID, err = r.packIDToSection(objectID)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	if objectID.Section != nil {
 		baseReader, err := r.Open(objectID.Section.Base)
@@ -95,6 +113,55 @@ func (r *ObjectManager) Open(objectID ObjectID) (ObjectReader, error) {
 	}
 
 	return r.newRawReader(objectID)
+}
+
+// BeginPacking enables creation of pack files.
+func (r *ObjectManager) BeginPacking() error {
+	return r.packMgr.begin()
+}
+
+// FinishPacking closes any pending pack files. Once this method returns
+func (r *ObjectManager) FinishPacking() error {
+	return r.packMgr.finishPacking()
+}
+
+func (r *ObjectManager) packIDToSection(oid ObjectID) (ObjectID, error) {
+	if oid.PackID == "" {
+		return NullObjectID, fmt.Errorf("invalid pack ID: %v", oid)
+	}
+
+	pi, err := r.packMgr.ensurePackIndexesLoaded()
+	if err != nil {
+		return NullObjectID, fmt.Errorf("can't load pack index: %v", err)
+	}
+
+	p := pi[oid.PackID]
+	if p == nil {
+		return NullObjectID, fmt.Errorf("no such pack %q referenced by object ID: %v", oid.PackID, oid)
+	}
+
+	blk := p.Items[oid.StorageBlock]
+	if blk == "" {
+		return NullObjectID, fmt.Errorf("block %q not found in pack %q", oid.StorageBlock, oid.PackID)
+	}
+
+	if plus := strings.IndexByte(blk, '+'); plus > 0 {
+		if start, err := strconv.ParseInt(blk[0:plus], 10, 64); err == nil {
+			if length, err := strconv.ParseInt(blk[plus+1:], 10, 64); err == nil {
+				if base, err := ParseObjectID(p.PackObject); err == nil {
+					return ObjectID{
+						Section: &ObjectIDSection{
+							Base:   base,
+							Start:  start,
+							Length: length,
+						},
+					}, nil
+				}
+			}
+		}
+	}
+
+	return NullObjectID, fmt.Errorf("invalid pack index for %q", oid)
 }
 
 // newObjectManager creates an ObjectManager with the specified storage, format and options.
@@ -139,7 +206,7 @@ func newObjectManager(s blob.Storage, f config.RepositoryObjectFormat, opts *Opt
 // hashEncryptAndWriteMaybeAsync computes hash of a given buffer, optionally encrypts and writes it to storage.
 // The write is not guaranteed to complete synchronously in case write-back is used, but by the time
 // Repository.Close() returns all writes are guaranteed be over.
-func (r *ObjectManager) hashEncryptAndWriteMaybeAsync(buffer *bytes.Buffer, prefix string) (ObjectID, error) {
+func (r *ObjectManager) hashEncryptAndWriteMaybeAsync(buffer *bytes.Buffer, prefix string, disablePacking bool) (ObjectID, error) {
 	var data []byte
 	if buffer != nil {
 		data = buffer.Bytes()
@@ -154,6 +221,11 @@ func (r *ObjectManager) hashEncryptAndWriteMaybeAsync(buffer *bytes.Buffer, pref
 	objectID.StorageBlock = prefix + objectID.StorageBlock
 	atomic.AddInt32(&r.stats.HashedBlocks, 1)
 	atomic.AddInt64(&r.stats.HashedBytes, int64(len(data)))
+
+	if !disablePacking && r.packMgr.enabled() && r.format.MaxPackedContentLength > 0 && len(data) <= r.format.MaxPackedContentLength {
+		packOID, err := r.packMgr.AddToPack(prefix+objectID.StorageBlock, data)
+		return packOID, err
+	}
 
 	if r.writeBack.enabled() {
 		r.writeBack.waitGroup.Add(1)

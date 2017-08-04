@@ -22,17 +22,20 @@ import (
 //
 // 4. As sections of other objects (bundles).
 //
-// ObjectIDs have standard string representation (returned by UIString() and accepted as input to ParseObjectID()) suitable for using
+// 5. As sections of other objects (bundles).
+//
+// ObjectIDs have standard string representation (returned by String() and accepted as input to ParseObjectID()) suitable for using
 // in user interfaces, such as command-line tools:
 //
 // Examples:
 //
-//   "B"                                        // empty object
-//   "BcXVpY2sgYnJvd24gZm94Cg=="                // inline content "quick brown fox" (base64-encoded)
-//   "D295754edeb35c17911b1fdf853f572fe"        // storage block
-//   "I1,2c33acbcba3569f943d9e8aaea7817c5"      // level-1 indirection block
-//   "I3,e18604fe53ee670558eb4234d2e55cb7"      // level-3 indirection block
-//   "S30,50,D295754edeb35c17911b1fdf853f572fe" // section of "D295754edeb35c17911b1fdf853f572fe" between [30,80)
+//   "B"                                                  // empty object
+//   "BcXVpY2sgYnJvd24gZm94Cg=="                          // inline content "quick brown fox" (base64-encoded)
+//   "D295754edeb35c17911b1fdf853f572fe"                  // storage block
+//   "I1,2c33acbcba3569f943d9e8aaea7817c5"                // level-1 indirection block
+//   "I3,e18604fe53ee670558eb4234d2e55cb7"                // level-3 indirection block
+//   "S30,50,D295754edeb35c17911b1fdf853f572fe"           // section of "D295754edeb35c17911b1fdf853f572fe" between [30,80)
+//   "P2c33acbcba3569f9.295754edeb35c17911b1fdf853f572fe" // object 295754edeb35c17911b1fdf853f572fe of pack P2c33acbcba3569f9
 //
 //
 type ObjectID struct {
@@ -41,6 +44,7 @@ type ObjectID struct {
 	TextContent   string
 	BinaryContent []byte
 	Section       *ObjectIDSection
+	PackID        string
 }
 
 // MarshalJSON emits ObjectID in standard string format.
@@ -87,6 +91,10 @@ func (oid ObjectID) String() string {
 	if oid.StorageBlock != "" {
 		if oid.Indirect > 0 {
 			return fmt.Sprintf("I%v,%v", oid.Indirect, oid.StorageBlock)
+		}
+
+		if oid.PackID != "" {
+			return fmt.Sprintf("P%v.%v", oid.PackID, oid.StorageBlock)
 		}
 
 		return "D" + oid.StorageBlock
@@ -239,7 +247,7 @@ func parseSectionInfoString(s string) (int64, int64, ObjectID, error) {
 }
 
 // ParseObjectID converts the specified string into ObjectID.
-// The string format matches the output of UIString() method.
+// The string format matches the output of String() method.
 func ParseObjectID(s string) (ObjectID, error) {
 	if len(s) >= 1 {
 		chunkType := s[0]

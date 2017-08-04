@@ -11,7 +11,7 @@ import (
 
 func TestObjectFormatters(t *testing.T) {
 	secret := []byte("secret")
-	f := &config.RepositoryObjectFormat{Secret: secret, MasterKey: make([]byte, 32)}
+	f := &config.RepositoryObjectFormat{HMACSecret: secret, MasterKey: make([]byte, 32)}
 
 	for k, v := range objectFormatterFactories {
 		data := make([]byte, 100)

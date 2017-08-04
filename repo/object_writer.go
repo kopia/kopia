@@ -54,6 +54,8 @@ type objectWriter struct {
 
 	blockTracker *blockTracker
 	splitter     objectSplitter
+
+	disablePacking bool
 }
 
 func (w *objectWriter) Close() error {
@@ -102,7 +104,7 @@ func (w *objectWriter) flushBuffer(force bool) error {
 		b := w.buffer
 		w.buffer = nil
 
-		objectID, err := w.repo.hashEncryptAndWriteMaybeAsync(b, w.prefix)
+		objectID, err := w.repo.hashEncryptAndWriteMaybeAsync(b, w.prefix, w.disablePacking)
 		if err != nil {
 			return fmt.Errorf(
 				"error when flushing chunk %d of %s: %#v",
@@ -176,4 +178,7 @@ func (w *objectWriter) StorageBlocks() []string {
 type WriterOptions struct {
 	BlockNamePrefix string
 	Description     string
+
+	splitter       objectSplitter
+	disablePacking bool
 }

@@ -131,11 +131,15 @@ func connect(ctx context.Context, st blob.Storage, creds auth.Credentials, optio
 		return nil, fmt.Errorf("unable to open object manager: %v", err)
 	}
 
-	return &Repository{
+	r := &Repository{
 		ObjectManager:   om,
 		MetadataManager: mm,
 		Storage:         st,
-	}, nil
+	}
+
+	r.initPackManager()
+
+	return r, nil
 }
 
 // Disconnect removes the specified configuration file and any local cache directories.

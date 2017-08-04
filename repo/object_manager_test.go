@@ -2,9 +2,8 @@ package repo
 
 import (
 	"bytes"
-	"crypto/md5"
+	"context"
 	cryptorand "crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -12,8 +11,9 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/kopia/kopia/auth"
+
 	"github.com/kopia/kopia/blob"
-	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/internal/jsonstream"
 	"github.com/kopia/kopia/internal/storagetesting"
 )
@@ -22,40 +22,36 @@ func init() {
 	panicOnBufferLeaks = true
 }
 
-func testFormat() config.RepositoryObjectFormat {
-	return config.RepositoryObjectFormat{
-		Version:                1,
-		MaxBlockSize:           200,
-		MaxInlineContentLength: 20,
-		ObjectFormat:           "TESTONLY_MD5",
-	}
-}
-
-func getMd5Digest(data []byte) string {
-	hash := md5.New()
-	hash.Write(data)
-	return hex.EncodeToString(hash.Sum(nil))
-}
-
-func getMd5CObjectID(data []byte) string {
-	return fmt.Sprintf("D%s", getMd5Digest(data))
-}
-
-func getMd5LObjectID(data []byte) string {
-	return fmt.Sprintf("L%s", getMd5Digest(data))
-}
-
-func setupTest(t *testing.T) (data map[string][]byte, om *ObjectManager) {
+func setupTest(t *testing.T, mods ...func(o *NewRepositoryOptions)) (data map[string][]byte, om *Repository) {
 	data = map[string][]byte{}
 	st := storagetesting.NewMapStorage(data)
 
-	om, err := newObjectManager(st, testFormat(), &Options{
-		WriteBack: 5,
-	})
-	if err != nil {
-		t.Errorf("cannot create manager: %v", err)
+	creds, _ := auth.Password("foobarbazfoobarbaz")
+	opt := &NewRepositoryOptions{
+		MaxBlockSize:                200,
+		MaxInlineContentLength:      20,
+		Splitter:                    "FIXED",
+		ObjectFormat:                "TESTONLY_MD5",
+		MetadataEncryptionAlgorithm: "NONE",
+		MaxPackedContentLength:      -1,
+		MaxPackFileLength:           -1,
+
+		noHMAC: true,
 	}
-	return
+
+	for _, m := range mods {
+		m(opt)
+	}
+	Initialize(st, opt, creds)
+
+	ctx := context.Background()
+
+	r, err := connect(ctx, st, creds, &Options{})
+	if err != nil {
+		t.Fatalf("can't connect: %v", err)
+	}
+
+	return data, r
 }
 
 func TestWriters(t *testing.T) {
@@ -98,11 +94,13 @@ func TestWriters(t *testing.T) {
 		}
 
 		if c.objectID.StorageBlock == "" {
-			if len(data) != 0 {
+			if len(data) != 2 {
+				// 2 format blocks
 				t.Errorf("unexpected data written to the storage: %v", data)
 			}
 		} else {
-			if len(data) != 1 {
+			if len(data) != 3 {
+				// 2 format blocks + 1 data block
 				t.Errorf("unexpected data written to the storage: %v", data)
 			}
 		}
@@ -128,7 +126,77 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	}
 }
 
-func verifyIndirectBlock(t *testing.T, r *ObjectManager, oid ObjectID) {
+func TestPackingSimple(t *testing.T) {
+	data, repo := setupTest(t, func(n *NewRepositoryOptions) {
+		n.MaxPackFileLength = 10000
+		n.MaxPackedContentLength = 10000
+	})
+
+	content1 := "hello, how do you do?"
+	content2 := "hi, how are you?"
+	content3 := "thank you!"
+
+	if err := repo.BeginPacking(); err != nil {
+		t.Fatalf("error in BeginPacking: %v", err)
+	}
+
+	oid1a := writeObject(t, repo, []byte(content1), "packed-object-1a")
+	oid1b := writeObject(t, repo, []byte(content1), "packed-object-1b")
+	oid2a := writeObject(t, repo, []byte(content2), "packed-object-2a")
+	oid2b := writeObject(t, repo, []byte(content2), "packed-object-2b")
+
+	repo.FinishPacking()
+
+	if err := repo.BeginPacking(); err != nil {
+		t.Fatalf("error in BeginPacking: %v", err)
+	}
+
+	oid3a := writeObject(t, repo, []byte(content3), "packed-object-3a")
+	oid3b := writeObject(t, repo, []byte(content3), "packed-object-3b")
+	verify(t, repo, oid1a, []byte(content1), "packed-object-1")
+	verify(t, repo, oid2a, []byte(content2), "packed-object-2")
+	oid2c := writeObject(t, repo, []byte(content2), "packed-object-2c")
+	oid1c := writeObject(t, repo, []byte(content1), "packed-object-1c")
+
+	repo.FinishPacking()
+
+	if got, want := oid1a.String(), oid1b.String(); got != want {
+		t.Errorf("oid1a(%q) != oid1b(%q)", got, want)
+	}
+	if got, want := oid1a.String(), oid1c.String(); got != want {
+		t.Errorf("oid1a(%q) != oid1c(%q)", got, want)
+	}
+	if got, want := oid2a.String(), oid2b.String(); got != want {
+		t.Errorf("oid2(%q)a != oidb(%q)", got, want)
+	}
+	if got, want := oid2a.String(), oid2c.String(); got != want {
+		t.Errorf("oid2(%q)a != oidc(%q)", got, want)
+	}
+	if got, want := oid3a.String(), oid3b.String(); got != want {
+		t.Errorf("oid3a(%q) != oid3b(%q)", got, want)
+	}
+
+	if oid1a.PackID == "" {
+		t.Errorf("expected pack ID, got %v", oid1a)
+	}
+
+	if oid1a.PackID != oid2a.PackID {
+		t.Errorf("expected same pack IDs, got %q and %q", oid1a, oid2a)
+	}
+
+	if got, want := len(data), 2+4; got != want {
+		t.Errorf("got unexpected repository contents %v items, wanted %v", got, want)
+		for k, v := range data {
+			t.Logf("%v => %v", k, string(v))
+		}
+	}
+
+	verify(t, repo, oid1a, []byte(content1), "packed-object-1")
+	verify(t, repo, oid2a, []byte(content2), "packed-object-2")
+	verify(t, repo, oid3a, []byte(content3), "packed-object-3")
+}
+
+func verifyIndirectBlock(t *testing.T, r *Repository, oid ObjectID) {
 	for level := int32(0); level < oid.Indirect; level++ {
 		direct := oid
 		direct.Indirect = level
@@ -190,8 +258,8 @@ func TestIndirection(t *testing.T) {
 			t.Errorf("incorrect indirection level for size: %v: %v, expected %v", c.dataLength, result.Indirect, c.expectedIndirection)
 		}
 
-		if len(data) != c.expectedBlockCount {
-			t.Errorf("unexpected block count for %v: %v, expected %v", c.dataLength, len(data), c.expectedBlockCount)
+		if got, want := len(data)-2, c.expectedBlockCount; got != want {
+			t.Errorf("unexpected block count for %v: %v, expected %v", c.dataLength, got, want)
 		}
 
 		b, err := repo.GetStorageBlocks(result)
@@ -208,16 +276,10 @@ func TestIndirection(t *testing.T) {
 }
 
 func TestHMAC(t *testing.T) {
-	data := map[string][]byte{}
 	content := bytes.Repeat([]byte{0xcd}, 50)
 
-	s := testFormat()
-	s.ObjectFormat = "TESTONLY_MD5"
+	_, repo := setupTest(t)
 
-	repo, err := newObjectManager(storagetesting.NewMapStorage(data), s, nil)
-	if err != nil {
-		t.Errorf("cannot create manager: %v", err)
-	}
 	w := repo.NewWriter(WriterOptions{})
 	w.Write(content)
 	result, err := w.Result(false)
@@ -345,7 +407,21 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 	}
 }
 
-func verify(t *testing.T, repo *ObjectManager, objectID ObjectID, expectedData []byte, testCaseID string) {
+func writeObject(t *testing.T, repo *Repository, data []byte, testCaseID string) ObjectID {
+	w := repo.NewWriter(WriterOptions{})
+	if _, err := w.Write(data); err != nil {
+		t.Fatalf("can't write object %q - write failed: %v", testCaseID, err)
+
+	}
+	oid, err := w.Result(true)
+	if err != nil {
+		t.Fatalf("can't write object %q - result failed: %v", testCaseID, err)
+	}
+
+	return oid
+}
+
+func verify(t *testing.T, repo *Repository, objectID ObjectID, expectedData []byte, testCaseID string) {
 	reader, err := repo.Open(objectID)
 	if err != nil {
 		t.Errorf("cannot get reader for %v: %v", testCaseID, err)
@@ -377,24 +453,24 @@ func verify(t *testing.T, repo *ObjectManager, objectID ObjectID, expectedData [
 }
 
 func TestFormats(t *testing.T) {
-	makeFormat := func(objectFormat string) config.RepositoryObjectFormat {
-		return config.RepositoryObjectFormat{
-			Version:      1,
-			ObjectFormat: objectFormat,
-			Secret:       []byte("key"),
-			MaxBlockSize: 10000,
+	makeFormat := func(objectFormat string) func(*NewRepositoryOptions) {
+		return func(n *NewRepositoryOptions) {
+			n.ObjectFormat = objectFormat
+			n.ObjectHMACSecret = []byte("key")
+			n.MaxBlockSize = 10000
+			n.Splitter = "FIXED"
+			n.noHMAC = false
 		}
 	}
 
 	cases := []struct {
-		format config.RepositoryObjectFormat
+		format func(*NewRepositoryOptions)
 		oids   map[string]ObjectID
 	}{
 		{
-			format: config.RepositoryObjectFormat{
-				Version:      1,
-				ObjectFormat: "TESTONLY_MD5",
-				MaxBlockSize: 10000,
+			format: func(n *NewRepositoryOptions) {
+				n.MaxBlockSize = 10000
+				n.noHMAC = true
 			},
 			oids: map[string]ObjectID{
 				"": ObjectID{StorageBlock: "d41d8cd98f00b204e9800998ecf8427e"},
@@ -422,14 +498,7 @@ func TestFormats(t *testing.T) {
 	}
 
 	for caseIndex, c := range cases {
-		data := map[string][]byte{}
-		st := storagetesting.NewMapStorage(data)
-
-		repo, err := newObjectManager(st, c.format, nil)
-		if err != nil {
-			t.Errorf("cannot create manager: %v", err)
-			continue
-		}
+		_, repo := setupTest(t, c.format)
 
 		for k, v := range c.oids {
 			bytesToWrite := []byte(k)
@@ -440,7 +509,7 @@ func TestFormats(t *testing.T) {
 				t.Errorf("error: %v", err)
 			}
 			if !objectIDsEqual(oid, v) {
-				t.Errorf("invalid oid for #%v %v/%v:\ngot:\n%#v\nexpected:\n%#v", caseIndex, c.format.ObjectFormat, k, oid.String(), v.String())
+				t.Errorf("invalid oid for #%v\ngot:\n%#v\nexpected:\n%#v", caseIndex, oid.String(), v.String())
 			}
 
 			rc, err := repo.Open(oid)

@@ -18,10 +18,12 @@ type LocalConfig struct {
 type RepositoryObjectFormat struct {
 	Version                int    `json:"version,omitempty"`                // version number, must be "1"
 	ObjectFormat           string `json:"objectFormat,omitempty"`           // identifier of object format
-	Secret                 []byte `json:"secret,omitempty"`                 // HMAC secret used to generate encryption keys
+	HMACSecret             []byte `json:"secret,omitempty"`                 // HMAC secret used to generate encryption keys
 	MaxInlineContentLength int    `json:"maxInlineContentLength,omitempty"` // maximum size of object to be considered for inline storage within ObjectID
 	MasterKey              []byte `json:"masterKey,omitempty"`              // master encryption key (SIV-mode encryption only)
 	Splitter               string `json:"splitter,omitempty"`               // splitter used to break objects into storage blocks
+	MaxPackedContentLength int    `json:"maxPackedContentLength,omitempty"` // maximum size of object to be considered for storage in a pack
+	MaxPackFileLength      int    `json:"maxPackFileLength,omitempty"`      // maximum length of a single pack file
 
 	MinBlockSize int `json:"minBlockSize,omitempty"` // minimum block size used with dynamic splitter
 	AvgBlockSize int `json:"avgBlockSize,omitempty"` // approximate size of storage block (used with dynamic splitter)

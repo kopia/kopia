@@ -30,11 +30,14 @@ type StatusInfo struct {
 	MinBlockSize           int
 	AvgBlockSize           int
 	MaxBlockSize           int
+
+	MaxPackFileLength      int
+	MaxPackedContentLength int
 }
 
 // Status returns a snapshot of repository-wide statistics plus some general information about repository configuration.
 func (r *Repository) Status() StatusInfo {
-	return StatusInfo{
+	s := StatusInfo{
 		Stats: r.ObjectManager.stats,
 
 		MetadataManagerVersion:      r.MetadataManager.format.Version,
@@ -49,7 +52,16 @@ func (r *Repository) Status() StatusInfo {
 		MinBlockSize:           r.ObjectManager.format.MinBlockSize,
 		AvgBlockSize:           r.ObjectManager.format.AvgBlockSize,
 		MaxBlockSize:           r.ObjectManager.format.MaxBlockSize,
+
+		MaxPackFileLength:      r.ObjectManager.format.MaxPackFileLength,
+		MaxPackedContentLength: r.ObjectManager.format.MaxPackedContentLength,
 	}
+
+	if s.Splitter == "" {
+		s.Splitter = "FIXED"
+	}
+
+	return s
 }
 
 // Close closes the repository and releases all resources.

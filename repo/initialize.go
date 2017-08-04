@@ -14,15 +14,24 @@ import (
 // NewRepositoryOptions specifies options that apply to newly created repositories.
 // All fields are optional, when not provided, reasonable defaults will be used.
 type NewRepositoryOptions struct {
+	UniqueID                    []byte // force the use of particular unique ID for metadata manager
 	MetadataEncryptionAlgorithm string // identifier of encryption algorithm
-	ObjectFormat                string // identifier of object format
 	KeyDerivationAlgorithm      string // identifier of key derivation algorithm
+
+	ObjectFormat        string // identifier of object format
+	ObjectHMACSecret    []byte // force the use of particular object HMAC secret
+	ObjectEncryptionKey []byte // force the use of particular object encryption key
 
 	MaxInlineContentLength int    // maximum size of object to be considered for inline storage within ObjectID
 	Splitter               string // splitter used to break objects into storage blocks
 	MinBlockSize           int    // minimum block size used with dynamic splitter
 	AvgBlockSize           int    // approximate size of storage block (used with dynamic splitter)
 	MaxBlockSize           int    // maximum size of storage block
+	MaxPackedContentLength int    // maximum size of object to be considered for storage in a pack
+	MaxPackFileLength      int    // maximum length of a single pack file
+
+	// test-only
+	noHMAC bool // disable HMAC
 }
 
 // Initialize creates initial repository data structures in the specified storage with given credentials.
@@ -71,7 +80,7 @@ func metadataFormatFromOptions(opt *NewRepositoryOptions) config.MetadataFormat 
 	return config.MetadataFormat{
 		SecurityOptions: auth.SecurityOptions{
 			KeyDerivationAlgorithm: applyDefaultString(opt.KeyDerivationAlgorithm, auth.DefaultKeyDerivationAlgorithm),
-			UniqueID:               randomBytes(32),
+			UniqueID:               applyDefaultRandomBytes(opt.UniqueID, 32),
 		},
 		Version:             "1",
 		EncryptionAlgorithm: applyDefaultString(opt.MetadataEncryptionAlgorithm, DefaultMetadataEncryptionAlgorithm),
@@ -79,17 +88,25 @@ func metadataFormatFromOptions(opt *NewRepositoryOptions) config.MetadataFormat 
 }
 
 func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) config.RepositoryObjectFormat {
-	return config.RepositoryObjectFormat{
+	f := config.RepositoryObjectFormat{
 		Version:                1,
 		Splitter:               applyDefaultString(opt.Splitter, DefaultObjectSplitter),
 		ObjectFormat:           applyDefaultString(opt.ObjectFormat, DefaultObjectFormat),
-		Secret:                 randomBytes(32),
-		MasterKey:              randomBytes(32),
+		HMACSecret:             applyDefaultRandomBytes(opt.ObjectHMACSecret, 32),
+		MasterKey:              applyDefaultRandomBytes(opt.ObjectEncryptionKey, 32),
 		MaxInlineContentLength: applyDefaultInt(opt.MaxInlineContentLength, 32<<10), // 32KiB
 		MaxBlockSize:           applyDefaultInt(opt.MaxBlockSize, 20<<20),           // 20MiB
 		MinBlockSize:           applyDefaultInt(opt.MinBlockSize, 10<<20),           // 10MiB
 		AvgBlockSize:           applyDefaultInt(opt.AvgBlockSize, 16<<20),           // 16MiB
+		MaxPackedContentLength: applyDefaultInt(opt.MaxPackedContentLength, 1<<20),  // 1 MB
+		MaxPackFileLength:      applyDefaultInt(opt.MaxPackedContentLength, 20<<20), // 20 MB
 	}
+
+	if opt.noHMAC {
+		f.HMACSecret = nil
+	}
+
+	return f
 }
 
 func randomBytes(n int) []byte {
@@ -112,4 +129,12 @@ func applyDefaultString(v, def string) string {
 	}
 
 	return v
+}
+
+func applyDefaultRandomBytes(b []byte, n int) []byte {
+	if b == nil {
+		return randomBytes(n)
+	}
+
+	return b
 }

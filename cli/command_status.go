@@ -41,6 +41,7 @@ func runStatusCommand(context *kingpin.ParseContext) error {
 			units.BytesStringBase2(int64(s.MinBlockSize)),
 			units.BytesStringBase2(int64(s.AvgBlockSize)),
 			units.BytesStringBase2(int64(s.MaxBlockSize)))
+	case "":
 	case "FIXED":
 		splitterExtraInfo = fmt.Sprintf(" %v", units.BytesStringBase2(int64(s.MaxBlockSize)))
 	}
@@ -54,6 +55,9 @@ func runStatusCommand(context *kingpin.ParseContext) error {
 	fmt.Printf("Object manager:      v%v\n", s.ObjectManagerVersion)
 	fmt.Printf("Object format:       %v\n", s.ObjectFormat)
 	fmt.Printf("Splitter:            %v%v\n", s.Splitter, splitterExtraInfo)
+	if s.MaxPackFileLength > 0 {
+		fmt.Printf("Max pack file size:  %v (max object %v)\n", units.BytesStringBase2(int64(s.MaxPackFileLength)), units.BytesStringBase2(int64(s.MaxPackedContentLength)))
+	}
 
 	return nil
 }

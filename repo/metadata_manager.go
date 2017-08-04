@@ -27,6 +27,8 @@ const (
 const (
 	// MetadataBlockPrefix is a prefix used for metadata blocks in repository storage.
 	MetadataBlockPrefix = "VLT"
+
+	parallelFetches = 5
 )
 
 var (
@@ -134,6 +136,53 @@ func (mm *MetadataManager) GetMetadata(itemID string) ([]byte, error) {
 	return mm.readEncryptedBlock(itemID)
 }
 
+// MultiGetMetadata gets the contents of a specified multiple metadata items efficiently.
+// The results are returned as a map, with items that are not found not present in the map.
+func (mm *MetadataManager) MultiGetMetadata(itemIDs []string) (map[string][]byte, error) {
+	type singleReadResult struct {
+		id       string
+		contents []byte
+		err      error
+	}
+
+	ch := make(chan singleReadResult)
+	inputs := make(chan string)
+	for i := 0; i < parallelFetches; i++ {
+		go func() {
+			for itemID := range inputs {
+				v, err := mm.GetMetadata(itemID)
+				ch <- singleReadResult{itemID, v, err}
+			}
+		}()
+	}
+
+	go func() {
+		// feed item IDs to workers.
+		for _, i := range itemIDs {
+			inputs <- i
+		}
+		close(inputs)
+	}()
+
+	// fetch exactly N results
+	var resultErr error
+	resultMap := make(map[string][]byte)
+	for i := 0; i < len(itemIDs); i++ {
+		r := <-ch
+		if r.err != nil {
+			resultErr = r.err
+		} else {
+			resultMap[r.id] = r.contents
+		}
+	}
+
+	if resultErr != nil {
+		return nil, resultErr
+	}
+
+	return resultMap, nil
+}
+
 func (mm *MetadataManager) getJSON(itemID string, content interface{}) error {
 	j, err := mm.readEncryptedBlock(itemID)
 	if err != nil {
@@ -177,6 +226,16 @@ func (mm *MetadataManager) ListMetadata(prefix string, limit int) ([]string, err
 		}
 	}
 	return result, nil
+}
+
+// ListMetadataContents retrieves metadata contents for all items starting with a given prefix and up to a specified limit.
+func (mm *MetadataManager) ListMetadataContents(prefix string, limit int) (map[string][]byte, error) {
+	itemIDs, err := mm.ListMetadata(prefix, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	return mm.MultiGetMetadata(itemIDs)
 }
 
 // Config returns a configuration of storage its credentials that's suitable
