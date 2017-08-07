@@ -254,6 +254,15 @@ func ParseObjectID(s string) (ObjectID, error) {
 		content := s[1:]
 
 		switch chunkType {
+		case 'P':
+			parts := strings.Split(content, ".")
+			if len(parts) == 2 && len(parts[0]) > 0 && len(parts[1]) > 0 {
+				return ObjectID{
+					PackID:       parts[0],
+					StorageBlock: parts[1],
+				}, nil
+			}
+
 		case 'S':
 			if start, length, base, err := parseSectionInfoString(s); err == nil {
 				return ObjectID{Section: &ObjectIDSection{
