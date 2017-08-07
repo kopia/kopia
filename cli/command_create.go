@@ -22,7 +22,7 @@ var (
 	createAvgBlockSize = createCommand.Flag("avg-block-size", "Average size of a data block.").PlaceHolder("KB").Default("10240").Int()
 	createMaxBlockSize = createCommand.Flag("max-block-size", "Maximum size of a data block.").PlaceHolder("KB").Default("20480").Int()
 
-	createInlineBlobSize = createCommand.Flag("inline-blob-size", "Maximum size of an inline data object.").PlaceHolder("KB").Default("32").Int()
+	createInlineBlobSize = createCommand.Flag("inline-blob-size", "Maximum size of an inline data object.").PlaceHolder("KB").Default("0").Int()
 	createOverwrite      = createCommand.Flag("overwrite", "Overwrite existing data (DANGEROUS).").Bool()
 	createOnly           = createCommand.Flag("create-only", "Create repository, but don't connect to it.").Short('c').Bool()
 )
