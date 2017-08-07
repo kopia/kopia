@@ -218,6 +218,10 @@ func uploadFile(u *uploadContext, file fs.File) (repo.ObjectID, error) {
 func uploadDir(u *uploadContext, dir fs.Directory) (repo.ObjectID, repo.ObjectID, error) {
 	var err error
 
+	if err := u.repo.BeginPacking(); err != nil {
+		return repo.NullObjectID, repo.NullObjectID, err
+	}
+
 	mw := u.repo.NewWriter(repo.WriterOptions{
 		Description:     "HASHCACHE:" + dir.Metadata().Name,
 		BlockNamePrefix: "H",
@@ -233,6 +237,9 @@ func uploadDir(u *uploadContext, dir fs.Directory) (repo.ObjectID, repo.ObjectID
 	}
 
 	hcid, err := mw.Result(true)
+	if err := u.repo.FinishPacking(); err != nil {
+		return repo.NullObjectID, repo.NullObjectID, fmt.Errorf("can't finish packing: %v", err)
+	}
 	return oid, hcid, err
 }
 
