@@ -125,13 +125,12 @@ func TestUpload(t *testing.T) {
 		t.Errorf("expected s2.HashCacheID==s1.HashCacheID, got %v and %v", s2.HashCacheID.String(), s1.HashCacheID.String())
 	}
 
-	if s1.Stats.CachedFiles+s1.Stats.CachedDirectories != 0 {
+	if s1.Stats.CachedFiles != 0 {
 		t.Errorf("unexpected s1 stats: %+v", s1.Stats)
 	}
 
-	// All non-cached files from s1 are now cached and there are no non-cached files or dirs since nothing changed.
-	if s2.Stats.CachedFiles+s2.Stats.CachedDirectories != s1.Stats.NonCachedFiles+s1.Stats.NonCachedDirectories ||
-		s2.Stats.NonCachedFiles+s2.Stats.NonCachedDirectories != 0 {
+	// All non-cached files from s1 are now cached and there are no non-cached files since nothing changed.
+	if s2.Stats.CachedFiles != s1.Stats.NonCachedFiles || s2.Stats.NonCachedFiles != 0 {
 		t.Errorf("unexpected s2 stats: %+v, vs s1: %+v", s2.Stats, s1.Stats)
 	}
 
@@ -150,7 +149,7 @@ func TestUpload(t *testing.T) {
 		t.Errorf("expected s3.HashCacheID!=s2.HashCacheID, got %v", s3.HashCacheID.String())
 	}
 
-	if s3.Stats.NonCachedFiles != 1 && s3.Stats.NonCachedDirectories != 3 {
+	if s3.Stats.NonCachedFiles != 1 {
 		// one file is not cached, which causes "./d2/d1/", "./d2/" and "./" to be changed.
 		t.Errorf("unexpected s3 stats: %+v", s3.Stats)
 	}
@@ -171,8 +170,7 @@ func TestUpload(t *testing.T) {
 	}
 
 	// Everything is still cached.
-	if s4.Stats.CachedFiles+s4.Stats.CachedDirectories != s1.Stats.NonCachedFiles+s1.Stats.NonCachedDirectories ||
-		s4.Stats.NonCachedFiles+s4.Stats.NonCachedDirectories != 0 {
+	if s4.Stats.CachedFiles != s1.Stats.NonCachedFiles || s4.Stats.NonCachedFiles != 0 {
 		t.Errorf("unexpected s4 stats: %+v", s4.Stats)
 	}
 
@@ -188,7 +186,7 @@ func TestUpload(t *testing.T) {
 		t.Errorf("expected s4.HashCacheID==s5.HashCacheID, got %v and %v", s4.HashCacheID, s5.HashCacheID)
 	}
 
-	if s5.Stats.NonCachedFiles != 0 && s5.Stats.NonCachedDirectories != 3 {
+	if s5.Stats.NonCachedFiles != 0 {
 		// no files are changed, but one file disappeared which caused "./d2/d1/", "./d2/" and "./" to be changed.
 		t.Errorf("unexpected s5 stats: %+v", s5.Stats)
 	}

@@ -12,8 +12,6 @@ type Stats struct {
 	TotalBundleCount    int   `json:"bundleCount"`
 	TotalBundleSize     int64 `json:"totalBundleSize"`
 
-	CachedDirectories    int `json:"cachedDirectories"`
-	CachedFiles          int `json:"cachedFiles"`
-	NonCachedDirectories int `json:"nonCachedDirectories"`
-	NonCachedFiles       int `json:"nonCachedFiles"`
+	CachedFiles    int `json:"cachedFiles"`
+	NonCachedFiles int `json:"nonCachedFiles"`
 }

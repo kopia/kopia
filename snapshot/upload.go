@@ -228,7 +228,7 @@ func uploadDir(u *uploadContext, dir fs.Directory) (repo.ObjectID, repo.ObjectID
 	})
 	defer mw.Close()
 	u.cacheWriter = hashcache.NewWriter(mw)
-	oid, _, _, err := uploadDirInternal(u, dir, ".", true)
+	oid, err := uploadDirInternal(u, dir, ".", true)
 	u.cacheWriter.Finalize()
 	u.cacheWriter = nil
 
@@ -248,7 +248,7 @@ func uploadDirInternal(
 	directory fs.Directory,
 	relativePath string,
 	forceStored bool,
-) (repo.ObjectID, uint64, bool, error) {
+) (repo.ObjectID, error) {
 	u.progress.StartedDir(relativePath)
 	defer u.progress.FinishedDir(relativePath)
 
@@ -256,10 +256,8 @@ func uploadDirInternal(
 
 	entries, err := directory.Readdir()
 	if err != nil {
-		return repo.NullObjectID, 0, false, err
+		return repo.NullObjectID, err
 	}
-
-	entries = bundleEntries(u, entries)
 
 	writer := u.repo.NewWriter(repo.WriterOptions{
 		Description: "DIR:" + relativePath,
@@ -267,12 +265,6 @@ func uploadDirInternal(
 
 	dw := dir.NewWriter(writer)
 	defer writer.Close()
-
-	allCached := true
-
-	dirHasher := fnv.New64a()
-	dirHasher.Write([]byte(relativePath))
-	dirHasher.Write([]byte{0})
 
 	for _, entry := range entries {
 		e := entry.Metadata()
@@ -284,19 +276,16 @@ func uploadDirInternal(
 
 		switch entry := entry.(type) {
 		case fs.Directory:
-			oid, h, wasCached, err := uploadDirInternal(u, entry, entryRelativePath, false)
+			oid, err := uploadDirInternal(u, entry, entryRelativePath, false)
 			if err != nil {
-				return repo.NullObjectID, 0, false, err
+				return repo.NullObjectID, err
 			}
-			//log.Printf("dirHash: %v %v", fullPath, h)
-			hash = h
-			allCached = allCached && wasCached
 			de = newDirEntry(e, oid)
 
 		case fs.Symlink:
 			l, err := entry.Readlink()
 			if err != nil {
-				return repo.NullObjectID, 0, false, err
+				return repo.NullObjectID, err
 			}
 
 			de = newDirEntry(e, repo.InlineObjectID([]byte(l)))
@@ -309,7 +298,6 @@ func uploadDirInternal(
 			// ... and whether file metadata is identical to the previous one.
 			cacheMatches := (cachedEntry != nil) && cachedEntry.Hash == bundleHash(entry)
 
-			allCached = allCached && cacheMatches
 			childrenMetadata := make([]*dir.Entry, len(entry.Files))
 			for i, f := range entry.Files {
 				childrenMetadata[i] = newDirEntry(f.Metadata(), repo.NullObjectID)
@@ -326,7 +314,7 @@ func uploadDirInternal(
 				u.stats.NonCachedFiles++
 				de, hash, err = uploadBundleInternal(u, entry, entryRelativePath)
 				if err != nil {
-					return repo.NullObjectID, 0, false, fmt.Errorf("unable to hash file: %s", err)
+					return repo.NullObjectID, fmt.Errorf("unable to hash file: %s", err)
 				}
 			}
 			u.stats.TotalBundleCount++
@@ -342,8 +330,6 @@ func uploadDirInternal(
 			computedHash := metadataHash(e)
 			cacheMatches := (cachedEntry != nil) && cachedEntry.Hash == computedHash
 
-			allCached = allCached && cacheMatches
-
 			if cacheMatches {
 				u.stats.CachedFiles++
 				u.progress.Cached(entryRelativePath, entry.Metadata().FileSize)
@@ -354,7 +340,7 @@ func uploadDirInternal(
 				u.stats.NonCachedFiles++
 				de, hash, err = uploadFileInternal(u, entry, entryRelativePath, false)
 				if err != nil {
-					return repo.NullObjectID, 0, false, fmt.Errorf("unable to hash file: %s", err)
+					return repo.NullObjectID, fmt.Errorf("unable to hash file: %s", err)
 				}
 			}
 
@@ -362,17 +348,11 @@ func uploadDirInternal(
 			u.stats.TotalFileSize += de.FileSize
 
 		default:
-			return repo.NullObjectID, 0, false, fmt.Errorf("file type %v not supported", entry.Metadata().Type)
-		}
-
-		if hash != 0 {
-			dirHasher.Write([]byte(de.Name))
-			dirHasher.Write([]byte{0})
-			binary.Write(dirHasher, binary.LittleEndian, hash)
+			return repo.NullObjectID, fmt.Errorf("file type %v not supported", entry.Metadata().Type)
 		}
 
 		if err := dw.WriteEntry(de); err != nil {
-			return repo.NullObjectID, 0, false, err
+			return repo.NullObjectID, err
 		}
 
 		if de.Type != fs.EntryTypeDirectory && de.ObjectID.StorageBlock != "" {
@@ -381,43 +361,14 @@ func uploadDirInternal(
 				Hash:     hash,
 				ObjectID: de.ObjectID,
 			}); err != nil {
-				return repo.NullObjectID, 0, false, err
+				return repo.NullObjectID, err
 			}
 		}
 	}
 
 	dw.Finalize()
 
-	var directoryOID repo.ObjectID
-	dirHash := dirHasher.Sum64()
-
-	cacheddirEntry := u.cacheReader.FindEntry(relativePath + "/")
-	allCached = allCached && cacheddirEntry != nil && cacheddirEntry.Hash == dirHash
-
-	if allCached {
-		// Avoid hashing directory listing if every entry matched the cache.
-		u.stats.CachedDirectories++
-		directoryOID = cacheddirEntry.ObjectID
-	} else {
-		u.stats.NonCachedDirectories++
-		directoryOID, err = writer.Result(forceStored)
-		if err != nil {
-			return directoryOID, 0, false, err
-		}
-	}
-
-	if directoryOID.StorageBlock != "" {
-		if err := u.cacheWriter.WriteEntry(hashcache.Entry{
-			Name:     relativePath + "/",
-			ObjectID: directoryOID,
-			Hash:     dirHash,
-		}); err != nil {
-			return repo.NullObjectID, 0, false, err
-		}
-	}
-
-	// log.Printf("Dir: %v %v %v %v", relativePath, directoryOID.UIString(), dirHash, allCached)
-	return directoryOID, dirHash, allCached, nil
+	return writer.Result(forceStored)
 }
 
 func bundleEntries(u *uploadContext, entries fs.Entries) fs.Entries {
