@@ -39,7 +39,7 @@ func (t *blockTracker) blockIDs() []string {
 type objectWriter struct {
 	repo *ObjectManager
 
-	buffer      *bytes.Buffer
+	buffer      bytes.Buffer
 	totalLength int64
 
 	prefix             string
@@ -59,11 +59,6 @@ type objectWriter struct {
 }
 
 func (w *objectWriter) Close() error {
-	if w.buffer != nil {
-		w.repo.bufferManager.returnBuffer(w.buffer)
-		w.buffer = nil
-	}
-
 	if w.listWriter != nil {
 		w.listWriter.Close()
 		w.listWriter = nil
@@ -76,10 +71,6 @@ func (w *objectWriter) Write(data []byte) (n int, err error) {
 	w.totalLength += int64(dataLen)
 
 	for _, d := range data {
-		if w.buffer == nil {
-			w.buffer = w.repo.bufferManager.newBuffer()
-		}
-
 		w.buffer.WriteByte(d)
 
 		if w.splitter.add(d) {
@@ -93,57 +84,55 @@ func (w *objectWriter) Write(data []byte) (n int, err error) {
 }
 
 func (w *objectWriter) flushBuffer(force bool) error {
-	// log.Printf("flushing bufer")
-	// defer log.Printf("flushed")
-	if w.buffer != nil || force {
-		var length int
-		if w.buffer != nil {
-			length = w.buffer.Len()
-		}
-
-		b := w.buffer
-		w.buffer = nil
-
-		objectID, err := w.repo.hashEncryptAndWriteMaybeAsync(b, w.prefix, w.disablePacking)
-		if err != nil {
-			return fmt.Errorf(
-				"error when flushing chunk %d of %s: %#v",
-				w.flushedObjectCount,
-				w.description,
-				err)
-		}
-
-		w.blockTracker.addBlock(objectID.StorageBlock)
-
-		w.flushedObjectCount++
-		w.lastFlushedObject = objectID
-		if w.listWriter == nil {
-			w.listWriter = &objectWriter{
-				repo:          w.repo,
-				indirectLevel: w.indirectLevel + 1,
-				prefix:        w.prefix,
-				description:   "LIST(" + w.description + ")",
-				blockTracker:  w.blockTracker,
-				splitter:      w.repo.newSplitter(),
-			}
-			w.listProtoWriter = jsonstream.NewWriter(w.listWriter, indirectStreamType)
-			w.listCurrentPos = 0
-		}
-
-		w.listProtoWriter.Write(&indirectObjectEntry{
-			Object: &objectID,
-			Start:  w.listCurrentPos,
-			Length: int64(length),
-		})
-
-		w.listCurrentPos += int64(length)
+	if !force && w.buffer.Len() == 0 {
+		return nil
 	}
+
+	length := w.buffer.Len()
+
+	var b2 bytes.Buffer
+	w.buffer.WriteTo(&b2)
+	w.buffer.Reset()
+
+	objectID, err := w.repo.hashEncryptAndWriteMaybeAsync(&b2, w.prefix, w.disablePacking)
+	if err != nil {
+		return fmt.Errorf(
+			"error when flushing chunk %d of %s: %#v",
+			w.flushedObjectCount,
+			w.description,
+			err)
+	}
+
+	w.blockTracker.addBlock(objectID.StorageBlock)
+
+	w.flushedObjectCount++
+	w.lastFlushedObject = objectID
+	if w.listWriter == nil {
+		w.listWriter = &objectWriter{
+			repo:          w.repo,
+			indirectLevel: w.indirectLevel + 1,
+			prefix:        w.prefix,
+			description:   "LIST(" + w.description + ")",
+			blockTracker:  w.blockTracker,
+			splitter:      w.repo.newSplitter(),
+		}
+		w.listProtoWriter = jsonstream.NewWriter(w.listWriter, indirectStreamType)
+		w.listCurrentPos = 0
+	}
+
+	w.listProtoWriter.Write(&indirectObjectEntry{
+		Object: &objectID,
+		Start:  w.listCurrentPos,
+		Length: int64(length),
+	})
+
+	w.listCurrentPos += int64(length)
 	return nil
 }
 
 func (w *objectWriter) Result(forceStored bool) (ObjectID, error) {
 	if !forceStored && w.flushedObjectCount == 0 {
-		if w.buffer == nil {
+		if w.buffer.Len() == 0 {
 			return NullObjectID, nil
 		}
 

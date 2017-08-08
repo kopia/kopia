@@ -18,10 +18,6 @@ import (
 	"github.com/kopia/kopia/internal/storagetesting"
 )
 
-func init() {
-	panicOnBufferLeaks = true
-}
-
 func setupTest(t *testing.T, mods ...func(o *NewRepositoryOptions)) (data map[string][]byte, om *Repository) {
 	data = map[string][]byte{}
 	st := storagetesting.NewMapStorage(data)

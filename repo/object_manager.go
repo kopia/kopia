@@ -28,10 +28,9 @@ type ObjectManager struct {
 	stats   Stats
 	storage blob.Storage
 
-	verbose       bool
-	bufferManager *bufferManager
-	format        config.RepositoryObjectFormat
-	formatter     objectFormatter
+	verbose   bool
+	format    config.RepositoryObjectFormat
+	formatter objectFormatter
 
 	packMgr   *packManager
 	writeBack writebackManager
@@ -42,7 +41,6 @@ type ObjectManager struct {
 // Close closes the connection to the underlying blob storage and releases any resources.
 func (r *ObjectManager) Close() error {
 	r.writeBack.flush()
-	r.bufferManager.close()
 
 	return nil
 }
@@ -195,7 +193,6 @@ func newObjectManager(s blob.Storage, f config.RepositoryObjectFormat, opts *Opt
 		r.writeBack.workers = opts.WriteBack
 	}
 
-	r.bufferManager = newBufferManager(int(r.format.MaxBlockSize))
 	if r.writeBack.enabled() {
 		r.writeBack.semaphore = make(semaphore, r.writeBack.workers)
 	}
@@ -246,8 +243,6 @@ func (r *ObjectManager) hashEncryptAndWriteMaybeAsync(buffer *bytes.Buffer, pref
 }
 
 func (r *ObjectManager) encryptAndMaybeWrite(objectID ObjectID, buffer *bytes.Buffer, prefix string) (ObjectID, error) {
-	defer r.bufferManager.returnBuffer(buffer)
-
 	var data []byte
 	if buffer != nil {
 		data = buffer.Bytes()
