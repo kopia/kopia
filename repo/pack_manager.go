@@ -22,8 +22,7 @@ type packManager struct {
 	packIndexes packIndexes
 
 	blockIDToPackedObjectID map[string]ObjectID
-	currentPackDataWriter   ObjectWriter
-	currentPackDataOffset   int
+	currentPackData         bytes.Buffer
 	currentPackIndexes      packIndexes
 	currentPackIndex        *packIndex
 	currentPackID           string
@@ -72,25 +71,20 @@ func (p *packManager) AddToPack(blockID string, data []byte) (ObjectID, error) {
 
 	//log.Printf("%q not found in  %v", blockID, p.blockIDToPackedObjectID)
 
-	if p.currentPackDataWriter == nil {
+	if p.currentPackIndex == nil {
 		p.currentPackIndex = &packIndex{
 			Items: make(map[string]string),
 		}
 		p.currentPackID = p.newPackID()
 		p.currentPackIndexes[p.currentPackID] = p.currentPackIndex
-		p.currentPackDataOffset = 0
-		p.currentPackDataWriter = p.objectManager.NewWriter(WriterOptions{
-			splitter:       newNeverSplitter(),
-			disablePacking: true,
-		})
+		p.currentPackData.Reset()
 	}
 
-	offset := p.currentPackDataOffset
-	p.currentPackDataOffset += len(data)
-	p.currentPackDataWriter.Write(data)
+	offset := p.currentPackData.Len()
+	p.currentPackData.Write(data)
 	p.currentPackIndex.Items[blockID] = fmt.Sprintf("%v+%v", int64(offset), int64(len(data)))
 
-	if p.currentPackDataOffset >= p.objectManager.format.MaxPackFileLength {
+	if p.currentPackData.Len() >= p.objectManager.format.MaxPackFileLength {
 		if err := p.finishCurrentPackLocked(); err != nil {
 			return NullObjectID, err
 		}
@@ -120,19 +114,27 @@ func (p *packManager) finishPacking() error {
 }
 
 func (p *packManager) finishCurrentPackLocked() error {
-	if p.currentPackDataWriter == nil {
+	if p.currentPackIndex == nil {
 		return nil
 	}
-	w := p.currentPackDataWriter
-	p.currentPackDataWriter = nil
+	w := p.objectManager.NewWriter(WriterOptions{
+		splitter:       newNeverSplitter(),
+		disablePacking: true,
+	})
+	defer w.Close()
 
+	if _, err := p.currentPackData.WriteTo(w); err != nil {
+		return fmt.Errorf("unable to write pack: %v", err)
+	}
+	p.currentPackData.Reset()
 	oid, err := w.Result(true)
-	p.currentPackDataWriter = nil
+
 	if err != nil {
 		return fmt.Errorf("can't save pack data: %v", err)
 	}
 
 	p.currentPackIndex.PackObject = oid.String()
+	p.currentPackIndex = nil
 
 	var jb bytes.Buffer
 	if err := json.NewEncoder(&jb).Encode(p.currentPackIndexes); err != nil {
