@@ -51,11 +51,17 @@ func openStorageAndEnsureEmpty(url string) (blob.Storage, error) {
 		return nil, err
 	}
 	ch, cancel := s.ListBlocks("")
-	_, hasData := <-ch
+	d, hasData := <-ch
 	cancel()
 
-	if hasData && !*createOverwrite {
-		return nil, fmt.Errorf("found existing data in %v, specify --overwrite to use anyway", url)
+	if hasData {
+		if d.Error != nil {
+			return nil, d.Error
+		}
+
+		if !*createOverwrite {
+			return nil, fmt.Errorf("found existing data in %v, specify --overwrite to use anyway", url)
+		}
 	}
 
 	return s, nil
