@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -21,8 +22,8 @@ const (
 
 var (
 	fsDefaultShards               = []int{3, 3}
-	fsDefaultFileMode os.FileMode = 0664
-	fsDefaultDirMode  os.FileMode = 0775
+	fsDefaultFileMode os.FileMode = 0600
+	fsDefaultDirMode  os.FileMode = 0700
 )
 
 type fsStorage struct {
@@ -216,15 +217,17 @@ func (fs *fsStorage) Close() error {
 }
 
 // New creates new filesystem-backed storage in a specified directory.
-func New(ctx context.Context, options *Options) (blob.Storage, error) {
+func New(ctx context.Context, opts *Options) (blob.Storage, error) {
 	var err error
 
-	if _, err = os.Stat(options.Path); err != nil {
+	if _, err = os.Stat(opts.Path); err != nil {
 		return nil, fmt.Errorf("cannot access storage path: %v", err)
 	}
 
+	log.Printf("initializing filesystem storage with %+v", opts)
+
 	r := &fsStorage{
-		Options: *options,
+		Options: *opts,
 	}
 
 	return r, nil

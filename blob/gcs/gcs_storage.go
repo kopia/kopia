@@ -191,15 +191,11 @@ func saveToken(file string, token *oauth2.Token) {
 //
 // By default the connection reuses credentials managed by (https://cloud.google.com/sdk/),
 // but this can be disabled by setting IgnoreDefaultCredentials to true.
-func New(ctx context.Context, options *Options) (blob.Storage, error) {
+func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 	var cliOpts []option.ClientOption
 
-	if sa := os.Getenv("KOPIA_GCS_SERVICEACCOUNT"); sa != "" {
+	if sa := opt.ServiceAccountCredentials; sa != "" {
 		cliOpts = append(cliOpts, option.WithServiceAccountFile(sa))
-	}
-
-	if sa := os.Getenv("KOPIA_GCS_READONLY"); sa != "" {
-		cliOpts = append(cliOpts, option.WithScopes(storage.ScopeReadOnly))
 	}
 
 	cli, err := storage.NewClient(ctx, cliOpts...)
@@ -207,15 +203,15 @@ func New(ctx context.Context, options *Options) (blob.Storage, error) {
 		return nil, err
 	}
 
-	if options.BucketName == "" {
+	if opt.BucketName == "" {
 		return nil, errors.New("bucket name must be specified")
 	}
 
 	return &gcsStorage{
-		Options:           *options,
+		Options:           *opt,
 		ctx:               ctx,
 		storageClient:     cli,
-		bucket:            cli.Bucket(options.BucketName),
+		bucket:            cli.Bucket(opt.BucketName),
 		downloadThrottler: iothrottler.NewIOThrottlerPool(iothrottler.Unlimited),
 		uploadThrottler:   iothrottler.NewIOThrottlerPool(iothrottler.Unlimited),
 	}, nil

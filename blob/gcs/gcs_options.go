@@ -8,6 +8,6 @@ type Options struct {
 	// Prefix specifies additional string to prepend to all objects.
 	Prefix string `json:"prefix,omitempty"`
 
-	// IgnoreDefaultCredentials disables the use of credentials managed by Google Cloud SDK (gcloud).
-	IgnoreDefaultCredentials bool `json:"ignoreDefaultCredentials"`
+	// ServiceAccountCredentials specifies the name of the file with GCS credentials.
+	ServiceAccountCredentials string `json:"credentialsFile,omitempty"`
 }
