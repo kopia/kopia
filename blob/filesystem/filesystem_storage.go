@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -223,8 +222,6 @@ func New(ctx context.Context, opts *Options) (blob.Storage, error) {
 	if _, err = os.Stat(opts.Path); err != nil {
 		return nil, fmt.Errorf("cannot access storage path: %v", err)
 	}
-
-	log.Printf("initializing filesystem storage with %+v", opts)
 
 	r := &fsStorage{
 		Options: *opts,

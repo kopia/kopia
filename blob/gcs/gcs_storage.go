@@ -3,21 +3,22 @@ package gcs
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
-	"os"
+
+	"github.com/kopia/kopia/internal/throttle"
+
+	"golang.org/x/oauth2/google"
 
 	"google.golang.org/api/iterator"
+	"google.golang.org/api/option"
 
 	"github.com/efarrer/iothrottler"
 	"github.com/kopia/kopia/blob"
 	"golang.org/x/oauth2"
 
 	"cloud.google.com/go/storage"
-	"google.golang.org/api/option"
 )
 
 const (
@@ -164,25 +165,17 @@ func toBandwidth(bytesPerSecond int) iothrottler.Bandwidth {
 	return iothrottler.Bandwidth(bytesPerSecond) * iothrottler.BytesPerSecond
 }
 
-func tokenFromFile(file string) (*oauth2.Token, error) {
-	f, err := os.Open(file)
+func tokenSourceFromCredentialsFile(ctx context.Context, fn string, scopes ...string) (oauth2.TokenSource, error) {
+	data, err := ioutil.ReadFile(fn)
 	if err != nil {
 		return nil, err
 	}
 
-	t := oauth2.Token{}
-	err = json.NewDecoder(f).Decode(&t)
-	return &t, err
-}
-
-func saveToken(file string, token *oauth2.Token) {
-	f, err := os.Create(file)
+	cfg, err := google.JWTConfigFromJSON(data, scopes...)
 	if err != nil {
-		log.Printf("Warning: failed to cache oauth token: %v", err)
-		return
+		return nil, fmt.Errorf("google.JWTConfigFromJSON: %v", err)
 	}
-	defer f.Close()
-	json.NewEncoder(f).Encode(token)
+	return cfg.TokenSource(ctx), nil
 }
 
 // New creates new Google Cloud Storage-backed storage with specified options:
@@ -192,13 +185,31 @@ func saveToken(file string, token *oauth2.Token) {
 // By default the connection reuses credentials managed by (https://cloud.google.com/sdk/),
 // but this can be disabled by setting IgnoreDefaultCredentials to true.
 func New(ctx context.Context, opt *Options) (blob.Storage, error) {
-	var cliOpts []option.ClientOption
+	var ts oauth2.TokenSource
+	var err error
 
-	if sa := opt.ServiceAccountCredentials; sa != "" {
-		cliOpts = append(cliOpts, option.WithServiceAccountFile(sa))
+	scope := storage.ScopeReadWrite
+	if opt.ReadOnly {
+		scope = storage.ScopeReadOnly
 	}
 
-	cli, err := storage.NewClient(ctx, cliOpts...)
+	if sa := opt.ServiceAccountCredentials; sa != "" {
+		ts, err = tokenSourceFromCredentialsFile(ctx, sa, scope)
+	} else {
+		ts, err = google.DefaultTokenSource(ctx, scope)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	downloadThrottler := iothrottler.NewIOThrottlerPool(iothrottler.Unlimited)
+	uploadThrottler := iothrottler.NewIOThrottlerPool(iothrottler.Unlimited)
+
+	hc := oauth2.NewClient(ctx, ts)
+	hc.Transport = throttle.NewRoundTripper(hc.Transport, downloadThrottler, uploadThrottler)
+
+	cli, err := storage.NewClient(ctx, option.WithHTTPClient(hc))
 	if err != nil {
 		return nil, err
 	}
@@ -212,8 +223,8 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		ctx:               ctx,
 		storageClient:     cli,
 		bucket:            cli.Bucket(opt.BucketName),
-		downloadThrottler: iothrottler.NewIOThrottlerPool(iothrottler.Unlimited),
-		uploadThrottler:   iothrottler.NewIOThrottlerPool(iothrottler.Unlimited),
+		downloadThrottler: downloadThrottler,
+		uploadThrottler:   uploadThrottler,
 	}, nil
 }
 

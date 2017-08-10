@@ -51,16 +51,16 @@ func parseFilesystemURL(fso *fsstorage.Options, u *url.URL) error {
 	} else {
 		fso.Path = u.Path
 	}
-	if v := *connectOwnerUID; v != "" {
+	if v := connectOwnerUID; v != "" {
 		fso.FileUID = getIntPtrValue(v, 10)
 	}
-	if v := *connectOwnerGID; v != "" {
+	if v := connectOwnerGID; v != "" {
 		fso.FileGID = getIntPtrValue(v, 10)
 	}
-	if v := *connectFileMode; v != "" {
+	if v := connectFileMode; v != "" {
 		fso.FileMode = getFileModeValue(v, 8)
 	}
-	if v := *connectDirMode; v != "" {
+	if v := connectDirMode; v != "" {
 		fso.DirectoryMode = getFileModeValue(v, 8)
 	}
 	return nil
@@ -69,7 +69,8 @@ func parseFilesystemURL(fso *fsstorage.Options, u *url.URL) error {
 func parseGoogleCloudStorageURL(gcso *gcsstorage.Options, u *url.URL) error {
 	gcso.BucketName = u.Host
 	gcso.Prefix = u.Path
-	gcso.ServiceAccountCredentials = *connectCredentialsFile
+	gcso.ServiceAccountCredentials = connectCredentialsFile
+	gcso.ReadOnly = connectReadOnly
 	return nil
 }
 
