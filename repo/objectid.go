@@ -35,7 +35,7 @@ import (
 //   "I1,2c33acbcba3569f943d9e8aaea7817c5"                // level-1 indirection block
 //   "I3,e18604fe53ee670558eb4234d2e55cb7"                // level-3 indirection block
 //   "S30,50,D295754edeb35c17911b1fdf853f572fe"           // section of "D295754edeb35c17911b1fdf853f572fe" between [30,80)
-//   "P2c33acbcba3569f9.295754edeb35c17911b1fdf853f572fe" // object 295754edeb35c17911b1fdf853f572fe of pack P2c33acbcba3569f9
+//   "P295754edeb35c17911b1fdf853f572fe@2c33acbcba3569f9" // object 295754edeb35c17911b1fdf853f572fe of pack P2c33acbcba3569f9
 //
 //
 type ObjectID struct {
@@ -94,7 +94,7 @@ func (oid ObjectID) String() string {
 		}
 
 		if oid.PackID != "" {
-			return fmt.Sprintf("P%v.%v", oid.PackID, oid.StorageBlock)
+			return fmt.Sprintf("P%v@%v", oid.StorageBlock, oid.PackID)
 		}
 
 		return "D" + oid.StorageBlock
@@ -255,11 +255,11 @@ func ParseObjectID(s string) (ObjectID, error) {
 
 		switch chunkType {
 		case 'P':
-			parts := strings.Split(content, ".")
+			parts := strings.Split(content, "@")
 			if len(parts) == 2 && len(parts[0]) > 0 && len(parts[1]) > 0 {
 				return ObjectID{
-					PackID:       parts[0],
-					StorageBlock: parts[1],
+					StorageBlock: parts[0],
+					PackID:       parts[1],
 				}, nil
 			}
 
