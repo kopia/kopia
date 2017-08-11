@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 
@@ -24,8 +23,6 @@ import (
 type Options struct {
 	CredentialsCallback func() (auth.Credentials, error)    // Provides credentials required to open the repository if not persisted.
 	TraceStorage        func(f string, args ...interface{}) // Logs all storage access using provided Printf-style function
-	MaxDownloadSpeed    int                                 // Limits download speed.
-	MaxUploadSpeed      int                                 // Limits upload speed.
 	WriteBack           int                                 // Causes all object writes to be asynchronous with the specified number of workers.
 }
 
@@ -59,7 +56,7 @@ func Open(ctx context.Context, configFile string, options *Options) (*Repository
 		return nil, fmt.Errorf("invalid credentials: %v", err)
 	}
 
-	st, err := newStorageWithOptions(ctx, lc.Connection.ConnectionInfo, options)
+	st, err := blob.NewStorage(ctx, lc.Connection.ConnectionInfo)
 	if err != nil {
 		return nil, fmt.Errorf("cannot open storage: %v", err)
 	}
@@ -150,22 +147,4 @@ func Disconnect(configFile string) error {
 	}
 
 	return os.Remove(configFile)
-}
-
-func newStorageWithOptions(ctx context.Context, cfg blob.ConnectionInfo, options *Options) (blob.Storage, error) {
-	s, err := blob.NewStorage(ctx, cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	if options.MaxUploadSpeed > 0 || options.MaxDownloadSpeed > 0 {
-		t, ok := s.(blob.Throttler)
-		if ok {
-			t.SetThrottle(options.MaxDownloadSpeed, options.MaxUploadSpeed)
-		} else {
-			log.Printf("Throttling not supported for '%v'.", cfg.Type)
-		}
-	}
-
-	return s, nil
 }

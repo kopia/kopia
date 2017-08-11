@@ -13,4 +13,8 @@ type Options struct {
 
 	// ReadOnly causes GCS connection to be opened with read-only scope to prevent accidental mutations.
 	ReadOnly bool `json:"readOnly,omitempty"`
+
+	MaxUploadSpeedBytesPerSecond int `json:"maxUploadSpeedBytesPerSecond,omitempty"`
+
+	MaxDownloadSpeedBytesPerSecond int `json:"maxDownloadSpeedBytesPerSecond,omitempty"`
 }

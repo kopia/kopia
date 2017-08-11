@@ -71,6 +71,9 @@ func parseGoogleCloudStorageURL(gcso *gcsstorage.Options, u *url.URL) error {
 	gcso.Prefix = u.Path
 	gcso.ServiceAccountCredentials = connectCredentialsFile
 	gcso.ReadOnly = connectReadOnly
+	gcso.MaxUploadSpeedBytesPerSecond = connectMaxUploadSpeedBytesPerSecond
+	gcso.MaxDownloadSpeedBytesPerSecond = connectMaxDownloadSpeedBytesPerSecond
+
 	return nil
 }
 

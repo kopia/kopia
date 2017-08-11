@@ -16,8 +16,10 @@ var (
 	connectCacheDirectory         string
 
 	// options shared by various providers
-	connectCredentialsFile string
-	connectReadOnly        bool
+	connectCredentialsFile                string
+	connectReadOnly                       bool
+	connectMaxDownloadSpeedBytesPerSecond int
+	connectMaxUploadSpeedBytesPerSecond   int
 
 	// options for filesystem provider
 	connectOwnerUID string
@@ -38,6 +40,9 @@ func setupConnectOptions(cmd *kingpin.CmdClause) {
 	cmd.Flag("owner-gid", "Group ID owning newly created files").PlaceHolder("GROUP").StringVar(&connectOwnerGID)
 	cmd.Flag("file-mode", "File mode for newly created files (0600)").PlaceHolder("MODE").StringVar(&connectFileMode)
 	cmd.Flag("dir-mode", "Mode of newly directory files (0700)").PlaceHolder("MODE").StringVar(&connectDirMode)
+
+	cmd.Flag("max-download-speed", "Limit the download speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&connectMaxDownloadSpeedBytesPerSecond)
+	cmd.Flag("max-upload-speed", "Limit the upload speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&connectMaxUploadSpeedBytesPerSecond)
 }
 
 func connectOptions() repo.ConnectOptions {

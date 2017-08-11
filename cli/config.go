@@ -28,9 +28,6 @@ var (
 	passwordFile = app.Flag("passwordfile", "Read repository password from a file.").PlaceHolder("FILENAME").Envar("KOPIA_PASSWORD_FILE").ExistingFile()
 	key          = app.Flag("key", "Specify master key (hexadecimal).").Envar("KOPIA_KEY").Short('k').String()
 	keyFile      = app.Flag("keyfile", "Read master key from file.").PlaceHolder("FILENAME").Envar("KOPIA_KEY_FILE").ExistingFile()
-
-	maxDownloadSpeed = app.Flag("max-download-speed", "Limit the download speed.").PlaceHolder("BYTES_PER_SEC").Int()
-	maxUploadSpeed   = app.Flag("max-upload-speed", "Limit the upload speed.").PlaceHolder("BYTES_PER_SEC").Int()
 )
 
 func failOnError(err error) {
@@ -57,14 +54,6 @@ func applyOptionsFromFlags(opts *repo.Options) *repo.Options {
 
 	if *traceStorage {
 		opts.TraceStorage = log.Printf
-	}
-
-	if *maxUploadSpeed != 0 {
-		opts.MaxUploadSpeed = *maxUploadSpeed
-	}
-
-	if *maxDownloadSpeed != 0 {
-		opts.MaxDownloadSpeed = *maxDownloadSpeed
 	}
 
 	return opts

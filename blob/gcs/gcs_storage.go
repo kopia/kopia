@@ -203,8 +203,8 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		return nil, err
 	}
 
-	downloadThrottler := iothrottler.NewIOThrottlerPool(iothrottler.Unlimited)
-	uploadThrottler := iothrottler.NewIOThrottlerPool(iothrottler.Unlimited)
+	downloadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.MaxDownloadSpeedBytesPerSecond))
+	uploadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.MaxUploadSpeedBytesPerSecond))
 
 	hc := oauth2.NewClient(ctx, ts)
 	hc.Transport = throttle.NewRoundTripper(hc.Transport, downloadThrottler, uploadThrottler)
@@ -240,4 +240,3 @@ func init() {
 }
 
 var _ blob.ConnectionInfoProvider = &gcsStorage{}
-var _ blob.Throttler = &gcsStorage{}
