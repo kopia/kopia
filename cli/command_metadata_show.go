@@ -11,7 +11,7 @@ import (
 var (
 	metadataShowCommand   = metadataCommands.Command("show", "Show contents of a metadata item").Alias("cat").Hidden()
 	metadataShowID        = metadataShowCommand.Arg("id", "ID of the metadata item to show").String()
-	metadataShowJSON      = metadataShowCommand.Flag("json", "Pretty-print JSON").Short('j').Bool()
+	metadataShowRaw       = metadataShowCommand.Flag("r", "Don't pretty-print JSON").Short('r').Bool()
 	metadataShowNoNewLine = metadataShowCommand.Flag("nonewline", "Do not emit newline").Short('n').Bool()
 )
 
@@ -27,7 +27,7 @@ func showMetadataObject(context *kingpin.ParseContext) error {
 		return err
 	}
 
-	if *metadataShowJSON {
+	if !*metadataShowRaw && len(b) > 0 && b[0] == '{' {
 		var buf bytes.Buffer
 		json.Indent(&buf, b, "", "  ")
 		buf.WriteTo(os.Stdout)
