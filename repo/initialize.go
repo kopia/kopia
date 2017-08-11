@@ -94,11 +94,11 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) config.Reposit
 		ObjectFormat:           applyDefaultString(opt.ObjectFormat, DefaultObjectFormat),
 		HMACSecret:             applyDefaultRandomBytes(opt.ObjectHMACSecret, 32),
 		MasterKey:              applyDefaultRandomBytes(opt.ObjectEncryptionKey, 32),
-		MaxBlockSize:           applyDefaultInt(opt.MaxBlockSize, 20<<20),           // 20MiB
-		MinBlockSize:           applyDefaultInt(opt.MinBlockSize, 10<<20),           // 10MiB
-		AvgBlockSize:           applyDefaultInt(opt.AvgBlockSize, 16<<20),           // 16MiB
-		MaxPackedContentLength: applyDefaultInt(opt.MaxPackedContentLength, 1<<20),  // 1 MB
-		MaxPackFileLength:      applyDefaultInt(opt.MaxPackedContentLength, 20<<20), // 20 MB
+		MaxBlockSize:           applyDefaultInt(opt.MaxBlockSize, 20<<20),          // 20MiB
+		MinBlockSize:           applyDefaultInt(opt.MinBlockSize, 10<<20),          // 10MiB
+		AvgBlockSize:           applyDefaultInt(opt.AvgBlockSize, 16<<20),          // 16MiB
+		MaxPackedContentLength: applyDefaultInt(opt.MaxPackedContentLength, 4<<20), // 3 MB
+		MaxPackFileLength:      applyDefaultInt(opt.MaxPackFileLength, 20<<20),     // 20 MB
 
 		// deprecated, will be removed soon
 		MaxInlineContentLength: opt.MaxInlineContentLength,
