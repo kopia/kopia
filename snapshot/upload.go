@@ -14,13 +14,6 @@ import (
 	"github.com/kopia/kopia/repo"
 )
 
-const (
-	maxBundleFileSize = 65536
-
-	maxFlatBundleSize   = 1000000
-	maxYearlyBundleSize = 5000000
-)
-
 func hashEntryMetadata(w io.Writer, e *fs.EntryMetadata) {
 	binary.Write(w, binary.LittleEndian, e.Name)
 	binary.Write(w, binary.LittleEndian, e.ModTime.UnixNano())
@@ -33,16 +26,6 @@ func hashEntryMetadata(w io.Writer, e *fs.EntryMetadata) {
 func metadataHash(e *fs.EntryMetadata) uint64 {
 	h := fnv.New64a()
 	hashEntryMetadata(h, e)
-	return h.Sum64()
-}
-
-func bundleHash(b *dir.Bundle) uint64 {
-	h := fnv.New64a()
-	hashEntryMetadata(h, b.Metadata())
-	for i, f := range b.Files {
-		binary.Write(h, binary.LittleEndian, i)
-		hashEntryMetadata(h, f.Metadata())
-	}
 	return h.Sum64()
 }
 
@@ -148,61 +131,6 @@ func newDirEntry(md *fs.EntryMetadata, oid repo.ObjectID) *dir.Entry {
 	}
 }
 
-func uploadBundleInternal(u *uploadContext, b *dir.Bundle, relativePath string) (*dir.Entry, uint64, error) {
-	bundleMetadata := b.Metadata()
-	u.progress.Started(relativePath, b.Metadata().FileSize)
-
-	writer := u.repo.NewWriter(repo.WriterOptions{
-		Description: "BUNDLE:" + bundleMetadata.Name,
-	})
-
-	defer writer.Close()
-
-	var uploadedFiles []fs.File
-	var err error
-
-	de := newDirEntry(bundleMetadata, repo.NullObjectID)
-	var totalBytes int64
-
-	for _, fileEntry := range b.Files {
-		file, err := fileEntry.Open()
-		if err != nil {
-			u.progress.Finished(relativePath, totalBytes, err)
-			return nil, 0, err
-		}
-
-		fileMetadata, err := file.EntryMetadata()
-		if err != nil {
-			u.progress.Finished(relativePath, totalBytes, err)
-			return nil, 0, err
-		}
-
-		written, err := copyWithProgress(u, relativePath, writer, file, totalBytes, b.Metadata().FileSize)
-		if err != nil {
-			u.progress.Finished(relativePath, totalBytes, err)
-			return nil, 0, err
-		}
-
-		fileMetadata.FileSize = written
-		de.BundledChildren = append(de.BundledChildren, newDirEntry(fileMetadata, repo.NullObjectID))
-
-		uploadedFiles = append(uploadedFiles, dir.NewBundledFile(fileMetadata))
-		totalBytes += written
-		file.Close()
-	}
-
-	b.Files = uploadedFiles
-	de.ObjectID, err = writer.Result(true)
-	de.FileSize = totalBytes
-	if err != nil {
-		u.progress.Finished(relativePath, totalBytes, err)
-		return nil, 0, err
-	}
-
-	u.progress.Finished(relativePath, totalBytes, nil)
-	return de, bundleHash(b), nil
-}
-
 // uploadFile uploads the specified File to the repository.
 func uploadFile(u *uploadContext, file fs.File) (repo.ObjectID, error) {
 	e, _, err := uploadFileInternal(u, file, file.Metadata().Name, true)
@@ -293,36 +221,6 @@ func uploadDirInternal(
 			de = newDirEntry(e, repo.InlineObjectID([]byte(l)))
 			hash = metadataHash(e)
 
-		case *dir.Bundle:
-			// See if we had this name during previous pass.
-			cachedEntry := u.cacheReader.FindEntry(entryRelativePath)
-
-			// ... and whether file metadata is identical to the previous one.
-			cacheMatches := (cachedEntry != nil) && cachedEntry.Hash == bundleHash(entry)
-
-			childrenMetadata := make([]*dir.Entry, len(entry.Files))
-			for i, f := range entry.Files {
-				childrenMetadata[i] = newDirEntry(f.Metadata(), repo.NullObjectID)
-			}
-
-			if cacheMatches {
-				u.stats.CachedFiles++
-				u.progress.Cached(entryRelativePath, entry.Metadata().FileSize)
-				// Avoid hashing by reusing previous object ID.
-				de = newDirEntry(e, cachedEntry.ObjectID)
-				de.BundledChildren = childrenMetadata
-				hash = cachedEntry.Hash
-			} else {
-				u.stats.NonCachedFiles++
-				de, hash, err = uploadBundleInternal(u, entry, entryRelativePath)
-				if err != nil {
-					return repo.NullObjectID, fmt.Errorf("unable to hash file: %s", err)
-				}
-			}
-			u.stats.TotalBundleCount++
-			u.stats.TotalBundleSize += de.FileSize
-			u.stats.TotalFileSize += de.FileSize
-
 		case fs.File:
 			// regular file
 			// See if we had this name during previous pass.
@@ -371,110 +269,6 @@ func uploadDirInternal(
 	dw.Finalize()
 
 	return writer.Result(forceStored)
-}
-
-func bundleEntries(u *uploadContext, entries fs.Entries) fs.Entries {
-	var bundleMap map[int]*dir.Bundle
-
-	result := entries[:0]
-
-	var totalLength int64
-	totalLengthByYear := map[int]int64{}
-	totalLengthByMonth := map[int]int64{}
-	var yearlyMax int64
-
-	for _, e := range entries {
-		switch e := e.(type) {
-		case fs.File:
-			md := e.Metadata()
-			if md.FileMode().IsRegular() && md.FileSize < maxBundleFileSize {
-				totalLength += md.FileSize
-				totalLengthByMonth[md.ModTime.Year()*100+int(md.ModTime.Month())] += md.FileSize
-				totalLengthByYear[md.ModTime.Year()] += md.FileSize
-				if totalLengthByYear[md.ModTime.Year()] > yearlyMax {
-					yearlyMax = totalLengthByYear[md.ModTime.Year()]
-				}
-			}
-		}
-	}
-
-	var getBundleNumber func(md *fs.EntryMetadata) int
-
-	switch {
-	case totalLength < maxFlatBundleSize:
-		getBundleNumber = getFlatBundleNumber
-
-	case maxYearlyBundleSize < maxYearlyBundleSize:
-		getBundleNumber = getYearlyBundleNumber
-
-	default:
-		getBundleNumber = getMonthlyBundleNumber
-	}
-
-	for _, e := range entries {
-		switch e := e.(type) {
-		case fs.File:
-			md := e.Metadata()
-			bundleNo := getBundleNumber(md)
-			if bundleNo != 0 {
-				// See if we already started this bundle.
-				b := bundleMap[bundleNo]
-				if b == nil {
-					if bundleMap == nil {
-						bundleMap = make(map[int]*dir.Bundle)
-					}
-
-					bundleMetadata := &fs.EntryMetadata{
-						Name: fmt.Sprintf("bundle-%v", bundleNo),
-						Type: dir.EntryTypeBundle,
-					}
-
-					b = dir.NewBundle(bundleMetadata)
-					bundleMap[bundleNo] = b
-
-					// Add the bundle instead of an entry.
-					result = append(result, b)
-				}
-
-				// Append entry to the bundle.
-				b.Append(e)
-
-			} else {
-				// Append original entry
-				result = append(result, e)
-			}
-
-		default:
-			// Append original entry
-			result = append(result, e)
-		}
-	}
-
-	return result
-}
-
-func getMonthlyBundleNumber(md *fs.EntryMetadata) int {
-	if md.FileMode().IsRegular() && md.FileSize < maxBundleFileSize {
-		return md.ModTime.Year()*100 + int(md.ModTime.Month())
-	}
-
-	return 0
-}
-
-func getYearlyBundleNumber(md *fs.EntryMetadata) int {
-	if md.FileMode().IsRegular() && md.FileSize < maxBundleFileSize {
-		return md.ModTime.Year() * 100
-	}
-
-	return 0
-}
-
-func getFlatBundleNumber(md *fs.EntryMetadata) int {
-	if md.FileMode().IsRegular() && md.FileSize < maxBundleFileSize {
-		return 1
-	}
-
-	return 0
 }
 
 // Upload uploads contents of the specified filesystem entry (file or directory) to the repository and updates given manifest with statistics.
