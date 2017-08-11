@@ -54,6 +54,7 @@ func (r *ObjectManager) NewWriter(opt WriterOptions) ObjectWriter {
 		description:    opt.Description,
 		prefix:         opt.BlockNamePrefix,
 		disablePacking: opt.disablePacking,
+		packGroup:      opt.PackGroup,
 	}
 
 	if opt.splitter != nil {
@@ -203,7 +204,7 @@ func newObjectManager(s blob.Storage, f config.RepositoryObjectFormat, opts *Opt
 // hashEncryptAndWriteMaybeAsync computes hash of a given buffer, optionally encrypts and writes it to storage.
 // The write is not guaranteed to complete synchronously in case write-back is used, but by the time
 // Repository.Close() returns all writes are guaranteed be over.
-func (r *ObjectManager) hashEncryptAndWriteMaybeAsync(buffer *bytes.Buffer, prefix string, disablePacking bool) (ObjectID, error) {
+func (r *ObjectManager) hashEncryptAndWriteMaybeAsync(packGroup string, buffer *bytes.Buffer, prefix string, disablePacking bool) (ObjectID, error) {
 	var data []byte
 	if buffer != nil {
 		data = buffer.Bytes()
@@ -220,7 +221,7 @@ func (r *ObjectManager) hashEncryptAndWriteMaybeAsync(buffer *bytes.Buffer, pref
 	atomic.AddInt64(&r.stats.HashedBytes, int64(len(data)))
 
 	if !disablePacking && r.packMgr.enabled() && r.format.MaxPackedContentLength > 0 && len(data) <= r.format.MaxPackedContentLength {
-		packOID, err := r.packMgr.AddToPack(prefix+objectID.StorageBlock, data)
+		packOID, err := r.packMgr.AddToPack(packGroup, prefix+objectID.StorageBlock, data)
 		return packOID, err
 	}
 

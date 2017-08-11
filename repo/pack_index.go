@@ -18,6 +18,7 @@ type packIndexes map[string]*packIndex
 
 type packIndex struct {
 	PackObject string            `json:"packObject"`
+	PackGroup  string            `json:"packGroup"`
 	Items      map[string]string `json:"items"`
 }
 

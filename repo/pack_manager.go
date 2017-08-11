@@ -6,12 +6,17 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"math"
 	"sync"
 	"time"
 
 	"github.com/kopia/kopia/blob"
 )
+
+type packInfo struct {
+	currentPackData  bytes.Buffer
+	currentPackIndex *packIndex
+	currentPackID    string
+}
 
 type packManager struct {
 	metadataManager *MetadataManager
@@ -22,10 +27,9 @@ type packManager struct {
 	packIndexes packIndexes
 
 	blockIDToPackedObjectID map[string]ObjectID
-	currentPackData         bytes.Buffer
-	currentPackIndexes      packIndexes
-	currentPackIndex        *packIndex
-	currentPackID           string
+
+	currentPackIndexes packIndexes
+	packGroups         map[string]*packInfo
 }
 
 func (p *packManager) enabled() bool {
@@ -60,7 +64,7 @@ func (p *packManager) begin() error {
 	return nil
 }
 
-func (p *packManager) AddToPack(blockID string, data []byte) (ObjectID, error) {
+func (p *packManager) AddToPack(packGroup string, blockID string, data []byte) (ObjectID, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -69,28 +73,33 @@ func (p *packManager) AddToPack(blockID string, data []byte) (ObjectID, error) {
 		return oid, nil
 	}
 
-	//log.Printf("%q not found in  %v", blockID, p.blockIDToPackedObjectID)
-
-	if p.currentPackIndex == nil {
-		p.currentPackIndex = &packIndex{
-			Items: make(map[string]string),
-		}
-		p.currentPackID = p.newPackID()
-		p.currentPackIndexes[p.currentPackID] = p.currentPackIndex
-		p.currentPackData.Reset()
+	g := p.packGroups[packGroup]
+	if g == nil {
+		g = &packInfo{}
+		p.packGroups[packGroup] = g
 	}
 
-	offset := p.currentPackData.Len()
-	p.currentPackData.Write(data)
-	p.currentPackIndex.Items[blockID] = fmt.Sprintf("%v+%v", int64(offset), int64(len(data)))
+	if g.currentPackIndex == nil {
+		g.currentPackIndex = &packIndex{
+			Items:     make(map[string]string),
+			PackGroup: packGroup,
+		}
+		g.currentPackID = p.newPackID()
+		p.currentPackIndexes[g.currentPackID] = g.currentPackIndex
+		g.currentPackData.Reset()
+	}
 
-	if p.currentPackData.Len() >= p.objectManager.format.MaxPackFileLength {
+	offset := g.currentPackData.Len()
+	g.currentPackData.Write(data)
+	g.currentPackIndex.Items[blockID] = fmt.Sprintf("%v+%v", int64(offset), int64(len(data)))
+
+	if g.currentPackData.Len() >= p.objectManager.format.MaxPackFileLength {
 		if err := p.finishCurrentPackLocked(); err != nil {
 			return NullObjectID, err
 		}
 	}
 
-	packedID := ObjectID{StorageBlock: blockID, PackID: p.currentPackID}
+	packedID := ObjectID{StorageBlock: blockID, PackID: g.currentPackID}
 	p.blockIDToPackedObjectID[blockID] = packedID
 	return packedID, nil
 }
@@ -100,6 +109,10 @@ func (p *packManager) finishPacking() error {
 	defer p.mu.Unlock()
 
 	if err := p.finishCurrentPackLocked(); err != nil {
+		return err
+	}
+
+	if err := p.savePackIndexes(); err != nil {
 		return err
 	}
 
@@ -113,8 +126,39 @@ func (p *packManager) finishPacking() error {
 	return nil
 }
 
+func (p *packManager) savePackIndexes() error {
+	if len(p.currentPackIndexes) == 0 {
+		return nil
+	}
+
+	var jb bytes.Buffer
+	if err := json.NewEncoder(&jb).Encode(p.currentPackIndexes); err != nil {
+		return fmt.Errorf("can't encode pack index: %v", err)
+	}
+
+	// save pack indexes
+	uniqueID := make([]byte, 16)
+	rand.Read(uniqueID)
+	itemID := fmt.Sprintf("%v%016x.%x", packIDPrefix, time.Now().UnixNano(), uniqueID)
+	if err := p.metadataManager.PutMetadata(itemID, jb.Bytes()); err != nil {
+		return fmt.Errorf("can't save pack index %q: %v", itemID, err)
+	}
+
+	return nil
+}
+
 func (p *packManager) finishCurrentPackLocked() error {
-	if p.currentPackIndex == nil {
+	for _, g := range p.packGroups {
+		if err := p.finishPackLocked(g); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (p *packManager) finishPackLocked(g *packInfo) error {
+	if g.currentPackIndex == nil {
 		return nil
 	}
 	w := p.objectManager.NewWriter(WriterOptions{
@@ -123,32 +167,18 @@ func (p *packManager) finishCurrentPackLocked() error {
 	})
 	defer w.Close()
 
-	if _, err := p.currentPackData.WriteTo(w); err != nil {
+	if _, err := g.currentPackData.WriteTo(w); err != nil {
 		return fmt.Errorf("unable to write pack: %v", err)
 	}
-	p.currentPackData.Reset()
+	g.currentPackData.Reset()
 	oid, err := w.Result(true)
 
 	if err != nil {
 		return fmt.Errorf("can't save pack data: %v", err)
 	}
 
-	p.currentPackIndex.PackObject = oid.String()
-	p.currentPackIndex = nil
-
-	var jb bytes.Buffer
-	if err := json.NewEncoder(&jb).Encode(p.currentPackIndexes); err != nil {
-		return fmt.Errorf("can't encode pack index: %v", err)
-	}
-
-	// save pack index
-	uniqueID := make([]byte, 8)
-	rand.Read(uniqueID)
-	ts := math.MaxInt64 - time.Now().UnixNano()
-	itemID := fmt.Sprintf("%v%v.%016x.%x", packIDPrefix, p.currentPackID, ts, uniqueID)
-	if err := p.metadataManager.PutMetadata(itemID, jb.Bytes()); err != nil {
-		return fmt.Errorf("can't save pack index %q: %v", itemID, err)
-	}
+	g.currentPackIndex.PackObject = oid.String()
+	g.currentPackIndex = nil
 
 	return nil
 }
@@ -196,5 +226,6 @@ func (r *Repository) initPackManager() {
 	r.packMgr = &packManager{
 		objectManager:   r.ObjectManager,
 		metadataManager: r.MetadataManager,
+		packGroups:      make(map[string]*packInfo),
 	}
 }

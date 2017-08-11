@@ -225,6 +225,7 @@ func uploadDir(u *uploadContext, dir fs.Directory) (repo.ObjectID, repo.ObjectID
 	mw := u.repo.NewWriter(repo.WriterOptions{
 		Description:     "HASHCACHE:" + dir.Metadata().Name,
 		BlockNamePrefix: "H",
+		PackGroup:       "HC",
 	})
 	defer mw.Close()
 	u.cacheWriter = hashcache.NewWriter(mw)
@@ -261,6 +262,7 @@ func uploadDirInternal(
 
 	writer := u.repo.NewWriter(repo.WriterOptions{
 		Description: "DIR:" + relativePath,
+		PackGroup:   "DIR",
 	})
 
 	dw := dir.NewWriter(writer)

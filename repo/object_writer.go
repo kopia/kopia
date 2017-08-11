@@ -56,6 +56,7 @@ type objectWriter struct {
 	splitter     objectSplitter
 
 	disablePacking bool
+	packGroup      string
 }
 
 func (w *objectWriter) Close() error {
@@ -94,7 +95,7 @@ func (w *objectWriter) flushBuffer(force bool) error {
 	w.buffer.WriteTo(&b2)
 	w.buffer.Reset()
 
-	objectID, err := w.repo.hashEncryptAndWriteMaybeAsync(&b2, w.prefix, w.disablePacking)
+	objectID, err := w.repo.hashEncryptAndWriteMaybeAsync(w.packGroup, &b2, w.prefix, w.disablePacking)
 	if err != nil {
 		return fmt.Errorf(
 			"error when flushing chunk %d of %s: %#v",
@@ -115,6 +116,9 @@ func (w *objectWriter) flushBuffer(force bool) error {
 			description:   "LIST(" + w.description + ")",
 			blockTracker:  w.blockTracker,
 			splitter:      w.repo.newSplitter(),
+
+			disablePacking: w.disablePacking,
+			packGroup:      w.packGroup,
 		}
 		w.listProtoWriter = jsonstream.NewWriter(w.listWriter, indirectStreamType)
 		w.listCurrentPos = 0
@@ -167,6 +171,7 @@ func (w *objectWriter) StorageBlocks() []string {
 type WriterOptions struct {
 	BlockNamePrefix string
 	Description     string
+	PackGroup       string
 
 	splitter       objectSplitter
 	disablePacking bool
