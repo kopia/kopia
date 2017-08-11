@@ -81,8 +81,9 @@ func (p *packManager) AddToPack(packGroup string, blockID string, data []byte) (
 
 	if g.currentPackIndex == nil {
 		g.currentPackIndex = &packIndex{
-			Items:     make(map[string]string),
-			PackGroup: packGroup,
+			Items:      make(map[string]string),
+			PackGroup:  packGroup,
+			CreateTime: time.Now().UTC(),
 		}
 		g.currentPackID = p.newPackID()
 		p.currentPackIndexes[g.currentPackID] = g.currentPackIndex
