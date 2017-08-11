@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -27,14 +26,10 @@ const (
 var (
 	backupCommand = app.Command("backup", "Copies local files or directories to backup repository.")
 
-	backupSources = backupCommand.Arg("source", "Files or directories to back up.").ExistingFilesOrDirs()
-	backupAll     = backupCommand.Flag("all", "Back-up all directories previously backed up by this user on this computer").Bool()
-
-	backupDescription = backupCommand.Flag("description", "Free-form backup description.").String()
-
-	backupCheckpointInterval      = backupCommand.Flag("checkpoint_interval", "Periodically flush backup (default=30m).").PlaceHolder("TIME").Default("30m").Duration()
-	backupCheckpointEveryMB       = backupCommand.Flag("checkpoint_every_mb", "Checkpoint backup after each N megabytes (default=1000).").PlaceHolder("N").Default("1000").Int()
-	backupCheckpointUploadLimitMB = backupCommand.Flag("upload_limit_mb", "Stop the backup process after the specified amount of data (in MB) has been uploaded.").PlaceHolder("MB").Default("0").Int()
+	backupSources                 = backupCommand.Arg("source", "Files or directories to back up.").ExistingFilesOrDirs()
+	backupAll                     = backupCommand.Flag("all", "Back-up all directories previously backed up by this user on this computer").Bool()
+	backupCheckpointUploadLimitMB = backupCommand.Flag("upload-limit-mb", "Stop the backup process after the specified amount of data (in MB) has been uploaded.").PlaceHolder("MB").Default("0").Int64()
+	backupDescription             = backupCommand.Flag("description", "Free-form backup description.").String()
 
 	backupWriteBack = backupCommand.Flag("async-write", "Perform updates asynchronously.").PlaceHolder("N").Default("0").Int()
 )
@@ -45,7 +40,6 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 	})
 	defer rep.Close()
 
-	ctx := context.Background()
 	mgr := snapshot.NewManager(rep)
 
 	sources := *backupSources
@@ -60,6 +54,12 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 	if len(sources) == 0 {
 		return fmt.Errorf("No backup sources.")
 	}
+
+	u := snapshot.NewUploader(rep)
+	u.MaxUploadBytes = *backupCheckpointUploadLimitMB * 1024 * 1024
+	onCtrlC(u.Cancel)
+
+	u.Progress = &uploadProgress{}
 
 	for _, backupDirectory := range sources {
 		rep.ResetStats()
@@ -95,14 +95,9 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 			return err
 		}
 
-		manifest, err := snapshot.Upload(
-			ctx,
-			rep,
-			localEntry,
-			sourceInfo,
-			policy.Files,
-			oldManifest,
-			&uploadProgress{})
+		u.Files = policy.Files
+
+		manifest, err := u.Upload(localEntry, sourceInfo, oldManifest)
 		if err != nil {
 			return err
 		}

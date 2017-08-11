@@ -8,21 +8,26 @@ import (
 )
 
 // Writer emits hash cache entries.
-type Writer struct {
+type Writer interface {
+	WriteEntry(e Entry) error
+	Finalize() error
+}
+
+type writer struct {
 	writer          *jsonstream.Writer
 	lastNameWritten string
 }
 
 // NewWriter creates new hash cache Writer.
-func NewWriter(w io.Writer) *Writer {
-	hcw := &Writer{
+func NewWriter(w io.Writer) Writer {
+	hcw := &writer{
 		writer: jsonstream.NewWriter(w, hashCacheStreamType),
 	}
 	return hcw
 }
 
 // WriteEntry emits the specified hash cache entry.
-func (hcw *Writer) WriteEntry(e Entry) error {
+func (hcw *writer) WriteEntry(e Entry) error {
 	if err := e.ObjectID.Validate(); err != nil {
 		panic("invalid object ID: " + err.Error())
 	}
@@ -40,6 +45,6 @@ func (hcw *Writer) WriteEntry(e Entry) error {
 }
 
 // Finalize closes hashcache stream and must be invoked after emitting all entries.
-func (hcw *Writer) Finalize() error {
+func (hcw *writer) Finalize() error {
 	return hcw.writer.Finalize()
 }

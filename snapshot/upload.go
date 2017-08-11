@@ -1,11 +1,12 @@
 package snapshot
 
 import (
-	"context"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"io"
+	"sync/atomic"
 	"time"
 
 	"github.com/kopia/kopia/fs"
@@ -29,24 +30,41 @@ func metadataHash(e *fs.EntryMetadata) uint64 {
 	return h.Sum64()
 }
 
-// uploadContext supports efficient uploading files and directories to repository.
-type uploadContext struct {
-	ctx context.Context
+var errCancelled = errors.New("cancelled")
 
+// Uploader supports efficient uploading files and directories to repository.
+type Uploader struct {
+	Progress       UploadProgress
+	Files          FilesPolicy
+	MaxUploadBytes int64
+
+	uploadBuf   []byte
 	repo        *repo.Repository
-	cacheWriter *hashcache.Writer
-	cacheReader *hashcache.Reader
+	cacheWriter hashcache.Writer
+	cacheReader hashcache.Reader
 
-	stats    *Stats
-	progress UploadProgress
-
-	uploadBuf []byte
-
-	Cancelled bool
+	stats     Stats
+	cancelled int32
 }
 
-func uploadFileInternal(u *uploadContext, f fs.File, relativePath string, forceStored bool) (*dir.Entry, uint64, error) {
-	u.progress.Started(relativePath, f.Metadata().FileSize)
+func (u *Uploader) isCancelled() bool {
+	return u.cancelReason() != ""
+}
+
+func (u *Uploader) cancelReason() string {
+	if c := atomic.LoadInt32(&u.cancelled) != 0; c {
+		return "cancelled"
+	}
+
+	if mub := u.MaxUploadBytes; mub > 0 && u.repo.Stats().WrittenBytes > mub {
+		return "limit reached"
+	}
+
+	return ""
+}
+
+func (u *Uploader) uploadFileInternal(f fs.File, relativePath string, forceStored bool) (*dir.Entry, uint64, error) {
+	u.Progress.Started(relativePath, f.Metadata().FileSize)
 
 	file, err := f.Open()
 	if err != nil {
@@ -59,33 +77,33 @@ func uploadFileInternal(u *uploadContext, f fs.File, relativePath string, forceS
 	})
 	defer writer.Close()
 
-	written, err := copyWithProgress(u, relativePath, writer, file, 0, f.Metadata().FileSize)
+	written, err := u.copyWithProgress(relativePath, writer, file, 0, f.Metadata().FileSize)
 	if err != nil {
-		u.progress.Finished(relativePath, f.Metadata().FileSize, err)
+		u.Progress.Finished(relativePath, f.Metadata().FileSize, err)
 		return nil, 0, err
 	}
 
 	e2, err := file.EntryMetadata()
 	if err != nil {
-		u.progress.Finished(relativePath, f.Metadata().FileSize, err)
+		u.Progress.Finished(relativePath, f.Metadata().FileSize, err)
 		return nil, 0, err
 	}
 
 	r, err := writer.Result(forceStored)
 	if err != nil {
-		u.progress.Finished(relativePath, f.Metadata().FileSize, err)
+		u.Progress.Finished(relativePath, f.Metadata().FileSize, err)
 		return nil, 0, err
 	}
 
 	de := newDirEntry(e2, r)
 	de.FileSize = written
 
-	u.progress.Finished(relativePath, f.Metadata().FileSize, nil)
+	u.Progress.Finished(relativePath, f.Metadata().FileSize, nil)
 
 	return de, metadataHash(&de.EntryMetadata), nil
 }
 
-func copyWithProgress(u *uploadContext, path string, dst io.Writer, src io.Reader, completed int64, length int64) (int64, error) {
+func (u *Uploader) copyWithProgress(path string, dst io.Writer, src io.Reader, completed int64, length int64) (int64, error) {
 	if u.uploadBuf == nil {
 		u.uploadBuf = make([]byte, 128*1024) // 128 KB buffer
 	}
@@ -93,6 +111,10 @@ func copyWithProgress(u *uploadContext, path string, dst io.Writer, src io.Reade
 	var written int64
 
 	for {
+		if u.isCancelled() {
+			return 0, errCancelled
+		}
+
 		readBytes, readErr := src.Read(u.uploadBuf)
 		if readBytes > 0 {
 			wroteBytes, writeErr := dst.Write(u.uploadBuf[0:readBytes])
@@ -102,7 +124,7 @@ func copyWithProgress(u *uploadContext, path string, dst io.Writer, src io.Reade
 				if length < completed {
 					length = completed
 				}
-				u.progress.Progress(path, completed, length)
+				u.Progress.Progress(path, completed, length)
 			}
 			if writeErr != nil {
 				return written, writeErr
@@ -132,8 +154,8 @@ func newDirEntry(md *fs.EntryMetadata, oid repo.ObjectID) *dir.Entry {
 }
 
 // uploadFile uploads the specified File to the repository.
-func uploadFile(u *uploadContext, file fs.File) (repo.ObjectID, error) {
-	e, _, err := uploadFileInternal(u, file, file.Metadata().Name, true)
+func (u *Uploader) uploadFile(file fs.File) (repo.ObjectID, error) {
+	e, _, err := u.uploadFileInternal(file, file.Metadata().Name, true)
 	if err != nil {
 		return repo.NullObjectID, err
 	}
@@ -141,9 +163,9 @@ func uploadFile(u *uploadContext, file fs.File) (repo.ObjectID, error) {
 }
 
 // uploadDir uploads the specified Directory to the repository.
-// An optional ID of a hash-cache object may be provided, in which case the uploadContext will use its
+// An optional ID of a hash-cache object may be provided, in which case the Uploader will use its
 // contents to avoid hashing
-func uploadDir(u *uploadContext, dir fs.Directory) (repo.ObjectID, repo.ObjectID, error) {
+func (u *Uploader) uploadDir(dir fs.Directory) (repo.ObjectID, repo.ObjectID, error) {
 	var err error
 
 	if err := u.repo.BeginPacking(); err != nil {
@@ -158,6 +180,11 @@ func uploadDir(u *uploadContext, dir fs.Directory) (repo.ObjectID, repo.ObjectID
 	defer mw.Close()
 	u.cacheWriter = hashcache.NewWriter(mw)
 	oid, err := uploadDirInternal(u, dir, ".", true)
+	if u.isCancelled() {
+		if err := u.cacheReader.CopyTo(u.cacheWriter); err != nil {
+			return repo.NullObjectID, repo.NullObjectID, err
+		}
+	}
 	u.cacheWriter.Finalize()
 	u.cacheWriter = nil
 
@@ -173,13 +200,13 @@ func uploadDir(u *uploadContext, dir fs.Directory) (repo.ObjectID, repo.ObjectID
 }
 
 func uploadDirInternal(
-	u *uploadContext,
+	u *Uploader,
 	directory fs.Directory,
 	relativePath string,
 	forceStored bool,
 ) (repo.ObjectID, error) {
-	u.progress.StartedDir(relativePath)
-	defer u.progress.FinishedDir(relativePath)
+	u.Progress.StartedDir(relativePath)
+	defer u.Progress.FinishedDir(relativePath)
 
 	u.stats.TotalDirectoryCount++
 
@@ -197,6 +224,9 @@ func uploadDirInternal(
 	defer writer.Close()
 
 	for _, entry := range entries {
+		if u.isCancelled() {
+			break
+		}
 		e := entry.Metadata()
 		entryRelativePath := relativePath + "/" + e.Name
 
@@ -232,13 +262,17 @@ func uploadDirInternal(
 
 			if cacheMatches {
 				u.stats.CachedFiles++
-				u.progress.Cached(entryRelativePath, entry.Metadata().FileSize)
+				u.Progress.Cached(entryRelativePath, entry.Metadata().FileSize)
 				// Avoid hashing by reusing previous object ID.
 				de = newDirEntry(e, cachedEntry.ObjectID)
 				hash = cachedEntry.Hash
 			} else {
 				u.stats.NonCachedFiles++
-				de, hash, err = uploadFileInternal(u, entry, entryRelativePath, false)
+				de, hash, err = u.uploadFileInternal(entry, entryRelativePath, false)
+				if err == errCancelled {
+					continue
+				}
+
 				if err != nil {
 					return repo.NullObjectID, fmt.Errorf("unable to hash file: %s", err)
 				}
@@ -271,36 +305,35 @@ func uploadDirInternal(
 	return writer.Result(forceStored)
 }
 
-// Upload uploads contents of the specified filesystem entry (file or directory) to the repository and updates given manifest with statistics.
-// Old snapshot manifest, when provided can be used to speed up backups by utilizing hash cache.
-func Upload(
-	ctx context.Context,
-	repository *repo.Repository,
+// NewUploader creates new Uploader object for a given repository.
+func NewUploader(r *repo.Repository) *Uploader {
+	return &Uploader{
+		repo:     r,
+		Progress: &nullUploadProgress{},
+	}
+}
+
+// Cancel requests cancellation of an upload that's in progress. Will typically result in an incomplete snapshot.
+func (u *Uploader) Cancel() {
+	atomic.StoreInt32(&u.cancelled, 1)
+}
+
+// Upload uploads contents of the specified filesystem entry (file or directory) to the repository and returns snapshot.Manifest with statistics.
+// Old snapshot manifest, when provided can be used to speed up uploads by utilizing hash cache.
+func (u *Uploader) Upload(
 	source fs.Entry,
 	sourceInfo *SourceInfo,
-	policy FilesPolicy,
 	old *Manifest,
-	progress UploadProgress,
 ) (*Manifest, error) {
-	if progress == nil {
-		progress = &nullUploadProgress{}
-	}
-
-	u := &uploadContext{
-		ctx:         ctx,
-		repo:        repository,
-		cacheReader: &hashcache.Reader{},
-		stats:       &Stats{},
-		progress:    progress,
-	}
-
 	s := &Manifest{
 		Source: *sourceInfo,
 	}
 
+	u.cacheReader = hashcache.Open(nil)
+	u.stats = Stats{}
 	if old != nil {
 		if r, err := u.repo.Open(old.HashCacheID); err == nil {
-			u.cacheReader.Open(r)
+			u.cacheReader = hashcache.Open(r)
 		}
 	}
 
@@ -310,10 +343,10 @@ func Upload(
 
 	switch entry := source.(type) {
 	case fs.Directory:
-		s.RootObjectID, s.HashCacheID, err = uploadDir(u, entry)
+		s.RootObjectID, s.HashCacheID, err = u.uploadDir(entry)
 
 	case fs.File:
-		s.RootObjectID, err = uploadFile(u, entry)
+		s.RootObjectID, err = u.uploadFile(entry)
 
 	default:
 		return nil, fmt.Errorf("unsupported source: %v", s.Source)
@@ -322,8 +355,9 @@ func Upload(
 		return nil, err
 	}
 
+	s.IncompleteReason = u.cancelReason()
 	s.EndTime = time.Now()
-	s.Stats = *u.stats
+	s.Stats = u.stats
 	s.Stats.Repository = u.repo.Status().Stats
 
 	return s, nil

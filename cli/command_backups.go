@@ -14,9 +14,10 @@ import (
 )
 
 var (
-	backupsCommand    = app.Command("backups", "List history of file or directory backups.")
-	backupsPath       = backupsCommand.Arg("source", "File or directory to show history of.").String()
-	maxResultsPerPath = backupsCommand.Flag("maxresults", "Maximum number of results.").Default("100").Int()
+	backupsCommand           = app.Command("backups", "List history of file or directory backups.")
+	backupsPath              = backupsCommand.Arg("source", "File or directory to show history of.").String()
+	backupsIncludeIncomplete = backupsCommand.Flag("include-incomplete", "Include incomplete.").Short('i').Bool()
+	maxResultsPerPath        = backupsCommand.Flag("maxresults", "Maximum number of results.").Default("100").Int()
 )
 
 func findBackups(mgr *snapshot.Manager, sourceInfo snapshot.SourceInfo) (manifestIDs []string, relPath string, err error) {
@@ -92,14 +93,23 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 			count = 0
 		}
 
+		maybeIncomplete := ""
+		if m.IncompleteReason != "" {
+			if !*backupsIncludeIncomplete {
+				continue
+			}
+			maybeIncomplete = " " + m.IncompleteReason
+		}
+
 		if count < *maxResultsPerPath {
 			fmt.Printf(
-				"  %v%v %v %10v %v\n",
+				"  %v%v %v %10v %v%v\n",
 				m.RootObjectID,
 				relPath,
 				m.StartTime.Format("2006-01-02 15:04:05 MST"),
 				units.BytesStringBase10(m.Stats.TotalFileSize),
 				deltaBytes(m.Stats.Repository.WrittenBytes),
+				maybeIncomplete,
 			)
 			count++
 		}

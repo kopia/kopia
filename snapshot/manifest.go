@@ -18,4 +18,6 @@ type Manifest struct {
 	HashCacheID  repo.ObjectID `json:"hashCache"`
 
 	Stats Stats `json:"stats"`
+
+	IncompleteReason string `json:"incomplete,omitempty"`
 }

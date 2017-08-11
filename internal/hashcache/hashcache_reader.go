@@ -8,7 +8,12 @@ import (
 )
 
 // Reader supports reading a stream of hash cache entries.
-type Reader struct {
+type Reader interface {
+	FindEntry(relativeName string) *Entry
+	CopyTo(w Writer) error
+}
+
+type reader struct {
 	reader    *jsonstream.Reader
 	nextEntry *Entry
 	entry0    Entry
@@ -17,21 +22,8 @@ type Reader struct {
 	first     bool
 }
 
-// Open starts reading hash cache content.
-func (hcr *Reader) Open(r io.Reader) error {
-	jsr, err := jsonstream.NewReader(bufio.NewReader(r), hashCacheStreamType)
-	if err != nil {
-		return err
-	}
-	hcr.reader = jsr
-	hcr.nextEntry = nil
-	hcr.first = true
-	hcr.readahead()
-	return nil
-}
-
 // FindEntry looks for an entry with a given name in hash cache stream and returns it or nil if not found.
-func (hcr *Reader) FindEntry(relativeName string) *Entry {
+func (hcr *reader) FindEntry(relativeName string) *Entry {
 	for hcr.nextEntry != nil && isLess(hcr.nextEntry.Name, relativeName) {
 		hcr.readahead()
 	}
@@ -46,7 +38,18 @@ func (hcr *Reader) FindEntry(relativeName string) *Entry {
 	return nil
 }
 
-func (hcr *Reader) readahead() {
+func (hcr *reader) CopyTo(w Writer) error {
+	for hcr.nextEntry != nil {
+		if err := w.WriteEntry(*hcr.nextEntry); err != nil {
+			return err
+		}
+		hcr.readahead()
+	}
+
+	return nil
+}
+
+func (hcr *reader) readahead() {
 	if hcr.reader != nil {
 		hcr.nextEntry = nil
 		e := hcr.nextManifestEntry()
@@ -61,11 +64,40 @@ func (hcr *Reader) readahead() {
 	}
 }
 
-func (hcr *Reader) nextManifestEntry() *Entry {
+func (hcr *reader) nextManifestEntry() *Entry {
 	hcr.odd = !hcr.odd
 	if hcr.odd {
 		return &hcr.entry1
 	}
 
 	return &hcr.entry0
+}
+
+type nullReader struct {
+}
+
+func (*nullReader) FindEntry(relativeName string) *Entry {
+	return nil
+}
+
+func (*nullReader) CopyTo(w Writer) error {
+	return nil
+}
+
+// Open starts reading hash cache content.
+func Open(r io.Reader) Reader {
+	if r == nil {
+		return &nullReader{}
+	}
+
+	jsr, err := jsonstream.NewReader(bufio.NewReader(r), hashCacheStreamType)
+	if err != nil {
+		return &nullReader{}
+	}
+	var hcr reader
+	hcr.reader = jsr
+	hcr.nextEntry = nil
+	hcr.first = true
+	hcr.readahead()
+	return &hcr
 }
