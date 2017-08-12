@@ -127,7 +127,11 @@ func translateError(err error) error {
 
 func (gcs *gcsStorage) PutBlock(b string, data []byte, options blob.PutOptions) error {
 	attempt := func() (interface{}, error) {
-		writer := gcs.bucket.Object(gcs.getObjectNameString(b)).NewWriter(gcs.ctx)
+		o := gcs.bucket.Object(gcs.getObjectNameString(b))
+		if options&blob.PutOptionsOverwrite == 0 {
+			o = o.If(storage.Conditions{DoesNotExist: true})
+		}
+		writer := o.NewWriter(gcs.ctx)
 		n, err := writer.Write(data)
 		if err != nil {
 			return nil, err
