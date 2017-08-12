@@ -17,6 +17,10 @@ func (dw *Writer) WriteEntry(e *Entry) error {
 		panic("invalid object ID: " + err.Error())
 	}
 
+	if e.Type == EntryTypeBundle && len(e.BundledChildren) == 0 {
+		panic("empty bundle!")
+	}
+
 	return dw.w.Write(e)
 }
 

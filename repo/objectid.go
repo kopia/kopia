@@ -20,9 +20,9 @@ import (
 //
 // 3. Inline as part of the ObjectID (typically for very small or empty files).
 //
-// 4. As sections of other objects.
+// 4. As sections of other objects (bundles).
 //
-// 5. Packed objects, stored as part of other larger objects known as packs.
+// 5. As sections of other objects (bundles).
 //
 // ObjectIDs have standard string representation (returned by String() and accepted as input to ParseObjectID()) suitable for using
 // in user interfaces, such as command-line tools:

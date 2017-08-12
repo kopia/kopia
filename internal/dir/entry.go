@@ -8,5 +8,6 @@ import (
 // Entry represents a directory entry as stored in JSON stream.
 type Entry struct {
 	fs.EntryMetadata
-	ObjectID repo.ObjectID `json:"obj,omitempty"`
+	ObjectID        repo.ObjectID `json:"obj,omitempty"`
+	BundledChildren []*Entry      `json:"bundled,omitempty"`
 }
