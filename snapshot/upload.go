@@ -47,7 +47,7 @@ type Uploader struct {
 	cancelled int32
 }
 
-func (u *Uploader) isCancelled() bool {
+func (u *Uploader) IsCancelled() bool {
 	return u.cancelReason() != ""
 }
 
@@ -111,7 +111,7 @@ func (u *Uploader) copyWithProgress(path string, dst io.Writer, src io.Reader, c
 	var written int64
 
 	for {
-		if u.isCancelled() {
+		if u.IsCancelled() {
 			return 0, errCancelled
 		}
 
@@ -180,7 +180,7 @@ func (u *Uploader) uploadDir(dir fs.Directory) (repo.ObjectID, repo.ObjectID, er
 	defer mw.Close()
 	u.cacheWriter = hashcache.NewWriter(mw)
 	oid, err := uploadDirInternal(u, dir, ".", true)
-	if u.isCancelled() {
+	if u.IsCancelled() {
 		if err := u.cacheReader.CopyTo(u.cacheWriter); err != nil {
 			return repo.NullObjectID, repo.NullObjectID, err
 		}
@@ -224,7 +224,7 @@ func uploadDirInternal(
 	defer writer.Close()
 
 	for _, entry := range entries {
-		if u.isCancelled() {
+		if u.IsCancelled() {
 			break
 		}
 		e := entry.Metadata()
