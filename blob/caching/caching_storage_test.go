@@ -8,7 +8,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/blob/logging"
 	"github.com/kopia/kopia/internal/storagetesting"
 
@@ -128,7 +127,7 @@ func TestCache(t *testing.T) {
 	storagetesting.AssertGetBlockNotFound(t, cache, "z")
 	tr.assertNoActivity(t)
 
-	cache.PutBlock("z", data1, blob.PutOptionsDefault)
+	cache.PutBlock("z", data1)
 	tr.assertActivityAndClear(t, "PutBlock")
 
 	storagetesting.AssertBlockExists(t, cache, "z", true)
@@ -137,7 +136,7 @@ func TestCache(t *testing.T) {
 	storagetesting.AssertGetBlock(t, cache, "z", data1)
 	tr.assertActivityAndClear(t, "GetBlock")
 
-	cache.PutBlock("x2", data1, blob.PutOptionsDefault)
+	cache.PutBlock("x2", data1)
 	tr.assertActivityAndClear(t, "PutBlock")
 
 	storagetesting.AssertListResults(t, cache, "", "x", "x2", "z")

@@ -31,7 +31,7 @@ func VerifyStorage(t *testing.T, r blob.Storage) {
 
 	// Now add blocks.
 	for _, b := range blocks {
-		r.PutBlock(b.blk, b.contents, blob.PutOptionsDefault)
+		r.PutBlock(b.blk, b.contents)
 
 		AssertBlockExists(t, r, b.blk, true)
 		AssertGetBlock(t, r, b.blk, b.contents)

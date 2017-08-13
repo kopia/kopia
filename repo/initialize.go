@@ -56,7 +56,7 @@ func Initialize(st blob.Storage, opt *NewRepositoryOptions, creds auth.Credentia
 		return err
 	}
 
-	if err := st.PutBlock(MetadataBlockPrefix+formatBlockID, formatBytes, blob.PutOptionsOverwrite); err != nil {
+	if err := st.PutBlock(MetadataBlockPrefix+formatBlockID, formatBytes); err != nil {
 		return err
 	}
 

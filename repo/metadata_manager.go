@@ -94,7 +94,7 @@ func (mm *MetadataManager) writeEncryptedBlock(itemID string, content []byte) er
 		content = nonce[0 : nonceLength+len(b)]
 	}
 
-	return mm.storage.PutBlock(MetadataBlockPrefix+itemID, content, blob.PutOptionsOverwrite)
+	return mm.storage.PutBlock(MetadataBlockPrefix+itemID, content)
 }
 
 func (mm *MetadataManager) readEncryptedBlock(itemID string) ([]byte, error) {

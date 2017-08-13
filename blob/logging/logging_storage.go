@@ -34,11 +34,11 @@ func (s *loggingStorage) GetBlock(id string, offset, length int64) ([]byte, erro
 	return result, err
 }
 
-func (s *loggingStorage) PutBlock(id string, data []byte, options blob.PutOptions) error {
+func (s *loggingStorage) PutBlock(id string, data []byte) error {
 	t0 := time.Now()
-	err := s.base.PutBlock(id, data, options)
+	err := s.base.PutBlock(id, data)
 	dt := time.Since(t0)
-	s.printf(s.prefix+"PutBlock(%q, options=%v, len=%v)=%#v took %v", id, options, len(data), err, dt)
+	s.printf(s.prefix+"PutBlock(%q, len=%v)=%#v took %v", id, len(data), err, dt)
 	return err
 }
 

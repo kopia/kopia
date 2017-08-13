@@ -5,15 +5,6 @@ import (
 	"time"
 )
 
-// PutOptions modify the behavior of Storage.PutBlock().
-type PutOptions int
-
-// Possible values of PutOptions
-const (
-	PutOptionsDefault   PutOptions = 0
-	PutOptionsOverwrite PutOptions = 1
-)
-
 // CancelFunc requests cancellation of a storage operation.
 type CancelFunc func()
 
@@ -22,7 +13,7 @@ type Storage interface {
 	io.Closer
 
 	BlockSize(id string) (int64, error)
-	PutBlock(id string, data []byte, options PutOptions) error
+	PutBlock(id string, data []byte) error
 	DeleteBlock(id string) error
 	GetBlock(id string, offset, length int64) ([]byte, error)
 	ListBlocks(prefix string) (chan (BlockMetadata), CancelFunc)

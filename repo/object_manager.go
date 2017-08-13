@@ -273,7 +273,7 @@ func (r *ObjectManager) encryptAndMaybeWrite(objectID ObjectID, buffer *bytes.Bu
 	atomic.AddInt32(&r.stats.WrittenBlocks, int32(1))
 	atomic.AddInt64(&r.stats.WrittenBytes, int64(len(data)))
 
-	if err := r.storage.PutBlock(objectID.StorageBlock, data, blob.PutOptionsDefault); err != nil {
+	if err := r.storage.PutBlock(objectID.StorageBlock, data); err != nil {
 		r.writeBack.errors.add(err)
 	}
 

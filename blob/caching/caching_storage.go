@@ -156,7 +156,7 @@ func (c *cachingStorage) GetBlock(id string, offset, length int64) ([]byte, erro
 
 	if err == nil {
 		l := int64(len(b))
-		c.cache.PutBlock(id, b, blob.PutOptionsOverwrite)
+		c.cache.PutBlock(id, b)
 		c.setCacheEntrySize(id, l)
 	} else if err == blob.ErrBlockNotFound {
 		c.setCacheEntrySize(id, sizeDoesNotExists)
@@ -165,7 +165,7 @@ func (c *cachingStorage) GetBlock(id string, offset, length int64) ([]byte, erro
 	return b, err
 }
 
-func (c *cachingStorage) PutBlock(id string, data []byte, options blob.PutOptions) error {
+func (c *cachingStorage) PutBlock(id string, data []byte) error {
 	c.Lock(id)
 	defer c.Unlock(id)
 
@@ -173,7 +173,7 @@ func (c *cachingStorage) PutBlock(id string, data []byte, options blob.PutOption
 	c.cache.DeleteBlock(id)
 	c.removeCacheEntry(id)
 
-	return c.master.PutBlock(id, data, options)
+	return c.master.PutBlock(id, data)
 }
 
 func (c *cachingStorage) ListBlocks(prefix string) (chan blob.BlockMetadata, blob.CancelFunc) {

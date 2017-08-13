@@ -130,7 +130,7 @@ func (fs *fsStorage) ListBlocks(prefix string) (chan blob.BlockMetadata, blob.Ca
 	}
 }
 
-func (fs *fsStorage) PutBlock(blockID string, data []byte, options blob.PutOptions) error {
+func (fs *fsStorage) PutBlock(blockID string, data []byte) error {
 	shardPath, path := fs.getShardedPathAndFilePath(blockID)
 
 	// Open temporary file, create dir if required.

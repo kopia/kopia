@@ -45,7 +45,7 @@ func (s *mapStorage) GetBlock(id string, offset, length int64) ([]byte, error) {
 	return nil, blob.ErrBlockNotFound
 }
 
-func (s *mapStorage) PutBlock(id string, data []byte, options blob.PutOptions) error {
+func (s *mapStorage) PutBlock(id string, data []byte) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
