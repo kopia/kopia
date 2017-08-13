@@ -25,13 +25,21 @@ func (s *mapStorage) BlockSize(id string) (int64, error) {
 	return int64(len(d)), nil
 }
 
-func (s *mapStorage) GetBlock(id string) ([]byte, error) {
+func (s *mapStorage) GetBlock(id string, offset, length int64) ([]byte, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
 	data, ok := s.data[string(id)]
 	if ok {
-		return data, nil
+		if length < 0 {
+			return data, nil
+		}
+
+		data = data[offset:]
+		if int(length) > len(data) {
+			return data, nil
+		}
+		return data[0:length], nil
 	}
 
 	return nil, blob.ErrBlockNotFound

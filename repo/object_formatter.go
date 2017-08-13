@@ -40,10 +40,10 @@ type objectFormatter interface {
 	ComputeObjectID(data []byte) ObjectID
 
 	// Encrypt returns encrypted bytes corresponding to the given plaintext. May reuse the input slice.
-	Encrypt(plainText []byte, oid ObjectID) ([]byte, error)
+	Encrypt(plainText []byte, oid ObjectID, skip int) ([]byte, error)
 
 	// Decrypt returns unencrypted bytes corresponding to the given ciphertext. May reuse the input slice.
-	Decrypt(cipherText []byte, oid ObjectID) ([]byte, error)
+	Decrypt(cipherText []byte, oid ObjectID, skip int) ([]byte, error)
 }
 
 // digestFunction computes the digest (hash, optionally HMAC) of a given block of bytes.
@@ -60,11 +60,11 @@ func (fi *unencryptedFormat) ComputeObjectID(data []byte) ObjectID {
 	return ObjectID{StorageBlock: hex.EncodeToString(h)}
 }
 
-func (fi *unencryptedFormat) Encrypt(plainText []byte, oid ObjectID) ([]byte, error) {
+func (fi *unencryptedFormat) Encrypt(plainText []byte, oid ObjectID, skip int) ([]byte, error) {
 	return plainText, nil
 }
 
-func (fi *unencryptedFormat) Decrypt(cipherText []byte, oid ObjectID) ([]byte, error) {
+func (fi *unencryptedFormat) Decrypt(cipherText []byte, oid ObjectID, skip int) ([]byte, error) {
 	return cipherText, nil
 }
 
@@ -81,31 +81,43 @@ func (fi *syntheticIVEncryptionFormat) ComputeObjectID(data []byte) ObjectID {
 	return ObjectID{StorageBlock: hex.EncodeToString(h)}
 }
 
-func (fi *syntheticIVEncryptionFormat) Encrypt(plainText []byte, oid ObjectID) ([]byte, error) {
+func (fi *syntheticIVEncryptionFormat) Encrypt(plainText []byte, oid ObjectID, skip int) ([]byte, error) {
 	iv, err := decodeHexSuffix(oid.StorageBlock, aes.BlockSize*2)
 	if err != nil {
 		return nil, err
 	}
 
-	return symmetricEncrypt(fi.createCipher, fi.aesKey, iv, plainText)
+	return symmetricEncrypt(fi.createCipher, fi.aesKey, iv, plainText, skip)
 }
 
-func (fi *syntheticIVEncryptionFormat) Decrypt(cipherText []byte, oid ObjectID) ([]byte, error) {
+func (fi *syntheticIVEncryptionFormat) Decrypt(cipherText []byte, oid ObjectID, skip int) ([]byte, error) {
 	iv, err := decodeHexSuffix(oid.StorageBlock, aes.BlockSize*2)
 	if err != nil {
 		return nil, err
 	}
 
-	return symmetricEncrypt(fi.createCipher, fi.aesKey, iv, cipherText)
+	return symmetricEncrypt(fi.createCipher, fi.aesKey, iv, cipherText, skip)
 }
 
-func symmetricEncrypt(createCipher func(key []byte) (cipher.Block, error), key []byte, iv []byte, b []byte) ([]byte, error) {
+func symmetricEncrypt(createCipher func(key []byte) (cipher.Block, error), key []byte, iv []byte, b []byte, skip int) ([]byte, error) {
 	blockCipher, err := createCipher(key)
 	if err != nil {
 		return nil, err
 	}
 
 	ctr := cipher.NewCTR(blockCipher, iv[0:blockCipher.BlockSize()])
+	if skip > 0 {
+		var skipBuf [32]byte
+		skipBufSlice := skipBuf[:]
+		for skip >= len(skipBuf) {
+			ctr.XORKeyStream(skipBufSlice, skipBufSlice)
+			skip -= len(skipBufSlice)
+		}
+		if skip > 0 {
+			ctr.XORKeyStream(skipBufSlice[0:skip], skipBufSlice[0:skip])
+		}
+	}
+
 	ctr.XORKeyStream(b, b)
 	return b, nil
 }

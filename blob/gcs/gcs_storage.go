@@ -61,9 +61,9 @@ func (gcs *gcsStorage) BlockSize(b string) (int64, error) {
 	return v.(int64), nil
 }
 
-func (gcs *gcsStorage) GetBlock(b string) ([]byte, error) {
+func (gcs *gcsStorage) GetBlock(b string, offset, length int64) ([]byte, error) {
 	attempt := func() (interface{}, error) {
-		reader, err := gcs.bucket.Object(gcs.getObjectNameString(b)).NewReader(gcs.ctx)
+		reader, err := gcs.bucket.Object(gcs.getObjectNameString(b)).NewRangeReader(gcs.ctx, offset, length)
 		if err != nil {
 			return nil, err
 		}
@@ -73,7 +73,7 @@ func (gcs *gcsStorage) GetBlock(b string) ([]byte, error) {
 		return v, err
 	}
 
-	v, err := exponentialBackoff(fmt.Sprintf("GetBlock(%q)", b), attempt)
+	v, err := exponentialBackoff(fmt.Sprintf("GetBlock(%q,%v,%v)", b, offset, length), attempt)
 	if err != nil {
 		return nil, translateError(err)
 	}

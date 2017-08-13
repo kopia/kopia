@@ -4,6 +4,7 @@ package filesystem
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"math/rand"
 	"os"
@@ -43,18 +44,24 @@ func (fs *fsStorage) BlockSize(blockID string) (int64, error) {
 	return 0, err
 }
 
-func (fs *fsStorage) GetBlock(blockID string) ([]byte, error) {
+func (fs *fsStorage) GetBlock(blockID string, offset, length int64) ([]byte, error) {
 	_, path := fs.getShardedPathAndFilePath(blockID)
-	d, err := ioutil.ReadFile(path)
-	if err == nil {
-		return d, err
-	}
 
+	f, err := os.Open(path)
 	if os.IsNotExist(err) {
 		return nil, blob.ErrBlockNotFound
 	}
 
-	return nil, err
+	if err != nil {
+		return nil, err
+	}
+
+	if length < 0 {
+		return ioutil.ReadAll(f)
+	}
+
+	f.Seek(offset, os.SEEK_SET)
+	return ioutil.ReadAll(io.LimitReader(f, length))
 }
 
 func getstringFromFileName(name string) (string, bool) {

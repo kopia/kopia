@@ -98,7 +98,7 @@ func (mm *MetadataManager) writeEncryptedBlock(itemID string, content []byte) er
 }
 
 func (mm *MetadataManager) readEncryptedBlock(itemID string) ([]byte, error) {
-	content, err := mm.storage.GetBlock(MetadataBlockPrefix + itemID)
+	content, err := mm.storage.GetBlock(MetadataBlockPrefix+itemID, 0, -1)
 	if err != nil {
 		if err == blob.ErrBlockNotFound {
 			return nil, ErrMetadataNotFound
@@ -304,7 +304,7 @@ func newMetadataManager(st blob.Storage, creds auth.Credentials) (*MetadataManag
 	var blocks [4][]byte
 
 	f := func(index int, name string) {
-		blocks[index], _ = st.GetBlock(name)
+		blocks[index], _ = st.GetBlock(name, 0, -1)
 		wg.Done()
 	}
 

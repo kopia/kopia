@@ -27,12 +27,12 @@ func TestObjectFormatters(t *testing.T) {
 
 		t.Logf("testing %v", k)
 		oid := of.ComputeObjectID(data)
-		cipherText, err := of.Encrypt(data, oid)
+		cipherText, err := of.Encrypt(data, oid, 0)
 		if err != nil || cipherText == nil {
 			t.Errorf("invalid response from Encrypt: %v %v", cipherText, err)
 		}
 
-		plainText, err := of.Decrypt(cipherText, oid)
+		plainText, err := of.Decrypt(cipherText, oid, 0)
 		if err != nil || plainText == nil {
 			t.Errorf("invalid response from Decrypt: %v %v", plainText, err)
 		}

@@ -18,18 +18,18 @@ func (s *loggingStorage) BlockSize(id string) (int64, error) {
 	t0 := time.Now()
 	result, err := s.base.BlockSize(id)
 	dt := time.Since(t0)
-	s.printf(s.prefix+"BlockSize(%#v)=%#v,%#v took %v", id, result, err, dt)
+	s.printf(s.prefix+"BlockSize(%q)=%#v,%#v took %v", id, result, err, dt)
 	return result, err
 }
 
-func (s *loggingStorage) GetBlock(id string) ([]byte, error) {
+func (s *loggingStorage) GetBlock(id string, offset, length int64) ([]byte, error) {
 	t0 := time.Now()
-	result, err := s.base.GetBlock(id)
+	result, err := s.base.GetBlock(id, offset, length)
 	dt := time.Since(t0)
 	if len(result) < 20 {
-		s.printf(s.prefix+"GetBlock(%#v)=(%#v, %#v) took %v", id, result, err, dt)
+		s.printf(s.prefix+"GetBlock(%q,%v,%v)=(%#v, %#v) took %v", id, result, err, dt)
 	} else {
-		s.printf(s.prefix+"GetBlock(%#v)=({%#v bytes}, %#v) took %v", id, len(result), err, dt)
+		s.printf(s.prefix+"GetBlock(%q,%v,%v)=({%#v bytes}, %#v) took %v", id, len(result), err, dt)
 	}
 	return result, err
 }
@@ -38,7 +38,7 @@ func (s *loggingStorage) PutBlock(id string, data []byte, options blob.PutOption
 	t0 := time.Now()
 	err := s.base.PutBlock(id, data, options)
 	dt := time.Since(t0)
-	s.printf(s.prefix+"PutBlock(%#v, options=%v, len=%v)=%#v took %v", id, options, len(data), err, dt)
+	s.printf(s.prefix+"PutBlock(%q, options=%v, len=%v)=%#v took %v", id, options, len(data), err, dt)
 	return err
 }
 
@@ -46,16 +46,16 @@ func (s *loggingStorage) DeleteBlock(id string) error {
 	t0 := time.Now()
 	err := s.base.DeleteBlock(id)
 	dt := time.Since(t0)
-	s.printf(s.prefix+"DeleteBlock(%#v)=%#v took %v", id, err, dt)
+	s.printf(s.prefix+"DeleteBlock(%q)=%#v took %v", id, err, dt)
 	return err
 }
 
 func (s *loggingStorage) ListBlocks(prefix string) (chan blob.BlockMetadata, blob.CancelFunc) {
 	t0 := time.Now()
 	ch, cf := s.base.ListBlocks(prefix)
-	s.printf(s.prefix+"ListBlocks(%#v) took %v", prefix, time.Since(t0))
+	s.printf(s.prefix+"ListBlocks(%q) took %v", prefix, time.Since(t0))
 	return ch, func() {
-		s.printf(s.prefix+"Cancelled ListBlocks(%#v)after %v", prefix, time.Since(t0))
+		s.printf(s.prefix+"Cancelled ListBlocks(%q)after %v", prefix, time.Since(t0))
 		cf()
 	}
 }

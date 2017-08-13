@@ -72,15 +72,6 @@ func (r *ObjectManager) Open(objectID ObjectID) (ObjectReader, error) {
 	// Flush any pending writes.
 	r.writeBack.flush()
 
-	if objectID.PackID != "" {
-		var err error
-
-		objectID, err = r.packIDToSection(objectID)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	if objectID.Section != nil {
 		baseReader, err := r.Open(objectID.Section.Base)
 		if err != nil {
@@ -111,6 +102,14 @@ func (r *ObjectManager) Open(objectID ObjectID) (ObjectReader, error) {
 		}, nil
 	}
 
+	if objectID.BinaryContent != nil {
+		return newObjectReaderWithData(objectID.BinaryContent), nil
+	}
+
+	if len(objectID.TextContent) > 0 {
+		return newObjectReaderWithData([]byte(objectID.TextContent)), nil
+	}
+
 	return r.newRawReader(objectID)
 }
 
@@ -124,43 +123,41 @@ func (r *ObjectManager) FinishPacking() error {
 	return r.packMgr.finishPacking()
 }
 
-func (r *ObjectManager) packIDToSection(oid ObjectID) (ObjectID, error) {
+func (r *ObjectManager) packIDToSection(oid ObjectID) (ObjectIDSection, error) {
 	if oid.PackID == "" {
-		return NullObjectID, fmt.Errorf("invalid pack ID: %v", oid)
+		return ObjectIDSection{}, fmt.Errorf("invalid pack ID: %v", oid)
 	}
 
 	pi, err := r.packMgr.ensurePackIndexesLoaded()
 	if err != nil {
-		return NullObjectID, fmt.Errorf("can't load pack index: %v", err)
+		return ObjectIDSection{}, fmt.Errorf("can't load pack index: %v", err)
 	}
 
 	p := pi[oid.PackID]
 	if p == nil {
-		return NullObjectID, fmt.Errorf("no such pack %q referenced by object ID: %v", oid.PackID, oid)
+		return ObjectIDSection{}, fmt.Errorf("no such pack %q referenced by object ID: %v", oid.PackID, oid)
 	}
 
 	blk := p.Items[oid.StorageBlock]
 	if blk == "" {
-		return NullObjectID, fmt.Errorf("block %q not found in pack %q", oid.StorageBlock, oid.PackID)
+		return ObjectIDSection{}, fmt.Errorf("block %q not found in pack %q", oid.StorageBlock, oid.PackID)
 	}
 
 	if plus := strings.IndexByte(blk, '+'); plus > 0 {
 		if start, err := strconv.ParseInt(blk[0:plus], 10, 64); err == nil {
 			if length, err := strconv.ParseInt(blk[plus+1:], 10, 64); err == nil {
 				if base, err := ParseObjectID(p.PackObject); err == nil {
-					return ObjectID{
-						Section: &ObjectIDSection{
-							Base:   base,
-							Start:  start,
-							Length: length,
-						},
+					return ObjectIDSection{
+						Base:   base,
+						Start:  start,
+						Length: length,
 					}, nil
 				}
 			}
 		}
 	}
 
-	return NullObjectID, fmt.Errorf("invalid pack index for %q", oid)
+	return ObjectIDSection{}, fmt.Errorf("invalid pack index for %q", oid)
 }
 
 // newObjectManager creates an ObjectManager with the specified storage, format and options.
@@ -265,7 +262,7 @@ func (r *ObjectManager) encryptAndMaybeWrite(objectID ObjectID, buffer *bytes.Bu
 
 	// Encrypt the block in-place.
 	atomic.AddInt64(&r.stats.EncryptedBytes, int64(len(data)))
-	data, err = r.formatter.Encrypt(data, objectID)
+	data, err = r.formatter.Encrypt(data, objectID, 0)
 	if err != nil {
 		return NullObjectID, err
 	}
@@ -315,16 +312,23 @@ func removeIndirection(o ObjectID) ObjectID {
 }
 
 func (r *ObjectManager) newRawReader(objectID ObjectID) (ObjectReader, error) {
-	if objectID.BinaryContent != nil {
-		return newObjectReaderWithData(objectID.BinaryContent), nil
-	}
+	var payload []byte
+	var err error
+	underlyingObjectID := objectID
+	var decryptSkip int
+	if objectID.PackID != "" {
+		var err error
 
-	if len(objectID.TextContent) > 0 {
-		return newObjectReaderWithData([]byte(objectID.TextContent)), nil
+		p, err := r.packIDToSection(objectID)
+		if err != nil {
+			return nil, err
+		}
+		payload, err = r.storage.GetBlock(p.Base.StorageBlock, p.Start, p.Length)
+		underlyingObjectID = p.Base
+		decryptSkip = int(p.Start)
+	} else {
+		payload, err = r.storage.GetBlock(objectID.StorageBlock, 0, -1)
 	}
-
-	blockID := objectID.StorageBlock
-	payload, err := r.storage.GetBlock(blockID)
 	if err != nil {
 		return nil, err
 	}
@@ -332,7 +336,7 @@ func (r *ObjectManager) newRawReader(objectID ObjectID) (ObjectReader, error) {
 	atomic.AddInt32(&r.stats.ReadBlocks, 1)
 	atomic.AddInt64(&r.stats.ReadBytes, int64(len(payload)))
 
-	payload, err = r.formatter.Decrypt(payload, objectID)
+	payload, err = r.formatter.Decrypt(payload, underlyingObjectID, decryptSkip)
 	atomic.AddInt64(&r.stats.DecryptedBytes, int64(len(payload)))
 	if err != nil {
 		return nil, err

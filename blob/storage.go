@@ -24,7 +24,7 @@ type Storage interface {
 	BlockSize(id string) (int64, error)
 	PutBlock(id string, data []byte, options PutOptions) error
 	DeleteBlock(id string) error
-	GetBlock(id string) ([]byte, error)
+	GetBlock(id string, offset, length int64) ([]byte, error)
 	ListBlocks(prefix string) (chan (BlockMetadata), CancelFunc)
 }
 

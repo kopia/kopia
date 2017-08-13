@@ -136,7 +136,7 @@ func (c *cachingStorage) DeleteBlock(id string) error {
 	return nil
 }
 
-func (c *cachingStorage) GetBlock(id string) ([]byte, error) {
+func (c *cachingStorage) GetBlock(id string, offset, length int64) ([]byte, error) {
 	c.Lock(id)
 	defer c.Unlock(id)
 
@@ -145,14 +145,14 @@ func (c *cachingStorage) GetBlock(id string) ([]byte, error) {
 			return nil, blob.ErrBlockNotFound
 		}
 
-		v, err := c.cache.GetBlock(id)
+		v, err := c.cache.GetBlock(id, offset, length)
 		if err == nil {
 			return v, nil
 		}
 	}
 
 	// Download from master
-	b, err := c.master.GetBlock(id)
+	b, err := c.master.GetBlock(id, 0, -1)
 
 	if err == nil {
 		l := int64(len(b))

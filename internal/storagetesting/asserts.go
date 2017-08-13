@@ -13,7 +13,7 @@ import (
 
 // AssertGetBlock asserts that the specified storage block has correct content.
 func AssertGetBlock(t *testing.T, s blob.Storage, block string, expected []byte) {
-	b, err := s.GetBlock(block)
+	b, err := s.GetBlock(block, 0, -1)
 	if err != nil {
 		t.Errorf(errorPrefix()+"GetBlock(%v) returned error %v, expected data: %v", block, err, expected)
 		return
@@ -26,7 +26,7 @@ func AssertGetBlock(t *testing.T, s blob.Storage, block string, expected []byte)
 
 // AssertGetBlockNotFound asserts that GetBlock() for specified storage block returns ErrBlockNotFound.
 func AssertGetBlockNotFound(t *testing.T, s blob.Storage, block string) {
-	b, err := s.GetBlock(block)
+	b, err := s.GetBlock(block, 0, -1)
 	if err != blob.ErrBlockNotFound || b != nil {
 		t.Errorf(errorPrefix()+"GetBlock(%v) returned %v, %v but expected ErrBlockNotFound", block, b, err)
 	}
