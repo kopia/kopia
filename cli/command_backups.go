@@ -17,7 +17,9 @@ var (
 	backupsCommand           = app.Command("backups", "List history of file or directory backups.")
 	backupsPath              = backupsCommand.Arg("source", "File or directory to show history of.").String()
 	backupsIncludeIncomplete = backupsCommand.Flag("include-incomplete", "Include incomplete.").Short('i').Bool()
-	maxResultsPerPath        = backupsCommand.Flag("maxresults", "Maximum number of results.").Default("100").Int()
+	backupsShowItemID        = backupsCommand.Flag("show-metadata-id", "Include metadata item ID.").Short('m').Bool()
+	backupsShowHashCache     = backupsCommand.Flag("show-hashcache", "Include hashcache object ID.").Bool()
+	maxResultsPerPath        = backupsCommand.Flag("max-results", "Maximum number of results.").Default("100").Int()
 )
 
 func findBackups(mgr *snapshot.Manager, sourceInfo snapshot.SourceInfo) (manifestIDs []string, relPath string, err error) {
@@ -80,10 +82,17 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 	var lastSource snapshot.SourceInfo
 	var count int
 
+	manifestToItemID := map[*snapshot.Manifest]string{}
+
 	manifests, err := mgr.LoadSnapshots(previous)
 	if err != nil {
 		return err
 	}
+
+	for i, m := range manifests {
+		manifestToItemID[m] = previous[i]
+	}
+
 	sort.Sort(manifestSorter(manifests))
 
 	for _, m := range manifests {
@@ -111,6 +120,14 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 				deltaBytes(m.Stats.Repository.WrittenBytes),
 				maybeIncomplete,
 			)
+			if *backupsShowItemID {
+				if i, ok := manifestToItemID[m]; ok {
+					fmt.Printf("    metadata:  %v\n", i)
+				}
+			}
+			if *backupsShowHashCache {
+				fmt.Printf("    hashcache: %v\n", m.HashCacheID)
+			}
 			count++
 		}
 	}
