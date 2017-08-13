@@ -27,9 +27,9 @@ func (s *loggingStorage) GetBlock(id string, offset, length int64) ([]byte, erro
 	result, err := s.base.GetBlock(id, offset, length)
 	dt := time.Since(t0)
 	if len(result) < 20 {
-		s.printf(s.prefix+"GetBlock(%q,%v,%v)=(%#v, %#v) took %v", id, result, err, dt)
+		s.printf(s.prefix+"GetBlock(%q,%v,%v)=(%#v, %#v) took %v", id, offset, length, result, err, dt)
 	} else {
-		s.printf(s.prefix+"GetBlock(%q,%v,%v)=({%#v bytes}, %#v) took %v", id, len(result), err, dt)
+		s.printf(s.prefix+"GetBlock(%q,%v,%v)=({%#v bytes}, %#v) took %v", id, offset, length, len(result), err, dt)
 	}
 	return result, err
 }
