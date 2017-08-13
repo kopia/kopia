@@ -24,7 +24,7 @@ func (c *blockSizeCache) close() error {
 func (c *blockSizeCache) getSize(blockID string) (int64, error) {
 	c.mu.Lock()
 	size, ok := c.cache[blockID]
-	prefix := blockID[0:2]
+	prefix := blockID[0:1]
 	complete := c.completed[prefix]
 
 	if !c.populated[prefix] {
