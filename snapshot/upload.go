@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"io"
+	"log"
 	"sync/atomic"
 	"time"
 
@@ -34,9 +35,10 @@ var errCancelled = errors.New("cancelled")
 
 // Uploader supports efficient uploading files and directories to repository.
 type Uploader struct {
-	Progress       UploadProgress
-	Files          FilesPolicy
-	MaxUploadBytes int64
+	Progress         UploadProgress
+	Files            FilesPolicy
+	MaxUploadBytes   int64
+	IgnoreFileErrors bool
 
 	uploadBuf   []byte
 	repo        *repo.Repository
@@ -47,6 +49,7 @@ type Uploader struct {
 	cancelled int32
 }
 
+// IsCancelled returns true if the upload is cancelled.
 func (u *Uploader) IsCancelled() bool {
 	return u.cancelReason() != ""
 }
@@ -274,6 +277,11 @@ func uploadDirInternal(
 				}
 
 				if err != nil {
+					if u.IgnoreFileErrors {
+						u.stats.ReadErrors++
+						log.Printf("warning: unable to hash file %q: %s, ignoring", entryRelativePath, err)
+						continue
+					}
 					return repo.NullObjectID, fmt.Errorf("unable to hash file: %s", err)
 				}
 			}

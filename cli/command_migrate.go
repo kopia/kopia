@@ -13,8 +13,11 @@ import (
 var (
 	migrateCommand      = app.Command("migrate", "Migrate data from old repository to a new one.")
 	migrateSourceConfig = migrateCommand.Flag("source-config", "Configuration file for the source repository").Required().ExistingFile()
-	migrateSources      = migrateCommand.Arg("path", "List of sources to migrate").Strings()
+	migrateSources      = migrateCommand.Flag("sources", "List of sources to migrate").Strings()
+	migrateAll          = migrateCommand.Flag("all", "Migrate all sources").Bool()
+	migrateDirectories  = migrateCommand.Flag("directory-objects", "Migrate directory objects").Strings()
 	migrateLatestOnly   = migrateCommand.Flag("latest-only", "Only migrate the latest snapshot").Bool()
+	migrateIgnoreErrors = migrateCommand.Flag("ignore-errors", "Ignore errors when reading source backup").Bool()
 )
 
 func runMigrateCommand(context *kingpin.ParseContext) error {
@@ -23,6 +26,7 @@ func runMigrateCommand(context *kingpin.ParseContext) error {
 
 	uploader := snapshot.NewUploader(destRepo)
 	uploader.Progress = &uploadProgress{}
+	uploader.IgnoreFileErrors = *migrateIgnoreErrors
 	onCtrlC(uploader.Cancel)
 
 	sourceRepo, err := repo.Open(getContext(), *migrateSourceConfig, applyOptionsFromFlags(nil))
@@ -72,6 +76,20 @@ func runMigrateCommand(context *kingpin.ParseContext) error {
 		}
 	}
 
+	for _, dir := range *migrateDirectories {
+		dirOID, err := repo.ParseObjectID(dir)
+		if err != nil {
+			return err
+		}
+		d := repofs.Directory(sourceRepo, dirOID)
+		newm, err := uploader.Upload(d, &snapshot.SourceInfo{Host: "temp"}, nil)
+		if err != nil {
+			return fmt.Errorf("error migrating directory %v: %v", dirOID, err)
+		}
+
+		log.Printf("migrated directory: %v with %#v", dirOID, newm)
+	}
+
 	return nil
 }
 
@@ -98,7 +116,11 @@ func getSourcesToMigrate(mgr *snapshot.Manager) ([]*snapshot.SourceInfo, error) 
 		return result, nil
 	}
 
-	return mgr.ListSources()
+	if *migrateAll {
+		return mgr.ListSources()
+	}
+
+	return nil, nil
 }
 
 func init() {

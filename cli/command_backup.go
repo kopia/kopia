@@ -30,6 +30,7 @@ var (
 	backupAll                     = backupCommand.Flag("all", "Back-up all directories previously backed up by this user on this computer").Bool()
 	backupCheckpointUploadLimitMB = backupCommand.Flag("upload-limit-mb", "Stop the backup process after the specified amount of data (in MB) has been uploaded.").PlaceHolder("MB").Default("0").Int64()
 	backupDescription             = backupCommand.Flag("description", "Free-form backup description.").String()
+	backupIgnoreErrors            = backupCommand.Flag("ignore-errors", "Ignore errors when reading source files").Bool()
 
 	backupWriteBack = backupCommand.Flag("async-write", "Perform updates asynchronously.").PlaceHolder("N").Default("0").Int()
 )

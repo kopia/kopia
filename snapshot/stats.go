@@ -14,4 +14,6 @@ type Stats struct {
 
 	CachedFiles    int `json:"cachedFiles"`
 	NonCachedFiles int `json:"nonCachedFiles"`
+
+	ReadErrors int `json:"readErrors"`
 }

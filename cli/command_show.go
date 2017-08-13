@@ -51,7 +51,7 @@ func showObject(r *repo.Repository, oid repo.ObjectID) error {
 
 	format := "raw"
 
-	if rawdata[0] == '{' && rawdata[len(rawdata)-1] == '}' {
+	if len(rawdata) >= 2 && rawdata[0] == '{' && rawdata[len(rawdata)-1] == '}' {
 		format = "json"
 	}
 
