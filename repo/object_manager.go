@@ -32,8 +32,9 @@ type ObjectManager struct {
 	format    config.RepositoryObjectFormat
 	formatter objectFormatter
 
-	packMgr   *packManager
-	writeBack writebackManager
+	packMgr        *packManager
+	writeBack      writebackManager
+	blockSizeCache *blockSizeCache
 
 	newSplitter func() objectSplitter
 }
@@ -41,6 +42,7 @@ type ObjectManager struct {
 // Close closes the connection to the underlying blob storage and releases any resources.
 func (r *ObjectManager) Close() error {
 	r.writeBack.flush()
+	r.blockSizeCache.close()
 
 	return nil
 }
@@ -168,8 +170,9 @@ func newObjectManager(s blob.Storage, f config.RepositoryObjectFormat, opts *Opt
 
 	sf := objectFormatterFactories[f.ObjectFormat]
 	r := &ObjectManager{
-		storage: s,
-		format:  f,
+		storage:        s,
+		format:         f,
+		blockSizeCache: newBlockSizeCache(s),
 	}
 
 	os := objectSplitterFactories[applyDefaultString(f.Splitter, "FIXED")]
@@ -247,7 +250,7 @@ func (r *ObjectManager) encryptAndMaybeWrite(objectID ObjectID, buffer *bytes.Bu
 	}
 
 	// Before performing encryption, check if the block is already there.
-	blockSize, err := r.storage.BlockSize(objectID.StorageBlock)
+	blockSize, err := r.blockSizeCache.getSize(objectID.StorageBlock)
 	atomic.AddInt32(&r.stats.CheckedBlocks, int32(1))
 	if err == nil && blockSize == int64(len(data)) {
 		atomic.AddInt32(&r.stats.PresentBlocks, int32(1))
