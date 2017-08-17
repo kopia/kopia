@@ -95,19 +95,21 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 
 	sort.Sort(manifestSorter(manifests))
 
+	var lastTotalFileSize int64
 	for _, m := range manifests {
-		if m.Source != lastSource {
-			fmt.Printf("\n%v\n", m.Source)
-			lastSource = m.Source
-			count = 0
-		}
-
 		maybeIncomplete := ""
 		if m.IncompleteReason != "" {
 			if !*backupsIncludeIncomplete {
 				continue
 			}
 			maybeIncomplete = " " + m.IncompleteReason
+		}
+
+		if m.Source != lastSource {
+			fmt.Printf("\n%v\n", m.Source)
+			lastSource = m.Source
+			count = 0
+			lastTotalFileSize = m.Stats.TotalFileSize
 		}
 
 		if count < *maxResultsPerPath {
@@ -117,7 +119,7 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 				relPath,
 				m.StartTime.Format("2006-01-02 15:04:05 MST"),
 				units.BytesStringBase10(m.Stats.TotalFileSize),
-				deltaBytes(m.Stats.Repository.WrittenBytes),
+				deltaBytes(m.Stats.TotalFileSize-lastTotalFileSize),
 				maybeIncomplete,
 			)
 			if *backupsShowItemID {
@@ -129,6 +131,10 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 				fmt.Printf("    hashcache: %v\n", m.HashCacheID)
 			}
 			count++
+		}
+
+		if m.IncompleteReason == "" || !*backupsIncludeIncomplete {
+			lastTotalFileSize = m.Stats.TotalFileSize
 		}
 	}
 
@@ -153,7 +159,7 @@ func deltaBytes(b int64) string {
 		return "(+" + units.BytesStringBase10(b) + ")"
 	}
 
-	return "(no change)"
+	return ""
 }
 
 func init() {

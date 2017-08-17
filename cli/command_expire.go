@@ -68,6 +68,10 @@ func expireSnapshotsForSingleSource(snapshots []*snapshot.Manifest, pol *snapsho
 			}
 		}
 
+		if s.IncompleteReason != "" {
+			continue
+		}
+
 		if pol.Expiration.KeepLatest != nil {
 			registerSnapshot(fmt.Sprintf("%v", i), "latest", *pol.Expiration.KeepLatest)
 		}
