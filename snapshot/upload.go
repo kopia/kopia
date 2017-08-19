@@ -1,6 +1,7 @@
 package snapshot
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -108,6 +109,36 @@ func (u *Uploader) uploadFileInternal(f fs.File, relativePath string, forceStore
 	return de, metadataHash(&de.EntryMetadata), nil
 }
 
+func (u *Uploader) uploaSymlinkInternal(f fs.Symlink, relativePath string) (*dir.Entry, uint64, error) {
+	u.Progress.Started(relativePath, 1)
+
+	target, err := f.Readlink()
+	if err != nil {
+		return nil, 0, fmt.Errorf("unable to read symlink: %v", err)
+	}
+
+	writer := u.repo.NewWriter(repo.WriterOptions{
+		Description: "SYMLINK:" + f.Metadata().Name,
+	})
+	defer writer.Close()
+
+	written, err := u.copyWithProgress(relativePath, writer, bytes.NewBufferString(target), 0, f.Metadata().FileSize)
+	if err != nil {
+		u.Progress.Finished(relativePath, f.Metadata().FileSize, err)
+		return nil, 0, err
+	}
+
+	r, err := writer.Result(false)
+	if err != nil {
+		u.Progress.Finished(relativePath, f.Metadata().FileSize, err)
+		return nil, 0, err
+	}
+
+	de := newDirEntry(f.Metadata(), r)
+	de.FileSize = written
+	u.Progress.Finished(relativePath, 1, nil)
+	return de, metadataHash(&de.EntryMetadata), nil
+}
 func (u *Uploader) copyWithProgress(path string, dst io.Writer, src io.Reader, completed int64, length int64) (int64, error) {
 	if u.uploadBuf == nil {
 		u.uploadBuf = make([]byte, 128*1024) // 128 KB buffer
@@ -236,70 +267,65 @@ func uploadDirInternal(
 		entryRelativePath := relativePath + "/" + e.Name
 
 		var de *dir.Entry
-
 		var hash uint64
 
-		switch entry := entry.(type) {
-		case fs.Directory:
-			oid, err := uploadDirInternal(u, entry, entryRelativePath, false)
-			if err != nil {
-				return repo.NullObjectID, err
-			}
-			de = newDirEntry(e, oid)
+		// regular file
+		// See if we had this name during previous pass.
+		cachedEntry := u.maybeIgnoreHashCacheEntry(u.cacheReader.FindEntry(entryRelativePath))
 
-		case fs.Symlink:
-			l, err := entry.Readlink()
-			if err != nil {
-				return repo.NullObjectID, err
-			}
+		// ... and whether file metadata is identical to the previous one.
+		computedHash := metadataHash(e)
+		cacheMatches := (cachedEntry != nil) && cachedEntry.Hash == computedHash
 
-			de = newDirEntry(e, repo.InlineObjectID([]byte(l)))
-			hash = metadataHash(e)
-
+		switch entry.(type) {
 		case fs.File:
-			// regular file
-			// See if we had this name during previous pass.
-			cachedEntry := u.maybeIgnoreHashCacheEntry(u.cacheReader.FindEntry(entryRelativePath))
+			u.stats.TotalFileCount++
+			u.stats.TotalFileSize += e.FileSize
+		}
 
-			// ... and whether file metadata is identical to the previous one.
-			computedHash := metadataHash(e)
-			cacheMatches := (cachedEntry != nil) && cachedEntry.Hash == computedHash
+		if cacheMatches {
+			u.stats.CachedFiles++
+			u.Progress.Cached(entryRelativePath, entry.Metadata().FileSize)
+			// Avoid hashing by reusing previous object ID.
+			de, hash, err = newDirEntry(e, cachedEntry.ObjectID), cachedEntry.Hash, nil
+		} else {
+			switch entry := entry.(type) {
+			case fs.Directory:
+				var oid repo.ObjectID
+				oid, err = uploadDirInternal(u, entry, entryRelativePath, false)
+				de = newDirEntry(e, oid)
+				hash = 0
 
-			if cacheMatches {
-				u.stats.CachedFiles++
-				u.Progress.Cached(entryRelativePath, entry.Metadata().FileSize)
-				// Avoid hashing by reusing previous object ID.
-				de = newDirEntry(e, cachedEntry.ObjectID)
-				hash = cachedEntry.Hash
-			} else {
+			case fs.Symlink:
+				de, hash, err = u.uploaSymlinkInternal(entry, entryRelativePath)
+
+			case fs.File:
 				u.stats.NonCachedFiles++
 				de, hash, err = u.uploadFileInternal(entry, entryRelativePath, false)
-				if err == errCancelled {
-					continue
-				}
 
-				if err != nil {
-					if u.IgnoreFileErrors {
-						u.stats.ReadErrors++
-						log.Printf("warning: unable to hash file %q: %s, ignoring", entryRelativePath, err)
-						continue
-					}
-					return repo.NullObjectID, fmt.Errorf("unable to hash file: %s", err)
-				}
+			default:
+				return repo.NullObjectID, fmt.Errorf("file type %v not supported", entry.Metadata().Type)
 			}
+		}
 
-			u.stats.TotalFileCount++
-			u.stats.TotalFileSize += de.FileSize
+		if err == errCancelled {
+			break
+		}
 
-		default:
-			return repo.NullObjectID, fmt.Errorf("file type %v not supported", entry.Metadata().Type)
+		if err != nil {
+			if u.IgnoreFileErrors {
+				u.stats.ReadErrors++
+				log.Printf("warning: unable to hash file %q: %s, ignoring", entryRelativePath, err)
+				continue
+			}
+			return repo.NullObjectID, fmt.Errorf("unable to hash file: %s", err)
 		}
 
 		if err := dw.WriteEntry(de); err != nil {
 			return repo.NullObjectID, err
 		}
 
-		if de.Type != fs.EntryTypeDirectory && de.ObjectID.StorageBlock != "" {
+		if de.Type != fs.EntryTypeDirectory && hash != 0 {
 			if err := u.cacheWriter.WriteEntry(hashcache.Entry{
 				Name:     entryRelativePath,
 				Hash:     hash,
