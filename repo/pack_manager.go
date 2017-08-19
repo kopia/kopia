@@ -163,6 +163,7 @@ func (p *packManager) finishPackLocked(g *packInfo) error {
 		return nil
 	}
 	w := p.objectManager.NewWriter(WriterOptions{
+		Description:    fmt.Sprintf("pack:%v", g.currentPackID),
 		splitter:       newNeverSplitter(),
 		disablePacking: true,
 	})

@@ -21,8 +21,9 @@ import (
 )
 
 var (
-	traceStorage = app.Flag("trace-storage", "Enables tracing of storage operations.").Hidden().Envar("KOPIA_TRACE_STORAGE").Bool()
-	traceLocalFS = app.Flag("trace-localfs", "Enables tracing of local filesystem operations").Hidden().Envar("KOPIA_TRACE_STORAGE").Bool()
+	traceStorage       = app.Flag("trace-storage", "Enables tracing of storage operations.").Hidden().Envar("KOPIA_TRACE_STORAGE").Bool()
+	traceObjectManager = app.Flag("trace-object-manager", "Enables tracing of object manager operations.").Hidden().Envar("KOPIA_TRACE_OBJECT_MANAGER").Bool()
+	traceLocalFS       = app.Flag("trace-localfs", "Enables tracing of local filesystem operations").Hidden().Envar("KOPIA_TRACE_FS").Bool()
 
 	configPath   = app.Flag("config-file", "Specify the config file to use.").PlaceHolder("PATH").Envar("KOPIA_CONFIG_PATH").String()
 	password     = app.Flag("password", "Repository password.").Envar("KOPIA_PASSWORD").Short('p').String()
@@ -63,6 +64,10 @@ func applyOptionsFromFlags(opts *repo.Options) *repo.Options {
 
 	if *traceStorage {
 		opts.TraceStorage = log.Printf
+	}
+
+	if *traceObjectManager {
+		opts.TraceObjectManager = log.Printf
 	}
 
 	return opts

@@ -36,6 +36,8 @@ type ObjectManager struct {
 	writeBack      writebackManager
 	blockSizeCache *blockSizeCache
 
+	trace func(message string, args ...interface{})
+
 	newSplitter func() objectSplitter
 }
 
@@ -162,6 +164,9 @@ func (r *ObjectManager) packIDToSection(oid ObjectID) (ObjectIDSection, error) {
 	return ObjectIDSection{}, fmt.Errorf("invalid pack index for %q", oid)
 }
 
+func nullTrace(message string, args ...interface{}) {
+}
+
 // newObjectManager creates an ObjectManager with the specified storage, format and options.
 func newObjectManager(s blob.Storage, f config.RepositoryObjectFormat, opts *Options) (*ObjectManager, error) {
 	if err := validateFormat(&f); err != nil {
@@ -173,6 +178,7 @@ func newObjectManager(s blob.Storage, f config.RepositoryObjectFormat, opts *Opt
 		storage:        s,
 		format:         f,
 		blockSizeCache: newBlockSizeCache(s),
+		trace:          nullTrace,
 	}
 
 	os := objectSplitterFactories[applyDefaultString(f.Splitter, "FIXED")]
@@ -191,6 +197,11 @@ func newObjectManager(s blob.Storage, f config.RepositoryObjectFormat, opts *Opt
 	}
 
 	if opts != nil {
+		if opts.TraceObjectManager != nil {
+			r.trace = opts.TraceObjectManager
+		} else {
+			r.trace = nullTrace
+		}
 		r.writeBack.workers = opts.WriteBack
 	}
 

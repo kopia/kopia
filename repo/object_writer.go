@@ -86,6 +86,7 @@ func (w *objectWriter) Write(data []byte) (n int, err error) {
 
 func (w *objectWriter) flushBuffer(force bool) error {
 	if !force && w.buffer.Len() == 0 {
+		w.repo.trace("OBJECT_WRITER(%q).flushBuffer(force=%v) empty", w.description, force)
 		return nil
 	}
 
@@ -96,6 +97,7 @@ func (w *objectWriter) flushBuffer(force bool) error {
 	w.buffer.Reset()
 
 	objectID, err := w.repo.hashEncryptAndWriteMaybeAsync(w.packGroup, &b2, w.prefix, w.disablePacking)
+	w.repo.trace("OBJECT_WRITER(%q) stored %v (%v bytes)", w.description, objectID, length)
 	if err != nil {
 		return fmt.Errorf(
 			"error when flushing chunk %d of %s: %#v",
