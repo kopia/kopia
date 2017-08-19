@@ -109,7 +109,7 @@ func (u *Uploader) uploadFileInternal(f fs.File, relativePath string, forceStore
 	return de, metadataHash(&de.EntryMetadata), nil
 }
 
-func (u *Uploader) uploaSymlinkInternal(f fs.Symlink, relativePath string) (*dir.Entry, uint64, error) {
+func (u *Uploader) uploadSymlinkInternal(f fs.Symlink, relativePath string) (*dir.Entry, uint64, error) {
 	u.Progress.Started(relativePath, 1)
 
 	target, err := f.Readlink()
@@ -297,7 +297,7 @@ func uploadDirInternal(
 				hash = 0
 
 			case fs.Symlink:
-				de, hash, err = u.uploaSymlinkInternal(entry, entryRelativePath)
+				de, hash, err = u.uploadSymlinkInternal(entry, entryRelativePath)
 
 			case fs.File:
 				u.stats.NonCachedFiles++
