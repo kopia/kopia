@@ -54,8 +54,7 @@ type objectWriter struct {
 	currentPosition int64
 	blockIndex      []indirectObjectEntry
 
-	description   string
-	indirectLevel int32
+	description string
 
 	blockTracker *blockTracker
 	splitter     objectSplitter
@@ -144,20 +143,15 @@ func (w *objectWriter) Result() (ObjectID, error) {
 	}
 
 	if len(w.blockIndex) == 1 {
-		return addIndirection(w.blockIndex[0].Object, w.indirectLevel), nil
-	}
-
-	if len(w.blockIndex) == 0 {
-		return NullObjectID, nil
+		return w.blockIndex[0].Object, nil
 	}
 
 	iw := &objectWriter{
-		repo:          w.repo,
-		indirectLevel: w.indirectLevel + 1,
-		prefix:        w.prefix,
-		description:   "LIST(" + w.description + ")",
-		blockTracker:  w.blockTracker,
-		splitter:      w.repo.newSplitter(),
+		repo:         w.repo,
+		prefix:       w.prefix,
+		description:  "LIST(" + w.description + ")",
+		blockTracker: w.blockTracker,
+		splitter:     w.repo.newSplitter(),
 
 		disablePacking: w.disablePacking,
 		packGroup:      w.packGroup,
@@ -168,15 +162,11 @@ func (w *objectWriter) Result() (ObjectID, error) {
 		jw.Write(&e)
 	}
 	jw.Finalize()
-	return iw.Result()
-}
-
-func addIndirection(oid ObjectID, level int32) ObjectID {
-	if level == 0 {
-		return oid
+	oid, err := iw.Result()
+	if err != nil {
+		return NullObjectID, err
 	}
-
-	return addIndirection(ObjectID{Indirect: &oid}, level-1)
+	return ObjectID{Indirect: &oid}, nil
 }
 
 func (w *objectWriter) StorageBlocks() []string {
