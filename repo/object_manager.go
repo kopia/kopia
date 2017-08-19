@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"strings"
+	"sync"
 	"sync/atomic"
 
 	"github.com/kopia/kopia/blob"
@@ -32,8 +33,11 @@ type ObjectManager struct {
 	formatter objectFormatter
 
 	packMgr        *packManager
-	writeBack      writebackManager
 	blockSizeCache *blockSizeCache
+
+	async              bool
+	writeBackWG        sync.WaitGroup
+	writeBackSemaphore semaphore
 
 	trace func(message string, args ...interface{})
 
@@ -42,7 +46,7 @@ type ObjectManager struct {
 
 // Close closes the connection to the underlying blob storage and releases any resources.
 func (r *ObjectManager) Close() error {
-	r.writeBack.flush()
+	r.writeBackWG.Wait()
 	r.blockSizeCache.close()
 
 	return nil
@@ -73,7 +77,7 @@ func (r *ObjectManager) Open(objectID ObjectID) (ObjectReader, error) {
 	// defer log.Printf("finished Repository::Open() %v", objectID.String())
 
 	// Flush any pending writes.
-	r.writeBack.flush()
+	r.writeBackWG.Wait()
 
 	if objectID.Section != nil {
 		baseReader, err := r.Open(objectID.Section.Base)
@@ -164,27 +168,22 @@ func newObjectManager(s blob.Storage, f config.RepositoryObjectFormat, opts *Opt
 		} else {
 			r.trace = nullTrace
 		}
-		r.writeBack.workers = opts.WriteBack
-	}
-
-	if r.writeBack.enabled() {
-		r.writeBack.semaphore = make(semaphore, r.writeBack.workers)
+		if opts.WriteBack > 0 {
+			r.async = true
+			r.writeBackSemaphore = make(semaphore, opts.WriteBack)
+		}
 	}
 
 	return r, nil
 }
 
-// hashEncryptAndWriteMaybeAsync computes hash of a given buffer, optionally encrypts and writes it to storage.
+// hashEncryptAndWrite computes hash of a given buffer, optionally encrypts and writes it to storage.
 // The write is not guaranteed to complete synchronously in case write-back is used, but by the time
 // Repository.Close() returns all writes are guaranteed be over.
-func (r *ObjectManager) hashEncryptAndWriteMaybeAsync(packGroup string, buffer *bytes.Buffer, prefix string, disablePacking bool) (ObjectID, error) {
+func (r *ObjectManager) hashEncryptAndWrite(packGroup string, buffer *bytes.Buffer, prefix string, disablePacking bool) (ObjectID, error) {
 	var data []byte
 	if buffer != nil {
 		data = buffer.Bytes()
-	}
-
-	if err := r.writeBack.errors.check(); err != nil {
-		return NullObjectID, err
 	}
 
 	// Hash the block and compute encryption key.
@@ -196,30 +195,6 @@ func (r *ObjectManager) hashEncryptAndWriteMaybeAsync(packGroup string, buffer *
 	if !disablePacking && r.packMgr.enabled() && r.format.MaxPackedContentLength > 0 && len(data) <= r.format.MaxPackedContentLength {
 		packOID, err := r.packMgr.AddToPack(packGroup, prefix+objectID.StorageBlock, data)
 		return packOID, err
-	}
-
-	if r.writeBack.enabled() {
-		r.writeBack.waitGroup.Add(1)
-		r.writeBack.semaphore.Lock()
-		go func() {
-			if _, err := r.encryptAndMaybeWrite(objectID, buffer, prefix); err != nil {
-				r.writeBack.errors.add(err)
-			}
-			r.writeBack.semaphore.Unlock()
-			r.writeBack.waitGroup.Done()
-		}()
-
-		// async will fail later.
-		return objectID, nil
-	}
-
-	return r.encryptAndMaybeWrite(objectID, buffer, prefix)
-}
-
-func (r *ObjectManager) encryptAndMaybeWrite(objectID ObjectID, buffer *bytes.Buffer, prefix string) (ObjectID, error) {
-	var data []byte
-	if buffer != nil {
-		data = buffer.Bytes()
 	}
 
 	// Before performing encryption, check if the block is already there.
@@ -247,7 +222,7 @@ func (r *ObjectManager) encryptAndMaybeWrite(objectID ObjectID, buffer *bytes.Bu
 	atomic.AddInt64(&r.stats.WrittenBytes, int64(len(data)))
 
 	if err := r.storage.PutBlock(objectID.StorageBlock, data); err != nil {
-		r.writeBack.errors.add(err)
+		return NullObjectID, err
 	}
 
 	return objectID, nil

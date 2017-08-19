@@ -47,10 +47,8 @@ func (r *ObjectManager) addStorageBlocks(result map[string]bool, oid ObjectID) e
 		return err
 	}
 	for _, st := range chunks {
-		if st.Object != nil {
-			if err := r.addStorageBlocks(result, *st.Object); err != nil {
-				return err
-			}
+		if err := r.addStorageBlocks(result, st.Object); err != nil {
+			return err
 		}
 	}
 

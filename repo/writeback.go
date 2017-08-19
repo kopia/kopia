@@ -6,23 +6,6 @@ import (
 	"sync"
 )
 
-type writebackManager struct {
-	workers   int
-	semaphore semaphore
-	errors    asyncErrors
-	waitGroup sync.WaitGroup
-}
-
-func (w *writebackManager) enabled() bool {
-	return w.workers > 0
-}
-
-func (w *writebackManager) flush() {
-	if w.workers > 0 {
-		w.waitGroup.Wait()
-	}
-}
-
 type asyncErrors struct {
 	sync.RWMutex
 	errors []error

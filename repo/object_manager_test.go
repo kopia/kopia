@@ -84,7 +84,7 @@ func TestWriters(t *testing.T) {
 			continue
 		}
 
-		repo.writeBack.flush()
+		repo.writeBackWG.Wait()
 
 		if !objectIDsEqual(result, c.objectID) {
 			t.Errorf("incorrect result for %v, expected: %v got: %v %#v", c.data, c.objectID.String(), result.String(), result.BinaryContent)
@@ -238,13 +238,12 @@ func TestIndirection(t *testing.T) {
 		writer := repo.NewWriter(WriterOptions{})
 		writer.Write(contentBytes)
 		result, err := writer.Result(false)
-		repo.writeBack.flush()
 		if err != nil {
 			t.Errorf("error getting writer results: %v", err)
 		}
 
 		if indirectionLevel(result) != c.expectedIndirection {
-			t.Errorf("incorrect indirection level for size: %v: %v, expected %v", c.dataLength, result.Indirect, c.expectedIndirection)
+			t.Errorf("incorrect indirection level for size: %v: %v, expected %v", c.dataLength, indirectionLevel(result), c.expectedIndirection)
 		}
 
 		if got, want := len(data)-2, c.expectedBlockCount; got != want {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"sync"
 
 	"github.com/kopia/kopia/internal/jsonstream"
 )
@@ -18,10 +19,14 @@ type ObjectWriter interface {
 }
 
 type blockTracker struct {
+	mu     sync.Mutex
 	blocks map[string]bool
 }
 
 func (t *blockTracker) addBlock(blockID string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	if t.blocks == nil {
 		t.blocks = make(map[string]bool)
 	}
@@ -29,6 +34,9 @@ func (t *blockTracker) addBlock(blockID string) {
 }
 
 func (t *blockTracker) blockIDs() []string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
 	result := make([]string, 0, len(t.blocks))
 	for k := range t.blocks {
 		result = append(result, k)
@@ -42,12 +50,9 @@ type objectWriter struct {
 	buffer      bytes.Buffer
 	totalLength int64
 
-	prefix             string
-	listWriter         *objectWriter
-	listProtoWriter    *jsonstream.Writer
-	listCurrentPos     int64
-	flushedObjectCount int
-	lastFlushedObject  ObjectID
+	prefix          string
+	currentPosition int64
+	blockIndex      []indirectObjectEntry
 
 	description   string
 	indirectLevel int32
@@ -57,14 +62,15 @@ type objectWriter struct {
 
 	disablePacking bool
 	packGroup      string
+
+	pendingBlocksWG sync.WaitGroup
+
+	err asyncErrors
 }
 
 func (w *objectWriter) Close() error {
-	if w.listWriter != nil {
-		w.listWriter.Close()
-		w.listWriter = nil
-	}
-	return nil
+	w.pendingBlocksWG.Wait()
+	return w.err.check()
 }
 
 func (w *objectWriter) Write(data []byte) (n int, err error) {
@@ -85,59 +91,56 @@ func (w *objectWriter) Write(data []byte) (n int, err error) {
 }
 
 func (w *objectWriter) flushBuffer(force bool) error {
-	if !force && w.buffer.Len() == 0 {
+	length := w.buffer.Len()
+
+	if !force && length == 0 {
 		w.repo.trace("OBJECT_WRITER(%q).flushBuffer(force=%v) empty", w.description, force)
 		return nil
 	}
 
-	length := w.buffer.Len()
+	chunkID := len(w.blockIndex)
+	w.blockIndex = append(w.blockIndex, indirectObjectEntry{})
+	w.blockIndex[chunkID].Start = w.currentPosition
+	w.blockIndex[chunkID].Length = int64(length)
+	w.currentPosition += int64(length)
 
 	var b2 bytes.Buffer
 	w.buffer.WriteTo(&b2)
 	w.buffer.Reset()
 
-	objectID, err := w.repo.hashEncryptAndWriteMaybeAsync(w.packGroup, &b2, w.prefix, w.disablePacking)
-	w.repo.trace("OBJECT_WRITER(%q) stored %v (%v bytes)", w.description, objectID, length)
-	if err != nil {
-		return fmt.Errorf(
-			"error when flushing chunk %d of %s: %#v",
-			w.flushedObjectCount,
-			w.description,
-			err)
-	}
-
-	w.blockTracker.addBlock(objectID.StorageBlock)
-
-	w.flushedObjectCount++
-	w.lastFlushedObject = objectID
-	if w.listWriter == nil {
-		w.listWriter = &objectWriter{
-			repo:          w.repo,
-			indirectLevel: w.indirectLevel + 1,
-			prefix:        w.prefix,
-			description:   "LIST(" + w.description + ")",
-			blockTracker:  w.blockTracker,
-			splitter:      w.repo.newSplitter(),
-
-			disablePacking: w.disablePacking,
-			packGroup:      w.packGroup,
+	do := func() {
+		objectID, err := w.repo.hashEncryptAndWrite(w.packGroup, &b2, w.prefix, w.disablePacking)
+		w.repo.trace("OBJECT_WRITER(%q) stored %v (%v bytes)", w.description, objectID, length)
+		if err != nil {
+			w.err.add(fmt.Errorf("error when flushing chunk %d of %s: %v", chunkID, w.description, err))
+			return
 		}
-		w.listProtoWriter = jsonstream.NewWriter(w.listWriter, indirectStreamType)
-		w.listCurrentPos = 0
+
+		w.blockTracker.addBlock(objectID.StorageBlock)
+		w.blockIndex[chunkID].Object = objectID
 	}
 
-	w.listProtoWriter.Write(&indirectObjectEntry{
-		Object: &objectID,
-		Start:  w.listCurrentPos,
-		Length: int64(length),
-	})
+	if w.repo.async {
+		w.repo.writeBackSemaphore.Lock()
+		w.pendingBlocksWG.Add(1)
+		w.repo.writeBackWG.Add(1)
 
-	w.listCurrentPos += int64(length)
-	return nil
+		go func() {
+			defer w.pendingBlocksWG.Done()
+			defer w.repo.writeBackWG.Done()
+			defer w.repo.writeBackSemaphore.Unlock()
+			do()
+		}()
+
+		return nil
+	}
+
+	do()
+	return w.err.check()
 }
 
 func (w *objectWriter) Result(forceStored bool) (ObjectID, error) {
-	if !forceStored && w.flushedObjectCount == 0 {
+	if !forceStored && len(w.blockIndex) == 0 {
 		if w.buffer.Len() == 0 {
 			return NullObjectID, nil
 		}
@@ -148,21 +151,38 @@ func (w *objectWriter) Result(forceStored bool) (ObjectID, error) {
 	}
 
 	w.flushBuffer(forceStored)
-	defer func() {
-		if w.listWriter != nil {
-			w.listWriter.Close()
-		}
-	}()
+	w.pendingBlocksWG.Wait()
 
-	if w.flushedObjectCount == 1 {
-		w.lastFlushedObject = addIndirection(w.lastFlushedObject, w.indirectLevel)
-		return w.lastFlushedObject, nil
-	} else if w.flushedObjectCount == 0 {
-		return NullObjectID, nil
-	} else {
-		w.listProtoWriter.Finalize()
-		return w.listWriter.Result(true)
+	if err := w.err.check(); err != nil {
+		return NullObjectID, err
 	}
+
+	if len(w.blockIndex) == 1 {
+		return addIndirection(w.blockIndex[0].Object, w.indirectLevel), nil
+	}
+
+	if len(w.blockIndex) == 0 {
+		return NullObjectID, nil
+	}
+
+	iw := &objectWriter{
+		repo:          w.repo,
+		indirectLevel: w.indirectLevel + 1,
+		prefix:        w.prefix,
+		description:   "LIST(" + w.description + ")",
+		blockTracker:  w.blockTracker,
+		splitter:      w.repo.newSplitter(),
+
+		disablePacking: w.disablePacking,
+		packGroup:      w.packGroup,
+	}
+
+	jw := jsonstream.NewWriter(iw, indirectStreamType)
+	for _, e := range w.blockIndex {
+		jw.Write(&e)
+	}
+	jw.Finalize()
+	return iw.Result(true)
 }
 
 func addIndirection(oid ObjectID, level int32) ObjectID {
@@ -174,6 +194,7 @@ func addIndirection(oid ObjectID, level int32) ObjectID {
 }
 
 func (w *objectWriter) StorageBlocks() []string {
+	w.pendingBlocksWG.Wait()
 	return w.blockTracker.blockIDs()
 }
 
