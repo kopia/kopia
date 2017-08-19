@@ -10,11 +10,6 @@ import (
 
 const packIDPrefix = "K"
 
-type packedObjectID struct {
-	PackObject string `json:"pack"`    // identifier of a pack object
-	Element    string `json:"element"` // element of a pack
-}
-
 type packIndexes map[string]*packIndex
 
 type packIndex struct {

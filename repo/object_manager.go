@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"strconv"
 	"strings"
 	"sync/atomic"
 
@@ -125,43 +124,6 @@ func (r *ObjectManager) BeginPacking() error {
 // FinishPacking closes any pending pack files. Once this method returns
 func (r *ObjectManager) FinishPacking() error {
 	return r.packMgr.finishPacking()
-}
-
-func (r *ObjectManager) packIDToSection(oid ObjectID) (ObjectIDSection, error) {
-	if oid.PackID == "" {
-		return ObjectIDSection{}, fmt.Errorf("invalid pack ID: %v", oid)
-	}
-
-	pi, err := r.packMgr.ensurePackIndexesLoaded()
-	if err != nil {
-		return ObjectIDSection{}, fmt.Errorf("can't load pack index: %v", err)
-	}
-
-	p := pi[oid.PackID]
-	if p == nil {
-		return ObjectIDSection{}, fmt.Errorf("no such pack %q referenced by object ID: %v", oid.PackID, oid)
-	}
-
-	blk := p.Items[oid.StorageBlock]
-	if blk == "" {
-		return ObjectIDSection{}, fmt.Errorf("block %q not found in pack %q", oid.StorageBlock, oid.PackID)
-	}
-
-	if plus := strings.IndexByte(blk, '+'); plus > 0 {
-		if start, err := strconv.ParseInt(blk[0:plus], 10, 64); err == nil {
-			if length, err := strconv.ParseInt(blk[plus+1:], 10, 64); err == nil {
-				if base, err := ParseObjectID(p.PackObject); err == nil {
-					return ObjectIDSection{
-						Base:   base,
-						Start:  start,
-						Length: length,
-					}, nil
-				}
-			}
-		}
-	}
-
-	return ObjectIDSection{}, fmt.Errorf("invalid pack index for %q", oid)
 }
 
 func nullTrace(message string, args ...interface{}) {
@@ -322,19 +284,19 @@ func (r *ObjectManager) newRawReader(objectID ObjectID) (ObjectReader, error) {
 	var err error
 	underlyingObjectID := objectID
 	var decryptSkip int
-	if objectID.PackID != "" {
-		var err error
 
-		p, err := r.packIDToSection(objectID)
-		if err != nil {
-			return nil, err
-		}
+	p, ok, err := r.packMgr.blockIDToPackSection(objectID.StorageBlock)
+	if err != nil {
+		return nil, err
+	}
+	if ok {
 		payload, err = r.storage.GetBlock(p.Base.StorageBlock, p.Start, p.Length)
 		underlyingObjectID = p.Base
 		decryptSkip = int(p.Start)
 	} else {
 		payload, err = r.storage.GetBlock(objectID.StorageBlock, 0, -1)
 	}
+
 	if err != nil {
 		return nil, err
 	}

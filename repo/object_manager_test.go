@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"reflect"
+	"runtime/debug"
 	"testing"
 
 	"github.com/kopia/kopia/auth"
@@ -170,14 +171,6 @@ func TestPackingSimple(t *testing.T) {
 	}
 	if got, want := oid3a.String(), oid3b.String(); got != want {
 		t.Errorf("oid3a(%q) != oid3b(%q)", got, want)
-	}
-
-	if oid1a.PackID == "" {
-		t.Errorf("expected pack ID, got %v", oid1a)
-	}
-
-	if oid1a.PackID != oid2a.PackID {
-		t.Errorf("expected same pack IDs, got %q and %q", oid1a, oid2a)
 	}
 
 	if got, want := len(data), 2+4; got != want {
@@ -428,7 +421,7 @@ func writeObject(t *testing.T, repo *Repository, data []byte, testCaseID string)
 func verify(t *testing.T, repo *Repository, objectID ObjectID, expectedData []byte, testCaseID string) {
 	reader, err := repo.Open(objectID)
 	if err != nil {
-		t.Errorf("cannot get reader for %v: %v", testCaseID, err)
+		t.Errorf("cannot get reader for %v: %v %v", testCaseID, err, string(debug.Stack()))
 		return
 	}
 

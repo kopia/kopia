@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,17 +20,20 @@ type packInfo struct {
 	currentPackID    string
 }
 
+type blockLocation struct {
+	packIndex   int
+	objectIndex int
+}
+
 type packManager struct {
 	metadataManager *MetadataManager
 	objectManager   *ObjectManager
 	storage         blob.Storage
 
-	mu          sync.RWMutex
-	packIndexes packIndexes
+	mu           sync.RWMutex
+	blockToIndex map[string]*packIndex
 
-	blockIDToPackedObjectID map[string]ObjectID
-
-	currentPackIndexes packIndexes
+	pendingPackIndexes packIndexes
 	packGroups         map[string]*packInfo
 }
 
@@ -36,31 +41,45 @@ func (p *packManager) enabled() bool {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	return p.blockIDToPackedObjectID != nil
+	return p.pendingPackIndexes != nil
 }
 
-func (p *packManager) begin() error {
-	m, err := p.metadataManager.ListMetadataContents(packIDPrefix, -1)
+func (p *packManager) blockIDToPackSection(blockID string) (ObjectIDSection, bool, error) {
+	pi, err := p.ensurePackIndexesLoaded()
 	if err != nil {
-		return err
+		return ObjectIDSection{}, false, fmt.Errorf("can't load pack index: %v", err)
 	}
 
-	merged, err := loadMergedPackIndex(m)
-	if err != nil {
-		return err
+	ndx := pi[blockID]
+	if ndx == nil {
+		return ObjectIDSection{}, false, nil
 	}
 
-	p.currentPackIndexes = make(packIndexes)
-	p.blockIDToPackedObjectID = make(map[string]ObjectID)
-	for packID, pck := range merged {
-		for blockID := range pck.Items {
-			p.blockIDToPackedObjectID[blockID] = ObjectID{
-				PackID:       packID,
-				StorageBlock: blockID,
+	blk := ndx.Items[blockID]
+	if blk == "" {
+		return ObjectIDSection{}, false, nil
+	}
+
+	if plus := strings.IndexByte(blk, '+'); plus > 0 {
+		if start, err := strconv.ParseInt(blk[0:plus], 10, 64); err == nil {
+			if length, err := strconv.ParseInt(blk[plus+1:], 10, 64); err == nil {
+				if base, err := ParseObjectID(ndx.PackObject); err == nil {
+					return ObjectIDSection{
+						Base:   base,
+						Start:  start,
+						Length: length,
+					}, true, nil
+				}
 			}
 		}
 	}
 
+	return ObjectIDSection{}, false, fmt.Errorf("invalid pack index for %q", blockID)
+}
+
+func (p *packManager) begin() error {
+	p.ensurePackIndexesLoaded()
+	p.pendingPackIndexes = make(packIndexes)
 	return nil
 }
 
@@ -69,8 +88,8 @@ func (p *packManager) AddToPack(packGroup string, blockID string, data []byte) (
 	defer p.mu.Unlock()
 
 	// See if we already have this block ID in some pack.
-	if oid, ok := p.blockIDToPackedObjectID[blockID]; ok {
-		return oid, nil
+	if _, ok := p.blockToIndex[blockID]; ok {
+		return ObjectID{StorageBlock: blockID}, nil
 	}
 
 	g := p.packGroups[packGroup]
@@ -86,7 +105,7 @@ func (p *packManager) AddToPack(packGroup string, blockID string, data []byte) (
 			CreateTime: time.Now().UTC(),
 		}
 		g.currentPackID = p.newPackID()
-		p.currentPackIndexes[g.currentPackID] = g.currentPackIndex
+		p.pendingPackIndexes[g.currentPackID] = g.currentPackIndex
 		g.currentPackData.Reset()
 	}
 
@@ -100,9 +119,8 @@ func (p *packManager) AddToPack(packGroup string, blockID string, data []byte) (
 		}
 	}
 
-	packedID := ObjectID{StorageBlock: blockID, PackID: g.currentPackID}
-	p.blockIDToPackedObjectID[blockID] = packedID
-	return packedID, nil
+	p.blockToIndex[blockID] = g.currentPackIndex
+	return ObjectID{StorageBlock: blockID}, nil
 }
 
 func (p *packManager) finishPacking() error {
@@ -117,23 +135,17 @@ func (p *packManager) finishPacking() error {
 		return err
 	}
 
-	pi := p.currentPackIndexes
-	if p.packIndexes != nil {
-		p.packIndexes.merge(pi)
-	}
-
-	p.currentPackIndexes = nil
-	p.blockIDToPackedObjectID = nil
+	p.pendingPackIndexes = nil
 	return nil
 }
 
 func (p *packManager) savePackIndexes() error {
-	if len(p.currentPackIndexes) == 0 {
+	if len(p.pendingPackIndexes) == 0 {
 		return nil
 	}
 
 	var jb bytes.Buffer
-	if err := json.NewEncoder(&jb).Encode(p.currentPackIndexes); err != nil {
+	if err := json.NewEncoder(&jb).Encode(p.pendingPackIndexes); err != nil {
 		return fmt.Errorf("can't encode pack index: %v", err)
 	}
 
@@ -185,9 +197,9 @@ func (p *packManager) finishPackLocked(g *packInfo) error {
 	return nil
 }
 
-func (p *packManager) ensurePackIndexesLoaded() (packIndexes, error) {
+func (p *packManager) ensurePackIndexesLoaded() (map[string]*packIndex, error) {
 	p.mu.RLock()
-	pi := p.packIndexes
+	pi := p.blockToIndex
 	p.mu.RUnlock()
 	if pi != nil {
 		return pi, nil
@@ -198,15 +210,24 @@ func (p *packManager) ensurePackIndexesLoaded() (packIndexes, error) {
 
 	m, err := p.metadataManager.ListMetadataContents(packIDPrefix, -1)
 	if err != nil {
-		return nil, fmt.Errorf("can't load pack manifests: %v", err)
+		return nil, err
 	}
 
-	pi, err = loadMergedPackIndex(m)
+	merged, err := loadMergedPackIndex(m)
 	if err != nil {
-		return nil, fmt.Errorf("can't parse pack indexes: %v", err)
+		return nil, err
 	}
 
-	p.packIndexes = pi
+	pi = make(map[string]*packIndex)
+	for _, pck := range merged {
+		for blockID := range pck.Items {
+			pi[blockID] = pck
+		}
+	}
+
+	p.blockToIndex = pi
+
+	// log.Printf("loaded pack index with %v entries", len(p.blockToIndex))
 
 	return pi, nil
 }

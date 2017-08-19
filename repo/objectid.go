@@ -36,7 +36,6 @@ import (
 //   "ID2c33acbcba3569f943d9e8aaea7817c5"                 // level-1 indirection block
 //   "IID2c33acbcba3569f943d9e8aaea7817c5"                // level-2 indirection block
 //   "S30,50,D295754edeb35c17911b1fdf853f572fe"           // section of "D295754edeb35c17911b1fdf853f572fe" between [30,80)
-//   "P295754edeb35c17911b1fdf853f572fe@2c33acbcba3569f9" // object 295754edeb35c17911b1fdf853f572fe of pack P2c33acbcba3569f9
 //
 //
 type ObjectID struct {
@@ -45,7 +44,6 @@ type ObjectID struct {
 	TextContent   string
 	BinaryContent []byte
 	Section       *ObjectIDSection
-	PackID        string
 }
 
 // MarshalJSON emits ObjectID in standard string format.
@@ -94,10 +92,6 @@ func (oid ObjectID) String() string {
 	}
 
 	if oid.StorageBlock != "" {
-		if oid.PackID != "" {
-			return fmt.Sprintf("P%v@%v", oid.StorageBlock, oid.PackID)
-		}
-
 		return "D" + oid.StorageBlock
 	}
 
@@ -258,11 +252,11 @@ func ParseObjectID(s string) (ObjectID, error) {
 
 		switch chunkType {
 		case 'P':
+			// legacy
 			parts := strings.Split(content, "@")
 			if len(parts) == 2 && len(parts[0]) > 0 && len(parts[1]) > 0 {
 				return ObjectID{
 					StorageBlock: parts[0],
-					PackID:       parts[1],
 				}, nil
 			}
 

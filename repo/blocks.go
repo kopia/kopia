@@ -23,12 +23,12 @@ func (r *ObjectManager) addStorageBlocks(result map[string]bool, oid ObjectID) e
 		result[oid.StorageBlock] = true
 	}
 
-	if oid.PackID != "" {
-		s, err := r.packIDToSection(oid)
-		if err != nil {
-			return err
-		}
+	s, ok, err := r.packMgr.blockIDToPackSection(oid.StorageBlock)
+	if err != nil {
+		return err
+	}
 
+	if ok {
 		r.addStorageBlocks(result, s.Base)
 	}
 
