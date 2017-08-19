@@ -19,16 +19,15 @@ func (r *ObjectManager) addStorageBlocks(result map[string]bool, oid ObjectID) e
 		return r.addStorageBlocks(result, oid.Section.Base)
 	}
 
-	if oid.StorageBlock == "" {
+	if oid.StorageBlock != "" {
+		result[oid.StorageBlock] = true
+	}
+
+	if oid.Indirect == nil {
 		return nil
 	}
 
-	result[oid.StorageBlock] = true
-	if oid.Indirect == 0 {
-		return nil
-	}
-
-	or, err := r.Open(removeIndirection(oid))
+	or, err := r.Open(*oid.Indirect)
 	if err != nil {
 		return err
 	}
@@ -46,5 +45,5 @@ func (r *ObjectManager) addStorageBlocks(result map[string]bool, oid ObjectID) e
 		}
 	}
 
-	return r.addStorageBlocks(result, removeIndirection(oid))
+	return r.addStorageBlocks(result, *oid.Indirect)
 }

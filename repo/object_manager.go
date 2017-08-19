@@ -83,8 +83,8 @@ func (r *ObjectManager) Open(objectID ObjectID) (ObjectReader, error) {
 		return newObjectSectionReader(objectID.Section.Start, objectID.Section.Length, baseReader)
 	}
 
-	if objectID.Indirect > 0 {
-		rd, err := r.Open(removeIndirection(objectID))
+	if objectID.Indirect != nil {
+		rd, err := r.Open(*objectID.Indirect)
 		if err != nil {
 			return nil, err
 		}
@@ -304,14 +304,6 @@ func (r *ObjectManager) flattenListChunk(rawReader io.Reader) ([]indirectObjectE
 	}
 
 	return seekTable, nil
-}
-
-func removeIndirection(o ObjectID) ObjectID {
-	if o.Indirect <= 0 {
-		panic("removeIndirection() called on a direct object")
-	}
-	o.Indirect--
-	return o
 }
 
 func (r *ObjectManager) newRawReader(objectID ObjectID) (ObjectReader, error) {

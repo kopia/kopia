@@ -153,7 +153,7 @@ func (w *objectWriter) Result(forceStored bool) (ObjectID, error) {
 	}()
 
 	if w.flushedObjectCount == 1 {
-		w.lastFlushedObject.Indirect = w.indirectLevel
+		w.lastFlushedObject = addIndirection(w.lastFlushedObject, w.indirectLevel)
 		return w.lastFlushedObject, nil
 	} else if w.flushedObjectCount == 0 {
 		return NullObjectID, nil
@@ -161,6 +161,14 @@ func (w *objectWriter) Result(forceStored bool) (ObjectID, error) {
 		w.listProtoWriter.Finalize()
 		return w.listWriter.Result(true)
 	}
+}
+
+func addIndirection(oid ObjectID, level int32) ObjectID {
+	if level == 0 {
+		return oid
+	}
+
+	return addIndirection(ObjectID{Indirect: &oid}, level-1)
 }
 
 func (w *objectWriter) StorageBlocks() []string {

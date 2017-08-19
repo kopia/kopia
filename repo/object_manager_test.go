@@ -193,9 +193,9 @@ func TestPackingSimple(t *testing.T) {
 }
 
 func verifyIndirectBlock(t *testing.T, r *Repository, oid ObjectID) {
-	for level := int32(0); level < oid.Indirect; level++ {
-		direct := oid
-		direct.Indirect = level
+	for oid.Indirect != nil {
+		direct := *oid.Indirect
+		oid = direct
 
 		rd, err := r.Open(direct)
 		if err != nil {
@@ -226,7 +226,7 @@ func TestIndirection(t *testing.T) {
 	cases := []struct {
 		dataLength          int
 		expectedBlockCount  int
-		expectedIndirection int32
+		expectedIndirection int
 	}{
 		{dataLength: 200, expectedBlockCount: 1, expectedIndirection: 0},
 		{dataLength: 250, expectedBlockCount: 3, expectedIndirection: 1},
@@ -250,7 +250,7 @@ func TestIndirection(t *testing.T) {
 			t.Errorf("error getting writer results: %v", err)
 		}
 
-		if result.Indirect != c.expectedIndirection {
+		if indirectionLevel(result) != c.expectedIndirection {
 			t.Errorf("incorrect indirection level for size: %v: %v, expected %v", c.dataLength, result.Indirect, c.expectedIndirection)
 		}
 
@@ -269,6 +269,14 @@ func TestIndirection(t *testing.T) {
 
 		verifyIndirectBlock(t, repo, result)
 	}
+}
+
+func indirectionLevel(oid ObjectID) int {
+	if oid.Indirect == nil {
+		return 0
+	}
+
+	return 1 + indirectionLevel(*oid.Indirect)
 }
 
 func TestHMAC(t *testing.T) {

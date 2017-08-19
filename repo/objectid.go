@@ -32,15 +32,16 @@ import (
 //   "B"                                                  // empty object
 //   "BcXVpY2sgYnJvd24gZm94Cg=="                          // inline content "quick brown fox" (base64-encoded)
 //   "D295754edeb35c17911b1fdf853f572fe"                  // storage block
-//   "I1,2c33acbcba3569f943d9e8aaea7817c5"                // level-1 indirection block
-//   "I3,e18604fe53ee670558eb4234d2e55cb7"                // level-3 indirection block
+//   "I1,2c33acbcba3569f943d9e8aaea7817c5"                // level-1 indirection block (legacy)
+//   "ID2c33acbcba3569f943d9e8aaea7817c5"                 // level-1 indirection block
+//   "IID2c33acbcba3569f943d9e8aaea7817c5"                // level-2 indirection block
 //   "S30,50,D295754edeb35c17911b1fdf853f572fe"           // section of "D295754edeb35c17911b1fdf853f572fe" between [30,80)
 //   "P295754edeb35c17911b1fdf853f572fe@2c33acbcba3569f9" // object 295754edeb35c17911b1fdf853f572fe of pack P2c33acbcba3569f9
 //
 //
 type ObjectID struct {
 	StorageBlock  string
-	Indirect      int32
+	Indirect      *ObjectID
 	TextContent   string
 	BinaryContent []byte
 	Section       *ObjectIDSection
@@ -88,11 +89,11 @@ var (
 //
 // Note that the object ID name often contains its encryption key, which is sensitive and can be quite long (~100 characters long).
 func (oid ObjectID) String() string {
-	if oid.StorageBlock != "" {
-		if oid.Indirect > 0 {
-			return fmt.Sprintf("I%v,%v", oid.Indirect, oid.StorageBlock)
-		}
+	if oid.Indirect != nil {
+		return fmt.Sprintf("I%v", oid.Indirect)
+	}
 
+	if oid.StorageBlock != "" {
 		if oid.PackID != "" {
 			return fmt.Sprintf("P%v@%v", oid.StorageBlock, oid.PackID)
 		}
@@ -141,8 +142,10 @@ func (oid *ObjectID) Validate() error {
 		return fmt.Errorf("inconsistent block content: %+v", oid)
 	}
 
-	if oid.Indirect > 0 && len(oid.StorageBlock) == 0 {
-		return fmt.Errorf("indirect object without storage block: %+v", oid)
+	if oid.Indirect != nil {
+		if err := oid.Indirect.Validate(); err != nil {
+			return fmt.Errorf("invalid indirect object ID %v: %v", oid, err)
+		}
 	}
 
 	return nil
@@ -281,28 +284,43 @@ func ParseObjectID(s string) (ObjectID, error) {
 			return ObjectID{TextContent: content}, nil
 
 		case 'I', 'D':
-			var indirectLevel int32
 			if chunkType == 'I' {
+				if len(content) < 2 || content[1] != ',' {
+					base, err := ParseObjectID(content)
+					if err != nil {
+						return NullObjectID, err
+					}
+
+					return ObjectID{Indirect: &base}, nil
+				}
+
+				// legacy
 				comma := strings.Index(content, ",")
 				if comma < 0 {
 					// malformed
 					break
 				}
-				i, err := strconv.Atoi(content[0:comma])
+				indirectLevel, err := strconv.Atoi(content[0:comma])
 				if err != nil {
 					break
 				}
-				if i <= 0 {
+				if indirectLevel <= 0 {
 					break
 				}
-				indirectLevel = int32(i)
 				content = content[comma+1:]
 				if content == "" {
 					break
 				}
+
+				o := &ObjectID{StorageBlock: content}
+				for i := 0; i < indirectLevel; i++ {
+					o = &ObjectID{Indirect: o}
+				}
+
+				return *o, nil
 			}
 
-			return ObjectID{StorageBlock: content, Indirect: indirectLevel}, nil
+			return ObjectID{StorageBlock: content}, nil
 		}
 	}
 
