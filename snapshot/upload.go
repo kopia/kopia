@@ -7,6 +7,7 @@ import (
 	"hash/fnv"
 	"io"
 	"log"
+	"math/rand"
 	"sync/atomic"
 	"time"
 
@@ -35,10 +36,11 @@ var errCancelled = errors.New("cancelled")
 
 // Uploader supports efficient uploading files and directories to repository.
 type Uploader struct {
-	Progress         UploadProgress
-	Files            FilesPolicy
-	MaxUploadBytes   int64
-	IgnoreFileErrors bool
+	Progress               UploadProgress
+	Files                  FilesPolicy
+	MaxUploadBytes         int64
+	IgnoreFileErrors       bool
+	ForceHashingPercentage int
 
 	uploadBuf   []byte
 	repo        *repo.Repository
@@ -257,7 +259,7 @@ func uploadDirInternal(
 		case fs.File:
 			// regular file
 			// See if we had this name during previous pass.
-			cachedEntry := u.cacheReader.FindEntry(entryRelativePath)
+			cachedEntry := u.maybeIgnoreHashCacheEntry(u.cacheReader.FindEntry(entryRelativePath))
 
 			// ... and whether file metadata is identical to the previous one.
 			computedHash := metadataHash(e)
@@ -311,6 +313,14 @@ func uploadDirInternal(
 	dw.Finalize()
 
 	return writer.Result(forceStored)
+}
+
+func (u *Uploader) maybeIgnoreHashCacheEntry(e *hashcache.Entry) *hashcache.Entry {
+	if rand.Intn(100) < u.ForceHashingPercentage {
+		return nil
+	}
+
+	return e
 }
 
 // NewUploader creates new Uploader object for a given repository.
