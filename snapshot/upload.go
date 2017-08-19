@@ -69,7 +69,7 @@ func (u *Uploader) cancelReason() string {
 	return ""
 }
 
-func (u *Uploader) uploadFileInternal(f fs.File, relativePath string, forceStored bool) (*dir.Entry, uint64, error) {
+func (u *Uploader) uploadFileInternal(f fs.File, relativePath string) (*dir.Entry, uint64, error) {
 	u.Progress.Started(relativePath, f.Metadata().FileSize)
 
 	file, err := f.Open()
@@ -95,7 +95,7 @@ func (u *Uploader) uploadFileInternal(f fs.File, relativePath string, forceStore
 		return nil, 0, err
 	}
 
-	r, err := writer.Result(forceStored)
+	r, err := writer.Result()
 	if err != nil {
 		u.Progress.Finished(relativePath, f.Metadata().FileSize, err)
 		return nil, 0, err
@@ -128,7 +128,7 @@ func (u *Uploader) uploadSymlinkInternal(f fs.Symlink, relativePath string) (*di
 		return nil, 0, err
 	}
 
-	r, err := writer.Result(false)
+	r, err := writer.Result()
 	if err != nil {
 		u.Progress.Finished(relativePath, f.Metadata().FileSize, err)
 		return nil, 0, err
@@ -191,7 +191,7 @@ func newDirEntry(md *fs.EntryMetadata, oid repo.ObjectID) *dir.Entry {
 
 // uploadFile uploads the specified File to the repository.
 func (u *Uploader) uploadFile(file fs.File) (repo.ObjectID, error) {
-	e, _, err := u.uploadFileInternal(file, file.Metadata().Name, true)
+	e, _, err := u.uploadFileInternal(file, file.Metadata().Name)
 	if err != nil {
 		return repo.NullObjectID, err
 	}
@@ -228,7 +228,7 @@ func (u *Uploader) uploadDir(dir fs.Directory) (repo.ObjectID, repo.ObjectID, er
 		return repo.NullObjectID, repo.NullObjectID, err
 	}
 
-	hcid, err := mw.Result(true)
+	hcid, err := mw.Result()
 	if err := u.repo.FinishPacking(); err != nil {
 		return repo.NullObjectID, repo.NullObjectID, fmt.Errorf("can't finish packing: %v", err)
 	}
@@ -301,7 +301,7 @@ func uploadDirInternal(
 
 			case fs.File:
 				u.stats.NonCachedFiles++
-				de, hash, err = u.uploadFileInternal(entry, entryRelativePath, false)
+				de, hash, err = u.uploadFileInternal(entry, entryRelativePath)
 
 			default:
 				return repo.NullObjectID, fmt.Errorf("file type %v not supported", entry.Metadata().Type)
@@ -338,7 +338,7 @@ func uploadDirInternal(
 
 	dw.Finalize()
 
-	return writer.Result(forceStored)
+	return writer.Result()
 }
 
 func (u *Uploader) maybeIgnoreHashCacheEntry(e *hashcache.Entry) *hashcache.Entry {

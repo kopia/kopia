@@ -14,7 +14,7 @@ import (
 type ObjectWriter interface {
 	io.WriteCloser
 
-	Result(forceStored bool) (ObjectID, error)
+	Result() (ObjectID, error)
 	StorageBlocks() []string
 }
 
@@ -81,7 +81,7 @@ func (w *objectWriter) Write(data []byte) (n int, err error) {
 		w.buffer.WriteByte(d)
 
 		if w.splitter.add(d) {
-			if err := w.flushBuffer(false); err != nil {
+			if err := w.flushBuffer(); err != nil {
 				return 0, err
 			}
 		}
@@ -90,14 +90,8 @@ func (w *objectWriter) Write(data []byte) (n int, err error) {
 	return dataLen, nil
 }
 
-func (w *objectWriter) flushBuffer(force bool) error {
+func (w *objectWriter) flushBuffer() error {
 	length := w.buffer.Len()
-
-	if !force && length == 0 {
-		w.repo.trace("OBJECT_WRITER(%q).flushBuffer(force=%v) empty", w.description, force)
-		return nil
-	}
-
 	chunkID := len(w.blockIndex)
 	w.blockIndex = append(w.blockIndex, indirectObjectEntry{})
 	w.blockIndex[chunkID].Start = w.currentPosition
@@ -139,18 +133,10 @@ func (w *objectWriter) flushBuffer(force bool) error {
 	return w.err.check()
 }
 
-func (w *objectWriter) Result(forceStored bool) (ObjectID, error) {
-	if !forceStored && len(w.blockIndex) == 0 {
-		if w.buffer.Len() == 0 {
-			return NullObjectID, nil
-		}
-
-		if w.buffer.Len() < int(w.repo.format.MaxInlineContentLength) {
-			return InlineObjectID(w.buffer.Bytes()), nil
-		}
+func (w *objectWriter) Result() (ObjectID, error) {
+	if w.buffer.Len() > 0 || len(w.blockIndex) == 0 {
+		w.flushBuffer()
 	}
-
-	w.flushBuffer(forceStored)
 	w.pendingBlocksWG.Wait()
 
 	if err := w.err.check(); err != nil {
@@ -182,7 +168,7 @@ func (w *objectWriter) Result(forceStored bool) (ObjectID, error) {
 		jw.Write(&e)
 	}
 	jw.Finalize()
-	return iw.Result(true)
+	return iw.Result()
 }
 
 func addIndirection(oid ObjectID, level int32) ObjectID {

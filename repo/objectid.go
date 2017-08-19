@@ -6,7 +6,6 @@ import (
 	"errors"
 	"strconv"
 	"strings"
-	"unicode/utf8"
 
 	"fmt"
 )
@@ -143,55 +142,6 @@ func (oid *ObjectID) Validate() error {
 	}
 
 	return nil
-}
-
-// InlineObjectID returns ObjectID containing the specified content.
-func InlineObjectID(content []byte) ObjectID {
-	if !utf8.Valid(content) {
-		return ObjectID{
-			BinaryContent: content,
-		}
-	}
-
-	jsonLen := 0
-	binaryLen := inlineContentEncoding.EncodedLen(len(content))
-
-	for _, b := range content {
-		if b < 32 && (b != 9 && b != 10 && b != 13) {
-			return ObjectID{
-				BinaryContent: content,
-			}
-		}
-
-		if b == '\\' || b == '"' || b == 9 || b == 10 || b == 13 {
-			jsonLen += 2
-		} else if b < 128 {
-			jsonLen++
-		} else {
-			jsonLen += 6
-		}
-	}
-
-	if jsonLen < binaryLen {
-		return ObjectID{
-			TextContent: string(content),
-		}
-	}
-
-	return ObjectID{
-		BinaryContent: content,
-	}
-
-}
-
-func isText(data []byte) bool {
-	for _, b := range data {
-		if b < 32 && (b != 9 && b != 10 && b != 13) {
-			return false
-		}
-	}
-
-	return true
 }
 
 // SectionObjectID returns new ObjectID representing a section of an object with a given base ID, start offset and length.

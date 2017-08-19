@@ -22,7 +22,6 @@ type NewRepositoryOptions struct {
 	ObjectHMACSecret    []byte // force the use of particular object HMAC secret
 	ObjectEncryptionKey []byte // force the use of particular object encryption key
 
-	MaxInlineContentLength int    // maximum size of object to be considered for inline storage within ObjectID
 	Splitter               string // splitter used to break objects into storage blocks
 	MinBlockSize           int    // minimum block size used with dynamic splitter
 	AvgBlockSize           int    // approximate size of storage block (used with dynamic splitter)
@@ -99,9 +98,6 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) config.Reposit
 		AvgBlockSize:           applyDefaultInt(opt.AvgBlockSize, 16<<20),          // 16MiB
 		MaxPackedContentLength: applyDefaultInt(opt.MaxPackedContentLength, 4<<20), // 3 MB
 		MaxPackFileLength:      applyDefaultInt(opt.MaxPackFileLength, 20<<20),     // 20 MB
-
-		// deprecated, will be removed soon
-		MaxInlineContentLength: opt.MaxInlineContentLength,
 	}
 
 	if opt.noHMAC {

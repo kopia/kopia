@@ -25,9 +25,8 @@ var (
 	createMaxPackedContentLength = createCommand.Flag("max-packed-file-size", "Minimum size of a file to include in a pack.").PlaceHolder("KB").Default("4096").Int()
 	createMaxPackFileLength      = createCommand.Flag("max-pack-size", "Minimum size of a single pack file.").PlaceHolder("KB").Default("20480").Int()
 
-	createInlineBlobSize = createCommand.Flag("inline-blob-size", "Maximum size of an inline data object.").PlaceHolder("KB").Default("0").Int()
-	createOverwrite      = createCommand.Flag("overwrite", "Overwrite existing data (DANGEROUS).").Bool()
-	createOnly           = createCommand.Flag("create-only", "Create repository, but don't connect to it.").Short('c').Bool()
+	createOverwrite = createCommand.Flag("overwrite", "Overwrite existing data (DANGEROUS).").Bool()
+	createOnly      = createCommand.Flag("create-only", "Create repository, but don't connect to it.").Short('c').Bool()
 )
 
 func init() {
@@ -38,7 +37,6 @@ func init() {
 func newRepositoryOptionsFromFlags() *repo.NewRepositoryOptions {
 	return &repo.NewRepositoryOptions{
 		MetadataEncryptionAlgorithm: *createMetadataEncryptionFormat,
-		MaxInlineContentLength:      *createInlineBlobSize * 1024,
 		ObjectFormat:                *createObjectFormat,
 
 		Splitter:     *createObjectSplitter,

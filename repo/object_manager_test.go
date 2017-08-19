@@ -26,7 +26,6 @@ func setupTest(t *testing.T, mods ...func(o *NewRepositoryOptions)) (data map[st
 	creds, _ := auth.Password("foobarbazfoobarbaz")
 	opt := &NewRepositoryOptions{
 		MaxBlockSize:                200,
-		MaxInlineContentLength:      20,
 		Splitter:                    "FIXED",
 		ObjectFormat:                "TESTONLY_MD5",
 		MetadataEncryptionAlgorithm: "NONE",
@@ -56,12 +55,6 @@ func TestWriters(t *testing.T) {
 		data     []byte
 		objectID ObjectID
 	}{
-		{[]byte{}, NullObjectID},
-		{[]byte("quick brown fox"), ObjectID{TextContent: "quick brown fox"}},
-		{[]byte("foo\nbar"), ObjectID{TextContent: "foo\nbar"}},
-		{[]byte("\n\n\n"), ObjectID{BinaryContent: []byte{0xa, 0xa, 0xa}}}, // base64 is more efficient than JSON here (4 chars vs 6)
-		{[]byte{1, 2, 3, 4}, ObjectID{BinaryContent: []byte{1, 2, 3, 4}}},
-		{[]byte{0xc2, 0x28}, ObjectID{BinaryContent: []byte{0xc2, 0x28}}},
 		{
 			[]byte("the quick brown fox jumps over the lazy dog"),
 			ObjectID{StorageBlock: "X77add1d5f41223d5582fca736a5cb335"},
@@ -78,7 +71,7 @@ func TestWriters(t *testing.T) {
 
 		writer.Write(c.data)
 
-		result, err := writer.Result(false)
+		result, err := writer.Result()
 		if err != nil {
 			t.Errorf("error getting writer results for %v, expected: %v", c.data, c.objectID.String())
 			continue
@@ -117,7 +110,7 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	})
 	writer.Write(bytes[0:50])
 	writer.Write(bytes[0:50])
-	result, err := writer.Result(false)
+	result, err := writer.Result()
 	if !objectIDsEqual(result, ObjectID{StorageBlock: "X6d0bb00954ceb7fbee436bb55a8397a9"}) {
 		t.Errorf("unexpected result: %v err: %v", result, err)
 	}
@@ -237,7 +230,7 @@ func TestIndirection(t *testing.T) {
 
 		writer := repo.NewWriter(WriterOptions{})
 		writer.Write(contentBytes)
-		result, err := writer.Result(false)
+		result, err := writer.Result()
 		if err != nil {
 			t.Errorf("error getting writer results: %v", err)
 		}
@@ -278,7 +271,7 @@ func TestHMAC(t *testing.T) {
 
 	w := repo.NewWriter(WriterOptions{})
 	w.Write(content)
-	result, err := w.Result(false)
+	result, err := w.Result()
 	if result.String() != "D999732b72ceff665b3f7608411db66a4" {
 		t.Errorf("unexpected result: %v err: %v", result.String(), err)
 	}
@@ -371,34 +364,32 @@ func TestReaderStoredBlockNotFound(t *testing.T) {
 func TestEndToEndReadAndSeek(t *testing.T) {
 	_, repo := setupTest(t)
 
-	for _, forceStored := range []bool{false, true} {
-		for _, size := range []int{1, 199, 200, 201, 9999, 512434} {
-			// Create some random data sample of the specified size.
-			randomData := make([]byte, size)
-			cryptorand.Read(randomData)
+	for _, size := range []int{1, 199, 200, 201, 9999, 512434} {
+		// Create some random data sample of the specified size.
+		randomData := make([]byte, size)
+		cryptorand.Read(randomData)
 
-			writer := repo.NewWriter(WriterOptions{
-				BlockNamePrefix: "X",
-			})
-			writer.Write(randomData)
-			objectID, err := writer.Result(forceStored)
-			writer.Close()
-			if err != nil {
-				t.Errorf("cannot get writer result for %v/%v: %v", forceStored, size, err)
-				continue
-			}
+		writer := repo.NewWriter(WriterOptions{
+			BlockNamePrefix: "X",
+		})
+		writer.Write(randomData)
+		objectID, err := writer.Result()
+		writer.Close()
+		if err != nil {
+			t.Errorf("cannot get writer result for %v: %v", size, err)
+			continue
+		}
 
-			verify(t, repo, objectID, randomData, fmt.Sprintf("%v %v/%v", objectID, forceStored, size))
+		verify(t, repo, objectID, randomData, fmt.Sprintf("%v %v", objectID, size))
 
-			if size > 1 {
-				sectionID := SectionObjectID(0, int64(size/2), objectID)
-				verify(t, repo, sectionID, randomData[0:10], fmt.Sprintf("%+v %v/%v", sectionID, forceStored, size))
-			}
+		if size > 1 {
+			sectionID := SectionObjectID(0, int64(size/2), objectID)
+			verify(t, repo, sectionID, randomData[0:10], fmt.Sprintf("%+v %v", sectionID, size))
+		}
 
-			if size > 1 {
-				sectionID := SectionObjectID(int64(1), int64(size-1), objectID)
-				verify(t, repo, sectionID, randomData[1:], fmt.Sprintf("%+v %v/%v", sectionID, forceStored, size))
-			}
+		if size > 1 {
+			sectionID := SectionObjectID(int64(1), int64(size-1), objectID)
+			verify(t, repo, sectionID, randomData[1:], fmt.Sprintf("%+v %v", sectionID, size))
 		}
 	}
 }
@@ -409,7 +400,7 @@ func writeObject(t *testing.T, repo *Repository, data []byte, testCaseID string)
 		t.Fatalf("can't write object %q - write failed: %v", testCaseID, err)
 
 	}
-	oid, err := w.Result(true)
+	oid, err := w.Result()
 	if err != nil {
 		t.Fatalf("can't write object %q - result failed: %v", testCaseID, err)
 	}
@@ -500,7 +491,7 @@ func TestFormats(t *testing.T) {
 			bytesToWrite := []byte(k)
 			w := repo.NewWriter(WriterOptions{})
 			w.Write(bytesToWrite)
-			oid, err := w.Result(true)
+			oid, err := w.Result()
 			if err != nil {
 				t.Errorf("error: %v", err)
 			}

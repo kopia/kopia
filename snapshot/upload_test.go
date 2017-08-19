@@ -53,9 +53,7 @@ func newUploadTestHarness() *uploadTestHarness {
 		panic("unable to create credentials: " + err.Error())
 	}
 
-	if err := repo.Initialize(storage, &repo.NewRepositoryOptions{
-		MaxInlineContentLength: -1,
-	}, creds); err != nil {
+	if err := repo.Initialize(storage, &repo.NewRepositoryOptions{}, creds); err != nil {
 		panic("unable to create repository: " + err.Error())
 	}
 

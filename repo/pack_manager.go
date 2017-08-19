@@ -185,7 +185,7 @@ func (p *packManager) finishPackLocked(g *packInfo) error {
 		return fmt.Errorf("unable to write pack: %v", err)
 	}
 	g.currentPackData.Reset()
-	oid, err := w.Result(true)
+	oid, err := w.Result()
 
 	if err != nil {
 		return fmt.Errorf("can't save pack data: %v", err)
