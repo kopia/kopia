@@ -43,12 +43,22 @@ func runMountCommand(context *kingpin.ParseContext) error {
 		fuse.VolumeName("Kopia"),
 	)
 
-	oid, err := parseObjectID(*mountObjectID, rep)
 	if err != nil {
 		return err
 	}
 
-	entry := repofs.Directory(rep, oid)
+	var entry fs.Directory
+
+	if *mountObjectID == "all" {
+		entry = repofs.AllSources(rep)
+	} else {
+		oid, err := parseObjectID(*mountObjectID, rep)
+		if err != nil {
+			return err
+		}
+		entry = repofs.Directory(rep, oid)
+	}
+
 	if *mountTraceFS {
 		entry = loggingfs.Wrap(entry).(fs.Directory)
 	}

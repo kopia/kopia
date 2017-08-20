@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"sort"
 
 	"github.com/kopia/kopia/fs"
 
@@ -72,11 +73,21 @@ func (dir *fuseDirectoryNode) Lookup(ctx context.Context, fileName string) (fuse
 	}
 
 	return newFuseNode(e, dir.cache)
-
 }
 
 func (dir *fuseDirectoryNode) readPossiblyCachedReaddir() (fs.Entries, error) {
-	return dir.cache.getEntries(dir.cacheID, func() (fs.Entries, error) { return dir.directory().Readdir() })
+	return dir.cache.getEntries(dir.cacheID, func() (fs.Entries, error) {
+		entries, err := dir.directory().Readdir()
+		if err != nil {
+			return nil, err
+		}
+
+		sort.Slice(entries, func(i, j int) bool {
+			return entries[i].Metadata().Name < entries[j].Metadata().Name
+		})
+
+		return entries, nil
+	})
 }
 
 func (dir *fuseDirectoryNode) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
