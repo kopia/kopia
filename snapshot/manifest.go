@@ -14,8 +14,9 @@ type Manifest struct {
 	StartTime   time.Time `json:"startTime"`
 	EndTime     time.Time `json:"endTime"`
 
-	RootObjectID repo.ObjectID `json:"root"`
-	HashCacheID  repo.ObjectID `json:"hashCache"`
+	RootObjectID        repo.ObjectID `json:"root"`
+	HashCacheID         repo.ObjectID `json:"hashCache"`
+	HashCacheCutoffTime time.Time     `json:"hashCacheCutoff"`
 
 	Stats Stats `json:"stats"`
 

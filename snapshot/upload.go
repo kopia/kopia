@@ -37,19 +37,33 @@ var errCancelled = errors.New("cancelled")
 
 // Uploader supports efficient uploading files and directories to repository.
 type Uploader struct {
-	Progress               UploadProgress
-	Files                  FilesPolicy
-	MaxUploadBytes         int64
-	IgnoreFileErrors       bool
-	ForceHashingPercentage int
+	Progress UploadProgress
+
+	Files FilesPolicy
+
+	// automatically cancel the Upload after certain number of bytes
+	MaxUploadBytes int64
+
+	// ignore file read errors
+	IgnoreFileErrors bool
+
+	// probability with hich hashcache entries will be ignored, must be [0..100]
+	// 0=always use hash cache if possible
+	// 100=never use hash cache
+	ForceHashPercentage int
+
+	// Do not hash-cache files younger than this age.
+	// Protects from accidentally caching incorrect hashes of files that are being modified.
+	HashCacheMinAge time.Duration
 
 	uploadBuf   []byte
 	repo        *repo.Repository
 	cacheWriter hashcache.Writer
 	cacheReader hashcache.Reader
 
-	stats     Stats
-	cancelled int32
+	hashCacheCutoff time.Time
+	stats           Stats
+	cancelled       int32
 }
 
 // IsCancelled returns true if the upload is cancelled.
@@ -215,7 +229,7 @@ func (u *Uploader) uploadDir(dir fs.Directory) (repo.ObjectID, repo.ObjectID, er
 	})
 	defer mw.Close()
 	u.cacheWriter = hashcache.NewWriter(mw)
-	oid, err := uploadDirInternal(u, dir, ".", true)
+	oid, err := uploadDirInternal(u, dir, ".")
 	if u.IsCancelled() {
 		if err := u.cacheReader.CopyTo(u.cacheWriter); err != nil {
 			return repo.NullObjectID, repo.NullObjectID, err
@@ -239,7 +253,6 @@ func uploadDirInternal(
 	u *Uploader,
 	directory fs.Directory,
 	relativePath string,
-	forceStored bool,
 ) (repo.ObjectID, error) {
 	u.Progress.StartedDir(relativePath)
 	defer u.Progress.FinishedDir(relativePath)
@@ -292,7 +305,7 @@ func uploadDirInternal(
 			switch entry := entry.(type) {
 			case fs.Directory:
 				var oid repo.ObjectID
-				oid, err = uploadDirInternal(u, entry, entryRelativePath, false)
+				oid, err = uploadDirInternal(u, entry, entryRelativePath)
 				de = newDirEntry(e, oid)
 				hash = 0
 
@@ -325,7 +338,7 @@ func uploadDirInternal(
 			return repo.NullObjectID, err
 		}
 
-		if de.Type != fs.EntryTypeDirectory && hash != 0 {
+		if de.Type != fs.EntryTypeDirectory && hash != 0 && entry.Metadata().ModTime.Before(u.hashCacheCutoff) {
 			if err := u.cacheWriter.WriteEntry(hashcache.Entry{
 				Name:     entryRelativePath,
 				Hash:     hash,
@@ -342,7 +355,7 @@ func uploadDirInternal(
 }
 
 func (u *Uploader) maybeIgnoreHashCacheEntry(e *hashcache.Entry) *hashcache.Entry {
-	if rand.Intn(100) < u.ForceHashingPercentage {
+	if rand.Intn(100) < u.ForceHashPercentage {
 		return nil
 	}
 
@@ -352,8 +365,10 @@ func (u *Uploader) maybeIgnoreHashCacheEntry(e *hashcache.Entry) *hashcache.Entr
 // NewUploader creates new Uploader object for a given repository.
 func NewUploader(r *repo.Repository) *Uploader {
 	return &Uploader{
-		repo:     r,
-		Progress: &nullUploadProgress{},
+		repo:             r,
+		Progress:         &nullUploadProgress{},
+		HashCacheMinAge:  1 * time.Hour,
+		IgnoreFileErrors: true,
 	}
 }
 
@@ -384,6 +399,8 @@ func (u *Uploader) Upload(
 	var err error
 
 	s.StartTime = time.Now()
+	u.hashCacheCutoff = time.Now().Add(-u.HashCacheMinAge)
+	s.HashCacheCutoffTime = u.hashCacheCutoff
 
 	switch entry := source.(type) {
 	case fs.Directory:

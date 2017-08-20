@@ -30,8 +30,8 @@ var (
 	backupAll                     = backupCommand.Flag("all", "Back-up all directories previously backed up by this user on this computer").Bool()
 	backupCheckpointUploadLimitMB = backupCommand.Flag("upload-limit-mb", "Stop the backup process after the specified amount of data (in MB) has been uploaded.").PlaceHolder("MB").Default("0").Int64()
 	backupDescription             = backupCommand.Flag("description", "Free-form backup description.").String()
-	backupIgnoreErrors            = backupCommand.Flag("ignore-errors", "Ignore errors when reading source files").Bool()
-	backupForceHashingPercentage  = backupCommand.Flag("force-hashing-percentage", "Force hashing of source files for a given percentage of files (0-100)").Int()
+	backupForceHash               = backupCommand.Flag("force-hash", "Force hashing of source files for a given percentage of files [0..100]").Default("0").Int()
+	backupHashCacheMinAge         = backupCommand.Flag("hash-cache-min-age", "Do not hash-cache files below certain age").Default("1h").Duration()
 
 	backupWriteBack = backupCommand.Flag("async-write", "Perform updates asynchronously.").PlaceHolder("N").Default("0").Int()
 )
@@ -59,7 +59,8 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 
 	u := snapshot.NewUploader(rep)
 	u.MaxUploadBytes = *backupCheckpointUploadLimitMB * 1024 * 1024
-	u.ForceHashingPercentage = *backupForceHashingPercentage
+	u.ForceHashPercentage = *backupForceHash
+	u.HashCacheMinAge = *backupHashCacheMinAge
 	onCtrlC(u.Cancel)
 
 	u.Progress = &uploadProgress{}

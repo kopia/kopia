@@ -215,6 +215,7 @@ func TestUpload_SubDirectoryReadFailure(t *testing.T) {
 	th.sourceDir.Subdir("d1").FailReaddir(errTest)
 
 	u := NewUploader(th.repo)
+	u.IgnoreFileErrors = false
 	_, err := u.Upload(th.sourceDir, &SourceInfo{}, nil)
 	if err == nil {
 		t.Errorf("expected error")
