@@ -39,7 +39,8 @@ var errCancelled = errors.New("cancelled")
 type Uploader struct {
 	Progress UploadProgress
 
-	Files FilesPolicy
+	// specifies criteria for including and excluding files.
+	FilesPolicy FilesPolicy
 
 	// automatically cancel the Upload after certain number of bytes
 	MaxUploadBytes int64
@@ -278,6 +279,13 @@ func uploadDirInternal(
 		}
 		e := entry.Metadata()
 		entryRelativePath := relativePath + "/" + e.Name
+
+		if !u.FilesPolicy.ShouldInclude(e) {
+			log.Printf("ignoring %q", entryRelativePath)
+			u.stats.ExcludedFileCount++
+			u.stats.ExcludedTotalFileSize += e.FileSize
+			continue
+		}
 
 		var de *dir.Entry
 		var hash uint64

@@ -3,6 +3,10 @@ package snapshot
 import (
 	"bytes"
 	"encoding/json"
+	"log"
+	"path/filepath"
+
+	"github.com/kopia/kopia/fs"
 )
 
 // ExpirationPolicy describes snapshot expiration policy.
@@ -31,14 +35,45 @@ type FilesPolicy struct {
 	MaxSize *int     `json:"maxSize,omitempty"`
 }
 
+// ShouldInclude determines whether given filesystem entry should be included based on the policy.
+func (p *FilesPolicy) ShouldInclude(e *fs.EntryMetadata) bool {
+	if len(p.Include) > 0 {
+		include := false
+		for _, i := range p.Include {
+			if fileNameMatches(e.Name, i) {
+				include = true
+				break
+			}
+		}
+		if !include {
+			// have include rules, but none of them matched
+			return false
+		}
+	}
+
+	if len(p.Exclude) > 0 {
+		for _, ex := range p.Exclude {
+			if fileNameMatches(e.Name, ex) {
+				return false
+			}
+		}
+	}
+
+	if p.MaxSize != nil && e.Type == fs.EntryTypeFile && e.FileSize > int64(*p.MaxSize) {
+		return false
+	}
+
+	return true
+}
+
 var defaultFilesPolicy = &FilesPolicy{}
 
 // Policy describes snapshot policy for a single source.
 type Policy struct {
-	Source     SourceInfo       `json:"source"`
-	Expiration ExpirationPolicy `json:"expiration"`
-	Files      FilesPolicy      `json:"files"`
-	NoParent   bool             `json:"noParent,omitempty"`
+	Source           SourceInfo       `json:"source"`
+	ExpirationPolicy ExpirationPolicy `json:"expiration"`
+	FilesPolicy      FilesPolicy      `json:"files"`
+	NoParent         bool             `json:"noParent,omitempty"`
 }
 
 func (p *Policy) String() string {
@@ -50,6 +85,16 @@ func (p *Policy) String() string {
 	return buf.String()
 }
 
+func fileNameMatches(fname string, pattern string) bool {
+	ok, err := filepath.Match(pattern, fname)
+	if err != nil {
+		log.Printf("warning: %v, assuming %q does not match the pattern", err, fname)
+		return false
+	}
+
+	return ok
+}
+
 func mergePolicies(policies []*Policy) *Policy {
 	var merged Policy
 
@@ -58,13 +103,13 @@ func mergePolicies(policies []*Policy) *Policy {
 			break
 		}
 
-		mergeExpirationPolicy(&merged.Expiration, &p.Expiration)
-		mergeFilesPolicy(&merged.Files, &p.Files)
+		mergeExpirationPolicy(&merged.ExpirationPolicy, &p.ExpirationPolicy)
+		mergeFilesPolicy(&merged.FilesPolicy, &p.FilesPolicy)
 	}
 
 	// Merge default expiration policy.
-	mergeExpirationPolicy(&merged.Expiration, defaultExpirationPolicy)
-	mergeFilesPolicy(&merged.Files, defaultFilesPolicy)
+	mergeExpirationPolicy(&merged.ExpirationPolicy, defaultExpirationPolicy)
+	mergeFilesPolicy(&merged.FilesPolicy, defaultFilesPolicy)
 
 	return &merged
 }

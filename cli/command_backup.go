@@ -99,7 +99,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 			return err
 		}
 
-		u.Files = policy.Files
+		u.FilesPolicy = policy.FilesPolicy
 
 		manifest, err := u.Upload(localEntry, sourceInfo, oldManifest)
 		if err != nil {

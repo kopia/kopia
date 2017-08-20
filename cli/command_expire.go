@@ -35,24 +35,24 @@ func expireSnapshotsForSingleSource(snapshots []*snapshot.Manifest, pol *snapsho
 	var hourlyCutoffTime time.Time
 	var weeklyCutoffTime time.Time
 
-	if pol.Expiration.KeepAnnual != nil {
-		annualCutoffTime = time.Now().AddDate(-*pol.Expiration.KeepAnnual, 0, 0)
+	if pol.ExpirationPolicy.KeepAnnual != nil {
+		annualCutoffTime = time.Now().AddDate(-*pol.ExpirationPolicy.KeepAnnual, 0, 0)
 	}
 
-	if pol.Expiration.KeepMonthly != nil {
-		monthlyCutoffTime = time.Now().AddDate(0, -*pol.Expiration.KeepMonthly, 0)
+	if pol.ExpirationPolicy.KeepMonthly != nil {
+		monthlyCutoffTime = time.Now().AddDate(0, -*pol.ExpirationPolicy.KeepMonthly, 0)
 	}
 
-	if pol.Expiration.KeepDaily != nil {
-		dailyCutoffTime = time.Now().AddDate(0, 0, -*pol.Expiration.KeepDaily)
+	if pol.ExpirationPolicy.KeepDaily != nil {
+		dailyCutoffTime = time.Now().AddDate(0, 0, -*pol.ExpirationPolicy.KeepDaily)
 	}
 
-	if pol.Expiration.KeepHourly != nil {
-		hourlyCutoffTime = time.Now().Add(time.Duration(-*pol.Expiration.KeepHourly) * time.Hour)
+	if pol.ExpirationPolicy.KeepHourly != nil {
+		hourlyCutoffTime = time.Now().Add(time.Duration(-*pol.ExpirationPolicy.KeepHourly) * time.Hour)
 	}
 
-	if pol.Expiration.KeepWeekly != nil {
-		weeklyCutoffTime = time.Now().AddDate(0, 0, -7**pol.Expiration.KeepWeekly)
+	if pol.ExpirationPolicy.KeepWeekly != nil {
+		weeklyCutoffTime = time.Now().AddDate(0, 0, -7**pol.ExpirationPolicy.KeepWeekly)
 	}
 
 	fmt.Printf("\n%v\n", pol.Source)
@@ -72,24 +72,24 @@ func expireSnapshotsForSingleSource(snapshots []*snapshot.Manifest, pol *snapsho
 			continue
 		}
 
-		if pol.Expiration.KeepLatest != nil {
-			registerSnapshot(fmt.Sprintf("%v", i), "latest", *pol.Expiration.KeepLatest)
+		if pol.ExpirationPolicy.KeepLatest != nil {
+			registerSnapshot(fmt.Sprintf("%v", i), "latest", *pol.ExpirationPolicy.KeepLatest)
 		}
-		if s.StartTime.After(annualCutoffTime) && pol.Expiration.KeepAnnual != nil {
-			registerSnapshot(s.StartTime.Format("2006"), "annual", *pol.Expiration.KeepAnnual)
+		if s.StartTime.After(annualCutoffTime) && pol.ExpirationPolicy.KeepAnnual != nil {
+			registerSnapshot(s.StartTime.Format("2006"), "annual", *pol.ExpirationPolicy.KeepAnnual)
 		}
-		if s.StartTime.After(monthlyCutoffTime) && pol.Expiration.KeepMonthly != nil {
-			registerSnapshot(s.StartTime.Format("2006-01"), "monthly", *pol.Expiration.KeepMonthly)
+		if s.StartTime.After(monthlyCutoffTime) && pol.ExpirationPolicy.KeepMonthly != nil {
+			registerSnapshot(s.StartTime.Format("2006-01"), "monthly", *pol.ExpirationPolicy.KeepMonthly)
 		}
-		if s.StartTime.After(weeklyCutoffTime) && pol.Expiration.KeepWeekly != nil {
+		if s.StartTime.After(weeklyCutoffTime) && pol.ExpirationPolicy.KeepWeekly != nil {
 			yyyy, wk := s.StartTime.ISOWeek()
-			registerSnapshot(fmt.Sprintf("%04v-%02v", yyyy, wk), "weekly", *pol.Expiration.KeepWeekly)
+			registerSnapshot(fmt.Sprintf("%04v-%02v", yyyy, wk), "weekly", *pol.ExpirationPolicy.KeepWeekly)
 		}
-		if s.StartTime.After(dailyCutoffTime) && pol.Expiration.KeepDaily != nil {
-			registerSnapshot(s.StartTime.Format("2006-01-02"), "daily", *pol.Expiration.KeepDaily)
+		if s.StartTime.After(dailyCutoffTime) && pol.ExpirationPolicy.KeepDaily != nil {
+			registerSnapshot(s.StartTime.Format("2006-01-02"), "daily", *pol.ExpirationPolicy.KeepDaily)
 		}
-		if s.StartTime.After(hourlyCutoffTime) && pol.Expiration.KeepHourly != nil {
-			registerSnapshot(s.StartTime.Format("2006-01-02 15"), "hourly", *pol.Expiration.KeepHourly)
+		if s.StartTime.After(hourlyCutoffTime) && pol.ExpirationPolicy.KeepHourly != nil {
+			registerSnapshot(s.StartTime.Format("2006-01-02 15"), "hourly", *pol.ExpirationPolicy.KeepHourly)
 		}
 
 		tm := s.StartTime.Local().Format("2006-01-02 15:04:05 MST")

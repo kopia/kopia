@@ -10,6 +10,9 @@ type Stats struct {
 	TotalFileCount      int   `json:"fileCount"`
 	TotalFileSize       int64 `json:"totalSize"`
 
+	ExcludedFileCount     int   `json:"excludedFileCount"`
+	ExcludedTotalFileSize int64 `json:"excludedTotalSize"`
+
 	CachedFiles    int `json:"cachedFiles"`
 	NonCachedFiles int `json:"nonCachedFiles"`
 

@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"log"
+	"sort"
 	"strconv"
 
 	"github.com/kopia/kopia/snapshot"
@@ -18,17 +19,25 @@ var (
 	policySetFrequency = policySetCommand.Flag("min-duration-between-backups", "Minimum duration between snapshots").Duration()
 
 	// Expiration policies.
-	policySetKeepLatest  = policySetCommand.Flag("keep-latest", "Number of most recent backups to keep per source (or 'inherit')").String()
-	policySetKeepHourly  = policySetCommand.Flag("keep-hourly", "Number of most-recent hourly backups to keep per source (or 'inherit')").String()
-	policySetKeepDaily   = policySetCommand.Flag("keep-daily", "Number of most-recent daily backups to keep per source (or 'inherit')").String()
-	policySetKeepWeekly  = policySetCommand.Flag("keep-weekly", "Number of most-recent weekly backups to keep per source (or 'inherit')").String()
-	policySetKeepMonthly = policySetCommand.Flag("keep-monthly", "Number of most-recent monthly backups to keep per source (or 'inherit')").String()
-	policySetKeepAnnual  = policySetCommand.Flag("keep-annual", "Number of most-recent annual backups to keep per source (or 'inherit')").String()
+	policySetKeepLatest  = policySetCommand.Flag("keep-latest", "Number of most recent backups to keep per source (or 'inherit')").PlaceHolder("N").String()
+	policySetKeepHourly  = policySetCommand.Flag("keep-hourly", "Number of most-recent hourly backups to keep per source (or 'inherit')").PlaceHolder("N").String()
+	policySetKeepDaily   = policySetCommand.Flag("keep-daily", "Number of most-recent daily backups to keep per source (or 'inherit')").PlaceHolder("N").String()
+	policySetKeepWeekly  = policySetCommand.Flag("keep-weekly", "Number of most-recent weekly backups to keep per source (or 'inherit')").PlaceHolder("N").String()
+	policySetKeepMonthly = policySetCommand.Flag("keep-monthly", "Number of most-recent monthly backups to keep per source (or 'inherit')").PlaceHolder("N").String()
+	policySetKeepAnnual  = policySetCommand.Flag("keep-annual", "Number of most-recent annual backups to keep per source (or 'inherit')").PlaceHolder("N").String()
 
-	// Files to ignore.
-	policySetAddIgnore     = policySetCommand.Flag("add-ignore", "List of paths to add to ignore list").Strings()
-	policySetRemoveIgnore  = policySetCommand.Flag("remove-ignore", "List of paths to remove from ignore list").Strings()
-	policySetReplaceIgnore = policySetCommand.Flag("set-ignore", "List of paths to replace ignore list with").Strings()
+	// Files to include (by default everything).
+	policySetAddInclude    = policySetCommand.Flag("add-include", "List of paths to add to the include list").PlaceHolder("PATTERN").Strings()
+	policySetRemoveInclude = policySetCommand.Flag("remove-include", "List of paths to remove from the include list").PlaceHolder("PATTERN").Strings()
+	policySetClearInclude  = policySetCommand.Flag("clear-include", "Clear list of paths in the include list").Bool()
+
+	// Files to exclude.
+	policySetAddExclude    = policySetCommand.Flag("add-exclude", "List of paths to add to the exclude list").PlaceHolder("PATTERN").Strings()
+	policySetRemoveExclude = policySetCommand.Flag("remove-exclude", "List of paths to remove from the exclude list").PlaceHolder("PATTERN").Strings()
+	policySetClearExclude  = policySetCommand.Flag("clear-exclude", "Clear list of paths in the exclude list").Bool()
+
+	// General policy.
+	policySetInherit = policySetCommand.Flag("inherit", "Enable or disable inheriting policies from the parent").BoolList()
 )
 
 func init() {
@@ -53,28 +62,45 @@ func setPolicy(context *kingpin.ParseContext) error {
 			}
 		}
 
-		if err := applyPolicyNumber(target, "number of annual backups to keep", &p.Expiration.KeepAnnual, *policySetKeepAnnual); err != nil {
+		if err := applyPolicyNumber(target, "number of annual backups to keep", &p.ExpirationPolicy.KeepAnnual, *policySetKeepAnnual); err != nil {
 			return err
 		}
 
-		if err := applyPolicyNumber(target, "number of monthly backups to keep", &p.Expiration.KeepMonthly, *policySetKeepMonthly); err != nil {
+		if err := applyPolicyNumber(target, "number of monthly backups to keep", &p.ExpirationPolicy.KeepMonthly, *policySetKeepMonthly); err != nil {
 			return err
 		}
 
-		if err := applyPolicyNumber(target, "number of weekly backups to keep", &p.Expiration.KeepWeekly, *policySetKeepWeekly); err != nil {
+		if err := applyPolicyNumber(target, "number of weekly backups to keep", &p.ExpirationPolicy.KeepWeekly, *policySetKeepWeekly); err != nil {
 			return err
 		}
 
-		if err := applyPolicyNumber(target, "number of daily backups to keep", &p.Expiration.KeepDaily, *policySetKeepDaily); err != nil {
+		if err := applyPolicyNumber(target, "number of daily backups to keep", &p.ExpirationPolicy.KeepDaily, *policySetKeepDaily); err != nil {
 			return err
 		}
 
-		if err := applyPolicyNumber(target, "number of hourly backups to keep", &p.Expiration.KeepHourly, *policySetKeepHourly); err != nil {
+		if err := applyPolicyNumber(target, "number of hourly backups to keep", &p.ExpirationPolicy.KeepHourly, *policySetKeepHourly); err != nil {
 			return err
 		}
 
-		if err := applyPolicyNumber(target, "number of latest backups to keep", &p.Expiration.KeepLatest, *policySetKeepLatest); err != nil {
+		if err := applyPolicyNumber(target, "number of latest backups to keep", &p.ExpirationPolicy.KeepLatest, *policySetKeepLatest); err != nil {
 			return err
+		}
+
+		// It's not really a list, just optional boolean.
+		for _, inherit := range *policySetInherit {
+			p.NoParent = !inherit
+		}
+
+		for _, path := range *policySetAddExclude {
+			p.FilesPolicy.Exclude = addString(p.FilesPolicy.Exclude, path)
+		}
+
+		for _, path := range *policySetRemoveExclude {
+			p.FilesPolicy.Exclude = removeString(p.FilesPolicy.Exclude, path)
+		}
+
+		if *policySetClearExclude {
+			p.FilesPolicy.Exclude = nil
 		}
 
 		if err := mgr.SavePolicy(p); err != nil {
@@ -83,6 +109,24 @@ func setPolicy(context *kingpin.ParseContext) error {
 	}
 
 	return nil
+}
+
+func addString(p []string, s string) []string {
+	p = append(removeString(p, s), s)
+	sort.Strings(p)
+	return p
+}
+
+func removeString(p []string, s string) []string {
+	var result []string
+
+	for _, item := range p {
+		if item == s {
+			continue
+		}
+		result = append(result, item)
+	}
+	return result
 }
 
 func applyPolicyNumber(src *snapshot.SourceInfo, desc string, val **int, str string) error {
