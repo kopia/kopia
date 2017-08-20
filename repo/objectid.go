@@ -17,21 +17,14 @@ import (
 //
 // 2. In a series of storage blocks with an indirect block pointing at them (multiple indirections are allowed). This is used for larger files.
 //
-// 3. Inline as part of the ObjectID (typically for very small or empty files).
-//
-// 4. As sections of other objects (bundles).
-//
-// 5. As sections of other objects (bundles).
+// 3. Packed into larger objects (packs).
 //
 // ObjectIDs have standard string representation (returned by String() and accepted as input to ParseObjectID()) suitable for using
 // in user interfaces, such as command-line tools:
 //
 // Examples:
 //
-//   "B"                                                  // empty object
-//   "BcXVpY2sgYnJvd24gZm94Cg=="                          // inline content "quick brown fox" (base64-encoded)
 //   "D295754edeb35c17911b1fdf853f572fe"                  // storage block
-//   "I1,2c33acbcba3569f943d9e8aaea7817c5"                // level-1 indirection block (legacy)
 //   "ID2c33acbcba3569f943d9e8aaea7817c5"                 // level-1 indirection block
 //   "IID2c33acbcba3569f943d9e8aaea7817c5"                // level-2 indirection block
 //   "S30,50,D295754edeb35c17911b1fdf853f572fe"           // section of "D295754edeb35c17911b1fdf853f572fe" between [30,80)

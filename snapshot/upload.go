@@ -70,8 +70,6 @@ func (u *Uploader) cancelReason() string {
 }
 
 func (u *Uploader) uploadFileInternal(f fs.File, relativePath string) (*dir.Entry, uint64, error) {
-	u.Progress.Started(relativePath, f.Metadata().FileSize)
-
 	file, err := f.Open()
 	if err != nil {
 		return nil, 0, fmt.Errorf("unable to open file: %v", err)
@@ -83,6 +81,7 @@ func (u *Uploader) uploadFileInternal(f fs.File, relativePath string) (*dir.Entr
 	})
 	defer writer.Close()
 
+	u.Progress.Started(relativePath, f.Metadata().FileSize)
 	written, err := u.copyWithProgress(relativePath, writer, file, 0, f.Metadata().FileSize)
 	if err != nil {
 		u.Progress.Finished(relativePath, f.Metadata().FileSize, err)
@@ -139,6 +138,7 @@ func (u *Uploader) uploadSymlinkInternal(f fs.Symlink, relativePath string) (*di
 	u.Progress.Finished(relativePath, 1, nil)
 	return de, metadataHash(&de.EntryMetadata), nil
 }
+
 func (u *Uploader) copyWithProgress(path string, dst io.Writer, src io.Reader, completed int64, length int64) (int64, error) {
 	if u.uploadBuf == nil {
 		u.uploadBuf = make([]byte, 128*1024) // 128 KB buffer
