@@ -3,6 +3,7 @@ package localfs
 import (
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -66,7 +67,8 @@ func (fsd *filesystemDirectory) Readdir() (fs.Entries, error) {
 		for _, fi := range fileInfos {
 			e, err := entryFromFileInfo(fi, filepath.Join(fsd.path, fi.Name()), fsd)
 			if err != nil {
-				return nil, err
+				log.Printf("warning: %v", err)
+				continue
 			}
 			entries = append(entries, e)
 		}
@@ -93,7 +95,6 @@ func (erc *fileWithMetadata) EntryMetadata() (*fs.EntryMetadata, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	return entryMetadataFromFileInfo(fi), nil
 }
 
@@ -169,17 +170,15 @@ func entryTypeFromFileMode(t os.FileMode) fs.EntryType {
 }
 
 func entryFromFileInfo(fi os.FileInfo, path string, parent fs.Directory) (fs.Entry, error) {
-	entry := newEntry(entryMetadataFromFileInfo(fi), parent, path)
-
 	switch fi.Mode() & os.ModeType {
 	case os.ModeDir:
-		return &filesystemDirectory{entry}, nil
+		return &filesystemDirectory{newEntry(entryMetadataFromFileInfo(fi), parent, path)}, nil
 
 	case os.ModeSymlink:
-		return &filesystemSymlink{entry}, nil
+		return &filesystemSymlink{newEntry(entryMetadataFromFileInfo(fi), parent, path)}, nil
 
 	case 0:
-		return &filesystemFile{entry}, nil
+		return &filesystemFile{newEntry(entryMetadataFromFileInfo(fi), parent, path)}, nil
 
 	default:
 		return nil, fmt.Errorf("unsupported filesystem entry: %v", path)
