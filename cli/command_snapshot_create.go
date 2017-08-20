@@ -24,7 +24,7 @@ const (
 )
 
 var (
-	snapshotCreateCommand = snapshotCommands.Command("create", "Creates a snapshot of local file or directory")
+	snapshotCreateCommand = snapshotCommands.Command("create", "Creates a snapshot of local directory or file.")
 
 	snapshotCreateSources                 = snapshotCreateCommand.Arg("source", "Files or directories to create snapshot(s) of.").ExistingFilesOrDirs()
 	snapshotCreateAll                     = snapshotCreateCommand.Flag("all", "Create snapshots for files or directories previously backed up by this user on this computer").Bool()

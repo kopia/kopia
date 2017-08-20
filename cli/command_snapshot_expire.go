@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	snapshotExpireCommand = snapshotCommands.Command("expire", "Remove old snapshots according to defined expiration policies")
+	snapshotExpireCommand = snapshotCommands.Command("expire", "Remove old snapshots according to defined expiration policies.")
 
 	snapshotExpireHost   = snapshotExpireCommand.Flag("host", "Expire snapshots from a given host").Default("").String()
 	snapshotExpireUser   = snapshotExpireCommand.Flag("user", "Expire snapshots from a given user").Default("").String()

@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	cleanupCommand   = objectCommands.Command("cleanup", "Remove old repository objects not used by any snapshots").Alias("gc")
+	cleanupCommand   = objectCommands.Command("cleanup", "Remove old repository objects not used by any snapshots.").Alias("gc")
 	cleanupIgnoreAge = cleanupCommand.Flag("min-age", "Minimum block age to be considered for cleanup.").Default("24h").Duration()
 
 	cleanupDelete = cleanupCommand.Flag("delete", "Whether to actually delete unused blocks.").Default("no").String()
