@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	migrateCommand      = app.Command("migrate", "Migrate data from old repository to a new one.")
+	migrateCommand      = repositoryCommands.Command("migrate", "Migrate data from old repository to a new one.")
 	migrateSourceConfig = migrateCommand.Flag("source-config", "Configuration file for the source repository").Required().ExistingFile()
 	migrateSources      = migrateCommand.Flag("sources", "List of sources to migrate").Strings()
 	migrateAll          = migrateCommand.Flag("all", "Migrate all sources").Bool()

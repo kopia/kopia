@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	showCommand = app.Command("show", "Show contents of a repository object.")
+	showCommand = objectCommands.Command("show", "Show contents of a repository object.")
 
 	showObjectIDs = showCommand.Arg("id", "IDs of objects to show").Required().Strings()
 	showJSON      = showCommand.Flag("json", "Pretty-print JSON content").Short('j').Bool()

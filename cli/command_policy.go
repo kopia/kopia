@@ -6,10 +6,6 @@ import (
 	"github.com/kopia/kopia/snapshot"
 )
 
-var (
-	policyCommands = app.Command("policy", "Commands to manipulate snapshotting policies.").Alias("policies")
-)
-
 func policyTargets(globalFlag *bool, targetsFlag *[]string) ([]*snapshot.SourceInfo, error) {
 	if *globalFlag == (len(*targetsFlag) > 0) {
 		return nil, fmt.Errorf("must pass either '--global' or a list of path targets")

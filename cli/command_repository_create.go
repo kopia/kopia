@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	createCommand            = app.Command("create", "Create new repository in a specified location.")
+	createCommand            = repositoryCommands.Command("create", "Create new repository in a specified location.")
 	createRepositoryLocation = createCommand.Arg("location", "Location where to create the repository").Required().String()
 
 	createMetadataEncryptionFormat = createCommand.Flag("metadata-encryption", "Metadata item encryption.").PlaceHolder("FORMAT").Default(repo.SupportedMetadataEncryptionAlgorithms[0]).Enum(repo.SupportedMetadataEncryptionAlgorithms...)

@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	connectCommand                = app.Command("connect", "Connect to a repository.")
+	connectCommand                = repositoryCommands.Command("connect", "Connect to a repository.")
 	connectRepositoryLocation     = connectCommand.Arg("location", "Repository address").Required().String()
 	connectDontPersistCredentials bool
 	connectCacheDirectory         string

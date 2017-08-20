@@ -9,6 +9,12 @@ import (
 var (
 	app              = kingpin.New("kopia", "Kopia - Online Backup").Author("http://kopia.github.io/")
 	appLogTimestamps *bool
+
+	repositoryCommands = app.Command("repository", "Commands to manipulate repository.").Alias("repo")
+	snapshotCommands   = app.Command("snapshot", "Commands to manipulate snapshots.").Alias("snap")
+	policyCommands     = app.Command("policy", "Commands to manipulate snapshotting policies.").Alias("policies")
+	metadataCommands   = app.Command("metadata", "Low-level commands to manipulate metadata items.").Alias("md")
+	objectCommands     = app.Command("object", "Commands to manipulate objects in repository.").Alias("obj")
 )
 
 func init() {
