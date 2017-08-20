@@ -13,14 +13,13 @@ import (
 )
 
 var (
-	expireCommand = app.Command("expire", "Remove old backups.")
+	snapshotExpireCommand = snapshotCommands.Command("expire", "Remove old snapshots according to defined expiration policies")
 
-	expireHost  = expireCommand.Flag("host", "Expire backups from a given host").Default("").String()
-	expireUser  = expireCommand.Flag("user", "Expire backups from a given user").Default("").String()
-	expireAll   = expireCommand.Flag("all", "Expire all backups").Bool()
-	expirePaths = expireCommand.Arg("path", "Expire backups for a given paths only").Strings()
-
-	expireDelete = expireCommand.Flag("delete", "Whether to actually delete backups").Default("no").String()
+	snapshotExpireHost   = snapshotExpireCommand.Flag("host", "Expire snapshots from a given host").Default("").String()
+	snapshotExpireUser   = snapshotExpireCommand.Flag("user", "Expire snapshots from a given user").Default("").String()
+	snapshotExpireAll    = snapshotExpireCommand.Flag("all", "Expire all snapshots").Bool()
+	snapshotExpirePaths  = snapshotExpireCommand.Arg("path", "Expire snapshots for a given paths only").Strings()
+	snapshotExpireDelete = snapshotExpireCommand.Flag("delete", "Whether to actually delete snapshots").Default("no").String()
 )
 
 func expireSnapshotsForSingleSource(snapshots []*snapshot.Manifest, pol *snapshot.Policy, snapshotNames []string) []string {
@@ -105,31 +104,31 @@ func expireSnapshotsForSingleSource(snapshots []*snapshot.Manifest, pol *snapsho
 }
 
 func getSnapshotNamesToExpire(mgr *snapshot.Manager) ([]string, error) {
-	if !*expireAll && len(*expirePaths) == 0 {
+	if !*snapshotExpireAll && len(*snapshotExpirePaths) == 0 {
 		return nil, fmt.Errorf("Must specify paths to expire or --all")
 	}
 
-	if *expireAll {
+	if *snapshotExpireAll {
 		fmt.Fprintf(os.Stderr, "Scanning all active snapshots...\n")
 		return mgr.ListSnapshotManifests(nil, -1)
 	}
 
 	var result []string
 
-	for _, p := range *expirePaths {
+	for _, p := range *snapshotExpirePaths {
 		src, err := snapshot.ParseSourceInfo(p, getHostName(), getUserName())
 		if err != nil {
 			return nil, fmt.Errorf("unable to parse %v: %v", p, err)
 		}
 
-		log.Printf("Looking for backups of %v", src)
+		log.Printf("Looking for snapshots of %v", src)
 
 		matches, err := mgr.ListSnapshotManifests(&src, -1)
 		if err != nil {
-			return nil, fmt.Errorf("error listing backups for %v: %v", src, err)
+			return nil, fmt.Errorf("error listing snapshots for %v: %v", src, err)
 		}
 
-		log.Printf("Found %v backups of %v", len(matches), src)
+		log.Printf("Found %v snapshots of %v", len(matches), src)
 
 		result = append(result, matches...)
 	}
@@ -207,8 +206,7 @@ func runExpireCommand(context *kingpin.ParseContext) error {
 		fmt.Fprintf(os.Stderr, "Nothing to delete.\n")
 		return nil
 	}
-
-	if *expireDelete == "yes" {
+	if *snapshotExpireDelete == "yes" {
 		fmt.Fprintf(os.Stderr, "Deleting %v snapshots...\n", len(toDelete))
 		if err := rep.RemoveMany(toDelete); err != nil {
 			return err
@@ -221,18 +219,18 @@ func runExpireCommand(context *kingpin.ParseContext) error {
 }
 
 func filterHostAndUser(snapshots []*snapshot.Manifest) []*snapshot.Manifest {
-	if *expireHost == "" && *expireUser == "" {
+	if *snapshotExpireHost == "" && *snapshotExpireUser == "" {
 		return snapshots
 	}
 
 	var result []*snapshot.Manifest
 
 	for _, s := range snapshots {
-		if *expireHost != "" && *expireHost != s.Source.Host {
+		if *snapshotExpireHost != "" && *snapshotExpireHost != s.Source.Host {
 			continue
 		}
 
-		if *expireUser != "" && *expireUser != s.Source.UserName {
+		if *snapshotExpireUser != "" && *snapshotExpireUser != s.Source.UserName {
 			continue
 		}
 
@@ -243,5 +241,5 @@ func filterHostAndUser(snapshots []*snapshot.Manifest) []*snapshot.Manifest {
 }
 
 func init() {
-	expireCommand.Action(runExpireCommand)
+	snapshotExpireCommand.Action(runExpireCommand)
 }
