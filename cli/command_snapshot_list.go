@@ -14,12 +14,12 @@ import (
 )
 
 var (
-	backupsCommand           = app.Command("backups", "List history of file or directory backups.")
-	backupsPath              = backupsCommand.Arg("source", "File or directory to show history of.").String()
-	backupsIncludeIncomplete = backupsCommand.Flag("include-incomplete", "Include incomplete.").Short('i').Bool()
-	backupsShowItemID        = backupsCommand.Flag("show-metadata-id", "Include metadata item ID.").Short('m').Bool()
-	backupsShowHashCache     = backupsCommand.Flag("show-hashcache", "Include hashcache object ID.").Bool()
-	maxResultsPerPath        = backupsCommand.Flag("max-results", "Maximum number of results.").Default("100").Int()
+	snapshotListCommand           = snapshotCommands.Command("list", "List snapshots of files and directories.")
+	snapshotListPath              = snapshotListCommand.Arg("source", "File or directory to show history of.").String()
+	snapshotListIncludeIncomplete = snapshotListCommand.Flag("include-incomplete", "Include incomplete.").Short('i').Bool()
+	snapshotListShowItemID        = snapshotListCommand.Flag("show-metadata-id", "Include metadata item ID.").Short('m').Bool()
+	snapshotListShowHashCache     = snapshotListCommand.Flag("show-hashcache", "Include hashcache object ID.").Bool()
+	maxResultsPerPath             = snapshotListCommand.Flag("max-results", "Maximum number of results.").Default("100").Int()
 )
 
 func findBackups(mgr *snapshot.Manager, sourceInfo snapshot.SourceInfo) (manifestIDs []string, relPath string, err error) {
@@ -39,7 +39,7 @@ func findBackups(mgr *snapshot.Manager, sourceInfo snapshot.SourceInfo) (manifes
 			relPath = filepath.Base(sourceInfo.Path)
 		}
 
-		log.Printf("No backups of %v@%v:%v", sourceInfo.UserName, sourceInfo.Host, sourceInfo.Path)
+		log.Printf("No snapshots of %v@%v:%v", sourceInfo.UserName, sourceInfo.Host, sourceInfo.Path)
 
 		parentPath := filepath.Dir(sourceInfo.Path)
 		if parentPath == sourceInfo.Path {
@@ -61,10 +61,10 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 	var relPath string
 	var err error
 
-	if *backupsPath != "" {
-		si, err := snapshot.ParseSourceInfo(*backupsPath, getHostName(), getUserName())
+	if *snapshotListPath != "" {
+		si, err := snapshot.ParseSourceInfo(*snapshotListPath, getHostName(), getUserName())
 		if err != nil {
-			return fmt.Errorf("invalid directory: '%s': %s", *backupsPath, err)
+			return fmt.Errorf("invalid directory: '%s': %s", *snapshotListPath, err)
 		}
 
 		previous, relPath, err = findBackups(mgr, si)
@@ -76,7 +76,7 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 	}
 
 	if err != nil {
-		return fmt.Errorf("cannot list backups: %v", err)
+		return fmt.Errorf("cannot list snapshots: %v", err)
 	}
 
 	var lastSource snapshot.SourceInfo
@@ -99,7 +99,7 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 	for _, m := range manifests {
 		maybeIncomplete := ""
 		if m.IncompleteReason != "" {
-			if !*backupsIncludeIncomplete {
+			if !*snapshotListIncludeIncomplete {
 				continue
 			}
 			maybeIncomplete = " " + m.IncompleteReason
@@ -122,18 +122,18 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 				deltaBytes(m.Stats.TotalFileSize-lastTotalFileSize),
 				maybeIncomplete,
 			)
-			if *backupsShowItemID {
+			if *snapshotListShowItemID {
 				if i, ok := manifestToItemID[m]; ok {
 					fmt.Printf("    metadata:  %v\n", i)
 				}
 			}
-			if *backupsShowHashCache {
+			if *snapshotListShowHashCache {
 				fmt.Printf("    hashcache: %v\n", m.HashCacheID)
 			}
 			count++
 		}
 
-		if m.IncompleteReason == "" || !*backupsIncludeIncomplete {
+		if m.IncompleteReason == "" || !*snapshotListIncludeIncomplete {
 			lastTotalFileSize = m.Stats.TotalFileSize
 		}
 	}
@@ -163,5 +163,5 @@ func deltaBytes(b int64) string {
 }
 
 func init() {
-	backupsCommand.Action(runBackupsCommand)
+	snapshotListCommand.Action(runBackupsCommand)
 }

@@ -20,32 +20,31 @@ import (
 )
 
 const (
-	backupMaxDescriptionLength = 1024
+	maxSnapshotDescriptionLength = 1024
 )
 
 var (
-	backupCommand = app.Command("backup", "Copies local files or directories to backup repository.")
+	snapshotCreateCommand = snapshotCommands.Command("create", "Creates a snapshot of local file or directory")
 
-	backupSources                 = backupCommand.Arg("source", "Files or directories to back up.").ExistingFilesOrDirs()
-	backupAll                     = backupCommand.Flag("all", "Back-up all directories previously backed up by this user on this computer").Bool()
-	backupCheckpointUploadLimitMB = backupCommand.Flag("upload-limit-mb", "Stop the backup process after the specified amount of data (in MB) has been uploaded.").PlaceHolder("MB").Default("0").Int64()
-	backupDescription             = backupCommand.Flag("description", "Free-form backup description.").String()
-	backupForceHash               = backupCommand.Flag("force-hash", "Force hashing of source files for a given percentage of files [0..100]").Default("0").Int()
-	backupHashCacheMinAge         = backupCommand.Flag("hash-cache-min-age", "Do not hash-cache files below certain age").Default("1h").Duration()
-
-	backupWriteBack = backupCommand.Flag("async-write", "Perform updates asynchronously.").PlaceHolder("N").Default("0").Int()
+	snapshotCreateSources                 = snapshotCreateCommand.Arg("source", "Files or directories to create snapshot(s) of.").ExistingFilesOrDirs()
+	snapshotCreateAll                     = snapshotCreateCommand.Flag("all", "Create snapshots for files or directories previously backed up by this user on this computer").Bool()
+	snapshotCreateCheckpointUploadLimitMB = snapshotCreateCommand.Flag("upload-limit-mb", "Stop the backup process after the specified amount of data (in MB) has been uploaded.").PlaceHolder("MB").Default("0").Int64()
+	snapshotCreateDescription             = snapshotCreateCommand.Flag("description", "Free-form snapshot description.").String()
+	snapshotCreateForceHash               = snapshotCreateCommand.Flag("force-hash", "Force hashing of source files for a given percentage of files [0..100]").Default("0").Int()
+	snapshotCreateHashCacheMinAge         = snapshotCreateCommand.Flag("hash-cache-min-age", "Do not hash-cache files below certain age").Default("1h").Duration()
+	snapshotCreateWriteBack               = snapshotCreateCommand.Flag("async-write", "Perform updates asynchronously.").PlaceHolder("N").Default("0").Int()
 )
 
 func runBackupCommand(c *kingpin.ParseContext) error {
 	rep := mustOpenRepository(&repo.Options{
-		WriteBack: *backupWriteBack,
+		WriteBack: *snapshotCreateWriteBack,
 	})
 	defer rep.Close()
 
 	mgr := snapshot.NewManager(rep)
 
-	sources := *backupSources
-	if *backupAll {
+	sources := *snapshotCreateSources
+	if *snapshotCreateAll {
 		local, err := getLocalBackupPaths(mgr)
 		if err != nil {
 			return err
@@ -58,9 +57,9 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 	}
 
 	u := snapshot.NewUploader(rep)
-	u.MaxUploadBytes = *backupCheckpointUploadLimitMB * 1024 * 1024
-	u.ForceHashPercentage = *backupForceHash
-	u.HashCacheMinAge = *backupHashCacheMinAge
+	u.MaxUploadBytes = *snapshotCreateCheckpointUploadLimitMB * 1024 * 1024
+	u.ForceHashPercentage = *snapshotCreateForceHash
+	u.HashCacheMinAge = *snapshotCreateHashCacheMinAge
 	onCtrlC(u.Cancel)
 
 	u.Progress = &uploadProgress{}
@@ -79,7 +78,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 			return fmt.Errorf("unable to get backup policy for source %v: %v", sourceInfo, err)
 		}
 
-		if len(*backupDescription) > backupMaxDescriptionLength {
+		if len(*snapshotCreateDescription) > maxSnapshotDescriptionLength {
 			return fmt.Errorf("description too long")
 		}
 
@@ -106,7 +105,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 			return err
 		}
 
-		manifest.Description = *backupDescription
+		manifest.Description = *snapshotCreateDescription
 
 		if _, err := mgr.SaveSnapshot(manifest); err != nil {
 			return fmt.Errorf("cannot save manifest: %v", err)
@@ -200,5 +199,5 @@ func getHostName() string {
 }
 
 func init() {
-	backupCommand.Action(runBackupCommand)
+	snapshotCreateCommand.Action(runBackupCommand)
 }
