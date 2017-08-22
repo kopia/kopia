@@ -6,9 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
-	"time"
 
+	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/internal/throttle"
 
 	"golang.org/x/oauth2/google"
@@ -25,10 +24,6 @@ import (
 
 const (
 	gcsStorageType = "gcs"
-
-	retryMaxAttempts        = 10
-	retryInitialSleepAmount = 1 * time.Second
-	retryMaxSleepAmount     = 32 * time.Second
 )
 
 type gcsStorage struct {
@@ -81,22 +76,8 @@ func (gcs *gcsStorage) GetBlock(b string, offset, length int64) ([]byte, error) 
 	return v.([]byte), nil
 }
 
-func exponentialBackoff(desc string, attempt func() (interface{}, error)) (interface{}, error) {
-	sleepAmount := retryInitialSleepAmount
-	for i := 0; i < retryMaxAttempts; i++ {
-		v, err := attempt()
-		if !isRetriableError(err) {
-			return v, err
-		}
-		log.Printf("got error %v when %v (#%v), sleeping for %v before retrying", err, desc, i, sleepAmount)
-		time.Sleep(sleepAmount)
-		sleepAmount *= 2
-		if sleepAmount > retryMaxSleepAmount {
-			sleepAmount = retryMaxSleepAmount
-		}
-	}
-
-	return nil, fmt.Errorf("unable to complete %v despite %v retries", desc, retryMaxAttempts)
+func exponentialBackoff(desc string, att retry.AttemptFunc) (interface{}, error) {
+	return retry.WithExponentialBackoff(desc, att, isRetriableError)
 }
 
 func isRetriableError(err error) bool {
