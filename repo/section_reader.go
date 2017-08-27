@@ -41,7 +41,7 @@ func (osr *objectSectionReader) Seek(offset int64, whence int) (int64, error) {
 	}
 
 	if offset < 0 {
-		return -1, fmt.Errorf("Invalid seek.")
+		return -1, fmt.Errorf("invalid seek %v %v", offset, whence)
 	}
 
 	if offset > osr.length {

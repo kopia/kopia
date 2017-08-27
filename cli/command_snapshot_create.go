@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -53,7 +54,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 	}
 
 	if len(sources) == 0 {
-		return fmt.Errorf("No backup sources.")
+		return errors.New("no backup sources")
 	}
 
 	u := snapshot.NewUploader(rep)

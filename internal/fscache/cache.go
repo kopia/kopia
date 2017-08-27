@@ -31,6 +31,7 @@ type Cache struct {
 	tail *cacheEntry
 }
 
+// AllocateID allocates new unique ID to be used when referring to cached items.
 func (c *Cache) AllocateID() int64 {
 	if c == nil {
 		return 0
@@ -76,6 +77,8 @@ func (c *Cache) remove(e *cacheEntry) {
 	}
 }
 
+// GetEntries consults the cache and either retrieves the contents of directory listing from the cache
+// or invokes the provides callback and adds the results to cache.
 func (c *Cache) GetEntries(id int64, cb func() (fs.Entries, error)) (fs.Entries, error) {
 	if c == nil {
 		return cb()
