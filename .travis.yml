@@ -1,7 +1,6 @@
 language: go
 go:
-- 1.8
-- tip
+- 1.9
 os:
 - linux
 install: make travis-setup
