@@ -11,6 +11,7 @@ import (
 	"github.com/kopia/kopia/fs"
 )
 
+// ReaderSeekerCloser implements io.Reader, io.Seeker and io.Closer
 type ReaderSeekerCloser interface {
 	io.Reader
 	io.Seeker
