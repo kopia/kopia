@@ -1,15 +1,13 @@
-// +build !windows
-
 package cli
 
 import (
-	"bazil.org/fuse"
+	"fmt"
+
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/loggingfs"
 	"github.com/kopia/kopia/fs/repofs"
 
-	fusefs "bazil.org/fuse/fs"
-	kopiafuse "github.com/kopia/kopia/fuse"
+	"github.com/kopia/kopia/internal/fscache"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -24,29 +22,8 @@ var (
 	mountMaxCachedDirectories = mountCommand.Flag("max-cached-dirs", "Limit the number of cached directories").Default("100").Int()
 )
 
-type root struct {
-	fusefs.Node
-}
-
-func (r *root) Root() (fusefs.Node, error) {
-	return r.Node, nil
-}
-
 func runMountCommand(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
-
-	fuseConnection, err := fuse.Mount(
-		*mountPoint,
-		fuse.ReadOnly(),
-		fuse.FSName("kopia"),
-		fuse.Subtype("kopia"),
-		fuse.VolumeName("Kopia"),
-	)
-
-	if err != nil {
-		return err
-	}
-
 	var entry fs.Directory
 
 	if *mountObjectID == "all" {
@@ -63,15 +40,19 @@ func runMountCommand(context *kingpin.ParseContext) error {
 		entry = loggingfs.Wrap(entry).(fs.Directory)
 	}
 
-	cache := kopiafuse.NewCache(
-		kopiafuse.MaxCachedDirectories(*mountMaxCachedDirectories),
-		kopiafuse.MaxCachedDirectoryEntries(*mountMaxCachedEntries),
+	cache := fscache.NewCache(
+		fscache.MaxCachedDirectories(*mountMaxCachedDirectories),
+		fscache.MaxCachedDirectoryEntries(*mountMaxCachedEntries),
 	)
-	rootNode := kopiafuse.NewDirectoryNode(entry, cache)
 
-	fusefs.Serve(fuseConnection, &root{rootNode})
-
-	return nil
+	switch *mountMode {
+	case "FUSE":
+		return mountDirectoryFUSE(entry, *mountPoint, cache)
+	case "WEBDAV":
+		return mountDirectoryWebDAV(entry, *mountPoint, cache)
+	default:
+		return fmt.Errorf("unsupported mode: %q", *mountMode)
+	}
 }
 
 func init() {

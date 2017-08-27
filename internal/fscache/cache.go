@@ -1,9 +1,5 @@
-// +build !windows
-
-// Package fuse implements FUSE filesystem nodes for mounting contents of filesystem stored in repository.
-//
-// The FUSE implementation used is from bazil.org/fuse
-package fuse
+// Package fscache implements in-memory cache of filesystem entries.
+package fscache
 
 import (
 	"sync"
@@ -35,7 +31,7 @@ type Cache struct {
 	tail *cacheEntry
 }
 
-func (c *Cache) allocateID() int64 {
+func (c *Cache) AllocateID() int64 {
 	if c == nil {
 		return 0
 	}
@@ -80,7 +76,7 @@ func (c *Cache) remove(e *cacheEntry) {
 	}
 }
 
-func (c *Cache) getEntries(id int64, cb func() (fs.Entries, error)) (fs.Entries, error) {
+func (c *Cache) GetEntries(id int64, cb func() (fs.Entries, error)) (fs.Entries, error) {
 	if c == nil {
 		return cb()
 	}

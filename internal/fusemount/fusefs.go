@@ -1,9 +1,9 @@
 // +build !windows
 
-// Package fuse implements FUSE filesystem nodes for mounting contents of filesystem stored in repository.
+// Package fusemount implements FUSE filesystem nodes for mounting contents of filesystem stored in repository.
 //
 // The FUSE implementation used is from bazil.org/fuse
-package fuse
+package fusemount
 
 import (
 	"fmt"
@@ -12,6 +12,7 @@ import (
 	"sort"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/fscache"
 
 	"bazil.org/fuse"
 	fusefs "bazil.org/fuse/fs"
@@ -21,7 +22,7 @@ import (
 
 type fuseNode struct {
 	entry fs.Entry
-	cache *Cache
+	cache *fscache.Cache
 }
 
 func (n *fuseNode) Attr(ctx context.Context, a *fuse.Attr) error {
@@ -76,7 +77,7 @@ func (dir *fuseDirectoryNode) Lookup(ctx context.Context, fileName string) (fuse
 }
 
 func (dir *fuseDirectoryNode) readPossiblyCachedReaddir() (fs.Entries, error) {
-	return dir.cache.getEntries(dir.cacheID, func() (fs.Entries, error) {
+	return dir.cache.GetEntries(dir.cacheID, func() (fs.Entries, error) {
 		entries, err := dir.directory().Readdir()
 		if err != nil {
 			return nil, err
@@ -127,7 +128,7 @@ func (sl *fuseSymlinkNode) Readlink(ctx context.Context, req *fuse.ReadlinkReque
 	return sl.entry.(fs.Symlink).Readlink()
 }
 
-func newFuseNode(e fs.Entry, cache *Cache) (fusefs.Node, error) {
+func newFuseNode(e fs.Entry, cache *fscache.Cache) (fusefs.Node, error) {
 	switch e := e.(type) {
 	case fs.Directory:
 		return newDirectoryNode(e, cache), nil
@@ -140,11 +141,11 @@ func newFuseNode(e fs.Entry, cache *Cache) (fusefs.Node, error) {
 	}
 }
 
-func newDirectoryNode(dir fs.Directory, cache *Cache) fusefs.Node {
-	return &fuseDirectoryNode{fuseNode{dir, cache}, cache.allocateID()}
+func newDirectoryNode(dir fs.Directory, cache *fscache.Cache) fusefs.Node {
+	return &fuseDirectoryNode{fuseNode{dir, cache}, cache.AllocateID()}
 }
 
 // NewDirectoryNode returns FUSE Node for a given fs.Directory
-func NewDirectoryNode(dir fs.Directory, cache *Cache) fusefs.Node {
+func NewDirectoryNode(dir fs.Directory, cache *fscache.Cache) fusefs.Node {
 	return newDirectoryNode(dir, cache)
 }
