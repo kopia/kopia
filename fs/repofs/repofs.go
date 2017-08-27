@@ -2,7 +2,6 @@ package repofs
 
 import (
 	"fmt"
-	"io"
 	"io/ioutil"
 
 	"github.com/kopia/kopia/fs"
@@ -106,7 +105,7 @@ func newRepoEntry(r *repo.Repository, md *dir.Entry, parent fs.Directory) fs.Ent
 }
 
 type entryMetadataReadCloser struct {
-	io.ReadCloser
+	repo.ObjectReader
 	metadata *fs.EntryMetadata
 }
 
@@ -114,11 +113,8 @@ func (emrc *entryMetadataReadCloser) EntryMetadata() (*fs.EntryMetadata, error) 
 	return emrc.metadata, nil
 }
 
-func withMetadata(rc io.ReadCloser, md *fs.EntryMetadata) fs.Reader {
-	return &entryMetadataReadCloser{
-		rc,
-		md,
-	}
+func withMetadata(r repo.ObjectReader, md *fs.EntryMetadata) fs.Reader {
+	return &entryMetadataReadCloser{r, md}
 }
 
 // Directory returns fs.Directory based on repository object with the specified ID.

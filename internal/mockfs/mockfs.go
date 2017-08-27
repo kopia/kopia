@@ -5,12 +5,25 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"sort"
 	"strings"
 
 	"github.com/kopia/kopia/fs"
 )
+
+type ReaderSeekerCloser interface {
+	io.Reader
+	io.Seeker
+	io.Closer
+}
+
+type readerSeekerCloser struct {
+	io.ReadSeeker
+}
+
+func (c readerSeekerCloser) Close() error {
+	return nil
+}
 
 type sortedEntries fs.Entries
 
@@ -54,8 +67,8 @@ func (imd *Directory) AddFile(name string, content []byte, permissions fs.Permis
 				FileSize:    int64(len(content)),
 			},
 		},
-		source: func() (io.ReadCloser, error) {
-			return ioutil.NopCloser(bytes.NewBuffer(content)), nil
+		source: func() (ReaderSeekerCloser, error) {
+			return readerSeekerCloser{bytes.NewReader(content)}, nil
 		},
 	}
 
@@ -148,12 +161,12 @@ func (imd *Directory) Readdir() (fs.Entries, error) {
 type File struct {
 	entry
 
-	source     func() (io.ReadCloser, error)
+	source     func() (ReaderSeekerCloser, error)
 	closeError error
 }
 
 type fileReader struct {
-	io.ReadCloser
+	ReaderSeekerCloser
 	metadata *fs.EntryMetadata
 }
 
@@ -169,8 +182,8 @@ func (imf *File) Open() (fs.Reader, error) {
 	}
 
 	return &fileReader{
-		ReadCloser: r,
-		metadata:   imf.metadata,
+		ReaderSeekerCloser: r,
+		metadata:           imf.metadata,
 	}, nil
 }
 

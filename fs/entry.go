@@ -18,6 +18,7 @@ type Entries []Entry
 // Reader allows reading from a file and retrieving its metadata.
 type Reader interface {
 	io.ReadCloser
+	io.Seeker
 	EntryMetadata() (*EntryMetadata, error)
 }
 
