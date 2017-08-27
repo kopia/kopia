@@ -48,6 +48,7 @@ func (s *repositoryAllSources) Readdir() (fs.Entries, error) {
 		})
 	}
 
+	result.Sort()
 	return result, nil
 }
 

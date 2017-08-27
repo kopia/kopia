@@ -59,6 +59,7 @@ func (s *sourceSnapshots) Readdir() (fs.Entries, error) {
 
 		result = append(result, e)
 	}
+	result.Sort()
 
 	return result, nil
 }

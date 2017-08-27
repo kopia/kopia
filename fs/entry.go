@@ -55,6 +55,13 @@ func (e Entries) FindByName(n string) Entry {
 	return nil
 }
 
+// Sort sorts the entries by name.
+func (e Entries) Sort() {
+	sort.Slice(e, func(i, j int) bool {
+		return e[i].Metadata().Name < e[j].Metadata().Name
+	})
+}
+
 // EntryPath returns a path of a given entry from its root node.
 func EntryPath(e Entry) string {
 	var parts []string

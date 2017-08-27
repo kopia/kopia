@@ -44,5 +44,7 @@ func (s *sourceDirectories) Readdir() (fs.Entries, error) {
 		result = append(result, &sourceSnapshots{s, s.repo, s.snapshotManager, src})
 	}
 
+	result.Sort()
+
 	return result, nil
 }
