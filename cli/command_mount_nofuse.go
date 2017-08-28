@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	mountMode = mountCommand.Flag("mode", "Mount mode").Default(defaultMountMode()).Enum("WEBDAV")
+	mountMode = mountCommand.Flag("mode", "Mount mode").Default("WEBDAV").Enum("WEBDAV")
 )
 
 func mountDirectoryFUSE(entry fs.Directory, mountPoint string, cache *fscache.Cache) error {
