@@ -16,3 +16,5 @@ deploy:
     tags: true
     repo: kopia/kopia
     go: 1.6
+git:
+  depth: 9999999
