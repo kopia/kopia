@@ -74,6 +74,11 @@ func (mm *MetadataManager) PutMetadata(itemID string, content []byte) error {
 	return mm.writeEncryptedBlock(itemID, content)
 }
 
+// RefreshCache refreshes the cache of metadata items.
+func (mm *MetadataManager) RefreshCache() error {
+	return mm.cache.refresh()
+}
+
 func (mm *MetadataManager) writeEncryptedBlock(itemID string, content []byte) error {
 	if mm.aead != nil {
 		nonceLength := mm.aead.NonceSize()

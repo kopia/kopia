@@ -111,8 +111,8 @@ func (mc *metadataCache) DeleteBlock(name string) error {
 	return mc.st.DeleteBlock(MetadataBlockPrefix + name)
 }
 
-// Refresh refreshes the list of blocks in the cache, but does not load or expire previously cached.
-func (mc *metadataCache) Refresh() error {
+// refresh refreshes the list of blocks in the cache, but does not load or expire previously cached.
+func (mc *metadataCache) refresh() error {
 	var sortedNames []string
 	nameToCacheID := map[string]string{}
 
@@ -149,7 +149,7 @@ func newMetadataCache(st blob.Storage) (*metadataCache, error) {
 		nameToCacheID: make(map[string]string),
 		cachedData:    make(map[string][]byte),
 	}
-	if err := c.Refresh(); err != nil {
+	if err := c.refresh(); err != nil {
 		return nil, err
 	}
 
