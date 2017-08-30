@@ -2,42 +2,36 @@
 package fscache
 
 import (
+	"log"
 	"sync"
-	"sync/atomic"
+	"time"
 
 	"github.com/kopia/kopia/fs"
 )
 
 type cacheEntry struct {
-	id   int64
+	id   string
 	prev *cacheEntry
 	next *cacheEntry
 
-	entries fs.Entries
+	expireAfter time.Time
+	entries     fs.Entries
 }
 
 // Cache maintains in-memory cache of recently-read data to speed up filesystem operations.
 type Cache struct {
 	sync.Mutex
 
-	nextID                int64
 	totalDirectoryEntries int
 	maxDirectories        int
 	maxDirectoryEntries   int
-	data                  map[int64]*cacheEntry
+	data                  map[string]*cacheEntry
 
 	// Doubly-linked list of entries, in access time order
 	head *cacheEntry
 	tail *cacheEntry
-}
 
-// AllocateID allocates new unique ID to be used when referring to cached items.
-func (c *Cache) AllocateID() int64 {
-	if c == nil {
-		return 0
-	}
-
-	return atomic.AddInt64(&c.nextID, 1)
+	debug bool
 }
 
 func (c *Cache) moveToHead(e *cacheEntry) {
@@ -77,20 +71,37 @@ func (c *Cache) remove(e *cacheEntry) {
 	}
 }
 
+// Loader provides data to be stored in the cache.
+type Loader func() (fs.Entries, error)
+
 // GetEntries consults the cache and either retrieves the contents of directory listing from the cache
 // or invokes the provides callback and adds the results to cache.
-func (c *Cache) GetEntries(id int64, cb func() (fs.Entries, error)) (fs.Entries, error) {
+func (c *Cache) GetEntries(id string, expirationTime time.Duration, cb Loader) (fs.Entries, error) {
 	if c == nil {
 		return cb()
 	}
 
 	c.Lock()
-	if v, ok := c.data[id]; ok {
-		c.moveToHead(v)
-		c.Unlock()
-		return v.entries, nil
+	if v, ok := c.data[id]; id != "" && ok {
+		if time.Now().Before(v.expireAfter) {
+			c.moveToHead(v)
+			c.Unlock()
+			if c.debug {
+				log.Printf("cache hit for %q (valid until %v)", id, v.expireAfter)
+			}
+			return v.entries, nil
+		}
+
+		// time expired
+		if c.debug {
+			log.Printf("removing expired cache entry %q after %v", id, v.expireAfter)
+		}
+		c.removeEntryLocked(v)
 	}
 
+	if c.debug {
+		log.Printf("cache miss for %q", id)
+	}
 	raw, err := cb()
 	if err != nil {
 		return nil, err
@@ -103,23 +114,27 @@ func (c *Cache) GetEntries(id int64, cb func() (fs.Entries, error)) (fs.Entries,
 	}
 
 	entry := &cacheEntry{
-		id:      id,
-		entries: raw,
+		id:          id,
+		entries:     raw,
+		expireAfter: time.Now().Add(expirationTime),
 	}
 	c.addToHead(entry)
 	c.data[id] = entry
 
 	c.totalDirectoryEntries += len(raw)
 	for c.totalDirectoryEntries > c.maxDirectoryEntries || len(c.data) > c.maxDirectories {
-		toremove := c.tail
-		c.remove(toremove)
-		c.totalDirectoryEntries -= len(toremove.entries)
-		delete(c.data, toremove.id)
+		c.removeEntryLocked(c.tail)
 	}
 
 	c.Unlock()
 
 	return raw, nil
+}
+
+func (c *Cache) removeEntryLocked(toremove *cacheEntry) {
+	c.remove(toremove)
+	c.totalDirectoryEntries -= len(toremove.entries)
+	delete(c.data, toremove.id)
 }
 
 // CacheOption modifies the behavior of FUSE node cache.
@@ -142,7 +157,7 @@ func MaxCachedDirectoryEntries(count int) CacheOption {
 // NewCache creates FUSE node cache.
 func NewCache(options ...CacheOption) *Cache {
 	c := &Cache{
-		data:                make(map[int64]*cacheEntry),
+		data:                make(map[string]*cacheEntry),
 		maxDirectories:      1000,
 		maxDirectoryEntries: 100000,
 	}

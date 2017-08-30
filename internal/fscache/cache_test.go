@@ -7,16 +7,19 @@ import (
 	"reflect"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/kopia/kopia/fs"
 )
 
+const expirationTime = 10 * time.Hour
+
 type cacheSource struct {
-	data        map[int64]fs.Entries
-	callCounter map[int64]int
+	data        map[string]fs.Entries
+	callCounter map[string]int
 }
 
-func (cs *cacheSource) get(id int64) func() (fs.Entries, error) {
+func (cs *cacheSource) get(id string) func() (fs.Entries, error) {
 	return func() (fs.Entries, error) {
 		cs.callCounter[id]++
 		d, ok := cs.data[id]
@@ -28,7 +31,7 @@ func (cs *cacheSource) get(id int64) func() (fs.Entries, error) {
 	}
 }
 
-func (cs *cacheSource) setEntryCount(id int64, cnt int) {
+func (cs *cacheSource) setEntryCount(id string, cnt int) {
 	var fakeEntries fs.Entries
 	var fakeEntry fs.Entry
 	for i := 0; i < cnt; i++ {
@@ -41,18 +44,18 @@ func (cs *cacheSource) setEntryCount(id int64, cnt int) {
 
 func newCacheSource() *cacheSource {
 	return &cacheSource{
-		data:        make(map[int64]fs.Entries),
-		callCounter: make(map[int64]int),
+		data:        make(map[string]fs.Entries),
+		callCounter: make(map[string]int),
 	}
 }
 
 type cacheVerifier struct {
 	cache           *Cache
 	cacheSource     *cacheSource
-	lastCallCounter map[int64]int
+	lastCallCounter map[string]int
 }
 
-func (cv *cacheVerifier) verifyCacheMiss(t *testing.T, id int64) {
+func (cv *cacheVerifier) verifyCacheMiss(t *testing.T, id string) {
 	actual := cv.cacheSource.callCounter[id]
 	expected := cv.lastCallCounter[id] + 1
 	if actual != expected {
@@ -61,15 +64,15 @@ func (cv *cacheVerifier) verifyCacheMiss(t *testing.T, id int64) {
 	cv.reset()
 }
 
-func (cv *cacheVerifier) verifyCacheHit(t *testing.T, id int64) {
+func (cv *cacheVerifier) verifyCacheHit(t *testing.T, id string) {
 	if !reflect.DeepEqual(cv.lastCallCounter, cv.cacheSource.callCounter) {
 		t.Errorf(errorPrefix()+" unexpected call counters for %v, got %v, expected %v", id, cv.cacheSource.callCounter, cv.lastCallCounter)
 	}
 	cv.reset()
 }
 
-func (cv *cacheVerifier) verifyCacheOrdering(t *testing.T, expectedOrdering ...int64) {
-	var actualOrdering []int64
+func (cv *cacheVerifier) verifyCacheOrdering(t *testing.T, expectedOrdering ...string) {
+	var actualOrdering []string
 	var totalDirectoryEntries int
 	var totalDirectories int
 	for e := cv.cache.head; e != nil; e = e.next {
@@ -109,7 +112,7 @@ func errorPrefix() string {
 }
 
 func (cv *cacheVerifier) reset() {
-	cv.lastCallCounter = make(map[int64]int)
+	cv.lastCallCounter = make(map[string]int)
 	for k, v := range cv.cacheSource.callCounter {
 		cv.lastCallCounter[k] = v
 	}
@@ -126,13 +129,13 @@ func TestCache(t *testing.T) {
 
 	cs := newCacheSource()
 	cv := cacheVerifier{cacheSource: cs, cache: c}
-	var id1 int64 = 1
-	var id2 int64 = 2
-	var id3 int64 = 3
-	var id4 int64 = 4
-	var id5 int64 = 5
-	var id6 int64 = 6
-	var id7 int64 = 7
+	id1 := "1"
+	id2 := "2"
+	id3 := "3"
+	id4 := "4"
+	id5 := "5"
+	id6 := "6"
+	id7 := "7"
 	cs.setEntryCount(id1, 3)
 	cs.setEntryCount(id2, 3)
 	cs.setEntryCount(id3, 3)
@@ -144,57 +147,57 @@ func TestCache(t *testing.T) {
 	cv.verifyCacheOrdering(t)
 
 	// fetch id1
-	c.GetEntries(id1, cs.get(id1))
+	c.GetEntries(id1, expirationTime, cs.get(id1))
 	cv.verifyCacheMiss(t, id1)
 	cv.verifyCacheOrdering(t, id1)
 
 	// fetch id1 again - cache hit, no change
-	c.GetEntries(id1, cs.get(id1))
+	c.GetEntries(id1, expirationTime, cs.get(id1))
 	cv.verifyCacheHit(t, id1)
 	cv.verifyCacheOrdering(t, id1)
 
 	// fetch id2
-	c.GetEntries(id2, cs.get(id2))
+	c.GetEntries(id2, expirationTime, cs.get(id2))
 	cv.verifyCacheMiss(t, id2)
 	cv.verifyCacheOrdering(t, id2, id1)
 
 	// fetch id1 again - cache hit, id1 moved to the top of the LRU list
-	c.GetEntries(id1, cs.get(id1))
+	c.GetEntries(id1, expirationTime, cs.get(id1))
 	cv.verifyCacheHit(t, id1)
 	cv.verifyCacheOrdering(t, id1, id2)
 
 	// fetch id2 again
-	c.GetEntries(id2, cs.get(id2))
+	c.GetEntries(id2, expirationTime, cs.get(id2))
 	cv.verifyCacheHit(t, id2)
 	cv.verifyCacheOrdering(t, id2, id1)
 
 	// fetch id3
-	c.GetEntries(id3, cs.get(id3))
+	c.GetEntries(id3, expirationTime, cs.get(id3))
 	cv.verifyCacheMiss(t, id3)
 	cv.verifyCacheOrdering(t, id3, id2, id1)
 
 	// fetch id4
-	c.GetEntries(id4, cs.get(id4))
+	c.GetEntries(id4, expirationTime, cs.get(id4))
 	cv.verifyCacheMiss(t, id4)
 	cv.verifyCacheOrdering(t, id4, id3)
 
 	// fetch id1 again
-	c.GetEntries(id1, cs.get(id1))
+	c.GetEntries(id1, expirationTime, cs.get(id1))
 	cv.verifyCacheMiss(t, id1)
 	cv.verifyCacheOrdering(t, id1, id4)
 
 	// fetch id5, it's a big one that expels all but one
-	c.GetEntries(id5, cs.get(id5))
+	c.GetEntries(id5, expirationTime, cs.get(id5))
 	cv.verifyCacheMiss(t, id5)
 	cv.verifyCacheOrdering(t, id5, id1)
 
 	// fetch id6
-	c.GetEntries(id6, cs.get(id6))
+	c.GetEntries(id6, expirationTime, cs.get(id6))
 	cv.verifyCacheMiss(t, id6)
 	cv.verifyCacheOrdering(t, id6)
 
 	// fetch id7
-	c.GetEntries(id7, cs.get(id7))
+	c.GetEntries(id7, expirationTime, cs.get(id7))
 	cv.verifyCacheMiss(t, id7)
 	cv.verifyCacheOrdering(t, id6)
 }
