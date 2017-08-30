@@ -39,12 +39,17 @@ func Initialize(st blob.Storage, opt *NewRepositoryOptions, creds auth.Credentia
 		opt = &NewRepositoryOptions{}
 	}
 
+	cache, err := newMetadataCache(st)
+	if err != nil {
+		return err
+	}
+
 	mm := MetadataManager{
 		storage: st,
+		cache:   cache,
 		format:  metadataFormatFromOptions(opt),
 	}
 
-	var err error
 	mm.masterKey, err = creds.GetMasterKey(mm.format.SecurityOptions)
 	if err != nil {
 		return err

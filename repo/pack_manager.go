@@ -208,7 +208,7 @@ func (p *packManager) ensurePackIndexesLoaded() (map[string]*packIndex, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	m, err := p.metadataManager.ListMetadataContents(packIDPrefix, -1)
+	m, err := p.metadataManager.ListMetadataContents(packIDPrefix)
 	if err != nil {
 		return nil, err
 	}

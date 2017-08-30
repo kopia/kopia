@@ -41,30 +41,19 @@ func TestMetadataManager(t *testing.T) {
 		return
 	}
 
-	v1, err := newMetadataManager(st, creds)
+	v, err := newMetadataManager(st, creds)
 	if err != nil {
 		t.Errorf("can't open first metadata manager: %v", err)
 		return
 	}
 
-	v2, err := newMetadataManager(st, creds)
-	if err != nil {
-		t.Errorf("can't open second metadata manager: %v", err)
-		return
-	}
-
-	cfg, err := v1.connectionConfiguration()
+	cfg, err := v.connectionConfiguration()
 	if err != nil {
 		t.Errorf("error getting token1 %v", err)
 	}
 
-	cfg2, err := v2.connectionConfiguration()
-	if err != nil {
-		t.Errorf("error getting token2 %v", err)
-	}
-
-	if !reflect.DeepEqual(cfg, cfg2) {
-		t.Errorf("configurations are different: %+v vs %+v", cfg, cfg2)
+	if got, want := cfg.ConnectionInfo.Type, "filesystem"; got != want {
+		t.Errorf("invalid connection type: %q, want %q", got, want)
 	}
 
 	_, err = newMetadataManager(st, otherCreds)
@@ -73,54 +62,72 @@ func TestMetadataManager(t *testing.T) {
 		return
 	}
 
-	if err := v1.PutMetadata("foo", []byte("test1")); err != nil {
+	if err := v.PutMetadata("foo", []byte("test1")); err != nil {
 		t.Errorf("error putting: %v", err)
 	}
-	if err := v2.PutMetadata("bar", []byte("test2")); err != nil {
+	if err := v.PutMetadata("bar", []byte("test2")); err != nil {
 		t.Errorf("error putting: %v", err)
 	}
-	if err := v1.PutMetadata("baz", []byte("test3")); err != nil {
+	if err := v.PutMetadata("baz", []byte("test3")); err != nil {
 		t.Errorf("error putting: %v", err)
 	}
 
-	// Verify contents of metadata items for both managers.
-	for _, v := range []*MetadataManager{v1, v2} {
-		assertMetadataItem(t, v, "foo", "test1")
-		assertMetadataItem(t, v, "bar", "test2")
-		assertMetadataItem(t, v, "baz", "test3")
-		assertMetadataItemNotFound(t, v, "x")
+	assertMetadataItem(t, v, "foo", "test1")
+	assertMetadataItem(t, v, "bar", "test2")
+	assertMetadataItem(t, v, "baz", "test3")
+	assertMetadataItemNotFound(t, v, "x")
 
-		assertMetadataItems(t, v, "x", nil)
-		assertMetadataItems(t, v, "f", []string{"foo"})
-		assertMetadataItems(t, v, "ba", []string{"bar", "baz"})
-		assertMetadataItems(t, v, "be", nil)
-		assertMetadataItems(t, v, "baz", []string{"baz"})
-		assertMetadataItems(t, v, "bazx", nil)
+	assertMetadataItems(t, v, "x", nil)
+	assertMetadataItems(t, v, "f", []string{"foo"})
+	assertMetadataItems(t, v, "ba", []string{"bar", "baz"})
+	assertMetadataItems(t, v, "be", nil)
+	assertMetadataItems(t, v, "baz", []string{"baz"})
+	assertMetadataItems(t, v, "bazx", nil)
 
-		assertReservedName(t, v, formatBlockID)
-		assertReservedName(t, v, repositoryConfigBlockID)
+	assertReservedName(t, v, formatBlockID)
+	assertReservedName(t, v, repositoryConfigBlockID)
+
+	v.RemoveMetadata("bar")
+
+	assertMetadataItem(t, v, "foo", "test1")
+	assertMetadataItemNotFound(t, v, "bar")
+	assertMetadataItem(t, v, "baz", "test3")
+
+	assertMetadataItems(t, v, "x", nil)
+	assertMetadataItems(t, v, "f", []string{"foo"})
+	assertMetadataItems(t, v, "ba", []string{"baz"})
+	assertMetadataItems(t, v, "be", nil)
+	assertMetadataItems(t, v, "baz", []string{"baz"})
+	assertMetadataItems(t, v, "bazx", nil)
+
+	v.RemoveMetadata("baz")
+	assertMetadataItemNotFound(t, v, "baz")
+	v.RemoveMetadata("baz")
+	assertMetadataItemNotFound(t, v, "baz")
+
+	assertMetadataItem(t, v, "foo", "test1")
+	if err := v.PutMetadata("baz", []byte("test4")); err != nil {
+		t.Errorf("error putting: %v", err)
+	}
+	assertMetadataItem(t, v, "baz", "test4")
+
+	v2, err := newMetadataManager(st, creds)
+	if err != nil {
+		t.Errorf("can't open first metadata manager: %v", err)
+		return
 	}
 
-	v1.RemoveMetadata("bar")
-
-	for _, v := range []*MetadataManager{v1, v2} {
-		assertMetadataItem(t, v, "foo", "test1")
-		assertMetadataItemNotFound(t, v, "bar")
-		assertMetadataItem(t, v, "baz", "test3")
-
-		assertMetadataItems(t, v, "x", nil)
-		assertMetadataItems(t, v, "f", []string{"foo"})
-		assertMetadataItems(t, v, "ba", []string{"baz"})
-		assertMetadataItems(t, v, "be", nil)
-		assertMetadataItems(t, v, "baz", []string{"baz"})
-		assertMetadataItems(t, v, "bazx", nil)
-	}
+	assertMetadataItem(t, v2, "foo", "test1")
+	assertMetadataItemNotFound(t, v2, "bar")
+	assertMetadataItem(t, v2, "baz", "test4")
 }
 
 func assertMetadataItem(t *testing.T, v *MetadataManager, itemID string, expectedData string) {
+	t.Helper()
 	b, err := v.GetMetadata(itemID)
 	if err != nil {
 		t.Errorf("error getting item %v: %v", itemID, err)
+		return
 	}
 
 	bs := string(b)
@@ -155,7 +162,8 @@ func assertReservedNameError(t *testing.T, method string, itemID string, err err
 }
 
 func assertMetadataItems(t *testing.T, v *MetadataManager, prefix string, expected []string) {
-	res, err := v.ListMetadata(prefix, -1)
+	t.Helper()
+	res, err := v.ListMetadata(prefix)
 	if err != nil {
 		t.Errorf("error listing items beginning with %v: %v", prefix, err)
 	}

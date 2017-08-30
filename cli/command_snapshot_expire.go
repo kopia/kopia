@@ -110,7 +110,7 @@ func getSnapshotNamesToExpire(mgr *snapshot.Manager) ([]string, error) {
 
 	if *snapshotExpireAll {
 		fmt.Fprintf(os.Stderr, "Scanning all active snapshots...\n")
-		return mgr.ListSnapshotManifests(nil, -1)
+		return mgr.ListSnapshotManifests(nil)
 	}
 
 	var result []string
@@ -123,7 +123,7 @@ func getSnapshotNamesToExpire(mgr *snapshot.Manager) ([]string, error) {
 
 		log.Printf("Looking for snapshots of %v", src)
 
-		matches, err := mgr.ListSnapshotManifests(&src, -1)
+		matches, err := mgr.ListSnapshotManifests(&src)
 		if err != nil {
 			return nil, fmt.Errorf("error listing snapshots for %v: %v", src, err)
 		}

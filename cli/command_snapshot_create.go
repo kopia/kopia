@@ -83,7 +83,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 			return fmt.Errorf("description too long")
 		}
 
-		previous, err := mgr.ListSnapshots(sourceInfo, 1)
+		previous, err := mgr.ListSnapshots(sourceInfo)
 		if err != nil {
 			return fmt.Errorf("error listing previous backups: %v", err)
 		}

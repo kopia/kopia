@@ -155,7 +155,7 @@ func runCleanupCommand(context *kingpin.ParseContext) error {
 	mgr := snapshot.NewManager(rep)
 
 	log.Printf("Listing active snapshots...")
-	snapshotNames, err := mgr.ListSnapshotManifests(nil, -1)
+	snapshotNames, err := mgr.ListSnapshotManifests(nil)
 	if err != nil {
 		return err
 	}

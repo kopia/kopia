@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 	"sync"
 
 	"github.com/kopia/kopia/auth"
@@ -25,9 +24,6 @@ const (
 )
 
 const (
-	// MetadataBlockPrefix is a prefix used for metadata blocks in repository storage.
-	MetadataBlockPrefix = "VLT"
-
 	parallelFetches = 5
 )
 
@@ -59,6 +55,7 @@ func init() {
 // in a repository.
 type MetadataManager struct {
 	storage    blob.Storage
+	cache      *metadataCache
 	format     config.MetadataFormat
 	repoConfig config.EncryptedRepositoryConfig
 
@@ -94,11 +91,11 @@ func (mm *MetadataManager) writeEncryptedBlock(itemID string, content []byte) er
 		content = nonce[0 : nonceLength+len(b)]
 	}
 
-	return mm.storage.PutBlock(MetadataBlockPrefix+itemID, content)
+	return mm.cache.PutBlock(itemID, content)
 }
 
 func (mm *MetadataManager) readEncryptedBlock(itemID string) ([]byte, error) {
-	content, err := mm.storage.GetBlock(MetadataBlockPrefix+itemID, 0, -1)
+	content, err := mm.cache.GetBlock(itemID)
 	if err != nil {
 		if err == blob.ErrBlockNotFound {
 			return nil, ErrMetadataNotFound
@@ -203,34 +200,13 @@ func (mm *MetadataManager) putJSON(id string, content interface{}) error {
 }
 
 // ListMetadata returns the list of metadata items matching the specified prefix.
-// The 'limit' parameter specifies the maximum number of items to retrieve (-1 == unlimited).
-func (mm *MetadataManager) ListMetadata(prefix string, limit int) ([]string, error) {
-	var result []string
-
-	ch, cancel := mm.storage.ListBlocks(MetadataBlockPrefix + prefix)
-	defer cancel()
-	for b := range ch {
-		if limit == 0 {
-			break
-		}
-		if b.Error != nil {
-			return result, b.Error
-		}
-
-		itemID := strings.TrimPrefix(b.BlockID, MetadataBlockPrefix)
-		if !isReservedName(itemID) {
-			result = append(result, itemID)
-		}
-		if limit > 0 {
-			limit--
-		}
-	}
-	return result, nil
+func (mm *MetadataManager) ListMetadata(prefix string) ([]string, error) {
+	return mm.cache.ListBlocks(prefix)
 }
 
-// ListMetadataContents retrieves metadata contents for all items starting with a given prefix and up to a specified limit.
-func (mm *MetadataManager) ListMetadataContents(prefix string, limit int) (map[string][]byte, error) {
-	itemIDs, err := mm.ListMetadata(prefix, limit)
+// ListMetadataContents retrieves metadata contents for all items starting with a given prefix.
+func (mm *MetadataManager) ListMetadataContents(prefix string) (map[string][]byte, error) {
+	itemIDs, err := mm.ListMetadata(prefix)
 	if err != nil {
 		return nil, err
 	}
@@ -260,7 +236,7 @@ func (mm *MetadataManager) RemoveMetadata(itemID string) error {
 		return err
 	}
 
-	return mm.storage.DeleteBlock(MetadataBlockPrefix + itemID)
+	return mm.cache.DeleteBlock(itemID)
 }
 
 // RemoveMany efficiently removes multiple metadata items in parallel.
@@ -295,8 +271,14 @@ func (mm *MetadataManager) RemoveMany(itemIDs []string) error {
 
 // newMetadataManager opens a MetadataManager for given storage and credentials.
 func newMetadataManager(st blob.Storage, creds auth.Credentials) (*MetadataManager, error) {
+	cache, err := newMetadataCache(st)
+	if err != nil {
+		return nil, err
+	}
+
 	mm := MetadataManager{
 		storage: st,
+		cache:   cache,
 	}
 
 	var wg sync.WaitGroup
@@ -304,13 +286,13 @@ func newMetadataManager(st blob.Storage, creds auth.Credentials) (*MetadataManag
 	var blocks [4][]byte
 
 	f := func(index int, name string) {
-		blocks[index], _ = st.GetBlock(name, 0, -1)
+		blocks[index], _ = mm.cache.GetBlock(name)
 		wg.Done()
 	}
 
 	wg.Add(2)
-	go f(0, MetadataBlockPrefix+formatBlockID)
-	go f(1, MetadataBlockPrefix+repositoryConfigBlockID)
+	go f(0, formatBlockID)
+	go f(1, repositoryConfigBlockID)
 	wg.Wait()
 
 	if blocks[0] == nil {
@@ -318,7 +300,7 @@ func newMetadataManager(st blob.Storage, creds auth.Credentials) (*MetadataManag
 	}
 
 	var offset = 0
-	err := json.Unmarshal(blocks[offset], &mm.format)
+	err = json.Unmarshal(blocks[offset], &mm.format)
 	if err != nil {
 		return nil, err
 	}

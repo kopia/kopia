@@ -33,7 +33,7 @@ type Manager struct {
 
 // ListSources lists all snapshot sources.
 func (m *Manager) ListSources() ([]*SourceInfo, error) {
-	names, err := m.repository.ListMetadata(snapshotPrefix, -1)
+	names, err := m.repository.ListMetadata(snapshotPrefix)
 	if err != nil {
 		return nil, err
 	}
@@ -63,8 +63,8 @@ func (m *Manager) ListSources() ([]*SourceInfo, error) {
 }
 
 // ListSnapshots lists all snapshots for a given source.
-func (m *Manager) ListSnapshots(si *SourceInfo, limit int) ([]*Manifest, error) {
-	names, err := m.repository.ListMetadata(m.snapshotIDPrefix(si), limit)
+func (m *Manager) ListSnapshots(si *SourceInfo) ([]*Manifest, error) {
+	names, err := m.repository.ListMetadata(m.snapshotIDPrefix(si))
 	if err != nil {
 		return nil, err
 	}
@@ -141,14 +141,13 @@ func (m *Manager) LoadSnapshots(names []string) ([]*Manifest, error) {
 }
 
 // ListSnapshotManifests returns the list of snapshot manifests for a given source or all sources if nil.
-// Limit specifies how mamy manifests to retrieve (-1 == unlimited).
-func (m *Manager) ListSnapshotManifests(src *SourceInfo, limit int) ([]string, error) {
+func (m *Manager) ListSnapshotManifests(src *SourceInfo) ([]string, error) {
 	prefix := snapshotPrefix
 	if src != nil {
 		prefix = m.snapshotIDPrefix(src)
 	}
 
-	return m.repository.ListMetadata(prefix, limit)
+	return m.repository.ListMetadata(prefix)
 }
 
 // GetEffectivePolicy calculates effective snapshot policy for a given source by combining the source-specifc policy (if any)
@@ -271,7 +270,7 @@ func (m *Manager) getPolicyItem(itemID string) (*Policy, error) {
 
 // ListPolicies returns a list of all snapshot policies.
 func (m *Manager) ListPolicies() ([]*Policy, error) {
-	names, err := m.repository.ListMetadata(policyPrefix, -1)
+	names, err := m.repository.ListMetadata(policyPrefix)
 	if err != nil {
 		return nil, err
 	}

@@ -48,7 +48,7 @@ func runMigrateCommand(context *kingpin.ParseContext) error {
 
 		log.Printf("migrating source %v", s)
 
-		manifests, err := sourceSM.ListSnapshotManifests(s, -1)
+		manifests, err := sourceSM.ListSnapshotManifests(s)
 		if err != nil {
 			return fmt.Errorf("unable to list snapshot manifests for %v: %v", s, err)
 		}
