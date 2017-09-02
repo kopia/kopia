@@ -36,6 +36,17 @@ func mountDirectoryFUSE(entry fs.Directory, mountPoint string, cache *fscache.Ca
 	if err != nil {
 		return err
 	}
+	defer fuseConnection.Close()
 
-	return fusefs.Serve(fuseConnection, &root{rootNode})
+	onCtrlC(func() {
+		fuse.Unmount(mountPoint)
+	})
+
+	err = fusefs.Serve(fuseConnection, &root{rootNode})
+	if err != nil {
+		return err
+	}
+	// wait for mount to stop.
+	<-fuseConnection.Ready
+	return fuseConnection.MountError
 }
