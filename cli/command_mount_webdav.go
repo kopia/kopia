@@ -19,10 +19,14 @@ func mountDirectoryWebDAV(entry fs.Directory, mountPoint string, cache *fscache.
 		FileSystem: webdavmount.WebDAVFS(entry, cache),
 		LockSystem: webdav.NewMemLS(),
 		Logger: func(r *http.Request, err error) {
+			var maybeRange string
+			if r := r.Header.Get("Range"); r != "" {
+				maybeRange = " " + r
+			}
 			if err != nil {
-				log.Printf("%v %v err: %v", r.Method, r.URL.RequestURI(), err)
+				log.Printf("%v %v%v err: %v", r.Method, r.URL.RequestURI(), maybeRange, err)
 			} else {
-				log.Printf("%v %v OK", r.Method, r.URL.RequestURI())
+				log.Printf("%v %v%v OK", r.Method, r.URL.RequestURI(), maybeRange)
 			}
 		},
 	})

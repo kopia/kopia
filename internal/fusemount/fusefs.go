@@ -9,11 +9,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"sort"
-	"time"
-
-	"github.com/google/uuid"
-	"github.com/kopia/kopia/repo"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/fscache"
@@ -55,8 +50,6 @@ func (f *fuseFileNode) ReadAll(ctx context.Context) ([]byte, error) {
 
 type fuseDirectoryNode struct {
 	fuseNode
-	cacheID         string
-	cacheExpiration time.Duration
 }
 
 func (dir *fuseDirectoryNode) directory() fs.Directory {
@@ -82,18 +75,7 @@ func (dir *fuseDirectoryNode) Lookup(ctx context.Context, fileName string) (fuse
 }
 
 func (dir *fuseDirectoryNode) readPossiblyCachedReaddir() (fs.Entries, error) {
-	return dir.cache.GetEntries(dir.cacheID, dir.cacheExpiration, func() (fs.Entries, error) {
-		entries, err := dir.directory().Readdir()
-		if err != nil {
-			return nil, err
-		}
-
-		sort.Slice(entries, func(i, j int) bool {
-			return entries[i].Metadata().Name < entries[j].Metadata().Name
-		})
-
-		return entries, nil
-	})
+	return dir.cache.Readdir(dir.directory())
 }
 
 func (dir *fuseDirectoryNode) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
@@ -147,18 +129,7 @@ func newFuseNode(e fs.Entry, cache *fscache.Cache) (fusefs.Node, error) {
 }
 
 func newDirectoryNode(dir fs.Directory, cache *fscache.Cache) fusefs.Node {
-	var cacheID string
-	var cacheExpiration time.Duration
-
-	if h, ok := dir.(repo.HasObjectID); ok {
-		cacheID = h.ObjectID().String()
-		cacheExpiration = 24 * time.Hour
-	} else {
-		cacheID = uuid.New().String()
-		cacheExpiration = 1 * time.Second
-	}
-
-	return &fuseDirectoryNode{fuseNode{dir, cache}, cacheID, cacheExpiration}
+	return &fuseDirectoryNode{fuseNode{dir, cache}}
 }
 
 // NewDirectoryNode returns FUSE Node for a given fs.Directory

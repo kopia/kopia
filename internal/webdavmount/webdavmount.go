@@ -6,9 +6,8 @@ import (
 	"log"
 	"os"
 	"strings"
+	"sync"
 	"time"
-
-	"github.com/kopia/kopia/repo"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/fscache"
@@ -21,8 +20,10 @@ var _ webdav.File = (*webdavFile)(nil)
 var _ webdav.File = (*webdavDir)(nil)
 
 type webdavFile struct {
-	repo.ObjectReader
 	entry fs.File
+
+	mu sync.Mutex
+	r  fs.Reader
 }
 
 func (f *webdavFile) Readdir(n int) ([]os.FileInfo, error) {
@@ -33,17 +34,61 @@ func (f *webdavFile) Stat() (os.FileInfo, error) {
 	return webdavFileInfo{f.entry.Metadata()}, nil
 }
 
+func (f *webdavFile) getReader() (fs.Reader, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.r == nil {
+		r, err := f.entry.Open()
+		if err != nil {
+			return nil, err
+		}
+		f.r = r
+	}
+
+	return f.r, nil
+}
+
+func (f *webdavFile) Read(b []byte) (int, error) {
+	r, err := f.getReader()
+	if err != nil {
+		return 0, err
+	}
+	return r.Read(b)
+}
+
+func (f *webdavFile) Seek(offset int64, whence int) (int64, error) {
+	r, err := f.getReader()
+	if err != nil {
+		return 0, err
+	}
+
+	return r.Seek(offset, whence)
+}
+
 func (f *webdavFile) Write(b []byte) (int, error) {
 	return 0, errors.New("read-only filesystem")
 }
 
+func (f *webdavFile) Close() error {
+	f.mu.Lock()
+	r := f.r
+	f.r = nil
+	f.mu.Unlock()
+
+	if r != nil {
+		return r.Close()
+	}
+
+	return nil
+}
+
 type webdavDir struct {
+	w     *webdavFS
 	entry fs.Directory
 }
 
 func (d *webdavDir) Readdir(n int) ([]os.FileInfo, error) {
-	log.Printf("ReadDir(%v)", d.entry.Metadata().Name)
-	entries, err := d.entry.Readdir()
+	entries, err := d.w.cache.Readdir(d.entry)
 	if err != nil {
 		return nil, err
 	}
@@ -132,11 +177,9 @@ func (w *webdavFS) OpenFile(ctx context.Context, path string, flags int, mode os
 
 	switch f := f.(type) {
 	case fs.Directory:
-		log.Printf("OpenFile(%q) succeeded with directory: %v", path, f.Metadata())
-		return &webdavDir{f}, nil
+		return &webdavDir{w, f}, nil
 	case fs.File:
-		log.Printf("OpenFile(%q) succeeded with file: %v", path, f.Metadata())
-		return &webdavFile{nil, f}, nil
+		return &webdavFile{entry: f}, nil
 	}
 
 	return nil, fmt.Errorf("can't open %q: not implemented", path)
@@ -145,11 +188,9 @@ func (w *webdavFS) OpenFile(ctx context.Context, path string, flags int, mode os
 func (w *webdavFS) Stat(ctx context.Context, path string) (os.FileInfo, error) {
 	e, err := w.findEntry(path)
 	if err != nil {
-		log.Printf("Stat(%q) failed with %v", path, err)
 		return nil, err
 	}
 
-	log.Printf("Stat(%q) success with %v", path, e.Metadata())
 	return webdavFileInfo{e.Metadata()}, nil
 }
 
@@ -162,13 +203,9 @@ func (w *webdavFS) findEntry(path string) (fs.Entry, error) {
 			return nil, fmt.Errorf("%q not found in %q (not a directory)", p, strings.Join(parts[0:i], "/"))
 		}
 
-		entries, err := d.Readdir()
+		entries, err := w.cache.Readdir(d)
 		if err != nil {
 			return nil, err
-		}
-
-		for _, e := range entries {
-			log.Printf("%+v", e.Metadata())
 		}
 
 		e = entries.FindByName(p)

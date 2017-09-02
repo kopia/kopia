@@ -85,7 +85,7 @@ func (r *objectReader) closeCurrentChunk() {
 	r.currentChunkData = nil
 }
 
-func (r *objectReader) findChunkIndexForOffset(offset int64) int {
+func (r *objectReader) findChunkIndexForOffset(offset int64) (int, error) {
 	left := 0
 	right := len(r.seekTable) - 1
 	for left <= right {
@@ -101,10 +101,10 @@ func (r *objectReader) findChunkIndexForOffset(offset int64) int {
 			continue
 		}
 
-		return middle
+		return middle, nil
 	}
 
-	panic("Unreachable code")
+	return 0, fmt.Errorf("can't find chunk for offset %v", offset)
 }
 
 func (r *objectReader) Seek(offset int64, whence int) (int64, error) {
@@ -124,7 +124,10 @@ func (r *objectReader) Seek(offset int64, whence int) (int64, error) {
 		offset = r.totalLength
 	}
 
-	index := r.findChunkIndexForOffset(offset)
+	index, err := r.findChunkIndexForOffset(offset)
+	if err != nil {
+		return -1, fmt.Errorf("invalid seek %v %v: %v", offset, whence, err)
+	}
 
 	chunkStartOffset := r.seekTable[index].Start
 
