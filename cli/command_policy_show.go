@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/kopia/kopia/snapshot"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
@@ -47,7 +48,7 @@ func showPolicy(context *kingpin.ParseContext) error {
 		}
 
 		if err == snapshot.ErrPolicyNotFound {
-			fmt.Printf("No %v policy for %q, pass --effective to compute effective policy used for backups.\n", policyKind, target)
+			fmt.Fprintf(os.Stderr, "No %v policy for %q, pass --effective to compute effective policy used for backups.\n", policyKind, target)
 			continue
 		}
 

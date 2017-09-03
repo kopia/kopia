@@ -169,7 +169,7 @@ func mustGetLocalFSEntry(path string) fs.Entry {
 }
 
 func askPass(prompt string) (string, error) {
-	for {
+	for i := 0; i < 5; i++ {
 		b, err := speakeasy.Ask(prompt)
 		if err != nil {
 			return "", err
@@ -188,4 +188,6 @@ func askPass(prompt string) (string, error) {
 		fmt.Printf("Password too short, must be at least %v characters, you entered %v. Try again.", auth.MinPasswordLength, len(p))
 		fmt.Println()
 	}
+
+	return "", fmt.Errorf("can't get password")
 }

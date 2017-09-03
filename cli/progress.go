@@ -2,6 +2,7 @@ package cli
 
 import (
 	"log"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -35,6 +36,7 @@ func (p *uploadProgress) Started(path string, length int64) {
 	}
 
 	p.bar = pb.New64(length).Prefix("  " + filepath.Base(path))
+	p.bar.Output = os.Stderr
 	p.bar.SetRefreshRate(time.Second)
 	p.bar.ShowSpeed = true
 	p.bar.ShowTimeLeft = true

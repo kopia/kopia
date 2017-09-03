@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/kopia/kopia/repo"
 
@@ -72,7 +73,7 @@ func runConnectCommand(_ *kingpin.ParseContext) error {
 		return err
 	}
 
-	fmt.Println("Connected to repository:", *connectRepositoryLocation)
+	fmt.Fprintln(os.Stderr, "Connected to repository:", *connectRepositoryLocation)
 
 	return err
 }

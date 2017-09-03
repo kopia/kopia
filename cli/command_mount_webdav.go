@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
 	"golang.org/x/net/webdav"
 
@@ -40,7 +41,7 @@ func mountDirectoryWebDAV(entry fs.Directory, mountPoint string, cache *fscache.
 		s.Shutdown(context.Background())
 	})
 
-	fmt.Printf("Server listening at http://%v/ Press Ctrl-C to shut down.\n", s.Addr)
+	fmt.Fprintf(os.Stderr, "Server listening at http://%v/ Press Ctrl-C to shut down.\n", s.Addr)
 
 	err := s.ListenAndServe()
 	if err == http.ErrServerClosed {

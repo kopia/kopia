@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"os"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 
@@ -84,21 +85,21 @@ func runCreateCommand(_ *kingpin.ParseContext) error {
 		return fmt.Errorf("unable to get credentials: %v", err)
 	}
 
-	fmt.Printf("Initializing repository with:\n")
-	fmt.Printf("  metadata encryption: %v\n", options.MetadataEncryptionAlgorithm)
-	fmt.Printf("  object format:       %v\n", options.ObjectFormat)
+	fmt.Fprintf(os.Stderr, "Initializing repository with:\n")
+	fmt.Fprintf(os.Stderr, "  metadata encryption: %v\n", options.MetadataEncryptionAlgorithm)
+	fmt.Fprintf(os.Stderr, "  object format:       %v\n", options.ObjectFormat)
 	switch options.Splitter {
 	case "DYNAMIC":
-		fmt.Printf("  object splitter:     DYNAMIC with block sizes (min:%v avg:%v max:%v)\n",
+		fmt.Fprintf(os.Stderr, "  object splitter:     DYNAMIC with block sizes (min:%v avg:%v max:%v)\n",
 			units.BytesStringBase2(int64(options.MinBlockSize)),
 			units.BytesStringBase2(int64(options.AvgBlockSize)),
 			units.BytesStringBase2(int64(options.MaxBlockSize)))
 
 	case "FIXED":
-		fmt.Printf("  object splitter:     FIXED with with block size: %v\n", units.BytesStringBase2(int64(options.MaxBlockSize)))
+		fmt.Fprintf(os.Stderr, "  object splitter:     FIXED with with block size: %v\n", units.BytesStringBase2(int64(options.MaxBlockSize)))
 
 	case "NEVER":
-		fmt.Printf("  object splitter:     NEVER\n")
+		fmt.Fprintf(os.Stderr, "  object splitter:     NEVER\n")
 	}
 
 	if err := repo.Initialize(st, options, creds); err != nil {
@@ -111,7 +112,7 @@ func runCreateCommand(_ *kingpin.ParseContext) error {
 			return err
 		}
 
-		fmt.Println("Connected to repository:", *createRepositoryLocation)
+		fmt.Fprintln(os.Stderr, "Connected to repository:", *createRepositoryLocation)
 	}
 
 	return nil
