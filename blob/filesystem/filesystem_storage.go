@@ -55,6 +55,7 @@ func (fs *fsStorage) GetBlock(blockID string, offset, length int64) ([]byte, err
 	if err != nil {
 		return nil, err
 	}
+	defer f.Close()
 
 	if length < 0 {
 		return ioutil.ReadAll(f)
