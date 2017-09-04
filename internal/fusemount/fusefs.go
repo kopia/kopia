@@ -11,7 +11,6 @@ import (
 	"os"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/internal/fscache"
 
 	"bazil.org/fuse"
 	fusefs "bazil.org/fuse/fs"
@@ -21,7 +20,6 @@ import (
 
 type fuseNode struct {
 	entry fs.Entry
-	cache *fscache.Cache
 }
 
 func (n *fuseNode) Attr(ctx context.Context, a *fuse.Attr) error {
@@ -57,7 +55,7 @@ func (dir *fuseDirectoryNode) directory() fs.Directory {
 }
 
 func (dir *fuseDirectoryNode) Lookup(ctx context.Context, fileName string) (fusefs.Node, error) {
-	entries, err := dir.readPossiblyCachedReaddir()
+	entries, err := dir.directory().Readdir()
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, fuse.ENOENT
@@ -71,15 +69,11 @@ func (dir *fuseDirectoryNode) Lookup(ctx context.Context, fileName string) (fuse
 		return nil, fuse.ENOENT
 	}
 
-	return newFuseNode(e, dir.cache)
-}
-
-func (dir *fuseDirectoryNode) readPossiblyCachedReaddir() (fs.Entries, error) {
-	return dir.cache.Readdir(dir.directory())
+	return newFuseNode(e)
 }
 
 func (dir *fuseDirectoryNode) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
-	entries, err := dir.readPossiblyCachedReaddir()
+	entries, err := dir.directory().Readdir()
 	if err != nil {
 		return nil, err
 	}
@@ -115,24 +109,24 @@ func (sl *fuseSymlinkNode) Readlink(ctx context.Context, req *fuse.ReadlinkReque
 	return sl.entry.(fs.Symlink).Readlink()
 }
 
-func newFuseNode(e fs.Entry, cache *fscache.Cache) (fusefs.Node, error) {
+func newFuseNode(e fs.Entry) (fusefs.Node, error) {
 	switch e := e.(type) {
 	case fs.Directory:
-		return newDirectoryNode(e, cache), nil
+		return newDirectoryNode(e), nil
 	case fs.File:
-		return &fuseFileNode{fuseNode{e, cache}}, nil
+		return &fuseFileNode{fuseNode{e}}, nil
 	case fs.Symlink:
-		return &fuseSymlinkNode{fuseNode{e, cache}}, nil
+		return &fuseSymlinkNode{fuseNode{e}}, nil
 	default:
 		return nil, fmt.Errorf("entry type not supported: %v", e.Metadata().Type)
 	}
 }
 
-func newDirectoryNode(dir fs.Directory, cache *fscache.Cache) fusefs.Node {
-	return &fuseDirectoryNode{fuseNode{dir, cache}}
+func newDirectoryNode(dir fs.Directory) fusefs.Node {
+	return &fuseDirectoryNode{fuseNode{dir}}
 }
 
 // NewDirectoryNode returns FUSE Node for a given fs.Directory
-func NewDirectoryNode(dir fs.Directory, cache *fscache.Cache) fusefs.Node {
-	return newDirectoryNode(dir, cache)
+func NewDirectoryNode(dir fs.Directory) fusefs.Node {
+	return newDirectoryNode(dir)
 }

@@ -6,7 +6,6 @@ import (
 	"bazil.org/fuse"
 	fusefs "bazil.org/fuse/fs"
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/internal/fscache"
 	"github.com/kopia/kopia/internal/fusemount"
 )
 
@@ -22,8 +21,8 @@ var (
 	mountMode = mountCommand.Flag("mode", "Mount mode").Default("FUSE").Enum("WEBDAV", "FUSE")
 )
 
-func mountDirectoryFUSE(entry fs.Directory, mountPoint string, cache *fscache.Cache) error {
-	rootNode := fusemount.NewDirectoryNode(entry, cache)
+func mountDirectoryFUSE(entry fs.Directory, mountPoint string) error {
+	rootNode := fusemount.NewDirectoryNode(entry)
 
 	fuseConnection, err := fuse.Mount(
 		mountPoint,

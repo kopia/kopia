@@ -10,14 +10,13 @@ import (
 	"golang.org/x/net/webdav"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/internal/fscache"
 	"github.com/kopia/kopia/internal/webdavmount"
 )
 
-func mountDirectoryWebDAV(entry fs.Directory, mountPoint string, cache *fscache.Cache) error {
+func mountDirectoryWebDAV(entry fs.Directory, mountPoint string) error {
 	mux := http.NewServeMux()
 	mux.Handle("/", &webdav.Handler{
-		FileSystem: webdavmount.WebDAVFS(entry, cache),
+		FileSystem: webdavmount.WebDAVFS(entry),
 		LockSystem: webdav.NewMemLS(),
 		Logger: func(r *http.Request, err error) {
 			var maybeRange string

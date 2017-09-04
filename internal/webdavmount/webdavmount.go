@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/internal/fscache"
 	"golang.org/x/net/context"
 	"golang.org/x/net/webdav"
 )
@@ -88,7 +87,7 @@ type webdavDir struct {
 }
 
 func (d *webdavDir) Readdir(n int) ([]os.FileInfo, error) {
-	entries, err := d.w.cache.Readdir(d.entry)
+	entries, err := d.entry.Readdir()
 	if err != nil {
 		return nil, err
 	}
@@ -152,8 +151,7 @@ func (i webdavFileInfo) Sys() interface{} {
 }
 
 type webdavFS struct {
-	dir   fs.Directory
-	cache *fscache.Cache
+	dir fs.Directory
 }
 
 func (w *webdavFS) Mkdir(ctx context.Context, path string, mode os.FileMode) error {
@@ -203,7 +201,7 @@ func (w *webdavFS) findEntry(path string) (fs.Entry, error) {
 			return nil, fmt.Errorf("%q not found in %q (not a directory)", p, strings.Join(parts[0:i], "/"))
 		}
 
-		entries, err := w.cache.Readdir(d)
+		entries, err := d.Readdir()
 		if err != nil {
 			return nil, err
 		}
@@ -230,6 +228,6 @@ func removeEmpty(s []string) []string {
 }
 
 // WebDAVFS returns a webdav.FileSystem implementation for a given directory.
-func WebDAVFS(entry fs.Directory, cache *fscache.Cache) webdav.FileSystem {
-	return &webdavFS{entry, cache}
+func WebDAVFS(entry fs.Directory) webdav.FileSystem {
+	return &webdavFS{entry}
 }

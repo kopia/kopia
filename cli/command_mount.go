@@ -5,10 +5,9 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/fs/cachefs"
 	"github.com/kopia/kopia/fs/loggingfs"
 	"github.com/kopia/kopia/fs/repofs"
-
-	"github.com/kopia/kopia/internal/fscache"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -54,16 +53,18 @@ func runMountCommand(context *kingpin.ParseContext) error {
 		entry = loggingfs.Wrap(entry).(fs.Directory)
 	}
 
-	cache := fscache.NewCache(
-		fscache.MaxCachedDirectories(*mountMaxCachedDirectories),
-		fscache.MaxCachedDirectoryEntries(*mountMaxCachedEntries),
-	)
+	cache := cachefs.NewCache(&cachefs.Options{
+		MaxCachedDirectories: *mountMaxCachedDirectories,
+		MaxCachedEntries:     *mountMaxCachedEntries,
+	})
+
+	entry = cachefs.Wrap(entry, cache).(fs.Directory)
 
 	switch *mountMode {
 	case "FUSE":
-		return mountDirectoryFUSE(entry, *mountPoint, cache)
+		return mountDirectoryFUSE(entry, *mountPoint)
 	case "WEBDAV":
-		return mountDirectoryWebDAV(entry, *mountPoint, cache)
+		return mountDirectoryWebDAV(entry, *mountPoint)
 	default:
 		return fmt.Errorf("unsupported mode: %q", *mountMode)
 	}

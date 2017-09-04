@@ -1,5 +1,4 @@
-// Package fscache implements in-memory cache of filesystem entries.
-package fscache
+package cachefs
 
 import (
 	"log"
@@ -21,7 +20,7 @@ type cacheEntry struct {
 
 // Cache maintains in-memory cache of recently-read data to speed up filesystem operations.
 type Cache struct {
-	sync.Mutex
+	mu sync.Mutex
 
 	totalDirectoryEntries int
 	maxDirectories        int
@@ -81,24 +80,24 @@ func (c *Cache) Readdir(d fs.Directory) (fs.Entries, error) {
 	if h, ok := d.(repo.HasObjectID); ok {
 		cacheID := h.ObjectID().String()
 		cacheExpiration := 24 * time.Hour
-		return c.GetEntries(cacheID, cacheExpiration, d.Readdir)
+		return c.getEntries(cacheID, cacheExpiration, d.Readdir)
 	}
 
 	return d.Readdir()
 }
 
-// GetEntries consults the cache and either retrieves the contents of directory listing from the cache
+// getEntries consults the cache and either retrieves the contents of directory listing from the cache
 // or invokes the provides callback and adds the results to cache.
-func (c *Cache) GetEntries(id string, expirationTime time.Duration, cb Loader) (fs.Entries, error) {
+func (c *Cache) getEntries(id string, expirationTime time.Duration, cb Loader) (fs.Entries, error) {
 	if c == nil {
 		return cb()
 	}
 
-	c.Lock()
+	c.mu.Lock()
 	if v, ok := c.data[id]; id != "" && ok {
 		if time.Now().Before(v.expireAfter) {
 			c.moveToHead(v)
-			c.Unlock()
+			c.mu.Unlock()
 			if c.debug {
 				log.Printf("cache hit for %q (valid until %v)", id, v.expireAfter)
 			}
@@ -122,7 +121,7 @@ func (c *Cache) GetEntries(id string, expirationTime time.Duration, cb Loader) (
 
 	if len(raw) > c.maxDirectoryEntries {
 		// no point caching since it would not fit anyway, just return it.
-		c.Unlock()
+		c.mu.Unlock()
 		return raw, nil
 	}
 
@@ -139,7 +138,7 @@ func (c *Cache) GetEntries(id string, expirationTime time.Duration, cb Loader) (
 		c.removeEntryLocked(c.tail)
 	}
 
-	c.Unlock()
+	c.mu.Unlock()
 
 	return raw, nil
 }
@@ -150,34 +149,26 @@ func (c *Cache) removeEntryLocked(toremove *cacheEntry) {
 	delete(c.data, toremove.id)
 }
 
-// CacheOption modifies the behavior of FUSE node cache.
-type CacheOption func(c *Cache)
-
-// MaxCachedDirectories configures cache to allow at most the given number of cached directories.
-func MaxCachedDirectories(count int) CacheOption {
-	return func(c *Cache) {
-		c.maxDirectories = count
-	}
+// Options specifies behavior of filesystem Cache.
+type Options struct {
+	MaxCachedDirectories int
+	MaxCachedEntries     int
 }
 
-// MaxCachedDirectoryEntries configures cache to allow at most the given number entries in cached directories.
-func MaxCachedDirectoryEntries(count int) CacheOption {
-	return func(c *Cache) {
-		c.maxDirectoryEntries = count
-	}
+var defaultOptions = &Options{
+	MaxCachedDirectories: 1000,
+	MaxCachedEntries:     100000,
 }
 
-// NewCache creates FUSE node cache.
-func NewCache(options ...CacheOption) *Cache {
-	c := &Cache{
+// NewCache creates filesystem cache.
+func NewCache(options *Options) *Cache {
+	if options == nil {
+		options = defaultOptions
+	}
+
+	return &Cache{
 		data:                make(map[string]*cacheEntry),
-		maxDirectories:      1000,
-		maxDirectoryEntries: 100000,
+		maxDirectories:      options.MaxCachedDirectories,
+		maxDirectoryEntries: options.MaxCachedEntries,
 	}
-
-	for _, o := range options {
-		o(c)
-	}
-
-	return c
 }
