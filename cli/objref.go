@@ -10,7 +10,7 @@ import (
 )
 
 // ParseObjectID interprets the given ID string and returns corresponding repo.ObjectID.
-func parseObjectID(id string, r *repo.Repository) (repo.ObjectID, error) {
+func parseObjectID(mgr *snapshot.Manager, id string) (repo.ObjectID, error) {
 	head, tail := splitHeadTail(id)
 	if len(head) == 0 {
 		return repo.NullObjectID, fmt.Errorf("invalid object ID: %v", id)
@@ -25,7 +25,7 @@ func parseObjectID(id string, r *repo.Repository) (repo.ObjectID, error) {
 		return oid, nil
 	}
 
-	dir := snapshot.Directory(r, oid)
+	dir := mgr.DirectoryEntry(oid)
 	if err != nil {
 		return repo.NullObjectID, err
 	}

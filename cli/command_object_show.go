@@ -6,6 +6,8 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/kopia/kopia/snapshot"
+
 	"github.com/kopia/kopia/repo"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
@@ -23,8 +25,10 @@ func runShowCommand(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
 	defer rep.Close()
 
+	mgr := snapshot.NewManager(rep)
+
 	for _, oidString := range *showObjectIDs {
-		oid, err := parseObjectID(oidString, rep)
+		oid, err := parseObjectID(mgr, oidString)
 		if err != nil {
 			return err
 		}

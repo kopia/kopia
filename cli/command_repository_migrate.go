@@ -58,7 +58,7 @@ func runMigrateCommand(context *kingpin.ParseContext) error {
 		}
 
 		for _, m := range filterSnapshotsToMigrate(snapshots) {
-			d := snapshot.Directory(sourceRepo, m.RootObjectID)
+			d := sourceSM.DirectoryEntry(m.RootObjectID)
 			newm, err := uploader.Upload(d, &m.Source, nil)
 			if err != nil {
 				return fmt.Errorf("error migrating shapshot %v @ %v: %v", m.Source, m.StartTime, err)
@@ -80,7 +80,7 @@ func runMigrateCommand(context *kingpin.ParseContext) error {
 		if err != nil {
 			return err
 		}
-		d := snapshot.Directory(sourceRepo, dirOID)
+		d := sourceSM.DirectoryEntry(dirOID)
 		newm, err := uploader.Upload(d, &snapshot.SourceInfo{Host: "temp"}, nil)
 		if err != nil {
 			return fmt.Errorf("error migrating directory %v: %v", dirOID, err)

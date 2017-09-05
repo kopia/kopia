@@ -25,7 +25,9 @@ func runLSCommand(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
 	defer rep.Close()
 
-	oid, err := parseObjectID(*lsCommandPath, rep)
+	mgr := snapshot.NewManager(rep)
+
+	oid, err := parseObjectID(mgr, *lsCommandPath)
 	if err != nil {
 		return err
 	}
@@ -38,15 +40,15 @@ func runLSCommand(context *kingpin.ParseContext) error {
 		}
 	}
 
-	return listDirectory(rep, prefix, oid, "")
+	return listDirectory(mgr, prefix, oid, "")
 }
 
 func init() {
 	lsCommand.Action(runLSCommand)
 }
 
-func listDirectory(rep *repo.Repository, prefix string, oid repo.ObjectID, indent string) error {
-	d := snapshot.Directory(rep, oid)
+func listDirectory(mgr *snapshot.Manager, prefix string, oid repo.ObjectID, indent string) error {
+	d := mgr.DirectoryEntry(oid)
 
 	entries, err := d.Readdir()
 	if err != nil {
@@ -93,7 +95,7 @@ func listDirectory(rep *repo.Repository, prefix string, oid repo.ObjectID, inden
 		}
 		fmt.Println(info)
 		if *lsCommandRecursive && m.FileMode().IsDir() {
-			listDirectory(rep, prefix+m.Name+"/", objectID, indent+"  ")
+			listDirectory(mgr, prefix+m.Name+"/", objectID, indent+"  ")
 		}
 	}
 

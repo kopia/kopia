@@ -112,6 +112,7 @@ type cleanupContext struct {
 	sync.Mutex
 
 	repo    *repo.Repository
+	mgr     *snapshot.Manager
 	inuse   map[string]bool
 	visited map[string]bool
 	queue   *cleanupWorkQueue
@@ -130,7 +131,7 @@ func findAliveBlocks(ctx *cleanupContext, wi *cleanupWorkItem) error {
 	}
 
 	if wi.isDirectory {
-		entries, err := snapshot.Directory(ctx.repo, wi.oid).Readdir()
+		entries, err := ctx.mgr.DirectoryEntry(wi.oid).Readdir()
 
 		if err != nil {
 			return err
@@ -167,6 +168,7 @@ func runCleanupCommand(context *kingpin.ParseContext) error {
 
 	ctx := &cleanupContext{
 		repo:           rep,
+		mgr:            mgr,
 		inuse:          map[string]bool{},
 		visited:        map[string]bool{},
 		queue:          q,

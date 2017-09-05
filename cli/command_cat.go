@@ -4,6 +4,8 @@ import (
 	"io"
 	"os"
 
+	"github.com/kopia/kopia/snapshot"
+
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -16,7 +18,9 @@ func runCatCommand(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
 	defer rep.Close()
 
-	oid, err := parseObjectID(*catCommandPath, rep)
+	mgr := snapshot.NewManager(rep)
+
+	oid, err := parseObjectID(mgr, *catCommandPath)
 	if err != nil {
 		return err
 	}

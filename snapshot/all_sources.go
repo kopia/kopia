@@ -51,9 +51,7 @@ func (s *repositoryAllSources) Readdir() (fs.Entries, error) {
 	return result, nil
 }
 
-// AllSources returns fs.Directory that contains the list of all snapshot sources found in the repository.
-func AllSources(r *repo.Repository) fs.Directory {
-	sm := NewManager(r)
-
-	return &repositoryAllSources{repo: r, snapshotManager: sm}
+// AllSourcesEntry returns fs.Directory that contains the list of all snapshot sources found in the repository.
+func (m *Manager) AllSourcesEntry() fs.Directory {
+	return &repositoryAllSources{repo: m.repository, snapshotManager: m}
 }

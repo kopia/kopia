@@ -23,6 +23,8 @@ var (
 
 func runMountCommand(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
+
+	mgr := snapshot.NewManager(rep)
 	var entry fs.Directory
 
 	if *mountCacheRefreshInterval > 0 {
@@ -38,13 +40,13 @@ func runMountCommand(context *kingpin.ParseContext) error {
 	}
 
 	if *mountObjectID == "all" {
-		entry = snapshot.AllSources(rep)
+		entry = mgr.AllSourcesEntry()
 	} else {
-		oid, err := parseObjectID(*mountObjectID, rep)
+		oid, err := parseObjectID(mgr, *mountObjectID)
 		if err != nil {
 			return err
 		}
-		entry = snapshot.Directory(rep, oid)
+		entry = mgr.DirectoryEntry(oid)
 	}
 
 	if *mountTraceFS {

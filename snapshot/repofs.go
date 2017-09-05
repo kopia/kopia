@@ -117,10 +117,10 @@ func withMetadata(r repo.ObjectReader, md *fs.EntryMetadata) fs.Reader {
 	return &entryMetadataReadCloser{r, md}
 }
 
-// Directory returns fs.Directory based on repository object with the specified ID.
+// DirectoryEntry returns fs.Directory based on repository object with the specified ID.
 // The existence or validity of the directory object is not validated until its contents are read.
-func Directory(r *repo.Repository, objectID repo.ObjectID) fs.Directory {
-	d := newRepoEntry(r, &dir.Entry{
+func (m *Manager) DirectoryEntry(objectID repo.ObjectID) fs.Directory {
+	d := newRepoEntry(m.repository, &dir.Entry{
 		EntryMetadata: fs.EntryMetadata{
 			Name:        "/",
 			Permissions: 0555,
