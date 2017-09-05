@@ -18,8 +18,6 @@ var (
 	mountObjectID             = mountCommand.Arg("path", "Identifier of the directory to mount.").Required().String()
 	mountPoint                = mountCommand.Arg("mountPoint", "Mount point").Required().ExistingDir()
 	mountTraceFS              = mountCommand.Flag("trace-fs", "Trace filesystem operations").Bool()
-	mountMaxCachedEntries     = mountCommand.Flag("max-cached-entries", "Limit the number of cached directory entries").Default("100000").Int()
-	mountMaxCachedDirectories = mountCommand.Flag("max-cached-dirs", "Limit the number of cached directories").Default("100").Int()
 	mountCacheRefreshInterval = mountCommand.Flag("cache-refresh", "Cache refresh interval").Default("600s").Duration()
 )
 
@@ -53,12 +51,7 @@ func runMountCommand(context *kingpin.ParseContext) error {
 		entry = loggingfs.Wrap(entry).(fs.Directory)
 	}
 
-	cache := cachefs.NewCache(&cachefs.Options{
-		MaxCachedDirectories: *mountMaxCachedDirectories,
-		MaxCachedEntries:     *mountMaxCachedEntries,
-	})
-
-	entry = cachefs.Wrap(entry, cache).(fs.Directory)
+	entry = cachefs.Wrap(entry, newFSCache()).(fs.Directory)
 
 	switch *mountMode {
 	case "FUSE":
@@ -71,5 +64,6 @@ func runMountCommand(context *kingpin.ParseContext) error {
 }
 
 func init() {
+	setupFSCacheFlags(mountCommand)
 	mountCommand.Action(runMountCommand)
 }
