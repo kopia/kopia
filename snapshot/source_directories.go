@@ -1,17 +1,16 @@
-package repofs
+package snapshot
 
 import (
 	"time"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/snapshot"
 )
 
 type sourceDirectories struct {
 	parent          fs.Directory
 	repo            *repo.Repository
-	snapshotManager *snapshot.Manager
+	snapshotManager *Manager
 	userHost        string
 }
 

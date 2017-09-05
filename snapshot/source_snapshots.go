@@ -1,4 +1,4 @@
-package repofs
+package snapshot
 
 import (
 	"fmt"
@@ -7,14 +7,13 @@ import (
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/dir"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/snapshot"
 )
 
 type sourceSnapshots struct {
 	parent          fs.Directory
 	repo            *repo.Repository
-	snapshotManager *snapshot.Manager
-	src             *snapshot.SourceInfo
+	snapshotManager *Manager
+	src             *SourceInfo
 }
 
 func (s *sourceSnapshots) Parent() fs.Directory {

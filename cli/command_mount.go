@@ -7,7 +7,7 @@ import (
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/cachefs"
 	"github.com/kopia/kopia/fs/loggingfs"
-	"github.com/kopia/kopia/fs/repofs"
+	"github.com/kopia/kopia/snapshot"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -38,13 +38,13 @@ func runMountCommand(context *kingpin.ParseContext) error {
 	}
 
 	if *mountObjectID == "all" {
-		entry = repofs.AllSources(rep)
+		entry = snapshot.AllSources(rep)
 	} else {
 		oid, err := parseObjectID(*mountObjectID, rep)
 		if err != nil {
 			return err
 		}
-		entry = repofs.Directory(rep, oid)
+		entry = snapshot.Directory(rep, oid)
 	}
 
 	if *mountTraceFS {

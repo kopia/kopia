@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot"
 )
 
 // ParseObjectID interprets the given ID string and returns corresponding repo.ObjectID.
@@ -25,7 +25,7 @@ func parseObjectID(id string, r *repo.Repository) (repo.ObjectID, error) {
 		return oid, nil
 	}
 
-	dir := repofs.Directory(r, oid)
+	dir := snapshot.Directory(r, oid)
 	if err != nil {
 		return repo.NullObjectID, err
 	}

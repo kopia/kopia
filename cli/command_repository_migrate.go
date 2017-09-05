@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
@@ -59,7 +58,7 @@ func runMigrateCommand(context *kingpin.ParseContext) error {
 		}
 
 		for _, m := range filterSnapshotsToMigrate(snapshots) {
-			d := repofs.Directory(sourceRepo, m.RootObjectID)
+			d := snapshot.Directory(sourceRepo, m.RootObjectID)
 			newm, err := uploader.Upload(d, &m.Source, nil)
 			if err != nil {
 				return fmt.Errorf("error migrating shapshot %v @ %v: %v", m.Source, m.StartTime, err)
@@ -81,7 +80,7 @@ func runMigrateCommand(context *kingpin.ParseContext) error {
 		if err != nil {
 			return err
 		}
-		d := repofs.Directory(sourceRepo, dirOID)
+		d := snapshot.Directory(sourceRepo, dirOID)
 		newm, err := uploader.Upload(d, &snapshot.SourceInfo{Host: "temp"}, nil)
 		if err != nil {
 			return fmt.Errorf("error migrating directory %v: %v", dirOID, err)

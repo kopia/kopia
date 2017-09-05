@@ -1,4 +1,4 @@
-package repofs
+package snapshot
 
 import (
 	"fmt"
@@ -6,12 +6,11 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/snapshot"
 )
 
 type repositoryAllSources struct {
 	repo            *repo.Repository
-	snapshotManager *snapshot.Manager
+	snapshotManager *Manager
 }
 
 func (s *repositoryAllSources) Parent() fs.Directory {
@@ -54,7 +53,7 @@ func (s *repositoryAllSources) Readdir() (fs.Entries, error) {
 
 // AllSources returns fs.Directory that contains the list of all snapshot sources found in the repository.
 func AllSources(r *repo.Repository) fs.Directory {
-	sm := snapshot.NewManager(r)
+	sm := NewManager(r)
 
 	return &repositoryAllSources{repo: r, snapshotManager: sm}
 }

@@ -1,4 +1,4 @@
-package repofs
+package snapshot
 
 import (
 	"fmt"

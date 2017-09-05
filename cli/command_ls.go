@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -46,7 +46,7 @@ func init() {
 }
 
 func listDirectory(rep *repo.Repository, prefix string, oid repo.ObjectID, indent string) error {
-	d := repofs.Directory(rep, oid)
+	d := snapshot.Directory(rep, oid)
 
 	entries, err := d.Readdir()
 	if err != nil {

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
@@ -131,7 +130,7 @@ func findAliveBlocks(ctx *cleanupContext, wi *cleanupWorkItem) error {
 	}
 
 	if wi.isDirectory {
-		entries, err := repofs.Directory(ctx.repo, wi.oid).Readdir()
+		entries, err := snapshot.Directory(ctx.repo, wi.oid).Readdir()
 
 		if err != nil {
 			return err
