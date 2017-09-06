@@ -16,7 +16,7 @@ var (
 	mountCommand = app.Command("mount", "Mount repository object as a local filesystem.")
 
 	mountObjectID             = mountCommand.Arg("path", "Identifier of the directory to mount.").Required().String()
-	mountPoint                = mountCommand.Arg("mountPoint", "Mount point").Required().ExistingDir()
+	mountPoint                = mountCommand.Arg("mountPoint", "Mount point").Required().String()
 	mountTraceFS              = mountCommand.Flag("trace-fs", "Trace filesystem operations").Bool()
 	mountCacheRefreshInterval = mountCommand.Flag("cache-refresh", "Cache refresh interval").Default("600s").Duration()
 )
