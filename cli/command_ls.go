@@ -12,6 +12,8 @@ import (
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
+const timeFormat = "02 Jan 06 15:04:05"
+
 var (
 	lsCommand = app.Command("list", "List a directory stored in repository object.").Alias("ls")
 
@@ -81,7 +83,7 @@ func listDirectory(mgr *snapshot.Manager, prefix string, oid repo.ObjectID, inde
 				"%v %9d %v %-"+maxNameLenString+"s %v",
 				m.FileMode(),
 				m.FileSize,
-				m.ModTime.Local().Format("02 Jan 06 15:04:05"),
+				m.ModTime.Local().Format(timeFormat),
 				nameToDisplay(prefix, m),
 				oid,
 			)
