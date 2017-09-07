@@ -48,6 +48,18 @@ func onCtrlC(f func()) {
 	}()
 }
 
+func waitForCtrlC() {
+	// Wait until ctrl-c pressed
+	done := make(chan bool)
+	onCtrlC(func() {
+		if done != nil {
+			close(done)
+			done = nil
+		}
+	})
+	<-done
+}
+
 func getContext() context.Context {
 	return context.Background()
 }

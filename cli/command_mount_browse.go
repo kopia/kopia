@@ -21,6 +21,7 @@ var mountBrowsers = map[string]func(mountPoint string, addr string) error{
 func browseMount(mountPoint string, addr string) error {
 	b := mountBrowsers[*mountBrowser]
 	if b == nil {
+		waitForCtrlC()
 		return nil
 	}
 
@@ -29,6 +30,7 @@ func browseMount(mountPoint string, addr string) error {
 
 func openInWebBrowser(mountPoint string, addr string) error {
 	open.Start(addr)
+	waitForCtrlC()
 	return nil
 }
 
@@ -38,6 +40,7 @@ func openInOSBrowser(mountPoint string, addr string) error {
 	}
 
 	open.Start(addr)
+	waitForCtrlC()
 	return nil
 }
 
@@ -49,16 +52,7 @@ func netUSE(mountPoint string, addr string) error {
 	c.Run()
 
 	open.Start("x:\\")
-
-	// Wait until ctrl-c pressed
-	done := make(chan bool)
-	onCtrlC(func() {
-		if done != nil {
-			close(done)
-			done = nil
-		}
-	})
-	<-done
+	waitForCtrlC()
 
 	c = exec.Command("net", "use", mountPoint, "/d")
 	c.Stdout = os.Stdout
