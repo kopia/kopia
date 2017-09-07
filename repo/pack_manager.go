@@ -14,6 +14,8 @@ import (
 	"github.com/kopia/kopia/blob"
 )
 
+const packObjectPrefix = "P"
+
 type packInfo struct {
 	currentPackData  bytes.Buffer
 	currentPackIndex *packIndex
@@ -147,6 +149,17 @@ func (p *packManager) savePackIndexes() error {
 	var jb bytes.Buffer
 	if err := json.NewEncoder(&jb).Encode(p.pendingPackIndexes); err != nil {
 		return fmt.Errorf("can't encode pack index: %v", err)
+	}
+
+	w := p.objectManager.NewWriter(WriterOptions{
+		disablePacking:  true,
+		BlockNamePrefix: packObjectPrefix,
+		splitter:        newNeverSplitter(),
+	})
+
+	w.Write(jb.Bytes())
+	if _, err := w.Result(); err != nil {
+		return fmt.Errorf("can't save pack index object: %v", err)
 	}
 
 	// save pack indexes

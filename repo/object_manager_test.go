@@ -166,7 +166,7 @@ func TestPackingSimple(t *testing.T) {
 		t.Errorf("oid3a(%q) != oid3b(%q)", got, want)
 	}
 
-	if got, want := len(data), 2+4; got != want {
+	if got, want := len(data), 2+4+2; got != want {
 		t.Errorf("got unexpected repository contents %v items, wanted %v", got, want)
 		for k, v := range data {
 			t.Logf("%v => %v", k, string(v))
