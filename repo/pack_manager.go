@@ -304,10 +304,3 @@ func (p *packManager) Flush() error {
 
 	return p.finishCurrentPackLocked()
 }
-
-func (r *Repository) initPackManager() {
-	r.packMgr = &packManager{
-		objectManager: r.ObjectManager,
-		packGroups:    make(map[string]*packInfo),
-	}
-}

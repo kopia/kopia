@@ -135,7 +135,10 @@ func connect(ctx context.Context, st blob.Storage, creds auth.Credentials, optio
 		Storage:         st,
 	}
 
-	r.initPackManager()
+	r.packMgr = &packManager{
+		objectManager: om,
+		packGroups:    make(map[string]*packInfo),
+	}
 
 	return r, nil
 }
