@@ -6,6 +6,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"strconv"
 	"strings"
 	"sync"
@@ -28,9 +30,8 @@ type blockLocation struct {
 }
 
 type packManager struct {
-	metadataManager *MetadataManager
-	objectManager   *ObjectManager
-	storage         blob.Storage
+	objectManager *ObjectManager
+	storage       blob.Storage
 
 	mu           sync.RWMutex
 	blockToIndex map[string]*packIndex
@@ -47,6 +48,10 @@ func (p *packManager) enabled() bool {
 }
 
 func (p *packManager) blockIDToPackSection(blockID string) (ObjectIDSection, bool, error) {
+	if strings.HasPrefix(blockID, packObjectPrefix) {
+		return ObjectIDSection{}, false, nil
+	}
+
 	pi, err := p.ensurePackIndexesLoaded()
 	if err != nil {
 		return ObjectIDSection{}, false, fmt.Errorf("can't load pack index: %v", err)
@@ -162,14 +167,6 @@ func (p *packManager) savePackIndexes() error {
 		return fmt.Errorf("can't save pack index object: %v", err)
 	}
 
-	// save pack indexes
-	uniqueID := make([]byte, 16)
-	rand.Read(uniqueID)
-	itemID := fmt.Sprintf("%v%016x.%x", packIDPrefix, time.Now().UnixNano(), uniqueID)
-	if err := p.metadataManager.PutMetadata(itemID, jb.Bytes()); err != nil {
-		return fmt.Errorf("can't save pack index %q: %v", itemID, err)
-	}
-
 	return nil
 }
 
@@ -221,9 +218,59 @@ func (p *packManager) ensurePackIndexesLoaded() (map[string]*packIndex, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	m, err := p.metadataManager.ListMetadataContents(packIDPrefix)
-	if err != nil {
+	ch, cancel := p.objectManager.storage.ListBlocks(packObjectPrefix)
+	defer cancel()
+
+	t0 := time.Now()
+
+	var wg sync.WaitGroup
+
+	errors := make(chan error, parallelFetches)
+	var mu sync.Mutex
+
+	m := map[string][]byte{}
+	totalSize := 0
+	for i := 0; i < parallelFetches; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			for b := range ch {
+				if b.Error != nil {
+					errors <- b.Error
+					return
+				}
+
+				r, err := p.objectManager.Open(ObjectID{StorageBlock: b.BlockID})
+				if err != nil {
+					errors <- err
+					return
+				}
+
+				data, err := ioutil.ReadAll(r)
+				if err != nil {
+					errors <- err
+					return
+				}
+
+				mu.Lock()
+				m[fmt.Sprintf("%16x", b.TimeStamp.UnixNano())] = data
+				totalSize += len(data)
+				mu.Unlock()
+			}
+		}()
+	}
+
+	wg.Wait()
+	close(errors)
+
+	// Propagate async errors, if any.
+	for err := range errors {
 		return nil, err
+	}
+
+	if false {
+		log.Printf("loaded %v pack indexes (%v bytes) in %v", len(m), totalSize, time.Since(t0))
 	}
 
 	merged, err := loadMergedPackIndex(m)
@@ -260,8 +307,7 @@ func (p *packManager) Flush() error {
 
 func (r *Repository) initPackManager() {
 	r.packMgr = &packManager{
-		objectManager:   r.ObjectManager,
-		metadataManager: r.MetadataManager,
-		packGroups:      make(map[string]*packInfo),
+		objectManager: r.ObjectManager,
+		packGroups:    make(map[string]*packInfo),
 	}
 }

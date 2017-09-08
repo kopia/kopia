@@ -19,8 +19,11 @@ import (
 	"github.com/kopia/kopia/internal/storagetesting"
 )
 
-func setupTest(t *testing.T, mods ...func(o *NewRepositoryOptions)) (data map[string][]byte, om *Repository) {
-	data = map[string][]byte{}
+func setupTest(t *testing.T, mods ...func(o *NewRepositoryOptions)) (map[string][]byte, *Repository) {
+	return setupTestWithData(t, map[string][]byte{}, mods...)
+}
+
+func setupTestWithData(t *testing.T, data map[string][]byte, mods ...func(o *NewRepositoryOptions)) (map[string][]byte, *Repository) {
 	st := storagetesting.NewMapStorage(data)
 
 	creds, _ := auth.Password("foobarbazfoobarbaz")
@@ -166,12 +169,18 @@ func TestPackingSimple(t *testing.T) {
 		t.Errorf("oid3a(%q) != oid3b(%q)", got, want)
 	}
 
-	if got, want := len(data), 2+4+2; got != want {
+	if got, want := len(data), 2+4; got != want {
 		t.Errorf("got unexpected repository contents %v items, wanted %v", got, want)
 		for k, v := range data {
 			t.Logf("%v => %v", k, string(v))
 		}
 	}
+	repo.Close()
+
+	data, repo = setupTestWithData(t, data, func(n *NewRepositoryOptions) {
+		n.MaxPackFileLength = 10000
+		n.MaxPackedContentLength = 10000
+	})
 
 	verify(t, repo, oid1a, []byte(content1), "packed-object-1")
 	verify(t, repo, oid2a, []byte(content2), "packed-object-2")
