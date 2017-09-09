@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"math/rand"
 	"reflect"
 	"runtime/debug"
@@ -176,6 +177,10 @@ func TestPackingSimple(t *testing.T) {
 		}
 	}
 	repo.Close()
+
+	for k, v := range data {
+		log.Printf("data[%v] = %v", k, string(v))
+	}
 
 	data, repo = setupTestWithData(t, data, func(n *NewRepositoryOptions) {
 		n.MaxPackFileLength = 10000
@@ -420,7 +425,7 @@ func writeObject(t *testing.T, repo *Repository, data []byte, testCaseID string)
 func verify(t *testing.T, repo *Repository, objectID ObjectID, expectedData []byte, testCaseID string) {
 	reader, err := repo.Open(objectID)
 	if err != nil {
-		t.Errorf("cannot get reader for %v: %v %v", testCaseID, err, string(debug.Stack()))
+		t.Errorf("cannot get reader for %v (%v): %v %v", testCaseID, objectID, err, string(debug.Stack()))
 		return
 	}
 

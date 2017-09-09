@@ -1,14 +1,10 @@
 package repo
 
 import (
-	"bytes"
 	"encoding/json"
 	"io"
-	"sort"
 	"time"
 )
-
-const packIDPrefix = "K"
 
 type packIndexes map[string]*packIndex
 
@@ -31,27 +27,9 @@ func loadPackIndexes(r io.Reader) (packIndexes, error) {
 
 func (i packIndexes) merge(other packIndexes) {
 	for packID, ndx := range other {
-		i[packID] = ndx
-	}
-}
-
-func loadMergedPackIndex(m map[string][]byte) (packIndexes, error) {
-	var names []string
-	for n := range m {
-		names = append(names, n)
-	}
-
-	sort.Strings(names)
-
-	merged := make(packIndexes)
-	for _, n := range names {
-		content := m[n]
-		pi, err := loadPackIndexes(bytes.NewReader(content))
-		if err != nil {
-			return nil, err
+		old := i[packID]
+		if old == nil || ndx.CreateTime.After(old.CreateTime) {
+			i[packID] = ndx
 		}
-		merged.merge(pi)
 	}
-
-	return merged, nil
 }

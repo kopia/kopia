@@ -2,10 +2,12 @@ package repo
 
 import (
 	"bytes"
+	"compress/gzip"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"strconv"
@@ -151,25 +153,30 @@ func (p *packManager) savePackIndexes() error {
 		return nil
 	}
 
-	var jb bytes.Buffer
-	if err := json.NewEncoder(&jb).Encode(p.pendingPackIndexes); err != nil {
-		return fmt.Errorf("can't encode pack index: %v", err)
-	}
+	return p.writePackIndexes(p.pendingPackIndexes)
+}
 
+func (p *packManager) writePackIndexes(ndx packIndexes) error {
 	w := p.objectManager.NewWriter(WriterOptions{
 		disablePacking:  true,
+		Description:     "pack index",
 		BlockNamePrefix: packObjectPrefix,
 		splitter:        newNeverSplitter(),
 	})
+	defer w.Close()
 
-	w.Write(jb.Bytes())
+	zw := gzip.NewWriter(w)
+	if err := json.NewEncoder(zw).Encode(p.pendingPackIndexes); err != nil {
+		return fmt.Errorf("can't encode pack index: %v", err)
+	}
+	zw.Close()
+
 	if _, err := w.Result(); err != nil {
 		return fmt.Errorf("can't save pack index object: %v", err)
 	}
 
 	return nil
 }
-
 func (p *packManager) finishCurrentPackLocked() error {
 	for _, g := range p.packGroups {
 		if err := p.finishPackLocked(g); err != nil {
@@ -207,17 +214,7 @@ func (p *packManager) finishPackLocked(g *packInfo) error {
 	return nil
 }
 
-func (p *packManager) ensurePackIndexesLoaded() (map[string]*packIndex, error) {
-	p.mu.RLock()
-	pi := p.blockToIndex
-	p.mu.RUnlock()
-	if pi != nil {
-		return pi, nil
-	}
-
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
+func (p *packManager) loadMergedPackIndex(olderThan *time.Time) (map[string]*packIndex, []string, error) {
 	ch, cancel := p.objectManager.storage.ListBlocks(packObjectPrefix)
 	defer cancel()
 
@@ -228,8 +225,9 @@ func (p *packManager) ensurePackIndexesLoaded() (map[string]*packIndex, error) {
 	errors := make(chan error, parallelFetches)
 	var mu sync.Mutex
 
-	m := map[string][]byte{}
+	packIndexData := map[string][]byte{}
 	totalSize := 0
+	var blockIDs []string
 	for i := 0; i < parallelFetches; i++ {
 		wg.Add(1)
 		go func() {
@@ -238,6 +236,10 @@ func (p *packManager) ensurePackIndexesLoaded() (map[string]*packIndex, error) {
 			for b := range ch {
 				if b.Error != nil {
 					errors <- b.Error
+					return
+				}
+
+				if olderThan != nil && b.TimeStamp.After(*olderThan) {
 					return
 				}
 
@@ -254,7 +256,8 @@ func (p *packManager) ensurePackIndexesLoaded() (map[string]*packIndex, error) {
 				}
 
 				mu.Lock()
-				m[fmt.Sprintf("%16x", b.TimeStamp.UnixNano())] = data
+				packIndexData[b.BlockID] = data
+				blockIDs = append(blockIDs, b.BlockID)
 				totalSize += len(data)
 				mu.Unlock()
 			}
@@ -266,14 +269,43 @@ func (p *packManager) ensurePackIndexesLoaded() (map[string]*packIndex, error) {
 
 	// Propagate async errors, if any.
 	for err := range errors {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if false {
-		log.Printf("loaded %v pack indexes (%v bytes) in %v", len(m), totalSize, time.Since(t0))
+		log.Printf("loaded %v pack indexes (%v bytes) in %v", len(packIndexData), totalSize, time.Since(t0))
 	}
 
-	merged, err := loadMergedPackIndex(m)
+	merged := make(packIndexes)
+	for blockID, content := range packIndexData {
+		var r io.Reader = bytes.NewReader(content)
+		zr, err := gzip.NewReader(r)
+		if err != nil {
+			return nil, nil, fmt.Errorf("unable to read pack index from %q: %v", blockID, err)
+		}
+
+		pi, err := loadPackIndexes(zr)
+		if err != nil {
+			return nil, nil, err
+		}
+		merged.merge(pi)
+	}
+
+	return merged, blockIDs, nil
+}
+
+func (p *packManager) ensurePackIndexesLoaded() (map[string]*packIndex, error) {
+	p.mu.RLock()
+	pi := p.blockToIndex
+	p.mu.RUnlock()
+	if pi != nil {
+		return pi, nil
+	}
+
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	merged, _, err := p.loadMergedPackIndex(nil)
 	if err != nil {
 		return nil, err
 	}
@@ -286,10 +318,54 @@ func (p *packManager) ensurePackIndexesLoaded() (map[string]*packIndex, error) {
 	}
 
 	p.blockToIndex = pi
-
 	// log.Printf("loaded pack index with %v entries", len(p.blockToIndex))
 
 	return pi, nil
+}
+
+func (p *packManager) Compact(cutoffTime time.Time) error {
+	merged, blockIDs, err := p.loadMergedPackIndex(&cutoffTime)
+	if err != nil {
+		return err
+	}
+
+	if len(blockIDs) < parallelFetches {
+		return nil
+	}
+
+	if err := p.writePackIndexes(merged); err != nil {
+		return err
+	}
+
+	ch := makeStringChannel(blockIDs)
+	var wg sync.WaitGroup
+
+	for i := 0; i < parallelDeletes; i++ {
+		wg.Add(1)
+		go func(workerID int) {
+			defer wg.Done()
+
+			for blockID := range ch {
+				if err := p.objectManager.storage.DeleteBlock(blockID); err != nil {
+					log.Printf("warning: unable to delete %q: %v", blockID, err)
+				}
+			}
+		}(i)
+	}
+	wg.Wait()
+	return nil
+}
+
+func makeStringChannel(s []string) <-chan string {
+	ch := make(chan string)
+	go func() {
+		defer close(ch)
+
+		for _, v := range s {
+			ch <- v
+		}
+	}()
+	return ch
 }
 
 func (p *packManager) newPackID() string {

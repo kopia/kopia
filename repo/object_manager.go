@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/internal/config"
@@ -48,6 +49,16 @@ type ObjectManager struct {
 func (r *ObjectManager) Close() error {
 	r.writeBackWG.Wait()
 	r.blockSizeCache.close()
+
+	return nil
+}
+
+// Optimize performs object optimizations to improve performance of future operations.
+// The opeartion will not affect objects written after cutoffTime to prevent race conditions.
+func (r *ObjectManager) Optimize(cutoffTime time.Time) error {
+	if err := r.packMgr.Compact(cutoffTime); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -172,6 +183,11 @@ func newObjectManager(s blob.Storage, f config.RepositoryObjectFormat, opts *Opt
 			r.async = true
 			r.writeBackSemaphore = make(semaphore, opts.WriteBack)
 		}
+	}
+
+	r.packMgr = &packManager{
+		objectManager: r,
+		packGroups:    make(map[string]*packInfo),
 	}
 
 	return r, nil
