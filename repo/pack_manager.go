@@ -18,7 +18,7 @@ import (
 	"github.com/kopia/kopia/blob"
 )
 
-const flushPackIndexTimeout = 10 * time.Minute
+const flushPackIndexTimeout = 10 * time.Second
 const packObjectPrefix = "P"
 
 type packInfo struct {
@@ -133,7 +133,12 @@ func (p *packManager) AddToPack(packGroup string, blockID string, data []byte) (
 	}
 
 	if time.Now().After(p.flushPackIndexesAfter) {
-		p.flushPackIndexesLocked()
+		if err := p.finishCurrentPackLocked(); err != nil {
+			return NullObjectID, err
+		}
+		if err := p.flushPackIndexesLocked(); err != nil {
+			return NullObjectID, err
+		}
 	}
 
 	p.blockToIndex[blockID] = g.currentPackIndex
