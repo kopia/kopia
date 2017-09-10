@@ -2,7 +2,10 @@ package cli
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 
@@ -18,7 +21,7 @@ var (
 
 	showObjectIDs = showCommand.Arg("id", "IDs of objects to show").Required().Strings()
 	showJSON      = showCommand.Flag("json", "Pretty-print JSON content").Short('j').Bool()
-	showRaw       = showCommand.Flag("raw", "Show raw content (disables format auto-detection)").Short('r').Bool()
+	showUnzip     = showCommand.Flag("unzip", "Transparently unzip the content").Short('z').Bool()
 )
 
 func runShowCommand(context *kingpin.ParseContext) error {
@@ -42,41 +45,40 @@ func runShowCommand(context *kingpin.ParseContext) error {
 }
 
 func showObject(r *repo.Repository, oid repo.ObjectID) error {
+	var rd io.ReadCloser
+
 	rd, err := r.Open(oid)
 	if err != nil {
 		return err
 	}
 	defer rd.Close()
 
-	rawdata, err := ioutil.ReadAll(rd)
-	if err != nil {
+	if *showUnzip {
+		gz, err := gzip.NewReader(rd)
+		if err != nil {
+			return fmt.Errorf("unable to open gzip stream: %v", err)
+		}
+
+		rd = gz
+	}
+
+	var buf1, buf2 bytes.Buffer
+	if *showJSON {
+		if _, err := io.Copy(&buf1, rd); err != nil {
+			return err
+		}
+
+		if err := json.Indent(&buf2, buf1.Bytes(), "", "  "); err != nil {
+			return err
+		}
+
+		rd = ioutil.NopCloser(&buf2)
+	}
+
+	if _, err := io.Copy(os.Stdout, rd); err != nil {
 		return err
 	}
 
-	format := "raw"
-
-	if len(rawdata) >= 2 && rawdata[0] == '{' && rawdata[len(rawdata)-1] == '}' {
-		format = "json"
-	}
-
-	if *showJSON {
-		format = "json"
-	}
-
-	if *showRaw {
-		format = "raw"
-	}
-
-	switch format {
-	case "json":
-		var buf bytes.Buffer
-
-		json.Indent(&buf, rawdata, "", "  ")
-		os.Stdout.Write(buf.Bytes())
-
-	default:
-		os.Stdout.Write(rawdata)
-	}
 	return nil
 }
 
