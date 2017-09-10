@@ -18,6 +18,7 @@ import (
 	"github.com/kopia/kopia/blob"
 )
 
+const flushPackIndexTimeout = 10 * time.Minute
 const packObjectPrefix = "P"
 
 type packInfo struct {
@@ -38,8 +39,10 @@ type packManager struct {
 	mu           sync.RWMutex
 	blockToIndex map[string]*packIndex
 
-	pendingPackIndexes packIndexes
-	packGroups         map[string]*packInfo
+	pendingPackIndexes    packIndexes
+	flushPackIndexesAfter time.Time
+
+	packGroups map[string]*packInfo
 }
 
 func (p *packManager) enabled() bool {
@@ -88,6 +91,7 @@ func (p *packManager) blockIDToPackSection(blockID string) (ObjectIDSection, boo
 
 func (p *packManager) begin() error {
 	p.ensurePackIndexesLoaded()
+	p.flushPackIndexesAfter = time.Now().Add(flushPackIndexTimeout)
 	p.pendingPackIndexes = make(packIndexes)
 	return nil
 }
@@ -128,6 +132,10 @@ func (p *packManager) AddToPack(packGroup string, blockID string, data []byte) (
 		}
 	}
 
+	if time.Now().After(p.flushPackIndexesAfter) {
+		p.flushPackIndexesLocked()
+	}
+
 	p.blockToIndex[blockID] = g.currentPackIndex
 	return ObjectID{StorageBlock: blockID}, nil
 }
@@ -140,7 +148,7 @@ func (p *packManager) finishPacking() error {
 		return err
 	}
 
-	if err := p.savePackIndexes(); err != nil {
+	if err := p.flushPackIndexesLocked(); err != nil {
 		return err
 	}
 
@@ -148,12 +156,17 @@ func (p *packManager) finishPacking() error {
 	return nil
 }
 
-func (p *packManager) savePackIndexes() error {
-	if len(p.pendingPackIndexes) == 0 {
-		return nil
+func (p *packManager) flushPackIndexesLocked() error {
+	if len(p.pendingPackIndexes) > 0 {
+		log.Printf("saving %v pack indexes", len(p.pendingPackIndexes))
+		if err := p.writePackIndexes(p.pendingPackIndexes); err != nil {
+			return err
+		}
 	}
 
-	return p.writePackIndexes(p.pendingPackIndexes)
+	p.flushPackIndexesAfter = time.Now().Add(flushPackIndexTimeout)
+	p.pendingPackIndexes = make(packIndexes)
+	return nil
 }
 
 func (p *packManager) writePackIndexes(ndx packIndexes) error {
