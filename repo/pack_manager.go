@@ -176,10 +176,10 @@ func (p *packManager) flushPackIndexesLocked() error {
 
 func (p *packManager) writePackIndexes(ndx packIndexes) error {
 	w := p.objectManager.NewWriter(WriterOptions{
-		disablePacking:  true,
-		Description:     "pack index",
-		BlockNamePrefix: packObjectPrefix,
-		splitter:        newNeverSplitter(),
+		isPackInternalObject: true,
+		Description:          "pack index",
+		BlockNamePrefix:      packObjectPrefix,
+		splitter:             newNeverSplitter(),
 	})
 	defer w.Close()
 
@@ -210,9 +210,9 @@ func (p *packManager) finishPackLocked(g *packInfo) error {
 		return nil
 	}
 	w := p.objectManager.NewWriter(WriterOptions{
-		Description:    fmt.Sprintf("pack:%v", g.currentPackID),
-		splitter:       newNeverSplitter(),
-		disablePacking: true,
+		Description:          fmt.Sprintf("pack:%v", g.currentPackID),
+		splitter:             newNeverSplitter(),
+		isPackInternalObject: true,
 	})
 	defer w.Close()
 

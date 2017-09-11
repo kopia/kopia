@@ -71,7 +71,7 @@ func (r *ObjectManager) NewWriter(opt WriterOptions) ObjectWriter {
 		splitter:       r.newSplitter(),
 		description:    opt.Description,
 		prefix:         opt.BlockNamePrefix,
-		disablePacking: opt.disablePacking,
+		isPackInternalObject: opt.isPackInternalObject,
 		packGroup:      opt.PackGroup,
 	}
 
@@ -196,7 +196,7 @@ func newObjectManager(s blob.Storage, f config.RepositoryObjectFormat, opts *Opt
 // hashEncryptAndWrite computes hash of a given buffer, optionally encrypts and writes it to storage.
 // The write is not guaranteed to complete synchronously in case write-back is used, but by the time
 // Repository.Close() returns all writes are guaranteed be over.
-func (r *ObjectManager) hashEncryptAndWrite(packGroup string, buffer *bytes.Buffer, prefix string, disablePacking bool) (ObjectID, error) {
+func (r *ObjectManager) hashEncryptAndWrite(packGroup string, buffer *bytes.Buffer, prefix string, isPackInternalObject bool) (ObjectID, error) {
 	var data []byte
 	if buffer != nil {
 		data = buffer.Bytes()
@@ -208,7 +208,7 @@ func (r *ObjectManager) hashEncryptAndWrite(packGroup string, buffer *bytes.Buff
 	atomic.AddInt32(&r.stats.HashedBlocks, 1)
 	atomic.AddInt64(&r.stats.HashedBytes, int64(len(data)))
 
-	if !disablePacking && r.packMgr.enabled() && r.format.MaxPackedContentLength > 0 && len(data) <= r.format.MaxPackedContentLength {
+	if !isPackInternalObject && r.packMgr.enabled() && r.format.MaxPackedContentLength > 0 && len(data) <= r.format.MaxPackedContentLength {
 		packOID, err := r.packMgr.AddToPack(packGroup, prefix+objectID.StorageBlock, data)
 		return packOID, err
 	}

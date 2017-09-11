@@ -59,8 +59,8 @@ type objectWriter struct {
 	blockTracker *blockTracker
 	splitter     objectSplitter
 
-	disablePacking bool
-	packGroup      string
+	isPackInternalObject bool
+	packGroup            string
 
 	pendingBlocksWG sync.WaitGroup
 
@@ -102,7 +102,7 @@ func (w *objectWriter) flushBuffer() error {
 	w.buffer.Reset()
 
 	do := func() {
-		objectID, err := w.repo.hashEncryptAndWrite(w.packGroup, &b2, w.prefix, w.disablePacking)
+		objectID, err := w.repo.hashEncryptAndWrite(w.packGroup, &b2, w.prefix, w.isPackInternalObject)
 		w.repo.trace("OBJECT_WRITER(%q) stored %v (%v bytes)", w.description, objectID, length)
 		if err != nil {
 			w.err.add(fmt.Errorf("error when flushing chunk %d of %s: %v", chunkID, w.description, err))
@@ -113,7 +113,9 @@ func (w *objectWriter) flushBuffer() error {
 		w.blockIndex[chunkID].Object = objectID
 	}
 
-	if w.repo.async {
+	// When writing pack internal object don't use asynchronous write, since we're already under the semaphore
+	// and it may lead to a deadlock.
+	if w.repo.async && !w.isPackInternalObject {
 		w.repo.writeBackSemaphore.Lock()
 		w.pendingBlocksWG.Add(1)
 		w.repo.writeBackWG.Add(1)
@@ -153,8 +155,8 @@ func (w *objectWriter) Result() (ObjectID, error) {
 		blockTracker: w.blockTracker,
 		splitter:     w.repo.newSplitter(),
 
-		disablePacking: w.disablePacking,
-		packGroup:      w.packGroup,
+		isPackInternalObject: w.isPackInternalObject,
+		packGroup:            w.packGroup,
 	}
 
 	jw := jsonstream.NewWriter(iw, indirectStreamType)
@@ -180,6 +182,6 @@ type WriterOptions struct {
 	Description     string
 	PackGroup       string
 
-	splitter       objectSplitter
-	disablePacking bool
+	splitter             objectSplitter
+	isPackInternalObject bool
 }
