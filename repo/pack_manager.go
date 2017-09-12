@@ -18,7 +18,7 @@ import (
 	"github.com/kopia/kopia/blob"
 )
 
-const flushPackIndexTimeout = 10 * time.Second
+const flushPackIndexTimeout = 10 * time.Minute
 const packObjectPrefix = "P"
 
 type packInfo struct {
