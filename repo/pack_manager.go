@@ -118,7 +118,6 @@ func (p *packManager) AddToPack(packGroup string, blockID string, data []byte) (
 			CreateTime: time.Now().UTC(),
 		}
 		g.currentPackID = p.newPackID()
-		p.pendingPackIndexes[g.currentPackID] = g.currentPackIndex
 		g.currentPackData.Reset()
 	}
 
@@ -127,17 +126,15 @@ func (p *packManager) AddToPack(packGroup string, blockID string, data []byte) (
 	g.currentPackIndex.Items[blockID] = fmt.Sprintf("%v+%v", int64(offset), int64(len(data)))
 
 	if g.currentPackData.Len() >= p.objectManager.format.MaxPackFileLength {
-		if err := p.finishCurrentPackLocked(); err != nil {
+		log.Printf("finishing pack %q", g.currentPackID)
+		if err := p.finishPackLocked(g); err != nil {
 			return NullObjectID, err
 		}
-	}
 
-	if time.Now().After(p.flushPackIndexesAfter) {
-		if err := p.finishCurrentPackLocked(); err != nil {
-			return NullObjectID, err
-		}
-		if err := p.flushPackIndexesLocked(); err != nil {
-			return NullObjectID, err
+		if time.Now().After(p.flushPackIndexesAfter) {
+			if err := p.flushPackIndexesLocked(); err != nil {
+				return NullObjectID, err
+			}
 		}
 	}
 
@@ -209,6 +206,7 @@ func (p *packManager) finishPackLocked(g *packInfo) error {
 	if g.currentPackIndex == nil {
 		return nil
 	}
+	p.pendingPackIndexes[g.currentPackID] = g.currentPackIndex
 	w := p.objectManager.NewWriter(WriterOptions{
 		Description:          fmt.Sprintf("pack:%v", g.currentPackID),
 		splitter:             newNeverSplitter(),
