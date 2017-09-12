@@ -184,7 +184,7 @@ func (p *packManager) writePackIndexes(ndx packIndexes) error {
 	defer w.Close()
 
 	zw := gzip.NewWriter(w)
-	if err := json.NewEncoder(zw).Encode(p.pendingPackIndexes); err != nil {
+	if err := json.NewEncoder(zw).Encode(ndx); err != nil {
 		return fmt.Errorf("can't encode pack index: %v", err)
 	}
 	zw.Close()
@@ -348,8 +348,11 @@ func (p *packManager) Compact(cutoffTime time.Time) error {
 	}
 
 	if len(blockIDs) < parallelFetches {
+		log.Printf("skipping index compaction - the number of segments %v is too low", len(blockIDs))
 		return nil
 	}
+
+	log.Printf("writing %v merged indexes", len(merged))
 
 	if err := p.writePackIndexes(merged); err != nil {
 		return err
