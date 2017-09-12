@@ -345,7 +345,7 @@ func (p *packManager) Compact(cutoffTime time.Time) error {
 		return err
 	}
 
-	if len(blockIDs) < parallelFetches {
+	if len(blockIDs) <= 1 {
 		log.Printf("skipping index compaction - the number of segments %v is too low", len(blockIDs))
 		return nil
 	}

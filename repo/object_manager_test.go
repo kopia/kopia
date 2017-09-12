@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"runtime/debug"
 	"testing"
+	"time"
 
 	"github.com/kopia/kopia/auth"
 
@@ -182,6 +183,30 @@ func TestPackingSimple(t *testing.T) {
 		log.Printf("data[%v] = %v", k, string(v))
 	}
 
+	data, repo = setupTestWithData(t, data, func(n *NewRepositoryOptions) {
+		n.MaxPackFileLength = 10000
+		n.MaxPackedContentLength = 10000
+	})
+
+	verify(t, repo, oid1a, []byte(content1), "packed-object-1")
+	verify(t, repo, oid2a, []byte(content2), "packed-object-2")
+	verify(t, repo, oid3a, []byte(content3), "packed-object-3")
+
+	if err := repo.Optimize(time.Now().Add(10 * time.Second)); err != nil {
+		t.Errorf("optimize error: %v", err)
+	}
+	data, repo = setupTestWithData(t, data, func(n *NewRepositoryOptions) {
+		n.MaxPackFileLength = 10000
+		n.MaxPackedContentLength = 10000
+	})
+
+	verify(t, repo, oid1a, []byte(content1), "packed-object-1")
+	verify(t, repo, oid2a, []byte(content2), "packed-object-2")
+	verify(t, repo, oid3a, []byte(content3), "packed-object-3")
+
+	if err := repo.Optimize(time.Now().Add(-10 * time.Second)); err != nil {
+		t.Errorf("optimize error: %v", err)
+	}
 	data, repo = setupTestWithData(t, data, func(n *NewRepositoryOptions) {
 		n.MaxPackFileLength = 10000
 		n.MaxPackedContentLength = 10000
