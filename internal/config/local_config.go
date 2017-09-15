@@ -22,7 +22,6 @@ type RepositoryObjectFormat struct {
 	MasterKey              []byte `json:"masterKey,omitempty"`              // master encryption key (SIV-mode encryption only)
 	Splitter               string `json:"splitter,omitempty"`               // splitter used to break objects into storage blocks
 	MaxPackedContentLength int    `json:"maxPackedContentLength,omitempty"` // maximum size of object to be considered for storage in a pack
-	MaxPackFileLength      int    `json:"maxPackFileLength,omitempty"`      // maximum length of a single pack file
 
 	MinBlockSize int `json:"minBlockSize,omitempty"` // minimum block size used with dynamic splitter
 	AvgBlockSize int `json:"avgBlockSize,omitempty"` // approximate size of storage block (used with dynamic splitter)

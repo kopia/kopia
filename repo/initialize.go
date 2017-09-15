@@ -27,7 +27,6 @@ type NewRepositoryOptions struct {
 	AvgBlockSize           int    // approximate size of storage block (used with dynamic splitter)
 	MaxBlockSize           int    // maximum size of storage block
 	MaxPackedContentLength int    // maximum size of object to be considered for storage in a pack
-	MaxPackFileLength      int    // maximum length of a single pack file
 
 	// test-only
 	noHMAC bool // disable HMAC
@@ -102,7 +101,6 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) config.Reposit
 		MinBlockSize:           applyDefaultInt(opt.MinBlockSize, 10<<20),          // 10MiB
 		AvgBlockSize:           applyDefaultInt(opt.AvgBlockSize, 16<<20),          // 16MiB
 		MaxPackedContentLength: applyDefaultInt(opt.MaxPackedContentLength, 4<<20), // 3 MB
-		MaxPackFileLength:      applyDefaultInt(opt.MaxPackFileLength, 20<<20),     // 20 MB
 	}
 
 	if opt.noHMAC {

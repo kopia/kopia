@@ -31,7 +31,6 @@ type StatusInfo struct {
 	AvgBlockSize           int
 	MaxBlockSize           int
 
-	MaxPackFileLength      int
 	MaxPackedContentLength int
 }
 
@@ -57,7 +56,6 @@ func (r *Repository) Status() StatusInfo {
 		AvgBlockSize:         r.ObjectManager.format.AvgBlockSize,
 		MaxBlockSize:         r.ObjectManager.format.MaxBlockSize,
 
-		MaxPackFileLength:      r.ObjectManager.format.MaxPackFileLength,
 		MaxPackedContentLength: r.ObjectManager.format.MaxPackedContentLength,
 	}
 

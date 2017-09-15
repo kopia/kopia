@@ -25,6 +25,7 @@ type packInfo struct {
 	currentPackData  bytes.Buffer
 	currentPackIndex *packIndex
 	currentPackID    string
+	splitter         objectSplitter
 }
 
 type blockLocation struct {
@@ -107,7 +108,9 @@ func (p *packManager) AddToPack(packGroup string, blockID string, data []byte) (
 
 	g := p.packGroups[packGroup]
 	if g == nil {
-		g = &packInfo{}
+		g = &packInfo{
+			splitter: p.objectManager.newSplitter(),
+		}
 		p.packGroups[packGroup] = g
 	}
 
@@ -122,10 +125,16 @@ func (p *packManager) AddToPack(packGroup string, blockID string, data []byte) (
 	}
 
 	offset := g.currentPackData.Len()
+	shouldFinish := false
+	for _, d := range data {
+		if g.splitter.add(d) {
+			shouldFinish = true
+		}
+	}
 	g.currentPackData.Write(data)
 	g.currentPackIndex.Items[blockID] = fmt.Sprintf("%v+%v", int64(offset), int64(len(data)))
 
-	if g.currentPackData.Len() >= p.objectManager.format.MaxPackFileLength {
+	if shouldFinish {
 		log.Printf("finishing pack %q", g.currentPackID)
 		if err := p.finishPackLocked(g); err != nil {
 			return NullObjectID, err

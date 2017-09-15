@@ -35,7 +35,6 @@ func setupTestWithData(t *testing.T, data map[string][]byte, mods ...func(o *New
 		ObjectFormat:                "TESTONLY_MD5",
 		MetadataEncryptionAlgorithm: "NONE",
 		MaxPackedContentLength:      -1,
-		MaxPackFileLength:           -1,
 
 		noHMAC: true,
 	}
@@ -123,7 +122,6 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 
 func TestPackingSimple(t *testing.T) {
 	data, repo := setupTest(t, func(n *NewRepositoryOptions) {
-		n.MaxPackFileLength = 10000
 		n.MaxPackedContentLength = 10000
 	})
 
@@ -184,7 +182,6 @@ func TestPackingSimple(t *testing.T) {
 	}
 
 	data, repo = setupTestWithData(t, data, func(n *NewRepositoryOptions) {
-		n.MaxPackFileLength = 10000
 		n.MaxPackedContentLength = 10000
 	})
 
@@ -196,7 +193,6 @@ func TestPackingSimple(t *testing.T) {
 		t.Errorf("optimize error: %v", err)
 	}
 	data, repo = setupTestWithData(t, data, func(n *NewRepositoryOptions) {
-		n.MaxPackFileLength = 10000
 		n.MaxPackedContentLength = 10000
 	})
 
@@ -208,7 +204,6 @@ func TestPackingSimple(t *testing.T) {
 		t.Errorf("optimize error: %v", err)
 	}
 	data, repo = setupTestWithData(t, data, func(n *NewRepositoryOptions) {
-		n.MaxPackFileLength = 10000
 		n.MaxPackedContentLength = 10000
 	})
 
