@@ -66,13 +66,13 @@ func (r *ObjectManager) Optimize(cutoffTime time.Time) error {
 // NewWriter creates an ObjectWriter for writing to the repository.
 func (r *ObjectManager) NewWriter(opt WriterOptions) ObjectWriter {
 	w := &objectWriter{
-		repo:           r,
-		blockTracker:   &blockTracker{},
-		splitter:       r.newSplitter(),
-		description:    opt.Description,
-		prefix:         opt.BlockNamePrefix,
+		repo:                 r,
+		blockTracker:         &blockTracker{},
+		splitter:             r.newSplitter(),
+		description:          opt.Description,
+		prefix:               opt.BlockNamePrefix,
 		isPackInternalObject: opt.isPackInternalObject,
-		packGroup:      opt.PackGroup,
+		packGroup:            opt.PackGroup,
 	}
 
 	if opt.splitter != nil {
@@ -118,14 +118,6 @@ func (r *ObjectManager) Open(objectID ObjectID) (ObjectReader, error) {
 			seekTable:   seekTable,
 			totalLength: totalLength,
 		}, nil
-	}
-
-	if objectID.BinaryContent != nil {
-		return newObjectReaderWithData(objectID.BinaryContent), nil
-	}
-
-	if len(objectID.TextContent) > 0 {
-		return newObjectReaderWithData([]byte(objectID.TextContent)), nil
 	}
 
 	return r.newRawReader(objectID)

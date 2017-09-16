@@ -20,8 +20,6 @@ func TestParseObjectID(t *testing.T) {
 		{"IDfoo", ObjectID{Indirect: &ObjectID{StorageBlock: "foo"}}},
 		{"IIDfoo", ObjectID{Indirect: &ObjectID{Indirect: &ObjectID{StorageBlock: "foo"}}}},
 		{"Pfoo@bar", ObjectID{StorageBlock: "foo"}}, // legacy
-		{"Tfoo", ObjectID{TextContent: "foo"}},
-		{"BAAA", ObjectID{BinaryContent: []byte{0, 0}}},
 		{"S1,2,Dfoo", ObjectID{Section: &ObjectIDSection{Start: 1, Length: 2, Base: ObjectID{StorageBlock: "foo"}}}},
 	}
 

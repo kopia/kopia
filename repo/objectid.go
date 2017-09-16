@@ -31,11 +31,9 @@ import (
 //
 //
 type ObjectID struct {
-	StorageBlock  string
-	Indirect      *ObjectID
-	TextContent   string
-	BinaryContent []byte
-	Section       *ObjectIDSection
+	StorageBlock string
+	Indirect     *ObjectID
+	Section      *ObjectIDSection
 }
 
 // MarshalJSON emits ObjectID in standard string format.
@@ -87,14 +85,6 @@ func (oid ObjectID) String() string {
 		return "D" + oid.StorageBlock
 	}
 
-	if oid.BinaryContent != nil {
-		return "B" + inlineContentEncoding.EncodeToString(oid.BinaryContent)
-	}
-
-	if len(oid.TextContent) > 0 {
-		return "T" + oid.TextContent
-	}
-
 	if oid.Section != nil {
 		return fmt.Sprintf("S%v,%v,%v", oid.Section.Start, oid.Section.Length, oid.Section.Base.String())
 	}
@@ -109,14 +99,6 @@ func (oid *ObjectID) Validate() error {
 		c++
 	}
 
-	if len(oid.TextContent) > 0 {
-		c++
-	}
-
-	if len(oid.BinaryContent) > 0 {
-		c++
-	}
-
 	if oid.Section != nil {
 		c++
 		if err := oid.Section.Base.Validate(); err != nil {
@@ -124,14 +106,15 @@ func (oid *ObjectID) Validate() error {
 		}
 	}
 
-	if c > 1 {
-		return fmt.Errorf("inconsistent block content: %+v", oid)
-	}
-
 	if oid.Indirect != nil {
+		c++
 		if err := oid.Indirect.Validate(); err != nil {
 			return fmt.Errorf("invalid indirect object ID %v: %v", oid, err)
 		}
+	}
+
+	if c != 1 {
+		return fmt.Errorf("inconsistent block content: %+v", oid)
 	}
 
 	return nil
@@ -211,14 +194,6 @@ func ParseObjectID(s string) (ObjectID, error) {
 					Base:   base,
 				}}, nil
 			}
-
-		case 'B':
-			if v, err := inlineContentEncoding.DecodeString(content); err == nil {
-				return ObjectID{BinaryContent: v}, nil
-			}
-
-		case 'T':
-			return ObjectID{TextContent: content}, nil
 
 		case 'I', 'D':
 			if chunkType == 'I' {

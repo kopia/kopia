@@ -70,14 +70,7 @@ func listDirectory(mgr *snapshot.Manager, prefix string, oid repo.ObjectID, inde
 		m := e.Metadata()
 		var info string
 		objectID := e.(repo.HasObjectID).ObjectID()
-		var oid string
-		if objectID.BinaryContent != nil {
-			oid = "<inline binary content>"
-		} else if objectID.TextContent != "" {
-			oid = "<inline text content>"
-		} else {
-			oid = objectID.String()
-		}
+		oid := objectID.String()
 		if *lsCommandLong {
 			info = fmt.Sprintf(
 				"%v %9d %v %-"+maxNameLenString+"s %v",

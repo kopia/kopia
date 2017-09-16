@@ -84,7 +84,7 @@ func TestWriters(t *testing.T) {
 		repo.Objects.writeBackWG.Wait()
 
 		if !objectIDsEqual(result, c.objectID) {
-			t.Errorf("incorrect result for %v, expected: %v got: %v %#v", c.data, c.objectID.String(), result.String(), result.BinaryContent)
+			t.Errorf("incorrect result for %v, expected: %v got: %v", c.data, c.objectID.String(), result.String())
 		}
 
 		if c.objectID.StorageBlock == "" {
@@ -321,14 +321,7 @@ func TestReader(t *testing.T) {
 		text    string
 		payload []byte
 	}{
-		{"B", []byte{}},
-		{"BAQIDBA", []byte{1, 2, 3, 4}},
-		{"TFoo", []byte("Foo")},
 		{"Da76999788386641a3ec798554f1fe7e6", storedPayload},
-		{"S0,2,BAQIDBA", []byte{1, 2}},
-		{"S1,3,BAQIDBA", []byte{2, 3, 4}},
-		{"S1,5,BAQIDBA", []byte{2, 3, 4}},
-		{"S0,0,BAQIDBA", []byte{}},
 		{"S0,2,Da76999788386641a3ec798554f1fe7e6", storedPayload[0:2]},
 		{"S2,4,Da76999788386641a3ec798554f1fe7e6", storedPayload[2:6]},
 	}
