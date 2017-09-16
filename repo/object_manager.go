@@ -67,7 +67,6 @@ func (r *ObjectManager) Optimize(cutoffTime time.Time) error {
 func (r *ObjectManager) NewWriter(opt WriterOptions) ObjectWriter {
 	w := &objectWriter{
 		repo:                 r,
-		blockTracker:         &blockTracker{},
 		splitter:             r.newSplitter(),
 		description:          opt.Description,
 		prefix:               opt.BlockNamePrefix,
@@ -121,6 +120,92 @@ func (r *ObjectManager) Open(objectID ObjectID) (ObjectReader, error) {
 	}
 
 	return r.newRawReader(objectID)
+}
+
+// VerifyObject ensures that all objects backing ObjectID are present in the repository
+// and returns the total length of the object and storage blocks of which it is composed.
+func (r *ObjectManager) VerifyObject(oid ObjectID) (int64, []string, error) {
+	// Flush any pending writes.
+	r.writeBackWG.Wait()
+
+	blocks := &blockTracker{}
+	l, err := r.verifyObjectInternal(oid, blocks)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	return l, blocks.blockIDs(), nil
+}
+
+func (r *ObjectManager) verifyObjectInternal(oid ObjectID, blocks *blockTracker) (int64, error) {
+	if oid.Section != nil {
+		l, err := r.verifyObjectInternal(oid.Section.Base, blocks)
+		if err != nil {
+			return 0, err
+		}
+
+		if oid.Section.Length >= 0 && oid.Section.Start+oid.Section.Length <= l {
+			return oid.Section.Length, nil
+		}
+
+		return 0, fmt.Errorf("section object %q not within parent object size of %v", oid, l)
+	}
+
+	if oid.Indirect != nil {
+		if _, err := r.verifyObjectInternal(*oid.Indirect, blocks); err != nil {
+			return 0, fmt.Errorf("unable to read index: %v", err)
+		}
+		rd, err := r.Open(*oid.Indirect)
+		if err != nil {
+			return 0, err
+		}
+		defer rd.Close()
+
+		seekTable, err := r.flattenListChunk(rd)
+		if err != nil {
+			return 0, err
+		}
+
+		for i, m := range seekTable {
+			l, err := r.verifyObjectInternal(m.Object, blocks)
+			if err != nil {
+				return 0, err
+			}
+
+			if l != m.Length {
+				return 0, fmt.Errorf("unexpected length of part %#v of indirect object %q: %v %v, expected %v", i, oid, m.Object, l, m.Length)
+			}
+		}
+
+		totalLength := seekTable[len(seekTable)-1].endOffset()
+		return totalLength, nil
+	}
+
+	p, isPacked, err := r.packMgr.blockIDToPackSection(oid.StorageBlock)
+	if err != nil {
+		return 0, err
+	}
+
+	if isPacked {
+		l, err := r.verifyObjectInternal(p.Base, blocks)
+		if err != nil {
+			return 0, err
+		}
+
+		if p.Length >= 0 && p.Start+p.Length <= l {
+			return p.Length, nil
+		}
+
+		return 0, fmt.Errorf("packed object %v does not fit within its parent pack %v (pack length %v)", oid, p, l)
+	}
+
+	l, err := r.blockSizeCache.getSize(oid.StorageBlock)
+	if err != nil {
+		return 0, fmt.Errorf("unable to read %q: %v", oid.StorageBlock, err)
+	}
+
+	blocks.addBlock(oid.StorageBlock)
+	return l, nil
 }
 
 // BeginPacking enables creation of pack files.
@@ -232,6 +317,7 @@ func (r *ObjectManager) hashEncryptAndWrite(packGroup string, buffer *bytes.Buff
 	if err := r.storage.PutBlock(objectID.StorageBlock, data); err != nil {
 		return NullObjectID, err
 	}
+	r.blockSizeCache.put(objectID.StorageBlock, int64(len(data)))
 
 	return objectID, nil
 }

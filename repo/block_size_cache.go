@@ -21,6 +21,12 @@ func (c *blockSizeCache) close() error {
 	return nil
 }
 
+func (c *blockSizeCache) put(blockID string, size int64) {
+	c.mu.Lock()
+	c.cache[blockID] = size
+	c.mu.Unlock()
+}
+
 func (c *blockSizeCache) getSize(blockID string) (int64, error) {
 	c.mu.Lock()
 	size, ok := c.cache[blockID]
@@ -46,7 +52,7 @@ func (c *blockSizeCache) getSize(blockID string) (int64, error) {
 	s, err := c.storage.BlockSize(blockID)
 	if err == nil {
 		c.mu.Lock()
-		c.cache[blockID] = size
+		c.cache[blockID] = s
 		c.mu.Unlock()
 	}
 

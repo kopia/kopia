@@ -77,6 +77,10 @@ func (p *packManager) blockIDToPackSection(blockID string) (ObjectIDSection, boo
 		if start, err := strconv.ParseInt(blk[0:plus], 10, 64); err == nil {
 			if length, err := strconv.ParseInt(blk[plus+1:], 10, 64); err == nil {
 				if base, err := ParseObjectID(ndx.PackObject); err == nil {
+					if base.StorageBlock == blockID {
+						// this is possible for a single-element pack
+						return ObjectIDSection{}, false, nil
+					}
 					return ObjectIDSection{
 						Base:   base,
 						Start:  start,

@@ -15,7 +15,6 @@ type ObjectWriter interface {
 	io.WriteCloser
 
 	Result() (ObjectID, error)
-	StorageBlocks() []string
 }
 
 type blockTracker struct {
@@ -56,8 +55,7 @@ type objectWriter struct {
 
 	description string
 
-	blockTracker *blockTracker
-	splitter     objectSplitter
+	splitter objectSplitter
 
 	isPackInternalObject bool
 	packGroup            string
@@ -109,7 +107,6 @@ func (w *objectWriter) flushBuffer() error {
 			return
 		}
 
-		w.blockTracker.addBlock(objectID.StorageBlock)
 		w.blockIndex[chunkID].Object = objectID
 	}
 
@@ -149,11 +146,10 @@ func (w *objectWriter) Result() (ObjectID, error) {
 	}
 
 	iw := &objectWriter{
-		repo:         w.repo,
-		prefix:       w.prefix,
-		description:  "LIST(" + w.description + ")",
-		blockTracker: w.blockTracker,
-		splitter:     w.repo.newSplitter(),
+		repo:        w.repo,
+		prefix:      w.prefix,
+		description: "LIST(" + w.description + ")",
+		splitter:    w.repo.newSplitter(),
 
 		isPackInternalObject: w.isPackInternalObject,
 		packGroup:            w.packGroup,
@@ -169,11 +165,6 @@ func (w *objectWriter) Result() (ObjectID, error) {
 		return NullObjectID, err
 	}
 	return ObjectID{Indirect: &oid}, nil
-}
-
-func (w *objectWriter) StorageBlocks() []string {
-	w.pendingBlocksWG.Wait()
-	return w.blockTracker.blockIDs()
 }
 
 // WriterOptions can be passed to Repository.NewWriter()

@@ -121,7 +121,7 @@ type cleanupContext struct {
 }
 
 func findAliveBlocks(ctx *cleanupContext, wi *cleanupWorkItem) error {
-	blks, err := ctx.repo.Objects.GetStorageBlocks(wi.oid)
+	_, blks, err := ctx.repo.Objects.VerifyObject(wi.oid)
 	if err != nil {
 		return err
 	}
