@@ -15,7 +15,7 @@ func runOptimizeCommand(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
 	defer rep.Close()
 
-	return rep.Optimize(time.Now().Add(-*optimizeMinAge))
+	return rep.Objects.Optimize(time.Now().Add(-*optimizeMinAge))
 }
 
 func init() {

@@ -91,7 +91,7 @@ func (u *Uploader) uploadFileInternal(f fs.File, relativePath string) (*dir.Entr
 	}
 	defer file.Close()
 
-	writer := u.repo.NewWriter(repo.WriterOptions{
+	writer := u.repo.Objects.NewWriter(repo.WriterOptions{
 		Description: "FILE:" + f.Metadata().Name,
 	})
 	defer writer.Close()
@@ -131,7 +131,7 @@ func (u *Uploader) uploadSymlinkInternal(f fs.Symlink, relativePath string) (*di
 		return nil, 0, fmt.Errorf("unable to read symlink: %v", err)
 	}
 
-	writer := u.repo.NewWriter(repo.WriterOptions{
+	writer := u.repo.Objects.NewWriter(repo.WriterOptions{
 		Description: "SYMLINK:" + f.Metadata().Name,
 	})
 	defer writer.Close()
@@ -219,11 +219,11 @@ func (u *Uploader) uploadFile(file fs.File) (repo.ObjectID, error) {
 func (u *Uploader) uploadDir(dir fs.Directory) (repo.ObjectID, repo.ObjectID, error) {
 	var err error
 
-	if err := u.repo.BeginPacking(); err != nil {
+	if err := u.repo.Objects.BeginPacking(); err != nil {
 		return repo.NullObjectID, repo.NullObjectID, err
 	}
 
-	mw := u.repo.NewWriter(repo.WriterOptions{
+	mw := u.repo.Objects.NewWriter(repo.WriterOptions{
 		Description:     "HASHCACHE:" + dir.Metadata().Name,
 		BlockNamePrefix: "H",
 		PackGroup:       "HC",
@@ -244,7 +244,7 @@ func (u *Uploader) uploadDir(dir fs.Directory) (repo.ObjectID, repo.ObjectID, er
 	}
 
 	hcid, err := mw.Result()
-	if err := u.repo.FinishPacking(); err != nil {
+	if err := u.repo.Objects.FinishPacking(); err != nil {
 		return repo.NullObjectID, repo.NullObjectID, fmt.Errorf("can't finish packing: %v", err)
 	}
 	return oid, hcid, err
@@ -265,7 +265,7 @@ func uploadDirInternal(
 		return repo.NullObjectID, err
 	}
 
-	writer := u.repo.NewWriter(repo.WriterOptions{
+	writer := u.repo.Objects.NewWriter(repo.WriterOptions{
 		Description: "DIR:" + relativePath,
 		PackGroup:   "DIR",
 	})
@@ -399,7 +399,7 @@ func (u *Uploader) Upload(
 	u.cacheReader = hashcache.Open(nil)
 	u.stats = Stats{}
 	if old != nil {
-		if r, err := u.repo.Open(old.HashCacheID); err == nil {
+		if r, err := u.repo.Objects.Open(old.HashCacheID); err == nil {
 			u.cacheReader = hashcache.Open(r)
 		}
 	}

@@ -14,5 +14,5 @@ func init() {
 func removeMetadataItem(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
 
-	return rep.RemoveMany(*metadataRemoveItems)
+	return rep.Metadata.RemoveMany(*metadataRemoveItems)
 }

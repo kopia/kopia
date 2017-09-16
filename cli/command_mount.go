@@ -32,7 +32,7 @@ func runMountCommand(context *kingpin.ParseContext) error {
 			for {
 				select {
 				case <-time.After(*mountCacheRefreshInterval):
-					rep.RefreshCache()
+					rep.Metadata.RefreshCache()
 					// TODO - cancel the loop perhaps?
 				}
 			}

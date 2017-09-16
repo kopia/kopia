@@ -47,7 +47,7 @@ func runShowCommand(context *kingpin.ParseContext) error {
 func showObject(r *repo.Repository, oid repo.ObjectID) error {
 	var rd io.ReadCloser
 
-	rd, err := r.Open(oid)
+	rd, err := r.Objects.Open(oid)
 	if err != nil {
 		return err
 	}

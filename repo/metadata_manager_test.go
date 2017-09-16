@@ -62,13 +62,13 @@ func TestMetadataManager(t *testing.T) {
 		return
 	}
 
-	if err := v.PutMetadata("foo", []byte("test1")); err != nil {
+	if err := v.Put("foo", []byte("test1")); err != nil {
 		t.Errorf("error putting: %v", err)
 	}
-	if err := v.PutMetadata("bar", []byte("test2")); err != nil {
+	if err := v.Put("bar", []byte("test2")); err != nil {
 		t.Errorf("error putting: %v", err)
 	}
-	if err := v.PutMetadata("baz", []byte("test3")); err != nil {
+	if err := v.Put("baz", []byte("test3")); err != nil {
 		t.Errorf("error putting: %v", err)
 	}
 
@@ -87,7 +87,7 @@ func TestMetadataManager(t *testing.T) {
 	assertReservedName(t, v, formatBlockID)
 	assertReservedName(t, v, repositoryConfigBlockID)
 
-	v.RemoveMetadata("bar")
+	v.Remove("bar")
 
 	assertMetadataItem(t, v, "foo", "test1")
 	assertMetadataItemNotFound(t, v, "bar")
@@ -100,13 +100,13 @@ func TestMetadataManager(t *testing.T) {
 	assertMetadataItems(t, v, "baz", []string{"baz"})
 	assertMetadataItems(t, v, "bazx", nil)
 
-	v.RemoveMetadata("baz")
+	v.Remove("baz")
 	assertMetadataItemNotFound(t, v, "baz")
-	v.RemoveMetadata("baz")
+	v.Remove("baz")
 	assertMetadataItemNotFound(t, v, "baz")
 
 	assertMetadataItem(t, v, "foo", "test1")
-	if err := v.PutMetadata("baz", []byte("test4")); err != nil {
+	if err := v.Put("baz", []byte("test4")); err != nil {
 		t.Errorf("error putting: %v", err)
 	}
 	assertMetadataItem(t, v, "baz", "test4")
@@ -146,8 +146,8 @@ func assertMetadataItemNotFound(t *testing.T, v *MetadataManager, itemID string)
 func assertReservedName(t *testing.T, v *MetadataManager, itemID string) {
 	_, err := v.GetMetadata(itemID)
 	assertReservedNameError(t, "Get", itemID, err)
-	assertReservedNameError(t, "Put", itemID, v.PutMetadata(itemID, nil))
-	assertReservedNameError(t, "Remove", itemID, v.RemoveMetadata(itemID))
+	assertReservedNameError(t, "Put", itemID, v.Put(itemID, nil))
+	assertReservedNameError(t, "Remove", itemID, v.Remove(itemID))
 }
 
 func assertReservedNameError(t *testing.T, method string, itemID string, err error) {
@@ -163,7 +163,7 @@ func assertReservedNameError(t *testing.T, method string, itemID string, err err
 
 func assertMetadataItems(t *testing.T, v *MetadataManager, prefix string, expected []string) {
 	t.Helper()
-	res, err := v.ListMetadata(prefix)
+	res, err := v.List(prefix)
 	if err != nil {
 		t.Errorf("error listing items beginning with %v: %v", prefix, err)
 	}

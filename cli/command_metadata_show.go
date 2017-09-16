@@ -22,7 +22,7 @@ func init() {
 func showMetadataObject(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
 
-	b, err := rep.MetadataManager.GetMetadata(*metadataShowID)
+	b, err := rep.Metadata.GetMetadata(*metadataShowID)
 	if err != nil {
 		return err
 	}

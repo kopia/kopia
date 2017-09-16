@@ -40,7 +40,7 @@ type repositorySymlink struct {
 }
 
 func (rd *repositoryDirectory) Readdir() (fs.Entries, error) {
-	r, err := rd.repo.Open(rd.metadata.ObjectID)
+	r, err := rd.repo.Objects.Open(rd.metadata.ObjectID)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func (rd *repositoryDirectory) Readdir() (fs.Entries, error) {
 }
 
 func (rf *repositoryFile) Open() (fs.Reader, error) {
-	r, err := rf.repo.Open(rf.metadata.ObjectID)
+	r, err := rf.repo.Objects.Open(rf.metadata.ObjectID)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +69,7 @@ func (rf *repositoryFile) Open() (fs.Reader, error) {
 }
 
 func (rsl *repositorySymlink) Readlink() (string, error) {
-	r, err := rsl.repo.Open(rsl.metadata.ObjectID)
+	r, err := rsl.repo.Objects.Open(rsl.metadata.ObjectID)
 	if err != nil {
 		return "", err
 	}

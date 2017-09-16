@@ -33,7 +33,7 @@ type Manager struct {
 
 // ListSources lists all snapshot sources.
 func (m *Manager) ListSources() ([]*SourceInfo, error) {
-	names, err := m.repository.ListMetadata(snapshotPrefix)
+	names, err := m.repository.Metadata.List(snapshotPrefix)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func (m *Manager) ListSources() ([]*SourceInfo, error) {
 
 // ListSnapshots lists all snapshots for a given source.
 func (m *Manager) ListSnapshots(si *SourceInfo) ([]*Manifest, error) {
-	names, err := m.repository.ListMetadata(m.snapshotIDPrefix(si))
+	names, err := m.repository.Metadata.List(m.snapshotIDPrefix(si))
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func (m *Manager) ListSnapshots(si *SourceInfo) ([]*Manifest, error) {
 
 // LoadSnapshot loads and parses a snapshot with a given ID.
 func (m *Manager) LoadSnapshot(manifestID string) (*Manifest, error) {
-	b, err := m.repository.GetMetadata(manifestID)
+	b, err := m.repository.Metadata.GetMetadata(manifestID)
 	if err != nil {
 		return nil, fmt.Errorf("error loading previous backup: %v", err)
 	}
@@ -99,7 +99,7 @@ func (m *Manager) SaveSnapshot(manifest *Manifest) (string, error) {
 		return "", fmt.Errorf("cannot marshal backup manifest to JSON: %v", err)
 	}
 
-	if err := m.repository.PutMetadata(manifestID, b); err != nil {
+	if err := m.repository.Metadata.Put(manifestID, b); err != nil {
 		return "", err
 	}
 
@@ -147,7 +147,7 @@ func (m *Manager) ListSnapshotManifests(src *SourceInfo) ([]string, error) {
 		prefix = m.snapshotIDPrefix(src)
 	}
 
-	return m.repository.ListMetadata(prefix)
+	return m.repository.Metadata.List(prefix)
 }
 
 // GetEffectivePolicy calculates effective snapshot policy for a given source by combining the source-specifc policy (if any)
@@ -228,12 +228,12 @@ func (m *Manager) SavePolicy(p *Policy) error {
 		return fmt.Errorf("cannot marshal policy to JSON: %v", err)
 	}
 
-	return m.repository.PutMetadata(m.policyID(&p.Source), b)
+	return m.repository.Metadata.Put(m.policyID(&p.Source), b)
 }
 
 // RemovePolicy removes the policy for a given source
 func (m *Manager) RemovePolicy(src *SourceInfo) error {
-	return m.repository.RemoveMetadata(m.policyID(src))
+	return m.repository.Metadata.Remove(m.policyID(src))
 }
 
 // GetPolicy retrieves the Policy for a given source, if defined.
@@ -251,7 +251,7 @@ func (m *Manager) policyID(src *SourceInfo) string {
 }
 
 func (m *Manager) getPolicyItem(itemID string) (*Policy, error) {
-	b, err := m.repository.GetMetadata(itemID)
+	b, err := m.repository.Metadata.GetMetadata(itemID)
 	if err == repo.ErrMetadataNotFound {
 		return nil, ErrPolicyNotFound
 	}
@@ -270,7 +270,7 @@ func (m *Manager) getPolicyItem(itemID string) (*Policy, error) {
 
 // ListPolicies returns a list of all snapshot policies.
 func (m *Manager) ListPolicies() ([]*Policy, error) {
-	names, err := m.repository.ListMetadata(policyPrefix)
+	names, err := m.repository.Metadata.List(policyPrefix)
 	if err != nil {
 		return nil, err
 	}
@@ -311,7 +311,7 @@ func (m *Manager) ListPolicies() ([]*Policy, error) {
 func NewManager(r *repo.Repository) *Manager {
 	return &Manager{
 		r,
-		r.DeriveKey([]byte("snapshot-id"), 32),
-		r.DeriveKey([]byte("policyID-id"), 32),
+		r.Metadata.DeriveKey([]byte("snapshot-id"), 32),
+		r.Metadata.DeriveKey([]byte("policyID-id"), 32),
 	}
 }

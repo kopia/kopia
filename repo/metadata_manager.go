@@ -66,8 +66,8 @@ type MetadataManager struct {
 	authData []byte      // additional data to authenticate
 }
 
-// PutMetadata saves the specified metadata content under a provided name.
-func (mm *MetadataManager) PutMetadata(itemID string, content []byte) error {
+// Put saves the specified metadata content under a provided name.
+func (mm *MetadataManager) Put(itemID string, content []byte) error {
 	if err := checkReservedName(itemID); err != nil {
 		return err
 	}
@@ -139,9 +139,9 @@ func (mm *MetadataManager) GetMetadata(itemID string) ([]byte, error) {
 	return mm.readEncryptedBlock(itemID)
 }
 
-// MultiGetMetadata gets the contents of a specified multiple metadata items efficiently.
+// MultiGet gets the contents of a specified multiple metadata items efficiently.
 // The results are returned as a map, with items that are not found not present in the map.
-func (mm *MetadataManager) MultiGetMetadata(itemIDs []string) (map[string][]byte, error) {
+func (mm *MetadataManager) MultiGet(itemIDs []string) (map[string][]byte, error) {
 	type singleReadResult struct {
 		id       string
 		contents []byte
@@ -205,19 +205,19 @@ func (mm *MetadataManager) putJSON(id string, content interface{}) error {
 	return mm.writeEncryptedBlock(id, j)
 }
 
-// ListMetadata returns the list of metadata items matching the specified prefix.
-func (mm *MetadataManager) ListMetadata(prefix string) ([]string, error) {
+// List returns the list of metadata items matching the specified prefix.
+func (mm *MetadataManager) List(prefix string) ([]string, error) {
 	return mm.cache.ListBlocks(prefix)
 }
 
-// ListMetadataContents retrieves metadata contents for all items starting with a given prefix.
-func (mm *MetadataManager) ListMetadataContents(prefix string) (map[string][]byte, error) {
-	itemIDs, err := mm.ListMetadata(prefix)
+// ListContents retrieves metadata contents for all items starting with a given prefix.
+func (mm *MetadataManager) ListContents(prefix string) (map[string][]byte, error) {
+	itemIDs, err := mm.List(prefix)
 	if err != nil {
 		return nil, err
 	}
 
-	return mm.MultiGetMetadata(itemIDs)
+	return mm.MultiGet(itemIDs)
 }
 
 // Config returns a configuration of storage its credentials that's suitable
@@ -236,8 +236,8 @@ func (mm *MetadataManager) connectionConfiguration() (*config.RepositoryConnecti
 	}, nil
 }
 
-// RemoveMetadata removes the specified metadata item.
-func (mm *MetadataManager) RemoveMetadata(itemID string) error {
+// Remove removes the specified metadata item.
+func (mm *MetadataManager) Remove(itemID string) error {
 	if err := checkReservedName(itemID); err != nil {
 		return err
 	}
@@ -258,7 +258,7 @@ func (mm *MetadataManager) RemoveMany(itemIDs []string) error {
 			defer wg.Done()
 
 			for id := range ch {
-				if err := mm.RemoveMetadata(id); err != nil {
+				if err := mm.Remove(id); err != nil {
 					errch <- err
 				}
 			}

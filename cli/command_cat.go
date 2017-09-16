@@ -24,7 +24,7 @@ func runCatCommand(context *kingpin.ParseContext) error {
 	if err != nil {
 		return err
 	}
-	r, err := rep.Open(oid)
+	r, err := rep.Objects.Open(oid)
 	if err != nil {
 		return err
 	}

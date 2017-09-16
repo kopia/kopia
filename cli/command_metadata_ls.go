@@ -18,7 +18,7 @@ func init() {
 func listMetadataItems(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
 
-	entries, err := rep.ListMetadata(*metadataListPrefix)
+	entries, err := rep.Metadata.List(*metadataListPrefix)
 	if err != nil {
 		return err
 	}

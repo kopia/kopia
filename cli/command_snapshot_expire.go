@@ -208,7 +208,7 @@ func runExpireCommand(context *kingpin.ParseContext) error {
 	}
 	if *snapshotExpireDelete == "yes" {
 		fmt.Fprintf(os.Stderr, "Deleting %v snapshots...\n", len(toDelete))
-		if err := rep.RemoveMany(toDelete); err != nil {
+		if err := rep.Metadata.RemoveMany(toDelete); err != nil {
 			return err
 		}
 	} else {

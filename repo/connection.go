@@ -87,7 +87,7 @@ func Connect(ctx context.Context, configFile string, st blob.Storage, creds auth
 		return err
 	}
 
-	cfg, err := r.connectionConfiguration()
+	cfg, err := r.Metadata.connectionConfiguration()
 	if err != nil {
 		return err
 	}
@@ -130,9 +130,9 @@ func connect(ctx context.Context, st blob.Storage, creds auth.Credentials, optio
 	}
 
 	return &Repository{
-		ObjectManager:   om,
-		MetadataManager: mm,
-		Storage:         st,
+		Objects:  om,
+		Metadata: mm,
+		Storage:  st,
 	}, nil
 }
 
