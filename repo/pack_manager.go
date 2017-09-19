@@ -139,7 +139,7 @@ func (p *packManager) AddToPack(packGroup string, blockID string, data []byte) (
 	g.currentPackIndex.Items[blockID] = fmt.Sprintf("%v+%v", int64(offset), int64(len(data)))
 
 	if shouldFinish {
-		log.Printf("finishing pack %q", g.currentPackID)
+		log.Printf("finishing pack %q with %v bytes", g.currentPackID, len(data))
 		if err := p.finishPackLocked(g); err != nil {
 			return NullObjectID, err
 		}
