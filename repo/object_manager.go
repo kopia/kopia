@@ -211,7 +211,7 @@ func (r *ObjectManager) verifyObjectInternal(oid ObjectID, blocks *blockTracker)
 // ok to be used.
 func (r *ObjectManager) Flush() error {
 	r.writeBackWG.Wait()
-	return r.packMgr.finishPacking()
+	return r.packMgr.Flush()
 }
 
 func nullTrace(message string, args ...interface{}) {
@@ -279,7 +279,7 @@ func (r *ObjectManager) hashEncryptAndWrite(packGroup string, buffer *bytes.Buff
 	atomic.AddInt64(&r.stats.HashedBytes, int64(len(data)))
 
 	if !isPackInternalObject && r.format.MaxPackedContentLength > 0 && len(data) <= r.format.MaxPackedContentLength {
-		packOID, err := r.packMgr.AddToPack(packGroup, prefix+objectID.StorageBlock, data)
+		packOID, err := r.packMgr.AddToPack(packGroup, objectID.StorageBlock, data)
 		return packOID, err
 	}
 
@@ -312,7 +312,7 @@ func (r *ObjectManager) hashEncryptAndWrite(packGroup string, buffer *bytes.Buff
 	}
 	r.blockSizeCache.put(objectID.StorageBlock, int64(len(data)))
 
-	r.packMgr.RegisterNonPackedBlock(prefix+objectID.StorageBlock, len(data), isPackInternalObject)
+	r.packMgr.RegisterUnpackedBlock(objectID.StorageBlock, int64(len(data)), isPackInternalObject)
 	return objectID, nil
 }
 

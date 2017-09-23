@@ -30,7 +30,7 @@ func runListObjectsAction(context *kingpin.ParseContext) error {
 			continue
 		}
 
-		fmt.Printf("D%v\n", b.BlockID)
+		fmt.Printf("D%v %10v %v\n", b.BlockID, b.Length, b.TimeStamp.Format(timeFormat))
 	}
 
 	return nil

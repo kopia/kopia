@@ -44,7 +44,7 @@ type packManager struct {
 	pendingPackIndexes    packIndexes
 	flushPackIndexesAfter time.Time
 
-	packGroups map[string]*packInfo
+	openPackGroups map[string]*packInfo
 }
 
 func (p *packManager) blockIDToPackSection(blockID string) (ObjectIDSection, bool, error) {
@@ -62,7 +62,7 @@ func (p *packManager) blockIDToPackSection(blockID string) (ObjectIDSection, boo
 		return ObjectIDSection{}, false, nil
 	}
 
-	if ndx.PackObject == "" {
+	if ndx.PackBlockID == "" {
 		return ObjectIDSection{}, false, nil
 	}
 
@@ -74,13 +74,13 @@ func (p *packManager) blockIDToPackSection(blockID string) (ObjectIDSection, boo
 	if plus := strings.IndexByte(blk, '+'); plus > 0 {
 		if start, err := strconv.ParseInt(blk[0:plus], 10, 64); err == nil {
 			if length, err := strconv.ParseInt(blk[plus+1:], 10, 64); err == nil {
-				if base, err := ParseObjectID(ndx.PackObject); err == nil {
-					if base.StorageBlock == blockID {
+				if ndx.PackBlockID != "" {
+					if ndx.PackBlockID == blockID {
 						// this is possible for a single-element pack
 						return ObjectIDSection{}, false, nil
 					}
 					return ObjectIDSection{
-						Base:   base,
+						Base:   ObjectID{StorageBlock: ndx.PackBlockID},
 						Start:  start,
 						Length: length,
 					}, true, nil
@@ -92,10 +92,20 @@ func (p *packManager) blockIDToPackSection(blockID string) (ObjectIDSection, boo
 	return ObjectIDSection{}, false, fmt.Errorf("invalid pack index for %q", blockID)
 }
 
-func (p *packManager) RegisterNonPackedBlock(blockID string, dataLength int, isInternal bool) error {
+func (p *packManager) RegisterUnpackedBlock(blockID string, dataLength int64, isInternal bool) error {
+	if strings.HasPrefix(blockID, packObjectPrefix) {
+		return nil
+	}
+
 	if !isInternal {
 		p.mu.Lock()
 		defer p.mu.Unlock()
+	}
+
+	// See if we already have this block ID in an unpacked pack group.
+	ndx, ok := p.blockToIndex[blockID]
+	if ok && ndx.PackGroup == unpackedObjectsPackGroup {
+		return nil
 	}
 
 	g := p.ensurePackGroupLocked(unpackedObjectsPackGroup)
@@ -111,6 +121,10 @@ func (p *packManager) RegisterNonPackedBlock(blockID string, dataLength int, isI
 }
 
 func (p *packManager) AddToPack(packGroup string, blockID string, data []byte) (ObjectID, error) {
+	if strings.HasPrefix(blockID, packObjectPrefix) {
+		return NullObjectID, fmt.Errorf("pack objects can't be packed: %v", blockID)
+	}
+
 	p.ensurePackIndexesLoaded()
 
 	p.mu.Lock()
@@ -158,12 +172,12 @@ func (p *packManager) finishPackAndMaybeFlushIndexes(g *packInfo) error {
 }
 
 func (p *packManager) ensurePackGroupLocked(packGroup string) *packInfo {
-	g := p.packGroups[packGroup]
+	g := p.openPackGroups[packGroup]
 	if g == nil {
 		g = &packInfo{
 			splitter: p.objectManager.newSplitter(),
 		}
-		p.packGroups[packGroup] = g
+		p.openPackGroups[packGroup] = g
 	}
 
 	if g.currentPackIndex == nil {
@@ -179,25 +193,10 @@ func (p *packManager) ensurePackGroupLocked(packGroup string) *packInfo {
 	return g
 }
 
-func (p *packManager) finishPacking() error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	if err := p.finishCurrentPackLocked(); err != nil {
-		return err
-	}
-
-	if err := p.flushPackIndexesLocked(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (p *packManager) flushPackIndexesLocked() error {
 	if len(p.pendingPackIndexes) > 0 {
 		log.Printf("saving %v pack indexes", len(p.pendingPackIndexes))
-		if err := p.writePackIndexes(p.pendingPackIndexes); err != nil {
+		if _, err := p.writePackIndexes(p.pendingPackIndexes); err != nil {
 			return err
 		}
 	}
@@ -207,7 +206,7 @@ func (p *packManager) flushPackIndexesLocked() error {
 	return nil
 }
 
-func (p *packManager) writePackIndexes(ndx packIndexes) error {
+func (p *packManager) writePackIndexes(ndx packIndexes) (string, error) {
 	w := p.objectManager.NewWriter(WriterOptions{
 		isPackInternalObject: true,
 		Description:          "pack index",
@@ -218,18 +217,24 @@ func (p *packManager) writePackIndexes(ndx packIndexes) error {
 
 	zw := gzip.NewWriter(w)
 	if err := json.NewEncoder(zw).Encode(ndx); err != nil {
-		return fmt.Errorf("can't encode pack index: %v", err)
+		return "", fmt.Errorf("can't encode pack index: %v", err)
 	}
 	zw.Close()
 
-	if _, err := w.Result(); err != nil {
-		return fmt.Errorf("can't save pack index object: %v", err)
+	oid, err := w.Result()
+	if err != nil {
+		return "", fmt.Errorf("can't save pack index object: %v", err)
 	}
 
-	return nil
+	if oid.StorageBlock == "" {
+		return "", fmt.Errorf("unexpected empty storage block: %v", oid)
+	}
+
+	return oid.StorageBlock, nil
 }
-func (p *packManager) finishCurrentPackLocked() error {
-	for _, g := range p.packGroups {
+
+func (p *packManager) finishAllOpenPacksLocked() error {
+	for _, g := range p.openPackGroups {
 		if err := p.finishPackLocked(g); err != nil {
 			return err
 		}
@@ -262,7 +267,11 @@ func (p *packManager) finishPackLocked(g *packInfo) error {
 			return fmt.Errorf("can't save pack data: %v", err)
 		}
 
-		g.currentPackIndex.PackObject = oid.String()
+		if oid.StorageBlock == "" {
+			return fmt.Errorf("storage block is empty: %v", oid)
+		}
+
+		g.currentPackIndex.PackBlockID = oid.StorageBlock
 	}
 
 	g.currentPackIndex = nil
@@ -332,7 +341,8 @@ func (p *packManager) loadMergedPackIndex(olderThan *time.Time) (map[string]*pac
 		log.Printf("loaded %v pack indexes (%v bytes) in %v", len(packIndexData), totalSize, time.Since(t0))
 	}
 
-	merged := make(packIndexes)
+	var indexes []packIndexes
+
 	for blockID, content := range packIndexData {
 		var r io.Reader = bytes.NewReader(content)
 		zr, err := gzip.NewReader(r)
@@ -344,6 +354,34 @@ func (p *packManager) loadMergedPackIndex(olderThan *time.Time) (map[string]*pac
 		if err != nil {
 			return nil, nil, err
 		}
+
+		indexes = append(indexes, pi)
+	}
+
+	topLevelBlocks := map[string]bool{}
+
+	for _, pi := range indexes {
+		for _, ndx := range pi {
+			if ndx.PackGroup == unpackedObjectsPackGroup {
+				for blockID := range ndx.Items {
+					topLevelBlocks[blockID] = true
+				}
+			}
+		}
+	}
+
+	for _, pi := range indexes {
+		for _, ndx := range pi {
+			if ndx.PackGroup != unpackedObjectsPackGroup {
+				if !topLevelBlocks[ndx.PackBlockID] {
+					log.Printf("warning: pack block %q (%v) not found", ndx.PackBlockID, ndx.CreateTime)
+				}
+			}
+		}
+	}
+
+	merged := make(packIndexes)
+	for _, pi := range indexes {
 		merged.merge(pi)
 	}
 
@@ -392,7 +430,8 @@ func (p *packManager) Compact(cutoffTime time.Time) error {
 
 	log.Printf("writing %v merged indexes", len(merged))
 
-	if err := p.writePackIndexes(merged); err != nil {
+	compactedBlock, err := p.writePackIndexes(merged)
+	if err != nil {
 		return err
 	}
 
@@ -405,6 +444,10 @@ func (p *packManager) Compact(cutoffTime time.Time) error {
 			defer wg.Done()
 
 			for blockID := range ch {
+				if blockID == compactedBlock {
+					log.Printf("warning: sanity check failed, not deleting freshly-written compacted index: %q", compactedBlock)
+					continue
+				}
 				if err := p.objectManager.storage.DeleteBlock(blockID); err != nil {
 					log.Printf("warning: unable to delete %q: %v", blockID, err)
 				}
@@ -437,13 +480,21 @@ func (p *packManager) Flush() error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	return p.finishCurrentPackLocked()
+	if err := p.finishAllOpenPacksLocked(); err != nil {
+		return err
+	}
+
+	if err := p.flushPackIndexesLocked(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func newPackManager(om *ObjectManager) *packManager {
 	return &packManager{
 		objectManager:         om,
-		packGroups:            make(map[string]*packInfo),
+		openPackGroups:        make(map[string]*packInfo),
 		flushPackIndexesAfter: time.Now().Add(flushPackIndexTimeout),
 		pendingPackIndexes:    make(packIndexes),
 	}
