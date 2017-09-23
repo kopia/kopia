@@ -47,13 +47,6 @@ type packManager struct {
 	packGroups map[string]*packInfo
 }
 
-func (p *packManager) enabled() bool {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	return p.pendingPackIndexes != nil
-}
-
 func (p *packManager) blockIDToPackSection(blockID string) (ObjectIDSection, bool, error) {
 	if strings.HasPrefix(blockID, packObjectPrefix) {
 		return ObjectIDSection{}, false, nil
@@ -99,21 +92,10 @@ func (p *packManager) blockIDToPackSection(blockID string) (ObjectIDSection, boo
 	return ObjectIDSection{}, false, fmt.Errorf("invalid pack index for %q", blockID)
 }
 
-func (p *packManager) begin() error {
-	p.ensurePackIndexesLoaded()
-	p.flushPackIndexesAfter = time.Now().Add(flushPackIndexTimeout)
-	p.pendingPackIndexes = make(packIndexes)
-	return nil
-}
-
 func (p *packManager) RegisterNonPackedBlock(blockID string, dataLength int, isInternal bool) error {
 	if !isInternal {
 		p.mu.Lock()
 		defer p.mu.Unlock()
-	}
-
-	if p.pendingPackIndexes == nil {
-		return nil
 	}
 
 	g := p.ensurePackGroupLocked(unpackedObjectsPackGroup)
@@ -129,6 +111,8 @@ func (p *packManager) RegisterNonPackedBlock(blockID string, dataLength int, isI
 }
 
 func (p *packManager) AddToPack(packGroup string, blockID string, data []byte) (ObjectID, error) {
+	p.ensurePackIndexesLoaded()
+
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -207,7 +191,6 @@ func (p *packManager) finishPacking() error {
 		return err
 	}
 
-	p.pendingPackIndexes = nil
 	return nil
 }
 
@@ -281,6 +264,7 @@ func (p *packManager) finishPackLocked(g *packInfo) error {
 
 		g.currentPackIndex.PackObject = oid.String()
 	}
+
 	g.currentPackIndex = nil
 
 	return nil
@@ -454,4 +438,13 @@ func (p *packManager) Flush() error {
 	defer p.mu.Unlock()
 
 	return p.finishCurrentPackLocked()
+}
+
+func newPackManager(om *ObjectManager) *packManager {
+	return &packManager{
+		objectManager:         om,
+		packGroups:            make(map[string]*packInfo),
+		flushPackIndexesAfter: time.Now().Add(flushPackIndexTimeout),
+		pendingPackIndexes:    make(packIndexes),
+	}
 }

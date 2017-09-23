@@ -129,20 +129,12 @@ func TestPackingSimple(t *testing.T) {
 	content2 := "hi, how are you?"
 	content3 := "thank you!"
 
-	if err := repo.Objects.BeginPacking(); err != nil {
-		t.Fatalf("error in BeginPacking: %v", err)
-	}
-
 	oid1a := writeObject(t, repo, []byte(content1), "packed-object-1a")
 	oid1b := writeObject(t, repo, []byte(content1), "packed-object-1b")
 	oid2a := writeObject(t, repo, []byte(content2), "packed-object-2a")
 	oid2b := writeObject(t, repo, []byte(content2), "packed-object-2b")
 
-	repo.Objects.FinishPacking()
-
-	if err := repo.Objects.BeginPacking(); err != nil {
-		t.Fatalf("error in BeginPacking: %v", err)
-	}
+	repo.Objects.Flush()
 
 	oid3a := writeObject(t, repo, []byte(content3), "packed-object-3a")
 	oid3b := writeObject(t, repo, []byte(content3), "packed-object-3b")
@@ -151,7 +143,7 @@ func TestPackingSimple(t *testing.T) {
 	oid2c := writeObject(t, repo, []byte(content2), "packed-object-2c")
 	oid1c := writeObject(t, repo, []byte(content1), "packed-object-1c")
 
-	repo.Objects.FinishPacking()
+	repo.Objects.Flush()
 
 	if got, want := oid1a.String(), oid1b.String(); got != want {
 		t.Errorf("oid1a(%q) != oid1b(%q)", got, want)

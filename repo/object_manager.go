@@ -49,8 +49,7 @@ type ObjectManager struct {
 func (r *ObjectManager) Close() error {
 	r.writeBackWG.Wait()
 	r.blockSizeCache.close()
-
-	return nil
+	return r.Flush()
 }
 
 // Optimize performs object optimizations to improve performance of future operations.
@@ -208,13 +207,10 @@ func (r *ObjectManager) verifyObjectInternal(oid ObjectID, blocks *blockTracker)
 	return l, nil
 }
 
-// BeginPacking enables creation of pack files.
-func (r *ObjectManager) BeginPacking() error {
-	return r.packMgr.begin()
-}
-
-// FinishPacking closes any pending pack files. Once this method returns
-func (r *ObjectManager) FinishPacking() error {
+// Flush closes any pending pack files. Once this method returns, ObjectIDs returned by ObjectManager are
+// ok to be used.
+func (r *ObjectManager) Flush() error {
+	r.writeBackWG.Wait()
 	return r.packMgr.finishPacking()
 }
 
@@ -262,10 +258,7 @@ func newObjectManager(s blob.Storage, f config.RepositoryObjectFormat, opts *Opt
 		}
 	}
 
-	r.packMgr = &packManager{
-		objectManager: r,
-		packGroups:    make(map[string]*packInfo),
-	}
+	r.packMgr = newPackManager(r)
 
 	return r, nil
 }
@@ -285,7 +278,7 @@ func (r *ObjectManager) hashEncryptAndWrite(packGroup string, buffer *bytes.Buff
 	atomic.AddInt32(&r.stats.HashedBlocks, 1)
 	atomic.AddInt64(&r.stats.HashedBytes, int64(len(data)))
 
-	if !isPackInternalObject && r.packMgr.enabled() && r.format.MaxPackedContentLength > 0 && len(data) <= r.format.MaxPackedContentLength {
+	if !isPackInternalObject && r.format.MaxPackedContentLength > 0 && len(data) <= r.format.MaxPackedContentLength {
 		packOID, err := r.packMgr.AddToPack(packGroup, prefix+objectID.StorageBlock, data)
 		return packOID, err
 	}

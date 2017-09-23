@@ -219,10 +219,6 @@ func (u *Uploader) uploadFile(file fs.File) (repo.ObjectID, error) {
 func (u *Uploader) uploadDir(dir fs.Directory) (repo.ObjectID, repo.ObjectID, error) {
 	var err error
 
-	if err := u.repo.Objects.BeginPacking(); err != nil {
-		return repo.NullObjectID, repo.NullObjectID, err
-	}
-
 	mw := u.repo.Objects.NewWriter(repo.WriterOptions{
 		Description:     "HASHCACHE:" + dir.Metadata().Name,
 		BlockNamePrefix: "H",
@@ -244,8 +240,8 @@ func (u *Uploader) uploadDir(dir fs.Directory) (repo.ObjectID, repo.ObjectID, er
 	}
 
 	hcid, err := mw.Result()
-	if err := u.repo.Objects.FinishPacking(); err != nil {
-		return repo.NullObjectID, repo.NullObjectID, fmt.Errorf("can't finish packing: %v", err)
+	if err := u.repo.Objects.Flush(); err != nil {
+		return repo.NullObjectID, repo.NullObjectID, fmt.Errorf("can't flush pending objects: %v", err)
 	}
 	return oid, hcid, err
 }

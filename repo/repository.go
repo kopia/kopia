@@ -79,8 +79,7 @@ func (r *Repository) Close() error {
 
 // Flush waits for all in-flight writes to complete.
 func (r *Repository) Flush() error {
-	r.Objects.writeBackWG.Wait()
-	return nil
+	return r.Objects.Flush()
 }
 
 // ResetStats resets all repository-wide statistics to zero values.
