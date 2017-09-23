@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -20,6 +19,8 @@ import (
 
 const flushPackIndexTimeout = 10 * time.Minute
 const packObjectPrefix = "P"
+const unpackedObjectsPackGroup = "_unpacked_"
+const maxNonPackedBlocksPerPackIndex = 200
 
 type packInfo struct {
 	currentPackData  bytes.Buffer
@@ -68,6 +69,10 @@ func (p *packManager) blockIDToPackSection(blockID string) (ObjectIDSection, boo
 		return ObjectIDSection{}, false, nil
 	}
 
+	if ndx.PackObject == "" {
+		return ObjectIDSection{}, false, nil
+	}
+
 	blk := ndx.Items[blockID]
 	if blk == "" {
 		return ObjectIDSection{}, false, nil
@@ -101,6 +106,28 @@ func (p *packManager) begin() error {
 	return nil
 }
 
+func (p *packManager) RegisterNonPackedBlock(blockID string, dataLength int, isInternal bool) error {
+	if !isInternal {
+		p.mu.Lock()
+		defer p.mu.Unlock()
+	}
+
+	if p.pendingPackIndexes == nil {
+		return nil
+	}
+
+	g := p.ensurePackGroupLocked(unpackedObjectsPackGroup)
+	g.currentPackIndex.Items[blockID] = fmt.Sprintf("0+%v", dataLength)
+
+	if time.Now().After(p.flushPackIndexesAfter) || len(g.currentPackIndex.Items) > maxNonPackedBlocksPerPackIndex {
+		if err := p.finishPackAndMaybeFlushIndexes(g); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (p *packManager) AddToPack(packGroup string, blockID string, data []byte) (ObjectID, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -110,6 +137,43 @@ func (p *packManager) AddToPack(packGroup string, blockID string, data []byte) (
 		return ObjectID{StorageBlock: blockID}, nil
 	}
 
+	g := p.ensurePackGroupLocked(packGroup)
+
+	offset := g.currentPackData.Len()
+	shouldFinish := false
+	for _, d := range data {
+		if g.splitter.add(d) {
+			shouldFinish = true
+		}
+	}
+	g.currentPackData.Write(data)
+	g.currentPackIndex.Items[blockID] = fmt.Sprintf("%v+%v", int64(offset), int64(len(data)))
+	p.blockToIndex[blockID] = g.currentPackIndex
+
+	if shouldFinish {
+		if err := p.finishPackAndMaybeFlushIndexes(g); err != nil {
+			return NullObjectID, err
+		}
+	}
+
+	return ObjectID{StorageBlock: blockID}, nil
+}
+
+func (p *packManager) finishPackAndMaybeFlushIndexes(g *packInfo) error {
+	if err := p.finishPackLocked(g); err != nil {
+		return err
+	}
+
+	if time.Now().After(p.flushPackIndexesAfter) {
+		if err := p.flushPackIndexesLocked(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (p *packManager) ensurePackGroupLocked(packGroup string) *packInfo {
 	g := p.packGroups[packGroup]
 	if g == nil {
 		g = &packInfo{
@@ -128,31 +192,7 @@ func (p *packManager) AddToPack(packGroup string, blockID string, data []byte) (
 		g.currentPackData.Reset()
 	}
 
-	offset := g.currentPackData.Len()
-	shouldFinish := false
-	for _, d := range data {
-		if g.splitter.add(d) {
-			shouldFinish = true
-		}
-	}
-	g.currentPackData.Write(data)
-	g.currentPackIndex.Items[blockID] = fmt.Sprintf("%v+%v", int64(offset), int64(len(data)))
-
-	if shouldFinish {
-		log.Printf("finishing pack %q with %v bytes", g.currentPackID, len(data))
-		if err := p.finishPackLocked(g); err != nil {
-			return NullObjectID, err
-		}
-
-		if time.Now().After(p.flushPackIndexesAfter) {
-			if err := p.flushPackIndexesLocked(); err != nil {
-				return NullObjectID, err
-			}
-		}
-	}
-
-	p.blockToIndex[blockID] = g.currentPackIndex
-	return ObjectID{StorageBlock: blockID}, nil
+	return g
 }
 
 func (p *packManager) finishPacking() error {
@@ -220,24 +260,27 @@ func (p *packManager) finishPackLocked(g *packInfo) error {
 		return nil
 	}
 	p.pendingPackIndexes[g.currentPackID] = g.currentPackIndex
-	w := p.objectManager.NewWriter(WriterOptions{
-		Description:          fmt.Sprintf("pack:%v", g.currentPackID),
-		splitter:             newNeverSplitter(),
-		isPackInternalObject: true,
-	})
-	defer w.Close()
 
-	if _, err := g.currentPackData.WriteTo(w); err != nil {
-		return fmt.Errorf("unable to write pack: %v", err)
+	if g.currentPackData.Len() > 0 {
+		w := p.objectManager.NewWriter(WriterOptions{
+			Description:          fmt.Sprintf("pack:%v", g.currentPackID),
+			splitter:             newNeverSplitter(),
+			isPackInternalObject: true,
+		})
+		defer w.Close()
+
+		if _, err := g.currentPackData.WriteTo(w); err != nil {
+			return fmt.Errorf("unable to write pack: %v", err)
+		}
+		g.currentPackData.Reset()
+		oid, err := w.Result()
+
+		if err != nil {
+			return fmt.Errorf("can't save pack data: %v", err)
+		}
+
+		g.currentPackIndex.PackObject = oid.String()
 	}
-	g.currentPackData.Reset()
-	oid, err := w.Result()
-
-	if err != nil {
-		return fmt.Errorf("can't save pack data: %v", err)
-	}
-
-	g.currentPackIndex.PackObject = oid.String()
 	g.currentPackIndex = nil
 
 	return nil
@@ -403,7 +446,7 @@ func makeStringChannel(s []string) <-chan string {
 func (p *packManager) newPackID() string {
 	id := make([]byte, 8)
 	rand.Read(id)
-	return hex.EncodeToString(id)
+	return fmt.Sprintf("%x-%x", time.Now().UnixNano(), id)
 }
 
 func (p *packManager) Flush() error {

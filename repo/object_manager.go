@@ -319,6 +319,7 @@ func (r *ObjectManager) hashEncryptAndWrite(packGroup string, buffer *bytes.Buff
 	}
 	r.blockSizeCache.put(objectID.StorageBlock, int64(len(data)))
 
+	r.packMgr.RegisterNonPackedBlock(prefix+objectID.StorageBlock, len(data), isPackInternalObject)
 	return objectID, nil
 }
 
