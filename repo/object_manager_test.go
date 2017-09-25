@@ -240,13 +240,13 @@ func TestIndirection(t *testing.T) {
 		expectedBlockCount  int
 		expectedIndirection int
 	}{
-		//{dataLength: 200, expectedBlockCount: 1, expectedIndirection: 0},
+		{dataLength: 200, expectedBlockCount: 1, expectedIndirection: 0},
 		{dataLength: 250, expectedBlockCount: 3, expectedIndirection: 1},
-		// {dataLength: 1400, expectedBlockCount: 7, expectedIndirection: 3},
-		// {dataLength: 2000, expectedBlockCount: 8, expectedIndirection: 3},
-		// {dataLength: 3000, expectedBlockCount: 9, expectedIndirection: 3},
-		// {dataLength: 4000, expectedBlockCount: 14, expectedIndirection: 4},
-		// {dataLength: 10000, expectedBlockCount: 25, expectedIndirection: 4},
+		{dataLength: 1400, expectedBlockCount: 7, expectedIndirection: 3},
+		{dataLength: 2000, expectedBlockCount: 8, expectedIndirection: 3},
+		{dataLength: 3000, expectedBlockCount: 9, expectedIndirection: 3},
+		{dataLength: 4000, expectedBlockCount: 14, expectedIndirection: 4},
+		{dataLength: 10000, expectedBlockCount: 25, expectedIndirection: 4},
 	}
 
 	for _, c := range cases {

@@ -65,12 +65,11 @@ func (r *ObjectManager) Optimize(cutoffTime time.Time) error {
 // NewWriter creates an ObjectWriter for writing to the repository.
 func (r *ObjectManager) NewWriter(opt WriterOptions) ObjectWriter {
 	w := &objectWriter{
-		repo:                 r,
-		splitter:             r.newSplitter(),
-		description:          opt.Description,
-		prefix:               opt.BlockNamePrefix,
-		isPackInternalObject: opt.isPackInternalObject,
-		packGroup:            opt.PackGroup,
+		repo:        r,
+		splitter:    r.newSplitter(),
+		description: opt.Description,
+		prefix:      opt.BlockNamePrefix,
+		packGroup:   opt.PackGroup,
 	}
 
 	if opt.splitter != nil {
@@ -278,28 +277,30 @@ func (r *ObjectManager) hashEncryptAndWrite(packGroup string, buffer *bytes.Buff
 	atomic.AddInt32(&r.stats.HashedBlocks, 1)
 	atomic.AddInt64(&r.stats.HashedBytes, int64(len(data)))
 
-	if !isPackInternalObject && r.format.MaxPackedContentLength > 0 && len(data) <= r.format.MaxPackedContentLength {
-		packOID, err := r.packMgr.AddToPack(packGroup, objectID.StorageBlock, data)
-		return packOID, err
-	}
+	if !isPackInternalObject {
+		if r.format.MaxPackedContentLength > 0 && len(data) <= r.format.MaxPackedContentLength {
+			packOID, err := r.packMgr.AddToPack(packGroup, objectID.StorageBlock, data)
+			return packOID, err
+		}
 
-	// Before performing encryption, check if the block is already there.
-	blockSize, err := r.blockSizeCache.getSize(objectID.StorageBlock)
-	atomic.AddInt32(&r.stats.CheckedBlocks, int32(1))
-	if err == nil && blockSize == int64(len(data)) {
-		atomic.AddInt32(&r.stats.PresentBlocks, int32(1))
-		// Block already exists in storage, correct size, return without uploading.
-		return objectID, nil
-	}
+		// Before performing encryption, check if the block is already there.
+		blockSize, err := r.blockSizeCache.getSize(objectID.StorageBlock)
+		atomic.AddInt32(&r.stats.CheckedBlocks, int32(1))
+		if err == nil && blockSize == int64(len(data)) {
+			atomic.AddInt32(&r.stats.PresentBlocks, int32(1))
+			// Block already exists in storage, correct size, return without uploading.
+			return objectID, nil
+		}
 
-	if err != nil && err != blob.ErrBlockNotFound {
-		// Don't know whether block exists in storage.
-		return NullObjectID, err
+		if err != nil && err != blob.ErrBlockNotFound {
+			// Don't know whether block exists in storage.
+			return NullObjectID, err
+		}
 	}
 
 	// Encrypt the block in-place.
 	atomic.AddInt64(&r.stats.EncryptedBytes, int64(len(data)))
-	data, err = r.formatter.Encrypt(data, objectID, 0)
+	data, err := r.formatter.Encrypt(data, objectID, 0)
 	if err != nil {
 		return NullObjectID, err
 	}
@@ -312,7 +313,9 @@ func (r *ObjectManager) hashEncryptAndWrite(packGroup string, buffer *bytes.Buff
 	}
 	r.blockSizeCache.put(objectID.StorageBlock, int64(len(data)))
 
-	r.packMgr.RegisterUnpackedBlock(objectID.StorageBlock, int64(len(data)), isPackInternalObject)
+	if !isPackInternalObject {
+		r.packMgr.RegisterUnpackedBlock(objectID.StorageBlock, int64(len(data)))
+	}
 	return objectID, nil
 }
 
