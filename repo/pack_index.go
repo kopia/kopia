@@ -1,12 +1,15 @@
 package repo
 
 import (
+	"bufio"
 	"encoding/json"
 	"io"
 	"time"
 )
 
-type packIndexes map[string]*packIndex
+type packIndexesOld map[string]*packIndex
+
+type packIndexes []*packIndex
 
 type packIndex struct {
 	PackBlockID string            `json:"packBlock,omitempty"`
@@ -16,20 +19,31 @@ type packIndex struct {
 }
 
 func loadPackIndexes(r io.Reader) (packIndexes, error) {
+	b := bufio.NewReader(r)
+	peek, err := b.Peek(1)
+	if err != nil {
+		return nil, err
+	}
+
+	if peek[0] == '{' {
+		var old packIndexesOld
+
+		if err := json.NewDecoder(b).Decode(&old); err != nil {
+			return nil, err
+		}
+
+		var pi packIndexes
+		for _, v := range old {
+			pi = append(pi, v)
+		}
+		return pi, nil
+	}
+
 	var pi packIndexes
 
-	if err := json.NewDecoder(r).Decode(&pi); err != nil {
+	if err := json.NewDecoder(b).Decode(&pi); err != nil {
 		return nil, err
 	}
 
 	return pi, nil
-}
-
-func (i packIndexes) merge(other packIndexes) {
-	for packID, ndx := range other {
-		old := i[packID]
-		if old == nil || ndx.CreateTime.After(old.CreateTime) {
-			i[packID] = ndx
-		}
-	}
 }

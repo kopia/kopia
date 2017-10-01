@@ -43,7 +43,7 @@ func (v *verifier) verifyDirectory(oid repo.ObjectID, path string) error {
 	d := v.mgr.DirectoryEntry(oid)
 	entries, err := d.Readdir()
 	if err != nil {
-		if v.reportError(path, err) {
+		if v.reportError(path, fmt.Errorf("error reading directory %q %v: %v", path, oid, err)) {
 			return err
 		}
 	}

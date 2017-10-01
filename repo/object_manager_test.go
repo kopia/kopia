@@ -432,6 +432,7 @@ func writeObject(t *testing.T, repo *Repository, data []byte, testCaseID string)
 }
 
 func verify(t *testing.T, repo *Repository, objectID ObjectID, expectedData []byte, testCaseID string) {
+	t.Helper()
 	reader, err := repo.Objects.Open(objectID)
 	if err != nil {
 		t.Errorf("cannot get reader for %v (%v): %v %v", testCaseID, objectID, err, string(debug.Stack()))

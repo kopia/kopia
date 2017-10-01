@@ -13,8 +13,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"github.com/kopia/kopia/blob"
 )
 
 const flushPackIndexTimeout = 10 * time.Minute
@@ -36,7 +34,6 @@ type blockLocation struct {
 
 type packManager struct {
 	objectManager *ObjectManager
-	storage       blob.Storage
 
 	mu           sync.Mutex
 	blockToIndex map[string]*packIndex
@@ -209,7 +206,7 @@ func (p *packManager) flushPackIndexesLocked() error {
 	}
 
 	p.flushPackIndexesAfter = time.Now().Add(flushPackIndexTimeout)
-	p.pendingPackIndexes = make(packIndexes)
+	p.pendingPackIndexes = nil
 	return nil
 }
 
@@ -267,13 +264,13 @@ func (p *packManager) finishPackLocked(g *packInfo) error {
 		g.currentPackIndex.PackBlockID = oid.StorageBlock
 	}
 
-	p.pendingPackIndexes[g.currentPackID] = g.currentPackIndex
+	p.pendingPackIndexes = append(p.pendingPackIndexes, g.currentPackIndex)
 	g.currentPackIndex = nil
 
 	return nil
 }
 
-func (p *packManager) loadMergedPackIndexLocked(olderThan *time.Time) (map[string]*packIndex, []string, error) {
+func (p *packManager) loadMergedPackIndexLocked(olderThan *time.Time) (packIndexes, []string, error) {
 	ch, cancel := p.objectManager.storage.ListBlocks(packObjectPrefix)
 	defer cancel()
 
@@ -374,9 +371,9 @@ func (p *packManager) loadMergedPackIndexLocked(olderThan *time.Time) (map[strin
 		}
 	}
 
-	merged := make(packIndexes)
+	var merged packIndexes
 	for _, pi := range indexes {
-		merged.merge(pi)
+		merged = append(merged, pi...)
 	}
 
 	return merged, blockIDs, nil
@@ -393,17 +390,40 @@ func (p *packManager) ensurePackIndexesLoaded() (map[string]*packIndex, error) {
 		return nil, err
 	}
 
-	pi = make(map[string]*packIndex)
-	for _, pck := range merged {
+	p.blockToIndex = dedupeBlockIDsAndIndex(merged)
+
+	return p.blockToIndex, nil
+}
+
+func dedupeBlockIDsAndIndex(ndx packIndexes) map[string]*packIndex {
+	pi := make(map[string]*packIndex)
+	for _, pck := range ndx {
 		for blockID := range pck.Items {
-			pi[blockID] = pck
+			if o := pi[blockID]; o != nil {
+				if !pck.CreateTime.Before(o.CreateTime) {
+					// this pack is same or newer.
+					delete(o.Items, blockID)
+					pi[blockID] = pck
+				} else {
+					// this pack is older.
+					delete(pck.Items, blockID)
+				}
+			} else {
+				pi[blockID] = pck
+			}
 		}
 	}
+	return pi
+}
 
-	p.blockToIndex = pi
-	// log.Printf("loaded pack index with %v entries", len(p.blockToIndex))
-
-	return pi, nil
+func removeEmptyIndexes(ndx packIndexes) packIndexes {
+	var res packIndexes
+	for _, n := range ndx {
+		if len(n.Items) > 0 {
+			res = append(res, n)
+		}
+	}
+	return res
 }
 
 func (p *packManager) Compact(cutoffTime time.Time) error {
@@ -415,8 +435,12 @@ func (p *packManager) Compact(cutoffTime time.Time) error {
 		return err
 	}
 
+	dedupeBlockIDsAndIndex(merged)
+
+	merged = removeEmptyIndexes(merged)
+
 	if len(blockIDs) <= 1 {
-		log.Printf("skipping index compaction - the number of segments %v is too low", len(blockIDs))
+		log.Printf("skipping index compaction - already compacted")
 		return nil
 	}
 
@@ -488,6 +512,6 @@ func newPackManager(om *ObjectManager) *packManager {
 		objectManager:         om,
 		openPackGroups:        make(map[string]*packInfo),
 		flushPackIndexesAfter: time.Now().Add(flushPackIndexTimeout),
-		pendingPackIndexes:    make(packIndexes),
+		pendingPackIndexes:    nil,
 	}
 }
