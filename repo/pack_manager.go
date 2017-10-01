@@ -13,6 +13,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/kopia/kopia/blob"
 )
 
 const flushPackIndexTimeout = 10 * time.Minute
@@ -42,6 +44,35 @@ type packManager struct {
 	flushPackIndexesAfter time.Time
 
 	openPackGroups map[string]*packInfo
+}
+
+func (p *packManager) blockSize(blockID string) (int64, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	pi, err := p.ensurePackIndexesLoaded()
+	if err != nil {
+		return 0, fmt.Errorf("can't load pack index: %v", err)
+	}
+
+	ndx := pi[blockID]
+	if ndx == nil {
+		return 0, blob.ErrBlockNotFound
+	}
+
+	blk := ndx.Items[blockID]
+	if blk == "" {
+		return 0, blob.ErrBlockNotFound
+	}
+
+	if plus := strings.IndexByte(blk, '+'); plus > 0 {
+		if length, err := strconv.ParseInt(blk[plus+1:], 10, 64); err == nil {
+			return length, nil
+		}
+	}
+
+	return 0, fmt.Errorf("invalid pack index for %q", blockID)
+
 }
 
 func (p *packManager) blockIDToPackSection(blockID string) (ObjectIDSection, bool, error) {
@@ -121,6 +152,7 @@ func (p *packManager) registerUnpackedBlockLockedNoFlush(blockID string, dataLen
 	}
 
 	g.currentPackIndex.Items[blockID] = fmt.Sprintf("0+%v", dataLength)
+	p.blockToIndex[blockID] = g.currentPackIndex
 	return g
 
 }

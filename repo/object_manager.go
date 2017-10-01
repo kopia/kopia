@@ -33,8 +33,7 @@ type ObjectManager struct {
 	format    config.RepositoryObjectFormat
 	formatter objectFormatter
 
-	packMgr        *packManager
-	blockSizeCache *blockSizeCache
+	packMgr *packManager
 
 	async              bool
 	writeBackWG        sync.WaitGroup
@@ -48,7 +47,6 @@ type ObjectManager struct {
 // Close closes the connection to the underlying blob storage and releases any resources.
 func (r *ObjectManager) Close() error {
 	r.writeBackWG.Wait()
-	r.blockSizeCache.close()
 	return r.Flush()
 }
 
@@ -136,6 +134,7 @@ func (r *ObjectManager) VerifyObject(oid ObjectID) (int64, []string, error) {
 }
 
 func (r *ObjectManager) verifyObjectInternal(oid ObjectID, blocks *blockTracker) (int64, error) {
+	log.Printf("verifyObjectInternal %v", oid)
 	if oid.Section != nil {
 		l, err := r.verifyObjectInternal(oid.Section.Base, blocks)
 		if err != nil {
@@ -197,7 +196,7 @@ func (r *ObjectManager) verifyObjectInternal(oid ObjectID, blocks *blockTracker)
 		return 0, fmt.Errorf("packed object %v does not fit within its parent pack %v (pack length %v)", oid, p, l)
 	}
 
-	l, err := r.blockSizeCache.getSize(oid.StorageBlock)
+	l, err := r.packMgr.blockSize(oid.StorageBlock)
 	if err != nil {
 		return 0, fmt.Errorf("unable to read %q: %v", oid.StorageBlock, err)
 	}
@@ -224,10 +223,9 @@ func newObjectManager(s blob.Storage, f config.RepositoryObjectFormat, opts *Opt
 
 	sf := objectFormatterFactories[f.ObjectFormat]
 	r := &ObjectManager{
-		storage:        s,
-		format:         f,
-		blockSizeCache: newBlockSizeCache(s),
-		trace:          nullTrace,
+		storage: s,
+		format:  f,
+		trace:   nullTrace,
 	}
 
 	os := objectSplitterFactories[applyDefaultString(f.Splitter, "FIXED")]
@@ -284,7 +282,7 @@ func (r *ObjectManager) hashEncryptAndWrite(packGroup string, buffer *bytes.Buff
 		}
 
 		// Before performing encryption, check if the block is already there.
-		blockSize, err := r.blockSizeCache.getSize(objectID.StorageBlock)
+		blockSize, err := r.packMgr.blockSize(objectID.StorageBlock)
 		atomic.AddInt32(&r.stats.CheckedBlocks, int32(1))
 		if err == nil && blockSize == int64(len(data)) {
 			atomic.AddInt32(&r.stats.PresentBlocks, int32(1))
@@ -311,7 +309,6 @@ func (r *ObjectManager) hashEncryptAndWrite(packGroup string, buffer *bytes.Buff
 	if err := r.storage.PutBlock(objectID.StorageBlock, data); err != nil {
 		return NullObjectID, err
 	}
-	r.blockSizeCache.put(objectID.StorageBlock, int64(len(data)))
 
 	if !isPackInternalObject {
 		r.packMgr.RegisterUnpackedBlock(objectID.StorageBlock, int64(len(data)))

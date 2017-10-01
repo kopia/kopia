@@ -46,7 +46,9 @@ func setupTestWithData(t *testing.T, data map[string][]byte, mods ...func(o *New
 
 	ctx := context.Background()
 
-	r, err := connect(ctx, st, creds, &Options{})
+	r, err := connect(ctx, st, creds, &Options{
+	//TraceStorage: log.Printf,
+	})
 	if err != nil {
 		t.Fatalf("can't connect: %v", err)
 	}
@@ -268,6 +270,8 @@ func TestIndirection(t *testing.T) {
 		if got, want := len(data)-2, c.expectedBlockCount; got != want {
 			t.Errorf("unexpected block count for %v: %v, expected %v", c.dataLength, got, want)
 		}
+
+		repo.Objects.Flush()
 
 		l, b, err := repo.Objects.VerifyObject(result)
 		if err != nil {
