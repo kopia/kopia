@@ -178,7 +178,7 @@ func runCleanupCommand(context *kingpin.ParseContext) error {
 	t0 := time.Now()
 
 	log.Printf("Scanning active objects...")
-	workerCount := 10
+	workerCount := 32
 	var wg sync.WaitGroup
 	wg.Add(workerCount)
 
