@@ -134,7 +134,7 @@ func (r *ObjectManager) VerifyObject(oid ObjectID) (int64, []string, error) {
 }
 
 func (r *ObjectManager) verifyObjectInternal(oid ObjectID, blocks *blockTracker) (int64, error) {
-	log.Printf("verifyObjectInternal %v", oid)
+	//log.Printf("verifyObjectInternal %v", oid)
 	if oid.Section != nil {
 		l, err := r.verifyObjectInternal(oid.Section.Base, blocks)
 		if err != nil {
