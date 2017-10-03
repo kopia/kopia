@@ -215,6 +215,8 @@ func runCleanupCommand(context *kingpin.ParseContext) error {
 	statsWaitGroup.Add(1)
 	cancelStats := make(chan bool)
 
+	cutoffTime := time.Now().Add(-*cleanupIgnoreAge)
+
 	go func() {
 		defer statsWaitGroup.Done()
 
@@ -237,6 +239,8 @@ func runCleanupCommand(context *kingpin.ParseContext) error {
 
 	log.Printf("Found %v in-use objects in %v blocks in %v", len(ctx.queue.visited), len(ctx.inuse), dt)
 
+	rep.Objects.Optimize(cutoffTime, ctx.inuse)
+
 	var totalBlocks int
 	var totalBytes int64
 
@@ -249,27 +253,31 @@ func runCleanupCommand(context *kingpin.ParseContext) error {
 	var unreferencedBlocks int
 	var unreferencedBytes int64
 
+	var physicalBlocksToDelete []string
+
 	blocks, cancel := rep.Storage.ListBlocks("")
 	defer cancel()
 	for b := range blocks {
 		totalBlocks++
 		totalBytes += b.Length
 
-		if strings.HasPrefix(b.BlockID, repo.MetadataBlockPrefix) {
+		if strings.HasPrefix(b.BlockID, repo.MetadataBlockPrefix) || strings.HasPrefix(b.BlockID, "P") {
 			ignoredBlocks++
 			ignoredBytes += b.Length
 			continue
 		}
 
 		if !ctx.inuse[b.BlockID] {
-			if time.Since(b.TimeStamp) < *cleanupIgnoreAge {
+			if b.TimeStamp.After(cutoffTime) {
 				log.Printf("Ignored unreferenced block: %v (%v) at %v", b.BlockID, units.BytesStringBase10(b.Length), b.TimeStamp.Local())
 				ignoredBlocks++
 				ignoredBytes += b.Length
 			} else {
-				log.Printf("Unreferenced block: %v (%v) at %v", b.BlockID, units.BytesStringBase10(b.Length), b.TimeStamp.Local())
+				log.Printf("Unreferenced physical block: %v (%v) at %v", b.BlockID, units.BytesStringBase10(b.Length), b.TimeStamp.Local())
 				unreferencedBlocks++
 				unreferencedBytes += b.Length
+
+				physicalBlocksToDelete = append(physicalBlocksToDelete, b.BlockID)
 			}
 		} else {
 			inuseBlocks++

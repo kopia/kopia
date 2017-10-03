@@ -455,10 +455,11 @@ func removeEmptyIndexes(ndx packIndexes) packIndexes {
 			res = append(res, n)
 		}
 	}
+
 	return res
 }
 
-func (p *packManager) Compact(cutoffTime time.Time) error {
+func (p *packManager) Compact(cutoffTime time.Time, inUseBlocks map[string]bool) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -468,15 +469,23 @@ func (p *packManager) Compact(cutoffTime time.Time) error {
 	}
 
 	dedupeBlockIDsAndIndex(merged)
+	if inUseBlocks != nil {
+		for _, m := range merged {
+			for b := range m.Items {
+				if !inUseBlocks[b] {
+					//log.Printf("removing block in index but not in use: %q", b)
+					delete(m.Items, b)
+				}
+			}
+		}
+	}
 
 	merged = removeEmptyIndexes(merged)
 
-	if len(blockIDs) <= 1 {
+	if len(blockIDs) <= 1 && inUseBlocks == nil {
 		log.Printf("skipping index compaction - already compacted")
 		return nil
 	}
-
-	log.Printf("writing %v merged indexes", len(merged))
 
 	compactedBlock, err := p.writePackIndexes(merged)
 	if err != nil {

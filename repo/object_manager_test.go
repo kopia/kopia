@@ -183,7 +183,7 @@ func TestPackingSimple(t *testing.T) {
 	verify(t, repo, oid2a, []byte(content2), "packed-object-2")
 	verify(t, repo, oid3a, []byte(content3), "packed-object-3")
 
-	if err := repo.Objects.Optimize(time.Now().Add(10 * time.Second)); err != nil {
+	if err := repo.Objects.Optimize(time.Now().Add(10*time.Second), nil); err != nil {
 		t.Errorf("optimize error: %v", err)
 	}
 	data, repo = setupTestWithData(t, data, func(n *NewRepositoryOptions) {
@@ -194,7 +194,7 @@ func TestPackingSimple(t *testing.T) {
 	verify(t, repo, oid2a, []byte(content2), "packed-object-2")
 	verify(t, repo, oid3a, []byte(content3), "packed-object-3")
 
-	if err := repo.Objects.Optimize(time.Now().Add(-10 * time.Second)); err != nil {
+	if err := repo.Objects.Optimize(time.Now().Add(-10*time.Second), nil); err != nil {
 		t.Errorf("optimize error: %v", err)
 	}
 	data, repo = setupTestWithData(t, data, func(n *NewRepositoryOptions) {

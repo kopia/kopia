@@ -51,9 +51,9 @@ func (r *ObjectManager) Close() error {
 }
 
 // Optimize performs object optimizations to improve performance of future operations.
-// The opeartion will not affect objects written after cutoffTime to prevent race conditions.
-func (r *ObjectManager) Optimize(cutoffTime time.Time) error {
-	if err := r.packMgr.Compact(cutoffTime); err != nil {
+// The operation will not affect objects written after cutoffTime to prevent race conditions.
+func (r *ObjectManager) Optimize(cutoffTime time.Time, inUseBlocks map[string]bool) error {
+	if err := r.packMgr.Compact(cutoffTime, inUseBlocks); err != nil {
 		return err
 	}
 
@@ -184,6 +184,7 @@ func (r *ObjectManager) verifyObjectInternal(oid ObjectID, blocks *blockTracker)
 	}
 
 	if isPacked {
+		blocks.addBlock(oid.StorageBlock)
 		l, err := r.verifyObjectInternal(p.Base, blocks)
 		if err != nil {
 			return 0, err
@@ -200,8 +201,8 @@ func (r *ObjectManager) verifyObjectInternal(oid ObjectID, blocks *blockTracker)
 	if err != nil {
 		return 0, fmt.Errorf("unable to read %q: %v", oid.StorageBlock, err)
 	}
-
 	blocks.addBlock(oid.StorageBlock)
+
 	return l, nil
 }
 
