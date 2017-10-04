@@ -26,13 +26,13 @@ func TestObjectFormatters(t *testing.T) {
 		}
 
 		t.Logf("testing %v", k)
-		oid := of.ComputeObjectID(data)
-		cipherText, err := of.Encrypt(data, oid, 0)
+		blockID := of.ComputeBlockID(data)
+		cipherText, err := of.Encrypt(data, blockID, 0)
 		if err != nil || cipherText == nil {
 			t.Errorf("invalid response from Encrypt: %v %v", cipherText, err)
 		}
 
-		plainText, err := of.Decrypt(cipherText, oid, 0)
+		plainText, err := of.Decrypt(cipherText, blockID, 0)
 		if err != nil || plainText == nil {
 			t.Errorf("invalid response from Decrypt: %v %v", plainText, err)
 		}
@@ -43,8 +43,8 @@ func TestObjectFormatters(t *testing.T) {
 			t.Errorf("Encrypt()/Decrypt() does not round-trip: %x %x", h0, h1)
 		}
 
-		if len(oid.StorageBlock)%16 != 0 {
-			t.Errorf("block ID for %v not a multiple of 16: %v", k, oid.StorageBlock)
+		if len(blockID)%16 != 0 {
+			t.Errorf("block ID for %v not a multiple of 16: %v", k, blockID)
 		}
 	}
 }

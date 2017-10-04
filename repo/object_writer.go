@@ -98,14 +98,14 @@ func (w *objectWriter) flushBuffer() error {
 	w.buffer.Reset()
 
 	do := func() {
-		objectID, err := w.repo.hashEncryptAndWrite(w.packGroup, &b2, w.prefix, false)
-		w.repo.trace("OBJECT_WRITER(%q) stored %v (%v bytes)", w.description, objectID, length)
+		blockID, err := w.repo.blockMgr.hashEncryptAndWrite(w.packGroup, &b2, w.prefix, false)
+		w.repo.trace("OBJECT_WRITER(%q) stored %v (%v bytes)", w.description, blockID, length)
 		if err != nil {
 			w.err.add(fmt.Errorf("error when flushing chunk %d of %s: %v", chunkID, w.description, err))
 			return
 		}
 
-		w.blockIndex[chunkID].Object = objectID
+		w.blockIndex[chunkID].Object = ObjectID{StorageBlock: blockID}
 	}
 
 	// When writing pack internal object don't use asynchronous write, since we're already under the semaphore

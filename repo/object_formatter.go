@@ -36,14 +36,14 @@ func validateFormat(f *config.RepositoryObjectFormat) error {
 
 // ObjectFormatter performs data block ID computation and encryption of a block of data when storing object in a repository.
 type objectFormatter interface {
-	// ComputeObjectID computes ID of the storage block for the specified block of data and returns it in ObjectID.
-	ComputeObjectID(data []byte) ObjectID
+	// ComputeBlockID computes ID of the storage block for the specified block of data and returns it in ObjectID.
+	ComputeBlockID(data []byte) string
 
 	// Encrypt returns encrypted bytes corresponding to the given plaintext. May reuse the input slice.
-	Encrypt(plainText []byte, oid ObjectID, skip int) ([]byte, error)
+	Encrypt(plainText []byte, blockID string, skip int) ([]byte, error)
 
 	// Decrypt returns unencrypted bytes corresponding to the given ciphertext. May reuse the input slice.
-	Decrypt(cipherText []byte, oid ObjectID, skip int) ([]byte, error)
+	Decrypt(cipherText []byte, blockID string, skip int) ([]byte, error)
 }
 
 // digestFunction computes the digest (hash, optionally HMAC) of a given block of bytes.
@@ -54,17 +54,15 @@ type unencryptedFormat struct {
 	digestFunc digestFunction
 }
 
-func (fi *unencryptedFormat) ComputeObjectID(data []byte) ObjectID {
-	h := fi.digestFunc(data)
-
-	return ObjectID{StorageBlock: hex.EncodeToString(h)}
+func (fi *unencryptedFormat) ComputeBlockID(data []byte) string {
+	return hex.EncodeToString(fi.digestFunc(data))
 }
 
-func (fi *unencryptedFormat) Encrypt(plainText []byte, oid ObjectID, skip int) ([]byte, error) {
+func (fi *unencryptedFormat) Encrypt(plainText []byte, blockID string, skip int) ([]byte, error) {
 	return plainText, nil
 }
 
-func (fi *unencryptedFormat) Decrypt(cipherText []byte, oid ObjectID, skip int) ([]byte, error) {
+func (fi *unencryptedFormat) Decrypt(cipherText []byte, blockID string, skip int) ([]byte, error) {
 	return cipherText, nil
 }
 
@@ -76,13 +74,12 @@ type syntheticIVEncryptionFormat struct {
 	aesKey       []byte
 }
 
-func (fi *syntheticIVEncryptionFormat) ComputeObjectID(data []byte) ObjectID {
-	h := fi.digestFunc(data)
-	return ObjectID{StorageBlock: hex.EncodeToString(h)}
+func (fi *syntheticIVEncryptionFormat) ComputeBlockID(data []byte) string {
+	return hex.EncodeToString(fi.digestFunc(data))
 }
 
-func (fi *syntheticIVEncryptionFormat) Encrypt(plainText []byte, oid ObjectID, skip int) ([]byte, error) {
-	iv, err := decodeHexSuffix(oid.StorageBlock, aes.BlockSize*2)
+func (fi *syntheticIVEncryptionFormat) Encrypt(plainText []byte, blockID string, skip int) ([]byte, error) {
+	iv, err := decodeHexSuffix(blockID, aes.BlockSize*2)
 	if err != nil {
 		return nil, err
 	}
@@ -90,8 +87,8 @@ func (fi *syntheticIVEncryptionFormat) Encrypt(plainText []byte, oid ObjectID, s
 	return symmetricEncrypt(fi.createCipher, fi.aesKey, iv, plainText, skip)
 }
 
-func (fi *syntheticIVEncryptionFormat) Decrypt(cipherText []byte, oid ObjectID, skip int) ([]byte, error) {
-	iv, err := decodeHexSuffix(oid.StorageBlock, aes.BlockSize*2)
+func (fi *syntheticIVEncryptionFormat) Decrypt(cipherText []byte, blockID string, skip int) ([]byte, error) {
+	iv, err := decodeHexSuffix(blockID, aes.BlockSize*2)
 	if err != nil {
 		return nil, err
 	}

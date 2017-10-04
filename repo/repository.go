@@ -36,13 +36,13 @@ type StatusInfo struct {
 
 // Stats returns repository-wide statistics.
 func (r *Repository) Stats() Stats {
-	return r.Objects.stats
+	return r.Objects.blockMgr.stats
 }
 
 // Status returns a snapshot of repository-wide statistics plus some general information about repository configuration.
 func (r *Repository) Status() StatusInfo {
 	s := StatusInfo{
-		Stats: r.Objects.stats,
+		Stats: r.Objects.blockMgr.stats,
 
 		MetadataManagerVersion:      r.Metadata.format.Version,
 		UniqueID:                    hex.EncodeToString(r.Metadata.format.UniqueID),
@@ -84,5 +84,5 @@ func (r *Repository) Flush() error {
 
 // ResetStats resets all repository-wide statistics to zero values.
 func (r *Repository) ResetStats() {
-	r.Objects.stats = Stats{}
+	r.Objects.blockMgr.stats = Stats{}
 }
