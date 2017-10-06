@@ -233,9 +233,20 @@ func (bm *blockManager) writePackIndexes(ndx packIndexes) (string, error) {
 }
 
 func (bm *blockManager) finishAllOpenPacksLocked() error {
+	// finish non-unpacked groups first.
 	for _, g := range bm.openPackGroups {
-		if err := bm.finishPackLocked(g); err != nil {
-			return err
+		if g.currentPackIndex != nil && g.currentPackIndex.PackGroup != unpackedObjectsPackGroup {
+			if err := bm.finishPackLocked(g); err != nil {
+				return err
+			}
+		}
+	}
+	// finish unpacked groups next.
+	for _, g := range bm.openPackGroups {
+		if g.currentPackIndex != nil && g.currentPackIndex.PackGroup == unpackedObjectsPackGroup {
+			if err := bm.finishPackLocked(g); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -247,15 +258,11 @@ func (bm *blockManager) finishPackLocked(g *packInfo) error {
 		return nil
 	}
 
-	if dataLength := len(g.currentPackData); dataLength > 0 {
+	if dataLength := len(g.currentPackData); g.currentPackIndex.PackGroup != unpackedObjectsPackGroup {
 		blockID, err := bm.hashEncryptAndWrite(unpackedObjectsPackGroup, g.currentPackData, "", true)
 
 		if err != nil {
 			return fmt.Errorf("can't save pack data: %v", err)
-		}
-
-		if blockID == "" {
-			return fmt.Errorf("storage block is empty: %v", blockID)
 		}
 
 		bm.registerUnpackedBlockLockedNoFlush(blockID, int64(dataLength))
