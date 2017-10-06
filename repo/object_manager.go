@@ -191,7 +191,7 @@ func (om *ObjectManager) verifyObjectInternal(oid ObjectID, blocks *blockTracker
 		return 0, fmt.Errorf("packed object %v does not fit within its parent pack %v (pack length %v)", oid, p, l)
 	}
 
-	l, err := om.blockMgr.blockSize(oid.StorageBlock)
+	l, err := om.blockMgr.BlockSize(oid.StorageBlock)
 	if err != nil {
 		return 0, fmt.Errorf("unable to read %q: %v", oid.StorageBlock, err)
 	}
@@ -281,7 +281,7 @@ func (om *ObjectManager) flattenListChunk(rawReader io.Reader) ([]indirectObject
 }
 
 func (om *ObjectManager) newRawReader(objectID ObjectID) (ObjectReader, error) {
-	payload, err := om.blockMgr.getBlock(objectID.StorageBlock)
+	payload, err := om.blockMgr.GetBlock(objectID.StorageBlock)
 	if err != nil {
 		return nil, err
 	}

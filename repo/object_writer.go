@@ -98,7 +98,7 @@ func (w *objectWriter) flushBuffer() error {
 	w.buffer.Reset()
 
 	do := func() {
-		blockID, err := w.repo.blockMgr.hashEncryptAndWrite(w.packGroup, &b2, w.prefix, false)
+		blockID, err := w.repo.blockMgr.WriteBlock(w.packGroup, b2.Bytes(), w.prefix)
 		w.repo.trace("OBJECT_WRITER(%q) stored %v (%v bytes)", w.description, blockID, length)
 		if err != nil {
 			w.err.add(fmt.Errorf("error when flushing chunk %d of %s: %v", chunkID, w.description, err))

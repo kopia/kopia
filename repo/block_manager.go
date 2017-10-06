@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -22,7 +21,7 @@ const unpackedObjectsPackGroup = "_unpacked_"
 const maxNonPackedBlocksPerPackIndex = 200
 
 type packInfo struct {
-	currentPackData  bytes.Buffer
+	currentPackData  []byte
 	currentPackIndex *packIndex
 }
 
@@ -45,9 +44,11 @@ type blockManager struct {
 	maxPackedContentLength int
 	maxPackSize            int
 	formatter              objectFormatter
+
+	timeNow func() time.Time
 }
 
-func (bm *blockManager) blockSize(blockID string) (int64, error) {
+func (bm *blockManager) BlockSize(blockID string) (int64, error) {
 	bm.mu.Lock()
 	defer bm.mu.Unlock()
 
@@ -61,19 +62,7 @@ func (bm *blockManager) blockSize(blockID string) (int64, error) {
 		return 0, blob.ErrBlockNotFound
 	}
 
-	blk := ndx.Items[blockID]
-	if blk == "" {
-		return 0, blob.ErrBlockNotFound
-	}
-
-	if plus := strings.IndexByte(blk, '+'); plus > 0 {
-		if length, err := strconv.ParseInt(blk[plus+1:], 10, 64); err == nil {
-			return length, nil
-		}
-	}
-
-	return 0, fmt.Errorf("invalid pack index for %q", blockID)
-
+	return int64(ndx.Items[blockID].size), nil
 }
 
 func (bm *blockManager) blockIDToPackSection(blockID string) (ObjectIDSection, bool, error) {
@@ -98,33 +87,23 @@ func (bm *blockManager) blockIDToPackSection(blockID string) (ObjectIDSection, b
 		return ObjectIDSection{}, false, nil
 	}
 
-	blk := ndx.Items[blockID]
-	if blk == "" {
+	if ndx.PackBlockID != "" && ndx.PackBlockID == blockID {
+		// this is possible for a single-element pack
 		return ObjectIDSection{}, false, nil
 	}
 
-	if plus := strings.IndexByte(blk, '+'); plus > 0 {
-		if start, err := strconv.ParseInt(blk[0:plus], 10, 64); err == nil {
-			if length, err := strconv.ParseInt(blk[plus+1:], 10, 64); err == nil {
-				if ndx.PackBlockID != "" {
-					if ndx.PackBlockID == blockID {
-						// this is possible for a single-element pack
-						return ObjectIDSection{}, false, nil
-					}
-					return ObjectIDSection{
-						Base:   ObjectID{StorageBlock: ndx.PackBlockID},
-						Start:  start,
-						Length: length,
-					}, true, nil
-				}
-			}
-		}
+	if blk, ok := ndx.Items[blockID]; ok {
+		return ObjectIDSection{
+			Base:   ObjectID{StorageBlock: ndx.PackBlockID},
+			Start:  int64(blk.offset),
+			Length: int64(blk.size),
+		}, true, nil
 	}
 
 	return ObjectIDSection{}, false, fmt.Errorf("invalid pack index for %q", blockID)
 }
 
-func (bm *blockManager) RegisterUnpackedBlock(blockID string, dataLength int64) error {
+func (bm *blockManager) registerUnpackedBlock(blockID string, dataLength int64) error {
 	if strings.HasPrefix(blockID, packObjectPrefix) {
 		return nil
 	}
@@ -134,7 +113,7 @@ func (bm *blockManager) RegisterUnpackedBlock(blockID string, dataLength int64) 
 
 	g := bm.registerUnpackedBlockLockedNoFlush(blockID, dataLength)
 
-	if time.Now().After(bm.flushPackIndexesAfter) || len(g.currentPackIndex.Items) > maxNonPackedBlocksPerPackIndex {
+	if bm.timeNow().After(bm.flushPackIndexesAfter) || len(g.currentPackIndex.Items) > maxNonPackedBlocksPerPackIndex {
 		if err := bm.finishPackAndMaybeFlushIndexes(g); err != nil {
 			return err
 		}
@@ -152,7 +131,7 @@ func (bm *blockManager) registerUnpackedBlockLockedNoFlush(blockID string, dataL
 		return g
 	}
 
-	g.currentPackIndex.Items[blockID] = fmt.Sprintf("0+%v", dataLength)
+	g.currentPackIndex.Items[blockID] = offsetAndSize{0, int32(dataLength)}
 	bm.blockToIndex[blockID] = g.currentPackIndex
 	return g
 }
@@ -174,11 +153,11 @@ func (bm *blockManager) addToPack(packGroup string, blockID string, data []byte)
 
 	g := bm.ensurePackGroupLocked(packGroup)
 
-	offset := g.currentPackData.Len()
+	offset := len(g.currentPackData)
 	shouldFinish := offset+len(data) >= bm.maxPackSize
 
-	g.currentPackData.Write(data)
-	g.currentPackIndex.Items[blockID] = fmt.Sprintf("%v+%v", int64(offset), int64(len(data)))
+	g.currentPackData = append(g.currentPackData, data...)
+	g.currentPackIndex.Items[blockID] = offsetAndSize{int32(offset), int32(len(data))}
 	bm.blockToIndex[blockID] = g.currentPackIndex
 
 	if shouldFinish {
@@ -195,7 +174,7 @@ func (bm *blockManager) finishPackAndMaybeFlushIndexes(g *packInfo) error {
 		return err
 	}
 
-	if time.Now().After(bm.flushPackIndexesAfter) {
+	if bm.timeNow().After(bm.flushPackIndexesAfter) {
 		if err := bm.flushPackIndexesLocked(); err != nil {
 			return err
 		}
@@ -213,11 +192,11 @@ func (bm *blockManager) ensurePackGroupLocked(packGroup string) *packInfo {
 
 	if g.currentPackIndex == nil {
 		g.currentPackIndex = &packIndex{
-			Items:      make(map[string]string),
+			Items:      make(map[string]offsetAndSize),
 			PackGroup:  packGroup,
-			CreateTime: time.Now().UTC(),
+			CreateTime: bm.timeNow().UTC(),
 		}
-		g.currentPackData.Reset()
+		g.currentPackData = g.currentPackData[:0]
 	}
 
 	return g
@@ -231,7 +210,7 @@ func (bm *blockManager) flushPackIndexesLocked() error {
 		}
 	}
 
-	bm.flushPackIndexesAfter = time.Now().Add(flushPackIndexTimeout)
+	bm.flushPackIndexesAfter = bm.timeNow().Add(flushPackIndexTimeout)
 	bm.pendingPackIndexes = nil
 	return nil
 }
@@ -245,7 +224,7 @@ func (bm *blockManager) writePackIndexes(ndx packIndexes) (string, error) {
 	}
 	zw.Close()
 
-	blockID, err := bm.hashEncryptAndWrite("", &buf, packObjectPrefix, true)
+	blockID, err := bm.hashEncryptAndWrite("", buf.Bytes(), packObjectPrefix, true)
 	if err != nil {
 		return "", fmt.Errorf("can't save pack index object: %v", err)
 	}
@@ -268,10 +247,8 @@ func (bm *blockManager) finishPackLocked(g *packInfo) error {
 		return nil
 	}
 
-	if g.currentPackData.Len() > 0 {
-		dataLength := int64(g.currentPackData.Len())
-		blockID, err := bm.hashEncryptAndWrite(unpackedObjectsPackGroup, &g.currentPackData, "", true)
-		g.currentPackData.Reset()
+	if dataLength := len(g.currentPackData); dataLength > 0 {
+		blockID, err := bm.hashEncryptAndWrite(unpackedObjectsPackGroup, g.currentPackData, "", true)
 
 		if err != nil {
 			return fmt.Errorf("can't save pack data: %v", err)
@@ -281,11 +258,12 @@ func (bm *blockManager) finishPackLocked(g *packInfo) error {
 			return fmt.Errorf("storage block is empty: %v", blockID)
 		}
 
-		bm.registerUnpackedBlockLockedNoFlush(blockID, dataLength)
+		bm.registerUnpackedBlockLockedNoFlush(blockID, int64(dataLength))
 		g.currentPackIndex.PackBlockID = blockID
 	}
 
 	bm.pendingPackIndexes = append(bm.pendingPackIndexes, g.currentPackIndex)
+	g.currentPackData = g.currentPackData[:0]
 	g.currentPackIndex = nil
 
 	return nil
@@ -320,7 +298,7 @@ func (bm *blockManager) loadMergedPackIndexLocked(olderThan *time.Time) (packInd
 					return
 				}
 
-				data, err := bm.getBlock(b.BlockID)
+				data, err := bm.getBlockInternal(b.BlockID)
 				if err != nil {
 					errors <- err
 					return
@@ -525,15 +503,14 @@ func (bm *blockManager) Flush() error {
 	return nil
 }
 
+func (bm *blockManager) WriteBlock(packGroup string, data []byte, prefix string) (string, error) {
+	return bm.hashEncryptAndWrite(packGroup, data, prefix, false)
+}
+
 // hashEncryptAndWrite computes hash of a given buffer, optionally encrypts and writes it to storage.
 // The write is not guaranteed to complete synchronously in case write-back is used, but by the time
 // Repository.Close() returns all writes are guaranteed be over.
-func (bm *blockManager) hashEncryptAndWrite(packGroup string, buffer *bytes.Buffer, prefix string, isPackInternalObject bool) (string, error) {
-	var data []byte
-	if buffer != nil {
-		data = buffer.Bytes()
-	}
-
+func (bm *blockManager) hashEncryptAndWrite(packGroup string, data []byte, prefix string, isPackInternalObject bool) (string, error) {
 	// Hash the block and compute encryption key.
 	blockID := prefix + bm.formatter.ComputeBlockID(data)
 	atomic.AddInt32(&bm.stats.HashedBlocks, 1)
@@ -546,7 +523,7 @@ func (bm *blockManager) hashEncryptAndWrite(packGroup string, buffer *bytes.Buff
 		}
 
 		// Before performing encryption, check if the block is already there.
-		blockSize, err := bm.blockSize(blockID)
+		blockSize, err := bm.BlockSize(blockID)
 		atomic.AddInt32(&bm.stats.CheckedBlocks, int32(1))
 		if err == nil && blockSize == int64(len(data)) {
 			atomic.AddInt32(&bm.stats.PresentBlocks, int32(1))
@@ -575,15 +552,43 @@ func (bm *blockManager) hashEncryptAndWrite(packGroup string, buffer *bytes.Buff
 	}
 
 	if !isPackInternalObject {
-		bm.RegisterUnpackedBlock(blockID, int64(len(data)))
+		bm.registerUnpackedBlock(blockID, int64(len(data)))
 	}
 	return blockID, nil
 }
 
-func (bm *blockManager) getBlock(blockID string) ([]byte, error) {
+func (bm *blockManager) getPendingBlock(blockID string) ([]byte, error) {
+	bm.mu.Lock()
+	defer bm.mu.Unlock()
+
+	for _, p := range bm.openPackGroups {
+		if ndx := p.currentPackIndex; ndx != nil {
+			if ndx.PackGroup == unpackedObjectsPackGroup {
+				continue
+			}
+			if blk, ok := ndx.Items[blockID]; ok {
+				return p.currentPackData[blk.offset : blk.offset+blk.size], nil
+			}
+		}
+	}
+	return nil, blob.ErrBlockNotFound
+}
+
+func (bm *blockManager) GetBlock(blockID string) ([]byte, error) {
+	if b, err := bm.getPendingBlock(blockID); err == nil {
+		return b, nil
+	}
+
+	return bm.getBlockInternal(blockID)
+}
+
+func (bm *blockManager) getBlockInternal(blockID string) ([]byte, error) {
 	s, ok, err := bm.blockIDToPackSection(blockID)
 	if err != nil {
-		return nil, err
+		if err != blob.ErrBlockNotFound {
+			return nil, err
+		}
+
 	}
 
 	var payload []byte
@@ -635,6 +640,7 @@ func newBlockManager(storage blob.Storage, maxPackedContentLength, maxPackSize i
 	return &blockManager{
 		storage:                storage,
 		openPackGroups:         make(map[string]*packInfo),
+		timeNow:                time.Now,
 		flushPackIndexesAfter:  time.Now().Add(flushPackIndexTimeout),
 		pendingPackIndexes:     nil,
 		maxPackedContentLength: maxPackedContentLength,
