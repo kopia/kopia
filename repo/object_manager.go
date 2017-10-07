@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/internal/jsonstream"
 )
@@ -27,7 +26,7 @@ type ObjectManager struct {
 	format config.RepositoryObjectFormat
 
 	verbose  bool
-	blockMgr *blockManager
+	blockMgr *BlockManager
 
 	async              bool
 	writeBackWG        sync.WaitGroup
@@ -47,7 +46,7 @@ func (om *ObjectManager) Close() error {
 // Optimize performs object optimizations to improve performance of future operations.
 // The operation will not affect objects written after cutoffTime to prevent race conditions.
 func (om *ObjectManager) Optimize(cutoffTime time.Time, inUseBlocks map[string]bool) error {
-	if err := om.blockMgr.Compact(cutoffTime, inUseBlocks); err != nil {
+	if err := om.blockMgr.CompactIndexes(cutoffTime, inUseBlocks); err != nil {
 		return err
 	}
 
@@ -210,17 +209,16 @@ func (om *ObjectManager) Flush() error {
 func nullTrace(message string, args ...interface{}) {
 }
 
-// newObjectManager creates an ObjectManager with the specified storage, format and options.
-func newObjectManager(s blob.Storage, f config.RepositoryObjectFormat, opts *Options) (*ObjectManager, error) {
+// newObjectManager creates an ObjectManager with the specified block manager and options.
+func newObjectManager(bm *BlockManager, f config.RepositoryObjectFormat, opts *Options) (*ObjectManager, error) {
 	if err := validateFormat(&f); err != nil {
 		return nil, err
 	}
 
-	sf := objectFormatterFactories[f.ObjectFormat]
 	om := &ObjectManager{
-		//storage: s,
-		format: f,
-		trace:  nullTrace,
+		blockMgr: bm,
+		format:   f,
+		trace:    nullTrace,
 	}
 
 	os := objectSplitterFactories[applyDefaultString(f.Splitter, "FIXED")]
@@ -230,11 +228,6 @@ func newObjectManager(s blob.Storage, f config.RepositoryObjectFormat, opts *Opt
 
 	om.newSplitter = func() objectSplitter {
 		return os(&f)
-	}
-
-	formatter, err := sf(&f)
-	if err != nil {
-		return nil, err
 	}
 
 	if opts != nil {
@@ -248,8 +241,6 @@ func newObjectManager(s blob.Storage, f config.RepositoryObjectFormat, opts *Opt
 			om.writeBackSemaphore = make(semaphore, opts.WriteBack)
 		}
 	}
-
-	om.blockMgr = newBlockManager(s, f.MaxPackedContentLength, f.MaxBlockSize, formatter)
 
 	return om, nil
 }

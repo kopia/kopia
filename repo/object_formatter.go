@@ -130,17 +130,17 @@ func decodeHexSuffix(s string, length int) ([]byte, error) {
 //   ENCRYPTED_HMAC_SHA256_AES256_SIV     - encrypted with AES-256 (shared key), IV==FOLD(HMAC-SHA256(content), 128)
 var SupportedObjectFormats []string
 
-var objectFormatterFactories = map[string]func(f *config.RepositoryObjectFormat) (objectFormatter, error){
-	"TESTONLY_MD5": func(f *config.RepositoryObjectFormat) (objectFormatter, error) {
+var objectFormatterFactories = map[string]func(f config.RepositoryObjectFormat) (objectFormatter, error){
+	"TESTONLY_MD5": func(f config.RepositoryObjectFormat) (objectFormatter, error) {
 		return &unencryptedFormat{computeHash(md5.New, md5.Size)}, nil
 	},
-	"UNENCRYPTED_HMAC_SHA256": func(f *config.RepositoryObjectFormat) (objectFormatter, error) {
+	"UNENCRYPTED_HMAC_SHA256": func(f config.RepositoryObjectFormat) (objectFormatter, error) {
 		return &unencryptedFormat{computeHMAC(sha256.New, f.HMACSecret, sha256.Size)}, nil
 	},
-	"UNENCRYPTED_HMAC_SHA256_128": func(f *config.RepositoryObjectFormat) (objectFormatter, error) {
+	"UNENCRYPTED_HMAC_SHA256_128": func(f config.RepositoryObjectFormat) (objectFormatter, error) {
 		return &unencryptedFormat{computeHMAC(sha256.New, f.HMACSecret, 16)}, nil
 	},
-	"ENCRYPTED_HMAC_SHA256_AES256_SIV": func(f *config.RepositoryObjectFormat) (objectFormatter, error) {
+	"ENCRYPTED_HMAC_SHA256_AES256_SIV": func(f config.RepositoryObjectFormat) (objectFormatter, error) {
 		if len(f.MasterKey) < 32 {
 			return nil, fmt.Errorf("master key is not set")
 		}

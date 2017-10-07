@@ -53,7 +53,7 @@ func (s *mapStorage) PutBlock(id string, data []byte) error {
 		return nil
 	}
 
-	s.data[string(id)] = append([]byte(nil), data...)
+	s.data[string(id)] = append([]byte{}, data...)
 	return nil
 }
 

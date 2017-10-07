@@ -124,12 +124,25 @@ func connect(ctx context.Context, st blob.Storage, creds auth.Credentials, optio
 		return nil, fmt.Errorf("unable to open metadata manager: %v", err)
 	}
 
-	om, err := newObjectManager(st, mm.repoConfig.Format, options)
+	sf := objectFormatterFactories[mm.repoConfig.Format.ObjectFormat]
+	if sf == nil {
+		return nil, fmt.Errorf("unsupported block format: %v", mm.repoConfig.Format.ObjectFormat)
+	}
+
+	formatter, err := sf(mm.repoConfig.Format)
+	if err != nil {
+		return nil, err
+	}
+
+	bm := newBlockManager(st, mm.repoConfig.Format.MaxPackedContentLength, mm.repoConfig.Format.MaxBlockSize, formatter)
+
+	om, err := newObjectManager(bm, mm.repoConfig.Format, options)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open object manager: %v", err)
 	}
 
 	return &Repository{
+		Blocks:   bm,
 		Objects:  om,
 		Metadata: mm,
 		Storage:  st,

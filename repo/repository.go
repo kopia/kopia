@@ -6,6 +6,7 @@ import "fmt"
 
 // Repository represents storage where both content-addressable and user-addressable data is kept.
 type Repository struct {
+	Blocks   *BlockManager
 	Objects  *ObjectManager
 	Metadata *MetadataManager
 	Storage  blob.Storage

@@ -6,6 +6,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"log"
 	"math/rand"
 	"reflect"
@@ -31,6 +32,30 @@ func TestBlockManagerEmptyFlush(t *testing.T) {
 	bm.Flush()
 	if got, want := len(data), 0; got != want {
 		t.Errorf("unexpected number of blocks: %v, wanted %v", got, want)
+	}
+}
+
+func TestBlockZeroBytes1(t *testing.T) {
+	data := map[string][]byte{}
+	bm := newTestBlockManager(data)
+	writeBlockAndVerify(t, bm, "", []byte{})
+	bm.Flush()
+	if got, want := len(data), 2; got != want {
+		t.Errorf("unexpected number of blocks: %v, wanted %v", got, want)
+	}
+	dumpBlockManagerData(data)
+}
+
+func TestBlockZeroBytes2(t *testing.T) {
+	data := map[string][]byte{}
+	bm := newTestBlockManager(data)
+	writeBlockAndVerify(t, bm, "", seededRandomData(10, 10))
+	writeBlockAndVerify(t, bm, "", []byte{})
+	bm.Flush()
+	dumpBlockManagerData(data)
+	if got, want := len(data), 2; got != want {
+		t.Errorf("unexpected number of blocks: %v, wanted %v", got, want)
+		dumpBlockManagerData(data)
 	}
 }
 
@@ -129,6 +154,79 @@ func TestBlockManagerEmpty(t *testing.T) {
 	if err != blob.ErrBlockNotFound {
 		t.Errorf("unexpected error when getting non-existent block size: %v, %v", bs, err)
 	}
+
+	if got, want := len(data), 0; got != want {
+		t.Errorf("unexpected number of blocks: %v, wanted %v", got, want)
+	}
+}
+
+func TestBlockManagerPackIdentialToRawObject(t *testing.T) {
+	data0 := []byte{}
+	data1 := seededRandomData(1, 600)
+	data2 := seededRandomData(2, 600)
+	data3 := append(append([]byte(nil), data1...), data2...)
+
+	b0 := md5hash(data0)
+	b1 := md5hash(data1)
+	b2 := md5hash(data2)
+	b3 := md5hash(data3)
+
+	t.Logf("data0 hash: %v", b0)
+	t.Logf("data1 hash: %v", b1)
+	t.Logf("data2 hash: %v", b2)
+	t.Logf("data3 hash: %v", b3)
+
+	cases := []struct {
+		ordering           [][]byte
+		expectedBlockCount int
+	}{
+		{ordering: [][]byte{data1, data2, data3, data0}, expectedBlockCount: 2},
+		{ordering: [][]byte{data0, data1, data2, data3}, expectedBlockCount: 2},
+		{ordering: [][]byte{data1, data0, data2, data3}, expectedBlockCount: 2},
+		{ordering: [][]byte{data0, data1, data0, data2, data3}, expectedBlockCount: 2},
+		{ordering: [][]byte{data0, data1, data0, data2, data3, data0}, expectedBlockCount: 2},
+		{ordering: [][]byte{data1, data0, data2, nil, data0, data3}, expectedBlockCount: 3},
+		{ordering: [][]byte{data1, data2, nil, data0, data3}, expectedBlockCount: 4},
+		{ordering: [][]byte{data3, nil, data1, data2, data0}, expectedBlockCount: 3},
+		{ordering: [][]byte{data3, data1, data2, data0}, expectedBlockCount: 2},
+		{ordering: [][]byte{data3, data0, data1, data2}, expectedBlockCount: 2},
+		{ordering: [][]byte{data3, data1, data0, data2}, expectedBlockCount: 2},
+		{ordering: [][]byte{data3, data0, data1, data0, data2, data0}, expectedBlockCount: 2},
+	}
+
+	for i, tc := range cases {
+		data := map[string][]byte{}
+		bm := newTestBlockManager(data)
+
+		t.Run(fmt.Sprintf("case-%v", i), func(t *testing.T) {
+			for _, b := range tc.ordering {
+				if b == nil {
+					bm.Flush()
+					continue
+				}
+
+				t.Logf("writing %v", md5hash(b))
+				writeBlockAndVerify(t, bm, "some-group", b)
+			}
+
+			verifyBlock(t, bm, b0, data0)
+			verifyBlock(t, bm, b1, data1)
+			verifyBlock(t, bm, b2, data2)
+			verifyBlock(t, bm, b3, data3)
+			bm.Flush()
+			dumpBlockManagerData(data)
+			verifyBlock(t, bm, b0, data0)
+			verifyBlock(t, bm, b1, data1)
+			verifyBlock(t, bm, b2, data2)
+			verifyBlock(t, bm, b3, data3)
+			bm.Flush()
+
+			// 2 data blocks written.
+			if got, want := len(data), tc.expectedBlockCount; got != want {
+				t.Errorf("unexpected number of blocks: %v, wanted %v", got, want)
+			}
+		})
+	}
 }
 
 func TestBlockManagerInternalFlush(t *testing.T) {
@@ -164,6 +262,8 @@ func TestBlockManagerInternalFlush(t *testing.T) {
 	if got, want := len(data), 4; got != want {
 		t.Errorf("unexpected number of blocks: %v, wanted %v", got, want)
 	}
+
+	dumpBlockManagerData(data)
 }
 
 func TestBlockManagerWriteMultiple(t *testing.T) {
@@ -267,7 +367,7 @@ func TestBlockManagerConcurrency(t *testing.T) {
 		t.Errorf("unexpected index count before compaction: %v, wanted %v", got, want)
 	}
 
-	if err := bm4.Compact(fakeTime.Add(-1), nil); err != nil {
+	if err := bm4.CompactIndexes(fakeTime.Add(-1), nil); err != nil {
 		t.Errorf("compaction error: %v", err)
 	}
 
@@ -275,14 +375,14 @@ func TestBlockManagerConcurrency(t *testing.T) {
 		t.Errorf("unexpected index count after no-op compaction: %v, wanted %v", got, want)
 	}
 
-	if err := bm4.Compact(fakeTime, nil); err != nil {
+	if err := bm4.CompactIndexes(fakeTime, nil); err != nil {
 		t.Errorf("compaction error: %v", err)
 	}
 	if got, want := getIndexCount(data), 2; got != want {
 		t.Errorf("unexpected index count after partial compaction: %v, wanted %v", got, want)
 	}
 
-	if err := bm4.Compact(fakeTime.Add(1), nil); err != nil {
+	if err := bm4.CompactIndexes(fakeTime.Add(1), nil); err != nil {
 		t.Errorf("compaction error: %v", err)
 	}
 	if got, want := getIndexCount(data), 1; got != want {
@@ -296,12 +396,12 @@ func TestBlockManagerConcurrency(t *testing.T) {
 	verifyBlock(t, bm5, bm1block, seededRandomData(31, 100))
 	verifyBlock(t, bm5, bm2block, seededRandomData(32, 100))
 	verifyBlock(t, bm5, bm3block, seededRandomData(33, 100))
-	if err := bm5.Compact(fakeTime, nil); err != nil {
+	if err := bm5.CompactIndexes(fakeTime, nil); err != nil {
 		t.Errorf("compaction error: %v", err)
 	}
 }
 
-func newTestBlockManager(data map[string][]byte) *blockManager {
+func newTestBlockManager(data map[string][]byte) *BlockManager {
 	st := storagetesting.NewMapStorage(data)
 
 	f := &unencryptedFormat{computeHash(md5.New, md5.Size)}
@@ -324,11 +424,11 @@ func getIndexCount(d map[string][]byte) int {
 	return cnt
 }
 
-func setFakeTime(bm *blockManager, t time.Time) {
+func setFakeTime(bm *BlockManager, t time.Time) {
 	bm.timeNow = func() time.Time { return t }
 }
 
-func verifyBlockNotFound(t *testing.T, bm *blockManager, blockID string) {
+func verifyBlockNotFound(t *testing.T, bm *BlockManager, blockID string) {
 	t.Helper()
 
 	b, err := bm.GetBlock(blockID)
@@ -337,14 +437,16 @@ func verifyBlockNotFound(t *testing.T, bm *blockManager, blockID string) {
 	}
 }
 
-func verifyBlock(t *testing.T, bm *blockManager, blockID string, b []byte) {
+func verifyBlock(t *testing.T, bm *BlockManager, blockID string, b []byte) {
+	t.Helper()
+
 	b2, err := bm.GetBlock(blockID)
 	if err != nil {
-		t.Errorf("unable to read block %q that was just written: %v", blockID, err)
+		t.Errorf("unable to read block %q: %v", blockID, err)
 	}
 
 	if got, want := b2, b; !reflect.DeepEqual(got, want) {
-		t.Errorf("block %q data mismatch: got %x, wanted %x", blockID, got, want)
+		t.Errorf("block %q data mismatch: got %x (nil:%v), wanted %x (nil:%v)", blockID, got, got == nil, want, want == nil)
 	}
 
 	bs, err := bm.BlockSize(blockID)
@@ -357,7 +459,7 @@ func verifyBlock(t *testing.T, bm *blockManager, blockID string, b []byte) {
 	}
 
 }
-func writeBlockAndVerify(t *testing.T, bm *blockManager, packGroup string, b []byte) string {
+func writeBlockAndVerify(t *testing.T, bm *BlockManager, packGroup string, b []byte) string {
 	t.Helper()
 
 	blockID, err := bm.WriteBlock(packGroup, b, "")
