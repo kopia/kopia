@@ -269,7 +269,9 @@ func (bm *blockManager) finishPackLocked(g *packInfo) error {
 		g.currentPackIndex.PackBlockID = blockID
 	}
 
-	bm.pendingPackIndexes = append(bm.pendingPackIndexes, g.currentPackIndex)
+	if len(g.currentPackIndex.Items) > 0 {
+		bm.pendingPackIndexes = append(bm.pendingPackIndexes, g.currentPackIndex)
+	}
 	g.currentPackData = g.currentPackData[:0]
 	g.currentPackIndex = nil
 
@@ -385,12 +387,16 @@ func (bm *blockManager) ensurePackIndexesLoaded() (map[string]*packIndex, error)
 		return pi, nil
 	}
 
+	t0 := time.Now()
+
 	merged, _, err := bm.loadMergedPackIndexLocked(nil)
 	if err != nil {
 		return nil, err
 	}
 
 	bm.blockToIndex = dedupeBlockIDsAndIndex(merged)
+
+	log.Printf("loaded %v indexes of %v blocks in %v", len(merged), len(bm.blockToIndex), time.Since(t0))
 
 	return bm.blockToIndex, nil
 }
