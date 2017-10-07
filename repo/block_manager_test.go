@@ -9,6 +9,7 @@ import (
 	"log"
 	"math/rand"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,6 +22,8 @@ const (
 	maxPackedContentLength = 1000
 	maxPackSize            = 2000
 )
+
+var fakeTime = time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC)
 
 func TestBlockManagerEmptyFlush(t *testing.T) {
 	data := map[string][]byte{}
@@ -207,6 +210,89 @@ func TestBlockManagerWriteMultiple(t *testing.T) {
 	//dumpBlockManagerData(data)
 }
 
+func TestBlockManagerConcurrency(t *testing.T) {
+	data := map[string][]byte{}
+	bm := newTestBlockManager(data)
+	preexistingBlock := writeBlockAndVerify(t, bm, "", seededRandomData(10, 100))
+	bm.Flush()
+
+	bm1 := newTestBlockManager(data)
+	bm2 := newTestBlockManager(data)
+	bm3 := newTestBlockManager(data)
+
+	// all bm* can see pre-existing block
+	verifyBlock(t, bm1, preexistingBlock, seededRandomData(10, 100))
+	verifyBlock(t, bm2, preexistingBlock, seededRandomData(10, 100))
+	verifyBlock(t, bm3, preexistingBlock, seededRandomData(10, 100))
+
+	// write the same block in all managers.
+	sharedBlock := writeBlockAndVerify(t, bm1, "", seededRandomData(20, 100))
+	writeBlockAndVerify(t, bm2, "", seededRandomData(20, 100))
+	writeBlockAndVerify(t, bm3, "", seededRandomData(20, 100))
+
+	// write unique block per manager.
+	bm1block := writeBlockAndVerify(t, bm1, "", seededRandomData(31, 100))
+	bm2block := writeBlockAndVerify(t, bm2, "", seededRandomData(32, 100))
+	bm3block := writeBlockAndVerify(t, bm3, "", seededRandomData(33, 100))
+
+	// make sure they can't see each other's unflushed blocks.
+	verifyBlockNotFound(t, bm1, bm2block)
+	verifyBlockNotFound(t, bm1, bm3block)
+	verifyBlockNotFound(t, bm2, bm1block)
+	verifyBlockNotFound(t, bm2, bm3block)
+	verifyBlockNotFound(t, bm3, bm1block)
+	verifyBlockNotFound(t, bm3, bm2block)
+
+	// now flush all writers, they still can't see each others' data.
+	bm1.Flush()
+	bm2.Flush()
+	bm3.Flush()
+	verifyBlockNotFound(t, bm1, bm2block)
+	verifyBlockNotFound(t, bm1, bm3block)
+	verifyBlockNotFound(t, bm2, bm1block)
+	verifyBlockNotFound(t, bm2, bm3block)
+	verifyBlockNotFound(t, bm3, bm1block)
+	verifyBlockNotFound(t, bm3, bm2block)
+
+	// new block manager at this point can see all data.
+	bm4 := newTestBlockManager(data)
+	verifyBlock(t, bm4, preexistingBlock, seededRandomData(10, 100))
+	verifyBlock(t, bm4, sharedBlock, seededRandomData(20, 100))
+	verifyBlock(t, bm4, bm1block, seededRandomData(31, 100))
+	verifyBlock(t, bm4, bm2block, seededRandomData(32, 100))
+	verifyBlock(t, bm4, bm3block, seededRandomData(33, 100))
+
+	if got, want := getIndexCount(data), 4; got != want {
+		t.Errorf("unexpected index count before compaction: %v, wanted %v", got, want)
+	}
+
+	if err := bm4.Compact(fakeTime.Add(-1), nil); err != nil {
+		t.Errorf("compaction error: %v", err)
+	}
+
+	if got, want := getIndexCount(data), 4; got != want {
+		t.Errorf("unexpected index count after no-op compaction: %v, wanted %v", got, want)
+	}
+
+	if err := bm4.Compact(fakeTime, nil); err != nil {
+		t.Errorf("compaction error: %v", err)
+	}
+	if got, want := getIndexCount(data), 1; got != want {
+		t.Errorf("unexpected index count after compaction: %v, wanted %v", got, want)
+	}
+
+	// new block manager at this point can see all data.
+	bm5 := newTestBlockManager(data)
+	verifyBlock(t, bm5, preexistingBlock, seededRandomData(10, 100))
+	verifyBlock(t, bm5, sharedBlock, seededRandomData(20, 100))
+	verifyBlock(t, bm5, bm1block, seededRandomData(31, 100))
+	verifyBlock(t, bm5, bm2block, seededRandomData(32, 100))
+	verifyBlock(t, bm5, bm3block, seededRandomData(33, 100))
+	if err := bm5.Compact(fakeTime, nil); err != nil {
+		t.Errorf("compaction error: %v", err)
+	}
+}
+
 func newTestBlockManager(data map[string][]byte) *blockManager {
 	st := storagetesting.NewMapStorage(data)
 
@@ -214,22 +300,36 @@ func newTestBlockManager(data map[string][]byte) *blockManager {
 	//st = logging.NewWrapper(st)
 	bm := newBlockManager(st, maxPackedContentLength, maxPackSize, f)
 
-	bm.timeNow = func() time.Time { return time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC) }
+	setFakeTime(bm, fakeTime)
 	return bm
 }
 
-func writeBlockAndVerify(t *testing.T, bm *blockManager, packGroup string, b []byte) string {
+func getIndexCount(d map[string][]byte) int {
+	var cnt int
+
+	for k := range d {
+		if strings.HasPrefix(k, packObjectPrefix) {
+			cnt++
+		}
+	}
+
+	return cnt
+}
+
+func setFakeTime(bm *blockManager, t time.Time) {
+	bm.timeNow = func() time.Time { return t }
+}
+
+func verifyBlockNotFound(t *testing.T, bm *blockManager, blockID string) {
 	t.Helper()
 
-	blockID, err := bm.WriteBlock(packGroup, b, "")
-	if err != nil {
-		t.Errorf("err: %v", err)
+	b, err := bm.GetBlock(blockID)
+	if err != blob.ErrBlockNotFound {
+		t.Errorf("unexpected response from GetBlock(%q), got %v,%v, expected %v", blockID, b, err, blob.ErrBlockNotFound)
 	}
+}
 
-	if got, want := blockID, md5hash(b); got != want {
-		t.Errorf("invalid block ID for %x, got %v, want %v", b, got, want)
-	}
-
+func verifyBlock(t *testing.T, bm *blockManager, blockID string, b []byte) {
 	b2, err := bm.GetBlock(blockID)
 	if err != nil {
 		t.Errorf("unable to read block %q that was just written: %v", blockID, err)
@@ -247,6 +347,21 @@ func writeBlockAndVerify(t *testing.T, bm *blockManager, packGroup string, b []b
 	if got, want := bs, int64(len(b)); got != want {
 		t.Errorf("invalid block size for %q: %v, wanted %v", blockID, got, want)
 	}
+
+}
+func writeBlockAndVerify(t *testing.T, bm *blockManager, packGroup string, b []byte) string {
+	t.Helper()
+
+	blockID, err := bm.WriteBlock(packGroup, b, "")
+	if err != nil {
+		t.Errorf("err: %v", err)
+	}
+
+	if got, want := blockID, md5hash(b); got != want {
+		t.Errorf("invalid block ID for %x, got %v, want %v", b, got, want)
+	}
+
+	verifyBlock(t, bm, blockID, b)
 
 	return blockID
 }

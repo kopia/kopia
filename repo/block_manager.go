@@ -224,12 +224,7 @@ func (bm *blockManager) writePackIndexes(ndx packIndexes) (string, error) {
 	}
 	zw.Close()
 
-	blockID, err := bm.hashEncryptAndWrite("", buf.Bytes(), packObjectPrefix, true)
-	if err != nil {
-		return "", fmt.Errorf("can't save pack index object: %v", err)
-	}
-
-	return blockID, nil
+	return bm.writeUnpackedBlock(buf.Bytes(), packObjectPrefix, true)
 }
 
 func (bm *blockManager) finishAllOpenPacksLocked() error {
@@ -259,10 +254,9 @@ func (bm *blockManager) finishPackLocked(g *packInfo) error {
 	}
 
 	if dataLength := len(g.currentPackData); g.currentPackIndex.PackGroup != unpackedObjectsPackGroup {
-		blockID, err := bm.hashEncryptAndWrite(unpackedObjectsPackGroup, g.currentPackData, "", true)
-
+		blockID, err := bm.writeUnpackedBlock(g.currentPackData, "", true)
 		if err != nil {
-			return fmt.Errorf("can't save pack data: %v", err)
+			return fmt.Errorf("can't save pack data block %q: %v", blockID, err)
 		}
 
 		bm.registerUnpackedBlockLockedNoFlush(blockID, int64(dataLength))
@@ -278,7 +272,7 @@ func (bm *blockManager) finishPackLocked(g *packInfo) error {
 	return nil
 }
 
-func (bm *blockManager) loadMergedPackIndexLocked(olderThan *time.Time) (packIndexes, []string, error) {
+func (bm *blockManager) loadMergedPackIndexLocked(cutoffTime time.Time) (packIndexes, []string, error) {
 	ch, cancel := bm.storage.ListBlocks(packObjectPrefix)
 	defer cancel()
 
@@ -289,9 +283,10 @@ func (bm *blockManager) loadMergedPackIndexLocked(olderThan *time.Time) (packInd
 	errors := make(chan error, parallelFetches)
 	var mu sync.Mutex
 
-	packIndexData := map[string][]byte{}
 	totalSize := 0
 	var blockIDs []string
+	var indexes []packIndexes
+
 	for i := 0; i < parallelFetches; i++ {
 		wg.Add(1)
 		go func() {
@@ -303,19 +298,32 @@ func (bm *blockManager) loadMergedPackIndexLocked(olderThan *time.Time) (packInd
 					return
 				}
 
-				if olderThan != nil && b.TimeStamp.After(*olderThan) {
-					return
-				}
-
 				data, err := bm.getBlockInternal(b.BlockID)
 				if err != nil {
 					errors <- err
 					return
 				}
 
+				var r io.Reader = bytes.NewReader(data)
+				zr, err := gzip.NewReader(r)
+				if err != nil {
+					errors <- fmt.Errorf("unable to read pack index from %q: %v", b, err)
+					return
+				}
+
+				pi, err := loadPackIndexes(zr)
+				if err != nil {
+					errors <- err
+					return
+				}
+
+				if hasPackCreateAfter(pi, cutoffTime) {
+					continue
+				}
+
 				mu.Lock()
-				packIndexData[b.BlockID] = data
 				blockIDs = append(blockIDs, b.BlockID)
+				indexes = append(indexes, pi)
 				totalSize += len(data)
 				mu.Unlock()
 			}
@@ -331,24 +339,7 @@ func (bm *blockManager) loadMergedPackIndexLocked(olderThan *time.Time) (packInd
 	}
 
 	if false {
-		log.Printf("loaded %v pack indexes (%v bytes) in %v", len(packIndexData), totalSize, time.Since(t0))
-	}
-
-	var indexes []packIndexes
-
-	for blockID, content := range packIndexData {
-		var r io.Reader = bytes.NewReader(content)
-		zr, err := gzip.NewReader(r)
-		if err != nil {
-			return nil, nil, fmt.Errorf("unable to read pack index from %q: %v", blockID, err)
-		}
-
-		pi, err := loadPackIndexes(zr)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		indexes = append(indexes, pi)
+		log.Printf("loaded %v pack indexes (%v bytes) in %v", len(indexes), totalSize, time.Since(t0))
 	}
 
 	topLevelBlocks := map[string]bool{}
@@ -381,6 +372,16 @@ func (bm *blockManager) loadMergedPackIndexLocked(olderThan *time.Time) (packInd
 	return merged, blockIDs, nil
 }
 
+func hasPackCreateAfter(pi packIndexes, t time.Time) bool {
+	for _, ndx := range pi {
+		if ndx.CreateTime.After(t) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (bm *blockManager) ensurePackIndexesLoaded() (map[string]*packIndex, error) {
 	pi := bm.blockToIndex
 	if pi != nil {
@@ -389,7 +390,7 @@ func (bm *blockManager) ensurePackIndexesLoaded() (map[string]*packIndex, error)
 
 	t0 := time.Now()
 
-	merged, _, err := bm.loadMergedPackIndexLocked(nil)
+	merged, _, err := bm.loadMergedPackIndexLocked(bm.timeNow().Add(24 * time.Hour))
 	if err != nil {
 		return nil, err
 	}
@@ -437,7 +438,7 @@ func (bm *blockManager) Compact(cutoffTime time.Time, inUseBlocks map[string]boo
 	bm.mu.Lock()
 	defer bm.mu.Unlock()
 
-	merged, blockIDs, err := bm.loadMergedPackIndexLocked(&cutoffTime)
+	merged, blockIDs, err := bm.loadMergedPackIndexLocked(cutoffTime)
 	if err != nil {
 		return err
 	}
@@ -517,29 +518,31 @@ func (bm *blockManager) Flush() error {
 }
 
 func (bm *blockManager) WriteBlock(packGroup string, data []byte, prefix string) (string, error) {
-	return bm.hashEncryptAndWrite(packGroup, data, prefix, false)
+	if bm.maxPackedContentLength > 0 && len(data) <= bm.maxPackedContentLength {
+		blockID := prefix + bm.hashData(data)
+
+		err := bm.addToPack(packGroup, blockID, data)
+		return blockID, err
+	}
+
+	blockID, err := bm.writeUnpackedBlock(data, prefix, false)
+	if err != nil {
+		return "", err
+	}
+
+	bm.registerUnpackedBlock(blockID, int64(len(data)))
+	return blockID, nil
 }
 
-// hashEncryptAndWrite computes hash of a given buffer, optionally encrypts and writes it to storage.
-// The write is not guaranteed to complete synchronously in case write-back is used, but by the time
-// Repository.Close() returns all writes are guaranteed be over.
-func (bm *blockManager) hashEncryptAndWrite(packGroup string, data []byte, prefix string, isPackInternalObject bool) (string, error) {
-	// Hash the block and compute encryption key.
-	blockID := prefix + bm.formatter.ComputeBlockID(data)
-	atomic.AddInt32(&bm.stats.HashedBlocks, 1)
-	atomic.AddInt64(&bm.stats.HashedBytes, int64(len(data)))
+func (bm *blockManager) writeUnpackedBlock(data []byte, prefix string, force bool) (string, error) {
+	blockID := prefix + bm.hashData(data)
 
-	if !isPackInternalObject {
-		if bm.maxPackedContentLength > 0 && len(data) <= bm.maxPackedContentLength {
-			err := bm.addToPack(packGroup, blockID, data)
-			return blockID, err
-		}
-
+	if !force {
 		// Before performing encryption, check if the block is already there.
 		blockSize, err := bm.BlockSize(blockID)
-		atomic.AddInt32(&bm.stats.CheckedBlocks, int32(1))
+		atomic.AddInt32(&bm.stats.CheckedBlocks, 1)
 		if err == nil && blockSize == int64(len(data)) {
-			atomic.AddInt32(&bm.stats.PresentBlocks, int32(1))
+			atomic.AddInt32(&bm.stats.PresentBlocks, 1)
 			// Block already exists in storage, correct size, return without uploading.
 			return blockID, nil
 		}
@@ -552,22 +555,26 @@ func (bm *blockManager) hashEncryptAndWrite(packGroup string, data []byte, prefi
 
 	// Encrypt the block in-place.
 	atomic.AddInt64(&bm.stats.EncryptedBytes, int64(len(data)))
-	data, err := bm.formatter.Encrypt(data, blockID, 0)
+	data2, err := bm.formatter.Encrypt(data, blockID, 0)
 	if err != nil {
 		return "", err
 	}
 
-	atomic.AddInt32(&bm.stats.WrittenBlocks, int32(1))
+	atomic.AddInt32(&bm.stats.WrittenBlocks, 1)
 	atomic.AddInt64(&bm.stats.WrittenBytes, int64(len(data)))
-
-	if err := bm.storage.PutBlock(blockID, data); err != nil {
+	if err := bm.storage.PutBlock(blockID, data2); err != nil {
 		return "", err
 	}
 
-	if !isPackInternalObject {
-		bm.registerUnpackedBlock(blockID, int64(len(data)))
-	}
 	return blockID, nil
+}
+
+func (bm *blockManager) hashData(data []byte) string {
+	// Hash the block and compute encryption key.
+	blockID := bm.formatter.ComputeBlockID(data)
+	atomic.AddInt32(&bm.stats.HashedBlocks, 1)
+	atomic.AddInt64(&bm.stats.HashedBytes, int64(len(data)))
+	return blockID
 }
 
 func (bm *blockManager) getPendingBlock(blockID string) ([]byte, error) {
