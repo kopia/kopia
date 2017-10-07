@@ -219,6 +219,7 @@ func TestBlockManagerConcurrency(t *testing.T) {
 	bm1 := newTestBlockManager(data)
 	bm2 := newTestBlockManager(data)
 	bm3 := newTestBlockManager(data)
+	setFakeTime(bm3, fakeTime.Add(1))
 
 	// all bm* can see pre-existing block
 	verifyBlock(t, bm1, preexistingBlock, seededRandomData(10, 100))
@@ -277,8 +278,15 @@ func TestBlockManagerConcurrency(t *testing.T) {
 	if err := bm4.Compact(fakeTime, nil); err != nil {
 		t.Errorf("compaction error: %v", err)
 	}
+	if got, want := getIndexCount(data), 2; got != want {
+		t.Errorf("unexpected index count after partial compaction: %v, wanted %v", got, want)
+	}
+
+	if err := bm4.Compact(fakeTime.Add(1), nil); err != nil {
+		t.Errorf("compaction error: %v", err)
+	}
 	if got, want := getIndexCount(data), 1; got != want {
-		t.Errorf("unexpected index count after compaction: %v, wanted %v", got, want)
+		t.Errorf("unexpected index count after full compaction: %v, wanted %v", got, want)
 	}
 
 	// new block manager at this point can see all data.
