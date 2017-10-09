@@ -16,10 +16,10 @@ import (
 	"google.golang.org/api/option"
 
 	"github.com/efarrer/iothrottler"
-	"github.com/kopia/kopia/blob"
+	"github.com/kopia/kopia/storage"
 	"golang.org/x/oauth2"
 
-	"cloud.google.com/go/storage"
+	gcsclient "cloud.google.com/go/storage"
 )
 
 const (
@@ -30,8 +30,8 @@ type gcsStorage struct {
 	Options
 
 	ctx           context.Context
-	storageClient *storage.Client
-	bucket        *storage.BucketHandle
+	storageClient *gcsclient.Client
+	bucket        *gcsclient.BucketHandle
 
 	downloadThrottler *iothrottler.IOThrottlerPool
 	uploadThrottler   *iothrottler.IOThrottlerPool
@@ -84,9 +84,9 @@ func isRetriableError(err error) bool {
 	switch err {
 	case nil:
 		return false
-	case storage.ErrObjectNotExist:
+	case gcsclient.ErrObjectNotExist:
 		return false
-	case storage.ErrBucketNotExist:
+	case gcsclient.ErrBucketNotExist:
 		return false
 	default:
 		return true
@@ -97,10 +97,10 @@ func translateError(err error) error {
 	switch err {
 	case nil:
 		return nil
-	case storage.ErrObjectNotExist:
-		return blob.ErrBlockNotFound
-	case storage.ErrBucketNotExist:
-		return blob.ErrBlockNotFound
+	case gcsclient.ErrObjectNotExist:
+		return storage.ErrBlockNotFound
+	case gcsclient.ErrBucketNotExist:
+		return storage.ErrBlockNotFound
 	default:
 		return fmt.Errorf("unexpected GCS error: %v", err)
 	}
@@ -138,20 +138,20 @@ func (gcs *gcsStorage) getObjectNameString(b string) string {
 	return gcs.Prefix + string(b)
 }
 
-func (gcs *gcsStorage) ListBlocks(prefix string) (chan blob.BlockMetadata, blob.CancelFunc) {
-	ch := make(chan blob.BlockMetadata, 100)
+func (gcs *gcsStorage) ListBlocks(prefix string) (chan storage.BlockMetadata, storage.CancelFunc) {
+	ch := make(chan storage.BlockMetadata, 100)
 	cancelled := make(chan bool)
 
 	go func() {
 		defer close(ch)
 
-		lst := gcs.bucket.Objects(gcs.ctx, &storage.Query{
+		lst := gcs.bucket.Objects(gcs.ctx, &gcsclient.Query{
 			Prefix: gcs.getObjectNameString(prefix),
 		})
 
 		oa, err := lst.Next()
 		for err == nil {
-			bm := blob.BlockMetadata{
+			bm := storage.BlockMetadata{
 				BlockID:   oa.Name[len(gcs.Prefix):],
 				Length:    oa.Size,
 				TimeStamp: oa.Created,
@@ -166,7 +166,7 @@ func (gcs *gcsStorage) ListBlocks(prefix string) (chan blob.BlockMetadata, blob.
 
 		if err != iterator.Done {
 			select {
-			case ch <- blob.BlockMetadata{Error: translateError(err)}:
+			case ch <- storage.BlockMetadata{Error: translateError(err)}:
 				return
 			case <-cancelled:
 				return
@@ -179,8 +179,8 @@ func (gcs *gcsStorage) ListBlocks(prefix string) (chan blob.BlockMetadata, blob.
 	}
 }
 
-func (gcs *gcsStorage) ConnectionInfo() blob.ConnectionInfo {
-	return blob.ConnectionInfo{
+func (gcs *gcsStorage) ConnectionInfo() storage.ConnectionInfo {
+	return storage.ConnectionInfo{
 		Type:   gcsStorageType,
 		Config: &gcs.Options,
 	}
@@ -228,13 +228,13 @@ func tokenSourceFromCredentialsFile(ctx context.Context, fn string, scopes ...st
 //
 // By default the connection reuses credentials managed by (https://cloud.google.com/sdk/),
 // but this can be disabled by setting IgnoreDefaultCredentials to true.
-func New(ctx context.Context, opt *Options) (blob.Storage, error) {
+func New(ctx context.Context, opt *Options) (storage.Storage, error) {
 	var ts oauth2.TokenSource
 	var err error
 
-	scope := storage.ScopeReadWrite
+	scope := gcsclient.ScopeReadWrite
 	if opt.ReadOnly {
-		scope = storage.ScopeReadOnly
+		scope = gcsclient.ScopeReadOnly
 	}
 
 	if sa := opt.ServiceAccountCredentials; sa != "" {
@@ -253,7 +253,7 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 	hc := oauth2.NewClient(ctx, ts)
 	hc.Transport = throttle.NewRoundTripper(hc.Transport, downloadThrottler, uploadThrottler)
 
-	cli, err := storage.NewClient(ctx, option.WithHTTPClient(hc))
+	cli, err := gcsclient.NewClient(ctx, option.WithHTTPClient(hc))
 	if err != nil {
 		return nil, err
 	}
@@ -273,14 +273,14 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 }
 
 func init() {
-	blob.AddSupportedStorage(
+	storage.AddSupportedStorage(
 		gcsStorageType,
 		func() interface{} {
 			return &Options{}
 		},
-		func(ctx context.Context, o interface{}) (blob.Storage, error) {
+		func(ctx context.Context, o interface{}) (storage.Storage, error) {
 			return New(ctx, o.(*Options))
 		})
 }
 
-var _ blob.ConnectionInfoProvider = &gcsStorage{}
+var _ storage.ConnectionInfoProvider = &gcsStorage{}

@@ -12,7 +12,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/kopia/kopia/blob"
+	"github.com/kopia/kopia/storage"
 )
 
 const parallelFetches = 5
@@ -46,7 +46,7 @@ type Info struct {
 
 // Manager manages storage blocks at a low level with encryption, deduplication and packaging.
 type Manager struct {
-	storage blob.Storage
+	storage storage.Storage
 	stats   Stats
 
 	mu           sync.Mutex
@@ -75,7 +75,7 @@ func (bm *Manager) BlockSize(blockID string) (int64, error) {
 
 	ndx := pi[blockID]
 	if ndx == nil {
-		return 0, blob.ErrBlockNotFound
+		return 0, storage.ErrBlockNotFound
 	}
 
 	return int64(ndx.Items[blockID].size), nil
@@ -644,7 +644,7 @@ func (bm *Manager) writeUnpackedBlock(data []byte, prefix string, force bool) (s
 			return blockID, nil
 		}
 
-		if err != nil && err != blob.ErrBlockNotFound {
+		if err != nil && err != storage.ErrBlockNotFound {
 			// Don't know whether block exists in storage.
 			return "", err
 		}
@@ -685,7 +685,7 @@ func (bm *Manager) getPendingBlockLocked(blockID string) ([]byte, error) {
 			}
 		}
 	}
-	return nil, blob.ErrBlockNotFound
+	return nil, storage.ErrBlockNotFound
 }
 
 // GetBlock gets the contents of a given block. If the block is not found returns blob.ErrBlockNotFound.
@@ -721,7 +721,7 @@ func (bm *Manager) BlockInfo(blockID string) (Info, error) {
 func (bm *Manager) blockInfoLocked(blockID string) (Info, error) {
 	ndx := bm.blockToIndex[blockID]
 	if ndx == nil {
-		return Info{}, blob.ErrBlockNotFound
+		return Info{}, storage.ErrBlockNotFound
 	}
 
 	return Info{
@@ -737,7 +737,7 @@ func (bm *Manager) blockInfoLocked(blockID string) (Info, error) {
 func (bm *Manager) getBlockInternal(blockID string) ([]byte, error) {
 	s, err := bm.blockInfoLocked(blockID)
 	if err != nil {
-		if err != blob.ErrBlockNotFound {
+		if err != storage.ErrBlockNotFound {
 			return nil, err
 		}
 	}
@@ -788,9 +788,9 @@ func (bm *Manager) verifyChecksum(data []byte, blockID string) error {
 }
 
 // NewManager creates new block manager with given packing options and a formatter.
-func NewManager(storage blob.Storage, maxPackedContentLength, maxPackSize int, formatter Formatter) *Manager {
+func NewManager(st storage.Storage, maxPackedContentLength, maxPackSize int, formatter Formatter) *Manager {
 	return &Manager{
-		storage:                storage,
+		storage:                st,
 		openPackGroups:         make(map[string]*packInfo),
 		timeNow:                time.Now,
 		flushPackIndexesAfter:  time.Now().Add(flushPackIndexTimeout),

@@ -5,7 +5,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/kopia/kopia/blob"
+	"github.com/kopia/kopia/storage"
 )
 
 // LocalConfig is a configuration of Kopia.
@@ -30,8 +30,8 @@ type RepositoryObjectFormat struct {
 
 // RepositoryConnectionInfo represents JSON-serializable configuration of the repository connection, including master key.
 type RepositoryConnectionInfo struct {
-	ConnectionInfo blob.ConnectionInfo `json:"storage"`
-	Key            []byte              `json:"key,omitempty"`
+	ConnectionInfo storage.ConnectionInfo `json:"storage"`
+	Key            []byte                 `json:"key,omitempty"`
 }
 
 // EncryptedRepositoryConfig contains the configuration of repository that's persisted in encrypted format.

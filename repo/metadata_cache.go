@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/kopia/kopia/blob"
+	"github.com/kopia/kopia/storage"
 )
 
 const (
@@ -15,7 +15,7 @@ const (
 )
 
 type metadataCache struct {
-	st blob.Storage
+	st storage.Storage
 
 	mu            sync.Mutex
 	sortedNames   []string
@@ -43,7 +43,7 @@ func (mc *metadataCache) GetBlock(name string) ([]byte, error) {
 	cid := mc.nameToCacheID[name]
 	if cid == "" {
 		mc.mu.Unlock()
-		return nil, blob.ErrBlockNotFound
+		return nil, storage.ErrBlockNotFound
 	}
 
 	// see if the data is cached
@@ -143,7 +143,7 @@ func cloneBytes(d []byte) []byte {
 	return append([]byte(nil), d...)
 }
 
-func newMetadataCache(st blob.Storage) (*metadataCache, error) {
+func newMetadataCache(st storage.Storage) (*metadataCache, error) {
 	c := &metadataCache{
 		st:            st,
 		nameToCacheID: make(map[string]string),

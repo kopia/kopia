@@ -8,11 +8,11 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/kopia/kopia/blob"
+	"github.com/kopia/kopia/storage"
 )
 
 // AssertGetBlock asserts that the specified storage block has correct content.
-func AssertGetBlock(t *testing.T, s blob.Storage, block string, expected []byte) {
+func AssertGetBlock(t *testing.T, s storage.Storage, block string, expected []byte) {
 	b, err := s.GetBlock(block, 0, -1)
 	if err != nil {
 		t.Errorf(errorPrefix()+"GetBlock(%v) returned error %v, expected data: %v", block, err, expected)
@@ -25,20 +25,20 @@ func AssertGetBlock(t *testing.T, s blob.Storage, block string, expected []byte)
 }
 
 // AssertGetBlockNotFound asserts that GetBlock() for specified storage block returns ErrBlockNotFound.
-func AssertGetBlockNotFound(t *testing.T, s blob.Storage, block string) {
+func AssertGetBlockNotFound(t *testing.T, s storage.Storage, block string) {
 	b, err := s.GetBlock(block, 0, -1)
-	if err != blob.ErrBlockNotFound || b != nil {
+	if err != storage.ErrBlockNotFound || b != nil {
 		t.Errorf(errorPrefix()+"GetBlock(%v) returned %v, %v but expected ErrBlockNotFound", block, b, err)
 	}
 }
 
 // AssertBlockExists asserts that BlockExists() the specified storage block returns the correct value.
-func AssertBlockExists(t *testing.T, s blob.Storage, block string, expected bool) {
+func AssertBlockExists(t *testing.T, s storage.Storage, block string, expected bool) {
 	_, err := s.BlockSize(block)
 	var exists bool
 	if err == nil {
 		exists = true
-	} else if err == blob.ErrBlockNotFound {
+	} else if err == storage.ErrBlockNotFound {
 		exists = false
 	} else {
 		t.Errorf(errorPrefix()+"BlockSize(%v) returned error: %v", block, err)
@@ -51,7 +51,7 @@ func AssertBlockExists(t *testing.T, s blob.Storage, block string, expected bool
 }
 
 // AssertListResults asserts that the list results with given prefix return the specified list of names in order.
-func AssertListResults(t *testing.T, s blob.Storage, prefix string, expected ...string) {
+func AssertListResults(t *testing.T, s storage.Storage, prefix string, expected ...string) {
 	var names []string
 
 	blocks, cancel := s.ListBlocks(prefix)

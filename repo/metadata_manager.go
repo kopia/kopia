@@ -12,8 +12,8 @@ import (
 	"sync"
 
 	"github.com/kopia/kopia/auth"
-	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/internal/config"
+	"github.com/kopia/kopia/storage"
 
 	"golang.org/x/crypto/hkdf"
 )
@@ -54,7 +54,7 @@ func init() {
 // MetadataManager manages JSON metadata, such as snapshot manifests, policies, object format etc.
 // in a repository.
 type MetadataManager struct {
-	storage    blob.Storage
+	storage    storage.Storage
 	cache      *metadataCache
 	format     config.MetadataFormat
 	repoConfig config.EncryptedRepositoryConfig
@@ -102,7 +102,7 @@ func (mm *MetadataManager) writeEncryptedBlock(itemID string, content []byte) er
 func (mm *MetadataManager) readEncryptedBlock(itemID string) ([]byte, error) {
 	content, err := mm.cache.GetBlock(itemID)
 	if err != nil {
-		if err == blob.ErrBlockNotFound {
+		if err == storage.ErrBlockNotFound {
 			return nil, ErrMetadataNotFound
 		}
 		return nil, fmt.Errorf("unexpected error reading %v: %v", itemID, err)
@@ -222,7 +222,7 @@ func (mm *MetadataManager) ListContents(prefix string) (map[string][]byte, error
 // Config returns a configuration of storage its credentials that's suitable
 // for storing in configuration file.
 func (mm *MetadataManager) connectionConfiguration() (*config.RepositoryConnectionInfo, error) {
-	cip, ok := mm.storage.(blob.ConnectionInfoProvider)
+	cip, ok := mm.storage.(storage.ConnectionInfoProvider)
 	if !ok {
 		return nil, errors.New("repository does not support persisting configuration")
 	}
@@ -275,7 +275,7 @@ func (mm *MetadataManager) RemoveMany(itemIDs []string) error {
 }
 
 // newMetadataManager opens a MetadataManager for given storage and credentials.
-func newMetadataManager(st blob.Storage, creds auth.Credentials) (*MetadataManager, error) {
+func newMetadataManager(st storage.Storage, creds auth.Credentials) (*MetadataManager, error) {
 	cache, err := newMetadataCache(st)
 	if err != nil {
 		return nil, err

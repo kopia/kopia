@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kopia/kopia/blob"
+	"github.com/kopia/kopia/storage"
 
 	"github.com/kopia/kopia/internal/storagetesting"
 )
@@ -146,12 +146,12 @@ func TestBlockManagerEmpty(t *testing.T) {
 	noSuchBlockID := md5hash([]byte("foo"))
 
 	b, err := bm.GetBlock(noSuchBlockID)
-	if err != blob.ErrBlockNotFound {
+	if err != storage.ErrBlockNotFound {
 		t.Errorf("unexpected error when getting non-existent block: %v, %v", b, err)
 	}
 
 	bs, err := bm.BlockSize(noSuchBlockID)
-	if err != blob.ErrBlockNotFound {
+	if err != storage.ErrBlockNotFound {
 		t.Errorf("unexpected error when getting non-existent block size: %v, %v", bs, err)
 	}
 
@@ -432,8 +432,8 @@ func verifyBlockNotFound(t *testing.T, bm *Manager, blockID string) {
 	t.Helper()
 
 	b, err := bm.GetBlock(blockID)
-	if err != blob.ErrBlockNotFound {
-		t.Errorf("unexpected response from GetBlock(%q), got %v,%v, expected %v", blockID, b, err, blob.ErrBlockNotFound)
+	if err != storage.ErrBlockNotFound {
+		t.Errorf("unexpected response from GetBlock(%q), got %v,%v, expected %v", blockID, b, err, storage.ErrBlockNotFound)
 	}
 }
 

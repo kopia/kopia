@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kopia/kopia/blob"
+	"github.com/kopia/kopia/storage"
 )
 
 const (
@@ -49,7 +49,7 @@ func (d *davStorage) BlockSize(blockID string) (int64, error) {
 
 	switch resp.StatusCode {
 	case http.StatusNotFound:
-		return 0, blob.ErrBlockNotFound
+		return 0, storage.ErrBlockNotFound
 	case http.StatusOK:
 		return resp.ContentLength, nil
 	default:
@@ -78,7 +78,7 @@ func (d *davStorage) GetBlock(blockID string, offset, length int64) ([]byte, err
 
 	switch resp.StatusCode {
 	case http.StatusNotFound:
-		return nil, blob.ErrBlockNotFound
+		return nil, storage.ErrBlockNotFound
 	case http.StatusOK, http.StatusPartialContent:
 		return ioutil.ReadAll(resp.Body)
 	default:
@@ -98,8 +98,8 @@ func makeFileName(blockID string) string {
 	return string(blockID) + fsStorageChunkSuffix
 }
 
-func (d *davStorage) ListBlocks(prefix string) (chan blob.BlockMetadata, blob.CancelFunc) {
-	result := make(chan blob.BlockMetadata)
+func (d *davStorage) ListBlocks(prefix string) (chan storage.BlockMetadata, storage.CancelFunc) {
+	result := make(chan storage.BlockMetadata)
 	cancelled := make(chan bool)
 
 	prefixString := string(prefix)
@@ -127,7 +127,7 @@ func (d *davStorage) ListBlocks(prefix string) (chan blob.BlockMetadata, blob.Ca
 						select {
 						case <-cancelled:
 							return
-						case result <- blob.BlockMetadata{
+						case result <- storage.BlockMetadata{
 							BlockID:   fullID,
 							Length:    e.length,
 							TimeStamp: e.modTime,
@@ -156,7 +156,7 @@ func (d *davStorage) makeCollectionAll(urlStr string) error {
 	case nil:
 		return nil
 
-	case blob.ErrBlockNotFound:
+	case storage.ErrBlockNotFound:
 		parent := getParentURL(urlStr)
 		if parent == "" {
 			return fmt.Errorf("can't create %q", urlStr)
@@ -186,7 +186,7 @@ func (d *davStorage) makeCollection(urlStr string) error {
 	defer resp.Body.Close()
 	switch resp.StatusCode {
 	case http.StatusConflict:
-		return blob.ErrBlockNotFound
+		return storage.ErrBlockNotFound
 	case http.StatusOK, http.StatusCreated:
 		return nil
 	default:
@@ -263,7 +263,7 @@ func (d *davStorage) putBlockInternal(urlStr string, data []byte) error {
 		return nil
 
 	case http.StatusNotFound:
-		return blob.ErrBlockNotFound
+		return storage.ErrBlockNotFound
 
 	default:
 		return fmt.Errorf("invalid response from webdav server: %v", resp.StatusCode)
@@ -276,7 +276,7 @@ func (d *davStorage) PutBlock(blockID string, data []byte) error {
 	tmpURL := url + "-" + makeClientNonce()
 	err := d.putBlockInternal(tmpURL, data)
 
-	if err == blob.ErrBlockNotFound {
+	if err == storage.ErrBlockNotFound {
 		if err := d.makeCollectionAll(shardPath); err != nil {
 			return err
 		}
@@ -343,8 +343,8 @@ func parseShardString(shardString string) ([]int, error) {
 	return result, nil
 }
 
-func (d *davStorage) ConnectionInfo() blob.ConnectionInfo {
-	return blob.ConnectionInfo{
+func (d *davStorage) ConnectionInfo() storage.ConnectionInfo {
+	return storage.ConnectionInfo{
 		Type:   davStorageType,
 		Config: &d.Options,
 	}
@@ -355,7 +355,7 @@ func (d *davStorage) Close() error {
 }
 
 // New creates new WebDAV-backed storage in a specified URL.
-func New(ctx context.Context, opts *Options) (blob.Storage, error) {
+func New(ctx context.Context, opts *Options) (storage.Storage, error) {
 	r := &davStorage{
 		Options: *opts,
 		Client:  http.DefaultClient,
@@ -372,10 +372,10 @@ func New(ctx context.Context, opts *Options) (blob.Storage, error) {
 }
 
 func init() {
-	blob.AddSupportedStorage(
+	storage.AddSupportedStorage(
 		davStorageType,
 		func() interface{} { return &Options{} },
-		func(ctx context.Context, o interface{}) (blob.Storage, error) {
+		func(ctx context.Context, o interface{}) (storage.Storage, error) {
 			return New(ctx, o.(*Options))
 		})
 }

@@ -4,8 +4,8 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/block"
+	"github.com/kopia/kopia/storage"
 )
 
 // Repository represents storage where both content-addressable and user-addressable data is kept.
@@ -13,7 +13,7 @@ type Repository struct {
 	Blocks   *block.Manager
 	Objects  *ObjectManager
 	Metadata *MetadataManager
-	Storage  blob.Storage
+	Storage  storage.Storage
 
 	ConfigFile     string
 	CacheDirectory string

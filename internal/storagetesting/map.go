@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kopia/kopia/blob"
+	"github.com/kopia/kopia/storage"
 )
 
 type mapStorage struct {
@@ -19,7 +19,7 @@ func (s *mapStorage) BlockSize(id string) (int64, error) {
 	defer s.mutex.RUnlock()
 	d, ok := s.data[string(id)]
 	if !ok {
-		return 0, blob.ErrBlockNotFound
+		return 0, storage.ErrBlockNotFound
 	}
 
 	return int64(len(d)), nil
@@ -42,7 +42,7 @@ func (s *mapStorage) GetBlock(id string, offset, length int64) ([]byte, error) {
 		return data[0:length], nil
 	}
 
-	return nil, blob.ErrBlockNotFound
+	return nil, storage.ErrBlockNotFound
 }
 
 func (s *mapStorage) PutBlock(id string, data []byte) error {
@@ -65,8 +65,8 @@ func (s *mapStorage) DeleteBlock(id string) error {
 	return nil
 }
 
-func (s *mapStorage) ListBlocks(prefix string) (chan blob.BlockMetadata, blob.CancelFunc) {
-	ch := make(chan blob.BlockMetadata)
+func (s *mapStorage) ListBlocks(prefix string) (chan storage.BlockMetadata, storage.CancelFunc) {
+	ch := make(chan storage.BlockMetadata)
 	cancelled := make(chan bool)
 	fixedTime := time.Now()
 	go func() {
@@ -88,7 +88,7 @@ func (s *mapStorage) ListBlocks(prefix string) (chan blob.BlockMetadata, blob.Ca
 			select {
 			case <-cancelled:
 				return
-			case ch <- blob.BlockMetadata{
+			case ch <- storage.BlockMetadata{
 				BlockID:   string(k),
 				Length:    int64(len(v)),
 				TimeStamp: fixedTime,
@@ -107,6 +107,6 @@ func (s *mapStorage) Close() error {
 
 // NewMapStorage returns an implementation of Storage backed by the contents of given map.
 // Used primarily for testing.
-func NewMapStorage(data map[string][]byte) blob.Storage {
+func NewMapStorage(data map[string][]byte) storage.Storage {
 	return &mapStorage{data: data}
 }

@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/auth"
-	"github.com/kopia/kopia/blob"
-	"github.com/kopia/kopia/blob/filesystem"
+	"github.com/kopia/kopia/storage"
+	"github.com/kopia/kopia/storage/filesystem"
 
 	"testing"
 )
@@ -173,7 +173,7 @@ func assertMetadataItems(t *testing.T, v *MetadataManager, prefix string, expect
 	}
 }
 
-func mustCreateFileStorage(t *testing.T, path string) blob.Storage {
+func mustCreateFileStorage(t *testing.T, path string) storage.Storage {
 	os.MkdirAll(path, 0700)
 	s, err := filesystem.New(context.Background(), &filesystem.Options{
 		Path: path,

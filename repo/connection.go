@@ -10,14 +10,14 @@ import (
 	"path/filepath"
 
 	"github.com/kopia/kopia/auth"
-	"github.com/kopia/kopia/blob"
-	"github.com/kopia/kopia/blob/logging"
 	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/config"
+	"github.com/kopia/kopia/storage"
+	"github.com/kopia/kopia/storage/logging"
 
 	// Register well-known blob storage providers
-	_ "github.com/kopia/kopia/blob/filesystem"
-	_ "github.com/kopia/kopia/blob/gcs"
+	_ "github.com/kopia/kopia/storage/filesystem"
+	_ "github.com/kopia/kopia/storage/gcs"
 )
 
 // Options provides configuration parameters for connection to a repository.
@@ -58,7 +58,7 @@ func Open(ctx context.Context, configFile string, options *Options) (*Repository
 		return nil, fmt.Errorf("invalid credentials: %v", err)
 	}
 
-	st, err := blob.NewStorage(ctx, lc.Connection.ConnectionInfo)
+	st, err := storage.NewStorage(ctx, lc.Connection.ConnectionInfo)
 	if err != nil {
 		return nil, fmt.Errorf("cannot open storage: %v", err)
 	}
@@ -82,7 +82,7 @@ type ConnectOptions struct {
 }
 
 // Connect connects to the repository in the specified storage and persists the configuration and credentials in the file provided.
-func Connect(ctx context.Context, configFile string, st blob.Storage, creds auth.Credentials, opt ConnectOptions) error {
+func Connect(ctx context.Context, configFile string, st storage.Storage, creds auth.Credentials, opt ConnectOptions) error {
 	r, err := connect(ctx, st, creds, nil)
 	if err != nil {
 		return err
@@ -112,7 +112,7 @@ func Connect(ctx context.Context, configFile string, st blob.Storage, creds auth
 	return ioutil.WriteFile(configFile, d, 0600)
 }
 
-func connect(ctx context.Context, st blob.Storage, creds auth.Credentials, options *Options) (*Repository, error) {
+func connect(ctx context.Context, st storage.Storage, creds auth.Credentials, options *Options) (*Repository, error) {
 	if options == nil {
 		options = &Options{}
 	}

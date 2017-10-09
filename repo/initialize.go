@@ -7,9 +7,9 @@ import (
 	"io"
 
 	"github.com/kopia/kopia/auth"
-	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/config"
+	"github.com/kopia/kopia/storage"
 )
 
 // NewRepositoryOptions specifies options that apply to newly created repositories.
@@ -34,7 +34,7 @@ type NewRepositoryOptions struct {
 }
 
 // Initialize creates initial repository data structures in the specified storage with given credentials.
-func Initialize(st blob.Storage, opt *NewRepositoryOptions, creds auth.Credentials) error {
+func Initialize(st storage.Storage, opt *NewRepositoryOptions, creds auth.Credentials) error {
 	if opt == nil {
 		opt = &NewRepositoryOptions{}
 	}

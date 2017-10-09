@@ -6,10 +6,10 @@ import (
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 
-	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/storage"
 )
 
 var (
@@ -49,7 +49,7 @@ func newRepositoryOptionsFromFlags() *repo.NewRepositoryOptions {
 	}
 }
 
-func openStorageAndEnsureEmpty(url string) (blob.Storage, error) {
+func openStorageAndEnsureEmpty(url string) (storage.Storage, error) {
 	s, err := newStorageFromURL(getContext(), url)
 	if err != nil {
 		return nil, err

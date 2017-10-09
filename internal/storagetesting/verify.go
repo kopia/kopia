@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/kopia/kopia/blob"
+	"github.com/kopia/kopia/storage"
 )
 
 // VerifyStorage verifies the behavior of the specified storage.
-func VerifyStorage(t *testing.T, r blob.Storage) {
+func VerifyStorage(t *testing.T, r storage.Storage) {
 	blocks := []struct {
 		blk      string
 		contents []byte
@@ -21,7 +21,7 @@ func VerifyStorage(t *testing.T, r blob.Storage) {
 
 	// First verify that blocks don't exist.
 	for _, b := range blocks {
-		if _, err := r.BlockSize(b.blk); err != blob.ErrBlockNotFound {
+		if _, err := r.BlockSize(b.blk); err != storage.ErrBlockNotFound {
 			t.Errorf("block exists or error: %v %v", b.blk, err)
 		}
 

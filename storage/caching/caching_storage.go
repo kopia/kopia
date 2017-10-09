@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/boltdb/bolt"
-	"github.com/kopia/kopia/blob"
-	"github.com/kopia/kopia/blob/filesystem"
+	"github.com/kopia/kopia/storage"
+	"github.com/kopia/kopia/storage/filesystem"
 )
 
 var (
@@ -24,8 +24,8 @@ const (
 )
 
 type cachingStorage struct {
-	master    blob.Storage
-	cache     blob.Storage
+	master    storage.Storage
+	cache     storage.Storage
 	db        *bolt.DB
 	sizeBytes int64
 
@@ -103,7 +103,7 @@ func (c *cachingStorage) BlockSize(id string) (int64, error) {
 			return entry.size, nil
 		}
 
-		return 0, blob.ErrBlockNotFound
+		return 0, storage.ErrBlockNotFound
 	}
 
 	c.Lock(id)
@@ -111,7 +111,7 @@ func (c *cachingStorage) BlockSize(id string) (int64, error) {
 
 	l, err := c.master.BlockSize(id)
 	if err != nil {
-		if err == blob.ErrBlockNotFound {
+		if err == storage.ErrBlockNotFound {
 			c.setCacheEntrySize(id, sizeDoesNotExists)
 		}
 		return 0, err
@@ -142,7 +142,7 @@ func (c *cachingStorage) GetBlock(id string, offset, length int64) ([]byte, erro
 
 	if blockCacheEntry, ok := c.getCacheEntry(id); ok {
 		if !blockCacheEntry.exists() {
-			return nil, blob.ErrBlockNotFound
+			return nil, storage.ErrBlockNotFound
 		}
 
 		v, err := c.cache.GetBlock(id, offset, length)
@@ -158,7 +158,7 @@ func (c *cachingStorage) GetBlock(id string, offset, length int64) ([]byte, erro
 		l := int64(len(b))
 		c.cache.PutBlock(id, b)
 		c.setCacheEntrySize(id, l)
-	} else if err == blob.ErrBlockNotFound {
+	} else if err == storage.ErrBlockNotFound {
 		c.setCacheEntrySize(id, sizeDoesNotExists)
 	}
 
@@ -176,7 +176,7 @@ func (c *cachingStorage) PutBlock(id string, data []byte) error {
 	return c.master.PutBlock(id, data)
 }
 
-func (c *cachingStorage) ListBlocks(prefix string) (chan blob.BlockMetadata, blob.CancelFunc) {
+func (c *cachingStorage) ListBlocks(prefix string) (chan storage.BlockMetadata, storage.CancelFunc) {
 	return c.master.ListBlocks(prefix)
 }
 
@@ -205,7 +205,7 @@ type Options struct {
 }
 
 // NewWrapper creates new caching storage wrapper.
-func NewWrapper(ctx context.Context, master blob.Storage, options *Options) (blob.Storage, error) {
+func NewWrapper(ctx context.Context, master storage.Storage, options *Options) (storage.Storage, error) {
 	if options.CacheDir == "" {
 		return nil, fmt.Errorf("Cache directory must be specified")
 	}
@@ -243,4 +243,4 @@ func NewWrapper(ctx context.Context, master blob.Storage, options *Options) (blo
 	return s, nil
 }
 
-var _ blob.Storage = &cachingStorage{}
+var _ storage.Storage = &cachingStorage{}

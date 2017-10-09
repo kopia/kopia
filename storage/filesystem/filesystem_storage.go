@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/kopia/kopia/blob"
+	"github.com/kopia/kopia/storage"
 )
 
 const (
@@ -38,7 +38,7 @@ func (fs *fsStorage) BlockSize(blockID string) (int64, error) {
 	}
 
 	if os.IsNotExist(err) {
-		return 0, blob.ErrBlockNotFound
+		return 0, storage.ErrBlockNotFound
 	}
 
 	return 0, err
@@ -49,7 +49,7 @@ func (fs *fsStorage) GetBlock(blockID string, offset, length int64) ([]byte, err
 
 	f, err := os.Open(path)
 	if os.IsNotExist(err) {
-		return nil, blob.ErrBlockNotFound
+		return nil, storage.ErrBlockNotFound
 	}
 
 	if err != nil {
@@ -77,8 +77,8 @@ func makeFileName(blockID string) string {
 	return string(blockID) + fsStorageChunkSuffix
 }
 
-func (fs *fsStorage) ListBlocks(prefix string) (chan blob.BlockMetadata, blob.CancelFunc) {
-	result := make(chan blob.BlockMetadata)
+func (fs *fsStorage) ListBlocks(prefix string) (chan storage.BlockMetadata, storage.CancelFunc) {
+	result := make(chan storage.BlockMetadata)
 	cancelled := make(chan bool)
 
 	prefixString := string(prefix)
@@ -108,7 +108,7 @@ func (fs *fsStorage) ListBlocks(prefix string) (chan blob.BlockMetadata, blob.Ca
 						select {
 						case <-cancelled:
 							return
-						case result <- blob.BlockMetadata{
+						case result <- storage.BlockMetadata{
 							BlockID:   fullID,
 							Length:    e.Size(),
 							TimeStamp: e.ModTime(),
@@ -212,8 +212,8 @@ func parseShardString(shardString string) ([]int, error) {
 	return result, nil
 }
 
-func (fs *fsStorage) ConnectionInfo() blob.ConnectionInfo {
-	return blob.ConnectionInfo{
+func (fs *fsStorage) ConnectionInfo() storage.ConnectionInfo {
+	return storage.ConnectionInfo{
 		Type:   fsStorageType,
 		Config: &fs.Options,
 	}
@@ -224,7 +224,7 @@ func (fs *fsStorage) Close() error {
 }
 
 // New creates new filesystem-backed storage in a specified directory.
-func New(ctx context.Context, opts *Options) (blob.Storage, error) {
+func New(ctx context.Context, opts *Options) (storage.Storage, error) {
 	var err error
 
 	if _, err = os.Stat(opts.Path); err != nil {
@@ -239,10 +239,10 @@ func New(ctx context.Context, opts *Options) (blob.Storage, error) {
 }
 
 func init() {
-	blob.AddSupportedStorage(
+	storage.AddSupportedStorage(
 		fsStorageType,
 		func() interface{} { return &Options{} },
-		func(ctx context.Context, o interface{}) (blob.Storage, error) {
+		func(ctx context.Context, o interface{}) (storage.Storage, error) {
 			return New(ctx, o.(*Options))
 		})
 }

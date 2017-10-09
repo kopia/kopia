@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"reflect"
 
-	"github.com/kopia/kopia/blob"
-	"github.com/kopia/kopia/blob/filesystem"
 	"github.com/kopia/kopia/internal/mockfs"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/storage"
+	"github.com/kopia/kopia/storage/filesystem"
 
 	"testing"
 
@@ -22,7 +22,7 @@ type uploadTestHarness struct {
 	sourceDir *mockfs.Directory
 	repoDir   string
 	repo      *repo.Repository
-	storage   blob.Storage
+	storage   storage.Storage
 }
 
 var errTest = fmt.Errorf("test error")

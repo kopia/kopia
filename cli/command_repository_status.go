@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/internal/units"
+	"github.com/kopia/kopia/storage"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -23,7 +23,7 @@ func runStatusCommand(context *kingpin.ParseContext) error {
 	fmt.Printf("Cache directory:     %v\n", rep.CacheDirectory)
 	fmt.Println()
 
-	if cip, ok := rep.Storage.(blob.ConnectionInfoProvider); ok {
+	if cip, ok := rep.Storage.(storage.ConnectionInfoProvider); ok {
 		ci := cip.ConnectionInfo()
 		fmt.Printf("Storage type:        %v\n", ci.Type)
 		if cjson, err := json.MarshalIndent(ci.Config, "                     ", "  "); err == nil {

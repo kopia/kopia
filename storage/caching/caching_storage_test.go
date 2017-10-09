@@ -8,8 +8,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/kopia/kopia/blob/logging"
 	"github.com/kopia/kopia/internal/storagetesting"
+	"github.com/kopia/kopia/storage/logging"
 
 	"testing"
 )
