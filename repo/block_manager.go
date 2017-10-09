@@ -34,10 +34,12 @@ type blockLocation struct {
 
 // BlockInfo is an information about a single block managed by BlockManager.
 type BlockInfo struct {
-	BlockID   string
-	Length    int64
-	Timestamp time.Time
-	PackGroup string
+	BlockID     string
+	Length      int64
+	Timestamp   time.Time
+	PackGroup   string
+	PackBlockID string
+	PackOffset  int64
 }
 
 // BlockManager manages storage blocks at a low level with encryption, deduplication and packaging.
@@ -504,10 +506,12 @@ func (bm *BlockManager) ListBlocks(prefix string, kind string) []BlockInfo {
 		}
 
 		bm := BlockInfo{
-			BlockID:   b,
-			Length:    int64(ndx.Items[b].size),
-			Timestamp: ndx.CreateTime,
-			PackGroup: ndx.PackGroup,
+			BlockID:     b,
+			Length:      int64(ndx.Items[b].size),
+			Timestamp:   ndx.CreateTime,
+			PackGroup:   ndx.PackGroup,
+			PackBlockID: ndx.PackBlockID,
+			PackOffset:  int64(ndx.Items[b].offset),
 		}
 
 		if !blockMatches(bm, ndx) {
