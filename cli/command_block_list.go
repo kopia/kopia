@@ -33,16 +33,12 @@ func runListBlocksAction(context *kingpin.ParseContext) error {
 	case "size":
 		sort.Slice(blocks, func(i, j int) bool { return maybeReverse(blocks[i].Length < blocks[j].Length) })
 	case "time":
-		sort.Slice(blocks, func(i, j int) bool { return maybeReverse(blocks[i].TimeStamp.Before(blocks[j].TimeStamp)) })
+		sort.Slice(blocks, func(i, j int) bool { return maybeReverse(blocks[i].Timestamp.Before(blocks[j].Timestamp)) })
 	}
 
 	for _, b := range blocks {
-		if b.Error != nil {
-			return b.Error
-		}
-
 		if *blockListLong {
-			fmt.Printf("%-34v %10v %v\n", b.BlockID, b.Length, b.TimeStamp.Local().Format(timeFormat))
+			fmt.Printf("%-34v %10v %v %v\n", b.BlockID, b.Length, b.Timestamp.Local().Format(timeFormat), b.PackGroup)
 		} else {
 			fmt.Printf("%v\n", b.BlockID)
 		}

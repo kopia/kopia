@@ -32,6 +32,14 @@ type blockLocation struct {
 	objectIndex int
 }
 
+// BlockInfo is an information about a single block managed by BlockManager.
+type BlockInfo struct {
+	BlockID   string
+	Length    int64
+	Timestamp time.Time
+	PackGroup string
+}
+
 // BlockManager manages storage blocks at a low level with encryption, deduplication and packaging.
 type BlockManager struct {
 	storage blob.Storage
@@ -447,11 +455,11 @@ func (bm *BlockManager) CompactIndexes(cutoffTime time.Time, inUseBlocks map[str
 }
 
 // ListBlocks returns the metadata about blocks with a given prefix and kind.
-func (bm *BlockManager) ListBlocks(prefix string, kind string) []blob.BlockMetadata {
+func (bm *BlockManager) ListBlocks(prefix string, kind string) []BlockInfo {
 	bm.mu.Lock()
 	defer bm.mu.Unlock()
 
-	var result []blob.BlockMetadata
+	var result []BlockInfo
 
 	bm.ensurePackIndexesLoaded()
 
@@ -460,34 +468,34 @@ func (bm *BlockManager) ListBlocks(prefix string, kind string) []blob.BlockMetad
 		packBlockIDs[b.PackBlockID] = true
 	}
 
-	var blockMatches func(blob.BlockMetadata, *packIndex) bool
+	var blockMatches func(BlockInfo, *packIndex) bool
 
 	switch kind {
 	case "all":
-		blockMatches = func(blob.BlockMetadata, *packIndex) bool { return true }
+		blockMatches = func(BlockInfo, *packIndex) bool { return true }
 
 	case "logical": // blocks that are not pack blocks
-		blockMatches = func(b blob.BlockMetadata, _ *packIndex) bool {
+		blockMatches = func(b BlockInfo, _ *packIndex) bool {
 			return !packBlockIDs[b.BlockID]
 		}
 
 	case "packs": // blocks that are pack blocks
-		blockMatches = func(b blob.BlockMetadata, _ *packIndex) bool {
+		blockMatches = func(b BlockInfo, _ *packIndex) bool {
 			return packBlockIDs[b.BlockID]
 		}
 
 	case "packed": // blocks that are packed
-		blockMatches = func(b blob.BlockMetadata, ndx *packIndex) bool {
+		blockMatches = func(b BlockInfo, ndx *packIndex) bool {
 			return ndx.PackGroup != legacyUnpackedObjectsPackGroup
 		}
 
 	case "nonpacked": // blocks that are not packed
-		blockMatches = func(b blob.BlockMetadata, ndx *packIndex) bool {
+		blockMatches = func(b BlockInfo, ndx *packIndex) bool {
 			return ndx.PackGroup == legacyUnpackedObjectsPackGroup
 		}
 
 	default:
-		blockMatches = func(blob.BlockMetadata, *packIndex) bool { return false }
+		blockMatches = func(BlockInfo, *packIndex) bool { return false }
 	}
 
 	for b, ndx := range bm.blockToIndex {
@@ -495,10 +503,11 @@ func (bm *BlockManager) ListBlocks(prefix string, kind string) []blob.BlockMetad
 			continue
 		}
 
-		bm := blob.BlockMetadata{
+		bm := BlockInfo{
 			BlockID:   b,
 			Length:    int64(ndx.Items[b].size),
-			TimeStamp: ndx.CreateTime,
+			Timestamp: ndx.CreateTime,
+			PackGroup: ndx.PackGroup,
 		}
 
 		if !blockMatches(bm, ndx) {

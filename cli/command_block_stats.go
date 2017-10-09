@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/kopia/kopia/blob"
+	"github.com/kopia/kopia/repo"
 
 	"github.com/kopia/kopia/internal/units"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
@@ -72,7 +72,7 @@ func runBlockStatsAction(context *kingpin.ParseContext) error {
 	return nil
 }
 
-func percentileSize(p int, blocks []blob.BlockMetadata) int64 {
+func percentileSize(p int, blocks []repo.BlockInfo) int64 {
 	pos := p * len(blocks) / 100
 
 	return blocks[pos].Length
