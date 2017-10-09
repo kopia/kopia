@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/internal/jsonstream"
 )
@@ -26,7 +27,7 @@ type ObjectManager struct {
 	format config.RepositoryObjectFormat
 
 	verbose  bool
-	blockMgr *BlockManager
+	blockMgr *block.Manager
 
 	async              bool
 	writeBackWG        sync.WaitGroup
@@ -171,19 +172,19 @@ func (om *ObjectManager) verifyObjectInternal(oid ObjectID, blocks *blockTracker
 		return totalLength, nil
 	}
 
-	p, isPacked, err := om.blockMgr.blockIDToPackSection(oid.StorageBlock)
+	p, err := om.blockMgr.BlockInfo(oid.StorageBlock)
 	if err != nil {
 		return 0, err
 	}
 
-	if isPacked {
+	if p.PackBlockID != "" {
 		blocks.addBlock(oid.StorageBlock)
-		l, err := om.verifyObjectInternal(p.Base, blocks)
+		l, err := om.verifyObjectInternal(ObjectID{StorageBlock: p.PackBlockID}, blocks)
 		if err != nil {
 			return 0, err
 		}
 
-		if p.Length >= 0 && p.Start+p.Length <= l {
+		if p.Length >= 0 && p.PackOffset+p.Length <= l {
 			return p.Length, nil
 		}
 
@@ -209,8 +210,25 @@ func (om *ObjectManager) Flush() error {
 func nullTrace(message string, args ...interface{}) {
 }
 
+// validateFormat checks the validity of RepositoryObjectFormat and returns an error if invalid.
+func validateFormat(f *config.RepositoryObjectFormat) error {
+	if f.Version != 1 {
+		return fmt.Errorf("unsupported version: %v", f.Version)
+	}
+
+	if f.MaxBlockSize < 100 {
+		return fmt.Errorf("MaxBlockSize is not set")
+	}
+
+	if sf := block.FormatterFactories[f.BlockFormat]; sf == nil {
+		return fmt.Errorf("unknown object format: %v", f.BlockFormat)
+	}
+
+	return nil
+}
+
 // newObjectManager creates an ObjectManager with the specified block manager and options.
-func newObjectManager(bm *BlockManager, f config.RepositoryObjectFormat, opts *Options) (*ObjectManager, error) {
+func newObjectManager(bm *block.Manager, f config.RepositoryObjectFormat, opts *Options) (*ObjectManager, error) {
 	if err := validateFormat(&f); err != nil {
 		return nil, err
 	}

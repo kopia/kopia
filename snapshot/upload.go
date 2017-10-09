@@ -77,7 +77,7 @@ func (u *Uploader) cancelReason() string {
 		return "cancelled"
 	}
 
-	if mub := u.MaxUploadBytes; mub > 0 && u.repo.Stats().WrittenBytes > mub {
+	if mub := u.MaxUploadBytes; mub > 0 && u.repo.Blocks.Stats().WrittenBytes > mub {
 		return "limit reached"
 	}
 
@@ -423,7 +423,7 @@ func (u *Uploader) Upload(
 	s.IncompleteReason = u.cancelReason()
 	s.EndTime = time.Now()
 	s.Stats = u.stats
-	s.Stats.Repository = u.repo.Status().Stats
+	s.Stats.Block = u.repo.Blocks.Stats()
 
 	return s, nil
 }

@@ -1,4 +1,4 @@
-package repo
+package block
 
 import (
 	"crypto/aes"
@@ -9,33 +9,14 @@ import (
 	"encoding/hex"
 	"fmt"
 	"hash"
-
-	"strings"
-
 	"sort"
+	"strings"
 
 	"github.com/kopia/kopia/internal/config"
 )
 
-// validateFormat checks the validity of RepositoryObjectFormat and returns an error if invalid.
-func validateFormat(f *config.RepositoryObjectFormat) error {
-	if f.Version != 1 {
-		return fmt.Errorf("unsupported version: %v", f.Version)
-	}
-
-	if f.MaxBlockSize < 100 {
-		return fmt.Errorf("MaxBlockSize is not set")
-	}
-
-	if sf := objectFormatterFactories[f.ObjectFormat]; sf == nil {
-		return fmt.Errorf("unknown object format: %v", f.ObjectFormat)
-	}
-
-	return nil
-}
-
-// ObjectFormatter performs data block ID computation and encryption of a block of data when storing object in a repository.
-type objectFormatter interface {
+// Formatter performs data block ID computation and encryption of a block of data when storing object in a repository.
+type Formatter interface {
 	// ComputeBlockID computes ID of the storage block for the specified block of data and returns it in ObjectID.
 	ComputeBlockID(data []byte) string
 
@@ -123,24 +104,25 @@ func decodeHexSuffix(s string, length int) ([]byte, error) {
 	return hex.DecodeString(s[len(s)-length:])
 }
 
-// SupportedObjectFormats is a list of supported object formats including:
+// SupportedFormats is a list of supported object formats including:
 //
 //   UNENCRYPTED_HMAC_SHA256_128          - unencrypted, block IDs are 128-bit (32 characters long)
 //   UNENCRYPTED_HMAC_SHA256              - unencrypted, block IDs are 256-bit (64 characters long)
 //   ENCRYPTED_HMAC_SHA256_AES256_SIV     - encrypted with AES-256 (shared key), IV==FOLD(HMAC-SHA256(content), 128)
-var SupportedObjectFormats []string
+var SupportedFormats []string
 
-var objectFormatterFactories = map[string]func(f config.RepositoryObjectFormat) (objectFormatter, error){
-	"TESTONLY_MD5": func(f config.RepositoryObjectFormat) (objectFormatter, error) {
+// FormatterFactories maps known block formatters to their factory functions.
+var FormatterFactories = map[string]func(f config.RepositoryObjectFormat) (Formatter, error){
+	"TESTONLY_MD5": func(f config.RepositoryObjectFormat) (Formatter, error) {
 		return &unencryptedFormat{computeHash(md5.New, md5.Size)}, nil
 	},
-	"UNENCRYPTED_HMAC_SHA256": func(f config.RepositoryObjectFormat) (objectFormatter, error) {
+	"UNENCRYPTED_HMAC_SHA256": func(f config.RepositoryObjectFormat) (Formatter, error) {
 		return &unencryptedFormat{computeHMAC(sha256.New, f.HMACSecret, sha256.Size)}, nil
 	},
-	"UNENCRYPTED_HMAC_SHA256_128": func(f config.RepositoryObjectFormat) (objectFormatter, error) {
+	"UNENCRYPTED_HMAC_SHA256_128": func(f config.RepositoryObjectFormat) (Formatter, error) {
 		return &unencryptedFormat{computeHMAC(sha256.New, f.HMACSecret, 16)}, nil
 	},
-	"ENCRYPTED_HMAC_SHA256_AES256_SIV": func(f config.RepositoryObjectFormat) (objectFormatter, error) {
+	"ENCRYPTED_HMAC_SHA256_AES256_SIV": func(f config.RepositoryObjectFormat) (Formatter, error) {
 		if len(f.MasterKey) < 32 {
 			return nil, fmt.Errorf("master key is not set")
 		}
@@ -149,16 +131,16 @@ var objectFormatterFactories = map[string]func(f config.RepositoryObjectFormat) 
 }
 
 func init() {
-	for k := range objectFormatterFactories {
+	for k := range FormatterFactories {
 		if !strings.HasPrefix(k, "TESTONLY_") {
-			SupportedObjectFormats = append(SupportedObjectFormats, k)
+			SupportedFormats = append(SupportedFormats, k)
 		}
 	}
-	sort.Strings(SupportedObjectFormats)
+	sort.Strings(SupportedFormats)
 }
 
-// DefaultObjectFormat is the format that should be used by default when creating new repositories.
-const DefaultObjectFormat = "ENCRYPTED_HMAC_SHA256_AES256_SIV"
+// DefaultFormat is the block format that should be used by default when creating new repositories.
+const DefaultFormat = "ENCRYPTED_HMAC_SHA256_AES256_SIV"
 
 // computeHash returns a digestFunction that computes a hash of a given block of bytes and truncates results to the given size.
 func computeHash(hf func() hash.Hash, truncate int) digestFunction {

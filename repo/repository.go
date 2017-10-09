@@ -1,12 +1,16 @@
 package repo
 
-import "github.com/kopia/kopia/blob"
-import "encoding/hex"
-import "fmt"
+import (
+	"encoding/hex"
+	"fmt"
+
+	"github.com/kopia/kopia/blob"
+	"github.com/kopia/kopia/block"
+)
 
 // Repository represents storage where both content-addressable and user-addressable data is kept.
 type Repository struct {
-	Blocks   *BlockManager
+	Blocks   *block.Manager
 	Objects  *ObjectManager
 	Metadata *MetadataManager
 	Storage  blob.Storage
@@ -17,7 +21,7 @@ type Repository struct {
 
 // StatusInfo stores a snapshot of repository-wide statistics plus some general information about repository configuration.
 type StatusInfo struct {
-	Stats
+	block.Stats
 
 	MetadataManagerVersion      string
 	MetadataEncryptionAlgorithm string
@@ -25,7 +29,7 @@ type StatusInfo struct {
 	KeyDerivationAlgorithm      string
 
 	ObjectManagerVersion   string
-	ObjectFormat           string
+	BlockFormat            string
 	MaxInlineContentLength int
 	Splitter               string
 	MinBlockSize           int
@@ -35,15 +39,10 @@ type StatusInfo struct {
 	MaxPackedContentLength int
 }
 
-// Stats returns repository-wide statistics.
-func (r *Repository) Stats() Stats {
-	return r.Objects.blockMgr.stats
-}
-
 // Status returns a snapshot of repository-wide statistics plus some general information about repository configuration.
 func (r *Repository) Status() StatusInfo {
 	s := StatusInfo{
-		Stats: r.Objects.blockMgr.stats,
+		Stats: r.Objects.blockMgr.Stats(),
 
 		MetadataManagerVersion:      r.Metadata.format.Version,
 		UniqueID:                    hex.EncodeToString(r.Metadata.format.UniqueID),
@@ -51,7 +50,7 @@ func (r *Repository) Status() StatusInfo {
 		KeyDerivationAlgorithm:      r.Metadata.format.KeyDerivationAlgorithm,
 
 		ObjectManagerVersion: fmt.Sprintf("%v", r.Objects.format.Version),
-		ObjectFormat:         r.Objects.format.ObjectFormat,
+		BlockFormat:          r.Objects.format.BlockFormat,
 		Splitter:             r.Objects.format.Splitter,
 		MinBlockSize:         r.Objects.format.MinBlockSize,
 		AvgBlockSize:         r.Objects.format.AvgBlockSize,
@@ -81,9 +80,4 @@ func (r *Repository) Close() error {
 // Flush waits for all in-flight writes to complete.
 func (r *Repository) Flush() error {
 	return r.Objects.Flush()
-}
-
-// ResetStats resets all repository-wide statistics to zero values.
-func (r *Repository) ResetStats() {
-	r.Objects.blockMgr.stats = Stats{}
 }

@@ -1,4 +1,4 @@
-package repo
+package block
 
 import (
 	"bytes"
@@ -9,11 +9,11 @@ import (
 	"github.com/kopia/kopia/internal/config"
 )
 
-func TestObjectFormatters(t *testing.T) {
+func TestFormatters(t *testing.T) {
 	secret := []byte("secret")
 	f := config.RepositoryObjectFormat{HMACSecret: secret, MasterKey: make([]byte, 32)}
 
-	for k, v := range objectFormatterFactories {
+	for k, v := range FormatterFactories {
 		data := make([]byte, 100)
 		rand.Read(data)
 

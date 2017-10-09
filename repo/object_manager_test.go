@@ -32,7 +32,7 @@ func setupTestWithData(t *testing.T, data map[string][]byte, mods ...func(o *New
 	opt := &NewRepositoryOptions{
 		MaxBlockSize:                200,
 		Splitter:                    "FIXED",
-		ObjectFormat:                "TESTONLY_MD5",
+		BlockFormat:                 "TESTONLY_MD5",
 		MetadataEncryptionAlgorithm: "NONE",
 		MaxPackedContentLength:      -1,
 
@@ -470,7 +470,7 @@ func verify(t *testing.T, repo *Repository, objectID ObjectID, expectedData []by
 func TestFormats(t *testing.T) {
 	makeFormat := func(objectFormat string) func(*NewRepositoryOptions) {
 		return func(n *NewRepositoryOptions) {
-			n.ObjectFormat = objectFormat
+			n.BlockFormat = objectFormat
 			n.ObjectHMACSecret = []byte("key")
 			n.MaxBlockSize = 10000
 			n.Splitter = "FIXED"

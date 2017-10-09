@@ -8,6 +8,7 @@ import (
 
 	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/blob"
+	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/config"
 )
 
@@ -18,7 +19,7 @@ type NewRepositoryOptions struct {
 	MetadataEncryptionAlgorithm string // identifier of encryption algorithm
 	KeyDerivationAlgorithm      string // identifier of key derivation algorithm
 
-	ObjectFormat        string // identifier of object format
+	BlockFormat         string // identifier of object format
 	ObjectHMACSecret    []byte // force the use of particular object HMAC secret
 	ObjectEncryptionKey []byte // force the use of particular object encryption key
 
@@ -94,7 +95,7 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) config.Reposit
 	f := config.RepositoryObjectFormat{
 		Version:                1,
 		Splitter:               applyDefaultString(opt.Splitter, DefaultObjectSplitter),
-		ObjectFormat:           applyDefaultString(opt.ObjectFormat, DefaultObjectFormat),
+		BlockFormat:            applyDefaultString(opt.BlockFormat, block.DefaultFormat),
 		HMACSecret:             applyDefaultRandomBytes(opt.ObjectHMACSecret, 32),
 		MasterKey:              applyDefaultRandomBytes(opt.ObjectEncryptionKey, 32),
 		MaxBlockSize:           applyDefaultInt(opt.MaxBlockSize, 20<<20),          // 20MiB

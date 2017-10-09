@@ -1,4 +1,4 @@
-package repo
+package block
 
 import (
 	"encoding/json"

@@ -7,6 +7,7 @@ import (
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/kopia/kopia/blob"
+	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 )
@@ -16,7 +17,7 @@ var (
 	createRepositoryLocation = createCommand.Arg("location", "Location where to create the repository").Required().String()
 
 	createMetadataEncryptionFormat = createCommand.Flag("metadata-encryption", "Metadata item encryption.").PlaceHolder("FORMAT").Default(repo.SupportedMetadataEncryptionAlgorithms[0]).Enum(repo.SupportedMetadataEncryptionAlgorithms...)
-	createObjectFormat             = createCommand.Flag("object-format", "Format of repository objects.").PlaceHolder("FORMAT").Default(repo.DefaultObjectFormat).Enum(repo.SupportedObjectFormats...)
+	createObjectFormat             = createCommand.Flag("object-format", "Format of repository objects.").PlaceHolder("FORMAT").Default(block.DefaultFormat).Enum(block.SupportedFormats...)
 	createObjectSplitter           = createCommand.Flag("object-splitter", "The splitter to use for new objects in the repository").Default("DYNAMIC").Enum(repo.SupportedObjectSplitters...)
 
 	createMinBlockSize = createCommand.Flag("min-block-size", "Minimum size of a data block.").PlaceHolder("KB").Default("1024").Int()
@@ -37,7 +38,7 @@ func init() {
 func newRepositoryOptionsFromFlags() *repo.NewRepositoryOptions {
 	return &repo.NewRepositoryOptions{
 		MetadataEncryptionAlgorithm: *createMetadataEncryptionFormat,
-		ObjectFormat:                *createObjectFormat,
+		BlockFormat:                 *createObjectFormat,
 
 		Splitter:     *createObjectSplitter,
 		MinBlockSize: *createMinBlockSize * 1024,
@@ -85,7 +86,7 @@ func runCreateCommand(_ *kingpin.ParseContext) error {
 
 	fmt.Fprintf(os.Stderr, "Initializing repository with:\n")
 	fmt.Fprintf(os.Stderr, "  metadata encryption: %v\n", options.MetadataEncryptionAlgorithm)
-	fmt.Fprintf(os.Stderr, "  object format:       %v\n", options.ObjectFormat)
+	fmt.Fprintf(os.Stderr, "  block format:       %v\n", options.BlockFormat)
 	switch options.Splitter {
 	case "DYNAMIC":
 		fmt.Fprintf(os.Stderr, "  object splitter:     DYNAMIC with block sizes (min:%v avg:%v max:%v)\n",

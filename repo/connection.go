@@ -12,6 +12,7 @@ import (
 	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/blob"
 	"github.com/kopia/kopia/blob/logging"
+	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/config"
 
 	// Register well-known blob storage providers
@@ -124,9 +125,9 @@ func connect(ctx context.Context, st blob.Storage, creds auth.Credentials, optio
 		return nil, fmt.Errorf("unable to open metadata manager: %v", err)
 	}
 
-	sf := objectFormatterFactories[mm.repoConfig.Format.ObjectFormat]
+	sf := block.FormatterFactories[mm.repoConfig.Format.BlockFormat]
 	if sf == nil {
-		return nil, fmt.Errorf("unsupported block format: %v", mm.repoConfig.Format.ObjectFormat)
+		return nil, fmt.Errorf("unsupported block format: %v", mm.repoConfig.Format.BlockFormat)
 	}
 
 	formatter, err := sf(mm.repoConfig.Format)
@@ -134,7 +135,7 @@ func connect(ctx context.Context, st blob.Storage, creds auth.Credentials, optio
 		return nil, err
 	}
 
-	bm := newBlockManager(st, mm.repoConfig.Format.MaxPackedContentLength, mm.repoConfig.Format.MaxBlockSize, formatter)
+	bm := block.NewManager(st, mm.repoConfig.Format.MaxPackedContentLength, mm.repoConfig.Format.MaxBlockSize, formatter)
 
 	om, err := newObjectManager(bm, mm.repoConfig.Format, options)
 	if err != nil {

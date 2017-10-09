@@ -25,7 +25,6 @@ const (
 
 const (
 	parallelFetches = 5
-	parallelDeletes = 20
 )
 
 var (

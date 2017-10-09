@@ -1,10 +1,10 @@
 package snapshot
 
-import "github.com/kopia/kopia/repo"
+import "github.com/kopia/kopia/block"
 
 // Stats keeps track of snapshot generation statistics.
 type Stats struct {
-	Repository repo.Stats `json:"repo,omitempty"`
+	Block block.Stats `json:"repo,omitempty"`
 
 	TotalDirectoryCount int   `json:"dirCount"`
 	TotalFileCount      int   `json:"fileCount"`

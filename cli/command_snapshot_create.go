@@ -66,7 +66,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 	u.Progress = &uploadProgress{}
 
 	for _, backupDirectory := range sources {
-		rep.ResetStats()
+		rep.Blocks.ResetStats()
 		log.Printf("Backing up %v", backupDirectory)
 		dir, err := filepath.Abs(backupDirectory)
 		if err != nil {

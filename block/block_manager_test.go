@@ -1,4 +1,4 @@
-package repo
+package block
 
 import (
 	"bytes"
@@ -401,12 +401,12 @@ func TestBlockManagerConcurrency(t *testing.T) {
 	}
 }
 
-func newTestBlockManager(data map[string][]byte) *BlockManager {
+func newTestBlockManager(data map[string][]byte) *Manager {
 	st := storagetesting.NewMapStorage(data)
 
 	f := &unencryptedFormat{computeHash(md5.New, md5.Size)}
 	//st = logging.NewWrapper(st)
-	bm := newBlockManager(st, maxPackedContentLength, maxPackSize, f)
+	bm := NewManager(st, maxPackedContentLength, maxPackSize, f)
 
 	setFakeTime(bm, fakeTime)
 	return bm
@@ -424,11 +424,11 @@ func getIndexCount(d map[string][]byte) int {
 	return cnt
 }
 
-func setFakeTime(bm *BlockManager, t time.Time) {
+func setFakeTime(bm *Manager, t time.Time) {
 	bm.timeNow = func() time.Time { return t }
 }
 
-func verifyBlockNotFound(t *testing.T, bm *BlockManager, blockID string) {
+func verifyBlockNotFound(t *testing.T, bm *Manager, blockID string) {
 	t.Helper()
 
 	b, err := bm.GetBlock(blockID)
@@ -437,7 +437,7 @@ func verifyBlockNotFound(t *testing.T, bm *BlockManager, blockID string) {
 	}
 }
 
-func verifyBlock(t *testing.T, bm *BlockManager, blockID string, b []byte) {
+func verifyBlock(t *testing.T, bm *Manager, blockID string, b []byte) {
 	t.Helper()
 
 	b2, err := bm.GetBlock(blockID)
@@ -459,7 +459,7 @@ func verifyBlock(t *testing.T, bm *BlockManager, blockID string, b []byte) {
 	}
 
 }
-func writeBlockAndVerify(t *testing.T, bm *BlockManager, packGroup string, b []byte) string {
+func writeBlockAndVerify(t *testing.T, bm *Manager, packGroup string, b []byte) string {
 	t.Helper()
 
 	blockID, err := bm.WriteBlock(packGroup, b, "")

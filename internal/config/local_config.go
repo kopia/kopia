@@ -17,7 +17,7 @@ type LocalConfig struct {
 // RepositoryObjectFormat describes the format of objects in a repository.
 type RepositoryObjectFormat struct {
 	Version                int    `json:"version,omitempty"`                // version number, must be "1"
-	ObjectFormat           string `json:"objectFormat,omitempty"`           // identifier of object format
+	BlockFormat            string `json:"objectFormat,omitempty"`           // identifier of the block format
 	HMACSecret             []byte `json:"secret,omitempty"`                 // HMAC secret used to generate encryption keys
 	MasterKey              []byte `json:"masterKey,omitempty"`              // master encryption key (SIV-mode encryption only)
 	Splitter               string `json:"splitter,omitempty"`               // splitter used to break objects into storage blocks

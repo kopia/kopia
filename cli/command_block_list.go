@@ -4,8 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/kopia/kopia/repo"
-
+	"github.com/kopia/kopia/block"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -59,7 +58,7 @@ func runListBlocksAction(context *kingpin.ParseContext) error {
 	return nil
 }
 
-func comparePacks(a, b repo.BlockInfo) bool {
+func comparePacks(a, b block.Info) bool {
 	if a, b := a.PackBlockID, b.PackBlockID; a != b {
 		return a < b
 	}
