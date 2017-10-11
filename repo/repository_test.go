@@ -249,8 +249,6 @@ func TestReader(t *testing.T) {
 		payload []byte
 	}{
 		{"Da76999788386641a3ec798554f1fe7e6", storedPayload},
-		{"S0,2,Da76999788386641a3ec798554f1fe7e6", storedPayload[0:2]},
-		{"S2,4,Da76999788386641a3ec798554f1fe7e6", storedPayload[2:6]},
 	}
 
 	for _, c := range cases {
@@ -335,16 +333,6 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 		}
 
 		verify(t, repo, objectID, randomData, fmt.Sprintf("%v %v", objectID, size))
-
-		if size > 1 {
-			sectionID := object.SectionObjectID(0, int64(size/2), objectID)
-			verify(t, repo, sectionID, randomData[0:10], fmt.Sprintf("%+v %v", sectionID, size))
-		}
-
-		if size > 1 {
-			sectionID := object.SectionObjectID(int64(1), int64(size-1), objectID)
-			verify(t, repo, sectionID, randomData[1:], fmt.Sprintf("%+v %v", sectionID, size))
-		}
 	}
 }
 

@@ -33,7 +33,6 @@ import (
 type ID struct {
 	StorageBlock string
 	Indirect     *ID
-	Section      *IDSection
 }
 
 // MarshalJSON emits ObjectID in standard string format.
@@ -52,13 +51,6 @@ func (oid *ID) UnmarshalJSON(b []byte) error {
 
 	*oid, err = ParseObjectID(s)
 	return err
-}
-
-// IDSection represents details about a section of a repository object.
-type IDSection struct {
-	Start  int64 `json:"start"`
-	Length int64 `json:"len"`
-	Base   ID    `json:"base"`
 }
 
 // HasObjectID exposes the identifier of an object.
@@ -85,10 +77,6 @@ func (oid ID) String() string {
 		return "D" + oid.StorageBlock
 	}
 
-	if oid.Section != nil {
-		return fmt.Sprintf("S%v,%v,%v", oid.Section.Start, oid.Section.Length, oid.Section.Base.String())
-	}
-
 	return "B"
 }
 
@@ -97,13 +85,6 @@ func (oid *ID) Validate() error {
 	var c int
 	if len(oid.StorageBlock) > 0 {
 		c++
-	}
-
-	if oid.Section != nil {
-		c++
-		if err := oid.Section.Base.Validate(); err != nil {
-			return fmt.Errorf("invalid section data in %+v", oid)
-		}
 	}
 
 	if oid.Indirect != nil {
@@ -118,17 +99,6 @@ func (oid *ID) Validate() error {
 	}
 
 	return nil
-}
-
-// SectionObjectID returns new ObjectID representing a section of an object with a given base ID, start offset and length.
-func SectionObjectID(start, length int64, baseID ID) ID {
-	return ID{
-		Section: &IDSection{
-			Base:   baseID,
-			Start:  start,
-			Length: length,
-		},
-	}
 }
 
 // parseNumberUntilComma parses a string of the form "{x},{remainder}" where x is a 64-bit number and remainder is arbitrary string.
@@ -184,15 +154,6 @@ func ParseObjectID(s string) (ID, error) {
 				return ID{
 					StorageBlock: parts[0],
 				}, nil
-			}
-
-		case 'S':
-			if start, length, base, err := parseSectionInfoString(s); err == nil {
-				return ID{Section: &IDSection{
-					Start:  start,
-					Length: length,
-					Base:   base,
-				}}, nil
 			}
 
 		case 'I', 'D':

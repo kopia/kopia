@@ -44,13 +44,7 @@ type cleanupWorkQueue struct {
 }
 
 func (wq *cleanupWorkQueue) add(it *cleanupWorkItem) {
-	var os string
-
-	if !it.isDirectory && it.oid.Section != nil {
-		os = it.oid.Section.Base.String()
-	} else {
-		os = it.oid.String()
-	}
+	var os = it.oid.String()
 
 	wq.cond.L.Lock()
 	if wq.visited[os] {

@@ -75,15 +75,6 @@ func (om *Manager) Open(objectID ID) (Reader, error) {
 	// Flush any pending writes.
 	om.writeBackWG.Wait()
 
-	if objectID.Section != nil {
-		baseReader, err := om.Open(objectID.Section.Base)
-		if err != nil {
-			return nil, fmt.Errorf("cannot create base reader: %+v %v", objectID.Section.Base, err)
-		}
-
-		return newObjectSectionReader(objectID.Section.Start, objectID.Section.Length, baseReader)
-	}
-
 	if objectID.Indirect != nil {
 		rd, err := om.Open(*objectID.Indirect)
 		if err != nil {
@@ -124,20 +115,6 @@ func (om *Manager) VerifyObject(oid ID) (int64, []string, error) {
 }
 
 func (om *Manager) verifyObjectInternal(oid ID, blocks *blockTracker) (int64, error) {
-	//log.Printf("verifyObjectInternal %v", oid)
-	if oid.Section != nil {
-		l, err := om.verifyObjectInternal(oid.Section.Base, blocks)
-		if err != nil {
-			return 0, err
-		}
-
-		if oid.Section.Length >= 0 && oid.Section.Start+oid.Section.Length <= l {
-			return oid.Section.Length, nil
-		}
-
-		return 0, fmt.Errorf("section object %q not within parent object size of %v", oid, l)
-	}
-
 	if oid.Indirect != nil {
 		if _, err := om.verifyObjectInternal(*oid.Indirect, blocks); err != nil {
 			return 0, fmt.Errorf("unable to read index: %v", err)
