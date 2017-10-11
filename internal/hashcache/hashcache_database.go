@@ -96,7 +96,7 @@ func (hi *DirectoryInfo) keyOf(fi os.FileInfo) string {
 }
 
 // Lookup fetches the ObjectID corresponding to the given FileInfo in a directory, if present.
-func (hi *DirectoryInfo) Lookup(fi os.FileInfo) (object.ObjectID, bool) {
+func (hi *DirectoryInfo) Lookup(fi os.FileInfo) (object.ID, bool) {
 	k := hi.keyOf(fi)
 	s, ok := hi.previousFiles[k]
 	if !ok {
@@ -113,7 +113,7 @@ func (hi *DirectoryInfo) Lookup(fi os.FileInfo) (object.ObjectID, bool) {
 }
 
 // Set associates ObjectID with a FileInfo that will be persisted on Save().
-func (hi *DirectoryInfo) Set(fi os.FileInfo, oid object.ObjectID) {
+func (hi *DirectoryInfo) Set(fi os.FileInfo, oid object.ID) {
 	k := hi.keyOf(fi)
 	new := oid.String()
 	hi.currentFiles[k] = new

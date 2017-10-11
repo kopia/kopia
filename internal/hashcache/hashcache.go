@@ -7,7 +7,7 @@ var hashCacheStreamType = "kopia:hashcache"
 
 // Entry represents an entry in hash cache database about single file or directory.
 type Entry struct {
-	Name     string          `json:"name,omitempty"`
-	Hash     uint64          `json:"hash,omitempty"`
-	ObjectID object.ObjectID `json:"oid,omitempty"`
+	Name     string    `json:"name,omitempty"`
+	Hash     uint64    `json:"hash,omitempty"`
+	ObjectID object.ID `json:"oid,omitempty"`
 }

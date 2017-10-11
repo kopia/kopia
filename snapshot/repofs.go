@@ -24,7 +24,7 @@ func (e *repositoryEntry) Metadata() *fs.EntryMetadata {
 	return &e.metadata.EntryMetadata
 }
 
-func (e *repositoryEntry) ObjectID() object.ObjectID {
+func (e *repositoryEntry) ObjectID() object.ID {
 	return e.metadata.ObjectID
 }
 
@@ -106,7 +106,7 @@ func newRepoEntry(r *repo.Repository, md *dir.Entry, parent fs.Directory) fs.Ent
 }
 
 type entryMetadataReadCloser struct {
-	object.ObjectReader
+	object.Reader
 	metadata *fs.EntryMetadata
 }
 
@@ -114,13 +114,13 @@ func (emrc *entryMetadataReadCloser) EntryMetadata() (*fs.EntryMetadata, error) 
 	return emrc.metadata, nil
 }
 
-func withMetadata(r object.ObjectReader, md *fs.EntryMetadata) fs.Reader {
+func withMetadata(r object.Reader, md *fs.EntryMetadata) fs.Reader {
 	return &entryMetadataReadCloser{r, md}
 }
 
 // DirectoryEntry returns fs.Directory based on repository object with the specified ID.
 // The existence or validity of the directory object is not validated until its contents are read.
-func (m *Manager) DirectoryEntry(objectID object.ObjectID) fs.Directory {
+func (m *Manager) DirectoryEntry(objectID object.ID) fs.Directory {
 	d := newRepoEntry(m.repository, &dir.Entry{
 		EntryMetadata: fs.EntryMetadata{
 			Name:        "/",

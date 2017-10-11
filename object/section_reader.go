@@ -6,7 +6,7 @@ import (
 )
 
 type objectSectionReader struct {
-	baseReader      ObjectReader
+	baseReader      Reader
 	start, length   int64
 	currentPosition int64
 }
@@ -54,7 +54,7 @@ func (osr *objectSectionReader) Seek(offset int64, whence int) (int64, error) {
 	return osr.currentPosition, err
 }
 
-func newObjectSectionReader(start, length int64, baseReader ObjectReader) (ObjectReader, error) {
+func newObjectSectionReader(start, length int64, baseReader Reader) (Reader, error) {
 	r := &objectSectionReader{
 		baseReader: baseReader,
 		start:      start,

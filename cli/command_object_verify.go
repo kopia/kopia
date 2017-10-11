@@ -20,7 +20,7 @@ var (
 
 type verifier struct {
 	mgr     *snapshot.Manager
-	om      *object.ObjectManager
+	om      *object.Manager
 	visited map[string]bool
 	errors  []error
 }
@@ -32,7 +32,7 @@ func (v *verifier) reportError(path string, err error) bool {
 	return len(v.errors) >= *verifyCommandErrorThreshold
 }
 
-func (v *verifier) verifyDirectory(oid object.ObjectID, path string) error {
+func (v *verifier) verifyDirectory(oid object.ID, path string) error {
 	if v.visited[oid.String()] {
 		return nil
 	}
@@ -72,7 +72,7 @@ func (v *verifier) verifyDirectory(oid object.ObjectID, path string) error {
 	return nil
 }
 
-func (v *verifier) verifyObject(oid object.ObjectID, path string, expectedLength int64) error {
+func (v *verifier) verifyObject(oid object.ID, path string, expectedLength int64) error {
 	if v.visited[oid.String()] {
 		return nil
 	}

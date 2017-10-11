@@ -198,7 +198,7 @@ func (u *Uploader) copyWithProgress(path string, dst io.Writer, src io.Reader, c
 	return written, nil
 }
 
-func newDirEntry(md *fs.EntryMetadata, oid object.ObjectID) *dir.Entry {
+func newDirEntry(md *fs.EntryMetadata, oid object.ID) *dir.Entry {
 	return &dir.Entry{
 		EntryMetadata: *md,
 		ObjectID:      oid,
@@ -206,7 +206,7 @@ func newDirEntry(md *fs.EntryMetadata, oid object.ObjectID) *dir.Entry {
 }
 
 // uploadFile uploads the specified File to the repository.
-func (u *Uploader) uploadFile(file fs.File) (object.ObjectID, error) {
+func (u *Uploader) uploadFile(file fs.File) (object.ID, error) {
 	e, _, err := u.uploadFileInternal(file, file.Metadata().Name)
 	if err != nil {
 		return object.NullObjectID, err
@@ -217,7 +217,7 @@ func (u *Uploader) uploadFile(file fs.File) (object.ObjectID, error) {
 // uploadDir uploads the specified Directory to the repository.
 // An optional ID of a hash-cache object may be provided, in which case the Uploader will use its
 // contents to avoid hashing
-func (u *Uploader) uploadDir(dir fs.Directory) (object.ObjectID, object.ObjectID, error) {
+func (u *Uploader) uploadDir(dir fs.Directory) (object.ID, object.ID, error) {
 	var err error
 
 	mw := u.repo.Objects.NewWriter(object.WriterOptions{
@@ -251,7 +251,7 @@ func uploadDirInternal(
 	u *Uploader,
 	directory fs.Directory,
 	relativePath string,
-) (object.ObjectID, error) {
+) (object.ID, error) {
 	u.Progress.StartedDir(relativePath)
 	defer u.Progress.FinishedDir(relativePath)
 
@@ -309,7 +309,7 @@ func uploadDirInternal(
 		} else {
 			switch entry := entry.(type) {
 			case fs.Directory:
-				var oid object.ObjectID
+				var oid object.ID
 				oid, err = uploadDirInternal(u, entry, entryRelativePath)
 				de = newDirEntry(e, oid)
 				hash = 0

@@ -49,7 +49,7 @@ func init() {
 	lsCommand.Action(runLSCommand)
 }
 
-func listDirectory(mgr *snapshot.Manager, prefix string, oid object.ObjectID, indent string) error {
+func listDirectory(mgr *snapshot.Manager, prefix string, oid object.ID, indent string) error {
 	d := mgr.DirectoryEntry(oid)
 
 	entries, err := d.Readdir()

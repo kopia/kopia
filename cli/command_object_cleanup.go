@@ -25,7 +25,7 @@ var (
 )
 
 type cleanupWorkItem struct {
-	oid         object.ObjectID
+	oid         object.ID
 	isDirectory bool
 	debug       string
 }

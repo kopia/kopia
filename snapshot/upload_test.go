@@ -223,7 +223,7 @@ func TestUpload_SubDirectoryReadFailure(t *testing.T) {
 	}
 }
 
-func objectIDsEqual(o1 object.ObjectID, o2 object.ObjectID) bool {
+func objectIDsEqual(o1 object.ID, o2 object.ID) bool {
 	return reflect.DeepEqual(o1, o2)
 }
 

@@ -10,7 +10,7 @@ import (
 )
 
 // ParseObjectID interprets the given ID string and returns corresponding object.ObjectID.
-func parseObjectID(mgr *snapshot.Manager, id string) (object.ObjectID, error) {
+func parseObjectID(mgr *snapshot.Manager, id string) (object.ID, error) {
 	head, tail := splitHeadTail(id)
 	if len(head) == 0 {
 		return object.NullObjectID, fmt.Errorf("invalid object ID: %v", id)
@@ -33,7 +33,7 @@ func parseObjectID(mgr *snapshot.Manager, id string) (object.ObjectID, error) {
 	return parseNestedObjectID(dir, tail)
 }
 
-func parseNestedObjectID(startingDir fs.Directory, id string) (object.ObjectID, error) {
+func parseNestedObjectID(startingDir fs.Directory, id string) (object.ID, error) {
 	head, tail := splitHeadTail(id)
 	var current fs.Entry
 	current = startingDir

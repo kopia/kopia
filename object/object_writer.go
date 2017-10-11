@@ -9,12 +9,12 @@ import (
 	"github.com/kopia/kopia/internal/jsonstream"
 )
 
-// ObjectWriter allows writing content to the storage and supports automatic deduplication and encryption
+// Writer allows writing content to the storage and supports automatic deduplication and encryption
 // of written data.
-type ObjectWriter interface {
+type Writer interface {
 	io.WriteCloser
 
-	Result() (ObjectID, error)
+	Result() (ID, error)
 }
 
 type blockTracker struct {
@@ -44,7 +44,7 @@ func (t *blockTracker) blockIDs() []string {
 }
 
 type objectWriter struct {
-	repo *ObjectManager
+	repo *Manager
 
 	buffer      bytes.Buffer
 	totalLength int64
@@ -105,7 +105,7 @@ func (w *objectWriter) flushBuffer() error {
 			return
 		}
 
-		w.blockIndex[chunkID].Object = ObjectID{StorageBlock: blockID}
+		w.blockIndex[chunkID].Object = ID{StorageBlock: blockID}
 	}
 
 	// When writing pack internal object don't use asynchronous write, since we're already under the semaphore
@@ -129,7 +129,7 @@ func (w *objectWriter) flushBuffer() error {
 	return w.err.check()
 }
 
-func (w *objectWriter) Result() (ObjectID, error) {
+func (w *objectWriter) Result() (ID, error) {
 	if w.buffer.Len() > 0 || len(w.blockIndex) == 0 {
 		w.flushBuffer()
 	}
@@ -160,7 +160,7 @@ func (w *objectWriter) Result() (ObjectID, error) {
 	if err != nil {
 		return NullObjectID, err
 	}
-	return ObjectID{Indirect: &oid}, nil
+	return ID{Indirect: &oid}, nil
 }
 
 // WriterOptions can be passed to Repository.NewWriter()

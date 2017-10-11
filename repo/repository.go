@@ -12,7 +12,7 @@ import (
 // Repository represents storage where both content-addressable and user-addressable data is kept.
 type Repository struct {
 	Blocks   *block.Manager
-	Objects  *object.ObjectManager
+	Objects  *object.Manager
 	Metadata *MetadataManager
 	Storage  storage.Storage
 

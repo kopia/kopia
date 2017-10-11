@@ -63,11 +63,11 @@ func (f *fakeBlockManager) Flush() error {
 	return nil
 }
 
-func setupTest(t *testing.T, mods ...func(o *ManagerOption)) (map[string][]byte, *ObjectManager) {
+func setupTest(t *testing.T, mods ...func(o *ManagerOption)) (map[string][]byte, *Manager) {
 	return setupTestWithData(t, map[string][]byte{}, mods...)
 }
 
-func setupTestWithData(t *testing.T, data map[string][]byte, mods ...func(o *ManagerOption)) (map[string][]byte, *ObjectManager) {
+func setupTestWithData(t *testing.T, data map[string][]byte, mods ...func(o *ManagerOption)) (map[string][]byte, *Manager) {
 	r, err := NewObjectManager(&fakeBlockManager{data: data}, config.RepositoryObjectFormat{
 		Version:      1,
 		MaxBlockSize: 200,
@@ -83,13 +83,13 @@ func setupTestWithData(t *testing.T, data map[string][]byte, mods ...func(o *Man
 func TestWriters(t *testing.T) {
 	cases := []struct {
 		data     []byte
-		objectID ObjectID
+		objectID ID
 	}{
 		{
 			[]byte("the quick brown fox jumps over the lazy dog"),
-			ObjectID{StorageBlock: "X77add1d5f41223d5582fca736a5cb335"},
+			ID{StorageBlock: "X77add1d5f41223d5582fca736a5cb335"},
 		},
-		{make([]byte, 100), ObjectID{StorageBlock: "X6d0bb00954ceb7fbee436bb55a8397a9"}}, // 100 zero bytes
+		{make([]byte, 100), ID{StorageBlock: "X6d0bb00954ceb7fbee436bb55a8397a9"}}, // 100 zero bytes
 	}
 
 	for _, c := range cases {
@@ -126,7 +126,7 @@ func TestWriters(t *testing.T) {
 	}
 }
 
-func objectIDsEqual(o1 ObjectID, o2 ObjectID) bool {
+func objectIDsEqual(o1 ID, o2 ID) bool {
 	return reflect.DeepEqual(o1, o2)
 }
 
@@ -140,12 +140,12 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	writer.Write(bytes[0:50])
 	writer.Write(bytes[0:50])
 	result, err := writer.Result()
-	if !objectIDsEqual(result, ObjectID{StorageBlock: "X6d0bb00954ceb7fbee436bb55a8397a9"}) {
+	if !objectIDsEqual(result, ID{StorageBlock: "X6d0bb00954ceb7fbee436bb55a8397a9"}) {
 		t.Errorf("unexpected result: %v err: %v", result, err)
 	}
 }
 
-func verifyIndirectBlock(t *testing.T, r *ObjectManager, oid ObjectID) {
+func verifyIndirectBlock(t *testing.T, r *Manager, oid ID) {
 	for oid.Indirect != nil {
 		direct := *oid.Indirect
 		oid = direct
@@ -229,7 +229,7 @@ func TestIndirection(t *testing.T) {
 	}
 }
 
-func indirectionLevel(oid ObjectID) int {
+func indirectionLevel(oid ID) int {
 	if oid.Indirect == nil {
 		return 0
 	}
@@ -337,7 +337,7 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 	}
 }
 
-func writeObject(t *testing.T, om *ObjectManager, data []byte, testCaseID string) ObjectID {
+func writeObject(t *testing.T, om *Manager, data []byte, testCaseID string) ID {
 	w := om.NewWriter(WriterOptions{})
 	if _, err := w.Write(data); err != nil {
 		t.Fatalf("can't write object %q - write failed: %v", testCaseID, err)
@@ -351,7 +351,7 @@ func writeObject(t *testing.T, om *ObjectManager, data []byte, testCaseID string
 	return oid
 }
 
-func verify(t *testing.T, om *ObjectManager, objectID ObjectID, expectedData []byte, testCaseID string) {
+func verify(t *testing.T, om *Manager, objectID ID, expectedData []byte, testCaseID string) {
 	t.Helper()
 	reader, err := om.Open(objectID)
 	if err != nil {

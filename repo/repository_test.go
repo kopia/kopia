@@ -60,13 +60,13 @@ func setupTestWithData(t *testing.T, data map[string][]byte, mods ...func(o *New
 func TestWriters(t *testing.T) {
 	cases := []struct {
 		data     []byte
-		objectID object.ObjectID
+		objectID object.ID
 	}{
 		{
 			[]byte("the quick brown fox jumps over the lazy dog"),
-			object.ObjectID{StorageBlock: "X77add1d5f41223d5582fca736a5cb335"},
+			object.ID{StorageBlock: "X77add1d5f41223d5582fca736a5cb335"},
 		},
-		{make([]byte, 100), object.ObjectID{StorageBlock: "X6d0bb00954ceb7fbee436bb55a8397a9"}}, // 100 zero bytes
+		{make([]byte, 100), object.ID{StorageBlock: "X6d0bb00954ceb7fbee436bb55a8397a9"}}, // 100 zero bytes
 	}
 
 	for _, c := range cases {
@@ -114,7 +114,7 @@ func dumpBlockManagerData(data map[string][]byte) {
 		}
 	}
 }
-func objectIDsEqual(o1 object.ObjectID, o2 object.ObjectID) bool {
+func objectIDsEqual(o1 object.ID, o2 object.ID) bool {
 	return reflect.DeepEqual(o1, o2)
 }
 
@@ -128,7 +128,7 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	writer.Write(bytes[0:50])
 	writer.Write(bytes[0:50])
 	result, err := writer.Result()
-	if !objectIDsEqual(result, object.ObjectID{StorageBlock: "X6d0bb00954ceb7fbee436bb55a8397a9"}) {
+	if !objectIDsEqual(result, object.ID{StorageBlock: "X6d0bb00954ceb7fbee436bb55a8397a9"}) {
 		t.Errorf("unexpected result: %v err: %v", result, err)
 	}
 }
@@ -217,7 +217,7 @@ func TestPackingSimple(t *testing.T) {
 	verify(t, repo, oid3a, []byte(content3), "packed-object-3")
 }
 
-func indirectionLevel(oid object.ObjectID) int {
+func indirectionLevel(oid object.ID) int {
 	if oid.Indirect == nil {
 		return 0
 	}
@@ -348,7 +348,7 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 	}
 }
 
-func writeObject(t *testing.T, repo *Repository, data []byte, testCaseID string) object.ObjectID {
+func writeObject(t *testing.T, repo *Repository, data []byte, testCaseID string) object.ID {
 	w := repo.Objects.NewWriter(object.WriterOptions{})
 	if _, err := w.Write(data); err != nil {
 		t.Fatalf("can't write object %q - write failed: %v", testCaseID, err)
@@ -362,7 +362,7 @@ func writeObject(t *testing.T, repo *Repository, data []byte, testCaseID string)
 	return oid
 }
 
-func verify(t *testing.T, repo *Repository, objectID object.ObjectID, expectedData []byte, testCaseID string) {
+func verify(t *testing.T, repo *Repository, objectID object.ID, expectedData []byte, testCaseID string) {
 	t.Helper()
 	reader, err := repo.Objects.Open(objectID)
 	if err != nil {
@@ -407,32 +407,32 @@ func TestFormats(t *testing.T) {
 
 	cases := []struct {
 		format func(*NewRepositoryOptions)
-		oids   map[string]object.ObjectID
+		oids   map[string]object.ID
 	}{
 		{
 			format: func(n *NewRepositoryOptions) {
 				n.MaxBlockSize = 10000
 				n.noHMAC = true
 			},
-			oids: map[string]object.ObjectID{
-				"": object.ObjectID{StorageBlock: "d41d8cd98f00b204e9800998ecf8427e"},
-				"The quick brown fox jumps over the lazy dog": object.ObjectID{
+			oids: map[string]object.ID{
+				"": object.ID{StorageBlock: "d41d8cd98f00b204e9800998ecf8427e"},
+				"The quick brown fox jumps over the lazy dog": object.ID{
 					StorageBlock: "9e107d9d372bb6826bd81d3542a419d6",
 				},
 			},
 		},
 		{
 			format: makeFormat("UNENCRYPTED_HMAC_SHA256"),
-			oids: map[string]object.ObjectID{
-				"The quick brown fox jumps over the lazy dog": object.ObjectID{
+			oids: map[string]object.ID{
+				"The quick brown fox jumps over the lazy dog": object.ID{
 					StorageBlock: "f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8",
 				},
 			},
 		},
 		{
 			format: makeFormat("UNENCRYPTED_HMAC_SHA256_128"),
-			oids: map[string]object.ObjectID{
-				"The quick brown fox jumps over the lazy dog": object.ObjectID{
+			oids: map[string]object.ID{
+				"The quick brown fox jumps over the lazy dog": object.ID{
 					StorageBlock: "f7bc83f430538424b13298e6aa6fb143",
 				},
 			},

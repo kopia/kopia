@@ -13,8 +13,8 @@ import (
 	"github.com/kopia/kopia/internal/jsonstream"
 )
 
-// ObjectReader allows reading, seeking, getting the length of and closing of a repository object.
-type ObjectReader interface {
+// Reader allows reading, seeking, getting the length of and closing of a repository object.
+type Reader interface {
 	io.Reader
 	io.Seeker
 	io.Closer
@@ -28,8 +28,8 @@ type blockManager interface {
 	Flush() error
 }
 
-// ObjectManager implements a content-addressable storage on top of blob storage.
-type ObjectManager struct {
+// Manager implements a content-addressable storage on top of blob storage.
+type Manager struct {
 	Format config.RepositoryObjectFormat
 
 	verbose  bool
@@ -45,13 +45,13 @@ type ObjectManager struct {
 }
 
 // Close closes the connection to the underlying blob storage and releases any resources.
-func (om *ObjectManager) Close() error {
+func (om *Manager) Close() error {
 	om.writeBackWG.Wait()
 	return om.Flush()
 }
 
 // NewWriter creates an ObjectWriter for writing to the repository.
-func (om *ObjectManager) NewWriter(opt WriterOptions) ObjectWriter {
+func (om *Manager) NewWriter(opt WriterOptions) Writer {
 	w := &objectWriter{
 		repo:        om,
 		splitter:    om.newSplitter(),
@@ -68,7 +68,7 @@ func (om *ObjectManager) NewWriter(opt WriterOptions) ObjectWriter {
 }
 
 // Open creates new ObjectReader for reading given object from a repository.
-func (om *ObjectManager) Open(objectID ObjectID) (ObjectReader, error) {
+func (om *Manager) Open(objectID ID) (Reader, error) {
 	// log.Printf("Repository::Open %v", objectID.String())
 	// defer log.Printf("finished Repository::Open() %v", objectID.String())
 
@@ -110,7 +110,7 @@ func (om *ObjectManager) Open(objectID ObjectID) (ObjectReader, error) {
 
 // VerifyObject ensures that all objects backing ObjectID are present in the repository
 // and returns the total length of the object and storage blocks of which it is composed.
-func (om *ObjectManager) VerifyObject(oid ObjectID) (int64, []string, error) {
+func (om *Manager) VerifyObject(oid ID) (int64, []string, error) {
 	// Flush any pending writes.
 	om.writeBackWG.Wait()
 
@@ -123,7 +123,7 @@ func (om *ObjectManager) VerifyObject(oid ObjectID) (int64, []string, error) {
 	return l, blocks.blockIDs(), nil
 }
 
-func (om *ObjectManager) verifyObjectInternal(oid ObjectID, blocks *blockTracker) (int64, error) {
+func (om *Manager) verifyObjectInternal(oid ID, blocks *blockTracker) (int64, error) {
 	//log.Printf("verifyObjectInternal %v", oid)
 	if oid.Section != nil {
 		l, err := om.verifyObjectInternal(oid.Section.Base, blocks)
@@ -175,7 +175,7 @@ func (om *ObjectManager) verifyObjectInternal(oid ObjectID, blocks *blockTracker
 	blocks.addBlock(oid.StorageBlock)
 
 	if p.PackBlockID != "" {
-		l, err := om.verifyObjectInternal(ObjectID{StorageBlock: p.PackBlockID}, blocks)
+		l, err := om.verifyObjectInternal(ID{StorageBlock: p.PackBlockID}, blocks)
 		if err != nil {
 			return 0, err
 		}
@@ -192,7 +192,7 @@ func (om *ObjectManager) verifyObjectInternal(oid ObjectID, blocks *blockTracker
 
 // Flush closes any pending pack files. Once this method returns, ObjectIDs returned by ObjectManager are
 // ok to be used.
-func (om *ObjectManager) Flush() error {
+func (om *Manager) Flush() error {
 	om.writeBackWG.Wait()
 	return om.blockMgr.Flush()
 }
@@ -209,31 +209,28 @@ func validateFormat(f *config.RepositoryObjectFormat) error {
 	return nil
 }
 
-type ManagerOption func(om *ObjectManager)
+type ManagerOption func(om *Manager)
 
 func WriteBack(parallelism int) ManagerOption {
-	return func(om *ObjectManager) {
+	return func(om *Manager) {
 		om.async = true
 		om.writeBackSemaphore = make(semaphore, parallelism)
 	}
 }
 
 func Trace(traceFunc func(message string, args ...interface{})) ManagerOption {
-	return func(om *ObjectManager) {
+	return func(om *Manager) {
 		om.trace = traceFunc
 	}
 }
 
-type BlockManager interface {
-}
-
 // NewObjectManager creates an ObjectManager with the specified block manager and format.
-func NewObjectManager(bm blockManager, f config.RepositoryObjectFormat, opts ...ManagerOption) (*ObjectManager, error) {
+func NewObjectManager(bm blockManager, f config.RepositoryObjectFormat, opts ...ManagerOption) (*Manager, error) {
 	if err := validateFormat(&f); err != nil {
 		return nil, err
 	}
 
-	om := &ObjectManager{
+	om := &Manager{
 		blockMgr: bm,
 		Format:   f,
 		trace:    nullTrace,
@@ -260,7 +257,7 @@ func NewObjectManager(bm blockManager, f config.RepositoryObjectFormat, opts ...
 	return om, nil
 }
 
-func (om *ObjectManager) flattenListChunk(rawReader io.Reader) ([]indirectObjectEntry, error) {
+func (om *Manager) flattenListChunk(rawReader io.Reader) ([]indirectObjectEntry, error) {
 	pr, err := jsonstream.NewReader(bufio.NewReader(rawReader), indirectStreamType)
 	if err != nil {
 		return nil, err
@@ -286,7 +283,7 @@ func (om *ObjectManager) flattenListChunk(rawReader io.Reader) ([]indirectObject
 	return seekTable, nil
 }
 
-func (om *ObjectManager) newRawReader(objectID ObjectID) (ObjectReader, error) {
+func (om *Manager) newRawReader(objectID ID) (Reader, error) {
 	payload, err := om.blockMgr.GetBlock(objectID.StorageBlock)
 	if err != nil {
 		return nil, err
@@ -308,7 +305,7 @@ func (rwd *readerWithData) Length() int64 {
 	return rwd.length
 }
 
-func newObjectReaderWithData(data []byte) ObjectReader {
+func newObjectReaderWithData(data []byte) Reader {
 	return &readerWithData{
 		ReadSeeker: bytes.NewReader(data),
 		length:     int64(len(data)),

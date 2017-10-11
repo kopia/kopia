@@ -6,21 +6,21 @@ import (
 	"testing"
 )
 
-type rawObjectID ObjectID
+type rawObjectID ID
 
 func TestParseObjectID(t *testing.T) {
 	cases := []struct {
 		Text     string
-		ObjectID ObjectID
+		ObjectID ID
 	}{
-		{"Dfoo", ObjectID{StorageBlock: "foo"}},
-		{"IDfoo", ObjectID{Indirect: &ObjectID{StorageBlock: "foo"}}},
-		{"I1,foo", ObjectID{Indirect: &ObjectID{StorageBlock: "foo"}}},
-		{"I2,foo", ObjectID{Indirect: &ObjectID{Indirect: &ObjectID{StorageBlock: "foo"}}}},
-		{"IDfoo", ObjectID{Indirect: &ObjectID{StorageBlock: "foo"}}},
-		{"IIDfoo", ObjectID{Indirect: &ObjectID{Indirect: &ObjectID{StorageBlock: "foo"}}}},
-		{"Pfoo@bar", ObjectID{StorageBlock: "foo"}}, // legacy
-		{"S1,2,Dfoo", ObjectID{Section: &ObjectIDSection{Start: 1, Length: 2, Base: ObjectID{StorageBlock: "foo"}}}},
+		{"Dfoo", ID{StorageBlock: "foo"}},
+		{"IDfoo", ID{Indirect: &ID{StorageBlock: "foo"}}},
+		{"I1,foo", ID{Indirect: &ID{StorageBlock: "foo"}}},
+		{"I2,foo", ID{Indirect: &ID{Indirect: &ID{StorageBlock: "foo"}}}},
+		{"IDfoo", ID{Indirect: &ID{StorageBlock: "foo"}}},
+		{"IIDfoo", ID{Indirect: &ID{Indirect: &ID{StorageBlock: "foo"}}}},
+		{"Pfoo@bar", ID{StorageBlock: "foo"}}, // legacy
+		{"S1,2,Dfoo", ID{Section: &IDSection{Start: 1, Length: 2, Base: ID{StorageBlock: "foo"}}}},
 	}
 
 	for _, tc := range cases {
