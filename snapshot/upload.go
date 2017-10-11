@@ -15,6 +15,7 @@ import (
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/dir"
 	"github.com/kopia/kopia/internal/hashcache"
+	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/repo"
 )
 
@@ -91,7 +92,7 @@ func (u *Uploader) uploadFileInternal(f fs.File, relativePath string) (*dir.Entr
 	}
 	defer file.Close()
 
-	writer := u.repo.Objects.NewWriter(repo.WriterOptions{
+	writer := u.repo.Objects.NewWriter(object.WriterOptions{
 		Description: "FILE:" + f.Metadata().Name,
 	})
 	defer writer.Close()
@@ -131,7 +132,7 @@ func (u *Uploader) uploadSymlinkInternal(f fs.Symlink, relativePath string) (*di
 		return nil, 0, fmt.Errorf("unable to read symlink: %v", err)
 	}
 
-	writer := u.repo.Objects.NewWriter(repo.WriterOptions{
+	writer := u.repo.Objects.NewWriter(object.WriterOptions{
 		Description: "SYMLINK:" + f.Metadata().Name,
 	})
 	defer writer.Close()
@@ -197,7 +198,7 @@ func (u *Uploader) copyWithProgress(path string, dst io.Writer, src io.Reader, c
 	return written, nil
 }
 
-func newDirEntry(md *fs.EntryMetadata, oid repo.ObjectID) *dir.Entry {
+func newDirEntry(md *fs.EntryMetadata, oid object.ObjectID) *dir.Entry {
 	return &dir.Entry{
 		EntryMetadata: *md,
 		ObjectID:      oid,
@@ -205,10 +206,10 @@ func newDirEntry(md *fs.EntryMetadata, oid repo.ObjectID) *dir.Entry {
 }
 
 // uploadFile uploads the specified File to the repository.
-func (u *Uploader) uploadFile(file fs.File) (repo.ObjectID, error) {
+func (u *Uploader) uploadFile(file fs.File) (object.ObjectID, error) {
 	e, _, err := u.uploadFileInternal(file, file.Metadata().Name)
 	if err != nil {
-		return repo.NullObjectID, err
+		return object.NullObjectID, err
 	}
 	return e.ObjectID, nil
 }
@@ -216,10 +217,10 @@ func (u *Uploader) uploadFile(file fs.File) (repo.ObjectID, error) {
 // uploadDir uploads the specified Directory to the repository.
 // An optional ID of a hash-cache object may be provided, in which case the Uploader will use its
 // contents to avoid hashing
-func (u *Uploader) uploadDir(dir fs.Directory) (repo.ObjectID, repo.ObjectID, error) {
+func (u *Uploader) uploadDir(dir fs.Directory) (object.ObjectID, object.ObjectID, error) {
 	var err error
 
-	mw := u.repo.Objects.NewWriter(repo.WriterOptions{
+	mw := u.repo.Objects.NewWriter(object.WriterOptions{
 		Description:     "HASHCACHE:" + dir.Metadata().Name,
 		BlockNamePrefix: "H",
 		PackGroup:       "HC",
@@ -229,19 +230,19 @@ func (u *Uploader) uploadDir(dir fs.Directory) (repo.ObjectID, repo.ObjectID, er
 	oid, err := uploadDirInternal(u, dir, ".")
 	if u.IsCancelled() {
 		if err := u.cacheReader.CopyTo(u.cacheWriter); err != nil {
-			return repo.NullObjectID, repo.NullObjectID, err
+			return object.NullObjectID, object.NullObjectID, err
 		}
 	}
 	u.cacheWriter.Finalize()
 	u.cacheWriter = nil
 
 	if err != nil {
-		return repo.NullObjectID, repo.NullObjectID, err
+		return object.NullObjectID, object.NullObjectID, err
 	}
 
 	hcid, err := mw.Result()
 	if err := u.repo.Objects.Flush(); err != nil {
-		return repo.NullObjectID, repo.NullObjectID, fmt.Errorf("can't flush pending objects: %v", err)
+		return object.NullObjectID, object.NullObjectID, fmt.Errorf("can't flush pending objects: %v", err)
 	}
 	return oid, hcid, err
 }
@@ -250,7 +251,7 @@ func uploadDirInternal(
 	u *Uploader,
 	directory fs.Directory,
 	relativePath string,
-) (repo.ObjectID, error) {
+) (object.ObjectID, error) {
 	u.Progress.StartedDir(relativePath)
 	defer u.Progress.FinishedDir(relativePath)
 
@@ -258,10 +259,10 @@ func uploadDirInternal(
 
 	entries, err := directory.Readdir()
 	if err != nil {
-		return repo.NullObjectID, err
+		return object.NullObjectID, err
 	}
 
-	writer := u.repo.Objects.NewWriter(repo.WriterOptions{
+	writer := u.repo.Objects.NewWriter(object.WriterOptions{
 		Description: "DIR:" + relativePath,
 		PackGroup:   "DIR",
 	})
@@ -308,7 +309,7 @@ func uploadDirInternal(
 		} else {
 			switch entry := entry.(type) {
 			case fs.Directory:
-				var oid repo.ObjectID
+				var oid object.ObjectID
 				oid, err = uploadDirInternal(u, entry, entryRelativePath)
 				de = newDirEntry(e, oid)
 				hash = 0
@@ -321,7 +322,7 @@ func uploadDirInternal(
 				de, hash, err = u.uploadFileInternal(entry, entryRelativePath)
 
 			default:
-				return repo.NullObjectID, fmt.Errorf("file type %v not supported", entry.Metadata().Type)
+				return object.NullObjectID, fmt.Errorf("file type %v not supported", entry.Metadata().Type)
 			}
 		}
 
@@ -335,11 +336,11 @@ func uploadDirInternal(
 				log.Printf("warning: unable to hash file %q: %s, ignoring", entryRelativePath, err)
 				continue
 			}
-			return repo.NullObjectID, fmt.Errorf("unable to hash file: %s", err)
+			return object.NullObjectID, fmt.Errorf("unable to hash file: %s", err)
 		}
 
 		if err := dw.WriteEntry(de); err != nil {
-			return repo.NullObjectID, err
+			return object.NullObjectID, err
 		}
 
 		if de.Type != fs.EntryTypeDirectory && hash != 0 && entry.Metadata().ModTime.Before(u.hashCacheCutoff) {
@@ -348,7 +349,7 @@ func uploadDirInternal(
 				Hash:     hash,
 				ObjectID: de.ObjectID,
 			}); err != nil {
-				return repo.NullObjectID, err
+				return object.NullObjectID, err
 			}
 		}
 	}

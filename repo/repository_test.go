@@ -2,10 +2,11 @@ package repo
 
 import (
 	"bytes"
+	"compress/gzip"
 	"context"
 	cryptorand "crypto/rand"
+	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
 	"math/rand"
@@ -15,8 +16,8 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/auth"
+	"github.com/kopia/kopia/object"
 
-	"github.com/kopia/kopia/internal/jsonstream"
 	"github.com/kopia/kopia/internal/storagetesting"
 	"github.com/kopia/kopia/storage"
 )
@@ -59,19 +60,19 @@ func setupTestWithData(t *testing.T, data map[string][]byte, mods ...func(o *New
 func TestWriters(t *testing.T) {
 	cases := []struct {
 		data     []byte
-		objectID ObjectID
+		objectID object.ObjectID
 	}{
 		{
 			[]byte("the quick brown fox jumps over the lazy dog"),
-			ObjectID{StorageBlock: "X77add1d5f41223d5582fca736a5cb335"},
+			object.ObjectID{StorageBlock: "X77add1d5f41223d5582fca736a5cb335"},
 		},
-		{make([]byte, 100), ObjectID{StorageBlock: "X6d0bb00954ceb7fbee436bb55a8397a9"}}, // 100 zero bytes
+		{make([]byte, 100), object.ObjectID{StorageBlock: "X6d0bb00954ceb7fbee436bb55a8397a9"}}, // 100 zero bytes
 	}
 
 	for _, c := range cases {
 		data, repo := setupTest(t)
 
-		writer := repo.Objects.NewWriter(WriterOptions{
+		writer := repo.Objects.NewWriter(object.WriterOptions{
 			BlockNamePrefix: "X",
 		})
 
@@ -83,27 +84,37 @@ func TestWriters(t *testing.T) {
 			continue
 		}
 
-		repo.Objects.writeBackWG.Wait()
+		repo.Objects.Flush()
 
 		if !objectIDsEqual(result, c.objectID) {
 			t.Errorf("incorrect result for %v, expected: %v got: %v", c.data, c.objectID.String(), result.String())
 		}
 
-		if c.objectID.StorageBlock == "" {
-			if len(data) != 2 {
-				// 2 format blocks
-				t.Errorf("unexpected data written to the storage: %v", data)
-			}
-		} else {
-			if len(data) != 3 {
-				// 2 format blocks + 1 data block
-				t.Errorf("unexpected data written to the storage: %v", data)
-			}
+		if got, want := len(data), 4; got != want {
+			// 2 format blocks + 1 data block + 1 pack index block
+			t.Errorf("unexpected data written to the storage (%v), wanted %v: %v", len(data), 3, data)
+			dumpBlockManagerData(data)
 		}
 	}
 }
 
-func objectIDsEqual(o1 ObjectID, o2 ObjectID) bool {
+func dumpBlockManagerData(data map[string][]byte) {
+	for k, v := range data {
+		if k[0] == 'P' {
+			gz, _ := gzip.NewReader(bytes.NewReader(v))
+			var buf bytes.Buffer
+			buf.ReadFrom(gz)
+
+			var dst bytes.Buffer
+			json.Indent(&dst, buf.Bytes(), "", "  ")
+
+			log.Printf("data[%v] = %v", k, dst.String())
+		} else {
+			log.Printf("data[%v] = %x", k, v)
+		}
+	}
+}
+func objectIDsEqual(o1 object.ObjectID, o2 object.ObjectID) bool {
 	return reflect.DeepEqual(o1, o2)
 }
 
@@ -111,13 +122,13 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	_, repo := setupTest(t)
 
 	bytes := make([]byte, 100)
-	writer := repo.Objects.NewWriter(WriterOptions{
+	writer := repo.Objects.NewWriter(object.WriterOptions{
 		BlockNamePrefix: "X",
 	})
 	writer.Write(bytes[0:50])
 	writer.Write(bytes[0:50])
 	result, err := writer.Result()
-	if !objectIDsEqual(result, ObjectID{StorageBlock: "X6d0bb00954ceb7fbee436bb55a8397a9"}) {
+	if !objectIDsEqual(result, object.ObjectID{StorageBlock: "X6d0bb00954ceb7fbee436bb55a8397a9"}) {
 		t.Errorf("unexpected result: %v err: %v", result, err)
 	}
 }
@@ -183,7 +194,7 @@ func TestPackingSimple(t *testing.T) {
 	verify(t, repo, oid2a, []byte(content2), "packed-object-2")
 	verify(t, repo, oid3a, []byte(content3), "packed-object-3")
 
-	if err := repo.Objects.Optimize(time.Now().Add(10*time.Second), nil); err != nil {
+	if err := repo.Blocks.CompactIndexes(time.Now().Add(10*time.Second), nil); err != nil {
 		t.Errorf("optimize error: %v", err)
 	}
 	data, repo = setupTestWithData(t, data, func(n *NewRepositoryOptions) {
@@ -194,7 +205,7 @@ func TestPackingSimple(t *testing.T) {
 	verify(t, repo, oid2a, []byte(content2), "packed-object-2")
 	verify(t, repo, oid3a, []byte(content3), "packed-object-3")
 
-	if err := repo.Objects.Optimize(time.Now().Add(-10*time.Second), nil); err != nil {
+	if err := repo.Blocks.CompactIndexes(time.Now().Add(-10*time.Second), nil); err != nil {
 		t.Errorf("optimize error: %v", err)
 	}
 	data, repo = setupTestWithData(t, data, func(n *NewRepositoryOptions) {
@@ -206,91 +217,7 @@ func TestPackingSimple(t *testing.T) {
 	verify(t, repo, oid3a, []byte(content3), "packed-object-3")
 }
 
-func verifyIndirectBlock(t *testing.T, r *Repository, oid ObjectID) {
-	for oid.Indirect != nil {
-		direct := *oid.Indirect
-		oid = direct
-
-		rd, err := r.Objects.Open(direct)
-		if err != nil {
-			t.Errorf("unable to open %v: %v", oid.String(), err)
-			return
-		}
-		defer rd.Close()
-
-		pr, err := jsonstream.NewReader(rd, indirectStreamType)
-		if err != nil {
-			t.Errorf("cannot open indirect stream: %v", err)
-			return
-		}
-		for {
-			v := indirectObjectEntry{}
-			if err := pr.Read(&v); err != nil {
-				if err == io.EOF {
-					break
-				}
-				t.Errorf("err: %v", err)
-				break
-			}
-		}
-	}
-}
-
-func TestIndirection(t *testing.T) {
-	cases := []struct {
-		dataLength          int
-		expectedBlockCount  int
-		expectedIndirection int
-	}{
-		{dataLength: 200, expectedBlockCount: 1, expectedIndirection: 0},
-		{dataLength: 250, expectedBlockCount: 3, expectedIndirection: 1},
-		{dataLength: 1400, expectedBlockCount: 7, expectedIndirection: 3},
-		{dataLength: 2000, expectedBlockCount: 8, expectedIndirection: 3},
-		{dataLength: 3000, expectedBlockCount: 9, expectedIndirection: 3},
-		{dataLength: 4000, expectedBlockCount: 14, expectedIndirection: 4},
-		{dataLength: 10000, expectedBlockCount: 25, expectedIndirection: 4},
-	}
-
-	for _, c := range cases {
-		data, repo := setupTest(t)
-
-		contentBytes := make([]byte, c.dataLength)
-
-		writer := repo.Objects.NewWriter(WriterOptions{})
-		writer.Write(contentBytes)
-		result, err := writer.Result()
-		if err != nil {
-			t.Errorf("error getting writer results: %v", err)
-		}
-
-		if indirectionLevel(result) != c.expectedIndirection {
-			t.Errorf("incorrect indirection level for size: %v: %v, expected %v", c.dataLength, indirectionLevel(result), c.expectedIndirection)
-		}
-
-		if got, want := len(data)-2, c.expectedBlockCount; got != want {
-			t.Errorf("unexpected block count for %v: %v, expected %v", c.dataLength, got, want)
-		}
-
-		repo.Objects.Flush()
-
-		l, b, err := repo.Objects.VerifyObject(result)
-		if err != nil {
-			t.Errorf("error verifying %q: %v", result, err)
-		}
-
-		if got, want := int(l), len(contentBytes); got != want {
-			t.Errorf("got invalid byte count for %q: %v, wanted %v", result, got, want)
-		}
-
-		if got, want := len(b), c.expectedBlockCount; got != want {
-			t.Errorf("invalid block count for %v, got %v, wanted %v", result, got, want)
-		}
-
-		verifyIndirectBlock(t, repo, result)
-	}
-}
-
-func indirectionLevel(oid ObjectID) int {
+func indirectionLevel(oid object.ObjectID) int {
 	if oid.Indirect == nil {
 		return 0
 	}
@@ -303,7 +230,7 @@ func TestHMAC(t *testing.T) {
 
 	_, repo := setupTest(t)
 
-	w := repo.Objects.NewWriter(WriterOptions{})
+	w := repo.Objects.NewWriter(object.WriterOptions{})
 	w.Write(content)
 	result, err := w.Result()
 	if result.String() != "D999732b72ceff665b3f7608411db66a4" {
@@ -327,7 +254,7 @@ func TestReader(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		objectID, err := ParseObjectID(c.text)
+		objectID, err := object.ParseObjectID(c.text)
 		if err != nil {
 			t.Errorf("cannot parse object ID: %v", err)
 			continue
@@ -362,7 +289,7 @@ func TestMalformedStoredData(t *testing.T) {
 
 	for _, c := range cases {
 		data["a76999788386641a3ec798554f1fe7e6"] = c
-		objectID, err := ParseObjectID("Da76999788386641a3ec798554f1fe7e6")
+		objectID, err := object.ParseObjectID("Da76999788386641a3ec798554f1fe7e6")
 		if err != nil {
 			t.Errorf("cannot parse object ID: %v", err)
 			continue
@@ -378,7 +305,7 @@ func TestMalformedStoredData(t *testing.T) {
 func TestReaderStoredBlockNotFound(t *testing.T) {
 	_, repo := setupTest(t)
 
-	objectID, err := ParseObjectID("Dno-such-block")
+	objectID, err := object.ParseObjectID("Dno-such-block")
 	if err != nil {
 		t.Errorf("cannot parse object ID: %v", err)
 	}
@@ -396,7 +323,7 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 		randomData := make([]byte, size)
 		cryptorand.Read(randomData)
 
-		writer := repo.Objects.NewWriter(WriterOptions{
+		writer := repo.Objects.NewWriter(object.WriterOptions{
 			BlockNamePrefix: "X",
 		})
 		writer.Write(randomData)
@@ -410,19 +337,19 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 		verify(t, repo, objectID, randomData, fmt.Sprintf("%v %v", objectID, size))
 
 		if size > 1 {
-			sectionID := SectionObjectID(0, int64(size/2), objectID)
+			sectionID := object.SectionObjectID(0, int64(size/2), objectID)
 			verify(t, repo, sectionID, randomData[0:10], fmt.Sprintf("%+v %v", sectionID, size))
 		}
 
 		if size > 1 {
-			sectionID := SectionObjectID(int64(1), int64(size-1), objectID)
+			sectionID := object.SectionObjectID(int64(1), int64(size-1), objectID)
 			verify(t, repo, sectionID, randomData[1:], fmt.Sprintf("%+v %v", sectionID, size))
 		}
 	}
 }
 
-func writeObject(t *testing.T, repo *Repository, data []byte, testCaseID string) ObjectID {
-	w := repo.Objects.NewWriter(WriterOptions{})
+func writeObject(t *testing.T, repo *Repository, data []byte, testCaseID string) object.ObjectID {
+	w := repo.Objects.NewWriter(object.WriterOptions{})
 	if _, err := w.Write(data); err != nil {
 		t.Fatalf("can't write object %q - write failed: %v", testCaseID, err)
 
@@ -435,7 +362,7 @@ func writeObject(t *testing.T, repo *Repository, data []byte, testCaseID string)
 	return oid
 }
 
-func verify(t *testing.T, repo *Repository, objectID ObjectID, expectedData []byte, testCaseID string) {
+func verify(t *testing.T, repo *Repository, objectID object.ObjectID, expectedData []byte, testCaseID string) {
 	t.Helper()
 	reader, err := repo.Objects.Open(objectID)
 	if err != nil {
@@ -480,32 +407,32 @@ func TestFormats(t *testing.T) {
 
 	cases := []struct {
 		format func(*NewRepositoryOptions)
-		oids   map[string]ObjectID
+		oids   map[string]object.ObjectID
 	}{
 		{
 			format: func(n *NewRepositoryOptions) {
 				n.MaxBlockSize = 10000
 				n.noHMAC = true
 			},
-			oids: map[string]ObjectID{
-				"": ObjectID{StorageBlock: "d41d8cd98f00b204e9800998ecf8427e"},
-				"The quick brown fox jumps over the lazy dog": ObjectID{
+			oids: map[string]object.ObjectID{
+				"": object.ObjectID{StorageBlock: "d41d8cd98f00b204e9800998ecf8427e"},
+				"The quick brown fox jumps over the lazy dog": object.ObjectID{
 					StorageBlock: "9e107d9d372bb6826bd81d3542a419d6",
 				},
 			},
 		},
 		{
 			format: makeFormat("UNENCRYPTED_HMAC_SHA256"),
-			oids: map[string]ObjectID{
-				"The quick brown fox jumps over the lazy dog": ObjectID{
+			oids: map[string]object.ObjectID{
+				"The quick brown fox jumps over the lazy dog": object.ObjectID{
 					StorageBlock: "f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8",
 				},
 			},
 		},
 		{
 			format: makeFormat("UNENCRYPTED_HMAC_SHA256_128"),
-			oids: map[string]ObjectID{
-				"The quick brown fox jumps over the lazy dog": ObjectID{
+			oids: map[string]object.ObjectID{
+				"The quick brown fox jumps over the lazy dog": object.ObjectID{
 					StorageBlock: "f7bc83f430538424b13298e6aa6fb143",
 				},
 			},
@@ -517,7 +444,7 @@ func TestFormats(t *testing.T) {
 
 		for k, v := range c.oids {
 			bytesToWrite := []byte(k)
-			w := repo.Objects.NewWriter(WriterOptions{})
+			w := repo.Objects.NewWriter(object.WriterOptions{})
 			w.Write(bytesToWrite)
 			oid, err := w.Result()
 			if err != nil {

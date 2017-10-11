@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/object"
 )
 
 type cacheEntry struct {
@@ -77,7 +77,7 @@ type Loader func() (fs.Entries, error)
 // Readdir reads the contents of a provided directory using ObjectID of a directory (if any) to cache
 // the results.
 func (c *Cache) Readdir(d fs.Directory) (fs.Entries, error) {
-	if h, ok := d.(repo.HasObjectID); ok {
+	if h, ok := d.(object.HasObjectID); ok {
 		cacheID := h.ObjectID().String()
 		cacheExpiration := 24 * time.Hour
 		return c.getEntries(cacheID, cacheExpiration, d.Readdir)

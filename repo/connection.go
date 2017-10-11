@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/kopia/kopia/object"
+
 	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/config"
@@ -24,8 +26,8 @@ import (
 type Options struct {
 	CredentialsCallback func() (auth.Credentials, error)    // Provides credentials required to open the repository if not persisted.
 	TraceStorage        func(f string, args ...interface{}) // Logs all storage access using provided Printf-style function
-	TraceObjectManager  func(f string, args ...interface{}) // Logs all object manager activity using provided Printf-style function
-	WriteBack           int                                 // Causes all object writes to be asynchronous with the specified number of workers.
+
+	ObjectManagerOptions []object.ManagerOption
 }
 
 // Open opens a Repository specified in the configuration file.
@@ -137,7 +139,7 @@ func connect(ctx context.Context, st storage.Storage, creds auth.Credentials, op
 
 	bm := block.NewManager(st, mm.repoConfig.Format.MaxPackedContentLength, mm.repoConfig.Format.MaxBlockSize, formatter)
 
-	om, err := newObjectManager(bm, mm.repoConfig.Format, options)
+	om, err := object.NewObjectManager(bm, mm.repoConfig.Format, options.ObjectManagerOptions...)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open object manager: %v", err)
 	}

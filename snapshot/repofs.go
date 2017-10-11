@@ -6,6 +6,7 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/dir"
+	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/repo"
 )
 
@@ -23,7 +24,7 @@ func (e *repositoryEntry) Metadata() *fs.EntryMetadata {
 	return &e.metadata.EntryMetadata
 }
 
-func (e *repositoryEntry) ObjectID() repo.ObjectID {
+func (e *repositoryEntry) ObjectID() object.ObjectID {
 	return e.metadata.ObjectID
 }
 
@@ -105,7 +106,7 @@ func newRepoEntry(r *repo.Repository, md *dir.Entry, parent fs.Directory) fs.Ent
 }
 
 type entryMetadataReadCloser struct {
-	repo.ObjectReader
+	object.ObjectReader
 	metadata *fs.EntryMetadata
 }
 
@@ -113,13 +114,13 @@ func (emrc *entryMetadataReadCloser) EntryMetadata() (*fs.EntryMetadata, error) 
 	return emrc.metadata, nil
 }
 
-func withMetadata(r repo.ObjectReader, md *fs.EntryMetadata) fs.Reader {
+func withMetadata(r object.ObjectReader, md *fs.EntryMetadata) fs.Reader {
 	return &entryMetadataReadCloser{r, md}
 }
 
 // DirectoryEntry returns fs.Directory based on repository object with the specified ID.
 // The existence or validity of the directory object is not validated until its contents are read.
-func (m *Manager) DirectoryEntry(objectID repo.ObjectID) fs.Directory {
+func (m *Manager) DirectoryEntry(objectID object.ObjectID) fs.Directory {
 	d := newRepoEntry(m.repository, &dir.Entry{
 		EntryMetadata: fs.EntryMetadata{
 			Name:        "/",

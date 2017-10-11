@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
@@ -76,7 +77,7 @@ func runMigrateCommand(context *kingpin.ParseContext) error {
 	}
 
 	for _, dir := range *migrateDirectories {
-		dirOID, err := repo.ParseObjectID(dir)
+		dirOID, err := object.ParseObjectID(dir)
 		if err != nil {
 			return err
 		}

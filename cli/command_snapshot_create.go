@@ -15,6 +15,9 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/repo"
+
+	"github.com/kopia/kopia/object"
+
 	"github.com/kopia/kopia/snapshot"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
@@ -38,7 +41,7 @@ var (
 
 func runBackupCommand(c *kingpin.ParseContext) error {
 	rep := mustOpenRepository(&repo.Options{
-		WriteBack: *snapshotCreateWriteBack,
+		ObjectManagerOptions: []object.ManagerOption{object.WriteBack(*snapshotCreateWriteBack)},
 	})
 	defer rep.Close()
 

@@ -1,4 +1,4 @@
-package repo
+package object
 
 type empty struct{}
 type semaphore chan empty

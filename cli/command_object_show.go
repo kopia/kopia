@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/snapshot"
 
 	"github.com/kopia/kopia/repo"
@@ -44,7 +45,7 @@ func runShowCommand(context *kingpin.ParseContext) error {
 	return nil
 }
 
-func showObject(r *repo.Repository, oid repo.ObjectID) error {
+func showObject(r *repo.Repository, oid object.ObjectID) error {
 	var rd io.ReadCloser
 
 	rd, err := r.Objects.Open(oid)

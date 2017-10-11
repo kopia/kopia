@@ -1,4 +1,4 @@
-package repo
+package object
 
 var indirectStreamType = "kopia:indirect"
 

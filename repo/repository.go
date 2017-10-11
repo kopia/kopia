@@ -5,13 +5,14 @@ import (
 	"fmt"
 
 	"github.com/kopia/kopia/block"
+	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/storage"
 )
 
 // Repository represents storage where both content-addressable and user-addressable data is kept.
 type Repository struct {
 	Blocks   *block.Manager
-	Objects  *ObjectManager
+	Objects  *object.ObjectManager
 	Metadata *MetadataManager
 	Storage  storage.Storage
 
@@ -42,21 +43,21 @@ type StatusInfo struct {
 // Status returns a snapshot of repository-wide statistics plus some general information about repository configuration.
 func (r *Repository) Status() StatusInfo {
 	s := StatusInfo{
-		Stats: r.Objects.blockMgr.Stats(),
+		Stats: r.Blocks.Stats(),
 
 		MetadataManagerVersion:      r.Metadata.format.Version,
 		UniqueID:                    hex.EncodeToString(r.Metadata.format.UniqueID),
 		MetadataEncryptionAlgorithm: r.Metadata.format.EncryptionAlgorithm,
 		KeyDerivationAlgorithm:      r.Metadata.format.KeyDerivationAlgorithm,
 
-		ObjectManagerVersion: fmt.Sprintf("%v", r.Objects.format.Version),
-		BlockFormat:          r.Objects.format.BlockFormat,
-		Splitter:             r.Objects.format.Splitter,
-		MinBlockSize:         r.Objects.format.MinBlockSize,
-		AvgBlockSize:         r.Objects.format.AvgBlockSize,
-		MaxBlockSize:         r.Objects.format.MaxBlockSize,
+		ObjectManagerVersion: fmt.Sprintf("%v", r.Objects.Format.Version),
+		BlockFormat:          r.Objects.Format.BlockFormat,
+		Splitter:             r.Objects.Format.Splitter,
+		MinBlockSize:         r.Objects.Format.MinBlockSize,
+		AvgBlockSize:         r.Objects.Format.AvgBlockSize,
+		MaxBlockSize:         r.Objects.Format.MaxBlockSize,
 
-		MaxPackedContentLength: r.Objects.format.MaxPackedContentLength,
+		MaxPackedContentLength: r.Objects.Format.MaxPackedContentLength,
 	}
 
 	if s.Splitter == "" {

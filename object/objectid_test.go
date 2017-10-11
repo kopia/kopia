@@ -1,4 +1,4 @@
-package repo
+package object
 
 import (
 	"reflect"
@@ -32,8 +32,6 @@ func TestParseObjectID(t *testing.T) {
 		if !reflect.DeepEqual(oid, tc.ObjectID) {
 			t.Errorf("invalid result for %q: %+v, wanted %+v", tc.Text, rawObjectID(oid), rawObjectID(tc.ObjectID))
 		}
-
-		t.Logf("s: %v from %v", oid.String(), tc.Text)
 
 		oid2, err := ParseObjectID(oid.String())
 		if err != nil {

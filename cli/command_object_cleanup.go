@@ -10,6 +10,7 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/units"
+	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 
@@ -24,7 +25,7 @@ var (
 )
 
 type cleanupWorkItem struct {
-	oid         repo.ObjectID
+	oid         object.ObjectID
 	isDirectory bool
 	debug       string
 }
@@ -138,7 +139,7 @@ func findAliveBlocks(ctx *cleanupContext, wi *cleanupWorkItem) error {
 		}
 
 		for _, entry := range entries {
-			entryObjectID := entry.(repo.HasObjectID).ObjectID()
+			entryObjectID := entry.(object.HasObjectID).ObjectID()
 			_, isSubdir := entry.(fs.Directory)
 
 			ctx.queue.add(&cleanupWorkItem{oid: entryObjectID, isDirectory: isSubdir, debug: wi.debug + "/" + entry.Metadata().Name})
@@ -239,7 +240,7 @@ func runCleanupCommand(context *kingpin.ParseContext) error {
 
 	log.Printf("Found %v in-use objects in %v blocks in %v", len(ctx.queue.visited), len(ctx.inuse), dt)
 
-	rep.Objects.Optimize(cutoffTime, ctx.inuse)
+	rep.Blocks.CompactIndexes(cutoffTime, ctx.inuse)
 
 	var totalBlocks int
 	var totalBytes int64

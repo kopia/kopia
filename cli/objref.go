@@ -5,20 +5,20 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/snapshot"
 )
 
-// ParseObjectID interprets the given ID string and returns corresponding repo.ObjectID.
-func parseObjectID(mgr *snapshot.Manager, id string) (repo.ObjectID, error) {
+// ParseObjectID interprets the given ID string and returns corresponding object.ObjectID.
+func parseObjectID(mgr *snapshot.Manager, id string) (object.ObjectID, error) {
 	head, tail := splitHeadTail(id)
 	if len(head) == 0 {
-		return repo.NullObjectID, fmt.Errorf("invalid object ID: %v", id)
+		return object.NullObjectID, fmt.Errorf("invalid object ID: %v", id)
 	}
 
-	oid, err := repo.ParseObjectID(head)
+	oid, err := object.ParseObjectID(head)
 	if err != nil {
-		return repo.NullObjectID, fmt.Errorf("can't parse object ID %v: %v", head, err)
+		return object.NullObjectID, fmt.Errorf("can't parse object ID %v: %v", head, err)
 	}
 
 	if tail == "" {
@@ -27,37 +27,37 @@ func parseObjectID(mgr *snapshot.Manager, id string) (repo.ObjectID, error) {
 
 	dir := mgr.DirectoryEntry(oid)
 	if err != nil {
-		return repo.NullObjectID, err
+		return object.NullObjectID, err
 	}
 
 	return parseNestedObjectID(dir, tail)
 }
 
-func parseNestedObjectID(startingDir fs.Directory, id string) (repo.ObjectID, error) {
+func parseNestedObjectID(startingDir fs.Directory, id string) (object.ObjectID, error) {
 	head, tail := splitHeadTail(id)
 	var current fs.Entry
 	current = startingDir
 	for head != "" {
 		dir, ok := current.(fs.Directory)
 		if !ok {
-			return repo.NullObjectID, fmt.Errorf("entry not found '%v': parent is not a directory", head)
+			return object.NullObjectID, fmt.Errorf("entry not found '%v': parent is not a directory", head)
 		}
 
 		entries, err := dir.Readdir()
 		if err != nil {
-			return repo.NullObjectID, err
+			return object.NullObjectID, err
 		}
 
 		e := entries.FindByName(head)
 		if e == nil {
-			return repo.NullObjectID, fmt.Errorf("entry not found: '%v'", head)
+			return object.NullObjectID, fmt.Errorf("entry not found: '%v'", head)
 		}
 
 		current = e
 		head, tail = splitHeadTail(tail)
 	}
 
-	return current.(repo.HasObjectID).ObjectID(), nil
+	return current.(object.HasObjectID).ObjectID(), nil
 }
 
 func splitHeadTail(id string) (string, string) {

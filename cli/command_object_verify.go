@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/snapshot"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
@@ -20,7 +20,7 @@ var (
 
 type verifier struct {
 	mgr     *snapshot.Manager
-	om      *repo.ObjectManager
+	om      *object.ObjectManager
 	visited map[string]bool
 	errors  []error
 }
@@ -32,7 +32,7 @@ func (v *verifier) reportError(path string, err error) bool {
 	return len(v.errors) >= *verifyCommandErrorThreshold
 }
 
-func (v *verifier) verifyDirectory(oid repo.ObjectID, path string) error {
+func (v *verifier) verifyDirectory(oid object.ObjectID, path string) error {
 	if v.visited[oid.String()] {
 		return nil
 	}
@@ -50,7 +50,7 @@ func (v *verifier) verifyDirectory(oid repo.ObjectID, path string) error {
 
 	for _, e := range entries {
 		m := e.Metadata()
-		objectID := e.(repo.HasObjectID).ObjectID()
+		objectID := e.(object.HasObjectID).ObjectID()
 		childPath := path + "/" + m.Name
 		if m.FileMode().IsDir() {
 			if *verifyCommandRecursive {
@@ -72,7 +72,7 @@ func (v *verifier) verifyDirectory(oid repo.ObjectID, path string) error {
 	return nil
 }
 
-func (v *verifier) verifyObject(oid repo.ObjectID, path string, expectedLength int64) error {
+func (v *verifier) verifyObject(oid object.ObjectID, path string, expectedLength int64) error {
 	if v.visited[oid.String()] {
 		return nil
 	}

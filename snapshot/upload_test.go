@@ -9,6 +9,7 @@ import (
 	"reflect"
 
 	"github.com/kopia/kopia/internal/mockfs"
+	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/storage"
 	"github.com/kopia/kopia/storage/filesystem"
@@ -222,7 +223,7 @@ func TestUpload_SubDirectoryReadFailure(t *testing.T) {
 	}
 }
 
-func objectIDsEqual(o1 repo.ObjectID, o2 repo.ObjectID) bool {
+func objectIDsEqual(o1 object.ObjectID, o2 object.ObjectID) bool {
 	return reflect.DeepEqual(o1, o2)
 }
 

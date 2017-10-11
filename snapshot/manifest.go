@@ -3,7 +3,7 @@ package snapshot
 import (
 	"time"
 
-	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/object"
 )
 
 // Manifest represents information about a single point-in-time filesystem snapshot.
@@ -14,9 +14,9 @@ type Manifest struct {
 	StartTime   time.Time `json:"startTime"`
 	EndTime     time.Time `json:"endTime"`
 
-	RootObjectID        repo.ObjectID `json:"root"`
-	HashCacheID         repo.ObjectID `json:"hashCache"`
-	HashCacheCutoffTime time.Time     `json:"hashCacheCutoff"`
+	RootObjectID        object.ObjectID `json:"root"`
+	HashCacheID         object.ObjectID `json:"hashCache"`
+	HashCacheCutoffTime time.Time       `json:"hashCacheCutoff"`
 
 	Stats Stats `json:"stats"`
 

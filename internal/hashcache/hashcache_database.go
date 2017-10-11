@@ -12,7 +12,7 @@ import (
 	"os"
 
 	"github.com/boltdb/bolt"
-	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/object"
 )
 
 const batchSize = 10
@@ -96,16 +96,16 @@ func (hi *DirectoryInfo) keyOf(fi os.FileInfo) string {
 }
 
 // Lookup fetches the ObjectID corresponding to the given FileInfo in a directory, if present.
-func (hi *DirectoryInfo) Lookup(fi os.FileInfo) (repo.ObjectID, bool) {
+func (hi *DirectoryInfo) Lookup(fi os.FileInfo) (object.ObjectID, bool) {
 	k := hi.keyOf(fi)
 	s, ok := hi.previousFiles[k]
 	if !ok {
-		return repo.NullObjectID, false
+		return object.NullObjectID, false
 	}
 
-	oid, err := repo.ParseObjectID(s)
+	oid, err := object.ParseObjectID(s)
 	if err != nil {
-		return repo.NullObjectID, false
+		return object.NullObjectID, false
 	}
 
 	hi.currentFiles[k] = s
@@ -113,7 +113,7 @@ func (hi *DirectoryInfo) Lookup(fi os.FileInfo) (repo.ObjectID, bool) {
 }
 
 // Set associates ObjectID with a FileInfo that will be persisted on Save().
-func (hi *DirectoryInfo) Set(fi os.FileInfo, oid repo.ObjectID) {
+func (hi *DirectoryInfo) Set(fi os.FileInfo, oid object.ObjectID) {
 	k := hi.keyOf(fi)
 	new := oid.String()
 	hi.currentFiles[k] = new

@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/snapshot"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
@@ -49,7 +49,7 @@ func init() {
 	lsCommand.Action(runLSCommand)
 }
 
-func listDirectory(mgr *snapshot.Manager, prefix string, oid repo.ObjectID, indent string) error {
+func listDirectory(mgr *snapshot.Manager, prefix string, oid object.ObjectID, indent string) error {
 	d := mgr.DirectoryEntry(oid)
 
 	entries, err := d.Readdir()
@@ -69,7 +69,7 @@ func listDirectory(mgr *snapshot.Manager, prefix string, oid repo.ObjectID, inde
 	for _, e := range entries {
 		m := e.Metadata()
 		var info string
-		objectID := e.(repo.HasObjectID).ObjectID()
+		objectID := e.(object.HasObjectID).ObjectID()
 		oid := objectID.String()
 		if *lsCommandLong {
 			info = fmt.Sprintf(

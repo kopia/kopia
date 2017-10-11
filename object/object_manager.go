@@ -1,4 +1,4 @@
-package repo
+package object
 
 import (
 	"bufio"
@@ -7,7 +7,6 @@ import (
 	"io"
 	"log"
 	"sync"
-	"time"
 
 	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/config"
@@ -22,12 +21,19 @@ type ObjectReader interface {
 	Length() int64
 }
 
+type blockManager interface {
+	BlockInfo(blockID string) (block.Info, error)
+	GetBlock(blockID string) ([]byte, error)
+	WriteBlock(packGroup string, data []byte, prefix string) (string, error)
+	Flush() error
+}
+
 // ObjectManager implements a content-addressable storage on top of blob storage.
 type ObjectManager struct {
-	format config.RepositoryObjectFormat
+	Format config.RepositoryObjectFormat
 
 	verbose  bool
-	blockMgr *block.Manager
+	blockMgr blockManager
 
 	async              bool
 	writeBackWG        sync.WaitGroup
@@ -42,16 +48,6 @@ type ObjectManager struct {
 func (om *ObjectManager) Close() error {
 	om.writeBackWG.Wait()
 	return om.Flush()
-}
-
-// Optimize performs object optimizations to improve performance of future operations.
-// The operation will not affect objects written after cutoffTime to prevent race conditions.
-func (om *ObjectManager) Optimize(cutoffTime time.Time, inUseBlocks map[string]bool) error {
-	if err := om.blockMgr.CompactIndexes(cutoffTime, inUseBlocks); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // NewWriter creates an ObjectWriter for writing to the repository.
@@ -176,9 +172,9 @@ func (om *ObjectManager) verifyObjectInternal(oid ObjectID, blocks *blockTracker
 	if err != nil {
 		return 0, err
 	}
+	blocks.addBlock(oid.StorageBlock)
 
 	if p.PackBlockID != "" {
-		blocks.addBlock(oid.StorageBlock)
 		l, err := om.verifyObjectInternal(ObjectID{StorageBlock: p.PackBlockID}, blocks)
 		if err != nil {
 			return 0, err
@@ -191,13 +187,7 @@ func (om *ObjectManager) verifyObjectInternal(oid ObjectID, blocks *blockTracker
 		return 0, fmt.Errorf("packed object %v does not fit within its parent pack %v (pack length %v)", oid, p, l)
 	}
 
-	l, err := om.blockMgr.BlockSize(oid.StorageBlock)
-	if err != nil {
-		return 0, fmt.Errorf("unable to read %q: %v", oid.StorageBlock, err)
-	}
-	blocks.addBlock(oid.StorageBlock)
-
-	return l, nil
+	return p.Length, nil
 }
 
 // Flush closes any pending pack files. Once this method returns, ObjectIDs returned by ObjectManager are
@@ -216,30 +206,45 @@ func validateFormat(f *config.RepositoryObjectFormat) error {
 		return fmt.Errorf("unsupported version: %v", f.Version)
 	}
 
-	if f.MaxBlockSize < 100 {
-		return fmt.Errorf("MaxBlockSize is not set")
-	}
-
-	if sf := block.FormatterFactories[f.BlockFormat]; sf == nil {
-		return fmt.Errorf("unknown object format: %v", f.BlockFormat)
-	}
-
 	return nil
 }
 
-// newObjectManager creates an ObjectManager with the specified block manager and options.
-func newObjectManager(bm *block.Manager, f config.RepositoryObjectFormat, opts *Options) (*ObjectManager, error) {
+type ManagerOption func(om *ObjectManager)
+
+func WriteBack(parallelism int) ManagerOption {
+	return func(om *ObjectManager) {
+		om.async = true
+		om.writeBackSemaphore = make(semaphore, parallelism)
+	}
+}
+
+func Trace(traceFunc func(message string, args ...interface{})) ManagerOption {
+	return func(om *ObjectManager) {
+		om.trace = traceFunc
+	}
+}
+
+type BlockManager interface {
+}
+
+// NewObjectManager creates an ObjectManager with the specified block manager and format.
+func NewObjectManager(bm blockManager, f config.RepositoryObjectFormat, opts ...ManagerOption) (*ObjectManager, error) {
 	if err := validateFormat(&f); err != nil {
 		return nil, err
 	}
 
 	om := &ObjectManager{
 		blockMgr: bm,
-		format:   f,
+		Format:   f,
 		trace:    nullTrace,
 	}
 
-	os := objectSplitterFactories[applyDefaultString(f.Splitter, "FIXED")]
+	splitterID := f.Splitter
+	if splitterID == "" {
+		splitterID = "FIXED"
+	}
+
+	os := objectSplitterFactories[splitterID]
 	if os == nil {
 		return nil, fmt.Errorf("unsupported splitter %q", f.Splitter)
 	}
@@ -248,16 +253,8 @@ func newObjectManager(bm *block.Manager, f config.RepositoryObjectFormat, opts *
 		return os(&f)
 	}
 
-	if opts != nil {
-		if opts.TraceObjectManager != nil {
-			om.trace = opts.TraceObjectManager
-		} else {
-			om.trace = nullTrace
-		}
-		if opts.WriteBack > 0 {
-			om.async = true
-			om.writeBackSemaphore = make(semaphore, opts.WriteBack)
-		}
+	for _, o := range opts {
+		o(om)
 	}
 
 	return om, nil

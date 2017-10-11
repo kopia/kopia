@@ -9,6 +9,7 @@ import (
 	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/config"
+	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/storage"
 )
 
@@ -94,7 +95,7 @@ func metadataFormatFromOptions(opt *NewRepositoryOptions) config.MetadataFormat 
 func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) config.RepositoryObjectFormat {
 	f := config.RepositoryObjectFormat{
 		Version:                1,
-		Splitter:               applyDefaultString(opt.Splitter, DefaultObjectSplitter),
+		Splitter:               applyDefaultString(opt.Splitter, object.DefaultObjectSplitter),
 		BlockFormat:            applyDefaultString(opt.BlockFormat, block.DefaultFormat),
 		HMACSecret:             applyDefaultRandomBytes(opt.ObjectHMACSecret, 32),
 		MasterKey:              applyDefaultRandomBytes(opt.ObjectEncryptionKey, 32),
