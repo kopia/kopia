@@ -209,7 +209,7 @@ func newDirEntry(md *fs.EntryMetadata, oid object.ID) *dir.Entry {
 func (u *Uploader) uploadFile(file fs.File) (object.ID, error) {
 	e, _, err := u.uploadFileInternal(file, file.Metadata().Name)
 	if err != nil {
-		return object.NullObjectID, err
+		return object.NullID, err
 	}
 	return e.ObjectID, nil
 }
@@ -230,19 +230,19 @@ func (u *Uploader) uploadDir(dir fs.Directory) (object.ID, object.ID, error) {
 	oid, err := uploadDirInternal(u, dir, ".")
 	if u.IsCancelled() {
 		if err := u.cacheReader.CopyTo(u.cacheWriter); err != nil {
-			return object.NullObjectID, object.NullObjectID, err
+			return object.NullID, object.NullID, err
 		}
 	}
 	u.cacheWriter.Finalize()
 	u.cacheWriter = nil
 
 	if err != nil {
-		return object.NullObjectID, object.NullObjectID, err
+		return object.NullID, object.NullID, err
 	}
 
 	hcid, err := mw.Result()
 	if err := u.repo.Objects.Flush(); err != nil {
-		return object.NullObjectID, object.NullObjectID, fmt.Errorf("can't flush pending objects: %v", err)
+		return object.NullID, object.NullID, fmt.Errorf("can't flush pending objects: %v", err)
 	}
 	return oid, hcid, err
 }
@@ -259,7 +259,7 @@ func uploadDirInternal(
 
 	entries, err := directory.Readdir()
 	if err != nil {
-		return object.NullObjectID, err
+		return object.NullID, err
 	}
 
 	writer := u.repo.Objects.NewWriter(object.WriterOptions{
@@ -322,7 +322,7 @@ func uploadDirInternal(
 				de, hash, err = u.uploadFileInternal(entry, entryRelativePath)
 
 			default:
-				return object.NullObjectID, fmt.Errorf("file type %v not supported", entry.Metadata().Type)
+				return object.NullID, fmt.Errorf("file type %v not supported", entry.Metadata().Type)
 			}
 		}
 
@@ -336,11 +336,11 @@ func uploadDirInternal(
 				log.Printf("warning: unable to hash file %q: %s, ignoring", entryRelativePath, err)
 				continue
 			}
-			return object.NullObjectID, fmt.Errorf("unable to hash file: %s", err)
+			return object.NullID, fmt.Errorf("unable to hash file: %s", err)
 		}
 
 		if err := dw.WriteEntry(de); err != nil {
-			return object.NullObjectID, err
+			return object.NullID, err
 		}
 
 		if de.Type != fs.EntryTypeDirectory && hash != 0 && entry.Metadata().ModTime.Before(u.hashCacheCutoff) {
@@ -349,7 +349,7 @@ func uploadDirInternal(
 				Hash:     hash,
 				ObjectID: de.ObjectID,
 			}); err != nil {
-				return object.NullObjectID, err
+				return object.NullID, err
 			}
 		}
 	}

@@ -264,7 +264,7 @@ func TestReader(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		objectID, err := ParseObjectID(c.text)
+		objectID, err := ParseID(c.text)
 		if err != nil {
 			t.Errorf("cannot parse object ID: %v", err)
 			continue
@@ -291,7 +291,7 @@ func TestReader(t *testing.T) {
 func TestReaderStoredBlockNotFound(t *testing.T) {
 	_, om := setupTest(t)
 
-	objectID, err := ParseObjectID("Dno-such-block")
+	objectID, err := ParseID("Dno-such-block")
 	if err != nil {
 		t.Errorf("cannot parse object ID: %v", err)
 	}

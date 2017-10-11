@@ -49,7 +49,7 @@ func (oid *ID) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
-	*oid, err = ParseObjectID(s)
+	*oid, err = ParseID(s)
 	return err
 }
 
@@ -58,8 +58,8 @@ type HasObjectID interface {
 	ObjectID() ID
 }
 
-// NullObjectID is the identifier of an null/empty object.
-var NullObjectID ID
+// NullID is the identifier of an null/empty object.
+var NullID ID
 
 var (
 	inlineContentEncoding = base64.RawURLEncoding
@@ -123,25 +123,25 @@ func parseSectionInfoString(s string) (int64, int64, ID, error) {
 
 	start, s, err = parseNumberUntilComma(s[1:])
 	if err != nil {
-		return 0, -1, NullObjectID, err
+		return 0, -1, NullID, err
 	}
 
 	length, s, err = parseNumberUntilComma(s)
 	if err != nil {
-		return 0, -1, NullObjectID, err
+		return 0, -1, NullID, err
 	}
 
-	oid, err := ParseObjectID(s)
+	oid, err := ParseID(s)
 	if err != nil {
-		return 0, -1, NullObjectID, err
+		return 0, -1, NullID, err
 	}
 
 	return start, length, oid, nil
 }
 
-// ParseObjectID converts the specified string into ObjectID.
+// ParseID converts the specified string into ObjectID.
 // The string format matches the output of String() method.
-func ParseObjectID(s string) (ID, error) {
+func ParseID(s string) (ID, error) {
 	if len(s) >= 1 {
 		chunkType := s[0]
 		content := s[1:]
@@ -159,9 +159,9 @@ func ParseObjectID(s string) (ID, error) {
 		case 'I', 'D':
 			if chunkType == 'I' {
 				if len(content) < 2 || content[1] != ',' {
-					base, err := ParseObjectID(content)
+					base, err := ParseID(content)
 					if err != nil {
-						return NullObjectID, err
+						return NullID, err
 					}
 
 					return ID{Indirect: &base}, nil
@@ -197,5 +197,5 @@ func ParseObjectID(s string) (ID, error) {
 		}
 	}
 
-	return NullObjectID, fmt.Errorf("malformed object id: '%s'", s)
+	return NullID, fmt.Errorf("malformed object id: '%s'", s)
 }

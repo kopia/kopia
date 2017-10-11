@@ -23,7 +23,7 @@ func TestParseObjectID(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		oid, err := ParseObjectID(tc.Text)
+		oid, err := ParseID(tc.Text)
 		if err != nil {
 			t.Errorf("error parsing %q: %v", tc.Text, err)
 		}
@@ -32,7 +32,7 @@ func TestParseObjectID(t *testing.T) {
 			t.Errorf("invalid result for %q: %+v, wanted %+v", tc.Text, rawObjectID(oid), rawObjectID(tc.ObjectID))
 		}
 
-		oid2, err := ParseObjectID(oid.String())
+		oid2, err := ParseID(oid.String())
 		if err != nil {
 			t.Errorf("parse error %q: %v", oid.String(), err)
 		} else if !reflect.DeepEqual(oid, oid2) {
@@ -58,8 +58,8 @@ func TestParseMalformedObjectID(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		v, err := ParseObjectID(c)
-		if !reflect.DeepEqual(v, NullObjectID) || err == nil || !strings.HasPrefix(err.Error(), "malformed object id") {
+		v, err := ParseID(c)
+		if !reflect.DeepEqual(v, NullID) || err == nil || !strings.HasPrefix(err.Error(), "malformed object id") {
 			t.Errorf("unexpected result for %v: v: %v err: %v", c, v, err)
 		}
 	}

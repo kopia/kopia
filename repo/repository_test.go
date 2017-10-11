@@ -252,7 +252,7 @@ func TestReader(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		objectID, err := object.ParseObjectID(c.text)
+		objectID, err := object.ParseID(c.text)
 		if err != nil {
 			t.Errorf("cannot parse object ID: %v", err)
 			continue
@@ -287,7 +287,7 @@ func TestMalformedStoredData(t *testing.T) {
 
 	for _, c := range cases {
 		data["a76999788386641a3ec798554f1fe7e6"] = c
-		objectID, err := object.ParseObjectID("Da76999788386641a3ec798554f1fe7e6")
+		objectID, err := object.ParseID("Da76999788386641a3ec798554f1fe7e6")
 		if err != nil {
 			t.Errorf("cannot parse object ID: %v", err)
 			continue
@@ -303,7 +303,7 @@ func TestMalformedStoredData(t *testing.T) {
 func TestReaderStoredBlockNotFound(t *testing.T) {
 	_, repo := setupTest(t)
 
-	objectID, err := object.ParseObjectID("Dno-such-block")
+	objectID, err := object.ParseID("Dno-such-block")
 	if err != nil {
 		t.Errorf("cannot parse object ID: %v", err)
 	}

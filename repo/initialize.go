@@ -95,7 +95,7 @@ func metadataFormatFromOptions(opt *NewRepositoryOptions) config.MetadataFormat 
 func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) config.RepositoryObjectFormat {
 	f := config.RepositoryObjectFormat{
 		Version:                1,
-		Splitter:               applyDefaultString(opt.Splitter, object.DefaultObjectSplitter),
+		Splitter:               applyDefaultString(opt.Splitter, object.DefaultSplitter),
 		BlockFormat:            applyDefaultString(opt.BlockFormat, block.DefaultFormat),
 		HMACSecret:             applyDefaultRandomBytes(opt.ObjectHMACSecret, 32),
 		MasterKey:              applyDefaultRandomBytes(opt.ObjectEncryptionKey, 32),

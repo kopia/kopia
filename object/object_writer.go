@@ -136,7 +136,7 @@ func (w *objectWriter) Result() (ID, error) {
 	w.pendingBlocksWG.Wait()
 
 	if err := w.err.check(); err != nil {
-		return NullObjectID, err
+		return NullID, err
 	}
 
 	if len(w.blockIndex) == 1 {
@@ -158,7 +158,7 @@ func (w *objectWriter) Result() (ID, error) {
 	jw.Finalize()
 	oid, err := iw.Result()
 	if err != nil {
-		return NullObjectID, err
+		return NullID, err
 	}
 	return ID{Indirect: &oid}, nil
 }

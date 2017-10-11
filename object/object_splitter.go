@@ -14,14 +14,14 @@ type objectSplitter interface {
 	add(b byte) bool
 }
 
-// SupportedObjectSplitters is a list of supported object splitters including:
+// SupportedSplitters is a list of supported object splitters including:
 //
 //    NEVER    - prevents objects from ever splitting
 //    FIXED    - always splits large objects exactly at the maximum block size boundary
 //    DYNAMIC  - dynamicaly splits large objects based on rolling hash of contents.
-var SupportedObjectSplitters []string
+var SupportedSplitters []string
 
-var objectSplitterFactories = map[string]func(*config.RepositoryObjectFormat) objectSplitter{
+var splitterFactories = map[string]func(*config.RepositoryObjectFormat) objectSplitter{
 	"NEVER": func(f *config.RepositoryObjectFormat) objectSplitter {
 		return newNeverSplitter()
 	},
@@ -34,14 +34,14 @@ var objectSplitterFactories = map[string]func(*config.RepositoryObjectFormat) ob
 }
 
 func init() {
-	for k := range objectSplitterFactories {
-		SupportedObjectSplitters = append(SupportedObjectSplitters, k)
+	for k := range splitterFactories {
+		SupportedSplitters = append(SupportedSplitters, k)
 	}
-	sort.Strings(SupportedObjectSplitters)
+	sort.Strings(SupportedSplitters)
 }
 
-// DefaultObjectSplitter is the name of the splitter used by default for new repositories.
-const DefaultObjectSplitter = "DYNAMIC"
+// DefaultSplitter is the name of the splitter used by default for new repositories.
+const DefaultSplitter = "DYNAMIC"
 
 type neverSplitter struct{}
 

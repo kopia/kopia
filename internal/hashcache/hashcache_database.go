@@ -100,12 +100,12 @@ func (hi *DirectoryInfo) Lookup(fi os.FileInfo) (object.ID, bool) {
 	k := hi.keyOf(fi)
 	s, ok := hi.previousFiles[k]
 	if !ok {
-		return object.NullObjectID, false
+		return object.NullID, false
 	}
 
-	oid, err := object.ParseObjectID(s)
+	oid, err := object.ParseID(s)
 	if err != nil {
-		return object.NullObjectID, false
+		return object.NullID, false
 	}
 
 	hi.currentFiles[k] = s

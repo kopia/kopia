@@ -218,7 +218,7 @@ func NewObjectManager(bm blockManager, f config.RepositoryObjectFormat, opts ...
 		splitterID = "FIXED"
 	}
 
-	os := objectSplitterFactories[splitterID]
+	os := splitterFactories[splitterID]
 	if os == nil {
 		return nil, fmt.Errorf("unsupported splitter %q", f.Splitter)
 	}

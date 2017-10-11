@@ -77,7 +77,7 @@ func runMigrateCommand(context *kingpin.ParseContext) error {
 	}
 
 	for _, dir := range *migrateDirectories {
-		dirOID, err := object.ParseObjectID(dir)
+		dirOID, err := object.ParseID(dir)
 		if err != nil {
 			return err
 		}
