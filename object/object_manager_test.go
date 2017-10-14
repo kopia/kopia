@@ -63,16 +63,16 @@ func (f *fakeBlockManager) Flush() error {
 	return nil
 }
 
-func setupTest(t *testing.T, mods ...func(o *ManagerOption)) (map[string][]byte, *Manager) {
-	return setupTestWithData(t, map[string][]byte{}, mods...)
+func setupTest(t *testing.T) (map[string][]byte, *Manager) {
+	return setupTestWithData(t, map[string][]byte{}, ManagerOptions{})
 }
 
-func setupTestWithData(t *testing.T, data map[string][]byte, mods ...func(o *ManagerOption)) (map[string][]byte, *Manager) {
+func setupTestWithData(t *testing.T, data map[string][]byte, opts ManagerOptions) (map[string][]byte, *Manager) {
 	r, err := NewObjectManager(&fakeBlockManager{data: data}, config.RepositoryObjectFormat{
 		Version:      1,
 		MaxBlockSize: 200,
 		Splitter:     "FIXED",
-	})
+	}, opts)
 	if err != nil {
 		t.Fatalf("can't create object manager: %v", err)
 	}

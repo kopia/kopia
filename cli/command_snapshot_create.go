@@ -41,7 +41,9 @@ var (
 
 func runBackupCommand(c *kingpin.ParseContext) error {
 	rep := mustOpenRepository(&repo.Options{
-		ObjectManagerOptions: []object.ManagerOption{object.WriteBack(*snapshotCreateWriteBack)},
+		ObjectManagerOptions: object.ManagerOptions{
+			WriteBack: *snapshotCreateWriteBack,
+		},
 	})
 	defer rep.Close()
 

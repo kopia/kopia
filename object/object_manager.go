@@ -186,23 +186,14 @@ func validateFormat(f *config.RepositoryObjectFormat) error {
 	return nil
 }
 
-type ManagerOption func(om *Manager)
-
-func WriteBack(parallelism int) ManagerOption {
-	return func(om *Manager) {
-		om.async = true
-		om.writeBackSemaphore = make(semaphore, parallelism)
-	}
-}
-
-func Trace(traceFunc func(message string, args ...interface{})) ManagerOption {
-	return func(om *Manager) {
-		om.trace = traceFunc
-	}
+// ManagerOptions specifies object manager options.
+type ManagerOptions struct {
+	WriteBack int
+	Trace     func(message string, args ...interface{})
 }
 
 // NewObjectManager creates an ObjectManager with the specified block manager and format.
-func NewObjectManager(bm blockManager, f config.RepositoryObjectFormat, opts ...ManagerOption) (*Manager, error) {
+func NewObjectManager(bm blockManager, f config.RepositoryObjectFormat, opts ManagerOptions) (*Manager, error) {
 	if err := validateFormat(&f); err != nil {
 		return nil, err
 	}
@@ -227,8 +218,15 @@ func NewObjectManager(bm blockManager, f config.RepositoryObjectFormat, opts ...
 		return os(&f)
 	}
 
-	for _, o := range opts {
-		o(om)
+	if opts.Trace != nil {
+		om.trace = opts.Trace
+	} else {
+		om.trace = nullTrace
+	}
+
+	if opts.WriteBack > 0 {
+		om.async = true
+		om.writeBackSemaphore = make(semaphore, opts.WriteBack)
 	}
 
 	return om, nil

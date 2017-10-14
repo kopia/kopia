@@ -12,8 +12,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/kopia/kopia/object"
-
 	"github.com/bgentry/speakeasy"
 	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/fs"
@@ -81,7 +79,7 @@ func applyOptionsFromFlags(opts *repo.Options) *repo.Options {
 	}
 
 	if *traceObjectManager {
-		opts.ObjectManagerOptions = append(opts.ObjectManagerOptions, object.Trace(log.Printf))
+		opts.ObjectManagerOptions.Trace = log.Printf
 	}
 
 	return opts
