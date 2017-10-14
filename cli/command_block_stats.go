@@ -25,6 +25,7 @@ func runBlockStatsAction(context *kingpin.ParseContext) error {
 
 	var sizeThreshold int64 = 10
 	countMap := map[int64]int{}
+	totalSizeOfBlocksUnder := map[int64]int64{}
 	var sizeThresholds []int64
 	for i := 0; i < 8; i++ {
 		sizeThresholds = append(sizeThresholds, sizeThreshold)
@@ -38,6 +39,7 @@ func runBlockStatsAction(context *kingpin.ParseContext) error {
 		for s := range countMap {
 			if b.Length < s {
 				countMap[s]++
+				totalSizeOfBlocksUnder[s] += b.Length
 			}
 		}
 	}
@@ -65,7 +67,7 @@ func runBlockStatsAction(context *kingpin.ParseContext) error {
 
 	fmt.Println("Counts:")
 	for _, size := range sizeThresholds {
-		fmt.Printf("  %v blocks with size <%-12v\n", countMap[size], sizeToString(size))
+		fmt.Printf("  %v blocks with size <%v (total %v)\n", countMap[size], sizeToString(size), sizeToString(totalSizeOfBlocksUnder[size]))
 	}
 
 	return nil

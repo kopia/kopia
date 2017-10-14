@@ -500,12 +500,12 @@ func (bm *Manager) ListBlocks(prefix string, kind string) []Info {
 
 	case "packed": // blocks that are packed
 		blockMatches = func(b Info, ndx *packIndex) bool {
-			return ndx.PackGroup != legacyUnpackedObjectsPackGroup
+			return !isNonPacked(ndx.PackGroup)
 		}
 
 	case "nonpacked": // blocks that are not packed
 		blockMatches = func(b Info, ndx *packIndex) bool {
-			return ndx.PackGroup == legacyUnpackedObjectsPackGroup
+			return isNonPacked(ndx.PackGroup)
 		}
 
 	default:
