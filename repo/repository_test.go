@@ -64,17 +64,15 @@ func TestWriters(t *testing.T) {
 	}{
 		{
 			[]byte("the quick brown fox jumps over the lazy dog"),
-			object.ID{StorageBlock: "X77add1d5f41223d5582fca736a5cb335"},
+			object.ID{StorageBlock: "77add1d5f41223d5582fca736a5cb335"},
 		},
-		{make([]byte, 100), object.ID{StorageBlock: "X6d0bb00954ceb7fbee436bb55a8397a9"}}, // 100 zero bytes
+		{make([]byte, 100), object.ID{StorageBlock: "6d0bb00954ceb7fbee436bb55a8397a9"}}, // 100 zero bytes
 	}
 
 	for _, c := range cases {
 		data, repo := setupTest(t)
 
-		writer := repo.Objects.NewWriter(object.WriterOptions{
-			BlockNamePrefix: "X",
-		})
+		writer := repo.Objects.NewWriter(object.WriterOptions{})
 
 		writer.Write(c.data)
 
@@ -122,13 +120,11 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	_, repo := setupTest(t)
 
 	bytes := make([]byte, 100)
-	writer := repo.Objects.NewWriter(object.WriterOptions{
-		BlockNamePrefix: "X",
-	})
+	writer := repo.Objects.NewWriter(object.WriterOptions{})
 	writer.Write(bytes[0:50])
 	writer.Write(bytes[0:50])
 	result, err := writer.Result()
-	if !objectIDsEqual(result, object.ID{StorageBlock: "X6d0bb00954ceb7fbee436bb55a8397a9"}) {
+	if !objectIDsEqual(result, object.ID{StorageBlock: "6d0bb00954ceb7fbee436bb55a8397a9"}) {
 		t.Errorf("unexpected result: %v err: %v", result, err)
 	}
 }
@@ -321,9 +317,7 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 		randomData := make([]byte, size)
 		cryptorand.Read(randomData)
 
-		writer := repo.Objects.NewWriter(object.WriterOptions{
-			BlockNamePrefix: "X",
-		})
+		writer := repo.Objects.NewWriter(object.WriterOptions{})
 		writer.Write(randomData)
 		objectID, err := writer.Result()
 		writer.Close()

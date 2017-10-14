@@ -221,9 +221,8 @@ func (u *Uploader) uploadDir(dir fs.Directory) (object.ID, object.ID, error) {
 	var err error
 
 	mw := u.repo.Objects.NewWriter(object.WriterOptions{
-		Description:     "HASHCACHE:" + dir.Metadata().Name,
-		BlockNamePrefix: "H",
-		PackGroup:       "HC",
+		Description: "HASHCACHE:" + dir.Metadata().Name,
+		PackGroup:   "HC",
 	})
 	defer mw.Close()
 	u.cacheWriter = hashcache.NewWriter(mw)

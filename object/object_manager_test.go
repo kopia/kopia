@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/md5"
 	cryptorand "crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -36,10 +37,10 @@ func (f *fakeBlockManager) GetBlock(blockID string) ([]byte, error) {
 	return nil, storage.ErrBlockNotFound
 }
 
-func (f *fakeBlockManager) WriteBlock(groupID string, data []byte, prefix string) (string, error) {
+func (f *fakeBlockManager) WriteBlock(groupID string, data []byte) (string, error) {
 	h := md5.New()
 	h.Write(data)
-	blockID := fmt.Sprintf("%v%x", prefix, h.Sum(nil))
+	blockID := hex.EncodeToString(h.Sum(nil))
 
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -87,17 +88,15 @@ func TestWriters(t *testing.T) {
 	}{
 		{
 			[]byte("the quick brown fox jumps over the lazy dog"),
-			ID{StorageBlock: "X77add1d5f41223d5582fca736a5cb335"},
+			ID{StorageBlock: "77add1d5f41223d5582fca736a5cb335"},
 		},
-		{make([]byte, 100), ID{StorageBlock: "X6d0bb00954ceb7fbee436bb55a8397a9"}}, // 100 zero bytes
+		{make([]byte, 100), ID{StorageBlock: "6d0bb00954ceb7fbee436bb55a8397a9"}}, // 100 zero bytes
 	}
 
 	for _, c := range cases {
 		data, om := setupTest(t)
 
-		writer := om.NewWriter(WriterOptions{
-			BlockNamePrefix: "X",
-		})
+		writer := om.NewWriter(WriterOptions{})
 
 		writer.Write(c.data)
 
@@ -134,13 +133,11 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	_, om := setupTest(t)
 
 	bytes := make([]byte, 100)
-	writer := om.NewWriter(WriterOptions{
-		BlockNamePrefix: "X",
-	})
+	writer := om.NewWriter(WriterOptions{})
 	writer.Write(bytes[0:50])
 	writer.Write(bytes[0:50])
 	result, err := writer.Result()
-	if !objectIDsEqual(result, ID{StorageBlock: "X6d0bb00954ceb7fbee436bb55a8397a9"}) {
+	if !objectIDsEqual(result, ID{StorageBlock: "6d0bb00954ceb7fbee436bb55a8397a9"}) {
 		t.Errorf("unexpected result: %v err: %v", result, err)
 	}
 }
@@ -309,9 +306,7 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 		randomData := make([]byte, size)
 		cryptorand.Read(randomData)
 
-		writer := om.NewWriter(WriterOptions{
-			BlockNamePrefix: "X",
-		})
+		writer := om.NewWriter(WriterOptions{})
 		writer.Write(randomData)
 		objectID, err := writer.Result()
 		writer.Close()

@@ -160,52 +160,6 @@ func TestBlockManagerEmpty(t *testing.T) {
 	}
 }
 
-func TestBlockManagerMultiplePrefixes(t *testing.T) {
-	data1 := seededRandomData(1, 600)
-	h := md5hash(data1)
-
-	data := map[string][]byte{}
-	bm := newTestBlockManager(data)
-
-	prefixes := []string{"A", "B", "C", "D", "E"}
-
-	for _, prefix := range prefixes {
-		b1, err := bm.WriteBlock("", data1, prefix)
-		if err != nil {
-			t.Errorf("error writing block with prefix %q", prefix)
-			continue
-		}
-
-		verifyBlock(t, bm, b1, data1)
-		bm.Flush()
-		verifyBlock(t, bm, b1, data1)
-
-		if got, want := b1, prefix+h; got != want {
-			t.Errorf("unexpected block ID: %v, want %v", got, want)
-		}
-	}
-
-	bm = newTestBlockManager(data)
-	for _, prefix := range prefixes {
-		verifyBlock(t, bm, prefix+h, data1)
-	}
-
-	if got, want := len(data), len(prefixes)+1; got != want {
-		t.Errorf("unexpected block count: %v, wanted %v", got, want)
-	}
-
-	// should have 1 data block + indexes
-	if err := bm.CompactIndexes(fakeTime, nil); err != nil {
-		t.Errorf("error compacting indexes: %v", err)
-	}
-
-	if got, want := len(data), 2; got != want {
-		t.Errorf("unexpected block count: %v, wanted %v", got, want)
-	}
-
-	dumpBlockManagerData(data)
-}
-
 func TestBlockManagerPackIdentialToRawObject(t *testing.T) {
 	data0 := []byte{}
 	data1 := seededRandomData(1, 600)
@@ -322,7 +276,7 @@ func TestBlockManagerWriteMultiple(t *testing.T) {
 		//t.Logf("i=%v", i)
 		b := seededRandomData(i, i%113)
 		//t.Logf("writing block #%v with %x", i, b)
-		blkID, err := bm.WriteBlock("", b, "")
+		blkID, err := bm.WriteBlock("", b)
 		//t.Logf("wrote %v=%v", i, blkID)
 		if err != nil {
 			t.Errorf("err: %v", err)
@@ -462,7 +416,7 @@ func getIndexCount(d map[string][]byte) int {
 	var cnt int
 
 	for k := range d {
-		if strings.HasPrefix(k, packObjectPrefix) {
+		if strings.HasPrefix(k, packBlockPrefix) {
 			cnt++
 		}
 	}
@@ -508,7 +462,7 @@ func verifyBlock(t *testing.T, bm *Manager, blockID string, b []byte) {
 func writeBlockAndVerify(t *testing.T, bm *Manager, packGroup string, b []byte) string {
 	t.Helper()
 
-	blockID, err := bm.WriteBlock(packGroup, b, "")
+	blockID, err := bm.WriteBlock(packGroup, b)
 	if err != nil {
 		t.Errorf("err: %v", err)
 	}

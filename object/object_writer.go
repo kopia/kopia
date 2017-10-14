@@ -49,7 +49,6 @@ type objectWriter struct {
 	buffer      bytes.Buffer
 	totalLength int64
 
-	prefix          string
 	currentPosition int64
 	blockIndex      []indirectObjectEntry
 
@@ -98,7 +97,7 @@ func (w *objectWriter) flushBuffer() error {
 	w.buffer.Reset()
 
 	do := func() {
-		blockID, err := w.repo.blockMgr.WriteBlock(w.packGroup, b2.Bytes(), w.prefix)
+		blockID, err := w.repo.blockMgr.WriteBlock(w.packGroup, b2.Bytes())
 		w.repo.trace("OBJECT_WRITER(%q) stored %v (%v bytes)", w.description, blockID, length)
 		if err != nil {
 			w.err.add(fmt.Errorf("error when flushing chunk %d of %s: %v", chunkID, w.description, err))
@@ -145,7 +144,6 @@ func (w *objectWriter) Result() (ID, error) {
 
 	iw := &objectWriter{
 		repo:        w.repo,
-		prefix:      w.prefix,
 		description: "LIST(" + w.description + ")",
 		splitter:    w.repo.newSplitter(),
 		packGroup:   w.packGroup,
@@ -165,9 +163,8 @@ func (w *objectWriter) Result() (ID, error) {
 
 // WriterOptions can be passed to Repository.NewWriter()
 type WriterOptions struct {
-	BlockNamePrefix string
-	Description     string
-	PackGroup       string
+	Description string
+	PackGroup   string
 
 	splitter objectSplitter
 }

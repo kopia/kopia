@@ -18,7 +18,7 @@ import (
 const parallelFetches = 5
 const parallelDeletes = 20
 const flushPackIndexTimeout = 10 * time.Minute
-const packObjectPrefix = "P"
+const packBlockPrefix = "P"
 const legacyUnpackedObjectsPackGroup = "_unpacked_"
 const nonPackedObjectsPackGroup = "raw"
 const packObjectsPackGroup = "packs"
@@ -82,7 +82,7 @@ func (bm *Manager) BlockSize(blockID string) (int64, error) {
 }
 
 func (bm *Manager) blockIDToPackSection(blockID string) (Info, bool, error) {
-	if strings.HasPrefix(blockID, packObjectPrefix) {
+	if strings.HasPrefix(blockID, packBlockPrefix) {
 		return Info{}, false, nil
 	}
 
@@ -120,7 +120,7 @@ func (bm *Manager) blockIDToPackSection(blockID string) (Info, bool, error) {
 }
 
 func (bm *Manager) registerUnpackedBlock(packGroupID string, blockID string, dataLength int64) error {
-	if strings.HasPrefix(blockID, packObjectPrefix) {
+	if strings.HasPrefix(blockID, packBlockPrefix) {
 		return nil
 	}
 
@@ -153,7 +153,7 @@ func (bm *Manager) registerUnpackedBlockLockedNoFlush(groupID string, blockID st
 }
 
 func (bm *Manager) addToPack(packGroup string, blockID string, data []byte) error {
-	if strings.HasPrefix(blockID, packObjectPrefix) {
+	if strings.HasPrefix(blockID, packBlockPrefix) {
 		return fmt.Errorf("pack objects can't be packed: %v", blockID)
 	}
 
@@ -254,7 +254,7 @@ func (bm *Manager) writePackIndexes(ndx packIndexes) (string, error) {
 	}
 	zw.Close()
 
-	return bm.writeUnpackedBlock(buf.Bytes(), packObjectPrefix, true)
+	return bm.writeUnpackedBlock(buf.Bytes(), packBlockPrefix, true)
 }
 
 func (bm *Manager) finishAllOpenPacksLocked() error {
@@ -312,7 +312,7 @@ func isNonPacked(g string) bool {
 }
 
 func (bm *Manager) loadMergedPackIndexLocked(cutoffTime time.Time) (packIndexes, []string, error) {
-	ch, cancel := bm.storage.ListBlocks(packObjectPrefix)
+	ch, cancel := bm.storage.ListBlocks(packBlockPrefix)
 	defer cancel()
 
 	t0 := time.Now()
@@ -614,15 +614,15 @@ func (bm *Manager) Flush() error {
 
 // WriteBlock saves a given block of data to a pack group with a provided name and returns a blockID
 // that's based on the contents of data written.
-func (bm *Manager) WriteBlock(packGroup string, data []byte, prefix string) (string, error) {
+func (bm *Manager) WriteBlock(packGroup string, data []byte) (string, error) {
 	if bm.maxPackedContentLength > 0 && len(data) <= bm.maxPackedContentLength {
-		blockID := prefix + bm.hashData(data)
+		blockID := bm.hashData(data)
 
 		err := bm.addToPack(packGroup, blockID, data)
 		return blockID, err
 	}
 
-	blockID, err := bm.writeUnpackedBlock(data, prefix, false)
+	blockID, err := bm.writeUnpackedBlock(data, "", false)
 	if err != nil {
 		return "", err
 	}

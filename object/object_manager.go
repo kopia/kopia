@@ -24,7 +24,7 @@ type Reader interface {
 type blockManager interface {
 	BlockInfo(blockID string) (block.Info, error)
 	GetBlock(blockID string) ([]byte, error)
-	WriteBlock(packGroup string, data []byte, prefix string) (string, error)
+	WriteBlock(packGroup string, data []byte) (string, error)
 	Flush() error
 }
 
@@ -56,7 +56,6 @@ func (om *Manager) NewWriter(opt WriterOptions) Writer {
 		repo:        om,
 		splitter:    om.newSplitter(),
 		description: opt.Description,
-		prefix:      opt.BlockNamePrefix,
 		packGroup:   opt.PackGroup,
 	}
 
