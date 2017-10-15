@@ -55,7 +55,6 @@ type MetadataManager struct {
 	cache      *metadataCache
 	format     config.MetadataFormat
 	repoConfig config.EncryptedRepositoryConfig
-	keyManager *auth.KeyManager
 
 	aead     cipher.AEAD // authenticated encryption to use
 	authData []byte      // additional data to authenticate
@@ -247,10 +246,10 @@ func (mm *MetadataManager) RemoveMany(itemIDs []string) error {
 }
 
 // newMetadataManager opens a MetadataManager for given storage and credentials.
-func newMetadataManager(st storage.Storage, creds auth.Credentials) (*MetadataManager, error) {
+func newMetadataManager(st storage.Storage, creds auth.Credentials) (*MetadataManager, *auth.KeyManager, error) {
 	cache, err := newMetadataCache(st)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	mm := MetadataManager{
@@ -273,47 +272,47 @@ func newMetadataManager(st storage.Storage, creds auth.Credentials) (*MetadataMa
 	wg.Wait()
 
 	if blocks[0] == nil {
-		return nil, fmt.Errorf("format block not found")
+		return nil, nil, fmt.Errorf("format block not found")
 	}
 
 	var offset = 0
 	err = json.Unmarshal(blocks[offset], &mm.format)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	mm.keyManager, err = auth.NewKeyManager(creds, mm.format.SecurityOptions)
+	km, err := auth.NewKeyManager(creds, mm.format.SecurityOptions)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	if err := mm.initCrypto(); err != nil {
-		return nil, fmt.Errorf("unable to initialize crypto: %v", err)
+	if err := mm.initCrypto(km); err != nil {
+		return nil, nil, fmt.Errorf("unable to initialize crypto: %v", err)
 	}
 
 	cfgData, err := mm.decryptBlock(blocks[offset+1])
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var rc config.EncryptedRepositoryConfig
 
 	if err := json.Unmarshal(cfgData, &rc); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	mm.repoConfig = rc
 
-	return &mm, nil
+	return &mm, km, nil
 }
 
-func (mm *MetadataManager) initCrypto() error {
+func (mm *MetadataManager) initCrypto(km *auth.KeyManager) error {
 	switch mm.format.EncryptionAlgorithm {
 	case "NONE": // do nothing
 		return nil
 	case "AES256_GCM":
-		aesKey := mm.keyManager.DeriveKey(purposeAESKey, 32)
-		mm.authData = mm.keyManager.DeriveKey(purposeAuthData, 32)
+		aesKey := km.DeriveKey(purposeAESKey, 32)
+		mm.authData = km.DeriveKey(purposeAuthData, 32)
 
 		blk, err := aes.NewCipher(aesKey)
 		if err != nil {

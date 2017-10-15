@@ -41,13 +41,13 @@ func TestMetadataManager(t *testing.T) {
 		return
 	}
 
-	v, err := newMetadataManager(st, creds)
+	v, _, err := newMetadataManager(st, creds)
 	if err != nil {
 		t.Errorf("can't open first metadata manager: %v", err)
 		return
 	}
 
-	_, err = newMetadataManager(st, otherCreds)
+	_, _, err = newMetadataManager(st, otherCreds)
 	if err == nil {
 		t.Errorf("unexpectedly opened repository with invalid credentials")
 		return
@@ -102,7 +102,7 @@ func TestMetadataManager(t *testing.T) {
 	}
 	assertMetadataItem(t, v, "baz", "test4")
 
-	v2, err := newMetadataManager(st, creds)
+	v2, _, err := newMetadataManager(st, creds)
 	if err != nil {
 		t.Errorf("can't open first metadata manager: %v", err)
 		return

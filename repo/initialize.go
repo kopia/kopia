@@ -51,7 +51,7 @@ func Initialize(st storage.Storage, opt *NewRepositoryOptions, creds auth.Creden
 		format:  metadataFormatFromOptions(opt),
 	}
 
-	mm.keyManager, err = auth.NewKeyManager(creds, mm.format.SecurityOptions)
+	km, err := auth.NewKeyManager(creds, mm.format.SecurityOptions)
 	if err != nil {
 		return err
 	}
@@ -65,7 +65,7 @@ func Initialize(st storage.Storage, opt *NewRepositoryOptions, creds auth.Creden
 		return err
 	}
 
-	if err := mm.initCrypto(); err != nil {
+	if err := mm.initCrypto(km); err != nil {
 		return fmt.Errorf("unable to initialize crypto: %v", err)
 	}
 

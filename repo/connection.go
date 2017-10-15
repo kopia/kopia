@@ -132,7 +132,7 @@ func connect(ctx context.Context, st storage.Storage, creds auth.Credentials, op
 		st = logging.NewWrapper(st, logging.Prefix("[STORAGE] "), logging.Output(options.TraceStorage))
 	}
 
-	mm, err := newMetadataManager(st, creds)
+	mm, km, err := newMetadataManager(st, creds)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open metadata manager: %v", err)
 	}
@@ -159,7 +159,7 @@ func connect(ctx context.Context, st storage.Storage, creds auth.Credentials, op
 		Objects:    om,
 		Metadata:   mm,
 		Storage:    st,
-		KeyManager: mm.keyManager,
+		KeyManager: km,
 	}, nil
 }
 
