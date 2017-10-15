@@ -47,15 +47,6 @@ func TestMetadataManager(t *testing.T) {
 		return
 	}
 
-	cfg, err := v.connectionConfiguration()
-	if err != nil {
-		t.Errorf("error getting token1 %v", err)
-	}
-
-	if got, want := cfg.ConnectionInfo.Type, "filesystem"; got != want {
-		t.Errorf("invalid connection type: %q, want %q", got, want)
-	}
-
 	_, err = newMetadataManager(st, otherCreds)
 	if err == nil {
 		t.Errorf("unexpectedly opened repository with invalid credentials")

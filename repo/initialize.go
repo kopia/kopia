@@ -51,7 +51,7 @@ func Initialize(st storage.Storage, opt *NewRepositoryOptions, creds auth.Creden
 		format:  metadataFormatFromOptions(opt),
 	}
 
-	mm.masterKey, err = creds.GetMasterKey(mm.format.SecurityOptions)
+	mm.keyManager, err = auth.NewKeyManager(creds, mm.format.SecurityOptions)
 	if err != nil {
 		return err
 	}

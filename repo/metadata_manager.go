@@ -4,7 +4,6 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -14,8 +13,6 @@ import (
 	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/storage"
-
-	"golang.org/x/crypto/hkdf"
 )
 
 const (
@@ -58,8 +55,7 @@ type MetadataManager struct {
 	cache      *metadataCache
 	format     config.MetadataFormat
 	repoConfig config.EncryptedRepositoryConfig
-
-	masterKey []byte
+	keyManager *auth.KeyManager
 
 	aead     cipher.AEAD // authenticated encryption to use
 	authData []byte      // additional data to authenticate
@@ -119,14 +115,6 @@ func (mm *MetadataManager) decryptBlock(content []byte) ([]byte, error) {
 	}
 
 	return content, nil
-}
-
-// DeriveKey computes a key for a specific purpose and length using HKDF based on the master key.
-func (mm *MetadataManager) DeriveKey(purpose []byte, length int) []byte {
-	key := make([]byte, length)
-	k := hkdf.New(sha256.New, mm.masterKey, mm.format.UniqueID, purpose)
-	io.ReadFull(k, key)
-	return key
 }
 
 // GetMetadata returns the contents of a specified metadata item.
@@ -219,22 +207,6 @@ func (mm *MetadataManager) ListContents(prefix string) (map[string][]byte, error
 	return mm.MultiGet(itemIDs)
 }
 
-// Config returns a configuration of storage its credentials that's suitable
-// for storing in configuration file.
-func (mm *MetadataManager) connectionConfiguration() (*config.RepositoryConnectionInfo, error) {
-	cip, ok := mm.storage.(storage.ConnectionInfoProvider)
-	if !ok {
-		return nil, errors.New("repository does not support persisting configuration")
-	}
-
-	ci := cip.ConnectionInfo()
-
-	return &config.RepositoryConnectionInfo{
-		ConnectionInfo: ci,
-		Key:            mm.masterKey,
-	}, nil
-}
-
 // Remove removes the specified metadata item.
 func (mm *MetadataManager) Remove(itemID string) error {
 	if err := checkReservedName(itemID); err != nil {
@@ -310,7 +282,7 @@ func newMetadataManager(st storage.Storage, creds auth.Credentials) (*MetadataMa
 		return nil, err
 	}
 
-	mm.masterKey, err = creds.GetMasterKey(mm.format.SecurityOptions)
+	mm.keyManager, err = auth.NewKeyManager(creds, mm.format.SecurityOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -340,8 +312,8 @@ func (mm *MetadataManager) initCrypto() error {
 	case "NONE": // do nothing
 		return nil
 	case "AES256_GCM":
-		aesKey := mm.DeriveKey(purposeAESKey, 32)
-		mm.authData = mm.DeriveKey(purposeAuthData, 32)
+		aesKey := mm.keyManager.DeriveKey(purposeAESKey, 32)
+		mm.authData = mm.keyManager.DeriveKey(purposeAuthData, 32)
 
 		blk, err := aes.NewCipher(aesKey)
 		if err != nil {

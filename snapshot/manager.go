@@ -311,7 +311,7 @@ func (m *Manager) ListPolicies() ([]*Policy, error) {
 func NewManager(r *repo.Repository) *Manager {
 	return &Manager{
 		r,
-		r.Metadata.DeriveKey([]byte("snapshot-id"), 32),
-		r.Metadata.DeriveKey([]byte("policyID-id"), 32),
+		r.KeyManager.DeriveKey([]byte("snapshot-id"), 32),
+		r.KeyManager.DeriveKey([]byte("policyID-id"), 32),
 	}
 }

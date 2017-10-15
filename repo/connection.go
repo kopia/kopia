@@ -90,9 +90,19 @@ func Connect(ctx context.Context, configFile string, st storage.Storage, creds a
 		return err
 	}
 
-	cfg, err := r.Metadata.connectionConfiguration()
+	cip, ok := st.(storage.ConnectionInfoProvider)
+	if !ok {
+		return errors.New("repository does not support persisting configuration")
+	}
+
+	masterKey, err := creds.GetMasterKey(r.Metadata.format.SecurityOptions)
 	if err != nil {
-		return err
+		return fmt.Errorf("can't get master key: %v", err)
+	}
+
+	cfg := &config.RepositoryConnectionInfo{
+		ConnectionInfo: cip.ConnectionInfo(),
+		Key:            masterKey,
 	}
 
 	var lc config.LocalConfig
@@ -145,10 +155,11 @@ func connect(ctx context.Context, st storage.Storage, creds auth.Credentials, op
 	}
 
 	return &Repository{
-		Blocks:   bm,
-		Objects:  om,
-		Metadata: mm,
-		Storage:  st,
+		Blocks:     bm,
+		Objects:    om,
+		Metadata:   mm,
+		Storage:    st,
+		KeyManager: mm.keyManager,
 	}, nil
 }
 
