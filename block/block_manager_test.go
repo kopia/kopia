@@ -306,8 +306,72 @@ func TestBlockManagerWriteMultiple(t *testing.T) {
 			continue
 		}
 	}
+}
 
-	//dumpBlockManagerData(data)
+func TestBlockManagerListGroups(t *testing.T) {
+	blockSizes := []int{10, 1500}
+
+	for _, blockSize := range blockSizes {
+		blockSize := blockSize
+		t.Run(fmt.Sprintf("block-size-%v", blockSize), func(t *testing.T) {
+			data := map[string][]byte{}
+			bm := newTestBlockManager(data)
+			data1 := seededRandomData(1, blockSize)
+			data2 := seededRandomData(2, blockSize)
+			data3 := seededRandomData(3, blockSize)
+
+			writeBlockAndVerify(t, bm, "group1", data1)
+			writeBlockAndVerify(t, bm, "group1", data2)
+			writeBlockAndVerify(t, bm, "group1", data3)
+
+			writeBlockAndVerify(t, bm, "group2", data1)
+			writeBlockAndVerify(t, bm, "group2", data3)
+
+			writeBlockAndVerify(t, bm, "group3", data1)
+			writeBlockAndVerify(t, bm, "group3", data2)
+
+			writeBlockAndVerify(t, bm, "group4", data2)
+			writeBlockAndVerify(t, bm, "group4", data3)
+
+			verifyGroupListContains(t, bm, "group1", md5hash(data1), md5hash(data2), md5hash(data3))
+			verifyGroupListContains(t, bm, "group2", md5hash(data1), md5hash(data3))
+			verifyGroupListContains(t, bm, "group3", md5hash(data1), md5hash(data2))
+			verifyGroupListContains(t, bm, "group4", md5hash(data2), md5hash(data3))
+
+			bm.Flush()
+
+			data1b := seededRandomData(11, blockSize)
+			data2b := seededRandomData(12, blockSize)
+			data3b := seededRandomData(13, blockSize)
+
+			bm = newTestBlockManager(data)
+			writeBlockAndVerify(t, bm, "group1", data1b)
+			writeBlockAndVerify(t, bm, "group1", data2b)
+			writeBlockAndVerify(t, bm, "group1", data3b)
+
+			writeBlockAndVerify(t, bm, "group2", data1b)
+			writeBlockAndVerify(t, bm, "group2", data3b)
+
+			writeBlockAndVerify(t, bm, "group3", data1b)
+			writeBlockAndVerify(t, bm, "group3", data2b)
+
+			writeBlockAndVerify(t, bm, "group4", data2b)
+			writeBlockAndVerify(t, bm, "group4", data3b)
+
+			verifyGroupListContains(t, bm, "group1", md5hash(data1), md5hash(data2), md5hash(data3), md5hash(data1b), md5hash(data2b), md5hash(data3b))
+			verifyGroupListContains(t, bm, "group2", md5hash(data1), md5hash(data3), md5hash(data1b), md5hash(data3b))
+			verifyGroupListContains(t, bm, "group3", md5hash(data1), md5hash(data2), md5hash(data1b), md5hash(data2b))
+			verifyGroupListContains(t, bm, "group4", md5hash(data2), md5hash(data3), md5hash(data2b), md5hash(data3b))
+			bm.Flush()
+			bm = newTestBlockManager(data)
+			verifyGroupListContains(t, bm, "group1", md5hash(data1), md5hash(data2), md5hash(data3), md5hash(data1b), md5hash(data2b), md5hash(data3b))
+			verifyGroupListContains(t, bm, "group2", md5hash(data1), md5hash(data3), md5hash(data1b), md5hash(data3b))
+			verifyGroupListContains(t, bm, "group3", md5hash(data1), md5hash(data2), md5hash(data1b), md5hash(data2b))
+			verifyGroupListContains(t, bm, "group4", md5hash(data2), md5hash(data3), md5hash(data2b), md5hash(data3b))
+
+			dumpBlockManagerData(data)
+		})
+	}
 }
 
 func TestBlockManagerConcurrency(t *testing.T) {
@@ -502,5 +566,21 @@ func dumpBlockManagerData(data map[string][]byte) {
 		} else {
 			log.Printf("data[%v] = %x", k, v)
 		}
+	}
+}
+
+func verifyGroupListContains(t *testing.T, bm *Manager, groupID string, expected ...string) {
+	got := map[string]bool{}
+	want := map[string]bool{}
+	for _, a := range bm.ListGroupBlocks(groupID) {
+		got[a.BlockID] = true
+	}
+
+	for _, e := range expected {
+		want[e] = true
+	}
+
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("unexpected contents of group %q: %v, wanted %v", groupID, got, want)
 	}
 }
