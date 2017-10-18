@@ -9,19 +9,26 @@ import (
 )
 
 var (
-	blockListCommand = blockCommands.Command("list", "List objects").Alias("ls")
+	blockListCommand = blockCommands.Command("list", "List blocks").Alias("ls")
 	blockListKind    = blockListCommand.Flag("kind", "Block kind").Default("all").Enum("all", "physical", "packed", "nonpacked", "packs")
+	blockListGroup   = blockListCommand.Flag("group", "List blocks belonging to a given group").String()
 	blockListLong    = blockListCommand.Flag("long", "Long output").Short('l').Bool()
 	blockListPrefix  = blockListCommand.Flag("prefix", "Prefix").String()
 	blockListSort    = blockListCommand.Flag("sort", "Sort order").Default("name").Enum("name", "size", "time", "none", "pack")
 	blockListReverse = blockListCommand.Flag("reverse", "Reverse sort").Short('r').Bool()
+	blockListSummary = blockListCommand.Flag("summary", "Summarize the list").Short('s').Bool()
 )
 
 func runListBlocksAction(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
 	defer rep.Close()
 
-	blocks := rep.Blocks.ListBlocks(*blockListPrefix, *blockListKind)
+	var blocks []block.Info
+	if *blockListGroup != "" {
+		blocks = rep.Blocks.ListGroupBlocks(*blockListGroup)
+	} else {
+		blocks = rep.Blocks.ListBlocks(*blockListPrefix, *blockListKind)
+	}
 	maybeReverse := func(b bool) bool { return b }
 
 	if *blockListReverse {
@@ -39,7 +46,15 @@ func runListBlocksAction(context *kingpin.ParseContext) error {
 		sort.Slice(blocks, func(i, j int) bool { return maybeReverse(comparePacks(blocks[i], blocks[j])) })
 	}
 
+	var count int
+	var totalSize int64
+	uniquePacks := map[string]bool{}
 	for _, b := range blocks {
+		totalSize += b.Length
+		count++
+		if b.PackBlockID != "" {
+			uniquePacks[b.PackBlockID] = true
+		}
 		if *blockListLong {
 			grp := b.PackGroup
 			if grp == "" {
@@ -53,6 +68,10 @@ func runListBlocksAction(context *kingpin.ParseContext) error {
 		} else {
 			fmt.Printf("%v\n", b.BlockID)
 		}
+	}
+
+	if *blockListSummary {
+		fmt.Printf("Total: %v blocks, %v packs, %v bytes\n", count, len(uniquePacks), totalSize)
 	}
 
 	return nil
