@@ -2,9 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"strings"
-
-	"github.com/kopia/kopia/repo"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -18,19 +15,10 @@ func runListObjectsAction(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
 	defer rep.Close()
 
-	ch, cancel := rep.Storage.ListBlocks(*objectListPrefix)
-	defer cancel()
+	info := rep.Blocks.ListBlocks(*objectListPrefix, "all")
 
-	for b := range ch {
-		if b.Error != nil {
-			return b.Error
-		}
-
-		if strings.HasPrefix(b.BlockID, repo.MetadataBlockPrefix) {
-			continue
-		}
-
-		fmt.Printf("D%-34v %10v %v\n", b.BlockID, b.Length, b.TimeStamp.Local().Format(timeFormat))
+	for _, b := range info {
+		fmt.Printf("D%-34v %10v %v\n", b.BlockID, b.Length, b.Timestamp.Local().Format(timeFormat))
 	}
 
 	return nil

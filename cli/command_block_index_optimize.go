@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	optimizeCommand = blockCommands.Command("reindex", "Optimize block indexes.")
+	optimizeCommand = blockIndexCommands.Command("optimize", "Optimize block indexes.")
 	optimizeMinAge  = optimizeCommand.Flag("min-age", "Minimum age of blocks to re-index").Default("24h").Duration()
 )
 

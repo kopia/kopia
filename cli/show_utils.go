@@ -8,9 +8,25 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+
+	"gopkg.in/alecthomas/kingpin.v2"
 )
 
-func showContent(rd io.Reader, unzip, formatJSON bool) error {
+var (
+	commonIndentJSON bool
+	commonUnzip      bool
+)
+
+func setupShowCommand(cmd *kingpin.CmdClause) {
+	cmd.Flag("json", "Pretty-print JSON content").Short('j').BoolVar(&commonIndentJSON)
+	cmd.Flag("unzip", "Transparently unzip the content").Short('z').BoolVar(&commonUnzip)
+}
+
+func showContent(rd io.Reader) error {
+	return showContentWithFlags(rd, commonUnzip, commonIndentJSON)
+}
+
+func showContentWithFlags(rd io.Reader, unzip, indentJSON bool) error {
 	if unzip {
 		gz, err := gzip.NewReader(rd)
 		if err != nil {
@@ -21,7 +37,7 @@ func showContent(rd io.Reader, unzip, formatJSON bool) error {
 	}
 
 	var buf1, buf2 bytes.Buffer
-	if formatJSON {
+	if indentJSON {
 		if _, err := io.Copy(&buf1, rd); err != nil {
 			return err
 		}

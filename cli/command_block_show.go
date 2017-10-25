@@ -11,9 +11,7 @@ import (
 var (
 	showBlockCommand = blockCommands.Command("show", "Show contents of a block.").Alias("cat")
 
-	showBlockIDs   = showBlockCommand.Arg("id", "IDs of blocks to show").Required().Strings()
-	showBlockJSON  = showBlockCommand.Flag("json", "Pretty-print JSON content").Short('j').Bool()
-	showBlockUnzip = showBlockCommand.Flag("unzip", "Transparently unzip the content").Short('z').Bool()
+	showBlockIDs = showBlockCommand.Arg("id", "IDs of blocks to show").Required().Strings()
 )
 
 func runShowBlockCommand(context *kingpin.ParseContext) error {
@@ -35,9 +33,10 @@ func showBlock(r *repo.Repository, blockID string) error {
 		return err
 	}
 
-	return showContent(bytes.NewReader(data), *showBlockUnzip, *showBlockJSON)
+	return showContent(bytes.NewReader(data))
 }
 
 func init() {
+	setupShowCommand(showBlockCommand)
 	showBlockCommand.Action(runShowBlockCommand)
 }

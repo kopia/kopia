@@ -15,8 +15,6 @@ var (
 	showCommand = objectCommands.Command("show", "Show contents of a repository object.").Alias("cat")
 
 	showObjectIDs = showCommand.Arg("id", "IDs of objects to show").Required().Strings()
-	showJSON      = showCommand.Flag("json", "Pretty-print JSON content").Short('j').Bool()
-	showUnzip     = showCommand.Flag("unzip", "Transparently unzip the content").Short('z').Bool()
 )
 
 func runShowCommand(context *kingpin.ParseContext) error {
@@ -48,9 +46,10 @@ func showObject(r *repo.Repository, oid object.ID) error {
 	}
 	defer rd.Close()
 
-	return showContent(rd, *showUnzip, *showJSON)
+	return showContent(rd)
 }
 
 func init() {
+	setupShowCommand(showCommand)
 	showCommand.Action(runShowCommand)
 }

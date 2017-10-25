@@ -16,6 +16,7 @@ var (
 	metadataCommands   = app.Command("metadata", "Low-level commands to manipulate metadata items.").Alias("md")
 	objectCommands     = app.Command("object", "Commands to manipulate objects in repository.").Alias("obj")
 	blockCommands      = app.Command("block", "Commands to manipulate blocks in repository.").Alias("blk")
+	blockIndexCommands = blockCommands.Command("index", "Commands to manipulate block indexes.")
 )
 
 func init() {
