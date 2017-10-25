@@ -7,8 +7,8 @@ import (
 )
 
 var (
-	optimizeCommand = repositoryCommands.Command("optimize", "Optimize repository performance.")
-	optimizeMinAge  = optimizeCommand.Flag("min-age", "Minimum age of objects to optimize").Default("24h").Duration()
+	optimizeCommand = blockCommands.Command("reindex", "Optimize block indexes.")
+	optimizeMinAge  = optimizeCommand.Flag("min-age", "Minimum age of blocks to re-index").Default("24h").Duration()
 )
 
 func runOptimizeCommand(context *kingpin.ParseContext) error {

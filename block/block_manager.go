@@ -125,17 +125,18 @@ func (bm *Manager) addToIndexLocked(groupID, blockID string, ndx *packIndex, os 
 	m[blockID] = ndx
 }
 
-func (bm *Manager) addToPack(packGroup string, blockID string, data []byte) error {
-	bm.lock()
-	defer bm.unlock()
+func (bm *Manager) addToPackLocked(packGroup string, blockID string, data []byte, force bool) error {
+	bm.assertLocked()
 
 	if err := bm.ensurePackIndexesLoaded(); err != nil {
 		return err
 	}
 
-	// See if we already have this block ID in the pack.
-	if _, ok := bm.groupToBlockToIndex[packGroup][blockID]; ok {
-		return nil
+	if !force {
+		// See if we already have this block ID in the pack.
+		if _, ok := bm.groupToBlockToIndex[packGroup][blockID]; ok {
+			return nil
+		}
 	}
 
 	g := bm.ensurePackGroupLocked(packGroup, false)
@@ -426,6 +427,64 @@ func removeEmptyIndexes(ndx packIndexes) packIndexes {
 	return res
 }
 
+func (bm *Manager) regroupPacksAndUnpacked(ndx packIndexes) packIndexes {
+	var res packIndexes
+
+	allPacks := &packIndex{
+		Items:      map[string]offsetAndSize{},
+		PackGroup:  packObjectsPackGroup,
+		CreateTime: bm.timeNow(),
+	}
+
+	allNonPacked := &packIndex{
+		Items:      map[string]offsetAndSize{},
+		PackGroup:  nonPackedObjectsPackGroup,
+		CreateTime: bm.timeNow(),
+	}
+
+	inUsePackBlocks := map[string]bool{}
+
+	// Iterate through all indexes, build merged index of all packs and all non-packed items.
+	for _, n := range ndx {
+		if n.PackGroup == packObjectsPackGroup {
+			for i, o := range n.Items {
+				allPacks.Items[i] = o
+			}
+			continue
+		}
+
+		if n.PackGroup == nonPackedObjectsPackGroup {
+			for i, o := range n.Items {
+				allNonPacked.Items[i] = o
+			}
+			continue
+		}
+
+		if n.PackBlockID != "" {
+			inUsePackBlocks[n.PackBlockID] = true
+		}
+
+		res = append(res, n)
+	}
+
+	// Now delete all pack blocks that are not in use.
+	for k := range allPacks.Items {
+		if !inUsePackBlocks[k] {
+			delete(allPacks.Items, k)
+		}
+	}
+
+	if len(allPacks.Items) > 0 {
+		res = append(res, allPacks)
+	}
+
+	if len(allNonPacked.Items) > 0 {
+		res = append(res, allNonPacked)
+	}
+
+	return res
+}
+
 // CompactIndexes performs compaction of index blocks and optionally removes index blocks not present in the provided set.
 func (bm *Manager) CompactIndexes(cutoffTime time.Time, inUseBlocks map[string]bool) error {
 	bm.lock()
@@ -549,6 +608,7 @@ func (bm *Manager) compactIndexes(merged packIndexes, blockIDs []string, inUseBl
 	}
 
 	merged = removeEmptyIndexes(merged)
+	merged = bm.regroupPacksAndUnpacked(merged)
 
 	if len(blockIDs) <= 1 && inUseBlocks == nil {
 		log.Printf("skipping index compaction - already compacted")
@@ -617,7 +677,10 @@ func (bm *Manager) WriteBlock(groupID string, data []byte) (string, error) {
 	if bm.maxPackedContentLength > 0 && len(data) <= bm.maxPackedContentLength {
 		blockID := bm.hashData(data)
 
-		err := bm.addToPack(groupID, blockID, data)
+		bm.lock()
+		defer bm.unlock()
+
+		err := bm.addToPackLocked(groupID, blockID, data, false)
 		return blockID, err
 	}
 
@@ -631,6 +694,62 @@ func (bm *Manager) WriteBlock(groupID string, data []byte) (string, error) {
 		bm.registerUnpackedBlock(groupID, blockID, int64(len(data)))
 	}
 	return blockID, nil
+}
+
+// Repackage reorganizes all pack blocks belonging to a given group that are not bigger than given size.
+func (bm *Manager) Repackage(groupID string, maxLength int64, cutoffTime time.Time) error {
+	bm.lock()
+	defer bm.unlock()
+
+	if groupID == "" || groupID == nonPackedObjectsPackGroup || groupID == packObjectsPackGroup {
+		return fmt.Errorf("invalid group ID: %q", groupID)
+	}
+
+	if err := bm.ensurePackIndexesLoaded(); err != nil {
+		return err
+	}
+
+	merged, _, err := bm.loadMergedPackIndexLocked(cutoffTime)
+	if err != nil {
+		return err
+	}
+
+	var toRepackage []*packIndex
+	var totalBytes int64
+
+	for _, m := range merged {
+		if m.PackGroup == groupID && m.PackBlockID != "" {
+			bi, err := bm.blockInfoLocked(m.PackBlockID)
+			if err != nil {
+				return fmt.Errorf("unable to get info on block %q: %v", m.PackBlockID, err)
+			}
+
+			if bi.Length <= maxLength {
+				toRepackage = append(toRepackage, m)
+				totalBytes += bi.Length
+			}
+		}
+	}
+
+	log.Printf("%v blocks to re-package (%v total bytes)", len(toRepackage), totalBytes)
+
+	for _, m := range toRepackage {
+		data, err := bm.getBlockInternalLocked(m.PackBlockID)
+		if err != nil {
+			return fmt.Errorf("can't fetch block %q for repackaging: %v", m.PackBlockID, err)
+		}
+
+		for blockID, os := range m.Items {
+			log.Printf("re-packaging: %v %v", blockID, os)
+
+			blockData := data[os.offset : os.offset+os.size]
+			if err := bm.addToPackLocked(groupID, blockID, blockData, true); err != nil {
+				return fmt.Errorf("unable to re-package %q: %v", blockID, err)
+			}
+		}
+	}
+
+	return nil
 }
 
 func (bm *Manager) writeUnpackedBlockNotLocked(data []byte, prefix string, force bool) (string, error) {

@@ -14,13 +14,19 @@ var (
 	blockStatsCommand = blockCommands.Command("stats", "Block statistics")
 	blockStatsKind    = blockStatsCommand.Flag("kind", "Kinds of blocks").Default("logical").Enum("all", "logical", "physical", "packed", "nonpacked", "packs")
 	blockStatsRaw     = blockStatsCommand.Flag("raw", "Raw numbers").Short('r').Bool()
+	blockStatsGroup   = blockStatsCommand.Flag("group", "Display stats about blocks belonging to a given group").String()
 )
 
 func runBlockStatsAction(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
 	defer rep.Close()
 
-	blocks := rep.Blocks.ListBlocks("", *blockStatsKind)
+	var blocks []block.Info
+	if *blockStatsGroup != "" {
+		blocks = rep.Blocks.ListGroupBlocks(*blockStatsGroup)
+	} else {
+		blocks = rep.Blocks.ListBlocks("", *blockStatsKind)
+	}
 	sort.Slice(blocks, func(i, j int) bool { return blocks[i].Length < blocks[j].Length })
 
 	var sizeThreshold int64 = 10

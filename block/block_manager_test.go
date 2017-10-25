@@ -229,6 +229,64 @@ func TestBlockManagerPackIdentialToRawObject(t *testing.T) {
 	}
 }
 
+func TestBlockManagerRepack(t *testing.T) {
+	data := map[string][]byte{}
+	bm := newTestBlockManager(data)
+
+	d1 := seededRandomData(1, 10)
+	d2 := seededRandomData(2, 20)
+	d3 := seededRandomData(3, 30)
+
+	writeBlockAndVerify(t, bm, "g1", d1)
+	bm.Flush()
+	writeBlockAndVerify(t, bm, "g1", d2)
+	bm.Flush()
+	writeBlockAndVerify(t, bm, "g1", d3)
+	bm.Flush()
+
+	// 3 data blocks, 3 index blocks.
+	if got, want := len(data), 6; got != want {
+		t.Errorf("unexpected block count: %v, wanted %v", got, want)
+	}
+
+	if err := bm.Repackage("g1", 5, fakeTime); err != nil {
+		t.Errorf("repackage failure: %v", err)
+	}
+	bm.Flush()
+
+	// nothing happened, still 3 data blocks, 3 index blocks.
+	if got, want := len(data), 6; got != want {
+		t.Errorf("unexpected block count: %v, wanted %v", got, want)
+	}
+
+	setFakeTime(bm, fakeTime.Add(1*time.Second))
+
+	if err := bm.Repackage("g1", 30, fakeTime); err != nil {
+		t.Errorf("repackage failure: %v", err)
+	}
+	bm.Flush()
+	log.Printf("after repackage")
+	dumpBlockManagerData(data)
+
+	// added one more data block + one mode index block.
+	if got, want := len(data), 8; got != want {
+		t.Errorf("unexpected block count: %v, wanted %v", got, want)
+	}
+	if err := bm.CompactIndexes(bm.timeNow(), nil); err != nil {
+		t.Errorf("compaction failure: %v", err)
+	}
+	log.Printf("after compaction")
+	dumpBlockManagerData(data)
+
+	// old 3 data blocks still there + 1 new one + 1 compacted index
+	if got, want := len(data), 5; got != want {
+		t.Errorf("unexpected block count: %v, wanted %v", got, want)
+		dumpBlockManagerData(data)
+	}
+	// t.Error()
+	// dumpBlockManagerData(data)
+}
+
 func TestBlockManagerInternalFlush(t *testing.T) {
 	data := map[string][]byte{}
 	bm := newTestBlockManager(data)
