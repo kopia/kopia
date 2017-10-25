@@ -1,13 +1,7 @@
 package cli
 
 import (
-	"bytes"
-	"compress/gzip"
-	"encoding/json"
-	"fmt"
 	"io"
-	"io/ioutil"
-	"os"
 
 	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/snapshot"
@@ -18,7 +12,7 @@ import (
 )
 
 var (
-	showCommand = objectCommands.Command("show", "Show contents of a repository object.")
+	showCommand = objectCommands.Command("show", "Show contents of a repository object.").Alias("cat")
 
 	showObjectIDs = showCommand.Arg("id", "IDs of objects to show").Required().Strings()
 	showJSON      = showCommand.Flag("json", "Pretty-print JSON content").Short('j').Bool()
@@ -54,33 +48,7 @@ func showObject(r *repo.Repository, oid object.ID) error {
 	}
 	defer rd.Close()
 
-	if *showUnzip {
-		gz, err := gzip.NewReader(rd)
-		if err != nil {
-			return fmt.Errorf("unable to open gzip stream: %v", err)
-		}
-
-		rd = gz
-	}
-
-	var buf1, buf2 bytes.Buffer
-	if *showJSON {
-		if _, err := io.Copy(&buf1, rd); err != nil {
-			return err
-		}
-
-		if err := json.Indent(&buf2, buf1.Bytes(), "", "  "); err != nil {
-			return err
-		}
-
-		rd = ioutil.NopCloser(&buf2)
-	}
-
-	if _, err := io.Copy(os.Stdout, rd); err != nil {
-		return err
-	}
-
-	return nil
+	return showContent(rd, *showUnzip, *showJSON)
 }
 
 func init() {
