@@ -11,10 +11,8 @@ import (
 	"github.com/kopia/kopia/storage"
 )
 
-const (
-	// MetadataBlockPrefix is a prefix used for metadata blocks in repository storage.
-	MetadataBlockPrefix = "VLT"
-)
+// MetadataBlockPrefix is a prefix used for metadata blocks in repository storage.
+const MetadataBlockPrefix = "VLT"
 
 type metadataCache struct {
 	st storage.Storage

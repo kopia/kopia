@@ -92,7 +92,7 @@ type ConnectOptions struct {
 func readFormaBlock(st storage.Storage) (*formatBlock, error) {
 	f := &formatBlock{}
 
-	b, err := st.GetBlock("VLTformat", 0, -1)
+	b, err := st.GetBlock(metadata.MetadataBlockPrefix+"format", 0, -1)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read format block: %v", err)
 	}
