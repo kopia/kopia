@@ -85,17 +85,23 @@ type ConnectOptions struct {
 
 // Connect connects to the repository in the specified storage and persists the configuration and credentials in the file provided.
 func Connect(ctx context.Context, configFile string, st storage.Storage, creds auth.Credentials, opt ConnectOptions) error {
-	r, err := connect(ctx, st, creds, nil)
-	if err != nil {
-		return err
-	}
-
 	cip, ok := st.(storage.ConnectionInfoProvider)
 	if !ok {
 		return errors.New("repository does not support persisting configuration")
 	}
 
-	masterKey, err := creds.GetMasterKey(r.Metadata.format.SecurityOptions)
+	var f config.MetadataFormat
+
+	b, err := st.GetBlock("VLTformat", 0, -1)
+	if err != nil {
+		return fmt.Errorf("unable to read format block: %v", err)
+	}
+
+	if err := json.Unmarshal(b, &f); err != nil {
+		return fmt.Errorf("invalid format block: %v", err)
+	}
+
+	masterKey, err := creds.GetMasterKey(f.SecurityOptions)
 	if err != nil {
 		return fmt.Errorf("can't get master key: %v", err)
 	}
@@ -121,7 +127,22 @@ func Connect(ctx context.Context, configFile string, st storage.Storage, creds a
 		return err
 	}
 
-	return ioutil.WriteFile(configFile, d, 0600)
+	if err := ioutil.WriteFile(configFile, d, 0600); err != nil {
+		return nil
+	}
+
+	// now verify that the repository can be opened with the provided config file.
+	r, err := Open(ctx, configFile, &Options{
+		CredentialsCallback: func() (auth.Credentials, error) {
+			return creds, nil
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	r.Close()
+	return nil
 }
 
 func connect(ctx context.Context, st storage.Storage, creds auth.Credentials, options *Options) (*Repository, error) {
