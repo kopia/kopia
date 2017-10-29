@@ -51,10 +51,8 @@ func init() {
 // MetadataManager manages JSON metadata, such as snapshot manifests, policies, object format etc.
 // in a repository.
 type MetadataManager struct {
-	storage    storage.Storage
-	cache      *metadataCache
-	format     config.MetadataFormat
-	repoConfig config.EncryptedRepositoryConfig
+	storage storage.Storage
+	cache   *metadataCache
 
 	aead     cipher.AEAD // authenticated encryption to use
 	authData []byte      // additional data to authenticate
@@ -246,10 +244,10 @@ func (mm *MetadataManager) RemoveMany(itemIDs []string) error {
 }
 
 // newMetadataManager opens a MetadataManager for given storage and credentials.
-func newMetadataManager(st storage.Storage, creds auth.Credentials) (*MetadataManager, *auth.KeyManager, error) {
+func newMetadataManager(st storage.Storage, f *config.MetadataFormat, km *auth.KeyManager) (*MetadataManager, error) {
 	cache, err := newMetadataCache(st)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	mm := MetadataManager{
@@ -257,57 +255,15 @@ func newMetadataManager(st storage.Storage, creds auth.Credentials) (*MetadataMa
 		cache:   cache,
 	}
 
-	var wg sync.WaitGroup
-
-	var blocks [4][]byte
-
-	f := func(index int, name string) {
-		blocks[index], _ = mm.cache.GetBlock(name)
-		wg.Done()
+	if err := mm.initCrypto(f, km); err != nil {
+		return nil, fmt.Errorf("unable to initialize crypto: %v", err)
 	}
 
-	wg.Add(2)
-	go f(0, formatBlockID)
-	go f(1, repositoryConfigBlockID)
-	wg.Wait()
-
-	if blocks[0] == nil {
-		return nil, nil, fmt.Errorf("format block not found")
-	}
-
-	var offset = 0
-	err = json.Unmarshal(blocks[offset], &mm.format)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	km, err := auth.NewKeyManager(creds, mm.format.SecurityOptions)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if err := mm.initCrypto(km); err != nil {
-		return nil, nil, fmt.Errorf("unable to initialize crypto: %v", err)
-	}
-
-	cfgData, err := mm.decryptBlock(blocks[offset+1])
-	if err != nil {
-		return nil, nil, err
-	}
-
-	var rc config.EncryptedRepositoryConfig
-
-	if err := json.Unmarshal(cfgData, &rc); err != nil {
-		return nil, nil, err
-	}
-
-	mm.repoConfig = rc
-
-	return &mm, km, nil
+	return &mm, nil
 }
 
-func (mm *MetadataManager) initCrypto(km *auth.KeyManager) error {
-	switch mm.format.EncryptionAlgorithm {
+func (mm *MetadataManager) initCrypto(f *config.MetadataFormat, km *auth.KeyManager) error {
+	switch f.EncryptionAlgorithm {
 	case "NONE": // do nothing
 		return nil
 	case "AES256_GCM":
@@ -324,7 +280,7 @@ func (mm *MetadataManager) initCrypto(km *auth.KeyManager) error {
 		}
 		return nil
 	default:
-		return fmt.Errorf("unknown encryption algorithm: '%v'", mm.format.EncryptionAlgorithm)
+		return fmt.Errorf("unknown encryption algorithm: '%v'", f.EncryptionAlgorithm)
 	}
 }
 

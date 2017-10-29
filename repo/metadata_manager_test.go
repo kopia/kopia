@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/auth"
+	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/storage"
 	"github.com/kopia/kopia/storage/filesystem"
 
@@ -36,20 +37,36 @@ func TestMetadataManager(t *testing.T) {
 		return
 	}
 
-	if err := Initialize(st, nil, creds); err != nil {
-		t.Errorf("can't initialize repository: %v", err)
+	f := &config.MetadataFormat{
+		Version: "1",
+		SecurityOptions: auth.SecurityOptions{
+			UniqueID:               randomBytes(32),
+			KeyDerivationAlgorithm: auth.DefaultKeyDerivationAlgorithm,
+		},
+		EncryptionAlgorithm: DefaultMetadataEncryptionAlgorithm,
+	}
+
+	km, err := auth.NewKeyManager(creds, f.SecurityOptions)
+	if err != nil {
+		t.Errorf("can't create key manager")
 		return
 	}
 
-	v, _, err := newMetadataManager(st, creds)
+	v, err := newMetadataManager(st, f, km)
 	if err != nil {
 		t.Errorf("can't open first metadata manager: %v", err)
 		return
 	}
 
-	_, _, err = newMetadataManager(st, otherCreds)
-	if err == nil {
-		t.Errorf("unexpectedly opened repository with invalid credentials")
+	otherKM, err := auth.NewKeyManager(otherCreds, f.SecurityOptions)
+	if err != nil {
+		t.Errorf("can't create key manager")
+		return
+	}
+
+	otherMM, err := newMetadataManager(st, f, otherKM)
+	if err != nil {
+		t.Errorf("can't open first metadata manager: %v", err)
 		return
 	}
 
@@ -61,6 +78,10 @@ func TestMetadataManager(t *testing.T) {
 	}
 	if err := v.Put("baz", []byte("test3")); err != nil {
 		t.Errorf("error putting: %v", err)
+	}
+
+	if _, err := otherMM.GetMetadata("foo"); err == nil {
+		t.Errorf("unexpectedly succeeded when reading metadata with invalid credentials")
 	}
 
 	assertMetadataItem(t, v, "foo", "test1")
@@ -102,7 +123,7 @@ func TestMetadataManager(t *testing.T) {
 	}
 	assertMetadataItem(t, v, "baz", "test4")
 
-	v2, _, err := newMetadataManager(st, creds)
+	v2, err := newMetadataManager(st, f, km)
 	if err != nil {
 		t.Errorf("can't open first metadata manager: %v", err)
 		return

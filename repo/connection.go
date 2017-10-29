@@ -83,6 +83,20 @@ type ConnectOptions struct {
 	CacheDirectory     string
 }
 
+func readMetadataFormat(st storage.Storage) (*config.MetadataFormat, error) {
+	f := &config.MetadataFormat{}
+
+	b, err := st.GetBlock("VLTformat", 0, -1)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read format block: %v", err)
+	}
+
+	if err := json.Unmarshal(b, &f); err != nil {
+		return nil, fmt.Errorf("invalid format block: %v", err)
+	}
+	return f, err
+}
+
 // Connect connects to the repository in the specified storage and persists the configuration and credentials in the file provided.
 func Connect(ctx context.Context, configFile string, st storage.Storage, creds auth.Credentials, opt ConnectOptions) error {
 	cip, ok := st.(storage.ConnectionInfoProvider)
@@ -90,15 +104,9 @@ func Connect(ctx context.Context, configFile string, st storage.Storage, creds a
 		return errors.New("repository does not support persisting configuration")
 	}
 
-	var f config.MetadataFormat
-
-	b, err := st.GetBlock("VLTformat", 0, -1)
+	f, err := readMetadataFormat(st)
 	if err != nil {
-		return fmt.Errorf("unable to read format block: %v", err)
-	}
-
-	if err := json.Unmarshal(b, &f); err != nil {
-		return fmt.Errorf("invalid format block: %v", err)
+		return err
 	}
 
 	masterKey, err := creds.GetMasterKey(f.SecurityOptions)
@@ -153,34 +161,53 @@ func connect(ctx context.Context, st storage.Storage, creds auth.Credentials, op
 		st = logging.NewWrapper(st, logging.Prefix("[STORAGE] "), logging.Output(options.TraceStorage))
 	}
 
-	mm, km, err := newMetadataManager(st, creds)
-	if err != nil {
-		return nil, fmt.Errorf("unable to open metadata manager: %v", err)
-	}
-
-	sf := block.FormatterFactories[mm.repoConfig.Format.BlockFormat]
-	if sf == nil {
-		return nil, fmt.Errorf("unsupported block format: %v", mm.repoConfig.Format.BlockFormat)
-	}
-
-	formatter, err := sf(mm.repoConfig.Format)
+	f, err := readMetadataFormat(st)
 	if err != nil {
 		return nil, err
 	}
 
-	bm := block.NewManager(st, mm.repoConfig.Format.MaxPackedContentLength, mm.repoConfig.Format.MaxBlockSize, formatter)
+	km, err := auth.NewKeyManager(creds, f.SecurityOptions)
+	if err != nil {
+		return nil, err
+	}
 
-	om, err := object.NewObjectManager(bm, mm.repoConfig.Format, options.ObjectManagerOptions)
+	mm, err := newMetadataManager(st, f, km)
+	if err != nil {
+		return nil, fmt.Errorf("unable to open metadata manager: %v", err)
+	}
+
+	var erc config.EncryptedRepositoryConfig
+
+	if err := mm.getJSON("repo", &erc); err != nil {
+		return nil, fmt.Errorf("unable to read repository configuration: %v", err)
+	}
+
+	repoConfig := erc.Format
+
+	sf := block.FormatterFactories[repoConfig.BlockFormat]
+	if sf == nil {
+		return nil, fmt.Errorf("unsupported block format: %v", repoConfig.BlockFormat)
+	}
+
+	formatter, err := sf(repoConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	bm := block.NewManager(st, repoConfig.MaxPackedContentLength, repoConfig.MaxBlockSize, formatter)
+
+	om, err := object.NewObjectManager(bm, repoConfig, options.ObjectManagerOptions)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open object manager: %v", err)
 	}
 
 	return &Repository{
-		Blocks:     bm,
-		Objects:    om,
-		Metadata:   mm,
-		Storage:    st,
-		KeyManager: km,
+		Blocks:         bm,
+		Objects:        om,
+		Metadata:       mm,
+		Storage:        st,
+		KeyManager:     km,
+		metadataFormat: f,
 	}, nil
 }
 

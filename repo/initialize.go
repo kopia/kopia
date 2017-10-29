@@ -3,7 +3,6 @@ package repo
 import (
 	"crypto/rand"
 	"encoding/json"
-	"fmt"
 	"io"
 
 	"github.com/kopia/kopia/auth"
@@ -40,23 +39,14 @@ func Initialize(st storage.Storage, opt *NewRepositoryOptions, creds auth.Creden
 		opt = &NewRepositoryOptions{}
 	}
 
-	cache, err := newMetadataCache(st)
+	format := metadataFormatFromOptions(opt)
+
+	km, err := auth.NewKeyManager(creds, format.SecurityOptions)
 	if err != nil {
 		return err
 	}
 
-	mm := MetadataManager{
-		storage: st,
-		cache:   cache,
-		format:  metadataFormatFromOptions(opt),
-	}
-
-	km, err := auth.NewKeyManager(creds, mm.format.SecurityOptions)
-	if err != nil {
-		return err
-	}
-
-	formatBytes, err := json.Marshal(&mm.format)
+	formatBytes, err := json.Marshal(&format)
 	if err != nil {
 		return err
 	}
@@ -65,8 +55,9 @@ func Initialize(st storage.Storage, opt *NewRepositoryOptions, creds auth.Creden
 		return err
 	}
 
-	if err := mm.initCrypto(km); err != nil {
-		return fmt.Errorf("unable to initialize crypto: %v", err)
+	mm, err := newMetadataManager(st, &format, km)
+	if err != nil {
+		return err
 	}
 
 	// Write encrypted repository configuration block.
