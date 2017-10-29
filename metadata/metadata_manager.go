@@ -62,24 +62,24 @@ type Manager struct {
 }
 
 // Put saves the specified metadata content under a provided name.
-func (mm *Manager) Put(itemID string, content []byte) error {
+func (m *Manager) Put(itemID string, content []byte) error {
 	if err := checkReservedName(itemID); err != nil {
 		return err
 	}
 
-	return mm.writeEncryptedBlock(itemID, content)
+	return m.writeEncryptedBlock(itemID, content)
 }
 
 // RefreshCache refreshes the cache of metadata items.
-func (mm *Manager) RefreshCache() error {
-	return mm.cache.refresh()
+func (m *Manager) RefreshCache() error {
+	return m.cache.refresh()
 }
 
-func (mm *Manager) writeEncryptedBlock(itemID string, content []byte) error {
-	if mm.aead != nil {
-		nonceLength := mm.aead.NonceSize()
+func (m *Manager) writeEncryptedBlock(itemID string, content []byte) error {
+	if m.aead != nil {
+		nonceLength := m.aead.NonceSize()
 		noncePlusContentLength := nonceLength + len(content)
-		cipherText := make([]byte, noncePlusContentLength+mm.aead.Overhead())
+		cipherText := make([]byte, noncePlusContentLength+m.aead.Overhead())
 
 		// Store nonce at the beginning of ciphertext.
 		nonce := cipherText[0:nonceLength]
@@ -87,16 +87,16 @@ func (mm *Manager) writeEncryptedBlock(itemID string, content []byte) error {
 			return err
 		}
 
-		b := mm.aead.Seal(cipherText[nonceLength:nonceLength], nonce, content, mm.authData)
+		b := m.aead.Seal(cipherText[nonceLength:nonceLength], nonce, content, m.authData)
 
 		content = nonce[0 : nonceLength+len(b)]
 	}
 
-	return mm.cache.PutBlock(itemID, content)
+	return m.cache.PutBlock(itemID, content)
 }
 
-func (mm *Manager) readEncryptedBlock(itemID string) ([]byte, error) {
-	content, err := mm.cache.GetBlock(itemID)
+func (m *Manager) readEncryptedBlock(itemID string) ([]byte, error) {
+	content, err := m.cache.GetBlock(itemID)
 	if err != nil {
 		if err == storage.ErrBlockNotFound {
 			return nil, ErrNotFound
@@ -104,31 +104,31 @@ func (mm *Manager) readEncryptedBlock(itemID string) ([]byte, error) {
 		return nil, fmt.Errorf("unexpected error reading %v: %v", itemID, err)
 	}
 
-	return mm.decryptBlock(content)
+	return m.decryptBlock(content)
 }
 
-func (mm *Manager) decryptBlock(content []byte) ([]byte, error) {
-	if mm.aead != nil {
-		nonce := content[0:mm.aead.NonceSize()]
-		payload := content[mm.aead.NonceSize():]
-		return mm.aead.Open(payload[:0], nonce, payload, mm.authData)
+func (m *Manager) decryptBlock(content []byte) ([]byte, error) {
+	if m.aead != nil {
+		nonce := content[0:m.aead.NonceSize()]
+		payload := content[m.aead.NonceSize():]
+		return m.aead.Open(payload[:0], nonce, payload, m.authData)
 	}
 
 	return content, nil
 }
 
 // GetMetadata returns the contents of a specified metadata item.
-func (mm *Manager) GetMetadata(itemID string) ([]byte, error) {
+func (m *Manager) GetMetadata(itemID string) ([]byte, error) {
 	if err := checkReservedName(itemID); err != nil {
 		return nil, err
 	}
 
-	return mm.readEncryptedBlock(itemID)
+	return m.readEncryptedBlock(itemID)
 }
 
 // MultiGet gets the contents of a specified multiple metadata items efficiently.
 // The results are returned as a map, with items that are not found not present in the map.
-func (mm *Manager) MultiGet(itemIDs []string) (map[string][]byte, error) {
+func (m *Manager) MultiGet(itemIDs []string) (map[string][]byte, error) {
 	type singleReadResult struct {
 		id       string
 		contents []byte
@@ -140,7 +140,7 @@ func (mm *Manager) MultiGet(itemIDs []string) (map[string][]byte, error) {
 	for i := 0; i < parallelFetches; i++ {
 		go func() {
 			for itemID := range inputs {
-				v, err := mm.GetMetadata(itemID)
+				v, err := m.GetMetadata(itemID)
 				ch <- singleReadResult{itemID, v, err}
 			}
 		}()
@@ -174,8 +174,8 @@ func (mm *Manager) MultiGet(itemIDs []string) (map[string][]byte, error) {
 }
 
 // GetJSON reads and parses given item as JSON.
-func (mm *Manager) GetJSON(itemID string, content interface{}) error {
-	j, err := mm.readEncryptedBlock(itemID)
+func (m *Manager) GetJSON(itemID string, content interface{}) error {
+	j, err := m.readEncryptedBlock(itemID)
 	if err != nil {
 		return err
 	}
@@ -184,41 +184,41 @@ func (mm *Manager) GetJSON(itemID string, content interface{}) error {
 }
 
 // PutJSON stores the contents of an item stored with a given ID.
-func (mm *Manager) PutJSON(id string, content interface{}) error {
+func (m *Manager) PutJSON(id string, content interface{}) error {
 	j, err := json.Marshal(content)
 	if err != nil {
 		return err
 	}
 
-	return mm.writeEncryptedBlock(id, j)
+	return m.writeEncryptedBlock(id, j)
 }
 
 // List returns the list of metadata items matching the specified prefix.
-func (mm *Manager) List(prefix string) ([]string, error) {
-	return mm.cache.ListBlocks(prefix)
+func (m *Manager) List(prefix string) ([]string, error) {
+	return m.cache.ListBlocks(prefix)
 }
 
 // ListContents retrieves metadata contents for all items starting with a given prefix.
-func (mm *Manager) ListContents(prefix string) (map[string][]byte, error) {
-	itemIDs, err := mm.List(prefix)
+func (m *Manager) ListContents(prefix string) (map[string][]byte, error) {
+	itemIDs, err := m.List(prefix)
 	if err != nil {
 		return nil, err
 	}
 
-	return mm.MultiGet(itemIDs)
+	return m.MultiGet(itemIDs)
 }
 
 // Remove removes the specified metadata item.
-func (mm *Manager) Remove(itemID string) error {
+func (m *Manager) Remove(itemID string) error {
 	if err := checkReservedName(itemID); err != nil {
 		return err
 	}
 
-	return mm.cache.DeleteBlock(itemID)
+	return m.cache.DeleteBlock(itemID)
 }
 
 // RemoveMany efficiently removes multiple metadata items in parallel.
-func (mm *Manager) RemoveMany(itemIDs []string) error {
+func (m *Manager) RemoveMany(itemIDs []string) error {
 	parallelism := 30
 	ch := make(chan string)
 	var wg sync.WaitGroup
@@ -230,7 +230,7 @@ func (mm *Manager) RemoveMany(itemIDs []string) error {
 			defer wg.Done()
 
 			for id := range ch {
-				if err := mm.Remove(id); err != nil {
+				if err := m.Remove(id); err != nil {
 					errch <- err
 				}
 			}
@@ -254,32 +254,32 @@ func NewManager(st storage.Storage, f Format, km *auth.KeyManager) (*Manager, er
 		return nil, err
 	}
 
-	mm := &Manager{
+	m := &Manager{
 		Format:  f,
 		storage: st,
 		cache:   cache,
 	}
 
-	if err := mm.initCrypto(f, km); err != nil {
+	if err := m.initCrypto(f, km); err != nil {
 		return nil, fmt.Errorf("unable to initialize crypto: %v", err)
 	}
 
-	return mm, nil
+	return m, nil
 }
 
-func (mm *Manager) initCrypto(f Format, km *auth.KeyManager) error {
+func (m *Manager) initCrypto(f Format, km *auth.KeyManager) error {
 	switch f.EncryptionAlgorithm {
 	case "NONE": // do nothing
 		return nil
 	case "AES256_GCM":
 		aesKey := km.DeriveKey(purposeAESKey, 32)
-		mm.authData = km.DeriveKey(purposeAuthData, 32)
+		m.authData = km.DeriveKey(purposeAuthData, 32)
 
 		blk, err := aes.NewCipher(aesKey)
 		if err != nil {
 			return fmt.Errorf("cannot create cipher: %v", err)
 		}
-		mm.aead, err = cipher.NewGCM(blk)
+		m.aead, err = cipher.NewGCM(blk)
 		if err != nil {
 			return fmt.Errorf("cannot create cipher: %v", err)
 		}

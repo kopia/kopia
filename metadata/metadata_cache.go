@@ -25,103 +25,103 @@ type metadataCache struct {
 	cachedData    map[string][]byte
 }
 
-func (mc *metadataCache) ListBlocks(prefix string) ([]string, error) {
+func (c *metadataCache) ListBlocks(prefix string) ([]string, error) {
 	var result []string
 
-	mc.mu.Lock()
-	p := sort.SearchStrings(mc.sortedNames, prefix)
-	for p < len(mc.sortedNames) && strings.HasPrefix(mc.sortedNames[p], prefix) {
-		if !isReservedName(mc.sortedNames[p]) {
-			result = append(result, mc.sortedNames[p])
+	c.mu.Lock()
+	p := sort.SearchStrings(c.sortedNames, prefix)
+	for p < len(c.sortedNames) && strings.HasPrefix(c.sortedNames[p], prefix) {
+		if !isReservedName(c.sortedNames[p]) {
+			result = append(result, c.sortedNames[p])
 		}
 		p++
 	}
-	mc.mu.Unlock()
+	c.mu.Unlock()
 	return result, nil
 }
 
-func (mc *metadataCache) GetBlock(name string) ([]byte, error) {
-	mc.mu.Lock()
-	cid := mc.nameToCacheID[name]
+func (c *metadataCache) GetBlock(name string) ([]byte, error) {
+	c.mu.Lock()
+	cid := c.nameToCacheID[name]
 	if cid == "" {
-		mc.mu.Unlock()
+		c.mu.Unlock()
 		return nil, storage.ErrBlockNotFound
 	}
 
 	// see if the data is cached
-	if data, ok := mc.cachedData[cid]; ok {
-		mc.mu.Unlock()
+	if data, ok := c.cachedData[cid]; ok {
+		c.mu.Unlock()
 		return cloneBytes(data), nil
 	}
 
-	mc.mu.Unlock()
+	c.mu.Unlock()
 
 	// not cached, fetch from the storage
-	b, err := mc.st.GetBlock(MetadataBlockPrefix+name, 0, -1)
+	b, err := c.st.GetBlock(MetadataBlockPrefix+name, 0, -1)
 	if err != nil {
 		return nil, err
 	}
 
 	// now race to add to cache, does not matter who wins.
-	mc.mu.Lock()
-	mc.cachedData[cid] = b
-	mc.mu.Unlock()
+	c.mu.Lock()
+	c.cachedData[cid] = b
+	c.mu.Unlock()
 	return cloneBytes(b), nil
 }
 
-func (mc *metadataCache) PutBlock(name string, data []byte) error {
-	if err := mc.st.PutBlock(MetadataBlockPrefix+name, data); err != nil {
+func (c *metadataCache) PutBlock(name string, data []byte) error {
+	if err := c.st.PutBlock(MetadataBlockPrefix+name, data); err != nil {
 		return err
 	}
 
 	b := make([]byte, 8)
 	io.ReadFull(rand.Reader, b)
 
-	mc.mu.Lock()
+	c.mu.Lock()
 	cid := fmt.Sprintf("%v-new-%x", name, b)
-	mc.nameToCacheID[name] = cid
-	p := sort.SearchStrings(mc.sortedNames, name)
-	if p >= len(mc.sortedNames) || mc.sortedNames[p] != name {
+	c.nameToCacheID[name] = cid
+	p := sort.SearchStrings(c.sortedNames, name)
+	if p >= len(c.sortedNames) || c.sortedNames[p] != name {
 		// Name not present, p is the index where p should be inserted.
-		mc.sortedNames = append(append(
-			append([]string(nil), mc.sortedNames[0:p]...),
+		c.sortedNames = append(append(
+			append([]string(nil), c.sortedNames[0:p]...),
 			name),
-			mc.sortedNames[p:]...)
+			c.sortedNames[p:]...)
 	}
 
-	mc.mu.Unlock()
+	c.mu.Unlock()
 
 	return nil
 }
 
-func (mc *metadataCache) DeleteBlock(name string) error {
-	mc.mu.Lock()
-	if cid := mc.nameToCacheID[name]; cid != "" {
-		delete(mc.nameToCacheID, name)
-		delete(mc.cachedData, cid)
+func (c *metadataCache) DeleteBlock(name string) error {
+	c.mu.Lock()
+	if cid := c.nameToCacheID[name]; cid != "" {
+		delete(c.nameToCacheID, name)
+		delete(c.cachedData, cid)
 
 		// Delete from sortedNames
-		p := sort.SearchStrings(mc.sortedNames, name)
-		if p < len(mc.sortedNames) && mc.sortedNames[p] == name {
+		p := sort.SearchStrings(c.sortedNames, name)
+		if p < len(c.sortedNames) && c.sortedNames[p] == name {
 			// Found at index 'p' build a new slice from [0..p), [p+1,...)
-			newSlice := mc.sortedNames[0:p]
-			for _, n := range mc.sortedNames[p+1:] {
+			newSlice := c.sortedNames[0:p]
+			for _, n := range c.sortedNames[p+1:] {
 				newSlice = append(newSlice, n)
 			}
-			mc.sortedNames = newSlice
+			c.sortedNames = newSlice
 		}
 	}
-	mc.mu.Unlock()
+	c.mu.Unlock()
 
-	return mc.st.DeleteBlock(MetadataBlockPrefix + name)
+	return c.st.DeleteBlock(MetadataBlockPrefix + name)
 }
 
 // refresh refreshes the list of blocks in the cache, but does not load or expire previously cached.
-func (mc *metadataCache) refresh() error {
+func (c *metadataCache) refresh() error {
 	var sortedNames []string
 	nameToCacheID := map[string]string{}
 
-	ch, cancel := mc.st.ListBlocks(MetadataBlockPrefix)
+	ch, cancel := c.st.ListBlocks(MetadataBlockPrefix)
 	defer cancel()
 	for it := range ch {
 		if it.Error != nil {
@@ -133,15 +133,15 @@ func (mc *metadataCache) refresh() error {
 		nameToCacheID[n] = fmt.Sprintf("%v-%v-%v", it.BlockID, it.Length, it.TimeStamp.UnixNano())
 	}
 
-	mc.setLoaded(sortedNames, nameToCacheID)
+	c.setLoaded(sortedNames, nameToCacheID)
 	return nil
 }
 
-func (mc *metadataCache) setLoaded(sortedNames []string, nameToCacheID map[string]string) {
-	mc.mu.Lock()
-	mc.sortedNames = sortedNames
-	mc.nameToCacheID = nameToCacheID
-	mc.mu.Unlock()
+func (c *metadataCache) setLoaded(sortedNames []string, nameToCacheID map[string]string) {
+	c.mu.Lock()
+	c.sortedNames = sortedNames
+	c.nameToCacheID = nameToCacheID
+	c.mu.Unlock()
 }
 
 func cloneBytes(d []byte) []byte {
