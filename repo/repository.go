@@ -31,13 +31,12 @@ type StatusInfo struct {
 	UniqueID                    string
 	KeyDerivationAlgorithm      string
 
-	ObjectManagerVersion   string
-	BlockFormat            string
-	MaxInlineContentLength int
-	Splitter               string
-	MinBlockSize           int
-	AvgBlockSize           int
-	MaxBlockSize           int
+	ObjectManagerVersion string
+	BlockFormat          string
+	Splitter             string
+	MinBlockSize         int
+	AvgBlockSize         int
+	MaxBlockSize         int
 
 	MaxPackedContentLength int
 }

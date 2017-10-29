@@ -55,7 +55,6 @@ func runStatusCommand(context *kingpin.ParseContext) error {
 	fmt.Printf("Object manager:      v%v\n", s.ObjectManagerVersion)
 	fmt.Printf("Block format:        %v\n", s.BlockFormat)
 	fmt.Printf("Splitter:            %v%v\n", s.Splitter, splitterExtraInfo)
-	fmt.Printf("Inline content len:  %v\n", s.MaxInlineContentLength)
 	fmt.Printf("Max packed len:      %v\n", units.BytesStringBase2(int64(s.MaxPackedContentLength)))
 
 	return nil
