@@ -80,15 +80,17 @@ func formatBlockFromOptions(opt *NewRepositoryOptions) formatBlock {
 
 func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) config.RepositoryObjectFormat {
 	f := config.RepositoryObjectFormat{
-		Version:                1,
-		Splitter:               applyDefaultString(opt.Splitter, object.DefaultSplitter),
-		BlockFormat:            applyDefaultString(opt.BlockFormat, block.DefaultFormat),
-		HMACSecret:             applyDefaultRandomBytes(opt.ObjectHMACSecret, 32),
-		MasterKey:              applyDefaultRandomBytes(opt.ObjectEncryptionKey, 32),
-		MaxBlockSize:           applyDefaultInt(opt.MaxBlockSize, 20<<20),          // 20MiB
-		MinBlockSize:           applyDefaultInt(opt.MinBlockSize, 10<<20),          // 10MiB
-		AvgBlockSize:           applyDefaultInt(opt.AvgBlockSize, 16<<20),          // 16MiB
-		MaxPackedContentLength: applyDefaultInt(opt.MaxPackedContentLength, 4<<20), // 3 MB
+		FormattingOptions: block.FormattingOptions{
+			Version:                1,
+			BlockFormat:            applyDefaultString(opt.BlockFormat, block.DefaultFormat),
+			HMACSecret:             applyDefaultRandomBytes(opt.ObjectHMACSecret, 32),
+			MasterKey:              applyDefaultRandomBytes(opt.ObjectEncryptionKey, 32),
+			MaxPackedContentLength: applyDefaultInt(opt.MaxPackedContentLength, 4<<20), // 3 MB
+		},
+		Splitter:     applyDefaultString(opt.Splitter, object.DefaultSplitter),
+		MaxBlockSize: applyDefaultInt(opt.MaxBlockSize, 20<<20), // 20MiB
+		MinBlockSize: applyDefaultInt(opt.MinBlockSize, 10<<20), // 10MiB
+		AvgBlockSize: applyDefaultInt(opt.AvgBlockSize, 16<<20), // 16MiB
 	}
 
 	if opt.noHMAC {

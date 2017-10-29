@@ -70,7 +70,9 @@ func setupTest(t *testing.T) (map[string][]byte, *Manager) {
 
 func setupTestWithData(t *testing.T, data map[string][]byte, opts ManagerOptions) (map[string][]byte, *Manager) {
 	r, err := NewObjectManager(&fakeBlockManager{data: data}, config.RepositoryObjectFormat{
-		Version:      1,
+		FormattingOptions: block.FormattingOptions{
+			Version: 1,
+		},
 		MaxBlockSize: 200,
 		Splitter:     "FIXED",
 	}, opts)

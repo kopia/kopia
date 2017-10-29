@@ -14,9 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kopia/kopia/storage"
-
 	"github.com/kopia/kopia/internal/storagetesting"
+	"github.com/kopia/kopia/storage"
 )
 
 const (

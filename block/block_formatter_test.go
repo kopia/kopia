@@ -5,13 +5,11 @@ import (
 	"crypto/rand"
 	"crypto/sha1"
 	"testing"
-
-	"github.com/kopia/kopia/internal/config"
 )
 
 func TestFormatters(t *testing.T) {
 	secret := []byte("secret")
-	f := config.RepositoryObjectFormat{HMACSecret: secret, MasterKey: make([]byte, 32)}
+	f := FormattingOptions{HMACSecret: secret, MasterKey: make([]byte, 32)}
 
 	for k, v := range FormatterFactories {
 		data := make([]byte, 100)

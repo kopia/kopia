@@ -110,7 +110,7 @@ func connect(ctx context.Context, st storage.Storage, creds auth.Credentials, op
 		return nil, fmt.Errorf("unsupported block format: %v", repoConfig.BlockFormat)
 	}
 
-	formatter, err := sf(repoConfig)
+	formatter, err := sf(repoConfig.FormattingOptions)
 	if err != nil {
 		return nil, err
 	}

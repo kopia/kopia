@@ -5,6 +5,7 @@ import (
 	"io"
 	"os"
 
+	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/storage"
 )
 
@@ -16,16 +17,12 @@ type LocalConfig struct {
 
 // RepositoryObjectFormat describes the format of objects in a repository.
 type RepositoryObjectFormat struct {
-	Version                int    `json:"version,omitempty"`                // version number, must be "1"
-	BlockFormat            string `json:"objectFormat,omitempty"`           // identifier of the block format
-	HMACSecret             []byte `json:"secret,omitempty"`                 // HMAC secret used to generate encryption keys
-	MasterKey              []byte `json:"masterKey,omitempty"`              // master encryption key (SIV-mode encryption only)
-	Splitter               string `json:"splitter,omitempty"`               // splitter used to break objects into storage blocks
-	MaxPackedContentLength int    `json:"maxPackedContentLength,omitempty"` // maximum size of object to be considered for storage in a pack
+	block.FormattingOptions
 
-	MinBlockSize int `json:"minBlockSize,omitempty"` // minimum block size used with dynamic splitter
-	AvgBlockSize int `json:"avgBlockSize,omitempty"` // approximate size of storage block (used with dynamic splitter)
-	MaxBlockSize int `json:"maxBlockSize,omitempty"` // maximum size of storage block
+	Splitter     string `json:"splitter,omitempty"`     // splitter used to break objects into storage blocks
+	MinBlockSize int    `json:"minBlockSize,omitempty"` // minimum block size used with dynamic splitter
+	AvgBlockSize int    `json:"avgBlockSize,omitempty"` // approximate size of storage block (used with dynamic splitter)
+	MaxBlockSize int    `json:"maxBlockSize,omitempty"` // maximum size of storage block
 }
 
 // RepositoryConnectionInfo represents JSON-serializable configuration of the repository connection, including master key.
