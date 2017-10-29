@@ -34,11 +34,6 @@ type RepositoryConnectionInfo struct {
 	Key            []byte                 `json:"key,omitempty"`
 }
 
-// EncryptedRepositoryConfig contains the configuration of repository that's persisted in encrypted format.
-type EncryptedRepositoryConfig struct {
-	Format RepositoryObjectFormat `json:"format"`
-}
-
 // Load reads local configuration from the specified reader.
 func (lc *LocalConfig) Load(r io.Reader) error {
 	*lc = LocalConfig{}

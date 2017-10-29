@@ -2,7 +2,6 @@ package repo
 
 import (
 	"crypto/rand"
-	"encoding/json"
 	"io"
 
 	"github.com/kopia/kopia/auth"
@@ -11,11 +10,6 @@ import (
 	"github.com/kopia/kopia/metadata"
 	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/storage"
-)
-
-const (
-	formatBlockID           = "format"
-	repositoryConfigBlockID = "repo"
 )
 
 // NewRepositoryOptions specifies options that apply to newly created repositories.
@@ -52,12 +46,7 @@ func Initialize(st storage.Storage, opt *NewRepositoryOptions, creds auth.Creden
 		return err
 	}
 
-	formatBytes, err := json.Marshal(&format)
-	if err != nil {
-		return err
-	}
-
-	if err := st.PutBlock(metadata.MetadataBlockPrefix+formatBlockID, formatBytes); err != nil {
+	if err := writeFormatBlock(st, &format); err != nil {
 		return err
 	}
 
@@ -67,11 +56,9 @@ func Initialize(st storage.Storage, opt *NewRepositoryOptions, creds auth.Creden
 	}
 
 	// Write encrypted repository configuration block.
-	rc := config.EncryptedRepositoryConfig{
+	if err := writeEncryptedConfig(mm, &encryptedRepositoryConfig{
 		Format: repositoryObjectFormatFromOptions(opt),
-	}
-
-	if err := mm.PutJSON(repositoryConfigBlockID, &rc); err != nil {
+	}); err != nil {
 		return err
 	}
 

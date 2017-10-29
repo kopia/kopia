@@ -98,10 +98,9 @@ func connect(ctx context.Context, st storage.Storage, creds auth.Credentials, op
 		return nil, fmt.Errorf("unable to open metadata manager: %v", err)
 	}
 
-	var erc config.EncryptedRepositoryConfig
-
-	if err := mm.GetJSON(repositoryConfigBlockID, &erc); err != nil {
-		return nil, fmt.Errorf("unable to read repository configuration: %v", err)
+	erc, err := readEncryptedConfig(mm)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read encrypted config: %v", err)
 	}
 
 	repoConfig := erc.Format
