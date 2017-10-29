@@ -17,8 +17,6 @@ func runStatusCommand(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
 	defer rep.Close()
 
-	s := rep.Status()
-
 	fmt.Printf("Config file:         %v\n", rep.ConfigFile)
 	fmt.Printf("Cache directory:     %v\n", rep.CacheDirectory)
 	fmt.Println()
@@ -34,28 +32,28 @@ func runStatusCommand(context *kingpin.ParseContext) error {
 
 	var splitterExtraInfo string
 
-	switch s.Splitter {
+	switch rep.Objects.Format.Splitter {
 	case "DYNAMIC":
 		splitterExtraInfo = fmt.Sprintf(
 			" (min: %v; avg: %v; max: %v)",
-			units.BytesStringBase2(int64(s.MinBlockSize)),
-			units.BytesStringBase2(int64(s.AvgBlockSize)),
-			units.BytesStringBase2(int64(s.MaxBlockSize)))
+			units.BytesStringBase2(int64(rep.Objects.Format.MinBlockSize)),
+			units.BytesStringBase2(int64(rep.Objects.Format.AvgBlockSize)),
+			units.BytesStringBase2(int64(rep.Objects.Format.MaxBlockSize)))
 	case "":
 	case "FIXED":
-		splitterExtraInfo = fmt.Sprintf(" %v", units.BytesStringBase2(int64(s.MaxBlockSize)))
+		splitterExtraInfo = fmt.Sprintf(" %v", units.BytesStringBase2(int64(rep.Objects.Format.MaxBlockSize)))
 	}
 
 	fmt.Println()
-	fmt.Printf("Metadata manager:    v%v\n", s.MetadataManagerVersion)
-	fmt.Printf("Metadata Encryption: %v\n", s.MetadataEncryptionAlgorithm)
-	fmt.Printf("Key Derivation:      %v\n", s.KeyDerivationAlgorithm)
-	fmt.Printf("Unique ID:           %v\n", s.UniqueID)
+	fmt.Printf("Metadata manager:    v%v\n", rep.Metadata.Format.Version)
+	fmt.Printf("Metadata Encryption: %v\n", rep.Metadata.Format.EncryptionAlgorithm)
+	fmt.Printf("Key Derivation:      %v\n", rep.Security.KeyDerivationAlgorithm)
+	fmt.Printf("Unique ID:           %x\n", rep.Security.UniqueID)
 	fmt.Println()
-	fmt.Printf("Object manager:      v%v\n", s.ObjectManagerVersion)
-	fmt.Printf("Block format:        %v\n", s.BlockFormat)
-	fmt.Printf("Splitter:            %v%v\n", s.Splitter, splitterExtraInfo)
-	fmt.Printf("Max packed len:      %v\n", units.BytesStringBase2(int64(s.MaxPackedContentLength)))
+	fmt.Printf("Object manager:      v%v\n", rep.Objects.Format.Version)
+	fmt.Printf("Block format:        %v\n", rep.Objects.Format.BlockFormat)
+	fmt.Printf("Splitter:            %v%v\n", rep.Objects.Format.Splitter, splitterExtraInfo)
+	fmt.Printf("Max packed len:      %v\n", units.BytesStringBase2(int64(rep.Objects.Format.MaxPackedContentLength)))
 
 	return nil
 }
