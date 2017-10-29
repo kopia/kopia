@@ -1,14 +1,15 @@
-package repo
+package metadata
 
 import (
 	"context"
+	"crypto/rand"
+	"io"
 	"io/ioutil"
 	"os"
 	"reflect"
 	"strings"
 
 	"github.com/kopia/kopia/auth"
-	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/storage"
 	"github.com/kopia/kopia/storage/filesystem"
 
@@ -37,34 +38,35 @@ func TestMetadataManager(t *testing.T) {
 		return
 	}
 
-	f := &config.MetadataFormat{
-		Version: "1",
-		SecurityOptions: auth.SecurityOptions{
-			UniqueID:               randomBytes(32),
-			KeyDerivationAlgorithm: auth.DefaultKeyDerivationAlgorithm,
-		},
-		EncryptionAlgorithm: DefaultMetadataEncryptionAlgorithm,
+	f := Format{
+		Version:             "1",
+		EncryptionAlgorithm: DefaultEncryptionAlgorithm,
 	}
 
-	km, err := auth.NewKeyManager(creds, f.SecurityOptions)
+	so := auth.SecurityOptions{
+		UniqueID:               randomBytes(32),
+		KeyDerivationAlgorithm: auth.DefaultKeyDerivationAlgorithm,
+	}
+
+	km, err := auth.NewKeyManager(creds, so)
 	if err != nil {
 		t.Errorf("can't create key manager")
 		return
 	}
 
-	v, err := newMetadataManager(st, f, km)
+	v, err := NewManager(st, f, km)
 	if err != nil {
 		t.Errorf("can't open first metadata manager: %v", err)
 		return
 	}
 
-	otherKM, err := auth.NewKeyManager(otherCreds, f.SecurityOptions)
+	otherKM, err := auth.NewKeyManager(otherCreds, so)
 	if err != nil {
 		t.Errorf("can't create key manager")
 		return
 	}
 
-	otherMM, err := newMetadataManager(st, f, otherKM)
+	otherMM, err := NewManager(st, f, otherKM)
 	if err != nil {
 		t.Errorf("can't open first metadata manager: %v", err)
 		return
@@ -96,8 +98,8 @@ func TestMetadataManager(t *testing.T) {
 	assertMetadataItems(t, v, "baz", []string{"baz"})
 	assertMetadataItems(t, v, "bazx", nil)
 
-	assertReservedName(t, v, formatBlockID)
-	assertReservedName(t, v, repositoryConfigBlockID)
+	assertReservedName(t, v, "format")
+	assertReservedName(t, v, "repo")
 
 	v.Remove("bar")
 
@@ -123,7 +125,7 @@ func TestMetadataManager(t *testing.T) {
 	}
 	assertMetadataItem(t, v, "baz", "test4")
 
-	v2, err := newMetadataManager(st, f, km)
+	v2, err := NewManager(st, f, km)
 	if err != nil {
 		t.Errorf("can't open first metadata manager: %v", err)
 		return
@@ -134,7 +136,7 @@ func TestMetadataManager(t *testing.T) {
 	assertMetadataItem(t, v2, "baz", "test4")
 }
 
-func assertMetadataItem(t *testing.T, v *MetadataManager, itemID string, expectedData string) {
+func assertMetadataItem(t *testing.T, v *Manager, itemID string, expectedData string) {
 	t.Helper()
 	b, err := v.GetMetadata(itemID)
 	if err != nil {
@@ -148,14 +150,14 @@ func assertMetadataItem(t *testing.T, v *MetadataManager, itemID string, expecte
 	}
 }
 
-func assertMetadataItemNotFound(t *testing.T, v *MetadataManager, itemID string) {
+func assertMetadataItemNotFound(t *testing.T, v *Manager, itemID string) {
 	result, err := v.GetMetadata(itemID)
-	if err != ErrMetadataNotFound {
-		t.Errorf("invalid error getting item %v: %v (result=%v), but expected %v", itemID, err, result, ErrMetadataNotFound)
+	if err != ErrNotFound {
+		t.Errorf("invalid error getting item %v: %v (result=%v), but expected %v", itemID, err, result, ErrNotFound)
 	}
 }
 
-func assertReservedName(t *testing.T, v *MetadataManager, itemID string) {
+func assertReservedName(t *testing.T, v *Manager, itemID string) {
 	_, err := v.GetMetadata(itemID)
 	assertReservedNameError(t, "Get", itemID, err)
 	assertReservedNameError(t, "Put", itemID, v.Put(itemID, nil))
@@ -173,7 +175,7 @@ func assertReservedNameError(t *testing.T, method string, itemID string, err err
 	}
 }
 
-func assertMetadataItems(t *testing.T, v *MetadataManager, prefix string, expected []string) {
+func assertMetadataItems(t *testing.T, v *Manager, prefix string, expected []string) {
 	t.Helper()
 	res, err := v.List(prefix)
 	if err != nil {
@@ -194,4 +196,10 @@ func mustCreateFileStorage(t *testing.T, path string) storage.Storage {
 		t.Errorf("can't create file storage: %v", err)
 	}
 	return s
+}
+
+func randomBytes(n int) []byte {
+	b := make([]byte, n)
+	io.ReadFull(rand.Reader, b)
+	return b
 }

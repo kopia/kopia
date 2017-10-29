@@ -12,6 +12,7 @@ import (
 
 	"sync"
 
+	"github.com/kopia/kopia/metadata"
 	"github.com/kopia/kopia/repo"
 )
 
@@ -252,7 +253,7 @@ func (m *Manager) policyID(src *SourceInfo) string {
 
 func (m *Manager) getPolicyItem(itemID string) (*Policy, error) {
 	b, err := m.repository.Metadata.GetMetadata(itemID)
-	if err == repo.ErrMetadataNotFound {
+	if err == metadata.ErrNotFound {
 		return nil, ErrPolicyNotFound
 	}
 

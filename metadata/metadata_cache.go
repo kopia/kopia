@@ -1,7 +1,9 @@
-package repo
+package metadata
 
 import (
+	"crypto/rand"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 	"sync"
@@ -72,8 +74,11 @@ func (mc *metadataCache) PutBlock(name string, data []byte) error {
 		return err
 	}
 
+	b := make([]byte, 8)
+	io.ReadFull(rand.Reader, b)
+
 	mc.mu.Lock()
-	cid := fmt.Sprintf("%v-new-%x", name, randomBytes(8))
+	cid := fmt.Sprintf("%v-new-%x", name, b)
 	mc.nameToCacheID[name] = cid
 	p := sort.SearchStrings(mc.sortedNames, name)
 	if p >= len(mc.sortedNames) || mc.sortedNames[p] != name {

@@ -10,6 +10,7 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/units"
+	"github.com/kopia/kopia/metadata"
 	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
@@ -256,7 +257,7 @@ func runCleanupCommand(context *kingpin.ParseContext) error {
 		totalBlocks++
 		totalBytes += b.Length
 
-		if strings.HasPrefix(b.BlockID, repo.MetadataBlockPrefix) || strings.HasPrefix(b.BlockID, "P") {
+		if strings.HasPrefix(b.BlockID, metadata.MetadataBlockPrefix) || strings.HasPrefix(b.BlockID, "P") {
 			ignoredBlocks++
 			ignoredBytes += b.Length
 			continue

@@ -6,19 +6,19 @@ import (
 
 	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/block"
-	"github.com/kopia/kopia/internal/config"
+	"github.com/kopia/kopia/metadata"
 	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/storage"
 )
 
 // Repository represents storage where both content-addressable and user-addressable data is kept.
 type Repository struct {
-	Blocks         *block.Manager
-	Objects        *object.Manager
-	Metadata       *MetadataManager
-	Storage        storage.Storage
-	KeyManager     *auth.KeyManager
-	metadataFormat *config.MetadataFormat
+	Blocks     *block.Manager
+	Objects    *object.Manager
+	Metadata   *metadata.Manager
+	Storage    storage.Storage
+	KeyManager *auth.KeyManager
+	Security   auth.SecurityOptions
 
 	ConfigFile     string
 	CacheDirectory string
@@ -48,10 +48,10 @@ func (r *Repository) Status() StatusInfo {
 	s := StatusInfo{
 		Stats: r.Blocks.Stats(),
 
-		MetadataManagerVersion:      r.metadataFormat.Version,
-		UniqueID:                    hex.EncodeToString(r.metadataFormat.UniqueID),
-		MetadataEncryptionAlgorithm: r.metadataFormat.EncryptionAlgorithm,
-		KeyDerivationAlgorithm:      r.metadataFormat.KeyDerivationAlgorithm,
+		MetadataManagerVersion:      r.Metadata.Format.Version,
+		UniqueID:                    hex.EncodeToString(r.Security.UniqueID),
+		MetadataEncryptionAlgorithm: r.Metadata.Format.EncryptionAlgorithm,
+		KeyDerivationAlgorithm:      r.Security.KeyDerivationAlgorithm,
 
 		ObjectManagerVersion: fmt.Sprintf("%v", r.Objects.Format.Version),
 		BlockFormat:          r.Objects.Format.BlockFormat,

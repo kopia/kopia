@@ -8,8 +8,14 @@ import (
 	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/config"
+	"github.com/kopia/kopia/metadata"
 	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/storage"
+)
+
+const (
+	formatBlockID           = "format"
+	repositoryConfigBlockID = "repo"
 )
 
 // NewRepositoryOptions specifies options that apply to newly created repositories.
@@ -39,7 +45,7 @@ func Initialize(st storage.Storage, opt *NewRepositoryOptions, creds auth.Creden
 		opt = &NewRepositoryOptions{}
 	}
 
-	format := metadataFormatFromOptions(opt)
+	format := formatBlockFromOptions(opt)
 
 	km, err := auth.NewKeyManager(creds, format.SecurityOptions)
 	if err != nil {
@@ -51,11 +57,11 @@ func Initialize(st storage.Storage, opt *NewRepositoryOptions, creds auth.Creden
 		return err
 	}
 
-	if err := st.PutBlock(MetadataBlockPrefix+formatBlockID, formatBytes); err != nil {
+	if err := st.PutBlock(metadata.MetadataBlockPrefix+formatBlockID, formatBytes); err != nil {
 		return err
 	}
 
-	mm, err := newMetadataManager(st, &format, km)
+	mm, err := metadata.NewManager(st, format.Format, km)
 	if err != nil {
 		return err
 	}
@@ -65,21 +71,23 @@ func Initialize(st storage.Storage, opt *NewRepositoryOptions, creds auth.Creden
 		Format: repositoryObjectFormatFromOptions(opt),
 	}
 
-	if err := mm.putJSON(repositoryConfigBlockID, &rc); err != nil {
+	if err := mm.PutJSON(repositoryConfigBlockID, &rc); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func metadataFormatFromOptions(opt *NewRepositoryOptions) config.MetadataFormat {
-	return config.MetadataFormat{
+func formatBlockFromOptions(opt *NewRepositoryOptions) formatBlock {
+	return formatBlock{
 		SecurityOptions: auth.SecurityOptions{
 			KeyDerivationAlgorithm: applyDefaultString(opt.KeyDerivationAlgorithm, auth.DefaultKeyDerivationAlgorithm),
 			UniqueID:               applyDefaultRandomBytes(opt.UniqueID, 32),
 		},
-		Version:             "1",
-		EncryptionAlgorithm: applyDefaultString(opt.MetadataEncryptionAlgorithm, DefaultMetadataEncryptionAlgorithm),
+		Format: metadata.Format{
+			Version:             "1",
+			EncryptionAlgorithm: applyDefaultString(opt.MetadataEncryptionAlgorithm, metadata.DefaultEncryptionAlgorithm),
+		},
 	}
 }
 

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/kopia/kopia/metadata"
 	"github.com/kopia/kopia/object"
 
 	"github.com/kopia/kopia/auth"
@@ -21,6 +22,11 @@ import (
 	_ "github.com/kopia/kopia/storage/filesystem"
 	_ "github.com/kopia/kopia/storage/gcs"
 )
+
+type formatBlock struct {
+	auth.SecurityOptions
+	metadata.Format
+}
 
 // Options provides configuration parameters for connection to a repository.
 type Options struct {
@@ -83,8 +89,8 @@ type ConnectOptions struct {
 	CacheDirectory     string
 }
 
-func readMetadataFormat(st storage.Storage) (*config.MetadataFormat, error) {
-	f := &config.MetadataFormat{}
+func readFormaBlock(st storage.Storage) (*formatBlock, error) {
+	f := &formatBlock{}
 
 	b, err := st.GetBlock("VLTformat", 0, -1)
 	if err != nil {
@@ -104,7 +110,7 @@ func Connect(ctx context.Context, configFile string, st storage.Storage, creds a
 		return errors.New("repository does not support persisting configuration")
 	}
 
-	f, err := readMetadataFormat(st)
+	f, err := readFormaBlock(st)
 	if err != nil {
 		return err
 	}
@@ -161,7 +167,7 @@ func connect(ctx context.Context, st storage.Storage, creds auth.Credentials, op
 		st = logging.NewWrapper(st, logging.Prefix("[STORAGE] "), logging.Output(options.TraceStorage))
 	}
 
-	f, err := readMetadataFormat(st)
+	f, err := readFormaBlock(st)
 	if err != nil {
 		return nil, err
 	}
@@ -171,14 +177,14 @@ func connect(ctx context.Context, st storage.Storage, creds auth.Credentials, op
 		return nil, err
 	}
 
-	mm, err := newMetadataManager(st, f, km)
+	mm, err := metadata.NewManager(st, f.Format, km)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open metadata manager: %v", err)
 	}
 
 	var erc config.EncryptedRepositoryConfig
 
-	if err := mm.getJSON("repo", &erc); err != nil {
+	if err := mm.GetJSON(repositoryConfigBlockID, &erc); err != nil {
 		return nil, fmt.Errorf("unable to read repository configuration: %v", err)
 	}
 
@@ -202,12 +208,12 @@ func connect(ctx context.Context, st storage.Storage, creds auth.Credentials, op
 	}
 
 	return &Repository{
-		Blocks:         bm,
-		Objects:        om,
-		Metadata:       mm,
-		Storage:        st,
-		KeyManager:     km,
-		metadataFormat: f,
+		Blocks:     bm,
+		Objects:    om,
+		Metadata:   mm,
+		Storage:    st,
+		KeyManager: km,
+		Security:   f.SecurityOptions,
 	}, nil
 }
 

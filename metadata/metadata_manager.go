@@ -1,4 +1,4 @@
-package repo
+package metadata
 
 import (
 	"crypto/aes"
@@ -11,13 +11,7 @@ import (
 	"sync"
 
 	"github.com/kopia/kopia/auth"
-	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/storage"
-)
-
-const (
-	formatBlockID           = "format"
-	repositoryConfigBlockID = "repo"
 )
 
 const (
@@ -29,28 +23,37 @@ var (
 	purposeAuthData = []byte("CHECKSUM")
 )
 
-// ErrMetadataNotFound is an error returned when a metadata item cannot be found.
-var ErrMetadataNotFound = errors.New("metadata not found")
+// ErrNotFound is an error returned when a metadata item cannot be found.
+var ErrNotFound = errors.New("metadata not found")
 
-// SupportedMetadataEncryptionAlgorithms is a list of supported metadata encryption algorithms including:
+// SupportedEncryptionAlgorithms is a list of supported metadata encryption algorithms including:
 //
 //   AES256_GCM    - AES-256 in GCM mode
 //   NONE          - no encryption
-var SupportedMetadataEncryptionAlgorithms []string
+var SupportedEncryptionAlgorithms []string
 
-// DefaultMetadataEncryptionAlgorithm is a metadata encryption algorithm used for new repositories.
-const DefaultMetadataEncryptionAlgorithm = "AES256_GCM"
+// DefaultEncryptionAlgorithm is a metadata encryption algorithm used for new repositories.
+const DefaultEncryptionAlgorithm = "AES256_GCM"
 
 func init() {
-	SupportedMetadataEncryptionAlgorithms = []string{
+	SupportedEncryptionAlgorithms = []string{
 		"AES256_GCM",
 		"NONE",
 	}
 }
 
-// MetadataManager manages JSON metadata, such as snapshot manifests, policies, object format etc.
+// Format describes the format of metadata items in repository.
+// Contents of this structure are serialized in plain text in the storage.
+type Format struct {
+	Version             string `json:"version"`
+	EncryptionAlgorithm string `json:"encryption"`
+}
+
+// Manager manages JSON metadata, such as snapshot manifests, policies, object format etc.
 // in a repository.
-type MetadataManager struct {
+type Manager struct {
+	Format Format
+
 	storage storage.Storage
 	cache   *metadataCache
 
@@ -59,7 +62,7 @@ type MetadataManager struct {
 }
 
 // Put saves the specified metadata content under a provided name.
-func (mm *MetadataManager) Put(itemID string, content []byte) error {
+func (mm *Manager) Put(itemID string, content []byte) error {
 	if err := checkReservedName(itemID); err != nil {
 		return err
 	}
@@ -68,11 +71,11 @@ func (mm *MetadataManager) Put(itemID string, content []byte) error {
 }
 
 // RefreshCache refreshes the cache of metadata items.
-func (mm *MetadataManager) RefreshCache() error {
+func (mm *Manager) RefreshCache() error {
 	return mm.cache.refresh()
 }
 
-func (mm *MetadataManager) writeEncryptedBlock(itemID string, content []byte) error {
+func (mm *Manager) writeEncryptedBlock(itemID string, content []byte) error {
 	if mm.aead != nil {
 		nonceLength := mm.aead.NonceSize()
 		noncePlusContentLength := nonceLength + len(content)
@@ -92,11 +95,11 @@ func (mm *MetadataManager) writeEncryptedBlock(itemID string, content []byte) er
 	return mm.cache.PutBlock(itemID, content)
 }
 
-func (mm *MetadataManager) readEncryptedBlock(itemID string) ([]byte, error) {
+func (mm *Manager) readEncryptedBlock(itemID string) ([]byte, error) {
 	content, err := mm.cache.GetBlock(itemID)
 	if err != nil {
 		if err == storage.ErrBlockNotFound {
-			return nil, ErrMetadataNotFound
+			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("unexpected error reading %v: %v", itemID, err)
 	}
@@ -104,7 +107,7 @@ func (mm *MetadataManager) readEncryptedBlock(itemID string) ([]byte, error) {
 	return mm.decryptBlock(content)
 }
 
-func (mm *MetadataManager) decryptBlock(content []byte) ([]byte, error) {
+func (mm *Manager) decryptBlock(content []byte) ([]byte, error) {
 	if mm.aead != nil {
 		nonce := content[0:mm.aead.NonceSize()]
 		payload := content[mm.aead.NonceSize():]
@@ -115,7 +118,7 @@ func (mm *MetadataManager) decryptBlock(content []byte) ([]byte, error) {
 }
 
 // GetMetadata returns the contents of a specified metadata item.
-func (mm *MetadataManager) GetMetadata(itemID string) ([]byte, error) {
+func (mm *Manager) GetMetadata(itemID string) ([]byte, error) {
 	if err := checkReservedName(itemID); err != nil {
 		return nil, err
 	}
@@ -125,7 +128,7 @@ func (mm *MetadataManager) GetMetadata(itemID string) ([]byte, error) {
 
 // MultiGet gets the contents of a specified multiple metadata items efficiently.
 // The results are returned as a map, with items that are not found not present in the map.
-func (mm *MetadataManager) MultiGet(itemIDs []string) (map[string][]byte, error) {
+func (mm *Manager) MultiGet(itemIDs []string) (map[string][]byte, error) {
 	type singleReadResult struct {
 		id       string
 		contents []byte
@@ -170,7 +173,8 @@ func (mm *MetadataManager) MultiGet(itemIDs []string) (map[string][]byte, error)
 	return resultMap, nil
 }
 
-func (mm *MetadataManager) getJSON(itemID string, content interface{}) error {
+// GetJSON reads and parses given item as JSON.
+func (mm *Manager) GetJSON(itemID string, content interface{}) error {
 	j, err := mm.readEncryptedBlock(itemID)
 	if err != nil {
 		return err
@@ -179,8 +183,8 @@ func (mm *MetadataManager) getJSON(itemID string, content interface{}) error {
 	return json.Unmarshal(j, content)
 }
 
-// putJSON stores the contents of an item stored with a given ID.
-func (mm *MetadataManager) putJSON(id string, content interface{}) error {
+// PutJSON stores the contents of an item stored with a given ID.
+func (mm *Manager) PutJSON(id string, content interface{}) error {
 	j, err := json.Marshal(content)
 	if err != nil {
 		return err
@@ -190,12 +194,12 @@ func (mm *MetadataManager) putJSON(id string, content interface{}) error {
 }
 
 // List returns the list of metadata items matching the specified prefix.
-func (mm *MetadataManager) List(prefix string) ([]string, error) {
+func (mm *Manager) List(prefix string) ([]string, error) {
 	return mm.cache.ListBlocks(prefix)
 }
 
 // ListContents retrieves metadata contents for all items starting with a given prefix.
-func (mm *MetadataManager) ListContents(prefix string) (map[string][]byte, error) {
+func (mm *Manager) ListContents(prefix string) (map[string][]byte, error) {
 	itemIDs, err := mm.List(prefix)
 	if err != nil {
 		return nil, err
@@ -205,7 +209,7 @@ func (mm *MetadataManager) ListContents(prefix string) (map[string][]byte, error
 }
 
 // Remove removes the specified metadata item.
-func (mm *MetadataManager) Remove(itemID string) error {
+func (mm *Manager) Remove(itemID string) error {
 	if err := checkReservedName(itemID); err != nil {
 		return err
 	}
@@ -214,7 +218,7 @@ func (mm *MetadataManager) Remove(itemID string) error {
 }
 
 // RemoveMany efficiently removes multiple metadata items in parallel.
-func (mm *MetadataManager) RemoveMany(itemIDs []string) error {
+func (mm *Manager) RemoveMany(itemIDs []string) error {
 	parallelism := 30
 	ch := make(chan string)
 	var wg sync.WaitGroup
@@ -243,14 +247,15 @@ func (mm *MetadataManager) RemoveMany(itemIDs []string) error {
 	return <-errch
 }
 
-// newMetadataManager opens a MetadataManager for given storage and credentials.
-func newMetadataManager(st storage.Storage, f *config.MetadataFormat, km *auth.KeyManager) (*MetadataManager, error) {
+// NewManager opens a MetadataManager for given storage and credentials.
+func NewManager(st storage.Storage, f Format, km *auth.KeyManager) (*Manager, error) {
 	cache, err := newMetadataCache(st)
 	if err != nil {
 		return nil, err
 	}
 
-	mm := MetadataManager{
+	mm := &Manager{
+		Format:  f,
 		storage: st,
 		cache:   cache,
 	}
@@ -259,10 +264,10 @@ func newMetadataManager(st storage.Storage, f *config.MetadataFormat, km *auth.K
 		return nil, fmt.Errorf("unable to initialize crypto: %v", err)
 	}
 
-	return &mm, nil
+	return mm, nil
 }
 
-func (mm *MetadataManager) initCrypto(f *config.MetadataFormat, km *auth.KeyManager) error {
+func (mm *Manager) initCrypto(f Format, km *auth.KeyManager) error {
 	switch f.EncryptionAlgorithm {
 	case "NONE": // do nothing
 		return nil
@@ -286,7 +291,7 @@ func (mm *MetadataManager) initCrypto(f *config.MetadataFormat, km *auth.KeyMana
 
 func isReservedName(itemID string) bool {
 	switch itemID {
-	case formatBlockID, repositoryConfigBlockID:
+	case "format", "repo":
 		return true
 
 	default:

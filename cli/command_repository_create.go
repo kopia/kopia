@@ -8,6 +8,7 @@ import (
 
 	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/units"
+	"github.com/kopia/kopia/metadata"
 	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/storage"
@@ -17,7 +18,7 @@ var (
 	createCommand            = repositoryCommands.Command("create", "Create new repository in a specified location.")
 	createRepositoryLocation = createCommand.Arg("location", "Location where to create the repository").Required().String()
 
-	createMetadataEncryptionFormat = createCommand.Flag("metadata-encryption", "Metadata item encryption.").PlaceHolder("FORMAT").Default(repo.SupportedMetadataEncryptionAlgorithms[0]).Enum(repo.SupportedMetadataEncryptionAlgorithms...)
+	createMetadataEncryptionFormat = createCommand.Flag("metadata-encryption", "Metadata item encryption.").PlaceHolder("FORMAT").Default(metadata.SupportedEncryptionAlgorithms[0]).Enum(metadata.SupportedEncryptionAlgorithms...)
 	createObjectFormat             = createCommand.Flag("object-format", "Format of repository objects.").PlaceHolder("FORMAT").Default(block.DefaultFormat).Enum(block.SupportedFormats...)
 	createObjectSplitter           = createCommand.Flag("object-splitter", "The splitter to use for new objects in the repository").Default("DYNAMIC").Enum(object.SupportedSplitters...)
 
