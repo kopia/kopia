@@ -26,21 +26,14 @@ var (
 // ErrNotFound is an error returned when a metadata item cannot be found.
 var ErrNotFound = errors.New("metadata not found")
 
-// SupportedEncryptionAlgorithms is a list of supported metadata encryption algorithms including:
-//
-//   AES256_GCM    - AES-256 in GCM mode
-//   NONE          - no encryption
-var SupportedEncryptionAlgorithms []string
+// SupportedEncryptionAlgorithms is a list of supported metadata encryption algorithms.
+var SupportedEncryptionAlgorithms = []string{
+	"AES256_GCM",
+	"NONE",
+}
 
 // DefaultEncryptionAlgorithm is a metadata encryption algorithm used for new repositories.
 const DefaultEncryptionAlgorithm = "AES256_GCM"
-
-func init() {
-	SupportedEncryptionAlgorithms = []string{
-		"AES256_GCM",
-		"NONE",
-	}
-}
 
 // Format describes the format of metadata items in repository.
 // Contents of this structure are serialized in plain text in the storage.
