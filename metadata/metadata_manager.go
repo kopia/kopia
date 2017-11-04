@@ -119,53 +119,6 @@ func (m *Manager) GetMetadata(itemID string) ([]byte, error) {
 	return m.readEncryptedBlock(itemID)
 }
 
-// MultiGet gets the contents of a specified multiple metadata items efficiently.
-// The results are returned as a map, with items that are not found not present in the map.
-func (m *Manager) MultiGet(itemIDs []string) (map[string][]byte, error) {
-	type singleReadResult struct {
-		id       string
-		contents []byte
-		err      error
-	}
-
-	ch := make(chan singleReadResult)
-	inputs := make(chan string)
-	for i := 0; i < parallelFetches; i++ {
-		go func() {
-			for itemID := range inputs {
-				v, err := m.GetMetadata(itemID)
-				ch <- singleReadResult{itemID, v, err}
-			}
-		}()
-	}
-
-	go func() {
-		// feed item IDs to workers.
-		for _, i := range itemIDs {
-			inputs <- i
-		}
-		close(inputs)
-	}()
-
-	// fetch exactly N results
-	var resultErr error
-	resultMap := make(map[string][]byte)
-	for i := 0; i < len(itemIDs); i++ {
-		r := <-ch
-		if r.err != nil {
-			resultErr = r.err
-		} else {
-			resultMap[r.id] = r.contents
-		}
-	}
-
-	if resultErr != nil {
-		return nil, resultErr
-	}
-
-	return resultMap, nil
-}
-
 // GetJSON reads and parses given item as JSON.
 func (m *Manager) GetJSON(itemID string, content interface{}) error {
 	j, err := m.readEncryptedBlock(itemID)
@@ -189,16 +142,6 @@ func (m *Manager) PutJSON(id string, content interface{}) error {
 // List returns the list of metadata items matching the specified prefix.
 func (m *Manager) List(prefix string) ([]string, error) {
 	return m.cache.ListBlocks(prefix)
-}
-
-// ListContents retrieves metadata contents for all items starting with a given prefix.
-func (m *Manager) ListContents(prefix string) (map[string][]byte, error) {
-	itemIDs, err := m.List(prefix)
-	if err != nil {
-		return nil, err
-	}
-
-	return m.MultiGet(itemIDs)
 }
 
 // Remove removes the specified metadata item.
