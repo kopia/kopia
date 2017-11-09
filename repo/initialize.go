@@ -12,6 +12,12 @@ import (
 	"github.com/kopia/kopia/storage"
 )
 
+// BuildInfo is the build information of Kopia.
+var (
+	BuildInfo    = "unknown"
+	BuildVersion = "unknown"
+)
+
 // NewRepositoryOptions specifies options that apply to newly created repositories.
 // All fields are optional, when not provided, reasonable defaults will be used.
 type NewRepositoryOptions struct {
@@ -46,40 +52,32 @@ func Initialize(st storage.Storage, opt *NewRepositoryOptions, creds auth.Creden
 		return err
 	}
 
-	if err := writeFormatBlock(st, &format); err != nil {
+	if err := encryptFormatBytes(format, repositoryObjectFormatFromOptions(opt), km); err != nil {
 		return err
 	}
 
-	mm, err := metadata.NewManager(st, format.Format, km)
-	if err != nil {
-		return err
-	}
-
-	// Write encrypted repository configuration block.
-	if err := writeEncryptedConfig(mm, &encryptedRepositoryConfig{
-		Format: repositoryObjectFormatFromOptions(opt),
-	}); err != nil {
+	if err := writeFormatBlock(st, format); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func formatBlockFromOptions(opt *NewRepositoryOptions) formatBlock {
-	return formatBlock{
+func formatBlockFromOptions(opt *NewRepositoryOptions) *formatBlock {
+	return &formatBlock{
+		Tool:      "https://github.com/kopia/kopia",
+		BuildInfo: BuildInfo,
 		SecurityOptions: auth.SecurityOptions{
 			KeyDerivationAlgorithm: applyDefaultString(opt.KeyDerivationAlgorithm, auth.DefaultKeyDerivationAlgorithm),
 			UniqueID:               applyDefaultRandomBytes(opt.UniqueID, 32),
 		},
-		Format: metadata.Format{
-			Version:             "1",
-			EncryptionAlgorithm: applyDefaultString(opt.MetadataEncryptionAlgorithm, metadata.DefaultEncryptionAlgorithm),
-		},
+		Version:             "1",
+		EncryptionAlgorithm: applyDefaultString(opt.MetadataEncryptionAlgorithm, metadata.DefaultEncryptionAlgorithm),
 	}
 }
 
-func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) config.RepositoryObjectFormat {
-	f := config.RepositoryObjectFormat{
+func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) *config.RepositoryObjectFormat {
+	f := &config.RepositoryObjectFormat{
 		FormattingOptions: block.FormattingOptions{
 			Version:                1,
 			BlockFormat:            applyDefaultString(opt.BlockFormat, block.DefaultFormat),

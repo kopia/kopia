@@ -3,7 +3,7 @@ BUILD_INFO ?= $(USER)@$(shell hostname -s)_$(shell date +%Y%m%d_%H%M%S)
 RELEASE_SUFFIX ?= $(shell go env GOOS)-$(shell go env GOARCH)
 RELEASE_VERSION ?= $(BUILD_VERSION)-$(RELEASE_SUFFIX)
 RELEASE_NAME = kopia-$(RELEASE_VERSION)
-LDARGS="-X main.buildVersion=$(BUILD_VERSION)"
+LDARGS="-X github.com/kopia/kopia/repo.BuildVersion=$(BUILD_VERSION) -X github.com/kopia/kopia/repo.BuildInfo=$(BUILD_INFO)"
 RELEASE_TMP_DIR = $(CURDIR)/.release
 RELEASES_OUT_DIR = $(CURDIR)/.releases
 ZIP ?= 0

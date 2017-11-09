@@ -83,7 +83,7 @@ func connect(ctx context.Context, st storage.Storage, creds auth.Credentials, op
 		st = logging.NewWrapper(st, logging.Prefix("[STORAGE] "), logging.Output(options.TraceStorage))
 	}
 
-	f, err := readFormaBlock(st)
+	f, err := readFormatBlock(st)
 	if err != nil {
 		return nil, err
 	}
@@ -93,17 +93,18 @@ func connect(ctx context.Context, st storage.Storage, creds auth.Credentials, op
 		return nil, err
 	}
 
-	mm, err := metadata.NewManager(st, f.Format, km)
+	mm, err := metadata.NewManager(st, metadata.Format{
+		Version:             f.Version,
+		EncryptionAlgorithm: f.EncryptionAlgorithm,
+	}, km)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open metadata manager: %v", err)
 	}
 
-	erc, err := readEncryptedConfig(mm)
+	repoConfig, err := decryptFormatBytes(f, km)
 	if err != nil {
-		return nil, fmt.Errorf("unable to read encrypted config: %v", err)
+		return nil, fmt.Errorf("unable to decrypt repository config: %v", err)
 	}
-
-	repoConfig := erc.Format
 
 	sf := block.FormatterFactories[repoConfig.BlockFormat]
 	if sf == nil {
@@ -117,7 +118,7 @@ func connect(ctx context.Context, st storage.Storage, creds auth.Credentials, op
 
 	bm := block.NewManager(st, repoConfig.MaxPackedContentLength, repoConfig.MaxBlockSize, formatter)
 
-	om, err := object.NewObjectManager(bm, repoConfig, options.ObjectManagerOptions)
+	om, err := object.NewObjectManager(bm, *repoConfig, options.ObjectManagerOptions)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open object manager: %v", err)
 	}

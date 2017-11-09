@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -57,6 +58,8 @@ func newUploadTestHarness() *uploadTestHarness {
 	if err := repo.Initialize(storage, &repo.NewRepositoryOptions{}, creds); err != nil {
 		panic("unable to create repository: " + err.Error())
 	}
+
+	log.Printf("repo dir: %v", repoDir)
 
 	configFile := filepath.Join(repoDir, ".kopia.config")
 	if err := repo.Connect(ctx, configFile, storage, creds, repo.ConnectOptions{

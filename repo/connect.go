@@ -31,7 +31,7 @@ func Connect(ctx context.Context, configFile string, st storage.Storage, creds a
 		return errors.New("repository does not support persisting configuration")
 	}
 
-	f, err := readFormaBlock(st)
+	f, err := readFormatBlock(st)
 	if err != nil {
 		return err
 	}

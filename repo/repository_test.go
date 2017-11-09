@@ -88,8 +88,8 @@ func TestWriters(t *testing.T) {
 			t.Errorf("incorrect result for %v, expected: %v got: %v", c.data, c.objectID.String(), result.String())
 		}
 
-		if got, want := len(data), 4; got != want {
-			// 2 format blocks + 1 data block + 1 pack index block
+		if got, want := len(data), 3; got != want {
+			// 1 format block + 1 data block + 1 pack index block
 			t.Errorf("unexpected data written to the storage (%v), wanted %v: %v", len(data), 3, data)
 			dumpBlockManagerData(data)
 		}
@@ -170,7 +170,7 @@ func TestPackingSimple(t *testing.T) {
 		t.Errorf("oid3a(%q) != oid3b(%q)", got, want)
 	}
 
-	if got, want := len(data), 2+4; got != want {
+	if got, want := len(data), 1+4; got != want {
 		t.Errorf("got unexpected repository contents %v items, wanted %v", got, want)
 		for k, v := range data {
 			t.Logf("%v => %v", k, string(v))
