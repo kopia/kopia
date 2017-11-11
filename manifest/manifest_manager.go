@@ -1,6 +1,8 @@
 package manifest
 
 import (
+	"bytes"
+	"compress/gzip"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -107,12 +109,16 @@ func (m *Manager) Flush() error {
 		Entries: m.pendingEntries,
 	}
 
-	b, err := json.Marshal(man)
-	if err != nil {
+	var buf bytes.Buffer
+
+	gz := gzip.NewWriter(&buf)
+	if err := json.NewEncoder(gz).Encode(man); err != nil {
 		return fmt.Errorf("unable to marshal: %v", err)
 	}
+	gz.Flush()
+	gz.Close()
 
-	if _, err := m.b.WriteBlock(manifestGroupID, b); err != nil {
+	if _, err := m.b.WriteBlock(manifestGroupID, buf.Bytes()); err != nil {
 		return err
 	}
 
@@ -151,8 +157,19 @@ func (m *Manager) Load() error {
 		}
 
 		var man Manifest
-		if err := json.Unmarshal(blk, &man); err != nil {
-			return fmt.Errorf("unable to parse block %q: %v", i.BlockID, err)
+		if len(blk) > 2 && blk[0] == '{' {
+			if err := json.Unmarshal(blk, &man); err != nil {
+				return fmt.Errorf("unable to parse block %q: %v", i.BlockID, err)
+			}
+		} else {
+			gz, err := gzip.NewReader(bytes.NewReader(blk))
+			if err != nil {
+				return fmt.Errorf("unable to unpack block %q: %v", i.BlockID, err)
+			}
+
+			if err := json.NewDecoder(gz).Decode(&man); err != nil {
+				return fmt.Errorf("unable to parse block %q: %v", i.BlockID, err)
+			}
 		}
 
 		for _, e := range man.Entries {

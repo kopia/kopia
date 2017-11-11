@@ -3,6 +3,7 @@ package repo
 import (
 	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/block"
+	"github.com/kopia/kopia/manifest"
 	"github.com/kopia/kopia/metadata"
 	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/storage"
@@ -16,6 +17,7 @@ type Repository struct {
 	Storage    storage.Storage
 	KeyManager *auth.KeyManager
 	Security   auth.SecurityOptions
+	Manifests  *manifest.Manager
 
 	ConfigFile     string
 	CacheDirectory string
@@ -23,6 +25,9 @@ type Repository struct {
 
 // Close closes the repository and releases all resources.
 func (r *Repository) Close() error {
+	if err := r.Manifests.Flush(); err != nil {
+		return err
+	}
 	if err := r.Objects.Close(); err != nil {
 		return err
 	}
@@ -34,5 +39,8 @@ func (r *Repository) Close() error {
 
 // Flush waits for all in-flight writes to complete.
 func (r *Repository) Flush() error {
+	if err := r.Manifests.Flush(); err != nil {
+		return err
+	}
 	return r.Objects.Flush()
 }

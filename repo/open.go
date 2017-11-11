@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/kopia/kopia/manifest"
+
 	"github.com/kopia/kopia/metadata"
 	"github.com/kopia/kopia/object"
 
@@ -123,12 +125,18 @@ func connect(ctx context.Context, st storage.Storage, creds auth.Credentials, op
 		return nil, fmt.Errorf("unable to open object manager: %v", err)
 	}
 
+	manifests, err := manifest.NewManager(bm)
+	if err != nil {
+		return nil, fmt.Errorf("unable to open manifests: %v", err)
+	}
+
 	return &Repository{
 		Blocks:     bm,
 		Objects:    om,
 		Metadata:   mm,
 		Storage:    st,
 		KeyManager: km,
+		Manifests:  manifests,
 		Security:   f.SecurityOptions,
 	}, nil
 }

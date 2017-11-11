@@ -104,6 +104,13 @@ func (m *Manager) SaveSnapshot(manifest *Manifest) (string, error) {
 		return "", err
 	}
 
+	m.repository.Manifests.Add(map[string]string{
+		"type":     "snapshot",
+		"hostname": manifest.Source.Host,
+		"username": manifest.Source.UserName,
+		"path":     manifest.Source.Path,
+	}, manifest)
+
 	return "", nil
 }
 
