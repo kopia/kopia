@@ -48,10 +48,11 @@ func (o *offsetAndSize) UnmarshalJSON(b []byte) error {
 }
 
 type packIndex struct {
-	PackBlockID string                   `json:"packBlock,omitempty"`
-	PackGroup   string                   `json:"packGroup,omitempty"`
-	CreateTime  time.Time                `json:"createTime"`
-	Items       map[string]offsetAndSize `json:"items"`
+	PackBlockID  string                   `json:"packBlock,omitempty"`
+	PackGroup    string                   `json:"packGroup,omitempty"`
+	CreateTime   time.Time                `json:"createTime"`
+	Items        map[string]offsetAndSize `json:"items"`
+	DeletedItems []string                 `json:"deletedItems"`
 }
 
 func loadPackIndexes(r io.Reader) (packIndexes, error) {

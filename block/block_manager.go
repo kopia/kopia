@@ -82,6 +82,35 @@ func (bm *Manager) BlockSize(blockID string) (int64, error) {
 	return int64(ndx.Items[blockID].size), nil
 }
 
+// DeleteBlock marks the given blockID as deleted.
+//
+// NOTE: To avoid race conditions only blocks that cannot be possibly re-created
+// should ever be deleted. That means that contents of such blocks should include some element
+// of randomness or a contemporaneous timestamp that will never reappear.
+func (bm *Manager) DeleteBlock(blockID string) error {
+	bm.lock()
+	defer bm.unlock()
+
+	if err := bm.ensurePackIndexesLoaded(); err != nil {
+		return err
+	}
+
+	// delete from all indexes
+	for _, m := range bm.groupToBlockToIndex {
+		delete(m, blockID)
+	}
+
+	for _, m := range bm.openPackGroups {
+		if ndx := m.currentPackIndex; ndx != nil {
+			delete(ndx.Items, blockID)
+		}
+	}
+
+	g := bm.ensurePackGroupLocked("", true)
+	g.currentPackIndex.DeletedItems = append(g.currentPackIndex.DeletedItems, blockID)
+	return nil
+}
+
 func (bm *Manager) registerUnpackedBlock(packGroupID string, blockID string, dataLength int64) error {
 	bm.lock()
 	defer bm.unlock()
@@ -210,7 +239,9 @@ func (bm *Manager) ensurePackGroupLocked(packGroup string, unpacked bool) *packI
 
 func (bm *Manager) flushPackIndexesLocked() error {
 	if len(bm.pendingPackIndexes) > 0 {
-		log.Printf("saving %v pack indexes", len(bm.pendingPackIndexes))
+		if false {
+			log.Printf("saving %v pack indexes", len(bm.pendingPackIndexes))
+		}
 		if _, err := bm.writePackIndexes(bm.pendingPackIndexes); err != nil {
 			return err
 		}
@@ -270,7 +301,7 @@ func (bm *Manager) finishPackLocked(g *packInfo) error {
 		g.currentPackIndex.PackBlockID = blockID
 	}
 
-	if len(g.currentPackIndex.Items) > 0 {
+	if len(g.currentPackIndex.Items)+len(g.currentPackIndex.DeletedItems) > 0 {
 		bm.pendingPackIndexes = append(bm.pendingPackIndexes, g.currentPackIndex)
 	}
 	g.currentPackData = g.currentPackData[:0]
@@ -384,7 +415,9 @@ func (bm *Manager) ensurePackIndexesLoaded() error {
 
 	bm.groupToBlockToIndex = dedupeBlockIDsAndIndex(merged)
 
-	log.Printf("loaded %v indexes of %v blocks in %v", len(merged), len(bm.groupToBlockToIndex), time.Since(t0))
+	if false {
+		log.Printf("loaded %v indexes of %v blocks in %v", len(merged), len(bm.groupToBlockToIndex), time.Since(t0))
+	}
 
 	return nil
 }
@@ -409,6 +442,15 @@ func dedupeBlockIDsAndIndex(ndx packIndexes) map[string]map[string]*packIndex {
 				}
 			} else {
 				g[blockID] = pck
+			}
+		}
+	}
+
+	// Remove deleted items from all groups.
+	for _, pck := range ndx {
+		for _, di := range pck.DeletedItems {
+			for _, m := range pi {
+				delete(m, di)
 			}
 		}
 	}
@@ -857,6 +899,10 @@ func (bm *Manager) findIndexForBlockLocked(blockID string) *packIndex {
 }
 
 func (bm *Manager) blockInfoLocked(blockID string) (Info, error) {
+	if strings.HasPrefix(blockID, packBlockPrefix) {
+		return Info{}, nil
+	}
+
 	bm.assertLocked()
 
 	ndx := bm.findIndexForBlockLocked(blockID)
@@ -879,9 +925,7 @@ func (bm *Manager) getBlockInternalLocked(blockID string) ([]byte, error) {
 
 	s, err := bm.blockInfoLocked(blockID)
 	if err != nil {
-		if err != storage.ErrBlockNotFound {
-			return nil, err
-		}
+		return nil, err
 	}
 
 	var payload []byte

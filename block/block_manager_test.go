@@ -522,6 +522,26 @@ func TestBlockManagerConcurrency(t *testing.T) {
 	}
 }
 
+func TestDeleteBlock(t *testing.T) {
+	data := map[string][]byte{}
+	bm := newTestBlockManager(data)
+	block1 := writeBlockAndVerify(t, bm, "some-group", seededRandomData(10, 100))
+	bm.Flush()
+	block2 := writeBlockAndVerify(t, bm, "some-group", seededRandomData(11, 100))
+	if err := bm.DeleteBlock(block1); err != nil {
+		t.Errorf("unable to delete block: %v", block1)
+	}
+	if err := bm.DeleteBlock(block2); err != nil {
+		t.Errorf("unable to delete block: %v", block1)
+	}
+	verifyBlockNotFound(t, bm, block1)
+	verifyBlockNotFound(t, bm, block2)
+	bm.Flush()
+	bm = newTestBlockManager(data)
+	verifyBlockNotFound(t, bm, block1)
+	verifyBlockNotFound(t, bm, block2)
+}
+
 func newTestBlockManager(data map[string][]byte) *Manager {
 	st := storagetesting.NewMapStorage(data)
 

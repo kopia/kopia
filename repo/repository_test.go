@@ -233,46 +233,6 @@ func TestHMAC(t *testing.T) {
 		t.Errorf("unexpected result: %v err: %v", result.String(), err)
 	}
 }
-
-func TestReader(t *testing.T) {
-	data, repo := setupTest(t)
-
-	storedPayload := []byte("foo\nbar")
-	data["a76999788386641a3ec798554f1fe7e6"] = storedPayload
-
-	cases := []struct {
-		text    string
-		payload []byte
-	}{
-		{"Da76999788386641a3ec798554f1fe7e6", storedPayload},
-	}
-
-	for _, c := range cases {
-		objectID, err := object.ParseID(c.text)
-		if err != nil {
-			t.Errorf("cannot parse object ID: %v", err)
-			continue
-		}
-
-		reader, err := repo.Objects.Open(objectID)
-		if err != nil {
-			t.Errorf("cannot create reader for %v: %v", objectID, err)
-			continue
-		}
-
-		d, err := ioutil.ReadAll(reader)
-		if err != nil {
-			t.Errorf("cannot read all data for %v: %v", objectID, err)
-			continue
-		}
-		if !bytes.Equal(d, c.payload) {
-			t.Errorf("incorrect payload for %v: expected: %v got: %v", objectID, c.payload, d)
-			continue
-		}
-
-	}
-}
-
 func TestMalformedStoredData(t *testing.T) {
 	data, repo := setupTest(t)
 
