@@ -52,7 +52,7 @@ type packIndex struct {
 	PackGroup    string                   `json:"packGroup,omitempty"`
 	CreateTime   time.Time                `json:"createTime"`
 	Items        map[string]offsetAndSize `json:"items"`
-	DeletedItems []string                 `json:"deletedItems"`
+	DeletedItems []string                 `json:"deletedItems,omitempty"`
 }
 
 func loadPackIndexes(r io.Reader) (packIndexes, error) {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -290,18 +291,18 @@ func (bm *Manager) finishPackLocked(g *packInfo) error {
 		return nil
 	}
 
-	if g.currentPackData != nil {
-		dataLength := len(g.currentPackData)
-		blockID, err := bm.writeUnpackedBlockNotLocked(g.currentPackData, "", true)
-		if err != nil {
-			return fmt.Errorf("can't save pack data block %q: %v", blockID, err)
+	if len(g.currentPackIndex.Items)+len(g.currentPackIndex.DeletedItems) > 0 {
+		if g.currentPackData != nil {
+			dataLength := len(g.currentPackData)
+			blockID, err := bm.writeUnpackedBlockNotLocked(g.currentPackData, "", true)
+			if err != nil {
+				return fmt.Errorf("can't save pack data block %q: %v", blockID, err)
+			}
+
+			bm.registerUnpackedBlockLockedNoFlush(packObjectsPackGroup, blockID, int64(dataLength))
+			g.currentPackIndex.PackBlockID = blockID
 		}
 
-		bm.registerUnpackedBlockLockedNoFlush(packObjectsPackGroup, blockID, int64(dataLength))
-		g.currentPackIndex.PackBlockID = blockID
-	}
-
-	if len(g.currentPackIndex.Items)+len(g.currentPackIndex.DeletedItems) > 0 {
 		bm.pendingPackIndexes = append(bm.pendingPackIndexes, g.currentPackIndex)
 	}
 	g.currentPackData = g.currentPackData[:0]
@@ -423,6 +424,9 @@ func (bm *Manager) ensurePackIndexesLoaded() error {
 }
 
 func dedupeBlockIDsAndIndex(ndx packIndexes) map[string]map[string]*packIndex {
+	sort.Slice(ndx, func(i, j int) bool {
+		return ndx[i].CreateTime.Before(ndx[j].CreateTime)
+	})
 	pi := make(map[string]map[string]*packIndex)
 	for _, pck := range ndx {
 		g := pi[pck.PackGroup]
@@ -432,25 +436,16 @@ func dedupeBlockIDsAndIndex(ndx packIndexes) map[string]map[string]*packIndex {
 		}
 		for blockID := range pck.Items {
 			if o := g[blockID]; o != nil {
-				if !pck.CreateTime.Before(o.CreateTime) {
-					// this pack is same or newer.
-					delete(o.Items, blockID)
-					g[blockID] = pck
-				} else {
-					// this pack is older.
-					delete(pck.Items, blockID)
-				}
-			} else {
-				g[blockID] = pck
+				// this pack is same or newer.
+				delete(o.Items, blockID)
 			}
-		}
-	}
 
-	// Remove deleted items from all groups.
-	for _, pck := range ndx {
-		for _, di := range pck.DeletedItems {
+			g[blockID] = pck
+		}
+
+		for _, deletedBlockID := range pck.DeletedItems {
 			for _, m := range pi {
-				delete(m, di)
+				delete(m, deletedBlockID)
 			}
 		}
 	}

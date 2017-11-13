@@ -525,6 +525,7 @@ func TestBlockManagerConcurrency(t *testing.T) {
 func TestDeleteBlock(t *testing.T) {
 	data := map[string][]byte{}
 	bm := newTestBlockManager(data)
+	setFakeTimeWithAutoAdvance(bm, fakeTime, 1)
 	block1 := writeBlockAndVerify(t, bm, "some-group", seededRandomData(10, 100))
 	bm.Flush()
 	block2 := writeBlockAndVerify(t, bm, "some-group", seededRandomData(11, 100))
@@ -538,6 +539,7 @@ func TestDeleteBlock(t *testing.T) {
 	verifyBlockNotFound(t, bm, block2)
 	bm.Flush()
 	bm = newTestBlockManager(data)
+	dumpBlockManagerData(data)
 	verifyBlockNotFound(t, bm, block1)
 	verifyBlockNotFound(t, bm, block2)
 }
@@ -567,6 +569,14 @@ func getIndexCount(d map[string][]byte) int {
 
 func setFakeTime(bm *Manager, t time.Time) {
 	bm.timeNow = func() time.Time { return t }
+}
+
+func setFakeTimeWithAutoAdvance(bm *Manager, t time.Time, dt time.Duration) {
+	bm.timeNow = func() time.Time {
+		ret := t
+		t = t.Add(dt)
+		return ret
+	}
 }
 
 func verifyBlockNotFound(t *testing.T, bm *Manager, blockID string) {
