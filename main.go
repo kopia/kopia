@@ -14,19 +14,16 @@ import (
 	"os"
 
 	"github.com/kopia/kopia/cli"
+	"github.com/kopia/kopia/repo"
 
 	"gopkg.in/alecthomas/kingpin.v2"
-)
-
-var (
-	buildVersion = "UNKNOWN"
 )
 
 func main() {
 	log.SetFlags(0)
 	log.SetOutput(os.Stderr)
 	app := cli.App()
-	app.Version(buildVersion)
+	app.Version(repo.BuildVersion + " build: " + repo.BuildInfo)
 	kingpin.MustParse(app.Parse(os.Args[1:]))
 	return
 }
