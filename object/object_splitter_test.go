@@ -5,9 +5,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/chmduquesne/rollinghash/adler32"
-	"github.com/chmduquesne/rollinghash/buzhash32"
-	"github.com/chmduquesne/rollinghash/rabinkarp32"
+	"github.com/silvasur/buzhash"
 )
 
 func TestSplitters(t *testing.T) {
@@ -15,8 +13,8 @@ func TestSplitters(t *testing.T) {
 		desc        string
 		newSplitter func() objectSplitter
 	}{
-		{"rolling buzhash32 with 3 bits", func() objectSplitter { return newRollingHashSplitter(buzhash32.New(), 0, 8, 20) }},
-		{"rolling adler32 with 5 bits", func() objectSplitter { return newRollingHashSplitter(adler32.New(), 0, 32, 100) }},
+		{"rolling buzhash with 3 bits", func() objectSplitter { return newRollingHashSplitter(buzhash.NewBuzHash(32), 0, 8, 20) }},
+		{"rolling buzhash with 5 bits", func() objectSplitter { return newRollingHashSplitter(buzhash.NewBuzHash(32), 0, 32, 20) }},
 	}
 
 	for _, tc := range cases {
@@ -53,24 +51,18 @@ func TestSplitterStability(t *testing.T) {
 
 		{newNeverSplitter(), 0, 0, math.MaxInt32, 0},
 
-		{newRollingHashSplitter(buzhash32.New(), 0, 32, math.MaxInt32), 156283, 31, 1, 427},
-		{newRollingHashSplitter(buzhash32.New(), 0, 1024, math.MaxInt32), 4794, 1042, 1, 10001},
-		{newRollingHashSplitter(buzhash32.New(), 0, 2048, math.MaxInt32), 2404, 2079, 1, 19312},
-		{newRollingHashSplitter(buzhash32.New(), 0, 32768, math.MaxInt32), 143, 34965, 1, 233567},
-		{newRollingHashSplitter(buzhash32.New(), 0, 65536, math.MaxInt32), 72, 69444, 1, 430586},
-
-		{newRollingHashSplitter(rabinkarp32.New(), 0, 32, math.MaxInt32), 156303, 31, 1, 425},
-		{newRollingHashSplitter(rabinkarp32.New(), 0, 1024, math.MaxInt32), 4985, 1003, 1, 9572},
-		{newRollingHashSplitter(rabinkarp32.New(), 0, 2048, math.MaxInt32), 2497, 2002, 1, 15173},
-		{newRollingHashSplitter(rabinkarp32.New(), 0, 32768, math.MaxInt32), 151, 33112, 790, 164382},
-		{newRollingHashSplitter(rabinkarp32.New(), 0, 65536, math.MaxInt32), 76, 65789, 1124, 295680},
+		{newRollingHashSplitter(buzhash.NewBuzHash(32), 0, 32, math.MaxInt32), 156262, 31, 1, 404},
+		{newRollingHashSplitter(buzhash.NewBuzHash(32), 0, 1024, math.MaxInt32), 4933, 1013, 1, 8372},
+		{newRollingHashSplitter(buzhash.NewBuzHash(32), 0, 2048, math.MaxInt32), 2476, 2019, 1, 19454},
+		{newRollingHashSplitter(buzhash.NewBuzHash(32), 0, 32768, math.MaxInt32), 185, 27027, 1, 177510},
+		{newRollingHashSplitter(buzhash.NewBuzHash(32), 0, 65536, math.MaxInt32), 99, 50505, 418, 230449},
 
 		// min and max
-		{newRollingHashSplitter(buzhash32.New(), 0, 32, 64), 179920, 27, 1, 64},
-		{newRollingHashSplitter(buzhash32.New(), 0, 1024, 10000), 4795, 1042, 1, 10000},
-		{newRollingHashSplitter(buzhash32.New(), 0, 2048, 10000), 2432, 2055, 1, 10000},
-		{newRollingHashSplitter(buzhash32.New(), 500, 32768, 100000), 147, 34013, 762, 100000},
-		{newRollingHashSplitter(buzhash32.New(), 500, 65536, 100000), 90, 55555, 762, 100000},
+		{newRollingHashSplitter(buzhash.NewBuzHash(32), 0, 32, 64), 179921, 27, 1, 64},
+		{newRollingHashSplitter(buzhash.NewBuzHash(32), 0, 1024, 10000), 4933, 1013, 1, 8372},
+		{newRollingHashSplitter(buzhash.NewBuzHash(32), 0, 2048, 10000), 2490, 2008, 1, 10000},
+		{newRollingHashSplitter(buzhash.NewBuzHash(32), 500, 32768, 100000), 183, 27322, 522, 100000},
+		{newRollingHashSplitter(buzhash.NewBuzHash(32), 500, 65536, 100000), 113, 44247, 522, 100000},
 	}
 
 	for _, tc := range cases {

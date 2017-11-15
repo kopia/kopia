@@ -5,9 +5,8 @@ import (
 
 	"sort"
 
-	"github.com/chmduquesne/rollinghash"
-	"github.com/chmduquesne/rollinghash/buzhash32"
 	"github.com/kopia/kopia/internal/config"
+	"github.com/silvasur/buzhash"
 )
 
 type objectSplitter interface {
@@ -29,7 +28,7 @@ var splitterFactories = map[string]func(*config.RepositoryObjectFormat) objectSp
 		return newFixedSplitter(int(f.MaxBlockSize))
 	},
 	"DYNAMIC": func(f *config.RepositoryObjectFormat) objectSplitter {
-		return newRollingHashSplitter(buzhash32.New(), f.MinBlockSize, f.AvgBlockSize, f.MaxBlockSize)
+		return newRollingHashSplitter(buzhash.NewBuzHash(32), f.MinBlockSize, f.AvgBlockSize, f.MaxBlockSize)
 	},
 }
 
@@ -72,10 +71,13 @@ func newFixedSplitter(chunkLength int) objectSplitter {
 	return &fixedSplitter{chunkLength: chunkLength}
 }
 
+type rollingHash interface {
+	HashByte(b byte) uint32
+}
+
 type rollingHashSplitter struct {
-	rh      rollinghash.Hash32
-	mask    uint32
-	allOnes uint32
+	rh   rollingHash
+	mask uint32
 
 	currentBlockSize int
 	minBlockSize     int
@@ -83,7 +85,7 @@ type rollingHashSplitter struct {
 }
 
 func (rs *rollingHashSplitter) add(b byte) bool {
-	rs.rh.Roll(b)
+	sum := rs.rh.HashByte(b)
 	rs.currentBlockSize++
 	if rs.currentBlockSize < rs.minBlockSize {
 		return false
@@ -92,17 +94,17 @@ func (rs *rollingHashSplitter) add(b byte) bool {
 		rs.currentBlockSize = 0
 		return true
 	}
-	if rs.rh.Sum32()&rs.mask == rs.allOnes {
+	if sum&rs.mask == 0 {
 		rs.currentBlockSize = 0
 		return true
 	}
 	return false
 }
 
-func newRollingHashSplitter(rh rollinghash.Hash32, minBlockSize int, approxBlockSize int, maxBlockSize int) objectSplitter {
+func newRollingHashSplitter(rh rollingHash, minBlockSize int, approxBlockSize int, maxBlockSize int) objectSplitter {
 	bits := rollingHashBits(approxBlockSize)
 	mask := ^(^uint32(0) << bits)
-	return &rollingHashSplitter{rh, mask, (uint32(0)) ^ mask, 0, minBlockSize, maxBlockSize}
+	return &rollingHashSplitter{rh, mask, 0, minBlockSize, maxBlockSize}
 }
 
 func rollingHashBits(n int) uint {
