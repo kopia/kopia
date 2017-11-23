@@ -3,23 +3,38 @@ package cli
 import (
 	"fmt"
 
+	"github.com/kopia/kopia/block"
+
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
 	blockIndexListCommand = blockIndexCommands.Command("list", "List block indexes").Alias("ls")
+	blockIndexListAll     = blockIndexListCommand.Flag("all", "List all blocks, not just active ones").Short('a').Bool()
 )
 
 func runListBlockIndexesAction(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
 	defer rep.Close()
 
-	ch, cancel := rep.Storage.ListBlocks("P")
-	defer cancel()
+	var blks []block.Info
+	var err error
 
-	for b := range ch {
-		fmt.Printf("%-34v %10v %v\n", b.BlockID, b.Length, b.TimeStamp.Local().Format(timeFormat))
+	if !*blockIndexListAll {
+		blks, err = rep.Blocks.ActiveIndexBlocks()
+	} else {
+		blks, err = rep.Blocks.ListIndexBlocks()
 	}
+
+	if err != nil {
+		return err
+	}
+
+	for _, b := range blks {
+		fmt.Printf("%-54v %10v %v\n", b.BlockID, b.Length, b.Timestamp.Local().Format(timeFormatPrecise))
+	}
+
+	fmt.Printf("total %v blocks\n", len(blks))
 
 	return nil
 }

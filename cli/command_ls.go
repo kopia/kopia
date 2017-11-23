@@ -13,6 +13,7 @@ import (
 )
 
 const timeFormat = "02 Jan 06 15:04:05"
+const timeFormatPrecise = "02 Jan 06 15:04:05.000000000"
 
 var (
 	lsCommand = app.Command("list", "List a directory stored in repository object.").Alias("ls")

@@ -235,7 +235,7 @@ func runCleanupCommand(context *kingpin.ParseContext) error {
 
 	log.Printf("Found %v in-use objects in %v blocks in %v", len(ctx.queue.visited), len(ctx.inuse), dt)
 
-	rep.Blocks.CompactIndexes(cutoffTime, ctx.inuse)
+	rep.Blocks.CompactIndexes()
 
 	var totalBlocks int
 	var totalBytes int64
