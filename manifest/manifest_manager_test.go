@@ -13,7 +13,7 @@ import (
 func TestManifest(t *testing.T) {
 	data := map[string][]byte{}
 
-	mgr, err := newManaferForTesting(t, data)
+	mgr, err := newManagerForTesting(t, data)
 	if err != nil {
 		t.Fatalf("unable to open block manager: %v", mgr)
 	}
@@ -66,7 +66,7 @@ func TestManifest(t *testing.T) {
 	verifyItem(t, mgr, id3, labels3, item3)
 
 	// verify in new manager
-	mgr2, err := newManaferForTesting(t, data)
+	mgr2, err := newManagerForTesting(t, data)
 	if err != nil {
 		t.Fatalf("can't open block manager: %v", err)
 	}
@@ -91,6 +91,25 @@ func TestManifest(t *testing.T) {
 	if err := mgr2.Load(); err != nil {
 		t.Errorf("unable to load: %v", err)
 	}
+
+	if err := mgr.Compact(); err != nil {
+		t.Errorf("can't compact: %v", err)
+	}
+
+	if got, want := len(mgr.b.ListGroupBlocks(manifestGroupID)), 1; got != want {
+		t.Errorf("unexpected number of blocks: %v, want %v", got, want)
+	}
+
+	mgr.b.Flush()
+
+	mgr3, err := newManagerForTesting(t, data)
+	if err != nil {
+		t.Fatalf("can't open manager: %v", err)
+	}
+
+	verifyItem(t, mgr3, id1, labels1, item1)
+	verifyItem(t, mgr3, id2, labels2, item2)
+	verifyItemNotFound(t, mgr3, id3)
 }
 
 func addAndVerify(t *testing.T, mgr *Manager, labels map[string]string, data map[string]int) string {
@@ -143,7 +162,7 @@ func verifyMatches(t *testing.T, mgr *Manager, labels map[string]string, expecte
 	}
 }
 
-func newManaferForTesting(t *testing.T, data map[string][]byte) (*Manager, error) {
+func newManagerForTesting(t *testing.T, data map[string][]byte) (*Manager, error) {
 	formatter, err := block.FormatterFactories["TESTONLY_MD5"](block.FormattingOptions{})
 	if err != nil {
 		panic("can't create formatter")

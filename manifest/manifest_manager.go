@@ -25,6 +25,7 @@ type Manager struct {
 	mu             sync.Mutex
 	b              *block.Manager
 	entries        map[string]*Entry
+	blockIDs       []string
 	pendingEntries []*Entry
 }
 
@@ -101,8 +102,18 @@ func (m *Manager) Flush() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	blockID, err := m.flushPendingEntriesLocked()
+	if err != nil {
+		return err
+	}
+
+	m.blockIDs = append(m.blockIDs, blockID)
+	return nil
+}
+
+func (m *Manager) flushPendingEntriesLocked() (string, error) {
 	if len(m.pendingEntries) == 0 {
-		return nil
+		return "", nil
 	}
 
 	man := Manifest{
@@ -113,21 +124,22 @@ func (m *Manager) Flush() error {
 
 	gz := gzip.NewWriter(&buf)
 	if err := json.NewEncoder(gz).Encode(man); err != nil {
-		return fmt.Errorf("unable to marshal: %v", err)
+		return "", fmt.Errorf("unable to marshal: %v", err)
 	}
 	gz.Flush()
 	gz.Close()
 
-	if _, err := m.b.WriteBlock(manifestGroupID, buf.Bytes()); err != nil {
-		return err
+	blockID, err := m.b.WriteBlock(manifestGroupID, buf.Bytes())
+	if err != nil {
+		return "", err
 	}
 
 	if err := m.b.Flush(); err != nil {
-		return err
+		return "", err
 	}
 
 	m.pendingEntries = nil
-	return nil
+	return blockID, nil
 }
 
 func (m *Manager) Delete(id string) {
@@ -147,6 +159,9 @@ func (m *Manager) Load() error {
 	if err := m.Flush(); err != nil {
 		return err
 	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
 	m.entries = map[string]*Entry{}
 
@@ -177,6 +192,42 @@ func (m *Manager) Load() error {
 		}
 	}
 
+	return nil
+}
+
+func (m *Manager) Compact() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if len(m.blockIDs) == 1 && len(m.pendingEntries) == 0 {
+		return nil
+	}
+
+	for _, e := range m.entries {
+		m.pendingEntries = append(m.pendingEntries, e)
+	}
+
+	blockID, err := m.flushPendingEntriesLocked()
+	if err != nil {
+		return err
+	}
+
+	// add the newly-created block to the list, could be duplicate
+	m.blockIDs = append(m.blockIDs, blockID)
+
+	for _, b := range m.blockIDs {
+		if b == blockID {
+			// do not delete block that was just written.
+			continue
+		}
+
+		if err := m.b.DeleteBlock(b); err != nil {
+			return fmt.Errorf("unable to delete block %q: %v", b, err)
+		}
+	}
+
+	// all previous blocks were deleted, now we have a new block
+	m.blockIDs = []string{blockID}
 	return nil
 }
 
