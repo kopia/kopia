@@ -1,13 +1,17 @@
-package snapshot
+package policy
 
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"log"
 	"path/filepath"
 
 	"github.com/kopia/kopia/fs"
 )
+
+// ErrPolicyNotFound is returned when the policy is not found.
+var ErrPolicyNotFound = errors.New("policy not found")
 
 // ExpirationPolicy describes snapshot expiration policy.
 type ExpirationPolicy struct {
@@ -70,10 +74,10 @@ var defaultFilesPolicy = &FilesPolicy{}
 
 // Policy describes snapshot policy for a single source.
 type Policy struct {
-	Source           SourceInfo       `json:"source"`
-	ExpirationPolicy ExpirationPolicy `json:"expiration"`
-	FilesPolicy      FilesPolicy      `json:"files"`
-	NoParent         bool             `json:"noParent,omitempty"`
+	Labels           map[string]string `json:"-"`
+	ExpirationPolicy ExpirationPolicy  `json:"expiration"`
+	FilesPolicy      FilesPolicy       `json:"files"`
+	NoParent         bool              `json:"noParent,omitempty"`
 }
 
 func (p *Policy) String() string {
@@ -95,7 +99,7 @@ func fileNameMatches(fname string, pattern string) bool {
 	return ok
 }
 
-func mergePolicies(policies []*Policy) *Policy {
+func MergePolicies(policies []*Policy) *Policy {
 	var merged Policy
 
 	for _, p := range policies {

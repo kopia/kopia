@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kopia/kopia/policy"
 	"github.com/kopia/kopia/snapshot"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
@@ -22,7 +23,7 @@ var (
 	snapshotExpireDelete = snapshotExpireCommand.Flag("delete", "Whether to actually delete snapshots").Default("no").String()
 )
 
-func expireSnapshotsForSingleSource(snapshots []*snapshot.Manifest, pol *snapshot.Policy, snapshotNames []string) []string {
+func expireSnapshotsForSingleSource(snapshots []*snapshot.Manifest, src *snapshot.SourceInfo, pol *policy.Policy, snapshotNames []string) []string {
 	var toDelete []string
 
 	ids := make(map[string]bool)
@@ -54,7 +55,7 @@ func expireSnapshotsForSingleSource(snapshots []*snapshot.Manifest, pol *snapsho
 		weeklyCutoffTime = time.Now().AddDate(0, 0, -7**pol.ExpirationPolicy.KeepWeekly)
 	}
 
-	fmt.Printf("\n%v\n", pol.Source)
+	fmt.Printf("\n%v\n", src)
 
 	for i, s := range snapshots {
 		var keep []string
@@ -136,7 +137,7 @@ func getSnapshotNamesToExpire(mgr *snapshot.Manager) ([]string, error) {
 	return result, nil
 }
 
-func expireSnapshots(mgr *snapshot.Manager, snapshots []*snapshot.Manifest, names []string) ([]string, error) {
+func expireSnapshots(pmgr *policy.Manager, snapshots []*snapshot.Manifest, names []string) ([]string, error) {
 	var lastSource snapshot.SourceInfo
 	var pendingSnapshots []*snapshot.Manifest
 	var pendingNames []string
@@ -145,11 +146,11 @@ func expireSnapshots(mgr *snapshot.Manager, snapshots []*snapshot.Manifest, name
 	flush := func() error {
 		if len(pendingSnapshots) > 0 {
 			src := pendingSnapshots[0].Source
-			pol, err := mgr.GetEffectivePolicy(&src)
+			pol, err := pmgr.GetEffectivePolicy(src.UserName, src.Host, src.Path)
 			if err != nil {
 				return err
 			}
-			td := expireSnapshotsForSingleSource(pendingSnapshots, pol, pendingNames)
+			td := expireSnapshotsForSingleSource(pendingSnapshots, &src, pol, pendingNames)
 			if len(td) == 0 {
 				fmt.Fprintf(os.Stderr, "Nothing to delete for %q.\n", src)
 			} else {
@@ -185,6 +186,7 @@ func runExpireCommand(context *kingpin.ParseContext) error {
 	defer rep.Close()
 
 	mgr := snapshot.NewManager(rep)
+	pmgr := policy.NewManager(rep)
 	snapshotNames, err := getSnapshotNamesToExpire(mgr)
 	if err != nil {
 		return err
@@ -195,7 +197,7 @@ func runExpireCommand(context *kingpin.ParseContext) error {
 		return err
 	}
 	snapshots = filterHostAndUser(snapshots)
-	toDelete, err := expireSnapshots(mgr, snapshots, snapshotNames)
+	toDelete, err := expireSnapshots(pmgr, snapshots, snapshotNames)
 	if err != nil {
 		return err
 	}

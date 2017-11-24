@@ -16,6 +16,7 @@ import (
 	"github.com/kopia/kopia/internal/dir"
 	"github.com/kopia/kopia/internal/hashcache"
 	"github.com/kopia/kopia/object"
+	"github.com/kopia/kopia/policy"
 	"github.com/kopia/kopia/repo"
 )
 
@@ -41,7 +42,7 @@ type Uploader struct {
 	Progress UploadProgress
 
 	// specifies criteria for including and excluding files.
-	FilesPolicy FilesPolicy
+	FilesPolicy policy.FilesPolicy
 
 	// automatically cancel the Upload after certain number of bytes
 	MaxUploadBytes int64

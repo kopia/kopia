@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/policy"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -21,7 +21,7 @@ func init() {
 
 func showPolicy(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
-	mgr := snapshot.NewManager(rep)
+	pmgr := policy.NewManager(rep)
 
 	targets, err := policyTargets(policyShowGlobal, policyShowTargets)
 	if err != nil {
@@ -29,15 +29,15 @@ func showPolicy(context *kingpin.ParseContext) error {
 	}
 
 	for _, target := range targets {
-		var p *snapshot.Policy
+		var p *policy.Policy
 		var policyKind string
 		var err error
 
 		if *policyShowEffective {
-			p, err = mgr.GetEffectivePolicy(target)
+			p, err = pmgr.GetEffectivePolicy(target.UserName, target.Host, target.Path)
 			policyKind = "effective"
 		} else {
-			p, err = mgr.GetPolicy(target)
+			p, err = pmgr.GetDefinedPolicy(target.UserName, target.Host, target.Path)
 			policyKind = "defined"
 		}
 
@@ -47,7 +47,7 @@ func showPolicy(context *kingpin.ParseContext) error {
 			continue
 		}
 
-		if err == snapshot.ErrPolicyNotFound {
+		if err == policy.ErrPolicyNotFound {
 			fmt.Fprintf(os.Stderr, "No %v policy for %q, pass --effective to compute effective policy used for backups.\n", policyKind, target)
 			continue
 		}

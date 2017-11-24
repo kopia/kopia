@@ -14,6 +14,8 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/kopia/kopia/policy"
+
 	"github.com/kopia/kopia/repo"
 
 	"github.com/kopia/kopia/object"
@@ -48,6 +50,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 	defer rep.Close()
 
 	mgr := snapshot.NewManager(rep)
+	pmgr := policy.NewManager(rep)
 
 	sources := *snapshotCreateSources
 	if *snapshotCreateAll {
@@ -79,7 +82,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 		}
 
 		sourceInfo := &snapshot.SourceInfo{Path: filepath.Clean(dir), Host: getHostName(), UserName: getUserName()}
-		policy, err := mgr.GetEffectivePolicy(sourceInfo)
+		policy, err := pmgr.GetEffectivePolicy(sourceInfo.UserName, sourceInfo.Host, sourceInfo.Path)
 		if err != nil {
 			return fmt.Errorf("unable to get backup policy for source %v: %v", sourceInfo, err)
 		}

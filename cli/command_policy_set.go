@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/kopia/kopia/policy"
 	"github.com/kopia/kopia/snapshot"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -46,8 +47,9 @@ func init() {
 
 func setPolicy(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
-	mgr := snapshot.NewManager(rep)
-	_ = mgr
+	defer rep.Close()
+
+	mgr := policy.NewManager(rep)
 
 	targets, err := policyTargets(policySetGlobal, policySetTargets)
 	if err != nil {
@@ -55,11 +57,9 @@ func setPolicy(context *kingpin.ParseContext) error {
 	}
 
 	for _, target := range targets {
-		p, err := mgr.GetPolicy(target)
-		if err == snapshot.ErrPolicyNotFound {
-			p = &snapshot.Policy{
-				Source: *target,
-			}
+		p, err := mgr.GetDefinedPolicy(target.UserName, target.Host, target.Path)
+		if err == policy.ErrPolicyNotFound {
+			p = &policy.Policy{}
 		}
 
 		if err := applyPolicyNumber(target, "number of annual backups to keep", &p.ExpirationPolicy.KeepAnnual, *policySetKeepAnnual); err != nil {
@@ -103,7 +103,7 @@ func setPolicy(context *kingpin.ParseContext) error {
 			p.FilesPolicy.Exclude = nil
 		}
 
-		if err := mgr.SavePolicy(p); err != nil {
+		if err := mgr.SetPolicy(target.UserName, target.Host, target.Path, p); err != nil {
 			return fmt.Errorf("can't save policy for %v: %v", target, err)
 		}
 	}

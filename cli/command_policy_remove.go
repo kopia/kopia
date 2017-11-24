@@ -3,7 +3,7 @@ package cli
 import (
 	"log"
 
-	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/policy"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -19,7 +19,9 @@ func init() {
 
 func removePolicy(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
-	mgr := snapshot.NewManager(rep)
+	defer rep.Close()
+
+	mgr := policy.NewManager(rep)
 
 	targets, err := policyTargets(policyRemoveGlobal, policyRemoveTargets)
 	if err != nil {
@@ -28,7 +30,7 @@ func removePolicy(context *kingpin.ParseContext) error {
 
 	for _, target := range targets {
 		log.Printf("Removing policy on %q...", target)
-		if err := mgr.RemovePolicy(target); err != nil {
+		if err := mgr.RemovePolicy(target.UserName, target.Host, target.Path); err != nil {
 			return err
 		}
 	}

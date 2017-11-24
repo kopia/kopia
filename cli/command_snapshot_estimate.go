@@ -8,6 +8,7 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/units"
+	"github.com/kopia/kopia/policy"
 	"github.com/kopia/kopia/snapshot"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
@@ -62,7 +63,7 @@ func runSnapshotEstimateCommand(c *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
 	defer rep.Close()
 
-	mgr := snapshot.NewManager(rep)
+	pmgr := policy.NewManager(rep)
 
 	path, err := filepath.Abs(*snapshotEstimateSource)
 	if err != nil {
@@ -70,7 +71,7 @@ func runSnapshotEstimateCommand(c *kingpin.ParseContext) error {
 	}
 
 	sourceInfo := &snapshot.SourceInfo{Path: filepath.Clean(path), Host: getHostName(), UserName: getUserName()}
-	policy, err := mgr.GetEffectivePolicy(sourceInfo)
+	policy, err := pmgr.GetEffectivePolicy(sourceInfo.UserName, sourceInfo.Host, sourceInfo.Path)
 	if err != nil {
 		return fmt.Errorf("unable to get backup policy for source %v: %v", sourceInfo, err)
 	}
@@ -111,7 +112,7 @@ func showBuckets(b buckets) {
 		}
 	}
 }
-func estimate(relativePath string, entry fs.Entry, pol *snapshot.FilesPolicy, stats *snapshot.Stats, ib, eb buckets) error {
+func estimate(relativePath string, entry fs.Entry, pol *policy.FilesPolicy, stats *snapshot.Stats, ib, eb buckets) error {
 	if !pol.ShouldInclude(entry.Metadata()) {
 		eb.add(relativePath, entry.Metadata().FileSize)
 		stats.ExcludedFileCount++

@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/policy"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -17,7 +17,7 @@ func init() {
 
 func listPolicies(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
-	mgr := snapshot.NewManager(rep)
+	mgr := policy.NewManager(rep)
 
 	policies, err := mgr.ListPolicies()
 	if err != nil {
@@ -25,7 +25,7 @@ func listPolicies(context *kingpin.ParseContext) error {
 	}
 
 	for _, pol := range policies {
-		fmt.Println(pol.Source)
+		fmt.Println(pol.Labels)
 	}
 
 	return nil
