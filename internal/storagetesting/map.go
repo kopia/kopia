@@ -10,8 +10,9 @@ import (
 )
 
 type mapStorage struct {
-	data  map[string][]byte
-	mutex sync.RWMutex
+	data    map[string][]byte
+	keyTime map[string]time.Time
+	mutex   sync.RWMutex
 }
 
 func (s *mapStorage) BlockSize(id string) (int64, error) {
@@ -53,7 +54,8 @@ func (s *mapStorage) PutBlock(id string, data []byte) error {
 		return nil
 	}
 
-	s.data[string(id)] = append([]byte{}, data...)
+	s.keyTime[id] = time.Now()
+	s.data[id] = append([]byte{}, data...)
 	return nil
 }
 
@@ -68,7 +70,6 @@ func (s *mapStorage) DeleteBlock(id string) error {
 func (s *mapStorage) ListBlocks(prefix string) (chan storage.BlockMetadata, storage.CancelFunc) {
 	ch := make(chan storage.BlockMetadata)
 	cancelled := make(chan bool)
-	fixedTime := time.Now()
 	go func() {
 		defer close(ch)
 		s.mutex.RLock()
@@ -91,7 +92,7 @@ func (s *mapStorage) ListBlocks(prefix string) (chan storage.BlockMetadata, stor
 			case ch <- storage.BlockMetadata{
 				BlockID:   string(k),
 				Length:    int64(len(v)),
-				TimeStamp: fixedTime,
+				TimeStamp: s.keyTime[k],
 			}:
 			}
 		}
@@ -107,6 +108,9 @@ func (s *mapStorage) Close() error {
 
 // NewMapStorage returns an implementation of Storage backed by the contents of given map.
 // Used primarily for testing.
-func NewMapStorage(data map[string][]byte) storage.Storage {
-	return &mapStorage{data: data}
+func NewMapStorage(data map[string][]byte, keyTime map[string]time.Time) storage.Storage {
+	if keyTime == nil {
+		keyTime = make(map[string]time.Time)
+	}
+	return &mapStorage{data: data, keyTime: keyTime}
 }

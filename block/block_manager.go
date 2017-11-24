@@ -398,7 +398,11 @@ func findLatestCompactedTimestamp(blocks []Info) (time.Time, error) {
 func (bm *Manager) loadMergedPackIndexLocked() (packIndexes, []string, time.Time, error) {
 	blocks, err := bm.ActiveIndexBlocks()
 	if err != nil {
-		return nil, nil, time.Now(), err
+		return nil, nil, zeroTime, err
+	}
+
+	if len(blocks) == 0 {
+		return nil, nil, zeroTime, nil
 	}
 
 	// add block IDs to the channel

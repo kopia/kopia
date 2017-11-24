@@ -22,12 +22,12 @@ import (
 	"github.com/kopia/kopia/storage"
 )
 
-func setupTest(t *testing.T, mods ...func(o *NewRepositoryOptions)) (map[string][]byte, *Repository) {
-	return setupTestWithData(t, map[string][]byte{}, mods...)
+func setupTest(t *testing.T, mods ...func(o *NewRepositoryOptions)) (map[string][]byte, map[string]time.Time, *Repository) {
+	return setupTestWithData(t, map[string][]byte{}, map[string]time.Time{}, mods...)
 }
 
-func setupTestWithData(t *testing.T, data map[string][]byte, mods ...func(o *NewRepositoryOptions)) (map[string][]byte, *Repository) {
-	st := storagetesting.NewMapStorage(data)
+func setupTestWithData(t *testing.T, data map[string][]byte, keyTime map[string]time.Time, mods ...func(o *NewRepositoryOptions)) (map[string][]byte, map[string]time.Time, *Repository) {
+	st := storagetesting.NewMapStorage(data, keyTime)
 
 	creds, _ := auth.Password("foobarbazfoobarbaz")
 	opt := &NewRepositoryOptions{
@@ -54,7 +54,7 @@ func setupTestWithData(t *testing.T, data map[string][]byte, mods ...func(o *New
 		t.Fatalf("can't connect: %v", err)
 	}
 
-	return data, r
+	return data, keyTime, r
 }
 
 func TestWriters(t *testing.T) {
@@ -70,7 +70,7 @@ func TestWriters(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		data, repo := setupTest(t)
+		data, _, repo := setupTest(t)
 
 		writer := repo.Objects.NewWriter(object.WriterOptions{})
 
@@ -117,7 +117,7 @@ func objectIDsEqual(o1 object.ID, o2 object.ID) bool {
 }
 
 func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
-	_, repo := setupTest(t)
+	_, _, repo := setupTest(t)
 
 	bytes := make([]byte, 100)
 	writer := repo.Objects.NewWriter(object.WriterOptions{})
@@ -130,7 +130,7 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 }
 
 func TestPackingSimple(t *testing.T) {
-	data, repo := setupTest(t, func(n *NewRepositoryOptions) {
+	data, keyTime, repo := setupTest(t, func(n *NewRepositoryOptions) {
 		n.MaxPackedContentLength = 10000
 	})
 
@@ -182,7 +182,7 @@ func TestPackingSimple(t *testing.T) {
 		log.Printf("data[%v] = %v", k, string(v))
 	}
 
-	data, repo = setupTestWithData(t, data, func(n *NewRepositoryOptions) {
+	data, _, repo = setupTestWithData(t, data, keyTime, func(n *NewRepositoryOptions) {
 		n.MaxPackedContentLength = 10000
 	})
 
@@ -190,10 +190,10 @@ func TestPackingSimple(t *testing.T) {
 	verify(t, repo, oid2a, []byte(content2), "packed-object-2")
 	verify(t, repo, oid3a, []byte(content3), "packed-object-3")
 
-	if err := repo.Blocks.CompactIndexes(time.Now().Add(10*time.Second), nil); err != nil {
+	if err := repo.Blocks.CompactIndexes(); err != nil {
 		t.Errorf("optimize error: %v", err)
 	}
-	data, repo = setupTestWithData(t, data, func(n *NewRepositoryOptions) {
+	data, _, repo = setupTestWithData(t, data, keyTime, func(n *NewRepositoryOptions) {
 		n.MaxPackedContentLength = 10000
 	})
 
@@ -201,10 +201,10 @@ func TestPackingSimple(t *testing.T) {
 	verify(t, repo, oid2a, []byte(content2), "packed-object-2")
 	verify(t, repo, oid3a, []byte(content3), "packed-object-3")
 
-	if err := repo.Blocks.CompactIndexes(time.Now().Add(-10*time.Second), nil); err != nil {
+	if err := repo.Blocks.CompactIndexes(); err != nil {
 		t.Errorf("optimize error: %v", err)
 	}
-	data, repo = setupTestWithData(t, data, func(n *NewRepositoryOptions) {
+	data, _, repo = setupTestWithData(t, data, keyTime, func(n *NewRepositoryOptions) {
 		n.MaxPackedContentLength = 10000
 	})
 
@@ -224,7 +224,7 @@ func indirectionLevel(oid object.ID) int {
 func TestHMAC(t *testing.T) {
 	content := bytes.Repeat([]byte{0xcd}, 50)
 
-	_, repo := setupTest(t)
+	_, _, repo := setupTest(t)
 
 	w := repo.Objects.NewWriter(object.WriterOptions{})
 	w.Write(content)
@@ -234,7 +234,7 @@ func TestHMAC(t *testing.T) {
 	}
 }
 func TestMalformedStoredData(t *testing.T) {
-	data, repo := setupTest(t)
+	data, _, repo := setupTest(t)
 
 	cases := [][]byte{
 		[]byte("foo\nba"),
@@ -257,7 +257,7 @@ func TestMalformedStoredData(t *testing.T) {
 }
 
 func TestReaderStoredBlockNotFound(t *testing.T) {
-	_, repo := setupTest(t)
+	_, _, repo := setupTest(t)
 
 	objectID, err := object.ParseID("Dno-such-block")
 	if err != nil {
@@ -270,7 +270,7 @@ func TestReaderStoredBlockNotFound(t *testing.T) {
 }
 
 func TestEndToEndReadAndSeek(t *testing.T) {
-	_, repo := setupTest(t)
+	_, _, repo := setupTest(t)
 
 	for _, size := range []int{1, 199, 200, 201, 9999, 512434} {
 		// Create some random data sample of the specified size.
@@ -382,7 +382,7 @@ func TestFormats(t *testing.T) {
 	}
 
 	for caseIndex, c := range cases {
-		_, repo := setupTest(t, c.format)
+		_, _, repo := setupTest(t, c.format)
 
 		for k, v := range c.oids {
 			bytesToWrite := []byte(k)

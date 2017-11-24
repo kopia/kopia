@@ -74,7 +74,7 @@ func TestCache(t *testing.T) {
 	// os.RemoveAll(tmpdir)
 
 	masterData := map[string][]byte{}
-	master := storagetesting.NewMapStorage(masterData)
+	master := storagetesting.NewMapStorage(masterData, nil)
 
 	var tr tracer
 	master = logging.NewWrapper(master, logging.Output(tr.Printf))

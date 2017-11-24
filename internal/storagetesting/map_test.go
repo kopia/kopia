@@ -4,7 +4,7 @@ import "testing"
 
 func TestMapStorage(t *testing.T) {
 	data := map[string][]byte{}
-	r := NewMapStorage(data)
+	r := NewMapStorage(data, nil)
 	if r == nil {
 		t.Errorf("unexpected result: %v", r)
 	}

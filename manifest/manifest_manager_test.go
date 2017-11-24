@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/kopia/kopia/internal/storagetesting"
 
@@ -12,8 +13,8 @@ import (
 
 func TestManifest(t *testing.T) {
 	data := map[string][]byte{}
-
-	mgr, err := newManagerForTesting(t, data)
+	keyTime := map[string]time.Time{}
+	mgr, err := newManagerForTesting(t, data, keyTime)
 	if err != nil {
 		t.Fatalf("unable to open block manager: %v", mgr)
 	}
@@ -66,7 +67,7 @@ func TestManifest(t *testing.T) {
 	verifyItem(t, mgr, id3, labels3, item3)
 
 	// verify in new manager
-	mgr2, err := newManagerForTesting(t, data)
+	mgr2, err := newManagerForTesting(t, data, keyTime)
 	if err != nil {
 		t.Fatalf("can't open block manager: %v", err)
 	}
@@ -102,7 +103,7 @@ func TestManifest(t *testing.T) {
 
 	mgr.b.Flush()
 
-	mgr3, err := newManagerForTesting(t, data)
+	mgr3, err := newManagerForTesting(t, data, keyTime)
 	if err != nil {
 		t.Fatalf("can't open manager: %v", err)
 	}
@@ -162,12 +163,12 @@ func verifyMatches(t *testing.T, mgr *Manager, labels map[string]string, expecte
 	}
 }
 
-func newManagerForTesting(t *testing.T, data map[string][]byte) (*Manager, error) {
+func newManagerForTesting(t *testing.T, data map[string][]byte, keyTime map[string]time.Time) (*Manager, error) {
 	formatter, err := block.FormatterFactories["TESTONLY_MD5"](block.FormattingOptions{})
 	if err != nil {
 		panic("can't create formatter")
 	}
-	st := storagetesting.NewMapStorage(data)
+	st := storagetesting.NewMapStorage(data, keyTime)
 
 	return NewManager(block.NewManager(st, 10000, 100000, formatter))
 }
