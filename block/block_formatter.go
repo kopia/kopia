@@ -99,6 +99,9 @@ func symmetricEncrypt(createCipher func(key []byte) (cipher.Block, error), key [
 }
 
 func decodeHexSuffix(s string, length int) ([]byte, error) {
+	if p := strings.Index(s, "-"); p >= 0 {
+		s = s[0:p]
+	}
 	return hex.DecodeString(s[len(s)-length:])
 }
 
