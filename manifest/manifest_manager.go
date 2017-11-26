@@ -29,6 +29,13 @@ type Manager struct {
 	pendingEntries []*Entry
 }
 
+type EntryMetadata struct {
+	ID      string
+	Length  int
+	Labels  map[string]string
+	ModTime time.Time
+}
+
 func (m *Manager) Add(labels map[string]string, payload interface{}) (string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -53,8 +60,7 @@ func (m *Manager) Add(labels map[string]string, payload interface{}) (string, er
 
 	return e.ID, nil
 }
-
-func (m *Manager) Get(id string, data interface{}) (map[string]string, error) {
+func (m *Manager) GetMetadata(id string) (*EntryMetadata, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -63,28 +69,54 @@ func (m *Manager) Get(id string, data interface{}) (map[string]string, error) {
 		return nil, ErrNotFound
 	}
 
-	if err := json.Unmarshal(e.Content, data); err != nil {
-		return nil, fmt.Errorf("unable to unmashal %q: %v", id, err)
-	}
-
-	return copyLabels(e.Labels), nil
+	return &EntryMetadata{
+		ID:      id,
+		ModTime: e.ModTime,
+		Length:  len(e.Content),
+		Labels:  copyLabels(e.Labels),
+	}, nil
 }
 
-func (m *Manager) Find(labels map[string]string) []string {
+func (m *Manager) Get(id string, data interface{}) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	var matches []string
-	for id, e := range m.entries {
+	e := m.entries[id]
+	if e == nil {
+		return ErrNotFound
+	}
+
+	if err := json.Unmarshal(e.Content, data); err != nil {
+		return fmt.Errorf("unable to unmashal %q: %v", id, err)
+	}
+
+	return nil
+}
+
+func (m *Manager) Find(labels map[string]string) []*EntryMetadata {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	var matches []*EntryMetadata
+	for _, e := range m.entries {
 		if matchesLabels(e.Labels, labels) {
-			matches = append(matches, id)
+			matches = append(matches, cloneEntryMetadata(e))
 		}
 	}
 
 	sort.Slice(matches, func(i, j int) bool {
-		return m.entries[matches[i]].ModTime.Before(m.entries[matches[j]].ModTime)
+		return matches[i].ModTime.Before(matches[j].ModTime)
 	})
 	return matches
+}
+
+func cloneEntryMetadata(e *Entry) *EntryMetadata {
+	return &EntryMetadata{
+		ID:      e.ID,
+		Labels:  copyLabels(e.Labels),
+		Length:  len(e.Content),
+		ModTime: e.ModTime,
+	}
 }
 
 // matchesLabels returns true when all entries in 'b' are found in the 'a'.

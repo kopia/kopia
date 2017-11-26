@@ -26,11 +26,11 @@ type Manager struct {
 // GetEffectivePolicy calculates effective snapshot policy for a given source by combining the source-specifc policy (if any)
 // with parent policies. The source must contain a path.
 func (m *Manager) GetEffectivePolicy(user, host, path string) (*Policy, error) {
-	var ids []string
+	var md []*manifest.EntryMetadata
 
 	// Find policies applying to paths all the way up to the root.
 	for tmpPath := path; len(tmpPath) > 0; {
-		ids = append(ids, m.repository.Manifests.Find(labelsForUserHostPath(user, host, tmpPath))...)
+		md = append(md, m.repository.Manifests.Find(labelsForUserHostPath(user, host, tmpPath))...)
 
 		parentPath := filepath.Dir(tmpPath)
 		if parentPath == tmpPath {
@@ -41,19 +41,19 @@ func (m *Manager) GetEffectivePolicy(user, host, path string) (*Policy, error) {
 	}
 
 	// Try user@host policy
-	ids = append(ids, m.repository.Manifests.Find(labelsForUserHostPath(user, host, ""))...)
+	md = append(md, m.repository.Manifests.Find(labelsForUserHostPath(user, host, ""))...)
 
 	// Try host-level policy.
-	ids = append(ids, m.repository.Manifests.Find(labelsForUserHostPath("", host, ""))...)
+	md = append(md, m.repository.Manifests.Find(labelsForUserHostPath("", host, ""))...)
 
 	// Global policy.
-	ids = append(ids, m.repository.Manifests.Find(labelsForUserHostPath("", "", ""))...)
+	md = append(md, m.repository.Manifests.Find(labelsForUserHostPath("", "", ""))...)
 
 	var policies []*Policy
-	for _, id := range ids {
+	for _, em := range md {
 		p := &Policy{}
-		if _, err := m.repository.Manifests.Get(id, &p); err != nil {
-			return nil, fmt.Errorf("got unexpected error when loading policy item %v: %v", id, err)
+		if err := m.repository.Manifests.Get(em.ID, &p); err != nil {
+			return nil, fmt.Errorf("got unexpected error when loading policy item %v: %v", em.ID, err)
 		}
 		policies = append(policies, p)
 	}
@@ -62,16 +62,16 @@ func (m *Manager) GetEffectivePolicy(user, host, path string) (*Policy, error) {
 }
 
 func (m *Manager) GetDefinedPolicy(user, host, path string) (*Policy, error) {
-	ids := m.repository.Manifests.Find(labelsForUserHostPath(user, host, path))
+	md := m.repository.Manifests.Find(labelsForUserHostPath(user, host, path))
 
-	if len(ids) == 0 {
+	if len(md) == 0 {
 		return nil, ErrPolicyNotFound
 	}
 
-	if len(ids) == 1 {
+	if len(md) == 1 {
 		p := &Policy{}
 
-		labels, err := m.repository.Manifests.Get(ids[0], p)
+		err := m.repository.Manifests.Get(md[0].ID, p)
 		if err == manifest.ErrNotFound {
 			return nil, ErrPolicyNotFound
 		}
@@ -80,7 +80,12 @@ func (m *Manager) GetDefinedPolicy(user, host, path string) (*Policy, error) {
 			return nil, err
 		}
 
-		p.Labels = labels
+		em, err := m.repository.Manifests.GetMetadata(md[0].ID)
+		if err != nil {
+			return nil, ErrPolicyNotFound
+		}
+
+		p.Labels = em.Labels
 		return p, nil
 	}
 
@@ -88,23 +93,23 @@ func (m *Manager) GetDefinedPolicy(user, host, path string) (*Policy, error) {
 }
 
 func (m *Manager) SetPolicy(user, host, path string, pol *Policy) error {
-	ids := m.repository.Manifests.Find(labelsForUserHostPath(user, host, path))
+	md := m.repository.Manifests.Find(labelsForUserHostPath(user, host, path))
 
 	if _, err := m.repository.Manifests.Add(labelsForUserHostPath(user, host, path), pol); err != nil {
 		return err
 	}
 
-	for _, id := range ids {
-		m.repository.Manifests.Delete(id)
+	for _, em := range md {
+		m.repository.Manifests.Delete(em.ID)
 	}
 
 	return nil
 }
 
 func (m *Manager) RemovePolicy(user, host, path string) error {
-	ids := m.repository.Manifests.Find(labelsForUserHostPath(user, host, path))
-	for _, id := range ids {
-		m.repository.Manifests.Delete(id)
+	md := m.repository.Manifests.Find(labelsForUserHostPath(user, host, path))
+	for _, em := range md {
+		m.repository.Manifests.Delete(em.ID)
 	}
 
 	return nil
@@ -120,13 +125,18 @@ func (m *Manager) ListPolicies() ([]*Policy, error) {
 
 	for _, id := range ids {
 		pol := &Policy{}
-		labels, err := m.repository.Manifests.Get(id, pol)
+		err := m.repository.Manifests.Get(id.ID, pol)
 		if err != nil {
 			return nil, err
 		}
 
-		pol.Labels = labels
-		pol.Labels["id"] = id
+		md, err := m.repository.Manifests.GetMetadata(id.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		pol.Labels = md.Labels
+		pol.Labels["id"] = id.ID
 		policies = append(policies, pol)
 	}
 

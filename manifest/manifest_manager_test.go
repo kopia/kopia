@@ -127,24 +127,22 @@ func addAndVerify(t *testing.T, mgr *Manager, labels map[string]string, data map
 
 func verifyItem(t *testing.T, mgr *Manager, id string, labels map[string]string, data map[string]int) {
 	t.Helper()
-	var retrieved map[string]int
 
-	l, err := mgr.Get(id, &retrieved)
+	l, err := mgr.GetMetadata(id)
 	if err != nil {
 		t.Errorf("unable to retrieve %q: %v", id, err)
 		return
 	}
 
-	if !reflect.DeepEqual(l, labels) {
-		t.Errorf("invalid labels retrieved %v, wanted %v", l, labels)
+	if !reflect.DeepEqual(l.Labels, labels) {
+		t.Errorf("invalid labels retrieved %v, wanted %v", l.Labels, labels)
 	}
 }
 
 func verifyItemNotFound(t *testing.T, mgr *Manager, id string) {
 	t.Helper()
-	var retrieved map[string]int
 
-	_, err := mgr.Get(id, &retrieved)
+	_, err := mgr.GetMetadata(id)
 	if got, want := err, ErrNotFound; got != want {
 		t.Errorf("invalid error when getting %q %v, expected %v", id, err, ErrNotFound)
 		return
@@ -154,7 +152,10 @@ func verifyItemNotFound(t *testing.T, mgr *Manager, id string) {
 func verifyMatches(t *testing.T, mgr *Manager, labels map[string]string, expected []string) {
 	t.Helper()
 
-	matches := mgr.Find(labels)
+	var matches []string
+	for _, m := range mgr.Find(labels) {
+		matches = append(matches, m.ID)
+	}
 	sort.Strings(matches)
 	sort.Strings(expected)
 

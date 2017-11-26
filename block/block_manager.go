@@ -321,7 +321,7 @@ func (bm *Manager) finishPackLocked(g *packInfo) error {
 	return nil
 }
 
-// IndexBlocks returns the list of all index blocks, including inactive, sorted by time.
+// ListIndexBlocks returns the list of all index blocks, including inactive, sorted by time.
 func (bm *Manager) ListIndexBlocks() ([]Info, error) {
 	ch, cancel := bm.storage.ListBlocks(packBlockPrefix)
 	defer cancel()
@@ -1033,6 +1033,10 @@ func (bm *Manager) assertLocked() {
 	if !bm.locked {
 		panic("must be locked")
 	}
+}
+
+// SetCacheDir enables local caching of data in the provided directory up to maximum length.
+func (bm *Manager) SetCacheDir(dir string) {
 }
 
 // NewManager creates new block manager with given packing options and a formatter.
