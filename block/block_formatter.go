@@ -113,30 +113,33 @@ func decodeHexSuffix(s string, length int) ([]byte, error) {
 var SupportedFormats []string
 
 // FormatterFactories maps known block formatters to their factory functions.
-var FormatterFactories = map[string]func(f FormattingOptions) (Formatter, error){
-	"TESTONLY_MD5": func(f FormattingOptions) (Formatter, error) {
-		return &unencryptedFormat{computeHash(md5.New, md5.Size)}, nil
-	},
-	"UNENCRYPTED_HMAC_SHA256": func(f FormattingOptions) (Formatter, error) {
-		return &unencryptedFormat{computeHMAC(sha256.New, f.HMACSecret, sha256.Size)}, nil
-	},
-	"UNENCRYPTED_HMAC_SHA256_128": func(f FormattingOptions) (Formatter, error) {
-		return &unencryptedFormat{computeHMAC(sha256.New, f.HMACSecret, 16)}, nil
-	},
-	"ENCRYPTED_HMAC_SHA256_AES256_SIV": func(f FormattingOptions) (Formatter, error) {
-		if len(f.MasterKey) < 32 {
-			return nil, fmt.Errorf("master key is not set")
-		}
-		return &syntheticIVEncryptionFormat{computeHMAC(sha256.New, f.HMACSecret, aes.BlockSize), aes.NewCipher, f.MasterKey}, nil
-	},
-}
+var FormatterFactories map[string]func(f FormattingOptions) (Formatter, error)
 
 func init() {
+	FormatterFactories = map[string]func(f FormattingOptions) (Formatter, error){
+		"TESTONLY_MD5": func(f FormattingOptions) (Formatter, error) {
+			return &unencryptedFormat{computeHash(md5.New, md5.Size)}, nil
+		},
+		"UNENCRYPTED_HMAC_SHA256": func(f FormattingOptions) (Formatter, error) {
+			return &unencryptedFormat{computeHMAC(sha256.New, f.HMACSecret, sha256.Size)}, nil
+		},
+		"UNENCRYPTED_HMAC_SHA256_128": func(f FormattingOptions) (Formatter, error) {
+			return &unencryptedFormat{computeHMAC(sha256.New, f.HMACSecret, 16)}, nil
+		},
+		"ENCRYPTED_HMAC_SHA256_AES256_SIV": func(f FormattingOptions) (Formatter, error) {
+			if len(f.MasterKey) < 32 {
+				return nil, fmt.Errorf("master key is not set")
+			}
+			return &syntheticIVEncryptionFormat{computeHMAC(sha256.New, f.HMACSecret, aes.BlockSize), aes.NewCipher, f.MasterKey}, nil
+		},
+	}
+
 	for k := range FormatterFactories {
 		if !strings.HasPrefix(k, "TESTONLY_") {
 			SupportedFormats = append(SupportedFormats, k)
 		}
 	}
+
 	sort.Strings(SupportedFormats)
 }
 
