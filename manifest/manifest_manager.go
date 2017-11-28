@@ -78,19 +78,28 @@ func (m *Manager) GetMetadata(id string) (*EntryMetadata, error) {
 }
 
 func (m *Manager) Get(id string, data interface{}) error {
+	b, err := m.GetRaw(id)
+	if err != nil {
+		return err
+	}
+
+	if err := json.Unmarshal(b, data); err != nil {
+		return fmt.Errorf("unable to unmashal %q: %v", id, err)
+	}
+
+	return nil
+}
+
+func (m *Manager) GetRaw(id string) ([]byte, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	e := m.entries[id]
 	if e == nil {
-		return ErrNotFound
+		return nil, ErrNotFound
 	}
 
-	if err := json.Unmarshal(e.Content, data); err != nil {
-		return fmt.Errorf("unable to unmashal %q: %v", id, err)
-	}
-
-	return nil
+	return e.Content, nil
 }
 
 func (m *Manager) Find(labels map[string]string) []*EntryMetadata {
