@@ -24,9 +24,9 @@ func TestManifest(t *testing.T) {
 	item2 := map[string]int{"foo": 2, "bar": 3}
 	item3 := map[string]int{"foo": 3, "bar": 4}
 
-	labels1 := map[string]string{"color": "red"}
-	labels2 := map[string]string{"color": "blue", "shape": "square"}
-	labels3 := map[string]string{"shape": "square", "color": "red"}
+	labels1 := map[string]string{"type": "item", "color": "red"}
+	labels2 := map[string]string{"type": "item", "color": "blue", "shape": "square"}
+	labels3 := map[string]string{"type": "item", "shape": "square", "color": "red"}
 
 	id1 := addAndVerify(t, mgr, labels1, item1)
 	id2 := addAndVerify(t, mgr, labels2, item2)
@@ -90,7 +90,7 @@ func TestManifest(t *testing.T) {
 
 	// still found in another
 	verifyItem(t, mgr2, id3, labels3, item3)
-	if err := mgr2.Load(); err != nil {
+	if err := mgr2.load(); err != nil {
 		t.Errorf("unable to load: %v", err)
 	}
 
@@ -116,7 +116,7 @@ func TestManifest(t *testing.T) {
 
 func addAndVerify(t *testing.T, mgr *Manager, labels map[string]string, data map[string]int) string {
 	t.Helper()
-	id, err := mgr.Add(labels, data)
+	id, err := mgr.Put(labels, data)
 	if err != nil {
 		t.Errorf("unable to add %v (%v): %v", labels, data, err)
 		return ""

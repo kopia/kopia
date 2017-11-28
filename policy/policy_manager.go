@@ -61,6 +61,7 @@ func (m *Manager) GetEffectivePolicy(user, host, path string) (*Policy, error) {
 	return MergePolicies(policies), nil
 }
 
+// GetDefinedPolicy returns the policy defined on the provided (user, host, path) or ErrPolicyNotFound if not present.
 func (m *Manager) GetDefinedPolicy(user, host, path string) (*Policy, error) {
 	md := m.repository.Manifests.Find(labelsForUserHostPath(user, host, path))
 
@@ -92,10 +93,11 @@ func (m *Manager) GetDefinedPolicy(user, host, path string) (*Policy, error) {
 	return nil, fmt.Errorf("ambiguous policy")
 }
 
+// SetPolicy sets the policy on (user, host, path).
 func (m *Manager) SetPolicy(user, host, path string, pol *Policy) error {
 	md := m.repository.Manifests.Find(labelsForUserHostPath(user, host, path))
 
-	if _, err := m.repository.Manifests.Add(labelsForUserHostPath(user, host, path), pol); err != nil {
+	if _, err := m.repository.Manifests.Put(labelsForUserHostPath(user, host, path), pol); err != nil {
 		return err
 	}
 
@@ -106,6 +108,7 @@ func (m *Manager) SetPolicy(user, host, path string, pol *Policy) error {
 	return nil
 }
 
+// RemovePolicy removes the policy for (user, host, path).
 func (m *Manager) RemovePolicy(user, host, path string) error {
 	md := m.repository.Manifests.Find(labelsForUserHostPath(user, host, path))
 	for _, em := range md {
@@ -115,7 +118,7 @@ func (m *Manager) RemovePolicy(user, host, path string) error {
 	return nil
 }
 
-// ListPolicies returns a list of all snapshot policies.
+// ListPolicies returns a list of all policies.
 func (m *Manager) ListPolicies() ([]*Policy, error) {
 	ids := m.repository.Manifests.Find(map[string]string{
 		"type": "policy",
@@ -149,22 +152,22 @@ func labelsForUserHostPath(user, host, path string) map[string]string {
 		return map[string]string{
 			"type":       "policy",
 			"policyType": "path",
-			"user":       user,
-			"host":       host,
+			"username":   user,
+			"hostname":   host,
 			"path":       path,
 		}
 	case user != "":
 		return map[string]string{
 			"type":       "policy",
 			"policyType": "user",
-			"user":       user,
-			"host":       host,
+			"username":   user,
+			"hostname":   host,
 		}
 	case host != "":
 		return map[string]string{
 			"type":       "policy",
 			"policyType": "host",
-			"host":       host,
+			"hostname":   host,
 		}
 	default:
 		return map[string]string{

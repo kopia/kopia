@@ -66,7 +66,7 @@ func (m *Manager) LoadSnapshot(manifestID string) (*Manifest, error) {
 
 // SaveSnapshot persists given snapshot manifest and returns manifest ID.
 func (m *Manager) SaveSnapshot(manifest *Manifest) (string, error) {
-	return m.repository.Manifests.Add(sourceInfoToLabels(manifest.Source), manifest)
+	return m.repository.Manifests.Put(sourceInfoToLabels(manifest.Source), manifest)
 }
 
 // LoadSnapshots efficiently loads and parses a given list of snapshot IDs.

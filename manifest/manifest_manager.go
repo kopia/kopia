@@ -24,19 +24,16 @@ const manifestGroupID = "manifests"
 type Manager struct {
 	mu             sync.Mutex
 	b              *block.Manager
-	entries        map[string]*Entry
+	entries        map[string]*manifestEntry
 	blockIDs       []string
-	pendingEntries []*Entry
+	pendingEntries []*manifestEntry
 }
 
-type EntryMetadata struct {
-	ID      string
-	Length  int
-	Labels  map[string]string
-	ModTime time.Time
-}
-
-func (m *Manager) Add(labels map[string]string, payload interface{}) (string, error) {
+// Put serializes the provided payload to JSON and persists it. Returns unique handle that represents the object.
+func (m *Manager) Put(labels map[string]string, payload interface{}) (string, error) {
+	if labels["type"] == "" {
+		return "", fmt.Errorf("'type' label is required")
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -48,7 +45,7 @@ func (m *Manager) Add(labels map[string]string, payload interface{}) (string, er
 		return "", err
 	}
 
-	e := &Entry{
+	e := &manifestEntry{
 		ID:      hex.EncodeToString(random),
 		ModTime: time.Now().UTC(),
 		Labels:  copyLabels(labels),
@@ -60,6 +57,8 @@ func (m *Manager) Add(labels map[string]string, payload interface{}) (string, er
 
 	return e.ID, nil
 }
+
+// GetMetadata returns metadata about provided manifest item or ErrNotFound if the item can't be found.
 func (m *Manager) GetMetadata(id string) (*EntryMetadata, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -77,6 +76,8 @@ func (m *Manager) GetMetadata(id string) (*EntryMetadata, error) {
 	}, nil
 }
 
+// Get retrieves the contents of the provided manifest item by deserializing it as JSON to provided object.
+// If the manifest is not found, returns ErrNotFound.
 func (m *Manager) Get(id string, data interface{}) error {
 	b, err := m.GetRaw(id)
 	if err != nil {
@@ -90,6 +91,7 @@ func (m *Manager) Get(id string, data interface{}) error {
 	return nil
 }
 
+// GetRaw returns raw contents of the provided manifest (JSON bytes) or ErrNotFound if not found.
 func (m *Manager) GetRaw(id string) ([]byte, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -102,6 +104,7 @@ func (m *Manager) GetRaw(id string) ([]byte, error) {
 	return e.Content, nil
 }
 
+// Find returns the list of EntryMetadata for manifest entries matching all provided labels.
 func (m *Manager) Find(labels map[string]string) []*EntryMetadata {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -119,7 +122,7 @@ func (m *Manager) Find(labels map[string]string) []*EntryMetadata {
 	return matches
 }
 
-func cloneEntryMetadata(e *Entry) *EntryMetadata {
+func cloneEntryMetadata(e *manifestEntry) *EntryMetadata {
 	return &EntryMetadata{
 		ID:      e.ID,
 		Labels:  copyLabels(e.Labels),
@@ -139,6 +142,7 @@ func matchesLabels(a, b map[string]string) bool {
 	return true
 }
 
+// Flush persists changes to manifest manager.
 func (m *Manager) Flush() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -157,7 +161,7 @@ func (m *Manager) flushPendingEntriesLocked() (string, error) {
 		return "", nil
 	}
 
-	man := Manifest{
+	man := manifest{
 		Entries: m.pendingEntries,
 	}
 
@@ -183,20 +187,21 @@ func (m *Manager) flushPendingEntriesLocked() (string, error) {
 	return blockID, nil
 }
 
+// Delete marks the specified manifest ID for deletion.
 func (m *Manager) Delete(id string) {
 	if m.entries[id] == nil {
 		return
 	}
 
 	delete(m.entries, id)
-	m.pendingEntries = append(m.pendingEntries, &Entry{
+	m.pendingEntries = append(m.pendingEntries, &manifestEntry{
 		ID:      id,
 		ModTime: time.Now().UTC(),
 		Deleted: true,
 	})
 }
 
-func (m *Manager) Load() error {
+func (m *Manager) load() error {
 	if err := m.Flush(); err != nil {
 		return err
 	}
@@ -204,7 +209,7 @@ func (m *Manager) Load() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.entries = map[string]*Entry{}
+	m.entries = map[string]*manifestEntry{}
 
 	for _, i := range m.b.ListGroupBlocks(manifestGroupID) {
 		blk, err := m.b.GetBlock(i.BlockID)
@@ -212,7 +217,7 @@ func (m *Manager) Load() error {
 			return fmt.Errorf("unable to read block %q: %v", i.BlockID, err)
 		}
 
-		var man Manifest
+		var man manifest
 		if len(blk) > 2 && blk[0] == '{' {
 			if err := json.Unmarshal(blk, &man); err != nil {
 				return fmt.Errorf("unable to parse block %q: %v", i.BlockID, err)
@@ -236,6 +241,7 @@ func (m *Manager) Load() error {
 	return nil
 }
 
+// Compact performs compaction of manifest blocks.
 func (m *Manager) Compact() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -272,7 +278,7 @@ func (m *Manager) Compact() error {
 	return nil
 }
 
-func (m *Manager) mergeEntry(e *Entry) error {
+func (m *Manager) mergeEntry(e *manifestEntry) error {
 	prev := m.entries[e.ID]
 	if prev == nil {
 		m.entries[e.ID] = e
@@ -294,33 +300,14 @@ func copyLabels(m map[string]string) map[string]string {
 	return r
 }
 
-type Entry struct {
-	ID      string            `json:"id"`
-	Labels  map[string]string `json:"labels"`
-	ModTime time.Time         `json:"modified"`
-	Deleted bool              `json:"deleted,omitempty"`
-	Content json.RawMessage   `json:"data"`
-}
-
-func EntryIDs(entries []*EntryMetadata) []string {
-	var ids []string
-	for _, e := range entries {
-		ids = append(ids, e.ID)
-	}
-	return ids
-}
-
-type Manifest struct {
-	Entries []*Entry `json:"entries"`
-}
-
+// NewManager returns new manifest manager for the provided block manager.
 func NewManager(b *block.Manager) (*Manager, error) {
 	m := &Manager{
 		b:       b,
-		entries: map[string]*Entry{},
+		entries: map[string]*manifestEntry{},
 	}
 
-	if err := m.Load(); err != nil {
+	if err := m.load(); err != nil {
 		return nil, err
 	}
 

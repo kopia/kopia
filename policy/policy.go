@@ -99,12 +99,13 @@ func fileNameMatches(fname string, pattern string) bool {
 	return ok
 }
 
+// MergePolicies computes the policy by applying the specified list of policies in order.
 func MergePolicies(policies []*Policy) *Policy {
 	var merged Policy
 
 	for _, p := range policies {
 		if p.NoParent {
-			break
+			return &merged
 		}
 
 		mergeExpirationPolicy(&merged.ExpirationPolicy, &p.ExpirationPolicy)

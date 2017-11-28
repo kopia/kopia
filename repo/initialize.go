@@ -17,8 +17,10 @@ var (
 	BuildVersion = "unknown"
 )
 
+// DefaultEncryptionAlgorithm is the default algorithm for encrypting format block.
 var DefaultEncryptionAlgorithm = "AES256_GCM"
 
+// SupportedEncryptionAlgorithms lists all supported algorithms for encrypting format block.
 var SupportedEncryptionAlgorithms = []string{DefaultEncryptionAlgorithm, "NONE"}
 
 // NewRepositoryOptions specifies options that apply to newly created repositories.

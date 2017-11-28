@@ -107,12 +107,12 @@ func TestUpload(t *testing.T) {
 	defer th.cleanup()
 
 	u := NewUploader(th.repo)
-	s1, err := u.Upload(th.sourceDir, &SourceInfo{}, nil)
+	s1, err := u.Upload(th.sourceDir, SourceInfo{}, nil)
 	if err != nil {
 		t.Errorf("Upload error: %v", err)
 	}
 
-	s2, err := u.Upload(th.sourceDir, &SourceInfo{}, s1)
+	s2, err := u.Upload(th.sourceDir, SourceInfo{}, s1)
 	if err != nil {
 		t.Errorf("Upload error: %v", err)
 	}
@@ -136,7 +136,7 @@ func TestUpload(t *testing.T) {
 
 	// Add one more file, the s1.RootObjectID should change.
 	th.sourceDir.AddFile("d2/d1/f3", []byte{1, 2, 3, 4, 5}, 0777)
-	s3, err := u.Upload(th.sourceDir, &SourceInfo{}, s1)
+	s3, err := u.Upload(th.sourceDir, SourceInfo{}, s1)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
@@ -157,7 +157,7 @@ func TestUpload(t *testing.T) {
 	// Now remove the added file, OID should be identical to the original before the file got added.
 	th.sourceDir.Subdir("d2", "d1").Remove("f3")
 
-	s4, err := u.Upload(th.sourceDir, &SourceInfo{}, s1)
+	s4, err := u.Upload(th.sourceDir, SourceInfo{}, s1)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
@@ -174,7 +174,7 @@ func TestUpload(t *testing.T) {
 		t.Errorf("unexpected s4 stats: %+v", s4.Stats)
 	}
 
-	s5, err := u.Upload(th.sourceDir, &SourceInfo{}, s3)
+	s5, err := u.Upload(th.sourceDir, SourceInfo{}, s3)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
@@ -202,7 +202,7 @@ func TestUpload_TopLevelDirectoryReadFailure(t *testing.T) {
 	th.sourceDir.FailReaddir(errTest)
 
 	u := NewUploader(th.repo)
-	s, err := u.Upload(th.sourceDir, &SourceInfo{}, nil)
+	s, err := u.Upload(th.sourceDir, SourceInfo{}, nil)
 	if err != errTest {
 		t.Errorf("expected error: %v", err)
 	}
@@ -220,7 +220,7 @@ func TestUpload_SubDirectoryReadFailure(t *testing.T) {
 
 	u := NewUploader(th.repo)
 	u.IgnoreFileErrors = false
-	_, err := u.Upload(th.sourceDir, &SourceInfo{}, nil)
+	_, err := u.Upload(th.sourceDir, SourceInfo{}, nil)
 	if err == nil {
 		t.Errorf("expected error")
 	}
