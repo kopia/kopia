@@ -1,6 +1,7 @@
 package manifest
 
 import (
+	"fmt"
 	"reflect"
 	"sort"
 	"testing"
@@ -165,11 +166,16 @@ func verifyMatches(t *testing.T, mgr *Manager, labels map[string]string, expecte
 }
 
 func newManagerForTesting(t *testing.T, data map[string][]byte, keyTime map[string]time.Time) (*Manager, error) {
-	formatter, err := block.FormatterFactories["TESTONLY_MD5"](block.FormattingOptions{})
-	if err != nil {
-		panic("can't create formatter")
-	}
 	st := storagetesting.NewMapStorage(data, keyTime)
 
-	return NewManager(block.NewManager(st, 10000, 100000, formatter))
+	bm, err := block.NewManager(st, block.FormattingOptions{
+		BlockFormat:            "TESTONLY_MD5",
+		MaxPackedContentLength: 10000,
+		MaxPackSize:            100000,
+	}, block.CachingOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("can't create block manager: %v", err)
+	}
+
+	return NewManager(bm)
 }

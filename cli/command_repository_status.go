@@ -45,15 +45,14 @@ func runStatusCommand(context *kingpin.ParseContext) error {
 	}
 
 	fmt.Println()
-	fmt.Printf("Metadata manager:    v%v\n", rep.Metadata.Format.Version)
-	fmt.Printf("Metadata Encryption: %v\n", rep.Metadata.Format.EncryptionAlgorithm)
 	fmt.Printf("Key Derivation:      %v\n", rep.Security.KeyDerivationAlgorithm)
 	fmt.Printf("Unique ID:           %x\n", rep.Security.UniqueID)
 	fmt.Println()
 	fmt.Printf("Object manager:      v%v\n", rep.Objects.Format.Version)
-	fmt.Printf("Block format:        %v\n", rep.Objects.Format.BlockFormat)
+	fmt.Printf("Block format:        %v\n", rep.Blocks.Format.BlockFormat)
+	fmt.Printf("Max packed len:      %v\n", units.BytesStringBase2(int64(rep.Blocks.Format.MaxPackedContentLength)))
+	fmt.Printf("Max pack length:     %v\n", units.BytesStringBase2(int64(rep.Blocks.Format.MaxPackSize)))
 	fmt.Printf("Splitter:            %v%v\n", rep.Objects.Format.Splitter, splitterExtraInfo)
-	fmt.Printf("Max packed len:      %v\n", units.BytesStringBase2(int64(rep.Objects.Format.MaxPackedContentLength)))
 
 	return nil
 }

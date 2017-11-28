@@ -41,18 +41,14 @@ type encryptedRepositoryConfig struct {
 	Format config.RepositoryObjectFormat `json:"format"`
 }
 
-func readFormatBlock(st storage.Storage) (*formatBlock, error) {
+func parseFormatBlock(b []byte) (*formatBlock, error) {
 	f := &formatBlock{}
-
-	b, err := st.GetBlock(formatBlockID, 0, -1)
-	if err != nil {
-		return nil, fmt.Errorf("unable to read format block: %v", err)
-	}
 
 	if err := json.Unmarshal(b, &f); err != nil {
 		return nil, fmt.Errorf("invalid format block: %v", err)
 	}
-	return f, err
+
+	return f, nil
 }
 
 func writeFormatBlock(st storage.Storage, f *formatBlock) error {

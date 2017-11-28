@@ -43,18 +43,21 @@ type blockLocation struct {
 
 // Info is an information about a single block managed by Manager.
 type Info struct {
-	BlockID     string
-	Length      int64
-	Timestamp   time.Time
-	PackGroup   string
-	PackBlockID string
-	PackOffset  int64
+	BlockID     string    `json:"blockID"`
+	Length      int64     `json:"length"`
+	Timestamp   time.Time `json:"time"`
+	PackGroup   string    `json:"packGroup,omitempty"`
+	PackBlockID string    `json:"packBlockID,omitempty"`
+	PackOffset  int64     `json:"packOffset,omitempty"`
 }
 
 // Manager manages storage blocks at a low level with encryption, deduplication and packaging.
 type Manager struct {
-	storage storage.Storage
-	stats   Stats
+	Format FormattingOptions
+
+	stats Stats
+
+	cache blockCache
 
 	mu                  sync.Mutex
 	locked              bool
@@ -215,6 +218,14 @@ func (bm *Manager) ResetStats() {
 	bm.stats = Stats{}
 }
 
+// Close closes block manager.
+func (bm *Manager) Close() error {
+	if c, ok := bm.cache.(io.Closer); ok {
+		return c.Close()
+	}
+	return nil
+}
+
 func (bm *Manager) ensurePackGroupLocked(packGroup string, unpacked bool) *packInfo {
 	var suffix string
 
@@ -323,20 +334,9 @@ func (bm *Manager) finishPackLocked(g *packInfo) error {
 
 // ListIndexBlocks returns the list of all index blocks, including inactive, sorted by time.
 func (bm *Manager) ListIndexBlocks() ([]Info, error) {
-	ch, cancel := bm.storage.ListBlocks(packBlockPrefix)
-	defer cancel()
-
-	var blocks []Info
-	for b := range ch {
-		if b.Error != nil {
-			return nil, fmt.Errorf("error listing index blocks: %v", b.Error)
-		}
-
-		blocks = append(blocks, Info{
-			BlockID:   b.BlockID,
-			Length:    b.Length,
-			Timestamp: b.TimeStamp,
-		})
+	blocks, err := bm.cache.listIndexBlocks()
+	if err != nil {
+		return nil, fmt.Errorf("error listing index blocks: %v", err)
 	}
 
 	sortBlocksByTime(blocks)
@@ -865,7 +865,7 @@ func (bm *Manager) writeUnpackedBlockNotLocked(data []byte, prefix string, suffi
 
 	atomic.AddInt32(&bm.stats.WrittenBlocks, 1)
 	atomic.AddInt64(&bm.stats.WrittenBytes, int64(len(data)))
-	if err := bm.storage.PutBlock(blockID, data2); err != nil {
+	if err := bm.cache.putBlock(blockID, data2); err != nil {
 		return "", err
 	}
 
@@ -977,10 +977,10 @@ func (bm *Manager) getBlockInternalLocked(blockID string) ([]byte, error) {
 
 	if s.PackBlockID != "" {
 		underlyingBlockID = s.PackBlockID
-		payload, err = bm.storage.GetBlock(underlyingBlockID, s.PackOffset, s.Length)
+		payload, err = bm.cache.getBlock(underlyingBlockID, s.PackOffset, s.Length)
 		decryptSkip = int(s.PackOffset)
 	} else {
-		payload, err = bm.storage.GetBlock(blockID, 0, -1)
+		payload, err = bm.cache.getBlock(blockID, 0, -1)
 	}
 
 	if err != nil {
@@ -1035,20 +1035,28 @@ func (bm *Manager) assertLocked() {
 	}
 }
 
-// SetCacheDir enables local caching of data in the provided directory up to maximum length.
-func (bm *Manager) SetCacheDir(dir string) {
-}
-
 // NewManager creates new block manager with given packing options and a formatter.
-func NewManager(st storage.Storage, maxPackedContentLength, maxPackSize int, formatter Formatter) *Manager {
+func NewManager(st storage.Storage, f FormattingOptions, caching CachingOptions) (*Manager, error) {
+	sf := FormatterFactories[f.BlockFormat]
+	if sf == nil {
+		return nil, fmt.Errorf("unsupported block format: %v", f.BlockFormat)
+	}
+
+	formatter, err := sf(f)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Manager{
-		storage:                st,
+		Format: f,
+
 		openPackGroups:         make(map[string]*packInfo),
 		timeNow:                time.Now,
 		flushPackIndexesAfter:  time.Now().Add(flushPackIndexTimeout),
 		pendingPackIndexes:     nil,
-		maxPackedContentLength: maxPackedContentLength,
-		maxPackSize:            maxPackSize,
+		maxPackedContentLength: f.MaxPackedContentLength,
+		maxPackSize:            f.MaxPackSize,
 		formatter:              formatter,
-	}
+		cache:                  newBlockCache(st, caching),
+	}, nil
 }

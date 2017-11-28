@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kopia/kopia/block"
+
 	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/object"
 
@@ -49,7 +51,7 @@ func setupTestWithData(t *testing.T, data map[string][]byte, keyTime map[string]
 
 	r, err := connect(ctx, st, creds, &Options{
 	//TraceStorage: log.Printf,
-	})
+	}, block.CachingOptions{})
 	if err != nil {
 		t.Fatalf("can't connect: %v", err)
 	}

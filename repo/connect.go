@@ -6,11 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/internal/config"
+	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/storage"
 
 	// Register well-known blob storage providers
@@ -21,7 +24,10 @@ import (
 // ConnectOptions specifies options when persisting configuration to connect to a repository.
 type ConnectOptions struct {
 	PersistCredentials bool
-	CacheDirectory     string
+
+	CacheDirectory    string
+	MaxCacheSizeBytes int64
+	MaxListDuration   time.Duration
 }
 
 // Connect connects to the repository in the specified storage and persists the configuration and credentials in the file provided.
@@ -31,7 +37,12 @@ func Connect(ctx context.Context, configFile string, st storage.Storage, creds a
 		return errors.New("repository does not support persisting configuration")
 	}
 
-	f, err := readFormatBlock(st)
+	formatBytes, err := st.GetBlock(formatBlockID, 0, -1)
+	if err != nil {
+		return fmt.Errorf("unable to read format block: %v", err)
+	}
+
+	f, err := parseFormatBlock(formatBytes)
 	if err != nil {
 		return err
 	}
@@ -51,6 +62,29 @@ func Connect(ctx context.Context, configFile string, st storage.Storage, creds a
 
 	if !opt.PersistCredentials {
 		lc.Connection.Key = nil
+	}
+
+	if opt.MaxCacheSizeBytes > 0 {
+		if opt.CacheDirectory == "" {
+			// derive cache directory from config
+			absConfig, err := filepath.Abs(configFile)
+			if err != nil {
+				return err
+			}
+			lc.Caching.CacheDirectory = filepath.Join(filepath.Dir(absConfig), fmt.Sprintf("cache-%x", f.UniqueID))
+		} else {
+			absCacheDir, err := filepath.Abs(opt.CacheDirectory)
+			if err != nil {
+				return err
+			}
+
+			lc.Caching.CacheDirectory = absCacheDir
+		}
+		lc.Caching.MaxCacheSizeBytes = opt.MaxCacheSizeBytes
+		lc.Caching.MaxListCacheDurationSec = int(opt.MaxListDuration.Seconds())
+
+		log.Printf("Creating cache directory '%v' with max size %v", lc.Caching.CacheDirectory, units.BytesStringBase2(lc.Caching.MaxCacheSizeBytes))
+		os.MkdirAll(lc.Caching.CacheDirectory, 0700)
 	}
 
 	d, err := json.MarshalIndent(&lc, "", "  ")

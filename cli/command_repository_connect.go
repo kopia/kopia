@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/kopia/kopia/repo"
 
@@ -15,6 +16,8 @@ var (
 	connectRepositoryLocation     = connectCommand.Arg("location", "Repository address").Required().String()
 	connectDontPersistCredentials bool
 	connectCacheDirectory         string
+	connectMaxCacheSizeMB         int64
+	connectMaxListCacheDuration   time.Duration
 
 	// options shared by various providers
 	connectCredentialsFile                string
@@ -44,12 +47,18 @@ func setupConnectOptions(cmd *kingpin.CmdClause) {
 
 	cmd.Flag("max-download-speed", "Limit the download speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&connectMaxDownloadSpeedBytesPerSecond)
 	cmd.Flag("max-upload-speed", "Limit the upload speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&connectMaxUploadSpeedBytesPerSecond)
+
+	cmd.Flag("cache-size", "Size of local cache").PlaceHolder("MB").Int64Var(&connectMaxCacheSizeMB)
+	cmd.Flag("max-list-cache-duration", "Duration of index cache").Default("600s").DurationVar(&connectMaxListCacheDuration)
 }
 
 func connectOptions() repo.ConnectOptions {
 	return repo.ConnectOptions{
 		PersistCredentials: !connectDontPersistCredentials,
-		CacheDirectory:     connectCacheDirectory,
+
+		CacheDirectory:    connectCacheDirectory,
+		MaxCacheSizeBytes: connectMaxCacheSizeMB << 20,
+		MaxListDuration:   connectMaxListCacheDuration,
 	}
 }
 

@@ -614,10 +614,15 @@ func TestDeleteAndRecreate(t *testing.T) {
 
 func newTestBlockManager(data map[string][]byte, keyTime map[string]time.Time) *Manager {
 	st := storagetesting.NewMapStorage(data, keyTime)
-
-	f := &unencryptedFormat{computeHash(md5.New, md5.Size)}
 	//st = logging.NewWrapper(st)
-	bm := NewManager(st, maxPackedContentLength, maxPackSize, f)
+	bm, err := NewManager(st, FormattingOptions{
+		BlockFormat:            "TESTONLY_MD5",
+		MaxPackedContentLength: maxPackedContentLength,
+		MaxPackSize:            maxPackSize,
+	}, CachingOptions{})
+	if err != nil {
+		panic("can't create block manager: " + err.Error())
+	}
 
 	setFakeTime(bm, fakeTime)
 	return bm

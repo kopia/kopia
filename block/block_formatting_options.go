@@ -7,4 +7,5 @@ type FormattingOptions struct {
 	HMACSecret             []byte `json:"secret,omitempty"`                 // HMAC secret used to generate encryption keys
 	MasterKey              []byte `json:"masterKey,omitempty"`              // master encryption key (SIV-mode encryption only)
 	MaxPackedContentLength int    `json:"maxPackedContentLength,omitempty"` // maximum size of object to be considered for storage in a pack
+	MaxPackSize            int    `json:"maxPackSize,omitempty"`            // maximum size of a pack object
 }

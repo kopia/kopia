@@ -11,8 +11,8 @@ import (
 
 // LocalConfig is a configuration of Kopia.
 type LocalConfig struct {
-	Connection     *RepositoryConnectionInfo `json:"connection,omitempty"`
-	CacheDirectory string                    `json:"cacheDirectory,omitempty"`
+	Connection *RepositoryConnectionInfo `json:"connection,omitempty"`
+	Caching    block.CachingOptions      `json:"caching"`
 }
 
 // RepositoryObjectFormat describes the format of objects in a repository.
