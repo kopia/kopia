@@ -386,11 +386,11 @@ func (u *Uploader) Cancel() {
 // Old snapshot manifest, when provided can be used to speed up uploads by utilizing hash cache.
 func (u *Uploader) Upload(
 	source fs.Entry,
-	sourceInfo *SourceInfo,
+	sourceInfo SourceInfo,
 	old *Manifest,
 ) (*Manifest, error) {
 	s := &Manifest{
-		Source: *sourceInfo,
+		Source: sourceInfo,
 	}
 
 	u.cacheReader = hashcache.Open(nil)

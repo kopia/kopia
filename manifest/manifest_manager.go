@@ -302,6 +302,14 @@ type Entry struct {
 	Content json.RawMessage   `json:"data"`
 }
 
+func EntryIDs(entries []*EntryMetadata) []string {
+	var ids []string
+	for _, e := range entries {
+		ids = append(ids, e.ID)
+	}
+	return ids
+}
+
 type Manifest struct {
 	Entries []*Entry `json:"entries"`
 }

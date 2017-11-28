@@ -111,7 +111,7 @@ func getSnapshotNamesToExpire(mgr *snapshot.Manager) ([]string, error) {
 
 	if *snapshotExpireAll {
 		fmt.Fprintf(os.Stderr, "Scanning all active snapshots...\n")
-		return mgr.ListSnapshotManifests(nil)
+		return mgr.ListSnapshotManifests(nil), nil
 	}
 
 	var result []string
@@ -124,7 +124,7 @@ func getSnapshotNamesToExpire(mgr *snapshot.Manager) ([]string, error) {
 
 		log.Printf("Looking for snapshots of %v", src)
 
-		matches, err := mgr.ListSnapshotManifests(&src)
+		matches := mgr.ListSnapshotManifests(&src)
 		if err != nil {
 			return nil, fmt.Errorf("error listing snapshots for %v: %v", src, err)
 		}
@@ -210,8 +210,8 @@ func runExpireCommand(context *kingpin.ParseContext) error {
 	}
 	if *snapshotExpireDelete == "yes" {
 		fmt.Fprintf(os.Stderr, "Deleting %v snapshots...\n", len(toDelete))
-		if err := rep.Metadata.RemoveMany(toDelete); err != nil {
-			return err
+		for _, it := range toDelete {
+			rep.Manifests.Delete(it)
 		}
 	} else {
 		fmt.Fprintf(os.Stderr, "%v snapshot(s) would be deleted. Pass --delete=yes to do it.\n", len(toDelete))

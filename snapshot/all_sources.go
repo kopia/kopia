@@ -27,10 +27,7 @@ func (s *repositoryAllSources) Metadata() *fs.EntryMetadata {
 }
 
 func (s *repositoryAllSources) Readdir() (fs.Entries, error) {
-	srcs, err := s.snapshotManager.ListSources()
-	if err != nil {
-		return nil, err
-	}
+	srcs := s.snapshotManager.ListSources()
 
 	users := map[string]bool{}
 	for _, src := range srcs {

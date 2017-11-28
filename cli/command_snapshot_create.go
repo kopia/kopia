@@ -81,7 +81,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 			return fmt.Errorf("invalid source: '%s': %s", backupDirectory, err)
 		}
 
-		sourceInfo := &snapshot.SourceInfo{Path: filepath.Clean(dir), Host: getHostName(), UserName: getUserName()}
+		sourceInfo := snapshot.SourceInfo{Path: filepath.Clean(dir), Host: getHostName(), UserName: getUserName()}
 		policy, err := pmgr.GetEffectivePolicy(sourceInfo.UserName, sourceInfo.Host, sourceInfo.Path)
 		if err != nil {
 			return fmt.Errorf("unable to get backup policy for source %v: %v", sourceInfo, err)
@@ -135,10 +135,7 @@ func getLocalBackupPaths(mgr *snapshot.Manager) ([]string, error) {
 	u := getUserName()
 	log.Printf("Looking for previous backups of '%v@%v'...", u, h)
 
-	sources, err := mgr.ListSources()
-	if err != nil {
-		return nil, err
-	}
+	sources := mgr.ListSources()
 
 	var result []string
 

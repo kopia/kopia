@@ -4,7 +4,6 @@ import (
 	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/manifest"
-	"github.com/kopia/kopia/metadata"
 	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/storage"
 )
@@ -13,7 +12,6 @@ import (
 type Repository struct {
 	Blocks     *block.Manager
 	Objects    *object.Manager
-	Metadata   *metadata.Manager
 	Storage    storage.Storage
 	KeyManager *auth.KeyManager
 	Security   auth.SecurityOptions

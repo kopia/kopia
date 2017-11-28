@@ -28,11 +28,7 @@ func (s *sourceDirectories) Metadata() *fs.EntryMetadata {
 }
 
 func (s *sourceDirectories) Readdir() (fs.Entries, error) {
-	sources, err := s.snapshotManager.ListSources()
-	if err != nil {
-		return nil, err
-	}
-
+	sources := s.snapshotManager.ListSources()
 	var result fs.Entries
 
 	for _, src := range sources {

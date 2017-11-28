@@ -34,7 +34,7 @@ func safeName(path string) string {
 }
 
 func (s *sourceSnapshots) Readdir() (fs.Entries, error) {
-	manifests, err := s.snapshotManager.ListSnapshots(s.src)
+	manifests, err := s.snapshotManager.ListSnapshots(*s.src)
 	if err != nil {
 		return nil, err
 	}

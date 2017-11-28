@@ -48,11 +48,7 @@ func runMigrateCommand(context *kingpin.ParseContext) error {
 
 		log.Printf("migrating source %v", s)
 
-		manifests, err := sourceSM.ListSnapshotManifests(s)
-		if err != nil {
-			return fmt.Errorf("unable to list snapshot manifests for %v: %v", s, err)
-		}
-
+		manifests := sourceSM.ListSnapshotManifests(s)
 		snapshots, err := sourceSM.LoadSnapshots(manifests)
 		if err != nil {
 			return fmt.Errorf("unable to load snapshot manifests for %v: %v", s, err)
@@ -60,7 +56,7 @@ func runMigrateCommand(context *kingpin.ParseContext) error {
 
 		for _, m := range filterSnapshotsToMigrate(snapshots) {
 			d := sourceSM.DirectoryEntry(m.RootObjectID)
-			newm, err := uploader.Upload(d, &m.Source, nil)
+			newm, err := uploader.Upload(d, m.Source, nil)
 			if err != nil {
 				return fmt.Errorf("error migrating shapshot %v @ %v: %v", m.Source, m.StartTime, err)
 			}
@@ -82,7 +78,7 @@ func runMigrateCommand(context *kingpin.ParseContext) error {
 			return err
 		}
 		d := sourceSM.DirectoryEntry(dirOID)
-		newm, err := uploader.Upload(d, &snapshot.SourceInfo{Host: "temp"}, nil)
+		newm, err := uploader.Upload(d, snapshot.SourceInfo{Host: "temp"}, nil)
 		if err != nil {
 			return fmt.Errorf("error migrating directory %v: %v", dirOID, err)
 		}
@@ -117,7 +113,7 @@ func getSourcesToMigrate(mgr *snapshot.Manager) ([]*snapshot.SourceInfo, error) 
 	}
 
 	if *migrateAll {
-		return mgr.ListSources()
+		return mgr.ListSources(), nil
 	}
 
 	return nil, nil

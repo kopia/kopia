@@ -7,7 +7,6 @@ import (
 	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/config"
-	"github.com/kopia/kopia/metadata"
 	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/storage"
 )
@@ -17,6 +16,10 @@ var (
 	BuildInfo    = "unknown"
 	BuildVersion = "unknown"
 )
+
+var DefaultEncryptionAlgorithm = "AES256_GCM"
+
+var SupportedEncryptionAlgorithms = []string{DefaultEncryptionAlgorithm, "NONE"}
 
 // NewRepositoryOptions specifies options that apply to newly created repositories.
 // All fields are optional, when not provided, reasonable defaults will be used.
@@ -72,7 +75,7 @@ func formatBlockFromOptions(opt *NewRepositoryOptions) *formatBlock {
 			UniqueID:               applyDefaultRandomBytes(opt.UniqueID, 32),
 		},
 		Version:             "1",
-		EncryptionAlgorithm: applyDefaultString(opt.MetadataEncryptionAlgorithm, metadata.DefaultEncryptionAlgorithm),
+		EncryptionAlgorithm: applyDefaultString(opt.MetadataEncryptionAlgorithm, DefaultEncryptionAlgorithm),
 	}
 }
 

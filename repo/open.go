@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 
 	"github.com/kopia/kopia/manifest"
-	"github.com/kopia/kopia/metadata"
 
 	"github.com/kopia/kopia/object"
 
@@ -128,14 +127,6 @@ func connect(ctx context.Context, st storage.Storage, creds auth.Credentials, op
 		return nil, err
 	}
 
-	mm, err := metadata.NewManager(st, metadata.Format{
-		Version:             f.Version,
-		EncryptionAlgorithm: f.EncryptionAlgorithm,
-	}, km)
-	if err != nil {
-		return nil, fmt.Errorf("unable to open metadata manager: %v", err)
-	}
-
 	repoConfig, err := decryptFormatBytes(f, km)
 	if err != nil {
 		return nil, fmt.Errorf("unable to decrypt repository config: %v", err)
@@ -166,7 +157,6 @@ func connect(ctx context.Context, st storage.Storage, creds auth.Credentials, op
 	return &Repository{
 		Blocks:         bm,
 		Objects:        om,
-		Metadata:       mm,
 		Storage:        st,
 		KeyManager:     km,
 		Manifests:      manifests,

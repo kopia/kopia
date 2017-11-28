@@ -24,10 +24,7 @@ var (
 
 func findBackups(mgr *snapshot.Manager, sourceInfo snapshot.SourceInfo) (manifestIDs []string, relPath string, err error) {
 	for len(sourceInfo.Path) > 0 {
-		list, err := mgr.ListSnapshotManifests(&sourceInfo)
-		if err != nil {
-			return nil, "", err
-		}
+		list := mgr.ListSnapshotManifests(&sourceInfo)
 
 		if len(list) > 0 {
 			return list, relPath, nil
@@ -72,7 +69,7 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 			relPath = "/" + relPath
 		}
 	} else {
-		previous, err = mgr.ListSnapshotManifests(nil)
+		previous = mgr.ListSnapshotManifests(nil)
 	}
 
 	if err != nil {

@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/cachefs"
@@ -15,10 +14,9 @@ import (
 var (
 	mountCommand = app.Command("mount", "Mount repository object as a local filesystem.")
 
-	mountObjectID             = mountCommand.Arg("path", "Identifier of the directory to mount.").Required().String()
-	mountPoint                = mountCommand.Arg("mountPoint", "Mount point").Required().String()
-	mountTraceFS              = mountCommand.Flag("trace-fs", "Trace filesystem operations").Bool()
-	mountCacheRefreshInterval = mountCommand.Flag("cache-refresh", "Cache refresh interval").Default("600s").Duration()
+	mountObjectID = mountCommand.Arg("path", "Identifier of the directory to mount.").Required().String()
+	mountPoint    = mountCommand.Arg("mountPoint", "Mount point").Required().String()
+	mountTraceFS  = mountCommand.Flag("trace-fs", "Trace filesystem operations").Bool()
 )
 
 func runMountCommand(context *kingpin.ParseContext) error {
@@ -26,18 +24,6 @@ func runMountCommand(context *kingpin.ParseContext) error {
 
 	mgr := snapshot.NewManager(rep)
 	var entry fs.Directory
-
-	if *mountCacheRefreshInterval > 0 {
-		go func() {
-			for {
-				select {
-				case <-time.After(*mountCacheRefreshInterval):
-					rep.Metadata.RefreshCache()
-					// TODO - cancel the loop perhaps?
-				}
-			}
-		}()
-	}
 
 	if *mountObjectID == "all" {
 		entry = mgr.AllSourcesEntry()
