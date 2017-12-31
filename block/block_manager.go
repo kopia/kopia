@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -280,7 +281,9 @@ func (bm *Manager) writePackIndexes(ndx packIndexes, replacesBlockBeforeTime *ti
 		suffix = fmt.Sprintf("%v%x", compactedBlockSuffix, replacesBlockBeforeTime.UnixNano())
 	}
 
-	return bm.writeUnpackedBlockNotLocked(buf.Bytes(), packBlockPrefix, suffix, true)
+	inverseTimePrefix := fmt.Sprintf("%016x", math.MaxInt64-time.Now().UnixNano())
+
+	return bm.writeUnpackedBlockNotLocked(buf.Bytes(), packBlockPrefix+inverseTimePrefix, suffix, true)
 }
 
 func (bm *Manager) finishAllOpenPacksLocked() error {
