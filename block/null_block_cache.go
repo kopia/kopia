@@ -33,3 +33,7 @@ func (c nullBlockCache) listIndexBlocks() ([]Info, error) {
 
 	return results, nil
 }
+
+func (c nullBlockCache) close() error {
+	return nil
+}

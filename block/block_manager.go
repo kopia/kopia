@@ -219,11 +219,8 @@ func (bm *Manager) ResetStats() {
 }
 
 // Close closes block manager.
-func (bm *Manager) Close() error {
-	if c, ok := bm.cache.(io.Closer); ok {
-		return c.Close()
-	}
-	return nil
+func (bm *Manager) close() error {
+	return bm.cache.close()
 }
 
 func (bm *Manager) ensurePackGroupLocked(packGroup string, unpacked bool) *packInfo {

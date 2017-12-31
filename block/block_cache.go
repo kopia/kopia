@@ -10,6 +10,7 @@ type blockCache interface {
 	getBlock(blockID string, offset, length int64) ([]byte, error)
 	putBlock(blockID string, data []byte) error
 	listIndexBlocks() ([]Info, error)
+	close() error
 }
 
 // CachingOptions specifies configuration of local cache.

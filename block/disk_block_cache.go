@@ -34,7 +34,7 @@ type diskBlockCache struct {
 }
 
 func (c *diskBlockCache) getBlock(blockID string, offset, length int64) ([]byte, error) {
-	fn := filepath.Join(c.directory, blockID) + cachedSuffix
+	fn := c.cachedItemName(blockID)
 
 	b, err := ioutil.ReadFile(fn)
 	if err == nil {
@@ -89,12 +89,12 @@ func (c *diskBlockCache) putBlock(blockID string, data []byte) error {
 	}
 
 	c.writeFileAtomic(filepath.Join(c.directory, blockID)+cachedSuffix, c.appendHMAC(data))
-
+	os.Remove(c.cachedItemName("list"))
 	return nil
 }
 
 func (c *diskBlockCache) listIndexBlocks() ([]Info, error) {
-	cachedListFile := filepath.Join(c.directory, "list"+cachedSuffix)
+	cachedListFile := c.cachedItemName("list")
 	f, err := os.Open(cachedListFile)
 	if err == nil {
 		defer f.Close()
@@ -119,6 +119,10 @@ func (c *diskBlockCache) listIndexBlocks() ([]Info, error) {
 	}
 
 	return blocks, err
+}
+
+func (c *diskBlockCache) cachedItemName(name string) string {
+	return filepath.Join(c.directory, name+cachedSuffix)
 }
 
 func (c *diskBlockCache) readBlocksFromCacheFile(f *os.File) ([]Info, error) {
@@ -210,7 +214,7 @@ func (c *diskBlockCache) writeFileAtomic(fname string, contents []byte) error {
 	return nil
 }
 
-func (c *diskBlockCache) lose() error {
+func (c *diskBlockCache) close() error {
 	close(c.closed)
 	return nil
 }
