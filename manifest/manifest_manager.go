@@ -212,40 +212,86 @@ func (m *Manager) load() error {
 
 	m.entries = map[string]*manifestEntry{}
 
-	log.Debug().Msg("listing group blocks...")
-	t0 := time.Now()
+	log.Debug().Str("group", manifestGroupID).Msg("listing manifest group blocks")
 	blocks := m.b.ListGroupBlocks(manifestGroupID)
-	log.Debug().Dur("duration", time.Since(t0)).Msg("fetched group block list")
 
-	for _, i := range blocks {
-		log.Debug().Msgf("loading block %v...", i.BlockID)
-		blk, err := m.b.GetBlock(i.BlockID)
-		if err != nil {
-			return fmt.Errorf("unable to read block %q: %v", i.BlockID, err)
-		}
+	return m.loadManifestBlocks(blocks)
+}
 
-		var man manifest
-		if len(blk) > 2 && blk[0] == '{' {
-			if err := json.Unmarshal(blk, &man); err != nil {
-				return fmt.Errorf("unable to parse block %q: %v", i.BlockID, err)
+func (m *Manager) loadManifestBlocks(blocks []block.Info) error {
+	t0 := time.Now()
+
+	errors := make(chan error, len(blocks))
+	manifests := make(chan manifest, len(blocks))
+	blockIDs := make(chan string, len(blocks))
+	var wg sync.WaitGroup
+
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			for blk := range blockIDs {
+				//t0 := time.Now()
+				man, err := m.loadManifestBlock(blk)
+				//log.Debug().Dur("duration", time.Since(t0)).Str("block", blk).Msg("loaded")
+				if err != nil {
+					errors <- err
+				} else {
+					manifests <- man
+				}
 			}
-		} else {
-			gz, err := gzip.NewReader(bytes.NewReader(blk))
-			if err != nil {
-				return fmt.Errorf("unable to unpack block %q: %v", i.BlockID, err)
-			}
+		}()
+	}
 
-			if err := json.NewDecoder(gz).Decode(&man); err != nil {
-				return fmt.Errorf("unable to parse block %q: %v", i.BlockID, err)
-			}
-		}
+	// feed block IDs for goroutines
+	for _, b := range blocks {
+		blockIDs <- b.BlockID
+	}
+	close(blockIDs)
 
+	// wait for workers to complete
+	wg.Wait()
+	close(errors)
+	close(manifests)
+	log.Debug().Dur("duration", time.Since(t0)).Msgf("finished loading blocks.")
+	// if there was any error, forward it
+	if err := <-errors; err != nil {
+		return err
+	}
+
+	for man := range manifests {
 		for _, e := range man.Entries {
 			m.mergeEntry(e)
 		}
 	}
 
 	return nil
+}
+
+func (m *Manager) loadManifestBlock(blockID string) (manifest, error) {
+	man := manifest{}
+	blk, err := m.b.GetBlock(blockID)
+	if err != nil {
+		return man, fmt.Errorf("unable to read block %q: %v", blockID, err)
+	}
+
+	if len(blk) > 2 && blk[0] == '{' {
+		if err := json.Unmarshal(blk, &man); err != nil {
+			return man, fmt.Errorf("unable to parse block %q: %v", blockID, err)
+		}
+	} else {
+		gz, err := gzip.NewReader(bytes.NewReader(blk))
+		if err != nil {
+			return man, fmt.Errorf("unable to unpack block %q: %v", blockID, err)
+		}
+
+		if err := json.NewDecoder(gz).Decode(&man); err != nil {
+			return man, fmt.Errorf("unable to parse block %q: %v", blockID, err)
+		}
+	}
+
+	return man, nil
 }
 
 // Compact performs compaction of manifest blocks.

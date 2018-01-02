@@ -1,11 +1,7 @@
 package block
 
 import (
-	"bytes"
-	"compress/gzip"
-	"encoding/json"
 	"fmt"
-	"io"
 	"math"
 	"sort"
 	"strconv"
@@ -14,8 +10,10 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/gogo/protobuf/proto"
 	"github.com/rs/zerolog/log"
 
+	"github.com/kopia/kopia/internal/blockmgrpb"
 	"github.com/kopia/kopia/storage"
 )
 
@@ -34,7 +32,7 @@ var zeroTime time.Time
 
 type packInfo struct {
 	currentPackData  []byte
-	currentPackIndex *packIndex
+	currentPackIndex *blockmgrpb.Index
 }
 
 type blockLocation struct {
@@ -62,9 +60,9 @@ type Manager struct {
 
 	mu                  sync.Mutex
 	locked              bool
-	groupToBlockToIndex map[string]map[string]*packIndex
+	groupToBlockToIndex map[string]map[string]*blockmgrpb.Index
 
-	pendingPackIndexes    packIndexes
+	pendingPackIndexes    []*blockmgrpb.Index
 	flushPackIndexesAfter time.Time
 
 	openPackGroups         map[string]*packInfo
@@ -89,7 +87,8 @@ func (bm *Manager) BlockSize(blockID string) (int64, error) {
 		return 0, storage.ErrBlockNotFound
 	}
 
-	return int64(ndx.Items[blockID].size), nil
+	_, size := unpackOffsetAndSize(ndx.Items[blockID])
+	return int64(size), nil
 }
 
 // DeleteBlock marks the given blockID as deleted.
@@ -147,20 +146,31 @@ func (bm *Manager) registerUnpackedBlockLockedNoFlush(groupID string, blockID st
 		return g
 	}
 
-	bm.addToIndexLocked(groupID, blockID, g.currentPackIndex, offsetAndSize{0, int32(dataLength)})
+	bm.addToIndexLocked(groupID, blockID, g.currentPackIndex, packOffsetAndSize(0, uint32(dataLength)))
 	return g
 }
 
-func (bm *Manager) addToIndexLocked(groupID, blockID string, ndx *packIndex, os offsetAndSize) {
+func packOffsetAndSize(offset uint32, size uint32) uint64 {
+	return uint64(offset)<<32 | uint64(size)
+}
+
+func unpackOffsetAndSize(os uint64) (uint32, uint32) {
+	offset := uint32(os >> 32)
+	size := uint32(os)
+
+	return offset, size
+}
+
+func (bm *Manager) addToIndexLocked(groupID, blockID string, ndx *blockmgrpb.Index, packedOffsetAndSize uint64) {
 	bm.assertLocked()
 
 	m := bm.groupToBlockToIndex[groupID]
 	if m == nil {
-		m = make(map[string]*packIndex)
+		m = make(map[string]*blockmgrpb.Index)
 		bm.groupToBlockToIndex[groupID] = m
 	}
 
-	ndx.Items[blockID] = os
+	ndx.Items[blockID] = packedOffsetAndSize
 	m[blockID] = ndx
 }
 
@@ -184,7 +194,7 @@ func (bm *Manager) addToPackLocked(packGroup string, blockID string, data []byte
 	shouldFinish := offset+len(data) >= bm.maxPackSize
 
 	g.currentPackData = append(g.currentPackData, data...)
-	bm.addToIndexLocked(packGroup, blockID, g.currentPackIndex, offsetAndSize{int32(offset), int32(len(data))})
+	bm.addToIndexLocked(packGroup, blockID, g.currentPackIndex, packOffsetAndSize(uint32(offset), uint32(len(data))))
 
 	if shouldFinish {
 		if err := bm.finishPackAndMaybeFlushIndexes(g); err != nil {
@@ -237,10 +247,10 @@ func (bm *Manager) ensurePackGroupLocked(packGroup string, unpacked bool) *packI
 	}
 
 	if g.currentPackIndex == nil {
-		g.currentPackIndex = &packIndex{
-			Items:      make(map[string]offsetAndSize),
-			PackGroup:  packGroup,
-			CreateTime: bm.timeNow().UTC(),
+		g.currentPackIndex = &blockmgrpb.Index{
+			Items:           make(map[string]uint64),
+			PackGroup:       packGroup,
+			CreateTimeNanos: bm.timeNow().UnixNano(),
 		}
 		if unpacked {
 			g.currentPackData = nil
@@ -267,14 +277,13 @@ func (bm *Manager) flushPackIndexesLocked() error {
 	return nil
 }
 
-func (bm *Manager) writePackIndexes(ndx packIndexes, replacesBlockBeforeTime *time.Time) (string, error) {
-	var buf bytes.Buffer
-
-	zw := gzip.NewWriter(&buf)
-	if err := json.NewEncoder(zw).Encode(ndx); err != nil {
+func (bm *Manager) writePackIndexes(ndx []*blockmgrpb.Index, replacesBlockBeforeTime *time.Time) (string, error) {
+	data, err := proto.Marshal(&blockmgrpb.Indexes{
+		Indexes: ndx,
+	})
+	if err != nil {
 		return "", fmt.Errorf("can't encode pack index: %v", err)
 	}
-	zw.Close()
 
 	var suffix string
 	if replacesBlockBeforeTime != nil {
@@ -283,7 +292,7 @@ func (bm *Manager) writePackIndexes(ndx packIndexes, replacesBlockBeforeTime *ti
 
 	inverseTimePrefix := fmt.Sprintf("%016x", math.MaxInt64-time.Now().UnixNano())
 
-	return bm.writeUnpackedBlockNotLocked(buf.Bytes(), packBlockPrefix+inverseTimePrefix, suffix, true)
+	return bm.writeUnpackedBlockNotLocked(data, packBlockPrefix+inverseTimePrefix, suffix, true)
 }
 
 func (bm *Manager) finishAllOpenPacksLocked() error {
@@ -321,7 +330,7 @@ func (bm *Manager) finishPackLocked(g *packInfo) error {
 			}
 
 			bm.registerUnpackedBlockLockedNoFlush(packObjectsPackGroup, blockID, int64(dataLength))
-			g.currentPackIndex.PackBlockID = blockID
+			g.currentPackIndex.PackBlockId = blockID
 		}
 
 		bm.pendingPackIndexes = append(bm.pendingPackIndexes, g.currentPackIndex)
@@ -389,11 +398,9 @@ func findLatestCompactedTimestamp(blocks []Info) (time.Time, error) {
 	return latestTime, nil
 }
 
-func (bm *Manager) loadMergedPackIndexLocked() (packIndexes, []string, time.Time, error) {
+func (bm *Manager) loadMergedPackIndexLocked() ([]*blockmgrpb.Index, []string, time.Time, error) {
 	log.Debug().Msg("listing active index blocks")
-	t0 := time.Now()
 	blocks, err := bm.ActiveIndexBlocks()
-	log.Debug().Dur("duration", time.Since(t0)).Msg("active index blocks listed")
 	if err != nil {
 		return nil, nil, zeroTime, err
 	}
@@ -412,7 +419,6 @@ func (bm *Manager) loadMergedPackIndexLocked() (packIndexes, []string, time.Time
 	}()
 
 	log.Debug().Int("parallelism", parallelFetches).Int("count", len(blocks)).Msg("loading active blocks")
-	t0 = time.Now()
 
 	var wg sync.WaitGroup
 
@@ -421,7 +427,7 @@ func (bm *Manager) loadMergedPackIndexLocked() (packIndexes, []string, time.Time
 
 	totalSize := 0
 	var blockIDs []string
-	var indexes []packIndexes
+	var indexes [][]*blockmgrpb.Index
 
 	for i := 0; i < parallelFetches; i++ {
 		wg.Add(1)
@@ -429,27 +435,17 @@ func (bm *Manager) loadMergedPackIndexLocked() (packIndexes, []string, time.Time
 			defer wg.Done()
 
 			for b := range ch {
-				log.Debug().Str("block", b).Msgf("loading")
 				data, err := bm.getBlockInternalLocked(b)
 				if err != nil {
 					errors <- err
 					return
 				}
 
-				log.Debug().Str("block", b).Int("length", len(data)).Msgf("parsing")
-				var r io.Reader = bytes.NewReader(data)
-				zr, err := gzip.NewReader(r)
-				if err != nil {
-					errors <- fmt.Errorf("unable to read pack index from %q: %v", b, err)
-					return
-				}
-
-				pi, err := loadPackIndexes(zr)
+				pi, err := loadPackIndexes(data)
 				if err != nil {
 					errors <- err
 					return
 				}
-				log.Debug().Str("block", b).Msgf("finished")
 
 				mu.Lock()
 				blockIDs = append(blockIDs, b)
@@ -468,9 +464,7 @@ func (bm *Manager) loadMergedPackIndexLocked() (packIndexes, []string, time.Time
 		return nil, nil, time.Now(), err
 	}
 
-	log.Debug().Dur("duration", time.Since(t0)).Msg("index blocks loaded")
-
-	var merged packIndexes
+	var merged []*blockmgrpb.Index
 	for _, pi := range indexes {
 		merged = append(merged, pi...)
 	}
@@ -486,8 +480,6 @@ func (bm *Manager) ensurePackIndexesLoaded() error {
 		return nil
 	}
 
-	t0 := time.Now()
-
 	merged, _, _, err := bm.loadMergedPackIndexLocked()
 	if err != nil {
 		return err
@@ -495,20 +487,25 @@ func (bm *Manager) ensurePackIndexesLoaded() error {
 
 	bm.groupToBlockToIndex = dedupeBlockIDsAndIndex(merged)
 
-	log.Debug().Msgf("loaded %v indexes of %v blocks in %v", len(merged), len(bm.groupToBlockToIndex), time.Since(t0))
+	totalBlocks := 0
+	for _, v := range bm.groupToBlockToIndex {
+		totalBlocks += len(v)
+	}
+
+	log.Debug().Int("groups", len(bm.groupToBlockToIndex)).Int("blocks", totalBlocks).Msgf("loaded indexes")
 
 	return nil
 }
 
-func dedupeBlockIDsAndIndex(ndx packIndexes) map[string]map[string]*packIndex {
+func dedupeBlockIDsAndIndex(ndx []*blockmgrpb.Index) map[string]map[string]*blockmgrpb.Index {
 	sort.Slice(ndx, func(i, j int) bool {
-		return ndx[i].CreateTime.Before(ndx[j].CreateTime)
+		return ndx[i].CreateTimeNanos < ndx[j].CreateTimeNanos
 	})
-	pi := make(map[string]map[string]*packIndex)
+	pi := make(map[string]map[string]*blockmgrpb.Index)
 	for _, pck := range ndx {
 		g := pi[pck.PackGroup]
 		if g == nil {
-			g = make(map[string]*packIndex)
+			g = make(map[string]*blockmgrpb.Index)
 			pi[pck.PackGroup] = g
 		}
 		for blockID := range pck.Items {
@@ -530,8 +527,8 @@ func dedupeBlockIDsAndIndex(ndx packIndexes) map[string]map[string]*packIndex {
 	return pi
 }
 
-func removeEmptyIndexes(ndx packIndexes) packIndexes {
-	var res packIndexes
+func removeEmptyIndexes(ndx []*blockmgrpb.Index) []*blockmgrpb.Index {
+	var res []*blockmgrpb.Index
 	for _, n := range ndx {
 		if len(n.Items) > 0 {
 			res = append(res, n)
@@ -541,19 +538,19 @@ func removeEmptyIndexes(ndx packIndexes) packIndexes {
 	return res
 }
 
-func (bm *Manager) regroupPacksAndUnpacked(ndx packIndexes) packIndexes {
-	var res packIndexes
+func (bm *Manager) regroupPacksAndUnpacked(ndx []*blockmgrpb.Index) []*blockmgrpb.Index {
+	var res []*blockmgrpb.Index
 
-	allPacks := &packIndex{
-		Items:      map[string]offsetAndSize{},
-		PackGroup:  packObjectsPackGroup,
-		CreateTime: bm.timeNow(),
+	allPacks := &blockmgrpb.Index{
+		Items:           map[string]uint64{},
+		PackGroup:       packObjectsPackGroup,
+		CreateTimeNanos: bm.timeNow().UnixNano(),
 	}
 
-	allNonPacked := &packIndex{
-		Items:      map[string]offsetAndSize{},
-		PackGroup:  nonPackedObjectsPackGroup,
-		CreateTime: bm.timeNow(),
+	allNonPacked := &blockmgrpb.Index{
+		Items:           map[string]uint64{},
+		PackGroup:       nonPackedObjectsPackGroup,
+		CreateTimeNanos: bm.timeNow().UnixNano(),
 	}
 
 	inUsePackBlocks := map[string]bool{}
@@ -574,8 +571,8 @@ func (bm *Manager) regroupPacksAndUnpacked(ndx packIndexes) packIndexes {
 			continue
 		}
 
-		if n.PackBlockID != "" {
-			inUsePackBlocks[n.PackBlockID] = true
+		if n.PackBlockId != "" {
+			inUsePackBlocks[n.PackBlockId] = true
 		}
 
 		res = append(res, n)
@@ -628,38 +625,38 @@ func (bm *Manager) ListBlocks(prefix string, kind string) []Info {
 	packBlockIDs := map[string]bool{}
 	for _, blockToIndex := range bm.groupToBlockToIndex {
 		for _, b := range blockToIndex {
-			packBlockIDs[b.PackBlockID] = true
+			packBlockIDs[b.PackBlockId] = true
 		}
 	}
 
-	var blockMatches func(Info, *packIndex) bool
+	var blockMatches func(Info, *blockmgrpb.Index) bool
 
 	switch kind {
 	case "all":
-		blockMatches = func(Info, *packIndex) bool { return true }
+		blockMatches = func(Info, *blockmgrpb.Index) bool { return true }
 
 	case "logical": // blocks that are not pack blocks
-		blockMatches = func(b Info, _ *packIndex) bool {
+		blockMatches = func(b Info, _ *blockmgrpb.Index) bool {
 			return !packBlockIDs[b.BlockID]
 		}
 
 	case "packs": // blocks that are pack blocks
-		blockMatches = func(b Info, _ *packIndex) bool {
+		blockMatches = func(b Info, _ *blockmgrpb.Index) bool {
 			return packBlockIDs[b.BlockID]
 		}
 
 	case "packed": // blocks that are packed
-		blockMatches = func(b Info, ndx *packIndex) bool {
-			return ndx.PackBlockID != ""
+		blockMatches = func(b Info, ndx *blockmgrpb.Index) bool {
+			return ndx.PackBlockId != ""
 		}
 
 	case "nonpacked": // blocks that are not packed
-		blockMatches = func(b Info, ndx *packIndex) bool {
-			return ndx.PackBlockID == ""
+		blockMatches = func(b Info, ndx *blockmgrpb.Index) bool {
+			return ndx.PackBlockId == ""
 		}
 
 	default:
-		blockMatches = func(Info, *packIndex) bool { return false }
+		blockMatches = func(Info, *blockmgrpb.Index) bool { return false }
 	}
 
 	for _, blockToIndex := range bm.groupToBlockToIndex {
@@ -681,14 +678,15 @@ func (bm *Manager) ListBlocks(prefix string, kind string) []Info {
 	return result
 }
 
-func newInfo(blockID string, ndx *packIndex) Info {
+func newInfo(blockID string, ndx *blockmgrpb.Index) Info {
+	offset, size := unpackOffsetAndSize(ndx.Items[blockID])
 	return Info{
 		BlockID:     blockID,
-		Length:      int64(ndx.Items[blockID].size),
-		Timestamp:   ndx.CreateTime,
+		Length:      int64(size),
+		Timestamp:   time.Unix(0, ndx.CreateTimeNanos),
 		PackGroup:   ndx.PackGroup,
-		PackBlockID: ndx.PackBlockID,
-		PackOffset:  int64(ndx.Items[blockID].offset),
+		PackBlockID: ndx.PackBlockId,
+		PackOffset:  int64(offset),
 	}
 }
 
@@ -708,7 +706,7 @@ func (bm *Manager) ListGroupBlocks(groupID string) []Info {
 	return result
 }
 
-func (bm *Manager) compactIndexes(merged packIndexes, blockIDs []string, latestBlockTime time.Time) error {
+func (bm *Manager) compactIndexes(merged []*blockmgrpb.Index, blockIDs []string, latestBlockTime time.Time) error {
 	dedupeBlockIDsAndIndex(merged)
 	merged = removeEmptyIndexes(merged)
 	merged = bm.regroupPacksAndUnpacked(merged)
@@ -796,14 +794,14 @@ func (bm *Manager) Repackage(groupID string, maxLength int64) error {
 		return err
 	}
 
-	var toRepackage []*packIndex
+	var toRepackage []*blockmgrpb.Index
 	var totalBytes int64
 
 	for _, m := range merged {
-		if m.PackGroup == groupID && m.PackBlockID != "" {
-			bi, err := bm.blockInfoLocked(m.PackBlockID)
+		if m.PackGroup == groupID && m.PackBlockId != "" {
+			bi, err := bm.blockInfoLocked(m.PackBlockId)
 			if err != nil {
-				return fmt.Errorf("unable to get info on block %q: %v", m.PackBlockID, err)
+				return fmt.Errorf("unable to get info on block %q: %v", m.PackBlockId, err)
 			}
 
 			if bi.Length <= maxLength {
@@ -816,15 +814,16 @@ func (bm *Manager) Repackage(groupID string, maxLength int64) error {
 	log.Printf("%v blocks to re-package (%v total bytes)", len(toRepackage), totalBytes)
 
 	for _, m := range toRepackage {
-		data, err := bm.getBlockInternalLocked(m.PackBlockID)
+		data, err := bm.getBlockInternalLocked(m.PackBlockId)
 		if err != nil {
-			return fmt.Errorf("can't fetch block %q for repackaging: %v", m.PackBlockID, err)
+			return fmt.Errorf("can't fetch block %q for repackaging: %v", m.PackBlockId, err)
 		}
 
 		for blockID, os := range m.Items {
 			log.Printf("re-packaging: %v %v", blockID, os)
 
-			blockData := data[os.offset : os.offset+os.size]
+			offset, size := unpackOffsetAndSize(os)
+			blockData := data[offset : offset+size]
 			if err := bm.addToPackLocked(groupID, blockID, blockData, true); err != nil {
 				return fmt.Errorf("unable to re-package %q: %v", blockID, err)
 			}
@@ -887,7 +886,8 @@ func (bm *Manager) getPendingBlockLocked(blockID string) ([]byte, error) {
 			}
 
 			if blk, ok := ndx.Items[blockID]; ok {
-				return p.currentPackData[blk.offset : blk.offset+blk.size], nil
+				offset, size := unpackOffsetAndSize(blk)
+				return p.currentPackData[offset : offset+size], nil
 			}
 		}
 	}
@@ -922,7 +922,7 @@ func (bm *Manager) BlockInfo(blockID string) (Info, error) {
 	return bm.blockInfoLocked(blockID)
 }
 
-func (bm *Manager) findIndexForBlockLocked(blockID string) *packIndex {
+func (bm *Manager) findIndexForBlockLocked(blockID string) *blockmgrpb.Index {
 	bm.assertLocked()
 
 	if ndx := bm.groupToBlockToIndex[""][blockID]; ndx != nil {
@@ -950,13 +950,15 @@ func (bm *Manager) blockInfoLocked(blockID string) (Info, error) {
 		return Info{}, storage.ErrBlockNotFound
 	}
 
+	offset, size := unpackOffsetAndSize(ndx.Items[blockID])
+
 	return Info{
 		BlockID:     blockID,
 		PackGroup:   ndx.PackGroup,
-		Timestamp:   ndx.CreateTime,
-		PackBlockID: ndx.PackBlockID,
-		PackOffset:  int64(ndx.Items[blockID].offset),
-		Length:      int64(ndx.Items[blockID].size),
+		Timestamp:   time.Unix(0, ndx.CreateTimeNanos),
+		PackBlockID: ndx.PackBlockId,
+		PackOffset:  int64(offset),
+		Length:      int64(size),
 	}, nil
 }
 
@@ -1108,7 +1110,7 @@ func getCompactedTimestamp(blk string) (time.Time, bool) {
 			return time.Time{}, false
 		}
 
-		return time.Unix(unixNano/1e9, unixNano%1e9), true
+		return time.Unix(0, unixNano), true
 	}
 
 	return time.Time{}, false

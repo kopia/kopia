@@ -1,17 +1,17 @@
 package block
 
 import (
-	"bytes"
-	"compress/gzip"
 	"crypto/md5"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"math/rand"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/gogo/protobuf/proto"
+	"github.com/kopia/kopia/internal/blockmgrpb"
 
 	"github.com/rs/zerolog/log"
 
@@ -717,14 +717,9 @@ func md5hash(b []byte) string {
 func dumpBlockManagerData(data map[string][]byte) {
 	for k, v := range data {
 		if k[0] == 'P' {
-			gz, _ := gzip.NewReader(bytes.NewReader(v))
-			var buf bytes.Buffer
-			buf.ReadFrom(gz)
-
-			var dst bytes.Buffer
-			json.Indent(&dst, buf.Bytes(), "", "  ")
-
-			log.Printf("data[%v] = %v", k, dst.String())
+			var payload blockmgrpb.Indexes
+			proto.Unmarshal(v, &payload)
+			log.Printf("data[%v] = %v", k, proto.MarshalTextString(&payload))
 		} else {
 			log.Printf("data[%v] = %v bytes", k, len(v))
 		}

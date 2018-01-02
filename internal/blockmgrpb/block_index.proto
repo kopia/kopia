@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+option go_package = "blockmgrpb";
+
+message Index {
+  string pack_block_id = 1;
+  string pack_group = 2;
+  int64 create_time_nanos = 3;
+  map<string, uint64> items = 4;
+  repeated string deleted_items = 5;
+}
+
+message Indexes {
+  repeated Index indexes = 1;
+}

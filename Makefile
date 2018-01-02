@@ -18,6 +18,9 @@ install-race:
 	@echo Building version: $(BUILD_INFO) / $(BUILD_VERSION)
 	go install -race -ldflags $(LDARGS) github.com/kopia/kopia
 
+protos:
+	protoc --gofast_out=. internal/blockmgrpb/*.proto
+
 build:
 	go build github.com/kopia/kopia/...
 

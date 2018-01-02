@@ -31,7 +31,7 @@ func runListBlockIndexesAction(context *kingpin.ParseContext) error {
 	}
 
 	for _, b := range blks {
-		fmt.Printf("%-54v %10v %v\n", b.BlockID, b.Length, b.Timestamp.Local().Format(timeFormatPrecise))
+		fmt.Printf("%-70v %10v %v\n", b.BlockID, b.Length, b.Timestamp.Local().Format(timeFormatPrecise))
 	}
 
 	fmt.Printf("total %v blocks\n", len(blks))

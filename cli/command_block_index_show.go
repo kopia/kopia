@@ -1,8 +1,12 @@
 package cli
 
 import (
-	"bytes"
+	"encoding/json"
 	"fmt"
+	"os"
+
+	"github.com/gogo/protobuf/proto"
+	"github.com/kopia/kopia/internal/blockmgrpb"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -22,9 +26,14 @@ func runShowBlockIndexesAction(context *kingpin.ParseContext) error {
 			return fmt.Errorf("can't read block %q: %v", blockID, err)
 		}
 
-		if err := showContentWithFlags(bytes.NewReader(data), true, true); err != nil {
+		var d blockmgrpb.Indexes
+		if err := proto.Unmarshal(data, &d); err != nil {
 			return err
 		}
+
+		e := json.NewEncoder(os.Stdout)
+		e.SetIndent("", "  ")
+		e.Encode(&d)
 	}
 
 	return nil

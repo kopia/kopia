@@ -111,13 +111,16 @@ func (c *diskBlockCache) listIndexBlocks(full bool) ([]Info, error) {
 		if err == nil {
 			expirationTime := st.ModTime().UTC().Add(c.listCacheDuration)
 			if time.Now().UTC().Before(expirationTime) {
+				log.Debug().Bool("full", full).Msg("listing index blocks from cache")
 				return c.readBlocksFromCacheFile(f)
 			}
 		}
 	}
 
+	log.Debug().Bool("full", full).Msg("listing index blocks from source")
 	blocks, err := listIndexBlocksFromStorage(c.st, full)
 	if err == nil {
+		log.Debug().Bool("full", full).Msg("saving index blocks to cache")
 		// save to blockCache
 		if data, err := json.Marshal(blocks); err == nil {
 			if err := c.writeFileAtomic(cachedListFile, c.appendHMAC(data)); err != nil {
