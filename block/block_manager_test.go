@@ -7,12 +7,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log"
 	"math/rand"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/kopia/kopia/internal/storagetesting"
 	"github.com/kopia/kopia/storage"

@@ -3,11 +3,12 @@ package webdavmount
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/kopia/kopia/fs"
 	"golang.org/x/net/context"

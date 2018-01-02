@@ -3,8 +3,9 @@ package retry
 
 import (
 	"fmt"
-	"log"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 const (

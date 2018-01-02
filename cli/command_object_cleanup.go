@@ -3,10 +3,11 @@ package cli
 import (
 	"container/list"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/units"

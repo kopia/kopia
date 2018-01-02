@@ -2,9 +2,10 @@ package cli
 
 import (
 	"fmt"
-	"log"
 	"sort"
 	"strconv"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/kopia/kopia/policy"
 	"github.com/kopia/kopia/snapshot"

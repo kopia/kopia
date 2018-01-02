@@ -2,8 +2,9 @@ package cli
 
 import (
 	"fmt"
-	"log"
 	"os"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/snapshot"

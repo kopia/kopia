@@ -4,9 +4,10 @@ import (
 	"bufio"
 	"bytes"
 	"io"
-	"log"
 	"strings"
 	"testing"
+
+	"github.com/rs/zerolog/log"
 )
 
 type TestObj struct {

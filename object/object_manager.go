@@ -5,8 +5,9 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
 	"sync"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/config"

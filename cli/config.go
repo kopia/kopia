@@ -5,12 +5,13 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/bgentry/speakeasy"
 	"github.com/kopia/kopia/auth"

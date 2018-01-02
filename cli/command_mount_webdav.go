@@ -3,10 +3,11 @@ package cli
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"sync"
+
+	"github.com/rs/zerolog/log"
 
 	"golang.org/x/net/webdav"
 

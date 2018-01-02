@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"sort"
 	"strconv"
@@ -14,6 +13,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/kopia/kopia/storage"
 )
@@ -389,7 +390,10 @@ func findLatestCompactedTimestamp(blocks []Info) (time.Time, error) {
 }
 
 func (bm *Manager) loadMergedPackIndexLocked() (packIndexes, []string, time.Time, error) {
+	log.Debug().Msg("listing active index blocks")
+	t0 := time.Now()
 	blocks, err := bm.ActiveIndexBlocks()
+	log.Debug().Dur("duration", time.Since(t0)).Msg("active index blocks listed")
 	if err != nil {
 		return nil, nil, zeroTime, err
 	}
@@ -407,7 +411,8 @@ func (bm *Manager) loadMergedPackIndexLocked() (packIndexes, []string, time.Time
 		close(ch)
 	}()
 
-	t0 := time.Now()
+	log.Debug().Int("parallelism", parallelFetches).Int("count", len(blocks)).Msg("loading active blocks")
+	t0 = time.Now()
 
 	var wg sync.WaitGroup
 
@@ -424,12 +429,14 @@ func (bm *Manager) loadMergedPackIndexLocked() (packIndexes, []string, time.Time
 			defer wg.Done()
 
 			for b := range ch {
+				log.Debug().Str("block", b).Msgf("loading")
 				data, err := bm.getBlockInternalLocked(b)
 				if err != nil {
 					errors <- err
 					return
 				}
 
+				log.Debug().Str("block", b).Int("length", len(data)).Msgf("parsing")
 				var r io.Reader = bytes.NewReader(data)
 				zr, err := gzip.NewReader(r)
 				if err != nil {
@@ -442,6 +449,7 @@ func (bm *Manager) loadMergedPackIndexLocked() (packIndexes, []string, time.Time
 					errors <- err
 					return
 				}
+				log.Debug().Str("block", b).Msgf("finished")
 
 				mu.Lock()
 				blockIDs = append(blockIDs, b)
@@ -460,9 +468,7 @@ func (bm *Manager) loadMergedPackIndexLocked() (packIndexes, []string, time.Time
 		return nil, nil, time.Now(), err
 	}
 
-	if false {
-		log.Printf("loaded %v pack indexes (%v bytes) in %v", len(indexes), totalSize, time.Since(t0))
-	}
+	log.Debug().Dur("duration", time.Since(t0)).Msg("index blocks loaded")
 
 	var merged packIndexes
 	for _, pi := range indexes {
@@ -489,9 +495,7 @@ func (bm *Manager) ensurePackIndexesLoaded() error {
 
 	bm.groupToBlockToIndex = dedupeBlockIDsAndIndex(merged)
 
-	if false {
-		log.Printf("loaded %v indexes of %v blocks in %v", len(merged), len(bm.groupToBlockToIndex), time.Since(t0))
-	}
+	log.Debug().Msgf("loaded %v indexes of %v blocks in %v", len(merged), len(bm.groupToBlockToIndex), time.Since(t0))
 
 	return nil
 }

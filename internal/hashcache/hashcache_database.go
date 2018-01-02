@@ -8,8 +8,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/boltdb/bolt"
 	"github.com/kopia/kopia/object"

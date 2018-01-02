@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"path/filepath"
+	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/kopia/kopia/manifest"
 
@@ -35,6 +37,12 @@ type Options struct {
 
 // Open opens a Repository specified in the configuration file.
 func Open(ctx context.Context, configFile string, options *Options) (*Repository, error) {
+	t0 := time.Now()
+	log.Debug().Msgf("opening repository from %v", configFile)
+	defer func() {
+		log.Debug().Dur("duration", time.Since(t0)).Msg("opened")
+	}()
+
 	if options == nil {
 		options = &Options{}
 	}
@@ -44,6 +52,7 @@ func Open(ctx context.Context, configFile string, options *Options) (*Repository
 		return nil, err
 	}
 
+	log.Debug().Str("file", configFile).Msg("loading config")
 	lc, err := config.LoadFromFile(configFile)
 	if err != nil {
 		return nil, err
@@ -51,17 +60,21 @@ func Open(ctx context.Context, configFile string, options *Options) (*Repository
 
 	var creds auth.Credentials
 	if len(lc.Connection.Key) > 0 {
+		log.Debug().Msg("getting credentials from master key")
 		creds, err = auth.MasterKey(lc.Connection.Key)
 	} else {
 		if options.CredentialsCallback == nil {
 			return nil, errors.New("key not persisted and no credentials specified")
 		}
+		log.Debug().Msg("getting credentials using callback")
 		creds, err = options.CredentialsCallback()
 	}
 
 	if err != nil {
 		return nil, fmt.Errorf("invalid credentials: %v", err)
 	}
+
+	log.Debug().Str("connection", lc.Connection.ConnectionInfo.Type).Interface("params", lc.Connection.ConnectionInfo.Config).Msg("opening storage")
 
 	st, err := storage.NewStorage(ctx, lc.Connection.ConnectionInfo)
 	if err != nil {
@@ -125,17 +138,20 @@ func connect(ctx context.Context, st storage.Storage, creds auth.Credentials, op
 		st = logging.NewWrapper(st, logging.Prefix("[STORAGE] "), logging.Output(options.TraceStorage))
 	}
 
+	log.Debug().Msg("reading format block")
 	// Read cache block, potentially from cache.
 	f, err := readAndCacheFormatBlock(st, caching.CacheDirectory)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read format block: %v", err)
 	}
 
+	log.Debug().Msg("creating key manager")
 	km, err := auth.NewKeyManager(creds, f.SecurityOptions)
 	if err != nil {
 		return nil, err
 	}
 
+	log.Debug().Msg("decrypting format bytes")
 	repoConfig, err := decryptFormatBytes(f, km)
 	if err != nil {
 		return nil, fmt.Errorf("unable to decrypt repository config: %v", err)
@@ -146,23 +162,28 @@ func connect(ctx context.Context, st storage.Storage, creds auth.Credentials, op
 		fo.MaxPackSize = repoConfig.MaxBlockSize
 	}
 
+	log.Debug().Msg("deriving format key")
 	caching.HMACSecret = km.DeriveKey([]byte("local-cache-integrity"), 16)
 
+	log.Debug().Msg("initializing block manager")
 	bm, err := block.NewManager(st, fo, caching)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open block manager: %v", err)
 	}
 
+	log.Debug().Msg("initializing object manager")
 	om, err := object.NewObjectManager(bm, *repoConfig, options.ObjectManagerOptions)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open object manager: %v", err)
 	}
 
+	log.Debug().Msg("initializing manifest manager")
 	manifests, err := manifest.NewManager(bm)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open manifests: %v", err)
 	}
 
+	log.Debug().Msg("done")
 	return &Repository{
 		Blocks:         bm,
 		Objects:        om,

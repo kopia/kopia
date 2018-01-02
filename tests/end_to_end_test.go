@@ -4,13 +4,14 @@ import (
 	"encoding/hex"
 	"io"
 	"io/ioutil"
-	"log"
 	"math/rand"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/rs/zerolog/log"
 )
 
 const repoPassword = "qWQPJ2hiiLgWRRCr"

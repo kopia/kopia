@@ -1,9 +1,10 @@
 package cachefs
 
 import (
-	"log"
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/object"

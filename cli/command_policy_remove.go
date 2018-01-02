@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"log"
+	"github.com/rs/zerolog/log"
 
 	"github.com/kopia/kopia/policy"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"

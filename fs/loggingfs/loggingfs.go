@@ -2,8 +2,9 @@
 package loggingfs
 
 import (
-	"log"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/kopia/kopia/fs"
 )

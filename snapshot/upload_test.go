@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"reflect"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/kopia/kopia/internal/mockfs"
 	"github.com/kopia/kopia/object"

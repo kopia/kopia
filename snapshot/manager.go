@@ -1,7 +1,7 @@
 package snapshot
 
 import (
-	"log"
+	"github.com/rs/zerolog/log"
 
 	"github.com/kopia/kopia/manifest"
 

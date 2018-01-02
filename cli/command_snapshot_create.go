@@ -7,12 +7,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"os/user"
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/kopia/kopia/policy"
 
@@ -170,7 +171,8 @@ func getUserOrDefault(userName string) string {
 func getUserName() string {
 	currentUser, err := user.Current()
 	if err != nil {
-		log.Fatalf("Cannot determine current user: %s", err)
+		log.Warn().Msgf("Cannot determine current user: %s", err)
+		return "nobody"
 	}
 
 	u := currentUser.Username
@@ -195,7 +197,8 @@ func getHostNameOrDefault(hostName string) string {
 func getHostName() string {
 	hostname, err := os.Hostname()
 	if err != nil {
-		log.Fatalf("Unable to determine hostname: %s", err)
+		log.Warn().Msgf("Unable to determine hostname: %s", err)
+		return "nohost"
 	}
 
 	// Normalize hostname.

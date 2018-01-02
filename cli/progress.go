@@ -1,10 +1,11 @@
 package cli
 
 import (
-	"log"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/cheggaaa/pb"
 	"github.com/kopia/kopia/internal/units"

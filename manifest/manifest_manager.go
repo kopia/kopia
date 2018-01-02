@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/block"
+	"github.com/rs/zerolog/log"
 )
 
 // ErrNotFound is returned when the metadata item is not found.
@@ -211,7 +212,13 @@ func (m *Manager) load() error {
 
 	m.entries = map[string]*manifestEntry{}
 
-	for _, i := range m.b.ListGroupBlocks(manifestGroupID) {
+	log.Debug().Msg("listing group blocks...")
+	t0 := time.Now()
+	blocks := m.b.ListGroupBlocks(manifestGroupID)
+	log.Debug().Dur("duration", time.Since(t0)).Msg("fetched group block list")
+
+	for _, i := range blocks {
+		log.Debug().Msgf("loading block %v...", i.BlockID)
 		blk, err := m.b.GetBlock(i.BlockID)
 		if err != nil {
 			return fmt.Errorf("unable to read block %q: %v", i.BlockID, err)

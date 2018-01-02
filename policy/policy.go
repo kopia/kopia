@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"log"
 	"path/filepath"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/kopia/kopia/fs"
 )

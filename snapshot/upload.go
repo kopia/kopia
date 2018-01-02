@@ -7,10 +7,11 @@ import (
 	"fmt"
 	"hash/fnv"
 	"io"
-	"log"
 	"math/rand"
 	"sync/atomic"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/dir"

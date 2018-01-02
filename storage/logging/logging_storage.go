@@ -2,8 +2,9 @@
 package logging
 
 import (
-	"log"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/kopia/kopia/storage"
 )

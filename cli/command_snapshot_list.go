@@ -2,10 +2,11 @@ package cli
 
 import (
 	"fmt"
-	"log"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/snapshot"

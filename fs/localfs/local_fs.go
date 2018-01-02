@@ -3,10 +3,11 @@ package localfs
 import (
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"sort"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/kopia/kopia/fs"
 )
