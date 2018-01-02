@@ -20,7 +20,6 @@ import (
 
 const (
 	parallelFetches                = 5                // number of parallel reads goroutines
-	parallelDeletes                = 20               // number of parallel delete goroutines
 	flushPackIndexTimeout          = 10 * time.Minute // time after which all pending indexes are flushes
 	packBlockPrefix                = "P"              // prefix for all storage blocks that are pack indexes
 	nonPackedObjectsPackGroup      = "raw"            // ID of pack group that stores non-packed objects that don't belong to any group
