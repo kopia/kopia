@@ -596,7 +596,7 @@ func (bm *Manager) regroupPacksAndUnpacked(ndx packIndexes) packIndexes {
 	return res
 }
 
-// CompactIndexes performs compaction of index blocks and optionally removes index blocks not present in the provided set.
+// CompactIndexes performs compaction of index blocks.
 func (bm *Manager) CompactIndexes() error {
 	bm.lock()
 	defer bm.unlock()
