@@ -9,7 +9,7 @@ import (
 type blockCache interface {
 	getBlock(blockID string, offset, length int64) ([]byte, error)
 	putBlock(blockID string, data []byte) error
-	listIndexBlocks() ([]Info, error)
+	listIndexBlocks(full bool) ([]Info, error)
 	close() error
 }
 
@@ -18,6 +18,7 @@ type CachingOptions struct {
 	CacheDirectory          string `json:"cacheDirectory,omitempty"`
 	MaxCacheSizeBytes       int64  `json:"maxCacheSize,omitempty"`
 	MaxListCacheDurationSec int    `json:"maxListCacheDuration,omitempty"`
+	IgnoreListCache         bool   `json:"-"`
 	HMACSecret              []byte `json:"-"`
 }
 
@@ -33,6 +34,10 @@ func newBlockCache(st storage.Storage, caching CachingOptions) blockCache {
 		hmacSecret:        append([]byte(nil), caching.HMACSecret...),
 		listCacheDuration: time.Duration(caching.MaxListCacheDurationSec) * time.Second,
 		closed:            make(chan struct{}),
+	}
+
+	if caching.IgnoreListCache {
+		c.deleteListCache()
 	}
 
 	c.sweepDirectory()

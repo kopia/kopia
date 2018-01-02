@@ -28,6 +28,8 @@ type Options struct {
 	CredentialsCallback func() (auth.Credentials, error)    // Provides credentials required to open the repository if not persisted.
 	TraceStorage        func(f string, args ...interface{}) // Logs all storage access using provided Printf-style function
 
+	DisableCache         bool // disable caching
+	DisableListCache     bool // disable list caching
 	ObjectManagerOptions object.ManagerOptions
 }
 
@@ -67,6 +69,13 @@ func Open(ctx context.Context, configFile string, options *Options) (*Repository
 	}
 
 	caching := lc.Caching
+	if options.DisableCache {
+		caching = block.CachingOptions{}
+	}
+	if options.DisableListCache {
+		caching.IgnoreListCache = true
+	}
+
 	r, err := connect(ctx, st, creds, options, caching)
 	if err != nil {
 		st.Close()

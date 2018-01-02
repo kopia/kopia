@@ -33,7 +33,7 @@ func showManifestItems(context *kingpin.ParseContext) error {
 
 		fmt.Fprintf(os.Stderr, "// id: %v\n", it)
 		fmt.Fprintf(os.Stderr, "// length: %v\n", md.Length)
-		fmt.Fprintf(os.Stderr, "// modified: %v\n", md.ModTime.Format(timeFormat))
+		fmt.Fprintf(os.Stderr, "// modified: %v\n", md.ModTime.Local().Format(timeFormat))
 		for k, v := range md.Labels {
 			fmt.Fprintf(os.Stderr, "// label %v:%v\n", k, v)
 		}

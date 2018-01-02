@@ -334,7 +334,7 @@ func (bm *Manager) finishPackLocked(g *packInfo) error {
 
 // ListIndexBlocks returns the list of all index blocks, including inactive, sorted by time.
 func (bm *Manager) ListIndexBlocks() ([]Info, error) {
-	blocks, err := bm.cache.listIndexBlocks()
+	blocks, err := bm.cache.listIndexBlocks(true)
 	if err != nil {
 		return nil, fmt.Errorf("error listing index blocks: %v", err)
 	}
@@ -345,7 +345,7 @@ func (bm *Manager) ListIndexBlocks() ([]Info, error) {
 
 // ActiveIndexBlocks returns the list of active index blocks, sorted by time.
 func (bm *Manager) ActiveIndexBlocks() ([]Info, error) {
-	blocks, err := bm.ListIndexBlocks()
+	blocks, err := bm.cache.listIndexBlocks(false)
 	if len(blocks) == 0 {
 		return nil, nil
 	}
@@ -379,13 +379,7 @@ func findLatestCompactedTimestamp(blocks []Info) (time.Time, error) {
 
 	for _, b := range blocks {
 		blk := b.BlockID
-		if p := strings.Index(blk, compactedBlockSuffix); p >= 0 {
-			unixNano, err := strconv.ParseInt(blk[p+len(compactedBlockSuffix):], 16, 64)
-			if err != nil {
-				return latestTime, fmt.Errorf("malformed index block name %q", blk)
-			}
-
-			ts := time.Unix(unixNano/1e9, unixNano%1e9)
+		if ts, ok := getCompactedTimestamp(blk); ok {
 			if ts.After(latestTime) {
 				latestTime = ts
 			}
@@ -1035,6 +1029,49 @@ func (bm *Manager) assertLocked() {
 	}
 }
 
+// listIndexBlocksFromStorage returns the list of index blocks in the given storage.
+// If 'full' is set to true, this function lists and returns all blocks,
+// if 'full' is false, the function returns only blocks from the last 2 compactions.
+// The list of blocks is not guaranteed to be sorted.
+func listIndexBlocksFromStorage(st storage.Storage, full bool) ([]Info, error) {
+	maxCompactions := 2
+	if full {
+		maxCompactions = math.MaxInt32
+	}
+
+	ch, cancel := st.ListBlocks(packBlockPrefix)
+	defer cancel()
+
+	var results []Info
+	numCompactions := 0
+
+	var timestampCutoff time.Time
+	for it := range ch {
+		if !timestampCutoff.IsZero() && it.TimeStamp.Before(timestampCutoff) {
+			break
+		}
+
+		if it.Error != nil {
+			return nil, it.Error
+		}
+
+		results = append(results, Info{
+			BlockID:   it.BlockID,
+			Timestamp: it.TimeStamp,
+			Length:    it.Length,
+		})
+
+		if ts, ok := getCompactedTimestamp(it.BlockID); ok {
+			numCompactions++
+			if numCompactions == maxCompactions {
+				timestampCutoff = ts.Add(-10 * time.Minute)
+			}
+		}
+	}
+
+	return results, nil
+}
+
 // NewManager creates new block manager with given packing options and a formatter.
 func NewManager(st storage.Storage, f FormattingOptions, caching CachingOptions) (*Manager, error) {
 	sf := FormatterFactories[f.BlockFormat]
@@ -1059,4 +1096,17 @@ func NewManager(st storage.Storage, f FormattingOptions, caching CachingOptions)
 		formatter:              formatter,
 		cache:                  newBlockCache(st, caching),
 	}, nil
+}
+
+func getCompactedTimestamp(blk string) (time.Time, bool) {
+	if p := strings.Index(blk, compactedBlockSuffix); p >= 0 {
+		unixNano, err := strconv.ParseInt(blk[p+len(compactedBlockSuffix):], 16, 64)
+		if err != nil {
+			return time.Time{}, false
+		}
+
+		return time.Unix(unixNano/1e9, unixNano%1e9), true
+	}
+
+	return time.Time{}, false
 }

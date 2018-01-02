@@ -24,6 +24,8 @@ var (
 	traceStorage       = app.Flag("trace-storage", "Enables tracing of storage operations.").Hidden().Envar("KOPIA_TRACE_STORAGE").Bool()
 	traceObjectManager = app.Flag("trace-object-manager", "Enables tracing of object manager operations.").Hidden().Envar("KOPIA_TRACE_OBJECT_MANAGER").Bool()
 	traceLocalFS       = app.Flag("trace-localfs", "Enables tracing of local filesystem operations").Hidden().Envar("KOPIA_TRACE_FS").Bool()
+	enableCaching      = app.Flag("caching", "Enables caching of objects (disable with --no-caching)").Default("true").Bool()
+	enableListCaching  = app.Flag("list-caching", "Enables caching of list results (disable with --no-list-caching)").Default("true").Bool()
 
 	configPath   = app.Flag("config-file", "Specify the config file to use.").PlaceHolder("PATH").Envar("KOPIA_CONFIG_PATH").String()
 	password     = app.Flag("password", "Repository password.").Envar("KOPIA_PASSWORD").Short('p').String()
@@ -81,6 +83,9 @@ func applyOptionsFromFlags(opts *repo.Options) *repo.Options {
 	if *traceObjectManager {
 		opts.ObjectManagerOptions.Trace = log.Printf
 	}
+
+	opts.DisableCache = !*enableCaching
+	opts.DisableListCache = !*enableListCaching
 
 	return opts
 }

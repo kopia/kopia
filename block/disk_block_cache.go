@@ -89,12 +89,19 @@ func (c *diskBlockCache) putBlock(blockID string, data []byte) error {
 	}
 
 	c.writeFileAtomic(filepath.Join(c.directory, blockID)+cachedSuffix, c.appendHMAC(data))
-	os.Remove(c.cachedItemName("list"))
+	c.deleteListCache()
 	return nil
 }
 
-func (c *diskBlockCache) listIndexBlocks() ([]Info, error) {
-	cachedListFile := c.cachedItemName("list")
+func (c *diskBlockCache) listIndexBlocks(full bool) ([]Info, error) {
+	var cachedListFile string
+
+	if full {
+		cachedListFile = c.cachedItemName("list-full")
+	} else {
+		cachedListFile = c.cachedItemName("list-active")
+	}
+
 	f, err := os.Open(cachedListFile)
 	if err == nil {
 		defer f.Close()
@@ -108,7 +115,7 @@ func (c *diskBlockCache) listIndexBlocks() ([]Info, error) {
 		}
 	}
 
-	blocks, err := c.readBlocksFromSource()
+	blocks, err := listIndexBlocksFromStorage(c.st, full)
 	if err == nil {
 		// save to blockCache
 		if data, err := json.Marshal(blocks); err == nil {
@@ -145,12 +152,14 @@ func (c *diskBlockCache) readBlocksFromCacheFile(f *os.File) ([]Info, error) {
 
 }
 
-func (c *diskBlockCache) readBlocksFromSource() ([]Info, error) {
+func (c *diskBlockCache) readBlocksFromSource(maxCompactions int) ([]Info, error) {
 	var blocks []Info
 	ch, cancel := c.st.ListBlocks(packBlockPrefix)
 	defer cancel()
 
+	numCompactions := 0
 	for e := range ch {
+		log.Printf("found block %+v", e)
 		if e.Error != nil {
 			return nil, e.Error
 		}
@@ -160,6 +169,14 @@ func (c *diskBlockCache) readBlocksFromSource() ([]Info, error) {
 			Length:    e.Length,
 			Timestamp: e.TimeStamp,
 		})
+
+		if _, ok := getCompactedTimestamp(e.BlockID); ok {
+			numCompactions++
+			log.Printf("found compaction %v / %v", numCompactions, maxCompactions)
+			if numCompactions >= maxCompactions {
+				break
+			}
+		}
 	}
 	return blocks, nil
 }
@@ -261,4 +278,9 @@ func (c *diskBlockCache) sweepDirectory() error {
 		totalSize += it.Size()
 	}
 	return nil
+}
+
+func (c *diskBlockCache) deleteListCache() {
+	os.Remove(c.cachedItemName("list-full"))
+	os.Remove(c.cachedItemName("list-active"))
 }
