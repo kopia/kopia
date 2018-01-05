@@ -2,9 +2,11 @@ package repo
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -17,6 +19,7 @@ import (
 	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/config"
+	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/storage"
 	"github.com/kopia/kopia/storage/logging"
 
@@ -98,6 +101,67 @@ func Open(ctx context.Context, configFile string, options *Options) (*Repository
 	r.ConfigFile = configFile
 
 	return r, nil
+}
+
+// SetCachingConfig changes caching configuration for a given repository config file.
+func SetCachingConfig(ctx context.Context, configFile string, opt block.CachingOptions) error {
+	configFile, err := filepath.Abs(configFile)
+	if err != nil {
+		return err
+	}
+
+	log.Debug().Str("file", configFile).Msg("loading config")
+	lc, err := config.LoadFromFile(configFile)
+	if err != nil {
+		return err
+	}
+
+	st, err := storage.NewStorage(ctx, lc.Connection.ConnectionInfo)
+	if err != nil {
+		return fmt.Errorf("cannot open storage: %v", err)
+	}
+
+	f, err := readAndCacheFormatBlock(st, "")
+	if err != nil {
+		return fmt.Errorf("can't read format block: %v", err)
+	}
+
+	if opt.MaxCacheSizeBytes > 0 {
+		if opt.CacheDirectory == "" {
+			// derive cache directory from config
+			absConfig, err := filepath.Abs(configFile)
+			if err != nil {
+				return err
+			}
+			lc.Caching.CacheDirectory = filepath.Join(filepath.Dir(absConfig), fmt.Sprintf("cache-%x", f.UniqueID))
+		} else {
+			absCacheDir, err := filepath.Abs(opt.CacheDirectory)
+			if err != nil {
+				return err
+			}
+
+			lc.Caching.CacheDirectory = absCacheDir
+		}
+		lc.Caching.MaxCacheSizeBytes = opt.MaxCacheSizeBytes
+		lc.Caching.MaxListCacheDurationSec = opt.MaxListCacheDurationSec
+
+		log.Printf("Enabling cache directory '%v' with max size %v", lc.Caching.CacheDirectory, units.BytesStringBase2(lc.Caching.MaxCacheSizeBytes))
+		os.MkdirAll(lc.Caching.CacheDirectory, 0700)
+	} else {
+		log.Printf("Disabling caching")
+		lc.Caching = block.CachingOptions{}
+	}
+
+	d, err := json.MarshalIndent(&lc, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	if err := ioutil.WriteFile(configFile, d, 0600); err != nil {
+		return nil
+	}
+
+	return nil
 }
 
 func readAndCacheFormatBlock(st storage.Storage, cacheDirectory string) (*formatBlock, error) {

@@ -48,7 +48,7 @@ func setupConnectOptions(cmd *kingpin.CmdClause) {
 	cmd.Flag("max-download-speed", "Limit the download speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&connectMaxDownloadSpeedBytesPerSecond)
 	cmd.Flag("max-upload-speed", "Limit the upload speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&connectMaxUploadSpeedBytesPerSecond)
 
-	cmd.Flag("cache-size", "Size of local cache").PlaceHolder("MB").Int64Var(&connectMaxCacheSizeMB)
+	cmd.Flag("cache-size-mb", "Size of local cache").PlaceHolder("MB").Int64Var(&connectMaxCacheSizeMB)
 	cmd.Flag("max-list-cache-duration", "Duration of index cache").Default("600s").DurationVar(&connectMaxListCacheDuration)
 }
 
