@@ -10,12 +10,12 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/rs/zerolog/log"
-
 	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/internal/config"
+	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/storage"
+	"github.com/rs/zerolog/log"
 
 	// Register well-known blob storage providers
 	_ "github.com/kopia/kopia/storage/filesystem"
@@ -67,12 +67,7 @@ func Connect(ctx context.Context, configFile string, st storage.Storage, creds a
 
 	if opt.MaxCacheSizeBytes > 0 {
 		if opt.CacheDirectory == "" {
-			// derive cache directory from config
-			absConfig, err := filepath.Abs(configFile)
-			if err != nil {
-				return err
-			}
-			lc.Caching.CacheDirectory = filepath.Join(filepath.Dir(absConfig), fmt.Sprintf("cache-%x", f.UniqueID))
+			lc.Caching.CacheDirectory = filepath.Join(ospath.CacheDir(), fmt.Sprintf("%x", f.UniqueID))
 		} else {
 			absCacheDir, err := filepath.Abs(opt.CacheDirectory)
 			if err != nil {

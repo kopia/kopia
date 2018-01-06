@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	"github.com/rs/zerolog/log"
@@ -18,6 +17,7 @@ import (
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/fs/loggingfs"
+	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/repo"
 )
 
@@ -97,23 +97,12 @@ func mustOpenRepository(opts *repo.Options) *repo.Repository {
 	return s
 }
 
-func getHomeDir() string {
-	if runtime.GOOS == "windows" {
-		home := os.Getenv("HOMEDRIVE") + os.Getenv("HOMEPATH")
-		if home == "" {
-			home = os.Getenv("USERPROFILE")
-		}
-		return home
-	}
-
-	return os.Getenv("HOME")
-}
-
 func repositoryConfigFileName() string {
 	if len(*configPath) > 0 {
 		return *configPath
 	}
-	return filepath.Join(getHomeDir(), ".kopia/repository.config")
+
+	return filepath.Join(ospath.ConfigDir(), "repository.config")
 }
 
 func getRepositoryCredentials(isNew bool) (auth.Credentials, error) {
