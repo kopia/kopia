@@ -39,18 +39,22 @@ type Options struct {
 }
 
 // Open opens a Repository specified in the configuration file.
-func Open(ctx context.Context, configFile string, options *Options) (*Repository, error) {
+func Open(ctx context.Context, configFile string, options *Options) (rep *Repository, err error) {
 	t0 := time.Now()
 	log.Debug().Msgf("opening repository from %v", configFile)
 	defer func() {
-		log.Debug().Dur("duration", time.Since(t0)).Msg("opened repository")
+		if err == nil {
+			log.Debug().Dur("duration_ms", time.Since(t0)).Msg("opened repository")
+		} else {
+			log.Error().Dur("duration_ms", time.Since(t0)).Msg("failed to open repository")
+		}
 	}()
 
 	if options == nil {
 		options = &Options{}
 	}
 
-	configFile, err := filepath.Abs(configFile)
+	configFile, err = filepath.Abs(configFile)
 	if err != nil {
 		return nil, err
 	}

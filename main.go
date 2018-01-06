@@ -12,7 +12,8 @@ package main
 import (
 	"fmt"
 	"os"
-	"runtime"
+
+	"github.com/mattn/go-colorable"
 
 	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/repo"
@@ -49,7 +50,8 @@ func initializeLogging(ctx *kingpin.ParseContext) error {
 
 		log.Logger = log.Output(lf)
 	} else {
-		log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr, NoColor: runtime.GOOS == "windows"})
+
+		log.Logger = log.Output(zerolog.ConsoleWriter{Out: colorable.NewColorableStderr()})
 	}
 
 	return nil

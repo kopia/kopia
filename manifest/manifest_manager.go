@@ -232,9 +232,7 @@ func (m *Manager) loadManifestBlocks(blocks []block.Info) error {
 			defer wg.Done()
 
 			for blk := range blockIDs {
-				//t0 := time.Now()
 				man, err := m.loadManifestBlock(blk)
-				//log.Debug().Dur("duration", time.Since(t0)).Str("block", blk).Msg("loaded")
 				if err != nil {
 					errors <- err
 				} else {
@@ -254,7 +252,7 @@ func (m *Manager) loadManifestBlocks(blocks []block.Info) error {
 	wg.Wait()
 	close(errors)
 	close(manifests)
-	log.Debug().Dur("duration", time.Since(t0)).Msgf("finished loading blocks.")
+	log.Debug().Dur("duration_ms", time.Since(t0)).Msgf("finished loading blocks.")
 	// if there was any error, forward it
 	if err := <-errors; err != nil {
 		return err
