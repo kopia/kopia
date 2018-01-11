@@ -28,24 +28,6 @@ type s3Storage struct {
 	uploadThrottler   *iothrottler.IOThrottlerPool
 }
 
-func (s *s3Storage) BlockSize(b string) (int64, error) {
-	attempt := func() (interface{}, error) {
-		oi, err := s.cli.StatObject(s.BucketName, s.getObjectNameString(b), minio.StatObjectOptions{})
-		if err != nil {
-			return 0, err
-		}
-
-		return oi.Size, nil
-	}
-
-	v, err := exponentialBackoff(fmt.Sprintf("BlockSize(%q)", b), attempt)
-	if err != nil {
-		return 0, translateError(err)
-	}
-
-	return v.(int64), nil
-}
-
 func (s *s3Storage) GetBlock(b string, offset, length int64) ([]byte, error) {
 	attempt := func() (interface{}, error) {
 		var opt minio.GetObjectOptions
@@ -145,7 +127,7 @@ func (s *s3Storage) getObjectNameString(b string) string {
 	return s.Prefix + b
 }
 
-func (s *s3Storage) ListBlocks(prefix string) (chan storage.BlockMetadata, storage.CancelFunc) {
+func (s *s3Storage) ListBlocks(prefix string) (<-chan storage.BlockMetadata, storage.CancelFunc) {
 	ch := make(chan storage.BlockMetadata, 100)
 	cancelled := make(chan struct{})
 
@@ -240,5 +222,3 @@ func init() {
 			return New(ctx, o.(*Options))
 		})
 }
-
-var _ storage.ConnectionInfoProvider = &s3Storage{}

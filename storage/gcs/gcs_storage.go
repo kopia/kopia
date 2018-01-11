@@ -37,25 +37,6 @@ type gcsStorage struct {
 	uploadThrottler   *iothrottler.IOThrottlerPool
 }
 
-func (gcs *gcsStorage) BlockSize(b string) (int64, error) {
-	attempt := func() (interface{}, error) {
-		oh := gcs.bucket.Object(gcs.getObjectNameString(b))
-		a, err := oh.Attrs(context.Background())
-		if err != nil {
-			return 0, err
-		}
-
-		return a.Size, nil
-	}
-
-	v, err := exponentialBackoff(fmt.Sprintf("BlockSize(%q)", b), attempt)
-	if err != nil {
-		return 0, translateError(err)
-	}
-
-	return v.(int64), nil
-}
-
 func (gcs *gcsStorage) GetBlock(b string, offset, length int64) ([]byte, error) {
 	attempt := func() (interface{}, error) {
 		reader, err := gcs.bucket.Object(gcs.getObjectNameString(b)).NewRangeReader(gcs.ctx, offset, length)
@@ -138,7 +119,7 @@ func (gcs *gcsStorage) getObjectNameString(b string) string {
 	return gcs.Prefix + string(b)
 }
 
-func (gcs *gcsStorage) ListBlocks(prefix string) (chan storage.BlockMetadata, storage.CancelFunc) {
+func (gcs *gcsStorage) ListBlocks(prefix string) (<-chan storage.BlockMetadata, storage.CancelFunc) {
 	ch := make(chan storage.BlockMetadata, 100)
 	cancelled := make(chan bool)
 
@@ -276,5 +257,3 @@ func init() {
 			return New(ctx, o.(*Options))
 		})
 }
-
-var _ storage.ConnectionInfoProvider = &gcsStorage{}

@@ -33,30 +33,6 @@ type davStorage struct {
 	Client *http.Client // HTTP client used when making all calls, may be overridden to use custom auth
 }
 
-func (d *davStorage) BlockSize(blockID string) (int64, error) {
-	_, urlStr := d.getCollectionAndFileURL(blockID)
-	req, err := http.NewRequest("HEAD", urlStr, nil)
-	if err != nil {
-		return 0, err
-	}
-
-	resp, err := d.executeRequest(req, nil)
-	if err != nil {
-		return 0, err
-	}
-
-	defer resp.Body.Close()
-
-	switch resp.StatusCode {
-	case http.StatusNotFound:
-		return 0, storage.ErrBlockNotFound
-	case http.StatusOK:
-		return resp.ContentLength, nil
-	default:
-		return 0, fmt.Errorf("unsupported response code during HEAD on %q: %v", urlStr, resp.StatusCode)
-	}
-}
-
 func (d *davStorage) GetBlock(blockID string, offset, length int64) ([]byte, error) {
 	_, urlStr := d.getCollectionAndFileURL(blockID)
 
@@ -98,7 +74,7 @@ func makeFileName(blockID string) string {
 	return string(blockID) + fsStorageChunkSuffix
 }
 
-func (d *davStorage) ListBlocks(prefix string) (chan storage.BlockMetadata, storage.CancelFunc) {
+func (d *davStorage) ListBlocks(prefix string) (<-chan storage.BlockMetadata, storage.CancelFunc) {
 	result := make(chan storage.BlockMetadata)
 	cancelled := make(chan bool)
 

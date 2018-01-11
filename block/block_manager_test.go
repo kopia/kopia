@@ -158,9 +158,9 @@ func TestBlockManagerEmpty(t *testing.T) {
 		t.Errorf("unexpected error when getting non-existent block: %v, %v", b, err)
 	}
 
-	bs, err := bm.BlockSize(noSuchBlockID)
+	bi, err := bm.BlockInfo(noSuchBlockID)
 	if err != storage.ErrBlockNotFound {
-		t.Errorf("unexpected error when getting non-existent block size: %v, %v", bs, err)
+		t.Errorf("unexpected error when getting non-existent block info: %v, %v", bi, err)
 	}
 
 	if got, want := len(data), 0; got != want {
@@ -675,12 +675,12 @@ func verifyBlock(t *testing.T, bm *Manager, blockID string, b []byte) {
 		t.Errorf("block %q data mismatch: got %x (nil:%v), wanted %x (nil:%v)", blockID, got, got == nil, want, want == nil)
 	}
 
-	bs, err := bm.BlockSize(blockID)
+	bi, err := bm.BlockInfo(blockID)
 	if err != nil {
-		t.Errorf("error getting block size %q: %v", blockID, err)
+		t.Errorf("error getting block info %q: %v", blockID, err)
 	}
 
-	if got, want := bs, int64(len(b)); got != want {
+	if got, want := bi.Length, int64(len(b)); got != want {
 		t.Errorf("invalid block size for %q: %v, wanted %v", blockID, got, want)
 	}
 

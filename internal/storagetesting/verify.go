@@ -21,11 +21,6 @@ func VerifyStorage(t *testing.T, r storage.Storage) {
 
 	// First verify that blocks don't exist.
 	for _, b := range blocks {
-		if _, err := r.BlockSize(b.blk); err != storage.ErrBlockNotFound {
-			t.Errorf("block exists or error: %v %v", b.blk, err)
-		}
-
-		AssertBlockExists(t, r, b.blk, false)
 		AssertGetBlockNotFound(t, r, b.blk)
 	}
 
@@ -33,7 +28,6 @@ func VerifyStorage(t *testing.T, r storage.Storage) {
 	for _, b := range blocks {
 		r.PutBlock(b.blk, b.contents)
 
-		AssertBlockExists(t, r, b.blk, true)
 		AssertGetBlock(t, r, b.blk, b.contents)
 	}
 

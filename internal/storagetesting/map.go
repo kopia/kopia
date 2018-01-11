@@ -15,17 +15,6 @@ type mapStorage struct {
 	mutex   sync.RWMutex
 }
 
-func (s *mapStorage) BlockSize(id string) (int64, error) {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	d, ok := s.data[string(id)]
-	if !ok {
-		return 0, storage.ErrBlockNotFound
-	}
-
-	return int64(len(d)), nil
-}
-
 func (s *mapStorage) GetBlock(id string, offset, length int64) ([]byte, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
@@ -67,7 +56,7 @@ func (s *mapStorage) DeleteBlock(id string) error {
 	return nil
 }
 
-func (s *mapStorage) ListBlocks(prefix string) (chan storage.BlockMetadata, storage.CancelFunc) {
+func (s *mapStorage) ListBlocks(prefix string) (<-chan storage.BlockMetadata, storage.CancelFunc) {
 	ch := make(chan storage.BlockMetadata)
 	cancelled := make(chan bool)
 	go func() {
@@ -104,6 +93,11 @@ func (s *mapStorage) ListBlocks(prefix string) (chan storage.BlockMetadata, stor
 
 func (s *mapStorage) Close() error {
 	return nil
+}
+
+func (s *mapStorage) ConnectionInfo() storage.ConnectionInfo {
+	// unsupported
+	return storage.ConnectionInfo{}
 }
 
 // NewMapStorage returns an implementation of Storage backed by the contents of given map.

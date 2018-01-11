@@ -32,24 +32,6 @@ func AssertGetBlockNotFound(t *testing.T, s storage.Storage, block string) {
 	}
 }
 
-// AssertBlockExists asserts that BlockExists() the specified storage block returns the correct value.
-func AssertBlockExists(t *testing.T, s storage.Storage, block string, expected bool) {
-	_, err := s.BlockSize(block)
-	var exists bool
-	if err == nil {
-		exists = true
-	} else if err == storage.ErrBlockNotFound {
-		exists = false
-	} else {
-		t.Errorf(errorPrefix()+"BlockSize(%v) returned error: %v", block, err)
-		return
-	}
-
-	if exists != expected {
-		t.Errorf(errorPrefix()+"BlockSize(%v) returned exists=%v, but expected %v", block, exists, expected)
-	}
-}
-
 // AssertListResults asserts that the list results with given prefix return the specified list of names in order.
 func AssertListResults(t *testing.T, s storage.Storage, prefix string, expected ...string) {
 	var names []string

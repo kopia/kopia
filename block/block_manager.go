@@ -73,24 +73,6 @@ type Manager struct {
 	timeNow func() time.Time
 }
 
-// BlockSize returns the cached size of a given block.
-func (bm *Manager) BlockSize(blockID string) (int64, error) {
-	bm.lock()
-	defer bm.unlock()
-
-	if err := bm.ensurePackIndexesLoaded(); err != nil {
-		return 0, fmt.Errorf("can't load pack index: %v", err)
-	}
-
-	ndx := bm.findIndexForBlockLocked(blockID)
-	if ndx == nil {
-		return 0, storage.ErrBlockNotFound
-	}
-
-	_, size := unpackOffsetAndSize(ndx.Items[blockID])
-	return int64(size), nil
-}
-
 // DeleteBlock marks the given blockID as deleted.
 //
 // NOTE: To avoid race conditions only blocks that cannot be possibly re-created
@@ -838,9 +820,9 @@ func (bm *Manager) writeUnpackedBlockNotLocked(data []byte, prefix string, suffi
 
 	if !force {
 		// Before performing encryption, check if the block is already there.
-		blockSize, err := bm.BlockSize(blockID)
+		i, err := bm.BlockInfo(blockID)
 		atomic.AddInt32(&bm.stats.CheckedBlocks, 1)
-		if err == nil && blockSize == int64(len(data)) {
+		if err == nil && i.Length == int64(len(data)) {
 			atomic.AddInt32(&bm.stats.PresentBlocks, 1)
 			// Block already exists in storage, correct size, return without uploading.
 			return blockID, nil

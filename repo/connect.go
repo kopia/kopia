@@ -3,7 +3,6 @@ package repo
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -33,11 +32,6 @@ type ConnectOptions struct {
 
 // Connect connects to the repository in the specified storage and persists the configuration and credentials in the file provided.
 func Connect(ctx context.Context, configFile string, st storage.Storage, creds auth.Credentials, opt ConnectOptions) error {
-	cip, ok := st.(storage.ConnectionInfoProvider)
-	if !ok {
-		return errors.New("repository does not support persisting configuration")
-	}
-
 	formatBytes, err := st.GetBlock(formatBlockID, 0, -1)
 	if err != nil {
 		return fmt.Errorf("unable to read format block: %v", err)
@@ -54,7 +48,7 @@ func Connect(ctx context.Context, configFile string, st storage.Storage, creds a
 	}
 
 	cfg := &config.RepositoryConnectionInfo{
-		ConnectionInfo: cip.ConnectionInfo(),
+		ConnectionInfo: st.ConnectionInfo(),
 		Key:            masterKey,
 	}
 

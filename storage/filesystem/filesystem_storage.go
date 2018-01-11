@@ -30,20 +30,6 @@ type fsStorage struct {
 	Options
 }
 
-func (fs *fsStorage) BlockSize(blockID string) (int64, error) {
-	_, path := fs.getShardedPathAndFilePath(blockID)
-	s, err := os.Stat(path)
-	if err == nil {
-		return s.Size(), nil
-	}
-
-	if os.IsNotExist(err) {
-		return 0, storage.ErrBlockNotFound
-	}
-
-	return 0, err
-}
-
 func (fs *fsStorage) GetBlock(blockID string, offset, length int64) ([]byte, error) {
 	_, path := fs.getShardedPathAndFilePath(blockID)
 
@@ -77,7 +63,7 @@ func makeFileName(blockID string) string {
 	return string(blockID) + fsStorageChunkSuffix
 }
 
-func (fs *fsStorage) ListBlocks(prefix string) (chan storage.BlockMetadata, storage.CancelFunc) {
+func (fs *fsStorage) ListBlocks(prefix string) (<-chan storage.BlockMetadata, storage.CancelFunc) {
 	result := make(chan storage.BlockMetadata)
 	cancelled := make(chan bool)
 

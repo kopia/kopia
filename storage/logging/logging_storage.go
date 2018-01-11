@@ -4,23 +4,14 @@ package logging
 import (
 	"time"
 
-	"github.com/rs/zerolog/log"
-
 	"github.com/kopia/kopia/storage"
+	"github.com/rs/zerolog/log"
 )
 
 type loggingStorage struct {
 	base   storage.Storage
 	printf func(string, ...interface{})
 	prefix string
-}
-
-func (s *loggingStorage) BlockSize(id string) (int64, error) {
-	t0 := time.Now()
-	result, err := s.base.BlockSize(id)
-	dt := time.Since(t0)
-	s.printf(s.prefix+"BlockSize(%q)=%#v,%#v took %v", id, result, err, dt)
-	return result, err
 }
 
 func (s *loggingStorage) GetBlock(id string, offset, length int64) ([]byte, error) {
@@ -51,7 +42,7 @@ func (s *loggingStorage) DeleteBlock(id string) error {
 	return err
 }
 
-func (s *loggingStorage) ListBlocks(prefix string) (chan storage.BlockMetadata, storage.CancelFunc) {
+func (s *loggingStorage) ListBlocks(prefix string) (<-chan storage.BlockMetadata, storage.CancelFunc) {
 	t0 := time.Now()
 	ch, cf := s.base.ListBlocks(prefix)
 	s.printf(s.prefix+"ListBlocks(%q) took %v", prefix, time.Since(t0))
@@ -67,6 +58,10 @@ func (s *loggingStorage) Close() error {
 	dt := time.Since(t0)
 	s.printf(s.prefix+"Close()=%#v took %v", err, dt)
 	return err
+}
+
+func (s *loggingStorage) ConnectionInfo() storage.ConnectionInfo {
+	return s.base.ConnectionInfo()
 }
 
 // Option modifies the behavior of logging storage wrapper.

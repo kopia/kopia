@@ -8,7 +8,6 @@ import (
 
 	"github.com/kopia/kopia/internal/scrubber"
 	"github.com/kopia/kopia/internal/units"
-	"github.com/kopia/kopia/storage"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -35,15 +34,13 @@ func runStatusCommand(context *kingpin.ParseContext) error {
 	}
 	fmt.Println()
 
-	if cip, ok := rep.Storage.(storage.ConnectionInfoProvider); ok {
-		ci := cip.ConnectionInfo()
-		fmt.Printf("Storage type:        %v\n", ci.Type)
+	ci := rep.Storage.ConnectionInfo()
+	fmt.Printf("Storage type:        %v\n", ci.Type)
 
-		if cjson, err := json.MarshalIndent(scrubber.ScrubSensitiveData(reflect.ValueOf(ci.Config)).Interface(), "                     ", "  "); err == nil {
-			fmt.Printf("Storage config:      %v\n", string(cjson))
-		}
-		fmt.Println()
+	if cjson, err := json.MarshalIndent(scrubber.ScrubSensitiveData(reflect.ValueOf(ci.Config)).Interface(), "                     ", "  "); err == nil {
+		fmt.Printf("Storage config:      %v\n", string(cjson))
 	}
+	fmt.Println()
 
 	var splitterExtraInfo string
 
