@@ -24,6 +24,7 @@ import (
 
 	_ "github.com/kopia/kopia/cli/filesystemcli"
 	_ "github.com/kopia/kopia/cli/gcscli"
+	_ "github.com/kopia/kopia/cli/s3cli"
 	_ "github.com/kopia/kopia/cli/webdavcli"
 )
 
