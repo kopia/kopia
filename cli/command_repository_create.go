@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
-
 	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/object"
@@ -14,8 +12,7 @@ import (
 )
 
 var (
-	createCommand            = repositoryCommands.Command("create", "Create new repository in a specified location.")
-	createRepositoryLocation = createCommand.Arg("location", "Location where to create the repository").Required().String()
+	createCommand = repositoryCommands.Command("create", "Create new repository in a specified location.")
 
 	createMetadataEncryptionFormat = createCommand.Flag("metadata-encryption", "Metadata item encryption.").PlaceHolder("FORMAT").Default(repo.DefaultEncryptionAlgorithm).Enum(repo.SupportedEncryptionAlgorithms...)
 	createObjectFormat             = createCommand.Flag("object-format", "Format of repository objects.").PlaceHolder("FORMAT").Default(block.DefaultFormat).Enum(block.SupportedFormats...)
@@ -33,7 +30,6 @@ var (
 
 func init() {
 	setupConnectOptions(createCommand)
-	createCommand.Action(runCreateCommand)
 }
 
 func newRepositoryOptionsFromFlags() *repo.NewRepositoryOptions {
@@ -50,30 +46,26 @@ func newRepositoryOptionsFromFlags() *repo.NewRepositoryOptions {
 	}
 }
 
-func openStorageAndEnsureEmpty(url string) (storage.Storage, error) {
-	s, err := newStorageFromURL(getContext(), url)
-	if err != nil {
-		return nil, err
-	}
+func ensureEmpty(s storage.Storage) error {
 	ch, cancel := s.ListBlocks("")
 	d, hasData := <-ch
 	cancel()
 
 	if hasData {
 		if d.Error != nil {
-			return nil, d.Error
+			return d.Error
 		}
 
 		if !*createOverwrite {
-			return nil, fmt.Errorf("found existing data in %v, specify --overwrite to use anyway", url)
+			return fmt.Errorf("found existing data in storage, specify --overwrite to use anyway")
 		}
 	}
 
-	return s, nil
+	return nil
 }
 
-func runCreateCommand(_ *kingpin.ParseContext) error {
-	st, err := openStorageAndEnsureEmpty(*createRepositoryLocation)
+func runCreateCommandWithStorage(st storage.Storage) error {
+	err := ensureEmpty(st)
 	if err != nil {
 		return fmt.Errorf("unable to get repository storage: %v", err)
 	}
@@ -87,7 +79,7 @@ func runCreateCommand(_ *kingpin.ParseContext) error {
 
 	fmt.Fprintf(os.Stderr, "Initializing repository with:\n")
 	fmt.Fprintf(os.Stderr, "  metadata encryption: %v\n", options.MetadataEncryptionAlgorithm)
-	fmt.Fprintf(os.Stderr, "  block format:       %v\n", options.BlockFormat)
+	fmt.Fprintf(os.Stderr, "  block format:        %v\n", options.BlockFormat)
 	switch options.Splitter {
 	case "DYNAMIC":
 		fmt.Fprintf(os.Stderr, "  object splitter:     DYNAMIC with block sizes (min:%v avg:%v max:%v)\n",
@@ -112,7 +104,7 @@ func runCreateCommand(_ *kingpin.ParseContext) error {
 			return err
 		}
 
-		fmt.Fprintln(os.Stderr, "Connected to repository:", *createRepositoryLocation)
+		fmt.Fprintln(os.Stderr, "Connected to repository")
 	}
 
 	return nil

@@ -21,6 +21,10 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"gopkg.in/alecthomas/kingpin.v2"
+
+	_ "github.com/kopia/kopia/cli/filesystemcli"
+	_ "github.com/kopia/kopia/cli/gcscli"
+	_ "github.com/kopia/kopia/cli/webdavcli"
 )
 
 var (

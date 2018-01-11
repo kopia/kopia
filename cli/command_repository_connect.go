@@ -7,29 +7,17 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/storage"
 
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
 	connectCommand                = repositoryCommands.Command("connect", "Connect to a repository.")
-	connectRepositoryLocation     = connectCommand.Arg("location", "Repository address").Required().String()
 	connectDontPersistCredentials bool
 	connectCacheDirectory         string
 	connectMaxCacheSizeMB         int64
 	connectMaxListCacheDuration   time.Duration
-
-	// options shared by various providers
-	connectCredentialsFile                string
-	connectReadOnly                       bool
-	connectMaxDownloadSpeedBytesPerSecond int
-	connectMaxUploadSpeedBytesPerSecond   int
-
-	// options for filesystem provider
-	connectOwnerUID string
-	connectOwnerGID string
-	connectFileMode string
-	connectDirMode  string
 )
 
 func setupConnectOptions(cmd *kingpin.CmdClause) {
@@ -37,19 +25,8 @@ func setupConnectOptions(cmd *kingpin.CmdClause) {
 	// we must use *Var() methods, otherwise one of the commands would always get default flag values.
 	cmd.Flag("no-credentials", "Don't save credentials in the configuration file").Short('n').BoolVar(&connectDontPersistCredentials)
 	cmd.Flag("cache-directory", "Cache directory").PlaceHolder("PATH").StringVar(&connectCacheDirectory)
-	cmd.Flag("credentials", "File containing credentials to connect to storage (GCS)").PlaceHolder("PATH").ExistingFileVar(&connectCredentialsFile)
-	cmd.Flag("read-only", "Connect in read-only mode").BoolVar(&connectReadOnly)
-
-	cmd.Flag("owner-uid", "User ID owning newly created files").PlaceHolder("USER").StringVar(&connectOwnerUID)
-	cmd.Flag("owner-gid", "Group ID owning newly created files").PlaceHolder("GROUP").StringVar(&connectOwnerGID)
-	cmd.Flag("file-mode", "File mode for newly created files (0600)").PlaceHolder("MODE").StringVar(&connectFileMode)
-	cmd.Flag("dir-mode", "Mode of newly directory files (0700)").PlaceHolder("MODE").StringVar(&connectDirMode)
-
-	cmd.Flag("max-download-speed", "Limit the download speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&connectMaxDownloadSpeedBytesPerSecond)
-	cmd.Flag("max-upload-speed", "Limit the upload speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&connectMaxUploadSpeedBytesPerSecond)
-
 	cmd.Flag("cache-size-mb", "Size of local cache").PlaceHolder("MB").Int64Var(&connectMaxCacheSizeMB)
-	cmd.Flag("max-list-cache-duration", "Duration of index cache").Default("600s").DurationVar(&connectMaxListCacheDuration)
+	cmd.Flag("max-list-cache-duration", "Duration of index cache").Default("600s").Hidden().DurationVar(&connectMaxListCacheDuration)
 }
 
 func connectOptions() repo.ConnectOptions {
@@ -64,25 +41,19 @@ func connectOptions() repo.ConnectOptions {
 
 func init() {
 	setupConnectOptions(connectCommand)
-	connectCommand.Action(runConnectCommand)
 }
 
-func runConnectCommand(_ *kingpin.ParseContext) error {
-	storage, err := newStorageFromURL(getContext(), *connectRepositoryLocation)
-	if err != nil {
-		return err
-	}
-
+func runConnectCommandWithStorage(st storage.Storage) error {
 	creds, err := getRepositoryCredentials(false)
 	if err != nil {
 		return err
 	}
 
-	if err := repo.Connect(context.Background(), repositoryConfigFileName(), storage, creds, connectOptions()); err != nil {
+	if err := repo.Connect(context.Background(), repositoryConfigFileName(), st, creds, connectOptions()); err != nil {
 		return err
 	}
 
-	fmt.Fprintln(os.Stderr, "Connected to repository:", *connectRepositoryLocation)
+	fmt.Fprintln(os.Stderr, "Connected to repository")
 
 	return err
 }
