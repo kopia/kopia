@@ -12,20 +12,14 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/kopia/kopia/manifest"
-
-	"github.com/kopia/kopia/object"
-
 	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/internal/units"
+	"github.com/kopia/kopia/manifest"
+	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/storage"
 	"github.com/kopia/kopia/storage/logging"
-
-	// Register well-known blob storage providers
-	_ "github.com/kopia/kopia/storage/filesystem"
-	_ "github.com/kopia/kopia/storage/gcs"
 )
 
 // Options provides configuration parameters for connection to a repository.
@@ -81,7 +75,7 @@ func Open(ctx context.Context, configFile string, options *Options) (rep *Reposi
 		return nil, fmt.Errorf("invalid credentials: %v", err)
 	}
 
-	log.Debug().Str("connection", lc.Connection.ConnectionInfo.Type).Interface("params", lc.Connection.ConnectionInfo.Config).Msg("opening storage")
+	log.Debug().Str("connection", lc.Connection.ConnectionInfo.Type).Msg("opening storage")
 
 	st, err := storage.NewStorage(ctx, lc.Connection.ConnectionInfo)
 	if err != nil {
