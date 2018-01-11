@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	cacheCommand = repositoryCommands.Command("cache", "Control local caching of repository data")
+	cacheCommand = app.Command("setcacheparams", "Control local caching of repository data").Hidden()
 
 	cacheDirectory            = cacheCommand.Flag("cache-directory", "Directory where to store cache files").String()
 	cacheMaxCacheSizeMB       = cacheCommand.Flag("cache-size-mb", "Size of local cache (0 disables caching)").PlaceHolder("MB").Int64()

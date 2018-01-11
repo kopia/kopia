@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"reflect"
 
 	"github.com/kopia/kopia/internal/scrubber"
@@ -12,7 +13,7 @@ import (
 )
 
 var (
-	statusCommand = repositoryCommands.Command("status", "Display the status of connected repository.")
+	statusCommand = app.Command("status", "Display the status of connected repository.")
 )
 
 func runStatusCommand(context *kingpin.ParseContext) error {
@@ -20,7 +21,18 @@ func runStatusCommand(context *kingpin.ParseContext) error {
 	defer rep.Close()
 
 	fmt.Printf("Config file:         %v\n", rep.ConfigFile)
-	fmt.Printf("Cache directory:     %v\n", rep.CacheDirectory)
+	entries, err := ioutil.ReadDir(rep.CacheDirectory)
+	if err != nil {
+	}
+	if err != nil {
+		fmt.Printf("Cache directory:     %v (error: %v)\n", rep.CacheDirectory, err)
+	} else {
+		var totalSize int64
+		for _, e := range entries {
+			totalSize += e.Size()
+		}
+		fmt.Printf("Cache directory:     %v (%v files, %v)\n", rep.CacheDirectory, len(entries), units.BytesStringBase2(totalSize))
+	}
 	fmt.Println()
 
 	if cip, ok := rep.Storage.(storage.ConnectionInfoProvider); ok {

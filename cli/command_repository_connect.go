@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	connectCommand                = repositoryCommands.Command("connect", "Connect to a repository.")
+	connectCommand                = app.Command("connect", "Connect to a repository.")
 	connectDontPersistCredentials bool
 	connectCacheDirectory         string
 	connectMaxCacheSizeMB         int64
@@ -25,7 +25,7 @@ func setupConnectOptions(cmd *kingpin.CmdClause) {
 	// we must use *Var() methods, otherwise one of the commands would always get default flag values.
 	cmd.Flag("no-credentials", "Don't save credentials in the configuration file").Short('n').BoolVar(&connectDontPersistCredentials)
 	cmd.Flag("cache-directory", "Cache directory").PlaceHolder("PATH").StringVar(&connectCacheDirectory)
-	cmd.Flag("cache-size-mb", "Size of local cache").PlaceHolder("MB").Int64Var(&connectMaxCacheSizeMB)
+	cmd.Flag("cache-size-mb", "Size of local cache").PlaceHolder("MB").Default("500").Int64Var(&connectMaxCacheSizeMB)
 	cmd.Flag("max-list-cache-duration", "Duration of index cache").Default("600s").Hidden().DurationVar(&connectMaxListCacheDuration)
 }
 

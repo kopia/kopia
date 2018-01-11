@@ -68,7 +68,12 @@ func getContext() context.Context {
 }
 
 func openRepository(opts *repo.Options) (*repo.Repository, error) {
-	return repo.Open(getContext(), repositoryConfigFileName(), applyOptionsFromFlags(opts))
+	r, err := repo.Open(getContext(), repositoryConfigFileName(), applyOptionsFromFlags(opts))
+	if os.IsNotExist(err) {
+		return nil, fmt.Errorf("not connected to a repository, use 'kopia connect'")
+	}
+
+	return r, err
 }
 
 func applyOptionsFromFlags(opts *repo.Options) *repo.Options {
