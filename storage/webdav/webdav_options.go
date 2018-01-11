@@ -5,7 +5,7 @@ type Options struct {
 	URL             string `json:"url"`
 	DirectoryShards []int  `json:"dirShards,omitempty"`
 	Username        string `json:"username,omitempty"`
-	Password        string `json:"password,omitempty"`
+	Password        string `json:"password,omitempty" kopia:"sensitive"`
 }
 
 func (fso *Options) shards() []int {

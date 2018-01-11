@@ -195,12 +195,6 @@ func (gcs *gcsStorage) String() string {
 	return fmt.Sprintf("gcs://%v/%v", gcs.BucketName, gcs.Prefix)
 }
 
-func (gcs *gcsStorage) SetThrottle(downloadBytesPerSecond, uploadBytesPerSecond int) error {
-	gcs.downloadThrottler.SetBandwidth(toBandwidth(downloadBytesPerSecond))
-	gcs.uploadThrottler.SetBandwidth(toBandwidth(uploadBytesPerSecond))
-	return nil
-}
-
 func toBandwidth(bytesPerSecond int) iothrottler.Bandwidth {
 	if bytesPerSecond <= 0 {
 		return iothrottler.Unlimited
