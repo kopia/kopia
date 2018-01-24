@@ -729,7 +729,12 @@ func dumpBlockManagerData(data map[string][]byte) {
 func verifyGroupListContains(t *testing.T, bm *Manager, groupID string, expected ...string) {
 	got := map[string]bool{}
 	want := map[string]bool{}
-	for _, a := range bm.ListGroupBlocks(groupID) {
+	blks, err := bm.ListGroupBlocks(groupID)
+	if err != nil {
+		t.Errorf("error listing blocks: %v", err)
+		return
+	}
+	for _, a := range blks {
 		got[a.BlockID] = true
 	}
 

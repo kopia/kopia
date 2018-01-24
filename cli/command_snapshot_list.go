@@ -20,7 +20,7 @@ var (
 	snapshotListIncludeIncomplete = snapshotListCommand.Flag("include-incomplete", "Include incomplete.").Short('i').Bool()
 	snapshotListShowItemID        = snapshotListCommand.Flag("show-metadata-id", "Include metadata item ID.").Short('m').Bool()
 	snapshotListShowHashCache     = snapshotListCommand.Flag("show-hashcache", "Include hashcache object ID.").Bool()
-	maxResultsPerPath             = snapshotListCommand.Flag("max-results", "Maximum number of results.").Default("100").Int()
+	maxResultsPerPath             = snapshotListCommand.Flag("max-results", "Maximum number of results.").Default("1000").Int()
 )
 
 func findBackups(mgr *snapshot.Manager, sourceInfo snapshot.SourceInfo) (manifestIDs []string, relPath string, err error) {

@@ -213,7 +213,10 @@ func (m *Manager) load() error {
 	m.entries = map[string]*manifestEntry{}
 
 	log.Debug().Str("group", manifestGroupID).Msg("listing manifest group blocks")
-	blocks := m.b.ListGroupBlocks(manifestGroupID)
+	blocks, err := m.b.ListGroupBlocks(manifestGroupID)
+	if err != nil {
+		return fmt.Errorf("unable to list manifest blocks: %v", err)
+	}
 
 	return m.loadManifestBlocks(blocks)
 }

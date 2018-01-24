@@ -22,10 +22,14 @@ func runBlockStatsAction(context *kingpin.ParseContext) error {
 	defer rep.Close()
 
 	var blocks []block.Info
+	var err error
 	if *blockStatsGroup != "" {
-		blocks = rep.Blocks.ListGroupBlocks(*blockStatsGroup)
+		blocks, err = rep.Blocks.ListGroupBlocks(*blockStatsGroup)
 	} else {
-		blocks = rep.Blocks.ListBlocks("", *blockStatsKind)
+		blocks, err = rep.Blocks.ListBlocks("", *blockStatsKind)
+	}
+	if err != nil {
+		return err
 	}
 	sort.Slice(blocks, func(i, j int) bool { return blocks[i].Length < blocks[j].Length })
 

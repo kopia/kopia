@@ -15,7 +15,10 @@ func runListObjectsAction(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
 	defer rep.Close()
 
-	info := rep.Blocks.ListBlocks(*objectListPrefix, "all")
+	info, err := rep.Blocks.ListBlocks(*objectListPrefix, "all")
+	if err != nil {
+		return err
+	}
 
 	for _, b := range info {
 		fmt.Printf("D%-34v %10v %v\n", b.BlockID, b.Length, b.Timestamp.Local().Format(timeFormat))

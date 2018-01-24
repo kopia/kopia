@@ -83,7 +83,7 @@ func (bm *Manager) DeleteBlock(blockID string) error {
 	defer bm.unlock()
 
 	if err := bm.ensurePackIndexesLoaded(); err != nil {
-		return err
+		return fmt.Errorf("can't load pack index: %v", err)
 	}
 
 	// delete from all indexes
@@ -160,7 +160,7 @@ func (bm *Manager) addToPackLocked(packGroup string, blockID string, data []byte
 	bm.assertLocked()
 
 	if err := bm.ensurePackIndexesLoaded(); err != nil {
-		return err
+		return fmt.Errorf("can't load pack index: %v", err)
 	}
 
 	if !force {
@@ -337,6 +337,9 @@ func (bm *Manager) ListIndexBlocks() ([]Info, error) {
 // ActiveIndexBlocks returns the list of active index blocks, sorted by time.
 func (bm *Manager) ActiveIndexBlocks() ([]Info, error) {
 	blocks, err := bm.cache.listIndexBlocks(false)
+	if err != nil {
+		return nil, err
+	}
 	if len(blocks) == 0 {
 		return nil, nil
 	}
@@ -596,13 +599,15 @@ func (bm *Manager) CompactIndexes() error {
 }
 
 // ListBlocks returns the metadata about blocks with a given prefix and kind.
-func (bm *Manager) ListBlocks(prefix string, kind string) []Info {
+func (bm *Manager) ListBlocks(prefix string, kind string) ([]Info, error) {
 	bm.lock()
 	defer bm.unlock()
 
 	var result []Info
 
-	bm.ensurePackIndexesLoaded()
+	if err := bm.ensurePackIndexesLoaded(); err != nil {
+		return nil, fmt.Errorf("can't load pack index: %v", err)
+	}
 
 	packBlockIDs := map[string]bool{}
 	for _, blockToIndex := range bm.groupToBlockToIndex {
@@ -657,7 +662,7 @@ func (bm *Manager) ListBlocks(prefix string, kind string) []Info {
 		}
 	}
 
-	return result
+	return result, nil
 }
 
 func newInfo(blockID string, ndx *blockmgrpb.Index) Info {
@@ -673,19 +678,21 @@ func newInfo(blockID string, ndx *blockmgrpb.Index) Info {
 }
 
 // ListGroupBlocks returns the list of blocks in the specified group (in random order).
-func (bm *Manager) ListGroupBlocks(groupID string) []Info {
+func (bm *Manager) ListGroupBlocks(groupID string) ([]Info, error) {
 	bm.lock()
 	defer bm.unlock()
 
 	var result []Info
 
-	bm.ensurePackIndexesLoaded()
+	if err := bm.ensurePackIndexesLoaded(); err != nil {
+		return nil, fmt.Errorf("can't load pack index: %v", err)
+	}
 
 	for blockID, ndx := range bm.groupToBlockToIndex[groupID] {
 		result = append(result, newInfo(blockID, ndx))
 	}
 
-	return result
+	return result, nil
 }
 
 func (bm *Manager) compactIndexes(merged []*blockmgrpb.Index, blockIDs []string, latestBlockTime time.Time) error {

@@ -98,7 +98,11 @@ func TestManifest(t *testing.T) {
 		t.Errorf("can't compact: %v", err)
 	}
 
-	if got, want := len(mgr.b.ListGroupBlocks(manifestGroupID)), 1; got != want {
+	blks, err := mgr.b.ListGroupBlocks(manifestGroupID)
+	if err != nil {
+		t.Errorf("unable to list manifest group blocks: %v", err)
+	}
+	if got, want := len(blks), 1; got != want {
 		t.Errorf("unexpected number of blocks: %v, want %v", got, want)
 	}
 

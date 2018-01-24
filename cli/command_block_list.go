@@ -24,11 +24,16 @@ func runListBlocksAction(context *kingpin.ParseContext) error {
 	defer rep.Close()
 
 	var blocks []block.Info
+	var err error
 	if *blockListGroup != "" {
-		blocks = rep.Blocks.ListGroupBlocks(*blockListGroup)
+		blocks, err = rep.Blocks.ListGroupBlocks(*blockListGroup)
 	} else {
-		blocks = rep.Blocks.ListBlocks(*blockListPrefix, *blockListKind)
+		blocks, err = rep.Blocks.ListBlocks(*blockListPrefix, *blockListKind)
 	}
+	if err != nil {
+		return err
+	}
+
 	maybeReverse := func(b bool) bool { return b }
 
 	if *blockListReverse {
