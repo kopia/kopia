@@ -3,12 +3,15 @@ package s3
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha1"
 	"fmt"
 	"log"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/kopia/kopia/internal/storagetesting"
+	"github.com/minio/minio-go"
 )
 
 // https://github.com/minio/minio-go
@@ -20,15 +23,27 @@ const (
 
 	// the test takes a few seconds, delete stuff older than 1h to avoid accumulating cruft
 	cleanupAge = 1 * time.Hour
-
-	bucketName = "kopia-test-1"
 )
+
+var bucketName = getBucketName()
+
+func getBucketName() string {
+	hn, err := os.Hostname()
+	if err != nil {
+		return "kopia-test-1"
+	}
+	h := sha1.New()
+	fmt.Fprintf(h, "%v", hn)
+	return fmt.Sprintf("kopia-test-%x", h.Sum(nil)[0:8])
+}
 
 func TestS3Storage(t *testing.T) {
 	if testing.Short() {
 		return
 	}
 
+	// recreate per-host bucket, which sometimes get cleaned up by play.minio.io
+	createBucket(t)
 	cleanupOldData(t)
 
 	data := make([]byte, 8)
@@ -46,6 +61,14 @@ func TestS3Storage(t *testing.T) {
 	}
 
 	storagetesting.VerifyStorage(t, st)
+}
+
+func createBucket(t *testing.T) {
+	minioClient, err := minio.New(endpoint, accessKeyID, secretAccessKey, useSSL)
+	if err != nil {
+		t.Fatalf("can't initialize minio client: %v", err)
+	}
+	minioClient.MakeBucket(bucketName, "us-east-1")
 }
 
 func cleanupOldData(t *testing.T) {
