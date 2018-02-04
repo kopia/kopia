@@ -12,7 +12,8 @@ var (
 	metadataCommands   = app.Command("metadata", "Low-level commands to manipulate metadata items.").Alias("md")
 	manifestCommands   = app.Command("manifest", "Low-level commands to manipulate manifest items.")
 	objectCommands     = app.Command("object", "Commands to manipulate objects in repository.").Alias("obj")
-	blockCommands      = app.Command("block", "Commands to manipulate blocks in repository.").Alias("blk")
+	blockCommands      = app.Command("block", "Commands to manipulate virtual blocks in repository.").Alias("blk")
+	storageCommands    = app.Command("storage", "Commands to manipulate raw storage blocks.")
 	blockIndexCommands = blockCommands.Command("index", "Commands to manipulate block indexes.")
 )
 
