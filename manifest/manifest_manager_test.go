@@ -67,7 +67,8 @@ func TestManifest(t *testing.T) {
 	verifyItem(t, mgr, id2, labels2, item2)
 	verifyItem(t, mgr, id3, labels3, item3)
 
-	// verify in new manager
+	// flush underlying block manager and verify in new manifest manager.
+	mgr.b.Flush()
 	mgr2, err := newManagerForTesting(t, data, keyTime)
 	if err != nil {
 		t.Fatalf("can't open block manager: %v", err)
@@ -98,9 +99,9 @@ func TestManifest(t *testing.T) {
 		t.Errorf("can't compact: %v", err)
 	}
 
-	blks, err := mgr.b.ListGroupBlocks(manifestGroupID)
+	blks, err := mgr.b.ListBlocks(manifestBlockPrefix)
 	if err != nil {
-		t.Errorf("unable to list manifest group blocks: %v", err)
+		t.Errorf("unable to list manifest blocks: %v", err)
 	}
 	if got, want := len(blks), 1; got != want {
 		t.Errorf("unexpected number of blocks: %v, want %v", got, want)

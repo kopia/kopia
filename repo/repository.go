@@ -29,6 +29,9 @@ func (r *Repository) Close() error {
 	if err := r.Objects.Close(); err != nil {
 		return err
 	}
+	if err := r.Blocks.Flush(); err != nil {
+		return err
+	}
 	if err := r.Storage.Close(); err != nil {
 		return err
 	}
@@ -40,5 +43,9 @@ func (r *Repository) Flush() error {
 	if err := r.Manifests.Flush(); err != nil {
 		return err
 	}
-	return r.Objects.Flush()
+	if err := r.Objects.Flush(); err != nil {
+		return err
+	}
+
+	return r.Blocks.Flush()
 }

@@ -10,8 +10,6 @@ import (
 
 var (
 	blockListCommand = blockCommands.Command("list", "List blocks").Alias("ls")
-	blockListKind    = blockListCommand.Flag("kind", "Block kind").Default("all").Enum("all", "physical", "packed", "nonpacked", "packs")
-	blockListGroup   = blockListCommand.Flag("group", "List blocks belonging to a given group").String()
 	blockListLong    = blockListCommand.Flag("long", "Long output").Short('l').Bool()
 	blockListPrefix  = blockListCommand.Flag("prefix", "Prefix").String()
 	blockListSort    = blockListCommand.Flag("sort", "Sort order").Default("name").Enum("name", "size", "time", "none", "pack")
@@ -23,13 +21,7 @@ func runListBlocksAction(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
 	defer rep.Close()
 
-	var blocks []block.Info
-	var err error
-	if *blockListGroup != "" {
-		blocks, err = rep.Blocks.ListGroupBlocks(*blockListGroup)
-	} else {
-		blocks, err = rep.Blocks.ListBlocks(*blockListPrefix, *blockListKind)
-	}
+	blocks, err := rep.Blocks.ListBlocks(*blockListPrefix)
 	if err != nil {
 		return err
 	}
@@ -61,14 +53,10 @@ func runListBlocksAction(context *kingpin.ParseContext) error {
 			uniquePacks[b.PackBlockID] = true
 		}
 		if *blockListLong {
-			grp := b.PackGroup
-			if grp == "" {
-				grp = "default"
-			}
 			if b.PackBlockID != "" {
-				fmt.Printf("%-34v %10v %v %v in %v offset %v\n", b.BlockID, b.Length, b.Timestamp.Local().Format(timeFormat), grp, b.PackBlockID, b.PackOffset)
+				fmt.Printf("%-34v %10v %v in %v offset %v\n", b.BlockID, b.Length, b.Timestamp.Local().Format(timeFormat), b.PackBlockID, b.PackOffset)
 			} else {
-				fmt.Printf("%-34v %10v %v %v\n", b.BlockID, b.Length, b.Timestamp.Local().Format(timeFormat), grp)
+				fmt.Printf("%-34v %10v %v\n", b.BlockID, b.Length, b.Timestamp.Local().Format(timeFormat))
 			}
 		} else {
 			fmt.Printf("%v\n", b.BlockID)

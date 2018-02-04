@@ -16,12 +16,10 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/kopia/kopia/block"
-
 	"github.com/kopia/kopia/auth"
-	"github.com/kopia/kopia/object"
-
+	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/storagetesting"
+	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/storage"
 )
 
@@ -38,8 +36,6 @@ func setupTestWithData(t *testing.T, data map[string][]byte, keyTime map[string]
 		Splitter:                    "FIXED",
 		BlockFormat:                 "TESTONLY_MD5",
 		MetadataEncryptionAlgorithm: "NONE",
-		MaxPackedContentLength:      -1,
-
 		noHMAC: true,
 	}
 
@@ -91,6 +87,8 @@ func TestWriters(t *testing.T) {
 			t.Errorf("incorrect result for %v, expected: %v got: %v", c.data, c.objectID.String(), result.String())
 		}
 
+		repo.Blocks.Flush()
+
 		if got, want := len(data), 3; got != want {
 			// 1 format block + 1 data block + 1 pack index block
 			t.Errorf("unexpected data written to the storage (%v), wanted %v: %v", len(data), 3, data)
@@ -134,7 +132,6 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 
 func TestPackingSimple(t *testing.T) {
 	data, keyTime, repo := setupTest(t, func(n *NewRepositoryOptions) {
-		n.MaxPackedContentLength = 10000
 	})
 
 	content1 := "hello, how do you do?"
@@ -146,8 +143,6 @@ func TestPackingSimple(t *testing.T) {
 	oid2a := writeObject(t, repo, []byte(content2), "packed-object-2a")
 	oid2b := writeObject(t, repo, []byte(content2), "packed-object-2b")
 
-	repo.Objects.Flush()
-
 	oid3a := writeObject(t, repo, []byte(content3), "packed-object-3a")
 	oid3b := writeObject(t, repo, []byte(content3), "packed-object-3b")
 	verify(t, repo, oid1a, []byte(content1), "packed-object-1")
@@ -156,6 +151,7 @@ func TestPackingSimple(t *testing.T) {
 	oid1c := writeObject(t, repo, []byte(content1), "packed-object-1c")
 
 	repo.Objects.Flush()
+	repo.Blocks.Flush()
 
 	if got, want := oid1a.String(), oid1b.String(); got != want {
 		t.Errorf("oid1a(%q) != oid1b(%q)", got, want)
@@ -173,20 +169,13 @@ func TestPackingSimple(t *testing.T) {
 		t.Errorf("oid3a(%q) != oid3b(%q)", got, want)
 	}
 
-	if got, want := len(data), 1+4; got != want {
+	// format + index + pack
+	if got, want := len(data), 3; got != want {
 		t.Errorf("got unexpected repository contents %v items, wanted %v", got, want)
-		for k, v := range data {
-			t.Logf("%v => %v", k, string(v))
-		}
 	}
 	repo.Close()
 
-	for k, v := range data {
-		log.Printf("data[%v] = %v", k, string(v))
-	}
-
 	data, _, repo = setupTestWithData(t, data, keyTime, func(n *NewRepositoryOptions) {
-		n.MaxPackedContentLength = 10000
 	})
 
 	verify(t, repo, oid1a, []byte(content1), "packed-object-1")
@@ -197,7 +186,6 @@ func TestPackingSimple(t *testing.T) {
 		t.Errorf("optimize error: %v", err)
 	}
 	data, _, repo = setupTestWithData(t, data, keyTime, func(n *NewRepositoryOptions) {
-		n.MaxPackedContentLength = 10000
 	})
 
 	verify(t, repo, oid1a, []byte(content1), "packed-object-1")
@@ -208,7 +196,6 @@ func TestPackingSimple(t *testing.T) {
 		t.Errorf("optimize error: %v", err)
 	}
 	data, _, repo = setupTestWithData(t, data, keyTime, func(n *NewRepositoryOptions) {
-		n.MaxPackedContentLength = 10000
 	})
 
 	verify(t, repo, oid1a, []byte(content1), "packed-object-1")

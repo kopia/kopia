@@ -19,7 +19,7 @@ import (
 // ErrNotFound is returned when the metadata item is not found.
 var ErrNotFound = errors.New("not found")
 
-const manifestGroupID = "manifests"
+const manifestBlockPrefix = "M"
 
 // Manager organizes JSON manifests of various kinds, including snapshot manifests
 type Manager struct {
@@ -175,12 +175,8 @@ func (m *Manager) flushPendingEntriesLocked() (string, error) {
 	gz.Flush()
 	gz.Close()
 
-	blockID, err := m.b.WriteBlock(manifestGroupID, buf.Bytes())
+	blockID, err := m.b.WriteBlock(buf.Bytes(), manifestBlockPrefix)
 	if err != nil {
-		return "", err
-	}
-
-	if err := m.b.Flush(); err != nil {
 		return "", err
 	}
 
@@ -212,12 +208,13 @@ func (m *Manager) load() error {
 
 	m.entries = map[string]*manifestEntry{}
 
-	log.Debug().Str("group", manifestGroupID).Msg("listing manifest group blocks")
-	blocks, err := m.b.ListGroupBlocks(manifestGroupID)
+	log.Debug().Msg("listing manifest blocks")
+	blocks, err := m.b.ListBlocks(manifestBlockPrefix)
 	if err != nil {
 		return fmt.Errorf("unable to list manifest blocks: %v", err)
 	}
 
+	log.Printf("loaded %v blocks", len(blocks))
 	return m.loadManifestBlocks(blocks)
 }
 

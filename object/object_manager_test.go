@@ -37,10 +37,10 @@ func (f *fakeBlockManager) GetBlock(blockID string) ([]byte, error) {
 	return nil, storage.ErrBlockNotFound
 }
 
-func (f *fakeBlockManager) WriteBlock(groupID string, data []byte) (string, error) {
+func (f *fakeBlockManager) WriteBlock(data []byte, prefix string) (string, error) {
 	h := md5.New()
 	h.Write(data)
-	blockID := hex.EncodeToString(h.Sum(nil))
+	blockID := prefix + hex.EncodeToString(h.Sum(nil))
 
 	f.mu.Lock()
 	defer f.mu.Unlock()

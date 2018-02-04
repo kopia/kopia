@@ -158,7 +158,7 @@ func (c *diskBlockCache) readBlocksFromCacheFile(f *os.File) ([]Info, error) {
 
 func (c *diskBlockCache) readBlocksFromSource(maxCompactions int) ([]Info, error) {
 	var blocks []Info
-	ch, cancel := c.st.ListBlocks(packBlockPrefix)
+	ch, cancel := c.st.ListBlocks(indexBlockPrefix)
 	defer cancel()
 
 	numCompactions := 0

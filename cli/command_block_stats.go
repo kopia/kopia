@@ -12,7 +12,6 @@ import (
 
 var (
 	blockStatsCommand = blockCommands.Command("stats", "Block statistics")
-	blockStatsKind    = blockStatsCommand.Flag("kind", "Kinds of blocks").Default("logical").Enum("all", "logical", "physical", "packed", "nonpacked", "packs")
 	blockStatsRaw     = blockStatsCommand.Flag("raw", "Raw numbers").Short('r').Bool()
 	blockStatsGroup   = blockStatsCommand.Flag("group", "Display stats about blocks belonging to a given group").String()
 )
@@ -21,13 +20,7 @@ func runBlockStatsAction(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
 	defer rep.Close()
 
-	var blocks []block.Info
-	var err error
-	if *blockStatsGroup != "" {
-		blocks, err = rep.Blocks.ListGroupBlocks(*blockStatsGroup)
-	} else {
-		blocks, err = rep.Blocks.ListBlocks("", *blockStatsKind)
-	}
+	blocks, err := rep.Blocks.ListBlocks("")
 	if err != nil {
 		return err
 	}
@@ -54,7 +47,7 @@ func runBlockStatsAction(context *kingpin.ParseContext) error {
 		}
 	}
 
-	fmt.Printf("Block statistics (%v)\n", *blockStatsKind)
+	fmt.Printf("Block statistics\n")
 	if len(blocks) == 0 {
 		return nil
 	}

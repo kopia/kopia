@@ -25,7 +25,7 @@ type Reader interface {
 type blockManager interface {
 	BlockInfo(blockID string) (block.Info, error)
 	GetBlock(blockID string) ([]byte, error)
-	WriteBlock(packGroup string, data []byte) (string, error)
+	WriteBlock(data []byte, prefix string) (string, error)
 	Flush() error
 }
 
@@ -57,7 +57,7 @@ func (om *Manager) NewWriter(opt WriterOptions) Writer {
 		repo:        om,
 		splitter:    om.newSplitter(),
 		description: opt.Description,
-		packGroup:   opt.PackGroup,
+		blockPrefix: opt.BlockPrefix,
 	}
 
 	if opt.splitter != nil {
@@ -171,7 +171,7 @@ func (om *Manager) verifyObjectInternal(oid ID, blocks *blockTracker) (int64, er
 // ok to be used.
 func (om *Manager) Flush() error {
 	om.writeBackWG.Wait()
-	return om.blockMgr.Flush()
+	return nil
 }
 
 func nullTrace(message string, args ...interface{}) {

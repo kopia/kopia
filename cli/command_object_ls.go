@@ -15,7 +15,7 @@ func runListObjectsAction(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
 	defer rep.Close()
 
-	info, err := rep.Blocks.ListBlocks(*objectListPrefix, "all")
+	info, err := rep.Blocks.ListBlocks(*objectListPrefix)
 	if err != nil {
 		return err
 	}

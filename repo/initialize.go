@@ -34,11 +34,10 @@ type NewRepositoryOptions struct {
 	ObjectHMACSecret    []byte // force the use of particular object HMAC secret
 	ObjectEncryptionKey []byte // force the use of particular object encryption key
 
-	Splitter               string // splitter used to break objects into storage blocks
-	MinBlockSize           int    // minimum block size used with dynamic splitter
-	AvgBlockSize           int    // approximate size of storage block (used with dynamic splitter)
-	MaxBlockSize           int    // maximum size of storage block
-	MaxPackedContentLength int    // maximum size of object to be considered for storage in a pack
+	Splitter     string // splitter used to break objects into storage blocks
+	MinBlockSize int    // minimum block size used with dynamic splitter
+	AvgBlockSize int    // approximate size of storage block (used with dynamic splitter)
+	MaxBlockSize int    // maximum size of storage block
 
 	// test-only
 	noHMAC bool // disable HMAC
@@ -84,12 +83,11 @@ func formatBlockFromOptions(opt *NewRepositoryOptions) *formatBlock {
 func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) *config.RepositoryObjectFormat {
 	f := &config.RepositoryObjectFormat{
 		FormattingOptions: block.FormattingOptions{
-			Version:                1,
-			BlockFormat:            applyDefaultString(opt.BlockFormat, block.DefaultFormat),
-			HMACSecret:             applyDefaultRandomBytes(opt.ObjectHMACSecret, 32),
-			MasterKey:              applyDefaultRandomBytes(opt.ObjectEncryptionKey, 32),
-			MaxPackedContentLength: applyDefaultInt(opt.MaxPackedContentLength, 4<<20), // 4 MB
-			MaxPackSize:            applyDefaultInt(opt.MaxBlockSize, 20<<20),          // 20 MB
+			Version:     1,
+			BlockFormat: applyDefaultString(opt.BlockFormat, block.DefaultFormat),
+			HMACSecret:  applyDefaultRandomBytes(opt.ObjectHMACSecret, 32),
+			MasterKey:   applyDefaultRandomBytes(opt.ObjectEncryptionKey, 32),
+			MaxPackSize: applyDefaultInt(opt.MaxBlockSize, 20<<20), // 20 MB
 		},
 		Splitter:     applyDefaultString(opt.Splitter, object.DefaultSplitter),
 		MaxBlockSize: applyDefaultInt(opt.MaxBlockSize, 20<<20), // 20MiB

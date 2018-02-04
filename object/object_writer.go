@@ -54,8 +54,8 @@ type objectWriter struct {
 
 	description string
 
-	splitter  objectSplitter
-	packGroup string
+	splitter    objectSplitter
+	blockPrefix string
 
 	pendingBlocksWG sync.WaitGroup
 
@@ -97,7 +97,7 @@ func (w *objectWriter) flushBuffer() error {
 	w.buffer.Reset()
 
 	do := func() {
-		blockID, err := w.repo.blockMgr.WriteBlock(w.packGroup, b2.Bytes())
+		blockID, err := w.repo.blockMgr.WriteBlock(b2.Bytes(), w.blockPrefix)
 		w.repo.trace("OBJECT_WRITER(%q) stored %v (%v bytes)", w.description, blockID, length)
 		if err != nil {
 			w.err.add(fmt.Errorf("error when flushing chunk %d of %s: %v", chunkID, w.description, err))
@@ -146,7 +146,7 @@ func (w *objectWriter) Result() (ID, error) {
 		repo:        w.repo,
 		description: "LIST(" + w.description + ")",
 		splitter:    w.repo.newSplitter(),
-		packGroup:   w.packGroup,
+		blockPrefix: w.blockPrefix,
 	}
 
 	jw := jsonstream.NewWriter(iw, indirectStreamType)
@@ -164,7 +164,7 @@ func (w *objectWriter) Result() (ID, error) {
 // WriterOptions can be passed to Repository.NewWriter()
 type WriterOptions struct {
 	Description string
-	PackGroup   string
+	BlockPrefix string
 
 	splitter objectSplitter
 }
