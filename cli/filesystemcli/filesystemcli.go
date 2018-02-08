@@ -18,6 +18,7 @@ var (
 	connectOwnerGID string
 	connectFileMode string
 	connectDirMode  string
+	connectFlat     bool
 )
 
 func connect(ctx context.Context) (storage.Storage, error) {
@@ -34,6 +35,11 @@ func connect(ctx context.Context) (storage.Storage, error) {
 	if v := connectDirMode; v != "" {
 		fso.DirectoryMode = getFileModeValue(v, 8)
 	}
+
+	if connectFlat {
+		fso.DirectoryShards = []int{}
+	}
+
 	return filesystem.New(ctx, &fso)
 }
 
@@ -47,6 +53,7 @@ func init() {
 			cmd.Flag("owner-gid", "Group ID owning newly created files").PlaceHolder("GROUP").StringVar(&connectOwnerGID)
 			cmd.Flag("file-mode", "File mode for newly created files (0600)").PlaceHolder("MODE").StringVar(&connectFileMode)
 			cmd.Flag("dir-mode", "Mode of newly directory files (0700)").PlaceHolder("MODE").StringVar(&connectDirMode)
+			cmd.Flag("flat", "Use flat directory structure").BoolVar(&connectFlat)
 		},
 		connect)
 }

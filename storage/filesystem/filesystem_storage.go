@@ -9,7 +9,6 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/kopia/kopia/storage"
@@ -179,23 +178,6 @@ func (fs *fsStorage) getShardedPathAndFilePath(blockID string) (string, string) 
 	shardPath, blockID := fs.getShardDirectory(blockID)
 	result := filepath.Join(shardPath, makeFileName(blockID))
 	return shardPath, result
-}
-
-func parseShardString(shardString string) ([]int, error) {
-	if shardString == "" {
-		// By default Xabcdefghijklmnop is stored in 'X/abc/def/Xabcdefghijklmnop'
-		return fsDefaultShards, nil
-	}
-
-	result := make([]int, 0, 4)
-	for _, value := range strings.Split(shardString, ",") {
-		shardLength, err := strconv.ParseInt(value, 10, 32)
-		if err != nil {
-			return nil, fmt.Errorf("invalid shard specification: '%s'", value)
-		}
-		result = append(result, int(shardLength))
-	}
-	return result, nil
 }
 
 func (fs *fsStorage) ConnectionInfo() storage.ConnectionInfo {

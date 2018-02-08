@@ -9,7 +9,10 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
-var options webdav.Options
+var (
+	options     webdav.Options
+	connectFlat bool
+)
 
 func connect(ctx context.Context) (storage.Storage, error) {
 	wo := options
@@ -22,6 +25,11 @@ func connect(ctx context.Context) (storage.Storage, error) {
 
 		wo.Password = pass
 	}
+
+	if connectFlat {
+		wo.DirectoryShards = []int{}
+	}
+
 	return webdav.New(ctx, &wo)
 }
 
@@ -31,6 +39,7 @@ func init() {
 		"a WebDAV storage",
 		func(cmd *kingpin.CmdClause) {
 			cmd.Flag("url", "URL of WebDAV server").Required().StringVar(&options.URL)
+			cmd.Flag("flat", "Use flat directory structure").BoolVar(&connectFlat)
 		},
 		connect)
 }

@@ -3,7 +3,7 @@ package webdav
 // Options defines options for Filesystem-backed storage.
 type Options struct {
 	URL             string `json:"url"`
-	DirectoryShards []int  `json:"dirShards,omitempty"`
+	DirectoryShards []int  `json:"dirShards"`
 	Username        string `json:"username,omitempty"`
 	Password        string `json:"password,omitempty" kopia:"sensitive"`
 }

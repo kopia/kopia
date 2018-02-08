@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/kopia/kopia/storage"
@@ -300,23 +299,6 @@ func (d *davStorage) getCollectionAndFileURL(blockID string) (string, string) {
 	shardURL, blockID := d.getCollectionURL(blockID)
 	result := shardURL + "/" + makeFileName(blockID)
 	return shardURL, result
-}
-
-func parseShardString(shardString string) ([]int, error) {
-	if shardString == "" {
-		// By default Xabcdefghijklmnop is stored in 'X/abc/def/Xabcdefghijklmnop'
-		return fsDefaultShards, nil
-	}
-
-	result := make([]int, 0, 4)
-	for _, value := range strings.Split(shardString, ",") {
-		shardLength, err := strconv.ParseInt(value, 10, 32)
-		if err != nil {
-			return nil, fmt.Errorf("invalid shard specification: '%s'", value)
-		}
-		result = append(result, int(shardLength))
-	}
-	return result, nil
 }
 
 func (d *davStorage) ConnectionInfo() storage.ConnectionInfo {

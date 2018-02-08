@@ -6,7 +6,7 @@ import "os"
 type Options struct {
 	Path string `json:"path"`
 
-	DirectoryShards []int `json:"dirShards,omitempty"`
+	DirectoryShards []int `json:"dirShards"`
 
 	FileMode      os.FileMode `json:"fileMode,omitempty"`
 	DirectoryMode os.FileMode `json:"dirMode,omitempty"`
