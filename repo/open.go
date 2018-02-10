@@ -172,7 +172,7 @@ func readAndCacheFormatBlock(st storage.Storage, cacheDirectory string) (*format
 		}
 	}
 
-	b, err := st.GetBlock(formatBlockID, 0, -1)
+	b, err := st.GetBlock(FormatBlockID, 0, -1)
 	if err != nil {
 		return nil, err
 	}

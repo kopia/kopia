@@ -32,7 +32,7 @@ type ConnectOptions struct {
 
 // Connect connects to the repository in the specified storage and persists the configuration and credentials in the file provided.
 func Connect(ctx context.Context, configFile string, st storage.Storage, creds auth.Credentials, opt ConnectOptions) error {
-	formatBytes, err := st.GetBlock(formatBlockID, 0, -1)
+	formatBytes, err := st.GetBlock(FormatBlockID, 0, -1)
 	if err != nil {
 		return fmt.Errorf("unable to read format block: %v", err)
 	}

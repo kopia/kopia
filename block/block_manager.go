@@ -560,6 +560,15 @@ func (bm *Manager) WriteBlock(data []byte, prefix string) (string, error) {
 	return blockID, err
 }
 
+// IsStorageBlockInUse determines whether given storage block is in use by currently loaded pack indexes.
+func (bm *Manager) IsStorageBlockInUse(storageBlockID string) bool {
+	bm.lock()
+	defer bm.unlock()
+
+	bm.ensurePackIndexesLoaded()
+	return bm.packBlockIDToIndex[storageBlockID] != nil
+}
+
 // Repackage reorganizes all pack blocks belonging to a given group that are not bigger than given size.
 func (bm *Manager) Repackage(maxLength uint64) error {
 	bm.lock()

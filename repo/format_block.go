@@ -14,9 +14,8 @@ import (
 	"github.com/kopia/kopia/storage"
 )
 
-const (
-	formatBlockID = "kopia.repository"
-)
+// FormatBlockID is the identifier of a storage block that describes repository format.
+const FormatBlockID = "kopia.repository"
 
 var (
 	purposeAESKey   = []byte("AES")
@@ -59,7 +58,7 @@ func writeFormatBlock(st storage.Storage, f *formatBlock) error {
 		return fmt.Errorf("unable to marshal format block: %v", err)
 	}
 
-	if err := st.PutBlock(formatBlockID, buf.Bytes()); err != nil {
+	if err := st.PutBlock(FormatBlockID, buf.Bytes()); err != nil {
 		return fmt.Errorf("unable to write format block: %v", err)
 	}
 

@@ -21,7 +21,24 @@ func runShowBlockIndexesAction(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
 	defer rep.Close()
 
-	for _, blockID := range *blockIndexShowIDs {
+	blockIDs := *blockIndexShowIDs
+	if len(blockIDs) == 1 || blockIDs[0] == "active" {
+		b, err := rep.Blocks.ActiveIndexBlocks()
+		if err != nil {
+			return err
+		}
+
+		sort.Slice(b, func(i, j int) bool {
+			return b[i].Timestamp.Before(b[j].Timestamp)
+		})
+
+		blockIDs = nil
+		for _, bi := range b {
+			blockIDs = append(blockIDs, bi.BlockID)
+		}
+	}
+
+	for _, blockID := range blockIDs {
 		data, err := rep.Blocks.GetBlock(blockID)
 		if err != nil {
 			return fmt.Errorf("can't read block %q: %v", blockID, err)
@@ -33,7 +50,7 @@ func runShowBlockIndexesAction(context *kingpin.ParseContext) error {
 		}
 
 		for _, ndx := range d.Indexes {
-			fmt.Printf("pack %v len: %v created %v\n", ndx.PackBlockId, ndx.PackLength, time.Unix(0, int64(ndx.CreateTimeNanos)).Local())
+			fmt.Printf("pack:%v len:%v created:%v\n", ndx.PackBlockId, ndx.PackLength, time.Unix(0, int64(ndx.CreateTimeNanos)).Local())
 			type unpacked struct {
 				blockID string
 				offset  uint32
