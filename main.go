@@ -22,10 +22,10 @@ import (
 
 	"gopkg.in/alecthomas/kingpin.v2"
 
-	_ "github.com/kopia/kopia/cli/filesystemcli"
-	_ "github.com/kopia/kopia/cli/gcscli"
-	_ "github.com/kopia/kopia/cli/s3cli"
-	_ "github.com/kopia/kopia/cli/webdavcli"
+	_ "github.com/kopia/kopia/storage/filesystem/cli"
+	_ "github.com/kopia/kopia/storage/gcs/cli"
+	_ "github.com/kopia/kopia/storage/s3/cli"
+	_ "github.com/kopia/kopia/storage/webdav/cli"
 )
 
 var (

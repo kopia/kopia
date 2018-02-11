@@ -1,4 +1,4 @@
-package filesystemcli
+package cli
 
 import (
 	"context"

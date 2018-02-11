@@ -1,4 +1,4 @@
-package s3cli
+package cli
 
 import (
 	"context"

@@ -1,4 +1,4 @@
-package gcscli
+package cli
 
 import (
 	"context"

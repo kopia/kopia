@@ -1,4 +1,4 @@
-package webdavcli
+package cli
 
 import (
 	"context"
