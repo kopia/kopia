@@ -598,8 +598,14 @@ func (bm *Manager) Repackage(maxLength uint64) error {
 		}
 	}
 
-	log.Printf("%v blocks to re-package (%v total bytes)", len(toRepackage), totalBytes)
 	done := map[string]bool{}
+
+	if len(toRepackage) <= 1 {
+		log.Printf("nothing to do (%v total bytes)", totalBytes)
+		return nil
+	}
+
+	log.Printf("%v blocks to re-package (%v total bytes)", len(toRepackage), totalBytes)
 
 	for _, m := range toRepackage {
 		data, err := bm.getBlockInternalLocked(m.PackBlockId)
