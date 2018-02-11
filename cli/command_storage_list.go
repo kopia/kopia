@@ -23,7 +23,7 @@ func runListStorageBlocks(context *kingpin.ParseContext) error {
 			return b.Error
 		}
 
-		fmt.Printf("%-50v %10v %v\n", b.BlockID, b.Length, b.TimeStamp.Local().Format(timeFormat))
+		fmt.Printf("%-70v %10v %v\n", b.BlockID, b.Length, b.TimeStamp.Local().Format(timeFormat))
 	}
 
 	return nil
