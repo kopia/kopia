@@ -57,7 +57,6 @@ func (om *Manager) NewWriter(opt WriterOptions) Writer {
 		repo:        om,
 		splitter:    om.newSplitter(),
 		description: opt.Description,
-		blockPrefix: opt.BlockPrefix,
 	}
 
 	if opt.splitter != nil {

@@ -19,7 +19,7 @@ import (
 // ErrNotFound is returned when the metadata item is not found.
 var ErrNotFound = errors.New("not found")
 
-const manifestBlockPrefix = "M"
+const manifestBlockPrefix = "m"
 
 // Manager organizes JSON manifests of various kinds, including snapshot manifests
 type Manager struct {

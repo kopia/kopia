@@ -23,7 +23,7 @@ import (
 const (
 	parallelFetches          = 5                // number of parallel reads goroutines
 	flushPackIndexTimeout    = 10 * time.Minute // time after which all pending indexes are flushes
-	indexBlockPrefix         = "I"              // prefix for all storage blocks that are pack indexes
+	indexBlockPrefix         = "i"              // prefix for all storage blocks that are pack indexes
 	compactedBlockSuffix     = "-z"
 	maxIndexBlockUploadTime  = 1 * time.Minute
 	defaultMinPreambleLength = 32
