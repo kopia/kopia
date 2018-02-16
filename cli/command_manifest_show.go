@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	manifestShowCommand = manifestCommands.Command("show", "Show manifest items").Hidden()
+	manifestShowCommand = manifestCommands.Command("show", "Show manifest items")
 	manifestShowItems   = manifestShowCommand.Arg("item", "List of items").Required().Strings()
 )
 

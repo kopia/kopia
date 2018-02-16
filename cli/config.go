@@ -22,9 +22,9 @@ import (
 )
 
 var (
-	traceStorage       = app.Flag("trace-storage", "Enables tracing of storage operations.").Hidden().Envar("KOPIA_TRACE_STORAGE").Bool()
-	traceObjectManager = app.Flag("trace-object-manager", "Enables tracing of object manager operations.").Hidden().Envar("KOPIA_TRACE_OBJECT_MANAGER").Bool()
-	traceLocalFS       = app.Flag("trace-localfs", "Enables tracing of local filesystem operations").Hidden().Envar("KOPIA_TRACE_FS").Bool()
+	traceStorage       = app.Flag("trace-storage", "Enables tracing of storage operations.").Envar("KOPIA_TRACE_STORAGE").Bool()
+	traceObjectManager = app.Flag("trace-object-manager", "Enables tracing of object manager operations.").Envar("KOPIA_TRACE_OBJECT_MANAGER").Bool()
+	traceLocalFS       = app.Flag("trace-localfs", "Enables tracing of local filesystem operations").Envar("KOPIA_TRACE_FS").Bool()
 	enableCaching      = app.Flag("caching", "Enables caching of objects (disable with --no-caching)").Default("true").Bool()
 	enableListCaching  = app.Flag("list-caching", "Enables caching of list results (disable with --no-list-caching)").Default("true").Bool()
 

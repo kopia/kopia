@@ -3,7 +3,7 @@ package cli
 import "gopkg.in/alecthomas/kingpin.v2"
 
 var (
-	manifestRemoveCommand = manifestCommands.Command("rm", "Remove manifest items").Hidden()
+	manifestRemoveCommand = manifestCommands.Command("rm", "Remove manifest items")
 	manifestRemoveItems   = manifestRemoveCommand.Arg("item", "Items to remove").Required().Strings()
 )
 

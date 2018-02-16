@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	traceWebDAVServer = mountCommand.Flag("trace-webdav", "Enable tracing on WebDAV server").Hidden().Bool()
+	traceWebDAVServer = mountCommand.Flag("trace-webdav", "Enable tracing on WebDAV server").Bool()
 )
 
 func webdavServerLogger(r *http.Request, err error) {

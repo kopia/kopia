@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	connectCommand                = app.Command("connect", "Connect to a repository.")
+	connectCommand                = repositoryCommands.Command("connect", "Connect to a repository.")
 	connectDontPersistCredentials bool
 	connectCacheDirectory         string
 	connectMaxCacheSizeMB         int64

@@ -6,7 +6,7 @@ import (
 )
 
 var (
-	disconnectCommand = app.Command("disconnect", "Disconnect from a repository.")
+	disconnectCommand = repositoryCommands.Command("disconnect", "Disconnect from a repository.")
 )
 
 func init() {

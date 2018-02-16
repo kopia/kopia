@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	statusCommand = app.Command("status", "Display the status of connected repository.")
+	statusCommand = repositoryCommands.Command("status", "Display the status of connected repository.")
 )
 
 func runStatusCommand(context *kingpin.ParseContext) error {
