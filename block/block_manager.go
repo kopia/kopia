@@ -29,6 +29,7 @@ const (
 	defaultMinPreambleLength = 32
 	defaultMaxPreambleLength = 32
 	defaultPaddingUnit       = 4096
+	maxInlineContentLength   = 100000 // amount of block data to store in the index block itself
 )
 
 var zeroTime time.Time
@@ -66,7 +67,7 @@ type Manager struct {
 	currentPackData  []byte
 	currentPackIndex *blockmgrpb.Index
 
-	maxPackedContentLength int
+	maxInlineContentLength int
 	maxPackSize            int
 	formatter              Formatter
 
@@ -91,6 +92,7 @@ func (bm *Manager) DeleteBlock(blockID string) error {
 
 	delete(bm.blockIDToIndex, blockID)
 	delete(bm.currentPackIndex.Items, blockID)
+	delete(bm.currentPackIndex.InlineItems, blockID)
 	bm.currentPackIndex.DeletedItems = append(bm.currentPackIndex.DeletedItems, blockID)
 	return nil
 }
@@ -184,6 +186,7 @@ func (bm *Manager) close() error {
 func (bm *Manager) startPackIndexLocked() {
 	bm.currentPackIndex = &blockmgrpb.Index{
 		Items:           make(map[string]uint64),
+		InlineItems:     make(map[string][]byte),
 		CreateTimeNanos: uint64(bm.timeNow().UnixNano()),
 	}
 	bm.currentPackData = []byte{}
@@ -234,7 +237,17 @@ func (bm *Manager) finishAllOpenPacksLocked() error {
 }
 
 func (bm *Manager) finishPackLocked() error {
-	if len(bm.currentPackIndex.Items)+len(bm.currentPackIndex.DeletedItems) > 0 {
+	if len(bm.currentPackIndex.Items)+len(bm.currentPackIndex.DeletedItems)+len(bm.currentPackIndex.InlineItems) > 0 {
+		if len(bm.currentPackData) < bm.maxInlineContentLength {
+			for k, os := range bm.currentPackIndex.Items {
+				offset, size := unpackOffsetAndSize(os)
+				dat := bm.currentPackData[offset : offset+size]
+				bm.currentPackIndex.InlineItems[k] = dat
+			}
+
+			bm.currentPackIndex.Items = nil
+			bm.currentPackData = nil
+		}
 		if bm.currentPackData != nil {
 			if bm.paddingUnit > 0 {
 				if missing := bm.paddingUnit - (len(bm.currentPackData) % bm.paddingUnit); missing > 0 {
@@ -372,6 +385,10 @@ func (bm *Manager) loadMergedPackIndexLocked() ([]*blockmgrpb.Index, []string, t
 					return
 				}
 
+				// for i, v := range pi {
+				// 	log.Printf("pi[%v]: %v", i, proto.MarshalTextString(v))
+				// }
+
 				mu.Lock()
 				blockIDs = append(blockIDs, b)
 				indexes = append(indexes, pi)
@@ -430,6 +447,16 @@ func dedupeBlockIDsAndIndex(ndx []*blockmgrpb.Index) (blockToIndex, packToIndex 
 			if o := blockToIndex[blockID]; o != nil {
 				// this pack is same or newer.
 				delete(o.Items, blockID)
+				delete(o.InlineItems, blockID)
+			}
+
+			blockToIndex[blockID] = pck
+		}
+		for blockID := range pck.InlineItems {
+			if o := blockToIndex[blockID]; o != nil {
+				// this pack is same or newer.
+				delete(o.Items, blockID)
+				delete(o.InlineItems, blockID)
 			}
 
 			blockToIndex[blockID] = pck
@@ -446,7 +473,7 @@ func dedupeBlockIDsAndIndex(ndx []*blockmgrpb.Index) (blockToIndex, packToIndex 
 func removeEmptyIndexes(ndx []*blockmgrpb.Index) []*blockmgrpb.Index {
 	var res []*blockmgrpb.Index
 	for _, n := range ndx {
-		if len(n.Items) > 0 {
+		if len(n.Items)+len(n.InlineItems) > 0 {
 			res = append(res, n)
 		}
 	}
@@ -626,6 +653,16 @@ func (bm *Manager) Repackage(maxLength uint64) error {
 				return fmt.Errorf("unable to re-package %q: %v", blockID, err)
 			}
 		}
+
+		for blockID, blockData := range m.InlineItems {
+			if done[blockID] {
+				continue
+			}
+			done[blockID] = true
+			if err := bm.addToPackLocked(blockID, blockData, true); err != nil {
+				return fmt.Errorf("unable to re-package %q: %v", blockID, err)
+			}
+		}
 	}
 
 	return nil
@@ -749,6 +786,15 @@ func (bm *Manager) blockInfoLocked(blockID string) (Info, error) {
 		return Info{}, storage.ErrBlockNotFound
 	}
 
+	if d, ok := ndx.InlineItems[blockID]; ok {
+		return Info{
+			BlockID:    blockID,
+			Timestamp:  time.Unix(0, int64(ndx.CreateTimeNanos)),
+			PackOffset: 0,
+			Length:     int64(len(d)),
+		}, nil
+	}
+
 	offset, size := unpackOffsetAndSize(ndx.Items[blockID])
 
 	return Info{
@@ -762,6 +808,12 @@ func (bm *Manager) blockInfoLocked(blockID string) (Info, error) {
 
 func (bm *Manager) getBlockInternalLocked(blockID string) ([]byte, error) {
 	bm.assertLocked()
+
+	if ndx, ok := bm.blockIDToIndex[blockID]; ok {
+		if ii, ok := ndx.InlineItems[blockID]; ok {
+			return ii, nil
+		}
+	}
 
 	s, err := bm.blockInfoLocked(blockID)
 	if err != nil {
@@ -897,7 +949,6 @@ func newManagerWithTime(st storage.Storage, f FormattingOptions, caching Caching
 		timeNow:                timeNow,
 		flushPackIndexesAfter:  timeNow().Add(flushPackIndexTimeout),
 		pendingPackIndexes:     nil,
-		maxPackedContentLength: f.MaxPackedContentLength,
 		maxPackSize:            f.MaxPackSize,
 		formatter:              formatter,
 		blockIDToIndex:         make(map[string]*blockmgrpb.Index),
@@ -905,7 +956,8 @@ func newManagerWithTime(st storage.Storage, f FormattingOptions, caching Caching
 		minPreambleLength:      defaultMinPreambleLength,
 		maxPreambleLength:      defaultMaxPreambleLength,
 		paddingUnit:            defaultPaddingUnit,
-		cache:                  newBlockCache(st, caching),
+		maxInlineContentLength: maxInlineContentLength,
+		cache: newBlockCache(st, caching),
 	}
 
 	m.startPackIndexLocked()

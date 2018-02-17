@@ -174,9 +174,8 @@ func newManagerForTesting(t *testing.T, data map[string][]byte, keyTime map[stri
 	st := storagetesting.NewMapStorage(data, keyTime)
 
 	bm, err := block.NewManager(st, block.FormattingOptions{
-		BlockFormat:            "TESTONLY_MD5",
-		MaxPackedContentLength: 10000,
-		MaxPackSize:            100000,
+		BlockFormat: "TESTONLY_MD5",
+		MaxPackSize: 100000,
 	}, block.CachingOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("can't create block manager: %v", err)

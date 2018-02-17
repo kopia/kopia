@@ -214,7 +214,7 @@ func (m *Manager) load() error {
 		return fmt.Errorf("unable to list manifest blocks: %v", err)
 	}
 
-	log.Printf("loaded %v blocks", len(blocks))
+	log.Printf("found %v manifest blocks", len(blocks))
 	return m.loadManifestBlocks(blocks)
 }
 
@@ -252,7 +252,7 @@ func (m *Manager) loadManifestBlocks(blocks []block.Info) error {
 	wg.Wait()
 	close(errors)
 	close(manifests)
-	log.Debug().Dur("duration_ms", time.Since(t0)).Msgf("finished loading blocks.")
+	log.Debug().Dur("duration_ms", time.Since(t0)).Msgf("finished loading manifest blocks.")
 	// if there was any error, forward it
 	if err := <-errors; err != nil {
 		return err

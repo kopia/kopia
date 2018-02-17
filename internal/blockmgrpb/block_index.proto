@@ -8,6 +8,7 @@ message Index {
   uint64 create_time_nanos = 3;
   map<string, uint64> items = 4;
   repeated string deleted_items = 5;
+  map<string, bytes> inline_items = 6;
 }
 
 message Indexes {

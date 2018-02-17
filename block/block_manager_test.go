@@ -23,8 +23,7 @@ import (
 )
 
 const (
-	maxPackedContentLength = 1000
-	maxPackSize            = 2000
+	maxPackSize = 2000
 )
 
 var fakeTime = time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -93,7 +92,7 @@ func TestBlockManagerDedupesPendingBlocks(t *testing.T) {
 	bm := newTestBlockManager(data, keyTime, nil)
 
 	for i := 0; i < 100; i++ {
-		writeBlockAndVerify(t, bm, seededRandomData(0, maxPackedContentLength-1))
+		writeBlockAndVerify(t, bm, seededRandomData(0, 999))
 	}
 	if got, want := len(data), 0; got != want {
 		t.Errorf("unexpected number of blocks: %v, wanted %v", got, want)
@@ -475,10 +474,11 @@ func newTestBlockManager(data map[string][]byte, keyTime map[string]time.Time, t
 		timeFunc = fakeTimeNowWithAutoAdvance(fakeTime, 1)
 	}
 	bm, err := newManagerWithTime(st, FormattingOptions{
-		BlockFormat:            "TESTONLY_MD5",
-		MaxPackedContentLength: maxPackedContentLength,
-		MaxPackSize:            maxPackSize,
+		BlockFormat: "TESTONLY_MD5",
+		MaxPackSize: maxPackSize,
 	}, CachingOptions{}, timeFunc)
+
+	bm.maxInlineContentLength = 0
 	if err != nil {
 		panic("can't create block manager: " + err.Error())
 	}

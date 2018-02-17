@@ -22,7 +22,7 @@ func runShowBlockIndexesAction(context *kingpin.ParseContext) error {
 	defer rep.Close()
 
 	blockIDs := *blockIndexShowIDs
-	if len(blockIDs) == 1 || blockIDs[0] == "active" {
+	if len(blockIDs) == 1 && blockIDs[0] == "active" {
 		b, err := rep.Blocks.ActiveIndexBlocks()
 		if err != nil {
 			return err
@@ -55,11 +55,15 @@ func runShowBlockIndexesAction(context *kingpin.ParseContext) error {
 				blockID string
 				offset  uint32
 				size    uint32
+				inline  bool
 			}
 			var lines []unpacked
 
 			for blk, os := range ndx.Items {
-				lines = append(lines, unpacked{blk, uint32(os >> 32), uint32(os)})
+				lines = append(lines, unpacked{blk, uint32(os >> 32), uint32(os), false})
+			}
+			for blk, d := range ndx.InlineItems {
+				lines = append(lines, unpacked{blk, 0, uint32(len(d)), true})
 			}
 			switch *blockIndexShowSort {
 			case "offset":
@@ -76,7 +80,11 @@ func runShowBlockIndexesAction(context *kingpin.ParseContext) error {
 				})
 			}
 			for _, l := range lines {
-				fmt.Printf("  added %-40v offset:%-10v size:%v\n", l.blockID, l.offset, l.size)
+				if l.inline {
+					fmt.Printf("  added %-40v size:%v (inline)\n", l.blockID, l.size)
+				} else {
+					fmt.Printf("  added %-40v offset:%-10v size:%v\n", l.blockID, l.offset, l.size)
+				}
 			}
 			for _, del := range ndx.DeletedItems {
 				fmt.Printf("  deleted %v\n", del)
