@@ -82,7 +82,7 @@ vtest:
 
 integration-tests:
 	go build -o $(RELEASE_TMP_DIR)/integration/kopia -ldflags $(LDARGS) github.com/kopia/kopia
-	KOPIA_EXE=$(RELEASE_TMP_DIR)/integration/kopia go test -timeout 30s github.com/kopia/kopia/tests/...
+	KOPIA_EXE=$(RELEASE_TMP_DIR)/integration/kopia go test -timeout 30s -v github.com/kopia/kopia/tests/...
 
 godoc:
 	godoc -http=:33333

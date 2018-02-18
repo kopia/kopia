@@ -11,6 +11,7 @@ import (
 var (
 	blockIndexListCommand = blockIndexCommands.Command("list", "List block indexes").Alias("ls")
 	blockIndexListAll     = blockIndexListCommand.Flag("all", "List all blocks, not just active ones").Short('a').Bool()
+	blockIndexListSummary = blockIndexListCommand.Flag("summary", "Display block summary").Bool()
 )
 
 func runListBlockIndexesAction(context *kingpin.ParseContext) error {
@@ -34,7 +35,9 @@ func runListBlockIndexesAction(context *kingpin.ParseContext) error {
 		fmt.Printf("%-70v %10v %v\n", b.BlockID, b.Length, b.Timestamp.Local().Format(timeFormatPrecise))
 	}
 
-	fmt.Printf("total %v blocks\n", len(blks))
+	if *blockIndexListSummary {
+		fmt.Printf("total %v blocks\n", len(blks))
+	}
 
 	return nil
 }

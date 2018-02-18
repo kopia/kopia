@@ -10,8 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/rs/zerolog/log"
 )
 
 const repoPassword = "qWQPJ2hiiLgWRRCr"
@@ -108,6 +106,17 @@ func TestRepo(t *testing.T) {
 	if got, want := len(sources), 3; got != want {
 		t.Errorf("unexpected number of sources: %v, want %v in %#v", got, want, sources)
 	}
+
+	// expect 5 blocks, each snapshot creation adds one index block.
+	e.runAndVerifyOutputLineCount(t, 5, "blockindex", "ls")
+	e.runAndExpectSuccess(t, "blockindex", "optimize")
+	e.runAndVerifyOutputLineCount(t, 1, "blockindex", "ls")
+	e.runAndVerifyOutputLineCount(t, 6, "blockindex", "ls", "--all")
+
+	e.runAndExpectSuccess(t, "snapshot", "create", ".", dir1, dir2)
+	e.runAndVerifyOutputLineCount(t, 2, "blockindex", "ls")
+
+	//t.Fail()
 }
 
 func (e *testenv) runAndExpectSuccess(t *testing.T, args ...string) []string {
@@ -116,6 +125,14 @@ func (e *testenv) runAndExpectSuccess(t *testing.T, args ...string) []string {
 		t.Fatalf("'kopia %v' failed with %v", strings.Join(args, " "), err)
 	}
 	return stdout
+}
+
+func (e *testenv) runAndVerifyOutputLineCount(t *testing.T, wantLines int, args ...string) []string {
+	lines := e.runAndExpectSuccess(t, args...)
+	if len(lines) != wantLines {
+		t.Errorf("unexpected list of results of 'kopia %v': %v (%v lines), wanted %v", strings.Join(args, " "), lines, len(lines), wantLines)
+	}
+	return lines
 }
 
 func (e *testenv) run(t *testing.T, args ...string) ([]string, error) {
@@ -134,7 +151,6 @@ func listSnapshotsAndExpectSuccess(t *testing.T, e *testenv, targets ...string) 
 }
 
 func createDirectory(dirname string, depth int) error {
-	log.Printf("createDirectory(%q,%v)", dirname, depth)
 	if err := os.MkdirAll(dirname, 0700); err != nil {
 		return err
 	}
@@ -224,7 +240,8 @@ func mustParseSourceInfo(t *testing.T, l string) sourceInfo {
 }
 
 func splitLines(s string) []string {
-	if strings.TrimSpace(s) == "" {
+	s = strings.TrimSpace(s)
+	if s == "" {
 		return nil
 	}
 
