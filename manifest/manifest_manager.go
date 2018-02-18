@@ -264,6 +264,13 @@ func (m *Manager) loadManifestBlocks(blocks []block.Info) error {
 		}
 	}
 
+	// after merging, remove blocks marked as deleted.
+	for k, e := range m.entries {
+		if e.Deleted {
+			delete(m.entries, k)
+		}
+	}
+
 	return nil
 }
 
