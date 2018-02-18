@@ -88,9 +88,9 @@ func TestRepo(t *testing.T) {
 	e := newTestEnv(t)
 	defer e.cleanup()
 
-	e.runAndExpectSuccess(t, "repo", "create", e.repoDir)
+	e.runAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.repoDir)
 	e.runAndExpectSuccess(t, "repo", "disconnect")
-	e.runAndExpectSuccess(t, "repo", "connect", e.repoDir)
+	e.runAndExpectSuccess(t, "repo", "connect", "filesystem", "--path", e.repoDir)
 
 	e.runAndExpectSuccess(t, "snapshot", "create", ".")
 	e.runAndExpectSuccess(t, "snapshot", "list", ".")
@@ -99,9 +99,11 @@ func TestRepo(t *testing.T) {
 	createDirectory(dir1, 3)
 	e.runAndExpectSuccess(t, "snapshot", "create", dir1)
 	e.runAndExpectSuccess(t, "snapshot", "create", dir1)
-	createDirectory(dir1, 3)
-	e.runAndExpectSuccess(t, "snapshot", "create", dir1)
-	e.runAndExpectSuccess(t, "snapshot", "create", dir1)
+
+	dir2 := filepath.Join(e.dataDir, "dir2")
+	createDirectory(dir2, 3)
+	e.runAndExpectSuccess(t, "snapshot", "create", dir2)
+	e.runAndExpectSuccess(t, "snapshot", "create", dir2)
 	sources := listSnapshotsAndExpectSuccess(t, e)
 	if got, want := len(sources), 3; got != want {
 		t.Errorf("unexpected number of sources: %v, want %v in %#v", got, want, sources)
@@ -121,8 +123,7 @@ func (e *testenv) run(t *testing.T, args ...string) ([]string, error) {
 	cmdArgs := append(append([]string(nil), e.fixedArgs...), args...)
 	c := exec.Command(e.exe, cmdArgs...)
 	c.Env = append(os.Environ(), e.environment...)
-	c.Stderr = os.Stderr
-	o, err := c.Output()
+	o, err := c.CombinedOutput()
 	t.Logf("finished 'kopia %v' with err=%v and output:\n%v", strings.Join(args, " "), err, string(o))
 	return splitLines(string(o)), err
 }

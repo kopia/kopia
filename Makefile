@@ -8,7 +8,7 @@ RELEASE_TMP_DIR = $(CURDIR)/.release
 RELEASES_OUT_DIR = $(CURDIR)/.releases
 ZIP ?= 0
 
-all: install test lint vet
+all: install test lint vet integration-tests
 
 install:
 	@echo Building version: $(BUILD_INFO) / $(BUILD_VERSION)
@@ -79,6 +79,10 @@ test: install
 
 vtest:
 	go test -v -timeout 30s github.com/kopia/kopia/...
+
+integration-tests:
+	go build -o $(RELEASE_TMP_DIR)/integration/kopia -ldflags $(LDARGS) github.com/kopia/kopia
+	KOPIA_EXE=$(RELEASE_TMP_DIR)/integration/kopia go test -timeout 30s github.com/kopia/kopia/tests/...
 
 godoc:
 	godoc -http=:33333
