@@ -23,7 +23,7 @@ var (
 	snapshotExpireDelete = snapshotExpireCommand.Flag("delete", "Whether to actually delete snapshots").Default("no").String()
 )
 
-func expireSnapshotsForSingleSource(snapshots []*snapshot.Manifest, src *snapshot.SourceInfo, pol *snapshot.Policy, snapshotNames []string) []string {
+func expireSnapshotsForSingleSource(snapshots []*snapshot.Manifest, src snapshot.SourceInfo, pol *snapshot.Policy, snapshotNames []string) []string {
 	var toDelete []string
 
 	ids := make(map[string]bool)
@@ -146,11 +146,11 @@ func expireSnapshots(pmgr *snapshot.PolicyManager, snapshots []*snapshot.Manifes
 	flush := func() error {
 		if len(pendingSnapshots) > 0 {
 			src := pendingSnapshots[0].Source
-			pol, err := pmgr.GetEffectivePolicy(src.UserName, src.Host, src.Path)
+			pol, err := pmgr.GetEffectivePolicy(src)
 			if err != nil {
 				return err
 			}
-			td := expireSnapshotsForSingleSource(pendingSnapshots, &src, pol, pendingNames)
+			td := expireSnapshotsForSingleSource(pendingSnapshots, src, pol, pendingNames)
 			if len(td) == 0 {
 				fmt.Fprintf(os.Stderr, "Nothing to delete for %q.\n", src)
 			} else {

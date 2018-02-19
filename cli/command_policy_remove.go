@@ -30,7 +30,7 @@ func removePolicy(context *kingpin.ParseContext) error {
 
 	for _, target := range targets {
 		log.Printf("Removing policy on %q...", target)
-		if err := mgr.RemovePolicy(target.UserName, target.Host, target.Path); err != nil {
+		if err := mgr.RemovePolicy(target); err != nil {
 			return err
 		}
 	}

@@ -79,7 +79,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 		}
 
 		sourceInfo := snapshot.SourceInfo{Path: filepath.Clean(dir), Host: getHostName(), UserName: getUserName()}
-		policy, err := pmgr.GetEffectivePolicy(sourceInfo.UserName, sourceInfo.Host, sourceInfo.Path)
+		policy, err := pmgr.GetEffectivePolicy(sourceInfo)
 		if err != nil {
 			return fmt.Errorf("unable to get backup policy for source %v: %v", sourceInfo, err)
 		}

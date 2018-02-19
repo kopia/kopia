@@ -17,29 +17,29 @@ type PolicyManager struct {
 
 // GetEffectivePolicy calculates effective snapshot policy for a given source by combining the source-specifc policy (if any)
 // with parent policies. The source must contain a path.
-func (m *PolicyManager) GetEffectivePolicy(user, host, path string) (*Policy, error) {
+func (m *PolicyManager) GetEffectivePolicy(si SourceInfo) (*Policy, error) {
 	var md []*manifest.EntryMetadata
 
 	// Find policies applying to paths all the way up to the root.
-	for tmpPath := path; len(tmpPath) > 0; {
-		md = append(md, m.repository.Manifests.Find(labelsForUserHostPath(user, host, tmpPath))...)
+	for tmp := si; len(si.Path) > 0; {
+		md = append(md, m.repository.Manifests.Find(labelsForSource(si))...)
 
-		parentPath := filepath.Dir(tmpPath)
-		if parentPath == tmpPath {
+		parentPath := filepath.Dir(tmp.Path)
+		if parentPath == tmp.Path {
 			break
 		}
 
-		tmpPath = parentPath
+		tmp.Path = parentPath
 	}
 
 	// Try user@host policy
-	md = append(md, m.repository.Manifests.Find(labelsForUserHostPath(user, host, ""))...)
+	md = append(md, m.repository.Manifests.Find(labelsForSource(SourceInfo{Host: si.Host, UserName: si.UserName}))...)
 
 	// Try host-level policy.
-	md = append(md, m.repository.Manifests.Find(labelsForUserHostPath("", host, ""))...)
+	md = append(md, m.repository.Manifests.Find(labelsForSource(SourceInfo{Host: si.Host}))...)
 
 	// Global policy.
-	md = append(md, m.repository.Manifests.Find(labelsForUserHostPath("", "", ""))...)
+	md = append(md, m.repository.Manifests.Find(labelsForSource(SourceInfo{}))...)
 
 	var policies []*Policy
 	for _, em := range md {
@@ -53,9 +53,9 @@ func (m *PolicyManager) GetEffectivePolicy(user, host, path string) (*Policy, er
 	return MergePolicies(policies), nil
 }
 
-// GetDefinedPolicy returns the policy defined on the provided (user, host, path) or ErrPolicyNotFound if not present.
-func (m *PolicyManager) GetDefinedPolicy(user, host, path string) (*Policy, error) {
-	md := m.repository.Manifests.Find(labelsForUserHostPath(user, host, path))
+// GetDefinedPolicy returns the policy defined on the provided SourceInfo or ErrPolicyNotFound if not present.
+func (m *PolicyManager) GetDefinedPolicy(si SourceInfo) (*Policy, error) {
+	md := m.repository.Manifests.Find(labelsForSource(si))
 
 	if len(md) == 0 {
 		return nil, ErrPolicyNotFound
@@ -85,11 +85,11 @@ func (m *PolicyManager) GetDefinedPolicy(user, host, path string) (*Policy, erro
 	return nil, fmt.Errorf("ambiguous policy")
 }
 
-// SetPolicy sets the policy on (user, host, path).
-func (m *PolicyManager) SetPolicy(user, host, path string, pol *Policy) error {
-	md := m.repository.Manifests.Find(labelsForUserHostPath(user, host, path))
+// SetPolicy sets the policy on a given source.
+func (m *PolicyManager) SetPolicy(si SourceInfo, pol *Policy) error {
+	md := m.repository.Manifests.Find(labelsForSource(si))
 
-	if _, err := m.repository.Manifests.Put(labelsForUserHostPath(user, host, path), pol); err != nil {
+	if _, err := m.repository.Manifests.Put(labelsForSource(si), pol); err != nil {
 		return err
 	}
 
@@ -100,9 +100,9 @@ func (m *PolicyManager) SetPolicy(user, host, path string, pol *Policy) error {
 	return nil
 }
 
-// RemovePolicy removes the policy for (user, host, path).
-func (m *PolicyManager) RemovePolicy(user, host, path string) error {
-	md := m.repository.Manifests.Find(labelsForUserHostPath(user, host, path))
+// RemovePolicy removes the policy for a given source.
+func (m *PolicyManager) RemovePolicy(si SourceInfo) error {
+	md := m.repository.Manifests.Find(labelsForSource(si))
 	for _, em := range md {
 		m.repository.Manifests.Delete(em.ID)
 	}
@@ -138,28 +138,28 @@ func (m *PolicyManager) ListPolicies() ([]*Policy, error) {
 	return policies, nil
 }
 
-func labelsForUserHostPath(user, host, path string) map[string]string {
+func labelsForSource(si SourceInfo) map[string]string {
 	switch {
-	case path != "":
+	case si.Path != "":
 		return map[string]string{
 			"type":       "policy",
 			"policyType": "path",
-			"username":   user,
-			"hostname":   host,
-			"path":       path,
+			"username":   si.UserName,
+			"hostname":   si.Host,
+			"path":       si.Path,
 		}
-	case user != "":
+	case si.UserName != "":
 		return map[string]string{
 			"type":       "policy",
 			"policyType": "user",
-			"username":   user,
-			"hostname":   host,
+			"username":   si.UserName,
+			"hostname":   si.Host,
 		}
-	case host != "":
+	case si.Host != "":
 		return map[string]string{
 			"type":       "policy",
 			"policyType": "host",
-			"hostname":   host,
+			"hostname":   si.Host,
 		}
 	default:
 		return map[string]string{

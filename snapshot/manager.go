@@ -9,7 +9,7 @@ import (
 )
 
 // GlobalPolicySourceInfo is a source where global policy is attached.
-var GlobalPolicySourceInfo = &SourceInfo{}
+var GlobalPolicySourceInfo = SourceInfo{}
 
 // Manager manages filesystem snapshots.
 type Manager struct {
@@ -17,7 +17,7 @@ type Manager struct {
 }
 
 // ListSources lists all snapshot sources.
-func (m *Manager) ListSources() []*SourceInfo {
+func (m *Manager) ListSources() []SourceInfo {
 	items := m.repository.Manifests.Find(map[string]string{
 		"type": "snapshot",
 	})
@@ -27,10 +27,9 @@ func (m *Manager) ListSources() []*SourceInfo {
 		uniq[sourceInfoFromLabels(it.Labels)] = true
 	}
 
-	var infos []*SourceInfo
+	var infos []SourceInfo
 	for k := range uniq {
-		si := k
-		infos = append(infos, &si)
+		infos = append(infos, k)
 	}
 
 	return infos

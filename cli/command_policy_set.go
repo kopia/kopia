@@ -57,7 +57,7 @@ func setPolicy(context *kingpin.ParseContext) error {
 	}
 
 	for _, target := range targets {
-		p, err := mgr.GetDefinedPolicy(target.UserName, target.Host, target.Path)
+		p, err := mgr.GetDefinedPolicy(target)
 		if err == snapshot.ErrPolicyNotFound {
 			p = &snapshot.Policy{}
 		}
@@ -114,7 +114,7 @@ func setPolicy(context *kingpin.ParseContext) error {
 		if *policySetClearInclude {
 			p.FilesPolicy.Include = nil
 		}
-		if err := mgr.SetPolicy(target.UserName, target.Host, target.Path, p); err != nil {
+		if err := mgr.SetPolicy(target, p); err != nil {
 			return fmt.Errorf("can't save policy for %v: %v", target, err)
 		}
 	}
@@ -140,7 +140,7 @@ func removeString(p []string, s string) []string {
 	return result
 }
 
-func applyPolicyNumber(src *snapshot.SourceInfo, desc string, val **int, str string) error {
+func applyPolicyNumber(src snapshot.SourceInfo, desc string, val **int, str string) error {
 	if str == "" {
 		// not changed
 		return nil

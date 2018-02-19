@@ -36,10 +36,10 @@ func showPolicy(context *kingpin.ParseContext) error {
 		var err error
 
 		if *policyShowEffective {
-			p, err = pmgr.GetEffectivePolicy(target.UserName, target.Host, target.Path)
+			p, err = pmgr.GetEffectivePolicy(target)
 			policyKind = "effective"
 		} else {
-			p, err = pmgr.GetDefinedPolicy(target.UserName, target.Host, target.Path)
+			p, err = pmgr.GetDefinedPolicy(target)
 			policyKind = "defined"
 		}
 

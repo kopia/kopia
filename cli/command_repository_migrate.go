@@ -49,7 +49,7 @@ func runMigrateCommand(context *kingpin.ParseContext) error {
 
 		log.Printf("migrating source %v", s)
 
-		manifests := sourceSM.ListSnapshotManifests(s)
+		manifests := sourceSM.ListSnapshotManifests(&s)
 		snapshots, err := sourceSM.LoadSnapshots(manifests)
 		if err != nil {
 			return fmt.Errorf("unable to load snapshot manifests for %v: %v", s, err)
@@ -97,9 +97,9 @@ func filterSnapshotsToMigrate(s []*snapshot.Manifest) []*snapshot.Manifest {
 	return s
 }
 
-func getSourcesToMigrate(mgr *snapshot.Manager) ([]*snapshot.SourceInfo, error) {
+func getSourcesToMigrate(mgr *snapshot.Manager) ([]snapshot.SourceInfo, error) {
 	if len(*migrateSources) > 0 {
-		var result []*snapshot.SourceInfo
+		var result []snapshot.SourceInfo
 
 		for _, s := range *migrateSources {
 			si, err := snapshot.ParseSourceInfo(s, getHostName(), getUserName())
@@ -107,7 +107,7 @@ func getSourcesToMigrate(mgr *snapshot.Manager) ([]*snapshot.SourceInfo, error) 
 				return nil, err
 			}
 
-			result = append(result, &si)
+			result = append(result, si)
 		}
 
 		return result, nil
