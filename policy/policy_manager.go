@@ -5,16 +5,8 @@ import (
 	"path/filepath"
 
 	"github.com/kopia/kopia/manifest"
-
 	"github.com/kopia/kopia/repo"
 )
-
-// SourceInfo represents the information about snapshot source.
-type SourceInfo struct {
-	Host     string `json:"host"`
-	UserName string `json:"userName"`
-	Path     string `json:"path"`
-}
 
 const policyPrefix = "P"
 

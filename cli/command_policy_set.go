@@ -63,27 +63,27 @@ func setPolicy(context *kingpin.ParseContext) error {
 			p = &policy.Policy{}
 		}
 
-		if err := applyPolicyNumber(target, "number of annual backups to keep", &p.ExpirationPolicy.KeepAnnual, *policySetKeepAnnual); err != nil {
+		if err := applyPolicyNumber(target, "number of annual backups to keep", &p.RetentionPolicy.KeepAnnual, *policySetKeepAnnual); err != nil {
 			return err
 		}
 
-		if err := applyPolicyNumber(target, "number of monthly backups to keep", &p.ExpirationPolicy.KeepMonthly, *policySetKeepMonthly); err != nil {
+		if err := applyPolicyNumber(target, "number of monthly backups to keep", &p.RetentionPolicy.KeepMonthly, *policySetKeepMonthly); err != nil {
 			return err
 		}
 
-		if err := applyPolicyNumber(target, "number of weekly backups to keep", &p.ExpirationPolicy.KeepWeekly, *policySetKeepWeekly); err != nil {
+		if err := applyPolicyNumber(target, "number of weekly backups to keep", &p.RetentionPolicy.KeepWeekly, *policySetKeepWeekly); err != nil {
 			return err
 		}
 
-		if err := applyPolicyNumber(target, "number of daily backups to keep", &p.ExpirationPolicy.KeepDaily, *policySetKeepDaily); err != nil {
+		if err := applyPolicyNumber(target, "number of daily backups to keep", &p.RetentionPolicy.KeepDaily, *policySetKeepDaily); err != nil {
 			return err
 		}
 
-		if err := applyPolicyNumber(target, "number of hourly backups to keep", &p.ExpirationPolicy.KeepHourly, *policySetKeepHourly); err != nil {
+		if err := applyPolicyNumber(target, "number of hourly backups to keep", &p.RetentionPolicy.KeepHourly, *policySetKeepHourly); err != nil {
 			return err
 		}
 
-		if err := applyPolicyNumber(target, "number of latest backups to keep", &p.ExpirationPolicy.KeepLatest, *policySetKeepLatest); err != nil {
+		if err := applyPolicyNumber(target, "number of latest backups to keep", &p.RetentionPolicy.KeepLatest, *policySetKeepLatest); err != nil {
 			return err
 		}
 
@@ -104,6 +104,17 @@ func setPolicy(context *kingpin.ParseContext) error {
 			p.FilesPolicy.Exclude = nil
 		}
 
+		for _, path := range *policySetAddInclude {
+			p.FilesPolicy.Include = addString(p.FilesPolicy.Include, path)
+		}
+
+		for _, path := range *policySetRemoveInclude {
+			p.FilesPolicy.Include = removeString(p.FilesPolicy.Include, path)
+		}
+
+		if *policySetClearInclude {
+			p.FilesPolicy.Include = nil
+		}
 		if err := mgr.SetPolicy(target.UserName, target.Host, target.Path, p); err != nil {
 			return fmt.Errorf("can't save policy for %v: %v", target, err)
 		}

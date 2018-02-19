@@ -14,8 +14,8 @@ import (
 // ErrPolicyNotFound is returned when the policy is not found.
 var ErrPolicyNotFound = errors.New("policy not found")
 
-// ExpirationPolicy describes snapshot expiration policy.
-type ExpirationPolicy struct {
+// RetentionPolicy describes snapshot retention policy.
+type RetentionPolicy struct {
 	KeepLatest  *int `json:"keepLatest,omitempty"`
 	KeepHourly  *int `json:"keepHourly,omitempty"`
 	KeepDaily   *int `json:"keepDaily,omitempty"`
@@ -24,7 +24,7 @@ type ExpirationPolicy struct {
 	KeepAnnual  *int `json:"keepAnnual,omitempty"`
 }
 
-var defaultExpirationPolicy = &ExpirationPolicy{
+var defaultRetentionPolicy = &RetentionPolicy{
 	KeepLatest:  intPtr(1),
 	KeepHourly:  intPtr(48),
 	KeepDaily:   intPtr(7),
@@ -75,10 +75,10 @@ var defaultFilesPolicy = &FilesPolicy{}
 
 // Policy describes snapshot policy for a single source.
 type Policy struct {
-	Labels           map[string]string `json:"-"`
-	ExpirationPolicy ExpirationPolicy  `json:"expiration"`
-	FilesPolicy      FilesPolicy       `json:"files"`
-	NoParent         bool              `json:"noParent,omitempty"`
+	Labels          map[string]string `json:"-"`
+	RetentionPolicy RetentionPolicy   `json:"retention"`
+	FilesPolicy     FilesPolicy       `json:"files"`
+	NoParent        bool              `json:"noParent,omitempty"`
 }
 
 func (p *Policy) String() string {
@@ -109,18 +109,18 @@ func MergePolicies(policies []*Policy) *Policy {
 			return &merged
 		}
 
-		mergeExpirationPolicy(&merged.ExpirationPolicy, &p.ExpirationPolicy)
+		mergeRetentionPolicy(&merged.RetentionPolicy, &p.RetentionPolicy)
 		mergeFilesPolicy(&merged.FilesPolicy, &p.FilesPolicy)
 	}
 
 	// Merge default expiration policy.
-	mergeExpirationPolicy(&merged.ExpirationPolicy, defaultExpirationPolicy)
+	mergeRetentionPolicy(&merged.RetentionPolicy, defaultRetentionPolicy)
 	mergeFilesPolicy(&merged.FilesPolicy, defaultFilesPolicy)
 
 	return &merged
 }
 
-func mergeExpirationPolicy(dst, src *ExpirationPolicy) {
+func mergeRetentionPolicy(dst, src *RetentionPolicy) {
 	if dst.KeepLatest == nil {
 		dst.KeepLatest = src.KeepLatest
 	}

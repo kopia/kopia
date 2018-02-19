@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 
+	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/policy"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -43,7 +45,7 @@ func showPolicy(context *kingpin.ParseContext) error {
 
 		if err == nil {
 			fmt.Printf("The %v policy for %q:\n", policyKind, target)
-			fmt.Println(p)
+			fmt.Println(policyToString(p))
 			continue
 		}
 
@@ -56,4 +58,47 @@ func showPolicy(context *kingpin.ParseContext) error {
 	}
 
 	return nil
+}
+
+func policyToString(p *policy.Policy) string {
+	var buf bytes.Buffer
+
+	fmt.Fprintf(&buf, "Retention policy:\n")
+	fmt.Fprintf(&buf, "  keep annual:%v monthly:%v weekly:%v daily:%v hourly:%v latest:%v\n",
+		valueOrNotSet(p.RetentionPolicy.KeepAnnual),
+		valueOrNotSet(p.RetentionPolicy.KeepMonthly),
+		valueOrNotSet(p.RetentionPolicy.KeepWeekly),
+		valueOrNotSet(p.RetentionPolicy.KeepDaily),
+		valueOrNotSet(p.RetentionPolicy.KeepHourly),
+		valueOrNotSet(p.RetentionPolicy.KeepLatest),
+	)
+
+	fmt.Fprintf(&buf, "Files policy:\n")
+
+	if len(p.FilesPolicy.Include) == 0 {
+		fmt.Fprintf(&buf, "  Include all files\n")
+	} else {
+		fmt.Fprintf(&buf, "  Include only:\n")
+	}
+	for _, inc := range p.FilesPolicy.Include {
+		fmt.Fprintf(&buf, "    %v\n", inc)
+	}
+	if len(p.FilesPolicy.Exclude) > 0 {
+		fmt.Fprintf(&buf, "  Exclude:\n")
+	}
+	for _, exc := range p.FilesPolicy.Exclude {
+		fmt.Fprintf(&buf, "    %v\n", exc)
+	}
+	if s := p.FilesPolicy.MaxSize; s != nil {
+		fmt.Fprintf(&buf, "  Exclude files above size: %v\n", units.BytesStringBase2(int64(*s)))
+	}
+	return buf.String()
+}
+
+func valueOrNotSet(p *int) string {
+	if p == nil {
+		return "(none)"
+	}
+
+	return fmt.Sprintf("%v", *p)
 }
