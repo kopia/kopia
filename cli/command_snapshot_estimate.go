@@ -9,7 +9,6 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/units"
-	"github.com/kopia/kopia/policy"
 	"github.com/kopia/kopia/snapshot"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
@@ -64,7 +63,7 @@ func runSnapshotEstimateCommand(c *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
 	defer rep.Close()
 
-	pmgr := policy.NewManager(rep)
+	pmgr := snapshot.NewPolicyManager(rep)
 
 	path, err := filepath.Abs(*snapshotEstimateSource)
 	if err != nil {
@@ -113,7 +112,7 @@ func showBuckets(b buckets) {
 		}
 	}
 }
-func estimate(relativePath string, entry fs.Entry, pol *policy.FilesPolicy, stats *snapshot.Stats, ib, eb buckets) error {
+func estimate(relativePath string, entry fs.Entry, pol *snapshot.FilesPolicy, stats *snapshot.Stats, ib, eb buckets) error {
 	if !pol.ShouldInclude(entry.Metadata()) {
 		eb.add(relativePath, entry.Metadata().FileSize)
 		stats.ExcludedFileCount++

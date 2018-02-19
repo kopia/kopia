@@ -1,4 +1,4 @@
-package policy
+package snapshot
 
 import (
 	"fmt"
@@ -10,14 +10,14 @@ import (
 
 const policyPrefix = "P"
 
-// Manager manages snapshotting policies.
-type Manager struct {
+// PolicyManager manages snapshotting policies.
+type PolicyManager struct {
 	repository *repo.Repository
 }
 
 // GetEffectivePolicy calculates effective snapshot policy for a given source by combining the source-specifc policy (if any)
 // with parent policies. The source must contain a path.
-func (m *Manager) GetEffectivePolicy(user, host, path string) (*Policy, error) {
+func (m *PolicyManager) GetEffectivePolicy(user, host, path string) (*Policy, error) {
 	var md []*manifest.EntryMetadata
 
 	// Find policies applying to paths all the way up to the root.
@@ -54,7 +54,7 @@ func (m *Manager) GetEffectivePolicy(user, host, path string) (*Policy, error) {
 }
 
 // GetDefinedPolicy returns the policy defined on the provided (user, host, path) or ErrPolicyNotFound if not present.
-func (m *Manager) GetDefinedPolicy(user, host, path string) (*Policy, error) {
+func (m *PolicyManager) GetDefinedPolicy(user, host, path string) (*Policy, error) {
 	md := m.repository.Manifests.Find(labelsForUserHostPath(user, host, path))
 
 	if len(md) == 0 {
@@ -86,7 +86,7 @@ func (m *Manager) GetDefinedPolicy(user, host, path string) (*Policy, error) {
 }
 
 // SetPolicy sets the policy on (user, host, path).
-func (m *Manager) SetPolicy(user, host, path string, pol *Policy) error {
+func (m *PolicyManager) SetPolicy(user, host, path string, pol *Policy) error {
 	md := m.repository.Manifests.Find(labelsForUserHostPath(user, host, path))
 
 	if _, err := m.repository.Manifests.Put(labelsForUserHostPath(user, host, path), pol); err != nil {
@@ -101,7 +101,7 @@ func (m *Manager) SetPolicy(user, host, path string, pol *Policy) error {
 }
 
 // RemovePolicy removes the policy for (user, host, path).
-func (m *Manager) RemovePolicy(user, host, path string) error {
+func (m *PolicyManager) RemovePolicy(user, host, path string) error {
 	md := m.repository.Manifests.Find(labelsForUserHostPath(user, host, path))
 	for _, em := range md {
 		m.repository.Manifests.Delete(em.ID)
@@ -111,7 +111,7 @@ func (m *Manager) RemovePolicy(user, host, path string) error {
 }
 
 // ListPolicies returns a list of all policies.
-func (m *Manager) ListPolicies() ([]*Policy, error) {
+func (m *PolicyManager) ListPolicies() ([]*Policy, error) {
 	ids := m.repository.Manifests.Find(map[string]string{
 		"type": "policy",
 	})
@@ -170,7 +170,7 @@ func labelsForUserHostPath(user, host, path string) map[string]string {
 
 }
 
-// NewManager creates new policy manager for a given repository.
-func NewManager(r *repo.Repository) *Manager {
-	return &Manager{r}
+// NewPolicyManager creates new policy manager for a given repository.
+func NewPolicyManager(r *repo.Repository) *PolicyManager {
+	return &PolicyManager{r}
 }

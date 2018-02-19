@@ -7,7 +7,6 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/kopia/kopia/policy"
 	"github.com/kopia/kopia/snapshot"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -50,7 +49,7 @@ func setPolicy(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
 	defer rep.Close()
 
-	mgr := policy.NewManager(rep)
+	mgr := snapshot.NewPolicyManager(rep)
 
 	targets, err := policyTargets(policySetGlobal, policySetTargets)
 	if err != nil {
@@ -59,8 +58,8 @@ func setPolicy(context *kingpin.ParseContext) error {
 
 	for _, target := range targets {
 		p, err := mgr.GetDefinedPolicy(target.UserName, target.Host, target.Path)
-		if err == policy.ErrPolicyNotFound {
-			p = &policy.Policy{}
+		if err == snapshot.ErrPolicyNotFound {
+			p = &snapshot.Policy{}
 		}
 
 		if err := applyPolicyNumber(target, "number of annual backups to keep", &p.RetentionPolicy.KeepAnnual, *policySetKeepAnnual); err != nil {

@@ -15,12 +15,8 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/kopia/kopia/policy"
-
-	"github.com/kopia/kopia/repo"
-
 	"github.com/kopia/kopia/object"
-
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
@@ -51,7 +47,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 	defer rep.Close()
 
 	mgr := snapshot.NewManager(rep)
-	pmgr := policy.NewManager(rep)
+	pmgr := snapshot.NewPolicyManager(rep)
 
 	sources := *snapshotCreateSources
 	if *snapshotCreateAll {

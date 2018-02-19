@@ -8,7 +8,6 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/kopia/kopia/policy"
 	"github.com/kopia/kopia/snapshot"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
@@ -24,7 +23,7 @@ var (
 	snapshotExpireDelete = snapshotExpireCommand.Flag("delete", "Whether to actually delete snapshots").Default("no").String()
 )
 
-func expireSnapshotsForSingleSource(snapshots []*snapshot.Manifest, src *snapshot.SourceInfo, pol *policy.Policy, snapshotNames []string) []string {
+func expireSnapshotsForSingleSource(snapshots []*snapshot.Manifest, src *snapshot.SourceInfo, pol *snapshot.Policy, snapshotNames []string) []string {
 	var toDelete []string
 
 	ids := make(map[string]bool)
@@ -138,7 +137,7 @@ func getSnapshotNamesToExpire(mgr *snapshot.Manager) ([]string, error) {
 	return result, nil
 }
 
-func expireSnapshots(pmgr *policy.Manager, snapshots []*snapshot.Manifest, names []string) ([]string, error) {
+func expireSnapshots(pmgr *snapshot.PolicyManager, snapshots []*snapshot.Manifest, names []string) ([]string, error) {
 	var lastSource snapshot.SourceInfo
 	var pendingSnapshots []*snapshot.Manifest
 	var pendingNames []string
@@ -187,7 +186,7 @@ func runExpireCommand(context *kingpin.ParseContext) error {
 	defer rep.Close()
 
 	mgr := snapshot.NewManager(rep)
-	pmgr := policy.NewManager(rep)
+	pmgr := snapshot.NewPolicyManager(rep)
 	snapshotNames, err := getSnapshotNamesToExpire(mgr)
 	if err != nil {
 		return err

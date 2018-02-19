@@ -3,7 +3,7 @@ package cli
 import (
 	"github.com/rs/zerolog/log"
 
-	"github.com/kopia/kopia/policy"
+	"github.com/kopia/kopia/snapshot"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -21,7 +21,7 @@ func removePolicy(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
 	defer rep.Close()
 
-	mgr := policy.NewManager(rep)
+	mgr := snapshot.NewPolicyManager(rep)
 
 	targets, err := policyTargets(policyRemoveGlobal, policyRemoveTargets)
 	if err != nil {
