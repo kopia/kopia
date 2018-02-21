@@ -39,7 +39,7 @@ func (m *PolicyManager) GetEffectivePolicy(si SourceInfo) (*Policy, error) {
 	md = append(md, m.repository.Manifests.Find(labelsForSource(SourceInfo{Host: si.Host}))...)
 
 	// Global policy.
-	md = append(md, m.repository.Manifests.Find(labelsForSource(SourceInfo{}))...)
+	md = append(md, m.repository.Manifests.Find(labelsForSource(GlobalPolicySourceInfo))...)
 
 	var policies []*Policy
 	for _, em := range md {
