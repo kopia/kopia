@@ -115,12 +115,14 @@ func (c *diskBlockCache) listIndexBlocks(full bool) ([]Info, error) {
 				return c.readBlocksFromCacheFile(f)
 			}
 		}
+	} else {
+		log.Warn().Msgf("unable to open cache file %v: %v", cachedListFile, err)
 	}
 
 	log.Debug().Bool("full", full).Msg("listing index blocks from source")
 	blocks, err := listIndexBlocksFromStorage(c.st, full)
 	if err == nil {
-		log.Debug().Bool("full", full).Msg("saving index blocks to cache")
+		log.Debug().Bool("full", full).Msgf("saving %v index blocks to cache: %v", len(blocks), cachedListFile)
 		// save to blockCache
 		if data, err := json.Marshal(blocks); err == nil {
 			if err := c.writeFileAtomic(cachedListFile, c.appendHMAC(data)); err != nil {
@@ -157,6 +159,7 @@ func (c *diskBlockCache) readBlocksFromCacheFile(f *os.File) ([]Info, error) {
 }
 
 func (c *diskBlockCache) readBlocksFromSource(maxCompactions int) ([]Info, error) {
+	log.Printf("readBlocksFromSource (maxCompactions=%v)", maxCompactions)
 	var blocks []Info
 	ch, cancel := c.st.ListBlocks(indexBlockPrefix)
 	defer cancel()
@@ -265,7 +268,7 @@ func (c *diskBlockCache) sweepDirectory() error {
 	}
 
 	sort.Slice(items, func(i, j int) bool {
-		return items[i].ModTime().Before(items[j].ModTime())
+		return items[i].ModTime().After(items[j].ModTime())
 	})
 
 	var totalSize int64
@@ -275,6 +278,7 @@ func (c *diskBlockCache) sweepDirectory() error {
 		}
 		if totalSize > c.maxSizeBytes {
 			fn := filepath.Join(c.directory, it.Name())
+			log.Printf("deleting %v", fn)
 			if err := os.Remove(fn); err != nil {
 				log.Printf("warning: unable to remove %v: %v", fn, err)
 			}
@@ -285,6 +289,7 @@ func (c *diskBlockCache) sweepDirectory() error {
 }
 
 func (c *diskBlockCache) deleteListCache() {
+	log.Printf("deleting list cache")
 	os.Remove(c.cachedItemName("list-full"))
 	os.Remove(c.cachedItemName("list-active"))
 }
