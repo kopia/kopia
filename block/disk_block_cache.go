@@ -111,7 +111,7 @@ func (c *diskBlockCache) listIndexBlocks(full bool) ([]Info, error) {
 		if err == nil {
 			expirationTime := st.ModTime().UTC().Add(c.listCacheDuration)
 			if time.Now().UTC().Before(expirationTime) {
-				log.Debug().Bool("full", full).Msg("listing index blocks from cache")
+				log.Debug().Bool("full", full).Str("file", cachedListFile).Msg("listing index blocks from cache")
 				return c.readBlocksFromCacheFile(f)
 			}
 		}
@@ -257,7 +257,14 @@ func (c *diskBlockCache) sweepDirectoryPeriodically() {
 	}
 }
 
-func (c *diskBlockCache) sweepDirectory() error {
+func (c *diskBlockCache) sweepDirectory() (err error) {
+	if c.maxSizeBytes == 0 {
+		return nil
+	}
+
+	t0 := time.Now()
+	log.Debug().Str("dir", c.directory).Msg("sweeping cache")
+
 	items, err := ioutil.ReadDir(c.directory)
 	if os.IsNotExist(err) {
 		// blockCache not found, that's ok
@@ -271,20 +278,23 @@ func (c *diskBlockCache) sweepDirectory() error {
 		return items[i].ModTime().After(items[j].ModTime())
 	})
 
-	var totalSize int64
+	var totalRetainedSize int64
 	for _, it := range items {
 		if !strings.HasSuffix(it.Name(), cachedSuffix) {
 			continue
 		}
-		if totalSize > c.maxSizeBytes {
+		log.Debug().Msgf("it: %v %v", it.Name(), it.ModTime())
+		if totalRetainedSize > c.maxSizeBytes {
 			fn := filepath.Join(c.directory, it.Name())
-			log.Printf("deleting %v", fn)
+			log.Debug().Msgf("deleting %v", fn)
 			if err := os.Remove(fn); err != nil {
 				log.Printf("warning: unable to remove %v: %v", fn, err)
 			}
+		} else {
+			totalRetainedSize += it.Size()
 		}
-		totalSize += it.Size()
 	}
+	log.Debug().Msgf("finished sweeping directory in %v and retained %v/%v bytes (%v %%)", time.Since(t0), totalRetainedSize, c.maxSizeBytes, 100*totalRetainedSize/c.maxSizeBytes)
 	return nil
 }
 
