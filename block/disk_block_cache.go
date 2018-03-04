@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -31,40 +32,42 @@ type diskBlockCache struct {
 	listCacheDuration time.Duration
 	hmacSecret        []byte
 
+	mu                 sync.Mutex
+	lastTotalSizeBytes int64
+
 	closed chan struct{}
 }
 
-func (c *diskBlockCache) getBlock(blockID string, offset, length int64) ([]byte, error) {
-	fn := c.cachedItemName(blockID)
+func (c *diskBlockCache) getBlock(virtualBlockID, physicalBlockID string, offset, length int64) ([]byte, error) {
+	fn := c.cachedItemName(virtualBlockID)
 
 	b, err := ioutil.ReadFile(fn)
 	if err == nil {
 		b, err := c.verifyHMAC(b)
 		if err == nil {
 			// retrieved from blockCache and HMAC valid
-			return applyOffsetAndLength(b, offset, length)
+			return b, nil
 		}
 
 		// ignore malformed blocks
-		log.Printf("warning: malformed block %v: %v", blockID, err)
+		log.Printf("warning: malformed block %v: %v", virtualBlockID, err)
 	} else if !os.IsNotExist(err) {
 		log.Printf("warning: unable to read blockCache file %v: %v", fn, err)
 	}
 
-	b, err = c.st.GetBlock(blockID, 0, -1)
+	b, err = c.st.GetBlock(physicalBlockID, offset, length)
 	if err == storage.ErrBlockNotFound {
 		// not found in underlying storage
 		return nil, err
 	}
 
 	if err == nil {
-		//log.Printf("adding %v to blockCache", blockID)
 		if err := c.writeFileAtomic(fn, c.appendHMAC(b)); err != nil {
 			log.Printf("warning: unable to write file %v: %v", fn, err)
 		}
 	}
 
-	return applyOffsetAndLength(b, offset, length)
+	return b, err
 }
 
 func applyOffsetAndLength(b []byte, offset, length int64) ([]byte, error) {
@@ -250,7 +253,8 @@ func (c *diskBlockCache) sweepDirectoryPeriodically() {
 			return
 
 		case <-time.After(sweepCacheFrequency):
-			if err := c.sweepDirectory(); err != nil {
+			err := c.sweepDirectory()
+			if err != nil {
 				log.Printf("warning: blockCache sweep failed: %v", err)
 			}
 		}
@@ -258,6 +262,9 @@ func (c *diskBlockCache) sweepDirectoryPeriodically() {
 }
 
 func (c *diskBlockCache) sweepDirectory() (err error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.maxSizeBytes == 0 {
 		return nil
 	}
@@ -283,7 +290,6 @@ func (c *diskBlockCache) sweepDirectory() (err error) {
 		if !strings.HasSuffix(it.Name(), cachedSuffix) {
 			continue
 		}
-		log.Debug().Msgf("it: %v %v", it.Name(), it.ModTime())
 		if totalRetainedSize > c.maxSizeBytes {
 			fn := filepath.Join(c.directory, it.Name())
 			log.Debug().Msgf("deleting %v", fn)
@@ -295,6 +301,7 @@ func (c *diskBlockCache) sweepDirectory() (err error) {
 		}
 	}
 	log.Debug().Msgf("finished sweeping directory in %v and retained %v/%v bytes (%v %%)", time.Since(t0), totalRetainedSize, c.maxSizeBytes, 100*totalRetainedSize/c.maxSizeBytes)
+	c.lastTotalSizeBytes = totalRetainedSize
 	return nil
 }
 

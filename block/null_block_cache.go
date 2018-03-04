@@ -8,7 +8,7 @@ type nullBlockCache struct {
 	st storage.Storage
 }
 
-func (c nullBlockCache) getBlock(blockID string, offset, length int64) ([]byte, error) {
+func (c nullBlockCache) getBlock(virtualBlockID string, blockID string, offset, length int64) ([]byte, error) {
 	return c.st.GetBlock(blockID, offset, length)
 }
 

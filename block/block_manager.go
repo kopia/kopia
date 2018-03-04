@@ -826,10 +826,10 @@ func (bm *Manager) getBlockInternalLocked(blockID string) ([]byte, error) {
 
 	if s.PackBlockID != "" {
 		underlyingBlockID = s.PackBlockID
-		payload, err = bm.cache.getBlock(underlyingBlockID, s.PackOffset, s.Length)
+		payload, err = bm.cache.getBlock(blockID, underlyingBlockID, s.PackOffset, s.Length)
 		decryptSkip = int(s.PackOffset)
 	} else {
-		payload, err = bm.cache.getBlock(blockID, 0, -1)
+		payload, err = bm.cache.getBlock(blockID, blockID, 0, -1)
 	}
 
 	if err != nil {
@@ -943,9 +943,13 @@ func newManagerWithTime(st storage.Storage, f FormattingOptions, caching Caching
 		return nil, err
 	}
 
-	m := &Manager{
-		Format: f,
+	cache, err := newBlockCache(st, caching)
+	if err != nil {
+		return nil, fmt.Errorf("unable to initialize cache: %v", err)
+	}
 
+	m := &Manager{
+		Format:                 f,
 		timeNow:                timeNow,
 		flushPackIndexesAfter:  timeNow().Add(flushPackIndexTimeout),
 		pendingPackIndexes:     nil,
@@ -957,7 +961,7 @@ func newManagerWithTime(st storage.Storage, f FormattingOptions, caching Caching
 		maxPreambleLength:      defaultMaxPreambleLength,
 		paddingUnit:            defaultPaddingUnit,
 		maxInlineContentLength: maxInlineContentLength,
-		cache: newBlockCache(st, caching),
+		cache: cache,
 	}
 
 	m.startPackIndexLocked()
