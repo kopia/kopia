@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	snapshotListCommand           = snapshotCommands.Command("list", "List snapshots of files and directories.")
+	snapshotListCommand           = snapshotCommands.Command("list", "List snapshots of files and directories.").Alias("ls")
 	snapshotListPath              = snapshotListCommand.Arg("source", "File or directory to show history of.").String()
 	snapshotListIncludeIncomplete = snapshotListCommand.Flag("include-incomplete", "Include incomplete.").Short('i').Bool()
 	snapshotListShowItemID        = snapshotListCommand.Flag("show-metadata-id", "Include metadata item ID.").Short('m').Bool()
