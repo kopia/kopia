@@ -6,12 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"math/rand"
-	"os"
-	"path/filepath"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -22,12 +17,13 @@ import (
 
 const (
 	sweepCacheFrequency = 1 * time.Minute
-	cachedSuffix        = ".cached"
+	fullListCacheItem   = "list-full"
+	activeListCacheItem = "list-active"
 )
 
 type diskBlockCache struct {
 	st                storage.Storage
-	directory         string
+	cacheStorage      storage.Storage
 	maxSizeBytes      int64
 	listCacheDuration time.Duration
 	hmacSecret        []byte
@@ -39,20 +35,18 @@ type diskBlockCache struct {
 }
 
 func (c *diskBlockCache) getBlock(virtualBlockID, physicalBlockID string, offset, length int64) ([]byte, error) {
-	fn := c.cachedItemName(virtualBlockID)
-
-	b, err := ioutil.ReadFile(fn)
+	b, err := c.cacheStorage.GetBlock(virtualBlockID, 0, -1)
 	if err == nil {
 		b, err := c.verifyHMAC(b)
 		if err == nil {
-			// retrieved from blockCache and HMAC valid
+			// retrieved from cache and HMAC valid
 			return b, nil
 		}
 
 		// ignore malformed blocks
-		log.Printf("warning: malformed block %v: %v", virtualBlockID, err)
-	} else if !os.IsNotExist(err) {
-		log.Printf("warning: unable to read blockCache file %v: %v", fn, err)
+		log.Warn().Msgf("malformed block %v: %v", virtualBlockID, err)
+	} else if err != storage.ErrBlockNotFound {
+		log.Warn().Msgf("unable to read cache %v: %v", virtualBlockID, err)
 	}
 
 	b, err = c.st.GetBlock(physicalBlockID, offset, length)
@@ -62,8 +56,8 @@ func (c *diskBlockCache) getBlock(virtualBlockID, physicalBlockID string, offset
 	}
 
 	if err == nil {
-		if err := c.writeFileAtomic(fn, c.appendHMAC(b)); err != nil {
-			log.Printf("warning: unable to write file %v: %v", fn, err)
+		if c.cacheStorage.PutBlock(virtualBlockID, c.appendHMAC(b)); err != nil {
+			log.Warn().Msgf("unable to write cache items %v: %v", virtualBlockID, err)
 		}
 	}
 
@@ -87,48 +81,49 @@ func applyOffsetAndLength(b []byte, offset, length int64) ([]byte, error) {
 }
 
 func (c *diskBlockCache) putBlock(blockID string, data []byte) error {
-	err := c.st.PutBlock(blockID, data)
-	if err != nil {
+	if err := c.st.PutBlock(blockID, data); err != nil {
 		return err
 	}
 
-	c.writeFileAtomic(filepath.Join(c.directory, blockID)+cachedSuffix, c.appendHMAC(data))
+	// now write to cache on a best-effort basis
+	if err := c.cacheStorage.PutBlock(blockID, c.appendHMAC(data)); err != nil {
+		log.Warn().Msgf("unable to write cache item: %v", err)
+	}
 	c.deleteListCache()
 	return nil
 }
 
 func (c *diskBlockCache) listIndexBlocks(full bool) ([]Info, error) {
-	var cachedListFile string
+	var cachedListBlockID string
 
 	if full {
-		cachedListFile = c.cachedItemName("list-full")
+		cachedListBlockID = fullListCacheItem
 	} else {
-		cachedListFile = c.cachedItemName("list-active")
+		cachedListBlockID = activeListCacheItem
 	}
 
-	f, err := os.Open(cachedListFile)
+	ci, err := c.readBlocksFromCacheBlock(cachedListBlockID)
 	if err == nil {
-		defer f.Close()
-
-		st, err := f.Stat()
-		if err == nil {
-			expirationTime := st.ModTime().UTC().Add(c.listCacheDuration)
-			if time.Now().UTC().Before(expirationTime) {
-				log.Debug().Bool("full", full).Str("file", cachedListFile).Msg("listing index blocks from cache")
-				return c.readBlocksFromCacheFile(f)
-			}
+		expirationTime := ci.Timestamp.Add(c.listCacheDuration)
+		if time.Now().Before(expirationTime) {
+			log.Debug().Bool("full", full).Str("file", cachedListBlockID).Msg("retrieved index blocks from cache")
+			return ci.Blocks, nil
 		}
-	} else {
-		log.Warn().Msgf("unable to open cache file %v: %v", cachedListFile, err)
+	} else if err != storage.ErrBlockNotFound {
+		log.Warn().Msgf("unable to open cache file %v: %v", cachedListBlockID, err)
 	}
 
 	log.Debug().Bool("full", full).Msg("listing index blocks from source")
 	blocks, err := listIndexBlocksFromStorage(c.st, full)
 	if err == nil {
-		log.Debug().Bool("full", full).Msgf("saving %v index blocks to cache: %v", len(blocks), cachedListFile)
-		// save to blockCache
-		if data, err := json.Marshal(blocks); err == nil {
-			if err := c.writeFileAtomic(cachedListFile, c.appendHMAC(data)); err != nil {
+		ci := cachedList{
+			Blocks:    blocks,
+			Timestamp: time.Now(),
+		}
+		log.Debug().Bool("full", full).Msgf("saving %v index blocks to cache: %v", len(blocks), cachedListBlockID)
+		// save to cache
+		if data, err := json.Marshal(ci); err == nil {
+			if err := c.cacheStorage.PutBlock(cachedListBlockID, c.appendHMAC(data)); err != nil {
 				log.Printf("warning: can't save list: %v", err)
 			}
 		}
@@ -137,13 +132,9 @@ func (c *diskBlockCache) listIndexBlocks(full bool) ([]Info, error) {
 	return blocks, err
 }
 
-func (c *diskBlockCache) cachedItemName(name string) string {
-	return filepath.Join(c.directory, name+cachedSuffix)
-}
-
-func (c *diskBlockCache) readBlocksFromCacheFile(f *os.File) ([]Info, error) {
-	var blocks []Info
-	data, err := ioutil.ReadAll(f)
+func (c *diskBlockCache) readBlocksFromCacheBlock(blockID string) (*cachedList, error) {
+	ci := &cachedList{}
+	data, err := c.cacheStorage.GetBlock(blockID, 0, -1)
 	if err != nil {
 		return nil, err
 	}
@@ -153,11 +144,11 @@ func (c *diskBlockCache) readBlocksFromCacheFile(f *os.File) ([]Info, error) {
 		return nil, err
 	}
 
-	if err := json.Unmarshal(data, &blocks); err != nil {
+	if err := json.Unmarshal(data, &ci); err != nil {
 		return nil, fmt.Errorf("can't unmarshal cached list results: %v", err)
 	}
 
-	return blocks, nil
+	return ci, nil
 
 }
 
@@ -219,28 +210,6 @@ func (c *diskBlockCache) verifyHMAC(b []byte) ([]byte, error) {
 	return nil, errors.New("invalid data - corrupted")
 }
 
-func (c *diskBlockCache) writeFileAtomic(fname string, contents []byte) error {
-	tn := filepath.Join(c.directory, fmt.Sprintf("tmp-%v.%v"+cachedSuffix, time.Now().UnixNano(), rand.Int63()))
-	if err := ioutil.WriteFile(tn, contents, 0600); err != nil {
-		if !os.IsNotExist(err) {
-			return err
-		}
-
-		// create blockCache directory, and retry write
-		os.MkdirAll(c.directory, 0700)
-		if err := ioutil.WriteFile(tn, contents, 0600); err != nil {
-			return err
-		}
-	}
-
-	if err := os.Rename(tn, fname); err != nil {
-		os.Remove(tn)
-		return err
-	}
-
-	return nil
-}
-
 func (c *diskBlockCache) close() error {
 	close(c.closed)
 	return nil
@@ -270,34 +239,32 @@ func (c *diskBlockCache) sweepDirectory() (err error) {
 	}
 
 	t0 := time.Now()
-	log.Debug().Str("dir", c.directory).Msg("sweeping cache")
+	log.Debug().Msg("sweeping cache")
 
-	items, err := ioutil.ReadDir(c.directory)
-	if os.IsNotExist(err) {
-		// blockCache not found, that's ok
-		return nil
-	}
-	if err != nil {
-		return err
+	ch, cancel := c.cacheStorage.ListBlocks("")
+	defer cancel()
+
+	var items []storage.BlockMetadata
+
+	for it := range ch {
+		if it.Error != nil {
+			return fmt.Errorf("error listing cache: %v", it.Error)
+		}
+		items = append(items, it)
 	}
 
 	sort.Slice(items, func(i, j int) bool {
-		return items[i].ModTime().After(items[j].ModTime())
+		return items[i].TimeStamp.After(items[j].TimeStamp)
 	})
 
 	var totalRetainedSize int64
 	for _, it := range items {
-		if !strings.HasSuffix(it.Name(), cachedSuffix) {
-			continue
-		}
 		if totalRetainedSize > c.maxSizeBytes {
-			fn := filepath.Join(c.directory, it.Name())
-			log.Debug().Msgf("deleting %v", fn)
-			if err := os.Remove(fn); err != nil {
-				log.Printf("warning: unable to remove %v: %v", fn, err)
+			if err := c.cacheStorage.DeleteBlock(it.BlockID); err != nil {
+				log.Warn().Msgf("unable to remove %v: %v", it.BlockID, err)
 			}
 		} else {
-			totalRetainedSize += it.Size()
+			totalRetainedSize += it.Length
 		}
 	}
 	log.Debug().Msgf("finished sweeping directory in %v and retained %v/%v bytes (%v %%)", time.Since(t0), totalRetainedSize, c.maxSizeBytes, 100*totalRetainedSize/c.maxSizeBytes)
@@ -306,7 +273,6 @@ func (c *diskBlockCache) sweepDirectory() (err error) {
 }
 
 func (c *diskBlockCache) deleteListCache() {
-	log.Printf("deleting list cache")
-	os.Remove(c.cachedItemName("list-full"))
-	os.Remove(c.cachedItemName("list-active"))
+	c.cacheStorage.DeleteBlock(fullListCacheItem)
+	c.cacheStorage.DeleteBlock(activeListCacheItem)
 }

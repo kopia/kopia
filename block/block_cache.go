@@ -1,7 +1,11 @@
 package block
 
 import (
+	"context"
+	"os"
 	"time"
+
+	"github.com/kopia/kopia/storage/filesystem"
 
 	"github.com/kopia/kopia/storage"
 )
@@ -27,9 +31,17 @@ func newBlockCache(st storage.Storage, caching CachingOptions) (blockCache, erro
 		return nullBlockCache{st}, nil
 	}
 
+	os.MkdirAll(caching.CacheDirectory, 0755)
+	cacheStorage, err := filesystem.New(context.Background(), &filesystem.Options{
+		Path: caching.CacheDirectory,
+	})
+	if err != nil {
+		return nil, err
+	}
+
 	c := &diskBlockCache{
 		st:                st,
-		directory:         caching.CacheDirectory,
+		cacheStorage:      cacheStorage,
 		maxSizeBytes:      caching.MaxCacheSizeBytes,
 		hmacSecret:        append([]byte(nil), caching.HMACSecret...),
 		listCacheDuration: time.Duration(caching.MaxListCacheDurationSec) * time.Second,

@@ -89,6 +89,7 @@ func TestRepo(t *testing.T) {
 	e.runAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.repoDir)
 	e.runAndExpectSuccess(t, "repo", "disconnect")
 	e.runAndExpectSuccess(t, "repo", "connect", "filesystem", "--path", e.repoDir)
+	e.runAndExpectSuccess(t, "repo", "status")
 
 	e.runAndExpectSuccess(t, "snapshot", "create", ".")
 	e.runAndExpectSuccess(t, "snapshot", "list", ".")

@@ -884,6 +884,11 @@ func (bm *Manager) assertLocked() {
 	}
 }
 
+type cachedList struct {
+	Timestamp time.Time `json:"timestamp"`
+	Blocks    []Info    `json:"blocks"`
+}
+
 // listIndexBlocksFromStorage returns the list of index blocks in the given storage.
 // If 'full' is set to true, this function lists and returns all blocks,
 // if 'full' is false, the function returns only blocks from the last 2 compactions.
