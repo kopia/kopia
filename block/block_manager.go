@@ -6,6 +6,7 @@ import (
 	"io"
 	"math"
 	"math/rand"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -56,18 +57,20 @@ type Manager struct {
 	Format FormattingOptions
 
 	stats Stats
-
 	cache blockCache
 
-	mu                    sync.Mutex
-	locked                bool
-	blockIDToIndex        map[string]*blockmgrpb.Index
-	packBlockIDToIndex    map[string]*blockmgrpb.Index
-	pendingPackIndexes    []*blockmgrpb.Index
-	flushPackIndexesAfter time.Time
+	mu                      sync.Mutex
+	locked                  bool
+	checkInvariantsOnUnlock bool
 
-	currentPackData  []byte
-	currentPackIndex *blockmgrpb.Index
+	blockIDToIndex     map[string]*blockmgrpb.Index // maps block ID to corresponding index
+	packBlockIDToIndex map[string]*blockmgrpb.Index // maps pack block ID to corresponding index
+
+	currentPackData  []byte            // data for the current block
+	currentPackIndex *blockmgrpb.Index // index of a current block
+
+	pendingPackIndexes    []*blockmgrpb.Index // pending indexes of blocks that have been saved.
+	flushPackIndexesAfter time.Time           // time when those indexes should be flushed
 
 	maxInlineContentLength int
 	maxPackSize            int
@@ -175,6 +178,57 @@ func (bm *Manager) ResetStats() {
 // Close closes block manager.
 func (bm *Manager) close() error {
 	return bm.cache.close()
+}
+
+func (bm *Manager) verifyInvariantsLocked() {
+	bm.assertLocked()
+
+	// verify that each block in blockIDToIndex has a corresponding entry in the target index.
+	for blkID, ndx := range bm.blockIDToIndex {
+		if os, ok := ndx.Items[blkID]; ok {
+			if ndx != bm.currentPackIndex {
+				off, size := unpackOffsetAndSize(os)
+				if uint64(off)+uint64(size) > ndx.PackLength {
+					bm.invariantViolated("invariant violated - block %q out of bounds within its pack (%v,%v) vs %v", blkID, off, size, ndx.PackLength)
+				}
+			}
+			continue
+		}
+
+		if _, ok := ndx.InlineItems[blkID]; ok {
+			// inline
+			continue
+		}
+
+		bm.invariantViolated("invariant violated - block %q not found within its pack", blkID)
+	}
+
+	for packBlockID, ndx := range bm.packBlockIDToIndex {
+		if ndx.PackBlockId != packBlockID {
+			bm.invariantViolated("invariant violated - pack %q not matching its pack block ID", packBlockID)
+		}
+	}
+
+	// each pending pack index is registered
+	for _, p := range bm.pendingPackIndexes {
+		for blkID := range p.Items {
+			if _, ok := bm.blockIDToIndex[blkID]; !ok {
+				bm.invariantViolated("invariant violated - pending block %q not in index", blkID)
+			}
+		}
+		for blkID := range p.InlineItems {
+			if _, ok := bm.blockIDToIndex[blkID]; !ok {
+				bm.invariantViolated("invariant violated - pending inline block %q not in index", blkID)
+			}
+		}
+	}
+}
+
+func (bm *Manager) invariantViolated(msg string, args ...interface{}) {
+	if len(args) > 0 {
+		msg = fmt.Sprintf(msg, args...)
+	}
+	panic(msg)
 }
 
 func (bm *Manager) startPackIndexLocked() {
@@ -855,6 +909,10 @@ func (bm *Manager) lock() {
 }
 
 func (bm *Manager) unlock() {
+	if bm.checkInvariantsOnUnlock {
+		bm.verifyInvariantsLocked()
+	}
+
 	bm.locked = false
 	bm.mu.Unlock()
 }
@@ -948,6 +1006,10 @@ func newManagerWithTime(st storage.Storage, f FormattingOptions, caching Caching
 		paddingUnit:            defaultPaddingUnit,
 		maxInlineContentLength: maxInlineContentLength,
 		cache: cache,
+	}
+
+	if os.Getenv("KOPIA_VERIFY_INVARIANTS") != "" {
+		m.checkInvariantsOnUnlock = true
 	}
 
 	m.startPackIndexLocked()

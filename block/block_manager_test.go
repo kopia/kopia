@@ -477,6 +477,7 @@ func newTestBlockManager(data map[string][]byte, keyTime map[string]time.Time, t
 		BlockFormat: "TESTONLY_MD5",
 		MaxPackSize: maxPackSize,
 	}, CachingOptions{}, timeFunc)
+	bm.checkInvariantsOnUnlock = true
 
 	bm.maxInlineContentLength = 0
 	if err != nil {
