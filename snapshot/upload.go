@@ -268,7 +268,49 @@ func uploadDirInternal(
 	dw := dir.NewWriter(writer)
 	defer writer.Close()
 
+	// Phase #1 - process all subdirectories in current directory.
 	for _, entry := range entries {
+		entry, ok := entry.(fs.Directory)
+		if !ok {
+			// skip non-directories
+			continue
+		}
+
+		if u.IsCancelled() {
+			break
+		}
+		e := entry.Metadata()
+		entryRelativePath := relativePath + "/" + e.Name
+
+		if !u.FilesPolicy.ShouldInclude(e) {
+			log.Printf("ignoring %q", entryRelativePath)
+			u.stats.ExcludedFileCount++
+			u.stats.ExcludedTotalFileSize += e.FileSize
+			continue
+		}
+
+		oid, err := uploadDirInternal(u, entry, entryRelativePath)
+		if err == errCancelled {
+			break
+		}
+
+		if err != nil {
+			return object.NullID, fmt.Errorf("unable to process directory %q: %s", e.Name, err)
+		}
+
+		de := newDirEntry(e, oid)
+		if err := dw.WriteEntry(de); err != nil {
+			return object.NullID, err
+		}
+	}
+
+	// Phase #2 - process all files in current directory
+	for _, entry := range entries {
+		if _, ok := entry.(fs.Directory); ok {
+			// skip directories
+			continue
+		}
+
 		if u.IsCancelled() {
 			break
 		}
@@ -306,12 +348,6 @@ func uploadDirInternal(
 			de, hash, err = newDirEntry(e, cachedEntry.ObjectID), cachedEntry.Hash, nil
 		} else {
 			switch entry := entry.(type) {
-			case fs.Directory:
-				var oid object.ID
-				oid, err = uploadDirInternal(u, entry, entryRelativePath)
-				de = newDirEntry(e, oid)
-				hash = 0
-
 			case fs.Symlink:
 				de, hash, err = u.uploadSymlinkInternal(entry, entryRelativePath)
 
@@ -341,7 +377,7 @@ func uploadDirInternal(
 			return object.NullID, err
 		}
 
-		if de.Type != fs.EntryTypeDirectory && hash != 0 && entry.Metadata().ModTime.Before(u.hashCacheCutoff) {
+		if hash != 0 && entry.Metadata().ModTime.Before(u.hashCacheCutoff) {
 			if err := u.cacheWriter.WriteEntry(hashcache.Entry{
 				Name:     entryRelativePath,
 				Hash:     hash,

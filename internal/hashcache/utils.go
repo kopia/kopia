@@ -16,6 +16,14 @@ func isLessOrEqual(name1, name2 string) bool {
 
 	i := 0
 	for i < len(parts1) && i < len(parts2) {
+		// an element is a directory if it has another element following it
+		dir1 := i+1 < len(parts1)
+		dir2 := i+1 < len(parts2)
+		if dir1 != dir2 {
+			// directories trump non-directories
+			return dir1
+		}
+
 		if parts1[i] == parts2[i] {
 			i++
 			continue
