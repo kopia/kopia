@@ -5,6 +5,7 @@ import (
 	"io"
 
 	"github.com/kopia/kopia/internal/jsonstream"
+	"github.com/rs/zerolog/log"
 )
 
 // Reader supports reading a stream of hash cache entries.
@@ -25,6 +26,7 @@ type reader struct {
 // FindEntry looks for an entry with a given name in hash cache stream and returns it or nil if not found.
 func (hcr *reader) FindEntry(relativeName string) *Entry {
 	for hcr.nextEntry != nil && isLess(hcr.nextEntry.Name, relativeName) {
+		log.Debug().Msgf("skipping %v while looking for %v", hcr.nextEntry.Name, relativeName)
 		hcr.readahead()
 	}
 
@@ -35,6 +37,12 @@ func (hcr *reader) FindEntry(relativeName string) *Entry {
 		return e
 	}
 
+	if hcr.nextEntry == nil {
+		log.Debug().Msgf("end of cache while looking for %v", relativeName)
+		return nil
+	}
+
+	log.Debug().Msgf("skipping %v while looking for %v", hcr.nextEntry.Name, relativeName)
 	return nil
 }
 
@@ -56,6 +64,8 @@ func (hcr *reader) readahead() {
 		*e = Entry{}
 		if err := hcr.reader.Read(e); err == nil {
 			hcr.nextEntry = e
+		} else if err != io.EOF {
+			log.Debug().Msgf("unable to read next hash cache entry: %v", err)
 		}
 	}
 
@@ -99,5 +109,6 @@ func Open(r io.Reader) Reader {
 	hcr.nextEntry = nil
 	hcr.first = true
 	hcr.readahead()
+	log.Debug().Msgf("nextEntry: %v", hcr.nextEntry)
 	return &hcr
 }

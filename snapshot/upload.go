@@ -347,6 +347,8 @@ func uploadDirInternal(
 			// Avoid hashing by reusing previous object ID.
 			de, hash, err = newDirEntry(e, cachedEntry.ObjectID), cachedEntry.Hash, nil
 		} else {
+			log.Debug().Msgf("hash cache miss for %v", entryRelativePath)
+
 			switch entry := entry.(type) {
 			case fs.Symlink:
 				de, hash, err = u.uploadSymlinkInternal(entry, entryRelativePath)
@@ -430,8 +432,13 @@ func (u *Uploader) Upload(
 	u.cacheReader = hashcache.Open(nil)
 	u.stats = Stats{}
 	if old != nil {
+		log.Debug().Msgf("opening hash cache: %v", old.HashCacheID)
 		if r, err := u.repo.Objects.Open(old.HashCacheID); err == nil {
 			u.cacheReader = hashcache.Open(r)
+			log.Debug().Msgf("opened hash cache: %v", old.HashCacheID)
+		} else {
+			log.Warn().Msgf("unable to open hash cache %v: %v", old.HashCacheID, err)
+
 		}
 	}
 
