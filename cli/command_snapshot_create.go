@@ -93,10 +93,17 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 			return fmt.Errorf("error listing previous backups: %v", err)
 		}
 
-		var oldManifest *snapshot.Manifest
+		var previousManifest *snapshot.Manifest
+		for _, p := range previous {
+			if previousManifest == nil || p.StartTime.After(previousManifest.StartTime) {
+				previousManifest = p
+			}
+		}
 
-		if len(previous) > 0 {
-			oldManifest = previous[0]
+		if previousManifest != nil {
+			log.Debug().Msgf("found previous manifest for %v with start time %v", sourceInfo, previousManifest.StartTime)
+		} else {
+			log.Debug().Msgf("no previous manifest for %v", sourceInfo)
 		}
 
 		localEntry := mustGetLocalFSEntry(sourceInfo.Path)
@@ -106,7 +113,8 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 
 		u.FilesPolicy = policy.FilesPolicy
 
-		manifest, err := u.Upload(localEntry, sourceInfo, oldManifest)
+		log.Debug().Msgf("uploading %v using previous manifest %v", sourceInfo, previousManifest)
+		manifest, err := u.Upload(localEntry, sourceInfo, previousManifest)
 		if err != nil {
 			return err
 		}
