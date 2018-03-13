@@ -36,6 +36,7 @@ var (
 	snapshotCreateForceHash               = snapshotCreateCommand.Flag("force-hash", "Force hashing of source files for a given percentage of files [0..100]").Default("0").Int()
 	snapshotCreateHashCacheMinAge         = snapshotCreateCommand.Flag("hash-cache-min-age", "Do not hash-cache files below certain age").Default("1h").Duration()
 	snapshotCreateWriteBack               = snapshotCreateCommand.Flag("async-write", "Perform updates asynchronously.").PlaceHolder("N").Default("0").Int()
+	snapshotCreateParallelUploads         = snapshotCreateCommand.Flag("parallel", "Upload N files in parallel").PlaceHolder("N").Default("0").Int()
 )
 
 func runBackupCommand(c *kingpin.ParseContext) error {
@@ -66,6 +67,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 	u.MaxUploadBytes = *snapshotCreateCheckpointUploadLimitMB * 1024 * 1024
 	u.ForceHashPercentage = *snapshotCreateForceHash
 	u.HashCacheMinAge = *snapshotCreateHashCacheMinAge
+	u.ParallelUploads = *snapshotCreateParallelUploads
 	onCtrlC(u.Cancel)
 
 	u.Progress = &uploadProgress{}

@@ -2,60 +2,49 @@ package cli
 
 import (
 	"os"
-	"path/filepath"
 	"time"
 
-	"github.com/rs/zerolog/log"
-
 	"github.com/cheggaaa/pb"
-	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/snapshot"
 )
 
 type uploadProgress struct {
 	currentDir string
-
-	bar *pb.ProgressBar
+	bar        *pb.ProgressBar
 }
 
-func (p *uploadProgress) Cached(path string, length int64) {
-	log.Printf("  Cached: %v %v", path, units.BytesStringBase10(length))
-}
+func (p *uploadProgress) Progress(path string, dirCompleted, dirTotal int64, stats *snapshot.Stats) {
+	if p.currentDir != path {
+		p.currentDir = path
+		if p.bar != nil {
+			p.bar.Finish()
+			p.bar = nil
+		}
 
-func (p *uploadProgress) StartedDir(path string) {
-}
-
-func (p *uploadProgress) FinishedDir(path string) {
-}
-
-func (p *uploadProgress) Started(path string, length int64) {
-	dir := filepath.Dir(path)
-
-	if p.currentDir != dir {
-		p.currentDir = dir
-		log.Printf("Processing directory: %v", dir)
+		p.bar = pb.New64(dirTotal).Prefix("  " + shortenPath(path))
+		p.bar.Output = os.Stderr
+		p.bar.SetRefreshRate(time.Second)
+		p.bar.ShowSpeed = true
+		p.bar.ShowTimeLeft = true
+		p.bar.SetUnits(pb.U_BYTES)
+		p.bar.Start()
 	}
-
-	p.bar = pb.New64(length).Prefix("  " + filepath.Base(path))
-	p.bar.Output = os.Stderr
-	p.bar.SetRefreshRate(time.Second)
-	p.bar.ShowSpeed = true
-	p.bar.ShowTimeLeft = true
-	p.bar.SetUnits(pb.U_BYTES)
-	p.bar.Start()
+	p.bar.Set64(dirCompleted)
 }
 
-func (p *uploadProgress) Finished(path string, length int64, err error) {
+func (p *uploadProgress) UploadFinished() {
 	if p.bar != nil {
 		p.bar.Finish()
 		p.bar = nil
 	}
-	//log.Printf("FINISHED %v %v", path, units.BytesString(length))
 }
 
-func (p *uploadProgress) Progress(path string, completed, total int64) {
-	//log.Printf("PROGRESS %v %v/%v", path, units.BytesString(completed), units.BytesString(total))
-	p.bar.Set64(completed)
+func shortenPath(s string) string {
+	if len(s) < 60 {
+		return s
+	}
+
+	return s[0:30] + "..." + s[len(s)-27:]
 }
 
 var up snapshot.UploadProgress = &uploadProgress{}
