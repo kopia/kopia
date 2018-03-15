@@ -25,10 +25,10 @@ var (
 	traceStorage       = app.Flag("trace-storage", "Enables tracing of storage operations.").Envar("KOPIA_TRACE_STORAGE").Bool()
 	traceObjectManager = app.Flag("trace-object-manager", "Enables tracing of object manager operations.").Envar("KOPIA_TRACE_OBJECT_MANAGER").Bool()
 	traceLocalFS       = app.Flag("trace-localfs", "Enables tracing of local filesystem operations").Envar("KOPIA_TRACE_FS").Bool()
-	enableCaching      = app.Flag("caching", "Enables caching of objects (disable with --no-caching)").Default("true").Bool()
-	enableListCaching  = app.Flag("list-caching", "Enables caching of list results (disable with --no-list-caching)").Default("true").Bool()
+	enableCaching      = app.Flag("caching", "Enables caching of objects (disable with --no-caching)").Default("true").Hidden().Bool()
+	enableListCaching  = app.Flag("list-caching", "Enables caching of list results (disable with --no-list-caching)").Default("true").Hidden().Bool()
 
-	configPath   = app.Flag("config-file", "Specify the config file to use.").PlaceHolder("PATH").Envar("KOPIA_CONFIG_PATH").String()
+	configPath   = app.Flag("config-file", "Specify the config file to use.").Default(defaultConfigFileName()).Envar("KOPIA_CONFIG_PATH").String()
 	password     = app.Flag("password", "Repository password.").Envar("KOPIA_PASSWORD").Short('p').String()
 	passwordFile = app.Flag("passwordfile", "Read repository password from a file.").PlaceHolder("FILENAME").Envar("KOPIA_PASSWORD_FILE").ExistingFile()
 	key          = app.Flag("key", "Specify master key (hexadecimal).").Envar("KOPIA_KEY").Short('k').String()
@@ -103,10 +103,10 @@ func mustOpenRepository(opts *repo.Options) *repo.Repository {
 }
 
 func repositoryConfigFileName() string {
-	if len(*configPath) > 0 {
-		return *configPath
-	}
+	return *configPath
+}
 
+func defaultConfigFileName() string {
 	return filepath.Join(ospath.ConfigDir(), "repository.config")
 }
 

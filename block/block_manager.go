@@ -308,7 +308,7 @@ func (bm *Manager) finishPackLocked() error {
 
 		bm.pendingPackIndexes = append(bm.pendingPackIndexes, bm.currentPackIndex)
 	} else {
-		log.Printf("pack is empty")
+		log.Printf("nothing to write - pack is empty")
 	}
 
 	bm.startPackIndexLocked()

@@ -1,6 +1,8 @@
 package ospath
 
-import "os"
+import (
+	"os"
+)
 
 func init() {
 	userSettingsDir = os.Getenv("APPDATA")

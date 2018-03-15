@@ -11,7 +11,17 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"io/ioutil"
+	"math"
 	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/kopia/kopia/internal/ospath"
 
 	"github.com/mattn/go-colorable"
 
@@ -28,38 +38,109 @@ import (
 	_ "github.com/kopia/kopia/storage/webdav/cli"
 )
 
+var logLevels = []string{"debug", "info", "warning", "error"}
 var (
-	logFile  = cli.App().Flag("log-file", "log file name").String()
-	logLevel = cli.App().Flag("log-level", "log level").Default("info").Enum("debug", "info", "warning", "error")
+	logFile        = cli.App().Flag("log-file", "Log file name.").String()
+	logDir         = cli.App().Flag("log-dir", "Directory where log files should be written.").Envar("KOPIA_LOG_DIR").Default(ospath.LogsDir()).String()
+	logDirMaxFiles = cli.App().Flag("log-dir-max-files", "Maximum number of log files to retain").Envar("KOPIA_LOG_DIR_MAX_FILES").Default("30").Hidden().Int()
+	logDirMaxAge   = cli.App().Flag("log-dir-max-age", "Maximum age of log files to retain").Envar("KOPIA_LOG_DIR_MAX_AGE").Hidden().Duration()
+	logLevel       = cli.App().Flag("log-level", "Console log level").Default("info").Enum(logLevels...)
+	fileLogLevel   = cli.App().Flag("file-log-level", "File log level").Default("debug").Enum(logLevels...)
 )
 
+const logFileNamePrefix = "kopia-"
+const logFileNameSuffix = ".log"
+
 func initializeLogging(ctx *kingpin.ParseContext) error {
-	switch *logLevel {
-	case "debug":
-		zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	case "info":
-		zerolog.SetGlobalLevel(zerolog.InfoLevel)
-	case "warning":
-		zerolog.SetGlobalLevel(zerolog.WarnLevel)
-	case "error":
-		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
+	zerolog.TimeFieldFormat = "2006-01-02T15:04:05.000000"
+
+	var logWriters []io.Writer
+	var logFileName string
+	var symlinkName string
+
+	if lfn := *logFile; lfn != "" {
+		var err error
+		logFileName, err = filepath.Abs(lfn)
+		if err != nil {
+			return err
+		}
 	}
 
-	zerolog.TimeFieldFormat = "2006-01-02T15:04:05.000000"
-	if lfn := *logFile; lfn != "" {
-		lf, err := os.Create(lfn)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "can't create log file: %v", err)
-			os.Exit(1)
+	var shouldSweepLogs bool
+	if logFileName == "" && *logDir != "" {
+		logBaseName := fmt.Sprintf("%v%v-%v%v", logFileNamePrefix, time.Now().Format("20060102-150405"), os.Getpid(), logFileNameSuffix)
+		logFileName = filepath.Join(*logDir, logBaseName)
+		symlinkName = "kopia.latest.log"
+		if *logDirMaxAge > 0 || *logDirMaxFiles > 0 {
+			shouldSweepLogs = true
 		}
+	}
 
-		log.Logger = log.Output(lf)
-	} else {
+	if logFileName != "" {
+		logFileDir := filepath.Dir(logFileName)
+		logFileBaseName := filepath.Base(logFileName)
+		os.MkdirAll(logFileDir, 0755)
 
-		log.Logger = log.Output(zerolog.ConsoleWriter{Out: colorable.NewColorableStderr()})
+		logWriters = append(logWriters,
+			levelFilter(
+				*fileLogLevel,
+				zerolog.ConsoleWriter{Out: &onDemandLogWriter{
+					logDir:          logFileDir,
+					logFileBaseName: logFileBaseName,
+					symlinkName:     symlinkName,
+				}, NoColor: true}))
+	}
+
+	logWriters = append(logWriters,
+		levelFilter(
+			*logLevel,
+			zerolog.ConsoleWriter{Out: colorable.NewColorableStderr()}))
+
+	log.Logger = zerolog.New(zerolog.MultiLevelWriter(logWriters...)).With().Timestamp().Logger()
+
+	if shouldSweepLogs {
+		go sweepLogDir(*logDir, *logDirMaxFiles, *logDirMaxAge)
 	}
 
 	return nil
+}
+
+func sweepLogDir(dirname string, maxCount int, maxAge time.Duration) {
+	var timeCutoff time.Time
+	if maxAge > 0 {
+		timeCutoff = time.Now().Add(-maxAge)
+	}
+	if maxCount == 0 {
+		maxCount = math.MaxInt32
+	}
+	log.Debug().Msgf("log file time cut-off: %v max count: %v", timeCutoff, maxCount)
+
+	entries, err := ioutil.ReadDir(dirname)
+	if err != nil {
+		log.Warn().Err(err).Msg("unable to read log directory")
+		return
+	}
+
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].ModTime().After(entries[j].ModTime())
+	})
+
+	var cnt = 0
+
+	for _, e := range entries {
+		if !strings.HasPrefix(e.Name(), logFileNamePrefix) {
+			continue
+		}
+
+		if !strings.HasSuffix(e.Name(), logFileNameSuffix) {
+			continue
+		}
+
+		cnt++
+		if cnt > maxCount || e.ModTime().Before(timeCutoff) {
+			os.Remove(filepath.Join(dirname, e.Name()))
+		}
+	}
 }
 
 var usageTemplate = `{{define "FormatCommand"}}\
@@ -105,6 +186,72 @@ Commands (use --help-full to list all commands):
 {{template "FormatCommandList" .App.Commands}}
 {{end}}\
 `
+
+func levelFilter(level string, writer io.Writer) zerolog.LevelWriter {
+	switch level {
+	case "debug":
+		return levelWriter{zerolog.DebugLevel, writer}
+	case "info":
+		return levelWriter{zerolog.InfoLevel, writer}
+	case "warning":
+		return levelWriter{zerolog.WarnLevel, writer}
+	case "error":
+		return levelWriter{zerolog.ErrorLevel, writer}
+	default:
+		return levelWriter{zerolog.Disabled, writer}
+	}
+}
+
+type levelWriter struct {
+	level  zerolog.Level
+	writer io.Writer
+}
+
+func (l levelWriter) WriteLevel(level zerolog.Level, b []byte) (int, error) {
+	if level >= l.level {
+		return l.writer.Write(b)
+	}
+
+	return len(b), nil
+}
+
+func (l levelWriter) Write(b []byte) (int, error) {
+	return l.writer.Write(b)
+}
+
+type onDemandLogWriter struct {
+	logDir          string
+	logFileBaseName string
+	symlinkName     string
+
+	f    *os.File
+	once sync.Once
+}
+
+func (w *onDemandLogWriter) Write(b []byte) (int, error) {
+	var err error
+
+	w.once.Do(func() {
+		lf := filepath.Join(w.logDir, w.logFileBaseName)
+		w.f, err = os.Create(lf)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "unable to open log file: %v\n", err)
+			return
+		}
+
+		if w.symlinkName != "" {
+			symlink := filepath.Join(w.logDir, w.symlinkName)
+			os.Remove(symlink)
+			os.Symlink(w.logFileBaseName, symlink)
+		}
+	})
+
+	if w.f == nil {
+		return len(b), nil
+	}
+
+	return w.f.Write(b)
+}
 
 func main() {
 	app := cli.App()
