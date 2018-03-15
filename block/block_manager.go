@@ -561,6 +561,14 @@ func (bm *Manager) ListBlocks(prefix string) ([]Info, error) {
 }
 
 func newInfo(blockID string, ndx *blockmgrpb.Index) Info {
+	if inline, ok := ndx.InlineItems[blockID]; ok {
+		return Info{
+			BlockID:     blockID,
+			Length:      int64(len(inline)),
+			Timestamp:   time.Unix(0, int64(ndx.CreateTimeNanos)),
+			PackBlockID: ndx.PackBlockId,
+		}
+	}
 	offset, size := unpackOffsetAndSize(ndx.Items[blockID])
 	return Info{
 		BlockID:     blockID,

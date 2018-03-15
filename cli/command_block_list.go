@@ -56,7 +56,7 @@ func runListBlocksAction(context *kingpin.ParseContext) error {
 			if b.PackBlockID != "" {
 				fmt.Printf("%-34v %10v %v in %v offset %v\n", b.BlockID, b.Length, b.Timestamp.Local().Format(timeFormat), b.PackBlockID, b.PackOffset)
 			} else {
-				fmt.Printf("%-34v %10v %v\n", b.BlockID, b.Length, b.Timestamp.Local().Format(timeFormat))
+				fmt.Printf("%-34v %10v %v (inline)\n", b.BlockID, b.Length, b.Timestamp.Local().Format(timeFormat))
 			}
 		} else {
 			fmt.Printf("%v\n", b.BlockID)
