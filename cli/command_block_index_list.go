@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	blockIndexListCommand = blockIndexCommands.Command("list", "List block indexes").Alias("ls")
+	blockIndexListCommand = blockIndexCommands.Command("list", "List block indexes").Alias("ls").Default()
 	blockIndexListAll     = blockIndexListCommand.Flag("all", "List all blocks, not just active ones").Short('a').Bool()
 	blockIndexListSummary = blockIndexListCommand.Flag("summary", "Display block summary").Bool()
 )

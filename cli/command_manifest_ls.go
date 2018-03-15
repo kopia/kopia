@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	manifestListCommand = manifestCommands.Command("list", "List manifest items").Alias("ls")
+	manifestListCommand = manifestCommands.Command("list", "List manifest items").Alias("ls").Default()
 	manifestListPrefix  = manifestListCommand.Flag("prefix", "Prefix").String()
 	manifestListFilter  = manifestListCommand.Flag("filter", "List of key:value pairs").Strings()
 	manifestListSort    = manifestListCommand.Flag("sort", "List of keys to sort by").Strings()
