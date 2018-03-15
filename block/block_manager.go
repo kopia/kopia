@@ -273,19 +273,9 @@ func (bm *Manager) writePackIndexes(ndx []*blockmgrpb.Index, replacesBlockBefore
 	return bm.writeUnpackedBlockNotLocked(data, indexBlockPrefix+inverseTimePrefix, suffix, true)
 }
 
-func (bm *Manager) finishAllOpenPacksLocked() error {
-	// finish non-pack groups first.
-	if bm.currentPackIndex != nil {
-		if err := bm.finishPackLocked(); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (bm *Manager) finishPackLocked() error {
 	if len(bm.currentPackIndex.Items)+len(bm.currentPackIndex.DeletedItems)+len(bm.currentPackIndex.InlineItems) > 0 {
+		log.Debug().Int("items", len(bm.currentPackIndex.Items)).Int("deleted", len(bm.currentPackIndex.DeletedItems)).Int("inline", len(bm.currentPackIndex.InlineItems)).Msg("finishing pack")
 		if len(bm.currentPackData) < bm.maxInlineContentLength {
 			for k, os := range bm.currentPackIndex.Items {
 				offset, size := unpackOffsetAndSize(os)
@@ -317,6 +307,8 @@ func (bm *Manager) finishPackLocked() error {
 		}
 
 		bm.pendingPackIndexes = append(bm.pendingPackIndexes, bm.currentPackIndex)
+	} else {
+		log.Printf("pack is empty")
 	}
 
 	bm.startPackIndexLocked()
@@ -612,7 +604,7 @@ func (bm *Manager) Flush() error {
 	bm.lock()
 	defer bm.unlock()
 
-	if err := bm.finishAllOpenPacksLocked(); err != nil {
+	if err := bm.finishPackLocked(); err != nil {
 		return err
 	}
 

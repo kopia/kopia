@@ -20,6 +20,7 @@ import (
 var ErrNotFound = errors.New("not found")
 
 const manifestBlockPrefix = "m"
+const autoCompactionBlockCount = 16
 
 // Manager organizes JSON manifests of various kinds, including snapshot manifests
 type Manager struct {
@@ -153,6 +154,10 @@ func (m *Manager) Flush() error {
 		return err
 	}
 
+	if blockID == "" {
+		return nil
+	}
+
 	m.blockIDs = append(m.blockIDs, blockID)
 	return nil
 }
@@ -215,7 +220,20 @@ func (m *Manager) load() error {
 	}
 
 	log.Printf("found %v manifest blocks", len(blocks))
-	return m.loadManifestBlocks(blocks)
+
+	if err := m.loadManifestBlocks(blocks); err != nil {
+		return fmt.Errorf("unable to load manifest blocks: %v", err)
+	}
+
+	if len(blocks) > autoCompactionBlockCount {
+		log.Debug().Int("blocks", len(blocks)).Msg("performing automatic compaction")
+		if err := m.compactLocked(); err != nil {
+			return fmt.Errorf("unable to compact manifest blocks: %v", err)
+		}
+		m.b.Flush()
+	}
+
+	return nil
 }
 
 func (m *Manager) loadManifestBlocks(blocks []block.Info) error {
@@ -228,18 +246,20 @@ func (m *Manager) loadManifestBlocks(blocks []block.Info) error {
 
 	for i := 0; i < 8; i++ {
 		wg.Add(1)
-		go func() {
+		go func(workerID int) {
 			defer wg.Done()
 
 			for blk := range blockIDs {
+				t0 := time.Now()
 				man, err := m.loadManifestBlock(blk)
+				log.Debug().Dur("duration", time.Since(t0)).Str("blk", blk).Int("worker", workerID).Msg("manifest block loaded")
 				if err != nil {
 					errors <- err
 				} else {
 					manifests <- man
 				}
 			}
-		}()
+		}(i)
 	}
 
 	// feed block IDs for goroutines
@@ -256,6 +276,10 @@ func (m *Manager) loadManifestBlocks(blocks []block.Info) error {
 	// if there was any error, forward it
 	if err := <-errors; err != nil {
 		return err
+	}
+
+	for _, b := range blocks {
+		m.blockIDs = append(m.blockIDs, b.BlockID)
 	}
 
 	for man := range manifests {
@@ -303,6 +327,12 @@ func (m *Manager) loadManifestBlock(blockID string) (manifest, error) {
 func (m *Manager) Compact() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	return m.compactLocked()
+}
+
+func (m *Manager) compactLocked() error {
+	log.Printf("compactLocked: pendingEntries=%v blockIDs=%v", len(m.pendingEntries), len(m.blockIDs))
 
 	if len(m.blockIDs) == 1 && len(m.pendingEntries) == 0 {
 		return nil

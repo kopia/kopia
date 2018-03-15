@@ -449,9 +449,10 @@ func (u *Uploader) processUploadWorkItems(workItems []*uploadWorkItem, dw *dir.W
 			defer wg.Done()
 
 			for it := range ch {
-				log.Debug().Msgf("worker %v processing %v", workerID, it.entryRelativePath)
+				log.Debug().Int("worker", workerID).Str("path", it.entryRelativePath).Msg("processing")
+				t0 := time.Now()
 				it.resultChan <- it.uploadFunc()
-				log.Debug().Msgf("worker %v finished processing %v", workerID, it.entryRelativePath)
+				log.Debug().Int("worker", workerID).Str("path", it.entryRelativePath).Dur("duration", time.Since(t0)).Msg("finished processing")
 			}
 		}(i)
 	}
