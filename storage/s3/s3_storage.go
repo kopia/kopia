@@ -32,7 +32,9 @@ func (s *s3Storage) GetBlock(b string, offset, length int64) ([]byte, error) {
 	attempt := func() (interface{}, error) {
 		var opt minio.GetObjectOptions
 		if length > 0 {
-			opt.SetRange(offset, offset+length)
+			if err := opt.SetRange(offset, offset+length); err != nil {
+				return nil, fmt.Errorf("unable to set range: %v", err)
+			}
 		}
 
 		o, err := s.cli.GetObject(s.BucketName, s.getObjectNameString(b), opt)
@@ -40,7 +42,7 @@ func (s *s3Storage) GetBlock(b string, offset, length int64) ([]byte, error) {
 			return 0, err
 		}
 
-		defer o.Close()
+		defer o.Close() //nolint:errcheck
 		throttled, err := s.downloadThrottler.AddReader(o)
 		if err != nil {
 			return nil, err

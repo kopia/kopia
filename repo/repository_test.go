@@ -47,7 +47,7 @@ func setupTestWithData(t *testing.T, data map[string][]byte, keyTime map[string]
 	ctx := context.Background()
 
 	r, err := connect(ctx, st, creds, &Options{
-	//TraceStorage: log.Printf,
+		//TraceStorage: log.Printf,
 	}, block.CachingOptions{})
 	if err != nil {
 		t.Fatalf("can't connect: %v", err)
@@ -195,20 +195,12 @@ func TestPackingSimple(t *testing.T) {
 	if err := repo.Blocks.CompactIndexes(); err != nil {
 		t.Errorf("optimize error: %v", err)
 	}
-	data, _, repo = setupTestWithData(t, data, keyTime, func(n *NewRepositoryOptions) {
+	_, _, repo = setupTestWithData(t, data, keyTime, func(n *NewRepositoryOptions) {
 	})
 
 	verify(t, repo, oid1a, []byte(content1), "packed-object-1")
 	verify(t, repo, oid2a, []byte(content2), "packed-object-2")
 	verify(t, repo, oid3a, []byte(content3), "packed-object-3")
-}
-
-func indirectionLevel(oid object.ID) int {
-	if oid.Indirect == nil {
-		return 0
-	}
-
-	return 1 + indirectionLevel(*oid.Indirect)
 }
 
 func TestHMAC(t *testing.T) {

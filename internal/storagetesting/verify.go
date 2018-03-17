@@ -26,7 +26,9 @@ func VerifyStorage(t *testing.T, r storage.Storage) {
 
 	// Now add blocks.
 	for _, b := range blocks {
-		r.PutBlock(b.blk, b.contents)
+		if err := r.PutBlock(b.blk, b.contents); err != nil {
+			t.Errorf("can't put block: %v", err)
+		}
 
 		AssertGetBlock(t, r, b.blk, b.contents)
 	}

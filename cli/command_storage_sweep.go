@@ -17,7 +17,7 @@ var (
 
 func runStorageSweepAction(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
-	defer rep.Close()
+	defer rep.Close() //nolint: errcheck
 
 	indexBlocks, err := rep.Blocks.ActiveIndexBlocks()
 	if err != nil {

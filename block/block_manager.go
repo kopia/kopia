@@ -26,7 +26,6 @@ const (
 	flushPackIndexTimeout    = 10 * time.Minute // time after which all pending indexes are flushes
 	indexBlockPrefix         = "i"              // prefix for all storage blocks that are pack indexes
 	compactedBlockSuffix     = "-z"
-	maxIndexBlockUploadTime  = 1 * time.Minute
 	defaultMinPreambleLength = 32
 	defaultMaxPreambleLength = 32
 	defaultPaddingUnit       = 4096
@@ -37,11 +36,6 @@ const (
 )
 
 var zeroTime time.Time
-
-type blockLocation struct {
-	packIndex   int
-	objectIndex int
-}
 
 // Info is an information about a single block managed by Manager.
 type Info struct {
@@ -175,14 +169,39 @@ func (bm *Manager) ResetStats() {
 	bm.stats = Stats{}
 }
 
-// Close closes block manager.
-func (bm *Manager) close() error {
-	return bm.cache.close()
-}
-
 func (bm *Manager) verifyInvariantsLocked() {
 	bm.assertLocked()
 
+	bm.verifyEachBlockHasTargetIndexEntryLocked()
+	bm.verifyPackBlockIndexLocked()
+	bm.verifyPendingPackIndexesAreRegisteredLocked()
+}
+
+func (bm *Manager) verifyPendingPackIndexesAreRegisteredLocked() {
+	// each pending pack index is registered
+	for _, p := range bm.pendingPackIndexes {
+		for blkID := range p.Items {
+			if _, ok := bm.blockIDToIndex[blkID]; !ok {
+				bm.invariantViolated("invariant violated - pending block %q not in index", blkID)
+			}
+		}
+		for blkID := range p.InlineItems {
+			if _, ok := bm.blockIDToIndex[blkID]; !ok {
+				bm.invariantViolated("invariant violated - pending inline block %q not in index", blkID)
+			}
+		}
+	}
+}
+
+func (bm *Manager) verifyPackBlockIndexLocked() {
+	for packBlockID, ndx := range bm.packBlockIDToIndex {
+		if ndx.PackBlockId != packBlockID {
+			bm.invariantViolated("invariant violated - pack %q not matching its pack block ID", packBlockID)
+		}
+	}
+}
+
+func (bm *Manager) verifyEachBlockHasTargetIndexEntryLocked() {
 	// verify that each block in blockIDToIndex has a corresponding entry in the target index.
 	for blkID, ndx := range bm.blockIDToIndex {
 		if os, ok := ndx.Items[blkID]; ok {
@@ -201,26 +220,6 @@ func (bm *Manager) verifyInvariantsLocked() {
 		}
 
 		bm.invariantViolated("invariant violated - block %q not found within its pack", blkID)
-	}
-
-	for packBlockID, ndx := range bm.packBlockIDToIndex {
-		if ndx.PackBlockId != packBlockID {
-			bm.invariantViolated("invariant violated - pack %q not matching its pack block ID", packBlockID)
-		}
-	}
-
-	// each pending pack index is registered
-	for _, p := range bm.pendingPackIndexes {
-		for blkID := range p.Items {
-			if _, ok := bm.blockIDToIndex[blkID]; !ok {
-				bm.invariantViolated("invariant violated - pending block %q not in index", blkID)
-			}
-		}
-		for blkID := range p.InlineItems {
-			if _, ok := bm.blockIDToIndex[blkID]; !ok {
-				bm.invariantViolated("invariant violated - pending inline block %q not in index", blkID)
-			}
-		}
 	}
 }
 
@@ -588,23 +587,7 @@ func (bm *Manager) compactIndexes(merged []*blockmgrpb.Index, blockIDs []string,
 	}
 
 	_, err := bm.writePackIndexes(merged, &latestBlockTime)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func makeStringChannel(s []string) <-chan string {
-	ch := make(chan string)
-	go func() {
-		defer close(ch)
-
-		for _, v := range s {
-			ch <- v
-		}
-	}()
-	return ch
+	return err
 }
 
 // Flush completes writing any pending packs and writes pack indexes to the underlyign storage.
@@ -792,11 +775,7 @@ func (bm *Manager) BlockInfo(blockID string) (Info, error) {
 func (bm *Manager) findIndexForBlockLocked(blockID string) *blockmgrpb.Index {
 	bm.assertLocked()
 
-	if ndx := bm.blockIDToIndex[blockID]; ndx != nil {
-		return ndx
-	}
-
-	return nil
+	return bm.blockIDToIndex[blockID]
 }
 
 func (bm *Manager) blockInfoLocked(blockID string) (Info, error) {

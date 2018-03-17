@@ -57,14 +57,19 @@ func mountDirectoryWebDAV(entry fs.Directory, mountPoint string) error {
 	go func() {
 		defer wg.Done()
 		fmt.Fprintf(os.Stderr, "Server listening at http://%v/ Press Ctrl-C to shut down.\n", s.Addr)
-		s.ListenAndServe()
-		fmt.Println("Server shut down.")
+		if err := s.ListenAndServe(); err != nil {
+			log.Warn().Err(err).Msg("server shut down with error")
+		}
 	}()
 
-	browseMount(mountPoint, fmt.Sprintf("http://%v", s.Addr))
+	if err := browseMount(mountPoint, fmt.Sprintf("http://%v", s.Addr)); err != nil {
+		log.Warn().Err(err).Str("addr", s.Addr).Msg("unable to browse")
+	}
 
 	// Shut down the server and wait for it.
-	s.Shutdown(context.Background())
+	if err := s.Shutdown(context.Background()); err != nil {
+		log.Warn().Err(err).Msg("shutdown failed")
+	}
 	wg.Wait()
 	return nil
 }

@@ -146,7 +146,7 @@ func findAliveBlocks(ctx *cleanupContext, wi *cleanupWorkItem) error {
 
 func runCleanupCommand(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
-	defer rep.Close()
+	defer rep.Close() //nolint: errcheck
 
 	mgr := snapshot.NewManager(rep)
 
@@ -197,7 +197,9 @@ func runCleanupCommand(context *kingpin.ParseContext) error {
 	for i := 0; i < workerCount; i++ {
 		go func(workerID int) {
 			for wi, ok := ctx.queue.get(); ok; wi, ok = ctx.queue.get() {
-				findAliveBlocks(ctx, wi)
+				if err := findAliveBlocks(ctx, wi); err != nil {
+					log.Warn().Err(err).Msg("can't find alive blocks")
+				}
 				ctx.queue.finished()
 			}
 			defer wg.Done()
@@ -232,7 +234,9 @@ func runCleanupCommand(context *kingpin.ParseContext) error {
 
 	log.Printf("Found %v in-use objects in %v blocks in %v", len(ctx.queue.visited), len(ctx.inuse), dt)
 
-	rep.Blocks.CompactIndexes()
+	if err := rep.Blocks.CompactIndexes(); err != nil {
+		log.Warn().Err(err).Msg("can't compact indexes")
+	}
 
 	var totalBlocks int
 	var totalBytes int64

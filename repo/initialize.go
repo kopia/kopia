@@ -104,7 +104,7 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) *config.Reposi
 
 func randomBytes(n int) []byte {
 	b := make([]byte, n)
-	io.ReadFull(rand.Reader, b)
+	io.ReadFull(rand.Reader, b) //nolint:errcheck
 	return b
 }
 

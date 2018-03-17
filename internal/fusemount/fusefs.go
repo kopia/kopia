@@ -41,7 +41,7 @@ func (f *fuseFileNode) ReadAll(ctx context.Context) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer reader.Close()
+	defer reader.Close() //nolint:errcheck
 
 	return ioutil.ReadAll(reader)
 }

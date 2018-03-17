@@ -53,7 +53,7 @@ func LoadFromFile(fileName string) (*LocalConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck
 
 	var lc LocalConfig
 

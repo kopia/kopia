@@ -16,7 +16,7 @@ var (
 
 func runShowBlockCommand(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
-	defer rep.Close()
+	defer rep.Close() //nolint: errcheck
 
 	for _, blockID := range *showBlockIDs {
 		if err := showBlock(rep, blockID); err != nil {

@@ -19,7 +19,7 @@ func (s *mapStorage) GetBlock(id string, offset, length int64) ([]byte, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	data, ok := s.data[string(id)]
+	data, ok := s.data[id]
 	if ok {
 		if length < 0 {
 			return data, nil
@@ -39,7 +39,7 @@ func (s *mapStorage) PutBlock(id string, data []byte) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if _, ok := s.data[string(id)]; ok {
+	if _, ok := s.data[id]; ok {
 		return nil
 	}
 
@@ -52,7 +52,7 @@ func (s *mapStorage) DeleteBlock(id string) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	delete(s.data, string(id))
+	delete(s.data, id)
 	return nil
 }
 
@@ -66,7 +66,7 @@ func (s *mapStorage) ListBlocks(prefix string) (<-chan storage.BlockMetadata, st
 
 		keys := []string{}
 		for k := range s.data {
-			if strings.HasPrefix(k, string(prefix)) {
+			if strings.HasPrefix(k, prefix) {
 				keys = append(keys, k)
 			}
 		}
@@ -79,7 +79,7 @@ func (s *mapStorage) ListBlocks(prefix string) (<-chan storage.BlockMetadata, st
 			case <-cancelled:
 				return
 			case ch <- storage.BlockMetadata{
-				BlockID:   string(k),
+				BlockID:   k,
 				Length:    int64(len(v)),
 				TimeStamp: s.keyTime[k],
 			}:

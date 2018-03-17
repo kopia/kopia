@@ -14,7 +14,7 @@ var (
 
 func runRemoveBlockCommand(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
-	defer rep.Close()
+	defer rep.Close() //nolint: errcheck
 
 	for _, blockID := range *removeBlockIDs {
 		if err := removeBlock(rep, blockID); err != nil {

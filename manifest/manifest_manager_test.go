@@ -15,9 +15,9 @@ import (
 func TestManifest(t *testing.T) {
 	data := map[string][]byte{}
 	keyTime := map[string]time.Time{}
-	mgr, err := newManagerForTesting(t, data, keyTime)
-	if err != nil {
-		t.Fatalf("unable to open block manager: %v", mgr)
+	mgr, setupErr := newManagerForTesting(t, data, keyTime)
+	if setupErr != nil {
+		t.Fatalf("unable to open block manager: %v", setupErr)
 	}
 
 	item1 := map[string]int{"foo": 1, "bar": 2}
@@ -69,9 +69,9 @@ func TestManifest(t *testing.T) {
 
 	// flush underlying block manager and verify in new manifest manager.
 	mgr.b.Flush()
-	mgr2, err := newManagerForTesting(t, data, keyTime)
-	if err != nil {
-		t.Fatalf("can't open block manager: %v", err)
+	mgr2, setupErr := newManagerForTesting(t, data, keyTime)
+	if setupErr != nil {
+		t.Fatalf("can't open block manager: %v", setupErr)
 	}
 	for _, tc := range cases {
 		verifyMatches(t, mgr2, tc.criteria, tc.expected)

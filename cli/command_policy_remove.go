@@ -19,7 +19,7 @@ func init() {
 
 func removePolicy(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
-	defer rep.Close()
+	defer rep.Close() //nolint: errcheck
 
 	mgr := snapshot.NewPolicyManager(rep)
 

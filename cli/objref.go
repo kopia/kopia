@@ -33,10 +33,10 @@ func parseObjectID(mgr *snapshot.Manager, id string) (object.ID, error) {
 	return parseNestedObjectID(dir, tail)
 }
 
+//nolint:interfacer
 func parseNestedObjectID(startingDir fs.Directory, id string) (object.ID, error) {
 	head, tail := splitHeadTail(id)
-	var current fs.Entry
-	current = startingDir
+	var current fs.Entry = startingDir
 	for head != "" {
 		dir, ok := current.(fs.Directory)
 		if !ok {

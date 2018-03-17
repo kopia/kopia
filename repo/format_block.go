@@ -127,8 +127,10 @@ func encryptFormatBytes(f *formatBlock, format *config.RepositoryObjectFormat, k
 		if err != nil {
 			return fmt.Errorf("can't marshal format to JSON: %v", err)
 		}
-
 		aead, authData, err := initCrypto(km)
+		if err != nil {
+			return fmt.Errorf("unable to initialize crypto: %v", err)
+		}
 		nonceLength := aead.NonceSize()
 		noncePlusContentLength := nonceLength + len(content)
 		cipherText := make([]byte, noncePlusContentLength+aead.Overhead())

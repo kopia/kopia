@@ -1,9 +1,7 @@
 package object
 
 import (
-	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"strconv"
 	"strings"
 
@@ -61,10 +59,6 @@ type HasObjectID interface {
 // NullID is the identifier of an null/empty object.
 var NullID ID
 
-var (
-	inlineContentEncoding = base64.RawURLEncoding
-)
-
 // String returns string representation of ObjectID that is suitable for displaying in the UI.
 //
 // Note that the object ID name often contains its encryption key, which is sensitive and can be quite long (~100 characters long).
@@ -99,44 +93,6 @@ func (oid *ID) Validate() error {
 	}
 
 	return nil
-}
-
-// parseNumberUntilComma parses a string of the form "{x},{remainder}" where x is a 64-bit number and remainder is arbitrary string.
-// Returns the number and remainder.
-func parseNumberUntilComma(s string) (int64, string, error) {
-	comma := strings.IndexByte(s, ',')
-	if comma < 0 {
-		return 0, "", errors.New("missing comma")
-	}
-
-	num, err := strconv.ParseInt(s[0:comma], 10, 64)
-	if err != nil {
-		return 0, "", err
-	}
-
-	return num, s[comma+1:], nil
-}
-
-func parseSectionInfoString(s string) (int64, int64, ID, error) {
-	var start, length int64
-	var err error
-
-	start, s, err = parseNumberUntilComma(s[1:])
-	if err != nil {
-		return 0, -1, NullID, err
-	}
-
-	length, s, err = parseNumberUntilComma(s)
-	if err != nil {
-		return 0, -1, NullID, err
-	}
-
-	oid, err := ParseID(s)
-	if err != nil {
-		return 0, -1, NullID, err
-	}
-
-	return start, length, oid, nil
 }
 
 // ParseID converts the specified string into ObjectID.

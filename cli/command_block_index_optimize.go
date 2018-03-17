@@ -10,7 +10,7 @@ var (
 
 func runOptimizeCommand(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
-	defer rep.Close()
+	defer rep.Close() //nolint: errcheck
 
 	return rep.Blocks.CompactIndexes()
 }

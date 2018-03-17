@@ -61,7 +61,7 @@ func makeBuckets() buckets {
 
 func runSnapshotEstimateCommand(c *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
-	defer rep.Close()
+	defer rep.Close() //nolint: errcheck
 
 	pmgr := snapshot.NewPolicyManager(rep)
 

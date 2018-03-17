@@ -48,9 +48,6 @@ type multiResponse struct {
 	Responses []response `xml:"DAV: response"`
 }
 
-func (d *davStorage) propFindSelf(urlStr string) {
-}
-
 type webdavDirEntry struct {
 	name         string
 	length       int64
@@ -69,7 +66,7 @@ func (d *davStorage) propFindChildren(urlStr string) ([]webdavDirEntry, error) {
 		return nil, fmt.Errorf("unable to execute webdav request: %v", err)
 	}
 
-	defer resp.Body.Close()
+	defer resp.Body.Close() // nolint:errcheck
 
 	var ms multiResponse
 	dec := xml.NewDecoder(resp.Body)

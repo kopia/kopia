@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/storage"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -40,33 +41,33 @@ func (fs *fsStorage) GetBlock(blockID string, offset, length int64) ([]byte, err
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck
 
 	if length < 0 {
 		return ioutil.ReadAll(f)
 	}
 
-	f.Seek(offset, os.SEEK_SET)
+	if _, err := f.Seek(offset, io.SeekStart); err != nil {
+		return nil, err
+	}
 	return ioutil.ReadAll(io.LimitReader(f, length))
 }
 
 func getstringFromFileName(name string) (string, bool) {
 	if strings.HasSuffix(name, fsStorageChunkSuffix) {
-		return string(name[0 : len(name)-len(fsStorageChunkSuffix)]), true
+		return name[0 : len(name)-len(fsStorageChunkSuffix)], true
 	}
 
 	return string(""), false
 }
 
 func makeFileName(blockID string) string {
-	return string(blockID) + fsStorageChunkSuffix
+	return blockID + fsStorageChunkSuffix
 }
 
 func (fs *fsStorage) ListBlocks(prefix string) (<-chan storage.BlockMetadata, storage.CancelFunc) {
 	result := make(chan storage.BlockMetadata)
 	cancelled := make(chan bool)
-
-	prefixString := string(prefix)
 
 	var walkDir func(string, string)
 
@@ -79,17 +80,17 @@ func (fs *fsStorage) ListBlocks(prefix string) (<-chan storage.BlockMetadata, st
 					newPrefix := currentPrefix + e.Name()
 					var match bool
 
-					if len(prefixString) > len(newPrefix) {
-						match = strings.HasPrefix(prefixString, newPrefix)
+					if len(prefix) > len(newPrefix) {
+						match = strings.HasPrefix(prefix, newPrefix)
 					} else {
-						match = strings.HasPrefix(newPrefix, prefixString)
+						match = strings.HasPrefix(newPrefix, prefix)
 					}
 
 					if match {
 						walkDir(directory+"/"+e.Name(), currentPrefix+e.Name())
 					}
 				} else if fullID, ok := getstringFromFileName(currentPrefix + e.Name()); ok {
-					if strings.HasPrefix(string(fullID), prefixString) {
+					if strings.HasPrefix(fullID, prefix) {
 						select {
 						case <-cancelled:
 							return
@@ -117,37 +118,48 @@ func (fs *fsStorage) ListBlocks(prefix string) (<-chan storage.BlockMetadata, st
 }
 
 func (fs *fsStorage) PutBlock(blockID string, data []byte) error {
-	shardPath, path := fs.getShardedPathAndFilePath(blockID)
+	_, path := fs.getShardedPathAndFilePath(blockID)
 
-	// Open temporary file, create dir if required.
 	tempFile := fmt.Sprintf("%s.tmp.%d", path, rand.Int())
-	flags := os.O_CREATE | os.O_WRONLY | os.O_EXCL
-	f, err := os.OpenFile(tempFile, flags, fs.fileMode())
-	if os.IsNotExist(err) {
-		if err = os.MkdirAll(shardPath, fs.dirMode()); err != nil {
-			return fmt.Errorf("cannot create directory: %v", err)
-		}
-		f, err = os.OpenFile(tempFile, flags, fs.fileMode())
-	}
-
+	f, err := fs.createTempFileAndDir(tempFile)
 	if err != nil {
 		return fmt.Errorf("cannot create temporary file: %v", err)
 	}
-
-	f.Write(data)
-	f.Close()
+	if _, err = f.Write(data); err != nil {
+		return fmt.Errorf("can't write temporary file: %v", err)
+	}
+	if err = f.Close(); err != nil {
+		return fmt.Errorf("can't close temporary file: %v", err)
+	}
 
 	err = os.Rename(tempFile, path)
 	if err != nil {
-		os.Remove(tempFile)
+		if removeErr := os.Remove(tempFile); removeErr != nil {
+			log.Warn().Err(removeErr).Msg("can't remove temp file")
+		}
 		return err
 	}
 
 	if fs.FileUID != nil && fs.FileGID != nil && os.Geteuid() == 0 {
-		os.Chown(path, *fs.FileUID, *fs.FileGID)
+		if chownErr := os.Chown(path, *fs.FileUID, *fs.FileGID); chownErr != nil {
+			log.Warn().Err(chownErr).Msg("can't change file permissions")
+		}
 	}
 
 	return nil
+}
+
+func (fs *fsStorage) createTempFileAndDir(tempFile string) (*os.File, error) {
+	flags := os.O_CREATE | os.O_WRONLY | os.O_EXCL
+	f, err := os.OpenFile(tempFile, flags, fs.fileMode())
+	if os.IsNotExist(err) {
+		if err = os.MkdirAll(filepath.Dir(tempFile), fs.dirMode()); err != nil {
+			return nil, fmt.Errorf("cannot create directory: %v", err)
+		}
+		return os.OpenFile(tempFile, flags, fs.fileMode())
+	}
+
+	return f, err
 }
 
 func (fs *fsStorage) DeleteBlock(blockID string) error {
@@ -162,16 +174,15 @@ func (fs *fsStorage) DeleteBlock(blockID string) error {
 
 func (fs *fsStorage) getShardDirectory(blockID string) (string, string) {
 	shardPath := fs.Path
-	blockIDString := string(blockID)
-	if len(blockIDString) < 20 {
+	if len(blockID) < 20 {
 		return shardPath, blockID
 	}
 	for _, size := range fs.shards() {
-		shardPath = filepath.Join(shardPath, blockIDString[0:size])
-		blockIDString = blockIDString[size:]
+		shardPath = filepath.Join(shardPath, blockID[0:size])
+		blockID = blockID[size:]
 	}
 
-	return shardPath, string(blockIDString)
+	return shardPath, blockID
 }
 
 func (fs *fsStorage) getShardedPathAndFilePath(blockID string) (string, string) {

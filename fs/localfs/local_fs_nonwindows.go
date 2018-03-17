@@ -9,11 +9,9 @@ import (
 	"github.com/kopia/kopia/fs"
 )
 
-func populatePlatformSpecificEntryDetails(e *fs.EntryMetadata, fi os.FileInfo) error {
+func populatePlatformSpecificEntryDetails(e *fs.EntryMetadata, fi os.FileInfo) {
 	if stat, ok := fi.Sys().(*syscall.Stat_t); ok {
 		e.UserID = stat.Uid
 		e.GroupID = stat.Gid
 	}
-
-	return nil
 }

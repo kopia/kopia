@@ -39,9 +39,7 @@ func (hcw *writer) WriteEntry(e Entry) error {
 		hcw.lastNameWritten = e.Name
 	}
 
-	hcw.writer.Write(&e)
-
-	return nil
+	return hcw.writer.Write(&e)
 }
 
 // Finalize closes hashcache stream and must be invoked after emitting all entries.

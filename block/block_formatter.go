@@ -4,7 +4,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/hmac"
-	"crypto/md5"
+	"crypto/md5" //nolint:gas
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -150,7 +150,7 @@ const DefaultFormat = "ENCRYPTED_HMAC_SHA256_AES256_SIV"
 func computeHash(hf func() hash.Hash, truncate int) digestFunction {
 	return func(b []byte) []byte {
 		h := hf()
-		h.Write(b)
+		h.Write(b) // nolint:errcheck
 		return h.Sum(nil)[0:truncate]
 	}
 }
@@ -159,7 +159,7 @@ func computeHash(hf func() hash.Hash, truncate int) digestFunction {
 func computeHMAC(hf func() hash.Hash, secret []byte, truncate int) digestFunction {
 	return func(b []byte) []byte {
 		h := hmac.New(hf, secret)
-		h.Write(b)
+		h.Write(b) // nolint:errcheck
 		return h.Sum(nil)[0:truncate]
 	}
 }

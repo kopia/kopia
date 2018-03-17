@@ -19,7 +19,7 @@ var (
 
 func runListBlocksAction(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
-	defer rep.Close()
+	defer rep.Close() //nolint: errcheck
 
 	blocks, err := rep.Blocks.ListBlocks(*blockListPrefix)
 	if err != nil {

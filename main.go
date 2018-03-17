@@ -79,7 +79,9 @@ func initializeLogging(ctx *kingpin.ParseContext) error {
 	if logFileName != "" {
 		logFileDir := filepath.Dir(logFileName)
 		logFileBaseName := filepath.Base(logFileName)
-		os.MkdirAll(logFileDir, 0755)
+		if err := os.MkdirAll(logFileDir, 0700); err != nil {
+			fmt.Fprintln(os.Stderr, "Unable to create logs directory:", err)
+		}
 
 		logWriters = append(logWriters,
 			levelFilter(
@@ -138,7 +140,9 @@ func sweepLogDir(dirname string, maxCount int, maxAge time.Duration) {
 
 		cnt++
 		if cnt > maxCount || e.ModTime().Before(timeCutoff) {
-			os.Remove(filepath.Join(dirname, e.Name()))
+			if err = os.Remove(filepath.Join(dirname, e.Name())); err != nil {
+				log.Warn().Err(err).Msg("unable to remove log file")
+			}
 		}
 	}
 }
@@ -241,8 +245,8 @@ func (w *onDemandLogWriter) Write(b []byte) (int, error) {
 
 		if w.symlinkName != "" {
 			symlink := filepath.Join(w.logDir, w.symlinkName)
-			os.Remove(symlink)
-			os.Symlink(w.logFileBaseName, symlink)
+			_ = os.Remove(symlink)                     // best-effort remove
+			_ = os.Symlink(w.logFileBaseName, symlink) // best-effort symlink
 		}
 	})
 
@@ -259,5 +263,4 @@ func main() {
 	app.PreAction(initializeLogging)
 	app.UsageTemplate(usageTemplate)
 	kingpin.MustParse(app.Parse(os.Args[1:]))
-	return
 }

@@ -40,7 +40,9 @@ func (m *Manager) Put(labels map[string]string, payload interface{}) (string, er
 	defer m.mu.Unlock()
 
 	random := make([]byte, 16)
-	rand.Read(random)
+	if _, err := rand.Read(random); err != nil {
+		return "", fmt.Errorf("can't initialize randomness: %v", err)
+	}
 
 	b, err := json.Marshal(payload)
 	if err != nil {
@@ -177,8 +179,12 @@ func (m *Manager) flushPendingEntriesLocked() (string, error) {
 	if err := json.NewEncoder(gz).Encode(man); err != nil {
 		return "", fmt.Errorf("unable to marshal: %v", err)
 	}
-	gz.Flush()
-	gz.Close()
+	if err := gz.Flush(); err != nil {
+		return "", fmt.Errorf("unable to flush: %v", err)
+	}
+	if err := gz.Close(); err != nil {
+		return "", fmt.Errorf("unable to close: %v", err)
+	}
 
 	blockID, err := m.b.WriteBlock(buf.Bytes(), manifestBlockPrefix)
 	if err != nil {
@@ -230,7 +236,10 @@ func (m *Manager) load() error {
 		if err := m.compactLocked(); err != nil {
 			return fmt.Errorf("unable to compact manifest blocks: %v", err)
 		}
-		m.b.Flush()
+
+		if err := m.b.Flush(); err != nil {
+			return fmt.Errorf("unable to flush blocks after auto-compaction: %v", err)
+		}
 	}
 
 	return nil
@@ -250,9 +259,9 @@ func (m *Manager) loadManifestBlocks(blocks []block.Info) error {
 			defer wg.Done()
 
 			for blk := range blockIDs {
-				t0 := time.Now()
+				t1 := time.Now()
 				man, err := m.loadManifestBlock(blk)
-				log.Debug().Dur("duration", time.Since(t0)).Str("blk", blk).Int("worker", workerID).Msg("manifest block loaded")
+				log.Debug().Dur("duration", time.Since(t1)).Str("blk", blk).Int("worker", workerID).Msg("manifest block loaded")
 				if err != nil {
 					errors <- err
 				} else {
@@ -366,18 +375,16 @@ func (m *Manager) compactLocked() error {
 	return nil
 }
 
-func (m *Manager) mergeEntry(e *manifestEntry) error {
+func (m *Manager) mergeEntry(e *manifestEntry) {
 	prev := m.entries[e.ID]
 	if prev == nil {
 		m.entries[e.ID] = e
-		return nil
+		return
 	}
 
 	if e.ModTime.After(prev.ModTime) {
 		m.entries[e.ID] = e
 	}
-
-	return nil
 }
 
 func copyLabels(m map[string]string) map[string]string {

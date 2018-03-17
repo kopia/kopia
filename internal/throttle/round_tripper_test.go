@@ -51,7 +51,7 @@ func TestRoundTripper(t *testing.T) {
 	uploadPool := &fakePool{}
 	rt := NewRoundTripper(base, downloadPool, uploadPool)
 
-	// Empty request (no request, no reponse)
+	// Empty request (no request, no response)
 	uploadPool.reset()
 	downloadPool.reset()
 	req1, resp1 := base.add(&http.Request{}, &http.Response{})

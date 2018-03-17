@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"path/filepath"
+	"time"
 
 	"github.com/rs/zerolog/log"
 
@@ -38,6 +39,11 @@ type FilesPolicy struct {
 	Include []string `json:"include,omitempty"`
 	Exclude []string `json:"exclude,omitempty"`
 	MaxSize *int     `json:"maxSize,omitempty"`
+}
+
+// SchedulingPolicy describes policy for scheduling snapshots.
+type SchedulingPolicy struct {
+	Frequency time.Duration `json:"frequency"`
 }
 
 // ShouldInclude determines whether given filesystem entry should be included based on the policy.
@@ -75,10 +81,11 @@ var defaultFilesPolicy = &FilesPolicy{}
 
 // Policy describes snapshot policy for a single source.
 type Policy struct {
-	Labels          map[string]string `json:"-"`
-	RetentionPolicy RetentionPolicy   `json:"retention"`
-	FilesPolicy     FilesPolicy       `json:"files"`
-	NoParent        bool              `json:"noParent,omitempty"`
+	Labels           map[string]string `json:"-"`
+	RetentionPolicy  RetentionPolicy   `json:"retention"`
+	FilesPolicy      FilesPolicy       `json:"files"`
+	SchedulingPolicy SchedulingPolicy  `json:"scheduling"`
+	NoParent         bool              `json:"noParent,omitempty"`
 }
 
 func (p *Policy) String() string {
@@ -86,7 +93,9 @@ func (p *Policy) String() string {
 
 	e := json.NewEncoder(&buf)
 	e.SetIndent("", "  ")
-	e.Encode(p)
+	if err := e.Encode(p); err != nil {
+		log.Warn().Err(err).Msg("unable to policy as JSON")
+	}
 	return buf.String()
 }
 

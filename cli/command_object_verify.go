@@ -101,7 +101,7 @@ func (v *verifier) verifyObject(oid object.ID, path string, expectedLength int64
 
 func runVerifyCommand(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
-	defer rep.Close()
+	defer rep.Close() //nolint: errcheck
 
 	mgr := snapshot.NewManager(rep)
 
@@ -118,10 +118,14 @@ func runVerifyCommand(context *kingpin.ParseContext) error {
 	}
 
 	if *verifyCommandRecursive {
-		v.verifyDirectory(oid, oid.String())
+		_ = v.verifyDirectory(oid, oid.String())
 	}
 
-	v.verifyObject(oid, oid.String(), -1)
+	if err := v.verifyObject(oid, oid.String(), -1); err != nil {
+		if v.reportError(".", err) {
+			return err
+		}
+	}
 
 	if len(v.errors) == 0 {
 		return nil

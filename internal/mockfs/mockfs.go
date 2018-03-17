@@ -162,8 +162,7 @@ func (imd *Directory) Readdir() (fs.Entries, error) {
 type File struct {
 	entry
 
-	source     func() (ReaderSeekerCloser, error)
-	closeError error
+	source func() (ReaderSeekerCloser, error)
 }
 
 type fileReader struct {
@@ -190,7 +189,6 @@ func (imf *File) Open() (fs.Reader, error) {
 
 type inmemorySymlink struct {
 	entry
-	target string
 }
 
 func (imsl *inmemorySymlink) Readlink() (string, error) {

@@ -37,7 +37,9 @@ func showManifestItems(context *kingpin.ParseContext) error {
 		for k, v := range md.Labels {
 			fmt.Fprintf(os.Stderr, "// label %v:%v\n", k, v)
 		}
-		showContentWithFlags(bytes.NewReader(b), false, true)
+		if showerr := showContentWithFlags(bytes.NewReader(b), false, true); showerr != nil {
+			return showerr
+		}
 	}
 
 	return nil

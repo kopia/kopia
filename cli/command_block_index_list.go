@@ -16,7 +16,7 @@ var (
 
 func runListBlockIndexesAction(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
-	defer rep.Close()
+	defer rep.Close() //nolint: errcheck
 
 	var blks []block.Info
 	var err error

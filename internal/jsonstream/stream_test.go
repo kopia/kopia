@@ -33,7 +33,7 @@ func TestStream(t *testing.T) {
 		}
 	}
 	w.Finalize()
-	log.Printf("wrote: %v", string(buf.Bytes()))
+	log.Printf("wrote: %v", buf.String())
 	r, err := NewReader(bufio.NewReader(&buf), testHeader1)
 	if err != nil {
 		t.Errorf("err: %v", err)
@@ -41,8 +41,8 @@ func TestStream(t *testing.T) {
 	}
 	for _, d := range data {
 		v := &TestObj{}
-		if err := r.Read(v); err != nil {
-			t.Errorf("read error: %v", err)
+		if readerr := r.Read(v); readerr != nil {
+			t.Errorf("read error: %v", readerr)
 		}
 		if v.Name != d.Name {
 			t.Errorf("invalid value: '%v', expected '%v'", v.Name, d.Name)

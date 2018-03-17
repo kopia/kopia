@@ -1,10 +1,12 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"runtime"
 
+	"github.com/rs/zerolog/log"
 	"github.com/skratchdot/open-golang/open"
 )
 
@@ -29,7 +31,7 @@ func browseMount(mountPoint string, addr string) error {
 }
 
 func openInWebBrowser(mountPoint string, addr string) error {
-	open.Start(addr)
+	startWebBrowser(addr)
 	waitForCtrlC()
 	return nil
 }
@@ -39,7 +41,7 @@ func openInOSBrowser(mountPoint string, addr string) error {
 		return netUSE(mountPoint, addr)
 	}
 
-	open.Start(addr)
+	startWebBrowser(addr)
 	waitForCtrlC()
 	return nil
 }
@@ -49,16 +51,26 @@ func netUSE(mountPoint string, addr string) error {
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
 	c.Stdin = os.Stdin
-	c.Run()
+	if err := c.Run(); err != nil {
+		return fmt.Errorf("unable to mount: %v", err)
+	}
 
-	open.Start("x:\\")
+	startWebBrowser("x:\\")
 	waitForCtrlC()
 
 	c = exec.Command("net", "use", mountPoint, "/d")
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
 	c.Stdin = os.Stdin
-	c.Run()
+	if err := c.Run(); err != nil {
+		return fmt.Errorf("unable to unmount: %v", err)
+	}
 
 	return nil
+}
+
+func startWebBrowser(url string) {
+	if err := open.Start(url); err != nil {
+		log.Warn().Err(err).Msg("unable to start web browser")
+	}
 }

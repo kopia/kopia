@@ -17,7 +17,7 @@ type objectSplitter interface {
 //
 //    NEVER    - prevents objects from ever splitting
 //    FIXED    - always splits large objects exactly at the maximum block size boundary
-//    DYNAMIC  - dynamicaly splits large objects based on rolling hash of contents.
+//    DYNAMIC  - dynamically splits large objects based on rolling hash of contents.
 var SupportedSplitters []string
 
 var splitterFactories = map[string]func(*config.RepositoryObjectFormat) objectSplitter{
@@ -25,7 +25,7 @@ var splitterFactories = map[string]func(*config.RepositoryObjectFormat) objectSp
 		return newNeverSplitter()
 	},
 	"FIXED": func(f *config.RepositoryObjectFormat) objectSplitter {
-		return newFixedSplitter(int(f.MaxBlockSize))
+		return newFixedSplitter(f.MaxBlockSize)
 	},
 	"DYNAMIC": func(f *config.RepositoryObjectFormat) objectSplitter {
 		return newRollingHashSplitter(buzhash.NewBuzHash(32), f.MinBlockSize, f.AvgBlockSize, f.MaxBlockSize)

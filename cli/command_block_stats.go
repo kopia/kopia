@@ -13,12 +13,11 @@ import (
 var (
 	blockStatsCommand = blockCommands.Command("stats", "Block statistics")
 	blockStatsRaw     = blockStatsCommand.Flag("raw", "Raw numbers").Short('r').Bool()
-	blockStatsGroup   = blockStatsCommand.Flag("group", "Display stats about blocks belonging to a given group").String()
 )
 
 func runBlockStatsAction(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
-	defer rep.Close()
+	defer rep.Close() //nolint: errcheck
 
 	blocks, err := rep.Blocks.ListBlocks("")
 	if err != nil {

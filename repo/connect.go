@@ -2,14 +2,15 @@ package repo
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/kopia/kopia/auth"
+	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/internal/units"
@@ -25,9 +26,7 @@ import (
 type ConnectOptions struct {
 	PersistCredentials bool
 
-	CacheDirectory    string
-	MaxCacheSizeBytes int64
-	MaxListDuration   time.Duration
+	block.CachingOptions
 }
 
 // Connect connects to the repository in the specified storage and persists the configuration and credentials in the file provided.
@@ -59,22 +58,8 @@ func Connect(ctx context.Context, configFile string, st storage.Storage, creds a
 		lc.Connection.Key = nil
 	}
 
-	if opt.MaxCacheSizeBytes > 0 {
-		if opt.CacheDirectory == "" {
-			lc.Caching.CacheDirectory = filepath.Join(ospath.CacheDir(), fmt.Sprintf("%x", f.UniqueID))
-		} else {
-			absCacheDir, err := filepath.Abs(opt.CacheDirectory)
-			if err != nil {
-				return err
-			}
-
-			lc.Caching.CacheDirectory = absCacheDir
-		}
-		lc.Caching.MaxCacheSizeBytes = opt.MaxCacheSizeBytes
-		lc.Caching.MaxListCacheDurationSec = int(opt.MaxListDuration.Seconds())
-
-		log.Printf("Creating cache directory '%v' with max size %v", lc.Caching.CacheDirectory, units.BytesStringBase2(lc.Caching.MaxCacheSizeBytes))
-		os.MkdirAll(lc.Caching.CacheDirectory, 0700)
+	if err = setupCaching(&lc, opt.CachingOptions, f.UniqueID); err != nil {
+		return fmt.Errorf("unable to set up caching: %v", err)
 	}
 
 	d, err := json.MarshalIndent(&lc, "", "  ")
@@ -82,12 +67,12 @@ func Connect(ctx context.Context, configFile string, st storage.Storage, creds a
 		return err
 	}
 
-	if err := os.MkdirAll(filepath.Dir(configFile), 0700); err != nil {
-		return err
+	if err = os.MkdirAll(filepath.Dir(configFile), 0700); err != nil {
+		return fmt.Errorf("unable to create config directory: %v", err)
 	}
 
-	if err := ioutil.WriteFile(configFile, d, 0600); err != nil {
-		return nil
+	if err = ioutil.WriteFile(configFile, d, 0600); err != nil {
+		return fmt.Errorf("unable to write config file: %v", err)
 	}
 
 	// now verify that the repository can be opened with the provided config file.
@@ -100,7 +85,32 @@ func Connect(ctx context.Context, configFile string, st storage.Storage, creds a
 		return err
 	}
 
-	r.Close()
+	return r.Close()
+}
+
+func setupCaching(lc *config.LocalConfig, opt block.CachingOptions, uniqueID []byte) error {
+	if opt.MaxCacheSizeBytes == 0 {
+		lc.Caching = block.CachingOptions{}
+		return nil
+	}
+
+	if opt.CacheDirectory == "" {
+		lc.Caching.CacheDirectory = filepath.Join(ospath.CacheDir(), hex.EncodeToString(uniqueID))
+	} else {
+		absCacheDir, err := filepath.Abs(opt.CacheDirectory)
+		if err != nil {
+			return err
+		}
+
+		lc.Caching.CacheDirectory = absCacheDir
+	}
+	lc.Caching.MaxCacheSizeBytes = opt.MaxCacheSizeBytes
+	lc.Caching.MaxListCacheDurationSec = opt.MaxListCacheDurationSec
+
+	log.Printf("Creating cache directory '%v' with max size %v", lc.Caching.CacheDirectory, units.BytesStringBase2(lc.Caching.MaxCacheSizeBytes))
+	if err := os.MkdirAll(lc.Caching.CacheDirectory, 0700); err != nil {
+		log.Warn().Err(err).Msg("unablet to create cache directory")
+	}
 	return nil
 }
 

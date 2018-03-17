@@ -51,7 +51,7 @@ func findBackups(mgr *snapshot.Manager, sourceInfo snapshot.SourceInfo) (manifes
 
 func runBackupsCommand(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
-	defer rep.Close()
+	defer rep.Close() //nolint: errcheck
 
 	mgr := snapshot.NewManager(rep)
 
@@ -60,7 +60,8 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 	var err error
 
 	if *snapshotListPath != "" {
-		si, err := snapshot.ParseSourceInfo(*snapshotListPath, getHostName(), getUserName())
+		var si snapshot.SourceInfo
+		si, err = snapshot.ParseSourceInfo(*snapshotListPath, getHostName(), getUserName())
 		if err != nil {
 			return fmt.Errorf("invalid directory: '%s': %s", *snapshotListPath, err)
 		}
@@ -69,12 +70,12 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 		if relPath != "" {
 			relPath = "/" + relPath
 		}
+
+		if err != nil {
+			return fmt.Errorf("cannot list snapshots: %v", err)
+		}
 	} else {
 		previous = mgr.ListSnapshotManifests(nil)
-	}
-
-	if err != nil {
-		return fmt.Errorf("cannot list snapshots: %v", err)
 	}
 
 	var lastSource snapshot.SourceInfo

@@ -12,10 +12,6 @@ import (
 	"github.com/kopia/kopia/fs"
 )
 
-const (
-	directoryReadAhead = 1024
-)
-
 type sortedEntries fs.Entries
 
 func (e sortedEntries) Len() int      { return len(e) }
@@ -55,20 +51,20 @@ type filesystemFile struct {
 }
 
 func (fsd *filesystemDirectory) Readdir() (fs.Entries, error) {
-	f, err := os.Open(fsd.path)
-	if err != nil {
-		return nil, err
+	f, direrr := os.Open(fsd.path)
+	if direrr != nil {
+		return nil, direrr
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck
 
 	var entries fs.Entries
 
 	for {
 		fileInfos, err := f.Readdir(16)
 		for _, fi := range fileInfos {
-			e, err := entryFromFileInfo(fi, filepath.Join(fsd.path, fi.Name()), fsd)
-			if err != nil {
-				log.Printf("warning: %v", err)
+			e, fierr := entryFromFileInfo(fi, filepath.Join(fsd.path, fi.Name()), fsd)
+			if fierr != nil {
+				log.Warn().Err(fierr).Str("fname", fi.Name()).Msg("unable to create directory entry")
 				continue
 			}
 			entries = append(entries, e)

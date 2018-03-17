@@ -31,7 +31,11 @@ func newBlockCache(st storage.Storage, caching CachingOptions) (blockCache, erro
 		return nullBlockCache{st}, nil
 	}
 
-	os.MkdirAll(caching.CacheDirectory, 0755)
+	if _, err := os.Stat(caching.CacheDirectory); os.IsNotExist(err) {
+		if err := os.MkdirAll(caching.CacheDirectory, 0700); err != nil {
+			return nil, err
+		}
+	}
 	cacheStorage, err := filesystem.New(context.Background(), &filesystem.Options{
 		Path: caching.CacheDirectory,
 	})

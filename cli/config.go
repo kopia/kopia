@@ -183,12 +183,10 @@ func mustGetLocalFSEntry(path string) fs.Entry {
 // AskPass presents a given prompt and asks the user for password.
 func AskPass(prompt string) (string, error) {
 	for i := 0; i < 5; i++ {
-		b, err := speakeasy.Ask(prompt)
+		p, err := speakeasy.Ask(prompt)
 		if err != nil {
 			return "", err
 		}
-
-		p := string(b)
 
 		if len(p) == 0 {
 			continue

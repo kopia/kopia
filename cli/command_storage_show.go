@@ -16,14 +16,16 @@ var (
 
 func runShowStorageBlocks(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
-	defer rep.Close()
+	defer rep.Close() //nolint: errcheck
 
 	for _, b := range *storageShowBlockIDs {
 		d, err := rep.Storage.GetBlock(b, 0, -1)
 		if err != nil {
 			return fmt.Errorf("error getting %v: %v", b, err)
 		}
-		io.Copy(os.Stdout, bytes.NewReader(d))
+		if _, err := io.Copy(os.Stdout, bytes.NewReader(d)); err != nil {
+			return err
+		}
 	}
 
 	return nil

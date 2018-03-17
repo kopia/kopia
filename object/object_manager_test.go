@@ -321,20 +321,6 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 	}
 }
 
-func writeObject(t *testing.T, om *Manager, data []byte, testCaseID string) ID {
-	w := om.NewWriter(WriterOptions{})
-	if _, err := w.Write(data); err != nil {
-		t.Fatalf("can't write object %q - write failed: %v", testCaseID, err)
-
-	}
-	oid, err := w.Result()
-	if err != nil {
-		t.Fatalf("can't write object %q - result failed: %v", testCaseID, err)
-	}
-
-	return oid
-}
-
 func verify(t *testing.T, om *Manager, objectID ID, expectedData []byte, testCaseID string) {
 	t.Helper()
 	reader, err := om.Open(objectID)

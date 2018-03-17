@@ -45,7 +45,7 @@ func (rd *repositoryDirectory) Readdir() (fs.Entries, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer r.Close()
+	defer r.Close() //nolint:errcheck
 
 	metadata, err := dir.ReadEntries(r)
 	if err != nil {
@@ -75,7 +75,7 @@ func (rsl *repositorySymlink) Readlink() (string, error) {
 		return "", err
 	}
 
-	defer r.Close()
+	defer r.Close() //nolint:errcheck
 	b, err := ioutil.ReadAll(r)
 	if err != nil {
 		return "", err

@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"time"
 
@@ -15,7 +14,6 @@ import (
 	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/config"
-	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/manifest"
 	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/storage"
@@ -92,7 +90,7 @@ func Open(ctx context.Context, configFile string, options *Options) (rep *Reposi
 
 	r, err := connect(ctx, st, creds, options, caching)
 	if err != nil {
-		st.Close()
+		st.Close() //nolint:errcheck
 		return nil, err
 	}
 
@@ -124,30 +122,8 @@ func SetCachingConfig(ctx context.Context, configFile string, opt block.CachingO
 		return fmt.Errorf("can't read format block: %v", err)
 	}
 
-	if opt.MaxCacheSizeBytes > 0 {
-		if opt.CacheDirectory == "" {
-			// derive cache directory from config
-			absConfig, err := filepath.Abs(configFile)
-			if err != nil {
-				return err
-			}
-			lc.Caching.CacheDirectory = filepath.Join(filepath.Dir(absConfig), fmt.Sprintf("cache-%x", f.UniqueID))
-		} else {
-			absCacheDir, err := filepath.Abs(opt.CacheDirectory)
-			if err != nil {
-				return err
-			}
-
-			lc.Caching.CacheDirectory = absCacheDir
-		}
-		lc.Caching.MaxCacheSizeBytes = opt.MaxCacheSizeBytes
-		lc.Caching.MaxListCacheDurationSec = opt.MaxListCacheDurationSec
-
-		log.Printf("Enabling cache directory '%v' with max size %v", lc.Caching.CacheDirectory, units.BytesStringBase2(lc.Caching.MaxCacheSizeBytes))
-		os.MkdirAll(lc.Caching.CacheDirectory, 0700)
-	} else {
-		log.Printf("Disabling caching")
-		lc.Caching = block.CachingOptions{}
+	if err = setupCaching(lc, opt, f.UniqueID); err != nil {
+		return fmt.Errorf("unable to set up caching: %v", err)
 	}
 
 	d, err := json.MarshalIndent(&lc, "", "  ")

@@ -17,7 +17,7 @@ type KeyManager struct {
 func (km *KeyManager) DeriveKey(purpose []byte, length int) []byte {
 	key := make([]byte, length)
 	k := hkdf.New(sha256.New, km.masterKey, km.uniqueID, purpose)
-	io.ReadFull(k, key)
+	io.ReadFull(k, key) //nolint:errcheck
 	return key
 }
 

@@ -183,7 +183,7 @@ func expireSnapshots(pmgr *snapshot.PolicyManager, snapshots []*snapshot.Manifes
 
 func runExpireCommand(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
-	defer rep.Close()
+	defer rep.Close() //nolint: errcheck
 
 	mgr := snapshot.NewManager(rep)
 	pmgr := snapshot.NewPolicyManager(rep)

@@ -19,7 +19,7 @@ var (
 
 func runShowCommand(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
-	defer rep.Close()
+	defer rep.Close() //nolint: errcheck
 
 	mgr := snapshot.NewManager(rep)
 
@@ -44,7 +44,7 @@ func showObject(r *repo.Repository, oid object.ID) error {
 	if err != nil {
 		return err
 	}
-	defer rd.Close()
+	defer rd.Close() //nolint:errcheck
 
 	return showContent(rd)
 }

@@ -33,7 +33,7 @@ func (d *davStorage) executeRequest(req *http.Request, body []byte) (*http.Respo
 
 		if resp.StatusCode >= 500 && resp.StatusCode < 600 {
 			// Retry on server errors.
-			resp.Body.Close()
+			resp.Body.Close() //nolint:errcheck
 			return nil, &retriableError{fmt.Errorf("server returned status %v", resp.StatusCode)}
 		}
 
@@ -61,7 +61,7 @@ func (d *davStorage) executeRequestInternal(req *http.Request, body []byte) (*ht
 		return resp, nil
 	}
 
-	defer resp.Body.Close()
+	defer resp.Body.Close() // nolint:errcheck
 
 	method, params := parseAuthParams(resp.Header.Get("WWW-Authenticate"))
 	switch method {
@@ -133,13 +133,13 @@ func (d *davStorage) executeRequestInternal(req *http.Request, body []byte) (*ht
 
 func makeClientNonce() string {
 	tmp := make([]byte, 8)
-	io.ReadFull(rand.Reader, tmp)
+	io.ReadFull(rand.Reader, tmp) //nolint:errcheck
 	return hex.EncodeToString(tmp)
 }
 
 func h(s string) string {
 	h := md5.New()
-	io.WriteString(h, s)
+	io.WriteString(h, s) //nolint:errcheck
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
 

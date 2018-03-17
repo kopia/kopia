@@ -69,7 +69,7 @@ func (r *objectReader) openCurrentChunk() error {
 	if err != nil {
 		return err
 	}
-	defer blockData.Close()
+	defer blockData.Close() //nolint:errcheck
 
 	b := make([]byte, st.Length)
 	if _, err := io.ReadFull(blockData, b); err != nil {
@@ -137,7 +137,9 @@ func (r *objectReader) Seek(offset int64, whence int) (int64, error) {
 	}
 
 	if r.currentChunkData == nil {
-		r.openCurrentChunk()
+		if err := r.openCurrentChunk(); err != nil {
+			return 0, err
+		}
 	}
 
 	r.currentChunkPosition = int(offset - chunkStartOffset)

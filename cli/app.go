@@ -22,7 +22,7 @@ var (
 )
 
 func helpFullAction(ctx *kingpin.ParseContext) error {
-	app.UsageForContextWithTemplate(ctx, 0, kingpin.DefaultUsageTemplate)
+	_ = app.UsageForContextWithTemplate(ctx, 0, kingpin.DefaultUsageTemplate)
 	os.Exit(0)
 	return nil
 }

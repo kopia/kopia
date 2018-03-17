@@ -17,12 +17,10 @@ var (
 
 func runStatusCommand(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
-	defer rep.Close()
+	defer rep.Close() //nolint: errcheck
 
 	fmt.Printf("Config file:         %v\n", rep.ConfigFile)
 	entries, err := ioutil.ReadDir(rep.CacheDirectory)
-	if err != nil {
-	}
 	if err != nil {
 		fmt.Printf("Cache directory:     %v (error: %v)\n", rep.CacheDirectory, err)
 	} else {

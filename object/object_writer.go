@@ -91,7 +91,7 @@ func (w *objectWriter) flushBuffer() error {
 	w.currentPosition += int64(length)
 
 	var b2 bytes.Buffer
-	w.buffer.WriteTo(&b2)
+	w.buffer.WriteTo(&b2) //nolint:errcheck
 	w.buffer.Reset()
 
 	do := func() {
@@ -128,7 +128,9 @@ func (w *objectWriter) flushBuffer() error {
 
 func (w *objectWriter) Result() (ID, error) {
 	if w.buffer.Len() > 0 || len(w.blockIndex) == 0 {
-		w.flushBuffer()
+		if err := w.flushBuffer(); err != nil {
+			return NullID, err
+		}
 	}
 	w.pendingBlocksWG.Wait()
 
@@ -148,9 +150,13 @@ func (w *objectWriter) Result() (ID, error) {
 
 	jw := jsonstream.NewWriter(iw, indirectStreamType)
 	for _, e := range w.blockIndex {
-		jw.Write(&e)
+		if err := jw.Write(&e); err != nil {
+			return NullID, fmt.Errorf("unable to write indirect block index: %v", err)
+		}
 	}
-	jw.Finalize()
+	if err := jw.Finalize(); err != nil {
+		return NullID, fmt.Errorf("unable to finalize indirect block index: %v", err)
+	}
 	oid, err := iw.Result()
 	if err != nil {
 		return NullID, err

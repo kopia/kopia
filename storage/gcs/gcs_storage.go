@@ -43,10 +43,9 @@ func (gcs *gcsStorage) GetBlock(b string, offset, length int64) ([]byte, error) 
 		if err != nil {
 			return nil, err
 		}
-		defer reader.Close()
+		defer reader.Close() //nolint:errcheck
 
-		v, err := ioutil.ReadAll(reader)
-		return v, err
+		return ioutil.ReadAll(reader)
 	}
 
 	v, err := exponentialBackoff(fmt.Sprintf("GetBlock(%q,%v,%v)", b, offset, length), attempt)
@@ -95,7 +94,7 @@ func (gcs *gcsStorage) PutBlock(b string, data []byte) error {
 			return nil, err
 		}
 		if n != len(data) {
-			writer.CloseWithError(errors.New("truncated write"))
+			writer.CloseWithError(errors.New("truncated write")) //nolint:errcheck
 			return nil, fmt.Errorf("truncated write %v of %v bytes", n, len(data))
 		}
 
@@ -115,8 +114,8 @@ func (gcs *gcsStorage) DeleteBlock(b string) error {
 	return translateError(err)
 }
 
-func (gcs *gcsStorage) getObjectNameString(b string) string {
-	return gcs.Prefix + string(b)
+func (gcs *gcsStorage) getObjectNameString(blockID string) string {
+	return gcs.Prefix + blockID
 }
 
 func (gcs *gcsStorage) ListBlocks(prefix string) (<-chan storage.BlockMetadata, storage.CancelFunc) {
@@ -168,7 +167,7 @@ func (gcs *gcsStorage) ConnectionInfo() storage.ConnectionInfo {
 }
 
 func (gcs *gcsStorage) Close() error {
-	gcs.storageClient.Close()
+	gcs.storageClient.Close() //nolint:errcheck
 	return nil
 }
 

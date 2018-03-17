@@ -8,8 +8,6 @@ import (
 	"github.com/kopia/kopia/repo"
 )
 
-const policyPrefix = "P"
-
 // PolicyManager manages snapshotting policies.
 type PolicyManager struct {
 	repository *repo.Repository

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/storage"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -49,7 +50,7 @@ func (d *davStorage) GetBlock(blockID string, offset, length int64) ([]byte, err
 		return nil, err
 	}
 
-	defer resp.Body.Close()
+	defer resp.Body.Close() // nolint:errcheck
 
 	switch resp.StatusCode {
 	case http.StatusNotFound:
@@ -61,23 +62,21 @@ func (d *davStorage) GetBlock(blockID string, offset, length int64) ([]byte, err
 	}
 }
 
-func getstringFromFileName(name string) (string, bool) {
+func getBlockIDFromFileName(name string) (string, bool) {
 	if strings.HasSuffix(name, fsStorageChunkSuffix) {
-		return string(name[0 : len(name)-len(fsStorageChunkSuffix)]), true
+		return name[0 : len(name)-len(fsStorageChunkSuffix)], true
 	}
 
-	return string(""), false
+	return "", false
 }
 
 func makeFileName(blockID string) string {
-	return string(blockID) + fsStorageChunkSuffix
+	return blockID + fsStorageChunkSuffix
 }
 
 func (d *davStorage) ListBlocks(prefix string) (<-chan storage.BlockMetadata, storage.CancelFunc) {
 	result := make(chan storage.BlockMetadata)
 	cancelled := make(chan bool)
-
-	prefixString := string(prefix)
 
 	var walkDir func(string, string)
 
@@ -88,17 +87,17 @@ func (d *davStorage) ListBlocks(prefix string) (<-chan storage.BlockMetadata, st
 					newPrefix := currentPrefix + e.name
 					var match bool
 
-					if len(prefixString) > len(newPrefix) {
-						match = strings.HasPrefix(prefixString, newPrefix)
+					if len(prefix) > len(newPrefix) {
+						match = strings.HasPrefix(prefix, newPrefix)
 					} else {
-						match = strings.HasPrefix(newPrefix, prefixString)
+						match = strings.HasPrefix(newPrefix, prefix)
 					}
 
 					if match {
 						walkDir(urlStr+"/"+e.name, currentPrefix+e.name)
 					}
-				} else if fullID, ok := getstringFromFileName(currentPrefix + e.name); ok {
-					if strings.HasPrefix(string(fullID), prefixString) {
+				} else if fullID, ok := getBlockIDFromFileName(currentPrefix + e.name); ok {
+					if strings.HasPrefix(fullID, prefix) {
 						select {
 						case <-cancelled:
 							return
@@ -136,7 +135,7 @@ func (d *davStorage) makeCollectionAll(urlStr string) error {
 		if parent == "" {
 			return fmt.Errorf("can't create %q", urlStr)
 		}
-		if err := d.makeCollectionAll(parent); err != nil {
+		if err = d.makeCollectionAll(parent); err != nil {
 			return err
 		}
 
@@ -158,7 +157,7 @@ func (d *davStorage) makeCollection(urlStr string) error {
 		return err
 	}
 
-	defer resp.Body.Close()
+	defer resp.Body.Close() // nolint:errcheck
 	switch resp.StatusCode {
 	case http.StatusConflict:
 		return storage.ErrBlockNotFound
@@ -189,7 +188,7 @@ func (d *davStorage) delete(urlStr string) error {
 		return err
 	}
 
-	defer resp.Body.Close()
+	defer resp.Body.Close() // nolint:errcheck
 	switch resp.StatusCode {
 	case http.StatusOK, http.StatusNotFound:
 		return nil
@@ -211,7 +210,7 @@ func (d *davStorage) move(urlOld, urlNew string) error {
 		return err
 	}
 
-	defer resp.Body.Close()
+	defer resp.Body.Close() // nolint:errcheck
 	switch resp.StatusCode {
 	case http.StatusOK, http.StatusCreated, http.StatusNoContent:
 		return nil
@@ -232,7 +231,7 @@ func (d *davStorage) putBlockInternal(urlStr string, data []byte) error {
 		return err
 	}
 
-	defer resp.Body.Close()
+	defer resp.Body.Close() // nolint:errcheck
 	switch resp.StatusCode {
 	case http.StatusOK, http.StatusCreated:
 		return nil
@@ -252,7 +251,7 @@ func (d *davStorage) PutBlock(blockID string, data []byte) error {
 	err := d.putBlockInternal(tmpURL, data)
 
 	if err == storage.ErrBlockNotFound {
-		if err := d.makeCollectionAll(shardPath); err != nil {
+		if err = d.makeCollectionAll(shardPath); err != nil {
 			return err
 		}
 
@@ -264,7 +263,9 @@ func (d *davStorage) PutBlock(blockID string, data []byte) error {
 	}
 
 	if err := d.move(tmpURL, url); err != nil {
-		d.delete(tmpURL)
+		if delerr := d.delete(tmpURL); delerr != nil {
+			log.Warn().Err(err).Msg("unable to delete temp file")
+		}
 		return err
 	}
 
@@ -283,16 +284,15 @@ func (d *davStorage) DeleteBlock(blockID string) error {
 
 func (d *davStorage) getCollectionURL(blockID string) (string, string) {
 	shardPath := d.URL
-	blockIDString := string(blockID)
-	if len(blockIDString) < 20 {
+	if len(blockID) < 20 {
 		return shardPath, blockID
 	}
 	for _, size := range d.shards() {
-		shardPath = shardPath + "/" + blockIDString[0:size]
-		blockIDString = blockIDString[size:]
+		shardPath = shardPath + "/" + blockID[0:size]
+		blockID = blockID[size:]
 	}
 
-	return shardPath, string(blockIDString)
+	return shardPath, blockID
 }
 
 func (d *davStorage) getCollectionAndFileURL(blockID string) (string, string) {

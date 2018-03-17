@@ -1,12 +1,9 @@
 package cli
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -45,7 +42,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 			WriteBack: *snapshotCreateWriteBack,
 		},
 	})
-	defer rep.Close()
+	defer rep.Close() //nolint: errcheck
 
 	mgr := snapshot.NewManager(rep)
 	pmgr := snapshot.NewPolicyManager(rep)
@@ -155,25 +152,6 @@ func getLocalBackupPaths(mgr *snapshot.Manager) ([]string, error) {
 	return result, nil
 }
 
-func hashObjectID(oid string) string {
-	h := sha256.New()
-	io.WriteString(h, oid)
-	sum := h.Sum(nil)
-	foldLen := 16
-	for i := foldLen; i < len(sum); i++ {
-		sum[i%foldLen] ^= sum[i]
-	}
-	return hex.EncodeToString(sum[0:foldLen])
-}
-
-func getUserOrDefault(userName string) string {
-	if userName != "" {
-		return userName
-	}
-
-	return getUserName()
-}
-
 func getUserName() string {
 	currentUser, err := user.Current()
 	if err != nil {
@@ -190,14 +168,6 @@ func getUserName() string {
 	}
 
 	return u
-}
-
-func getHostNameOrDefault(hostName string) string {
-	if hostName != "" {
-		return hostName
-	}
-
-	return getHostName()
 }
 
 func getHostName() string {

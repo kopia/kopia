@@ -6,6 +6,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/kopia/kopia/block"
+
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/storage"
 
@@ -32,10 +34,11 @@ func setupConnectOptions(cmd *kingpin.CmdClause) {
 func connectOptions() repo.ConnectOptions {
 	return repo.ConnectOptions{
 		PersistCredentials: !connectDontPersistCredentials,
-
-		CacheDirectory:    connectCacheDirectory,
-		MaxCacheSizeBytes: connectMaxCacheSizeMB << 20,
-		MaxListDuration:   connectMaxListCacheDuration,
+		CachingOptions: block.CachingOptions{
+			CacheDirectory:          connectCacheDirectory,
+			MaxCacheSizeBytes:       connectMaxCacheSizeMB << 20,
+			MaxListCacheDurationSec: int(connectMaxListCacheDuration.Seconds()),
+		},
 	}
 }
 
@@ -49,7 +52,8 @@ func runConnectCommandWithStorage(st storage.Storage) error {
 		return err
 	}
 
-	if err := repo.Connect(context.Background(), repositoryConfigFileName(), st, creds, connectOptions()); err != nil {
+	err = repo.Connect(context.Background(), repositoryConfigFileName(), st, creds, connectOptions())
+	if err != nil {
 		return err
 	}
 

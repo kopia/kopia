@@ -47,4 +47,4 @@ func shortenPath(s string) string {
 	return s[0:30] + "..." + s[len(s)-27:]
 }
 
-var up snapshot.UploadProgress = &uploadProgress{}
+var _ snapshot.UploadProgress = &uploadProgress{}

@@ -11,13 +11,9 @@ var (
 
 func runBlockRepackAction(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
-	defer rep.Close()
+	defer rep.Close() //nolint: errcheck
 
-	if err := rep.Blocks.Repackage(*blockRepackSizeThreshold); err != nil {
-		return err
-	}
-
-	return nil
+	return rep.Blocks.Repackage(*blockRepackSizeThreshold)
 }
 
 func init() {

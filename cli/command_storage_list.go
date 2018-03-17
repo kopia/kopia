@@ -13,7 +13,7 @@ var (
 
 func runListStorageBlocks(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
-	defer rep.Close()
+	defer rep.Close() //nolint: errcheck
 
 	ch, cancel := rep.Storage.ListBlocks(*storageListPrefix)
 	defer cancel()

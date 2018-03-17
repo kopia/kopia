@@ -17,7 +17,7 @@ var (
 	policySetGlobal  = policySetCommand.Flag("global", "Set global policy").Bool()
 
 	// Frequency
-	policySetFrequency = policySetCommand.Flag("min-duration-between-backups", "Minimum duration between snapshots").Duration()
+	policySetFrequency = policySetCommand.Flag("min-duration-between-backups", "Minimum duration between snapshots").DurationList()
 
 	// Expiration policies.
 	policySetKeepLatest  = policySetCommand.Flag("keep-latest", "Number of most recent backups to keep per source (or 'inherit')").PlaceHolder("N").String()
@@ -47,7 +47,7 @@ func init() {
 
 func setPolicy(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
-	defer rep.Close()
+	defer rep.Close() //nolint: errcheck
 
 	mgr := snapshot.NewPolicyManager(rep)
 
@@ -114,6 +114,11 @@ func setPolicy(context *kingpin.ParseContext) error {
 		if *policySetClearInclude {
 			p.FilesPolicy.Include = nil
 		}
+
+		for _, freq := range *policySetFrequency {
+			p.SchedulingPolicy.Frequency = freq
+		}
+
 		if err := mgr.SetPolicy(target, p); err != nil {
 			return fmt.Errorf("can't save policy for %v: %v", target, err)
 		}

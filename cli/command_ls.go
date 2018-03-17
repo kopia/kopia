@@ -26,7 +26,7 @@ var (
 
 func runLSCommand(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
-	defer rep.Close()
+	defer rep.Close() //nolint: errcheck
 
 	mgr := snapshot.NewManager(rep)
 
@@ -91,7 +91,9 @@ func listDirectory(mgr *snapshot.Manager, prefix string, oid object.ID, indent s
 		}
 		fmt.Println(info)
 		if *lsCommandRecursive && m.FileMode().IsDir() {
-			listDirectory(mgr, prefix+m.Name+"/", objectID, indent+"  ")
+			if listerr := listDirectory(mgr, prefix+m.Name+"/", objectID, indent+"  "); listerr != nil {
+				return listerr
+			}
 		}
 	}
 

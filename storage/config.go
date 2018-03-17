@@ -29,7 +29,7 @@ func (c *ConnectionInfo) UnmarshalJSON(b []byte) error {
 	}
 	c.Config = f.defaultConfigFunc()
 	if err := json.Unmarshal(raw.Data, c.Config); err != nil {
-		return err
+		return fmt.Errorf("unable to unmarshal config: %v", err)
 	}
 
 	return nil

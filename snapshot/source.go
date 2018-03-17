@@ -6,8 +6,6 @@ import (
 	"strings"
 )
 
-var zeroByte = []byte{0}
-
 // SourceInfo represents the information about snapshot source.
 type SourceInfo struct {
 	Host     string `json:"host"`

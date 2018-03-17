@@ -22,12 +22,12 @@ import (
 )
 
 func hashEntryMetadata(w io.Writer, e *fs.EntryMetadata) {
-	binary.Write(w, binary.LittleEndian, e.Name)
-	binary.Write(w, binary.LittleEndian, e.ModTime.UnixNano())
-	binary.Write(w, binary.LittleEndian, e.FileMode())
-	binary.Write(w, binary.LittleEndian, e.FileSize)
-	binary.Write(w, binary.LittleEndian, e.UserID)
-	binary.Write(w, binary.LittleEndian, e.GroupID)
+	io.WriteString(w, e.Name)                                  //nolint:errcheck
+	binary.Write(w, binary.LittleEndian, e.ModTime.UnixNano()) //nolint:errcheck
+	binary.Write(w, binary.LittleEndian, e.FileMode())         //nolint:errcheck
+	binary.Write(w, binary.LittleEndian, e.FileSize)           //nolint:errcheck
+	binary.Write(w, binary.LittleEndian, e.UserID)             //nolint:errcheck
+	binary.Write(w, binary.LittleEndian, e.GroupID)            //nolint:errcheck
 }
 
 func metadataHash(e *fs.EntryMetadata) uint64 {
@@ -100,12 +100,12 @@ func (u *Uploader) uploadFileInternal(f fs.File, relativePath string) entryResul
 	if err != nil {
 		return entryResult{err: fmt.Errorf("unable to open file: %v", err)}
 	}
-	defer file.Close()
+	defer file.Close() //nolint:errcheck
 
 	writer := u.repo.Objects.NewWriter(object.WriterOptions{
 		Description: "FILE:" + f.Metadata().Name,
 	})
-	defer writer.Close()
+	defer writer.Close() //nolint:errcheck
 
 	written, err := u.copyWithProgress(relativePath, writer, file, 0, f.Metadata().FileSize)
 	if err != nil {
@@ -137,7 +137,7 @@ func (u *Uploader) uploadSymlinkInternal(f fs.Symlink, relativePath string) entr
 	writer := u.repo.Objects.NewWriter(object.WriterOptions{
 		Description: "SYMLINK:" + f.Metadata().Name,
 	})
-	defer writer.Close()
+	defer writer.Close() //nolint:errcheck
 
 	written, err := u.copyWithProgress(relativePath, writer, bytes.NewBufferString(target), 0, f.Metadata().FileSize)
 	if err != nil {
@@ -234,20 +234,18 @@ func (u *Uploader) uploadFile(file fs.File) (object.ID, error) {
 // An optional ID of a hash-cache object may be provided, in which case the Uploader will use its
 // contents to avoid hashing
 func (u *Uploader) uploadDir(dir fs.Directory) (object.ID, object.ID, error) {
-	var err error
-
 	mw := u.repo.Objects.NewWriter(object.WriterOptions{
 		Description: "HASHCACHE:" + dir.Metadata().Name,
 	})
-	defer mw.Close()
+	defer mw.Close() //nolint:errcheck
 	u.cacheWriter = hashcache.NewWriter(mw)
 	oid, err := uploadDirInternal(u, dir, ".")
 	if u.IsCancelled() {
-		if err := u.cacheReader.CopyTo(u.cacheWriter); err != nil {
-			return object.NullID, object.NullID, err
+		if err2 := u.cacheReader.CopyTo(u.cacheWriter); err != nil {
+			return object.NullID, object.NullID, err2
 		}
 	}
-	u.cacheWriter.Finalize()
+	defer u.cacheWriter.Finalize() //nolint:errcheck
 	u.cacheWriter = nil
 
 	if err != nil {
@@ -255,8 +253,8 @@ func (u *Uploader) uploadDir(dir fs.Directory) (object.ID, object.ID, error) {
 	}
 
 	hcid, err := mw.Result()
-	if err := u.repo.Objects.Flush(); err != nil {
-		return object.NullID, object.NullID, fmt.Errorf("can't flush pending objects: %v", err)
+	if flushErr := u.repo.Objects.Flush(); flushErr != nil {
+		return object.NullID, object.NullID, fmt.Errorf("can't flush pending objects: %v", flushErr)
 	}
 	return oid, hcid, err
 }
@@ -323,7 +321,7 @@ func (u *Uploader) prepareProgress(relativePath string, entries fs.Entries) {
 	u.currentDirCompleted = 0
 
 	// Phase #2 - compute the total size of files in current directory
-	u.foreachEntryUnlessCancelled(relativePath, entries, func(entry fs.Entry, entryRelativePath string) error {
+	_ = u.foreachEntryUnlessCancelled(relativePath, entries, func(entry fs.Entry, entryRelativePath string) error {
 		if _, ok := entry.(fs.File); !ok {
 			// skip directories
 			return nil
@@ -341,10 +339,10 @@ type uploadWorkItem struct {
 	resultChan        chan entryResult
 }
 
-func (u *Uploader) prepareWorkItems(dirRelativePath string, entries fs.Entries) []*uploadWorkItem {
+func (u *Uploader) prepareWorkItems(dirRelativePath string, entries fs.Entries) ([]*uploadWorkItem, error) {
 	var result []*uploadWorkItem
 
-	u.foreachEntryUnlessCancelled(dirRelativePath, entries, func(entry fs.Entry, entryRelativePath string) error {
+	resultErr := u.foreachEntryUnlessCancelled(dirRelativePath, entries, func(entry fs.Entry, entryRelativePath string) error {
 		if _, ok := entry.(fs.Directory); ok {
 			// skip directories
 			return nil
@@ -368,7 +366,7 @@ func (u *Uploader) prepareWorkItems(dirRelativePath string, entries fs.Entries) 
 
 		if cacheMatches {
 			u.stats.CachedFiles++
-			u.addDirProgress(int64(e.FileSize))
+			u.addDirProgress(e.FileSize)
 
 			// compute entryResult now, cachedEntry is short-lived
 			cachedResult := entryResult{
@@ -414,7 +412,7 @@ func (u *Uploader) prepareWorkItems(dirRelativePath string, entries fs.Entries) 
 		return nil
 	})
 
-	return result
+	return result, resultErr
 }
 
 func toChannel(items []*uploadWorkItem) <-chan *uploadWorkItem {
@@ -512,18 +510,23 @@ func uploadDirInternal(
 	})
 
 	dw := dir.NewWriter(writer)
-	defer writer.Close()
+	defer writer.Close() //nolint:errcheck
 
 	if err := u.processSubdirectories(dirRelativePath, entries, dw); err != nil {
 		return object.NullID, err
 	}
 	u.prepareProgress(dirRelativePath, entries)
 
-	workItems := u.prepareWorkItems(dirRelativePath, entries)
+	workItems, workItemErr := u.prepareWorkItems(dirRelativePath, entries)
+	if workItemErr != nil {
+		return object.NullID, workItemErr
+	}
 	if err := u.processUploadWorkItems(workItems, dw); err != nil {
 		return object.NullID, err
 	}
-	dw.Finalize()
+	if err := dw.Finalize(); err != nil {
+		return object.NullID, fmt.Errorf("unable to finalize directory: %v", err)
+	}
 
 	return writer.Result()
 }

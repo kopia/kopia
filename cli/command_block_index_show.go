@@ -19,7 +19,7 @@ var (
 
 func runShowBlockIndexesAction(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
-	defer rep.Close()
+	defer rep.Close() //nolint: errcheck
 
 	blockIDs := *blockIndexShowIDs
 	if len(blockIDs) == 1 && blockIDs[0] == "active" {

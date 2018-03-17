@@ -37,7 +37,7 @@ type diskBlockCache struct {
 func (c *diskBlockCache) getBlock(virtualBlockID, physicalBlockID string, offset, length int64) ([]byte, error) {
 	b, err := c.cacheStorage.GetBlock(virtualBlockID, 0, -1)
 	if err == nil {
-		b, err := c.verifyHMAC(b)
+		b, err = c.verifyHMAC(b)
 		if err == nil {
 			// retrieved from cache and HMAC valid
 			return b, nil
@@ -56,28 +56,16 @@ func (c *diskBlockCache) getBlock(virtualBlockID, physicalBlockID string, offset
 	}
 
 	if err == nil {
-		if c.cacheStorage.PutBlock(virtualBlockID, c.appendHMAC(b)); err != nil {
-			log.Warn().Msgf("unable to write cache items %v: %v", virtualBlockID, err)
-		}
+		c.writeToCache(virtualBlockID, c.appendHMAC(b))
 	}
 
 	return b, err
 }
 
-func applyOffsetAndLength(b []byte, offset, length int64) ([]byte, error) {
-	if offset > int64(len(b)) {
-		return nil, fmt.Errorf("offset of bounds (offset=%v, length=%v, actual length=%v)", offset, length, len(b))
+func (c *diskBlockCache) writeToCache(virtualBlockID string, checksummedData []byte) {
+	if err := c.cacheStorage.PutBlock(virtualBlockID, checksummedData); err != nil {
+		log.Warn().Msgf("unable to write cache items %v: %v", virtualBlockID, err)
 	}
-
-	if length < 0 {
-		return b[offset:], nil
-	}
-
-	if offset+length > int64(len(b)) {
-		return nil, fmt.Errorf("length of bounds (offset=%v, length=%v, actual length=%v)", offset, length, len(b))
-	}
-
-	return b[offset : offset+length], nil
 }
 
 func (c *diskBlockCache) putBlock(blockID string, data []byte) error {
@@ -106,30 +94,32 @@ func (c *diskBlockCache) listIndexBlocks(full bool) ([]Info, error) {
 	if err == nil {
 		expirationTime := ci.Timestamp.Add(c.listCacheDuration)
 		if time.Now().Before(expirationTime) {
-			log.Debug().Bool("full", full).Str("file", cachedListBlockID).Msg("retrieved index blocks from cache")
+			log.Debug().Bool("full", full).Str("blockID", cachedListBlockID).Msg("retrieved index blocks from cache")
 			return ci.Blocks, nil
 		}
 	} else if err != storage.ErrBlockNotFound {
-		log.Warn().Msgf("unable to open cache file %v: %v", cachedListBlockID, err)
+		log.Warn().Str("blockID", cachedListBlockID).Err(err).Msgf("unable to open cache file")
 	}
 
 	log.Debug().Bool("full", full).Msg("listing index blocks from source")
 	blocks, err := listIndexBlocksFromStorage(c.st, full)
 	if err == nil {
-		ci := cachedList{
+		c.saveListToCache(cachedListBlockID, &cachedList{
 			Blocks:    blocks,
 			Timestamp: time.Now(),
-		}
-		log.Debug().Bool("full", full).Msgf("saving %v index blocks to cache: %v", len(blocks), cachedListBlockID)
-		// save to cache
-		if data, err := json.Marshal(ci); err == nil {
-			if err := c.cacheStorage.PutBlock(cachedListBlockID, c.appendHMAC(data)); err != nil {
-				log.Printf("warning: can't save list: %v", err)
-			}
-		}
+		})
 	}
 
 	return blocks, err
+}
+
+func (c *diskBlockCache) saveListToCache(cachedListBlockID string, ci *cachedList) {
+	log.Debug().Str("blockID", cachedListBlockID).Int("count", len(ci.Blocks)).Msg("saving index blocks to cache")
+	if data, err := json.Marshal(ci); err == nil {
+		if err := c.cacheStorage.PutBlock(cachedListBlockID, c.appendHMAC(data)); err != nil {
+			log.Warn().Str("blockID", cachedListBlockID).Err(err).Msg("can't save list")
+		}
+	}
 }
 
 func (c *diskBlockCache) readBlocksFromCacheBlock(blockID string) (*cachedList, error) {
@@ -152,39 +142,9 @@ func (c *diskBlockCache) readBlocksFromCacheBlock(blockID string) (*cachedList, 
 
 }
 
-func (c *diskBlockCache) readBlocksFromSource(maxCompactions int) ([]Info, error) {
-	log.Printf("readBlocksFromSource (maxCompactions=%v)", maxCompactions)
-	var blocks []Info
-	ch, cancel := c.st.ListBlocks(indexBlockPrefix)
-	defer cancel()
-
-	numCompactions := 0
-	for e := range ch {
-		log.Printf("found block %+v", e)
-		if e.Error != nil {
-			return nil, e.Error
-		}
-
-		blocks = append(blocks, Info{
-			BlockID:   e.BlockID,
-			Length:    e.Length,
-			Timestamp: e.TimeStamp,
-		})
-
-		if _, ok := getCompactedTimestamp(e.BlockID); ok {
-			numCompactions++
-			log.Printf("found compaction %v / %v", numCompactions, maxCompactions)
-			if numCompactions >= maxCompactions {
-				break
-			}
-		}
-	}
-	return blocks, nil
-}
-
 func (c *diskBlockCache) appendHMAC(data []byte) []byte {
 	h := hmac.New(sha256.New, c.hmacSecret)
-	h.Write(data)
+	h.Write(data) // nolint:errcheck
 	validSignature := h.Sum(nil)
 	return append(append([]byte(nil), data...), validSignature...)
 }
@@ -198,7 +158,7 @@ func (c *diskBlockCache) verifyHMAC(b []byte) ([]byte, error) {
 	data := b[0:p]
 	signature := b[p:]
 	h := hmac.New(sha256.New, c.hmacSecret)
-	h.Write(data)
+	h.Write(data) // nolint:errcheck
 	validSignature := h.Sum(nil)
 	if len(signature) != len(validSignature) {
 		return nil, errors.New("invalid signature length")
@@ -273,6 +233,9 @@ func (c *diskBlockCache) sweepDirectory() (err error) {
 }
 
 func (c *diskBlockCache) deleteListCache() {
-	c.cacheStorage.DeleteBlock(fullListCacheItem)
-	c.cacheStorage.DeleteBlock(activeListCacheItem)
+	for _, it := range []string{fullListCacheItem, activeListCacheItem} {
+		if err := c.cacheStorage.DeleteBlock(it); err != nil && err != storage.ErrBlockNotFound {
+			log.Warn().Err(err).Msg("unable to delete cache item")
+		}
+	}
 }

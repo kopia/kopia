@@ -33,7 +33,6 @@ type blockManager interface {
 type Manager struct {
 	Format config.RepositoryObjectFormat
 
-	verbose  bool
 	blockMgr blockManager
 
 	async              bool
@@ -79,7 +78,7 @@ func (om *Manager) Open(objectID ID) (Reader, error) {
 		if err != nil {
 			return nil, err
 		}
-		defer rd.Close()
+		defer rd.Close() //nolint:errcheck
 
 		seekTable, err := om.flattenListChunk(rd)
 		if err != nil {
@@ -122,7 +121,7 @@ func (om *Manager) verifyObjectInternal(oid ID, blocks *blockTracker) (int64, er
 		if err != nil {
 			return 0, err
 		}
-		defer rd.Close()
+		defer rd.Close() //nolint:errcheck
 
 		seekTable, err := om.flattenListChunk(rd)
 		if err != nil {
