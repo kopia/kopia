@@ -88,16 +88,20 @@ func translateError(err error) error {
 
 func (gcs *gcsStorage) PutBlock(b string, data []byte) error {
 	attempt := func() (interface{}, error) {
-		writer := gcs.bucket.Object(gcs.getObjectNameString(b)).NewWriter(gcs.ctx)
+		ctx, cancel := context.WithCancel(gcs.ctx)
+
+		writer := gcs.bucket.Object(gcs.getObjectNameString(b)).NewWriter(ctx)
 		n, err := writer.Write(data)
 		if err != nil {
+			cancel()
 			return nil, err
 		}
 		if n != len(data) {
-			writer.CloseWithError(errors.New("truncated write")) //nolint:errcheck
+			cancel()
 			return nil, fmt.Errorf("truncated write %v of %v bytes", n, len(data))
 		}
 
+		defer cancel()
 		return nil, writer.Close()
 	}
 
