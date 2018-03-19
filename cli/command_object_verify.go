@@ -6,6 +6,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/snapshot"
 
@@ -50,26 +51,33 @@ func (v *verifier) verifyDirectory(oid object.ID, path string) error {
 	}
 
 	for _, e := range entries {
-		m := e.Metadata()
-		objectID := e.(object.HasObjectID).ObjectID()
-		childPath := path + "/" + m.Name
-		if m.FileMode().IsDir() {
-			if *verifyCommandRecursive {
-				if err := v.verifyDirectory(objectID, childPath); err != nil {
-					if v.reportError(childPath, err) {
-						return err
-					}
-				}
-			}
+		if err = v.verifyDirectoryEntry(path, e); err != nil {
+			return err
 		}
+	}
 
-		if err := v.verifyObject(objectID, childPath, m.FileSize); err != nil {
-			if v.reportError(childPath, err) {
-				return err
+	return nil
+}
+
+func (v *verifier) verifyDirectoryEntry(path string, e fs.Entry) error {
+	m := e.Metadata()
+	objectID := e.(object.HasObjectID).ObjectID()
+	childPath := path + "/" + m.Name
+	if m.FileMode().IsDir() {
+		if *verifyCommandRecursive {
+			if err := v.verifyDirectory(objectID, childPath); err != nil {
+				if v.reportError(childPath, err) {
+					return err
+				}
 			}
 		}
 	}
 
+	if err := v.verifyObject(objectID, childPath, m.FileSize); err != nil {
+		if v.reportError(childPath, err) {
+			return err
+		}
+	}
 	return nil
 }
 

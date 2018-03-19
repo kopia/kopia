@@ -36,18 +36,9 @@ func VerifyStorage(t *testing.T, r storage.Storage) {
 	// List
 	ch, cancel := r.ListBlocks(string("ab"))
 	defer cancel()
-	e1, ok := <-ch
-	if !ok || e1.BlockID != blocks[0].blk {
-		t.Errorf("missing result 0")
-	}
-	e2, ok := <-ch
-	if !ok || e2.BlockID != blocks[2].blk {
-		t.Errorf("missing result 2")
-	}
-	e3, ok := <-ch
-	if !ok || e3.BlockID != blocks[3].blk {
-		t.Errorf("missing result 3")
-	}
+	e1 := verifyNextBlock(t, blocks[0].blk, ch)
+	e2 := verifyNextBlock(t, blocks[2].blk, ch)
+	e3 := verifyNextBlock(t, blocks[3].blk, ch)
 	e4, ok := <-ch
 	if ok {
 		t.Errorf("unexpected item: %v", e4)
@@ -56,4 +47,12 @@ func VerifyStorage(t *testing.T, r storage.Storage) {
 	if e1.TimeStamp.After(e2.TimeStamp) || e2.TimeStamp.After(e3.TimeStamp) {
 		t.Errorf("timings are not sorted: %v %v %v", e1.TimeStamp, e2.TimeStamp, e3.TimeStamp)
 	}
+}
+
+func verifyNextBlock(t *testing.T, expectedBlockID string, ch <-chan storage.BlockMetadata) storage.BlockMetadata {
+	bm, ok := <-ch
+	if !ok || bm.BlockID != expectedBlockID {
+		t.Errorf("missing result: %v", expectedBlockID)
+	}
+	return bm
 }

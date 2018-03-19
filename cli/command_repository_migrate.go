@@ -47,29 +47,8 @@ func runMigrateCommand(context *kingpin.ParseContext) error {
 			break
 		}
 
-		log.Printf("migrating source %v", s)
-
-		manifests := sourceSM.ListSnapshotManifests(&s)
-		snapshots, err := sourceSM.LoadSnapshots(manifests)
-		if err != nil {
-			return fmt.Errorf("unable to load snapshot manifests for %v: %v", s, err)
-		}
-
-		for _, m := range filterSnapshotsToMigrate(snapshots) {
-			d := sourceSM.DirectoryEntry(m.RootObjectID)
-			newm, err := uploader.Upload(d, m.Source, nil)
-			if err != nil {
-				return fmt.Errorf("error migrating shapshot %v @ %v: %v", m.Source, m.StartTime, err)
-			}
-
-			m.RootObjectID = newm.RootObjectID
-			m.HashCacheID = newm.HashCacheID
-			m.Stats = newm.Stats
-			m.IncompleteReason = newm.IncompleteReason
-
-			if _, err := destSM.SaveSnapshot(m); err != nil {
-				return fmt.Errorf("cannot save manifest: %v", err)
-			}
+		if err := migrateSingleSource(uploader, sourceSM, destSM, s); err != nil {
+			return err
 		}
 	}
 
@@ -85,6 +64,35 @@ func runMigrateCommand(context *kingpin.ParseContext) error {
 		}
 
 		log.Printf("migrated directory: %v with %#v", dirOID, newm)
+	}
+
+	return nil
+}
+
+func migrateSingleSource(uploader *snapshot.Uploader, sourceSM, destSM *snapshot.Manager, s snapshot.SourceInfo) error {
+	log.Printf("migrating source %v", s)
+
+	manifests := sourceSM.ListSnapshotManifests(&s)
+	snapshots, err := sourceSM.LoadSnapshots(manifests)
+	if err != nil {
+		return fmt.Errorf("unable to load snapshot manifests for %v: %v", s, err)
+	}
+
+	for _, m := range filterSnapshotsToMigrate(snapshots) {
+		d := sourceSM.DirectoryEntry(m.RootObjectID)
+		newm, err := uploader.Upload(d, m.Source, nil)
+		if err != nil {
+			return fmt.Errorf("error migrating shapshot %v @ %v: %v", m.Source, m.StartTime, err)
+		}
+
+		m.RootObjectID = newm.RootObjectID
+		m.HashCacheID = newm.HashCacheID
+		m.Stats = newm.Stats
+		m.IncompleteReason = newm.IncompleteReason
+
+		if _, err := destSM.SaveSnapshot(m); err != nil {
+			return fmt.Errorf("cannot save manifest: %v", err)
+		}
 	}
 
 	return nil

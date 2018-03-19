@@ -110,60 +110,74 @@ func defaultConfigFileName() string {
 	return filepath.Join(ospath.ConfigDir(), "repository.config")
 }
 
-func getRepositoryCredentials(isNew bool) (auth.Credentials, error) {
-	if *key != "" {
-		k, err := hex.DecodeString(*key)
-		if err != nil {
-			return nil, fmt.Errorf("invalid key format: %v", err)
-		}
-
-		return auth.MasterKey(k)
+func getRepositoryCredentialsFromMasterKey() (auth.Credentials, error) {
+	k, err := hex.DecodeString(*key)
+	if err != nil {
+		return nil, fmt.Errorf("invalid key format: %v", err)
 	}
 
-	if *password != "" {
-		return auth.Password(strings.TrimSpace(*password))
+	return auth.MasterKey(k)
+}
+
+func getRepositoryCredentialsFromKeyFile() (auth.Credentials, error) {
+	key, err := ioutil.ReadFile(*keyFile)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read key file: %v", err)
 	}
 
-	if *keyFile != "" {
-		key, err := ioutil.ReadFile(*keyFile)
-		if err != nil {
-			return nil, fmt.Errorf("unable to read key file: %v", err)
-		}
+	return auth.MasterKey(key)
+}
 
-		return auth.MasterKey(key)
+func getRepositoryCredentialsFromPasswordFile() (auth.Credentials, error) {
+	f, err := ioutil.ReadFile(*passwordFile)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read password file: %v", err)
 	}
 
-	if *passwordFile != "" {
-		f, err := ioutil.ReadFile(*passwordFile)
-		if err != nil {
-			return nil, fmt.Errorf("unable to read password file: %v", err)
-		}
+	return auth.Password(strings.TrimSpace(string(f)))
+}
 
-		return auth.Password(strings.TrimSpace(string(f)))
-	}
-	if isNew {
-		for {
-			p1, err := AskPass("Enter password to create new repository: ")
-			if err != nil {
-				return nil, err
-			}
-			p2, err := AskPass("Re-enter password for verification: ")
-			if err != nil {
-				return nil, err
-			}
-			if p1 != p2 {
-				fmt.Println("Passwords don't match!")
-			} else {
-				return auth.Password(p1)
-			}
-		}
-	} else {
-		p1, err := AskPass("Enter password to open repository: ")
+func askForNewRepositoryPassword() (auth.Credentials, error) {
+	for {
+		p1, err := AskPass("Enter password to create new repository: ")
 		if err != nil {
 			return nil, err
 		}
-		fmt.Println()
-		return auth.Password(p1)
+		p2, err := AskPass("Re-enter password for verification: ")
+		if err != nil {
+			return nil, err
+		}
+		if p1 != p2 {
+			fmt.Println("Passwords don't match!")
+		} else {
+			return auth.Password(p1)
+		}
+	}
+}
+
+func askForExistingRepositoryPassword() (auth.Credentials, error) {
+	p1, err := AskPass("Enter password to open repository: ")
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println()
+	return auth.Password(p1)
+}
+
+func getRepositoryCredentials(isNew bool) (auth.Credentials, error) {
+	switch {
+	case *key != "":
+		return getRepositoryCredentialsFromMasterKey()
+	case *password != "":
+		return auth.Password(strings.TrimSpace(*password))
+	case *keyFile != "":
+		return getRepositoryCredentialsFromKeyFile()
+	case *passwordFile != "":
+		return getRepositoryCredentialsFromPasswordFile()
+	case isNew:
+		return askForNewRepositoryPassword()
+	default:
+		return askForExistingRepositoryPassword()
 	}
 }
 

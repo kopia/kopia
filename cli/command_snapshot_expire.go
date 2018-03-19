@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -23,85 +24,119 @@ var (
 	snapshotExpireDelete = snapshotExpireCommand.Flag("delete", "Whether to actually delete snapshots").Default("no").String()
 )
 
+type cutoffTimes struct {
+	annual  time.Time
+	monthly time.Time
+	daily   time.Time
+	hourly  time.Time
+	weekly  time.Time
+}
+
+func yearsAgo(base time.Time, n int) time.Time {
+	return base.AddDate(-n, 0, 0)
+}
+
+func monthsAgo(base time.Time, n int) time.Time {
+	return base.AddDate(0, -n, 0)
+}
+
+func daysAgo(base time.Time, n int) time.Time {
+	return base.AddDate(0, 0, -n)
+}
+
+func weeksAgo(base time.Time, n int) time.Time {
+	return base.AddDate(0, 0, -n*7)
+}
+
+func hoursAgo(base time.Time, n int) time.Time {
+	return base.Add(time.Duration(-n) * time.Hour)
+}
+
 func expireSnapshotsForSingleSource(snapshots []*snapshot.Manifest, src snapshot.SourceInfo, pol *snapshot.Policy, snapshotNames []string) []string {
 	var toDelete []string
 
+	now := time.Now()
+	maxTime := now.Add(365 * 24 * time.Hour)
+
+	cutoffTime := func(setting *int, add func(time.Time, int) time.Time) time.Time {
+		if setting != nil {
+			return add(now, *setting)
+		}
+
+		return maxTime
+	}
+
+	cutoff := cutoffTimes{
+		annual:  cutoffTime(pol.RetentionPolicy.KeepAnnual, yearsAgo),
+		monthly: cutoffTime(pol.RetentionPolicy.KeepMonthly, monthsAgo),
+		daily:   cutoffTime(pol.RetentionPolicy.KeepDaily, daysAgo),
+		hourly:  cutoffTime(pol.RetentionPolicy.KeepHourly, hoursAgo),
+		weekly:  cutoffTime(pol.RetentionPolicy.KeepHourly, weeksAgo),
+	}
+
+	fmt.Printf("\nProcessing %v\n", src)
 	ids := make(map[string]bool)
 	idCounters := make(map[string]int)
 
-	var annualCutoffTime time.Time
-	var monthlyCutoffTime time.Time
-	var dailyCutoffTime time.Time
-	var hourlyCutoffTime time.Time
-	var weeklyCutoffTime time.Time
-
-	if pol.RetentionPolicy.KeepAnnual != nil {
-		annualCutoffTime = time.Now().AddDate(-*pol.RetentionPolicy.KeepAnnual, 0, 0)
-	}
-
-	if pol.RetentionPolicy.KeepMonthly != nil {
-		monthlyCutoffTime = time.Now().AddDate(0, -*pol.RetentionPolicy.KeepMonthly, 0)
-	}
-
-	if pol.RetentionPolicy.KeepDaily != nil {
-		dailyCutoffTime = time.Now().AddDate(0, 0, -*pol.RetentionPolicy.KeepDaily)
-	}
-
-	if pol.RetentionPolicy.KeepHourly != nil {
-		hourlyCutoffTime = time.Now().Add(time.Duration(-*pol.RetentionPolicy.KeepHourly) * time.Hour)
-	}
-
-	if pol.RetentionPolicy.KeepWeekly != nil {
-		weeklyCutoffTime = time.Now().AddDate(0, 0, -7**pol.RetentionPolicy.KeepWeekly)
-	}
-
-	fmt.Printf("\n%v\n", src)
-
 	for i, s := range snapshots {
-		var keep []string
-
-		registerSnapshot := func(timePeriodID string, timePeriodType string, max int) {
-			if _, exists := ids[timePeriodID]; !exists && idCounters[timePeriodType] < max {
-				ids[timePeriodID] = true
-				idCounters[timePeriodType]++
-				keep = append(keep, timePeriodType)
-			}
-		}
-
-		if s.IncompleteReason != "" {
-			continue
-		}
-
-		if pol.RetentionPolicy.KeepLatest != nil {
-			registerSnapshot(fmt.Sprintf("%v", i), "latest", *pol.RetentionPolicy.KeepLatest)
-		}
-		if s.StartTime.After(annualCutoffTime) && pol.RetentionPolicy.KeepAnnual != nil {
-			registerSnapshot(s.StartTime.Format("2006"), "annual", *pol.RetentionPolicy.KeepAnnual)
-		}
-		if s.StartTime.After(monthlyCutoffTime) && pol.RetentionPolicy.KeepMonthly != nil {
-			registerSnapshot(s.StartTime.Format("2006-01"), "monthly", *pol.RetentionPolicy.KeepMonthly)
-		}
-		if s.StartTime.After(weeklyCutoffTime) && pol.RetentionPolicy.KeepWeekly != nil {
-			yyyy, wk := s.StartTime.ISOWeek()
-			registerSnapshot(fmt.Sprintf("%04v-%02v", yyyy, wk), "weekly", *pol.RetentionPolicy.KeepWeekly)
-		}
-		if s.StartTime.After(dailyCutoffTime) && pol.RetentionPolicy.KeepDaily != nil {
-			registerSnapshot(s.StartTime.Format("2006-01-02"), "daily", *pol.RetentionPolicy.KeepDaily)
-		}
-		if s.StartTime.After(hourlyCutoffTime) && pol.RetentionPolicy.KeepHourly != nil {
-			registerSnapshot(s.StartTime.Format("2006-01-02 15"), "hourly", *pol.RetentionPolicy.KeepHourly)
-		}
+		keep := getReasonsToKeep(i, s, cutoff, pol, ids, idCounters)
 
 		tm := s.StartTime.Local().Format("2006-01-02 15:04:05 MST")
 		if len(keep) > 0 {
-			fmt.Printf("  keeping  %v %v\n", tm, strings.Join(keep, ","))
+			fmt.Printf("  keeping  %v (%v) %v\n", tm, s.ID, strings.Join(keep, ","))
 		} else {
-			fmt.Printf("  deleting %v\n", tm)
-			toDelete = append(toDelete, snapshotNames[i])
+			fmt.Printf("  deleting %v (%v)\n", tm, s.ID)
+			toDelete = append(toDelete, s.ID)
 		}
 	}
 
 	return toDelete
+}
+
+func getReasonsToKeep(i int, s *snapshot.Manifest, cutoff cutoffTimes, pol *snapshot.Policy, ids map[string]bool, idCounters map[string]int) []string {
+	if s.IncompleteReason != "" {
+		return nil
+	}
+
+	var keepReasons []string
+	var zeroTime time.Time
+
+	yyyy, wk := s.StartTime.ISOWeek()
+
+	cases := []struct {
+		cutoffTime     time.Time
+		timePeriodID   string
+		timePeriodType string
+		max            *int
+	}{
+		{zeroTime, fmt.Sprintf("%v", i), "latest", pol.RetentionPolicy.KeepLatest},
+		{cutoff.annual, s.StartTime.Format("2006"), "annual", pol.RetentionPolicy.KeepAnnual},
+		{cutoff.monthly, s.StartTime.Format("2006-01"), "monthly", pol.RetentionPolicy.KeepMonthly},
+		{cutoff.weekly, fmt.Sprintf("%04v-%02v", yyyy, wk), "weekly", pol.RetentionPolicy.KeepWeekly},
+		{cutoff.daily, s.StartTime.Format("2006-01-02"), "daily", pol.RetentionPolicy.KeepDaily},
+		{cutoff.hourly, s.StartTime.Format("2006-01-02 15"), "hourly", pol.RetentionPolicy.KeepHourly},
+	}
+
+	for _, c := range cases {
+		if c.max == nil {
+			continue
+		}
+		if s.StartTime.Before(c.cutoffTime) {
+			continue
+		}
+
+		if _, exists := ids[c.timePeriodID]; exists {
+			continue
+		}
+
+		if idCounters[c.timePeriodType] < *c.max {
+			ids[c.timePeriodID] = true
+			idCounters[c.timePeriodType]++
+			keepReasons = append(keepReasons, c.timePeriodType)
+		}
+	}
+
+	return keepReasons
 }
 
 func getSnapshotNamesToExpire(mgr *snapshot.Manager) ([]string, error) {
@@ -162,6 +197,16 @@ func expireSnapshots(pmgr *snapshot.PolicyManager, snapshots []*snapshot.Manifes
 		pendingNames = nil
 		return nil
 	}
+
+	sort.Slice(snapshots, func(i, j int) bool {
+		s1, s2 := snapshots[i].Source, snapshots[j].Source
+
+		if s1.String() != s2.String() {
+			return s1.String() < s2.String()
+		}
+
+		return snapshots[i].StartTime.Before(snapshots[j].StartTime)
+	})
 
 	for i, s := range snapshots {
 		if s.Source != lastSource {

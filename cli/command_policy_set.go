@@ -62,61 +62,8 @@ func setPolicy(context *kingpin.ParseContext) error {
 			p = &snapshot.Policy{}
 		}
 
-		if err := applyPolicyNumber(target, "number of annual backups to keep", &p.RetentionPolicy.KeepAnnual, *policySetKeepAnnual); err != nil {
+		if err := setPolicyFromFlags(target, p); err != nil {
 			return err
-		}
-
-		if err := applyPolicyNumber(target, "number of monthly backups to keep", &p.RetentionPolicy.KeepMonthly, *policySetKeepMonthly); err != nil {
-			return err
-		}
-
-		if err := applyPolicyNumber(target, "number of weekly backups to keep", &p.RetentionPolicy.KeepWeekly, *policySetKeepWeekly); err != nil {
-			return err
-		}
-
-		if err := applyPolicyNumber(target, "number of daily backups to keep", &p.RetentionPolicy.KeepDaily, *policySetKeepDaily); err != nil {
-			return err
-		}
-
-		if err := applyPolicyNumber(target, "number of hourly backups to keep", &p.RetentionPolicy.KeepHourly, *policySetKeepHourly); err != nil {
-			return err
-		}
-
-		if err := applyPolicyNumber(target, "number of latest backups to keep", &p.RetentionPolicy.KeepLatest, *policySetKeepLatest); err != nil {
-			return err
-		}
-
-		// It's not really a list, just optional boolean.
-		for _, inherit := range *policySetInherit {
-			p.NoParent = !inherit
-		}
-
-		for _, path := range *policySetAddExclude {
-			p.FilesPolicy.Exclude = addString(p.FilesPolicy.Exclude, path)
-		}
-
-		for _, path := range *policySetRemoveExclude {
-			p.FilesPolicy.Exclude = removeString(p.FilesPolicy.Exclude, path)
-		}
-
-		if *policySetClearExclude {
-			p.FilesPolicy.Exclude = nil
-		}
-
-		for _, path := range *policySetAddInclude {
-			p.FilesPolicy.Include = addString(p.FilesPolicy.Include, path)
-		}
-
-		for _, path := range *policySetRemoveInclude {
-			p.FilesPolicy.Include = removeString(p.FilesPolicy.Include, path)
-		}
-
-		if *policySetClearInclude {
-			p.FilesPolicy.Include = nil
-		}
-
-		for _, freq := range *policySetFrequency {
-			p.SchedulingPolicy.Frequency = freq
 		}
 
 		if err := mgr.SetPolicy(target, p); err != nil {
@@ -127,22 +74,67 @@ func setPolicy(context *kingpin.ParseContext) error {
 	return nil
 }
 
-func addString(p []string, s string) []string {
-	p = append(removeString(p, s), s)
-	sort.Strings(p)
-	return p
+func setPolicyFromFlags(target snapshot.SourceInfo, p *snapshot.Policy) error {
+	cases := []struct {
+		desc      string
+		max       **int
+		flagValue *string
+	}{
+		{"number of annual backups to keep", &p.RetentionPolicy.KeepAnnual, policySetKeepAnnual},
+		{"number of monthly backups to keep", &p.RetentionPolicy.KeepMonthly, policySetKeepMonthly},
+		{"number of weekly backups to keep", &p.RetentionPolicy.KeepWeekly, policySetKeepWeekly},
+		{"number of daily backups to keep", &p.RetentionPolicy.KeepDaily, policySetKeepDaily},
+		{"number of hourly backups to keep", &p.RetentionPolicy.KeepHourly, policySetKeepHourly},
+		{"number of latest backups to keep", &p.RetentionPolicy.KeepLatest, policySetKeepLatest},
+	}
+
+	for _, c := range cases {
+		if err := applyPolicyNumber(target, c.desc, c.max, *c.flagValue); err != nil {
+			return err
+		}
+	}
+
+	// It's not really a list, just optional boolean.
+	for _, inherit := range *policySetInherit {
+		p.NoParent = !inherit
+	}
+
+	if *policySetClearExclude {
+		p.FilesPolicy.Exclude = nil
+	} else {
+		p.FilesPolicy.Exclude = addRemoveDedupeAndSort(p.FilesPolicy.Exclude, *policySetAddExclude, *policySetRemoveExclude)
+	}
+	if *policySetClearInclude {
+		p.FilesPolicy.Include = nil
+	} else {
+		p.FilesPolicy.Include = addRemoveDedupeAndSort(p.FilesPolicy.Include, *policySetAddInclude, *policySetRemoveInclude)
+	}
+
+	for _, freq := range *policySetFrequency {
+		p.SchedulingPolicy.Frequency = freq
+	}
+
+	return nil
 }
 
-func removeString(p []string, s string) []string {
-	var result []string
-
-	for _, item := range p {
-		if item == s {
-			continue
-		}
-		result = append(result, item)
+func addRemoveDedupeAndSort(base, add, remove []string) []string {
+	entries := map[string]bool{}
+	for _, b := range base {
+		entries[b] = true
 	}
-	return result
+	for _, b := range add {
+		entries[b] = true
+	}
+	for _, b := range remove {
+		delete(entries, b)
+	}
+
+	var s []string
+	for k := range entries {
+		s = append(s, k)
+	}
+	sort.Strings(s)
+	return s
 }
 
 func applyPolicyNumber(src snapshot.SourceInfo, desc string, val **int, str string) error {

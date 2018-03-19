@@ -661,33 +661,41 @@ func (bm *Manager) Repackage(maxLength uint64) error {
 	log.Printf("%v blocks to re-package (%v total bytes)", len(toRepackage), totalBytes)
 
 	for _, m := range toRepackage {
-		data, err := bm.getBlockInternalLocked(m.PackBlockId)
-		if err != nil {
-			return fmt.Errorf("can't fetch block %q for repackaging: %v", m.PackBlockId, err)
+		if err := bm.repackageBlock(m, done); err != nil {
+			return err
 		}
+	}
 
-		for blockID, os := range m.Items {
-			if done[blockID] {
-				continue
-			}
-			done[blockID] = true
-			log.Printf("re-packaging: %v %v", blockID, os)
+	return nil
+}
 
-			offset, size := unpackOffsetAndSize(os)
-			blockData := data[offset : offset+size]
-			if err := bm.addToPackLocked(blockID, blockData, true); err != nil {
-				return fmt.Errorf("unable to re-package %q: %v", blockID, err)
-			}
+func (bm *Manager) repackageBlock(m *blockmgrpb.Index, done map[string]bool) error {
+	data, err := bm.getBlockInternalLocked(m.PackBlockId)
+	if err != nil {
+		return fmt.Errorf("can't fetch block %q for repackaging: %v", m.PackBlockId, err)
+	}
+
+	for blockID, os := range m.Items {
+		if done[blockID] {
+			continue
 		}
+		done[blockID] = true
+		log.Printf("re-packaging: %v %v", blockID, os)
 
-		for blockID, blockData := range m.InlineItems {
-			if done[blockID] {
-				continue
-			}
-			done[blockID] = true
-			if err := bm.addToPackLocked(blockID, blockData, true); err != nil {
-				return fmt.Errorf("unable to re-package %q: %v", blockID, err)
-			}
+		offset, size := unpackOffsetAndSize(os)
+		blockData := data[offset : offset+size]
+		if err := bm.addToPackLocked(blockID, blockData, true); err != nil {
+			return fmt.Errorf("unable to re-package %q: %v", blockID, err)
+		}
+	}
+
+	for blockID, blockData := range m.InlineItems {
+		if done[blockID] {
+			continue
+		}
+		done[blockID] = true
+		if err := bm.addToPackLocked(blockID, blockData, true); err != nil {
+			return fmt.Errorf("unable to re-package %q: %v", blockID, err)
 		}
 	}
 

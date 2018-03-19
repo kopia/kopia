@@ -428,7 +428,7 @@ func toChannel(items []*uploadWorkItem) <-chan *uploadWorkItem {
 	return ch
 }
 
-func (u *Uploader) processUploadWorkItems(workItems []*uploadWorkItem, dw *dir.Writer) error {
+func (u *Uploader) launchWorkItems(workItems []*uploadWorkItem, wg *sync.WaitGroup) {
 	// allocate result channel for each work item.
 	for _, it := range workItems {
 		it.resultChan = make(chan entryResult, 1)
@@ -440,7 +440,6 @@ func (u *Uploader) processUploadWorkItems(workItems []*uploadWorkItem, dw *dir.W
 	}
 
 	ch := toChannel(workItems)
-	var wg sync.WaitGroup
 	for i := 0; i < workerCount; i++ {
 		wg.Add(1)
 		go func(workerID int) {
@@ -454,6 +453,11 @@ func (u *Uploader) processUploadWorkItems(workItems []*uploadWorkItem, dw *dir.W
 			}
 		}(i)
 	}
+}
+
+func (u *Uploader) processUploadWorkItems(workItems []*uploadWorkItem, dw *dir.Writer) error {
+	var wg sync.WaitGroup
+	u.launchWorkItems(workItems, &wg)
 
 	// Read result channels in order.
 	for _, it := range workItems {

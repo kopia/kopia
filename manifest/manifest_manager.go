@@ -248,6 +248,34 @@ func (m *Manager) load() error {
 func (m *Manager) loadManifestBlocks(blocks []block.Info) error {
 	t0 := time.Now()
 
+	log.Debug().Dur("duration_ms", time.Since(t0)).Msgf("finished loading manifest blocks.")
+
+	for _, b := range blocks {
+		m.blockIDs = append(m.blockIDs, b.BlockID)
+	}
+
+	manifests, err := m.loadBlocksInParallel(blocks)
+	if err != nil {
+		return err
+	}
+
+	for _, man := range manifests {
+		for _, e := range man.Entries {
+			m.mergeEntry(e)
+		}
+	}
+
+	// after merging, remove blocks marked as deleted.
+	for k, e := range m.entries {
+		if e.Deleted {
+			delete(m.entries, k)
+		}
+	}
+
+	return nil
+}
+
+func (m *Manager) loadBlocksInParallel(blocks []block.Info) ([]manifest, error) {
 	errors := make(chan error, len(blocks))
 	manifests := make(chan manifest, len(blocks))
 	blockIDs := make(chan string, len(blocks))
@@ -281,30 +309,18 @@ func (m *Manager) loadManifestBlocks(blocks []block.Info) error {
 	wg.Wait()
 	close(errors)
 	close(manifests)
-	log.Debug().Dur("duration_ms", time.Since(t0)).Msgf("finished loading manifest blocks.")
+
 	// if there was any error, forward it
 	if err := <-errors; err != nil {
-		return err
+		return nil, err
 	}
 
-	for _, b := range blocks {
-		m.blockIDs = append(m.blockIDs, b.BlockID)
+	var man []manifest
+	for m := range manifests {
+		man = append(man, m)
 	}
 
-	for man := range manifests {
-		for _, e := range man.Entries {
-			m.mergeEntry(e)
-		}
-	}
-
-	// after merging, remove blocks marked as deleted.
-	for k, e := range m.entries {
-		if e.Deleted {
-			delete(m.entries, k)
-		}
-	}
-
-	return nil
+	return man, nil
 }
 
 func (m *Manager) loadManifestBlock(blockID string) (manifest, error) {

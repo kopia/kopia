@@ -60,11 +60,7 @@ func sweepBlock(rep *repo.Repository, bm storage.BlockMetadata, inUseIndexBlocks
 	}
 
 	fmt.Printf("deleting unused block %v age %v\n", bm.BlockID, age)
-	if err := rep.Storage.DeleteBlock(bm.BlockID); err != nil {
-		return err
-	}
-
-	return nil
+	return rep.Storage.DeleteBlock(bm.BlockID)
 }
 
 func init() {

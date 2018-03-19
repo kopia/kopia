@@ -2,8 +2,6 @@ package object
 
 import (
 	"encoding/json"
-	"strconv"
-	"strings"
 
 	"fmt"
 )
@@ -103,50 +101,14 @@ func ParseID(s string) (ID, error) {
 		content := s[1:]
 
 		switch chunkType {
-		case 'P':
-			// legacy
-			parts := strings.Split(content, "@")
-			if len(parts) == 2 && len(parts[0]) > 0 && len(parts[1]) > 0 {
-				return ID{
-					StorageBlock: parts[0],
-				}, nil
-			}
-
 		case 'I', 'D':
 			if chunkType == 'I' {
-				if len(content) < 2 || content[1] != ',' {
-					base, err := ParseID(content)
-					if err != nil {
-						return NullID, err
-					}
-
-					return ID{Indirect: &base}, nil
-				}
-
-				// legacy
-				comma := strings.Index(content, ",")
-				if comma < 0 {
-					// malformed
-					break
-				}
-				indirectLevel, err := strconv.Atoi(content[0:comma])
+				base, err := ParseID(content)
 				if err != nil {
-					break
-				}
-				if indirectLevel <= 0 {
-					break
-				}
-				content = content[comma+1:]
-				if content == "" {
-					break
+					return NullID, err
 				}
 
-				o := &ID{StorageBlock: content}
-				for i := 0; i < indirectLevel; i++ {
-					o = &ID{Indirect: o}
-				}
-
-				return *o, nil
+				return ID{Indirect: &base}, nil
 			}
 
 			return ID{StorageBlock: content}, nil

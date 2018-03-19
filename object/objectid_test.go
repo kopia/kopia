@@ -15,11 +15,8 @@ func TestParseObjectID(t *testing.T) {
 	}{
 		{"Dfoo", ID{StorageBlock: "foo"}},
 		{"IDfoo", ID{Indirect: &ID{StorageBlock: "foo"}}},
-		{"I1,foo", ID{Indirect: &ID{StorageBlock: "foo"}}},
-		{"I2,foo", ID{Indirect: &ID{Indirect: &ID{StorageBlock: "foo"}}}},
 		{"IDfoo", ID{Indirect: &ID{StorageBlock: "foo"}}},
 		{"IIDfoo", ID{Indirect: &ID{Indirect: &ID{StorageBlock: "foo"}}}},
-		{"Pfoo@bar", ID{StorageBlock: "foo"}}, // legacy
 	}
 
 	for _, tc := range cases {

@@ -17,6 +17,13 @@ var (
 	blockIndexShowIDs     = blockIndexShowCommand.Arg("id", "IDs of index blocks to show").Required().Strings()
 )
 
+type blockIndexEntryInfo struct {
+	blockID string
+	offset  uint32
+	size    uint32
+	inline  bool
+}
+
 func runShowBlockIndexesAction(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
 	defer rep.Close() //nolint: errcheck
@@ -50,49 +57,51 @@ func runShowBlockIndexesAction(context *kingpin.ParseContext) error {
 		}
 
 		for _, ndx := range d.Indexes {
-			fmt.Printf("pack:%v len:%v created:%v\n", ndx.PackBlockId, ndx.PackLength, time.Unix(0, int64(ndx.CreateTimeNanos)).Local())
-			type unpacked struct {
-				blockID string
-				offset  uint32
-				size    uint32
-				inline  bool
-			}
-			var lines []unpacked
-
-			for blk, os := range ndx.Items {
-				lines = append(lines, unpacked{blk, uint32(os >> 32), uint32(os), false})
-			}
-			for blk, d := range ndx.InlineItems {
-				lines = append(lines, unpacked{blk, 0, uint32(len(d)), true})
-			}
-			switch *blockIndexShowSort {
-			case "offset":
-				sort.Slice(lines, func(i, j int) bool {
-					return lines[i].offset < lines[j].offset
-				})
-			case "blockID":
-				sort.Slice(lines, func(i, j int) bool {
-					return lines[i].blockID < lines[j].blockID
-				})
-			case "size":
-				sort.Slice(lines, func(i, j int) bool {
-					return lines[i].size < lines[j].size
-				})
-			}
-			for _, l := range lines {
-				if l.inline {
-					fmt.Printf("  added %-40v size:%v (inline)\n", l.blockID, l.size)
-				} else {
-					fmt.Printf("  added %-40v offset:%-10v size:%v\n", l.blockID, l.offset, l.size)
-				}
-			}
-			for _, del := range ndx.DeletedItems {
-				fmt.Printf("  deleted %v\n", del)
-			}
+			printIndex(ndx)
 		}
 	}
 
 	return nil
+}
+
+func printIndex(ndx *blockmgrpb.Index) {
+	fmt.Printf("pack:%v len:%v created:%v\n", ndx.PackBlockId, ndx.PackLength, time.Unix(0, int64(ndx.CreateTimeNanos)).Local())
+	var lines []blockIndexEntryInfo
+
+	for blk, os := range ndx.Items {
+		lines = append(lines, blockIndexEntryInfo{blk, uint32(os >> 32), uint32(os), false})
+	}
+	for blk, d := range ndx.InlineItems {
+		lines = append(lines, blockIndexEntryInfo{blk, 0, uint32(len(d)), true})
+	}
+	sortIndexBlocks(lines)
+	for _, l := range lines {
+		if l.inline {
+			fmt.Printf("  added %-40v size:%v (inline)\n", l.blockID, l.size)
+		} else {
+			fmt.Printf("  added %-40v offset:%-10v size:%v\n", l.blockID, l.offset, l.size)
+		}
+	}
+	for _, del := range ndx.DeletedItems {
+		fmt.Printf("  deleted %v\n", del)
+	}
+
+}
+func sortIndexBlocks(lines []blockIndexEntryInfo) {
+	switch *blockIndexShowSort {
+	case "offset":
+		sort.Slice(lines, func(i, j int) bool {
+			return lines[i].offset < lines[j].offset
+		})
+	case "blockID":
+		sort.Slice(lines, func(i, j int) bool {
+			return lines[i].blockID < lines[j].blockID
+		})
+	case "size":
+		sort.Slice(lines, func(i, j int) bool {
+			return lines[i].size < lines[j].size
+		})
+	}
 }
 
 func init() {

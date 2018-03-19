@@ -57,17 +57,7 @@ func Open(ctx context.Context, configFile string, options *Options) (rep *Reposi
 		return nil, err
 	}
 
-	var creds auth.Credentials
-	if len(lc.Connection.Key) > 0 {
-		log.Debug().Msg("getting credentials from master key")
-		creds, err = auth.MasterKey(lc.Connection.Key)
-	} else {
-		if options.CredentialsCallback == nil {
-			return nil, errors.New("key not persisted and no credentials specified")
-		}
-		log.Debug().Msg("getting credentials using callback")
-		creds, err = options.CredentialsCallback()
-	}
+	creds, err := getCredentials(lc, options)
 
 	if err != nil {
 		return nil, fmt.Errorf("invalid credentials: %v", err)
@@ -97,6 +87,20 @@ func Open(ctx context.Context, configFile string, options *Options) (rep *Reposi
 	r.ConfigFile = configFile
 
 	return r, nil
+}
+
+func getCredentials(lc *config.LocalConfig, options *Options) (auth.Credentials, error) {
+	if len(lc.Connection.Key) > 0 {
+		log.Debug().Msg("getting credentials from master key")
+		return auth.MasterKey(lc.Connection.Key)
+	}
+
+	if options.CredentialsCallback == nil {
+		return nil, errors.New("key not persisted and no credentials specified")
+	}
+
+	log.Debug().Msg("getting credentials using callback")
+	return options.CredentialsCallback()
 }
 
 // SetCachingConfig changes caching configuration for a given repository config file.

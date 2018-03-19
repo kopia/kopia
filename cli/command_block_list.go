@@ -26,22 +26,7 @@ func runListBlocksAction(context *kingpin.ParseContext) error {
 		return err
 	}
 
-	maybeReverse := func(b bool) bool { return b }
-
-	if *blockListReverse {
-		maybeReverse = func(b bool) bool { return !b }
-	}
-
-	switch *blockListSort {
-	case "name":
-		sort.Slice(blocks, func(i, j int) bool { return maybeReverse(blocks[i].BlockID < blocks[j].BlockID) })
-	case "size":
-		sort.Slice(blocks, func(i, j int) bool { return maybeReverse(blocks[i].Length < blocks[j].Length) })
-	case "time":
-		sort.Slice(blocks, func(i, j int) bool { return maybeReverse(blocks[i].Timestamp.Before(blocks[j].Timestamp)) })
-	case "pack":
-		sort.Slice(blocks, func(i, j int) bool { return maybeReverse(comparePacks(blocks[i], blocks[j])) })
-	}
+	sortBlocks(blocks)
 
 	var count int
 	var totalSize int64
@@ -68,6 +53,25 @@ func runListBlocksAction(context *kingpin.ParseContext) error {
 	}
 
 	return nil
+}
+
+func sortBlocks(blocks []block.Info) {
+	maybeReverse := func(b bool) bool { return b }
+
+	if *blockListReverse {
+		maybeReverse = func(b bool) bool { return !b }
+	}
+
+	switch *blockListSort {
+	case "name":
+		sort.Slice(blocks, func(i, j int) bool { return maybeReverse(blocks[i].BlockID < blocks[j].BlockID) })
+	case "size":
+		sort.Slice(blocks, func(i, j int) bool { return maybeReverse(blocks[i].Length < blocks[j].Length) })
+	case "time":
+		sort.Slice(blocks, func(i, j int) bool { return maybeReverse(blocks[i].Timestamp.Before(blocks[j].Timestamp)) })
+	case "pack":
+		sort.Slice(blocks, func(i, j int) bool { return maybeReverse(comparePacks(blocks[i], blocks[j])) })
+	}
 }
 
 func comparePacks(a, b block.Info) bool {

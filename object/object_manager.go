@@ -112,35 +112,39 @@ func (om *Manager) VerifyObject(oid ID) (int64, []string, error) {
 	return l, blocks.blockIDs(), nil
 }
 
+func (om *Manager) verifyIndirectObjectInternal(oid ID, blocks *blockTracker) (int64, error) {
+	if _, err := om.verifyObjectInternal(*oid.Indirect, blocks); err != nil {
+		return 0, fmt.Errorf("unable to read index: %v", err)
+	}
+	rd, err := om.Open(*oid.Indirect)
+	if err != nil {
+		return 0, err
+	}
+	defer rd.Close() //nolint:errcheck
+
+	seekTable, err := om.flattenListChunk(rd)
+	if err != nil {
+		return 0, err
+	}
+
+	for i, m := range seekTable {
+		l, err := om.verifyObjectInternal(m.Object, blocks)
+		if err != nil {
+			return 0, err
+		}
+
+		if l != m.Length {
+			return 0, fmt.Errorf("unexpected length of part %#v of indirect object %q: %v %v, expected %v", i, oid, m.Object, l, m.Length)
+		}
+	}
+
+	totalLength := seekTable[len(seekTable)-1].endOffset()
+	return totalLength, nil
+}
+
 func (om *Manager) verifyObjectInternal(oid ID, blocks *blockTracker) (int64, error) {
 	if oid.Indirect != nil {
-		if _, err := om.verifyObjectInternal(*oid.Indirect, blocks); err != nil {
-			return 0, fmt.Errorf("unable to read index: %v", err)
-		}
-		rd, err := om.Open(*oid.Indirect)
-		if err != nil {
-			return 0, err
-		}
-		defer rd.Close() //nolint:errcheck
-
-		seekTable, err := om.flattenListChunk(rd)
-		if err != nil {
-			return 0, err
-		}
-
-		for i, m := range seekTable {
-			l, err := om.verifyObjectInternal(m.Object, blocks)
-			if err != nil {
-				return 0, err
-			}
-
-			if l != m.Length {
-				return 0, fmt.Errorf("unexpected length of part %#v of indirect object %q: %v %v, expected %v", i, oid, m.Object, l, m.Length)
-			}
-		}
-
-		totalLength := seekTable[len(seekTable)-1].endOffset()
-		return totalLength, nil
+		return om.verifyIndirectObjectInternal(oid, blocks)
 	}
 
 	p, err := om.blockMgr.BlockInfo(oid.StorageBlock)

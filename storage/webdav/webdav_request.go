@@ -69,55 +69,8 @@ func (d *davStorage) executeRequestInternal(req *http.Request, body []byte) (*ht
 		req.SetBasicAuth(d.Username, d.Password)
 
 	case "Digest":
-		var ha1, ha2 string
-
-		nonce := params["nonce"]
-		realm := params["realm"]
-		algo := params["algorithm"]
-		opaque := params["opaque"]
-		if algo == "" {
-			algo = "MD5"
-		}
-		qop := params["qop"]
-
-		switch algo {
-		case "MD5":
-			ha1 = h(fmt.Sprintf("%s:%s:%s", d.Username, realm, d.Password))
-
-		default:
-			// TODO - implement me
-			return nil, fmt.Errorf("unsupported digest algorithm: %q", algo)
-		}
-
-		switch qop {
-		case "auth", "":
-			ha2 = h(fmt.Sprintf("%s:%s", req.Method, req.URL.RequestURI()))
-
-		default:
-			// TODO - implement me
-			return nil, fmt.Errorf("unsupported digest qop: %q", qop)
-		}
-
-		switch qop {
-		case "auth":
-			cnonce := makeClientNonce()
-			nonceCount := atomic.AddInt32(&d.clientNonceCount, 1)
-			response := h(fmt.Sprintf("%s:%s:%08x:%s:%s:%s", ha1, nonce, nonceCount, cnonce, qop, ha2))
-			authHeader := fmt.Sprintf(`Digest username="%s", realm="%s", nonce="%s", uri="%s", cnonce="%s", nc=%08x, qop=%s, response="%s", algorithm=%s`,
-				d.Username, realm, nonce, req.URL.RequestURI(), cnonce, nonceCount, qop, response, algo)
-			if opaque != "" {
-				authHeader += fmt.Sprintf(`, opaque="%s"`, opaque)
-			}
-			req.Header.Add("Authorization", authHeader)
-
-		case "":
-			response := h(fmt.Sprintf("%s:%s:%s", ha1, nonce, ha2))
-			authHeader := fmt.Sprintf(`Digest username="%s", realm="%s", nonce="%s", uri="%s", qop=%s, response="%s", algorithm=%s`,
-				d.Username, realm, nonce, req.URL.RequestURI(), qop, response, algo)
-			if opaque != "" {
-				authHeader += fmt.Sprintf(`, opaque="%s"`, opaque)
-			}
-			req.Header.Add("Authorization", authHeader)
+		if err = d.setDigestAuth(params, req); err != nil {
+			return nil, err
 		}
 
 	default:
@@ -129,6 +82,61 @@ func (d *davStorage) executeRequestInternal(req *http.Request, body []byte) (*ht
 		req.Body = ioutil.NopCloser(bytes.NewReader(body))
 	}
 	return d.Client.Do(req)
+}
+
+func (d *davStorage) setDigestAuth(params map[string]string, req *http.Request) error {
+	var ha1, ha2 string
+
+	nonce := params["nonce"]
+	realm := params["realm"]
+	algo := params["algorithm"]
+	opaque := params["opaque"]
+	if algo == "" {
+		algo = "MD5"
+	}
+	qop := params["qop"]
+
+	switch algo {
+	case "MD5":
+		ha1 = h(fmt.Sprintf("%s:%s:%s", d.Username, realm, d.Password))
+
+	default:
+		// TODO - implement me
+		return fmt.Errorf("unsupported digest algorithm: %q", algo)
+	}
+
+	switch qop {
+	case "auth", "":
+		ha2 = h(fmt.Sprintf("%s:%s", req.Method, req.URL.RequestURI()))
+
+	default:
+		// TODO - implement me
+		return fmt.Errorf("unsupported digest qop: %q", qop)
+	}
+
+	switch qop {
+	case "auth":
+		cnonce := makeClientNonce()
+		nonceCount := atomic.AddInt32(&d.clientNonceCount, 1)
+		response := h(fmt.Sprintf("%s:%s:%08x:%s:%s:%s", ha1, nonce, nonceCount, cnonce, qop, ha2))
+		authHeader := fmt.Sprintf(`Digest username="%s", realm="%s", nonce="%s", uri="%s", cnonce="%s", nc=%08x, qop=%s, response="%s", algorithm=%s`,
+			d.Username, realm, nonce, req.URL.RequestURI(), cnonce, nonceCount, qop, response, algo)
+		if opaque != "" {
+			authHeader += fmt.Sprintf(`, opaque="%s"`, opaque)
+		}
+		req.Header.Add("Authorization", authHeader)
+
+	case "":
+		response := h(fmt.Sprintf("%s:%s:%s", ha1, nonce, ha2))
+		authHeader := fmt.Sprintf(`Digest username="%s", realm="%s", nonce="%s", uri="%s", qop=%s, response="%s", algorithm=%s`,
+			d.Username, realm, nonce, req.URL.RequestURI(), qop, response, algo)
+		if opaque != "" {
+			authHeader += fmt.Sprintf(`, opaque="%s"`, opaque)
+		}
+		req.Header.Add("Authorization", authHeader)
+	}
+
+	return nil
 }
 
 func makeClientNonce() string {

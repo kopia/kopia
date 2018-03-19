@@ -87,6 +87,27 @@ func (c *Cache) Readdir(d fs.Directory) (fs.Entries, error) {
 	return d.Readdir()
 }
 
+func (c *Cache) getEntriesFromCache(id string) fs.Entries {
+	if v, ok := c.data[id]; id != "" && ok {
+		if time.Now().Before(v.expireAfter) {
+			c.moveToHead(v)
+			c.mu.Unlock()
+			if c.debug {
+				log.Printf("cache hit for %q (valid until %v)", id, v.expireAfter)
+			}
+			return v.entries
+		}
+
+		// time expired
+		if c.debug {
+			log.Printf("removing expired cache entry %q after %v", id, v.expireAfter)
+		}
+		c.removeEntryLocked(v)
+	}
+
+	return nil
+}
+
 // getEntries consults the cache and either retrieves the contents of directory listing from the cache
 // or invokes the provides callback and adds the results to cache.
 func (c *Cache) getEntries(id string, expirationTime time.Duration, cb Loader) (fs.Entries, error) {
@@ -95,21 +116,8 @@ func (c *Cache) getEntries(id string, expirationTime time.Duration, cb Loader) (
 	}
 
 	c.mu.Lock()
-	if v, ok := c.data[id]; id != "" && ok {
-		if time.Now().Before(v.expireAfter) {
-			c.moveToHead(v)
-			c.mu.Unlock()
-			if c.debug {
-				log.Printf("cache hit for %q (valid until %v)", id, v.expireAfter)
-			}
-			return v.entries, nil
-		}
-
-		// time expired
-		if c.debug {
-			log.Printf("removing expired cache entry %q after %v", id, v.expireAfter)
-		}
-		c.removeEntryLocked(v)
+	if entries := c.getEntriesFromCache(id); entries != nil {
+		return entries, nil
 	}
 
 	if c.debug {

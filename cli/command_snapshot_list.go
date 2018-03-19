@@ -23,7 +23,7 @@ var (
 	maxResultsPerPath             = snapshotListCommand.Flag("max-results", "Maximum number of results.").Default("1000").Int()
 )
 
-func findBackups(mgr *snapshot.Manager, sourceInfo snapshot.SourceInfo) (manifestIDs []string, relPath string, err error) {
+func findSnapshotsForSource(mgr *snapshot.Manager, sourceInfo snapshot.SourceInfo) (manifestIDs []string, relPath string, err error) {
 	for len(sourceInfo.Path) > 0 {
 		list := mgr.ListSnapshotManifests(&sourceInfo)
 
@@ -49,52 +49,51 @@ func findBackups(mgr *snapshot.Manager, sourceInfo snapshot.SourceInfo) (manifes
 	return nil, "", nil
 }
 
+func findManifestIDs(mgr *snapshot.Manager, source string) ([]string, string, error) {
+	if source == "" {
+		return mgr.ListSnapshotManifests(nil), "", nil
+	}
+
+	si, err := snapshot.ParseSourceInfo(source, getHostName(), getUserName())
+	if err != nil {
+		return nil, "", fmt.Errorf("invalid directory: '%s': %s", source, err)
+	}
+
+	manifestIDs, relPath, err := findSnapshotsForSource(mgr, si)
+	if relPath != "" {
+		relPath = "/" + relPath
+	}
+
+	return manifestIDs, relPath, err
+}
+
 func runBackupsCommand(context *kingpin.ParseContext) error {
 	rep := mustOpenRepository(nil)
 	defer rep.Close() //nolint: errcheck
 
 	mgr := snapshot.NewManager(rep)
 
-	var previous []string
-	var relPath string
-	var err error
-
-	if *snapshotListPath != "" {
-		var si snapshot.SourceInfo
-		si, err = snapshot.ParseSourceInfo(*snapshotListPath, getHostName(), getUserName())
-		if err != nil {
-			return fmt.Errorf("invalid directory: '%s': %s", *snapshotListPath, err)
-		}
-
-		previous, relPath, err = findBackups(mgr, si)
-		if relPath != "" {
-			relPath = "/" + relPath
-		}
-
-		if err != nil {
-			return fmt.Errorf("cannot list snapshots: %v", err)
-		}
-	} else {
-		previous = mgr.ListSnapshotManifests(nil)
-	}
-
-	var lastSource snapshot.SourceInfo
-	var count int
-
-	manifestToItemID := map[*snapshot.Manifest]string{}
-
-	manifests, err := mgr.LoadSnapshots(previous)
+	manifestIDs, relPath, err := findManifestIDs(mgr, *snapshotListPath)
 	if err != nil {
 		return err
 	}
 
-	for i, m := range manifests {
-		manifestToItemID[m] = previous[i]
+	manifests, err := mgr.LoadSnapshots(manifestIDs)
+	if err != nil {
+		return err
 	}
 
 	sort.Sort(manifestSorter(manifests))
+	outputManifests(manifests, relPath)
 
+	return nil
+}
+
+func outputManifests(manifests []*snapshot.Manifest, relPath string) {
+	var lastSource snapshot.SourceInfo
+	var count int
 	var lastTotalFileSize int64
+
 	for _, m := range manifests {
 		maybeIncomplete := ""
 		if m.IncompleteReason != "" {
@@ -123,9 +122,7 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 				maybeIncomplete,
 			)
 			if *snapshotListShowItemID {
-				if i, ok := manifestToItemID[m]; ok {
-					fmt.Printf("    metadata:  %v\n", i)
-				}
+				fmt.Printf("    metadata:  %v\n", m.ID)
 			}
 			if *snapshotListShowHashCache {
 				fmt.Printf("    hashcache: %v\n", m.HashCacheID)
@@ -137,8 +134,6 @@ func runBackupsCommand(context *kingpin.ParseContext) error {
 			lastTotalFileSize = m.Stats.TotalFileSize
 		}
 	}
-
-	return nil
 }
 
 type manifestSorter []*snapshot.Manifest
