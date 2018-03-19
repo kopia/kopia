@@ -85,6 +85,7 @@ func (e *testenv) cleanup() {
 func TestRepo(t *testing.T) {
 	e := newTestEnv(t)
 	defer e.cleanup()
+	defer e.runAndExpectSuccess(t, "repo", "disconnect")
 
 	e.runAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.repoDir)
 	e.runAndExpectSuccess(t, "repo", "disconnect")

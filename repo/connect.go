@@ -116,9 +116,15 @@ func setupCaching(lc *config.LocalConfig, opt block.CachingOptions, uniqueID []b
 
 // Disconnect removes the specified configuration file and any local cache directories.
 func Disconnect(configFile string) error {
-	_, err := config.LoadFromFile(configFile)
+	cfg, err := config.LoadFromFile(configFile)
 	if err != nil {
 		return err
+	}
+
+	if cfg.Caching.CacheDirectory != "" {
+		if err = os.RemoveAll(cfg.Caching.CacheDirectory); err != nil {
+			log.Warn().Err(err).Msg("unable to to remove cache directory")
+		}
 	}
 
 	return os.Remove(configFile)
