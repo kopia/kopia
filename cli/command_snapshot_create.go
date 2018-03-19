@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/rs/zerolog/log"
 
@@ -69,69 +70,89 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 
 	u.Progress = &uploadProgress{}
 
-	for _, backupDirectory := range sources {
-		rep.Blocks.ResetStats()
-		log.Printf("Backing up %v", backupDirectory)
-		dir, err := filepath.Abs(backupDirectory)
+	if len(*snapshotCreateDescription) > maxSnapshotDescriptionLength {
+		return fmt.Errorf("description too long")
+	}
+
+	for _, snapshotDir := range sources {
+		log.Printf("Backing up %v", snapshotDir)
+		dir, err := filepath.Abs(snapshotDir)
 		if err != nil {
-			return fmt.Errorf("invalid source: '%s': %s", backupDirectory, err)
+			return fmt.Errorf("invalid source: '%s': %s", snapshotDir, err)
 		}
 
 		sourceInfo := snapshot.SourceInfo{Path: filepath.Clean(dir), Host: getHostName(), UserName: getUserName()}
-		policy, err := pmgr.GetEffectivePolicy(sourceInfo)
-		if err != nil {
-			return fmt.Errorf("unable to get backup policy for source %v: %v", sourceInfo, err)
-		}
-
-		if len(*snapshotCreateDescription) > maxSnapshotDescriptionLength {
-			return fmt.Errorf("description too long")
-		}
-
-		previous, err := mgr.ListSnapshots(sourceInfo)
-		if err != nil {
-			return fmt.Errorf("error listing previous backups: %v", err)
-		}
-
-		var previousManifest *snapshot.Manifest
-		for _, p := range previous {
-			if previousManifest == nil || p.StartTime.After(previousManifest.StartTime) {
-				previousManifest = p
-			}
-		}
-
-		if previousManifest != nil {
-			log.Debug().Msgf("found previous manifest for %v with start time %v", sourceInfo, previousManifest.StartTime)
-		} else {
-			log.Debug().Msgf("no previous manifest for %v", sourceInfo)
-		}
-
-		localEntry := mustGetLocalFSEntry(sourceInfo.Path)
-		if err != nil {
+		log.Info().Str("source", sourceInfo.String()).Msg("snapshotting")
+		if err := snapshotSingleSource(rep, mgr, pmgr, u, sourceInfo); err != nil {
 			return err
 		}
-
-		u.FilesPolicy = policy.FilesPolicy
-
-		log.Debug().Msgf("uploading %v using previous manifest %v", sourceInfo, previousManifest)
-		manifest, err := u.Upload(localEntry, sourceInfo, previousManifest)
-		if err != nil {
-			return err
-		}
-
-		manifest.Description = *snapshotCreateDescription
-
-		if _, err := mgr.SaveSnapshot(manifest); err != nil {
-			return fmt.Errorf("cannot save manifest: %v", err)
-		}
-
-		log.Printf("Root: %v", manifest.RootObjectID.String())
-		log.Printf("Hash Cache: %v", manifest.HashCacheID.String())
-
-		b, _ := json.MarshalIndent(&manifest, "", "  ")
-		log.Printf("%s", string(b))
 	}
 
 	return nil
+}
+
+func snapshotSingleSource(rep *repo.Repository, mgr *snapshot.Manager, pmgr *snapshot.PolicyManager, u *snapshot.Uploader, sourceInfo snapshot.SourceInfo) error {
+	t0 := time.Now()
+	rep.Blocks.ResetStats()
+	policy, err := pmgr.GetEffectivePolicy(sourceInfo)
+	if err != nil {
+		return fmt.Errorf("unable to get backup policy for source %v: %v", sourceInfo, err)
+	}
+
+	localEntry := mustGetLocalFSEntry(sourceInfo.Path)
+	if err != nil {
+		return err
+	}
+
+	u.FilesPolicy = policy.FilesPolicy
+
+	previousManifest, err := findPreviousSnapshotManifest(mgr, sourceInfo)
+	if err != nil {
+		return err
+	}
+
+	log.Debug().Msgf("uploading %v using previous manifest %v", sourceInfo, previousManifest)
+	manifest, err := u.Upload(localEntry, sourceInfo, previousManifest)
+	if err != nil {
+		return err
+	}
+
+	manifest.Description = *snapshotCreateDescription
+
+	snapID, err := mgr.SaveSnapshot(manifest)
+	if err != nil {
+		return fmt.Errorf("cannot save manifest: %v", err)
+	}
+
+	log.Info().Str("id", snapID).Str("oid", manifest.RootObjectID.String()).Dur("duration_ms", time.Since(t0)).Msg("uploaded")
+	log.Printf("Hash Cache: %v", manifest.HashCacheID.String())
+
+	b, _ := json.MarshalIndent(&manifest, "", "  ")
+	log.Printf("%s", string(b))
+
+	return nil
+}
+
+func findPreviousSnapshotManifest(mgr *snapshot.Manager, sourceInfo snapshot.SourceInfo) (*snapshot.Manifest, error) {
+	previous, err := mgr.ListSnapshots(sourceInfo)
+	if err != nil {
+		return nil, fmt.Errorf("error listing previous backups: %v", err)
+	}
+
+	var previousManifest *snapshot.Manifest
+	for _, p := range previous {
+		if previousManifest == nil || p.StartTime.After(previousManifest.StartTime) {
+			previousManifest = p
+		}
+	}
+
+	if previousManifest != nil {
+		log.Debug().Msgf("found previous manifest for %v with start time %v", sourceInfo, previousManifest.StartTime)
+	} else {
+		log.Debug().Msgf("no previous manifest for %v", sourceInfo)
+	}
+
+	return previousManifest, nil
 }
 
 func getLocalBackupPaths(mgr *snapshot.Manager) ([]string, error) {

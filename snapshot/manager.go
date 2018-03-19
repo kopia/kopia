@@ -60,6 +60,8 @@ func (m *Manager) LoadSnapshot(manifestID string) (*Manifest, error) {
 		return nil, err
 	}
 
+	sm.ID = manifestID
+
 	return sm, nil
 }
 

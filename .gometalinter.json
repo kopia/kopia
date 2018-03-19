@@ -1,5 +1,5 @@
 {
-    "Disable": ["maligned","gas","gocyclo"],
+    "Disable": ["maligned","gas"],
     "Exclude": [
         "playground/",
         ".+\\.pb\\.go",

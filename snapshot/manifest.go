@@ -8,6 +8,7 @@ import (
 
 // Manifest represents information about a single point-in-time filesystem snapshot.
 type Manifest struct {
+	ID     string     `json:"-"`
 	Source SourceInfo `json:"source"`
 
 	Description string    `json:"description"`

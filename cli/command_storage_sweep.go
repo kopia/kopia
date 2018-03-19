@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/storage"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -37,19 +38,30 @@ func runStorageSweepAction(context *kingpin.ParseContext) error {
 			return bm.Error
 		}
 
-		age := time.Since(bm.TimeStamp)
-		inUse := rep.Blocks.IsStorageBlockInUse(bm.BlockID) || inUseIndexBlocks[bm.BlockID] || bm.BlockID == repo.FormatBlockID
-		keep := inUse || age < *storageSweepAgeThreshold
-		if !keep {
-			if *storageSweepPrintUnused {
-				fmt.Printf("unused block %v age %v\n", bm.BlockID, age)
-			} else {
-				fmt.Printf("deleting unused block %v age %v\n", bm.BlockID, age)
-				if err := rep.Storage.DeleteBlock(bm.BlockID); err != nil {
-					return err
-				}
-			}
+		if err = sweepBlock(rep, bm, inUseIndexBlocks); err != nil {
+			return err
 		}
+	}
+
+	return nil
+}
+
+func sweepBlock(rep *repo.Repository, bm storage.BlockMetadata, inUseIndexBlocks map[string]bool) error {
+	age := time.Since(bm.TimeStamp)
+	inUse := rep.Blocks.IsStorageBlockInUse(bm.BlockID) || inUseIndexBlocks[bm.BlockID] || bm.BlockID == repo.FormatBlockID
+	keep := inUse || age < *storageSweepAgeThreshold
+	if keep {
+		return nil
+	}
+
+	if *storageSweepPrintUnused {
+		fmt.Printf("unused block %v age %v\n", bm.BlockID, age)
+		return nil
+	}
+
+	fmt.Printf("deleting unused block %v age %v\n", bm.BlockID, age)
+	if err := rep.Storage.DeleteBlock(bm.BlockID); err != nil {
+		return err
 	}
 
 	return nil

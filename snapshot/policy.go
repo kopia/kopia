@@ -48,26 +48,12 @@ type SchedulingPolicy struct {
 
 // ShouldInclude determines whether given filesystem entry should be included based on the policy.
 func (p *FilesPolicy) ShouldInclude(e *fs.EntryMetadata) bool {
-	if len(p.Include) > 0 {
-		include := false
-		for _, i := range p.Include {
-			if fileNameMatches(e.Name, i) {
-				include = true
-				break
-			}
-		}
-		if !include {
-			// have include rules, but none of them matched
-			return false
-		}
+	if len(p.Include) > 0 && !fileNameMatchesAnyPattern(e, p.Include) {
+		return false
 	}
 
-	if len(p.Exclude) > 0 {
-		for _, ex := range p.Exclude {
-			if fileNameMatches(e.Name, ex) {
-				return false
-			}
-		}
+	if len(p.Exclude) > 0 && fileNameMatchesAnyPattern(e, p.Include) {
+		return false
 	}
 
 	if p.MaxSize != nil && e.Type == fs.EntryTypeFile && e.FileSize > int64(*p.MaxSize) {
@@ -75,6 +61,16 @@ func (p *FilesPolicy) ShouldInclude(e *fs.EntryMetadata) bool {
 	}
 
 	return true
+}
+
+func fileNameMatchesAnyPattern(e *fs.EntryMetadata, patterns []string) bool {
+	for _, i := range patterns {
+		if fileNameMatches(e.Name, i) {
+			return true
+		}
+	}
+
+	return false
 }
 
 var defaultFilesPolicy = &FilesPolicy{}
