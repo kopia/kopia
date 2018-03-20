@@ -94,6 +94,8 @@ func outputManifests(manifests []*snapshot.Manifest, relPath string) {
 	var count int
 	var lastTotalFileSize int64
 
+	separator := ""
+
 	for _, m := range manifests {
 		maybeIncomplete := ""
 		if m.IncompleteReason != "" {
@@ -104,7 +106,8 @@ func outputManifests(manifests []*snapshot.Manifest, relPath string) {
 		}
 
 		if m.Source != lastSource {
-			fmt.Printf("\n%v\n", m.Source)
+			fmt.Printf("%v%v\n", separator, m.Source)
+			separator = "\n"
 			lastSource = m.Source
 			count = 0
 			lastTotalFileSize = m.Stats.TotalFileSize
@@ -112,8 +115,7 @@ func outputManifests(manifests []*snapshot.Manifest, relPath string) {
 
 		if count < *maxResultsPerPath {
 			fmt.Printf(
-				"  %v %v %v%v %10v %v%v\n",
-				m.ID,
+				"  %v %v%v %v %v%v\n",
 				m.StartTime.Format("2006-01-02 15:04:05 MST"),
 				m.RootObjectID,
 				relPath,
