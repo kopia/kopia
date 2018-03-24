@@ -33,6 +33,16 @@ func (w *Writer) Write(v interface{}) error {
 	return nil
 }
 
+// FinalizeWithSummary writes the postamble to the JSON stream with a given summary object.
+func (w *Writer) FinalizeWithSummary(summary interface{}) error {
+	b, err := json.Marshal(summary)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(w.output, "\n],\"summary\":%v}", string(b))
+	return nil
+}
+
 // Finalize writes the postamble to the JSON stream.
 func (w *Writer) Finalize() error {
 	fmt.Fprintf(w.output, "\n]}")

@@ -100,7 +100,7 @@ func Open(r io.Reader) Reader {
 		return &nullReader{}
 	}
 
-	jsr, err := jsonstream.NewReader(bufio.NewReader(r), hashCacheStreamType)
+	jsr, err := jsonstream.NewReader(bufio.NewReader(r), hashCacheStreamType, nil)
 	if err != nil {
 		return &nullReader{}
 	}

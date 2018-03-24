@@ -235,7 +235,7 @@ func NewObjectManager(bm blockManager, f config.RepositoryObjectFormat, opts Man
 }
 
 func (om *Manager) flattenListChunk(rawReader io.Reader) ([]indirectObjectEntry, error) {
-	pr, err := jsonstream.NewReader(bufio.NewReader(rawReader), indirectStreamType)
+	pr, err := jsonstream.NewReader(bufio.NewReader(rawReader), indirectStreamType, nil)
 	if err != nil {
 		return nil, err
 	}

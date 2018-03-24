@@ -9,6 +9,7 @@ import (
 // Reader reads a stream of JSON objects.
 type Reader struct {
 	decoder *json.Decoder
+	summary interface{}
 }
 
 // Read reads the next JSON objects from the stream, returns io.EOF on the end of stream.
@@ -19,6 +20,26 @@ func (r *Reader) Read(v interface{}) error {
 
 	if err := ensureDelimiter(r.decoder, json.Delim(']')); err != nil {
 		return invalidStreamFormatError(err)
+	}
+
+	tok, err := r.decoder.Token()
+	if err != nil {
+		return invalidStreamFormatError(err)
+	}
+
+	switch tok {
+	case json.Delim('}'):
+		// end of stream, all good
+		return io.EOF
+
+	case "summary":
+		s := r.summary
+		if s == nil {
+			s = map[string]interface{}{}
+		}
+		if err := r.decoder.Decode(s); err != nil {
+			return invalidStreamFormatError(err)
+		}
 	}
 
 	if err := ensureDelimiter(r.decoder, json.Delim('}')); err != nil {
@@ -61,9 +82,10 @@ func invalidStreamFormatError(cause error) error {
 
 // NewReader returns new Reader on top of a given buffered reader.
 // The provided header must match the beginning of a stream.
-func NewReader(r io.Reader, header string) (*Reader, error) {
+func NewReader(r io.Reader, header string, summary interface{}) (*Reader, error) {
 	dr := Reader{
 		decoder: json.NewDecoder(r),
+		summary: summary,
 	}
 
 	if err := ensureDelimiter(dr.decoder, json.Delim('{')); err != nil {

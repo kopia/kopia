@@ -11,7 +11,7 @@ var directoryStreamType = "kopia:directory"
 
 // ReadEntries reads all the Entry from the specified reader.
 func ReadEntries(r io.Reader) ([]*Entry, error) {
-	psr, err := jsonstream.NewReader(bufio.NewReader(r), directoryStreamType)
+	psr, err := jsonstream.NewReader(bufio.NewReader(r), directoryStreamType, nil)
 	if err != nil {
 		return nil, err
 	}

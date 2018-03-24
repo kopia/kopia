@@ -156,7 +156,7 @@ func verifyIndirectBlock(t *testing.T, r *Manager, oid ID) {
 		}
 		defer rd.Close()
 
-		pr, err := jsonstream.NewReader(rd, indirectStreamType)
+		pr, err := jsonstream.NewReader(rd, indirectStreamType, nil)
 		if err != nil {
 			t.Errorf("cannot open indirect stream: %v", err)
 			return
