@@ -10,10 +10,11 @@ import (
 var directoryStreamType = "kopia:directory"
 
 // ReadEntries reads all the Entry from the specified reader.
-func ReadEntries(r io.Reader) ([]*Entry, error) {
-	psr, err := jsonstream.NewReader(bufio.NewReader(r), directoryStreamType, nil)
+func ReadEntries(r io.Reader) ([]*Entry, *Summary, error) {
+	var summ Summary
+	psr, err := jsonstream.NewReader(bufio.NewReader(r), directoryStreamType, &summ)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	var entries []*Entry
 	for {
@@ -24,11 +25,11 @@ func ReadEntries(r io.Reader) ([]*Entry, error) {
 		}
 
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		entries = append(entries, e)
 	}
 
-	return entries, nil
+	return entries, &summ, nil
 }

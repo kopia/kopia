@@ -21,8 +21,8 @@ func (dw *Writer) WriteEntry(e *Entry) error {
 }
 
 // Finalize writes the trailing data to the output stream.
-func (dw *Writer) Finalize() error {
-	return dw.w.Finalize()
+func (dw *Writer) Finalize(summ *Summary) error {
+	return dw.w.FinalizeWithSummary(summ)
 }
 
 // NewWriter returns new directoryWriter for with the specified output.

@@ -239,7 +239,7 @@ func (u *Uploader) uploadDir(dir fs.Directory) (object.ID, object.ID, error) {
 	})
 	defer mw.Close() //nolint:errcheck
 	u.cacheWriter = hashcache.NewWriter(mw)
-	oid, err := uploadDirInternal(u, dir, ".")
+	oid, _, err := uploadDirInternal(u, dir, ".")
 	if u.IsCancelled() {
 		if err2 := u.cacheReader.CopyTo(u.cacheWriter); err != nil {
 			return object.NullID, object.NullID, err2
@@ -289,7 +289,7 @@ type entryResult struct {
 	hash uint64
 }
 
-func (u *Uploader) processSubdirectories(relativePath string, entries fs.Entries, dw *dir.Writer) error {
+func (u *Uploader) processSubdirectories(relativePath string, entries fs.Entries, dw *dir.Writer, summ *dir.Summary) error {
 	return u.foreachEntryUnlessCancelled(relativePath, entries, func(entry fs.Entry, entryRelativePath string) error {
 		dir, ok := entry.(fs.Directory)
 		if !ok {
@@ -298,10 +298,13 @@ func (u *Uploader) processSubdirectories(relativePath string, entries fs.Entries
 		}
 
 		e := dir.Metadata()
-		oid, err := uploadDirInternal(u, dir, entryRelativePath)
+		oid, subdirsumm, err := uploadDirInternal(u, dir, entryRelativePath)
 		if err == errCancelled {
 			return err
 		}
+
+		summ.TotalFileCount += subdirsumm.TotalFileCount
+		summ.TotalFileSize += subdirsumm.TotalFileSize
 
 		if err != nil {
 			return fmt.Errorf("unable to process directory %q: %s", e.Name, err)
@@ -339,7 +342,7 @@ type uploadWorkItem struct {
 	resultChan        chan entryResult
 }
 
-func (u *Uploader) prepareWorkItems(dirRelativePath string, entries fs.Entries) ([]*uploadWorkItem, error) {
+func (u *Uploader) prepareWorkItems(dirRelativePath string, entries fs.Entries, summ *dir.Summary) ([]*uploadWorkItem, error) {
 	var result []*uploadWorkItem
 
 	resultErr := u.foreachEntryUnlessCancelled(dirRelativePath, entries, func(entry fs.Entry, entryRelativePath string) error {
@@ -362,6 +365,9 @@ func (u *Uploader) prepareWorkItems(dirRelativePath string, entries fs.Entries) 
 		case fs.File:
 			u.stats.TotalFileCount++
 			u.stats.TotalFileSize += e.FileSize
+			summ.TotalFileCount++
+			summ.TotalFileSize += e.FileSize
+
 		}
 
 		if cacheMatches {
@@ -501,12 +507,14 @@ func uploadDirInternal(
 	u *Uploader,
 	directory fs.Directory,
 	dirRelativePath string,
-) (object.ID, error) {
+) (object.ID, dir.Summary, error) {
 	u.stats.TotalDirectoryCount++
 
-	entries, err := directory.Readdir()
-	if err != nil {
-		return object.NullID, err
+	var summ dir.Summary
+
+	entries, direrr := directory.Readdir()
+	if direrr != nil {
+		return object.NullID, dir.Summary{}, direrr
 	}
 
 	writer := u.repo.Objects.NewWriter(object.WriterOptions{
@@ -516,23 +524,24 @@ func uploadDirInternal(
 	dw := dir.NewWriter(writer)
 	defer writer.Close() //nolint:errcheck
 
-	if err := u.processSubdirectories(dirRelativePath, entries, dw); err != nil {
-		return object.NullID, err
+	if err := u.processSubdirectories(dirRelativePath, entries, dw, &summ); err != nil {
+		return object.NullID, dir.Summary{}, err
 	}
 	u.prepareProgress(dirRelativePath, entries)
 
-	workItems, workItemErr := u.prepareWorkItems(dirRelativePath, entries)
+	workItems, workItemErr := u.prepareWorkItems(dirRelativePath, entries, &summ)
 	if workItemErr != nil {
-		return object.NullID, workItemErr
+		return object.NullID, dir.Summary{}, workItemErr
 	}
 	if err := u.processUploadWorkItems(workItems, dw); err != nil {
-		return object.NullID, err
+		return object.NullID, dir.Summary{}, err
 	}
-	if err := dw.Finalize(); err != nil {
-		return object.NullID, fmt.Errorf("unable to finalize directory: %v", err)
+	if err := dw.Finalize(&summ); err != nil {
+		return object.NullID, dir.Summary{}, fmt.Errorf("unable to finalize directory: %v", err)
 	}
 
-	return writer.Result()
+	oid, err := writer.Result()
+	return oid, summ, err
 }
 
 func (u *Uploader) maybeIgnoreHashCacheEntry(e *hashcache.Entry) *hashcache.Entry {

@@ -47,7 +47,7 @@ func (rd *repositoryDirectory) Readdir() (fs.Entries, error) {
 	}
 	defer r.Close() //nolint:errcheck
 
-	metadata, err := dir.ReadEntries(r)
+	metadata, _, err := dir.ReadEntries(r)
 	if err != nil {
 		return nil, err
 	}
