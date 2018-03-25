@@ -356,10 +356,13 @@ func (u *Uploader) prepareWorkItems(dirRelativePath string, entries fs.Entries, 
 		// regular file
 		// See if we had this name during previous pass.
 		cachedEntry := u.maybeIgnoreHashCacheEntry(u.cacheReader.FindEntry(entryRelativePath))
+		var cachedHash uint64
+		if cachedEntry != nil {
+			cachedHash = cachedEntry.Hash
+		}
 
 		// ... and whether file metadata is identical to the previous one.
 		computedHash := metadataHash(e)
-		cacheMatches := (cachedEntry != nil) && cachedEntry.Hash == computedHash
 
 		switch entry.(type) {
 		case fs.File:
@@ -370,7 +373,7 @@ func (u *Uploader) prepareWorkItems(dirRelativePath string, entries fs.Entries, 
 
 		}
 
-		if cacheMatches {
+		if cachedHash == computedHash {
 			u.stats.CachedFiles++
 			u.addDirProgress(e.FileSize)
 
@@ -389,7 +392,7 @@ func (u *Uploader) prepareWorkItems(dirRelativePath string, entries fs.Entries, 
 				},
 			})
 		} else {
-			log.Debug().Msgf("hash cache miss for %v", entryRelativePath)
+			log.Debug().Msgf("hash cache miss for %v (cached %v computed %v)", entryRelativePath, cachedHash, computedHash)
 
 			switch entry := entry.(type) {
 			case fs.Symlink:
