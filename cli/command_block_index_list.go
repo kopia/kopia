@@ -1,11 +1,11 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/kopia/kopia/block"
-
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
+	"github.com/kopia/kopia/repo"
 )
 
 var (
@@ -14,17 +14,14 @@ var (
 	blockIndexListSummary = blockIndexListCommand.Flag("summary", "Display block summary").Bool()
 )
 
-func runListBlockIndexesAction(context *kingpin.ParseContext) error {
-	rep := mustOpenRepository(nil)
-	defer rep.Close() //nolint: errcheck
-
+func runListBlockIndexesAction(ctx context.Context, rep *repo.Repository) error {
 	var blks []block.Info
 	var err error
 
 	if !*blockIndexListAll {
-		blks, err = rep.Blocks.ActiveIndexBlocks()
+		blks, err = rep.Blocks.ActiveIndexBlocks(ctx)
 	} else {
-		blks, err = rep.Blocks.ListIndexBlocks()
+		blks, err = rep.Blocks.ListIndexBlocks(ctx)
 	}
 
 	if err != nil {
@@ -43,5 +40,5 @@ func runListBlockIndexesAction(context *kingpin.ParseContext) error {
 }
 
 func init() {
-	blockIndexListCommand.Action(runListBlockIndexesAction)
+	blockIndexListCommand.Action(repositoryAction(runListBlockIndexesAction))
 }

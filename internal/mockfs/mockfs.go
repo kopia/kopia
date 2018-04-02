@@ -3,6 +3,7 @@ package mockfs
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"sort"
@@ -150,7 +151,7 @@ func (imd *Directory) FailReaddir(err error) {
 }
 
 // Readdir gets the contents of a directory.
-func (imd *Directory) Readdir() (fs.Entries, error) {
+func (imd *Directory) Readdir(ctx context.Context) (fs.Entries, error) {
 	if imd.readdirError != nil {
 		return nil, imd.readdirError
 	}
@@ -175,7 +176,7 @@ func (ifr *fileReader) EntryMetadata() (*fs.EntryMetadata, error) {
 }
 
 // Open opens the file for reading, optionally simulating error.
-func (imf *File) Open() (fs.Reader, error) {
+func (imf *File) Open(ctx context.Context) (fs.Reader, error) {
 	r, err := imf.source()
 	if err != nil {
 		return nil, err
@@ -191,7 +192,7 @@ type inmemorySymlink struct {
 	entry
 }
 
-func (imsl *inmemorySymlink) Readlink() (string, error) {
+func (imsl *inmemorySymlink) Readlink(ctx context.Context) (string, error) {
 	panic("not implemented yet")
 }
 

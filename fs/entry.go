@@ -1,6 +1,7 @@
 package fs
 
 import (
+	"context"
 	"io"
 	"sort"
 	"strings"
@@ -25,19 +26,19 @@ type Reader interface {
 // File represents an entry that is a file.
 type File interface {
 	Entry
-	Open() (Reader, error)
+	Open(ctx context.Context) (Reader, error)
 }
 
 // Directory represents contents of a directory.
 type Directory interface {
 	Entry
-	Readdir() (Entries, error)
+	Readdir(ctx context.Context) (Entries, error)
 }
 
 // Symlink represents a symbolic link entry.
 type Symlink interface {
 	Entry
-	Readlink() (string, error)
+	Readlink(ctx context.Context) (string, error)
 }
 
 // FindByName returns an entry with a given name, or nil if not found.

@@ -1,17 +1,18 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"time"
+
+	"github.com/kopia/kopia/repo"
 
 	"github.com/rs/zerolog/log"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/snapshot"
-
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
@@ -59,10 +60,7 @@ func makeBuckets() buckets {
 	}
 }
 
-func runSnapshotEstimateCommand(c *kingpin.ParseContext) error {
-	rep := mustOpenRepository(nil)
-	defer rep.Close() //nolint: errcheck
-
+func runSnapshotEstimateCommand(ctx context.Context, rep *repo.Repository) error {
 	pmgr := snapshot.NewPolicyManager(rep)
 
 	path, err := filepath.Abs(*snapshotEstimateSource)
@@ -79,7 +77,7 @@ func runSnapshotEstimateCommand(c *kingpin.ParseContext) error {
 	var stats snapshot.Stats
 	ib := makeBuckets()
 	eb := makeBuckets()
-	if err := estimate(".", mustGetLocalFSEntry(path), &policy.FilesPolicy, &stats, ib, eb); err != nil {
+	if err := estimate(ctx, ".", mustGetLocalFSEntry(path), &policy.FilesPolicy, &stats, ib, eb); err != nil {
 		return err
 	}
 
@@ -112,7 +110,7 @@ func showBuckets(b buckets) {
 		}
 	}
 }
-func estimate(relativePath string, entry fs.Entry, pol *snapshot.FilesPolicy, stats *snapshot.Stats, ib, eb buckets) error {
+func estimate(ctx context.Context, relativePath string, entry fs.Entry, pol *snapshot.FilesPolicy, stats *snapshot.Stats, ib, eb buckets) error {
 	if !pol.ShouldInclude(entry.Metadata()) {
 		eb.add(relativePath, entry.Metadata().FileSize)
 		stats.ExcludedFileCount++
@@ -125,13 +123,13 @@ func estimate(relativePath string, entry fs.Entry, pol *snapshot.FilesPolicy, st
 		if !*snapshotEstimateQuiet {
 			log.Printf("Scanning %q...\n", relativePath)
 		}
-		children, err := entry.Readdir()
+		children, err := entry.Readdir(ctx)
 		if err != nil {
 			return err
 		}
 
 		for _, child := range children {
-			if err := estimate(filepath.Join(relativePath, child.Metadata().Name), child, pol, stats, ib, eb); err != nil {
+			if err := estimate(ctx, filepath.Join(relativePath, child.Metadata().Name), child, pol, stats, ib, eb); err != nil {
 				return err
 			}
 		}
@@ -145,5 +143,5 @@ func estimate(relativePath string, entry fs.Entry, pol *snapshot.FilesPolicy, st
 }
 
 func init() {
-	snapshotEstimate.Action(runSnapshotEstimateCommand)
+	snapshotEstimate.Action(repositoryAction(runSnapshotEstimateCommand))
 }

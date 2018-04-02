@@ -2,6 +2,7 @@
 package loggingfs
 
 import (
+	"context"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -19,9 +20,9 @@ type loggingDirectory struct {
 	fs.Directory
 }
 
-func (ld *loggingDirectory) Readdir() (fs.Entries, error) {
+func (ld *loggingDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
 	t0 := time.Now()
-	entries, err := ld.Directory.Readdir()
+	entries, err := ld.Directory.Readdir(ctx)
 	dt := time.Since(t0)
 	ld.options.printf(ld.options.prefix+"Readdir(%v) took %v and returned %v items", fs.EntryPath(ld), dt, len(entries))
 	loggingEntries := make(fs.Entries, len(entries))

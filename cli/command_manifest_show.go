@@ -2,10 +2,11 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 
-	"gopkg.in/alecthomas/kingpin.v2"
+	"github.com/kopia/kopia/repo"
 )
 
 var (
@@ -14,12 +15,10 @@ var (
 )
 
 func init() {
-	manifestShowCommand.Action(showManifestItems)
+	manifestShowCommand.Action(repositoryAction(showManifestItems))
 }
 
-func showManifestItems(context *kingpin.ParseContext) error {
-	rep := mustOpenRepository(nil)
-
+func showManifestItems(ctx context.Context, rep *repo.Repository) error {
 	for _, it := range *manifestShowItems {
 		md, err := rep.Manifests.GetMetadata(it)
 		if err != nil {

@@ -1,6 +1,9 @@
 package storagetesting
 
 import (
+	"context"
+	"io"
+	"io/ioutil"
 	"sort"
 	"strings"
 	"sync"
@@ -15,7 +18,7 @@ type mapStorage struct {
 	mutex   sync.RWMutex
 }
 
-func (s *mapStorage) GetBlock(id string, offset, length int64) ([]byte, error) {
+func (s *mapStorage) GetBlock(ctx context.Context, id string, offset, length int64) ([]byte, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
@@ -35,9 +38,14 @@ func (s *mapStorage) GetBlock(id string, offset, length int64) ([]byte, error) {
 	return nil, storage.ErrBlockNotFound
 }
 
-func (s *mapStorage) PutBlock(id string, data []byte) error {
+func (s *mapStorage) PutBlock(ctx context.Context, id string, r io.Reader) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
+	data, err := ioutil.ReadAll(r)
+	if err != nil {
+		return err
+	}
 
 	if _, ok := s.data[id]; ok {
 		return nil
@@ -48,7 +56,7 @@ func (s *mapStorage) PutBlock(id string, data []byte) error {
 	return nil
 }
 
-func (s *mapStorage) DeleteBlock(id string) error {
+func (s *mapStorage) DeleteBlock(ctx context.Context, id string) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -56,9 +64,8 @@ func (s *mapStorage) DeleteBlock(id string) error {
 	return nil
 }
 
-func (s *mapStorage) ListBlocks(prefix string) (<-chan storage.BlockMetadata, storage.CancelFunc) {
+func (s *mapStorage) ListBlocks(ctx context.Context, prefix string) <-chan storage.BlockMetadata {
 	ch := make(chan storage.BlockMetadata)
-	cancelled := make(chan bool)
 	go func() {
 		defer close(ch)
 		s.mutex.RLock()
@@ -76,7 +83,7 @@ func (s *mapStorage) ListBlocks(prefix string) (<-chan storage.BlockMetadata, st
 		for _, k := range keys {
 			v := s.data[k]
 			select {
-			case <-cancelled:
+			case <-ctx.Done():
 				return
 			case ch <- storage.BlockMetadata{
 				BlockID:   k,
@@ -86,12 +93,10 @@ func (s *mapStorage) ListBlocks(prefix string) (<-chan storage.BlockMetadata, st
 			}
 		}
 	}()
-	return ch, func() {
-		close(cancelled)
-	}
+	return ch
 }
 
-func (s *mapStorage) Close() error {
+func (s *mapStorage) Close(ctx context.Context) error {
 	return nil
 }
 

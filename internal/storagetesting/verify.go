@@ -2,13 +2,14 @@ package storagetesting
 
 import (
 	"bytes"
+	"context"
 	"testing"
 
 	"github.com/kopia/kopia/storage"
 )
 
 // VerifyStorage verifies the behavior of the specified storage.
-func VerifyStorage(t *testing.T, r storage.Storage) {
+func VerifyStorage(ctx context.Context, t *testing.T, r storage.Storage) {
 	blocks := []struct {
 		blk      string
 		contents []byte
@@ -21,20 +22,21 @@ func VerifyStorage(t *testing.T, r storage.Storage) {
 
 	// First verify that blocks don't exist.
 	for _, b := range blocks {
-		AssertGetBlockNotFound(t, r, b.blk)
+		AssertGetBlockNotFound(ctx, t, r, b.blk)
 	}
 
 	// Now add blocks.
 	for _, b := range blocks {
-		if err := r.PutBlock(b.blk, b.contents); err != nil {
+		if err := r.PutBlock(ctx, b.blk, bytes.NewReader(b.contents)); err != nil {
 			t.Errorf("can't put block: %v", err)
 		}
 
-		AssertGetBlock(t, r, b.blk, b.contents)
+		AssertGetBlock(ctx, t, r, b.blk, b.contents)
 	}
 
 	// List
-	ch, cancel := r.ListBlocks(string("ab"))
+	ctx, cancel := context.WithCancel(ctx)
+	ch := r.ListBlocks(ctx, "ab")
 	defer cancel()
 	e1 := verifyNextBlock(t, blocks[0].blk, ch)
 	e2 := verifyNextBlock(t, blocks[2].blk, ch)

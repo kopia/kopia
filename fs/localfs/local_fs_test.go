@@ -1,6 +1,7 @@
 package localfs
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -13,6 +14,7 @@ import (
 )
 
 func TestFiles(t *testing.T) {
+	ctx := context.Background()
 	var err error
 
 	tmp, err := ioutil.TempDir("", "kopia")
@@ -37,7 +39,7 @@ func TestFiles(t *testing.T) {
 		t.Errorf("error when dir empty directory: %v", err)
 	}
 
-	entries, err := dir.Readdir()
+	entries, err := dir.Readdir(ctx)
 	if err != nil {
 		t.Errorf("error gettind dir Entries: %v", err)
 	}
@@ -59,7 +61,7 @@ func TestFiles(t *testing.T) {
 		t.Errorf("error when dir directory with files: %v", err)
 	}
 
-	entries, err = dir.Readdir()
+	entries, err = dir.Readdir(ctx)
 	if err != nil {
 		t.Errorf("error gettind dir Entries: %v", err)
 	}

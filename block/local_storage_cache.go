@@ -1,11 +1,14 @@
 package block
 
 import (
+	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"sort"
 	"sync"
 	"time"
@@ -34,8 +37,8 @@ type diskBlockCache struct {
 	closed chan struct{}
 }
 
-func (c *diskBlockCache) getBlock(virtualBlockID, physicalBlockID string, offset, length int64) ([]byte, error) {
-	b, err := c.cacheStorage.GetBlock(virtualBlockID, 0, -1)
+func (c *diskBlockCache) getBlock(ctx context.Context, virtualBlockID, physicalBlockID string, offset, length int64) ([]byte, error) {
+	b, err := c.cacheStorage.GetBlock(ctx, virtualBlockID, 0, -1)
 	if err == nil {
 		b, err = c.verifyHMAC(b)
 		if err == nil {
@@ -49,39 +52,40 @@ func (c *diskBlockCache) getBlock(virtualBlockID, physicalBlockID string, offset
 		log.Warn().Msgf("unable to read cache %v: %v", virtualBlockID, err)
 	}
 
-	b, err = c.st.GetBlock(physicalBlockID, offset, length)
+	b, err = c.st.GetBlock(ctx, physicalBlockID, offset, length)
 	if err == storage.ErrBlockNotFound {
 		// not found in underlying storage
 		return nil, err
 	}
 
 	if err == nil {
-		c.writeToCache(virtualBlockID, c.appendHMAC(b))
+		c.writeToCacheBestEffort(ctx, virtualBlockID, b)
 	}
 
 	return b, err
 }
 
-func (c *diskBlockCache) writeToCache(virtualBlockID string, checksummedData []byte) {
-	if err := c.cacheStorage.PutBlock(virtualBlockID, checksummedData); err != nil {
-		log.Warn().Msgf("unable to write cache items %v: %v", virtualBlockID, err)
+func (c *diskBlockCache) writeToCacheBestEffort(ctx context.Context, virtualBlockID string, data []byte) {
+	rdr := io.MultiReader(
+		bytes.NewReader(data),
+		bytes.NewReader(c.computeHMAC(data)),
+	)
+	if err := c.cacheStorage.PutBlock(ctx, virtualBlockID, rdr); err != nil {
+		log.Warn().Msgf("unable to write cache item %v: %v", virtualBlockID, err)
 	}
 }
 
-func (c *diskBlockCache) putBlock(blockID string, data []byte) error {
-	if err := c.st.PutBlock(blockID, data); err != nil {
+func (c *diskBlockCache) putBlock(ctx context.Context, blockID string, data []byte) error {
+	if err := c.st.PutBlock(ctx, blockID, bytes.NewReader(data)); err != nil {
 		return err
 	}
 
-	// now write to cache on a best-effort basis
-	if err := c.cacheStorage.PutBlock(blockID, c.appendHMAC(data)); err != nil {
-		log.Warn().Msgf("unable to write cache item: %v", err)
-	}
-	c.deleteListCache()
+	c.writeToCacheBestEffort(ctx, blockID, data)
+	c.deleteListCache(ctx)
 	return nil
 }
 
-func (c *diskBlockCache) listIndexBlocks(full bool) ([]Info, error) {
+func (c *diskBlockCache) listIndexBlocks(ctx context.Context, full bool) ([]Info, error) {
 	var cachedListBlockID string
 
 	if full {
@@ -90,7 +94,7 @@ func (c *diskBlockCache) listIndexBlocks(full bool) ([]Info, error) {
 		cachedListBlockID = activeListCacheItem
 	}
 
-	ci, err := c.readBlocksFromCacheBlock(cachedListBlockID)
+	ci, err := c.readBlocksFromCacheBlock(ctx, cachedListBlockID)
 	if err == nil {
 		expirationTime := ci.Timestamp.Add(c.listCacheDuration)
 		if time.Now().Before(expirationTime) {
@@ -102,9 +106,9 @@ func (c *diskBlockCache) listIndexBlocks(full bool) ([]Info, error) {
 	}
 
 	log.Debug().Bool("full", full).Msg("listing index blocks from source")
-	blocks, err := listIndexBlocksFromStorage(c.st, full)
+	blocks, err := listIndexBlocksFromStorage(ctx, c.st, full)
 	if err == nil {
-		c.saveListToCache(cachedListBlockID, &cachedList{
+		c.saveListToCache(ctx, cachedListBlockID, &cachedList{
 			Blocks:    blocks,
 			Timestamp: time.Now(),
 		})
@@ -113,18 +117,16 @@ func (c *diskBlockCache) listIndexBlocks(full bool) ([]Info, error) {
 	return blocks, err
 }
 
-func (c *diskBlockCache) saveListToCache(cachedListBlockID string, ci *cachedList) {
+func (c *diskBlockCache) saveListToCache(ctx context.Context, cachedListBlockID string, ci *cachedList) {
 	log.Debug().Str("blockID", cachedListBlockID).Int("count", len(ci.Blocks)).Msg("saving index blocks to cache")
 	if data, err := json.Marshal(ci); err == nil {
-		if err := c.cacheStorage.PutBlock(cachedListBlockID, c.appendHMAC(data)); err != nil {
-			log.Warn().Str("blockID", cachedListBlockID).Err(err).Msg("can't save list")
-		}
+		c.writeToCacheBestEffort(ctx, cachedListBlockID, data)
 	}
 }
 
-func (c *diskBlockCache) readBlocksFromCacheBlock(blockID string) (*cachedList, error) {
+func (c *diskBlockCache) readBlocksFromCacheBlock(ctx context.Context, blockID string) (*cachedList, error) {
 	ci := &cachedList{}
-	data, err := c.cacheStorage.GetBlock(blockID, 0, -1)
+	data, err := c.cacheStorage.GetBlock(ctx, blockID, 0, -1)
 	if err != nil {
 		return nil, err
 	}
@@ -142,11 +144,10 @@ func (c *diskBlockCache) readBlocksFromCacheBlock(blockID string) (*cachedList, 
 
 }
 
-func (c *diskBlockCache) appendHMAC(data []byte) []byte {
+func (c *diskBlockCache) computeHMAC(data []byte) []byte {
 	h := hmac.New(sha256.New, c.hmacSecret)
 	h.Write(data) // nolint:errcheck
-	validSignature := h.Sum(nil)
-	return append(append([]byte(nil), data...), validSignature...)
+	return h.Sum(nil)
 }
 
 func (c *diskBlockCache) verifyHMAC(b []byte) ([]byte, error) {
@@ -157,9 +158,8 @@ func (c *diskBlockCache) verifyHMAC(b []byte) ([]byte, error) {
 	p := len(b) - sha256.Size
 	data := b[0:p]
 	signature := b[p:]
-	h := hmac.New(sha256.New, c.hmacSecret)
-	h.Write(data) // nolint:errcheck
-	validSignature := h.Sum(nil)
+
+	validSignature := c.computeHMAC(data)
 	if len(signature) != len(validSignature) {
 		return nil, errors.New("invalid signature length")
 	}
@@ -175,14 +175,14 @@ func (c *diskBlockCache) close() error {
 	return nil
 }
 
-func (c *diskBlockCache) sweepDirectoryPeriodically() {
+func (c *diskBlockCache) sweepDirectoryPeriodically(ctx context.Context) {
 	for {
 		select {
 		case <-c.closed:
 			return
 
 		case <-time.After(sweepCacheFrequency):
-			err := c.sweepDirectory()
+			err := c.sweepDirectory(ctx)
 			if err != nil {
 				log.Printf("warning: blockCache sweep failed: %v", err)
 			}
@@ -190,7 +190,7 @@ func (c *diskBlockCache) sweepDirectoryPeriodically() {
 	}
 }
 
-func (c *diskBlockCache) sweepDirectory() (err error) {
+func (c *diskBlockCache) sweepDirectory(ctx context.Context) (err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -201,7 +201,8 @@ func (c *diskBlockCache) sweepDirectory() (err error) {
 	t0 := time.Now()
 	log.Debug().Msg("sweeping cache")
 
-	ch, cancel := c.cacheStorage.ListBlocks("")
+	ctx, cancel := context.WithCancel(ctx)
+	ch := c.cacheStorage.ListBlocks(ctx, "")
 	defer cancel()
 
 	var items []storage.BlockMetadata
@@ -220,7 +221,7 @@ func (c *diskBlockCache) sweepDirectory() (err error) {
 	var totalRetainedSize int64
 	for _, it := range items {
 		if totalRetainedSize > c.maxSizeBytes {
-			if err := c.cacheStorage.DeleteBlock(it.BlockID); err != nil {
+			if err := c.cacheStorage.DeleteBlock(ctx, it.BlockID); err != nil {
 				log.Warn().Msgf("unable to remove %v: %v", it.BlockID, err)
 			}
 		} else {
@@ -232,9 +233,9 @@ func (c *diskBlockCache) sweepDirectory() (err error) {
 	return nil
 }
 
-func (c *diskBlockCache) deleteListCache() {
+func (c *diskBlockCache) deleteListCache(ctx context.Context) {
 	for _, it := range []string{fullListCacheItem, activeListCacheItem} {
-		if err := c.cacheStorage.DeleteBlock(it); err != nil && err != storage.ErrBlockNotFound {
+		if err := c.cacheStorage.DeleteBlock(ctx, it); err != nil && err != storage.ErrBlockNotFound {
 			log.Warn().Err(err).Msg("unable to delete cache item")
 		}
 	}

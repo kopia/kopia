@@ -1,6 +1,9 @@
 package storagetesting
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
 func TestMapStorage(t *testing.T) {
 	data := map[string][]byte{}
@@ -8,5 +11,5 @@ func TestMapStorage(t *testing.T) {
 	if r == nil {
 		t.Errorf("unexpected result: %v", r)
 	}
-	VerifyStorage(t, r)
+	VerifyStorage(context.Background(), t, r)
 }

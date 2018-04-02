@@ -30,7 +30,7 @@ type fsStorage struct {
 	Options
 }
 
-func (fs *fsStorage) GetBlock(blockID string, offset, length int64) ([]byte, error) {
+func (fs *fsStorage) GetBlock(ctx context.Context, blockID string, offset, length int64) ([]byte, error) {
 	_, path := fs.getShardedPathAndFilePath(blockID)
 
 	f, err := os.Open(path)
@@ -65,9 +65,8 @@ func makeFileName(blockID string) string {
 	return blockID + fsStorageChunkSuffix
 }
 
-func (fs *fsStorage) ListBlocks(prefix string) (<-chan storage.BlockMetadata, storage.CancelFunc) {
+func (fs *fsStorage) ListBlocks(ctx context.Context, prefix string) <-chan storage.BlockMetadata {
 	result := make(chan storage.BlockMetadata)
-	cancelled := make(chan bool)
 
 	var walkDir func(string, string)
 
@@ -92,7 +91,7 @@ func (fs *fsStorage) ListBlocks(prefix string) (<-chan storage.BlockMetadata, st
 				} else if fullID, ok := getstringFromFileName(currentPrefix + e.Name()); ok {
 					if strings.HasPrefix(fullID, prefix) {
 						select {
-						case <-cancelled:
+						case <-ctx.Done():
 							return
 						case result <- storage.BlockMetadata{
 							BlockID:   fullID,
@@ -112,12 +111,10 @@ func (fs *fsStorage) ListBlocks(prefix string) (<-chan storage.BlockMetadata, st
 	}
 
 	go walkDirAndClose(fs.Path)
-	return result, func() {
-		close(cancelled)
-	}
+	return result
 }
 
-func (fs *fsStorage) PutBlock(blockID string, data []byte) error {
+func (fs *fsStorage) PutBlock(ctx context.Context, blockID string, r io.Reader) error {
 	_, path := fs.getShardedPathAndFilePath(blockID)
 
 	tempFile := fmt.Sprintf("%s.tmp.%d", path, rand.Int())
@@ -125,7 +122,7 @@ func (fs *fsStorage) PutBlock(blockID string, data []byte) error {
 	if err != nil {
 		return fmt.Errorf("cannot create temporary file: %v", err)
 	}
-	if _, err = f.Write(data); err != nil {
+	if _, err = io.Copy(f, r); err != nil {
 		return fmt.Errorf("can't write temporary file: %v", err)
 	}
 	if err = f.Close(); err != nil {
@@ -162,7 +159,7 @@ func (fs *fsStorage) createTempFileAndDir(tempFile string) (*os.File, error) {
 	return f, err
 }
 
-func (fs *fsStorage) DeleteBlock(blockID string) error {
+func (fs *fsStorage) DeleteBlock(ctx context.Context, blockID string) error {
 	_, path := fs.getShardedPathAndFilePath(blockID)
 	err := os.Remove(path)
 	if err == nil || os.IsNotExist(err) {
@@ -198,7 +195,7 @@ func (fs *fsStorage) ConnectionInfo() storage.ConnectionInfo {
 	}
 }
 
-func (fs *fsStorage) Close() error {
+func (fs *fsStorage) Close(ctx context.Context) error {
 	return nil
 }
 

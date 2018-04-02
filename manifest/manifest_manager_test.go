@@ -1,6 +1,7 @@
 package manifest
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"sort"
@@ -13,9 +14,10 @@ import (
 )
 
 func TestManifest(t *testing.T) {
+	ctx := context.Background()
 	data := map[string][]byte{}
 	keyTime := map[string]time.Time{}
-	mgr, setupErr := newManagerForTesting(t, data, keyTime)
+	mgr, setupErr := newManagerForTesting(ctx, t, data, keyTime)
 	if setupErr != nil {
 		t.Fatalf("unable to open block manager: %v", setupErr)
 	}
@@ -52,10 +54,10 @@ func TestManifest(t *testing.T) {
 	verifyItem(t, mgr, id2, labels2, item2)
 	verifyItem(t, mgr, id3, labels3, item3)
 
-	if err := mgr.Flush(); err != nil {
+	if err := mgr.Flush(ctx); err != nil {
 		t.Errorf("flush error: %v", err)
 	}
-	if err := mgr.Flush(); err != nil {
+	if err := mgr.Flush(ctx); err != nil {
 		t.Errorf("flush error: %v", err)
 	}
 
@@ -68,8 +70,8 @@ func TestManifest(t *testing.T) {
 	verifyItem(t, mgr, id3, labels3, item3)
 
 	// flush underlying block manager and verify in new manifest manager.
-	mgr.b.Flush()
-	mgr2, setupErr := newManagerForTesting(t, data, keyTime)
+	mgr.b.Flush(ctx)
+	mgr2, setupErr := newManagerForTesting(ctx, t, data, keyTime)
 	if setupErr != nil {
 		t.Fatalf("can't open block manager: %v", setupErr)
 	}
@@ -79,23 +81,23 @@ func TestManifest(t *testing.T) {
 	verifyItem(t, mgr2, id1, labels1, item1)
 	verifyItem(t, mgr2, id2, labels2, item2)
 	verifyItem(t, mgr2, id3, labels3, item3)
-	if err := mgr2.Flush(); err != nil {
+	if err := mgr2.Flush(ctx); err != nil {
 		t.Errorf("flush error: %v", err)
 	}
 
 	// delete from one
 	mgr.Delete(id3)
 	verifyItemNotFound(t, mgr, id3)
-	mgr.Flush()
+	mgr.Flush(ctx)
 	verifyItemNotFound(t, mgr, id3)
 
 	// still found in another
 	verifyItem(t, mgr2, id3, labels3, item3)
-	if err := mgr2.load(); err != nil {
+	if err := mgr2.load(ctx); err != nil {
 		t.Errorf("unable to load: %v", err)
 	}
 
-	if err := mgr.Compact(); err != nil {
+	if err := mgr.Compact(ctx); err != nil {
 		t.Errorf("can't compact: %v", err)
 	}
 
@@ -107,9 +109,9 @@ func TestManifest(t *testing.T) {
 		t.Errorf("unexpected number of blocks: %v, want %v", got, want)
 	}
 
-	mgr.b.Flush()
+	mgr.b.Flush(ctx)
 
-	mgr3, err := newManagerForTesting(t, data, keyTime)
+	mgr3, err := newManagerForTesting(ctx, t, data, keyTime)
 	if err != nil {
 		t.Fatalf("can't open manager: %v", err)
 	}
@@ -170,10 +172,10 @@ func verifyMatches(t *testing.T, mgr *Manager, labels map[string]string, expecte
 	}
 }
 
-func newManagerForTesting(t *testing.T, data map[string][]byte, keyTime map[string]time.Time) (*Manager, error) {
+func newManagerForTesting(ctx context.Context, t *testing.T, data map[string][]byte, keyTime map[string]time.Time) (*Manager, error) {
 	st := storagetesting.NewMapStorage(data, keyTime)
 
-	bm, err := block.NewManager(st, block.FormattingOptions{
+	bm, err := block.NewManager(ctx, st, block.FormattingOptions{
 		BlockFormat: "TESTONLY_MD5",
 		MaxPackSize: 100000,
 	}, block.CachingOptions{})
@@ -181,5 +183,5 @@ func newManagerForTesting(t *testing.T, data map[string][]byte, keyTime map[stri
 		return nil, fmt.Errorf("can't create block manager: %v", err)
 	}
 
-	return NewManager(bm)
+	return NewManager(ctx, bm)
 }

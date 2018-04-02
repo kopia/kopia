@@ -11,9 +11,9 @@ import (
 )
 
 type blockCache interface {
-	getBlock(virtualBlockID, physicalBlockID string, offset, length int64) ([]byte, error)
-	putBlock(blockID string, data []byte) error
-	listIndexBlocks(full bool) ([]Info, error)
+	getBlock(ctx context.Context, virtualBlockID, physicalBlockID string, offset, length int64) ([]byte, error)
+	putBlock(ctx context.Context, blockID string, data []byte) error
+	listIndexBlocks(ctx context.Context, full bool) ([]Info, error)
 	close() error
 }
 
@@ -26,7 +26,7 @@ type CachingOptions struct {
 	HMACSecret              []byte `json:"-"`
 }
 
-func newBlockCache(st storage.Storage, caching CachingOptions) (blockCache, error) {
+func newBlockCache(ctx context.Context, st storage.Storage, caching CachingOptions) (blockCache, error) {
 	if caching.MaxCacheSizeBytes == 0 || caching.CacheDirectory == "" {
 		return nullBlockCache{st}, nil
 	}
@@ -53,13 +53,13 @@ func newBlockCache(st storage.Storage, caching CachingOptions) (blockCache, erro
 	}
 
 	if caching.IgnoreListCache {
-		c.deleteListCache()
+		c.deleteListCache(ctx)
 	}
 
-	if err := c.sweepDirectory(); err != nil {
+	if err := c.sweepDirectory(ctx); err != nil {
 		return nil, err
 	}
-	go c.sweepDirectoryPeriodically()
+	go c.sweepDirectoryPeriodically(ctx)
 
 	return c, nil
 }

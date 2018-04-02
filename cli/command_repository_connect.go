@@ -46,13 +46,13 @@ func init() {
 	setupConnectOptions(connectCommand)
 }
 
-func runConnectCommandWithStorage(st storage.Storage) error {
+func runConnectCommandWithStorage(ctx context.Context, st storage.Storage) error {
 	creds, err := getRepositoryCredentials(false)
 	if err != nil {
 		return err
 	}
 
-	err = repo.Connect(context.Background(), repositoryConfigFileName(), st, creds, connectOptions())
+	err = repo.Connect(ctx, repositoryConfigFileName(), st, creds, connectOptions())
 	if err != nil {
 		return err
 	}

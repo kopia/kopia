@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"sort"
@@ -9,9 +10,8 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
-
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
@@ -226,10 +226,7 @@ func expireSnapshots(pmgr *snapshot.PolicyManager, snapshots []*snapshot.Manifes
 	return toDelete, nil
 }
 
-func runExpireCommand(context *kingpin.ParseContext) error {
-	rep := mustOpenRepository(nil)
-	defer rep.Close() //nolint: errcheck
-
+func runExpireCommand(ctx context.Context, rep *repo.Repository) error {
 	mgr := snapshot.NewManager(rep)
 	pmgr := snapshot.NewPolicyManager(rep)
 	snapshotNames, err := getSnapshotNamesToExpire(mgr)
@@ -288,5 +285,5 @@ func filterHostAndUser(snapshots []*snapshot.Manifest) []*snapshot.Manifest {
 }
 
 func init() {
-	snapshotExpireCommand.Action(runExpireCommand)
+	snapshotExpireCommand.Action(repositoryAction(runExpireCommand))
 }

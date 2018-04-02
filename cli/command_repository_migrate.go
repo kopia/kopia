@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/rs/zerolog/log"
@@ -8,7 +9,6 @@ import (
 	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
@@ -21,8 +21,7 @@ var (
 	migrateIgnoreErrors = migrateCommand.Flag("ignore-errors", "Ignore errors when reading source backup").Bool()
 )
 
-func runMigrateCommand(context *kingpin.ParseContext) error {
-	destRepo := mustOpenRepository(nil)
+func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 	destSM := snapshot.NewManager(destRepo)
 
 	uploader := snapshot.NewUploader(destRepo)
@@ -30,7 +29,7 @@ func runMigrateCommand(context *kingpin.ParseContext) error {
 	uploader.IgnoreFileErrors = *migrateIgnoreErrors
 	onCtrlC(uploader.Cancel)
 
-	sourceRepo, err := repo.Open(getContext(), *migrateSourceConfig, applyOptionsFromFlags(nil))
+	sourceRepo, err := repo.Open(ctx, *migrateSourceConfig, applyOptionsFromFlags(nil))
 	if err != nil {
 		return fmt.Errorf("can't open source repository: %v", err)
 	}
@@ -47,7 +46,7 @@ func runMigrateCommand(context *kingpin.ParseContext) error {
 			break
 		}
 
-		if err := migrateSingleSource(uploader, sourceSM, destSM, s); err != nil {
+		if err := migrateSingleSource(ctx, uploader, sourceSM, destSM, s); err != nil {
 			return err
 		}
 	}
@@ -58,7 +57,7 @@ func runMigrateCommand(context *kingpin.ParseContext) error {
 			return err
 		}
 		d := sourceSM.DirectoryEntry(dirOID)
-		newm, err := uploader.Upload(d, snapshot.SourceInfo{Host: "temp"}, nil)
+		newm, err := uploader.Upload(ctx, d, snapshot.SourceInfo{Host: "temp"}, nil)
 		if err != nil {
 			return fmt.Errorf("error migrating directory %v: %v", dirOID, err)
 		}
@@ -69,7 +68,7 @@ func runMigrateCommand(context *kingpin.ParseContext) error {
 	return nil
 }
 
-func migrateSingleSource(uploader *snapshot.Uploader, sourceSM, destSM *snapshot.Manager, s snapshot.SourceInfo) error {
+func migrateSingleSource(ctx context.Context, uploader *snapshot.Uploader, sourceSM, destSM *snapshot.Manager, s snapshot.SourceInfo) error {
 	log.Printf("migrating source %v", s)
 
 	manifests := sourceSM.ListSnapshotManifests(&s)
@@ -80,7 +79,7 @@ func migrateSingleSource(uploader *snapshot.Uploader, sourceSM, destSM *snapshot
 
 	for _, m := range filterSnapshotsToMigrate(snapshots) {
 		d := sourceSM.DirectoryEntry(m.RootObjectID)
-		newm, err := uploader.Upload(d, m.Source, nil)
+		newm, err := uploader.Upload(ctx, d, m.Source, nil)
 		if err != nil {
 			return fmt.Errorf("error migrating shapshot %v @ %v: %v", m.Source, m.StartTime, err)
 		}
@@ -129,5 +128,5 @@ func getSourcesToMigrate(mgr *snapshot.Manager) ([]snapshot.SourceInfo, error) {
 }
 
 func init() {
-	migrateCommand.Action(runMigrateCommand)
+	migrateCommand.Action(repositoryAction(runMigrateCommand))
 }

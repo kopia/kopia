@@ -1,6 +1,7 @@
 package cachefs
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -19,8 +20,8 @@ type cacheSource struct {
 	callCounter map[string]int
 }
 
-func (cs *cacheSource) get(id string) func() (fs.Entries, error) {
-	return func() (fs.Entries, error) {
+func (cs *cacheSource) get(id string) func(ctx context.Context) (fs.Entries, error) {
+	return func(context.Context) (fs.Entries, error) {
 		cs.callCounter[id]++
 		d, ok := cs.data[id]
 		if !ok {
@@ -119,6 +120,7 @@ func (cv *cacheVerifier) reset() {
 }
 
 func TestCache(t *testing.T) {
+	ctx := context.Background()
 	c := NewCache(&Options{
 		MaxCachedDirectories: 4,
 		MaxCachedEntries:     100,
@@ -147,57 +149,57 @@ func TestCache(t *testing.T) {
 	cv.verifyCacheOrdering(t)
 
 	// fetch id1
-	c.getEntries(id1, expirationTime, cs.get(id1))
+	c.getEntries(ctx, id1, expirationTime, cs.get(id1))
 	cv.verifyCacheMiss(t, id1)
 	cv.verifyCacheOrdering(t, id1)
 
 	// fetch id1 again - cache hit, no change
-	c.getEntries(id1, expirationTime, cs.get(id1))
+	c.getEntries(ctx, id1, expirationTime, cs.get(id1))
 	cv.verifyCacheHit(t, id1)
 	cv.verifyCacheOrdering(t, id1)
 
 	// fetch id2
-	c.getEntries(id2, expirationTime, cs.get(id2))
+	c.getEntries(ctx, id2, expirationTime, cs.get(id2))
 	cv.verifyCacheMiss(t, id2)
 	cv.verifyCacheOrdering(t, id2, id1)
 
 	// fetch id1 again - cache hit, id1 moved to the top of the LRU list
-	c.getEntries(id1, expirationTime, cs.get(id1))
+	c.getEntries(ctx, id1, expirationTime, cs.get(id1))
 	cv.verifyCacheHit(t, id1)
 	cv.verifyCacheOrdering(t, id1, id2)
 
 	// fetch id2 again
-	c.getEntries(id2, expirationTime, cs.get(id2))
+	c.getEntries(ctx, id2, expirationTime, cs.get(id2))
 	cv.verifyCacheHit(t, id2)
 	cv.verifyCacheOrdering(t, id2, id1)
 
 	// fetch id3
-	c.getEntries(id3, expirationTime, cs.get(id3))
+	c.getEntries(ctx, id3, expirationTime, cs.get(id3))
 	cv.verifyCacheMiss(t, id3)
 	cv.verifyCacheOrdering(t, id3, id2, id1)
 
 	// fetch id4
-	c.getEntries(id4, expirationTime, cs.get(id4))
+	c.getEntries(ctx, id4, expirationTime, cs.get(id4))
 	cv.verifyCacheMiss(t, id4)
 	cv.verifyCacheOrdering(t, id4, id3)
 
 	// fetch id1 again
-	c.getEntries(id1, expirationTime, cs.get(id1))
+	c.getEntries(ctx, id1, expirationTime, cs.get(id1))
 	cv.verifyCacheMiss(t, id1)
 	cv.verifyCacheOrdering(t, id1, id4)
 
 	// fetch id5, it's a big one that expels all but one
-	c.getEntries(id5, expirationTime, cs.get(id5))
+	c.getEntries(ctx, id5, expirationTime, cs.get(id5))
 	cv.verifyCacheMiss(t, id5)
 	cv.verifyCacheOrdering(t, id5, id1)
 
 	// fetch id6
-	c.getEntries(id6, expirationTime, cs.get(id6))
+	c.getEntries(ctx, id6, expirationTime, cs.get(id6))
 	cv.verifyCacheMiss(t, id6)
 	cv.verifyCacheOrdering(t, id6)
 
 	// fetch id7
-	c.getEntries(id7, expirationTime, cs.get(id7))
+	c.getEntries(ctx, id7, expirationTime, cs.get(id7))
 	cv.verifyCacheMiss(t, id7)
 	cv.verifyCacheOrdering(t, id6)
 }

@@ -20,6 +20,7 @@ var _ webdav.File = (*webdavFile)(nil)
 var _ webdav.File = (*webdavDir)(nil)
 
 type webdavFile struct {
+	ctx   context.Context
 	entry fs.File
 
 	mu sync.Mutex
@@ -38,7 +39,7 @@ func (f *webdavFile) getReader() (fs.Reader, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if f.r == nil {
-		r, err := f.entry.Open()
+		r, err := f.entry.Open(f.ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -83,12 +84,13 @@ func (f *webdavFile) Close() error {
 }
 
 type webdavDir struct {
+	ctx   context.Context
 	w     *webdavFS
 	entry fs.Directory
 }
 
 func (d *webdavDir) Readdir(n int) ([]os.FileInfo, error) {
-	entries, err := d.entry.Readdir()
+	entries, err := d.entry.Readdir(d.ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +170,7 @@ func (w *webdavFS) Rename(ctx context.Context, oldPath, newPath string) error {
 }
 
 func (w *webdavFS) OpenFile(ctx context.Context, path string, flags int, mode os.FileMode) (webdav.File, error) {
-	f, err := w.findEntry(path)
+	f, err := w.findEntry(ctx, path)
 	if err != nil {
 		log.Printf("OpenFile(%q) failed with %v", path, err)
 		return nil, err
@@ -176,16 +178,16 @@ func (w *webdavFS) OpenFile(ctx context.Context, path string, flags int, mode os
 
 	switch f := f.(type) {
 	case fs.Directory:
-		return &webdavDir{w, f}, nil
+		return &webdavDir{ctx, w, f}, nil
 	case fs.File:
-		return &webdavFile{entry: f}, nil
+		return &webdavFile{ctx: ctx, entry: f}, nil
 	}
 
 	return nil, fmt.Errorf("can't open %q: not implemented", path)
 }
 
 func (w *webdavFS) Stat(ctx context.Context, path string) (os.FileInfo, error) {
-	e, err := w.findEntry(path)
+	e, err := w.findEntry(ctx, path)
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +195,7 @@ func (w *webdavFS) Stat(ctx context.Context, path string) (os.FileInfo, error) {
 	return webdavFileInfo{e.Metadata()}, nil
 }
 
-func (w *webdavFS) findEntry(path string) (fs.Entry, error) {
+func (w *webdavFS) findEntry(ctx context.Context, path string) (fs.Entry, error) {
 	parts := removeEmpty(strings.Split(path, "/"))
 	var e fs.Entry = w.dir
 	for i, p := range parts {
@@ -202,7 +204,7 @@ func (w *webdavFS) findEntry(path string) (fs.Entry, error) {
 			return nil, fmt.Errorf("%q not found in %q (not a directory)", p, strings.Join(parts[0:i], "/"))
 		}
 
-		entries, err := d.Readdir()
+		entries, err := d.Readdir(ctx)
 		if err != nil {
 			return nil, err
 		}

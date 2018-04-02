@@ -63,12 +63,8 @@ func waitForCtrlC() {
 	<-done
 }
 
-func getContext() context.Context {
-	return context.Background()
-}
-
-func openRepository(opts *repo.Options) (*repo.Repository, error) {
-	r, err := repo.Open(getContext(), repositoryConfigFileName(), applyOptionsFromFlags(opts))
+func openRepository(ctx context.Context, opts *repo.Options) (*repo.Repository, error) {
+	r, err := repo.Open(ctx, repositoryConfigFileName(), applyOptionsFromFlags(opts))
 	if os.IsNotExist(err) {
 		return nil, fmt.Errorf("not connected to a repository, use 'kopia connect'")
 	}
@@ -96,8 +92,8 @@ func applyOptionsFromFlags(opts *repo.Options) *repo.Options {
 	return opts
 }
 
-func mustOpenRepository(opts *repo.Options) *repo.Repository {
-	s, err := openRepository(opts)
+func mustOpenRepository(ctx context.Context, opts *repo.Options) *repo.Repository {
+	s, err := openRepository(ctx, opts)
 	failOnError(err)
 	return s
 }

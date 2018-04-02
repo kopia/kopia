@@ -27,6 +27,8 @@ func TestWebDAVStorage(t *testing.T) {
 	server := httptest.NewServer(mux)
 	defer server.Close()
 
+	ctx := context.Background()
+
 	// Test varioush shard configurations.
 	for _, shardSpec := range [][]int{
 		[]int{1},
@@ -50,6 +52,6 @@ func TestWebDAVStorage(t *testing.T) {
 			t.Errorf("unexpected result: %v %v", r, err)
 		}
 
-		storagetesting.VerifyStorage(t, r)
+		storagetesting.VerifyStorage(ctx, t, r)
 	}
 }

@@ -1,13 +1,14 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strconv"
 
 	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/units"
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
+	"github.com/kopia/kopia/repo"
 )
 
 var (
@@ -15,10 +16,7 @@ var (
 	blockStatsRaw     = blockStatsCommand.Flag("raw", "Raw numbers").Short('r').Bool()
 )
 
-func runBlockStatsAction(context *kingpin.ParseContext) error {
-	rep := mustOpenRepository(nil)
-	defer rep.Close() //nolint: errcheck
-
+func runBlockStatsAction(ctx context.Context, rep *repo.Repository) error {
 	blocks, err := rep.Blocks.ListBlocks("")
 	if err != nil {
 		return err
@@ -82,5 +80,5 @@ func percentileSize(p int, blocks []block.Info) int64 {
 }
 
 func init() {
-	blockStatsCommand.Action(runBlockStatsAction)
+	blockStatsCommand.Action(repositoryAction(runBlockStatsAction))
 }

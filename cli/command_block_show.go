@@ -2,10 +2,9 @@ package cli
 
 import (
 	"bytes"
+	"context"
 
 	"github.com/kopia/kopia/repo"
-
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
@@ -14,12 +13,9 @@ var (
 	showBlockIDs = showBlockCommand.Arg("id", "IDs of blocks to show").Required().Strings()
 )
 
-func runShowBlockCommand(context *kingpin.ParseContext) error {
-	rep := mustOpenRepository(nil)
-	defer rep.Close() //nolint: errcheck
-
+func runShowBlockCommand(ctx context.Context, rep *repo.Repository) error {
 	for _, blockID := range *showBlockIDs {
-		if err := showBlock(rep, blockID); err != nil {
+		if err := showBlock(ctx, rep, blockID); err != nil {
 			return err
 		}
 	}
@@ -27,8 +23,8 @@ func runShowBlockCommand(context *kingpin.ParseContext) error {
 	return nil
 }
 
-func showBlock(r *repo.Repository, blockID string) error {
-	data, err := r.Blocks.GetBlock(blockID)
+func showBlock(ctx context.Context, r *repo.Repository, blockID string) error {
+	data, err := r.Blocks.GetBlock(ctx, blockID)
 	if err != nil {
 		return err
 	}
@@ -38,5 +34,5 @@ func showBlock(r *repo.Repository, blockID string) error {
 
 func init() {
 	setupShowCommand(showBlockCommand)
-	showBlockCommand.Action(runShowBlockCommand)
+	showBlockCommand.Action(repositoryAction(runShowBlockCommand))
 }

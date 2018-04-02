@@ -1,9 +1,9 @@
 package cli
 
 import (
-	"github.com/kopia/kopia/repo"
+	"context"
 
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
+	"github.com/kopia/kopia/repo"
 )
 
 var (
@@ -12,10 +12,7 @@ var (
 	removeBlockIDs = removeBlockCommand.Arg("id", "IDs of blocks to remove").Required().Strings()
 )
 
-func runRemoveBlockCommand(context *kingpin.ParseContext) error {
-	rep := mustOpenRepository(nil)
-	defer rep.Close() //nolint: errcheck
-
+func runRemoveBlockCommand(ctx context.Context, rep *repo.Repository) error {
 	for _, blockID := range *removeBlockIDs {
 		if err := removeBlock(rep, blockID); err != nil {
 			return err
@@ -31,5 +28,5 @@ func removeBlock(r *repo.Repository, blockID string) error {
 
 func init() {
 	setupShowCommand(removeBlockCommand)
-	removeBlockCommand.Action(runRemoveBlockCommand)
+	removeBlockCommand.Action(repositoryAction(runRemoveBlockCommand))
 }

@@ -42,9 +42,9 @@ func setupTestWithData(t *testing.T, data map[string][]byte, keyTime map[string]
 	for _, m := range mods {
 		m(opt)
 	}
-	Initialize(st, opt, creds)
 
 	ctx := context.Background()
+	Initialize(ctx, st, opt, creds)
 
 	r, err := connect(ctx, st, creds, &Options{
 		//TraceStorage: log.Printf,
@@ -68,10 +68,12 @@ func TestWriters(t *testing.T) {
 		{make([]byte, 100), object.ID{StorageBlock: "6d0bb00954ceb7fbee436bb55a8397a9"}}, // 100 zero bytes
 	}
 
+	ctx := context.Background()
+
 	for _, c := range cases {
 		data, _, repo := setupTest(t)
 
-		writer := repo.Objects.NewWriter(object.WriterOptions{})
+		writer := repo.Objects.NewWriter(ctx, object.WriterOptions{})
 
 		writer.Write(c.data)
 
@@ -81,13 +83,13 @@ func TestWriters(t *testing.T) {
 			continue
 		}
 
-		repo.Objects.Flush()
+		repo.Objects.Flush(ctx)
 
 		if !objectIDsEqual(result, c.objectID) {
 			t.Errorf("incorrect result for %v, expected: %v got: %v", c.data, c.objectID.String(), result.String())
 		}
 
-		repo.Blocks.Flush()
+		repo.Blocks.Flush(ctx)
 
 		if got, want := len(data), 2; got != want {
 			// 1 format block + 1 pack index block (including inline data blocks)
@@ -118,10 +120,11 @@ func objectIDsEqual(o1 object.ID, o2 object.ID) bool {
 }
 
 func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
+	ctx := context.Background()
 	_, _, repo := setupTest(t)
 
 	bytes := make([]byte, 100)
-	writer := repo.Objects.NewWriter(object.WriterOptions{})
+	writer := repo.Objects.NewWriter(ctx, object.WriterOptions{})
 	writer.Write(bytes[0:50])
 	writer.Write(bytes[0:50])
 	result, err := writer.Result()
@@ -133,25 +136,26 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 func TestPackingSimple(t *testing.T) {
 	data, keyTime, repo := setupTest(t, func(n *NewRepositoryOptions) {
 	})
+	ctx := context.Background()
 
 	content1 := "hello, how do you do?"
 	content2 := "hi, how are you?"
 	content3 := "thank you!"
 
-	oid1a := writeObject(t, repo, []byte(content1), "packed-object-1a")
-	oid1b := writeObject(t, repo, []byte(content1), "packed-object-1b")
-	oid2a := writeObject(t, repo, []byte(content2), "packed-object-2a")
-	oid2b := writeObject(t, repo, []byte(content2), "packed-object-2b")
+	oid1a := writeObject(ctx, t, repo, []byte(content1), "packed-object-1a")
+	oid1b := writeObject(ctx, t, repo, []byte(content1), "packed-object-1b")
+	oid2a := writeObject(ctx, t, repo, []byte(content2), "packed-object-2a")
+	oid2b := writeObject(ctx, t, repo, []byte(content2), "packed-object-2b")
 
-	oid3a := writeObject(t, repo, []byte(content3), "packed-object-3a")
-	oid3b := writeObject(t, repo, []byte(content3), "packed-object-3b")
-	verify(t, repo, oid1a, []byte(content1), "packed-object-1")
-	verify(t, repo, oid2a, []byte(content2), "packed-object-2")
-	oid2c := writeObject(t, repo, []byte(content2), "packed-object-2c")
-	oid1c := writeObject(t, repo, []byte(content1), "packed-object-1c")
+	oid3a := writeObject(ctx, t, repo, []byte(content3), "packed-object-3a")
+	oid3b := writeObject(ctx, t, repo, []byte(content3), "packed-object-3b")
+	verify(ctx, t, repo, oid1a, []byte(content1), "packed-object-1")
+	verify(ctx, t, repo, oid2a, []byte(content2), "packed-object-2")
+	oid2c := writeObject(ctx, t, repo, []byte(content2), "packed-object-2c")
+	oid1c := writeObject(ctx, t, repo, []byte(content1), "packed-object-1c")
 
-	repo.Objects.Flush()
-	repo.Blocks.Flush()
+	repo.Objects.Flush(ctx)
+	repo.Blocks.Flush(ctx)
 
 	if got, want := oid1a.String(), oid1b.String(); got != want {
 		t.Errorf("oid1a(%q) != oid1b(%q)", got, want)
@@ -173,34 +177,34 @@ func TestPackingSimple(t *testing.T) {
 	if got, want := len(data), 2; got != want {
 		t.Errorf("got unexpected repository contents %v items, wanted %v", got, want)
 	}
-	repo.Close()
+	repo.Close(ctx)
 
 	data, _, repo = setupTestWithData(t, data, keyTime, func(n *NewRepositoryOptions) {
 	})
 
-	verify(t, repo, oid1a, []byte(content1), "packed-object-1")
-	verify(t, repo, oid2a, []byte(content2), "packed-object-2")
-	verify(t, repo, oid3a, []byte(content3), "packed-object-3")
+	verify(ctx, t, repo, oid1a, []byte(content1), "packed-object-1")
+	verify(ctx, t, repo, oid2a, []byte(content2), "packed-object-2")
+	verify(ctx, t, repo, oid3a, []byte(content3), "packed-object-3")
 
-	if err := repo.Blocks.CompactIndexes(); err != nil {
+	if err := repo.Blocks.CompactIndexes(ctx); err != nil {
 		t.Errorf("optimize error: %v", err)
 	}
 	data, _, repo = setupTestWithData(t, data, keyTime, func(n *NewRepositoryOptions) {
 	})
 
-	verify(t, repo, oid1a, []byte(content1), "packed-object-1")
-	verify(t, repo, oid2a, []byte(content2), "packed-object-2")
-	verify(t, repo, oid3a, []byte(content3), "packed-object-3")
+	verify(ctx, t, repo, oid1a, []byte(content1), "packed-object-1")
+	verify(ctx, t, repo, oid2a, []byte(content2), "packed-object-2")
+	verify(ctx, t, repo, oid3a, []byte(content3), "packed-object-3")
 
-	if err := repo.Blocks.CompactIndexes(); err != nil {
+	if err := repo.Blocks.CompactIndexes(ctx); err != nil {
 		t.Errorf("optimize error: %v", err)
 	}
 	_, _, repo = setupTestWithData(t, data, keyTime, func(n *NewRepositoryOptions) {
 	})
 
-	verify(t, repo, oid1a, []byte(content1), "packed-object-1")
-	verify(t, repo, oid2a, []byte(content2), "packed-object-2")
-	verify(t, repo, oid3a, []byte(content3), "packed-object-3")
+	verify(ctx, t, repo, oid1a, []byte(content1), "packed-object-1")
+	verify(ctx, t, repo, oid2a, []byte(content2), "packed-object-2")
+	verify(ctx, t, repo, oid3a, []byte(content3), "packed-object-3")
 }
 
 func TestHMAC(t *testing.T) {
@@ -208,7 +212,9 @@ func TestHMAC(t *testing.T) {
 
 	_, _, repo := setupTest(t)
 
-	w := repo.Objects.NewWriter(object.WriterOptions{})
+	ctx := context.Background()
+
+	w := repo.Objects.NewWriter(ctx, object.WriterOptions{})
 	w.Write(content)
 	result, err := w.Result()
 	if result.String() != "D999732b72ceff665b3f7608411db66a4" {
@@ -217,6 +223,7 @@ func TestHMAC(t *testing.T) {
 }
 func TestMalformedStoredData(t *testing.T) {
 	data, _, repo := setupTest(t)
+	ctx := context.Background()
 
 	cases := [][]byte{
 		[]byte("foo\nba"),
@@ -231,7 +238,7 @@ func TestMalformedStoredData(t *testing.T) {
 			continue
 		}
 
-		reader, err := repo.Objects.Open(objectID)
+		reader, err := repo.Objects.Open(ctx, objectID)
 		if err == nil || reader != nil {
 			t.Errorf("expected error for %x", c)
 		}
@@ -240,12 +247,13 @@ func TestMalformedStoredData(t *testing.T) {
 
 func TestReaderStoredBlockNotFound(t *testing.T) {
 	_, _, repo := setupTest(t)
+	ctx := context.Background()
 
 	objectID, err := object.ParseID("Dno-such-block")
 	if err != nil {
 		t.Errorf("cannot parse object ID: %v", err)
 	}
-	reader, err := repo.Objects.Open(objectID)
+	reader, err := repo.Objects.Open(ctx, objectID)
 	if err != storage.ErrBlockNotFound || reader != nil {
 		t.Errorf("unexpected result: reader: %v err: %v", reader, err)
 	}
@@ -253,13 +261,14 @@ func TestReaderStoredBlockNotFound(t *testing.T) {
 
 func TestEndToEndReadAndSeek(t *testing.T) {
 	_, _, repo := setupTest(t)
+	ctx := context.Background()
 
 	for _, size := range []int{1, 199, 200, 201, 9999, 512434} {
 		// Create some random data sample of the specified size.
 		randomData := make([]byte, size)
 		cryptorand.Read(randomData)
 
-		writer := repo.Objects.NewWriter(object.WriterOptions{})
+		writer := repo.Objects.NewWriter(ctx, object.WriterOptions{})
 		writer.Write(randomData)
 		objectID, err := writer.Result()
 		writer.Close()
@@ -268,12 +277,12 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 			continue
 		}
 
-		verify(t, repo, objectID, randomData, fmt.Sprintf("%v %v", objectID, size))
+		verify(ctx, t, repo, objectID, randomData, fmt.Sprintf("%v %v", objectID, size))
 	}
 }
 
-func writeObject(t *testing.T, repo *Repository, data []byte, testCaseID string) object.ID {
-	w := repo.Objects.NewWriter(object.WriterOptions{})
+func writeObject(ctx context.Context, t *testing.T, repo *Repository, data []byte, testCaseID string) object.ID {
+	w := repo.Objects.NewWriter(ctx, object.WriterOptions{})
 	if _, err := w.Write(data); err != nil {
 		t.Fatalf("can't write object %q - write failed: %v", testCaseID, err)
 
@@ -286,9 +295,9 @@ func writeObject(t *testing.T, repo *Repository, data []byte, testCaseID string)
 	return oid
 }
 
-func verify(t *testing.T, repo *Repository, objectID object.ID, expectedData []byte, testCaseID string) {
+func verify(ctx context.Context, t *testing.T, repo *Repository, objectID object.ID, expectedData []byte, testCaseID string) {
 	t.Helper()
-	reader, err := repo.Objects.Open(objectID)
+	reader, err := repo.Objects.Open(ctx, objectID)
 	if err != nil {
 		t.Errorf("cannot get reader for %v (%v): %v %v", testCaseID, objectID, err, string(debug.Stack()))
 		return
@@ -319,6 +328,7 @@ func verify(t *testing.T, repo *Repository, objectID object.ID, expectedData []b
 }
 
 func TestFormats(t *testing.T) {
+	ctx := context.Background()
 	makeFormat := func(objectFormat string) func(*NewRepositoryOptions) {
 		return func(n *NewRepositoryOptions) {
 			n.BlockFormat = objectFormat
@@ -368,7 +378,7 @@ func TestFormats(t *testing.T) {
 
 		for k, v := range c.oids {
 			bytesToWrite := []byte(k)
-			w := repo.Objects.NewWriter(object.WriterOptions{})
+			w := repo.Objects.NewWriter(ctx, object.WriterOptions{})
 			w.Write(bytesToWrite)
 			oid, err := w.Result()
 			if err != nil {
@@ -378,7 +388,7 @@ func TestFormats(t *testing.T) {
 				t.Errorf("invalid oid for #%v\ngot:\n%#v\nexpected:\n%#v", caseIndex, oid.String(), v.String())
 			}
 
-			rc, err := repo.Objects.Open(oid)
+			rc, err := repo.Objects.Open(ctx, oid)
 			if err != nil {
 				t.Errorf("open failed: %v", err)
 				continue

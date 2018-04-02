@@ -2,25 +2,27 @@
 package cachefs
 
 import (
+	"context"
+
 	"github.com/kopia/kopia/fs"
 )
 
 // DirectoryCacher reads and potentially caches directory entries for a given directory.
 type DirectoryCacher interface {
-	Readdir(d fs.Directory) (fs.Entries, error)
+	Readdir(ctx context.Context, d fs.Directory) (fs.Entries, error)
 }
 
-type context struct {
+type cacheContext struct {
 	cacher DirectoryCacher
 }
 
 type directory struct {
-	ctx *context
+	ctx *cacheContext
 	fs.Directory
 }
 
-func (d *directory) Readdir() (fs.Entries, error) {
-	entries, err := d.ctx.cacher.Readdir(d.Directory)
+func (d *directory) Readdir(ctx context.Context) (fs.Entries, error) {
+	entries, err := d.ctx.cacher.Readdir(ctx, d.Directory)
 	if err != nil {
 		return entries, err
 	}
@@ -33,21 +35,21 @@ func (d *directory) Readdir() (fs.Entries, error) {
 }
 
 type file struct {
-	ctx *context
+	ctx *cacheContext
 	fs.File
 }
 
 type symlink struct {
-	ctx *context
+	ctx *cacheContext
 	fs.Symlink
 }
 
 // Wrap returns an Entry that wraps another Entry and caches directory reads.
 func Wrap(e fs.Entry, cacher DirectoryCacher) fs.Entry {
-	return wrapWithContext(e, &context{cacher})
+	return wrapWithContext(e, &cacheContext{cacher})
 }
 
-func wrapWithContext(e fs.Entry, opts *context) fs.Entry {
+func wrapWithContext(e fs.Entry, opts *cacheContext) fs.Entry {
 	switch e := e.(type) {
 	case fs.Directory:
 		return fs.Directory(&directory{opts, e})

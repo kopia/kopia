@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 
 	"github.com/kopia/kopia/internal/retry"
@@ -37,7 +38,7 @@ type gcsStorage struct {
 	uploadThrottler   *iothrottler.IOThrottlerPool
 }
 
-func (gcs *gcsStorage) GetBlock(b string, offset, length int64) ([]byte, error) {
+func (gcs *gcsStorage) GetBlock(ctx context.Context, b string, offset, length int64) ([]byte, error) {
 	attempt := func() (interface{}, error) {
 		reader, err := gcs.bucket.Object(gcs.getObjectNameString(b)).NewRangeReader(gcs.ctx, offset, length)
 		if err != nil {
@@ -85,31 +86,27 @@ func translateError(err error) error {
 		return fmt.Errorf("unexpected GCS error: %v", err)
 	}
 }
+func (gcs *gcsStorage) PutBlock(ctx context.Context, b string, r io.Reader) error {
+	ctx, cancel := context.WithCancel(ctx)
 
-func (gcs *gcsStorage) PutBlock(b string, data []byte) error {
-	attempt := func() (interface{}, error) {
-		ctx, cancel := context.WithCancel(gcs.ctx)
+	writer := gcs.bucket.Object(gcs.getObjectNameString(b)).NewWriter(ctx)
+	writer.ChunkSize = 1 << 20
+	writer.ContentType = "application/x-kopia"
 
-		writer := gcs.bucket.Object(gcs.getObjectNameString(b)).NewWriter(ctx)
-		n, err := writer.Write(data)
-		if err != nil {
-			cancel()
-			return nil, err
-		}
-		if n != len(data) {
-			cancel()
-			return nil, fmt.Errorf("truncated write %v of %v bytes", n, len(data))
-		}
-
-		defer cancel()
-		return nil, writer.Close()
+	_, err := io.Copy(writer, r)
+	if err != nil {
+		// cancel context before closing the writer causes it to abandon the upload.
+		cancel()
+		writer.Close() //nolint:errcheck
+		return translateError(err)
 	}
+	defer cancel()
 
-	_, err := exponentialBackoff(fmt.Sprintf("PutBlock(%q)", b), attempt)
-	return translateError(err)
+	// calling close before cancel() causes it to commit the upload.
+	return translateError(writer.Close())
 }
 
-func (gcs *gcsStorage) DeleteBlock(b string) error {
+func (gcs *gcsStorage) DeleteBlock(ctx context.Context, b string) error {
 	attempt := func() (interface{}, error) {
 		return nil, gcs.bucket.Object(gcs.getObjectNameString(b)).Delete(gcs.ctx)
 	}
@@ -122,9 +119,8 @@ func (gcs *gcsStorage) getObjectNameString(blockID string) string {
 	return gcs.Prefix + blockID
 }
 
-func (gcs *gcsStorage) ListBlocks(prefix string) (<-chan storage.BlockMetadata, storage.CancelFunc) {
+func (gcs *gcsStorage) ListBlocks(ctx context.Context, prefix string) <-chan storage.BlockMetadata {
 	ch := make(chan storage.BlockMetadata, 100)
-	cancelled := make(chan bool)
 
 	go func() {
 		defer close(ch)
@@ -142,7 +138,7 @@ func (gcs *gcsStorage) ListBlocks(prefix string) (<-chan storage.BlockMetadata, 
 			}
 			select {
 			case ch <- bm:
-			case <-cancelled:
+			case <-ctx.Done():
 				return
 			}
 			oa, err = lst.Next()
@@ -152,15 +148,13 @@ func (gcs *gcsStorage) ListBlocks(prefix string) (<-chan storage.BlockMetadata, 
 			select {
 			case ch <- storage.BlockMetadata{Error: translateError(err)}:
 				return
-			case <-cancelled:
+			case <-ctx.Done():
 				return
 			}
 		}
 	}()
 
-	return ch, func() {
-		close(cancelled)
-	}
+	return ch
 }
 
 func (gcs *gcsStorage) ConnectionInfo() storage.ConnectionInfo {
@@ -170,7 +164,7 @@ func (gcs *gcsStorage) ConnectionInfo() storage.ConnectionInfo {
 	}
 }
 
-func (gcs *gcsStorage) Close() error {
+func (gcs *gcsStorage) Close(ctx context.Context) error {
 	gcs.storageClient.Close() //nolint:errcheck
 	return nil
 }

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -8,17 +9,14 @@ import (
 
 	"github.com/kopia/kopia/internal/scrubber"
 	"github.com/kopia/kopia/internal/units"
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
+	"github.com/kopia/kopia/repo"
 )
 
 var (
 	statusCommand = repositoryCommands.Command("status", "Display the status of connected repository.")
 )
 
-func runStatusCommand(context *kingpin.ParseContext) error {
-	rep := mustOpenRepository(nil)
-	defer rep.Close() //nolint: errcheck
-
+func runStatusCommand(ctx context.Context, rep *repo.Repository) error {
 	fmt.Printf("Config file:         %v\n", rep.ConfigFile)
 	entries, err := ioutil.ReadDir(rep.CacheDirectory)
 	if err != nil {
@@ -67,5 +65,5 @@ func runStatusCommand(context *kingpin.ParseContext) error {
 }
 
 func init() {
-	statusCommand.Action(runStatusCommand)
+	statusCommand.Action(repositoryAction(runStatusCommand))
 }

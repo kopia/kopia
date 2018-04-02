@@ -2,6 +2,7 @@ package object
 
 import (
 	"bytes"
+	"context"
 	"crypto/md5"
 	cryptorand "crypto/rand"
 	"encoding/hex"
@@ -26,7 +27,7 @@ type fakeBlockManager struct {
 	data map[string][]byte
 }
 
-func (f *fakeBlockManager) GetBlock(blockID string) ([]byte, error) {
+func (f *fakeBlockManager) GetBlock(ctx context.Context, blockID string) ([]byte, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -37,7 +38,7 @@ func (f *fakeBlockManager) GetBlock(blockID string) ([]byte, error) {
 	return nil, storage.ErrBlockNotFound
 }
 
-func (f *fakeBlockManager) WriteBlock(data []byte, prefix string) (string, error) {
+func (f *fakeBlockManager) WriteBlock(ctx context.Context, data []byte, prefix string) (string, error) {
 	h := md5.New()
 	h.Write(data)
 	blockID := prefix + hex.EncodeToString(h.Sum(nil))
@@ -49,7 +50,7 @@ func (f *fakeBlockManager) WriteBlock(data []byte, prefix string) (string, error
 	return blockID, nil
 }
 
-func (f *fakeBlockManager) BlockInfo(blockID string) (block.Info, error) {
+func (f *fakeBlockManager) BlockInfo(ctx context.Context, blockID string) (block.Info, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -60,7 +61,7 @@ func (f *fakeBlockManager) BlockInfo(blockID string) (block.Info, error) {
 	return block.Info{}, storage.ErrBlockNotFound
 }
 
-func (f *fakeBlockManager) Flush() error {
+func (f *fakeBlockManager) Flush(ctx context.Context) error {
 	return nil
 }
 
@@ -69,7 +70,7 @@ func setupTest(t *testing.T) (map[string][]byte, *Manager) {
 }
 
 func setupTestWithData(t *testing.T, data map[string][]byte, opts ManagerOptions) (map[string][]byte, *Manager) {
-	r, err := NewObjectManager(&fakeBlockManager{data: data}, config.RepositoryObjectFormat{
+	r, err := NewObjectManager(context.Background(), &fakeBlockManager{data: data}, config.RepositoryObjectFormat{
 		FormattingOptions: block.FormattingOptions{
 			Version: 1,
 		},
@@ -84,6 +85,7 @@ func setupTestWithData(t *testing.T, data map[string][]byte, opts ManagerOptions
 }
 
 func TestWriters(t *testing.T) {
+	ctx := context.Background()
 	cases := []struct {
 		data     []byte
 		objectID ID
@@ -98,7 +100,7 @@ func TestWriters(t *testing.T) {
 	for _, c := range cases {
 		data, om := setupTest(t)
 
-		writer := om.NewWriter(WriterOptions{})
+		writer := om.NewWriter(ctx, WriterOptions{})
 
 		writer.Write(c.data)
 
@@ -132,10 +134,11 @@ func objectIDsEqual(o1 ID, o2 ID) bool {
 }
 
 func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
+	ctx := context.Background()
 	_, om := setupTest(t)
 
 	bytes := make([]byte, 100)
-	writer := om.NewWriter(WriterOptions{})
+	writer := om.NewWriter(ctx, WriterOptions{})
 	writer.Write(bytes[0:50])
 	writer.Write(bytes[0:50])
 	result, err := writer.Result()
@@ -144,12 +147,12 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	}
 }
 
-func verifyIndirectBlock(t *testing.T, r *Manager, oid ID) {
+func verifyIndirectBlock(ctx context.Context, t *testing.T, r *Manager, oid ID) {
 	for oid.Indirect != nil {
 		direct := *oid.Indirect
 		oid = direct
 
-		rd, err := r.Open(direct)
+		rd, err := r.Open(ctx, direct)
 		if err != nil {
 			t.Errorf("unable to open %v: %v", oid.String(), err)
 			return
@@ -175,6 +178,7 @@ func verifyIndirectBlock(t *testing.T, r *Manager, oid ID) {
 }
 
 func TestIndirection(t *testing.T) {
+	ctx := context.Background()
 	cases := []struct {
 		dataLength          int
 		expectedBlockCount  int
@@ -194,7 +198,7 @@ func TestIndirection(t *testing.T) {
 
 		contentBytes := make([]byte, c.dataLength)
 
-		writer := om.NewWriter(WriterOptions{})
+		writer := om.NewWriter(ctx, WriterOptions{})
 		writer.Write(contentBytes)
 		result, err := writer.Result()
 		if err != nil {
@@ -209,9 +213,9 @@ func TestIndirection(t *testing.T) {
 			t.Errorf("unexpected block count for %v: %v, expected %v", c.dataLength, got, want)
 		}
 
-		om.Flush()
+		om.Flush(ctx)
 
-		l, b, err := om.VerifyObject(result)
+		l, b, err := om.VerifyObject(ctx, result)
 		if err != nil {
 			t.Errorf("error verifying %q: %v", result, err)
 		}
@@ -224,7 +228,7 @@ func TestIndirection(t *testing.T) {
 			t.Errorf("invalid block count for %v, got %v, wanted %v", result, got, want)
 		}
 
-		verifyIndirectBlock(t, om, result)
+		verifyIndirectBlock(ctx, t, om, result)
 	}
 }
 
@@ -237,11 +241,12 @@ func indirectionLevel(oid ID) int {
 }
 
 func TestHMAC(t *testing.T) {
+	ctx := context.Background()
 	content := bytes.Repeat([]byte{0xcd}, 50)
 
 	_, om := setupTest(t)
 
-	w := om.NewWriter(WriterOptions{})
+	w := om.NewWriter(ctx, WriterOptions{})
 	w.Write(content)
 	result, err := w.Result()
 	if result.String() != "D999732b72ceff665b3f7608411db66a4" {
@@ -250,6 +255,7 @@ func TestHMAC(t *testing.T) {
 }
 
 func TestReader(t *testing.T) {
+	ctx := context.Background()
 	data, om := setupTest(t)
 
 	storedPayload := []byte("foo\nbar")
@@ -269,7 +275,7 @@ func TestReader(t *testing.T) {
 			continue
 		}
 
-		reader, err := om.Open(objectID)
+		reader, err := om.Open(ctx, objectID)
 		if err != nil {
 			t.Errorf("cannot create reader for %v: %v", objectID, err)
 			continue
@@ -288,19 +294,21 @@ func TestReader(t *testing.T) {
 }
 
 func TestReaderStoredBlockNotFound(t *testing.T) {
+	ctx := context.Background()
 	_, om := setupTest(t)
 
 	objectID, err := ParseID("Dno-such-block")
 	if err != nil {
 		t.Errorf("cannot parse object ID: %v", err)
 	}
-	reader, err := om.Open(objectID)
+	reader, err := om.Open(ctx, objectID)
 	if err != storage.ErrBlockNotFound || reader != nil {
 		t.Errorf("unexpected result: reader: %v err: %v", reader, err)
 	}
 }
 
 func TestEndToEndReadAndSeek(t *testing.T) {
+	ctx := context.Background()
 	_, om := setupTest(t)
 
 	for _, size := range []int{1, 199, 200, 201, 9999, 512434} {
@@ -308,7 +316,7 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 		randomData := make([]byte, size)
 		cryptorand.Read(randomData)
 
-		writer := om.NewWriter(WriterOptions{})
+		writer := om.NewWriter(ctx, WriterOptions{})
 		writer.Write(randomData)
 		objectID, err := writer.Result()
 		writer.Close()
@@ -317,13 +325,13 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 			continue
 		}
 
-		verify(t, om, objectID, randomData, fmt.Sprintf("%v %v", objectID, size))
+		verify(ctx, t, om, objectID, randomData, fmt.Sprintf("%v %v", objectID, size))
 	}
 }
 
-func verify(t *testing.T, om *Manager, objectID ID, expectedData []byte, testCaseID string) {
+func verify(ctx context.Context, t *testing.T, om *Manager, objectID ID, expectedData []byte, testCaseID string) {
 	t.Helper()
-	reader, err := om.Open(objectID)
+	reader, err := om.Open(ctx, objectID)
 	if err != nil {
 		t.Errorf("cannot get reader for %v (%v): %v %v", testCaseID, objectID, err, string(debug.Stack()))
 		return

@@ -1,6 +1,7 @@
 package logging
 
 import (
+	"context"
 	"testing"
 
 	"github.com/kopia/kopia/internal/storagetesting"
@@ -12,5 +13,5 @@ func TestLoggingStorage(t *testing.T) {
 	if r == nil {
 		t.Errorf("unexpected result: %v", r)
 	}
-	storagetesting.VerifyStorage(t, r)
+	storagetesting.VerifyStorage(context.Background(), t, r)
 }

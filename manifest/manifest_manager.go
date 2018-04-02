@@ -3,6 +3,7 @@ package manifest
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -147,11 +148,11 @@ func matchesLabels(a, b map[string]string) bool {
 }
 
 // Flush persists changes to manifest manager.
-func (m *Manager) Flush() error {
+func (m *Manager) Flush(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	blockID, err := m.flushPendingEntriesLocked()
+	blockID, err := m.flushPendingEntriesLocked(ctx)
 	if err != nil {
 		return err
 	}
@@ -164,7 +165,7 @@ func (m *Manager) Flush() error {
 	return nil
 }
 
-func (m *Manager) flushPendingEntriesLocked() (string, error) {
+func (m *Manager) flushPendingEntriesLocked(ctx context.Context) (string, error) {
 	if len(m.pendingEntries) == 0 {
 		return "", nil
 	}
@@ -186,7 +187,7 @@ func (m *Manager) flushPendingEntriesLocked() (string, error) {
 		return "", fmt.Errorf("unable to close: %v", err)
 	}
 
-	blockID, err := m.b.WriteBlock(buf.Bytes(), manifestBlockPrefix)
+	blockID, err := m.b.WriteBlock(ctx, buf.Bytes(), manifestBlockPrefix)
 	if err != nil {
 		return "", err
 	}
@@ -209,8 +210,8 @@ func (m *Manager) Delete(id string) {
 	})
 }
 
-func (m *Manager) load() error {
-	if err := m.Flush(); err != nil {
+func (m *Manager) load(ctx context.Context) error {
+	if err := m.Flush(ctx); err != nil {
 		return err
 	}
 
@@ -227,17 +228,17 @@ func (m *Manager) load() error {
 
 	log.Printf("found %v manifest blocks", len(blocks))
 
-	if err := m.loadManifestBlocks(blocks); err != nil {
+	if err := m.loadManifestBlocks(ctx, blocks); err != nil {
 		return fmt.Errorf("unable to load manifest blocks: %v", err)
 	}
 
 	if len(blocks) > autoCompactionBlockCount {
 		log.Debug().Int("blocks", len(blocks)).Msg("performing automatic compaction")
-		if err := m.compactLocked(); err != nil {
+		if err := m.compactLocked(ctx); err != nil {
 			return fmt.Errorf("unable to compact manifest blocks: %v", err)
 		}
 
-		if err := m.b.Flush(); err != nil {
+		if err := m.b.Flush(ctx); err != nil {
 			return fmt.Errorf("unable to flush blocks after auto-compaction: %v", err)
 		}
 	}
@@ -245,7 +246,7 @@ func (m *Manager) load() error {
 	return nil
 }
 
-func (m *Manager) loadManifestBlocks(blocks []block.Info) error {
+func (m *Manager) loadManifestBlocks(ctx context.Context, blocks []block.Info) error {
 	t0 := time.Now()
 
 	log.Debug().Dur("duration_ms", time.Since(t0)).Msgf("finished loading manifest blocks.")
@@ -254,7 +255,7 @@ func (m *Manager) loadManifestBlocks(blocks []block.Info) error {
 		m.blockIDs = append(m.blockIDs, b.BlockID)
 	}
 
-	manifests, err := m.loadBlocksInParallel(blocks)
+	manifests, err := m.loadBlocksInParallel(ctx, blocks)
 	if err != nil {
 		return err
 	}
@@ -275,7 +276,7 @@ func (m *Manager) loadManifestBlocks(blocks []block.Info) error {
 	return nil
 }
 
-func (m *Manager) loadBlocksInParallel(blocks []block.Info) ([]manifest, error) {
+func (m *Manager) loadBlocksInParallel(ctx context.Context, blocks []block.Info) ([]manifest, error) {
 	errors := make(chan error, len(blocks))
 	manifests := make(chan manifest, len(blocks))
 	blockIDs := make(chan string, len(blocks))
@@ -288,7 +289,7 @@ func (m *Manager) loadBlocksInParallel(blocks []block.Info) ([]manifest, error) 
 
 			for blk := range blockIDs {
 				t1 := time.Now()
-				man, err := m.loadManifestBlock(blk)
+				man, err := m.loadManifestBlock(ctx, blk)
 				log.Debug().Dur("duration", time.Since(t1)).Str("blk", blk).Int("worker", workerID).Msg("manifest block loaded")
 				if err != nil {
 					errors <- err
@@ -323,9 +324,9 @@ func (m *Manager) loadBlocksInParallel(blocks []block.Info) ([]manifest, error) 
 	return man, nil
 }
 
-func (m *Manager) loadManifestBlock(blockID string) (manifest, error) {
+func (m *Manager) loadManifestBlock(ctx context.Context, blockID string) (manifest, error) {
 	man := manifest{}
-	blk, err := m.b.GetBlock(blockID)
+	blk, err := m.b.GetBlock(ctx, blockID)
 	if err != nil {
 		return man, fmt.Errorf("unable to read block %q: %v", blockID, err)
 	}
@@ -349,14 +350,14 @@ func (m *Manager) loadManifestBlock(blockID string) (manifest, error) {
 }
 
 // Compact performs compaction of manifest blocks.
-func (m *Manager) Compact() error {
+func (m *Manager) Compact(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	return m.compactLocked()
+	return m.compactLocked(ctx)
 }
 
-func (m *Manager) compactLocked() error {
+func (m *Manager) compactLocked(ctx context.Context) error {
 	log.Printf("compactLocked: pendingEntries=%v blockIDs=%v", len(m.pendingEntries), len(m.blockIDs))
 
 	if len(m.blockIDs) == 1 && len(m.pendingEntries) == 0 {
@@ -367,7 +368,7 @@ func (m *Manager) compactLocked() error {
 		m.pendingEntries = append(m.pendingEntries, e)
 	}
 
-	blockID, err := m.flushPendingEntriesLocked()
+	blockID, err := m.flushPendingEntriesLocked(ctx)
 	if err != nil {
 		return err
 	}
@@ -412,13 +413,13 @@ func copyLabels(m map[string]string) map[string]string {
 }
 
 // NewManager returns new manifest manager for the provided block manager.
-func NewManager(b *block.Manager) (*Manager, error) {
+func NewManager(ctx context.Context, b *block.Manager) (*Manager, error) {
 	m := &Manager{
 		b:       b,
 		entries: map[string]*manifestEntry{},
 	}
 
-	if err := m.load(); err != nil {
+	if err := m.load(ctx); err != nil {
 		return nil, err
 	}
 

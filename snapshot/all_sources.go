@@ -1,6 +1,7 @@
 package snapshot
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -26,7 +27,7 @@ func (s *repositoryAllSources) Metadata() *fs.EntryMetadata {
 	}
 }
 
-func (s *repositoryAllSources) Readdir() (fs.Entries, error) {
+func (s *repositoryAllSources) Readdir(ctx context.Context) (fs.Entries, error) {
 	srcs := s.snapshotManager.ListSources()
 
 	users := map[string]bool{}

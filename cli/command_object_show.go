@@ -1,14 +1,13 @@
 package cli
 
 import (
+	"context"
 	"io"
 
 	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/snapshot"
 
 	"github.com/kopia/kopia/repo"
-
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
@@ -17,19 +16,16 @@ var (
 	showObjectIDs = showCommand.Arg("id", "IDs of objects to show").Required().Strings()
 )
 
-func runShowCommand(context *kingpin.ParseContext) error {
-	rep := mustOpenRepository(nil)
-	defer rep.Close() //nolint: errcheck
-
+func runShowCommand(ctx context.Context, rep *repo.Repository) error {
 	mgr := snapshot.NewManager(rep)
 
 	for _, oidString := range *showObjectIDs {
-		oid, err := parseObjectID(mgr, oidString)
+		oid, err := parseObjectID(ctx, mgr, oidString)
 		if err != nil {
 			return err
 		}
 
-		if err := showObject(rep, oid); err != nil {
+		if err := showObject(ctx, rep, oid); err != nil {
 			return err
 		}
 	}
@@ -37,10 +33,10 @@ func runShowCommand(context *kingpin.ParseContext) error {
 	return nil
 }
 
-func showObject(r *repo.Repository, oid object.ID) error {
+func showObject(ctx context.Context, r *repo.Repository, oid object.ID) error {
 	var rd io.ReadCloser
 
-	rd, err := r.Objects.Open(oid)
+	rd, err := r.Objects.Open(ctx, oid)
 	if err != nil {
 		return err
 	}
@@ -51,5 +47,5 @@ func showObject(r *repo.Repository, oid object.ID) error {
 
 func init() {
 	setupShowCommand(showCommand)
-	showCommand.Action(runShowCommand)
+	showCommand.Action(repositoryAction(runShowCommand))
 }

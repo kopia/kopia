@@ -3,6 +3,7 @@ package object
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"sync"
@@ -23,10 +24,10 @@ type Reader interface {
 }
 
 type blockManager interface {
-	BlockInfo(blockID string) (block.Info, error)
-	GetBlock(blockID string) ([]byte, error)
-	WriteBlock(data []byte, prefix string) (string, error)
-	Flush() error
+	BlockInfo(ctx context.Context, blockID string) (block.Info, error)
+	GetBlock(ctx context.Context, blockID string) ([]byte, error)
+	WriteBlock(ctx context.Context, data []byte, prefix string) (string, error)
+	Flush(ctx context.Context) error
 }
 
 // Manager implements a content-addressable storage on top of blob storage.
@@ -45,14 +46,15 @@ type Manager struct {
 }
 
 // Close closes the connection to the underlying blob storage and releases any resources.
-func (om *Manager) Close() error {
+func (om *Manager) Close(ctx context.Context) error {
 	om.writeBackWG.Wait()
-	return om.Flush()
+	return om.Flush(ctx)
 }
 
 // NewWriter creates an ObjectWriter for writing to the repository.
-func (om *Manager) NewWriter(opt WriterOptions) Writer {
+func (om *Manager) NewWriter(ctx context.Context, opt WriterOptions) Writer {
 	w := &objectWriter{
+		ctx:         ctx,
 		repo:        om,
 		splitter:    om.newSplitter(),
 		description: opt.Description,
@@ -66,7 +68,7 @@ func (om *Manager) NewWriter(opt WriterOptions) Writer {
 }
 
 // Open creates new ObjectReader for reading given object from a repository.
-func (om *Manager) Open(objectID ID) (Reader, error) {
+func (om *Manager) Open(ctx context.Context, objectID ID) (Reader, error) {
 	// log.Printf("Repository::Open %v", objectID.String())
 	// defer log.Printf("finished Repository::Open() %v", objectID.String())
 
@@ -74,7 +76,7 @@ func (om *Manager) Open(objectID ID) (Reader, error) {
 	om.writeBackWG.Wait()
 
 	if objectID.Indirect != nil {
-		rd, err := om.Open(*objectID.Indirect)
+		rd, err := om.Open(ctx, *objectID.Indirect)
 		if err != nil {
 			return nil, err
 		}
@@ -88,23 +90,24 @@ func (om *Manager) Open(objectID ID) (Reader, error) {
 		totalLength := seekTable[len(seekTable)-1].endOffset()
 
 		return &objectReader{
+			ctx:         ctx,
 			repo:        om,
 			seekTable:   seekTable,
 			totalLength: totalLength,
 		}, nil
 	}
 
-	return om.newRawReader(objectID)
+	return om.newRawReader(ctx, objectID)
 }
 
 // VerifyObject ensures that all objects backing ObjectID are present in the repository
 // and returns the total length of the object and storage blocks of which it is composed.
-func (om *Manager) VerifyObject(oid ID) (int64, []string, error) {
+func (om *Manager) VerifyObject(ctx context.Context, oid ID) (int64, []string, error) {
 	// Flush any pending writes.
 	om.writeBackWG.Wait()
 
 	blocks := &blockTracker{}
-	l, err := om.verifyObjectInternal(oid, blocks)
+	l, err := om.verifyObjectInternal(ctx, oid, blocks)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -112,11 +115,11 @@ func (om *Manager) VerifyObject(oid ID) (int64, []string, error) {
 	return l, blocks.blockIDs(), nil
 }
 
-func (om *Manager) verifyIndirectObjectInternal(oid ID, blocks *blockTracker) (int64, error) {
-	if _, err := om.verifyObjectInternal(*oid.Indirect, blocks); err != nil {
+func (om *Manager) verifyIndirectObjectInternal(ctx context.Context, oid ID, blocks *blockTracker) (int64, error) {
+	if _, err := om.verifyObjectInternal(ctx, *oid.Indirect, blocks); err != nil {
 		return 0, fmt.Errorf("unable to read index: %v", err)
 	}
-	rd, err := om.Open(*oid.Indirect)
+	rd, err := om.Open(ctx, *oid.Indirect)
 	if err != nil {
 		return 0, err
 	}
@@ -128,7 +131,7 @@ func (om *Manager) verifyIndirectObjectInternal(oid ID, blocks *blockTracker) (i
 	}
 
 	for i, m := range seekTable {
-		l, err := om.verifyObjectInternal(m.Object, blocks)
+		l, err := om.verifyObjectInternal(ctx, m.Object, blocks)
 		if err != nil {
 			return 0, err
 		}
@@ -142,19 +145,19 @@ func (om *Manager) verifyIndirectObjectInternal(oid ID, blocks *blockTracker) (i
 	return totalLength, nil
 }
 
-func (om *Manager) verifyObjectInternal(oid ID, blocks *blockTracker) (int64, error) {
+func (om *Manager) verifyObjectInternal(ctx context.Context, oid ID, blocks *blockTracker) (int64, error) {
 	if oid.Indirect != nil {
-		return om.verifyIndirectObjectInternal(oid, blocks)
+		return om.verifyIndirectObjectInternal(ctx, oid, blocks)
 	}
 
-	p, err := om.blockMgr.BlockInfo(oid.StorageBlock)
+	p, err := om.blockMgr.BlockInfo(ctx, oid.StorageBlock)
 	if err != nil {
 		return 0, err
 	}
 	blocks.addBlock(oid.StorageBlock)
 
 	if p.PackBlockID != "" {
-		l, err := om.verifyObjectInternal(ID{StorageBlock: p.PackBlockID}, blocks)
+		l, err := om.verifyObjectInternal(ctx, ID{StorageBlock: p.PackBlockID}, blocks)
 		if err != nil {
 			return 0, err
 		}
@@ -171,7 +174,7 @@ func (om *Manager) verifyObjectInternal(oid ID, blocks *blockTracker) (int64, er
 
 // Flush closes any pending pack files. Once this method returns, ObjectIDs returned by ObjectManager are
 // ok to be used.
-func (om *Manager) Flush() error {
+func (om *Manager) Flush(ctx context.Context) error {
 	om.writeBackWG.Wait()
 	return nil
 }
@@ -195,7 +198,7 @@ type ManagerOptions struct {
 }
 
 // NewObjectManager creates an ObjectManager with the specified block manager and format.
-func NewObjectManager(bm blockManager, f config.RepositoryObjectFormat, opts ManagerOptions) (*Manager, error) {
+func NewObjectManager(ctx context.Context, bm blockManager, f config.RepositoryObjectFormat, opts ManagerOptions) (*Manager, error) {
 	if err := validateFormat(&f); err != nil {
 		return nil, err
 	}
@@ -260,8 +263,8 @@ func (om *Manager) flattenListChunk(rawReader io.Reader) ([]indirectObjectEntry,
 	return seekTable, nil
 }
 
-func (om *Manager) newRawReader(objectID ID) (Reader, error) {
-	payload, err := om.blockMgr.GetBlock(objectID.StorageBlock)
+func (om *Manager) newRawReader(ctx context.Context, objectID ID) (Reader, error) {
+	payload, err := om.blockMgr.GetBlock(ctx, objectID.StorageBlock)
 	if err != nil {
 		return nil, err
 	}

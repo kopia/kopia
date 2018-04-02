@@ -1,9 +1,10 @@
 package cli
 
 import (
+	"context"
+
 	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/repo"
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
@@ -14,16 +15,16 @@ var (
 	cacheMaxListCacheDuration = cacheCommand.Flag("max-list-cache-duration", "Duration of index cache").Default("600s").Duration()
 )
 
-func runCacheCommand(context *kingpin.ParseContext) error {
+func runCacheCommand(ctx context.Context, rep *repo.Repository) error {
 	opts := block.CachingOptions{
 		CacheDirectory:          *cacheDirectory,
 		MaxCacheSizeBytes:       *cacheMaxCacheSizeMB << 20,
 		MaxListCacheDurationSec: int(cacheMaxListCacheDuration.Seconds()),
 	}
 
-	return repo.SetCachingConfig(getContext(), repositoryConfigFileName(), opts)
+	return repo.SetCachingConfig(ctx, repositoryConfigFileName(), opts)
 }
 
 func init() {
-	cacheCommand.Action(runCacheCommand)
+	cacheCommand.Action(repositoryAction(runCacheCommand))
 }

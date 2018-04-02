@@ -1,9 +1,10 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
+	"github.com/kopia/kopia/repo"
 )
 
 var (
@@ -11,10 +12,7 @@ var (
 	objectListPrefix  = objectListCommand.Flag("prefix", "Prefix").String()
 )
 
-func runListObjectsAction(context *kingpin.ParseContext) error {
-	rep := mustOpenRepository(nil)
-	defer rep.Close() //nolint: errcheck
-
+func runListObjectsAction(ctx context.Context, rep *repo.Repository) error {
 	info, err := rep.Blocks.ListBlocks(*objectListPrefix)
 	if err != nil {
 		return err
@@ -28,5 +26,5 @@ func runListObjectsAction(context *kingpin.ParseContext) error {
 }
 
 func init() {
-	objectListCommand.Action(runListObjectsAction)
+	objectListCommand.Action(repositoryAction(runListObjectsAction))
 }

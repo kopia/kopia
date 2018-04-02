@@ -2,12 +2,13 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 
 	"github.com/kopia/kopia/internal/units"
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
@@ -18,11 +19,10 @@ var (
 )
 
 func init() {
-	policyShowCommand.Action(showPolicy)
+	policyShowCommand.Action(repositoryAction(showPolicy))
 }
 
-func showPolicy(context *kingpin.ParseContext) error {
-	rep := mustOpenRepository(nil)
+func showPolicy(ctx context.Context, rep *repo.Repository) error {
 	pmgr := snapshot.NewPolicyManager(rep)
 
 	targets, err := policyTargets(policyShowGlobal, policyShowTargets)

@@ -1,8 +1,9 @@
 package cli
 
 import (
+	"context"
+
 	"github.com/kopia/kopia/repo"
-	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
@@ -10,9 +11,9 @@ var (
 )
 
 func init() {
-	disconnectCommand.Action(runDisconnectCommand)
+	disconnectCommand.Action(noRepositoryAction(runDisconnectCommand))
 }
 
-func runDisconnectCommand(context *kingpin.ParseContext) error {
+func runDisconnectCommand(ctx context.Context) error {
 	return repo.Disconnect(repositoryConfigFileName())
 }

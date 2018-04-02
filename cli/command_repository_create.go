@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -42,8 +43,9 @@ func newRepositoryOptionsFromFlags() *repo.NewRepositoryOptions {
 	}
 }
 
-func ensureEmpty(s storage.Storage) error {
-	ch, cancel := s.ListBlocks("")
+func ensureEmpty(ctx context.Context, s storage.Storage) error {
+	ctx, cancel := context.WithCancel(ctx)
+	ch := s.ListBlocks(ctx, "")
 	d, hasData := <-ch
 	cancel()
 
@@ -60,8 +62,8 @@ func ensureEmpty(s storage.Storage) error {
 	return nil
 }
 
-func runCreateCommandWithStorage(st storage.Storage) error {
-	err := ensureEmpty(st)
+func runCreateCommandWithStorage(ctx context.Context, st storage.Storage) error {
+	err := ensureEmpty(ctx, st)
 	if err != nil {
 		return fmt.Errorf("unable to get repository storage: %v", err)
 	}
@@ -90,12 +92,12 @@ func runCreateCommandWithStorage(st storage.Storage) error {
 		fmt.Fprintf(os.Stderr, "  object splitter:     NEVER\n")
 	}
 
-	if err := repo.Initialize(st, options, creds); err != nil {
+	if err := repo.Initialize(ctx, st, options, creds); err != nil {
 		return fmt.Errorf("cannot initialize repository: %v", err)
 	}
 
 	if !*createOnly {
-		err := repo.Connect(getContext(), repositoryConfigFileName(), st, creds, connectOptions())
+		err := repo.Connect(ctx, repositoryConfigFileName(), st, creds, connectOptions())
 		if err != nil {
 			return err
 		}

@@ -2,6 +2,7 @@ package storagetesting
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"path/filepath"
 	"reflect"
@@ -12,8 +13,8 @@ import (
 )
 
 // AssertGetBlock asserts that the specified storage block has correct content.
-func AssertGetBlock(t *testing.T, s storage.Storage, block string, expected []byte) {
-	b, err := s.GetBlock(block, 0, -1)
+func AssertGetBlock(ctx context.Context, t *testing.T, s storage.Storage, block string, expected []byte) {
+	b, err := s.GetBlock(ctx, block, 0, -1)
 	if err != nil {
 		t.Errorf(errorPrefix()+"GetBlock(%v) returned error %v, expected data: %v", block, err, expected)
 		return
@@ -25,18 +26,19 @@ func AssertGetBlock(t *testing.T, s storage.Storage, block string, expected []by
 }
 
 // AssertGetBlockNotFound asserts that GetBlock() for specified storage block returns ErrBlockNotFound.
-func AssertGetBlockNotFound(t *testing.T, s storage.Storage, block string) {
-	b, err := s.GetBlock(block, 0, -1)
+func AssertGetBlockNotFound(ctx context.Context, t *testing.T, s storage.Storage, block string) {
+	b, err := s.GetBlock(ctx, block, 0, -1)
 	if err != storage.ErrBlockNotFound || b != nil {
 		t.Errorf(errorPrefix()+"GetBlock(%v) returned %v, %v but expected ErrBlockNotFound", block, b, err)
 	}
 }
 
 // AssertListResults asserts that the list results with given prefix return the specified list of names in order.
-func AssertListResults(t *testing.T, s storage.Storage, prefix string, expected ...string) {
+func AssertListResults(ctx context.Context, t *testing.T, s storage.Storage, prefix string, expected ...string) {
 	var names []string
 
-	blocks, cancel := s.ListBlocks(prefix)
+	ctx, cancel := context.WithCancel(ctx)
+	blocks := s.ListBlocks(ctx, prefix)
 	defer cancel()
 	for e := range blocks {
 		names = append(names, e.BlockID)

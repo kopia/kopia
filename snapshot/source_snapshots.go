@@ -1,6 +1,7 @@
 package snapshot
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -33,7 +34,7 @@ func safeName(path string) string {
 	return strings.Replace(path, "/", "_", -1)
 }
 
-func (s *sourceSnapshots) Readdir() (fs.Entries, error) {
+func (s *sourceSnapshots) Readdir(ctx context.Context) (fs.Entries, error) {
 	manifests, err := s.snapshotManager.ListSnapshots(s.src)
 	if err != nil {
 		return nil, err

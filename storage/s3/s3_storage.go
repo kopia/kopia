@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 
 	"github.com/efarrer/iothrottler"
@@ -28,7 +29,7 @@ type s3Storage struct {
 	uploadThrottler   *iothrottler.IOThrottlerPool
 }
 
-func (s *s3Storage) GetBlock(b string, offset, length int64) ([]byte, error) {
+func (s *s3Storage) GetBlock(ctx context.Context, b string, offset, length int64) ([]byte, error) {
 	attempt := func() (interface{}, error) {
 		var opt minio.GetObjectOptions
 		if length > 0 {
@@ -92,31 +93,21 @@ func translateError(err error) error {
 	}
 }
 
-func (s *s3Storage) PutBlock(b string, data []byte) error {
-	attempt := func() (interface{}, error) {
-		rc := ioutil.NopCloser(bytes.NewReader(data))
-		throttled, err := s.uploadThrottler.AddReader(rc)
-		if err != nil {
-			return nil, err
-		}
-
-		n, err := s.cli.PutObject(s.BucketName, s.getObjectNameString(b), throttled, int64(len(data)), minio.PutObjectOptions{})
-		if err != nil {
-			return nil, err
-		}
-
-		if n != int64(len(data)) {
-			return nil, fmt.Errorf("truncated write %v of %v bytes", n, len(data))
-		}
-
-		return nil, nil
+func (s *s3Storage) PutBlock(ctx context.Context, b string, r io.Reader) error {
+	throttled, err := s.uploadThrottler.AddReader(ioutil.NopCloser(r))
+	if err != nil {
+		return err
 	}
 
-	_, err := exponentialBackoff(fmt.Sprintf("PutBlock(%q)", b), attempt)
+	n, err := s.cli.PutObject(s.BucketName, s.getObjectNameString(b), throttled, -1, minio.PutObjectOptions{})
+	if err == io.EOF && n == 0 {
+		// special case empty stream
+		_, err = s.cli.PutObject(s.BucketName, s.getObjectNameString(b), bytes.NewBuffer(nil), 0, minio.PutObjectOptions{})
+	}
 	return translateError(err)
 }
 
-func (s *s3Storage) DeleteBlock(b string) error {
+func (s *s3Storage) DeleteBlock(ctx context.Context, b string) error {
 	attempt := func() (interface{}, error) {
 		return nil, s.cli.RemoveObject(s.BucketName, s.getObjectNameString(b))
 	}
@@ -129,20 +120,19 @@ func (s *s3Storage) getObjectNameString(b string) string {
 	return s.Prefix + b
 }
 
-func (s *s3Storage) ListBlocks(prefix string) (<-chan storage.BlockMetadata, storage.CancelFunc) {
+func (s *s3Storage) ListBlocks(ctx context.Context, prefix string) <-chan storage.BlockMetadata {
 	ch := make(chan storage.BlockMetadata, 100)
-	cancelled := make(chan struct{})
 
 	go func() {
 		defer close(ch)
 
-		oi := s.cli.ListObjects(s.BucketName, s.Prefix+prefix, false, cancelled)
+		oi := s.cli.ListObjects(s.BucketName, s.Prefix+prefix, false, ctx.Done())
 		for o := range oi {
 			if err := o.Err; err != nil {
 				select {
 				case ch <- storage.BlockMetadata{Error: translateError(err)}:
 					return
-				case <-cancelled:
+				case <-ctx.Done():
 					return
 				}
 			}
@@ -155,15 +145,13 @@ func (s *s3Storage) ListBlocks(prefix string) (<-chan storage.BlockMetadata, sto
 
 			select {
 			case ch <- bm:
-			case <-cancelled:
+			case <-ctx.Done():
 				return
 			}
 		}
 	}()
 
-	return ch, func() {
-		close(cancelled)
-	}
+	return ch
 }
 
 func (s *s3Storage) ConnectionInfo() storage.ConnectionInfo {
@@ -173,7 +161,7 @@ func (s *s3Storage) ConnectionInfo() storage.ConnectionInfo {
 	}
 }
 
-func (s *s3Storage) Close() error {
+func (s *s3Storage) Close(ctx context.Context) error {
 	return nil
 }
 

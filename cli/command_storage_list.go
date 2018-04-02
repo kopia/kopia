@@ -1,9 +1,10 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
+	"github.com/kopia/kopia/repo"
 )
 
 var (
@@ -11,12 +12,10 @@ var (
 	storageListPrefix  = storageListCommand.Flag("prefix", "Block prefix").String()
 )
 
-func runListStorageBlocks(context *kingpin.ParseContext) error {
-	rep := mustOpenRepository(nil)
-	defer rep.Close() //nolint: errcheck
-
-	ch, cancel := rep.Storage.ListBlocks(*storageListPrefix)
+func runListStorageBlocks(ctx context.Context, rep *repo.Repository) error {
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	ch := rep.Storage.ListBlocks(ctx, *storageListPrefix)
 
 	for b := range ch {
 		if b.Error != nil {
@@ -30,5 +29,5 @@ func runListStorageBlocks(context *kingpin.ParseContext) error {
 }
 
 func init() {
-	storageListCommand.Action(runListStorageBlocks)
+	storageListCommand.Action(repositoryAction(runListStorageBlocks))
 }

@@ -2,11 +2,12 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
 
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
+	"github.com/kopia/kopia/repo"
 )
 
 var (
@@ -14,12 +15,9 @@ var (
 	storageShowBlockIDs = storageShowCommand.Arg("blockIDs", "Block IDs").Required().Strings()
 )
 
-func runShowStorageBlocks(context *kingpin.ParseContext) error {
-	rep := mustOpenRepository(nil)
-	defer rep.Close() //nolint: errcheck
-
+func runShowStorageBlocks(ctx context.Context, rep *repo.Repository) error {
 	for _, b := range *storageShowBlockIDs {
-		d, err := rep.Storage.GetBlock(b, 0, -1)
+		d, err := rep.Storage.GetBlock(ctx, b, 0, -1)
 		if err != nil {
 			return fmt.Errorf("error getting %v: %v", b, err)
 		}
@@ -32,5 +30,5 @@ func runShowStorageBlocks(context *kingpin.ParseContext) error {
 }
 
 func init() {
-	storageShowCommand.Action(runShowStorageBlocks)
+	storageShowCommand.Action(repositoryAction(runShowStorageBlocks))
 }

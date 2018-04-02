@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,11 +14,8 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
-
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 const (
@@ -33,18 +31,10 @@ var (
 	snapshotCreateDescription             = snapshotCreateCommand.Flag("description", "Free-form snapshot description.").String()
 	snapshotCreateForceHash               = snapshotCreateCommand.Flag("force-hash", "Force hashing of source files for a given percentage of files [0..100]").Default("0").Int()
 	snapshotCreateHashCacheMinAge         = snapshotCreateCommand.Flag("hash-cache-min-age", "Do not hash-cache files below certain age").Default("1h").Duration()
-	snapshotCreateWriteBack               = snapshotCreateCommand.Flag("async-write", "Perform updates asynchronously.").PlaceHolder("N").Default("0").Int()
 	snapshotCreateParallelUploads         = snapshotCreateCommand.Flag("parallel", "Upload N files in parallel").PlaceHolder("N").Default("0").Int()
 )
 
-func runBackupCommand(c *kingpin.ParseContext) error {
-	rep := mustOpenRepository(&repo.Options{
-		ObjectManagerOptions: object.ManagerOptions{
-			WriteBack: *snapshotCreateWriteBack,
-		},
-	})
-	defer rep.Close() //nolint: errcheck
-
+func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
 	mgr := snapshot.NewManager(rep)
 	pmgr := snapshot.NewPolicyManager(rep)
 
@@ -83,7 +73,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 
 		sourceInfo := snapshot.SourceInfo{Path: filepath.Clean(dir), Host: getHostName(), UserName: getUserName()}
 		log.Info().Str("source", sourceInfo.String()).Msg("snapshotting")
-		if err := snapshotSingleSource(rep, mgr, pmgr, u, sourceInfo); err != nil {
+		if err := snapshotSingleSource(ctx, rep, mgr, pmgr, u, sourceInfo); err != nil {
 			return err
 		}
 	}
@@ -91,7 +81,7 @@ func runBackupCommand(c *kingpin.ParseContext) error {
 	return nil
 }
 
-func snapshotSingleSource(rep *repo.Repository, mgr *snapshot.Manager, pmgr *snapshot.PolicyManager, u *snapshot.Uploader, sourceInfo snapshot.SourceInfo) error {
+func snapshotSingleSource(ctx context.Context, rep *repo.Repository, mgr *snapshot.Manager, pmgr *snapshot.PolicyManager, u *snapshot.Uploader, sourceInfo snapshot.SourceInfo) error {
 	t0 := time.Now()
 	rep.Blocks.ResetStats()
 	policy, err := pmgr.GetEffectivePolicy(sourceInfo)
@@ -112,7 +102,7 @@ func snapshotSingleSource(rep *repo.Repository, mgr *snapshot.Manager, pmgr *sna
 	}
 
 	log.Debug().Msgf("uploading %v using previous manifest %v", sourceInfo, previousManifest)
-	manifest, err := u.Upload(localEntry, sourceInfo, previousManifest)
+	manifest, err := u.Upload(ctx, localEntry, sourceInfo, previousManifest)
 	if err != nil {
 		return err
 	}
@@ -205,5 +195,5 @@ func getHostName() string {
 }
 
 func init() {
-	snapshotCreateCommand.Action(runBackupCommand)
+	snapshotCreateCommand.Action(repositoryAction(runBackupCommand))
 }

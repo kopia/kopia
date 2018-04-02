@@ -1,7 +1,9 @@
 package cli
 
 import (
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
+	"context"
+
+	"github.com/kopia/kopia/repo"
 )
 
 var (
@@ -9,13 +11,10 @@ var (
 	blockRepackSizeThreshold = blockRepackCommand.Flag("max-size", "Max size of block to re-pack").Default("500000").Uint64()
 )
 
-func runBlockRepackAction(context *kingpin.ParseContext) error {
-	rep := mustOpenRepository(nil)
-	defer rep.Close() //nolint: errcheck
-
-	return rep.Blocks.Repackage(*blockRepackSizeThreshold)
+func runBlockRepackAction(ctx context.Context, rep *repo.Repository) error {
+	return rep.Blocks.Repackage(ctx, *blockRepackSizeThreshold)
 }
 
 func init() {
-	blockRepackCommand.Action(runBlockRepackAction)
+	blockRepackCommand.Action(repositoryAction(runBlockRepackAction))
 }

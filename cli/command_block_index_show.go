@@ -1,14 +1,14 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/kopia/kopia/internal/blockmgrpb"
-
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
+	"github.com/kopia/kopia/repo"
 )
 
 var (
@@ -24,13 +24,10 @@ type blockIndexEntryInfo struct {
 	inline  bool
 }
 
-func runShowBlockIndexesAction(context *kingpin.ParseContext) error {
-	rep := mustOpenRepository(nil)
-	defer rep.Close() //nolint: errcheck
-
+func runShowBlockIndexesAction(ctx context.Context, rep *repo.Repository) error {
 	blockIDs := *blockIndexShowIDs
 	if len(blockIDs) == 1 && blockIDs[0] == "active" {
-		b, err := rep.Blocks.ActiveIndexBlocks()
+		b, err := rep.Blocks.ActiveIndexBlocks(ctx)
 		if err != nil {
 			return err
 		}
@@ -46,7 +43,7 @@ func runShowBlockIndexesAction(context *kingpin.ParseContext) error {
 	}
 
 	for _, blockID := range blockIDs {
-		data, err := rep.Blocks.GetBlock(blockID)
+		data, err := rep.Blocks.GetBlock(ctx, blockID)
 		if err != nil {
 			return fmt.Errorf("can't read block %q: %v", blockID, err)
 		}
@@ -105,5 +102,5 @@ func sortIndexBlocks(lines []blockIndexEntryInfo) {
 }
 
 func init() {
-	blockIndexShowCommand.Action(runShowBlockIndexesAction)
+	blockIndexShowCommand.Action(repositoryAction(runShowBlockIndexesAction))
 }

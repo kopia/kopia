@@ -1,6 +1,7 @@
 package localfs
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -50,7 +51,7 @@ type filesystemFile struct {
 	filesystemEntry
 }
 
-func (fsd *filesystemDirectory) Readdir() (fs.Entries, error) {
+func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
 	f, direrr := os.Open(fsd.path)
 	if direrr != nil {
 		return nil, direrr
@@ -95,7 +96,7 @@ func (erc *fileWithMetadata) EntryMetadata() (*fs.EntryMetadata, error) {
 	return entryMetadataFromFileInfo(fi), nil
 }
 
-func (fsf *filesystemFile) Open() (fs.Reader, error) {
+func (fsf *filesystemFile) Open(ctx context.Context) (fs.Reader, error) {
 	f, err := os.Open(fsf.path)
 	if err != nil {
 		return nil, err
@@ -104,7 +105,7 @@ func (fsf *filesystemFile) Open() (fs.Reader, error) {
 	return &fileWithMetadata{f}, nil
 }
 
-func (fsl *filesystemSymlink) Readlink() (string, error) {
+func (fsl *filesystemSymlink) Readlink(ctx context.Context) (string, error) {
 	return os.Readlink(fsl.path)
 }
 

@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"errors"
 	"io"
 	"time"
@@ -21,27 +22,28 @@ type CancelFunc func()
 //
 // The required semantics are provided by existing commercial cloud storage products (Google Cloud, AWS, Azure).
 type Storage interface {
-	io.Closer
-
 	// PutBlock uploads the block with given data to the repository or replaces existing block with the provided
 	// id with given contents.
-	PutBlock(id string, data []byte) error
+	PutBlock(ctx context.Context, id string, data io.Reader) error
 
 	// DeleteBlock removes the block from storage. Future GetBlock() operations will fail with ErrBlockNotFound.
-	DeleteBlock(id string) error
+	DeleteBlock(ctx context.Context, id string) error
 
 	// GetBlock returns full or partial contents of a block with given ID.
 	// If length>0, the the function retrieves a range of bytes [offset,offset+length)
 	// If length<0, the entire block must be fetched.
-	GetBlock(id string, offset, length int64) ([]byte, error)
+	GetBlock(ctx context.Context, id string, offset, length int64) ([]byte, error)
 
 	// ListBlocks returns a channel of BlockMetadata that describes storage blocks with existing name prefixes.
 	// Iteration continues until all blocks have been listed or until client code invokes the returned cancellation function.
-	ListBlocks(prefix string) (<-chan BlockMetadata, CancelFunc)
+	ListBlocks(ctx context.Context, prefix string) <-chan BlockMetadata
 
 	// ConnectionInfo returns JSON-serializable data structure containing information required to
 	// connect to storage.
 	ConnectionInfo() ConnectionInfo
+
+	// Close releases all resources associated with storage.
+	Close(ctx context.Context) error
 }
 
 // BlockMetadata represents metadata about a single block in a storage.

@@ -1,6 +1,7 @@
 package cachefs
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -73,18 +74,18 @@ func (c *Cache) remove(e *cacheEntry) {
 }
 
 // Loader provides data to be stored in the cache.
-type Loader func() (fs.Entries, error)
+type Loader func(ctx context.Context) (fs.Entries, error)
 
 // Readdir reads the contents of a provided directory using ObjectID of a directory (if any) to cache
 // the results.
-func (c *Cache) Readdir(d fs.Directory) (fs.Entries, error) {
+func (c *Cache) Readdir(ctx context.Context, d fs.Directory) (fs.Entries, error) {
 	if h, ok := d.(object.HasObjectID); ok {
 		cacheID := h.ObjectID().String()
 		cacheExpiration := 24 * time.Hour
-		return c.getEntries(cacheID, cacheExpiration, d.Readdir)
+		return c.getEntries(ctx, cacheID, cacheExpiration, d.Readdir)
 	}
 
-	return d.Readdir()
+	return d.Readdir(ctx)
 }
 
 func (c *Cache) getEntriesFromCache(id string) fs.Entries {
@@ -110,9 +111,9 @@ func (c *Cache) getEntriesFromCache(id string) fs.Entries {
 
 // getEntries consults the cache and either retrieves the contents of directory listing from the cache
 // or invokes the provides callback and adds the results to cache.
-func (c *Cache) getEntries(id string, expirationTime time.Duration, cb Loader) (fs.Entries, error) {
+func (c *Cache) getEntries(ctx context.Context, id string, expirationTime time.Duration, cb Loader) (fs.Entries, error) {
 	if c == nil {
-		return cb()
+		return cb(ctx)
 	}
 
 	c.mu.Lock()
@@ -123,7 +124,7 @@ func (c *Cache) getEntries(id string, expirationTime time.Duration, cb Loader) (
 	if c.debug {
 		log.Printf("cache miss for %q", id)
 	}
-	raw, err := cb()
+	raw, err := cb(ctx)
 	if err != nil {
 		return nil, err
 	}

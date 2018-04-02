@@ -1,12 +1,12 @@
 package cli
 
 import (
+	"context"
 	"io"
 	"os"
 
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
-
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
@@ -14,17 +14,14 @@ var (
 	catCommandPath = catCommand.Arg("path", "Path").Required().String()
 )
 
-func runCatCommand(context *kingpin.ParseContext) error {
-	rep := mustOpenRepository(nil)
-	defer rep.Close() //nolint: errcheck
-
+func runCatCommand(ctx context.Context, rep *repo.Repository) error {
 	mgr := snapshot.NewManager(rep)
 
-	oid, err := parseObjectID(mgr, *catCommandPath)
+	oid, err := parseObjectID(ctx, mgr, *catCommandPath)
 	if err != nil {
 		return err
 	}
-	r, err := rep.Objects.Open(oid)
+	r, err := rep.Objects.Open(ctx, oid)
 	if err != nil {
 		return err
 	}
@@ -34,5 +31,5 @@ func runCatCommand(context *kingpin.ParseContext) error {
 }
 
 func init() {
-	catCommand.Action(runCatCommand)
+	catCommand.Action(repositoryAction(runCatCommand))
 }

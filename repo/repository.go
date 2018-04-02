@@ -1,6 +1,8 @@
 package repo
 
 import (
+	"context"
+
 	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/manifest"
@@ -22,30 +24,30 @@ type Repository struct {
 }
 
 // Close closes the repository and releases all resources.
-func (r *Repository) Close() error {
-	if err := r.Manifests.Flush(); err != nil {
+func (r *Repository) Close(ctx context.Context) error {
+	if err := r.Manifests.Flush(ctx); err != nil {
 		return err
 	}
-	if err := r.Objects.Close(); err != nil {
+	if err := r.Objects.Close(ctx); err != nil {
 		return err
 	}
-	if err := r.Blocks.Flush(); err != nil {
+	if err := r.Blocks.Flush(ctx); err != nil {
 		return err
 	}
-	if err := r.Storage.Close(); err != nil {
+	if err := r.Storage.Close(ctx); err != nil {
 		return err
 	}
 	return nil
 }
 
 // Flush waits for all in-flight writes to complete.
-func (r *Repository) Flush() error {
-	if err := r.Manifests.Flush(); err != nil {
+func (r *Repository) Flush(ctx context.Context) error {
+	if err := r.Manifests.Flush(ctx); err != nil {
 		return err
 	}
-	if err := r.Objects.Flush(); err != nil {
+	if err := r.Objects.Flush(ctx); err != nil {
 		return err
 	}
 
-	return r.Blocks.Flush()
+	return r.Blocks.Flush(ctx)
 }

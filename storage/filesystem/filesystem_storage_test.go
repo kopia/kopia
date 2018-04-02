@@ -10,6 +10,8 @@ import (
 )
 
 func TestFileStorage(t *testing.T) {
+	ctx := context.Background()
+
 	// Test varioush shard configurations.
 	for _, shardSpec := range [][]int{
 		[]int{0},
@@ -23,7 +25,7 @@ func TestFileStorage(t *testing.T) {
 		path, _ := ioutil.TempDir("", "r-fs")
 		defer os.RemoveAll(path)
 
-		r, err := New(context.Background(), &Options{
+		r, err := New(ctx, &Options{
 			Path:            path,
 			DirectoryShards: shardSpec,
 		})
@@ -32,6 +34,6 @@ func TestFileStorage(t *testing.T) {
 			t.Errorf("unexpected result: %v %v", r, err)
 		}
 
-		storagetesting.VerifyStorage(t, r)
+		storagetesting.VerifyStorage(ctx, t, r)
 	}
 }

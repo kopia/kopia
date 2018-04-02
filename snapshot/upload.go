@@ -2,6 +2,7 @@ package snapshot
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -95,14 +96,14 @@ func (u *Uploader) cancelReason() string {
 	return ""
 }
 
-func (u *Uploader) uploadFileInternal(f fs.File, relativePath string) entryResult {
-	file, err := f.Open()
+func (u *Uploader) uploadFileInternal(ctx context.Context, f fs.File, relativePath string) entryResult {
+	file, err := f.Open(ctx)
 	if err != nil {
 		return entryResult{err: fmt.Errorf("unable to open file: %v", err)}
 	}
 	defer file.Close() //nolint:errcheck
 
-	writer := u.repo.Objects.NewWriter(object.WriterOptions{
+	writer := u.repo.Objects.NewWriter(ctx, object.WriterOptions{
 		Description: "FILE:" + f.Metadata().Name,
 	})
 	defer writer.Close() //nolint:errcheck
@@ -128,13 +129,13 @@ func (u *Uploader) uploadFileInternal(f fs.File, relativePath string) entryResul
 	return entryResult{de: de, hash: metadataHash(&de.EntryMetadata)}
 }
 
-func (u *Uploader) uploadSymlinkInternal(f fs.Symlink, relativePath string) entryResult {
-	target, err := f.Readlink()
+func (u *Uploader) uploadSymlinkInternal(ctx context.Context, f fs.Symlink, relativePath string) entryResult {
+	target, err := f.Readlink(ctx)
 	if err != nil {
 		return entryResult{err: fmt.Errorf("unable to read symlink: %v", err)}
 	}
 
-	writer := u.repo.Objects.NewWriter(object.WriterOptions{
+	writer := u.repo.Objects.NewWriter(ctx, object.WriterOptions{
 		Description: "SYMLINK:" + f.Metadata().Name,
 	})
 	defer writer.Close() //nolint:errcheck
@@ -222,8 +223,8 @@ func newDirEntry(md *fs.EntryMetadata, oid object.ID) *dir.Entry {
 }
 
 // uploadFile uploads the specified File to the repository.
-func (u *Uploader) uploadFile(file fs.File) (object.ID, error) {
-	res := u.uploadFileInternal(file, file.Metadata().Name)
+func (u *Uploader) uploadFile(ctx context.Context, file fs.File) (object.ID, error) {
+	res := u.uploadFileInternal(ctx, file, file.Metadata().Name)
 	if res.err != nil {
 		return object.NullID, res.err
 	}
@@ -233,13 +234,13 @@ func (u *Uploader) uploadFile(file fs.File) (object.ID, error) {
 // uploadDir uploads the specified Directory to the repository.
 // An optional ID of a hash-cache object may be provided, in which case the Uploader will use its
 // contents to avoid hashing
-func (u *Uploader) uploadDir(dir fs.Directory) (object.ID, object.ID, error) {
-	mw := u.repo.Objects.NewWriter(object.WriterOptions{
+func (u *Uploader) uploadDir(ctx context.Context, dir fs.Directory) (object.ID, object.ID, error) {
+	mw := u.repo.Objects.NewWriter(ctx, object.WriterOptions{
 		Description: "HASHCACHE:" + dir.Metadata().Name,
 	})
 	defer mw.Close() //nolint:errcheck
 	u.cacheWriter = hashcache.NewWriter(mw)
-	oid, _, err := uploadDirInternal(u, dir, ".")
+	oid, _, err := uploadDirInternal(ctx, u, dir, ".")
 	if u.IsCancelled() {
 		if err2 := u.cacheReader.CopyTo(u.cacheWriter); err != nil {
 			return object.NullID, object.NullID, err2
@@ -253,7 +254,7 @@ func (u *Uploader) uploadDir(dir fs.Directory) (object.ID, object.ID, error) {
 	}
 
 	hcid, err := mw.Result()
-	if flushErr := u.repo.Objects.Flush(); flushErr != nil {
+	if flushErr := u.repo.Objects.Flush(ctx); flushErr != nil {
 		return object.NullID, object.NullID, fmt.Errorf("can't flush pending objects: %v", flushErr)
 	}
 	return oid, hcid, err
@@ -289,7 +290,7 @@ type entryResult struct {
 	hash uint64
 }
 
-func (u *Uploader) processSubdirectories(relativePath string, entries fs.Entries, dw *dir.Writer, summ *dir.Summary) error {
+func (u *Uploader) processSubdirectories(ctx context.Context, relativePath string, entries fs.Entries, dw *dir.Writer, summ *dir.Summary) error {
 	return u.foreachEntryUnlessCancelled(relativePath, entries, func(entry fs.Entry, entryRelativePath string) error {
 		dir, ok := entry.(fs.Directory)
 		if !ok {
@@ -298,7 +299,7 @@ func (u *Uploader) processSubdirectories(relativePath string, entries fs.Entries
 		}
 
 		e := dir.Metadata()
-		oid, subdirsumm, err := uploadDirInternal(u, dir, entryRelativePath)
+		oid, subdirsumm, err := uploadDirInternal(ctx, u, dir, entryRelativePath)
 		if err == errCancelled {
 			return err
 		}
@@ -342,7 +343,7 @@ type uploadWorkItem struct {
 	resultChan        chan entryResult
 }
 
-func (u *Uploader) prepareWorkItems(dirRelativePath string, entries fs.Entries, summ *dir.Summary) ([]*uploadWorkItem, error) {
+func (u *Uploader) prepareWorkItems(ctx context.Context, dirRelativePath string, entries fs.Entries, summ *dir.Summary) ([]*uploadWorkItem, error) {
 	var result []*uploadWorkItem
 
 	resultErr := u.foreachEntryUnlessCancelled(dirRelativePath, entries, func(entry fs.Entry, entryRelativePath string) error {
@@ -400,7 +401,7 @@ func (u *Uploader) prepareWorkItems(dirRelativePath string, entries fs.Entries, 
 					entry:             entry,
 					entryRelativePath: entryRelativePath,
 					uploadFunc: func() entryResult {
-						return u.uploadSymlinkInternal(entry, entryRelativePath)
+						return u.uploadSymlinkInternal(ctx, entry, entryRelativePath)
 					},
 				})
 
@@ -410,7 +411,7 @@ func (u *Uploader) prepareWorkItems(dirRelativePath string, entries fs.Entries, 
 					entry:             entry,
 					entryRelativePath: entryRelativePath,
 					uploadFunc: func() entryResult {
-						return u.uploadFileInternal(entry, entryRelativePath)
+						return u.uploadFileInternal(ctx, entry, entryRelativePath)
 					},
 				})
 
@@ -507,6 +508,7 @@ func (u *Uploader) processUploadWorkItems(workItems []*uploadWorkItem, dw *dir.W
 }
 
 func uploadDirInternal(
+	ctx context.Context,
 	u *Uploader,
 	directory fs.Directory,
 	dirRelativePath string,
@@ -515,24 +517,24 @@ func uploadDirInternal(
 
 	var summ dir.Summary
 
-	entries, direrr := directory.Readdir()
+	entries, direrr := directory.Readdir(ctx)
 	if direrr != nil {
 		return object.NullID, dir.Summary{}, direrr
 	}
 
-	writer := u.repo.Objects.NewWriter(object.WriterOptions{
+	writer := u.repo.Objects.NewWriter(ctx, object.WriterOptions{
 		Description: "DIR:" + dirRelativePath,
 	})
 
 	dw := dir.NewWriter(writer)
 	defer writer.Close() //nolint:errcheck
 
-	if err := u.processSubdirectories(dirRelativePath, entries, dw, &summ); err != nil {
+	if err := u.processSubdirectories(ctx, dirRelativePath, entries, dw, &summ); err != nil {
 		return object.NullID, dir.Summary{}, err
 	}
 	u.prepareProgress(dirRelativePath, entries)
 
-	workItems, workItemErr := u.prepareWorkItems(dirRelativePath, entries, &summ)
+	workItems, workItemErr := u.prepareWorkItems(ctx, dirRelativePath, entries, &summ)
 	if workItemErr != nil {
 		return object.NullID, dir.Summary{}, workItemErr
 	}
@@ -574,6 +576,7 @@ func (u *Uploader) Cancel() {
 // Upload uploads contents of the specified filesystem entry (file or directory) to the repository and returns snapshot.Manifest with statistics.
 // Old snapshot manifest, when provided can be used to speed up uploads by utilizing hash cache.
 func (u *Uploader) Upload(
+	ctx context.Context,
 	source fs.Entry,
 	sourceInfo SourceInfo,
 	old *Manifest,
@@ -588,7 +591,7 @@ func (u *Uploader) Upload(
 	u.stats = Stats{}
 	if old != nil {
 		log.Debug().Msgf("opening hash cache: %v", old.HashCacheID)
-		if r, err := u.repo.Objects.Open(old.HashCacheID); err == nil {
+		if r, err := u.repo.Objects.Open(ctx, old.HashCacheID); err == nil {
 			u.cacheReader = hashcache.Open(r)
 			log.Debug().Msgf("opened hash cache: %v", old.HashCacheID)
 		} else {
@@ -605,10 +608,10 @@ func (u *Uploader) Upload(
 
 	switch entry := source.(type) {
 	case fs.Directory:
-		s.RootObjectID, s.HashCacheID, err = u.uploadDir(entry)
+		s.RootObjectID, s.HashCacheID, err = u.uploadDir(ctx, entry)
 
 	case fs.File:
-		s.RootObjectID, err = u.uploadFile(entry)
+		s.RootObjectID, err = u.uploadFile(ctx, entry)
 
 	default:
 		return nil, fmt.Errorf("unsupported source: %v", s.Source)

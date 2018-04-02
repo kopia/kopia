@@ -1,6 +1,7 @@
 package snapshot
 
 import (
+	"context"
 	"time"
 
 	"github.com/kopia/kopia/fs"
@@ -27,7 +28,7 @@ func (s *sourceDirectories) Metadata() *fs.EntryMetadata {
 	}
 }
 
-func (s *sourceDirectories) Readdir() (fs.Entries, error) {
+func (s *sourceDirectories) Readdir(ctx context.Context) (fs.Entries, error) {
 	sources := s.snapshotManager.ListSources()
 	var result fs.Entries
 

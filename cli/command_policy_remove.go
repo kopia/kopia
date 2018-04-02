@@ -1,10 +1,12 @@
 package cli
 
 import (
+	"context"
+
 	"github.com/rs/zerolog/log"
 
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
@@ -14,13 +16,10 @@ var (
 )
 
 func init() {
-	policyRemoveCommand.Action(removePolicy)
+	policyRemoveCommand.Action(repositoryAction(removePolicy))
 }
 
-func removePolicy(context *kingpin.ParseContext) error {
-	rep := mustOpenRepository(nil)
-	defer rep.Close() //nolint: errcheck
-
+func removePolicy(ctx context.Context, rep *repo.Repository) error {
 	mgr := snapshot.NewPolicyManager(rep)
 
 	targets, err := policyTargets(policyRemoveGlobal, policyRemoveTargets)

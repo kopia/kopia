@@ -1,6 +1,7 @@
 package snapshot
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 
@@ -40,8 +41,8 @@ type repositorySymlink struct {
 	repositoryEntry
 }
 
-func (rd *repositoryDirectory) Readdir() (fs.Entries, error) {
-	r, err := rd.repo.Objects.Open(rd.metadata.ObjectID)
+func (rd *repositoryDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
+	r, err := rd.repo.Objects.Open(ctx, rd.metadata.ObjectID)
 	if err != nil {
 		return nil, err
 	}
@@ -60,8 +61,8 @@ func (rd *repositoryDirectory) Readdir() (fs.Entries, error) {
 	return entries, nil
 }
 
-func (rf *repositoryFile) Open() (fs.Reader, error) {
-	r, err := rf.repo.Objects.Open(rf.metadata.ObjectID)
+func (rf *repositoryFile) Open(ctx context.Context) (fs.Reader, error) {
+	r, err := rf.repo.Objects.Open(ctx, rf.metadata.ObjectID)
 	if err != nil {
 		return nil, err
 	}
@@ -69,8 +70,8 @@ func (rf *repositoryFile) Open() (fs.Reader, error) {
 	return withMetadata(r, &rf.metadata.EntryMetadata), nil
 }
 
-func (rsl *repositorySymlink) Readlink() (string, error) {
-	r, err := rsl.repo.Objects.Open(rsl.metadata.ObjectID)
+func (rsl *repositorySymlink) Readlink(ctx context.Context) (string, error) {
+	r, err := rsl.repo.Objects.Open(ctx, rsl.metadata.ObjectID)
 	if err != nil {
 		return "", err
 	}

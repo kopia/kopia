@@ -1,6 +1,7 @@
 package object
 
 import (
+	"context"
 	"fmt"
 	"io"
 )
@@ -10,6 +11,7 @@ func (i *indirectObjectEntry) endOffset() int64 {
 }
 
 type objectReader struct {
+	ctx  context.Context
 	repo *Manager
 
 	seekTable []indirectObjectEntry
@@ -65,7 +67,7 @@ func (r *objectReader) Read(buffer []byte) (int, error) {
 
 func (r *objectReader) openCurrentChunk() error {
 	st := r.seekTable[r.currentChunkIndex]
-	blockData, err := r.repo.Open(st.Object)
+	blockData, err := r.repo.Open(r.ctx, st.Object)
 	if err != nil {
 		return err
 	}

@@ -1,11 +1,12 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"sort"
 
 	"github.com/kopia/kopia/block"
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
+	"github.com/kopia/kopia/repo"
 )
 
 var (
@@ -17,10 +18,7 @@ var (
 	blockListSummary = blockListCommand.Flag("summary", "Summarize the list").Short('s').Bool()
 )
 
-func runListBlocksAction(context *kingpin.ParseContext) error {
-	rep := mustOpenRepository(nil)
-	defer rep.Close() //nolint: errcheck
-
+func runListBlocksAction(ctx context.Context, rep *repo.Repository) error {
 	blocks, err := rep.Blocks.ListBlocks(*blockListPrefix)
 	if err != nil {
 		return err
@@ -83,5 +81,5 @@ func comparePacks(a, b block.Info) bool {
 }
 
 func init() {
-	blockListCommand.Action(runListBlocksAction)
+	blockListCommand.Action(repositoryAction(runListBlocksAction))
 }

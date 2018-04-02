@@ -42,9 +42,11 @@ func TestS3Storage(t *testing.T) {
 		return
 	}
 
+	ctx := context.Background()
+
 	// recreate per-host bucket, which sometimes get cleaned up by play.minio.io
 	createBucket(t)
-	cleanupOldData(t)
+	cleanupOldData(ctx, t)
 
 	data := make([]byte, 8)
 	rand.Read(data)
@@ -60,7 +62,7 @@ func TestS3Storage(t *testing.T) {
 		t.Fatalf("err: %v", err)
 	}
 
-	storagetesting.VerifyStorage(t, st)
+	storagetesting.VerifyStorage(ctx, t, st)
 }
 
 func createBucket(t *testing.T) {
@@ -71,7 +73,7 @@ func createBucket(t *testing.T) {
 	minioClient.MakeBucket(bucketName, "us-east-1")
 }
 
-func cleanupOldData(t *testing.T) {
+func cleanupOldData(ctx context.Context, t *testing.T) {
 	// cleanup old data from the bucket
 	st, err := New(context.Background(), &Options{
 		AccessKeyID:     accessKeyID,
@@ -83,7 +85,8 @@ func cleanupOldData(t *testing.T) {
 		t.Fatalf("err: %v", err)
 	}
 
-	items, cancel := st.ListBlocks("")
+	ctx, cancel := context.WithCancel(ctx)
+	items := st.ListBlocks(ctx, "")
 	defer cancel()
 	for it := range items {
 		if it.Error != nil {
@@ -93,7 +96,7 @@ func cleanupOldData(t *testing.T) {
 
 		age := time.Since(it.TimeStamp)
 		if age > cleanupAge {
-			if err := st.DeleteBlock(it.BlockID); err != nil {
+			if err := st.DeleteBlock(ctx, it.BlockID); err != nil {
 				t.Errorf("warning: unable to delete %q: %v", it.BlockID, err)
 			}
 		} else {

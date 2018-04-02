@@ -1,14 +1,15 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strconv"
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
@@ -42,13 +43,10 @@ var (
 )
 
 func init() {
-	policySetCommand.Action(setPolicy)
+	policySetCommand.Action(repositoryAction(setPolicy))
 }
 
-func setPolicy(context *kingpin.ParseContext) error {
-	rep := mustOpenRepository(nil)
-	defer rep.Close() //nolint: errcheck
-
+func setPolicy(ctx context.Context, rep *repo.Repository) error {
 	mgr := snapshot.NewPolicyManager(rep)
 
 	targets, err := policyTargets(policySetGlobal, policySetTargets)

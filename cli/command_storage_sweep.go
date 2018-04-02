@@ -1,13 +1,12 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/storage"
-
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
@@ -16,11 +15,8 @@ var (
 	storageSweepPrintUnused  = storageSweepCommand.Flag("print", "Do not delete blocks, but print which ones would be deleted").Short('n').Bool()
 )
 
-func runStorageSweepAction(context *kingpin.ParseContext) error {
-	rep := mustOpenRepository(nil)
-	defer rep.Close() //nolint: errcheck
-
-	indexBlocks, err := rep.Blocks.ActiveIndexBlocks()
+func runStorageSweepAction(ctx context.Context, rep *repo.Repository) error {
+	indexBlocks, err := rep.Blocks.ActiveIndexBlocks(ctx)
 	if err != nil {
 		return err
 	}
@@ -30,15 +26,16 @@ func runStorageSweepAction(context *kingpin.ParseContext) error {
 		inUseIndexBlocks[ib.BlockID] = true
 	}
 
-	ch, cancel := rep.Storage.ListBlocks("")
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	ch := rep.Storage.ListBlocks(ctx, "")
 
 	for bm := range ch {
 		if bm.Error != nil {
 			return bm.Error
 		}
 
-		if err = sweepBlock(rep, bm, inUseIndexBlocks); err != nil {
+		if err = sweepBlock(ctx, rep, bm, inUseIndexBlocks); err != nil {
 			return err
 		}
 	}
@@ -46,7 +43,7 @@ func runStorageSweepAction(context *kingpin.ParseContext) error {
 	return nil
 }
 
-func sweepBlock(rep *repo.Repository, bm storage.BlockMetadata, inUseIndexBlocks map[string]bool) error {
+func sweepBlock(ctx context.Context, rep *repo.Repository, bm storage.BlockMetadata, inUseIndexBlocks map[string]bool) error {
 	age := time.Since(bm.TimeStamp)
 	inUse := rep.Blocks.IsStorageBlockInUse(bm.BlockID) || inUseIndexBlocks[bm.BlockID] || bm.BlockID == repo.FormatBlockID
 	keep := inUse || age < *storageSweepAgeThreshold
@@ -60,9 +57,9 @@ func sweepBlock(rep *repo.Repository, bm storage.BlockMetadata, inUseIndexBlocks
 	}
 
 	fmt.Printf("deleting unused block %v age %v\n", bm.BlockID, age)
-	return rep.Storage.DeleteBlock(bm.BlockID)
+	return rep.Storage.DeleteBlock(ctx, bm.BlockID)
 }
 
 func init() {
-	storageSweepCommand.Action(runStorageSweepAction)
+	storageSweepCommand.Action(repositoryAction(runStorageSweepAction))
 }

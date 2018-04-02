@@ -1,20 +1,19 @@
 package cli
 
 import (
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
+	"context"
+
+	"github.com/kopia/kopia/repo"
 )
 
 var (
 	optimizeCommand = blockIndexCommands.Command("optimize", "Optimize block indexes.")
 )
 
-func runOptimizeCommand(context *kingpin.ParseContext) error {
-	rep := mustOpenRepository(nil)
-	defer rep.Close() //nolint: errcheck
-
-	return rep.Blocks.CompactIndexes()
+func runOptimizeCommand(ctx context.Context, rep *repo.Repository) error {
+	return rep.Blocks.CompactIndexes(ctx)
 }
 
 func init() {
-	optimizeCommand.Action(runOptimizeCommand)
+	optimizeCommand.Action(repositoryAction(runOptimizeCommand))
 }

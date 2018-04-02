@@ -1,6 +1,10 @@
 package cli
 
-import "gopkg.in/alecthomas/kingpin.v2"
+import (
+	"context"
+
+	"github.com/kopia/kopia/repo"
+)
 
 var (
 	manifestRemoveCommand = manifestCommands.Command("rm", "Remove manifest items")
@@ -8,12 +12,10 @@ var (
 )
 
 func init() {
-	manifestRemoveCommand.Action(removeMetadataItem)
+	manifestRemoveCommand.Action(repositoryAction(removeMetadataItem))
 }
 
-func removeMetadataItem(context *kingpin.ParseContext) error {
-	rep := mustOpenRepository(nil)
-
+func removeMetadataItem(ctx context.Context, rep *repo.Repository) error {
 	for _, it := range *manifestRemoveItems {
 		rep.Manifests.Delete(it)
 	}

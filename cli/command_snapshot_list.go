@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"sort"
@@ -9,9 +10,8 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/kopia/kopia/internal/units"
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
-
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
@@ -67,10 +67,7 @@ func findManifestIDs(mgr *snapshot.Manager, source string) ([]string, string, er
 	return manifestIDs, relPath, err
 }
 
-func runBackupsCommand(context *kingpin.ParseContext) error {
-	rep := mustOpenRepository(nil)
-	defer rep.Close() //nolint: errcheck
-
+func runBackupsCommand(ctx context.Context, rep *repo.Repository) error {
 	mgr := snapshot.NewManager(rep)
 
 	manifestIDs, relPath, err := findManifestIDs(mgr, *snapshotListPath)
@@ -160,5 +157,5 @@ func deltaBytes(b int64) string {
 }
 
 func init() {
-	snapshotListCommand.Action(runBackupsCommand)
+	snapshotListCommand.Action(repositoryAction(runBackupsCommand))
 }

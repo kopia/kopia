@@ -37,7 +37,7 @@ type fuseFileNode struct {
 }
 
 func (f *fuseFileNode) ReadAll(ctx context.Context) ([]byte, error) {
-	reader, err := f.entry.(fs.File).Open()
+	reader, err := f.entry.(fs.File).Open(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func (dir *fuseDirectoryNode) directory() fs.Directory {
 }
 
 func (dir *fuseDirectoryNode) Lookup(ctx context.Context, fileName string) (fusefs.Node, error) {
-	entries, err := dir.directory().Readdir()
+	entries, err := dir.directory().Readdir(ctx)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, fuse.ENOENT
@@ -73,7 +73,7 @@ func (dir *fuseDirectoryNode) Lookup(ctx context.Context, fileName string) (fuse
 }
 
 func (dir *fuseDirectoryNode) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
-	entries, err := dir.directory().Readdir()
+	entries, err := dir.directory().Readdir(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +106,7 @@ type fuseSymlinkNode struct {
 }
 
 func (sl *fuseSymlinkNode) Readlink(ctx context.Context, req *fuse.ReadlinkRequest) (string, error) {
-	return sl.entry.(fs.Symlink).Readlink()
+	return sl.entry.(fs.Symlink).Readlink(ctx)
 }
 
 func newFuseNode(e fs.Entry) (fusefs.Node, error) {

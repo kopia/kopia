@@ -2,6 +2,7 @@ package repo
 
 import (
 	"bytes"
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -50,7 +51,7 @@ func parseFormatBlock(b []byte) (*formatBlock, error) {
 	return f, nil
 }
 
-func writeFormatBlock(st storage.Storage, f *formatBlock) error {
+func writeFormatBlock(ctx context.Context, st storage.Storage, f *formatBlock) error {
 	var buf bytes.Buffer
 	e := json.NewEncoder(&buf)
 	e.SetIndent("", "  ")
@@ -58,7 +59,7 @@ func writeFormatBlock(st storage.Storage, f *formatBlock) error {
 		return fmt.Errorf("unable to marshal format block: %v", err)
 	}
 
-	if err := st.PutBlock(FormatBlockID, buf.Bytes()); err != nil {
+	if err := st.PutBlock(ctx, FormatBlockID, &buf); err != nil {
 		return fmt.Errorf("unable to write format block: %v", err)
 	}
 

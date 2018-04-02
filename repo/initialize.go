@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"context"
 	"crypto/rand"
 	"io"
 
@@ -44,7 +45,7 @@ type NewRepositoryOptions struct {
 }
 
 // Initialize creates initial repository data structures in the specified storage with given credentials.
-func Initialize(st storage.Storage, opt *NewRepositoryOptions, creds auth.Credentials) error {
+func Initialize(ctx context.Context, st storage.Storage, opt *NewRepositoryOptions, creds auth.Credentials) error {
 	if opt == nil {
 		opt = &NewRepositoryOptions{}
 	}
@@ -60,7 +61,7 @@ func Initialize(st storage.Storage, opt *NewRepositoryOptions, creds auth.Creden
 		return err
 	}
 
-	if err := writeFormatBlock(st, format); err != nil {
+	if err := writeFormatBlock(ctx, st, format); err != nil {
 		return err
 	}
 

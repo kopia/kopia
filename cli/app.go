@@ -1,7 +1,11 @@
 package cli
 
 import (
+	"context"
+	"fmt"
 	"os"
+
+	"github.com/kopia/kopia/repo"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -25,6 +29,24 @@ func helpFullAction(ctx *kingpin.ParseContext) error {
 	_ = app.UsageForContextWithTemplate(ctx, 0, kingpin.DefaultUsageTemplate)
 	os.Exit(0)
 	return nil
+}
+
+func noRepositoryAction(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error {
+	return func(_ *kingpin.ParseContext) error {
+		return act(context.Background())
+	}
+}
+
+func repositoryAction(act func(ctx context.Context, rep *repo.Repository) error) func(ctx *kingpin.ParseContext) error {
+	return func(_ *kingpin.ParseContext) error {
+		ctx := context.Background()
+		rep := mustOpenRepository(ctx, nil)
+		err := act(ctx, rep)
+		if cerr := rep.Close(ctx); cerr != nil {
+			return fmt.Errorf("unable to close repository: %v", cerr)
+		}
+		return err
+	}
 }
 
 // App returns an instance of command-line application object.

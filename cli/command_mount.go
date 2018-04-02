@@ -1,14 +1,14 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/cachefs"
 	"github.com/kopia/kopia/fs/loggingfs"
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
-
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
@@ -19,16 +19,14 @@ var (
 	mountTraceFS  = mountCommand.Flag("trace-fs", "Trace filesystem operations").Bool()
 )
 
-func runMountCommand(context *kingpin.ParseContext) error {
-	rep := mustOpenRepository(nil)
-
+func runMountCommand(ctx context.Context, rep *repo.Repository) error {
 	mgr := snapshot.NewManager(rep)
 	var entry fs.Directory
 
 	if *mountObjectID == "all" {
 		entry = mgr.AllSourcesEntry()
 	} else {
-		oid, err := parseObjectID(mgr, *mountObjectID)
+		oid, err := parseObjectID(ctx, mgr, *mountObjectID)
 		if err != nil {
 			return err
 		}
@@ -53,5 +51,5 @@ func runMountCommand(context *kingpin.ParseContext) error {
 
 func init() {
 	setupFSCacheFlags(mountCommand)
-	mountCommand.Action(runMountCommand)
+	mountCommand.Action(repositoryAction(runMountCommand))
 }

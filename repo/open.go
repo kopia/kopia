@@ -80,7 +80,7 @@ func Open(ctx context.Context, configFile string, options *Options) (rep *Reposi
 
 	r, err := connect(ctx, st, creds, options, caching)
 	if err != nil {
-		st.Close() //nolint:errcheck
+		st.Close(ctx) //nolint:errcheck
 		return nil, err
 	}
 
@@ -121,7 +121,7 @@ func SetCachingConfig(ctx context.Context, configFile string, opt block.CachingO
 		return fmt.Errorf("cannot open storage: %v", err)
 	}
 
-	f, err := readAndCacheFormatBlock(st, "")
+	f, err := readAndCacheFormatBlock(ctx, st, "")
 	if err != nil {
 		return fmt.Errorf("can't read format block: %v", err)
 	}
@@ -142,7 +142,7 @@ func SetCachingConfig(ctx context.Context, configFile string, opt block.CachingO
 	return nil
 }
 
-func readAndCacheFormatBlock(st storage.Storage, cacheDirectory string) (*formatBlock, error) {
+func readAndCacheFormatBlock(ctx context.Context, st storage.Storage, cacheDirectory string) (*formatBlock, error) {
 	cachedFile := filepath.Join(cacheDirectory, "kopia.repository")
 	if cacheDirectory != "" {
 		b, err := ioutil.ReadFile(cachedFile)
@@ -152,7 +152,7 @@ func readAndCacheFormatBlock(st storage.Storage, cacheDirectory string) (*format
 		}
 	}
 
-	b, err := st.GetBlock(FormatBlockID, 0, -1)
+	b, err := st.GetBlock(ctx, FormatBlockID, 0, -1)
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +182,7 @@ func connect(ctx context.Context, st storage.Storage, creds auth.Credentials, op
 
 	log.Debug().Msg("reading encrypted format block")
 	// Read cache block, potentially from cache.
-	f, err := readAndCacheFormatBlock(st, caching.CacheDirectory)
+	f, err := readAndCacheFormatBlock(ctx, st, caching.CacheDirectory)
 	if err != nil {
 		return nil, fmt.Errorf("unable to read format block: %v", err)
 	}
@@ -205,19 +205,19 @@ func connect(ctx context.Context, st storage.Storage, creds auth.Credentials, op
 	caching.HMACSecret = km.DeriveKey([]byte("local-cache-integrity"), 16)
 
 	log.Debug().Msg("initializing block manager")
-	bm, err := block.NewManager(st, fo, caching)
+	bm, err := block.NewManager(ctx, st, fo, caching)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open block manager: %v", err)
 	}
 
 	log.Debug().Msg("initializing object manager")
-	om, err := object.NewObjectManager(bm, *repoConfig, options.ObjectManagerOptions)
+	om, err := object.NewObjectManager(ctx, bm, *repoConfig, options.ObjectManagerOptions)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open object manager: %v", err)
 	}
 
 	log.Debug().Msg("initializing manifest manager")
-	manifests, err := manifest.NewManager(bm)
+	manifests, err := manifest.NewManager(ctx, bm)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open manifests: %v", err)
 	}

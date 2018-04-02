@@ -1,11 +1,12 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strings"
 
-	"gopkg.in/alecthomas/kingpin.v2"
+	"github.com/kopia/kopia/repo"
 )
 
 var (
@@ -15,12 +16,10 @@ var (
 )
 
 func init() {
-	manifestListCommand.Action(listManifestItems)
+	manifestListCommand.Action(repositoryAction(listManifestItems))
 }
 
-func listManifestItems(context *kingpin.ParseContext) error {
-	rep := mustOpenRepository(nil)
-
+func listManifestItems(ctx context.Context, rep *repo.Repository) error {
 	filter := map[string]string{}
 
 	for _, kv := range *manifestListFilter {

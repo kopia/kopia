@@ -2,8 +2,10 @@
 package webdav
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -33,7 +35,7 @@ type davStorage struct {
 	Client *http.Client // HTTP client used when making all calls, may be overridden to use custom auth
 }
 
-func (d *davStorage) GetBlock(blockID string, offset, length int64) ([]byte, error) {
+func (d *davStorage) GetBlock(ctx context.Context, blockID string, offset, length int64) ([]byte, error) {
 	_, urlStr := d.getCollectionAndFileURL(blockID)
 
 	req, err := http.NewRequest("GET", urlStr, nil)
@@ -74,9 +76,8 @@ func makeFileName(blockID string) string {
 	return blockID + fsStorageChunkSuffix
 }
 
-func (d *davStorage) ListBlocks(prefix string) (<-chan storage.BlockMetadata, storage.CancelFunc) {
+func (d *davStorage) ListBlocks(ctx context.Context, prefix string) <-chan storage.BlockMetadata {
 	result := make(chan storage.BlockMetadata)
-	cancelled := make(chan bool)
 
 	var walkDir func(string, string)
 
@@ -99,7 +100,7 @@ func (d *davStorage) ListBlocks(prefix string) (<-chan storage.BlockMetadata, st
 				} else if fullID, ok := getBlockIDFromFileName(currentPrefix + e.name); ok {
 					if strings.HasPrefix(fullID, prefix) {
 						select {
-						case <-cancelled:
+						case <-ctx.Done():
 							return
 						case result <- storage.BlockMetadata{
 							BlockID:   fullID,
@@ -119,9 +120,7 @@ func (d *davStorage) ListBlocks(prefix string) (<-chan storage.BlockMetadata, st
 	}
 
 	go walkDirAndClose(d.URL)
-	return result, func() {
-		close(cancelled)
-	}
+	return result
 }
 
 func (d *davStorage) makeCollectionAll(urlStr string) error {
@@ -244,11 +243,19 @@ func (d *davStorage) putBlockInternal(urlStr string, data []byte) error {
 	}
 }
 
-func (d *davStorage) PutBlock(blockID string, data []byte) error {
+func (d *davStorage) PutBlock(ctx context.Context, blockID string, r io.Reader) error {
 	shardPath, url := d.getCollectionAndFileURL(blockID)
 
+	var buf bytes.Buffer
+	_, err := buf.ReadFrom(r)
+	if err != nil {
+		return err
+	}
+
+	data := buf.Bytes()
+
 	tmpURL := url + "-" + makeClientNonce()
-	err := d.putBlockInternal(tmpURL, data)
+	err = d.putBlockInternal(tmpURL, data)
 
 	if err == storage.ErrBlockNotFound {
 		if err = d.makeCollectionAll(shardPath); err != nil {
@@ -272,7 +279,7 @@ func (d *davStorage) PutBlock(blockID string, data []byte) error {
 	return nil
 }
 
-func (d *davStorage) DeleteBlock(blockID string) error {
+func (d *davStorage) DeleteBlock(ctx context.Context, blockID string) error {
 	_, url := d.getCollectionAndFileURL(blockID)
 	err := os.Remove(url)
 	if err == nil || os.IsNotExist(err) {
@@ -308,7 +315,7 @@ func (d *davStorage) ConnectionInfo() storage.ConnectionInfo {
 	}
 }
 
-func (d *davStorage) Close() error {
+func (d *davStorage) Close(ctx context.Context) error {
 	return nil
 }
 

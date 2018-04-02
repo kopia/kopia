@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -8,9 +9,8 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/object"
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
-
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (
@@ -34,7 +34,7 @@ func (v *verifier) reportError(path string, err error) bool {
 	return len(v.errors) >= *verifyCommandErrorThreshold
 }
 
-func (v *verifier) verifyDirectory(oid object.ID, path string) error {
+func (v *verifier) verifyDirectory(ctx context.Context, oid object.ID, path string) error {
 	if v.visited[oid.String()] {
 		return nil
 	}
@@ -43,7 +43,7 @@ func (v *verifier) verifyDirectory(oid object.ID, path string) error {
 	log.Printf("verifying directory %q (%v)", path, oid)
 
 	d := v.mgr.DirectoryEntry(oid)
-	entries, err := d.Readdir()
+	entries, err := d.Readdir(ctx)
 	if err != nil {
 		if v.reportError(path, fmt.Errorf("error reading directory %q %v: %v", path, oid, err)) {
 			return err
@@ -51,7 +51,7 @@ func (v *verifier) verifyDirectory(oid object.ID, path string) error {
 	}
 
 	for _, e := range entries {
-		if err = v.verifyDirectoryEntry(path, e); err != nil {
+		if err = v.verifyDirectoryEntry(ctx, path, e); err != nil {
 			return err
 		}
 	}
@@ -59,13 +59,13 @@ func (v *verifier) verifyDirectory(oid object.ID, path string) error {
 	return nil
 }
 
-func (v *verifier) verifyDirectoryEntry(path string, e fs.Entry) error {
+func (v *verifier) verifyDirectoryEntry(ctx context.Context, path string, e fs.Entry) error {
 	m := e.Metadata()
 	objectID := e.(object.HasObjectID).ObjectID()
 	childPath := path + "/" + m.Name
 	if m.FileMode().IsDir() {
 		if *verifyCommandRecursive {
-			if err := v.verifyDirectory(objectID, childPath); err != nil {
+			if err := v.verifyDirectory(ctx, objectID, childPath); err != nil {
 				if v.reportError(childPath, err) {
 					return err
 				}
@@ -73,7 +73,7 @@ func (v *verifier) verifyDirectoryEntry(path string, e fs.Entry) error {
 		}
 	}
 
-	if err := v.verifyObject(objectID, childPath, m.FileSize); err != nil {
+	if err := v.verifyObject(ctx, objectID, childPath, m.FileSize); err != nil {
 		if v.reportError(childPath, err) {
 			return err
 		}
@@ -81,7 +81,7 @@ func (v *verifier) verifyDirectoryEntry(path string, e fs.Entry) error {
 	return nil
 }
 
-func (v *verifier) verifyObject(oid object.ID, path string, expectedLength int64) error {
+func (v *verifier) verifyObject(ctx context.Context, oid object.ID, path string, expectedLength int64) error {
 	if v.visited[oid.String()] {
 		return nil
 	}
@@ -93,7 +93,7 @@ func (v *verifier) verifyObject(oid object.ID, path string, expectedLength int64
 		log.Printf("verifying object %v (%v) with length %v", path, oid, expectedLength)
 	}
 
-	length, _, err := v.om.VerifyObject(oid)
+	length, _, err := v.om.VerifyObject(ctx, oid)
 	if err != nil {
 		return fmt.Errorf("invalid object %q: %v", oid, err)
 	}
@@ -107,13 +107,10 @@ func (v *verifier) verifyObject(oid object.ID, path string, expectedLength int64
 	return nil
 }
 
-func runVerifyCommand(context *kingpin.ParseContext) error {
-	rep := mustOpenRepository(nil)
-	defer rep.Close() //nolint: errcheck
-
+func runVerifyCommand(ctx context.Context, rep *repo.Repository) error {
 	mgr := snapshot.NewManager(rep)
 
-	oid, err := parseObjectID(mgr, *verifyCommandPath)
+	oid, err := parseObjectID(ctx, mgr, *verifyCommandPath)
 	if err != nil {
 		return err
 	}
@@ -126,10 +123,10 @@ func runVerifyCommand(context *kingpin.ParseContext) error {
 	}
 
 	if *verifyCommandRecursive {
-		_ = v.verifyDirectory(oid, oid.String())
+		_ = v.verifyDirectory(ctx, oid, oid.String())
 	}
 
-	if err := v.verifyObject(oid, oid.String(), -1); err != nil {
+	if err := v.verifyObject(ctx, oid, oid.String(), -1); err != nil {
 		if v.reportError(".", err) {
 			return err
 		}
@@ -151,5 +148,5 @@ func runVerifyCommand(context *kingpin.ParseContext) error {
 }
 
 func init() {
-	verifyCommand.Action(runVerifyCommand)
+	verifyCommand.Action(repositoryAction(runVerifyCommand))
 }

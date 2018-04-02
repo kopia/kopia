@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -10,7 +11,7 @@ import (
 )
 
 // ParseObjectID interprets the given ID string and returns corresponding object.ID.
-func parseObjectID(mgr *snapshot.Manager, id string) (object.ID, error) {
+func parseObjectID(ctx context.Context, mgr *snapshot.Manager, id string) (object.ID, error) {
 	head, tail := splitHeadTail(id)
 	if len(head) == 0 {
 		return object.NullID, fmt.Errorf("invalid object ID: %v", id)
@@ -30,11 +31,11 @@ func parseObjectID(mgr *snapshot.Manager, id string) (object.ID, error) {
 		return object.NullID, err
 	}
 
-	return parseNestedObjectID(dir, tail)
+	return parseNestedObjectID(ctx, dir, tail)
 }
 
 //nolint:interfacer
-func parseNestedObjectID(startingDir fs.Directory, id string) (object.ID, error) {
+func parseNestedObjectID(ctx context.Context, startingDir fs.Directory, id string) (object.ID, error) {
 	head, tail := splitHeadTail(id)
 	var current fs.Entry = startingDir
 	for head != "" {
@@ -43,7 +44,7 @@ func parseNestedObjectID(startingDir fs.Directory, id string) (object.ID, error)
 			return object.NullID, fmt.Errorf("entry not found '%v': parent is not a directory", head)
 		}
 
-		entries, err := dir.Readdir()
+		entries, err := dir.Readdir(ctx)
 		if err != nil {
 			return object.NullID, err
 		}

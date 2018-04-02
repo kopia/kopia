@@ -1,15 +1,15 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/object"
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
-
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 const timeFormat = "02 Jan 06 15:04:05"
@@ -24,13 +24,10 @@ var (
 	lsCommandPath      = lsCommand.Arg("path", "Path").Required().String()
 )
 
-func runLSCommand(context *kingpin.ParseContext) error {
-	rep := mustOpenRepository(nil)
-	defer rep.Close() //nolint: errcheck
-
+func runLSCommand(ctx context.Context, rep *repo.Repository) error {
 	mgr := snapshot.NewManager(rep)
 
-	oid, err := parseObjectID(mgr, *lsCommandPath)
+	oid, err := parseObjectID(ctx, mgr, *lsCommandPath)
 	if err != nil {
 		return err
 	}
@@ -43,17 +40,17 @@ func runLSCommand(context *kingpin.ParseContext) error {
 		}
 	}
 
-	return listDirectory(mgr, prefix, oid, "")
+	return listDirectory(ctx, mgr, prefix, oid, "")
 }
 
 func init() {
-	lsCommand.Action(runLSCommand)
+	lsCommand.Action(repositoryAction(runLSCommand))
 }
 
-func listDirectory(mgr *snapshot.Manager, prefix string, oid object.ID, indent string) error {
+func listDirectory(ctx context.Context, mgr *snapshot.Manager, prefix string, oid object.ID, indent string) error {
 	d := mgr.DirectoryEntry(oid)
 
-	entries, err := d.Readdir()
+	entries, err := d.Readdir(ctx)
 	if err != nil {
 		return err
 	}
@@ -91,7 +88,7 @@ func listDirectory(mgr *snapshot.Manager, prefix string, oid object.ID, indent s
 		}
 		fmt.Println(info)
 		if *lsCommandRecursive && m.FileMode().IsDir() {
-			if listerr := listDirectory(mgr, prefix+m.Name+"/", objectID, indent+"  "); listerr != nil {
+			if listerr := listDirectory(ctx, mgr, prefix+m.Name+"/", objectID, indent+"  "); listerr != nil {
 				return listerr
 			}
 		}
