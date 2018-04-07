@@ -11,9 +11,9 @@ import (
 )
 
 type blockCache interface {
-	getBlock(ctx context.Context, virtualBlockID, physicalBlockID string, offset, length int64) ([]byte, error)
-	putBlock(ctx context.Context, blockID string, data []byte) error
-	listIndexBlocks(ctx context.Context, full bool) ([]Info, error)
+	getBlock(ctx context.Context, virtualBlockID string, physicalBlockID PhysicalBlockID, offset, length int64) ([]byte, error)
+	putBlock(ctx context.Context, blockID PhysicalBlockID, data []byte) error
+	listIndexBlocks(ctx context.Context, full bool) ([]IndexInfo, error)
 	close() error
 }
 

@@ -37,7 +37,7 @@ type diskBlockCache struct {
 	closed chan struct{}
 }
 
-func (c *diskBlockCache) getBlock(ctx context.Context, virtualBlockID, physicalBlockID string, offset, length int64) ([]byte, error) {
+func (c *diskBlockCache) getBlock(ctx context.Context, virtualBlockID string, physicalBlockID PhysicalBlockID, offset, length int64) ([]byte, error) {
 	b, err := c.cacheStorage.GetBlock(ctx, virtualBlockID, 0, -1)
 	if err == nil {
 		b, err = c.verifyHMAC(b)
@@ -52,7 +52,7 @@ func (c *diskBlockCache) getBlock(ctx context.Context, virtualBlockID, physicalB
 		log.Warn().Msgf("unable to read cache %v: %v", virtualBlockID, err)
 	}
 
-	b, err = c.st.GetBlock(ctx, physicalBlockID, offset, length)
+	b, err = c.st.GetBlock(ctx, string(physicalBlockID), offset, length)
 	if err == storage.ErrBlockNotFound {
 		// not found in underlying storage
 		return nil, err
@@ -75,17 +75,16 @@ func (c *diskBlockCache) writeToCacheBestEffort(ctx context.Context, virtualBloc
 	}
 }
 
-func (c *diskBlockCache) putBlock(ctx context.Context, blockID string, data []byte) error {
-	if err := c.st.PutBlock(ctx, blockID, bytes.NewReader(data)); err != nil {
+func (c *diskBlockCache) putBlock(ctx context.Context, blockID PhysicalBlockID, data []byte) error {
+	if err := c.st.PutBlock(ctx, string(blockID), bytes.NewReader(data)); err != nil {
 		return err
 	}
 
-	c.writeToCacheBestEffort(ctx, blockID, data)
 	c.deleteListCache(ctx)
 	return nil
 }
 
-func (c *diskBlockCache) listIndexBlocks(ctx context.Context, full bool) ([]Info, error) {
+func (c *diskBlockCache) listIndexBlocks(ctx context.Context, full bool) ([]IndexInfo, error) {
 	var cachedListBlockID string
 
 	if full {

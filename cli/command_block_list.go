@@ -28,7 +28,7 @@ func runListBlocksAction(ctx context.Context, rep *repo.Repository) error {
 
 	var count int
 	var totalSize int64
-	uniquePacks := map[string]bool{}
+	uniquePacks := map[block.PhysicalBlockID]bool{}
 	for _, b := range blocks {
 		totalSize += b.Length
 		count++

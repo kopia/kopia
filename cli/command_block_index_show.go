@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
+	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/blockmgrpb"
 	"github.com/kopia/kopia/repo"
 )
@@ -25,7 +26,11 @@ type blockIndexEntryInfo struct {
 }
 
 func runShowBlockIndexesAction(ctx context.Context, rep *repo.Repository) error {
-	blockIDs := *blockIndexShowIDs
+	var blockIDs []block.PhysicalBlockID
+	for _, id := range *blockIndexShowIDs {
+		blockIDs = append(blockIDs, block.PhysicalBlockID(id))
+	}
+
 	if len(blockIDs) == 1 && blockIDs[0] == "active" {
 		b, err := rep.Blocks.ActiveIndexBlocks(ctx)
 		if err != nil {
@@ -43,7 +48,7 @@ func runShowBlockIndexesAction(ctx context.Context, rep *repo.Repository) error 
 	}
 
 	for _, blockID := range blockIDs {
-		data, err := rep.Blocks.GetBlock(ctx, blockID)
+		data, err := rep.Blocks.GetIndexBlock(ctx, blockID)
 		if err != nil {
 			return fmt.Errorf("can't read block %q: %v", blockID, err)
 		}

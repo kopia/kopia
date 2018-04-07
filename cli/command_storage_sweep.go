@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/kopia/kopia/block"
+
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/storage"
 )
@@ -21,7 +23,7 @@ func runStorageSweepAction(ctx context.Context, rep *repo.Repository) error {
 		return err
 	}
 
-	inUseIndexBlocks := map[string]bool{}
+	inUseIndexBlocks := map[block.PhysicalBlockID]bool{}
 	for _, ib := range indexBlocks {
 		inUseIndexBlocks[ib.BlockID] = true
 	}
@@ -43,9 +45,9 @@ func runStorageSweepAction(ctx context.Context, rep *repo.Repository) error {
 	return nil
 }
 
-func sweepBlock(ctx context.Context, rep *repo.Repository, bm storage.BlockMetadata, inUseIndexBlocks map[string]bool) error {
+func sweepBlock(ctx context.Context, rep *repo.Repository, bm storage.BlockMetadata, inUseIndexBlocks map[block.PhysicalBlockID]bool) error {
 	age := time.Since(bm.TimeStamp)
-	inUse := rep.Blocks.IsStorageBlockInUse(bm.BlockID) || inUseIndexBlocks[bm.BlockID] || bm.BlockID == repo.FormatBlockID
+	inUse := rep.Blocks.IsStorageBlockInUse(block.PhysicalBlockID(bm.BlockID)) || inUseIndexBlocks[block.PhysicalBlockID(bm.BlockID)] || bm.BlockID == repo.FormatBlockID
 	keep := inUse || age < *storageSweepAgeThreshold
 	if keep {
 		return nil

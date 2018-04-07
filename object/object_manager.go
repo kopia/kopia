@@ -157,7 +157,7 @@ func (om *Manager) verifyObjectInternal(ctx context.Context, oid ID, blocks *blo
 	blocks.addBlock(oid.StorageBlock)
 
 	if p.PackBlockID != "" {
-		l, err := om.verifyObjectInternal(ctx, ID{StorageBlock: p.PackBlockID}, blocks)
+		l, err := om.verifyObjectInternal(ctx, ID{StorageBlock: string(p.PackBlockID)}, blocks)
 		if err != nil {
 			return 0, err
 		}

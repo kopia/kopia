@@ -6,7 +6,6 @@ import (
 	"crypto/hmac"
 	"crypto/md5" //nolint:gas
 	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"hash"
 	"sort"
@@ -16,13 +15,13 @@ import (
 // Formatter performs data block ID computation and encryption of a block of data when storing object in a repository.
 type Formatter interface {
 	// ComputeBlockID computes ID of the storage block for the specified block of data and returns it in ObjectID.
-	ComputeBlockID(data []byte) string
+	ComputeBlockID(data []byte) []byte
 
 	// Encrypt returns encrypted bytes corresponding to the given plaintext. May reuse the input slice.
-	Encrypt(plainText []byte, blockID string, skip int) ([]byte, error)
+	Encrypt(plainText []byte, blockID []byte, skip int) ([]byte, error)
 
 	// Decrypt returns unencrypted bytes corresponding to the given ciphertext. May reuse the input slice.
-	Decrypt(cipherText []byte, blockID string, skip int) ([]byte, error)
+	Decrypt(cipherText []byte, blockID []byte, skip int) ([]byte, error)
 }
 
 // digestFunction computes the digest (hash, optionally HMAC) of a given block of bytes.
@@ -33,15 +32,15 @@ type unencryptedFormat struct {
 	digestFunc digestFunction
 }
 
-func (fi *unencryptedFormat) ComputeBlockID(data []byte) string {
-	return hex.EncodeToString(fi.digestFunc(data))
+func (fi *unencryptedFormat) ComputeBlockID(data []byte) []byte {
+	return fi.digestFunc(data)
 }
 
-func (fi *unencryptedFormat) Encrypt(plainText []byte, blockID string, skip int) ([]byte, error) {
+func (fi *unencryptedFormat) Encrypt(plainText []byte, blockID []byte, skip int) ([]byte, error) {
 	return plainText, nil
 }
 
-func (fi *unencryptedFormat) Decrypt(cipherText []byte, blockID string, skip int) ([]byte, error) {
+func (fi *unencryptedFormat) Decrypt(cipherText []byte, blockID []byte, skip int) ([]byte, error) {
 	return cipherText, nil
 }
 
@@ -53,26 +52,16 @@ type syntheticIVEncryptionFormat struct {
 	aesKey       []byte
 }
 
-func (fi *syntheticIVEncryptionFormat) ComputeBlockID(data []byte) string {
-	return hex.EncodeToString(fi.digestFunc(data))
+func (fi *syntheticIVEncryptionFormat) ComputeBlockID(data []byte) []byte {
+	return fi.digestFunc(data)
 }
 
-func (fi *syntheticIVEncryptionFormat) Encrypt(plainText []byte, blockID string, skip int) ([]byte, error) {
-	iv, err := decodeHexSuffix(blockID, aes.BlockSize*2)
-	if err != nil {
-		return nil, err
-	}
-
-	return symmetricEncrypt(fi.createCipher, fi.aesKey, iv, plainText, skip)
+func (fi *syntheticIVEncryptionFormat) Encrypt(plainText []byte, blockID []byte, skip int) ([]byte, error) {
+	return symmetricEncrypt(fi.createCipher, fi.aesKey, blockID, plainText, skip)
 }
 
-func (fi *syntheticIVEncryptionFormat) Decrypt(cipherText []byte, blockID string, skip int) ([]byte, error) {
-	iv, err := decodeHexSuffix(blockID, aes.BlockSize*2)
-	if err != nil {
-		return nil, err
-	}
-
-	return symmetricEncrypt(fi.createCipher, fi.aesKey, iv, cipherText, skip)
+func (fi *syntheticIVEncryptionFormat) Decrypt(cipherText []byte, blockID []byte, skip int) ([]byte, error) {
+	return symmetricEncrypt(fi.createCipher, fi.aesKey, blockID, cipherText, skip)
 }
 
 func symmetricEncrypt(createCipher func(key []byte) (cipher.Block, error), key []byte, iv []byte, b []byte, skip int) ([]byte, error) {
@@ -96,13 +85,6 @@ func symmetricEncrypt(createCipher func(key []byte) (cipher.Block, error), key [
 
 	ctr.XORKeyStream(b, b)
 	return b, nil
-}
-
-func decodeHexSuffix(s string, length int) ([]byte, error) {
-	if p := strings.Index(s, "-"); p >= 0 {
-		s = s[0:p]
-	}
-	return hex.DecodeString(s[len(s)-length:])
 }
 
 // SupportedFormats is a list of supported object formats including:

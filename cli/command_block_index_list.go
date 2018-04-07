@@ -15,7 +15,7 @@ var (
 )
 
 func runListBlockIndexesAction(ctx context.Context, rep *repo.Repository) error {
-	var blks []block.Info
+	var blks []block.IndexInfo
 	var err error
 
 	if !*blockIndexListAll {
