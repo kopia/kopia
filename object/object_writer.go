@@ -7,6 +7,7 @@ import (
 	"io"
 	"sync"
 
+	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/jsonstream"
 )
 
@@ -20,24 +21,24 @@ type Writer interface {
 
 type blockTracker struct {
 	mu     sync.Mutex
-	blocks map[string]bool
+	blocks map[block.ContentID]bool
 }
 
-func (t *blockTracker) addBlock(blockID string) {
+func (t *blockTracker) addBlock(blockID block.ContentID) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
 	if t.blocks == nil {
-		t.blocks = make(map[string]bool)
+		t.blocks = make(map[block.ContentID]bool)
 	}
 	t.blocks[blockID] = true
 }
 
-func (t *blockTracker) blockIDs() []string {
+func (t *blockTracker) blockIDs() []block.ContentID {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	result := make([]string, 0, len(t.blocks))
+	result := make([]block.ContentID, 0, len(t.blocks))
 	for k := range t.blocks {
 		result = append(result, k)
 	}
@@ -104,7 +105,7 @@ func (w *objectWriter) flushBuffer() error {
 			return
 		}
 
-		w.blockIndex[chunkID].Object = ID{StorageBlock: blockID}
+		w.blockIndex[chunkID].Object = ID{ContentBlockID: blockID}
 	}
 
 	// When writing pack internal object don't use asynchronous write, since we're already under the semaphore

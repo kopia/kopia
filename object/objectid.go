@@ -4,31 +4,18 @@ import (
 	"encoding/json"
 
 	"fmt"
+
+	"github.com/kopia/kopia/block"
 )
 
 // ID is an identifier of a repository object. Repository objects can be stored:
 //
-// 1. In a single storage block, this is the most common case for objects up to typically ~20MB.
-// Storage blocks are encrypted with key specified in EncryptionKey.
-//
-// 2. In a series of storage blocks with an indirect block pointing at them (multiple indirections are allowed). This is used for larger files.
-//
-// 3. Packed into larger objects (packs).
-//
-// ObjectIDs have standard string representation (returned by String() and accepted as input to ParseObjectID()) suitable for using
-// in user interfaces, such as command-line tools:
-//
-// Examples:
-//
-//   "D295754edeb35c17911b1fdf853f572fe"                  // storage block
-//   "ID2c33acbcba3569f943d9e8aaea7817c5"                 // level-1 indirection block
-//   "IID2c33acbcba3569f943d9e8aaea7817c5"                // level-2 indirection block
-//   "S30,50,D295754edeb35c17911b1fdf853f572fe"           // section of "D295754edeb35c17911b1fdf853f572fe" between [30,80)
-//
+// 1. In a single content block, this is the most common case for small objects.
+// 2. In a series of content blocks with an indirect block pointing at them (multiple indirections are allowed). This is used for larger files.
 //
 type ID struct {
-	StorageBlock string
-	Indirect     *ID
+	ContentBlockID block.ContentID
+	Indirect       *ID
 }
 
 // MarshalJSON emits ObjectID in standard string format.
@@ -65,8 +52,8 @@ func (oid ID) String() string {
 		return fmt.Sprintf("I%v", oid.Indirect)
 	}
 
-	if oid.StorageBlock != "" {
-		return "D" + oid.StorageBlock
+	if oid.ContentBlockID != "" {
+		return "D" + string(oid.ContentBlockID)
 	}
 
 	return "B"
@@ -75,7 +62,7 @@ func (oid ID) String() string {
 // Validate validates the ObjectID structure.
 func (oid *ID) Validate() error {
 	var c int
-	if len(oid.StorageBlock) > 0 {
+	if len(oid.ContentBlockID) > 0 {
 		c++
 	}
 
@@ -111,7 +98,7 @@ func ParseID(s string) (ID, error) {
 				return ID{Indirect: &base}, nil
 			}
 
-			return ID{StorageBlock: content}, nil
+			return ID{ContentBlockID: block.ContentID(content)}, nil
 		}
 	}
 

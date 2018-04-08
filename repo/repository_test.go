@@ -63,9 +63,9 @@ func TestWriters(t *testing.T) {
 	}{
 		{
 			[]byte("the quick brown fox jumps over the lazy dog"),
-			object.ID{StorageBlock: "77add1d5f41223d5582fca736a5cb335"},
+			object.ID{ContentBlockID: "77add1d5f41223d5582fca736a5cb335"},
 		},
-		{make([]byte, 100), object.ID{StorageBlock: "6d0bb00954ceb7fbee436bb55a8397a9"}}, // 100 zero bytes
+		{make([]byte, 100), object.ID{ContentBlockID: "6d0bb00954ceb7fbee436bb55a8397a9"}}, // 100 zero bytes
 	}
 
 	ctx := context.Background()
@@ -128,7 +128,7 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	writer.Write(bytes[0:50])
 	writer.Write(bytes[0:50])
 	result, err := writer.Result()
-	if !objectIDsEqual(result, object.ID{StorageBlock: "6d0bb00954ceb7fbee436bb55a8397a9"}) {
+	if !objectIDsEqual(result, object.ID{ContentBlockID: "6d0bb00954ceb7fbee436bb55a8397a9"}) {
 		t.Errorf("unexpected result: %v err: %v", result, err)
 	}
 }
@@ -349,9 +349,9 @@ func TestFormats(t *testing.T) {
 				n.noHMAC = true
 			},
 			oids: map[string]object.ID{
-				"": object.ID{StorageBlock: "d41d8cd98f00b204e9800998ecf8427e"},
+				"": object.ID{ContentBlockID: "d41d8cd98f00b204e9800998ecf8427e"},
 				"The quick brown fox jumps over the lazy dog": object.ID{
-					StorageBlock: "9e107d9d372bb6826bd81d3542a419d6",
+					ContentBlockID: "9e107d9d372bb6826bd81d3542a419d6",
 				},
 			},
 		},
@@ -359,7 +359,7 @@ func TestFormats(t *testing.T) {
 			format: makeFormat("UNENCRYPTED_HMAC_SHA256"),
 			oids: map[string]object.ID{
 				"The quick brown fox jumps over the lazy dog": object.ID{
-					StorageBlock: "f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8",
+					ContentBlockID: "f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8",
 				},
 			},
 		},
@@ -367,7 +367,7 @@ func TestFormats(t *testing.T) {
 			format: makeFormat("UNENCRYPTED_HMAC_SHA256_128"),
 			oids: map[string]object.ID{
 				"The quick brown fox jumps over the lazy dog": object.ID{
-					StorageBlock: "f7bc83f430538424b13298e6aa6fb143",
+					ContentBlockID: "f7bc83f430538424b13298e6aa6fb143",
 				},
 			},
 		},

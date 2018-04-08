@@ -145,7 +145,7 @@ func TestBlockManagerEmpty(t *testing.T) {
 	keyTime := map[string]time.Time{}
 	bm := newTestBlockManager(data, keyTime, nil)
 
-	noSuchBlockID := md5hash([]byte("foo"))
+	noSuchBlockID := ContentID(md5hash([]byte("foo")))
 
 	b, err := bm.GetBlock(ctx, noSuchBlockID)
 	if err != storage.ErrBlockNotFound {
@@ -286,7 +286,7 @@ func TestBlockManagerWriteMultiple(t *testing.T) {
 	keyTime := map[string]time.Time{}
 	bm := newTestBlockManager(data, keyTime, nil)
 
-	var blockIDs []string
+	var blockIDs []ContentID
 
 	for i := 0; i < 5000; i++ {
 		//t.Logf("i=%v", i)
@@ -527,7 +527,7 @@ func fakeTimeNowWithAutoAdvance(t time.Time, dt time.Duration) func() time.Time 
 	}
 }
 
-func verifyBlockNotFound(ctx context.Context, t *testing.T, bm *Manager, blockID string) {
+func verifyBlockNotFound(ctx context.Context, t *testing.T, bm *Manager, blockID ContentID) {
 	t.Helper()
 
 	b, err := bm.GetBlock(ctx, blockID)
@@ -536,7 +536,7 @@ func verifyBlockNotFound(ctx context.Context, t *testing.T, bm *Manager, blockID
 	}
 }
 
-func verifyBlock(ctx context.Context, t *testing.T, bm *Manager, blockID string, b []byte) {
+func verifyBlock(ctx context.Context, t *testing.T, bm *Manager, blockID ContentID, b []byte) {
 	t.Helper()
 
 	b2, err := bm.GetBlock(ctx, blockID)
@@ -559,7 +559,7 @@ func verifyBlock(ctx context.Context, t *testing.T, bm *Manager, blockID string,
 	}
 
 }
-func writeBlockAndVerify(ctx context.Context, t *testing.T, bm *Manager, b []byte) string {
+func writeBlockAndVerify(ctx context.Context, t *testing.T, bm *Manager, b []byte) ContentID {
 	t.Helper()
 
 	blockID, err := bm.WriteBlock(ctx, b, "")
@@ -567,7 +567,7 @@ func writeBlockAndVerify(ctx context.Context, t *testing.T, bm *Manager, b []byt
 		t.Errorf("err: %v", err)
 	}
 
-	if got, want := blockID, md5hash(b); got != want {
+	if got, want := blockID, ContentID(md5hash(b)); got != want {
 		t.Errorf("invalid block ID for %x, got %v, want %v", b, got, want)
 	}
 

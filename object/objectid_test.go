@@ -13,10 +13,10 @@ func TestParseObjectID(t *testing.T) {
 		Text     string
 		ObjectID ID
 	}{
-		{"Dfoo", ID{StorageBlock: "foo"}},
-		{"IDfoo", ID{Indirect: &ID{StorageBlock: "foo"}}},
-		{"IDfoo", ID{Indirect: &ID{StorageBlock: "foo"}}},
-		{"IIDfoo", ID{Indirect: &ID{Indirect: &ID{StorageBlock: "foo"}}}},
+		{"Dfoo", ID{ContentBlockID: "foo"}},
+		{"IDfoo", ID{Indirect: &ID{ContentBlockID: "foo"}}},
+		{"IDfoo", ID{Indirect: &ID{ContentBlockID: "foo"}}},
+		{"IIDfoo", ID{Indirect: &ID{Indirect: &ID{ContentBlockID: "foo"}}}},
 	}
 
 	for _, tc := range cases {

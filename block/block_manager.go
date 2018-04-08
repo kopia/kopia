@@ -41,9 +41,12 @@ const (
 
 var zeroTime time.Time
 
+// ContentID uniquely identifies a block of content stored in repository.
+type ContentID string
+
 // Info is an information about a single block managed by Manager.
 type Info struct {
-	BlockID     string          `json:"blockID"`
+	BlockID     ContentID       `json:"blockID"`
 	Length      int64           `json:"length"`
 	Timestamp   time.Time       `json:"time"`
 	PackBlockID PhysicalBlockID `json:"packBlockID,omitempty"`
@@ -71,7 +74,7 @@ type Manager struct {
 	locked                  bool
 	checkInvariantsOnUnlock bool
 
-	blockIDToIndex     map[string]packIndex          // maps block ID to corresponding index
+	blockIDToIndex     map[ContentID]packIndex       // maps block ID to corresponding index
 	packBlockIDToIndex map[PhysicalBlockID]packIndex // maps pack block ID to corresponding index
 
 	currentPackData  []byte    // data for the current block
@@ -95,7 +98,7 @@ type Manager struct {
 // NOTE: To avoid race conditions only blocks that cannot be possibly re-created
 // should ever be deleted. That means that contents of such blocks should include some element
 // of randomness or a contemporaneous timestamp that will never reappear.
-func (bm *Manager) DeleteBlock(blockID string) error {
+func (bm *Manager) DeleteBlock(blockID ContentID) error {
 	bm.lock()
 	defer bm.unlock()
 
@@ -105,14 +108,14 @@ func (bm *Manager) DeleteBlock(blockID string) error {
 	return nil
 }
 
-func (bm *Manager) addToIndexLocked(blockID string, ndx packIndex, offset, size uint32) {
+func (bm *Manager) addToIndexLocked(blockID ContentID, ndx packIndex, offset, size uint32) {
 	bm.assertLocked()
 
 	ndx.addPackedBlock(blockID, offset, size)
 	bm.blockIDToIndex[blockID] = ndx
 }
 
-func (bm *Manager) addToPackLocked(ctx context.Context, blockID string, data []byte) error {
+func (bm *Manager) addToPackLocked(ctx context.Context, blockID ContentID, data []byte) error {
 	bm.assertLocked()
 
 	if len(bm.currentPackData) == 0 && bm.maxPreambleLength > 0 {
@@ -458,11 +461,11 @@ func (bm *Manager) initializeIndexes(ctx context.Context) error {
 	return nil
 }
 
-func dedupeBlockIDsAndIndex(ndx []packIndex) (blockToIndex map[string]packIndex, packToIndex map[PhysicalBlockID]packIndex) {
+func dedupeBlockIDsAndIndex(ndx []packIndex) (blockToIndex map[ContentID]packIndex, packToIndex map[PhysicalBlockID]packIndex) {
 	sort.Slice(ndx, func(i, j int) bool {
 		return ndx[i].createTimeNanos() < ndx[j].createTimeNanos()
 	})
-	blockToIndex = make(map[string]packIndex)
+	blockToIndex = make(map[ContentID]packIndex)
 	packToIndex = make(map[PhysicalBlockID]packIndex)
 	for _, pck := range ndx {
 		packToIndex[pck.packBlockID()] = pck
@@ -511,14 +514,14 @@ func (bm *Manager) CompactIndexes(ctx context.Context) error {
 }
 
 // ListBlocks returns the metadata about blocks with a given prefix and kind.
-func (bm *Manager) ListBlocks(prefix string) ([]Info, error) {
+func (bm *Manager) ListBlocks(prefix ContentID) ([]Info, error) {
 	bm.lock()
 	defer bm.unlock()
 
 	var result []Info
 
 	for b, ndx := range bm.blockIDToIndex {
-		if !strings.HasPrefix(b, prefix) {
+		if !strings.HasPrefix(string(b), string(prefix)) {
 			continue
 		}
 
@@ -532,7 +535,7 @@ func (bm *Manager) ListBlocks(prefix string) ([]Info, error) {
 	return result, nil
 }
 
-func newInfo(blockID string, ndx packIndex) (Info, error) {
+func newInfo(blockID ContentID, ndx packIndex) (Info, error) {
 	offset, size, inline, ok := ndx.getBlock(blockID)
 	if !ok {
 		return Info{}, storage.ErrBlockNotFound
@@ -585,8 +588,8 @@ func (bm *Manager) Flush(ctx context.Context) error {
 
 // WriteBlock saves a given block of data to a pack group with a provided name and returns a blockID
 // that's based on the contents of data written.
-func (bm *Manager) WriteBlock(ctx context.Context, data []byte, prefix string) (string, error) {
-	blockID := prefix + hex.EncodeToString(bm.hashData(data))
+func (bm *Manager) WriteBlock(ctx context.Context, data []byte, prefix ContentID) (ContentID, error) {
+	blockID := prefix + ContentID(hex.EncodeToString(bm.hashData(data)))
 
 	bm.lock()
 	defer bm.unlock()
@@ -633,7 +636,7 @@ func (bm *Manager) Repackage(ctx context.Context, maxLength uint64) error {
 		}
 	}
 
-	done := map[string]bool{}
+	done := map[ContentID]bool{}
 
 	if len(toRepackage) <= 1 {
 		log.Printf("nothing to do (%v total bytes)", totalBytes)
@@ -651,7 +654,7 @@ func (bm *Manager) Repackage(ctx context.Context, maxLength uint64) error {
 	return nil
 }
 
-func (bm *Manager) repackageBlock(ctx context.Context, m packIndex, done map[string]bool) error {
+func (bm *Manager) repackageBlock(ctx context.Context, m packIndex, done map[ContentID]bool) error {
 	data, err := bm.getPhysicalBlockInternalLocked(ctx, m.packBlockID())
 	if err != nil {
 		return fmt.Errorf("can't fetch block %q for repackaging: %v", m.packBlockID(), err)
@@ -679,7 +682,7 @@ func (bm *Manager) repackageBlock(ctx context.Context, m packIndex, done map[str
 
 func (bm *Manager) writeUnpackedBlockNotLocked(ctx context.Context, data []byte, prefix string, suffix string) (PhysicalBlockID, error) {
 	hash := bm.hashData(data)
-	blockID := prefix + hex.EncodeToString(hash) + suffix
+	physicalBlockID := PhysicalBlockID(prefix + hex.EncodeToString(hash) + suffix)
 
 	// Encrypt the block in-place.
 	atomic.AddInt64(&bm.stats.EncryptedBytes, int64(len(data)))
@@ -690,11 +693,11 @@ func (bm *Manager) writeUnpackedBlockNotLocked(ctx context.Context, data []byte,
 
 	atomic.AddInt32(&bm.stats.WrittenBlocks, 1)
 	atomic.AddInt64(&bm.stats.WrittenBytes, int64(len(data)))
-	if err := bm.cache.putBlock(ctx, PhysicalBlockID(blockID), data2); err != nil {
+	if err := bm.cache.putBlock(ctx, physicalBlockID, data2); err != nil {
 		return "", err
 	}
 
-	return PhysicalBlockID(blockID), nil
+	return physicalBlockID, nil
 }
 
 func (bm *Manager) hashData(data []byte) []byte {
@@ -705,7 +708,7 @@ func (bm *Manager) hashData(data []byte) []byte {
 	return blockID
 }
 
-func (bm *Manager) getPendingBlockLocked(blockID string) ([]byte, error) {
+func (bm *Manager) getPendingBlockLocked(blockID ContentID) ([]byte, error) {
 	bm.assertLocked()
 
 	if ndx := bm.currentPackIndex; ndx != nil {
@@ -725,7 +728,7 @@ func (bm *Manager) getPendingBlockLocked(blockID string) ([]byte, error) {
 }
 
 // GetBlock gets the contents of a given block. If the block is not found returns blob.ErrBlockNotFound.
-func (bm *Manager) GetBlock(ctx context.Context, blockID string) ([]byte, error) {
+func (bm *Manager) GetBlock(ctx context.Context, blockID ContentID) ([]byte, error) {
 	bm.lock()
 	defer bm.unlock()
 
@@ -745,20 +748,20 @@ func (bm *Manager) GetIndexBlock(ctx context.Context, blockID PhysicalBlockID) (
 }
 
 // BlockInfo returns information about a single block.
-func (bm *Manager) BlockInfo(ctx context.Context, blockID string) (Info, error) {
+func (bm *Manager) BlockInfo(ctx context.Context, blockID ContentID) (Info, error) {
 	bm.lock()
 	defer bm.unlock()
 
 	return bm.packedBlockInfoLocked(blockID)
 }
 
-func (bm *Manager) findIndexForBlockLocked(blockID string) packIndex {
+func (bm *Manager) findIndexForBlockLocked(blockID ContentID) packIndex {
 	bm.assertLocked()
 
 	return bm.blockIDToIndex[blockID]
 }
 
-func (bm *Manager) packedBlockInfoLocked(blockID string) (Info, error) {
+func (bm *Manager) packedBlockInfoLocked(blockID ContentID) (Info, error) {
 	ndx := bm.findIndexForBlockLocked(blockID)
 	if ndx == nil {
 		return Info{}, storage.ErrBlockNotFound
@@ -767,7 +770,7 @@ func (bm *Manager) packedBlockInfoLocked(blockID string) (Info, error) {
 	return newInfo(blockID, ndx)
 }
 
-func (bm *Manager) getPackedBlockInternalLocked(ctx context.Context, blockID string) ([]byte, error) {
+func (bm *Manager) getPackedBlockInternalLocked(ctx context.Context, blockID ContentID) ([]byte, error) {
 	bm.assertLocked()
 
 	ndx, ok := bm.blockIDToIndex[blockID]
@@ -785,7 +788,7 @@ func (bm *Manager) getPackedBlockInternalLocked(ctx context.Context, blockID str
 	}
 
 	underlyingBlockID := ndx.packBlockID()
-	payload, err := bm.cache.getBlock(ctx, blockID, underlyingBlockID, int64(offset), int64(size))
+	payload, err := bm.cache.getBlock(ctx, string(blockID), underlyingBlockID, int64(offset), int64(size))
 	decryptSkip := int(offset)
 
 	if err != nil {
@@ -851,8 +854,8 @@ func (bm *Manager) getPhysicalBlockInternalLocked(ctx context.Context, blockID P
 	return payload, nil
 }
 
-func getPackedBlockIV(s string) ([]byte, error) {
-	return hex.DecodeString(s[len(s)-(aes.BlockSize*2):])
+func getPackedBlockIV(s ContentID) ([]byte, error) {
+	return hex.DecodeString(string(s[len(s)-(aes.BlockSize*2):]))
 }
 
 func getPhysicalBlockIV(b PhysicalBlockID) ([]byte, error) {
@@ -973,7 +976,7 @@ func newManagerWithTime(ctx context.Context, st storage.Storage, f FormattingOpt
 		pendingPackIndexes:     nil,
 		maxPackSize:            f.MaxPackSize,
 		formatter:              formatter,
-		blockIDToIndex:         make(map[string]packIndex),
+		blockIDToIndex:         make(map[ContentID]packIndex),
 		packBlockIDToIndex:     make(map[PhysicalBlockID]packIndex),
 		minPreambleLength:      defaultMinPreambleLength,
 		maxPreambleLength:      defaultMaxPreambleLength,

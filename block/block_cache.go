@@ -11,7 +11,7 @@ import (
 )
 
 type blockCache interface {
-	getBlock(ctx context.Context, virtualBlockID string, physicalBlockID PhysicalBlockID, offset, length int64) ([]byte, error)
+	getBlock(ctx context.Context, cacheKey string, physicalBlockID PhysicalBlockID, offset, length int64) ([]byte, error)
 	putBlock(ctx context.Context, blockID PhysicalBlockID, data []byte) error
 	listIndexBlocks(ctx context.Context, full bool) ([]IndexInfo, error)
 	close() error
@@ -43,7 +43,7 @@ func newBlockCache(ctx context.Context, st storage.Storage, caching CachingOptio
 		return nil, err
 	}
 
-	c := &diskBlockCache{
+	c := &localStorageCache{
 		st:                st,
 		cacheStorage:      cacheStorage,
 		maxSizeBytes:      caching.MaxCacheSizeBytes,

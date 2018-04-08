@@ -10,12 +10,12 @@ type packIndex interface {
 	packLength() uint64
 	createTimeNanos() uint64
 
-	addPackedBlock(blockID string, offset, size uint32)
-	getBlock(blockID string) (offset, size uint32, payload []byte, ok bool)
-	deleteBlock(blockID string, addToDeleted bool)
+	addPackedBlock(blockID ContentID, offset, size uint32)
+	getBlock(blockID ContentID) (offset, size uint32, payload []byte, ok bool)
+	deleteBlock(blockID ContentID, addToDeleted bool)
 	isEmpty() bool
-	activeBlockIDs() []string
-	deletedBlockIDs() []string
+	activeBlockIDs() []ContentID
+	deletedBlockIDs() []ContentID
 
 	packedToInline(data []byte)
 	finishPack(packBlockID PhysicalBlockID, packLength uint64)
@@ -45,12 +45,12 @@ func (p protoPackIndex) packedToInline(packedData []byte) {
 	p.ndx.Items = map[string]uint64{}
 }
 
-func (p protoPackIndex) getBlock(blockID string) (offset, size uint32, payload []byte, ok bool) {
-	if payload, ok := p.ndx.InlineItems[blockID]; ok {
+func (p protoPackIndex) getBlock(blockID ContentID) (offset, size uint32, payload []byte, ok bool) {
+	if payload, ok := p.ndx.InlineItems[string(blockID)]; ok {
 		return 0, uint32(len(payload)), payload, true
 	}
 
-	if os, ok := p.ndx.Items[blockID]; ok {
+	if os, ok := p.ndx.Items[string(blockID)]; ok {
 		offset, size := unpackOffsetAndSize(os)
 		return offset, size, nil, true
 	}
@@ -58,8 +58,13 @@ func (p protoPackIndex) getBlock(blockID string) (offset, size uint32, payload [
 	return 0, 0, nil, false
 }
 
-func (p protoPackIndex) deletedBlockIDs() []string {
-	return p.ndx.DeletedItems
+func (p protoPackIndex) deletedBlockIDs() []ContentID {
+	var result []ContentID
+
+	for _, d := range p.ndx.DeletedItems {
+		result = append(result, ContentID(d))
+	}
+	return result
 }
 
 func (p protoPackIndex) packBlockID() PhysicalBlockID {
@@ -70,25 +75,25 @@ func (p protoPackIndex) packLength() uint64 {
 	return p.ndx.PackLength
 }
 
-func (p protoPackIndex) addPackedBlock(blockID string, offset, size uint32) {
-	p.ndx.Items[blockID] = packOffsetAndSize(offset, size)
+func (p protoPackIndex) addPackedBlock(blockID ContentID, offset, size uint32) {
+	p.ndx.Items[string(blockID)] = packOffsetAndSize(offset, size)
 }
 
-func (p protoPackIndex) deleteBlock(blockID string, addToDeleted bool) {
-	delete(p.ndx.Items, blockID)
-	delete(p.ndx.InlineItems, blockID)
+func (p protoPackIndex) deleteBlock(blockID ContentID, addToDeleted bool) {
+	delete(p.ndx.Items, string(blockID))
+	delete(p.ndx.InlineItems, string(blockID))
 	if addToDeleted {
-		p.ndx.DeletedItems = append(p.ndx.DeletedItems, blockID)
+		p.ndx.DeletedItems = append(p.ndx.DeletedItems, string(blockID))
 	}
 }
 
-func (p protoPackIndex) activeBlockIDs() []string {
-	var result []string
+func (p protoPackIndex) activeBlockIDs() []ContentID {
+	var result []ContentID
 	for blkID := range p.ndx.Items {
-		result = append(result, blkID)
+		result = append(result, ContentID(blkID))
 	}
 	for blkID := range p.ndx.InlineItems {
-		result = append(result, blkID)
+		result = append(result, ContentID(blkID))
 	}
 	return result
 }

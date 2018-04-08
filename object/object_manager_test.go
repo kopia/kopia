@@ -24,10 +24,10 @@ import (
 
 type fakeBlockManager struct {
 	mu   sync.Mutex
-	data map[string][]byte
+	data map[block.ContentID][]byte
 }
 
-func (f *fakeBlockManager) GetBlock(ctx context.Context, blockID string) ([]byte, error) {
+func (f *fakeBlockManager) GetBlock(ctx context.Context, blockID block.ContentID) ([]byte, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -38,10 +38,10 @@ func (f *fakeBlockManager) GetBlock(ctx context.Context, blockID string) ([]byte
 	return nil, storage.ErrBlockNotFound
 }
 
-func (f *fakeBlockManager) WriteBlock(ctx context.Context, data []byte, prefix string) (string, error) {
+func (f *fakeBlockManager) WriteBlock(ctx context.Context, data []byte, prefix block.ContentID) (block.ContentID, error) {
 	h := md5.New()
 	h.Write(data)
-	blockID := prefix + hex.EncodeToString(h.Sum(nil))
+	blockID := prefix + block.ContentID(hex.EncodeToString(h.Sum(nil)))
 
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -50,7 +50,7 @@ func (f *fakeBlockManager) WriteBlock(ctx context.Context, data []byte, prefix s
 	return blockID, nil
 }
 
-func (f *fakeBlockManager) BlockInfo(ctx context.Context, blockID string) (block.Info, error) {
+func (f *fakeBlockManager) BlockInfo(ctx context.Context, blockID block.ContentID) (block.Info, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -65,11 +65,11 @@ func (f *fakeBlockManager) Flush(ctx context.Context) error {
 	return nil
 }
 
-func setupTest(t *testing.T) (map[string][]byte, *Manager) {
-	return setupTestWithData(t, map[string][]byte{}, ManagerOptions{})
+func setupTest(t *testing.T) (map[block.ContentID][]byte, *Manager) {
+	return setupTestWithData(t, map[block.ContentID][]byte{}, ManagerOptions{})
 }
 
-func setupTestWithData(t *testing.T, data map[string][]byte, opts ManagerOptions) (map[string][]byte, *Manager) {
+func setupTestWithData(t *testing.T, data map[block.ContentID][]byte, opts ManagerOptions) (map[block.ContentID][]byte, *Manager) {
 	r, err := NewObjectManager(context.Background(), &fakeBlockManager{data: data}, config.RepositoryObjectFormat{
 		FormattingOptions: block.FormattingOptions{
 			Version: 1,
@@ -92,9 +92,9 @@ func TestWriters(t *testing.T) {
 	}{
 		{
 			[]byte("the quick brown fox jumps over the lazy dog"),
-			ID{StorageBlock: "77add1d5f41223d5582fca736a5cb335"},
+			ID{ContentBlockID: "77add1d5f41223d5582fca736a5cb335"},
 		},
-		{make([]byte, 100), ID{StorageBlock: "6d0bb00954ceb7fbee436bb55a8397a9"}}, // 100 zero bytes
+		{make([]byte, 100), ID{ContentBlockID: "6d0bb00954ceb7fbee436bb55a8397a9"}}, // 100 zero bytes
 	}
 
 	for _, c := range cases {
@@ -116,7 +116,7 @@ func TestWriters(t *testing.T) {
 			t.Errorf("incorrect result for %v, expected: %v got: %v", c.data, c.objectID.String(), result.String())
 		}
 
-		if c.objectID.StorageBlock == "" {
+		if c.objectID.ContentBlockID == "" {
 			if len(data) != 0 {
 				t.Errorf("unexpected data written to the storage: %v", data)
 			}
@@ -142,7 +142,7 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	writer.Write(bytes[0:50])
 	writer.Write(bytes[0:50])
 	result, err := writer.Result()
-	if !objectIDsEqual(result, ID{StorageBlock: "6d0bb00954ceb7fbee436bb55a8397a9"}) {
+	if !objectIDsEqual(result, ID{ContentBlockID: "6d0bb00954ceb7fbee436bb55a8397a9"}) {
 		t.Errorf("unexpected result: %v err: %v", result, err)
 	}
 }

@@ -11,7 +11,7 @@ type nullBlockCache struct {
 	st storage.Storage
 }
 
-func (c nullBlockCache) getBlock(ctx context.Context, virtualBlockID string, blockID PhysicalBlockID, offset, length int64) ([]byte, error) {
+func (c nullBlockCache) getBlock(ctx context.Context, cacheKey string, blockID PhysicalBlockID, offset, length int64) ([]byte, error) {
 	return c.st.GetBlock(ctx, string(blockID), offset, length)
 }
 

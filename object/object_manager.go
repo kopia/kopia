@@ -24,9 +24,9 @@ type Reader interface {
 }
 
 type blockManager interface {
-	BlockInfo(ctx context.Context, blockID string) (block.Info, error)
-	GetBlock(ctx context.Context, blockID string) ([]byte, error)
-	WriteBlock(ctx context.Context, data []byte, prefix string) (string, error)
+	BlockInfo(ctx context.Context, blockID block.ContentID) (block.Info, error)
+	GetBlock(ctx context.Context, blockID block.ContentID) ([]byte, error)
+	WriteBlock(ctx context.Context, data []byte, prefix block.ContentID) (block.ContentID, error)
 	Flush(ctx context.Context) error
 }
 
@@ -102,7 +102,7 @@ func (om *Manager) Open(ctx context.Context, objectID ID) (Reader, error) {
 
 // VerifyObject ensures that all objects backing ObjectID are present in the repository
 // and returns the total length of the object and storage blocks of which it is composed.
-func (om *Manager) VerifyObject(ctx context.Context, oid ID) (int64, []string, error) {
+func (om *Manager) VerifyObject(ctx context.Context, oid ID) (int64, []block.ContentID, error) {
 	// Flush any pending writes.
 	om.writeBackWG.Wait()
 
@@ -150,14 +150,14 @@ func (om *Manager) verifyObjectInternal(ctx context.Context, oid ID, blocks *blo
 		return om.verifyIndirectObjectInternal(ctx, oid, blocks)
 	}
 
-	p, err := om.blockMgr.BlockInfo(ctx, oid.StorageBlock)
+	p, err := om.blockMgr.BlockInfo(ctx, oid.ContentBlockID)
 	if err != nil {
 		return 0, err
 	}
-	blocks.addBlock(oid.StorageBlock)
+	blocks.addBlock(oid.ContentBlockID)
 
 	if p.PackBlockID != "" {
-		l, err := om.verifyObjectInternal(ctx, ID{StorageBlock: string(p.PackBlockID)}, blocks)
+		l, err := om.verifyObjectInternal(ctx, ID{ContentBlockID: block.ContentID(p.PackBlockID)}, blocks)
 		if err != nil {
 			return 0, err
 		}
@@ -264,7 +264,7 @@ func (om *Manager) flattenListChunk(rawReader io.Reader) ([]indirectObjectEntry,
 }
 
 func (om *Manager) newRawReader(ctx context.Context, objectID ID) (Reader, error) {
-	payload, err := om.blockMgr.GetBlock(ctx, objectID.StorageBlock)
+	payload, err := om.blockMgr.GetBlock(ctx, objectID.ContentBlockID)
 	if err != nil {
 		return nil, err
 	}

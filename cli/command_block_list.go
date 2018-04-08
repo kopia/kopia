@@ -19,7 +19,7 @@ var (
 )
 
 func runListBlocksAction(ctx context.Context, rep *repo.Repository) error {
-	blocks, err := rep.Blocks.ListBlocks(*blockListPrefix)
+	blocks, err := rep.Blocks.ListBlocks(block.ContentID(*blockListPrefix))
 	if err != nil {
 		return err
 	}
