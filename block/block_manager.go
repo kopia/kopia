@@ -222,7 +222,7 @@ func (bm *Manager) invariantViolated(msg string, args ...interface{}) {
 }
 
 func (bm *Manager) startPackIndexLocked() {
-	bm.currentPackIndex = protoPackIndex{&blockmgrpb.Index{
+	bm.currentPackIndex = protoPackIndexV1{&blockmgrpb.IndexV1{
 		Items:           make(map[string]uint64),
 		InlineItems:     make(map[string][]byte),
 		CreateTimeNanos: uint64(bm.timeNow().UnixNano()),
@@ -249,7 +249,7 @@ func (bm *Manager) writePackIndexes(ctx context.Context, ndx []packIndex, replac
 	pb := &blockmgrpb.Indexes{}
 
 	for _, n := range ndx {
-		pb.Indexes = append(pb.Indexes, n.(protoPackIndex).ndx)
+		n.addToIndexes(pb)
 	}
 	data, err := proto.Marshal(pb)
 	if err != nil {

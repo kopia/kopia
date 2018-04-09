@@ -58,15 +58,15 @@ func runShowBlockIndexesAction(ctx context.Context, rep *repo.Repository) error 
 			return err
 		}
 
-		for _, ndx := range d.Indexes {
-			printIndex(ndx)
+		for _, ndx := range d.IndexesV1 {
+			printIndexV1(ndx)
 		}
 	}
 
 	return nil
 }
 
-func printIndex(ndx *blockmgrpb.Index) {
+func printIndexV1(ndx *blockmgrpb.IndexV1) {
 	fmt.Printf("pack:%v len:%v created:%v\n", ndx.PackBlockId, ndx.PackLength, time.Unix(0, int64(ndx.CreateTimeNanos)).Local())
 	var lines []blockIndexEntryInfo
 
