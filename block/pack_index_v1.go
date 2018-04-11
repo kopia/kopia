@@ -1,6 +1,8 @@
 package block
 
 import (
+	"time"
+
 	"github.com/kopia/kopia/internal/blockmgrpb"
 )
 
@@ -66,12 +68,10 @@ func (p protoPackIndexV1) addPackedBlock(blockID ContentID, offset, size uint32)
 	p.ndx.Items[string(blockID)] = packOffsetAndSize(offset, size)
 }
 
-func (p protoPackIndexV1) deleteBlock(blockID ContentID, addToDeleted bool) {
+func (p protoPackIndexV1) deleteBlock(blockID ContentID) {
 	delete(p.ndx.Items, string(blockID))
 	delete(p.ndx.InlineItems, string(blockID))
-	if addToDeleted {
-		p.ndx.DeletedItems = append(p.ndx.DeletedItems, string(blockID))
-	}
+	p.ndx.DeletedItems = append(p.ndx.DeletedItems, string(blockID))
 }
 
 func (p protoPackIndexV1) activeBlockIDs() []ContentID {
@@ -87,4 +87,12 @@ func (p protoPackIndexV1) activeBlockIDs() []ContentID {
 
 func (p protoPackIndexV1) isEmpty() bool {
 	return len(p.ndx.Items)+len(p.ndx.InlineItems)+len(p.ndx.DeletedItems) == 0
+}
+
+func newPackIndexV1(t time.Time) packIndexBuilder {
+	return protoPackIndexV1{&blockmgrpb.IndexV1{
+		Items:           make(map[string]uint64),
+		InlineItems:     make(map[string][]byte),
+		CreateTimeNanos: uint64(t.UnixNano()),
+	}}
 }

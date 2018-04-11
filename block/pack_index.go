@@ -10,16 +10,21 @@ type packIndex interface {
 	packLength() uint64
 	createTimeNanos() uint64
 
-	addPackedBlock(blockID ContentID, offset, size uint32)
 	getBlock(blockID ContentID) (offset, size uint32, payload []byte, ok bool)
-	deleteBlock(blockID ContentID, addToDeleted bool)
 	isEmpty() bool
 	activeBlockIDs() []ContentID
 	deletedBlockIDs() []ContentID
+	addToIndexes(pb *blockmgrpb.Indexes)
+}
+
+type packIndexBuilder interface {
+	packIndex
+
+	addPackedBlock(blockID ContentID, offset, size uint32)
+	deleteBlock(blockID ContentID)
 
 	packedToInline(data []byte)
 	finishPack(packBlockID PhysicalBlockID, packLength uint64)
-	addToIndexes(pb *blockmgrpb.Indexes)
 }
 
 func loadPackIndexes(data []byte) ([]packIndex, error) {

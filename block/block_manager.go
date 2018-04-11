@@ -41,9 +41,6 @@ const (
 
 var zeroTime time.Time
 
-// ContentID uniquely identifies a block of content stored in repository.
-type ContentID string
-
 // Info is an information about a single block managed by Manager.
 type Info struct {
 	BlockID     ContentID       `json:"blockID"`
@@ -77,8 +74,8 @@ type Manager struct {
 	blockIDToIndex     map[ContentID]packIndex       // maps block ID to corresponding index
 	packBlockIDToIndex map[PhysicalBlockID]packIndex // maps pack block ID to corresponding index
 
-	currentPackData  []byte    // data for the current block
-	currentPackIndex packIndex // index of a current block
+	currentPackData  []byte           // data for the current block
+	currentPackIndex packIndexBuilder // index of a current block
 
 	pendingPackIndexes    []packIndex // pending indexes of blocks that have been saved.
 	flushPackIndexesAfter time.Time   // time when those indexes should be flushed
@@ -103,12 +100,12 @@ func (bm *Manager) DeleteBlock(blockID ContentID) error {
 	defer bm.unlock()
 
 	delete(bm.blockIDToIndex, blockID)
-	bm.currentPackIndex.deleteBlock(blockID, true)
+	bm.currentPackIndex.deleteBlock(blockID)
 
 	return nil
 }
 
-func (bm *Manager) addToIndexLocked(blockID ContentID, ndx packIndex, offset, size uint32) {
+func (bm *Manager) addToIndexLocked(blockID ContentID, ndx packIndexBuilder, offset, size uint32) {
 	bm.assertLocked()
 
 	ndx.addPackedBlock(blockID, offset, size)
@@ -222,11 +219,7 @@ func (bm *Manager) invariantViolated(msg string, args ...interface{}) {
 }
 
 func (bm *Manager) startPackIndexLocked() {
-	bm.currentPackIndex = protoPackIndexV1{&blockmgrpb.IndexV1{
-		Items:           make(map[string]uint64),
-		InlineItems:     make(map[string][]byte),
-		CreateTimeNanos: uint64(bm.timeNow().UnixNano()),
-	}}
+	bm.currentPackIndex = newPackIndexV1(bm.timeNow())
 	bm.currentPackData = []byte{}
 }
 
@@ -262,7 +255,6 @@ func (bm *Manager) writePackIndexes(ctx context.Context, ndx []packIndex, replac
 	}
 
 	inverseTimePrefix := fmt.Sprintf("%016x", math.MaxInt64-time.Now().UnixNano())
-
 	return bm.writeUnpackedBlockNotLocked(ctx, data, indexBlockPrefix+inverseTimePrefix, suffix)
 }
 
@@ -470,10 +462,6 @@ func dedupeBlockIDsAndIndex(ndx []packIndex) (blockToIndex map[ContentID]packInd
 	for _, pck := range ndx {
 		packToIndex[pck.packBlockID()] = pck
 		for _, blockID := range pck.activeBlockIDs() {
-			if o := blockToIndex[blockID]; o != nil {
-				o.deleteBlock(blockID, false)
-			}
-
 			blockToIndex[blockID] = pck
 		}
 
@@ -589,6 +577,9 @@ func (bm *Manager) Flush(ctx context.Context) error {
 // WriteBlock saves a given block of data to a pack group with a provided name and returns a blockID
 // that's based on the contents of data written.
 func (bm *Manager) WriteBlock(ctx context.Context, data []byte, prefix ContentID) (ContentID, error) {
+	if err := validatePrefix(prefix); err != nil {
+		return "", err
+	}
 	blockID := prefix + ContentID(hex.EncodeToString(bm.hashData(data)))
 
 	bm.lock()
@@ -601,6 +592,19 @@ func (bm *Manager) WriteBlock(ctx context.Context, data []byte, prefix ContentID
 
 	err := bm.addToPackLocked(ctx, blockID, data)
 	return blockID, err
+}
+
+func validatePrefix(prefix ContentID) error {
+	switch len(prefix) {
+	case 0:
+		return nil
+	case 1:
+		if prefix[0] >= 'g' && prefix[0] <= 'z' {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("invalid prefix, must be a empty or single letter between 'g' and 'z'")
 }
 
 // IsStorageBlockInUse determines whether given storage block is in use by currently loaded pack indexes.
