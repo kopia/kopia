@@ -80,7 +80,7 @@ func (c *localStorageCache) putBlock(ctx context.Context, blockID PhysicalBlockI
 	return c.st.PutBlock(ctx, string(blockID), bytes.NewReader(data))
 }
 
-func (c *localStorageCache) listIndexBlocks(ctx context.Context, full bool) ([]IndexInfo, error) {
+func (c *localStorageCache) listIndexBlocks(ctx context.Context, full bool, extraTime time.Duration) ([]IndexInfo, error) {
 	var cachedListBlockID string
 
 	if full {
@@ -101,7 +101,7 @@ func (c *localStorageCache) listIndexBlocks(ctx context.Context, full bool) ([]I
 	}
 
 	log.Debug().Bool("full", full).Msg("listing index blocks from source")
-	blocks, err := listIndexBlocksFromStorage(ctx, c.st, full)
+	blocks, err := listIndexBlocksFromStorage(ctx, c.st, full, extraTime)
 	if err == nil {
 		c.saveListToCache(ctx, cachedListBlockID, &cachedList{
 			Blocks:    blocks,

@@ -6,7 +6,6 @@ import (
 	"reflect"
 	"sort"
 	"testing"
-	"time"
 
 	"github.com/kopia/kopia/internal/storagetesting"
 
@@ -16,8 +15,7 @@ import (
 func TestManifest(t *testing.T) {
 	ctx := context.Background()
 	data := map[string][]byte{}
-	keyTime := map[string]time.Time{}
-	mgr, setupErr := newManagerForTesting(ctx, t, data, keyTime)
+	mgr, setupErr := newManagerForTesting(ctx, t, data)
 	if setupErr != nil {
 		t.Fatalf("unable to open block manager: %v", setupErr)
 	}
@@ -71,7 +69,7 @@ func TestManifest(t *testing.T) {
 
 	// flush underlying block manager and verify in new manifest manager.
 	mgr.b.Flush(ctx)
-	mgr2, setupErr := newManagerForTesting(ctx, t, data, keyTime)
+	mgr2, setupErr := newManagerForTesting(ctx, t, data)
 	if setupErr != nil {
 		t.Fatalf("can't open block manager: %v", setupErr)
 	}
@@ -111,7 +109,7 @@ func TestManifest(t *testing.T) {
 
 	mgr.b.Flush(ctx)
 
-	mgr3, err := newManagerForTesting(ctx, t, data, keyTime)
+	mgr3, err := newManagerForTesting(ctx, t, data)
 	if err != nil {
 		t.Fatalf("can't open manager: %v", err)
 	}
@@ -172,8 +170,8 @@ func verifyMatches(t *testing.T, mgr *Manager, labels map[string]string, expecte
 	}
 }
 
-func newManagerForTesting(ctx context.Context, t *testing.T, data map[string][]byte, keyTime map[string]time.Time) (*Manager, error) {
-	st := storagetesting.NewMapStorage(data, keyTime)
+func newManagerForTesting(ctx context.Context, t *testing.T, data map[string][]byte) (*Manager, error) {
+	st := storagetesting.NewMapStorage(data, nil, nil)
 
 	bm, err := block.NewManager(ctx, st, block.FormattingOptions{
 		BlockFormat: "TESTONLY_MD5",

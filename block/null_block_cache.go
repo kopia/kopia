@@ -3,6 +3,7 @@ package block
 import (
 	"bytes"
 	"context"
+	"time"
 
 	"github.com/kopia/kopia/storage"
 )
@@ -19,8 +20,8 @@ func (c nullBlockCache) putBlock(ctx context.Context, blockID PhysicalBlockID, d
 	return c.st.PutBlock(ctx, string(blockID), bytes.NewReader(data))
 }
 
-func (c nullBlockCache) listIndexBlocks(ctx context.Context, full bool) ([]IndexInfo, error) {
-	return listIndexBlocksFromStorage(ctx, c.st, full)
+func (c nullBlockCache) listIndexBlocks(ctx context.Context, full bool, extraTime time.Duration) ([]IndexInfo, error) {
+	return listIndexBlocksFromStorage(ctx, c.st, full, extraTime)
 }
 
 func (c nullBlockCache) close() error {

@@ -13,7 +13,7 @@ import (
 type blockCache interface {
 	getBlock(ctx context.Context, cacheKey string, physicalBlockID PhysicalBlockID, offset, length int64) ([]byte, error)
 	putBlock(ctx context.Context, blockID PhysicalBlockID, data []byte) error
-	listIndexBlocks(ctx context.Context, full bool) ([]IndexInfo, error)
+	listIndexBlocks(ctx context.Context, full bool, extraTime time.Duration) ([]IndexInfo, error)
 	close() error
 }
 

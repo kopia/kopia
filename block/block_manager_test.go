@@ -482,7 +482,7 @@ func TestDeleteAndRecreate(t *testing.T) {
 }
 
 func newTestBlockManager(data map[string][]byte, keyTime map[string]time.Time, timeFunc func() time.Time) *Manager {
-	st := storagetesting.NewMapStorage(data, keyTime)
+	st := storagetesting.NewMapStorage(data, keyTime, timeFunc)
 	//st = logging.NewWrapper(st)
 	if timeFunc == nil {
 		timeFunc = fakeTimeNowWithAutoAdvance(fakeTime, 1)

@@ -12,7 +12,6 @@ import (
 	"math/rand"
 	"os"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -34,12 +33,8 @@ const (
 	defaultMaxPreambleLength = 32
 	defaultPaddingUnit       = 4096
 	maxInlineContentLength   = 100000 // amount of block data to store in the index block itself
-
-	autoCompactionBlockCount   = 16
-	autoCompactionSafetyMargin = 5 * time.Minute // do not auto-compact if time since block was written is less than this
+	autoCompactionBlockCount = 16
 )
-
-var zeroTime time.Time
 
 // Info is an information about a single block managed by Manager.
 type Info struct {
@@ -49,6 +44,11 @@ type Info struct {
 	PackBlockID PhysicalBlockID `json:"packBlockID,omitempty"`
 	PackOffset  int64           `json:"packOffset,omitempty"`
 }
+
+// ContentID uniquely identifies a block of content stored in repository.
+// It consists of optional one-character prefix (which can't be 0..9 or a..f) followed by hexa-decimal
+// digits representing hash of the content.
+type ContentID string
 
 // PhysicalBlockID identifies physical storage block.
 type PhysicalBlockID string
@@ -79,6 +79,7 @@ type Manager struct {
 
 	pendingPackIndexes    []packIndex // pending indexes of blocks that have been saved.
 	flushPackIndexesAfter time.Time   // time when those indexes should be flushed
+	activeBlocksExtraTime time.Duration
 
 	maxInlineContentLength int
 	maxPackSize            int
@@ -105,13 +106,6 @@ func (bm *Manager) DeleteBlock(blockID ContentID) error {
 	return nil
 }
 
-func (bm *Manager) addToIndexLocked(blockID ContentID, ndx packIndexBuilder, offset, size uint32) {
-	bm.assertLocked()
-
-	ndx.addPackedBlock(blockID, offset, size)
-	bm.blockIDToIndex[blockID] = ndx
-}
-
 func (bm *Manager) addToPackLocked(ctx context.Context, blockID ContentID, data []byte) error {
 	bm.assertLocked()
 
@@ -127,9 +121,10 @@ func (bm *Manager) addToPackLocked(ctx context.Context, blockID ContentID, data 
 
 	offset := len(bm.currentPackData)
 	shouldFinish := offset+len(data) >= bm.maxPackSize
-
 	bm.currentPackData = append(bm.currentPackData, data...)
-	bm.addToIndexLocked(blockID, bm.currentPackIndex, uint32(offset), uint32(len(data)))
+
+	bm.currentPackIndex.addPackedBlock(blockID, uint32(offset), uint32(len(data)))
+	bm.blockIDToIndex[blockID] = bm.currentPackIndex
 
 	if shouldFinish {
 		if err := bm.finishPackAndMaybeFlushIndexes(ctx); err != nil {
@@ -228,7 +223,7 @@ func (bm *Manager) flushPackIndexesLocked(ctx context.Context) error {
 		if false {
 			log.Printf("saving %v pack indexes", len(bm.pendingPackIndexes))
 		}
-		if _, err := bm.writePackIndexes(ctx, bm.pendingPackIndexes, nil); err != nil {
+		if _, err := bm.writePackIndexes(ctx, bm.pendingPackIndexes, false); err != nil {
 			return err
 		}
 	}
@@ -238,7 +233,7 @@ func (bm *Manager) flushPackIndexesLocked(ctx context.Context) error {
 	return nil
 }
 
-func (bm *Manager) writePackIndexes(ctx context.Context, ndx []packIndex, replacesBlockBeforeTime *time.Time) (PhysicalBlockID, error) {
+func (bm *Manager) writePackIndexes(ctx context.Context, ndx []packIndex, isCompaction bool) (PhysicalBlockID, error) {
 	pb := &blockmgrpb.Indexes{}
 
 	for _, n := range ndx {
@@ -250,8 +245,8 @@ func (bm *Manager) writePackIndexes(ctx context.Context, ndx []packIndex, replac
 	}
 
 	var suffix string
-	if replacesBlockBeforeTime != nil {
-		suffix = fmt.Sprintf("%v%x", compactedBlockSuffix, replacesBlockBeforeTime.UnixNano())
+	if isCompaction {
+		suffix = compactedBlockSuffix
 	}
 
 	inverseTimePrefix := fmt.Sprintf("%016x", math.MaxInt64-time.Now().UnixNano())
@@ -296,7 +291,7 @@ func (bm *Manager) finishPackLocked(ctx context.Context) error {
 
 // ListIndexBlocks returns the list of all index blocks, including inactive, sorted by time.
 func (bm *Manager) ListIndexBlocks(ctx context.Context) ([]IndexInfo, error) {
-	blocks, err := bm.cache.listIndexBlocks(ctx, true)
+	blocks, err := bm.cache.listIndexBlocks(ctx, true, 0)
 	if err != nil {
 		return nil, fmt.Errorf("error listing index blocks: %v", err)
 	}
@@ -307,7 +302,7 @@ func (bm *Manager) ListIndexBlocks(ctx context.Context) ([]IndexInfo, error) {
 
 // ActiveIndexBlocks returns the list of active index blocks, sorted by time.
 func (bm *Manager) ActiveIndexBlocks(ctx context.Context) ([]IndexInfo, error) {
-	blocks, err := bm.cache.listIndexBlocks(ctx, false)
+	blocks, err := bm.cache.listIndexBlocks(ctx, false, bm.activeBlocksExtraTime)
 	if err != nil {
 		return nil, err
 	}
@@ -315,20 +310,8 @@ func (bm *Manager) ActiveIndexBlocks(ctx context.Context) ([]IndexInfo, error) {
 		return nil, nil
 	}
 
-	cutoffTime, err := findLatestCompactedTimestamp(blocks)
-	if err != nil {
-		return nil, err
-	}
-
-	var activeBlocks []IndexInfo
-	for _, b := range blocks {
-		if b.Timestamp.After(cutoffTime) {
-			activeBlocks = append(activeBlocks, b)
-		}
-	}
-
-	sortBlocksByTime(activeBlocks)
-	return activeBlocks, nil
+	sortBlocksByTime(blocks)
+	return blocks, nil
 }
 
 func sortBlocksByTime(b []IndexInfo) {
@@ -337,32 +320,15 @@ func sortBlocksByTime(b []IndexInfo) {
 	})
 }
 
-func findLatestCompactedTimestamp(blocks []IndexInfo) (time.Time, error) {
-	// look for blocks that end with -ztimestamp
-	// find the latest such timestamp.
-	var latestTime time.Time
-
-	for _, b := range blocks {
-		blk := b.BlockID
-		if ts, ok := getCompactedTimestamp(blk); ok {
-			if ts.After(latestTime) {
-				latestTime = ts
-			}
-		}
-	}
-
-	return latestTime, nil
-}
-
-func (bm *Manager) loadMergedPackIndexLocked(ctx context.Context) ([]packIndex, []PhysicalBlockID, time.Time, error) {
+func (bm *Manager) loadMergedPackIndexLocked(ctx context.Context) ([]packIndex, []PhysicalBlockID, error) {
 	log.Debug().Msg("listing active index blocks")
 	blocks, err := bm.ActiveIndexBlocks(ctx)
 	if err != nil {
-		return nil, nil, zeroTime, err
+		return nil, nil, err
 	}
 
 	if len(blocks) == 0 {
-		return nil, nil, zeroTime, nil
+		return nil, nil, nil
 	}
 
 	// add block IDs to the channel
@@ -417,7 +383,7 @@ func (bm *Manager) loadMergedPackIndexLocked(ctx context.Context) ([]packIndex, 
 
 	// Propagate async errors, if any.
 	for err := range errors {
-		return nil, nil, time.Now(), err
+		return nil, nil, err
 	}
 
 	var merged []packIndex
@@ -425,24 +391,24 @@ func (bm *Manager) loadMergedPackIndexLocked(ctx context.Context) ([]packIndex, 
 		merged = append(merged, pi...)
 	}
 
-	return merged, blockIDs, blocks[len(blocks)-1].Timestamp, nil
+	return merged, blockIDs, nil
 }
 
 func (bm *Manager) initializeIndexes(ctx context.Context) error {
 	bm.lock()
 	defer bm.unlock()
 
-	merged, blockIDs, latestBlockTime, err := bm.loadMergedPackIndexLocked(ctx)
+	merged, blockIDs, err := bm.loadMergedPackIndexLocked(ctx)
 	if err != nil {
 		return err
 	}
-	log.Debug().Msgf("loaded %v index blocks with latest time %v", len(blockIDs), latestBlockTime.Local())
+	log.Debug().Msgf("loaded %v index blocks", len(blockIDs))
 
 	bm.blockIDToIndex, bm.packBlockIDToIndex = dedupeBlockIDsAndIndex(merged)
-	if len(blockIDs) >= autoCompactionBlockCount && latestBlockTime.Before(time.Now().Add(-autoCompactionSafetyMargin)) {
+	if len(blockIDs) >= autoCompactionBlockCount {
 		log.Debug().Msgf("auto compacting block indexes (block count %v exceeds threshold of %v)", len(blockIDs), autoCompactionBlockCount)
 		merged = removeEmptyIndexes(merged)
-		if _, err := bm.writePackIndexes(ctx, merged, &latestBlockTime); err != nil {
+		if _, err := bm.writePackIndexes(ctx, merged, true); err != nil {
 			return err
 		}
 	}
@@ -489,12 +455,12 @@ func (bm *Manager) CompactIndexes(ctx context.Context) error {
 	bm.lock()
 	defer bm.unlock()
 
-	merged, indexBlocks, latestBlockTime, err := bm.loadMergedPackIndexLocked(ctx)
+	merged, indexBlocks, err := bm.loadMergedPackIndexLocked(ctx)
 	if err != nil {
 		return err
 	}
 
-	if err := bm.compactIndexes(ctx, merged, indexBlocks, latestBlockTime); err != nil {
+	if err := bm.compactIndexes(ctx, merged, indexBlocks); err != nil {
 		return err
 	}
 
@@ -546,15 +512,13 @@ func newInfo(blockID ContentID, ndx packIndex) (Info, error) {
 	}, nil
 }
 
-func (bm *Manager) compactIndexes(ctx context.Context, merged []packIndex, blockIDs []PhysicalBlockID, latestBlockTime time.Time) error {
-	dedupeBlockIDsAndIndex(merged)
-	merged = removeEmptyIndexes(merged)
+func (bm *Manager) compactIndexes(ctx context.Context, merged []packIndex, blockIDs []PhysicalBlockID) error {
 	if len(blockIDs) <= 1 {
 		log.Printf("skipping index compaction - already compacted")
 		return nil
 	}
 
-	_, err := bm.writePackIndexes(ctx, merged, &latestBlockTime)
+	_, err := bm.writePackIndexes(ctx, merged, true)
 	return err
 }
 
@@ -620,22 +584,12 @@ func (bm *Manager) Repackage(ctx context.Context, maxLength uint64) error {
 	bm.lock()
 	defer bm.unlock()
 
-	merged, _, _, err := bm.loadMergedPackIndexLocked(ctx)
-	if err != nil {
-		return err
-	}
-
 	var toRepackage []packIndex
 	var totalBytes uint64
 
-	for _, m := range merged {
-		bi, ok := bm.packBlockIDToIndex[m.packBlockID()]
-		if !ok {
-			return fmt.Errorf("unable to get info on pack block %q", m.packBlockID())
-		}
-
+	for _, bi := range bm.packBlockIDToIndex {
 		if bi.packLength() <= maxLength {
-			toRepackage = append(toRepackage, m)
+			toRepackage = append(toRepackage, bi)
 			totalBytes += bi.packLength()
 		}
 	}
@@ -910,8 +864,8 @@ type cachedList struct {
 // If 'full' is set to true, this function lists and returns all blocks,
 // if 'full' is false, the function returns only blocks from the last 2 compactions.
 // The list of blocks is not guaranteed to be sorted.
-func listIndexBlocksFromStorage(ctx context.Context, st storage.Storage, full bool) ([]IndexInfo, error) {
-	maxCompactions := 2
+func listIndexBlocksFromStorage(ctx context.Context, st storage.Storage, full bool, extraTime time.Duration) ([]IndexInfo, error) {
+	maxCompactions := 1
 	if full {
 		maxCompactions = math.MaxInt32
 	}
@@ -941,10 +895,10 @@ func listIndexBlocksFromStorage(ctx context.Context, st storage.Storage, full bo
 		}
 		results = append(results, ii)
 
-		if ts, ok := getCompactedTimestamp(ii.BlockID); ok {
+		if strings.Contains(string(ii.BlockID), compactedBlockSuffix) {
 			numCompactions++
 			if numCompactions == maxCompactions {
-				timestampCutoff = ts.Add(-10 * time.Minute)
+				timestampCutoff = it.TimeStamp.Add(-extraTime)
 			}
 		}
 	}
@@ -1000,16 +954,4 @@ func newManagerWithTime(ctx context.Context, st storage.Storage, f FormattingOpt
 	}
 
 	return m, nil
-}
-func getCompactedTimestamp(blk PhysicalBlockID) (time.Time, bool) {
-	if p := strings.Index(string(blk), compactedBlockSuffix); p >= 0 {
-		unixNano, err := strconv.ParseInt(string(blk)[p+len(compactedBlockSuffix):], 16, 64)
-		if err != nil {
-			return time.Time{}, false
-		}
-
-		return time.Unix(0, unixNano), true
-	}
-
-	return time.Time{}, false
 }

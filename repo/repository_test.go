@@ -28,7 +28,7 @@ func setupTest(t *testing.T, mods ...func(o *NewRepositoryOptions)) (map[string]
 }
 
 func setupTestWithData(t *testing.T, data map[string][]byte, keyTime map[string]time.Time, mods ...func(o *NewRepositoryOptions)) (map[string][]byte, map[string]time.Time, *Repository) {
-	st := storagetesting.NewMapStorage(data, keyTime)
+	st := storagetesting.NewMapStorage(data, keyTime, nil)
 
 	creds, _ := auth.Password("foobarbazfoobarbaz")
 	opt := &NewRepositoryOptions{

@@ -15,6 +15,7 @@ import (
 type mapStorage struct {
 	data    map[string][]byte
 	keyTime map[string]time.Time
+	timeNow func() time.Time
 	mutex   sync.RWMutex
 }
 
@@ -51,7 +52,7 @@ func (s *mapStorage) PutBlock(ctx context.Context, id string, r io.Reader) error
 		return nil
 	}
 
-	s.keyTime[id] = time.Now()
+	s.keyTime[id] = s.timeNow()
 	s.data[id] = append([]byte{}, data...)
 	return nil
 }
@@ -107,9 +108,12 @@ func (s *mapStorage) ConnectionInfo() storage.ConnectionInfo {
 
 // NewMapStorage returns an implementation of Storage backed by the contents of given map.
 // Used primarily for testing.
-func NewMapStorage(data map[string][]byte, keyTime map[string]time.Time) storage.Storage {
+func NewMapStorage(data map[string][]byte, keyTime map[string]time.Time, timeNow func() time.Time) storage.Storage {
 	if keyTime == nil {
 		keyTime = make(map[string]time.Time)
 	}
-	return &mapStorage{data: data, keyTime: keyTime}
+	if timeNow == nil {
+		timeNow = time.Now
+	}
+	return &mapStorage{data: data, keyTime: keyTime, timeNow: timeNow}
 }
