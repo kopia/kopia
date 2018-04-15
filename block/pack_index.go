@@ -10,11 +10,17 @@ type packIndex interface {
 	packLength() uint64
 	createTimeNanos() uint64
 
-	getBlock(blockID ContentID) (offset, size uint32, payload []byte, ok bool)
+	getBlock(blockID ContentID) (packBlockInfo, bool)
 	isEmpty() bool
 	activeBlockIDs() []ContentID
 	deletedBlockIDs() []ContentID
 	addToIndexes(pb *blockmgrpb.Indexes)
+}
+
+type packBlockInfo struct {
+	offset, size uint32
+	payload      []byte
+	deleted      bool
 }
 
 type packIndexBuilder interface {

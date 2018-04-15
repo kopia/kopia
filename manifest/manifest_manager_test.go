@@ -7,9 +7,8 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/kopia/kopia/internal/storagetesting"
-
 	"github.com/kopia/kopia/block"
+	"github.com/kopia/kopia/internal/storagetesting"
 )
 
 func TestManifest(t *testing.T) {

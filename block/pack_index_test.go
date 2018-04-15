@@ -147,55 +147,55 @@ func verifyIndexBlockNotDeleted(t *testing.T, ndx packIndex, blockID ContentID) 
 
 func verifyIndexBlockNotFound(t *testing.T, ndx packIndex, blockID ContentID) {
 	t.Helper()
-	off, size, payload, ok := ndx.getBlock(blockID)
-	if ok {
+	bi, ok := ndx.getBlock(blockID)
+	if ok && !bi.deleted {
 		t.Errorf("block %q unexpectedly found", blockID)
 	}
-	if payload != nil {
+	if bi.payload != nil {
 		t.Errorf("block %q unexpectedly has payload", blockID)
 	}
-	if off != 0 {
+	if bi.offset != 0 {
 		t.Errorf("block %q unexpectedly has an offset", blockID)
 	}
-	if size != 0 {
+	if bi.size != 0 {
 		t.Errorf("block %q unexpectedly has size", blockID)
 	}
 }
 
 func verifyIndexBlockFoundPacked(t *testing.T, ndx packIndex, blockID ContentID, wantOffset, wantSize uint32) {
 	t.Helper()
-	off, size, payload, ok := ndx.getBlock(blockID)
-	if !ok {
+	bi, ok := ndx.getBlock(blockID)
+	if !ok || bi.deleted {
 		t.Errorf("block %q unexpectedly not found", blockID)
 		return
 	}
-	if payload != nil {
+	if bi.payload != nil {
 		t.Errorf("block %q unexpectedly has payload", blockID)
 		return
 	}
-	if off != wantOffset {
-		t.Errorf("block %q unexpectedly has an offset %v, wanted %v", blockID, off, wantOffset)
+	if bi.offset != wantOffset {
+		t.Errorf("block %q unexpectedly has an offset %v, wanted %v", blockID, bi.offset, wantOffset)
 	}
-	if size != wantSize {
-		t.Errorf("block %q unexpectedly has size %v, wanted %v", blockID, size, wantSize)
+	if bi.size != wantSize {
+		t.Errorf("block %q unexpectedly has size %v, wanted %v", blockID, bi.size, wantSize)
 	}
 }
 
 func verifyIndexBlockInline(t *testing.T, ndx packIndex, blockID ContentID, wantPayload []byte) {
 	t.Helper()
-	off, size, payload, ok := ndx.getBlock(blockID)
-	if !ok {
+	bi, ok := ndx.getBlock(blockID)
+	if !ok || bi.deleted {
 		t.Errorf("block %q unexpectedly not found", blockID)
 		return
 	}
-	if !reflect.DeepEqual(payload, wantPayload) {
-		t.Errorf("block %q unexpectedly has payload %x, wanted %x", blockID, payload, wantPayload)
+	if !reflect.DeepEqual(bi.payload, wantPayload) {
+		t.Errorf("block %q unexpectedly has payload %x, wanted %x", blockID, bi.payload, wantPayload)
 		return
 	}
-	if off != 0 {
-		t.Errorf("block %q unexpectedly has an offset %v, wanted %v", blockID, off, 0)
+	if bi.offset != 0 {
+		t.Errorf("block %q unexpectedly has an offset %v, wanted %v", blockID, bi.offset, 0)
 	}
-	if size != uint32(len(wantPayload)) {
-		t.Errorf("block %q unexpectedly has a size %v, wanted %v", blockID, size, len(wantPayload))
+	if bi.size != uint32(len(wantPayload)) {
+		t.Errorf("block %q unexpectedly has a size %v, wanted %v", blockID, bi.size, len(wantPayload))
 	}
 }

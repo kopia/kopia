@@ -34,17 +34,23 @@ func (p protoPackIndexV1) packedToInline(packedData []byte) {
 	p.ndx.Items = map[string]uint64{}
 }
 
-func (p protoPackIndexV1) getBlock(blockID ContentID) (offset, size uint32, payload []byte, ok bool) {
+func (p protoPackIndexV1) getBlock(blockID ContentID) (packBlockInfo, bool) {
 	if payload, ok := p.ndx.InlineItems[string(blockID)]; ok {
-		return 0, uint32(len(payload)), payload, true
+		return packBlockInfo{size: uint32(len(payload)), payload: payload}, true
 	}
 
 	if os, ok := p.ndx.Items[string(blockID)]; ok {
 		offset, size := unpackOffsetAndSize(os)
-		return offset, size, nil, true
+		return packBlockInfo{offset: offset, size: size}, true
 	}
 
-	return 0, 0, nil, false
+	for _, del := range p.ndx.DeletedItems {
+		if del == string(blockID) {
+			return packBlockInfo{deleted: true}, true
+		}
+	}
+
+	return packBlockInfo{}, false
 }
 
 func (p protoPackIndexV1) deletedBlockIDs() []ContentID {

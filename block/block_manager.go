@@ -100,8 +100,16 @@ func (bm *Manager) DeleteBlock(blockID ContentID) error {
 	bm.lock()
 	defer bm.unlock()
 
-	delete(bm.blockIDToIndex, blockID)
+	// We have this block in current pack index and it's already deleted there.
+	if ndx := bm.blockIDToIndex[blockID]; ndx != nil {
+		if bi, ok := ndx.getBlock(blockID); ok && bi.deleted {
+			return nil
+		}
+	}
+
+	// Add deletion to current pack.
 	bm.currentPackIndex.deleteBlock(blockID)
+	bm.blockIDToIndex[blockID] = bm.currentPackIndex
 
 	return nil
 }
@@ -189,17 +197,16 @@ func (bm *Manager) verifyPackBlockIndexLocked() {
 func (bm *Manager) verifyEachBlockHasTargetIndexEntryLocked() {
 	// verify that each block in blockIDToIndex has a corresponding entry in the target index.
 	for blkID, ndx := range bm.blockIDToIndex {
-		off, size, payload, ok := ndx.getBlock(blkID)
+		bi, ok := ndx.getBlock(blkID)
 		if !ok {
 			bm.invariantViolated("invariant violated - block %q not found within its pack", blkID)
 			continue
 		}
-		if payload != nil {
-			// inline
+		if bi.payload != nil || bi.deleted {
 			continue
 		}
-		if ndx.packLength() > 0 && uint64(off)+uint64(size) > ndx.packLength() {
-			bm.invariantViolated("invariant violated - block %q out of bounds within its pack (%v,%v) vs %v", blkID, off, size, ndx.packLength())
+		if ndx.packLength() > 0 && uint64(bi.offset)+uint64(bi.size) > ndx.packLength() {
+			bm.invariantViolated("invariant violated - block %q out of bounds within its pack (%v,%v) vs %v", blkID, bi.offset, bi.size, ndx.packLength())
 		}
 		continue
 
@@ -430,9 +437,8 @@ func dedupeBlockIDsAndIndex(ndx []packIndex) (blockToIndex map[ContentID]packInd
 		for _, blockID := range pck.activeBlockIDs() {
 			blockToIndex[blockID] = pck
 		}
-
-		for _, deletedBlockID := range pck.deletedBlockIDs() {
-			delete(blockToIndex, deletedBlockID)
+		for _, blockID := range pck.deletedBlockIDs() {
+			blockToIndex[blockID] = pck
 		}
 	}
 
@@ -480,8 +486,11 @@ func (bm *Manager) ListBlocks(prefix ContentID) ([]Info, error) {
 		}
 
 		i, err := newInfo(b, ndx)
+		if err == storage.ErrBlockNotFound {
+			continue
+		}
 		if err != nil {
-			return nil, fmt.Errorf("block %v not found", b)
+			return nil, err
 		}
 		result = append(result, i)
 	}
@@ -490,14 +499,14 @@ func (bm *Manager) ListBlocks(prefix ContentID) ([]Info, error) {
 }
 
 func newInfo(blockID ContentID, ndx packIndex) (Info, error) {
-	offset, size, inline, ok := ndx.getBlock(blockID)
-	if !ok {
+	bi, ok := ndx.getBlock(blockID)
+	if !ok || bi.deleted {
 		return Info{}, storage.ErrBlockNotFound
 	}
-	if inline != nil {
+	if bi.payload != nil {
 		return Info{
 			BlockID:     blockID,
-			Length:      int64(len(inline)),
+			Length:      int64(bi.size),
 			Timestamp:   time.Unix(0, int64(ndx.createTimeNanos())),
 			PackBlockID: ndx.packBlockID(),
 		}, nil
@@ -505,10 +514,10 @@ func newInfo(blockID ContentID, ndx packIndex) (Info, error) {
 
 	return Info{
 		BlockID:     blockID,
-		Length:      int64(size),
+		Length:      int64(bi.size),
 		Timestamp:   time.Unix(0, int64(ndx.createTimeNanos())),
 		PackBlockID: ndx.packBlockID(),
-		PackOffset:  int64(offset),
+		PackOffset:  int64(bi.offset),
 	}, nil
 }
 
@@ -549,9 +558,11 @@ func (bm *Manager) WriteBlock(ctx context.Context, data []byte, prefix ContentID
 	bm.lock()
 	defer bm.unlock()
 
-	// See if we already have this block ID in the pack.
-	if _, ok := bm.blockIDToIndex[blockID]; ok {
-		return blockID, nil
+	// See if we already have this block ID in some pack index and it's not deleted.
+	if ndx := bm.blockIDToIndex[blockID]; ndx != nil {
+		if bi, ok := ndx.getBlock(blockID); ok && !bi.deleted {
+			return blockID, nil
+		}
 	}
 
 	err := bm.addToPackLocked(ctx, blockID, data)
@@ -623,12 +634,15 @@ func (bm *Manager) repackageBlock(ctx context.Context, m packIndex, done map[Con
 			continue
 		}
 		done[blockID] = true
-		offset, size, payload, ok := m.getBlock(blockID)
+		bi, ok := m.getBlock(blockID)
 		if !ok {
 			return fmt.Errorf("unable to get packed block to repackage")
 		}
-		if payload == nil {
-			payload = data[offset : offset+size]
+		var payload []byte
+		if bi.payload == nil {
+			payload = data[bi.offset : bi.offset+bi.size]
+		} else {
+			payload = bi.payload
 		}
 		if err := bm.addToPackLocked(ctx, blockID, payload); err != nil {
 			return fmt.Errorf("unable to re-package %q: %v", blockID, err)
@@ -670,14 +684,18 @@ func (bm *Manager) getPendingBlockLocked(blockID ContentID) ([]byte, error) {
 	bm.assertLocked()
 
 	if ndx := bm.currentPackIndex; ndx != nil {
-		offset, size, payload, ok := bm.currentPackIndex.getBlock(blockID)
+		bi, ok := bm.currentPackIndex.getBlock(blockID)
 		if ok {
-			if payload != nil {
-				return payload, nil
+			if bi.deleted {
+				return nil, storage.ErrBlockNotFound
+			}
+
+			if bi.payload != nil {
+				return bi.payload, nil
 			}
 
 			if bm.currentPackData != nil {
-				return bm.currentPackData[offset : offset+size], nil
+				return bm.currentPackData[bi.offset : bi.offset+bi.size], nil
 			}
 		}
 	}
@@ -736,18 +754,18 @@ func (bm *Manager) getPackedBlockInternalLocked(ctx context.Context, blockID Con
 		return nil, storage.ErrBlockNotFound
 	}
 
-	offset, size, payload, ok := ndx.getBlock(blockID)
-	if !ok {
+	bi, ok := ndx.getBlock(blockID)
+	if !ok || bi.deleted {
 		return nil, storage.ErrBlockNotFound
 	}
 
-	if payload != nil {
-		return payload, nil
+	if bi.payload != nil {
+		return bi.payload, nil
 	}
 
 	underlyingBlockID := ndx.packBlockID()
-	payload, err := bm.cache.getBlock(ctx, string(blockID), underlyingBlockID, int64(offset), int64(size))
-	decryptSkip := int(offset)
+	payload, err := bm.cache.getBlock(ctx, string(blockID), underlyingBlockID, int64(bi.offset), int64(bi.size))
+	decryptSkip := int(bi.offset)
 
 	if err != nil {
 		return nil, err
