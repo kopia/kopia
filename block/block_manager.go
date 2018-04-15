@@ -110,7 +110,6 @@ func (bm *Manager) DeleteBlock(blockID ContentID) error {
 	// Add deletion to current pack.
 	bm.currentPackIndex.deleteBlock(blockID)
 	bm.blockIDToIndex[blockID] = bm.currentPackIndex
-
 	return nil
 }
 
@@ -178,11 +177,12 @@ func (bm *Manager) verifyInvariantsLocked() {
 func (bm *Manager) verifyPendingPackIndexesAreRegisteredLocked() {
 	// each pending pack index is registered
 	for _, p := range bm.pendingPackIndexes {
-		for _, blkID := range p.activeBlockIDs() {
-			if _, ok := bm.blockIDToIndex[blkID]; !ok {
-				bm.invariantViolated("invariant violated - pending block %q not in index", blkID)
+		_ = p.iterate(func(blockID ContentID, info packBlockInfo) error {
+			if _, ok := bm.blockIDToIndex[blockID]; !ok {
+				bm.invariantViolated("invariant violated - pending block %q not in index", blockID)
 			}
-		}
+			return nil
+		})
 	}
 }
 
@@ -261,7 +261,7 @@ func (bm *Manager) writePackIndexes(ctx context.Context, ndx []packIndex, isComp
 }
 
 func (bm *Manager) finishPackLocked(ctx context.Context) error {
-	if !bm.currentPackIndex.isEmpty() {
+	if !isIndexEmpty(bm.currentPackIndex) {
 		log.Debug().Msg("finishing pack")
 		if len(bm.currentPackData) < bm.maxInlineContentLength {
 			bm.currentPackIndex.packedToInline(bm.currentPackData)
@@ -414,7 +414,6 @@ func (bm *Manager) initializeIndexes(ctx context.Context) error {
 	bm.blockIDToIndex, bm.packBlockIDToIndex = dedupeBlockIDsAndIndex(merged)
 	if len(blockIDs) >= autoCompactionBlockCount {
 		log.Debug().Msgf("auto compacting block indexes (block count %v exceeds threshold of %v)", len(blockIDs), autoCompactionBlockCount)
-		merged = removeEmptyIndexes(merged)
 		if _, err := bm.writePackIndexes(ctx, merged, true); err != nil {
 			return err
 		}
@@ -434,26 +433,13 @@ func dedupeBlockIDsAndIndex(ndx []packIndex) (blockToIndex map[ContentID]packInd
 	packToIndex = make(map[PhysicalBlockID]packIndex)
 	for _, pck := range ndx {
 		packToIndex[pck.packBlockID()] = pck
-		for _, blockID := range pck.activeBlockIDs() {
+		_ = pck.iterate(func(blockID ContentID, _ packBlockInfo) error {
 			blockToIndex[blockID] = pck
-		}
-		for _, blockID := range pck.deletedBlockIDs() {
-			blockToIndex[blockID] = pck
-		}
+			return nil
+		})
 	}
 
 	return
-}
-
-func removeEmptyIndexes(ndx []packIndex) []packIndex {
-	var res []packIndex
-	for _, n := range ndx {
-		if !n.isEmpty() {
-			res = append(res, n)
-		}
-	}
-
-	return res
 }
 
 // CompactIndexes performs compaction of index blocks.
@@ -628,16 +614,16 @@ func (bm *Manager) repackageBlock(ctx context.Context, m packIndex, done map[Con
 	if err != nil {
 		return fmt.Errorf("can't fetch block %q for repackaging: %v", m.packBlockID(), err)
 	}
+	return m.iterate(func(blockID ContentID, bi packBlockInfo) error {
+		if bi.deleted {
+			return nil
+		}
 
-	for _, blockID := range m.activeBlockIDs() {
 		if done[blockID] {
-			continue
+			return nil
 		}
 		done[blockID] = true
-		bi, ok := m.getBlock(blockID)
-		if !ok {
-			return fmt.Errorf("unable to get packed block to repackage")
-		}
+
 		var payload []byte
 		if bi.payload == nil {
 			payload = data[bi.offset : bi.offset+bi.size]
@@ -647,9 +633,9 @@ func (bm *Manager) repackageBlock(ctx context.Context, m packIndex, done map[Con
 		if err := bm.addToPackLocked(ctx, blockID, payload); err != nil {
 			return fmt.Errorf("unable to re-package %q: %v", blockID, err)
 		}
-	}
 
-	return nil
+		return nil
+	})
 }
 
 func (bm *Manager) writeUnpackedBlockNotLocked(ctx context.Context, data []byte, prefix string, suffix string) (PhysicalBlockID, error) {

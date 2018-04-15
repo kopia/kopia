@@ -1,6 +1,8 @@
 package block
 
 import (
+	"errors"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/kopia/kopia/internal/blockmgrpb"
 )
@@ -11,9 +13,7 @@ type packIndex interface {
 	createTimeNanos() uint64
 
 	getBlock(blockID ContentID) (packBlockInfo, bool)
-	isEmpty() bool
-	activeBlockIDs() []ContentID
-	deletedBlockIDs() []ContentID
+	iterate(func(blockID ContentID, info packBlockInfo) error) error
 	addToIndexes(pb *blockmgrpb.Indexes)
 }
 
@@ -58,4 +58,11 @@ func unpackOffsetAndSize(os uint64) (uint32, uint32) {
 	size := uint32(os)
 
 	return offset, size
+}
+
+func isIndexEmpty(ndx packIndex) bool {
+	return nil == ndx.iterate(
+		func(blockID ContentID, bi packBlockInfo) error {
+			return errors.New("have items")
+		})
 }

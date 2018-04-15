@@ -53,13 +53,25 @@ func (p protoPackIndexV1) getBlock(blockID ContentID) (packBlockInfo, bool) {
 	return packBlockInfo{}, false
 }
 
-func (p protoPackIndexV1) deletedBlockIDs() []ContentID {
-	var result []ContentID
-
-	for _, d := range p.ndx.DeletedItems {
-		result = append(result, ContentID(d))
+func (p protoPackIndexV1) iterate(cb func(ContentID, packBlockInfo) error) error {
+	for k, v := range p.ndx.Items {
+		offset, size := unpackOffsetAndSize(v)
+		if err := cb(ContentID(k), packBlockInfo{offset: offset, size: size}); err != nil {
+			return err
+		}
 	}
-	return result
+	for k, v := range p.ndx.InlineItems {
+		if err := cb(ContentID(k), packBlockInfo{size: uint32(len(v)), payload: v}); err != nil {
+			return err
+		}
+	}
+	for _, k := range p.ndx.DeletedItems {
+		if err := cb(ContentID(k), packBlockInfo{deleted: true}); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (p protoPackIndexV1) packBlockID() PhysicalBlockID {
@@ -78,21 +90,6 @@ func (p protoPackIndexV1) deleteBlock(blockID ContentID) {
 	delete(p.ndx.Items, string(blockID))
 	delete(p.ndx.InlineItems, string(blockID))
 	p.ndx.DeletedItems = append(p.ndx.DeletedItems, string(blockID))
-}
-
-func (p protoPackIndexV1) activeBlockIDs() []ContentID {
-	var result []ContentID
-	for blkID := range p.ndx.Items {
-		result = append(result, ContentID(blkID))
-	}
-	for blkID := range p.ndx.InlineItems {
-		result = append(result, ContentID(blkID))
-	}
-	return result
-}
-
-func (p protoPackIndexV1) isEmpty() bool {
-	return len(p.ndx.Items)+len(p.ndx.InlineItems)+len(p.ndx.DeletedItems) == 0
 }
 
 func newPackIndexV1(t time.Time) packIndexBuilder {

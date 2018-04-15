@@ -16,15 +16,6 @@ func TestPackIndexV1(t *testing.T) {
 }
 
 func verifyPackIndex(t *testing.T, ndx packIndexBuilder, ts time.Time) {
-	if got, want := ndx.isEmpty(), true; got != want {
-		t.Errorf("unexpected isEmpty(): %v, wanted %v", got, want)
-	}
-	if got, want := len(ndx.activeBlockIDs()), 0; got != want {
-		t.Errorf("unexpected number of active block IDs: %v, wanted %v", got, want)
-	}
-	if got, want := len(ndx.deletedBlockIDs()), 0; got != want {
-		t.Errorf("unexpected number of active block IDs: %v, wanted %v", got, want)
-	}
 	if got, want := ndx.packBlockID(), PhysicalBlockID(""); got != want {
 		t.Errorf("unexpected pack block ID: %q, wanted %q", got, want)
 	}
@@ -75,10 +66,6 @@ func verifyPackIndex(t *testing.T, ndx packIndexBuilder, ts time.Time) {
 		verifyIndexBlockInline(t, ndx, blockID, blockData[blockID])
 	}
 
-	if !blockIDSlicesEqual(ndx.activeBlockIDs(), blockIDs) {
-		t.Errorf("unexpected active blocks: %v wanted %v", ndx.activeBlockIDs(), blockIDs)
-	}
-
 	ndx.deleteBlock(blockIDs[0])
 	verifyIndexBlockNotFound(t, ndx, blockIDs[0])
 	verifyIndexBlockDeleted(t, ndx, blockIDs[0])
@@ -120,28 +107,26 @@ func verifyIndexBlockDeleted(t *testing.T, ndx packIndex, blockID ContentID) {
 	t.Helper()
 
 	verifyIndexBlockNotFound(t, ndx, blockID)
-	var found bool
-	for _, b := range ndx.deletedBlockIDs() {
-		if b == blockID {
-			found = true
-		}
+	bi, ok := ndx.getBlock(blockID)
+	if !ok {
+		t.Errorf("block %q not found in index", blockID)
 	}
-	if !found {
-		t.Errorf("expected block %q to be amongst deleted, was not found: %v", blockID, ndx.deletedBlockIDs())
+
+	if !bi.deleted {
+		t.Errorf("expected block %q to be deleted", blockID)
 	}
 }
 
 func verifyIndexBlockNotDeleted(t *testing.T, ndx packIndex, blockID ContentID) {
 	t.Helper()
 
-	var found bool
-	for _, b := range ndx.deletedBlockIDs() {
-		if b == blockID {
-			found = true
-		}
+	bi, ok := ndx.getBlock(blockID)
+	if !ok {
+		t.Errorf("block %q not found in index", blockID)
 	}
-	if found {
-		t.Errorf("expected block %q to not be amongst deleted, was not found: %v", blockID, ndx.deletedBlockIDs())
+
+	if bi.deleted {
+		t.Errorf("expected block %q to not be deleted", blockID)
 	}
 }
 
