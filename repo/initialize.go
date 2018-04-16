@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"crypto/rand"
+	"fmt"
 	"io"
 
 	"github.com/kopia/kopia/auth"
@@ -50,8 +51,16 @@ func Initialize(ctx context.Context, st storage.Storage, opt *NewRepositoryOptio
 		opt = &NewRepositoryOptions{}
 	}
 
-	format := formatBlockFromOptions(opt)
+	// get the block - expect ErrBlockNotFound
+	_, err := st.GetBlock(ctx, FormatBlockID, 0, -1)
+	if err == nil {
+		return fmt.Errorf("repository already initialized")
+	}
+	if err != storage.ErrBlockNotFound {
+		return err
+	}
 
+	format := formatBlockFromOptions(opt)
 	km, err := auth.NewKeyManager(creds, format.SecurityOptions)
 	if err != nil {
 		return err
