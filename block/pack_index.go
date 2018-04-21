@@ -27,10 +27,10 @@ type packBlockInfo struct {
 type packIndexBuilder interface {
 	packIndex
 
+	addInlineBlock(blockID ContentID, data []byte)
 	addPackedBlock(blockID ContentID, offset, size uint32)
+	clearInlineBlocks() map[ContentID][]byte
 	deleteBlock(blockID ContentID)
-
-	packedToInline(data []byte)
 	finishPack(packBlockID PhysicalBlockID, packLength uint64, formatVersion int32)
 }
 

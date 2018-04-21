@@ -93,7 +93,7 @@ func TestWriters(t *testing.T) {
 
 		if got, want := len(data), 2; got != want {
 			// 1 format block + 1 pack index block (including inline data blocks)
-			t.Errorf("unexpected data written to the storage (%v), wanted %v: %v", got, want, data)
+			t.Errorf("unexpected data written to the storage (%v), wanted %v", got, want)
 			dumpBlockManagerData(data)
 		}
 	}

@@ -27,14 +27,20 @@ func verifyPackIndex(t *testing.T, ndx packIndexBuilder, ts time.Time) {
 		t.Errorf("unexpected created time: %v, wanted %v", ndx.createTimeNanos(), ts.UnixNano())
 	}
 
-	blockIDs := []ContentID{
+	packedBlockIDs := []ContentID{
 		"xabcdef",
 		"abcdef",
 		"0123456780abcdef0123456780abcdef0123456780abcdef0123456780abcdef",
 		"x0123456780abcdef0123456780abcdef0123456780abcdef0123456780abcdef",
 	}
 
-	var data []byte
+	inlineBlockIDs := []ContentID{
+		"xabcdefaa",
+		"abcdefaa",
+		"0123456780abcdef0123456780abcdef0123456780abcdef0123456780abcdefaa",
+		"x0123456780abcdef0123456780abcdef0123456780abcdef0123456780abcdefaa",
+	}
+
 	var offset uint32
 
 	var blockData = map[ContentID][]byte{}
@@ -42,13 +48,10 @@ func verifyPackIndex(t *testing.T, ndx packIndexBuilder, ts time.Time) {
 	var blockSizes = map[ContentID]uint32{}
 
 	// add blocks to pack index
-	for _, blockID := range blockIDs {
+	for _, blockID := range packedBlockIDs {
 		blkSize := uint32(rand.Intn(100) + 1)
-		blockContent := make([]byte, blkSize)
-		blockData[blockID] = blockContent
 		blockSizes[blockID] = blkSize
 		blockOffsets[blockID] = offset
-		data = append(data, blockContent...)
 
 		verifyIndexBlockNotFound(t, ndx, blockID)
 		ndx.addPackedBlock(blockID, offset, blkSize)
@@ -56,29 +59,47 @@ func verifyPackIndex(t *testing.T, ndx packIndexBuilder, ts time.Time) {
 		offset += uint32(blkSize)
 	}
 
+	// add some inline blocks to pack index
+	for _, blockID := range inlineBlockIDs {
+		blkSize := uint32(rand.Intn(100) + 1)
+		blockContent := make([]byte, blkSize)
+		rand.Read(blockContent)
+		blockData[blockID] = blockContent
+
+		verifyIndexBlockNotFound(t, ndx, blockID)
+		ndx.addInlineBlock(blockID, blockContent)
+		verifyIndexBlockInline(t, ndx, blockID, blockContent)
+	}
+
 	// verify offsets and sizes again
-	for _, blockID := range blockIDs {
+	for _, blockID := range packedBlockIDs {
 		verifyIndexBlockFoundPacked(t, ndx, blockID, blockOffsets[blockID], blockSizes[blockID])
 	}
 
-	ndx.packedToInline(data)
-	for _, blockID := range blockIDs {
+	for _, blockID := range inlineBlockIDs {
 		verifyIndexBlockInline(t, ndx, blockID, blockData[blockID])
 	}
 
-	ndx.deleteBlock(blockIDs[0])
-	verifyIndexBlockNotFound(t, ndx, blockIDs[0])
-	verifyIndexBlockDeleted(t, ndx, blockIDs[0])
+	ndx.deleteBlock(packedBlockIDs[0])
+	verifyIndexBlockNotFound(t, ndx, packedBlockIDs[0])
+	verifyIndexBlockDeleted(t, ndx, packedBlockIDs[0])
 
-	ndx.deleteBlock(blockIDs[1])
-	verifyIndexBlockNotFound(t, ndx, blockIDs[1])
-	verifyIndexBlockDeleted(t, ndx, blockIDs[1])
+	inline := ndx.clearInlineBlocks()
+	if !reflect.DeepEqual(inline, blockData) {
+		t.Errorf("unexpected result of clearInlineBlocks(): %v, wanted %v", inline, blockData)
+	}
 
-	ndx.finishPack("some-physical-block", uint64(len(data)), 77)
+	for k := range inline {
+		verifyIndexBlockNotFound(t, ndx, k)
+	}
+
+	someLength := uint64(1234)
+
+	ndx.finishPack("some-physical-block", someLength, 77)
 	if got, want := ndx.packBlockID(), PhysicalBlockID("some-physical-block"); got != want {
 		t.Errorf("unexpected pack block ID: %q, wanted %q", got, want)
 	}
-	if got, want := ndx.packLength(), uint64(len(data)); got != want {
+	if got, want := ndx.packLength(), someLength; got != want {
 		t.Errorf("unexpected pack length: %v, wanted %v", got, want)
 	}
 	if got, want := ndx.formatVersion(), int32(77); got != want {

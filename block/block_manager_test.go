@@ -50,7 +50,7 @@ func TestBlockZeroBytes1(t *testing.T) {
 	bm := newTestBlockManager(data, keyTime, nil)
 	writeBlockAndVerify(ctx, t, bm, []byte{})
 	bm.Flush(ctx)
-	if got, want := len(data), 2; got != want {
+	if got, want := len(data), 1; got != want {
 		t.Errorf("unexpected number of blocks: %v, wanted %v", got, want)
 	}
 	dumpBlockManagerData(data)

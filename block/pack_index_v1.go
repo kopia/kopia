@@ -30,13 +30,13 @@ func (p protoPackIndexV1) finishPack(packBlockID PhysicalBlockID, packLength uin
 	p.ndx.FormatVersion = formatVersion
 }
 
-func (p protoPackIndexV1) packedToInline(packedData []byte) {
-	for k, os := range p.ndx.Items {
-		offset, size := unpackOffsetAndSize(os)
-		p.ndx.InlineItems[k] = packedData[offset : offset+size]
+func (p protoPackIndexV1) clearInlineBlocks() map[ContentID][]byte {
+	result := map[ContentID][]byte{}
+	for k, b := range p.ndx.InlineItems {
+		result[ContentID(k)] = b
 	}
-
-	p.ndx.Items = map[string]uint64{}
+	p.ndx.InlineItems = map[string][]byte{}
+	return result
 }
 
 func (p protoPackIndexV1) getBlock(blockID ContentID) (packBlockInfo, bool) {
@@ -85,6 +85,10 @@ func (p protoPackIndexV1) packBlockID() PhysicalBlockID {
 
 func (p protoPackIndexV1) packLength() uint64 {
 	return p.ndx.PackLength
+}
+
+func (p protoPackIndexV1) addInlineBlock(blockID ContentID, data []byte) {
+	p.ndx.InlineItems[string(blockID)] = append([]byte{}, data...)
 }
 
 func (p protoPackIndexV1) addPackedBlock(blockID ContentID, offset, size uint32) {

@@ -74,8 +74,8 @@ type Manager struct {
 	blockIDToIndex     map[ContentID]packIndex       // maps block ID to corresponding index
 	packBlockIDToIndex map[PhysicalBlockID]packIndex // maps pack block ID to corresponding index
 
-	currentPackData  []byte           // data for the current block
-	currentPackIndex packIndexBuilder // index of a current block
+	currentPackDataLength int              // length of the current block
+	currentPackIndex      packIndexBuilder // index of a current block
 
 	pendingPackIndexes    []packIndex // pending indexes of blocks that have been saved.
 	flushPackIndexesAfter time.Time   // time when those indexes should be flushed
@@ -118,21 +118,10 @@ func (bm *Manager) DeleteBlock(blockID ContentID) error {
 func (bm *Manager) addToPackLocked(ctx context.Context, blockID ContentID, data []byte) error {
 	bm.assertLocked()
 
-	if len(bm.currentPackData) == 0 && bm.maxPreambleLength > 0 {
-		preambleLength := rand.Intn(bm.maxPreambleLength-bm.minPreambleLength+1) + bm.minPreambleLength
-		preamble := make([]byte, preambleLength, preambleLength+len(data))
-		if _, err := io.ReadFull(cryptorand.Reader, preamble); err != nil {
-			return err
-		}
+	bm.currentPackDataLength += len(data)
+	shouldFinish := bm.currentPackDataLength >= bm.maxPackSize
 
-		bm.currentPackData = preamble
-	}
-
-	offset := len(bm.currentPackData)
-	shouldFinish := offset+len(data) >= bm.maxPackSize
-	bm.currentPackData = append(bm.currentPackData, data...)
-
-	bm.currentPackIndex.addPackedBlock(blockID, uint32(offset), uint32(len(data)))
+	bm.currentPackIndex.addInlineBlock(blockID, data)
 	bm.blockIDToIndex[blockID] = bm.currentPackIndex
 
 	if shouldFinish {
@@ -224,7 +213,7 @@ func (bm *Manager) invariantViolated(msg string, args ...interface{}) {
 
 func (bm *Manager) startPackIndexLocked() {
 	bm.currentPackIndex = newPackIndexV1(bm.timeNow())
-	bm.currentPackData = []byte{}
+	bm.currentPackDataLength = 0
 }
 
 func (bm *Manager) flushPackIndexesLocked(ctx context.Context) error {
@@ -265,32 +254,46 @@ func (bm *Manager) writePackIndexes(ctx context.Context, ndx []packIndex, isComp
 func (bm *Manager) finishPackLocked(ctx context.Context) error {
 	if !isIndexEmpty(bm.currentPackIndex) {
 		log.Debug().Msg("finishing pack")
-		if len(bm.currentPackData) < bm.maxInlineContentLength {
-			bm.currentPackIndex.packedToInline(bm.currentPackData)
-			bm.currentPackData = nil
-		}
-		if bm.currentPackData != nil {
+
+		if bm.currentPackDataLength > 0 && bm.currentPackDataLength > bm.maxInlineContentLength {
+			// repack inline blocks as a stored block
+			var blockData []byte
+
+			preambleLength := rand.Intn(bm.maxPreambleLength-bm.minPreambleLength+1) + bm.minPreambleLength
+			preamble := make([]byte, preambleLength)
+			if _, err := io.ReadFull(cryptorand.Reader, preamble); err != nil {
+				return err
+			}
+
+			blockData = append(blockData, preamble...)
+
+			items := bm.currentPackIndex.clearInlineBlocks()
+			for blockID, data := range items {
+				offset := uint32(len(blockData))
+				size := uint32(len(data))
+				blockData = append(blockData, data...)
+				bm.currentPackIndex.addPackedBlock(blockID, offset, size)
+			}
+
 			if bm.paddingUnit > 0 {
-				if missing := bm.paddingUnit - (len(bm.currentPackData) % bm.paddingUnit); missing > 0 {
+				if missing := bm.paddingUnit - (len(blockData) % bm.paddingUnit); missing > 0 {
 					postamble := make([]byte, missing)
 					if _, err := io.ReadFull(cryptorand.Reader, postamble); err != nil {
 						return fmt.Errorf("can't allocate random bytes for postamble: %v", err)
 					}
-					bm.currentPackData = append(bm.currentPackData, postamble...)
+					blockData = append(blockData, postamble...)
 				}
 			}
-			packBlockID, err := bm.writeUnpackedBlockNotLocked(ctx, bm.currentPackData, "", "")
+			packBlockID, err := bm.writeUnpackedBlockNotLocked(ctx, blockData, "", "")
 			if err != nil {
 				return fmt.Errorf("can't save pack data block %q: %v", packBlockID, err)
 			}
 
-			bm.currentPackIndex.finishPack(packBlockID, uint64(len(bm.currentPackData)), bm.writeFormatVersion)
+			bm.currentPackIndex.finishPack(packBlockID, uint64(len(blockData)), bm.writeFormatVersion)
 			bm.packBlockIDToIndex[packBlockID] = bm.currentPackIndex
 		}
 
 		bm.pendingPackIndexes = append(bm.pendingPackIndexes, bm.currentPackIndex)
-	} else {
-		log.Printf("nothing to write - pack is empty")
 	}
 
 	bm.startPackIndexLocked()
@@ -680,10 +683,6 @@ func (bm *Manager) getPendingBlockLocked(blockID ContentID) ([]byte, error) {
 
 			if bi.payload != nil {
 				return bi.payload, nil
-			}
-
-			if bm.currentPackData != nil {
-				return bm.currentPackData[bi.offset : bi.offset+bi.size], nil
 			}
 		}
 	}
