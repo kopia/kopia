@@ -74,12 +74,15 @@ func verifyPackIndex(t *testing.T, ndx packIndexBuilder, ts time.Time) {
 	verifyIndexBlockNotFound(t, ndx, blockIDs[1])
 	verifyIndexBlockDeleted(t, ndx, blockIDs[1])
 
-	ndx.finishPack("some-physical-block", uint64(len(data)))
+	ndx.finishPack("some-physical-block", uint64(len(data)), 77)
 	if got, want := ndx.packBlockID(), PhysicalBlockID("some-physical-block"); got != want {
 		t.Errorf("unexpected pack block ID: %q, wanted %q", got, want)
 	}
 	if got, want := ndx.packLength(), uint64(len(data)); got != want {
 		t.Errorf("unexpected pack length: %v, wanted %v", got, want)
+	}
+	if got, want := ndx.formatVersion(), int32(77); got != want {
+		t.Errorf("unexpected format version: %v, wanted %v", got, want)
 	}
 }
 

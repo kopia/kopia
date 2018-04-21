@@ -9,6 +9,7 @@ message IndexV1 {
   map<string, uint64> items = 4;
   repeated string deleted_items = 5;
   map<string, bytes> inline_items = 6;
+  int32 format_version = 7;
 }
 
 message Indexes {

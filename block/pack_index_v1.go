@@ -20,9 +20,14 @@ func (p protoPackIndexV1) createTimeNanos() uint64 {
 	return p.ndx.CreateTimeNanos
 }
 
-func (p protoPackIndexV1) finishPack(packBlockID PhysicalBlockID, packLength uint64) {
+func (p protoPackIndexV1) formatVersion() int32 {
+	return p.ndx.FormatVersion
+}
+
+func (p protoPackIndexV1) finishPack(packBlockID PhysicalBlockID, packLength uint64, formatVersion int32) {
 	p.ndx.PackBlockId = string(packBlockID)
 	p.ndx.PackLength = packLength
+	p.ndx.FormatVersion = formatVersion
 }
 
 func (p protoPackIndexV1) packedToInline(packedData []byte) {

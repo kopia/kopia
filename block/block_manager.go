@@ -81,6 +81,8 @@ type Manager struct {
 	flushPackIndexesAfter time.Time   // time when those indexes should be flushed
 	activeBlocksExtraTime time.Duration
 
+	writeFormatVersion int32 // format version to write
+
 	maxInlineContentLength int
 	maxPackSize            int
 	formatter              Formatter
@@ -282,7 +284,7 @@ func (bm *Manager) finishPackLocked(ctx context.Context) error {
 				return fmt.Errorf("can't save pack data block %q: %v", packBlockID, err)
 			}
 
-			bm.currentPackIndex.finishPack(packBlockID, uint64(len(bm.currentPackData)))
+			bm.currentPackIndex.finishPack(packBlockID, uint64(len(bm.currentPackData)), bm.writeFormatVersion)
 			bm.packBlockIDToIndex[packBlockID] = bm.currentPackIndex
 		}
 

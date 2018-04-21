@@ -10,6 +10,7 @@ import (
 type packIndex interface {
 	packBlockID() PhysicalBlockID
 	packLength() uint64
+	formatVersion() int32
 	createTimeNanos() uint64
 
 	getBlock(blockID ContentID) (packBlockInfo, bool)
@@ -30,7 +31,7 @@ type packIndexBuilder interface {
 	deleteBlock(blockID ContentID)
 
 	packedToInline(data []byte)
-	finishPack(packBlockID PhysicalBlockID, packLength uint64)
+	finishPack(packBlockID PhysicalBlockID, packLength uint64, formatVersion int32)
 }
 
 func loadPackIndexes(data []byte) ([]packIndex, error) {
