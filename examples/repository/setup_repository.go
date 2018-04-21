@@ -20,13 +20,7 @@ const (
 	cacheDirectory = "/tmp/kopia-example/cache"
 )
 
-func setupRepositoryAndConnect(ctx context.Context) error {
-	// set up credentials
-	creds, err := auth.Password(masterPassword)
-	if err != nil {
-		return fmt.Errorf("invalid password: %v", err)
-	}
-
+func setupRepositoryAndConnect(ctx context.Context, creds auth.Credentials) error {
 	st, err := gcs.New(ctx, &gcs.Options{
 		BucketName: bucketName,
 	})
@@ -46,7 +40,7 @@ func setupRepositoryAndConnect(ctx context.Context) error {
 
 		// now establish connection to repository and create configuration file.
 		if err := repo.Connect(ctx, configFile, st, creds, repo.ConnectOptions{
-			PersistCredentials: true,
+			PersistCredentials: false,
 			CachingOptions: block.CachingOptions{
 				CacheDirectory:    cacheDirectory,
 				MaxCacheSizeBytes: 100000000,

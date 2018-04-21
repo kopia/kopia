@@ -77,9 +77,7 @@ func Connect(ctx context.Context, configFile string, st storage.Storage, creds a
 
 	// now verify that the repository can be opened with the provided config file.
 	r, err := Open(ctx, configFile, &Options{
-		CredentialsCallback: func() (auth.Credentials, error) {
-			return creds, nil
-		},
+		Credentials: creds,
 	})
 	if err != nil {
 		return err

@@ -22,7 +22,8 @@ import (
 
 // Options provides configuration parameters for connection to a repository.
 type Options struct {
-	CredentialsCallback func() (auth.Credentials, error)    // Provides credentials required to open the repository if not persisted.
+	Credentials         auth.Credentials                    // Provides credentials required to open the repository if not persisted.
+	CredentialsCallback func() (auth.Credentials, error)    // Callback that provides credentials required to open the repository if not persisted.
 	TraceStorage        func(f string, args ...interface{}) // Logs all storage access using provided Printf-style function
 
 	DisableCache         bool // disable caching
@@ -90,6 +91,10 @@ func Open(ctx context.Context, configFile string, options *Options) (rep *Reposi
 }
 
 func getCredentials(lc *config.LocalConfig, options *Options) (auth.Credentials, error) {
+	if options.Credentials != nil {
+		return options.Credentials, nil
+	}
+
 	if len(lc.Connection.Key) > 0 {
 		log.Debug().Msg("getting credentials from master key")
 		return auth.MasterKey(lc.Connection.Key)
