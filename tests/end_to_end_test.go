@@ -112,13 +112,11 @@ func TestRepo(t *testing.T) {
 	// expect 5 blocks, each snapshot creation adds one index block.
 	e.runAndVerifyOutputLineCount(t, 5, "blockindex", "ls")
 	e.runAndExpectSuccess(t, "blockindex", "optimize")
-	e.runAndVerifyOutputLineCount(t, 1, "blockindex", "ls")
+	e.runAndVerifyOutputLineCount(t, 6, "blockindex", "ls")
 	e.runAndVerifyOutputLineCount(t, 6, "blockindex", "ls", "--all")
 
 	e.runAndExpectSuccess(t, "snapshot", "create", ".", dir1, dir2)
-	e.runAndVerifyOutputLineCount(t, 2, "blockindex", "ls")
-
-	//t.Fail()
+	e.runAndVerifyOutputLineCount(t, 7, "blockindex", "ls")
 }
 
 func (e *testenv) runAndExpectSuccess(t *testing.T, args ...string) []string {
@@ -130,6 +128,7 @@ func (e *testenv) runAndExpectSuccess(t *testing.T, args ...string) []string {
 }
 
 func (e *testenv) runAndVerifyOutputLineCount(t *testing.T, wantLines int, args ...string) []string {
+	t.Helper()
 	lines := e.runAndExpectSuccess(t, args...)
 	if len(lines) != wantLines {
 		t.Errorf("unexpected list of results of 'kopia %v': %v (%v lines), wanted %v", strings.Join(args, " "), lines, len(lines), wantLines)

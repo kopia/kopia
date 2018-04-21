@@ -15,12 +15,10 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/kopia/kopia/internal/blockmgrpb"
-
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
-
 	"github.com/kopia/kopia/internal/storagetesting"
 	"github.com/kopia/kopia/storage"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -487,10 +485,10 @@ func newTestBlockManager(data map[string][]byte, keyTime map[string]time.Time, t
 	if timeFunc == nil {
 		timeFunc = fakeTimeNowWithAutoAdvance(fakeTime, 1)
 	}
-	bm, err := newManagerWithTime(context.Background(), st, FormattingOptions{
+	bm, err := newManagerWithOptions(context.Background(), st, FormattingOptions{
 		BlockFormat: "TESTONLY_MD5",
 		MaxPackSize: maxPackSize,
-	}, CachingOptions{}, timeFunc)
+	}, CachingOptions{}, timeFunc, 0)
 	bm.checkInvariantsOnUnlock = true
 
 	bm.maxInlineContentLength = 0

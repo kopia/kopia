@@ -18,22 +18,22 @@ import (
 	"time"
 
 	"github.com/gogo/protobuf/proto"
-	"github.com/rs/zerolog/log"
-
 	"github.com/kopia/kopia/internal/blockmgrpb"
 	"github.com/kopia/kopia/storage"
+	"github.com/rs/zerolog/log"
 )
 
 const (
-	parallelFetches          = 5                // number of parallel reads goroutines
-	flushPackIndexTimeout    = 10 * time.Minute // time after which all pending indexes are flushes
-	indexBlockPrefix         = "i"              // prefix for all storage blocks that are pack indexes
-	compactedBlockSuffix     = "-z"
-	defaultMinPreambleLength = 32
-	defaultMaxPreambleLength = 32
-	defaultPaddingUnit       = 4096
-	maxInlineContentLength   = 100000 // amount of block data to store in the index block itself
-	autoCompactionBlockCount = 16
+	parallelFetches              = 5                // number of parallel reads goroutines
+	flushPackIndexTimeout        = 10 * time.Minute // time after which all pending indexes are flushes
+	indexBlockPrefix             = "i"              // prefix for all storage blocks that are pack indexes
+	compactedBlockSuffix         = "-z"
+	defaultMinPreambleLength     = 32
+	defaultMaxPreambleLength     = 32
+	defaultPaddingUnit           = 4096
+	maxInlineContentLength       = 100000 // amount of block data to store in the index block itself
+	autoCompactionBlockCount     = 16
+	defaultActiveBlocksExtraTime = 10 * time.Minute
 )
 
 // Info is an information about a single block managed by Manager.
@@ -912,10 +912,10 @@ func listIndexBlocksFromStorage(ctx context.Context, st storage.Storage, full bo
 
 // NewManager creates new block manager with given packing options and a formatter.
 func NewManager(ctx context.Context, st storage.Storage, f FormattingOptions, caching CachingOptions) (*Manager, error) {
-	return newManagerWithTime(ctx, st, f, caching, time.Now)
+	return newManagerWithOptions(ctx, st, f, caching, time.Now, defaultActiveBlocksExtraTime)
 }
 
-func newManagerWithTime(ctx context.Context, st storage.Storage, f FormattingOptions, caching CachingOptions, timeNow func() time.Time) (*Manager, error) {
+func newManagerWithOptions(ctx context.Context, st storage.Storage, f FormattingOptions, caching CachingOptions, timeNow func() time.Time, activeBlocksExtraTime time.Duration) (*Manager, error) {
 	sf := FormatterFactories[f.BlockFormat]
 	if sf == nil {
 		return nil, fmt.Errorf("unsupported block format: %v", f.BlockFormat)
@@ -945,6 +945,7 @@ func newManagerWithTime(ctx context.Context, st storage.Storage, f FormattingOpt
 		paddingUnit:            defaultPaddingUnit,
 		maxInlineContentLength: maxInlineContentLength,
 		cache: cache,
+		activeBlocksExtraTime: activeBlocksExtraTime,
 	}
 
 	if os.Getenv("KOPIA_VERIFY_INVARIANTS") != "" {
