@@ -19,11 +19,11 @@ func verifyPackIndex(t *testing.T, ndx packIndexBuilder, ts time.Time) {
 	if got, want := ndx.packBlockID(), PhysicalBlockID(""); got != want {
 		t.Errorf("unexpected pack block ID: %q, wanted %q", got, want)
 	}
-	if got, want := ndx.packLength(), uint64(0); got != want {
+	if got, want := ndx.packLength(), uint32(0); got != want {
 		t.Errorf("unexpected pack length: %v, wanted %v", got, want)
 	}
 
-	if uint64(ts.UnixNano()) != ndx.createTimeNanos() {
+	if ts.UnixNano() != ndx.createTimeNanos() {
 		t.Errorf("unexpected created time: %v, wanted %v", ndx.createTimeNanos(), ts.UnixNano())
 	}
 
@@ -93,7 +93,7 @@ func verifyPackIndex(t *testing.T, ndx packIndexBuilder, ts time.Time) {
 		verifyIndexBlockNotFound(t, ndx, k)
 	}
 
-	someLength := uint64(1234)
+	someLength := uint32(1234)
 
 	ndx.finishPack("some-physical-block", someLength, 77)
 	if got, want := ndx.packBlockID(), PhysicalBlockID("some-physical-block"); got != want {
@@ -131,12 +131,12 @@ func verifyIndexBlockDeleted(t *testing.T, ndx packIndex, blockID ContentID) {
 	t.Helper()
 
 	verifyIndexBlockNotFound(t, ndx, blockID)
-	bi, ok := ndx.getBlock(blockID)
-	if !ok {
+	bi, err := ndx.getBlock(blockID)
+	if err != nil {
 		t.Errorf("block %q not found in index", blockID)
 	}
 
-	if !bi.deleted {
+	if !bi.Deleted {
 		t.Errorf("expected block %q to be deleted", blockID)
 	}
 }
@@ -144,67 +144,67 @@ func verifyIndexBlockDeleted(t *testing.T, ndx packIndex, blockID ContentID) {
 func verifyIndexBlockNotDeleted(t *testing.T, ndx packIndex, blockID ContentID) {
 	t.Helper()
 
-	bi, ok := ndx.getBlock(blockID)
-	if !ok {
+	bi, err := ndx.getBlock(blockID)
+	if err != nil {
 		t.Errorf("block %q not found in index", blockID)
 	}
 
-	if bi.deleted {
+	if bi.Deleted {
 		t.Errorf("expected block %q to not be deleted", blockID)
 	}
 }
 
 func verifyIndexBlockNotFound(t *testing.T, ndx packIndex, blockID ContentID) {
 	t.Helper()
-	bi, ok := ndx.getBlock(blockID)
-	if ok && !bi.deleted {
+	bi, err := ndx.getBlock(blockID)
+	if err == nil && !bi.Deleted {
 		t.Errorf("block %q unexpectedly found", blockID)
 	}
-	if bi.payload != nil {
+	if bi.Payload != nil {
 		t.Errorf("block %q unexpectedly has payload", blockID)
 	}
-	if bi.offset != 0 {
+	if bi.PackOffset != 0 {
 		t.Errorf("block %q unexpectedly has an offset", blockID)
 	}
-	if bi.size != 0 {
+	if bi.Length != 0 {
 		t.Errorf("block %q unexpectedly has size", blockID)
 	}
 }
 
 func verifyIndexBlockFoundPacked(t *testing.T, ndx packIndex, blockID ContentID, wantOffset, wantSize uint32) {
 	t.Helper()
-	bi, ok := ndx.getBlock(blockID)
-	if !ok || bi.deleted {
+	bi, err := ndx.getBlock(blockID)
+	if err != nil || bi.Deleted {
 		t.Errorf("block %q unexpectedly not found", blockID)
 		return
 	}
-	if bi.payload != nil {
+	if bi.Payload != nil {
 		t.Errorf("block %q unexpectedly has payload", blockID)
 		return
 	}
-	if bi.offset != wantOffset {
-		t.Errorf("block %q unexpectedly has an offset %v, wanted %v", blockID, bi.offset, wantOffset)
+	if bi.PackOffset != wantOffset {
+		t.Errorf("block %q unexpectedly has an offset %v, wanted %v", blockID, bi.PackOffset, wantOffset)
 	}
-	if bi.size != wantSize {
-		t.Errorf("block %q unexpectedly has size %v, wanted %v", blockID, bi.size, wantSize)
+	if bi.Length != wantSize {
+		t.Errorf("block %q unexpectedly has size %v, wanted %v", blockID, bi.Length, wantSize)
 	}
 }
 
 func verifyIndexBlockInline(t *testing.T, ndx packIndex, blockID ContentID, wantPayload []byte) {
 	t.Helper()
-	bi, ok := ndx.getBlock(blockID)
-	if !ok || bi.deleted {
+	bi, err := ndx.getBlock(blockID)
+	if err != nil || bi.Deleted {
 		t.Errorf("block %q unexpectedly not found", blockID)
 		return
 	}
-	if !reflect.DeepEqual(bi.payload, wantPayload) {
-		t.Errorf("block %q unexpectedly has payload %x, wanted %x", blockID, bi.payload, wantPayload)
+	if !reflect.DeepEqual(bi.Payload, wantPayload) {
+		t.Errorf("block %q unexpectedly has payload %x, wanted %x", blockID, bi.Payload, wantPayload)
 		return
 	}
-	if bi.offset != 0 {
-		t.Errorf("block %q unexpectedly has an offset %v, wanted %v", blockID, bi.offset, 0)
+	if bi.PackOffset != 0 {
+		t.Errorf("block %q unexpectedly has an offset %v, wanted %v", blockID, bi.PackOffset, 0)
 	}
-	if bi.size != uint32(len(wantPayload)) {
-		t.Errorf("block %q unexpectedly has a size %v, wanted %v", blockID, bi.size, len(wantPayload))
+	if bi.Length != uint32(len(wantPayload)) {
+		t.Errorf("block %q unexpectedly has a size %v, wanted %v", blockID, bi.Length, len(wantPayload))
 	}
 }

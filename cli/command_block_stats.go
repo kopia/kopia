@@ -23,10 +23,10 @@ func runBlockStatsAction(ctx context.Context, rep *repo.Repository) error {
 	}
 	sort.Slice(blocks, func(i, j int) bool { return blocks[i].Length < blocks[j].Length })
 
-	var sizeThreshold int64 = 10
-	countMap := map[int64]int{}
-	totalSizeOfBlocksUnder := map[int64]int64{}
-	var sizeThresholds []int64
+	var sizeThreshold uint32 = 10
+	countMap := map[uint32]int{}
+	totalSizeOfBlocksUnder := map[uint32]int64{}
+	var sizeThresholds []uint32
 	for i := 0; i < 8; i++ {
 		sizeThresholds = append(sizeThresholds, sizeThreshold)
 		countMap[sizeThreshold] = 0
@@ -35,11 +35,11 @@ func runBlockStatsAction(ctx context.Context, rep *repo.Repository) error {
 
 	var totalSize int64
 	for _, b := range blocks {
-		totalSize += b.Length
+		totalSize += int64(b.Length)
 		for s := range countMap {
 			if b.Length < s {
 				countMap[s]++
-				totalSizeOfBlocksUnder[s] += b.Length
+				totalSizeOfBlocksUnder[s] += int64(b.Length)
 			}
 		}
 	}
@@ -67,7 +67,7 @@ func runBlockStatsAction(ctx context.Context, rep *repo.Repository) error {
 
 	fmt.Println("Counts:")
 	for _, size := range sizeThresholds {
-		fmt.Printf("  %v blocks with size <%v (total %v)\n", countMap[size], sizeToString(size), sizeToString(totalSizeOfBlocksUnder[size]))
+		fmt.Printf("  %v blocks with size <%v (total %v)\n", countMap[size], sizeToString(int64(size)), sizeToString(totalSizeOfBlocksUnder[size]))
 	}
 
 	return nil
@@ -76,7 +76,7 @@ func runBlockStatsAction(ctx context.Context, rep *repo.Repository) error {
 func percentileSize(p int, blocks []block.Info) int64 {
 	pos := p * len(blocks) / 100
 
-	return blocks[pos].Length
+	return int64(blocks[pos].Length)
 }
 
 func init() {

@@ -30,7 +30,7 @@ func runListBlocksAction(ctx context.Context, rep *repo.Repository) error {
 	var totalSize int64
 	uniquePacks := map[block.PhysicalBlockID]bool{}
 	for _, b := range blocks {
-		totalSize += b.Length
+		totalSize += int64(b.Length)
 		count++
 		if b.PackBlockID != "" {
 			uniquePacks[b.PackBlockID] = true

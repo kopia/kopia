@@ -162,14 +162,14 @@ func (om *Manager) verifyObjectInternal(ctx context.Context, oid ID, blocks *blo
 			return 0, err
 		}
 
-		if p.Length >= 0 && p.PackOffset+p.Length <= l {
-			return p.Length, nil
+		if int64(p.PackOffset+p.Length) <= l {
+			return int64(p.Length), nil
 		}
 
 		return 0, fmt.Errorf("packed object %v does not fit within its parent pack %v (pack length %v)", oid, p, l)
 	}
 
-	return p.Length, nil
+	return int64(p.Length), nil
 }
 
 // Flush closes any pending pack files. Once this method returns, ObjectIDs returned by ObjectManager are

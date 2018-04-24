@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/internal/blockmgrpb"
+	"github.com/kopia/kopia/storage"
 )
 
 type protoPackIndexV1 struct {
@@ -16,15 +17,15 @@ func (p protoPackIndexV1) addToIndexes(pb *blockmgrpb.Indexes) {
 	pb.IndexesV1 = append(pb.IndexesV1, p.ndx)
 }
 
-func (p protoPackIndexV1) createTimeNanos() uint64 {
-	return p.ndx.CreateTimeNanos
+func (p protoPackIndexV1) createTimeNanos() int64 {
+	return int64(p.ndx.CreateTimeNanos)
 }
 
 func (p protoPackIndexV1) formatVersion() int32 {
 	return p.ndx.FormatVersion
 }
 
-func (p protoPackIndexV1) finishPack(packBlockID PhysicalBlockID, packLength uint64, formatVersion int32) {
+func (p protoPackIndexV1) finishPack(packBlockID PhysicalBlockID, packLength uint32, formatVersion int32) {
 	p.ndx.PackBlockId = string(packBlockID)
 	p.ndx.PackLength = packLength
 	p.ndx.FormatVersion = formatVersion
@@ -39,39 +40,66 @@ func (p protoPackIndexV1) clearInlineBlocks() map[ContentID][]byte {
 	return result
 }
 
-func (p protoPackIndexV1) getBlock(blockID ContentID) (packBlockInfo, bool) {
+func (p protoPackIndexV1) infoForPayload(blockID ContentID, payload []byte) Info {
+	return Info{
+		BlockID:   blockID,
+		Length:    uint32(len(payload)),
+		Payload:   payload,
+		Timestamp: time.Unix(0, int64(p.ndx.CreateTimeNanos)),
+	}
+}
+
+func (p protoPackIndexV1) infoForOffsetAndSize(blockID ContentID, os uint64) Info {
+	offset, size := unpackOffsetAndSize(os)
+	return Info{
+		BlockID:       blockID,
+		PackBlockID:   p.packBlockID(),
+		PackOffset:    offset,
+		Length:        size,
+		Timestamp:     time.Unix(0, int64(p.ndx.CreateTimeNanos)),
+		FormatVersion: p.ndx.FormatVersion,
+	}
+}
+
+func (p protoPackIndexV1) infoForDeletedBlock(blockID ContentID) Info {
+	return Info{
+		BlockID:   blockID,
+		Deleted:   true,
+		Timestamp: time.Unix(0, int64(p.ndx.CreateTimeNanos)),
+	}
+}
+
+func (p protoPackIndexV1) getBlock(blockID ContentID) (Info, error) {
 	if payload, ok := p.ndx.InlineItems[string(blockID)]; ok {
-		return packBlockInfo{size: uint32(len(payload)), payload: payload}, true
+		return p.infoForPayload(blockID, payload), nil
 	}
 
-	if os, ok := p.ndx.Items[string(blockID)]; ok {
-		offset, size := unpackOffsetAndSize(os)
-		return packBlockInfo{offset: offset, size: size}, true
+	if offsetAndSize, ok := p.ndx.Items[string(blockID)]; ok {
+		return p.infoForOffsetAndSize(blockID, offsetAndSize), nil
 	}
 
 	for _, del := range p.ndx.DeletedItems {
 		if del == string(blockID) {
-			return packBlockInfo{deleted: true}, true
+			return p.infoForDeletedBlock(blockID), nil
 		}
 	}
 
-	return packBlockInfo{}, false
+	return Info{}, storage.ErrBlockNotFound
 }
 
-func (p protoPackIndexV1) iterate(cb func(ContentID, packBlockInfo) error) error {
-	for k, v := range p.ndx.Items {
-		offset, size := unpackOffsetAndSize(v)
-		if err := cb(ContentID(k), packBlockInfo{offset: offset, size: size}); err != nil {
+func (p protoPackIndexV1) iterate(cb func(Info) error) error {
+	for blockID, offsetAndSize := range p.ndx.Items {
+		if err := cb(p.infoForOffsetAndSize(ContentID(blockID), offsetAndSize)); err != nil {
 			return err
 		}
 	}
-	for k, v := range p.ndx.InlineItems {
-		if err := cb(ContentID(k), packBlockInfo{size: uint32(len(v)), payload: v}); err != nil {
+	for blockID, payload := range p.ndx.InlineItems {
+		if err := cb(p.infoForPayload(ContentID(blockID), payload)); err != nil {
 			return err
 		}
 	}
-	for _, k := range p.ndx.DeletedItems {
-		if err := cb(ContentID(k), packBlockInfo{deleted: true}); err != nil {
+	for _, blockID := range p.ndx.DeletedItems {
+		if err := cb(p.infoForDeletedBlock(ContentID(blockID))); err != nil {
 			return err
 		}
 	}
@@ -83,7 +111,7 @@ func (p protoPackIndexV1) packBlockID() PhysicalBlockID {
 	return PhysicalBlockID(p.ndx.PackBlockId)
 }
 
-func (p protoPackIndexV1) packLength() uint64 {
+func (p protoPackIndexV1) packLength() uint32 {
 	return p.ndx.PackLength
 }
 

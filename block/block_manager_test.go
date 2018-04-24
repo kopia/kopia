@@ -160,72 +160,6 @@ func TestBlockManagerEmpty(t *testing.T) {
 	}
 }
 
-func TestBlockManagerRepack(t *testing.T) {
-	ctx := context.Background()
-	data := map[string][]byte{}
-	keyTime := map[string]time.Time{}
-	bm := newTestBlockManager(data, keyTime, nil)
-
-	// disable preamble, postamble and padding, so that each pack block is identical to its contents
-	bm.maxPreambleLength = 0
-	bm.minPreambleLength = 0
-	bm.paddingUnit = 0
-
-	d1 := seededRandomData(1, 10)
-	d2 := seededRandomData(2, 20)
-	d3 := seededRandomData(3, 30)
-
-	writeBlockAndVerify(ctx, t, bm, d1)
-	bm.Flush(ctx)
-	writeBlockAndVerify(ctx, t, bm, d2)
-	bm.Flush(ctx)
-	writeBlockAndVerify(ctx, t, bm, d3)
-	bm.Flush(ctx)
-
-	// 3 data blocks, 3 index blocks.
-	if got, want := len(data), 6; got != want {
-		t.Errorf("unexpected block count: %v, wanted %v", got, want)
-	}
-
-	log.Printf("before repackage")
-	dumpBlockManagerData(data)
-
-	if err := bm.Repackage(ctx, 5); err != nil {
-		t.Errorf("repackage failure: %v", err)
-	}
-	bm.Flush(ctx)
-
-	// nothing happened, still 3 data blocks, 3 index blocks.
-	if got, want := len(data), 6; got != want {
-		t.Errorf("unexpected block count: %v, wanted %v", got, want)
-	}
-
-	bm.timeNow = fakeTimeNowFrozen(fakeTime.Add(1 * time.Second))
-
-	if err := bm.Repackage(ctx, 30); err != nil {
-		t.Errorf("repackage failure: %v", err)
-	}
-	bm.Flush(ctx)
-
-	log.Printf("after repackage")
-	dumpBlockManagerData(data)
-
-	// added one more data block + one mode index block.
-	if got, want := len(data), 8; got != want {
-		t.Errorf("unexpected block count: %v, wanted %v", got, want)
-	}
-	if err := bm.CompactIndexes(ctx); err != nil {
-		t.Errorf("compaction failure: %v", err)
-	}
-
-	if got, want := len(data), 9; got != want {
-		t.Errorf("unexpected block count: %v, wanted %v", got, want)
-		dumpBlockManagerData(data)
-	}
-
-	verifyActiveIndexBlockCount(ctx, t, bm, 1)
-}
-
 func verifyActiveIndexBlockCount(ctx context.Context, t *testing.T, bm *Manager, expected int) {
 	t.Helper()
 
@@ -311,13 +245,15 @@ func TestBlockManagerWriteMultiple(t *testing.T) {
 			//dumpBlockManagerData(data)
 			bm = newTestBlockManager(data, keyTime, nil)
 		}
-	}
 
-	for _, blockID := range blockIDs {
-		_, err := bm.GetBlock(ctx, blockID)
-		if err != nil {
-			t.Errorf("can't read block %q: %v", blockID, err)
-			continue
+		if i%9 == 0 {
+			for _, blockID := range blockIDs {
+				_, err := bm.GetBlock(ctx, blockID)
+				if err != nil {
+					t.Fatalf("can't read block %q: %v", blockID, err)
+					continue
+				}
+			}
 		}
 	}
 }
@@ -531,9 +467,6 @@ func verifyVersionCompat(t *testing.T, writeVersion int) {
 	// make sure we can read everything
 	verifyBlockManagerDataSet(ctx, t, mgr, dataSet)
 
-	if err := mgr.Repackage(ctx, 10000); err != nil {
-		t.Fatalf("unable to repackage: %v", err)
-	}
 	if err := mgr.CompactIndexes(ctx); err != nil {
 		t.Fatalf("unable to compact indexes: %v", err)
 	}
@@ -634,7 +567,7 @@ func verifyBlock(ctx context.Context, t *testing.T, bm *Manager, blockID Content
 		t.Errorf("error getting block info %q: %v", blockID, err)
 	}
 
-	if got, want := bi.Length, int64(len(b)); got != want {
+	if got, want := bi.Length, uint32(len(b)); got != want {
 		t.Errorf("invalid block size for %q: %v, wanted %v", blockID, got, want)
 	}
 

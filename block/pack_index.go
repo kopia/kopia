@@ -9,19 +9,13 @@ import (
 
 type packIndex interface {
 	packBlockID() PhysicalBlockID
-	packLength() uint64
+	packLength() uint32
 	formatVersion() int32
-	createTimeNanos() uint64
+	createTimeNanos() int64
 
-	getBlock(blockID ContentID) (packBlockInfo, bool)
-	iterate(func(blockID ContentID, info packBlockInfo) error) error
+	getBlock(blockID ContentID) (Info, error)
+	iterate(func(info Info) error) error
 	addToIndexes(pb *blockmgrpb.Indexes)
-}
-
-type packBlockInfo struct {
-	offset, size uint32
-	payload      []byte
-	deleted      bool
 }
 
 type packIndexBuilder interface {
@@ -31,7 +25,7 @@ type packIndexBuilder interface {
 	addPackedBlock(blockID ContentID, offset, size uint32)
 	clearInlineBlocks() map[ContentID][]byte
 	deleteBlock(blockID ContentID)
-	finishPack(packBlockID PhysicalBlockID, packLength uint64, formatVersion int32)
+	finishPack(packBlockID PhysicalBlockID, packLength uint32, formatVersion int32)
 }
 
 func loadPackIndexes(data []byte) ([]packIndex, error) {
@@ -63,7 +57,7 @@ func unpackOffsetAndSize(os uint64) (uint32, uint32) {
 
 func isIndexEmpty(ndx packIndex) bool {
 	return nil == ndx.iterate(
-		func(blockID ContentID, bi packBlockInfo) error {
+		func(bi Info) error {
 			return errors.New("have items")
 		})
 }

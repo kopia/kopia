@@ -55,7 +55,7 @@ func (f *fakeBlockManager) BlockInfo(ctx context.Context, blockID block.ContentI
 	defer f.mu.Unlock()
 
 	if d, ok := f.data[blockID]; ok {
-		return block.Info{BlockID: blockID, Length: int64(len(d))}, nil
+		return block.Info{BlockID: blockID, Length: uint32(len(d))}, nil
 	}
 
 	return block.Info{}, storage.ErrBlockNotFound

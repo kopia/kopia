@@ -4,7 +4,7 @@ option go_package = "blockmgrpb";
 
 message IndexV1 {
   string pack_block_id = 1;
-  uint64 pack_length = 2;
+  uint32 pack_length = 2;
   uint64 create_time_nanos = 3;
   map<string, uint64> items = 4;
   repeated string deleted_items = 5;
