@@ -34,6 +34,10 @@ const (
 	maxInlineContentLength       = 100000 // amount of block data to store in the index block itself
 	autoCompactionBlockCount     = 16
 	defaultActiveBlocksExtraTime = 10 * time.Minute
+
+	currentWriteVersion     = 1
+	minSupportedReadVersion = 0
+	maxSupportedReadVersion = currentWriteVersion
 )
 
 // Info is an information about a single block managed by Manager.
@@ -179,8 +183,11 @@ func (bm *Manager) verifyPendingPackIndexesAreRegisteredLocked() {
 
 func (bm *Manager) verifyPackBlockIndexLocked() {
 	for packBlockID, ndx := range bm.packBlockIDToIndex {
+		if packBlockID == "" {
+			bm.invariantViolated("empty pack block ID")
+		}
 		if ndx.packBlockID() != packBlockID {
-			bm.invariantViolated("invariant violated - pack %q not matching its pack block ID", packBlockID)
+			bm.invariantViolated("invariant violated - pack %q not matching its pack block ID: %q", packBlockID, ndx.packBlockID())
 		}
 	}
 }
@@ -188,6 +195,9 @@ func (bm *Manager) verifyPackBlockIndexLocked() {
 func (bm *Manager) verifyEachBlockHasTargetIndexEntryLocked() {
 	// verify that each block in blockIDToIndex has a corresponding entry in the target index.
 	for blkID, ndx := range bm.blockIDToIndex {
+		if blkID == "" {
+			bm.invariantViolated("empty pack block ID")
+		}
 		bi, ok := ndx.getBlock(blkID)
 		if !ok {
 			bm.invariantViolated("invariant violated - block %q not found within its pack", blkID)
@@ -248,57 +258,79 @@ func (bm *Manager) writePackIndexes(ctx context.Context, ndx []packIndex, isComp
 	}
 
 	inverseTimePrefix := fmt.Sprintf("%016x", math.MaxInt64-time.Now().UnixNano())
-	return bm.writeUnpackedBlockNotLocked(ctx, data, indexBlockPrefix+inverseTimePrefix, suffix)
+	return bm.encryptAndWriteBlockNotLocked(ctx, data, indexBlockPrefix+inverseTimePrefix, suffix)
 }
 
 func (bm *Manager) finishPackLocked(ctx context.Context) error {
-	if !isIndexEmpty(bm.currentPackIndex) {
-		log.Debug().Msg("finishing pack")
-
-		if bm.currentPackDataLength > 0 && bm.currentPackDataLength > bm.maxInlineContentLength {
-			// repack inline blocks as a stored block
-			var blockData []byte
-
-			preambleLength := rand.Intn(bm.maxPreambleLength-bm.minPreambleLength+1) + bm.minPreambleLength
-			preamble := make([]byte, preambleLength)
-			if _, err := io.ReadFull(cryptorand.Reader, preamble); err != nil {
-				return err
-			}
-
-			blockData = append(blockData, preamble...)
-
-			items := bm.currentPackIndex.clearInlineBlocks()
-			for blockID, data := range items {
-				offset := uint32(len(blockData))
-				size := uint32(len(data))
-				blockData = append(blockData, data...)
-				bm.currentPackIndex.addPackedBlock(blockID, offset, size)
-			}
-
-			if bm.paddingUnit > 0 {
-				if missing := bm.paddingUnit - (len(blockData) % bm.paddingUnit); missing > 0 {
-					postamble := make([]byte, missing)
-					if _, err := io.ReadFull(cryptorand.Reader, postamble); err != nil {
-						return fmt.Errorf("can't allocate random bytes for postamble: %v", err)
-					}
-					blockData = append(blockData, postamble...)
-				}
-			}
-			packBlockID, err := bm.writeUnpackedBlockNotLocked(ctx, blockData, "", "")
-			if err != nil {
-				return fmt.Errorf("can't save pack data block %q: %v", packBlockID, err)
-			}
-
-			bm.currentPackIndex.finishPack(packBlockID, uint64(len(blockData)), bm.writeFormatVersion)
-			bm.packBlockIDToIndex[packBlockID] = bm.currentPackIndex
-		}
-
-		bm.pendingPackIndexes = append(bm.pendingPackIndexes, bm.currentPackIndex)
+	if isIndexEmpty(bm.currentPackIndex) {
+		return nil
 	}
 
-	bm.startPackIndexLocked()
+	if bm.currentPackDataLength > 0 && bm.currentPackDataLength > bm.maxInlineContentLength {
+		if err := bm.writePackBlock(ctx); err != nil {
+			return fmt.Errorf("error writing pack block: %v", err)
+		}
+	}
 
+	bm.pendingPackIndexes = append(bm.pendingPackIndexes, bm.currentPackIndex)
+	bm.startPackIndexLocked()
 	return nil
+}
+
+func (bm *Manager) writePackBlock(ctx context.Context) error {
+	blockData, err := appendRandomBytes(nil, rand.Intn(bm.maxPreambleLength-bm.minPreambleLength+1)+bm.minPreambleLength)
+	if err != nil {
+		return err
+	}
+
+	items := bm.currentPackIndex.clearInlineBlocks()
+	for blockID, data := range items {
+		encrypted, encerr := bm.maybeEncryptBlockDataForPacking(data, blockID)
+		if encerr != nil {
+			return fmt.Errorf("unable to encrypt %q: %v", blockID, err)
+		}
+		bm.currentPackIndex.addPackedBlock(blockID, uint32(len(blockData)), uint32(len(data)))
+		blockData = append(blockData, encrypted...)
+	}
+
+	if bm.paddingUnit > 0 {
+		if missing := bm.paddingUnit - (len(blockData) % bm.paddingUnit); missing > 0 {
+			blockData, err = appendRandomBytes(blockData, missing)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	packBlockID, err := bm.writePackDataNotLocked(ctx, blockData)
+	if err != nil {
+		return fmt.Errorf("can't save pack data block %q: %v", packBlockID, err)
+	}
+
+	bm.currentPackIndex.finishPack(packBlockID, uint64(len(blockData)), bm.writeFormatVersion)
+	bm.packBlockIDToIndex[packBlockID] = bm.currentPackIndex
+	return nil
+}
+
+func (bm *Manager) maybeEncryptBlockDataForPacking(data []byte, blockID ContentID) ([]byte, error) {
+	if bm.writeFormatVersion == 0 {
+		// in v0 the entire block is encrypted together later on
+		return data, nil
+	}
+	iv, err := getPackedBlockIV(blockID)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get packed block IV for %q: %v", blockID, err)
+	}
+	return bm.formatter.Encrypt(data, iv, 0)
+}
+
+func appendRandomBytes(b []byte, count int) ([]byte, error) {
+	rnd := make([]byte, count)
+	if _, err := io.ReadFull(cryptorand.Reader, rnd); err != nil {
+		return nil, err
+	}
+
+	return append(b, rnd...), nil
 }
 
 // ListIndexBlocks returns the list of all index blocks, including inactive, sorted by time.
@@ -437,7 +469,10 @@ func dedupeBlockIDsAndIndex(ndx []packIndex) (blockToIndex map[ContentID]packInd
 	blockToIndex = make(map[ContentID]packIndex)
 	packToIndex = make(map[PhysicalBlockID]packIndex)
 	for _, pck := range ndx {
-		packToIndex[pck.packBlockID()] = pck
+		if pck.packBlockID() != "" {
+			// do not index packs that only have inline items
+			packToIndex[pck.packBlockID()] = pck
+		}
 		_ = pck.iterate(func(blockID ContentID, _ packBlockInfo) error {
 			blockToIndex[blockID] = pck
 			return nil
@@ -589,7 +624,9 @@ func (bm *Manager) Repackage(ctx context.Context, maxLength uint64) error {
 	var toRepackage []packIndex
 	var totalBytes uint64
 
-	for _, bi := range bm.packBlockIDToIndex {
+	for p, bi := range bm.packBlockIDToIndex {
+		log.Printf("found %v", p)
+
 		if bi.packLength() <= maxLength {
 			toRepackage = append(toRepackage, bi)
 			totalBytes += bi.packLength()
@@ -614,7 +651,7 @@ func (bm *Manager) Repackage(ctx context.Context, maxLength uint64) error {
 	return nil
 }
 
-func (bm *Manager) repackageBlock(ctx context.Context, m packIndex, done map[ContentID]bool) error {
+func (bm *Manager) repackageBlockWrittenUsingV0(ctx context.Context, m packIndex, done map[ContentID]bool) error {
 	data, err := bm.getPhysicalBlockInternalLocked(ctx, m.packBlockID())
 	if err != nil {
 		return fmt.Errorf("can't fetch block %q for repackaging: %v", m.packBlockID(), err)
@@ -643,7 +680,71 @@ func (bm *Manager) repackageBlock(ctx context.Context, m packIndex, done map[Con
 	})
 }
 
-func (bm *Manager) writeUnpackedBlockNotLocked(ctx context.Context, data []byte, prefix string, suffix string) (PhysicalBlockID, error) {
+func (bm *Manager) repackageBlock(ctx context.Context, m packIndex, done map[ContentID]bool) error {
+	if m.formatVersion() == 0 {
+		return bm.repackageBlockWrittenUsingV0(ctx, m, done)
+	}
+
+	encryptedData, err := bm.cache.getBlock(ctx, string(m.packBlockID()), m.packBlockID(), 0, -1)
+	if err != nil {
+		return err
+	}
+
+	return m.iterate(func(blockID ContentID, bi packBlockInfo) error {
+		if bi.deleted {
+			return nil
+		}
+
+		if done[blockID] {
+			return nil
+		}
+		done[blockID] = true
+
+		var payload []byte
+		if bi.payload == nil {
+			iv, err := getPackedBlockIV(blockID)
+			if err != nil {
+				return fmt.Errorf("unable to determine IV for %q: %v", blockID, err)
+			}
+			decrypted, err := bm.formatter.Decrypt(encryptedData[bi.offset:bi.offset+bi.size], iv, 0)
+			if err != nil {
+				return fmt.Errorf("unable to decrypt %q: %v", blockID, err)
+			}
+			payload = decrypted
+		} else {
+			payload = bi.payload
+		}
+		if err := bm.addToPackLocked(ctx, blockID, payload); err != nil {
+			return fmt.Errorf("unable to re-package %q: %v", blockID, err)
+		}
+
+		return nil
+	})
+}
+
+func (bm *Manager) writePackDataNotLocked(ctx context.Context, data []byte) (PhysicalBlockID, error) {
+	if bm.writeFormatVersion == 0 {
+		// 0 blocks are encrypted together
+		return bm.encryptAndWriteBlockNotLocked(ctx, data, "", "")
+	}
+
+	suffix := make([]byte, 16)
+	if _, err := cryptorand.Read(suffix); err != nil {
+		return "", fmt.Errorf("unable to read crypto bytes: %v", err)
+	}
+
+	physicalBlockID := PhysicalBlockID(fmt.Sprintf("%v-%x", time.Now().UTC().Format("20060102"), suffix))
+
+	atomic.AddInt32(&bm.stats.WrittenBlocks, 1)
+	atomic.AddInt64(&bm.stats.WrittenBytes, int64(len(data)))
+	if err := bm.cache.putBlock(ctx, physicalBlockID, data); err != nil {
+		return "", err
+	}
+
+	return physicalBlockID, nil
+}
+
+func (bm *Manager) encryptAndWriteBlockNotLocked(ctx context.Context, data []byte, prefix string, suffix string) (PhysicalBlockID, error) {
 	hash := bm.hashData(data)
 	physicalBlockID := PhysicalBlockID(prefix + hex.EncodeToString(hash) + suffix)
 
@@ -746,40 +847,56 @@ func (bm *Manager) getPackedBlockInternalLocked(ctx context.Context, blockID Con
 		return nil, storage.ErrBlockNotFound
 	}
 
+	// block stored inline
 	if bi.payload != nil {
 		return bi.payload, nil
 	}
 
-	underlyingBlockID := ndx.packBlockID()
-	payload, err := bm.cache.getBlock(ctx, string(blockID), underlyingBlockID, int64(bi.offset), int64(bi.size))
-	decryptSkip := int(bi.offset)
-
+	packBlockID := ndx.packBlockID()
+	payload, err := bm.cache.getBlock(ctx, string(blockID), packBlockID, int64(bi.offset), int64(bi.size))
 	if err != nil {
 		return nil, err
 	}
 
+	return bm.decryptAndVerifyPayload(ndx, payload, int(bi.offset), blockID, packBlockID)
+}
+
+func (bm *Manager) decryptAndVerifyPayload(ndx packIndex, payload []byte, offset int, blockID ContentID, packBlockID PhysicalBlockID) ([]byte, error) {
 	atomic.AddInt32(&bm.stats.ReadBlocks, 1)
 	atomic.AddInt64(&bm.stats.ReadBytes, int64(len(payload)))
 
-	iv, err := getPhysicalBlockIV(underlyingBlockID)
+	var err error
+	var decryptIV, verifyIV []byte
+	var decryptOffset int
+
+	if ndx.formatVersion() == 0 {
+		decryptOffset = offset
+		decryptIV, err = getPhysicalBlockIV(packBlockID)
+		if err != nil {
+			return nil, err
+		}
+		verifyIV, err = getPackedBlockIV(blockID)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		decryptIV, err = getPackedBlockIV(blockID)
+		verifyIV = decryptIV
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	payload, err = bm.formatter.Decrypt(payload, decryptIV, decryptOffset)
 	if err != nil {
 		return nil, err
 	}
 
-	payload, err = bm.formatter.Decrypt(payload, iv, decryptSkip)
 	atomic.AddInt64(&bm.stats.DecryptedBytes, int64(len(payload)))
-	if err != nil {
-		return nil, err
-	}
-
-	iv2, err := getPackedBlockIV(blockID)
-	if err != nil {
-		return nil, err
-	}
 
 	// Since the encryption key is a function of data, we must be able to generate exactly the same key
 	// after decrypting the content. This serves as a checksum.
-	if err := bm.verifyChecksum(payload, iv2); err != nil {
+	if err := bm.verifyChecksum(payload, verifyIV); err != nil {
 		return nil, err
 	}
 
@@ -917,6 +1034,9 @@ func NewManager(ctx context.Context, st storage.Storage, f FormattingOptions, ca
 }
 
 func newManagerWithOptions(ctx context.Context, st storage.Storage, f FormattingOptions, caching CachingOptions, timeNow func() time.Time, activeBlocksExtraTime time.Duration) (*Manager, error) {
+	if f.Version < minSupportedReadVersion || f.Version > currentWriteVersion {
+		return nil, fmt.Errorf("can't handle repositories created using version %v (min supported %v, max supported %v)", f.Version, minSupportedReadVersion, maxSupportedReadVersion)
+	}
 	sf := FormatterFactories[f.BlockFormat]
 	if sf == nil {
 		return nil, fmt.Errorf("unsupported block format: %v", f.BlockFormat)
@@ -947,6 +1067,7 @@ func newManagerWithOptions(ctx context.Context, st storage.Storage, f Formatting
 		maxInlineContentLength: maxInlineContentLength,
 		cache: cache,
 		activeBlocksExtraTime: activeBlocksExtraTime,
+		writeFormatVersion:    int32(f.Version),
 	}
 
 	if os.Getenv("KOPIA_VERIFY_INVARIANTS") != "" {

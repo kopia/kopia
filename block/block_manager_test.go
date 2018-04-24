@@ -479,6 +479,88 @@ func TestDeleteAndRecreate(t *testing.T) {
 	}
 }
 
+func TestVersionCompatibility(t *testing.T) {
+	for writeVer := minSupportedReadVersion; writeVer <= currentWriteVersion; writeVer++ {
+		t.Run(fmt.Sprintf("version-%v", writeVer), func(t *testing.T) {
+			verifyVersionCompat(t, writeVer)
+		})
+	}
+}
+
+func verifyVersionCompat(t *testing.T, writeVersion int) {
+	ctx := context.Background()
+
+	// create block manager that writes 'writeVersion' and reads all versions >= minSupportedReadVersion
+	data := map[string][]byte{}
+	keyTime := map[string]time.Time{}
+	mgr := newTestBlockManager(data, keyTime, nil)
+	mgr.writeFormatVersion = int32(writeVersion)
+
+	dataSet := map[ContentID][]byte{}
+
+	for i := 0; i < 3000000; i = (i + 1) * 2 {
+		data := make([]byte, i)
+		rand.Read(data)
+
+		cid, err := mgr.WriteBlock(ctx, data, "")
+		if err != nil {
+			t.Fatalf("unable to write %v bytes: %v", len(data), err)
+		}
+		dataSet[cid] = data
+	}
+	verifyBlockManagerDataSet(ctx, t, mgr, dataSet)
+
+	// delete random 3 items (map iteration order is random)
+	cnt := 0
+	for blockID := range dataSet {
+		t.Logf("deleting %v", blockID)
+		mgr.DeleteBlock(blockID)
+		delete(dataSet, blockID)
+		cnt++
+		if cnt >= 3 {
+			break
+		}
+	}
+	if err := mgr.Flush(ctx); err != nil {
+		t.Fatalf("failed to flush: %v", err)
+	}
+
+	// create new manager that reads and writes using new version.
+	mgr = newTestBlockManager(data, keyTime, nil)
+
+	// make sure we can read everything
+	verifyBlockManagerDataSet(ctx, t, mgr, dataSet)
+
+	if err := mgr.Repackage(ctx, 10000); err != nil {
+		t.Fatalf("unable to repackage: %v", err)
+	}
+	if err := mgr.CompactIndexes(ctx); err != nil {
+		t.Fatalf("unable to compact indexes: %v", err)
+	}
+	if err := mgr.Flush(ctx); err != nil {
+		t.Fatalf("failed to flush: %v", err)
+	}
+	verifyBlockManagerDataSet(ctx, t, mgr, dataSet)
+
+	// now open one more manager
+	mgr = newTestBlockManager(data, keyTime, nil)
+	verifyBlockManagerDataSet(ctx, t, mgr, dataSet)
+}
+
+func verifyBlockManagerDataSet(ctx context.Context, t *testing.T, mgr *Manager, dataSet map[ContentID][]byte) {
+	for blockID, originalPayload := range dataSet {
+		v, err := mgr.GetBlock(ctx, blockID)
+		if err != nil {
+			t.Errorf("unable to read block %q: %v", blockID, err)
+			continue
+		}
+
+		if !reflect.DeepEqual(v, originalPayload) {
+			t.Errorf("payload for %q does not match original: %v", v, originalPayload)
+		}
+	}
+}
+
 func newTestBlockManager(data map[string][]byte, keyTime map[string]time.Time, timeFunc func() time.Time) *Manager {
 	st := storagetesting.NewMapStorage(data, keyTime, timeFunc)
 	//st = logging.NewWrapper(st)
