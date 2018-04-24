@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
 	"reflect"
 
 	"github.com/kopia/kopia/internal/scrubber"
@@ -18,15 +19,11 @@ var (
 
 func runStatusCommand(ctx context.Context, rep *repo.Repository) error {
 	fmt.Printf("Config file:         %v\n", rep.ConfigFile)
-	entries, err := ioutil.ReadDir(rep.CacheDirectory)
+	fileCount, totalFileSize, err := scanCacheDir(filepath.Join(rep.CacheDirectory, "blocks"))
 	if err != nil {
 		fmt.Printf("Cache directory:     %v (error: %v)\n", rep.CacheDirectory, err)
 	} else {
-		var totalSize int64
-		for _, e := range entries {
-			totalSize += e.Size()
-		}
-		fmt.Printf("Cache directory:     %v (%v files, %v)\n", rep.CacheDirectory, len(entries), units.BytesStringBase2(totalSize))
+		fmt.Printf("Cache directory:     %v (%v files, %v)\n", rep.CacheDirectory, fileCount, units.BytesStringBase2(totalFileSize))
 	}
 	fmt.Println()
 
@@ -62,6 +59,31 @@ func runStatusCommand(ctx context.Context, rep *repo.Repository) error {
 	fmt.Printf("Splitter:            %v%v\n", rep.Objects.Format.Splitter, splitterExtraInfo)
 
 	return nil
+}
+
+func scanCacheDir(dirname string) (fileCount int, totalFileLength int64, err error) {
+	entries, err := ioutil.ReadDir(dirname)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	for _, e := range entries {
+		if e.IsDir() {
+			subdir := filepath.Join(dirname, e.Name())
+			c, l, err2 := scanCacheDir(subdir)
+			if err2 != nil {
+				return 0, 0, err2
+			}
+			fileCount += c
+			totalFileLength += l
+			continue
+		}
+
+		fileCount++
+		totalFileLength += e.Size()
+	}
+
+	return
 }
 
 func init() {
