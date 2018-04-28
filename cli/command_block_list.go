@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/repo"
@@ -37,9 +38,9 @@ func runListBlocksAction(ctx context.Context, rep *repo.Repository) error {
 		}
 		if *blockListLong {
 			if b.PackBlockID != "" {
-				fmt.Printf("%-34v %10v %v in %v offset %v\n", b.BlockID, b.Length, b.Timestamp.Local().Format(timeFormat), b.PackBlockID, b.PackOffset)
+				fmt.Printf("%-34v %10v %v in %v offset %v\n", b.BlockID, b.Length, b.Timestamp().Format(timeFormat), b.PackBlockID, b.PackOffset)
 			} else {
-				fmt.Printf("%-34v %10v %v (inline)\n", b.BlockID, b.Length, b.Timestamp.Local().Format(timeFormat))
+				fmt.Printf("%-34v %10v %v (inline)\n", b.BlockID, b.Length, b.Timestamp().Format(timeFormat))
 			}
 		} else {
 			fmt.Printf("%v\n", b.BlockID)
@@ -51,6 +52,10 @@ func runListBlocksAction(ctx context.Context, rep *repo.Repository) error {
 	}
 
 	return nil
+}
+
+func formatBlockTimestamp(ts int64) string {
+	return time.Unix(0, ts).Local().Format(timeFormat)
 }
 
 func sortBlocks(blocks []block.Info) {
@@ -66,7 +71,7 @@ func sortBlocks(blocks []block.Info) {
 	case "size":
 		sort.Slice(blocks, func(i, j int) bool { return maybeReverse(blocks[i].Length < blocks[j].Length) })
 	case "time":
-		sort.Slice(blocks, func(i, j int) bool { return maybeReverse(blocks[i].Timestamp.Before(blocks[j].Timestamp)) })
+		sort.Slice(blocks, func(i, j int) bool { return maybeReverse(blocks[i].TimestampNanos < blocks[j].TimestampNanos) })
 	case "pack":
 		sort.Slice(blocks, func(i, j int) bool { return maybeReverse(comparePacks(blocks[i], blocks[j])) })
 	}

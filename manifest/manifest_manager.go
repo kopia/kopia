@@ -290,7 +290,7 @@ func (m *Manager) loadBlocksInParallel(ctx context.Context, blocks []block.Info)
 			for blk := range blockIDs {
 				t1 := time.Now()
 				man, err := m.loadManifestBlock(ctx, blk)
-				log.Debug().Dur("duration", time.Since(t1)).Str("blk", string(blk)).Int("worker", workerID).Msg("manifest block loaded")
+				log.Debug().Dur("duration", time.Since(t1)).Str("blk", string(blk)).Int("worker", workerID).Err(err).Msg("manifest block loaded")
 				if err != nil {
 					errors <- err
 				} else {

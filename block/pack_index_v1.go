@@ -42,30 +42,30 @@ func (p protoPackIndexV1) clearInlineBlocks() map[ContentID][]byte {
 
 func (p protoPackIndexV1) infoForPayload(blockID ContentID, payload []byte) Info {
 	return Info{
-		BlockID:   blockID,
-		Length:    uint32(len(payload)),
-		Payload:   payload,
-		Timestamp: time.Unix(0, int64(p.ndx.CreateTimeNanos)),
+		BlockID:        blockID,
+		Length:         uint32(len(payload)),
+		Payload:        payload,
+		TimestampNanos: int64(p.ndx.CreateTimeNanos),
 	}
 }
 
 func (p protoPackIndexV1) infoForOffsetAndSize(blockID ContentID, os uint64) Info {
 	offset, size := unpackOffsetAndSize(os)
 	return Info{
-		BlockID:       blockID,
-		PackBlockID:   p.packBlockID(),
-		PackOffset:    offset,
-		Length:        size,
-		Timestamp:     time.Unix(0, int64(p.ndx.CreateTimeNanos)),
-		FormatVersion: p.ndx.FormatVersion,
+		BlockID:        blockID,
+		PackBlockID:    p.packBlockID(),
+		PackOffset:     offset,
+		Length:         size,
+		TimestampNanos: int64(p.ndx.CreateTimeNanos),
+		FormatVersion:  p.ndx.FormatVersion,
 	}
 }
 
 func (p protoPackIndexV1) infoForDeletedBlock(blockID ContentID) Info {
 	return Info{
-		BlockID:   blockID,
-		Deleted:   true,
-		Timestamp: time.Unix(0, int64(p.ndx.CreateTimeNanos)),
+		BlockID:        blockID,
+		Deleted:        true,
+		TimestampNanos: int64(p.ndx.CreateTimeNanos),
 	}
 }
 

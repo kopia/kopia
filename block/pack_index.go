@@ -3,7 +3,6 @@ package block
 import (
 	"errors"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/kopia/kopia/internal/blockmgrpb"
 )
 
@@ -26,22 +25,6 @@ type packIndexBuilder interface {
 	clearInlineBlocks() map[ContentID][]byte
 	deleteBlock(blockID ContentID)
 	finishPack(packBlockID PhysicalBlockID, packLength uint32, formatVersion int32)
-}
-
-func loadPackIndexes(data []byte) ([]packIndex, error) {
-	var b blockmgrpb.Indexes
-
-	if err := proto.Unmarshal(data, &b); err != nil {
-		return nil, err
-	}
-
-	var result []packIndex
-
-	for _, ndx := range b.IndexesV1 {
-		result = append(result, protoPackIndexV1{ndx})
-	}
-
-	return result, nil
 }
 
 func packOffsetAndSize(offset uint32, size uint32) uint64 {
