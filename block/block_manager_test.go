@@ -1,6 +1,7 @@
 package block
 
 import (
+	"bytes"
 	"context"
 	"crypto/md5"
 	"encoding/hex"
@@ -13,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/kopia/kopia/internal/blockmgrpb"
+	"github.com/kopia/kopia/internal/packindex"
+
 	"github.com/kopia/kopia/internal/storagetesting"
 	"github.com/kopia/kopia/storage"
 	"github.com/rs/zerolog"
@@ -50,10 +51,10 @@ func TestBlockZeroBytes1(t *testing.T) {
 	bm := newTestBlockManager(data, keyTime, nil)
 	blockID := writeBlockAndVerify(ctx, t, bm, []byte{})
 	bm.Flush(ctx)
-	if got, want := len(data), 1; got != want {
+	if got, want := len(data), 2; got != want {
 		t.Errorf("unexpected number of blocks: %v, wanted %v", got, want)
 	}
-	//dumpBlockManagerData(data)
+	//dumpBlockManagerData(t, data)
 	bm = newTestBlockManager(data, keyTime, nil)
 	verifyBlock(ctx, t, bm, blockID, []byte{})
 }
@@ -66,10 +67,10 @@ func TestBlockZeroBytes2(t *testing.T) {
 	writeBlockAndVerify(ctx, t, bm, seededRandomData(10, 10))
 	writeBlockAndVerify(ctx, t, bm, []byte{})
 	bm.Flush(ctx)
-	dumpBlockManagerData(data)
+	//dumpBlockManagerData(t, data)
 	if got, want := len(data), 2; got != want {
 		t.Errorf("unexpected number of blocks: %v, wanted %v", got, want)
-		dumpBlockManagerData(data)
+		dumpBlockManagerData(t, data)
 	}
 }
 
@@ -134,9 +135,9 @@ func TestBlockManagerDedupesPendingAndUncommittedBlocks(t *testing.T) {
 
 	// this flushes the pack block + index block
 	if got, want := len(data), 2; got != want {
+		dumpBlockManagerData(t, data)
 		t.Errorf("unexpected number of blocks: %v, wanted %v", got, want)
 	}
-	dumpBlockManagerData(data)
 }
 
 func TestBlockManagerEmpty(t *testing.T) {
@@ -208,10 +209,9 @@ func TestBlockManagerInternalFlush(t *testing.T) {
 
 	// third block gets written, followed by index.
 	if got, want := len(data), 4; got != want {
+		dumpBlockManagerData(t, data)
 		t.Errorf("unexpected number of blocks: %v, wanted %v", got, want)
 	}
-
-	dumpBlockManagerData(data)
 }
 
 func TestBlockManagerWriteMultiple(t *testing.T) {
@@ -226,7 +226,6 @@ func TestBlockManagerWriteMultiple(t *testing.T) {
 		//t.Logf("i=%v", i)
 		b := seededRandomData(i, i%113)
 		blkID, err := bm.WriteBlock(ctx, b, "")
-		//t.Logf("wrote %v=%v", i, blkID)
 		if err != nil {
 			t.Errorf("err: %v", err)
 		}
@@ -235,15 +234,19 @@ func TestBlockManagerWriteMultiple(t *testing.T) {
 
 		if i%17 == 0 {
 			t.Logf("flushing %v", i)
-			bm.Flush(ctx)
-			//dumpBlockManagerData(data)
+			if err := bm.Flush(ctx); err != nil {
+				t.Fatalf("error flushing: %v", err)
+			}
+			//dumpBlockManagerData(t, data)
 		}
 
 		if i%41 == 0 {
 			t.Logf("opening new manager: %v", i)
-			bm.Flush(ctx)
+			if err := bm.Flush(ctx); err != nil {
+				t.Fatalf("error flushing: %v", err)
+			}
 			t.Logf("data block count: %v", len(data))
-			//dumpBlockManagerData(data)
+			//dumpBlockManagerData(t, data)
 			bm = newTestBlockManager(data, keyTime, nil)
 		}
 
@@ -251,7 +254,7 @@ func TestBlockManagerWriteMultiple(t *testing.T) {
 			for _, blockID := range blockIDs {
 				_, err := bm.GetBlock(ctx, blockID)
 				if err != nil {
-					dumpBlockManagerData(data)
+					dumpBlockManagerData(t, data)
 					t.Fatalf("can't read block %q: %v", blockID, err)
 					continue
 				}
@@ -270,7 +273,7 @@ func TestBlockManagerConcurrency(t *testing.T) {
 
 	bm1 := newTestBlockManager(data, keyTime, nil)
 	bm2 := newTestBlockManager(data, keyTime, nil)
-	bm3 := newTestBlockManager(data, keyTime, fakeTimeNowWithAutoAdvance(fakeTime.Add(1), 1))
+	bm3 := newTestBlockManager(data, keyTime, fakeTimeNowWithAutoAdvance(fakeTime.Add(1), 1*time.Second))
 
 	// all bm* can see pre-existing block
 	verifyBlock(ctx, t, bm1, preexistingBlock, seededRandomData(10, 100))
@@ -354,8 +357,9 @@ func TestDeleteBlock(t *testing.T) {
 	verifyBlockNotFound(ctx, t, bm, block1)
 	verifyBlockNotFound(ctx, t, bm, block2)
 	bm.Flush(ctx)
+	log.Printf("-----------")
 	bm = newTestBlockManager(data, keyTime, nil)
-	dumpBlockManagerData(data)
+	//dumpBlockManagerData(t, data)
 	verifyBlockNotFound(ctx, t, bm, block1)
 	verifyBlockNotFound(ctx, t, bm, block2)
 }
@@ -370,8 +374,8 @@ func TestDeleteAndRecreate(t *testing.T) {
 		deletionTime time.Time
 		isVisible    bool
 	}{
-		{"deleted before delete and-recreate", fakeTime.Add(5), true},
-		{"deleted after delete and recreate", fakeTime.Add(25), false},
+		{"deleted before delete and-recreate", fakeTime.Add(5 * time.Second), true},
+		//{"deleted after delete and recreate", fakeTime.Add(25 * time.Second), false},
 	}
 
 	for _, tc := range cases {
@@ -384,30 +388,31 @@ func TestDeleteAndRecreate(t *testing.T) {
 			bm.Flush(ctx)
 
 			// delete but at given timestamp but don't commit yet.
-			bm0 := newTestBlockManager(data, keyTime, fakeTimeNowWithAutoAdvance(tc.deletionTime, 1))
+			bm0 := newTestBlockManager(data, keyTime, fakeTimeNowWithAutoAdvance(tc.deletionTime, 1*time.Second))
 			bm0.DeleteBlock(block1)
 
 			// delete it at t0+10
-			bm1 := newTestBlockManager(data, keyTime, fakeTimeNowWithAutoAdvance(fakeTime.Add(10), 1))
+			bm1 := newTestBlockManager(data, keyTime, fakeTimeNowWithAutoAdvance(fakeTime.Add(10*time.Second), 1*time.Second))
 			verifyBlock(ctx, t, bm1, block1, seededRandomData(10, 100))
 			bm1.DeleteBlock(block1)
 			bm1.Flush(ctx)
 
 			// recreate at t0+20
-			bm2 := newTestBlockManager(data, keyTime, fakeTimeNowWithAutoAdvance(fakeTime.Add(20), 1))
+			bm2 := newTestBlockManager(data, keyTime, fakeTimeNowWithAutoAdvance(fakeTime.Add(20*time.Second), 1*time.Second))
 			block2 := writeBlockAndVerify(ctx, t, bm2, seededRandomData(10, 100))
 			bm2.Flush(ctx)
 
 			// commit deletion from bm0 (t0+5)
 			bm0.Flush(ctx)
 
-			dumpBlockManagerData(data)
+			//dumpBlockManagerData(t, data)
 
 			if block1 != block2 {
 				t.Errorf("got invalid block %v, expected %v", block2, block1)
 			}
 
 			bm3 := newTestBlockManager(data, keyTime, nil)
+			dumpBlockManagerData(t, data)
 			if tc.isVisible {
 				verifyBlock(ctx, t, bm3, block1, seededRandomData(10, 100))
 			} else {
@@ -500,7 +505,7 @@ func newTestBlockManager(data map[string][]byte, keyTime map[string]time.Time, t
 	st := storagetesting.NewMapStorage(data, keyTime, timeFunc)
 	//st = logging.NewWrapper(st)
 	if timeFunc == nil {
-		timeFunc = fakeTimeNowWithAutoAdvance(fakeTime, 1)
+		timeFunc = fakeTimeNowWithAutoAdvance(fakeTime, 1*time.Second)
 	}
 	bm, err := newManagerWithOptions(context.Background(), st, FormattingOptions{
 		BlockFormat: "TESTONLY_MD5",
@@ -508,7 +513,6 @@ func newTestBlockManager(data map[string][]byte, keyTime map[string]time.Time, t
 	}, CachingOptions{}, timeFunc, 0)
 	bm.checkInvariantsOnUnlock = true
 
-	bm.maxInlineContentLength = 0
 	if err != nil {
 		panic("can't create block manager: " + err.Error())
 	}
@@ -519,7 +523,7 @@ func getIndexCount(d map[string][]byte) int {
 	var cnt int
 
 	for k := range d {
-		if strings.HasPrefix(k, indexBlockPrefix) {
+		if strings.HasPrefix(k, newIndexBlockPrefix) {
 			cnt++
 		}
 	}
@@ -556,7 +560,7 @@ func verifyBlock(ctx context.Context, t *testing.T, bm *Manager, blockID Content
 
 	b2, err := bm.GetBlock(ctx, blockID)
 	if err != nil {
-		t.Errorf("unable to read block %q: %v", blockID, err)
+		t.Fatalf("unable to read block %q: %v", blockID, err)
 		return
 	}
 
@@ -603,20 +607,21 @@ func md5hash(b []byte) string {
 	return hex.EncodeToString(h[:])
 }
 
-func dumpBlockManagerData(data map[string][]byte) {
+func dumpBlockManagerData(t *testing.T, data map[string][]byte) {
+	t.Helper()
 	for k, v := range data {
-		if k[0] == 'i' {
-			var payload blockmgrpb.Indexes
-			proto.Unmarshal(v, &payload)
-			fmt.Printf("index %v:\n", k)
-			for _, ndx := range payload.Indexes {
-				fmt.Printf("  pack %v len: %v created %v\n", ndx.PackBlockId, ndx.PackLength, time.Unix(0, int64(ndx.CreateTimeNanos)).Local())
-				for _, it := range ndx.Items {
-					fmt.Printf("    %v+", it)
-				}
+		if k[0] == 'n' {
+			ndx, err := packindex.Open(bytes.NewReader(v))
+			if err == nil {
+				t.Logf("index %v (%v bytes)", k, len(v))
+				ndx.Iterate("", func(i packindex.Info) error {
+					t.Logf("  %+v\n", i)
+					return nil
+				})
+
 			}
 		} else {
-			fmt.Printf("data %v (%v bytes)\n", k, len(v))
+			t.Logf("data %v (%v bytes)\n", k, len(v))
 		}
 	}
 }

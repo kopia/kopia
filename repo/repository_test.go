@@ -91,8 +91,8 @@ func TestWriters(t *testing.T) {
 
 		repo.Blocks.Flush(ctx)
 
-		if got, want := len(data), 2; got != want {
-			// 1 format block + 1 pack index block (including inline data blocks)
+		if got, want := len(data), 3; got != want {
+			// 1 format block + 1 data block + 1 pack index block
 			t.Errorf("unexpected data written to the storage (%v), wanted %v", got, want)
 			dumpBlockManagerData(data)
 		}
@@ -173,8 +173,8 @@ func TestPackingSimple(t *testing.T) {
 		t.Errorf("oid3a(%q) != oid3b(%q)", got, want)
 	}
 
-	// format + index
-	if got, want := len(data), 2; got != want {
+	// format + index + data
+	if got, want := len(data), 3; got != want {
 		t.Errorf("got unexpected repository contents %v items, wanted %v", got, want)
 	}
 	repo.Close(ctx)

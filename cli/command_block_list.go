@@ -66,7 +66,7 @@ func sortBlocks(blocks []block.Info) {
 	case "size":
 		sort.Slice(blocks, func(i, j int) bool { return maybeReverse(blocks[i].Length < blocks[j].Length) })
 	case "time":
-		sort.Slice(blocks, func(i, j int) bool { return maybeReverse(blocks[i].TimestampNanos < blocks[j].TimestampNanos) })
+		sort.Slice(blocks, func(i, j int) bool { return maybeReverse(blocks[i].TimestampSeconds < blocks[j].TimestampSeconds) })
 	case "pack":
 		sort.Slice(blocks, func(i, j int) bool { return maybeReverse(comparePacks(blocks[i], blocks[j])) })
 	}

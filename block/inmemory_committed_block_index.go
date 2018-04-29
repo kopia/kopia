@@ -1,7 +1,10 @@
 package block
 
 import (
+	"bytes"
 	"sync"
+
+	"github.com/kopia/kopia/internal/packindex"
 
 	"github.com/kopia/kopia/storage"
 )
@@ -23,17 +26,18 @@ func (b *inMemoryCommittedBlockIndex) getBlock(blockID ContentID) (Info, error) 
 	return i, nil
 }
 
-func (b *inMemoryCommittedBlockIndex) commit(indexBlockID PhysicalBlockID, infos map[ContentID]Info) {
+func (b *inMemoryCommittedBlockIndex) commit(indexBlockID PhysicalBlockID, infos packindex.Builder) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	for k, i := range infos {
-		b.blocks[k] = i
-		delete(infos, k)
+		b.blocks[k] = *i
 	}
+
+	return nil
 }
 
-func (b *inMemoryCommittedBlockIndex) load(indexBlockID PhysicalBlockID, indexes []packIndex) (int, error) {
+func (b *inMemoryCommittedBlockIndex) load(indexBlockID PhysicalBlockID, data []byte) (int, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -41,17 +45,21 @@ func (b *inMemoryCommittedBlockIndex) load(indexBlockID PhysicalBlockID, indexes
 		return 0, nil
 	}
 
-	var updated int
-	for _, ndx := range indexes {
-		_ = ndx.iterate(func(i Info) error {
-			old, ok := b.blocks[i.BlockID]
-			if !ok || old.TimestampNanos < i.TimestampNanos {
-				b.blocks[i.BlockID] = i
-				updated++
-			}
-			return nil
-		})
+	ndx, err := packindex.Open(bytes.NewReader(data))
+	if err != nil {
+		return 0, err
 	}
+	defer ndx.Close() //nolint:errcheck
+
+	var updated int
+	_ = ndx.Iterate("", func(i Info) error {
+		old, ok := b.blocks[i.BlockID]
+		if !ok || old.TimestampSeconds < i.TimestampSeconds {
+			b.blocks[i.BlockID] = i
+			updated++
+		}
+		return nil
+	})
 
 	b.physicalBlocks[indexBlockID] = true
 

@@ -12,14 +12,14 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/kopia/kopia/internal/blockmgrpb"
+	"github.com/kopia/kopia/internal/packindex"
 	"github.com/kopia/kopia/storage"
 	"github.com/rs/zerolog/log"
 )
@@ -27,12 +27,11 @@ import (
 const (
 	parallelFetches              = 5                // number of parallel reads goroutines
 	flushPackIndexTimeout        = 10 * time.Minute // time after which all pending indexes are flushes
-	indexBlockPrefix             = "i"              // prefix for all storage blocks that are pack indexes
+	newIndexBlockPrefix          = "n"
 	compactedBlockSuffix         = "-z"
 	defaultMinPreambleLength     = 32
 	defaultMaxPreambleLength     = 32
 	defaultPaddingUnit           = 4096
-	maxInlineContentLength       = 100000 // amount of block data to store in the index block itself
 	autoCompactionBlockCount     = 16
 	defaultActiveBlocksExtraTime = 10 * time.Minute
 
@@ -42,29 +41,15 @@ const (
 )
 
 // Info is an information about a single block managed by Manager.
-type Info struct {
-	BlockID        ContentID       `json:"blockID"`
-	Length         uint32          `json:"length"`
-	TimestampNanos int64           `json:"time"`
-	PackBlockID    PhysicalBlockID `json:"packBlockID,omitempty"`
-	PackOffset     uint32          `json:"packOffset,omitempty"`
-	Deleted        bool            `json:"deleted"`
-	Payload        []byte          `json:"payload"` // set for payloads stored inline
-	FormatVersion  int32           `json:"formatVersion"`
-}
-
-// Timestamp returns the time when a block was created or deleted.
-func (i Info) Timestamp() time.Time {
-	return time.Unix(0, i.TimestampNanos)
-}
+type Info = packindex.Info
 
 // ContentID uniquely identifies a block of content stored in repository.
 // It consists of optional one-character prefix (which can't be 0..9 or a..f) followed by hexa-decimal
 // digits representing hash of the content.
-type ContentID string
+type ContentID = packindex.ContentID
 
 // PhysicalBlockID identifies physical storage block.
-type PhysicalBlockID string
+type PhysicalBlockID = packindex.PhysicalBlockID
 
 // IndexInfo is an information about a single index block managed by Manager.
 type IndexInfo struct {
@@ -84,22 +69,18 @@ type Manager struct {
 	locked                  bool
 	checkInvariantsOnUnlock bool
 
-	committedBlocks committedBlockIndex
-
-	pendingBlocks      map[ContentID]Info // maps block ID to corresponding info
-	pendingPackIndexes []packIndex
-
-	currentPackDataLength int              // length of the current block
-	currentPackIndex      packIndexBuilder // index of a current block
+	currentPackItems      map[ContentID]Info // blocks that are in the pack block currently being built (all inline)
+	currentPackDataLength int                // total length of all items in the current pack block
+	packIndexBuilder      packindex.Builder  // blocks that are in index currently being built (current pack and all packs saved but not committed)
+	committedBlocks       committedBlockIndex
 
 	flushPackIndexesAfter time.Time // time when those indexes should be flushed
 	activeBlocksExtraTime time.Duration
 
 	writeFormatVersion int32 // format version to write
 
-	maxInlineContentLength int
-	maxPackSize            int
-	formatter              Formatter
+	maxPackSize int
+	formatter   Formatter
 
 	minPreambleLength int
 	maxPreambleLength int
@@ -117,7 +98,7 @@ func (bm *Manager) DeleteBlock(blockID ContentID) error {
 	defer bm.unlock()
 
 	// We have this block in current pack index and it's already deleted there.
-	if bi, ok := bm.pendingBlocks[blockID]; ok && bi.Deleted {
+	if bi, ok := bm.packIndexBuilder[blockID]; ok && bi.Deleted {
 		return nil
 	}
 
@@ -127,13 +108,17 @@ func (bm *Manager) DeleteBlock(blockID ContentID) error {
 	}
 
 	// Add deletion to current pack.
-	bm.currentPackIndex.deleteBlock(blockID)
-	bm.pendingBlocks[blockID] = Info{
-		BlockID:        blockID,
-		Deleted:        true,
-		TimestampNanos: bm.currentPackIndex.createTimeNanos(),
-	}
+	bm.setPendingBlock(Info{
+		BlockID:          blockID,
+		Deleted:          true,
+		TimestampSeconds: bm.timeNow().Unix(),
+	})
 	return nil
+}
+
+func (bm *Manager) setPendingBlock(i Info) {
+	bm.packIndexBuilder.Add(i)
+	bm.currentPackItems[i.BlockID] = i
 }
 
 func (bm *Manager) addToPackLocked(ctx context.Context, blockID ContentID, data []byte) error {
@@ -142,13 +127,12 @@ func (bm *Manager) addToPackLocked(ctx context.Context, blockID ContentID, data 
 	bm.currentPackDataLength += len(data)
 	shouldFinish := bm.currentPackDataLength >= bm.maxPackSize
 
-	bm.currentPackIndex.addInlineBlock(blockID, data)
-	bm.pendingBlocks[blockID] = Info{
-		BlockID:        blockID,
-		Payload:        data,
-		Length:         uint32(len(data)),
-		TimestampNanos: bm.currentPackIndex.createTimeNanos(),
-	}
+	bm.setPendingBlock(Info{
+		BlockID:          blockID,
+		Payload:          data,
+		Length:           uint32(len(data)),
+		TimestampSeconds: bm.timeNow().Unix(),
+	})
 
 	if shouldFinish {
 		if err := bm.finishPackAndMaybeFlushIndexes(ctx); err != nil {
@@ -185,89 +169,128 @@ func (bm *Manager) ResetStats() {
 
 func (bm *Manager) verifyInvariantsLocked() {
 	bm.assertLocked()
+
+	bm.verifyCurrentPackItemsLocked()
+	bm.verifyPackIndexBuilderLocked()
+}
+
+func (bm *Manager) verifyCurrentPackItemsLocked() {
+	for k, cpi := range bm.currentPackItems {
+		if cpi.BlockID != k {
+			bm.invariantViolated("block ID entry has invalid key: %v %v", cpi.BlockID, k)
+		}
+		if cpi.PackBlockID != "" {
+			bm.invariantViolated("block ID entry has unexpected pack block ID %v: %v", cpi.PackBlockID)
+		}
+		if cpi.Deleted == (cpi.Payload != nil) {
+			bm.invariantViolated("block can't be both deleted and have a payload: %v", cpi.BlockID)
+		}
+		if cpi.TimestampSeconds == 0 {
+			bm.invariantViolated("block has no timestamp: %v", cpi.BlockID)
+		}
+		bi, ok := bm.packIndexBuilder[k]
+		if !ok {
+			bm.invariantViolated("block ID entry not present in pack index builder: %v", cpi.BlockID)
+		}
+		if !reflect.DeepEqual(*bi, cpi) {
+			bm.invariantViolated("current pack index does not match pack index builder: %v", cpi, *bi)
+		}
+	}
+}
+
+func (bm *Manager) verifyPackIndexBuilderLocked() {
+	for k, cpi := range bm.packIndexBuilder {
+		if cpi.BlockID != k {
+			bm.invariantViolated("block ID entry has invalid key: %v %v", cpi.BlockID, k)
+		}
+		if _, ok := bm.currentPackItems[cpi.BlockID]; ok {
+			// ignore blocks also in currentPackItems
+			continue
+		}
+		if cpi.Deleted {
+			if cpi.PackBlockID != "" {
+				bm.invariantViolated("block can't be both deleted and have a pack block: %v", cpi.BlockID)
+			}
+		} else {
+			if cpi.PackBlockID == "" {
+				bm.invariantViolated("block that's not deleted must have a pack block: %+v", cpi)
+			}
+			if cpi.FormatVersion != byte(bm.writeFormatVersion) {
+				bm.invariantViolated("block that's not deleted must have a valid format version: %+v", cpi)
+			}
+		}
+		if cpi.TimestampSeconds == 0 {
+			bm.invariantViolated("block has no timestamp: %v", cpi.BlockID)
+		}
+	}
+}
+
+func (bm *Manager) invariantViolated(msg string, arg ...interface{}) {
+	if len(arg) > 0 {
+		msg = fmt.Sprintf(msg, arg...)
+	}
+
+	panic(msg)
 }
 
 func (bm *Manager) startPackIndexLocked() {
-	bm.currentPackIndex = newPackIndex(bm.timeNow().UnixNano())
+	bm.currentPackItems = make(map[ContentID]Info)
 	bm.currentPackDataLength = 0
 }
 
 func (bm *Manager) flushPackIndexesLocked(ctx context.Context) error {
-	if len(bm.pendingPackIndexes) > 0 {
-		if _, err := bm.writePackIndexes(ctx, indexesToProto(bm.pendingPackIndexes), false); err != nil {
+	if len(bm.packIndexBuilder) > 0 {
+		var buf bytes.Buffer
+
+		if err := bm.packIndexBuilder.Build(&buf); err != nil {
+			return fmt.Errorf("unable to build pack index: %v", err)
+		}
+
+		indexBlockID, err := bm.writePackIndexesNew(ctx, buf.Bytes(), false)
+		if err != nil {
 			return err
 		}
-		bm.pendingPackIndexes = nil
+
+		if err := bm.committedBlocks.commit(indexBlockID, bm.packIndexBuilder); err != nil {
+			return fmt.Errorf("unable to commit: %v", err)
+		}
+		bm.packIndexBuilder = packindex.NewBuilder()
 	}
 
 	bm.flushPackIndexesAfter = bm.timeNow().Add(flushPackIndexTimeout)
-	bm.committedBlocks.commit("", bm.pendingBlocks)
 	return nil
 }
 
-func indexesToProto(ndx []packIndex) *blockmgrpb.Indexes {
-	pb := &blockmgrpb.Indexes{}
-
-	for _, n := range ndx {
-		n.addToIndexes(pb)
-	}
-	return pb
-}
-
-func (bm *Manager) writePackIndexes(ctx context.Context, pb *blockmgrpb.Indexes, isCompaction bool) (PhysicalBlockID, error) {
-	data, err := proto.Marshal(pb)
-	if err != nil {
-		return "", fmt.Errorf("can't encode pack index: %v", err)
-	}
-
+func (bm *Manager) writePackIndexesNew(ctx context.Context, data []byte, isCompaction bool) (PhysicalBlockID, error) {
 	var suffix string
 	if isCompaction {
 		suffix = compactedBlockSuffix
 	}
 
 	inverseTimePrefix := fmt.Sprintf("%016x", math.MaxInt64-time.Now().UnixNano())
-	return bm.encryptAndWriteBlockNotLocked(ctx, data, indexBlockPrefix+inverseTimePrefix, suffix)
+	return bm.encryptAndWriteBlockNotLocked(ctx, data, newIndexBlockPrefix+inverseTimePrefix, suffix)
 }
 
 func (bm *Manager) finishPackLocked(ctx context.Context) error {
-	if isIndexEmpty(bm.currentPackIndex) {
+	if len(bm.currentPackItems) == 0 {
+		log.Printf("no current pack entries")
 		return nil
 	}
 
-	if bm.currentPackDataLength > 0 && bm.currentPackDataLength > bm.maxInlineContentLength {
-		if err := bm.writePackBlock(ctx); err != nil {
-			return fmt.Errorf("error writing pack block: %v", err)
-		}
+	if err := bm.writePackBlockLocked(ctx); err != nil {
+		return fmt.Errorf("error writing pack block: %v", err)
 	}
 
-	bm.pendingPackIndexes = append(bm.pendingPackIndexes, bm.currentPackIndex)
 	bm.startPackIndexLocked()
 	return nil
 }
 
-func (bm *Manager) writePackBlock(ctx context.Context) error {
-	blockData, err := appendRandomBytes(nil, rand.Intn(bm.maxPreambleLength-bm.minPreambleLength+1)+bm.minPreambleLength)
+func (bm *Manager) writePackBlockLocked(ctx context.Context) error {
+	bm.assertLocked()
+
+	blockData, pending, err := bm.preparePackDataBlock()
 	if err != nil {
-		return err
-	}
-
-	items := bm.currentPackIndex.clearInlineBlocks()
-	for blockID, data := range items {
-		encrypted, encerr := bm.maybeEncryptBlockDataForPacking(data, blockID)
-		if encerr != nil {
-			return fmt.Errorf("unable to encrypt %q: %v", blockID, err)
-		}
-		bm.currentPackIndex.addPackedBlock(blockID, uint32(len(blockData)), uint32(len(data)))
-		blockData = append(blockData, encrypted...)
-	}
-
-	if bm.paddingUnit > 0 {
-		if missing := bm.paddingUnit - (len(blockData) % bm.paddingUnit); missing > 0 {
-			blockData, err = appendRandomBytes(blockData, missing)
-			if err != nil {
-				return err
-			}
-		}
+		return fmt.Errorf("error preparing data block: %v", err)
 	}
 
 	packBlockID, err := bm.writePackDataNotLocked(ctx, blockData)
@@ -275,8 +298,57 @@ func (bm *Manager) writePackBlock(ctx context.Context) error {
 		return fmt.Errorf("can't save pack data block %q: %v", packBlockID, err)
 	}
 
-	bm.currentPackIndex.finishPack(packBlockID, uint32(len(blockData)), bm.writeFormatVersion)
+	for _, info := range pending {
+		info.PackBlockID = packBlockID
+		bm.packIndexBuilder.Add(info)
+	}
+
 	return nil
+}
+
+func (bm *Manager) preparePackDataBlock() ([]byte, map[ContentID]Info, error) {
+	blockData, err := appendRandomBytes(nil, rand.Intn(bm.maxPreambleLength-bm.minPreambleLength+1)+bm.minPreambleLength)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to prepare block preamble: %v", err)
+	}
+
+	pending := map[ContentID]Info{}
+	for blockID, info := range bm.currentPackItems {
+		if info.Deleted {
+			continue
+		}
+		var encrypted []byte
+		encrypted, err = bm.maybeEncryptBlockDataForPacking(info.Payload, info.BlockID)
+		if err != nil {
+			return nil, nil, fmt.Errorf("unable to encrypt %q: %v", blockID, err)
+		}
+
+		pending[blockID] = Info{
+			BlockID:          blockID,
+			FormatVersion:    byte(bm.writeFormatVersion),
+			PackOffset:       uint32(len(blockData)),
+			Length:           uint32(len(info.Payload)),
+			TimestampSeconds: info.TimestampSeconds,
+		}
+
+		blockData = append(blockData, encrypted...)
+	}
+
+	if len(pending) == 0 {
+		return nil, nil, nil
+	}
+
+	if bm.paddingUnit > 0 {
+		if missing := bm.paddingUnit - (len(blockData) % bm.paddingUnit); missing > 0 {
+			blockData, err = appendRandomBytes(blockData, missing)
+			if err != nil {
+				return nil, nil, fmt.Errorf("unable to prepare block postamble: %v", err)
+			}
+		}
+	}
+
+	return blockData, pending, nil
+
 }
 
 func (bm *Manager) maybeEncryptBlockDataForPacking(data []byte, blockID ContentID) ([]byte, error) {
@@ -332,7 +404,6 @@ func sortBlocksByTime(b []IndexInfo) {
 }
 
 func (bm *Manager) loadPackIndexesLocked(ctx context.Context) ([]PhysicalBlockID, error) {
-	log.Debug().Msg("listing active index blocks")
 	blocks, err := bm.ActiveIndexBlocks(ctx)
 	if err != nil {
 		return nil, err
@@ -346,8 +417,6 @@ func (bm *Manager) loadPackIndexesLocked(ctx context.Context) ([]PhysicalBlockID
 	if len(ch) == 0 {
 		return indexBlockIDs, nil
 	}
-
-	log.Debug().Int("parallelism", parallelFetches).Int("count", len(ch)).Msg("loading active blocks")
 
 	var wg sync.WaitGroup
 
@@ -410,27 +479,8 @@ func indexBlockIDs(blocks []IndexInfo) []PhysicalBlockID {
 	return indexBlockIDs
 }
 
-func (bm *Manager) parsePackIndexes(data []byte) ([]packIndex, error) {
-	var b blockmgrpb.Indexes
-
-	if err := proto.Unmarshal(data, &b); err != nil {
-		return nil, err
-	}
-
-	var result []packIndex
-	for _, ndx := range b.Indexes {
-		result = append(result, protoPackIndex{ndx, true})
-	}
-	return result, nil
-}
-
 func (bm *Manager) loadPackIndexes(indexBlockID PhysicalBlockID, data []byte) error {
-	indexes, err := bm.parsePackIndexes(data)
-	if err != nil {
-		return fmt.Errorf("unable to parse pack indexes from %q: %v", indexBlockID, err)
-	}
-
-	if _, err := bm.committedBlocks.load(indexBlockID, indexes); err != nil {
+	if _, err := bm.committedBlocks.load(indexBlockID, data); err != nil {
 		return fmt.Errorf("unable to add to committed block cache: %v", err)
 	}
 
@@ -445,7 +495,6 @@ func (bm *Manager) fetchCommittedIndexAndMaybeCompact(ctx context.Context, compa
 	if err != nil {
 		return err
 	}
-	log.Debug().Msgf("loaded %v index blocks", len(indexBlocks))
 
 	if len(indexBlocks) > compactThresold {
 		log.Info().Msgf("compacting block indexes (block count %v exceeds threshold of %v)", len(indexBlocks), compactThresold)
@@ -471,12 +520,15 @@ func (bm *Manager) ListBlocks(prefix ContentID) ([]Info, error) {
 		if i.Deleted || !strings.HasPrefix(string(i.BlockID), string(prefix)) {
 			return nil
 		}
+		if bi, ok := bm.packIndexBuilder[i.BlockID]; ok && bi.Deleted {
+			return nil
+		}
 		result = append(result, i)
 		return nil
 	}
 
-	for _, ndx := range bm.pendingPackIndexes {
-		_ = ndx.iterate(appendToResult)
+	for _, bi := range bm.packIndexBuilder {
+		_ = appendToResult(*bi)
 	}
 
 	_ = bm.committedBlocks.listBlocks(prefix, appendToResult)
@@ -490,27 +542,30 @@ func (bm *Manager) compactIndexes(ctx context.Context, indexBlocks []PhysicalBlo
 		return nil
 	}
 
-	var pb blockmgrpb.Indexes
+	bld := packindex.NewBuilder()
 	for _, indexBlock := range indexBlocks {
 		data, err := bm.getPhysicalBlockInternal(ctx, indexBlock)
 		if err != nil {
 			return err
 		}
 
-		indexes, err := bm.parsePackIndexes(data)
+		index, err := packindex.Open(bytes.NewReader(data))
 		if err != nil {
-			return fmt.Errorf("unable to parse pack index %q: %v", indexBlock, err)
+			return fmt.Errorf("unable to open index block %q: %v", indexBlock, err)
 		}
 
-		for _, ndx := range indexes {
-			dst := newPackIndex(ndx.createTimeNanos())
-			copyPackIndex(dst, ndx)
-			dst.addToIndexes(&pb)
-		}
-
+		_ = index.Iterate("", func(i Info) error {
+			bld.Add(i)
+			return nil
+		})
 	}
-	log.Info().Msgf("writing compacted index (%v bytes)", pb.Size())
-	_, err := bm.writePackIndexes(ctx, &pb, true)
+
+	var buf bytes.Buffer
+	if err := bld.Build(&buf); err != nil {
+		return fmt.Errorf("unable to build an index: %v", err)
+	}
+	compactedIndexBlock, err := bm.writePackIndexesNew(ctx, buf.Bytes(), true)
+	log.Info().Msgf("wrote compacted index to %v (%v bytes)", compactedIndexBlock, buf.Len())
 	return err
 }
 
@@ -520,11 +575,11 @@ func (bm *Manager) Flush(ctx context.Context) error {
 	defer bm.unlock()
 
 	if err := bm.finishPackLocked(ctx); err != nil {
-		return err
+		return fmt.Errorf("error writing pending block: %v", err)
 	}
 
 	if err := bm.flushPackIndexesLocked(ctx); err != nil {
-		return err
+		return fmt.Errorf("error flushing indexes: %v", err)
 	}
 
 	return nil
@@ -542,7 +597,7 @@ func (bm *Manager) WriteBlock(ctx context.Context, data []byte, prefix ContentID
 	defer bm.unlock()
 
 	// See if we already have this block ID in some pack index and it's not deleted.
-	if bi, ok := bm.pendingBlocks[blockID]; ok && !bi.Deleted {
+	if bi, ok := bm.packIndexBuilder[blockID]; ok && !bi.Deleted {
 		return blockID, nil
 	}
 
@@ -620,17 +675,9 @@ func (bm *Manager) hashData(data []byte) []byte {
 func (bm *Manager) getPendingBlockLocked(blockID ContentID) ([]byte, error) {
 	bm.assertLocked()
 
-	if ndx := bm.currentPackIndex; ndx != nil {
-		bi, err := bm.currentPackIndex.getBlock(blockID)
-		if err == nil {
-			if bi.Deleted {
-				return nil, storage.ErrBlockNotFound
-			}
-
-			if bi.Payload != nil {
-				return bi.Payload, nil
-			}
-		}
+	bi, ok := bm.currentPackItems[blockID]
+	if ok && !bi.Deleted {
+		return bi.Payload, nil
 	}
 
 	return nil, storage.ErrBlockNotFound
@@ -667,8 +714,12 @@ func (bm *Manager) BlockInfo(ctx context.Context, blockID ContentID) (Info, erro
 func (bm *Manager) packedBlockInfoLocked(blockID ContentID) (Info, error) {
 	bm.assertLocked()
 
-	if bi, ok := bm.pendingBlocks[blockID]; ok {
-		return bi, nil
+	if bi, ok := bm.packIndexBuilder[blockID]; ok {
+		if bi.Deleted {
+			return Info{}, storage.ErrBlockNotFound
+		}
+
+		return *bi, nil
 	}
 
 	return bm.committedBlocks.getBlock(blockID)
@@ -696,7 +747,7 @@ func (bm *Manager) getPackedBlockInternalLocked(ctx context.Context, blockID Con
 	return bm.decryptAndVerifyPayload(bi.FormatVersion, payload, int(bi.PackOffset), blockID, packBlockID)
 }
 
-func (bm *Manager) decryptAndVerifyPayload(formatVersion int32, payload []byte, offset int, blockID ContentID, packBlockID PhysicalBlockID) ([]byte, error) {
+func (bm *Manager) decryptAndVerifyPayload(formatVersion byte, payload []byte, offset int, blockID ContentID, packBlockID PhysicalBlockID) ([]byte, error) {
 	atomic.AddInt32(&bm.stats.ReadBlocks, 1)
 	atomic.AddInt64(&bm.stats.ReadBytes, int64(len(payload)))
 
@@ -828,7 +879,7 @@ func listIndexBlocksFromStorage(ctx context.Context, st storage.Storage, full bo
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	ch := st.ListBlocks(ctx, indexBlockPrefix)
+	ch := st.ListBlocks(ctx, newIndexBlockPrefix)
 
 	var results []IndexInfo
 	numCompactions := 0
@@ -887,7 +938,7 @@ func newManagerWithOptions(ctx context.Context, st storage.Storage, f Formatting
 
 	var cbi committedBlockIndex
 	if caching.CacheDirectory != "" {
-		cbi, err = newLevelDBCommittedBlockIndex(filepath.Join(caching.CacheDirectory, "index"))
+		cbi, err = newSimpleCommittedBlockIndex(filepath.Join(caching.CacheDirectory, "indexes"))
 		if err != nil {
 			return nil, fmt.Errorf("unable to initialize block index cache: %v", err)
 		}
@@ -896,18 +947,18 @@ func newManagerWithOptions(ctx context.Context, st storage.Storage, f Formatting
 	}
 
 	m := &Manager{
-		Format:                 f,
-		timeNow:                timeNow,
-		flushPackIndexesAfter:  timeNow().Add(flushPackIndexTimeout),
-		maxPackSize:            f.MaxPackSize,
-		formatter:              formatter,
-		pendingBlocks:          make(map[ContentID]Info),
-		committedBlocks:        cbi,
-		minPreambleLength:      defaultMinPreambleLength,
-		maxPreambleLength:      defaultMaxPreambleLength,
-		paddingUnit:            defaultPaddingUnit,
-		maxInlineContentLength: maxInlineContentLength,
-		cache: cache,
+		Format:                f,
+		timeNow:               timeNow,
+		flushPackIndexesAfter: timeNow().Add(flushPackIndexTimeout),
+		maxPackSize:           f.MaxPackSize,
+		formatter:             formatter,
+		currentPackItems:      make(map[ContentID]Info),
+		packIndexBuilder:      packindex.NewBuilder(),
+		committedBlocks:       cbi,
+		minPreambleLength:     defaultMinPreambleLength,
+		maxPreambleLength:     defaultMaxPreambleLength,
+		paddingUnit:           defaultPaddingUnit,
+		cache:                 cache,
 		activeBlocksExtraTime: activeBlocksExtraTime,
 		writeFormatVersion:    int32(f.Version),
 	}
