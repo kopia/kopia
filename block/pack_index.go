@@ -38,6 +38,23 @@ func unpackOffsetAndSize(os uint64) (uint32, uint32) {
 	return offset, size
 }
 
+func copyPackIndex(dst packIndexBuilder, src packIndex) {
+	src.iterate(func(i Info) error {
+		if i.Payload != nil {
+			dst.addInlineBlock(i.BlockID, i.Payload)
+			return nil
+		}
+		if i.Deleted {
+			dst.deleteBlock(i.BlockID)
+			return nil
+		}
+
+		dst.addPackedBlock(i.BlockID, i.PackOffset, i.Length)
+		return nil
+	})
+	dst.finishPack(src.packBlockID(), src.packLength(), src.formatVersion())
+}
+
 func isIndexEmpty(ndx packIndex) bool {
 	return nil == ndx.iterate(
 		func(bi Info) error {
