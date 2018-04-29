@@ -61,6 +61,7 @@ func (b *levelDBCommittedBlockIndex) load(indexBlockID PhysicalBlockID, indexes 
 
 	for _, ndx := range indexes {
 		err := ndx.iterate(func(i Info) error {
+			log.Printf("i: %v", i)
 			payload, err := json.Marshal(i)
 			if err != nil {
 				return err
@@ -74,7 +75,10 @@ func (b *levelDBCommittedBlockIndex) load(indexBlockID PhysicalBlockID, indexes 
 	}
 	batch.Put(processedKey(indexBlockID), []byte{1})
 	log.Printf("applying batch of %v from %v", batch.Len(), indexBlockID)
-	b.db.Write(&batch, nil)
+	if err := b.db.Write(&batch, nil); err != nil {
+		return 0, err
+	}
+
 	return 0, nil
 }
 

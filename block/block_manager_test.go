@@ -48,12 +48,14 @@ func TestBlockZeroBytes1(t *testing.T) {
 	data := map[string][]byte{}
 	keyTime := map[string]time.Time{}
 	bm := newTestBlockManager(data, keyTime, nil)
-	writeBlockAndVerify(ctx, t, bm, []byte{})
+	blockID := writeBlockAndVerify(ctx, t, bm, []byte{})
 	bm.Flush(ctx)
 	if got, want := len(data), 1; got != want {
 		t.Errorf("unexpected number of blocks: %v, wanted %v", got, want)
 	}
-	dumpBlockManagerData(data)
+	//dumpBlockManagerData(data)
+	bm = newTestBlockManager(data, keyTime, nil)
+	verifyBlock(ctx, t, bm, blockID, []byte{})
 }
 
 func TestBlockZeroBytes2(t *testing.T) {
@@ -223,7 +225,6 @@ func TestBlockManagerWriteMultiple(t *testing.T) {
 	for i := 0; i < 5000; i++ {
 		//t.Logf("i=%v", i)
 		b := seededRandomData(i, i%113)
-		//t.Logf("writing block #%v with %x", i, b)
 		blkID, err := bm.WriteBlock(ctx, b, "")
 		//t.Logf("wrote %v=%v", i, blkID)
 		if err != nil {
@@ -250,6 +251,7 @@ func TestBlockManagerWriteMultiple(t *testing.T) {
 			for _, blockID := range blockIDs {
 				_, err := bm.GetBlock(ctx, blockID)
 				if err != nil {
+					dumpBlockManagerData(data)
 					t.Fatalf("can't read block %q: %v", blockID, err)
 					continue
 				}
@@ -603,7 +605,7 @@ func md5hash(b []byte) string {
 
 func dumpBlockManagerData(data map[string][]byte) {
 	for k, v := range data {
-		if k[0] == 'I' {
+		if k[0] == 'i' {
 			var payload blockmgrpb.Indexes
 			proto.Unmarshal(v, &payload)
 			fmt.Printf("index %v:\n", k)
@@ -615,6 +617,12 @@ func dumpBlockManagerData(data map[string][]byte) {
 				}
 				for _, del := range ndx.DeletedItems {
 					fmt.Printf("    deleted %v\n", del)
+				}
+			}
+			for _, ndx := range payload.IndexesV2 {
+				fmt.Printf("  pack %v len: %v created %v\n", ndx.PackBlockId, ndx.PackLength, time.Unix(0, int64(ndx.CreateTimeNanos)).Local())
+				for _, it := range ndx.Items {
+					fmt.Printf("    %v+", it)
 				}
 			}
 		} else {

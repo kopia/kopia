@@ -27,7 +27,7 @@ type blockIndexEntryInfo struct {
 	inline  bool
 }
 
-func runShowBlockIndexesAction(ctx context.Context, rep *repo.Repository) error {
+func getIndexBlocksToShow(ctx context.Context, rep *repo.Repository) ([]block.PhysicalBlockID, error) {
 	var blockIDs []block.PhysicalBlockID
 	for _, id := range *blockIndexShowIDs {
 		blockIDs = append(blockIDs, block.PhysicalBlockID(id))
@@ -36,7 +36,7 @@ func runShowBlockIndexesAction(ctx context.Context, rep *repo.Repository) error 
 	if len(blockIDs) == 1 && blockIDs[0] == "active" {
 		b, err := rep.Blocks.ActiveIndexBlocks(ctx)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		sort.Slice(b, func(i, j int) bool {
@@ -49,6 +49,15 @@ func runShowBlockIndexesAction(ctx context.Context, rep *repo.Repository) error 
 		}
 	}
 
+	return blockIDs, nil
+}
+
+func runShowBlockIndexesAction(ctx context.Context, rep *repo.Repository) error {
+	blockIDs, err := getIndexBlocksToShow(ctx, rep)
+	if err != nil {
+		return err
+	}
+
 	for _, blockID := range blockIDs {
 		data, err := rep.Blocks.GetIndexBlock(ctx, blockID)
 		if err != nil {
@@ -56,7 +65,7 @@ func runShowBlockIndexesAction(ctx context.Context, rep *repo.Repository) error 
 		}
 
 		if *blockIndexShowRaw {
-			os.Stdout.Write(data)
+			os.Stdout.Write(data) //nolint:errcheck
 		} else {
 			var d blockmgrpb.Indexes
 			if err := proto.Unmarshal(data, &d); err != nil {
@@ -65,6 +74,9 @@ func runShowBlockIndexesAction(ctx context.Context, rep *repo.Repository) error 
 
 			for _, ndx := range d.IndexesV1 {
 				printIndexV1(ndx)
+			}
+			for _, ndx := range d.IndexesV2 {
+				printIndexV2(ndx)
 			}
 		}
 	}
@@ -95,6 +107,44 @@ func printIndexV1(ndx *blockmgrpb.IndexV1) {
 	}
 
 }
+
+func printIndexV2(ndx *blockmgrpb.IndexV2) {
+	fmt.Printf("pack:%v len:%v created:%v\n", ndx.PackBlockId, ndx.PackLength, time.Unix(0, int64(ndx.CreateTimeNanos)).Local())
+	var lines []blockIndexEntryInfo
+
+	for _, it := range ndx.Items {
+		if it.Deleted {
+			continue
+		}
+		if len(it.Payload) > 0 {
+			lines = append(lines, blockIndexEntryInfo{indexV2BlockID(it.BlockId), 0, uint32(len(it.Payload)), true})
+		} else {
+			lines = append(lines, blockIndexEntryInfo{indexV2BlockID(it.BlockId), uint32(it.OffsetSize >> 32), uint32(it.OffsetSize), false})
+		}
+	}
+	sortIndexBlocks(lines)
+	for _, l := range lines {
+		if l.inline {
+			fmt.Printf("  added %-40v size:%v (inline)\n", l.blockID, l.size)
+		} else {
+			fmt.Printf("  added %-40v offset:%-10v size:%v\n", l.blockID, l.offset, l.size)
+		}
+	}
+	for _, it := range ndx.Items {
+		if it.Deleted {
+			fmt.Printf("  deleted %x\n", indexV2BlockID(it.BlockId))
+		}
+	}
+}
+
+func indexV2BlockID(b []byte) string {
+	if b[0] == 0 {
+		return fmt.Sprintf("%x", b[1:])
+	}
+
+	return string(b[0:1]) + fmt.Sprintf("%x", b[1:])
+}
+
 func sortIndexBlocks(lines []blockIndexEntryInfo) {
 	switch *blockIndexShowSort {
 	case "offset":

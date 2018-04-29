@@ -1,8 +1,6 @@
 package block
 
 import (
-	"time"
-
 	"github.com/kopia/kopia/internal/blockmgrpb"
 	"github.com/kopia/kopia/storage"
 )
@@ -129,10 +127,11 @@ func (p protoPackIndexV1) deleteBlock(blockID ContentID) {
 	p.ndx.DeletedItems = append(p.ndx.DeletedItems, string(blockID))
 }
 
-func newPackIndexV1(t time.Time) packIndexBuilder {
+// nolint:deadcode
+func newPackIndexV1(ts int64) packIndexBuilder {
 	return protoPackIndexV1{&blockmgrpb.IndexV1{
 		Items:           make(map[string]uint64),
 		InlineItems:     make(map[string][]byte),
-		CreateTimeNanos: uint64(t.UnixNano()),
+		CreateTimeNanos: uint64(ts),
 	}}
 }

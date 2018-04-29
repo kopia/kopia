@@ -39,7 +39,7 @@ func unpackOffsetAndSize(os uint64) (uint32, uint32) {
 }
 
 func copyPackIndex(dst packIndexBuilder, src packIndex) {
-	src.iterate(func(i Info) error {
+	_ = src.iterate(func(i Info) error {
 		if i.Payload != nil {
 			dst.addInlineBlock(i.BlockID, i.Payload)
 			return nil

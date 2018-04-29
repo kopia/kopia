@@ -12,6 +12,21 @@ message IndexV1 {
   int32 format_version = 7;
 }
 
+message IndexV2 {
+  message Item {
+    bytes block_id = 1;
+    bytes payload = 2;
+    fixed64 offset_size = 3;
+    bool deleted = 4;
+  }
+  string pack_block_id = 1;
+  uint32 pack_length = 2;
+  uint64 create_time_nanos = 3;
+  repeated Item items = 4;
+  int32 format_version = 5;
+}
+
 message Indexes {
   repeated IndexV1 indexes_v1 = 1;
+  repeated IndexV2 indexes_v2 = 2;
 }

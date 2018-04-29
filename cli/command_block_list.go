@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"time"
 
 	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/repo"
@@ -52,10 +51,6 @@ func runListBlocksAction(ctx context.Context, rep *repo.Repository) error {
 	}
 
 	return nil
-}
-
-func formatBlockTimestamp(ts int64) string {
-	return time.Unix(0, ts).Local().Format(timeFormat)
 }
 
 func sortBlocks(blocks []block.Info) {

@@ -53,6 +53,7 @@ type Info struct {
 	FormatVersion  int32           `json:"formatVersion"`
 }
 
+// Timestamp returns the time when a block was created or deleted.
 func (i Info) Timestamp() time.Time {
 	return time.Unix(0, i.TimestampNanos)
 }
@@ -187,13 +188,13 @@ func (bm *Manager) verifyInvariantsLocked() {
 }
 
 func (bm *Manager) startPackIndexLocked() {
-	bm.currentPackIndex = newPackIndexV1(bm.timeNow())
+	bm.currentPackIndex = newPackIndexV2(bm.timeNow().UnixNano())
 	bm.currentPackDataLength = 0
 }
 
 func (bm *Manager) flushPackIndexesLocked(ctx context.Context) error {
 	if len(bm.pendingPackIndexes) > 0 {
-		if _, err := bm.writePackIndexes(ctx, bm.pendingPackIndexes, false); err != nil {
+		if _, err := bm.writePackIndexes(ctx, indexesToProto(bm.pendingPackIndexes), false); err != nil {
 			return err
 		}
 		bm.pendingPackIndexes = nil
@@ -204,12 +205,16 @@ func (bm *Manager) flushPackIndexesLocked(ctx context.Context) error {
 	return nil
 }
 
-func (bm *Manager) writePackIndexes(ctx context.Context, ndx []packIndex, isCompaction bool) (PhysicalBlockID, error) {
+func indexesToProto(ndx []packIndex) *blockmgrpb.Indexes {
 	pb := &blockmgrpb.Indexes{}
 
 	for _, n := range ndx {
 		n.addToIndexes(pb)
 	}
+	return pb
+}
+
+func (bm *Manager) writePackIndexes(ctx context.Context, pb *blockmgrpb.Indexes, isCompaction bool) (PhysicalBlockID, error) {
 	data, err := proto.Marshal(pb)
 	if err != nil {
 		return "", fmt.Errorf("can't encode pack index: %v", err)
@@ -333,26 +338,11 @@ func (bm *Manager) loadPackIndexesLocked(ctx context.Context) ([]PhysicalBlockID
 		return nil, err
 	}
 
-	var indexBlockIDs []PhysicalBlockID
-
-	// add block IDs to the channel
-	ch := make(chan PhysicalBlockID, len(blocks))
-	for _, b := range blocks {
-		indexBlockIDs = append(indexBlockIDs, b.BlockID)
-
-		has, err := bm.committedBlocks.hasIndexBlockID(b.BlockID)
-		if err != nil {
-			return nil, err
-		}
-
-		if has {
-			log.Printf("index block %q already in cache, skipping", b.BlockID)
-			continue
-		}
-
-		ch <- b.BlockID
+	indexBlockIDs := indexBlockIDs(blocks)
+	ch, err := bm.unprocessedIndexBlocks(indexBlockIDs)
+	if err != nil {
+		return nil, err
 	}
-	close(ch)
 	if len(ch) == 0 {
 		return indexBlockIDs, nil
 	}
@@ -394,27 +384,63 @@ func (bm *Manager) loadPackIndexesLocked(ctx context.Context) ([]PhysicalBlockID
 	return indexBlockIDs, nil
 }
 
-func (bm *Manager) loadPackIndexes(indexBlockID PhysicalBlockID, data []byte) error {
+// unprocessedIndexBlocks returns a closed channel filled with block IDs that are not in committedBlocks cache.
+func (bm *Manager) unprocessedIndexBlocks(blocks []PhysicalBlockID) (<-chan PhysicalBlockID, error) {
+	ch := make(chan PhysicalBlockID, len(blocks))
+	for _, blockID := range blocks {
+		has, err := bm.committedBlocks.hasIndexBlockID(blockID)
+		if err != nil {
+			return nil, err
+		}
+		if has {
+			log.Printf("index block %q already in cache, skipping", blockID)
+			continue
+		}
+		ch <- blockID
+	}
+	close(ch)
+	return ch, nil
+}
+
+func indexBlockIDs(blocks []IndexInfo) []PhysicalBlockID {
+	var indexBlockIDs []PhysicalBlockID
+	for _, b := range blocks {
+		indexBlockIDs = append(indexBlockIDs, b.BlockID)
+	}
+	return indexBlockIDs
+}
+
+func (bm *Manager) parsePackIndexes(data []byte) ([]packIndex, error) {
 	var b blockmgrpb.Indexes
 
 	if err := proto.Unmarshal(data, &b); err != nil {
-		return err
+		return nil, err
 	}
 
 	var result []packIndex
 	for _, ndx := range b.IndexesV1 {
 		result = append(result, protoPackIndexV1{ndx})
 	}
+	for _, ndx := range b.IndexesV2 {
+		result = append(result, protoPackIndexV2{ndx, true})
+	}
+	return result, nil
+}
 
-	_, err := bm.committedBlocks.load(indexBlockID, result)
+func (bm *Manager) loadPackIndexes(indexBlockID PhysicalBlockID, data []byte) error {
+	indexes, err := bm.parsePackIndexes(data)
 	if err != nil {
+		return fmt.Errorf("unable to parse pack indexes from %q: %v", indexBlockID, err)
+	}
+
+	if _, err := bm.committedBlocks.load(indexBlockID, indexes); err != nil {
 		return fmt.Errorf("unable to add to committed block cache: %v", err)
 	}
 
 	return nil
 }
 
-func (bm *Manager) initializeIndexes(ctx context.Context) error {
+func (bm *Manager) fetchCommittedIndexAndMaybeCompact(ctx context.Context, compactThresold int) error {
 	bm.lock()
 	defer bm.unlock()
 
@@ -424,35 +450,17 @@ func (bm *Manager) initializeIndexes(ctx context.Context) error {
 	}
 	log.Debug().Msgf("loaded %v index blocks", len(indexBlocks))
 
-	// if len(indexBlocks) >= autoCompactionBlockCount {
-	// 	log.Debug().Msgf("auto compacting block indexes (block count %v exceeds threshold of %v)", len(indexBlocks), autoCompactionBlockCount)
-	// 	if _, err := bm.writePackIndexes(ctx, mergeIndexes(indexBlocks), true); err != nil {
-	// 		return err
-	// 	}
-	// }
+	if len(indexBlocks) > compactThresold {
+		log.Info().Msgf("compacting block indexes (block count %v exceeds threshold of %v)", len(indexBlocks), autoCompactionBlockCount)
+		return bm.compactIndexes(ctx, indexBlocks)
+	}
 
 	return nil
-}
-
-func mergeIndexes(m map[PhysicalBlockID][]packIndex) []packIndex {
-	var result []packIndex
-
-	for _, v := range m {
-		result = append(result, v...)
-	}
-	return result
 }
 
 // CompactIndexes performs compaction of index blocks.
 func (bm *Manager) CompactIndexes(ctx context.Context) error {
-	bm.lock()
-	defer bm.unlock()
-
-	// if err := bm.compactIndexes(ctx, indexes); err != nil {
-	// 	return err
-	// }
-
-	return nil
+	return bm.fetchCommittedIndexAndMaybeCompact(ctx, 1)
 }
 
 // ListBlocks returns the metadata about blocks with a given prefix and kind.
@@ -479,13 +487,33 @@ func (bm *Manager) ListBlocks(prefix ContentID) ([]Info, error) {
 	return result, nil
 }
 
-func (bm *Manager) compactIndexes(ctx context.Context, indexes map[PhysicalBlockID][]packIndex) error {
-	if len(indexes) <= 1 {
+func (bm *Manager) compactIndexes(ctx context.Context, indexBlocks []PhysicalBlockID) error {
+	if len(indexBlocks) <= 1 {
 		log.Printf("skipping index compaction - already compacted")
 		return nil
 	}
 
-	_, err := bm.writePackIndexes(ctx, mergeIndexes(indexes), true)
+	var pb blockmgrpb.Indexes
+	for _, indexBlock := range indexBlocks {
+		data, err := bm.getPhysicalBlockInternal(ctx, indexBlock)
+		if err != nil {
+			return err
+		}
+
+		indexes, err := bm.parsePackIndexes(data)
+		if err != nil {
+			return fmt.Errorf("unable to parse pack index %q: %v", indexBlock, err)
+		}
+
+		for _, ndx := range indexes {
+			dst := newPackIndexV2(ndx.createTimeNanos())
+			copyPackIndex(dst, ndx)
+			dst.addToIndexes(&pb)
+		}
+
+	}
+	log.Info().Msgf("writing compacted index (%v bytes)", pb.Size())
+	_, err := bm.writePackIndexes(ctx, &pb, true)
 	return err
 }
 
@@ -893,7 +921,7 @@ func newManagerWithOptions(ctx context.Context, st storage.Storage, f Formatting
 
 	m.startPackIndexLocked()
 
-	if err := m.initializeIndexes(ctx); err != nil {
+	if err := m.fetchCommittedIndexAndMaybeCompact(ctx, autoCompactionBlockCount); err != nil {
 		return nil, fmt.Errorf("unable initialize indexes: %v", err)
 	}
 
