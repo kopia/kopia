@@ -609,17 +609,7 @@ func dumpBlockManagerData(data map[string][]byte) {
 			var payload blockmgrpb.Indexes
 			proto.Unmarshal(v, &payload)
 			fmt.Printf("index %v:\n", k)
-			for _, ndx := range payload.IndexesV1 {
-				fmt.Printf("  pack %v len: %v created %v\n", ndx.PackBlockId, ndx.PackLength, time.Unix(0, int64(ndx.CreateTimeNanos)).Local())
-				for blk, os := range ndx.Items {
-					off, size := unpackOffsetAndSize(os)
-					fmt.Printf("    block[%v]={offset:%v size:%v}\n", blk, off, size)
-				}
-				for _, del := range ndx.DeletedItems {
-					fmt.Printf("    deleted %v\n", del)
-				}
-			}
-			for _, ndx := range payload.IndexesV2 {
+			for _, ndx := range payload.Indexes {
 				fmt.Printf("  pack %v len: %v created %v\n", ndx.PackBlockId, ndx.PackLength, time.Unix(0, int64(ndx.CreateTimeNanos)).Local())
 				for _, it := range ndx.Items {
 					fmt.Printf("    %v+", it)

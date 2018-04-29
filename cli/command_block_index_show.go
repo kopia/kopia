@@ -25,6 +25,7 @@ type blockIndexEntryInfo struct {
 	offset  uint32
 	size    uint32
 	inline  bool
+	deleted bool
 }
 
 func getIndexBlocksToShow(ctx context.Context, rep *repo.Repository) ([]block.PhysicalBlockID, error) {
@@ -72,11 +73,8 @@ func runShowBlockIndexesAction(ctx context.Context, rep *repo.Repository) error 
 				return err
 			}
 
-			for _, ndx := range d.IndexesV1 {
-				printIndexV1(ndx)
-			}
-			for _, ndx := range d.IndexesV2 {
-				printIndexV2(ndx)
+			for _, ndx := range d.Indexes {
+				printIndex(ndx)
 			}
 		}
 	}
@@ -84,60 +82,34 @@ func runShowBlockIndexesAction(ctx context.Context, rep *repo.Repository) error 
 	return nil
 }
 
-func printIndexV1(ndx *blockmgrpb.IndexV1) {
-	fmt.Printf("pack:%v len:%v created:%v\n", ndx.PackBlockId, ndx.PackLength, time.Unix(0, int64(ndx.CreateTimeNanos)).Local())
-	var lines []blockIndexEntryInfo
-
-	for blk, os := range ndx.Items {
-		lines = append(lines, blockIndexEntryInfo{blk, uint32(os >> 32), uint32(os), false})
-	}
-	for blk, d := range ndx.InlineItems {
-		lines = append(lines, blockIndexEntryInfo{blk, 0, uint32(len(d)), true})
-	}
-	sortIndexBlocks(lines)
-	for _, l := range lines {
-		if l.inline {
-			fmt.Printf("  added %-40v size:%v (inline)\n", l.blockID, l.size)
-		} else {
-			fmt.Printf("  added %-40v offset:%-10v size:%v\n", l.blockID, l.offset, l.size)
-		}
-	}
-	for _, del := range ndx.DeletedItems {
-		fmt.Printf("  deleted %v\n", del)
-	}
-
-}
-
-func printIndexV2(ndx *blockmgrpb.IndexV2) {
+func printIndex(ndx *blockmgrpb.Index) {
 	fmt.Printf("pack:%v len:%v created:%v\n", ndx.PackBlockId, ndx.PackLength, time.Unix(0, int64(ndx.CreateTimeNanos)).Local())
 	var lines []blockIndexEntryInfo
 
 	for _, it := range ndx.Items {
 		if it.Deleted {
+			lines = append(lines, blockIndexEntryInfo{blockID: decodeIndexBlockID(it.BlockId), deleted: true})
 			continue
 		}
 		if len(it.Payload) > 0 {
-			lines = append(lines, blockIndexEntryInfo{indexV2BlockID(it.BlockId), 0, uint32(len(it.Payload)), true})
+			lines = append(lines, blockIndexEntryInfo{blockID: decodeIndexBlockID(it.BlockId), size: uint32(len(it.Payload)), inline: true})
 		} else {
-			lines = append(lines, blockIndexEntryInfo{indexV2BlockID(it.BlockId), uint32(it.OffsetSize >> 32), uint32(it.OffsetSize), false})
+			lines = append(lines, blockIndexEntryInfo{blockID: decodeIndexBlockID(it.BlockId), offset: uint32(it.OffsetSize >> 32), size: uint32(it.OffsetSize)})
 		}
 	}
 	sortIndexBlocks(lines)
 	for _, l := range lines {
 		if l.inline {
 			fmt.Printf("  added %-40v size:%v (inline)\n", l.blockID, l.size)
+		} else if l.deleted {
+			fmt.Printf("  deleted %-40v\n", l.blockID)
 		} else {
 			fmt.Printf("  added %-40v offset:%-10v size:%v\n", l.blockID, l.offset, l.size)
 		}
 	}
-	for _, it := range ndx.Items {
-		if it.Deleted {
-			fmt.Printf("  deleted %x\n", indexV2BlockID(it.BlockId))
-		}
-	}
 }
 
-func indexV2BlockID(b []byte) string {
+func decodeIndexBlockID(b []byte) string {
 	if b[0] == 0 {
 		return fmt.Sprintf("%x", b[1:])
 	}

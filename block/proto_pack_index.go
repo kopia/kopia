@@ -11,26 +11,26 @@ import (
 
 var zeroBytes = []byte{}
 
-type protoPackIndexV2 struct {
-	ndx    *blockmgrpb.IndexV2
+type protoPackIndex struct {
+	ndx    *blockmgrpb.Index
 	sorted bool
 }
 
-var _ packIndex = protoPackIndexV2{nil, false}
+var _ packIndex = protoPackIndex{nil, false}
 
-func (p protoPackIndexV2) addToIndexes(pb *blockmgrpb.Indexes) {
-	pb.IndexesV2 = append(pb.IndexesV2, p.ndx)
+func (p protoPackIndex) addToIndexes(pb *blockmgrpb.Indexes) {
+	pb.Indexes = append(pb.Indexes, p.ndx)
 }
 
-func (p protoPackIndexV2) createTimeNanos() int64 {
+func (p protoPackIndex) createTimeNanos() int64 {
 	return int64(p.ndx.CreateTimeNanos)
 }
 
-func (p protoPackIndexV2) formatVersion() int32 {
+func (p protoPackIndex) formatVersion() int32 {
 	return p.ndx.FormatVersion
 }
 
-func (p protoPackIndexV2) finishPack(packBlockID PhysicalBlockID, packLength uint32, formatVersion int32) {
+func (p protoPackIndex) finishPack(packBlockID PhysicalBlockID, packLength uint32, formatVersion int32) {
 	sort.Slice(p.ndx.Items, func(i, j int) bool {
 		return bytes.Compare(p.ndx.Items[i].BlockId, p.ndx.Items[j].BlockId) < 0
 	})
@@ -40,9 +40,9 @@ func (p protoPackIndexV2) finishPack(packBlockID PhysicalBlockID, packLength uin
 	p.ndx.FormatVersion = formatVersion
 }
 
-func (p protoPackIndexV2) clearInlineBlocks() map[ContentID][]byte {
+func (p protoPackIndex) clearInlineBlocks() map[ContentID][]byte {
 	result := map[ContentID][]byte{}
-	var remaining []*blockmgrpb.IndexV2_Item
+	var remaining []*blockmgrpb.Index_Item
 	for _, i := range p.ndx.Items {
 		if i.Payload != nil {
 			result[bytesToContentID(i.BlockId)] = i.Payload
@@ -86,7 +86,7 @@ func contentIDToBytes(c ContentID) []byte {
 	return append(prefix, b...)
 }
 
-func (p protoPackIndexV2) infoForPayload(blockID []byte, payload []byte) Info {
+func (p protoPackIndex) infoForPayload(blockID []byte, payload []byte) Info {
 	if payload == nil {
 		payload = zeroBytes
 	}
@@ -98,7 +98,7 @@ func (p protoPackIndexV2) infoForPayload(blockID []byte, payload []byte) Info {
 	}
 }
 
-func (p protoPackIndexV2) infoForOffsetAndSize(blockID []byte, os uint64) Info {
+func (p protoPackIndex) infoForOffsetAndSize(blockID []byte, os uint64) Info {
 	offset, size := unpackOffsetAndSize(os)
 	return Info{
 		BlockID:        bytesToContentID(blockID),
@@ -110,7 +110,7 @@ func (p protoPackIndexV2) infoForOffsetAndSize(blockID []byte, os uint64) Info {
 	}
 }
 
-func (p protoPackIndexV2) infoForDeletedBlock(blockID []byte) Info {
+func (p protoPackIndex) infoForDeletedBlock(blockID []byte) Info {
 	return Info{
 		BlockID:        bytesToContentID(blockID),
 		Deleted:        true,
@@ -118,7 +118,7 @@ func (p protoPackIndexV2) infoForDeletedBlock(blockID []byte) Info {
 	}
 }
 
-func (p protoPackIndexV2) findItem(blockID ContentID) *blockmgrpb.IndexV2_Item {
+func (p protoPackIndex) findItem(blockID ContentID) *blockmgrpb.Index_Item {
 	b := contentIDToBytes(blockID)
 	if p.sorted {
 		result := sort.Search(len(p.ndx.Items), func(i int) bool {
@@ -137,7 +137,7 @@ func (p protoPackIndexV2) findItem(blockID ContentID) *blockmgrpb.IndexV2_Item {
 	return nil
 }
 
-func (p protoPackIndexV2) getBlock(blockID ContentID) (Info, error) {
+func (p protoPackIndex) getBlock(blockID ContentID) (Info, error) {
 	it := p.findItem(blockID)
 	if it == nil {
 		return Info{}, storage.ErrBlockNotFound
@@ -146,7 +146,7 @@ func (p protoPackIndexV2) getBlock(blockID ContentID) (Info, error) {
 	return p.infoForItem(it), nil
 }
 
-func (p protoPackIndexV2) infoForItem(it *blockmgrpb.IndexV2_Item) Info {
+func (p protoPackIndex) infoForItem(it *blockmgrpb.Index_Item) Info {
 	if it.Deleted {
 		return p.infoForDeletedBlock(it.BlockId)
 	}
@@ -157,7 +157,7 @@ func (p protoPackIndexV2) infoForItem(it *blockmgrpb.IndexV2_Item) Info {
 	return p.infoForPayload(it.BlockId, it.Payload)
 }
 
-func (p protoPackIndexV2) iterate(cb func(Info) error) error {
+func (p protoPackIndex) iterate(cb func(Info) error) error {
 	for _, it := range p.ndx.Items {
 		if err := cb(p.infoForItem(it)); err != nil {
 			return err
@@ -166,45 +166,45 @@ func (p protoPackIndexV2) iterate(cb func(Info) error) error {
 	return nil
 }
 
-func (p protoPackIndexV2) packBlockID() PhysicalBlockID {
+func (p protoPackIndex) packBlockID() PhysicalBlockID {
 	return PhysicalBlockID(p.ndx.PackBlockId)
 }
 
-func (p protoPackIndexV2) packLength() uint32 {
+func (p protoPackIndex) packLength() uint32 {
 	return p.ndx.PackLength
 }
 
-func (p protoPackIndexV2) addInlineBlock(blockID ContentID, data []byte) {
-	p.ndx.Items = append(p.ndx.Items, &blockmgrpb.IndexV2_Item{
+func (p protoPackIndex) addInlineBlock(blockID ContentID, data []byte) {
+	p.ndx.Items = append(p.ndx.Items, &blockmgrpb.Index_Item{
 		BlockId: contentIDToBytes(blockID),
 		Payload: append([]byte{}, data...),
 	})
 }
 
-func (p protoPackIndexV2) addPackedBlock(blockID ContentID, offset, size uint32) {
+func (p protoPackIndex) addPackedBlock(blockID ContentID, offset, size uint32) {
 	os := packOffsetAndSize(offset, size)
-	p.ndx.Items = append(p.ndx.Items, &blockmgrpb.IndexV2_Item{
+	p.ndx.Items = append(p.ndx.Items, &blockmgrpb.Index_Item{
 		BlockId:    contentIDToBytes(blockID),
 		OffsetSize: os,
 	})
 }
 
-func (p protoPackIndexV2) deleteBlock(blockID ContentID) {
+func (p protoPackIndex) deleteBlock(blockID ContentID) {
 	it := p.findItem(blockID)
 	if it != nil {
 		it.Deleted = true
 		it.Payload = nil
 		it.OffsetSize = 0
 	} else {
-		p.ndx.Items = append(p.ndx.Items, &blockmgrpb.IndexV2_Item{
+		p.ndx.Items = append(p.ndx.Items, &blockmgrpb.Index_Item{
 			BlockId: contentIDToBytes(blockID),
 			Deleted: true,
 		})
 	}
 }
 
-func newPackIndexV2(ts int64) packIndexBuilder {
-	return protoPackIndexV2{&blockmgrpb.IndexV2{
+func newPackIndex(ts int64) packIndexBuilder {
+	return protoPackIndex{&blockmgrpb.Index{
 		CreateTimeNanos: uint64(ts),
 	}, false}
 }

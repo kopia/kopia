@@ -188,7 +188,7 @@ func (bm *Manager) verifyInvariantsLocked() {
 }
 
 func (bm *Manager) startPackIndexLocked() {
-	bm.currentPackIndex = newPackIndexV2(bm.timeNow().UnixNano())
+	bm.currentPackIndex = newPackIndex(bm.timeNow().UnixNano())
 	bm.currentPackDataLength = 0
 }
 
@@ -418,11 +418,8 @@ func (bm *Manager) parsePackIndexes(data []byte) ([]packIndex, error) {
 	}
 
 	var result []packIndex
-	for _, ndx := range b.IndexesV1 {
-		result = append(result, protoPackIndexV1{ndx})
-	}
-	for _, ndx := range b.IndexesV2 {
-		result = append(result, protoPackIndexV2{ndx, true})
+	for _, ndx := range b.Indexes {
+		result = append(result, protoPackIndex{ndx, true})
 	}
 	return result, nil
 }
@@ -506,7 +503,7 @@ func (bm *Manager) compactIndexes(ctx context.Context, indexBlocks []PhysicalBlo
 		}
 
 		for _, ndx := range indexes {
-			dst := newPackIndexV2(ndx.createTimeNanos())
+			dst := newPackIndex(ndx.createTimeNanos())
 			copyPackIndex(dst, ndx)
 			dst.addToIndexes(&pb)
 		}

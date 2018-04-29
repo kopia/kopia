@@ -15,11 +15,8 @@ var (
 	fakePackLength uint32 = 1234
 )
 
-func packIndexV1FromIndexes(p *blockmgrpb.Indexes) packIndex {
-	return protoPackIndexV1{p.IndexesV1[0]}
-}
-func packIndexV2FromIndexes(p *blockmgrpb.Indexes) packIndex {
-	return protoPackIndexV2{p.IndexesV2[0], true}
+func packIndexFromIndexes(p *blockmgrpb.Indexes) packIndex {
+	return protoPackIndex{p.Indexes[0], true}
 }
 
 func TestPackIndexes(t *testing.T) {
@@ -28,8 +25,7 @@ func TestPackIndexes(t *testing.T) {
 		createNew   func(t int64) packIndexBuilder
 		fromIndexes func(p *blockmgrpb.Indexes) packIndex
 	}{
-		{name: "v1", createNew: newPackIndexV1, fromIndexes: packIndexV1FromIndexes},
-		{name: "v2", createNew: newPackIndexV2, fromIndexes: packIndexV2FromIndexes},
+		{name: "v2", createNew: newPackIndex, fromIndexes: packIndexFromIndexes},
 	}
 
 	for _, tc := range cases {

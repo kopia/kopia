@@ -8,8 +8,7 @@
 		internal/blockmgrpb/block_index.proto
 
 	It has these top-level messages:
-		IndexV1
-		IndexV2
+		Index
 		Indexes
 */
 package blockmgrpb
@@ -33,152 +32,88 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
-type IndexV1 struct {
-	PackBlockId     string            `protobuf:"bytes,1,opt,name=pack_block_id,json=packBlockId,proto3" json:"pack_block_id,omitempty"`
-	PackLength      uint32            `protobuf:"varint,2,opt,name=pack_length,json=packLength,proto3" json:"pack_length,omitempty"`
-	CreateTimeNanos uint64            `protobuf:"varint,3,opt,name=create_time_nanos,json=createTimeNanos,proto3" json:"create_time_nanos,omitempty"`
-	Items           map[string]uint64 `protobuf:"bytes,4,rep,name=items" json:"items,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"varint,2,opt,name=value,proto3"`
-	DeletedItems    []string          `protobuf:"bytes,5,rep,name=deleted_items,json=deletedItems" json:"deleted_items,omitempty"`
-	InlineItems     map[string][]byte `protobuf:"bytes,6,rep,name=inline_items,json=inlineItems" json:"inline_items,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
-	FormatVersion   int32             `protobuf:"varint,7,opt,name=format_version,json=formatVersion,proto3" json:"format_version,omitempty"`
+type Index struct {
+	PackBlockId     string        `protobuf:"bytes,1,opt,name=pack_block_id,json=packBlockId,proto3" json:"pack_block_id,omitempty"`
+	PackLength      uint32        `protobuf:"varint,2,opt,name=pack_length,json=packLength,proto3" json:"pack_length,omitempty"`
+	CreateTimeNanos uint64        `protobuf:"varint,3,opt,name=create_time_nanos,json=createTimeNanos,proto3" json:"create_time_nanos,omitempty"`
+	Items           []*Index_Item `protobuf:"bytes,4,rep,name=items" json:"items,omitempty"`
+	FormatVersion   int32         `protobuf:"varint,5,opt,name=format_version,json=formatVersion,proto3" json:"format_version,omitempty"`
 }
 
-func (m *IndexV1) Reset()                    { *m = IndexV1{} }
-func (m *IndexV1) String() string            { return proto.CompactTextString(m) }
-func (*IndexV1) ProtoMessage()               {}
-func (*IndexV1) Descriptor() ([]byte, []int) { return fileDescriptorBlockIndex, []int{0} }
+func (m *Index) Reset()                    { *m = Index{} }
+func (m *Index) String() string            { return proto.CompactTextString(m) }
+func (*Index) ProtoMessage()               {}
+func (*Index) Descriptor() ([]byte, []int) { return fileDescriptorBlockIndex, []int{0} }
 
-func (m *IndexV1) GetPackBlockId() string {
+func (m *Index) GetPackBlockId() string {
 	if m != nil {
 		return m.PackBlockId
 	}
 	return ""
 }
 
-func (m *IndexV1) GetPackLength() uint32 {
+func (m *Index) GetPackLength() uint32 {
 	if m != nil {
 		return m.PackLength
 	}
 	return 0
 }
 
-func (m *IndexV1) GetCreateTimeNanos() uint64 {
+func (m *Index) GetCreateTimeNanos() uint64 {
 	if m != nil {
 		return m.CreateTimeNanos
 	}
 	return 0
 }
 
-func (m *IndexV1) GetItems() map[string]uint64 {
+func (m *Index) GetItems() []*Index_Item {
 	if m != nil {
 		return m.Items
 	}
 	return nil
 }
 
-func (m *IndexV1) GetDeletedItems() []string {
-	if m != nil {
-		return m.DeletedItems
-	}
-	return nil
-}
-
-func (m *IndexV1) GetInlineItems() map[string][]byte {
-	if m != nil {
-		return m.InlineItems
-	}
-	return nil
-}
-
-func (m *IndexV1) GetFormatVersion() int32 {
+func (m *Index) GetFormatVersion() int32 {
 	if m != nil {
 		return m.FormatVersion
 	}
 	return 0
 }
 
-type IndexV2 struct {
-	PackBlockId     string          `protobuf:"bytes,1,opt,name=pack_block_id,json=packBlockId,proto3" json:"pack_block_id,omitempty"`
-	PackLength      uint32          `protobuf:"varint,2,opt,name=pack_length,json=packLength,proto3" json:"pack_length,omitempty"`
-	CreateTimeNanos uint64          `protobuf:"varint,3,opt,name=create_time_nanos,json=createTimeNanos,proto3" json:"create_time_nanos,omitempty"`
-	Items           []*IndexV2_Item `protobuf:"bytes,4,rep,name=items" json:"items,omitempty"`
-	FormatVersion   int32           `protobuf:"varint,5,opt,name=format_version,json=formatVersion,proto3" json:"format_version,omitempty"`
-}
-
-func (m *IndexV2) Reset()                    { *m = IndexV2{} }
-func (m *IndexV2) String() string            { return proto.CompactTextString(m) }
-func (*IndexV2) ProtoMessage()               {}
-func (*IndexV2) Descriptor() ([]byte, []int) { return fileDescriptorBlockIndex, []int{1} }
-
-func (m *IndexV2) GetPackBlockId() string {
-	if m != nil {
-		return m.PackBlockId
-	}
-	return ""
-}
-
-func (m *IndexV2) GetPackLength() uint32 {
-	if m != nil {
-		return m.PackLength
-	}
-	return 0
-}
-
-func (m *IndexV2) GetCreateTimeNanos() uint64 {
-	if m != nil {
-		return m.CreateTimeNanos
-	}
-	return 0
-}
-
-func (m *IndexV2) GetItems() []*IndexV2_Item {
-	if m != nil {
-		return m.Items
-	}
-	return nil
-}
-
-func (m *IndexV2) GetFormatVersion() int32 {
-	if m != nil {
-		return m.FormatVersion
-	}
-	return 0
-}
-
-type IndexV2_Item struct {
+type Index_Item struct {
 	BlockId    []byte `protobuf:"bytes,1,opt,name=block_id,json=blockId,proto3" json:"block_id,omitempty"`
 	Payload    []byte `protobuf:"bytes,2,opt,name=payload,proto3" json:"payload,omitempty"`
 	OffsetSize uint64 `protobuf:"fixed64,3,opt,name=offset_size,json=offsetSize,proto3" json:"offset_size,omitempty"`
 	Deleted    bool   `protobuf:"varint,4,opt,name=deleted,proto3" json:"deleted,omitempty"`
 }
 
-func (m *IndexV2_Item) Reset()                    { *m = IndexV2_Item{} }
-func (m *IndexV2_Item) String() string            { return proto.CompactTextString(m) }
-func (*IndexV2_Item) ProtoMessage()               {}
-func (*IndexV2_Item) Descriptor() ([]byte, []int) { return fileDescriptorBlockIndex, []int{1, 0} }
+func (m *Index_Item) Reset()                    { *m = Index_Item{} }
+func (m *Index_Item) String() string            { return proto.CompactTextString(m) }
+func (*Index_Item) ProtoMessage()               {}
+func (*Index_Item) Descriptor() ([]byte, []int) { return fileDescriptorBlockIndex, []int{0, 0} }
 
-func (m *IndexV2_Item) GetBlockId() []byte {
+func (m *Index_Item) GetBlockId() []byte {
 	if m != nil {
 		return m.BlockId
 	}
 	return nil
 }
 
-func (m *IndexV2_Item) GetPayload() []byte {
+func (m *Index_Item) GetPayload() []byte {
 	if m != nil {
 		return m.Payload
 	}
 	return nil
 }
 
-func (m *IndexV2_Item) GetOffsetSize() uint64 {
+func (m *Index_Item) GetOffsetSize() uint64 {
 	if m != nil {
 		return m.OffsetSize
 	}
 	return 0
 }
 
-func (m *IndexV2_Item) GetDeleted() bool {
+func (m *Index_Item) GetDeleted() bool {
 	if m != nil {
 		return m.Deleted
 	}
@@ -186,36 +121,27 @@ func (m *IndexV2_Item) GetDeleted() bool {
 }
 
 type Indexes struct {
-	IndexesV1 []*IndexV1 `protobuf:"bytes,1,rep,name=indexes_v1,json=indexesV1" json:"indexes_v1,omitempty"`
-	IndexesV2 []*IndexV2 `protobuf:"bytes,2,rep,name=indexes_v2,json=indexesV2" json:"indexes_v2,omitempty"`
+	Indexes []*Index `protobuf:"bytes,2,rep,name=indexes" json:"indexes,omitempty"`
 }
 
 func (m *Indexes) Reset()                    { *m = Indexes{} }
 func (m *Indexes) String() string            { return proto.CompactTextString(m) }
 func (*Indexes) ProtoMessage()               {}
-func (*Indexes) Descriptor() ([]byte, []int) { return fileDescriptorBlockIndex, []int{2} }
+func (*Indexes) Descriptor() ([]byte, []int) { return fileDescriptorBlockIndex, []int{1} }
 
-func (m *Indexes) GetIndexesV1() []*IndexV1 {
+func (m *Indexes) GetIndexes() []*Index {
 	if m != nil {
-		return m.IndexesV1
-	}
-	return nil
-}
-
-func (m *Indexes) GetIndexesV2() []*IndexV2 {
-	if m != nil {
-		return m.IndexesV2
+		return m.Indexes
 	}
 	return nil
 }
 
 func init() {
-	proto.RegisterType((*IndexV1)(nil), "IndexV1")
-	proto.RegisterType((*IndexV2)(nil), "IndexV2")
-	proto.RegisterType((*IndexV2_Item)(nil), "IndexV2.Item")
+	proto.RegisterType((*Index)(nil), "Index")
+	proto.RegisterType((*Index_Item)(nil), "Index.Item")
 	proto.RegisterType((*Indexes)(nil), "Indexes")
 }
-func (m *IndexV1) Marshal() (dAtA []byte, err error) {
+func (m *Index) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -225,100 +151,7 @@ func (m *IndexV1) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *IndexV1) MarshalTo(dAtA []byte) (int, error) {
-	var i int
-	_ = i
-	var l int
-	_ = l
-	if len(m.PackBlockId) > 0 {
-		dAtA[i] = 0xa
-		i++
-		i = encodeVarintBlockIndex(dAtA, i, uint64(len(m.PackBlockId)))
-		i += copy(dAtA[i:], m.PackBlockId)
-	}
-	if m.PackLength != 0 {
-		dAtA[i] = 0x10
-		i++
-		i = encodeVarintBlockIndex(dAtA, i, uint64(m.PackLength))
-	}
-	if m.CreateTimeNanos != 0 {
-		dAtA[i] = 0x18
-		i++
-		i = encodeVarintBlockIndex(dAtA, i, uint64(m.CreateTimeNanos))
-	}
-	if len(m.Items) > 0 {
-		for k, _ := range m.Items {
-			dAtA[i] = 0x22
-			i++
-			v := m.Items[k]
-			mapSize := 1 + len(k) + sovBlockIndex(uint64(len(k))) + 1 + sovBlockIndex(uint64(v))
-			i = encodeVarintBlockIndex(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintBlockIndex(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			dAtA[i] = 0x10
-			i++
-			i = encodeVarintBlockIndex(dAtA, i, uint64(v))
-		}
-	}
-	if len(m.DeletedItems) > 0 {
-		for _, s := range m.DeletedItems {
-			dAtA[i] = 0x2a
-			i++
-			l = len(s)
-			for l >= 1<<7 {
-				dAtA[i] = uint8(uint64(l)&0x7f | 0x80)
-				l >>= 7
-				i++
-			}
-			dAtA[i] = uint8(l)
-			i++
-			i += copy(dAtA[i:], s)
-		}
-	}
-	if len(m.InlineItems) > 0 {
-		for k, _ := range m.InlineItems {
-			dAtA[i] = 0x32
-			i++
-			v := m.InlineItems[k]
-			byteSize := 0
-			if len(v) > 0 {
-				byteSize = 1 + len(v) + sovBlockIndex(uint64(len(v)))
-			}
-			mapSize := 1 + len(k) + sovBlockIndex(uint64(len(k))) + byteSize
-			i = encodeVarintBlockIndex(dAtA, i, uint64(mapSize))
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintBlockIndex(dAtA, i, uint64(len(k)))
-			i += copy(dAtA[i:], k)
-			if len(v) > 0 {
-				dAtA[i] = 0x12
-				i++
-				i = encodeVarintBlockIndex(dAtA, i, uint64(len(v)))
-				i += copy(dAtA[i:], v)
-			}
-		}
-	}
-	if m.FormatVersion != 0 {
-		dAtA[i] = 0x38
-		i++
-		i = encodeVarintBlockIndex(dAtA, i, uint64(m.FormatVersion))
-	}
-	return i, nil
-}
-
-func (m *IndexV2) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalTo(dAtA)
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *IndexV2) MarshalTo(dAtA []byte) (int, error) {
+func (m *Index) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
@@ -359,7 +192,7 @@ func (m *IndexV2) MarshalTo(dAtA []byte) (int, error) {
 	return i, nil
 }
 
-func (m *IndexV2_Item) Marshal() (dAtA []byte, err error) {
+func (m *Index_Item) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalTo(dAtA)
@@ -369,7 +202,7 @@ func (m *IndexV2_Item) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *IndexV2_Item) MarshalTo(dAtA []byte) (int, error) {
+func (m *Index_Item) MarshalTo(dAtA []byte) (int, error) {
 	var i int
 	_ = i
 	var l int
@@ -420,20 +253,8 @@ func (m *Indexes) MarshalTo(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if len(m.IndexesV1) > 0 {
-		for _, msg := range m.IndexesV1 {
-			dAtA[i] = 0xa
-			i++
-			i = encodeVarintBlockIndex(dAtA, i, uint64(msg.Size()))
-			n, err := msg.MarshalTo(dAtA[i:])
-			if err != nil {
-				return 0, err
-			}
-			i += n
-		}
-	}
-	if len(m.IndexesV2) > 0 {
-		for _, msg := range m.IndexesV2 {
+	if len(m.Indexes) > 0 {
+		for _, msg := range m.Indexes {
 			dAtA[i] = 0x12
 			i++
 			i = encodeVarintBlockIndex(dAtA, i, uint64(msg.Size()))
@@ -456,52 +277,7 @@ func encodeVarintBlockIndex(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return offset + 1
 }
-func (m *IndexV1) Size() (n int) {
-	var l int
-	_ = l
-	l = len(m.PackBlockId)
-	if l > 0 {
-		n += 1 + l + sovBlockIndex(uint64(l))
-	}
-	if m.PackLength != 0 {
-		n += 1 + sovBlockIndex(uint64(m.PackLength))
-	}
-	if m.CreateTimeNanos != 0 {
-		n += 1 + sovBlockIndex(uint64(m.CreateTimeNanos))
-	}
-	if len(m.Items) > 0 {
-		for k, v := range m.Items {
-			_ = k
-			_ = v
-			mapEntrySize := 1 + len(k) + sovBlockIndex(uint64(len(k))) + 1 + sovBlockIndex(uint64(v))
-			n += mapEntrySize + 1 + sovBlockIndex(uint64(mapEntrySize))
-		}
-	}
-	if len(m.DeletedItems) > 0 {
-		for _, s := range m.DeletedItems {
-			l = len(s)
-			n += 1 + l + sovBlockIndex(uint64(l))
-		}
-	}
-	if len(m.InlineItems) > 0 {
-		for k, v := range m.InlineItems {
-			_ = k
-			_ = v
-			l = 0
-			if len(v) > 0 {
-				l = 1 + len(v) + sovBlockIndex(uint64(len(v)))
-			}
-			mapEntrySize := 1 + len(k) + sovBlockIndex(uint64(len(k))) + l
-			n += mapEntrySize + 1 + sovBlockIndex(uint64(mapEntrySize))
-		}
-	}
-	if m.FormatVersion != 0 {
-		n += 1 + sovBlockIndex(uint64(m.FormatVersion))
-	}
-	return n
-}
-
-func (m *IndexV2) Size() (n int) {
+func (m *Index) Size() (n int) {
 	var l int
 	_ = l
 	l = len(m.PackBlockId)
@@ -526,7 +302,7 @@ func (m *IndexV2) Size() (n int) {
 	return n
 }
 
-func (m *IndexV2_Item) Size() (n int) {
+func (m *Index_Item) Size() (n int) {
 	var l int
 	_ = l
 	l = len(m.BlockId)
@@ -549,14 +325,8 @@ func (m *IndexV2_Item) Size() (n int) {
 func (m *Indexes) Size() (n int) {
 	var l int
 	_ = l
-	if len(m.IndexesV1) > 0 {
-		for _, e := range m.IndexesV1 {
-			l = e.Size()
-			n += 1 + l + sovBlockIndex(uint64(l))
-		}
-	}
-	if len(m.IndexesV2) > 0 {
-		for _, e := range m.IndexesV2 {
+	if len(m.Indexes) > 0 {
+		for _, e := range m.Indexes {
 			l = e.Size()
 			n += 1 + l + sovBlockIndex(uint64(l))
 		}
@@ -577,7 +347,7 @@ func sovBlockIndex(x uint64) (n int) {
 func sozBlockIndex(x uint64) (n int) {
 	return sovBlockIndex(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
-func (m *IndexV1) Unmarshal(dAtA []byte) error {
+func (m *Index) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -600,10 +370,10 @@ func (m *IndexV1) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: IndexV1: wiretype end group for non-group")
+			return fmt.Errorf("proto: Index: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: IndexV1: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: Index: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -699,398 +469,7 @@ func (m *IndexV1) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Items == nil {
-				m.Items = make(map[string]uint64)
-			}
-			var mapkey string
-			var mapvalue uint64
-			for iNdEx < postIndex {
-				entryPreIndex := iNdEx
-				var wire uint64
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowBlockIndex
-					}
-					if iNdEx >= l {
-						return io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					wire |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				fieldNum := int32(wire >> 3)
-				if fieldNum == 1 {
-					var stringLenmapkey uint64
-					for shift := uint(0); ; shift += 7 {
-						if shift >= 64 {
-							return ErrIntOverflowBlockIndex
-						}
-						if iNdEx >= l {
-							return io.ErrUnexpectedEOF
-						}
-						b := dAtA[iNdEx]
-						iNdEx++
-						stringLenmapkey |= (uint64(b) & 0x7F) << shift
-						if b < 0x80 {
-							break
-						}
-					}
-					intStringLenmapkey := int(stringLenmapkey)
-					if intStringLenmapkey < 0 {
-						return ErrInvalidLengthBlockIndex
-					}
-					postStringIndexmapkey := iNdEx + intStringLenmapkey
-					if postStringIndexmapkey > l {
-						return io.ErrUnexpectedEOF
-					}
-					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
-					iNdEx = postStringIndexmapkey
-				} else if fieldNum == 2 {
-					for shift := uint(0); ; shift += 7 {
-						if shift >= 64 {
-							return ErrIntOverflowBlockIndex
-						}
-						if iNdEx >= l {
-							return io.ErrUnexpectedEOF
-						}
-						b := dAtA[iNdEx]
-						iNdEx++
-						mapvalue |= (uint64(b) & 0x7F) << shift
-						if b < 0x80 {
-							break
-						}
-					}
-				} else {
-					iNdEx = entryPreIndex
-					skippy, err := skipBlockIndex(dAtA[iNdEx:])
-					if err != nil {
-						return err
-					}
-					if skippy < 0 {
-						return ErrInvalidLengthBlockIndex
-					}
-					if (iNdEx + skippy) > postIndex {
-						return io.ErrUnexpectedEOF
-					}
-					iNdEx += skippy
-				}
-			}
-			m.Items[mapkey] = mapvalue
-			iNdEx = postIndex
-		case 5:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field DeletedItems", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowBlockIndex
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthBlockIndex
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.DeletedItems = append(m.DeletedItems, string(dAtA[iNdEx:postIndex]))
-			iNdEx = postIndex
-		case 6:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field InlineItems", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowBlockIndex
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthBlockIndex
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.InlineItems == nil {
-				m.InlineItems = make(map[string][]byte)
-			}
-			var mapkey string
-			mapvalue := []byte{}
-			for iNdEx < postIndex {
-				entryPreIndex := iNdEx
-				var wire uint64
-				for shift := uint(0); ; shift += 7 {
-					if shift >= 64 {
-						return ErrIntOverflowBlockIndex
-					}
-					if iNdEx >= l {
-						return io.ErrUnexpectedEOF
-					}
-					b := dAtA[iNdEx]
-					iNdEx++
-					wire |= (uint64(b) & 0x7F) << shift
-					if b < 0x80 {
-						break
-					}
-				}
-				fieldNum := int32(wire >> 3)
-				if fieldNum == 1 {
-					var stringLenmapkey uint64
-					for shift := uint(0); ; shift += 7 {
-						if shift >= 64 {
-							return ErrIntOverflowBlockIndex
-						}
-						if iNdEx >= l {
-							return io.ErrUnexpectedEOF
-						}
-						b := dAtA[iNdEx]
-						iNdEx++
-						stringLenmapkey |= (uint64(b) & 0x7F) << shift
-						if b < 0x80 {
-							break
-						}
-					}
-					intStringLenmapkey := int(stringLenmapkey)
-					if intStringLenmapkey < 0 {
-						return ErrInvalidLengthBlockIndex
-					}
-					postStringIndexmapkey := iNdEx + intStringLenmapkey
-					if postStringIndexmapkey > l {
-						return io.ErrUnexpectedEOF
-					}
-					mapkey = string(dAtA[iNdEx:postStringIndexmapkey])
-					iNdEx = postStringIndexmapkey
-				} else if fieldNum == 2 {
-					var mapbyteLen uint64
-					for shift := uint(0); ; shift += 7 {
-						if shift >= 64 {
-							return ErrIntOverflowBlockIndex
-						}
-						if iNdEx >= l {
-							return io.ErrUnexpectedEOF
-						}
-						b := dAtA[iNdEx]
-						iNdEx++
-						mapbyteLen |= (uint64(b) & 0x7F) << shift
-						if b < 0x80 {
-							break
-						}
-					}
-					intMapbyteLen := int(mapbyteLen)
-					if intMapbyteLen < 0 {
-						return ErrInvalidLengthBlockIndex
-					}
-					postbytesIndex := iNdEx + intMapbyteLen
-					if postbytesIndex > l {
-						return io.ErrUnexpectedEOF
-					}
-					mapvalue = make([]byte, mapbyteLen)
-					copy(mapvalue, dAtA[iNdEx:postbytesIndex])
-					iNdEx = postbytesIndex
-				} else {
-					iNdEx = entryPreIndex
-					skippy, err := skipBlockIndex(dAtA[iNdEx:])
-					if err != nil {
-						return err
-					}
-					if skippy < 0 {
-						return ErrInvalidLengthBlockIndex
-					}
-					if (iNdEx + skippy) > postIndex {
-						return io.ErrUnexpectedEOF
-					}
-					iNdEx += skippy
-				}
-			}
-			m.InlineItems[mapkey] = mapvalue
-			iNdEx = postIndex
-		case 7:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field FormatVersion", wireType)
-			}
-			m.FormatVersion = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowBlockIndex
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.FormatVersion |= (int32(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		default:
-			iNdEx = preIndex
-			skippy, err := skipBlockIndex(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthBlockIndex
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *IndexV2) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowBlockIndex
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= (uint64(b) & 0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: IndexV2: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: IndexV2: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field PackBlockId", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowBlockIndex
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthBlockIndex
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.PackBlockId = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 2:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field PackLength", wireType)
-			}
-			m.PackLength = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowBlockIndex
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.PackLength |= (uint32(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 3:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field CreateTimeNanos", wireType)
-			}
-			m.CreateTimeNanos = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowBlockIndex
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.CreateTimeNanos |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-		case 4:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Items", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowBlockIndex
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthBlockIndex
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Items = append(m.Items, &IndexV2_Item{})
+			m.Items = append(m.Items, &Index_Item{})
 			if err := m.Items[len(m.Items)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -1135,7 +514,7 @@ func (m *IndexV2) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *IndexV2_Item) Unmarshal(dAtA []byte) error {
+func (m *Index_Item) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -1306,40 +685,9 @@ func (m *Indexes) Unmarshal(dAtA []byte) error {
 			return fmt.Errorf("proto: Indexes: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field IndexesV1", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowBlockIndex
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= (int(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthBlockIndex
-			}
-			postIndex := iNdEx + msglen
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.IndexesV1 = append(m.IndexesV1, &IndexV1{})
-			if err := m.IndexesV1[len(m.IndexesV1)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field IndexesV2", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Indexes", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -1363,8 +711,8 @@ func (m *Indexes) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.IndexesV2 = append(m.IndexesV2, &IndexV2{})
-			if err := m.IndexesV2[len(m.IndexesV2)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			m.Indexes = append(m.Indexes, &Index{})
+			if err := m.Indexes[len(m.Indexes)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -1497,35 +845,26 @@ var (
 func init() { proto.RegisterFile("internal/blockmgrpb/block_index.proto", fileDescriptorBlockIndex) }
 
 var fileDescriptorBlockIndex = []byte{
-	// 467 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xbc, 0x93, 0xbd, 0x8e, 0xd3, 0x40,
-	0x10, 0xc7, 0xd9, 0xc4, 0xce, 0xc7, 0x24, 0x86, 0x63, 0xa1, 0xf0, 0x9d, 0x50, 0xb0, 0x72, 0x3a,
-	0x61, 0x28, 0x82, 0x62, 0x9a, 0x13, 0x42, 0x14, 0x27, 0x51, 0x44, 0x42, 0x14, 0x0b, 0x4a, 0x01,
-	0x85, 0xe5, 0xc4, 0x93, 0x63, 0x15, 0x7b, 0x1d, 0xd9, 0x4b, 0x44, 0xee, 0x49, 0x78, 0x05, 0x5e,
-	0x82, 0x9a, 0x92, 0x47, 0x40, 0xe1, 0x45, 0xd0, 0x7e, 0x58, 0xbe, 0x00, 0x12, 0xdd, 0x75, 0x3b,
-	0xbf, 0x99, 0xff, 0x68, 0xf6, 0x3f, 0xbb, 0x70, 0xc6, 0x85, 0xc4, 0x52, 0x24, 0xd9, 0xd3, 0x45,
-	0x56, 0x2c, 0xd7, 0xf9, 0x65, 0xb9, 0x59, 0x98, 0x63, 0xcc, 0x45, 0x8a, 0x9f, 0x27, 0x9b, 0xb2,
-	0x90, 0xc5, 0xf8, 0x6b, 0x1b, 0xba, 0x33, 0x15, 0xcf, 0xa7, 0x74, 0x0c, 0xde, 0x26, 0x59, 0xae,
-	0x63, 0x5b, 0x95, 0xfa, 0x24, 0x20, 0x61, 0x9f, 0x0d, 0x14, 0xbc, 0x50, 0x6c, 0x96, 0xd2, 0x87,
-	0xa0, 0xc3, 0x38, 0x43, 0x71, 0x29, 0x3f, 0xfa, 0xad, 0x80, 0x84, 0x1e, 0x03, 0x85, 0x5e, 0x6b,
-	0x42, 0x9f, 0xc0, 0xdd, 0x65, 0x89, 0x89, 0xc4, 0x58, 0xf2, 0x1c, 0x63, 0x91, 0x88, 0xa2, 0xf2,
-	0xdb, 0x01, 0x09, 0x1d, 0x76, 0xc7, 0x24, 0xde, 0xf1, 0x1c, 0xdf, 0x28, 0x4c, 0x1f, 0x83, 0xcb,
-	0x25, 0xe6, 0x95, 0xef, 0x04, 0xed, 0x70, 0x10, 0xdd, 0x9b, 0xd8, 0x49, 0x26, 0x33, 0x45, 0x5f,
-	0x09, 0x59, 0xee, 0x98, 0xa9, 0xa0, 0xa7, 0xe0, 0xa5, 0x98, 0xa1, 0xc4, 0x34, 0x36, 0x12, 0x37,
-	0x68, 0x87, 0x7d, 0x36, 0xb4, 0x50, 0x0b, 0xe8, 0x0b, 0x18, 0x72, 0x91, 0x71, 0x81, 0xb6, 0xa6,
-	0xa3, 0xdb, 0x1e, 0x37, 0x6d, 0x75, 0xf2, 0x5a, 0xf3, 0x01, 0x6f, 0x08, 0x3d, 0x83, 0xdb, 0xab,
-	0xa2, 0xcc, 0x13, 0x19, 0x6f, 0xb1, 0xac, 0x78, 0x21, 0xfc, 0x6e, 0x40, 0x42, 0x97, 0x79, 0x86,
-	0xce, 0x0d, 0x3c, 0x39, 0x07, 0x68, 0x3a, 0xd0, 0x23, 0x68, 0xaf, 0x71, 0x67, 0x9d, 0x52, 0x47,
-	0x7a, 0x1f, 0xdc, 0x6d, 0x92, 0x7d, 0x42, 0xed, 0x8d, 0xc3, 0x4c, 0xf0, 0xbc, 0x75, 0x4e, 0x4e,
-	0x5e, 0xc2, 0xd1, 0x9f, 0x13, 0xfc, 0x4f, 0x3f, 0xbc, 0xa6, 0x1f, 0x7f, 0x6b, 0xd5, 0xbb, 0x8a,
-	0x6e, 0x7e, 0x57, 0xa7, 0x87, 0xbb, 0xf2, 0xac, 0xa9, 0x91, 0xde, 0x55, 0xbd, 0xa5, 0xbf, 0x2d,
-	0x74, 0xff, 0x65, 0xe1, 0x16, 0x1c, 0xa5, 0xa2, 0xc7, 0xd0, 0x3b, 0x98, 0x7f, 0xc8, 0xba, 0x0b,
-	0x3b, 0xbb, 0x0f, 0xdd, 0x4d, 0xb2, 0xcb, 0x8a, 0x24, 0xb5, 0x3e, 0xd4, 0xa1, 0xba, 0x55, 0xb1,
-	0x5a, 0x55, 0x28, 0xe3, 0x8a, 0x5f, 0xa1, 0x1e, 0xb7, 0xc3, 0xc0, 0xa0, 0xb7, 0xfc, 0x0a, 0x95,
-	0xd4, 0xbe, 0x0a, 0xdf, 0x09, 0x48, 0xd8, 0x63, 0x75, 0x38, 0xfe, 0x60, 0xfd, 0xc3, 0x8a, 0x3e,
-	0x02, 0xe0, 0xe6, 0x18, 0x6f, 0xa7, 0x3e, 0xd1, 0x77, 0xea, 0xd5, 0x0f, 0x85, 0xf5, 0x6d, 0x6e,
-	0x3e, 0x3d, 0x28, 0x8c, 0xfc, 0xd6, 0x41, 0x61, 0xd4, 0x14, 0x46, 0x17, 0x0f, 0xbe, 0xef, 0x47,
-	0xe4, 0xc7, 0x7e, 0x44, 0x7e, 0xee, 0x47, 0xe4, 0xcb, 0xaf, 0xd1, 0xad, 0xf7, 0xd0, 0xfc, 0xbc,
-	0x45, 0x47, 0x7f, 0xb7, 0x67, 0xbf, 0x03, 0x00, 0x00, 0xff, 0xff, 0x50, 0x5d, 0xe7, 0x62, 0x97,
-	0x03, 0x00, 0x00,
+	// 334 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x54, 0x91, 0x4f, 0x4e, 0xeb, 0x30,
+	0x10, 0xc6, 0x9f, 0xd3, 0xa4, 0xe9, 0x9b, 0xb6, 0xef, 0x4f, 0x56, 0x06, 0xa1, 0x10, 0x2a, 0x55,
+	0x8a, 0x58, 0x14, 0x01, 0x37, 0xe8, 0xae, 0x08, 0xb1, 0x30, 0x88, 0x05, 0x9b, 0xc8, 0x69, 0xa6,
+	0xc5, 0x6a, 0x62, 0x47, 0x89, 0x55, 0x41, 0x4f, 0xc2, 0x59, 0x38, 0x01, 0x4b, 0x8e, 0x80, 0xca,
+	0x45, 0x90, 0xed, 0x56, 0x88, 0x9d, 0xbf, 0xdf, 0x78, 0xa4, 0xdf, 0xa7, 0x81, 0xb1, 0x90, 0x1a,
+	0x1b, 0xc9, 0xcb, 0xb3, 0xbc, 0x54, 0xf3, 0x55, 0xb5, 0x6c, 0xea, 0xdc, 0x3d, 0x33, 0x21, 0x0b,
+	0x7c, 0x9a, 0xd4, 0x8d, 0xd2, 0x6a, 0xf4, 0xea, 0x41, 0x30, 0x33, 0x39, 0x1a, 0xc1, 0xb0, 0xe6,
+	0xf3, 0x55, 0xb6, 0xfb, 0x53, 0x50, 0x92, 0x90, 0xf4, 0x37, 0xeb, 0x1b, 0x38, 0x35, 0x6c, 0x56,
+	0x44, 0xc7, 0x60, 0x63, 0x56, 0xa2, 0x5c, 0xea, 0x47, 0xea, 0x25, 0x24, 0x1d, 0x32, 0x30, 0xe8,
+	0xda, 0x92, 0xe8, 0x14, 0xfe, 0xcf, 0x1b, 0xe4, 0x1a, 0x33, 0x2d, 0x2a, 0xcc, 0x24, 0x97, 0xaa,
+	0xa5, 0x9d, 0x84, 0xa4, 0x3e, 0xfb, 0xeb, 0x06, 0x77, 0xa2, 0xc2, 0x1b, 0x83, 0xa3, 0x13, 0x08,
+	0x84, 0xc6, 0xaa, 0xa5, 0x7e, 0xd2, 0x49, 0xfb, 0x17, 0xfd, 0x89, 0xf5, 0x98, 0xcc, 0x34, 0x56,
+	0xcc, 0x4d, 0xa2, 0x31, 0xfc, 0x59, 0xa8, 0xa6, 0xe2, 0x3a, 0x5b, 0x63, 0xd3, 0x0a, 0x25, 0x69,
+	0x90, 0x90, 0x34, 0x60, 0x43, 0x47, 0xef, 0x1d, 0x3c, 0x5c, 0x83, 0x6f, 0xb6, 0xa2, 0x03, 0xe8,
+	0xfd, 0xb0, 0x1f, 0xb0, 0x30, 0xdf, 0x99, 0x53, 0x08, 0x6b, 0xfe, 0x5c, 0x2a, 0x5e, 0x58, 0xeb,
+	0x01, 0xdb, 0x47, 0xd3, 0x49, 0x2d, 0x16, 0x2d, 0xea, 0xac, 0x15, 0x1b, 0xb4, 0xb2, 0x5d, 0x06,
+	0x0e, 0xdd, 0x8a, 0x0d, 0x9a, 0xd5, 0x02, 0x4b, 0xd4, 0x58, 0x50, 0x3f, 0x21, 0x69, 0x8f, 0xed,
+	0xe3, 0xe8, 0x1c, 0x42, 0xeb, 0x8c, 0x6d, 0x94, 0x40, 0x28, 0xdc, 0x93, 0x7a, 0xb6, 0x4e, 0xd7,
+	0xd5, 0x61, 0x7b, 0x7c, 0xe5, 0xf7, 0xc8, 0x3f, 0x6f, 0x7a, 0xf4, 0xb6, 0x8d, 0xc9, 0xfb, 0x36,
+	0x26, 0x1f, 0xdb, 0x98, 0xbc, 0x7c, 0xc6, 0xbf, 0x1e, 0xe0, 0xfb, 0x3e, 0x79, 0xd7, 0x1e, 0xe5,
+	0xf2, 0x2b, 0x00, 0x00, 0xff, 0xff, 0xcb, 0x64, 0x17, 0xb1, 0xbd, 0x01, 0x00, 0x00,
 }
