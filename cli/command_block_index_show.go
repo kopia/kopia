@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
 	"sort"
 	"time"
 
@@ -16,6 +17,7 @@ var (
 	blockIndexShowCommand = blockIndexCommands.Command("show", "List block indexes").Alias("cat")
 	blockIndexShowSort    = blockIndexShowCommand.Flag("sort", "Sort order").Default("offset").Enum("offset", "blockID", "size")
 	blockIndexShowIDs     = blockIndexShowCommand.Arg("id", "IDs of index blocks to show").Required().Strings()
+	blockIndexShowRaw     = blockIndexShowCommand.Flag("raw", "Show raw block data").Bool()
 )
 
 type blockIndexEntryInfo struct {
@@ -53,13 +55,17 @@ func runShowBlockIndexesAction(ctx context.Context, rep *repo.Repository) error 
 			return fmt.Errorf("can't read block %q: %v", blockID, err)
 		}
 
-		var d blockmgrpb.Indexes
-		if err := proto.Unmarshal(data, &d); err != nil {
-			return err
-		}
+		if *blockIndexShowRaw {
+			os.Stdout.Write(data)
+		} else {
+			var d blockmgrpb.Indexes
+			if err := proto.Unmarshal(data, &d); err != nil {
+				return err
+			}
 
-		for _, ndx := range d.IndexesV1 {
-			printIndexV1(ndx)
+			for _, ndx := range d.IndexesV1 {
+				printIndexV1(ndx)
+			}
 		}
 	}
 
