@@ -61,7 +61,6 @@ func (b *levelDBCommittedBlockIndex) load(indexBlockID PhysicalBlockID, indexes 
 
 	for _, ndx := range indexes {
 		err := ndx.iterate(func(i Info) error {
-			log.Printf("i: %v", i)
 			payload, err := json.Marshal(i)
 			if err != nil {
 				return err

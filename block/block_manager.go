@@ -451,7 +451,7 @@ func (bm *Manager) fetchCommittedIndexAndMaybeCompact(ctx context.Context, compa
 	log.Debug().Msgf("loaded %v index blocks", len(indexBlocks))
 
 	if len(indexBlocks) > compactThresold {
-		log.Info().Msgf("compacting block indexes (block count %v exceeds threshold of %v)", len(indexBlocks), autoCompactionBlockCount)
+		log.Info().Msgf("compacting block indexes (block count %v exceeds threshold of %v)", len(indexBlocks), compactThresold)
 		return bm.compactIndexes(ctx, indexBlocks)
 	}
 
