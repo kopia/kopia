@@ -15,8 +15,8 @@ type Index interface {
 	io.Closer
 
 	EntryCount() int
-	GetInfo(blockID ContentID) (*Info, error)
-	Iterate(prefix ContentID, cb func(Info) error) error
+	GetInfo(blockID string) (*Info, error)
+	Iterate(prefix string, cb func(Info) error) error
 }
 
 type index struct {
@@ -57,7 +57,7 @@ func (b *index) EntryCount() int {
 // Iterate invokes the provided callback function for all blocks in the index, sorted alphabetically.
 // The iteration ends when the callback returns an error, which is propagated to the caller or when
 // all blocks have been visited.
-func (b *index) Iterate(prefix ContentID, cb func(Info) error) error {
+func (b *index) Iterate(prefix string, cb func(Info) error) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -80,7 +80,7 @@ func (b *index) Iterate(prefix ContentID, cb func(Info) error) error {
 		if err != nil {
 			return fmt.Errorf("invalid index data: %v", err)
 		}
-		if !strings.HasPrefix(string(i.BlockID), string(prefix)) {
+		if !strings.HasPrefix(i.BlockID, prefix) {
 			break
 		}
 		if err := cb(i); err != nil {
@@ -90,7 +90,7 @@ func (b *index) Iterate(prefix ContentID, cb func(Info) error) error {
 	return nil
 }
 
-func (b *index) findEntryPosition(blockID ContentID) (int, error) {
+func (b *index) findEntryPosition(blockID string) (int, error) {
 	stride := b.hdr.keySize + b.hdr.valueSize
 	entryBuf := make([]byte, stride)
 	var readErr error
@@ -110,7 +110,7 @@ func (b *index) findEntryPosition(blockID ContentID) (int, error) {
 	return pos, readErr
 }
 
-func (b *index) findEntry(blockID ContentID) ([]byte, error) {
+func (b *index) findEntry(blockID string) ([]byte, error) {
 	key := contentIDToBytes(blockID)
 	if len(key) != b.hdr.keySize {
 		return nil, fmt.Errorf("invalid block ID: %q", blockID)
@@ -138,7 +138,7 @@ func (b *index) findEntry(blockID ContentID) ([]byte, error) {
 }
 
 // GetInfo returns information about a given block. If a block is not found, nil is returned.
-func (b *index) GetInfo(blockID ContentID) (*Info, error) {
+func (b *index) GetInfo(blockID string) (*Info, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -158,7 +158,7 @@ func (b *index) GetInfo(blockID ContentID) (*Info, error) {
 	return &i, err
 }
 
-func (b *index) entryToInfo(blockID ContentID, entryData []byte) (Info, error) {
+func (b *index) entryToInfo(blockID string, entryData []byte) (Info, error) {
 	if len(entryData) < 20 {
 		return Info{}, fmt.Errorf("invalid entry length: %v", len(entryData))
 	}

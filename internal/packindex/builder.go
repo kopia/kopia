@@ -9,7 +9,7 @@ import (
 )
 
 // Builder prepares and writes block index for writing.
-type Builder map[ContentID]*Info
+type Builder map[string]*Info
 
 // Add adds a new entry to the builder or conditionally replaces it if the timestamp is greater.
 func (b Builder) Add(i Info) {
@@ -35,7 +35,7 @@ func (b Builder) sortedBlocks() []*Info {
 
 type indexLayout struct {
 	packBlockIDOffsets map[PhysicalBlockID]uint32
-	payloadOffsets     map[ContentID]uint32
+	payloadOffsets     map[string]uint32
 	entryCount         int
 	keyLength          int
 	entryLength        int
@@ -47,7 +47,7 @@ func (b Builder) Build(output io.Writer) error {
 	allBlocks := b.sortedBlocks()
 	layout := &indexLayout{
 		packBlockIDOffsets: map[PhysicalBlockID]uint32{},
-		payloadOffsets:     map[ContentID]uint32{},
+		payloadOffsets:     map[string]uint32{},
 		keyLength:          -1,
 		entryLength:        20,
 		entryCount:         len(allBlocks),
@@ -159,5 +159,5 @@ func formatEntry(entry []byte, it *Info, layout *indexLayout) error {
 
 // NewBuilder creates a new Builder.
 func NewBuilder() Builder {
-	return make(map[ContentID]*Info)
+	return make(map[string]*Info)
 }

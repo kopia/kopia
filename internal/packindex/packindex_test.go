@@ -17,7 +17,7 @@ func TestPackIndex(t *testing.T) {
 
 	blockNumber := 0
 
-	deterministicBlockID := func(prefix string, id int) packindex.ContentID {
+	deterministicBlockID := func(prefix string, id int) string {
 		h := sha1.New()
 		fmt.Fprintf(h, "%v%v", prefix, id)
 		blockNumber++
@@ -32,7 +32,7 @@ func TestPackIndex(t *testing.T) {
 		if id%5 == 0 {
 			prefix2 = "m"
 		}
-		return packindex.ContentID(fmt.Sprintf("%v%x", prefix2, h.Sum(nil)))
+		return string(fmt.Sprintf("%v%x", prefix2, h.Sum(nil)))
 	}
 	deterministicPackBlockID := func(id int) packindex.PhysicalBlockID {
 		h := sha1.New()
@@ -95,7 +95,7 @@ func TestPackIndex(t *testing.T) {
 		})
 	}
 
-	infoMap := map[packindex.ContentID]packindex.Info{}
+	infoMap := map[string]packindex.Info{}
 
 	for _, info := range infos {
 		infoMap[info.BlockID] = info
@@ -151,7 +151,7 @@ func TestPackIndex(t *testing.T) {
 
 	for _, prefix := range prefixes {
 		cnt2 := 0
-		ndx.Iterate(packindex.ContentID(prefix), func(info2 packindex.Info) error {
+		ndx.Iterate(string(prefix), func(info2 packindex.Info) error {
 			cnt2++
 			if !strings.HasPrefix(string(info2.BlockID), string(prefix)) {
 				t.Errorf("unexpected item %v when iterating prefix %v", info2.BlockID, prefix)

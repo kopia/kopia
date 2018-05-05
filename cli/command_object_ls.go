@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/repo"
 )
 
@@ -14,7 +13,7 @@ var (
 )
 
 func runListObjectsAction(ctx context.Context, rep *repo.Repository) error {
-	info, err := rep.Blocks.ListBlocks(block.ContentID(*objectListPrefix))
+	info, err := rep.Blocks.ListBlocks(*objectListPrefix)
 	if err != nil {
 		return err
 	}

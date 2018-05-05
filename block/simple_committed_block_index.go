@@ -23,7 +23,7 @@ type simpleCommittedBlockIndex struct {
 	merged       packindex.Merged
 }
 
-func (b *simpleCommittedBlockIndex) getBlock(blockID ContentID) (Info, error) {
+func (b *simpleCommittedBlockIndex) getBlock(blockID string) (Info, error) {
 	info, err := b.merged.GetInfo(blockID)
 	if info != nil {
 		return *info, nil
@@ -89,7 +89,7 @@ func (b *simpleCommittedBlockIndex) load(indexBlockID PhysicalBlockID, data []by
 	return 0, nil
 }
 
-func (b *simpleCommittedBlockIndex) listBlocks(prefix ContentID, cb func(i Info) error) error {
+func (b *simpleCommittedBlockIndex) listBlocks(prefix string, cb func(i Info) error) error {
 	return b.merged.Iterate(prefix, cb)
 }
 

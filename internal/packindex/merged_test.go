@@ -44,13 +44,13 @@ func TestMerged(t *testing.T) {
 		t.Errorf("invalid pack offset %v, wanted %v", got, want)
 	}
 
-	var inOrder []packindex.ContentID
+	var inOrder []string
 	m.Iterate("", func(i packindex.Info) error {
 		inOrder = append(inOrder, i.BlockID)
 		return nil
 	})
 
-	expectedInOrder := []packindex.ContentID{
+	expectedInOrder := []string{
 		"aabbcc",
 		"ddeeff",
 		"k010203",

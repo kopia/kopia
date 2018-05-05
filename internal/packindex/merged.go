@@ -29,7 +29,7 @@ func (m Merged) EntryCount() int {
 }
 
 // GetInfo returns information about a single block. If a block is not found, returns (nil,nil)
-func (m Merged) GetInfo(contentID ContentID) (*Info, error) {
+func (m Merged) GetInfo(contentID string) (*Info, error) {
 	var best *Info
 
 	for _, ndx := range m {
@@ -67,7 +67,7 @@ func (h *nextInfoHeap) Pop() interface{} {
 	return x
 }
 
-func iterateChan(prefix ContentID, ndx Index, done chan bool) <-chan Info {
+func iterateChan(prefix string, ndx Index, done chan bool) <-chan Info {
 	ch := make(chan Info)
 	go func() {
 		defer close(ch)
@@ -86,7 +86,7 @@ func iterateChan(prefix ContentID, ndx Index, done chan bool) <-chan Info {
 
 // Iterate invokes the provided callback for all unique block IDs in the underlying sources until either
 // all blocks have been visited or until an error is returned by the callback.
-func (m Merged) Iterate(prefix ContentID, cb func(i Info) error) error {
+func (m Merged) Iterate(prefix string, cb func(i Info) error) error {
 	var minHeap nextInfoHeap
 	done := make(chan bool)
 	defer close(done)

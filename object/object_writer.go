@@ -7,7 +7,6 @@ import (
 	"io"
 	"sync"
 
-	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/jsonstream"
 )
 
@@ -21,24 +20,24 @@ type Writer interface {
 
 type blockTracker struct {
 	mu     sync.Mutex
-	blocks map[block.ContentID]bool
+	blocks map[string]bool
 }
 
-func (t *blockTracker) addBlock(blockID block.ContentID) {
+func (t *blockTracker) addBlock(blockID string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
 	if t.blocks == nil {
-		t.blocks = make(map[block.ContentID]bool)
+		t.blocks = make(map[string]bool)
 	}
 	t.blocks[blockID] = true
 }
 
-func (t *blockTracker) blockIDs() []block.ContentID {
+func (t *blockTracker) blockIDs() []string {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	result := make([]block.ContentID, 0, len(t.blocks))
+	result := make([]string, 0, len(t.blocks))
 	for k := range t.blocks {
 		result = append(result, k)
 	}

@@ -28,7 +28,7 @@ type Manager struct {
 	mu             sync.Mutex
 	b              *block.Manager
 	entries        map[string]*manifestEntry
-	blockIDs       []block.ContentID
+	blockIDs       []string
 	pendingEntries []*manifestEntry
 }
 
@@ -165,7 +165,7 @@ func (m *Manager) Flush(ctx context.Context) error {
 	return nil
 }
 
-func (m *Manager) flushPendingEntriesLocked(ctx context.Context) (block.ContentID, error) {
+func (m *Manager) flushPendingEntriesLocked(ctx context.Context) (string, error) {
 	if len(m.pendingEntries) == 0 {
 		return "", nil
 	}
@@ -279,7 +279,7 @@ func (m *Manager) loadManifestBlocks(ctx context.Context, blocks []block.Info) e
 func (m *Manager) loadBlocksInParallel(ctx context.Context, blocks []block.Info) ([]manifest, error) {
 	errors := make(chan error, len(blocks))
 	manifests := make(chan manifest, len(blocks))
-	blockIDs := make(chan block.ContentID, len(blocks))
+	blockIDs := make(chan string, len(blocks))
 	var wg sync.WaitGroup
 
 	for i := 0; i < 8; i++ {
@@ -290,7 +290,7 @@ func (m *Manager) loadBlocksInParallel(ctx context.Context, blocks []block.Info)
 			for blk := range blockIDs {
 				t1 := time.Now()
 				man, err := m.loadManifestBlock(ctx, blk)
-				log.Debug().Dur("duration", time.Since(t1)).Str("blk", string(blk)).Int("worker", workerID).Err(err).Msg("manifest block loaded")
+				log.Debug().Dur("duration", time.Since(t1)).Str("blk", blk).Int("worker", workerID).Err(err).Msg("manifest block loaded")
 				if err != nil {
 					errors <- err
 				} else {
@@ -324,7 +324,7 @@ func (m *Manager) loadBlocksInParallel(ctx context.Context, blocks []block.Info)
 	return man, nil
 }
 
-func (m *Manager) loadManifestBlock(ctx context.Context, blockID block.ContentID) (manifest, error) {
+func (m *Manager) loadManifestBlock(ctx context.Context, blockID string) (manifest, error) {
 	man := manifest{}
 	blk, err := m.b.GetBlock(ctx, blockID)
 	if err != nil {
@@ -388,7 +388,7 @@ func (m *Manager) compactLocked(ctx context.Context) error {
 	}
 
 	// all previous blocks were deleted, now we have a new block
-	m.blockIDs = []block.ContentID{blockID}
+	m.blockIDs = []string{blockID}
 	return nil
 }
 

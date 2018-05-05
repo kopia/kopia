@@ -24,10 +24,10 @@ import (
 
 type fakeBlockManager struct {
 	mu   sync.Mutex
-	data map[block.ContentID][]byte
+	data map[string][]byte
 }
 
-func (f *fakeBlockManager) GetBlock(ctx context.Context, blockID block.ContentID) ([]byte, error) {
+func (f *fakeBlockManager) GetBlock(ctx context.Context, blockID string) ([]byte, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -38,10 +38,10 @@ func (f *fakeBlockManager) GetBlock(ctx context.Context, blockID block.ContentID
 	return nil, storage.ErrBlockNotFound
 }
 
-func (f *fakeBlockManager) WriteBlock(ctx context.Context, data []byte, prefix block.ContentID) (block.ContentID, error) {
+func (f *fakeBlockManager) WriteBlock(ctx context.Context, data []byte, prefix string) (string, error) {
 	h := md5.New()
 	h.Write(data)
-	blockID := prefix + block.ContentID(hex.EncodeToString(h.Sum(nil)))
+	blockID := prefix + string(hex.EncodeToString(h.Sum(nil)))
 
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -50,7 +50,7 @@ func (f *fakeBlockManager) WriteBlock(ctx context.Context, data []byte, prefix b
 	return blockID, nil
 }
 
-func (f *fakeBlockManager) BlockInfo(ctx context.Context, blockID block.ContentID) (block.Info, error) {
+func (f *fakeBlockManager) BlockInfo(ctx context.Context, blockID string) (block.Info, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -65,11 +65,11 @@ func (f *fakeBlockManager) Flush(ctx context.Context) error {
 	return nil
 }
 
-func setupTest(t *testing.T) (map[block.ContentID][]byte, *Manager) {
-	return setupTestWithData(t, map[block.ContentID][]byte{}, ManagerOptions{})
+func setupTest(t *testing.T) (map[string][]byte, *Manager) {
+	return setupTestWithData(t, map[string][]byte{}, ManagerOptions{})
 }
 
-func setupTestWithData(t *testing.T, data map[block.ContentID][]byte, opts ManagerOptions) (map[block.ContentID][]byte, *Manager) {
+func setupTestWithData(t *testing.T, data map[string][]byte, opts ManagerOptions) (map[string][]byte, *Manager) {
 	r, err := NewObjectManager(context.Background(), &fakeBlockManager{data: data}, config.RepositoryObjectFormat{
 		FormattingOptions: block.FormattingOptions{
 			Version: 1,

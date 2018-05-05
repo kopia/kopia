@@ -11,11 +11,11 @@ import (
 
 type inMemoryCommittedBlockIndex struct {
 	mu             sync.Mutex
-	blocks         map[ContentID]Info
+	blocks         map[string]Info
 	physicalBlocks map[PhysicalBlockID]bool
 }
 
-func (b *inMemoryCommittedBlockIndex) getBlock(blockID ContentID) (Info, error) {
+func (b *inMemoryCommittedBlockIndex) getBlock(blockID string) (Info, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -66,7 +66,7 @@ func (b *inMemoryCommittedBlockIndex) load(indexBlockID PhysicalBlockID, data []
 	return updated, nil
 }
 
-func (b *inMemoryCommittedBlockIndex) listBlocks(prefix ContentID, cb func(i Info) error) error {
+func (b *inMemoryCommittedBlockIndex) listBlocks(prefix string, cb func(i Info) error) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 

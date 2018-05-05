@@ -72,7 +72,7 @@ func stressWorker(ctx context.Context, t *testing.T, workerID int, openMgr func(
 	}
 
 	type writtenBlock struct {
-		contentID block.ContentID
+		contentID string
 		data      []byte
 	}
 

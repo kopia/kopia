@@ -5,13 +5,12 @@ import (
 	"time"
 )
 
-type ContentID string
-
+// PhysicalBlockID is the name of a physical block in storage.
 type PhysicalBlockID string
 
 // Info is an information about a single block managed by Manager.
 type Info struct {
-	BlockID          ContentID       `json:"blockID"`
+	BlockID          string          `json:"blockID"`
 	Length           uint32          `json:"length"`
 	TimestampSeconds int64           `json:"time"`
 	PackBlockID      PhysicalBlockID `json:"packBlockID,omitempty"`

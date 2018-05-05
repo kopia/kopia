@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 
-	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/repo"
 )
 
@@ -15,7 +14,7 @@ var (
 
 func runRemoveBlockCommand(ctx context.Context, rep *repo.Repository) error {
 	for _, blockID := range *removeBlockIDs {
-		if err := removeBlock(rep, block.ContentID(blockID)); err != nil {
+		if err := removeBlock(rep, blockID); err != nil {
 			return err
 		}
 	}
@@ -23,7 +22,7 @@ func runRemoveBlockCommand(ctx context.Context, rep *repo.Repository) error {
 	return nil
 }
 
-func removeBlock(r *repo.Repository, blockID block.ContentID) error {
+func removeBlock(r *repo.Repository, blockID string) error {
 	return r.Blocks.DeleteBlock(blockID)
 }
 

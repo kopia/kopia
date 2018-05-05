@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 
 	"fmt"
-
-	"github.com/kopia/kopia/block"
 )
 
 // ID is an identifier of a repository object. Repository objects can be stored:
@@ -14,7 +12,7 @@ import (
 // 2. In a series of content blocks with an indirect block pointing at them (multiple indirections are allowed). This is used for larger files.
 //
 type ID struct {
-	ContentBlockID block.ContentID
+	ContentBlockID string
 	Indirect       *ID
 }
 
@@ -53,7 +51,7 @@ func (oid ID) String() string {
 	}
 
 	if oid.ContentBlockID != "" {
-		return "D" + string(oid.ContentBlockID)
+		return "D" + oid.ContentBlockID
 	}
 
 	return "B"
@@ -98,7 +96,7 @@ func ParseID(s string) (ID, error) {
 				return ID{Indirect: &base}, nil
 			}
 
-			return ID{ContentBlockID: block.ContentID(content)}, nil
+			return ID{ContentBlockID: content}, nil
 		}
 	}
 
