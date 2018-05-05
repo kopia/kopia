@@ -25,6 +25,7 @@ func (s *mapStorage) GetBlock(ctx context.Context, id string, offset, length int
 
 	data, ok := s.data[id]
 	if ok {
+		data = append([]byte(nil), data...)
 		if length < 0 {
 			return data, nil
 		}
