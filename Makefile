@@ -74,14 +74,17 @@ dev-deps:
 	gometalinter --install
 
 test: install
-	go test -timeout 90s github.com/kopia/kopia/...
+	go test -count=1 -timeout 90s github.com/kopia/kopia/...
 
 vtest:
-	go test -v -timeout 90s github.com/kopia/kopia/...
+	go test -count=1 -v -timeout 90s github.com/kopia/kopia/...
 
 integration-tests:
 	go build -o $(RELEASE_TMP_DIR)/integration/kopia -ldflags $(LDARGS) github.com/kopia/kopia
-	KOPIA_EXE=$(RELEASE_TMP_DIR)/integration/kopia go test -timeout 90s -v github.com/kopia/kopia/tests/...
+	KOPIA_EXE=$(RELEASE_TMP_DIR)/integration/kopia go test -timeout 90s -v github.com/kopia/kopia/tests/end_to_end_test
+
+stress-test:
+	KOPIA_LONG_STRESS_TEST=1 go test -timeout 200s github.com/kopia/kopia/tests/stress_test
 
 godoc:
 	godoc -http=:33333

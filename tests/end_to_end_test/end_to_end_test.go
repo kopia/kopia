@@ -82,7 +82,7 @@ func (e *testenv) cleanup() {
 	}
 }
 
-func TestRepo(t *testing.T) {
+func TestEndToEnd(t *testing.T) {
 	e := newTestEnv(t)
 	defer e.cleanup()
 	defer e.runAndExpectSuccess(t, "repo", "disconnect")

@@ -1,0 +1,137 @@
+package stress_test
+
+import (
+	"context"
+	"fmt"
+	"math/rand"
+	"os"
+	"reflect"
+	"testing"
+	"time"
+
+	"github.com/rs/zerolog"
+
+	"github.com/kopia/kopia/block"
+	"github.com/kopia/kopia/internal/storagetesting"
+	"github.com/kopia/kopia/storage"
+)
+
+const goroutineCount = 8
+
+func TestStressBlockManager(t *testing.T) {
+	data := map[string][]byte{}
+	keyTimes := map[string]time.Time{}
+	memst := storagetesting.NewMapStorage(data, keyTimes, time.Now)
+	zerolog.SetGlobalLevel(zerolog.DebugLevel)
+
+	var duration = 3 * time.Second
+	if os.Getenv("KOPIA_LONG_STRESS_TEST") != "" {
+		duration = 3 * time.Minute
+	}
+
+	stressTestWithStorage(t, memst, duration)
+}
+
+func stressTestWithStorage(t *testing.T, st storage.Storage, duration time.Duration) {
+	ctx := context.Background()
+
+	openMgr := func() (*block.Manager, error) {
+		return block.NewManager(ctx, st, block.FormattingOptions{
+			Version:     1,
+			BlockFormat: "ENCRYPTED_HMAC_SHA256_AES256_SIV",
+			MaxPackSize: 20000000,
+			MasterKey:   []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
+		}, block.CachingOptions{})
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, duration)
+	defer cancel()
+
+	seed0 := time.Now().Nanosecond()
+
+	t.Logf("running with seed %v", seed0)
+
+	t.Run("workers", func(t *testing.T) {
+		for i := 0; i < goroutineCount; i++ {
+			i := i
+			t.Run(fmt.Sprintf("worker-%v", i), func(t *testing.T) {
+				t.Parallel()
+				stressWorker(ctx, t, i, openMgr, int64(seed0+i))
+			})
+		}
+	})
+}
+
+func stressWorker(ctx context.Context, t *testing.T, workerID int, openMgr func() (*block.Manager, error), seed int64) {
+	src := rand.NewSource(seed)
+	rand := rand.New(src)
+
+	bm, err := openMgr()
+	if err != nil {
+		t.Errorf("error opening manager: %v", err)
+	}
+
+	type writtenBlock struct {
+		contentID block.ContentID
+		data      []byte
+	}
+
+	var workerBlocks []writtenBlock
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+
+		l := rand.Intn(30000)
+		data := make([]byte, l)
+		if _, err := rand.Read(data); err != nil {
+			t.Errorf("err: %v", err)
+			return
+		}
+		dataCopy := append([]byte{}, data...)
+		contentID, err := bm.WriteBlock(ctx, data, "")
+		if err != nil {
+			t.Errorf("err: %v", err)
+			return
+		}
+
+		switch rand.Intn(20) {
+		case 0:
+			if err := bm.Flush(ctx); err != nil {
+				t.Errorf("flush error: %v", err)
+				return
+			}
+		case 1:
+			if err := bm.Flush(ctx); err != nil {
+				t.Errorf("flush error: %v", err)
+				return
+			}
+			bm, err = openMgr()
+			if err != nil {
+				t.Errorf("error opening: %v", err)
+				return
+			}
+		}
+
+		//log.Printf("wrote %v", contentID)
+		workerBlocks = append(workerBlocks, writtenBlock{contentID, dataCopy})
+		if len(workerBlocks) > 5 {
+			pos := rand.Intn(len(workerBlocks))
+			previous := workerBlocks[pos]
+			//log.Printf("reading %v", previous.contentID)
+			d2, err := bm.GetBlock(ctx, previous.contentID)
+			if err != nil {
+				t.Errorf("error verifying block %q: %v", previous.contentID, err)
+				return
+			}
+			if !reflect.DeepEqual(previous.data, d2) {
+				t.Errorf("invalid previous data for %q %x %x", previous.contentID, d2, previous.data)
+				return
+			}
+			workerBlocks = append(workerBlocks[0:pos], workerBlocks[pos+1:]...)
+		}
+	}
+}
