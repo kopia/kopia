@@ -504,8 +504,34 @@ func (bm *Manager) CompactIndexes(ctx context.Context) error {
 	return bm.fetchCommittedIndexAndMaybeCompact(ctx, 1)
 }
 
-// ListBlocks returns the metadata about blocks with a given prefix and kind.
-func (bm *Manager) ListBlocks(prefix string) ([]Info, error) {
+// ListBlocks returns IDs of blocks matching given prefix.
+func (bm *Manager) ListBlocks(prefix string) ([]string, error) {
+	bm.lock()
+	defer bm.unlock()
+
+	var result []string
+
+	appendToResult := func(i Info) error {
+		if i.Deleted || !strings.HasPrefix(i.BlockID, prefix) {
+			return nil
+		}
+		if bi, ok := bm.packIndexBuilder[i.BlockID]; ok && bi.Deleted {
+			return nil
+		}
+		result = append(result, i.BlockID)
+		return nil
+	}
+
+	for _, bi := range bm.packIndexBuilder {
+		_ = appendToResult(*bi)
+	}
+
+	_ = bm.committedBlocks.listBlocks(prefix, appendToResult)
+	return result, nil
+}
+
+// ListBlockInfos returns the metadata about blocks with a given prefix and kind.
+func (bm *Manager) ListBlockInfos(prefix string) ([]Info, error) {
 	bm.lock()
 	defer bm.unlock()
 

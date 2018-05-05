@@ -246,16 +246,14 @@ func (m *Manager) load(ctx context.Context) error {
 	return nil
 }
 
-func (m *Manager) loadManifestBlocks(ctx context.Context, blocks []block.Info) error {
+func (m *Manager) loadManifestBlocks(ctx context.Context, blockIDs []string) error {
 	t0 := time.Now()
 
 	log.Debug().Dur("duration_ms", time.Since(t0)).Msgf("finished loading manifest blocks.")
 
-	for _, b := range blocks {
-		m.blockIDs = append(m.blockIDs, b.BlockID)
-	}
+	m.blockIDs = append(m.blockIDs, blockIDs...)
 
-	manifests, err := m.loadBlocksInParallel(ctx, blocks)
+	manifests, err := m.loadBlocksInParallel(ctx, blockIDs)
 	if err != nil {
 		return err
 	}
@@ -276,10 +274,10 @@ func (m *Manager) loadManifestBlocks(ctx context.Context, blocks []block.Info) e
 	return nil
 }
 
-func (m *Manager) loadBlocksInParallel(ctx context.Context, blocks []block.Info) ([]manifest, error) {
-	errors := make(chan error, len(blocks))
-	manifests := make(chan manifest, len(blocks))
-	blockIDs := make(chan string, len(blocks))
+func (m *Manager) loadBlocksInParallel(ctx context.Context, blockIDs []string) ([]manifest, error) {
+	errors := make(chan error, len(blockIDs))
+	manifests := make(chan manifest, len(blockIDs))
+	ch := make(chan string, len(blockIDs))
 	var wg sync.WaitGroup
 
 	for i := 0; i < 8; i++ {
@@ -287,7 +285,7 @@ func (m *Manager) loadBlocksInParallel(ctx context.Context, blocks []block.Info)
 		go func(workerID int) {
 			defer wg.Done()
 
-			for blk := range blockIDs {
+			for blk := range ch {
 				t1 := time.Now()
 				man, err := m.loadManifestBlock(ctx, blk)
 				log.Debug().Dur("duration", time.Since(t1)).Str("blk", blk).Int("worker", workerID).Err(err).Msg("manifest block loaded")
@@ -301,10 +299,10 @@ func (m *Manager) loadBlocksInParallel(ctx context.Context, blocks []block.Info)
 	}
 
 	// feed block IDs for goroutines
-	for _, b := range blocks {
-		blockIDs <- b.BlockID
+	for _, b := range blockIDs {
+		ch <- b
 	}
-	close(blockIDs)
+	close(ch)
 
 	// wait for workers to complete
 	wg.Wait()

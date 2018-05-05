@@ -45,6 +45,6 @@ func main() {
 	}
 
 	for _, b := range blks {
-		log.Printf("found block: %v with length %v", b.BlockID, b.Length)
+		log.Printf("found block %v", b)
 	}
 }
