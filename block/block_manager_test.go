@@ -218,7 +218,8 @@ func TestBlockManagerWriteMultiple(t *testing.T) {
 	ctx := context.Background()
 	data := map[string][]byte{}
 	keyTime := map[string]time.Time{}
-	bm := newTestBlockManager(data, keyTime, nil)
+	timeFunc := fakeTimeNowWithAutoAdvance(fakeTime, 1*time.Second)
+	bm := newTestBlockManager(data, keyTime, timeFunc)
 
 	var blockIDs []string
 
@@ -233,7 +234,7 @@ func TestBlockManagerWriteMultiple(t *testing.T) {
 		blockIDs = append(blockIDs, blkID)
 
 		if i%17 == 0 {
-			t.Logf("flushing %v", i)
+			//t.Logf("flushing %v", i)
 			if err := bm.Flush(ctx); err != nil {
 				t.Fatalf("error flushing: %v", err)
 			}
@@ -241,24 +242,20 @@ func TestBlockManagerWriteMultiple(t *testing.T) {
 		}
 
 		if i%41 == 0 {
-			t.Logf("opening new manager: %v", i)
+			//t.Logf("opening new manager: %v", i)
 			if err := bm.Flush(ctx); err != nil {
 				t.Fatalf("error flushing: %v", err)
 			}
-			t.Logf("data block count: %v", len(data))
+			//t.Logf("data block count: %v", len(data))
 			//dumpBlockManagerData(t, data)
-			bm = newTestBlockManager(data, keyTime, nil)
+			bm = newTestBlockManager(data, keyTime, timeFunc)
 		}
 
-		if i%9 == 0 {
-			for _, blockID := range blockIDs {
-				_, err := bm.GetBlock(ctx, blockID)
-				if err != nil {
-					dumpBlockManagerData(t, data)
-					t.Fatalf("can't read block %q: %v", blockID, err)
-					continue
-				}
-			}
+		pos := rand.Intn(len(blockIDs))
+		if _, err := bm.GetBlock(ctx, blockIDs[pos]); err != nil {
+			dumpBlockManagerData(t, data)
+			t.Fatalf("can't read block %q: %v", blockIDs[pos], err)
+			continue
 		}
 	}
 }
@@ -502,11 +499,11 @@ func verifyBlockManagerDataSet(ctx context.Context, t *testing.T, mgr *Manager, 
 }
 
 func newTestBlockManager(data map[string][]byte, keyTime map[string]time.Time, timeFunc func() time.Time) *Manager {
-	st := storagetesting.NewMapStorage(data, keyTime, timeFunc)
 	//st = logging.NewWrapper(st)
 	if timeFunc == nil {
 		timeFunc = fakeTimeNowWithAutoAdvance(fakeTime, 1*time.Second)
 	}
+	st := storagetesting.NewMapStorage(data, keyTime, timeFunc)
 	bm, err := newManagerWithOptions(context.Background(), st, FormattingOptions{
 		BlockFormat: "TESTONLY_MD5",
 		MaxPackSize: maxPackSize,

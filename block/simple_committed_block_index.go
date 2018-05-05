@@ -38,55 +38,27 @@ func (b *simpleCommittedBlockIndex) hasIndexBlockID(indexBlockID PhysicalBlockID
 	return b.indexBlocks[indexBlockID], nil
 }
 
-func (b *simpleCommittedBlockIndex) commit(indexBlockID PhysicalBlockID, builder packindex.Builder) error {
-	fullPath := filepath.Join(b.dirname, string(indexBlockID+simpleIndexSuffix))
-
-	w, ferr := os.Create(fullPath)
-	if ferr != nil {
-		return ferr
-	}
-
-	if err := builder.Build(w); err != nil {
-		w.Close() //nolint:errcheck
-		return fmt.Errorf("unable to build pack: %v", err)
-	}
-
-	if err := w.Close(); err != nil {
-		return fmt.Errorf("close error: %v", err)
-	}
-
-	var ndx packindex.Index
-	var err error
-	if ndx, err = b.openIndex(fullPath); err != nil {
-		return fmt.Errorf("unable to open pack: %v", err)
-	}
-
-	b.indexesMutex.Lock()
-	b.indexBlocks[indexBlockID] = true
-	b.merged = append(b.merged, ndx)
-	b.indexesMutex.Unlock()
-
-	return nil
-}
-
-func (b *simpleCommittedBlockIndex) load(indexBlockID PhysicalBlockID, data []byte) (int, error) {
+func (b *simpleCommittedBlockIndex) addBlock(indexBlockID PhysicalBlockID, data []byte) error {
 	fullPath := filepath.Join(b.dirname, string(indexBlockID+simpleIndexSuffix))
 
 	if err := ioutil.WriteFile(fullPath, data, 0600); err != nil {
-		return 0, err
-	}
-
-	ndx, err := b.openIndex(fullPath)
-	if err != nil {
-		return 0, fmt.Errorf("unable to open pack index %q: %v", fullPath, err)
+		return err
 	}
 
 	b.indexesMutex.Lock()
-	b.indexBlocks[indexBlockID] = true
-	b.merged = append(b.merged, ndx)
-	b.indexesMutex.Unlock()
+	defer b.indexesMutex.Unlock()
 
-	return 0, nil
+	if !b.indexBlocks[indexBlockID] {
+		ndx, err := b.openIndex(fullPath)
+		if err != nil {
+			return fmt.Errorf("unable to open pack index %q: %v", fullPath, err)
+		}
+
+		b.indexBlocks[indexBlockID] = true
+		b.merged = append(b.merged, ndx)
+	}
+
+	return nil
 }
 
 func (b *simpleCommittedBlockIndex) listBlocks(prefix string, cb func(i Info) error) error {

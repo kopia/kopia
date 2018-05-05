@@ -5,13 +5,12 @@ import (
 	"sync"
 
 	"github.com/kopia/kopia/internal/packindex"
-
 	"github.com/kopia/kopia/storage"
 )
 
 type inMemoryCommittedBlockIndex struct {
 	mu             sync.Mutex
-	blocks         map[string]Info
+	indexes        packindex.Merged
 	physicalBlocks map[PhysicalBlockID]bool
 }
 
@@ -19,64 +18,41 @@ func (b *inMemoryCommittedBlockIndex) getBlock(blockID string) (Info, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	i, ok := b.blocks[blockID]
-	if !ok {
+	i, err := b.indexes.GetInfo(blockID)
+	if err != nil {
+		return Info{}, err
+	}
+
+	if i == nil {
 		return Info{}, storage.ErrBlockNotFound
 	}
-	return i, nil
+
+	return *i, nil
+
 }
 
-func (b *inMemoryCommittedBlockIndex) commit(indexBlockID PhysicalBlockID, infos packindex.Builder) error {
+func (b *inMemoryCommittedBlockIndex) addBlock(indexBlockID PhysicalBlockID, data []byte) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-
-	for k, i := range infos {
-		b.blocks[k] = *i
-	}
-
-	return nil
-}
-
-func (b *inMemoryCommittedBlockIndex) load(indexBlockID PhysicalBlockID, data []byte) (int, error) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
-	if b.physicalBlocks[indexBlockID] {
-		return 0, nil
-	}
 
 	ndx, err := packindex.Open(bytes.NewReader(data))
 	if err != nil {
-		return 0, err
+		return err
 	}
-	defer ndx.Close() //nolint:errcheck
 
-	var updated int
-	_ = ndx.Iterate("", func(i Info) error {
-		old, ok := b.blocks[i.BlockID]
-		if !ok || old.TimestampSeconds < i.TimestampSeconds {
-			b.blocks[i.BlockID] = i
-			updated++
-		}
-		return nil
-	})
+	if !b.physicalBlocks[indexBlockID] {
+		b.physicalBlocks[indexBlockID] = true
+		b.indexes = append(b.indexes, ndx)
+	}
 
-	b.physicalBlocks[indexBlockID] = true
-
-	return updated, nil
+	return nil
 }
 
 func (b *inMemoryCommittedBlockIndex) listBlocks(prefix string, cb func(i Info) error) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	for _, v := range b.blocks {
-		if err := cb(v); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return b.indexes.Iterate(prefix, cb)
 }
 
 func (b *inMemoryCommittedBlockIndex) hasIndexBlockID(indexBlockID PhysicalBlockID) (bool, error) {

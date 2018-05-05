@@ -241,13 +241,16 @@ func (bm *Manager) flushPackIndexesLocked(ctx context.Context) error {
 			return fmt.Errorf("unable to build pack index: %v", err)
 		}
 
-		indexBlockID, err := bm.writePackIndexesNew(ctx, buf.Bytes(), false)
+		data := buf.Bytes()
+		dataCopy := append([]byte(nil), data...)
+
+		indexBlockID, err := bm.writePackIndexesNew(ctx, data, false)
 		if err != nil {
 			return err
 		}
 
-		if err := bm.committedBlocks.commit(indexBlockID, bm.packIndexBuilder); err != nil {
-			return fmt.Errorf("unable to commit: %v", err)
+		if err := bm.committedBlocks.addBlock(indexBlockID, dataCopy); err != nil {
+			return fmt.Errorf("unable to add committed block: %v", err)
 		}
 		bm.packIndexBuilder = packindex.NewBuilder()
 	}
@@ -262,7 +265,7 @@ func (bm *Manager) writePackIndexesNew(ctx context.Context, data []byte, isCompa
 		suffix = compactedBlockSuffix
 	}
 
-	inverseTimePrefix := fmt.Sprintf("%016x", math.MaxInt64-time.Now().UnixNano())
+	inverseTimePrefix := fmt.Sprintf("%016x", math.MaxInt64-bm.timeNow().UnixNano())
 	return bm.encryptAndWriteBlockNotLocked(ctx, data, newIndexBlockPrefix+inverseTimePrefix, suffix)
 }
 
@@ -384,6 +387,9 @@ func (bm *Manager) ActiveIndexBlocks(ctx context.Context) ([]IndexInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	// for i, b := range blocks {
+	// 	log.Printf("found block #%v %v %v %v", i, b.BlockID, b.Length, b.Timestamp)
+	// }
 	if len(blocks) == 0 {
 		return nil, nil
 	}
@@ -475,7 +481,7 @@ func indexBlockIDs(blocks []IndexInfo) []PhysicalBlockID {
 }
 
 func (bm *Manager) loadPackIndexes(indexBlockID PhysicalBlockID, data []byte) error {
-	if _, err := bm.committedBlocks.load(indexBlockID, data); err != nil {
+	if err := bm.committedBlocks.addBlock(indexBlockID, data); err != nil {
 		return fmt.Errorf("unable to add to committed block cache: %v", err)
 	}
 
@@ -562,6 +568,7 @@ func (bm *Manager) compactIndexes(ctx context.Context, indexBlocks []PhysicalBlo
 		log.Printf("skipping index compaction - already compacted")
 		return nil
 	}
+	t0 := time.Now()
 
 	bld := packindex.NewBuilder()
 	for _, indexBlock := range indexBlocks {
@@ -586,7 +593,7 @@ func (bm *Manager) compactIndexes(ctx context.Context, indexBlocks []PhysicalBlo
 		return fmt.Errorf("unable to build an index: %v", err)
 	}
 	compactedIndexBlock, err := bm.writePackIndexesNew(ctx, buf.Bytes(), true)
-	log.Info().Msgf("wrote compacted index to %v (%v bytes)", compactedIndexBlock, buf.Len())
+	log.Info().Msgf("wrote compacted index to %v (%v bytes) in %v", compactedIndexBlock, buf.Len(), time.Since(t0))
 	return err
 }
 
@@ -654,7 +661,7 @@ func (bm *Manager) writePackDataNotLocked(ctx context.Context, data []byte) (Phy
 		return "", fmt.Errorf("unable to read crypto bytes: %v", err)
 	}
 
-	physicalBlockID := PhysicalBlockID(fmt.Sprintf("%v-%x", time.Now().UTC().Format("20060102"), suffix))
+	physicalBlockID := PhysicalBlockID(fmt.Sprintf("%v-%x", bm.timeNow().UTC().Format("20060102"), suffix))
 
 	atomic.AddInt32(&bm.stats.WrittenBlocks, 1)
 	atomic.AddInt64(&bm.stats.WrittenBytes, int64(len(data)))
