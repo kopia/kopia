@@ -27,7 +27,6 @@ type blockManager interface {
 	BlockInfo(ctx context.Context, blockID string) (block.Info, error)
 	GetBlock(ctx context.Context, blockID string) ([]byte, error)
 	WriteBlock(ctx context.Context, data []byte, prefix string) (string, error)
-	Flush(ctx context.Context) error
 }
 
 // Manager implements a content-addressable storage on top of blob storage.
@@ -155,20 +154,6 @@ func (om *Manager) verifyObjectInternal(ctx context.Context, oid ID, blocks *blo
 		return 0, err
 	}
 	blocks.addBlock(oid.ContentBlockID)
-
-	if p.PackBlockID != "" {
-		l, err := om.verifyObjectInternal(ctx, ID{ContentBlockID: string(p.PackBlockID)}, blocks)
-		if err != nil {
-			return 0, err
-		}
-
-		if int64(p.PackOffset+p.Length) <= l {
-			return int64(p.Length), nil
-		}
-
-		return 0, fmt.Errorf("packed object %v does not fit within its parent pack %v (pack length %v)", oid, p, l)
-	}
-
 	return int64(p.Length), nil
 }
 
