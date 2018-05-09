@@ -4,7 +4,7 @@ go:
 os:
 - linux
 install: make travis-setup
-script: make all travis-release
+script: make all travis-release stress-test
 deploy:
   provider: releases
   api_key:
