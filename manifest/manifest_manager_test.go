@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/storagetesting"
@@ -83,6 +84,7 @@ func TestManifest(t *testing.T) {
 	}
 
 	// delete from one
+	time.Sleep(1 * time.Second)
 	mgr.Delete(id3)
 	verifyItemNotFound(t, mgr, id3)
 	mgr.Flush(ctx)
