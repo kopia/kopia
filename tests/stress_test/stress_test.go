@@ -44,25 +44,24 @@ func stressTestWithStorage(t *testing.T, st storage.Storage, duration time.Durat
 		}, block.CachingOptions{})
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, duration)
-	defer cancel()
-
 	seed0 := time.Now().Nanosecond()
 
 	t.Logf("running with seed %v", seed0)
+
+	deadline := time.Now().Add(duration)
 
 	t.Run("workers", func(t *testing.T) {
 		for i := 0; i < goroutineCount; i++ {
 			i := i
 			t.Run(fmt.Sprintf("worker-%v", i), func(t *testing.T) {
 				t.Parallel()
-				stressWorker(ctx, t, i, openMgr, int64(seed0+i))
+				stressWorker(ctx, t, deadline, i, openMgr, int64(seed0+i))
 			})
 		}
 	})
 }
 
-func stressWorker(ctx context.Context, t *testing.T, workerID int, openMgr func() (*block.Manager, error), seed int64) {
+func stressWorker(ctx context.Context, t *testing.T, deadline time.Time, workerID int, openMgr func() (*block.Manager, error), seed int64) {
 	src := rand.NewSource(seed)
 	rand := rand.New(src)
 
@@ -78,13 +77,7 @@ func stressWorker(ctx context.Context, t *testing.T, workerID int, openMgr func(
 
 	var workerBlocks []writtenBlock
 
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-
+	for time.Now().Before(deadline) {
 		l := rand.Intn(30000)
 		data := make([]byte, l)
 		if _, err := rand.Read(data); err != nil {
