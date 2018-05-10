@@ -63,9 +63,9 @@ func TestWriters(t *testing.T) {
 	}{
 		{
 			[]byte("the quick brown fox jumps over the lazy dog"),
-			object.ID{ContentBlockID: "77add1d5f41223d5582fca736a5cb335"},
+			"D77add1d5f41223d5582fca736a5cb335",
 		},
-		{make([]byte, 100), object.ID{ContentBlockID: "6d0bb00954ceb7fbee436bb55a8397a9"}}, // 100 zero bytes
+		{make([]byte, 100), "D6d0bb00954ceb7fbee436bb55a8397a9"}, // 100 zero bytes
 	}
 
 	ctx := context.Background()
@@ -128,7 +128,7 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	writer.Write(bytes[0:50])
 	writer.Write(bytes[0:50])
 	result, err := writer.Result()
-	if !objectIDsEqual(result, object.ID{ContentBlockID: "6d0bb00954ceb7fbee436bb55a8397a9"}) {
+	if result != "D6d0bb00954ceb7fbee436bb55a8397a9" {
 		t.Errorf("unexpected result: %v err: %v", result, err)
 	}
 }
@@ -249,7 +249,7 @@ func TestReaderStoredBlockNotFound(t *testing.T) {
 	_, _, repo := setupTest(t)
 	ctx := context.Background()
 
-	objectID, err := object.ParseID("Dno-such-block")
+	objectID, err := object.ParseID("Ddeadbeef")
 	if err != nil {
 		t.Errorf("cannot parse object ID: %v", err)
 	}
@@ -349,26 +349,20 @@ func TestFormats(t *testing.T) {
 				n.noHMAC = true
 			},
 			oids: map[string]object.ID{
-				"": object.ID{ContentBlockID: "d41d8cd98f00b204e9800998ecf8427e"},
-				"The quick brown fox jumps over the lazy dog": object.ID{
-					ContentBlockID: "9e107d9d372bb6826bd81d3542a419d6",
-				},
+				"": "Dd41d8cd98f00b204e9800998ecf8427e",
+				"The quick brown fox jumps over the lazy dog": "D9e107d9d372bb6826bd81d3542a419d6",
 			},
 		},
 		{
 			format: makeFormat("UNENCRYPTED_HMAC_SHA256"),
 			oids: map[string]object.ID{
-				"The quick brown fox jumps over the lazy dog": object.ID{
-					ContentBlockID: "f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8",
-				},
+				"The quick brown fox jumps over the lazy dog": "Df7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8",
 			},
 		},
 		{
 			format: makeFormat("UNENCRYPTED_HMAC_SHA256_128"),
 			oids: map[string]object.ID{
-				"The quick brown fox jumps over the lazy dog": object.ID{
-					ContentBlockID: "f7bc83f430538424b13298e6aa6fb143",
-				},
+				"The quick brown fox jumps over the lazy dog": "Df7bc83f430538424b13298e6aa6fb143",
 			},
 		},
 	}

@@ -226,7 +226,7 @@ func newDirEntry(md *fs.EntryMetadata, oid object.ID) *dir.Entry {
 func (u *Uploader) uploadFile(ctx context.Context, file fs.File) (object.ID, error) {
 	res := u.uploadFileInternal(ctx, file, file.Metadata().Name)
 	if res.err != nil {
-		return object.NullID, res.err
+		return "", res.err
 	}
 	return res.de.ObjectID, nil
 }
@@ -243,19 +243,19 @@ func (u *Uploader) uploadDir(ctx context.Context, dir fs.Directory) (object.ID, 
 	oid, _, err := uploadDirInternal(ctx, u, dir, ".")
 	if u.IsCancelled() {
 		if err2 := u.cacheReader.CopyTo(u.cacheWriter); err != nil {
-			return object.NullID, object.NullID, err2
+			return "", "", err2
 		}
 	}
 	defer u.cacheWriter.Finalize() //nolint:errcheck
 	u.cacheWriter = nil
 
 	if err != nil {
-		return object.NullID, object.NullID, err
+		return "", "", err
 	}
 
 	hcid, err := mw.Result()
 	if flushErr := u.repo.Objects.Flush(ctx); flushErr != nil {
-		return object.NullID, object.NullID, fmt.Errorf("can't flush pending objects: %v", flushErr)
+		return "", "", fmt.Errorf("can't flush pending objects: %v", flushErr)
 	}
 	return oid, hcid, err
 }
@@ -519,7 +519,7 @@ func uploadDirInternal(
 
 	entries, direrr := directory.Readdir(ctx)
 	if direrr != nil {
-		return object.NullID, dir.Summary{}, direrr
+		return "", dir.Summary{}, direrr
 	}
 
 	writer := u.repo.Objects.NewWriter(ctx, object.WriterOptions{
@@ -530,19 +530,19 @@ func uploadDirInternal(
 	defer writer.Close() //nolint:errcheck
 
 	if err := u.processSubdirectories(ctx, dirRelativePath, entries, dw, &summ); err != nil {
-		return object.NullID, dir.Summary{}, err
+		return "", dir.Summary{}, err
 	}
 	u.prepareProgress(dirRelativePath, entries)
 
 	workItems, workItemErr := u.prepareWorkItems(ctx, dirRelativePath, entries, &summ)
 	if workItemErr != nil {
-		return object.NullID, dir.Summary{}, workItemErr
+		return "", dir.Summary{}, workItemErr
 	}
 	if err := u.processUploadWorkItems(workItems, dw); err != nil {
-		return object.NullID, dir.Summary{}, err
+		return "", dir.Summary{}, err
 	}
 	if err := dw.Finalize(&summ); err != nil {
-		return object.NullID, dir.Summary{}, fmt.Errorf("unable to finalize directory: %v", err)
+		return "", dir.Summary{}, fmt.Errorf("unable to finalize directory: %v", err)
 	}
 
 	oid, err := writer.Result()

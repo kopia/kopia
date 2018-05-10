@@ -74,8 +74,8 @@ func (om *Manager) Open(ctx context.Context, objectID ID) (Reader, error) {
 	// Flush any pending writes.
 	om.writeBackWG.Wait()
 
-	if objectID.Indirect != nil {
-		rd, err := om.Open(ctx, *objectID.Indirect)
+	if indexObjectID, ok := objectID.IndexObjectID(); ok {
+		rd, err := om.Open(ctx, indexObjectID)
 		if err != nil {
 			return nil, err
 		}
@@ -114,11 +114,11 @@ func (om *Manager) VerifyObject(ctx context.Context, oid ID) (int64, []string, e
 	return l, blocks.blockIDs(), nil
 }
 
-func (om *Manager) verifyIndirectObjectInternal(ctx context.Context, oid ID, blocks *blockTracker) (int64, error) {
-	if _, err := om.verifyObjectInternal(ctx, *oid.Indirect, blocks); err != nil {
+func (om *Manager) verifyIndirectObjectInternal(ctx context.Context, indexObjectID ID, blocks *blockTracker) (int64, error) {
+	if _, err := om.verifyObjectInternal(ctx, indexObjectID, blocks); err != nil {
 		return 0, fmt.Errorf("unable to read index: %v", err)
 	}
-	rd, err := om.Open(ctx, *oid.Indirect)
+	rd, err := om.Open(ctx, indexObjectID)
 	if err != nil {
 		return 0, err
 	}
@@ -136,7 +136,7 @@ func (om *Manager) verifyIndirectObjectInternal(ctx context.Context, oid ID, blo
 		}
 
 		if l != m.Length {
-			return 0, fmt.Errorf("unexpected length of part %#v of indirect object %q: %v %v, expected %v", i, oid, m.Object, l, m.Length)
+			return 0, fmt.Errorf("unexpected length of part %#v of indirect object %q: %v %v, expected %v", i, indexObjectID, m.Object, l, m.Length)
 		}
 	}
 
@@ -145,16 +145,21 @@ func (om *Manager) verifyIndirectObjectInternal(ctx context.Context, oid ID, blo
 }
 
 func (om *Manager) verifyObjectInternal(ctx context.Context, oid ID, blocks *blockTracker) (int64, error) {
-	if oid.Indirect != nil {
-		return om.verifyIndirectObjectInternal(ctx, oid, blocks)
+	if indexObjectID, ok := oid.IndexObjectID(); ok {
+		return om.verifyIndirectObjectInternal(ctx, indexObjectID, blocks)
 	}
 
-	p, err := om.blockMgr.BlockInfo(ctx, oid.ContentBlockID)
-	if err != nil {
-		return 0, err
+	if blockID, ok := oid.BlockID(); ok {
+		p, err := om.blockMgr.BlockInfo(ctx, blockID)
+		if err != nil {
+			return 0, err
+		}
+		blocks.addBlock(blockID)
+		return int64(p.Length), nil
 	}
-	blocks.addBlock(oid.ContentBlockID)
-	return int64(p.Length), nil
+
+	return 0, fmt.Errorf("unrecognized object type: %v", oid)
+
 }
 
 // Flush closes any pending pack files. Once this method returns, ObjectIDs returned by ObjectManager are
@@ -249,12 +254,16 @@ func (om *Manager) flattenListChunk(rawReader io.Reader) ([]indirectObjectEntry,
 }
 
 func (om *Manager) newRawReader(ctx context.Context, objectID ID) (Reader, error) {
-	payload, err := om.blockMgr.GetBlock(ctx, objectID.ContentBlockID)
-	if err != nil {
-		return nil, err
+	if blockID, ok := objectID.BlockID(); ok {
+		payload, err := om.blockMgr.GetBlock(ctx, blockID)
+		if err != nil {
+			return nil, err
+		}
+
+		return newObjectReaderWithData(payload), nil
 	}
 
-	return newObjectReaderWithData(payload), nil
+	return nil, fmt.Errorf("unsupported object ID: %v", objectID)
 }
 
 type readerWithData struct {

@@ -1,8 +1,6 @@
 package object
 
 import (
-	"reflect"
-	"strings"
 	"testing"
 )
 
@@ -10,54 +8,41 @@ type rawObjectID ID
 
 func TestParseObjectID(t *testing.T) {
 	cases := []struct {
-		Text     string
-		ObjectID ID
+		text    string
+		isValid bool
 	}{
-		{"Dfoo", ID{ContentBlockID: "foo"}},
-		{"IDfoo", ID{Indirect: &ID{ContentBlockID: "foo"}}},
-		{"IDfoo", ID{Indirect: &ID{ContentBlockID: "foo"}}},
-		{"IIDfoo", ID{Indirect: &ID{Indirect: &ID{ContentBlockID: "foo"}}}},
+		{"Df0f0", true},
+		{"IDf0f0", true},
+		{"IDf0f0", true},
+		{"IIDf0f0", true},
+		{"Dxf0f0", true},
+		{"IDxf0f0", true},
+		{"IDxf0f0", true},
+		{"IIDxf0f0", true},
+		{"Dxf0f", false},
+		{"IDxf0f", false},
+		{"Da", false},
+		{"Daf0f0", false},
+		{"", false},
+		{"B!$@#$!@#$", false},
+		{"X", false},
+		{"I.", false},
+		{"I.x", false},
+		{"I.af", false},
+		{"Ix.ag", false},
+		{"Iab.", false},
+		{"I1", false},
+		{"I1,", false},
+		{"I-1,X", false},
+		{"Xsomething", false},
 	}
 
 	for _, tc := range cases {
-		oid, err := ParseID(tc.Text)
-		if err != nil {
-			t.Errorf("error parsing %q: %v", tc.Text, err)
-		}
-
-		if !reflect.DeepEqual(oid, tc.ObjectID) {
-			t.Errorf("invalid result for %q: %+v, wanted %+v", tc.Text, rawObjectID(oid), rawObjectID(tc.ObjectID))
-		}
-
-		oid2, err := ParseID(oid.String())
-		if err != nil {
-			t.Errorf("parse error %q: %v", oid.String(), err)
-		} else if !reflect.DeepEqual(oid, oid2) {
-			t.Errorf("does not round-trip: %v (%+v), got %+v", oid.String(), rawObjectID(oid), rawObjectID(oid2))
-		}
-	}
-}
-
-func TestParseMalformedObjectID(t *testing.T) {
-	cases := []string{
-		"",
-		"B!$@#$!@#$",
-		"X",
-		"I.",
-		"I.x",
-		"I.af",
-		"Ix.ag",
-		"Iab.",
-		"I1",
-		"I1,",
-		"I-1,X",
-		"Xsomething",
-	}
-
-	for _, c := range cases {
-		v, err := ParseID(c)
-		if !reflect.DeepEqual(v, NullID) || err == nil || !strings.HasPrefix(err.Error(), "malformed object id") {
-			t.Errorf("unexpected result for %v: v: %v err: %v", c, v, err)
+		_, err := ParseID(tc.text)
+		if err != nil && tc.isValid {
+			t.Errorf("error parsing %q: %v", tc.text, err)
+		} else if err == nil && !tc.isValid {
+			t.Errorf("unexpected success parsing %v", tc.text)
 		}
 	}
 }

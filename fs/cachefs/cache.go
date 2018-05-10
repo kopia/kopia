@@ -80,7 +80,7 @@ type Loader func(ctx context.Context) (fs.Entries, error)
 // the results.
 func (c *Cache) Readdir(ctx context.Context, d fs.Directory) (fs.Entries, error) {
 	if h, ok := d.(object.HasObjectID); ok {
-		cacheID := h.ObjectID().String()
+		cacheID := string(h.ObjectID())
 		cacheExpiration := 24 * time.Hour
 		return c.getEntries(ctx, cacheID, cacheExpiration, d.Readdir)
 	}

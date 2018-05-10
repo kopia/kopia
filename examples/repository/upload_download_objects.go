@@ -23,7 +23,7 @@ func uploadRandomObject(ctx context.Context, r *repo.Repository, length int) (ob
 		}
 		rand.Read(buf[0:todo]) //nolint:errcheck
 		if _, err := w.Write(buf[0:todo]); err != nil {
-			return object.NullID, err
+			return "", err
 		}
 		length -= todo
 	}

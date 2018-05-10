@@ -104,7 +104,7 @@ func (w *objectWriter) flushBuffer() error {
 			return
 		}
 
-		w.blockIndex[chunkID].Object = ID{ContentBlockID: blockID}
+		w.blockIndex[chunkID].Object = DirectObjectID(blockID)
 	}
 
 	// When writing pack internal object don't use asynchronous write, since we're already under the semaphore
@@ -131,13 +131,13 @@ func (w *objectWriter) flushBuffer() error {
 func (w *objectWriter) Result() (ID, error) {
 	if w.buffer.Len() > 0 || len(w.blockIndex) == 0 {
 		if err := w.flushBuffer(); err != nil {
-			return NullID, err
+			return "", err
 		}
 	}
 	w.pendingBlocksWG.Wait()
 
 	if err := w.err.check(); err != nil {
-		return NullID, err
+		return "", err
 	}
 
 	if len(w.blockIndex) == 1 {
@@ -154,17 +154,17 @@ func (w *objectWriter) Result() (ID, error) {
 	jw := jsonstream.NewWriter(iw, indirectStreamType)
 	for _, e := range w.blockIndex {
 		if err := jw.Write(&e); err != nil {
-			return NullID, fmt.Errorf("unable to write indirect block index: %v", err)
+			return "", fmt.Errorf("unable to write indirect block index: %v", err)
 		}
 	}
 	if err := jw.Finalize(); err != nil {
-		return NullID, fmt.Errorf("unable to finalize indirect block index: %v", err)
+		return "", fmt.Errorf("unable to finalize indirect block index: %v", err)
 	}
 	oid, err := iw.Result()
 	if err != nil {
-		return NullID, err
+		return "", err
 	}
-	return ID{Indirect: &oid}, nil
+	return IndirectObjectID(oid), nil
 }
 
 // WriterOptions can be passed to Repository.NewWriter()

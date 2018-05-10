@@ -92,9 +92,9 @@ func TestWriters(t *testing.T) {
 	}{
 		{
 			[]byte("the quick brown fox jumps over the lazy dog"),
-			ID{ContentBlockID: "77add1d5f41223d5582fca736a5cb335"},
+			"D77add1d5f41223d5582fca736a5cb335",
 		},
-		{make([]byte, 100), ID{ContentBlockID: "6d0bb00954ceb7fbee436bb55a8397a9"}}, // 100 zero bytes
+		{make([]byte, 100), "D6d0bb00954ceb7fbee436bb55a8397a9"}, // 100 zero bytes
 	}
 
 	for _, c := range cases {
@@ -116,7 +116,7 @@ func TestWriters(t *testing.T) {
 			t.Errorf("incorrect result for %v, expected: %v got: %v", c.data, c.objectID.String(), result.String())
 		}
 
-		if c.objectID.ContentBlockID == "" {
+		if _, ok := c.objectID.BlockID(); !ok {
 			if len(data) != 0 {
 				t.Errorf("unexpected data written to the storage: %v", data)
 			}
@@ -142,17 +142,14 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	writer.Write(bytes[0:50])
 	writer.Write(bytes[0:50])
 	result, err := writer.Result()
-	if !objectIDsEqual(result, ID{ContentBlockID: "6d0bb00954ceb7fbee436bb55a8397a9"}) {
+	if !objectIDsEqual(result, "D6d0bb00954ceb7fbee436bb55a8397a9") {
 		t.Errorf("unexpected result: %v err: %v", result, err)
 	}
 }
 
 func verifyIndirectBlock(ctx context.Context, t *testing.T, r *Manager, oid ID) {
-	for oid.Indirect != nil {
-		direct := *oid.Indirect
-		oid = direct
-
-		rd, err := r.Open(ctx, direct)
+	for indexBlockID, isIndirect := oid.IndexObjectID(); isIndirect; indexBlockID, isIndirect = indexBlockID.IndexObjectID() {
+		rd, err := r.Open(ctx, indexBlockID)
 		if err != nil {
 			t.Errorf("unable to open %v: %v", oid.String(), err)
 			return
@@ -233,11 +230,12 @@ func TestIndirection(t *testing.T) {
 }
 
 func indirectionLevel(oid ID) int {
-	if oid.Indirect == nil {
+	indexObjectID, ok := oid.IndexObjectID()
+	if !ok {
 		return 0
 	}
 
-	return 1 + indirectionLevel(*oid.Indirect)
+	return 1 + indirectionLevel(indexObjectID)
 }
 
 func TestHMAC(t *testing.T) {
@@ -297,7 +295,7 @@ func TestReaderStoredBlockNotFound(t *testing.T) {
 	ctx := context.Background()
 	_, om := setupTest(t)
 
-	objectID, err := ParseID("Dno-such-block")
+	objectID, err := ParseID("Ddeadbeef")
 	if err != nil {
 		t.Errorf("cannot parse object ID: %v", err)
 	}

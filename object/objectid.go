@@ -1,104 +1,91 @@
 package object
 
 import (
-	"encoding/json"
-
+	"encoding/hex"
 	"fmt"
+	"strings"
 )
 
-// ID is an identifier of a repository object. Repository objects can be stored:
+// ID is an identifier of a repository object. Repository objects can be stored.
 //
-// 1. In a single content block, this is the most common case for small objects.
-// 2. In a series of content blocks with an indirect block pointing at them (multiple indirections are allowed). This is used for larger files.
-//
-type ID struct {
-	ContentBlockID string
-	Indirect       *ID
-}
-
-// MarshalJSON emits ObjectID in standard string format.
-func (oid *ID) MarshalJSON() ([]byte, error) {
-	s := oid.String()
-	return json.Marshal(&s)
-}
-
-// UnmarshalJSON unmarshals Object ID from a JSON string.
-func (oid *ID) UnmarshalJSON(b []byte) error {
-	var s string
-	err := json.Unmarshal(b, &s)
-	if err != nil {
-		return err
-	}
-
-	*oid, err = ParseID(s)
-	return err
-}
+// 1. In a single content block, this is the most common case for small objects. Such object IDs start with "D"
+// 2. In a series of content blocks with an indirect block pointing at them (multiple indirections are allowed).
+//    This is used for larger files. Object IDs using indirect blocks start with "I"
+type ID string
 
 // HasObjectID exposes the identifier of an object.
 type HasObjectID interface {
 	ObjectID() ID
 }
 
-// NullID is the identifier of an null/empty object.
-var NullID ID
-
 // String returns string representation of ObjectID that is suitable for displaying in the UI.
-//
-// Note that the object ID name often contains its encryption key, which is sensitive and can be quite long (~100 characters long).
-func (oid ID) String() string {
-	if oid.Indirect != nil {
-		return fmt.Sprintf("I%v", oid.Indirect)
-	}
-
-	if oid.ContentBlockID != "" {
-		return "D" + oid.ContentBlockID
-	}
-
-	return "B"
+func (i ID) String() string {
+	return string(i)
 }
 
-// Validate validates the ObjectID structure.
-func (oid *ID) Validate() error {
-	var c int
-	if len(oid.ContentBlockID) > 0 {
-		c++
+// IndexObjectID returns the object ID of the underlying index object.
+func (i ID) IndexObjectID() (ID, bool) {
+	if strings.HasPrefix(string(i), "I") {
+		return i[1:], true
 	}
 
-	if oid.Indirect != nil {
-		c++
-		if err := oid.Indirect.Validate(); err != nil {
-			return fmt.Errorf("invalid indirect object ID %v: %v", oid, err)
+	return "", false
+}
+
+// BlockID returns the block ID of the underlying content storage block.
+func (i ID) BlockID() (string, bool) {
+	if strings.HasPrefix(string(i), "D") {
+		return string(i[1:]), true
+	}
+
+	return "", false
+}
+
+// Validate checks the ID format for validity and reports any errors.
+func (i ID) Validate() error {
+	if indexObjectID, ok := i.IndexObjectID(); ok {
+		if err := indexObjectID.Validate(); err != nil {
+			return fmt.Errorf("invalid indirect object ID %v: %v", i, err)
 		}
+
+		return nil
 	}
 
-	if c != 1 {
-		return fmt.Errorf("inconsistent block content: %+v", oid)
-	}
+	if blockID, ok := i.BlockID(); ok {
+		if len(blockID) < 2 {
+			return fmt.Errorf("missing block ID")
+		}
 
-	return nil
-}
-
-// ParseID converts the specified string into ObjectID.
-// The string format matches the output of String() method.
-func ParseID(s string) (ID, error) {
-	if len(s) >= 1 {
-		chunkType := s[0]
-		content := s[1:]
-
-		switch chunkType {
-		case 'I', 'D':
-			if chunkType == 'I' {
-				base, err := ParseID(content)
-				if err != nil {
-					return NullID, err
-				}
-
-				return ID{Indirect: &base}, nil
+		// odd length - firstcharacter must be a single character between 'g' and 'z'
+		if len(blockID)%2 == 1 {
+			if blockID[0] < 'g' || blockID[0] > 'z' {
+				return fmt.Errorf("invalid block ID prefix: %v", blockID)
 			}
-
-			return ID{ContentBlockID: content}, nil
+			blockID = blockID[1:]
 		}
+
+		if _, err := hex.DecodeString(blockID); err != nil {
+			return fmt.Errorf("invalid blockID suffix, must be base-16 encoded: %v", blockID)
+		}
+
+		return nil
 	}
 
-	return NullID, fmt.Errorf("malformed object id: '%s'", s)
+	return fmt.Errorf("invalid object ID: %v", i)
+}
+
+// DirectObjectID returns direct object ID based on the provided block ID.
+func DirectObjectID(blockID string) ID {
+	return ID("D" + blockID)
+}
+
+// IndirectObjectID returns indirect object ID based on the underlying index object ID.
+func IndirectObjectID(indexObjectID ID) ID {
+	return "I" + indexObjectID
+}
+
+// ParseID converts the specified string into object ID
+func ParseID(s string) (ID, error) {
+	i := ID(s)
+	return i, i.Validate()
 }

@@ -14,12 +14,12 @@ import (
 func parseObjectID(ctx context.Context, mgr *snapshot.Manager, id string) (object.ID, error) {
 	head, tail := splitHeadTail(id)
 	if len(head) == 0 {
-		return object.NullID, fmt.Errorf("invalid object ID: %v", id)
+		return "", fmt.Errorf("invalid object ID: %v", id)
 	}
 
 	oid, err := object.ParseID(head)
 	if err != nil {
-		return object.NullID, fmt.Errorf("can't parse object ID %v: %v", head, err)
+		return "", fmt.Errorf("can't parse object ID %v: %v", head, err)
 	}
 
 	if tail == "" {
@@ -28,7 +28,7 @@ func parseObjectID(ctx context.Context, mgr *snapshot.Manager, id string) (objec
 
 	dir := mgr.DirectoryEntry(oid)
 	if err != nil {
-		return object.NullID, err
+		return "", err
 	}
 
 	return parseNestedObjectID(ctx, dir, tail)
@@ -41,17 +41,17 @@ func parseNestedObjectID(ctx context.Context, startingDir fs.Directory, id strin
 	for head != "" {
 		dir, ok := current.(fs.Directory)
 		if !ok {
-			return object.NullID, fmt.Errorf("entry not found '%v': parent is not a directory", head)
+			return "", fmt.Errorf("entry not found '%v': parent is not a directory", head)
 		}
 
 		entries, err := dir.Readdir(ctx)
 		if err != nil {
-			return object.NullID, err
+			return "", err
 		}
 
 		e := entries.FindByName(head)
 		if e == nil {
-			return object.NullID, fmt.Errorf("entry not found: '%v'", head)
+			return "", fmt.Errorf("entry not found: '%v'", head)
 		}
 
 		current = e
