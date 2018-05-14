@@ -2,6 +2,7 @@ package cli
 
 import (
 	"os"
+	"sync"
 	"time"
 
 	"github.com/cheggaaa/pb"
@@ -10,11 +11,15 @@ import (
 
 type uploadProgress struct {
 	currentDir string
+	mu         sync.Mutex
 	bar        *pb.ProgressBar
 }
 
 func (p *uploadProgress) Progress(path string, dirCompleted, dirTotal int64, stats *snapshot.Stats) {
-	if p.currentDir != path {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	if p.currentDir != path || p.bar == nil {
 		p.currentDir = path
 		if p.bar != nil {
 			p.bar.Finish()
@@ -29,10 +34,14 @@ func (p *uploadProgress) Progress(path string, dirCompleted, dirTotal int64, sta
 		p.bar.SetUnits(pb.U_BYTES)
 		p.bar.Start()
 	}
+
 	p.bar.Set64(dirCompleted)
 }
 
 func (p *uploadProgress) UploadFinished() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	if p.bar != nil {
 		p.bar.Finish()
 		p.bar = nil
