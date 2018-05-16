@@ -64,6 +64,8 @@ func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
 		return fmt.Errorf("description too long")
 	}
 
+	var finalErrors []string
+
 	for _, snapshotDir := range sources {
 		log.Printf("Backing up %v", snapshotDir)
 		dir, err := filepath.Abs(snapshotDir)
@@ -74,11 +76,15 @@ func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
 		sourceInfo := snapshot.SourceInfo{Path: filepath.Clean(dir), Host: getHostName(), UserName: getUserName()}
 		log.Info().Str("source", sourceInfo.String()).Msg("snapshotting")
 		if err := snapshotSingleSource(ctx, rep, mgr, pmgr, u, sourceInfo); err != nil {
-			return err
+			finalErrors = append(finalErrors, err.Error())
 		}
 	}
 
-	return nil
+	if len(finalErrors) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf("encountered %v errors:\n%v", len(finalErrors), strings.Join(finalErrors, "\n"))
 }
 
 func snapshotSingleSource(ctx context.Context, rep *repo.Repository, mgr *snapshot.Manager, pmgr *snapshot.PolicyManager, u *snapshot.Uploader, sourceInfo snapshot.SourceInfo) error {
