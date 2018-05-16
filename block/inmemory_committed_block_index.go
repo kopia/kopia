@@ -2,6 +2,7 @@ package block
 
 import (
 	"bytes"
+	"fmt"
 	"sync"
 
 	"github.com/kopia/kopia/internal/packindex"
@@ -11,7 +12,7 @@ import (
 type inMemoryCommittedBlockIndex struct {
 	mu             sync.Mutex
 	indexes        packindex.Merged
-	physicalBlocks map[PhysicalBlockID]bool
+	physicalBlocks map[PhysicalBlockID]packindex.Index
 }
 
 func (b *inMemoryCommittedBlockIndex) getBlock(blockID string) (Info, error) {
@@ -31,18 +32,20 @@ func (b *inMemoryCommittedBlockIndex) getBlock(blockID string) (Info, error) {
 
 }
 
-func (b *inMemoryCommittedBlockIndex) addBlock(indexBlockID PhysicalBlockID, data []byte) error {
+func (b *inMemoryCommittedBlockIndex) addBlock(indexBlockID PhysicalBlockID, data []byte, use bool) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	ndx, err := packindex.Open(bytes.NewReader(data))
-	if err != nil {
-		return err
-	}
+	if b.physicalBlocks[indexBlockID] == nil {
+		ndx, err := packindex.Open(bytes.NewReader(data))
+		if err != nil {
+			return err
+		}
+		b.physicalBlocks[indexBlockID] = ndx
 
-	if !b.physicalBlocks[indexBlockID] {
-		b.physicalBlocks[indexBlockID] = true
-		b.indexes = append(b.indexes, ndx)
+		if use {
+			b.indexes = append(b.indexes, ndx)
+		}
 	}
 
 	return nil
@@ -59,5 +62,27 @@ func (b *inMemoryCommittedBlockIndex) hasIndexBlockID(indexBlockID PhysicalBlock
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	return b.physicalBlocks[indexBlockID], nil
+	return b.physicalBlocks[indexBlockID] != nil, nil
+}
+
+func (b *inMemoryCommittedBlockIndex) use(packBlockIDs []PhysicalBlockID) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	var newIndexes packindex.Merged
+	defer func() {
+		newIndexes.Close() //nolint:errcheck
+	}()
+	for _, e := range packBlockIDs {
+		ndx := b.physicalBlocks[e]
+		if ndx == nil {
+			return fmt.Errorf("unable to open pack index %q", e)
+		}
+
+		//log.Printf("opened %v with %v entries", e, ndx.EntryCount())
+		newIndexes = append(newIndexes, ndx)
+	}
+	b.indexes = newIndexes
+	newIndexes = nil
+	return nil
 }

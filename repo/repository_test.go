@@ -186,7 +186,7 @@ func TestPackingSimple(t *testing.T) {
 	verify(ctx, t, repo, oid2a, []byte(content2), "packed-object-2")
 	verify(ctx, t, repo, oid3a, []byte(content3), "packed-object-3")
 
-	if err := repo.Blocks.CompactIndexes(ctx); err != nil {
+	if err := repo.Blocks.CompactIndexes(ctx, 1, 1); err != nil {
 		t.Errorf("optimize error: %v", err)
 	}
 	data, _, repo = setupTestWithData(t, data, keyTime, func(n *NewRepositoryOptions) {
@@ -196,7 +196,7 @@ func TestPackingSimple(t *testing.T) {
 	verify(ctx, t, repo, oid2a, []byte(content2), "packed-object-2")
 	verify(ctx, t, repo, oid3a, []byte(content3), "packed-object-3")
 
-	if err := repo.Blocks.CompactIndexes(ctx); err != nil {
+	if err := repo.Blocks.CompactIndexes(ctx, 1, 1); err != nil {
 		t.Errorf("optimize error: %v", err)
 	}
 	_, _, repo = setupTestWithData(t, data, keyTime, func(n *NewRepositoryOptions) {

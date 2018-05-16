@@ -4,25 +4,16 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/repo"
 )
 
 var (
 	blockIndexListCommand = blockIndexCommands.Command("list", "List block indexes").Alias("ls").Default()
-	blockIndexListAll     = blockIndexListCommand.Flag("all", "List all blocks, not just active ones").Short('a').Bool()
 	blockIndexListSummary = blockIndexListCommand.Flag("summary", "Display block summary").Bool()
 )
 
 func runListBlockIndexesAction(ctx context.Context, rep *repo.Repository) error {
-	var blks []block.IndexInfo
-	var err error
-
-	if !*blockIndexListAll {
-		blks, err = rep.Blocks.ActiveIndexBlocks(ctx)
-	} else {
-		blks, err = rep.Blocks.ListIndexBlocks(ctx)
-	}
+	blks, err := rep.Blocks.IndexBlocks(ctx)
 
 	if err != nil {
 		return err

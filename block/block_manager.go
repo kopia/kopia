@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"math"
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -25,19 +24,22 @@ import (
 )
 
 const (
-	parallelFetches              = 5                // number of parallel reads goroutines
-	flushPackIndexTimeout        = 10 * time.Minute // time after which all pending indexes are flushes
-	newIndexBlockPrefix          = "n"
-	compactedBlockSuffix         = "-z"
-	defaultMinPreambleLength     = 32
-	defaultMaxPreambleLength     = 32
-	defaultPaddingUnit           = 4096
-	autoCompactionBlockCount     = 16
+	parallelFetches             = 5                // number of parallel reads goroutines
+	flushPackIndexTimeout       = 10 * time.Minute // time after which all pending indexes are flushes
+	newIndexBlockPrefix         = "n"
+	defaultMinPreambleLength    = 32
+	defaultMaxPreambleLength    = 32
+	defaultPaddingUnit          = 4096
+	autoCompactionMinBlockCount = 4 * parallelFetches
+	autoCompactionMaxBlockCount = 64
+
 	defaultActiveBlocksExtraTime = 10 * time.Minute
 
 	currentWriteVersion     = 1
 	minSupportedReadVersion = 0
 	maxSupportedReadVersion = currentWriteVersion
+
+	indexLoadAttempts = 10
 )
 
 // Info is an information about a single block managed by Manager.
@@ -244,12 +246,12 @@ func (bm *Manager) flushPackIndexesLocked(ctx context.Context) error {
 		data := buf.Bytes()
 		dataCopy := append([]byte(nil), data...)
 
-		indexBlockID, err := bm.writePackIndexesNew(ctx, data, false)
+		indexBlockID, err := bm.writePackIndexesNew(ctx, data)
 		if err != nil {
 			return err
 		}
 
-		if err := bm.committedBlocks.addBlock(indexBlockID, dataCopy); err != nil {
+		if err := bm.committedBlocks.addBlock(indexBlockID, dataCopy, true); err != nil {
 			return fmt.Errorf("unable to add committed block: %v", err)
 		}
 		bm.packIndexBuilder = packindex.NewBuilder()
@@ -259,14 +261,8 @@ func (bm *Manager) flushPackIndexesLocked(ctx context.Context) error {
 	return nil
 }
 
-func (bm *Manager) writePackIndexesNew(ctx context.Context, data []byte, isCompaction bool) (PhysicalBlockID, error) {
-	var suffix string
-	if isCompaction {
-		suffix = compactedBlockSuffix
-	}
-
-	inverseTimePrefix := fmt.Sprintf("%016x", math.MaxInt64-bm.timeNow().UnixNano())
-	return bm.encryptAndWriteBlockNotLocked(ctx, data, newIndexBlockPrefix+inverseTimePrefix, suffix)
+func (bm *Manager) writePackIndexesNew(ctx context.Context, data []byte) (PhysicalBlockID, error) {
+	return bm.encryptAndWriteBlockNotLocked(ctx, data, newIndexBlockPrefix)
 }
 
 func (bm *Manager) finishPackLocked(ctx context.Context) error {
@@ -370,28 +366,11 @@ func appendRandomBytes(b []byte, count int) ([]byte, error) {
 	return append(b, rnd...), nil
 }
 
-// ListIndexBlocks returns the list of all index blocks, including inactive, sorted by time.
-func (bm *Manager) ListIndexBlocks(ctx context.Context) ([]IndexInfo, error) {
-	blocks, err := bm.cache.listIndexBlocks(ctx, true, 0)
-	if err != nil {
-		return nil, fmt.Errorf("error listing index blocks: %v", err)
-	}
-
-	sortBlocksByTime(blocks)
-	return blocks, nil
-}
-
-// ActiveIndexBlocks returns the list of active index blocks, sorted by time.
-func (bm *Manager) ActiveIndexBlocks(ctx context.Context) ([]IndexInfo, error) {
-	blocks, err := bm.cache.listIndexBlocks(ctx, false, bm.activeBlocksExtraTime)
+// IndexBlocks returns the list of active index blocks, sorted by time.
+func (bm *Manager) IndexBlocks(ctx context.Context) ([]IndexInfo, error) {
+	blocks, err := bm.cache.listIndexBlocks(ctx)
 	if err != nil {
 		return nil, err
-	}
-	// for i, b := range blocks {
-	// 	log.Printf("found block #%v %v %v %v", i, b.BlockID, b.Length, b.Timestamp)
-	// }
-	if len(blocks) == 0 {
-		return nil, nil
 	}
 
 	sortBlocksByTime(blocks)
@@ -404,19 +383,52 @@ func sortBlocksByTime(b []IndexInfo) {
 	})
 }
 
-func (bm *Manager) loadPackIndexesLocked(ctx context.Context) ([]PhysicalBlockID, error) {
-	blocks, err := bm.ActiveIndexBlocks(ctx)
-	if err != nil {
-		return nil, err
+func (bm *Manager) loadPackIndexesLocked(ctx context.Context) ([]IndexInfo, error) {
+	nextSleepTime := 100 * time.Millisecond
+
+	for i := 0; i < indexLoadAttempts; i++ {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+
+		if i > 0 {
+			bm.cache.deleteListCache(ctx)
+			log.Printf("encountered NOT_FOUND when loading, sleeping %v before retrying #%v", nextSleepTime, i)
+			time.Sleep(nextSleepTime)
+			nextSleepTime *= 2
+		}
+
+		blocks, err := bm.cache.listIndexBlocks(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		err = bm.tryLoadPackIndexBlocksLocked(ctx, blocks)
+		if err == nil {
+			var blockIDs []PhysicalBlockID
+			for _, b := range blocks {
+				blockIDs = append(blockIDs, b.BlockID)
+			}
+			if err = bm.committedBlocks.use(blockIDs); err != nil {
+				return nil, err
+			}
+			return blocks, nil
+		}
+		if err != storage.ErrBlockNotFound {
+			return nil, err
+		}
 	}
 
-	indexBlockIDs := indexBlockIDs(blocks)
-	ch, err := bm.unprocessedIndexBlocks(indexBlockIDs)
+	return nil, fmt.Errorf("unable to load pack indexes despite %v retries", indexLoadAttempts)
+}
+
+func (bm *Manager) tryLoadPackIndexBlocksLocked(ctx context.Context, blocks []IndexInfo) error {
+	ch, err := bm.unprocessedIndexBlocks(blocks)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if len(ch) == 0 {
-		return indexBlockIDs, nil
+		return nil
 	}
 
 	var wg sync.WaitGroup
@@ -435,8 +447,8 @@ func (bm *Manager) loadPackIndexesLocked(ctx context.Context) ([]PhysicalBlockID
 					return
 				}
 
-				if err := bm.loadPackIndexes(indexBlockID, data); err != nil {
-					errors <- err
+				if err := bm.committedBlocks.addBlock(indexBlockID, data, false); err != nil {
+					errors <- fmt.Errorf("unable to add to committed block cache: %v", err)
 					return
 				}
 			}
@@ -448,66 +460,89 @@ func (bm *Manager) loadPackIndexesLocked(ctx context.Context) ([]PhysicalBlockID
 
 	// Propagate async errors, if any.
 	for err := range errors {
-		return nil, err
+		return err
 	}
 
-	return indexBlockIDs, nil
+	return nil
 }
 
 // unprocessedIndexBlocks returns a closed channel filled with block IDs that are not in committedBlocks cache.
-func (bm *Manager) unprocessedIndexBlocks(blocks []PhysicalBlockID) (<-chan PhysicalBlockID, error) {
+func (bm *Manager) unprocessedIndexBlocks(blocks []IndexInfo) (<-chan PhysicalBlockID, error) {
 	ch := make(chan PhysicalBlockID, len(blocks))
-	for _, blockID := range blocks {
-		has, err := bm.committedBlocks.hasIndexBlockID(blockID)
+	for _, block := range blocks {
+		has, err := bm.committedBlocks.hasIndexBlockID(block.BlockID)
 		if err != nil {
 			return nil, err
 		}
 		if has {
-			log.Printf("index block %q already in cache, skipping", blockID)
+			log.Printf("index block %q already in cache, skipping", block.BlockID)
 			continue
 		}
-		ch <- blockID
+		ch <- block.BlockID
 	}
 	close(ch)
 	return ch, nil
 }
 
-func indexBlockIDs(blocks []IndexInfo) []PhysicalBlockID {
-	var indexBlockIDs []PhysicalBlockID
-	for _, b := range blocks {
-		indexBlockIDs = append(indexBlockIDs, b.BlockID)
-	}
-	return indexBlockIDs
-}
-
-func (bm *Manager) loadPackIndexes(indexBlockID PhysicalBlockID, data []byte) error {
-	if err := bm.committedBlocks.addBlock(indexBlockID, data); err != nil {
-		return fmt.Errorf("unable to add to committed block cache: %v", err)
-	}
-
-	return nil
-}
-
-func (bm *Manager) fetchCommittedIndexAndMaybeCompact(ctx context.Context, compactThresold int) error {
+// CompactIndexes performs compaction of index blocks ensuring that # of small blocks is between minSmallBlockCount and maxSmallBlockCount
+func (bm *Manager) CompactIndexes(ctx context.Context, minSmallBlockCount int, maxSmallBlockCount int) error {
 	bm.lock()
 	defer bm.unlock()
 
-	indexBlocks, err := bm.loadPackIndexesLocked(ctx)
-	if err != nil {
-		return err
+	if maxSmallBlockCount < minSmallBlockCount {
+		return fmt.Errorf("invalid block counts")
 	}
 
-	if len(indexBlocks) > compactThresold {
-		log.Info().Msgf("compacting block indexes (block count %v exceeds threshold of %v)", len(indexBlocks), compactThresold)
-		return bm.compactIndexes(ctx, indexBlocks)
+	indexBlocks, err := bm.loadPackIndexesLocked(ctx)
+	if err != nil {
+		return fmt.Errorf("error loading indexes: %v", err)
+	}
+
+	blocksToCompact := bm.getBlocksToCompact(indexBlocks, minSmallBlockCount, maxSmallBlockCount)
+
+	if err := bm.compactAndDeleteIndexBlocks(ctx, blocksToCompact); err != nil {
+		log.Warn().Msgf("error performing quick compaction: %v", err)
 	}
 
 	return nil
 }
 
-// CompactIndexes performs compaction of index blocks.
-func (bm *Manager) CompactIndexes(ctx context.Context) error {
-	return bm.fetchCommittedIndexAndMaybeCompact(ctx, 1)
+func (bm *Manager) getBlocksToCompact(indexBlocks []IndexInfo, minSmallBlockCount int, maxSmallBlockCount int) []IndexInfo {
+	var nonCompactedBlocks []IndexInfo
+	var totalSizeNonCompactedBlocks int64
+
+	var verySmallBlocks []IndexInfo
+	var totalSizeVerySmallBlocks int64
+
+	var mediumSizedBlocks []IndexInfo
+	var totalSizeMediumSizedBlocks int64
+
+	for _, b := range indexBlocks {
+		if b.Length > int64(bm.maxPackSize) {
+			continue
+		}
+
+		nonCompactedBlocks = append(nonCompactedBlocks, b)
+		if b.Length < int64(bm.maxPackSize/20) {
+			verySmallBlocks = append(verySmallBlocks, b)
+			totalSizeVerySmallBlocks += b.Length
+		} else {
+			mediumSizedBlocks = append(mediumSizedBlocks, b)
+			totalSizeMediumSizedBlocks += b.Length
+		}
+		totalSizeNonCompactedBlocks += b.Length
+	}
+
+	if len(nonCompactedBlocks) < minSmallBlockCount {
+		// current count is below min allowed - nothing to do
+		return nil
+	}
+
+	if len(verySmallBlocks) > len(nonCompactedBlocks)/2 && len(mediumSizedBlocks)+1 < minSmallBlockCount {
+		return verySmallBlocks
+	}
+
+	return nonCompactedBlocks
 }
 
 // ListBlocks returns IDs of blocks matching given prefix.
@@ -563,16 +598,16 @@ func (bm *Manager) ListBlockInfos(prefix string) ([]Info, error) {
 	return result, nil
 }
 
-func (bm *Manager) compactIndexes(ctx context.Context, indexBlocks []PhysicalBlockID) error {
+func (bm *Manager) compactAndDeleteIndexBlocks(ctx context.Context, indexBlocks []IndexInfo) error {
 	if len(indexBlocks) <= 1 {
-		log.Printf("skipping index compaction - already compacted")
 		return nil
 	}
+	log.Debug().Msgf("compacting %v blocks", len(indexBlocks))
 	t0 := time.Now()
 
 	bld := packindex.NewBuilder()
 	for _, indexBlock := range indexBlocks {
-		data, err := bm.getPhysicalBlockInternal(ctx, indexBlock)
+		data, err := bm.getPhysicalBlockInternal(ctx, indexBlock.BlockID)
 		if err != nil {
 			return err
 		}
@@ -592,9 +627,25 @@ func (bm *Manager) compactIndexes(ctx context.Context, indexBlocks []PhysicalBlo
 	if err := bld.Build(&buf); err != nil {
 		return fmt.Errorf("unable to build an index: %v", err)
 	}
-	compactedIndexBlock, err := bm.writePackIndexesNew(ctx, buf.Bytes(), true)
-	log.Info().Msgf("wrote compacted index to %v (%v bytes) in %v", compactedIndexBlock, buf.Len(), time.Since(t0))
-	return err
+
+	compactedIndexBlock, err := bm.writePackIndexesNew(ctx, buf.Bytes())
+	if err != nil {
+		return fmt.Errorf("unable to write compacted indexes: %v", err)
+	}
+
+	log.Debug().Msgf("wrote compacted index (%v bytes) in %v", compactedIndexBlock, time.Since(t0))
+
+	for _, indexBlock := range indexBlocks {
+		if indexBlock.BlockID == compactedIndexBlock {
+			continue
+		}
+
+		if err := bm.cache.deleteBlock(ctx, indexBlock.BlockID); err != nil {
+			log.Warn().Msgf("unable to delete compacted block %q: %v", indexBlock.BlockID, err)
+		}
+	}
+
+	return nil
 }
 
 // Flush completes writing any pending packs and writes pack indexes to the underlyign storage.
@@ -653,7 +704,7 @@ func validatePrefix(prefix string) error {
 func (bm *Manager) writePackDataNotLocked(ctx context.Context, data []byte) (PhysicalBlockID, error) {
 	if bm.writeFormatVersion == 0 {
 		// 0 blocks are encrypted together
-		return bm.encryptAndWriteBlockNotLocked(ctx, data, "", "")
+		return bm.encryptAndWriteBlockNotLocked(ctx, data, "")
 	}
 
 	suffix := make([]byte, 16)
@@ -672,9 +723,9 @@ func (bm *Manager) writePackDataNotLocked(ctx context.Context, data []byte) (Phy
 	return physicalBlockID, nil
 }
 
-func (bm *Manager) encryptAndWriteBlockNotLocked(ctx context.Context, data []byte, prefix string, suffix string) (PhysicalBlockID, error) {
+func (bm *Manager) encryptAndWriteBlockNotLocked(ctx context.Context, data []byte, prefix string) (PhysicalBlockID, error) {
 	hash := bm.hashData(data)
-	physicalBlockID := PhysicalBlockID(prefix + hex.EncodeToString(hash) + suffix)
+	physicalBlockID := PhysicalBlockID(prefix + hex.EncodeToString(hash))
 
 	// Encrypt the block in-place.
 	atomic.AddInt64(&bm.stats.EncryptedBytes, int64(len(data)))
@@ -898,26 +949,14 @@ type cachedList struct {
 // If 'full' is set to true, this function lists and returns all blocks,
 // if 'full' is false, the function returns only blocks from the last 2 compactions.
 // The list of blocks is not guaranteed to be sorted.
-func listIndexBlocksFromStorage(ctx context.Context, st storage.Storage, full bool, extraTime time.Duration) ([]IndexInfo, error) {
-	maxCompactions := 1
-	if full {
-		maxCompactions = math.MaxInt32
-	}
-
+func listIndexBlocksFromStorage(ctx context.Context, st storage.Storage) ([]IndexInfo, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	ch := st.ListBlocks(ctx, newIndexBlockPrefix)
 
 	var results []IndexInfo
-	numCompactions := 0
-
-	var timestampCutoff time.Time
 	for it := range ch {
-		if !timestampCutoff.IsZero() && it.TimeStamp.Before(timestampCutoff) {
-			break
-		}
-
 		if it.Error != nil {
 			return nil, it.Error
 		}
@@ -928,16 +967,14 @@ func listIndexBlocksFromStorage(ctx context.Context, st storage.Storage, full bo
 			Length:    it.Length,
 		}
 		results = append(results, ii)
-
-		if strings.Contains(string(ii.BlockID), compactedBlockSuffix) {
-			numCompactions++
-			if numCompactions == maxCompactions {
-				timestampCutoff = it.TimeStamp.Add(-extraTime)
-			}
-		}
 	}
 
-	return results, nil
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+		return results, nil
+	}
 }
 
 // NewManager creates new block manager with given packing options and a formatter.
@@ -997,8 +1034,8 @@ func newManagerWithOptions(ctx context.Context, st storage.Storage, f Formatting
 
 	m.startPackIndexLocked()
 
-	if err := m.fetchCommittedIndexAndMaybeCompact(ctx, autoCompactionBlockCount); err != nil {
-		return nil, fmt.Errorf("unable initialize indexes: %v", err)
+	if err := m.CompactIndexes(ctx, autoCompactionMinBlockCount, autoCompactionMaxBlockCount); err != nil {
+		return nil, fmt.Errorf("error initializing block manager: %v", err)
 	}
 
 	return m, nil

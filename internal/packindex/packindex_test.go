@@ -3,6 +3,7 @@ package packindex_test
 import (
 	"bytes"
 	"crypto/sha1"
+	"encoding/hex"
 	"fmt"
 	"math/rand"
 	"reflect"
@@ -13,8 +14,6 @@ import (
 )
 
 func TestPackIndex(t *testing.T) {
-	b := packindex.NewBuilder()
-
 	blockNumber := 0
 
 	deterministicBlockID := func(prefix string, id int) string {
@@ -96,19 +95,41 @@ func TestPackIndex(t *testing.T) {
 	}
 
 	infoMap := map[string]packindex.Info{}
+	b1 := packindex.NewBuilder()
+	b2 := packindex.NewBuilder()
+	b3 := packindex.NewBuilder()
 
 	for _, info := range infos {
 		infoMap[info.BlockID] = info
-		b.Add(info)
+		b1.Add(info)
+		b2.Add(info)
+		b3.Add(info)
 	}
 
-	var buf bytes.Buffer
-	if err := b.Build(&buf); err != nil {
+	var buf1 bytes.Buffer
+	var buf2 bytes.Buffer
+	var buf3 bytes.Buffer
+	if err := b1.Build(&buf1); err != nil {
 		t.Errorf("unable to build: %v", err)
 	}
+	if err := b1.Build(&buf2); err != nil {
+		t.Errorf("unable to build: %v", err)
+	}
+	if err := b1.Build(&buf3); err != nil {
+		t.Errorf("unable to build: %v", err)
+	}
+	data1 := buf1.Bytes()
+	data2 := buf2.Bytes()
+	data3 := buf3.Bytes()
 
-	data := buf.Bytes()
-	ndx, err := packindex.Open(bytes.NewReader(data))
+	if !reflect.DeepEqual(data1, data2) {
+		t.Errorf("builder output not stable: %x vs %x", hex.Dump(data1), hex.Dump(data2))
+	}
+	if !reflect.DeepEqual(data2, data3) {
+		t.Errorf("builder output not stable: %x vs %x", hex.Dump(data2), hex.Dump(data3))
+	}
+
+	ndx, err := packindex.Open(bytes.NewReader(data1))
 	if err != nil {
 		t.Fatalf("can't open index: %v", err)
 	}

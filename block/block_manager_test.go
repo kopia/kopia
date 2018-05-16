@@ -29,7 +29,7 @@ const (
 var fakeTime = time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC)
 
 func init() {
-	//zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 }
 
@@ -54,7 +54,7 @@ func TestBlockZeroBytes1(t *testing.T) {
 	if got, want := len(data), 2; got != want {
 		t.Errorf("unexpected number of blocks: %v, wanted %v", got, want)
 	}
-	//dumpBlockManagerData(t, data)
+	dumpBlockManagerData(t, data)
 	bm = newTestBlockManager(data, keyTime, nil)
 	verifyBlock(ctx, t, bm, blockID, []byte{})
 }
@@ -67,7 +67,6 @@ func TestBlockZeroBytes2(t *testing.T) {
 	writeBlockAndVerify(ctx, t, bm, seededRandomData(10, 10))
 	writeBlockAndVerify(ctx, t, bm, []byte{})
 	bm.Flush(ctx)
-	//dumpBlockManagerData(t, data)
 	if got, want := len(data), 2; got != want {
 		t.Errorf("unexpected number of blocks: %v, wanted %v", got, want)
 		dumpBlockManagerData(t, data)
@@ -166,7 +165,7 @@ func TestBlockManagerEmpty(t *testing.T) {
 func verifyActiveIndexBlockCount(ctx context.Context, t *testing.T, bm *Manager, expected int) {
 	t.Helper()
 
-	blks, err := bm.ActiveIndexBlocks(ctx)
+	blks, err := bm.IndexBlocks(ctx)
 	if err != nil {
 		t.Errorf("error listing active index blocks: %v", err)
 		return
@@ -318,11 +317,11 @@ func TestBlockManagerConcurrency(t *testing.T) {
 		t.Errorf("unexpected index count before compaction: %v, wanted %v", got, want)
 	}
 
-	if err := bm4.CompactIndexes(ctx); err != nil {
+	if err := bm4.CompactIndexes(ctx, 1, 1); err != nil {
 		t.Errorf("compaction error: %v", err)
 	}
-	if got, want := getIndexCount(data), 5; got != want {
-		t.Errorf("unexpected index count after partial compaction: %v, wanted %v", got, want)
+	if got, want := getIndexCount(data), 1; got != want {
+		t.Errorf("unexpected index count after compaction: %v, wanted %v", got, want)
 	}
 
 	// new block manager at this point can see all data.
@@ -332,7 +331,7 @@ func TestBlockManagerConcurrency(t *testing.T) {
 	verifyBlock(ctx, t, bm5, bm1block, seededRandomData(31, 100))
 	verifyBlock(ctx, t, bm5, bm2block, seededRandomData(32, 100))
 	verifyBlock(ctx, t, bm5, bm3block, seededRandomData(33, 100))
-	if err := bm5.CompactIndexes(ctx); err != nil {
+	if err := bm5.CompactIndexes(ctx, 1, 1); err != nil {
 		t.Errorf("compaction error: %v", err)
 	}
 }
@@ -471,7 +470,7 @@ func verifyVersionCompat(t *testing.T, writeVersion int) {
 	// make sure we can read everything
 	verifyBlockManagerDataSet(ctx, t, mgr, dataSet)
 
-	if err := mgr.CompactIndexes(ctx); err != nil {
+	if err := mgr.CompactIndexes(ctx, 1, 1); err != nil {
 		t.Fatalf("unable to compact indexes: %v", err)
 	}
 	if err := mgr.Flush(ctx); err != nil {
@@ -508,11 +507,10 @@ func newTestBlockManager(data map[string][]byte, keyTime map[string]time.Time, t
 		BlockFormat: "TESTONLY_MD5",
 		MaxPackSize: maxPackSize,
 	}, CachingOptions{}, timeFunc, 0)
-	bm.checkInvariantsOnUnlock = true
-
 	if err != nil {
 		panic("can't create block manager: " + err.Error())
 	}
+	bm.checkInvariantsOnUnlock = true
 	return bm
 }
 

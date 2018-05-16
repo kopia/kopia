@@ -20,8 +20,7 @@ import (
 
 const (
 	sweepCacheFrequency = 1 * time.Minute
-	fullListCacheItem   = "list-full"
-	activeListCacheItem = "list-active"
+	fullListCacheItem   = "list"
 )
 
 type localStorageCache struct {
@@ -80,30 +79,27 @@ func (c *localStorageCache) putBlock(ctx context.Context, blockID PhysicalBlockI
 	return c.st.PutBlock(ctx, string(blockID), bytes.NewReader(data))
 }
 
-func (c *localStorageCache) listIndexBlocks(ctx context.Context, full bool, extraTime time.Duration) ([]IndexInfo, error) {
-	var cachedListBlockID string
+func (c *localStorageCache) deleteBlock(ctx context.Context, blockID PhysicalBlockID) error {
+	c.deleteListCache(ctx)
+	return c.st.DeleteBlock(ctx, string(blockID))
+}
 
-	if full {
-		cachedListBlockID = fullListCacheItem
-	} else {
-		cachedListBlockID = activeListCacheItem
-	}
-
-	ci, err := c.readBlocksFromCacheBlock(ctx, cachedListBlockID)
+func (c *localStorageCache) listIndexBlocks(ctx context.Context) ([]IndexInfo, error) {
+	ci, err := c.readBlocksFromCacheBlock(ctx, fullListCacheItem)
 	if err == nil {
 		expirationTime := ci.Timestamp.Add(c.listCacheDuration)
 		if time.Now().Before(expirationTime) {
-			log.Debug().Bool("full", full).Str("blockID", cachedListBlockID).Msg("retrieved index blocks from cache")
+			log.Debug().Str("blockID", fullListCacheItem).Msg("retrieved index blocks from cache")
 			return ci.Blocks, nil
 		}
 	} else if err != storage.ErrBlockNotFound {
-		log.Warn().Str("blockID", cachedListBlockID).Err(err).Msgf("unable to open cache file")
+		log.Warn().Err(err).Msgf("unable to open cache file")
 	}
 
-	log.Debug().Bool("full", full).Msg("listing index blocks from source")
-	blocks, err := listIndexBlocksFromStorage(ctx, c.st, full, extraTime)
+	log.Debug().Msg("listing index blocks from source")
+	blocks, err := listIndexBlocksFromStorage(ctx, c.st)
 	if err == nil {
-		c.saveListToCache(ctx, cachedListBlockID, &cachedList{
+		c.saveListToCache(ctx, fullListCacheItem, &cachedList{
 			Blocks:    blocks,
 			Timestamp: time.Now(),
 		})
@@ -229,9 +225,7 @@ func (c *localStorageCache) sweepDirectory(ctx context.Context) (err error) {
 }
 
 func (c *localStorageCache) deleteListCache(ctx context.Context) {
-	for _, it := range []string{fullListCacheItem, activeListCacheItem} {
-		if err := c.cacheStorage.DeleteBlock(ctx, it); err != nil && err != storage.ErrBlockNotFound {
-			log.Warn().Err(err).Msg("unable to delete cache item")
-		}
+	if err := c.cacheStorage.DeleteBlock(ctx, fullListCacheItem); err != nil && err != storage.ErrBlockNotFound {
+		log.Warn().Err(err).Msg("unable to delete cache item")
 	}
 }

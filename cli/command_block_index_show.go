@@ -26,7 +26,7 @@ func getIndexBlocksToShow(ctx context.Context, rep *repo.Repository) ([]block.Ph
 	}
 
 	if len(blockIDs) == 1 && blockIDs[0] == "active" {
-		b, err := rep.Blocks.ActiveIndexBlocks(ctx)
+		b, err := rep.Blocks.IndexBlocks(ctx)
 		if err != nil {
 			return nil, err
 		}

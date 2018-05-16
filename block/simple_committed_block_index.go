@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	"github.com/kopia/kopia/internal/packindex"
@@ -17,13 +16,17 @@ import (
 const simpleIndexSuffix = ".sndx"
 
 type simpleCommittedBlockIndex struct {
-	dirname      string
-	indexesMutex sync.Mutex
-	indexBlocks  map[PhysicalBlockID]bool
-	merged       packindex.Merged
+	dirname string
+
+	mu          sync.Mutex
+	indexBlocks map[PhysicalBlockID]bool
+	merged      packindex.Merged
 }
 
 func (b *simpleCommittedBlockIndex) getBlock(blockID string) (Info, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
 	info, err := b.merged.GetInfo(blockID)
 	if info != nil {
 		return *info, nil
@@ -35,75 +38,44 @@ func (b *simpleCommittedBlockIndex) getBlock(blockID string) (Info, error) {
 }
 
 func (b *simpleCommittedBlockIndex) hasIndexBlockID(indexBlockID PhysicalBlockID) (bool, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
 	return b.indexBlocks[indexBlockID], nil
 }
 
-func (b *simpleCommittedBlockIndex) addBlock(indexBlockID PhysicalBlockID, data []byte) error {
+func (b *simpleCommittedBlockIndex) addBlock(indexBlockID PhysicalBlockID, data []byte, use bool) error {
 	fullPath := filepath.Join(b.dirname, string(indexBlockID+simpleIndexSuffix))
 
 	if err := ioutil.WriteFile(fullPath, data, 0600); err != nil {
 		return err
 	}
 
-	b.indexesMutex.Lock()
-	defer b.indexesMutex.Unlock()
+	b.mu.Lock()
+	defer b.mu.Unlock()
 
-	if !b.indexBlocks[indexBlockID] {
-		ndx, err := b.openIndex(fullPath)
-		if err != nil {
-			return fmt.Errorf("unable to open pack index %q: %v", fullPath, err)
-		}
+	b.indexBlocks[indexBlockID] = true
 
-		b.indexBlocks[indexBlockID] = true
-		b.merged = append(b.merged, ndx)
+	if !use {
+		return nil
 	}
+
+	ndx, err := b.openIndex(fullPath)
+	if err != nil {
+		return fmt.Errorf("unable to open pack index %q: %v", fullPath, err)
+	}
+
+	b.merged = append(b.merged, ndx)
 
 	return nil
 }
 
 func (b *simpleCommittedBlockIndex) listBlocks(prefix string, cb func(i Info) error) error {
-	return b.merged.Iterate(prefix, cb)
-}
+	b.mu.Lock()
+	m := b.merged
+	b.mu.Unlock()
 
-func (b *simpleCommittedBlockIndex) loadIndexes() error {
-	b.indexesMutex.Lock()
-	defer b.indexesMutex.Unlock()
-
-	entries, err := ioutil.ReadDir(b.dirname)
-	if err != nil {
-		return err
-	}
-
-	newIndexes := map[PhysicalBlockID]bool{}
-	var newMerged packindex.Merged
-	defer func() {
-		newMerged.Close() //nolint:errcheck
-	}()
-	for _, e := range entries {
-		if !strings.HasSuffix(e.Name(), simpleIndexSuffix) {
-			continue
-		}
-
-		fullpath := filepath.Join(b.dirname, e.Name())
-		ndx, err := b.openIndex(fullpath)
-		if err != nil {
-			return fmt.Errorf("unable to open pack index %q: %v", fullpath, err)
-		}
-
-		log.Printf("opened %v with %v entries", fullpath, ndx.EntryCount())
-
-		// ndx.Iterate("", func(i Info) error {
-		// 	log.Info().Msgf("i: %v blk:%v off:%v len:%v", i.BlockID, i.PackBlockID, i.PackOffset, i.Length)
-		// 	return nil
-		// })
-
-		newIndexes[PhysicalBlockID(strings.TrimSuffix(e.Name(), simpleIndexSuffix))] = true
-		newMerged = append(newMerged, ndx)
-	}
-	b.indexBlocks = newIndexes
-	b.merged = newMerged
-	newMerged = nil
-	return nil
+	return m.Iterate(prefix, cb)
 }
 
 func (b *simpleCommittedBlockIndex) openIndex(fullpath string) (packindex.Index, error) {
@@ -116,12 +88,38 @@ func (b *simpleCommittedBlockIndex) openIndex(fullpath string) (packindex.Index,
 	return packindex.Open(f)
 }
 
+func (b *simpleCommittedBlockIndex) use(packBlockIDs []PhysicalBlockID) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	newIndexes := map[PhysicalBlockID]bool{}
+	var newMerged packindex.Merged
+	defer func() {
+		newMerged.Close() //nolint:errcheck
+	}()
+	for _, e := range packBlockIDs {
+		fullpath := filepath.Join(b.dirname, string(e)+simpleIndexSuffix)
+		ndx, err := b.openIndex(fullpath)
+		if err != nil {
+			return fmt.Errorf("unable to open pack index %q: %v", fullpath, err)
+		}
+
+		log.Printf("opened %v with %v entries", fullpath, ndx.EntryCount())
+		newIndexes[e] = true
+		newMerged = append(newMerged, ndx)
+	}
+	b.indexBlocks = newIndexes
+	b.merged = newMerged
+	newMerged = nil
+	return nil
+}
+
 func newSimpleCommittedBlockIndex(dirname string) (committedBlockIndex, error) {
 	_ = os.MkdirAll(dirname, 0700)
 
-	s := &simpleCommittedBlockIndex{dirname: dirname}
-	if err := s.loadIndexes(); err != nil {
-		return nil, err
+	s := &simpleCommittedBlockIndex{
+		dirname:     dirname,
+		indexBlocks: map[PhysicalBlockID]bool{},
 	}
 	return s, nil
 }

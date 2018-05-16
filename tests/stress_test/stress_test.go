@@ -16,7 +16,7 @@ import (
 	"github.com/kopia/kopia/storage"
 )
 
-const goroutineCount = 8
+const goroutineCount = 16
 
 func TestStressBlockManager(t *testing.T) {
 	data := map[string][]byte{}

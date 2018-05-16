@@ -112,11 +112,10 @@ func TestEndToEnd(t *testing.T) {
 	// expect 5 blocks, each snapshot creation adds one index block.
 	e.runAndVerifyOutputLineCount(t, 5, "blockindex", "ls")
 	e.runAndExpectSuccess(t, "blockindex", "optimize")
-	e.runAndVerifyOutputLineCount(t, 6, "blockindex", "ls")
-	e.runAndVerifyOutputLineCount(t, 6, "blockindex", "ls", "--all")
+	e.runAndVerifyOutputLineCount(t, 1, "blockindex", "ls")
 
 	e.runAndExpectSuccess(t, "snapshot", "create", ".", dir1, dir2)
-	e.runAndVerifyOutputLineCount(t, 7, "blockindex", "ls")
+	e.runAndVerifyOutputLineCount(t, 2, "blockindex", "ls")
 }
 
 func (e *testenv) runAndExpectSuccess(t *testing.T, args ...string) []string {
