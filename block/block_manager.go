@@ -707,12 +707,12 @@ func (bm *Manager) writePackDataNotLocked(ctx context.Context, data []byte) (Phy
 		return bm.encryptAndWriteBlockNotLocked(ctx, data, "")
 	}
 
-	suffix := make([]byte, 16)
-	if _, err := cryptorand.Read(suffix); err != nil {
+	blockID := make([]byte, 16)
+	if _, err := cryptorand.Read(blockID); err != nil {
 		return "", fmt.Errorf("unable to read crypto bytes: %v", err)
 	}
 
-	physicalBlockID := PhysicalBlockID(fmt.Sprintf("%v-%x", bm.timeNow().UTC().Format("20060102"), suffix))
+	physicalBlockID := PhysicalBlockID(fmt.Sprintf("p%x", blockID))
 
 	atomic.AddInt32(&bm.stats.WrittenBlocks, 1)
 	atomic.AddInt64(&bm.stats.WrittenBytes, int64(len(data)))
