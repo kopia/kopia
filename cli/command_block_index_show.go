@@ -59,6 +59,8 @@ func runShowBlockIndexesAction(ctx context.Context, rep *repo.Repository) error 
 		if *blockIndexShowRaw {
 			os.Stdout.Write(data) //nolint:errcheck
 		} else {
+			fmt.Printf("%v (%v bytes):\n", blockID, len(data))
+
 			ndx, err := packindex.Open(bytes.NewReader(data))
 			if err != nil {
 				return err
