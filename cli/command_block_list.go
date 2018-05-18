@@ -36,11 +36,7 @@ func runListBlocksAction(ctx context.Context, rep *repo.Repository) error {
 			uniquePacks[b.PackBlockID] = true
 		}
 		if *blockListLong {
-			if b.PackBlockID != "" {
-				fmt.Printf("%-34v %10v %v in %v offset %v\n", b.BlockID, b.Length, b.Timestamp().Format(timeFormat), b.PackBlockID, b.PackOffset)
-			} else {
-				fmt.Printf("%-34v %10v %v (inline)\n", b.BlockID, b.Length, b.Timestamp().Format(timeFormat))
-			}
+			fmt.Printf("%v %v %v %v+%v\n", b.BlockID, b.Timestamp().Format(timeFormat), b.PackBlockID, b.PackOffset, b.Length)
 		} else {
 			fmt.Printf("%v\n", b.BlockID)
 		}

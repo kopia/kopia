@@ -12,8 +12,8 @@ import (
 	"github.com/kopia/kopia/snapshot"
 )
 
-const timeFormat = "02 Jan 06 15:04:05"
-const timeFormatPrecise = "02 Jan 06 15:04:05.000000000"
+const timeFormat = "2006-01-02 15:04:05"
+const timeFormatPrecise = "2006-01-02 15:04:05.000000000"
 
 var (
 	lsCommand = app.Command("list", "List a directory stored in repository object.").Alias("ls")
