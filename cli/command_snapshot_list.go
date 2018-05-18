@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	"github.com/rs/zerolog/log"
@@ -80,20 +79,35 @@ func runBackupsCommand(ctx context.Context, rep *repo.Repository) error {
 		return err
 	}
 
-	sort.Sort(manifestSorter(manifests))
-	outputManifests(manifests, relPath)
+	polMgr := snapshot.NewPolicyManager(rep)
+
+	outputManifestGroups(manifests, relPath, polMgr)
 
 	return nil
 }
 
-func outputManifests(manifests []*snapshot.Manifest, relPath string) {
-	var lastSource snapshot.SourceInfo
+func outputManifestGroups(manifests []*snapshot.Manifest, relPath string, polMgr *snapshot.PolicyManager) {
+	separator := ""
+	for _, snapshotGroup := range snapshot.GroupBySource(manifests) {
+		src := snapshotGroup[0].Source
+		fmt.Printf("%v%v\n", separator, src)
+		separator = "\n"
+
+		pol, err := polMgr.GetEffectivePolicy(src)
+		if err != nil {
+			log.Warn().Msgf("unable to determine effective policy for %v", src)
+		} else {
+			pol.RetentionPolicy.ComputeRetentionReasons(snapshotGroup)
+		}
+		outputManifestFromSingleSource(snapshotGroup, relPath)
+	}
+}
+
+func outputManifestFromSingleSource(manifests []*snapshot.Manifest, relPath string) {
 	var count int
 	var lastTotalFileSize int64
 
-	separator := ""
-
-	for _, m := range manifests {
+	for _, m := range snapshot.SortByTime(manifests, false) {
 		maybeIncomplete := ""
 		if m.IncompleteReason != "" {
 			if !*snapshotListIncludeIncomplete {
@@ -102,32 +116,28 @@ func outputManifests(manifests []*snapshot.Manifest, relPath string) {
 			maybeIncomplete = " " + m.IncompleteReason
 		}
 
-		if m.Source != lastSource {
-			fmt.Printf("%v%v\n", separator, m.Source)
-			separator = "\n"
-			lastSource = m.Source
-			count = 0
-			lastTotalFileSize = m.Stats.TotalFileSize
+		if count > *maxResultsPerPath {
+			return
 		}
 
-		if count < *maxResultsPerPath {
-			fmt.Printf(
-				"  %v %v%v %v %v%v\n",
-				m.StartTime.Format("2006-01-02 15:04:05 MST"),
-				m.RootObjectID,
-				relPath,
-				units.BytesStringBase10(m.Stats.TotalFileSize),
-				deltaBytes(m.Stats.TotalFileSize-lastTotalFileSize),
-				maybeIncomplete,
-			)
-			if *snapshotListShowItemID {
-				fmt.Printf("    metadata:  %v\n", m.ID)
-			}
-			if *snapshotListShowHashCache {
-				fmt.Printf("    hashcache: %v\n", m.HashCacheID)
-			}
-			count++
+		fmt.Printf(
+			"  %v %v%v %v %v %v %v\n",
+			m.StartTime.Format("2006-01-02 15:04:05 MST"),
+			m.RootObjectID,
+			relPath,
+			units.BytesStringBase10(m.Stats.TotalFileSize),
+			retentionReasonString(m.RetentionReasons),
+			deltaBytes(m.Stats.TotalFileSize-lastTotalFileSize),
+			maybeIncomplete,
+		)
+
+		if *snapshotListShowItemID {
+			fmt.Printf("    metadata:  %v\n", m.ID)
 		}
+		if *snapshotListShowHashCache {
+			fmt.Printf("    hashcache: %v\n", m.HashCacheID)
+		}
+		count++
 
 		if m.IncompleteReason == "" || !*snapshotListIncludeIncomplete {
 			lastTotalFileSize = m.Stats.TotalFileSize
@@ -135,25 +145,19 @@ func outputManifests(manifests []*snapshot.Manifest, relPath string) {
 	}
 }
 
-type manifestSorter []*snapshot.Manifest
-
-func (b manifestSorter) Len() int { return len(b) }
-func (b manifestSorter) Less(i, j int) bool {
-	if c := strings.Compare(b[i].Source.String(), b[j].Source.String()); c != 0 {
-		return c < 0
-	}
-
-	return b[i].StartTime.UnixNano() < b[j].StartTime.UnixNano()
-}
-
-func (b manifestSorter) Swap(i, j int) { b[i], b[j] = b[j], b[i] }
-
 func deltaBytes(b int64) string {
 	if b > 0 {
 		return "(+" + units.BytesStringBase10(b) + ")"
 	}
 
 	return ""
+}
+
+func retentionReasonString(s []string) string {
+	if len(s) == 0 {
+		return "-"
+	}
+	return strings.Join(s, ",")
 }
 
 func init() {

@@ -95,6 +95,7 @@ func setPolicyFromFlags(target snapshot.SourceInfo, p *snapshot.Policy) error {
 	// It's not really a list, just optional boolean.
 	for _, inherit := range *policySetInherit {
 		p.NoParent = !inherit
+		break
 	}
 
 	if *policySetClearExclude {
@@ -108,8 +109,10 @@ func setPolicyFromFlags(target snapshot.SourceInfo, p *snapshot.Policy) error {
 		p.FilesPolicy.Include = addRemoveDedupeAndSort(p.FilesPolicy.Include, *policySetAddInclude, *policySetRemoveInclude)
 	}
 
+	// It's not really a list, just optional value.
 	for _, freq := range *policySetFrequency {
-		p.SchedulingPolicy.Frequency = freq
+		p.SchedulingPolicy.MaxFrequency = &freq
+		break
 	}
 
 	return nil
