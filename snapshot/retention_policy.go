@@ -84,7 +84,7 @@ func (r *RetentionPolicy) getRetentionReasons(i int, s *Manifest, cutoff cutoffT
 		if idCounters[c.timePeriodType] < *c.max {
 			ids[c.timePeriodID] = true
 			idCounters[c.timePeriodType]++
-			keepReasons = append(keepReasons, c.timePeriodType)
+			keepReasons = append(keepReasons, fmt.Sprintf("%v-%v", c.timePeriodType, idCounters[c.timePeriodType]))
 		}
 	}
 
