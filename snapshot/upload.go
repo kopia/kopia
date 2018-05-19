@@ -306,12 +306,18 @@ func (u *Uploader) processSubdirectories(ctx context.Context, relativePath strin
 
 		summ.TotalFileCount += subdirsumm.TotalFileCount
 		summ.TotalFileSize += subdirsumm.TotalFileSize
+		summ.TotalDirCount += subdirsumm.TotalDirCount
+		if subdirsumm.MaxModTime.After(summ.MaxModTime) {
+			summ.MaxModTime = subdirsumm.MaxModTime
+		}
 
 		if err != nil {
 			return fmt.Errorf("unable to process directory %q: %s", e.Name, err)
 		}
 
-		if err := dw.WriteEntry(newDirEntry(e, oid)); err != nil {
+		de := newDirEntry(e, oid)
+		de.DirSummary = &subdirsumm
+		if err := dw.WriteEntry(de); err != nil {
 			return fmt.Errorf("unable to write dir entry: %v", err)
 		}
 
@@ -371,7 +377,9 @@ func (u *Uploader) prepareWorkItems(ctx context.Context, dirRelativePath string,
 			u.stats.TotalFileSize += e.FileSize
 			summ.TotalFileCount++
 			summ.TotalFileSize += e.FileSize
-
+			if e.ModTime.After(summ.MaxModTime) {
+				summ.MaxModTime = e.ModTime
+			}
 		}
 
 		if cachedHash == computedHash {
@@ -516,10 +524,14 @@ func uploadDirInternal(
 	u.stats.TotalDirectoryCount++
 
 	var summ dir.Summary
+	summ.TotalDirCount = 1
 
 	entries, direrr := directory.Readdir(ctx)
 	if direrr != nil {
 		return "", dir.Summary{}, direrr
+	}
+	if len(entries) == 0 {
+		summ.MaxModTime = directory.Metadata().ModTime
 	}
 
 	writer := u.repo.Objects.NewWriter(ctx, object.WriterOptions{
