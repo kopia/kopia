@@ -3,12 +3,11 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/kopia/kopia/repo"
-
-	"github.com/rs/zerolog/log"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/units"
@@ -121,7 +120,7 @@ func estimate(ctx context.Context, relativePath string, entry fs.Entry, pol *sna
 	switch entry := entry.(type) {
 	case fs.Directory:
 		if !*snapshotEstimateQuiet {
-			log.Printf("Scanning %q...\n", relativePath)
+			fmt.Fprintln(os.Stderr, "Scanning", relativePath)
 		}
 		children, err := entry.Readdir(ctx)
 		if err != nil {
