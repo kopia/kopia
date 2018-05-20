@@ -5,6 +5,7 @@ import (
 	"io"
 	"sort"
 	"strings"
+	"time"
 )
 
 // Entry represents a filesystem entry, which can be Directory, File, or Symlink
@@ -33,6 +34,16 @@ type File interface {
 type Directory interface {
 	Entry
 	Readdir(ctx context.Context) (Entries, error)
+	Summary() *DirectorySummary
+}
+
+// DirectorySummary represents summary information about a directory.
+type DirectorySummary struct {
+	TotalFileSize    int64     `json:"size"`
+	TotalFileCount   int64     `json:"files"`
+	TotalDirCount    int64     `json:"dirs"`
+	MaxModTime       time.Time `json:"maxTime"`
+	IncompleteReason string    `json:"incomplete,omitempty"`
 }
 
 // Symlink represents a symbolic link entry.

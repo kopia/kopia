@@ -30,7 +30,7 @@ func runMountCommand(ctx context.Context, rep *repo.Repository) error {
 		if err != nil {
 			return err
 		}
-		entry = mgr.DirectoryEntry(oid)
+		entry = mgr.DirectoryEntry(oid, nil)
 	}
 
 	if *mountTraceFS {

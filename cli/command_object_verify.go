@@ -42,7 +42,7 @@ func (v *verifier) verifyDirectory(ctx context.Context, oid object.ID, path stri
 
 	log.Printf("verifying directory %q (%v)", path, oid)
 
-	d := v.mgr.DirectoryEntry(oid)
+	d := v.mgr.DirectoryEntry(oid, nil)
 	entries, err := d.Readdir(ctx)
 	if err != nil {
 		if v.reportError(path, fmt.Errorf("error reading directory %q %v: %v", path, oid, err)) {

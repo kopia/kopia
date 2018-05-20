@@ -223,41 +223,53 @@ func newDirEntry(md *fs.EntryMetadata, oid object.ID) *dir.Entry {
 }
 
 // uploadFile uploads the specified File to the repository.
-func (u *Uploader) uploadFile(ctx context.Context, file fs.File) (object.ID, error) {
+func (u *Uploader) uploadFile(ctx context.Context, file fs.File) (*dir.Entry, error) {
 	res := u.uploadFileInternal(ctx, file, file.Metadata().Name)
 	if res.err != nil {
-		return "", res.err
+		return nil, res.err
 	}
-	return res.de.ObjectID, nil
+	return &dir.Entry{
+		EntryMetadata: *file.Metadata(),
+		ObjectID:      res.de.ObjectID,
+		DirSummary: &fs.DirectorySummary{
+			TotalFileCount: 1,
+			TotalFileSize:  res.de.FileSize,
+			MaxModTime:     res.de.ModTime,
+		},
+	}, nil
 }
 
 // uploadDir uploads the specified Directory to the repository.
 // An optional ID of a hash-cache object may be provided, in which case the Uploader will use its
 // contents to avoid hashing
-func (u *Uploader) uploadDir(ctx context.Context, dir fs.Directory) (object.ID, object.ID, error) {
+func (u *Uploader) uploadDir(ctx context.Context, rootDir fs.Directory) (*dir.Entry, object.ID, error) {
 	mw := u.repo.Objects.NewWriter(ctx, object.WriterOptions{
-		Description: "HASHCACHE:" + dir.Metadata().Name,
+		Description: "HASHCACHE:" + rootDir.Metadata().Name,
 	})
 	defer mw.Close() //nolint:errcheck
 	u.cacheWriter = hashcache.NewWriter(mw)
-	oid, _, err := uploadDirInternal(ctx, u, dir, ".")
+	oid, summ, err := uploadDirInternal(ctx, u, rootDir, ".")
 	if u.IsCancelled() {
 		if err2 := u.cacheReader.CopyTo(u.cacheWriter); err != nil {
-			return "", "", err2
+			return nil, "", err2
 		}
 	}
 	defer u.cacheWriter.Finalize() //nolint:errcheck
 	u.cacheWriter = nil
 
 	if err != nil {
-		return "", "", err
+		return nil, "", err
 	}
 
 	hcid, err := mw.Result()
 	if flushErr := u.repo.Objects.Flush(ctx); flushErr != nil {
-		return "", "", fmt.Errorf("can't flush pending objects: %v", flushErr)
+		return nil, "", fmt.Errorf("can't flush pending objects: %v", flushErr)
 	}
-	return oid, hcid, err
+	return &dir.Entry{
+		EntryMetadata: *rootDir.Metadata(),
+		ObjectID:      oid,
+		DirSummary:    &summ,
+	}, hcid, err
 }
 
 func (u *Uploader) foreachEntryUnlessCancelled(relativePath string, entries fs.Entries, cb func(entry fs.Entry, entryRelativePath string) error) error {
@@ -290,7 +302,7 @@ type entryResult struct {
 	hash uint64
 }
 
-func (u *Uploader) processSubdirectories(ctx context.Context, relativePath string, entries fs.Entries, dw *dir.Writer, summ *dir.Summary) error {
+func (u *Uploader) processSubdirectories(ctx context.Context, relativePath string, entries fs.Entries, dw *dir.Writer, summ *fs.DirectorySummary) error {
 	return u.foreachEntryUnlessCancelled(relativePath, entries, func(entry fs.Entry, entryRelativePath string) error {
 		dir, ok := entry.(fs.Directory)
 		if !ok {
@@ -349,7 +361,7 @@ type uploadWorkItem struct {
 	resultChan        chan entryResult
 }
 
-func (u *Uploader) prepareWorkItems(ctx context.Context, dirRelativePath string, entries fs.Entries, summ *dir.Summary) ([]*uploadWorkItem, error) {
+func (u *Uploader) prepareWorkItems(ctx context.Context, dirRelativePath string, entries fs.Entries, summ *fs.DirectorySummary) ([]*uploadWorkItem, error) {
 	var result []*uploadWorkItem
 
 	resultErr := u.foreachEntryUnlessCancelled(dirRelativePath, entries, func(entry fs.Entry, entryRelativePath string) error {
@@ -520,15 +532,19 @@ func uploadDirInternal(
 	u *Uploader,
 	directory fs.Directory,
 	dirRelativePath string,
-) (object.ID, dir.Summary, error) {
+) (object.ID, fs.DirectorySummary, error) {
 	u.stats.TotalDirectoryCount++
 
-	var summ dir.Summary
+	var summ fs.DirectorySummary
 	summ.TotalDirCount = 1
+
+	defer func() {
+		summ.IncompleteReason = u.cancelReason()
+	}()
 
 	entries, direrr := directory.Readdir(ctx)
 	if direrr != nil {
-		return "", dir.Summary{}, direrr
+		return "", fs.DirectorySummary{}, direrr
 	}
 	if len(entries) == 0 {
 		summ.MaxModTime = directory.Metadata().ModTime
@@ -542,19 +558,19 @@ func uploadDirInternal(
 	defer writer.Close() //nolint:errcheck
 
 	if err := u.processSubdirectories(ctx, dirRelativePath, entries, dw, &summ); err != nil {
-		return "", dir.Summary{}, err
+		return "", fs.DirectorySummary{}, err
 	}
 	u.prepareProgress(dirRelativePath, entries)
 
 	workItems, workItemErr := u.prepareWorkItems(ctx, dirRelativePath, entries, &summ)
 	if workItemErr != nil {
-		return "", dir.Summary{}, workItemErr
+		return "", fs.DirectorySummary{}, workItemErr
 	}
 	if err := u.processUploadWorkItems(workItems, dw); err != nil {
-		return "", dir.Summary{}, err
+		return "", fs.DirectorySummary{}, err
 	}
 	if err := dw.Finalize(&summ); err != nil {
-		return "", dir.Summary{}, fmt.Errorf("unable to finalize directory: %v", err)
+		return "", fs.DirectorySummary{}, fmt.Errorf("unable to finalize directory: %v", err)
 	}
 
 	oid, err := writer.Result()
@@ -620,14 +636,15 @@ func (u *Uploader) Upload(
 
 	switch entry := source.(type) {
 	case fs.Directory:
-		s.RootObjectID, s.HashCacheID, err = u.uploadDir(ctx, entry)
+		s.RootEntry, s.HashCacheID, err = u.uploadDir(ctx, entry)
 
 	case fs.File:
-		s.RootObjectID, err = u.uploadFile(ctx, entry)
+		s.RootEntry, err = u.uploadFile(ctx, entry)
 
 	default:
 		return nil, fmt.Errorf("unsupported source: %v", s.Source)
 	}
+
 	if err != nil {
 		return nil, err
 	}

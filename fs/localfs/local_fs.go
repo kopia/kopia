@@ -51,6 +51,10 @@ type filesystemFile struct {
 	filesystemEntry
 }
 
+func (fsd *filesystemDirectory) Summary() *fs.DirectorySummary {
+	return nil
+}
+
 func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
 	f, direrr := os.Open(fsd.path)
 	if direrr != nil {

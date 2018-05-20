@@ -120,7 +120,7 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, mgr *snapsh
 		return fmt.Errorf("cannot save manifest: %v", err)
 	}
 
-	log.Info().Str("id", snapID).Str("oid", manifest.RootObjectID.String()).Dur("duration_ms", time.Since(t0)).Msg("uploaded")
+	log.Info().Str("id", snapID).Str("oid", manifest.RootObjectID().String()).Dur("duration_ms", time.Since(t0)).Msg("uploaded")
 	log.Printf("Hash Cache: %v", manifest.HashCacheID.String())
 
 	b, _ := json.MarshalIndent(&manifest, "", "  ")

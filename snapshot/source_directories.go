@@ -28,6 +28,10 @@ func (s *sourceDirectories) Metadata() *fs.EntryMetadata {
 	}
 }
 
+func (s *sourceDirectories) Summary() *fs.DirectorySummary {
+	return nil
+}
+
 func (s *sourceDirectories) Readdir(ctx context.Context) (fs.Entries, error) {
 	sources := s.snapshotManager.ListSources()
 	var result fs.Entries

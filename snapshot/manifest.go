@@ -4,6 +4,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/kopia/kopia/internal/dir"
+
 	"github.com/kopia/kopia/object"
 )
 
@@ -16,13 +18,23 @@ type Manifest struct {
 	StartTime   time.Time `json:"startTime"`
 	EndTime     time.Time `json:"endTime"`
 
-	RootObjectID        object.ID `json:"root"`
 	HashCacheID         object.ID `json:"hashCache"`
 	HashCacheCutoffTime time.Time `json:"hashCacheCutoff"`
 	Stats               Stats     `json:"stats"`
 	IncompleteReason    string    `json:"incomplete,omitempty"`
 
+	RootEntry *dir.Entry `json:"rootEntry"`
+
 	RetentionReasons []string `json:"-"`
+}
+
+// RootObjectID returns the ID of a root object.
+func (m *Manifest) RootObjectID() object.ID {
+	if m.RootEntry != nil {
+		return m.RootEntry.ObjectID
+	}
+
+	return ""
 }
 
 // GroupBySource returns a slice of slices, such that each result item contains manifests from a single source.

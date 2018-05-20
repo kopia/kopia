@@ -31,6 +31,7 @@ func (e *repositoryEntry) ObjectID() object.ID {
 
 type repositoryDirectory struct {
 	repositoryEntry
+	summary *fs.DirectorySummary
 }
 
 type repositoryFile struct {
@@ -39,6 +40,10 @@ type repositoryFile struct {
 
 type repositorySymlink struct {
 	repositoryEntry
+}
+
+func (rd *repositoryDirectory) Summary() *fs.DirectorySummary {
+	return rd.summary
 }
 
 func (rd *repositoryDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
@@ -57,6 +62,8 @@ func (rd *repositoryDirectory) Readdir(ctx context.Context) (fs.Entries, error) 
 	for i, m := range metadata {
 		entries[i] = newRepoEntry(rd.repo, m, rd)
 	}
+
+	entries.Sort()
 
 	return entries, nil
 }
@@ -91,9 +98,15 @@ func newRepoEntry(r *repo.Repository, md *dir.Entry, parent fs.Directory) fs.Ent
 		parent:   parent,
 		repo:     r,
 	}
+
 	switch md.Type {
 	case fs.EntryTypeDirectory:
-		return fs.Directory(&repositoryDirectory{re})
+		if md.DirSummary != nil {
+			md.FileSize = md.DirSummary.TotalFileSize
+			md.ModTime = md.DirSummary.MaxModTime
+		}
+
+		return fs.Directory(&repositoryDirectory{re, md.DirSummary})
 
 	case fs.EntryTypeSymlink:
 		return fs.Symlink(&repositorySymlink{re})
@@ -121,17 +134,28 @@ func withMetadata(r object.Reader, md *fs.EntryMetadata) fs.Reader {
 
 // DirectoryEntry returns fs.Directory based on repository object with the specified ID.
 // The existence or validity of the directory object is not validated until its contents are read.
-func (m *Manager) DirectoryEntry(objectID object.ID) fs.Directory {
+func (m *Manager) DirectoryEntry(objectID object.ID, dirSummary *fs.DirectorySummary) fs.Directory {
 	d := newRepoEntry(m.repository, &dir.Entry{
 		EntryMetadata: fs.EntryMetadata{
 			Name:        "/",
 			Permissions: 0555,
 			Type:        fs.EntryTypeDirectory,
 		},
-		ObjectID: objectID,
+		ObjectID:   objectID,
+		DirSummary: dirSummary,
 	}, nil)
 
 	return d.(fs.Directory)
+}
+
+// SnapshotRoot returns fs.Entry representing the root of a snapshot.
+func (m *Manager) SnapshotRoot(man *Manifest) (fs.Entry, error) {
+	oid := man.RootObjectID()
+	if oid == "" {
+		return nil, fmt.Errorf("manifest root object ID")
+	}
+
+	return newRepoEntry(m.repository, man.RootEntry, nil), nil
 }
 
 var _ fs.Directory = &repositoryDirectory{}

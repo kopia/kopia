@@ -12,60 +12,51 @@ import (
 
 // ParseObjectID interprets the given ID string and returns corresponding object.ID.
 func parseObjectID(ctx context.Context, mgr *snapshot.Manager, id string) (object.ID, error) {
-	head, tail := splitHeadTail(id)
-	if len(head) == 0 {
-		return "", fmt.Errorf("invalid object ID: %v", id)
-	}
-
-	oid, err := object.ParseID(head)
+	parts := strings.Split(id, "/")
+	oid, err := object.ParseID(parts[0])
 	if err != nil {
-		return "", fmt.Errorf("can't parse object ID %v: %v", head, err)
+		return "", fmt.Errorf("can't parse object ID %v: %v", id, err)
 	}
 
-	if tail == "" {
+	if len(parts) == 1 {
 		return oid, nil
 	}
 
-	dir := mgr.DirectoryEntry(oid)
-	if err != nil {
-		return "", err
-	}
-
-	return parseNestedObjectID(ctx, dir, tail)
+	dir := mgr.DirectoryEntry(oid, nil)
+	return parseNestedObjectID(ctx, dir, parts[1:])
 }
 
-//nolint:interfacer
-func parseNestedObjectID(ctx context.Context, startingDir fs.Directory, id string) (object.ID, error) {
-	head, tail := splitHeadTail(id)
-	var current fs.Entry = startingDir
-	for head != "" {
+func getNestedEntry(ctx context.Context, startingDir fs.Entry, parts []string) (fs.Entry, error) {
+	current := startingDir
+	for _, part := range parts {
+		if part == "" {
+			continue
+		}
 		dir, ok := current.(fs.Directory)
 		if !ok {
-			return "", fmt.Errorf("entry not found '%v': parent is not a directory", head)
+			return nil, fmt.Errorf("entry not found %q: parent is not a directory", part)
 		}
 
 		entries, err := dir.Readdir(ctx)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 
-		e := entries.FindByName(head)
+		e := entries.FindByName(part)
 		if e == nil {
-			return "", fmt.Errorf("entry not found: '%v'", head)
+			return nil, fmt.Errorf("entry not found: %q in %q", part, fs.EntryPath(current))
 		}
 
 		current = e
-		head, tail = splitHeadTail(tail)
 	}
 
-	return current.(object.HasObjectID).ObjectID(), nil
+	return current, nil
 }
 
-func splitHeadTail(id string) (string, string) {
-	p := strings.Index(id, "/")
-	if p < 0 {
-		return id, ""
+func parseNestedObjectID(ctx context.Context, startingDir fs.Entry, parts []string) (object.ID, error) {
+	e, err := getNestedEntry(ctx, startingDir, parts)
+	if err != nil {
+		return "", err
 	}
-
-	return id[:p], id[p+1:]
+	return e.(object.HasObjectID).ObjectID(), nil
 }

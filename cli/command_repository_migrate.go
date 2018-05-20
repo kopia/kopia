@@ -56,7 +56,7 @@ func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 		if err != nil {
 			return err
 		}
-		d := sourceSM.DirectoryEntry(dirOID)
+		d := sourceSM.DirectoryEntry(dirOID, nil)
 		newm, err := uploader.Upload(ctx, d, snapshot.SourceInfo{Host: "temp"}, nil)
 		if err != nil {
 			return fmt.Errorf("error migrating directory %v: %v", dirOID, err)
@@ -78,13 +78,13 @@ func migrateSingleSource(ctx context.Context, uploader *snapshot.Uploader, sourc
 	}
 
 	for _, m := range filterSnapshotsToMigrate(snapshots) {
-		d := sourceSM.DirectoryEntry(m.RootObjectID)
+		d := sourceSM.DirectoryEntry(m.RootObjectID(), nil)
 		newm, err := uploader.Upload(ctx, d, m.Source, nil)
 		if err != nil {
 			return fmt.Errorf("error migrating shapshot %v @ %v: %v", m.Source, m.StartTime, err)
 		}
 
-		m.RootObjectID = newm.RootObjectID
+		m.RootEntry = newm.RootEntry
 		m.HashCacheID = newm.HashCacheID
 		m.Stats = newm.Stats
 		m.IncompleteReason = newm.IncompleteReason

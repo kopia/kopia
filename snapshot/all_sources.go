@@ -14,6 +14,10 @@ type repositoryAllSources struct {
 	snapshotManager *Manager
 }
 
+func (s *repositoryAllSources) Summary() *fs.DirectorySummary {
+	return nil
+}
+
 func (s *repositoryAllSources) Parent() fs.Directory {
 	return nil
 }

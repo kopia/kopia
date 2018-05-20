@@ -56,6 +56,11 @@ type Directory struct {
 	readdirError error
 }
 
+// Summary returns summary of a directory.
+func (imd *Directory) Summary() *fs.DirectorySummary {
+	return nil
+}
+
 // AddFile adds a mock file with the specified name, content and permissions.
 func (imd *Directory) AddFile(name string, content []byte, permissions fs.Permissions) *File {
 	imd, name = imd.resolveSubdir(name)

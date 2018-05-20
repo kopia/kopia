@@ -1,11 +1,9 @@
 package snapshot
 
 import (
-	"github.com/rs/zerolog/log"
-
 	"github.com/kopia/kopia/manifest"
-
 	"github.com/kopia/kopia/repo"
+	"github.com/rs/zerolog/log"
 )
 
 // GlobalPolicySourceInfo is a source where global policy is attached.

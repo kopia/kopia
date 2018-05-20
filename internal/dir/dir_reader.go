@@ -4,14 +4,15 @@ import (
 	"bufio"
 	"io"
 
+	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/jsonstream"
 )
 
 var directoryStreamType = "kopia:directory"
 
 // ReadEntries reads all the Entry from the specified reader.
-func ReadEntries(r io.Reader) ([]*Entry, *Summary, error) {
-	var summ Summary
+func ReadEntries(r io.Reader) ([]*Entry, *fs.DirectorySummary, error) {
+	var summ fs.DirectorySummary
 	psr, err := jsonstream.NewReader(bufio.NewReader(r), directoryStreamType, &summ)
 	if err != nil {
 		return nil, nil, err

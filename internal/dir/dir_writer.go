@@ -3,6 +3,7 @@ package dir
 import (
 	"io"
 
+	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/jsonstream"
 )
 
@@ -21,7 +22,7 @@ func (dw *Writer) WriteEntry(e *Entry) error {
 }
 
 // Finalize writes the trailing data to the output stream.
-func (dw *Writer) Finalize(summ *Summary) error {
+func (dw *Writer) Finalize(summ *fs.DirectorySummary) error {
 	return dw.w.FinalizeWithSummary(summ)
 }
 

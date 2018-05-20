@@ -48,7 +48,7 @@ func init() {
 }
 
 func listDirectory(ctx context.Context, mgr *snapshot.Manager, prefix string, oid object.ID, indent string) error {
-	d := mgr.DirectoryEntry(oid)
+	d := mgr.DirectoryEntry(oid, nil)
 
 	entries, err := d.Readdir(ctx)
 	if err != nil {

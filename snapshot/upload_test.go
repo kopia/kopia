@@ -115,8 +115,8 @@ func TestUpload(t *testing.T) {
 		t.Errorf("Upload error: %v", err)
 	}
 
-	if !objectIDsEqual(s2.RootObjectID, s1.RootObjectID) {
-		t.Errorf("expected s1.RootObjectID==s2.RootObjectID, got %v and %v", s1.RootObjectID.String(), s2.RootObjectID.String())
+	if !objectIDsEqual(s2.RootObjectID(), s1.RootObjectID()) {
+		t.Errorf("expected s1.RootObjectID==s2.RootObjectID, got %v and %v", s1.RootObjectID().String(), s2.RootObjectID().String())
 	}
 
 	if !objectIDsEqual(s2.HashCacheID, s1.HashCacheID) {
@@ -139,8 +139,8 @@ func TestUpload(t *testing.T) {
 		t.Errorf("upload failed: %v", err)
 	}
 
-	if objectIDsEqual(s2.RootObjectID, s3.RootObjectID) {
-		t.Errorf("expected s3.RootObjectID!=s2.RootObjectID, got %v", s3.RootObjectID.String())
+	if objectIDsEqual(s2.RootObjectID(), s3.RootObjectID()) {
+		t.Errorf("expected s3.RootObjectID!=s2.RootObjectID, got %v", s3.RootObjectID().String())
 	}
 
 	if objectIDsEqual(s2.HashCacheID, s3.HashCacheID) {
@@ -160,8 +160,8 @@ func TestUpload(t *testing.T) {
 		t.Errorf("upload failed: %v", err)
 	}
 
-	if !objectIDsEqual(s4.RootObjectID, s1.RootObjectID) {
-		t.Errorf("expected s4.RootObjectID==s1.RootObjectID, got %v and %v", s4.RootObjectID, s1.RootObjectID)
+	if !objectIDsEqual(s4.RootObjectID(), s1.RootObjectID()) {
+		t.Errorf("expected s4.RootObjectID==s1.RootObjectID, got %v and %v", s4.RootObjectID(), s1.RootObjectID())
 	}
 	if !objectIDsEqual(s4.HashCacheID, s1.HashCacheID) {
 		t.Errorf("expected s4.HashCacheID==s1.HashCacheID, got %v and %v", s4.HashCacheID, s1.HashCacheID)
@@ -177,8 +177,8 @@ func TestUpload(t *testing.T) {
 		t.Errorf("upload failed: %v", err)
 	}
 
-	if !objectIDsEqual(s4.RootObjectID, s5.RootObjectID) {
-		t.Errorf("expected s4.RootObjectID==s5.RootObjectID, got %v and %v", s4.RootObjectID, s5.RootObjectID)
+	if !objectIDsEqual(s4.RootObjectID(), s5.RootObjectID()) {
+		t.Errorf("expected s4.RootObjectID==s5.RootObjectID, got %v and %v", s4.RootObjectID(), s5.RootObjectID())
 	}
 	if !objectIDsEqual(s4.HashCacheID, s5.HashCacheID) {
 		t.Errorf("expected s4.HashCacheID==s5.HashCacheID, got %v and %v", s4.HashCacheID, s5.HashCacheID)

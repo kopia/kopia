@@ -34,6 +34,10 @@ func safeName(path string) string {
 	return strings.Replace(path, "/", "_", -1)
 }
 
+func (s *sourceSnapshots) Summary() *fs.DirectorySummary {
+	return nil
+}
+
 func (s *sourceSnapshots) Readdir(ctx context.Context) (fs.Entries, error) {
 	manifests, err := s.snapshotManager.ListSnapshots(s.src)
 	if err != nil {
@@ -47,15 +51,22 @@ func (s *sourceSnapshots) Readdir(ctx context.Context) (fs.Entries, error) {
 		if m.IncompleteReason != "" {
 			name += fmt.Sprintf(" (%v)", m.IncompleteReason)
 		}
-		e := newRepoEntry(s.repo, &dir.Entry{
+
+		de := &dir.Entry{
 			EntryMetadata: fs.EntryMetadata{
 				Name:        name,
 				Permissions: 0555,
 				Type:        fs.EntryTypeDirectory,
 				ModTime:     m.StartTime,
 			},
-			ObjectID: m.RootObjectID,
-		}, s)
+			ObjectID: m.RootObjectID(),
+		}
+
+		if m.RootEntry != nil {
+			de.DirSummary = m.RootEntry.DirSummary
+		}
+
+		e := newRepoEntry(s.repo, de, s)
 
 		result = append(result, e)
 	}
