@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/kopia/kopia/repo"
 
@@ -38,10 +39,22 @@ func noRepositoryAction(act func(ctx context.Context) error) func(ctx *kingpin.P
 }
 
 func repositoryAction(act func(ctx context.Context, rep *repo.Repository) error) func(ctx *kingpin.ParseContext) error {
-	return func(_ *kingpin.ParseContext) error {
+	return func(kpc *kingpin.ParseContext) error {
 		ctx := context.Background()
+
+		t0 := time.Now()
 		rep := mustOpenRepository(ctx, nil)
+		repositoryOpenTime := time.Since(t0)
+
+		storageType := rep.Storage.ConnectionInfo().Type
+
+		reportStartupTime(storageType, rep.Blocks.Format.Version, repositoryOpenTime)
+
+		t1 := time.Now()
 		err := act(ctx, rep)
+		commandDuration := time.Since(t1)
+
+		reportSubcommandFinished(kpc.SelectedCommand.FullCommand(), err == nil, storageType, rep.Blocks.Format.Version, commandDuration)
 		if cerr := rep.Close(ctx); cerr != nil {
 			return fmt.Errorf("unable to close repository: %v", cerr)
 		}

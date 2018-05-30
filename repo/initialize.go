@@ -16,7 +16,7 @@ import (
 // BuildInfo is the build information of Kopia.
 var (
 	BuildInfo    = "unknown"
-	BuildVersion = "unknown"
+	BuildVersion = "v0-unofficial"
 )
 
 // DefaultEncryptionAlgorithm is the default algorithm for encrypting format block.

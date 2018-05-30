@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/block"
-
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/storage"
 
@@ -58,6 +57,7 @@ func runConnectCommandWithStorage(ctx context.Context, st storage.Storage) error
 	}
 
 	fmt.Fprintln(os.Stderr, "Connected to repository")
+	promptForAnalyticsConsent()
 
 	return err
 }

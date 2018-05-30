@@ -25,7 +25,6 @@ import (
 // ConnectOptions specifies options when persisting configuration to connect to a repository.
 type ConnectOptions struct {
 	PersistCredentials bool
-
 	block.CachingOptions
 }
 
