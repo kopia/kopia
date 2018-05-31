@@ -67,11 +67,11 @@ func runShowBlockIndexesAction(ctx context.Context, rep *repo.Repository) error 
 			}
 
 			_ = ndx.Iterate("", func(l block.Info) error {
+				action := "add"
 				if l.Deleted {
-					fmt.Printf("  del %v %v\n", l.BlockID, l.Timestamp().Format(timeFormat))
-				} else {
-					fmt.Printf("  add %v %v %v %v+%v\n", l.BlockID, l.Timestamp().Format(timeFormat), l.PackBlockID, l.PackOffset, l.Length)
+					action = "del"
 				}
+				fmt.Printf("  %v %v %v %v %v+%v\n", action, l.BlockID, l.Timestamp().Format(timeFormat), l.PackBlockID, l.PackOffset, l.Length)
 				return nil
 			})
 		}

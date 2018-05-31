@@ -39,14 +39,6 @@ func TestPackIndex(t *testing.T) {
 		blockNumber++
 		return packindex.PhysicalBlockID(fmt.Sprintf("%x", h.Sum(nil)))
 	}
-	deterministicPayload := func(id int) []byte {
-		s := rand.NewSource(int64(id))
-		rnd := rand.New(s)
-		length := rnd.Intn(1000)
-		payload := make([]byte, length)
-		rnd.Read(payload)
-		return payload
-	}
 
 	deterministicPackedOffset := func(id int) uint32 {
 		s := rand.NewSource(int64(id + 1))
@@ -67,22 +59,20 @@ func TestPackIndex(t *testing.T) {
 	}
 
 	var infos []packindex.Info
+
+	// deleted blocks with all information
 	for i := 0; i < 100; i++ {
 		infos = append(infos, packindex.Info{
-			BlockID:          deterministicBlockID("del", i),
 			TimestampSeconds: randomUnixTime(),
 			Deleted:          true,
+			BlockID:          deterministicBlockID("deleted-packed", i),
+			PackBlockID:      deterministicPackBlockID(i),
+			PackOffset:       deterministicPackedOffset(i),
+			Length:           deterministicPackedLength(i),
+			FormatVersion:    deterministicFormatVersion(i),
 		})
 	}
-	for i := 0; i < 100; i++ {
-		p := deterministicPayload(i)
-		infos = append(infos, packindex.Info{
-			BlockID:          deterministicBlockID("inline", i),
-			TimestampSeconds: randomUnixTime(),
-			Length:           uint32(len(p)),
-			Payload:          p,
-		})
-	}
+	// non-deleted block
 	for i := 0; i < 100; i++ {
 		infos = append(infos, packindex.Info{
 			TimestampSeconds: randomUnixTime(),

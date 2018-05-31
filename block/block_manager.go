@@ -95,21 +95,40 @@ func (bm *Manager) DeleteBlock(blockID string) error {
 	defer bm.unlock()
 
 	// We have this block in current pack index and it's already deleted there.
-	if bi, ok := bm.packIndexBuilder[blockID]; ok && bi.Deleted {
+	if bi, ok := bm.packIndexBuilder[blockID]; ok {
+		if !bi.Deleted {
+			if bi.PackBlockID == "" {
+				// added and never committed, just forget about it.
+				delete(bm.packIndexBuilder, blockID)
+				delete(bm.currentPackItems, blockID)
+				return nil
+			}
+
+			// added and committed.
+			bi2 := *bi
+			bi2.Deleted = true
+			bi2.TimestampSeconds = bm.timeNow().Unix()
+			bm.setPendingBlock(bi2)
+		}
 		return nil
 	}
 
 	// We have this block in current pack index and it's already deleted there.
-	if bi, err := bm.committedBlocks.getBlock(blockID); err == nil && bi.Deleted {
+	bi, err := bm.committedBlocks.getBlock(blockID)
+	if err != nil {
+		return err
+	}
+
+	if bi.Deleted {
+		// already deleted
 		return nil
 	}
 
-	// Add deletion to current pack.
-	bm.setPendingBlock(Info{
-		BlockID:          blockID,
-		Deleted:          true,
-		TimestampSeconds: bm.timeNow().Unix(),
-	})
+	// object present but not deleted, mark for deletion and add to pending
+	bi2 := bi
+	bi2.Deleted = true
+	bi2.TimestampSeconds = bm.timeNow().Unix()
+	bm.setPendingBlock(bi2)
 	return nil
 }
 
@@ -176,8 +195,8 @@ func (bm *Manager) verifyCurrentPackItemsLocked() {
 		if cpi.BlockID != k {
 			bm.invariantViolated("block ID entry has invalid key: %v %v", cpi.BlockID, k)
 		}
-		if cpi.PackBlockID != "" {
-			bm.invariantViolated("block ID entry has unexpected pack block ID %v: %v", cpi.PackBlockID)
+		if cpi.PackBlockID != "" && !cpi.Deleted {
+			bm.invariantViolated("block ID entry has unexpected pack block ID %v: %v", cpi.BlockID, cpi.PackBlockID)
 		}
 		if cpi.Deleted == (cpi.Payload != nil) {
 			bm.invariantViolated("block can't be both deleted and have a payload: %v", cpi.BlockID)
@@ -508,6 +527,7 @@ func (bm *Manager) CompactIndexes(ctx context.Context, minSmallBlockCount int, m
 }
 
 func (bm *Manager) getBlocksToCompact(indexBlocks []IndexInfo, minSmallBlockCount int, maxSmallBlockCount int) []IndexInfo {
+	log.Printf("getBlocksToCompact %v", indexBlocks)
 	var nonCompactedBlocks []IndexInfo
 	var totalSizeNonCompactedBlocks int64
 
@@ -535,13 +555,16 @@ func (bm *Manager) getBlocksToCompact(indexBlocks []IndexInfo, minSmallBlockCoun
 
 	if len(nonCompactedBlocks) < minSmallBlockCount {
 		// current count is below min allowed - nothing to do
+		log.Printf("no small blocks to compacted")
 		return nil
 	}
 
 	if len(verySmallBlocks) > len(nonCompactedBlocks)/2 && len(mediumSizedBlocks)+1 < minSmallBlockCount {
+		log.Printf("compacting %v very small blocks", len(verySmallBlocks))
 		return verySmallBlocks
 	}
 
+	log.Printf("compacting all %v non-compacted blocks", len(nonCompactedBlocks))
 	return nonCompactedBlocks
 }
 
@@ -572,14 +595,14 @@ func (bm *Manager) ListBlocks(prefix string) ([]string, error) {
 }
 
 // ListBlockInfos returns the metadata about blocks with a given prefix and kind.
-func (bm *Manager) ListBlockInfos(prefix string) ([]Info, error) {
+func (bm *Manager) ListBlockInfos(prefix string, includeDeleted bool) ([]Info, error) {
 	bm.lock()
 	defer bm.unlock()
 
 	var result []Info
 
 	appendToResult := func(i Info) error {
-		if i.Deleted || !strings.HasPrefix(i.BlockID, prefix) {
+		if (i.Deleted && !includeDeleted) || !strings.HasPrefix(i.BlockID, prefix) {
 			return nil
 		}
 		if bi, ok := bm.packIndexBuilder[i.BlockID]; ok && bi.Deleted {

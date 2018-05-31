@@ -35,7 +35,6 @@ func (b Builder) sortedBlocks() []*Info {
 
 type indexLayout struct {
 	packBlockIDOffsets map[PhysicalBlockID]uint32
-	payloadOffsets     map[string]uint32
 	entryCount         int
 	keyLength          int
 	entryLength        int
@@ -47,7 +46,6 @@ func (b Builder) Build(output io.Writer) error {
 	allBlocks := b.sortedBlocks()
 	layout := &indexLayout{
 		packBlockIDOffsets: map[PhysicalBlockID]uint32{},
-		payloadOffsets:     map[string]uint32{},
 		keyLength:          -1,
 		entryLength:        20,
 		entryCount:         len(allBlocks),
@@ -97,10 +95,7 @@ func prepareExtraData(allBlocks []*Info, layout *indexLayout) []byte {
 			}
 		}
 		if len(it.Payload) > 0 {
-			if _, ok := layout.payloadOffsets[it.BlockID]; !ok {
-				layout.payloadOffsets[it.BlockID] = uint32(len(extraData))
-				extraData = append(extraData, it.Payload...)
-			}
+			panic("storing payloads in indexes is not supported")
 		}
 	}
 	layout.extraDataOffset = uint32(8 + layout.entryCount*(layout.keyLength+layout.entryLength))
@@ -134,25 +129,19 @@ func formatEntry(entry []byte, it *Info, layout *indexLayout) error {
 	entryLength1 := entry[16:20]
 	timestampAndFlags := uint64(it.TimestampSeconds) << 16
 
-	for i := 0; i < len(entry); i++ {
-		entry[i] = 0
+	if len(it.PackBlockID) == 0 {
+		return fmt.Errorf("empty pack block ID for %v", it.BlockID)
 	}
+
+	binary.BigEndian.PutUint32(entryOffset1, layout.extraDataOffset+layout.packBlockIDOffsets[it.PackBlockID])
 	if it.Deleted {
-		binary.BigEndian.PutUint32(entryOffset1, 0)
-	} else if len(it.Payload) > 0 {
-		binary.BigEndian.PutUint32(entryOffset1, 1)
-		binary.BigEndian.PutUint32(entryOffset2, layout.extraDataOffset+layout.payloadOffsets[it.BlockID])
-		binary.BigEndian.PutUint32(entryLength1, uint32(len(it.Payload)))
+		binary.BigEndian.PutUint32(entryOffset2, it.PackOffset|0x80000000)
 	} else {
-		if len(it.PackBlockID) == 0 {
-			return fmt.Errorf("empty pack block ID for %v", it.BlockID)
-		}
-		binary.BigEndian.PutUint32(entryOffset1, layout.extraDataOffset+layout.packBlockIDOffsets[it.PackBlockID])
 		binary.BigEndian.PutUint32(entryOffset2, it.PackOffset)
-		binary.BigEndian.PutUint32(entryLength1, it.Length)
-		timestampAndFlags |= uint64(it.FormatVersion) << 8
-		timestampAndFlags |= uint64(len(it.PackBlockID))
 	}
+	binary.BigEndian.PutUint32(entryLength1, it.Length)
+	timestampAndFlags |= uint64(it.FormatVersion) << 8
+	timestampAndFlags |= uint64(len(it.PackBlockID))
 	binary.BigEndian.PutUint64(entryTimestampAndFlags, timestampAndFlags)
 	return nil
 }

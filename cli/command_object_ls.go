@@ -13,7 +13,7 @@ var (
 )
 
 func runListObjectsAction(ctx context.Context, rep *repo.Repository) error {
-	info, err := rep.Blocks.ListBlockInfos(*objectListPrefix)
+	info, err := rep.Blocks.ListBlockInfos(*objectListPrefix, false)
 	if err != nil {
 		return err
 	}

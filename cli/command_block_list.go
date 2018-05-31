@@ -10,16 +10,17 @@ import (
 )
 
 var (
-	blockListCommand = blockCommands.Command("list", "List blocks").Alias("ls")
-	blockListLong    = blockListCommand.Flag("long", "Long output").Short('l').Bool()
-	blockListPrefix  = blockListCommand.Flag("prefix", "Prefix").String()
-	blockListSort    = blockListCommand.Flag("sort", "Sort order").Default("name").Enum("name", "size", "time", "none", "pack")
-	blockListReverse = blockListCommand.Flag("reverse", "Reverse sort").Short('r').Bool()
-	blockListSummary = blockListCommand.Flag("summary", "Summarize the list").Short('s').Bool()
+	blockListCommand        = blockCommands.Command("list", "List blocks").Alias("ls")
+	blockListLong           = blockListCommand.Flag("long", "Long output").Short('l').Bool()
+	blockListPrefix         = blockListCommand.Flag("prefix", "Prefix").String()
+	blockListIncludeDeleted = blockListCommand.Flag("deleted", "Include deleted blocks").Bool()
+	blockListSort           = blockListCommand.Flag("sort", "Sort order").Default("name").Enum("name", "size", "time", "none", "pack")
+	blockListReverse        = blockListCommand.Flag("reverse", "Reverse sort").Short('r').Bool()
+	blockListSummary        = blockListCommand.Flag("summary", "Summarize the list").Short('s').Bool()
 )
 
 func runListBlocksAction(ctx context.Context, rep *repo.Repository) error {
-	blocks, err := rep.Blocks.ListBlockInfos(*blockListPrefix)
+	blocks, err := rep.Blocks.ListBlockInfos(*blockListPrefix, *blockListIncludeDeleted)
 	if err != nil {
 		return err
 	}
@@ -36,7 +37,11 @@ func runListBlocksAction(ctx context.Context, rep *repo.Repository) error {
 			uniquePacks[b.PackBlockID] = true
 		}
 		if *blockListLong {
-			fmt.Printf("%v %v %v %v+%v\n", b.BlockID, b.Timestamp().Format(timeFormat), b.PackBlockID, b.PackOffset, b.Length)
+			optionalDeleted := ""
+			if b.Deleted {
+				optionalDeleted = " (deleted)"
+			}
+			fmt.Printf("%v %v %v %v+%v%v\n", b.BlockID, b.Timestamp().Format(timeFormat), b.PackBlockID, b.PackOffset, b.Length, optionalDeleted)
 		} else {
 			fmt.Printf("%v\n", b.BlockID)
 		}

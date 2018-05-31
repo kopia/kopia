@@ -42,19 +42,7 @@ func (e *entry) parse(b []byte) error {
 }
 
 func (e *entry) IsDeleted() bool {
-	return e.offset1 == 0
-}
-
-func (e *entry) IsInline() bool {
-	return e.offset1 == 1
-}
-
-func (e *entry) InlineOffset() uint32 {
-	return e.offset2
-}
-
-func (e *entry) InlineLength() uint32 {
-	return e.length1
+	return e.offset2&0x80000000 != 0
 }
 
 func (e *entry) TimestampSeconds() int64 {
@@ -74,7 +62,7 @@ func (e *entry) PackBlockIDOffset() uint32 {
 }
 
 func (e *entry) PackedOffset() uint32 {
-	return e.offset2
+	return e.offset2 & 0x7fffffff
 }
 
 func (e *entry) PackedLength() uint32 {

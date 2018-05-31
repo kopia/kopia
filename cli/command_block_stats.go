@@ -17,7 +17,7 @@ var (
 )
 
 func runBlockStatsAction(ctx context.Context, rep *repo.Repository) error {
-	blocks, err := rep.Blocks.ListBlockInfos("")
+	blocks, err := rep.Blocks.ListBlockInfos("", true)
 	if err != nil {
 		return err
 	}

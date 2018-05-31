@@ -168,31 +168,6 @@ func (b *index) entryToInfo(blockID string, entryData []byte) (Info, error) {
 		return Info{}, err
 	}
 
-	if e.IsDeleted() {
-		// deleted
-		return Info{
-			BlockID:          blockID,
-			TimestampSeconds: e.TimestampSeconds(),
-			Deleted:          true,
-		}, nil
-	}
-
-	if e.IsInline() {
-		// inline
-		payload := make([]byte, e.InlineLength())
-		n, err := b.readerAt.ReadAt(payload, int64(e.InlineOffset()))
-		if err != nil || n != int(e.InlineLength()) {
-			return Info{}, fmt.Errorf("can't read payload: %v", err)
-		}
-
-		return Info{
-			BlockID:          blockID,
-			TimestampSeconds: e.TimestampSeconds(),
-			Payload:          payload,
-			Length:           e.InlineLength(),
-		}, nil
-	}
-
 	packBlockID := make([]byte, e.PackBlockIDLength())
 	n, err := b.readerAt.ReadAt(packBlockID, int64(e.PackBlockIDOffset()))
 	if err != nil || n != int(e.PackBlockIDLength()) {
@@ -201,6 +176,7 @@ func (b *index) entryToInfo(blockID string, entryData []byte) (Info, error) {
 
 	return Info{
 		BlockID:          blockID,
+		Deleted:          e.IsDeleted(),
 		TimestampSeconds: e.TimestampSeconds(),
 		FormatVersion:    e.PackedFormatVersion(),
 		PackOffset:       e.PackedOffset(),
