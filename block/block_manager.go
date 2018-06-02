@@ -527,7 +527,6 @@ func (bm *Manager) CompactIndexes(ctx context.Context, minSmallBlockCount int, m
 }
 
 func (bm *Manager) getBlocksToCompact(indexBlocks []IndexInfo, minSmallBlockCount int, maxSmallBlockCount int) []IndexInfo {
-	log.Printf("getBlocksToCompact %v", indexBlocks)
 	var nonCompactedBlocks []IndexInfo
 	var totalSizeNonCompactedBlocks int64
 

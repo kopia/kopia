@@ -5,7 +5,9 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/kopia/kopia/internal/packindex"
 	"github.com/kopia/kopia/storage"
@@ -13,7 +15,10 @@ import (
 	"golang.org/x/exp/mmap"
 )
 
-const simpleIndexSuffix = ".sndx"
+const (
+	simpleIndexSuffix                    = ".sndx"
+	unusedCommittedBlockIndexCleanupTime = 1 * time.Hour // delete unused committed index blocks after 1 hour
+)
 
 type simpleCommittedBlockIndex struct {
 	dirname string
@@ -140,8 +145,23 @@ func (b *simpleCommittedBlockIndex) use(packBlockIDs []PhysicalBlockID) error {
 	defer func() {
 		newMerged.Close() //nolint:errcheck
 	}()
+
+	remaining := map[string]os.FileInfo{}
+	entries, err := ioutil.ReadDir(b.dirname)
+	if err != nil {
+		return fmt.Errorf("can't list cache: %v", err)
+	}
+
+	for _, ent := range entries {
+		if strings.HasSuffix(ent.Name(), simpleIndexSuffix) {
+			remaining[ent.Name()] = ent
+		}
+	}
+
 	for _, e := range packBlockIDs {
-		fullpath := filepath.Join(b.dirname, string(e)+simpleIndexSuffix)
+		fname := string(e) + simpleIndexSuffix
+		delete(remaining, fname)
+		fullpath := filepath.Join(b.dirname, fname)
 		ndx, err := b.openIndex(fullpath)
 		if err != nil {
 			return fmt.Errorf("unable to open pack index %q: %v", fullpath, err)
@@ -152,6 +172,16 @@ func (b *simpleCommittedBlockIndex) use(packBlockIDs []PhysicalBlockID) error {
 	}
 	b.merged = newMerged
 	newMerged = nil
+	for _, rem := range remaining {
+		if time.Since(rem.ModTime()) > unusedCommittedBlockIndexCleanupTime {
+			log.Printf("removing unused %v %v", rem.Name(), rem.ModTime())
+			if err := os.Remove(filepath.Join(b.dirname, rem.Name())); err != nil {
+				log.Warn().Msgf("unable to remove unused index file: %v", err)
+			}
+		} else {
+			log.Printf("keeping unused %v because it's too new %v", rem.Name(), rem.ModTime())
+		}
+	}
 	return nil
 }
 
