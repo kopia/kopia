@@ -249,8 +249,6 @@ func (m *Manager) load(ctx context.Context) error {
 func (m *Manager) loadManifestBlocks(ctx context.Context, blockIDs []string) error {
 	t0 := time.Now()
 
-	log.Debug().Dur("duration_ms", time.Since(t0)).Msgf("finished loading manifest blocks.")
-
 	m.blockIDs = append(m.blockIDs, blockIDs...)
 
 	manifests, err := m.loadBlocksInParallel(ctx, blockIDs)
@@ -270,11 +268,13 @@ func (m *Manager) loadManifestBlocks(ctx context.Context, blockIDs []string) err
 			delete(m.entries, k)
 		}
 	}
+	log.Debug().Dur("duration_ms", time.Since(t0)).Msgf("finished loading manifest blocks.")
 
 	return nil
 }
 
 func (m *Manager) loadBlocksInParallel(ctx context.Context, blockIDs []string) ([]manifest, error) {
+	log.Printf("loading blocks %v", blockIDs)
 	errors := make(chan error, len(blockIDs))
 	manifests := make(chan manifest, len(blockIDs))
 	ch := make(chan string, len(blockIDs))

@@ -23,6 +23,9 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// PackBlockPrefix is the prefix for all pack storage blocks.
+const PackBlockPrefix = "p"
+
 const (
 	parallelFetches             = 5                // number of parallel reads goroutines
 	flushPackIndexTimeout       = 10 * time.Minute // time after which all pending indexes are flushes
@@ -137,13 +140,14 @@ func (bm *Manager) setPendingBlock(i Info) {
 	bm.currentPackItems[i.BlockID] = i
 }
 
-func (bm *Manager) addToPackLocked(ctx context.Context, blockID string, data []byte) error {
+func (bm *Manager) addToPackLocked(ctx context.Context, blockID string, data []byte, isDeleted bool) error {
 	bm.assertLocked()
 
 	bm.currentPackDataLength += len(data)
 	shouldFinish := bm.currentPackDataLength >= bm.maxPackSize
 
 	bm.setPendingBlock(Info{
+		Deleted:          isDeleted,
 		BlockID:          blockID,
 		Payload:          data,
 		Length:           uint32(len(data)),
@@ -197,9 +201,6 @@ func (bm *Manager) verifyCurrentPackItemsLocked() {
 		}
 		if cpi.PackBlockID != "" && !cpi.Deleted {
 			bm.invariantViolated("block ID entry has unexpected pack block ID %v: %v", cpi.BlockID, cpi.PackBlockID)
-		}
-		if cpi.Deleted == (cpi.Payload != nil) {
-			bm.invariantViolated("block can't be both deleted and have a payload: %v", cpi.BlockID)
 		}
 		if cpi.TimestampSeconds == 0 {
 			bm.invariantViolated("block has no timestamp: %v", cpi.BlockID)
@@ -308,7 +309,7 @@ func (bm *Manager) writePackBlockLocked(ctx context.Context) error {
 
 	packBlockID, err := bm.writePackDataNotLocked(ctx, blockData)
 	if err != nil {
-		return fmt.Errorf("can't save pack data block %q: %v", packBlockID, err)
+		return fmt.Errorf("can't save pack data block: %v", err)
 	}
 
 	for _, info := range pending {
@@ -327,7 +328,7 @@ func (bm *Manager) preparePackDataBlock() ([]byte, map[string]Info, error) {
 
 	pending := map[string]Info{}
 	for blockID, info := range bm.currentPackItems {
-		if info.Deleted {
+		if info.Payload == nil {
 			continue
 		}
 		var encrypted []byte
@@ -338,6 +339,7 @@ func (bm *Manager) preparePackDataBlock() ([]byte, map[string]Info, error) {
 
 		pending[blockID] = Info{
 			BlockID:          blockID,
+			Deleted:          info.Deleted,
 			FormatVersion:    byte(bm.writeFormatVersion),
 			PackOffset:       uint32(len(blockData)),
 			Length:           uint32(len(info.Payload)),
@@ -686,6 +688,28 @@ func (bm *Manager) Flush(ctx context.Context) error {
 	return nil
 }
 
+// RewriteBlock causes reads and re-writes a given block using the most recent format.
+func (bm *Manager) RewriteBlock(ctx context.Context, blockID string) error {
+	bm.lock()
+	defer bm.unlock()
+	if _, err := bm.getPendingBlockLocked(blockID); err == nil {
+		// pending, already scheduled for rewrite
+		return nil
+	}
+
+	data, isDeleted, err := bm.getPackedBlockInternalLocked(ctx, blockID, true)
+	if err != nil {
+		return err
+	}
+
+	// See if we already have this block ID in some pack index and it's not deleted.
+	if bi, ok := bm.packIndexBuilder[blockID]; ok && !bi.Deleted {
+		return nil
+	}
+
+	return bm.addToPackLocked(ctx, blockID, data, isDeleted)
+}
+
 // WriteBlock saves a given block of data to a pack group with a provided name and returns a blockID
 // that's based on the contents of data written.
 func (bm *Manager) WriteBlock(ctx context.Context, data []byte, prefix string) (string, error) {
@@ -706,7 +730,7 @@ func (bm *Manager) WriteBlock(ctx context.Context, data []byte, prefix string) (
 		return blockID, nil
 	}
 
-	err := bm.addToPackLocked(ctx, blockID, data)
+	err := bm.addToPackLocked(ctx, blockID, data, false)
 	return blockID, err
 }
 
@@ -734,7 +758,7 @@ func (bm *Manager) writePackDataNotLocked(ctx context.Context, data []byte) (Phy
 		return "", fmt.Errorf("unable to read crypto bytes: %v", err)
 	}
 
-	physicalBlockID := PhysicalBlockID(fmt.Sprintf("p%x", blockID))
+	physicalBlockID := PhysicalBlockID(fmt.Sprintf("%v%x", PackBlockPrefix, blockID))
 
 	atomic.AddInt32(&bm.stats.WrittenBlocks, 1)
 	atomic.AddInt64(&bm.stats.WrittenBytes, int64(len(data)))
@@ -793,7 +817,8 @@ func (bm *Manager) GetBlock(ctx context.Context, blockID string) ([]byte, error)
 		return b, nil
 	}
 
-	return bm.getPackedBlockInternalLocked(ctx, blockID)
+	d, _, err := bm.getPackedBlockInternalLocked(ctx, blockID, false)
+	return d, err
 }
 
 // GetIndexBlock gets the contents of a given index block. If the block is not found returns blob.ErrBlockNotFound.
@@ -826,26 +851,35 @@ func (bm *Manager) packedBlockInfoLocked(blockID string) (Info, error) {
 	return bm.committedBlocks.getBlock(blockID)
 }
 
-func (bm *Manager) getPackedBlockInternalLocked(ctx context.Context, blockID string) ([]byte, error) {
+func (bm *Manager) getPackedBlockInternalLocked(ctx context.Context, blockID string, allowDeleted bool) ([]byte, bool, error) {
 	bm.assertLocked()
 
 	bi, err := bm.packedBlockInfoLocked(blockID)
-	if err != nil || bi.Deleted {
-		return nil, storage.ErrBlockNotFound
+	if err != nil {
+		return nil, false, err
+	}
+
+	if bi.Deleted && !allowDeleted {
+		return nil, false, storage.ErrBlockNotFound
 	}
 
 	// block stored inline
 	if bi.Payload != nil {
-		return bi.Payload, nil
+		return bi.Payload, false, nil
 	}
 
 	packBlockID := bi.PackBlockID
 	payload, err := bm.cache.getBlock(ctx, blockID, packBlockID, int64(bi.PackOffset), int64(bi.Length))
 	if err != nil {
-		return nil, err
+		return nil, false, fmt.Errorf("unable to read storage block %v", err)
 	}
 
-	return bm.decryptAndVerifyPayload(bi.FormatVersion, payload, int(bi.PackOffset), blockID, packBlockID)
+	d, err := bm.decryptAndVerifyPayload(bi.FormatVersion, payload, int(bi.PackOffset), blockID, packBlockID)
+	if err != nil {
+		return nil, false, err
+	}
+
+	return d, bi.Deleted, nil
 }
 
 func (bm *Manager) decryptAndVerifyPayload(formatVersion byte, payload []byte, offset int, blockID string, packBlockID PhysicalBlockID) ([]byte, error) {

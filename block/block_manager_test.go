@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/internal/packindex"
-
 	"github.com/kopia/kopia/internal/storagetesting"
 	"github.com/kopia/kopia/storage"
 	"github.com/rs/zerolog"
@@ -358,6 +357,88 @@ func TestDeleteBlock(t *testing.T) {
 	//dumpBlockManagerData(t, data)
 	verifyBlockNotFound(ctx, t, bm, block1)
 	verifyBlockNotFound(ctx, t, bm, block2)
+}
+
+func TestRewriteNonDeleted(t *testing.T) {
+	const stepBehaviors = 3
+
+	// perform a sequence WriteBlock() <action1> RewriteBlock() <action2> GetBlock()
+	// where actionX can be (0=flush and reopen, 1=flush, 2=nothing)
+	for action1 := 0; action1 < stepBehaviors; action1++ {
+		for action2 := 0; action2 < stepBehaviors; action2++ {
+			t.Run(fmt.Sprintf("case-%v-%v", action1, action2), func(t *testing.T) {
+				ctx := context.Background()
+				data := map[string][]byte{}
+				keyTime := map[string]time.Time{}
+				fakeNow := fakeTimeNowWithAutoAdvance(fakeTime, 1*time.Second)
+				bm := newTestBlockManager(data, keyTime, fakeNow)
+
+				applyStep := func(action int) {
+					switch action {
+					case 0:
+						t.Logf("flushing and reopening")
+						bm.Flush(ctx)
+						bm = newTestBlockManager(data, keyTime, fakeNow)
+					case 1:
+						t.Logf("flushing")
+						bm.Flush(ctx)
+					case 2:
+						t.Logf("doing nothing")
+					}
+				}
+
+				block1 := writeBlockAndVerify(ctx, t, bm, seededRandomData(10, 100))
+				applyStep(action1)
+				bm.RewriteBlock(ctx, block1)
+				applyStep(action2)
+				verifyBlock(ctx, t, bm, block1, seededRandomData(10, 100))
+				dumpBlockManagerData(t, data)
+			})
+		}
+	}
+}
+
+func TestRewriteDeleted(t *testing.T) {
+	const stepBehaviors = 3
+
+	// perform a sequence WriteBlock() <action1> Delete() <action2> RewriteBlock() <action3> GetBlock()
+	// where actionX can be (0=flush and reopen, 1=flush, 2=nothing)
+	for action1 := 0; action1 < stepBehaviors; action1++ {
+		for action2 := 0; action2 < stepBehaviors; action2++ {
+			for action3 := 0; action3 < stepBehaviors; action3++ {
+				t.Run(fmt.Sprintf("case-%v-%v-%v", action1, action2, action3), func(t *testing.T) {
+					ctx := context.Background()
+					data := map[string][]byte{}
+					keyTime := map[string]time.Time{}
+					fakeNow := fakeTimeNowWithAutoAdvance(fakeTime, 1*time.Second)
+					bm := newTestBlockManager(data, keyTime, fakeNow)
+
+					applyStep := func(action int) {
+						switch action {
+						case 0:
+							t.Logf("flushing and reopening")
+							bm.Flush(ctx)
+							bm = newTestBlockManager(data, keyTime, fakeNow)
+						case 1:
+							t.Logf("flushing")
+							bm.Flush(ctx)
+						case 2:
+							t.Logf("doing nothing")
+						}
+					}
+
+					block1 := writeBlockAndVerify(ctx, t, bm, seededRandomData(10, 100))
+					applyStep(action1)
+					bm.DeleteBlock(block1)
+					applyStep(action2)
+					bm.RewriteBlock(ctx, block1)
+					applyStep(action3)
+					verifyBlockNotFound(ctx, t, bm, block1)
+					dumpBlockManagerData(t, data)
+				})
+			}
+		}
+	}
 }
 
 func TestDeleteAndRecreate(t *testing.T) {
