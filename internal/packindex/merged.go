@@ -31,14 +31,13 @@ func (m Merged) EntryCount() int {
 // GetInfo returns information about a single block. If a block is not found, returns (nil,nil)
 func (m Merged) GetInfo(contentID string) (*Info, error) {
 	var best *Info
-
 	for _, ndx := range m {
 		i, err := ndx.GetInfo(contentID)
 		if err != nil {
 			return nil, err
 		}
 		if i != nil {
-			if best == nil || i.TimestampSeconds > best.TimestampSeconds {
+			if best == nil || i.TimestampSeconds > best.TimestampSeconds || (i.TimestampSeconds == best.TimestampSeconds && !i.Deleted) {
 				best = i
 			}
 		}
@@ -53,9 +52,20 @@ type nextInfo struct {
 
 type nextInfoHeap []*nextInfo
 
-func (h nextInfoHeap) Len() int           { return len(h) }
-func (h nextInfoHeap) Less(i, j int) bool { return h[i].it.BlockID < h[j].it.BlockID }
-func (h nextInfoHeap) Swap(i, j int)      { h[i], h[j] = h[j], h[i] }
+func (h nextInfoHeap) Len() int { return len(h) }
+func (h nextInfoHeap) Less(i, j int) bool {
+	if a, b := h[i].it.BlockID, h[j].it.BlockID; a != b {
+		return a < b
+	}
+
+	if a, b := h[i].it.TimestampSeconds, h[j].it.TimestampSeconds; a != b {
+		return a < b
+	}
+
+	return !h[i].it.Deleted
+}
+
+func (h nextInfoHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
 func (h *nextInfoHeap) Push(x interface{}) {
 	*h = append(*h, x.(*nextInfo))
 }

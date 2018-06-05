@@ -14,6 +14,7 @@ func TestMerged(t *testing.T) {
 		packindex.Info{BlockID: "aabbcc", TimestampSeconds: 1, PackBlockID: "xx", PackOffset: 11},
 		packindex.Info{BlockID: "ddeeff", TimestampSeconds: 1, PackBlockID: "xx", PackOffset: 111},
 		packindex.Info{BlockID: "z010203", TimestampSeconds: 1, PackBlockID: "xx", PackOffset: 111},
+		packindex.Info{BlockID: "de1e1e", TimestampSeconds: 4, PackBlockID: "xx", PackOffset: 111},
 	)
 	if err != nil {
 		t.Fatalf("can't create index: %v", err)
@@ -21,6 +22,7 @@ func TestMerged(t *testing.T) {
 	i2, err := indexWithItems(
 		packindex.Info{BlockID: "aabbcc", TimestampSeconds: 3, PackBlockID: "yy", PackOffset: 33},
 		packindex.Info{BlockID: "xaabbcc", TimestampSeconds: 1, PackBlockID: "xx", PackOffset: 111},
+		packindex.Info{BlockID: "de1e1e", TimestampSeconds: 4, PackBlockID: "xx", PackOffset: 222, Deleted: true},
 	)
 	if err != nil {
 		t.Fatalf("can't create index: %v", err)
@@ -47,12 +49,24 @@ func TestMerged(t *testing.T) {
 	var inOrder []string
 	m.Iterate("", func(i packindex.Info) error {
 		inOrder = append(inOrder, i.BlockID)
+		if i.BlockID == "de1e1e" {
+			if i.Deleted {
+				t.Errorf("iteration preferred deleted block over non-deleted")
+			}
+		}
 		return nil
 	})
+
+	if i, err := m.GetInfo("de1e1e"); err != nil {
+		t.Errorf("error getting deleted block info: %v", err)
+	} else if i.Deleted {
+		t.Errorf("GetInfo preferred deleted block over non-deleted")
+	}
 
 	expectedInOrder := []string{
 		"aabbcc",
 		"ddeeff",
+		"de1e1e",
 		"k010203",
 		"k020304",
 		"xaabbcc",
