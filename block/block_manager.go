@@ -375,7 +375,7 @@ func (bm *Manager) maybeEncryptBlockDataForPacking(data []byte, blockID string) 
 	if err != nil {
 		return nil, fmt.Errorf("unable to get packed block IV for %q: %v", blockID, err)
 	}
-	return bm.formatter.Encrypt(data, iv, 0)
+	return bm.formatter.Encrypt(data, iv)
 }
 
 func appendRandomBytes(b []byte, count int) ([]byte, error) {
@@ -748,11 +748,6 @@ func validatePrefix(prefix string) error {
 }
 
 func (bm *Manager) writePackDataNotLocked(ctx context.Context, data []byte) (PhysicalBlockID, error) {
-	if bm.writeFormatVersion == 0 {
-		// 0 blocks are encrypted together
-		return bm.encryptAndWriteBlockNotLocked(ctx, data, "")
-	}
-
 	blockID := make([]byte, 16)
 	if _, err := cryptorand.Read(blockID); err != nil {
 		return "", fmt.Errorf("unable to read crypto bytes: %v", err)
@@ -775,7 +770,7 @@ func (bm *Manager) encryptAndWriteBlockNotLocked(ctx context.Context, data []byt
 
 	// Encrypt the block in-place.
 	atomic.AddInt64(&bm.stats.EncryptedBytes, int64(len(data)))
-	data2, err := bm.formatter.Encrypt(data, hash, 0)
+	data2, err := bm.formatter.Encrypt(data, hash)
 	if err != nil {
 		return "", err
 	}
@@ -886,29 +881,12 @@ func (bm *Manager) decryptAndVerifyPayload(formatVersion byte, payload []byte, o
 	atomic.AddInt32(&bm.stats.ReadBlocks, 1)
 	atomic.AddInt64(&bm.stats.ReadBytes, int64(len(payload)))
 
-	var err error
-	var decryptIV, verifyIV []byte
-	var decryptOffset int
-
-	if formatVersion == 0 {
-		decryptOffset = offset
-		decryptIV, err = getPhysicalBlockIV(packBlockID)
-		if err != nil {
-			return nil, err
-		}
-		verifyIV, err = getPackedBlockIV(blockID)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		decryptIV, err = getPackedBlockIV(blockID)
-		verifyIV = decryptIV
-		if err != nil {
-			return nil, err
-		}
+	iv, err := getPackedBlockIV(blockID)
+	if err != nil {
+		return nil, err
 	}
 
-	payload, err = bm.formatter.Decrypt(payload, decryptIV, decryptOffset)
+	payload, err = bm.formatter.Decrypt(payload, iv)
 	if err != nil {
 		return nil, err
 	}
@@ -917,7 +895,7 @@ func (bm *Manager) decryptAndVerifyPayload(formatVersion byte, payload []byte, o
 
 	// Since the encryption key is a function of data, we must be able to generate exactly the same key
 	// after decrypting the content. This serves as a checksum.
-	if err := bm.verifyChecksum(payload, verifyIV); err != nil {
+	if err := bm.verifyChecksum(payload, iv); err != nil {
 		return nil, err
 	}
 
@@ -938,7 +916,7 @@ func (bm *Manager) getPhysicalBlockInternal(ctx context.Context, blockID Physica
 	atomic.AddInt32(&bm.stats.ReadBlocks, 1)
 	atomic.AddInt64(&bm.stats.ReadBytes, int64(len(payload)))
 
-	payload, err = bm.formatter.Decrypt(payload, iv, 0)
+	payload, err = bm.formatter.Decrypt(payload, iv)
 	atomic.AddInt64(&bm.stats.DecryptedBytes, int64(len(payload)))
 	if err != nil {
 		return nil, err

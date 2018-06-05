@@ -25,12 +25,12 @@ func TestFormatters(t *testing.T) {
 
 		t.Logf("testing %v", k)
 		blockID := of.ComputeBlockID(data)
-		cipherText, err := of.Encrypt(data, blockID, 0)
+		cipherText, err := of.Encrypt(data, blockID)
 		if err != nil || cipherText == nil {
 			t.Errorf("invalid response from Encrypt: %v %v", cipherText, err)
 		}
 
-		plainText, err := of.Decrypt(cipherText, blockID, 0)
+		plainText, err := of.Decrypt(cipherText, blockID)
 		if err != nil || plainText == nil {
 			t.Errorf("invalid response from Decrypt: %v %v", plainText, err)
 		}
