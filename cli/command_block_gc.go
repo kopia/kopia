@@ -7,9 +7,8 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/block"
-	"github.com/rs/zerolog/log"
-
 	"github.com/kopia/kopia/repo"
+	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -27,6 +26,7 @@ func runBlockGarbageCollectAction(ctx context.Context, rep *repo.Repository) err
 	ch := rep.Storage.ListBlocks(ctx, "")
 
 	var unused []string
+	var totalBytes int64
 	allPackBlocks := 0
 	for bi := range ch {
 		if bi.Error != nil {
@@ -48,6 +48,7 @@ func runBlockGarbageCollectAction(ctx context.Context, rep *repo.Repository) err
 			continue
 		}
 
+		totalBytes += int64(bi.Length)
 		unused = append(unused, bi.BlockID)
 	}
 	fmt.Fprintf(os.Stderr, "Found %v/%v pack blocks in use.\n", len(usedPackBlocks), allPackBlocks)
@@ -61,7 +62,7 @@ func runBlockGarbageCollectAction(ctx context.Context, rep *repo.Repository) err
 		for _, u := range unused {
 			fmt.Fprintf(os.Stderr, "unused %v\n", u)
 		}
-		fmt.Fprintf(os.Stderr, "Would delete %v unused blocks, pass '--delete=yes' to actually delete.\n", len(unused))
+		fmt.Fprintf(os.Stderr, "Would delete %v unused blocks (%v bytes), pass '--delete=yes' to actually delete.\n", len(unused), totalBytes)
 
 		return nil
 	}

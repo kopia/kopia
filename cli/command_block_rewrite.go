@@ -27,21 +27,31 @@ func runRewriteBlocksAction(ctx context.Context, rep *repo.Repository) error {
 		return fmt.Errorf("unable to determine blocks to rewrite: %v", err)
 	}
 
+	var totalBytes int64
+	failedCount := 0
 	for _, b := range blocks {
 		var optDeleted string
 		if b.Deleted {
 			optDeleted = " (deleted)"
 		}
-		fmt.Fprintf(os.Stderr, "Rewriting block %v from pack %v%v\n", b.BlockID, b.PackBlockID, optDeleted)
+		fmt.Fprintf(os.Stderr, "Rewriting block %v (%v bytes) from pack %v%v\n", b.BlockID, b.Length, b.PackBlockID, optDeleted)
+		totalBytes += int64(b.Length)
 		if *blockRewriteDryRun {
 			continue
 		}
 		if err := rep.Blocks.RewriteBlock(ctx, b.BlockID); err != nil {
-			return fmt.Errorf("unable to rewrite block %q: %v", b.BlockID, err)
+			log.Warn().Msgf("unable to rewrite block %q: %v", b.BlockID, err)
+			failedCount++
 		}
 	}
 
-	return nil
+	fmt.Fprintf(os.Stderr, "Total bytes rewritten %v\n", totalBytes)
+
+	if failedCount == 0 {
+		return nil
+	}
+
+	return fmt.Errorf("failed to rewrite %v blocks", failedCount)
 }
 
 func getBlocksToRewrite(ctx context.Context, rep *repo.Repository) ([]block.Info, error) {
@@ -60,7 +70,7 @@ func getBlocksToRewrite(ctx context.Context, rep *repo.Repository) ([]block.Info
 			return nil, fmt.Errorf("unable to list index blocks: %v", err)
 		}
 
-		threshold := uint32(rep.Blocks.Format.MaxPackSize * 8 / 10)
+		threshold := uint32(rep.Blocks.Format.MaxPackSize * 6 / 10)
 		shortPackBlocks, err := findShortPackBlocks(infos, threshold)
 		if err != nil {
 			return nil, fmt.Errorf("unable to find short pack blocks: %v", err)
