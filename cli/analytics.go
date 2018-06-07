@@ -16,7 +16,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-const googleAnalyticsID = "UA-256960-23"
+const (
+	googleAnalyticsID = "UA-256960-23"
+
+	maxAnalyticsReportTime = 1 * time.Second // do not block goroutine for more than this much time
+)
 
 var (
 	clientIDFile     = app.Flag("client-id-file", "Path to client ID file, which enables anonymous usage reporting if present").Default(filepath.Join(ospath.ConfigDir(), "client_id.txt")).String()
@@ -130,7 +134,7 @@ func initGAClient() *ga.Client {
 func reportStartupTime(storageType string, formatVersion int, startupDuration time.Duration) {
 	if gaClient := initGAClient(); gaClient != nil && *analyticsConsent != "no" {
 		log.Printf("reporting startup duration %v", startupDuration)
-		gaClient.Send( //nolint:errcheck
+		go gaClient.Send( //nolint:errcheck
 			ga.NewEvent("initialize", fmt.Sprintf("%v-v%v", storageType, formatVersion)).
 				Value(startupDuration.Nanoseconds() / 1e6))
 	}
@@ -140,10 +144,26 @@ func reportStartupTime(storageType string, formatVersion int, startupDuration ti
 func reportSubcommandFinished(commandType string, success bool, storageType string, formatVersion int, duration time.Duration) {
 	if gaClient := initGAClient(); gaClient != nil && *analyticsConsent != "no" {
 		log.Printf("reporting command %v finished (success=%v, duration=%v)", commandType, success, duration)
-		if success {
-			gaClient.Send(ga.NewEvent("command-success", commandType).Label(fmt.Sprintf("%v-v%v", storageType, formatVersion)).Value(duration.Nanoseconds() / 1e6)) //nolint:errcheck
-		} else {
-			gaClient.Send(ga.NewEvent("command-failed", commandType).Label(fmt.Sprintf("%v-v%v", storageType, formatVersion)).Value(duration.Nanoseconds() / 1e6)) //nolint:errcheck
-		}
+		quickOrIgnore(func() {
+			if success {
+				gaClient.Send(ga.NewEvent("command-success", commandType).Label(fmt.Sprintf("%v-v%v", storageType, formatVersion)).Value(duration.Nanoseconds() / 1e6)) //nolint:errcheck
+			} else {
+				gaClient.Send(ga.NewEvent("command-failed", commandType).Label(fmt.Sprintf("%v-v%v", storageType, formatVersion)).Value(duration.Nanoseconds() / 1e6)) //nolint:errcheck
+			}
+		})
+	}
+}
+
+func quickOrIgnore(f func()) {
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+		f()
+	}()
+
+	select {
+	case <-time.After(maxAnalyticsReportTime):
+	case <-done:
 	}
 }
