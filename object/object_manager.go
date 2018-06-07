@@ -57,6 +57,7 @@ func (om *Manager) NewWriter(ctx context.Context, opt WriterOptions) Writer {
 		repo:        om,
 		splitter:    om.newSplitter(),
 		description: opt.Description,
+		prefix:      opt.Prefix,
 	}
 
 	if opt.splitter != nil {

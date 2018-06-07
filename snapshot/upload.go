@@ -245,6 +245,7 @@ func (u *Uploader) uploadFile(ctx context.Context, file fs.File) (*dir.Entry, er
 func (u *Uploader) uploadDir(ctx context.Context, rootDir fs.Directory) (*dir.Entry, object.ID, error) {
 	mw := u.repo.Objects.NewWriter(ctx, object.WriterOptions{
 		Description: "HASHCACHE:" + rootDir.Metadata().Name,
+		Prefix:      "h",
 	})
 	defer mw.Close() //nolint:errcheck
 	u.cacheWriter = hashcache.NewWriter(mw)
@@ -552,6 +553,7 @@ func uploadDirInternal(
 
 	writer := u.repo.Objects.NewWriter(ctx, object.WriterOptions{
 		Description: "DIR:" + dirRelativePath,
+		Prefix:      "k",
 	})
 
 	dw := dir.NewWriter(writer)

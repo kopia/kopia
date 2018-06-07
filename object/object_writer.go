@@ -48,6 +48,7 @@ type objectWriter struct {
 	ctx  context.Context
 	repo *Manager
 
+	prefix      string
 	buffer      bytes.Buffer
 	totalLength int64
 
@@ -97,7 +98,7 @@ func (w *objectWriter) flushBuffer() error {
 	w.buffer.Reset()
 
 	do := func() {
-		blockID, err := w.repo.blockMgr.WriteBlock(w.ctx, b2.Bytes(), "")
+		blockID, err := w.repo.blockMgr.WriteBlock(w.ctx, b2.Bytes(), w.prefix)
 		w.repo.trace("OBJECT_WRITER(%q) stored %v (%v bytes)", w.description, blockID, length)
 		if err != nil {
 			w.err.add(fmt.Errorf("error when flushing chunk %d of %s: %v", chunkID, w.description, err))
@@ -149,6 +150,7 @@ func (w *objectWriter) Result() (ID, error) {
 		repo:        w.repo,
 		description: "LIST(" + w.description + ")",
 		splitter:    w.repo.newSplitter(),
+		prefix:      w.prefix,
 	}
 
 	jw := jsonstream.NewWriter(iw, indirectStreamType)
@@ -170,6 +172,7 @@ func (w *objectWriter) Result() (ID, error) {
 // WriterOptions can be passed to Repository.NewWriter()
 type WriterOptions struct {
 	Description string
+	Prefix      string // empty string or a single-character ('g'..'z')
 
 	splitter objectSplitter
 }
