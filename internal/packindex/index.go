@@ -168,9 +168,9 @@ func (b *index) entryToInfo(blockID string, entryData []byte) (Info, error) {
 		return Info{}, err
 	}
 
-	packBlockID := make([]byte, e.PackBlockIDLength())
-	n, err := b.readerAt.ReadAt(packBlockID, int64(e.PackBlockIDOffset()))
-	if err != nil || n != int(e.PackBlockIDLength()) {
+	packFile := make([]byte, e.PackFileLength())
+	n, err := b.readerAt.ReadAt(packFile, int64(e.PackFileOffset()))
+	if err != nil || n != int(e.PackFileLength()) {
 		return Info{}, fmt.Errorf("can't read pack block ID: %v", err)
 	}
 
@@ -181,7 +181,7 @@ func (b *index) entryToInfo(blockID string, entryData []byte) (Info, error) {
 		FormatVersion:    e.PackedFormatVersion(),
 		PackOffset:       e.PackedOffset(),
 		Length:           e.PackedLength(),
-		PackBlockID:      PhysicalBlockID(packBlockID),
+		PackFile:         PhysicalBlockID(packFile),
 	}, nil
 }
 

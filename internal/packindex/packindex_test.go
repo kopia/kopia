@@ -33,7 +33,7 @@ func TestPackIndex(t *testing.T) {
 		}
 		return string(fmt.Sprintf("%v%x", prefix2, h.Sum(nil)))
 	}
-	deterministicPackBlockID := func(id int) packindex.PhysicalBlockID {
+	deterministicPackFile := func(id int) packindex.PhysicalBlockID {
 		h := sha1.New()
 		fmt.Fprintf(h, "%v", id)
 		blockNumber++
@@ -66,7 +66,7 @@ func TestPackIndex(t *testing.T) {
 			TimestampSeconds: randomUnixTime(),
 			Deleted:          true,
 			BlockID:          deterministicBlockID("deleted-packed", i),
-			PackBlockID:      deterministicPackBlockID(i),
+			PackFile:         deterministicPackFile(i),
 			PackOffset:       deterministicPackedOffset(i),
 			Length:           deterministicPackedLength(i),
 			FormatVersion:    deterministicFormatVersion(i),
@@ -77,7 +77,7 @@ func TestPackIndex(t *testing.T) {
 		infos = append(infos, packindex.Info{
 			TimestampSeconds: randomUnixTime(),
 			BlockID:          deterministicBlockID("packed", i),
-			PackBlockID:      deterministicPackBlockID(i),
+			PackFile:         deterministicPackFile(i),
 			PackOffset:       deterministicPackedOffset(i),
 			Length:           deterministicPackedLength(i),
 			FormatVersion:    deterministicFormatVersion(i),

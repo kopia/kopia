@@ -65,7 +65,7 @@ func (b *inMemoryCommittedBlockIndex) hasIndexBlockID(indexBlockID PhysicalBlock
 	return b.physicalBlocks[indexBlockID] != nil, nil
 }
 
-func (b *inMemoryCommittedBlockIndex) use(packBlockIDs []PhysicalBlockID) error {
+func (b *inMemoryCommittedBlockIndex) use(packFiles []PhysicalBlockID) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -73,7 +73,7 @@ func (b *inMemoryCommittedBlockIndex) use(packBlockIDs []PhysicalBlockID) error 
 	defer func() {
 		newIndexes.Close() //nolint:errcheck
 	}()
-	for _, e := range packBlockIDs {
+	for _, e := range packFiles {
 		ndx := b.physicalBlocks[e]
 		if ndx == nil {
 			return fmt.Errorf("unable to open pack index %q", e)

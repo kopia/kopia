@@ -46,10 +46,10 @@ func indexWithBlockIDs(items []string) (packindex.Index, error) {
 	b := packindex.NewBuilder()
 	for _, it := range items {
 		b.Add(packindex.Info{
-			BlockID:     it,
-			PackBlockID: "x",
-			PackOffset:  1,
-			Length:      1,
+			BlockID:    it,
+			PackFile:   "x",
+			PackOffset: 1,
+			Length:     1,
 		})
 	}
 	var buf bytes.Buffer

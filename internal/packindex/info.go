@@ -13,7 +13,7 @@ type Info struct {
 	BlockID          string          `json:"blockID"`
 	Length           uint32          `json:"length"`
 	TimestampSeconds int64           `json:"time"`
-	PackBlockID      PhysicalBlockID `json:"packBlockID,omitempty"`
+	PackFile         PhysicalBlockID `json:"packFile,omitempty"`
 	PackOffset       uint32          `json:"packOffset,omitempty"`
 	Deleted          bool            `json:"deleted"`
 	Payload          []byte          `json:"payload"` // set for payloads stored inline

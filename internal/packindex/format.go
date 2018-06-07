@@ -23,10 +23,14 @@ type Format struct {
 }
 
 type entry struct {
-	timestampAndFlags uint64 // 48-bit timestamp in seconds since 1970/01/01 UTC, big endian (MSB) + 2 bytes of flags (LSB)
-	offset1           uint32 // 4 bytes, big endian
-	offset2           uint32 // 4 bytes, big endian
-	length1           uint32 // 4 bytes, big endian
+	// big endian:
+	// 48 most significant bits - 48-bit timestamp in seconds since 1970/01/01 UTC
+	// 8 bits - format version (currently == 1)
+	// 8 least significant bits - length of pack block ID
+	timestampAndFlags uint64 //
+	packFileOffset    uint32 // 4 bytes, big endian, offset within index file where pack block ID begins
+	packedOffset      uint32 // 4 bytes, big endian, offset within pack file where the contents begin
+	packedLength      uint32 // 4 bytes, big endian, content length
 }
 
 func (e *entry) parse(b []byte) error {
@@ -35,14 +39,14 @@ func (e *entry) parse(b []byte) error {
 	}
 
 	e.timestampAndFlags = binary.BigEndian.Uint64(b[0:8])
-	e.offset1 = binary.BigEndian.Uint32(b[8:12])
-	e.offset2 = binary.BigEndian.Uint32(b[12:16])
-	e.length1 = binary.BigEndian.Uint32(b[16:20])
+	e.packFileOffset = binary.BigEndian.Uint32(b[8:12])
+	e.packedOffset = binary.BigEndian.Uint32(b[12:16])
+	e.packedLength = binary.BigEndian.Uint32(b[16:20])
 	return nil
 }
 
 func (e *entry) IsDeleted() bool {
-	return e.offset2&0x80000000 != 0
+	return e.packedOffset&0x80000000 != 0
 }
 
 func (e *entry) TimestampSeconds() int64 {
@@ -53,18 +57,18 @@ func (e *entry) PackedFormatVersion() byte {
 	return byte(e.timestampAndFlags >> 8)
 }
 
-func (e *entry) PackBlockIDLength() byte {
+func (e *entry) PackFileLength() byte {
 	return byte(e.timestampAndFlags)
 }
 
-func (e *entry) PackBlockIDOffset() uint32 {
-	return e.offset1
+func (e *entry) PackFileOffset() uint32 {
+	return e.packFileOffset
 }
 
 func (e *entry) PackedOffset() uint32 {
-	return e.offset2 & 0x7fffffff
+	return e.packedOffset & 0x7fffffff
 }
 
 func (e *entry) PackedLength() uint32 {
-	return e.length1
+	return e.packedLength
 }

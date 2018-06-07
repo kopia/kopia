@@ -81,7 +81,7 @@ func findPackBlocksInUse(infos []block.Info) map[block.PhysicalBlockID]int {
 	packUsage := map[block.PhysicalBlockID]int{}
 
 	for _, bi := range infos {
-		packUsage[bi.PackBlockID]++
+		packUsage[bi.PackFile]++
 	}
 
 	return packUsage

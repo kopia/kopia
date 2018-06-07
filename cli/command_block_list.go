@@ -33,15 +33,15 @@ func runListBlocksAction(ctx context.Context, rep *repo.Repository) error {
 	for _, b := range blocks {
 		totalSize += int64(b.Length)
 		count++
-		if b.PackBlockID != "" {
-			uniquePacks[b.PackBlockID] = true
+		if b.PackFile != "" {
+			uniquePacks[b.PackFile] = true
 		}
 		if *blockListLong {
 			optionalDeleted := ""
 			if b.Deleted {
 				optionalDeleted = " (deleted)"
 			}
-			fmt.Printf("%v %v %v %v+%v%v\n", b.BlockID, b.Timestamp().Format(timeFormat), b.PackBlockID, b.PackOffset, b.Length, optionalDeleted)
+			fmt.Printf("%v %v %v %v+%v%v\n", b.BlockID, b.Timestamp().Format(timeFormat), b.PackFile, b.PackOffset, b.Length, optionalDeleted)
 		} else {
 			fmt.Printf("%v\n", b.BlockID)
 		}
@@ -74,7 +74,7 @@ func sortBlocks(blocks []block.Info) {
 }
 
 func comparePacks(a, b block.Info) bool {
-	if a, b := a.PackBlockID, b.PackBlockID; a != b {
+	if a, b := a.PackFile, b.PackFile; a != b {
 		return a < b
 	}
 

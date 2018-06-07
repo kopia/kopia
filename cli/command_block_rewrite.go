@@ -34,7 +34,7 @@ func runRewriteBlocksAction(ctx context.Context, rep *repo.Repository) error {
 		if b.Deleted {
 			optDeleted = " (deleted)"
 		}
-		fmt.Fprintf(os.Stderr, "Rewriting block %v (%v bytes) from pack %v%v\n", b.BlockID, b.Length, b.PackBlockID, optDeleted)
+		fmt.Fprintf(os.Stderr, "Rewriting block %v (%v bytes) from pack %v%v\n", b.BlockID, b.Length, b.PackFile, optDeleted)
 		totalBytes += int64(b.Length)
 		if *blockRewriteDryRun {
 			continue
@@ -81,7 +81,7 @@ func getBlocksToRewrite(ctx context.Context, rep *repo.Repository) ([]block.Info
 			fmt.Printf("Nothing to do, found %v short pack blocks\n", len(shortPackBlocks))
 		} else {
 			for _, b := range infos {
-				if shortPackBlocks[b.PackBlockID] && strings.HasPrefix(string(b.PackBlockID), *blockRewritePackPrefix) {
+				if shortPackBlocks[b.PackFile] && strings.HasPrefix(string(b.PackFile), *blockRewritePackPrefix) {
 					result = append(result, b)
 				}
 			}
@@ -95,7 +95,7 @@ func getBlocksToRewrite(ctx context.Context, rep *repo.Repository) ([]block.Info
 		}
 
 		for _, b := range infos {
-			if int(b.FormatVersion) == *blockRewriteFormatVersion && strings.HasPrefix(string(b.PackBlockID), *blockRewritePackPrefix) {
+			if int(b.FormatVersion) == *blockRewriteFormatVersion && strings.HasPrefix(string(b.PackFile), *blockRewritePackPrefix) {
 				result = append(result, b)
 			}
 		}
@@ -108,14 +108,14 @@ func findShortPackBlocks(infos []block.Info, threshold uint32) (map[block.Physic
 	packUsage := map[block.PhysicalBlockID]uint32{}
 
 	for _, bi := range infos {
-		packUsage[bi.PackBlockID] += bi.Length
+		packUsage[bi.PackFile] += bi.Length
 	}
 
 	shortPackBlocks := map[block.PhysicalBlockID]bool{}
 
-	for packBlockID, usage := range packUsage {
+	for packFile, usage := range packUsage {
 		if usage < threshold {
-			shortPackBlocks[packBlockID] = true
+			shortPackBlocks[packFile] = true
 		}
 	}
 

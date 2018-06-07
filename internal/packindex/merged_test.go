@@ -11,27 +11,27 @@ import (
 
 func TestMerged(t *testing.T) {
 	i1, err := indexWithItems(
-		packindex.Info{BlockID: "aabbcc", TimestampSeconds: 1, PackBlockID: "xx", PackOffset: 11},
-		packindex.Info{BlockID: "ddeeff", TimestampSeconds: 1, PackBlockID: "xx", PackOffset: 111},
-		packindex.Info{BlockID: "z010203", TimestampSeconds: 1, PackBlockID: "xx", PackOffset: 111},
-		packindex.Info{BlockID: "de1e1e", TimestampSeconds: 4, PackBlockID: "xx", PackOffset: 111},
+		packindex.Info{BlockID: "aabbcc", TimestampSeconds: 1, PackFile: "xx", PackOffset: 11},
+		packindex.Info{BlockID: "ddeeff", TimestampSeconds: 1, PackFile: "xx", PackOffset: 111},
+		packindex.Info{BlockID: "z010203", TimestampSeconds: 1, PackFile: "xx", PackOffset: 111},
+		packindex.Info{BlockID: "de1e1e", TimestampSeconds: 4, PackFile: "xx", PackOffset: 111},
 	)
 	if err != nil {
 		t.Fatalf("can't create index: %v", err)
 	}
 	i2, err := indexWithItems(
-		packindex.Info{BlockID: "aabbcc", TimestampSeconds: 3, PackBlockID: "yy", PackOffset: 33},
-		packindex.Info{BlockID: "xaabbcc", TimestampSeconds: 1, PackBlockID: "xx", PackOffset: 111},
-		packindex.Info{BlockID: "de1e1e", TimestampSeconds: 4, PackBlockID: "xx", PackOffset: 222, Deleted: true},
+		packindex.Info{BlockID: "aabbcc", TimestampSeconds: 3, PackFile: "yy", PackOffset: 33},
+		packindex.Info{BlockID: "xaabbcc", TimestampSeconds: 1, PackFile: "xx", PackOffset: 111},
+		packindex.Info{BlockID: "de1e1e", TimestampSeconds: 4, PackFile: "xx", PackOffset: 222, Deleted: true},
 	)
 	if err != nil {
 		t.Fatalf("can't create index: %v", err)
 	}
 	i3, err := indexWithItems(
-		packindex.Info{BlockID: "aabbcc", TimestampSeconds: 2, PackBlockID: "zz", PackOffset: 22},
-		packindex.Info{BlockID: "ddeeff", TimestampSeconds: 1, PackBlockID: "zz", PackOffset: 222},
-		packindex.Info{BlockID: "k010203", TimestampSeconds: 1, PackBlockID: "xx", PackOffset: 111},
-		packindex.Info{BlockID: "k020304", TimestampSeconds: 1, PackBlockID: "xx", PackOffset: 111},
+		packindex.Info{BlockID: "aabbcc", TimestampSeconds: 2, PackFile: "zz", PackOffset: 22},
+		packindex.Info{BlockID: "ddeeff", TimestampSeconds: 1, PackFile: "zz", PackOffset: 222},
+		packindex.Info{BlockID: "k010203", TimestampSeconds: 1, PackFile: "xx", PackOffset: 111},
+		packindex.Info{BlockID: "k020304", TimestampSeconds: 1, PackFile: "xx", PackOffset: 111},
 	)
 	if err != nil {
 		t.Fatalf("can't create index: %v", err)

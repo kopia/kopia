@@ -137,7 +137,7 @@ func (b *simpleCommittedBlockIndex) openIndex(fullpath string) (packindex.Index,
 	return packindex.Open(f)
 }
 
-func (b *simpleCommittedBlockIndex) use(packBlockIDs []PhysicalBlockID) error {
+func (b *simpleCommittedBlockIndex) use(packFiles []PhysicalBlockID) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -158,7 +158,7 @@ func (b *simpleCommittedBlockIndex) use(packBlockIDs []PhysicalBlockID) error {
 		}
 	}
 
-	for _, e := range packBlockIDs {
+	for _, e := range packFiles {
 		fname := string(e) + simpleIndexSuffix
 		delete(remaining, fname)
 		fullpath := filepath.Join(b.dirname, fname)

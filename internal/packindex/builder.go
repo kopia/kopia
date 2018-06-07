@@ -34,21 +34,21 @@ func (b Builder) sortedBlocks() []*Info {
 }
 
 type indexLayout struct {
-	packBlockIDOffsets map[PhysicalBlockID]uint32
-	entryCount         int
-	keyLength          int
-	entryLength        int
-	extraDataOffset    uint32
+	packFileOffsets map[PhysicalBlockID]uint32
+	entryCount      int
+	keyLength       int
+	entryLength     int
+	extraDataOffset uint32
 }
 
 // Build writes the pack index to the provided output.
 func (b Builder) Build(output io.Writer) error {
 	allBlocks := b.sortedBlocks()
 	layout := &indexLayout{
-		packBlockIDOffsets: map[PhysicalBlockID]uint32{},
-		keyLength:          -1,
-		entryLength:        20,
-		entryCount:         len(allBlocks),
+		packFileOffsets: map[PhysicalBlockID]uint32{},
+		keyLength:       -1,
+		entryLength:     20,
+		entryCount:      len(allBlocks),
 	}
 
 	w := bufio.NewWriter(output)
@@ -88,10 +88,10 @@ func prepareExtraData(allBlocks []*Info, layout *indexLayout) []byte {
 		if i == 0 {
 			layout.keyLength = len(contentIDToBytes(it.BlockID))
 		}
-		if it.PackBlockID != "" {
-			if _, ok := layout.packBlockIDOffsets[it.PackBlockID]; !ok {
-				layout.packBlockIDOffsets[it.PackBlockID] = uint32(len(extraData))
-				extraData = append(extraData, []byte(it.PackBlockID)...)
+		if it.PackFile != "" {
+			if _, ok := layout.packFileOffsets[it.PackFile]; !ok {
+				layout.packFileOffsets[it.PackFile] = uint32(len(extraData))
+				extraData = append(extraData, []byte(it.PackFile)...)
 			}
 		}
 		if len(it.Payload) > 0 {
@@ -124,24 +124,24 @@ func writeEntry(w io.Writer, it *Info, layout *indexLayout, entry []byte) error 
 
 func formatEntry(entry []byte, it *Info, layout *indexLayout) error {
 	entryTimestampAndFlags := entry[0:8]
-	entryOffset1 := entry[8:12]
-	entryOffset2 := entry[12:16]
-	entryLength1 := entry[16:20]
+	entryPackFileOffset := entry[8:12]
+	entryPackedOffset := entry[12:16]
+	entryPackedLength := entry[16:20]
 	timestampAndFlags := uint64(it.TimestampSeconds) << 16
 
-	if len(it.PackBlockID) == 0 {
+	if len(it.PackFile) == 0 {
 		return fmt.Errorf("empty pack block ID for %v", it.BlockID)
 	}
 
-	binary.BigEndian.PutUint32(entryOffset1, layout.extraDataOffset+layout.packBlockIDOffsets[it.PackBlockID])
+	binary.BigEndian.PutUint32(entryPackFileOffset, layout.extraDataOffset+layout.packFileOffsets[it.PackFile])
 	if it.Deleted {
-		binary.BigEndian.PutUint32(entryOffset2, it.PackOffset|0x80000000)
+		binary.BigEndian.PutUint32(entryPackedOffset, it.PackOffset|0x80000000)
 	} else {
-		binary.BigEndian.PutUint32(entryOffset2, it.PackOffset)
+		binary.BigEndian.PutUint32(entryPackedOffset, it.PackOffset)
 	}
-	binary.BigEndian.PutUint32(entryLength1, it.Length)
+	binary.BigEndian.PutUint32(entryPackedLength, it.Length)
 	timestampAndFlags |= uint64(it.FormatVersion) << 8
-	timestampAndFlags |= uint64(len(it.PackBlockID))
+	timestampAndFlags |= uint64(len(it.PackFile))
 	binary.BigEndian.PutUint64(entryTimestampAndFlags, timestampAndFlags)
 	return nil
 }
