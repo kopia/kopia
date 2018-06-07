@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/rs/zerolog/log"
 
@@ -15,9 +14,11 @@ import (
 
 var (
 	verifyCommand               = objectCommands.Command("verify", "Verify the contents of stored object")
-	verifyCommandRecursive      = verifyCommand.Flag("recursive", "Recursive verification of directories").Short('r').Bool()
 	verifyCommandErrorThreshold = verifyCommand.Flag("max-errors", "Maximum number of errors before stopping").Default("0").Int()
-	verifyCommandPath           = verifyCommand.Arg("path", "Path").Required().String()
+	verifyCommandDirObjectIDs   = verifyCommand.Flag("directory-id", "Directory object IDs to verify").Strings()
+	verifyCommandFileObjectIDs  = verifyCommand.Flag("file-id", "File object IDs to verify").Strings()
+	verifyCommandAllSources     = verifyCommand.Flag("all-sources", "Verify all snapshots").Bool()
+	verifyCommandSources        = verifyCommand.Flag("sources", "Verify the provided sources").Strings()
 )
 
 type verifier struct {
@@ -27,16 +28,23 @@ type verifier struct {
 	errors  []error
 }
 
+func (v *verifier) tooManyErrors() bool {
+	if *verifyCommandErrorThreshold == 0 {
+		return false
+	}
+
+	return len(v.errors) >= *verifyCommandErrorThreshold
+}
+
 func (v *verifier) reportError(path string, err error) bool {
-	err = fmt.Errorf("error validating %q: %v", path, err)
-	log.Printf("%v", err)
+	log.Warn().Str("path", path).Err(err).Msg("failed")
 	v.errors = append(v.errors, err)
 	return len(v.errors) >= *verifyCommandErrorThreshold
 }
 
-func (v *verifier) verifyDirectory(ctx context.Context, oid object.ID, path string) error {
+func (v *verifier) verifyDirectory(ctx context.Context, oid object.ID, path string) {
 	if v.visited[oid.String()] {
-		return nil
+		return
 	}
 	v.visited[oid.String()] = true
 
@@ -45,45 +53,29 @@ func (v *verifier) verifyDirectory(ctx context.Context, oid object.ID, path stri
 	d := v.mgr.DirectoryEntry(oid, nil)
 	entries, err := d.Readdir(ctx)
 	if err != nil {
-		if v.reportError(path, fmt.Errorf("error reading directory %q %v: %v", path, oid, err)) {
-			return err
-		}
+		v.reportError(path, fmt.Errorf("error reading %v: %v", oid, err))
+		return
 	}
 
 	for _, e := range entries {
-		if err = v.verifyDirectoryEntry(ctx, path, e); err != nil {
-			return err
+		if v.tooManyErrors() {
+			break
+		}
+
+		m := e.Metadata()
+		objectID := e.(object.HasObjectID).ObjectID()
+		childPath := path + "/" + m.Name
+		if m.FileMode().IsDir() {
+			v.verifyDirectory(ctx, objectID, childPath)
+		} else {
+			v.verifyObject(ctx, objectID, childPath, m.FileSize)
 		}
 	}
-
-	return nil
 }
 
-func (v *verifier) verifyDirectoryEntry(ctx context.Context, path string, e fs.Entry) error {
-	m := e.Metadata()
-	objectID := e.(object.HasObjectID).ObjectID()
-	childPath := path + "/" + m.Name
-	if m.FileMode().IsDir() {
-		if *verifyCommandRecursive {
-			if err := v.verifyDirectory(ctx, objectID, childPath); err != nil {
-				if v.reportError(childPath, err) {
-					return err
-				}
-			}
-		}
-	}
-
-	if err := v.verifyObject(ctx, objectID, childPath, m.FileSize); err != nil {
-		if v.reportError(childPath, err) {
-			return err
-		}
-	}
-	return nil
-}
-
-func (v *verifier) verifyObject(ctx context.Context, oid object.ID, path string, expectedLength int64) error {
+func (v *verifier) verifyObject(ctx context.Context, oid object.ID, path string, expectedLength int64) {
 	if v.visited[oid.String()] {
-		return nil
+		return
 	}
 	v.visited[oid.String()] = true
 
@@ -95,25 +87,16 @@ func (v *verifier) verifyObject(ctx context.Context, oid object.ID, path string,
 
 	length, _, err := v.om.VerifyObject(ctx, oid)
 	if err != nil {
-		return fmt.Errorf("invalid object %q: %v", oid, err)
+		v.reportError(path, fmt.Errorf("error verifying %v: %v", oid, err))
 	}
 
-	if expectedLength == -1 {
-		log.Printf("object length: %v", length)
-	} else if length != expectedLength {
-		return fmt.Errorf("invalid object length %q, %v, expected %v", oid, length, expectedLength)
+	if expectedLength >= 0 && length != expectedLength {
+		v.reportError(path, fmt.Errorf("invalid object length %q, %v, expected %v", oid, length, expectedLength))
 	}
-
-	return nil
 }
 
 func runVerifyCommand(ctx context.Context, rep *repo.Repository) error {
 	mgr := snapshot.NewManager(rep)
-
-	oid, err := parseObjectID(ctx, mgr, *verifyCommandPath)
-	if err != nil {
-		return err
-	}
 
 	v := verifier{
 		mgr,
@@ -122,26 +105,55 @@ func runVerifyCommand(ctx context.Context, rep *repo.Repository) error {
 		nil,
 	}
 
-	if *verifyCommandRecursive {
-		_ = v.verifyDirectory(ctx, oid, oid.String())
-	}
-
-	if err := v.verifyObject(ctx, oid, oid.String(), -1); err != nil {
-		if v.reportError(".", err) {
+	if *verifyCommandAllSources || len(*verifyCommandSources) > 0 {
+		var manifestIDs []string
+		if *verifyCommandAllSources {
+			manifestIDs = append(manifestIDs, mgr.ListSnapshotManifests(nil)...)
+		} else {
+			for _, srcStr := range *verifyCommandSources {
+				src, err := snapshot.ParseSourceInfo(srcStr, getHostName(), getUserName())
+				if err != nil {
+					return fmt.Errorf("error parsing %q: %v", srcStr, err)
+				}
+				manifestIDs = append(manifestIDs, mgr.ListSnapshotManifests(&src)...)
+			}
+		}
+		manifests, err := mgr.LoadSnapshots(manifestIDs)
+		if err != nil {
 			return err
 		}
+		for _, man := range manifests {
+			path := fmt.Sprintf("%v@%v", man.Source, man.StartTime.Format(timeFormat))
+			if man.RootEntry != nil {
+				if man.RootEntry.Type == fs.EntryTypeDirectory {
+					v.verifyDirectory(ctx, man.RootObjectID(), path)
+				} else {
+					v.verifyObject(ctx, man.RootObjectID(), path, -1)
+				}
+			}
+		}
+	}
+
+	for _, oidStr := range *verifyCommandDirObjectIDs {
+		oid, err := parseObjectID(ctx, mgr, oidStr)
+		if err != nil {
+			return err
+		}
+
+		v.verifyDirectory(ctx, oid, oidStr)
+	}
+
+	for _, oidStr := range *verifyCommandFileObjectIDs {
+		oid, err := parseObjectID(ctx, mgr, oidStr)
+		if err != nil {
+			return err
+		}
+
+		v.verifyObject(ctx, oid, oidStr, -1)
 	}
 
 	if len(v.errors) == 0 {
 		return nil
-	}
-
-	if len(v.errors) == 1 {
-		return v.errors[0]
-	}
-
-	for i, e := range v.errors {
-		fmt.Fprintf(os.Stderr, "  %-3v: %v\n", i, e)
 	}
 
 	return fmt.Errorf("encountered %v errors", len(v.errors))
