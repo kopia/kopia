@@ -71,7 +71,7 @@ func listDirectory(ctx context.Context, mgr *snapshot.Manager, prefix string, oi
 		oid := objectID.String()
 		if *lsCommandLong {
 			info = fmt.Sprintf(
-				"%v %9d %v %-"+maxNameLenString+"s %v",
+				"%v %12d %v %-"+maxNameLenString+"s %v",
 				m.FileMode(),
 				m.FileSize,
 				m.ModTime.Local().Format(timeFormat),
