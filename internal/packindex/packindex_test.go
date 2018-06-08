@@ -33,11 +33,11 @@ func TestPackIndex(t *testing.T) {
 		}
 		return string(fmt.Sprintf("%v%x", prefix2, h.Sum(nil)))
 	}
-	deterministicPackFile := func(id int) packindex.PhysicalBlockID {
+	deterministicPackFile := func(id int) string {
 		h := sha1.New()
 		fmt.Fprintf(h, "%v", id)
 		blockNumber++
-		return packindex.PhysicalBlockID(fmt.Sprintf("%x", h.Sum(nil)))
+		return string(fmt.Sprintf("%x", h.Sum(nil)))
 	}
 
 	deterministicPackedOffset := func(id int) uint32 {

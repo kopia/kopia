@@ -11,11 +11,11 @@ import (
 )
 
 type blockCache interface {
-	getBlock(ctx context.Context, cacheKey string, physicalBlockID PhysicalBlockID, offset, length int64) ([]byte, error)
-	putBlock(ctx context.Context, blockID PhysicalBlockID, data []byte) error
+	getBlock(ctx context.Context, cacheKey string, physicalBlockID string, offset, length int64) ([]byte, error)
+	putBlock(ctx context.Context, blockID string, data []byte) error
 	listIndexBlocks(ctx context.Context) ([]IndexInfo, error)
 	deleteListCache(ctx context.Context)
-	deleteBlock(ctx context.Context, blockID PhysicalBlockID) error
+	deleteBlock(ctx context.Context, blockID string) error
 	close() error
 }
 

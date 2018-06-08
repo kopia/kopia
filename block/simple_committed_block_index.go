@@ -41,7 +41,7 @@ func (b *simpleCommittedBlockIndex) getBlock(blockID string) (Info, error) {
 	return Info{}, err
 }
 
-func (b *simpleCommittedBlockIndex) hasIndexBlockID(indexBlockID PhysicalBlockID) (bool, error) {
+func (b *simpleCommittedBlockIndex) hasIndexBlockID(indexBlockID string) (bool, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -56,11 +56,11 @@ func (b *simpleCommittedBlockIndex) hasIndexBlockID(indexBlockID PhysicalBlockID
 	return false, err
 }
 
-func (b *simpleCommittedBlockIndex) indexBlockPath(indexBlockID PhysicalBlockID) string {
+func (b *simpleCommittedBlockIndex) indexBlockPath(indexBlockID string) string {
 	return filepath.Join(b.dirname, string(indexBlockID+simpleIndexSuffix))
 }
 
-func (b *simpleCommittedBlockIndex) addBlockToCache(indexBlockID PhysicalBlockID, data []byte) error {
+func (b *simpleCommittedBlockIndex) addBlockToCache(indexBlockID string, data []byte) error {
 	exists, err := b.hasIndexBlockID(indexBlockID)
 	if err != nil {
 		return err
@@ -99,7 +99,7 @@ func (b *simpleCommittedBlockIndex) addBlockToCache(indexBlockID PhysicalBlockID
 	return nil
 }
 
-func (b *simpleCommittedBlockIndex) addBlock(indexBlockID PhysicalBlockID, data []byte, use bool) error {
+func (b *simpleCommittedBlockIndex) addBlock(indexBlockID string, data []byte, use bool) error {
 	if err := b.addBlockToCache(indexBlockID, data); err != nil {
 		return err
 	}
@@ -137,7 +137,7 @@ func (b *simpleCommittedBlockIndex) openIndex(fullpath string) (packindex.Index,
 	return packindex.Open(f)
 }
 
-func (b *simpleCommittedBlockIndex) use(packFiles []PhysicalBlockID) error {
+func (b *simpleCommittedBlockIndex) use(packFiles []string) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 

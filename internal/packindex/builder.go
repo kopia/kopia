@@ -34,7 +34,7 @@ func (b Builder) sortedBlocks() []*Info {
 }
 
 type indexLayout struct {
-	packFileOffsets map[PhysicalBlockID]uint32
+	packFileOffsets map[string]uint32
 	entryCount      int
 	keyLength       int
 	entryLength     int
@@ -45,7 +45,7 @@ type indexLayout struct {
 func (b Builder) Build(output io.Writer) error {
 	allBlocks := b.sortedBlocks()
 	layout := &indexLayout{
-		packFileOffsets: map[PhysicalBlockID]uint32{},
+		packFileOffsets: map[string]uint32{},
 		keyLength:       -1,
 		entryLength:     20,
 		entryCount:      len(allBlocks),

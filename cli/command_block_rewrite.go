@@ -104,14 +104,14 @@ func getBlocksToRewrite(ctx context.Context, rep *repo.Repository) ([]block.Info
 	return result, nil
 }
 
-func findShortPackBlocks(infos []block.Info, threshold uint32) (map[block.PhysicalBlockID]bool, error) {
-	packUsage := map[block.PhysicalBlockID]uint32{}
+func findShortPackBlocks(infos []block.Info, threshold uint32) (map[string]bool, error) {
+	packUsage := map[string]uint32{}
 
 	for _, bi := range infos {
 		packUsage[bi.PackFile] += bi.Length
 	}
 
-	shortPackBlocks := map[block.PhysicalBlockID]bool{}
+	shortPackBlocks := map[string]bool{}
 
 	for packFile, usage := range packUsage {
 		if usage < threshold {

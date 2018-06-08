@@ -19,10 +19,10 @@ var (
 	blockIndexShowRaw     = blockIndexShowCommand.Flag("raw", "Show raw block data").Bool()
 )
 
-func getIndexBlocksToShow(ctx context.Context, rep *repo.Repository) ([]block.PhysicalBlockID, error) {
-	var blockIDs []block.PhysicalBlockID
+func getIndexBlocksToShow(ctx context.Context, rep *repo.Repository) ([]string, error) {
+	var blockIDs []string
 	for _, id := range *blockIndexShowIDs {
-		blockIDs = append(blockIDs, block.PhysicalBlockID(id))
+		blockIDs = append(blockIDs, string(id))
 	}
 
 	if len(blockIDs) == 1 && blockIDs[0] == "active" {
@@ -37,7 +37,7 @@ func getIndexBlocksToShow(ctx context.Context, rep *repo.Repository) ([]block.Ph
 
 		blockIDs = nil
 		for _, bi := range b {
-			blockIDs = append(blockIDs, bi.BlockID)
+			blockIDs = append(blockIDs, bi.FileName)
 		}
 	}
 

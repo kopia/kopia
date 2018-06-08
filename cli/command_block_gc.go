@@ -42,7 +42,7 @@ func runBlockGarbageCollectAction(ctx context.Context, rep *repo.Repository) err
 
 		allPackBlocks++
 
-		u := usedPackBlocks[block.PhysicalBlockID(bi.BlockID)]
+		u := usedPackBlocks[string(bi.BlockID)]
 		if u > 0 {
 			log.Printf("pack %v, in use by %v blocks", bi.BlockID, u)
 			continue
@@ -77,8 +77,8 @@ func runBlockGarbageCollectAction(ctx context.Context, rep *repo.Repository) err
 	return nil
 }
 
-func findPackBlocksInUse(infos []block.Info) map[block.PhysicalBlockID]int {
-	packUsage := map[block.PhysicalBlockID]int{}
+func findPackBlocksInUse(infos []block.Info) map[string]int {
+	packUsage := map[string]int{}
 
 	for _, bi := range infos {
 		packUsage[bi.PackFile]++

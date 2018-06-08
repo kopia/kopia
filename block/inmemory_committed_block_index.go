@@ -12,7 +12,7 @@ import (
 type inMemoryCommittedBlockIndex struct {
 	mu             sync.Mutex
 	indexes        packindex.Merged
-	physicalBlocks map[PhysicalBlockID]packindex.Index
+	physicalBlocks map[string]packindex.Index
 }
 
 func (b *inMemoryCommittedBlockIndex) getBlock(blockID string) (Info, error) {
@@ -32,7 +32,7 @@ func (b *inMemoryCommittedBlockIndex) getBlock(blockID string) (Info, error) {
 
 }
 
-func (b *inMemoryCommittedBlockIndex) addBlock(indexBlockID PhysicalBlockID, data []byte, use bool) error {
+func (b *inMemoryCommittedBlockIndex) addBlock(indexBlockID string, data []byte, use bool) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -58,14 +58,14 @@ func (b *inMemoryCommittedBlockIndex) listBlocks(prefix string, cb func(i Info) 
 	return b.indexes.Iterate(prefix, cb)
 }
 
-func (b *inMemoryCommittedBlockIndex) hasIndexBlockID(indexBlockID PhysicalBlockID) (bool, error) {
+func (b *inMemoryCommittedBlockIndex) hasIndexBlockID(indexBlockID string) (bool, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	return b.physicalBlocks[indexBlockID] != nil, nil
 }
 
-func (b *inMemoryCommittedBlockIndex) use(packFiles []PhysicalBlockID) error {
+func (b *inMemoryCommittedBlockIndex) use(packFiles []string) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 

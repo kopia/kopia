@@ -36,7 +36,7 @@ type localStorageCache struct {
 	closed chan struct{}
 }
 
-func (c *localStorageCache) getBlock(ctx context.Context, cacheKey string, physicalBlockID PhysicalBlockID, offset, length int64) ([]byte, error) {
+func (c *localStorageCache) getBlock(ctx context.Context, cacheKey string, physicalBlockID string, offset, length int64) ([]byte, error) {
 	b, err := c.cacheStorage.GetBlock(ctx, cacheKey, 0, -1)
 	if err == nil {
 		b, err = c.verifyHMAC(b)
@@ -74,12 +74,12 @@ func (c *localStorageCache) writeToCacheBestEffort(ctx context.Context, cacheKey
 	}
 }
 
-func (c *localStorageCache) putBlock(ctx context.Context, blockID PhysicalBlockID, data []byte) error {
+func (c *localStorageCache) putBlock(ctx context.Context, blockID string, data []byte) error {
 	c.deleteListCache(ctx)
 	return c.st.PutBlock(ctx, string(blockID), bytes.NewReader(data))
 }
 
-func (c *localStorageCache) deleteBlock(ctx context.Context, blockID PhysicalBlockID) error {
+func (c *localStorageCache) deleteBlock(ctx context.Context, blockID string) error {
 	c.deleteListCache(ctx)
 	return c.st.DeleteBlock(ctx, string(blockID))
 }

@@ -181,7 +181,7 @@ func (b *index) entryToInfo(blockID string, entryData []byte) (Info, error) {
 		FormatVersion:    e.PackedFormatVersion(),
 		PackOffset:       e.PackedOffset(),
 		Length:           e.PackedLength(),
-		PackFile:         PhysicalBlockID(packFile),
+		PackFile:         string(packFile),
 	}, nil
 }
 
