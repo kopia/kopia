@@ -55,52 +55,88 @@ func runRewriteBlocksAction(ctx context.Context, rep *repo.Repository) error {
 }
 
 func getBlocksToRewrite(ctx context.Context, rep *repo.Repository) ([]block.Info, error) {
+	// get blocks listed on command line
+	result, err := getBlockInfos(ctx, rep, *blockRewriteIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	// add all blocks from short packs
+	if *blockRewriteShortPacks {
+		threshold := uint32(rep.Blocks.Format.MaxPackSize * 6 / 10)
+		info, err := getBlocksInShortPacks(ctx, rep, threshold)
+		if err != nil {
+			return nil, err
+		}
+
+		result = append(result, info...)
+	}
+
+	// add all blocks with given format version
+	if *blockRewriteFormatVersion != -1 {
+		info, err := getBlocksWithFormatVersion(ctx, rep, *blockRewriteFormatVersion)
+		if err != nil {
+			return nil, err
+		}
+
+		result = append(result, info...)
+	}
+
+	return result, nil
+}
+
+func getBlockInfos(ctx context.Context, rep *repo.Repository, blockIDs []string) ([]block.Info, error) {
 	var result []block.Info
-	for _, blockID := range *blockRewriteIDs {
+	for _, blockID := range blockIDs {
 		i, err := rep.Blocks.BlockInfo(ctx, blockID)
 		if err != nil {
 			return nil, fmt.Errorf("unable to get info for block %q: %v", blockID, err)
 		}
 		result = append(result, i)
 	}
+	return result, nil
+}
 
-	if *blockRewriteShortPacks {
-		infos, err := rep.Blocks.ListBlockInfos("", true)
-		if err != nil {
-			return nil, fmt.Errorf("unable to list index blocks: %v", err)
-		}
+func getBlocksWithFormatVersion(ctx context.Context, rep *repo.Repository, version int) ([]block.Info, error) {
+	var result []block.Info
 
-		threshold := uint32(rep.Blocks.Format.MaxPackSize * 6 / 10)
-		shortPackBlocks, err := findShortPackBlocks(infos, threshold)
-		if err != nil {
-			return nil, fmt.Errorf("unable to find short pack blocks: %v", err)
-		}
-		log.Printf("found %v short pack blocks", len(shortPackBlocks))
+	infos, err := rep.Blocks.ListBlockInfos("", true)
+	if err != nil {
+		return nil, fmt.Errorf("unable to list index blocks: %v", err)
+	}
 
-		if len(shortPackBlocks) <= 1 {
-			fmt.Printf("Nothing to do, found %v short pack blocks\n", len(shortPackBlocks))
-		} else {
-			for _, b := range infos {
-				if shortPackBlocks[b.PackFile] && strings.HasPrefix(string(b.PackFile), *blockRewritePackPrefix) {
-					result = append(result, b)
-				}
-			}
+	for _, b := range infos {
+		if int(b.FormatVersion) == *blockRewriteFormatVersion && strings.HasPrefix(b.PackFile, *blockRewritePackPrefix) {
+			result = append(result, b)
 		}
 	}
 
-	if *blockRewriteFormatVersion != -1 {
-		infos, err := rep.Blocks.ListBlockInfos("", true)
-		if err != nil {
-			return nil, fmt.Errorf("unable to list index blocks: %v", err)
-		}
+	return result, nil
+}
 
+func getBlocksInShortPacks(ctx context.Context, rep *repo.Repository, threshold uint32) ([]block.Info, error) {
+	var result []block.Info
+
+	infos, err := rep.Blocks.ListBlockInfos("", true)
+	if err != nil {
+		return nil, fmt.Errorf("unable to list index blocks: %v", err)
+	}
+
+	shortPackBlocks, err := findShortPackBlocks(infos, threshold)
+	if err != nil {
+		return nil, fmt.Errorf("unable to find short pack blocks: %v", err)
+	}
+	log.Printf("found %v short pack blocks", len(shortPackBlocks))
+
+	if len(shortPackBlocks) <= 1 {
+		fmt.Printf("Nothing to do, found %v short pack blocks\n", len(shortPackBlocks))
+	} else {
 		for _, b := range infos {
-			if int(b.FormatVersion) == *blockRewriteFormatVersion && strings.HasPrefix(string(b.PackFile), *blockRewritePackPrefix) {
+			if shortPackBlocks[b.PackFile] && strings.HasPrefix(b.PackFile, *blockRewritePackPrefix) {
 				result = append(result, b)
 			}
 		}
 	}
-
 	return result, nil
 }
 

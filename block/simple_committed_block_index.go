@@ -57,7 +57,7 @@ func (b *simpleCommittedBlockIndex) hasIndexBlockID(indexBlockID string) (bool, 
 }
 
 func (b *simpleCommittedBlockIndex) indexBlockPath(indexBlockID string) string {
-	return filepath.Join(b.dirname, string(indexBlockID+simpleIndexSuffix))
+	return filepath.Join(b.dirname, indexBlockID+simpleIndexSuffix)
 }
 
 func (b *simpleCommittedBlockIndex) addBlockToCache(indexBlockID string, data []byte) error {
@@ -159,7 +159,7 @@ func (b *simpleCommittedBlockIndex) use(packFiles []string) error {
 	}
 
 	for _, e := range packFiles {
-		fname := string(e) + simpleIndexSuffix
+		fname := e + simpleIndexSuffix
 		delete(remaining, fname)
 		fullpath := filepath.Join(b.dirname, fname)
 		ndx, err := b.openIndex(fullpath)

@@ -24,7 +24,7 @@ const (
 
 var (
 	clientIDFile     = app.Flag("client-id-file", "Path to client ID file, which enables anonymous usage reporting if present").Default(filepath.Join(ospath.ConfigDir(), "client_id.txt")).String()
-	analyticsConsent = app.Flag("analytics-consent", "Consent to send analytics").Default("ask").Enum("yes", "no", "ask")
+	analyticsConsent = app.Flag("analytics-consent", "Consent to send analytics").Default("ask").Enum("agree", "disagree", "ask")
 
 	globalGAClient *ga.Client
 	gaClientOnce   sync.Once
@@ -79,10 +79,10 @@ func promptForAnalyticsConsent() {
 	clientID := fmt.Sprintf("%x", x)
 
 	switch *analyticsConsent {
-	case "no":
+	case "disagree":
 		disableAnalytics()
 
-	case "yes":
+	case "agree":
 		enableAnalytics(clientID)
 
 	case "ask":

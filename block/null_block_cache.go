@@ -12,11 +12,11 @@ type nullBlockCache struct {
 }
 
 func (c nullBlockCache) getBlock(ctx context.Context, cacheKey string, blockID string, offset, length int64) ([]byte, error) {
-	return c.st.GetBlock(ctx, string(blockID), offset, length)
+	return c.st.GetBlock(ctx, blockID, offset, length)
 }
 
 func (c nullBlockCache) putBlock(ctx context.Context, blockID string, data []byte) error {
-	return c.st.PutBlock(ctx, string(blockID), bytes.NewReader(data))
+	return c.st.PutBlock(ctx, blockID, bytes.NewReader(data))
 }
 
 func (c nullBlockCache) listIndexBlocks(ctx context.Context) ([]IndexInfo, error) {
@@ -27,7 +27,7 @@ func (c nullBlockCache) deleteListCache(ctx context.Context) {
 }
 
 func (c nullBlockCache) deleteBlock(ctx context.Context, blockID string) error {
-	return c.st.DeleteBlock(ctx, string(blockID))
+	return c.st.DeleteBlock(ctx, blockID)
 }
 
 func (c nullBlockCache) close() error {

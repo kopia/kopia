@@ -51,7 +51,7 @@ func (c *localStorageCache) getBlock(ctx context.Context, cacheKey string, physi
 		log.Warn().Msgf("unable to read cache %v: %v", cacheKey, err)
 	}
 
-	b, err = c.st.GetBlock(ctx, string(physicalBlockID), offset, length)
+	b, err = c.st.GetBlock(ctx, physicalBlockID, offset, length)
 	if err == storage.ErrBlockNotFound {
 		// not found in underlying storage
 		return nil, err
@@ -76,12 +76,12 @@ func (c *localStorageCache) writeToCacheBestEffort(ctx context.Context, cacheKey
 
 func (c *localStorageCache) putBlock(ctx context.Context, blockID string, data []byte) error {
 	c.deleteListCache(ctx)
-	return c.st.PutBlock(ctx, string(blockID), bytes.NewReader(data))
+	return c.st.PutBlock(ctx, blockID, bytes.NewReader(data))
 }
 
 func (c *localStorageCache) deleteBlock(ctx context.Context, blockID string) error {
 	c.deleteListCache(ctx)
-	return c.st.DeleteBlock(ctx, string(blockID))
+	return c.st.DeleteBlock(ctx, blockID)
 }
 
 func (c *localStorageCache) listIndexBlocks(ctx context.Context) ([]IndexInfo, error) {

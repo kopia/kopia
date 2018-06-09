@@ -750,7 +750,7 @@ func (bm *Manager) writePackDataNotLocked(ctx context.Context, data []byte) (str
 		return "", fmt.Errorf("unable to read crypto bytes: %v", err)
 	}
 
-	physicalBlockID := string(fmt.Sprintf("%v%x", PackBlockPrefix, blockID))
+	physicalBlockID := fmt.Sprintf("%v%x", PackBlockPrefix, blockID)
 
 	atomic.AddInt32(&bm.stats.WrittenBlocks, 1)
 	atomic.AddInt64(&bm.stats.WrittenBytes, int64(len(data)))
@@ -763,7 +763,7 @@ func (bm *Manager) writePackDataNotLocked(ctx context.Context, data []byte) (str
 
 func (bm *Manager) encryptAndWriteBlockNotLocked(ctx context.Context, data []byte, prefix string) (string, error) {
 	hash := bm.hashData(data)
-	physicalBlockID := string(prefix + hex.EncodeToString(hash))
+	physicalBlockID := prefix + hex.EncodeToString(hash)
 
 	// Encrypt the block in-place.
 	atomic.AddInt64(&bm.stats.EncryptedBytes, int64(len(data)))
@@ -900,7 +900,7 @@ func (bm *Manager) decryptAndVerifyPayload(formatVersion byte, payload []byte, o
 }
 
 func (bm *Manager) getPhysicalBlockInternal(ctx context.Context, blockID string) ([]byte, error) {
-	payload, err := bm.cache.getBlock(ctx, string(blockID), blockID, 0, -1)
+	payload, err := bm.cache.getBlock(ctx, blockID, blockID, 0, -1)
 	if err != nil {
 		return nil, err
 	}
@@ -932,8 +932,7 @@ func getPackedBlockIV(blockID string) ([]byte, error) {
 	return hex.DecodeString(blockID[len(blockID)-(aes.BlockSize*2):])
 }
 
-func getPhysicalBlockIV(b string) ([]byte, error) {
-	s := string(b)
+func getPhysicalBlockIV(s string) ([]byte, error) {
 	if p := strings.Index(s, "-"); p >= 0 {
 		s = s[0:p]
 	}
@@ -993,7 +992,7 @@ func listIndexBlocksFromStorage(ctx context.Context, st storage.Storage) ([]Inde
 		}
 
 		ii := IndexInfo{
-			FileName:  string(it.BlockID),
+			FileName:  it.BlockID,
 			Timestamp: it.TimeStamp,
 			Length:    it.Length,
 		}

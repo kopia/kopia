@@ -21,9 +21,8 @@ var (
 
 func getIndexBlocksToShow(ctx context.Context, rep *repo.Repository) ([]string, error) {
 	var blockIDs []string
-	for _, id := range *blockIndexShowIDs {
-		blockIDs = append(blockIDs, string(id))
-	}
+
+	blockIDs = append(blockIDs, *blockIndexShowIDs...)
 
 	if len(blockIDs) == 1 && blockIDs[0] == "active" {
 		b, err := rep.Blocks.IndexBlocks(ctx)

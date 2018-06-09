@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/repo"
@@ -23,7 +22,7 @@ func runBlockGarbageCollectAction(ctx context.Context, rep *repo.Repository) err
 	}
 
 	usedPackBlocks := findPackBlocksInUse(infos)
-	ch := rep.Storage.ListBlocks(ctx, "")
+	ch := rep.Storage.ListBlocks(ctx, block.PackBlockPrefix)
 
 	var unused []string
 	var totalBytes int64
@@ -33,22 +32,15 @@ func runBlockGarbageCollectAction(ctx context.Context, rep *repo.Repository) err
 			return fmt.Errorf("error listing storage blocks: %v", bi.Error)
 		}
 
-		if strings.HasPrefix(bi.BlockID, "n") {
-			continue
-		}
-		if strings.HasPrefix(bi.BlockID, "kopia") {
-			continue
-		}
-
 		allPackBlocks++
 
-		u := usedPackBlocks[string(bi.BlockID)]
+		u := usedPackBlocks[bi.BlockID]
 		if u > 0 {
 			log.Printf("pack %v, in use by %v blocks", bi.BlockID, u)
 			continue
 		}
 
-		totalBytes += int64(bi.Length)
+		totalBytes += bi.Length
 		unused = append(unused, bi.BlockID)
 	}
 	fmt.Fprintf(os.Stderr, "Found %v/%v pack blocks in use.\n", len(usedPackBlocks), allPackBlocks)
