@@ -36,7 +36,12 @@ type localStorageCache struct {
 	closed chan struct{}
 }
 
-func (c *localStorageCache) getBlock(ctx context.Context, cacheKey string, physicalBlockID string, offset, length int64) ([]byte, error) {
+func (c *localStorageCache) getContentBlock(ctx context.Context, cacheKey string, physicalBlockID string, offset, length int64) ([]byte, error) {
+	// block IDs with odd length have a single-byte prefix.
+	// move the prefix to the end of cache key to make sure the top level shard is spread 256 ways.
+	if len(cacheKey)%2 == 1 {
+		cacheKey = cacheKey[1:] + cacheKey[0:1]
+	}
 	b, err := c.cacheStorage.GetBlock(ctx, cacheKey, 0, -1)
 	if err == nil {
 		b, err = c.verifyHMAC(b)
@@ -72,16 +77,6 @@ func (c *localStorageCache) writeToCacheBestEffort(ctx context.Context, cacheKey
 	if err := c.cacheStorage.PutBlock(ctx, cacheKey, rdr); err != nil {
 		log.Warn().Msgf("unable to write cache item %v: %v", cacheKey, err)
 	}
-}
-
-func (c *localStorageCache) putBlock(ctx context.Context, blockID string, data []byte) error {
-	c.deleteListCache(ctx)
-	return c.st.PutBlock(ctx, blockID, bytes.NewReader(data))
-}
-
-func (c *localStorageCache) deleteBlock(ctx context.Context, blockID string) error {
-	c.deleteListCache(ctx)
-	return c.st.DeleteBlock(ctx, blockID)
 }
 
 func (c *localStorageCache) listIndexBlocks(ctx context.Context) ([]IndexInfo, error) {

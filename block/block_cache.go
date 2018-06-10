@@ -11,11 +11,9 @@ import (
 )
 
 type blockCache interface {
-	getBlock(ctx context.Context, cacheKey string, physicalBlockID string, offset, length int64) ([]byte, error)
-	putBlock(ctx context.Context, blockID string, data []byte) error
+	getContentBlock(ctx context.Context, cacheKey string, physicalBlockID string, offset, length int64) ([]byte, error)
 	listIndexBlocks(ctx context.Context) ([]IndexInfo, error)
 	deleteListCache(ctx context.Context)
-	deleteBlock(ctx context.Context, blockID string) error
 	close() error
 }
 
@@ -41,7 +39,8 @@ func newBlockCache(ctx context.Context, st storage.Storage, caching CachingOptio
 		}
 	}
 	cacheStorage, err := filesystem.New(context.Background(), &filesystem.Options{
-		Path: blockCacheDir,
+		Path:            blockCacheDir,
+		DirectoryShards: []int{2},
 	})
 	if err != nil {
 		return nil, err

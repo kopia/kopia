@@ -61,6 +61,7 @@ type Manager struct {
 
 	stats Stats
 	cache blockCache
+	st    storage.Storage
 
 	mu                      sync.Mutex
 	locked                  bool
@@ -661,7 +662,8 @@ func (bm *Manager) compactAndDeleteIndexBlocks(ctx context.Context, indexBlocks 
 			continue
 		}
 
-		if err := bm.cache.deleteBlock(ctx, indexBlock.FileName); err != nil {
+		bm.cache.deleteListCache(ctx)
+		if err := bm.st.DeleteBlock(ctx, indexBlock.FileName); err != nil {
 			log.Warn().Msgf("unable to delete compacted block %q: %v", indexBlock.FileName, err)
 		}
 	}
@@ -754,7 +756,8 @@ func (bm *Manager) writePackDataNotLocked(ctx context.Context, data []byte) (str
 
 	atomic.AddInt32(&bm.stats.WrittenBlocks, 1)
 	atomic.AddInt64(&bm.stats.WrittenBytes, int64(len(data)))
-	if err := bm.cache.putBlock(ctx, physicalBlockID, data); err != nil {
+	bm.cache.deleteListCache(ctx)
+	if err := bm.st.PutBlock(ctx, physicalBlockID, bytes.NewReader(data)); err != nil {
 		return "", err
 	}
 
@@ -774,7 +777,8 @@ func (bm *Manager) encryptAndWriteBlockNotLocked(ctx context.Context, data []byt
 
 	atomic.AddInt32(&bm.stats.WrittenBlocks, 1)
 	atomic.AddInt64(&bm.stats.WrittenBytes, int64(len(data)))
-	if err := bm.cache.putBlock(ctx, physicalBlockID, data2); err != nil {
+	bm.cache.deleteListCache(ctx)
+	if err := bm.st.PutBlock(ctx, physicalBlockID, bytes.NewReader(data2)); err != nil {
 		return "", err
 	}
 
@@ -862,7 +866,7 @@ func (bm *Manager) getPackedBlockInternalLocked(ctx context.Context, blockID str
 
 	packFile := bi.PackFile
 	bm.mu.Unlock()
-	payload, err := bm.cache.getBlock(ctx, blockID, packFile, int64(bi.PackOffset), int64(bi.Length))
+	payload, err := bm.cache.getContentBlock(ctx, blockID, packFile, int64(bi.PackOffset), int64(bi.Length))
 	bm.mu.Lock()
 	if err != nil {
 		return nil, false, fmt.Errorf("unable to read storage block %v", err)
@@ -902,7 +906,7 @@ func (bm *Manager) decryptAndVerifyPayload(formatVersion byte, payload []byte, o
 }
 
 func (bm *Manager) getPhysicalBlockInternal(ctx context.Context, blockID string) ([]byte, error) {
-	payload, err := bm.cache.getBlock(ctx, blockID, blockID, 0, -1)
+	payload, err := bm.cache.getContentBlock(ctx, blockID, blockID, 0, -1)
 	if err != nil {
 		return nil, err
 	}
@@ -1056,6 +1060,7 @@ func newManagerWithOptions(ctx context.Context, st storage.Storage, f Formatting
 		maxPreambleLength:     defaultMaxPreambleLength,
 		paddingUnit:           defaultPaddingUnit,
 		cache:                 cache,
+		st:                    st,
 		activeBlocksExtraTime: activeBlocksExtraTime,
 		writeFormatVersion:    int32(f.Version),
 	}
