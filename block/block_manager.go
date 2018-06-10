@@ -861,7 +861,9 @@ func (bm *Manager) getPackedBlockInternalLocked(ctx context.Context, blockID str
 	}
 
 	packFile := bi.PackFile
+	bm.mu.Unlock()
 	payload, err := bm.cache.getBlock(ctx, blockID, packFile, int64(bi.PackOffset), int64(bi.Length))
+	bm.mu.Lock()
 	if err != nil {
 		return nil, false, fmt.Errorf("unable to read storage block %v", err)
 	}
