@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/parallelwork"
 	"github.com/kopia/kopia/object"
@@ -136,30 +137,16 @@ func (v *verifier) doVerifyDirectory(ctx context.Context, oid object.ID, path st
 }
 
 func (v *verifier) doVerifyObject(ctx context.Context, oid object.ID, path string, expectedLength int64) {
-	readFile := rand.Intn(100) < *verifyCommandFilesPercent
 	if expectedLength < 0 {
-		log.Printf("verifying object %v (readFile=%v)", oid, readFile)
+		log.Printf("verifying object %v", oid)
 	} else {
-		log.Printf("verifying object %v (%v) with length %v (readFile=%v)", path, oid, expectedLength, readFile)
+		log.Printf("verifying object %v (%v) with length %v", path, oid, expectedLength)
 	}
 
 	var length int64
 	var err error
 
-	if readFile {
-		var r object.Reader
-		r, err = v.om.Open(ctx, oid)
-		if err != nil {
-			v.reportError(path, fmt.Errorf("error verifying %v: %v", oid, err))
-			return
-		}
-		defer r.Close() //nolint:errcheck
-
-		length, err = io.Copy(ioutil.Discard, r)
-	} else {
-		length, _, err = v.om.VerifyObject(ctx, oid)
-	}
-
+	length, _, err = v.om.VerifyObject(ctx, oid)
 	if err != nil {
 		v.reportError(path, fmt.Errorf("error verifying %v: %v", oid, err))
 	}
@@ -167,6 +154,27 @@ func (v *verifier) doVerifyObject(ctx context.Context, oid object.ID, path strin
 	if expectedLength >= 0 && length != expectedLength {
 		v.reportError(path, fmt.Errorf("invalid object length %q, %v, expected %v", oid, length, expectedLength))
 	}
+
+	if rand.Intn(100) < *verifyCommandFilesPercent {
+		if err := v.readEntireObject(ctx, oid, path); err != nil {
+			v.reportError(path, fmt.Errorf("error reading object %v: %v", oid, err))
+		}
+	}
+}
+
+func (v *verifier) readEntireObject(ctx context.Context, oid object.ID, path string) error {
+	log.Printf("reading object %v %v", oid, path)
+	ctx = block.UsingBlockCache(ctx, false)
+
+	// also read the entire file
+	r, err := v.om.Open(ctx, oid)
+	if err != nil {
+		return err
+	}
+	defer r.Close() //nolint:errcheck
+
+	_, err = io.Copy(ioutil.Discard, r)
+	return err
 }
 
 func runVerifyCommand(ctx context.Context, rep *repo.Repository) error {

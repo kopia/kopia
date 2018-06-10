@@ -22,12 +22,9 @@ import (
 
 // Options provides configuration parameters for connection to a repository.
 type Options struct {
-	Credentials         auth.Credentials                    // Provides credentials required to open the repository if not persisted.
-	CredentialsCallback func() (auth.Credentials, error)    // Callback that provides credentials required to open the repository if not persisted.
-	TraceStorage        func(f string, args ...interface{}) // Logs all storage access using provided Printf-style function
-
-	DisableCache         bool // disable caching
-	DisableListCache     bool // disable list caching
+	Credentials          auth.Credentials                    // Provides credentials required to open the repository if not persisted.
+	CredentialsCallback  func() (auth.Credentials, error)    // Callback that provides credentials required to open the repository if not persisted.
+	TraceStorage         func(f string, args ...interface{}) // Logs all storage access using provided Printf-style function
 	ObjectManagerOptions object.ManagerOptions
 }
 
@@ -71,15 +68,7 @@ func Open(ctx context.Context, configFile string, options *Options) (rep *Reposi
 		return nil, fmt.Errorf("cannot open storage: %v", err)
 	}
 
-	caching := lc.Caching
-	if options.DisableCache {
-		caching = block.CachingOptions{}
-	}
-	if options.DisableListCache {
-		caching.IgnoreListCache = true
-	}
-
-	r, err := connect(ctx, st, creds, options, caching)
+	r, err := connect(ctx, st, creds, options, lc.Caching)
 	if err != nil {
 		st.Close(ctx) //nolint:errcheck
 		return nil, err

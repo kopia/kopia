@@ -86,9 +86,6 @@ func applyOptionsFromFlags(opts *repo.Options) *repo.Options {
 		opts.ObjectManagerOptions.Trace = log.Printf
 	}
 
-	opts.DisableCache = !*enableCaching
-	opts.DisableListCache = !*enableListCaching
-
 	return opts
 }
 

@@ -6,6 +6,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/kopia/kopia/block"
+
 	"github.com/kopia/kopia/repo"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
@@ -41,6 +43,8 @@ func noRepositoryAction(act func(ctx context.Context) error) func(ctx *kingpin.P
 func repositoryAction(act func(ctx context.Context, rep *repo.Repository) error) func(ctx *kingpin.ParseContext) error {
 	return func(kpc *kingpin.ParseContext) error {
 		ctx := context.Background()
+		ctx = block.UsingBlockCache(ctx, *enableCaching)
+		ctx = block.UsingListCache(ctx, *enableListCaching)
 
 		t0 := time.Now()
 		rep := mustOpenRepository(ctx, nil)

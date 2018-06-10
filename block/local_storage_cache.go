@@ -42,27 +42,31 @@ func (c *localStorageCache) getContentBlock(ctx context.Context, cacheKey string
 	if len(cacheKey)%2 == 1 {
 		cacheKey = cacheKey[1:] + cacheKey[0:1]
 	}
-	b, err := c.cacheStorage.GetBlock(ctx, cacheKey, 0, -1)
-	if err == nil {
-		b, err = c.verifyHMAC(b)
-		if err == nil {
-			// retrieved from cache and HMAC valid
-			return b, nil
-		}
 
-		// ignore malformed blocks
-		log.Warn().Msgf("malformed block %v: %v", cacheKey, err)
-	} else if err != storage.ErrBlockNotFound {
-		log.Warn().Msgf("unable to read cache %v: %v", cacheKey, err)
+	useCache := shouldUseBlockCache(ctx)
+	if useCache {
+		b, err := c.cacheStorage.GetBlock(ctx, cacheKey, 0, -1)
+		if err == nil {
+			b, err = c.verifyHMAC(b)
+			if err == nil {
+				// retrieved from cache and HMAC valid
+				return b, nil
+			}
+
+			// ignore malformed blocks
+			log.Warn().Msgf("malformed block %v: %v", cacheKey, err)
+		} else if err != storage.ErrBlockNotFound {
+			log.Warn().Msgf("unable to read cache %v: %v", cacheKey, err)
+		}
 	}
 
-	b, err = c.st.GetBlock(ctx, physicalBlockID, offset, length)
+	b, err := c.st.GetBlock(ctx, physicalBlockID, offset, length)
 	if err == storage.ErrBlockNotFound {
 		// not found in underlying storage
 		return nil, err
 	}
 
-	if err == nil {
+	if err == nil && useCache {
 		c.writeToCacheBestEffort(ctx, cacheKey, b)
 	}
 
@@ -111,6 +115,10 @@ func (c *localStorageCache) saveListToCache(ctx context.Context, cachedListBlock
 }
 
 func (c *localStorageCache) readBlocksFromCacheBlock(ctx context.Context, blockID string) (*cachedList, error) {
+	if !shouldUseListCache(ctx) {
+		return nil, storage.ErrBlockNotFound
+	}
+
 	ci := &cachedList{}
 	data, err := c.cacheStorage.GetBlock(ctx, blockID, 0, -1)
 	if err != nil {
