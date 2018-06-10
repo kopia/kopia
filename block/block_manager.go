@@ -59,9 +59,10 @@ type IndexInfo struct {
 type Manager struct {
 	Format FormattingOptions
 
-	stats Stats
-	cache blockCache
-	st    storage.Storage
+	stats      Stats
+	blockCache *blockCache
+	listCache  *listCache
+	st         storage.Storage
 
 	mu                      sync.Mutex
 	locked                  bool
@@ -387,7 +388,7 @@ func appendRandomBytes(b []byte, count int) ([]byte, error) {
 
 // IndexBlocks returns the list of active index blocks, sorted by time.
 func (bm *Manager) IndexBlocks(ctx context.Context) ([]IndexInfo, error) {
-	blocks, err := bm.cache.listIndexBlocks(ctx)
+	blocks, err := bm.listCache.listIndexBlocks(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -411,13 +412,13 @@ func (bm *Manager) loadPackIndexesLocked(ctx context.Context) ([]IndexInfo, erro
 		}
 
 		if i > 0 {
-			bm.cache.deleteListCache(ctx)
+			bm.listCache.deleteListCache(ctx)
 			log.Printf("encountered NOT_FOUND when loading, sleeping %v before retrying #%v", nextSleepTime, i)
 			time.Sleep(nextSleepTime)
 			nextSleepTime *= 2
 		}
 
-		blocks, err := bm.cache.listIndexBlocks(ctx)
+		blocks, err := bm.listCache.listIndexBlocks(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -501,6 +502,11 @@ func (bm *Manager) unprocessedIndexBlocks(blocks []IndexInfo) (<-chan string, er
 	}
 	close(ch)
 	return ch, nil
+}
+
+// Close closes the block manager.
+func (bm *Manager) Close() {
+	bm.blockCache.close()
 }
 
 // CompactIndexes performs compaction of index blocks ensuring that # of small blocks is between minSmallBlockCount and maxSmallBlockCount
@@ -662,7 +668,7 @@ func (bm *Manager) compactAndDeleteIndexBlocks(ctx context.Context, indexBlocks 
 			continue
 		}
 
-		bm.cache.deleteListCache(ctx)
+		bm.listCache.deleteListCache(ctx)
 		if err := bm.st.DeleteBlock(ctx, indexBlock.FileName); err != nil {
 			log.Warn().Msgf("unable to delete compacted block %q: %v", indexBlock.FileName, err)
 		}
@@ -756,7 +762,7 @@ func (bm *Manager) writePackDataNotLocked(ctx context.Context, data []byte) (str
 
 	atomic.AddInt32(&bm.stats.WrittenBlocks, 1)
 	atomic.AddInt64(&bm.stats.WrittenBytes, int64(len(data)))
-	bm.cache.deleteListCache(ctx)
+	bm.listCache.deleteListCache(ctx)
 	if err := bm.st.PutBlock(ctx, physicalBlockID, bytes.NewReader(data)); err != nil {
 		return "", err
 	}
@@ -777,7 +783,7 @@ func (bm *Manager) encryptAndWriteBlockNotLocked(ctx context.Context, data []byt
 
 	atomic.AddInt32(&bm.stats.WrittenBlocks, 1)
 	atomic.AddInt64(&bm.stats.WrittenBytes, int64(len(data)))
-	bm.cache.deleteListCache(ctx)
+	bm.listCache.deleteListCache(ctx)
 	if err := bm.st.PutBlock(ctx, physicalBlockID, bytes.NewReader(data2)); err != nil {
 		return "", err
 	}
@@ -866,7 +872,7 @@ func (bm *Manager) getPackedBlockInternalLocked(ctx context.Context, blockID str
 
 	packFile := bi.PackFile
 	bm.mu.Unlock()
-	payload, err := bm.cache.getContentBlock(ctx, blockID, packFile, int64(bi.PackOffset), int64(bi.Length))
+	payload, err := bm.blockCache.getContentBlock(ctx, blockID, packFile, int64(bi.PackOffset), int64(bi.Length))
 	bm.mu.Lock()
 	if err != nil {
 		return nil, false, fmt.Errorf("unable to read storage block %v", err)
@@ -906,7 +912,7 @@ func (bm *Manager) decryptAndVerifyPayload(formatVersion byte, payload []byte, o
 }
 
 func (bm *Manager) getPhysicalBlockInternal(ctx context.Context, blockID string) ([]byte, error) {
-	payload, err := bm.cache.getContentBlock(ctx, blockID, blockID, 0, -1)
+	payload, err := bm.blockCache.getContentBlock(ctx, blockID, blockID, 0, -1)
 	if err != nil {
 		return nil, err
 	}
@@ -1032,9 +1038,14 @@ func newManagerWithOptions(ctx context.Context, st storage.Storage, f Formatting
 		return nil, err
 	}
 
-	cache, err := newBlockCache(ctx, st, caching)
+	blockCache, err := newBlockCache(ctx, st, caching)
 	if err != nil {
-		return nil, fmt.Errorf("unable to initialize cache: %v", err)
+		return nil, fmt.Errorf("unable to initialize block cache: %v", err)
+	}
+
+	listCache, err := newListCache(ctx, st, caching)
+	if err != nil {
+		return nil, fmt.Errorf("unable to initialize list cache: %v", err)
 	}
 
 	var cbi committedBlockIndex
@@ -1059,7 +1070,8 @@ func newManagerWithOptions(ctx context.Context, st storage.Storage, f Formatting
 		minPreambleLength:     defaultMinPreambleLength,
 		maxPreambleLength:     defaultMaxPreambleLength,
 		paddingUnit:           defaultPaddingUnit,
-		cache:                 cache,
+		blockCache:            blockCache,
+		listCache:             listCache,
 		st:                    st,
 		activeBlocksExtraTime: activeBlocksExtraTime,
 		writeFormatVersion:    int32(f.Version),
