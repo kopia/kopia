@@ -1,6 +1,8 @@
 package block
 
 import (
+	"path/filepath"
+
 	"github.com/kopia/kopia/internal/packindex"
 )
 
@@ -14,9 +16,13 @@ type committedBlockIndex interface {
 	use(indexBlockIDs []string) (bool, error)
 }
 
-func newCommittedBlockIndex() committedBlockIndex {
+func newCommittedBlockIndex(caching CachingOptions) (committedBlockIndex, error) {
+	if caching.CacheDirectory != "" {
+		return newSimpleCommittedBlockIndex(filepath.Join(caching.CacheDirectory, "indexes"))
+	}
+
 	return &inMemoryCommittedBlockIndex{
 		cachedPhysicalBlocks: make(map[string]packindex.Index),
 		usedPhysicalBlocks:   make(map[string]packindex.Index),
-	}
+	}, nil
 }

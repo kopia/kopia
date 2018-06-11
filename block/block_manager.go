@@ -10,7 +10,6 @@ import (
 	"io"
 	"math/rand"
 	"os"
-	"path/filepath"
 	"reflect"
 	"sort"
 	"strings"
@@ -35,8 +34,6 @@ const (
 	defaultPaddingUnit          = 4096
 	autoCompactionMinBlockCount = 4 * parallelFetches
 	autoCompactionMaxBlockCount = 64
-
-	defaultActiveBlocksExtraTime = 10 * time.Minute
 
 	currentWriteVersion     = 1
 	minSupportedReadVersion = 0
@@ -74,7 +71,6 @@ type Manager struct {
 	committedBlocks       committedBlockIndex
 
 	flushPackIndexesAfter time.Time // time when those indexes should be flushed
-	activeBlocksExtraTime time.Duration
 
 	closed chan struct{}
 
@@ -1029,21 +1025,17 @@ func listIndexBlocksFromStorage(ctx context.Context, st storage.Storage) ([]Inde
 
 // NewManager creates new block manager with given packing options and a formatter.
 func NewManager(ctx context.Context, st storage.Storage, f FormattingOptions, caching CachingOptions) (*Manager, error) {
-	return newManagerWithOptions(ctx, st, f, caching, time.Now, defaultActiveBlocksExtraTime)
+	return newManagerWithOptions(ctx, st, f, caching, time.Now)
 }
 
-func newManagerWithOptions(ctx context.Context, st storage.Storage, f FormattingOptions, caching CachingOptions, timeNow func() time.Time, activeBlocksExtraTime time.Duration) (*Manager, error) {
+func newManagerWithOptions(ctx context.Context, st storage.Storage, f FormattingOptions, caching CachingOptions, timeNow func() time.Time) (*Manager, error) {
 	if f.Version < minSupportedReadVersion || f.Version > currentWriteVersion {
 		return nil, fmt.Errorf("can't handle repositories created using version %v (min supported %v, max supported %v)", f.Version, minSupportedReadVersion, maxSupportedReadVersion)
 	}
-	sf := FormatterFactories[f.BlockFormat]
-	if sf == nil {
-		return nil, fmt.Errorf("unsupported block format: %v", f.BlockFormat)
-	}
 
-	formatter, err := sf(f)
+	formatter, err := createFormatter(f)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to create block formatter: %v", err)
 	}
 
 	blockCache, err := newBlockCache(ctx, st, caching)
@@ -1056,14 +1048,9 @@ func newManagerWithOptions(ctx context.Context, st storage.Storage, f Formatting
 		return nil, fmt.Errorf("unable to initialize list cache: %v", err)
 	}
 
-	var cbi committedBlockIndex
-	if caching.CacheDirectory != "" {
-		cbi, err = newSimpleCommittedBlockIndex(filepath.Join(caching.CacheDirectory, "indexes"))
-		if err != nil {
-			return nil, fmt.Errorf("unable to initialize block index cache: %v", err)
-		}
-	} else {
-		cbi = newCommittedBlockIndex()
+	blockIndex, err := newCommittedBlockIndex(caching)
+	if err != nil {
+		return nil, fmt.Errorf("unable to initialize committed block index: %v", err)
 	}
 
 	m := &Manager{
@@ -1074,20 +1061,17 @@ func newManagerWithOptions(ctx context.Context, st storage.Storage, f Formatting
 		formatter:             formatter,
 		currentPackItems:      make(map[string]Info),
 		packIndexBuilder:      packindex.NewBuilder(),
-		committedBlocks:       cbi,
+		committedBlocks:       blockIndex,
 		minPreambleLength:     defaultMinPreambleLength,
 		maxPreambleLength:     defaultMaxPreambleLength,
 		paddingUnit:           defaultPaddingUnit,
 		blockCache:            blockCache,
 		listCache:             listCache,
 		st:                    st,
-		activeBlocksExtraTime: activeBlocksExtraTime,
-		writeFormatVersion:    int32(f.Version),
-		closed:                make(chan struct{}),
-	}
 
-	if os.Getenv("KOPIA_VERIFY_INVARIANTS") != "" {
-		m.checkInvariantsOnUnlock = true
+		writeFormatVersion:      int32(f.Version),
+		closed:                  make(chan struct{}),
+		checkInvariantsOnUnlock: os.Getenv("KOPIA_VERIFY_INVARIANTS") != "",
 	}
 
 	m.startPackIndexLocked()
@@ -1097,4 +1081,13 @@ func newManagerWithOptions(ctx context.Context, st storage.Storage, f Formatting
 	}
 
 	return m, nil
+}
+
+func createFormatter(f FormattingOptions) (Formatter, error) {
+	sf := FormatterFactories[f.BlockFormat]
+	if sf == nil {
+		return nil, fmt.Errorf("unsupported block format: %v", f.BlockFormat)
+	}
+
+	return sf(f)
 }

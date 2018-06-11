@@ -226,6 +226,11 @@ func (m *Manager) Delete(id string) {
 	}
 }
 
+// Refresh updates the committed blocks from the underlying storage.
+func (m *Manager) Refresh(ctx context.Context) error {
+	return m.loadCommittedBlocks(ctx)
+}
+
 func (m *Manager) loadCommittedBlocks(ctx context.Context) error {
 	log.Debug().Msg("listing manifest blocks")
 	blocks, err := m.b.ListBlocks(manifestBlockPrefix)

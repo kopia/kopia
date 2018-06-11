@@ -588,7 +588,7 @@ func newTestBlockManager(data map[string][]byte, keyTime map[string]time.Time, t
 	bm, err := newManagerWithOptions(context.Background(), st, FormattingOptions{
 		BlockFormat: "TESTONLY_MD5",
 		MaxPackSize: maxPackSize,
-	}, CachingOptions{}, timeFunc, 0)
+	}, CachingOptions{}, timeFunc)
 	if err != nil {
 		panic("can't create block manager: " + err.Error())
 	}

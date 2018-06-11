@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/kopia/kopia/auth"
@@ -54,6 +55,28 @@ func (r *Repository) Flush(ctx context.Context) error {
 	return r.Blocks.Flush(ctx)
 }
 
+// Refresh periodically makes external changes visible to repository.
+func (r *Repository) Refresh(ctx context.Context) error {
+	updated, err := r.Blocks.Refresh(ctx)
+	if err != nil {
+		return fmt.Errorf("error refreshing block index: %v", err)
+	}
+
+	if !updated {
+		return nil
+	}
+
+	log.Printf("block index refreshed")
+
+	if err := r.Manifests.Refresh(ctx); err != nil {
+		return fmt.Errorf("error reloading manifests: %v", err)
+	}
+
+	log.Printf("manifests refreshed")
+
+	return nil
+}
+
 // RefreshPeriodically periodically refreshes the repository to reflect the changes made by other hosts.
 func (r *Repository) RefreshPeriodically(ctx context.Context, interval time.Duration) {
 	for {
@@ -62,13 +85,8 @@ func (r *Repository) RefreshPeriodically(ctx context.Context, interval time.Dura
 			return
 
 		case <-time.After(interval):
-			if updated, err := r.Blocks.Refresh(ctx); err != nil {
-				log.Warn().Msgf("error reloading indexes: %v", err)
-			} else if updated {
-				log.Printf("reloaded indexes")
-				// if err := r.Manifests.Refresh(ctx); err != nil {
-				// 	log.Warn().Msgf("error reloading manifests: %v", err)
-				// }
+			if err := r.Refresh(ctx); err != nil {
+				log.Warn().Msgf("error refreshing repository: %v", err)
 			}
 		}
 	}
