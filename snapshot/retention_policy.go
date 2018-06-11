@@ -50,7 +50,7 @@ func (r *RetentionPolicy) getRetentionReasons(i int, s *Manifest, cutoff cutoffT
 		return nil
 	}
 
-	var keepReasons []string
+	keepReasons := []string{}
 	var zeroTime time.Time
 
 	yyyy, wk := s.StartTime.ISOWeek()
