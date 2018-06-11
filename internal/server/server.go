@@ -1,21 +1,31 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"sync"
+
+	"github.com/kopia/kopia/snapshot"
 
 	"github.com/kopia/kopia/repo"
 
 	"github.com/bmizerany/pat"
 )
 
+// Server exposes simple HTTP API for programmatically accessing Kopia features.
 type Server struct {
-	mu sync.RWMutex
+	hostname        string
+	username        string
+	rep             *repo.Repository
+	snapshotManager *snapshot.Manager
+	policyManager   *snapshot.PolicyManager
 
-	rep *repo.Repository
+	mu             sync.RWMutex
+	sourceManagers map[snapshot.SourceInfo]*sourceManager
 }
 
+// APIHandlers handles API requests.
 func (s *Server) APIHandlers() http.Handler {
 	p := pat.New()
 	p.Get("/api/v1/status", s.handleAPI(s.handleStatus))
@@ -26,12 +36,16 @@ func (s *Server) APIHandlers() http.Handler {
 
 func (s *Server) handleAPI(f func(r *http.Request) (interface{}, *apiError)) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		v, err := f(r)
+		s.mu.Lock()
+		defer s.mu.Unlock()
+
 		w.Header().Set("Content-Type", "application/json")
 		e := json.NewEncoder(w)
 		e.SetIndent("", "  ")
+
+		v, err := f(r)
 		if err == nil {
-			e.Encode(v)
+			e.Encode(v) //nolint:errcheck
 			return
 		}
 
@@ -39,6 +53,26 @@ func (s *Server) handleAPI(f func(r *http.Request) (interface{}, *apiError)) htt
 	})
 }
 
-func New(rep *repo.Repository) *Server {
-	return &Server{rep: rep}
+// New creates a Server on top of a given Repository.
+// The server will manage sources for a given username@hostname.
+func New(ctx context.Context, rep *repo.Repository, hostname string, username string) (*Server, error) {
+	s := &Server{
+		hostname:        hostname,
+		username:        username,
+		rep:             rep,
+		snapshotManager: snapshot.NewManager(rep),
+		policyManager:   snapshot.NewPolicyManager(rep),
+		sourceManagers:  map[snapshot.SourceInfo]*sourceManager{},
+	}
+
+	for _, src := range s.snapshotManager.ListSources() {
+		sm := newSourceManager(src, s)
+		s.sourceManagers[src] = sm
+	}
+
+	for _, src := range s.sourceManagers {
+		go src.run()
+	}
+
+	return s, nil
 }

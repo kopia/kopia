@@ -25,11 +25,8 @@ type snapshotListResponse struct {
 }
 
 func (s *Server) handleSourceSnapshotList(r *http.Request) (interface{}, *apiError) {
-	mgr := snapshot.NewManager(s.rep)
-	pmgr := snapshot.NewPolicyManager(s.rep)
-
-	manifestIDs := mgr.ListSnapshotManifests(nil)
-	manifests, err := mgr.LoadSnapshots(manifestIDs)
+	manifestIDs := s.snapshotManager.ListSnapshotManifests(nil)
+	manifests, err := s.snapshotManager.LoadSnapshots(manifestIDs)
 	if err != nil {
 		return nil, internalServerError(err)
 	}
@@ -39,7 +36,7 @@ func (s *Server) handleSourceSnapshotList(r *http.Request) (interface{}, *apiErr
 	groups := snapshot.GroupBySource(manifests)
 
 	for _, grp := range groups {
-		pol, err := pmgr.GetEffectivePolicy(grp[0].Source)
+		pol, err := s.policyManager.GetEffectivePolicy(grp[0].Source)
 		if err == nil {
 			pol.RetentionPolicy.ComputeRetentionReasons(grp)
 		}

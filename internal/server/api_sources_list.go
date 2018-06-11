@@ -3,23 +3,21 @@ package server
 import (
 	"net/http"
 	"sort"
-
-	"github.com/kopia/kopia/snapshot"
 )
 
 type sourcesListResponse struct {
-	Sources []snapshot.SourceInfo `json:"sources"`
+	Sources []sourceStatus `json:"sources"`
 }
 
 func (s *Server) handleSourcesList(r *http.Request) (interface{}, *apiError) {
-	mgr := snapshot.NewManager(s.rep)
+	resp := &sourcesListResponse{}
 
-	resp := &sourcesListResponse{
-		Sources: mgr.ListSources(),
+	for _, v := range s.sourceManagers {
+		resp.Sources = append(resp.Sources, v.Status())
 	}
 
 	sort.Slice(resp.Sources, func(i, j int) bool {
-		return resp.Sources[i].String() < resp.Sources[j].String()
+		return resp.Sources[i].Source.String() < resp.Sources[j].Source.String()
 	})
 
 	return resp, nil

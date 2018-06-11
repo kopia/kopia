@@ -2,12 +2,14 @@ package repo
 
 import (
 	"context"
+	"time"
 
 	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/manifest"
 	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/storage"
+	"github.com/rs/zerolog/log"
 )
 
 // Repository represents storage where both content-addressable and user-addressable data is kept.
@@ -50,4 +52,24 @@ func (r *Repository) Flush(ctx context.Context) error {
 	}
 
 	return r.Blocks.Flush(ctx)
+}
+
+// RefreshPeriodically periodically refreshes the repository to reflect the changes made by other hosts.
+func (r *Repository) RefreshPeriodically(ctx context.Context, interval time.Duration) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+
+		case <-time.After(interval):
+			if updated, err := r.Blocks.Refresh(ctx); err != nil {
+				log.Warn().Msgf("error reloading indexes: %v", err)
+			} else if updated {
+				log.Printf("reloaded indexes")
+				// if err := r.Manifests.Refresh(ctx); err != nil {
+				// 	log.Warn().Msgf("error reloading manifests: %v", err)
+				// }
+			}
+		}
+	}
 }
