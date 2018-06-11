@@ -11,11 +11,12 @@ type committedBlockIndex interface {
 	addBlock(indexBlockID string, indexData []byte, use bool) error
 	hasIndexBlockID(indexBlockID string) (bool, error)
 
-	use(indexBlockIDs []string) error
+	use(indexBlockIDs []string) (bool, error)
 }
 
 func newCommittedBlockIndex() committedBlockIndex {
 	return &inMemoryCommittedBlockIndex{
-		physicalBlocks: make(map[string]packindex.Index),
+		cachedPhysicalBlocks: make(map[string]packindex.Index),
+		usedPhysicalBlocks:   make(map[string]packindex.Index),
 	}
 }

@@ -34,7 +34,6 @@ func (c *listCache) listIndexBlocks(ctx context.Context) ([]IndexInfo, error) {
 		}
 	}
 
-	log.Debug().Msg("listing index blocks from source")
 	blocks, err := listIndexBlocksFromStorage(ctx, c.st)
 	if err == nil {
 		c.saveListToCache(ctx, &cachedList{
@@ -42,6 +41,7 @@ func (c *listCache) listIndexBlocks(ctx context.Context) ([]IndexInfo, error) {
 			Timestamp: time.Now(),
 		})
 	}
+	log.Debug().Msgf("found %v index blocks from source", len(blocks))
 
 	return blocks, err
 }

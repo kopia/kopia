@@ -76,6 +76,8 @@ type Manager struct {
 	flushPackIndexesAfter time.Time // time when those indexes should be flushed
 	activeBlocksExtraTime time.Duration
 
+	closed chan struct{}
+
 	writeFormatVersion int32 // format version to write
 
 	maxPackSize int
@@ -403,12 +405,12 @@ func sortBlocksByTime(b []IndexInfo) {
 	})
 }
 
-func (bm *Manager) loadPackIndexesLocked(ctx context.Context) ([]IndexInfo, error) {
+func (bm *Manager) loadPackIndexesUnlocked(ctx context.Context) ([]IndexInfo, bool, error) {
 	nextSleepTime := 100 * time.Millisecond
 
 	for i := 0; i < indexLoadAttempts; i++ {
 		if err := ctx.Err(); err != nil {
-			return nil, err
+			return nil, false, err
 		}
 
 		if i > 0 {
@@ -420,7 +422,7 @@ func (bm *Manager) loadPackIndexesLocked(ctx context.Context) ([]IndexInfo, erro
 
 		blocks, err := bm.listCache.listIndexBlocks(ctx)
 		if err != nil {
-			return nil, err
+			return nil, false, err
 		}
 
 		err = bm.tryLoadPackIndexBlocksLocked(ctx, blocks)
@@ -429,17 +431,19 @@ func (bm *Manager) loadPackIndexesLocked(ctx context.Context) ([]IndexInfo, erro
 			for _, b := range blocks {
 				blockIDs = append(blockIDs, b.FileName)
 			}
-			if err = bm.committedBlocks.use(blockIDs); err != nil {
-				return nil, err
+			var updated bool
+			updated, err = bm.committedBlocks.use(blockIDs)
+			if err != nil {
+				return nil, false, err
 			}
-			return blocks, nil
+			return blocks, updated, nil
 		}
 		if err != storage.ErrBlockNotFound {
-			return nil, err
+			return nil, false, err
 		}
 	}
 
-	return nil, fmt.Errorf("unable to load pack indexes despite %v retries", indexLoadAttempts)
+	return nil, false, fmt.Errorf("unable to load pack indexes despite %v retries", indexLoadAttempts)
 }
 
 func (bm *Manager) tryLoadPackIndexBlocksLocked(ctx context.Context, blocks []IndexInfo) error {
@@ -507,18 +511,16 @@ func (bm *Manager) unprocessedIndexBlocks(blocks []IndexInfo) (<-chan string, er
 // Close closes the block manager.
 func (bm *Manager) Close() {
 	bm.blockCache.close()
+	close(bm.closed)
 }
 
 // CompactIndexes performs compaction of index blocks ensuring that # of small blocks is between minSmallBlockCount and maxSmallBlockCount
 func (bm *Manager) CompactIndexes(ctx context.Context, minSmallBlockCount int, maxSmallBlockCount int) error {
-	bm.lock()
-	defer bm.unlock()
-
 	if maxSmallBlockCount < minSmallBlockCount {
 		return fmt.Errorf("invalid block counts")
 	}
 
-	indexBlocks, err := bm.loadPackIndexesLocked(ctx)
+	indexBlocks, _, err := bm.loadPackIndexesUnlocked(ctx)
 	if err != nil {
 		return fmt.Errorf("error loading indexes: %v", err)
 	}
@@ -982,6 +984,12 @@ func (bm *Manager) assertLocked() {
 	}
 }
 
+// Refresh reloads the committed block indexes.
+func (bm *Manager) Refresh(ctx context.Context) (bool, error) {
+	_, updated, err := bm.loadPackIndexesUnlocked(ctx)
+	return updated, err
+}
+
 type cachedList struct {
 	Timestamp time.Time   `json:"timestamp"`
 	Blocks    []IndexInfo `json:"blocks"`
@@ -1075,6 +1083,7 @@ func newManagerWithOptions(ctx context.Context, st storage.Storage, f Formatting
 		st:                    st,
 		activeBlocksExtraTime: activeBlocksExtraTime,
 		writeFormatVersion:    int32(f.Version),
+		closed:                make(chan struct{}),
 	}
 
 	if os.Getenv("KOPIA_VERIFY_INVARIANTS") != "" {

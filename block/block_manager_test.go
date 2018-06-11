@@ -266,6 +266,7 @@ func TestBlockManagerConcurrency(t *testing.T) {
 	preexistingBlock := writeBlockAndVerify(ctx, t, bm, seededRandomData(10, 100))
 	bm.Flush(ctx)
 
+	dumpBlockManagerData(t, data)
 	bm1 := newTestBlockManager(data, keyTime, nil)
 	bm2 := newTestBlockManager(data, keyTime, nil)
 	bm3 := newTestBlockManager(data, keyTime, fakeTimeNowWithAutoAdvance(fakeTime.Add(1), 1*time.Second))

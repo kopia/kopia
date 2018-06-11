@@ -7,12 +7,14 @@ import (
 
 	"github.com/kopia/kopia/internal/packindex"
 	"github.com/kopia/kopia/storage"
+	"github.com/rs/zerolog/log"
 )
 
 type inMemoryCommittedBlockIndex struct {
-	mu             sync.Mutex
-	indexes        packindex.Merged
-	physicalBlocks map[string]packindex.Index
+	mu                   sync.Mutex
+	indexes              packindex.Merged
+	usedPhysicalBlocks   map[string]packindex.Index
+	cachedPhysicalBlocks map[string]packindex.Index
 }
 
 func (b *inMemoryCommittedBlockIndex) getBlock(blockID string) (Info, error) {
@@ -36,18 +38,19 @@ func (b *inMemoryCommittedBlockIndex) addBlock(indexBlockID string, data []byte,
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	if b.physicalBlocks[indexBlockID] == nil {
+	if b.cachedPhysicalBlocks[indexBlockID] == nil {
 		ndx, err := packindex.Open(bytes.NewReader(data))
 		if err != nil {
 			return err
 		}
-		b.physicalBlocks[indexBlockID] = ndx
-
-		if use {
-			b.indexes = append(b.indexes, ndx)
-		}
+		b.cachedPhysicalBlocks[indexBlockID] = ndx
 	}
 
+	if use && b.usedPhysicalBlocks[indexBlockID] == nil {
+		ndx := b.cachedPhysicalBlocks[indexBlockID]
+		b.usedPhysicalBlocks[indexBlockID] = ndx
+		b.indexes = append(b.indexes, ndx)
+	}
 	return nil
 }
 
@@ -62,27 +65,50 @@ func (b *inMemoryCommittedBlockIndex) hasIndexBlockID(indexBlockID string) (bool
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	return b.physicalBlocks[indexBlockID] != nil, nil
+	return b.cachedPhysicalBlocks[indexBlockID] != nil, nil
 }
 
-func (b *inMemoryCommittedBlockIndex) use(packFiles []string) error {
+func (b *inMemoryCommittedBlockIndex) packFilesChanged(packFiles []string) bool {
+	if len(packFiles) != len(b.usedPhysicalBlocks) {
+		return true
+	}
+
+	for _, packFile := range packFiles {
+		if b.usedPhysicalBlocks[packFile] == nil {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (b *inMemoryCommittedBlockIndex) use(packFiles []string) (bool, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
+	if !b.packFilesChanged(packFiles) {
+		return false, nil
+	}
+
+	log.Printf("using %v", packFiles)
+
 	var newIndexes packindex.Merged
+	newUsedBlocks := map[string]packindex.Index{}
 	defer func() {
 		newIndexes.Close() //nolint:errcheck
 	}()
 	for _, e := range packFiles {
-		ndx := b.physicalBlocks[e]
+		ndx := b.cachedPhysicalBlocks[e]
 		if ndx == nil {
-			return fmt.Errorf("unable to open pack index %q", e)
+			return false, fmt.Errorf("unable to open pack index %q", e)
 		}
 
 		//log.Printf("opened %v with %v entries", e, ndx.EntryCount())
 		newIndexes = append(newIndexes, ndx)
+		newUsedBlocks[e] = ndx
 	}
 	b.indexes = newIndexes
+	b.usedPhysicalBlocks = newUsedBlocks
 	newIndexes = nil
-	return nil
+	return true, nil
 }

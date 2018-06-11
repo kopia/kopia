@@ -24,6 +24,7 @@ type simpleCommittedBlockIndex struct {
 	dirname string
 
 	mu     sync.Mutex
+	inUse  map[string]packindex.Index
 	merged packindex.Merged
 }
 
@@ -111,11 +112,15 @@ func (b *simpleCommittedBlockIndex) addBlock(indexBlockID string, data []byte, u
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
+	if b.inUse[indexBlockID] != nil {
+		return nil
+	}
+
 	ndx, err := b.openIndex(b.indexBlockPath(indexBlockID))
 	if err != nil {
 		return fmt.Errorf("unable to open pack index %q: %v", indexBlockID, err)
 	}
-
+	b.inUse[indexBlockID] = ndx
 	b.merged = append(b.merged, ndx)
 	return nil
 }
@@ -137,11 +142,31 @@ func (b *simpleCommittedBlockIndex) openIndex(fullpath string) (packindex.Index,
 	return packindex.Open(f)
 }
 
-func (b *simpleCommittedBlockIndex) use(packFiles []string) error {
+func (b *simpleCommittedBlockIndex) packFilesChanged(packFiles []string) bool {
+	if len(packFiles) != len(b.inUse) {
+		return true
+	}
+
+	for _, packFile := range packFiles {
+		if b.inUse[packFile] == nil {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (b *simpleCommittedBlockIndex) use(packFiles []string) (bool, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
+	if !b.packFilesChanged(packFiles) {
+		return false, nil
+	}
+	log.Printf("set of index files has changed (had %v, now %v)", len(b.inUse), len(packFiles))
+
 	var newMerged packindex.Merged
+	newInUse := map[string]packindex.Index{}
 	defer func() {
 		newMerged.Close() //nolint:errcheck
 	}()
@@ -149,7 +174,7 @@ func (b *simpleCommittedBlockIndex) use(packFiles []string) error {
 	remaining := map[string]os.FileInfo{}
 	entries, err := ioutil.ReadDir(b.dirname)
 	if err != nil {
-		return fmt.Errorf("can't list cache: %v", err)
+		return false, fmt.Errorf("can't list cache: %v", err)
 	}
 
 	for _, ent := range entries {
@@ -164,14 +189,17 @@ func (b *simpleCommittedBlockIndex) use(packFiles []string) error {
 		fullpath := filepath.Join(b.dirname, fname)
 		ndx, err := b.openIndex(fullpath)
 		if err != nil {
-			return fmt.Errorf("unable to open pack index %q: %v", fullpath, err)
+			return false, fmt.Errorf("unable to open pack index %q: %v", fullpath, err)
 		}
 
 		log.Printf("opened %v with %v entries", fullpath, ndx.EntryCount())
 		newMerged = append(newMerged, ndx)
+		newInUse[e] = ndx
 	}
 	b.merged = newMerged
+	b.inUse = newInUse
 	newMerged = nil
+
 	for _, rem := range remaining {
 		if time.Since(rem.ModTime()) > unusedCommittedBlockIndexCleanupTime {
 			log.Printf("removing unused %v %v", rem.Name(), rem.ModTime())
@@ -182,7 +210,7 @@ func (b *simpleCommittedBlockIndex) use(packFiles []string) error {
 			log.Printf("keeping unused %v because it's too new %v", rem.Name(), rem.ModTime())
 		}
 	}
-	return nil
+	return true, nil
 }
 
 func newSimpleCommittedBlockIndex(dirname string) (committedBlockIndex, error) {
@@ -190,6 +218,7 @@ func newSimpleCommittedBlockIndex(dirname string) (committedBlockIndex, error) {
 
 	s := &simpleCommittedBlockIndex{
 		dirname: dirname,
+		inUse:   map[string]packindex.Index{},
 	}
 	return s, nil
 }
