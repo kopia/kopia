@@ -92,7 +92,7 @@ func TestManifest(t *testing.T) {
 
 	// still found in another
 	verifyItem(t, mgr2, id3, labels3, item3)
-	if err := mgr2.load(ctx); err != nil {
+	if err := mgr2.loadCommittedBlocks(ctx); err != nil {
 		t.Errorf("unable to load: %v", err)
 	}
 
