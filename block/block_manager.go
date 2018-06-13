@@ -68,7 +68,7 @@ type Manager struct {
 	currentPackItems      map[string]Info   // blocks that are in the pack block currently being built (all inline)
 	currentPackDataLength int               // total length of all items in the current pack block
 	packIndexBuilder      packindex.Builder // blocks that are in index currently being built (current pack and all packs saved but not committed)
-	committedBlocks       committedBlockIndex
+	committedBlocks       *committedBlockIndex
 
 	flushPackIndexesAfter time.Time // time when those indexes should be flushed
 
@@ -490,7 +490,7 @@ func (bm *Manager) tryLoadPackIndexBlocksLocked(ctx context.Context, blocks []In
 func (bm *Manager) unprocessedIndexBlocks(blocks []IndexInfo) (<-chan string, error) {
 	ch := make(chan string, len(blocks))
 	for _, block := range blocks {
-		has, err := bm.committedBlocks.hasIndexBlockID(block.FileName)
+		has, err := bm.committedBlocks.cache.hasIndexBlockID(block.FileName)
 		if err != nil {
 			return nil, err
 		}
