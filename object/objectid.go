@@ -8,7 +8,7 @@ import (
 
 // ID is an identifier of a repository object. Repository objects can be stored.
 //
-// 1. In a single content block, this is the most common case for small objects. Such object IDs start with "D"
+// 1. In a single content block, this is the most common case for small objects.
 // 2. In a series of content blocks with an indirect block pointing at them (multiple indirections are allowed).
 //    This is used for larger files. Object IDs using indirect blocks start with "I"
 type ID string
@@ -37,8 +37,11 @@ func (i ID) BlockID() (string, bool) {
 	if strings.HasPrefix(string(i), "D") {
 		return string(i[1:]), true
 	}
+	if strings.HasPrefix(string(i), "I") {
+		return "", false
+	}
 
-	return "", false
+	return string(i), true
 }
 
 // Validate checks the ID format for validity and reports any errors.
@@ -76,7 +79,7 @@ func (i ID) Validate() error {
 
 // DirectObjectID returns direct object ID based on the provided block ID.
 func DirectObjectID(blockID string) ID {
-	return ID("D" + blockID)
+	return ID(blockID)
 }
 
 // IndirectObjectID returns indirect object ID based on the underlying index object ID.

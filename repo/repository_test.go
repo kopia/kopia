@@ -63,9 +63,9 @@ func TestWriters(t *testing.T) {
 	}{
 		{
 			[]byte("the quick brown fox jumps over the lazy dog"),
-			"D77add1d5f41223d5582fca736a5cb335",
+			"77add1d5f41223d5582fca736a5cb335",
 		},
-		{make([]byte, 100), "D6d0bb00954ceb7fbee436bb55a8397a9"}, // 100 zero bytes
+		{make([]byte, 100), "6d0bb00954ceb7fbee436bb55a8397a9"}, // 100 zero bytes
 	}
 
 	ctx := context.Background()
@@ -128,7 +128,7 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	writer.Write(bytes[0:50])
 	writer.Write(bytes[0:50])
 	result, err := writer.Result()
-	if result != "D6d0bb00954ceb7fbee436bb55a8397a9" {
+	if result != "6d0bb00954ceb7fbee436bb55a8397a9" {
 		t.Errorf("unexpected result: %v err: %v", result, err)
 	}
 }
@@ -217,7 +217,7 @@ func TestHMAC(t *testing.T) {
 	w := repo.Objects.NewWriter(ctx, object.WriterOptions{})
 	w.Write(content)
 	result, err := w.Result()
-	if result.String() != "D999732b72ceff665b3f7608411db66a4" {
+	if result.String() != "999732b72ceff665b3f7608411db66a4" {
 		t.Errorf("unexpected result: %v err: %v", result.String(), err)
 	}
 }
@@ -349,20 +349,20 @@ func TestFormats(t *testing.T) {
 				n.noHMAC = true
 			},
 			oids: map[string]object.ID{
-				"": "Dd41d8cd98f00b204e9800998ecf8427e",
-				"The quick brown fox jumps over the lazy dog": "D9e107d9d372bb6826bd81d3542a419d6",
+				"": "d41d8cd98f00b204e9800998ecf8427e",
+				"The quick brown fox jumps over the lazy dog": "9e107d9d372bb6826bd81d3542a419d6",
 			},
 		},
 		{
 			format: makeFormat("UNENCRYPTED_HMAC_SHA256"),
 			oids: map[string]object.ID{
-				"The quick brown fox jumps over the lazy dog": "Df7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8",
+				"The quick brown fox jumps over the lazy dog": "f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8",
 			},
 		},
 		{
 			format: makeFormat("UNENCRYPTED_HMAC_SHA256_128"),
 			oids: map[string]object.ID{
-				"The quick brown fox jumps over the lazy dog": "Df7bc83f430538424b13298e6aa6fb143",
+				"The quick brown fox jumps over the lazy dog": "f7bc83f430538424b13298e6aa6fb143",
 			},
 		},
 	}

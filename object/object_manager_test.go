@@ -92,9 +92,9 @@ func TestWriters(t *testing.T) {
 	}{
 		{
 			[]byte("the quick brown fox jumps over the lazy dog"),
-			"D77add1d5f41223d5582fca736a5cb335",
+			"77add1d5f41223d5582fca736a5cb335",
 		},
-		{make([]byte, 100), "D6d0bb00954ceb7fbee436bb55a8397a9"}, // 100 zero bytes
+		{make([]byte, 100), "6d0bb00954ceb7fbee436bb55a8397a9"}, // 100 zero bytes
 	}
 
 	for _, c := range cases {
@@ -142,7 +142,7 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	writer.Write(bytes[0:50])
 	writer.Write(bytes[0:50])
 	result, err := writer.Result()
-	if !objectIDsEqual(result, "D6d0bb00954ceb7fbee436bb55a8397a9") {
+	if !objectIDsEqual(result, "6d0bb00954ceb7fbee436bb55a8397a9") {
 		t.Errorf("unexpected result: %v err: %v", result, err)
 	}
 }
@@ -187,7 +187,7 @@ func TestIndirection(t *testing.T) {
 		{dataLength: 2000, expectedBlockCount: 8, expectedIndirection: 3},
 		{dataLength: 3000, expectedBlockCount: 9, expectedIndirection: 3},
 		{dataLength: 4000, expectedBlockCount: 14, expectedIndirection: 4},
-		{dataLength: 10000, expectedBlockCount: 25, expectedIndirection: 4},
+		{dataLength: 10000, expectedBlockCount: 24, expectedIndirection: 4},
 	}
 
 	for _, c := range cases {
@@ -247,7 +247,7 @@ func TestHMAC(t *testing.T) {
 	w := om.NewWriter(ctx, WriterOptions{})
 	w.Write(content)
 	result, err := w.Result()
-	if result.String() != "D999732b72ceff665b3f7608411db66a4" {
+	if result.String() != "999732b72ceff665b3f7608411db66a4" {
 		t.Errorf("unexpected result: %v err: %v", result.String(), err)
 	}
 }
@@ -263,7 +263,7 @@ func TestReader(t *testing.T) {
 		text    string
 		payload []byte
 	}{
-		{"Da76999788386641a3ec798554f1fe7e6", storedPayload},
+		{"a76999788386641a3ec798554f1fe7e6", storedPayload},
 	}
 
 	for _, c := range cases {
@@ -295,7 +295,7 @@ func TestReaderStoredBlockNotFound(t *testing.T) {
 	ctx := context.Background()
 	_, om := setupTest(t)
 
-	objectID, err := ParseID("Ddeadbeef")
+	objectID, err := ParseID("deadbeef")
 	if err != nil {
 		t.Errorf("cannot parse object ID: %v", err)
 	}
