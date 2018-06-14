@@ -87,14 +87,12 @@ type rollingHashSplitter struct {
 func (rs *rollingHashSplitter) add(b byte) bool {
 	sum := rs.rh.HashByte(b)
 	rs.currentBlockSize++
-	if rs.currentBlockSize < rs.minBlockSize {
-		return false
-	}
 	if rs.currentBlockSize >= rs.maxBlockSize {
 		rs.currentBlockSize = 0
 		return true
 	}
-	if sum&rs.mask == 0 {
+	if sum&rs.mask == 0 && rs.currentBlockSize > rs.minBlockSize && sum != 0 {
+		//log.Printf("splitting %v on sum %x mask %x", rs.currentBlockSize, sum, rs.mask)
 		rs.currentBlockSize = 0
 		return true
 	}
