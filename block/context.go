@@ -26,7 +26,7 @@ func shouldUseBlockCache(ctx context.Context) bool {
 }
 
 func shouldUseListCache(ctx context.Context) bool {
-	if enabled, ok := ctx.Value(useBlockCacheContextKey).(bool); ok {
+	if enabled, ok := ctx.Value(useListCacheContextKey).(bool); ok {
 		return enabled
 	}
 
