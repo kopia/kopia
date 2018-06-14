@@ -20,7 +20,7 @@ type HasObjectID interface {
 
 // String returns string representation of ObjectID that is suitable for displaying in the UI.
 func (i ID) String() string {
-	return string(i)
+	return strings.Replace(string(i), "D", "", -1)
 }
 
 // IndexObjectID returns the object ID of the underlying index object.
