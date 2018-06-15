@@ -399,6 +399,28 @@ func TestRewriteNonDeleted(t *testing.T) {
 	}
 }
 
+func TestDisableFlush(t *testing.T) {
+	ctx := context.Background()
+	data := map[string][]byte{}
+	keyTime := map[string]time.Time{}
+	bm := newTestBlockManager(data, keyTime, nil)
+	bm.DisableIndexFlush()
+	bm.DisableIndexFlush()
+	for i := 0; i < 500; i++ {
+		writeBlockAndVerify(ctx, t, bm, seededRandomData(i, 100))
+	}
+	bm.Flush(ctx) // flush will not have effect
+	bm.EnableIndexFlush()
+	bm.Flush(ctx) // flush will not have effect
+	bm.EnableIndexFlush()
+
+	verifyActiveIndexBlockCount(ctx, t, bm, 0)
+	bm.EnableIndexFlush()
+	verifyActiveIndexBlockCount(ctx, t, bm, 0)
+	bm.Flush(ctx) // flush will happen now
+	verifyActiveIndexBlockCount(ctx, t, bm, 1)
+}
+
 func TestRewriteDeleted(t *testing.T) {
 	const stepBehaviors = 3
 

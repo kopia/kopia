@@ -70,7 +70,8 @@ type Manager struct {
 	packIndexBuilder      packindex.Builder // blocks that are in index currently being built (current pack and all packs saved but not committed)
 	committedBlocks       *committedBlockIndex
 
-	flushPackIndexesAfter time.Time // time when those indexes should be flushed
+	disableIndexFlushCount int
+	flushPackIndexesAfter  time.Time // time when those indexes should be flushed
 
 	closed chan struct{}
 
@@ -184,6 +185,21 @@ func (bm *Manager) ResetStats() {
 	bm.stats = Stats{}
 }
 
+// DisableIndexFlush increments the counter preventing automatic index flushes.
+func (bm *Manager) DisableIndexFlush() {
+	bm.lock()
+	defer bm.unlock()
+	bm.disableIndexFlushCount++
+}
+
+// EnableIndexFlush decrements the counter preventing automatic index flushes.
+// The flushes will be reenabled when the index drops to zero.
+func (bm *Manager) EnableIndexFlush() {
+	bm.lock()
+	defer bm.unlock()
+	bm.disableIndexFlushCount--
+}
+
 func (bm *Manager) verifyInvariantsLocked() {
 	bm.assertLocked()
 
@@ -253,6 +269,11 @@ func (bm *Manager) startPackIndexLocked() {
 }
 
 func (bm *Manager) flushPackIndexesLocked(ctx context.Context) error {
+	if bm.disableIndexFlushCount > 0 {
+		log.Printf("not flushing index because flushes are currently disabled")
+		return nil
+	}
+
 	if len(bm.packIndexBuilder) > 0 {
 		var buf bytes.Buffer
 
