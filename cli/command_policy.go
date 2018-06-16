@@ -6,7 +6,7 @@ import (
 	"github.com/kopia/kopia/snapshot"
 )
 
-func policyTargets(globalFlag *bool, targetsFlag *[]string) ([]snapshot.SourceInfo, error) {
+func policyTargets(pmgr *snapshot.PolicyManager, globalFlag *bool, targetsFlag *[]string) ([]snapshot.SourceInfo, error) {
 	if *globalFlag == (len(*targetsFlag) > 0) {
 		return nil, fmt.Errorf("must pass either '--global' or a list of path targets")
 	}
@@ -19,6 +19,10 @@ func policyTargets(globalFlag *bool, targetsFlag *[]string) ([]snapshot.SourceIn
 
 	var res []snapshot.SourceInfo
 	for _, ts := range *targetsFlag {
+		if t, err := pmgr.GetPolicyByID(ts); err == nil {
+			res = append(res, t.Target())
+			continue
+		}
 		target, err := snapshot.ParseSourceInfo(ts, getHostName(), getUserName())
 		if err != nil {
 			return nil, err

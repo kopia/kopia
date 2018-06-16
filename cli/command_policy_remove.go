@@ -22,7 +22,7 @@ func init() {
 func removePolicy(ctx context.Context, rep *repo.Repository) error {
 	mgr := snapshot.NewPolicyManager(rep)
 
-	targets, err := policyTargets(policyRemoveGlobal, policyRemoveTargets)
+	targets, err := policyTargets(mgr, policyRemoveGlobal, policyRemoveTargets)
 	if err != nil {
 		return err
 	}

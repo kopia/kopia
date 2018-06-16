@@ -68,7 +68,7 @@ func runSnapshotEstimateCommand(ctx context.Context, rep *repo.Repository) error
 	}
 
 	sourceInfo := snapshot.SourceInfo{Path: filepath.Clean(path), Host: getHostName(), UserName: getUserName()}
-	policy, err := pmgr.GetEffectivePolicy(sourceInfo)
+	policy, _, err := pmgr.GetEffectivePolicy(sourceInfo)
 	if err != nil {
 		return fmt.Errorf("unable to get backup policy for source %v: %v", sourceInfo, err)
 	}

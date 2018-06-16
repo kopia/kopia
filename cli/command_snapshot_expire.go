@@ -69,7 +69,7 @@ func expireSnapshots(pmgr *snapshot.PolicyManager, snapshots []*snapshot.Manifes
 
 func expireSnapshotsForSingleSource(pmgr *snapshot.PolicyManager, snapshots []*snapshot.Manifest) ([]string, error) {
 	src := snapshots[0].Source
-	pol, err := pmgr.GetEffectivePolicy(src)
+	pol, _, err := pmgr.GetEffectivePolicy(src)
 	if err != nil {
 		return nil, err
 	}

@@ -3,10 +3,10 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
 	"sort"
 	"strconv"
-
-	"github.com/rs/zerolog/log"
+	"strings"
 
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
@@ -18,7 +18,8 @@ var (
 	policySetGlobal  = policySetCommand.Flag("global", "Set global policy").Bool()
 
 	// Frequency
-	policySetFrequency = policySetCommand.Flag("min-duration-between-backups", "Minimum duration between snapshots").DurationList()
+	policySetInterval   = policySetCommand.Flag("snapshot-interval", "Interval between snapshots").DurationList()
+	policySetTimesOfDay = policySetCommand.Flag("snapshot-time", "Times of day when to take snapshot (HH:mm)").Strings()
 
 	// Expiration policies.
 	policySetKeepLatest  = policySetCommand.Flag("keep-latest", "Number of most recent backups to keep per source (or 'inherit')").PlaceHolder("N").String()
@@ -37,6 +38,7 @@ var (
 	policySetAddExclude    = policySetCommand.Flag("add-exclude", "List of paths to add to the exclude list").PlaceHolder("PATTERN").Strings()
 	policySetRemoveExclude = policySetCommand.Flag("remove-exclude", "List of paths to remove from the exclude list").PlaceHolder("PATTERN").Strings()
 	policySetClearExclude  = policySetCommand.Flag("clear-exclude", "Clear list of paths in the exclude list").Bool()
+	policySetMaxFileSize   = policySetCommand.Flag("max-file-size", "Exclude files above given size").PlaceHolder("N").String()
 
 	// General policy.
 	policySetInherit = policySetCommand.Flag("inherit", "Enable or disable inheriting policies from the parent").BoolList()
@@ -49,7 +51,7 @@ func init() {
 func setPolicy(ctx context.Context, rep *repo.Repository) error {
 	mgr := snapshot.NewPolicyManager(rep)
 
-	targets, err := policyTargets(policySetGlobal, policySetTargets)
+	targets, err := policyTargets(mgr, policySetGlobal, policySetTargets)
 	if err != nil {
 		return err
 	}
@@ -60,8 +62,15 @@ func setPolicy(ctx context.Context, rep *repo.Repository) error {
 			p = &snapshot.Policy{}
 		}
 
-		if err := setPolicyFromFlags(target, p); err != nil {
+		fmt.Fprintf(os.Stderr, "Setting policy for %v\n", target)
+		changeCount := 0
+
+		if err := setPolicyFromFlags(target, p, &changeCount); err != nil {
 			return err
+		}
+
+		if changeCount == 0 {
+			return fmt.Errorf("no changes specified")
 		}
 
 		if err := mgr.SetPolicy(target, p); err != nil {
@@ -72,61 +81,125 @@ func setPolicy(ctx context.Context, rep *repo.Repository) error {
 	return nil
 }
 
-func setPolicyFromFlags(target snapshot.SourceInfo, p *snapshot.Policy) error {
-	cases := []struct {
-		desc      string
-		max       **int
-		flagValue *string
-	}{
-		{"number of annual backups to keep", &p.RetentionPolicy.KeepAnnual, policySetKeepAnnual},
-		{"number of monthly backups to keep", &p.RetentionPolicy.KeepMonthly, policySetKeepMonthly},
-		{"number of weekly backups to keep", &p.RetentionPolicy.KeepWeekly, policySetKeepWeekly},
-		{"number of daily backups to keep", &p.RetentionPolicy.KeepDaily, policySetKeepDaily},
-		{"number of hourly backups to keep", &p.RetentionPolicy.KeepHourly, policySetKeepHourly},
-		{"number of latest backups to keep", &p.RetentionPolicy.KeepLatest, policySetKeepLatest},
+func setPolicyFromFlags(target snapshot.SourceInfo, p *snapshot.Policy, changeCount *int) error {
+	if err := setRetentionPolicyFromFlags(&p.RetentionPolicy, changeCount); err != nil {
+		return fmt.Errorf("retention policy: %v", err)
 	}
 
-	for _, c := range cases {
-		if err := applyPolicyNumber(target, c.desc, c.max, *c.flagValue); err != nil {
-			return err
-		}
+	if err := setFilesPolicyFromFlags(&p.FilesPolicy, changeCount); err != nil {
+		return fmt.Errorf("files policy: %v", err)
 	}
 
-	// It's not really a list, just optional boolean.
+	if err := setSchedulingPolicyFromFlags(&p.SchedulingPolicy, changeCount); err != nil {
+		return fmt.Errorf("scheduling policy: %v", err)
+	}
+
+	if err := applyPolicyNumber("maximum file size", &p.FilesPolicy.MaxSize, *policySetMaxFileSize, changeCount); err != nil {
+		return fmt.Errorf("maximum file size: %v", err)
+	}
+
+	// It's not really a list, just optional boolean, last one wins.
 	for _, inherit := range *policySetInherit {
+		*changeCount++
 		p.NoParent = !inherit
-		break
-	}
-
-	if *policySetClearExclude {
-		p.FilesPolicy.Exclude = nil
-	} else {
-		p.FilesPolicy.Exclude = addRemoveDedupeAndSort(p.FilesPolicy.Exclude, *policySetAddExclude, *policySetRemoveExclude)
-	}
-	if *policySetClearInclude {
-		p.FilesPolicy.Include = nil
-	} else {
-		p.FilesPolicy.Include = addRemoveDedupeAndSort(p.FilesPolicy.Include, *policySetAddInclude, *policySetRemoveInclude)
-	}
-
-	// It's not really a list, just optional value.
-	for _, freq := range *policySetFrequency {
-		p.SchedulingPolicy.MaxFrequency = &freq
-		break
 	}
 
 	return nil
 }
 
-func addRemoveDedupeAndSort(base, add, remove []string) []string {
+func setFilesPolicyFromFlags(fp *snapshot.FilesPolicy, changeCount *int) error {
+	if *policySetClearExclude {
+		*changeCount++
+		fmt.Fprintf(os.Stderr, " - removing all rules for exclude files\n")
+		fp.Exclude = nil
+	} else {
+		fp.Exclude = addRemoveDedupeAndSort("excluded files", fp.Exclude, *policySetAddExclude, *policySetRemoveExclude, changeCount)
+	}
+	if *policySetClearInclude {
+		*changeCount++
+		fp.Include = nil
+		fmt.Fprintf(os.Stderr, " - removing all rules for include files\n")
+	} else {
+		fp.Include = addRemoveDedupeAndSort("included files", fp.Include, *policySetAddInclude, *policySetRemoveInclude, changeCount)
+	}
+	return nil
+}
+
+func setRetentionPolicyFromFlags(rp *snapshot.RetentionPolicy, changeCount *int) error {
+	cases := []struct {
+		desc      string
+		max       **int
+		flagValue *string
+	}{
+		{"number of annual backups to keep", &rp.KeepAnnual, policySetKeepAnnual},
+		{"number of monthly backups to keep", &rp.KeepMonthly, policySetKeepMonthly},
+		{"number of weekly backups to keep", &rp.KeepWeekly, policySetKeepWeekly},
+		{"number of daily backups to keep", &rp.KeepDaily, policySetKeepDaily},
+		{"number of hourly backups to keep", &rp.KeepHourly, policySetKeepHourly},
+		{"number of latest backups to keep", &rp.KeepLatest, policySetKeepLatest},
+	}
+
+	for _, c := range cases {
+		if err := applyPolicyNumber(c.desc, c.max, *c.flagValue, changeCount); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func setSchedulingPolicyFromFlags(sp *snapshot.SchedulingPolicy, changeCount *int) error {
+	// It's not really a list, just optional value.
+	for _, interval := range *policySetInterval {
+		*changeCount++
+		sp.Interval = &interval
+		fmt.Fprintf(os.Stderr, " - setting snapshot interval to %v\n", sp.Interval)
+		break
+	}
+
+	if len(*policySetTimesOfDay) > 0 {
+		var timesOfDay []snapshot.TimeOfDay
+
+		for _, tods := range *policySetTimesOfDay {
+			for _, tod := range strings.Split(tods, ",") {
+				if tod == "inherit" {
+					timesOfDay = nil
+					break
+				}
+
+				var timeOfDay snapshot.TimeOfDay
+				if err := timeOfDay.Parse(tod); err != nil {
+					return fmt.Errorf("unable to parse time of day: %v", err)
+				}
+				timesOfDay = append(timesOfDay, timeOfDay)
+			}
+		}
+		*changeCount++
+
+		sp.TimesOfDay = snapshot.SortAndDedupeTimesOfDay(timesOfDay)
+
+		if timesOfDay == nil {
+			fmt.Fprintf(os.Stderr, " - resetting snapshot times of day to default\n")
+		} else {
+			fmt.Fprintf(os.Stderr, " - setting snapshot times to %v\n", timesOfDay)
+		}
+	}
+
+	return nil
+}
+
+func addRemoveDedupeAndSort(desc string, base, add, remove []string, changeCount *int) []string {
 	entries := map[string]bool{}
 	for _, b := range base {
 		entries[b] = true
 	}
 	for _, b := range add {
+		*changeCount++
+		fmt.Fprintf(os.Stderr, " - adding %v to %v\n", b, desc)
 		entries[b] = true
 	}
 	for _, b := range remove {
+		*changeCount++
+		fmt.Fprintf(os.Stderr, " - removing %v from %v\n", b, desc)
 		delete(entries, b)
 	}
 
@@ -138,14 +211,15 @@ func addRemoveDedupeAndSort(base, add, remove []string) []string {
 	return s
 }
 
-func applyPolicyNumber(src snapshot.SourceInfo, desc string, val **int, str string) error {
+func applyPolicyNumber(desc string, val **int, str string, changeCount *int) error {
 	if str == "" {
 		// not changed
 		return nil
 	}
 
 	if str == "inherit" || str == "default" {
-		log.Printf("Resetting %v for %q to a default value inherited from parent.", desc, src)
+		*changeCount++
+		fmt.Fprintf(os.Stderr, " - resetting %v to a default value inherited from parent.\n", desc)
 		*val = nil
 		return nil
 	}
@@ -156,7 +230,8 @@ func applyPolicyNumber(src snapshot.SourceInfo, desc string, val **int, str stri
 	}
 
 	i := int(v)
-	log.Printf("Setting %v on %q to %v.", desc, src, i)
+	*changeCount++
+	fmt.Fprintf(os.Stderr, " - setting %v to %v.\n", desc, i)
 	*val = &i
 	return nil
 }

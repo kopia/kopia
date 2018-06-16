@@ -69,7 +69,7 @@ func (s *sourceManager) run() {
 
 func (s *sourceManager) refreshStatus() {
 	log.Info().Msgf("refreshing status for %v", s.src)
-	pol, err := s.server.policyManager.GetEffectivePolicy(s.src)
+	pol, _, err := s.server.policyManager.GetEffectivePolicy(s.src)
 	if err != nil {
 		s.setStatus("FAILED")
 		return

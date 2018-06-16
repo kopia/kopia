@@ -31,11 +31,13 @@ func (p *Policy) String() string {
 	return buf.String()
 }
 
+// ID returns globally unique identifier of the policy.
 func (p *Policy) ID() string {
 	return p.Labels["id"]
 }
 
-func (p *Policy) Source() SourceInfo {
+// Target returns the SourceInfo describing username, host and path targeted by the policy.
+func (p *Policy) Target() SourceInfo {
 	return SourceInfo{
 		Host:     p.Labels["hostname"],
 		UserName: p.Labels["username"],

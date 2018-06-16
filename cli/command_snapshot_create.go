@@ -90,7 +90,7 @@ func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
 func snapshotSingleSource(ctx context.Context, rep *repo.Repository, mgr *snapshot.Manager, pmgr *snapshot.PolicyManager, u *snapshot.Uploader, sourceInfo snapshot.SourceInfo) error {
 	t0 := time.Now()
 	rep.Blocks.ResetStats()
-	policy, err := pmgr.GetEffectivePolicy(sourceInfo)
+	policy, _, err := pmgr.GetEffectivePolicy(sourceInfo)
 	if err != nil {
 		return fmt.Errorf("unable to get backup policy for source %v: %v", sourceInfo, err)
 	}

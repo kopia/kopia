@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
@@ -24,8 +25,12 @@ func listPolicies(ctx context.Context, rep *repo.Repository) error {
 		return err
 	}
 
+	sort.Slice(policies, func(i, j int) bool {
+		return policies[i].Target().String() < policies[j].Target().String()
+	})
+
 	for _, pol := range policies {
-		fmt.Println(pol.Labels)
+		fmt.Println(pol.ID(), pol.Target())
 	}
 
 	return nil

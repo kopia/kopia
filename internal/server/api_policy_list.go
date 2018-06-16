@@ -8,7 +8,7 @@ import (
 
 type policyListEntry struct {
 	ID     string              `json:"id"`
-	Source snapshot.SourceInfo `json:"source"`
+	Target snapshot.SourceInfo `json:"target"`
 	Policy *snapshot.Policy    `json:"policy"`
 }
 
@@ -27,13 +27,13 @@ func (s *Server) handlePolicyList(r *http.Request) (interface{}, *apiError) {
 	}
 
 	for _, pol := range policies {
-		src := pol.Source()
-		if !sourceMatchesURLFilter(src, r.URL.Query()) {
+		target := pol.Target()
+		if !sourceMatchesURLFilter(target, r.URL.Query()) {
 			continue
 		}
 		resp.Policies = append(resp.Policies, &policyListEntry{
 			ID:     pol.ID(),
-			Source: src,
+			Target: target,
 			Policy: pol,
 		})
 	}

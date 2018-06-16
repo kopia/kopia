@@ -6,6 +6,7 @@ import (
 
 	"github.com/kopia/kopia/manifest"
 	"github.com/kopia/kopia/repo"
+	"github.com/rs/zerolog/log"
 )
 
 // PolicyManager manages snapshotting policies.
@@ -15,12 +16,14 @@ type PolicyManager struct {
 
 // GetEffectivePolicy calculates effective snapshot policy for a given source by combining the source-specifc policy (if any)
 // with parent policies. The source must contain a path.
-func (m *PolicyManager) GetEffectivePolicy(si SourceInfo) (*Policy, error) {
+// Returns the effective policies and all source policies that contributed to that (most specific first).
+func (m *PolicyManager) GetEffectivePolicy(si SourceInfo) (*Policy, []*Policy, error) {
 	var md []*manifest.EntryMetadata
 
 	// Find policies applying to paths all the way up to the root.
 	for tmp := si; len(si.Path) > 0; {
-		md = append(md, m.repository.Manifests.Find(labelsForSource(si))...)
+		manifests := m.repository.Manifests.Find(labelsForSource(tmp))
+		md = append(md, manifests...)
 
 		parentPath := filepath.Dir(tmp.Path)
 		if parentPath == tmp.Path {
@@ -37,18 +40,24 @@ func (m *PolicyManager) GetEffectivePolicy(si SourceInfo) (*Policy, error) {
 	md = append(md, m.repository.Manifests.Find(labelsForSource(SourceInfo{Host: si.Host}))...)
 
 	// Global policy.
-	md = append(md, m.repository.Manifests.Find(labelsForSource(GlobalPolicySourceInfo))...)
+	globalManifests := m.repository.Manifests.Find(labelsForSource(GlobalPolicySourceInfo))
+	md = append(md, globalManifests...)
 
 	var policies []*Policy
 	for _, em := range md {
 		p := &Policy{}
 		if err := m.repository.Manifests.Get(em.ID, &p); err != nil {
-			return nil, fmt.Errorf("got unexpected error when loading policy item %v: %v", em.ID, err)
+			return nil, nil, fmt.Errorf("got unexpected error when loading policy item %v: %v", em.ID, err)
 		}
+		p.Labels = em.Labels
 		policies = append(policies, p)
+		log.Printf("loaded parent policy for %v: %v", si, p.Target())
 	}
 
-	return MergePolicies(policies), nil
+	merged := MergePolicies(policies)
+	merged.Labels = labelsForSource(si)
+
+	return merged, policies, nil
 }
 
 // GetDefinedPolicy returns the policy defined on the provided SourceInfo or ErrPolicyNotFound if not present.
@@ -106,6 +115,18 @@ func (m *PolicyManager) RemovePolicy(si SourceInfo) error {
 	}
 
 	return nil
+}
+
+// GetPolicyByID gets the policy for a given unique ID or ErrPolicyNotFound if not found.
+func (m *PolicyManager) GetPolicyByID(id string) (*Policy, error) {
+	p := &Policy{}
+	if err := m.repository.Manifests.Get(id, &p); err != nil {
+		if err == manifest.ErrNotFound {
+			return nil, ErrPolicyNotFound
+		}
+	}
+
+	return p, nil
 }
 
 // ListPolicies returns a list of all policies.

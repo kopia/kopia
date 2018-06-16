@@ -98,7 +98,7 @@ func outputManifestGroups(ctx context.Context, manifests []*snapshot.Manifest, r
 		fmt.Printf("%v%v\n", separator, src)
 		separator = "\n"
 
-		pol, err := polMgr.GetEffectivePolicy(src)
+		pol, _, err := polMgr.GetEffectivePolicy(src)
 		if err != nil {
 			log.Warn().Msgf("unable to determine effective policy for %v", src)
 		} else {

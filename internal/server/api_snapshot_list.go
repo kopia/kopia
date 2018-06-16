@@ -43,7 +43,7 @@ func (s *Server) handleSourceSnapshotList(r *http.Request) (interface{}, *apiErr
 			continue
 		}
 
-		pol, err := s.policyManager.GetEffectivePolicy(first.Source)
+		pol, _, err := s.policyManager.GetEffectivePolicy(first.Source)
 		if err == nil {
 			pol.RetentionPolicy.ComputeRetentionReasons(grp)
 		}

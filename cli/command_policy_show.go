@@ -1,9 +1,9 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/kopia/kopia/internal/units"
@@ -12,10 +12,10 @@ import (
 )
 
 var (
-	policyShowCommand   = policyCommands.Command("show", "Show snapshot policy.").Alias("get")
-	policyShowEffective = policyShowCommand.Flag("effective", "Show effective policy").Bool()
-	policyShowGlobal    = policyShowCommand.Flag("global", "Get global policy").Bool()
-	policyShowTargets   = policyShowCommand.Arg("target", "Target to show the policy for").Strings()
+	policyShowCommand = policyCommands.Command("show", "Show snapshot policy.").Alias("get")
+	policyShowGlobal  = policyShowCommand.Flag("global", "Get global policy").Bool()
+	policyShowTargets = policyShowCommand.Arg("target", "Target to show the policy for").Strings()
+	policyShowJSON    = policyShowCommand.Flag("json", "Show JSON").Short('j').Bool()
 )
 
 func init() {
@@ -25,79 +25,155 @@ func init() {
 func showPolicy(ctx context.Context, rep *repo.Repository) error {
 	pmgr := snapshot.NewPolicyManager(rep)
 
-	targets, err := policyTargets(policyShowGlobal, policyShowTargets)
+	targets, err := policyTargets(pmgr, policyShowGlobal, policyShowTargets)
 	if err != nil {
 		return err
 	}
 
 	for _, target := range targets {
-		var p *snapshot.Policy
-		var policyKind string
-		var err error
+		effective, policies, err := pmgr.GetEffectivePolicy(target)
+		if err != nil {
+			return fmt.Errorf("can't get effective policy for %q: %v", target, err)
+		}
 
-		if *policyShowEffective {
-			p, err = pmgr.GetEffectivePolicy(target)
-			policyKind = "effective"
+		if *policyShowJSON {
+			fmt.Println(effective)
 		} else {
-			p, err = pmgr.GetDefinedPolicy(target)
-			policyKind = "defined"
+			printPolicy(os.Stdout, effective, policies)
 		}
-
-		if err == nil {
-			fmt.Printf("The %v policy for %q:\n", policyKind, target)
-			fmt.Println(policyToString(p))
-			continue
-		}
-
-		if err == snapshot.ErrPolicyNotFound {
-			fmt.Fprintf(os.Stderr, "No %v policy for %q, pass --effective to compute effective policy used for backups.\n", policyKind, target)
-			continue
-		}
-
-		return fmt.Errorf("can't get %v policy for %q: %v", policyKind, target, err)
 	}
 
 	return nil
 }
 
-func policyToString(p *snapshot.Policy) string {
-	var buf bytes.Buffer
+func getDefinitionPoint(parents []*snapshot.Policy, match func(p *snapshot.Policy) bool) string {
+	for i, p := range parents {
+		if match(p) {
+			if i == 0 {
+				return "(defined for this target)"
+			}
 
-	fmt.Fprintf(&buf, "Retention policy:\n")
-	fmt.Fprintf(&buf, "  keep annual:%v monthly:%v weekly:%v daily:%v hourly:%v latest:%v\n",
+			return "inherited from " + p.Target().String()
+		}
+		if p.NoParent {
+			break
+		}
+	}
+
+	return "(default)"
+
+}
+
+func containsString(s []string, v string) bool {
+	for _, item := range s {
+		if item == v {
+			return true
+		}
+	}
+	return false
+}
+
+func printPolicy(w io.Writer, p *snapshot.Policy, parents []*snapshot.Policy) {
+	fmt.Fprintf(w, "Policy for %v:\n", p.Target())
+
+	printRetentionPolicy(w, p, parents)
+	fmt.Fprintf(w, "\n")
+	printFilesPolicy(w, p, parents)
+	fmt.Fprintf(w, "\n")
+	printSchedulingPolicy(w, p, parents)
+}
+
+func printRetentionPolicy(w io.Writer, p *snapshot.Policy, parents []*snapshot.Policy) {
+	fmt.Fprintf(w, "Keep:\n")
+	fmt.Fprintf(w, "  Annual snapshots:  %3v           %v\n",
 		valueOrNotSet(p.RetentionPolicy.KeepAnnual),
+		getDefinitionPoint(parents, func(pol *snapshot.Policy) bool {
+			return pol.RetentionPolicy.KeepAnnual != nil
+		}))
+	fmt.Fprintf(w, "  Monthly snapshots: %3v           %v\n",
 		valueOrNotSet(p.RetentionPolicy.KeepMonthly),
+		getDefinitionPoint(parents, func(pol *snapshot.Policy) bool {
+			return pol.RetentionPolicy.KeepMonthly != nil
+		}))
+	fmt.Fprintf(w, "  Weekly snapshots:  %3v           %v\n",
 		valueOrNotSet(p.RetentionPolicy.KeepWeekly),
+		getDefinitionPoint(parents, func(pol *snapshot.Policy) bool {
+			return pol.RetentionPolicy.KeepWeekly != nil
+		}))
+	fmt.Fprintf(w, "  Daily snapshots:   %3v           %v\n",
 		valueOrNotSet(p.RetentionPolicy.KeepDaily),
+		getDefinitionPoint(parents, func(pol *snapshot.Policy) bool {
+			return pol.RetentionPolicy.KeepDaily != nil
+		}))
+	fmt.Fprintf(w, "  Hourly snapshots:  %3v           %v\n",
 		valueOrNotSet(p.RetentionPolicy.KeepHourly),
+		getDefinitionPoint(parents, func(pol *snapshot.Policy) bool {
+			return pol.RetentionPolicy.KeepHourly != nil
+		}))
+	fmt.Fprintf(w, "  Latest snapshots:  %3v           %v\n",
 		valueOrNotSet(p.RetentionPolicy.KeepLatest),
-	)
+		getDefinitionPoint(parents, func(pol *snapshot.Policy) bool {
+			return pol.RetentionPolicy.KeepLatest != nil
+		}))
+}
 
-	fmt.Fprintf(&buf, "Files policy:\n")
+func printFilesPolicy(w io.Writer, p *snapshot.Policy, parents []*snapshot.Policy) {
+	fmt.Fprintf(w, "Files policy:\n")
 
 	if len(p.FilesPolicy.Include) == 0 {
-		fmt.Fprintf(&buf, "  Include all files\n")
+		fmt.Fprintf(w, "  Include all files.\n")
 	} else {
-		fmt.Fprintf(&buf, "  Include only:\n")
+		fmt.Fprintf(w, "  Include only:\n")
 	}
 	for _, inc := range p.FilesPolicy.Include {
-		fmt.Fprintf(&buf, "    %v\n", inc)
+		fmt.Fprintf(w, "    %-30v %v\n", inc, getDefinitionPoint(parents, func(pol *snapshot.Policy) bool {
+			return containsString(pol.FilesPolicy.Include, inc)
+		}))
 	}
 	if len(p.FilesPolicy.Exclude) > 0 {
-		fmt.Fprintf(&buf, "  Exclude:\n")
-	}
-	for _, exc := range p.FilesPolicy.Exclude {
-		fmt.Fprintf(&buf, "    %v\n", exc)
+		fmt.Fprintf(w, "  Exclude:\n")
+		for _, exc := range p.FilesPolicy.Exclude {
+			fmt.Fprintf(w, "    %-30v %v\n", exc, getDefinitionPoint(parents, func(pol *snapshot.Policy) bool {
+				return containsString(pol.FilesPolicy.Exclude, exc)
+			}))
+		}
+	} else {
+		fmt.Fprintf(w, "  No excluded files.\n")
 	}
 	if s := p.FilesPolicy.MaxSize; s != nil {
-		fmt.Fprintf(&buf, "  Exclude files above size: %v\n", units.BytesStringBase2(int64(*s)))
+		fmt.Fprintf(w, "  Exclude files above: %10v  %v\n",
+			units.BytesStringBase2(int64(*s)),
+			getDefinitionPoint(parents, func(pol *snapshot.Policy) bool {
+				return pol.FilesPolicy.MaxSize != nil
+			}))
 	}
-	return buf.String()
+}
+
+func printSchedulingPolicy(w io.Writer, p *snapshot.Policy, parents []*snapshot.Policy) {
+	if p.SchedulingPolicy.Interval != nil {
+		fmt.Fprintf(w, "Snapshot interval:     %10v  %v\n", p.SchedulingPolicy.Interval, getDefinitionPoint(parents, func(pol *snapshot.Policy) bool {
+			return pol.SchedulingPolicy.Interval != nil
+		}))
+	}
+	if len(p.SchedulingPolicy.TimesOfDay) > 0 {
+		fmt.Fprintf(w, "Snapshot times:\n")
+		for _, tod := range p.SchedulingPolicy.TimesOfDay {
+			fmt.Fprintf(w, "  %9v                        %v\n", tod, getDefinitionPoint(parents, func(pol *snapshot.Policy) bool {
+				for _, t := range pol.SchedulingPolicy.TimesOfDay {
+					if t == tod {
+						return true
+					}
+				}
+
+				return false
+			}))
+		}
+	}
 }
 
 func valueOrNotSet(p *int) string {
 	if p == nil {
-		return "(none)"
+		return "-"
 	}
 
 	return fmt.Sprintf("%v", *p)
