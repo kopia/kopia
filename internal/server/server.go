@@ -31,6 +31,7 @@ func (s *Server) APIHandlers() http.Handler {
 	p.Get("/api/v1/status", s.handleAPI(s.handleStatus))
 	p.Get("/api/v1/sources", s.handleAPI(s.handleSourcesList))
 	p.Get("/api/v1/snapshots", s.handleAPI(s.handleSourceSnapshotList))
+	p.Get("/api/v1/policies", s.handleAPI(s.handlePolicyList))
 	return p
 }
 

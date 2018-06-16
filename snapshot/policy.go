@@ -31,6 +31,18 @@ func (p *Policy) String() string {
 	return buf.String()
 }
 
+func (p *Policy) ID() string {
+	return p.Labels["id"]
+}
+
+func (p *Policy) Source() SourceInfo {
+	return SourceInfo{
+		Host:     p.Labels["hostname"],
+		UserName: p.Labels["username"],
+		Path:     p.Labels["path"],
+	}
+}
+
 // MergePolicies computes the policy by applying the specified list of policies in order.
 func MergePolicies(policies []*Policy) *Policy {
 	var merged Policy

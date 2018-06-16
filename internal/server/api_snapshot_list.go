@@ -2,6 +2,8 @@ package server
 
 import (
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/kopia/kopia/fs"
@@ -31,15 +33,21 @@ func (s *Server) handleSourceSnapshotList(r *http.Request) (interface{}, *apiErr
 		return nil, internalServerError(err)
 	}
 
-	resp := &snapshotListResponse{}
-
+	resp := &snapshotListResponse{
+		Snapshots: []*snapshotListEntry{},
+	}
 	groups := snapshot.GroupBySource(manifests)
-
 	for _, grp := range groups {
-		pol, err := s.policyManager.GetEffectivePolicy(grp[0].Source)
+		first := grp[0]
+		if !sourceMatchesURLFilter(first.Source, r.URL.Query()) {
+			continue
+		}
+
+		pol, err := s.policyManager.GetEffectivePolicy(first.Source)
 		if err == nil {
 			pol.RetentionPolicy.ComputeRetentionReasons(grp)
 		}
+
 		for _, m := range grp {
 			resp.Snapshots = append(resp.Snapshots, convertSnapshotManifest(m))
 		}
@@ -48,8 +56,22 @@ func (s *Server) handleSourceSnapshotList(r *http.Request) (interface{}, *apiErr
 	return resp, nil
 }
 
+func sourceMatchesURLFilter(src snapshot.SourceInfo, query url.Values) bool {
+	if v := query.Get("host"); v != "" && src.Host != v {
+		return false
+	}
+	if v := query.Get("userName"); v != "" && src.UserName != v {
+		return false
+	}
+	if v := query.Get("path"); v != "" && !strings.Contains(src.Path, v) {
+		return false
+	}
+
+	return true
+}
+
 func convertSnapshotManifest(m *snapshot.Manifest) *snapshotListEntry {
-	return &snapshotListEntry{
+	e := &snapshotListEntry{
 		ID:               m.ID,
 		Source:           m.Source,
 		Description:      m.Description,
@@ -57,7 +79,12 @@ func convertSnapshotManifest(m *snapshot.Manifest) *snapshotListEntry {
 		EndTime:          m.EndTime,
 		IncompleteReason: m.IncompleteReason,
 		RootEntry:        m.RootObjectID().String(),
-		Summary:          m.RootEntry.DirSummary,
 		RetentionReasons: m.RetentionReasons,
 	}
+
+	if re := m.RootEntry; re != nil {
+		e.Summary = re.DirSummary
+	}
+
+	return e
 }
