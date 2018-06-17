@@ -12,12 +12,13 @@ import (
 )
 
 var (
-	serverCommand              = app.Command("server", "Start Kopia server")
-	serverCommandListenAddress = serverCommand.Flag("--listen", "Listen address").Default("127.0.0.1:51515").String()
+	serverAddress = serverCommands.Flag("--address", "Server address").Default("127.0.0.1:51515").String()
+
+	serverStartCommand = serverCommands.Command("start", "Start Kopia server").Default()
 )
 
 func init() {
-	serverCommand.Action(repositoryAction(runServer))
+	serverStartCommand.Action(repositoryAction(runServer))
 }
 
 func runServer(ctx context.Context, rep *repo.Repository) error {
@@ -28,8 +29,8 @@ func runServer(ctx context.Context, rep *repo.Repository) error {
 
 	go rep.RefreshPeriodically(ctx, 10*time.Second)
 
-	url := "http://" + *serverCommandListenAddress
+	url := "http://" + *serverAddress
 	log.Info().Msgf("starting server on %v", url)
 	http.Handle("/api/", srv.APIHandlers())
-	return http.ListenAndServe(*serverCommandListenAddress, nil)
+	return http.ListenAndServe(*serverAddress, nil)
 }

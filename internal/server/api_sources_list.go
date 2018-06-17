@@ -3,15 +3,13 @@ package server
 import (
 	"net/http"
 	"sort"
+
+	"github.com/kopia/kopia/internal/serverapi"
 )
 
-type sourcesListResponse struct {
-	Sources []sourceStatus `json:"sources"`
-}
-
 func (s *Server) handleSourcesList(r *http.Request) (interface{}, *apiError) {
-	resp := &sourcesListResponse{
-		Sources: []sourceStatus{},
+	resp := &serverapi.SourcesResponse{
+		Sources: []serverapi.SourceStatus{},
 	}
 
 	for _, v := range s.sourceManagers {

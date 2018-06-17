@@ -3,8 +3,11 @@ package cli
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"time"
+
+	"github.com/kopia/kopia/internal/serverapi"
 
 	"github.com/kopia/kopia/block"
 
@@ -21,6 +24,7 @@ var (
 	repositoryCommands = app.Command("repository", "Commands to manipulate repository.").Alias("repo")
 	snapshotCommands   = app.Command("snapshot", "Commands to manipulate snapshots.").Alias("snap")
 	policyCommands     = app.Command("policy", "Commands to manipulate snapshotting policies.").Alias("policies")
+	serverCommands     = app.Command("server", "Commands to control HTTP API server.")
 	manifestCommands   = app.Command("manifest", "Low-level commands to manipulate manifest items.").Hidden()
 	objectCommands     = app.Command("object", "Commands to manipulate objects in repository.").Alias("obj").Hidden()
 	blockCommands      = app.Command("block", "Commands to manipulate virtual blocks in repository.").Alias("blk").Hidden()
@@ -37,6 +41,12 @@ func helpFullAction(ctx *kingpin.ParseContext) error {
 func noRepositoryAction(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error {
 	return func(_ *kingpin.ParseContext) error {
 		return act(context.Background())
+	}
+}
+
+func serverAction(act func(ctx context.Context, cli *serverapi.Client) error) func(ctx *kingpin.ParseContext) error {
+	return func(_ *kingpin.ParseContext) error {
+		return act(context.Background(), serverapi.NewClient(*serverAddress, http.DefaultClient))
 	}
 }
 

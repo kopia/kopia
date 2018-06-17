@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"sync"
 
-	"github.com/kopia/kopia/snapshot"
-
-	"github.com/kopia/kopia/repo"
-
 	"github.com/bmizerany/pat"
+	"github.com/kopia/kopia/internal/serverapi"
+	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot"
+	"github.com/rs/zerolog/log"
 )
 
 // Server exposes simple HTTP API for programmatically accessing Kopia features.
@@ -23,6 +24,8 @@ type Server struct {
 
 	mu             sync.RWMutex
 	sourceManagers map[snapshot.SourceInfo]*sourceManager
+
+	uploadSemaphore chan struct{}
 }
 
 // APIHandlers handles API requests.
@@ -32,6 +35,12 @@ func (s *Server) APIHandlers() http.Handler {
 	p.Get("/api/v1/sources", s.handleAPI(s.handleSourcesList))
 	p.Get("/api/v1/snapshots", s.handleAPI(s.handleSourceSnapshotList))
 	p.Get("/api/v1/policies", s.handleAPI(s.handlePolicyList))
+	p.Post("/api/v1/refresh", s.handleAPI(s.handleRefresh))
+	p.Post("/api/v1/flush", s.handleAPI(s.handleFlush))
+	p.Post("/api/v1/sources/pause", s.handleAPI(s.handlePause))
+	p.Post("/api/v1/sources/resume", s.handleAPI(s.handleResume))
+	p.Post("/api/v1/sources/upload", s.handleAPI(s.handleUpload))
+	p.Post("/api/v1/sources/cancel", s.handleAPI(s.handleCancel))
 	return p
 }
 
@@ -45,13 +54,68 @@ func (s *Server) handleAPI(f func(r *http.Request) (interface{}, *apiError)) htt
 		e.SetIndent("", "  ")
 
 		v, err := f(r)
+		log.Printf("returned %+v", v)
 		if err == nil {
-			e.Encode(v) //nolint:errcheck
+			if err := e.Encode(v); err != nil {
+				log.Warn().Msgf("error encoding response: %v", err)
+			}
 			return
 		}
 
 		http.Error(w, err.message, err.code)
 	})
+}
+
+func (s *Server) handleRefresh(r *http.Request) (interface{}, *apiError) {
+	log.Info().Msg("refreshing")
+	return &serverapi.Empty{}, nil
+}
+
+func (s *Server) handleFlush(r *http.Request) (interface{}, *apiError) {
+	log.Info().Msg("flushing")
+	return &serverapi.Empty{}, nil
+}
+
+func (s *Server) forAllSourceManagersMatchingURLFilter(c func(s *sourceManager) serverapi.SourceActionResponse, values url.Values) (interface{}, *apiError) {
+	resp := &serverapi.MultipleSourceActionResponse{
+		Sources: map[string]serverapi.SourceActionResponse{},
+	}
+
+	for src, mgr := range s.sourceManagers {
+		if !sourceMatchesURLFilter(src, values) {
+			continue
+		}
+		resp.Sources[src.String()] = c(mgr)
+	}
+
+	return resp, nil
+}
+
+func (s *Server) handleUpload(r *http.Request) (interface{}, *apiError) {
+	return s.forAllSourceManagersMatchingURLFilter((*sourceManager).upload, r.URL.Query())
+}
+
+func (s *Server) handlePause(r *http.Request) (interface{}, *apiError) {
+	return s.forAllSourceManagersMatchingURLFilter((*sourceManager).pause, r.URL.Query())
+}
+
+func (s *Server) handleResume(r *http.Request) (interface{}, *apiError) {
+	return s.forAllSourceManagersMatchingURLFilter((*sourceManager).resume, r.URL.Query())
+}
+
+func (s *Server) handleCancel(r *http.Request) (interface{}, *apiError) {
+	return s.forAllSourceManagersMatchingURLFilter((*sourceManager).cancel, r.URL.Query())
+}
+
+func (s *Server) beginUpload(src snapshot.SourceInfo) {
+	log.Info().Msgf("waiting on semaphore to upload %v", src)
+	s.uploadSemaphore <- struct{}{}
+	log.Info().Msgf("entered semaphore to upload %v", src)
+}
+
+func (s *Server) endUpload(src snapshot.SourceInfo) {
+	log.Info().Msgf("finished uploading %v", src)
+	<-s.uploadSemaphore
 }
 
 // New creates a Server on top of a given Repository.
@@ -64,6 +128,7 @@ func New(ctx context.Context, rep *repo.Repository, hostname string, username st
 		snapshotManager: snapshot.NewManager(rep),
 		policyManager:   snapshot.NewPolicyManager(rep),
 		sourceManagers:  map[snapshot.SourceInfo]*sourceManager{},
+		uploadSemaphore: make(chan struct{}, 1),
 	}
 
 	for _, src := range s.snapshotManager.ListSources() {

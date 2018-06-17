@@ -3,18 +3,8 @@ package server
 import (
 	"net/http"
 
-	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/internal/serverapi"
 )
-
-type policyListEntry struct {
-	ID     string              `json:"id"`
-	Target snapshot.SourceInfo `json:"target"`
-	Policy *snapshot.Policy    `json:"policy"`
-}
-
-type policyListResponse struct {
-	Policies []*policyListEntry `json:"policies"`
-}
 
 func (s *Server) handlePolicyList(r *http.Request) (interface{}, *apiError) {
 	policies, err := s.policyManager.ListPolicies()
@@ -22,8 +12,8 @@ func (s *Server) handlePolicyList(r *http.Request) (interface{}, *apiError) {
 		return nil, internalServerError(err)
 	}
 
-	resp := &policyListResponse{
-		Policies: []*policyListEntry{},
+	resp := &serverapi.PoliciesResponse{
+		Policies: []*serverapi.PolicyListEntry{},
 	}
 
 	for _, pol := range policies {
@@ -31,7 +21,7 @@ func (s *Server) handlePolicyList(r *http.Request) (interface{}, *apiError) {
 		if !sourceMatchesURLFilter(target, r.URL.Query()) {
 			continue
 		}
-		resp.Policies = append(resp.Policies, &policyListEntry{
+		resp.Policies = append(resp.Policies, &serverapi.PolicyListEntry{
 			ID:     pol.ID(),
 			Target: target,
 			Policy: pol,
