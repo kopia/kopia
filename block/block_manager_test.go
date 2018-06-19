@@ -522,7 +522,7 @@ func TestDeleteAndRecreate(t *testing.T) {
 	}
 }
 
-func TestBufferAliasing(t *testing.T) {
+func TestBlockWriteAliasing(t *testing.T) {
 	ctx := context.Background()
 	data := map[string][]byte{}
 	keyTime := map[string]time.Time{}
@@ -541,6 +541,25 @@ func TestBufferAliasing(t *testing.T) {
 	verifyBlock(ctx, t, bm, id2, []byte{101, 0, 0})
 	verifyBlock(ctx, t, bm, id3, []byte{102, 0, 0})
 	verifyBlock(ctx, t, bm, id4, []byte{103, 0, 0})
+}
+
+func TestBlockReadAliasing(t *testing.T) {
+	ctx := context.Background()
+	data := map[string][]byte{}
+	keyTime := map[string]time.Time{}
+	bm := newTestBlockManager(data, keyTime, fakeTimeNowFrozen(fakeTime))
+
+	blockData := []byte{100, 0, 0}
+	id1 := writeBlockAndVerify(ctx, t, bm, blockData)
+	blockData2, err := bm.GetBlock(ctx, id1)
+	if err != nil {
+		t.Fatalf("can't get block data: %v", err)
+	}
+
+	blockData2[0]++
+	verifyBlock(ctx, t, bm, id1, blockData)
+	bm.Flush(ctx)
+	verifyBlock(ctx, t, bm, id1, blockData)
 }
 
 func TestVersionCompatibility(t *testing.T) {

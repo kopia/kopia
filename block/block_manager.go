@@ -141,7 +141,7 @@ func (bm *Manager) setPendingBlock(i Info) {
 func (bm *Manager) addToPackLocked(ctx context.Context, blockID string, data []byte, isDeleted bool) error {
 	bm.assertLocked()
 
-	data = append([]byte{}, data...)
+	data = cloneBytes(data)
 	bm.currentPackDataLength += len(data)
 	shouldFinish := bm.currentPackDataLength >= bm.maxPackSize
 
@@ -824,10 +824,14 @@ func (bm *Manager) getPendingBlockLocked(blockID string) ([]byte, error) {
 
 	bi, ok := bm.currentPackItems[blockID]
 	if ok && !bi.Deleted {
-		return bi.Payload, nil
+		return cloneBytes(bi.Payload), nil
 	}
 
 	return nil, storage.ErrBlockNotFound
+}
+
+func cloneBytes(b []byte) []byte {
+	return append([]byte{}, b...)
 }
 
 // GetBlock gets the contents of a given block. If the block is not found returns blob.ErrBlockNotFound.
