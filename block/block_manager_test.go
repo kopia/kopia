@@ -522,6 +522,27 @@ func TestDeleteAndRecreate(t *testing.T) {
 	}
 }
 
+func TestBufferAliasing(t *testing.T) {
+	ctx := context.Background()
+	data := map[string][]byte{}
+	keyTime := map[string]time.Time{}
+	bm := newTestBlockManager(data, keyTime, fakeTimeNowFrozen(fakeTime))
+
+	blockData := []byte{100, 0, 0}
+	id1 := writeBlockAndVerify(ctx, t, bm, blockData)
+	blockData[0] = 101
+	id2 := writeBlockAndVerify(ctx, t, bm, blockData)
+	bm.Flush(ctx)
+	blockData[0] = 102
+	id3 := writeBlockAndVerify(ctx, t, bm, blockData)
+	blockData[0] = 103
+	id4 := writeBlockAndVerify(ctx, t, bm, blockData)
+	verifyBlock(ctx, t, bm, id1, []byte{100, 0, 0})
+	verifyBlock(ctx, t, bm, id2, []byte{101, 0, 0})
+	verifyBlock(ctx, t, bm, id3, []byte{102, 0, 0})
+	verifyBlock(ctx, t, bm, id4, []byte{103, 0, 0})
+}
+
 func TestVersionCompatibility(t *testing.T) {
 	for writeVer := minSupportedReadVersion; writeVer <= currentWriteVersion; writeVer++ {
 		t.Run(fmt.Sprintf("version-%v", writeVer), func(t *testing.T) {
@@ -659,7 +680,7 @@ func verifyBlock(ctx context.Context, t *testing.T, bm *Manager, blockID string,
 
 	b2, err := bm.GetBlock(ctx, blockID)
 	if err != nil {
-		t.Fatalf("unable to read block %q: %v", blockID, err)
+		t.Errorf("unable to read block %q: %v", blockID, err)
 		return
 	}
 

@@ -754,6 +754,8 @@ func (bm *Manager) WriteBlock(ctx context.Context, data []byte, prefix string) (
 		return blockID, nil
 	}
 
+	data = append([]byte{}, data...)
+
 	err := bm.addToPackLocked(ctx, blockID, data, false)
 	return blockID, err
 }
