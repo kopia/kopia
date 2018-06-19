@@ -141,6 +141,7 @@ func (bm *Manager) setPendingBlock(i Info) {
 func (bm *Manager) addToPackLocked(ctx context.Context, blockID string, data []byte, isDeleted bool) error {
 	bm.assertLocked()
 
+	data = append([]byte{}, data...)
 	bm.currentPackDataLength += len(data)
 	shouldFinish := bm.currentPackDataLength >= bm.maxPackSize
 
@@ -753,8 +754,6 @@ func (bm *Manager) WriteBlock(ctx context.Context, data []byte, prefix string) (
 	if bi, err := bm.committedBlocks.getBlock(blockID); err == nil && !bi.Deleted {
 		return blockID, nil
 	}
-
-	data = append([]byte{}, data...)
 
 	err := bm.addToPackLocked(ctx, blockID, data, false)
 	return blockID, err
