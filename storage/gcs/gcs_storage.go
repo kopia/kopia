@@ -2,23 +2,21 @@
 package gcs
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
 
+	"github.com/efarrer/iothrottler"
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/internal/throttle"
-
-	"golang.org/x/oauth2/google"
-
-	"google.golang.org/api/iterator"
-	"google.golang.org/api/option"
-
-	"github.com/efarrer/iothrottler"
 	"github.com/kopia/kopia/storage"
 	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/iterator"
+	"google.golang.org/api/option"
 
 	gcsclient "cloud.google.com/go/storage"
 )
@@ -86,14 +84,23 @@ func translateError(err error) error {
 		return fmt.Errorf("unexpected GCS error: %v", err)
 	}
 }
-func (gcs *gcsStorage) PutBlock(ctx context.Context, b string, r io.Reader) error {
+func (gcs *gcsStorage) PutBlock(ctx context.Context, b string, data []byte) error {
 	ctx, cancel := context.WithCancel(ctx)
 
-	writer := gcs.bucket.Object(gcs.getObjectNameString(b)).NewWriter(ctx)
+	obj := gcs.bucket.Object(gcs.getObjectNameString(b))
+	writer := obj.NewWriter(ctx)
 	writer.ChunkSize = 1 << 20
 	writer.ContentType = "application/x-kopia"
 
-	_, err := io.Copy(writer, r)
+	progressCallback := storage.ProgressCallback(ctx)
+
+	if progressCallback != nil {
+		writer.ProgressFunc = func(completed int64) {
+			progressCallback(b, completed, int64(len(data)))
+		}
+	}
+
+	_, err := io.Copy(writer, bytes.NewReader(data))
 	if err != nil {
 		// cancel context before closing the writer causes it to abandon the upload.
 		cancel()

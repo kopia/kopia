@@ -3,7 +3,6 @@ package logging
 
 import (
 	"context"
-	"io"
 	"time"
 
 	"github.com/kopia/kopia/storage"
@@ -28,11 +27,11 @@ func (s *loggingStorage) GetBlock(ctx context.Context, id string, offset, length
 	return result, err
 }
 
-func (s *loggingStorage) PutBlock(ctx context.Context, id string, r io.Reader) error {
+func (s *loggingStorage) PutBlock(ctx context.Context, id string, data []byte) error {
 	t0 := time.Now()
-	err := s.base.PutBlock(ctx, id, r)
+	err := s.base.PutBlock(ctx, id, data)
 	dt := time.Since(t0)
-	s.printf(s.prefix+"PutBlock(%q)=%#v took %v", id, err, dt)
+	s.printf(s.prefix+"PutBlock(%q,len=%v)=%#v took %v", id, len(data), err, dt)
 	return err
 }
 

@@ -93,8 +93,8 @@ func translateError(err error) error {
 	}
 }
 
-func (s *s3Storage) PutBlock(ctx context.Context, b string, r io.Reader) error {
-	throttled, err := s.uploadThrottler.AddReader(ioutil.NopCloser(r))
+func (s *s3Storage) PutBlock(ctx context.Context, b string, data []byte) error {
+	throttled, err := s.uploadThrottler.AddReader(ioutil.NopCloser(bytes.NewReader(data)))
 	if err != nil {
 		return err
 	}

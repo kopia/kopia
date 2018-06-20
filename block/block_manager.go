@@ -783,7 +783,7 @@ func (bm *Manager) writePackDataNotLocked(ctx context.Context, data []byte) (str
 	atomic.AddInt32(&bm.stats.WrittenBlocks, 1)
 	atomic.AddInt64(&bm.stats.WrittenBytes, int64(len(data)))
 	bm.listCache.deleteListCache(ctx)
-	if err := bm.st.PutBlock(ctx, physicalBlockID, bytes.NewReader(data)); err != nil {
+	if err := bm.st.PutBlock(ctx, physicalBlockID, data); err != nil {
 		return "", err
 	}
 
@@ -804,7 +804,7 @@ func (bm *Manager) encryptAndWriteBlockNotLocked(ctx context.Context, data []byt
 	atomic.AddInt32(&bm.stats.WrittenBlocks, 1)
 	atomic.AddInt64(&bm.stats.WrittenBytes, int64(len(data)))
 	bm.listCache.deleteListCache(ctx)
-	if err := bm.st.PutBlock(ctx, physicalBlockID, bytes.NewReader(data2)); err != nil {
+	if err := bm.st.PutBlock(ctx, physicalBlockID, data2); err != nil {
 		return "", err
 	}
 

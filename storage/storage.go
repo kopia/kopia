@@ -3,7 +3,6 @@ package storage
 import (
 	"context"
 	"errors"
-	"io"
 	"time"
 )
 
@@ -24,7 +23,7 @@ type CancelFunc func()
 type Storage interface {
 	// PutBlock uploads the block with given data to the repository or replaces existing block with the provided
 	// id with given contents.
-	PutBlock(ctx context.Context, id string, data io.Reader) error
+	PutBlock(ctx context.Context, id string, data []byte) error
 
 	// DeleteBlock removes the block from storage. Future GetBlock() operations will fail with ErrBlockNotFound.
 	DeleteBlock(ctx context.Context, id string) error

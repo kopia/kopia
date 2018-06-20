@@ -59,7 +59,7 @@ func writeFormatBlock(ctx context.Context, st storage.Storage, f *formatBlock) e
 		return fmt.Errorf("unable to marshal format block: %v", err)
 	}
 
-	if err := st.PutBlock(ctx, FormatBlockID, &buf); err != nil {
+	if err := st.PutBlock(ctx, FormatBlockID, buf.Bytes()); err != nil {
 		return fmt.Errorf("unable to write format block: %v", err)
 	}
 

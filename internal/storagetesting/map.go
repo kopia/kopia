@@ -2,8 +2,6 @@ package storagetesting
 
 import (
 	"context"
-	"io"
-	"io/ioutil"
 	"sort"
 	"strings"
 	"sync"
@@ -40,14 +38,9 @@ func (s *mapStorage) GetBlock(ctx context.Context, id string, offset, length int
 	return nil, storage.ErrBlockNotFound
 }
 
-func (s *mapStorage) PutBlock(ctx context.Context, id string, r io.Reader) error {
+func (s *mapStorage) PutBlock(ctx context.Context, id string, data []byte) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-
-	data, err := ioutil.ReadAll(r)
-	if err != nil {
-		return err
-	}
 
 	if _, ok := s.data[id]; ok {
 		return nil

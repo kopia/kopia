@@ -2,10 +2,8 @@
 package webdav
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -243,19 +241,11 @@ func (d *davStorage) putBlockInternal(urlStr string, data []byte) error {
 	}
 }
 
-func (d *davStorage) PutBlock(ctx context.Context, blockID string, r io.Reader) error {
+func (d *davStorage) PutBlock(ctx context.Context, blockID string, data []byte) error {
 	shardPath, url := d.getCollectionAndFileURL(blockID)
 
-	var buf bytes.Buffer
-	_, err := buf.ReadFrom(r)
-	if err != nil {
-		return err
-	}
-
-	data := buf.Bytes()
-
 	tmpURL := url + "-" + makeClientNonce()
-	err = d.putBlockInternal(tmpURL, data)
+	err := d.putBlockInternal(tmpURL, data)
 
 	if err == storage.ErrBlockNotFound {
 		if err = d.makeCollectionAll(shardPath); err != nil {

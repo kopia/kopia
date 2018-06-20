@@ -114,7 +114,7 @@ func (fs *fsStorage) ListBlocks(ctx context.Context, prefix string) <-chan stora
 	return result
 }
 
-func (fs *fsStorage) PutBlock(ctx context.Context, blockID string, r io.Reader) error {
+func (fs *fsStorage) PutBlock(ctx context.Context, blockID string, data []byte) error {
 	_, path := fs.getShardedPathAndFilePath(blockID)
 
 	tempFile := fmt.Sprintf("%s.tmp.%d", path, rand.Int())
@@ -122,7 +122,8 @@ func (fs *fsStorage) PutBlock(ctx context.Context, blockID string, r io.Reader) 
 	if err != nil {
 		return fmt.Errorf("cannot create temporary file: %v", err)
 	}
-	if _, err = io.Copy(f, r); err != nil {
+
+	if _, err = f.Write(data); err != nil {
 		return fmt.Errorf("can't write temporary file: %v", err)
 	}
 	if err = f.Close(); err != nil {

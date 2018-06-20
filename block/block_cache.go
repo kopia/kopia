@@ -1,7 +1,6 @@
 package block
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -68,7 +67,7 @@ func (c *blockCache) getContentBlock(ctx context.Context, cacheKey string, physi
 	}
 
 	if err == nil && useCache {
-		if puterr := c.cacheStorage.PutBlock(ctx, cacheKey, bytes.NewReader(appendHMAC(b, c.hmacSecret))); puterr != nil {
+		if puterr := c.cacheStorage.PutBlock(ctx, cacheKey, appendHMAC(b, c.hmacSecret)); puterr != nil {
 			log.Warn().Msgf("unable to write cache item %v: %v", cacheKey, puterr)
 		}
 	}

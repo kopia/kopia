@@ -27,7 +27,7 @@ func VerifyStorage(ctx context.Context, t *testing.T, r storage.Storage) {
 
 	// Now add blocks.
 	for _, b := range blocks {
-		if err := r.PutBlock(ctx, b.blk, bytes.NewReader(b.contents)); err != nil {
+		if err := r.PutBlock(ctx, b.blk, b.contents); err != nil {
 			t.Errorf("can't put block: %v", err)
 		}
 
