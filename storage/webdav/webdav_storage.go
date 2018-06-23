@@ -74,51 +74,48 @@ func makeFileName(blockID string) string {
 	return blockID + fsStorageChunkSuffix
 }
 
-func (d *davStorage) ListBlocks(ctx context.Context, prefix string) <-chan storage.BlockMetadata {
-	result := make(chan storage.BlockMetadata)
+func (d *davStorage) ListBlocks(ctx context.Context, prefix string, callback func(storage.BlockMetadata) error) error {
+	var walkDir func(string, string) error
 
-	var walkDir func(string, string)
+	walkDir = func(urlStr string, currentPrefix string) error {
+		entries, err := d.propFindChildren(urlStr)
+		if err != nil {
+			return err
+		}
 
-	walkDir = func(urlStr string, currentPrefix string) {
-		if entries, err := d.propFindChildren(urlStr); err == nil {
-			for _, e := range entries {
-				if e.isCollection {
-					newPrefix := currentPrefix + e.name
-					var match bool
+		for _, e := range entries {
+			if e.isCollection {
+				newPrefix := currentPrefix + e.name
+				var match bool
 
-					if len(prefix) > len(newPrefix) {
-						match = strings.HasPrefix(prefix, newPrefix)
-					} else {
-						match = strings.HasPrefix(newPrefix, prefix)
+				if len(prefix) > len(newPrefix) {
+					match = strings.HasPrefix(prefix, newPrefix)
+				} else {
+					match = strings.HasPrefix(newPrefix, prefix)
+				}
+
+				if match {
+					if err := walkDir(urlStr+"/"+e.name, currentPrefix+e.name); err != nil {
+						return err
 					}
-
-					if match {
-						walkDir(urlStr+"/"+e.name, currentPrefix+e.name)
-					}
-				} else if fullID, ok := getBlockIDFromFileName(currentPrefix + e.name); ok {
-					if strings.HasPrefix(fullID, prefix) {
-						select {
-						case <-ctx.Done():
-							return
-						case result <- storage.BlockMetadata{
-							BlockID:   fullID,
-							Length:    e.length,
-							TimeStamp: e.modTime,
-						}:
-						}
+				}
+			} else if fullID, ok := getBlockIDFromFileName(currentPrefix + e.name); ok {
+				if strings.HasPrefix(fullID, prefix) {
+					if err := callback(storage.BlockMetadata{
+						BlockID:   fullID,
+						Length:    e.length,
+						Timestamp: e.modTime,
+					}); err != nil {
+						return err
 					}
 				}
 			}
 		}
+
+		return nil
 	}
 
-	walkDirAndClose := func(urlStr string) {
-		walkDir(urlStr, "")
-		close(result)
-	}
-
-	go walkDirAndClose(d.URL)
-	return result
+	return walkDir(d.URL, "")
 }
 
 func (d *davStorage) makeCollectionAll(urlStr string) error {

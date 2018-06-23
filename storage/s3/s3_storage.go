@@ -120,38 +120,25 @@ func (s *s3Storage) getObjectNameString(b string) string {
 	return s.Prefix + b
 }
 
-func (s *s3Storage) ListBlocks(ctx context.Context, prefix string) <-chan storage.BlockMetadata {
-	ch := make(chan storage.BlockMetadata, 100)
-
-	go func() {
-		defer close(ch)
-
-		oi := s.cli.ListObjects(s.BucketName, s.Prefix+prefix, false, ctx.Done())
-		for o := range oi {
-			if err := o.Err; err != nil {
-				select {
-				case ch <- storage.BlockMetadata{Error: translateError(err)}:
-					return
-				case <-ctx.Done():
-					return
-				}
-			}
-
-			bm := storage.BlockMetadata{
-				BlockID:   o.Key[len(s.Prefix):],
-				Length:    o.Size,
-				TimeStamp: o.LastModified,
-			}
-
-			select {
-			case ch <- bm:
-			case <-ctx.Done():
-				return
-			}
+func (s *s3Storage) ListBlocks(ctx context.Context, prefix string, callback func(storage.BlockMetadata) error) error {
+	oi := s.cli.ListObjects(s.BucketName, s.Prefix+prefix, false, ctx.Done())
+	for o := range oi {
+		if err := o.Err; err != nil {
+			return err
 		}
-	}()
 
-	return ch
+		bm := storage.BlockMetadata{
+			BlockID:   o.Key[len(s.Prefix):],
+			Length:    o.Size,
+			Timestamp: o.LastModified,
+		}
+
+		if err := callback(bm); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (s *s3Storage) ConnectionInfo() storage.ConnectionInfo {

@@ -105,21 +105,18 @@ func (c *blockCache) sweepDirectory(ctx context.Context) (err error) {
 	t0 := time.Now()
 	log.Debug().Msg("sweeping cache")
 
-	ctx, cancel := context.WithCancel(ctx)
-	ch := c.cacheStorage.ListBlocks(ctx, "")
-	defer cancel()
-
 	var items []storage.BlockMetadata
-
-	for it := range ch {
-		if it.Error != nil {
-			return fmt.Errorf("error listing cache: %v", it.Error)
-		}
+	err = c.cacheStorage.ListBlocks(ctx, "", func(it storage.BlockMetadata) error {
 		items = append(items, it)
+		return nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("error listing cache: %v", err)
 	}
 
 	sort.Slice(items, func(i, j int) bool {
-		return items[i].TimeStamp.After(items[j].TimeStamp)
+		return items[i].Timestamp.After(items[j].Timestamp)
 	})
 
 	var totalRetainedSize int64

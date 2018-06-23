@@ -871,22 +871,21 @@ func (bm *Manager) FindUnreferencedStorageFiles(ctx context.Context) ([]storage.
 	}
 
 	usedPackBlocks := findPackBlocksInUse(infos)
-	ch := bm.st.ListBlocks(ctx, PackBlockPrefix)
-
 	var unused []storage.BlockMetadata
-	for bi := range ch {
-		if bi.Error != nil {
-			return nil, fmt.Errorf("error listing storage blocks: %v", bi.Error)
-		}
-
+	err = bm.st.ListBlocks(ctx, PackBlockPrefix, func(bi storage.BlockMetadata) error {
 		u := usedPackBlocks[bi.BlockID]
 		if u > 0 {
 			log.Printf("pack %v, in use by %v blocks", bi.BlockID, u)
-			continue
+			return nil
 		}
 
 		unused = append(unused, bi)
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("error listing storage blocks: %v", err)
 	}
+
 	return unused, nil
 }
 
@@ -1059,31 +1058,18 @@ type cachedList struct {
 // if 'full' is false, the function returns only blocks from the last 2 compactions.
 // The list of blocks is not guaranteed to be sorted.
 func listIndexBlocksFromStorage(ctx context.Context, st storage.Storage) ([]IndexInfo, error) {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	ch := st.ListBlocks(ctx, newIndexBlockPrefix)
-
 	var results []IndexInfo
-	for it := range ch {
-		if it.Error != nil {
-			return nil, it.Error
-		}
-
+	err := st.ListBlocks(ctx, newIndexBlockPrefix, func(it storage.BlockMetadata) error {
 		ii := IndexInfo{
 			FileName:  it.BlockID,
-			Timestamp: it.TimeStamp,
+			Timestamp: it.Timestamp,
 			Length:    it.Length,
 		}
 		results = append(results, ii)
-	}
+		return nil
+	})
 
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	default:
-		return results, nil
-	}
+	return results, err
 }
 
 // NewManager creates new block manager with given packing options and a formatter.

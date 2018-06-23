@@ -126,42 +126,28 @@ func (gcs *gcsStorage) getObjectNameString(blockID string) string {
 	return gcs.Prefix + blockID
 }
 
-func (gcs *gcsStorage) ListBlocks(ctx context.Context, prefix string) <-chan storage.BlockMetadata {
-	ch := make(chan storage.BlockMetadata, 100)
+func (gcs *gcsStorage) ListBlocks(ctx context.Context, prefix string, callback func(storage.BlockMetadata) error) error {
+	lst := gcs.bucket.Objects(gcs.ctx, &gcsclient.Query{
+		Prefix: gcs.getObjectNameString(prefix),
+	})
 
-	go func() {
-		defer close(ch)
-
-		lst := gcs.bucket.Objects(gcs.ctx, &gcsclient.Query{
-			Prefix: gcs.getObjectNameString(prefix),
-		})
-
-		oa, err := lst.Next()
-		for err == nil {
-			bm := storage.BlockMetadata{
-				BlockID:   oa.Name[len(gcs.Prefix):],
-				Length:    oa.Size,
-				TimeStamp: oa.Created,
-			}
-			select {
-			case ch <- bm:
-			case <-ctx.Done():
-				return
-			}
-			oa, err = lst.Next()
+	oa, err := lst.Next()
+	for err == nil {
+		if err = callback(storage.BlockMetadata{
+			BlockID:   oa.Name[len(gcs.Prefix):],
+			Length:    oa.Size,
+			Timestamp: oa.Created,
+		}); err != nil {
+			return err
 		}
+		oa, err = lst.Next()
+	}
 
-		if err != iterator.Done {
-			select {
-			case ch <- storage.BlockMetadata{Error: translateError(err)}:
-				return
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
+	if err != iterator.Done {
+		return err
+	}
 
-	return ch
+	return nil
 }
 
 func (gcs *gcsStorage) ConnectionInfo() storage.ConnectionInfo {

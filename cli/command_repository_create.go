@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -44,22 +45,17 @@ func newRepositoryOptionsFromFlags() *repo.NewRepositoryOptions {
 }
 
 func ensureEmpty(ctx context.Context, s storage.Storage) error {
-	ctx, cancel := context.WithCancel(ctx)
-	ch := s.ListBlocks(ctx, "")
-	d, hasData := <-ch
-	cancel()
-
-	if hasData {
-		if d.Error != nil {
-			return d.Error
-		}
-
+	hasDataError := errors.New("has data")
+	err := s.ListBlocks(ctx, "", func(cb storage.BlockMetadata) error {
+		return hasDataError
+	})
+	if err == hasDataError {
 		if !*createOverwrite {
 			return fmt.Errorf("found existing data in storage, specify --overwrite to use anyway")
 		}
 	}
 
-	return nil
+	return err
 }
 
 func runCreateCommandWithStorage(ctx context.Context, st storage.Storage) error {

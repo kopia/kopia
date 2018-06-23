@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/storage"
 )
 
 var (
@@ -15,27 +16,18 @@ var (
 )
 
 func runListStorageBlocks(ctx context.Context, rep *repo.Repository) error {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	ch := rep.Storage.ListBlocks(ctx, *storageListPrefix)
-
-	for b := range ch {
-		if b.Error != nil {
-			return b.Error
-		}
-
+	return rep.Storage.ListBlocks(ctx, *storageListPrefix, func(b storage.BlockMetadata) error {
 		if *storageListMaxSize != 0 && b.Length > *storageListMaxSize {
-			continue
+			return nil
 		}
 
 		if *storageListMinSize != 0 && b.Length < *storageListMinSize {
-			continue
+			return nil
 		}
 
-		fmt.Printf("%-70v %10v %v\n", b.BlockID, b.Length, b.TimeStamp.Local().Format(timeFormat))
-	}
-
-	return nil
+		fmt.Printf("%-70v %10v %v\n", b.BlockID, b.Length, b.Timestamp.Local().Format(timeFormat))
+		return nil
+	})
 }
 
 func init() {

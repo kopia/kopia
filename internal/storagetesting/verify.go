@@ -34,27 +34,5 @@ func VerifyStorage(ctx context.Context, t *testing.T, r storage.Storage) {
 		AssertGetBlock(ctx, t, r, b.blk, b.contents)
 	}
 
-	// List
-	ctx, cancel := context.WithCancel(ctx)
-	ch := r.ListBlocks(ctx, "ab")
-	defer cancel()
-	e1 := verifyNextBlock(t, blocks[0].blk, ch)
-	e2 := verifyNextBlock(t, blocks[2].blk, ch)
-	e3 := verifyNextBlock(t, blocks[3].blk, ch)
-	e4, ok := <-ch
-	if ok {
-		t.Errorf("unexpected item: %v", e4)
-	}
-
-	if e1.TimeStamp.After(e2.TimeStamp) || e2.TimeStamp.After(e3.TimeStamp) {
-		t.Errorf("timings are not sorted: %v %v %v", e1.TimeStamp, e2.TimeStamp, e3.TimeStamp)
-	}
-}
-
-func verifyNextBlock(t *testing.T, expectedBlockID string, ch <-chan storage.BlockMetadata) storage.BlockMetadata {
-	bm, ok := <-ch
-	if !ok || bm.BlockID != expectedBlockID {
-		t.Errorf("missing result: %v", expectedBlockID)
-	}
-	return bm
+	AssertListResults(ctx, t, r, "ab", blocks[0].blk, blocks[2].blk, blocks[3].blk)
 }

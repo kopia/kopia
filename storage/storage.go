@@ -35,7 +35,7 @@ type Storage interface {
 
 	// ListBlocks returns a channel of BlockMetadata that describes storage blocks with existing name prefixes.
 	// Iteration continues until all blocks have been listed or until client code invokes the returned cancellation function.
-	ListBlocks(ctx context.Context, prefix string) <-chan BlockMetadata
+	ListBlocks(ctx context.Context, prefix string, cb func(bm BlockMetadata) error) error
 
 	// ConnectionInfo returns JSON-serializable data structure containing information required to
 	// connect to storage.
@@ -46,12 +46,10 @@ type Storage interface {
 }
 
 // BlockMetadata represents metadata about a single block in a storage.
-// If Error field is set, no other field values should be assumed to be correct.
 type BlockMetadata struct {
 	BlockID   string
 	Length    int64
-	TimeStamp time.Time
-	Error     error
+	Timestamp time.Time
 }
 
 // ErrBlockNotFound is returned when a block cannot be found in storage.

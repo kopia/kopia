@@ -43,11 +43,15 @@ func (s *loggingStorage) DeleteBlock(ctx context.Context, id string) error {
 	return err
 }
 
-func (s *loggingStorage) ListBlocks(ctx context.Context, prefix string) <-chan storage.BlockMetadata {
+func (s *loggingStorage) ListBlocks(ctx context.Context, prefix string, callback func(storage.BlockMetadata) error) error {
 	t0 := time.Now()
-	ch := s.base.ListBlocks(ctx, prefix)
-	s.printf(s.prefix+"ListBlocks(%q) took %v", prefix, time.Since(t0))
-	return ch
+	cnt := 0
+	err := s.base.ListBlocks(ctx, prefix, func(bi storage.BlockMetadata) error {
+		cnt++
+		return callback(bi)
+	})
+	s.printf(s.prefix+"ListBlocks(%q)=%v returned %v items and took %v", prefix, err, cnt, time.Since(t0))
+	return err
 }
 
 func (s *loggingStorage) Close(ctx context.Context) error {

@@ -37,11 +37,11 @@ func AssertGetBlockNotFound(ctx context.Context, t *testing.T, s storage.Storage
 func AssertListResults(ctx context.Context, t *testing.T, s storage.Storage, prefix string, expected ...string) {
 	var names []string
 
-	ctx, cancel := context.WithCancel(ctx)
-	blocks := s.ListBlocks(ctx, prefix)
-	defer cancel()
-	for e := range blocks {
+	if err := s.ListBlocks(ctx, prefix, func(e storage.BlockMetadata) error {
 		names = append(names, e.BlockID)
+		return nil
+	}); err != nil {
+		t.Fatalf("err: %v", err)
 	}
 
 	if !reflect.DeepEqual(names, expected) {

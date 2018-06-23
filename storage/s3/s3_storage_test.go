@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/internal/storagetesting"
+	"github.com/kopia/kopia/storage"
 	"github.com/minio/minio-go"
 )
 
@@ -85,16 +86,8 @@ func cleanupOldData(ctx context.Context, t *testing.T) {
 		t.Fatalf("err: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
-	items := st.ListBlocks(ctx, "")
-	defer cancel()
-	for it := range items {
-		if it.Error != nil {
-			t.Errorf("can't cleanup: %v", it.Error)
-			return
-		}
-
-		age := time.Since(it.TimeStamp)
+	st.ListBlocks(ctx, "", func(it storage.BlockMetadata) error {
+		age := time.Since(it.Timestamp)
 		if age > cleanupAge {
 			if err := st.DeleteBlock(ctx, it.BlockID); err != nil {
 				t.Errorf("warning: unable to delete %q: %v", it.BlockID, err)
@@ -102,5 +95,6 @@ func cleanupOldData(ctx context.Context, t *testing.T) {
 		} else {
 			log.Printf("keeping %v", it.BlockID)
 		}
-	}
+		return nil
+	})
 }

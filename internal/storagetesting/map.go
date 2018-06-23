@@ -59,36 +59,30 @@ func (s *mapStorage) DeleteBlock(ctx context.Context, id string) error {
 	return nil
 }
 
-func (s *mapStorage) ListBlocks(ctx context.Context, prefix string) <-chan storage.BlockMetadata {
-	ch := make(chan storage.BlockMetadata)
-	go func() {
-		defer close(ch)
-		s.mutex.RLock()
-		defer s.mutex.RUnlock()
+func (s *mapStorage) ListBlocks(ctx context.Context, prefix string, callback func(storage.BlockMetadata) error) error {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
 
-		keys := []string{}
-		for k := range s.data {
-			if strings.HasPrefix(k, prefix) {
-				keys = append(keys, k)
-			}
+	keys := []string{}
+	for k := range s.data {
+		if strings.HasPrefix(k, prefix) {
+			keys = append(keys, k)
 		}
+	}
 
-		sort.Strings(keys)
+	sort.Strings(keys)
 
-		for _, k := range keys {
-			v := s.data[k]
-			select {
-			case <-ctx.Done():
-				return
-			case ch <- storage.BlockMetadata{
-				BlockID:   k,
-				Length:    int64(len(v)),
-				TimeStamp: s.keyTime[k],
-			}:
-			}
+	for _, k := range keys {
+		v := s.data[k]
+		if err := callback(storage.BlockMetadata{
+			BlockID:   k,
+			Length:    int64(len(v)),
+			Timestamp: s.keyTime[k],
+		}); err != nil {
+			return err
 		}
-	}()
-	return ch
+	}
+	return nil
 }
 
 func (s *mapStorage) Close(ctx context.Context) error {

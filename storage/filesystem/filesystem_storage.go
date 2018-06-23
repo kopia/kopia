@@ -65,53 +65,48 @@ func makeFileName(blockID string) string {
 	return blockID + fsStorageChunkSuffix
 }
 
-func (fs *fsStorage) ListBlocks(ctx context.Context, prefix string) <-chan storage.BlockMetadata {
-	result := make(chan storage.BlockMetadata)
+func (fs *fsStorage) ListBlocks(ctx context.Context, prefix string, callback func(storage.BlockMetadata) error) error {
+	var walkDir func(string, string) error
 
-	var walkDir func(string, string)
+	walkDir = func(directory string, currentPrefix string) error {
+		entries, err := ioutil.ReadDir(directory)
+		if err != nil {
+			return err
+		}
 
-	walkDir = func(directory string, currentPrefix string) {
-		if entries, err := ioutil.ReadDir(directory); err == nil {
-			//log.Println("Walking", directory, "looking for", prefix)
+		for _, e := range entries {
+			if e.IsDir() {
+				newPrefix := currentPrefix + e.Name()
+				var match bool
 
-			for _, e := range entries {
-				if e.IsDir() {
-					newPrefix := currentPrefix + e.Name()
-					var match bool
+				if len(prefix) > len(newPrefix) {
+					match = strings.HasPrefix(prefix, newPrefix)
+				} else {
+					match = strings.HasPrefix(newPrefix, prefix)
+				}
 
-					if len(prefix) > len(newPrefix) {
-						match = strings.HasPrefix(prefix, newPrefix)
-					} else {
-						match = strings.HasPrefix(newPrefix, prefix)
+				if match {
+					if err := walkDir(directory+"/"+e.Name(), currentPrefix+e.Name()); err != nil {
+						return err
 					}
-
-					if match {
-						walkDir(directory+"/"+e.Name(), currentPrefix+e.Name())
-					}
-				} else if fullID, ok := getstringFromFileName(currentPrefix + e.Name()); ok {
-					if strings.HasPrefix(fullID, prefix) {
-						select {
-						case <-ctx.Done():
-							return
-						case result <- storage.BlockMetadata{
-							BlockID:   fullID,
-							Length:    e.Size(),
-							TimeStamp: e.ModTime(),
-						}:
-						}
+				}
+			} else if fullID, ok := getstringFromFileName(currentPrefix + e.Name()); ok {
+				if strings.HasPrefix(fullID, prefix) {
+					if err := callback(storage.BlockMetadata{
+						BlockID:   fullID,
+						Length:    e.Size(),
+						Timestamp: e.ModTime(),
+					}); err != nil {
+						return err
 					}
 				}
 			}
 		}
+
+		return nil
 	}
 
-	walkDirAndClose := func(directory string) {
-		walkDir(directory, "")
-		close(result)
-	}
-
-	go walkDirAndClose(fs.Path)
-	return result
+	return walkDir(fs.Path, "")
 }
 
 func (fs *fsStorage) PutBlock(ctx context.Context, blockID string, data []byte) error {
