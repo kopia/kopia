@@ -288,7 +288,6 @@ func (m *Manager) loadManifestBlocks(ctx context.Context, blockIDs []string) err
 }
 
 func (m *Manager) loadBlocksInParallel(ctx context.Context, blockIDs []string) ([]manifest, error) {
-	log.Printf("loading blocks %v", blockIDs)
 	errors := make(chan error, len(blockIDs))
 	manifests := make(chan manifest, len(blockIDs))
 	ch := make(chan string, len(blockIDs))
