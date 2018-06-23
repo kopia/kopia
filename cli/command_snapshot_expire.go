@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/rs/zerolog/log"
 
@@ -55,45 +54,6 @@ func getSnapshotNamesToExpire(mgr *snapshot.Manager) ([]string, error) {
 	return result, nil
 }
 
-func expireSnapshots(pmgr *snapshot.PolicyManager, snapshots []*snapshot.Manifest, names []string) ([]string, error) {
-	var toDelete []string
-	for _, snapshotGroup := range snapshot.GroupBySource(snapshots) {
-		td, err := expireSnapshotsForSingleSource(pmgr, snapshotGroup)
-		if err != nil {
-			return nil, err
-		}
-		toDelete = append(toDelete, td...)
-	}
-	return toDelete, nil
-}
-
-func expireSnapshotsForSingleSource(pmgr *snapshot.PolicyManager, snapshots []*snapshot.Manifest) ([]string, error) {
-	src := snapshots[0].Source
-	pol, _, err := pmgr.GetEffectivePolicy(src)
-	if err != nil {
-		return nil, err
-	}
-
-	pol.RetentionPolicy.ComputeRetentionReasons(snapshots)
-
-	var toDelete []string
-	for _, s := range snapshots {
-		if len(s.RetentionReasons) == 0 {
-			log.Printf("  deleting %v", s.StartTime)
-			toDelete = append(toDelete, s.ID)
-		} else {
-			log.Printf("  keeping %v reasons: [%v]", s.StartTime, strings.Join(s.RetentionReasons, ","))
-		}
-	}
-	if len(toDelete) == 0 {
-		fmt.Fprintf(os.Stderr, "Nothing to delete for %q.\n", src)
-	} else {
-		fmt.Printf("Would delete %v/%v snapshots for %v\n", len(toDelete), len(snapshots), src)
-	}
-
-	return toDelete, nil
-}
-
 func runExpireCommand(ctx context.Context, rep *repo.Repository) error {
 	mgr := snapshot.NewManager(rep)
 	pmgr := snapshot.NewPolicyManager(rep)
@@ -107,9 +67,18 @@ func runExpireCommand(ctx context.Context, rep *repo.Repository) error {
 		return err
 	}
 	snapshots = filterHostAndUser(snapshots)
-	toDelete, err := expireSnapshots(pmgr, snapshots, snapshotNames)
+	toDelete, err := snapshot.GetExpiredSnapshots(pmgr, snapshots)
 	if err != nil {
 		return err
+	}
+
+	for _, snapshots := range snapshot.GroupBySource(toDelete) {
+		src := snapshots[0].Source
+		if len(toDelete) == 0 {
+			fmt.Fprintf(os.Stderr, "Nothing to delete for %q.\n", src)
+		} else {
+			fmt.Printf("Would delete %v/%v snapshots for %v\n", len(toDelete), len(snapshots), src)
+		}
 	}
 
 	fmt.Fprintf(os.Stderr, "\n*** ")
@@ -121,7 +90,7 @@ func runExpireCommand(ctx context.Context, rep *repo.Repository) error {
 	if *snapshotExpireDelete == "yes" {
 		fmt.Fprintf(os.Stderr, "Deleting %v snapshots...\n", len(toDelete))
 		for _, it := range toDelete {
-			rep.Manifests.Delete(it)
+			rep.Manifests.Delete(it.ID)
 		}
 	} else {
 		fmt.Fprintf(os.Stderr, "%v snapshot(s) would be deleted. Pass --delete=yes to do it.\n", len(toDelete))
