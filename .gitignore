@@ -4,5 +4,5 @@
 playground/
 kopia-*.tar.gz
 kopia-*.zip
-combined.cov
+*.cov
 .vscode/
