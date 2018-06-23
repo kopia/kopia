@@ -863,6 +863,43 @@ func (bm *Manager) BlockInfo(ctx context.Context, blockID string) (Info, error) 
 	return bm.packedBlockInfoLocked(blockID)
 }
 
+// FindUnreferencedStorageFiles returns the list of unreferenced storage blocks.
+func (bm *Manager) FindUnreferencedStorageFiles(ctx context.Context) ([]storage.BlockMetadata, error) {
+	infos, err := bm.ListBlockInfos("", false)
+	if err != nil {
+		return nil, fmt.Errorf("unable to list index blocks: %v", err)
+	}
+
+	usedPackBlocks := findPackBlocksInUse(infos)
+	ch := bm.st.ListBlocks(ctx, PackBlockPrefix)
+
+	var unused []storage.BlockMetadata
+	for bi := range ch {
+		if bi.Error != nil {
+			return nil, fmt.Errorf("error listing storage blocks: %v", bi.Error)
+		}
+
+		u := usedPackBlocks[bi.BlockID]
+		if u > 0 {
+			log.Printf("pack %v, in use by %v blocks", bi.BlockID, u)
+			continue
+		}
+
+		unused = append(unused, bi)
+	}
+	return unused, nil
+}
+
+func findPackBlocksInUse(infos []Info) map[string]int {
+	packUsage := map[string]int{}
+
+	for _, bi := range infos {
+		packUsage[bi.PackFile]++
+	}
+
+	return packUsage
+}
+
 func (bm *Manager) packedBlockInfoLocked(blockID string) (Info, error) {
 	bm.assertLocked()
 

@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/repo"
-	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -16,34 +14,10 @@ var (
 )
 
 func runBlockGarbageCollectAction(ctx context.Context, rep *repo.Repository) error {
-	infos, err := rep.Blocks.ListBlockInfos("", false)
+	unused, err := rep.Blocks.FindUnreferencedStorageFiles(ctx)
 	if err != nil {
-		return fmt.Errorf("unable to list index blocks: %v", err)
+		return fmt.Errorf("error looking for unreferenced storage files: %v", err)
 	}
-
-	usedPackBlocks := findPackBlocksInUse(infos)
-	ch := rep.Storage.ListBlocks(ctx, block.PackBlockPrefix)
-
-	var unused []string
-	var totalBytes int64
-	allPackBlocks := 0
-	for bi := range ch {
-		if bi.Error != nil {
-			return fmt.Errorf("error listing storage blocks: %v", bi.Error)
-		}
-
-		allPackBlocks++
-
-		u := usedPackBlocks[bi.BlockID]
-		if u > 0 {
-			log.Printf("pack %v, in use by %v blocks", bi.BlockID, u)
-			continue
-		}
-
-		totalBytes += bi.Length
-		unused = append(unused, bi.BlockID)
-	}
-	fmt.Fprintf(os.Stderr, "Found %v/%v pack blocks in use.\n", len(usedPackBlocks), allPackBlocks)
 
 	if len(unused) == 0 {
 		fmt.Fprintf(os.Stderr, "No unused blocks found.\n")
@@ -51,8 +25,10 @@ func runBlockGarbageCollectAction(ctx context.Context, rep *repo.Repository) err
 	}
 
 	if *blockGarbageCollectCommandDelete != "yes" {
+		var totalBytes int64
 		for _, u := range unused {
-			fmt.Fprintf(os.Stderr, "unused %v\n", u)
+			fmt.Fprintf(os.Stderr, "unused %v (%v bytes)\n", u.BlockID, u.Length)
+			totalBytes += u.Length
 		}
 		fmt.Fprintf(os.Stderr, "Would delete %v unused blocks (%v bytes), pass '--delete=yes' to actually delete.\n", len(unused), totalBytes)
 
@@ -60,23 +36,13 @@ func runBlockGarbageCollectAction(ctx context.Context, rep *repo.Repository) err
 	}
 
 	for _, u := range unused {
-		fmt.Fprintf(os.Stderr, "Deleting unused block %q...\n", u)
-		if err := rep.Storage.DeleteBlock(ctx, u); err != nil {
-			return fmt.Errorf("unable to delete block %q: %v", u, err)
+		fmt.Fprintf(os.Stderr, "Deleting unused block %q (%v bytes)...\n", u.BlockID, u.Length)
+		if err := rep.Storage.DeleteBlock(ctx, u.BlockID); err != nil {
+			return fmt.Errorf("unable to delete block %q: %v", u.BlockID, err)
 		}
 	}
 
 	return nil
-}
-
-func findPackBlocksInUse(infos []block.Info) map[string]int {
-	packUsage := map[string]int{}
-
-	for _, bi := range infos {
-		packUsage[bi.PackFile]++
-	}
-
-	return packUsage
 }
 
 func init() {
