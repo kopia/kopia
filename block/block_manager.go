@@ -11,7 +11,6 @@ import (
 	"math/rand"
 	"os"
 	"reflect"
-	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -406,21 +405,9 @@ func appendRandomBytes(b []byte, count int) ([]byte, error) {
 	return append(b, rnd...), nil
 }
 
-// IndexBlocks returns the list of active index blocks, sorted by time.
+// IndexBlocks returns the list of active index blocks.
 func (bm *Manager) IndexBlocks(ctx context.Context) ([]IndexInfo, error) {
-	blocks, err := bm.listCache.listIndexBlocks(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	sortBlocksByTime(blocks)
-	return blocks, nil
-}
-
-func sortBlocksByTime(b []IndexInfo) {
-	sort.Slice(b, func(i, j int) bool {
-		return b[i].Timestamp.Before(b[j].Timestamp)
-	})
+	return bm.listCache.listIndexBlocks(ctx)
 }
 
 func (bm *Manager) loadPackIndexesUnlocked(ctx context.Context) ([]IndexInfo, bool, error) {
