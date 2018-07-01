@@ -14,7 +14,8 @@ import (
 var (
 	serverAddress = serverCommands.Flag("--address", "Server address").Default("127.0.0.1:51515").String()
 
-	serverStartCommand = serverCommands.Command("start", "Start Kopia server").Default()
+	serverStartCommand  = serverCommands.Command("start", "Start Kopia server").Default()
+	serverStartHTMLPath = serverStartCommand.Flag("html", "Server the provided HTML at the root URL").ExistingDir()
 )
 
 func init() {
@@ -32,5 +33,9 @@ func runServer(ctx context.Context, rep *repo.Repository) error {
 	url := "http://" + *serverAddress
 	log.Info().Msgf("starting server on %v", url)
 	http.Handle("/api/", srv.APIHandlers())
+	if *serverStartHTMLPath != "" {
+		fileServer := http.FileServer(http.Dir(*serverStartHTMLPath))
+		http.Handle("/", fileServer)
+	}
 	return http.ListenAndServe(*serverAddress, nil)
 }
