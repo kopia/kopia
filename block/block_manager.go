@@ -153,7 +153,7 @@ func (bm *Manager) addToPackLocked(ctx context.Context, blockID string, data []b
 	})
 
 	if shouldFinish {
-		if err := bm.finishPackAndMaybeFlushIndexes(ctx); err != nil {
+		if err := bm.finishPackAndMaybeFlushIndexesLocked(ctx); err != nil {
 			return err
 		}
 	}
@@ -161,7 +161,8 @@ func (bm *Manager) addToPackLocked(ctx context.Context, blockID string, data []b
 	return nil
 }
 
-func (bm *Manager) finishPackAndMaybeFlushIndexes(ctx context.Context) error {
+func (bm *Manager) finishPackAndMaybeFlushIndexesLocked(ctx context.Context) error {
+	bm.assertLocked()
 	if err := bm.finishPackLocked(ctx); err != nil {
 		return err
 	}
@@ -269,6 +270,8 @@ func (bm *Manager) startPackIndexLocked() {
 }
 
 func (bm *Manager) flushPackIndexesLocked(ctx context.Context) error {
+	bm.assertLocked()
+
 	if bm.disableIndexFlushCount > 0 {
 		log.Printf("not flushing index because flushes are currently disabled")
 		return nil
@@ -952,7 +955,7 @@ func (bm *Manager) decryptAndVerifyPayload(formatVersion byte, payload []byte, o
 	// Since the encryption key is a function of data, we must be able to generate exactly the same key
 	// after decrypting the content. This serves as a checksum.
 	if err := bm.verifyChecksum(payload, iv); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid checksum at %v offset %v length %v: %v", packFile, offset, len(payload), err)
 	}
 
 	return payload, nil
@@ -1002,7 +1005,7 @@ func (bm *Manager) verifyChecksum(data []byte, blockID []byte) error {
 	expected := bm.formatter.ComputeBlockID(data)
 	if !bytes.HasSuffix(blockID, expected) {
 		atomic.AddInt32(&bm.stats.InvalidBlocks, 1)
-		return fmt.Errorf("invalid checksum for blob: '%v', expected %v", blockID, expected)
+		return fmt.Errorf("invalid checksum for blob %x, expected %x", blockID, expected)
 	}
 
 	atomic.AddInt32(&bm.stats.ValidBlocks, 1)
