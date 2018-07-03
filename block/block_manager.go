@@ -94,6 +94,8 @@ func (bm *Manager) DeleteBlock(blockID string) error {
 	bm.lock()
 	defer bm.unlock()
 
+	log.Printf("[BLOCKMGR] DeleteBlock(%q)", blockID)
+
 	// We have this block in current pack index and it's already deleted there.
 	if bi, ok := bm.packIndexBuilder[blockID]; ok {
 		if !bi.Deleted {
@@ -190,6 +192,7 @@ func (bm *Manager) ResetStats() {
 func (bm *Manager) DisableIndexFlush() {
 	bm.lock()
 	defer bm.unlock()
+	log.Printf("[BLOCKMGR] DisableIndexFlush()")
 	bm.disableIndexFlushCount++
 }
 
@@ -198,6 +201,7 @@ func (bm *Manager) DisableIndexFlush() {
 func (bm *Manager) EnableIndexFlush() {
 	bm.lock()
 	defer bm.unlock()
+	log.Printf("[BLOCKMGR] EnableIndexFlush()")
 	bm.disableIndexFlushCount--
 }
 
@@ -738,13 +742,16 @@ func (bm *Manager) WriteBlock(ctx context.Context, data []byte, prefix string) (
 
 	// See if we already have this block ID in some pack index and it's not deleted.
 	if bi, ok := bm.packIndexBuilder[blockID]; ok && !bi.Deleted {
+		log.Printf("[BLOCKMGR] WriteBlock(%q) - already pending", blockID)
 		return blockID, nil
 	}
 
 	if bi, err := bm.committedBlocks.getBlock(blockID); err == nil && !bi.Deleted {
+		log.Printf("[BLOCKMGR] WriteBlock(%q) - already committed", blockID)
 		return blockID, nil
 	}
 
+	log.Printf("[BLOCKMGR] WriteBlock(%q) - new", blockID)
 	err := bm.addToPackLocked(ctx, blockID, data, false)
 	return blockID, err
 }
@@ -830,10 +837,16 @@ func (bm *Manager) GetBlock(ctx context.Context, blockID string) ([]byte, error)
 	defer bm.unlock()
 
 	if b, err := bm.getPendingBlockLocked(blockID); err == nil {
+		log.Printf("[BLOCKMGR] GetBlock(%q) - pending", blockID)
 		return b, nil
 	}
 
 	d, _, err := bm.getPackedBlockInternalLocked(ctx, blockID, false)
+	if err == nil {
+		log.Printf("[BLOCKMGR] GetBlock(%q) - from pack", blockID)
+	} else {
+		log.Printf("[BLOCKMGR] GetBlock(%q) - error: %v", blockID, err)
+	}
 	return d, err
 }
 
@@ -850,7 +863,18 @@ func (bm *Manager) BlockInfo(ctx context.Context, blockID string) (Info, error) 
 	bm.lock()
 	defer bm.unlock()
 
-	return bm.packedBlockInfoLocked(blockID)
+	i, err := bm.packedBlockInfoLocked(blockID)
+	if err == nil {
+		if i.Deleted {
+			log.Printf("[BLOCKMGR] BlockInfo(%q) - deleted", blockID)
+		} else {
+			log.Printf("[BLOCKMGR] BlockInfo(%q) - exists in %v", blockID, i.PackFile)
+		}
+	} else {
+		log.Printf("[BLOCKMGR] BlockInfo(%q) - error %v", err)
+	}
+
+	return i, err
 }
 
 // FindUnreferencedStorageFiles returns the list of unreferenced storage blocks.
