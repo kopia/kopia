@@ -52,9 +52,12 @@ func (c *listCache) saveListToCache(ctx context.Context, ci *cachedList) {
 	}
 	log.Debug().Int("count", len(ci.Blocks)).Msg("saving index blocks to cache")
 	if data, err := json.Marshal(ci); err == nil {
-		if err := ioutil.WriteFile(c.cacheFile, appendHMAC(data, c.hmacSecret), 0600); err != nil {
+		mySuffix := fmt.Sprintf(".tmp-%v-%v", os.Getpid(), time.Now().UnixNano())
+		if err := ioutil.WriteFile(c.cacheFile+mySuffix, appendHMAC(data, c.hmacSecret), 0600); err != nil {
 			log.Warn().Msgf("unable to write list cache: %v", err)
 		}
+		os.Rename(c.cacheFile+mySuffix, c.cacheFile) //nolint:errcheck
+		os.Remove(c.cacheFile + mySuffix)            //nolint:errcheck
 	}
 }
 
@@ -82,7 +85,7 @@ func (c *listCache) readBlocksFromCache(ctx context.Context) (*cachedList, error
 
 	data, err = verifyAndStripHMAC(data, c.hmacSecret)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid file %v: %v", c.cacheFile, err)
 	}
 
 	if err := json.Unmarshal(data, &ci); err != nil {
