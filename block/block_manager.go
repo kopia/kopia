@@ -22,6 +22,7 @@ import (
 )
 
 var log = kopialogging.Logger("kopia/block")
+var formatLog = kopialogging.Logger("kopia/block/format")
 
 // PackBlockPrefix is the prefix for all pack storage blocks.
 const PackBlockPrefix = "p"
@@ -339,7 +340,7 @@ func (bm *Manager) writePackBlockLocked(ctx context.Context) error {
 		return fmt.Errorf("can't save pack data block: %v", err)
 	}
 
-	log.Debugf("wrote pack file: %v", packFile)
+	formatLog.Debugf("wrote pack file: %v", packFile)
 
 	for _, info := range pending {
 		info.PackFile = packFile
@@ -350,7 +351,7 @@ func (bm *Manager) writePackBlockLocked(ctx context.Context) error {
 }
 
 func (bm *Manager) preparePackDataBlock() ([]byte, map[string]Info, error) {
-	log.Debugf("preparing block data with %v items", len(bm.currentPackItems))
+	formatLog.Debugf("preparing block data with %v items", len(bm.currentPackItems))
 	blockData, err := appendRandomBytes(nil, rand.Intn(bm.maxPreambleLength-bm.minPreambleLength+1)+bm.minPreambleLength)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to prepare block preamble: %v", err)
@@ -367,7 +368,7 @@ func (bm *Manager) preparePackDataBlock() ([]byte, map[string]Info, error) {
 			return nil, nil, fmt.Errorf("unable to encrypt %q: %v", blockID, err)
 		}
 
-		log.Debugf("adding %v length=%v deleted=%v", blockID, len(info.Payload), info.Deleted)
+		formatLog.Debugf("adding %v length=%v deleted=%v", blockID, len(info.Payload), info.Deleted)
 
 		pending[blockID] = Info{
 			BlockID:          blockID,
@@ -393,7 +394,7 @@ func (bm *Manager) preparePackDataBlock() ([]byte, map[string]Info, error) {
 			}
 		}
 	}
-	log.Debugf("finished block %v bytes", len(blockData))
+	formatLog.Debugf("finished block %v bytes", len(blockData))
 
 	return blockData, pending, nil
 
@@ -536,6 +537,7 @@ func (bm *Manager) Close() {
 
 // CompactIndexes performs compaction of index blocks ensuring that # of small blocks is between minSmallBlockCount and maxSmallBlockCount
 func (bm *Manager) CompactIndexes(ctx context.Context, minSmallBlockCount int, maxSmallBlockCount int) error {
+	log.Debugf("CompactIndexes(%v,%v)", minSmallBlockCount, maxSmallBlockCount)
 	if maxSmallBlockCount < minSmallBlockCount {
 		return fmt.Errorf("invalid block counts")
 	}
@@ -582,16 +584,16 @@ func (bm *Manager) getBlocksToCompact(indexBlocks []IndexInfo, minSmallBlockCoun
 
 	if len(nonCompactedBlocks) < minSmallBlockCount {
 		// current count is below min allowed - nothing to do
-		log.Debugf("no small blocks to compacted")
+		formatLog.Debugf("no small blocks to compact")
 		return nil
 	}
 
 	if len(verySmallBlocks) > len(nonCompactedBlocks)/2 && len(mediumSizedBlocks)+1 < minSmallBlockCount {
-		log.Debugf("compacting %v very small blocks", len(verySmallBlocks))
+		formatLog.Debugf("compacting %v very small blocks", len(verySmallBlocks))
 		return verySmallBlocks
 	}
 
-	log.Debugf("compacting all %v non-compacted blocks", len(nonCompactedBlocks))
+	formatLog.Debugf("compacting all %v non-compacted blocks", len(nonCompactedBlocks))
 	return nonCompactedBlocks
 }
 
@@ -652,7 +654,7 @@ func (bm *Manager) compactAndDeleteIndexBlocks(ctx context.Context, indexBlocks 
 	if len(indexBlocks) <= 1 {
 		return nil
 	}
-	log.Debugf("compacting %v blocks", len(indexBlocks))
+	formatLog.Debugf("compacting %v blocks", len(indexBlocks))
 	t0 := time.Now()
 
 	bld := packindex.NewBuilder()
@@ -683,7 +685,7 @@ func (bm *Manager) compactAndDeleteIndexBlocks(ctx context.Context, indexBlocks 
 		return fmt.Errorf("unable to write compacted indexes: %v", err)
 	}
 
-	log.Debugf("wrote compacted index (%v bytes) in %v", compactedIndexBlock, time.Since(t0))
+	formatLog.Debugf("wrote compacted index (%v bytes) in %v", compactedIndexBlock, time.Since(t0))
 
 	for _, indexBlock := range indexBlocks {
 		if indexBlock.FileName == compactedIndexBlock {
@@ -720,6 +722,7 @@ func (bm *Manager) RewriteBlock(ctx context.Context, blockID string) error {
 	bm.lock()
 	defer bm.unlock()
 	if _, err := bm.getPendingBlockLocked(blockID); err == nil {
+		log.Debugf("RewriteBlock(%q) - already pending", blockID)
 		// pending, already scheduled for rewrite
 		return nil
 	}
@@ -849,9 +852,9 @@ func (bm *Manager) GetBlock(ctx context.Context, blockID string) ([]byte, error)
 		return b, nil
 	}
 
-	d, pack, _, err := bm.getPackedBlockInternalLocked(ctx, blockID, false)
+	d, bi, _, err := bm.getPackedBlockInternalLocked(ctx, blockID, false)
 	if err == nil {
-		log.Debugf("GetBlock(%q) - from pack %v", blockID, pack)
+		log.Debugf("GetBlock(%q) - from pack %v %v+%v", blockID, bi.PackFile, bi.PackOffset, bi.Length)
 	} else {
 		log.Debugf("GetBlock(%q) - error: %v", blockID, err)
 	}
@@ -935,21 +938,21 @@ func (bm *Manager) packedBlockInfoLocked(blockID string) (Info, error) {
 	return bm.committedBlocks.getBlock(blockID)
 }
 
-func (bm *Manager) getPackedBlockInternalLocked(ctx context.Context, blockID string, allowDeleted bool) ([]byte, string, bool, error) {
+func (bm *Manager) getPackedBlockInternalLocked(ctx context.Context, blockID string, allowDeleted bool) ([]byte, Info, bool, error) {
 	bm.assertLocked()
 
 	bi, err := bm.packedBlockInfoLocked(blockID)
 	if err != nil {
-		return nil, "", false, err
+		return nil, Info{}, false, err
 	}
 
 	if bi.Deleted && !allowDeleted {
-		return nil, "", false, storage.ErrBlockNotFound
+		return nil, Info{}, false, storage.ErrBlockNotFound
 	}
 
 	// block stored inline
 	if bi.Payload != nil {
-		return bi.Payload, "<inline>", false, nil
+		return bi.Payload, Info{}, false, nil
 	}
 
 	packFile := bi.PackFile
@@ -957,15 +960,15 @@ func (bm *Manager) getPackedBlockInternalLocked(ctx context.Context, blockID str
 	payload, err := bm.blockCache.getContentBlock(ctx, blockID, packFile, int64(bi.PackOffset), int64(bi.Length))
 	bm.lock()
 	if err != nil {
-		return nil, "", false, fmt.Errorf("unable to read storage block %v", err)
+		return nil, Info{}, false, fmt.Errorf("unable to read storage block %v", err)
 	}
 
 	d, err := bm.decryptAndVerifyPayload(bi.FormatVersion, payload, int(bi.PackOffset), blockID, packFile)
 	if err != nil {
-		return nil, "", false, err
+		return nil, Info{}, false, err
 	}
 
-	return d, bi.PackFile, bi.Deleted, nil
+	return d, bi, bi.Deleted, nil
 }
 
 func (bm *Manager) decryptAndVerifyPayload(formatVersion byte, payload []byte, offset int, blockID string, packFile string) ([]byte, error) {
