@@ -9,8 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rs/zerolog"
-
 	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/storagetesting"
 	"github.com/kopia/kopia/storage"
@@ -22,7 +20,6 @@ func TestStressBlockManager(t *testing.T) {
 	data := map[string][]byte{}
 	keyTimes := map[string]time.Time{}
 	memst := storagetesting.NewMapStorage(data, keyTimes, time.Now)
-	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 
 	var duration = 3 * time.Second
 	if os.Getenv("KOPIA_LONG_STRESS_TEST") != "" {

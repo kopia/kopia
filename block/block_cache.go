@@ -11,7 +11,6 @@ import (
 
 	"github.com/kopia/kopia/storage"
 	"github.com/kopia/kopia/storage/filesystem"
-	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -54,9 +53,9 @@ func (c *blockCache) getContentBlock(ctx context.Context, cacheKey string, physi
 			}
 
 			// ignore malformed blocks
-			log.Warn().Msgf("malformed block %v: %v", cacheKey, err)
+			log.Warningf("malformed block %v: %v", cacheKey, err)
 		} else if err != storage.ErrBlockNotFound {
-			log.Warn().Msgf("unable to read cache %v: %v", cacheKey, err)
+			log.Warningf("unable to read cache %v: %v", cacheKey, err)
 		}
 	}
 
@@ -68,7 +67,7 @@ func (c *blockCache) getContentBlock(ctx context.Context, cacheKey string, physi
 
 	if err == nil && useCache {
 		if puterr := c.cacheStorage.PutBlock(ctx, cacheKey, appendHMAC(b, c.hmacSecret)); puterr != nil {
-			log.Warn().Msgf("unable to write cache item %v: %v", cacheKey, puterr)
+			log.Warningf("unable to write cache item %v: %v", cacheKey, puterr)
 		}
 	}
 
@@ -88,7 +87,7 @@ func (c *blockCache) sweepDirectoryPeriodically(ctx context.Context) {
 		case <-time.After(sweepCacheFrequency):
 			err := c.sweepDirectory(ctx)
 			if err != nil {
-				log.Printf("warning: blockCache sweep failed: %v", err)
+				log.Warningf("blockCache sweep failed: %v", err)
 			}
 		}
 	}
@@ -103,7 +102,7 @@ func (c *blockCache) sweepDirectory(ctx context.Context) (err error) {
 	}
 
 	t0 := time.Now()
-	log.Debug().Msg("sweeping cache")
+	log.Debugf("sweeping cache")
 
 	var items []storage.BlockMetadata
 	err = c.cacheStorage.ListBlocks(ctx, "", func(it storage.BlockMetadata) error {
@@ -123,13 +122,13 @@ func (c *blockCache) sweepDirectory(ctx context.Context) (err error) {
 	for _, it := range items {
 		if totalRetainedSize > c.maxSizeBytes {
 			if err := c.cacheStorage.DeleteBlock(ctx, it.BlockID); err != nil {
-				log.Warn().Msgf("unable to remove %v: %v", it.BlockID, err)
+				log.Warningf("unable to remove %v: %v", it.BlockID, err)
 			}
 		} else {
 			totalRetainedSize += it.Length
 		}
 	}
-	log.Debug().Msgf("finished sweeping directory in %v and retained %v/%v bytes (%v %%)", time.Since(t0), totalRetainedSize, c.maxSizeBytes, 100*totalRetainedSize/c.maxSizeBytes)
+	log.Debugf("finished sweeping directory in %v and retained %v/%v bytes (%v %%)", time.Since(t0), totalRetainedSize, c.maxSizeBytes, 100*totalRetainedSize/c.maxSizeBytes)
 	c.lastTotalSizeBytes = totalRetainedSize
 	return nil
 }

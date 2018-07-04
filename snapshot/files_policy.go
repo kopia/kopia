@@ -4,7 +4,6 @@ import (
 	"path/filepath"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/rs/zerolog/log"
 )
 
 // FilesPolicy describes files to be uploaded when taking snapshots
@@ -34,7 +33,7 @@ func (p *FilesPolicy) ShouldInclude(e *fs.EntryMetadata) bool {
 func fileNameMatches(fname string, pattern string) bool {
 	ok, err := filepath.Match(pattern, fname)
 	if err != nil {
-		log.Printf("warning: %v, assuming %q does not match the pattern", err, fname)
+		log.Warningf("%v, assuming %q does not match the pattern", err, fname)
 		return false
 	}
 

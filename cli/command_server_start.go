@@ -8,7 +8,6 @@ import (
 
 	"github.com/kopia/kopia/internal/server"
 	"github.com/kopia/kopia/repo"
-	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -31,7 +30,7 @@ func runServer(ctx context.Context, rep *repo.Repository) error {
 	go rep.RefreshPeriodically(ctx, 10*time.Second)
 
 	url := "http://" + *serverAddress
-	log.Info().Msgf("starting server on %v", url)
+	log.Infof("starting server on %v", url)
 	http.Handle("/api/", srv.APIHandlers())
 	if *serverStartHTMLPath != "" {
 		fileServer := http.FileServer(http.Dir(*serverStartHTMLPath))

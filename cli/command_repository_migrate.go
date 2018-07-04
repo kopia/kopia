@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/rs/zerolog/log"
-
 	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
@@ -42,7 +40,7 @@ func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 
 	for _, s := range sources {
 		if uploader.IsCancelled() {
-			log.Printf("upload cancelled")
+			log.Debugf("upload cancelled")
 			break
 		}
 
@@ -62,14 +60,14 @@ func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 			return fmt.Errorf("error migrating directory %v: %v", dirOID, err)
 		}
 
-		log.Printf("migrated directory: %v with %#v", dirOID, newm)
+		log.Debugf("migrated directory: %v with %#v", dirOID, newm)
 	}
 
 	return nil
 }
 
 func migrateSingleSource(ctx context.Context, uploader *snapshot.Uploader, sourceSM, destSM *snapshot.Manager, s snapshot.SourceInfo) error {
-	log.Printf("migrating source %v", s)
+	log.Debugf("migrating source %v", s)
 
 	manifests := sourceSM.ListSnapshotManifests(&s)
 	snapshots, err := sourceSM.LoadSnapshots(manifests)

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/internal/packindex"
-	"github.com/rs/zerolog/log"
 	"golang.org/x/exp/mmap"
 )
 
@@ -123,12 +122,12 @@ func (c *diskCommittedBlockIndexCache) expireUnused(used []string) error {
 
 	for _, rem := range remaining {
 		if time.Since(rem.ModTime()) > unusedCommittedBlockIndexCleanupTime {
-			log.Printf("removing unused %v %v", rem.Name(), rem.ModTime())
+			log.Debugf("removing unused %v %v", rem.Name(), rem.ModTime())
 			if err := os.Remove(filepath.Join(c.dirname, rem.Name())); err != nil {
-				log.Warn().Msgf("unable to remove unused index file: %v", err)
+				log.Warningf("unable to remove unused index file: %v", err)
 			}
 		} else {
-			log.Printf("keeping unused %v because it's too new %v", rem.Name(), rem.ModTime())
+			log.Debugf("keeping unused %v because it's too new %v", rem.Name(), rem.ModTime())
 		}
 	}
 

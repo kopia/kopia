@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-
-	"github.com/rs/zerolog/log"
 )
 
 // ErrPolicyNotFound is returned when the policy is not found.
@@ -26,7 +24,7 @@ func (p *Policy) String() string {
 	e := json.NewEncoder(&buf)
 	e.SetIndent("", "  ")
 	if err := e.Encode(p); err != nil {
-		log.Warn().Err(err).Msg("unable to policy as JSON")
+		log.Warningf("unable to policy as JSON: %v", err)
 	}
 	return buf.String()
 }

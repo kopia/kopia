@@ -12,8 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rs/zerolog/log"
-
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 )
@@ -67,14 +65,14 @@ func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
 	var finalErrors []string
 
 	for _, snapshotDir := range sources {
-		log.Printf("Backing up %v", snapshotDir)
+		log.Debugf("Backing up %v", snapshotDir)
 		dir, err := filepath.Abs(snapshotDir)
 		if err != nil {
 			return fmt.Errorf("invalid source: '%s': %s", snapshotDir, err)
 		}
 
 		sourceInfo := snapshot.SourceInfo{Path: filepath.Clean(dir), Host: getHostName(), UserName: getUserName()}
-		log.Info().Str("source", sourceInfo.String()).Msg("snapshotting")
+		log.Infof("snapshotting %v", sourceInfo)
 		if err := snapshotSingleSource(ctx, rep, mgr, pmgr, u, sourceInfo); err != nil {
 			finalErrors = append(finalErrors, err.Error())
 		}
@@ -107,7 +105,7 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, mgr *snapsh
 		return err
 	}
 
-	log.Debug().Msgf("uploading %v using previous manifest %v", sourceInfo, previousManifest)
+	log.Debugf("uploading %v using previous manifest %v", sourceInfo, previousManifest)
 	manifest, err := u.Upload(ctx, localEntry, sourceInfo, previousManifest)
 	if err != nil {
 		return err
@@ -120,11 +118,11 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, mgr *snapsh
 		return fmt.Errorf("cannot save manifest: %v", err)
 	}
 
-	log.Info().Str("id", snapID).Str("oid", manifest.RootObjectID().String()).Dur("duration_ms", time.Since(t0)).Msg("uploaded")
-	log.Printf("Hash Cache: %v", manifest.HashCacheID.String())
+	log.Infof("uploaded snapshot %v (root %v) in %v", snapID, manifest.RootObjectID(), time.Since(t0))
+	log.Debugf("Hash Cache: %v", manifest.HashCacheID.String())
 
 	b, _ := json.MarshalIndent(&manifest, "", "  ")
-	log.Printf("%s", string(b))
+	log.Debugf("%s", string(b))
 
 	return nil
 }
@@ -143,9 +141,9 @@ func findPreviousSnapshotManifest(mgr *snapshot.Manager, sourceInfo snapshot.Sou
 	}
 
 	if previousManifest != nil {
-		log.Debug().Msgf("found previous manifest for %v with start time %v", sourceInfo, previousManifest.StartTime)
+		log.Debugf("found previous manifest for %v with start time %v", sourceInfo, previousManifest.StartTime)
 	} else {
-		log.Debug().Msgf("no previous manifest for %v", sourceInfo)
+		log.Debugf("no previous manifest for %v", sourceInfo)
 	}
 
 	return previousManifest, nil
@@ -154,7 +152,7 @@ func findPreviousSnapshotManifest(mgr *snapshot.Manager, sourceInfo snapshot.Sou
 func getLocalBackupPaths(mgr *snapshot.Manager) ([]string, error) {
 	h := getHostName()
 	u := getUserName()
-	log.Printf("Looking for previous backups of '%v@%v'...", u, h)
+	log.Debugf("Looking for previous backups of '%v@%v'...", u, h)
 
 	sources := mgr.ListSources()
 
@@ -172,7 +170,7 @@ func getLocalBackupPaths(mgr *snapshot.Manager) ([]string, error) {
 func getUserName() string {
 	currentUser, err := user.Current()
 	if err != nil {
-		log.Warn().Msgf("Cannot determine current user: %s", err)
+		log.Warningf("Cannot determine current user: %s", err)
 		return "nobody"
 	}
 
@@ -190,7 +188,7 @@ func getUserName() string {
 func getHostName() string {
 	hostname, err := os.Hostname()
 	if err != nil {
-		log.Warn().Msgf("Unable to determine hostname: %s", err)
+		log.Warningf("Unable to determine hostname: %s", err)
 		return "nohost"
 	}
 

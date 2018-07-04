@@ -7,8 +7,6 @@ import (
 	"os"
 	"sync"
 
-	"github.com/rs/zerolog/log"
-
 	"golang.org/x/net/webdav"
 
 	"github.com/kopia/kopia/fs"
@@ -25,9 +23,9 @@ func webdavServerLogger(r *http.Request, err error) {
 		maybeRange = " " + r
 	}
 	if err != nil {
-		log.Printf("%v %v%v err: %v", r.Method, r.URL.RequestURI(), maybeRange, err)
+		log.Debugf("%v %v%v err: %v", r.Method, r.URL.RequestURI(), maybeRange, err)
 	} else {
-		log.Printf("%v %v%v OK", r.Method, r.URL.RequestURI(), maybeRange)
+		log.Debugf("%v %v%v OK", r.Method, r.URL.RequestURI(), maybeRange)
 	}
 }
 
@@ -58,17 +56,17 @@ func mountDirectoryWebDAV(entry fs.Directory, mountPoint string) error {
 		defer wg.Done()
 		fmt.Fprintf(os.Stderr, "Server listening at http://%v/ Press Ctrl-C to shut down.\n", s.Addr)
 		if err := s.ListenAndServe(); err != nil {
-			log.Warn().Err(err).Msg("server shut down with error")
+			log.Warningf("server shut down with error: %v", err)
 		}
 	}()
 
 	if err := browseMount(mountPoint, fmt.Sprintf("http://%v", s.Addr)); err != nil {
-		log.Warn().Err(err).Str("addr", s.Addr).Msg("unable to browse")
+		log.Warningf("unable to browse %v: %v", s.Addr, err)
 	}
 
 	// Shut down the server and wait for it.
 	if err := s.Shutdown(context.Background()); err != nil {
-		log.Warn().Err(err).Msg("shutdown failed")
+		log.Warningf("shutdown failed: %v", err)
 	}
 	wg.Wait()
 	return nil

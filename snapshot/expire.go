@@ -2,8 +2,6 @@ package snapshot
 
 import (
 	"strings"
-
-	"github.com/rs/zerolog/log"
 )
 
 // GetExpiredSnapshots computes the set of snapshot manifests that are not retained according to the policy.
@@ -31,10 +29,10 @@ func getExpiredSnapshotsForSource(pmgr *PolicyManager, snapshots []*Manifest) ([
 	var toDelete []*Manifest
 	for _, s := range snapshots {
 		if len(s.RetentionReasons) == 0 {
-			log.Printf("  deleting %v", s.StartTime)
+			log.Debugf("  deleting %v", s.StartTime)
 			toDelete = append(toDelete, s)
 		} else {
-			log.Printf("  keeping %v reasons: [%v]", s.StartTime, strings.Join(s.RetentionReasons, ","))
+			log.Debugf("  keeping %v reasons: [%v]", s.StartTime, strings.Join(s.RetentionReasons, ","))
 		}
 	}
 	return toDelete, nil

@@ -15,7 +15,6 @@ import (
 	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/storage"
-	"github.com/rs/zerolog/log"
 
 	// Register well-known blob storage providers
 	_ "github.com/kopia/kopia/storage/filesystem"
@@ -104,9 +103,9 @@ func setupCaching(lc *config.LocalConfig, opt block.CachingOptions, uniqueID []b
 	lc.Caching.MaxCacheSizeBytes = opt.MaxCacheSizeBytes
 	lc.Caching.MaxListCacheDurationSec = opt.MaxListCacheDurationSec
 
-	log.Printf("Creating cache directory '%v' with max size %v", lc.Caching.CacheDirectory, units.BytesStringBase2(lc.Caching.MaxCacheSizeBytes))
+	log.Debugf("Creating cache directory '%v' with max size %v", lc.Caching.CacheDirectory, units.BytesStringBase2(lc.Caching.MaxCacheSizeBytes))
 	if err := os.MkdirAll(lc.Caching.CacheDirectory, 0700); err != nil {
-		log.Warn().Err(err).Msg("unablet to create cache directory")
+		log.Warningf("unablet to create cache directory: %v", err)
 	}
 	return nil
 }
@@ -120,7 +119,7 @@ func Disconnect(configFile string) error {
 
 	if cfg.Caching.CacheDirectory != "" {
 		if err = os.RemoveAll(cfg.Caching.CacheDirectory); err != nil {
-			log.Warn().Err(err).Msg("unable to to remove cache directory")
+			log.Warningf("unable to to remove cache directory: %v", err)
 		}
 	}
 

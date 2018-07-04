@@ -13,8 +13,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/rs/zerolog/log"
-
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/dir"
 	"github.com/kopia/kopia/internal/hashcache"
@@ -283,7 +281,7 @@ func (u *Uploader) foreachEntryUnlessCancelled(relativePath string, entries fs.E
 		entryRelativePath := relativePath + "/" + e.Name
 
 		if !u.FilesPolicy.ShouldInclude(e) {
-			log.Printf("ignoring %q", entryRelativePath)
+			log.Debugf("ignoring %q", entryRelativePath)
 			u.stats.ExcludedFileCount++
 			u.stats.ExcludedTotalFileSize += e.FileSize
 			continue
@@ -414,7 +412,7 @@ func (u *Uploader) prepareWorkItems(ctx context.Context, dirRelativePath string,
 				},
 			})
 		} else {
-			log.Debug().Msgf("hash cache miss for %v (cached %v computed %v)", entryRelativePath, cachedHash, computedHash)
+			log.Debugf("hash cache miss for %v (cached %v computed %v)", entryRelativePath, cachedHash, computedHash)
 
 			switch entry := entry.(type) {
 			case fs.Symlink:
@@ -473,16 +471,13 @@ func (u *Uploader) launchWorkItems(workItems []*uploadWorkItem, wg *sync.WaitGro
 	ch := toChannel(workItems)
 	for i := 0; i < workerCount; i++ {
 		wg.Add(1)
-		go func(workerID int) {
+		go func() {
 			defer wg.Done()
 
 			for it := range ch {
-				log.Debug().Int("worker", workerID).Str("path", it.entryRelativePath).Msg("processing")
-				t0 := time.Now()
 				it.resultChan <- it.uploadFunc()
-				log.Debug().Int("worker", workerID).Str("path", it.entryRelativePath).Dur("duration", time.Since(t0)).Msg("finished processing")
 			}
-		}(i)
+		}()
 	}
 }
 
@@ -501,7 +496,7 @@ func (u *Uploader) processUploadWorkItems(workItems []*uploadWorkItem, dw *dir.W
 		if result.err != nil {
 			if u.IgnoreFileErrors {
 				u.stats.ReadErrors++
-				log.Warn().Msgf("warning: unable to hash file %q: %s, ignoring", it.entryRelativePath, result.err)
+				log.Warningf("unable to hash file %q: %s, ignoring", it.entryRelativePath, result.err)
 				continue
 			}
 			return fmt.Errorf("unable to process %q: %s", it.entryRelativePath, result.err)
@@ -620,12 +615,12 @@ func (u *Uploader) Upload(
 	u.cacheReader = hashcache.Open(nil)
 	u.stats = Stats{}
 	if old != nil {
-		log.Debug().Msgf("opening hash cache: %v", old.HashCacheID)
+		log.Debugf("opening hash cache: %v", old.HashCacheID)
 		if r, err := u.repo.Objects.Open(ctx, old.HashCacheID); err == nil {
 			u.cacheReader = hashcache.Open(r)
-			log.Debug().Msgf("opened hash cache: %v", old.HashCacheID)
+			log.Debugf("opened hash cache: %v", old.HashCacheID)
 		} else {
-			log.Warn().Msgf("unable to open hash cache %v: %v", old.HashCacheID, err)
+			log.Warningf("unable to open hash cache %v: %v", old.HashCacheID, err)
 
 		}
 	}

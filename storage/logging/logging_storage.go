@@ -5,9 +5,11 @@ import (
 	"context"
 	"time"
 
+	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/storage"
-	"github.com/rs/zerolog/log"
 )
+
+var log = kopialogging.Logger("kopia/storage")
 
 type loggingStorage struct {
 	base   storage.Storage
@@ -71,7 +73,7 @@ type Option func(s *loggingStorage)
 
 // NewWrapper returns a Storage wrapper that logs all storage commands.
 func NewWrapper(wrapped storage.Storage, options ...Option) storage.Storage {
-	s := &loggingStorage{base: wrapped, printf: log.Printf}
+	s := &loggingStorage{base: wrapped, printf: log.Debugf}
 	for _, o := range options {
 		o(s)
 	}

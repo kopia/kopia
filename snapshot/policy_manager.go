@@ -6,7 +6,6 @@ import (
 
 	"github.com/kopia/kopia/manifest"
 	"github.com/kopia/kopia/repo"
-	"github.com/rs/zerolog/log"
 )
 
 // PolicyManager manages snapshotting policies.
@@ -51,7 +50,7 @@ func (m *PolicyManager) GetEffectivePolicy(si SourceInfo) (*Policy, []*Policy, e
 		}
 		p.Labels = em.Labels
 		policies = append(policies, p)
-		log.Printf("loaded parent policy for %v: %v", si, p.Target())
+		log.Debugf("loaded parent policy for %v: %v", si, p.Target())
 	}
 
 	merged := MergePolicies(policies)

@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/rs/zerolog/log"
-
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 )
@@ -39,14 +37,14 @@ func getSnapshotNamesToExpire(mgr *snapshot.Manager) ([]string, error) {
 			return nil, fmt.Errorf("unable to parse %v: %v", p, err)
 		}
 
-		log.Printf("Looking for snapshots of %v", src)
+		log.Debugf("Looking for snapshots of %v", src)
 
 		matches := mgr.ListSnapshotManifests(&src)
 		if err != nil {
 			return nil, fmt.Errorf("error listing snapshots for %v: %v", src, err)
 		}
 
-		log.Printf("Found %v snapshots of %v", len(matches), src)
+		log.Debugf("Found %v snapshots of %v", len(matches), src)
 
 		result = append(result, matches...)
 	}

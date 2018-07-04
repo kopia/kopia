@@ -13,7 +13,6 @@ import (
 	"github.com/jpillora/go-ogle-analytics"
 	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/repo"
-	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -37,7 +36,7 @@ func analyticsUserAgent() string {
 func enableAnalytics(clientID string) {
 	f, err := os.Create(*clientIDFile)
 	if err != nil {
-		log.Warn().Err(err).Msg("unable to write client ID")
+		log.Warningf("unable to write client ID: %v", err)
 		return
 	}
 
@@ -99,17 +98,17 @@ func initGAClient() *ga.Client {
 	gaClientOnce.Do(func() {
 		f, err := os.Open(*clientIDFile)
 		if os.IsNotExist(err) {
-			log.Printf("not reporting usage - %v does not exist", *clientIDFile)
+			log.Debugf("not reporting usage - %v does not exist", *clientIDFile)
 			return
 		}
 		if err != nil {
-			log.Warn().Err(err).Msg("unable to open client ID")
+			log.Warningf("unable to open client ID: %v", err)
 		}
 		defer f.Close() //nolint:errcheck
 
 		var clientID string
 		if _, serr := fmt.Fscanf(f, "%s", &clientID); serr != nil {
-			log.Printf("not reporting usage - invalid client ID file: %v", *clientIDFile)
+			log.Debugf("not reporting usage - invalid client ID file: %v", *clientIDFile)
 			return
 		}
 
@@ -120,7 +119,7 @@ func initGAClient() *ga.Client {
 		}
 
 		userAgent := analyticsUserAgent()
-		log.Printf("analytics userAgent: %q, clientID: %q", userAgent, clientID)
+		log.Debugf("analytics userAgent: %q, clientID: %q", userAgent, clientID)
 
 		globalGAClient = client.
 			ClientID(clientID).
@@ -133,7 +132,7 @@ func initGAClient() *ga.Client {
 // reportStartupTime reports startup time.
 func reportStartupTime(storageType string, formatVersion int, startupDuration time.Duration) {
 	if gaClient := initGAClient(); gaClient != nil && *analyticsConsent != "no" {
-		log.Printf("reporting startup duration %v", startupDuration)
+		log.Debugf("reporting startup duration %v", startupDuration)
 		go gaClient.Send( //nolint:errcheck
 			ga.NewEvent("initialize", fmt.Sprintf("%v-v%v", storageType, formatVersion)).
 				Value(startupDuration.Nanoseconds() / 1e6))
@@ -143,7 +142,7 @@ func reportStartupTime(storageType string, formatVersion int, startupDuration ti
 // reportSubcommandFinished reports a single subcommand usage.
 func reportSubcommandFinished(commandType string, success bool, storageType string, formatVersion int, duration time.Duration) {
 	if gaClient := initGAClient(); gaClient != nil && *analyticsConsent != "no" {
-		log.Printf("reporting command %v finished (success=%v, duration=%v)", commandType, success, duration)
+		log.Debugf("reporting command %v finished (success=%v, duration=%v)", commandType, success, duration)
 		quickOrIgnore(func() {
 			if success {
 				gaClient.Send(ga.NewEvent("command-success", commandType).Label(fmt.Sprintf("%v-v%v", storageType, formatVersion)).Value(duration.Nanoseconds() / 1e6)) //nolint:errcheck

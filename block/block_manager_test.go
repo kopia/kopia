@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/rand"
-	"os"
 	"reflect"
 	"strings"
 	"sync"
@@ -17,8 +16,7 @@ import (
 	"github.com/kopia/kopia/internal/packindex"
 	"github.com/kopia/kopia/internal/storagetesting"
 	"github.com/kopia/kopia/storage"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
+	logging "github.com/op/go-logging"
 )
 
 const (
@@ -28,8 +26,7 @@ const (
 var fakeTime = time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC)
 
 func init() {
-	zerolog.SetGlobalLevel(zerolog.DebugLevel)
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+	logging.SetLevel(logging.INFO, "")
 }
 
 func TestBlockManagerEmptyFlush(t *testing.T) {
@@ -353,7 +350,7 @@ func TestDeleteBlock(t *testing.T) {
 	verifyBlockNotFound(ctx, t, bm, block1)
 	verifyBlockNotFound(ctx, t, bm, block2)
 	bm.Flush(ctx)
-	log.Printf("-----------")
+	log.Debugf("-----------")
 	bm = newTestBlockManager(data, keyTime, nil)
 	//dumpBlockManagerData(t, data)
 	verifyBlockNotFound(ctx, t, bm, block1)

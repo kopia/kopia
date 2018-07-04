@@ -5,10 +5,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/rs/zerolog/log"
-
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/kopialogging"
 )
+
+var log = kopialogging.Logger("kopia/loggingfs")
 
 type loggingOptions struct {
 	printf func(fmt string, args ...interface{})
@@ -68,7 +69,7 @@ func wrapWithOptions(e fs.Entry, opts *loggingOptions) fs.Entry {
 
 func applyOptions(opts []Option) *loggingOptions {
 	o := &loggingOptions{
-		printf: log.Printf,
+		printf: log.Debugf,
 	}
 	for _, f := range opts {
 		f(o)

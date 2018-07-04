@@ -7,7 +7,6 @@ import (
 	fusefs "bazil.org/fuse/fs"
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/fusemount"
-	"github.com/rs/zerolog/log"
 )
 
 type root struct {
@@ -40,7 +39,7 @@ func mountDirectoryFUSE(entry fs.Directory, mountPoint string) error {
 
 	onCtrlC(func() {
 		if unmounterr := fuse.Unmount(mountPoint); unmounterr != nil {
-			log.Warn().Err(unmounterr).Msg("unmount failed")
+			log.Warningf("unmount failed: %v", unmounterr)
 		}
 	})
 

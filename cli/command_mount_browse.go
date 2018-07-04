@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"runtime"
 
-	"github.com/rs/zerolog/log"
 	"github.com/skratchdot/open-golang/open"
 )
 
@@ -71,6 +70,6 @@ func netUSE(mountPoint string, addr string) error {
 
 func startWebBrowser(url string) {
 	if err := open.Start(url); err != nil {
-		log.Warn().Err(err).Msg("unable to start web browser")
+		log.Warningf("unable to start web browser: %v", err)
 	}
 }

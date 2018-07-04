@@ -1,10 +1,12 @@
 package snapshot
 
 import (
+	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/manifest"
 	"github.com/kopia/kopia/repo"
-	"github.com/rs/zerolog/log"
 )
+
+var log = kopialogging.Logger("kopia/snapshot")
 
 // GlobalPolicySourceInfo is a source where global policy is attached.
 var GlobalPolicySourceInfo = SourceInfo{}
@@ -80,7 +82,7 @@ func (m *Manager) LoadSnapshots(names []string) ([]*Manifest, error) {
 
 			m, err := m.LoadSnapshot(n)
 			if err != nil {
-				log.Printf("WARNING: Unable to parse snapshot manifest %v: %v", n, err)
+				log.Warningf("unable to parse snapshot manifest %v: %v", n, err)
 				return
 			}
 			result[i] = m

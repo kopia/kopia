@@ -5,11 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kopia/kopia/internal/serverapi"
-
 	"github.com/kopia/kopia/fs/localfs"
+	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/snapshot"
-	"github.com/rs/zerolog/log"
 )
 
 // sourceManager manages the state machine of each source
@@ -75,7 +73,7 @@ func (s *sourceManager) run() {
 		var timeBeforeNextSnapshot time.Duration
 		if !s.nextSnapshotTime.IsZero() && s.server.hostname == s.src.Host {
 			timeBeforeNextSnapshot = time.Until(s.nextSnapshotTime)
-			log.Info().Msgf("time to next snapshot %v is %v", s.src, timeBeforeNextSnapshot)
+			log.Infof("time to next snapshot %v is %v", s.src, timeBeforeNextSnapshot)
 		} else {
 			timeBeforeNextSnapshot = 24 * time.Hour
 		}
@@ -85,7 +83,7 @@ func (s *sourceManager) run() {
 			return
 		case <-time.After(15 * time.Second):
 		case <-time.After(timeBeforeNextSnapshot):
-			log.Info().Msgf("snapshotting %v", s.src)
+			log.Infof("snapshotting %v", s.src)
 			s.snapshot()
 			s.refreshStatus()
 		}
@@ -99,7 +97,7 @@ func (s *sourceManager) Progress(path string, pathCompleted, pathTotal int64, st
 	s.uploadPath = path
 	s.uploadPathCompleted = pathCompleted
 	s.uploadPathTotal = pathTotal
-	log.Debug().Msgf("path: %v %v/%v", path, pathCompleted, pathTotal)
+	log.Debugf("path: %v %v/%v", path, pathCompleted, pathTotal)
 }
 
 func (s *sourceManager) UploadFinished() {
@@ -112,22 +110,22 @@ func (s *sourceManager) UploadFinished() {
 }
 
 func (s *sourceManager) upload() serverapi.SourceActionResponse {
-	log.Info().Msgf("upload triggered via API: %v", s.src)
+	log.Infof("upload triggered via API: %v", s.src)
 	return serverapi.SourceActionResponse{Success: true}
 }
 
 func (s *sourceManager) cancel() serverapi.SourceActionResponse {
-	log.Info().Msgf("cancel triggered via API: %v", s.src)
+	log.Infof("cancel triggered via API: %v", s.src)
 	return serverapi.SourceActionResponse{Success: true}
 }
 
 func (s *sourceManager) pause() serverapi.SourceActionResponse {
-	log.Info().Msgf("pause triggered via API: %v", s.src)
+	log.Infof("pause triggered via API: %v", s.src)
 	return serverapi.SourceActionResponse{Success: true}
 }
 
 func (s *sourceManager) resume() serverapi.SourceActionResponse {
-	log.Info().Msgf("resume triggered via API: %v", s.src)
+	log.Infof("resume triggered via API: %v", s.src)
 	return serverapi.SourceActionResponse{Success: true}
 }
 
@@ -137,7 +135,7 @@ func (s *sourceManager) snapshot() {
 
 	localEntry, err := localfs.NewEntry(s.src.Path, nil)
 	if err != nil {
-		log.Error().Msgf("unable to create local filesystem: %v", err)
+		log.Errorf("unable to create local filesystem: %v", err)
 		return
 	}
 	u := snapshot.NewUploader(s.server.rep)
@@ -145,22 +143,22 @@ func (s *sourceManager) snapshot() {
 	u.Progress = s
 	ctx := context.Background()
 
-	log.Info().Msgf("starting upload of %v", s.src)
+	log.Infof("starting upload of %v", s.src)
 	manifest, err := u.Upload(ctx, localEntry, s.src, s.lastSnapshot)
 	if err != nil {
-		log.Error().Msgf("upload error: %v", err)
+		log.Errorf("upload error: %v", err)
 		return
 	}
 
 	snapshotID, err := s.server.snapshotManager.SaveSnapshot(manifest)
 	if err != nil {
-		log.Error().Msgf("unable to save snapshot: %v", err)
+		log.Errorf("unable to save snapshot: %v", err)
 		return
 	}
 
-	log.Info().Msgf("created snapshot %v", snapshotID)
+	log.Infof("created snapshot %v", snapshotID)
 	if err := s.server.rep.Flush(ctx); err != nil {
-		log.Error().Msgf("unable to flush: %v", err)
+		log.Errorf("unable to flush: %v", err)
 		return
 	}
 }
@@ -192,7 +190,7 @@ func (s *sourceManager) findClosestNextSnapshotTime() time.Time {
 }
 
 func (s *sourceManager) refreshStatus() {
-	log.Info().Msgf("refreshing state for %v", s.src)
+	log.Infof("refreshing state for %v", s.src)
 	pol, _, err := s.server.policyManager.GetEffectivePolicy(s.src)
 	if err != nil {
 		s.setStatus("FAILED")

@@ -8,10 +8,11 @@ import (
 	"path/filepath"
 	"sort"
 
-	"github.com/rs/zerolog/log"
-
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/kopialogging"
 )
+
+var log = kopialogging.Logger("kopia/localfs")
 
 type sortedEntries fs.Entries
 
@@ -69,7 +70,7 @@ func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error)
 		for _, fi := range fileInfos {
 			e, fierr := entryFromFileInfo(fi, filepath.Join(fsd.path, fi.Name()), fsd)
 			if fierr != nil {
-				log.Warn().Err(fierr).Str("fname", fi.Name()).Msg("unable to create directory entry")
+				log.Warningf("unable to create directory entry %q: %v", fi.Name(), fierr)
 				continue
 			}
 			entries = append(entries, e)

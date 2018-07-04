@@ -5,9 +5,8 @@ import (
 	"io"
 
 	"github.com/kopia/kopia/object"
-	"github.com/kopia/kopia/snapshot"
-
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot"
 )
 
 var (

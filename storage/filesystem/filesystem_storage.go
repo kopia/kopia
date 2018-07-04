@@ -11,9 +11,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/storage"
-	"github.com/rs/zerolog/log"
 )
+
+var log = kopialogging.Logger("kopia/filesystem")
 
 const (
 	fsStorageType        = "filesystem"
@@ -128,14 +130,14 @@ func (fs *fsStorage) PutBlock(ctx context.Context, blockID string, data []byte) 
 	err = os.Rename(tempFile, path)
 	if err != nil {
 		if removeErr := os.Remove(tempFile); removeErr != nil {
-			log.Warn().Err(removeErr).Msg("can't remove temp file")
+			log.Warningf("can't remove temp file: %v", removeErr)
 		}
 		return err
 	}
 
 	if fs.FileUID != nil && fs.FileGID != nil && os.Geteuid() == 0 {
 		if chownErr := os.Chown(path, *fs.FileUID, *fs.FileGID); chownErr != nil {
-			log.Warn().Err(chownErr).Msg("can't change file permissions")
+			log.Warningf("can't change file permissions: %v", chownErr)
 		}
 	}
 

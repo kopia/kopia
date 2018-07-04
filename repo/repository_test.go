@@ -14,8 +14,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/rs/zerolog/log"
-
 	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/storagetesting"
@@ -109,9 +107,9 @@ func dumpBlockManagerData(data map[string][]byte) {
 			var dst bytes.Buffer
 			json.Indent(&dst, buf.Bytes(), "", "  ")
 
-			log.Printf("data[%v] = %v", k, dst.String())
+			log.Debugf("data[%v] = %v", k, dst.String())
 		} else {
-			log.Printf("data[%v] = %x", k, v)
+			log.Debugf("data[%v] = %x", k, v)
 		}
 	}
 }

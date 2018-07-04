@@ -8,11 +8,13 @@ import (
 	"sync"
 
 	"github.com/bmizerany/pat"
+	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
-	"github.com/rs/zerolog/log"
 )
+
+var log = kopialogging.Logger("kopia/server")
 
 // Server exposes simple HTTP API for programmatically accessing Kopia features.
 type Server struct {
@@ -54,10 +56,10 @@ func (s *Server) handleAPI(f func(r *http.Request) (interface{}, *apiError)) htt
 		e.SetIndent("", "  ")
 
 		v, err := f(r)
-		log.Printf("returned %+v", v)
+		log.Debugf("returned %+v", v)
 		if err == nil {
 			if err := e.Encode(v); err != nil {
-				log.Warn().Msgf("error encoding response: %v", err)
+				log.Warningf("error encoding response: %v", err)
 			}
 			return
 		}
@@ -67,12 +69,12 @@ func (s *Server) handleAPI(f func(r *http.Request) (interface{}, *apiError)) htt
 }
 
 func (s *Server) handleRefresh(r *http.Request) (interface{}, *apiError) {
-	log.Info().Msg("refreshing")
+	log.Infof("refreshing")
 	return &serverapi.Empty{}, nil
 }
 
 func (s *Server) handleFlush(r *http.Request) (interface{}, *apiError) {
-	log.Info().Msg("flushing")
+	log.Infof("flushing")
 	return &serverapi.Empty{}, nil
 }
 
@@ -108,13 +110,13 @@ func (s *Server) handleCancel(r *http.Request) (interface{}, *apiError) {
 }
 
 func (s *Server) beginUpload(src snapshot.SourceInfo) {
-	log.Info().Msgf("waiting on semaphore to upload %v", src)
+	log.Infof("waiting on semaphore to upload %v", src)
 	s.uploadSemaphore <- struct{}{}
-	log.Info().Msgf("entered semaphore to upload %v", src)
+	log.Infof("entered semaphore to upload %v", src)
 }
 
 func (s *Server) endUpload(src snapshot.SourceInfo) {
-	log.Info().Msgf("finished uploading %v", src)
+	log.Infof("finished uploading %v", src)
 	<-s.uploadSemaphore
 }
 

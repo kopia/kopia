@@ -3,8 +3,6 @@ package cli
 import (
 	"context"
 
-	"github.com/rs/zerolog/log"
-
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 )
@@ -28,7 +26,7 @@ func removePolicy(ctx context.Context, rep *repo.Repository) error {
 	}
 
 	for _, target := range targets {
-		log.Printf("Removing policy on %q...", target)
+		log.Infof("Removing policy on %q...", target)
 		if err := mgr.RemovePolicy(target); err != nil {
 			return err
 		}

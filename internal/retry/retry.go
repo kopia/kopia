@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/rs/zerolog/log"
+	"github.com/kopia/kopia/internal/kopialogging"
 )
+
+var log = kopialogging.Logger("kopia/retry")
 
 const (
 	maxAttempts             = 10
@@ -30,7 +32,7 @@ func WithExponentialBackoff(desc string, attempt AttemptFunc, isRetriableError I
 		if !isRetriableError(err) {
 			return v, err
 		}
-		log.Printf("got error %v when %v (#%v), sleeping for %v before retrying", err, desc, i, sleepAmount)
+		log.Debugf("got error %v when %v (#%v), sleeping for %v before retrying", err, desc, i, sleepAmount)
 		time.Sleep(sleepAmount)
 		sleepAmount *= 2
 		if sleepAmount > retryMaxSleepAmount {

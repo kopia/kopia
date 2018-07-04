@@ -9,9 +9,11 @@ import (
 	"os"
 	"strings"
 
+	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/storage"
-	"github.com/rs/zerolog/log"
 )
+
+var log = kopialogging.Logger("kopia/webdav")
 
 const (
 	davStorageType       = "webdav"
@@ -258,7 +260,7 @@ func (d *davStorage) PutBlock(ctx context.Context, blockID string, data []byte) 
 
 	if err := d.move(tmpURL, url); err != nil {
 		if delerr := d.delete(tmpURL); delerr != nil {
-			log.Warn().Err(err).Msg("unable to delete temp file")
+			log.Warningf("unable to delete temp file: %v", delerr)
 		}
 		return err
 	}

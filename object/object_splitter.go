@@ -2,7 +2,6 @@ package object
 
 import (
 	"math"
-
 	"sort"
 
 	"github.com/kopia/kopia/internal/config"

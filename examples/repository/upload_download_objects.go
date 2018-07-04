@@ -8,7 +8,6 @@ import (
 
 	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/repo"
-	"github.com/rs/zerolog/log"
 )
 
 func uploadRandomObject(ctx context.Context, r *repo.Repository, length int) (object.ID, error) {
@@ -44,22 +43,22 @@ func uploadAndDownloadObjects(ctx context.Context, r *repo.Repository) {
 	var oids []object.ID
 
 	for size := 100; size < 100000000; size *= 2 {
-		log.Printf("uploading file with %v bytes", size)
+		log.Debugf("uploading file with %v bytes", size)
 		oid, err := uploadRandomObject(ctx, r, size)
 		if err != nil {
-			log.Error().Msgf("unable to upload: %v", err)
+			log.Errorf("unable to upload: %v", err)
 			os.Exit(1)
 		}
-		log.Printf("uploaded %v bytes as %v", size, oid)
+		log.Debugf("uploaded %v bytes as %v", size, oid)
 		oids = append(oids, oid)
 	}
 
 	for _, oid := range oids {
-		log.Info().Msgf("downloading %q", oid)
+		log.Infof("downloading %q", oid)
 		b, err := downloadObject(ctx, r, oid)
 		if err != nil {
-			log.Error().Msgf("unable to read object: %v", err)
+			log.Errorf("unable to read object: %v", err)
 		}
-		log.Printf("downloaded %v", len(b))
+		log.Debugf("downloaded %v", len(b))
 	}
 }

@@ -7,7 +7,6 @@ import (
 
 	"github.com/kopia/kopia/internal/packindex"
 	"github.com/kopia/kopia/storage"
-	"github.com/rs/zerolog/log"
 )
 
 type committedBlockIndex struct {
@@ -93,7 +92,7 @@ func (b *committedBlockIndex) use(packFiles []string) (bool, error) {
 	if !b.packFilesChanged(packFiles) {
 		return false, nil
 	}
-	log.Printf("set of index files has changed (had %v, now %v)", len(b.inUse), len(packFiles))
+	log.Debugf("set of index files has changed (had %v, now %v)", len(b.inUse), len(packFiles))
 
 	var newMerged packindex.Merged
 	newInUse := map[string]packindex.Index{}
@@ -107,7 +106,7 @@ func (b *committedBlockIndex) use(packFiles []string) (bool, error) {
 			return false, fmt.Errorf("unable to open pack index %q: %v", e, err)
 		}
 
-		log.Printf("opened %v with %v entries", e, ndx.EntryCount())
+		log.Debugf("opened %v with %v entries", e, ndx.EntryCount())
 		newMerged = append(newMerged, ndx)
 		newInUse[e] = ndx
 	}
@@ -115,7 +114,7 @@ func (b *committedBlockIndex) use(packFiles []string) (bool, error) {
 	b.inUse = newInUse
 
 	if err := b.cache.expireUnused(packFiles); err != nil {
-		log.Warn().Msgf("unable to expire unused block index files: %v", err)
+		log.Warningf("unable to expire unused block index files: %v", err)
 	}
 	newMerged = nil
 

@@ -5,11 +5,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rs/zerolog/log"
-
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/object"
 )
+
+var log = kopialogging.Logger("kopia/cachefs")
 
 type cacheEntry struct {
 	id   string
@@ -94,14 +95,14 @@ func (c *Cache) getEntriesFromCache(id string) fs.Entries {
 			c.moveToHead(v)
 			c.mu.Unlock()
 			if c.debug {
-				log.Printf("cache hit for %q (valid until %v)", id, v.expireAfter)
+				log.Debugf("cache hit for %q (valid until %v)", id, v.expireAfter)
 			}
 			return v.entries
 		}
 
 		// time expired
 		if c.debug {
-			log.Printf("removing expired cache entry %q after %v", id, v.expireAfter)
+			log.Debugf("removing expired cache entry %q after %v", id, v.expireAfter)
 		}
 		c.removeEntryLocked(v)
 	}
@@ -122,7 +123,7 @@ func (c *Cache) getEntries(ctx context.Context, id string, expirationTime time.D
 	}
 
 	if c.debug {
-		log.Printf("cache miss for %q", id)
+		log.Debugf("cache miss for %q", id)
 	}
 	raw, err := cb(ctx)
 	if err != nil {

@@ -5,8 +5,10 @@ import (
 	"io"
 
 	"github.com/kopia/kopia/internal/jsonstream"
-	"github.com/rs/zerolog/log"
+	"github.com/kopia/kopia/internal/kopialogging"
 )
+
+var log = kopialogging.Logger("kopia/hashcache")
 
 // Reader supports reading a stream of hash cache entries.
 type Reader interface {
@@ -26,7 +28,7 @@ type reader struct {
 // FindEntry looks for an entry with a given name in hash cache stream and returns it or nil if not found.
 func (hcr *reader) FindEntry(relativeName string) *Entry {
 	for hcr.nextEntry != nil && isLess(hcr.nextEntry.Name, relativeName) {
-		log.Debug().Msgf("skipping %v while looking for %v", hcr.nextEntry.Name, relativeName)
+		log.Debugf("skipping %v while looking for %v", hcr.nextEntry.Name, relativeName)
 		hcr.readahead()
 	}
 
@@ -38,11 +40,11 @@ func (hcr *reader) FindEntry(relativeName string) *Entry {
 	}
 
 	if hcr.nextEntry == nil {
-		log.Debug().Msgf("end of cache while looking for %v", relativeName)
+		log.Debugf("end of cache while looking for %v", relativeName)
 		return nil
 	}
 
-	log.Debug().Msgf("skipping %v while looking for %v", hcr.nextEntry.Name, relativeName)
+	log.Debugf("skipping %v while looking for %v", hcr.nextEntry.Name, relativeName)
 	return nil
 }
 
@@ -65,7 +67,7 @@ func (hcr *reader) readahead() {
 		if err := hcr.reader.Read(e); err == nil {
 			hcr.nextEntry = e
 		} else if err != io.EOF {
-			log.Debug().Msgf("unable to read next hash cache entry: %v", err)
+			log.Debugf("unable to read next hash cache entry: %v", err)
 		}
 	}
 
@@ -109,6 +111,6 @@ func Open(r io.Reader) Reader {
 	hcr.nextEntry = nil
 	hcr.first = true
 	hcr.readahead()
-	log.Debug().Msgf("nextEntry: %v", hcr.nextEntry)
+	log.Debugf("nextEntry: %v", hcr.nextEntry)
 	return &hcr
 }

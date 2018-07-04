@@ -10,8 +10,8 @@ Use 'kopia help' to see more details.
 package main
 
 import (
+	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"math"
 	"os"
@@ -21,22 +21,26 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kopia/kopia/internal/ospath"
-
-	"github.com/mattn/go-colorable"
-
 	"github.com/kopia/kopia/cli"
+	"github.com/kopia/kopia/internal/kopialogging"
+	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/repo"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 
 	"gopkg.in/alecthomas/kingpin.v2"
+
+	logging "github.com/op/go-logging"
 
 	_ "github.com/kopia/kopia/storage/filesystem/cli"
 	_ "github.com/kopia/kopia/storage/gcs/cli"
 	_ "github.com/kopia/kopia/storage/s3/cli"
 	_ "github.com/kopia/kopia/storage/webdav/cli"
 )
+
+var fileLogFormat = logging.MustStringFormatter(
+	`%{time:2006-01-02 15:04:05.000} %{level:.1s} [%{shortfile}] %{message}`)
+
+var consoleLogFormat = logging.MustStringFormatter(
+	`%{color}%{time:15:04:05.000} [%{module}] %{message}%{color:reset}`)
 
 var logLevels = []string{"debug", "info", "warning", "error"}
 var (
@@ -48,13 +52,13 @@ var (
 	fileLogLevel   = cli.App().Flag("file-log-level", "File log level").Default("debug").Enum(logLevels...)
 )
 
+var log = kopialogging.Logger("kopia")
+
 const logFileNamePrefix = "kopia-"
 const logFileNameSuffix = ".log"
 
 func initializeLogging(ctx *kingpin.ParseContext) error {
-	zerolog.TimeFieldFormat = "2006-01-02T15:04:05.000000"
-
-	var logWriters []io.Writer
+	var logBackends []logging.Backend
 	var logFileName string
 	var symlinkName string
 
@@ -83,22 +87,26 @@ func initializeLogging(ctx *kingpin.ParseContext) error {
 			fmt.Fprintln(os.Stderr, "Unable to create logs directory:", err)
 		}
 
-		logWriters = append(logWriters,
+		logBackends = append(
+			logBackends,
 			levelFilter(
 				*fileLogLevel,
-				zerolog.ConsoleWriter{Out: &onDemandLogWriter{
-					logDir:          logFileDir,
-					logFileBaseName: logFileBaseName,
-					symlinkName:     symlinkName,
-				}, NoColor: true}))
+				logging.NewBackendFormatter(
+					&onDemandBackend{
+						logDir:          logFileDir,
+						logFileBaseName: logFileBaseName,
+						symlinkName:     symlinkName,
+					}, fileLogFormat)))
 	}
 
-	logWriters = append(logWriters,
+	logBackends = append(logBackends,
 		levelFilter(
 			*logLevel,
-			zerolog.ConsoleWriter{Out: colorable.NewColorableStderr()}))
+			logging.NewBackendFormatter(
+				logging.NewLogBackend(os.Stderr, "", 0),
+				consoleLogFormat)))
 
-	log.Logger = zerolog.New(zerolog.MultiLevelWriter(logWriters...)).With().Timestamp().Logger()
+	logging.SetBackend(logBackends...)
 
 	if shouldSweepLogs {
 		go sweepLogDir(*logDir, *logDirMaxFiles, *logDirMaxAge)
@@ -115,11 +123,11 @@ func sweepLogDir(dirname string, maxCount int, maxAge time.Duration) {
 	if maxCount == 0 {
 		maxCount = math.MaxInt32
 	}
-	log.Debug().Msgf("log file time cut-off: %v max count: %v", timeCutoff, maxCount)
+	log.Debugf("log file time cut-off: %v max count: %v", timeCutoff, maxCount)
 
 	entries, err := ioutil.ReadDir(dirname)
 	if err != nil {
-		log.Warn().Err(err).Msg("unable to read log directory")
+		log.Warningf("unable to read log directory: %v", err)
 		return
 	}
 
@@ -141,7 +149,7 @@ func sweepLogDir(dirname string, maxCount int, maxAge time.Duration) {
 		cnt++
 		if cnt > maxCount || e.ModTime().Before(timeCutoff) {
 			if err = os.Remove(filepath.Join(dirname, e.Name())); err != nil {
-				log.Warn().Err(err).Msg("unable to remove log file")
+				log.Warningf("unable to remove log file: %v", err)
 			}
 		}
 	}
@@ -191,57 +199,44 @@ Commands (use --help-full to list all commands):
 {{end}}\
 `
 
-func levelFilter(level string, writer io.Writer) zerolog.LevelWriter {
+func levelFilter(level string, writer logging.Backend) logging.Backend {
+	l := logging.AddModuleLevel(writer)
+
 	switch level {
 	case "debug":
-		return levelWriter{zerolog.DebugLevel, writer}
+		l.SetLevel(logging.DEBUG, "")
 	case "info":
-		return levelWriter{zerolog.InfoLevel, writer}
+		l.SetLevel(logging.INFO, "")
 	case "warning":
-		return levelWriter{zerolog.WarnLevel, writer}
+		l.SetLevel(logging.WARNING, "")
 	case "error":
-		return levelWriter{zerolog.ErrorLevel, writer}
+		l.SetLevel(logging.ERROR, "")
 	default:
-		return levelWriter{zerolog.Disabled, writer}
-	}
-}
-
-type levelWriter struct {
-	level  zerolog.Level
-	writer io.Writer
-}
-
-func (l levelWriter) WriteLevel(level zerolog.Level, b []byte) (int, error) {
-	if level >= l.level {
-		return l.writer.Write(b)
+		l.SetLevel(logging.CRITICAL, "")
 	}
 
-	return len(b), nil
+	return l
 }
 
-func (l levelWriter) Write(b []byte) (int, error) {
-	return l.writer.Write(b)
-}
-
-type onDemandLogWriter struct {
+type onDemandBackend struct {
 	logDir          string
 	logFileBaseName string
 	symlinkName     string
 
-	f    *os.File
-	once sync.Once
+	backend logging.Backend
+	once    sync.Once
 }
 
-func (w *onDemandLogWriter) Write(b []byte) (int, error) {
-	var err error
-
+func (w *onDemandBackend) Log(level logging.Level, depth int, rec *logging.Record) error {
 	w.once.Do(func() {
 		lf := filepath.Join(w.logDir, w.logFileBaseName)
-		w.f, err = os.Create(lf)
+		f, err := os.Create(lf)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "unable to open log file: %v\n", err)
 			return
 		}
+
+		w.backend = logging.NewLogBackend(f, "", 0)
 
 		if w.symlinkName != "" {
 			symlink := filepath.Join(w.logDir, w.symlinkName)
@@ -250,11 +245,11 @@ func (w *onDemandLogWriter) Write(b []byte) (int, error) {
 		}
 	})
 
-	if w.f == nil {
-		return len(b), nil
+	if w.backend == nil {
+		return errors.New("no backend")
 	}
 
-	return w.f.Write(b)
+	return w.backend.Log(level, depth+1, rec)
 }
 
 func main() {

@@ -8,12 +8,13 @@ import (
 	"io"
 	"sync"
 
-	"github.com/rs/zerolog/log"
-
 	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/internal/jsonstream"
+	"github.com/kopia/kopia/internal/kopialogging"
 )
+
+var log = kopialogging.Logger("kopia/object")
 
 // Reader allows reading, seeking, getting the length of and closing of a repository object.
 type Reader interface {
@@ -244,8 +245,7 @@ func (om *Manager) flattenListChunk(rawReader io.Reader) ([]indirectObjectEntry,
 		}
 
 		if err != nil {
-			log.Printf("Failed to read indirect object: %v", err)
-			return nil, err
+			return nil, fmt.Errorf("failed to read indirect object: %v", err)
 		}
 
 		seekTable = append(seekTable, oe)

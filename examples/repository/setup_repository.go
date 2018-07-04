@@ -10,7 +10,6 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/storage/gcs"
 	"github.com/kopia/kopia/storage/logging"
-	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -35,7 +34,7 @@ func setupRepositoryAndConnect(ctx context.Context, creds auth.Credentials) erro
 	if _, err := os.Stat(configFile); os.IsNotExist(err) {
 		// initialize repository
 		if err := repo.Initialize(ctx, st, &repo.NewRepositoryOptions{}, creds); err != nil {
-			log.Printf("unable to initialize repository: %v", err)
+			log.Errorf("unable to initialize repository: %v", err)
 		}
 
 		// now establish connection to repository and create configuration file.

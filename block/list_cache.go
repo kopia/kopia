@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/storage"
-	"github.com/rs/zerolog/log"
 )
 
 type listCache struct {
@@ -26,11 +25,11 @@ func (c *listCache) listIndexBlocks(ctx context.Context) ([]IndexInfo, error) {
 		if err == nil {
 			expirationTime := ci.Timestamp.Add(c.listCacheDuration)
 			if time.Now().Before(expirationTime) {
-				log.Debug().Msg("retrieved list of index blocks from cache")
+				log.Debugf("retrieved list of index blocks from cache")
 				return ci.Blocks, nil
 			}
 		} else if err != storage.ErrBlockNotFound {
-			log.Warn().Err(err).Msgf("unable to open cache file")
+			log.Warningf("unable to open cache file: %v", err)
 		}
 	}
 
@@ -41,7 +40,7 @@ func (c *listCache) listIndexBlocks(ctx context.Context) ([]IndexInfo, error) {
 			Timestamp: time.Now(),
 		})
 	}
-	log.Debug().Msgf("found %v index blocks from source", len(blocks))
+	log.Debugf("found %v index blocks from source", len(blocks))
 
 	return blocks, err
 }
@@ -50,11 +49,11 @@ func (c *listCache) saveListToCache(ctx context.Context, ci *cachedList) {
 	if c.cacheFile == "" {
 		return
 	}
-	log.Debug().Int("count", len(ci.Blocks)).Msg("saving index blocks to cache")
+	log.Debugf("saving index blocks to cache: %v", len(ci.Blocks))
 	if data, err := json.Marshal(ci); err == nil {
 		mySuffix := fmt.Sprintf(".tmp-%v-%v", os.Getpid(), time.Now().UnixNano())
 		if err := ioutil.WriteFile(c.cacheFile+mySuffix, appendHMAC(data, c.hmacSecret), 0600); err != nil {
-			log.Warn().Msgf("unable to write list cache: %v", err)
+			log.Warningf("unable to write list cache: %v", err)
 		}
 		os.Rename(c.cacheFile+mySuffix, c.cacheFile) //nolint:errcheck
 		os.Remove(c.cacheFile + mySuffix)            //nolint:errcheck

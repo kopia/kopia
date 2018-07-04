@@ -8,9 +8,7 @@ import (
 	"sync"
 
 	"github.com/kopia/kopia/block"
-
 	"github.com/kopia/kopia/repo"
-	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -47,7 +45,7 @@ func runRewriteBlocksAction(ctx context.Context, rep *repo.Repository) error {
 
 			for b := range blocks {
 				if b.err != nil {
-					log.Error().Msgf("got error: %v", b.err)
+					log.Errorf("got error: %v", b.err)
 					mu.Lock()
 					failedCount++
 					mu.Unlock()
@@ -67,7 +65,7 @@ func runRewriteBlocksAction(ctx context.Context, rep *repo.Repository) error {
 					continue
 				}
 				if err := rep.Blocks.RewriteBlock(ctx, b.BlockID); err != nil {
-					log.Warn().Msgf("unable to rewrite block %q: %v", b.BlockID, err)
+					log.Warningf("unable to rewrite block %q: %v", b.BlockID, err)
 					mu.Lock()
 					failedCount++
 					mu.Unlock()
@@ -136,20 +134,20 @@ func findBlocksWithFormatVersion(ctx context.Context, rep *repo.Repository, ch c
 }
 
 func findBlocksInShortPacks(ctx context.Context, rep *repo.Repository, ch chan blockInfoOrError, threshold uint32) {
-	log.Printf("listing blocks...")
+	log.Debugf("listing blocks...")
 	infos, err := rep.Blocks.ListBlockInfos("", true)
 	if err != nil {
 		ch <- blockInfoOrError{err: fmt.Errorf("unable to list index blocks: %v", err)}
 		return
 	}
 
-	log.Printf("finding blocks in short packs...")
+	log.Debugf("finding blocks in short packs...")
 	shortPackBlocks, err := findShortPackBlocks(infos, threshold)
 	if err != nil {
 		ch <- blockInfoOrError{err: fmt.Errorf("unable to find short pack blocks: %v", err)}
 		return
 	}
-	log.Printf("found %v short pack blocks", len(shortPackBlocks))
+	log.Debugf("found %v short pack blocks", len(shortPackBlocks))
 
 	if len(shortPackBlocks) <= 1 {
 		fmt.Printf("Nothing to do, found %v short pack blocks\n", len(shortPackBlocks))

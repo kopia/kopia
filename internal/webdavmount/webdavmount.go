@@ -8,12 +8,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rs/zerolog/log"
-
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/kopialogging"
 	"golang.org/x/net/context"
 	"golang.org/x/net/webdav"
 )
+
+var log = kopialogging.Logger("kopia/webdavmount")
 
 var _ os.FileInfo = webdavFileInfo{}
 var _ webdav.File = (*webdavFile)(nil)
@@ -172,7 +173,7 @@ func (w *webdavFS) Rename(ctx context.Context, oldPath, newPath string) error {
 func (w *webdavFS) OpenFile(ctx context.Context, path string, flags int, mode os.FileMode) (webdav.File, error) {
 	f, err := w.findEntry(ctx, path)
 	if err != nil {
-		log.Printf("OpenFile(%q) failed with %v", path, err)
+		log.Warningf("OpenFile(%q) failed with %v", path, err)
 		return nil, err
 	}
 

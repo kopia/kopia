@@ -14,8 +14,10 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/block"
-	"github.com/rs/zerolog/log"
+	"github.com/kopia/kopia/internal/kopialogging"
 )
+
+var log = kopialogging.Logger("kopia/manifest")
 
 // ErrNotFound is returned when the metadata item is not found.
 var ErrNotFound = errors.New("not found")
@@ -232,7 +234,7 @@ func (m *Manager) Refresh(ctx context.Context) error {
 }
 
 func (m *Manager) loadCommittedBlocks(ctx context.Context) error {
-	log.Debug().Msg("listing manifest blocks")
+	log.Debugf("listing manifest blocks")
 	blocks, err := m.b.ListBlocks(manifestBlockPrefix)
 	if err != nil {
 		return fmt.Errorf("unable to list manifest blocks: %v", err)
@@ -244,7 +246,7 @@ func (m *Manager) loadCommittedBlocks(ctx context.Context) error {
 	m.committedEntries = map[string]*manifestEntry{}
 	m.committedBlockIDs = map[string]bool{}
 
-	log.Printf("found %v manifest blocks", len(blocks))
+	log.Debugf("found %v manifest blocks", len(blocks))
 
 	if err := m.loadManifestBlocks(ctx, blocks); err != nil {
 		return fmt.Errorf("unable to load manifest blocks: %v", err)
@@ -282,7 +284,7 @@ func (m *Manager) loadManifestBlocks(ctx context.Context, blockIDs []string) err
 		}
 	}
 
-	log.Debug().Dur("duration_ms", time.Since(t0)).Msgf("finished loading manifest blocks.")
+	log.Debugf("finished loading manifest blocks in %v.", time.Since(t0))
 
 	return nil
 }
@@ -301,7 +303,8 @@ func (m *Manager) loadBlocksInParallel(ctx context.Context, blockIDs []string) (
 			for blk := range ch {
 				t1 := time.Now()
 				man, err := m.loadManifestBlock(ctx, blk)
-				log.Debug().Dur("duration", time.Since(t1)).Str("blk", blk).Int("worker", workerID).Err(err).Msg("manifest block loaded")
+				log.Debugf("block %v loaded by worker %v in %v.", blk, workerID, time.Since(t1))
+
 				if err != nil {
 					errors <- err
 				} else {
@@ -373,7 +376,7 @@ func (m *Manager) maybeCompactLocked(ctx context.Context) error {
 		return nil
 	}
 
-	log.Debug().Int("blocks", len(m.committedBlockIDs)).Msg("performing automatic compaction")
+	log.Debugf("performing automatic compaction of %v blocks", len(m.committedBlockIDs))
 	if err := m.compactLocked(ctx); err != nil {
 		return fmt.Errorf("unable to compact manifest blocks: %v", err)
 	}
@@ -386,7 +389,7 @@ func (m *Manager) maybeCompactLocked(ctx context.Context) error {
 }
 
 func (m *Manager) compactLocked(ctx context.Context) error {
-	log.Printf("compactLocked: pendingEntries=%v blockIDs=%v", len(m.pendingEntries), len(m.committedBlockIDs))
+	log.Debugf("compactLocked: pendingEntries=%v blockIDs=%v", len(m.pendingEntries), len(m.committedBlockIDs))
 
 	if len(m.committedBlockIDs) == 1 && len(m.pendingEntries) == 0 {
 		return nil

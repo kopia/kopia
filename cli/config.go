@@ -10,8 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/rs/zerolog/log"
-
 	"github.com/bgentry/speakeasy"
 	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/fs"
@@ -79,11 +77,11 @@ func applyOptionsFromFlags(opts *repo.Options) *repo.Options {
 	opts.CredentialsCallback = func() (auth.Credentials, error) { return getRepositoryCredentials(false) }
 
 	if *traceStorage {
-		opts.TraceStorage = log.Printf
+		opts.TraceStorage = log.Debugf
 	}
 
 	if *traceObjectManager {
-		opts.ObjectManagerOptions.Trace = log.Printf
+		opts.ObjectManagerOptions.Trace = log.Debugf
 	}
 
 	return opts

@@ -14,12 +14,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kopia/kopia/block"
-	"github.com/kopia/kopia/storage"
-	"github.com/rs/zerolog"
-
 	"github.com/kopia/kopia/auth"
+	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/storage"
 	"github.com/kopia/kopia/storage/filesystem"
 )
 
@@ -38,7 +36,6 @@ func TestStressRepository(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unable to create temp directory")
 	}
-	zerolog.SetGlobalLevel(zerolog.WarnLevel)
 
 	defer func() {
 		if !t.Failed() {
@@ -105,7 +102,7 @@ func TestStressRepository(t *testing.T) {
 	go longLivedRepositoryTest(t, cancel, configFile2, &wg)
 	go longLivedRepositoryTest(t, cancel, configFile2, &wg)
 
-	time.Sleep(1 * time.Minute)
+	time.Sleep(5 * time.Second)
 	close(cancel)
 
 	wg.Wait()

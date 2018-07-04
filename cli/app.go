@@ -7,16 +7,16 @@ import (
 	"os"
 	"time"
 
-	"github.com/kopia/kopia/internal/serverapi"
-	"github.com/kopia/kopia/storage"
-	"github.com/rs/zerolog/log"
-
 	"github.com/kopia/kopia/block"
-
+	"github.com/kopia/kopia/internal/kopialogging"
+	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/storage"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
+
+var log = kopialogging.Logger("kopia/cli")
 
 var (
 	app = kingpin.New("kopia", "Kopia - Online Backup").Author("http://kopia.github.io/")
@@ -58,7 +58,7 @@ func repositoryAction(act func(ctx context.Context, rep *repo.Repository) error)
 		ctx = block.UsingBlockCache(ctx, *enableCaching)
 		ctx = block.UsingListCache(ctx, *enableListCaching)
 		ctx = storage.WithUploadProgressCallback(ctx, func(desc string, progress, total int64) {
-			log.Info().Msgf("block upload progress %q: %v/%v", desc, progress, total)
+			log.Infof("block upload progress %q: %v/%v", desc, progress, total)
 		})
 
 		t0 := time.Now()

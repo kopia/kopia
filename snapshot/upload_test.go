@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"reflect"
 
-	"github.com/rs/zerolog/log"
-
 	"github.com/kopia/kopia/internal/mockfs"
 	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/repo"
@@ -56,7 +54,7 @@ func newUploadTestHarness() *uploadTestHarness {
 		panic("unable to create repository: " + initerr.Error())
 	}
 
-	log.Printf("repo dir: %v", repoDir)
+	log.Debugf("repo dir: %v", repoDir)
 
 	configFile := filepath.Join(repoDir, ".kopia.config")
 	if conerr := repo.Connect(ctx, configFile, storage, creds, repo.ConnectOptions{

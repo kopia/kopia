@@ -16,10 +16,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/internal/packindex"
 	"github.com/kopia/kopia/storage"
-	"github.com/rs/zerolog/log"
 )
+
+var log = kopialogging.Logger("kopia/block")
 
 // PackBlockPrefix is the prefix for all pack storage blocks.
 const PackBlockPrefix = "p"
@@ -94,7 +96,7 @@ func (bm *Manager) DeleteBlock(blockID string) error {
 	bm.lock()
 	defer bm.unlock()
 
-	log.Printf("[BLOCKMGR] DeleteBlock(%q)", blockID)
+	log.Debugf("DeleteBlock(%q)", blockID)
 
 	// We have this block in current pack index and it's already deleted there.
 	if bi, ok := bm.packIndexBuilder[blockID]; ok {
@@ -192,7 +194,7 @@ func (bm *Manager) ResetStats() {
 func (bm *Manager) DisableIndexFlush() {
 	bm.lock()
 	defer bm.unlock()
-	log.Printf("[BLOCKMGR] DisableIndexFlush()")
+	log.Debugf("DisableIndexFlush()")
 	bm.disableIndexFlushCount++
 }
 
@@ -201,7 +203,7 @@ func (bm *Manager) DisableIndexFlush() {
 func (bm *Manager) EnableIndexFlush() {
 	bm.lock()
 	defer bm.unlock()
-	log.Printf("[BLOCKMGR] EnableIndexFlush()")
+	log.Debugf("EnableIndexFlush()")
 	bm.disableIndexFlushCount--
 }
 
@@ -277,7 +279,7 @@ func (bm *Manager) flushPackIndexesLocked(ctx context.Context) error {
 	bm.assertLocked()
 
 	if bm.disableIndexFlushCount > 0 {
-		log.Printf("not flushing index because flushes are currently disabled")
+		log.Debugf("not flushing index because flushes are currently disabled")
 		return nil
 	}
 
@@ -312,7 +314,7 @@ func (bm *Manager) writePackIndexesNew(ctx context.Context, data []byte) (string
 
 func (bm *Manager) finishPackLocked(ctx context.Context) error {
 	if len(bm.currentPackItems) == 0 {
-		log.Printf("no current pack entries")
+		log.Debugf("no current pack entries")
 		return nil
 	}
 
@@ -427,7 +429,7 @@ func (bm *Manager) loadPackIndexesUnlocked(ctx context.Context) ([]IndexInfo, bo
 
 		if i > 0 {
 			bm.listCache.deleteListCache(ctx)
-			log.Printf("encountered NOT_FOUND when loading, sleeping %v before retrying #%v", nextSleepTime, i)
+			log.Debugf("encountered NOT_FOUND when loading, sleeping %v before retrying #%v", nextSleepTime, i)
 			time.Sleep(nextSleepTime)
 			nextSleepTime *= 2
 		}
@@ -511,7 +513,7 @@ func (bm *Manager) unprocessedIndexBlocks(blocks []IndexInfo) (<-chan string, er
 			return nil, err
 		}
 		if has {
-			log.Printf("index block %q already in cache, skipping", block.FileName)
+			log.Debugf("index block %q already in cache, skipping", block.FileName)
 			continue
 		}
 		ch <- block.FileName
@@ -540,7 +542,7 @@ func (bm *Manager) CompactIndexes(ctx context.Context, minSmallBlockCount int, m
 	blocksToCompact := bm.getBlocksToCompact(indexBlocks, minSmallBlockCount, maxSmallBlockCount)
 
 	if err := bm.compactAndDeleteIndexBlocks(ctx, blocksToCompact); err != nil {
-		log.Warn().Msgf("error performing quick compaction: %v", err)
+		log.Warningf("error performing quick compaction: %v", err)
 	}
 
 	return nil
@@ -574,16 +576,16 @@ func (bm *Manager) getBlocksToCompact(indexBlocks []IndexInfo, minSmallBlockCoun
 
 	if len(nonCompactedBlocks) < minSmallBlockCount {
 		// current count is below min allowed - nothing to do
-		log.Printf("no small blocks to compacted")
+		log.Debugf("no small blocks to compacted")
 		return nil
 	}
 
 	if len(verySmallBlocks) > len(nonCompactedBlocks)/2 && len(mediumSizedBlocks)+1 < minSmallBlockCount {
-		log.Printf("compacting %v very small blocks", len(verySmallBlocks))
+		log.Debugf("compacting %v very small blocks", len(verySmallBlocks))
 		return verySmallBlocks
 	}
 
-	log.Printf("compacting all %v non-compacted blocks", len(nonCompactedBlocks))
+	log.Debugf("compacting all %v non-compacted blocks", len(nonCompactedBlocks))
 	return nonCompactedBlocks
 }
 
@@ -644,7 +646,7 @@ func (bm *Manager) compactAndDeleteIndexBlocks(ctx context.Context, indexBlocks 
 	if len(indexBlocks) <= 1 {
 		return nil
 	}
-	log.Debug().Msgf("compacting %v blocks", len(indexBlocks))
+	log.Debugf("compacting %v blocks", len(indexBlocks))
 	t0 := time.Now()
 
 	bld := packindex.NewBuilder()
@@ -675,7 +677,7 @@ func (bm *Manager) compactAndDeleteIndexBlocks(ctx context.Context, indexBlocks 
 		return fmt.Errorf("unable to write compacted indexes: %v", err)
 	}
 
-	log.Debug().Msgf("wrote compacted index (%v bytes) in %v", compactedIndexBlock, time.Since(t0))
+	log.Debugf("wrote compacted index (%v bytes) in %v", compactedIndexBlock, time.Since(t0))
 
 	for _, indexBlock := range indexBlocks {
 		if indexBlock.FileName == compactedIndexBlock {
@@ -684,7 +686,7 @@ func (bm *Manager) compactAndDeleteIndexBlocks(ctx context.Context, indexBlocks 
 
 		bm.listCache.deleteListCache(ctx)
 		if err := bm.st.DeleteBlock(ctx, indexBlock.FileName); err != nil {
-			log.Warn().Msgf("unable to delete compacted block %q: %v", indexBlock.FileName, err)
+			log.Warningf("unable to delete compacted block %q: %v", indexBlock.FileName, err)
 		}
 	}
 
@@ -742,16 +744,16 @@ func (bm *Manager) WriteBlock(ctx context.Context, data []byte, prefix string) (
 
 	// See if we already have this block ID in some pack index and it's not deleted.
 	if bi, ok := bm.packIndexBuilder[blockID]; ok && !bi.Deleted {
-		log.Printf("[BLOCKMGR] WriteBlock(%q) - already pending", blockID)
+		log.Debugf("WriteBlock(%q) - already pending", blockID)
 		return blockID, nil
 	}
 
 	if bi, err := bm.committedBlocks.getBlock(blockID); err == nil && !bi.Deleted {
-		log.Printf("[BLOCKMGR] WriteBlock(%q) - already committed", blockID)
+		log.Debugf("WriteBlock(%q) - already committed", blockID)
 		return blockID, nil
 	}
 
-	log.Printf("[BLOCKMGR] WriteBlock(%q) - new", blockID)
+	log.Debugf("WriteBlock(%q) - new", blockID)
 	err := bm.addToPackLocked(ctx, blockID, data, false)
 	return blockID, err
 }
@@ -837,15 +839,15 @@ func (bm *Manager) GetBlock(ctx context.Context, blockID string) ([]byte, error)
 	defer bm.unlock()
 
 	if b, err := bm.getPendingBlockLocked(blockID); err == nil {
-		log.Printf("[BLOCKMGR] GetBlock(%q) - pending", blockID)
+		log.Debugf("GetBlock(%q) - pending", blockID)
 		return b, nil
 	}
 
 	d, _, err := bm.getPackedBlockInternalLocked(ctx, blockID, false)
 	if err == nil {
-		log.Printf("[BLOCKMGR] GetBlock(%q) - from pack", blockID)
+		log.Debugf("GetBlock(%q) - from pack", blockID)
 	} else {
-		log.Printf("[BLOCKMGR] GetBlock(%q) - error: %v", blockID, err)
+		log.Debugf("GetBlock(%q) - error: %v", blockID, err)
 	}
 	return d, err
 }
@@ -866,12 +868,12 @@ func (bm *Manager) BlockInfo(ctx context.Context, blockID string) (Info, error) 
 	i, err := bm.packedBlockInfoLocked(blockID)
 	if err == nil {
 		if i.Deleted {
-			log.Printf("[BLOCKMGR] BlockInfo(%q) - deleted", blockID)
+			log.Debugf("BlockInfo(%q) - deleted", blockID)
 		} else {
-			log.Printf("[BLOCKMGR] BlockInfo(%q) - exists in %v", blockID, i.PackFile)
+			log.Debugf("BlockInfo(%q) - exists in %v", blockID, i.PackFile)
 		}
 	} else {
-		log.Printf("[BLOCKMGR] BlockInfo(%q) - error %v", err)
+		log.Debugf("BlockInfo(%q) - error %v", err)
 	}
 
 	return i, err
@@ -889,7 +891,7 @@ func (bm *Manager) FindUnreferencedStorageFiles(ctx context.Context) ([]storage.
 	err = bm.st.ListBlocks(ctx, PackBlockPrefix, func(bi storage.BlockMetadata) error {
 		u := usedPackBlocks[bi.BlockID]
 		if u > 0 {
-			log.Printf("pack %v, in use by %v blocks", bi.BlockID, u)
+			log.Debugf("pack %v, in use by %v blocks", bi.BlockID, u)
 			return nil
 		}
 

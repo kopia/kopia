@@ -6,8 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/rs/zerolog/log"
-
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/object"
@@ -43,7 +41,7 @@ func findSnapshotsForSource(mgr *snapshot.Manager, sourceInfo snapshot.SourceInf
 			relPath = filepath.Base(sourceInfo.Path)
 		}
 
-		log.Printf("No snapshots of %v@%v:%v", sourceInfo.UserName, sourceInfo.Host, sourceInfo.Path)
+		log.Debugf("No snapshots of %v@%v:%v", sourceInfo.UserName, sourceInfo.Host, sourceInfo.Path)
 
 		parentPath := filepath.Dir(sourceInfo.Path)
 		if parentPath == sourceInfo.Path {
@@ -100,7 +98,7 @@ func outputManifestGroups(ctx context.Context, manifests []*snapshot.Manifest, r
 
 		pol, _, err := polMgr.GetEffectivePolicy(src)
 		if err != nil {
-			log.Warn().Msgf("unable to determine effective policy for %v", src)
+			log.Warningf("unable to determine effective policy for %v", src)
 		} else {
 			pol.RetentionPolicy.ComputeRetentionReasons(snapshotGroup)
 		}
@@ -135,7 +133,7 @@ func outputManifestFromSingleSource(ctx context.Context, manifests []*snapshot.M
 		}
 
 		if _, ok := ent.(object.HasObjectID); !ok {
-			log.Warn().Msgf("entry does not have object ID: %v", ent, err)
+			log.Warningf("entry does not have object ID: %v", ent, err)
 			continue
 		}
 

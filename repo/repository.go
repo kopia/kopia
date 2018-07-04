@@ -10,7 +10,6 @@ import (
 	"github.com/kopia/kopia/manifest"
 	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/storage"
-	"github.com/rs/zerolog/log"
 )
 
 // Repository represents storage where both content-addressable and user-addressable data is kept.
@@ -66,13 +65,13 @@ func (r *Repository) Refresh(ctx context.Context) error {
 		return nil
 	}
 
-	log.Printf("block index refreshed")
+	log.Debugf("block index refreshed")
 
 	if err := r.Manifests.Refresh(ctx); err != nil {
 		return fmt.Errorf("error reloading manifests: %v", err)
 	}
 
-	log.Printf("manifests refreshed")
+	log.Debugf("manifests refreshed")
 
 	return nil
 }
@@ -86,7 +85,7 @@ func (r *Repository) RefreshPeriodically(ctx context.Context, interval time.Dura
 
 		case <-time.After(interval):
 			if err := r.Refresh(ctx); err != nil {
-				log.Warn().Msgf("error refreshing repository: %v", err)
+				log.Warningf("error refreshing repository: %v", err)
 			}
 		}
 	}

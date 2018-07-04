@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"sync"
 	"time"
@@ -15,8 +16,6 @@ import (
 	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
-	"github.com/rs/zerolog/log"
-	"golang.org/x/exp/rand"
 )
 
 var (
@@ -73,7 +72,7 @@ func (v *verifier) reportError(path string, err error) bool {
 	v.mu.Lock()
 	defer v.mu.Unlock()
 
-	log.Warn().Str("path", path).Err(err).Msg("failed")
+	log.Warningf("failed on %v: %v", path, err)
 	v.errors = append(v.errors, err)
 	return len(v.errors) >= *verifyCommandErrorThreshold
 }
@@ -111,7 +110,7 @@ func (v *verifier) enqueueVerifyObject(ctx context.Context, oid object.ID, path 
 }
 
 func (v *verifier) doVerifyDirectory(ctx context.Context, oid object.ID, path string) {
-	log.Printf("verifying directory %q (%v)", path, oid)
+	log.Debugf("verifying directory %q (%v)", path, oid)
 
 	d := v.mgr.DirectoryEntry(oid, nil)
 	entries, err := d.Readdir(ctx)
@@ -138,9 +137,9 @@ func (v *verifier) doVerifyDirectory(ctx context.Context, oid object.ID, path st
 
 func (v *verifier) doVerifyObject(ctx context.Context, oid object.ID, path string, expectedLength int64) {
 	if expectedLength < 0 {
-		log.Printf("verifying object %v", oid)
+		log.Debugf("verifying object %v", oid)
 	} else {
-		log.Printf("verifying object %v (%v) with length %v", path, oid, expectedLength)
+		log.Debugf("verifying object %v (%v) with length %v", path, oid, expectedLength)
 	}
 
 	var length int64
@@ -163,7 +162,7 @@ func (v *verifier) doVerifyObject(ctx context.Context, oid object.ID, path strin
 }
 
 func (v *verifier) readEntireObject(ctx context.Context, oid object.ID, path string) error {
-	log.Printf("reading object %v %v", oid, path)
+	log.Debugf("reading object %v %v", oid, path)
 	ctx = block.UsingBlockCache(ctx, false)
 
 	// also read the entire file
