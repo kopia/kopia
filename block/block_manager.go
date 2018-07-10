@@ -147,8 +147,6 @@ func (bm *Manager) addToPackLocked(ctx context.Context, blockID string, data []b
 
 	data = cloneBytes(data)
 	bm.currentPackDataLength += len(data)
-	shouldFinish := bm.currentPackDataLength >= bm.maxPackSize
-
 	bm.setPendingBlock(Info{
 		Deleted:          isDeleted,
 		BlockID:          blockID,
@@ -157,7 +155,7 @@ func (bm *Manager) addToPackLocked(ctx context.Context, blockID string, data []b
 		TimestampSeconds: bm.timeNow().Unix(),
 	})
 
-	if shouldFinish {
+	if bm.currentPackDataLength >= bm.maxPackSize {
 		if err := bm.finishPackAndMaybeFlushIndexesLocked(ctx); err != nil {
 			return err
 		}
@@ -719,25 +717,19 @@ func (bm *Manager) Flush(ctx context.Context) error {
 
 // RewriteBlock causes reads and re-writes a given block using the most recent format.
 func (bm *Manager) RewriteBlock(ctx context.Context, blockID string) error {
-	bm.lock()
-	defer bm.unlock()
-	if _, err := bm.getPendingBlockLocked(blockID); err == nil {
-		log.Debugf("RewriteBlock(%q) - already pending", blockID)
-		// pending, already scheduled for rewrite
-		return nil
-	}
-
-	data, _, isDeleted, err := bm.getPackedBlockInternalLocked(ctx, blockID, true)
+	bi, err := bm.getBlockInfo(blockID)
 	if err != nil {
 		return err
 	}
 
-	// See if we already have this block ID in some pack index and it's not deleted.
-	if bi, ok := bm.packIndexBuilder[blockID]; ok && !bi.Deleted {
-		return nil
+	data, err := bm.getBlockContentsUnlocked(ctx, bi)
+	if err != nil {
+		return err
 	}
 
-	return bm.addToPackLocked(ctx, blockID, data, isDeleted)
+	bm.lock()
+	defer bm.unlock()
+	return bm.addToPackLocked(ctx, blockID, data, bi.Deleted)
 }
 
 // WriteBlock saves a given block of data to a pack group with a provided name and returns a blockID
@@ -748,21 +740,16 @@ func (bm *Manager) WriteBlock(ctx context.Context, data []byte, prefix string) (
 	}
 	blockID := prefix + hex.EncodeToString(bm.hashData(data))
 
-	bm.lock()
-	defer bm.unlock()
-
-	// See if we already have this block ID in some pack index and it's not deleted.
-	if bi, ok := bm.packIndexBuilder[blockID]; ok && !bi.Deleted {
-		log.Debugf("WriteBlock(%q) - already pending", blockID)
-		return blockID, nil
-	}
-
-	if bi, err := bm.committedBlocks.getBlock(blockID); err == nil && !bi.Deleted {
-		log.Debugf("WriteBlock(%q) - already committed", blockID)
-		return blockID, nil
+	// block already tracked
+	if bi, err := bm.getBlockInfo(blockID); err == nil {
+		if !bi.Deleted {
+			return blockID, nil
+		}
 	}
 
 	log.Debugf("WriteBlock(%q) - new", blockID)
+	bm.lock()
+	defer bm.unlock()
 	err := bm.addToPackLocked(ctx, blockID, data, false)
 	return blockID, err
 }
@@ -844,21 +831,34 @@ func cloneBytes(b []byte) []byte {
 
 // GetBlock gets the contents of a given block. If the block is not found returns blob.ErrBlockNotFound.
 func (bm *Manager) GetBlock(ctx context.Context, blockID string) ([]byte, error) {
+	bi, err := bm.getBlockInfo(blockID)
+	if err != nil {
+		return nil, err
+	}
+
+	if bi.Deleted {
+		return nil, storage.ErrBlockNotFound
+	}
+
+	return bm.getBlockContentsUnlocked(ctx, bi)
+}
+
+func (bm *Manager) getBlockInfo(blockID string) (Info, error) {
 	bm.lock()
 	defer bm.unlock()
 
-	if b, err := bm.getPendingBlockLocked(blockID); err == nil {
-		log.Debugf("GetBlock(%q) - pending", blockID)
-		return b, nil
+	// check added blocks, not written to any packs.
+	if bi, ok := bm.currentPackItems[blockID]; ok {
+		return bi, nil
 	}
 
-	d, bi, _, err := bm.getPackedBlockInternalLocked(ctx, blockID, false)
-	if err == nil {
-		log.Debugf("GetBlock(%q) - from pack %v %v+%v", blockID, bi.PackFile, bi.PackOffset, bi.Length)
-	} else {
-		log.Debugf("GetBlock(%q) - error: %v", blockID, err)
+	// added blocks, written to packs but not yet added to indexes
+	if bi, ok := bm.packIndexBuilder[blockID]; ok {
+		return *bi, nil
 	}
-	return d, err
+
+	// read from committed block index
+	return bm.committedBlocks.getBlock(blockID)
 }
 
 // GetIndexBlock gets the contents of a given index block. If the block is not found returns blob.ErrBlockNotFound.
@@ -871,21 +871,22 @@ func (bm *Manager) GetIndexBlock(ctx context.Context, blockID string) ([]byte, e
 
 // BlockInfo returns information about a single block.
 func (bm *Manager) BlockInfo(ctx context.Context, blockID string) (Info, error) {
-	bm.lock()
-	defer bm.unlock()
+	bi, err := bm.getBlockInfo(blockID)
+	if err != nil {
+		return Info{}, err
+	}
 
-	i, err := bm.packedBlockInfoLocked(blockID)
 	if err == nil {
-		if i.Deleted {
+		if bi.Deleted {
 			log.Debugf("BlockInfo(%q) - deleted", blockID)
 		} else {
-			log.Debugf("BlockInfo(%q) - exists in %v", blockID, i.PackFile)
+			log.Debugf("BlockInfo(%q) - exists in %v", blockID, bi.PackFile)
 		}
 	} else {
 		log.Debugf("BlockInfo(%q) - error %v", err)
 	}
 
-	return i, err
+	return bi, err
 }
 
 // FindUnreferencedStorageFiles returns the list of unreferenced storage blocks.
@@ -924,58 +925,20 @@ func findPackBlocksInUse(infos []Info) map[string]int {
 	return packUsage
 }
 
-func (bm *Manager) packedBlockInfoLocked(blockID string) (Info, error) {
-	bm.assertLocked()
-
-	if bi, ok := bm.packIndexBuilder[blockID]; ok {
-		if bi.Deleted {
-			return Info{}, storage.ErrBlockNotFound
-		}
-
-		return *bi, nil
-	}
-
-	return bm.committedBlocks.getBlock(blockID)
-}
-
-func (bm *Manager) getPackedBlockInternalLocked(ctx context.Context, blockID string, allowDeleted bool) ([]byte, Info, bool, error) {
-	bm.assertLocked()
-
-	bi, err := bm.packedBlockInfoLocked(blockID)
-	if err != nil {
-		return nil, Info{}, false, err
-	}
-
-	if bi.Deleted && !allowDeleted {
-		return nil, Info{}, false, storage.ErrBlockNotFound
-	}
-
-	// block stored inline
+func (bm *Manager) getBlockContentsUnlocked(ctx context.Context, bi Info) ([]byte, error) {
 	if bi.Payload != nil {
-		return bi.Payload, Info{}, false, nil
+		return cloneBytes(bi.Payload), nil
 	}
 
-	packFile := bi.PackFile
-	bm.unlock()
-	payload, err := bm.blockCache.getContentBlock(ctx, blockID, packFile, int64(bi.PackOffset), int64(bi.Length))
-	bm.lock()
+	payload, err := bm.blockCache.getContentBlock(ctx, bi.BlockID, bi.PackFile, int64(bi.PackOffset), int64(bi.Length))
 	if err != nil {
-		return nil, Info{}, false, fmt.Errorf("unable to read storage block %v", err)
+		return nil, err
 	}
 
-	d, err := bm.decryptAndVerifyPayload(bi.FormatVersion, payload, int(bi.PackOffset), blockID, packFile)
-	if err != nil {
-		return nil, Info{}, false, err
-	}
-
-	return d, bi, bi.Deleted, nil
-}
-
-func (bm *Manager) decryptAndVerifyPayload(formatVersion byte, payload []byte, offset int, blockID string, packFile string) ([]byte, error) {
 	atomic.AddInt32(&bm.stats.ReadBlocks, 1)
 	atomic.AddInt64(&bm.stats.ReadBytes, int64(len(payload)))
 
-	iv, err := getPackedBlockIV(blockID)
+	iv, err := getPackedBlockIV(bi.BlockID)
 	if err != nil {
 		return nil, err
 	}
@@ -990,7 +953,7 @@ func (bm *Manager) decryptAndVerifyPayload(formatVersion byte, payload []byte, o
 	// Since the encryption key is a function of data, we must be able to generate exactly the same key
 	// after decrypting the content. This serves as a checksum.
 	if err := bm.verifyChecksum(payload, iv); err != nil {
-		return nil, fmt.Errorf("invalid checksum at %v offset %v length %v: %v", packFile, offset, len(payload), err)
+		return nil, fmt.Errorf("invalid checksum at %v offset %v length %v: %v", bi.PackFile, bi.PackOffset, len(payload), err)
 	}
 
 	return payload, nil
