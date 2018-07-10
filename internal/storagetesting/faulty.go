@@ -11,13 +11,15 @@ import (
 
 var log = kopialogging.Logger("faulty-storage")
 
+// Fault describes the behavior of a single fault.
 type Fault struct {
-	Repeat  int
-	Sleep   time.Duration
+	Repeat  int           // how many times to repeat this fault
+	Sleep   time.Duration // sleep before returning
 	WaitFor chan struct{} // waits until the given channel is closed before returning
-	Err     error
+	Err     error         // error to return (can be nil in combination with Sleep and WaitFor)
 }
 
+// FaultyStorage implements fault injection for Storage.
 type FaultyStorage struct {
 	Base   storage.Storage
 	Faults map[string][]*Fault
@@ -25,6 +27,7 @@ type FaultyStorage struct {
 	mu sync.Mutex
 }
 
+// GetBlock implements storage.Storage
 func (s *FaultyStorage) GetBlock(ctx context.Context, id string, offset, length int64) ([]byte, error) {
 	if err := s.getNextFault("GetBlock", id, offset, length); err != nil {
 		return nil, err
@@ -32,6 +35,7 @@ func (s *FaultyStorage) GetBlock(ctx context.Context, id string, offset, length 
 	return s.Base.GetBlock(ctx, id, offset, length)
 }
 
+// PutBlock implements storage.Storage
 func (s *FaultyStorage) PutBlock(ctx context.Context, id string, data []byte) error {
 	if err := s.getNextFault("PutBlock", id, len(data)); err != nil {
 		return err
@@ -39,6 +43,7 @@ func (s *FaultyStorage) PutBlock(ctx context.Context, id string, data []byte) er
 	return s.Base.PutBlock(ctx, id, data)
 }
 
+// DeleteBlock implements storage.Storage
 func (s *FaultyStorage) DeleteBlock(ctx context.Context, id string) error {
 	if err := s.getNextFault("DeleteBlock", id); err != nil {
 		return err
@@ -46,6 +51,7 @@ func (s *FaultyStorage) DeleteBlock(ctx context.Context, id string) error {
 	return s.Base.DeleteBlock(ctx, id)
 }
 
+// ListBlocks implements storage.Storage
 func (s *FaultyStorage) ListBlocks(ctx context.Context, prefix string, callback func(storage.BlockMetadata) error) error {
 	if err := s.getNextFault("ListBlocks", prefix); err != nil {
 		return err
@@ -59,6 +65,7 @@ func (s *FaultyStorage) ListBlocks(ctx context.Context, prefix string, callback 
 	})
 }
 
+// Close implements storage.Storage
 func (s *FaultyStorage) Close(ctx context.Context) error {
 	if err := s.getNextFault("Close"); err != nil {
 		return err
@@ -66,6 +73,7 @@ func (s *FaultyStorage) Close(ctx context.Context) error {
 	return s.Base.Close(ctx)
 }
 
+// ConnectionInfo implements storage.Storage
 func (s *FaultyStorage) ConnectionInfo() storage.ConnectionInfo {
 	return s.Base.ConnectionInfo()
 }

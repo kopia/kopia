@@ -40,7 +40,7 @@ func main() {
 	// Now list blocks found in the repository.
 	blks, err := r.Blocks.ListBlocks("")
 	if err != nil {
-		log.Errorf("err: %v")
+		log.Errorf("err: %v", err)
 	}
 
 	for _, b := range blks {

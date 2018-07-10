@@ -11,10 +11,7 @@ import (
 	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/internal/jsonstream"
-	"github.com/kopia/kopia/internal/kopialogging"
 )
-
-var log = kopialogging.Logger("kopia/object")
 
 // Reader allows reading, seeking, getting the length of and closing of a repository object.
 type Reader interface {

@@ -814,17 +814,6 @@ func (bm *Manager) hashData(data []byte) []byte {
 	return blockID
 }
 
-func (bm *Manager) getPendingBlockLocked(blockID string) ([]byte, error) {
-	bm.assertLocked()
-
-	bi, ok := bm.currentPackItems[blockID]
-	if ok && !bi.Deleted {
-		return cloneBytes(bi.Payload), nil
-	}
-
-	return nil, storage.ErrBlockNotFound
-}
-
 func cloneBytes(b []byte) []byte {
 	return append([]byte{}, b...)
 }
