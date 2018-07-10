@@ -33,9 +33,17 @@ var (
 	keyFile      = app.Flag("keyfile", "Read master key from file.").PlaceHolder("FILENAME").Envar("KOPIA_KEY_FILE").ExistingFile()
 )
 
+func printStderr(msg string, args ...interface{}) {
+	fmt.Fprintf(os.Stderr, msg, args...) //nolint:errcheck
+}
+
+func printStdout(msg string, args ...interface{}) {
+	fmt.Fprintf(os.Stdout, msg, args...) //nolint:errcheck
+}
+
 func failOnError(err error) {
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
+		printStderr("ERROR: %v\n", err)
 		os.Exit(1)
 	}
 }

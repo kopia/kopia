@@ -39,19 +39,19 @@ func (w *Writer) FinalizeWithSummary(summary interface{}) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(w.output, "\n],\"summary\":%v}", string(b))
-	return nil
+	_, err = fmt.Fprintf(w.output, "\n],\"summary\":%v}", string(b))
+	return err
 }
 
 // Finalize writes the postamble to the JSON stream.
 func (w *Writer) Finalize() error {
-	fmt.Fprintf(w.output, "\n]}")
-	return nil
+	_, err := fmt.Fprintf(w.output, "\n]}")
+	return err
 }
 
 // NewWriter creates a new Writer on top of a specified writer with a specified optional header.
 func NewWriter(w io.Writer, header string) *Writer {
-	fmt.Fprintf(w, "{\"stream\":\"%v\",\"entries\":[\n", header)
+	fmt.Fprintf(w, "{\"stream\":\"%v\",\"entries\":[\n", header) //nolint:errcheck
 	return &Writer{
 		header: header,
 		output: w,

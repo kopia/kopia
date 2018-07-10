@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 
 	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/units"
@@ -71,21 +70,21 @@ func runCreateCommandWithStorage(ctx context.Context, st storage.Storage) error 
 		return fmt.Errorf("unable to get credentials: %v", err)
 	}
 
-	fmt.Fprintf(os.Stderr, "Initializing repository with:\n")
-	fmt.Fprintf(os.Stderr, "  metadata encryption: %v\n", options.MetadataEncryptionAlgorithm)
-	fmt.Fprintf(os.Stderr, "  block format:        %v\n", options.BlockFormat)
+	printStderr("Initializing repository with:\n")
+	printStderr("  metadata encryption: %v\n", options.MetadataEncryptionAlgorithm)
+	printStderr("  block format:        %v\n", options.BlockFormat)
 	switch options.Splitter {
 	case "DYNAMIC":
-		fmt.Fprintf(os.Stderr, "  object splitter:     DYNAMIC with block sizes (min:%v avg:%v max:%v)\n",
+		printStderr("  object splitter:     DYNAMIC with block sizes (min:%v avg:%v max:%v)\n",
 			units.BytesStringBase2(int64(options.MinBlockSize)),
 			units.BytesStringBase2(int64(options.AvgBlockSize)),
 			units.BytesStringBase2(int64(options.MaxBlockSize)))
 
 	case "FIXED":
-		fmt.Fprintf(os.Stderr, "  object splitter:     FIXED with with block size: %v\n", units.BytesStringBase2(int64(options.MaxBlockSize)))
+		printStderr("  object splitter:     FIXED with with block size: %v\n", units.BytesStringBase2(int64(options.MaxBlockSize)))
 
 	case "NEVER":
-		fmt.Fprintf(os.Stderr, "  object splitter:     NEVER\n")
+		printStderr("  object splitter:     NEVER\n")
 	}
 
 	if err := repo.Initialize(ctx, st, options, creds); err != nil {
@@ -98,7 +97,7 @@ func runCreateCommandWithStorage(ctx context.Context, st storage.Storage) error 
 			return err
 		}
 
-		fmt.Fprintln(os.Stderr, "Connected to repository")
+		printStderr("Connected to repository.\n")
 		promptForAnalyticsConsent()
 	}
 

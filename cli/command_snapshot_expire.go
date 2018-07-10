@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
@@ -25,7 +24,7 @@ func getSnapshotNamesToExpire(mgr *snapshot.Manager) ([]string, error) {
 	}
 
 	if *snapshotExpireAll {
-		fmt.Fprintf(os.Stderr, "Scanning all active snapshots...\n")
+		printStderr("Scanning all active snapshots...\n")
 		return mgr.ListSnapshotManifests(nil), nil
 	}
 
@@ -73,25 +72,25 @@ func runExpireCommand(ctx context.Context, rep *repo.Repository) error {
 	for _, snapshots := range snapshot.GroupBySource(toDelete) {
 		src := snapshots[0].Source
 		if len(toDelete) == 0 {
-			fmt.Fprintf(os.Stderr, "Nothing to delete for %q.\n", src)
+			printStderr("Nothing to delete for %q.\n", src)
 		} else {
 			fmt.Printf("Would delete %v/%v snapshots for %v\n", len(toDelete), len(snapshots), src)
 		}
 	}
 
-	fmt.Fprintf(os.Stderr, "\n*** ")
+	printStderr("\n*** ")
 
 	if len(toDelete) == 0 {
-		fmt.Fprintf(os.Stderr, "Nothing to delete.\n")
+		printStderr("Nothing to delete.\n")
 		return nil
 	}
 	if *snapshotExpireDelete == "yes" {
-		fmt.Fprintf(os.Stderr, "Deleting %v snapshots...\n", len(toDelete))
+		printStderr("Deleting %v snapshots...\n", len(toDelete))
 		for _, it := range toDelete {
 			rep.Manifests.Delete(it.ID)
 		}
 	} else {
-		fmt.Fprintf(os.Stderr, "%v snapshot(s) would be deleted. Pass --delete=yes to do it.\n", len(toDelete))
+		printStderr("%v snapshot(s) would be deleted. Pass --delete=yes to do it.\n", len(toDelete))
 	}
 
 	return nil

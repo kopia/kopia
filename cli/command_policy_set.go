@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -62,7 +61,7 @@ func setPolicy(ctx context.Context, rep *repo.Repository) error {
 			p = &snapshot.Policy{}
 		}
 
-		fmt.Fprintf(os.Stderr, "Setting policy for %v\n", target)
+		printStderr("Setting policy for %v\n", target)
 		changeCount := 0
 
 		if err := setPolicyFromFlags(target, p, &changeCount); err != nil {
@@ -110,7 +109,7 @@ func setPolicyFromFlags(target snapshot.SourceInfo, p *snapshot.Policy, changeCo
 func setFilesPolicyFromFlags(fp *snapshot.FilesPolicy, changeCount *int) error {
 	if *policySetClearExclude {
 		*changeCount++
-		fmt.Fprintf(os.Stderr, " - removing all rules for exclude files\n")
+		printStderr(" - removing all rules for exclude files\n")
 		fp.Exclude = nil
 	} else {
 		fp.Exclude = addRemoveDedupeAndSort("excluded files", fp.Exclude, *policySetAddExclude, *policySetRemoveExclude, changeCount)
@@ -118,7 +117,7 @@ func setFilesPolicyFromFlags(fp *snapshot.FilesPolicy, changeCount *int) error {
 	if *policySetClearInclude {
 		*changeCount++
 		fp.Include = nil
-		fmt.Fprintf(os.Stderr, " - removing all rules for include files\n")
+		printStderr(" - removing all rules for include files\n")
 	} else {
 		fp.Include = addRemoveDedupeAndSort("included files", fp.Include, *policySetAddInclude, *policySetRemoveInclude, changeCount)
 	}
@@ -152,7 +151,7 @@ func setSchedulingPolicyFromFlags(sp *snapshot.SchedulingPolicy, changeCount *in
 	for _, interval := range *policySetInterval {
 		*changeCount++
 		sp.Interval = &interval
-		fmt.Fprintf(os.Stderr, " - setting snapshot interval to %v\n", sp.Interval)
+		printStderr(" - setting snapshot interval to %v\n", sp.Interval)
 		break
 	}
 
@@ -178,9 +177,9 @@ func setSchedulingPolicyFromFlags(sp *snapshot.SchedulingPolicy, changeCount *in
 		sp.TimesOfDay = snapshot.SortAndDedupeTimesOfDay(timesOfDay)
 
 		if timesOfDay == nil {
-			fmt.Fprintf(os.Stderr, " - resetting snapshot times of day to default\n")
+			printStderr(" - resetting snapshot times of day to default\n")
 		} else {
-			fmt.Fprintf(os.Stderr, " - setting snapshot times to %v\n", timesOfDay)
+			printStderr(" - setting snapshot times to %v\n", timesOfDay)
 		}
 	}
 
@@ -194,12 +193,12 @@ func addRemoveDedupeAndSort(desc string, base, add, remove []string, changeCount
 	}
 	for _, b := range add {
 		*changeCount++
-		fmt.Fprintf(os.Stderr, " - adding %v to %v\n", b, desc)
+		printStderr(" - adding %v to %v\n", b, desc)
 		entries[b] = true
 	}
 	for _, b := range remove {
 		*changeCount++
-		fmt.Fprintf(os.Stderr, " - removing %v from %v\n", b, desc)
+		printStderr(" - removing %v from %v\n", b, desc)
 		delete(entries, b)
 	}
 
@@ -219,7 +218,7 @@ func applyPolicyNumber(desc string, val **int, str string, changeCount *int) err
 
 	if str == "inherit" || str == "default" {
 		*changeCount++
-		fmt.Fprintf(os.Stderr, " - resetting %v to a default value inherited from parent.\n", desc)
+		printStderr(" - resetting %v to a default value inherited from parent.\n", desc)
 		*val = nil
 		return nil
 	}
@@ -231,7 +230,7 @@ func applyPolicyNumber(desc string, val **int, str string, changeCount *int) err
 
 	i := int(v)
 	*changeCount++
-	fmt.Fprintf(os.Stderr, " - setting %v to %v.\n", desc, i)
+	printStderr(" - setting %v to %v.\n", desc, i)
 	*val = &i
 	return nil
 }

@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"sync"
 
@@ -57,7 +56,7 @@ func runRewriteBlocksAction(ctx context.Context, rep *repo.Repository) error {
 					optDeleted = " (deleted)"
 				}
 
-				fmt.Fprintf(os.Stderr, "Rewriting block %v (%v bytes) from pack %v%v\n", b.BlockID, b.Length, b.PackFile, optDeleted)
+				printStderr("Rewriting block %v (%v bytes) from pack %v%v\n", b.BlockID, b.Length, b.PackFile, optDeleted)
 				mu.Lock()
 				totalBytes += int64(b.Length)
 				mu.Unlock()
@@ -76,7 +75,7 @@ func runRewriteBlocksAction(ctx context.Context, rep *repo.Repository) error {
 
 	wg.Wait()
 
-	fmt.Fprintf(os.Stderr, "Total bytes rewritten %v\n", totalBytes)
+	printStderr("Total bytes rewritten %v\n", totalBytes)
 
 	if failedCount == 0 {
 		return nil

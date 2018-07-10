@@ -2,8 +2,6 @@ package cli
 
 import (
 	"context"
-	"fmt"
-	"os"
 	"time"
 
 	"github.com/kopia/kopia/block"
@@ -56,7 +54,7 @@ func runConnectCommandWithStorage(ctx context.Context, st storage.Storage) error
 		return err
 	}
 
-	fmt.Fprintln(os.Stderr, "Connected to repository")
+	printStderr("Connected to repository.\n")
 	promptForAnalyticsConsent()
 
 	return err

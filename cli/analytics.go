@@ -40,8 +40,8 @@ func enableAnalytics(clientID string) {
 		return
 	}
 
-	defer f.Close() //nolint:errcheck
-	fmt.Fprintf(f, "%v", clientID)
+	defer f.Close()                //nolint:errcheck
+	fmt.Fprintf(f, "%v", clientID) //nolint:errcheck
 }
 
 func disableAnalytics() {
@@ -63,7 +63,7 @@ func displayAnalyticsConsentPrompt(clientID string) bool {
 	fmt.Println("No personal information (user names, host names, filenames, etc.) is ever sent:")
 	fmt.Println()
 	fmt.Print("Do you agree? (y/n) ")
-	fmt.Scanf("%s", &consent)
+	fmt.Scanf("%s", &consent) //nolint:errcheck
 	if !strings.HasPrefix(strings.ToLower(consent), "y") {
 		return false
 	}

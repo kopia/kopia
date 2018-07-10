@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"time"
 
@@ -120,7 +119,7 @@ func estimate(ctx context.Context, relativePath string, entry fs.Entry, pol *sna
 	switch entry := entry.(type) {
 	case fs.Directory:
 		if !*snapshotEstimateQuiet {
-			fmt.Fprintln(os.Stderr, "Scanning", relativePath)
+			printStderr("Scanning %v\n", relativePath)
 		}
 		children, err := entry.Readdir(ctx)
 		if err != nil {

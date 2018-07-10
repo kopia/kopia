@@ -6,7 +6,6 @@ import (
 	"io"
 	"io/ioutil"
 	"math/rand"
-	"os"
 	"sync"
 	"time"
 
@@ -54,7 +53,7 @@ func (v *verifier) progressCallback(enqueued, active, completed int64) {
 			maybeTimeRemaining = fmt.Sprintf(" remaining %v (ETA %v)", dt.Truncate(1*time.Second), predictedEndTime.Truncate(1*time.Second).Format(timeFormat))
 		}
 	}
-	fmt.Fprintf(os.Stderr, "Found %v objects, verifying %v, completed %v objects%v.\n", enqueued, active, completed, maybeTimeRemaining)
+	printStderr("Found %v objects, verifying %v, completed %v objects%v.\n", enqueued, active, completed, maybeTimeRemaining)
 }
 
 func (v *verifier) tooManyErrors() bool {

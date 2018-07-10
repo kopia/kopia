@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/kopia/kopia/repo"
 )
@@ -20,23 +19,23 @@ func runBlockGarbageCollectAction(ctx context.Context, rep *repo.Repository) err
 	}
 
 	if len(unused) == 0 {
-		fmt.Fprintf(os.Stderr, "No unused blocks found.\n")
+		printStderr("No unused blocks found.\n")
 		return nil
 	}
 
 	if *blockGarbageCollectCommandDelete != "yes" {
 		var totalBytes int64
 		for _, u := range unused {
-			fmt.Fprintf(os.Stderr, "unused %v (%v bytes)\n", u.BlockID, u.Length)
+			printStderr("unused %v (%v bytes)\n", u.BlockID, u.Length)
 			totalBytes += u.Length
 		}
-		fmt.Fprintf(os.Stderr, "Would delete %v unused blocks (%v bytes), pass '--delete=yes' to actually delete.\n", len(unused), totalBytes)
+		printStderr("Would delete %v unused blocks (%v bytes), pass '--delete=yes' to actually delete.\n", len(unused), totalBytes)
 
 		return nil
 	}
 
 	for _, u := range unused {
-		fmt.Fprintf(os.Stderr, "Deleting unused block %q (%v bytes)...\n", u.BlockID, u.Length)
+		printStderr("Deleting unused block %q (%v bytes)...\n", u.BlockID, u.Length)
 		if err := rep.Storage.DeleteBlock(ctx, u.BlockID); err != nil {
 			return fmt.Errorf("unable to delete block %q: %v", u.BlockID, err)
 		}

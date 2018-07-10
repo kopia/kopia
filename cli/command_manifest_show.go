@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/kopia/kopia/repo"
 )
@@ -30,11 +29,11 @@ func showManifestItems(ctx context.Context, rep *repo.Repository) error {
 			return fmt.Errorf("error showing %q: %v", it, err)
 		}
 
-		fmt.Fprintf(os.Stderr, "// id: %v\n", it)
-		fmt.Fprintf(os.Stderr, "// length: %v\n", md.Length)
-		fmt.Fprintf(os.Stderr, "// modified: %v\n", md.ModTime.Local().Format(timeFormat))
+		printStderr("// id: %v\n", it)
+		printStderr("// length: %v\n", md.Length)
+		printStderr("// modified: %v\n", md.ModTime.Local().Format(timeFormat))
 		for k, v := range md.Labels {
-			fmt.Fprintf(os.Stderr, "// label %v:%v\n", k, v)
+			printStderr("// label %v:%v\n", k, v)
 		}
 		if showerr := showContentWithFlags(bytes.NewReader(b), false, true); showerr != nil {
 			return showerr

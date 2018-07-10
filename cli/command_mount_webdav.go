@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
 	"sync"
 
 	"golang.org/x/net/webdav"
@@ -54,7 +53,7 @@ func mountDirectoryWebDAV(entry fs.Directory, mountPoint string) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		fmt.Fprintf(os.Stderr, "Server listening at http://%v/ Press Ctrl-C to shut down.\n", s.Addr)
+		printStderr("Server listening at http://%v/ Press Ctrl-C to shut down.\n", s.Addr)
 		if err := s.ListenAndServe(); err != nil {
 			log.Warningf("server shut down with error: %v", err)
 		}
