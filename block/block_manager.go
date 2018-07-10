@@ -444,7 +444,7 @@ func (bm *Manager) loadPackIndexesUnlocked(ctx context.Context) ([]IndexInfo, bo
 			return nil, false, err
 		}
 
-		err = bm.tryLoadPackIndexBlocksLocked(ctx, blocks)
+		err = bm.tryLoadPackIndexBlocksUnlocked(ctx, blocks)
 		if err == nil {
 			var blockIDs []string
 			for _, b := range blocks {
@@ -465,8 +465,8 @@ func (bm *Manager) loadPackIndexesUnlocked(ctx context.Context) ([]IndexInfo, bo
 	return nil, false, fmt.Errorf("unable to load pack indexes despite %v retries", indexLoadAttempts)
 }
 
-func (bm *Manager) tryLoadPackIndexBlocksLocked(ctx context.Context, blocks []IndexInfo) error {
-	ch, err := bm.unprocessedIndexBlocks(blocks)
+func (bm *Manager) tryLoadPackIndexBlocksUnlocked(ctx context.Context, blocks []IndexInfo) error {
+	ch, err := bm.unprocessedIndexBlocksUnlocked(blocks)
 	if err != nil {
 		return err
 	}
@@ -509,8 +509,8 @@ func (bm *Manager) tryLoadPackIndexBlocksLocked(ctx context.Context, blocks []In
 	return nil
 }
 
-// unprocessedIndexBlocks returns a closed channel filled with block IDs that are not in committedBlocks cache.
-func (bm *Manager) unprocessedIndexBlocks(blocks []IndexInfo) (<-chan string, error) {
+// unprocessedIndexBlocksUnlocked returns a closed channel filled with block IDs that are not in committedBlocks cache.
+func (bm *Manager) unprocessedIndexBlocksUnlocked(blocks []IndexInfo) (<-chan string, error) {
 	ch := make(chan string, len(blocks))
 	for _, block := range blocks {
 		has, err := bm.committedBlocks.cache.hasIndexBlockID(block.FileName)

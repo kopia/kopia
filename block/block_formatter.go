@@ -17,10 +17,10 @@ type Formatter interface {
 	// ComputeBlockID computes ID of the storage block for the specified block of data and returns it in ObjectID.
 	ComputeBlockID(data []byte) []byte
 
-	// Encrypt returns encrypted bytes corresponding to the given plaintext. May reuse the input slice.
+	// Encrypt returns encrypted bytes corresponding to the given plaintext. Must not clobber the input slice.
 	Encrypt(plainText []byte, blockID []byte) ([]byte, error)
 
-	// Decrypt returns unencrypted bytes corresponding to the given ciphertext. May reuse the input slice.
+	// Decrypt returns unencrypted bytes corresponding to the given ciphertext. Must not clobber the input slice.
 	Decrypt(cipherText []byte, blockID []byte) ([]byte, error)
 }
 
@@ -37,11 +37,11 @@ func (fi *unencryptedFormat) ComputeBlockID(data []byte) []byte {
 }
 
 func (fi *unencryptedFormat) Encrypt(plainText []byte, blockID []byte) ([]byte, error) {
-	return plainText, nil
+	return cloneBytes(plainText), nil
 }
 
 func (fi *unencryptedFormat) Decrypt(cipherText []byte, blockID []byte) ([]byte, error) {
-	return cipherText, nil
+	return cloneBytes(cipherText), nil
 }
 
 // syntheticIVEncryptionFormat implements encrypted format with single master AES key and StorageBlock==IV that's
@@ -71,8 +71,9 @@ func symmetricEncrypt(createCipher func(key []byte) (cipher.Block, error), key [
 	}
 
 	ctr := cipher.NewCTR(blockCipher, iv[0:blockCipher.BlockSize()])
-	ctr.XORKeyStream(b, b)
-	return b, nil
+	result := make([]byte, len(b))
+	ctr.XORKeyStream(result, b)
+	return result, nil
 }
 
 // SupportedFormats is a list of supported object formats including:

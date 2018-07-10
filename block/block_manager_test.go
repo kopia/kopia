@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"math/rand"
 	"reflect"
@@ -253,6 +254,48 @@ func TestBlockManagerWriteMultiple(t *testing.T) {
 			continue
 		}
 	}
+}
+
+// This is regression test for a bug where we would corrupt data when encryption
+// was done in place and clobbered pending data in memory.
+func TestBlockManagerFailedToWritePack(t *testing.T) {
+	ctx := context.Background()
+	data := map[string][]byte{}
+	keyTime := map[string]time.Time{}
+	st := storagetesting.NewMapStorage(data, keyTime, nil)
+	faulty := &storagetesting.FaultyStorage{
+		Base: st,
+	}
+	st = faulty
+
+	bm, err := newManagerWithOptions(context.Background(), st, FormattingOptions{
+		Version:     1,
+		BlockFormat: "ENCRYPTED_HMAC_SHA256_AES256_SIV",
+		MaxPackSize: maxPackSize,
+		HMACSecret:  []byte("foo"),
+		MasterKey:   []byte("0123456789abcdef0123456789abcdef"),
+	}, CachingOptions{}, fakeTimeNowFrozen(fakeTime))
+	if err != nil {
+		t.Fatalf("can't create bm: %v", err)
+	}
+	logging.SetLevel(logging.DEBUG, "faulty-storage")
+
+	faulty.Faults = map[string][]*storagetesting.Fault{
+		"PutBlock": []*storagetesting.Fault{
+			{Err: errors.New("booboo")},
+		},
+	}
+
+	b1, err := bm.WriteBlock(ctx, seededRandomData(1, 10), "")
+	if err != nil {
+		t.Fatalf("can't create block: %v", err)
+	}
+
+	if err := bm.Flush(ctx); err != nil {
+		t.Logf("expected flush error: %v", err)
+	}
+
+	verifyBlock(ctx, t, bm, b1, seededRandomData(1, 10))
 }
 
 func TestBlockManagerConcurrency(t *testing.T) {

@@ -65,7 +65,7 @@ func (b *committedBlockIndex) addBlock(indexBlockID string, data []byte, use boo
 
 func (b *committedBlockIndex) listBlocks(prefix string, cb func(i Info) error) error {
 	b.mu.Lock()
-	m := b.merged
+	m := append(packindex.Merged(nil), b.merged...)
 	b.mu.Unlock()
 
 	return m.Iterate(prefix, cb)
