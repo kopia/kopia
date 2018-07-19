@@ -63,28 +63,51 @@ func (s *sourceManager) setStatus(stat string) {
 
 func (s *sourceManager) run() {
 	s.setStatus("INITIALIZING")
-
 	defer s.setStatus("STOPPED")
-	s.setStatus("RUNNING")
 
+	if s.server.hostname == s.src.Host {
+		s.runLocal()
+	} else {
+		s.runRemote()
+	}
+}
+
+func (s *sourceManager) runLocal() {
 	s.refreshStatus()
-
 	for {
 		var timeBeforeNextSnapshot time.Duration
-		if !s.nextSnapshotTime.IsZero() && s.server.hostname == s.src.Host {
+		if !s.nextSnapshotTime.IsZero() {
 			timeBeforeNextSnapshot = time.Until(s.nextSnapshotTime)
 			log.Infof("time to next snapshot %v is %v", s.src, timeBeforeNextSnapshot)
 		} else {
 			timeBeforeNextSnapshot = 24 * time.Hour
 		}
 
+		s.setStatus("WAITING")
+		select {
+		case <-s.closed:
+			return
+
+		case <-time.After(15 * time.Second):
+			s.refreshStatus()
+
+		case <-time.After(timeBeforeNextSnapshot):
+			log.Infof("snapshotting %v", s.src)
+			s.setStatus("SNAPSHOTTING")
+			s.snapshot()
+			s.refreshStatus()
+		}
+	}
+}
+
+func (s *sourceManager) runRemote() {
+	s.refreshStatus()
+	s.setStatus("REMOTE")
+	for {
 		select {
 		case <-s.closed:
 			return
 		case <-time.After(15 * time.Second):
-		case <-time.After(timeBeforeNextSnapshot):
-			log.Infof("snapshotting %v", s.src)
-			s.snapshot()
 			s.refreshStatus()
 		}
 	}
@@ -190,7 +213,7 @@ func (s *sourceManager) findClosestNextSnapshotTime() time.Time {
 }
 
 func (s *sourceManager) refreshStatus() {
-	log.Infof("refreshing state for %v", s.src)
+	log.Debugf("refreshing state for %v", s.src)
 	pol, _, err := s.server.policyManager.GetEffectivePolicy(s.src)
 	if err != nil {
 		s.setStatus("FAILED")
