@@ -155,6 +155,10 @@ func newBlockCache(ctx context.Context, st storage.Storage, caching CachingOptio
 		}
 	}
 
+	return newBlockCacheWithCacheStorage(ctx, st, cacheStorage, caching)
+}
+
+func newBlockCacheWithCacheStorage(ctx context.Context, st, cacheStorage storage.Storage, caching CachingOptions) (*blockCache, error) {
 	c := &blockCache{
 		st:           st,
 		cacheStorage: cacheStorage,
