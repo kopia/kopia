@@ -2,6 +2,7 @@ package storagetesting
 
 import (
 	"context"
+	"errors"
 	"sort"
 	"strings"
 	"sync"
@@ -26,6 +27,10 @@ func (s *mapStorage) GetBlock(ctx context.Context, id string, offset, length int
 		data = append([]byte(nil), data...)
 		if length < 0 {
 			return data, nil
+		}
+
+		if int(offset) > len(data) || offset < 0 {
+			return nil, errors.New("invalid offset")
 		}
 
 		data = data[offset:]
