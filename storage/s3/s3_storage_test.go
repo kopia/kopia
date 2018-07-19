@@ -6,6 +6,7 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"testing"
 	"time"
@@ -38,8 +39,22 @@ func getBucketName() string {
 	return fmt.Sprintf("kopia-test-%x", h.Sum(nil)[0:8])
 }
 
+func endpointReachable() bool {
+	conn, err := net.DialTimeout("tcp4", endpoint, 5*time.Second)
+	if err == nil {
+		conn.Close()
+		return true
+	}
+
+	return false
+}
+
 func TestS3Storage(t *testing.T) {
 	if testing.Short() {
+		return
+	}
+
+	if !endpointReachable() {
 		return
 	}
 
