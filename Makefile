@@ -90,7 +90,7 @@ godoc:
 	godoc -http=:33333
 
 coverage:
-	test --coverprofile tmp.cov github.com/kopia/kopia/...
+	go test --coverprofile tmp.cov github.com/kopia/kopia/...
 	go tool cover -html=tmp.cov
 
 coverage-repo:
