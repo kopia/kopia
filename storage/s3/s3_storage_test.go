@@ -51,11 +51,11 @@ func endpointReachable() bool {
 
 func TestS3Storage(t *testing.T) {
 	if testing.Short() {
-		return
+		t.Skip("skipping during short test")
 	}
 
 	if !endpointReachable() {
-		return
+		t.Skip("endpoint not reachable")
 	}
 
 	ctx := context.Background()
