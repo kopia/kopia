@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"math"
 	"math/rand"
 	"os"
 	"reflect"
@@ -1021,7 +1022,13 @@ func (bm *Manager) assertLocked() {
 
 // Refresh reloads the committed block indexes.
 func (bm *Manager) Refresh(ctx context.Context) (bool, error) {
+	bm.mu.Lock()
+	defer bm.mu.Unlock()
+
+	log.Debugf("Refresh started")
+	t0 := time.Now()
 	_, updated, err := bm.loadPackIndexesUnlocked(ctx)
+	log.Debugf("Refresh completed in %v and updated=%v", time.Since(t0), updated)
 	return updated, err
 }
 
@@ -1031,20 +1038,22 @@ type cachedList struct {
 }
 
 // listIndexBlocksFromStorage returns the list of index blocks in the given storage.
-// If 'full' is set to true, this function lists and returns all blocks,
-// if 'full' is false, the function returns only blocks from the last 2 compactions.
 // The list of blocks is not guaranteed to be sorted.
 func listIndexBlocksFromStorage(ctx context.Context, st storage.Storage) ([]IndexInfo, error) {
+	snapshot, err := storage.ListAllBlocksConsistent(ctx, st, newIndexBlockPrefix, math.MaxInt32)
+	if err != nil {
+		return nil, err
+	}
+
 	var results []IndexInfo
-	err := st.ListBlocks(ctx, newIndexBlockPrefix, func(it storage.BlockMetadata) error {
+	for _, it := range snapshot {
 		ii := IndexInfo{
 			FileName:  it.BlockID,
 			Timestamp: it.Timestamp,
 			Length:    it.Length,
 		}
 		results = append(results, ii)
-		return nil
-	})
+	}
 
 	return results, err
 }

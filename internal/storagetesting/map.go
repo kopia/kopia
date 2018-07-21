@@ -66,7 +66,6 @@ func (s *mapStorage) DeleteBlock(ctx context.Context, id string) error {
 
 func (s *mapStorage) ListBlocks(ctx context.Context, prefix string, callback func(storage.BlockMetadata) error) error {
 	s.mutex.RLock()
-	s.mutex.RUnlock()
 
 	keys := []string{}
 	for k := range s.data {
@@ -74,6 +73,7 @@ func (s *mapStorage) ListBlocks(ctx context.Context, prefix string, callback fun
 			keys = append(keys, k)
 		}
 	}
+	s.mutex.RUnlock()
 
 	sort.Strings(keys)
 
