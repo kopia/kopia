@@ -17,6 +17,10 @@ import (
 const goroutineCount = 16
 
 func TestStressBlockManager(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping stress test during short tests")
+	}
+
 	data := map[string][]byte{}
 	keyTimes := map[string]time.Time{}
 	memst := storagetesting.NewMapStorage(data, keyTimes, time.Now)

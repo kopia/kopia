@@ -31,8 +31,11 @@ var (
 )
 
 func TestStressRepository(t *testing.T) {
-	t.Skip("skipped until stress test is fixed")
-	ctx := context.Background()
+	if testing.Short() {
+		t.Skip("skipping stress test during short tests")
+	}
+	ctx := block.UsingListCache(context.Background(), false)
+
 	tmpPath, err := ioutil.TempDir("", "kopia")
 	if err != nil {
 		t.Fatalf("unable to create temp directory")
@@ -92,16 +95,22 @@ func TestStressRepository(t *testing.T) {
 	cancel := make(chan struct{})
 
 	var wg sync.WaitGroup
-	wg.Add(8)
-
-	go longLivedRepositoryTest(t, cancel, configFile1, &wg)
-	go longLivedRepositoryTest(t, cancel, configFile1, &wg)
-	go longLivedRepositoryTest(t, cancel, configFile1, &wg)
-	go longLivedRepositoryTest(t, cancel, configFile1, &wg)
-	go longLivedRepositoryTest(t, cancel, configFile2, &wg)
-	go longLivedRepositoryTest(t, cancel, configFile2, &wg)
-	go longLivedRepositoryTest(t, cancel, configFile2, &wg)
-	go longLivedRepositoryTest(t, cancel, configFile2, &wg)
+	wg.Add(1)
+	go longLivedRepositoryTest(ctx, t, cancel, configFile1, &wg)
+	wg.Add(1)
+	go longLivedRepositoryTest(ctx, t, cancel, configFile1, &wg)
+	wg.Add(1)
+	go longLivedRepositoryTest(ctx, t, cancel, configFile1, &wg)
+	wg.Add(1)
+	go longLivedRepositoryTest(ctx, t, cancel, configFile1, &wg)
+	wg.Add(1)
+	go longLivedRepositoryTest(ctx, t, cancel, configFile2, &wg)
+	wg.Add(1)
+	go longLivedRepositoryTest(ctx, t, cancel, configFile2, &wg)
+	wg.Add(1)
+	go longLivedRepositoryTest(ctx, t, cancel, configFile2, &wg)
+	wg.Add(1)
+	go longLivedRepositoryTest(ctx, t, cancel, configFile2, &wg)
 
 	time.Sleep(5 * time.Second)
 	close(cancel)
@@ -109,9 +118,8 @@ func TestStressRepository(t *testing.T) {
 	wg.Wait()
 }
 
-func longLivedRepositoryTest(t *testing.T, cancel chan struct{}, configFile string, wg *sync.WaitGroup) {
+func longLivedRepositoryTest(ctx context.Context, t *testing.T, cancel chan struct{}, configFile string, wg *sync.WaitGroup) {
 	defer wg.Done()
-	ctx := context.Background()
 
 	rep, err := repo.Open(ctx, configFile, &repo.Options{})
 	if err != nil {
@@ -127,15 +135,14 @@ func longLivedRepositoryTest(t *testing.T, cancel chan struct{}, configFile stri
 		go func() {
 			defer wg2.Done()
 
-			repositoryTest(t, cancel, rep)
+			repositoryTest(ctx, t, cancel, rep)
 		}()
 	}
 
 	wg2.Wait()
 }
 
-func repositoryTest(t *testing.T, cancel chan struct{}, rep *repo.Repository) {
-	ctx := context.Background()
+func repositoryTest(ctx context.Context, t *testing.T, cancel chan struct{}, rep *repo.Repository) {
 	// reopen := func(t *testing.T, r *repo.Repository) error {
 	// 	if err := rep.Close(ctx); err != nil {
 	// 		return fmt.Errorf("error closing: %v", err)
@@ -149,7 +156,7 @@ func repositoryTest(t *testing.T, cancel chan struct{}, rep *repo.Repository) {
 
 	workTypes := []*struct {
 		name     string
-		fun      func(t *testing.T, r *repo.Repository) error
+		fun      func(ctx context.Context, t *testing.T, r *repo.Repository) error
 		weight   int
 		hitCount int
 	}{
@@ -193,7 +200,7 @@ func repositoryTest(t *testing.T, cancel chan struct{}, rep *repo.Repository) {
 			if roulette < w.weight {
 				w.hitCount++
 				//log.Printf("running %v", w.name)
-				if err := w.fun(t, rep); err != nil {
+				if err := w.fun(ctx, t, rep); err != nil {
 					w.hitCount++
 					t.Errorf("error: %v", fmt.Errorf("error running %v: %v", w.name, err))
 					return
@@ -207,9 +214,7 @@ func repositoryTest(t *testing.T, cancel chan struct{}, rep *repo.Repository) {
 
 }
 
-func writeRandomBlock(t *testing.T, r *repo.Repository) error {
-	ctx := context.Background()
-
+func writeRandomBlock(ctx context.Context, t *testing.T, r *repo.Repository) error {
 	data := make([]byte, 1000)
 	rand.Read(data)
 	blockID, err := r.Blocks.WriteBlock(ctx, data, "")
@@ -226,9 +231,7 @@ func writeRandomBlock(t *testing.T, r *repo.Repository) error {
 	return err
 }
 
-func readKnownBlock(t *testing.T, r *repo.Repository) error {
-	ctx := context.Background()
-
+func readKnownBlock(ctx context.Context, t *testing.T, r *repo.Repository) error {
 	knownBlocksMutex.Lock()
 	if len(knownBlocks) == 0 {
 		knownBlocksMutex.Unlock()
@@ -245,40 +248,44 @@ func readKnownBlock(t *testing.T, r *repo.Repository) error {
 	return err
 }
 
-func listBlocks(t *testing.T, r *repo.Repository) error {
+func listBlocks(ctx context.Context, t *testing.T, r *repo.Repository) error {
 	_, err := r.Blocks.ListBlocks("")
 	return err
 }
 
-func listAndReadAllBlocks(t *testing.T, r *repo.Repository) error {
+func listAndReadAllBlocks(ctx context.Context, t *testing.T, r *repo.Repository) error {
 	blocks, err := r.Blocks.ListBlocks("")
 	if err != nil {
 		return err
 	}
 
 	for _, bi := range blocks {
-		_, err := r.Blocks.GetBlock(context.Background(), bi)
+		_, err := r.Blocks.GetBlock(ctx, bi)
 		if err != nil {
-			return err
+			if err == storage.ErrBlockNotFound && strings.HasPrefix(bi, "m") {
+				// this is ok, sometimes manifest manager will perform compaction and 'm' blocks will be marked as deleted
+				continue
+			}
+			return fmt.Errorf("error reading block %v: %v", bi, err)
 		}
 	}
 
 	return nil
 }
 
-func compact(t *testing.T, r *repo.Repository) error {
-	return r.Blocks.CompactIndexes(context.Background(), 1, 1)
+func compact(ctx context.Context, t *testing.T, r *repo.Repository) error {
+	return r.Blocks.CompactIndexes(ctx, 1, 1)
 }
 
-func flush(t *testing.T, r *repo.Repository) error {
-	return r.Flush(context.Background())
+func flush(ctx context.Context, t *testing.T, r *repo.Repository) error {
+	return r.Flush(ctx)
 }
 
-func refresh(t *testing.T, r *repo.Repository) error {
-	return r.Refresh(context.Background())
+func refresh(ctx context.Context, t *testing.T, r *repo.Repository) error {
+	return r.Refresh(ctx)
 }
 
-func readRandomManifest(t *testing.T, r *repo.Repository) error {
+func readRandomManifest(ctx context.Context, t *testing.T, r *repo.Repository) error {
 	manifests := r.Manifests.Find(nil)
 	if len(manifests) == 0 {
 		return nil
@@ -288,7 +295,7 @@ func readRandomManifest(t *testing.T, r *repo.Repository) error {
 	return err
 }
 
-func writeRandomManifest(t *testing.T, r *repo.Repository) error {
+func writeRandomManifest(ctx context.Context, t *testing.T, r *repo.Repository) error {
 	key1 := fmt.Sprintf("key-%v", rand.Intn(10))
 	key2 := fmt.Sprintf("key-%v", rand.Intn(10))
 	val1 := fmt.Sprintf("val1-%v", rand.Intn(10))

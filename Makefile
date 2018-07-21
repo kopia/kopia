@@ -49,7 +49,7 @@ endif
 
 travis-setup: deps dev-deps
 
-travis-release:
+travis-release: long-test
 	mkdir -p $(RELEASES_OUT_DIR)
 	GOARCH=386 GOOS=windows EXE_SUFFIX=.exe RELEASE_SUFFIX=windows-x86 make release
 	GOARCH=amd64 GOOS=windows EXE_SUFFIX=.exe RELEASE_SUFFIX=windows-x64 make release
@@ -74,10 +74,13 @@ dev-deps:
 	gometalinter --install
 
 test: install
-	go test -count=1 -timeout 90s github.com/kopia/kopia/...
+	go test -count=1 -short -timeout 90s github.com/kopia/kopia/...
 
 vtest:
-	go test -count=1 -v -timeout 90s github.com/kopia/kopia/...
+	go test -count=1 -short -v -timeout 90s github.com/kopia/kopia/...
+
+long-test: install
+	go test -count=1 -timeout 90s github.com/kopia/kopia/...
 
 integration-tests:
 	go build -o $(RELEASE_TMP_DIR)/integration/kopia -ldflags $(LDARGS) github.com/kopia/kopia
