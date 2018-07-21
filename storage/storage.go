@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -54,3 +55,54 @@ type BlockMetadata struct {
 
 // ErrBlockNotFound is returned when a block cannot be found in storage.
 var ErrBlockNotFound = errors.New("block not found")
+
+// ListAllBlocks returns BlockMetadata for all blocks in a given storage that have the provided name prefix.
+func ListAllBlocks(ctx context.Context, st Storage, prefix string) ([]BlockMetadata, error) {
+	var result []BlockMetadata
+
+	err := st.ListBlocks(ctx, prefix, func(bm BlockMetadata) error {
+		result = append(result, bm)
+		return nil
+	})
+
+	return result, err
+}
+
+// ListAllBlocksConsistent lists all blocks with given name prefix in the provided storage until the results are
+// consistent. The results are consistent if the list result fetched twice is identical. This guarantees that while
+// the first scan was in progress, no new block was added or removed.
+// maxAttempts specifies maximum number of list attempts (must be >= 2)
+func ListAllBlocksConsistent(ctx context.Context, st Storage, prefix string, maxAttempts int) ([]BlockMetadata, error) {
+	var previous []BlockMetadata
+
+	for i := 0; i < maxAttempts; i++ {
+		result, err := ListAllBlocks(ctx, st, prefix)
+		if err != nil {
+			return nil, err
+		}
+		if i > 0 && sameBlocks(result, previous) {
+			return result, nil
+		}
+
+		previous = result
+	}
+
+	return nil, fmt.Errorf("unable to achieve consistent snapshot despite %v attempts", maxAttempts)
+}
+
+// sameBlocks returns true if b1 & b2 contain the same blocks (ignoring order).
+func sameBlocks(b1, b2 []BlockMetadata) bool {
+	if len(b1) != len(b2) {
+		return false
+	}
+	m := map[string]BlockMetadata{}
+	for _, b := range b1 {
+		m[b.BlockID] = b
+	}
+	for _, b := range b2 {
+		if m[b.BlockID] != b {
+			return false
+		}
+	}
+	return true
+}

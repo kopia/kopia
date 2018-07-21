@@ -13,10 +13,11 @@ var log = kopialogging.Logger("faulty-storage")
 
 // Fault describes the behavior of a single fault.
 type Fault struct {
-	Repeat  int           // how many times to repeat this fault
-	Sleep   time.Duration // sleep before returning
-	WaitFor chan struct{} // waits until the given channel is closed before returning
-	Err     error         // error to return (can be nil in combination with Sleep and WaitFor)
+	Repeat      int           // how many times to repeat this fault
+	Sleep       time.Duration // sleep before returning
+	ErrCallback func() error
+	WaitFor     chan struct{} // waits until the given channel is closed before returning
+	Err         error         // error to return (can be nil in combination with Sleep and WaitFor)
 }
 
 // FaultyStorage implements fault injection for Storage.
@@ -101,6 +102,11 @@ func (s *FaultyStorage) getNextFault(method string, args ...interface{}) error {
 	}
 	if f.Sleep > 0 {
 		log.Debugf("sleeping for %v in %v %v", f.Sleep, method, args)
+	}
+	if f.ErrCallback != nil {
+		err := f.ErrCallback()
+		log.Debugf("returning %v for %v %v", err, method, args)
+		return err
 	}
 	log.Debugf("returning %v for %v %v", f.Err, method, args)
 	return f.Err
