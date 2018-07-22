@@ -15,10 +15,6 @@ import (
 	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/storage"
-
-	// Register well-known blob storage providers
-	_ "github.com/kopia/kopia/storage/filesystem"
-	_ "github.com/kopia/kopia/storage/gcs"
 )
 
 // ConnectOptions specifies options when persisting configuration to connect to a repository.
