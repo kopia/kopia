@@ -8,20 +8,23 @@ import (
 	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/storage/gcs"
+	"github.com/kopia/kopia/storage/filesystem"
 	"github.com/kopia/kopia/storage/logging"
 )
 
 const (
 	masterPassword = "my-password$!@#!@"
-	bucketName     = "kopia-example"
+	storageDir     = "/tmp/kopia-example/storage"
 	configFile     = "/tmp/kopia-example/config"
 	cacheDirectory = "/tmp/kopia-example/cache"
 )
 
 func setupRepositoryAndConnect(ctx context.Context, creds auth.Credentials) error {
-	st, err := gcs.New(ctx, &gcs.Options{
-		BucketName: bucketName,
+	if err := os.MkdirAll(storageDir, 0700); err != nil {
+		return fmt.Errorf("unable to create directory: %v", err)
+	}
+	st, err := filesystem.New(ctx, &filesystem.Options{
+		Path: storageDir,
 	})
 	if err != nil {
 		return fmt.Errorf("unable to connect to storage: %v", err)

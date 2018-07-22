@@ -8,11 +8,14 @@ RELEASE_TMP_DIR = $(CURDIR)/.release
 RELEASES_OUT_DIR = $(CURDIR)/.releases
 ZIP ?= 0
 
-all: install test lint vet integration-tests
+all: install install-examples test lint vet integration-tests
 
 install:
 	@echo Building version: $(BUILD_INFO) / $(BUILD_VERSION)
 	go install -ldflags $(LDARGS) github.com/kopia/kopia
+
+install-examples:
+	go install github.com/kopia/kopia/examples/repository
 
 install-race:
 	@echo Building version: $(BUILD_INFO) / $(BUILD_VERSION)
