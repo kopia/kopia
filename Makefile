@@ -31,7 +31,7 @@ play:
 	go run cmd/playground/main.go
 
 lint:
-	gometalinter ./...
+	gometalinter.v2 ./...
 
 vet:
 	go tool vet -all .
@@ -73,8 +73,8 @@ dev-deps:
 	go get -u github.com/lukehoban/go-outline
 	go get -u github.com/newhook/go-symbols
 	go get -u github.com/sqs/goreturns
-	go get -u github.com/alecthomas/gometalinter
-	gometalinter --install
+	go get -u gopkg.in/alecthomas/gometalinter.v2
+	gometalinter.v2 --install
 
 test: install
 	go test -count=1 -short -timeout 90s github.com/kopia/kopia/...
