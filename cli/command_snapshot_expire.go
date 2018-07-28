@@ -71,11 +71,7 @@ func runExpireCommand(ctx context.Context, rep *repo.Repository) error {
 
 	for _, snapshots := range snapshot.GroupBySource(toDelete) {
 		src := snapshots[0].Source
-		if len(toDelete) == 0 {
-			printStderr("Nothing to delete for %q.\n", src)
-		} else {
-			fmt.Printf("Would delete %v/%v snapshots for %v\n", len(toDelete), len(snapshots), src)
-		}
+		fmt.Printf("Would delete %v snapshots for %v\n", len(snapshots), src)
 	}
 
 	printStderr("\n*** ")
