@@ -25,6 +25,7 @@ type SourceStatus struct {
 	Source           snapshot.SourceInfo `json:"source"`
 	Status           string              `json:"status"`
 	Policy           *snapshot.Policy    `json:"policy"`
+	LastSnapshotSize int64               `json:"lastSnapshotSize,omitempty"`
 	LastSnapshotTime time.Time           `json:"lastSnapshotTime,omitempty"`
 	NextSnapshotTime time.Time           `json:"nextSnapshotTime,omitempty"`
 

@@ -43,6 +43,7 @@ func (s *sourceManager) Status() serverapi.SourceStatus {
 	st := serverapi.SourceStatus{
 		Source:           s.src,
 		Status:           s.state,
+		LastSnapshotSize: s.lastSnapshot.Stats.TotalFileSize,
 		LastSnapshotTime: s.lastSnapshot.StartTime,
 		NextSnapshotTime: s.nextSnapshotTime,
 		Policy:           s.pol,
