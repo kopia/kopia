@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"fmt"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -15,7 +17,7 @@ type uploadProgress struct {
 	bar        *pb.ProgressBar
 }
 
-func (p *uploadProgress) Progress(path string, dirCompleted, dirTotal int64, stats *snapshot.Stats) {
+func (p *uploadProgress) Progress(path string, numFiles int, dirCompleted, dirTotal int64, stats *snapshot.Stats) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -26,7 +28,7 @@ func (p *uploadProgress) Progress(path string, dirCompleted, dirTotal int64, sta
 			p.bar = nil
 		}
 
-		p.bar = pb.New64(dirTotal).Prefix("  " + shortenPath(path))
+		p.bar = pb.New64(dirTotal).Prefix(fmt.Sprintf("%4v files in '%v'", numFiles, shortenPath(strings.TrimPrefix(path, "./"))))
 		p.bar.Output = os.Stderr
 		p.bar.SetRefreshRate(time.Second)
 		p.bar.ShowSpeed = true

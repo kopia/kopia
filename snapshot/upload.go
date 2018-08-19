@@ -74,6 +74,7 @@ type Uploader struct {
 	progressMutex          sync.Mutex
 	nextProgressReportTime time.Time
 	currentProgressDir     string // current directory for reporting progress
+	currentDirNumFiles     int    // number of files in current directory
 	currentDirCompleted    int64  // bytes completed in current directory
 	currentDirTotalSize    int64  // total # of bytes in current directory
 }
@@ -169,7 +170,7 @@ func (u *Uploader) addDirProgress(length int64) {
 	u.progressMutex.Unlock()
 
 	if shouldReport {
-		u.Progress.Progress(u.currentProgressDir, c, u.currentDirTotalSize, &u.stats)
+		u.Progress.Progress(u.currentProgressDir, u.currentDirNumFiles, c, u.currentDirTotalSize, &u.stats)
 	}
 }
 
@@ -334,6 +335,7 @@ func (u *Uploader) prepareProgress(relativePath string, entries fs.Entries) {
 	u.currentProgressDir = relativePath
 	u.currentDirTotalSize = 0
 	u.currentDirCompleted = 0
+	u.currentDirNumFiles = 0
 
 	// Phase #2 - compute the total size of files in current directory
 	_ = u.foreachEntryUnlessCancelled(relativePath, entries, func(entry fs.Entry, entryRelativePath string) error {
@@ -342,6 +344,7 @@ func (u *Uploader) prepareProgress(relativePath string, entries fs.Entries) {
 			return nil
 		}
 
+		u.currentDirNumFiles++
 		u.currentDirTotalSize += entry.Metadata().FileSize
 		return nil
 	})

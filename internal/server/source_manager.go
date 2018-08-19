@@ -114,7 +114,7 @@ func (s *sourceManager) runRemote() {
 	}
 }
 
-func (s *sourceManager) Progress(path string, pathCompleted, pathTotal int64, stats *snapshot.Stats) {
+func (s *sourceManager) Progress(path string, numFiles int, pathCompleted, pathTotal int64, stats *snapshot.Stats) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
