@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/kopia/kopia/fs/ignorefs"
+
 	"github.com/kopia/kopia/repo"
 
 	"github.com/kopia/kopia/fs"
@@ -67,15 +69,31 @@ func runSnapshotEstimateCommand(ctx context.Context, rep *repo.Repository) error
 	}
 
 	sourceInfo := snapshot.SourceInfo{Path: filepath.Clean(path), Host: getHostName(), UserName: getUserName()}
-	policy, _, err := pmgr.GetEffectivePolicy(sourceInfo)
-	if err != nil {
-		return fmt.Errorf("unable to get backup policy for source %v: %v", sourceInfo, err)
-	}
 
 	var stats snapshot.Stats
 	ib := makeBuckets()
 	eb := makeBuckets()
-	if err := estimate(ctx, ".", mustGetLocalFSEntry(path), &policy.FilesPolicy, &stats, ib, eb); err != nil {
+
+	onIgnoredFile := func(relativePath string, md *fs.EntryMetadata) {
+		log.Noticef("ignoring %v", relativePath)
+		eb.add(relativePath, md.FileSize)
+		if md.FileMode().IsDir() {
+			stats.ExcludedDirCount++
+		} else {
+			stats.ExcludedFileCount++
+			stats.ExcludedTotalFileSize += md.FileSize
+		}
+	}
+
+	entry := mustGetLocalFSEntry(path)
+	if dir, ok := entry.(fs.Directory); ok {
+		ignorePolicy, err := pmgr.FilesPolicyGetter(sourceInfo)
+		if err != nil {
+			return err
+		}
+		entry = ignorefs.New(dir, ignorePolicy, ignorefs.ReportIgnoredFiles(onIgnoredFile))
+	}
+	if err := estimate(ctx, ".", entry, &stats, ib, eb); err != nil {
 		return err
 	}
 
@@ -83,7 +101,7 @@ func runSnapshotEstimateCommand(ctx context.Context, rep *repo.Repository) error
 	showBuckets(ib)
 	fmt.Println()
 
-	fmt.Printf("Snapshot excludes %v files, total size %v\n", stats.ExcludedFileCount, units.BytesStringBase10(stats.ExcludedTotalFileSize))
+	fmt.Printf("Snapshot excludes %v directories and %v files with total size %v\n", stats.ExcludedDirCount, stats.ExcludedFileCount, units.BytesStringBase10(stats.ExcludedTotalFileSize))
 	showBuckets(eb)
 
 	megabits := float64(stats.TotalFileSize) * 8 / 1000000
@@ -108,14 +126,7 @@ func showBuckets(b buckets) {
 		}
 	}
 }
-func estimate(ctx context.Context, relativePath string, entry fs.Entry, pol *snapshot.FilesPolicy, stats *snapshot.Stats, ib, eb buckets) error {
-	if !pol.ShouldInclude(entry.Metadata()) {
-		eb.add(relativePath, entry.Metadata().FileSize)
-		stats.ExcludedFileCount++
-		stats.ExcludedTotalFileSize += entry.Metadata().FileSize
-		return nil
-	}
-
+func estimate(ctx context.Context, relativePath string, entry fs.Entry, stats *snapshot.Stats, ib, eb buckets) error {
 	switch entry := entry.(type) {
 	case fs.Directory:
 		if !*snapshotEstimateQuiet {
@@ -127,7 +138,7 @@ func estimate(ctx context.Context, relativePath string, entry fs.Entry, pol *sna
 		}
 
 		for _, child := range children {
-			if err := estimate(ctx, filepath.Join(relativePath, child.Metadata().Name), child, pol, stats, ib, eb); err != nil {
+			if err := estimate(ctx, filepath.Join(relativePath, child.Metadata().Name), child, stats, ib, eb); err != nil {
 				return err
 			}
 		}

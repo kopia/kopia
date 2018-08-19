@@ -3,6 +3,9 @@ package snapshot
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
+
+	"github.com/kopia/kopia/fs/ignorefs"
 
 	"github.com/kopia/kopia/manifest"
 	"github.com/kopia/kopia/repo"
@@ -154,6 +157,55 @@ func (m *PolicyManager) ListPolicies() ([]*Policy, error) {
 	}
 
 	return policies, nil
+}
+
+// FilesPolicyGetter returns ignorefs.FilesPolicyGetter for a given source.
+func (m *PolicyManager) FilesPolicyGetter(si SourceInfo) (ignorefs.FilesPolicyGetter, error) {
+	result := ignorefs.FilesPolicyMap{}
+
+	pol, _, err := m.GetEffectivePolicy(si)
+	if err != nil {
+		return nil, err
+	}
+
+	result["."] = &pol.FilesPolicy
+
+	// Find all policies for this host and user
+	policies := m.repository.Manifests.Find(map[string]string{
+		"type":       "policy",
+		"policyType": "path",
+		"username":   si.UserName,
+		"hostname":   si.Host,
+	})
+
+	log.Debugf("found %v policies for %v@%v", si.UserName, si.Host)
+
+	for _, id := range policies {
+		em, err := m.repository.Manifests.GetMetadata(id.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		policyPath := em.Labels["path"]
+
+		if !strings.HasPrefix(policyPath, si.Path+"/") {
+			continue
+		}
+
+		rel, err := filepath.Rel(si.Path, policyPath)
+		if err != nil {
+			return nil, fmt.Errorf("unable to determine relative path: %v", err)
+		}
+		rel = "./" + rel
+		log.Debugf("loading policy for %v (%v)", policyPath, rel)
+		pol := &Policy{}
+		if err := m.repository.Manifests.Get(id.ID, pol); err != nil {
+			return nil, fmt.Errorf("unable to load policy %v: %v", id.ID, err)
+		}
+		result[rel] = &pol.FilesPolicy
+	}
+
+	return result, nil
 }
 
 func labelsForSource(si SourceInfo) map[string]string {

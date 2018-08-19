@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/kopia/kopia/fs/ignorefs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 )
@@ -28,19 +29,23 @@ var (
 	policySetKeepMonthly = policySetCommand.Flag("keep-monthly", "Number of most-recent monthly backups to keep per source (or 'inherit')").PlaceHolder("N").String()
 	policySetKeepAnnual  = policySetCommand.Flag("keep-annual", "Number of most-recent annual backups to keep per source (or 'inherit')").PlaceHolder("N").String()
 
-	// Files to include (by default everything).
-	policySetAddInclude    = policySetCommand.Flag("add-include", "List of paths to add to the include list").PlaceHolder("PATTERN").Strings()
-	policySetRemoveInclude = policySetCommand.Flag("remove-include", "List of paths to remove from the include list").PlaceHolder("PATTERN").Strings()
-	policySetClearInclude  = policySetCommand.Flag("clear-include", "Clear list of paths in the include list").Bool()
+	// Files to ignore.
+	policySetAddIgnore    = policySetCommand.Flag("add-ignore", "List of paths to add to the ignore list").PlaceHolder("PATTERN").Strings()
+	policySetRemoveIgnore = policySetCommand.Flag("remove-ignore", "List of paths to remove from the ignore list").PlaceHolder("PATTERN").Strings()
+	policySetClearIgnore  = policySetCommand.Flag("clear-ignore", "Clear list of paths in the ignore list").Bool()
 
-	// Files to exclude.
-	policySetAddExclude    = policySetCommand.Flag("add-exclude", "List of paths to add to the exclude list").PlaceHolder("PATTERN").Strings()
-	policySetRemoveExclude = policySetCommand.Flag("remove-exclude", "List of paths to remove from the exclude list").PlaceHolder("PATTERN").Strings()
-	policySetClearExclude  = policySetCommand.Flag("clear-exclude", "Clear list of paths in the exclude list").Bool()
-	policySetMaxFileSize   = policySetCommand.Flag("max-file-size", "Exclude files above given size").PlaceHolder("N").String()
+	// Dot-ignore iles to look at.
+	policySetAddDotIgnore    = policySetCommand.Flag("add-dot-ignore", "List of paths to add to the dot-ignore list").PlaceHolder("FILENAME").Strings()
+	policySetRemoveDotIgnore = policySetCommand.Flag("remove-dot-ignore", "List of paths to remove from the dot-ignore list").PlaceHolder("FILENAME").Strings()
+	policySetClearDotIgnore  = policySetCommand.Flag("clear-dot-ignore", "Clear list of paths in the dot-ignore list").Bool()
+	policySetMaxFileSize     = policySetCommand.Flag("max-file-size", "Exclude files above given size").PlaceHolder("N").String()
 
 	// General policy.
-	policySetInherit = policySetCommand.Flag("inherit", "Enable or disable inheriting policies from the parent").BoolList()
+	policySetInherit = policySetCommand.Flag(inheritPolicyString, "Enable or disable inheriting policies from the parent").BoolList()
+)
+
+const (
+	inheritPolicyString = "inherit"
 )
 
 func init() {
@@ -93,7 +98,7 @@ func setPolicyFromFlags(target snapshot.SourceInfo, p *snapshot.Policy, changeCo
 		return fmt.Errorf("scheduling policy: %v", err)
 	}
 
-	if err := applyPolicyNumber("maximum file size", &p.FilesPolicy.MaxSize, *policySetMaxFileSize, changeCount); err != nil {
+	if err := applyPolicyNumber64("maximum file size", &p.FilesPolicy.MaxFileSize, *policySetMaxFileSize, changeCount); err != nil {
 		return fmt.Errorf("maximum file size: %v", err)
 	}
 
@@ -106,20 +111,20 @@ func setPolicyFromFlags(target snapshot.SourceInfo, p *snapshot.Policy, changeCo
 	return nil
 }
 
-func setFilesPolicyFromFlags(fp *snapshot.FilesPolicy, changeCount *int) error {
-	if *policySetClearExclude {
+func setFilesPolicyFromFlags(fp *ignorefs.FilesPolicy, changeCount *int) error {
+	if *policySetClearDotIgnore {
 		*changeCount++
-		printStderr(" - removing all rules for exclude files\n")
-		fp.Exclude = nil
+		printStderr(" - removing all rules for dot-ignore files\n")
+		fp.DotIgnoreFiles = nil
 	} else {
-		fp.Exclude = addRemoveDedupeAndSort("excluded files", fp.Exclude, *policySetAddExclude, *policySetRemoveExclude, changeCount)
+		fp.DotIgnoreFiles = addRemoveDedupeAndSort("dot-ignore files", fp.DotIgnoreFiles, *policySetAddDotIgnore, *policySetRemoveDotIgnore, changeCount)
 	}
-	if *policySetClearInclude {
+	if *policySetClearIgnore {
 		*changeCount++
-		fp.Include = nil
-		printStderr(" - removing all rules for include files\n")
+		fp.IgnoreRules = nil
+		printStderr(" - removing all ignore rules\n")
 	} else {
-		fp.Include = addRemoveDedupeAndSort("included files", fp.Include, *policySetAddInclude, *policySetRemoveInclude, changeCount)
+		fp.IgnoreRules = addRemoveDedupeAndSort("ignored files", fp.IgnoreRules, *policySetAddIgnore, *policySetRemoveIgnore, changeCount)
 	}
 	return nil
 }
@@ -160,7 +165,7 @@ func setSchedulingPolicyFromFlags(sp *snapshot.SchedulingPolicy, changeCount *in
 
 		for _, tods := range *policySetTimesOfDay {
 			for _, tod := range strings.Split(tods, ",") {
-				if tod == "inherit" {
+				if tod == inheritPolicyString {
 					timesOfDay = nil
 					break
 				}
@@ -216,7 +221,7 @@ func applyPolicyNumber(desc string, val **int, str string, changeCount *int) err
 		return nil
 	}
 
-	if str == "inherit" || str == "default" {
+	if str == inheritPolicyString || str == "default" {
 		*changeCount++
 		printStderr(" - resetting %v to a default value inherited from parent.\n", desc)
 		*val = nil
@@ -232,5 +237,29 @@ func applyPolicyNumber(desc string, val **int, str string, changeCount *int) err
 	*changeCount++
 	printStderr(" - setting %v to %v.\n", desc, i)
 	*val = &i
+	return nil
+}
+
+func applyPolicyNumber64(desc string, val *int64, str string, changeCount *int) error {
+	if str == "" {
+		// not changed
+		return nil
+	}
+
+	if str == inheritPolicyString || str == "default" {
+		*changeCount++
+		printStderr(" - resetting %v to a default value inherited from parent.\n", desc)
+		*val = 0
+		return nil
+	}
+
+	v, err := strconv.ParseInt(str, 10, 64)
+	if err != nil {
+		return fmt.Errorf("can't parse the %v %q: %v", desc, str, err)
+	}
+
+	*changeCount++
+	printStderr(" - setting %v to %v.\n", desc, v)
+	*val = v
 	return nil
 }

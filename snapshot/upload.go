@@ -13,6 +13,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/kopia/kopia/fs/ignorefs"
+
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/dir"
 	"github.com/kopia/kopia/internal/hashcache"
@@ -41,8 +43,7 @@ var errCancelled = errors.New("cancelled")
 type Uploader struct {
 	Progress UploadProgress
 
-	// specifies criteria for including and excluding files.
-	FilesPolicy FilesPolicy
+	FilesPolicy ignorefs.FilesPolicyGetter
 
 	// automatically cancel the Upload after certain number of bytes
 	MaxUploadBytes int64
@@ -279,13 +280,6 @@ func (u *Uploader) foreachEntryUnlessCancelled(relativePath string, entries fs.E
 
 		e := entry.Metadata()
 		entryRelativePath := relativePath + "/" + e.Name
-
-		if !u.FilesPolicy.ShouldInclude(e) {
-			log.Debugf("ignoring %q", entryRelativePath)
-			u.stats.ExcludedFileCount++
-			u.stats.ExcludedTotalFileSize += e.FileSize
-			continue
-		}
 
 		if err := cb(entry, entryRelativePath); err != nil {
 			return err
@@ -633,6 +627,9 @@ func (u *Uploader) Upload(
 
 	switch entry := source.(type) {
 	case fs.Directory:
+		entry = ignorefs.New(entry, u.FilesPolicy, ignorefs.ReportIgnoredFiles(func(_ string, md *fs.EntryMetadata) {
+			u.stats.AddExcluded(md)
+		}))
 		s.RootEntry, s.HashCacheID, err = u.uploadDir(ctx, entry)
 
 	case fs.File:

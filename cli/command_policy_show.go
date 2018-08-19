@@ -118,31 +118,29 @@ func printRetentionPolicy(p *snapshot.Policy, parents []*snapshot.Policy) {
 func printFilesPolicy(p *snapshot.Policy, parents []*snapshot.Policy) {
 	printStdout("Files policy:\n")
 
-	if len(p.FilesPolicy.Include) == 0 {
-		printStdout("  Include all files.\n")
+	if len(p.FilesPolicy.IgnoreRules) > 0 {
+		printStdout("  Ignore rules:\n")
 	} else {
-		printStdout("  Include only:\n")
+		printStdout("  No ignore rules.\n")
 	}
-	for _, inc := range p.FilesPolicy.Include {
-		printStdout("    %-30v %v\n", inc, getDefinitionPoint(parents, func(pol *snapshot.Policy) bool {
-			return containsString(pol.FilesPolicy.Include, inc)
+	for _, rule := range p.FilesPolicy.IgnoreRules {
+		printStdout("    %-30v %v\n", rule, getDefinitionPoint(parents, func(pol *snapshot.Policy) bool {
+			return containsString(pol.FilesPolicy.IgnoreRules, rule)
 		}))
 	}
-	if len(p.FilesPolicy.Exclude) > 0 {
-		printStdout("  Exclude:\n")
-		for _, exc := range p.FilesPolicy.Exclude {
-			printStdout("    %-30v %v\n", exc, getDefinitionPoint(parents, func(pol *snapshot.Policy) bool {
-				return containsString(pol.FilesPolicy.Exclude, exc)
-			}))
-		}
-	} else {
-		printStdout("  No excluded files.\n")
+	if len(p.FilesPolicy.DotIgnoreFiles) > 0 {
+		printStdout("  Read ignore rules from files:\n")
 	}
-	if s := p.FilesPolicy.MaxSize; s != nil {
-		printStdout("  Exclude files above: %10v  %v\n",
-			units.BytesStringBase2(int64(*s)),
+	for _, dotFile := range p.FilesPolicy.DotIgnoreFiles {
+		printStdout("    %-30v %v\n", dotFile, getDefinitionPoint(parents, func(pol *snapshot.Policy) bool {
+			return containsString(pol.FilesPolicy.DotIgnoreFiles, dotFile)
+		}))
+	}
+	if maxSize := p.FilesPolicy.MaxFileSize; maxSize > 0 {
+		printStdout("  Ignore files above: %10v  %v\n",
+			units.BytesStringBase2(maxSize),
 			getDefinitionPoint(parents, func(pol *snapshot.Policy) bool {
-				return pol.FilesPolicy.MaxSize != nil
+				return pol.FilesPolicy.MaxFileSize != 0
 			}))
 	}
 }

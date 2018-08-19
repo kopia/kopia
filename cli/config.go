@@ -35,10 +35,12 @@ var (
 
 func printStderr(msg string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, msg, args...) //nolint:errcheck
+	log.Debugf("[STDERR] "+msg, args...)
 }
 
 func printStdout(msg string, args ...interface{}) {
 	fmt.Fprintf(os.Stdout, msg, args...) //nolint:errcheck
+	log.Debugf("[STDOUT] "+msg, args...)
 }
 
 func failOnError(err error) {

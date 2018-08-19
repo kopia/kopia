@@ -163,7 +163,11 @@ func (s *sourceManager) snapshot() {
 		return
 	}
 	u := snapshot.NewUploader(s.server.rep)
-	u.FilesPolicy = s.pol.FilesPolicy
+	polGetter, err := s.server.policyManager.FilesPolicyGetter(s.src)
+	if err != nil {
+		log.Errorf("unable to create policy getter: %v", err)
+	}
+	u.FilesPolicy = polGetter
 	u.Progress = s
 	ctx := context.Background()
 

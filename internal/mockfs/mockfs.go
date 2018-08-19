@@ -56,6 +56,11 @@ func (imd *Directory) Summary() *fs.DirectorySummary {
 	return nil
 }
 
+// AddFileLines adds a mock file with the specified name, text content and permissions.
+func (imd *Directory) AddFileLines(name string, lines []string, permissions fs.Permissions) *File {
+	return imd.AddFile(name, []byte(strings.Join(lines, "\n")), permissions)
+}
+
 // AddFile adds a mock file with the specified name, content and permissions.
 func (imd *Directory) AddFile(name string, content []byte, permissions fs.Permissions) *File {
 	imd, name = imd.resolveSubdir(name)
@@ -162,6 +167,14 @@ type File struct {
 	entry
 
 	source func() (ReaderSeekerCloser, error)
+}
+
+// SetContents changes the contents of a given file.
+func (imf *File) SetContents(b []byte) {
+	imf.source = func() (ReaderSeekerCloser, error) {
+		return readerSeekerCloser{bytes.NewReader(b)}, nil
+	}
+
 }
 
 type fileReader struct {

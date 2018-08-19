@@ -1,6 +1,9 @@
 package snapshot
 
-import "github.com/kopia/kopia/block"
+import (
+	"github.com/kopia/kopia/block"
+	"github.com/kopia/kopia/fs"
+)
 
 // Stats keeps track of snapshot generation statistics.
 type Stats struct {
@@ -12,9 +15,20 @@ type Stats struct {
 
 	ExcludedFileCount     int   `json:"excludedFileCount"`
 	ExcludedTotalFileSize int64 `json:"excludedTotalSize"`
+	ExcludedDirCount      int   `json:"excludedDirCount"`
 
 	CachedFiles    int `json:"cachedFiles"`
 	NonCachedFiles int `json:"nonCachedFiles"`
 
 	ReadErrors int `json:"readErrors"`
+}
+
+// AddExcluded adds the information about excluded file to the statistics.
+func (s *Stats) AddExcluded(md *fs.EntryMetadata) {
+	if md.FileMode().IsDir() {
+		s.ExcludedDirCount++
+	} else {
+		s.ExcludedFileCount++
+		s.ExcludedTotalFileSize += md.FileSize
+	}
 }
