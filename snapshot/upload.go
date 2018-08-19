@@ -9,6 +9,7 @@ import (
 	"hash/fnv"
 	"io"
 	"math/rand"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -462,7 +463,7 @@ func (u *Uploader) launchWorkItems(workItems []*uploadWorkItem, wg *sync.WaitGro
 
 	workerCount := u.ParallelUploads
 	if workerCount == 0 {
-		workerCount = 2
+		workerCount = runtime.NumCPU()
 	}
 
 	ch := toChannel(workItems)
