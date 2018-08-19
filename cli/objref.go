@@ -44,7 +44,7 @@ func getNestedEntry(ctx context.Context, startingDir fs.Entry, parts []string) (
 
 		e := entries.FindByName(part)
 		if e == nil {
-			return nil, fmt.Errorf("entry not found: %q in %q", part, fs.EntryPath(current))
+			return nil, fmt.Errorf("entry not found: %q", part)
 		}
 
 		current = e

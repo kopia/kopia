@@ -12,13 +12,8 @@ import (
 )
 
 type repositoryEntry struct {
-	parent   fs.Directory
 	metadata *dir.Entry
 	repo     *repo.Repository
-}
-
-func (e *repositoryEntry) Parent() fs.Directory {
-	return e.parent
 }
 
 func (e *repositoryEntry) Metadata() *fs.EntryMetadata {
@@ -60,7 +55,7 @@ func (rd *repositoryDirectory) Readdir(ctx context.Context) (fs.Entries, error) 
 
 	entries := make(fs.Entries, len(metadata))
 	for i, m := range metadata {
-		entries[i] = newRepoEntry(rd.repo, m, rd)
+		entries[i] = newRepoEntry(rd.repo, m)
 	}
 
 	entries.Sort()
@@ -92,10 +87,9 @@ func (rsl *repositorySymlink) Readlink(ctx context.Context) (string, error) {
 	return string(b), nil
 }
 
-func newRepoEntry(r *repo.Repository, md *dir.Entry, parent fs.Directory) fs.Entry {
+func newRepoEntry(r *repo.Repository, md *dir.Entry) fs.Entry {
 	re := repositoryEntry{
 		metadata: md,
-		parent:   parent,
 		repo:     r,
 	}
 
@@ -143,7 +137,7 @@ func (m *Manager) DirectoryEntry(objectID object.ID, dirSummary *fs.DirectorySum
 		},
 		ObjectID:   objectID,
 		DirSummary: dirSummary,
-	}, nil)
+	})
 
 	return d.(fs.Directory)
 }
@@ -155,7 +149,7 @@ func (m *Manager) SnapshotRoot(man *Manifest) (fs.Entry, error) {
 		return nil, fmt.Errorf("manifest root object ID")
 	}
 
-	return newRepoEntry(m.repository, man.RootEntry, nil), nil
+	return newRepoEntry(m.repository, man.RootEntry), nil
 }
 
 var _ fs.Directory = &repositoryDirectory{}

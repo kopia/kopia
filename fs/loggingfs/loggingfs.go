@@ -17,7 +17,8 @@ type loggingOptions struct {
 }
 
 type loggingDirectory struct {
-	options *loggingOptions
+	relativePath string
+	options      *loggingOptions
 	fs.Directory
 }
 
@@ -25,10 +26,10 @@ func (ld *loggingDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
 	t0 := time.Now()
 	entries, err := ld.Directory.Readdir(ctx)
 	dt := time.Since(t0)
-	ld.options.printf(ld.options.prefix+"Readdir(%v) took %v and returned %v items", fs.EntryPath(ld), dt, len(entries))
+	ld.options.printf(ld.options.prefix+"Readdir(%v) took %v and returned %v items", ld.relativePath, dt, len(entries))
 	loggingEntries := make(fs.Entries, len(entries))
 	for i, entry := range entries {
-		loggingEntries[i] = wrapWithOptions(entry, ld.options)
+		loggingEntries[i] = wrapWithOptions(entry, ld.options, ld.relativePath+"/"+entry.Metadata().Name)
 	}
 	return loggingEntries, err
 }
@@ -48,13 +49,13 @@ type Option func(o *loggingOptions)
 
 // Wrap returns an Entry that wraps another Entry and logs all method calls.
 func Wrap(e fs.Entry, options ...Option) fs.Entry {
-	return wrapWithOptions(e, applyOptions(options))
+	return wrapWithOptions(e, applyOptions(options), ".")
 }
 
-func wrapWithOptions(e fs.Entry, opts *loggingOptions) fs.Entry {
+func wrapWithOptions(e fs.Entry, opts *loggingOptions, relativePath string) fs.Entry {
 	switch e := e.(type) {
 	case fs.Directory:
-		return fs.Directory(&loggingDirectory{opts, e})
+		return fs.Directory(&loggingDirectory{relativePath, opts, e})
 
 	case fs.File:
 		return fs.File(&loggingFile{opts, e})

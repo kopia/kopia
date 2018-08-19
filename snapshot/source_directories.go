@@ -9,14 +9,9 @@ import (
 )
 
 type sourceDirectories struct {
-	parent          fs.Directory
 	repo            *repo.Repository
 	snapshotManager *Manager
 	userHost        string
-}
-
-func (s *sourceDirectories) Parent() fs.Directory {
-	return s.parent
 }
 
 func (s *sourceDirectories) Metadata() *fs.EntryMetadata {
@@ -41,7 +36,7 @@ func (s *sourceDirectories) Readdir(ctx context.Context) (fs.Entries, error) {
 			continue
 		}
 
-		result = append(result, &sourceSnapshots{s, s.repo, s.snapshotManager, src})
+		result = append(result, &sourceSnapshots{s.repo, s.snapshotManager, src})
 	}
 
 	result.Sort()

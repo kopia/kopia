@@ -4,13 +4,11 @@ import (
 	"context"
 	"io"
 	"sort"
-	"strings"
 	"time"
 )
 
 // Entry represents a filesystem entry, which can be Directory, File, or Symlink
 type Entry interface {
-	Parent() Directory
 	Metadata() *EntryMetadata
 }
 
@@ -72,22 +70,4 @@ func (e Entries) Sort() {
 	sort.Slice(e, func(i, j int) bool {
 		return e[i].Metadata().Name < e[j].Metadata().Name
 	})
-}
-
-// EntryPath returns a path of a given entry from its root node.
-func EntryPath(e Entry) string {
-	var parts []string
-
-	p := e
-	for p != nil {
-		parts = append(parts, p.Metadata().Name)
-		p = p.Parent()
-	}
-
-	// Invert parts
-	for i, j := 0, len(parts)-1; i < j; i, j = i+1, j-1 {
-		parts[i], parts[j] = parts[j], parts[i]
-	}
-
-	return strings.Join(parts, "/")
 }

@@ -157,7 +157,7 @@ func (s *sourceManager) snapshot() {
 	s.server.beginUpload(s.src)
 	defer s.server.endUpload(s.src)
 
-	localEntry, err := localfs.NewEntry(s.src.Path, nil)
+	localEntry, err := localfs.NewEntry(s.src.Path)
 	if err != nil {
 		log.Errorf("unable to create local filesystem: %v", err)
 		return

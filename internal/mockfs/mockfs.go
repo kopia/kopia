@@ -36,12 +36,7 @@ func (e sortedEntries) Less(i, j int) bool {
 }
 
 type entry struct {
-	parent   *Directory
 	metadata *fs.EntryMetadata
-}
-
-func (ime *entry) Parent() fs.Directory {
-	return ime.parent
 }
 
 func (ime *entry) Metadata() *fs.EntryMetadata {
@@ -66,7 +61,6 @@ func (imd *Directory) AddFile(name string, content []byte, permissions fs.Permis
 	imd, name = imd.resolveSubdir(name)
 	file := &File{
 		entry: entry{
-			parent: imd,
 			metadata: &fs.EntryMetadata{
 				Name:        name,
 				Type:        fs.EntryTypeFile,
@@ -90,7 +84,6 @@ func (imd *Directory) AddDir(name string, permissions fs.Permissions) *Directory
 
 	subdir := &Directory{
 		entry: entry{
-			parent: imd,
 			metadata: &fs.EntryMetadata{
 				Name:        name,
 				Type:        fs.EntryTypeDirectory,
@@ -208,7 +201,6 @@ func NewDirectory() *Directory {
 			metadata: &fs.EntryMetadata{
 				Name: "<root>",
 			},
-			parent: nil,
 		},
 	}
 }

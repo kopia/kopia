@@ -181,7 +181,7 @@ func getRepositoryCredentials(isNew bool) (auth.Credentials, error) {
 }
 
 func mustGetLocalFSEntry(path string) fs.Entry {
-	e, err := localfs.NewEntry(path, nil)
+	e, err := localfs.NewEntry(path)
 	if err == nil {
 		failOnError(err)
 	}

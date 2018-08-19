@@ -11,14 +11,9 @@ import (
 )
 
 type sourceSnapshots struct {
-	parent          fs.Directory
 	repo            *repo.Repository
 	snapshotManager *Manager
 	src             SourceInfo
-}
-
-func (s *sourceSnapshots) Parent() fs.Directory {
-	return s.parent
 }
 
 func (s *sourceSnapshots) Metadata() *fs.EntryMetadata {
@@ -66,7 +61,7 @@ func (s *sourceSnapshots) Readdir(ctx context.Context) (fs.Entries, error) {
 			de.DirSummary = m.RootEntry.DirSummary
 		}
 
-		e := newRepoEntry(s.repo, de, s)
+		e := newRepoEntry(s.repo, de)
 
 		result = append(result, e)
 	}

@@ -23,17 +23,12 @@ func (e sortedEntries) Less(i, j int) bool {
 }
 
 type filesystemEntry struct {
-	parent   fs.Directory
 	metadata *fs.EntryMetadata
 	path     string
 }
 
-func newEntry(md *fs.EntryMetadata, parent fs.Directory, path string) filesystemEntry {
-	return filesystemEntry{parent, md, path}
-}
-
-func (e *filesystemEntry) Parent() fs.Directory {
-	return e.parent
+func newEntry(md *fs.EntryMetadata, path string) filesystemEntry {
+	return filesystemEntry{md, path}
 }
 
 func (e *filesystemEntry) Metadata() *fs.EntryMetadata {
@@ -68,7 +63,7 @@ func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error)
 	for {
 		fileInfos, err := f.Readdir(16)
 		for _, fi := range fileInfos {
-			e, fierr := entryFromFileInfo(fi, filepath.Join(fsd.path, fi.Name()), fsd)
+			e, fierr := entryFromFileInfo(fi, filepath.Join(fsd.path, fi.Name()))
 			if fierr != nil {
 				log.Warningf("unable to create directory entry %q: %v", fi.Name(), fierr)
 				continue
@@ -115,18 +110,18 @@ func (fsl *filesystemSymlink) Readlink(ctx context.Context) (string, error) {
 }
 
 // NewEntry returns fs.Entry for the specified path, the result will be one of supported entry types: fs.File, fs.Directory, fs.Symlink.
-func NewEntry(path string, parent fs.Directory) (fs.Entry, error) {
+func NewEntry(path string) (fs.Entry, error) {
 	fi, err := os.Lstat(path)
 	if err != nil {
 		return nil, err
 	}
 
-	return entryFromFileInfo(fi, path, parent)
+	return entryFromFileInfo(fi, path)
 }
 
 // Directory returns fs.Directory for the specified path.
-func Directory(path string, parent fs.Directory) (fs.Directory, error) {
-	e, err := NewEntry(path, parent)
+func Directory(path string) (fs.Directory, error) {
+	e, err := NewEntry(path)
 	if err != nil {
 		return nil, err
 	}
@@ -172,16 +167,16 @@ func entryTypeFromFileMode(t os.FileMode) fs.EntryType {
 	}
 }
 
-func entryFromFileInfo(fi os.FileInfo, path string, parent fs.Directory) (fs.Entry, error) {
+func entryFromFileInfo(fi os.FileInfo, path string) (fs.Entry, error) {
 	switch fi.Mode() & os.ModeType {
 	case os.ModeDir:
-		return &filesystemDirectory{newEntry(entryMetadataFromFileInfo(fi), parent, path)}, nil
+		return &filesystemDirectory{newEntry(entryMetadataFromFileInfo(fi), path)}, nil
 
 	case os.ModeSymlink:
-		return &filesystemSymlink{newEntry(entryMetadataFromFileInfo(fi), parent, path)}, nil
+		return &filesystemSymlink{newEntry(entryMetadataFromFileInfo(fi), path)}, nil
 
 	case 0:
-		return &filesystemFile{newEntry(entryMetadataFromFileInfo(fi), parent, path)}, nil
+		return &filesystemFile{newEntry(entryMetadataFromFileInfo(fi), path)}, nil
 
 	default:
 		return nil, fmt.Errorf("unsupported filesystem entry: %v", path)

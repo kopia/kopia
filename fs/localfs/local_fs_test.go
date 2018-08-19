@@ -28,13 +28,13 @@ func TestFiles(t *testing.T) {
 	var dir fs.Directory
 
 	// Try listing directory that does not exist.
-	dir, err = Directory(fmt.Sprintf("/no-such-dir-%v", time.Now().Nanosecond()), nil)
+	dir, err = Directory(fmt.Sprintf("/no-such-dir-%v", time.Now().Nanosecond()))
 	if err == nil {
 		t.Errorf("expected error when dir directory that does not exist.")
 	}
 
 	// Now list an empty directory that does exist.
-	dir, err = Directory(tmp, nil)
+	dir, err = Directory(tmp)
 	if err != nil {
 		t.Errorf("error when dir empty directory: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestFiles(t *testing.T) {
 	os.Mkdir(filepath.Join(tmp, "z"), 0777)
 	os.Mkdir(filepath.Join(tmp, "y"), 0777)
 
-	dir, err = Directory(tmp, nil)
+	dir, err = Directory(tmp)
 	if err != nil {
 		t.Errorf("error when dir directory with files: %v", err)
 	}

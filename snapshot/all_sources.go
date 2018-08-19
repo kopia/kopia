@@ -18,10 +18,6 @@ func (s *repositoryAllSources) Summary() *fs.DirectorySummary {
 	return nil
 }
 
-func (s *repositoryAllSources) Parent() fs.Directory {
-	return nil
-}
-
 func (s *repositoryAllSources) Metadata() *fs.EntryMetadata {
 	return &fs.EntryMetadata{
 		Name:        "/",
@@ -42,7 +38,6 @@ func (s *repositoryAllSources) Readdir(ctx context.Context) (fs.Entries, error) 
 	var result fs.Entries
 	for u := range users {
 		result = append(result, &sourceDirectories{
-			parent:          s,
 			repo:            s.repo,
 			snapshotManager: s.snapshotManager,
 			userHost:        u,
