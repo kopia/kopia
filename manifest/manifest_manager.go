@@ -15,6 +15,7 @@ import (
 
 	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/kopialogging"
+	"github.com/kopia/kopia/storage"
 )
 
 var log = kopialogging.Logger("kopia/manifest")
@@ -235,20 +236,28 @@ func (m *Manager) Refresh(ctx context.Context) error {
 
 func (m *Manager) loadCommittedBlocks(ctx context.Context) error {
 	log.Debugf("listing manifest blocks")
-	blocks, err := m.b.ListBlocks(manifestBlockPrefix)
-	if err != nil {
-		return fmt.Errorf("unable to list manifest blocks: %v", err)
-	}
-
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	m.committedEntries = map[string]*manifestEntry{}
-	m.committedBlockIDs = map[string]bool{}
+	for {
+		blocks, err := m.b.ListBlocks(manifestBlockPrefix)
+		if err != nil {
+			return fmt.Errorf("unable to list manifest blocks: %v", err)
+		}
 
-	log.Debugf("found %v manifest blocks", len(blocks))
+		m.committedEntries = map[string]*manifestEntry{}
+		m.committedBlockIDs = map[string]bool{}
 
-	if err := m.loadManifestBlocks(ctx, blocks); err != nil {
+		log.Debugf("found %v manifest blocks", len(blocks))
+		err = m.loadManifestBlocks(ctx, blocks)
+		if err == nil {
+			// success
+			break
+		}
+		if err == storage.ErrBlockNotFound {
+			// try again, lost a race with another manifest manager which just did compaction
+			continue
+		}
 		return fmt.Errorf("unable to load manifest blocks: %v", err)
 	}
 
@@ -303,11 +312,12 @@ func (m *Manager) loadBlocksInParallel(ctx context.Context, blockIDs []string) (
 			for blk := range ch {
 				t1 := time.Now()
 				man, err := m.loadManifestBlock(ctx, blk)
-				log.Debugf("block %v loaded by worker %v in %v.", blk, workerID, time.Since(t1))
 
 				if err != nil {
 					errors <- err
+					log.Debugf("block %v failed to be loaded by worker %v in %v: %v.", blk, workerID, time.Since(t1), err)
 				} else {
+					log.Debugf("block %v loaded by worker %v in %v.", blk, workerID, time.Since(t1))
 					manifests <- man
 				}
 			}
@@ -342,7 +352,9 @@ func (m *Manager) loadManifestBlock(ctx context.Context, blockID string) (manife
 	man := manifest{}
 	blk, err := m.b.GetBlock(ctx, blockID)
 	if err != nil {
-		return man, fmt.Errorf("unable to read block %q: %v", blockID, err)
+		// do not wrap the error here, we want to propagate original ErrBlockNotFound
+		// which causes a retry if we lose list/delete race.
+		return man, err
 	}
 
 	if len(blk) > 2 && blk[0] == '{' {
