@@ -8,7 +8,7 @@ Kopia
 
 > _n._
 >
-> 1. _[copy or replica](https://en.wikipedia.org/wiki/Replica) (Polish)_
+> 1. _[copy, replica](https://en.wikipedia.org/wiki/Replica) (Polish)_
 > 2. _[lance, spear](https://en.wikipedia.org/wiki/Kopia)_
 
 
