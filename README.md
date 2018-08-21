@@ -1,7 +1,7 @@
 Kopia
 =====
 
-![logo](kopia.png)
+![Kopia](kopia.svg)
 
 [![Linux/macOS Build Status](https://travis-ci.org/kopia/kopia.svg?branch=master)](https://travis-ci.org/kopia/kopia)
 [![GoDoc](https://godoc.org/github.com/kopia/kopia?status.svg)](https://godoc.org/github.com/kopia/kopia)
