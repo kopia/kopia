@@ -1,21 +1,15 @@
 Kopia
 =====
 
-<div>
-<div style="float:left"><a href="url"><img src="kopia.png" height="64" width="64" srcset="kopia@2x.png"></div></a>
-
-<div style="margin-left: 80px; height: 64px">
+![logo](kopia.png)
 
 [![Linux/macOS Build Status](https://travis-ci.org/kopia/kopia.svg?branch=master)](https://travis-ci.org/kopia/kopia)
 [![GoDoc](https://godoc.org/github.com/kopia/kopia?status.svg)](https://godoc.org/github.com/kopia/kopia)
 
-</div>
-
-</div>
-
-> _"kopia"_
-> 1. _n. Thing exactly replicated from the original (Polish)_
-> 2. _n. [Lance](https://en.wikipedia.org/wiki/Kopia)_
+> _n._
+>
+> 1. _[copy or replica](https://en.wikipedia.org/wiki/Replica) (Polish)_
+> 2. _[lance, spear](https://en.wikipedia.org/wiki/Kopia)_
 
 
 Kopia is a simple, cross-platform tool for managing encrypted backups in the cloud. It provides fast, incremental backups, secure, client-side encryption and data deduplication.
