@@ -155,8 +155,8 @@ func setSchedulingPolicyFromFlags(sp *snapshot.SchedulingPolicy, changeCount *in
 	// It's not really a list, just optional value.
 	for _, interval := range *policySetInterval {
 		*changeCount++
-		sp.Interval = &interval
-		printStderr(" - setting snapshot interval to %v\n", sp.Interval)
+		sp.SetInterval(interval)
+		printStderr(" - setting snapshot interval to %v\n", sp.Interval())
 		break
 	}
 

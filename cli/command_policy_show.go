@@ -146,11 +146,12 @@ func printFilesPolicy(p *snapshot.Policy, parents []*snapshot.Policy) {
 }
 
 func printSchedulingPolicy(p *snapshot.Policy, parents []*snapshot.Policy) {
-	if p.SchedulingPolicy.Interval != nil {
-		printStdout("Snapshot interval:     %10v  %v\n", p.SchedulingPolicy.Interval, getDefinitionPoint(parents, func(pol *snapshot.Policy) bool {
-			return pol.SchedulingPolicy.Interval != nil
+	if p.SchedulingPolicy.Interval() != 0 {
+		printStdout("Snapshot interval:     %10v  %v\n", p.SchedulingPolicy.Interval(), getDefinitionPoint(parents, func(pol *snapshot.Policy) bool {
+			return pol.SchedulingPolicy.Interval() != 0
 		}))
 	}
+
 	if len(p.SchedulingPolicy.TimesOfDay) > 0 {
 		printStdout("Snapshot times:\n")
 		for _, tod := range p.SchedulingPolicy.TimesOfDay {

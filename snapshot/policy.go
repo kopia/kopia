@@ -14,9 +14,9 @@ var ErrPolicyNotFound = errors.New("policy not found")
 // Policy describes snapshot policy for a single source.
 type Policy struct {
 	Labels           map[string]string    `json:"-"`
-	RetentionPolicy  RetentionPolicy      `json:"retention"`
-	FilesPolicy      ignorefs.FilesPolicy `json:"files"`
-	SchedulingPolicy SchedulingPolicy     `json:"scheduling"`
+	RetentionPolicy  RetentionPolicy      `json:"retention,omitempty"`
+	FilesPolicy      ignorefs.FilesPolicy `json:"files,omitempty"`
+	SchedulingPolicy SchedulingPolicy     `json:"scheduling,omitempty"`
 	NoParent         bool                 `json:"noParent,omitempty"`
 }
 
@@ -54,15 +54,15 @@ func MergePolicies(policies []*Policy) *Policy {
 			return &merged
 		}
 
-		mergeRetentionPolicy(&merged.RetentionPolicy, &p.RetentionPolicy)
+		merged.RetentionPolicy.Merge(p.RetentionPolicy)
 		merged.FilesPolicy.Merge(p.FilesPolicy)
-		mergeSchedulingPolicy(&merged.SchedulingPolicy, &p.SchedulingPolicy)
+		merged.SchedulingPolicy.Merge(p.SchedulingPolicy)
 	}
 
 	// Merge default expiration policy.
-	mergeRetentionPolicy(&merged.RetentionPolicy, defaultRetentionPolicy)
+	merged.RetentionPolicy.Merge(defaultRetentionPolicy)
 	merged.FilesPolicy.Merge(ignorefs.DefaultFilesPolicy)
-	mergeSchedulingPolicy(&merged.SchedulingPolicy, defaultSchedulingPolicy)
+	merged.SchedulingPolicy.Merge(defaultSchedulingPolicy)
 
 	return &merged
 }

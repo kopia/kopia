@@ -46,16 +46,27 @@ func SortAndDedupeTimesOfDay(tod []TimeOfDay) []TimeOfDay {
 
 // SchedulingPolicy describes policy for scheduling snapshots.
 type SchedulingPolicy struct {
-	Interval   *time.Duration `json:"interval"`
-	TimesOfDay []TimeOfDay    `json:"timeOfDay"`
+	IntervalSeconds int64       `json:"intervalSeconds,omitempty"`
+	TimesOfDay      []TimeOfDay `json:"timeOfDay,omitempty"`
 }
 
-func mergeSchedulingPolicy(dst, src *SchedulingPolicy) {
-	if dst.Interval == nil {
-		dst.Interval = src.Interval
+// Interval returns the snapshot interval or zero if not specified.
+func (p *SchedulingPolicy) Interval() time.Duration {
+	return time.Duration(p.IntervalSeconds) * time.Second
+}
+
+// SetInterval sets the snapshot interval (zero disables).
+func (p *SchedulingPolicy) SetInterval(d time.Duration) {
+	p.IntervalSeconds = int64(d.Seconds())
+}
+
+// Merge applies default values from the provided policy.
+func (p *SchedulingPolicy) Merge(src SchedulingPolicy) {
+	if p.IntervalSeconds == 0 {
+		p.IntervalSeconds = src.IntervalSeconds
 	}
-	dst.TimesOfDay = SortAndDedupeTimesOfDay(
-		append(append([]TimeOfDay(nil), src.TimesOfDay...), dst.TimesOfDay...))
+	p.TimesOfDay = SortAndDedupeTimesOfDay(
+		append(append([]TimeOfDay(nil), src.TimesOfDay...), p.TimesOfDay...))
 }
 
-var defaultSchedulingPolicy = &SchedulingPolicy{}
+var defaultSchedulingPolicy = SchedulingPolicy{}

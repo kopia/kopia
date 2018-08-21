@@ -119,7 +119,7 @@ func hoursAgo(base time.Time, n int) time.Time {
 	return base.Add(time.Duration(-n) * time.Hour)
 }
 
-var defaultRetentionPolicy = &RetentionPolicy{
+var defaultRetentionPolicy = RetentionPolicy{
 	KeepLatest:  intPtr(1),
 	KeepHourly:  intPtr(48),
 	KeepDaily:   intPtr(7),
@@ -128,23 +128,24 @@ var defaultRetentionPolicy = &RetentionPolicy{
 	KeepAnnual:  intPtr(0),
 }
 
-func mergeRetentionPolicy(dst, src *RetentionPolicy) {
-	if dst.KeepLatest == nil {
-		dst.KeepLatest = src.KeepLatest
+// Merge applies default values from the provided policy.
+func (r *RetentionPolicy) Merge(src RetentionPolicy) {
+	if r.KeepLatest == nil {
+		r.KeepLatest = src.KeepLatest
 	}
-	if dst.KeepHourly == nil {
-		dst.KeepHourly = src.KeepHourly
+	if r.KeepHourly == nil {
+		r.KeepHourly = src.KeepHourly
 	}
-	if dst.KeepDaily == nil {
-		dst.KeepDaily = src.KeepDaily
+	if r.KeepDaily == nil {
+		r.KeepDaily = src.KeepDaily
 	}
-	if dst.KeepWeekly == nil {
-		dst.KeepWeekly = src.KeepWeekly
+	if r.KeepWeekly == nil {
+		r.KeepWeekly = src.KeepWeekly
 	}
-	if dst.KeepMonthly == nil {
-		dst.KeepMonthly = src.KeepMonthly
+	if r.KeepMonthly == nil {
+		r.KeepMonthly = src.KeepMonthly
 	}
-	if dst.KeepAnnual == nil {
-		dst.KeepAnnual = src.KeepAnnual
+	if r.KeepAnnual == nil {
+		r.KeepAnnual = src.KeepAnnual
 	}
 }

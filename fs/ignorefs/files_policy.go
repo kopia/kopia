@@ -3,7 +3,7 @@ package ignorefs
 // FilesPolicy describes files to be ignored when taking snapshots.
 type FilesPolicy struct {
 	IgnoreRules         []string `json:"ignore,omitempty"`
-	NoParentIgnoreRules bool     `json:"noParentIgnoreRules,omitempty"`
+	NoParentIgnoreRules bool     `json:"noParentIgnore,omitempty"`
 
 	DotIgnoreFiles         []string `json:"ignoreDotFiles,omitempty"`
 	NoParentDotIgnoreFiles bool     `json:"noParentDotFiles,omitempty"`

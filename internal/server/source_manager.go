@@ -195,8 +195,9 @@ func (s *sourceManager) findClosestNextSnapshotTime() time.Time {
 	nextSnapshotTime := time.Now().Add(24 * time.Hour)
 	if s.pol != nil {
 		// compute next snapshot time based on interval
-		if interval := s.pol.SchedulingPolicy.Interval; interval != nil {
-			nt := s.lastSnapshot.StartTime.Add(*interval).Truncate(*interval)
+		if interval := s.pol.SchedulingPolicy.IntervalSeconds; interval != 0 {
+			interval := time.Duration(interval) * time.Second
+			nt := s.lastSnapshot.StartTime.Add(interval).Truncate(interval)
 			if nt.Before(nextSnapshotTime) {
 				nextSnapshotTime = nt
 			}
