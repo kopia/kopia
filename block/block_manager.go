@@ -367,7 +367,8 @@ func (bm *Manager) preparePackDataBlock(packFile string) ([]byte, packindex.Buil
 			continue
 		}
 
-		encrypted, err := bm.maybeEncryptBlockDataForPacking(info.Payload, info.BlockID)
+		var encrypted []byte
+		encrypted, err = bm.maybeEncryptBlockDataForPacking(info.Payload, info.BlockID)
 		if err != nil {
 			return nil, nil, fmt.Errorf("unable to encrypt %q: %v", blockID, err)
 		}

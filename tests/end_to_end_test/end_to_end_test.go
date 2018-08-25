@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/kylelemons/godebug/pretty"
 )
 
 const repoPassword = "qWQPJ2hiiLgWRRCr"
@@ -71,7 +73,11 @@ func newTestEnv(t *testing.T) *testenv {
 	}
 }
 
-func (e *testenv) cleanup() {
+func (e *testenv) cleanup(t *testing.T) {
+	if t.Failed() {
+		t.Logf("skipped cleanup for failed test, examine repository: %v", e.repoDir)
+		return
+	}
 	if e.repoDir != "" {
 		os.RemoveAll(e.repoDir)
 	}
@@ -85,7 +91,7 @@ func (e *testenv) cleanup() {
 
 func TestEndToEnd(t *testing.T) {
 	e := newTestEnv(t)
-	defer e.cleanup()
+	defer e.cleanup(t)
 	defer e.runAndExpectSuccess(t, "repo", "disconnect")
 
 	e.runAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.repoDir)
@@ -117,6 +123,29 @@ func TestEndToEnd(t *testing.T) {
 
 	e.runAndExpectSuccess(t, "snapshot", "create", ".", dir1, dir2)
 	e.runAndVerifyOutputLineCount(t, 2, "blockindex", "ls")
+
+	blocksBefore := e.runAndExpectSuccess(t, "block", "ls")
+
+	lines := e.runAndVerifyOutputLineCount(t, 2, "blockindex", "ls")
+	for _, l := range lines {
+		indexFile := strings.Split(l, " ")[0]
+		e.runAndExpectSuccess(t, "storage", "delete", indexFile)
+	}
+
+	// there should be no index files at this point
+	e.runAndVerifyOutputLineCount(t, 0, "blockindex", "ls", "--no-list-caching")
+	// there should be no blocks, since there are no indexesto find them
+	e.runAndVerifyOutputLineCount(t, 0, "block", "ls")
+
+	// now recover index from all blocks
+	e.runAndExpectSuccess(t, "blockindex", "recover", "--commit")
+
+	// all recovered index entries are added as index file
+	e.runAndVerifyOutputLineCount(t, 1, "blockindex", "ls")
+	blocksAfter := e.runAndExpectSuccess(t, "block", "ls")
+	if diff := pretty.Compare(blocksBefore, blocksAfter); diff != "" {
+		t.Errorf("unexpected block diff after recovery: %v", diff)
+	}
 }
 
 func (e *testenv) runAndExpectSuccess(t *testing.T, args ...string) []string {

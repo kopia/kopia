@@ -26,8 +26,7 @@ func (bm *Manager) RecoverIndexFromPackFile(ctx context.Context, packFile string
 
 	var recovered []Info
 
-	ndx.Iterate("", func(i Info) error {
-		log.Debugf("recovering %v", i)
+	err = ndx.Iterate("", func(i Info) error {
 		recovered = append(recovered, i)
 		if commit {
 			bm.packIndexBuilder.Add(i)
@@ -35,7 +34,7 @@ func (bm *Manager) RecoverIndexFromPackFile(ctx context.Context, packFile string
 		return nil
 	})
 
-	return recovered, nil
+	return recovered, err
 }
 
 type packBlockPostamble struct {
@@ -99,6 +98,10 @@ func findPostamble(b []byte) *packBlockPostamble {
 		return nil
 	}
 
+	return decodePostamble(payload)
+}
+
+func decodePostamble(payload []byte) *packBlockPostamble {
 	flags, n := binary.Uvarint(payload)
 	if n <= 0 {
 		// invalid flags
