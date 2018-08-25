@@ -329,59 +329,65 @@ func (bm *Manager) finishPackLocked(ctx context.Context) error {
 func (bm *Manager) writePackBlockLocked(ctx context.Context) error {
 	bm.assertLocked()
 
-	blockData, pending, err := bm.preparePackDataBlock()
+	blockID := make([]byte, 16)
+	if _, err := cryptorand.Read(blockID); err != nil {
+		return fmt.Errorf("unable to read crypto bytes: %v", err)
+	}
+
+	packFile := fmt.Sprintf("%v%x", PackBlockPrefix, blockID)
+
+	blockData, packFileIndex, err := bm.preparePackDataBlock(packFile)
 	if err != nil {
 		return fmt.Errorf("error preparing data block: %v", err)
 	}
 
-	packFile, err := bm.writePackDataNotLocked(ctx, blockData)
-	if err != nil {
+	if err := bm.writePackFileNotLocked(ctx, packFile, blockData); err != nil {
 		return fmt.Errorf("can't save pack data block: %v", err)
 	}
 
 	formatLog.Debugf("wrote pack file: %v", packFile)
-
-	for _, info := range pending {
-		info.PackFile = packFile
-		bm.packIndexBuilder.Add(info)
+	for _, info := range packFileIndex {
+		bm.packIndexBuilder.Add(*info)
 	}
 
 	return nil
 }
 
-func (bm *Manager) preparePackDataBlock() ([]byte, map[string]Info, error) {
+func (bm *Manager) preparePackDataBlock(packFile string) ([]byte, packindex.Builder, error) {
 	formatLog.Debugf("preparing block data with %v items", len(bm.currentPackItems))
+
 	blockData, err := appendRandomBytes(nil, rand.Intn(bm.maxPreambleLength-bm.minPreambleLength+1)+bm.minPreambleLength)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to prepare block preamble: %v", err)
 	}
 
-	pending := map[string]Info{}
+	packFileIndex := packindex.Builder{}
 	for blockID, info := range bm.currentPackItems {
 		if info.Payload == nil {
 			continue
 		}
-		var encrypted []byte
-		encrypted, err = bm.maybeEncryptBlockDataForPacking(info.Payload, info.BlockID)
+
+		encrypted, err := bm.maybeEncryptBlockDataForPacking(info.Payload, info.BlockID)
 		if err != nil {
 			return nil, nil, fmt.Errorf("unable to encrypt %q: %v", blockID, err)
 		}
 
 		formatLog.Debugf("adding %v length=%v deleted=%v", blockID, len(info.Payload), info.Deleted)
 
-		pending[blockID] = Info{
+		packFileIndex.Add(Info{
 			BlockID:          blockID,
 			Deleted:          info.Deleted,
 			FormatVersion:    byte(bm.writeFormatVersion),
+			PackFile:         packFile,
 			PackOffset:       uint32(len(blockData)),
 			Length:           uint32(len(info.Payload)),
 			TimestampSeconds: info.TimestampSeconds,
-		}
+		})
 
 		blockData = append(blockData, encrypted...)
 	}
 
-	if len(pending) == 0 {
+	if len(packFileIndex) == 0 {
 		return nil, nil, nil
 	}
 
@@ -393,10 +399,12 @@ func (bm *Manager) preparePackDataBlock() ([]byte, map[string]Info, error) {
 			}
 		}
 	}
-	formatLog.Debugf("finished block %v bytes", len(blockData))
 
-	return blockData, pending, nil
+	origBlockLength := len(blockData)
+	blockData, err = bm.appendPackFileIndexRecoveryData(blockData, packFileIndex)
 
+	formatLog.Debugf("finished block %v bytes (%v bytes index)", len(blockData), len(blockData)-origBlockLength)
+	return blockData, packFileIndex, err
 }
 
 func (bm *Manager) maybeEncryptBlockDataForPacking(data []byte, blockID string) ([]byte, error) {
@@ -768,22 +776,11 @@ func validatePrefix(prefix string) error {
 	return fmt.Errorf("invalid prefix, must be a empty or single letter between 'g' and 'z'")
 }
 
-func (bm *Manager) writePackDataNotLocked(ctx context.Context, data []byte) (string, error) {
-	blockID := make([]byte, 16)
-	if _, err := cryptorand.Read(blockID); err != nil {
-		return "", fmt.Errorf("unable to read crypto bytes: %v", err)
-	}
-
-	physicalBlockID := fmt.Sprintf("%v%x", PackBlockPrefix, blockID)
-
+func (bm *Manager) writePackFileNotLocked(ctx context.Context, packFile string, data []byte) error {
 	atomic.AddInt32(&bm.stats.WrittenBlocks, 1)
 	atomic.AddInt64(&bm.stats.WrittenBytes, int64(len(data)))
 	bm.listCache.deleteListCache(ctx)
-	if err := bm.st.PutBlock(ctx, physicalBlockID, data); err != nil {
-		return "", err
-	}
-
-	return physicalBlockID, nil
+	return bm.st.PutBlock(ctx, packFile, data)
 }
 
 func (bm *Manager) encryptAndWriteBlockNotLocked(ctx context.Context, data []byte, prefix string) (string, error) {
@@ -933,20 +930,25 @@ func (bm *Manager) getBlockContentsUnlocked(ctx context.Context, bi Info) ([]byt
 		return nil, err
 	}
 
-	payload, err = bm.formatter.Decrypt(payload, iv)
+	decrypted, err := bm.decryptAndVerify(payload, iv)
+	if err != nil {
+		return nil, fmt.Errorf("invalid checksum at %v offset %v length %v: %v", bi.PackFile, bi.PackOffset, len(payload), err)
+	}
+
+	return decrypted, nil
+}
+
+func (bm *Manager) decryptAndVerify(encrypted []byte, iv []byte) ([]byte, error) {
+	decrypted, err := bm.formatter.Decrypt(encrypted, iv)
 	if err != nil {
 		return nil, err
 	}
 
-	atomic.AddInt64(&bm.stats.DecryptedBytes, int64(len(payload)))
+	atomic.AddInt64(&bm.stats.DecryptedBytes, int64(len(decrypted)))
 
 	// Since the encryption key is a function of data, we must be able to generate exactly the same key
 	// after decrypting the content. This serves as a checksum.
-	if err := bm.verifyChecksum(payload, iv); err != nil {
-		return nil, fmt.Errorf("invalid checksum at %v offset %v length %v: %v", bi.PackFile, bi.PackOffset, len(payload), err)
-	}
-
-	return payload, nil
+	return decrypted, bm.verifyChecksum(decrypted, iv)
 }
 
 func (bm *Manager) getPhysicalBlockInternal(ctx context.Context, blockID string) ([]byte, error) {
