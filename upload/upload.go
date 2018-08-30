@@ -1,4 +1,5 @@
-package snapshot
+// Package upload manages uploading snapshots to the repository.
+package upload
 
 import (
 	"bytes"
@@ -14,14 +15,17 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/kopia/kopia/fs/ignorefs"
-
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/fs/ignorefs"
 	"github.com/kopia/kopia/internal/dir"
 	"github.com/kopia/kopia/internal/hashcache"
+	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot"
 )
+
+var log = kopialogging.Logger("kopia/upload")
 
 func hashEntryMetadata(w io.Writer, e *fs.EntryMetadata) {
 	io.WriteString(w, e.Name)                                  //nolint:errcheck
@@ -42,7 +46,7 @@ var errCancelled = errors.New("cancelled")
 
 // Uploader supports efficient uploading files and directories to repository.
 type Uploader struct {
-	Progress UploadProgress
+	Progress Progress
 
 	FilesPolicy ignorefs.FilesPolicyGetter
 
@@ -69,7 +73,7 @@ type Uploader struct {
 	cacheReader hashcache.Reader
 
 	hashCacheCutoff time.Time
-	stats           Stats
+	stats           snapshot.Stats
 	cancelled       int32
 
 	progressMutex          sync.Mutex
@@ -601,17 +605,17 @@ func (u *Uploader) Cancel() {
 func (u *Uploader) Upload(
 	ctx context.Context,
 	source fs.Entry,
-	sourceInfo SourceInfo,
-	old *Manifest,
-) (*Manifest, error) {
-	s := &Manifest{
+	sourceInfo snapshot.SourceInfo,
+	old *snapshot.Manifest,
+) (*snapshot.Manifest, error) {
+	s := &snapshot.Manifest{
 		Source: sourceInfo,
 	}
 
 	defer u.Progress.UploadFinished()
 
 	u.cacheReader = hashcache.Open(nil)
-	u.stats = Stats{}
+	u.stats = snapshot.Stats{}
 	if old != nil {
 		log.Debugf("opening hash cache: %v", old.HashCacheID)
 		if r, err := u.repo.Objects.Open(ctx, old.HashCacheID); err == nil {

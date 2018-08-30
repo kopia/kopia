@@ -9,6 +9,7 @@ import (
 
 	"github.com/cheggaaa/pb"
 	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/upload"
 )
 
 type uploadProgress struct {
@@ -58,4 +59,4 @@ func shortenPath(s string) string {
 	return s[0:30] + "..." + s[len(s)-27:]
 }
 
-var _ snapshot.UploadProgress = &uploadProgress{}
+var _ upload.Progress = &uploadProgress{}

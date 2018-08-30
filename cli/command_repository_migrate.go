@@ -8,6 +8,7 @@ import (
 	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/upload"
 )
 
 var (
@@ -23,7 +24,7 @@ var (
 func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 	destSM := snapshot.NewManager(destRepo)
 
-	uploader := snapshot.NewUploader(destRepo)
+	uploader := upload.NewUploader(destRepo)
 	uploader.Progress = &uploadProgress{}
 	uploader.IgnoreFileErrors = *migrateIgnoreErrors
 	onCtrlC(uploader.Cancel)
@@ -67,7 +68,7 @@ func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 	return nil
 }
 
-func migrateSingleSource(ctx context.Context, uploader *snapshot.Uploader, sourceSM, destSM *snapshot.Manager, s snapshot.SourceInfo) error {
+func migrateSingleSource(ctx context.Context, uploader *upload.Uploader, sourceSM, destSM *snapshot.Manager, s snapshot.SourceInfo) error {
 	log.Debugf("migrating source %v", s)
 
 	manifests := sourceSM.ListSnapshotManifests(&s)
