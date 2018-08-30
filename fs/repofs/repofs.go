@@ -6,12 +6,11 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	"github.com/kopia/kopia/snapshot"
-
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/dir"
 	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot"
 )
 
 type repositoryEntry struct {
@@ -131,8 +130,8 @@ func withMetadata(r object.Reader, md *fs.EntryMetadata) fs.Reader {
 
 // DirectoryEntry returns fs.Directory based on repository object with the specified ID.
 // The existence or validity of the directory object is not validated until its contents are read.
-func DirectoryEntry(m *snapshot.Manager, objectID object.ID, dirSummary *fs.DirectorySummary) fs.Directory {
-	d := newRepoEntry(m.Repository, &dir.Entry{
+func DirectoryEntry(rep *repo.Repository, objectID object.ID, dirSummary *fs.DirectorySummary) fs.Directory {
+	d := newRepoEntry(rep, &dir.Entry{
 		EntryMetadata: fs.EntryMetadata{
 			Name:        "/",
 			Permissions: 0555,
@@ -146,13 +145,13 @@ func DirectoryEntry(m *snapshot.Manager, objectID object.ID, dirSummary *fs.Dire
 }
 
 // SnapshotRoot returns fs.Entry representing the root of a snapshot.
-func SnapshotRoot(m *snapshot.Manager, man *snapshot.Manifest) (fs.Entry, error) {
+func SnapshotRoot(rep *repo.Repository, man *snapshot.Manifest) (fs.Entry, error) {
 	oid := man.RootObjectID()
 	if oid == "" {
 		return nil, fmt.Errorf("manifest root object ID")
 	}
 
-	return newRepoEntry(m.Repository, man.RootEntry), nil
+	return newRepoEntry(rep, man.RootEntry), nil
 }
 
 var _ fs.Directory = &repositoryDirectory{}

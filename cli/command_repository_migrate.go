@@ -22,8 +22,6 @@ var (
 )
 
 func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
-	destSM := snapshot.NewManager(destRepo)
-
 	uploader := upload.NewUploader(destRepo)
 	uploader.Progress = &uploadProgress{}
 	uploader.IgnoreFileErrors = *migrateIgnoreErrors
@@ -34,8 +32,7 @@ func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 		return fmt.Errorf("can't open source repository: %v", err)
 	}
 
-	sourceSM := snapshot.NewManager(sourceRepo)
-	sources, err := getSourcesToMigrate(sourceSM)
+	sources, err := getSourcesToMigrate(sourceRepo)
 	if err != nil {
 		return fmt.Errorf("can't retrieve sources: %v", err)
 	}
@@ -46,7 +43,7 @@ func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 			break
 		}
 
-		if err := migrateSingleSource(ctx, uploader, sourceSM, destSM, s); err != nil {
+		if err := migrateSingleSource(ctx, uploader, sourceRepo, destRepo, s); err != nil {
 			return err
 		}
 	}
@@ -56,7 +53,7 @@ func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 		if err != nil {
 			return err
 		}
-		d := repofs.DirectoryEntry(sourceSM, dirOID, nil)
+		d := repofs.DirectoryEntry(sourceRepo, dirOID, nil)
 		newm, err := uploader.Upload(ctx, d, snapshot.SourceInfo{Host: "temp"}, nil)
 		if err != nil {
 			return fmt.Errorf("error migrating directory %v: %v", dirOID, err)
@@ -68,17 +65,17 @@ func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 	return nil
 }
 
-func migrateSingleSource(ctx context.Context, uploader *upload.Uploader, sourceSM, destSM *snapshot.Manager, s snapshot.SourceInfo) error {
+func migrateSingleSource(ctx context.Context, uploader *upload.Uploader, sourceRepo, destRepo *repo.Repository, s snapshot.SourceInfo) error {
 	log.Debugf("migrating source %v", s)
 
-	manifests := sourceSM.ListSnapshotManifests(&s)
-	snapshots, err := sourceSM.LoadSnapshots(manifests)
+	manifests := snapshot.ListSnapshotManifests(sourceRepo, &s)
+	snapshots, err := snapshot.LoadSnapshots(sourceRepo, manifests)
 	if err != nil {
 		return fmt.Errorf("unable to load snapshot manifests for %v: %v", s, err)
 	}
 
 	for _, m := range filterSnapshotsToMigrate(snapshots) {
-		d := repofs.DirectoryEntry(sourceSM, m.RootObjectID(), nil)
+		d := repofs.DirectoryEntry(sourceRepo, m.RootObjectID(), nil)
 		newm, err := uploader.Upload(ctx, d, m.Source, nil)
 		if err != nil {
 			return fmt.Errorf("error migrating shapshot %v @ %v: %v", m.Source, m.StartTime, err)
@@ -89,7 +86,7 @@ func migrateSingleSource(ctx context.Context, uploader *upload.Uploader, sourceS
 		m.Stats = newm.Stats
 		m.IncompleteReason = newm.IncompleteReason
 
-		if _, err := destSM.SaveSnapshot(m); err != nil {
+		if _, err := snapshot.SaveSnapshot(destRepo, m); err != nil {
 			return fmt.Errorf("cannot save manifest: %v", err)
 		}
 	}
@@ -104,7 +101,7 @@ func filterSnapshotsToMigrate(s []*snapshot.Manifest) []*snapshot.Manifest {
 	return s
 }
 
-func getSourcesToMigrate(mgr *snapshot.Manager) ([]snapshot.SourceInfo, error) {
+func getSourcesToMigrate(rep *repo.Repository) ([]snapshot.SourceInfo, error) {
 	if len(*migrateSources) > 0 {
 		var result []snapshot.SourceInfo
 
@@ -121,7 +118,7 @@ func getSourcesToMigrate(mgr *snapshot.Manager) ([]snapshot.SourceInfo, error) {
 	}
 
 	if *migrateAll {
-		return mgr.ListSources(), nil
+		return snapshot.ListSources(rep), nil
 	}
 
 	return nil, nil

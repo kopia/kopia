@@ -10,7 +10,6 @@ import (
 	"github.com/bmizerany/pat"
 	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/internal/serverapi"
-	"github.com/kopia/kopia/policy"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 )
@@ -22,12 +21,8 @@ type Server struct {
 	hostname        string
 	username        string
 	rep             *repo.Repository
-	snapshotManager *snapshot.Manager
-	policyManager   *policy.Manager
-
-	mu             sync.RWMutex
-	sourceManagers map[snapshot.SourceInfo]*sourceManager
-
+	mu              sync.RWMutex
+	sourceManagers  map[snapshot.SourceInfo]*sourceManager
 	uploadSemaphore chan struct{}
 }
 
@@ -128,13 +123,11 @@ func New(ctx context.Context, rep *repo.Repository, hostname string, username st
 		hostname:        hostname,
 		username:        username,
 		rep:             rep,
-		snapshotManager: snapshot.NewManager(rep),
-		policyManager:   policy.NewPolicyManager(rep),
 		sourceManagers:  map[snapshot.SourceInfo]*sourceManager{},
 		uploadSemaphore: make(chan struct{}, 1),
 	}
 
-	for _, src := range s.snapshotManager.ListSources() {
+	for _, src := range snapshot.ListSources(rep) {
 		sm := newSourceManager(src, s)
 		s.sourceManagers[src] = sm
 	}

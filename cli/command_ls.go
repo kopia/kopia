@@ -10,7 +10,6 @@ import (
 	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/snapshot"
 )
 
 const timeFormat = "2006-01-02 15:04:05"
@@ -26,9 +25,7 @@ var (
 )
 
 func runLSCommand(ctx context.Context, rep *repo.Repository) error {
-	mgr := snapshot.NewManager(rep)
-
-	oid, err := parseObjectID(ctx, mgr, *lsCommandPath)
+	oid, err := parseObjectID(ctx, rep, *lsCommandPath)
 	if err != nil {
 		return err
 	}
@@ -41,15 +38,15 @@ func runLSCommand(ctx context.Context, rep *repo.Repository) error {
 		}
 	}
 
-	return listDirectory(ctx, mgr, prefix, oid, "")
+	return listDirectory(ctx, rep, prefix, oid, "")
 }
 
 func init() {
 	lsCommand.Action(repositoryAction(runLSCommand))
 }
 
-func listDirectory(ctx context.Context, mgr *snapshot.Manager, prefix string, oid object.ID, indent string) error {
-	d := repofs.DirectoryEntry(mgr, oid, nil)
+func listDirectory(ctx context.Context, rep *repo.Repository, prefix string, oid object.ID, indent string) error {
+	d := repofs.DirectoryEntry(rep, oid, nil)
 
 	entries, err := d.Readdir(ctx)
 	if err != nil {
@@ -89,7 +86,7 @@ func listDirectory(ctx context.Context, mgr *snapshot.Manager, prefix string, oi
 		}
 		fmt.Println(info)
 		if *lsCommandRecursive && m.FileMode().IsDir() {
-			if listerr := listDirectory(ctx, mgr, prefix+m.Name+"/", objectID, indent+"  "); listerr != nil {
+			if listerr := listDirectory(ctx, rep, prefix+m.Name+"/", objectID, indent+"  "); listerr != nil {
 				return listerr
 			}
 		}

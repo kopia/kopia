@@ -4,13 +4,15 @@ import (
 	"context"
 	"time"
 
-	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/snapshot"
+
+	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/repo"
 )
 
 type sourceDirectories struct {
-	snapshotManager *snapshot.Manager
-	userHost        string
+	rep      *repo.Repository
+	userHost string
 }
 
 func (s *sourceDirectories) Metadata() *fs.EntryMetadata {
@@ -27,7 +29,7 @@ func (s *sourceDirectories) Summary() *fs.DirectorySummary {
 }
 
 func (s *sourceDirectories) Readdir(ctx context.Context) (fs.Entries, error) {
-	sources := s.snapshotManager.ListSources()
+	sources := snapshot.ListSources(s.rep)
 	var result fs.Entries
 
 	for _, src := range sources {
@@ -35,7 +37,7 @@ func (s *sourceDirectories) Readdir(ctx context.Context) (fs.Entries, error) {
 			continue
 		}
 
-		result = append(result, &sourceSnapshots{s.snapshotManager, src})
+		result = append(result, &sourceSnapshots{s.rep, src})
 	}
 
 	result.Sort()

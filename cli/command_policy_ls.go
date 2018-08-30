@@ -18,9 +18,7 @@ func init() {
 }
 
 func listPolicies(ctx context.Context, rep *repo.Repository) error {
-	mgr := policy.NewPolicyManager(rep)
-
-	policies, err := mgr.ListPolicies()
+	policies, err := policy.ListPolicies(rep)
 	if err != nil {
 		return err
 	}

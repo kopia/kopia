@@ -30,7 +30,7 @@ var (
 )
 
 type verifier struct {
-	mgr       *snapshot.Manager
+	rep       *repo.Repository
 	om        *object.Manager
 	workQueue *parallelwork.Queue
 	startTime time.Time
@@ -112,7 +112,7 @@ func (v *verifier) enqueueVerifyObject(ctx context.Context, oid object.ID, path 
 func (v *verifier) doVerifyDirectory(ctx context.Context, oid object.ID, path string) {
 	log.Debugf("verifying directory %q (%v)", path, oid)
 
-	d := repofs.DirectoryEntry(v.mgr, oid, nil)
+	d := repofs.DirectoryEntry(v.rep, oid, nil)
 	entries, err := d.Readdir(ctx)
 	if err != nil {
 		v.reportError(path, fmt.Errorf("error reading %v: %v", oid, err))
@@ -177,17 +177,15 @@ func (v *verifier) readEntireObject(ctx context.Context, oid object.ID, path str
 }
 
 func runVerifyCommand(ctx context.Context, rep *repo.Repository) error {
-	mgr := snapshot.NewManager(rep)
-
 	v := &verifier{
-		mgr:       mgr,
+		rep:       rep,
 		om:        rep.Objects,
 		startTime: time.Now(),
 		workQueue: parallelwork.NewQueue(),
 		seen:      map[object.ID]bool{},
 	}
 
-	if err := enqueueRootsToVerify(ctx, v, mgr); err != nil {
+	if err := enqueueRootsToVerify(ctx, v, rep); err != nil {
 		return err
 	}
 
@@ -201,8 +199,8 @@ func runVerifyCommand(ctx context.Context, rep *repo.Repository) error {
 	return fmt.Errorf("encountered %v errors", len(v.errors))
 }
 
-func enqueueRootsToVerify(ctx context.Context, v *verifier, mgr *snapshot.Manager) error {
-	manifests, err := loadSourceManifests(mgr, *verifyCommandAllSources, *verifyCommandSources)
+func enqueueRootsToVerify(ctx context.Context, v *verifier, rep *repo.Repository) error {
+	manifests, err := loadSourceManifests(rep, *verifyCommandAllSources, *verifyCommandSources)
 	if err != nil {
 		return err
 	}
@@ -221,7 +219,7 @@ func enqueueRootsToVerify(ctx context.Context, v *verifier, mgr *snapshot.Manage
 	}
 
 	for _, oidStr := range *verifyCommandDirObjectIDs {
-		oid, err := parseObjectID(ctx, mgr, oidStr)
+		oid, err := parseObjectID(ctx, rep, oidStr)
 		if err != nil {
 			return err
 		}
@@ -230,7 +228,7 @@ func enqueueRootsToVerify(ctx context.Context, v *verifier, mgr *snapshot.Manage
 	}
 
 	for _, oidStr := range *verifyCommandFileObjectIDs {
-		oid, err := parseObjectID(ctx, mgr, oidStr)
+		oid, err := parseObjectID(ctx, rep, oidStr)
 		if err != nil {
 			return err
 		}
@@ -241,20 +239,20 @@ func enqueueRootsToVerify(ctx context.Context, v *verifier, mgr *snapshot.Manage
 	return nil
 }
 
-func loadSourceManifests(mgr *snapshot.Manager, all bool, sources []string) ([]*snapshot.Manifest, error) {
+func loadSourceManifests(rep *repo.Repository, all bool, sources []string) ([]*snapshot.Manifest, error) {
 	var manifestIDs []string
 	if *verifyCommandAllSources {
-		manifestIDs = append(manifestIDs, mgr.ListSnapshotManifests(nil)...)
+		manifestIDs = append(manifestIDs, snapshot.ListSnapshotManifests(rep, nil)...)
 	} else {
 		for _, srcStr := range *verifyCommandSources {
 			src, err := snapshot.ParseSourceInfo(srcStr, getHostName(), getUserName())
 			if err != nil {
 				return nil, fmt.Errorf("error parsing %q: %v", srcStr, err)
 			}
-			manifestIDs = append(manifestIDs, mgr.ListSnapshotManifests(&src)...)
+			manifestIDs = append(manifestIDs, snapshot.ListSnapshotManifests(rep, &src)...)
 		}
 	}
-	return mgr.LoadSnapshots(manifestIDs)
+	return snapshot.LoadSnapshots(rep, manifestIDs)
 }
 
 func init() {

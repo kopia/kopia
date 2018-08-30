@@ -8,14 +8,9 @@ import (
 
 var log = kopialogging.Logger("kopia/snapshot")
 
-// Manager manages filesystem snapshots.
-type Manager struct {
-	Repository *repo.Repository
-}
-
-// ListSources lists all snapshot sources.
-func (m *Manager) ListSources() []SourceInfo {
-	items := m.Repository.Manifests.Find(map[string]string{
+// ListSources lists all snapshot sources in a given repository.
+func ListSources(rep *repo.Repository) []SourceInfo {
+	items := rep.Manifests.Find(map[string]string{
 		"type": "snapshot",
 	})
 
@@ -46,14 +41,14 @@ func sourceInfoToLabels(si SourceInfo) map[string]string {
 }
 
 // ListSnapshots lists all snapshots for a given source.
-func (m *Manager) ListSnapshots(si SourceInfo) ([]*Manifest, error) {
-	return m.LoadSnapshots(manifest.EntryIDs(m.Repository.Manifests.Find(sourceInfoToLabels(si))))
+func ListSnapshots(rep *repo.Repository, si SourceInfo) ([]*Manifest, error) {
+	return LoadSnapshots(rep, manifest.EntryIDs(rep.Manifests.Find(sourceInfoToLabels(si))))
 }
 
 // LoadSnapshot loads and parses a snapshot with a given ID.
-func (m *Manager) LoadSnapshot(manifestID string) (*Manifest, error) {
+func LoadSnapshot(rep *repo.Repository, manifestID string) (*Manifest, error) {
 	sm := &Manifest{}
-	if err := m.Repository.Manifests.Get(manifestID, sm); err != nil {
+	if err := rep.Manifests.Get(manifestID, sm); err != nil {
 		return nil, err
 	}
 
@@ -63,12 +58,12 @@ func (m *Manager) LoadSnapshot(manifestID string) (*Manifest, error) {
 }
 
 // SaveSnapshot persists given snapshot manifest and returns manifest ID.
-func (m *Manager) SaveSnapshot(manifest *Manifest) (string, error) {
-	return m.Repository.Manifests.Put(sourceInfoToLabels(manifest.Source), manifest)
+func SaveSnapshot(rep *repo.Repository, manifest *Manifest) (string, error) {
+	return rep.Manifests.Put(sourceInfoToLabels(manifest.Source), manifest)
 }
 
 // LoadSnapshots efficiently loads and parses a given list of snapshot IDs.
-func (m *Manager) LoadSnapshots(names []string) ([]*Manifest, error) {
+func LoadSnapshots(rep *repo.Repository, names []string) ([]*Manifest, error) {
 	result := make([]*Manifest, len(names))
 	sem := make(chan bool, 50)
 
@@ -77,7 +72,7 @@ func (m *Manager) LoadSnapshots(names []string) ([]*Manifest, error) {
 		go func(i int, n string) {
 			defer func() { <-sem }()
 
-			m, err := m.LoadSnapshot(n)
+			m, err := LoadSnapshot(rep, n)
 			if err != nil {
 				log.Warningf("unable to parse snapshot manifest %v: %v", n, err)
 				return
@@ -102,7 +97,7 @@ func (m *Manager) LoadSnapshots(names []string) ([]*Manifest, error) {
 }
 
 // ListSnapshotManifests returns the list of snapshot manifests for a given source or all sources if nil.
-func (m *Manager) ListSnapshotManifests(src *SourceInfo) []string {
+func ListSnapshotManifests(rep *repo.Repository, src *SourceInfo) []string {
 	labels := map[string]string{
 		"type": "snapshot",
 	}
@@ -111,12 +106,5 @@ func (m *Manager) ListSnapshotManifests(src *SourceInfo) []string {
 		labels = sourceInfoToLabels(*src)
 	}
 
-	return manifest.EntryIDs(m.Repository.Manifests.Find(labels))
-}
-
-// NewManager creates new snapshot manager for a given connection.
-func NewManager(r *repo.Repository) *Manager {
-	return &Manager{
-		r,
-	}
+	return manifest.EntryIDs(rep.Manifests.Find(labels))
 }

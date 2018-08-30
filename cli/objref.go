@@ -8,11 +8,11 @@ import (
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/object"
-	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/repo"
 )
 
 // ParseObjectID interprets the given ID string and returns corresponding object.ID.
-func parseObjectID(ctx context.Context, mgr *snapshot.Manager, id string) (object.ID, error) {
+func parseObjectID(ctx context.Context, rep *repo.Repository, id string) (object.ID, error) {
 	parts := strings.Split(id, "/")
 	oid, err := object.ParseID(parts[0])
 	if err != nil {
@@ -23,7 +23,7 @@ func parseObjectID(ctx context.Context, mgr *snapshot.Manager, id string) (objec
 		return oid, nil
 	}
 
-	dir := repofs.DirectoryEntry(mgr, oid, nil)
+	dir := repofs.DirectoryEntry(rep, oid, nil)
 	return parseNestedObjectID(ctx, dir, parts[1:])
 }
 

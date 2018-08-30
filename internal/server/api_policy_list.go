@@ -4,10 +4,11 @@ import (
 	"net/http"
 
 	"github.com/kopia/kopia/internal/serverapi"
+	"github.com/kopia/kopia/policy"
 )
 
 func (s *Server) handlePolicyList(r *http.Request) (interface{}, *apiError) {
-	policies, err := s.policyManager.ListPolicies()
+	policies, err := policy.ListPolicies(s.rep)
 	if err != nil {
 		return nil, internalServerError(err)
 	}

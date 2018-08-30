@@ -165,7 +165,7 @@ func (s *sourceManager) snapshot() {
 		return
 	}
 	u := upload.NewUploader(s.server.rep)
-	polGetter, err := s.server.policyManager.FilesPolicyGetter(s.src)
+	polGetter, err := policy.FilesPolicyGetter(s.server.rep, s.src)
 	if err != nil {
 		log.Errorf("unable to create policy getter: %v", err)
 	}
@@ -180,7 +180,7 @@ func (s *sourceManager) snapshot() {
 		return
 	}
 
-	snapshotID, err := s.server.snapshotManager.SaveSnapshot(manifest)
+	snapshotID, err := snapshot.SaveSnapshot(s.server.rep, manifest)
 	if err != nil {
 		log.Errorf("unable to save snapshot: %v", err)
 		return
@@ -222,14 +222,14 @@ func (s *sourceManager) findClosestNextSnapshotTime() time.Time {
 
 func (s *sourceManager) refreshStatus() {
 	log.Debugf("refreshing state for %v", s.src)
-	pol, _, err := s.server.policyManager.GetEffectivePolicy(s.src)
+	pol, _, err := policy.GetEffectivePolicy(s.server.rep, s.src)
 	if err != nil {
 		s.setStatus("FAILED")
 		return
 	}
 
 	s.pol = pol
-	snapshots, err := s.server.snapshotManager.ListSnapshots(s.src)
+	snapshots, err := snapshot.ListSnapshots(s.server.rep, s.src)
 	if err != nil {
 		s.setStatus("FAILED")
 		return

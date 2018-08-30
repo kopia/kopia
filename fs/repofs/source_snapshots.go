@@ -7,12 +7,13 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/dir"
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 )
 
 type sourceSnapshots struct {
-	snapshotManager *snapshot.Manager
-	src             snapshot.SourceInfo
+	rep *repo.Repository
+	src snapshot.SourceInfo
 }
 
 func (s *sourceSnapshots) Metadata() *fs.EntryMetadata {
@@ -33,7 +34,7 @@ func (s *sourceSnapshots) Summary() *fs.DirectorySummary {
 }
 
 func (s *sourceSnapshots) Readdir(ctx context.Context) (fs.Entries, error) {
-	manifests, err := s.snapshotManager.ListSnapshots(s.src)
+	manifests, err := snapshot.ListSnapshots(s.rep, s.src)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +61,7 @@ func (s *sourceSnapshots) Readdir(ctx context.Context) (fs.Entries, error) {
 			de.DirSummary = m.RootEntry.DirSummary
 		}
 
-		e := newRepoEntry(s.snapshotManager.Repository, de)
+		e := newRepoEntry(s.rep, de)
 
 		result = append(result, e)
 	}

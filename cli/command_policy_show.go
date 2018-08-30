@@ -21,15 +21,13 @@ func init() {
 }
 
 func showPolicy(ctx context.Context, rep *repo.Repository) error {
-	pmgr := policy.NewPolicyManager(rep)
-
-	targets, err := policyTargets(pmgr, policyShowGlobal, policyShowTargets)
+	targets, err := policyTargets(rep, policyShowGlobal, policyShowTargets)
 	if err != nil {
 		return err
 	}
 
 	for _, target := range targets {
-		effective, policies, err := pmgr.GetEffectivePolicy(target)
+		effective, policies, err := policy.GetEffectivePolicy(rep, target)
 		if err != nil {
 			return fmt.Errorf("can't get effective policy for %q: %v", target, err)
 		}

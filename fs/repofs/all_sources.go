@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/snapshot"
+
+	"github.com/kopia/kopia/repo"
+
+	"github.com/kopia/kopia/fs"
 )
 
 type repositoryAllSources struct {
-	snapshotManager *snapshot.Manager
+	rep *repo.Repository
 }
 
 func (s *repositoryAllSources) Summary() *fs.DirectorySummary {
@@ -27,7 +30,7 @@ func (s *repositoryAllSources) Metadata() *fs.EntryMetadata {
 }
 
 func (s *repositoryAllSources) Readdir(ctx context.Context) (fs.Entries, error) {
-	srcs := s.snapshotManager.ListSources()
+	srcs := snapshot.ListSources(s.rep)
 
 	users := map[string]bool{}
 	for _, src := range srcs {
@@ -37,8 +40,8 @@ func (s *repositoryAllSources) Readdir(ctx context.Context) (fs.Entries, error) 
 	var result fs.Entries
 	for u := range users {
 		result = append(result, &sourceDirectories{
-			snapshotManager: s.snapshotManager,
-			userHost:        u,
+			rep:      s.rep,
+			userHost: u,
 		})
 	}
 
@@ -47,6 +50,6 @@ func (s *repositoryAllSources) Readdir(ctx context.Context) (fs.Entries, error) 
 }
 
 // AllSourcesEntry returns fs.Directory that contains the list of all snapshot sources found in the repository.
-func AllSourcesEntry(m *snapshot.Manager) fs.Directory {
-	return &repositoryAllSources{snapshotManager: m}
+func AllSourcesEntry(rep *repo.Repository) fs.Directory {
+	return &repositoryAllSources{rep: rep}
 }

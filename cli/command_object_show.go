@@ -6,7 +6,6 @@ import (
 
 	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/snapshot"
 )
 
 var (
@@ -16,10 +15,8 @@ var (
 )
 
 func runShowCommand(ctx context.Context, rep *repo.Repository) error {
-	mgr := snapshot.NewManager(rep)
-
 	for _, oidString := range *showObjectIDs {
-		oid, err := parseObjectID(ctx, mgr, oidString)
+		oid, err := parseObjectID(ctx, rep, oidString)
 		if err != nil {
 			return err
 		}

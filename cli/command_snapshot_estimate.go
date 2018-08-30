@@ -62,8 +62,6 @@ func makeBuckets() buckets {
 }
 
 func runSnapshotEstimateCommand(ctx context.Context, rep *repo.Repository) error {
-	pmgr := policy.NewPolicyManager(rep)
-
 	path, err := filepath.Abs(*snapshotEstimateSource)
 	if err != nil {
 		return fmt.Errorf("invalid path: '%s': %s", path, err)
@@ -88,7 +86,7 @@ func runSnapshotEstimateCommand(ctx context.Context, rep *repo.Repository) error
 
 	entry := mustGetLocalFSEntry(path)
 	if dir, ok := entry.(fs.Directory); ok {
-		ignorePolicy, err := pmgr.FilesPolicyGetter(sourceInfo)
+		ignorePolicy, err := policy.FilesPolicyGetter(rep, sourceInfo)
 		if err != nil {
 			return err
 		}

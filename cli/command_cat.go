@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/snapshot"
 )
 
 var (
@@ -15,9 +14,7 @@ var (
 )
 
 func runCatCommand(ctx context.Context, rep *repo.Repository) error {
-	mgr := snapshot.NewManager(rep)
-
-	oid, err := parseObjectID(ctx, mgr, *catCommandPath)
+	oid, err := parseObjectID(ctx, rep, *catCommandPath)
 	if err != nil {
 		return err
 	}

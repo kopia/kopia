@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/policy"
 	"github.com/kopia/kopia/snapshot"
 )
 
@@ -27,8 +28,8 @@ type snapshotListResponse struct {
 }
 
 func (s *Server) handleSourceSnapshotList(r *http.Request) (interface{}, *apiError) {
-	manifestIDs := s.snapshotManager.ListSnapshotManifests(nil)
-	manifests, err := s.snapshotManager.LoadSnapshots(manifestIDs)
+	manifestIDs := snapshot.ListSnapshotManifests(s.rep, nil)
+	manifests, err := snapshot.LoadSnapshots(s.rep, manifestIDs)
 	if err != nil {
 		return nil, internalServerError(err)
 	}
@@ -43,7 +44,7 @@ func (s *Server) handleSourceSnapshotList(r *http.Request) (interface{}, *apiErr
 			continue
 		}
 
-		pol, _, err := s.policyManager.GetEffectivePolicy(first.Source)
+		pol, _, err := policy.GetEffectivePolicy(s.rep, first.Source)
 		if err == nil {
 			pol.RetentionPolicy.ComputeRetentionReasons(grp)
 		}

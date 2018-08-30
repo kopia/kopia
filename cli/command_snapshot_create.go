@@ -35,12 +35,9 @@ var (
 )
 
 func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
-	mgr := snapshot.NewManager(rep)
-	pmgr := policy.NewPolicyManager(rep)
-
 	sources := *snapshotCreateSources
 	if *snapshotCreateAll {
-		local, err := getLocalBackupPaths(mgr)
+		local, err := getLocalBackupPaths(rep)
 		if err != nil {
 			return err
 		}
@@ -75,7 +72,7 @@ func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
 
 		sourceInfo := snapshot.SourceInfo{Path: filepath.Clean(dir), Host: getHostName(), UserName: getUserName()}
 		log.Infof("snapshotting %v", sourceInfo)
-		if err := snapshotSingleSource(ctx, rep, mgr, pmgr, u, sourceInfo); err != nil {
+		if err := snapshotSingleSource(ctx, rep, u, sourceInfo); err != nil {
 			finalErrors = append(finalErrors, err.Error())
 		}
 	}
@@ -87,18 +84,18 @@ func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
 	return fmt.Errorf("encountered %v errors:\n%v", len(finalErrors), strings.Join(finalErrors, "\n"))
 }
 
-func snapshotSingleSource(ctx context.Context, rep *repo.Repository, mgr *snapshot.Manager, pmgr *policy.Manager, u *upload.Uploader, sourceInfo snapshot.SourceInfo) error {
+func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *upload.Uploader, sourceInfo snapshot.SourceInfo) error {
 	t0 := time.Now()
 	rep.Blocks.ResetStats()
 
 	localEntry := mustGetLocalFSEntry(sourceInfo.Path)
 
-	previousManifest, err := findPreviousSnapshotManifest(mgr, sourceInfo)
+	previousManifest, err := findPreviousSnapshotManifest(rep, sourceInfo)
 	if err != nil {
 		return err
 	}
 
-	u.FilesPolicy, err = pmgr.FilesPolicyGetter(sourceInfo)
+	u.FilesPolicy, err = policy.FilesPolicyGetter(rep, sourceInfo)
 	if err != nil {
 		return err
 	}
@@ -111,7 +108,7 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, mgr *snapsh
 
 	manifest.Description = *snapshotCreateDescription
 
-	snapID, err := mgr.SaveSnapshot(manifest)
+	snapID, err := snapshot.SaveSnapshot(rep, manifest)
 	if err != nil {
 		return fmt.Errorf("cannot save manifest: %v", err)
 	}
@@ -125,8 +122,8 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, mgr *snapsh
 	return nil
 }
 
-func findPreviousSnapshotManifest(mgr *snapshot.Manager, sourceInfo snapshot.SourceInfo) (*snapshot.Manifest, error) {
-	previous, err := mgr.ListSnapshots(sourceInfo)
+func findPreviousSnapshotManifest(rep *repo.Repository, sourceInfo snapshot.SourceInfo) (*snapshot.Manifest, error) {
+	previous, err := snapshot.ListSnapshots(rep, sourceInfo)
 	if err != nil {
 		return nil, fmt.Errorf("error listing previous backups: %v", err)
 	}
@@ -147,12 +144,12 @@ func findPreviousSnapshotManifest(mgr *snapshot.Manager, sourceInfo snapshot.Sou
 	return previousManifest, nil
 }
 
-func getLocalBackupPaths(mgr *snapshot.Manager) ([]string, error) {
+func getLocalBackupPaths(rep *repo.Repository) ([]string, error) {
 	h := getHostName()
 	u := getUserName()
 	log.Debugf("Looking for previous backups of '%v@%v'...", u, h)
 
-	sources := mgr.ListSources()
+	sources := snapshot.ListSources(rep)
 
 	var result []string
 

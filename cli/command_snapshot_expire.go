@@ -19,14 +19,14 @@ var (
 	snapshotExpireDelete = snapshotExpireCommand.Flag("delete", "Whether to actually delete snapshots").Default("no").String()
 )
 
-func getSnapshotNamesToExpire(mgr *snapshot.Manager) ([]string, error) {
+func getSnapshotNamesToExpire(rep *repo.Repository) ([]string, error) {
 	if !*snapshotExpireAll && len(*snapshotExpirePaths) == 0 {
 		return nil, fmt.Errorf("Must specify paths to expire or --all")
 	}
 
 	if *snapshotExpireAll {
 		printStderr("Scanning all active snapshots...\n")
-		return mgr.ListSnapshotManifests(nil), nil
+		return snapshot.ListSnapshotManifests(rep, nil), nil
 	}
 
 	var result []string
@@ -39,7 +39,7 @@ func getSnapshotNamesToExpire(mgr *snapshot.Manager) ([]string, error) {
 
 		log.Debugf("Looking for snapshots of %v", src)
 
-		matches := mgr.ListSnapshotManifests(&src)
+		matches := snapshot.ListSnapshotManifests(rep, &src)
 		if err != nil {
 			return nil, fmt.Errorf("error listing snapshots for %v: %v", src, err)
 		}
@@ -53,19 +53,17 @@ func getSnapshotNamesToExpire(mgr *snapshot.Manager) ([]string, error) {
 }
 
 func runExpireCommand(ctx context.Context, rep *repo.Repository) error {
-	mgr := snapshot.NewManager(rep)
-	pmgr := policy.NewPolicyManager(rep)
-	snapshotNames, err := getSnapshotNamesToExpire(mgr)
+	snapshotNames, err := getSnapshotNamesToExpire(rep)
 	if err != nil {
 		return err
 	}
 
-	snapshots, err := mgr.LoadSnapshots(snapshotNames)
+	snapshots, err := snapshot.LoadSnapshots(rep, snapshotNames)
 	if err != nil {
 		return err
 	}
 	snapshots = filterHostAndUser(snapshots)
-	toDelete, err := policy.GetExpiredSnapshots(pmgr, snapshots)
+	toDelete, err := policy.GetExpiredSnapshots(rep, snapshots)
 	if err != nil {
 		return err
 	}
