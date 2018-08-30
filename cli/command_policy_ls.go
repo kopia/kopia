@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/kopia/kopia/policy"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/snapshot"
 )
 
 var (
@@ -18,7 +18,7 @@ func init() {
 }
 
 func listPolicies(ctx context.Context, rep *repo.Repository) error {
-	mgr := snapshot.NewPolicyManager(rep)
+	mgr := policy.NewPolicyManager(rep)
 
 	policies, err := mgr.ListPolicies()
 	if err != nil {

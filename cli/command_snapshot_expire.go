@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kopia/kopia/policy"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 )
@@ -53,7 +54,7 @@ func getSnapshotNamesToExpire(mgr *snapshot.Manager) ([]string, error) {
 
 func runExpireCommand(ctx context.Context, rep *repo.Repository) error {
 	mgr := snapshot.NewManager(rep)
-	pmgr := snapshot.NewPolicyManager(rep)
+	pmgr := policy.NewPolicyManager(rep)
 	snapshotNames, err := getSnapshotNamesToExpire(mgr)
 	if err != nil {
 		return err
@@ -64,7 +65,7 @@ func runExpireCommand(ctx context.Context, rep *repo.Repository) error {
 		return err
 	}
 	snapshots = filterHostAndUser(snapshots)
-	toDelete, err := snapshot.GetExpiredSnapshots(pmgr, snapshots)
+	toDelete, err := policy.GetExpiredSnapshots(pmgr, snapshots)
 	if err != nil {
 		return err
 	}

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/fs/ignorefs"
+	"github.com/kopia/kopia/policy"
 
 	"github.com/kopia/kopia/repo"
 
@@ -61,7 +62,7 @@ func makeBuckets() buckets {
 }
 
 func runSnapshotEstimateCommand(ctx context.Context, rep *repo.Repository) error {
-	pmgr := snapshot.NewPolicyManager(rep)
+	pmgr := policy.NewPolicyManager(rep)
 
 	path, err := filepath.Abs(*snapshotEstimateSource)
 	if err != nil {

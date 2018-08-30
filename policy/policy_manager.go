@@ -1,4 +1,5 @@
-package snapshot
+// Package policy implements management of snapshot policies.
+package policy
 
 import (
 	"fmt"
@@ -6,20 +7,26 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/fs/ignorefs"
-
+	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/manifest"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot"
 )
 
-// PolicyManager manages snapshotting policies.
-type PolicyManager struct {
+// GlobalPolicySourceInfo is a source where global policy is attached.
+var GlobalPolicySourceInfo = snapshot.SourceInfo{}
+
+var log = kopialogging.Logger("kopia/policy")
+
+// Manager manages snapshotting policies.
+type Manager struct {
 	repository *repo.Repository
 }
 
 // GetEffectivePolicy calculates effective snapshot policy for a given source by combining the source-specifc policy (if any)
 // with parent policies. The source must contain a path.
 // Returns the effective policies and all source policies that contributed to that (most specific first).
-func (m *PolicyManager) GetEffectivePolicy(si SourceInfo) (*Policy, []*Policy, error) {
+func (m *Manager) GetEffectivePolicy(si snapshot.SourceInfo) (*Policy, []*Policy, error) {
 	var md []*manifest.EntryMetadata
 
 	// Find policies applying to paths all the way up to the root.
@@ -36,10 +43,10 @@ func (m *PolicyManager) GetEffectivePolicy(si SourceInfo) (*Policy, []*Policy, e
 	}
 
 	// Try user@host policy
-	md = append(md, m.repository.Manifests.Find(labelsForSource(SourceInfo{Host: si.Host, UserName: si.UserName}))...)
+	md = append(md, m.repository.Manifests.Find(labelsForSource(snapshot.SourceInfo{Host: si.Host, UserName: si.UserName}))...)
 
 	// Try host-level policy.
-	md = append(md, m.repository.Manifests.Find(labelsForSource(SourceInfo{Host: si.Host}))...)
+	md = append(md, m.repository.Manifests.Find(labelsForSource(snapshot.SourceInfo{Host: si.Host}))...)
 
 	// Global policy.
 	globalManifests := m.repository.Manifests.Find(labelsForSource(GlobalPolicySourceInfo))
@@ -62,8 +69,8 @@ func (m *PolicyManager) GetEffectivePolicy(si SourceInfo) (*Policy, []*Policy, e
 	return merged, policies, nil
 }
 
-// GetDefinedPolicy returns the policy defined on the provided SourceInfo or ErrPolicyNotFound if not present.
-func (m *PolicyManager) GetDefinedPolicy(si SourceInfo) (*Policy, error) {
+// GetDefinedPolicy returns the policy defined on the provided snapshot.SourceInfo or ErrPolicyNotFound if not present.
+func (m *Manager) GetDefinedPolicy(si snapshot.SourceInfo) (*Policy, error) {
 	md := m.repository.Manifests.Find(labelsForSource(si))
 
 	if len(md) == 0 {
@@ -95,7 +102,7 @@ func (m *PolicyManager) GetDefinedPolicy(si SourceInfo) (*Policy, error) {
 }
 
 // SetPolicy sets the policy on a given source.
-func (m *PolicyManager) SetPolicy(si SourceInfo, pol *Policy) error {
+func (m *Manager) SetPolicy(si snapshot.SourceInfo, pol *Policy) error {
 	md := m.repository.Manifests.Find(labelsForSource(si))
 
 	if _, err := m.repository.Manifests.Put(labelsForSource(si), pol); err != nil {
@@ -110,7 +117,7 @@ func (m *PolicyManager) SetPolicy(si SourceInfo, pol *Policy) error {
 }
 
 // RemovePolicy removes the policy for a given source.
-func (m *PolicyManager) RemovePolicy(si SourceInfo) error {
+func (m *Manager) RemovePolicy(si snapshot.SourceInfo) error {
 	md := m.repository.Manifests.Find(labelsForSource(si))
 	for _, em := range md {
 		m.repository.Manifests.Delete(em.ID)
@@ -120,7 +127,7 @@ func (m *PolicyManager) RemovePolicy(si SourceInfo) error {
 }
 
 // GetPolicyByID gets the policy for a given unique ID or ErrPolicyNotFound if not found.
-func (m *PolicyManager) GetPolicyByID(id string) (*Policy, error) {
+func (m *Manager) GetPolicyByID(id string) (*Policy, error) {
 	p := &Policy{}
 	if err := m.repository.Manifests.Get(id, &p); err != nil {
 		if err == manifest.ErrNotFound {
@@ -132,7 +139,7 @@ func (m *PolicyManager) GetPolicyByID(id string) (*Policy, error) {
 }
 
 // ListPolicies returns a list of all policies.
-func (m *PolicyManager) ListPolicies() ([]*Policy, error) {
+func (m *Manager) ListPolicies() ([]*Policy, error) {
 	ids := m.repository.Manifests.Find(map[string]string{
 		"type": "policy",
 	})
@@ -160,7 +167,7 @@ func (m *PolicyManager) ListPolicies() ([]*Policy, error) {
 }
 
 // FilesPolicyGetter returns ignorefs.FilesPolicyGetter for a given source.
-func (m *PolicyManager) FilesPolicyGetter(si SourceInfo) (ignorefs.FilesPolicyGetter, error) {
+func (m *Manager) FilesPolicyGetter(si snapshot.SourceInfo) (ignorefs.FilesPolicyGetter, error) {
 	result := ignorefs.FilesPolicyMap{}
 
 	pol, _, err := m.GetEffectivePolicy(si)
@@ -208,7 +215,7 @@ func (m *PolicyManager) FilesPolicyGetter(si SourceInfo) (ignorefs.FilesPolicyGe
 	return result, nil
 }
 
-func labelsForSource(si SourceInfo) map[string]string {
+func labelsForSource(si snapshot.SourceInfo) map[string]string {
 	switch {
 	case si.Path != "":
 		return map[string]string{
@@ -241,6 +248,6 @@ func labelsForSource(si SourceInfo) map[string]string {
 }
 
 // NewPolicyManager creates new policy manager for a given repository.
-func NewPolicyManager(r *repo.Repository) *PolicyManager {
-	return &PolicyManager{r}
+func NewPolicyManager(r *repo.Repository) *Manager {
+	return &Manager{r}
 }

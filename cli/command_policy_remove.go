@@ -3,8 +3,8 @@ package cli
 import (
 	"context"
 
+	"github.com/kopia/kopia/policy"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/snapshot"
 )
 
 var (
@@ -18,7 +18,7 @@ func init() {
 }
 
 func removePolicy(ctx context.Context, rep *repo.Repository) error {
-	mgr := snapshot.NewPolicyManager(rep)
+	mgr := policy.NewPolicyManager(rep)
 
 	targets, err := policyTargets(mgr, policyRemoveGlobal, policyRemoveTargets)
 	if err != nil {

@@ -1,13 +1,15 @@
-package snapshot
+package policy
 
 import (
 	"strings"
+
+	"github.com/kopia/kopia/snapshot"
 )
 
 // GetExpiredSnapshots computes the set of snapshot manifests that are not retained according to the policy.
-func GetExpiredSnapshots(pmgr *PolicyManager, snapshots []*Manifest) ([]*Manifest, error) {
-	var toDelete []*Manifest
-	for _, snapshotGroup := range GroupBySource(snapshots) {
+func GetExpiredSnapshots(pmgr *Manager, snapshots []*snapshot.Manifest) ([]*snapshot.Manifest, error) {
+	var toDelete []*snapshot.Manifest
+	for _, snapshotGroup := range snapshot.GroupBySource(snapshots) {
 		td, err := getExpiredSnapshotsForSource(pmgr, snapshotGroup)
 		if err != nil {
 			return nil, err
@@ -17,7 +19,7 @@ func GetExpiredSnapshots(pmgr *PolicyManager, snapshots []*Manifest) ([]*Manifes
 	return toDelete, nil
 }
 
-func getExpiredSnapshotsForSource(pmgr *PolicyManager, snapshots []*Manifest) ([]*Manifest, error) {
+func getExpiredSnapshotsForSource(pmgr *Manager, snapshots []*snapshot.Manifest) ([]*snapshot.Manifest, error) {
 	src := snapshots[0].Source
 	pol, _, err := pmgr.GetEffectivePolicy(src)
 	if err != nil {
@@ -26,7 +28,7 @@ func getExpiredSnapshotsForSource(pmgr *PolicyManager, snapshots []*Manifest) ([
 
 	pol.RetentionPolicy.ComputeRetentionReasons(snapshots)
 
-	var toDelete []*Manifest
+	var toDelete []*snapshot.Manifest
 	for _, s := range snapshots {
 		if len(s.RetentionReasons) == 0 {
 			log.Debugf("  deleting %v", s.StartTime)

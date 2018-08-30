@@ -10,6 +10,7 @@ import (
 	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/object"
+	"github.com/kopia/kopia/policy"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 )
@@ -85,12 +86,12 @@ func runSnapshotsCommand(ctx context.Context, rep *repo.Repository) error {
 		return err
 	}
 
-	polMgr := snapshot.NewPolicyManager(rep)
+	polMgr := policy.NewPolicyManager(rep)
 
 	return outputManifestGroups(ctx, manifests, strings.Split(relPath, "/"), mgr, polMgr)
 }
 
-func outputManifestGroups(ctx context.Context, manifests []*snapshot.Manifest, relPathParts []string, mgr *snapshot.Manager, polMgr *snapshot.PolicyManager) error {
+func outputManifestGroups(ctx context.Context, manifests []*snapshot.Manifest, relPathParts []string, mgr *snapshot.Manager, polMgr *policy.Manager) error {
 	separator := ""
 	for _, snapshotGroup := range snapshot.GroupBySource(manifests) {
 		src := snapshotGroup[0].Source

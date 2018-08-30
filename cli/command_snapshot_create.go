@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kopia/kopia/policy"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 )
@@ -34,7 +35,7 @@ var (
 
 func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
 	mgr := snapshot.NewManager(rep)
-	pmgr := snapshot.NewPolicyManager(rep)
+	pmgr := policy.NewPolicyManager(rep)
 
 	sources := *snapshotCreateSources
 	if *snapshotCreateAll {
@@ -85,7 +86,7 @@ func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
 	return fmt.Errorf("encountered %v errors:\n%v", len(finalErrors), strings.Join(finalErrors, "\n"))
 }
 
-func snapshotSingleSource(ctx context.Context, rep *repo.Repository, mgr *snapshot.Manager, pmgr *snapshot.PolicyManager, u *snapshot.Uploader, sourceInfo snapshot.SourceInfo) error {
+func snapshotSingleSource(ctx context.Context, rep *repo.Repository, mgr *snapshot.Manager, pmgr *policy.Manager, u *snapshot.Uploader, sourceInfo snapshot.SourceInfo) error {
 	t0 := time.Now()
 	rep.Blocks.ResetStats()
 

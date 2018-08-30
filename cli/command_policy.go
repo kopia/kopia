@@ -3,17 +3,18 @@ package cli
 import (
 	"fmt"
 
+	"github.com/kopia/kopia/policy"
 	"github.com/kopia/kopia/snapshot"
 )
 
-func policyTargets(pmgr *snapshot.PolicyManager, globalFlag *bool, targetsFlag *[]string) ([]snapshot.SourceInfo, error) {
+func policyTargets(pmgr *policy.Manager, globalFlag *bool, targetsFlag *[]string) ([]snapshot.SourceInfo, error) {
 	if *globalFlag == (len(*targetsFlag) > 0) {
 		return nil, fmt.Errorf("must pass either '--global' or a list of path targets")
 	}
 
 	if *globalFlag {
 		return []snapshot.SourceInfo{
-			snapshot.GlobalPolicySourceInfo,
+			policy.GlobalPolicySourceInfo,
 		}, nil
 	}
 

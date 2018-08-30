@@ -8,9 +8,6 @@ import (
 
 var log = kopialogging.Logger("kopia/snapshot")
 
-// GlobalPolicySourceInfo is a source where global policy is attached.
-var GlobalPolicySourceInfo = SourceInfo{}
-
 // Manager manages filesystem snapshots.
 type Manager struct {
 	Repository *repo.Repository

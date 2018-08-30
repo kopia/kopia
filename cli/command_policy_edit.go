@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/internal/editor"
+	"github.com/kopia/kopia/policy"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/snapshot"
 )
 
 const policyEditHelpText = `
@@ -57,7 +57,7 @@ func init() {
 }
 
 func editPolicy(ctx context.Context, rep *repo.Repository) error {
-	mgr := snapshot.NewPolicyManager(rep)
+	mgr := policy.NewPolicyManager(rep)
 
 	targets, err := policyTargets(mgr, policyEditGlobal, policyEditTargets)
 	if err != nil {
@@ -66,8 +66,8 @@ func editPolicy(ctx context.Context, rep *repo.Repository) error {
 
 	for _, target := range targets {
 		original, err := mgr.GetDefinedPolicy(target)
-		if err == snapshot.ErrPolicyNotFound {
-			original = &snapshot.Policy{}
+		if err == policy.ErrPolicyNotFound {
+			original = &policy.Policy{}
 		}
 
 		printStderr("Editing policy for %v using external editor...\n", target)
@@ -77,10 +77,10 @@ func editPolicy(ctx context.Context, rep *repo.Repository) error {
 		s = insertHelpText(s, `  "files": {`, policyEditFilesHelpText)
 		s = insertHelpText(s, `  "scheduling": {`, policyEditSchedulingHelpText)
 
-		var updated *snapshot.Policy
+		var updated *policy.Policy
 
 		if err := editor.EditLoop("policy.conf", s, func(edited string) error {
-			updated = &snapshot.Policy{}
+			updated = &policy.Policy{}
 			d := json.NewDecoder(bytes.NewBufferString(edited))
 			d.DisallowUnknownFields()
 			return d.Decode(updated)

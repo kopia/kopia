@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/block"
+	"github.com/kopia/kopia/policy"
 	"github.com/kopia/kopia/snapshot"
 )
 
@@ -24,7 +25,7 @@ type SourcesResponse struct {
 type SourceStatus struct {
 	Source           snapshot.SourceInfo `json:"source"`
 	Status           string              `json:"status"`
-	Policy           *snapshot.Policy    `json:"policy"`
+	Policy           *policy.Policy      `json:"policy"`
 	LastSnapshotSize int64               `json:"lastSnapshotSize,omitempty"`
 	LastSnapshotTime time.Time           `json:"lastSnapshotTime,omitempty"`
 	NextSnapshotTime time.Time           `json:"nextSnapshotTime,omitempty"`
@@ -40,7 +41,7 @@ type SourceStatus struct {
 type PolicyListEntry struct {
 	ID     string              `json:"id"`
 	Target snapshot.SourceInfo `json:"target"`
-	Policy *snapshot.Policy    `json:"policy"`
+	Policy *policy.Policy      `json:"policy"`
 }
 
 // PoliciesResponse is the response of 'policies' HTTP API command.

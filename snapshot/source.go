@@ -30,7 +30,7 @@ func (ssi SourceInfo) String() string {
 // or may be 'username@host:path' where path, username and host are not processed.
 func ParseSourceInfo(path string, hostname string, username string) (SourceInfo, error) {
 	if path == "(global)" {
-		return GlobalPolicySourceInfo, nil
+		return SourceInfo{}, nil
 	}
 
 	p1 := strings.Index(path, "@")

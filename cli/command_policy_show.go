@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/kopia/kopia/internal/units"
+	"github.com/kopia/kopia/policy"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/snapshot"
 )
 
 var (
@@ -21,7 +21,7 @@ func init() {
 }
 
 func showPolicy(ctx context.Context, rep *repo.Repository) error {
-	pmgr := snapshot.NewPolicyManager(rep)
+	pmgr := policy.NewPolicyManager(rep)
 
 	targets, err := policyTargets(pmgr, policyShowGlobal, policyShowTargets)
 	if err != nil {
@@ -44,7 +44,7 @@ func showPolicy(ctx context.Context, rep *repo.Repository) error {
 	return nil
 }
 
-func getDefinitionPoint(parents []*snapshot.Policy, match func(p *snapshot.Policy) bool) string {
+func getDefinitionPoint(parents []*policy.Policy, match func(p *policy.Policy) bool) string {
 	for i, p := range parents {
 		if match(p) {
 			if i == 0 {
@@ -71,7 +71,7 @@ func containsString(s []string, v string) bool {
 	return false
 }
 
-func printPolicy(p *snapshot.Policy, parents []*snapshot.Policy) {
+func printPolicy(p *policy.Policy, parents []*policy.Policy) {
 	printStdout("Policy for %v:\n", p.Target())
 
 	printRetentionPolicy(p, parents)
@@ -81,41 +81,41 @@ func printPolicy(p *snapshot.Policy, parents []*snapshot.Policy) {
 	printSchedulingPolicy(p, parents)
 }
 
-func printRetentionPolicy(p *snapshot.Policy, parents []*snapshot.Policy) {
+func printRetentionPolicy(p *policy.Policy, parents []*policy.Policy) {
 	printStdout("Keep:\n")
 	printStdout("  Annual snapshots:  %3v           %v\n",
 		valueOrNotSet(p.RetentionPolicy.KeepAnnual),
-		getDefinitionPoint(parents, func(pol *snapshot.Policy) bool {
+		getDefinitionPoint(parents, func(pol *policy.Policy) bool {
 			return pol.RetentionPolicy.KeepAnnual != nil
 		}))
 	printStdout("  Monthly snapshots: %3v           %v\n",
 		valueOrNotSet(p.RetentionPolicy.KeepMonthly),
-		getDefinitionPoint(parents, func(pol *snapshot.Policy) bool {
+		getDefinitionPoint(parents, func(pol *policy.Policy) bool {
 			return pol.RetentionPolicy.KeepMonthly != nil
 		}))
 	printStdout("  Weekly snapshots:  %3v           %v\n",
 		valueOrNotSet(p.RetentionPolicy.KeepWeekly),
-		getDefinitionPoint(parents, func(pol *snapshot.Policy) bool {
+		getDefinitionPoint(parents, func(pol *policy.Policy) bool {
 			return pol.RetentionPolicy.KeepWeekly != nil
 		}))
 	printStdout("  Daily snapshots:   %3v           %v\n",
 		valueOrNotSet(p.RetentionPolicy.KeepDaily),
-		getDefinitionPoint(parents, func(pol *snapshot.Policy) bool {
+		getDefinitionPoint(parents, func(pol *policy.Policy) bool {
 			return pol.RetentionPolicy.KeepDaily != nil
 		}))
 	printStdout("  Hourly snapshots:  %3v           %v\n",
 		valueOrNotSet(p.RetentionPolicy.KeepHourly),
-		getDefinitionPoint(parents, func(pol *snapshot.Policy) bool {
+		getDefinitionPoint(parents, func(pol *policy.Policy) bool {
 			return pol.RetentionPolicy.KeepHourly != nil
 		}))
 	printStdout("  Latest snapshots:  %3v           %v\n",
 		valueOrNotSet(p.RetentionPolicy.KeepLatest),
-		getDefinitionPoint(parents, func(pol *snapshot.Policy) bool {
+		getDefinitionPoint(parents, func(pol *policy.Policy) bool {
 			return pol.RetentionPolicy.KeepLatest != nil
 		}))
 }
 
-func printFilesPolicy(p *snapshot.Policy, parents []*snapshot.Policy) {
+func printFilesPolicy(p *policy.Policy, parents []*policy.Policy) {
 	printStdout("Files policy:\n")
 
 	if len(p.FilesPolicy.IgnoreRules) > 0 {
@@ -124,7 +124,7 @@ func printFilesPolicy(p *snapshot.Policy, parents []*snapshot.Policy) {
 		printStdout("  No ignore rules.\n")
 	}
 	for _, rule := range p.FilesPolicy.IgnoreRules {
-		printStdout("    %-30v %v\n", rule, getDefinitionPoint(parents, func(pol *snapshot.Policy) bool {
+		printStdout("    %-30v %v\n", rule, getDefinitionPoint(parents, func(pol *policy.Policy) bool {
 			return containsString(pol.FilesPolicy.IgnoreRules, rule)
 		}))
 	}
@@ -132,22 +132,22 @@ func printFilesPolicy(p *snapshot.Policy, parents []*snapshot.Policy) {
 		printStdout("  Read ignore rules from files:\n")
 	}
 	for _, dotFile := range p.FilesPolicy.DotIgnoreFiles {
-		printStdout("    %-30v %v\n", dotFile, getDefinitionPoint(parents, func(pol *snapshot.Policy) bool {
+		printStdout("    %-30v %v\n", dotFile, getDefinitionPoint(parents, func(pol *policy.Policy) bool {
 			return containsString(pol.FilesPolicy.DotIgnoreFiles, dotFile)
 		}))
 	}
 	if maxSize := p.FilesPolicy.MaxFileSize; maxSize > 0 {
 		printStdout("  Ignore files above: %10v  %v\n",
 			units.BytesStringBase2(maxSize),
-			getDefinitionPoint(parents, func(pol *snapshot.Policy) bool {
+			getDefinitionPoint(parents, func(pol *policy.Policy) bool {
 				return pol.FilesPolicy.MaxFileSize != 0
 			}))
 	}
 }
 
-func printSchedulingPolicy(p *snapshot.Policy, parents []*snapshot.Policy) {
+func printSchedulingPolicy(p *policy.Policy, parents []*policy.Policy) {
 	if p.SchedulingPolicy.Interval() != 0 {
-		printStdout("Snapshot interval:     %10v  %v\n", p.SchedulingPolicy.Interval(), getDefinitionPoint(parents, func(pol *snapshot.Policy) bool {
+		printStdout("Snapshot interval:     %10v  %v\n", p.SchedulingPolicy.Interval(), getDefinitionPoint(parents, func(pol *policy.Policy) bool {
 			return pol.SchedulingPolicy.Interval() != 0
 		}))
 	}
@@ -155,7 +155,7 @@ func printSchedulingPolicy(p *snapshot.Policy, parents []*snapshot.Policy) {
 	if len(p.SchedulingPolicy.TimesOfDay) > 0 {
 		printStdout("Snapshot times:\n")
 		for _, tod := range p.SchedulingPolicy.TimesOfDay {
-			printStdout("  %9v                        %v\n", tod, getDefinitionPoint(parents, func(pol *snapshot.Policy) bool {
+			printStdout("  %9v                        %v\n", tod, getDefinitionPoint(parents, func(pol *policy.Policy) bool {
 				for _, t := range pol.SchedulingPolicy.TimesOfDay {
 					if t == tod {
 						return true

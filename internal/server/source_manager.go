@@ -7,6 +7,7 @@ import (
 
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/serverapi"
+	"github.com/kopia/kopia/policy"
 	"github.com/kopia/kopia/snapshot"
 )
 
@@ -24,7 +25,7 @@ type sourceManager struct {
 	closed chan struct{}
 
 	mu                   sync.RWMutex
-	pol                  *snapshot.Policy
+	pol                  *policy.Policy
 	state                string
 	nextSnapshotTime     time.Time
 	lastCompleteSnapshot *snapshot.Manifest

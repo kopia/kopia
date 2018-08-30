@@ -10,6 +10,7 @@ import (
 	"github.com/bmizerany/pat"
 	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/internal/serverapi"
+	"github.com/kopia/kopia/policy"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 )
@@ -22,7 +23,7 @@ type Server struct {
 	username        string
 	rep             *repo.Repository
 	snapshotManager *snapshot.Manager
-	policyManager   *snapshot.PolicyManager
+	policyManager   *policy.Manager
 
 	mu             sync.RWMutex
 	sourceManagers map[snapshot.SourceInfo]*sourceManager
@@ -128,7 +129,7 @@ func New(ctx context.Context, rep *repo.Repository, hostname string, username st
 		username:        username,
 		rep:             rep,
 		snapshotManager: snapshot.NewManager(rep),
-		policyManager:   snapshot.NewPolicyManager(rep),
+		policyManager:   policy.NewPolicyManager(rep),
 		sourceManagers:  map[snapshot.SourceInfo]*sourceManager{},
 		uploadSemaphore: make(chan struct{}, 1),
 	}

@@ -1,8 +1,10 @@
-package snapshot
+package policy
 
 import (
 	"fmt"
 	"time"
+
+	"github.com/kopia/kopia/snapshot"
 )
 
 // RetentionPolicy describes snapshot retention policy.
@@ -17,7 +19,7 @@ type RetentionPolicy struct {
 
 // ComputeRetentionReasons computes the reasons why each snapshot is retained, based on
 // the settings in retention policy and stores them in RetentionReason field.
-func (r *RetentionPolicy) ComputeRetentionReasons(manifests []*Manifest) {
+func (r *RetentionPolicy) ComputeRetentionReasons(manifests []*snapshot.Manifest) {
 	now := time.Now()
 	maxTime := now.Add(365 * 24 * time.Hour)
 
@@ -40,12 +42,12 @@ func (r *RetentionPolicy) ComputeRetentionReasons(manifests []*Manifest) {
 	ids := make(map[string]bool)
 	idCounters := make(map[string]int)
 
-	for i, s := range SortByTime(manifests, true) {
+	for i, s := range snapshot.SortByTime(manifests, true) {
 		s.RetentionReasons = r.getRetentionReasons(i, s, cutoff, ids, idCounters)
 	}
 }
 
-func (r *RetentionPolicy) getRetentionReasons(i int, s *Manifest, cutoff cutoffTimes, ids map[string]bool, idCounters map[string]int) []string {
+func (r *RetentionPolicy) getRetentionReasons(i int, s *snapshot.Manifest, cutoff cutoffTimes, ids map[string]bool, idCounters map[string]int) []string {
 	if s.IncompleteReason != "" {
 		return nil
 	}

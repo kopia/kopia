@@ -1,4 +1,4 @@
-package snapshot
+package policy
 
 import (
 	"bytes"
@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	"github.com/kopia/kopia/fs/ignorefs"
+	"github.com/kopia/kopia/snapshot"
 )
 
 // ErrPolicyNotFound is returned when the policy is not found.
@@ -36,9 +37,9 @@ func (p *Policy) ID() string {
 	return p.Labels["id"]
 }
 
-// Target returns the SourceInfo describing username, host and path targeted by the policy.
-func (p *Policy) Target() SourceInfo {
-	return SourceInfo{
+// Target returns the snapshot.SourceInfo describing username, host and path targeted by the policy.
+func (p *Policy) Target() snapshot.SourceInfo {
+	return snapshot.SourceInfo{
 		Host:     p.Labels["hostname"],
 		UserName: p.Labels["username"],
 		Path:     p.Labels["path"],

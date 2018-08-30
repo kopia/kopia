@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/fs/ignorefs"
+	"github.com/kopia/kopia/policy"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 )
@@ -53,7 +54,7 @@ func init() {
 }
 
 func setPolicy(ctx context.Context, rep *repo.Repository) error {
-	mgr := snapshot.NewPolicyManager(rep)
+	mgr := policy.NewPolicyManager(rep)
 
 	targets, err := policyTargets(mgr, policySetGlobal, policySetTargets)
 	if err != nil {
@@ -62,8 +63,8 @@ func setPolicy(ctx context.Context, rep *repo.Repository) error {
 
 	for _, target := range targets {
 		p, err := mgr.GetDefinedPolicy(target)
-		if err == snapshot.ErrPolicyNotFound {
-			p = &snapshot.Policy{}
+		if err == policy.ErrPolicyNotFound {
+			p = &policy.Policy{}
 		}
 
 		printStderr("Setting policy for %v\n", target)
@@ -85,7 +86,7 @@ func setPolicy(ctx context.Context, rep *repo.Repository) error {
 	return nil
 }
 
-func setPolicyFromFlags(target snapshot.SourceInfo, p *snapshot.Policy, changeCount *int) error {
+func setPolicyFromFlags(target snapshot.SourceInfo, p *policy.Policy, changeCount *int) error {
 	if err := setRetentionPolicyFromFlags(&p.RetentionPolicy, changeCount); err != nil {
 		return fmt.Errorf("retention policy: %v", err)
 	}
@@ -129,7 +130,7 @@ func setFilesPolicyFromFlags(fp *ignorefs.FilesPolicy, changeCount *int) error {
 	return nil
 }
 
-func setRetentionPolicyFromFlags(rp *snapshot.RetentionPolicy, changeCount *int) error {
+func setRetentionPolicyFromFlags(rp *policy.RetentionPolicy, changeCount *int) error {
 	cases := []struct {
 		desc      string
 		max       **int
@@ -151,7 +152,7 @@ func setRetentionPolicyFromFlags(rp *snapshot.RetentionPolicy, changeCount *int)
 	return nil
 }
 
-func setSchedulingPolicyFromFlags(sp *snapshot.SchedulingPolicy, changeCount *int) error {
+func setSchedulingPolicyFromFlags(sp *policy.SchedulingPolicy, changeCount *int) error {
 	// It's not really a list, just optional value.
 	for _, interval := range *policySetInterval {
 		*changeCount++
@@ -161,7 +162,7 @@ func setSchedulingPolicyFromFlags(sp *snapshot.SchedulingPolicy, changeCount *in
 	}
 
 	if len(*policySetTimesOfDay) > 0 {
-		var timesOfDay []snapshot.TimeOfDay
+		var timesOfDay []policy.TimeOfDay
 
 		for _, tods := range *policySetTimesOfDay {
 			for _, tod := range strings.Split(tods, ",") {
@@ -170,7 +171,7 @@ func setSchedulingPolicyFromFlags(sp *snapshot.SchedulingPolicy, changeCount *in
 					break
 				}
 
-				var timeOfDay snapshot.TimeOfDay
+				var timeOfDay policy.TimeOfDay
 				if err := timeOfDay.Parse(tod); err != nil {
 					return fmt.Errorf("unable to parse time of day: %v", err)
 				}
@@ -179,7 +180,7 @@ func setSchedulingPolicyFromFlags(sp *snapshot.SchedulingPolicy, changeCount *in
 		}
 		*changeCount++
 
-		sp.TimesOfDay = snapshot.SortAndDedupeTimesOfDay(timesOfDay)
+		sp.TimesOfDay = policy.SortAndDedupeTimesOfDay(timesOfDay)
 
 		if timesOfDay == nil {
 			printStderr(" - resetting snapshot times of day to default\n")
