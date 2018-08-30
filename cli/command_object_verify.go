@@ -11,6 +11,7 @@ import (
 
 	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/internal/parallelwork"
 	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/repo"
@@ -111,7 +112,7 @@ func (v *verifier) enqueueVerifyObject(ctx context.Context, oid object.ID, path 
 func (v *verifier) doVerifyDirectory(ctx context.Context, oid object.ID, path string) {
 	log.Debugf("verifying directory %q (%v)", path, oid)
 
-	d := v.mgr.DirectoryEntry(oid, nil)
+	d := repofs.DirectoryEntry(v.mgr, oid, nil)
 	entries, err := d.Readdir(ctx)
 	if err != nil {
 		v.reportError(path, fmt.Errorf("error reading %v: %v", oid, err))

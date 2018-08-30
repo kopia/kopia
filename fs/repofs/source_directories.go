@@ -1,16 +1,15 @@
-package snapshot
+package repofs
 
 import (
 	"context"
 	"time"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot"
 )
 
 type sourceDirectories struct {
-	repo            *repo.Repository
-	snapshotManager *Manager
+	snapshotManager *snapshot.Manager
 	userHost        string
 }
 
@@ -36,7 +35,7 @@ func (s *sourceDirectories) Readdir(ctx context.Context) (fs.Entries, error) {
 			continue
 		}
 
-		result = append(result, &sourceSnapshots{s.repo, s.snapshotManager, src})
+		result = append(result, &sourceSnapshots{s.snapshotManager, src})
 	}
 
 	result.Sort()

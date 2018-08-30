@@ -1,9 +1,12 @@
-package snapshot
+// Package repofs implements virtual filesystem on top of snapshots in repo.Repository.
+package repofs
 
 import (
 	"context"
 	"fmt"
 	"io/ioutil"
+
+	"github.com/kopia/kopia/snapshot"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/dir"
@@ -128,8 +131,8 @@ func withMetadata(r object.Reader, md *fs.EntryMetadata) fs.Reader {
 
 // DirectoryEntry returns fs.Directory based on repository object with the specified ID.
 // The existence or validity of the directory object is not validated until its contents are read.
-func (m *Manager) DirectoryEntry(objectID object.ID, dirSummary *fs.DirectorySummary) fs.Directory {
-	d := newRepoEntry(m.repository, &dir.Entry{
+func DirectoryEntry(m *snapshot.Manager, objectID object.ID, dirSummary *fs.DirectorySummary) fs.Directory {
+	d := newRepoEntry(m.Repository, &dir.Entry{
 		EntryMetadata: fs.EntryMetadata{
 			Name:        "/",
 			Permissions: 0555,
@@ -143,13 +146,13 @@ func (m *Manager) DirectoryEntry(objectID object.ID, dirSummary *fs.DirectorySum
 }
 
 // SnapshotRoot returns fs.Entry representing the root of a snapshot.
-func (m *Manager) SnapshotRoot(man *Manifest) (fs.Entry, error) {
+func SnapshotRoot(m *snapshot.Manager, man *snapshot.Manifest) (fs.Entry, error) {
 	oid := man.RootObjectID()
 	if oid == "" {
 		return nil, fmt.Errorf("manifest root object ID")
 	}
 
-	return newRepoEntry(m.repository, man.RootEntry), nil
+	return newRepoEntry(m.Repository, man.RootEntry), nil
 }
 
 var _ fs.Directory = &repositoryDirectory{}

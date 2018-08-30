@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
@@ -48,7 +49,7 @@ func init() {
 }
 
 func listDirectory(ctx context.Context, mgr *snapshot.Manager, prefix string, oid object.ID, indent string) error {
-	d := mgr.DirectoryEntry(oid, nil)
+	d := repofs.DirectoryEntry(mgr, oid, nil)
 
 	entries, err := d.Readdir(ctx)
 	if err != nil {

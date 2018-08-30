@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/repo"
@@ -121,7 +122,7 @@ func outputManifestFromSingleSource(ctx context.Context, manifests []*snapshot.M
 	}
 
 	for _, m := range manifests {
-		root, err := mgr.SnapshotRoot(m)
+		root, err := repofs.SnapshotRoot(mgr, m)
 		if err != nil {
 			fmt.Printf("  %v <ERROR> %v\n", m.StartTime.Format("2006-01-02 15:04:05 MST"), err)
 			continue

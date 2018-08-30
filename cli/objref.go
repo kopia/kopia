@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/snapshot"
 )
@@ -22,7 +23,7 @@ func parseObjectID(ctx context.Context, mgr *snapshot.Manager, id string) (objec
 		return oid, nil
 	}
 
-	dir := mgr.DirectoryEntry(oid, nil)
+	dir := repofs.DirectoryEntry(mgr, oid, nil)
 	return parseNestedObjectID(ctx, dir, parts[1:])
 }
 

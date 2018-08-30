@@ -1,4 +1,4 @@
-package snapshot
+package repofs
 
 import (
 	"context"
@@ -6,12 +6,11 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot"
 )
 
 type repositoryAllSources struct {
-	repo            *repo.Repository
-	snapshotManager *Manager
+	snapshotManager *snapshot.Manager
 }
 
 func (s *repositoryAllSources) Summary() *fs.DirectorySummary {
@@ -38,7 +37,6 @@ func (s *repositoryAllSources) Readdir(ctx context.Context) (fs.Entries, error) 
 	var result fs.Entries
 	for u := range users {
 		result = append(result, &sourceDirectories{
-			repo:            s.repo,
 			snapshotManager: s.snapshotManager,
 			userHost:        u,
 		})
@@ -49,6 +47,6 @@ func (s *repositoryAllSources) Readdir(ctx context.Context) (fs.Entries, error) 
 }
 
 // AllSourcesEntry returns fs.Directory that contains the list of all snapshot sources found in the repository.
-func (m *Manager) AllSourcesEntry() fs.Directory {
-	return &repositoryAllSources{repo: m.repository, snapshotManager: m}
+func AllSourcesEntry(m *snapshot.Manager) fs.Directory {
+	return &repositoryAllSources{snapshotManager: m}
 }

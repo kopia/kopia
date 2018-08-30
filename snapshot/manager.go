@@ -13,12 +13,12 @@ var GlobalPolicySourceInfo = SourceInfo{}
 
 // Manager manages filesystem snapshots.
 type Manager struct {
-	repository *repo.Repository
+	Repository *repo.Repository
 }
 
 // ListSources lists all snapshot sources.
 func (m *Manager) ListSources() []SourceInfo {
-	items := m.repository.Manifests.Find(map[string]string{
+	items := m.Repository.Manifests.Find(map[string]string{
 		"type": "snapshot",
 	})
 
@@ -50,13 +50,13 @@ func sourceInfoToLabels(si SourceInfo) map[string]string {
 
 // ListSnapshots lists all snapshots for a given source.
 func (m *Manager) ListSnapshots(si SourceInfo) ([]*Manifest, error) {
-	return m.LoadSnapshots(manifest.EntryIDs(m.repository.Manifests.Find(sourceInfoToLabels(si))))
+	return m.LoadSnapshots(manifest.EntryIDs(m.Repository.Manifests.Find(sourceInfoToLabels(si))))
 }
 
 // LoadSnapshot loads and parses a snapshot with a given ID.
 func (m *Manager) LoadSnapshot(manifestID string) (*Manifest, error) {
 	sm := &Manifest{}
-	if err := m.repository.Manifests.Get(manifestID, sm); err != nil {
+	if err := m.Repository.Manifests.Get(manifestID, sm); err != nil {
 		return nil, err
 	}
 
@@ -67,7 +67,7 @@ func (m *Manager) LoadSnapshot(manifestID string) (*Manifest, error) {
 
 // SaveSnapshot persists given snapshot manifest and returns manifest ID.
 func (m *Manager) SaveSnapshot(manifest *Manifest) (string, error) {
-	return m.repository.Manifests.Put(sourceInfoToLabels(manifest.Source), manifest)
+	return m.Repository.Manifests.Put(sourceInfoToLabels(manifest.Source), manifest)
 }
 
 // LoadSnapshots efficiently loads and parses a given list of snapshot IDs.
@@ -114,7 +114,7 @@ func (m *Manager) ListSnapshotManifests(src *SourceInfo) []string {
 		labels = sourceInfoToLabels(*src)
 	}
 
-	return manifest.EntryIDs(m.repository.Manifests.Find(labels))
+	return manifest.EntryIDs(m.Repository.Manifests.Find(labels))
 }
 
 // NewManager creates new snapshot manager for a given connection.

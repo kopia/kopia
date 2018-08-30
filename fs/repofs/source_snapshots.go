@@ -1,4 +1,4 @@
-package snapshot
+package repofs
 
 import (
 	"context"
@@ -7,13 +7,12 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/dir"
-	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot"
 )
 
 type sourceSnapshots struct {
-	repo            *repo.Repository
-	snapshotManager *Manager
-	src             SourceInfo
+	snapshotManager *snapshot.Manager
+	src             snapshot.SourceInfo
 }
 
 func (s *sourceSnapshots) Metadata() *fs.EntryMetadata {
@@ -61,7 +60,7 @@ func (s *sourceSnapshots) Readdir(ctx context.Context) (fs.Entries, error) {
 			de.DirSummary = m.RootEntry.DirSummary
 		}
 
-		e := newRepoEntry(s.repo, de)
+		e := newRepoEntry(s.snapshotManager.Repository, de)
 
 		result = append(result, e)
 	}
