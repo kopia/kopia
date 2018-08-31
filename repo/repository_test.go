@@ -14,11 +14,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kopia/kopia/auth"
-	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/storagetesting"
-	"github.com/kopia/kopia/object"
-	"github.com/kopia/kopia/storage"
+	"github.com/kopia/kopia/repo/auth"
+	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/object"
+	"github.com/kopia/kopia/repo/storage"
 )
 
 func setupTest(t *testing.T, mods ...func(o *NewRepositoryOptions)) (map[string][]byte, map[string]time.Time, *Repository) {

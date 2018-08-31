@@ -11,12 +11,12 @@ import (
 	"strings"
 
 	"github.com/bgentry/speakeasy"
-	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/fs/loggingfs"
 	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/auth"
 )
 
 var (

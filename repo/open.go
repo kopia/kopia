@@ -8,14 +8,14 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	"github.com/kopia/kopia/auth"
-	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/internal/kopialogging"
-	"github.com/kopia/kopia/manifest"
-	"github.com/kopia/kopia/object"
-	"github.com/kopia/kopia/storage"
-	"github.com/kopia/kopia/storage/logging"
+	"github.com/kopia/kopia/repo/auth"
+	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/manifest"
+	"github.com/kopia/kopia/repo/object"
+	"github.com/kopia/kopia/repo/storage"
+	"github.com/kopia/kopia/repo/storage/logging"
 )
 
 var log = kopialogging.Logger("kopia/repo")

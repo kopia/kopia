@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/kopia/kopia/auth"
-	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/storage/filesystem"
-	"github.com/kopia/kopia/storage/logging"
+	"github.com/kopia/kopia/repo/auth"
+	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/storage/filesystem"
+	"github.com/kopia/kopia/repo/storage/logging"
 )
 
 const (

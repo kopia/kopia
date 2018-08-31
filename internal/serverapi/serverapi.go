@@ -3,8 +3,8 @@ package serverapi
 import (
 	"time"
 
-	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/policy"
+	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/snapshot"
 )
 

@@ -9,8 +9,8 @@ import (
 
 	"github.com/kopia/kopia/internal/packindex"
 
-	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/block"
 )
 
 var (

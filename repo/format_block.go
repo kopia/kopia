@@ -10,9 +10,9 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/internal/config"
-	"github.com/kopia/kopia/storage"
+	"github.com/kopia/kopia/repo/auth"
+	"github.com/kopia/kopia/repo/storage"
 )
 
 // FormatBlockID is the identifier of a storage block that describes repository format.

@@ -3,8 +3,8 @@ package cli
 import (
 	"context"
 
-	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/block"
 )
 
 var (

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/internal/kopialogging"
-	"github.com/kopia/kopia/storage"
+	"github.com/kopia/kopia/repo/storage"
 )
 
 var log = kopialogging.Logger("faulty-storage")

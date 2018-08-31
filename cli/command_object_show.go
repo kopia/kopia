@@ -4,8 +4,8 @@ import (
 	"context"
 	"io"
 
-	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/object"
 )
 
 var (

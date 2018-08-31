@@ -5,9 +5,9 @@ import (
 	"context"
 	"os"
 
-	"github.com/kopia/kopia/auth"
 	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/auth"
 )
 
 var log = kopialogging.Logger("kopia/example")

@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kopia/kopia/storage"
+	"github.com/kopia/kopia/repo/storage"
 )
 
 type mapStorage struct {

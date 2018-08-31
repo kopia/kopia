@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/storagetesting"
-	"github.com/kopia/kopia/storage"
+	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/storage"
 )
 
 const goroutineCount = 16

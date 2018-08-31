@@ -5,8 +5,8 @@ import (
 	"io"
 	"os"
 
-	"github.com/kopia/kopia/block"
-	"github.com/kopia/kopia/storage"
+	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/storage"
 )
 
 // LocalConfig is a configuration of Kopia.

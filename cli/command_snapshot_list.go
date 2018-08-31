@@ -9,9 +9,9 @@ import (
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/internal/units"
-	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/policy"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 )
 

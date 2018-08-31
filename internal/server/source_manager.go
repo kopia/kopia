@@ -7,9 +7,9 @@ import (
 
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/serverapi"
+	"github.com/kopia/kopia/internal/upload"
 	"github.com/kopia/kopia/policy"
 	"github.com/kopia/kopia/snapshot"
-	"github.com/kopia/kopia/upload"
 )
 
 // sourceManager manages the state machine of each source

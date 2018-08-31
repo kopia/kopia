@@ -5,7 +5,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/kopia/kopia/storage"
+	"github.com/kopia/kopia/repo/storage"
 )
 
 // VerifyStorage verifies the behavior of the specified storage.

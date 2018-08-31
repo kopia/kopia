@@ -9,12 +9,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/kopia/kopia/auth"
-	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/internal/units"
-	"github.com/kopia/kopia/storage"
+	"github.com/kopia/kopia/repo/auth"
+	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/storage"
 )
 
 // ConnectOptions specifies options when persisting configuration to connect to a repository.

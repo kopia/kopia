@@ -6,8 +6,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/block"
 )
 
 var (

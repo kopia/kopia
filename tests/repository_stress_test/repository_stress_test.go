@@ -14,11 +14,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kopia/kopia/auth"
-	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/storage"
-	"github.com/kopia/kopia/storage/filesystem"
+	"github.com/kopia/kopia/repo/auth"
+	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/storage"
+	"github.com/kopia/kopia/repo/storage/filesystem"
 )
 
 type testContext struct {

@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/storage"
+	"github.com/kopia/kopia/repo/storage"
 )
 
 var (

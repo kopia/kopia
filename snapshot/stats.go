@@ -1,8 +1,8 @@
 package snapshot
 
 import (
-	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/repo/block"
 )
 
 // Stats keeps track of snapshot generation statistics.

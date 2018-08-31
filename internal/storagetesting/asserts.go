@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/kopia/kopia/storage"
+	"github.com/kopia/kopia/repo/storage"
 )
 
 // AssertGetBlock asserts that the specified storage block has correct content.

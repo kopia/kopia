@@ -5,11 +5,11 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/units"
-	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/storage"
+	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/object"
+	"github.com/kopia/kopia/repo/storage"
 )
 
 var (

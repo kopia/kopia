@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/kopia/kopia/auth"
-	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/internal/config"
-	"github.com/kopia/kopia/object"
-	"github.com/kopia/kopia/storage"
+	"github.com/kopia/kopia/repo/auth"
+	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/object"
+	"github.com/kopia/kopia/repo/storage"
 )
 
 // BuildInfo is the build information of Kopia.

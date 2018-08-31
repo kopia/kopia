@@ -8,8 +8,8 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/repofs"
-	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/object"
 )
 
 const timeFormat = "2006-01-02 15:04:05"

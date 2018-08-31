@@ -30,10 +30,10 @@ import (
 
 	logging "github.com/op/go-logging"
 
-	_ "github.com/kopia/kopia/storage/filesystem/cli"
-	_ "github.com/kopia/kopia/storage/gcs/cli"
-	_ "github.com/kopia/kopia/storage/s3/cli"
-	_ "github.com/kopia/kopia/storage/webdav/cli"
+	_ "github.com/kopia/kopia/repo/storage/filesystem/cli"
+	_ "github.com/kopia/kopia/repo/storage/gcs/cli"
+	_ "github.com/kopia/kopia/repo/storage/s3/cli"
+	_ "github.com/kopia/kopia/repo/storage/webdav/cli"
 )
 
 var fileLogFormat = logging.MustStringFormatter(

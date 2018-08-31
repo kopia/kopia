@@ -9,12 +9,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kopia/kopia/block"
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/internal/parallelwork"
-	"github.com/kopia/kopia/object"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 )
 

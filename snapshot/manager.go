@@ -2,7 +2,7 @@ package snapshot
 
 import (
 	"github.com/kopia/kopia/internal/kopialogging"
-	"github.com/kopia/kopia/manifest"
+	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo"
 )
 

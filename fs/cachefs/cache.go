@@ -7,7 +7,7 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/kopialogging"
-	"github.com/kopia/kopia/object"
+	"github.com/kopia/kopia/repo/object"
 )
 
 var log = kopialogging.Logger("kopia/cachefs")
