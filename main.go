@@ -29,11 +29,6 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 
 	logging "github.com/op/go-logging"
-
-	_ "github.com/kopia/kopia/repo/storage/filesystem/cli"
-	_ "github.com/kopia/kopia/repo/storage/gcs/cli"
-	_ "github.com/kopia/kopia/repo/storage/s3/cli"
-	_ "github.com/kopia/kopia/repo/storage/webdav/cli"
 )
 
 var fileLogFormat = logging.MustStringFormatter(

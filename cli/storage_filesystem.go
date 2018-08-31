@@ -5,7 +5,6 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/repo/storage"
 	"github.com/kopia/kopia/repo/storage/filesystem"
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -44,7 +43,7 @@ func connect(ctx context.Context) (storage.Storage, error) {
 }
 
 func init() {
-	cli.RegisterStorageConnectFlags(
+	RegisterStorageConnectFlags(
 		"filesystem",
 		"a filesystem",
 		func(cmd *kingpin.CmdClause) {

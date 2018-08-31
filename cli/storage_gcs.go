@@ -3,20 +3,15 @@ package cli
 import (
 	"context"
 
-	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/repo/storage"
 	"github.com/kopia/kopia/repo/storage/gcs"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
-var options gcs.Options
-
-func connect(ctx context.Context) (storage.Storage, error) {
-	return gcs.New(ctx, &options)
-}
-
 func init() {
-	cli.RegisterStorageConnectFlags(
+	var options gcs.Options
+
+	RegisterStorageConnectFlags(
 		"google",
 		"a Google Cloud Storage bucket",
 		func(cmd *kingpin.CmdClause) {
@@ -28,5 +23,8 @@ func init() {
 			cmd.Flag("max-upload-speed", "Limit the upload speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&options.MaxUploadSpeedBytesPerSecond)
 
 		},
-		connect)
+		func(ctx context.Context) (storage.Storage, error) {
+			return gcs.New(ctx, &options)
+		},
+	)
 }
