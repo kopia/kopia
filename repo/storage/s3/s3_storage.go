@@ -1,3 +1,4 @@
+// Package s3 implements Storage based on an S3 bucket.
 package s3
 
 import (

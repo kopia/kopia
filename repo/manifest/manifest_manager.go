@@ -1,3 +1,4 @@
+// Package manifest implements support for managing JSON-based manifests in repository.
 package manifest
 
 import (

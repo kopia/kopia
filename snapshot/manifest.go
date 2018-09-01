@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/internal/dir"
-
 	"github.com/kopia/kopia/repo/object"
 )
 

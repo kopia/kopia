@@ -1,3 +1,4 @@
+// Package block implements repository support content-addressable storage blocks.
 package block
 
 import (

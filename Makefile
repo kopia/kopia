@@ -90,7 +90,8 @@ integration-tests:
 	KOPIA_EXE=$(RELEASE_TMP_DIR)/integration/kopia go test -count=1 -timeout 90s -v github.com/kopia/kopia/tests/end_to_end_test
 
 stress-test:
-	KOPIA_LONG_STRESS_TEST=1 go test -count=1 -timeout 200s github.com/kopia/kopia/tests/stress_test
+	KOPIA_LONG_STRESS_TEST=1 go test -count=1 -timeout 200s github.com/kopia/kopia/repo/tests/stress_test
+	go test -count=1 -timeout 200s github.com/kopia/kopia/repo/tests/repository_stress_test
 
 godoc:
 	godoc -http=:33333
@@ -100,5 +101,5 @@ coverage:
 	go tool cover -html=tmp.cov
 
 coverage-repo:
-	go test --coverprofile tmp.cov github.com/kopia/kopia/repo/block/... github.com/kopia/kopia/repo/object/... github.com/kopia/kopia/repo/...
+	go test --coverprofile tmp.cov github.com/kopia/kopia/repo/...
 	go tool cover -html=tmp.cov

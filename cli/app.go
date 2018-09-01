@@ -1,3 +1,4 @@
+// Package cli implements command-line commands for the Kopia.
 package cli
 
 import (

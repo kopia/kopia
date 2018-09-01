@@ -1,3 +1,4 @@
+// Package object implements repository support for content-addressable objects of arbitrary size.
 package object
 
 import (

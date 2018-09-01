@@ -1,9 +1,10 @@
+// Package snapshot manages metadata about snapshots stored in repository.
 package snapshot
 
 import (
 	"github.com/kopia/kopia/internal/kopialogging"
-	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/manifest"
 )
 
 var log = kopialogging.Logger("kopia/snapshot")
