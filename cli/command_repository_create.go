@@ -65,10 +65,7 @@ func runCreateCommandWithStorage(ctx context.Context, st storage.Storage) error 
 
 	options := newRepositoryOptionsFromFlags()
 
-	creds, err := getRepositoryCredentials(true)
-	if err != nil {
-		return fmt.Errorf("unable to get credentials: %v", err)
-	}
+	creds := mustGetPasswordFromFlags(true, false)
 
 	printStderr("Initializing repository with:\n")
 	printStderr("  metadata encryption: %v\n", options.MetadataEncryptionAlgorithm)
@@ -91,15 +88,9 @@ func runCreateCommandWithStorage(ctx context.Context, st storage.Storage) error 
 		return fmt.Errorf("cannot initialize repository: %v", err)
 	}
 
-	if !*createOnly {
-		err := repo.Connect(ctx, repositoryConfigFileName(), st, creds, connectOptions())
-		if err != nil {
-			return err
-		}
-
-		printStderr("Connected to repository.\n")
-		promptForAnalyticsConsent()
+	if *createOnly {
+		return nil
 	}
 
-	return nil
+	return runConnectCommandWithStorageAndPassword(ctx, st, creds)
 }

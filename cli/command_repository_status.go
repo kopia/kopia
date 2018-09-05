@@ -50,8 +50,7 @@ func runStatusCommand(ctx context.Context, rep *repo.Repository) error {
 	}
 
 	fmt.Println()
-	fmt.Printf("Key Derivation:      %v\n", rep.Security.KeyDerivationAlgorithm)
-	fmt.Printf("Unique ID:           %x\n", rep.Security.UniqueID)
+	fmt.Printf("Unique ID:           %x\n", rep.UniqueID)
 	fmt.Println()
 	fmt.Printf("Object manager:      v%v\n", rep.Objects.Format.Version)
 	fmt.Printf("Block format:        %v\n", rep.Blocks.Format.BlockFormat)

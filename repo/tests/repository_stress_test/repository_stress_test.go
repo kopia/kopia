@@ -15,11 +15,12 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/auth"
 	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/storage"
 	"github.com/kopia/kopia/repo/storage/filesystem"
 )
+
+const masterPassword = "foo-bar-baz-1234"
 
 type testContext struct {
 	r *repo.Repository
@@ -49,11 +50,6 @@ func TestStressRepository(t *testing.T) {
 
 	t.Logf("path: %v", tmpPath)
 
-	creds, err := auth.Password("foo-bar-baz-1234")
-	if err != nil {
-		t.Fatalf("unable to initialize credentials: %v", err)
-	}
-
 	storagePath := filepath.Join(tmpPath, "storage")
 	configFile1 := filepath.Join(tmpPath, "kopia1.config")
 	configFile2 := filepath.Join(tmpPath, "kopia2.config")
@@ -67,13 +63,12 @@ func TestStressRepository(t *testing.T) {
 	}
 
 	// create repository
-	if err := repo.Initialize(ctx, st, &repo.NewRepositoryOptions{}, creds); err != nil {
+	if err := repo.Initialize(ctx, st, &repo.NewRepositoryOptions{}, masterPassword); err != nil {
 		t.Fatalf("unable to initialize repository: %v", err)
 	}
 
 	// set up two parallel kopia connections, each with its own config file and cache.
-	if err := repo.Connect(ctx, configFile1, st, creds, repo.ConnectOptions{
-		PersistCredentials: true,
+	if err := repo.Connect(ctx, configFile1, st, masterPassword, repo.ConnectOptions{
 		CachingOptions: block.CachingOptions{
 			CacheDirectory:    filepath.Join(tmpPath, "cache1"),
 			MaxCacheSizeBytes: 2000000000,
@@ -82,8 +77,7 @@ func TestStressRepository(t *testing.T) {
 		t.Fatalf("unable to connect 1: %v", err)
 	}
 
-	if err := repo.Connect(ctx, configFile2, st, creds, repo.ConnectOptions{
-		PersistCredentials: true,
+	if err := repo.Connect(ctx, configFile2, st, masterPassword, repo.ConnectOptions{
 		CachingOptions: block.CachingOptions{
 			CacheDirectory:    filepath.Join(tmpPath, "cache2"),
 			MaxCacheSizeBytes: 2000000000,
@@ -121,7 +115,7 @@ func TestStressRepository(t *testing.T) {
 func longLivedRepositoryTest(ctx context.Context, t *testing.T, cancel chan struct{}, configFile string, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	rep, err := repo.Open(ctx, configFile, &repo.Options{})
+	rep, err := repo.Open(ctx, configFile, masterPassword, &repo.Options{})
 	if err != nil {
 		t.Errorf("error opening repository: %v", err)
 		return

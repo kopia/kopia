@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kopia/kopia/repo/auth"
 	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
@@ -14,12 +13,11 @@ import (
 
 // Repository represents storage where both content-addressable and user-addressable data is kept.
 type Repository struct {
-	Blocks     *block.Manager
-	Objects    *object.Manager
-	Storage    storage.Storage
-	KeyManager *auth.KeyManager
-	Security   auth.SecurityOptions
-	Manifests  *manifest.Manager
+	Blocks    *block.Manager
+	Objects   *object.Manager
+	Storage   storage.Storage
+	Manifests *manifest.Manager
+	UniqueID  []byte
 
 	ConfigFile     string
 	CacheDirectory string

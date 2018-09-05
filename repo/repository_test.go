@@ -14,12 +14,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/internal/storagetesting"
-	"github.com/kopia/kopia/repo/auth"
 	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/repo/storage"
 )
+
+const masterPassword = "foobarbazfoobarbaz"
 
 func setupTest(t *testing.T, mods ...func(o *NewRepositoryOptions)) (map[string][]byte, map[string]time.Time, *Repository) {
 	return setupTestWithData(t, map[string][]byte{}, map[string]time.Time{}, mods...)
@@ -28,7 +30,6 @@ func setupTest(t *testing.T, mods ...func(o *NewRepositoryOptions)) (map[string]
 func setupTestWithData(t *testing.T, data map[string][]byte, keyTime map[string]time.Time, mods ...func(o *NewRepositoryOptions)) (map[string][]byte, map[string]time.Time, *Repository) {
 	st := storagetesting.NewMapStorage(data, keyTime, nil)
 
-	creds, _ := auth.Password("foobarbazfoobarbaz")
 	opt := &NewRepositoryOptions{
 		MaxBlockSize:                200,
 		Splitter:                    "FIXED",
@@ -42,9 +43,9 @@ func setupTestWithData(t *testing.T, data map[string][]byte, keyTime map[string]
 	}
 
 	ctx := context.Background()
-	Initialize(ctx, st, opt, creds)
+	Initialize(ctx, st, opt, masterPassword)
 
-	r, err := connect(ctx, st, creds, &Options{
+	r, err := connect(ctx, st, &config.LocalConfig{}, masterPassword, &Options{
 		//TraceStorage: log.Printf,
 	}, block.CachingOptions{})
 	if err != nil {

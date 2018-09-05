@@ -27,7 +27,7 @@ func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 	uploader.IgnoreFileErrors = *migrateIgnoreErrors
 	onCtrlC(uploader.Cancel)
 
-	sourceRepo, err := repo.Open(ctx, *migrateSourceConfig, applyOptionsFromFlags(nil))
+	sourceRepo, err := repo.Open(ctx, *migrateSourceConfig, mustGetPasswordFromFlags(false, false), applyOptionsFromFlags(nil))
 	if err != nil {
 		return fmt.Errorf("can't open source repository: %v", err)
 	}

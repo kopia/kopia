@@ -11,11 +11,12 @@ import (
 
 	"github.com/kopia/kopia/internal/mockfs"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/auth"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/repo/storage/filesystem"
 	"github.com/kopia/kopia/snapshot"
 )
+
+const masterPassword = "foofoofoofoofoofoofoofoo"
 
 type uploadTestHarness struct {
 	sourceDir *mockfs.Directory
@@ -44,25 +45,18 @@ func newUploadTestHarness() *uploadTestHarness {
 		panic("cannot create storage directory: " + err.Error())
 	}
 
-	creds, err := auth.Password("foofoofoofoofoofoofoofoo")
-	if err != nil {
-		panic("unable to create credentials: " + err.Error())
-	}
-
-	if initerr := repo.Initialize(ctx, storage, &repo.NewRepositoryOptions{}, creds); initerr != nil {
+	if initerr := repo.Initialize(ctx, storage, &repo.NewRepositoryOptions{}, masterPassword); initerr != nil {
 		panic("unable to create repository: " + initerr.Error())
 	}
 
 	log.Debugf("repo dir: %v", repoDir)
 
 	configFile := filepath.Join(repoDir, ".kopia.config")
-	if conerr := repo.Connect(ctx, configFile, storage, creds, repo.ConnectOptions{
-		PersistCredentials: true,
-	}); conerr != nil {
+	if conerr := repo.Connect(ctx, configFile, storage, masterPassword, repo.ConnectOptions{}); conerr != nil {
 		panic("unable to connect to repository: " + conerr.Error())
 	}
 
-	repo, err := repo.Open(ctx, configFile, nil)
+	rep, err := repo.Open(ctx, configFile, masterPassword, &repo.Options{})
 	if err != nil {
 		panic("unable to open repository: " + err.Error())
 	}
@@ -90,7 +84,7 @@ func newUploadTestHarness() *uploadTestHarness {
 	th := &uploadTestHarness{
 		sourceDir: sourceDir,
 		repoDir:   repoDir,
-		repo:      repo,
+		repo:      rep,
 	}
 
 	return th

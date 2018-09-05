@@ -7,7 +7,6 @@ import (
 
 	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/auth"
 )
 
 var log = kopialogging.Logger("kopia/example")
@@ -15,20 +14,12 @@ var log = kopialogging.Logger("kopia/example")
 func main() {
 	ctx := context.Background()
 
-	// set up credentials
-	creds, crederr := auth.Password(masterPassword)
-	if crederr != nil {
-		log.Fatalf("invalid password: %v", crederr)
-	}
-
-	if err := setupRepositoryAndConnect(ctx, creds); err != nil {
+	if err := setupRepositoryAndConnect(ctx, masterPassword); err != nil {
 		log.Errorf("unable to set up repository: %v", err)
 		os.Exit(1)
 	}
 
-	r, err := repo.Open(ctx, configFile, &repo.Options{
-		Credentials: creds,
-	})
+	r, err := repo.Open(ctx, configFile, masterPassword, nil)
 	if err != nil {
 		log.Errorf("unable to open repository: %v", err)
 		os.Exit(1)

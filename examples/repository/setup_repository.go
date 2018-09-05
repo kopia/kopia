@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/auth"
 	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/storage/filesystem"
 	"github.com/kopia/kopia/repo/storage/logging"
@@ -19,7 +18,7 @@ const (
 	cacheDirectory = "/tmp/kopia-example/cache"
 )
 
-func setupRepositoryAndConnect(ctx context.Context, creds auth.Credentials) error {
+func setupRepositoryAndConnect(ctx context.Context, password string) error {
 	if err := os.MkdirAll(storageDir, 0700); err != nil {
 		return fmt.Errorf("unable to create directory: %v", err)
 	}
@@ -36,13 +35,12 @@ func setupRepositoryAndConnect(ctx context.Context, creds auth.Credentials) erro
 	// see if we already have the config file, if not connect.
 	if _, err := os.Stat(configFile); os.IsNotExist(err) {
 		// initialize repository
-		if err := repo.Initialize(ctx, st, &repo.NewRepositoryOptions{}, creds); err != nil {
+		if err := repo.Initialize(ctx, st, &repo.NewRepositoryOptions{}, password); err != nil {
 			log.Errorf("unable to initialize repository: %v", err)
 		}
 
 		// now establish connection to repository and create configuration file.
-		if err := repo.Connect(ctx, configFile, st, creds, repo.ConnectOptions{
-			PersistCredentials: false,
+		if err := repo.Connect(ctx, configFile, st, password, repo.ConnectOptions{
 			CachingOptions: block.CachingOptions{
 				CacheDirectory:    cacheDirectory,
 				MaxCacheSizeBytes: 100000000,

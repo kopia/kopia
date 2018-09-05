@@ -11,7 +11,6 @@ import (
 	"io"
 
 	"github.com/kopia/kopia/internal/config"
-	"github.com/kopia/kopia/repo/auth"
 	"github.com/kopia/kopia/repo/storage"
 )
 
@@ -28,7 +27,8 @@ type formatBlock struct {
 	BuildVersion string `json:"buildVersion"`
 	BuildInfo    string `json:"buildInfo"`
 
-	auth.SecurityOptions
+	UniqueID               []byte `json:"uniqueID"`
+	KeyDerivationAlgorithm string `json:"keyAlgo"`
 
 	Version              string                         `json:"version"`
 	EncryptionAlgorithm  string                         `json:"encryption"`
@@ -66,13 +66,13 @@ func writeFormatBlock(ctx context.Context, st storage.Storage, f *formatBlock) e
 	return nil
 }
 
-func decryptFormatBytes(f *formatBlock, km *auth.KeyManager) (*config.RepositoryObjectFormat, error) {
+func (f *formatBlock) decryptFormatBytes(masterKey []byte) (*config.RepositoryObjectFormat, error) {
 	switch f.EncryptionAlgorithm {
 	case "NONE": // do nothing
 		return f.UnencryptedFormat, nil
 
 	case "AES256_GCM":
-		aead, authData, err := initCrypto(km)
+		aead, authData, err := initCrypto(masterKey, f.UniqueID)
 		if err != nil {
 			return nil, fmt.Errorf("cannot initialize cipher: %v", err)
 		}
@@ -101,9 +101,9 @@ func decryptFormatBytes(f *formatBlock, km *auth.KeyManager) (*config.Repository
 	}
 }
 
-func initCrypto(km *auth.KeyManager) (cipher.AEAD, []byte, error) {
-	aesKey := km.DeriveKey(purposeAESKey, 32)
-	authData := km.DeriveKey(purposeAuthData, 32)
+func initCrypto(masterKey, repositoryID []byte) (cipher.AEAD, []byte, error) {
+	aesKey := deriveKeyFromMasterKey(masterKey, repositoryID, purposeAESKey, 32)
+	authData := deriveKeyFromMasterKey(masterKey, repositoryID, purposeAuthData, 32)
 
 	blk, err := aes.NewCipher(aesKey)
 	if err != nil {
@@ -117,7 +117,7 @@ func initCrypto(km *auth.KeyManager) (cipher.AEAD, []byte, error) {
 	return aead, authData, nil
 }
 
-func encryptFormatBytes(f *formatBlock, format *config.RepositoryObjectFormat, km *auth.KeyManager) error {
+func encryptFormatBytes(f *formatBlock, format *config.RepositoryObjectFormat, masterKey, repositoryID []byte) error {
 	switch f.EncryptionAlgorithm {
 	case "NONE":
 		f.UnencryptedFormat = format
@@ -128,7 +128,7 @@ func encryptFormatBytes(f *formatBlock, format *config.RepositoryObjectFormat, k
 		if err != nil {
 			return fmt.Errorf("can't marshal format to JSON: %v", err)
 		}
-		aead, authData, err := initCrypto(km)
+		aead, authData, err := initCrypto(masterKey, repositoryID)
 		if err != nil {
 			return fmt.Errorf("unable to initialize crypto: %v", err)
 		}

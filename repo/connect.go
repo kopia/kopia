@@ -12,19 +12,17 @@ import (
 	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/internal/units"
-	"github.com/kopia/kopia/repo/auth"
 	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/storage"
 )
 
 // ConnectOptions specifies options when persisting configuration to connect to a repository.
 type ConnectOptions struct {
-	PersistCredentials bool
 	block.CachingOptions
 }
 
 // Connect connects to the repository in the specified storage and persists the configuration and credentials in the file provided.
-func Connect(ctx context.Context, configFile string, st storage.Storage, creds auth.Credentials, opt ConnectOptions) error {
+func Connect(ctx context.Context, configFile string, st storage.Storage, password string, opt ConnectOptions) error {
 	formatBytes, err := st.GetBlock(ctx, FormatBlockID, 0, -1)
 	if err != nil {
 		return fmt.Errorf("unable to read format block: %v", err)
@@ -35,22 +33,8 @@ func Connect(ctx context.Context, configFile string, st storage.Storage, creds a
 		return err
 	}
 
-	masterKey, err := creds.GetMasterKey(f.SecurityOptions)
-	if err != nil {
-		return fmt.Errorf("can't get master key: %v", err)
-	}
-
-	cfg := &config.RepositoryConnectionInfo{
-		ConnectionInfo: st.ConnectionInfo(),
-		Key:            masterKey,
-	}
-
 	var lc config.LocalConfig
-	lc.Connection = cfg
-
-	if !opt.PersistCredentials {
-		lc.Connection.Key = nil
-	}
+	lc.Storage = st.ConnectionInfo()
 
 	if err = setupCaching(&lc, opt.CachingOptions, f.UniqueID); err != nil {
 		return fmt.Errorf("unable to set up caching: %v", err)
@@ -70,9 +54,7 @@ func Connect(ctx context.Context, configFile string, st storage.Storage, creds a
 	}
 
 	// now verify that the repository can be opened with the provided config file.
-	r, err := Open(ctx, configFile, &Options{
-		Credentials: creds,
-	})
+	r, err := Open(ctx, configFile, password, nil)
 	if err != nil {
 		return err
 	}

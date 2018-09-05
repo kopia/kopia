@@ -25,7 +25,7 @@ func init() {
 			wo := options
 
 			if wo.Username != "" {
-				pass, err := AskPass("Enter WebDAV password: ")
+				pass, err := askPass("Enter WebDAV password: ")
 				if err != nil {
 					return nil, err
 				}

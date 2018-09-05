@@ -3,14 +3,12 @@ package repo
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
 
 	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/internal/kopialogging"
-	"github.com/kopia/kopia/repo/auth"
 	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
@@ -22,14 +20,12 @@ var log = kopialogging.Logger("kopia/repo")
 
 // Options provides configuration parameters for connection to a repository.
 type Options struct {
-	Credentials          auth.Credentials                    // Provides credentials required to open the repository if not persisted.
-	CredentialsCallback  func() (auth.Credentials, error)    // Callback that provides credentials required to open the repository if not persisted.
 	TraceStorage         func(f string, args ...interface{}) // Logs all storage access using provided Printf-style function
 	ObjectManagerOptions object.ManagerOptions
 }
 
 // Open opens a Repository specified in the configuration file.
-func Open(ctx context.Context, configFile string, options *Options) (rep *Repository, err error) {
+func Open(ctx context.Context, configFile string, password string, options *Options) (rep *Repository, err error) {
 	log.Debugf("opening repository from %v", configFile)
 	defer func() {
 		if err == nil {
@@ -54,20 +50,18 @@ func Open(ctx context.Context, configFile string, options *Options) (rep *Reposi
 		return nil, err
 	}
 
-	creds, err := getCredentials(lc, options)
+	log.Debugf("opening storage: %v", lc.Storage.Type)
 
-	if err != nil {
-		return nil, fmt.Errorf("invalid credentials: %v", err)
-	}
-
-	log.Debugf("opening storage: %v", lc.Connection.ConnectionInfo.Type)
-
-	st, err := storage.NewStorage(ctx, lc.Connection.ConnectionInfo)
+	st, err := storage.NewStorage(ctx, lc.Storage)
 	if err != nil {
 		return nil, fmt.Errorf("cannot open storage: %v", err)
 	}
 
-	r, err := connect(ctx, st, creds, options, lc.Caching)
+	if options.TraceStorage != nil {
+		st = logging.NewWrapper(st, logging.Prefix("[STORAGE] "), logging.Output(options.TraceStorage))
+	}
+
+	r, err := connect(ctx, st, lc, password, options, lc.Caching)
 	if err != nil {
 		st.Close(ctx) //nolint:errcheck
 		return nil, err
@@ -78,22 +72,57 @@ func Open(ctx context.Context, configFile string, options *Options) (rep *Reposi
 	return r, nil
 }
 
-func getCredentials(lc *config.LocalConfig, options *Options) (auth.Credentials, error) {
-	if options.Credentials != nil {
-		return options.Credentials, nil
+func connect(ctx context.Context, st storage.Storage, lc *config.LocalConfig, password string, options *Options, caching block.CachingOptions) (*Repository, error) {
+	log.Debugf("reading encrypted format block")
+	// Read cache block, potentially from cache.
+	f, err := readAndCacheFormatBlock(ctx, st, caching.CacheDirectory)
+	if err != nil {
+		return nil, fmt.Errorf("unable to read format block: %v", err)
 	}
 
-	if len(lc.Connection.Key) > 0 {
-		log.Debugf("getting credentials from master key")
-		return auth.MasterKey(lc.Connection.Key)
+	masterKey, err := f.deriveMasterKeyFromPassword(password)
+	if err != nil {
+		return nil, err
 	}
 
-	if options.CredentialsCallback == nil {
-		return nil, errors.New("key not persisted and no credentials specified")
+	repoConfig, err := f.decryptFormatBytes(masterKey)
+	if err != nil {
+		return nil, fmt.Errorf("unable to decrypt repository config: %v", err)
 	}
 
-	log.Debugf("getting credentials using callback")
-	return options.CredentialsCallback()
+	caching.HMACSecret = deriveKeyFromMasterKey(masterKey, f.UniqueID, []byte("local-cache-integrity"), 16)
+
+	fo := repoConfig.FormattingOptions
+	if fo.MaxPackSize == 0 {
+		fo.MaxPackSize = repoConfig.MaxBlockSize
+	}
+
+	log.Debugf("initializing block manager")
+	bm, err := block.NewManager(ctx, st, fo, caching)
+	if err != nil {
+		return nil, fmt.Errorf("unable to open block manager: %v", err)
+	}
+
+	log.Debugf("initializing object manager")
+	om, err := object.NewObjectManager(ctx, bm, *repoConfig, options.ObjectManagerOptions)
+	if err != nil {
+		return nil, fmt.Errorf("unable to open object manager: %v", err)
+	}
+
+	log.Debugf("initializing manifest manager")
+	manifests, err := manifest.NewManager(ctx, bm)
+	if err != nil {
+		return nil, fmt.Errorf("unable to open manifests: %v", err)
+	}
+
+	return &Repository{
+		Blocks:         bm,
+		Objects:        om,
+		Storage:        st,
+		Manifests:      manifests,
+		CacheDirectory: caching.CacheDirectory,
+		UniqueID:       f.UniqueID,
+	}, nil
 }
 
 // SetCachingConfig changes caching configuration for a given repository config file.
@@ -108,7 +137,7 @@ func SetCachingConfig(ctx context.Context, configFile string, opt block.CachingO
 		return err
 	}
 
-	st, err := storage.NewStorage(ctx, lc.Connection.ConnectionInfo)
+	st, err := storage.NewStorage(ctx, lc.Storage)
 	if err != nil {
 		return fmt.Errorf("cannot open storage: %v", err)
 	}
@@ -162,65 +191,4 @@ func readAndCacheFormatBlock(ctx context.Context, st storage.Storage, cacheDirec
 	}
 
 	return f, nil
-}
-
-func connect(ctx context.Context, st storage.Storage, creds auth.Credentials, options *Options, caching block.CachingOptions) (*Repository, error) {
-	if options == nil {
-		options = &Options{}
-	}
-	if options.TraceStorage != nil {
-		st = logging.NewWrapper(st, logging.Prefix("[STORAGE] "), logging.Output(options.TraceStorage))
-	}
-
-	log.Debugf("reading encrypted format block")
-	// Read cache block, potentially from cache.
-	f, err := readAndCacheFormatBlock(ctx, st, caching.CacheDirectory)
-	if err != nil {
-		return nil, fmt.Errorf("unable to read format block: %v", err)
-	}
-
-	km, err := auth.NewKeyManager(creds, f.SecurityOptions)
-	if err != nil {
-		return nil, err
-	}
-
-	repoConfig, err := decryptFormatBytes(f, km)
-	if err != nil {
-		return nil, fmt.Errorf("unable to decrypt repository config: %v", err)
-	}
-
-	fo := repoConfig.FormattingOptions
-	if fo.MaxPackSize == 0 {
-		fo.MaxPackSize = repoConfig.MaxBlockSize
-	}
-
-	caching.HMACSecret = km.DeriveKey([]byte("local-cache-integrity"), 16)
-
-	log.Debugf("initializing block manager")
-	bm, err := block.NewManager(ctx, st, fo, caching)
-	if err != nil {
-		return nil, fmt.Errorf("unable to open block manager: %v", err)
-	}
-
-	log.Debugf("initializing object manager")
-	om, err := object.NewObjectManager(ctx, bm, *repoConfig, options.ObjectManagerOptions)
-	if err != nil {
-		return nil, fmt.Errorf("unable to open object manager: %v", err)
-	}
-
-	log.Debugf("initializing manifest manager")
-	manifests, err := manifest.NewManager(ctx, bm)
-	if err != nil {
-		return nil, fmt.Errorf("unable to open manifests: %v", err)
-	}
-
-	return &Repository{
-		Blocks:         bm,
-		Objects:        om,
-		Storage:        st,
-		KeyManager:     km,
-		Manifests:      manifests,
-		Security:       f.SecurityOptions,
-		CacheDirectory: caching.CacheDirectory,
-	}, nil
 }

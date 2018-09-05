@@ -108,8 +108,6 @@ func (w *objectWriter) flushBuffer() error {
 		w.blockIndex[chunkID].Object = DirectObjectID(blockID)
 	}
 
-	// When writing pack internal object don't use asynchronous write, since we're already under the semaphore
-	// and it may lead to a deadlock.
 	if w.repo.async {
 		w.repo.writeBackSemaphore.Lock()
 		w.pendingBlocksWG.Add(1)

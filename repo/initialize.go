@@ -7,7 +7,6 @@ import (
 	"io"
 
 	"github.com/kopia/kopia/internal/config"
-	"github.com/kopia/kopia/repo/auth"
 	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/repo/storage"
@@ -46,7 +45,7 @@ type NewRepositoryOptions struct {
 }
 
 // Initialize creates initial repository data structures in the specified storage with given credentials.
-func Initialize(ctx context.Context, st storage.Storage, opt *NewRepositoryOptions, creds auth.Credentials) error {
+func Initialize(ctx context.Context, st storage.Storage, opt *NewRepositoryOptions, password string) error {
 	if opt == nil {
 		opt = &NewRepositoryOptions{}
 	}
@@ -61,12 +60,12 @@ func Initialize(ctx context.Context, st storage.Storage, opt *NewRepositoryOptio
 	}
 
 	format := formatBlockFromOptions(opt)
-	km, err := auth.NewKeyManager(creds, format.SecurityOptions)
+	masterKey, err := format.deriveMasterKeyFromPassword(password)
 	if err != nil {
 		return err
 	}
 
-	if err := encryptFormatBytes(format, repositoryObjectFormatFromOptions(opt), km); err != nil {
+	if err := encryptFormatBytes(format, repositoryObjectFormatFromOptions(opt), masterKey, format.UniqueID); err != nil {
 		return err
 	}
 
@@ -79,14 +78,12 @@ func Initialize(ctx context.Context, st storage.Storage, opt *NewRepositoryOptio
 
 func formatBlockFromOptions(opt *NewRepositoryOptions) *formatBlock {
 	return &formatBlock{
-		Tool:      "https://github.com/kopia/kopia",
-		BuildInfo: BuildInfo,
-		SecurityOptions: auth.SecurityOptions{
-			KeyDerivationAlgorithm: applyDefaultString(opt.KeyDerivationAlgorithm, auth.DefaultKeyDerivationAlgorithm),
-			UniqueID:               applyDefaultRandomBytes(opt.UniqueID, 32),
-		},
-		Version:             "1",
-		EncryptionAlgorithm: applyDefaultString(opt.MetadataEncryptionAlgorithm, DefaultEncryptionAlgorithm),
+		Tool:                   "https://github.com/kopia/kopia",
+		BuildInfo:              BuildInfo,
+		KeyDerivationAlgorithm: applyDefaultString(opt.KeyDerivationAlgorithm, DefaultKeyDerivationAlgorithm),
+		UniqueID:               applyDefaultRandomBytes(opt.UniqueID, 32),
+		Version:                "1",
+		EncryptionAlgorithm:    applyDefaultString(opt.MetadataEncryptionAlgorithm, DefaultEncryptionAlgorithm),
 	}
 }
 
