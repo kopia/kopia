@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/internal/config"
-	"github.com/kopia/kopia/internal/storagetesting"
+	"github.com/kopia/kopia/repo/internal/storagetesting"
 	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/repo/storage"

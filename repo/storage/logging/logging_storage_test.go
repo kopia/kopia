@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/kopia/kopia/internal/storagetesting"
+	"github.com/kopia/kopia/repo/internal/storagetesting"
 )
 
 func TestLoggingStorage(t *testing.T) {

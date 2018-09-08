@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kopia/kopia/internal/storagetesting"
+	"github.com/kopia/kopia/repo/internal/storagetesting"
 	"github.com/kopia/kopia/repo/block"
 )
 

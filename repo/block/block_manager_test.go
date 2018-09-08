@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/internal/packindex"
-	"github.com/kopia/kopia/internal/storagetesting"
+	"github.com/kopia/kopia/repo/internal/storagetesting"
 	"github.com/kopia/kopia/repo/storage"
 	logging "github.com/op/go-logging"
 )

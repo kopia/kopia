@@ -10,7 +10,7 @@ import (
 
 	"golang.org/x/net/webdav"
 
-	"github.com/kopia/kopia/internal/storagetesting"
+	"github.com/kopia/kopia/repo/internal/storagetesting"
 )
 
 func TestWebDAVStorage(t *testing.T) {
