@@ -1,16 +1,13 @@
 language: go
 go:
-- "1.10"
+- "1.11"
 os:
 - linux
 install: make travis-setup
 script: make all travis-release stress-test
 deploy:
   provider: releases
-  api_key:
-    secure: U78qlMpkDMEx2VMkhSmK7bbm8FVBN8BFC0p7Z5wrnQKLRawenhOyjMlfo/JRVN9raEyQ29BSflBi/2VVxjVjtNNLCkkP4ifBPetWFFsnD5X5jUIiKRsOq1Ja5WMKC4RMdw05b1ptcXriZmUHy6iSvW8A29pO9BJpgaVvCZpp04rW/9NdwCE5EK2DfUO7/LIdi2hm10YYDVCZ5dqIegF5UUk5BEza7Ax65UWpWOlMa5ONfi3ZZePnr1iX6/ztx3sWq+YADvG3XP6JRzS7owS1LgxgkGFcWqo+colyRijBrv3vwyBdxKB1OlqvZLXL2ho+utmfF7xF2WAUNSVKG4JUmr+c0x1HATjkKbI1tg2+S8AnkwAnIR+LW3Np9UWXh9sZeigy3D8bLlNoD+KBzpxpvHdtMaBDG6rbIEcMJeFQCnopjUDsgZxwhFF38z2anD3RxNPy7CkQCH4CPgpw5NRMWZjjHNf8JhnCX330Fj8kee2HA04zDMIMFwgdPc1I+YIsELi1d5HyBiFNlVRsujyc+e8XH3OEfo0MpIjmZ2DaE9CH/zlmJngGLAU+d6UT/AvcYb8KmKuO/D1LrYxK8LxtXlQhemmp23elSOlBPKRBuPGIYMaO6ljXLcxGlFlu8fnrjUNQb1W9PeOaj5uWdjuLebJNhmox6MqQkzd1S093D44=
-  file: .releases/*
-  file_glob: true
+  script: curl -sL https://git.io/goreleaser | bash /dev/stdin --rm-dist
   skip_cleanup: true
   on:
     tags: true
