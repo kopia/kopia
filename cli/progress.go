@@ -7,9 +7,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cheggaaa/pb"
 	"github.com/kopia/kopia/internal/upload"
 	"github.com/kopia/kopia/snapshot"
+
+	pb "gopkg.in/cheggaaa/pb.v1"
 )
 
 type uploadProgress struct {
