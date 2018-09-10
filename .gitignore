@@ -6,3 +6,4 @@ kopia-*.tar.gz
 kopia-*.zip
 *.cov
 .vscode/
+dist/
