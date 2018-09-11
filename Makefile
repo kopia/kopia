@@ -31,7 +31,7 @@ deps:
 
 travis-setup: deps dev-deps
 
-travis-release: verify-release long-test 
+travis-release: test lint vet verify-release test integration-tests long-test 
 
 verify-release:
 	curl -sL https://git.io/goreleaser | bash /dev/stdin --skip-publish --rm-dist --snapshot

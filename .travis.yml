@@ -4,9 +4,9 @@ go:
 os:
 - linux
 install: make travis-setup
-script: make all travis-release stress-test
+script: make travis-release
 deploy:
-  provider: releases
+  provider: script
   script: curl -sL https://git.io/goreleaser | bash /dev/stdin --rm-dist
   skip_cleanup: true
   on:
