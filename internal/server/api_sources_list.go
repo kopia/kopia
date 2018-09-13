@@ -1,13 +1,14 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"sort"
 
 	"github.com/kopia/kopia/internal/serverapi"
 )
 
-func (s *Server) handleSourcesList(r *http.Request) (interface{}, *apiError) {
+func (s *Server) handleSourcesList(ctx context.Context, r *http.Request) (interface{}, *apiError) {
 	resp := &serverapi.SourcesResponse{
 		Sources: []serverapi.SourceStatus{},
 	}

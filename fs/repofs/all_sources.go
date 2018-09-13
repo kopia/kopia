@@ -30,7 +30,10 @@ func (s *repositoryAllSources) Metadata() *fs.EntryMetadata {
 }
 
 func (s *repositoryAllSources) Readdir(ctx context.Context) (fs.Entries, error) {
-	srcs := snapshot.ListSources(s.rep)
+	srcs, err := snapshot.ListSources(ctx, s.rep)
+	if err != nil {
+		return nil, err
+	}
 
 	users := map[string]bool{}
 	for _, src := range srcs {

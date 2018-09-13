@@ -32,6 +32,7 @@ type Manager struct {
 	mu sync.Mutex
 	b  *block.Manager
 
+	initialized    bool
 	pendingEntries map[string]*manifestEntry
 
 	committedEntries  map[string]*manifestEntry
@@ -39,9 +40,13 @@ type Manager struct {
 }
 
 // Put serializes the provided payload to JSON and persists it. Returns unique handle that represents the object.
-func (m *Manager) Put(labels map[string]string, payload interface{}) (string, error) {
+func (m *Manager) Put(ctx context.Context, labels map[string]string, payload interface{}) (string, error) {
 	if labels["type"] == "" {
 		return "", fmt.Errorf("'type' label is required")
+	}
+
+	if err := m.ensureInitialized(ctx); err != nil {
+		return "", err
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -69,7 +74,11 @@ func (m *Manager) Put(labels map[string]string, payload interface{}) (string, er
 }
 
 // GetMetadata returns metadata about provided manifest item or ErrNotFound if the item can't be found.
-func (m *Manager) GetMetadata(id string) (*EntryMetadata, error) {
+func (m *Manager) GetMetadata(ctx context.Context, id string) (*EntryMetadata, error) {
+	if err := m.ensureInitialized(ctx); err != nil {
+		return nil, err
+	}
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -92,8 +101,12 @@ func (m *Manager) GetMetadata(id string) (*EntryMetadata, error) {
 
 // Get retrieves the contents of the provided manifest item by deserializing it as JSON to provided object.
 // If the manifest is not found, returns ErrNotFound.
-func (m *Manager) Get(id string, data interface{}) error {
-	b, err := m.GetRaw(id)
+func (m *Manager) Get(ctx context.Context, id string, data interface{}) error {
+	if err := m.ensureInitialized(ctx); err != nil {
+		return err
+	}
+
+	b, err := m.GetRaw(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -106,7 +119,11 @@ func (m *Manager) Get(id string, data interface{}) error {
 }
 
 // GetRaw returns raw contents of the provided manifest (JSON bytes) or ErrNotFound if not found.
-func (m *Manager) GetRaw(id string) ([]byte, error) {
+func (m *Manager) GetRaw(ctx context.Context, id string) ([]byte, error) {
+	if err := m.ensureInitialized(ctx); err != nil {
+		return nil, err
+	}
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -122,7 +139,11 @@ func (m *Manager) GetRaw(id string) ([]byte, error) {
 }
 
 // Find returns the list of EntryMetadata for manifest entries matching all provided labels.
-func (m *Manager) Find(labels map[string]string) []*EntryMetadata {
+func (m *Manager) Find(ctx context.Context, labels map[string]string) ([]*EntryMetadata, error) {
+	if err := m.ensureInitialized(ctx); err != nil {
+		return nil, err
+	}
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -146,7 +167,7 @@ func (m *Manager) Find(labels map[string]string) []*EntryMetadata {
 	sort.Slice(matches, func(i, j int) bool {
 		return matches[i].ModTime.Before(matches[j].ModTime)
 	})
-	return matches
+	return matches, nil
 }
 
 func cloneEntryMetadata(e *manifestEntry) *EntryMetadata {
@@ -232,14 +253,14 @@ func (m *Manager) Delete(id string) {
 
 // Refresh updates the committed blocks from the underlying storage.
 func (m *Manager) Refresh(ctx context.Context) error {
-	return m.loadCommittedBlocks(ctx)
-}
-
-func (m *Manager) loadCommittedBlocks(ctx context.Context) error {
-	log.Debugf("listing manifest blocks")
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	return m.loadCommittedBlocksLocked(ctx)
+}
+
+func (m *Manager) loadCommittedBlocksLocked(ctx context.Context) error {
+	log.Debugf("listing manifest blocks")
 	for {
 		blocks, err := m.b.ListBlocks(manifestBlockPrefix)
 		if err != nil {
@@ -451,6 +472,22 @@ func (m *Manager) mergeEntry(e *manifestEntry) {
 	}
 }
 
+func (m *Manager) ensureInitialized(ctx context.Context) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.initialized {
+		return nil
+	}
+
+	if err := m.loadCommittedBlocksLocked(ctx); err != nil {
+		return err
+	}
+
+	m.initialized = true
+	return nil
+}
+
 func copyLabels(m map[string]string) map[string]string {
 	r := map[string]string{}
 	for k, v := range m {
@@ -466,10 +503,6 @@ func NewManager(ctx context.Context, b *block.Manager) (*Manager, error) {
 		pendingEntries:    map[string]*manifestEntry{},
 		committedEntries:  map[string]*manifestEntry{},
 		committedBlockIDs: map[string]bool{},
-	}
-
-	if err := m.loadCommittedBlocks(ctx); err != nil {
-		return nil, err
 	}
 
 	return m, nil

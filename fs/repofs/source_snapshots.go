@@ -34,7 +34,7 @@ func (s *sourceSnapshots) Summary() *fs.DirectorySummary {
 }
 
 func (s *sourceSnapshots) Readdir(ctx context.Context) (fs.Entries, error) {
-	manifests, err := snapshot.ListSnapshots(s.rep, s.src)
+	manifests, err := snapshot.ListSnapshots(ctx, s.rep, s.src)
 	if err != nil {
 		return nil, err
 	}

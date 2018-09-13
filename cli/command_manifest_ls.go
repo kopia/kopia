@@ -31,7 +31,10 @@ func listManifestItems(ctx context.Context, rep *repo.Repository) error {
 		filter[kv[0:p]] = kv[p+1:]
 	}
 
-	items := rep.Manifests.Find(filter)
+	items, err := rep.Manifests.Find(ctx, filter)
+	if err != nil {
+		return err
+	}
 
 	sort.Slice(items, func(i, j int) bool {
 		for _, key := range *manifestListSort {

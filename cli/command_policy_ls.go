@@ -18,7 +18,7 @@ func init() {
 }
 
 func listPolicies(ctx context.Context, rep *repo.Repository) error {
-	policies, err := policy.ListPolicies(rep)
+	policies, err := policy.ListPolicies(ctx, rep)
 	if err != nil {
 		return err
 	}

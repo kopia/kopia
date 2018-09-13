@@ -86,7 +86,7 @@ func runSnapshotEstimateCommand(ctx context.Context, rep *repo.Repository) error
 
 	entry := mustGetLocalFSEntry(path)
 	if dir, ok := entry.(fs.Directory); ok {
-		ignorePolicy, err := policy.FilesPolicyGetter(rep, sourceInfo)
+		ignorePolicy, err := policy.FilesPolicyGetter(ctx, rep, sourceInfo)
 		if err != nil {
 			return err
 		}

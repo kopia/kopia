@@ -29,9 +29,12 @@ var (
 	maxResultsPerPath                = snapshotListCommand.Flag("max-results", "Maximum number of results.").Default("1000").Int()
 )
 
-func findSnapshotsForSource(rep *repo.Repository, sourceInfo snapshot.SourceInfo) (manifestIDs []string, relPath string, err error) {
+func findSnapshotsForSource(ctx context.Context, rep *repo.Repository, sourceInfo snapshot.SourceInfo) (manifestIDs []string, relPath string, err error) {
 	for len(sourceInfo.Path) > 0 {
-		list := snapshot.ListSnapshotManifests(rep, &sourceInfo)
+		list, err := snapshot.ListSnapshotManifests(ctx, rep, &sourceInfo)
+		if err != nil {
+			return nil, "", err
+		}
 
 		if len(list) > 0 {
 			return list, relPath, nil
@@ -55,9 +58,10 @@ func findSnapshotsForSource(rep *repo.Repository, sourceInfo snapshot.SourceInfo
 	return nil, "", nil
 }
 
-func findManifestIDs(rep *repo.Repository, source string) ([]string, string, error) {
+func findManifestIDs(ctx context.Context, rep *repo.Repository, source string) ([]string, string, error) {
 	if source == "" {
-		return snapshot.ListSnapshotManifests(rep, nil), "", nil
+		man, err := snapshot.ListSnapshotManifests(ctx, rep, nil)
+		return man, "", err
 	}
 
 	si, err := snapshot.ParseSourceInfo(source, getHostName(), getUserName())
@@ -65,7 +69,7 @@ func findManifestIDs(rep *repo.Repository, source string) ([]string, string, err
 		return nil, "", fmt.Errorf("invalid directory: '%s': %s", source, err)
 	}
 
-	manifestIDs, relPath, err := findSnapshotsForSource(rep, si)
+	manifestIDs, relPath, err := findSnapshotsForSource(ctx, rep, si)
 	if relPath != "" {
 		relPath = "/" + relPath
 	}
@@ -74,12 +78,12 @@ func findManifestIDs(rep *repo.Repository, source string) ([]string, string, err
 }
 
 func runSnapshotsCommand(ctx context.Context, rep *repo.Repository) error {
-	manifestIDs, relPath, err := findManifestIDs(rep, *snapshotListPath)
+	manifestIDs, relPath, err := findManifestIDs(ctx, rep, *snapshotListPath)
 	if err != nil {
 		return err
 	}
 
-	manifests, err := snapshot.LoadSnapshots(rep, manifestIDs)
+	manifests, err := snapshot.LoadSnapshots(ctx, rep, manifestIDs)
 	if err != nil {
 		return err
 	}
@@ -94,7 +98,7 @@ func outputManifestGroups(ctx context.Context, rep *repo.Repository, manifests [
 		fmt.Printf("%v%v\n", separator, src)
 		separator = "\n"
 
-		pol, _, err := policy.GetEffectivePolicy(rep, src)
+		pol, _, err := policy.GetEffectivePolicy(ctx, rep, src)
 		if err != nil {
 			log.Warningf("unable to determine effective policy for %v", src)
 		} else {

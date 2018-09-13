@@ -19,12 +19,12 @@ func init() {
 
 func showManifestItems(ctx context.Context, rep *repo.Repository) error {
 	for _, it := range *manifestShowItems {
-		md, err := rep.Manifests.GetMetadata(it)
+		md, err := rep.Manifests.GetMetadata(ctx, it)
 		if err != nil {
 			return fmt.Errorf("error getting metadata for %q: %v", it, err)
 		}
 
-		b, err := rep.Manifests.GetRaw(it)
+		b, err := rep.Manifests.GetRaw(ctx, it)
 		if err != nil {
 			return fmt.Errorf("error showing %q: %v", it, err)
 		}

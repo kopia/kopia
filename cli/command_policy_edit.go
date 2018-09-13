@@ -57,13 +57,13 @@ func init() {
 }
 
 func editPolicy(ctx context.Context, rep *repo.Repository) error {
-	targets, err := policyTargets(rep, policyEditGlobal, policyEditTargets)
+	targets, err := policyTargets(ctx, rep, policyEditGlobal, policyEditTargets)
 	if err != nil {
 		return err
 	}
 
 	for _, target := range targets {
-		original, err := policy.GetDefinedPolicy(rep, target)
+		original, err := policy.GetDefinedPolicy(ctx, rep, target)
 		if err == policy.ErrPolicyNotFound {
 			original = &policy.Policy{}
 		}
@@ -98,7 +98,7 @@ func editPolicy(ctx context.Context, rep *repo.Repository) error {
 		fmt.Scanf("%v", &shouldSave) //nolint:errcheck
 
 		if strings.HasPrefix(strings.ToLower(shouldSave), "y") {
-			if err := policy.SetPolicy(rep, target, updated); err != nil {
+			if err := policy.SetPolicy(ctx, rep, target, updated); err != nil {
 				return fmt.Errorf("can't save policy for %v: %v", target, err)
 			}
 		}

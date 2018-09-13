@@ -200,7 +200,7 @@ func runVerifyCommand(ctx context.Context, rep *repo.Repository) error {
 }
 
 func enqueueRootsToVerify(ctx context.Context, v *verifier, rep *repo.Repository) error {
-	manifests, err := loadSourceManifests(rep, *verifyCommandAllSources, *verifyCommandSources)
+	manifests, err := loadSourceManifests(ctx, rep, *verifyCommandAllSources, *verifyCommandSources)
 	if err != nil {
 		return err
 	}
@@ -239,20 +239,28 @@ func enqueueRootsToVerify(ctx context.Context, v *verifier, rep *repo.Repository
 	return nil
 }
 
-func loadSourceManifests(rep *repo.Repository, all bool, sources []string) ([]*snapshot.Manifest, error) {
+func loadSourceManifests(ctx context.Context, rep *repo.Repository, all bool, sources []string) ([]*snapshot.Manifest, error) {
 	var manifestIDs []string
 	if *verifyCommandAllSources {
-		manifestIDs = append(manifestIDs, snapshot.ListSnapshotManifests(rep, nil)...)
+		man, err := snapshot.ListSnapshotManifests(ctx, rep, nil)
+		if err != nil {
+			return nil, err
+		}
+		manifestIDs = append(manifestIDs, man...)
 	} else {
 		for _, srcStr := range *verifyCommandSources {
 			src, err := snapshot.ParseSourceInfo(srcStr, getHostName(), getUserName())
 			if err != nil {
 				return nil, fmt.Errorf("error parsing %q: %v", srcStr, err)
 			}
-			manifestIDs = append(manifestIDs, snapshot.ListSnapshotManifests(rep, &src)...)
+			man, err := snapshot.ListSnapshotManifests(ctx, rep, &src)
+			if err != nil {
+				return nil, err
+			}
+			manifestIDs = append(manifestIDs, man...)
 		}
 	}
-	return snapshot.LoadSnapshots(rep, manifestIDs)
+	return snapshot.LoadSnapshots(ctx, rep, manifestIDs)
 }
 
 func init() {

@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kopia/kopia/repo/internal/storagetesting"
 	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/internal/storagetesting"
 )
 
 func TestManifest(t *testing.T) {
@@ -28,9 +28,9 @@ func TestManifest(t *testing.T) {
 	labels2 := map[string]string{"type": "item", "color": "blue", "shape": "square"}
 	labels3 := map[string]string{"type": "item", "shape": "square", "color": "red"}
 
-	id1 := addAndVerify(t, mgr, labels1, item1)
-	id2 := addAndVerify(t, mgr, labels2, item2)
-	id3 := addAndVerify(t, mgr, labels3, item3)
+	id1 := addAndVerify(ctx, t, mgr, labels1, item1)
+	id2 := addAndVerify(ctx, t, mgr, labels2, item2)
+	id3 := addAndVerify(ctx, t, mgr, labels3, item3)
 
 	cases := []struct {
 		criteria map[string]string
@@ -46,11 +46,11 @@ func TestManifest(t *testing.T) {
 
 	// verify before flush
 	for _, tc := range cases {
-		verifyMatches(t, mgr, tc.criteria, tc.expected)
+		verifyMatches(ctx, t, mgr, tc.criteria, tc.expected)
 	}
-	verifyItem(t, mgr, id1, labels1, item1)
-	verifyItem(t, mgr, id2, labels2, item2)
-	verifyItem(t, mgr, id3, labels3, item3)
+	verifyItem(ctx, t, mgr, id1, labels1, item1)
+	verifyItem(ctx, t, mgr, id2, labels2, item2)
+	verifyItem(ctx, t, mgr, id3, labels3, item3)
 
 	if err := mgr.Flush(ctx); err != nil {
 		t.Errorf("flush error: %v", err)
@@ -61,11 +61,11 @@ func TestManifest(t *testing.T) {
 
 	// verify after flush
 	for _, tc := range cases {
-		verifyMatches(t, mgr, tc.criteria, tc.expected)
+		verifyMatches(ctx, t, mgr, tc.criteria, tc.expected)
 	}
-	verifyItem(t, mgr, id1, labels1, item1)
-	verifyItem(t, mgr, id2, labels2, item2)
-	verifyItem(t, mgr, id3, labels3, item3)
+	verifyItem(ctx, t, mgr, id1, labels1, item1)
+	verifyItem(ctx, t, mgr, id2, labels2, item2)
+	verifyItem(ctx, t, mgr, id3, labels3, item3)
 
 	// flush underlying block manager and verify in new manifest manager.
 	mgr.b.Flush(ctx)
@@ -74,11 +74,11 @@ func TestManifest(t *testing.T) {
 		t.Fatalf("can't open block manager: %v", setupErr)
 	}
 	for _, tc := range cases {
-		verifyMatches(t, mgr2, tc.criteria, tc.expected)
+		verifyMatches(ctx, t, mgr2, tc.criteria, tc.expected)
 	}
-	verifyItem(t, mgr2, id1, labels1, item1)
-	verifyItem(t, mgr2, id2, labels2, item2)
-	verifyItem(t, mgr2, id3, labels3, item3)
+	verifyItem(ctx, t, mgr2, id1, labels1, item1)
+	verifyItem(ctx, t, mgr2, id2, labels2, item2)
+	verifyItem(ctx, t, mgr2, id3, labels3, item3)
 	if err := mgr2.Flush(ctx); err != nil {
 		t.Errorf("flush error: %v", err)
 	}
@@ -86,13 +86,13 @@ func TestManifest(t *testing.T) {
 	// delete from one
 	time.Sleep(1 * time.Second)
 	mgr.Delete(id3)
-	verifyItemNotFound(t, mgr, id3)
+	verifyItemNotFound(ctx, t, mgr, id3)
 	mgr.Flush(ctx)
-	verifyItemNotFound(t, mgr, id3)
+	verifyItemNotFound(ctx, t, mgr, id3)
 
 	// still found in another
-	verifyItem(t, mgr2, id3, labels3, item3)
-	if err := mgr2.loadCommittedBlocks(ctx); err != nil {
+	verifyItem(ctx, t, mgr2, id3, labels3, item3)
+	if err := mgr2.loadCommittedBlocksLocked(ctx); err != nil {
 		t.Errorf("unable to load: %v", err)
 	}
 
@@ -115,27 +115,27 @@ func TestManifest(t *testing.T) {
 		t.Fatalf("can't open manager: %v", err)
 	}
 
-	verifyItem(t, mgr3, id1, labels1, item1)
-	verifyItem(t, mgr3, id2, labels2, item2)
-	verifyItemNotFound(t, mgr3, id3)
+	verifyItem(ctx, t, mgr3, id1, labels1, item1)
+	verifyItem(ctx, t, mgr3, id2, labels2, item2)
+	verifyItemNotFound(ctx, t, mgr3, id3)
 }
 
-func addAndVerify(t *testing.T, mgr *Manager, labels map[string]string, data map[string]int) string {
+func addAndVerify(ctx context.Context, t *testing.T, mgr *Manager, labels map[string]string, data map[string]int) string {
 	t.Helper()
-	id, err := mgr.Put(labels, data)
+	id, err := mgr.Put(ctx, labels, data)
 	if err != nil {
 		t.Errorf("unable to add %v (%v): %v", labels, data, err)
 		return ""
 	}
 
-	verifyItem(t, mgr, id, labels, data)
+	verifyItem(ctx, t, mgr, id, labels, data)
 	return id
 }
 
-func verifyItem(t *testing.T, mgr *Manager, id string, labels map[string]string, data map[string]int) {
+func verifyItem(ctx context.Context, t *testing.T, mgr *Manager, id string, labels map[string]string, data map[string]int) {
 	t.Helper()
 
-	l, err := mgr.GetMetadata(id)
+	l, err := mgr.GetMetadata(ctx, id)
 	if err != nil {
 		t.Errorf("unable to retrieve %q: %v", id, err)
 		return
@@ -146,21 +146,26 @@ func verifyItem(t *testing.T, mgr *Manager, id string, labels map[string]string,
 	}
 }
 
-func verifyItemNotFound(t *testing.T, mgr *Manager, id string) {
+func verifyItemNotFound(ctx context.Context, t *testing.T, mgr *Manager, id string) {
 	t.Helper()
 
-	_, err := mgr.GetMetadata(id)
+	_, err := mgr.GetMetadata(ctx, id)
 	if got, want := err, ErrNotFound; got != want {
 		t.Errorf("invalid error when getting %q %v, expected %v", id, err, ErrNotFound)
 		return
 	}
 }
 
-func verifyMatches(t *testing.T, mgr *Manager, labels map[string]string, expected []string) {
+func verifyMatches(ctx context.Context, t *testing.T, mgr *Manager, labels map[string]string, expected []string) {
 	t.Helper()
 
 	var matches []string
-	for _, m := range mgr.Find(labels) {
+	items, err := mgr.Find(ctx, labels)
+	if err != nil {
+		t.Errorf("error in Find(): %v", err)
+		return
+	}
+	for _, m := range items {
 		matches = append(matches, m.ID)
 	}
 	sort.Strings(matches)

@@ -64,19 +64,19 @@ func (s *sourceManager) setStatus(stat string) {
 	s.mu.Unlock()
 }
 
-func (s *sourceManager) run() {
+func (s *sourceManager) run(ctx context.Context) {
 	s.setStatus("INITIALIZING")
 	defer s.setStatus("STOPPED")
 
 	if s.server.hostname == s.src.Host {
-		s.runLocal()
+		s.runLocal(ctx)
 	} else {
-		s.runRemote()
+		s.runRemote(ctx)
 	}
 }
 
-func (s *sourceManager) runLocal() {
-	s.refreshStatus()
+func (s *sourceManager) runLocal(ctx context.Context) {
+	s.refreshStatus(ctx)
 	for {
 		var timeBeforeNextSnapshot time.Duration
 		if !s.nextSnapshotTime.IsZero() {
@@ -92,26 +92,26 @@ func (s *sourceManager) runLocal() {
 			return
 
 		case <-time.After(15 * time.Second):
-			s.refreshStatus()
+			s.refreshStatus(ctx)
 
 		case <-time.After(timeBeforeNextSnapshot):
 			log.Infof("snapshotting %v", s.src)
 			s.setStatus("SNAPSHOTTING")
-			s.snapshot()
-			s.refreshStatus()
+			s.snapshot(ctx)
+			s.refreshStatus(ctx)
 		}
 	}
 }
 
-func (s *sourceManager) runRemote() {
-	s.refreshStatus()
+func (s *sourceManager) runRemote(ctx context.Context) {
+	s.refreshStatus(ctx)
 	s.setStatus("REMOTE")
 	for {
 		select {
 		case <-s.closed:
 			return
 		case <-time.After(15 * time.Second):
-			s.refreshStatus()
+			s.refreshStatus(ctx)
 		}
 	}
 }
@@ -155,7 +155,7 @@ func (s *sourceManager) resume() serverapi.SourceActionResponse {
 	return serverapi.SourceActionResponse{Success: true}
 }
 
-func (s *sourceManager) snapshot() {
+func (s *sourceManager) snapshot(ctx context.Context) {
 	s.server.beginUpload(s.src)
 	defer s.server.endUpload(s.src)
 
@@ -165,13 +165,12 @@ func (s *sourceManager) snapshot() {
 		return
 	}
 	u := upload.NewUploader(s.server.rep)
-	polGetter, err := policy.FilesPolicyGetter(s.server.rep, s.src)
+	polGetter, err := policy.FilesPolicyGetter(ctx, s.server.rep, s.src)
 	if err != nil {
 		log.Errorf("unable to create policy getter: %v", err)
 	}
 	u.FilesPolicy = polGetter
 	u.Progress = s
-	ctx := context.Background()
 
 	log.Infof("starting upload of %v", s.src)
 	manifest, err := u.Upload(ctx, localEntry, s.src, s.lastSnapshot)
@@ -180,7 +179,7 @@ func (s *sourceManager) snapshot() {
 		return
 	}
 
-	snapshotID, err := snapshot.SaveSnapshot(s.server.rep, manifest)
+	snapshotID, err := snapshot.SaveSnapshot(ctx, s.server.rep, manifest)
 	if err != nil {
 		log.Errorf("unable to save snapshot: %v", err)
 		return
@@ -220,16 +219,16 @@ func (s *sourceManager) findClosestNextSnapshotTime() time.Time {
 	return nextSnapshotTime
 }
 
-func (s *sourceManager) refreshStatus() {
+func (s *sourceManager) refreshStatus(ctx context.Context) {
 	log.Debugf("refreshing state for %v", s.src)
-	pol, _, err := policy.GetEffectivePolicy(s.server.rep, s.src)
+	pol, _, err := policy.GetEffectivePolicy(ctx, s.server.rep, s.src)
 	if err != nil {
 		s.setStatus("FAILED")
 		return
 	}
 
 	s.pol = pol
-	snapshots, err := snapshot.ListSnapshots(s.server.rep, s.src)
+	snapshots, err := snapshot.ListSnapshots(ctx, s.server.rep, s.src)
 	if err != nil {
 		s.setStatus("FAILED")
 		return

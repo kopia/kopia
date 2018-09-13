@@ -1,18 +1,18 @@
 package policy
 
 import (
+	"context"
 	"strings"
 
 	"github.com/kopia/kopia/repo"
-
 	"github.com/kopia/kopia/snapshot"
 )
 
 // GetExpiredSnapshots computes the set of snapshot manifests that are not retained according to the policy.
-func GetExpiredSnapshots(rep *repo.Repository, snapshots []*snapshot.Manifest) ([]*snapshot.Manifest, error) {
+func GetExpiredSnapshots(ctx context.Context, rep *repo.Repository, snapshots []*snapshot.Manifest) ([]*snapshot.Manifest, error) {
 	var toDelete []*snapshot.Manifest
 	for _, snapshotGroup := range snapshot.GroupBySource(snapshots) {
-		td, err := getExpiredSnapshotsForSource(rep, snapshotGroup)
+		td, err := getExpiredSnapshotsForSource(ctx, rep, snapshotGroup)
 		if err != nil {
 			return nil, err
 		}
@@ -21,9 +21,9 @@ func GetExpiredSnapshots(rep *repo.Repository, snapshots []*snapshot.Manifest) (
 	return toDelete, nil
 }
 
-func getExpiredSnapshotsForSource(rep *repo.Repository, snapshots []*snapshot.Manifest) ([]*snapshot.Manifest, error) {
+func getExpiredSnapshotsForSource(ctx context.Context, rep *repo.Repository, snapshots []*snapshot.Manifest) ([]*snapshot.Manifest, error) {
 	src := snapshots[0].Source
-	pol, _, err := GetEffectivePolicy(rep, src)
+	pol, _, err := GetEffectivePolicy(ctx, rep, src)
 	if err != nil {
 		return nil, err
 	}

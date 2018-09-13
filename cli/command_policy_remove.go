@@ -18,14 +18,14 @@ func init() {
 }
 
 func removePolicy(ctx context.Context, rep *repo.Repository) error {
-	targets, err := policyTargets(rep, policyRemoveGlobal, policyRemoveTargets)
+	targets, err := policyTargets(ctx, rep, policyRemoveGlobal, policyRemoveTargets)
 	if err != nil {
 		return err
 	}
 
 	for _, target := range targets {
 		log.Infof("Removing policy on %q...", target)
-		if err := policy.RemovePolicy(rep, target); err != nil {
+		if err := policy.RemovePolicy(ctx, rep, target); err != nil {
 			return err
 		}
 	}

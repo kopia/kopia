@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"sync"
@@ -42,7 +43,7 @@ func (s *Server) APIHandlers() http.Handler {
 	return p
 }
 
-func (s *Server) handleAPI(f func(r *http.Request) (interface{}, *apiError)) http.Handler {
+func (s *Server) handleAPI(f func(ctx context.Context, r *http.Request) (interface{}, *apiError)) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
@@ -51,7 +52,7 @@ func (s *Server) handleAPI(f func(r *http.Request) (interface{}, *apiError)) htt
 		e := json.NewEncoder(w)
 		e.SetIndent("", "  ")
 
-		v, err := f(r)
+		v, err := f(context.Background(), r)
 		log.Debugf("returned %+v", v)
 		if err == nil {
 			if err := e.Encode(v); err != nil {
@@ -64,12 +65,12 @@ func (s *Server) handleAPI(f func(r *http.Request) (interface{}, *apiError)) htt
 	})
 }
 
-func (s *Server) handleRefresh(r *http.Request) (interface{}, *apiError) {
+func (s *Server) handleRefresh(ctx context.Context, r *http.Request) (interface{}, *apiError) {
 	log.Infof("refreshing")
 	return &serverapi.Empty{}, nil
 }
 
-func (s *Server) handleFlush(r *http.Request) (interface{}, *apiError) {
+func (s *Server) handleFlush(ctx context.Context, r *http.Request) (interface{}, *apiError) {
 	log.Infof("flushing")
 	return &serverapi.Empty{}, nil
 }
@@ -89,19 +90,19 @@ func (s *Server) forAllSourceManagersMatchingURLFilter(c func(s *sourceManager) 
 	return resp, nil
 }
 
-func (s *Server) handleUpload(r *http.Request) (interface{}, *apiError) {
+func (s *Server) handleUpload(ctx context.Context, r *http.Request) (interface{}, *apiError) {
 	return s.forAllSourceManagersMatchingURLFilter((*sourceManager).upload, r.URL.Query())
 }
 
-func (s *Server) handlePause(r *http.Request) (interface{}, *apiError) {
+func (s *Server) handlePause(ctx context.Context, r *http.Request) (interface{}, *apiError) {
 	return s.forAllSourceManagersMatchingURLFilter((*sourceManager).pause, r.URL.Query())
 }
 
-func (s *Server) handleResume(r *http.Request) (interface{}, *apiError) {
+func (s *Server) handleResume(ctx context.Context, r *http.Request) (interface{}, *apiError) {
 	return s.forAllSourceManagersMatchingURLFilter((*sourceManager).resume, r.URL.Query())
 }
 
-func (s *Server) handleCancel(r *http.Request) (interface{}, *apiError) {
+func (s *Server) handleCancel(ctx context.Context, r *http.Request) (interface{}, *apiError) {
 	return s.forAllSourceManagersMatchingURLFilter((*sourceManager).cancel, r.URL.Query())
 }
 
@@ -127,13 +128,18 @@ func New(ctx context.Context, rep *repo.Repository, hostname string, username st
 		uploadSemaphore: make(chan struct{}, 1),
 	}
 
-	for _, src := range snapshot.ListSources(rep) {
+	sources, err := snapshot.ListSources(ctx, rep)
+	if err != nil {
+		return nil, fmt.Errorf("unable to list sources: %v", err)
+	}
+
+	for _, src := range sources {
 		sm := newSourceManager(src, s)
 		s.sourceManagers[src] = sm
 	}
 
 	for _, src := range s.sourceManagers {
-		go src.run()
+		go src.run(ctx)
 	}
 
 	return s, nil

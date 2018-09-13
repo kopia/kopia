@@ -1,12 +1,13 @@
 package server
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/kopia/kopia/internal/serverapi"
 )
 
-func (s *Server) handleStatus(r *http.Request) (interface{}, *apiError) {
+func (s *Server) handleStatus(ctx context.Context, r *http.Request) (interface{}, *apiError) {
 	bf := s.rep.Blocks.Format
 	bf.HMACSecret = nil
 	bf.MasterKey = nil

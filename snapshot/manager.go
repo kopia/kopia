@@ -2,6 +2,9 @@
 package snapshot
 
 import (
+	"context"
+	"fmt"
+
 	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/manifest"
@@ -10,10 +13,13 @@ import (
 var log = kopialogging.Logger("kopia/snapshot")
 
 // ListSources lists all snapshot sources in a given repository.
-func ListSources(rep *repo.Repository) []SourceInfo {
-	items := rep.Manifests.Find(map[string]string{
+func ListSources(ctx context.Context, rep *repo.Repository) ([]SourceInfo, error) {
+	items, err := rep.Manifests.Find(ctx, map[string]string{
 		"type": "snapshot",
 	})
+	if err != nil {
+		return nil, fmt.Errorf("unable to find manifest entries: %v", err)
+	}
 
 	uniq := map[SourceInfo]bool{}
 	for _, it := range items {
@@ -25,7 +31,7 @@ func ListSources(rep *repo.Repository) []SourceInfo {
 		infos = append(infos, k)
 	}
 
-	return infos
+	return infos, nil
 }
 
 func sourceInfoFromLabels(labels map[string]string) SourceInfo {
@@ -42,15 +48,19 @@ func sourceInfoToLabels(si SourceInfo) map[string]string {
 }
 
 // ListSnapshots lists all snapshots for a given source.
-func ListSnapshots(rep *repo.Repository, si SourceInfo) ([]*Manifest, error) {
-	return LoadSnapshots(rep, manifest.EntryIDs(rep.Manifests.Find(sourceInfoToLabels(si))))
+func ListSnapshots(ctx context.Context, rep *repo.Repository, si SourceInfo) ([]*Manifest, error) {
+	entries, err := rep.Manifests.Find(ctx, sourceInfoToLabels(si))
+	if err != nil {
+		return nil, fmt.Errorf("unable to find manifest entries: %v", err)
+	}
+	return LoadSnapshots(ctx, rep, manifest.EntryIDs(entries))
 }
 
 // LoadSnapshot loads and parses a snapshot with a given ID.
-func LoadSnapshot(rep *repo.Repository, manifestID string) (*Manifest, error) {
+func LoadSnapshot(ctx context.Context, rep *repo.Repository, manifestID string) (*Manifest, error) {
 	sm := &Manifest{}
-	if err := rep.Manifests.Get(manifestID, sm); err != nil {
-		return nil, err
+	if err := rep.Manifests.Get(ctx, manifestID, sm); err != nil {
+		return nil, fmt.Errorf("unable to find manifest entries: %v", err)
 	}
 
 	sm.ID = manifestID
@@ -59,12 +69,12 @@ func LoadSnapshot(rep *repo.Repository, manifestID string) (*Manifest, error) {
 }
 
 // SaveSnapshot persists given snapshot manifest and returns manifest ID.
-func SaveSnapshot(rep *repo.Repository, manifest *Manifest) (string, error) {
-	return rep.Manifests.Put(sourceInfoToLabels(manifest.Source), manifest)
+func SaveSnapshot(ctx context.Context, rep *repo.Repository, manifest *Manifest) (string, error) {
+	return rep.Manifests.Put(ctx, sourceInfoToLabels(manifest.Source), manifest)
 }
 
 // LoadSnapshots efficiently loads and parses a given list of snapshot IDs.
-func LoadSnapshots(rep *repo.Repository, names []string) ([]*Manifest, error) {
+func LoadSnapshots(ctx context.Context, rep *repo.Repository, names []string) ([]*Manifest, error) {
 	result := make([]*Manifest, len(names))
 	sem := make(chan bool, 50)
 
@@ -73,7 +83,7 @@ func LoadSnapshots(rep *repo.Repository, names []string) ([]*Manifest, error) {
 		go func(i int, n string) {
 			defer func() { <-sem }()
 
-			m, err := LoadSnapshot(rep, n)
+			m, err := LoadSnapshot(ctx, rep, n)
 			if err != nil {
 				log.Warningf("unable to parse snapshot manifest %v: %v", n, err)
 				return
@@ -98,7 +108,7 @@ func LoadSnapshots(rep *repo.Repository, names []string) ([]*Manifest, error) {
 }
 
 // ListSnapshotManifests returns the list of snapshot manifests for a given source or all sources if nil.
-func ListSnapshotManifests(rep *repo.Repository, src *SourceInfo) []string {
+func ListSnapshotManifests(ctx context.Context, rep *repo.Repository, src *SourceInfo) ([]string, error) {
 	labels := map[string]string{
 		"type": "snapshot",
 	}
@@ -107,5 +117,10 @@ func ListSnapshotManifests(rep *repo.Repository, src *SourceInfo) []string {
 		labels = sourceInfoToLabels(*src)
 	}
 
-	return manifest.EntryIDs(rep.Manifests.Find(labels))
+	entries, err := rep.Manifests.Find(ctx, labels)
+	if err != nil {
+		return nil, fmt.Errorf("unable to find manifest entries: %v", err)
+	}
+
+	return manifest.EntryIDs(entries), nil
 }

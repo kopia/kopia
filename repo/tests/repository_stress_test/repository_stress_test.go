@@ -280,12 +280,15 @@ func refresh(ctx context.Context, t *testing.T, r *repo.Repository) error {
 }
 
 func readRandomManifest(ctx context.Context, t *testing.T, r *repo.Repository) error {
-	manifests := r.Manifests.Find(nil)
+	manifests, err := r.Manifests.Find(ctx, nil)
+	if err != nil {
+		return err
+	}
 	if len(manifests) == 0 {
 		return nil
 	}
 	n := rand.Intn(len(manifests))
-	_, err := r.Manifests.GetRaw(manifests[n].ID)
+	_, err = r.Manifests.GetRaw(ctx, manifests[n].ID)
 	return err
 }
 
@@ -298,7 +301,7 @@ func writeRandomManifest(ctx context.Context, t *testing.T, r *repo.Repository) 
 	content2 := fmt.Sprintf("content-%v", rand.Intn(10))
 	content1val := fmt.Sprintf("val1-%v", rand.Intn(10))
 	content2val := fmt.Sprintf("val2-%v", rand.Intn(10))
-	_, err := r.Manifests.Put(map[string]string{
+	_, err := r.Manifests.Put(ctx, map[string]string{
 		"type": key1,
 		key1:   val1,
 		key2:   val2,

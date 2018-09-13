@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"strings"
@@ -27,9 +28,13 @@ type snapshotListResponse struct {
 	Snapshots []*snapshotListEntry `json:"snapshots"`
 }
 
-func (s *Server) handleSourceSnapshotList(r *http.Request) (interface{}, *apiError) {
-	manifestIDs := snapshot.ListSnapshotManifests(s.rep, nil)
-	manifests, err := snapshot.LoadSnapshots(s.rep, manifestIDs)
+func (s *Server) handleSourceSnapshotList(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+	manifestIDs, err := snapshot.ListSnapshotManifests(ctx, s.rep, nil)
+	if err != nil {
+		return nil, internalServerError(err)
+	}
+
+	manifests, err := snapshot.LoadSnapshots(ctx, s.rep, manifestIDs)
 	if err != nil {
 		return nil, internalServerError(err)
 	}
@@ -44,7 +49,7 @@ func (s *Server) handleSourceSnapshotList(r *http.Request) (interface{}, *apiErr
 			continue
 		}
 
-		pol, _, err := policy.GetEffectivePolicy(s.rep, first.Source)
+		pol, _, err := policy.GetEffectivePolicy(ctx, s.rep, first.Source)
 		if err == nil {
 			pol.RetentionPolicy.ComputeRetentionReasons(grp)
 		}

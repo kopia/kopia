@@ -21,13 +21,13 @@ func init() {
 }
 
 func showPolicy(ctx context.Context, rep *repo.Repository) error {
-	targets, err := policyTargets(rep, policyShowGlobal, policyShowTargets)
+	targets, err := policyTargets(ctx, rep, policyShowGlobal, policyShowTargets)
 	if err != nil {
 		return err
 	}
 
 	for _, target := range targets {
-		effective, policies, err := policy.GetEffectivePolicy(rep, target)
+		effective, policies, err := policy.GetEffectivePolicy(ctx, rep, target)
 		if err != nil {
 			return fmt.Errorf("can't get effective policy for %q: %v", target, err)
 		}

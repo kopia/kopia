@@ -37,7 +37,7 @@ var (
 func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
 	sources := *snapshotCreateSources
 	if *snapshotCreateAll {
-		local, err := getLocalBackupPaths(rep)
+		local, err := getLocalBackupPaths(ctx, rep)
 		if err != nil {
 			return err
 		}
@@ -90,12 +90,12 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *upload.U
 
 	localEntry := mustGetLocalFSEntry(sourceInfo.Path)
 
-	previousManifest, err := findPreviousSnapshotManifest(rep, sourceInfo)
+	previousManifest, err := findPreviousSnapshotManifest(ctx, rep, sourceInfo)
 	if err != nil {
 		return err
 	}
 
-	u.FilesPolicy, err = policy.FilesPolicyGetter(rep, sourceInfo)
+	u.FilesPolicy, err = policy.FilesPolicyGetter(ctx, rep, sourceInfo)
 	if err != nil {
 		return err
 	}
@@ -108,7 +108,7 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *upload.U
 
 	manifest.Description = *snapshotCreateDescription
 
-	snapID, err := snapshot.SaveSnapshot(rep, manifest)
+	snapID, err := snapshot.SaveSnapshot(ctx, rep, manifest)
 	if err != nil {
 		return fmt.Errorf("cannot save manifest: %v", err)
 	}
@@ -122,8 +122,8 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *upload.U
 	return nil
 }
 
-func findPreviousSnapshotManifest(rep *repo.Repository, sourceInfo snapshot.SourceInfo) (*snapshot.Manifest, error) {
-	previous, err := snapshot.ListSnapshots(rep, sourceInfo)
+func findPreviousSnapshotManifest(ctx context.Context, rep *repo.Repository, sourceInfo snapshot.SourceInfo) (*snapshot.Manifest, error) {
+	previous, err := snapshot.ListSnapshots(ctx, rep, sourceInfo)
 	if err != nil {
 		return nil, fmt.Errorf("error listing previous backups: %v", err)
 	}
@@ -144,12 +144,15 @@ func findPreviousSnapshotManifest(rep *repo.Repository, sourceInfo snapshot.Sour
 	return previousManifest, nil
 }
 
-func getLocalBackupPaths(rep *repo.Repository) ([]string, error) {
+func getLocalBackupPaths(ctx context.Context, rep *repo.Repository) ([]string, error) {
 	h := getHostName()
 	u := getUserName()
 	log.Debugf("Looking for previous backups of '%v@%v'...", u, h)
 
-	sources := snapshot.ListSources(rep)
+	sources, err := snapshot.ListSources(ctx, rep)
+	if err != nil {
+		return nil, fmt.Errorf("unable to list sources: %v", err)
+	}
 
 	var result []string
 

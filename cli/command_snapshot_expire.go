@@ -19,14 +19,14 @@ var (
 	snapshotExpireDelete = snapshotExpireCommand.Flag("delete", "Whether to actually delete snapshots").Default("no").String()
 )
 
-func getSnapshotNamesToExpire(rep *repo.Repository) ([]string, error) {
+func getSnapshotNamesToExpire(ctx context.Context, rep *repo.Repository) ([]string, error) {
 	if !*snapshotExpireAll && len(*snapshotExpirePaths) == 0 {
 		return nil, fmt.Errorf("Must specify paths to expire or --all")
 	}
 
 	if *snapshotExpireAll {
 		printStderr("Scanning all active snapshots...\n")
-		return snapshot.ListSnapshotManifests(rep, nil), nil
+		return snapshot.ListSnapshotManifests(ctx, rep, nil)
 	}
 
 	var result []string
@@ -39,7 +39,7 @@ func getSnapshotNamesToExpire(rep *repo.Repository) ([]string, error) {
 
 		log.Debugf("Looking for snapshots of %v", src)
 
-		matches := snapshot.ListSnapshotManifests(rep, &src)
+		matches, err := snapshot.ListSnapshotManifests(ctx, rep, &src)
 		if err != nil {
 			return nil, fmt.Errorf("error listing snapshots for %v: %v", src, err)
 		}
@@ -53,17 +53,17 @@ func getSnapshotNamesToExpire(rep *repo.Repository) ([]string, error) {
 }
 
 func runExpireCommand(ctx context.Context, rep *repo.Repository) error {
-	snapshotNames, err := getSnapshotNamesToExpire(rep)
+	snapshotNames, err := getSnapshotNamesToExpire(ctx, rep)
 	if err != nil {
 		return err
 	}
 
-	snapshots, err := snapshot.LoadSnapshots(rep, snapshotNames)
+	snapshots, err := snapshot.LoadSnapshots(ctx, rep, snapshotNames)
 	if err != nil {
 		return err
 	}
 	snapshots = filterHostAndUser(snapshots)
-	toDelete, err := policy.GetExpiredSnapshots(rep, snapshots)
+	toDelete, err := policy.GetExpiredSnapshots(ctx, rep, snapshots)
 	if err != nil {
 		return err
 	}

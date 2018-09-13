@@ -32,7 +32,7 @@ func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 		return fmt.Errorf("can't open source repository: %v", err)
 	}
 
-	sources, err := getSourcesToMigrate(sourceRepo)
+	sources, err := getSourcesToMigrate(ctx, sourceRepo)
 	if err != nil {
 		return fmt.Errorf("can't retrieve sources: %v", err)
 	}
@@ -68,8 +68,11 @@ func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 func migrateSingleSource(ctx context.Context, uploader *upload.Uploader, sourceRepo, destRepo *repo.Repository, s snapshot.SourceInfo) error {
 	log.Debugf("migrating source %v", s)
 
-	manifests := snapshot.ListSnapshotManifests(sourceRepo, &s)
-	snapshots, err := snapshot.LoadSnapshots(sourceRepo, manifests)
+	manifests, err := snapshot.ListSnapshotManifests(ctx, sourceRepo, &s)
+	if err != nil {
+		return err
+	}
+	snapshots, err := snapshot.LoadSnapshots(ctx, sourceRepo, manifests)
 	if err != nil {
 		return fmt.Errorf("unable to load snapshot manifests for %v: %v", s, err)
 	}
@@ -86,7 +89,7 @@ func migrateSingleSource(ctx context.Context, uploader *upload.Uploader, sourceR
 		m.Stats = newm.Stats
 		m.IncompleteReason = newm.IncompleteReason
 
-		if _, err := snapshot.SaveSnapshot(destRepo, m); err != nil {
+		if _, err := snapshot.SaveSnapshot(ctx, destRepo, m); err != nil {
 			return fmt.Errorf("cannot save manifest: %v", err)
 		}
 	}
@@ -101,7 +104,7 @@ func filterSnapshotsToMigrate(s []*snapshot.Manifest) []*snapshot.Manifest {
 	return s
 }
 
-func getSourcesToMigrate(rep *repo.Repository) ([]snapshot.SourceInfo, error) {
+func getSourcesToMigrate(ctx context.Context, rep *repo.Repository) ([]snapshot.SourceInfo, error) {
 	if len(*migrateSources) > 0 {
 		var result []snapshot.SourceInfo
 
@@ -118,7 +121,7 @@ func getSourcesToMigrate(rep *repo.Repository) ([]snapshot.SourceInfo, error) {
 	}
 
 	if *migrateAll {
-		return snapshot.ListSources(rep), nil
+		return snapshot.ListSources(ctx, rep)
 	}
 
 	return nil, nil

@@ -54,13 +54,13 @@ func init() {
 }
 
 func setPolicy(ctx context.Context, rep *repo.Repository) error {
-	targets, err := policyTargets(rep, policySetGlobal, policySetTargets)
+	targets, err := policyTargets(ctx, rep, policySetGlobal, policySetTargets)
 	if err != nil {
 		return err
 	}
 
 	for _, target := range targets {
-		p, err := policy.GetDefinedPolicy(rep, target)
+		p, err := policy.GetDefinedPolicy(ctx, rep, target)
 		if err == policy.ErrPolicyNotFound {
 			p = &policy.Policy{}
 		}
@@ -76,7 +76,7 @@ func setPolicy(ctx context.Context, rep *repo.Repository) error {
 			return fmt.Errorf("no changes specified")
 		}
 
-		if err := policy.SetPolicy(rep, target, p); err != nil {
+		if err := policy.SetPolicy(ctx, rep, target, p); err != nil {
 			return fmt.Errorf("can't save policy for %v: %v", target, err)
 		}
 	}

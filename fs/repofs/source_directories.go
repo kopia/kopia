@@ -29,7 +29,10 @@ func (s *sourceDirectories) Summary() *fs.DirectorySummary {
 }
 
 func (s *sourceDirectories) Readdir(ctx context.Context) (fs.Entries, error) {
-	sources := snapshot.ListSources(s.rep)
+	sources, err := snapshot.ListSources(ctx, s.rep)
+	if err != nil {
+		return nil, err
+	}
 	var result fs.Entries
 
 	for _, src := range sources {

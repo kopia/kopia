@@ -1,14 +1,15 @@
 package server
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/policy"
 )
 
-func (s *Server) handlePolicyList(r *http.Request) (interface{}, *apiError) {
-	policies, err := policy.ListPolicies(s.rep)
+func (s *Server) handlePolicyList(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+	policies, err := policy.ListPolicies(ctx, s.rep)
 	if err != nil {
 		return nil, internalServerError(err)
 	}
