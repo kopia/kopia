@@ -34,7 +34,7 @@ func (s *s3Storage) GetBlock(ctx context.Context, b string, offset, length int64
 	attempt := func() (interface{}, error) {
 		var opt minio.GetObjectOptions
 		if length > 0 {
-			if err := opt.SetRange(offset, offset+length); err != nil {
+			if err := opt.SetRange(offset, offset+length-1); err != nil {
 				return nil, fmt.Errorf("unable to set range: %v", err)
 			}
 		}
@@ -81,6 +81,9 @@ func isRetriableError(err error) bool {
 
 func translateError(err error) error {
 	if me, ok := err.(minio.ErrorResponse); ok {
+		if me.StatusCode == 200 {
+			return nil
+		}
 		if me.StatusCode == 404 {
 			return storage.ErrBlockNotFound
 		}
@@ -100,11 +103,18 @@ func (s *s3Storage) PutBlock(ctx context.Context, b string, data []byte) error {
 		return err
 	}
 
-	n, err := s.cli.PutObject(s.BucketName, s.getObjectNameString(b), throttled, -1, minio.PutObjectOptions{})
+	progressCallback := storage.ProgressCallback(ctx)
+	n, err := s.cli.PutObject(s.BucketName, s.getObjectNameString(b), throttled, -1, minio.PutObjectOptions{
+		ContentType: "application/x-kopia",
+		Progress:    newProgressReader(progressCallback, b, int64(len(data))),
+	})
 	if err == io.EOF && n == 0 {
 		// special case empty stream
-		_, err = s.cli.PutObject(s.BucketName, s.getObjectNameString(b), bytes.NewBuffer(nil), 0, minio.PutObjectOptions{})
+		_, err = s.cli.PutObject(s.BucketName, s.getObjectNameString(b), bytes.NewBuffer(nil), 0, minio.PutObjectOptions{
+			ContentType: "application/x-kopia",
+		})
 	}
+
 	return translateError(err)
 }
 
@@ -155,6 +165,32 @@ func (s *s3Storage) Close(ctx context.Context) error {
 
 func (s *s3Storage) String() string {
 	return fmt.Sprintf("s3://%v/%v", s.BucketName, s.Prefix)
+}
+
+type progressReader struct {
+	cb           storage.ProgressFunc
+	blockID      string
+	completed    int64
+	totalLength  int64
+	lastReported int64
+}
+
+func (r *progressReader) Read(b []byte) (int, error) {
+	r.completed += int64(len(b))
+	if r.completed >= r.lastReported+1000000 || r.completed == r.totalLength {
+		r.cb(r.blockID, r.completed, r.totalLength)
+		r.lastReported = r.completed
+	}
+	return len(b), nil
+}
+
+func newProgressReader(cb storage.ProgressFunc, blockID string, totalLength int64) io.Reader {
+	if cb == nil {
+		return nil
+	}
+
+	return &progressReader{cb: cb, blockID: blockID, totalLength: totalLength}
+
 }
 
 func toBandwidth(bytesPerSecond int) iothrottler.Bandwidth {

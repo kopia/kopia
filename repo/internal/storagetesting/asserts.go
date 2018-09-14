@@ -23,6 +23,32 @@ func AssertGetBlock(ctx context.Context, t *testing.T, s storage.Storage, block 
 	if !bytes.Equal(b, expected) {
 		t.Errorf(errorPrefix()+"GetBlock(%v) returned %x, but expected %x", block, b, expected)
 	}
+
+	half := int64(len(expected) / 2)
+	if half == 0 {
+		return
+	}
+
+	b, err = s.GetBlock(ctx, block, 0, half)
+	if err != nil {
+		t.Errorf(errorPrefix()+"GetBlock(%v) returned error %v, expected data: %v", block, err, expected)
+		return
+	}
+
+	if !bytes.Equal(b, expected[0:half]) {
+		t.Errorf(errorPrefix()+"GetBlock(%v) returned %x, but expected %x", block, b, expected[0:half])
+	}
+
+	b, err = s.GetBlock(ctx, block, half, int64(len(expected))-half)
+	if err != nil {
+		t.Errorf(errorPrefix()+"GetBlock(%v) returned error %v, expected data: %v", block, err, expected)
+		return
+	}
+
+	if !bytes.Equal(b, expected[len(expected)-int(half):]) {
+		t.Errorf(errorPrefix()+"GetBlock(%v) returned %x, but expected %x", block, b, expected[len(expected)-int(half):])
+	}
+
 }
 
 // AssertGetBlockNotFound asserts that GetBlock() for specified storage block returns ErrBlockNotFound.
