@@ -104,6 +104,10 @@ func (s *s3Storage) PutBlock(ctx context.Context, b string, data []byte) error {
 	}
 
 	progressCallback := storage.ProgressCallback(ctx)
+	if progressCallback != nil {
+		progressCallback(b, 0, int64(len(data)))
+		defer progressCallback(b, int64(len(data)), int64(len(data)))
+	}
 	n, err := s.cli.PutObject(s.BucketName, s.getObjectNameString(b), throttled, -1, minio.PutObjectOptions{
 		ContentType: "application/x-kopia",
 		Progress:    newProgressReader(progressCallback, b, int64(len(data))),
@@ -177,7 +181,7 @@ type progressReader struct {
 
 func (r *progressReader) Read(b []byte) (int, error) {
 	r.completed += int64(len(b))
-	if r.completed >= r.lastReported+1000000 || r.completed == r.totalLength {
+	if r.completed >= r.lastReported+1000000 && r.completed < r.totalLength {
 		r.cb(r.blockID, r.completed, r.totalLength)
 		r.lastReported = r.completed
 	}
@@ -190,7 +194,6 @@ func newProgressReader(cb storage.ProgressFunc, blockID string, totalLength int6
 	}
 
 	return &progressReader{cb: cb, blockID: blockID, totalLength: totalLength}
-
 }
 
 func toBandwidth(bytesPerSecond int) iothrottler.Bandwidth {

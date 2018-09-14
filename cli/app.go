@@ -60,7 +60,7 @@ func repositoryAction(act func(ctx context.Context, rep *repo.Repository) error)
 		ctx = block.UsingBlockCache(ctx, *enableCaching)
 		ctx = block.UsingListCache(ctx, *enableListCaching)
 		ctx = storage.WithUploadProgressCallback(ctx, func(desc string, progress, total int64) {
-			log.Infof("block upload progress %q: %v/%v", desc, progress, total)
+			cliProgress.Report("upload '"+desc+"'", progress, total)
 		})
 
 		t0 := time.Now()

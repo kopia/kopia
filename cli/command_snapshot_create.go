@@ -55,7 +55,7 @@ func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
 	u.ParallelUploads = *snapshotCreateParallelUploads
 	onCtrlC(u.Cancel)
 
-	u.Progress = &uploadProgress{}
+	u.Progress = cliProgress
 
 	if len(*snapshotCreateDescription) > maxSnapshotDescriptionLength {
 		return fmt.Errorf("description too long")

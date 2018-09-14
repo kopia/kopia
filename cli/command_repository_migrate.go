@@ -23,7 +23,7 @@ var (
 
 func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 	uploader := upload.NewUploader(destRepo)
-	uploader.Progress = &uploadProgress{}
+	uploader.Progress = cliProgress
 	uploader.IgnoreFileErrors = *migrateIgnoreErrors
 	onCtrlC(uploader.Cancel)
 

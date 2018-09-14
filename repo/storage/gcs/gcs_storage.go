@@ -95,8 +95,13 @@ func (gcs *gcsStorage) PutBlock(ctx context.Context, b string, data []byte) erro
 	progressCallback := storage.ProgressCallback(ctx)
 
 	if progressCallback != nil {
+		progressCallback(b, 0, int64(len(data)))
+		defer progressCallback(b, int64(len(data)), int64(len(data)))
+
 		writer.ProgressFunc = func(completed int64) {
-			progressCallback(b, completed, int64(len(data)))
+			if completed != int64(len(data)) {
+				progressCallback(b, completed, int64(len(data)))
+			}
 		}
 	}
 
