@@ -25,6 +25,7 @@ var (
 	_ = app.Flag("help-full", "Show help for all commands, including hidden").Action(helpFullAction).Bool()
 
 	repositoryCommands = app.Command("repository", "Commands to manipulate repository.").Alias("repo")
+	cacheCommands      = app.Command("cache", "Commands to manipulate local cache").Hidden()
 	snapshotCommands   = app.Command("snapshot", "Commands to manipulate snapshots.").Alias("snap")
 	policyCommands     = app.Command("policy", "Commands to manipulate snapshotting policies.").Alias("policies")
 	serverCommands     = app.Command("server", "Commands to control HTTP API server.")

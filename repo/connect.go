@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -36,7 +37,7 @@ func Connect(ctx context.Context, configFile string, st storage.Storage, passwor
 	var lc config.LocalConfig
 	lc.Storage = st.ConnectionInfo()
 
-	if err = setupCaching(&lc, opt.CachingOptions, f.UniqueID); err != nil {
+	if err = setupCaching(configFile, &lc, opt.CachingOptions, f.UniqueID); err != nil {
 		return fmt.Errorf("unable to set up caching: %v", err)
 	}
 
@@ -62,14 +63,17 @@ func Connect(ctx context.Context, configFile string, st storage.Storage, passwor
 	return r.Close(ctx)
 }
 
-func setupCaching(lc *config.LocalConfig, opt block.CachingOptions, uniqueID []byte) error {
+func setupCaching(configPath string, lc *config.LocalConfig, opt block.CachingOptions, uniqueID []byte) error {
 	if opt.MaxCacheSizeBytes == 0 {
 		lc.Caching = block.CachingOptions{}
 		return nil
 	}
 
 	if opt.CacheDirectory == "" {
-		lc.Caching.CacheDirectory = filepath.Join(ospath.CacheDir(), hex.EncodeToString(uniqueID))
+		h := sha256.New()
+		h.Write(uniqueID)
+		h.Write([]byte(configPath))
+		lc.Caching.CacheDirectory = filepath.Join(ospath.CacheDir(), hex.EncodeToString(h.Sum(nil))[0:16])
 	} else {
 		absCacheDir, err := filepath.Abs(opt.CacheDirectory)
 		if err != nil {

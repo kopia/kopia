@@ -147,7 +147,7 @@ func SetCachingConfig(ctx context.Context, configFile string, opt block.CachingO
 		return fmt.Errorf("can't read format block: %v", err)
 	}
 
-	if err = setupCaching(lc, opt, f.UniqueID); err != nil {
+	if err = setupCaching(configFile, lc, opt, f.UniqueID); err != nil {
 		return fmt.Errorf("unable to set up caching: %v", err)
 	}
 
