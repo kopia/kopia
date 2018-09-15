@@ -1,11 +1,11 @@
 package block
 
 import (
+	"container/heap"
 	"context"
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"sync"
 	"time"
 
@@ -112,6 +112,31 @@ func (c *blockCache) sweepDirectoryPeriodically(ctx context.Context) {
 	}
 }
 
+// A blockMetadataHeap implements heap.Interface and holds storage.BlockMetadata.
+type blockMetadataHeap []storage.BlockMetadata
+
+func (h blockMetadataHeap) Len() int { return len(h) }
+
+func (h blockMetadataHeap) Less(i, j int) bool {
+	return h[i].Timestamp.Before(h[j].Timestamp)
+}
+
+func (h blockMetadataHeap) Swap(i, j int) {
+	h[i], h[j] = h[j], h[i]
+}
+
+func (h *blockMetadataHeap) Push(x interface{}) {
+	*h = append(*h, x.(storage.BlockMetadata))
+}
+
+func (h *blockMetadataHeap) Pop() interface{} {
+	old := *h
+	n := len(old)
+	item := old[n-1]
+	*h = old[0 : n-1]
+	return item
+}
+
 func (c *blockCache) sweepDirectory(ctx context.Context) (err error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -121,32 +146,33 @@ func (c *blockCache) sweepDirectory(ctx context.Context) (err error) {
 	}
 
 	t0 := time.Now()
-	log.Debugf("sweeping cache")
 
-	var items []storage.BlockMetadata
+	var h blockMetadataHeap
+	var totalRetainedSize int64
+
 	err = c.cacheStorage.ListBlocks(ctx, "", func(it storage.BlockMetadata) error {
-		items = append(items, it)
+		heap.Push(&h, it)
+		totalRetainedSize += it.Length
+
+		if totalRetainedSize > c.maxSizeBytes {
+			oldest := heap.Pop(&h).(storage.BlockMetadata)
+			if err := c.cacheStorage.DeleteBlock(ctx, it.BlockID); err != nil {
+				log.Warningf("unable to remove %v: %v", it.BlockID, err)
+			} else {
+				totalRetainedSize -= oldest.Length
+			}
+		}
 		return nil
 	})
-
 	if err != nil {
 		return fmt.Errorf("error listing cache: %v", err)
 	}
 
-	sort.Slice(items, func(i, j int) bool {
-		return items[i].Timestamp.After(items[j].Timestamp)
-	})
-
-	var totalRetainedSize int64
-	for _, it := range items {
-		if totalRetainedSize > c.maxSizeBytes {
-			if err := c.cacheStorage.DeleteBlock(ctx, it.BlockID); err != nil {
-				log.Warningf("unable to remove %v: %v", it.BlockID, err)
-			}
-		} else {
-			totalRetainedSize += it.Length
-		}
+	for h.Len() > 0 {
+		el := heap.Pop(&h).(storage.BlockMetadata)
+		log.Infof("kep %v at %v", el.BlockID, el.Timestamp)
 	}
+
 	log.Debugf("finished sweeping directory in %v and retained %v/%v bytes (%v %%)", time.Since(t0), totalRetainedSize, c.maxSizeBytes, 100*totalRetainedSize/c.maxSizeBytes)
 	c.lastTotalSizeBytes = totalRetainedSize
 	return nil
