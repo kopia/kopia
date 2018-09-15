@@ -156,8 +156,8 @@ func (c *blockCache) sweepDirectory(ctx context.Context) (err error) {
 
 		if totalRetainedSize > c.maxSizeBytes {
 			oldest := heap.Pop(&h).(storage.BlockMetadata)
-			if err := c.cacheStorage.DeleteBlock(ctx, it.BlockID); err != nil {
-				log.Warningf("unable to remove %v: %v", it.BlockID, err)
+			if delerr := c.cacheStorage.DeleteBlock(ctx, it.BlockID); delerr != nil {
+				log.Warningf("unable to remove %v: %v", it.BlockID, delerr)
 			} else {
 				totalRetainedSize -= oldest.Length
 			}
