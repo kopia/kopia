@@ -168,11 +168,6 @@ func (c *blockCache) sweepDirectory(ctx context.Context) (err error) {
 		return fmt.Errorf("error listing cache: %v", err)
 	}
 
-	for h.Len() > 0 {
-		el := heap.Pop(&h).(storage.BlockMetadata)
-		log.Infof("kep %v at %v", el.BlockID, el.Timestamp)
-	}
-
 	log.Debugf("finished sweeping directory in %v and retained %v/%v bytes (%v %%)", time.Since(t0), totalRetainedSize, c.maxSizeBytes, 100*totalRetainedSize/c.maxSizeBytes)
 	c.lastTotalSizeBytes = totalRetainedSize
 	return nil
