@@ -15,6 +15,7 @@ import (
 
 const (
 	sweepCacheFrequency = 1 * time.Minute
+	touchThreshold      = 10 * time.Minute
 )
 
 type blockCache struct {
@@ -27,6 +28,10 @@ type blockCache struct {
 	lastTotalSizeBytes int64
 
 	closed chan struct{}
+}
+
+type blockToucher interface {
+	TouchBlock(ctx context.Context, blockID string, threshold time.Duration) error
 }
 
 func adjustCacheKey(cacheKey string) string {
@@ -44,18 +49,8 @@ func (c *blockCache) getContentBlock(ctx context.Context, cacheKey string, physi
 
 	useCache := shouldUseBlockCache(ctx) && c.cacheStorage != nil
 	if useCache {
-		b, err := c.cacheStorage.GetBlock(ctx, cacheKey, 0, -1)
-		if err == nil {
-			b, err = verifyAndStripHMAC(b, c.hmacSecret)
-			if err == nil {
-				// retrieved from cache and HMAC valid
-				return b, nil
-			}
-
-			// ignore malformed blocks
-			log.Warningf("malformed block %v: %v", cacheKey, err)
-		} else if err != storage.ErrBlockNotFound {
-			log.Warningf("unable to read cache %v: %v", cacheKey, err)
+		if b := c.readAndVerifyCacheBlock(ctx, cacheKey); b != nil {
+			return b, nil
 		}
 	}
 
@@ -72,6 +67,30 @@ func (c *blockCache) getContentBlock(ctx context.Context, cacheKey string, physi
 	}
 
 	return b, err
+}
+
+func (c *blockCache) readAndVerifyCacheBlock(ctx context.Context, cacheKey string) []byte {
+	b, err := c.cacheStorage.GetBlock(ctx, cacheKey, 0, -1)
+	if err == nil {
+		b, err = verifyAndStripHMAC(b, c.hmacSecret)
+		if err == nil {
+			if t, ok := c.cacheStorage.(blockToucher); ok {
+				t.TouchBlock(ctx, cacheKey, touchThreshold) //nolint:errcheck
+			}
+
+			// retrieved from cache and HMAC valid
+			return b
+		}
+
+		// ignore malformed blocks
+		log.Warningf("malformed block %v: %v", cacheKey, err)
+		return nil
+	}
+
+	if err != storage.ErrBlockNotFound {
+		log.Warningf("unable to read cache %v: %v", cacheKey, err)
+	}
+	return nil
 }
 
 func (c *blockCache) close() {

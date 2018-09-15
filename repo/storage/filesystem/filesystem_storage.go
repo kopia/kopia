@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/repo/storage"
@@ -109,6 +110,24 @@ func (fs *fsStorage) ListBlocks(ctx context.Context, prefix string, callback fun
 	}
 
 	return walkDir(fs.Path, "")
+}
+
+// TouchBlock updates file modification time to current time if it's sufficiently old.
+func (fs *fsStorage) TouchBlock(ctx context.Context, blockID string, threshold time.Duration) error {
+	_, path := fs.getShardedPathAndFilePath(blockID)
+	st, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+
+	n := time.Now()
+	age := n.Sub(st.ModTime())
+	if age < threshold {
+		return nil
+	}
+
+	log.Debugf("updating timestamp on %v to %v", path, n)
+	return os.Chtimes(path, n, n)
 }
 
 func (fs *fsStorage) PutBlock(ctx context.Context, blockID string, data []byte) error {
