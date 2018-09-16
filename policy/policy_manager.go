@@ -129,7 +129,9 @@ func SetPolicy(ctx context.Context, rep *repo.Repository, si snapshot.SourceInfo
 	}
 
 	for _, em := range md {
-		rep.Manifests.Delete(em.ID)
+		if err := rep.Manifests.Delete(ctx, em.ID); err != nil {
+			return fmt.Errorf("unable to delete previous policy manifest: %v", err)
+		}
 	}
 
 	return nil
@@ -143,7 +145,9 @@ func RemovePolicy(ctx context.Context, rep *repo.Repository, si snapshot.SourceI
 	}
 
 	for _, em := range md {
-		rep.Manifests.Delete(em.ID)
+		if err := rep.Manifests.Delete(ctx, em.ID); err != nil {
+			return fmt.Errorf("unable to delete previous manifest: %v", err)
+		}
 	}
 
 	return nil

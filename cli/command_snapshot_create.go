@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -113,11 +112,25 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *upload.U
 		return fmt.Errorf("cannot save manifest: %v", err)
 	}
 
-	log.Infof("uploaded snapshot %v (root %v) in %v", snapID, manifest.RootObjectID(), time.Since(t0))
+	printStderr("uploaded snapshot %v (root %v) in %v\n", snapID, manifest.RootObjectID(), time.Since(t0))
 	log.Debugf("Hash Cache: %v", manifest.HashCacheID.String())
 
-	b, _ := json.MarshalIndent(&manifest, "", "  ")
-	log.Debugf("%s", string(b))
+	snapshots, err := snapshot.ListSnapshots(ctx, rep, sourceInfo)
+	if err != nil {
+		return err
+	}
+
+	toDelete, err := policy.GetExpiredSnapshots(ctx, rep, snapshots)
+	if err != nil {
+		return err
+	}
+
+	printStderr("Deleting %v expired snapshots of %v...\n", len(toDelete), sourceInfo)
+	for _, it := range toDelete {
+		if err := rep.Manifests.Delete(ctx, it.ID); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }

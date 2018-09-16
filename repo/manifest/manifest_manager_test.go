@@ -85,7 +85,9 @@ func TestManifest(t *testing.T) {
 
 	// delete from one
 	time.Sleep(1 * time.Second)
-	mgr.Delete(id3)
+	if err := mgr.Delete(ctx, id3); err != nil {
+		t.Errorf("delete error: %v", err)
+	}
 	verifyItemNotFound(ctx, t, mgr, id3)
 	mgr.Flush(ctx)
 	verifyItemNotFound(ctx, t, mgr, id3)

@@ -239,9 +239,13 @@ func (m *Manager) flushPendingEntriesLocked(ctx context.Context) (string, error)
 }
 
 // Delete marks the specified manifest ID for deletion.
-func (m *Manager) Delete(id string) {
+func (m *Manager) Delete(ctx context.Context, id string) error {
+	if err := m.ensureInitialized(ctx); err != nil {
+		return err
+	}
+
 	if m.pendingEntries[id] == nil && m.committedEntries[id] == nil {
-		return
+		return nil
 	}
 
 	m.pendingEntries[id] = &manifestEntry{
@@ -249,6 +253,7 @@ func (m *Manager) Delete(id string) {
 		ModTime: time.Now().UTC(),
 		Deleted: true,
 	}
+	return nil
 }
 
 // Refresh updates the committed blocks from the underlying storage.

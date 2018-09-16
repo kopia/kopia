@@ -2,7 +2,7 @@ package cli
 
 import (
 	"context"
-	"fmt"
+	"sort"
 
 	"github.com/kopia/kopia/policy"
 	"github.com/kopia/kopia/repo"
@@ -12,105 +12,69 @@ import (
 var (
 	snapshotExpireCommand = snapshotCommands.Command("expire", "Remove old snapshots according to defined expiration policies.")
 
-	snapshotExpireHost   = snapshotExpireCommand.Flag("host", "Expire snapshots from a given host").Default("").String()
-	snapshotExpireUser   = snapshotExpireCommand.Flag("user", "Expire snapshots from a given user").Default("").String()
 	snapshotExpireAll    = snapshotExpireCommand.Flag("all", "Expire all snapshots").Bool()
 	snapshotExpirePaths  = snapshotExpireCommand.Arg("path", "Expire snapshots for a given paths only").Strings()
 	snapshotExpireDelete = snapshotExpireCommand.Flag("delete", "Whether to actually delete snapshots").Default("no").String()
 )
 
-func getSnapshotNamesToExpire(ctx context.Context, rep *repo.Repository) ([]string, error) {
-	if !*snapshotExpireAll && len(*snapshotExpirePaths) == 0 {
-		return nil, fmt.Errorf("Must specify paths to expire or --all")
-	}
-
+func getSnapshotSourcesToExpire(ctx context.Context, rep *repo.Repository) ([]snapshot.SourceInfo, error) {
 	if *snapshotExpireAll {
-		printStderr("Scanning all active snapshots...\n")
-		return snapshot.ListSnapshotManifests(ctx, rep, nil)
+		return snapshot.ListSources(ctx, rep)
 	}
 
-	var result []string
-
+	var result []snapshot.SourceInfo
 	for _, p := range *snapshotExpirePaths {
 		src, err := snapshot.ParseSourceInfo(p, getHostName(), getUserName())
 		if err != nil {
-			return nil, fmt.Errorf("unable to parse %v: %v", p, err)
+			return nil, err
 		}
-
-		log.Debugf("Looking for snapshots of %v", src)
-
-		matches, err := snapshot.ListSnapshotManifests(ctx, rep, &src)
-		if err != nil {
-			return nil, fmt.Errorf("error listing snapshots for %v: %v", src, err)
-		}
-
-		log.Debugf("Found %v snapshots of %v", len(matches), src)
-
-		result = append(result, matches...)
+		result = append(result, src)
 	}
 
 	return result, nil
 }
 
 func runExpireCommand(ctx context.Context, rep *repo.Repository) error {
-	snapshotNames, err := getSnapshotNamesToExpire(ctx, rep)
+	sources, err := getSnapshotSourcesToExpire(ctx, rep)
 	if err != nil {
 		return err
 	}
 
-	snapshots, err := snapshot.LoadSnapshots(ctx, rep, snapshotNames)
-	if err != nil {
-		return err
-	}
-	snapshots = filterHostAndUser(snapshots)
-	toDelete, err := policy.GetExpiredSnapshots(ctx, rep, snapshots)
-	if err != nil {
-		return err
-	}
+	sort.Slice(sources, func(i, j int) bool {
+		return sources[i].String() < sources[j].String()
+	})
 
-	for _, snapshots := range snapshot.GroupBySource(toDelete) {
-		src := snapshots[0].Source
-		fmt.Printf("Would delete %v snapshots for %v\n", len(snapshots), src)
-	}
-
-	printStderr("\n*** ")
-
-	if len(toDelete) == 0 {
-		printStderr("Nothing to delete.\n")
-		return nil
-	}
-	if *snapshotExpireDelete == "yes" {
-		printStderr("Deleting %v snapshots...\n", len(toDelete))
-		for _, it := range toDelete {
-			rep.Manifests.Delete(it.ID)
+	for _, src := range sources {
+		snapshots, err := snapshot.ListSnapshots(ctx, rep, src)
+		if err != nil {
+			return err
 		}
-	} else {
-		printStderr("%v snapshot(s) would be deleted. Pass --delete=yes to do it.\n", len(toDelete))
+
+		toDelete, err := policy.GetExpiredSnapshots(ctx, rep, snapshots)
+		if err != nil {
+			return err
+		}
+
+		if len(toDelete) == 0 {
+			printStderr("Nothing to delete for %v.\n", src)
+			continue
+		}
+		if *snapshotExpireDelete == "yes" {
+			printStderr("Deleting %v snapshots of %v...\n", len(toDelete), src)
+			for _, it := range toDelete {
+				if err := rep.Manifests.Delete(ctx, it.ID); err != nil {
+					return err
+				}
+			}
+		} else {
+			printStderr("%v snapshot(s) of %v would be deleted. Pass --delete=yes to do it.\n", len(toDelete), src)
+			for _, it := range toDelete {
+				printStderr("  %v\n", it.StartTime.Format(timeFormat))
+			}
+		}
 	}
 
 	return nil
-}
-
-func filterHostAndUser(snapshots []*snapshot.Manifest) []*snapshot.Manifest {
-	if *snapshotExpireHost == "" && *snapshotExpireUser == "" {
-		return snapshots
-	}
-
-	var result []*snapshot.Manifest
-
-	for _, s := range snapshots {
-		if *snapshotExpireHost != "" && *snapshotExpireHost != s.Source.Host {
-			continue
-		}
-
-		if *snapshotExpireUser != "" && *snapshotExpireUser != s.Source.UserName {
-			continue
-		}
-
-		result = append(result, s)
-	}
-
-	return result
 }
 
 func init() {

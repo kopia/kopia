@@ -17,7 +17,9 @@ func init() {
 
 func removeMetadataItem(ctx context.Context, rep *repo.Repository) error {
 	for _, it := range *manifestRemoveItems {
-		rep.Manifests.Delete(it)
+		if err := rep.Manifests.Delete(ctx, it); err != nil {
+			return err
+		}
 	}
 
 	return nil
