@@ -30,14 +30,12 @@ var formatLog = kopialogging.Logger("kopia/block/format")
 const PackBlockPrefix = "p"
 
 const (
-	parallelFetches             = 5                // number of parallel reads goroutines
-	flushPackIndexTimeout       = 10 * time.Minute // time after which all pending indexes are flushes
-	newIndexBlockPrefix         = "n"
-	defaultMinPreambleLength    = 32
-	defaultMaxPreambleLength    = 32
-	defaultPaddingUnit          = 4096
-	autoCompactionMinBlockCount = 4 * parallelFetches
-	autoCompactionMaxBlockCount = 64
+	parallelFetches          = 5                // number of parallel reads goroutines
+	flushPackIndexTimeout    = 10 * time.Minute // time after which all pending indexes are flushes
+	newIndexBlockPrefix      = "n"
+	defaultMinPreambleLength = 32
+	defaultMaxPreambleLength = 32
+	defaultPaddingUnit       = 4096
 
 	currentWriteVersion     = 1
 	minSupportedReadVersion = 0
@@ -544,68 +542,6 @@ func (bm *Manager) Close() {
 	close(bm.closed)
 }
 
-// CompactIndexes performs compaction of index blocks ensuring that # of small blocks is between minSmallBlockCount and maxSmallBlockCount
-func (bm *Manager) CompactIndexes(ctx context.Context, minSmallBlockCount int, maxSmallBlockCount int) error {
-	log.Debugf("CompactIndexes(%v,%v)", minSmallBlockCount, maxSmallBlockCount)
-	if maxSmallBlockCount < minSmallBlockCount {
-		return fmt.Errorf("invalid block counts")
-	}
-
-	indexBlocks, _, err := bm.loadPackIndexesUnlocked(ctx)
-	if err != nil {
-		return fmt.Errorf("error loading indexes: %v", err)
-	}
-
-	blocksToCompact := bm.getBlocksToCompact(indexBlocks, minSmallBlockCount, maxSmallBlockCount)
-
-	if err := bm.compactAndDeleteIndexBlocks(ctx, blocksToCompact); err != nil {
-		log.Warningf("error performing quick compaction: %v", err)
-	}
-
-	return nil
-}
-
-func (bm *Manager) getBlocksToCompact(indexBlocks []IndexInfo, minSmallBlockCount int, maxSmallBlockCount int) []IndexInfo {
-	var nonCompactedBlocks []IndexInfo
-	var totalSizeNonCompactedBlocks int64
-
-	var verySmallBlocks []IndexInfo
-	var totalSizeVerySmallBlocks int64
-
-	var mediumSizedBlocks []IndexInfo
-	var totalSizeMediumSizedBlocks int64
-
-	for _, b := range indexBlocks {
-		if b.Length > int64(bm.maxPackSize) {
-			continue
-		}
-
-		nonCompactedBlocks = append(nonCompactedBlocks, b)
-		if b.Length < int64(bm.maxPackSize/20) {
-			verySmallBlocks = append(verySmallBlocks, b)
-			totalSizeVerySmallBlocks += b.Length
-		} else {
-			mediumSizedBlocks = append(mediumSizedBlocks, b)
-			totalSizeMediumSizedBlocks += b.Length
-		}
-		totalSizeNonCompactedBlocks += b.Length
-	}
-
-	if len(nonCompactedBlocks) < minSmallBlockCount {
-		// current count is below min allowed - nothing to do
-		formatLog.Debugf("no small blocks to compact")
-		return nil
-	}
-
-	if len(verySmallBlocks) > len(nonCompactedBlocks)/2 && len(mediumSizedBlocks)+1 < minSmallBlockCount {
-		formatLog.Debugf("compacting %v very small blocks", len(verySmallBlocks))
-		return verySmallBlocks
-	}
-
-	formatLog.Debugf("compacting all %v non-compacted blocks", len(nonCompactedBlocks))
-	return nonCompactedBlocks
-}
-
 // ListBlocks returns IDs of blocks matching given prefix.
 func (bm *Manager) ListBlocks(prefix string) ([]string, error) {
 	bm.lock()
@@ -657,57 +593,6 @@ func (bm *Manager) ListBlockInfos(prefix string, includeDeleted bool) ([]Info, e
 	_ = bm.committedBlocks.listBlocks(prefix, appendToResult)
 
 	return result, nil
-}
-
-func (bm *Manager) compactAndDeleteIndexBlocks(ctx context.Context, indexBlocks []IndexInfo) error {
-	if len(indexBlocks) <= 1 {
-		return nil
-	}
-	formatLog.Debugf("compacting %v blocks", len(indexBlocks))
-	t0 := time.Now()
-
-	bld := packindex.NewBuilder()
-	for _, indexBlock := range indexBlocks {
-		data, err := bm.getPhysicalBlockInternal(ctx, indexBlock.FileName)
-		if err != nil {
-			return err
-		}
-
-		index, err := packindex.Open(bytes.NewReader(data))
-		if err != nil {
-			return fmt.Errorf("unable to open index block %q: %v", indexBlock, err)
-		}
-
-		_ = index.Iterate("", func(i Info) error {
-			bld.Add(i)
-			return nil
-		})
-	}
-
-	var buf bytes.Buffer
-	if err := bld.Build(&buf); err != nil {
-		return fmt.Errorf("unable to build an index: %v", err)
-	}
-
-	compactedIndexBlock, err := bm.writePackIndexesNew(ctx, buf.Bytes())
-	if err != nil {
-		return fmt.Errorf("unable to write compacted indexes: %v", err)
-	}
-
-	formatLog.Debugf("wrote compacted index (%v bytes) in %v", compactedIndexBlock, time.Since(t0))
-
-	for _, indexBlock := range indexBlocks {
-		if indexBlock.FileName == compactedIndexBlock {
-			continue
-		}
-
-		bm.listCache.deleteListCache(ctx)
-		if err := bm.st.DeleteBlock(ctx, indexBlock.FileName); err != nil {
-			log.Warningf("unable to delete compacted block %q: %v", indexBlock.FileName, err)
-		}
-	}
-
-	return nil
 }
 
 // Flush completes writing any pending packs and writes pack indexes to the underlyign storage.
@@ -1115,7 +1000,7 @@ func newManagerWithOptions(ctx context.Context, st storage.Storage, f Formatting
 
 	m.startPackIndexLocked()
 
-	if err := m.CompactIndexes(ctx, autoCompactionMinBlockCount, autoCompactionMaxBlockCount); err != nil {
+	if err := m.CompactIndexes(ctx, autoCompactionOptions); err != nil {
 		return nil, fmt.Errorf("error initializing block manager: %v", err)
 	}
 

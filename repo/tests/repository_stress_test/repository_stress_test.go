@@ -268,7 +268,10 @@ func listAndReadAllBlocks(ctx context.Context, t *testing.T, r *repo.Repository)
 }
 
 func compact(ctx context.Context, t *testing.T, r *repo.Repository) error {
-	return r.Blocks.CompactIndexes(ctx, 1, 1)
+	return r.Blocks.CompactIndexes(ctx, block.CompactOptions{
+		MinSmallBlocks: 1,
+		MaxSmallBlocks: 1,
+	})
 }
 
 func flush(ctx context.Context, t *testing.T, r *repo.Repository) error {

@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/internal/config"
-	"github.com/kopia/kopia/repo/internal/storagetesting"
 	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/internal/storagetesting"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/repo/storage"
 )
@@ -35,7 +35,7 @@ func setupTestWithData(t *testing.T, data map[string][]byte, keyTime map[string]
 		Splitter:                    "FIXED",
 		BlockFormat:                 "TESTONLY_MD5",
 		MetadataEncryptionAlgorithm: "NONE",
-		noHMAC: true,
+		noHMAC:                      true,
 	}
 
 	for _, m := range mods {
@@ -185,7 +185,7 @@ func TestPackingSimple(t *testing.T) {
 	verify(ctx, t, repo, oid2a, []byte(content2), "packed-object-2")
 	verify(ctx, t, repo, oid3a, []byte(content3), "packed-object-3")
 
-	if err := repo.Blocks.CompactIndexes(ctx, 1, 1); err != nil {
+	if err := repo.Blocks.CompactIndexes(ctx, block.CompactOptions{MinSmallBlocks: 1, MaxSmallBlocks: 1}); err != nil {
 		t.Errorf("optimize error: %v", err)
 	}
 	data, _, repo = setupTestWithData(t, data, keyTime, func(n *NewRepositoryOptions) {
@@ -195,7 +195,7 @@ func TestPackingSimple(t *testing.T) {
 	verify(ctx, t, repo, oid2a, []byte(content2), "packed-object-2")
 	verify(ctx, t, repo, oid3a, []byte(content3), "packed-object-3")
 
-	if err := repo.Blocks.CompactIndexes(ctx, 1, 1); err != nil {
+	if err := repo.Blocks.CompactIndexes(ctx, block.CompactOptions{MinSmallBlocks: 1, MaxSmallBlocks: 1}); err != nil {
 		t.Errorf("optimize error: %v", err)
 	}
 	_, _, repo = setupTestWithData(t, data, keyTime, func(n *NewRepositoryOptions) {
