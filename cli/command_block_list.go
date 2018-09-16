@@ -18,6 +18,7 @@ var (
 	blockListSort           = blockListCommand.Flag("sort", "Sort order").Default("name").Enum("name", "size", "time", "none", "pack")
 	blockListReverse        = blockListCommand.Flag("reverse", "Reverse sort").Short('r').Bool()
 	blockListSummary        = blockListCommand.Flag("summary", "Summarize the list").Short('s').Bool()
+	blockListHuman          = blockListCommand.Flag("human", "Human-readable output").Short('h').Bool()
 )
 
 func runListBlocksAction(ctx context.Context, rep *repo.Repository) error {
@@ -45,14 +46,23 @@ func runListBlocksAction(ctx context.Context, rep *repo.Repository) error {
 			if b.Deleted {
 				optionalDeleted = " (deleted)"
 			}
-			fmt.Printf("%v %v %v %v+%v%v\n", b.BlockID, b.Timestamp().Format(timeFormat), b.PackFile, b.PackOffset, b.Length, optionalDeleted)
+			fmt.Printf("%v %v %v %v+%v%v\n",
+				b.BlockID,
+				b.Timestamp().Format(timeFormat),
+				b.PackFile,
+				b.PackOffset,
+				maybeHumanReadableBytes(*blockListHuman, int64(b.Length)),
+				optionalDeleted)
 		} else {
 			fmt.Printf("%v\n", b.BlockID)
 		}
 	}
 
 	if *blockListSummary {
-		fmt.Printf("Total: %v blocks, %v packs, %v bytes\n", count, len(uniquePacks), totalSize)
+		fmt.Printf("Total: %v blocks, %v packs, %v total size\n",
+			maybeHumanReadableCount(*blockListHuman, int64(count)),
+			maybeHumanReadableCount(*blockListHuman, int64(len(uniquePacks))),
+			maybeHumanReadableBytes(*blockListHuman, totalSize))
 	}
 
 	return nil

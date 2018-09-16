@@ -37,3 +37,8 @@ func BytesStringBase2(b int64) string {
 func BitsPerSecondsString(bps float64) string {
 	return toDecimalUnitString(bps, 1000, base10UnitPrefixes, "bit/s")
 }
+
+// Count returns the given number with the appropriate base-10 suffix (K, M, G, ...)
+func Count(v int64) string {
+	return toDecimalUnitString(float64(v), 1000, base10UnitPrefixes, "")
+}

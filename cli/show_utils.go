@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/kopia/kopia/internal/units"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -54,4 +55,20 @@ func showContentWithFlags(rd io.Reader, unzip, indentJSON bool) error {
 	}
 
 	return nil
+}
+
+func maybeHumanReadableBytes(enable bool, value int64) string {
+	if enable {
+		return units.BytesStringBase10(value)
+	}
+
+	return fmt.Sprintf("%v", value)
+}
+
+func maybeHumanReadableCount(enable bool, value int64) string {
+	if enable {
+		return units.Count(value)
+	}
+
+	return fmt.Sprintf("%v", value)
 }

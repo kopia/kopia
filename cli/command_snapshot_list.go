@@ -147,11 +147,7 @@ func outputManifestFromSingleSource(ctx context.Context, rep *repo.Repository, m
 			bits = append(bits, "incomplete:"+m.IncompleteReason)
 		}
 
-		if *snapshotListShowHumanReadable {
-			bits = append(bits, units.BytesStringBase10(ent.Metadata().FileSize))
-		} else {
-			bits = append(bits, fmt.Sprintf("%v", ent.Metadata().FileSize))
-		}
+		bits = append(bits, maybeHumanReadableBytes(*snapshotListShowHumanReadable, ent.Metadata().FileSize))
 		bits = append(bits, fmt.Sprintf("%v", ent.Metadata().FileMode()))
 		if *shapshotListShowOwner {
 			bits = append(bits, fmt.Sprintf("uid:%v", ent.Metadata().UserID))
