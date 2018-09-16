@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/repofs"
@@ -26,6 +27,7 @@ var (
 	snapshotListShowRetentionReasons = snapshotListCommand.Flag("retention", "Include retention reasons.").Default("true").Bool()
 	snapshotListShowModTime          = snapshotListCommand.Flag("mtime", "Include file mod time").Bool()
 	shapshotListShowOwner            = snapshotListCommand.Flag("owner", "Include owner").Bool()
+	snapshotListSkipIdentical        = snapshotListCommand.Flag("skip-identical", "Skip identical snapshots").Bool()
 	maxResultsPerPath                = snapshotListCommand.Flag("max-results", "Maximum number of results.").Default("1000").Int()
 )
 
@@ -122,6 +124,20 @@ func outputManifestFromSingleSource(ctx context.Context, rep *repo.Repository, m
 		manifests = manifests[len(manifests)-*maxResultsPerPath:]
 	}
 
+	var previousOID object.ID
+	var elidedCount int
+	var maxElidedTime time.Time
+
+	outputElided := func() {
+		if elidedCount > 0 {
+			fmt.Printf(
+				"  + %v identical snapshots until %v\n\n",
+				elidedCount,
+				maxElidedTime.Format("2006-01-02 15:04:05 MST"),
+			)
+		}
+	}
+
 	for _, m := range manifests {
 		root, err := repofs.SnapshotRoot(rep, m)
 		if err != nil {
@@ -178,14 +194,26 @@ func outputManifestFromSingleSource(ctx context.Context, rep *repo.Repository, m
 
 		if *snapshotListShowRetentionReasons {
 			if len(m.RetentionReasons) > 0 {
-				bits = append(bits, "retention:"+strings.Join(m.RetentionReasons, ","))
+				bits = append(bits, "("+strings.Join(m.RetentionReasons, ",")+")")
 			}
 		}
+
+		oid := ent.(object.HasObjectID).ObjectID()
+		if *snapshotListSkipIdentical && oid == previousOID {
+			elidedCount++
+			maxElidedTime = m.StartTime
+			continue
+		}
+
+		previousOID = oid
+
+		outputElided()
+		elidedCount = 0
 
 		fmt.Printf(
 			"  %v %v %v\n",
 			m.StartTime.Format("2006-01-02 15:04:05 MST"),
-			ent.(object.HasObjectID).ObjectID(),
+			oid,
 			strings.Join(bits, " "),
 		)
 
@@ -194,6 +222,7 @@ func outputManifestFromSingleSource(ctx context.Context, rep *repo.Repository, m
 			lastTotalFileSize = m.Stats.TotalFileSize
 		}
 	}
+	outputElided()
 
 	return nil
 }
