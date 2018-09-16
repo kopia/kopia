@@ -115,24 +115,8 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *upload.U
 	printStderr("uploaded snapshot %v (root %v) in %v\n", snapID, manifest.RootObjectID(), time.Since(t0))
 	log.Debugf("Hash Cache: %v", manifest.HashCacheID.String())
 
-	snapshots, err := snapshot.ListSnapshots(ctx, rep, sourceInfo)
-	if err != nil {
-		return err
-	}
-
-	toDelete, err := policy.GetExpiredSnapshots(ctx, rep, snapshots)
-	if err != nil {
-		return err
-	}
-
-	printStderr("Deleting %v expired snapshots of %v...\n", len(toDelete), sourceInfo)
-	for _, it := range toDelete {
-		if err := rep.Manifests.Delete(ctx, it.ID); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	_, err = policy.ApplyRetentionPolicy(ctx, rep, sourceInfo, true)
+	return err
 }
 
 func findPreviousSnapshotManifest(ctx context.Context, rep *repo.Repository, sourceInfo snapshot.SourceInfo) (*snapshot.Manifest, error) {

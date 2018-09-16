@@ -185,6 +185,11 @@ func (s *sourceManager) snapshot(ctx context.Context) {
 		return
 	}
 
+	if _, err := policy.ApplyRetentionPolicy(ctx, s.server.rep, s.src, true); err != nil {
+		log.Errorf("unable to apply retention policy: %v", err)
+		return
+	}
+
 	log.Infof("created snapshot %v", snapshotID)
 	if err := s.server.rep.Flush(ctx); err != nil {
 		log.Errorf("unable to flush: %v", err)

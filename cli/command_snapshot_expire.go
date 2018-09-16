@@ -14,7 +14,7 @@ var (
 
 	snapshotExpireAll    = snapshotExpireCommand.Flag("all", "Expire all snapshots").Bool()
 	snapshotExpirePaths  = snapshotExpireCommand.Arg("path", "Expire snapshots for a given paths only").Strings()
-	snapshotExpireDelete = snapshotExpireCommand.Flag("delete", "Whether to actually delete snapshots").Default("no").String()
+	snapshotExpireDelete = snapshotExpireCommand.Flag("delete", "Whether to actually delete snapshots").Bool()
 )
 
 func getSnapshotSourcesToExpire(ctx context.Context, rep *repo.Repository) ([]snapshot.SourceInfo, error) {
@@ -45,30 +45,20 @@ func runExpireCommand(ctx context.Context, rep *repo.Repository) error {
 	})
 
 	for _, src := range sources {
-		snapshots, err := snapshot.ListSnapshots(ctx, rep, src)
+		deleted, err := policy.ApplyRetentionPolicy(ctx, rep, src, *snapshotExpireDelete)
 		if err != nil {
 			return err
 		}
 
-		toDelete, err := policy.GetExpiredSnapshots(ctx, rep, snapshots)
-		if err != nil {
-			return err
-		}
-
-		if len(toDelete) == 0 {
+		if len(deleted) == 0 {
 			printStderr("Nothing to delete for %v.\n", src)
 			continue
 		}
-		if *snapshotExpireDelete == "yes" {
-			printStderr("Deleting %v snapshots of %v...\n", len(toDelete), src)
-			for _, it := range toDelete {
-				if err := rep.Manifests.Delete(ctx, it.ID); err != nil {
-					return err
-				}
-			}
+		if *snapshotExpireDelete {
+			printStderr("Deleted %v snapshots of %v...\n", len(deleted), src)
 		} else {
-			printStderr("%v snapshot(s) of %v would be deleted. Pass --delete=yes to do it.\n", len(toDelete), src)
-			for _, it := range toDelete {
+			printStderr("%v snapshot(s) of %v would be deleted. Pass --delete to do it.\n", len(deleted), src)
+			for _, it := range deleted {
 				printStderr("  %v\n", it.StartTime.Format(timeFormat))
 			}
 		}

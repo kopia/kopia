@@ -8,8 +8,30 @@ import (
 	"github.com/kopia/kopia/snapshot"
 )
 
-// GetExpiredSnapshots computes the set of snapshot manifests that are not retained according to the policy.
-func GetExpiredSnapshots(ctx context.Context, rep *repo.Repository, snapshots []*snapshot.Manifest) ([]*snapshot.Manifest, error) {
+// ApplyRetentionPolicy applies retention policy to a given source by deleting expired snapshots.
+func ApplyRetentionPolicy(ctx context.Context, rep *repo.Repository, sourceInfo snapshot.SourceInfo, reallyDelete bool) ([]*snapshot.Manifest, error) {
+	snapshots, err := snapshot.ListSnapshots(ctx, rep, sourceInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	toDelete, err := getExpiredSnapshots(ctx, rep, snapshots)
+	if err != nil {
+		return nil, err
+	}
+
+	if reallyDelete {
+		for _, it := range toDelete {
+			if err := rep.Manifests.Delete(ctx, it.ID); err != nil {
+				return toDelete, err
+			}
+		}
+	}
+
+	return toDelete, nil
+}
+
+func getExpiredSnapshots(ctx context.Context, rep *repo.Repository, snapshots []*snapshot.Manifest) ([]*snapshot.Manifest, error) {
 	var toDelete []*snapshot.Manifest
 	for _, snapshotGroup := range snapshot.GroupBySource(snapshots) {
 		td, err := getExpiredSnapshotsForSource(ctx, rep, snapshotGroup)
