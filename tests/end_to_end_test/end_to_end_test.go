@@ -2,6 +2,7 @@ package tests
 
 import (
 	"encoding/hex"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -95,6 +96,20 @@ func TestEndToEnd(t *testing.T) {
 	defer e.runAndExpectSuccess(t, "repo", "disconnect")
 
 	e.runAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.repoDir)
+
+	// make sure we can read policy
+	e.runAndExpectSuccess(t, "policy", "show", "--global")
+
+	// verify we created global policy entry
+	globalPolicyBlockID := e.runAndVerifyOutputLineCount(t, 1, "block", "ls")[0]
+	e.runAndExpectSuccess(t, "block", "show", "-jz", globalPolicyBlockID)
+
+	// make sure the policy is visible in the manifest list
+	e.runAndVerifyOutputLineCount(t, 1, "manifest", "list", "--filter=type:policy", "--filter=policyType:global")
+
+	// make sure the policy is visible in the policy list
+	e.runAndVerifyOutputLineCount(t, 1, "policy", "list")
+
 	e.runAndExpectSuccess(t, "repo", "disconnect")
 	e.runAndExpectSuccess(t, "repo", "connect", "filesystem", "--path", e.repoDir)
 	e.runAndExpectSuccess(t, "repo", "status")
@@ -116,8 +131,8 @@ func TestEndToEnd(t *testing.T) {
 		t.Errorf("unexpected number of sources: %v, want %v in %#v", got, want, sources)
 	}
 
-	// expect 5 blocks, each snapshot creation adds one index block.
-	e.runAndVerifyOutputLineCount(t, 5, "blockindex", "ls")
+	// expect 5 blocks, each snapshot creation adds one index block
+	e.runAndVerifyOutputLineCount(t, 6, "blockindex", "ls")
 	e.runAndExpectSuccess(t, "blockindex", "optimize")
 	e.runAndVerifyOutputLineCount(t, 1, "blockindex", "ls")
 
@@ -171,10 +186,23 @@ func (e *testenv) run(t *testing.T, args ...string) ([]string, error) {
 	c := exec.Command(e.exe, cmdArgs...)
 	c.Env = append(os.Environ(), e.environment...)
 	o, err := c.CombinedOutput()
-	t.Logf("finished 'kopia %v' with err=%v and output:\n%v", strings.Join(args, " "), err, string(o))
+	t.Logf("finished 'kopia %v' with err=%v and output:\n%v", strings.Join(args, " "), err, trimOutput(string(o)))
 	return splitLines(string(o)), err
 }
 
+func trimOutput(s string) string {
+	lines := splitLines(s)
+	if len(lines) <= 100 {
+		return s
+	}
+
+	lines2 := append([]string(nil), lines[0:50]...)
+	lines2 = append(lines2, fmt.Sprintf("/* %v lines removed */", len(lines)-100))
+	lines2 = append(lines2, lines[len(lines)-50:]...)
+
+	return strings.Join(lines2, "\n")
+
+}
 func listSnapshotsAndExpectSuccess(t *testing.T, e *testenv, targets ...string) []sourceInfo {
 	lines := e.runAndExpectSuccess(t, append([]string{"snapshot", "list"}, targets...)...)
 	return mustParseSnapshots(t, lines)
