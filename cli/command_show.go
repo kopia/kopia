@@ -9,8 +9,8 @@ import (
 )
 
 var (
-	catCommand     = app.Command("cat", "Displays contents of a repository object.")
-	catCommandPath = catCommand.Arg("path", "Path").Required().String()
+	catCommand     = app.Command("show", "Displays contents of a repository object.").Alias("cat")
+	catCommandPath = catCommand.Arg("object-path", "Path").Required().String()
 )
 
 func runCatCommand(ctx context.Context, rep *repo.Repository) error {

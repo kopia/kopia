@@ -30,7 +30,6 @@ var (
 	policyCommands     = app.Command("policy", "Commands to manipulate snapshotting policies.").Alias("policies")
 	serverCommands     = app.Command("server", "Commands to control HTTP API server.")
 	manifestCommands   = app.Command("manifest", "Low-level commands to manipulate manifest items.").Hidden()
-	objectCommands     = app.Command("object", "Commands to manipulate objects in repository.").Alias("obj").Hidden()
 	blockCommands      = app.Command("block", "Commands to manipulate virtual blocks in repository.").Alias("blk").Hidden()
 	storageCommands    = app.Command("storage", "Commands to manipulate raw storage blocks.").Hidden()
 	blockIndexCommands = app.Command("blockindex", "Commands to manipulate block index.").Hidden()

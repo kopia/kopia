@@ -18,7 +18,7 @@ var (
 	lsCommandLong      = lsCommand.Flag("long", "Long output").Short('l').Bool()
 	lsCommandRecursive = lsCommand.Flag("recursive", "Recursive output").Short('r').Bool()
 	lsCommandShowOID   = lsCommand.Flag("show-object-id", "Show object IDs").Short('o').Bool()
-	lsCommandPath      = lsCommand.Arg("path", "Path").Required().String()
+	lsCommandPath      = lsCommand.Arg("object-path", "Path").Required().String()
 )
 
 func runLSCommand(ctx context.Context, rep *repo.Repository) error {

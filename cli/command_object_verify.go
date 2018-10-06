@@ -19,7 +19,7 @@ import (
 )
 
 var (
-	verifyCommand               = objectCommands.Command("verify", "Verify the contents of stored object")
+	verifyCommand               = app.Command("verify", "Verify the contents of stored object")
 	verifyCommandErrorThreshold = verifyCommand.Flag("max-errors", "Maximum number of errors before stopping").Default("0").Int()
 	verifyCommandDirObjectIDs   = verifyCommand.Flag("directory-id", "Directory object IDs to verify").Strings()
 	verifyCommandFileObjectIDs  = verifyCommand.Flag("file-id", "File object IDs to verify").Strings()
