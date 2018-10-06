@@ -19,7 +19,7 @@ func runListObjectsAction(ctx context.Context, rep *repo.Repository) error {
 	}
 
 	for _, b := range info {
-		fmt.Printf("D%-34v %10v %v\n", b.BlockID, b.Length, b.Timestamp().Format(timeFormat))
+		fmt.Printf("D%-34v %10v %v\n", b.BlockID, b.Length, formatTimestamp(b.Timestamp()))
 	}
 
 	return nil

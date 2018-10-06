@@ -51,7 +51,7 @@ func (v *verifier) progressCallback(enqueued, active, completed int64) {
 
 		dt := time.Until(predictedEndTime)
 		if dt > 0 {
-			maybeTimeRemaining = fmt.Sprintf(" remaining %v (ETA %v)", dt.Truncate(1*time.Second), predictedEndTime.Truncate(1*time.Second).Format(timeFormat))
+			maybeTimeRemaining = fmt.Sprintf(" remaining %v (ETA %v)", dt.Truncate(1*time.Second), formatTimestamp(predictedEndTime.Truncate(1*time.Second)))
 		}
 	}
 	printStderr("Found %v objects, verifying %v, completed %v objects%v.\n", enqueued, active, completed, maybeTimeRemaining)
@@ -206,7 +206,7 @@ func enqueueRootsToVerify(ctx context.Context, v *verifier, rep *repo.Repository
 	}
 
 	for _, man := range manifests {
-		path := fmt.Sprintf("%v@%v", man.Source, man.StartTime.Format(timeFormat))
+		path := fmt.Sprintf("%v@%v", man.Source, formatTimestamp(man.StartTime))
 		if man.RootEntry == nil {
 			continue
 		}

@@ -48,7 +48,7 @@ func runListBlocksAction(ctx context.Context, rep *repo.Repository) error {
 			}
 			fmt.Printf("%v %v %v %v+%v%v\n",
 				b.BlockID,
-				b.Timestamp().Format(timeFormat),
+				formatTimestamp(b.Timestamp()),
 				b.PackFile,
 				b.PackOffset,
 				maybeHumanReadableBytes(*blockListHuman, int64(b.Length)),

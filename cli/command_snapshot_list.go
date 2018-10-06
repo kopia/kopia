@@ -133,7 +133,7 @@ func outputManifestFromSingleSource(ctx context.Context, rep *repo.Repository, m
 			fmt.Printf(
 				"  + %v identical snapshots until %v\n\n",
 				elidedCount,
-				maxElidedTime.Format("2006-01-02 15:04:05 MST"),
+				formatTimestamp(maxElidedTime),
 			)
 		}
 	}
@@ -141,12 +141,12 @@ func outputManifestFromSingleSource(ctx context.Context, rep *repo.Repository, m
 	for _, m := range manifests {
 		root, err := repofs.SnapshotRoot(rep, m)
 		if err != nil {
-			fmt.Printf("  %v <ERROR> %v\n", m.StartTime.Format("2006-01-02 15:04:05 MST"), err)
+			fmt.Printf("  %v <ERROR> %v\n", formatTimestamp(m.StartTime), err)
 			continue
 		}
 		ent, err := getNestedEntry(ctx, root, parts)
 		if err != nil {
-			fmt.Printf("  %v <ERROR> %v\n", m.StartTime.Format("2006-01-02 15:04:05 MST"), err)
+			fmt.Printf("  %v <ERROR> %v\n", formatTimestamp(m.StartTime), err)
 			continue
 		}
 
@@ -170,7 +170,7 @@ func outputManifestFromSingleSource(ctx context.Context, rep *repo.Repository, m
 			bits = append(bits, fmt.Sprintf("gid:%v", ent.Metadata().GroupID))
 		}
 		if *snapshotListShowModTime {
-			bits = append(bits, fmt.Sprintf("modified:%v", ent.Metadata().ModTime.Format(timeFormat)))
+			bits = append(bits, fmt.Sprintf("modified:%v", formatTimestamp(ent.Metadata().ModTime)))
 		}
 
 		if *snapshotListShowItemID {
@@ -212,7 +212,7 @@ func outputManifestFromSingleSource(ctx context.Context, rep *repo.Repository, m
 
 		fmt.Printf(
 			"  %v %v %v\n",
-			m.StartTime.Format("2006-01-02 15:04:05 MST"),
+			formatTimestamp(m.StartTime),
 			oid,
 			strings.Join(bits, " "),
 		)

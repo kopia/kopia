@@ -70,7 +70,7 @@ func runShowBlockIndexesAction(ctx context.Context, rep *repo.Repository) error 
 				if l.Deleted {
 					action = "del"
 				}
-				fmt.Printf("  %v %v %v %v %v+%v\n", action, l.BlockID, l.Timestamp().Format(timeFormat), l.PackFile, l.PackOffset, l.Length)
+				fmt.Printf("  %v %v %v %v %v+%v\n", action, l.BlockID, formatTimestamp(l.Timestamp()), l.PackFile, l.PackOffset, l.Length)
 				return nil
 			})
 		}

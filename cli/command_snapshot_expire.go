@@ -59,7 +59,7 @@ func runExpireCommand(ctx context.Context, rep *repo.Repository) error {
 		} else {
 			printStderr("%v snapshot(s) of %v would be deleted. Pass --delete to do it.\n", len(deleted), src)
 			for _, it := range deleted {
-				printStderr("  %v\n", it.StartTime.Format(timeFormat))
+				printStderr("  %v\n", formatTimestamp(it.StartTime))
 			}
 		}
 	}

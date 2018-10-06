@@ -25,7 +25,7 @@ func runListStorageBlocks(ctx context.Context, rep *repo.Repository) error {
 			return nil
 		}
 
-		fmt.Printf("%-70v %10v %v\n", b.BlockID, b.Length, b.Timestamp.Local().Format(timeFormat))
+		fmt.Printf("%-70v %10v %v\n", b.BlockID, b.Length, formatTimestamp(b.Timestamp))
 		return nil
 	})
 }

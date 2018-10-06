@@ -31,7 +31,7 @@ func showManifestItems(ctx context.Context, rep *repo.Repository) error {
 
 		printStderr("// id: %v\n", it)
 		printStderr("// length: %v\n", md.Length)
-		printStderr("// modified: %v\n", md.ModTime.Local().Format(timeFormat))
+		printStderr("// modified: %v\n", formatTimestamp(md.ModTime))
 		for k, v := range md.Labels {
 			printStderr("// label %v:%v\n", k, v)
 		}

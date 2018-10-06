@@ -12,9 +12,6 @@ import (
 	"github.com/kopia/kopia/repo/object"
 )
 
-const timeFormat = "2006-01-02 15:04:05"
-const timeFormatPrecise = "2006-01-02 15:04:05.000000000"
-
 var (
 	lsCommand = app.Command("list", "List a directory stored in repository object.").Alias("ls")
 
@@ -72,7 +69,7 @@ func listDirectory(ctx context.Context, rep *repo.Repository, prefix string, oid
 				"%v %12d %v %-"+maxNameLenString+"s %v",
 				m.FileMode(),
 				m.FileSize,
-				m.ModTime.Local().Format(timeFormat),
+				formatTimestamp(m.ModTime.Local()),
 				nameToDisplay(prefix, m),
 				oid,
 			)

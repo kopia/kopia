@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"time"
 
 	"github.com/kopia/kopia/internal/units"
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -16,6 +17,8 @@ import (
 var (
 	commonIndentJSON bool
 	commonUnzip      bool
+
+	timeZone = app.Flag("timezone", "Format time according to specified time zone (local, utc, original or time zone name)").Default("local").Hidden().String()
 )
 
 func setupShowCommand(cmd *kingpin.CmdClause) {
@@ -71,4 +74,30 @@ func maybeHumanReadableCount(enable bool, value int64) string {
 	}
 
 	return fmt.Sprintf("%v", value)
+}
+
+func formatTimestamp(ts time.Time) string {
+	return convertTimezone(ts).Format("2006-01-02 15:04:05 MST")
+}
+
+func formatTimestampPrecise(ts time.Time) string {
+	return convertTimezone(ts).Format("2006-01-02 15:04:05.000 MST")
+}
+
+func convertTimezone(ts time.Time) time.Time {
+	switch *timeZone {
+	case "local":
+		return ts.Local()
+	case "utc":
+		return ts.UTC()
+	case "original":
+		return ts
+	default:
+		loc, err := time.LoadLocation(*timeZone)
+		if err == nil {
+			return ts.In(loc)
+		}
+
+		return ts
+	}
 }

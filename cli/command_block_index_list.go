@@ -20,7 +20,7 @@ func runListBlockIndexesAction(ctx context.Context, rep *repo.Repository) error 
 	}
 
 	for _, b := range blks {
-		fmt.Printf("%-70v %10v %v\n", b.FileName, b.Length, b.Timestamp.Local().Format(timeFormatPrecise))
+		fmt.Printf("%-70v %10v %v\n", b.FileName, b.Length, formatTimestampPrecise(b.Timestamp))
 	}
 
 	if *blockIndexListSummary {

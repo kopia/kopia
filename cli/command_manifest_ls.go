@@ -48,7 +48,7 @@ func listManifestItems(ctx context.Context, rep *repo.Repository) error {
 
 	for _, it := range items {
 		t := it.Labels["type"]
-		fmt.Printf("%v %10v %v type:%v %v\n", it.ID, it.Length, it.ModTime.Local().Format(timeFormat), t, sortedMapValues(it.Labels))
+		fmt.Printf("%v %10v %v type:%v %v\n", it.ID, it.Length, formatTimestamp(it.ModTime.Local()), t, sortedMapValues(it.Labels))
 	}
 
 	return nil
