@@ -78,6 +78,11 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 		}
 
 		c.output("added file %v (%v bytes)\n", path, e2.Metadata().FileSize)
+		if f, ok := e2.(fs.File); ok {
+			if err := c.compareFiles(ctx, nil, f, path); err != nil {
+				return err
+			}
+		}
 		return nil
 	}
 
@@ -88,6 +93,11 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 		}
 
 		c.output("removed file %v (%v bytes)\n", path, e1.Metadata().FileSize)
+		if f, ok := e1.(fs.File); ok {
+			if err := c.compareFiles(ctx, f, nil, path); err != nil {
+				return err
+			}
+		}
 		return nil
 	}
 
@@ -149,19 +159,32 @@ func (c *Comparer) compareDirectoryEntries(ctx context.Context, entries1, entrie
 }
 
 func (c *Comparer) compareFiles(ctx context.Context, f1, f2 fs.File, fname string) error {
-	oldName := filepath.Clean("old/" + fname)
-	newName := filepath.Clean("new/" + fname)
-	oldFile := filepath.Join(c.tmpDir, oldName)
-	newFile := filepath.Join(c.tmpDir, newName)
-
-	defer os.Remove(oldFile) //nolint:errcheck
-	defer os.Remove(newFile) //nolint:errcheck
-
-	if err := c.downloadFile(ctx, f1, oldFile); err != nil {
-		return fmt.Errorf("error downloading old file: %v", err)
+	if c.DiffCommand == "" {
+		return nil
 	}
-	if err := c.downloadFile(ctx, f2, newFile); err != nil {
-		return fmt.Errorf("error downloading new file: %v", err)
+
+	oldName := "/dev/null"
+	newName := "/dev/null"
+
+	if f1 != nil {
+		oldName = filepath.Clean("old/" + fname)
+		oldFile := filepath.Join(c.tmpDir, oldName)
+
+		if err := c.downloadFile(ctx, f1, oldFile); err != nil {
+			return fmt.Errorf("error downloading old file: %v", err)
+		}
+
+		defer os.Remove(oldFile) //nolint:errcheck
+	}
+
+	if f2 != nil {
+		newName = filepath.Clean("new/" + fname)
+		newFile := filepath.Join(c.tmpDir, newName)
+
+		if err := c.downloadFile(ctx, f2, newFile); err != nil {
+			return fmt.Errorf("error downloading new file: %v", err)
+		}
+		defer os.Remove(newFile) //nolint:errcheck
 	}
 
 	var args []string
@@ -173,7 +196,8 @@ func (c *Comparer) compareFiles(ctx context.Context, f1, f2 fs.File, fname strin
 	cmd.Dir = c.tmpDir
 	cmd.Stdout = c.out
 	cmd.Stderr = c.out
-	return cmd.Run()
+	cmd.Run() //nolint:errcheck
+	return nil
 }
 
 func (c *Comparer) downloadFile(ctx context.Context, f fs.File, fname string) error {

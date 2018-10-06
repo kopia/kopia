@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kylelemons/godebug/pretty"
 )
@@ -36,7 +37,7 @@ type sourceInfo struct {
 
 type snapshotInfo struct {
 	objectID string
-	time     string
+	time     time.Time
 }
 
 func newTestEnv(t *testing.T) *testenv {
@@ -163,6 +164,64 @@ func TestEndToEnd(t *testing.T) {
 	}
 }
 
+func TestDiff(t *testing.T) {
+	e := newTestEnv(t)
+	defer e.cleanup(t)
+	defer e.runAndExpectSuccess(t, "repo", "disconnect")
+
+	e.runAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.repoDir)
+
+	dataDir := filepath.Join(e.dataDir, "dir1")
+
+	// initial snapshot
+	os.MkdirAll(dataDir, 0777)
+	e.runAndExpectSuccess(t, "snapshot", "create", dataDir)
+
+	// create some directories and files
+	os.MkdirAll(filepath.Join(dataDir, "foo"), 0700)
+	ioutil.WriteFile(filepath.Join(dataDir, "some-file1"), []byte(`
+hello world
+how are you
+`), 0600)
+	ioutil.WriteFile(filepath.Join(dataDir, "some-file2"), []byte(`
+quick brown
+fox jumps
+over the lazy
+dog
+`), 0600)
+	e.runAndExpectSuccess(t, "snapshot", "create", dataDir)
+
+	// change some files
+	ioutil.WriteFile(filepath.Join(dataDir, "some-file2"), []byte(`
+quick brown
+fox jumps
+over the lazy
+canary
+`), 0600)
+
+	os.MkdirAll(filepath.Join(dataDir, "bar"), 0700)
+	e.runAndExpectSuccess(t, "snapshot", "create", dataDir)
+
+	// change some files
+	os.Remove(filepath.Join(dataDir, "some-file1"))
+
+	os.MkdirAll(filepath.Join(dataDir, "bar"), 0700)
+	e.runAndExpectSuccess(t, "snapshot", "create", dataDir)
+
+	si := listSnapshotsAndExpectSuccess(t, e, dataDir)
+	if got, want := len(si), 1; got != want {
+		t.Fatalf("got %v sources, wanted %v", got, want)
+	}
+
+	// make sure we can generate between all versions of the directory
+	snapshots := si[0].snapshots
+	for _, s1 := range snapshots {
+		for _, s2 := range snapshots {
+			e.runAndExpectSuccess(t, "diff", "-f", s1.objectID, s2.objectID)
+		}
+	}
+}
+
 func (e *testenv) runAndExpectSuccess(t *testing.T, args ...string) []string {
 	stdout, err := e.run(t, args...)
 	if err != nil {
@@ -204,7 +263,7 @@ func trimOutput(s string) string {
 
 }
 func listSnapshotsAndExpectSuccess(t *testing.T, e *testenv, targets ...string) []sourceInfo {
-	lines := e.runAndExpectSuccess(t, append([]string{"snapshot", "list"}, targets...)...)
+	lines := e.runAndExpectSuccess(t, append([]string{"snapshot", "list", "-a"}, targets...)...)
 	return mustParseSnapshots(t, lines)
 }
 
@@ -283,7 +342,15 @@ func randomName() string {
 }
 
 func mustParseSnaphotInfo(t *testing.T, l string) snapshotInfo {
-	return snapshotInfo{}
+	parts := strings.Split(l, " ")
+	ts, err := time.Parse("2006-01-02 15:04:05 MST", strings.Join(parts[0:3], " "))
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	return snapshotInfo{
+		time:     ts,
+		objectID: parts[3],
+	}
 }
 
 func mustParseSourceInfo(t *testing.T, l string) sourceInfo {
