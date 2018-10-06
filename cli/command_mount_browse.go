@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"runtime"
 
 	"github.com/skratchdot/open-golang/open"
 )
@@ -36,7 +35,7 @@ func openInWebBrowser(mountPoint string, addr string) error {
 }
 
 func openInOSBrowser(mountPoint string, addr string) error {
-	if runtime.GOOS == "windows" {
+	if isWindows() {
 		return netUSE(mountPoint, addr)
 	}
 

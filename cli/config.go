@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
@@ -112,4 +113,8 @@ func mustGetLocalFSEntry(path string) fs.Entry {
 	}
 
 	return e
+}
+
+func isWindows() bool {
+	return runtime.GOOS == "windows"
 }
