@@ -27,7 +27,7 @@ var (
 	snapshotListShowRetentionReasons = snapshotListCommand.Flag("retention", "Include retention reasons.").Default("true").Bool()
 	snapshotListShowModTime          = snapshotListCommand.Flag("mtime", "Include file mod time").Bool()
 	shapshotListShowOwner            = snapshotListCommand.Flag("owner", "Include owner").Bool()
-	snapshotListSkipIdentical        = snapshotListCommand.Flag("skip-identical", "Skip identical snapshots").Bool()
+	snapshotListAll                  = snapshotListCommand.Flag("all", "Do not skip identical snapshots").Short('a').Bool()
 	maxResultsPerPath                = snapshotListCommand.Flag("max-results", "Maximum number of results.").Default("1000").Int()
 )
 
@@ -131,7 +131,7 @@ func outputManifestFromSingleSource(ctx context.Context, rep *repo.Repository, m
 	outputElided := func() {
 		if elidedCount > 0 {
 			fmt.Printf(
-				"  + %v identical snapshots until %v\n\n",
+				"  + %v identical snapshots until %v\n",
 				elidedCount,
 				formatTimestamp(maxElidedTime),
 			)
@@ -199,7 +199,7 @@ func outputManifestFromSingleSource(ctx context.Context, rep *repo.Repository, m
 		}
 
 		oid := ent.(object.HasObjectID).ObjectID()
-		if *snapshotListSkipIdentical && oid == previousOID {
+		if !*snapshotListAll && oid == previousOID {
 			elidedCount++
 			maxElidedTime = m.StartTime
 			continue
