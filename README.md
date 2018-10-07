@@ -4,6 +4,7 @@ Kopia
 ![Kopia](kopia.svg)
 
 [![Linux/macOS Build Status](https://travis-ci.org/kopia/kopia.svg?branch=master)](https://travis-ci.org/kopia/kopia)
+[![Coverage Status](https://coveralls.io/repos/github/kopia/kopia/badge.svg)](https://coveralls.io/github/kopia/kopia)
 [![GoDoc](https://godoc.org/github.com/kopia/kopia?status.svg)](https://godoc.org/github.com/kopia/kopia)
 
 > _n._
