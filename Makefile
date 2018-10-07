@@ -31,10 +31,13 @@ deps:
 
 travis-setup: deps dev-deps
 
-travis-release: test lint vet verify-release test integration-tests long-test 
+travis-release: test lint vet verify-release integration-tests long-test upload-coverage
 
 verify-release:
 	curl -sL https://git.io/goreleaser | bash /dev/stdin --skip-publish --rm-dist --snapshot
+
+upload-coverage:
+	$(GOPATH)/bin/goveralls -service=travis-ci -coverprofile=tmp.cov
 
 dev-deps:
 	go get -u golang.org/x/tools/cmd/gorename
@@ -46,10 +49,11 @@ dev-deps:
 	go get -u github.com/newhook/go-symbols
 	go get -u github.com/sqs/goreturns
 	go get -u gopkg.in/alecthomas/gometalinter.v2
+	go get github.com/mattn/goveralls
 	gometalinter.v2 --install
 
 test: install
-	go test -count=1 -short -timeout 90s github.com/kopia/kopia/...
+	go test -count=1 -coverprofile=tmp.cov -short -timeout 90s github.com/kopia/kopia/...
 
 vtest:
 	go test -count=1 -short -v -timeout 90s github.com/kopia/kopia/...
