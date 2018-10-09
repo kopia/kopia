@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/kopia/kopia/internal/kopialogging"
@@ -82,8 +83,12 @@ func (d *davStorage) ListBlocks(ctx context.Context, prefix string, callback fun
 	walkDir = func(urlStr string, currentPrefix string) error {
 		entries, err := d.propFindChildren(urlStr)
 		if err != nil {
-			return err
+			return fmt.Errorf("PROPFIND error on %v: %v", urlStr, err)
 		}
+
+		sort.Slice(entries, func(i, j int) bool {
+			return entries[i].name < entries[j].name
+		})
 
 		for _, e := range entries {
 			if e.isCollection {
@@ -91,6 +96,7 @@ func (d *davStorage) ListBlocks(ctx context.Context, prefix string, callback fun
 				var match bool
 
 				if len(prefix) > len(newPrefix) {
+					// looking for 'abcd', got 'ab' so far, worth trying
 					match = strings.HasPrefix(prefix, newPrefix)
 				} else {
 					match = strings.HasPrefix(newPrefix, prefix)
@@ -117,7 +123,7 @@ func (d *davStorage) ListBlocks(ctx context.Context, prefix string, callback fun
 		return nil
 	}
 
-	return walkDir(d.URL, "")
+	return walkDir("", "")
 }
 
 func (d *davStorage) makeCollectionAll(urlStr string) error {

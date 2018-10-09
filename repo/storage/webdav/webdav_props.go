@@ -56,7 +56,10 @@ type webdavDirEntry struct {
 }
 
 func (d *davStorage) propFindChildren(urlStr string) ([]webdavDirEntry, error) {
-	req, err := d.propFindRequest(urlStr, "1")
+	if urlStr == "" {
+		urlStr = "/"
+	}
+	req, err := d.propFindRequest(d.URL+urlStr, "1")
 	if err != nil {
 		return nil, fmt.Errorf("can't create PROPFIND request: %v", err)
 	}
@@ -67,32 +70,33 @@ func (d *davStorage) propFindChildren(urlStr string) ([]webdavDirEntry, error) {
 	}
 
 	defer resp.Body.Close() // nolint:errcheck
-
 	var ms multiResponse
+
 	dec := xml.NewDecoder(resp.Body)
 
 	if err := dec.Decode(&ms); err != nil {
-		return nil, fmt.Errorf("unable to decode webdav response: %v", err)
+		return nil, fmt.Errorf("unable to decode webdav response %v: %v", urlStr, err)
 	}
 
 	var entries []webdavDirEntry
 
 	for _, r := range ms.Responses {
-		var e webdavDirEntry
-
+		if r.Href == urlStr {
+			continue
+		}
 		for _, p := range r.Props {
 			if !strings.Contains(p.Status, " 200 ") {
 				continue
 			}
 
+			var e webdavDirEntry
 			e.name = p.Name
 			e.length, _ = strconv.ParseInt(p.Size, 10, 64)
 			e.modTime, _ = time.Parse(time.RFC1123, p.Modified)
 			e.isCollection = p.Type.Local == "collection"
+			entries = append(entries, e)
+			break
 		}
-
-		entries = append(entries, e)
 	}
-
 	return entries, nil
 }
