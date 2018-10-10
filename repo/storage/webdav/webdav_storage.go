@@ -134,14 +134,14 @@ func (d *davStorage) ListBlocks(ctx context.Context, prefix string, callback fun
 func (d *davStorage) PutBlock(ctx context.Context, blockID string, data []byte) error {
 	dirPath, filePath := d.getDirPathAndFilePath(blockID)
 	tmpPath := fmt.Sprintf("%v-%v", filePath, rand.Int63())
-	if err := d.cli.Write(tmpPath, data, 0600); err != nil {
-		if err := d.translateError(err); err != storage.ErrBlockNotFound {
+	if err := d.translateError(d.cli.Write(tmpPath, data, 0600)); err != nil {
+		if err != storage.ErrBlockNotFound {
 			return err
 		}
 
 		d.cli.MkdirAll(dirPath, 0700) //nolint:errcheck
-		if err := d.cli.Write(tmpPath, data, 0600); err != nil {
-			return d.translateError(err)
+		if err = d.translateError(d.cli.Write(tmpPath, data, 0600)); err != nil {
+			return err
 		}
 	}
 
