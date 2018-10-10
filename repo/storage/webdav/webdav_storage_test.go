@@ -16,7 +16,7 @@ import (
 
 func TestWebDAVStorage(t *testing.T) {
 	tmpDir, _ := ioutil.TempDir("", "webdav")
-	defer os.RemoveAll(tmpDir)
+	//defer os.RemoveAll(tmpDir)
 
 	t.Logf("tmpDir: %v", tmpDir)
 

@@ -3,18 +3,17 @@ package webdav
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"io/ioutil"
-	"net/http"
+	"math/rand"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
-	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/repo/storage"
+	"github.com/studio-b12/gowebdav"
 )
-
-var log = kopialogging.Logger("kopia/webdav")
 
 const (
 	davStorageType       = "webdav"
@@ -30,38 +29,44 @@ var (
 // Storage formats are compatible (both use sharded directory structure), so a repository
 // may be accessed using WebDAV or File interchangeably.
 type davStorage struct {
-	clientNonceCount int32
 	Options
 
-	Client *http.Client // HTTP client used when making all calls, may be overridden to use custom auth
+	cli *gowebdav.Client
 }
 
 func (d *davStorage) GetBlock(ctx context.Context, blockID string, offset, length int64) ([]byte, error) {
-	_, urlStr := d.getCollectionAndFileURL(blockID)
+	_, path := d.getDirPathAndFilePath(blockID)
 
-	req, err := http.NewRequest("GET", urlStr, nil)
+	data, err := d.cli.Read(path)
 	if err != nil {
-		return nil, err
+		return nil, d.translateError(err)
+	}
+	if length < 0 {
+		return data, nil
 	}
 
-	if length > 0 {
-		req.Header.Set("Range", fmt.Sprintf("bytes=%v-%v", offset, offset+length-1))
+	if int(offset) > len(data) || offset < 0 {
+		return nil, errors.New("invalid offset")
 	}
 
-	resp, err := d.executeRequest(req, blockInfoRequest)
-	if err != nil {
-		return nil, err
+	data = data[offset:]
+	if int(length) > len(data) {
+		return data, nil
 	}
 
-	defer resp.Body.Close() // nolint:errcheck
+	return data[0:length], nil
+}
 
-	switch resp.StatusCode {
-	case http.StatusNotFound:
-		return nil, storage.ErrBlockNotFound
-	case http.StatusOK, http.StatusPartialContent:
-		return ioutil.ReadAll(resp.Body)
+func (d *davStorage) translateError(err error) error {
+	switch err := err.(type) {
+	case *os.PathError:
+		switch err.Err.Error() {
+		case "404":
+			return storage.ErrBlockNotFound
+		}
+		return err
 	default:
-		return nil, fmt.Errorf("unsupported response code %v during GET %q", resp.StatusCode, urlStr)
+		return err
 	}
 }
 
@@ -80,19 +85,19 @@ func makeFileName(blockID string) string {
 func (d *davStorage) ListBlocks(ctx context.Context, prefix string, callback func(storage.BlockMetadata) error) error {
 	var walkDir func(string, string) error
 
-	walkDir = func(urlStr string, currentPrefix string) error {
-		entries, err := d.propFindChildren(urlStr)
+	walkDir = func(path string, currentPrefix string) error {
+		entries, err := d.cli.ReadDir(gowebdav.FixSlash(path))
 		if err != nil {
-			return fmt.Errorf("PROPFIND error on %v: %v", urlStr, err)
+			return fmt.Errorf("read dir error on %v: %v", path, err)
 		}
 
 		sort.Slice(entries, func(i, j int) bool {
-			return entries[i].name < entries[j].name
+			return entries[i].Name() < entries[j].Name()
 		})
 
 		for _, e := range entries {
-			if e.isCollection {
-				newPrefix := currentPrefix + e.name
+			if e.IsDir() {
+				newPrefix := currentPrefix + e.Name()
 				var match bool
 
 				if len(prefix) > len(newPrefix) {
@@ -103,16 +108,16 @@ func (d *davStorage) ListBlocks(ctx context.Context, prefix string, callback fun
 				}
 
 				if match {
-					if err := walkDir(urlStr+"/"+e.name, currentPrefix+e.name); err != nil {
+					if err := walkDir(path+"/"+e.Name(), currentPrefix+e.Name()); err != nil {
 						return err
 					}
 				}
-			} else if fullID, ok := getBlockIDFromFileName(currentPrefix + e.name); ok {
+			} else if fullID, ok := getBlockIDFromFileName(currentPrefix + e.Name()); ok {
 				if strings.HasPrefix(fullID, prefix) {
 					if err := callback(storage.BlockMetadata{
 						BlockID:   fullID,
-						Length:    e.length,
-						Timestamp: e.modTime,
+						Length:    e.Size(),
+						Timestamp: e.ModTime(),
 					}); err != nil {
 						return err
 					}
@@ -126,181 +131,45 @@ func (d *davStorage) ListBlocks(ctx context.Context, prefix string, callback fun
 	return walkDir("", "")
 }
 
-func (d *davStorage) makeCollectionAll(urlStr string) error {
-	err := d.makeCollection(urlStr)
-	switch err {
-	case nil:
-		return nil
-
-	case storage.ErrBlockNotFound:
-		parent := getParentURL(urlStr)
-		if parent == "" {
-			return fmt.Errorf("can't create %q", urlStr)
-		}
-		if err = d.makeCollectionAll(parent); err != nil {
-			return err
-		}
-
-		return d.makeCollection(urlStr)
-
-	default:
-		return err
-	}
-}
-
-func (d *davStorage) makeCollection(urlStr string) error {
-	req, err := http.NewRequest("MKCOL", urlStr, nil)
-	if err != nil {
-		return err
-	}
-
-	resp, err := d.executeRequest(req, nil)
-	if err != nil {
-		return err
-	}
-
-	defer resp.Body.Close() // nolint:errcheck
-	switch resp.StatusCode {
-	case http.StatusConflict:
-		return storage.ErrBlockNotFound
-	case http.StatusOK, http.StatusCreated:
-		return nil
-	default:
-		return fmt.Errorf("unhandled status code %v when MKCOL %q", resp.StatusCode, urlStr)
-	}
-}
-
-func getParentURL(u string) string {
-	p := strings.LastIndex(u, "/")
-	if p >= 0 {
-		return u[0:p]
-	}
-
-	return ""
-}
-
-func (d *davStorage) delete(urlStr string) error {
-	req, err := http.NewRequest("DELETE", urlStr, nil)
-	if err != nil {
-		return err
-	}
-
-	resp, err := d.executeRequest(req, nil)
-	if err != nil {
-		return err
-	}
-
-	defer resp.Body.Close() // nolint:errcheck
-	switch resp.StatusCode {
-	case http.StatusOK, http.StatusNotFound:
-		return nil
-	default:
-		return fmt.Errorf("unhandled status code %v during DELETE %q", resp.StatusCode, urlStr)
-	}
-}
-
-func (d *davStorage) move(urlOld, urlNew string) error {
-	req, err := http.NewRequest("MOVE", urlOld, nil)
-	if err != nil {
-		return err
-	}
-	req.Header.Add("Destination", urlNew)
-	req.Header.Add("Overwrite", "T")
-
-	resp, err := d.executeRequest(req, nil)
-	if err != nil {
-		return err
-	}
-
-	defer resp.Body.Close() // nolint:errcheck
-	switch resp.StatusCode {
-	case http.StatusOK, http.StatusCreated, http.StatusNoContent:
-		return nil
-
-	default:
-		return fmt.Errorf("unhandled status code %v during MOVE %q to %q", resp.StatusCode, urlOld, urlNew)
-	}
-}
-
-func (d *davStorage) putBlockInternal(urlStr string, data []byte) error {
-	req, err := http.NewRequest("PUT", urlStr, nil)
-	if err != nil {
-		return err
-	}
-
-	resp, err := d.executeRequest(req, data)
-	if err != nil {
-		return err
-	}
-
-	defer resp.Body.Close() // nolint:errcheck
-	switch resp.StatusCode {
-	case http.StatusOK, http.StatusCreated:
-		return nil
-
-	case http.StatusNotFound:
-		return storage.ErrBlockNotFound
-
-	default:
-		return fmt.Errorf("invalid response from webdav server: %v", resp.StatusCode)
-	}
-}
-
 func (d *davStorage) PutBlock(ctx context.Context, blockID string, data []byte) error {
-	shardPath, url := d.getCollectionAndFileURL(blockID)
-
-	tmpURL := url + "-" + makeClientNonce()
-	err := d.putBlockInternal(tmpURL, data)
-
-	if err == storage.ErrBlockNotFound {
-		if err = d.makeCollectionAll(shardPath); err != nil {
+	dirPath, filePath := d.getDirPathAndFilePath(blockID)
+	tmpPath := fmt.Sprintf("%v-%v", filePath, rand.Int63())
+	if err := d.cli.Write(tmpPath, data, 0600); err != nil {
+		if err := d.translateError(err); err != storage.ErrBlockNotFound {
 			return err
 		}
 
-		err = d.putBlockInternal(tmpURL, data)
-	}
-
-	if err != nil {
-		return err
-	}
-
-	if err := d.move(tmpURL, url); err != nil {
-		if delerr := d.delete(tmpURL); delerr != nil {
-			log.Warningf("unable to delete temp file: %v", delerr)
+		d.cli.MkdirAll(dirPath, 0700) //nolint:errcheck
+		if err := d.cli.Write(tmpPath, data, 0600); err != nil {
+			return d.translateError(err)
 		}
-		return err
 	}
 
-	return nil
+	return d.translateError(d.cli.Rename(tmpPath, filePath, true))
 }
 
 func (d *davStorage) DeleteBlock(ctx context.Context, blockID string) error {
-	_, url := d.getCollectionAndFileURL(blockID)
-	err := os.Remove(url)
-	if err == nil || os.IsNotExist(err) {
-		return nil
-	}
-
-	return err
+	_, filePath := d.getDirPathAndFilePath(blockID)
+	return d.translateError(d.cli.Remove(filePath))
 }
 
-func (d *davStorage) getCollectionURL(blockID string) (string, string) {
-	shardPath := d.URL
+func (d *davStorage) getShardDirectory(blockID string) (string, string) {
+	shardPath := "/"
 	if len(blockID) < 20 {
 		return shardPath, blockID
 	}
 	for _, size := range d.shards() {
-		shardPath = shardPath + "/" + blockID[0:size]
+		shardPath = filepath.Join(shardPath, blockID[0:size])
 		blockID = blockID[size:]
 	}
 
 	return shardPath, blockID
 }
 
-func (d *davStorage) getCollectionAndFileURL(blockID string) (string, string) {
-	shardURL, blockID := d.getCollectionURL(blockID)
-	result := shardURL + "/" + makeFileName(blockID)
-	return shardURL, result
+func (d *davStorage) getDirPathAndFilePath(blockID string) (string, string) {
+	shardPath, blockID := d.getShardDirectory(blockID)
+	result := filepath.Join(shardPath, makeFileName(blockID))
+	return shardPath, result
 }
 
 func (d *davStorage) ConnectionInfo() storage.ConnectionInfo {
@@ -318,7 +187,7 @@ func (d *davStorage) Close(ctx context.Context) error {
 func New(ctx context.Context, opts *Options) (storage.Storage, error) {
 	r := &davStorage{
 		Options: *opts,
-		Client:  http.DefaultClient,
+		cli:     gowebdav.NewClient(opts.URL, opts.Username, opts.Password),
 	}
 
 	for _, s := range r.shards() {
