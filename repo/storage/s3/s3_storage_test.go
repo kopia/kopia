@@ -50,10 +50,6 @@ func endpointReachable() bool {
 }
 
 func TestS3Storage(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping during short test")
-	}
-
 	if !endpointReachable() {
 		t.Skip("endpoint not reachable")
 	}
