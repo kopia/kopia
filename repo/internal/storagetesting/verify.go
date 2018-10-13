@@ -3,6 +3,7 @@ package storagetesting
 import (
 	"bytes"
 	"context"
+	"reflect"
 	"testing"
 
 	"github.com/kopia/kopia/repo/storage"
@@ -35,4 +36,23 @@ func VerifyStorage(ctx context.Context, t *testing.T, r storage.Storage) {
 	}
 
 	AssertListResults(ctx, t, r, "ab", blocks[0].blk, blocks[2].blk, blocks[3].blk)
+}
+
+// AssertConnectionInfoRoundTrips verifies that the ConnectionInfo returned by a given storage can be used to create
+// equivalent storage
+func AssertConnectionInfoRoundTrips(ctx context.Context, t *testing.T, s storage.Storage) storage.Storage {
+	t.Helper()
+
+	ci := s.ConnectionInfo()
+	s2, err := storage.NewStorage(ctx, ci)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+
+	ci2 := s2.ConnectionInfo()
+	if !reflect.DeepEqual(ci, ci2) {
+		t.Errorf("connection info does not round-trip: %v vs %v", ci, ci2)
+	}
+
+	return s2
 }

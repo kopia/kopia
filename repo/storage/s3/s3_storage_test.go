@@ -75,6 +75,7 @@ func TestS3Storage(t *testing.T) {
 	}
 
 	storagetesting.VerifyStorage(ctx, t, st)
+	storagetesting.AssertConnectionInfoRoundTrips(ctx, t, st)
 }
 
 func createBucket(t *testing.T) {
