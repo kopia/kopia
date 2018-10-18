@@ -106,7 +106,6 @@ func (b *committedBlockIndex) use(packFiles []string) (bool, error) {
 			return false, fmt.Errorf("unable to open pack index %q: %v", e, err)
 		}
 
-		log.Debugf("opened %v with %v entries", e, ndx.EntryCount())
 		newMerged = append(newMerged, ndx)
 		newInUse[e] = ndx
 	}

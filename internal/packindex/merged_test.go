@@ -75,6 +75,10 @@ func TestMerged(t *testing.T) {
 	if !reflect.DeepEqual(inOrder, expectedInOrder) {
 		t.Errorf("unexpected items in order: %v, wanted %v", inOrder, expectedInOrder)
 	}
+
+	if err := m.Close(); err != nil {
+		t.Errorf("unexpected error in Close(): %v", err)
+	}
 }
 
 func indexWithItems(items ...packindex.Info) (packindex.Index, error) {

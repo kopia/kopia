@@ -119,10 +119,16 @@ func TestPackIndex(t *testing.T) {
 		t.Errorf("builder output not stable: %x vs %x", hex.Dump(data2), hex.Dump(data3))
 	}
 
+	t.Run("FuzzTest", func(t *testing.T) {
+		fuzzTestIndexOpen(t, data1)
+	})
+
 	ndx, err := packindex.Open(bytes.NewReader(data1))
 	if err != nil {
 		t.Fatalf("can't open index: %v", err)
 	}
+	defer ndx.Close()
+
 	for _, info := range infos {
 		info2, err := ndx.GetInfo(info.BlockID)
 		if err != nil {
@@ -170,5 +176,62 @@ func TestPackIndex(t *testing.T) {
 			return nil
 		})
 		t.Logf("found %v elements with prefix %q", cnt2, prefix)
+	}
+}
+
+func fuzzTestIndexOpen(t *testing.T, originalData []byte) {
+	// use consistent random
+	rnd := rand.New(rand.NewSource(12345))
+
+	fuzzTest(rnd, originalData, 50000, func(d []byte) {
+		ndx, err := packindex.Open(bytes.NewReader(d))
+		if err != nil {
+			return
+		}
+		defer ndx.Close()
+		cnt := 0
+		ndx.Iterate("", func(cb packindex.Info) error {
+			if cnt < 10 {
+				ndx.GetInfo(cb.BlockID)
+			}
+			cnt++
+			return nil
+		})
+	})
+}
+
+func fuzzTest(rnd *rand.Rand, originalData []byte, rounds int, callback func(d []byte)) {
+	for round := 0; round < rounds; round++ {
+		data := append([]byte(nil), originalData...)
+
+		// mutate small number of bytes
+		bytesToMutate := rnd.Intn(3)
+		for i := 0; i < bytesToMutate; i++ {
+			pos := rnd.Intn(len(data))
+			data[pos] = byte(rnd.Int())
+		}
+
+		sectionsToInsert := rnd.Intn(3)
+		for i := 0; i < sectionsToInsert; i++ {
+			pos := rnd.Intn(len(data))
+			insertedLength := rnd.Intn(20)
+			insertedData := make([]byte, insertedLength)
+			rnd.Read(insertedData)
+
+			data = append(append(append([]byte(nil), data[0:pos]...), insertedData...), data[pos:]...)
+		}
+
+		sectionsToDelete := rnd.Intn(3)
+		for i := 0; i < sectionsToDelete; i++ {
+			pos := rnd.Intn(len(data))
+			deletedLength := rnd.Intn(10)
+			if pos+deletedLength > len(data) {
+				continue
+			}
+
+			data = append(append([]byte(nil), data[0:pos]...), data[pos+deletedLength:]...)
+		}
+
+		callback(data)
 	}
 }

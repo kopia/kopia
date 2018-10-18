@@ -21,14 +21,15 @@ func bytesToContentID(b []byte) string {
 
 func contentIDToBytes(c string) []byte {
 	var prefix []byte
+	var skip int
 	if len(c)%2 == 1 {
 		prefix = []byte(c[0:1])
-		c = c[1:]
+		skip = 1
 	} else {
 		prefix = []byte{0}
 	}
 
-	b, err := hex.DecodeString(c)
+	b, err := hex.DecodeString(c[skip:])
 	if err != nil {
 		return append([]byte{0xff}, []byte(c)...)
 	}

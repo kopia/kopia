@@ -2,11 +2,6 @@ package packindex
 
 // IsSubset returns true if all entries in index 'a' are contained in index 'b'.
 func IsSubset(a, b Index) bool {
-	if a.EntryCount() > b.EntryCount() {
-		// no point iterating.
-		return false
-	}
-
 	done := make(chan bool)
 	defer close(done)
 

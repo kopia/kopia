@@ -7,21 +7,18 @@ import (
 	"io"
 	"sort"
 	"strings"
-	"sync"
 )
 
 // Index is a read-only index of packed blocks.
 type Index interface {
 	io.Closer
 
-	EntryCount() int
 	GetInfo(blockID string) (*Info, error)
 	Iterate(prefix string, cb func(Info) error) error
 }
 
 type index struct {
 	hdr      headerInfo
-	mu       sync.Mutex
 	readerAt io.ReaderAt
 }
 
@@ -42,25 +39,23 @@ func readHeader(readerAt io.ReaderAt) (headerInfo, error) {
 		return headerInfo{}, fmt.Errorf("invalid header format: %v", header[0])
 	}
 
-	return headerInfo{
+	hi := headerInfo{
 		keySize:    int(header[1]),
 		valueSize:  int(binary.BigEndian.Uint16(header[2:4])),
 		entryCount: int(binary.BigEndian.Uint32(header[4:8])),
-	}, nil
-}
+	}
 
-// EntryCount returns the number of block entries in an index.
-func (b *index) EntryCount() int {
-	return b.hdr.entryCount
+	if hi.keySize <= 1 || hi.valueSize < 0 || hi.entryCount < 0 {
+		return headerInfo{}, fmt.Errorf("invalid header")
+	}
+
+	return hi, nil
 }
 
 // Iterate invokes the provided callback function for all blocks in the index, sorted alphabetically.
 // The iteration ends when the callback returns an error, which is propagated to the caller or when
 // all blocks have been visited.
 func (b *index) Iterate(prefix string, cb func(Info) error) error {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
 	startPos, err := b.findEntryPosition(prefix)
 	if err != nil {
 		return fmt.Errorf("could not find starting position: %v", err)
@@ -139,9 +134,6 @@ func (b *index) findEntry(blockID string) ([]byte, error) {
 
 // GetInfo returns information about a given block. If a block is not found, nil is returned.
 func (b *index) GetInfo(blockID string) (*Info, error) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
 	e, err := b.findEntry(blockID)
 	if err != nil {
 		return nil, err

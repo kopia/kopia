@@ -19,15 +19,6 @@ func (m Merged) Close() error {
 	return nil
 }
 
-// EntryCount returns the cumulative number of entries in all underlying indexes (not necessarily the number of unique block IDs).
-func (m Merged) EntryCount() int {
-	cnt := 0
-	for _, ndx := range m {
-		cnt += ndx.EntryCount()
-	}
-	return cnt
-}
-
 // GetInfo returns information about a single block. If a block is not found, returns (nil,nil)
 func (m Merged) GetInfo(contentID string) (*Info, error) {
 	var best *Info
