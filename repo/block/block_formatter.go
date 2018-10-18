@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"hash"
 	"sort"
-	"strings"
 )
 
 // Formatter performs data block ID computation and encryption of a block of data when storing object in a repository.
@@ -99,12 +98,6 @@ func init() {
 			}
 			return &syntheticIVEncryptionFormat{computeHMAC(sha256.New, f.HMACSecret, aes.BlockSize), aes.NewCipher, f.MasterKey}, nil
 		},
-	}
-
-	for k := range FormatterFactories {
-		if !strings.HasPrefix(k, "TESTONLY_") {
-			SupportedFormats = append(SupportedFormats, k)
-		}
 	}
 
 	sort.Strings(SupportedFormats)
