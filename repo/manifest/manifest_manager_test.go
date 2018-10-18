@@ -182,7 +182,7 @@ func newManagerForTesting(ctx context.Context, t *testing.T, data map[string][]b
 	st := storagetesting.NewMapStorage(data, nil, nil)
 
 	bm, err := block.NewManager(ctx, st, block.FormattingOptions{
-		BlockFormat: "TESTONLY_MD5",
+		BlockFormat: "UNENCRYPTED_HMAC_SHA256_128",
 		MaxPackSize: 100000,
 	}, block.CachingOptions{})
 	if err != nil {

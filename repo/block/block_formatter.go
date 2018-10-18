@@ -3,8 +3,7 @@ package block
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/hmac"
-	"crypto/md5" //nolint:gas
+	"crypto/hmac" //nolint:gas
 	"crypto/sha256"
 	"fmt"
 	"hash"
@@ -88,9 +87,6 @@ var FormatterFactories map[string]func(f FormattingOptions) (Formatter, error)
 
 func init() {
 	FormatterFactories = map[string]func(f FormattingOptions) (Formatter, error){
-		"TESTONLY_MD5": func(f FormattingOptions) (Formatter, error) {
-			return &unencryptedFormat{computeHash(md5.New, md5.Size)}, nil
-		},
 		"UNENCRYPTED_HMAC_SHA256": func(f FormattingOptions) (Formatter, error) {
 			return &unencryptedFormat{computeHMAC(sha256.New, f.HMACSecret, sha256.Size)}, nil
 		},
@@ -116,15 +112,6 @@ func init() {
 
 // DefaultFormat is the block format that should be used by default when creating new repositories.
 const DefaultFormat = "ENCRYPTED_HMAC_SHA256_AES256_SIV"
-
-// computeHash returns a digestFunction that computes a hash of a given block of bytes and truncates results to the given size.
-func computeHash(hf func() hash.Hash, truncate int) digestFunction {
-	return func(b []byte) []byte {
-		h := hf()
-		h.Write(b) // nolint:errcheck
-		return h.Sum(nil)[0:truncate]
-	}
-}
 
 // computeHMAC returns a digestFunction that computes HMAC(hash, secret) of a given block of bytes and truncates results to the given size.
 func computeHMAC(hf func() hash.Hash, secret []byte, truncate int) digestFunction {

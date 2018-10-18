@@ -3,7 +3,8 @@ package block
 import (
 	"bytes"
 	"context"
-	"crypto/md5"
+	"crypto/hmac"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -25,6 +26,7 @@ const (
 )
 
 var fakeTime = time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC)
+var hmacSecret = []byte{1, 2, 3}
 
 func init() {
 	logging.SetLevel(logging.INFO, "")
@@ -142,7 +144,7 @@ func TestBlockManagerEmpty(t *testing.T) {
 	keyTime := map[string]time.Time{}
 	bm := newTestBlockManager(data, keyTime, nil)
 
-	noSuchBlockID := string(md5hash([]byte("foo")))
+	noSuchBlockID := string(hashValue([]byte("foo")))
 
 	b, err := bm.GetBlock(ctx, noSuchBlockID)
 	if err != storage.ErrBlockNotFound {
@@ -697,7 +699,8 @@ func newTestBlockManager(data map[string][]byte, keyTime map[string]time.Time, t
 	}
 	st := storagetesting.NewMapStorage(data, keyTime, timeFunc)
 	bm, err := newManagerWithOptions(context.Background(), st, FormattingOptions{
-		BlockFormat: "TESTONLY_MD5",
+		BlockFormat: "UNENCRYPTED_HMAC_SHA256",
+		HMACSecret:  hmacSecret,
 		MaxPackSize: maxPackSize,
 	}, CachingOptions{}, timeFunc)
 	if err != nil {
@@ -774,7 +777,7 @@ func writeBlockAndVerify(ctx context.Context, t *testing.T, bm *Manager, b []byt
 		t.Errorf("err: %v", err)
 	}
 
-	if got, want := blockID, string(md5hash(b)); got != want {
+	if got, want := blockID, string(hashValue(b)); got != want {
 		t.Errorf("invalid block ID for %x, got %v, want %v", b, got, want)
 	}
 
@@ -790,9 +793,10 @@ func seededRandomData(seed int, length int) []byte {
 	return b
 }
 
-func md5hash(b []byte) string {
-	h := md5.Sum(b)
-	return hex.EncodeToString(h[:])
+func hashValue(b []byte) string {
+	h := hmac.New(sha256.New, hmacSecret)
+	h.Write(b)
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 func dumpBlockManagerData(t *testing.T, data map[string][]byte) {

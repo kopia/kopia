@@ -3,8 +3,8 @@ package object
 import (
 	"bytes"
 	"context"
-	"crypto/md5"
 	cryptorand "crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -39,7 +39,7 @@ func (f *fakeBlockManager) GetBlock(ctx context.Context, blockID string) ([]byte
 }
 
 func (f *fakeBlockManager) WriteBlock(ctx context.Context, data []byte, prefix string) (string, error) {
-	h := md5.New()
+	h := sha256.New()
 	h.Write(data)
 	blockID := prefix + string(hex.EncodeToString(h.Sum(nil)))
 
@@ -74,7 +74,7 @@ func setupTestWithData(t *testing.T, data map[string][]byte, opts ManagerOptions
 		FormattingOptions: block.FormattingOptions{
 			Version: 1,
 		},
-		MaxBlockSize: 200,
+		MaxBlockSize: 400,
 		Splitter:     "FIXED",
 	}, opts)
 	if err != nil {
@@ -92,9 +92,9 @@ func TestWriters(t *testing.T) {
 	}{
 		{
 			[]byte("the quick brown fox jumps over the lazy dog"),
-			"77add1d5f41223d5582fca736a5cb335",
+			"05c6e08f1d9fdafa03147fcb8f82f124c76d2f70e3d989dc8aadb5e7d7450bec",
 		},
-		{make([]byte, 100), "6d0bb00954ceb7fbee436bb55a8397a9"}, // 100 zero bytes
+		{make([]byte, 100), "cd00e292c5970d3c5e2f0ffa5171e555bc46bfc4faddfb4a418b6840b86e79a3"}, // 100 zero bytes
 	}
 
 	for _, c := range cases {
@@ -142,7 +142,7 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	writer.Write(bytes[0:50])
 	writer.Write(bytes[0:50])
 	result, err := writer.Result()
-	if !objectIDsEqual(result, "6d0bb00954ceb7fbee436bb55a8397a9") {
+	if !objectIDsEqual(result, "cd00e292c5970d3c5e2f0ffa5171e555bc46bfc4faddfb4a418b6840b86e79a3") {
 		t.Errorf("unexpected result: %v err: %v", result, err)
 	}
 }
@@ -182,12 +182,11 @@ func TestIndirection(t *testing.T) {
 		expectedIndirection int
 	}{
 		{dataLength: 200, expectedBlockCount: 1, expectedIndirection: 0},
-		{dataLength: 250, expectedBlockCount: 3, expectedIndirection: 1},
-		{dataLength: 1400, expectedBlockCount: 7, expectedIndirection: 3},
-		{dataLength: 2000, expectedBlockCount: 8, expectedIndirection: 3},
-		{dataLength: 3000, expectedBlockCount: 9, expectedIndirection: 3},
-		{dataLength: 4000, expectedBlockCount: 14, expectedIndirection: 4},
-		{dataLength: 10000, expectedBlockCount: 24, expectedIndirection: 4},
+		{dataLength: 1400, expectedBlockCount: 3, expectedIndirection: 1},
+		{dataLength: 2000, expectedBlockCount: 4, expectedIndirection: 2},
+		{dataLength: 3000, expectedBlockCount: 5, expectedIndirection: 2},
+		{dataLength: 4000, expectedBlockCount: 5, expectedIndirection: 2},
+		{dataLength: 10000, expectedBlockCount: 10, expectedIndirection: 3},
 	}
 
 	for _, c := range cases {
@@ -247,7 +246,7 @@ func TestHMAC(t *testing.T) {
 	w := om.NewWriter(ctx, WriterOptions{})
 	w.Write(content)
 	result, err := w.Result()
-	if result.String() != "999732b72ceff665b3f7608411db66a4" {
+	if result.String() != "cad29ff89951a3c085c86cb7ed22b82b51f7bdfda24f932c7f9601f51d5975ba" {
 		t.Errorf("unexpected result: %v err: %v", result.String(), err)
 	}
 }
