@@ -31,9 +31,9 @@ func setupTestWithData(t *testing.T, data map[string][]byte, keyTime map[string]
 	st := storagetesting.NewMapStorage(data, keyTime, nil)
 
 	opt := &NewRepositoryOptions{
-		MaxBlockSize:                200,
+		MaxBlockSize:                400,
 		Splitter:                    "FIXED",
-		BlockFormat:                 "TESTONLY_MD5",
+		BlockFormat:                 "UNENCRYPTED_HMAC_SHA256",
 		MetadataEncryptionAlgorithm: "NONE",
 		noHMAC:                      true,
 	}
@@ -62,9 +62,9 @@ func TestWriters(t *testing.T) {
 	}{
 		{
 			[]byte("the quick brown fox jumps over the lazy dog"),
-			"77add1d5f41223d5582fca736a5cb335",
+			"345acef0bcf82f1daf8e49fab7b7fac7ec296c518501eabea3645b99345a4e08",
 		},
-		{make([]byte, 100), "6d0bb00954ceb7fbee436bb55a8397a9"}, // 100 zero bytes
+		{make([]byte, 100), "1d804f1f69df08f3f59070bf962de69433e3d61ac18522a805a84d8c92741340"}, // 100 zero bytes
 	}
 
 	ctx := context.Background()
@@ -127,7 +127,7 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	writer.Write(bytes[0:50])
 	writer.Write(bytes[0:50])
 	result, err := writer.Result()
-	if result != "6d0bb00954ceb7fbee436bb55a8397a9" {
+	if result != "1d804f1f69df08f3f59070bf962de69433e3d61ac18522a805a84d8c92741340" {
 		t.Errorf("unexpected result: %v err: %v", result, err)
 	}
 }
@@ -216,7 +216,7 @@ func TestHMAC(t *testing.T) {
 	w := repo.Objects.NewWriter(ctx, object.WriterOptions{})
 	w.Write(content)
 	result, err := w.Result()
-	if result.String() != "999732b72ceff665b3f7608411db66a4" {
+	if result.String() != "367352007ee6ca9fa755ce8352347d092c17a24077fd33c62f655574a8cf906d" {
 		t.Errorf("unexpected result: %v err: %v", result.String(), err)
 	}
 }
@@ -348,8 +348,8 @@ func TestFormats(t *testing.T) {
 				n.noHMAC = true
 			},
 			oids: map[string]object.ID{
-				"": "d41d8cd98f00b204e9800998ecf8427e",
-				"The quick brown fox jumps over the lazy dog": "9e107d9d372bb6826bd81d3542a419d6",
+				"": "b613679a0814d9ec772f95d778c35fc5ff1697c493715653c6c712144292c5ad",
+				"The quick brown fox jumps over the lazy dog": "fb011e6154a19b9a4c767373c305275a5a69e8b68b0b4c9200c383dced19a416",
 			},
 		},
 		{

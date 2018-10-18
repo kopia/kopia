@@ -880,6 +880,7 @@ func getPhysicalBlockIV(s string) ([]byte, error) {
 
 func (bm *Manager) verifyChecksum(data []byte, blockID []byte) error {
 	expected := bm.formatter.ComputeBlockID(data)
+	expected = expected[len(expected)-aes.BlockSize:]
 	if !bytes.HasSuffix(blockID, expected) {
 		atomic.AddInt32(&bm.stats.InvalidBlocks, 1)
 		return fmt.Errorf("invalid checksum for blob %x, expected %x", blockID, expected)
