@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/fs/ignorefs"
-	"github.com/kopia/kopia/policy"
+	"github.com/kopia/kopia/snapshot/policy"
 
 	"github.com/kopia/kopia/repo"
 

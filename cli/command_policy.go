@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kopia/kopia/policy"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/policy"
 )
 
 func policyTargets(ctx context.Context, rep *repo.Repository, globalFlag *bool, targetsFlag *[]string) ([]snapshot.SourceInfo, error) {

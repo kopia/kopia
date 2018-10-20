@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/internal/editor"
-	"github.com/kopia/kopia/policy"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot/policy"
 )
 
 const policyEditHelpText = `

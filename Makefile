@@ -1,3 +1,5 @@
+COVERAGE_PACKAGES=./repo/...,./fs/...,./snapshot/...
+
 all: install install-examples test lint vet integration-tests
 
 install:
@@ -52,7 +54,7 @@ dev-deps:
 	gometalinter.v2 --install
 
 test-with-coverage: install
-	go test -count=1 -coverprofile=tmp.cov --coverpkg github.com/kopia/kopia/... -timeout 90s github.com/kopia/kopia/...
+	go test -count=1 -coverprofile=tmp.cov --coverpkg $(COVERAGE_PACKAGES) -timeout 90s github.com/kopia/kopia/...
 
 test: install
 	go test -count=1 -timeout 90s github.com/kopia/kopia/...

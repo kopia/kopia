@@ -12,9 +12,9 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/internal/upload"
-	"github.com/kopia/kopia/policy"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/policy"
 )
 
 const (

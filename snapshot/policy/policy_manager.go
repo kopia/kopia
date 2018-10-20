@@ -17,7 +17,7 @@ import (
 // GlobalPolicySourceInfo is a source where global policy is attached.
 var GlobalPolicySourceInfo = snapshot.SourceInfo{}
 
-var log = kopialogging.Logger("kopia/policy")
+var log = kopialogging.Logger("kopia/snapshot/policy")
 
 // GetEffectivePolicy calculates effective snapshot policy for a given source by combining the source-specifc policy (if any)
 // with parent policies. The source must contain a path.

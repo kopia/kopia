@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/kopia/kopia/policy"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot/policy"
 )
 
 var (

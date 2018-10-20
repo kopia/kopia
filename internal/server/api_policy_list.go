@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/kopia/kopia/internal/serverapi"
-	"github.com/kopia/kopia/policy"
+	"github.com/kopia/kopia/snapshot/policy"
 )
 
 func (s *Server) handlePolicyList(ctx context.Context, r *http.Request) (interface{}, *apiError) {
