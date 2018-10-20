@@ -31,7 +31,7 @@ deps:
 
 travis-setup: deps dev-deps
 
-travis-release: test lint vet verify-release integration-tests long-test upload-coverage
+travis-release: test-with-coverage lint vet verify-release integration-tests upload-coverage
 
 verify-release:
 	curl -sL https://git.io/goreleaser | bash /dev/stdin --skip-publish --rm-dist --snapshot
@@ -51,14 +51,14 @@ dev-deps:
 	go get github.com/mattn/goveralls
 	gometalinter.v2 --install
 
+test-with-coverage: install
+	go test -count=1 -coverprofile=tmp.cov --coverpkg github.com/kopia/kopia/... -timeout 90s github.com/kopia/kopia/...
+
 test: install
-	go test -count=1 -coverprofile=tmp.cov -short -timeout 90s github.com/kopia/kopia/...
+	go test -count=1 -timeout 90s github.com/kopia/kopia/...
 
 vtest:
 	go test -count=1 -short -v -timeout 90s github.com/kopia/kopia/...
-
-long-test: install
-	go test -count=1 -timeout 90s github.com/kopia/kopia/...
 
 integration-tests:
 	go build -o dist/integration/kopia github.com/kopia/kopia
@@ -71,10 +71,7 @@ stress-test:
 godoc:
 	godoc -http=:33333
 
-coverage:
-	go test --coverprofile tmp.cov --coverpkg github.com/kopia/kopia/... github.com/kopia/kopia/...
-	go tool cover -html=tmp.cov
+coverage: test-with-coverage coverage-html
 
-coverage-repo:
-	go test --coverprofile tmp.cov --coverpkg github.com/kopia/kopia/repo/... github.com/kopia/kopia/repo/...
+coverage-html:
 	go tool cover -html=tmp.cov
