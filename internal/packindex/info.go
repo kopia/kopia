@@ -1,7 +1,6 @@
 package packindex
 
 import (
-	"encoding/json"
 	"time"
 )
 
@@ -20,9 +19,4 @@ type Info struct {
 // Timestamp returns the time when a block was created or deleted.
 func (i Info) Timestamp() time.Time {
 	return time.Unix(i.TimestampSeconds, 0)
-}
-
-func (i Info) String() string {
-	b, _ := json.Marshal(i)
-	return string(b)
 }
