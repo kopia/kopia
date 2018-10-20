@@ -1,4 +1,4 @@
-package tests
+package endtoend_test
 
 import (
 	"encoding/hex"

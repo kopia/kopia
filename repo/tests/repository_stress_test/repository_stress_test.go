@@ -1,4 +1,4 @@
-package block_manager_stress_test
+package repositorystress_test
 
 import (
 	"context"
