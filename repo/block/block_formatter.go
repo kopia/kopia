@@ -100,6 +100,10 @@ func init() {
 		},
 	}
 
+	for formatName := range FormatterFactories {
+		SupportedFormats = append(SupportedFormats, formatName)
+	}
+
 	sort.Strings(SupportedFormats)
 }
 
