@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/internal/upload"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
 var (
@@ -53,7 +53,7 @@ func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 		if err != nil {
 			return err
 		}
-		d := repofs.DirectoryEntry(sourceRepo, dirOID, nil)
+		d := snapshotfs.DirectoryEntry(sourceRepo, dirOID, nil)
 		newm, err := uploader.Upload(ctx, d, snapshot.SourceInfo{Host: "temp"}, nil)
 		if err != nil {
 			return fmt.Errorf("error migrating directory %v: %v", dirOID, err)
@@ -78,7 +78,7 @@ func migrateSingleSource(ctx context.Context, uploader *upload.Uploader, sourceR
 	}
 
 	for _, m := range filterSnapshotsToMigrate(snapshots) {
-		d := repofs.DirectoryEntry(sourceRepo, m.RootObjectID(), nil)
+		d := snapshotfs.DirectoryEntry(sourceRepo, m.RootObjectID(), nil)
 		newm, err := uploader.Upload(ctx, d, m.Source, nil)
 		if err != nil {
 			return fmt.Errorf("error migrating shapshot %v @ %v: %v", m.Source, m.StartTime, err)

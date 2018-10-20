@@ -7,8 +7,8 @@ import (
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/cachefs"
 	"github.com/kopia/kopia/fs/loggingfs"
-	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
 var (
@@ -23,13 +23,13 @@ func runMountCommand(ctx context.Context, rep *repo.Repository) error {
 	var entry fs.Directory
 
 	if *mountObjectID == "all" {
-		entry = repofs.AllSourcesEntry(rep)
+		entry = snapshotfs.AllSourcesEntry(rep)
 	} else {
 		oid, err := parseObjectID(ctx, rep, *mountObjectID)
 		if err != nil {
 			return err
 		}
-		entry = repofs.DirectoryEntry(rep, oid, nil)
+		entry = snapshotfs.DirectoryEntry(rep, oid, nil)
 	}
 
 	if *mountTraceFS {

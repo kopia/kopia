@@ -1,5 +1,5 @@
-// Package repofs implements virtual filesystem on top of snapshots in repo.Repository.
-package repofs
+// Package snapshotfs implements virtual filesystem on top of snapshots in repo.Repository.
+package snapshotfs
 
 import (
 	"context"

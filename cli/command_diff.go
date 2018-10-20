@@ -6,10 +6,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/internal/diff"
-
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
 var (
@@ -51,8 +50,8 @@ func runDiffCommand(ctx context.Context, rep *repo.Repository) error {
 	if isDir1 {
 		return d.Compare(
 			ctx,
-			repofs.DirectoryEntry(rep, oid1, nil),
-			repofs.DirectoryEntry(rep, oid2, nil),
+			snapshotfs.DirectoryEntry(rep, oid1, nil),
+			snapshotfs.DirectoryEntry(rep, oid2, nil),
 		)
 	}
 

@@ -10,12 +10,12 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/fs/repofs"
 	"github.com/kopia/kopia/internal/parallelwork"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
 var (
@@ -112,7 +112,7 @@ func (v *verifier) enqueueVerifyObject(ctx context.Context, oid object.ID, path 
 func (v *verifier) doVerifyDirectory(ctx context.Context, oid object.ID, path string) {
 	log.Debugf("verifying directory %q (%v)", path, oid)
 
-	d := repofs.DirectoryEntry(v.rep, oid, nil)
+	d := snapshotfs.DirectoryEntry(v.rep, oid, nil)
 	entries, err := d.Readdir(ctx)
 	if err != nil {
 		v.reportError(path, fmt.Errorf("error reading %v: %v", oid, err))

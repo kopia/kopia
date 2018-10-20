@@ -1,13 +1,12 @@
-package repofs
+package snapshotfs
 
 import (
 	"context"
 	"time"
 
-	"github.com/kopia/kopia/snapshot"
-
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot"
 )
 
 type sourceDirectories struct {
