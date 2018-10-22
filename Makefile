@@ -56,6 +56,9 @@ dev-deps:
 test-with-coverage: install
 	go test -count=1 -coverprofile=tmp.cov --coverpkg $(COVERAGE_PACKAGES) -timeout 90s github.com/kopia/kopia/...
 
+test-with-coverage-pkgonly: install
+	go test -count=1 -coverprofile=tmp.cov -timeout 90s github.com/kopia/kopia/...
+
 test: install
 	go test -count=1 -timeout 90s github.com/kopia/kopia/...
 

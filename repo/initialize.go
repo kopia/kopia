@@ -33,6 +33,7 @@ type NewRepositoryOptions struct {
 
 	BlockFormat         string // identifier of object format
 	ObjectHMACSecret    []byte // force the use of particular object HMAC secret
+	DisableHMAC         bool
 	ObjectEncryptionKey []byte // force the use of particular object encryption key
 
 	Splitter     string // splitter used to break objects into storage blocks
@@ -40,8 +41,6 @@ type NewRepositoryOptions struct {
 	AvgBlockSize int    // approximate size of storage block (used with dynamic splitter)
 	MaxBlockSize int    // maximum size of storage block
 
-	// test-only
-	noHMAC bool // disable HMAC
 }
 
 // Initialize creates initial repository data structures in the specified storage with given credentials.
@@ -102,7 +101,7 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) *config.Reposi
 		AvgBlockSize: applyDefaultInt(opt.AvgBlockSize, 16<<20), // 16MiB
 	}
 
-	if opt.noHMAC {
+	if opt.DisableHMAC {
 		f.HMACSecret = nil
 	}
 
