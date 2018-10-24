@@ -15,10 +15,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/kopia/kopia/repo/block"
-
-	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/internal/jsonstream"
+	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/storage"
 )
 
@@ -70,10 +68,7 @@ func setupTest(t *testing.T) (map[string][]byte, *Manager) {
 }
 
 func setupTestWithData(t *testing.T, data map[string][]byte, opts ManagerOptions) (map[string][]byte, *Manager) {
-	r, err := NewObjectManager(context.Background(), &fakeBlockManager{data: data}, config.RepositoryObjectFormat{
-		FormattingOptions: block.FormattingOptions{
-			Version: 1,
-		},
+	r, err := NewObjectManager(context.Background(), &fakeBlockManager{data: data}, Format{
 		MaxBlockSize: 400,
 		Splitter:     "FIXED",
 	}, opts)

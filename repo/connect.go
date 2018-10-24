@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo/block"
@@ -34,7 +33,7 @@ func Connect(ctx context.Context, configFile string, st storage.Storage, passwor
 		return err
 	}
 
-	var lc config.LocalConfig
+	var lc LocalConfig
 	lc.Storage = st.ConnectionInfo()
 
 	if err = setupCaching(configFile, &lc, opt.CachingOptions, f.UniqueID); err != nil {
@@ -63,7 +62,7 @@ func Connect(ctx context.Context, configFile string, st storage.Storage, passwor
 	return r.Close(ctx)
 }
 
-func setupCaching(configPath string, lc *config.LocalConfig, opt block.CachingOptions, uniqueID []byte) error {
+func setupCaching(configPath string, lc *LocalConfig, opt block.CachingOptions, uniqueID []byte) error {
 	if opt.MaxCacheSizeBytes == 0 {
 		lc.Caching = block.CachingOptions{}
 		return nil
@@ -94,7 +93,7 @@ func setupCaching(configPath string, lc *config.LocalConfig, opt block.CachingOp
 
 // Disconnect removes the specified configuration file and any local cache directories.
 func Disconnect(configFile string) error {
-	cfg, err := config.LoadFromFile(configFile)
+	cfg, err := loadConfigFromFile(configFile)
 	if err != nil {
 		return err
 	}

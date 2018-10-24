@@ -52,7 +52,6 @@ func runStatusCommand(ctx context.Context, rep *repo.Repository) error {
 	fmt.Println()
 	fmt.Printf("Unique ID:           %x\n", rep.UniqueID)
 	fmt.Println()
-	fmt.Printf("Object manager:      v%v\n", rep.Objects.Format.Version)
 	fmt.Printf("Block format:        %v\n", rep.Blocks.Format.BlockFormat)
 	fmt.Printf("Max pack length:     %v\n", units.BytesStringBase2(int64(rep.Blocks.Format.MaxPackSize)))
 	fmt.Printf("Splitter:            %v%v\n", rep.Objects.Format.Splitter, splitterExtraInfo)

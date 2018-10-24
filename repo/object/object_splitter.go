@@ -4,7 +4,6 @@ import (
 	"math"
 	"sort"
 
-	"github.com/kopia/kopia/internal/config"
 	"github.com/silvasur/buzhash"
 )
 
@@ -19,14 +18,14 @@ type objectSplitter interface {
 //    DYNAMIC  - dynamically splits large objects based on rolling hash of contents.
 var SupportedSplitters []string
 
-var splitterFactories = map[string]func(*config.RepositoryObjectFormat) objectSplitter{
-	"NEVER": func(f *config.RepositoryObjectFormat) objectSplitter {
+var splitterFactories = map[string]func(*Format) objectSplitter{
+	"NEVER": func(f *Format) objectSplitter {
 		return newNeverSplitter()
 	},
-	"FIXED": func(f *config.RepositoryObjectFormat) objectSplitter {
+	"FIXED": func(f *Format) objectSplitter {
 		return newFixedSplitter(f.MaxBlockSize)
 	},
-	"DYNAMIC": func(f *config.RepositoryObjectFormat) objectSplitter {
+	"DYNAMIC": func(f *Format) objectSplitter {
 		return newRollingHashSplitter(buzhash.NewBuzHash(32), f.MinBlockSize, f.AvgBlockSize, f.MaxBlockSize)
 	},
 }

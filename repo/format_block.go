@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/repo/storage"
 )
 
@@ -30,15 +29,15 @@ type formatBlock struct {
 	UniqueID               []byte `json:"uniqueID"`
 	KeyDerivationAlgorithm string `json:"keyAlgo"`
 
-	Version              string                         `json:"version"`
-	EncryptionAlgorithm  string                         `json:"encryption"`
-	EncryptedFormatBytes []byte                         `json:"encryptedBlockFormat,omitempty"`
-	UnencryptedFormat    *config.RepositoryObjectFormat `json:"blockFormat,omitempty"`
+	Version              string                  `json:"version"`
+	EncryptionAlgorithm  string                  `json:"encryption"`
+	EncryptedFormatBytes []byte                  `json:"encryptedBlockFormat,omitempty"`
+	UnencryptedFormat    *repositoryObjectFormat `json:"blockFormat,omitempty"`
 }
 
 // encryptedRepositoryConfig contains the configuration of repository that's persisted in encrypted format.
 type encryptedRepositoryConfig struct {
-	Format config.RepositoryObjectFormat `json:"format"`
+	Format repositoryObjectFormat `json:"format"`
 }
 
 func parseFormatBlock(b []byte) (*formatBlock, error) {
@@ -66,7 +65,7 @@ func writeFormatBlock(ctx context.Context, st storage.Storage, f *formatBlock) e
 	return nil
 }
 
-func (f *formatBlock) decryptFormatBytes(masterKey []byte) (*config.RepositoryObjectFormat, error) {
+func (f *formatBlock) decryptFormatBytes(masterKey []byte) (*repositoryObjectFormat, error) {
 	switch f.EncryptionAlgorithm {
 	case "NONE": // do nothing
 		return f.UnencryptedFormat, nil
@@ -117,7 +116,7 @@ func initCrypto(masterKey, repositoryID []byte) (cipher.AEAD, []byte, error) {
 	return aead, authData, nil
 }
 
-func encryptFormatBytes(f *formatBlock, format *config.RepositoryObjectFormat, masterKey, repositoryID []byte) error {
+func encryptFormatBytes(f *formatBlock, format *repositoryObjectFormat, masterKey, repositoryID []byte) error {
 	switch f.EncryptionAlgorithm {
 	case "NONE":
 		f.UnencryptedFormat = format

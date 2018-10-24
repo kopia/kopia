@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/repo/storage"
@@ -86,8 +85,8 @@ func formatBlockFromOptions(opt *NewRepositoryOptions) *formatBlock {
 	}
 }
 
-func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) *config.RepositoryObjectFormat {
-	f := &config.RepositoryObjectFormat{
+func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) *repositoryObjectFormat {
+	f := &repositoryObjectFormat{
 		FormattingOptions: block.FormattingOptions{
 			Version:     1,
 			BlockFormat: applyDefaultString(opt.BlockFormat, block.DefaultFormat),
@@ -95,10 +94,12 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) *config.Reposi
 			MasterKey:   applyDefaultRandomBytes(opt.ObjectEncryptionKey, 32),
 			MaxPackSize: applyDefaultInt(opt.MaxBlockSize, 20<<20), // 20 MB
 		},
-		Splitter:     applyDefaultString(opt.Splitter, object.DefaultSplitter),
-		MaxBlockSize: applyDefaultInt(opt.MaxBlockSize, 20<<20), // 20MiB
-		MinBlockSize: applyDefaultInt(opt.MinBlockSize, 10<<20), // 10MiB
-		AvgBlockSize: applyDefaultInt(opt.AvgBlockSize, 16<<20), // 16MiB
+		Format: object.Format{
+			Splitter:     applyDefaultString(opt.Splitter, object.DefaultSplitter),
+			MaxBlockSize: applyDefaultInt(opt.MaxBlockSize, 20<<20), // 20MiB
+			MinBlockSize: applyDefaultInt(opt.MinBlockSize, 10<<20), // 10MiB
+			AvgBlockSize: applyDefaultInt(opt.AvgBlockSize, 16<<20), // 16MiB
+		},
 	}
 
 	if opt.DisableHMAC {

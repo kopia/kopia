@@ -9,7 +9,6 @@ import (
 	"io"
 	"sync"
 
-	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/internal/jsonstream"
 	"github.com/kopia/kopia/repo/block"
 )
@@ -28,9 +27,17 @@ type blockManager interface {
 	WriteBlock(ctx context.Context, data []byte, prefix string) (string, error)
 }
 
+// Format describes the format of objects in a repository.
+type Format struct {
+	Splitter     string `json:"splitter,omitempty"`     // splitter used to break objects into storage blocks
+	MinBlockSize int    `json:"minBlockSize,omitempty"` // minimum block size used with dynamic splitter
+	AvgBlockSize int    `json:"avgBlockSize,omitempty"` // approximate size of storage block (used with dynamic splitter)
+	MaxBlockSize int    `json:"maxBlockSize,omitempty"` // maximum size of storage block
+}
+
 // Manager implements a content-addressable storage on top of blob storage.
 type Manager struct {
-	Format config.RepositoryObjectFormat
+	Format Format
 
 	blockMgr blockManager
 
@@ -172,15 +179,6 @@ func (om *Manager) Flush(ctx context.Context) error {
 func nullTrace(message string, args ...interface{}) {
 }
 
-// validateFormat checks the validity of RepositoryObjectFormat and returns an error if invalid.
-func validateFormat(f *config.RepositoryObjectFormat) error {
-	if f.Version != 1 {
-		return fmt.Errorf("unsupported version: %v", f.Version)
-	}
-
-	return nil
-}
-
 // ManagerOptions specifies object manager options.
 type ManagerOptions struct {
 	WriteBack int
@@ -188,11 +186,7 @@ type ManagerOptions struct {
 }
 
 // NewObjectManager creates an ObjectManager with the specified block manager and format.
-func NewObjectManager(ctx context.Context, bm blockManager, f config.RepositoryObjectFormat, opts ManagerOptions) (*Manager, error) {
-	if err := validateFormat(&f); err != nil {
-		return nil, err
-	}
-
+func NewObjectManager(ctx context.Context, bm blockManager, f Format, opts ManagerOptions) (*Manager, error) {
 	om := &Manager{
 		blockMgr: bm,
 		Format:   f,

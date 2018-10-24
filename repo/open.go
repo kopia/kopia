@@ -7,7 +7,6 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	"github.com/kopia/kopia/internal/config"
 	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/manifest"
@@ -45,7 +44,7 @@ func Open(ctx context.Context, configFile string, password string, options *Opti
 	}
 
 	log.Debugf("loading config from file: %v", configFile)
-	lc, err := config.LoadFromFile(configFile)
+	lc, err := loadConfigFromFile(configFile)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +60,7 @@ func Open(ctx context.Context, configFile string, password string, options *Opti
 		st = logging.NewWrapper(st, logging.Prefix("[STORAGE] "), logging.Output(options.TraceStorage))
 	}
 
-	r, err := connect(ctx, st, lc, password, options, lc.Caching)
+	r, err := OpenWithConfig(ctx, st, lc, password, options, lc.Caching)
 	if err != nil {
 		st.Close(ctx) //nolint:errcheck
 		return nil, err
@@ -72,7 +71,8 @@ func Open(ctx context.Context, configFile string, password string, options *Opti
 	return r, nil
 }
 
-func connect(ctx context.Context, st storage.Storage, lc *config.LocalConfig, password string, options *Options, caching block.CachingOptions) (*Repository, error) {
+// OpenWithConfig opens the repository with a given configuration, avoiding the need for a config file.
+func OpenWithConfig(ctx context.Context, st storage.Storage, lc *LocalConfig, password string, options *Options, caching block.CachingOptions) (*Repository, error) {
 	log.Debugf("reading encrypted format block")
 	// Read cache block, potentially from cache.
 	f, err := readAndCacheFormatBlock(ctx, st, caching.CacheDirectory)
@@ -104,7 +104,7 @@ func connect(ctx context.Context, st storage.Storage, lc *config.LocalConfig, pa
 	}
 
 	log.Debugf("initializing object manager")
-	om, err := object.NewObjectManager(ctx, bm, *repoConfig, options.ObjectManagerOptions)
+	om, err := object.NewObjectManager(ctx, bm, repoConfig.Format, options.ObjectManagerOptions)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open object manager: %v", err)
 	}
@@ -132,7 +132,7 @@ func SetCachingConfig(ctx context.Context, configFile string, opt block.CachingO
 		return err
 	}
 
-	lc, err := config.LoadFromFile(configFile)
+	lc, err := loadConfigFromFile(configFile)
 	if err != nil {
 		return err
 	}
