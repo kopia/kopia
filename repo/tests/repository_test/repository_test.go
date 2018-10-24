@@ -245,12 +245,12 @@ func verify(ctx context.Context, t *testing.T, rep *repo.Repository, objectID ob
 
 func TestFormats(t *testing.T) {
 	ctx := context.Background()
-	makeFormat := func(objectFormat string) func(*repo.NewRepositoryOptions) {
+	makeFormat := func(blockFormat string) func(*repo.NewRepositoryOptions) {
 		return func(n *repo.NewRepositoryOptions) {
-			n.BlockFormat = objectFormat
-			n.ObjectHMACSecret = []byte("key")
-			n.MaxBlockSize = 10000
-			n.Splitter = "FIXED"
+			n.BlockFormat.BlockFormat = blockFormat
+			n.BlockFormat.HMACSecret = []byte("key")
+			n.ObjectFormat.MaxBlockSize = 10000
+			n.ObjectFormat.Splitter = "FIXED"
 		}
 	}
 
@@ -260,7 +260,7 @@ func TestFormats(t *testing.T) {
 	}{
 		{
 			format: func(n *repo.NewRepositoryOptions) {
-				n.MaxBlockSize = 10000
+				n.ObjectFormat.MaxBlockSize = 10000
 			},
 			oids: map[string]object.ID{
 				"": "b613679a0814d9ec772f95d778c35fc5ff1697c493715653c6c712144292c5ad",

@@ -30,16 +30,10 @@ type NewRepositoryOptions struct {
 	MetadataEncryptionAlgorithm string // identifier of encryption algorithm
 	KeyDerivationAlgorithm      string // identifier of key derivation algorithm
 
-	BlockFormat         string // identifier of object format
-	ObjectHMACSecret    []byte // force the use of particular object HMAC secret
-	DisableHMAC         bool
-	ObjectEncryptionKey []byte // force the use of particular object encryption key
+	BlockFormat block.FormattingOptions
+	DisableHMAC bool
 
-	Splitter     string // splitter used to break objects into storage blocks
-	MinBlockSize int    // minimum block size used with dynamic splitter
-	AvgBlockSize int    // approximate size of storage block (used with dynamic splitter)
-	MaxBlockSize int    // maximum size of storage block
-
+	ObjectFormat object.Format // object format
 }
 
 // Initialize creates initial repository data structures in the specified storage with given credentials.
@@ -89,16 +83,16 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) *repositoryObj
 	f := &repositoryObjectFormat{
 		FormattingOptions: block.FormattingOptions{
 			Version:     1,
-			BlockFormat: applyDefaultString(opt.BlockFormat, block.DefaultFormat),
-			HMACSecret:  applyDefaultRandomBytes(opt.ObjectHMACSecret, 32),
-			MasterKey:   applyDefaultRandomBytes(opt.ObjectEncryptionKey, 32),
-			MaxPackSize: applyDefaultInt(opt.MaxBlockSize, 20<<20), // 20 MB
+			BlockFormat: applyDefaultString(opt.BlockFormat.BlockFormat, block.DefaultFormat),
+			HMACSecret:  applyDefaultRandomBytes(opt.BlockFormat.HMACSecret, 32),
+			MasterKey:   applyDefaultRandomBytes(opt.BlockFormat.MasterKey, 32),
+			MaxPackSize: applyDefaultInt(opt.BlockFormat.MaxPackSize, applyDefaultInt(opt.ObjectFormat.MaxBlockSize, 20<<20)), // 20 MB
 		},
 		Format: object.Format{
-			Splitter:     applyDefaultString(opt.Splitter, object.DefaultSplitter),
-			MaxBlockSize: applyDefaultInt(opt.MaxBlockSize, 20<<20), // 20MiB
-			MinBlockSize: applyDefaultInt(opt.MinBlockSize, 10<<20), // 10MiB
-			AvgBlockSize: applyDefaultInt(opt.AvgBlockSize, 16<<20), // 16MiB
+			Splitter:     applyDefaultString(opt.ObjectFormat.Splitter, object.DefaultSplitter),
+			MaxBlockSize: applyDefaultInt(opt.ObjectFormat.MaxBlockSize, 20<<20), // 20MiB
+			MinBlockSize: applyDefaultInt(opt.ObjectFormat.MinBlockSize, 10<<20), // 10MiB
+			AvgBlockSize: applyDefaultInt(opt.ObjectFormat.AvgBlockSize, 16<<20), // 16MiB
 		},
 	}
 

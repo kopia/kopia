@@ -49,12 +49,16 @@ func init() {
 func newRepositoryOptionsFromFlags() *repo.NewRepositoryOptions {
 	return &repo.NewRepositoryOptions{
 		MetadataEncryptionAlgorithm: *createMetadataEncryptionFormat,
-		BlockFormat:                 *createObjectFormat,
+		BlockFormat: block.FormattingOptions{
+			BlockFormat: *createObjectFormat,
+		},
 
-		Splitter:     *createObjectSplitter,
-		MinBlockSize: *createMinBlockSize * 1024,
-		AvgBlockSize: *createAvgBlockSize * 1024,
-		MaxBlockSize: *createMaxBlockSize * 1024,
+		ObjectFormat: object.Format{
+			Splitter:     *createObjectSplitter,
+			MinBlockSize: *createMinBlockSize * 1024,
+			AvgBlockSize: *createAvgBlockSize * 1024,
+			MaxBlockSize: *createMaxBlockSize * 1024,
+		},
 	}
 }
 
@@ -85,15 +89,15 @@ func runCreateCommandWithStorage(ctx context.Context, st storage.Storage) error 
 	printStderr("Initializing repository with:\n")
 	printStderr("  metadata encryption: %v\n", options.MetadataEncryptionAlgorithm)
 	printStderr("  block format:        %v\n", options.BlockFormat)
-	switch options.Splitter {
+	switch options.ObjectFormat.Splitter {
 	case "DYNAMIC":
 		printStderr("  object splitter:     DYNAMIC with block sizes (min:%v avg:%v max:%v)\n",
-			units.BytesStringBase2(int64(options.MinBlockSize)),
-			units.BytesStringBase2(int64(options.AvgBlockSize)),
-			units.BytesStringBase2(int64(options.MaxBlockSize)))
+			units.BytesStringBase2(int64(options.ObjectFormat.MinBlockSize)),
+			units.BytesStringBase2(int64(options.ObjectFormat.AvgBlockSize)),
+			units.BytesStringBase2(int64(options.ObjectFormat.MaxBlockSize)))
 
 	case "FIXED":
-		printStderr("  object splitter:     FIXED with with block size: %v\n", units.BytesStringBase2(int64(options.MaxBlockSize)))
+		printStderr("  object splitter:     FIXED with with block size: %v\n", units.BytesStringBase2(int64(options.ObjectFormat.MaxBlockSize)))
 
 	case "NEVER":
 		printStderr("  object splitter:     NEVER\n")

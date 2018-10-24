@@ -8,6 +8,10 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/kopia/kopia/repo/object"
+
+	"github.com/kopia/kopia/repo/block"
+
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/storage"
 	"github.com/kopia/kopia/repo/storage/filesystem"
@@ -39,11 +43,15 @@ func (e *Environment) Setup(t *testing.T, opts ...func(*repo.NewRepositoryOption
 	}
 
 	opt := &repo.NewRepositoryOptions{
-		MaxBlockSize:                400,
-		Splitter:                    "FIXED",
-		BlockFormat:                 "UNENCRYPTED_HMAC_SHA256",
+		BlockFormat: block.FormattingOptions{
+			HMACSecret:  []byte{},
+			BlockFormat: "UNENCRYPTED_HMAC_SHA256",
+		},
+		ObjectFormat: object.Format{
+			Splitter:     "FIXED",
+			MaxBlockSize: 400,
+		},
 		MetadataEncryptionAlgorithm: "NONE",
-		ObjectHMACSecret:            []byte{},
 	}
 
 	for _, mod := range opts {
