@@ -5,6 +5,7 @@ Repository
 
 [![Build Status](https://travis-ci.org/kopia/repo.svg?branch=master)](https://travis-ci.org/kopia/repo)
 [![GoDoc](https://godoc.org/github.com/kopia/repo?status.svg)](https://godoc.org/github.com/kopia/repo)
+[![Coverage Status](https://coveralls.io/repos/github/kopia/repo/badge.svg?branch=master)](https://coveralls.io/github/kopia/repo?branch=master)
 
 This library implements Content-Addressable Storage Repository used by [Kopia](https://github.com/kopia/kopia) to 
 store its snapshots.
