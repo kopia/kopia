@@ -3,8 +3,5 @@ go:
 - "1.11"
 os:
 - linux
-before_install:
-  - go get github.com/mattn/goveralls
-script: 
-  - go test -count=1 -coverprofile=tmp.cov --coverpkg ./... -timeout 90s ./...
-  - $GOPATH/bin/goveralls -service=travis-ci -coverprofile=tmp.cov
+before_install: make setup
+script: make travis
