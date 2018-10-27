@@ -47,6 +47,7 @@ func VerifyStorage(ctx context.Context, t *testing.T, r storage.Storage) {
 
 		AssertGetBlock(ctx, t, r, b.blk, b.contents)
 	}
+
 	if err := r.DeleteBlock(ctx, blocks[0].blk); err != nil {
 		t.Errorf("unable to delete block: %v", err)
 	}

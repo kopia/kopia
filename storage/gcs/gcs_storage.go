@@ -9,6 +9,8 @@ import (
 	"io"
 	"io/ioutil"
 
+	"google.golang.org/api/googleapi"
+
 	"github.com/efarrer/iothrottler"
 	"github.com/kopia/repo/internal/retry"
 	"github.com/kopia/repo/internal/throttle"
@@ -37,6 +39,10 @@ type gcsStorage struct {
 }
 
 func (gcs *gcsStorage) GetBlock(ctx context.Context, b string, offset, length int64) ([]byte, error) {
+	if offset < 0 {
+		return nil, fmt.Errorf("invalid offset")
+	}
+
 	attempt := func() (interface{}, error) {
 		reader, err := gcs.bucket.Object(gcs.getObjectNameString(b)).NewRangeReader(gcs.ctx, offset, length)
 		if err != nil {
@@ -52,7 +58,12 @@ func (gcs *gcsStorage) GetBlock(ctx context.Context, b string, offset, length in
 		return nil, translateError(err)
 	}
 
-	return v.([]byte), nil
+	fetched := v.([]byte)
+	if len(fetched) != int(length) && length >= 0 {
+		return nil, fmt.Errorf("invalid offset/length")
+	}
+
+	return fetched, nil
 }
 
 func exponentialBackoff(desc string, att retry.AttemptFunc) (interface{}, error) {
@@ -60,6 +71,13 @@ func exponentialBackoff(desc string, att retry.AttemptFunc) (interface{}, error)
 }
 
 func isRetriableError(err error) bool {
+	if apiError, ok := err.(*googleapi.Error); ok {
+		if apiError.Code >= 500 {
+			return true
+		}
+		return false
+	}
+
 	switch err {
 	case nil:
 		return false
@@ -124,7 +142,12 @@ func (gcs *gcsStorage) DeleteBlock(ctx context.Context, b string) error {
 	}
 
 	_, err := exponentialBackoff(fmt.Sprintf("DeleteBlock(%q)", b), attempt)
-	return translateError(err)
+	err = translateError(err)
+	if err == storage.ErrBlockNotFound {
+		return nil
+	}
+
+	return err
 }
 
 func (gcs *gcsStorage) getObjectNameString(blockID string) string {

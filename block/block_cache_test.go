@@ -53,6 +53,7 @@ func TestDiskBlockCache(t *testing.T) {
 	}
 	verifyBlockCache(t, cache)
 }
+
 func verifyBlockCache(t *testing.T, cache *blockCache) {
 	ctx := context.Background()
 	defer cache.close()
@@ -73,7 +74,7 @@ func verifyBlockCache(t *testing.T, cache *blockCache) {
 			{"xf0f0f2", "block-1", 0, -1, []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, nil},
 			{"xf0f0f3", "no-such-block", 0, -1, nil, storage.ErrBlockNotFound},
 			{"xf0f0f4", "no-such-block", 10, 5, nil, storage.ErrBlockNotFound},
-			{"f0f0f5", "block-1", 7, 10, []byte{8, 9, 10}, nil},
+			{"f0f0f5", "block-1", 7, 3, []byte{8, 9, 10}, nil},
 			{"xf0f0f6", "block-1", 11, 10, nil, fmt.Errorf("invalid offset")},
 			{"xf0f0f6", "block-1", -1, 5, nil, fmt.Errorf("invalid offset")},
 		}

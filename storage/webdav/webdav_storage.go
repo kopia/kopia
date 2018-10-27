@@ -51,7 +51,7 @@ func (d *davStorage) GetBlock(ctx context.Context, blockID string, offset, lengt
 
 	data = data[offset:]
 	if int(length) > len(data) {
-		return data, nil
+		return nil, errors.New("invalid length")
 	}
 
 	return data[0:length], nil

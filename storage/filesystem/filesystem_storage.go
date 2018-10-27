@@ -53,7 +53,14 @@ func (fs *fsStorage) GetBlock(ctx context.Context, blockID string, offset, lengt
 	if _, err := f.Seek(offset, io.SeekStart); err != nil {
 		return nil, err
 	}
-	return ioutil.ReadAll(io.LimitReader(f, length))
+	b, err := ioutil.ReadAll(io.LimitReader(f, length))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(b)) != length {
+		return nil, fmt.Errorf("invalid length")
+	}
+	return b, nil
 }
 
 func getstringFromFileName(name string) (string, bool) {

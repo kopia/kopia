@@ -50,7 +50,16 @@ func (s *s3Storage) GetBlock(ctx context.Context, b string, offset, length int64
 			return nil, err
 		}
 
-		return ioutil.ReadAll(throttled)
+		b, err := ioutil.ReadAll(throttled)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(b) != int(length) && length >= 0 {
+			return nil, fmt.Errorf("invalid length, got %v bytes, but expected %v", len(b), length)
+		}
+
+		return b, nil
 	}
 
 	v, err := exponentialBackoff(fmt.Sprintf("GetBlock(%q,%v,%v)", b, offset, length), attempt)
@@ -71,12 +80,7 @@ func isRetriableError(err error) bool {
 		return me.StatusCode >= 500
 	}
 
-	switch err {
-	case nil:
-		return false
-	default:
-		return true
-	}
+	return false
 }
 
 func translateError(err error) error {
@@ -88,6 +92,8 @@ func translateError(err error) error {
 			return storage.ErrBlockNotFound
 		}
 	}
+
+	return err
 
 	switch err {
 	case nil:
