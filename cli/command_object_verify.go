@@ -11,11 +11,11 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/parallelwork"
-	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/block"
-	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
+	"github.com/kopia/repo"
+	"github.com/kopia/repo/block"
+	"github.com/kopia/repo/object"
 )
 
 var (

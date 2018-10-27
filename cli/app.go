@@ -10,9 +10,9 @@ import (
 
 	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/internal/serverapi"
-	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/block"
-	"github.com/kopia/kopia/repo/storage"
+	"github.com/kopia/repo"
+	"github.com/kopia/repo/block"
+	"github.com/kopia/repo/storage"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )

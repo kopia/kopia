@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/kopia/kopia/repo"
+	"github.com/kopia/repo"
 )
 
 var (

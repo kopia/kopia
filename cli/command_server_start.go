@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/internal/server"
-	"github.com/kopia/kopia/repo"
+	"github.com/kopia/repo"
 )
 
 var (

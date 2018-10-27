@@ -2,7 +2,7 @@ package dir
 
 import (
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/repo/object"
+	"github.com/kopia/repo/object"
 )
 
 // Entry represents a directory entry as stored in JSON stream.

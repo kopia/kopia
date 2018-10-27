@@ -10,7 +10,7 @@ import (
 
 	"github.com/kopia/kopia/internal/scrubber"
 	"github.com/kopia/kopia/internal/units"
-	"github.com/kopia/kopia/repo"
+	"github.com/kopia/repo"
 )
 
 var (

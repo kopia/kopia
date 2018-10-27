@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kopia/kopia/repo"
+	"github.com/kopia/repo"
 )
 
 var (

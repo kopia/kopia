@@ -12,7 +12,7 @@ builds:
     - arm
     - arm64
   ldflags:
-  - -s -w -X "github.com/kopia/kopia/repo.BuildVersion={{.Version}}" -X "github.com/kopia/kopia/repo.BuildInfo={{.Commit}}"
+  - -s -w -X "github.com/kopia/repo.BuildVersion={{.Version}}" -X "github.com/kopia/repo.BuildInfo={{.Commit}}"
 archive:
   replacements:
     darwin: macOS

@@ -9,9 +9,9 @@ import (
 
 	"github.com/kopia/kopia/fs/ignorefs"
 	"github.com/kopia/kopia/internal/kopialogging"
-	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/repo"
+	"github.com/kopia/repo/manifest"
 )
 
 // GlobalPolicySourceInfo is a source where global policy is attached.

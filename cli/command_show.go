@@ -5,7 +5,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/kopia/kopia/repo"
+	"github.com/kopia/repo"
 )
 
 var (

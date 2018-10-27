@@ -8,13 +8,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/kopia/kopia/repo/object"
-
-	"github.com/kopia/kopia/repo/block"
-
-	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/storage"
-	"github.com/kopia/kopia/repo/storage/filesystem"
+	"github.com/kopia/repo"
+	"github.com/kopia/repo/block"
+	"github.com/kopia/repo/object"
+	"github.com/kopia/repo/storage"
+	"github.com/kopia/repo/storage/filesystem"
 )
 
 const masterPassword = "foobarbazfoobarbaz"

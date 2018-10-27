@@ -6,5 +6,5 @@ import (
 
 func init() {
 	userSettingsDir = os.Getenv("APPDATA")
-	userCacheDir = os.Getenv("LOCALAPPDATA")
+	userLogsDir = os.Getenv("LOCALAPPDATA")
 }

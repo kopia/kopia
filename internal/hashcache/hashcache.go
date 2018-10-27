@@ -1,7 +1,7 @@
 // Package hashcache implements streaming cache of file hashes.
 package hashcache
 
-import "github.com/kopia/kopia/repo/object"
+import "github.com/kopia/repo/object"
 
 var hashCacheStreamType = "kopia:hashcache"
 

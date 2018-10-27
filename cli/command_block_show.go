@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 
-	"github.com/kopia/kopia/repo"
+	"github.com/kopia/repo"
 )
 
 var (

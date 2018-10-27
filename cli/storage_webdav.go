@@ -3,8 +3,8 @@ package cli
 import (
 	"context"
 
-	"github.com/kopia/kopia/repo/storage"
-	"github.com/kopia/kopia/repo/storage/webdav"
+	"github.com/kopia/repo/storage"
+	"github.com/kopia/repo/storage/webdav"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 

@@ -12,7 +12,7 @@ import (
 
 	"github.com/jpillora/go-ogle-analytics"
 	"github.com/kopia/kopia/internal/ospath"
-	"github.com/kopia/kopia/repo"
+	"github.com/kopia/repo"
 )
 
 const (

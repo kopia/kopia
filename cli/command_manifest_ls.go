@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/kopia/kopia/repo"
+	"github.com/kopia/repo"
 )
 
 var (

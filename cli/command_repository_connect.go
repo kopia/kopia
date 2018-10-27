@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/block"
-	"github.com/kopia/kopia/repo/storage"
+	"github.com/kopia/repo"
+	"github.com/kopia/repo/block"
+	"github.com/kopia/repo/storage"
 
 	"gopkg.in/alecthomas/kingpin.v2"
 )

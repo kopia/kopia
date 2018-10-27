@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kopia/kopia/repo/storage"
+	"github.com/kopia/repo/storage"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 

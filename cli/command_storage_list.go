@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/storage"
+	"github.com/kopia/repo"
+	"github.com/kopia/repo/storage"
 )
 
 var (

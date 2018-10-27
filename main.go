@@ -24,7 +24,7 @@ import (
 	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/internal/ospath"
-	"github.com/kopia/kopia/repo"
+	"github.com/kopia/repo"
 
 	"gopkg.in/alecthomas/kingpin.v2"
 
