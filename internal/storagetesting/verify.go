@@ -64,7 +64,7 @@ func VerifyStorage(ctx context.Context, t *testing.T, r storage.Storage) {
 
 // AssertConnectionInfoRoundTrips verifies that the ConnectionInfo returned by a given storage can be used to create
 // equivalent storage
-func AssertConnectionInfoRoundTrips(ctx context.Context, t *testing.T, s storage.Storage) storage.Storage {
+func AssertConnectionInfoRoundTrips(ctx context.Context, t *testing.T, s storage.Storage) {
 	t.Helper()
 
 	ci := s.ConnectionInfo()
@@ -78,5 +78,7 @@ func AssertConnectionInfoRoundTrips(ctx context.Context, t *testing.T, s storage
 		t.Errorf("connection info does not round-trip: %v vs %v", ci, ci2)
 	}
 
-	return s2
+	if err := s2.Close(ctx); err != nil {
+		t.Errorf("unable to close storage: %v", err)
+	}
 }
