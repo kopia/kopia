@@ -34,4 +34,6 @@ func TestGCSStorage(t *testing.T) {
 	}
 
 	storagetesting.VerifyStorage(ctx, t, st)
+	storagetesting.AssertConnectionInfoRoundTrips(ctx, t, st)
+
 }

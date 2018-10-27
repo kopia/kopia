@@ -27,9 +27,13 @@ func VerifyStorage(ctx context.Context, t *testing.T, r storage.Storage) {
 		AssertGetBlockNotFound(ctx, t, r, b.blk)
 	}
 
+	ctx2 := storage.WithUploadProgressCallback(ctx, func(desc string, completed, total int64) {
+		log.Infof("progress %v: %v/%v", desc, completed, total)
+	})
+
 	// Now add blocks.
 	for _, b := range blocks {
-		if err := r.PutBlock(ctx, b.blk, b.contents); err != nil {
+		if err := r.PutBlock(ctx2, b.blk, b.contents); err != nil {
 			t.Errorf("can't put block: %v", err)
 		}
 
