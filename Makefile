@@ -3,9 +3,9 @@ all: test lint
 travis: test lint upload-coverage
 
 setup:
-	go get github.com/mattn/goveralls
-	go get -u gopkg.in/alecthomas/gometalinter.v2
-	gometalinter.v2 --install
+	GO111MODULE=off go get github.com/mattn/goveralls
+	GO111MODULE=off go get -u gopkg.in/alecthomas/gometalinter.v2
+	GO111MODULE=off gometalinter.v2 --install
 
 lint:
 	gometalinter.v2 ./...
