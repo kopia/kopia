@@ -3,10 +3,8 @@ package storagetesting
 import (
 	"bytes"
 	"context"
-	"fmt"
-	"path/filepath"
 	"reflect"
-	"runtime"
+	"sort"
 	"testing"
 
 	"github.com/kopia/repo/storage"
@@ -14,14 +12,16 @@ import (
 
 // AssertGetBlock asserts that the specified storage block has correct content.
 func AssertGetBlock(ctx context.Context, t *testing.T, s storage.Storage, block string, expected []byte) {
+	t.Helper()
+
 	b, err := s.GetBlock(ctx, block, 0, -1)
 	if err != nil {
-		t.Errorf(errorPrefix()+"GetBlock(%v) returned error %v, expected data: %v", block, err, expected)
+		t.Errorf("GetBlock(%v) returned error %v, expected data: %v", block, err, expected)
 		return
 	}
 
 	if !bytes.Equal(b, expected) {
-		t.Errorf(errorPrefix()+"GetBlock(%v) returned %x, but expected %x", block, b, expected)
+		t.Errorf("GetBlock(%v) returned %x, but expected %x", block, b, expected)
 	}
 
 	half := int64(len(expected) / 2)
@@ -31,36 +31,39 @@ func AssertGetBlock(ctx context.Context, t *testing.T, s storage.Storage, block 
 
 	b, err = s.GetBlock(ctx, block, 0, half)
 	if err != nil {
-		t.Errorf(errorPrefix()+"GetBlock(%v) returned error %v, expected data: %v", block, err, expected)
+		t.Errorf("GetBlock(%v) returned error %v, expected data: %v", block, err, expected)
 		return
 	}
 
 	if !bytes.Equal(b, expected[0:half]) {
-		t.Errorf(errorPrefix()+"GetBlock(%v) returned %x, but expected %x", block, b, expected[0:half])
+		t.Errorf("GetBlock(%v) returned %x, but expected %x", block, b, expected[0:half])
 	}
 
 	b, err = s.GetBlock(ctx, block, half, int64(len(expected))-half)
 	if err != nil {
-		t.Errorf(errorPrefix()+"GetBlock(%v) returned error %v, expected data: %v", block, err, expected)
+		t.Errorf("GetBlock(%v) returned error %v, expected data: %v", block, err, expected)
 		return
 	}
 
 	if !bytes.Equal(b, expected[len(expected)-int(half):]) {
-		t.Errorf(errorPrefix()+"GetBlock(%v) returned %x, but expected %x", block, b, expected[len(expected)-int(half):])
+		t.Errorf("GetBlock(%v) returned %x, but expected %x", block, b, expected[len(expected)-int(half):])
 	}
 
 }
 
 // AssertGetBlockNotFound asserts that GetBlock() for specified storage block returns ErrBlockNotFound.
 func AssertGetBlockNotFound(ctx context.Context, t *testing.T, s storage.Storage, block string) {
+	t.Helper()
+
 	b, err := s.GetBlock(ctx, block, 0, -1)
 	if err != storage.ErrBlockNotFound || b != nil {
-		t.Errorf(errorPrefix()+"GetBlock(%v) returned %v, %v but expected ErrBlockNotFound", block, b, err)
+		t.Errorf("GetBlock(%v) returned %v, %v but expected ErrBlockNotFound", block, b, err)
 	}
 }
 
 // AssertListResults asserts that the list results with given prefix return the specified list of names in order.
-func AssertListResults(ctx context.Context, t *testing.T, s storage.Storage, prefix string, expected ...string) {
+func AssertListResults(ctx context.Context, t *testing.T, s storage.Storage, prefix string, want ...string) {
+	t.Helper()
 	var names []string
 
 	if err := s.ListBlocks(ctx, prefix, func(e storage.BlockMetadata) error {
@@ -70,15 +73,16 @@ func AssertListResults(ctx context.Context, t *testing.T, s storage.Storage, pre
 		t.Fatalf("err: %v", err)
 	}
 
-	if !reflect.DeepEqual(names, expected) {
-		t.Errorf(errorPrefix()+"ListBlocks(%v) returned %v, but expected %v", prefix, names, expected)
+	names = sorted(names)
+	want = sorted(want)
+
+	if !reflect.DeepEqual(names, want) {
+		t.Errorf("ListBlocks(%v) returned %v, but wanted %v", prefix, names, want)
 	}
 }
 
-func errorPrefix() string {
-	if _, fn, line, ok := runtime.Caller(2); ok {
-		return fmt.Sprintf("called from %v:%v: ", filepath.Base(fn), line)
-	}
-
-	return ""
+func sorted(s []string) []string {
+	x := append([]string(nil), s...)
+	sort.Strings(x)
+	return x
 }

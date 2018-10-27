@@ -19,6 +19,7 @@ func VerifyStorage(ctx context.Context, t *testing.T, r storage.Storage) {
 		{blk: string("zxce0e35630770c54668a8cfb4e414c6bf8f"), contents: []byte{1}},
 		{blk: string("abff4585856ebf0748fd989e1dd623a8963d"), contents: bytes.Repeat([]byte{1}, 1000)},
 		{blk: string("abgc3dca496d510f492c858a2df1eb824e62"), contents: bytes.Repeat([]byte{1}, 10000)},
+		{blk: string("kopia.repository"), contents: bytes.Repeat([]byte{2}, 100)},
 	}
 
 	// First verify that blocks don't exist.
@@ -35,7 +36,25 @@ func VerifyStorage(ctx context.Context, t *testing.T, r storage.Storage) {
 		AssertGetBlock(ctx, t, r, b.blk, b.contents)
 	}
 
+	AssertListResults(ctx, t, r, "", blocks[0].blk, blocks[1].blk, blocks[2].blk, blocks[3].blk, blocks[4].blk)
 	AssertListResults(ctx, t, r, "ab", blocks[0].blk, blocks[2].blk, blocks[3].blk)
+
+	// Overwrite blocks.
+	for _, b := range blocks {
+		if err := r.PutBlock(ctx, b.blk, b.contents); err != nil {
+			t.Errorf("can't put block: %v", err)
+		}
+
+		AssertGetBlock(ctx, t, r, b.blk, b.contents)
+	}
+	if err := r.DeleteBlock(ctx, blocks[0].blk); err != nil {
+		t.Errorf("unable to delete block: %v", err)
+	}
+	if err := r.DeleteBlock(ctx, blocks[0].blk); err != nil {
+		t.Errorf("invalid error when deleting deleted block: %v", err)
+	}
+	AssertListResults(ctx, t, r, "ab", blocks[2].blk, blocks[3].blk)
+	AssertListResults(ctx, t, r, "", blocks[1].blk, blocks[2].blk, blocks[3].blk, blocks[4].blk)
 }
 
 // AssertConnectionInfoRoundTrips verifies that the ConnectionInfo returned by a given storage can be used to create
