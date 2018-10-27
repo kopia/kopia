@@ -33,6 +33,10 @@ github.com/jpillora/go-ogle-analytics v0.0.0-20161213085824-14b04e0594ef/go.mod 
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/kopia/repo v0.1.0 h1:7S8VGFFDS5ThRmOELVo0riltelD0b7KRloT4j3dmKCo=
 github.com/kopia/repo v0.1.0/go.mod h1:FlPsjIzXlkUE2E02a13v9Bv35cH75hOrGnCCct23oR0=
+github.com/kopia/repo v0.1.3 h1:hJE9v5zsBeyUBtovXt+JHHDsktKwNqcek1SRbJZvBfE=
+github.com/kopia/repo v0.1.3/go.mod h1:FlPsjIzXlkUE2E02a13v9Bv35cH75hOrGnCCct23oR0=
+github.com/kopia/repo v0.1.4 h1:o8pqK19J8YThZaMRfacRChuFc1ONznU8zZRZssegh38=
+github.com/kopia/repo v0.1.4/go.mod h1:FlPsjIzXlkUE2E02a13v9Bv35cH75hOrGnCCct23oR0=
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
 github.com/minio/minio-go v6.0.9+incompatible h1:1GBagCy3VtWteFBwjjNyajSf0JJ/iT0hYVlK8xipsds=
 github.com/minio/minio-go v6.0.9+incompatible/go.mod h1:7guKYtitv8dktvNUGrhzmNlA5wrAABTQXCoesZdFQO8=

@@ -7,7 +7,7 @@ require (
 	github.com/bgentry/speakeasy v0.1.0
 	github.com/bmizerany/pat v0.0.0-20170815010413-6226ea591a40
 	github.com/jpillora/go-ogle-analytics v0.0.0-20161213085824-14b04e0594ef
-	github.com/kopia/repo v0.1.0
+	github.com/kopia/repo v0.1.4
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
 	github.com/skratchdot/open-golang v0.0.0-20160302144031-75fb7ed4208c
 	github.com/zalando/go-keyring v0.0.0-20180221093347-6d81c293b3fb
