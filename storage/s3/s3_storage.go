@@ -98,13 +98,6 @@ func translateError(err error) error {
 	}
 
 	return err
-
-	switch err {
-	case nil:
-		return nil
-	default:
-		return fmt.Errorf("unexpected S3 error: %v", err)
-	}
 }
 
 func (s *s3Storage) PutBlock(ctx context.Context, b string, data []byte) error {

@@ -36,4 +36,10 @@ func TestGCSStorage(t *testing.T) {
 	storagetesting.VerifyStorage(ctx, t, st)
 	storagetesting.AssertConnectionInfoRoundTrips(ctx, t, st)
 
+	// delete everything again
+	if err := st.ListBlocks(ctx, "", func(bm storage.BlockMetadata) error {
+		return st.DeleteBlock(ctx, bm.BlockID)
+	}); err != nil {
+		t.Fatalf("unable to clear GCS bucket: %v", err)
+	}
 }
