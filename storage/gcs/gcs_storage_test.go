@@ -24,7 +24,7 @@ func TestGCSStorage(t *testing.T) {
 	})
 
 	if err != nil {
-		t.Fatalf("unable to connect to GCS")
+		t.Fatalf("unable to connect to GCS: %v", err)
 	}
 
 	if err := st.ListBlocks(ctx, "", func(bm storage.BlockMetadata) error {
