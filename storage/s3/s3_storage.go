@@ -55,8 +55,12 @@ func (s *s3Storage) GetBlock(ctx context.Context, b string, offset, length int64
 			return nil, err
 		}
 
-		if len(b) != int(length) && length >= 0 {
+		if len(b) != int(length) && length > 0 {
 			return nil, fmt.Errorf("invalid length, got %v bytes, but expected %v", len(b), length)
+		}
+
+		if length == 0 {
+			return []byte{}, nil
 		}
 
 		return b, nil
