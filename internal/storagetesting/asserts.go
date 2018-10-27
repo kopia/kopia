@@ -35,6 +35,11 @@ func AssertGetBlock(ctx context.Context, t *testing.T, s storage.Storage, block 
 		return
 	}
 
+	if len(b) != 0 {
+		t.Errorf("GetBlock(%v) returned non-zero length: %v", block, len(b))
+		return
+	}
+
 	b, err = s.GetBlock(ctx, block, 0, half)
 	if err != nil {
 		t.Errorf("GetBlock(%v) returned error %v, expected data: %v", block, err, expected)
@@ -61,6 +66,7 @@ func AssertGetBlock(ctx context.Context, t *testing.T, s storage.Storage, block 
 	AssertInvalidOffsetLength(ctx, t, s, block, int64(len(expected)+1), 3)
 }
 
+// AssertInvalidOffsetLength verifies that the given combination of (offset,length) fails on GetBlock()
 func AssertInvalidOffsetLength(ctx context.Context, t *testing.T, s storage.Storage, block string, offset, length int64) {
 	if _, err := s.GetBlock(ctx, block, offset, length); err == nil {
 		t.Errorf("GetBlock(%v,%v,%v) did not return error for invalid offset/length", block, offset, length)
