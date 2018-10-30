@@ -1,3 +1,5 @@
+//+build !test
+
 // Command repository_api demonstrates the use of Kopia's Repository API.
 package main
 
