@@ -190,10 +190,6 @@ func (gcs *gcsStorage) Close(ctx context.Context) error {
 	return nil
 }
 
-func (gcs *gcsStorage) String() string {
-	return fmt.Sprintf("gcs://%v/%v", gcs.BucketName, gcs.Prefix)
-}
-
 func toBandwidth(bytesPerSecond int) iothrottler.Bandwidth {
 	if bytesPerSecond <= 0 {
 		return iothrottler.Unlimited

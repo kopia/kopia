@@ -43,3 +43,25 @@ func TestGCSStorage(t *testing.T) {
 		t.Fatalf("unable to clear GCS bucket: %v", err)
 	}
 }
+
+func TestGCSStorageInvalid(t *testing.T) {
+	bucket := os.Getenv("KOPIA_GCS_TEST_BUCKET")
+	if bucket == "" {
+		t.Skip("KOPIA_GCS_TEST_BUCKET not provided")
+	}
+
+	ctx := context.Background()
+	st, err := gcs.New(ctx, &gcs.Options{
+		BucketName:                bucket + "-no-such-bucket",
+		ServiceAccountCredentials: os.Getenv("KOPIA_GCS_CREDENTIALS_FILE"),
+	})
+
+	if err != nil {
+		t.Fatalf("unable to connect to GCS: %v", err)
+	}
+
+	defer st.Close(ctx)
+	if err := st.PutBlock(ctx, "xxx", []byte{1, 2, 3}); err == nil {
+		t.Errorf("unexpecte success when adding to non-existent bucket")
+	}
+}
