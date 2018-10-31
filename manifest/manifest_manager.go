@@ -14,7 +14,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kopia/repo/block"
 	"github.com/kopia/repo/internal/repologging"
 	"github.com/kopia/repo/storage"
 )
@@ -27,10 +26,20 @@ var ErrNotFound = errors.New("not found")
 const manifestBlockPrefix = "m"
 const autoCompactionBlockCount = 16
 
+type blockManager interface {
+	GetBlock(ctx context.Context, blockID string) ([]byte, error)
+	WriteBlock(ctx context.Context, data []byte, prefix string) (string, error)
+	DeleteBlock(blockID string) error
+	ListBlocks(prefix string) ([]string, error)
+	DisableIndexFlush()
+	EnableIndexFlush()
+	Flush(ctx context.Context) error
+}
+
 // Manager organizes JSON manifests of various kinds, including snapshot manifests
 type Manager struct {
 	mu sync.Mutex
-	b  *block.Manager
+	b  blockManager
 
 	initialized    bool
 	pendingEntries map[string]*manifestEntry
@@ -58,7 +67,7 @@ func (m *Manager) Put(ctx context.Context, labels map[string]string, payload int
 
 	b, err := json.Marshal(payload)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("marshal error: %v", err)
 	}
 
 	e := &manifestEntry{
@@ -502,7 +511,7 @@ func copyLabels(m map[string]string) map[string]string {
 }
 
 // NewManager returns new manifest manager for the provided block manager.
-func NewManager(ctx context.Context, b *block.Manager) (*Manager, error) {
+func NewManager(ctx context.Context, b blockManager) (*Manager, error) {
 	m := &Manager{
 		b:                 b,
 		pendingEntries:    map[string]*manifestEntry{},

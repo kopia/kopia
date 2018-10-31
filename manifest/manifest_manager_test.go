@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -146,6 +147,15 @@ func verifyItem(ctx context.Context, t *testing.T, mgr *Manager, id string, labe
 	if !reflect.DeepEqual(l.Labels, labels) {
 		t.Errorf("invalid labels retrieved %v, wanted %v", l.Labels, labels)
 	}
+
+	var d2 map[string]int
+	if err := mgr.Get(ctx, id, &d2); err != nil {
+		t.Errorf("Get failed: %v", err)
+	}
+
+	if !reflect.DeepEqual(d2, data) {
+		t.Errorf("invalid data retrieved %v, wanted %v", d2, data)
+	}
 }
 
 func verifyItemNotFound(ctx context.Context, t *testing.T, mgr *Manager, id string) {
@@ -190,4 +200,46 @@ func newManagerForTesting(ctx context.Context, t *testing.T, data map[string][]b
 	}
 
 	return NewManager(ctx, bm)
+}
+
+func TestManifestInvalidPut(t *testing.T) {
+	ctx := context.Background()
+	data := map[string][]byte{}
+	mgr, setupErr := newManagerForTesting(ctx, t, data)
+	if setupErr != nil {
+		t.Fatalf("unable to open block manager: %v", setupErr)
+	}
+
+	cases := []struct {
+		labels        map[string]string
+		payload       interface{}
+		expectedError string
+	}{
+		{map[string]string{"": ""}, "xxx", "'type' label is required"},
+		{map[string]string{"type": "blah"}, complex128(1), "marshal error"},
+	}
+
+	for i, tc := range cases {
+		_, err := mgr.Put(ctx, tc.labels, tc.payload)
+		if err == nil || !strings.Contains(err.Error(), tc.expectedError) {
+			t.Errorf("invalid error when putting case %v: %v, expected %v", i, err, tc.expectedError)
+		}
+	}
+}
+
+func TestManifestAutoCompaction(t *testing.T) {
+	ctx := context.Background()
+	data := map[string][]byte{}
+
+	for i := 0; i < 100; i++ {
+		mgr, setupErr := newManagerForTesting(ctx, t, data)
+		if setupErr != nil {
+			t.Fatalf("unable to open block manager: %v", setupErr)
+		}
+
+		item1 := map[string]int{"foo": 1, "bar": 2}
+		labels1 := map[string]string{"type": "item", "color": "red"}
+		addAndVerify(ctx, t, mgr, labels1, item1)
+		mgr.Flush(ctx)
+	}
 }
