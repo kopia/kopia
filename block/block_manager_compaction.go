@@ -5,8 +5,6 @@ import (
 	"context"
 	"fmt"
 	"time"
-
-	"github.com/kopia/repo/internal/packindex"
 )
 
 var autoCompactionOptions = CompactOptions{
@@ -91,7 +89,7 @@ func (bm *Manager) compactAndDeleteIndexBlocks(ctx context.Context, indexBlocks 
 	formatLog.Debugf("compacting %v blocks", len(indexBlocks))
 	t0 := time.Now()
 
-	bld := packindex.NewBuilder()
+	bld := make(packIndexBuilder)
 	for _, indexBlock := range indexBlocks {
 		if err := bm.addIndexBlocksToBuilder(ctx, bld, indexBlock, opt); err != nil {
 			return err
@@ -124,13 +122,13 @@ func (bm *Manager) compactAndDeleteIndexBlocks(ctx context.Context, indexBlocks 
 	return nil
 }
 
-func (bm *Manager) addIndexBlocksToBuilder(ctx context.Context, bld packindex.Builder, indexBlock IndexInfo, opt CompactOptions) error {
+func (bm *Manager) addIndexBlocksToBuilder(ctx context.Context, bld packIndexBuilder, indexBlock IndexInfo, opt CompactOptions) error {
 	data, err := bm.getPhysicalBlockInternal(ctx, indexBlock.FileName)
 	if err != nil {
 		return err
 	}
 
-	index, err := packindex.Open(bytes.NewReader(data))
+	index, err := openPackIndex(bytes.NewReader(data))
 	if err != nil {
 		return fmt.Errorf("unable to open index block %q: %v", indexBlock, err)
 	}

@@ -1,4 +1,4 @@
-package packindex
+package block
 
 import (
 	"bytes"
@@ -9,8 +9,8 @@ import (
 	"strings"
 )
 
-// Index is a read-only index of packed blocks.
-type Index interface {
+// packIndex is a read-only index of packed blocks.
+type packIndex interface {
 	io.Closer
 
 	GetInfo(blockID string) (*Info, error)
@@ -186,8 +186,8 @@ func (b *index) Close() error {
 	return nil
 }
 
-// Open reads an Index from a given reader. The caller must call Close() when the index is no longer used.
-func Open(readerAt io.ReaderAt) (Index, error) {
+// openPackIndex reads an Index from a given reader. The caller must call Close() when the index is no longer used.
+func openPackIndex(readerAt io.ReaderAt) (packIndex, error) {
 	h, err := readHeader(readerAt)
 	if err != nil {
 		return nil, fmt.Errorf("invalid header: %v", err)

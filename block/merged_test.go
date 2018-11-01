@@ -1,43 +1,41 @@
-package packindex_test
+package block
 
 import (
 	"bytes"
 	"fmt"
 	"reflect"
 	"testing"
-
-	"github.com/kopia/repo/internal/packindex"
 )
 
 func TestMerged(t *testing.T) {
 	i1, err := indexWithItems(
-		packindex.Info{BlockID: "aabbcc", TimestampSeconds: 1, PackFile: "xx", PackOffset: 11},
-		packindex.Info{BlockID: "ddeeff", TimestampSeconds: 1, PackFile: "xx", PackOffset: 111},
-		packindex.Info{BlockID: "z010203", TimestampSeconds: 1, PackFile: "xx", PackOffset: 111},
-		packindex.Info{BlockID: "de1e1e", TimestampSeconds: 4, PackFile: "xx", PackOffset: 111},
+		Info{BlockID: "aabbcc", TimestampSeconds: 1, PackFile: "xx", PackOffset: 11},
+		Info{BlockID: "ddeeff", TimestampSeconds: 1, PackFile: "xx", PackOffset: 111},
+		Info{BlockID: "z010203", TimestampSeconds: 1, PackFile: "xx", PackOffset: 111},
+		Info{BlockID: "de1e1e", TimestampSeconds: 4, PackFile: "xx", PackOffset: 111},
 	)
 	if err != nil {
 		t.Fatalf("can't create index: %v", err)
 	}
 	i2, err := indexWithItems(
-		packindex.Info{BlockID: "aabbcc", TimestampSeconds: 3, PackFile: "yy", PackOffset: 33},
-		packindex.Info{BlockID: "xaabbcc", TimestampSeconds: 1, PackFile: "xx", PackOffset: 111},
-		packindex.Info{BlockID: "de1e1e", TimestampSeconds: 4, PackFile: "xx", PackOffset: 222, Deleted: true},
+		Info{BlockID: "aabbcc", TimestampSeconds: 3, PackFile: "yy", PackOffset: 33},
+		Info{BlockID: "xaabbcc", TimestampSeconds: 1, PackFile: "xx", PackOffset: 111},
+		Info{BlockID: "de1e1e", TimestampSeconds: 4, PackFile: "xx", PackOffset: 222, Deleted: true},
 	)
 	if err != nil {
 		t.Fatalf("can't create index: %v", err)
 	}
 	i3, err := indexWithItems(
-		packindex.Info{BlockID: "aabbcc", TimestampSeconds: 2, PackFile: "zz", PackOffset: 22},
-		packindex.Info{BlockID: "ddeeff", TimestampSeconds: 1, PackFile: "zz", PackOffset: 222},
-		packindex.Info{BlockID: "k010203", TimestampSeconds: 1, PackFile: "xx", PackOffset: 111},
-		packindex.Info{BlockID: "k020304", TimestampSeconds: 1, PackFile: "xx", PackOffset: 111},
+		Info{BlockID: "aabbcc", TimestampSeconds: 2, PackFile: "zz", PackOffset: 22},
+		Info{BlockID: "ddeeff", TimestampSeconds: 1, PackFile: "zz", PackOffset: 222},
+		Info{BlockID: "k010203", TimestampSeconds: 1, PackFile: "xx", PackOffset: 111},
+		Info{BlockID: "k020304", TimestampSeconds: 1, PackFile: "xx", PackOffset: 111},
 	)
 	if err != nil {
 		t.Fatalf("can't create index: %v", err)
 	}
 
-	m := packindex.Merged{i1, i2, i3}
+	m := mergedIndex{i1, i2, i3}
 	i, err := m.GetInfo("aabbcc")
 	if err != nil || i == nil {
 		t.Fatalf("unable to get info: %v", err)
@@ -47,7 +45,7 @@ func TestMerged(t *testing.T) {
 	}
 
 	var inOrder []string
-	m.Iterate("", func(i packindex.Info) error {
+	m.Iterate("", func(i Info) error {
 		inOrder = append(inOrder, i.BlockID)
 		if i.BlockID == "de1e1e" {
 			if i.Deleted {
@@ -81,8 +79,8 @@ func TestMerged(t *testing.T) {
 	}
 }
 
-func indexWithItems(items ...packindex.Info) (packindex.Index, error) {
-	b := packindex.NewBuilder()
+func indexWithItems(items ...Info) (packIndex, error) {
+	b := make(packIndexBuilder)
 	for _, it := range items {
 		b.Add(it)
 	}
@@ -90,5 +88,5 @@ func indexWithItems(items ...packindex.Info) (packindex.Index, error) {
 	if err := b.Build(&buf); err != nil {
 		return nil, fmt.Errorf("build error: %v", err)
 	}
-	return packindex.Open(bytes.NewReader(buf.Bytes()))
+	return openPackIndex(bytes.NewReader(buf.Bytes()))
 }

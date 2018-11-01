@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/kopia/repo/internal/packindex"
 	"github.com/kopia/repo/storage"
 )
 
@@ -13,14 +12,14 @@ type committedBlockIndex struct {
 	cache committedBlockIndexCache
 
 	mu     sync.Mutex
-	inUse  map[string]packindex.Index
-	merged packindex.Merged
+	inUse  map[string]packIndex
+	merged mergedIndex
 }
 
 type committedBlockIndexCache interface {
 	hasIndexBlockID(indexBlockID string) (bool, error)
 	addBlockToCache(indexBlockID string, data []byte) error
-	openIndex(indexBlockID string) (packindex.Index, error)
+	openIndex(indexBlockID string) (packIndex, error)
 	expireUnused(used []string) error
 }
 
@@ -65,7 +64,7 @@ func (b *committedBlockIndex) addBlock(indexBlockID string, data []byte, use boo
 
 func (b *committedBlockIndex) listBlocks(prefix string, cb func(i Info) error) error {
 	b.mu.Lock()
-	m := append(packindex.Merged(nil), b.merged...)
+	m := append(mergedIndex(nil), b.merged...)
 	b.mu.Unlock()
 
 	return m.Iterate(prefix, cb)
@@ -94,8 +93,8 @@ func (b *committedBlockIndex) use(packFiles []string) (bool, error) {
 	}
 	log.Debugf("set of index files has changed (had %v, now %v)", len(b.inUse), len(packFiles))
 
-	var newMerged packindex.Merged
-	newInUse := map[string]packindex.Index{}
+	var newMerged mergedIndex
+	newInUse := map[string]packIndex{}
 	defer func() {
 		newMerged.Close() //nolint:errcheck
 	}()
@@ -128,12 +127,12 @@ func newCommittedBlockIndex(caching CachingOptions) (*committedBlockIndex, error
 		cache = &diskCommittedBlockIndexCache{dirname}
 	} else {
 		cache = &memoryCommittedBlockIndexCache{
-			blocks: map[string]packindex.Index{},
+			blocks: map[string]packIndex{},
 		}
 	}
 
 	return &committedBlockIndex{
 		cache: cache,
-		inUse: map[string]packindex.Index{},
+		inUse: map[string]packIndex{},
 	}, nil
 }

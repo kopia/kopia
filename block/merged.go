@@ -1,15 +1,15 @@
-package packindex
+package block
 
 import (
 	"container/heap"
 	"errors"
 )
 
-// Merged is an implementation of Index that transparently merges retuns from underlying Indexes.
-type Merged []Index
+// mergedIndex is an implementation of Index that transparently merges retuns from underlying Indexes.
+type mergedIndex []packIndex
 
 // Close closes all underlying indexes.
-func (m Merged) Close() error {
+func (m mergedIndex) Close() error {
 	for _, ndx := range m {
 		if err := ndx.Close(); err != nil {
 			return err
@@ -20,7 +20,7 @@ func (m Merged) Close() error {
 }
 
 // GetInfo returns information about a single block. If a block is not found, returns (nil,nil)
-func (m Merged) GetInfo(contentID string) (*Info, error) {
+func (m mergedIndex) GetInfo(contentID string) (*Info, error) {
 	var best *Info
 	for _, ndx := range m {
 		i, err := ndx.GetInfo(contentID)
@@ -68,7 +68,7 @@ func (h *nextInfoHeap) Pop() interface{} {
 	return x
 }
 
-func iterateChan(prefix string, ndx Index, done chan bool) <-chan Info {
+func iterateChan(prefix string, ndx packIndex, done chan bool) <-chan Info {
 	ch := make(chan Info)
 	go func() {
 		defer close(ch)
@@ -87,7 +87,7 @@ func iterateChan(prefix string, ndx Index, done chan bool) <-chan Info {
 
 // Iterate invokes the provided callback for all unique block IDs in the underlying sources until either
 // all blocks have been visited or until an error is returned by the callback.
-func (m Merged) Iterate(prefix string, cb func(i Info) error) error {
+func (m mergedIndex) Iterate(prefix string, cb func(i Info) error) error {
 	var minHeap nextInfoHeap
 	done := make(chan bool)
 	defer close(done)
@@ -129,4 +129,4 @@ func (m Merged) Iterate(prefix string, cb func(i Info) error) error {
 	return nil
 }
 
-var _ Index = (*Merged)(nil)
+var _ packIndex = (*mergedIndex)(nil)

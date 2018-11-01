@@ -15,7 +15,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kopia/repo/internal/packindex"
 	"github.com/kopia/repo/internal/storagetesting"
 	"github.com/kopia/repo/storage"
 	logging "github.com/op/go-logging"
@@ -803,10 +802,10 @@ func dumpBlockManagerData(t *testing.T, data map[string][]byte) {
 	t.Helper()
 	for k, v := range data {
 		if k[0] == 'n' {
-			ndx, err := packindex.Open(bytes.NewReader(v))
+			ndx, err := openPackIndex(bytes.NewReader(v))
 			if err == nil {
 				t.Logf("index %v (%v bytes)", k, len(v))
-				ndx.Iterate("", func(i packindex.Info) error {
+				ndx.Iterate("", func(i Info) error {
 					t.Logf("  %+v\n", i)
 					return nil
 				})

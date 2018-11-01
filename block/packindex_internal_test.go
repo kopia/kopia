@@ -1,4 +1,4 @@
-package packindex
+package block
 
 import "testing"
 

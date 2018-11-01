@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"hash/crc32"
 	"reflect"
-
-	"github.com/kopia/repo/internal/packindex"
 )
 
 // RecoverIndexFromPackFile attempts to recover index block entries from a given pack file.
@@ -19,10 +17,11 @@ func (bm *Manager) RecoverIndexFromPackFile(ctx context.Context, packFile string
 		return nil, err
 	}
 
-	ndx, err := packindex.Open(bytes.NewReader(localIndexBytes))
+	ndx, err := openPackIndex(bytes.NewReader(localIndexBytes))
 	if err != nil {
 		return nil, fmt.Errorf("unable to open index in file %v", packFile)
 	}
+	defer ndx.Close()
 
 	var recovered []Info
 
@@ -147,7 +146,7 @@ func decodePostamble(payload []byte) *packBlockPostamble {
 	}
 }
 
-func (bm *Manager) buildLocalIndex(pending packindex.Builder) ([]byte, error) {
+func (bm *Manager) buildLocalIndex(pending packIndexBuilder) ([]byte, error) {
 	var buf bytes.Buffer
 	if err := pending.Build(&buf); err != nil {
 		return nil, fmt.Errorf("unable to build local index: %v", err)
@@ -157,7 +156,7 @@ func (bm *Manager) buildLocalIndex(pending packindex.Builder) ([]byte, error) {
 }
 
 // appendPackFileIndexRecoveryData appends data designed to help with recovery of pack index in case it gets damaged or lost.
-func (bm *Manager) appendPackFileIndexRecoveryData(blockData []byte, pending packindex.Builder) ([]byte, error) {
+func (bm *Manager) appendPackFileIndexRecoveryData(blockData []byte, pending packIndexBuilder) ([]byte, error) {
 	// build, encrypt and append local index
 	localIndexOffset := len(blockData)
 	localIndex, err := bm.buildLocalIndex(pending)

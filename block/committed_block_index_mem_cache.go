@@ -4,13 +4,11 @@ import (
 	"bytes"
 	"fmt"
 	"sync"
-
-	"github.com/kopia/repo/internal/packindex"
 )
 
 type memoryCommittedBlockIndexCache struct {
 	mu     sync.Mutex
-	blocks map[string]packindex.Index
+	blocks map[string]packIndex
 }
 
 func (m *memoryCommittedBlockIndexCache) hasIndexBlockID(indexBlockID string) (bool, error) {
@@ -24,7 +22,7 @@ func (m *memoryCommittedBlockIndexCache) addBlockToCache(indexBlockID string, da
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	ndx, err := packindex.Open(bytes.NewReader(data))
+	ndx, err := openPackIndex(bytes.NewReader(data))
 	if err != nil {
 		return err
 	}
@@ -33,7 +31,7 @@ func (m *memoryCommittedBlockIndexCache) addBlockToCache(indexBlockID string, da
 	return nil
 }
 
-func (m *memoryCommittedBlockIndexCache) openIndex(indexBlockID string) (packindex.Index, error) {
+func (m *memoryCommittedBlockIndexCache) openIndex(indexBlockID string) (packIndex, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 

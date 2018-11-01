@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kopia/repo/internal/packindex"
 	"golang.org/x/exp/mmap"
 )
 
@@ -25,7 +24,7 @@ func (c *diskCommittedBlockIndexCache) indexBlockPath(indexBlockID string) strin
 	return filepath.Join(c.dirname, indexBlockID+simpleIndexSuffix)
 }
 
-func (c *diskCommittedBlockIndexCache) openIndex(indexBlockID string) (packindex.Index, error) {
+func (c *diskCommittedBlockIndexCache) openIndex(indexBlockID string) (packIndex, error) {
 	fullpath := c.indexBlockPath(indexBlockID)
 
 	f, err := mmap.Open(fullpath)
@@ -33,7 +32,7 @@ func (c *diskCommittedBlockIndexCache) openIndex(indexBlockID string) (packindex
 		return nil, err
 	}
 
-	return packindex.Open(f)
+	return openPackIndex(f)
 }
 
 func (c *diskCommittedBlockIndexCache) hasIndexBlockID(indexBlockID string) (bool, error) {

@@ -18,7 +18,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/kopia/repo/internal/packindex"
 	"github.com/kopia/repo/internal/repologging"
 	"github.com/kopia/repo/storage"
 )
@@ -44,9 +43,6 @@ const (
 	indexLoadAttempts = 10
 )
 
-// Info is an information about a single block managed by Manager.
-type Info = packindex.Info
-
 // IndexInfo is an information about a single index block managed by Manager.
 type IndexInfo struct {
 	FileName  string
@@ -67,9 +63,9 @@ type Manager struct {
 	locked                  bool
 	checkInvariantsOnUnlock bool
 
-	currentPackItems      map[string]Info   // blocks that are in the pack block currently being built (all inline)
-	currentPackDataLength int               // total length of all items in the current pack block
-	packIndexBuilder      packindex.Builder // blocks that are in index currently being built (current pack and all packs saved but not committed)
+	currentPackItems      map[string]Info  // blocks that are in the pack block currently being built (all inline)
+	currentPackDataLength int              // total length of all items in the current pack block
+	packIndexBuilder      packIndexBuilder // blocks that are in index currently being built (current pack and all packs saved but not committed)
 	committedBlocks       *committedBlockIndex
 
 	disableIndexFlushCount int
@@ -300,7 +296,7 @@ func (bm *Manager) flushPackIndexesLocked(ctx context.Context) error {
 		if err := bm.committedBlocks.addBlock(indexBlockID, dataCopy, true); err != nil {
 			return fmt.Errorf("unable to add committed block: %v", err)
 		}
-		bm.packIndexBuilder = packindex.NewBuilder()
+		bm.packIndexBuilder = make(packIndexBuilder)
 	}
 
 	bm.flushPackIndexesAfter = bm.timeNow().Add(flushPackIndexTimeout)
@@ -352,7 +348,7 @@ func (bm *Manager) writePackBlockLocked(ctx context.Context) error {
 	return nil
 }
 
-func (bm *Manager) preparePackDataBlock(packFile string) ([]byte, packindex.Builder, error) {
+func (bm *Manager) preparePackDataBlock(packFile string) ([]byte, packIndexBuilder, error) {
 	formatLog.Debugf("preparing block data with %v items", len(bm.currentPackItems))
 
 	blockData, err := appendRandomBytes(nil, rand.Intn(bm.maxPreambleLength-bm.minPreambleLength+1)+bm.minPreambleLength)
@@ -360,7 +356,7 @@ func (bm *Manager) preparePackDataBlock(packFile string) ([]byte, packindex.Buil
 		return nil, nil, fmt.Errorf("unable to prepare block preamble: %v", err)
 	}
 
-	packFileIndex := packindex.Builder{}
+	packFileIndex := packIndexBuilder{}
 	for blockID, info := range bm.currentPackItems {
 		if info.Payload == nil {
 			continue
@@ -985,7 +981,7 @@ func newManagerWithOptions(ctx context.Context, st storage.Storage, f Formatting
 		maxPackSize:           f.MaxPackSize,
 		formatter:             formatter,
 		currentPackItems:      make(map[string]Info),
-		packIndexBuilder:      packindex.NewBuilder(),
+		packIndexBuilder:      make(packIndexBuilder),
 		committedBlocks:       blockIndex,
 		minPreambleLength:     defaultMinPreambleLength,
 		maxPreambleLength:     defaultMaxPreambleLength,

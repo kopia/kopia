@@ -1,4 +1,4 @@
-package packindex_test
+package block
 
 import (
 	"bytes"
@@ -9,8 +9,6 @@ import (
 	"reflect"
 	"strings"
 	"testing"
-
-	"github.com/kopia/repo/internal/packindex"
 )
 
 func TestPackIndex(t *testing.T) {
@@ -58,11 +56,11 @@ func TestPackIndex(t *testing.T) {
 		return int64(rand.Int31())
 	}
 
-	var infos []packindex.Info
+	var infos []Info
 
 	// deleted blocks with all information
 	for i := 0; i < 100; i++ {
-		infos = append(infos, packindex.Info{
+		infos = append(infos, Info{
 			TimestampSeconds: randomUnixTime(),
 			Deleted:          true,
 			BlockID:          deterministicBlockID("deleted-packed", i),
@@ -74,7 +72,7 @@ func TestPackIndex(t *testing.T) {
 	}
 	// non-deleted block
 	for i := 0; i < 100; i++ {
-		infos = append(infos, packindex.Info{
+		infos = append(infos, Info{
 			TimestampSeconds: randomUnixTime(),
 			BlockID:          deterministicBlockID("packed", i),
 			PackFile:         deterministicPackFile(i),
@@ -84,10 +82,10 @@ func TestPackIndex(t *testing.T) {
 		})
 	}
 
-	infoMap := map[string]packindex.Info{}
-	b1 := packindex.NewBuilder()
-	b2 := packindex.NewBuilder()
-	b3 := packindex.NewBuilder()
+	infoMap := map[string]Info{}
+	b1 := make(packIndexBuilder)
+	b2 := make(packIndexBuilder)
+	b3 := make(packIndexBuilder)
 
 	for _, info := range infos {
 		infoMap[info.BlockID] = info
@@ -123,7 +121,7 @@ func TestPackIndex(t *testing.T) {
 		fuzzTestIndexOpen(t, data1)
 	})
 
-	ndx, err := packindex.Open(bytes.NewReader(data1))
+	ndx, err := openPackIndex(bytes.NewReader(data1))
 	if err != nil {
 		t.Fatalf("can't open index: %v", err)
 	}
@@ -141,7 +139,7 @@ func TestPackIndex(t *testing.T) {
 	}
 
 	cnt := 0
-	ndx.Iterate("", func(info2 packindex.Info) error {
+	ndx.Iterate("", func(info2 Info) error {
 		info := infoMap[info2.BlockID]
 		if !reflect.DeepEqual(info, info2) {
 			t.Errorf("invalid value retrieved: %+v, wanted %+v", info2, info)
@@ -168,7 +166,7 @@ func TestPackIndex(t *testing.T) {
 
 	for _, prefix := range prefixes {
 		cnt2 := 0
-		ndx.Iterate(string(prefix), func(info2 packindex.Info) error {
+		ndx.Iterate(string(prefix), func(info2 Info) error {
 			cnt2++
 			if !strings.HasPrefix(string(info2.BlockID), string(prefix)) {
 				t.Errorf("unexpected item %v when iterating prefix %v", info2.BlockID, prefix)
@@ -184,13 +182,13 @@ func fuzzTestIndexOpen(t *testing.T, originalData []byte) {
 	rnd := rand.New(rand.NewSource(12345))
 
 	fuzzTest(rnd, originalData, 50000, func(d []byte) {
-		ndx, err := packindex.Open(bytes.NewReader(d))
+		ndx, err := openPackIndex(bytes.NewReader(d))
 		if err != nil {
 			return
 		}
 		defer ndx.Close()
 		cnt := 0
-		ndx.Iterate("", func(cb packindex.Info) error {
+		ndx.Iterate("", func(cb Info) error {
 			if cnt < 10 {
 				ndx.GetInfo(cb.BlockID)
 			}

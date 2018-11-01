@@ -1,4 +1,4 @@
-package packindex
+package block
 
 import (
 	"bufio"
@@ -8,18 +8,18 @@ import (
 	"sort"
 )
 
-// Builder prepares and writes block index for writing.
-type Builder map[string]*Info
+// packIndexBuilder prepares and writes block index for writing.
+type packIndexBuilder map[string]*Info
 
 // Add adds a new entry to the builder or conditionally replaces it if the timestamp is greater.
-func (b Builder) Add(i Info) {
+func (b packIndexBuilder) Add(i Info) {
 	old, ok := b[i.BlockID]
 	if !ok || i.TimestampSeconds >= old.TimestampSeconds {
 		b[i.BlockID] = &i
 	}
 }
 
-func (b Builder) sortedBlocks() []*Info {
+func (b packIndexBuilder) sortedBlocks() []*Info {
 	var allBlocks []*Info
 
 	for _, v := range b {
@@ -42,7 +42,7 @@ type indexLayout struct {
 }
 
 // Build writes the pack index to the provided output.
-func (b Builder) Build(output io.Writer) error {
+func (b packIndexBuilder) Build(output io.Writer) error {
 	allBlocks := b.sortedBlocks()
 	layout := &indexLayout{
 		packFileOffsets: map[string]uint32{},
@@ -144,9 +144,4 @@ func formatEntry(entry []byte, it *Info, layout *indexLayout) error {
 	timestampAndFlags |= uint64(len(it.PackFile))
 	binary.BigEndian.PutUint64(entryTimestampAndFlags, timestampAndFlags)
 	return nil
-}
-
-// NewBuilder creates a new Builder.
-func NewBuilder() Builder {
-	return make(map[string]*Info)
 }
