@@ -28,7 +28,7 @@ var fakeTime = time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC)
 var hmacSecret = []byte{1, 2, 3}
 
 func init() {
-	logging.SetLevel(logging.INFO, "")
+	logging.SetLevel(logging.DEBUG, "")
 }
 
 func TestBlockManagerEmptyFlush(t *testing.T) {
@@ -566,6 +566,93 @@ func TestDeleteAndRecreate(t *testing.T) {
 				verifyBlockNotFound(ctx, t, bm3, block1)
 			}
 		})
+	}
+}
+
+func TestFindUnreferencedStorageFiles(t *testing.T) {
+	ctx := context.Background()
+	data := map[string][]byte{}
+	keyTime := map[string]time.Time{}
+	bm := newTestBlockManager(data, keyTime, nil)
+	verifyUnreferencedStorageFilesCount(ctx, t, bm, 0)
+	blockID := writeBlockAndVerify(ctx, t, bm, seededRandomData(10, 100))
+	if err := bm.Flush(ctx); err != nil {
+		t.Errorf("flush error: %v", err)
+	}
+	verifyUnreferencedStorageFilesCount(ctx, t, bm, 0)
+	if err := bm.DeleteBlock(blockID); err != nil {
+		t.Errorf("error deleting block: %v", blockID)
+	}
+	if err := bm.Flush(ctx); err != nil {
+		t.Errorf("flush error: %v", err)
+	}
+
+	// block still present in first pack
+	verifyUnreferencedStorageFilesCount(ctx, t, bm, 0)
+
+	bm.RewriteBlock(ctx, blockID)
+	if err := bm.Flush(ctx); err != nil {
+		t.Errorf("flush error: %v", err)
+	}
+	verifyUnreferencedStorageFilesCount(ctx, t, bm, 1)
+	bm.RewriteBlock(ctx, blockID)
+	if err := bm.Flush(ctx); err != nil {
+		t.Errorf("flush error: %v", err)
+	}
+	verifyUnreferencedStorageFilesCount(ctx, t, bm, 2)
+}
+
+func TestFindUnreferencedStorageFiles2(t *testing.T) {
+	ctx := context.Background()
+	data := map[string][]byte{}
+	keyTime := map[string]time.Time{}
+	bm := newTestBlockManager(data, keyTime, nil)
+	verifyUnreferencedStorageFilesCount(ctx, t, bm, 0)
+	blockID := writeBlockAndVerify(ctx, t, bm, seededRandomData(10, 100))
+	writeBlockAndVerify(ctx, t, bm, seededRandomData(11, 100))
+	dumpBlocks(t, bm, "after writing")
+	if err := bm.Flush(ctx); err != nil {
+		t.Errorf("flush error: %v", err)
+	}
+	dumpBlocks(t, bm, "after flush")
+	verifyUnreferencedStorageFilesCount(ctx, t, bm, 0)
+	if err := bm.DeleteBlock(blockID); err != nil {
+		t.Errorf("error deleting block: %v", blockID)
+	}
+	dumpBlocks(t, bm, "after delete")
+	if err := bm.Flush(ctx); err != nil {
+		t.Errorf("flush error: %v", err)
+	}
+	dumpBlocks(t, bm, "after flush")
+	// block present in first pack, original pack is still referenced
+	verifyUnreferencedStorageFilesCount(ctx, t, bm, 0)
+}
+
+func dumpBlocks(t *testing.T, bm *Manager, caption string) {
+	t.Helper()
+	infos, err := bm.ListBlockInfos("", true)
+	if err != nil {
+		t.Errorf("error listing blocks: %v", err)
+		return
+	}
+
+	log.Infof("**** dumping %v blocks %v", len(infos), caption)
+	for i, bi := range infos {
+		log.Debugf(" bi[%v]=%#v", i, bi)
+	}
+	log.Infof("finished dumping %v blocks", len(infos))
+}
+
+func verifyUnreferencedStorageFilesCount(ctx context.Context, t *testing.T, bm *Manager, want int) {
+	t.Helper()
+	unref, err := bm.FindUnreferencedStorageFiles(ctx)
+	if err != nil {
+		t.Errorf("error in FindUnreferencedStorageFiles: %v", err)
+	}
+
+	log.Infof("got %v expecting %v", unref, want)
+	if got := len(unref); got != want {
+		t.Errorf("invalid number of unreferenced blocks: %v, wanted %v", got, want)
 	}
 }
 

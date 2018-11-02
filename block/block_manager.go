@@ -336,11 +336,13 @@ func (bm *Manager) writePackBlockLocked(ctx context.Context) error {
 		return fmt.Errorf("error preparing data block: %v", err)
 	}
 
-	if err := bm.writePackFileNotLocked(ctx, packFile, blockData); err != nil {
-		return fmt.Errorf("can't save pack data block: %v", err)
+	if len(blockData) > 0 {
+		if err := bm.writePackFileNotLocked(ctx, packFile, blockData); err != nil {
+			return fmt.Errorf("can't save pack data block: %v", err)
+		}
 	}
 
-	formatLog.Debugf("wrote pack file: %v", packFile)
+	formatLog.Debugf("wrote pack file: %v (%v bytes)", packFile, len(blockData))
 	for _, info := range packFileIndex {
 		bm.packIndexBuilder.Add(*info)
 	}
@@ -575,7 +577,7 @@ func (bm *Manager) ListBlockInfos(prefix string, includeDeleted bool) ([]Info, e
 		if (i.Deleted && !includeDeleted) || !strings.HasPrefix(i.BlockID, prefix) {
 			return nil
 		}
-		if bi, ok := bm.packIndexBuilder[i.BlockID]; ok && bi.Deleted {
+		if i.Deleted && !includeDeleted {
 			return nil
 		}
 		result = append(result, i)
@@ -761,12 +763,13 @@ func (bm *Manager) BlockInfo(ctx context.Context, blockID string) (Info, error) 
 
 // FindUnreferencedStorageFiles returns the list of unreferenced storage blocks.
 func (bm *Manager) FindUnreferencedStorageFiles(ctx context.Context) ([]storage.BlockMetadata, error) {
-	infos, err := bm.ListBlockInfos("", false)
+	infos, err := bm.ListBlockInfos("", true)
 	if err != nil {
 		return nil, fmt.Errorf("unable to list index blocks: %v", err)
 	}
 
 	usedPackBlocks := findPackBlocksInUse(infos)
+
 	var unused []storage.BlockMetadata
 	err = bm.st.ListBlocks(ctx, PackBlockPrefix, func(bi storage.BlockMetadata) error {
 		u := usedPackBlocks[bi.BlockID]
