@@ -577,7 +577,7 @@ func (bm *Manager) ListBlockInfos(prefix string, includeDeleted bool) ([]Info, e
 		if (i.Deleted && !includeDeleted) || !strings.HasPrefix(i.BlockID, prefix) {
 			return nil
 		}
-		if i.Deleted && !includeDeleted {
+		if bi, ok := bm.packIndexBuilder[i.BlockID]; ok && bi.Deleted {
 			return nil
 		}
 		result = append(result, i)
@@ -731,14 +731,6 @@ func (bm *Manager) getBlockInfo(blockID string) (Info, error) {
 
 	// read from committed block index
 	return bm.committedBlocks.getBlock(blockID)
-}
-
-// GetIndexBlock gets the contents of a given index block. If the block is not found returns blob.ErrBlockNotFound.
-func (bm *Manager) GetIndexBlock(ctx context.Context, blockID string) ([]byte, error) {
-	bm.lock()
-	defer bm.unlock()
-
-	return bm.getPhysicalBlockInternal(ctx, blockID)
 }
 
 // BlockInfo returns information about a single block.
