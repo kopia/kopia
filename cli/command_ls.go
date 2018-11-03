@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/kopia/kopia/fs"
@@ -50,33 +49,24 @@ func listDirectory(ctx context.Context, rep *repo.Repository, prefix string, oid
 		return err
 	}
 
-	maxNameLen := 20
-	for _, e := range entries {
-		if l := len(nameToDisplay(prefix, e)); l > maxNameLen {
-			maxNameLen = l
-		}
-	}
-
-	maxNameLenString := strconv.Itoa(maxNameLen)
-
 	for _, e := range entries {
 		var info string
 		objectID := e.(object.HasObjectID).ObjectID()
 		oid := objectID.String()
 		if *lsCommandLong {
 			info = fmt.Sprintf(
-				"%v %12d %v %-"+maxNameLenString+"s %v",
+				"%v %12d %v %-34v %v",
 				e.Mode(),
 				e.Size(),
 				formatTimestamp(e.ModTime().Local()),
-				nameToDisplay(prefix, e),
 				oid,
+				nameToDisplay(prefix, e),
 			)
 		} else if *lsCommandShowOID {
 			info = fmt.Sprintf(
-				"%v %v",
-				nameToDisplay(prefix, e),
-				oid)
+				"%-34v %v",
+				oid,
+				nameToDisplay(prefix, e))
 		} else {
 			info = nameToDisplay(prefix, e)
 		}
