@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/internal/dir"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/repo"
 	"github.com/kopia/repo/object"
@@ -86,7 +85,7 @@ func (rd *repositoryDirectory) Readdir(ctx context.Context) (fs.Entries, error) 
 	}
 	defer r.Close() //nolint:errcheck
 
-	metadata, _, err := dir.ReadEntries(r)
+	metadata, _, err := readDirEntries(r)
 	if err != nil {
 		return nil, err
 	}

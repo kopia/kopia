@@ -17,7 +17,6 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/ignorefs"
-	"github.com/kopia/kopia/internal/dir"
 	"github.com/kopia/kopia/internal/hashcache"
 	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/snapshot"
@@ -317,7 +316,7 @@ type entryResult struct {
 	hash uint64
 }
 
-func (u *Uploader) processSubdirectories(ctx context.Context, relativePath string, entries fs.Entries, dw *dir.Writer, summ *fs.DirectorySummary) error {
+func (u *Uploader) processSubdirectories(ctx context.Context, relativePath string, entries fs.Entries, dw *dirWriter, summ *fs.DirectorySummary) error {
 	return u.foreachEntryUnlessCancelled(relativePath, entries, func(entry fs.Entry, entryRelativePath string) error {
 		dir, ok := entry.(fs.Directory)
 		if !ok {
@@ -496,7 +495,7 @@ func (u *Uploader) launchWorkItems(workItems []*uploadWorkItem, wg *sync.WaitGro
 	}
 }
 
-func (u *Uploader) processUploadWorkItems(workItems []*uploadWorkItem, dw *dir.Writer) error {
+func (u *Uploader) processUploadWorkItems(workItems []*uploadWorkItem, dw *dirWriter) error {
 	var wg sync.WaitGroup
 	u.launchWorkItems(workItems, &wg)
 
@@ -566,7 +565,7 @@ func uploadDirInternal(
 		Prefix:      "k",
 	})
 
-	dw := dir.NewWriter(writer)
+	dw := newDirWriter(writer)
 	defer writer.Close() //nolint:errcheck
 
 	if err := u.processSubdirectories(ctx, dirRelativePath, entries, dw, &summ); err != nil {

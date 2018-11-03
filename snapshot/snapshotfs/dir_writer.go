@@ -1,4 +1,4 @@
-package dir
+package snapshotfs
 
 import (
 	"io"
@@ -8,13 +8,13 @@ import (
 	"github.com/kopia/kopia/snapshot"
 )
 
-// Writer writes a stream of directory entries.
-type Writer struct {
+// dirWriter writes a stream of directory entries.
+type dirWriter struct {
 	w *jsonstream.Writer
 }
 
 // WriteEntry writes the specified entry to the output.
-func (dw *Writer) WriteEntry(e *snapshot.DirEntry) error {
+func (dw *dirWriter) WriteEntry(e *snapshot.DirEntry) error {
 	if err := e.ObjectID.Validate(); err != nil {
 		panic("invalid object ID: " + err.Error())
 	}
@@ -23,13 +23,13 @@ func (dw *Writer) WriteEntry(e *snapshot.DirEntry) error {
 }
 
 // Finalize writes the trailing data to the output stream.
-func (dw *Writer) Finalize(summ *fs.DirectorySummary) error {
+func (dw *dirWriter) Finalize(summ *fs.DirectorySummary) error {
 	return dw.w.FinalizeWithSummary(summ)
 }
 
-// NewWriter returns new directoryWriter for with the specified output.
-func NewWriter(w io.Writer) *Writer {
-	dw := &Writer{
+// newDirWriter returns new directoryWriter for with the specified output.
+func newDirWriter(w io.Writer) *dirWriter {
+	dw := &dirWriter{
 		w: jsonstream.NewWriter(w, directoryStreamType),
 	}
 

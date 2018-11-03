@@ -1,4 +1,4 @@
-package dir
+package snapshotfs
 
 import (
 	"bufio"
@@ -11,8 +11,8 @@ import (
 
 var directoryStreamType = "kopia:directory"
 
-// ReadEntries reads all the Entry from the specified reader.
-func ReadEntries(r io.Reader) ([]*snapshot.DirEntry, *fs.DirectorySummary, error) {
+// readDirEntries reads all the Entry from the specified reader.
+func readDirEntries(r io.Reader) ([]*snapshot.DirEntry, *fs.DirectorySummary, error) {
 	var summ fs.DirectorySummary
 	psr, err := jsonstream.NewReader(bufio.NewReader(r), directoryStreamType, &summ)
 	if err != nil {
