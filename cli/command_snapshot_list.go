@@ -163,14 +163,14 @@ func outputManifestFromSingleSource(ctx context.Context, rep *repo.Repository, m
 			bits = append(bits, "incomplete:"+m.IncompleteReason)
 		}
 
-		bits = append(bits, maybeHumanReadableBytes(*snapshotListShowHumanReadable, ent.Metadata().FileSize))
-		bits = append(bits, fmt.Sprintf("%v", ent.Metadata().FileMode()))
+		bits = append(bits, maybeHumanReadableBytes(*snapshotListShowHumanReadable, ent.Size()))
+		bits = append(bits, fmt.Sprintf("%v", ent.Mode()))
 		if *shapshotListShowOwner {
-			bits = append(bits, fmt.Sprintf("uid:%v", ent.Metadata().UserID))
-			bits = append(bits, fmt.Sprintf("gid:%v", ent.Metadata().GroupID))
+			bits = append(bits, fmt.Sprintf("uid:%v", ent.Owner().UserID))
+			bits = append(bits, fmt.Sprintf("gid:%v", ent.Owner().GroupID))
 		}
 		if *snapshotListShowModTime {
-			bits = append(bits, fmt.Sprintf("modified:%v", formatTimestamp(ent.Metadata().ModTime)))
+			bits = append(bits, fmt.Sprintf("modified:%v", formatTimestamp(ent.ModTime())))
 		}
 
 		if *snapshotListShowItemID {
@@ -181,7 +181,7 @@ func outputManifestFromSingleSource(ctx context.Context, rep *repo.Repository, m
 		}
 
 		if *snapshotListShowDelta {
-			bits = append(bits, deltaBytes(ent.Metadata().FileSize-lastTotalFileSize))
+			bits = append(bits, deltaBytes(ent.Size()-lastTotalFileSize))
 		}
 
 		if d, ok := ent.(fs.Directory); ok {

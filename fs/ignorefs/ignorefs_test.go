@@ -258,7 +258,7 @@ func walkTree(t *testing.T, dir fs.Directory) []string {
 			return err
 		}
 		for _, e := range entries {
-			relPath := path + "/" + e.Metadata().Name
+			relPath := path + "/" + e.Name()
 
 			if dir, ok := e.(fs.Directory); ok {
 				if err := walk(relPath, dir); err != nil {

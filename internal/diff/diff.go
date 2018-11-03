@@ -77,7 +77,7 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 			return c.compareDirectories(ctx, nil, dir2, path)
 		}
 
-		c.output("added file %v (%v bytes)\n", path, e2.Metadata().FileSize)
+		c.output("added file %v (%v bytes)\n", path, e2.Size())
 		if f, ok := e2.(fs.File); ok {
 			if err := c.compareFiles(ctx, nil, f, path); err != nil {
 				return err
@@ -92,7 +92,7 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 			return c.compareDirectories(ctx, dir1, nil, path)
 		}
 
-		c.output("removed file %v (%v bytes)\n", path, e1.Metadata().FileSize)
+		c.output("removed file %v (%v bytes)\n", path, e1.Size())
 		if f, ok := e1.(fs.File); ok {
 			if err := c.compareFiles(ctx, f, nil, path); err != nil {
 				return err
@@ -119,7 +119,7 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 		return nil
 	}
 
-	c.output("changed %v at %v (size %v -> %v)\n", path, e2.Metadata().ModTime.String(), e1.Metadata().FileSize, e2.Metadata().FileSize)
+	c.output("changed %v at %v (size %v -> %v)\n", path, e2.ModTime().String(), e1.Size(), e2.Size())
 	if f1, ok := e1.(fs.File); ok {
 		if f2, ok := e2.(fs.File); ok {
 			if err := c.compareFiles(ctx, f1, f2, path); err != nil {
@@ -134,11 +134,11 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 func (c *Comparer) compareDirectoryEntries(ctx context.Context, entries1, entries2 fs.Entries, dirPath string) error {
 	e1byname := map[string]fs.Entry{}
 	for _, e1 := range entries1 {
-		e1byname[e1.Metadata().Name] = e1
+		e1byname[e1.Name()] = e1
 	}
 
 	for _, e2 := range entries2 {
-		entryName := e2.Metadata().Name
+		entryName := e2.Name()
 		if err := c.compareEntry(ctx, e1byname[entryName], e2, dirPath+"/"+entryName); err != nil {
 			return fmt.Errorf("error comparing %v: %v", entryName, err)
 		}
@@ -147,7 +147,7 @@ func (c *Comparer) compareDirectoryEntries(ctx context.Context, entries1, entrie
 
 	// at this point e1byname only has entries present in entries1 but not entries2, those are the deleted ones
 	for _, e1 := range entries1 {
-		entryName := e1.Metadata().Name
+		entryName := e1.Name()
 		if _, ok := e1byname[entryName]; ok {
 			if err := c.compareEntry(ctx, e1, nil, dirPath+"/"+entryName); err != nil {
 				return fmt.Errorf("error comparing %v: %v", entryName, err)

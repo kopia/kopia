@@ -3,7 +3,9 @@ package snapshotfs
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
+	"time"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/dir"
@@ -16,12 +18,32 @@ type sourceSnapshots struct {
 	src snapshot.SourceInfo
 }
 
-func (s *sourceSnapshots) Metadata() *fs.EntryMetadata {
-	return &fs.EntryMetadata{
-		Name:        fmt.Sprintf("%v", safeName(s.src.Path)),
-		Permissions: 0555,
-		Type:        fs.EntryTypeDirectory,
-	}
+func (s *sourceSnapshots) IsDir() bool {
+	return true
+}
+
+func (s *sourceSnapshots) Name() string {
+	return fmt.Sprintf("%v", safeName(s.src.Path))
+}
+
+func (s *sourceSnapshots) Mode() os.FileMode {
+	return 0555 | os.ModeDir
+}
+
+func (s *sourceSnapshots) Size() int64 {
+	return 0
+}
+
+func (s *sourceSnapshots) Sys() interface{} {
+	return nil
+}
+
+func (s *sourceSnapshots) ModTime() time.Time {
+	return time.Now()
+}
+
+func (s *sourceSnapshots) Owner() fs.OwnerInfo {
+	return fs.OwnerInfo{}
 }
 
 func safeName(path string) string {
@@ -48,10 +70,10 @@ func (s *sourceSnapshots) Readdir(ctx context.Context) (fs.Entries, error) {
 		}
 
 		de := &dir.Entry{
-			EntryMetadata: fs.EntryMetadata{
+			EntryMetadata: dir.EntryMetadata{
 				Name:        name,
 				Permissions: 0555,
-				Type:        fs.EntryTypeDirectory,
+				Type:        dir.EntryTypeDirectory,
 				ModTime:     m.StartTime,
 			},
 			ObjectID: m.RootObjectID(),

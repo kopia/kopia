@@ -29,7 +29,7 @@ func (ld *loggingDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
 	ld.options.printf(ld.options.prefix+"Readdir(%v) took %v and returned %v items", ld.relativePath, dt, len(entries))
 	loggingEntries := make(fs.Entries, len(entries))
 	for i, entry := range entries {
-		loggingEntries[i] = wrapWithOptions(entry, ld.options, ld.relativePath+"/"+entry.Metadata().Name)
+		loggingEntries[i] = wrapWithOptions(entry, ld.options, ld.relativePath+"/"+entry.Name())
 	}
 	return loggingEntries, err
 }

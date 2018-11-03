@@ -3,6 +3,7 @@ package snapshotfs
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/kopia/kopia/fs"
@@ -18,13 +19,32 @@ func (s *repositoryAllSources) Summary() *fs.DirectorySummary {
 	return nil
 }
 
-func (s *repositoryAllSources) Metadata() *fs.EntryMetadata {
-	return &fs.EntryMetadata{
-		Name:        "/",
-		Permissions: 0555,
-		Type:        fs.EntryTypeDirectory,
-		ModTime:     time.Now(),
-	}
+func (s *repositoryAllSources) IsDir() bool {
+	return true
+}
+
+func (s *repositoryAllSources) Name() string {
+	return "/"
+}
+
+func (s *repositoryAllSources) ModTime() time.Time {
+	return time.Now()
+}
+
+func (s *repositoryAllSources) Mode() os.FileMode {
+	return 0555 | os.ModeDir
+}
+
+func (s *repositoryAllSources) Size() int64 {
+	return 0
+}
+
+func (s *repositoryAllSources) Owner() fs.OwnerInfo {
+	return fs.OwnerInfo{}
+}
+
+func (s *repositoryAllSources) Sys() interface{} {
+	return nil
 }
 
 func (s *repositoryAllSources) Readdir(ctx context.Context) (fs.Entries, error) {

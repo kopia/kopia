@@ -6,7 +6,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/kopialogging"
@@ -33,7 +32,7 @@ func (f *webdavFile) Readdir(n int) ([]os.FileInfo, error) {
 }
 
 func (f *webdavFile) Stat() (os.FileInfo, error) {
-	return webdavFileInfo{f.entry.Metadata()}, nil
+	return webdavFileInfo{f.entry}, nil
 }
 
 func (f *webdavFile) getReader() (fs.Reader, error) {
@@ -101,13 +100,13 @@ func (d *webdavDir) Readdir(n int) ([]os.FileInfo, error) {
 
 	var fis []os.FileInfo
 	for _, e := range entries {
-		fis = append(fis, &webdavFileInfo{e.Metadata()})
+		fis = append(fis, &webdavFileInfo{e})
 	}
 	return fis, nil
 }
 
 func (d *webdavDir) Stat() (os.FileInfo, error) {
-	return webdavFileInfo{d.entry.Metadata()}, nil
+	return webdavFileInfo{d.entry}, nil
 }
 
 func (d *webdavDir) Write(b []byte) (int, error) {
@@ -127,31 +126,7 @@ func (d *webdavDir) Seek(int64, int) (int64, error) {
 }
 
 type webdavFileInfo struct {
-	md *fs.EntryMetadata
-}
-
-func (i webdavFileInfo) IsDir() bool {
-	return (i.md.FileMode() & os.ModeDir) != 0
-}
-
-func (i webdavFileInfo) ModTime() time.Time {
-	return i.md.ModTime
-}
-
-func (i webdavFileInfo) Mode() os.FileMode {
-	return i.md.FileMode()
-}
-
-func (i webdavFileInfo) Name() string {
-	return i.md.Name
-}
-
-func (i webdavFileInfo) Size() int64 {
-	return i.md.FileSize
-}
-
-func (i webdavFileInfo) Sys() interface{} {
-	return nil
+	fs.Entry
 }
 
 type webdavFS struct {
@@ -193,7 +168,7 @@ func (w *webdavFS) Stat(ctx context.Context, path string) (os.FileInfo, error) {
 		return nil, err
 	}
 
-	return webdavFileInfo{e.Metadata()}, nil
+	return webdavFileInfo{e}, nil
 }
 
 func (w *webdavFS) findEntry(ctx context.Context, path string) (fs.Entry, error) {

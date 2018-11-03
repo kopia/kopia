@@ -19,20 +19,21 @@ type sortedEntries fs.Entries
 func (e sortedEntries) Len() int      { return len(e) }
 func (e sortedEntries) Swap(i, j int) { e[i], e[j] = e[j], e[i] }
 func (e sortedEntries) Less(i, j int) bool {
-	return e[i].Metadata().Name < e[j].Metadata().Name
+	return e[i].Name() < e[j].Name()
 }
 
 type filesystemEntry struct {
-	metadata *fs.EntryMetadata
-	path     string
+	os.FileInfo
+
+	path string
 }
 
-func newEntry(md *fs.EntryMetadata, path string) filesystemEntry {
+func (e filesystemEntry) Owner() fs.OwnerInfo {
+	return platformSpecificOwnerInfo(e)
+}
+
+func newEntry(md os.FileInfo, path string) filesystemEntry {
 	return filesystemEntry{md, path}
-}
-
-func (e *filesystemEntry) Metadata() *fs.EntryMetadata {
-	return e.metadata
 }
 
 type filesystemDirectory struct {
@@ -45,6 +46,11 @@ type filesystemSymlink struct {
 
 type filesystemFile struct {
 	filesystemEntry
+}
+
+func (fsd *filesystemDirectory) Size() int64 {
+	// force directory size to always be zero
+	return 0
 }
 
 func (fsd *filesystemDirectory) Summary() *fs.DirectorySummary {
@@ -88,12 +94,12 @@ type fileWithMetadata struct {
 	*os.File
 }
 
-func (erc *fileWithMetadata) EntryMetadata() (*fs.EntryMetadata, error) {
-	fi, err := erc.Stat()
+func (f *fileWithMetadata) Entry() (fs.Entry, error) {
+	fi, err := f.Stat()
 	if err != nil {
 		return nil, err
 	}
-	return entryMetadataFromFileInfo(fi), nil
+	return filesystemFile{newEntry(fi, f.Name())}, nil
 }
 
 func (fsf *filesystemFile) Open(ctx context.Context) (fs.Reader, error) {
@@ -135,48 +141,16 @@ func Directory(path string) (fs.Directory, error) {
 	}
 }
 
-func entryMetadataFromFileInfo(fi os.FileInfo) *fs.EntryMetadata {
-	e := &fs.EntryMetadata{
-		Name:        filepath.Base(fi.Name()),
-		Type:        entryTypeFromFileMode(fi.Mode() & os.ModeType),
-		Permissions: fs.Permissions(fi.Mode() & os.ModePerm),
-		ModTime:     fi.ModTime().UTC(),
-	}
-
-	if fi.Mode().IsRegular() {
-		e.FileSize = fi.Size()
-	}
-
-	populatePlatformSpecificEntryDetails(e, fi)
-	return e
-}
-
-func entryTypeFromFileMode(t os.FileMode) fs.EntryType {
-	switch t {
-	case 0:
-		return fs.EntryTypeFile
-
-	case os.ModeSymlink:
-		return fs.EntryTypeSymlink
-
-	case os.ModeDir:
-		return fs.EntryTypeDirectory
-
-	default:
-		panic("unsupported file mode: " + t.String())
-	}
-}
-
 func entryFromFileInfo(fi os.FileInfo, path string) (fs.Entry, error) {
 	switch fi.Mode() & os.ModeType {
 	case os.ModeDir:
-		return &filesystemDirectory{newEntry(entryMetadataFromFileInfo(fi), path)}, nil
+		return &filesystemDirectory{newEntry(fi, path)}, nil
 
 	case os.ModeSymlink:
-		return &filesystemSymlink{newEntry(entryMetadataFromFileInfo(fi), path)}, nil
+		return &filesystemSymlink{newEntry(fi, path)}, nil
 
 	case 0:
-		return &filesystemFile{newEntry(entryMetadataFromFileInfo(fi), path)}, nil
+		return &filesystemFile{newEntry(fi, path)}, nil
 
 	default:
 		return nil, fmt.Errorf("unsupported filesystem entry: %v", path)

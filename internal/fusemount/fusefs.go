@@ -23,12 +23,12 @@ type fuseNode struct {
 }
 
 func (n *fuseNode) Attr(ctx context.Context, a *fuse.Attr) error {
-	m := n.entry.Metadata()
-	a.Mode = m.FileMode()
-	a.Size = uint64(m.FileSize)
-	a.Mtime = m.ModTime
-	a.Uid = m.UserID
-	a.Gid = m.GroupID
+	m := n.entry
+	a.Mode = m.Mode()
+	a.Size = uint64(m.Size())
+	a.Mtime = m.ModTime()
+	a.Uid = m.Owner().UserID
+	a.Gid = m.Owner().GroupID
 	return nil
 }
 
@@ -81,17 +81,16 @@ func (dir *fuseDirectoryNode) ReadDirAll(ctx context.Context) ([]fuse.Dirent, er
 	result := []fuse.Dirent{}
 
 	for _, e := range entries {
-		m := e.Metadata()
 		dirent := fuse.Dirent{
-			Name: m.Name,
+			Name: e.Name(),
 		}
 
-		switch m.Type {
-		case fs.EntryTypeDirectory:
+		switch e.Mode() & os.ModeType {
+		case os.ModeDir:
 			dirent.Type = fuse.DT_Dir
-		case fs.EntryTypeFile:
+		case 0:
 			dirent.Type = fuse.DT_File
-		case fs.EntryTypeSymlink:
+		case os.ModeSymlink:
 			dirent.Type = fuse.DT_Link
 		}
 
@@ -118,7 +117,7 @@ func newFuseNode(e fs.Entry) (fusefs.Node, error) {
 	case fs.Symlink:
 		return &fuseSymlinkNode{fuseNode{e}}, nil
 	default:
-		return nil, fmt.Errorf("entry type not supported: %v", e.Metadata().Type)
+		return nil, fmt.Errorf("entry type not supported: %v", e.Mode())
 	}
 }
 

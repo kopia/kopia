@@ -24,11 +24,11 @@ type Stats struct {
 }
 
 // AddExcluded adds the information about excluded file to the statistics.
-func (s *Stats) AddExcluded(md *fs.EntryMetadata) {
-	if md.FileMode().IsDir() {
+func (s *Stats) AddExcluded(md fs.Entry) {
+	if md.IsDir() {
 		s.ExcludedDirCount++
 	} else {
 		s.ExcludedFileCount++
-		s.ExcludedTotalFileSize += md.FileSize
+		s.ExcludedTotalFileSize += md.Size()
 	}
 }

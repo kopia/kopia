@@ -2,6 +2,7 @@ package snapshotfs
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/kopia/kopia/fs"
@@ -14,17 +15,36 @@ type sourceDirectories struct {
 	userHost string
 }
 
-func (s *sourceDirectories) Metadata() *fs.EntryMetadata {
-	return &fs.EntryMetadata{
-		Name:        s.userHost,
-		Permissions: 0555,
-		Type:        fs.EntryTypeDirectory,
-		ModTime:     time.Now(),
-	}
+func (s *sourceDirectories) IsDir() bool {
+	return true
+}
+
+func (s *sourceDirectories) Name() string {
+	return s.userHost
+}
+
+func (s *sourceDirectories) Mode() os.FileMode {
+	return 0555 | os.ModeDir
+}
+
+func (s *sourceDirectories) ModTime() time.Time {
+	return time.Now()
+}
+
+func (s *sourceDirectories) Sys() interface{} {
+	return nil
 }
 
 func (s *sourceDirectories) Summary() *fs.DirectorySummary {
 	return nil
+}
+
+func (s *sourceDirectories) Size() int64 {
+	return 0
+}
+
+func (s *sourceDirectories) Owner() fs.OwnerInfo {
+	return fs.OwnerInfo{}
 }
 
 func (s *sourceDirectories) Readdir(ctx context.Context) (fs.Entries, error) {

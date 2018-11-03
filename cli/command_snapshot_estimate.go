@@ -73,14 +73,14 @@ func runSnapshotEstimateCommand(ctx context.Context, rep *repo.Repository) error
 	ib := makeBuckets()
 	eb := makeBuckets()
 
-	onIgnoredFile := func(relativePath string, md *fs.EntryMetadata) {
+	onIgnoredFile := func(relativePath string, e fs.Entry) {
 		log.Noticef("ignoring %v", relativePath)
-		eb.add(relativePath, md.FileSize)
-		if md.FileMode().IsDir() {
+		eb.add(relativePath, e.Size())
+		if e.IsDir() {
 			stats.ExcludedDirCount++
 		} else {
 			stats.ExcludedFileCount++
-			stats.ExcludedTotalFileSize += md.FileSize
+			stats.ExcludedTotalFileSize += e.Size()
 		}
 	}
 
@@ -137,15 +137,15 @@ func estimate(ctx context.Context, relativePath string, entry fs.Entry, stats *s
 		}
 
 		for _, child := range children {
-			if err := estimate(ctx, filepath.Join(relativePath, child.Metadata().Name), child, stats, ib, eb); err != nil {
+			if err := estimate(ctx, filepath.Join(relativePath, child.Name()), child, stats, ib, eb); err != nil {
 				return err
 			}
 		}
 
 	case fs.File:
-		ib.add(relativePath, entry.Metadata().FileSize)
+		ib.add(relativePath, entry.Size())
 		stats.TotalFileCount++
-		stats.TotalFileSize += entry.Metadata().FileSize
+		stats.TotalFileSize += entry.Size()
 	}
 	return nil
 }

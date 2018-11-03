@@ -9,6 +9,7 @@ import (
 	"hash/fnv"
 	"io"
 	"math/rand"
+	"os"
 	"runtime"
 	"sync"
 	"sync/atomic"
@@ -26,18 +27,18 @@ import (
 
 var log = kopialogging.Logger("kopia/upload")
 
-func hashEntryMetadata(w io.Writer, e *fs.EntryMetadata) {
-	io.WriteString(w, e.Name)                                  //nolint:errcheck
-	binary.Write(w, binary.LittleEndian, e.ModTime.UnixNano()) //nolint:errcheck
-	binary.Write(w, binary.LittleEndian, e.FileMode())         //nolint:errcheck
-	binary.Write(w, binary.LittleEndian, e.FileSize)           //nolint:errcheck
-	binary.Write(w, binary.LittleEndian, e.UserID)             //nolint:errcheck
-	binary.Write(w, binary.LittleEndian, e.GroupID)            //nolint:errcheck
+func hashEntryMetadata(w io.Writer, e fs.Entry, fileSize int64) {
+	io.WriteString(w, e.Name())                                  //nolint:errcheck
+	binary.Write(w, binary.LittleEndian, e.ModTime().UnixNano()) //nolint:errcheck
+	binary.Write(w, binary.LittleEndian, e.Mode())               //nolint:errcheck
+	binary.Write(w, binary.LittleEndian, fileSize)               //nolint:errcheck
+	binary.Write(w, binary.LittleEndian, e.Owner().UserID)       //nolint:errcheck
+	binary.Write(w, binary.LittleEndian, e.Owner().GroupID)      //nolint:errcheck
 }
 
-func metadataHash(e *fs.EntryMetadata) uint64 {
+func metadataHash(e fs.Entry, fileSize int64) uint64 {
 	h := fnv.New64a()
-	hashEntryMetadata(h, e)
+	hashEntryMetadata(h, e, fileSize)
 	return h.Sum64()
 }
 
@@ -108,16 +109,16 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, f fs.File, relativePa
 	defer file.Close() //nolint:errcheck
 
 	writer := u.repo.Objects.NewWriter(ctx, object.WriterOptions{
-		Description: "FILE:" + f.Metadata().Name,
+		Description: "FILE:" + f.Name(),
 	})
 	defer writer.Close() //nolint:errcheck
 
-	written, err := u.copyWithProgress(relativePath, writer, file, 0, f.Metadata().FileSize)
+	written, err := u.copyWithProgress(relativePath, writer, file, 0, f.Size())
 	if err != nil {
 		return entryResult{err: err}
 	}
 
-	e2, err := file.EntryMetadata()
+	fi2, err := file.Entry()
 	if err != nil {
 		return entryResult{err: err}
 	}
@@ -127,10 +128,10 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, f fs.File, relativePa
 		return entryResult{err: err}
 	}
 
-	de := newDirEntry(e2, r)
+	de := newDirEntry(fi2, r)
 	de.FileSize = written
 
-	return entryResult{de: de, hash: metadataHash(&de.EntryMetadata)}
+	return entryResult{de: de, hash: metadataHash(fi2, written)}
 }
 
 func (u *Uploader) uploadSymlinkInternal(ctx context.Context, f fs.Symlink, relativePath string) entryResult {
@@ -140,11 +141,11 @@ func (u *Uploader) uploadSymlinkInternal(ctx context.Context, f fs.Symlink, rela
 	}
 
 	writer := u.repo.Objects.NewWriter(ctx, object.WriterOptions{
-		Description: "SYMLINK:" + f.Metadata().Name,
+		Description: "SYMLINK:" + f.Name(),
 	})
 	defer writer.Close() //nolint:errcheck
 
-	written, err := u.copyWithProgress(relativePath, writer, bytes.NewBufferString(target), 0, f.Metadata().FileSize)
+	written, err := u.copyWithProgress(relativePath, writer, bytes.NewBufferString(target), 0, f.Size())
 	if err != nil {
 		return entryResult{err: err}
 	}
@@ -154,9 +155,9 @@ func (u *Uploader) uploadSymlinkInternal(ctx context.Context, f fs.Symlink, rela
 		return entryResult{err: err}
 	}
 
-	de := newDirEntry(f.Metadata(), r)
+	de := newDirEntry(f, r)
 	de.FileSize = written
-	return entryResult{de: de, hash: metadataHash(&de.EntryMetadata)}
+	return entryResult{de: de, hash: metadataHash(f, written)}
 }
 
 func (u *Uploader) addDirProgress(length int64) {
@@ -219,28 +220,49 @@ func (u *Uploader) copyWithProgress(path string, dst io.Writer, src io.Reader, c
 	return written, nil
 }
 
-func newDirEntry(md *fs.EntryMetadata, oid object.ID) *dir.Entry {
+func newDirEntry(md fs.Entry, oid object.ID) *dir.Entry {
+	var entryType dir.EntryType
+
+	switch md.Mode() & os.ModeType {
+	case os.ModeDir:
+		entryType = dir.EntryTypeDirectory
+	case os.ModeSymlink:
+		entryType = dir.EntryTypeSymlink
+	case 0:
+		entryType = dir.EntryTypeFile
+	default:
+		entryType = dir.EntryTypeUnknown
+	}
+
 	return &dir.Entry{
-		EntryMetadata: *md,
-		ObjectID:      oid,
+		EntryMetadata: dir.EntryMetadata{
+			Name:        md.Name(),
+			Type:        entryType,
+			Permissions: dir.Permissions(md.Mode() & os.ModePerm),
+			FileSize:    md.Size(),
+			ModTime:     md.ModTime(),
+			UserID:      md.Owner().UserID,
+			GroupID:     md.Owner().GroupID,
+		},
+		ObjectID: oid,
 	}
 }
 
 // uploadFile uploads the specified File to the repository.
 func (u *Uploader) uploadFile(ctx context.Context, file fs.File) (*dir.Entry, error) {
-	res := u.uploadFileInternal(ctx, file, file.Metadata().Name)
+	res := u.uploadFileInternal(ctx, file, file.Name())
 	if res.err != nil {
 		return nil, res.err
 	}
-	return &dir.Entry{
-		EntryMetadata: *file.Metadata(),
-		ObjectID:      res.de.ObjectID,
-		DirSummary: &fs.DirectorySummary{
-			TotalFileCount: 1,
-			TotalFileSize:  res.de.FileSize,
-			MaxModTime:     res.de.ModTime,
-		},
-	}, nil
+
+	de := newDirEntry(file, res.de.ObjectID)
+	de.DirSummary = &fs.DirectorySummary{
+		TotalFileCount: 1,
+		TotalFileSize:  res.de.FileSize,
+		MaxModTime:     res.de.ModTime,
+	}
+
+	return de, nil
 }
 
 // uploadDir uploads the specified Directory to the repository.
@@ -248,7 +270,7 @@ func (u *Uploader) uploadFile(ctx context.Context, file fs.File) (*dir.Entry, er
 // contents to avoid hashing
 func (u *Uploader) uploadDir(ctx context.Context, rootDir fs.Directory) (*dir.Entry, object.ID, error) {
 	mw := u.repo.Objects.NewWriter(ctx, object.WriterOptions{
-		Description: "HASHCACHE:" + rootDir.Metadata().Name,
+		Description: "HASHCACHE:" + rootDir.Name(),
 		Prefix:      "h",
 	})
 	defer mw.Close() //nolint:errcheck
@@ -270,11 +292,9 @@ func (u *Uploader) uploadDir(ctx context.Context, rootDir fs.Directory) (*dir.En
 	if flushErr := u.repo.Objects.Flush(ctx); flushErr != nil {
 		return nil, "", fmt.Errorf("can't flush pending objects: %v", flushErr)
 	}
-	return &dir.Entry{
-		EntryMetadata: *rootDir.Metadata(),
-		ObjectID:      oid,
-		DirSummary:    &summ,
-	}, hcid, err
+	de := newDirEntry(rootDir, oid)
+	de.DirSummary = &summ
+	return de, hcid, err
 }
 
 func (u *Uploader) foreachEntryUnlessCancelled(relativePath string, entries fs.Entries, cb func(entry fs.Entry, entryRelativePath string) error) error {
@@ -283,8 +303,7 @@ func (u *Uploader) foreachEntryUnlessCancelled(relativePath string, entries fs.E
 			return errCancelled
 		}
 
-		e := entry.Metadata()
-		entryRelativePath := relativePath + "/" + e.Name
+		entryRelativePath := relativePath + "/" + entry.Name()
 
 		if err := cb(entry, entryRelativePath); err != nil {
 			return err
@@ -308,7 +327,6 @@ func (u *Uploader) processSubdirectories(ctx context.Context, relativePath strin
 			return nil
 		}
 
-		e := dir.Metadata()
 		oid, subdirsumm, err := uploadDirInternal(ctx, u, dir, entryRelativePath)
 		if err == errCancelled {
 			return err
@@ -322,10 +340,10 @@ func (u *Uploader) processSubdirectories(ctx context.Context, relativePath strin
 		}
 
 		if err != nil {
-			return fmt.Errorf("unable to process directory %q: %s", e.Name, err)
+			return fmt.Errorf("unable to process directory %q: %s", entry.Name(), err)
 		}
 
-		de := newDirEntry(e, oid)
+		de := newDirEntry(dir, oid)
 		de.DirSummary = &subdirsumm
 		if err := dw.WriteEntry(de); err != nil {
 			return fmt.Errorf("unable to write dir entry: %v", err)
@@ -349,7 +367,7 @@ func (u *Uploader) prepareProgress(relativePath string, entries fs.Entries) {
 		}
 
 		u.currentDirNumFiles++
-		u.currentDirTotalSize += entry.Metadata().FileSize
+		u.currentDirTotalSize += entry.Size()
 		return nil
 	})
 }
@@ -370,8 +388,6 @@ func (u *Uploader) prepareWorkItems(ctx context.Context, dirRelativePath string,
 			return nil
 		}
 
-		e := entry.Metadata()
-
 		// regular file
 		// See if we had this name during previous pass.
 		cachedEntry := u.maybeIgnoreHashCacheEntry(u.cacheReader.FindEntry(entryRelativePath))
@@ -381,26 +397,26 @@ func (u *Uploader) prepareWorkItems(ctx context.Context, dirRelativePath string,
 		}
 
 		// ... and whether file metadata is identical to the previous one.
-		computedHash := metadataHash(e)
+		computedHash := metadataHash(entry, entry.Size())
 
 		switch entry.(type) {
 		case fs.File:
 			u.stats.TotalFileCount++
-			u.stats.TotalFileSize += e.FileSize
+			u.stats.TotalFileSize += entry.Size()
 			summ.TotalFileCount++
-			summ.TotalFileSize += e.FileSize
-			if e.ModTime.After(summ.MaxModTime) {
-				summ.MaxModTime = e.ModTime
+			summ.TotalFileSize += entry.Size()
+			if entry.ModTime().After(summ.MaxModTime) {
+				summ.MaxModTime = entry.ModTime()
 			}
 		}
 
 		if cachedHash == computedHash {
 			u.stats.CachedFiles++
-			u.addDirProgress(e.FileSize)
+			u.addDirProgress(entry.Size())
 
 			// compute entryResult now, cachedEntry is short-lived
 			cachedResult := entryResult{
-				de:   newDirEntry(e, cachedEntry.ObjectID),
+				de:   newDirEntry(entry, cachedEntry.ObjectID),
 				hash: cachedEntry.Hash,
 			}
 
@@ -436,7 +452,7 @@ func (u *Uploader) prepareWorkItems(ctx context.Context, dirRelativePath string,
 				})
 
 			default:
-				return fmt.Errorf("file type %v not supported", entry.Metadata().Type)
+				return fmt.Errorf("file type not supported: %v", entry.Mode())
 			}
 		}
 		return nil
@@ -507,7 +523,7 @@ func (u *Uploader) processUploadWorkItems(workItems []*uploadWorkItem, dw *dir.W
 			return fmt.Errorf("unable to write directory entry: %v", err)
 		}
 
-		if result.hash != 0 && it.entry.Metadata().ModTime.Before(u.hashCacheCutoff) {
+		if result.hash != 0 && it.entry.ModTime().Before(u.hashCacheCutoff) {
 			if err := u.cacheWriter.WriteEntry(hashcache.Entry{
 				Name:     it.entryRelativePath,
 				Hash:     result.hash,
@@ -544,7 +560,7 @@ func uploadDirInternal(
 		return "", fs.DirectorySummary{}, direrr
 	}
 	if len(entries) == 0 {
-		summ.MaxModTime = directory.Metadata().ModTime
+		summ.MaxModTime = directory.ModTime()
 	}
 
 	writer := u.repo.Objects.NewWriter(ctx, object.WriterOptions{
@@ -634,7 +650,7 @@ func (u *Uploader) Upload(
 
 	switch entry := source.(type) {
 	case fs.Directory:
-		entry = ignorefs.New(entry, u.FilesPolicy, ignorefs.ReportIgnoredFiles(func(_ string, md *fs.EntryMetadata) {
+		entry = ignorefs.New(entry, u.FilesPolicy, ignorefs.ReportIgnoredFiles(func(_ string, md fs.Entry) {
 			u.stats.AddExcluded(md)
 		}))
 		s.RootEntry, s.HashCacheID, err = u.uploadDir(ctx, entry)

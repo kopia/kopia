@@ -52,7 +52,7 @@ func listDirectory(ctx context.Context, rep *repo.Repository, prefix string, oid
 
 	maxNameLen := 20
 	for _, e := range entries {
-		if l := len(nameToDisplay(prefix, e.Metadata())); l > maxNameLen {
+		if l := len(nameToDisplay(prefix, e)); l > maxNameLen {
 			maxNameLen = l
 		}
 	}
@@ -60,30 +60,29 @@ func listDirectory(ctx context.Context, rep *repo.Repository, prefix string, oid
 	maxNameLenString := strconv.Itoa(maxNameLen)
 
 	for _, e := range entries {
-		m := e.Metadata()
 		var info string
 		objectID := e.(object.HasObjectID).ObjectID()
 		oid := objectID.String()
 		if *lsCommandLong {
 			info = fmt.Sprintf(
 				"%v %12d %v %-"+maxNameLenString+"s %v",
-				m.FileMode(),
-				m.FileSize,
-				formatTimestamp(m.ModTime.Local()),
-				nameToDisplay(prefix, m),
+				e.Mode(),
+				e.Size(),
+				formatTimestamp(e.ModTime().Local()),
+				nameToDisplay(prefix, e),
 				oid,
 			)
 		} else if *lsCommandShowOID {
 			info = fmt.Sprintf(
 				"%v %v",
-				nameToDisplay(prefix, m),
+				nameToDisplay(prefix, e),
 				oid)
 		} else {
-			info = nameToDisplay(prefix, m)
+			info = nameToDisplay(prefix, e)
 		}
 		fmt.Println(info)
-		if *lsCommandRecursive && m.FileMode().IsDir() {
-			if listerr := listDirectory(ctx, rep, prefix+m.Name+"/", objectID, indent+"  "); listerr != nil {
+		if *lsCommandRecursive && e.Mode().IsDir() {
+			if listerr := listDirectory(ctx, rep, prefix+e.Name()+"/", objectID, indent+"  "); listerr != nil {
 				return listerr
 			}
 		}
@@ -92,15 +91,15 @@ func listDirectory(ctx context.Context, rep *repo.Repository, prefix string, oid
 	return nil
 }
 
-func nameToDisplay(prefix string, md *fs.EntryMetadata) string {
+func nameToDisplay(prefix string, e fs.Entry) string {
 	suffix := ""
-	if md.FileMode().IsDir() {
+	if e.IsDir() {
 		suffix = "/"
 
 	}
 	if *lsCommandLong || *lsCommandRecursive {
-		return prefix + md.Name + suffix
+		return prefix + e.Name() + suffix
 	}
 
-	return md.Name
+	return e.Name()
 }

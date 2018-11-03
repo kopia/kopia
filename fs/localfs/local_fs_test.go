@@ -68,22 +68,25 @@ func TestFiles(t *testing.T) {
 
 	goodCount := 0
 
-	if entries[0].Metadata().Name == "f1" && entries[0].Metadata().FileSize == 5 && entries[0].Metadata().FileMode().IsRegular() {
+	if entries[0].Name() == "f1" && entries[0].Size() == 5 && entries[0].Mode().IsRegular() {
 		goodCount++
 	}
-	if entries[1].Metadata().Name == "f2" && entries[1].Metadata().FileSize == 4 && entries[1].Metadata().FileMode().IsRegular() {
+	if entries[1].Name() == "f2" && entries[1].Size() == 4 && entries[1].Mode().IsRegular() {
 		goodCount++
 	}
-	if entries[2].Metadata().Name == "f3" && entries[2].Metadata().FileSize == 3 && entries[2].Metadata().FileMode().IsRegular() {
+	if entries[2].Name() == "f3" && entries[2].Size() == 3 && entries[2].Mode().IsRegular() {
 		goodCount++
 	}
-	if entries[3].Metadata().Name == "y" && entries[3].Metadata().FileSize == 0 && entries[3].Metadata().FileMode().IsDir() {
+	if entries[3].Name() == "y" && entries[3].Size() == 0 && entries[3].Mode().IsDir() {
 		goodCount++
 	}
-	if entries[4].Metadata().Name == "z" && entries[4].Metadata().FileSize == 0 && entries[4].Metadata().FileMode().IsDir() {
+	if entries[4].Name() == "z" && entries[4].Size() == 0 && entries[4].Mode().IsDir() {
 		goodCount++
 	}
 	if goodCount != 5 {
-		t.Errorf("invalid dir data:\n%v", dir)
+		t.Errorf("invalid dir data: %v good entries", goodCount)
+		for i, e := range entries {
+			t.Logf("e[%v] = %v %v %v", i, e.Name(), e.Size(), e.Mode())
+		}
 	}
 }

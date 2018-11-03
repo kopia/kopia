@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"time"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/dir"
@@ -18,12 +20,46 @@ type repositoryEntry struct {
 	repo     *repo.Repository
 }
 
-func (e *repositoryEntry) Metadata() *fs.EntryMetadata {
-	return &e.metadata.EntryMetadata
+func (e *repositoryEntry) IsDir() bool {
+	return e.Mode().IsDir()
+}
+
+func (e *repositoryEntry) Mode() os.FileMode {
+	switch e.metadata.Type {
+	case dir.EntryTypeDirectory:
+		return os.ModeDir | os.FileMode(e.metadata.Permissions)
+	case dir.EntryTypeSymlink:
+		return os.ModeSymlink | os.FileMode(e.metadata.Permissions)
+	default:
+		return os.FileMode(e.metadata.Permissions)
+	}
+}
+
+func (e *repositoryEntry) Name() string {
+	return e.metadata.Name
+}
+
+func (e *repositoryEntry) Size() int64 {
+	return e.metadata.FileSize
+}
+
+func (e *repositoryEntry) ModTime() time.Time {
+	return e.metadata.ModTime
 }
 
 func (e *repositoryEntry) ObjectID() object.ID {
 	return e.metadata.ObjectID
+}
+
+func (e *repositoryEntry) Sys() interface{} {
+	return nil
+}
+
+func (e *repositoryEntry) Owner() fs.OwnerInfo {
+	return fs.OwnerInfo{
+		UserID:  e.metadata.UserID,
+		GroupID: e.metadata.GroupID,
+	}
 }
 
 type repositoryDirectory struct {
@@ -71,7 +107,7 @@ func (rf *repositoryFile) Open(ctx context.Context) (fs.Reader, error) {
 		return nil, err
 	}
 
-	return withMetadata(r, &rf.metadata.EntryMetadata), nil
+	return withFileInfo(r, rf), nil
 }
 
 func (rsl *repositorySymlink) Readlink(ctx context.Context) (string, error) {
@@ -96,7 +132,7 @@ func newRepoEntry(r *repo.Repository, md *dir.Entry) fs.Entry {
 	}
 
 	switch md.Type {
-	case fs.EntryTypeDirectory:
+	case dir.EntryTypeDirectory:
 		if md.DirSummary != nil {
 			md.FileSize = md.DirSummary.TotalFileSize
 			md.ModTime = md.DirSummary.MaxModTime
@@ -104,10 +140,10 @@ func newRepoEntry(r *repo.Repository, md *dir.Entry) fs.Entry {
 
 		return fs.Directory(&repositoryDirectory{re, md.DirSummary})
 
-	case fs.EntryTypeSymlink:
+	case dir.EntryTypeSymlink:
 		return fs.Symlink(&repositorySymlink{re})
 
-	case fs.EntryTypeFile:
+	case dir.EntryTypeFile:
 		return fs.File(&repositoryFile{re})
 
 	default:
@@ -115,27 +151,27 @@ func newRepoEntry(r *repo.Repository, md *dir.Entry) fs.Entry {
 	}
 }
 
-type entryMetadataReadCloser struct {
+type readCloserWithFileInfo struct {
 	object.Reader
-	metadata *fs.EntryMetadata
+	e fs.Entry
 }
 
-func (emrc *entryMetadataReadCloser) EntryMetadata() (*fs.EntryMetadata, error) {
-	return emrc.metadata, nil
+func (r *readCloserWithFileInfo) Entry() (fs.Entry, error) {
+	return r.e, nil
 }
 
-func withMetadata(r object.Reader, md *fs.EntryMetadata) fs.Reader {
-	return &entryMetadataReadCloser{r, md}
+func withFileInfo(r object.Reader, e fs.Entry) fs.Reader {
+	return &readCloserWithFileInfo{r, e}
 }
 
 // DirectoryEntry returns fs.Directory based on repository object with the specified ID.
 // The existence or validity of the directory object is not validated until its contents are read.
 func DirectoryEntry(rep *repo.Repository, objectID object.ID, dirSummary *fs.DirectorySummary) fs.Directory {
 	d := newRepoEntry(rep, &dir.Entry{
-		EntryMetadata: fs.EntryMetadata{
+		EntryMetadata: dir.EntryMetadata{
 			Name:        "/",
 			Permissions: 0555,
-			Type:        fs.EntryTypeDirectory,
+			Type:        dir.EntryTypeDirectory,
 		},
 		ObjectID:   objectID,
 		DirSummary: dirSummary,

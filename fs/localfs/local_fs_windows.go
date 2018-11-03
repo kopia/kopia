@@ -6,5 +6,6 @@ import (
 	"github.com/kopia/kopia/fs"
 )
 
-func populatePlatformSpecificEntryDetails(e *fs.EntryMetadata, fi os.FileInfo) {
+func platformSpecificOwnerInfo(fi os.FileInfo) fs.OwnerInfo {
+	return fs.OwnerInfo{}
 }

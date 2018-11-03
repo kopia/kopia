@@ -12,7 +12,7 @@ import (
 )
 
 // IgnoreCallback is a function called by ignorefs to report whenever a file or directory is being ignored while listing its parent.
-type IgnoreCallback func(path string, metadata *fs.EntryMetadata)
+type IgnoreCallback func(path string, metadata fs.Entry)
 
 // FilesPolicyGetter fetches FilesPolicy for a path relative to the root of the filesystem.
 // relativePath always starts with "." and path elements are separated with "/".
@@ -39,11 +39,11 @@ type ignoreContext struct {
 	maxFileSize    int64            // maximum size of file allowed
 }
 
-func (c *ignoreContext) shouldIncludeByName(path string, md *fs.EntryMetadata) bool {
+func (c *ignoreContext) shouldIncludeByName(path string, e fs.Entry) bool {
 	for _, m := range c.matchers {
-		if m(path, md.FileMode().IsDir()) {
+		if m(path, e.IsDir()) {
 			for _, oi := range c.onIgnore {
-				oi(path, md)
+				oi(path, e)
 			}
 			return false
 		}
@@ -53,7 +53,7 @@ func (c *ignoreContext) shouldIncludeByName(path string, md *fs.EntryMetadata) b
 		return true
 	}
 
-	return c.parent.shouldIncludeByName(path, md)
+	return c.parent.shouldIncludeByName(path, e)
 }
 
 type ignoreDirectory struct {
@@ -76,16 +76,16 @@ func (d *ignoreDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
 
 	result := make(fs.Entries, 0, len(entries))
 	for _, e := range entries {
-		if !thisContext.shouldIncludeByName(d.relativePath+"/"+e.Metadata().Name, e.Metadata()) {
+		if !thisContext.shouldIncludeByName(d.relativePath+"/"+e.Name(), e) {
 			continue
 		}
 
-		if maxSize := thisContext.maxFileSize; maxSize > 0 && e.Metadata().FileSize > maxSize {
+		if maxSize := thisContext.maxFileSize; maxSize > 0 && e.Size() > maxSize {
 			continue
 		}
 
 		if dir, ok := e.(fs.Directory); ok {
-			e = &ignoreDirectory{d.relativePath + "/" + e.Metadata().Name, thisContext, dir}
+			e = &ignoreDirectory{d.relativePath + "/" + e.Name(), thisContext, dir}
 		}
 
 		result = append(result, e)
@@ -181,7 +181,7 @@ func (c *ignoreContext) loadDotIgnoreFiles(ctx context.Context, dirPath string, 
 
 		matchers, err := parseIgnoreFile(ctx, dirPath, f)
 		if err != nil {
-			return fmt.Errorf("unable to parse ignore file %v: %v", f.Metadata().Name, err)
+			return fmt.Errorf("unable to parse ignore file %v: %v", f.Name(), err)
 		}
 
 		c.matchers = append(c.matchers, matchers...)

@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/parallelwork"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
@@ -124,13 +123,12 @@ func (v *verifier) doVerifyDirectory(ctx context.Context, oid object.ID, path st
 			break
 		}
 
-		m := e.Metadata()
 		objectID := e.(object.HasObjectID).ObjectID()
-		childPath := path + "/" + m.Name
-		if m.FileMode().IsDir() {
+		childPath := path + "/" + e.Name()
+		if e.IsDir() {
 			v.enqueueVerifyDirectory(ctx, objectID, childPath)
 		} else {
-			v.enqueueVerifyObject(ctx, objectID, childPath, m.FileSize)
+			v.enqueueVerifyObject(ctx, objectID, childPath, e.Size())
 		}
 	}
 }
@@ -211,7 +209,7 @@ func enqueueRootsToVerify(ctx context.Context, v *verifier, rep *repo.Repository
 			continue
 		}
 
-		if man.RootEntry.Type == fs.EntryTypeDirectory {
+		if man.RootEntry.FileMode().IsDir() {
 			v.enqueueVerifyDirectory(ctx, man.RootObjectID(), path)
 		} else {
 			v.enqueueVerifyObject(ctx, man.RootObjectID(), path, -1)

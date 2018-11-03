@@ -6,8 +6,9 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"sort"
+	"os"
 	"strings"
+	"time"
 
 	"github.com/kopia/kopia/fs"
 )
@@ -27,20 +28,40 @@ func (c readerSeekerCloser) Close() error {
 	return nil
 }
 
-type sortedEntries fs.Entries
-
-func (e sortedEntries) Len() int      { return len(e) }
-func (e sortedEntries) Swap(i, j int) { e[i], e[j] = e[j], e[i] }
-func (e sortedEntries) Less(i, j int) bool {
-	return e[i].Metadata().Name < e[j].Metadata().Name
-}
-
 type entry struct {
-	metadata *fs.EntryMetadata
+	name    string
+	mode    os.FileMode
+	size    int64
+	modTime time.Time
+	owner   fs.OwnerInfo
 }
 
-func (ime *entry) Metadata() *fs.EntryMetadata {
-	return ime.metadata
+func (e entry) Name() string {
+	return e.name
+}
+
+func (e entry) IsDir() bool {
+	return e.mode.IsDir()
+}
+
+func (e entry) Mode() os.FileMode {
+	return e.mode
+}
+
+func (e entry) ModTime() time.Time {
+	return e.modTime
+}
+
+func (e entry) Size() int64 {
+	return e.size
+}
+
+func (e entry) Sys() interface{} {
+	return nil
+}
+
+func (e entry) Owner() fs.OwnerInfo {
+	return e.owner
 }
 
 // Directory is mock in-memory implementation of fs.Directory
@@ -57,21 +78,18 @@ func (imd *Directory) Summary() *fs.DirectorySummary {
 }
 
 // AddFileLines adds a mock file with the specified name, text content and permissions.
-func (imd *Directory) AddFileLines(name string, lines []string, permissions fs.Permissions) *File {
+func (imd *Directory) AddFileLines(name string, lines []string, permissions os.FileMode) *File {
 	return imd.AddFile(name, []byte(strings.Join(lines, "\n")), permissions)
 }
 
 // AddFile adds a mock file with the specified name, content and permissions.
-func (imd *Directory) AddFile(name string, content []byte, permissions fs.Permissions) *File {
+func (imd *Directory) AddFile(name string, content []byte, permissions os.FileMode) *File {
 	imd, name = imd.resolveSubdir(name)
 	file := &File{
 		entry: entry{
-			metadata: &fs.EntryMetadata{
-				Name:        name,
-				Type:        fs.EntryTypeFile,
-				Permissions: permissions,
-				FileSize:    int64(len(content)),
-			},
+			name: name,
+			mode: permissions,
+			size: int64(len(content)),
 		},
 		source: func() (ReaderSeekerCloser, error) {
 			return readerSeekerCloser{bytes.NewReader(content)}, nil
@@ -84,16 +102,13 @@ func (imd *Directory) AddFile(name string, content []byte, permissions fs.Permis
 }
 
 // AddDir adds a fake directory with a given name and permissions.
-func (imd *Directory) AddDir(name string, permissions fs.Permissions) *Directory {
+func (imd *Directory) AddDir(name string, permissions os.FileMode) *Directory {
 	imd, name = imd.resolveSubdir(name)
 
 	subdir := &Directory{
 		entry: entry{
-			metadata: &fs.EntryMetadata{
-				Name:        name,
-				Type:        fs.EntryTypeDirectory,
-				Permissions: permissions,
-			},
+			name: name,
+			mode: permissions | os.ModeDir,
 		},
 	}
 
@@ -103,11 +118,11 @@ func (imd *Directory) AddDir(name string, permissions fs.Permissions) *Directory
 }
 
 func (imd *Directory) addChild(e fs.Entry) {
-	if strings.Contains(e.Metadata().Name, "/") {
+	if strings.Contains(e.Name(), "/") {
 		panic("child name cannot contain '/'")
 	}
 	imd.children = append(imd.children, e)
-	sort.Sort(sortedEntries(imd.children))
+	imd.children.Sort()
 }
 
 func (imd *Directory) resolveSubdir(name string) (*Directory, string) {
@@ -124,10 +139,10 @@ func (imd *Directory) Subdir(name ...string) *Directory {
 	for _, n := range name {
 		i2 := i.children.FindByName(n)
 		if i2 == nil {
-			panic(fmt.Sprintf("'%s' not found in '%s'", n, i.metadata.Name))
+			panic(fmt.Sprintf("'%s' not found in '%s'", n, i.Name()))
 		}
-		if !i2.Metadata().FileMode().IsDir() {
-			panic(fmt.Sprintf("'%s' is not a directory in '%s'", n, i.metadata.Name))
+		if !i2.IsDir() {
+			panic(fmt.Sprintf("'%s' is not a directory in '%s'", n, i.Name()))
 		}
 
 		i = i2.(*Directory)
@@ -140,7 +155,7 @@ func (imd *Directory) Remove(name string) {
 	newChildren := imd.children[:0]
 
 	for _, e := range imd.children {
-		if e.Metadata().Name != name {
+		if e.Name() != name {
 			newChildren = append(newChildren, e)
 		}
 	}
@@ -179,11 +194,11 @@ func (imf *File) SetContents(b []byte) {
 
 type fileReader struct {
 	ReaderSeekerCloser
-	metadata *fs.EntryMetadata
+	entry fs.Entry
 }
 
-func (ifr *fileReader) EntryMetadata() (*fs.EntryMetadata, error) {
-	return ifr.metadata, nil
+func (ifr *fileReader) Entry() (fs.Entry, error) {
+	return ifr.entry, nil
 }
 
 // Open opens the file for reading, optionally simulating error.
@@ -195,7 +210,7 @@ func (imf *File) Open(ctx context.Context) (fs.Reader, error) {
 
 	return &fileReader{
 		ReaderSeekerCloser: r,
-		metadata:           imf.metadata,
+		entry:              imf,
 	}, nil
 }
 
@@ -211,9 +226,7 @@ func (imsl *inmemorySymlink) Readlink(ctx context.Context) (string, error) {
 func NewDirectory() *Directory {
 	return &Directory{
 		entry: entry{
-			metadata: &fs.EntryMetadata{
-				Name: "<root>",
-			},
+			name: "<root>",
 		},
 	}
 }
