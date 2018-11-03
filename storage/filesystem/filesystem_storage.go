@@ -50,7 +50,7 @@ func (fs *fsStorage) GetBlock(ctx context.Context, blockID string, offset, lengt
 		return ioutil.ReadAll(f)
 	}
 
-	if _, err := f.Seek(offset, io.SeekStart); err != nil {
+	if _, err = f.Seek(offset, io.SeekStart); err != nil {
 		return nil, err
 	}
 	b, err := ioutil.ReadAll(io.LimitReader(f, length))

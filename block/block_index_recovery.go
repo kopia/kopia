@@ -21,7 +21,7 @@ func (bm *Manager) RecoverIndexFromPackFile(ctx context.Context, packFile string
 	if err != nil {
 		return nil, fmt.Errorf("unable to open index in file %v", packFile)
 	}
-	defer ndx.Close()
+	defer ndx.Close() //nolint:errcheck
 
 	var recovered []Info
 

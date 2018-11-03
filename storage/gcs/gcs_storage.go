@@ -72,10 +72,7 @@ func exponentialBackoff(desc string, att retry.AttemptFunc) (interface{}, error)
 
 func isRetriableError(err error) bool {
 	if apiError, ok := err.(*googleapi.Error); ok {
-		if apiError.Code >= 500 {
-			return true
-		}
-		return false
+		return apiError.Code >= 500
 	}
 
 	switch err {
