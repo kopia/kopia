@@ -7,9 +7,9 @@ import (
 
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/serverapi"
-	"github.com/kopia/kopia/internal/upload"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
+	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
 // sourceManager manages the state machine of each source
@@ -164,7 +164,7 @@ func (s *sourceManager) snapshot(ctx context.Context) {
 		log.Errorf("unable to create local filesystem: %v", err)
 		return
 	}
-	u := upload.NewUploader(s.server.rep)
+	u := snapshotfs.NewUploader(s.server.rep)
 	polGetter, err := policy.FilesPolicyGetter(ctx, s.server.rep, s.src)
 	if err != nil {
 		log.Errorf("unable to create policy getter: %v", err)

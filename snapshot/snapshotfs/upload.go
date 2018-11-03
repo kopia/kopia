@@ -1,5 +1,4 @@
-// Package upload manages uploading snapshots to the repository.
-package upload
+package snapshotfs
 
 import (
 	"bytes"
@@ -20,9 +19,9 @@ import (
 	"github.com/kopia/kopia/internal/dir"
 	"github.com/kopia/kopia/internal/hashcache"
 	"github.com/kopia/kopia/internal/kopialogging"
+	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/repo"
 	"github.com/kopia/repo/object"
-	"github.com/kopia/kopia/snapshot"
 )
 
 var log = kopialogging.Logger("kopia/upload")
@@ -46,7 +45,7 @@ var errCancelled = errors.New("cancelled")
 
 // Uploader supports efficient uploading files and directories to repository.
 type Uploader struct {
-	Progress Progress
+	Progress UploadProgress
 
 	FilesPolicy ignorefs.FilesPolicyGetter
 

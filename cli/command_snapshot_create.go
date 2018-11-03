@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kopia/kopia/internal/upload"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
+	"github.com/kopia/kopia/snapshot/snapshotfs"
 	"github.com/kopia/repo"
 )
 
@@ -47,7 +47,7 @@ func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
 		return errors.New("no backup sources")
 	}
 
-	u := upload.NewUploader(rep)
+	u := snapshotfs.NewUploader(rep)
 	u.MaxUploadBytes = *snapshotCreateCheckpointUploadLimitMB * 1024 * 1024
 	u.ForceHashPercentage = *snapshotCreateForceHash
 	u.HashCacheMinAge = *snapshotCreateHashCacheMinAge
@@ -83,7 +83,7 @@ func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
 	return fmt.Errorf("encountered %v errors:\n%v", len(finalErrors), strings.Join(finalErrors, "\n"))
 }
 
-func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *upload.Uploader, sourceInfo snapshot.SourceInfo) error {
+func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo) error {
 	t0 := time.Now()
 	rep.Blocks.ResetStats()
 

@@ -1,12 +1,9 @@
 COVERAGE_PACKAGES=./repo/...,./fs/...,./snapshot/...
 
-all: install install-examples test lint vet integration-tests
+all: install test lint vet integration-tests
 
 install:
 	go install github.com/kopia/kopia
-
-install-examples:
-	go install github.com/kopia/kopia/examples/repository
 
 install-race:
 	go install -race github.com/kopia/kopia
