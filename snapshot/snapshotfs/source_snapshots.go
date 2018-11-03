@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/internal/dir"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/repo"
 )
@@ -69,14 +68,12 @@ func (s *sourceSnapshots) Readdir(ctx context.Context) (fs.Entries, error) {
 			name += fmt.Sprintf(" (%v)", m.IncompleteReason)
 		}
 
-		de := &dir.Entry{
-			EntryMetadata: dir.EntryMetadata{
-				Name:        name,
-				Permissions: 0555,
-				Type:        dir.EntryTypeDirectory,
-				ModTime:     m.StartTime,
-			},
-			ObjectID: m.RootObjectID(),
+		de := &snapshot.DirEntry{
+			Name:        name,
+			Permissions: 0555,
+			Type:        snapshot.EntryTypeDirectory,
+			ModTime:     m.StartTime,
+			ObjectID:    m.RootObjectID(),
 		}
 
 		if m.RootEntry != nil {

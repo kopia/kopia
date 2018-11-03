@@ -16,7 +16,7 @@ import (
 )
 
 type repositoryEntry struct {
-	metadata *dir.Entry
+	metadata *snapshot.DirEntry
 	repo     *repo.Repository
 }
 
@@ -26,9 +26,9 @@ func (e *repositoryEntry) IsDir() bool {
 
 func (e *repositoryEntry) Mode() os.FileMode {
 	switch e.metadata.Type {
-	case dir.EntryTypeDirectory:
+	case snapshot.EntryTypeDirectory:
 		return os.ModeDir | os.FileMode(e.metadata.Permissions)
-	case dir.EntryTypeSymlink:
+	case snapshot.EntryTypeSymlink:
 		return os.ModeSymlink | os.FileMode(e.metadata.Permissions)
 	default:
 		return os.FileMode(e.metadata.Permissions)
@@ -125,14 +125,14 @@ func (rsl *repositorySymlink) Readlink(ctx context.Context) (string, error) {
 	return string(b), nil
 }
 
-func newRepoEntry(r *repo.Repository, md *dir.Entry) fs.Entry {
+func newRepoEntry(r *repo.Repository, md *snapshot.DirEntry) fs.Entry {
 	re := repositoryEntry{
 		metadata: md,
 		repo:     r,
 	}
 
 	switch md.Type {
-	case dir.EntryTypeDirectory:
+	case snapshot.EntryTypeDirectory:
 		if md.DirSummary != nil {
 			md.FileSize = md.DirSummary.TotalFileSize
 			md.ModTime = md.DirSummary.MaxModTime
@@ -140,10 +140,10 @@ func newRepoEntry(r *repo.Repository, md *dir.Entry) fs.Entry {
 
 		return fs.Directory(&repositoryDirectory{re, md.DirSummary})
 
-	case dir.EntryTypeSymlink:
+	case snapshot.EntryTypeSymlink:
 		return fs.Symlink(&repositorySymlink{re})
 
-	case dir.EntryTypeFile:
+	case snapshot.EntryTypeFile:
 		return fs.File(&repositoryFile{re})
 
 	default:
@@ -167,14 +167,12 @@ func withFileInfo(r object.Reader, e fs.Entry) fs.Reader {
 // DirectoryEntry returns fs.Directory based on repository object with the specified ID.
 // The existence or validity of the directory object is not validated until its contents are read.
 func DirectoryEntry(rep *repo.Repository, objectID object.ID, dirSummary *fs.DirectorySummary) fs.Directory {
-	d := newRepoEntry(rep, &dir.Entry{
-		EntryMetadata: dir.EntryMetadata{
-			Name:        "/",
-			Permissions: 0555,
-			Type:        dir.EntryTypeDirectory,
-		},
-		ObjectID:   objectID,
-		DirSummary: dirSummary,
+	d := newRepoEntry(rep, &snapshot.DirEntry{
+		Name:        "/",
+		Permissions: 0555,
+		Type:        snapshot.EntryTypeDirectory,
+		ObjectID:    objectID,
+		DirSummary:  dirSummary,
 	})
 
 	return d.(fs.Directory)

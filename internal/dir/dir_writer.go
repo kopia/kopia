@@ -5,6 +5,7 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/jsonstream"
+	"github.com/kopia/kopia/snapshot"
 )
 
 // Writer writes a stream of directory entries.
@@ -13,7 +14,7 @@ type Writer struct {
 }
 
 // WriteEntry writes the specified entry to the output.
-func (dw *Writer) WriteEntry(e *Entry) error {
+func (dw *Writer) WriteEntry(e *snapshot.DirEntry) error {
 	if err := e.ObjectID.Validate(); err != nil {
 		panic("invalid object ID: " + err.Error())
 	}

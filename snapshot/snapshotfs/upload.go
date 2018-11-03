@@ -220,36 +220,34 @@ func (u *Uploader) copyWithProgress(path string, dst io.Writer, src io.Reader, c
 	return written, nil
 }
 
-func newDirEntry(md fs.Entry, oid object.ID) *dir.Entry {
-	var entryType dir.EntryType
+func newDirEntry(md fs.Entry, oid object.ID) *snapshot.DirEntry {
+	var entryType snapshot.EntryType
 
 	switch md.Mode() & os.ModeType {
 	case os.ModeDir:
-		entryType = dir.EntryTypeDirectory
+		entryType = snapshot.EntryTypeDirectory
 	case os.ModeSymlink:
-		entryType = dir.EntryTypeSymlink
+		entryType = snapshot.EntryTypeSymlink
 	case 0:
-		entryType = dir.EntryTypeFile
+		entryType = snapshot.EntryTypeFile
 	default:
-		entryType = dir.EntryTypeUnknown
+		entryType = snapshot.EntryTypeUnknown
 	}
 
-	return &dir.Entry{
-		EntryMetadata: dir.EntryMetadata{
-			Name:        md.Name(),
-			Type:        entryType,
-			Permissions: dir.Permissions(md.Mode() & os.ModePerm),
-			FileSize:    md.Size(),
-			ModTime:     md.ModTime(),
-			UserID:      md.Owner().UserID,
-			GroupID:     md.Owner().GroupID,
-		},
-		ObjectID: oid,
+	return &snapshot.DirEntry{
+		Name:        md.Name(),
+		Type:        entryType,
+		Permissions: snapshot.Permissions(md.Mode() & os.ModePerm),
+		FileSize:    md.Size(),
+		ModTime:     md.ModTime(),
+		UserID:      md.Owner().UserID,
+		GroupID:     md.Owner().GroupID,
+		ObjectID:    oid,
 	}
 }
 
 // uploadFile uploads the specified File to the repository.
-func (u *Uploader) uploadFile(ctx context.Context, file fs.File) (*dir.Entry, error) {
+func (u *Uploader) uploadFile(ctx context.Context, file fs.File) (*snapshot.DirEntry, error) {
 	res := u.uploadFileInternal(ctx, file, file.Name())
 	if res.err != nil {
 		return nil, res.err
@@ -268,7 +266,7 @@ func (u *Uploader) uploadFile(ctx context.Context, file fs.File) (*dir.Entry, er
 // uploadDir uploads the specified Directory to the repository.
 // An optional ID of a hash-cache object may be provided, in which case the Uploader will use its
 // contents to avoid hashing
-func (u *Uploader) uploadDir(ctx context.Context, rootDir fs.Directory) (*dir.Entry, object.ID, error) {
+func (u *Uploader) uploadDir(ctx context.Context, rootDir fs.Directory) (*snapshot.DirEntry, object.ID, error) {
 	mw := u.repo.Objects.NewWriter(ctx, object.WriterOptions{
 		Description: "HASHCACHE:" + rootDir.Name(),
 		Prefix:      "h",
@@ -315,7 +313,7 @@ func (u *Uploader) foreachEntryUnlessCancelled(relativePath string, entries fs.E
 
 type entryResult struct {
 	err  error
-	de   *dir.Entry
+	de   *snapshot.DirEntry
 	hash uint64
 }
 

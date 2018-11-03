@@ -209,7 +209,7 @@ func enqueueRootsToVerify(ctx context.Context, v *verifier, rep *repo.Repository
 			continue
 		}
 
-		if man.RootEntry.FileMode().IsDir() {
+		if man.RootEntry.Type == snapshot.EntryTypeDirectory {
 			v.enqueueVerifyDirectory(ctx, man.RootObjectID(), path)
 		} else {
 			v.enqueueVerifyObject(ctx, man.RootObjectID(), path, -1)
