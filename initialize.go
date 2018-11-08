@@ -54,15 +54,15 @@ func Initialize(ctx context.Context, st storage.Storage, opt *NewRepositoryOptio
 	format := formatBlockFromOptions(opt)
 	masterKey, err := format.deriveMasterKeyFromPassword(password)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to derive master key: %v", err)
 	}
 
 	if err := encryptFormatBytes(format, repositoryObjectFormatFromOptions(opt), masterKey, format.UniqueID); err != nil {
-		return err
+		return fmt.Errorf("unable to encrypt format bytes: %v", err)
 	}
 
 	if err := writeFormatBlock(ctx, st, format); err != nil {
-		return err
+		return fmt.Errorf("unable to write format block: %v", err)
 	}
 
 	return nil

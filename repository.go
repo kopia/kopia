@@ -26,16 +26,16 @@ type Repository struct {
 // Close closes the repository and releases all resources.
 func (r *Repository) Close(ctx context.Context) error {
 	if err := r.Manifests.Flush(ctx); err != nil {
-		return err
+		return fmt.Errorf("error flushing manifests: %v", err)
 	}
 	if err := r.Objects.Close(ctx); err != nil {
-		return err
+		return fmt.Errorf("error closing objects: %v", err)
 	}
 	if err := r.Blocks.Flush(ctx); err != nil {
-		return err
+		return fmt.Errorf("error closing blocks: %v", err)
 	}
 	if err := r.Storage.Close(ctx); err != nil {
-		return err
+		return fmt.Errorf("error closing storage: %v", err)
 	}
 	return nil
 }
