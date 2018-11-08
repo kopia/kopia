@@ -33,12 +33,12 @@ func TestWebDAVStorage(t *testing.T) {
 
 	// Test varioush shard configurations.
 	for _, shardSpec := range [][]int{
-		[]int{1},
-		[]int{3, 3},
-		[]int{2},
-		[]int{1, 1},
-		[]int{1, 2},
-		[]int{2, 2, 2},
+		{1},
+		{3, 3},
+		{2},
+		{1, 1},
+		{1, 2},
+		{2, 2, 2},
 	} {
 		t.Run(fmt.Sprintf("shards-%v", shardSpec), func(t *testing.T) {
 			if err := os.RemoveAll(tmpDir); err != nil {

@@ -5,7 +5,7 @@ import (
 	"errors"
 )
 
-// mergedIndex is an implementation of Index that transparently merges retuns from underlying Indexes.
+// mergedIndex is an implementation of Index that transparently merges returns from underlying Indexes.
 type mergedIndex []packIndex
 
 // Close closes all underlying indexes.

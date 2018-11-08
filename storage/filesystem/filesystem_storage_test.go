@@ -20,13 +20,13 @@ func TestFileStorage(t *testing.T) {
 
 	// Test varioush shard configurations.
 	for _, shardSpec := range [][]int{
-		[]int{0},
-		[]int{1},
-		[]int{3, 3},
-		[]int{2},
-		[]int{1, 1},
-		[]int{1, 2},
-		[]int{2, 2, 2},
+		{0},
+		{1},
+		{3, 3},
+		{2},
+		{1, 1},
+		{1, 2},
+		{2, 2, 2},
 	} {
 		path, _ := ioutil.TempDir("", "r-fs")
 		defer os.RemoveAll(path)
@@ -66,7 +66,7 @@ func TestFileStorageTouch(t *testing.T) {
 
 	fs := r.(*fsStorage)
 	fs.PutBlock(ctx, t1, []byte{1})
-	time.Sleep(1 * time.Second) // sleep a bit to accomodate Apple filesystems with low timestamp resolution
+	time.Sleep(1 * time.Second) // sleep a bit to accommodate Apple filesystems with low timestamp resolution
 	fs.PutBlock(ctx, t2, []byte{1})
 	time.Sleep(1 * time.Second)
 	fs.PutBlock(ctx, t3, []byte{1})

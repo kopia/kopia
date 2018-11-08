@@ -282,7 +282,7 @@ func TestBlockManagerFailedToWritePack(t *testing.T) {
 	logging.SetLevel(logging.DEBUG, "faulty-storage")
 
 	faulty.Faults = map[string][]*storagetesting.Fault{
-		"PutBlock": []*storagetesting.Fault{
+		"PutBlock": {
 			{Err: errors.New("booboo")},
 		},
 	}
