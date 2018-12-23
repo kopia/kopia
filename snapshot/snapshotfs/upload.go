@@ -286,9 +286,6 @@ func (u *Uploader) uploadDir(ctx context.Context, rootDir fs.Directory) (*snapsh
 	}
 
 	hcid, err := mw.Result()
-	if flushErr := u.repo.Objects.Flush(ctx); flushErr != nil {
-		return nil, "", fmt.Errorf("can't flush pending objects: %v", flushErr)
-	}
 	de := newDirEntry(rootDir, oid)
 	de.DirSummary = &summ
 	return de, hcid, err
