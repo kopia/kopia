@@ -1,6 +1,7 @@
 package block
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io/ioutil"
@@ -8,6 +9,7 @@ import (
 	"reflect"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/kopia/repo/internal/storagetesting"
 	"github.com/kopia/repo/storage"
@@ -18,20 +20,56 @@ func newUnderlyingStorageForBlockCacheTesting() storage.Storage {
 	data := map[string][]byte{}
 	st := storagetesting.NewMapStorage(data, nil, nil)
 	st.PutBlock(ctx, "block-1", []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
+	st.PutBlock(ctx, "block-4k", bytes.Repeat([]byte{1, 2, 3, 4}, 1000)) // 4000 bytes
 	return st
 }
 
-func TestInMemoryBlockCache(t *testing.T) {
+func TestCacheExpiration(t *testing.T) {
 	cacheData := map[string][]byte{}
 	cacheStorage := storagetesting.NewMapStorage(cacheData, nil, nil)
 
-	cache, err := newBlockCacheWithCacheStorage(context.Background(), newUnderlyingStorageForBlockCacheTesting(), cacheStorage, CachingOptions{
+	underlyingStorage := newUnderlyingStorageForBlockCacheTesting()
+
+	cache, err := newBlockCacheWithCacheStorage(context.Background(), underlyingStorage, cacheStorage, CachingOptions{
 		MaxCacheSizeBytes: 10000,
-	})
+	}, 0, 500*time.Millisecond)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	verifyBlockCache(t, cache)
+	defer cache.close()
+
+	ctx := context.Background()
+	cache.getContentBlock(ctx, "00000a", "block-4k", 0, -1) // 4k
+	cache.getContentBlock(ctx, "00000b", "block-4k", 0, -1) // 4k
+	cache.getContentBlock(ctx, "00000c", "block-4k", 0, -1) // 4k
+	cache.getContentBlock(ctx, "00000d", "block-4k", 0, -1) // 4k
+
+	// wait for a sweep
+	time.Sleep(2 * time.Second)
+
+	// 00000a and 00000b will be removed from cache because it's the oldest.
+	// to verify, let's remove block-4k from the underlying storage and make sure we can still read
+	// 00000c and 00000d from the cache but not 00000a nor 00000b
+	underlyingStorage.DeleteBlock(ctx, "block-4k")
+
+	cases := []struct {
+		block         string
+		expectedError error
+	}{
+		{"00000a", storage.ErrBlockNotFound},
+		{"00000b", storage.ErrBlockNotFound},
+		{"00000c", nil},
+		{"00000d", nil},
+	}
+
+	for _, tc := range cases {
+		_, got := cache.getContentBlock(ctx, tc.block, "block-4k", 0, -1)
+		if want := tc.expectedError; got != want {
+			t.Errorf("unexpected error when getting block %v: %v wanted %v", tc.block, got, want)
+		} else {
+			t.Logf("got correct error %v when reading block %v", tc.expectedError, tc.block)
+		}
+	}
 }
 
 func TestDiskBlockCache(t *testing.T) {
@@ -51,12 +89,12 @@ func TestDiskBlockCache(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
+	defer cache.close()
 	verifyBlockCache(t, cache)
 }
 
 func verifyBlockCache(t *testing.T, cache *blockCache) {
 	ctx := context.Background()
-	defer cache.close()
 
 	t.Run("GetContentBlock", func(t *testing.T) {
 		cases := []struct {

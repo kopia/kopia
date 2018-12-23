@@ -61,6 +61,7 @@ func (s *mapStorage) DeleteBlock(ctx context.Context, id string) error {
 	defer s.mutex.Unlock()
 
 	delete(s.data, id)
+	delete(s.keyTime, id)
 	return nil
 }
 
@@ -97,6 +98,20 @@ func (s *mapStorage) ListBlocks(ctx context.Context, prefix string, callback fun
 }
 
 func (s *mapStorage) Close(ctx context.Context) error {
+	return nil
+}
+
+func (s *mapStorage) TouchBlock(ctx context.Context, blockID string, threshold time.Duration) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if v, ok := s.keyTime[blockID]; ok {
+		n := s.timeNow()
+		if n.Sub(v) >= threshold {
+			s.keyTime[blockID] = n
+		}
+	}
+
 	return nil
 }
 

@@ -14,15 +14,17 @@ import (
 )
 
 const (
-	sweepCacheFrequency = 1 * time.Minute
-	touchThreshold      = 10 * time.Minute
+	defaultSweepFrequency = 1 * time.Minute
+	defaultTouchThreshold = 10 * time.Minute
 )
 
 type blockCache struct {
-	st           storage.Storage
-	cacheStorage storage.Storage
-	maxSizeBytes int64
-	hmacSecret   []byte
+	st             storage.Storage
+	cacheStorage   storage.Storage
+	maxSizeBytes   int64
+	hmacSecret     []byte
+	sweepFrequency time.Duration
+	touchThreshold time.Duration
 
 	mu                 sync.Mutex
 	lastTotalSizeBytes int64
@@ -75,7 +77,7 @@ func (c *blockCache) readAndVerifyCacheBlock(ctx context.Context, cacheKey strin
 		b, err = verifyAndStripHMAC(b, c.hmacSecret)
 		if err == nil {
 			if t, ok := c.cacheStorage.(blockToucher); ok {
-				t.TouchBlock(ctx, cacheKey, touchThreshold) //nolint:errcheck
+				t.TouchBlock(ctx, cacheKey, c.touchThreshold) //nolint:errcheck
 			}
 
 			// retrieved from cache and HMAC valid
@@ -103,7 +105,7 @@ func (c *blockCache) sweepDirectoryPeriodically(ctx context.Context) {
 		case <-c.closed:
 			return
 
-		case <-time.After(sweepCacheFrequency):
+		case <-time.After(c.sweepFrequency):
 			err := c.sweepDirectory(ctx)
 			if err != nil {
 				log.Warningf("blockCache sweep failed: %v", err)
@@ -156,8 +158,8 @@ func (c *blockCache) sweepDirectory(ctx context.Context) (err error) {
 
 		if totalRetainedSize > c.maxSizeBytes {
 			oldest := heap.Pop(&h).(storage.BlockMetadata)
-			if delerr := c.cacheStorage.DeleteBlock(ctx, it.BlockID); delerr != nil {
-				log.Warningf("unable to remove %v: %v", it.BlockID, delerr)
+			if delerr := c.cacheStorage.DeleteBlock(ctx, oldest.BlockID); delerr != nil {
+				log.Warningf("unable to remove %v: %v", oldest.BlockID, delerr)
 			} else {
 				totalRetainedSize -= oldest.Length
 			}
@@ -195,16 +197,18 @@ func newBlockCache(ctx context.Context, st storage.Storage, caching CachingOptio
 		}
 	}
 
-	return newBlockCacheWithCacheStorage(ctx, st, cacheStorage, caching)
+	return newBlockCacheWithCacheStorage(ctx, st, cacheStorage, caching, defaultTouchThreshold, defaultSweepFrequency)
 }
 
-func newBlockCacheWithCacheStorage(ctx context.Context, st, cacheStorage storage.Storage, caching CachingOptions) (*blockCache, error) {
+func newBlockCacheWithCacheStorage(ctx context.Context, st, cacheStorage storage.Storage, caching CachingOptions, touchThreshold time.Duration, sweepFrequency time.Duration) (*blockCache, error) {
 	c := &blockCache{
-		st:           st,
-		cacheStorage: cacheStorage,
-		maxSizeBytes: caching.MaxCacheSizeBytes,
-		hmacSecret:   append([]byte(nil), caching.HMACSecret...),
-		closed:       make(chan struct{}),
+		st:             st,
+		cacheStorage:   cacheStorage,
+		maxSizeBytes:   caching.MaxCacheSizeBytes,
+		hmacSecret:     append([]byte(nil), caching.HMACSecret...),
+		closed:         make(chan struct{}),
+		touchThreshold: touchThreshold,
+		sweepFrequency: sweepFrequency,
 	}
 
 	if err := c.sweepDirectory(ctx); err != nil {
