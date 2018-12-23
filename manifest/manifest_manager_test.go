@@ -123,6 +123,80 @@ func TestManifest(t *testing.T) {
 	verifyItemNotFound(ctx, t, mgr3, id3)
 }
 
+func TestManifestInitCorruptedBlock(t *testing.T) {
+	ctx := context.Background()
+	data := map[string][]byte{}
+	st := storagetesting.NewMapStorage(data, nil, nil)
+
+	f := block.FormattingOptions{
+		BlockFormat: "UNENCRYPTED_HMAC_SHA256_128",
+		MaxPackSize: 100000,
+	}
+
+	// write some data to storage
+	bm, err := block.NewManager(ctx, st, f, block.CachingOptions{})
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+
+	mgr, err := NewManager(ctx, bm)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+
+	mgr.Put(ctx, map[string]string{"type": "foo"}, map[string]string{"some": "value"})
+	mgr.Flush(ctx)
+	bm.Flush(ctx)
+
+	// corrupt data at the storage level.
+	for k, v := range data {
+		if strings.HasPrefix(k, "p") {
+			for i := 0; i < len(v); i++ {
+				v[i] ^= 1
+			}
+		}
+	}
+
+	// make a new block manager based on corrupted data.
+	bm, err = block.NewManager(ctx, st, f, block.CachingOptions{})
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+
+	mgr, err = NewManager(ctx, bm)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+
+	cases := []struct {
+		desc string
+		f    func() error
+	}{
+		{"GetRaw", func() error { _, err := mgr.GetRaw(ctx, "anything"); return err }},
+		{"GetMetadata", func() error { _, err := mgr.GetMetadata(ctx, "anything"); return err }},
+		{"Get", func() error { return mgr.Get(ctx, "anything", nil) }},
+		{"Delete", func() error { return mgr.Delete(ctx, "anything") }},
+		{"Find", func() error { _, err := mgr.Find(ctx, nil); return err }},
+		{"Put", func() error {
+			_, err := mgr.Put(ctx, map[string]string{
+				"type": "foo",
+			}, map[string]string{
+				"some": "value",
+			})
+			return err
+		}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.desc, func(t *testing.T) {
+			err := tc.f()
+			if err == nil || !strings.Contains(err.Error(), "invalid checksum") {
+				t.Errorf("invalid error when initializing malformed manifest manager: %v", err)
+			}
+		})
+	}
+}
+
 func addAndVerify(ctx context.Context, t *testing.T, mgr *Manager, labels map[string]string, data map[string]int) string {
 	t.Helper()
 	id, err := mgr.Put(ctx, labels, data)

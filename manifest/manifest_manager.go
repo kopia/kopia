@@ -220,17 +220,10 @@ func (m *Manager) flushPendingEntriesLocked(ctx context.Context) (string, error)
 	}
 
 	var buf bytes.Buffer
-
 	gz := gzip.NewWriter(&buf)
-	if err := json.NewEncoder(gz).Encode(man); err != nil {
-		return "", fmt.Errorf("unable to marshal: %v", err)
-	}
-	if err := gz.Flush(); err != nil {
-		return "", fmt.Errorf("unable to flush: %v", err)
-	}
-	if err := gz.Close(); err != nil {
-		return "", fmt.Errorf("unable to close: %v", err)
-	}
+	mustSucceed(json.NewEncoder(gz).Encode(man))
+	mustSucceed(gz.Flush())
+	mustSucceed(gz.Close())
 
 	blockID, err := m.b.WriteBlock(ctx, buf.Bytes(), manifestBlockPrefix)
 	if err != nil {
@@ -245,6 +238,12 @@ func (m *Manager) flushPendingEntriesLocked(ctx context.Context) (string, error)
 	m.committedBlockIDs[blockID] = true
 
 	return blockID, nil
+}
+
+func mustSucceed(e error) {
+	if e != nil {
+		panic("unexpected failure: " + e.Error())
+	}
 }
 
 // Delete marks the specified manifest ID for deletion.
