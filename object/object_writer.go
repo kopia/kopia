@@ -59,13 +59,10 @@ type objectWriter struct {
 
 	splitter        objectSplitter
 	pendingBlocksWG sync.WaitGroup
-
-	err asyncErrors
 }
 
 func (w *objectWriter) Close() error {
-	w.pendingBlocksWG.Wait()
-	return w.err.check()
+	return nil
 }
 
 func (w *objectWriter) Write(data []byte) (n int, err error) {
@@ -97,34 +94,14 @@ func (w *objectWriter) flushBuffer() error {
 	w.buffer.WriteTo(&b2) //nolint:errcheck
 	w.buffer.Reset()
 
-	do := func() {
-		blockID, err := w.repo.blockMgr.WriteBlock(w.ctx, b2.Bytes(), w.prefix)
-		w.repo.trace("OBJECT_WRITER(%q) stored %v (%v bytes)", w.description, blockID, length)
-		if err != nil {
-			w.err.add(fmt.Errorf("error when flushing chunk %d of %s: %v", chunkID, w.description, err))
-			return
-		}
-
-		w.blockIndex[chunkID].Object = DirectObjectID(blockID)
+	blockID, err := w.repo.blockMgr.WriteBlock(w.ctx, b2.Bytes(), w.prefix)
+	w.repo.trace("OBJECT_WRITER(%q) stored %v (%v bytes)", w.description, blockID, length)
+	if err != nil {
+		return fmt.Errorf("error when flushing chunk %d of %s: %v", chunkID, w.description, err)
 	}
 
-	if w.repo.async {
-		w.repo.writeBackSemaphore.Lock()
-		w.pendingBlocksWG.Add(1)
-		w.repo.writeBackWG.Add(1)
-
-		go func() {
-			defer w.pendingBlocksWG.Done()
-			defer w.repo.writeBackWG.Done()
-			defer w.repo.writeBackSemaphore.Unlock()
-			do()
-		}()
-
-		return nil
-	}
-
-	do()
-	return w.err.check()
+	w.blockIndex[chunkID].Object = DirectObjectID(blockID)
+	return nil
 }
 
 func (w *objectWriter) Result() (ID, error) {
@@ -132,11 +109,6 @@ func (w *objectWriter) Result() (ID, error) {
 		if err := w.flushBuffer(); err != nil {
 			return "", err
 		}
-	}
-	w.pendingBlocksWG.Wait()
-
-	if err := w.err.check(); err != nil {
-		return "", err
 	}
 
 	if len(w.blockIndex) == 1 {

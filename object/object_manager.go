@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"sync"
 
 	"github.com/kopia/repo/block"
 	"github.com/kopia/repo/internal/jsonstream"
@@ -40,20 +39,9 @@ type Manager struct {
 	Format Format
 
 	blockMgr blockManager
-
-	async              bool
-	writeBackWG        sync.WaitGroup
-	writeBackSemaphore semaphore
-
-	trace func(message string, args ...interface{})
+	trace    func(message string, args ...interface{})
 
 	newSplitter func() objectSplitter
-}
-
-// Close closes the connection to the underlying blob storage and releases any resources.
-func (om *Manager) Close(ctx context.Context) error {
-	om.writeBackWG.Wait()
-	return om.Flush(ctx)
 }
 
 // NewWriter creates an ObjectWriter for writing to the repository.
@@ -77,9 +65,6 @@ func (om *Manager) NewWriter(ctx context.Context, opt WriterOptions) Writer {
 func (om *Manager) Open(ctx context.Context, objectID ID) (Reader, error) {
 	// log.Printf("Repository::Open %v", objectID.String())
 	// defer log.Printf("finished Repository::Open() %v", objectID.String())
-
-	// Flush any pending writes.
-	om.writeBackWG.Wait()
 
 	if indexObjectID, ok := objectID.IndexObjectID(); ok {
 		rd, err := om.Open(ctx, indexObjectID)
@@ -109,9 +94,6 @@ func (om *Manager) Open(ctx context.Context, objectID ID) (Reader, error) {
 // VerifyObject ensures that all objects backing ObjectID are present in the repository
 // and returns the total length of the object and storage blocks of which it is composed.
 func (om *Manager) VerifyObject(ctx context.Context, oid ID) (int64, []string, error) {
-	// Flush any pending writes.
-	om.writeBackWG.Wait()
-
 	blocks := &blockTracker{}
 	l, err := om.verifyObjectInternal(ctx, oid, blocks)
 	if err != nil {
@@ -169,20 +151,12 @@ func (om *Manager) verifyObjectInternal(ctx context.Context, oid ID, blocks *blo
 
 }
 
-// Flush closes any pending pack files. Once this method returns, ObjectIDs returned by ObjectManager are
-// ok to be used.
-func (om *Manager) Flush(ctx context.Context) error {
-	om.writeBackWG.Wait()
-	return nil
-}
-
 func nullTrace(message string, args ...interface{}) {
 }
 
 // ManagerOptions specifies object manager options.
 type ManagerOptions struct {
-	WriteBack int
-	Trace     func(message string, args ...interface{})
+	Trace func(message string, args ...interface{})
 }
 
 // NewObjectManager creates an ObjectManager with the specified block manager and format.
@@ -211,11 +185,6 @@ func NewObjectManager(ctx context.Context, bm blockManager, f Format, opts Manag
 		om.trace = opts.Trace
 	} else {
 		om.trace = nullTrace
-	}
-
-	if opts.WriteBack > 0 {
-		om.async = true
-		om.writeBackSemaphore = make(semaphore, opts.WriteBack)
 	}
 
 	return om, nil

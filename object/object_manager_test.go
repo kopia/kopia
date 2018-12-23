@@ -105,8 +105,6 @@ func TestWriters(t *testing.T) {
 			continue
 		}
 
-		om.writeBackWG.Wait()
-
 		if !objectIDsEqual(result, c.objectID) {
 			t.Errorf("incorrect result for %v, expected: %v got: %v", c.data, c.objectID.String(), result.String())
 		}
@@ -203,8 +201,6 @@ func TestIndirection(t *testing.T) {
 		if got, want := len(data), c.expectedBlockCount; got != want {
 			t.Errorf("unexpected block count for %v: %v, expected %v", c.dataLength, got, want)
 		}
-
-		om.Flush(ctx)
 
 		l, b, err := om.VerifyObject(ctx, result)
 		if err != nil {

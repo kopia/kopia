@@ -28,9 +28,6 @@ func (r *Repository) Close(ctx context.Context) error {
 	if err := r.Manifests.Flush(ctx); err != nil {
 		return fmt.Errorf("error flushing manifests: %v", err)
 	}
-	if err := r.Objects.Close(ctx); err != nil {
-		return fmt.Errorf("error closing objects: %v", err)
-	}
 	if err := r.Blocks.Flush(ctx); err != nil {
 		return fmt.Errorf("error closing blocks: %v", err)
 	}
@@ -43,9 +40,6 @@ func (r *Repository) Close(ctx context.Context) error {
 // Flush waits for all in-flight writes to complete.
 func (r *Repository) Flush(ctx context.Context) error {
 	if err := r.Manifests.Flush(ctx); err != nil {
-		return err
-	}
-	if err := r.Objects.Flush(ctx); err != nil {
 		return err
 	}
 

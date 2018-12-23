@@ -45,8 +45,6 @@ func TestWriters(t *testing.T) {
 			continue
 		}
 
-		env.Repository.Objects.Flush(ctx)
-
 		if !objectIDsEqual(result, c.objectID) {
 			t.Errorf("incorrect result for %v, expected: %v got: %v", c.data, c.objectID.String(), result.String())
 		}
@@ -96,7 +94,6 @@ func TestPackingSimple(t *testing.T) {
 	oid2c := writeObject(ctx, t, env.Repository, []byte(content2), "packed-object-2c")
 	oid1c := writeObject(ctx, t, env.Repository, []byte(content1), "packed-object-1c")
 
-	env.Repository.Objects.Flush(ctx)
 	env.Repository.Blocks.Flush(ctx)
 
 	if got, want := oid1a.String(), oid1b.String(); got != want {
