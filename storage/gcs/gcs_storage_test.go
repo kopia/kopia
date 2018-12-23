@@ -42,6 +42,9 @@ func TestGCSStorage(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("unable to clear GCS bucket: %v", err)
 	}
+	if err := st.Close(ctx); err != nil {
+		t.Fatalf("err: %v", err)
+	}
 }
 
 func TestGCSStorageInvalid(t *testing.T) {

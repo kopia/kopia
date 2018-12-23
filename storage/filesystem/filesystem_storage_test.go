@@ -42,6 +42,9 @@ func TestFileStorage(t *testing.T) {
 
 		storagetesting.VerifyStorage(ctx, t, r)
 		storagetesting.AssertConnectionInfoRoundTrips(ctx, t, r)
+		if err := r.Close(ctx); err != nil {
+			t.Fatalf("err: %v", err)
+		}
 	}
 }
 
