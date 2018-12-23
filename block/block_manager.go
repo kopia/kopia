@@ -211,58 +211,42 @@ func (bm *Manager) verifyInvariantsLocked() {
 
 func (bm *Manager) verifyCurrentPackItemsLocked() {
 	for k, cpi := range bm.currentPackItems {
-		if cpi.BlockID != k {
-			bm.invariantViolated("block ID entry has invalid key: %v %v", cpi.BlockID, k)
-		}
-		if cpi.PackFile != "" && !cpi.Deleted {
-			bm.invariantViolated("block ID entry has unexpected pack block ID %v: %v", cpi.BlockID, cpi.PackFile)
-		}
-		if cpi.TimestampSeconds == 0 {
-			bm.invariantViolated("block has no timestamp: %v", cpi.BlockID)
-		}
+		bm.assertInvariant(cpi.BlockID == k, "block ID entry has invalid key: %v %v", cpi.BlockID, k)
+		bm.assertInvariant(cpi.Deleted || cpi.PackFile == "", "block ID entry has unexpected pack block ID %v: %v", cpi.BlockID, cpi.PackFile)
+		bm.assertInvariant(cpi.TimestampSeconds != 0, "block has no timestamp: %v", cpi.BlockID)
 		bi, ok := bm.packIndexBuilder[k]
-		if !ok {
-			bm.invariantViolated("block ID entry not present in pack index builder: %v", cpi.BlockID)
-		}
-		if !reflect.DeepEqual(*bi, cpi) {
-			bm.invariantViolated("current pack index does not match pack index builder: %v", cpi, *bi)
-		}
+		bm.assertInvariant(ok, "block ID entry not present in pack index builder: %v", cpi.BlockID)
+		bm.assertInvariant(reflect.DeepEqual(*bi, cpi), "current pack index does not match pack index builder: %v", cpi, *bi)
 	}
 }
 
 func (bm *Manager) verifyPackIndexBuilderLocked() {
 	for k, cpi := range bm.packIndexBuilder {
-		if cpi.BlockID != k {
-			bm.invariantViolated("block ID entry has invalid key: %v %v", cpi.BlockID, k)
-		}
+		bm.assertInvariant(cpi.BlockID == k, "block ID entry has invalid key: %v %v", cpi.BlockID, k)
 		if _, ok := bm.currentPackItems[cpi.BlockID]; ok {
 			// ignore blocks also in currentPackItems
 			continue
 		}
 		if cpi.Deleted {
-			if cpi.PackFile != "" {
-				bm.invariantViolated("block can't be both deleted and have a pack block: %v", cpi.BlockID)
-			}
+			bm.assertInvariant(cpi.PackFile == "", "block can't be both deleted and have a pack block: %v", cpi.BlockID)
 		} else {
-			if cpi.PackFile == "" {
-				bm.invariantViolated("block that's not deleted must have a pack block: %+v", cpi)
-			}
-			if cpi.FormatVersion != byte(bm.writeFormatVersion) {
-				bm.invariantViolated("block that's not deleted must have a valid format version: %+v", cpi)
-			}
+			bm.assertInvariant(cpi.PackFile != "", "block that's not deleted must have a pack block: %+v", cpi)
+			bm.assertInvariant(cpi.FormatVersion == byte(bm.writeFormatVersion), "block that's not deleted must have a valid format version: %+v", cpi)
 		}
-		if cpi.TimestampSeconds == 0 {
-			bm.invariantViolated("block has no timestamp: %v", cpi.BlockID)
-		}
+		bm.assertInvariant(cpi.TimestampSeconds != 0, "block has no timestamp: %v", cpi.BlockID)
 	}
 }
 
-func (bm *Manager) invariantViolated(msg string, arg ...interface{}) {
-	if len(arg) > 0 {
-		msg = fmt.Sprintf(msg, arg...)
+func (bm *Manager) assertInvariant(ok bool, errorMsg string, arg ...interface{}) {
+	if ok {
+		return
 	}
 
-	panic(msg)
+	if len(arg) > 0 {
+		errorMsg = fmt.Sprintf(errorMsg, arg...)
+	}
+
+	panic(errorMsg)
 }
 
 func (bm *Manager) startPackIndexLocked() {
