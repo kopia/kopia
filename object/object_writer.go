@@ -143,6 +143,4 @@ func (w *objectWriter) Result() (ID, error) {
 type WriterOptions struct {
 	Description string
 	Prefix      string // empty string or a single-character ('g'..'z')
-
-	splitter objectSplitter
 }
