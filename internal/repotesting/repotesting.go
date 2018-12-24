@@ -25,6 +25,7 @@ type Environment struct {
 
 	configDir  string
 	storageDir string
+	connected  bool
 }
 
 // Setup sets up a test environment.
@@ -77,6 +78,8 @@ func (e *Environment) Setup(t *testing.T, opts ...func(*repo.NewRepositoryOption
 		t.Fatalf("can't connect: %v", err)
 	}
 
+	e.connected = true
+
 	e.Repository, err = repo.Open(ctx, e.configFile(), masterPassword, &repo.Options{})
 	if err != nil {
 		t.Fatalf("can't open: %v", err)
@@ -90,8 +93,13 @@ func (e *Environment) Close(t *testing.T) {
 	if err := e.Repository.Close(context.Background()); err != nil {
 		t.Fatalf("unable to close: %v", err)
 	}
-
-	if err := os.RemoveAll(e.configDir); err != nil {
+	if e.connected {
+		if err := repo.Disconnect(e.configFile()); err != nil {
+			t.Errorf("error disconnecting: %v", err)
+		}
+	}
+	if err := os.Remove(e.configDir); err != nil {
+		// should be empty, assuming Disconnect was successful
 		t.Errorf("error removing config directory: %v", err)
 	}
 	if err := os.RemoveAll(e.storageDir); err != nil {
