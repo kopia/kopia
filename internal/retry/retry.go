@@ -10,7 +10,7 @@ import (
 
 var log = repologging.Logger("repo/retry")
 
-const (
+var (
 	maxAttempts             = 10
 	retryInitialSleepAmount = 1 * time.Second
 	retryMaxSleepAmount     = 32 * time.Second
