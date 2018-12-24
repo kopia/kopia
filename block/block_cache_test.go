@@ -3,11 +3,13 @@ package block
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -152,6 +154,122 @@ func verifyBlockCache(t *testing.T, cache *blockCache) {
 			t.Errorf("invalid result when reading corrupted data: %v, wanted %v", got, want)
 		}
 	})
+}
+
+func TestCacheFailureToOpen(t *testing.T) {
+	someError := errors.New("some error")
+
+	cacheData := map[string][]byte{}
+	cacheStorage := storagetesting.NewMapStorage(cacheData, nil, nil)
+	underlyingStorage := newUnderlyingStorageForBlockCacheTesting()
+	faultyCache := &storagetesting.FaultyStorage{
+		Base: cacheStorage,
+		Faults: map[string][]*storagetesting.Fault{
+			"ListBlocks": {
+				{Err: someError},
+			},
+		},
+	}
+
+	// Will fail because of ListBlocks failure.
+	cache, err := newBlockCacheWithCacheStorage(context.Background(), underlyingStorage, faultyCache, CachingOptions{
+		MaxCacheSizeBytes: 10000,
+	}, 0, 5*time.Hour)
+	if err == nil || !strings.Contains(err.Error(), someError.Error()) {
+		t.Errorf("invalid error %v, wanted: %v", err, someError)
+	}
+
+	// ListBlocks fails only once, next time it succeeds.
+	cache, err = newBlockCacheWithCacheStorage(context.Background(), underlyingStorage, faultyCache, CachingOptions{
+		MaxCacheSizeBytes: 10000,
+	}, 0, 100*time.Millisecond)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+
+	defer cache.close()
+}
+
+func TestCacheFailureToWrite(t *testing.T) {
+	someError := errors.New("some error")
+
+	cacheData := map[string][]byte{}
+	cacheStorage := storagetesting.NewMapStorage(cacheData, nil, nil)
+	underlyingStorage := newUnderlyingStorageForBlockCacheTesting()
+	faultyCache := &storagetesting.FaultyStorage{
+		Base: cacheStorage,
+	}
+
+	cache, err := newBlockCacheWithCacheStorage(context.Background(), underlyingStorage, faultyCache, CachingOptions{
+		MaxCacheSizeBytes: 10000,
+	}, 0, 5*time.Hour)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+
+	defer cache.close()
+
+	ctx := context.Background()
+	faultyCache.Faults = map[string][]*storagetesting.Fault{
+		"PutBlock": {
+			{Err: someError},
+		},
+	}
+
+	v, err := cache.getContentBlock(ctx, "aa", "block-1", 0, 3)
+	if err != nil {
+		t.Errorf("write failure wasn't ignored: %v", err)
+	}
+
+	if got, want := v, []byte{1, 2, 3}; !reflect.DeepEqual(got, want) {
+		t.Errorf("unexpected value retrieved from cache: %v, want: %v", got, want)
+	}
+
+	all, err := storage.ListAllBlocks(ctx, cacheStorage, "")
+	if err != nil {
+		t.Errorf("error listing cache: %v", err)
+	}
+	if len(all) != 0 {
+		t.Errorf("invalid test - cache was written")
+	}
+}
+
+func TestCacheFailureToRead(t *testing.T) {
+	someError := errors.New("some error")
+
+	cacheData := map[string][]byte{}
+	cacheStorage := storagetesting.NewMapStorage(cacheData, nil, nil)
+	underlyingStorage := newUnderlyingStorageForBlockCacheTesting()
+	faultyCache := &storagetesting.FaultyStorage{
+		Base: cacheStorage,
+	}
+
+	cache, err := newBlockCacheWithCacheStorage(context.Background(), underlyingStorage, faultyCache, CachingOptions{
+		MaxCacheSizeBytes: 10000,
+	}, 0, 5*time.Hour)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+
+	defer cache.close()
+
+	ctx := context.Background()
+	faultyCache.Faults = map[string][]*storagetesting.Fault{
+		"GetBlock": {
+			{Err: someError, Repeat: 100},
+		},
+	}
+
+	for i := 0; i < 2; i++ {
+		v, err := cache.getContentBlock(ctx, "aa", "block-1", 0, 3)
+		if err != nil {
+			t.Errorf("read failure wasn't ignored: %v", err)
+		}
+
+		if got, want := v, []byte{1, 2, 3}; !reflect.DeepEqual(got, want) {
+			t.Errorf("unexpected value retrieved from cache: %v, want: %v", got, want)
+		}
+	}
 }
 
 func verifyStorageBlockList(t *testing.T, st storage.Storage, expectedBlocks ...string) {
