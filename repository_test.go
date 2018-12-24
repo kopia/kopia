@@ -1,4 +1,4 @@
-package repository_test
+package repo_test
 
 import (
 	"bytes"
