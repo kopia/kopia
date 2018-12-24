@@ -115,3 +115,49 @@ func TestInvalidHeader(t *testing.T) {
 		t.Errorf("got incorrect error: %v", err)
 	}
 }
+
+func TestInvalidStream(t *testing.T) {
+	cases := []string{
+		`x`,
+		`{}`,
+		`{"not-stream":"hdr"}`,
+		`{{}}`,
+		`{"stream":"non-hdr"}`,
+		`{"stream":"hdr","nonEntries":[]}`,
+		`{"stream":"hdr","entries":{}}`,
+		`{"stream":"hdr","entries":[]}`,
+		`{"stream":"hdr","entries":[`,
+		`{"stream":"hdr","entries":[}`,
+		`{"stream":"hdr","entries":[]`,
+		`{"stream":"hdr","entries":[],"summary"`,
+		`{"stream":"hdr","entries":[],1.222.33`,
+		`{"stream":"hdr","entries":[],"sxummary":{"x":"1",`,
+	}
+
+	for _, tc := range cases {
+		r, err := NewReader(strings.NewReader(tc), "hdr", nil)
+		if err != nil {
+			if !isInvalidStream(err) {
+				t.Errorf("got invalid error when creating reader: %v", err)
+			}
+			continue
+		}
+
+		for {
+			v := map[string]interface{}{}
+			if err := r.Read(v); err != nil {
+				if err == io.EOF {
+					break
+				}
+				if !isInvalidStream(err) {
+					t.Errorf("got invalid error when creating reader: %v", err)
+				}
+				break
+			}
+		}
+	}
+}
+
+func isInvalidStream(e error) bool {
+	return e != nil && strings.Contains(e.Error(), "invalid stream format")
+}
