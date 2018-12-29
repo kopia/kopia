@@ -38,10 +38,10 @@ func stressTestWithStorage(t *testing.T, st storage.Storage, duration time.Durat
 
 	openMgr := func() (*block.Manager, error) {
 		return block.NewManager(ctx, st, block.FormattingOptions{
-			Version:     1,
-			BlockFormat: "ENCRYPTED_HMAC_SHA256_AES256_SIV",
-			MaxPackSize: 20000000,
-			MasterKey:   []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
+			Version:           1,
+			LegacyBlockFormat: "ENCRYPTED_HMAC_SHA256_AES256_SIV",
+			MaxPackSize:       20000000,
+			MasterKey:         []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
 		}, block.CachingOptions{})
 	}
 

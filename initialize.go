@@ -82,11 +82,13 @@ func formatBlockFromOptions(opt *NewRepositoryOptions) *formatBlock {
 func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) *repositoryObjectFormat {
 	f := &repositoryObjectFormat{
 		FormattingOptions: block.FormattingOptions{
-			Version:     1,
-			BlockFormat: applyDefaultString(opt.BlockFormat.BlockFormat, block.DefaultFormat),
-			HMACSecret:  applyDefaultRandomBytes(opt.BlockFormat.HMACSecret, 32),
-			MasterKey:   applyDefaultRandomBytes(opt.BlockFormat.MasterKey, 32),
-			MaxPackSize: applyDefaultInt(opt.BlockFormat.MaxPackSize, applyDefaultInt(opt.ObjectFormat.MaxBlockSize, 20<<20)), // 20 MB
+			Version:           1,
+			LegacyBlockFormat: opt.BlockFormat.LegacyBlockFormat,
+			Hash:              applyDefaultString(opt.BlockFormat.Hash, block.DefaultHash),
+			Encryption:        applyDefaultString(opt.BlockFormat.Encryption, block.DefaultEncryption),
+			HMACSecret:        applyDefaultRandomBytes(opt.BlockFormat.HMACSecret, 32),
+			MasterKey:         applyDefaultRandomBytes(opt.BlockFormat.MasterKey, 32),
+			MaxPackSize:       applyDefaultInt(opt.BlockFormat.MaxPackSize, applyDefaultInt(opt.ObjectFormat.MaxBlockSize, 20<<20)), // 20 MB
 		},
 		Format: object.Format{
 			Splitter:     applyDefaultString(opt.ObjectFormat.Splitter, object.DefaultSplitter),

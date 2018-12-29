@@ -270,11 +270,11 @@ func TestBlockManagerFailedToWritePack(t *testing.T) {
 	st = faulty
 
 	bm, err := newManagerWithOptions(context.Background(), st, FormattingOptions{
-		Version:     1,
-		BlockFormat: "ENCRYPTED_HMAC_SHA256_AES256_SIV",
-		MaxPackSize: maxPackSize,
-		HMACSecret:  []byte("foo"),
-		MasterKey:   []byte("0123456789abcdef0123456789abcdef"),
+		Version:           1,
+		LegacyBlockFormat: "ENCRYPTED_HMAC_SHA256_AES256_SIV",
+		MaxPackSize:       maxPackSize,
+		HMACSecret:        []byte("foo"),
+		MasterKey:         []byte("0123456789abcdef0123456789abcdef"),
 	}, CachingOptions{}, fakeTimeNowFrozen(fakeTime))
 	if err != nil {
 		t.Fatalf("can't create bm: %v", err)
@@ -785,9 +785,9 @@ func newTestBlockManager(data map[string][]byte, keyTime map[string]time.Time, t
 	}
 	st := storagetesting.NewMapStorage(data, keyTime, timeFunc)
 	bm, err := newManagerWithOptions(context.Background(), st, FormattingOptions{
-		BlockFormat: "UNENCRYPTED_HMAC_SHA256",
-		HMACSecret:  hmacSecret,
-		MaxPackSize: maxPackSize,
+		LegacyBlockFormat: "UNENCRYPTED_HMAC_SHA256",
+		HMACSecret:        hmacSecret,
+		MaxPackSize:       maxPackSize,
 	}, CachingOptions{}, timeFunc)
 	if err != nil {
 		panic("can't create block manager: " + err.Error())

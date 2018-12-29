@@ -165,7 +165,7 @@ func (bm *Manager) appendPackFileIndexRecoveryData(blockData []byte, pending pac
 	}
 
 	localIndexIV := bm.hashData(localIndex)
-	encryptedLocalIndex, err := bm.formatter.Encrypt(localIndex, localIndexIV)
+	encryptedLocalIndex, err := bm.encryptor.Encrypt(localIndex, localIndexIV)
 	if err != nil {
 		return nil, err
 	}

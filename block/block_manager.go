@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/aes"
+	"crypto/cipher"
 	cryptorand "crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -76,7 +77,8 @@ type Manager struct {
 	writeFormatVersion int32 // format version to write
 
 	maxPackSize int
-	formatter   Formatter
+	hasher      HashFunc
+	encryptor   Encryptor
 
 	minPreambleLength int
 	maxPreambleLength int
@@ -398,7 +400,7 @@ func (bm *Manager) maybeEncryptBlockDataForPacking(data []byte, blockID string) 
 	if err != nil {
 		return nil, fmt.Errorf("unable to get packed block IV for %q: %v", blockID, err)
 	}
-	return bm.formatter.Encrypt(data, iv)
+	return bm.encryptor.Encrypt(data, iv)
 }
 
 func appendRandomBytes(b []byte, count int) ([]byte, error) {
@@ -658,7 +660,7 @@ func (bm *Manager) encryptAndWriteBlockNotLocked(ctx context.Context, data []byt
 
 	// Encrypt the block in-place.
 	atomic.AddInt64(&bm.stats.EncryptedBytes, int64(len(data)))
-	data2, err := bm.formatter.Encrypt(data, hash)
+	data2, err := bm.encryptor.Encrypt(data, hash)
 	if err != nil {
 		return "", err
 	}
@@ -675,7 +677,7 @@ func (bm *Manager) encryptAndWriteBlockNotLocked(ctx context.Context, data []byt
 
 func (bm *Manager) hashData(data []byte) []byte {
 	// Hash the block and compute encryption key.
-	blockID := bm.formatter.ComputeBlockID(data)
+	blockID := bm.hasher(data)
 	atomic.AddInt32(&bm.stats.HashedBlocks, 1)
 	atomic.AddInt64(&bm.stats.HashedBytes, int64(len(data)))
 	return blockID
@@ -801,7 +803,7 @@ func (bm *Manager) getBlockContentsUnlocked(ctx context.Context, bi Info) ([]byt
 }
 
 func (bm *Manager) decryptAndVerify(encrypted []byte, iv []byte) ([]byte, error) {
-	decrypted, err := bm.formatter.Decrypt(encrypted, iv)
+	decrypted, err := bm.encryptor.Decrypt(encrypted, iv)
 	if err != nil {
 		return nil, err
 	}
@@ -827,7 +829,7 @@ func (bm *Manager) getPhysicalBlockInternal(ctx context.Context, blockID string)
 	atomic.AddInt32(&bm.stats.ReadBlocks, 1)
 	atomic.AddInt64(&bm.stats.ReadBytes, int64(len(payload)))
 
-	payload, err = bm.formatter.Decrypt(payload, iv)
+	payload, err = bm.encryptor.Decrypt(payload, iv)
 	atomic.AddInt64(&bm.stats.DecryptedBytes, int64(len(payload)))
 	if err != nil {
 		return nil, err
@@ -854,7 +856,7 @@ func getPhysicalBlockIV(s string) ([]byte, error) {
 }
 
 func (bm *Manager) verifyChecksum(data []byte, blockID []byte) error {
-	expected := bm.formatter.ComputeBlockID(data)
+	expected := bm.hasher(data)
 	expected = expected[len(expected)-aes.BlockSize:]
 	if !bytes.HasSuffix(blockID, expected) {
 		atomic.AddInt32(&bm.stats.InvalidBlocks, 1)
@@ -933,9 +935,11 @@ func newManagerWithOptions(ctx context.Context, st storage.Storage, f Formatting
 		return nil, fmt.Errorf("can't handle repositories created using version %v (min supported %v, max supported %v)", f.Version, minSupportedReadVersion, maxSupportedReadVersion)
 	}
 
-	formatter, err := createFormatter(f)
+	applyLegacyBlockFormat(&f)
+
+	hasher, encryptor, err := CreateHashAndEncryptor(f)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create block formatter: %v", err)
+		return nil, err
 	}
 
 	blockCache, err := newBlockCache(ctx, st, caching)
@@ -958,7 +962,8 @@ func newManagerWithOptions(ctx context.Context, st storage.Storage, f Formatting
 		timeNow:               timeNow,
 		flushPackIndexesAfter: timeNow().Add(flushPackIndexTimeout),
 		maxPackSize:           f.MaxPackSize,
-		formatter:             formatter,
+		encryptor:             encryptor,
+		hasher:                hasher,
 		currentPackItems:      make(map[string]Info),
 		packIndexBuilder:      make(packIndexBuilder),
 		committedBlocks:       blockIndex,
@@ -983,11 +988,68 @@ func newManagerWithOptions(ctx context.Context, st storage.Storage, f Formatting
 	return m, nil
 }
 
-func createFormatter(f FormattingOptions) (Formatter, error) {
-	sf := FormatterFactories[f.BlockFormat]
-	if sf == nil {
-		return nil, fmt.Errorf("unsupported block format: %v", f.BlockFormat)
+func CreateHashAndEncryptor(f FormattingOptions) (HashFunc, Encryptor, error) {
+	h, err := createHashFunc(f)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to create hash: %v", err)
+	}
+	e, err := createEncryptor(f)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to create encryptor: %v", err)
 	}
 
-	return sf(f)
+	blockID := h(nil)
+	_, err = e.Encrypt(nil, blockID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("invalid encryptor: %v", err)
+	}
+
+	return h, e, nil
+}
+
+func createHashFunc(f FormattingOptions) (HashFunc, error) {
+	h := hashFunctions[f.Hash]
+	if h == nil {
+		return nil, fmt.Errorf("unknown hash function %v", f.Hash)
+	}
+
+	hashFunc, err := h(f)
+	if err != nil {
+		return nil, fmt.Errorf("unable to initialize hash: %v", err)
+	}
+
+	if hashFunc == nil {
+		return nil, fmt.Errorf("nil hash function returned for %v", f.Hash)
+	}
+
+	return hashFunc, nil
+}
+
+func createEncryptor(f FormattingOptions) (Encryptor, error) {
+	e := encryptors[f.Encryption]
+	if e == nil {
+		return nil, fmt.Errorf("unknown encryption algorithm: %v", f.Encryption)
+	}
+
+	return e(f)
+}
+
+func curryEncryptionKey(n func(k []byte) (cipher.Block, error), key []byte) func() (cipher.Block, error) {
+	return func() (cipher.Block, error) {
+		return n(key)
+	}
+}
+
+func applyLegacyBlockFormat(f *FormattingOptions) {
+	switch f.LegacyBlockFormat {
+	case "UNENCRYPTED_HMAC_SHA256":
+		f.Hash = "HMAC-SHA256"
+		f.Encryption = "NONE"
+	case "UNENCRYPTED_HMAC_SHA256_128":
+		f.Hash = "HMAC-SHA256-128"
+		f.Encryption = "NONE"
+	case "ENCRYPTED_HMAC_SHA256_AES256_SIV":
+		f.Hash = "HMAC-SHA256-128"
+		f.Encryption = "AES-256-CTR"
+	}
 }

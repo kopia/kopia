@@ -244,7 +244,7 @@ func TestFormats(t *testing.T) {
 	ctx := context.Background()
 	makeFormat := func(blockFormat string) func(*repo.NewRepositoryOptions) {
 		return func(n *repo.NewRepositoryOptions) {
-			n.BlockFormat.BlockFormat = blockFormat
+			n.BlockFormat.LegacyBlockFormat = blockFormat
 			n.BlockFormat.HMACSecret = []byte("key")
 			n.ObjectFormat.MaxBlockSize = 10000
 			n.ObjectFormat.Splitter = "FIXED"
