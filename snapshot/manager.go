@@ -53,7 +53,7 @@ func ListSnapshots(ctx context.Context, rep *repo.Repository, si SourceInfo) ([]
 	if err != nil {
 		return nil, fmt.Errorf("unable to find manifest entries: %v", err)
 	}
-	return LoadSnapshots(ctx, rep, manifest.EntryIDs(entries))
+	return LoadSnapshots(ctx, rep, entryIDs(entries))
 }
 
 // loadSnapshot loads and parses a snapshot with a given ID.
@@ -135,6 +135,13 @@ func ListSnapshotManifests(ctx context.Context, rep *repo.Repository, src *Sourc
 	if err != nil {
 		return nil, fmt.Errorf("unable to find manifest entries: %v", err)
 	}
+	return entryIDs(entries), nil
+}
 
-	return manifest.EntryIDs(entries), nil
+func entryIDs(entries []*manifest.EntryMetadata) []string {
+	var ids []string
+	for _, e := range entries {
+		ids = append(ids, e.ID)
+	}
+	return ids
 }

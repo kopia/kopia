@@ -42,8 +42,8 @@ func (e *Environment) Setup(t *testing.T, opts ...func(*repo.NewRepositoryOption
 
 	opt := &repo.NewRepositoryOptions{
 		BlockFormat: block.FormattingOptions{
-			HMACSecret:  []byte{},
-			BlockFormat: "UNENCRYPTED_HMAC_SHA256",
+			HMACSecret:        []byte{},
+			LegacyBlockFormat: "UNENCRYPTED_HMAC_SHA256",
 		},
 		ObjectFormat: object.Format{
 			Splitter:     "FIXED",

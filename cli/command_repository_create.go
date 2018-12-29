@@ -19,7 +19,8 @@ var (
 	createCommand = repositoryCommands.Command("create", "Create new repository in a specified location.")
 
 	createMetadataEncryptionFormat = createCommand.Flag("metadata-encryption", "Metadata item encryption.").PlaceHolder("FORMAT").Default(repo.DefaultEncryptionAlgorithm).Enum(repo.SupportedEncryptionAlgorithms...)
-	createObjectFormat             = createCommand.Flag("object-format", "Format of repository objects.").PlaceHolder("FORMAT").Default(block.DefaultFormat).Enum(block.SupportedFormats...)
+	createBlockHashFormat          = createCommand.Flag("block-hash", "Block hash algorithm.").PlaceHolder("ALGO").Default(block.DefaultHash).Enum(block.SupportedHashAlgorithms()...)
+	createBlockEncryptionFormat    = createCommand.Flag("block-encryption", "Block encryption algorithm.").PlaceHolder("ALGO").Default(block.DefaultEncryption).Enum(block.SupportedEncryptionAlgorithms()...)
 	createObjectSplitter           = createCommand.Flag("object-splitter", "The splitter to use for new objects in the repository").Default("DYNAMIC").Enum(object.SupportedSplitters...)
 
 	createMinBlockSize = createCommand.Flag("min-block-size", "Minimum size of a data block.").PlaceHolder("KB").Default("1024").Int()
@@ -50,7 +51,8 @@ func newRepositoryOptionsFromFlags() *repo.NewRepositoryOptions {
 	return &repo.NewRepositoryOptions{
 		MetadataEncryptionAlgorithm: *createMetadataEncryptionFormat,
 		BlockFormat: block.FormattingOptions{
-			BlockFormat: *createObjectFormat,
+			Hash:       *createBlockHashFormat,
+			Encryption: *createBlockEncryptionFormat,
 		},
 
 		ObjectFormat: object.Format{
@@ -88,7 +90,8 @@ func runCreateCommandWithStorage(ctx context.Context, st storage.Storage) error 
 
 	printStderr("Initializing repository with:\n")
 	printStderr("  metadata encryption: %v\n", options.MetadataEncryptionAlgorithm)
-	printStderr("  block format:        %v\n", options.BlockFormat)
+	printStderr("  block hash:          %v\n", options.BlockFormat.Hash)
+	printStderr("  block encryption:    %v\n", options.BlockFormat.Encryption)
 	switch options.ObjectFormat.Splitter {
 	case "DYNAMIC":
 		printStderr("  object splitter:     DYNAMIC with block sizes (min:%v avg:%v max:%v)\n",
