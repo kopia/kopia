@@ -44,12 +44,15 @@ func runBlockCryptoBenchmarkAction(ctx *kingpin.ParseContext) error {
 				continue
 			}
 
-			printStderr("Benchmarking hash '%v' and encryption '%v'...\n", ha, ea)
+			log.Infof("Benchmarking hash '%v' and encryption '%v'... (%v x %v bytes)", ha, ea, *blockCryptoBenchmarkRepeat, len(data))
 			t0 := time.Now()
 			hashCount := *blockCryptoBenchmarkRepeat
 			for i := 0; i < hashCount; i++ {
 				blockID := h(data)
-				e.Encrypt(data, blockID)
+				if _, encerr := e.Encrypt(data, blockID); encerr != nil {
+					log.Warningf("encryption failed: %v", encerr)
+					break
+				}
 			}
 			hashTime := time.Since(t0)
 			bytesPerSecond := float64(len(data)) * float64(hashCount) / hashTime.Seconds()
