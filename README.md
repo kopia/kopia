@@ -171,18 +171,18 @@ The data is efficiently packed into a small number of files and stored, but inde
 
 >For example:
 >
->One sample repository of `480 GB` of data from home NAS containing typical mix of photos, videos, documents and music files contains:
+>One sample repository of `480 GB` of data from home NAS containing a mix of photos, videos, documents and music files contains:
 > * `1874361` content-addressable blocks/objects
-> * `27485` physical objects (packs) in cloud storage bucket >(typically between 20MB and 30MB each)
+> * `27485` physical objects (packs) in cloud storage bucket (typically between 20MB and 30MB each)
 > *  `70 MB` of indexes
 
 3. How safe is the data?
 
-Your data can only be as safe as the underlying storage, so it's recommended to use a high-quality cloud storage solution, which nowadays provide very high-durability, high-throughput and low-latency for access to your data at a very reasonable price.
+Your data can only be as safe as the underlying storage, so it's recommended to use one of high-quality cloud storage solutions, which nowadays provide very high-durability, high-throughput and low-latency for access to your data at a very reasonable price.
 
 In addition to that, Kopia employs several data protection techniques, such as encryption, checksumming to detect accidental bit flips, redundant storage of indexes, and others.
 
-> Having said that, it's not recommended to trust all your data to Kopia just yet - **always have another backup**.
+> **WARNING: It's not recommended to trust all your data to Kopia just yet - always have another backup**.
 
 4. I'd like to contribute
 
