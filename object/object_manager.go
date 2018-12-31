@@ -2,14 +2,13 @@
 package object
 
 import (
-	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 
 	"github.com/kopia/repo/block"
-	"github.com/kopia/repo/internal/jsonstream"
 )
 
 // Reader allows reading, seeking, getting the length of and closing of a repository object.
@@ -184,29 +183,31 @@ func NewObjectManager(ctx context.Context, bm blockManager, f Format, opts Manag
 	return om, nil
 }
 
+/*
+
+{"stream":"kopia:indirect","entries":[
+{"l":1698099,"o":"D13ea27f9ad891ad4a2edfa983906863d"},
+{"s":1698099,"l":1302081,"o":"De8ca8327cd3af5f4edbd5ed1009c525e"},
+{"s":3000180,"l":4352499,"o":"D6b6eb48ca5361d06d72fe193813e42e1"},
+{"s":7352679,"l":1170821,"o":"Dd14653f76b63802ed48be64a0e67fea9"},
+
+{"s":91094118,"l":1645153,"o":"Daa55df764d881a1daadb5ea9de17abbb"}
+]}
+*/
+
+type indirectObject struct {
+	StreamID string                `json:"stream"`
+	Entries  []indirectObjectEntry `json:"entries"`
+}
+
 func (om *Manager) flattenListChunk(rawReader io.Reader) ([]indirectObjectEntry, error) {
-	pr, err := jsonstream.NewReader(bufio.NewReader(rawReader), indirectStreamType, nil)
-	if err != nil {
-		return nil, err
-	}
-	var seekTable []indirectObjectEntry
+	var ind indirectObject
 
-	for {
-		var oe indirectObjectEntry
-
-		err := pr.Read(&oe)
-		if err == io.EOF {
-			break
-		}
-
-		if err != nil {
-			return nil, fmt.Errorf("failed to read indirect object: %v", err)
-		}
-
-		seekTable = append(seekTable, oe)
+	if err := json.NewDecoder(rawReader).Decode(&ind); err != nil {
+		return nil, fmt.Errorf("invalid indirect object: %v", err)
 	}
 
-	return seekTable, nil
+	return ind.Entries, nil
 }
 
 func (om *Manager) newRawReader(ctx context.Context, objectID ID) (Reader, error) {

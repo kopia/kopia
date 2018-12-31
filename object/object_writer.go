@@ -3,11 +3,10 @@ package object
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"sync"
-
-	"github.com/kopia/repo/internal/jsonstream"
 )
 
 // Writer allows writing content to the storage and supports automatic deduplication and encryption
@@ -123,14 +122,13 @@ func (w *objectWriter) Result() (ID, error) {
 		prefix:      w.prefix,
 	}
 
-	jw := jsonstream.NewWriter(iw, indirectStreamType)
-	for _, e := range w.blockIndex {
-		if err := jw.Write(&e); err != nil {
-			return "", fmt.Errorf("unable to write indirect block index: %v", err)
-		}
+	ind := indirectObject{
+		StreamID: "kopia:indirect",
+		Entries:  w.blockIndex,
 	}
-	if err := jw.Finalize(); err != nil {
-		return "", fmt.Errorf("unable to finalize indirect block index: %v", err)
+
+	if err := json.NewEncoder(iw).Encode(ind); err != nil {
+		return "", fmt.Errorf("unable to write indirect block index: %v", err)
 	}
 	oid, err := iw.Result()
 	if err != nil {

@@ -6,8 +6,8 @@ import (
 	cryptorand "crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"math/rand"
 	"reflect"
@@ -16,7 +16,6 @@ import (
 	"testing"
 
 	"github.com/kopia/repo/block"
-	"github.com/kopia/repo/internal/jsonstream"
 	"github.com/kopia/repo/storage"
 )
 
@@ -149,20 +148,9 @@ func verifyIndirectBlock(ctx context.Context, t *testing.T, r *Manager, oid ID) 
 		}
 		defer rd.Close()
 
-		pr, err := jsonstream.NewReader(rd, indirectStreamType, nil)
-		if err != nil {
-			t.Errorf("cannot open indirect stream: %v", err)
-			return
-		}
-		for {
-			v := indirectObjectEntry{}
-			if err := pr.Read(&v); err != nil {
-				if err == io.EOF {
-					break
-				}
-				t.Errorf("err: %v", err)
-				break
-			}
+		var ind indirectObject
+		if err := json.NewDecoder(rd).Decode(&ind); err != nil {
+			t.Errorf("cannot parse indirect stream: %v", err)
 		}
 	}
 }
