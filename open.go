@@ -122,6 +122,9 @@ func OpenWithConfig(ctx context.Context, st storage.Storage, lc *LocalConfig, pa
 		Manifests:      manifests,
 		CacheDirectory: caching.CacheDirectory,
 		UniqueID:       f.UniqueID,
+
+		formatBlock: f,
+		masterKey:   masterKey,
 	}, nil
 }
 

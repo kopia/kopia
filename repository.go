@@ -21,6 +21,9 @@ type Repository struct {
 
 	ConfigFile     string
 	CacheDirectory string
+
+	formatBlock *formatBlock
+	masterKey   []byte
 }
 
 // Close closes the repository and releases all resources.

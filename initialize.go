@@ -26,9 +26,9 @@ var SupportedEncryptionAlgorithms = []string{DefaultEncryptionAlgorithm, "NONE"}
 // NewRepositoryOptions specifies options that apply to newly created repositories.
 // All fields are optional, when not provided, reasonable defaults will be used.
 type NewRepositoryOptions struct {
-	UniqueID                    []byte // force the use of particular unique ID for metadata manager
-	MetadataEncryptionAlgorithm string // identifier of encryption algorithm
-	KeyDerivationAlgorithm      string // identifier of key derivation algorithm
+	UniqueID                  []byte // force the use of particular unique ID
+	FormatEncryptionAlgorithm string // identifier of encryption algorithm
+	KeyDerivationAlgorithm    string // identifier of key derivation algorithm
 
 	BlockFormat block.FormattingOptions
 	DisableHMAC bool
@@ -75,7 +75,7 @@ func formatBlockFromOptions(opt *NewRepositoryOptions) *formatBlock {
 		KeyDerivationAlgorithm: applyDefaultString(opt.KeyDerivationAlgorithm, DefaultKeyDerivationAlgorithm),
 		UniqueID:               applyDefaultRandomBytes(opt.UniqueID, 32),
 		Version:                "1",
-		EncryptionAlgorithm:    applyDefaultString(opt.MetadataEncryptionAlgorithm, DefaultEncryptionAlgorithm),
+		EncryptionAlgorithm:    applyDefaultString(opt.FormatEncryptionAlgorithm, DefaultEncryptionAlgorithm),
 	}
 }
 
