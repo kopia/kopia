@@ -129,8 +129,9 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 	st := storagetesting.NewMapStorage(data, nil, nil)
 
 	f := block.FormattingOptions{
-		LegacyBlockFormat: "UNENCRYPTED_HMAC_SHA256_128",
-		MaxPackSize:       100000,
+		Hash:        "HMAC-SHA256-128",
+		Encryption:  "NONE",
+		MaxPackSize: 100000,
 	}
 
 	// write some data to storage
@@ -266,8 +267,9 @@ func newManagerForTesting(ctx context.Context, t *testing.T, data map[string][]b
 	st := storagetesting.NewMapStorage(data, nil, nil)
 
 	bm, err := block.NewManager(ctx, st, block.FormattingOptions{
-		LegacyBlockFormat: "UNENCRYPTED_HMAC_SHA256_128",
-		MaxPackSize:       100000,
+		Hash:        "HMAC-SHA256-128",
+		Encryption:  "NONE",
+		MaxPackSize: 100000,
 	}, block.CachingOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("can't create block manager: %v", err)

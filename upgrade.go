@@ -17,23 +17,7 @@ func (r *Repository) Upgrade(ctx context.Context) error {
 
 	var migrated bool
 
-	if repoConfig.FormattingOptions.LegacyBlockFormat != "" {
-		log.Infof("upgrading from legacy block format to explicit hash/encryption spec")
-		switch repoConfig.FormattingOptions.LegacyBlockFormat {
-		case "UNENCRYPTED_HMAC_SHA256":
-			repoConfig.FormattingOptions.Hash = "HMAC-SHA256"
-			repoConfig.FormattingOptions.Encryption = "NONE"
-		case "UNENCRYPTED_HMAC_SHA256_128":
-			repoConfig.FormattingOptions.Hash = "HMAC-SHA256-128"
-			repoConfig.FormattingOptions.Encryption = "NONE"
-		case "ENCRYPTED_HMAC_SHA256_AES256_SIV":
-			repoConfig.FormattingOptions.Hash = "HMAC-SHA256-128"
-			repoConfig.FormattingOptions.Encryption = "AES-256-CTR"
-		}
-		repoConfig.FormattingOptions.LegacyBlockFormat = ""
-		migrated = true
-	}
-
+	// TODO(jkowalski): add migration code here
 	if !migrated {
 		log.Infof("nothing to do")
 		return nil

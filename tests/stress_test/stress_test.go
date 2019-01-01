@@ -38,10 +38,11 @@ func stressTestWithStorage(t *testing.T, st storage.Storage, duration time.Durat
 
 	openMgr := func() (*block.Manager, error) {
 		return block.NewManager(ctx, st, block.FormattingOptions{
-			Version:           1,
-			LegacyBlockFormat: "ENCRYPTED_HMAC_SHA256_AES256_SIV",
-			MaxPackSize:       20000000,
-			MasterKey:         []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
+			Version:     1,
+			Hash:        "HMAC-SHA256-128",
+			Encryption:  "AES-256-CTR",
+			MaxPackSize: 20000000,
+			MasterKey:   []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
 		}, block.CachingOptions{})
 	}
 
@@ -68,7 +69,7 @@ func stressWorker(ctx context.Context, t *testing.T, deadline time.Time, workerI
 
 	bm, err := openMgr()
 	if err != nil {
-		t.Errorf("error opening manager: %v", err)
+		t.Fatalf("error opening manager: %v", err)
 	}
 
 	type writtenBlock struct {

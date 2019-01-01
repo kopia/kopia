@@ -935,8 +935,6 @@ func newManagerWithOptions(ctx context.Context, st storage.Storage, f Formatting
 		return nil, fmt.Errorf("can't handle repositories created using version %v (min supported %v, max supported %v)", f.Version, minSupportedReadVersion, maxSupportedReadVersion)
 	}
 
-	applyLegacyBlockFormat(&f)
-
 	hasher, encryptor, err := CreateHashAndEncryptor(f)
 	if err != nil {
 		return nil, err
@@ -993,6 +991,7 @@ func CreateHashAndEncryptor(f FormattingOptions) (HashFunc, Encryptor, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create hash: %v", err)
 	}
+
 	e, err := createEncryptor(f)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to create encryptor: %v", err)
@@ -1037,19 +1036,5 @@ func createEncryptor(f FormattingOptions) (Encryptor, error) {
 func curryEncryptionKey(n func(k []byte) (cipher.Block, error), key []byte) func() (cipher.Block, error) {
 	return func() (cipher.Block, error) {
 		return n(key)
-	}
-}
-
-func applyLegacyBlockFormat(f *FormattingOptions) {
-	switch f.LegacyBlockFormat {
-	case "UNENCRYPTED_HMAC_SHA256":
-		f.Hash = "HMAC-SHA256"
-		f.Encryption = "NONE"
-	case "UNENCRYPTED_HMAC_SHA256_128":
-		f.Hash = "HMAC-SHA256-128"
-		f.Encryption = "NONE"
-	case "ENCRYPTED_HMAC_SHA256_AES256_SIV":
-		f.Hash = "HMAC-SHA256-128"
-		f.Encryption = "AES-256-CTR"
 	}
 }
