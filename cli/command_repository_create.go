@@ -49,7 +49,7 @@ func init() {
 
 func newRepositoryOptionsFromFlags() *repo.NewRepositoryOptions {
 	return &repo.NewRepositoryOptions{
-		MetadataEncryptionAlgorithm: *createMetadataEncryptionFormat,
+		FormatEncryptionAlgorithm: *createMetadataEncryptionFormat,
 		BlockFormat: block.FormattingOptions{
 			Hash:       *createBlockHashFormat,
 			Encryption: *createBlockEncryptionFormat,
@@ -89,7 +89,7 @@ func runCreateCommandWithStorage(ctx context.Context, st storage.Storage) error 
 	password := mustGetPasswordFromFlags(true, false)
 
 	printStderr("Initializing repository with:\n")
-	printStderr("  metadata encryption: %v\n", options.MetadataEncryptionAlgorithm)
+	printStderr("  metadata encryption: %v\n", options.FormatEncryptionAlgorithm)
 	printStderr("  block hash:          %v\n", options.BlockFormat.Hash)
 	printStderr("  block encryption:    %v\n", options.BlockFormat.Encryption)
 	switch options.ObjectFormat.Splitter {

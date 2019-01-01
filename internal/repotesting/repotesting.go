@@ -49,7 +49,7 @@ func (e *Environment) Setup(t *testing.T, opts ...func(*repo.NewRepositoryOption
 			Splitter:     "FIXED",
 			MaxBlockSize: 400,
 		},
-		MetadataEncryptionAlgorithm: "NONE",
+		FormatEncryptionAlgorithm: "NONE",
 	}
 
 	for _, mod := range opts {
