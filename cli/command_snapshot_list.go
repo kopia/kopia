@@ -27,8 +27,9 @@ var (
 	snapshotListShowRetentionReasons = snapshotListCommand.Flag("retention", "Include retention reasons.").Default("true").Bool()
 	snapshotListShowModTime          = snapshotListCommand.Flag("mtime", "Include file mod time").Bool()
 	shapshotListShowOwner            = snapshotListCommand.Flag("owner", "Include owner").Bool()
-	snapshotListAll                  = snapshotListCommand.Flag("all", "Do not skip identical snapshots").Short('a').Bool()
-	maxResultsPerPath                = snapshotListCommand.Flag("max-results", "Maximum number of results.").Default("1000").Int()
+	snapshotListShowIdentical        = snapshotListCommand.Flag("show-identical", "Show identical snapshots").Short('l').Bool()
+	snapshotListShowAll              = snapshotListCommand.Flag("all", "Show all shapshots (not just current username/host)").Short('a').Bool()
+	maxResultsPerPath                = snapshotListCommand.Flag("max-results", "Maximum number of entries per source.").Default("100").Short('n').Int()
 )
 
 func findSnapshotsForSource(ctx context.Context, rep *repo.Repository, sourceInfo snapshot.SourceInfo) (manifestIDs []string, relPath string, err error) {
@@ -93,10 +94,26 @@ func runSnapshotsCommand(ctx context.Context, rep *repo.Repository) error {
 	return outputManifestGroups(ctx, rep, manifests, strings.Split(relPath, "/"))
 }
 
+func shouldOutputSnapshotSource(src snapshot.SourceInfo) bool {
+	if *snapshotListShowAll {
+		return true
+	}
+
+	if src.Host != getHostName() {
+		return false
+
+	}
+
+	return src.UserName == getUserName()
+}
+
 func outputManifestGroups(ctx context.Context, rep *repo.Repository, manifests []*snapshot.Manifest, relPathParts []string) error {
 	separator := ""
 	for _, snapshotGroup := range snapshot.GroupBySource(manifests) {
 		src := snapshotGroup[0].Source
+		if !shouldOutputSnapshotSource(src) {
+			continue
+		}
 		fmt.Printf("%v%v\n", separator, src)
 		separator = "\n"
 
@@ -199,7 +216,7 @@ func outputManifestFromSingleSource(ctx context.Context, rep *repo.Repository, m
 		}
 
 		oid := ent.(object.HasObjectID).ObjectID()
-		if !*snapshotListAll && oid == previousOID {
+		if !*snapshotListShowIdentical && oid == previousOID {
 			elidedCount++
 			maxElidedTime = m.StartTime
 			continue
