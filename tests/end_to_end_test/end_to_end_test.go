@@ -263,7 +263,7 @@ func trimOutput(s string) string {
 
 }
 func listSnapshotsAndExpectSuccess(t *testing.T, e *testenv, targets ...string) []sourceInfo {
-	lines := e.runAndExpectSuccess(t, append([]string{"snapshot", "list", "-a"}, targets...)...)
+	lines := e.runAndExpectSuccess(t, append([]string{"snapshot", "list", "-l"}, targets...)...)
 	return mustParseSnapshots(t, lines)
 }
 
