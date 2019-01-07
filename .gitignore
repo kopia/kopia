@@ -7,3 +7,6 @@ kopia-*.zip
 *.cov
 .vscode/
 dist/
+kopia
+kopia.exe
+
