@@ -109,13 +109,16 @@ func shouldOutputSnapshotSource(src snapshot.SourceInfo) bool {
 
 func outputManifestGroups(ctx context.Context, rep *repo.Repository, manifests []*snapshot.Manifest, relPathParts []string) error {
 	separator := ""
+	var anyOutput bool
 	for _, snapshotGroup := range snapshot.GroupBySource(manifests) {
 		src := snapshotGroup[0].Source
 		if !shouldOutputSnapshotSource(src) {
+			log.Debugf("skipping %v", src)
 			continue
 		}
 		fmt.Printf("%v%v\n", separator, src)
 		separator = "\n"
+		anyOutput = true
 
 		pol, _, err := policy.GetEffectivePolicy(ctx, rep, src)
 		if err != nil {
@@ -126,6 +129,10 @@ func outputManifestGroups(ctx context.Context, rep *repo.Repository, manifests [
 		if err := outputManifestFromSingleSource(ctx, rep, snapshotGroup, relPathParts); err != nil {
 			return err
 		}
+	}
+
+	if !anyOutput && !*snapshotListShowAll && len(manifests) > 0 {
+		printStderr("No snapshots found. Pass --all to show snapshots from all users/hosts.\n")
 	}
 
 	return nil
