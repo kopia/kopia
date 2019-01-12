@@ -459,7 +459,7 @@ func (bm *Manager) loadPackIndexesUnlocked(ctx context.Context) ([]IndexInfo, bo
 }
 
 func (bm *Manager) tryLoadPackIndexBlocksUnlocked(ctx context.Context, blocks []IndexInfo) error {
-	ch, err := bm.unprocessedIndexBlocksUnlocked(blocks)
+	ch, unprocessedIndexesSize, err := bm.unprocessedIndexBlocksUnlocked(blocks)
 	if err != nil {
 		return err
 	}
@@ -467,6 +467,7 @@ func (bm *Manager) tryLoadPackIndexBlocksUnlocked(ctx context.Context, blocks []
 		return nil
 	}
 
+	log.Infof("downloading %v new index blocks (%v bytes)...", len(ch), unprocessedIndexesSize)
 	var wg sync.WaitGroup
 
 	errors := make(chan error, parallelFetches)
@@ -498,26 +499,29 @@ func (bm *Manager) tryLoadPackIndexBlocksUnlocked(ctx context.Context, blocks []
 	for err := range errors {
 		return err
 	}
+	log.Infof("Index blocks downloaded.")
 
 	return nil
 }
 
 // unprocessedIndexBlocksUnlocked returns a closed channel filled with block IDs that are not in committedBlocks cache.
-func (bm *Manager) unprocessedIndexBlocksUnlocked(blocks []IndexInfo) (<-chan string, error) {
+func (bm *Manager) unprocessedIndexBlocksUnlocked(blocks []IndexInfo) (<-chan string, int64, error) {
+	var totalSize int64
 	ch := make(chan string, len(blocks))
 	for _, block := range blocks {
 		has, err := bm.committedBlocks.cache.hasIndexBlockID(block.FileName)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		if has {
 			log.Debugf("index block %q already in cache, skipping", block.FileName)
 			continue
 		}
 		ch <- block.FileName
+		totalSize += block.Length
 	}
 	close(ch)
-	return ch, nil
+	return ch, totalSize, nil
 }
 
 // Close closes the block manager.

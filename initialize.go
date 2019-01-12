@@ -17,22 +17,12 @@ var (
 	BuildVersion = "v0-unofficial"
 )
 
-// DefaultEncryptionAlgorithm is the default algorithm for encrypting format block.
-var DefaultEncryptionAlgorithm = "AES256_GCM"
-
-// SupportedEncryptionAlgorithms lists all supported algorithms for encrypting format block.
-var SupportedEncryptionAlgorithms = []string{DefaultEncryptionAlgorithm, "NONE"}
-
 // NewRepositoryOptions specifies options that apply to newly created repositories.
 // All fields are optional, when not provided, reasonable defaults will be used.
 type NewRepositoryOptions struct {
-	UniqueID                  []byte // force the use of particular unique ID
-	FormatEncryptionAlgorithm string // identifier of encryption algorithm
-	KeyDerivationAlgorithm    string // identifier of key derivation algorithm
-
-	BlockFormat block.FormattingOptions
-	DisableHMAC bool
-
+	UniqueID     []byte // force the use of particular unique ID
+	BlockFormat  block.FormattingOptions
+	DisableHMAC  bool
 	ObjectFormat object.Format // object format
 }
 
@@ -69,14 +59,20 @@ func Initialize(ctx context.Context, st storage.Storage, opt *NewRepositoryOptio
 }
 
 func formatBlockFromOptions(opt *NewRepositoryOptions) *formatBlock {
-	return &formatBlock{
+	f := &formatBlock{
 		Tool:                   "https://github.com/kopia/kopia",
 		BuildInfo:              BuildInfo,
-		KeyDerivationAlgorithm: applyDefaultString(opt.KeyDerivationAlgorithm, DefaultKeyDerivationAlgorithm),
+		KeyDerivationAlgorithm: defaultKeyDerivationAlgorithm,
 		UniqueID:               applyDefaultRandomBytes(opt.UniqueID, 32),
 		Version:                "1",
-		EncryptionAlgorithm:    applyDefaultString(opt.FormatEncryptionAlgorithm, DefaultEncryptionAlgorithm),
+		EncryptionAlgorithm:    defaultFormatEncryption,
 	}
+
+	if opt.BlockFormat.Encryption == "NONE" {
+		f.EncryptionAlgorithm = "NONE"
+	}
+
+	return f
 }
 
 func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) *repositoryObjectFormat {

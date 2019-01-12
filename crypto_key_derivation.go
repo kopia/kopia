@@ -6,20 +6,16 @@ import (
 	"io"
 
 	"golang.org/x/crypto/hkdf"
-	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/crypto/scrypt"
 )
 
-// DefaultKeyDerivationAlgorithm is the key derivation algorithm for new configurations.
-const DefaultKeyDerivationAlgorithm = "scrypt-65536-8-1"
+// defaultKeyDerivationAlgorithm is the key derivation algorithm for new configurations.
+const defaultKeyDerivationAlgorithm = "scrypt-65536-8-1"
 
 func (f formatBlock) deriveMasterKeyFromPassword(password string) ([]byte, error) {
 	const masterKeySize = 32
 
 	switch f.KeyDerivationAlgorithm {
-	case "pbkdf2-sha256-100000":
-		return pbkdf2.Key([]byte(password), f.UniqueID, 100000, masterKeySize, sha256.New), nil
-
 	case "scrypt-65536-8-1":
 		return scrypt.Key([]byte(password), f.UniqueID, 65536, 8, 1, masterKeySize)
 

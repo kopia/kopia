@@ -13,6 +13,8 @@ import (
 	"github.com/kopia/repo/storage"
 )
 
+const defaultFormatEncryption = "AES256_GCM"
+
 // FormatBlockID is the identifier of a storage block that describes repository format.
 const FormatBlockID = "kopia.repository"
 
