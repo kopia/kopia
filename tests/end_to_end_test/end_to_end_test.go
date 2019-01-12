@@ -244,7 +244,7 @@ func (e *testenv) run(t *testing.T, args ...string) ([]string, error) {
 	cmdArgs := append(append([]string(nil), e.fixedArgs...), args...)
 	c := exec.Command(e.exe, cmdArgs...)
 	c.Env = append(os.Environ(), e.environment...)
-	o, err := c.CombinedOutput()
+	o, err := c.Output()
 	t.Logf("finished 'kopia %v' with err=%v and output:\n%v", strings.Join(args, " "), err, trimOutput(string(o)))
 	return splitLines(string(o)), err
 }
