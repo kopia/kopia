@@ -9,10 +9,10 @@ import (
 
 var (
 	optimizeCommand              = blockIndexCommands.Command("optimize", "Optimize block indexes.")
-	optimizeMinSmallBlocks       = blockIndexCommands.Flag("min-small-blocks", "Minimum number of small blocks that can be left after compaction.").Default("1").Int()
-	optimizeMaxSmallBlocks       = blockIndexCommands.Flag("max-small-blocks", "Maximum number of small blocks that can be left after compaction.").Default("1").Int()
-	optimizeSkipDeletedOlderThan = blockIndexCommands.Flag("skip-deleted-older-than", "Skip deleted blocks above given age").Duration()
-	optimizeAllBlocks            = blockIndexCommands.Flag("all", "Optimize all blocks, even those above maximum size.").Bool()
+	optimizeMinSmallBlocks       = optimizeCommand.Flag("min-small-blocks", "Minimum number of small index blocks that can be left after compaction.").Default("1").Int()
+	optimizeMaxSmallBlocks       = optimizeCommand.Flag("max-small-blocks", "Maximum number of small index blocks that can be left after compaction.").Default("1").Int()
+	optimizeSkipDeletedOlderThan = optimizeCommand.Flag("skip-deleted-older-than", "Skip deleted blocks above given age").Duration()
+	optimizeAllBlocks            = optimizeCommand.Flag("all", "Optimize all indexes, even those above maximum size.").Bool()
 )
 
 func runOptimizeCommand(ctx context.Context, rep *repo.Repository) error {
