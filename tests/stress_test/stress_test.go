@@ -43,7 +43,7 @@ func stressTestWithStorage(t *testing.T, st storage.Storage, duration time.Durat
 			Encryption:  "AES-256-CTR",
 			MaxPackSize: 20000000,
 			MasterKey:   []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
-		}, block.CachingOptions{})
+		}, block.CachingOptions{}, nil)
 	}
 
 	seed0 := time.Now().Nanosecond()

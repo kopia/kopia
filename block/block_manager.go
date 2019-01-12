@@ -23,8 +23,10 @@ import (
 	"github.com/kopia/repo/storage"
 )
 
-var log = repologging.Logger("kopia/block")
-var formatLog = repologging.Logger("kopia/block/format")
+var (
+	log       = repologging.Logger("kopia/block")
+	formatLog = repologging.Logger("kopia/block/format")
+)
 
 // PackBlockPrefix is the prefix for all pack storage blocks.
 const PackBlockPrefix = "p"
@@ -84,6 +86,8 @@ type Manager struct {
 	maxPreambleLength int
 	paddingUnit       int
 	timeNow           func() time.Time
+
+	repositoryFormatBytes []byte
 }
 
 // DeleteBlock marks the given blockID as deleted.
@@ -270,6 +274,8 @@ func (bm *Manager) flushPackIndexesLocked(ctx context.Context) error {
 		if err := bm.packIndexBuilder.Build(&buf); err != nil {
 			return fmt.Errorf("unable to build pack index: %v", err)
 		}
+
+		buf.Write(bm.repositoryFormatBytes) //nolint:errcheck
 
 		data := buf.Bytes()
 		dataCopy := append([]byte(nil), data...)
@@ -930,11 +936,11 @@ func listIndexBlocksFromStorage(ctx context.Context, st storage.Storage) ([]Inde
 }
 
 // NewManager creates new block manager with given packing options and a formatter.
-func NewManager(ctx context.Context, st storage.Storage, f FormattingOptions, caching CachingOptions) (*Manager, error) {
-	return newManagerWithOptions(ctx, st, f, caching, time.Now)
+func NewManager(ctx context.Context, st storage.Storage, f FormattingOptions, caching CachingOptions, repositoryFormatBytes []byte) (*Manager, error) {
+	return newManagerWithOptions(ctx, st, f, caching, time.Now, repositoryFormatBytes)
 }
 
-func newManagerWithOptions(ctx context.Context, st storage.Storage, f FormattingOptions, caching CachingOptions, timeNow func() time.Time) (*Manager, error) {
+func newManagerWithOptions(ctx context.Context, st storage.Storage, f FormattingOptions, caching CachingOptions, timeNow func() time.Time, repositoryFormatBytes []byte) (*Manager, error) {
 	if f.Version < minSupportedReadVersion || f.Version > currentWriteVersion {
 		return nil, fmt.Errorf("can't handle repositories created using version %v (min supported %v, max supported %v)", f.Version, minSupportedReadVersion, maxSupportedReadVersion)
 	}
@@ -975,6 +981,7 @@ func newManagerWithOptions(ctx context.Context, st storage.Storage, f Formatting
 		blockCache:            blockCache,
 		listCache:             listCache,
 		st:                    st,
+		repositoryFormatBytes: repositoryFormatBytes,
 
 		writeFormatVersion:      int32(f.Version),
 		closed:                  make(chan struct{}),

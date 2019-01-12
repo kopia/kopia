@@ -276,7 +276,7 @@ func TestBlockManagerFailedToWritePack(t *testing.T) {
 		MaxPackSize: maxPackSize,
 		HMACSecret:  []byte("foo"),
 		MasterKey:   []byte("0123456789abcdef0123456789abcdef"),
-	}, CachingOptions{}, fakeTimeNowFrozen(fakeTime))
+	}, CachingOptions{}, fakeTimeNowFrozen(fakeTime), nil)
 	if err != nil {
 		t.Fatalf("can't create bm: %v", err)
 	}
@@ -790,7 +790,7 @@ func newTestBlockManager(data map[string][]byte, keyTime map[string]time.Time, t
 		Encryption:  "NONE",
 		HMACSecret:  hmacSecret,
 		MaxPackSize: maxPackSize,
-	}, CachingOptions{}, timeFunc)
+	}, CachingOptions{}, timeFunc, nil)
 	if err != nil {
 		panic("can't create block manager: " + err.Error())
 	}

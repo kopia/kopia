@@ -5,8 +5,11 @@ import (
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 
@@ -15,12 +18,19 @@ import (
 
 const defaultFormatEncryption = "AES256_GCM"
 
+const (
+	maxChecksummedFormatBytesLength = 65000
+	formatBlockChecksumSize         = sha256.Size
+)
+
 // FormatBlockID is the identifier of a storage block that describes repository format.
 const FormatBlockID = "kopia.repository"
 
 var (
 	purposeAESKey   = []byte("AES")
 	purposeAuthData = []byte("CHECKSUM")
+
+	errFormatBlockNotFound = errors.New("format block not found")
 )
 
 type formatBlock struct {
@@ -50,6 +60,78 @@ func parseFormatBlock(b []byte) (*formatBlock, error) {
 	}
 
 	return f, nil
+}
+
+// RecoverFormatBlock attempts to recover format block replica from the specified file.
+// The format block can be either the prefix or a suffix of the given file.
+func RecoverFormatBlock(ctx context.Context, st storage.Storage, filename string) ([]byte, error) {
+	var foundMetadata storage.BlockMetadata
+
+	if err := st.ListBlocks(ctx, filename, func(bm storage.BlockMetadata) error {
+		if foundMetadata.BlockID != "" {
+			return fmt.Errorf("found multiple blocks with a given prefix: %v", filename)
+		}
+		foundMetadata = bm
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("error: %v", err)
+	}
+
+	if foundMetadata.BlockID == "" {
+		return nil, storage.ErrBlockNotFound
+	}
+
+	return recoverFormatBlockWithLength(ctx, st, foundMetadata.BlockID, foundMetadata.Length)
+}
+
+func recoverFormatBlockWithLength(ctx context.Context, st storage.Storage, filename string, length int64) ([]byte, error) {
+	chunkLength := int64(65536)
+	if chunkLength > length {
+		chunkLength = length
+	}
+
+	if chunkLength > 4 {
+
+		// try prefix
+		prefixChunk, err := st.GetBlock(ctx, filename, 0, chunkLength)
+		if err != nil {
+			return nil, err
+		}
+		if l := int(prefixChunk[0]) + int(prefixChunk[1])<<8; l <= maxChecksummedFormatBytesLength && l+2 < len(prefixChunk) {
+			if b, ok := verifyFormatBlockChecksum(prefixChunk[2 : 2+l]); ok {
+				return b, nil
+			}
+		}
+
+		// try the suffix
+		suffixChunk, err := st.GetBlock(ctx, filename, length-chunkLength, chunkLength)
+		if err != nil {
+			return nil, err
+		}
+		if l := int(suffixChunk[len(suffixChunk)-2]) + int(suffixChunk[len(suffixChunk)-1])<<8; l <= maxChecksummedFormatBytesLength && l+2 < len(suffixChunk) {
+			if b, ok := verifyFormatBlockChecksum(suffixChunk[len(suffixChunk)-2-l : len(suffixChunk)-2]); ok {
+				return b, nil
+			}
+		}
+	}
+
+	return nil, errFormatBlockNotFound
+}
+
+func verifyFormatBlockChecksum(b []byte) ([]byte, bool) {
+	if len(b) < formatBlockChecksumSize {
+		return nil, false
+	}
+
+	data, checksum := b[0:len(b)-formatBlockChecksumSize], b[len(b)-formatBlockChecksumSize:]
+	h := sha256.New()
+	h.Write(data) //nolint:errcheck
+	actualChecksum := h.Sum(nil)
+	if !hmac.Equal(actualChecksum, checksum) {
+		return nil, false
+	}
+
+	return data, true
 }
 
 func writeFormatBlock(ctx context.Context, st storage.Storage, f *formatBlock) error {
@@ -151,4 +233,21 @@ func encryptFormatBytes(f *formatBlock, format *repositoryObjectFormat, masterKe
 	default:
 		return fmt.Errorf("unknown encryption algorithm: '%v'", f.EncryptionAlgorithm)
 	}
+}
+
+func addFormatBlockChecksumAndLength(fb []byte) ([]byte, error) {
+	h := sha256.New()
+	h.Write(fb) //nolint:errcheck
+	checksummedFormatBytes := h.Sum(fb)
+
+	l := len(checksummedFormatBytes)
+	if l > maxChecksummedFormatBytesLength {
+		return nil, fmt.Errorf("format block too big: %v", l)
+	}
+
+	// return <length><checksummed-bytes><length>
+	result := append([]byte(nil), byte(l), byte(l>>8))
+	result = append(result, checksummedFormatBytes...)
+	result = append(result, byte(l), byte(l>>8))
+	return result, nil
 }

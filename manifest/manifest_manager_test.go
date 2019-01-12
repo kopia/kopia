@@ -135,7 +135,7 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 	}
 
 	// write some data to storage
-	bm, err := block.NewManager(ctx, st, f, block.CachingOptions{})
+	bm, err := block.NewManager(ctx, st, f, block.CachingOptions{}, nil)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -159,7 +159,7 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 	}
 
 	// make a new block manager based on corrupted data.
-	bm, err = block.NewManager(ctx, st, f, block.CachingOptions{})
+	bm, err = block.NewManager(ctx, st, f, block.CachingOptions{}, nil)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -270,7 +270,7 @@ func newManagerForTesting(ctx context.Context, t *testing.T, data map[string][]b
 		Hash:        "HMAC-SHA256-128",
 		Encryption:  "NONE",
 		MaxPackSize: 100000,
-	}, block.CachingOptions{})
+	}, block.CachingOptions{}, nil)
 	if err != nil {
 		return nil, fmt.Errorf("can't create block manager: %v", err)
 	}
