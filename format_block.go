@@ -23,6 +23,11 @@ const (
 	formatBlockChecksumSize         = sha256.Size
 )
 
+// formatBlockChecksumSecret is a HMAC secret used for checksumming the format block.
+// It's not really a secret, but will provide positive identification of blocks that
+// are repository format blocks.
+var formatBlockChecksumSecret = []byte("kopia-repository")
+
 // FormatBlockID is the identifier of a storage block that describes repository format.
 const FormatBlockID = "kopia.repository"
 
@@ -124,7 +129,7 @@ func verifyFormatBlockChecksum(b []byte) ([]byte, bool) {
 	}
 
 	data, checksum := b[0:len(b)-formatBlockChecksumSize], b[len(b)-formatBlockChecksumSize:]
-	h := sha256.New()
+	h := hmac.New(sha256.New, formatBlockChecksumSecret)
 	h.Write(data) //nolint:errcheck
 	actualChecksum := h.Sum(nil)
 	if !hmac.Equal(actualChecksum, checksum) {
@@ -236,7 +241,7 @@ func encryptFormatBytes(f *formatBlock, format *repositoryObjectFormat, masterKe
 }
 
 func addFormatBlockChecksumAndLength(fb []byte) ([]byte, error) {
-	h := sha256.New()
+	h := hmac.New(sha256.New, formatBlockChecksumSecret)
 	h.Write(fb) //nolint:errcheck
 	checksummedFormatBytes := h.Sum(fb)
 
