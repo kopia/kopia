@@ -120,31 +120,43 @@ func TestEndToEnd(t *testing.T) {
 		e.runAndExpectSuccess(t, "repo", "status")
 	})
 
-	t.Run("CreateSnapshots", func(t *testing.T) {
-		e.runAndExpectSuccess(t, "snapshot", "create", ".")
-		e.runAndExpectSuccess(t, "snapshot", "list", ".")
+	e.runAndExpectSuccess(t, "snapshot", "create", ".")
+	e.runAndExpectSuccess(t, "snapshot", "list", ".")
 
-		dir1 := filepath.Join(e.dataDir, "dir1")
-		createDirectory(dir1, 3)
-		e.runAndExpectSuccess(t, "snapshot", "create", dir1)
-		e.runAndExpectSuccess(t, "snapshot", "create", dir1)
+	dir1 := filepath.Join(e.dataDir, "dir1")
+	createDirectory(dir1, 3)
+	e.runAndExpectSuccess(t, "snapshot", "create", dir1)
+	e.runAndExpectSuccess(t, "snapshot", "create", dir1)
 
-		dir2 := filepath.Join(e.dataDir, "dir2")
-		createDirectory(dir2, 3)
-		e.runAndExpectSuccess(t, "snapshot", "create", dir2)
-		e.runAndExpectSuccess(t, "snapshot", "create", dir2)
-		sources := listSnapshotsAndExpectSuccess(t, e)
-		if got, want := len(sources), 3; got != want {
-			t.Errorf("unexpected number of sources: %v, want %v in %#v", got, want, sources)
-		}
+	dir2 := filepath.Join(e.dataDir, "dir2")
+	createDirectory(dir2, 3)
+	e.runAndExpectSuccess(t, "snapshot", "create", dir2)
+	e.runAndExpectSuccess(t, "snapshot", "create", dir2)
+	sources := listSnapshotsAndExpectSuccess(t, e)
+	if got, want := len(sources), 3; got != want {
+		t.Errorf("unexpected number of sources: %v, want %v in %#v", got, want, sources)
+	}
 
-		// expect 5 blocks, each snapshot creation adds one index block
-		e.runAndVerifyOutputLineCount(t, 6, "blockindex", "ls")
-		e.runAndExpectSuccess(t, "blockindex", "optimize")
-		e.runAndVerifyOutputLineCount(t, 1, "blockindex", "ls")
+	// expect 5 blocks, each snapshot creation adds one index block
+	e.runAndVerifyOutputLineCount(t, 6, "blockindex", "ls")
+	e.runAndExpectSuccess(t, "blockindex", "optimize")
+	e.runAndVerifyOutputLineCount(t, 1, "blockindex", "ls")
 
-		e.runAndExpectSuccess(t, "snapshot", "create", ".", dir1, dir2)
-		e.runAndVerifyOutputLineCount(t, 2, "blockindex", "ls")
+	e.runAndExpectSuccess(t, "snapshot", "create", ".", dir1, dir2)
+	e.runAndVerifyOutputLineCount(t, 2, "blockindex", "ls")
+
+	t.Run("Migrate", func(t *testing.T) {
+		dstenv := newTestEnv(t)
+		defer dstenv.cleanup(t)
+		defer dstenv.runAndExpectSuccess(t, "repo", "disconnect")
+
+		dstenv.runAndExpectSuccess(t, "repo", "create", "filesystem", "--path", dstenv.repoDir)
+		dstenv.runAndExpectSuccess(t, "snapshot", "migrate", "--source-config", filepath.Join(e.configDir, ".kopia.config"), "--all")
+		// migrate again, which should be a no-op.
+		dstenv.runAndExpectSuccess(t, "snapshot", "migrate", "--source-config", filepath.Join(e.configDir, ".kopia.config"), "--all")
+
+		sourceSnapshotCount := len(e.runAndExpectSuccess(t, "snapshot", "list", ".", "-a"))
+		dstenv.runAndVerifyOutputLineCount(t, sourceSnapshotCount, "snapshot", "list", ".", "-a")
 	})
 
 	t.Run("RepairIndexBlocks", func(t *testing.T) {

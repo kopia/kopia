@@ -89,7 +89,7 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshot
 
 	localEntry := mustGetLocalFSEntry(sourceInfo.Path)
 
-	previousManifest, err := findPreviousSnapshotManifest(ctx, rep, sourceInfo)
+	previousManifest, err := findPreviousSnapshotManifest(ctx, rep, sourceInfo, nil)
 	if err != nil {
 		return err
 	}
@@ -119,7 +119,7 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshot
 	return err
 }
 
-func findPreviousSnapshotManifest(ctx context.Context, rep *repo.Repository, sourceInfo snapshot.SourceInfo) (*snapshot.Manifest, error) {
+func findPreviousSnapshotManifest(ctx context.Context, rep *repo.Repository, sourceInfo snapshot.SourceInfo, noLaterThan *time.Time) (*snapshot.Manifest, error) {
 	previous, err := snapshot.ListSnapshots(ctx, rep, sourceInfo)
 	if err != nil {
 		return nil, fmt.Errorf("error listing previous backups: %v", err)
@@ -127,6 +127,9 @@ func findPreviousSnapshotManifest(ctx context.Context, rep *repo.Repository, sou
 
 	var previousManifest *snapshot.Manifest
 	for _, p := range previous {
+		if noLaterThan != nil && p.StartTime.After(*noLaterThan) {
+			continue
+		}
 		if previousManifest == nil || p.StartTime.After(previousManifest.StartTime) {
 			previousManifest = p
 		}

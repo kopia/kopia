@@ -3,19 +3,19 @@ package cli
 import (
 	"context"
 	"fmt"
+	"sort"
+	"time"
 
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 	"github.com/kopia/repo"
-	"github.com/kopia/repo/object"
 )
 
 var (
-	migrateCommand      = repositoryCommands.Command("migrate", "Migrate data from old repository to a new one.")
+	migrateCommand      = snapshotCommands.Command("migrate", "Migrate snapshots from another repository")
 	migrateSourceConfig = migrateCommand.Flag("source-config", "Configuration file for the source repository").Required().ExistingFile()
 	migrateSources      = migrateCommand.Flag("sources", "List of sources to migrate").Strings()
 	migrateAll          = migrateCommand.Flag("all", "Migrate all sources").Bool()
-	migrateDirectories  = migrateCommand.Flag("directory-objects", "Migrate directory objects").Strings()
 	migrateLatestOnly   = migrateCommand.Flag("latest-only", "Only migrate the latest snapshot").Bool()
 	migrateIgnoreErrors = migrateCommand.Flag("ignore-errors", "Ignore errors when reading source backup").Bool()
 )
@@ -47,26 +47,25 @@ func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 		}
 	}
 
-	for _, dir := range *migrateDirectories {
-		dirOID, err := object.ParseID(dir)
-		if err != nil {
-			return err
-		}
-		d := snapshotfs.DirectoryEntry(sourceRepo, dirOID, nil)
-		newm, err := uploader.Upload(ctx, d, snapshot.SourceInfo{Host: "temp"}, nil)
-		if err != nil {
-			return fmt.Errorf("error migrating directory %v: %v", dirOID, err)
-		}
-
-		log.Debugf("migrated directory: %v with %#v", dirOID, newm)
-	}
-
 	return nil
 }
 
-func migrateSingleSource(ctx context.Context, uploader *snapshotfs.Uploader, sourceRepo, destRepo *repo.Repository, s snapshot.SourceInfo) error {
-	log.Debugf("migrating source %v", s)
+func findPreviousSnapshotManifestWithStartTime(ctx context.Context, rep *repo.Repository, sourceInfo snapshot.SourceInfo, startTime time.Time) (*snapshot.Manifest, error) {
+	previous, err := snapshot.ListSnapshots(ctx, rep, sourceInfo)
+	if err != nil {
+		return nil, fmt.Errorf("error listing previous backups: %v", err)
+	}
 
+	for _, p := range previous {
+		if p.StartTime == startTime {
+			return p, nil
+		}
+	}
+
+	return nil, nil
+}
+
+func migrateSingleSource(ctx context.Context, uploader *snapshotfs.Uploader, sourceRepo, destRepo *repo.Repository, s snapshot.SourceInfo) error {
 	manifests, err := snapshot.ListSnapshotManifests(ctx, sourceRepo, &s)
 	if err != nil {
 		return err
@@ -76,19 +75,38 @@ func migrateSingleSource(ctx context.Context, uploader *snapshotfs.Uploader, sou
 		return fmt.Errorf("unable to load snapshot manifests for %v: %v", s, err)
 	}
 
+	sort.Slice(snapshots, func(i, j int) bool {
+		return snapshots[i].StartTime.Before(snapshots[j].StartTime)
+	})
+
 	for _, m := range filterSnapshotsToMigrate(snapshots) {
-		d := snapshotfs.DirectoryEntry(sourceRepo, m.RootObjectID(), nil)
-		newm, err := uploader.Upload(ctx, d, m.Source, nil)
+		sourceEntry := snapshotfs.DirectoryEntry(sourceRepo, m.RootObjectID(), nil)
+
+		existing, err := findPreviousSnapshotManifestWithStartTime(ctx, destRepo, m.Source, m.StartTime)
+		if err != nil {
+			return err
+		}
+		if existing != nil {
+			log.Infof("already migrated %v at %v", s, formatTimestamp(m.StartTime))
+			continue
+		}
+
+		log.Infof("migrating snapshot of %v at %v", s, formatTimestamp(m.StartTime))
+		previousManifest, err := findPreviousSnapshotManifest(ctx, destRepo, m.Source, &m.StartTime)
+		if err != nil {
+			return err
+		}
+
+		newm, err := uploader.Upload(ctx, sourceEntry, m.Source, previousManifest)
 		if err != nil {
 			return fmt.Errorf("error migrating shapshot %v @ %v: %v", m.Source, m.StartTime, err)
 		}
 
-		m.RootEntry = newm.RootEntry
-		m.HashCacheID = newm.HashCacheID
-		m.Stats = newm.Stats
-		m.IncompleteReason = newm.IncompleteReason
+		newm.StartTime = m.StartTime
+		newm.EndTime = m.EndTime
+		newm.Description = m.Description
 
-		if _, err := snapshot.SaveSnapshot(ctx, destRepo, m); err != nil {
+		if _, err := snapshot.SaveSnapshot(ctx, destRepo, newm); err != nil {
 			return fmt.Errorf("cannot save manifest: %v", err)
 		}
 	}
@@ -123,7 +141,7 @@ func getSourcesToMigrate(ctx context.Context, rep *repo.Repository) ([]snapshot.
 		return snapshot.ListSources(ctx, rep)
 	}
 
-	return nil, nil
+	return nil, fmt.Errorf("must specify either --all or --sources")
 }
 
 func init() {
