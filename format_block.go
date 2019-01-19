@@ -69,7 +69,12 @@ func parseFormatBlock(b []byte) (*formatBlock, error) {
 
 // RecoverFormatBlock attempts to recover format block replica from the specified file.
 // The format block can be either the prefix or a suffix of the given file.
-func RecoverFormatBlock(ctx context.Context, st storage.Storage, filename string) ([]byte, error) {
+// optionally the length can be provided (if known) to speed up recovery.
+func RecoverFormatBlock(ctx context.Context, st storage.Storage, filename string, optionalLength int64) ([]byte, error) {
+	if optionalLength > 0 {
+		return recoverFormatBlockWithLength(ctx, st, filename, optionalLength)
+	}
+
 	var foundMetadata storage.BlockMetadata
 
 	if err := st.ListBlocks(ctx, filename, func(bm storage.BlockMetadata) error {

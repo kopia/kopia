@@ -57,7 +57,7 @@ func TestFormatBlockRecovery(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.block, func(t *testing.T) {
-			v, err := RecoverFormatBlock(ctx, st, tc.block)
+			v, err := RecoverFormatBlock(ctx, st, tc.block, -1)
 			if tc.err == nil {
 				if !reflect.DeepEqual(v, someDataBlock) || err != nil {
 					t.Errorf("unexpected result or error: v=%v err=%v, expected success", v, err)

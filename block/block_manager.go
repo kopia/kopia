@@ -275,8 +275,6 @@ func (bm *Manager) flushPackIndexesLocked(ctx context.Context) error {
 			return fmt.Errorf("unable to build pack index: %v", err)
 		}
 
-		buf.Write(bm.repositoryFormatBytes) //nolint:errcheck
-
 		data := buf.Bytes()
 		dataCopy := append([]byte(nil), data...)
 
@@ -345,7 +343,7 @@ func (bm *Manager) writePackBlockLocked(ctx context.Context) error {
 func (bm *Manager) preparePackDataBlock(packFile string) ([]byte, packIndexBuilder, error) {
 	formatLog.Debugf("preparing block data with %v items", len(bm.currentPackItems))
 
-	blockData, err := appendRandomBytes(nil, rand.Intn(bm.maxPreambleLength-bm.minPreambleLength+1)+bm.minPreambleLength)
+	blockData, err := appendRandomBytes(append([]byte(nil), bm.repositoryFormatBytes...), rand.Intn(bm.maxPreambleLength-bm.minPreambleLength+1)+bm.minPreambleLength)
 	if err != nil {
 		return nil, nil, fmt.Errorf("unable to prepare block preamble: %v", err)
 	}
