@@ -43,4 +43,17 @@ func RegisterStorageConnectFlags(
 
 		return runConnectCommandWithStorage(ctx, st)
 	})
+
+	// Set up 'repair' subcommand
+	cc = repairCommand.Command(name, "Repair repository in "+description)
+	flags(cc)
+	cc.Action(func(_ *kingpin.ParseContext) error {
+		ctx := context.Background()
+		st, err := connect(ctx)
+		if err != nil {
+			return fmt.Errorf("can't connect to storage: %v", err)
+		}
+
+		return runRepairCommandWithStorage(ctx, st)
+	})
 }

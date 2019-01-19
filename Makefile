@@ -74,7 +74,7 @@ vtest:
 
 integration-tests:
 	go build -o dist/integration/kopia github.com/kopia/kopia
-	KOPIA_EXE=$(CURDIR)/dist/integration/kopia go test -count=1 -timeout 90s -v github.com/kopia/kopia/tests/end_to_end_test
+	KOPIA_EXE=$(CURDIR)/dist/integration/kopia go test -count=1 -timeout 90s github.com/kopia/kopia/tests/end_to_end_test
 
 stress-test:
 	KOPIA_LONG_STRESS_TEST=1 go test -count=1 -timeout 200s github.com/kopia/repo/tests/stress_test

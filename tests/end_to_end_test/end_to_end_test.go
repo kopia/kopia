@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -101,67 +102,90 @@ func TestEndToEnd(t *testing.T) {
 	// make sure we can read policy
 	e.runAndExpectSuccess(t, "policy", "show", "--global")
 
-	// verify we created global policy entry
-	globalPolicyBlockID := e.runAndVerifyOutputLineCount(t, 1, "block", "ls")[0]
-	e.runAndExpectSuccess(t, "block", "show", "-jz", globalPolicyBlockID)
+	t.Run("VerifyGlobalPolicy", func(t *testing.T) {
+		// verify we created global policy entry
+		globalPolicyBlockID := e.runAndVerifyOutputLineCount(t, 1, "block", "ls")[0]
+		e.runAndExpectSuccess(t, "block", "show", "-jz", globalPolicyBlockID)
 
-	// make sure the policy is visible in the manifest list
-	e.runAndVerifyOutputLineCount(t, 1, "manifest", "list", "--filter=type:policy", "--filter=policyType:global")
+		// make sure the policy is visible in the manifest list
+		e.runAndVerifyOutputLineCount(t, 1, "manifest", "list", "--filter=type:policy", "--filter=policyType:global")
 
-	// make sure the policy is visible in the policy list
-	e.runAndVerifyOutputLineCount(t, 1, "policy", "list")
+		// make sure the policy is visible in the policy list
+		e.runAndVerifyOutputLineCount(t, 1, "policy", "list")
+	})
 
-	e.runAndExpectSuccess(t, "repo", "disconnect")
-	e.runAndExpectSuccess(t, "repo", "connect", "filesystem", "--path", e.repoDir)
-	e.runAndExpectSuccess(t, "repo", "status")
+	t.Run("Reconnect", func(t *testing.T) {
+		e.runAndExpectSuccess(t, "repo", "disconnect")
+		e.runAndExpectSuccess(t, "repo", "connect", "filesystem", "--path", e.repoDir)
+		e.runAndExpectSuccess(t, "repo", "status")
+	})
 
-	e.runAndExpectSuccess(t, "snapshot", "create", ".")
-	e.runAndExpectSuccess(t, "snapshot", "list", ".")
+	t.Run("CreateSnapshots", func(t *testing.T) {
+		e.runAndExpectSuccess(t, "snapshot", "create", ".")
+		e.runAndExpectSuccess(t, "snapshot", "list", ".")
 
-	dir1 := filepath.Join(e.dataDir, "dir1")
-	createDirectory(dir1, 3)
-	e.runAndExpectSuccess(t, "snapshot", "create", dir1)
-	e.runAndExpectSuccess(t, "snapshot", "create", dir1)
+		dir1 := filepath.Join(e.dataDir, "dir1")
+		createDirectory(dir1, 3)
+		e.runAndExpectSuccess(t, "snapshot", "create", dir1)
+		e.runAndExpectSuccess(t, "snapshot", "create", dir1)
 
-	dir2 := filepath.Join(e.dataDir, "dir2")
-	createDirectory(dir2, 3)
-	e.runAndExpectSuccess(t, "snapshot", "create", dir2)
-	e.runAndExpectSuccess(t, "snapshot", "create", dir2)
-	sources := listSnapshotsAndExpectSuccess(t, e)
-	if got, want := len(sources), 3; got != want {
-		t.Errorf("unexpected number of sources: %v, want %v in %#v", got, want, sources)
-	}
+		dir2 := filepath.Join(e.dataDir, "dir2")
+		createDirectory(dir2, 3)
+		e.runAndExpectSuccess(t, "snapshot", "create", dir2)
+		e.runAndExpectSuccess(t, "snapshot", "create", dir2)
+		sources := listSnapshotsAndExpectSuccess(t, e)
+		if got, want := len(sources), 3; got != want {
+			t.Errorf("unexpected number of sources: %v, want %v in %#v", got, want, sources)
+		}
 
-	// expect 5 blocks, each snapshot creation adds one index block
-	e.runAndVerifyOutputLineCount(t, 6, "blockindex", "ls")
-	e.runAndExpectSuccess(t, "blockindex", "optimize")
-	e.runAndVerifyOutputLineCount(t, 1, "blockindex", "ls")
+		// expect 5 blocks, each snapshot creation adds one index block
+		e.runAndVerifyOutputLineCount(t, 6, "blockindex", "ls")
+		e.runAndExpectSuccess(t, "blockindex", "optimize")
+		e.runAndVerifyOutputLineCount(t, 1, "blockindex", "ls")
 
-	e.runAndExpectSuccess(t, "snapshot", "create", ".", dir1, dir2)
-	e.runAndVerifyOutputLineCount(t, 2, "blockindex", "ls")
+		e.runAndExpectSuccess(t, "snapshot", "create", ".", dir1, dir2)
+		e.runAndVerifyOutputLineCount(t, 2, "blockindex", "ls")
+	})
 
-	blocksBefore := e.runAndExpectSuccess(t, "block", "ls")
+	t.Run("RepairIndexBlocks", func(t *testing.T) {
+		blocksBefore := e.runAndExpectSuccess(t, "block", "ls")
 
-	lines := e.runAndVerifyOutputLineCount(t, 2, "blockindex", "ls")
-	for _, l := range lines {
-		indexFile := strings.Split(l, " ")[0]
-		e.runAndExpectSuccess(t, "storage", "delete", indexFile)
-	}
+		lines := e.runAndVerifyOutputLineCount(t, 2, "blockindex", "ls")
+		for _, l := range lines {
+			indexFile := strings.Split(l, " ")[0]
+			e.runAndExpectSuccess(t, "storage", "delete", indexFile)
+		}
 
-	// there should be no index files at this point
-	e.runAndVerifyOutputLineCount(t, 0, "blockindex", "ls", "--no-list-caching")
-	// there should be no blocks, since there are no indexesto find them
-	e.runAndVerifyOutputLineCount(t, 0, "block", "ls")
+		// there should be no index files at this point
+		e.runAndVerifyOutputLineCount(t, 0, "blockindex", "ls", "--no-list-caching")
+		// there should be no blocks, since there are no indexesto find them
+		e.runAndVerifyOutputLineCount(t, 0, "block", "ls")
 
-	// now recover index from all blocks
-	e.runAndExpectSuccess(t, "blockindex", "recover", "--commit")
+		// now recover index from all blocks
+		e.runAndExpectSuccess(t, "blockindex", "recover", "--commit")
 
-	// all recovered index entries are added as index file
-	e.runAndVerifyOutputLineCount(t, 1, "blockindex", "ls")
-	blocksAfter := e.runAndExpectSuccess(t, "block", "ls")
-	if diff := pretty.Compare(blocksBefore, blocksAfter); diff != "" {
-		t.Errorf("unexpected block diff after recovery: %v", diff)
-	}
+		// all recovered index entries are added as index file
+		e.runAndVerifyOutputLineCount(t, 1, "blockindex", "ls")
+		blocksAfter := e.runAndExpectSuccess(t, "block", "ls")
+		if diff := pretty.Compare(blocksBefore, blocksAfter); diff != "" {
+			t.Errorf("unexpected block diff after recovery: %v", diff)
+		}
+	})
+
+	t.Run("RepairFormatBlock", func(t *testing.T) {
+		// remove kopia.repository
+		e.runAndExpectSuccess(t, "storage", "rm", "kopia.repository")
+		e.runAndExpectSuccess(t, "repo", "disconnect")
+
+		// this will fail because the format block in the repository is not found
+		e.runAndExpectFailure(t, "repo", "connect", "filesystem", "--path", e.repoDir)
+
+		// now run repair, which will recover the format block from one of the pack blocks.
+		e.runAndExpectSuccess(t, "repo", "repair", "filesystem", "--path", e.repoDir)
+
+		// now connect can succeed
+		e.runAndExpectSuccess(t, "repo", "connect", "filesystem", "--path", e.repoDir)
+	})
 }
 
 func TestDiff(t *testing.T) {
@@ -230,6 +254,14 @@ func (e *testenv) runAndExpectSuccess(t *testing.T, args ...string) []string {
 	return stdout
 }
 
+func (e *testenv) runAndExpectFailure(t *testing.T, args ...string) []string {
+	stdout, err := e.run(t, args...)
+	if err == nil {
+		t.Fatalf("'kopia %v' succeeded, but expected failure", strings.Join(args, " "))
+	}
+	return stdout
+}
+
 func (e *testenv) runAndVerifyOutputLineCount(t *testing.T, wantLines int, args ...string) []string {
 	t.Helper()
 	lines := e.runAndExpectSuccess(t, args...)
@@ -244,8 +276,26 @@ func (e *testenv) run(t *testing.T, args ...string) ([]string, error) {
 	cmdArgs := append(append([]string(nil), e.fixedArgs...), args...)
 	c := exec.Command(e.exe, cmdArgs...)
 	c.Env = append(os.Environ(), e.environment...)
+
+	stderrPipe, err := c.StderrPipe()
+	if err != nil {
+		t.Fatalf("can't set up stderr pipe reader")
+	}
+
+	var stderr []byte
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		stderr, err = ioutil.ReadAll(stderrPipe)
+	}()
+
 	o, err := c.Output()
-	t.Logf("finished 'kopia %v' with err=%v and output:\n%v", strings.Join(args, " "), err, trimOutput(string(o)))
+	wg.Wait()
+
+	t.Logf("finished 'kopia %v' with err=%v and output:\n%v\nstderr:\n%v\n", strings.Join(args, " "), err, trimOutput(string(o)), trimOutput(string(stderr)))
 	return splitLines(string(o)), err
 }
 
