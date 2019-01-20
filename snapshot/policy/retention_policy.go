@@ -42,8 +42,12 @@ func (r *RetentionPolicy) ComputeRetentionReasons(manifests []*snapshot.Manifest
 	ids := make(map[string]bool)
 	idCounters := make(map[string]int)
 
-	for i, s := range snapshot.SortByTime(manifests, true) {
+	sorted := snapshot.SortByTime(manifests, true)
+	for i, s := range sorted {
 		s.RetentionReasons = r.getRetentionReasons(i, s, cutoff, ids, idCounters)
+	}
+	if len(sorted) > 0 && sorted[0].IncompleteReason != "" {
+		sorted[0].RetentionReasons = append(sorted[0].RetentionReasons, "last-incomplete")
 	}
 }
 
