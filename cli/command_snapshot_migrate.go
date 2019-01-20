@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/kopia/kopia/snapshot"
@@ -18,14 +19,10 @@ var (
 	migrateAll          = migrateCommand.Flag("all", "Migrate all sources").Bool()
 	migrateLatestOnly   = migrateCommand.Flag("latest-only", "Only migrate the latest snapshot").Bool()
 	migrateIgnoreErrors = migrateCommand.Flag("ignore-errors", "Ignore errors when reading source backup").Bool()
+	migrateParallelism  = migrateCommand.Flag("parallelism", "Number of sources to migrate in parallel").Default("1").Int()
 )
 
 func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
-	uploader := snapshotfs.NewUploader(destRepo)
-	uploader.Progress = cliProgress
-	uploader.IgnoreFileErrors = *migrateIgnoreErrors
-	onCtrlC(uploader.Cancel)
-
 	sourceRepo, err := repo.Open(ctx, *migrateSourceConfig, mustGetPasswordFromFlags(false, false), applyOptionsFromFlags(nil))
 	if err != nil {
 		return fmt.Errorf("can't open source repository: %v", err)
@@ -36,16 +33,29 @@ func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 		return fmt.Errorf("can't retrieve sources: %v", err)
 	}
 
-	for _, s := range sources {
-		if uploader.IsCancelled() {
-			log.Debugf("upload cancelled")
-			break
-		}
+	semaphore := make(chan struct{}, *migrateParallelism)
+	var wg sync.WaitGroup
 
-		if err := migrateSingleSource(ctx, uploader, sourceRepo, destRepo, s); err != nil {
-			return err
-		}
+	for _, s := range sources {
+		uploader := snapshotfs.NewUploader(destRepo)
+		uploader.Progress = cliProgress
+		uploader.IgnoreFileErrors = *migrateIgnoreErrors
+		onCtrlC(uploader.Cancel)
+
+		wg.Add(1)
+		semaphore <- struct{}{}
+		go func(s snapshot.SourceInfo) {
+			defer func() {
+				<-semaphore
+				wg.Done()
+			}()
+
+			if err := migrateSingleSource(ctx, uploader, sourceRepo, destRepo, s); err != nil {
+				log.Warningf("unable to migrate source: %v", err)
+			}
+		}(s)
 	}
+	wg.Wait()
 
 	return nil
 }
@@ -80,6 +90,10 @@ func migrateSingleSource(ctx context.Context, uploader *snapshotfs.Uploader, sou
 	})
 
 	for _, m := range filterSnapshotsToMigrate(snapshots) {
+		if m.IncompleteReason != "" {
+			log.Infof("ignoring incomplete %v at %v", s, formatTimestamp(m.StartTime))
+			continue
+		}
 		sourceEntry := snapshotfs.DirectoryEntry(sourceRepo, m.RootObjectID(), nil)
 
 		existing, err := findPreviousSnapshotManifestWithStartTime(ctx, destRepo, m.Source, m.StartTime)
@@ -105,9 +119,10 @@ func migrateSingleSource(ctx context.Context, uploader *snapshotfs.Uploader, sou
 		newm.StartTime = m.StartTime
 		newm.EndTime = m.EndTime
 		newm.Description = m.Description
-
-		if _, err := snapshot.SaveSnapshot(ctx, destRepo, newm); err != nil {
-			return fmt.Errorf("cannot save manifest: %v", err)
+		if newm.IncompleteReason == "" {
+			if _, err := snapshot.SaveSnapshot(ctx, destRepo, newm); err != nil {
+				return fmt.Errorf("cannot save manifest: %v", err)
+			}
 		}
 	}
 
