@@ -565,16 +565,16 @@ func uploadDirInternal(
 	dw := newDirWriter(writer)
 	defer writer.Close() //nolint:errcheck
 
-	if err := u.processSubdirectories(ctx, dirRelativePath, entries, dw, &summ); err != nil {
+	if err := u.processSubdirectories(ctx, dirRelativePath, entries, dw, &summ); err != nil && err != errCancelled {
 		return "", fs.DirectorySummary{}, err
 	}
 	u.prepareProgress(dirRelativePath, entries)
 
 	workItems, workItemErr := u.prepareWorkItems(ctx, dirRelativePath, entries, &summ)
-	if workItemErr != nil {
+	if workItemErr != nil && workItemErr != errCancelled {
 		return "", fs.DirectorySummary{}, workItemErr
 	}
-	if err := u.processUploadWorkItems(workItems, dw); err != nil {
+	if err := u.processUploadWorkItems(workItems, dw); err != nil && err != errCancelled {
 		return "", fs.DirectorySummary{}, err
 	}
 	if err := dw.Finalize(&summ); err != nil {
