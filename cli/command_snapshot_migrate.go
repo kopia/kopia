@@ -44,7 +44,7 @@ func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 
 	onCtrlC(func() {
 		mu.Lock()
-		mu.Unlock()
+		defer mu.Unlock()
 
 		if !cancelled {
 			cancelled = true
@@ -124,42 +124,51 @@ func migrateSingleSource(ctx context.Context, uploader *snapshotfs.Uploader, sou
 		if uploader.IsCancelled() {
 			break
 		}
-		if m.IncompleteReason != "" {
-			log.Infof("ignoring incomplete %v at %v", s, formatTimestamp(m.StartTime))
-			continue
-		}
-		sourceEntry := snapshotfs.DirectoryEntry(sourceRepo, m.RootObjectID(), nil)
 
-		existing, err := findPreviousSnapshotManifestWithStartTime(ctx, destRepo, m.Source, m.StartTime)
-		if err != nil {
-			return err
-		}
-		if existing != nil {
-			log.Infof("already migrated %v at %v", s, formatTimestamp(m.StartTime))
-			continue
-		}
-
-		log.Infof("migrating snapshot of %v at %v", s, formatTimestamp(m.StartTime))
-		previousManifest, err := findPreviousSnapshotManifest(ctx, destRepo, m.Source, &m.StartTime)
-		if err != nil {
+		if err := migrateSingleSourceSnapshot(ctx, uploader, sourceRepo, destRepo, s, m); err != nil {
 			return err
 		}
 
-		newm, err := uploader.Upload(ctx, sourceEntry, m.Source, previousManifest)
-		if err != nil {
-			return fmt.Errorf("error migrating shapshot %v @ %v: %v", m.Source, m.StartTime, err)
-		}
-
-		newm.StartTime = m.StartTime
-		newm.EndTime = m.EndTime
-		newm.Description = m.Description
-		if newm.IncompleteReason == "" {
-			if _, err := snapshot.SaveSnapshot(ctx, destRepo, newm); err != nil {
-				return fmt.Errorf("cannot save manifest: %v", err)
-			}
-		}
 	}
 
+	return nil
+}
+
+func migrateSingleSourceSnapshot(ctx context.Context, uploader *snapshotfs.Uploader, sourceRepo, destRepo *repo.Repository, s snapshot.SourceInfo, m *snapshot.Manifest) error {
+	if m.IncompleteReason != "" {
+		log.Infof("ignoring incomplete %v at %v", s, formatTimestamp(m.StartTime))
+		return nil
+	}
+	sourceEntry := snapshotfs.DirectoryEntry(sourceRepo, m.RootObjectID(), nil)
+
+	existing, err := findPreviousSnapshotManifestWithStartTime(ctx, destRepo, m.Source, m.StartTime)
+	if err != nil {
+		return err
+	}
+	if existing != nil {
+		log.Infof("already migrated %v at %v", s, formatTimestamp(m.StartTime))
+		return nil
+	}
+
+	log.Infof("migrating snapshot of %v at %v", s, formatTimestamp(m.StartTime))
+	previousManifest, err := findPreviousSnapshotManifest(ctx, destRepo, m.Source, &m.StartTime)
+	if err != nil {
+		return err
+	}
+
+	newm, err := uploader.Upload(ctx, sourceEntry, m.Source, previousManifest)
+	if err != nil {
+		return fmt.Errorf("error migrating shapshot %v @ %v: %v", m.Source, m.StartTime, err)
+	}
+
+	newm.StartTime = m.StartTime
+	newm.EndTime = m.EndTime
+	newm.Description = m.Description
+	if newm.IncompleteReason == "" {
+		if _, err := snapshot.SaveSnapshot(ctx, destRepo, newm); err != nil {
+			return fmt.Errorf("cannot save manifest: %v", err)
+		}
+	}
 	return nil
 }
 
