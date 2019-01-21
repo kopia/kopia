@@ -13,8 +13,6 @@ import (
 	"golang.org/x/crypto/blake2s"
 	"golang.org/x/crypto/salsa20"
 	"golang.org/x/crypto/sha3"
-
-	"golang.org/x/crypto/ripemd160"
 )
 
 // HashFunc computes hash of block of data using a cryptographic hash function, possibly with HMAC and/or truncation.
@@ -171,16 +169,15 @@ func RegisterEncryption(name string, newEncryptor EncryptorFactory) {
 }
 
 // DefaultHash is the name of the default hash algorithm.
-const DefaultHash = "HMAC-SHA256-128"
+const DefaultHash = "BLAKE2B-256-128"
 
 // DefaultEncryption is the name of the default encryption algorithm.
-const DefaultEncryption = "AES-256-CTR"
+const DefaultEncryption = "SALSA20"
 
 func init() {
 	RegisterHash("HMAC-SHA256", truncatedHMACHashFuncFactory(sha256.New, 32))
 	RegisterHash("HMAC-SHA256-128", truncatedHMACHashFuncFactory(sha256.New, 16))
 	RegisterHash("HMAC-SHA224", truncatedHMACHashFuncFactory(sha256.New224, 28))
-	RegisterHash("HMAC-RIPEMD-160", truncatedHMACHashFuncFactory(ripemd160.New, 20))
 	RegisterHash("HMAC-SHA3-224", truncatedHMACHashFuncFactory(sha3.New224, 28))
 	RegisterHash("HMAC-SHA3-256", truncatedHMACHashFuncFactory(sha3.New256, 32))
 
