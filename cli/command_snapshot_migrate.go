@@ -36,16 +36,47 @@ func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 	semaphore := make(chan struct{}, *migrateParallelism)
 	var wg sync.WaitGroup
 
+	var (
+		mu              sync.Mutex
+		cancelled       bool
+		activeUploaders = map[snapshot.SourceInfo]*snapshotfs.Uploader{}
+	)
+
+	onCtrlC(func() {
+		mu.Lock()
+		mu.Unlock()
+
+		if !cancelled {
+			cancelled = true
+			for s, u := range activeUploaders {
+				log.Warningf("cancelling active uploader for %v", s)
+				u.Cancel()
+			}
+		}
+	})
+
 	for _, s := range sources {
+		// start a new uploader unless already cancelled
+		mu.Lock()
+		if cancelled {
+			mu.Unlock()
+			break
+		}
+
 		uploader := snapshotfs.NewUploader(destRepo)
 		uploader.Progress = cliProgress
 		uploader.IgnoreFileErrors = *migrateIgnoreErrors
-		onCtrlC(uploader.Cancel)
+		activeUploaders[s] = uploader
+		mu.Unlock()
 
 		wg.Add(1)
 		semaphore <- struct{}{}
 		go func(s snapshot.SourceInfo) {
 			defer func() {
+				mu.Lock()
+				delete(activeUploaders, s)
+				mu.Unlock()
+
 				<-semaphore
 				wg.Done()
 			}()
@@ -90,6 +121,9 @@ func migrateSingleSource(ctx context.Context, uploader *snapshotfs.Uploader, sou
 	})
 
 	for _, m := range filterSnapshotsToMigrate(snapshots) {
+		if uploader.IsCancelled() {
+			break
+		}
 		if m.IncompleteReason != "" {
 			log.Infof("ignoring incomplete %v at %v", s, formatTimestamp(m.StartTime))
 			continue
