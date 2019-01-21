@@ -392,19 +392,13 @@ func (m *Manager) loadManifestBlock(ctx context.Context, blockID string) (manife
 		return man, err
 	}
 
-	if len(blk) > 2 && blk[0] == '{' {
-		if err := json.Unmarshal(blk, &man); err != nil {
-			return man, fmt.Errorf("unable to parse block %q: %v", blockID, err)
-		}
-	} else {
-		gz, err := gzip.NewReader(bytes.NewReader(blk))
-		if err != nil {
-			return man, fmt.Errorf("unable to unpack block %q: %v", blockID, err)
-		}
+	gz, err := gzip.NewReader(bytes.NewReader(blk))
+	if err != nil {
+		return man, fmt.Errorf("unable to unpack block %q: %v", blockID, err)
+	}
 
-		if err := json.NewDecoder(gz).Decode(&man); err != nil {
-			return man, fmt.Errorf("unable to parse block %q: %v", blockID, err)
-		}
+	if err := json.NewDecoder(gz).Decode(&man); err != nil {
+		return man, fmt.Errorf("unable to parse block %q: %v", blockID, err)
 	}
 
 	return man, nil
