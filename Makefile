@@ -21,17 +21,24 @@ lint:
 	gometalinter.v2 ./...
 
 vet:
-	go tool vet -all .
+	go vet -all .
 
-
-build-all:
-	# this downloads all dependencies for all OS/architectures and updates go.mod
-	# TODO(jkowalski): parallelize this once we're on 1.12
+build-linux-amd64:
 	CGO_ENABLED=0 GO111MODULE=on GOARCH=amd64 GOOS=linux go build ./...
+
+build-windows-amd64:
 	CGO_ENABLED=0 GO111MODULE=on GOARCH=amd64 GOOS=windows go build ./...
+
+build-darwin-amd64:
 	CGO_ENABLED=0 GO111MODULE=on GOARCH=amd64 GOOS=darwin go build ./...
+
+build-linux-arm:
 	CGO_ENABLED=0 GO111MODULE=on GOARCH=arm GOOS=linux go build ./...
+
+build-linux-arm64:
 	CGO_ENABLED=0 GO111MODULE=on GOARCH=arm64 GOOS=linux go build ./...
+
+build-all: build-linux-amd64 build-windows-amd64 build-darwin-amd64 build-linux-arm build-linux-arm64
 
 deps:
 	GOOS=linux GOARCH=amd64 go get -t -v github.com/kopia/kopia/...
@@ -49,16 +56,16 @@ upload-coverage:
 	$(GOPATH)/bin/goveralls -service=travis-ci -coverprofile=tmp.cov
 
 dev-deps:
-	go get -u golang.org/x/tools/cmd/gorename
-	go get -u golang.org/x/tools/cmd/guru
-	go get -u github.com/nsf/gocode
-	go get -u github.com/rogpeppe/godef
-	go get -u github.com/lukehoban/go-outline
-	go get -u github.com/newhook/go-symbols
-	go get -u github.com/sqs/goreturns
-	go get -u gopkg.in/alecthomas/gometalinter.v2
-	go get github.com/mattn/goveralls
-	gometalinter.v2 --install
+	GO111MODULE=off go get -u golang.org/x/tools/cmd/gorename
+	GO111MODULE=off go get -u golang.org/x/tools/cmd/guru
+	GO111MODULE=off go get -u github.com/nsf/gocode
+	GO111MODULE=off go get -u github.com/rogpeppe/godef
+	GO111MODULE=off go get -u github.com/lukehoban/go-outline
+	GO111MODULE=off go get -u github.com/newhook/go-symbols
+	GO111MODULE=off go get -u github.com/sqs/goreturns
+	GO111MODULE=off go get -u gopkg.in/alecthomas/gometalinter.v2
+	GO111MODULE=off go get github.com/mattn/goveralls
+	GO111MODULE=off gometalinter.v2 --install
 
 test-with-coverage: install
 	go test -count=1 -coverprofile=tmp.cov --coverpkg $(COVERAGE_PACKAGES) -timeout 90s github.com/kopia/kopia/...
