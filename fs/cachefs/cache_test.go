@@ -149,57 +149,57 @@ func TestCache(t *testing.T) {
 	cv.verifyCacheOrdering(t)
 
 	// fetch id1
-	c.getEntries(ctx, id1, expirationTime, cs.get(id1))
+	_, _ = c.getEntries(ctx, id1, expirationTime, cs.get(id1))
 	cv.verifyCacheMiss(t, id1)
 	cv.verifyCacheOrdering(t, id1)
 
 	// fetch id1 again - cache hit, no change
-	c.getEntries(ctx, id1, expirationTime, cs.get(id1))
+	_, _ = c.getEntries(ctx, id1, expirationTime, cs.get(id1))
 	cv.verifyCacheHit(t, id1)
 	cv.verifyCacheOrdering(t, id1)
 
 	// fetch id2
-	c.getEntries(ctx, id2, expirationTime, cs.get(id2))
+	_, _ = c.getEntries(ctx, id2, expirationTime, cs.get(id2))
 	cv.verifyCacheMiss(t, id2)
 	cv.verifyCacheOrdering(t, id2, id1)
 
 	// fetch id1 again - cache hit, id1 moved to the top of the LRU list
-	c.getEntries(ctx, id1, expirationTime, cs.get(id1))
+	_, _ = c.getEntries(ctx, id1, expirationTime, cs.get(id1))
 	cv.verifyCacheHit(t, id1)
 	cv.verifyCacheOrdering(t, id1, id2)
 
 	// fetch id2 again
-	c.getEntries(ctx, id2, expirationTime, cs.get(id2))
+	_, _ = c.getEntries(ctx, id2, expirationTime, cs.get(id2))
 	cv.verifyCacheHit(t, id2)
 	cv.verifyCacheOrdering(t, id2, id1)
 
 	// fetch id3
-	c.getEntries(ctx, id3, expirationTime, cs.get(id3))
+	_, _ = c.getEntries(ctx, id3, expirationTime, cs.get(id3))
 	cv.verifyCacheMiss(t, id3)
 	cv.verifyCacheOrdering(t, id3, id2, id1)
 
 	// fetch id4
-	c.getEntries(ctx, id4, expirationTime, cs.get(id4))
+	_, _ = c.getEntries(ctx, id4, expirationTime, cs.get(id4))
 	cv.verifyCacheMiss(t, id4)
 	cv.verifyCacheOrdering(t, id4, id3)
 
 	// fetch id1 again
-	c.getEntries(ctx, id1, expirationTime, cs.get(id1))
+	_, _ = c.getEntries(ctx, id1, expirationTime, cs.get(id1))
 	cv.verifyCacheMiss(t, id1)
 	cv.verifyCacheOrdering(t, id1, id4)
 
 	// fetch id5, it's a big one that expels all but one
-	c.getEntries(ctx, id5, expirationTime, cs.get(id5))
+	_, _ = c.getEntries(ctx, id5, expirationTime, cs.get(id5))
 	cv.verifyCacheMiss(t, id5)
 	cv.verifyCacheOrdering(t, id5, id1)
 
 	// fetch id6
-	c.getEntries(ctx, id6, expirationTime, cs.get(id6))
+	_, _ = c.getEntries(ctx, id6, expirationTime, cs.get(id6))
 	cv.verifyCacheMiss(t, id6)
 	cv.verifyCacheOrdering(t, id6)
 
 	// fetch id7
-	c.getEntries(ctx, id7, expirationTime, cs.get(id7))
+	_, _ = c.getEntries(ctx, id7, expirationTime, cs.get(id7))
 	cv.verifyCacheMiss(t, id7)
 	cv.verifyCacheOrdering(t, id6)
 }

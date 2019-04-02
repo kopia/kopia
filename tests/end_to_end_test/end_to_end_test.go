@@ -124,12 +124,12 @@ func TestEndToEnd(t *testing.T) {
 	e.runAndExpectSuccess(t, "snapshot", "list", ".")
 
 	dir1 := filepath.Join(e.dataDir, "dir1")
-	createDirectory(dir1, 3)
+	createDirectory(t, dir1, 3)
 	e.runAndExpectSuccess(t, "snapshot", "create", dir1)
 	e.runAndExpectSuccess(t, "snapshot", "create", dir1)
 
 	dir2 := filepath.Join(e.dataDir, "dir2")
-	createDirectory(dir2, 3)
+	createDirectory(t, dir2, 3)
 	e.runAndExpectSuccess(t, "snapshot", "create", dir2)
 	e.runAndExpectSuccess(t, "snapshot", "create", dir2)
 	sources := listSnapshotsAndExpectSuccess(t, e)
@@ -210,38 +210,38 @@ func TestDiff(t *testing.T) {
 	dataDir := filepath.Join(e.dataDir, "dir1")
 
 	// initial snapshot
-	os.MkdirAll(dataDir, 0777)
+	assertNoError(t, os.MkdirAll(dataDir, 0777))
 	e.runAndExpectSuccess(t, "snapshot", "create", dataDir)
 
 	// create some directories and files
-	os.MkdirAll(filepath.Join(dataDir, "foo"), 0700)
-	ioutil.WriteFile(filepath.Join(dataDir, "some-file1"), []byte(`
+	assertNoError(t, os.MkdirAll(filepath.Join(dataDir, "foo"), 0700))
+	assertNoError(t, ioutil.WriteFile(filepath.Join(dataDir, "some-file1"), []byte(`
 hello world
 how are you
-`), 0600)
-	ioutil.WriteFile(filepath.Join(dataDir, "some-file2"), []byte(`
+`), 0600))
+	assertNoError(t, ioutil.WriteFile(filepath.Join(dataDir, "some-file2"), []byte(`
 quick brown
 fox jumps
 over the lazy
 dog
-`), 0600)
+`), 0600))
 	e.runAndExpectSuccess(t, "snapshot", "create", dataDir)
 
 	// change some files
-	ioutil.WriteFile(filepath.Join(dataDir, "some-file2"), []byte(`
+	assertNoError(t, ioutil.WriteFile(filepath.Join(dataDir, "some-file2"), []byte(`
 quick brown
 fox jumps
 over the lazy
 canary
-`), 0600)
+`), 0600))
 
-	os.MkdirAll(filepath.Join(dataDir, "bar"), 0700)
+	assertNoError(t, os.MkdirAll(filepath.Join(dataDir, "bar"), 0700))
 	e.runAndExpectSuccess(t, "snapshot", "create", dataDir)
 
 	// change some files
 	os.Remove(filepath.Join(dataDir, "some-file1"))
 
-	os.MkdirAll(filepath.Join(dataDir, "bar"), 0700)
+	assertNoError(t, os.MkdirAll(filepath.Join(dataDir, "bar"), 0700))
 	e.runAndExpectSuccess(t, "snapshot", "create", dataDir)
 
 	si := listSnapshotsAndExpectSuccess(t, e, dataDir)
@@ -329,9 +329,9 @@ func listSnapshotsAndExpectSuccess(t *testing.T, e *testenv, targets ...string) 
 	return mustParseSnapshots(t, lines)
 }
 
-func createDirectory(dirname string, depth int) error {
+func createDirectory(t *testing.T, dirname string, depth int) {
 	if err := os.MkdirAll(dirname, 0700); err != nil {
-		return err
+		t.Fatalf("unable to create directory %v: %v", dirname, err)
 	}
 
 	if depth > 0 {
@@ -339,9 +339,7 @@ func createDirectory(dirname string, depth int) error {
 		for i := 0; i < numSubDirs; i++ {
 			subdirName := randomName()
 
-			if err := createDirectory(filepath.Join(dirname, subdirName), depth-1); err != nil {
-				return err
-			}
+			createDirectory(t, filepath.Join(dirname, subdirName), depth-1)
 		}
 	}
 
@@ -349,25 +347,20 @@ func createDirectory(dirname string, depth int) error {
 	for i := 0; i < numFiles; i++ {
 		fileName := randomName()
 
-		if err := createRandomFile(filepath.Join(dirname, fileName)); err != nil {
-			return err
-		}
+		createRandomFile(t, filepath.Join(dirname, fileName))
 	}
-
-	return nil
 }
 
-func createRandomFile(filename string) error {
+func createRandomFile(t *testing.T, filename string) {
 	f, err := os.Create(filename)
 	if err != nil {
-		return err
+		t.Fatalf("unable to create random file: %v", err)
 	}
 	defer f.Close()
 
 	length := rand.Int63n(100000)
-	io.Copy(f, io.LimitReader(rand.New(rand.NewSource(1)), length))
-
-	return nil
+	_, err = io.Copy(f, io.LimitReader(rand.New(rand.NewSource(1)), length))
+	assertNoError(t, err)
 }
 
 func mustParseSnapshots(t *testing.T, lines []string) []sourceInfo {
@@ -437,4 +430,11 @@ func splitLines(s string) []string {
 		result = append(result, strings.TrimRight(l, "\r"))
 	}
 	return result
+}
+
+func assertNoError(t *testing.T, err error) {
+	t.Helper()
+	if err != nil {
+		t.Errorf("err: %v", err)
+	}
 }

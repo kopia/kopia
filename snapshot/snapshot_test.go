@@ -94,12 +94,12 @@ func mustSaveSnapshot(t *testing.T, rep *repo.Repository, man *snapshot.Manifest
 }
 
 func verifySources(t *testing.T, rep *repo.Repository, sources ...snapshot.SourceInfo) {
-	sources, err := snapshot.ListSources(context.Background(), rep)
+	actualSources, err := snapshot.ListSources(context.Background(), rep)
 	if err != nil {
 		t.Errorf("error listing sources: %v", err)
 	}
 
-	if got, want := sorted(sourcesToStrings(sources...)), sorted(sourcesToStrings(sources...)); !reflect.DeepEqual(got, want) {
+	if got, want := sorted(sourcesToStrings(actualSources...)), sorted(sourcesToStrings(sources...)); !reflect.DeepEqual(got, want) {
 		t.Errorf("unexpected sources: %v want %v", got, want)
 	}
 }

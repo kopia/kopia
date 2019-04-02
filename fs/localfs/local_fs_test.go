@@ -28,7 +28,7 @@ func TestFiles(t *testing.T) {
 	var dir fs.Directory
 
 	// Try listing directory that does not exist.
-	dir, err = Directory(fmt.Sprintf("/no-such-dir-%v", time.Now().Nanosecond()))
+	_, err = Directory(fmt.Sprintf("/no-such-dir-%v", time.Now().Nanosecond()))
 	if err == nil {
 		t.Errorf("expected error when dir directory that does not exist.")
 	}
@@ -49,12 +49,12 @@ func TestFiles(t *testing.T) {
 	}
 
 	// Now list a directory with 3 files.
-	ioutil.WriteFile(filepath.Join(tmp, "f3"), []byte{1, 2, 3}, 0777)
-	ioutil.WriteFile(filepath.Join(tmp, "f2"), []byte{1, 2, 3, 4}, 0777)
-	ioutil.WriteFile(filepath.Join(tmp, "f1"), []byte{1, 2, 3, 4, 5}, 0777)
+	assertNoError(t, ioutil.WriteFile(filepath.Join(tmp, "f3"), []byte{1, 2, 3}, 0777))
+	assertNoError(t, ioutil.WriteFile(filepath.Join(tmp, "f2"), []byte{1, 2, 3, 4}, 0777))
+	assertNoError(t, ioutil.WriteFile(filepath.Join(tmp, "f1"), []byte{1, 2, 3, 4, 5}, 0777))
 
-	os.Mkdir(filepath.Join(tmp, "z"), 0777)
-	os.Mkdir(filepath.Join(tmp, "y"), 0777)
+	assertNoError(t, os.Mkdir(filepath.Join(tmp, "z"), 0777))
+	assertNoError(t, os.Mkdir(filepath.Join(tmp, "y"), 0777))
 
 	dir, err = Directory(tmp)
 	if err != nil {
@@ -88,5 +88,12 @@ func TestFiles(t *testing.T) {
 		for i, e := range entries {
 			t.Logf("e[%v] = %v %v %v", i, e.Name(), e.Size(), e.Mode())
 		}
+	}
+}
+
+func assertNoError(t *testing.T, err error) {
+	t.Helper()
+	if err != nil {
+		t.Errorf("err: %v", err)
 	}
 }

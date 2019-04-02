@@ -34,7 +34,7 @@ func TestStream(t *testing.T) {
 			t.Errorf("write error: %v", err)
 		}
 	}
-	w.Finalize()
+	assertNoError(t, w.Finalize())
 	log.Printf("wrote: %v", buf.String())
 	r, err := NewReader(bufio.NewReader(&buf), testHeader1, nil)
 	if err != nil {
@@ -72,7 +72,7 @@ func TestStreamWithSummary(t *testing.T) {
 			t.Errorf("write error: %v", err)
 		}
 	}
-	w.FinalizeWithSummary(TestSummary{Value: 123})
+	assertNoError(t, w.FinalizeWithSummary(TestSummary{Value: 123}))
 	log.Printf("wrote: %v", buf.String())
 
 	var summary TestSummary
@@ -113,5 +113,12 @@ func TestInvalidHeader(t *testing.T) {
 		t.Errorf("expected error, got none")
 	} else if !strings.Contains(err.Error(), "invalid stream format") {
 		t.Errorf("got incorrect error: %v", err)
+	}
+}
+
+func assertNoError(t *testing.T, err error) {
+	t.Helper()
+	if err != nil {
+		t.Errorf("err: %v", err)
 	}
 }

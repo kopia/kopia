@@ -49,9 +49,6 @@ func GetEffectivePolicy(ctx context.Context, rep *repo.Repository, si snapshot.S
 	md = append(md, userHostManifests...)
 
 	// Try host-level policy.
-	if err != nil {
-		return nil, nil, err
-	}
 	hostManifests, err := rep.Manifests.Find(ctx, labelsForSource(snapshot.SourceInfo{Host: si.Host}))
 	if err != nil {
 		return nil, nil, err
