@@ -4,8 +4,6 @@ import (
 	"testing"
 )
 
-type rawObjectID ID
-
 func TestParseObjectID(t *testing.T) {
 	cases := []struct {
 		text    string

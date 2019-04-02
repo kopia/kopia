@@ -56,8 +56,7 @@ type objectWriter struct {
 
 	description string
 
-	splitter        objectSplitter
-	pendingBlocksWG sync.WaitGroup
+	splitter objectSplitter
 }
 
 func (w *objectWriter) Close() error {

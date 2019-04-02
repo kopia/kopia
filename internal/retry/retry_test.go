@@ -9,8 +9,7 @@ import (
 )
 
 var (
-	errRetriable    = errors.New("retriable")
-	errNonRetriable = errors.New("non-retriable")
+	errRetriable = errors.New("retriable")
 )
 
 func isRetriable(e error) bool {

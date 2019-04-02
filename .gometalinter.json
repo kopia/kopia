@@ -1,7 +1,0 @@
-{
-    "Disable": ["maligned","gas","gosec"],
-    "Exclude": [
-        ".+_test\\.go"
-    ],
-    "Deadline": "120s"
-}

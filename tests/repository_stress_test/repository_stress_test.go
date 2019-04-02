@@ -22,10 +22,6 @@ import (
 
 const masterPassword = "foo-bar-baz-1234"
 
-type testContext struct {
-	r *repo.Repository
-}
-
 var (
 	knownBlocks      []string
 	knownBlocksMutex sync.Mutex
@@ -54,7 +50,7 @@ func TestStressRepository(t *testing.T) {
 	configFile1 := filepath.Join(tmpPath, "kopia1.config")
 	configFile2 := filepath.Join(tmpPath, "kopia2.config")
 
-	os.MkdirAll(storagePath, 0700)
+	assertNoError(t, os.MkdirAll(storagePath, 0700))
 	st, err := filesystem.New(ctx, &filesystem.Options{
 		Path: storagePath,
 	})
@@ -313,4 +309,11 @@ func writeRandomManifest(ctx context.Context, t *testing.T, r *repo.Repository) 
 		content2: content2val,
 	})
 	return err
+}
+
+func assertNoError(t *testing.T, err error) {
+	t.Helper()
+	if err != nil {
+		t.Errorf("err: %v", err)
+	}
 }

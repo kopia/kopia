@@ -24,19 +24,19 @@ func TestFormatBlockRecovery(t *testing.T) {
 		t.Errorf("unexpected checksummed length: %v, want %v", got, want)
 	}
 
-	st.PutBlock(ctx, "some-block-by-itself", checksummed)
-	st.PutBlock(ctx, "some-block-suffix", append(append([]byte(nil), 1, 2, 3), checksummed...))
-	st.PutBlock(ctx, "some-block-prefix", append(append([]byte(nil), checksummed...), 1, 2, 3))
+	assertNoError(t, st.PutBlock(ctx, "some-block-by-itself", checksummed))
+	assertNoError(t, st.PutBlock(ctx, "some-block-suffix", append(append([]byte(nil), 1, 2, 3), checksummed...)))
+	assertNoError(t, st.PutBlock(ctx, "some-block-prefix", append(append([]byte(nil), checksummed...), 1, 2, 3)))
 
 	// mess up checksum
 	checksummed[len(checksummed)-3] ^= 1
-	st.PutBlock(ctx, "bad-checksum", checksummed)
-	st.PutBlock(ctx, "zero-len", []byte{})
-	st.PutBlock(ctx, "one-len", []byte{1})
-	st.PutBlock(ctx, "two-len", []byte{1, 2})
-	st.PutBlock(ctx, "three-len", []byte{1, 2, 3})
-	st.PutBlock(ctx, "four-len", []byte{1, 2, 3, 4})
-	st.PutBlock(ctx, "five-len", []byte{1, 2, 3, 4, 5})
+	assertNoError(t, st.PutBlock(ctx, "bad-checksum", checksummed))
+	assertNoError(t, st.PutBlock(ctx, "zero-len", []byte{}))
+	assertNoError(t, st.PutBlock(ctx, "one-len", []byte{1}))
+	assertNoError(t, st.PutBlock(ctx, "two-len", []byte{1, 2}))
+	assertNoError(t, st.PutBlock(ctx, "three-len", []byte{1, 2, 3}))
+	assertNoError(t, st.PutBlock(ctx, "four-len", []byte{1, 2, 3, 4}))
+	assertNoError(t, st.PutBlock(ctx, "five-len", []byte{1, 2, 3, 4, 5}))
 
 	cases := []struct {
 		block string
@@ -68,5 +68,12 @@ func TestFormatBlockRecovery(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func assertNoError(t *testing.T, err error) {
+	t.Helper()
+	if err != nil {
+		t.Errorf("err: %v", err)
 	}
 }

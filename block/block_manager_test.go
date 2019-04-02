@@ -438,7 +438,7 @@ func TestRewriteNonDeleted(t *testing.T) {
 
 				block1 := writeBlockAndVerify(ctx, t, bm, seededRandomData(10, 100))
 				applyStep(action1)
-				bm.RewriteBlock(ctx, block1)
+				assertNoError(t, bm.RewriteBlock(ctx, block1))
 				applyStep(action2)
 				verifyBlock(ctx, t, bm, block1, seededRandomData(10, 100))
 				dumpBlockManagerData(t, data)
@@ -500,9 +500,9 @@ func TestRewriteDeleted(t *testing.T) {
 
 					block1 := writeBlockAndVerify(ctx, t, bm, seededRandomData(10, 100))
 					applyStep(action1)
-					bm.DeleteBlock(block1)
+					assertNoError(t, bm.DeleteBlock(block1))
 					applyStep(action2)
-					bm.RewriteBlock(ctx, block1)
+					assertNoError(t, bm.RewriteBlock(ctx, block1))
 					applyStep(action3)
 					verifyBlockNotFound(ctx, t, bm, block1)
 					dumpBlockManagerData(t, data)
@@ -537,12 +537,12 @@ func TestDeleteAndRecreate(t *testing.T) {
 
 			// delete but at given timestamp but don't commit yet.
 			bm0 := newTestBlockManager(data, keyTime, fakeTimeNowWithAutoAdvance(tc.deletionTime, 1*time.Second))
-			bm0.DeleteBlock(block1)
+			assertNoError(t, bm0.DeleteBlock(block1))
 
 			// delete it at t0+10
 			bm1 := newTestBlockManager(data, keyTime, fakeTimeNowWithAutoAdvance(fakeTime.Add(10*time.Second), 1*time.Second))
 			verifyBlock(ctx, t, bm1, block1, seededRandomData(10, 100))
-			bm1.DeleteBlock(block1)
+			assertNoError(t, bm1.DeleteBlock(block1))
 			bm1.Flush(ctx)
 
 			// recreate at t0+20
@@ -591,12 +591,12 @@ func TestFindUnreferencedStorageFiles(t *testing.T) {
 	// block still present in first pack
 	verifyUnreferencedStorageFilesCount(ctx, t, bm, 0)
 
-	bm.RewriteBlock(ctx, blockID)
+	assertNoError(t, bm.RewriteBlock(ctx, blockID))
 	if err := bm.Flush(ctx); err != nil {
 		t.Errorf("flush error: %v", err)
 	}
 	verifyUnreferencedStorageFilesCount(ctx, t, bm, 1)
-	bm.RewriteBlock(ctx, blockID)
+	assertNoError(t, bm.RewriteBlock(ctx, blockID))
 	if err := bm.Flush(ctx); err != nil {
 		t.Errorf("flush error: %v", err)
 	}
@@ -732,7 +732,7 @@ func verifyVersionCompat(t *testing.T, writeVersion int) {
 	cnt := 0
 	for blockID := range dataSet {
 		t.Logf("deleting %v", blockID)
-		mgr.DeleteBlock(blockID)
+		assertNoError(t, mgr.DeleteBlock(blockID))
 		delete(dataSet, blockID)
 		cnt++
 		if cnt >= 3 {
@@ -883,7 +883,7 @@ func seededRandomData(seed int, length int) []byte {
 
 func hashValue(b []byte) string {
 	h := hmac.New(sha256.New, hmacSecret)
-	h.Write(b)
+	h.Write(b) //nolint:errcheck
 	return hex.EncodeToString(h.Sum(nil))
 }
 
@@ -894,10 +894,10 @@ func dumpBlockManagerData(t *testing.T, data map[string][]byte) {
 			ndx, err := openPackIndex(bytes.NewReader(v))
 			if err == nil {
 				t.Logf("index %v (%v bytes)", k, len(v))
-				ndx.Iterate("", func(i Info) error {
+				assertNoError(t, ndx.Iterate("", func(i Info) error {
 					t.Logf("  %+v\n", i)
 					return nil
-				})
+				}))
 
 			}
 		} else {

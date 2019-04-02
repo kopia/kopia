@@ -145,7 +145,7 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 		t.Fatalf("err: %v", err)
 	}
 
-	mgr.Put(ctx, map[string]string{"type": "foo"}, map[string]string{"some": "value"})
+	mgr.Put(ctx, map[string]string{"type": "foo"}, map[string]string{"some": "value"}) //nolint:errcheck
 	mgr.Flush(ctx)
 	bm.Flush(ctx)
 

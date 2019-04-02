@@ -139,14 +139,14 @@ func TestPackIndex(t *testing.T) {
 	}
 
 	cnt := 0
-	ndx.Iterate("", func(info2 Info) error {
+	assertNoError(t, ndx.Iterate("", func(info2 Info) error {
 		info := infoMap[info2.BlockID]
 		if !reflect.DeepEqual(info, info2) {
 			t.Errorf("invalid value retrieved: %+v, wanted %+v", info2, info)
 		}
 		cnt++
 		return nil
-	})
+	}))
 	if cnt != len(infoMap) {
 		t.Errorf("invalid number of iterations: %v, wanted %v", cnt, len(infoMap))
 	}
@@ -166,13 +166,13 @@ func TestPackIndex(t *testing.T) {
 
 	for _, prefix := range prefixes {
 		cnt2 := 0
-		ndx.Iterate(string(prefix), func(info2 Info) error {
+		assertNoError(t, ndx.Iterate(string(prefix), func(info2 Info) error {
 			cnt2++
 			if !strings.HasPrefix(string(info2.BlockID), string(prefix)) {
 				t.Errorf("unexpected item %v when iterating prefix %v", info2.BlockID, prefix)
 			}
 			return nil
-		})
+		}))
 		t.Logf("found %v elements with prefix %q", cnt2, prefix)
 	}
 }
@@ -188,13 +188,14 @@ func fuzzTestIndexOpen(t *testing.T, originalData []byte) {
 		}
 		defer ndx.Close()
 		cnt := 0
-		ndx.Iterate("", func(cb Info) error {
+		assertNoError(t, ndx.Iterate("", func(cb Info) error {
 			if cnt < 10 {
-				ndx.GetInfo(cb.BlockID)
+				_, err := ndx.GetInfo(cb.BlockID)
+				assertNoError(t, err)
 			}
 			cnt++
 			return nil
-		})
+		}))
 	})
 }
 

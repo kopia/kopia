@@ -22,10 +22,10 @@ func TestBlockIndexRecovery(t *testing.T) {
 	}
 
 	// delete all index blocks
-	bm.st.ListBlocks(ctx, newIndexBlockPrefix, func(bi storage.BlockMetadata) error {
+	assertNoError(t, bm.st.ListBlocks(ctx, newIndexBlockPrefix, func(bi storage.BlockMetadata) error {
 		log.Debugf("deleting %v", bi.BlockID)
 		return bm.st.DeleteBlock(ctx, bi.BlockID)
-	})
+	}))
 
 	// now with index blocks gone, all blocks appear to not be found
 	bm = newTestBlockManager(data, keyTime, nil)

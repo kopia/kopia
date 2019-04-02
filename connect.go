@@ -73,8 +73,8 @@ func setupCaching(configPath string, lc *LocalConfig, opt block.CachingOptions, 
 		}
 
 		h := sha256.New()
-		h.Write(uniqueID)
-		h.Write([]byte(configPath))
+		h.Write(uniqueID)           //nolint:errcheck
+		h.Write([]byte(configPath)) //nolint:errcheck
 		lc.Caching.CacheDirectory = filepath.Join(cacheDir, "kopia", hex.EncodeToString(h.Sum(nil))[0:16])
 	} else {
 		absCacheDir, err := filepath.Abs(opt.CacheDirectory)

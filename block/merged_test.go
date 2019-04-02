@@ -45,7 +45,7 @@ func TestMerged(t *testing.T) {
 	}
 
 	var inOrder []string
-	m.Iterate("", func(i Info) error {
+	assertNoError(t, m.Iterate("", func(i Info) error {
 		inOrder = append(inOrder, i.BlockID)
 		if i.BlockID == "de1e1e" {
 			if i.Deleted {
@@ -53,7 +53,7 @@ func TestMerged(t *testing.T) {
 			}
 		}
 		return nil
-	})
+	}))
 
 	if i, err := m.GetInfo("de1e1e"); err != nil {
 		t.Errorf("error getting deleted block info: %v", err)

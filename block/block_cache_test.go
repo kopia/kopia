@@ -17,12 +17,12 @@ import (
 	"github.com/kopia/repo/storage"
 )
 
-func newUnderlyingStorageForBlockCacheTesting() storage.Storage {
+func newUnderlyingStorageForBlockCacheTesting(t *testing.T) storage.Storage {
 	ctx := context.Background()
 	data := map[string][]byte{}
 	st := storagetesting.NewMapStorage(data, nil, nil)
-	st.PutBlock(ctx, "block-1", []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})
-	st.PutBlock(ctx, "block-4k", bytes.Repeat([]byte{1, 2, 3, 4}, 1000)) // 4000 bytes
+	assertNoError(t, st.PutBlock(ctx, "block-1", []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}))
+	assertNoError(t, st.PutBlock(ctx, "block-4k", bytes.Repeat([]byte{1, 2, 3, 4}, 1000))) // 4000 bytes
 	return st
 }
 
@@ -30,7 +30,7 @@ func TestCacheExpiration(t *testing.T) {
 	cacheData := map[string][]byte{}
 	cacheStorage := storagetesting.NewMapStorage(cacheData, nil, nil)
 
-	underlyingStorage := newUnderlyingStorageForBlockCacheTesting()
+	underlyingStorage := newUnderlyingStorageForBlockCacheTesting(t)
 
 	cache, err := newBlockCacheWithCacheStorage(context.Background(), underlyingStorage, cacheStorage, CachingOptions{
 		MaxCacheSizeBytes: 10000,
@@ -41,10 +41,14 @@ func TestCacheExpiration(t *testing.T) {
 	defer cache.close()
 
 	ctx := context.Background()
-	cache.getContentBlock(ctx, "00000a", "block-4k", 0, -1) // 4k
-	cache.getContentBlock(ctx, "00000b", "block-4k", 0, -1) // 4k
-	cache.getContentBlock(ctx, "00000c", "block-4k", 0, -1) // 4k
-	cache.getContentBlock(ctx, "00000d", "block-4k", 0, -1) // 4k
+	_, err = cache.getContentBlock(ctx, "00000a", "block-4k", 0, -1) // 4k
+	assertNoError(t, err)
+	_, err = cache.getContentBlock(ctx, "00000b", "block-4k", 0, -1) // 4k
+	assertNoError(t, err)
+	_, err = cache.getContentBlock(ctx, "00000c", "block-4k", 0, -1) // 4k
+	assertNoError(t, err)
+	_, err = cache.getContentBlock(ctx, "00000d", "block-4k", 0, -1) // 4k
+	assertNoError(t, err)
 
 	// wait for a sweep
 	time.Sleep(2 * time.Second)
@@ -52,7 +56,7 @@ func TestCacheExpiration(t *testing.T) {
 	// 00000a and 00000b will be removed from cache because it's the oldest.
 	// to verify, let's remove block-4k from the underlying storage and make sure we can still read
 	// 00000c and 00000d from the cache but not 00000a nor 00000b
-	underlyingStorage.DeleteBlock(ctx, "block-4k")
+	assertNoError(t, underlyingStorage.DeleteBlock(ctx, "block-4k"))
 
 	cases := []struct {
 		block         string
@@ -83,7 +87,7 @@ func TestDiskBlockCache(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	cache, err := newBlockCache(ctx, newUnderlyingStorageForBlockCacheTesting(), CachingOptions{
+	cache, err := newBlockCache(ctx, newUnderlyingStorageForBlockCacheTesting(t), CachingOptions{
 		MaxCacheSizeBytes: 10000,
 		CacheDirectory:    tmpDir,
 	})
@@ -161,7 +165,7 @@ func TestCacheFailureToOpen(t *testing.T) {
 
 	cacheData := map[string][]byte{}
 	cacheStorage := storagetesting.NewMapStorage(cacheData, nil, nil)
-	underlyingStorage := newUnderlyingStorageForBlockCacheTesting()
+	underlyingStorage := newUnderlyingStorageForBlockCacheTesting(t)
 	faultyCache := &storagetesting.FaultyStorage{
 		Base: cacheStorage,
 		Faults: map[string][]*storagetesting.Fault{
@@ -172,7 +176,7 @@ func TestCacheFailureToOpen(t *testing.T) {
 	}
 
 	// Will fail because of ListBlocks failure.
-	cache, err := newBlockCacheWithCacheStorage(context.Background(), underlyingStorage, faultyCache, CachingOptions{
+	_, err := newBlockCacheWithCacheStorage(context.Background(), underlyingStorage, faultyCache, CachingOptions{
 		MaxCacheSizeBytes: 10000,
 	}, 0, 5*time.Hour)
 	if err == nil || !strings.Contains(err.Error(), someError.Error()) {
@@ -180,7 +184,7 @@ func TestCacheFailureToOpen(t *testing.T) {
 	}
 
 	// ListBlocks fails only once, next time it succeeds.
-	cache, err = newBlockCacheWithCacheStorage(context.Background(), underlyingStorage, faultyCache, CachingOptions{
+	cache, err := newBlockCacheWithCacheStorage(context.Background(), underlyingStorage, faultyCache, CachingOptions{
 		MaxCacheSizeBytes: 10000,
 	}, 0, 100*time.Millisecond)
 	if err != nil {
@@ -195,7 +199,7 @@ func TestCacheFailureToWrite(t *testing.T) {
 
 	cacheData := map[string][]byte{}
 	cacheStorage := storagetesting.NewMapStorage(cacheData, nil, nil)
-	underlyingStorage := newUnderlyingStorageForBlockCacheTesting()
+	underlyingStorage := newUnderlyingStorageForBlockCacheTesting(t)
 	faultyCache := &storagetesting.FaultyStorage{
 		Base: cacheStorage,
 	}
@@ -239,7 +243,7 @@ func TestCacheFailureToRead(t *testing.T) {
 
 	cacheData := map[string][]byte{}
 	cacheStorage := storagetesting.NewMapStorage(cacheData, nil, nil)
-	underlyingStorage := newUnderlyingStorageForBlockCacheTesting()
+	underlyingStorage := newUnderlyingStorageForBlockCacheTesting(t)
 	faultyCache := &storagetesting.FaultyStorage{
 		Base: cacheStorage,
 	}
@@ -275,13 +279,20 @@ func TestCacheFailureToRead(t *testing.T) {
 func verifyStorageBlockList(t *testing.T, st storage.Storage, expectedBlocks ...string) {
 	t.Helper()
 	var foundBlocks []string
-	st.ListBlocks(context.Background(), "", func(bm storage.BlockMetadata) error {
+	assertNoError(t, st.ListBlocks(context.Background(), "", func(bm storage.BlockMetadata) error {
 		foundBlocks = append(foundBlocks, bm.BlockID)
 		return nil
-	})
+	}))
 
 	sort.Strings(foundBlocks)
 	if !reflect.DeepEqual(foundBlocks, expectedBlocks) {
 		t.Errorf("unexpected block list: %v, wanted %v", foundBlocks, expectedBlocks)
+	}
+}
+
+func assertNoError(t *testing.T, err error) {
+	t.Helper()
+	if err != nil {
+		t.Errorf("err: %v", err)
 	}
 }

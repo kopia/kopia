@@ -37,7 +37,7 @@ func (f *fakeBlockManager) GetBlock(ctx context.Context, blockID string) ([]byte
 
 func (f *fakeBlockManager) WriteBlock(ctx context.Context, data []byte, prefix string) (string, error) {
 	h := sha256.New()
-	h.Write(data)
+	h.Write(data) //nolint:errcheck
 	blockID := prefix + string(hex.EncodeToString(h.Sum(nil)))
 
 	f.mu.Lock()
@@ -96,7 +96,9 @@ func TestWriters(t *testing.T) {
 
 		writer := om.NewWriter(ctx, WriterOptions{})
 
-		writer.Write(c.data)
+		if _, err := writer.Write(c.data); err != nil {
+			t.Errorf("write error: %v", err)
+		}
 
 		result, err := writer.Result()
 		if err != nil {
@@ -131,8 +133,8 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 
 	bytes := make([]byte, 100)
 	writer := om.NewWriter(ctx, WriterOptions{})
-	writer.Write(bytes[0:50])
-	writer.Write(bytes[0:50])
+	writer.Write(bytes[0:50]) //nolint:errcheck
+	writer.Write(bytes[0:50]) //nolint:errcheck
 	result, err := writer.Result()
 	if !objectIDsEqual(result, "cd00e292c5970d3c5e2f0ffa5171e555bc46bfc4faddfb4a418b6840b86e79a3") {
 		t.Errorf("unexpected result: %v err: %v", result, err)
@@ -176,7 +178,9 @@ func TestIndirection(t *testing.T) {
 		contentBytes := make([]byte, c.dataLength)
 
 		writer := om.NewWriter(ctx, WriterOptions{})
-		writer.Write(contentBytes)
+		if _, err := writer.Write(contentBytes); err != nil {
+			t.Errorf("write error: %v", err)
+		}
 		result, err := writer.Result()
 		if err != nil {
 			t.Errorf("error getting writer results: %v", err)
@@ -223,7 +227,7 @@ func TestHMAC(t *testing.T) {
 	_, om := setupTest(t)
 
 	w := om.NewWriter(ctx, WriterOptions{})
-	w.Write(content)
+	w.Write(content) //nolint:errcheck
 	result, err := w.Result()
 	if result.String() != "cad29ff89951a3c085c86cb7ed22b82b51f7bdfda24f932c7f9601f51d5975ba" {
 		t.Errorf("unexpected result: %v err: %v", result.String(), err)
@@ -290,10 +294,12 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 	for _, size := range []int{1, 199, 200, 201, 9999, 512434} {
 		// Create some random data sample of the specified size.
 		randomData := make([]byte, size)
-		cryptorand.Read(randomData)
+		cryptorand.Read(randomData) //nolint:errcheck
 
 		writer := om.NewWriter(ctx, WriterOptions{})
-		writer.Write(randomData)
+		if _, err := writer.Write(randomData); err != nil {
+			t.Errorf("write error: %v", err)
+		}
 		objectID, err := writer.Result()
 		writer.Close()
 		if err != nil {

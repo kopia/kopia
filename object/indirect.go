@@ -1,7 +1,5 @@
 package object
 
-var indirectStreamType = "kopia:indirect"
-
 // indirectObjectEntry represents an entry in indirect object stream.
 type indirectObjectEntry struct {
 	Start  int64 `json:"s,omitempty"`

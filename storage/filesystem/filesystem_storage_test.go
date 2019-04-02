@@ -68,26 +68,26 @@ func TestFileStorageTouch(t *testing.T) {
 	}
 
 	fs := r.(*fsStorage)
-	fs.PutBlock(ctx, t1, []byte{1})
+	assertNoError(t, fs.PutBlock(ctx, t1, []byte{1}))
 	time.Sleep(1 * time.Second) // sleep a bit to accommodate Apple filesystems with low timestamp resolution
-	fs.PutBlock(ctx, t2, []byte{1})
+	assertNoError(t, fs.PutBlock(ctx, t2, []byte{1}))
 	time.Sleep(1 * time.Second)
-	fs.PutBlock(ctx, t3, []byte{1})
+	assertNoError(t, fs.PutBlock(ctx, t3, []byte{1}))
 
 	verifyBlockTimestampOrder(t, fs, t1, t2, t3)
 
-	fs.TouchBlock(ctx, t2, 1*time.Hour) // has no effect, all timestamps are very new
+	assertNoError(t, fs.TouchBlock(ctx, t2, 1*time.Hour)) // has no effect, all timestamps are very new
 	verifyBlockTimestampOrder(t, fs, t1, t2, t3)
 
-	fs.TouchBlock(ctx, t1, 0) // moves t1 to the top of the pile
+	assertNoError(t, fs.TouchBlock(ctx, t1, 0)) // moves t1 to the top of the pile
 	verifyBlockTimestampOrder(t, fs, t2, t3, t1)
 	time.Sleep(1 * time.Second)
 
-	fs.TouchBlock(ctx, t2, 0) // moves t2 to the top of the pile
+	assertNoError(t, fs.TouchBlock(ctx, t2, 0)) // moves t2 to the top of the pile
 	verifyBlockTimestampOrder(t, fs, t3, t1, t2)
 	time.Sleep(1 * time.Second)
 
-	fs.TouchBlock(ctx, t1, 0) // moves t1 to the top of the pile
+	assertNoError(t, fs.TouchBlock(ctx, t1, 0)) // moves t1 to the top of the pile
 	verifyBlockTimestampOrder(t, fs, t3, t2, t1)
 }
 
@@ -109,5 +109,12 @@ func verifyBlockTimestampOrder(t *testing.T, st storage.Storage, want ...string)
 
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("incorrect block order: %v, wanted %v", blocks, want)
+	}
+}
+
+func assertNoError(t *testing.T, err error) {
+	t.Helper()
+	if err != nil {
+		t.Errorf("err: %v", err)
 	}
 }

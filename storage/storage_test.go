@@ -13,9 +13,9 @@ func TestListAllBlocksConsistent(t *testing.T) {
 	ctx := context.Background()
 	data := map[string][]byte{}
 	st := storagetesting.NewMapStorage(data, nil, time.Now)
-	st.PutBlock(ctx, "foo1", []byte{1, 2, 3})
-	st.PutBlock(ctx, "foo2", []byte{1, 2, 3})
-	st.PutBlock(ctx, "foo3", []byte{1, 2, 3})
+	st.PutBlock(ctx, "foo1", []byte{1, 2, 3}) //nolint:errcheck
+	st.PutBlock(ctx, "foo2", []byte{1, 2, 3}) //nolint:errcheck
+	st.PutBlock(ctx, "foo3", []byte{1, 2, 3}) //nolint:errcheck
 
 	// set up faulty storage that will add a block while a scan is in progress.
 	f := &storagetesting.FaultyStorage{
@@ -23,7 +23,7 @@ func TestListAllBlocksConsistent(t *testing.T) {
 		Faults: map[string][]*storagetesting.Fault{
 			"ListBlocksItem": {
 				{ErrCallback: func() error {
-					st.PutBlock(ctx, "foo0", []byte{1, 2, 3})
+					st.PutBlock(ctx, "foo0", []byte{1, 2, 3}) //nolint:errcheck
 					return nil
 				}},
 			},

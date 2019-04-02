@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/aes"
-	"crypto/cipher"
 	cryptorand "crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -731,17 +730,14 @@ func (bm *Manager) getBlockInfo(blockID string) (Info, error) {
 func (bm *Manager) BlockInfo(ctx context.Context, blockID string) (Info, error) {
 	bi, err := bm.getBlockInfo(blockID)
 	if err != nil {
+		log.Debugf("BlockInfo(%q) - error %v", err)
 		return Info{}, err
 	}
 
-	if err == nil {
-		if bi.Deleted {
-			log.Debugf("BlockInfo(%q) - deleted", blockID)
-		} else {
-			log.Debugf("BlockInfo(%q) - exists in %v", blockID, bi.PackFile)
-		}
+	if bi.Deleted {
+		log.Debugf("BlockInfo(%q) - deleted", blockID)
 	} else {
-		log.Debugf("BlockInfo(%q) - error %v", err)
+		log.Debugf("BlockInfo(%q) - exists in %v", blockID, bi.PackFile)
 	}
 
 	return bi, err
@@ -1040,10 +1036,4 @@ func createEncryptor(f FormattingOptions) (Encryptor, error) {
 	}
 
 	return e(f)
-}
-
-func curryEncryptionKey(n func(k []byte) (cipher.Block, error), key []byte) func() (cipher.Block, error) {
-	return func() (cipher.Block, error) {
-		return n(key)
-	}
 }

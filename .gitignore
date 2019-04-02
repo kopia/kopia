@@ -13,3 +13,4 @@
 *.cov
 
 *service_account.json
+.tools/

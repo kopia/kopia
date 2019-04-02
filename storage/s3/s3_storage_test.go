@@ -61,7 +61,7 @@ func TestS3Storage(t *testing.T) {
 	cleanupOldData(ctx, t)
 
 	data := make([]byte, 8)
-	rand.Read(data)
+	rand.Read(data) //nolint:errcheck
 
 	st, err := New(context.Background(), &Options{
 		AccessKeyID:     accessKeyID,
@@ -86,7 +86,8 @@ func createBucket(t *testing.T) {
 	if err != nil {
 		t.Fatalf("can't initialize minio client: %v", err)
 	}
-	minioClient.MakeBucket(bucketName, "us-east-1")
+	// ignore error
+	_ = minioClient.MakeBucket(bucketName, "us-east-1")
 }
 
 func cleanupOldData(ctx context.Context, t *testing.T) {
@@ -101,7 +102,7 @@ func cleanupOldData(ctx context.Context, t *testing.T) {
 		t.Fatalf("err: %v", err)
 	}
 
-	st.ListBlocks(ctx, "", func(it storage.BlockMetadata) error {
+	_ = st.ListBlocks(ctx, "", func(it storage.BlockMetadata) error {
 		age := time.Since(it.Timestamp)
 		if age > cleanupAge {
 			if err := st.DeleteBlock(ctx, it.BlockID); err != nil {
