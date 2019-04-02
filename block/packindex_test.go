@@ -188,14 +188,13 @@ func fuzzTestIndexOpen(t *testing.T, originalData []byte) {
 		}
 		defer ndx.Close()
 		cnt := 0
-		assertNoError(t, ndx.Iterate("", func(cb Info) error {
+		_ = ndx.Iterate("", func(cb Info) error {
 			if cnt < 10 {
-				_, err := ndx.GetInfo(cb.BlockID)
-				assertNoError(t, err)
+				_, _ = ndx.GetInfo(cb.BlockID)
 			}
 			cnt++
 			return nil
-		}))
+		})
 	})
 }
 

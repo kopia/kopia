@@ -10,9 +10,6 @@ setup:
 	GO111MODULE=off go get -u gopkg.in/alecthomas/gometalinter.v2
 	GO111MODULE=off gometalinter.v2 --install
 
-travis-setup:
-	GO111MODULE=off go get github.com/mattn/goveralls
-
 lint: $(LINTER_TOOL)
 	$(LINTER_TOOL) run
 

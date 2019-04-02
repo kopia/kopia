@@ -502,7 +502,9 @@ func TestRewriteDeleted(t *testing.T) {
 					applyStep(action1)
 					assertNoError(t, bm.DeleteBlock(block1))
 					applyStep(action2)
-					assertNoError(t, bm.RewriteBlock(ctx, block1))
+					if got, want := bm.RewriteBlock(ctx, block1), storage.ErrBlockNotFound; got != want && got != nil {
+						t.Errorf("unexpected error %v, wanted %v", got, want)
+					}
 					applyStep(action3)
 					verifyBlockNotFound(ctx, t, bm, block1)
 					dumpBlockManagerData(t, data)
