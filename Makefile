@@ -42,7 +42,7 @@ test:
 	GO111MODULE=on go test -tags test -count=1 -coverprofile=raw.cov --coverpkg ./... -timeout 90s ./...
 	grep -v testing/ raw.cov > tmp.cov
 
-upload-coverage:
+upload-coverage: $(GOVERALLS_TOOL)
 	$(GOVERALLS_TOOL) -service=travis-ci -coverprofile=tmp.cov
 
 coverage-html:
