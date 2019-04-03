@@ -37,6 +37,8 @@ github.com/jpillora/go-ogle-analytics v0.0.0-20161213085824-14b04e0594ef/go.mod 
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/kopia/repo v0.3.0-pre1 h1:Xp9pPgznPP+99FZeCUGpdJG/HAa7qZT/eEi2E7myCzg=
 github.com/kopia/repo v0.3.0-pre1/go.mod h1:zgmEpcVhJ5hCytonqyQ5EajaS8Zx6MSPOQfJxBFjQ4s=
+github.com/kopia/repo v0.3.0-pre2 h1:lF+fBXQEqu8s3iBuw37IDEltIT9vfNmg4edyWo5gXyI=
+github.com/kopia/repo v0.3.0-pre2/go.mod h1:zgmEpcVhJ5hCytonqyQ5EajaS8Zx6MSPOQfJxBFjQ4s=
 github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348 h1:MtvEpTB6LX3vkb4ax0b5D2DHbNAUsen0Gx5wZoq3lV4=
 github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348/go.mod h1:B69LEHPfb2qLo0BaaOLcbitczOKLWTsrBG9LczfCD4k=
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
