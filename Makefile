@@ -2,13 +2,7 @@ COVERAGE_PACKAGES=./repo/...,./fs/...,./snapshot/...
 LINTER_TOOL=.tools/bin/golangci-lint
 GOVERALLS_TOOL=.tools/bin/goveralls
 
-all: install test lint vet integration-tests
-
-install:
-	go install github.com/kopia/kopia
-
-install-race:
-	go install -race github.com/kopia/kopia
+all: test lint vet integration-tests
 
 build:
 	go build github.com/kopia/kopia/...
@@ -67,13 +61,13 @@ dev-deps:
 	GO111MODULE=off go get -u github.com/newhook/go-symbols
 	GO111MODULE=off go get -u github.com/sqs/goreturns
 	
-test-with-coverage: install
+test-with-coverage:
 	go test -count=1 -coverprofile=tmp.cov --coverpkg $(COVERAGE_PACKAGES) -timeout 90s github.com/kopia/kopia/...
 
-test-with-coverage-pkgonly: install
+test-with-coverage-pkgonly:
 	go test -count=1 -coverprofile=tmp.cov -timeout 90s github.com/kopia/kopia/...
 
-test: install
+test:
 	go test -count=1 -timeout 90s github.com/kopia/kopia/...
 
 vtest:
