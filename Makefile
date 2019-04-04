@@ -45,6 +45,7 @@ $(GOVERALLS_TOOL):
 	GO111MODULE=off GOPATH=$(CURDIR)/.tools go get github.com/mattn/goveralls
 
 travis-setup:
+	go mod download
 
 travis-release: test-with-coverage lint vet verify-release integration-tests upload-coverage
 
