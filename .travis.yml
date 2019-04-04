@@ -14,3 +14,5 @@ deploy:
     repo: kopia/kopia
 git:
   depth: 9999999
+env:
+  - GO111MODULE=on
