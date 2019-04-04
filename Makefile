@@ -3,6 +3,9 @@ GOVERALLS_TOOL=.tools/bin/goveralls
 
 all: test lint
 
+travis-setup:
+	go mod download
+	
 travis: build-all test upload-coverage
 
 setup:
