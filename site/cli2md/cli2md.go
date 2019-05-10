@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/cli"
+	_ "github.com/kopia/kopia/internal/logfile"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -18,6 +19,12 @@ var baseDir = "content/docs/Reference/Command-Line"
 
 const advancedSection = "Advanced"
 const commonSection = "Common"
+
+var overrideDefault = map[string]string{
+	"client-id-file": "client_id.txt",
+	"config-file":    "repository.config",
+	"log-dir":        "kopia",
+}
 
 func emitFlags(w io.Writer, flags []*kingpin.FlagModel) {
 	if len(flags) == 0 {
@@ -39,6 +46,10 @@ func emitFlags(w io.Writer, flags []*kingpin.FlagModel) {
 		defaultValue := ""
 		if len(f.Default) > 0 {
 			defaultValue = f.Default[0]
+		}
+
+		if def, ok := overrideDefault[f.Name]; ok {
+			defaultValue = def
 		}
 
 		if defaultValue != "" {
