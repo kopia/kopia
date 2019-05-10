@@ -96,3 +96,7 @@ coverage: test-with-coverage coverage-html
 
 coverage-html:
 	go tool cover -html=tmp.cov
+
+official-release:
+	git tag $(RELEASE_VERSION) -m $(RELEASE_VERSION)
+	git push -u upstream $(RELEASE_VERSION)
