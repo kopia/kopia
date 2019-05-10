@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	serverAddress = serverCommands.Flag("--address", "Server address").Default("127.0.0.1:51515").String()
+	serverAddress = serverCommands.Flag("address", "Server address").Default("127.0.0.1:51515").String()
 
 	serverStartCommand  = serverCommands.Command("start", "Start Kopia server").Default()
 	serverStartHTMLPath = serverStartCommand.Flag("html", "Server the provided HTML at the root URL").ExistingDir()

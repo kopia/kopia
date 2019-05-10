@@ -47,7 +47,10 @@ $(GOVERALLS_TOOL):
 travis-setup:
 	go mod download
 
-travis-release: test-with-coverage lint vet verify-release integration-tests upload-coverage
+website:
+	$(MAKE) -C site
+
+travis-release: test-with-coverage lint vet verify-release integration-tests upload-coverage website
 
 verify-release:
 	curl -sL https://git.io/goreleaser | bash /dev/stdin --skip-publish --rm-dist --snapshot
@@ -76,8 +79,10 @@ test:
 vtest:
 	go test -count=1 -short -v -timeout 90s github.com/kopia/kopia/...
 
-integration-tests:
+dist-binary:
 	go build -o dist/integration/kopia github.com/kopia/kopia
+
+integration-tests: dist-binary
 	KOPIA_EXE=$(CURDIR)/dist/integration/kopia go test -count=1 -timeout 90s github.com/kopia/kopia/tests/end_to_end_test
 
 stress-test:

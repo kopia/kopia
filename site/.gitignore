@@ -1,0 +1,7 @@
+public/
+resources/
+node_modules/
+tech-doc-hugo
+.tools/
+package-lock.json
+*.deb

@@ -16,7 +16,7 @@ var (
 	diffFirstObjectPath  = diffCommand.Arg("object-path1", "First object/path").Required().String()
 	diffSecondObjectPath = diffCommand.Arg("object-path2", "Second object/path").Required().String()
 	diffCompareFiles     = diffCommand.Flag("files", "Compare files by launching diff command for all pairs of (old,new)").Short('f').Bool()
-	diffCommandCommand   = app.Flag("diff-command", "Displays differences between two repository objects (files or directories)").Default(defaultDiffCommand()).Envar("KOPIA_DIFF").String()
+	diffCommandCommand   = diffCommand.Flag("diff-command", "Displays differences between two repository objects (files or directories)").Default(defaultDiffCommand()).Envar("KOPIA_DIFF").String()
 )
 
 func runDiffCommand(ctx context.Context, rep *repo.Repository) error {
