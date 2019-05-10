@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	cacheInfoCommand  = cacheCommands.Command("info", "Sets parameters local caching of repository data").Hidden()
+	cacheInfoCommand  = cacheCommands.Command("info", "Displays cache information and statistics")
 	cacheInfoPathOnly = cacheInfoCommand.Flag("path", "Only display cache path").Bool()
 )
 

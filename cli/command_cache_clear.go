@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	cacheClearCommand = cacheCommands.Command("clear", "Clears the cache").Hidden()
+	cacheClearCommand = cacheCommands.Command("clear", "Clears the cache")
 )
 
 func runCacheClearCommand(ctx context.Context, rep *repo.Repository) error {

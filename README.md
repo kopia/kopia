@@ -23,7 +23,7 @@ Unlike other cloud backup solutions, the user in full control of backup storage 
 
 Getting Started
 ---
-See [User Guide](https://github.com/kopia/kopia/wiki/User-Guide) for more information.
+See [Documentation](https://kopia.io/docs/) for more information.
 
 Licensing
 ---

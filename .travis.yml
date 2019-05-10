@@ -1,3 +1,4 @@
+dist: xenial
 language: go
 go:
 - "1.12"
@@ -6,12 +7,22 @@ os:
 install: make travis-setup
 script: make travis-release
 deploy:
-  provider: script
-  script: curl -sL https://git.io/goreleaser | bash /dev/stdin --rm-dist
-  skip_cleanup: true
-  on:
-    tags: true
-    repo: kopia/kopia
+  - provider: script
+    script: curl -sL https://git.io/goreleaser | bash /dev/stdin --rm-dist
+    skip_cleanup: true
+    on:
+      tags: true
+      repo: kopia/kopia
+  - provider: pages
+    skip_cleanup: true
+    github_token: $GITHUB_TOKEN  # Set in the settings page of your repository, as a secure variable
+    keep_history: false
+    local_dir: site/public
+    repo: kopia/kopia.github.io
+    target_branch: master
+    on:
+      repo: kopia/kopia
+      branch: master
 git:
   depth: 9999999
 env:
