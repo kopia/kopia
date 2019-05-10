@@ -2,10 +2,9 @@ Kopia
 =====
 
 ![Kopia](kopia.svg)
-[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fkopia%2Fkopia.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fkopia%2Fkopia?ref=badge_shield)
-
 [![Linux/macOS Build Status](https://travis-ci.org/kopia/kopia.svg?branch=master)](https://travis-ci.org/kopia/kopia)
 [![GoDoc](https://godoc.org/github.com/kopia/kopia?status.svg)](https://godoc.org/github.com/kopia/kopia)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fkopia%2Fkopia.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fkopia%2Fkopia?ref=badge_shield)
 
 > _n._
 >
