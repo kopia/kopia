@@ -102,11 +102,11 @@ no = 'Sorry to hear that. Please <a href="https://github.com/kopia/kopia/issues/
 # Developer relevant links. These will show up on right side of footer and in the community page if you have one.
 [[params.links.developer]]
 	name = "GitHub"
-	url = "https://github.com/kopia"
+	url = "https://github.com/kopia/kopia"
 	icon = "fab fa-github"
     desc = "Development takes place here!"
 [[params.links.developer]]
 	name = "Slack"
-	url = "https://kopia.slack.com/"
+	url = "https://join.slack.com/t/kopia/shared_invite/enQtNjMxMTcxMTMxNDYwLWI4YzVkMzFhN2QwZGVhMzgwZDk2MGUzNmZhOWZkMmIzMDBlYzhmZTI3NTYxZWE1YWI4YWY1N2VhMGM4ZjJiNGQ"
 	icon = "fab fa-slack"
     desc = "Chat with other project developers"
