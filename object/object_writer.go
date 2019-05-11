@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"io"
 	"sync"
+
+	"github.com/pkg/errors"
 )
 
 // Writer allows writing content to the storage and supports automatic deduplication and encryption
@@ -127,7 +129,7 @@ func (w *objectWriter) Result() (ID, error) {
 	}
 
 	if err := json.NewEncoder(iw).Encode(ind); err != nil {
-		return "", fmt.Errorf("unable to write indirect block index: %v", err)
+		return "", errors.Wrap(err, "unable to write indirect block index")
 	}
 	oid, err := iw.Result()
 	if err != nil {

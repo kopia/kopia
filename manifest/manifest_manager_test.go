@@ -2,7 +2,6 @@ package manifest
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"sort"
 	"strings"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/kopia/repo/block"
 	"github.com/kopia/repo/internal/storagetesting"
+	"github.com/pkg/errors"
 )
 
 func TestManifest(t *testing.T) {
@@ -272,7 +272,7 @@ func newManagerForTesting(ctx context.Context, t *testing.T, data map[string][]b
 		MaxPackSize: 100000,
 	}, block.CachingOptions{}, nil)
 	if err != nil {
-		return nil, fmt.Errorf("can't create block manager: %v", err)
+		return nil, errors.Wrap(err, "can't create block manager")
 	}
 
 	return NewManager(ctx, bm)

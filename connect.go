@@ -5,13 +5,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 
 	"github.com/kopia/repo/block"
 	"github.com/kopia/repo/storage"
+	"github.com/pkg/errors"
 )
 
 // ConnectOptions specifies options when persisting configuration to connect to a repository.
@@ -23,7 +23,7 @@ type ConnectOptions struct {
 func Connect(ctx context.Context, configFile string, st storage.Storage, password string, opt ConnectOptions) error {
 	formatBytes, err := st.GetBlock(ctx, FormatBlockID, 0, -1)
 	if err != nil {
-		return fmt.Errorf("unable to read format block: %v", err)
+		return errors.Wrap(err, "unable to read format block")
 	}
 
 	f, err := parseFormatBlock(formatBytes)
@@ -35,7 +35,7 @@ func Connect(ctx context.Context, configFile string, st storage.Storage, passwor
 	lc.Storage = st.ConnectionInfo()
 
 	if err = setupCaching(configFile, &lc, opt.CachingOptions, f.UniqueID); err != nil {
-		return fmt.Errorf("unable to set up caching: %v", err)
+		return errors.Wrap(err, "unable to set up caching")
 	}
 
 	d, err := json.MarshalIndent(&lc, "", "  ")
@@ -44,11 +44,11 @@ func Connect(ctx context.Context, configFile string, st storage.Storage, passwor
 	}
 
 	if err = os.MkdirAll(filepath.Dir(configFile), 0700); err != nil {
-		return fmt.Errorf("unable to create config directory: %v", err)
+		return errors.Wrap(err, "unable to create config directory")
 	}
 
 	if err = ioutil.WriteFile(configFile, d, 0600); err != nil {
-		return fmt.Errorf("unable to write config file: %v", err)
+		return errors.Wrap(err, "unable to write config file")
 	}
 
 	// now verify that the repository can be opened with the provided config file.
@@ -69,7 +69,7 @@ func setupCaching(configPath string, lc *LocalConfig, opt block.CachingOptions, 
 	if opt.CacheDirectory == "" {
 		cacheDir, err := os.UserCacheDir()
 		if err != nil {
-			return fmt.Errorf("unable to determine cache directory: %v", err)
+			return errors.Wrap(err, "unable to determine cache directory")
 		}
 
 		h := sha256.New()

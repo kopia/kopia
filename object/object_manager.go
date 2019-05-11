@@ -9,6 +9,7 @@ import (
 	"io"
 
 	"github.com/kopia/repo/block"
+	"github.com/pkg/errors"
 )
 
 // Reader allows reading, seeking, getting the length of and closing of a repository object.
@@ -98,7 +99,7 @@ func (om *Manager) VerifyObject(ctx context.Context, oid ID) (int64, []string, e
 
 func (om *Manager) verifyIndirectObjectInternal(ctx context.Context, indexObjectID ID, blocks *blockTracker) (int64, error) {
 	if _, err := om.verifyObjectInternal(ctx, indexObjectID, blocks); err != nil {
-		return 0, fmt.Errorf("unable to read index: %v", err)
+		return 0, errors.Wrap(err, "unable to read index")
 	}
 	rd, err := om.Open(ctx, indexObjectID)
 	if err != nil {
@@ -204,7 +205,7 @@ func (om *Manager) flattenListChunk(rawReader io.Reader) ([]indirectObjectEntry,
 	var ind indirectObject
 
 	if err := json.NewDecoder(rawReader).Decode(&ind); err != nil {
-		return nil, fmt.Errorf("invalid indirect object: %v", err)
+		return nil, errors.Wrap(err, "invalid indirect object")
 	}
 
 	return ind.Entries, nil

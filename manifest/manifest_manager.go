@@ -8,7 +8,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"sort"
 	"sync"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/kopia/repo/internal/repologging"
 	"github.com/kopia/repo/storage"
+	"github.com/pkg/errors"
 )
 
 var log = repologging.Logger("kopia/manifest")
@@ -62,12 +62,12 @@ func (m *Manager) Put(ctx context.Context, labels map[string]string, payload int
 
 	random := make([]byte, 16)
 	if _, err := rand.Read(random); err != nil {
-		return "", fmt.Errorf("can't initialize randomness: %v", err)
+		return "", errors.Wrap(err, "can't initialize randomness")
 	}
 
 	b, err := json.Marshal(payload)
 	if err != nil {
-		return "", fmt.Errorf("marshal error: %v", err)
+		return "", errors.Wrap(err, "marshal error")
 	}
 
 	e := &manifestEntry{
@@ -277,7 +277,7 @@ func (m *Manager) loadCommittedBlocksLocked(ctx context.Context) error {
 	for {
 		blocks, err := m.b.ListBlocks(manifestBlockPrefix)
 		if err != nil {
-			return fmt.Errorf("unable to list manifest blocks: %v", err)
+			return errors.Wrap(err, "unable to list manifest blocks")
 		}
 
 		m.committedEntries = map[string]*manifestEntry{}
@@ -293,7 +293,7 @@ func (m *Manager) loadCommittedBlocksLocked(ctx context.Context) error {
 			// try again, lost a race with another manifest manager which just did compaction
 			continue
 		}
-		return fmt.Errorf("unable to load manifest blocks: %v", err)
+		return errors.Wrap(err, "unable to load manifest blocks")
 	}
 
 	if err := m.maybeCompactLocked(ctx); err != nil {
@@ -419,11 +419,11 @@ func (m *Manager) maybeCompactLocked(ctx context.Context) error {
 
 	log.Debugf("performing automatic compaction of %v blocks", len(m.committedBlockIDs))
 	if err := m.compactLocked(ctx); err != nil {
-		return fmt.Errorf("unable to compact manifest blocks: %v", err)
+		return errors.Wrap(err, "unable to compact manifest blocks")
 	}
 
 	if err := m.b.Flush(ctx); err != nil {
-		return fmt.Errorf("unable to flush blocks after auto-compaction: %v", err)
+		return errors.Wrap(err, "unable to flush blocks after auto-compaction")
 	}
 
 	return nil

@@ -7,6 +7,8 @@ import (
 	"io"
 	"sort"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 // packIndex is a read-only index of packed blocks.
@@ -32,7 +34,7 @@ func readHeader(readerAt io.ReaderAt) (headerInfo, error) {
 	var header [8]byte
 
 	if n, err := readerAt.ReadAt(header[:], 0); err != nil || n != 8 {
-		return headerInfo{}, fmt.Errorf("invalid header: %v", err)
+		return headerInfo{}, errors.Wrap(err, "invalid header")
 	}
 
 	if header[0] != 1 {
@@ -58,14 +60,14 @@ func readHeader(readerAt io.ReaderAt) (headerInfo, error) {
 func (b *index) Iterate(prefix string, cb func(Info) error) error {
 	startPos, err := b.findEntryPosition(prefix)
 	if err != nil {
-		return fmt.Errorf("could not find starting position: %v", err)
+		return errors.Wrap(err, "could not find starting position")
 	}
 	stride := b.hdr.keySize + b.hdr.valueSize
 	entry := make([]byte, stride)
 	for i := startPos; i < b.hdr.entryCount; i++ {
 		n, err := b.readerAt.ReadAt(entry, int64(8+stride*i))
 		if err != nil || n != len(entry) {
-			return fmt.Errorf("unable to read from index: %v", err)
+			return errors.Wrap(err, "unable to read from index")
 		}
 
 		key := entry[0:b.hdr.keySize]
@@ -73,7 +75,7 @@ func (b *index) Iterate(prefix string, cb func(Info) error) error {
 
 		i, err := b.entryToInfo(bytesToContentID(key), value)
 		if err != nil {
-			return fmt.Errorf("invalid index data: %v", err)
+			return errors.Wrap(err, "invalid index data")
 		}
 		if !strings.HasPrefix(i.BlockID, prefix) {
 			break
@@ -163,7 +165,7 @@ func (b *index) entryToInfo(blockID string, entryData []byte) (Info, error) {
 	packFile := make([]byte, e.PackFileLength())
 	n, err := b.readerAt.ReadAt(packFile, int64(e.PackFileOffset()))
 	if err != nil || n != int(e.PackFileLength()) {
-		return Info{}, fmt.Errorf("can't read pack block ID: %v", err)
+		return Info{}, errors.Wrap(err, "can't read pack block ID")
 	}
 
 	return Info{
@@ -190,7 +192,7 @@ func (b *index) Close() error {
 func openPackIndex(readerAt io.ReaderAt) (packIndex, error) {
 	h, err := readHeader(readerAt)
 	if err != nil {
-		return nil, fmt.Errorf("invalid header: %v", err)
+		return nil, errors.Wrap(err, "invalid header")
 	}
 	return &index{hdr: h, readerAt: readerAt}, nil
 }

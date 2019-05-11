@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 var autoCompactionOptions = CompactOptions{
@@ -29,7 +31,7 @@ func (bm *Manager) CompactIndexes(ctx context.Context, opt CompactOptions) error
 
 	indexBlocks, _, err := bm.loadPackIndexesUnlocked(ctx)
 	if err != nil {
-		return fmt.Errorf("error loading indexes: %v", err)
+		return errors.Wrap(err, "error loading indexes")
 	}
 
 	blocksToCompact := bm.getBlocksToCompact(indexBlocks, opt)
@@ -98,12 +100,12 @@ func (bm *Manager) compactAndDeleteIndexBlocks(ctx context.Context, indexBlocks 
 
 	var buf bytes.Buffer
 	if err := bld.Build(&buf); err != nil {
-		return fmt.Errorf("unable to build an index: %v", err)
+		return errors.Wrap(err, "unable to build an index")
 	}
 
 	compactedIndexBlock, err := bm.writePackIndexesNew(ctx, buf.Bytes())
 	if err != nil {
-		return fmt.Errorf("unable to write compacted indexes: %v", err)
+		return errors.Wrap(err, "unable to write compacted indexes")
 	}
 
 	formatLog.Debugf("wrote compacted index (%v bytes) in %v", compactedIndexBlock, time.Since(t0))

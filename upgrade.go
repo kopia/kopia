@@ -3,6 +3,8 @@ package repo
 import (
 	"context"
 	"fmt"
+
+	"github.com/pkg/errors"
 )
 
 // Upgrade upgrades repository data structures to the latest version.
@@ -12,7 +14,7 @@ func (r *Repository) Upgrade(ctx context.Context) error {
 	log.Debug("decrypting format...")
 	repoConfig, err := f.decryptFormatBytes(r.masterKey)
 	if err != nil {
-		return fmt.Errorf("unable to decrypt repository config: %v", err)
+		return errors.Wrap(err, "unable to decrypt repository config")
 	}
 
 	var migrated bool

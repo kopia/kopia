@@ -13,6 +13,7 @@ import (
 	"github.com/kopia/repo/object"
 	"github.com/kopia/repo/storage"
 	"github.com/kopia/repo/storage/logging"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -55,7 +56,7 @@ func Open(ctx context.Context, configFile string, password string, options *Opti
 
 	st, err := storage.NewStorage(ctx, lc.Storage)
 	if err != nil {
-		return nil, fmt.Errorf("cannot open storage: %v", err)
+		return nil, errors.Wrap(err, "cannot open storage")
 	}
 
 	if options.TraceStorage != nil {
@@ -79,12 +80,12 @@ func OpenWithConfig(ctx context.Context, st storage.Storage, lc *LocalConfig, pa
 	// Read cache block, potentially from cache.
 	fb, err := readAndCacheFormatBlockBytes(ctx, st, caching.CacheDirectory)
 	if err != nil {
-		return nil, fmt.Errorf("unable to read format block: %v", err)
+		return nil, errors.Wrap(err, "unable to read format block")
 	}
 
 	f, err := parseFormatBlock(fb)
 	if err != nil {
-		return nil, fmt.Errorf("can't parse format block: %v", err)
+		return nil, errors.Wrap(err, "can't parse format block")
 	}
 
 	fb, err = addFormatBlockChecksumAndLength(fb)
@@ -99,7 +100,7 @@ func OpenWithConfig(ctx context.Context, st storage.Storage, lc *LocalConfig, pa
 
 	repoConfig, err := f.decryptFormatBytes(masterKey)
 	if err != nil {
-		return nil, fmt.Errorf("unable to decrypt repository config: %v", err)
+		return nil, errors.Wrap(err, "unable to decrypt repository config")
 	}
 
 	caching.HMACSecret = deriveKeyFromMasterKey(masterKey, f.UniqueID, []byte("local-cache-integrity"), 16)
@@ -112,19 +113,19 @@ func OpenWithConfig(ctx context.Context, st storage.Storage, lc *LocalConfig, pa
 	log.Debugf("initializing block manager")
 	bm, err := block.NewManager(ctx, st, fo, caching, fb)
 	if err != nil {
-		return nil, fmt.Errorf("unable to open block manager: %v", err)
+		return nil, errors.Wrap(err, "unable to open block manager")
 	}
 
 	log.Debugf("initializing object manager")
 	om, err := object.NewObjectManager(ctx, bm, repoConfig.Format, options.ObjectManagerOptions)
 	if err != nil {
-		return nil, fmt.Errorf("unable to open object manager: %v", err)
+		return nil, errors.Wrap(err, "unable to open object manager")
 	}
 
 	log.Debugf("initializing manifest manager")
 	manifests, err := manifest.NewManager(ctx, bm)
 	if err != nil {
-		return nil, fmt.Errorf("unable to open manifests: %v", err)
+		return nil, errors.Wrap(err, "unable to open manifests")
 	}
 
 	return &Repository{
@@ -154,21 +155,21 @@ func SetCachingConfig(ctx context.Context, configFile string, opt block.CachingO
 
 	st, err := storage.NewStorage(ctx, lc.Storage)
 	if err != nil {
-		return fmt.Errorf("cannot open storage: %v", err)
+		return errors.Wrap(err, "cannot open storage")
 	}
 
 	fb, err := readAndCacheFormatBlockBytes(ctx, st, "")
 	if err != nil {
-		return fmt.Errorf("can't read format block: %v", err)
+		return errors.Wrap(err, "can't read format block")
 	}
 
 	f, err := parseFormatBlock(fb)
 	if err != nil {
-		return fmt.Errorf("can't parse format block: %v", err)
+		return errors.Wrap(err, "can't parse format block")
 	}
 
 	if err = setupCaching(configFile, lc, opt, f.UniqueID); err != nil {
-		return fmt.Errorf("unable to set up caching: %v", err)
+		return errors.Wrap(err, "unable to set up caching")
 	}
 
 	d, err := json.MarshalIndent(&lc, "", "  ")

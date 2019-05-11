@@ -8,6 +8,7 @@ require (
 	github.com/minio/minio-go v6.0.11+incompatible
 	github.com/mitchellh/go-homedir v1.0.0 // indirect
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
+	github.com/pkg/errors v0.8.1
 	github.com/silvasur/buzhash v0.0.0-20160816060738-9bdec3dec7c6
 	github.com/studio-b12/gowebdav v0.0.0-20181230112802-6c32839dbdfc
 	go.opencensus.io v0.18.0 // indirect

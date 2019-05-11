@@ -2,13 +2,13 @@ package repo
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/kopia/repo/block"
 	"github.com/kopia/repo/manifest"
 	"github.com/kopia/repo/object"
 	"github.com/kopia/repo/storage"
+	"github.com/pkg/errors"
 )
 
 // Repository represents storage where both content-addressable and user-addressable data is kept.
@@ -29,13 +29,13 @@ type Repository struct {
 // Close closes the repository and releases all resources.
 func (r *Repository) Close(ctx context.Context) error {
 	if err := r.Manifests.Flush(ctx); err != nil {
-		return fmt.Errorf("error flushing manifests: %v", err)
+		return errors.Wrap(err, "error flushing manifests")
 	}
 	if err := r.Blocks.Flush(ctx); err != nil {
-		return fmt.Errorf("error closing blocks: %v", err)
+		return errors.Wrap(err, "error closing blocks")
 	}
 	if err := r.Storage.Close(ctx); err != nil {
-		return fmt.Errorf("error closing storage: %v", err)
+		return errors.Wrap(err, "error closing storage")
 	}
 	return nil
 }
@@ -53,7 +53,7 @@ func (r *Repository) Flush(ctx context.Context) error {
 func (r *Repository) Refresh(ctx context.Context) error {
 	updated, err := r.Blocks.Refresh(ctx)
 	if err != nil {
-		return fmt.Errorf("error refreshing block index: %v", err)
+		return errors.Wrap(err, "error refreshing block index")
 	}
 
 	if !updated {
@@ -63,7 +63,7 @@ func (r *Repository) Refresh(ctx context.Context) error {
 	log.Debugf("block index refreshed")
 
 	if err := r.Manifests.Refresh(ctx); err != nil {
-		return fmt.Errorf("error reloading manifests: %v", err)
+		return errors.Wrap(err, "error reloading manifests")
 	}
 
 	log.Debugf("manifests refreshed")

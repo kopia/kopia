@@ -9,6 +9,7 @@ import (
 	"github.com/kopia/repo/block"
 	"github.com/kopia/repo/object"
 	"github.com/kopia/repo/storage"
+	"github.com/pkg/errors"
 )
 
 // BuildInfo is the build information of Kopia.
@@ -44,15 +45,15 @@ func Initialize(ctx context.Context, st storage.Storage, opt *NewRepositoryOptio
 	format := formatBlockFromOptions(opt)
 	masterKey, err := format.deriveMasterKeyFromPassword(password)
 	if err != nil {
-		return fmt.Errorf("unable to derive master key: %v", err)
+		return errors.Wrap(err, "unable to derive master key")
 	}
 
 	if err := encryptFormatBytes(format, repositoryObjectFormatFromOptions(opt), masterKey, format.UniqueID); err != nil {
-		return fmt.Errorf("unable to encrypt format bytes: %v", err)
+		return errors.Wrap(err, "unable to encrypt format bytes")
 	}
 
 	if err := writeFormatBlock(ctx, st, format); err != nil {
-		return fmt.Errorf("unable to write format block: %v", err)
+		return errors.Wrap(err, "unable to write format block")
 	}
 
 	return nil

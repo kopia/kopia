@@ -9,11 +9,11 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 
 	"github.com/kopia/repo/storage"
+	"github.com/pkg/errors"
 )
 
 const defaultFormatEncryption = "AES256_GCM"
@@ -61,7 +61,7 @@ func parseFormatBlock(b []byte) (*formatBlock, error) {
 	f := &formatBlock{}
 
 	if err := json.Unmarshal(b, &f); err != nil {
-		return nil, fmt.Errorf("invalid format block: %v", err)
+		return nil, errors.Wrap(err, "invalid format block")
 	}
 
 	return f, nil
@@ -84,7 +84,7 @@ func RecoverFormatBlock(ctx context.Context, st storage.Storage, filename string
 		foundMetadata = bm
 		return nil
 	}); err != nil {
-		return nil, fmt.Errorf("error: %v", err)
+		return nil, errors.Wrap(err, "error")
 	}
 
 	if foundMetadata.BlockID == "" {
@@ -149,11 +149,11 @@ func writeFormatBlock(ctx context.Context, st storage.Storage, f *formatBlock) e
 	e := json.NewEncoder(&buf)
 	e.SetIndent("", "  ")
 	if err := e.Encode(f); err != nil {
-		return fmt.Errorf("unable to marshal format block: %v", err)
+		return errors.Wrap(err, "unable to marshal format block")
 	}
 
 	if err := st.PutBlock(ctx, FormatBlockID, buf.Bytes()); err != nil {
-		return fmt.Errorf("unable to write format block: %v", err)
+		return errors.Wrap(err, "unable to write format block")
 	}
 
 	return nil
@@ -167,7 +167,7 @@ func (f *formatBlock) decryptFormatBytes(masterKey []byte) (*repositoryObjectFor
 	case "AES256_GCM":
 		aead, authData, err := initCrypto(masterKey, f.UniqueID)
 		if err != nil {
-			return nil, fmt.Errorf("cannot initialize cipher: %v", err)
+			return nil, errors.Wrap(err, "cannot initialize cipher")
 		}
 
 		content := append([]byte(nil), f.EncryptedFormatBytes...)
@@ -184,7 +184,7 @@ func (f *formatBlock) decryptFormatBytes(masterKey []byte) (*repositoryObjectFor
 
 		var erc encryptedRepositoryConfig
 		if err := json.Unmarshal(plainText, &erc); err != nil {
-			return nil, fmt.Errorf("invalid repository format: %v", err)
+			return nil, errors.Wrap(err, "invalid repository format")
 		}
 
 		return &erc.Format, nil
@@ -200,11 +200,11 @@ func initCrypto(masterKey, repositoryID []byte) (cipher.AEAD, []byte, error) {
 
 	blk, err := aes.NewCipher(aesKey)
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot create cipher: %v", err)
+		return nil, nil, errors.Wrap(err, "cannot create cipher")
 	}
 	aead, err := cipher.NewGCM(blk)
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot create cipher: %v", err)
+		return nil, nil, errors.Wrap(err, "cannot create cipher")
 	}
 
 	return aead, authData, nil
@@ -219,11 +219,11 @@ func encryptFormatBytes(f *formatBlock, format *repositoryObjectFormat, masterKe
 	case "AES256_GCM":
 		content, err := json.Marshal(&encryptedRepositoryConfig{Format: *format})
 		if err != nil {
-			return fmt.Errorf("can't marshal format to JSON: %v", err)
+			return errors.Wrap(err, "can't marshal format to JSON")
 		}
 		aead, authData, err := initCrypto(masterKey, repositoryID)
 		if err != nil {
-			return fmt.Errorf("unable to initialize crypto: %v", err)
+			return errors.Wrap(err, "unable to initialize crypto")
 		}
 		nonceLength := aead.NonceSize()
 		noncePlusContentLength := nonceLength + len(content)

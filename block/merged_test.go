@@ -2,9 +2,10 @@ package block
 
 import (
 	"bytes"
-	"fmt"
 	"reflect"
 	"testing"
+
+	"github.com/pkg/errors"
 )
 
 func TestMerged(t *testing.T) {
@@ -86,7 +87,7 @@ func indexWithItems(items ...Info) (packIndex, error) {
 	}
 	var buf bytes.Buffer
 	if err := b.Build(&buf); err != nil {
-		return nil, fmt.Errorf("build error: %v", err)
+		return nil, errors.Wrap(err, "build error")
 	}
 	return openPackIndex(bytes.NewReader(buf.Bytes()))
 }
