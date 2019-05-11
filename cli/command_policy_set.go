@@ -8,9 +8,10 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/fs/ignorefs"
-	"github.com/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
+	"github.com/kopia/repo"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -73,7 +74,7 @@ func setPolicy(ctx context.Context, rep *repo.Repository) error {
 		}
 
 		if changeCount == 0 {
-			return fmt.Errorf("no changes specified")
+			return errors.New("no changes specified")
 		}
 
 		if err := policy.SetPolicy(ctx, rep, target, p); err != nil {
@@ -86,19 +87,19 @@ func setPolicy(ctx context.Context, rep *repo.Repository) error {
 
 func setPolicyFromFlags(target snapshot.SourceInfo, p *policy.Policy, changeCount *int) error {
 	if err := setRetentionPolicyFromFlags(&p.RetentionPolicy, changeCount); err != nil {
-		return fmt.Errorf("retention policy: %v", err)
+		return errors.Wrap(err, "retention policy")
 	}
 
 	if err := setFilesPolicyFromFlags(&p.FilesPolicy, changeCount); err != nil {
-		return fmt.Errorf("files policy: %v", err)
+		return errors.Wrap(err, "files policy")
 	}
 
 	if err := setSchedulingPolicyFromFlags(&p.SchedulingPolicy, changeCount); err != nil {
-		return fmt.Errorf("scheduling policy: %v", err)
+		return errors.Wrap(err, "scheduling policy")
 	}
 
 	if err := applyPolicyNumber64("maximum file size", &p.FilesPolicy.MaxFileSize, *policySetMaxFileSize, changeCount); err != nil {
-		return fmt.Errorf("maximum file size: %v", err)
+		return errors.Wrap(err, "maximum file size")
 	}
 
 	// It's not really a list, just optional boolean, last one wins.
@@ -171,7 +172,7 @@ func setSchedulingPolicyFromFlags(sp *policy.SchedulingPolicy, changeCount *int)
 
 				var timeOfDay policy.TimeOfDay
 				if err := timeOfDay.Parse(tod); err != nil {
-					return fmt.Errorf("unable to parse time of day: %v", err)
+					return errors.Wrap(err, "unable to parse time of day")
 				}
 				timesOfDay = append(timesOfDay, timeOfDay)
 			}

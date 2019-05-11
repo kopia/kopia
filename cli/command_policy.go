@@ -2,16 +2,16 @@ package cli
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/repo"
+	"github.com/pkg/errors"
 )
 
 func policyTargets(ctx context.Context, rep *repo.Repository, globalFlag *bool, targetsFlag *[]string) ([]snapshot.SourceInfo, error) {
 	if *globalFlag == (len(*targetsFlag) > 0) {
-		return nil, fmt.Errorf("must pass either '--global' or a list of path targets")
+		return nil, errors.New("must pass either '--global' or a list of path targets")
 	}
 
 	if *globalFlag {

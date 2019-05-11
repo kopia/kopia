@@ -14,6 +14,7 @@ require (
 	github.com/kopia/repo v0.3.0-pre2
 	github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
+	github.com/pkg/errors v0.8.1
 	github.com/skratchdot/open-golang v0.0.0-20160302144031-75fb7ed4208c
 	github.com/stretchr/testify v1.3.0 // indirect
 	github.com/zalando/go-keyring v0.0.0-20190208082241-fbe81aec3a07

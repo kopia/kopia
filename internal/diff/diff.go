@@ -13,6 +13,7 @@ import (
 	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/repo"
 	"github.com/kopia/repo/object"
+	"github.com/pkg/errors"
 )
 
 var log = kopialogging.Logger("diff")
@@ -171,7 +172,7 @@ func (c *Comparer) compareFiles(ctx context.Context, f1, f2 fs.File, fname strin
 		oldFile := filepath.Join(c.tmpDir, oldName)
 
 		if err := c.downloadFile(ctx, f1, oldFile); err != nil {
-			return fmt.Errorf("error downloading old file: %v", err)
+			return errors.Wrap(err, "error downloading old file")
 		}
 
 		defer os.Remove(oldFile) //nolint:errcheck
@@ -182,7 +183,7 @@ func (c *Comparer) compareFiles(ctx context.Context, f1, f2 fs.File, fname strin
 		newFile := filepath.Join(c.tmpDir, newName)
 
 		if err := c.downloadFile(ctx, f2, newFile); err != nil {
-			return fmt.Errorf("error downloading new file: %v", err)
+			return errors.Wrap(err, "error downloading new file")
 		}
 		defer os.Remove(newFile) //nolint:errcheck
 	}

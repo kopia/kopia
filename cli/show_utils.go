@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/internal/units"
+	"github.com/pkg/errors"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -34,7 +35,7 @@ func showContentWithFlags(rd io.Reader, unzip, indentJSON bool) error {
 	if unzip {
 		gz, err := gzip.NewReader(rd)
 		if err != nil {
-			return fmt.Errorf("unable to open gzip stream: %v", err)
+			return errors.Wrap(err, "unable to open gzip stream")
 		}
 
 		rd = gz

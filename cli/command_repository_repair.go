@@ -2,11 +2,10 @@ package cli
 
 import (
 	"context"
-	"errors"
-	"fmt"
 
 	"github.com/kopia/repo"
 	"github.com/kopia/repo/storage"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -63,7 +62,7 @@ func recoverFormatBlock(ctx context.Context, st storage.Storage, prefix string) 
 	case errSuccess:
 		return nil
 	case nil:
-		return fmt.Errorf("could not find a replica of a format block")
+		return errors.New("could not find a replica of a format block")
 	default:
 		return err
 	}

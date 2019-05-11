@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"hash/fnv"
 	"io"
@@ -22,6 +21,7 @@ import (
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/repo"
 	"github.com/kopia/repo/object"
+	"github.com/pkg/errors"
 )
 
 var log = kopialogging.Logger("kopia/upload")
@@ -103,7 +103,7 @@ func (u *Uploader) cancelReason() string {
 func (u *Uploader) uploadFileInternal(ctx context.Context, f fs.File, relativePath string) entryResult {
 	file, err := f.Open(ctx)
 	if err != nil {
-		return entryResult{err: fmt.Errorf("unable to open file: %v", err)}
+		return entryResult{err: errors.Wrap(err, "unable to open file")}
 	}
 	defer file.Close() //nolint:errcheck
 
@@ -136,7 +136,7 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, f fs.File, relativePa
 func (u *Uploader) uploadSymlinkInternal(ctx context.Context, f fs.Symlink, relativePath string) entryResult {
 	target, err := f.Readlink(ctx)
 	if err != nil {
-		return entryResult{err: fmt.Errorf("unable to read symlink: %v", err)}
+		return entryResult{err: errors.Wrap(err, "unable to read symlink")}
 	}
 
 	writer := u.repo.Objects.NewWriter(ctx, object.WriterOptions{
@@ -340,7 +340,7 @@ func (u *Uploader) processSubdirectories(ctx context.Context, relativePath strin
 		de := newDirEntry(dir, oid)
 		de.DirSummary = &subdirsumm
 		if err := dw.WriteEntry(de); err != nil {
-			return fmt.Errorf("unable to write dir entry: %v", err)
+			return errors.Wrap(err, "unable to write dir entry")
 		}
 
 		return nil
@@ -514,7 +514,7 @@ func (u *Uploader) processUploadWorkItems(workItems []*uploadWorkItem, dw *dirWr
 		}
 
 		if err := dw.WriteEntry(result.de); err != nil {
-			return fmt.Errorf("unable to write directory entry: %v", err)
+			return errors.Wrap(err, "unable to write directory entry")
 		}
 
 		if result.hash != 0 && it.entry.ModTime().Before(u.hashCacheCutoff) {
@@ -523,7 +523,7 @@ func (u *Uploader) processUploadWorkItems(workItems []*uploadWorkItem, dw *dirWr
 				Hash:     result.hash,
 				ObjectID: result.de.ObjectID,
 			}); err != nil {
-				return fmt.Errorf("unable to write hash cache entry: %v", err)
+				return errors.Wrap(err, "unable to write hash cache entry")
 			}
 		}
 	}
@@ -578,7 +578,7 @@ func uploadDirInternal(
 		return "", fs.DirectorySummary{}, err
 	}
 	if err := dw.Finalize(&summ); err != nil {
-		return "", fs.DirectorySummary{}, fmt.Errorf("unable to finalize directory: %v", err)
+		return "", fs.DirectorySummary{}, errors.Wrap(err, "unable to finalize directory")
 	}
 
 	oid, err := writer.Result()

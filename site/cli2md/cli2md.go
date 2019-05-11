@@ -12,6 +12,7 @@ import (
 
 	"github.com/kopia/kopia/cli"
 	_ "github.com/kopia/kopia/internal/logfile"
+	"github.com/pkg/errors"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -111,7 +112,7 @@ func emitArgs(w io.Writer, args []*kingpin.ArgModel) {
 func generateAppFlags(app *kingpin.ApplicationModel) error {
 	f, err := os.Create(filepath.Join(baseDir, "flags.md"))
 	if err != nil {
-		return fmt.Errorf("unable to create common flags file: %v", err)
+		return errors.Wrap(err, "unable to create common flags file")
 	}
 	defer f.Close()
 
@@ -133,7 +134,7 @@ func generateCommands(app *kingpin.ApplicationModel, section string, weight int,
 	}
 	f, err := os.Create(filepath.Join(dir, "_index.md"))
 	if err != nil {
-		return fmt.Errorf("unable to create common flags file: %v", err)
+		return errors.Wrap(err, "unable to create common flags file")
 	}
 	defer f.Close()
 

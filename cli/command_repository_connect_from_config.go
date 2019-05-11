@@ -2,11 +2,11 @@ package cli
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/kopia/repo"
 	"github.com/kopia/repo/storage"
+	"github.com/pkg/errors"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -17,12 +17,12 @@ func connectToStorageFromConfig(ctx context.Context) (storage.Storage, error) {
 
 	f, err := os.Open(connectToStorageFromConfigPath)
 	if err != nil {
-		return nil, fmt.Errorf("unable to open config: %v", err)
+		return nil, errors.Wrap(err, "unable to open config")
 	}
 	defer f.Close() //nolint:errcheck
 
 	if err := cfg.Load(f); err != nil {
-		return nil, fmt.Errorf("unable to load config: %v", err)
+		return nil, errors.Wrap(err, "unable to load config")
 	}
 
 	return storage.NewStorage(ctx, cfg.Storage)

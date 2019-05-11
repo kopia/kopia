@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sort"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 // TimeOfDay represents the time of day (hh:mm) using 24-hour time format.
@@ -15,7 +17,7 @@ type TimeOfDay struct {
 // Parse parses the time of day.
 func (t *TimeOfDay) Parse(s string) error {
 	if _, err := fmt.Sscanf(s, "%v:%02v", &t.Hour, &t.Minute); err != nil {
-		return fmt.Errorf("invalid time of day, must be HH:MM")
+		return errors.New("invalid time of day, must be HH:MM")
 	}
 	if t.Hour < 0 || t.Hour > 23 {
 		return fmt.Errorf("invalid hour %q, must be between 0 and 23", s)

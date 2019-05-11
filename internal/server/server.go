@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 	"sync"
@@ -13,6 +12,7 @@ import (
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/repo"
+	"github.com/pkg/errors"
 )
 
 var log = kopialogging.Logger("kopia/server")
@@ -130,7 +130,7 @@ func New(ctx context.Context, rep *repo.Repository, hostname string, username st
 
 	sources, err := snapshot.ListSources(ctx, rep)
 	if err != nil {
-		return nil, fmt.Errorf("unable to list sources: %v", err)
+		return nil, errors.Wrap(err, "unable to list sources")
 	}
 
 	for _, src := range sources {

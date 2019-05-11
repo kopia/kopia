@@ -2,9 +2,9 @@ package cli
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/kopia/repo"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -15,7 +15,7 @@ var (
 func runBlockGarbageCollectAction(ctx context.Context, rep *repo.Repository) error {
 	unused, err := rep.Blocks.FindUnreferencedStorageFiles(ctx)
 	if err != nil {
-		return fmt.Errorf("error looking for unreferenced storage files: %v", err)
+		return errors.Wrap(err, "error looking for unreferenced storage files")
 	}
 
 	if len(unused) == 0 {
@@ -37,7 +37,7 @@ func runBlockGarbageCollectAction(ctx context.Context, rep *repo.Repository) err
 	for _, u := range unused {
 		printStderr("Deleting unused block %q (%v bytes)...\n", u.BlockID, u.Length)
 		if err := rep.Storage.DeleteBlock(ctx, u.BlockID); err != nil {
-			return fmt.Errorf("unable to delete block %q: %v", u.BlockID, err)
+			return errors.Wrapf(err, "unable to delete block %q", u.BlockID)
 		}
 	}
 

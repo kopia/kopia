@@ -8,6 +8,7 @@ import (
 
 	"github.com/kopia/repo"
 	"github.com/kopia/repo/block"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -121,7 +122,7 @@ func findBlockInfos(ctx context.Context, rep *repo.Repository, ch chan blockInfo
 func findBlocksWithFormatVersion(ctx context.Context, rep *repo.Repository, ch chan blockInfoOrError, version int) {
 	infos, err := rep.Blocks.ListBlockInfos("", true)
 	if err != nil {
-		ch <- blockInfoOrError{err: fmt.Errorf("unable to list index blocks: %v", err)}
+		ch <- blockInfoOrError{err: errors.Wrap(err, "unable to list index blocks")}
 		return
 	}
 
@@ -136,14 +137,14 @@ func findBlocksInShortPacks(ctx context.Context, rep *repo.Repository, ch chan b
 	log.Debugf("listing blocks...")
 	infos, err := rep.Blocks.ListBlockInfos("", true)
 	if err != nil {
-		ch <- blockInfoOrError{err: fmt.Errorf("unable to list index blocks: %v", err)}
+		ch <- blockInfoOrError{err: errors.Wrap(err, "unable to list index blocks")}
 		return
 	}
 
 	log.Debugf("finding blocks in short packs...")
 	shortPackBlocks, err := findShortPackBlocks(infos, threshold)
 	if err != nil {
-		ch <- blockInfoOrError{err: fmt.Errorf("unable to find short pack blocks: %v", err)}
+		ch <- blockInfoOrError{err: errors.Wrap(err, "unable to find short pack blocks")}
 		return
 	}
 	log.Debugf("found %v short pack blocks", len(shortPackBlocks))

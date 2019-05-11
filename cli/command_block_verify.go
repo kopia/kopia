@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/kopia/repo"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -29,7 +30,7 @@ func runVerifyBlockCommand(ctx context.Context, rep *repo.Repository) error {
 func verifyAllBlocks(ctx context.Context, rep *repo.Repository) error {
 	blockIDs, err := rep.Blocks.ListBlocks("")
 	if err != nil {
-		return fmt.Errorf("unable to list blocks: %v", err)
+		return errors.Wrap(err, "unable to list blocks")
 	}
 
 	var errorCount int

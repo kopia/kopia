@@ -2,10 +2,10 @@ package cli
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/kopia/repo"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -28,7 +28,7 @@ func runCacheClearCommand(ctx context.Context, rep *repo.Repository) error {
 		return nil
 	}
 
-	return fmt.Errorf("caching not enabled")
+	return errors.New("caching not enabled")
 }
 
 func init() {

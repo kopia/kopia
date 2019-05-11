@@ -1,7 +1,6 @@
 package webdavmount
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -9,6 +8,7 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/kopialogging"
+	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 	"golang.org/x/net/webdav"
 )
@@ -177,7 +177,7 @@ func (w *webdavFS) findEntry(ctx context.Context, path string) (fs.Entry, error)
 	for i, p := range parts {
 		d, ok := e.(fs.Directory)
 		if !ok {
-			return nil, fmt.Errorf("%q not found in %q (not a directory)", p, strings.Join(parts[0:i], "/"))
+			return nil, errors.Errorf("%q not found in %q (not a directory)", p, strings.Join(parts[0:i], "/"))
 		}
 
 		entries, err := d.Readdir(ctx)
@@ -187,7 +187,7 @@ func (w *webdavFS) findEntry(ctx context.Context, path string) (fs.Entry, error)
 
 		e = entries.FindByName(p)
 		if e == nil {
-			return nil, fmt.Errorf("%q not found in %q (not found)", p, strings.Join(parts[0:i], "/"))
+			return nil, errors.Errorf("%q not found in %q (not found)", p, strings.Join(parts[0:i], "/"))
 		}
 	}
 

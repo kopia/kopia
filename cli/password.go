@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/bgentry/speakeasy"
+	"github.com/pkg/errors"
 	keyring "github.com/zalando/go-keyring"
 )
 
@@ -72,7 +73,7 @@ func askPass(prompt string) (string, error) {
 		return p, nil
 	}
 
-	return "", fmt.Errorf("can't get password")
+	return "", errors.New("can't get password")
 }
 
 func getPersistedPassword(configFile string, username string) (string, bool) {

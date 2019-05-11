@@ -2,12 +2,12 @@ package cli
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/kopia/repo"
 	"github.com/kopia/repo/block"
 	"github.com/kopia/repo/storage"
+	"github.com/pkg/errors"
 
 	"gopkg.in/alecthomas/kingpin.v2"
 )
@@ -56,7 +56,7 @@ func runConnectCommandWithStorageAndPassword(ctx context.Context, st storage.Sto
 
 	if connectPersistCredentials {
 		if err := persistPassword(configFile, getUserName(), password); err != nil {
-			return fmt.Errorf("unable to persist password: %v", err)
+			return errors.Wrap(err, "unable to persist password")
 		}
 	} else {
 		deletePassword(configFile, getUserName())
