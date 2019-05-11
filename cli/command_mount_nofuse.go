@@ -3,9 +3,8 @@
 package cli
 
 import (
-	"fmt"
-
 	"github.com/kopia/kopia/fs"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -13,5 +12,5 @@ var (
 )
 
 func mountDirectoryFUSE(entry fs.Directory, mountPoint string) error {
-	return fmt.Errorf("FUSE is not supported")
+	return errors.New("FUSE is not supported")
 }

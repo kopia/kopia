@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"os/user"
@@ -15,6 +14,7 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 	"github.com/kopia/repo"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -57,7 +57,7 @@ func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
 	u.Progress = cliProgress
 
 	if len(*snapshotCreateDescription) > maxSnapshotDescriptionLength {
-		return fmt.Errorf("description too long")
+		return errors.New("description too long")
 	}
 
 	var finalErrors []string
@@ -80,7 +80,7 @@ func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
 		return nil
 	}
 
-	return fmt.Errorf("encountered %v errors:\n%v", len(finalErrors), strings.Join(finalErrors, "\n"))
+	return errors.Errorf("encountered %v errors:\n%v", len(finalErrors), strings.Join(finalErrors, "\n"))
 }
 
 func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo) error {
@@ -109,7 +109,7 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshot
 
 	snapID, err := snapshot.SaveSnapshot(ctx, rep, manifest)
 	if err != nil {
-		return fmt.Errorf("cannot save manifest: %v", err)
+		return errors.Wrap(err, "cannot save manifest")
 	}
 
 	printStderr("uploaded snapshot %v (root %v) in %v\n", snapID, manifest.RootObjectID(), time.Since(t0))
@@ -122,7 +122,7 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshot
 func findPreviousSnapshotManifest(ctx context.Context, rep *repo.Repository, sourceInfo snapshot.SourceInfo, noLaterThan *time.Time) (*snapshot.Manifest, error) {
 	previous, err := snapshot.ListSnapshots(ctx, rep, sourceInfo)
 	if err != nil {
-		return nil, fmt.Errorf("error listing previous backups: %v", err)
+		return nil, errors.Wrap(err, "error listing previous backups")
 	}
 
 	var previousManifest *snapshot.Manifest
@@ -151,7 +151,7 @@ func getLocalBackupPaths(ctx context.Context, rep *repo.Repository) ([]string, e
 
 	sources, err := snapshot.ListSources(ctx, rep)
 	if err != nil {
-		return nil, fmt.Errorf("unable to list sources: %v", err)
+		return nil, errors.Wrap(err, "unable to list sources")
 	}
 
 	var result []string

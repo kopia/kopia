@@ -2,7 +2,6 @@ package snapshotfs
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -14,6 +13,7 @@ import (
 	"github.com/kopia/repo"
 	"github.com/kopia/repo/object"
 	"github.com/kopia/repo/storage/filesystem"
+	"github.com/pkg/errors"
 )
 
 const masterPassword = "foofoofoofoofoofoofoofoo"
@@ -24,7 +24,7 @@ type uploadTestHarness struct {
 	repo      *repo.Repository
 }
 
-var errTest = fmt.Errorf("test error")
+var errTest = errors.New("test error")
 
 func (th *uploadTestHarness) cleanup() {
 	os.RemoveAll(th.repoDir)

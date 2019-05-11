@@ -2,13 +2,13 @@ package cli
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"strings"
 
 	"github.com/kopia/kopia/internal/diff"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 	"github.com/kopia/repo"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -32,7 +32,7 @@ func runDiffCommand(ctx context.Context, rep *repo.Repository) error {
 	isDir1 := strings.HasPrefix(string(oid1), "k")
 	isDir2 := strings.HasPrefix(string(oid2), "k")
 	if isDir1 != isDir2 {
-		return fmt.Errorf("arguments do diff must both be directories or both non-directories")
+		return errors.New("arguments do diff must both be directories or both non-directories")
 	}
 
 	d, err := diff.NewComparer(rep, os.Stdout)
@@ -55,7 +55,7 @@ func runDiffCommand(ctx context.Context, rep *repo.Repository) error {
 		)
 	}
 
-	return fmt.Errorf("comparing files not implemented yet")
+	return errors.New("comparing files not implemented yet")
 }
 
 func defaultDiffCommand() string {

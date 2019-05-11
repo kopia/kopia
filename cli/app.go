@@ -3,7 +3,6 @@ package cli
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"os"
 	"time"
@@ -13,6 +12,7 @@ import (
 	"github.com/kopia/repo"
 	"github.com/kopia/repo/block"
 	"github.com/kopia/repo/storage"
+	"github.com/pkg/errors"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -76,7 +76,7 @@ func repositoryAction(act func(ctx context.Context, rep *repo.Repository) error)
 
 		reportSubcommandFinished(kpc.SelectedCommand.FullCommand(), err == nil, storageType, rep.Blocks.Format.Version, commandDuration)
 		if cerr := rep.Close(ctx); cerr != nil {
-			return fmt.Errorf("unable to close repository: %v", cerr)
+			return errors.Wrap(cerr, "unable to close repository")
 		}
 		return err
 	}

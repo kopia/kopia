@@ -3,6 +3,7 @@ package editor
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -52,7 +53,7 @@ func EditLoop(fname string, initial string, parse func(updated string) error) er
 		var shouldReopen string
 		fmt.Scanf("%s", &shouldReopen) //nolint:errcheck
 		if strings.HasPrefix(strings.ToLower(shouldReopen), "n") {
-			return fmt.Errorf("aborted")
+			return errors.New("aborted")
 		}
 	}
 }

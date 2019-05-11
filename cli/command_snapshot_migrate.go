@@ -10,6 +10,7 @@ import (
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 	"github.com/kopia/repo"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -25,12 +26,12 @@ var (
 func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 	sourceRepo, err := repo.Open(ctx, *migrateSourceConfig, mustGetPasswordFromFlags(false, false), applyOptionsFromFlags(nil))
 	if err != nil {
-		return fmt.Errorf("can't open source repository: %v", err)
+		return errors.Wrap(err, "can't open source repository")
 	}
 
 	sources, err := getSourcesToMigrate(ctx, sourceRepo)
 	if err != nil {
-		return fmt.Errorf("can't retrieve sources: %v", err)
+		return errors.Wrap(err, "can't retrieve sources")
 	}
 
 	semaphore := make(chan struct{}, *migrateParallelism)
@@ -94,7 +95,7 @@ func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 func findPreviousSnapshotManifestWithStartTime(ctx context.Context, rep *repo.Repository, sourceInfo snapshot.SourceInfo, startTime time.Time) (*snapshot.Manifest, error) {
 	previous, err := snapshot.ListSnapshots(ctx, rep, sourceInfo)
 	if err != nil {
-		return nil, fmt.Errorf("error listing previous backups: %v", err)
+		return nil, errors.Wrap(err, "error listing previous backups")
 	}
 
 	for _, p := range previous {
@@ -166,7 +167,7 @@ func migrateSingleSourceSnapshot(ctx context.Context, uploader *snapshotfs.Uploa
 	newm.Description = m.Description
 	if newm.IncompleteReason == "" {
 		if _, err := snapshot.SaveSnapshot(ctx, destRepo, newm); err != nil {
-			return fmt.Errorf("cannot save manifest: %v", err)
+			return errors.Wrap(err, "cannot save manifest")
 		}
 	}
 	return nil
@@ -199,7 +200,7 @@ func getSourcesToMigrate(ctx context.Context, rep *repo.Repository) ([]snapshot.
 		return snapshot.ListSources(ctx, rep)
 	}
 
-	return nil, fmt.Errorf("must specify either --all or --sources")
+	return nil, errors.New("must specify either --all or --sources")
 }
 
 func init() {

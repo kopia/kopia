@@ -2,12 +2,12 @@ package cli
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/kopia/kopia/internal/server"
 	"github.com/kopia/repo"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -24,7 +24,7 @@ func init() {
 func runServer(ctx context.Context, rep *repo.Repository) error {
 	srv, err := server.New(ctx, rep, getHostName(), getUserName())
 	if err != nil {
-		return fmt.Errorf("unable to initialize server: %v", err)
+		return errors.Wrap(err, "unable to initialize server")
 	}
 
 	go rep.RefreshPeriodically(ctx, 10*time.Second)

@@ -2,9 +2,9 @@ package cli
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/kopia/repo/storage"
+	"github.com/pkg/errors"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -24,7 +24,7 @@ func RegisterStorageConnectFlags(
 			ctx := context.Background()
 			st, err := connect(ctx)
 			if err != nil {
-				return fmt.Errorf("can't connect to storage: %v", err)
+				return errors.Wrap(err, "can't connect to storage")
 			}
 
 			return runCreateCommandWithStorage(ctx, st)
@@ -38,7 +38,7 @@ func RegisterStorageConnectFlags(
 		ctx := context.Background()
 		st, err := connect(ctx)
 		if err != nil {
-			return fmt.Errorf("can't connect to storage: %v", err)
+			return errors.Wrap(err, "can't connect to storage")
 		}
 
 		return runConnectCommandWithStorage(ctx, st)
@@ -51,7 +51,7 @@ func RegisterStorageConnectFlags(
 		ctx := context.Background()
 		st, err := connect(ctx)
 		if err != nil {
-			return fmt.Errorf("can't connect to storage: %v", err)
+			return errors.Wrap(err, "can't connect to storage")
 		}
 
 		return runRepairCommandWithStorage(ctx, st)

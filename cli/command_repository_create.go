@@ -2,8 +2,6 @@ package cli
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/kopia/kopia/fs/ignorefs"
@@ -13,6 +11,7 @@ import (
 	"github.com/kopia/repo/block"
 	"github.com/kopia/repo/object"
 	"github.com/kopia/repo/storage"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -69,7 +68,7 @@ func ensureEmpty(ctx context.Context, s storage.Storage) error {
 	})
 	if err == hasDataError {
 		if !*createOverwrite {
-			return fmt.Errorf("found existing data in storage, specify --overwrite to use anyway")
+			return errors.New("found existing data in storage, specify --overwrite to use anyway")
 		}
 	}
 
@@ -79,7 +78,7 @@ func ensureEmpty(ctx context.Context, s storage.Storage) error {
 func runCreateCommandWithStorage(ctx context.Context, st storage.Storage) error {
 	err := ensureEmpty(ctx, st)
 	if err != nil {
-		return fmt.Errorf("unable to get repository storage: %v", err)
+		return errors.Wrap(err, "unable to get repository storage")
 	}
 
 	options := newRepositoryOptionsFromFlags()
@@ -104,7 +103,7 @@ func runCreateCommandWithStorage(ctx context.Context, st storage.Storage) error 
 	}
 
 	if err := repo.Initialize(ctx, st, options, password); err != nil {
-		return fmt.Errorf("cannot initialize repository: %v", err)
+		return errors.Wrap(err, "cannot initialize repository")
 	}
 
 	if *createOnly {
@@ -112,7 +111,7 @@ func runCreateCommandWithStorage(ctx context.Context, st storage.Storage) error 
 	}
 
 	if err := runConnectCommandWithStorageAndPassword(ctx, st, password); err != nil {
-		return fmt.Errorf("unable to connect to repository: %v", err)
+		return errors.Wrap(err, "unable to connect to repository")
 	}
 
 	return populateRepository(ctx, password)
@@ -121,17 +120,17 @@ func runCreateCommandWithStorage(ctx context.Context, st storage.Storage) error 
 func populateRepository(ctx context.Context, password string) error {
 	rep, err := repo.Open(ctx, repositoryConfigFileName(), password, applyOptionsFromFlags(nil))
 	if err != nil {
-		return fmt.Errorf("unable to open repository: %v", err)
+		return errors.Wrap(err, "unable to open repository")
 	}
 	defer rep.Close(ctx) //nolint:errcheck
 
 	globalPolicy, err := getInitialGlobalPolicy()
 	if err != nil {
-		return fmt.Errorf("unable to initialize global policy: %v", err)
+		return errors.Wrap(err, "unable to initialize global policy")
 	}
 
 	if err := policy.SetPolicy(ctx, rep, policy.GlobalPolicySourceInfo, globalPolicy); err != nil {
-		return fmt.Errorf("unable to set global policy: %v", err)
+		return errors.Wrap(err, "unable to set global policy")
 	}
 
 	printPolicy(globalPolicy, nil)
@@ -148,7 +147,7 @@ func getInitialGlobalPolicy() (*policy.Policy, error) {
 		for _, tod := range strings.Split(tods, ",") {
 			var timeOfDay policy.TimeOfDay
 			if err := timeOfDay.Parse(tod); err != nil {
-				return nil, fmt.Errorf("unable to parse time of day: %v", err)
+				return nil, errors.Wrap(err, "unable to parse time of day")
 			}
 			timesOfDay = append(timesOfDay, timeOfDay)
 		}

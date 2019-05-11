@@ -13,6 +13,7 @@ import (
 	"github.com/kopia/kopia/fs/loggingfs"
 	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/repo"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -66,7 +67,7 @@ func waitForCtrlC() {
 func openRepository(ctx context.Context, opts *repo.Options) (*repo.Repository, error) {
 	r, err := repo.Open(ctx, repositoryConfigFileName(), mustGetPasswordFromFlags(false, true), applyOptionsFromFlags(opts))
 	if os.IsNotExist(err) {
-		return nil, fmt.Errorf("not connected to a repository, use 'kopia connect'")
+		return nil, errors.New("not connected to a repository, use 'kopia connect'")
 	}
 
 	return r, err

@@ -9,6 +9,7 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/ignore"
+	"github.com/pkg/errors"
 )
 
 // IgnoreCallback is a function called by ignorefs to report whenever a file or directory is being ignored while listing its parent.
@@ -208,7 +209,7 @@ func combineAndDedupe(slices ...[]string) []string {
 func parseIgnoreFile(ctx context.Context, baseDir string, file fs.File) ([]ignore.Matcher, error) {
 	f, err := file.Open(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("unable to open ignore file: %v", err)
+		return nil, errors.Wrap(err, "unable to open ignore file")
 	}
 	defer f.Close() //nolint:errcheck
 

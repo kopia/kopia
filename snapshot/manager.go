@@ -3,11 +3,11 @@ package snapshot
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/repo"
 	"github.com/kopia/repo/manifest"
+	"github.com/pkg/errors"
 )
 
 var log = kopialogging.Logger("kopia/snapshot")
@@ -18,7 +18,7 @@ func ListSources(ctx context.Context, rep *repo.Repository) ([]SourceInfo, error
 		"type": "snapshot",
 	})
 	if err != nil {
-		return nil, fmt.Errorf("unable to find manifest entries: %v", err)
+		return nil, errors.Wrap(err, "unable to find manifest entries")
 	}
 
 	uniq := map[SourceInfo]bool{}
@@ -51,7 +51,7 @@ func sourceInfoToLabels(si SourceInfo) map[string]string {
 func ListSnapshots(ctx context.Context, rep *repo.Repository, si SourceInfo) ([]*Manifest, error) {
 	entries, err := rep.Manifests.Find(ctx, sourceInfoToLabels(si))
 	if err != nil {
-		return nil, fmt.Errorf("unable to find manifest entries: %v", err)
+		return nil, errors.Wrap(err, "unable to find manifest entries")
 	}
 	return LoadSnapshots(ctx, rep, entryIDs(entries))
 }
@@ -60,7 +60,7 @@ func ListSnapshots(ctx context.Context, rep *repo.Repository, si SourceInfo) ([]
 func loadSnapshot(ctx context.Context, rep *repo.Repository, manifestID string) (*Manifest, error) {
 	sm := &Manifest{}
 	if err := rep.Manifests.Get(ctx, manifestID, sm); err != nil {
-		return nil, fmt.Errorf("unable to find manifest entries: %v", err)
+		return nil, errors.Wrap(err, "unable to find manifest entries")
 	}
 
 	sm.ID = manifestID
@@ -70,13 +70,13 @@ func loadSnapshot(ctx context.Context, rep *repo.Repository, manifestID string) 
 // SaveSnapshot persists given snapshot manifest and returns manifest ID.
 func SaveSnapshot(ctx context.Context, rep *repo.Repository, manifest *Manifest) (string, error) {
 	if manifest.Source.Host == "" {
-		return "", fmt.Errorf("missing host")
+		return "", errors.New("missing host")
 	}
 	if manifest.Source.UserName == "" {
-		return "", fmt.Errorf("missing username")
+		return "", errors.New("missing username")
 	}
 	if manifest.Source.Path == "" {
-		return "", fmt.Errorf("missing path")
+		return "", errors.New("missing path")
 	}
 
 	id, err := rep.Manifests.Put(ctx, sourceInfoToLabels(manifest.Source), manifest)
@@ -133,7 +133,7 @@ func ListSnapshotManifests(ctx context.Context, rep *repo.Repository, src *Sourc
 
 	entries, err := rep.Manifests.Find(ctx, labels)
 	if err != nil {
-		return nil, fmt.Errorf("unable to find manifest entries: %v", err)
+		return nil, errors.Wrap(err, "unable to find manifest entries")
 	}
 	return entryIDs(entries), nil
 }

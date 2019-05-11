@@ -12,6 +12,7 @@ import (
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/repo"
 	"github.com/kopia/repo/manifest"
+	"github.com/pkg/errors"
 )
 
 // GlobalPolicySourceInfo is a source where global policy is attached.
@@ -83,7 +84,7 @@ func GetEffectivePolicy(ctx context.Context, rep *repo.Repository, si snapshot.S
 func GetDefinedPolicy(ctx context.Context, rep *repo.Repository, si snapshot.SourceInfo) (*Policy, error) {
 	md, err := rep.Manifests.Find(ctx, labelsForSource(si))
 	if err != nil {
-		return nil, fmt.Errorf("unable to find policy for source: %v", err)
+		return nil, errors.Wrap(err, "unable to find policy for source")
 	}
 
 	if len(md) == 0 {
@@ -111,7 +112,7 @@ func GetDefinedPolicy(ctx context.Context, rep *repo.Repository, si snapshot.Sou
 		return p, nil
 	}
 
-	return nil, fmt.Errorf("ambiguous policy")
+	return nil, errors.New("ambiguous policy")
 }
 
 // SetPolicy sets the policy on a given source.
@@ -127,7 +128,7 @@ func SetPolicy(ctx context.Context, rep *repo.Repository, si snapshot.SourceInfo
 
 	for _, em := range md {
 		if err := rep.Manifests.Delete(ctx, em.ID); err != nil {
-			return fmt.Errorf("unable to delete previous policy manifest: %v", err)
+			return errors.Wrap(err, "unable to delete previous policy manifest")
 		}
 	}
 
@@ -143,7 +144,7 @@ func RemovePolicy(ctx context.Context, rep *repo.Repository, si snapshot.SourceI
 
 	for _, em := range md {
 		if err := rep.Manifests.Delete(ctx, em.ID); err != nil {
-			return fmt.Errorf("unable to delete previous manifest: %v", err)
+			return errors.Wrap(err, "unable to delete previous manifest")
 		}
 	}
 
@@ -168,7 +169,7 @@ func ListPolicies(ctx context.Context, rep *repo.Repository) ([]*Policy, error) 
 		"type": "policy",
 	})
 	if err != nil {
-		return nil, fmt.Errorf("unable to list manifests: %v", err)
+		return nil, errors.Wrap(err, "unable to list manifests")
 	}
 
 	var policies []*Policy
@@ -231,7 +232,7 @@ func FilesPolicyGetter(ctx context.Context, rep *repo.Repository, si snapshot.So
 
 		rel, err := filepath.Rel(si.Path, policyPath)
 		if err != nil {
-			return nil, fmt.Errorf("unable to determine relative path: %v", err)
+			return nil, errors.Wrap(err, "unable to determine relative path")
 		}
 		rel = "./" + rel
 		log.Debugf("loading policy for %v (%v)", policyPath, rel)

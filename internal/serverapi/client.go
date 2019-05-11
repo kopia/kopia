@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"github.com/pkg/errors"
 )
 
 // Client provides helper methods for communicating with Kopia API serevr.
@@ -25,7 +27,7 @@ func (c *Client) Get(path string, respPayload interface{}) error {
 		return fmt.Errorf("invalid server response: %v", resp.Status)
 	}
 	if err := json.NewDecoder(resp.Body).Decode(respPayload); err != nil {
-		return fmt.Errorf("malformed server response: %v", err)
+		return errors.Wrap(err, "malformed server response")
 	}
 
 	return nil
@@ -36,7 +38,7 @@ func (c *Client) Post(path string, reqPayload, respPayload interface{}) error {
 	var buf bytes.Buffer
 
 	if err := json.NewEncoder(&buf).Encode(reqPayload); err != nil {
-		return fmt.Errorf("unable to encode request: %v", err)
+		return errors.Wrap(err, "unable to encode request")
 	}
 
 	resp, err := c.client.Post(c.baseURL+path, "application/json", &buf)
@@ -49,7 +51,7 @@ func (c *Client) Post(path string, reqPayload, respPayload interface{}) error {
 		return fmt.Errorf("invalid server response: %v", resp.Status)
 	}
 	if err := json.NewDecoder(resp.Body).Decode(respPayload); err != nil {
-		return fmt.Errorf("malformed server response: %v", err)
+		return errors.Wrap(err, "malformed server response")
 	}
 
 	return nil

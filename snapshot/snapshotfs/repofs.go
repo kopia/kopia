@@ -12,6 +12,7 @@ import (
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/repo"
 	"github.com/kopia/repo/object"
+	"github.com/pkg/errors"
 )
 
 type repositoryEntry struct {
@@ -181,7 +182,7 @@ func DirectoryEntry(rep *repo.Repository, objectID object.ID, dirSummary *fs.Dir
 func SnapshotRoot(rep *repo.Repository, man *snapshot.Manifest) (fs.Entry, error) {
 	oid := man.RootObjectID()
 	if oid == "" {
-		return nil, fmt.Errorf("manifest root object ID")
+		return nil, errors.New("manifest root object ID")
 	}
 
 	return newRepoEntry(rep, man.RootEntry), nil

@@ -1,10 +1,10 @@
 package cli
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 
+	"github.com/pkg/errors"
 	"github.com/skratchdot/open-golang/open"
 )
 
@@ -50,7 +50,7 @@ func netUSE(mountPoint string, addr string) error {
 	c.Stderr = os.Stderr
 	c.Stdin = os.Stdin
 	if err := c.Run(); err != nil {
-		return fmt.Errorf("unable to mount: %v", err)
+		return errors.Wrap(err, "unable to mount")
 	}
 
 	startWebBrowser("x:\\")
@@ -61,7 +61,7 @@ func netUSE(mountPoint string, addr string) error {
 	c.Stderr = os.Stderr
 	c.Stdin = os.Stdin
 	if err := c.Run(); err != nil {
-		return fmt.Errorf("unable to unmount: %v", err)
+		return errors.Wrap(err, "unable to unmount")
 	}
 
 	return nil
