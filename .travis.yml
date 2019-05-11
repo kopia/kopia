@@ -5,7 +5,7 @@ os:
 - linux
 before_install:
 - openssl aes-256-cbc -K $encrypted_0098ef8519ef_key -iv $encrypted_0098ef8519ef_iv
-  -in test_service_account.json.enc -out storage/gcs/test_service_account.json -d
+  -in test_service_account.json.enc -out storage/gcs/test_service_account.json -d || echo OK
 install: make travis-setup
 script: make travis
 env:
