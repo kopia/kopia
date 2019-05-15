@@ -68,7 +68,7 @@ privacy_policy = "https://kopia.io/privacy/"
 github_repo = "https://github.com/kopia/kopia"
 
 # Google Custom Search Engine ID. Remove or comment out to disable search.
-gcs_engine_id = "017899350404537892552:t3ckb1h0zq4"
+# gcs_engine_id = "017899350404537892552:t3ckb1h0zq4"
 
 # User interface configuration
 [params.ui]
