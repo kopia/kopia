@@ -13,24 +13,35 @@ builds:
     - arm64
   ldflags:
   - -s -w -X "github.com/kopia/repo.BuildVersion={{.Version}}" -X "github.com/kopia/repo.BuildInfo={{.Commit}}"
-archive:
-  replacements:
-    darwin: macOS
-    linux: linux
-    windows: windows
-    amd64: x64
-  name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
-  wrap_in_directory: true
-  format_overrides:
-  - goos: windows
-    format: zip
-  files:
-    - LICENSE
-    - README.md
+archives:
+  - id: default
+    replacements:
+      darwin: macOS
+      linux: linux
+      windows: windows
+      amd64: x64
+    name_template: "{{ .ProjectName }}-{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+    wrap_in_directory: true
+    format_overrides:
+    - goos: windows
+      format: zip
+    files:
+      - LICENSE
+      - README.md
 checksum:
   name_template: 'checksums.txt'
 snapshot:
   name_template: "{{ .Tag }}-next"
+nfpm:
+  homepage: https://kopia.io
+  vendor: Kopia Project
+  maintainer: Jarek Kowalski <jaak@jkowalski.net>
+  description: Fast and secure open source backup.
+  license: Apache 2.0
+  formats:
+  - deb
+  - rpm
+  bindir: /usr/bin
 brew:
   github:
     owner: kopia
