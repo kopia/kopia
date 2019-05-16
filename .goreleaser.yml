@@ -31,6 +31,12 @@ checksum:
   name_template: 'checksums.txt'
 snapshot:
   name_template: "{{ .Tag }}-next"
+brew:
+  github:
+    owner: kopia
+    name: homebrew-tap
+  homepage: "https://kopia.io"
+  description: "Fast and secure open source backup."
 changelog:
   sort: asc
   filters:
