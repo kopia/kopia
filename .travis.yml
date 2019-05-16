@@ -1,7 +1,7 @@
 dist: xenial
 language: go
 go:
-- "1.12"
+- '1.12'
 os:
 - linux
 addons:
@@ -11,23 +11,27 @@ addons:
 install: make travis-setup
 script: make travis-release
 deploy:
-  - provider: script
-    script: curl -sL https://git.io/goreleaser | bash /dev/stdin --rm-dist
-    skip_cleanup: true
-    on:
-      tags: true
-      repo: kopia/kopia
-  - provider: pages
-    skip_cleanup: true
-    github_token: $GITHUB_TOKEN  # Set in the settings page of your repository, as a secure variable
-    keep_history: false
-    local_dir: site/public
-    repo: kopia/kopia.github.io
-    target_branch: master
-    on:
-      repo: kopia/kopia
-      branch: master
+- provider: script
+  script: curl -sL https://git.io/goreleaser | bash /dev/stdin --rm-dist
+  skip_cleanup: true
+  on:
+    tags: true
+    repo: kopia/kopia
+- provider: pages
+  skip_cleanup: true
+  github_token: "$GITHUB_TOKEN"
+  keep_history: false
+  local_dir: site/public
+  repo: kopia/kopia.github.io
+  target_branch: master
+  on:
+    repo: kopia/kopia
+    branch: master
 git:
   depth: 9999999
 env:
-  - GO111MODULE=on
+- GO111MODULE=on
+before_install:
+- openssl aes-256-cbc -K $encrypted_de468f1bc3f5_key -iv $encrypted_de468f1bc3f5_iv
+  -in kopia.gpg.enc -out kopia.gpg -d || echo OK
+- gpg --import kopia.gpg || echo OK
