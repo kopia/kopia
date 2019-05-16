@@ -16,6 +16,23 @@ Kopia is released as a single, stand-alone binary, available for many operating 
 
 To download latest binary for your platform, go to the [Releases](https://github.com/kopia/kopia/releases/latest) page on GitHub.
 
+It's recommended to verify SHA256 checksum of the binary and comparing that to `checksums.txt`. For extra security you may want to verify that the checksums have been signed by official Kopia builder, by running GPG:
+
+```shell
+# Import official signing key
+$ curl https://kopia.io/signing-key | gpg --import -
+
+# Verify that file checksums are ok
+$ sha256sum --check checksums.txt
+
+# Verify signature file
+$ gpg --verify checksums.txt.sig 
+gpg: assuming signed data in 'checksums.txt'
+gpg: Signature made Wed May 15 20:41:41 2019 PDT
+gpg:                using RSA key A3B5843ED70529C23162E3687713E6D88ED70D9D
+gpg: Good signature from "Kopia Builder <builder@kopia.io>" [ultimate]
+```
+
 You need to make the download binary executable (Linux/macOS only) and move it to a location that's in your system `PATH` for easy access:
 
 On Linux/macOS run:
@@ -38,6 +55,11 @@ $ brew tap kopia/kopia
 $ brew install kopia
 ```
 
+To upgrade Kopia:
+
+```shell
+$ brew upgrade kopia
+```
 
 ### Compilation From Source
 
