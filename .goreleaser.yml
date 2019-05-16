@@ -50,6 +50,7 @@ brew:
   description: "Fast and secure open source backup."
 sign:
   artifacts: checksum
+  args: ["-a", "--output", "${signature}", "--detach-sign", "${artifact}"]
 changelog:
   sort: asc
   filters:
