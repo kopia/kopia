@@ -28,6 +28,17 @@ $ sudo mv path/to/kopia /usr/local/bin/kopia
 
 Follow the [User Guide](/docs/user-guide/) for more information about using Kopia.
 
+### Homebrew (macOS)
+
+On macOS you can use [Homebrew](https://brew.sh) to install and keep Kopia up-to-date.
+Simply use `kopia/kopia` TAP:
+
+```shell
+$ brew tap kopia/kopia
+$ brew install kopia
+```
+
+
 ### Compilation From Source
 
 If you have [Go 1.12](https://golang.org/) or newer, you may download and build Kopia yourself. No special setup is necessary, other than the Go compiler. You can simply run:
