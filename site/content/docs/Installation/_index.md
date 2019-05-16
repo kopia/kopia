@@ -45,7 +45,7 @@ $ sudo mv path/to/kopia /usr/local/bin/kopia
 
 Follow the [User Guide](/docs/user-guide/) for more information about using Kopia.
 
-### Homebrew (macOS)
+### macOS installation using Homebrew
 
 On macOS you can use [Homebrew](https://brew.sh) to install and keep Kopia up-to-date.
 Simply use `kopia/kopia` TAP:
@@ -59,6 +59,23 @@ To upgrade Kopia:
 
 ```shell
 $ brew upgrade kopia
+```
+
+### Linux installation using RPM (CentOS, Fedora, RedHat)
+
+You can download a pre-built RPM package suitable for RedHat, Fedora and CentOS from the [Releases](https://github.com/kopia/kopia/releases/latest) page on GitHub and install it using:
+
+
+```shell
+$ rpm -Uhv kopia*.rpm
+```
+
+### Linux installation using DEB (Debian, Ubuntu)
+
+You can download a pre-built DEB package suitable for Debian and Ubuntu Linux from the [Releases](https://github.com/kopia/kopia/releases/latest) page on GitHub and install it using:
+
+```shell
+$ deb -i kopia*.deb
 ```
 
 ### Compilation From Source
