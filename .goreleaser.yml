@@ -34,7 +34,7 @@ snapshot:
 brew:
   github:
     owner: kopia
-    name: homebrew-tap
+    name: homebrew-kopia
   homepage: "https://kopia.io"
   description: "Fast and secure open source backup."
 changelog:
