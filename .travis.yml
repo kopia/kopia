@@ -4,6 +4,10 @@ go:
 - "1.12"
 os:
 - linux
+addons:
+  apt:
+    packages:
+    - rpm
 install: make travis-setup
 script: make travis-release
 deploy:

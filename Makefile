@@ -45,8 +45,6 @@ $(GOVERALLS_TOOL):
 	GO111MODULE=off GOPATH=$(CURDIR)/.tools go get github.com/mattn/goveralls
 
 travis-setup:
-	sudo apt-get update
-	sudo apt-get -y install rpm
 	go mod download
 
 website:
