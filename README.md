@@ -3,7 +3,9 @@ Kopia
 
 ![Kopia](kopia.svg)
 [![Linux/macOS Build Status](https://travis-ci.org/kopia/kopia.svg?branch=master)](https://travis-ci.org/kopia/kopia)
-[![GoDoc](https://godoc.org/github.com/kopia/kopia?status.svg)](https://godoc.org/github.com/kopia/kopia)
+[![GoDoc](https://godoc.org/github.com/kopia/kopia/repo?status.svg)](https://godoc.org/github.com/kopia/kopia/repo)
+[![Coverage Status](https://coveralls.io/repos/github/kopia/kopia/badge.svg?branch=master)](https://coveralls.io/github/kopia/kopia?branch=master)
+[![Go Report Card](https://goreportcard.com/badge/github.com/kopia/kopia)](https://goreportcard.com/report/github.com/kopia/kopia)
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fkopia%2Fkopia.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fkopia%2Fkopia?ref=badge_shield)
 
 > _n._
