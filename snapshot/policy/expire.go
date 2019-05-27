@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/snapshot"
-	"github.com/kopia/repo"
+	"github.com/kopia/kopia/repo"
 )
 
 // ApplyRetentionPolicy applies retention policy to a given source by deleting expired snapshots.

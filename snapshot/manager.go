@@ -5,8 +5,8 @@ import (
 	"context"
 
 	"github.com/kopia/kopia/internal/kopialogging"
-	"github.com/kopia/repo"
-	"github.com/kopia/repo/manifest"
+	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/manifest"
 	"github.com/pkg/errors"
 )
 

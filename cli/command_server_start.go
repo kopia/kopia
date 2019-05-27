@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/internal/server"
-	"github.com/kopia/repo"
+	"github.com/kopia/kopia/repo"
 	"github.com/pkg/errors"
 )
 

@@ -8,7 +8,7 @@ Kopia stores its data in a data structure called Repository.
 
 Repository adapts simple storage such as NAS filesystem, Google Cloud Storage or Amazon S3 to add features such as encryption, deduplication, content-addressability and ability to maintain rich snapshot history.
 
-Repository codebase is maintained in a stand-alone GitHub project at https://github.com/kopia/repo, separate from Kopia command-line tool and can be used for any purpose.
+Repository codebase is maintained in a stand-alone GitHub project at https://github.com/kopia/kopia/repo, separate from Kopia command-line tool and can be used for any purpose.
 
 The following diagram illustrates the key components of Kopia:
 
@@ -16,7 +16,7 @@ The following diagram illustrates the key components of Kopia:
 
 ### Binary Large Object Storage (BLOB)
 
-BLOB storage is the place where your data is ultimately stored. Any type that implements simple Go [API](https://godoc.org/github.com/kopia/repo/storage#Storage) can be used as Kopia's blob storage.
+BLOB storage is the place where your data is ultimately stored. Any type that implements simple Go [API](https://godoc.org/github.com/kopia/kopia/repo/storage#Storage) can be used as Kopia's blob storage.
 
 Kopia currently supports the following storage providers:
 
@@ -29,7 +29,7 @@ Cloud storage solutions are a great choice because they provide high availabilit
 
 Kopia does not require low-latency storage, it uses caching and other optimizations to be able to work efficiently with high-latency backends.
 
-The API for BLOB storage can be found in https://godoc.org/github.com/kopia/repo/storage
+The API for BLOB storage can be found in https://godoc.org/github.com/kopia/kopia/repo/storage
 
 ### Content-Addressable Block Storage (CABS)
 
@@ -49,7 +49,7 @@ Pack files in blob storage have random names and don't reveal anything about the
 
 CABS is not meant to be used directly, instead it's a building block for object storage (CAOS) and manifest storage layers (LAMS) described below.
 
-The API for CABS can be found in https://godoc.org/github.com/kopia/repo/block
+The API for CABS can be found in https://godoc.org/github.com/kopia/kopia/repo/block
 
 ### Content-Addressable Object Storage (CAOS)
 
@@ -72,7 +72,7 @@ To represent objects larger than the size of a single CABS block, Kopia links to
 ]}
 ```
 
-The API for CAOS can be found in https://godoc.org/github.com/kopia/repo/object
+The API for CAOS can be found in https://godoc.org/github.com/kopia/kopia/repo/object
 
 ### Label-Addressable Manifest Storage (LAMS)
 
@@ -82,5 +82,5 @@ To address that, Kopia supports another type of storage, used to persist small J
 
 Internally manifests are stored as CABS blocks.
 
-The API for LAMS can be found in https://godoc.org/github.com/kopia/repo/manifest
+The API for LAMS can be found in https://godoc.org/github.com/kopia/kopia/repo/manifest
 

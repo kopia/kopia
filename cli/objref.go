@@ -7,8 +7,8 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
-	"github.com/kopia/repo"
-	"github.com/kopia/repo/object"
+	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/object"
 )
 
 // ParseObjectID interprets the given ID string and returns corresponding object.ID.

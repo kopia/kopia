@@ -10,7 +10,7 @@ import (
 	"github.com/kopia/kopia/fs/ignorefs"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
-	"github.com/kopia/repo"
+	"github.com/kopia/kopia/repo"
 	"github.com/pkg/errors"
 )
 

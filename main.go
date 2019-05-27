@@ -14,7 +14,7 @@ import (
 
 	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/internal/logfile"
-	"github.com/kopia/repo"
+	"github.com/kopia/kopia/repo"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 

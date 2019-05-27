@@ -5,7 +5,7 @@ import (
 
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
-	"github.com/kopia/repo/block"
+	"github.com/kopia/kopia/repo/block"
 )
 
 // StatusResponse is the response of 'status' HTTP API command.

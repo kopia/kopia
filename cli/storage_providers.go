@@ -3,7 +3,7 @@ package cli
 import (
 	"context"
 
-	"github.com/kopia/repo/storage"
+	"github.com/kopia/kopia/repo/storage"
 	"github.com/pkg/errors"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )

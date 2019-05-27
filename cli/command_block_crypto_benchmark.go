@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/internal/units"
-	"github.com/kopia/repo/block"
+	"github.com/kopia/kopia/repo/block"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )

@@ -10,9 +10,9 @@ import (
 
 	"github.com/kopia/kopia/internal/mockfs"
 	"github.com/kopia/kopia/snapshot"
-	"github.com/kopia/repo"
-	"github.com/kopia/repo/object"
-	"github.com/kopia/repo/storage/filesystem"
+	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/object"
+	"github.com/kopia/kopia/repo/storage/filesystem"
 	"github.com/pkg/errors"
 )
 

@@ -5,8 +5,8 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/kopia/repo/storage"
-	"github.com/kopia/repo/storage/filesystem"
+	"github.com/kopia/kopia/repo/storage"
+	"github.com/kopia/kopia/repo/storage/filesystem"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 

@@ -8,7 +8,7 @@ import (
 	"github.com/kopia/kopia/fs/cachefs"
 	"github.com/kopia/kopia/fs/loggingfs"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
-	"github.com/kopia/repo"
+	"github.com/kopia/kopia/repo"
 )
 
 var (
