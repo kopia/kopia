@@ -32,16 +32,16 @@ checksum:
   name_template: 'checksums.txt'
 snapshot:
   name_template: "{{ .Tag }}-next"
-nfpm:
-  homepage: https://kopia.io
-  vendor: Kopia Project
-  maintainer: Jarek Kowalski <jaak@jkowalski.net>
-  description: Fast and secure open source backup.
-  license: Apache 2.0
-  formats:
-  - deb
-  - rpm
-  bindir: /usr/bin
+nfpms:
+  - homepage: https://kopia.io
+    vendor: Kopia Project
+    maintainer: Jarek Kowalski <jaak@jkowalski.net>
+    description: Fast and secure open source backup.
+    license: Apache 2.0
+    formats:
+    - deb
+    - rpm
+    bindir: /usr/bin
 brew:
   github:
     owner: kopia
