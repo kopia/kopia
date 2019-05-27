@@ -7,7 +7,7 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/snapshot"
-	"github.com/kopia/repo"
+	"github.com/kopia/kopia/repo"
 )
 
 type sourceDirectories struct {

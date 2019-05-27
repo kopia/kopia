@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kopia/repo"
+	"github.com/kopia/kopia/repo"
 	"github.com/pkg/errors"
 )
 

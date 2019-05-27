@@ -19,8 +19,8 @@ import (
 	"github.com/kopia/kopia/internal/hashcache"
 	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/snapshot"
-	"github.com/kopia/repo"
-	"github.com/kopia/repo/object"
+	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/object"
 	"github.com/pkg/errors"
 )
 

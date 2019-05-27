@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/kopia/repo/storage"
+	"github.com/kopia/kopia/repo/storage"
 )
 
 // VerifyStorage verifies the behavior of the specified storage.

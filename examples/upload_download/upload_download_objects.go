@@ -9,8 +9,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/kopia/repo"
-	"github.com/kopia/repo/object"
+	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/object"
 )
 
 func uploadRandomObject(ctx context.Context, r *repo.Repository, length int) (object.ID, error) {

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/repo/object"
+	"github.com/kopia/kopia/repo/object"
 )
 
 // Manifest represents information about a single point-in-time filesystem snapshot.

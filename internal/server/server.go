@@ -11,7 +11,7 @@ import (
 	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/snapshot"
-	"github.com/kopia/repo"
+	"github.com/kopia/kopia/repo"
 	"github.com/pkg/errors"
 )
 

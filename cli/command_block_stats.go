@@ -7,8 +7,8 @@ import (
 	"strconv"
 
 	"github.com/kopia/kopia/internal/units"
-	"github.com/kopia/repo"
-	"github.com/kopia/repo/block"
+	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/block"
 )
 
 var (

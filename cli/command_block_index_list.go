@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/kopia/repo"
+	"github.com/kopia/kopia/repo"
 )
 
 var (

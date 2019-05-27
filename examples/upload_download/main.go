@@ -8,7 +8,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/kopia/repo"
+	"github.com/kopia/kopia/repo"
 )
 
 func main() {

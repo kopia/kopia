@@ -7,7 +7,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/kopia/repo/storage"
+	"github.com/kopia/kopia/repo/storage"
 )
 
 // AssertGetBlock asserts that the specified storage block has correct content.

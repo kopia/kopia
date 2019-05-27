@@ -9,7 +9,7 @@ import (
 
 	"github.com/kopia/kopia/internal/editor"
 	"github.com/kopia/kopia/snapshot/policy"
-	"github.com/kopia/repo"
+	"github.com/kopia/kopia/repo"
 )
 
 const policyEditHelpText = `

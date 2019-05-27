@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kopia/repo/internal/repologging"
+	"github.com/kopia/kopia/internal/repologging"
 )
 
 var log = repologging.Logger("repo/retry")

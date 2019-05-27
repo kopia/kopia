@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kopia/repo/internal/repologging"
-	"github.com/kopia/repo/storage"
+	"github.com/kopia/kopia/internal/repologging"
+	"github.com/kopia/kopia/repo/storage"
 )
 
 var log = repologging.Logger("faulty-storage")
