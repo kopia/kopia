@@ -53,7 +53,7 @@ website:
 travis-release: test-with-coverage lint vet verify-release integration-tests upload-coverage website
 
 verify-release:
-	curl -sL https://git.io/goreleaser | bash /dev/stdin --skip-publish --rm-dist --snapshot
+	curl -sL https://git.io/goreleaser | bash /dev/stdin --skip-publish --skip-sign --rm-dist --snapshot 
 
 upload-coverage: $(GOVERALLS_TOOL)
 	$(GOVERALLS_TOOL) -service=travis-ci -coverprofile=tmp.cov
