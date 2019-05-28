@@ -20,6 +20,8 @@ github.com/bmizerany/pat v0.0.0-20170815010413-6226ea591a40/go.mod h1:8rLXio+Wji
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/danieljoos/wincred v1.0.1 h1:fcRTaj17zzROVqni2FiToKUVg3MmJ4NtMSGCySPIr/g=
 github.com/danieljoos/wincred v1.0.1/go.mod h1:SnuYRW9lp1oJrZX/dXJqr0cPK5gYXqx3EJbmjhLdK9U=
+github.com/danieljoos/wincred v1.0.2 h1:zf4bhty2iLuwgjgpraD2E9UbvO+fe54XXGJbOwe23fU=
+github.com/danieljoos/wincred v1.0.2/go.mod h1:SnuYRW9lp1oJrZX/dXJqr0cPK5gYXqx3EJbmjhLdK9U=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/efarrer/iothrottler v0.0.0-20141121142253-60e7e547c7fe h1:WAx1vRufH0I2pTWldQkXPzpc+jndCOi2FH334LFQ1PI=
@@ -85,8 +87,6 @@ github.com/skratchdot/open-golang v0.0.0-20160302144031-75fb7ed4208c/go.mod h1:s
 github.com/skratchdot/open-golang v0.0.0-20190331143844-1a48294fa5dd h1:fGMLGqbHjCoqgEtJbdXKy0ZpIJT6GEA9GISFcCxXQiI=
 github.com/skratchdot/open-golang v0.0.0-20190331143844-1a48294fa5dd/go.mod h1:sUM3LWHvSMaG192sy56D9F7CNvL7jUJVXoqM1QKLnog=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
-github.com/stretchr/testify v1.3.0 h1:TivCn/peBQ7UY8ooIcPgZFpTNSz0Q2U6UrFlUfqbe0Q=
-github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/studio-b12/gowebdav v0.0.0-20181230112802-6c32839dbdfc h1:iuD/gqAYTn1N3KSn8LqhdNqKVOrrCXHETAM/42M6x58=
 github.com/studio-b12/gowebdav v0.0.0-20181230112802-6c32839dbdfc/go.mod h1:gCcfDlA1Y7GqOaeEKw5l9dOGx1VLdc/HuQSlQAaZ30s=
 github.com/studio-b12/gowebdav v0.0.0-20190103184047-38f79aeaf1ac h1:xQ9gCVzqb939vjhxuES4IXYe4AlHB4Q71/K06aazQmQ=
