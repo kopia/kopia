@@ -9,10 +9,10 @@ import (
 func TestSplitters(t *testing.T) {
 	cases := []struct {
 		desc        string
-		newSplitter func() Splitter
+		newSplitter SplitterFactory
 	}{
-		// {"rolling buzhash with 3 bits", func() Splitter { return newRollingHashSplitter(buzhash.NewBuzHash(32), 0, 8, 20) }},
-		// {"rolling buzhash with 5 bits", func() Splitter { return newRollingHashSplitter(buzhash.NewBuzHash(32), 0, 32, 20) }},
+		{"rolling buzhash with 3 bits", newBuzHash32SplitterFactory(8)},
+		{"rolling buzhash with 5 bits", newBuzHash32SplitterFactory(32)},
 	}
 
 	for _, tc := range cases {
@@ -44,23 +44,19 @@ func TestSplitterStability(t *testing.T) {
 		minSplit int
 		maxSplit int
 	}{
-		// {newFixedSplitter(1000), 5000, 1000, 1000, 1000},
-		// {newFixedSplitter(10000), 500, 10000, 10000, 10000},
+		{&fixedSplitter{0, 1000}, 5000, 1000, 1000, 1000},
+		{&fixedSplitter{0, 10000}, 500, 10000, 10000, 10000},
 
-		// {newNeverSplitter(), 0, 0, math.MaxInt32, 0},
-
-		// {newRollingHashSplitter(buzhash.NewBuzHash(32), 0, 32, math.MaxInt32), 156262, 31, 1, 404},
-		// {newRollingHashSplitter(buzhash.NewBuzHash(32), 0, 1024, math.MaxInt32), 4933, 1013, 1, 8372},
-		// {newRollingHashSplitter(buzhash.NewBuzHash(32), 0, 2048, math.MaxInt32), 2476, 2019, 1, 19454},
-		// {newRollingHashSplitter(buzhash.NewBuzHash(32), 0, 32768, math.MaxInt32), 185, 27027, 1, 177510},
-		// {newRollingHashSplitter(buzhash.NewBuzHash(32), 0, 65536, math.MaxInt32), 99, 50505, 418, 230449},
-
-		// // min and max
-		// {newRollingHashSplitter(buzhash.NewBuzHash(32), 0, 32, 64), 179921, 27, 1, 64},
-		// {newRollingHashSplitter(buzhash.NewBuzHash(32), 0, 1024, 10000), 4933, 1013, 1, 8372},
-		// {newRollingHashSplitter(buzhash.NewBuzHash(32), 0, 2048, 10000), 2490, 2008, 1, 10000},
-		// {newRollingHashSplitter(buzhash.NewBuzHash(32), 500, 32768, 100000), 183, 27322, 522, 100000},
-		// {newRollingHashSplitter(buzhash.NewBuzHash(32), 500, 65536, 100000), 113, 44247, 522, 100000},
+		{newBuzHash32SplitterFactory(32)(), 124235, 40, 16, 64},
+		{newBuzHash32SplitterFactory(1024)(), 3835, 1303, 512, 2048},
+		{newBuzHash32SplitterFactory(2048)(), 1924, 2598, 1024, 4096},
+		{newBuzHash32SplitterFactory(32768)(), 112, 44642, 16413, 65536},
+		{newBuzHash32SplitterFactory(65536)(), 57, 87719, 32932, 131072},
+		{newRabinKarp64SplitterFactory(32)(), 124108, 40, 16, 64},
+		{newRabinKarp64SplitterFactory(1024)(), 3771, 1325, 512, 2048},
+		{newRabinKarp64SplitterFactory(2048)(), 1887, 2649, 1028, 4096},
+		{newRabinKarp64SplitterFactory(32768)(), 121, 41322, 16896, 65536},
+		{newRabinKarp64SplitterFactory(65536)(), 53, 94339, 35875, 131072},
 	}
 
 	for _, tc := range cases {
