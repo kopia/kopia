@@ -13,6 +13,7 @@ require (
 	github.com/danieljoos/wincred v1.0.2 // indirect
 	github.com/efarrer/iothrottler v0.0.0-20141121142253-60e7e547c7fe
 	github.com/go-ini/ini v1.42.0 // indirect
+	github.com/godbus/dbus v4.1.0+incompatible // indirect
 	github.com/jpillora/go-ogle-analytics v0.0.0-20161213085824-14b04e0594ef
 	github.com/kylelemons/godebug v0.0.0-20170820004349-d65d576e9348
 	github.com/minio/minio-go v6.0.14+incompatible
