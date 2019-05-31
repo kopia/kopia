@@ -48,8 +48,7 @@ func (e *Environment) Setup(t *testing.T, opts ...func(*repo.NewRepositoryOption
 			Encryption: "NONE",
 		},
 		ObjectFormat: object.Format{
-			Splitter:     "FIXED",
-			MaxBlockSize: 400,
+			Splitter: "FIXED-1M",
 		},
 	}
 

@@ -58,7 +58,7 @@ type objectWriter struct {
 
 	description string
 
-	splitter objectSplitter
+	splitter Splitter
 }
 
 func (w *objectWriter) Close() error {
@@ -72,7 +72,7 @@ func (w *objectWriter) Write(data []byte) (n int, err error) {
 	for _, d := range data {
 		w.buffer.WriteByte(d)
 
-		if w.splitter.add(d) {
+		if w.splitter.ShouldSplit(d) {
 			if err := w.flushBuffer(); err != nil {
 				return 0, err
 			}

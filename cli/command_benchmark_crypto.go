@@ -11,26 +11,26 @@ import (
 )
 
 var (
-	blockCryptoBenchmarkCommand    = blockCommands.Command("cryptobenchmark", "Run hash and encryption benchmarks")
-	blockCryptoBenchmarkBlockSize  = blockCryptoBenchmarkCommand.Flag("block-size", "Size of a block to encrypt").Default("1MB").Bytes()
-	blockCryptoBenchmarkEncryption = blockCryptoBenchmarkCommand.Flag("encryption", "Test encrypted formats").Default("true").Bool()
-	blockCryptoBenchmarkRepeat     = blockCryptoBenchmarkCommand.Flag("repeat", "Number of repetitions").Default("100").Int()
+	benchmarkCryptoCommand    = benchmarkCommands.Command("crypto", "Run hash and encryption benchmarks")
+	benchmarkCryptoBlockSize  = benchmarkCryptoCommand.Flag("block-size", "Size of a block to encrypt").Default("1MB").Bytes()
+	benchmarkCryptoEncryption = benchmarkCryptoCommand.Flag("encryption", "Test encrypted formats").Default("true").Bool()
+	benchmarkCryptoRepeat     = benchmarkCryptoCommand.Flag("repeat", "Number of repetitions").Default("100").Int()
 )
 
-type benchResult struct {
-	hash       string
-	encryption string
-	throughput float64
-}
+func runBenchmarkCryptoAction(ctx *kingpin.ParseContext) error {
 
-func runBlockCryptoBenchmarkAction(ctx *kingpin.ParseContext) error {
+	type benchResult struct {
+		hash       string
+		encryption string
+		throughput float64
+	}
 	var results []benchResult
 
-	data := make([]byte, *blockCryptoBenchmarkBlockSize)
+	data := make([]byte, *benchmarkCryptoBlockSize)
 	for _, ha := range block.SupportedHashAlgorithms() {
 		for _, ea := range block.SupportedEncryptionAlgorithms() {
 			isEncrypted := ea != "NONE"
-			if *blockCryptoBenchmarkEncryption != isEncrypted {
+			if *benchmarkCryptoEncryption != isEncrypted {
 				continue
 			}
 
@@ -44,9 +44,9 @@ func runBlockCryptoBenchmarkAction(ctx *kingpin.ParseContext) error {
 				continue
 			}
 
-			log.Infof("Benchmarking hash '%v' and encryption '%v'... (%v x %v bytes)", ha, ea, *blockCryptoBenchmarkRepeat, len(data))
+			log.Infof("Benchmarking hash '%v' and encryption '%v'... (%v x %v bytes)", ha, ea, *benchmarkCryptoRepeat, len(data))
 			t0 := time.Now()
-			hashCount := *blockCryptoBenchmarkRepeat
+			hashCount := *benchmarkCryptoRepeat
 			for i := 0; i < hashCount; i++ {
 				blockID := h(data)
 				if _, encerr := e.Encrypt(data, blockID); encerr != nil {
@@ -74,5 +74,5 @@ func runBlockCryptoBenchmarkAction(ctx *kingpin.ParseContext) error {
 }
 
 func init() {
-	blockCryptoBenchmarkCommand.Action(runBlockCryptoBenchmarkAction)
+	benchmarkCryptoCommand.Action(runBenchmarkCryptoAction)
 }

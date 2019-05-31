@@ -35,27 +35,13 @@ func runStatusCommand(ctx context.Context, rep *repo.Repository) error {
 	}
 	fmt.Println()
 
-	var splitterExtraInfo string
-
-	switch rep.Objects.Format.Splitter {
-	case "DYNAMIC":
-		splitterExtraInfo = fmt.Sprintf(
-			" (min: %v; avg: %v; max: %v)",
-			units.BytesStringBase2(int64(rep.Objects.Format.MinBlockSize)),
-			units.BytesStringBase2(int64(rep.Objects.Format.AvgBlockSize)),
-			units.BytesStringBase2(int64(rep.Objects.Format.MaxBlockSize)))
-	case "":
-	case "FIXED":
-		splitterExtraInfo = fmt.Sprintf(" %v", units.BytesStringBase2(int64(rep.Objects.Format.MaxBlockSize)))
-	}
-
 	fmt.Println()
 	fmt.Printf("Unique ID:           %x\n", rep.UniqueID)
 	fmt.Println()
 	fmt.Printf("Block hash:          %v\n", rep.Blocks.Format.Hash)
 	fmt.Printf("Block encryption:    %v\n", rep.Blocks.Format.Encryption)
 	fmt.Printf("Max pack length:     %v\n", units.BytesStringBase2(int64(rep.Blocks.Format.MaxPackSize)))
-	fmt.Printf("Splitter:            %v%v\n", rep.Objects.Format.Splitter, splitterExtraInfo)
+	fmt.Printf("Splitter:            %v\n", rep.Objects.Format.Splitter)
 
 	return nil
 }

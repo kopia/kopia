@@ -33,6 +33,7 @@ var (
 	blockCommands      = app.Command("block", "Commands to manipulate virtual blocks in repository.").Alias("blk").Hidden()
 	storageCommands    = app.Command("storage", "Commands to manipulate raw storage blocks.").Hidden()
 	blockIndexCommands = app.Command("blockindex", "Commands to manipulate block index.").Hidden()
+	benchmarkCommands  = app.Command("benchmark", "Commands to test performance of algorithms.").Hidden()
 )
 
 func helpFullAction(ctx *kingpin.ParseContext) error {

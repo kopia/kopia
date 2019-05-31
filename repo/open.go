@@ -7,8 +7,8 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/internal/repologging"
+	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/repo/storage"
@@ -107,7 +107,7 @@ func OpenWithConfig(ctx context.Context, st storage.Storage, lc *LocalConfig, pa
 
 	fo := repoConfig.FormattingOptions
 	if fo.MaxPackSize == 0 {
-		fo.MaxPackSize = repoConfig.MaxBlockSize
+		fo.MaxPackSize = 20 << 20 // 20 MB
 	}
 
 	log.Debugf("initializing block manager")

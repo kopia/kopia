@@ -5,12 +5,11 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/fs/ignorefs"
-	"github.com/kopia/kopia/internal/units"
-	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/repo/storage"
+	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/pkg/errors"
 )
 
@@ -19,11 +18,7 @@ var (
 
 	createBlockHashFormat       = createCommand.Flag("block-hash", "Block hash algorithm.").PlaceHolder("ALGO").Default(block.DefaultHash).Enum(block.SupportedHashAlgorithms()...)
 	createBlockEncryptionFormat = createCommand.Flag("encryption", "Block encryption algorithm.").PlaceHolder("ALGO").Default(block.DefaultEncryption).Enum(block.SupportedEncryptionAlgorithms()...)
-	createObjectSplitter        = createCommand.Flag("object-splitter", "The splitter to use for new objects in the repository").Default("DYNAMIC").Enum(object.SupportedSplitters...)
-
-	createMinBlockSize = createCommand.Flag("min-block-size", "Minimum size of a data block.").PlaceHolder("KB").Default("1024").Int()
-	createAvgBlockSize = createCommand.Flag("avg-block-size", "Average size of a data block.").PlaceHolder("KB").Default("10240").Int()
-	createMaxBlockSize = createCommand.Flag("max-block-size", "Maximum size of a data block.").PlaceHolder("KB").Default("20480").Int()
+	createSplitter              = createCommand.Flag("object-splitter", "The splitter to use for new objects in the repository").Default("DYNAMIC").Enum(object.SupportedSplitters...)
 
 	createOverwrite = createCommand.Flag("overwrite", "Overwrite existing data (DANGEROUS).").Bool()
 	createOnly      = createCommand.Flag("create-only", "Create repository, but don't connect to it.").Short('c').Bool()
@@ -53,10 +48,7 @@ func newRepositoryOptionsFromFlags() *repo.NewRepositoryOptions {
 		},
 
 		ObjectFormat: object.Format{
-			Splitter:     *createObjectSplitter,
-			MinBlockSize: *createMinBlockSize * 1024,
-			AvgBlockSize: *createAvgBlockSize * 1024,
-			MaxBlockSize: *createMaxBlockSize * 1024,
+			Splitter: *createSplitter,
 		},
 	}
 }
@@ -88,19 +80,7 @@ func runCreateCommandWithStorage(ctx context.Context, st storage.Storage) error 
 	printStderr("Initializing repository with:\n")
 	printStderr("  block hash:          %v\n", options.BlockFormat.Hash)
 	printStderr("  encryption:          %v\n", options.BlockFormat.Encryption)
-	switch options.ObjectFormat.Splitter {
-	case "DYNAMIC":
-		printStderr("  object splitter:     DYNAMIC with block sizes (min:%v avg:%v max:%v)\n",
-			units.BytesStringBase2(int64(options.ObjectFormat.MinBlockSize)),
-			units.BytesStringBase2(int64(options.ObjectFormat.AvgBlockSize)),
-			units.BytesStringBase2(int64(options.ObjectFormat.MaxBlockSize)))
-
-	case "FIXED":
-		printStderr("  object splitter:     FIXED with with block size: %v\n", units.BytesStringBase2(int64(options.ObjectFormat.MaxBlockSize)))
-
-	case "NEVER":
-		printStderr("  object splitter:     NEVER\n")
-	}
+	printStderr("  splitter:            %v\n", options.ObjectFormat.Splitter)
 
 	if err := repo.Initialize(ctx, st, options, password); err != nil {
 		return errors.Wrap(err, "cannot initialize repository")
