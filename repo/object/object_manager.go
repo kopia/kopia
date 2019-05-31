@@ -28,10 +28,7 @@ type blockManager interface {
 
 // Format describes the format of objects in a repository.
 type Format struct {
-	Splitter     string `json:"splitter,omitempty"`     // splitter used to break objects into storage blocks
-	MinBlockSize int    `json:"minBlockSize,omitempty"` // minimum block size used with dynamic splitter
-	AvgBlockSize int    `json:"avgBlockSize,omitempty"` // approximate size of storage block (used with dynamic splitter)
-	MaxBlockSize int    `json:"maxBlockSize,omitempty"` // maximum size of storage block
+	Splitter string `json:"splitter,omitempty"` // splitter used to break objects into storage blocks
 }
 
 // Manager implements a content-addressable storage on top of blob storage.
@@ -41,7 +38,7 @@ type Manager struct {
 	blockMgr blockManager
 	trace    func(message string, args ...interface{})
 
-	newSplitter func() objectSplitter
+	newSplitter func() Splitter
 }
 
 // NewWriter creates an ObjectWriter for writing to the repository.
@@ -166,14 +163,12 @@ func NewObjectManager(ctx context.Context, bm blockManager, f Format, opts Manag
 		splitterID = "FIXED"
 	}
 
-	os := splitterFactories[splitterID]
+	os := GetSplitterFactory(splitterID)
 	if os == nil {
 		return nil, fmt.Errorf("unsupported splitter %q", f.Splitter)
 	}
 
-	om.newSplitter = func() objectSplitter {
-		return os(&f)
-	}
+	om.newSplitter = os
 
 	if opts.Trace != nil {
 		om.trace = opts.Trace

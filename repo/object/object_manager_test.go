@@ -68,8 +68,7 @@ func setupTest(t *testing.T) (map[string][]byte, *Manager) {
 
 func setupTestWithData(t *testing.T, data map[string][]byte, opts ManagerOptions) (map[string][]byte, *Manager) {
 	r, err := NewObjectManager(context.Background(), &fakeBlockManager{data: data}, Format{
-		MaxBlockSize: 400,
-		Splitter:     "FIXED",
+		Splitter: "FIXED-1M",
 	}, opts)
 	if err != nil {
 		t.Fatalf("can't create object manager: %v", err)
@@ -159,17 +158,22 @@ func verifyIndirectBlock(ctx context.Context, t *testing.T, r *Manager, oid ID) 
 
 func TestIndirection(t *testing.T) {
 	ctx := context.Background()
+
+	splitterFactory := newFixedSplitterFactory(1000)
 	cases := []struct {
 		dataLength          int
 		expectedBlockCount  int
 		expectedIndirection int
 	}{
 		{dataLength: 200, expectedBlockCount: 1, expectedIndirection: 0},
-		{dataLength: 1400, expectedBlockCount: 3, expectedIndirection: 1},
-		{dataLength: 2000, expectedBlockCount: 4, expectedIndirection: 2},
-		{dataLength: 3000, expectedBlockCount: 5, expectedIndirection: 2},
-		{dataLength: 4000, expectedBlockCount: 5, expectedIndirection: 2},
-		{dataLength: 10000, expectedBlockCount: 10, expectedIndirection: 3},
+		{dataLength: 1000, expectedBlockCount: 1, expectedIndirection: 0},
+		{dataLength: 1001, expectedBlockCount: 3, expectedIndirection: 1},
+		// 1 block of 1000 zeros, 1 block of 5 zeros + 1 index block
+		{dataLength: 3005, expectedBlockCount: 3, expectedIndirection: 1},
+		// 1 block of 1000 zeros + 1 index block
+		{dataLength: 4000, expectedBlockCount: 2, expectedIndirection: 1},
+		// 1 block of 1000 zeros + 1 index block
+		{dataLength: 10000, expectedBlockCount: 2, expectedIndirection: 1},
 	}
 
 	for _, c := range cases {
@@ -178,6 +182,7 @@ func TestIndirection(t *testing.T) {
 		contentBytes := make([]byte, c.dataLength)
 
 		writer := om.NewWriter(ctx, WriterOptions{})
+		writer.(*objectWriter).splitter = splitterFactory()
 		if _, err := writer.Write(contentBytes); err != nil {
 			t.Errorf("write error: %v", err)
 		}
@@ -185,6 +190,8 @@ func TestIndirection(t *testing.T) {
 		if err != nil {
 			t.Errorf("error getting writer results: %v", err)
 		}
+
+		t.Logf("len %v got %v", len(contentBytes), result)
 
 		if indirectionLevel(result) != c.expectedIndirection {
 			t.Errorf("incorrect indirection level for size: %v: %v, expected %v", c.dataLength, indirectionLevel(result), c.expectedIndirection)

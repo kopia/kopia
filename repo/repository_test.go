@@ -11,9 +11,9 @@ import (
 	"runtime/debug"
 	"testing"
 
+	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/block"
-	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/repo/storage"
 )
@@ -263,8 +263,7 @@ func TestFormats(t *testing.T) {
 			n.BlockFormat.Hash = hash
 			n.BlockFormat.Encryption = encryption
 			n.BlockFormat.HMACSecret = []byte("key")
-			n.ObjectFormat.MaxBlockSize = 10000
-			n.ObjectFormat.Splitter = "FIXED"
+			n.ObjectFormat.Splitter = "FIXED-1M"
 		}
 	}
 
@@ -274,7 +273,6 @@ func TestFormats(t *testing.T) {
 	}{
 		{
 			format: func(n *repo.NewRepositoryOptions) {
-				n.ObjectFormat.MaxBlockSize = 10000
 			},
 			oids: map[string]object.ID{
 				"": "b613679a0814d9ec772f95d778c35fc5ff1697c493715653c6c712144292c5ad",

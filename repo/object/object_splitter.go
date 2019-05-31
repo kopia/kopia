@@ -1,33 +1,57 @@
 package object
 
 import (
-	"math"
 	"sort"
-
-	"github.com/silvasur/buzhash"
 )
 
-type objectSplitter interface {
-	add(b byte) bool
+const (
+	splitterSlidingWindowSize = 64
+)
+
+// Splitter determines when to split a given object.
+// It must return true if the object should be split after byte b is processed.
+type Splitter interface {
+	ShouldSplit(b byte) bool
 }
 
-// SupportedSplitters is a list of supported object splitters including:
-//
-//    NEVER    - prevents objects from ever splitting
-//    FIXED    - always splits large objects exactly at the maximum block size boundary
-//    DYNAMIC  - dynamically splits large objects based on rolling hash of contents.
+// SupportedSplitters is a list of supported object splitters.
 var SupportedSplitters []string
 
-var splitterFactories = map[string]func(*Format) objectSplitter{
-	"NEVER": func(f *Format) objectSplitter {
-		return newNeverSplitter()
-	},
-	"FIXED": func(f *Format) objectSplitter {
-		return newFixedSplitter(f.MaxBlockSize)
-	},
-	"DYNAMIC": func(f *Format) objectSplitter {
-		return newRollingHashSplitter(buzhash.NewBuzHash(32), f.MinBlockSize, f.AvgBlockSize, f.MaxBlockSize)
-	},
+// SplitterFactory creates instances of Splitter
+type SplitterFactory func() Splitter
+
+// splitterFactories is a map of registered splitter factories.
+var splitterFactories = map[string]SplitterFactory{
+	"FIXED-1M": newFixedSplitterFactory(megabytes(1)),
+	"FIXED-2M": newFixedSplitterFactory(megabytes(2)),
+	"FIXED-4M": newFixedSplitterFactory(megabytes(4)),
+	"FIXED-8M": newFixedSplitterFactory(megabytes(8)),
+
+	"DYNAMIC-1M-BUZHASH": newBuzHash32SplitterFactory(megabytes(1)),
+	"DYNAMIC-2M-BUZHASH": newBuzHash32SplitterFactory(megabytes(2)),
+	"DYNAMIC-4M-BUZHASH": newBuzHash32SplitterFactory(megabytes(4)),
+	"DYNAMIC-8M-BUZHASH": newBuzHash32SplitterFactory(megabytes(8)),
+
+	"DYNAMIC-1M-RABINKARP": newRabinKarp64SplitterFactory(megabytes(1)),
+	"DYNAMIC-2M-RABINKARP": newRabinKarp64SplitterFactory(megabytes(2)),
+	"DYNAMIC-4M-RABINKARP": newRabinKarp64SplitterFactory(megabytes(4)),
+	"DYNAMIC-8M-RABINKARP": newRabinKarp64SplitterFactory(megabytes(8)),
+
+	// handle deprecated legacy names to splitters of arbitrary size
+	"FIXED": newFixedSplitterFactory(4 << 20),
+
+	// we don't want to use old DYNAMIC splitter because of its licence, so
+	// map this one to arbitrary buzhash32 (different)
+	"DYNAMIC": newBuzHash32SplitterFactory(megabytes(4)),
+}
+
+func megabytes(mb int) int {
+	return mb << 20
+}
+
+// GetSplitterFactory gets splitter factory with a specified name or nil if not found.
+func GetSplitterFactory(name string) SplitterFactory {
+	return splitterFactories[name]
 }
 
 func init() {
@@ -38,73 +62,4 @@ func init() {
 }
 
 // DefaultSplitter is the name of the splitter used by default for new repositories.
-const DefaultSplitter = "DYNAMIC"
-
-type neverSplitter struct{}
-
-func (s *neverSplitter) add(b byte) bool {
-	return false
-}
-
-func newNeverSplitter() objectSplitter {
-	return &neverSplitter{}
-}
-
-type fixedSplitter struct {
-	cur         int
-	chunkLength int
-}
-
-func (s *fixedSplitter) add(b byte) bool {
-	s.cur++
-	if s.cur >= s.chunkLength {
-		s.cur = 0
-		return true
-	}
-
-	return false
-}
-
-func newFixedSplitter(chunkLength int) objectSplitter {
-	return &fixedSplitter{chunkLength: chunkLength}
-}
-
-type rollingHash interface {
-	HashByte(b byte) uint32
-}
-
-type rollingHashSplitter struct {
-	rh   rollingHash
-	mask uint32
-
-	currentBlockSize int
-	minBlockSize     int
-	maxBlockSize     int
-}
-
-func (rs *rollingHashSplitter) add(b byte) bool {
-	sum := rs.rh.HashByte(b)
-	rs.currentBlockSize++
-	if rs.currentBlockSize >= rs.maxBlockSize {
-		rs.currentBlockSize = 0
-		return true
-	}
-	if sum&rs.mask == 0 && rs.currentBlockSize > rs.minBlockSize && sum != 0 {
-		//log.Printf("splitting %v on sum %x mask %x", rs.currentBlockSize, sum, rs.mask)
-		rs.currentBlockSize = 0
-		return true
-	}
-	return false
-}
-
-func newRollingHashSplitter(rh rollingHash, minBlockSize int, approxBlockSize int, maxBlockSize int) objectSplitter {
-	bits := rollingHashBits(approxBlockSize)
-	mask := ^(^uint32(0) << bits)
-	return &rollingHashSplitter{rh, mask, 0, minBlockSize, maxBlockSize}
-}
-
-func rollingHashBits(n int) uint {
-	e := math.Log2(float64(n))
-	exp := math.Floor(e + 0.5)
-	return uint(exp)
-}
+const DefaultSplitter = "DYNAMIC-4M-BUZHASH"
