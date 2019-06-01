@@ -20,7 +20,7 @@ var (
 	connectFlat     bool
 )
 
-func connect(ctx context.Context) (storage.Storage, error) {
+func connect(ctx context.Context, isNew bool) (storage.Storage, error) {
 	fso := options
 	if v := connectOwnerUID; v != "" {
 		fso.FileUID = getIntPtrValue(v, 10)
@@ -28,17 +28,20 @@ func connect(ctx context.Context) (storage.Storage, error) {
 	if v := connectOwnerGID; v != "" {
 		fso.FileGID = getIntPtrValue(v, 10)
 	}
-	if v := connectFileMode; v != "" {
-		fso.FileMode = getFileModeValue(v, 8)
-	}
-	if v := connectDirMode; v != "" {
-		fso.DirectoryMode = getFileModeValue(v, 8)
-	}
+
+	fso.FileMode = getFileModeValue(connectFileMode, 0600)
+	fso.DirectoryMode = getFileModeValue(connectDirMode, 0700)
 
 	if connectFlat {
 		fso.DirectoryShards = []int{}
 	}
 
+	if isNew {
+		log.Infof("creating directory for repository: %v dir mode: %v", fso.Path, fso.DirectoryMode)
+		if err := os.MkdirAll(fso.Path, fso.DirectoryMode); err != nil {
+			log.Warningf("unable to create directory: %v", fso.Path)
+		}
+	}
 	return filesystem.New(ctx, &fso)
 }
 

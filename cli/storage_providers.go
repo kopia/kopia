@@ -14,7 +14,7 @@ func RegisterStorageConnectFlags(
 	name string,
 	description string,
 	flags func(*kingpin.CmdClause),
-	connect func(ctx context.Context) (storage.Storage, error)) {
+	connect func(ctx context.Context, isNew bool) (storage.Storage, error)) {
 
 	if name != "from-config" {
 		// Set up 'create' subcommand
@@ -22,7 +22,7 @@ func RegisterStorageConnectFlags(
 		flags(cc)
 		cc.Action(func(_ *kingpin.ParseContext) error {
 			ctx := context.Background()
-			st, err := connect(ctx)
+			st, err := connect(ctx, true)
 			if err != nil {
 				return errors.Wrap(err, "can't connect to storage")
 			}
@@ -36,7 +36,7 @@ func RegisterStorageConnectFlags(
 	flags(cc)
 	cc.Action(func(_ *kingpin.ParseContext) error {
 		ctx := context.Background()
-		st, err := connect(ctx)
+		st, err := connect(ctx, false)
 		if err != nil {
 			return errors.Wrap(err, "can't connect to storage")
 		}
@@ -49,7 +49,7 @@ func RegisterStorageConnectFlags(
 	flags(cc)
 	cc.Action(func(_ *kingpin.ParseContext) error {
 		ctx := context.Background()
-		st, err := connect(ctx)
+		st, err := connect(ctx, false)
 		if err != nil {
 			return errors.Wrap(err, "can't connect to storage")
 		}

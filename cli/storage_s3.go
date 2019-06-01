@@ -24,7 +24,7 @@ func init() {
 			cmd.Flag("max-download-speed", "Limit the download speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&s3options.MaxDownloadSpeedBytesPerSecond)
 			cmd.Flag("max-upload-speed", "Limit the upload speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&s3options.MaxUploadSpeedBytesPerSecond)
 		},
-		func(ctx context.Context) (storage.Storage, error) {
+		func(ctx context.Context, isNew bool) (storage.Storage, error) {
 			return s3.New(ctx, &s3options)
 		},
 	)
