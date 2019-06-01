@@ -5,8 +5,9 @@ import (
 	"fmt"
 
 	"github.com/kopia/kopia/internal/units"
-	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot/policy"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -29,7 +30,7 @@ func showPolicy(ctx context.Context, rep *repo.Repository) error {
 	for _, target := range targets {
 		effective, policies, err := policy.GetEffectivePolicy(ctx, rep, target)
 		if err != nil {
-			return fmt.Errorf("can't get effective policy for %q: %v", target, err)
+			return errors.Wrapf(err, "can't get effective policy for %q", target)
 		}
 
 		if *policyShowJSON {

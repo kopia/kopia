@@ -5,7 +5,6 @@ import (
 	"crypto/cipher"
 	"crypto/hmac" //nolint:gas
 	"crypto/sha256"
-	"fmt"
 	"hash"
 	"sort"
 
@@ -133,7 +132,7 @@ func (s salsaEncryptor) IsAuthenticated() bool {
 
 func (s salsaEncryptor) encryptDecrypt(input []byte, blockID []byte) ([]byte, error) {
 	if len(blockID) < s.nonceSize {
-		return nil, fmt.Errorf("hash too short, expected >=%v bytes, got %v", s.nonceSize, len(blockID))
+		return nil, errors.Errorf("hash too short, expected >=%v bytes, got %v", s.nonceSize, len(blockID))
 	}
 	result := make([]byte, len(input))
 	nonce := blockID[0:s.nonceSize]
@@ -174,7 +173,7 @@ func newCTREncryptorFactory(keySize int, createCipherWithKey func(key []byte) (c
 	return func(o FormattingOptions) (Encryptor, error) {
 		key, err := adjustKey(o.MasterKey, keySize)
 		if err != nil {
-			return nil, fmt.Errorf("unable to get encryption key: %v", err)
+			return nil, errors.Wrap(err, "unable to get encryption key")
 		}
 
 		return ctrEncryptor{
@@ -273,5 +272,5 @@ func adjustKey(masterKey []byte, desiredKeySize int) ([]byte, error) {
 		return masterKey[0:desiredKeySize], nil
 	}
 
-	return nil, fmt.Errorf("required key too long %v, but only have %v", desiredKeySize, len(masterKey))
+	return nil, errors.Errorf("required key too long %v, but only have %v", desiredKeySize, len(masterKey))
 }

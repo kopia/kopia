@@ -3,7 +3,6 @@ package block
 import (
 	"container/heap"
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"sync"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/kopia/kopia/repo/storage"
 	"github.com/kopia/kopia/repo/storage/filesystem"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -167,7 +167,7 @@ func (c *blockCache) sweepDirectory(ctx context.Context) (err error) {
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("error listing cache: %v", err)
+		return errors.Wrap(err, "error listing cache")
 	}
 
 	log.Debugf("finished sweeping directory in %v and retained %v/%v bytes (%v %%)", time.Since(t0), totalRetainedSize, c.maxSizeBytes, 100*totalRetainedSize/c.maxSizeBytes)

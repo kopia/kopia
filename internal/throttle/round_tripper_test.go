@@ -2,11 +2,12 @@ package throttle
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"testing"
+
+	"github.com/pkg/errors"
 )
 
 type baseRoundTripper struct {
@@ -24,7 +25,7 @@ func (rt *baseRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 		return resp, nil
 	}
 
-	return nil, fmt.Errorf("error occurred")
+	return nil, errors.Errorf("error occurred")
 }
 
 type fakePool struct {

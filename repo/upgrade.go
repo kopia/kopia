@@ -2,7 +2,6 @@ package repo
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/pkg/errors"
 )
@@ -27,7 +26,7 @@ func (r *Repository) Upgrade(ctx context.Context) error {
 
 	log.Debug("encrypting format...")
 	if err := encryptFormatBytes(f, repoConfig, r.masterKey, f.UniqueID); err != nil {
-		return fmt.Errorf("unable to encrypt format bytes")
+		return errors.Errorf("unable to encrypt format bytes")
 	}
 
 	log.Infof("writing updated format block...")

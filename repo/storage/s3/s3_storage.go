@@ -4,7 +4,6 @@ package s3
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -13,6 +12,7 @@ import (
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/repo/storage"
 	"github.com/minio/minio-go"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -35,7 +35,7 @@ func (s *s3Storage) GetBlock(ctx context.Context, b string, offset, length int64
 		var opt minio.GetObjectOptions
 		if length > 0 {
 			if err := opt.SetRange(offset, offset+length-1); err != nil {
-				return nil, fmt.Errorf("unable to set range: %v", err)
+				return nil, errors.Wrap(err, "unable to set range")
 			}
 		}
 
@@ -56,7 +56,7 @@ func (s *s3Storage) GetBlock(ctx context.Context, b string, offset, length int64
 		}
 
 		if len(b) != int(length) && length > 0 {
-			return nil, fmt.Errorf("invalid length, got %v bytes, but expected %v", len(b), length)
+			return nil, errors.Errorf("invalid length, got %v bytes, but expected %v", len(b), length)
 		}
 
 		if length == 0 {
@@ -217,7 +217,7 @@ func New(ctx context.Context, opt *Options) (storage.Storage, error) {
 
 	cli, err := minio.New(opt.Endpoint, opt.AccessKeyID, opt.SecretAccessKey, !opt.DoNotUseTLS)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create client: %v", err)
+		return nil, errors.Wrap(err, "unable to create client")
 	}
 
 	downloadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.MaxDownloadSpeedBytesPerSecond))

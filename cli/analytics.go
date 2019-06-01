@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/jpillora/go-ogle-analytics"
+	ga "github.com/jpillora/go-ogle-analytics"
 	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/repo"
 )

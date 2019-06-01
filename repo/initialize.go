@@ -3,7 +3,6 @@ package repo
 import (
 	"context"
 	"crypto/rand"
-	"fmt"
 	"io"
 
 	"github.com/kopia/kopia/repo/block"
@@ -36,7 +35,7 @@ func Initialize(ctx context.Context, st storage.Storage, opt *NewRepositoryOptio
 	// get the block - expect ErrBlockNotFound
 	_, err := st.GetBlock(ctx, FormatBlockID, 0, -1)
 	if err == nil {
-		return fmt.Errorf("repository already initialized")
+		return errors.Errorf("repository already initialized")
 	}
 	if err != storage.ErrBlockNotFound {
 		return err

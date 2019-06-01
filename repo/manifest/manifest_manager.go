@@ -8,7 +8,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"sort"
 	"sync"
 	"time"
@@ -51,7 +50,7 @@ type Manager struct {
 // Put serializes the provided payload to JSON and persists it. Returns unique handle that represents the object.
 func (m *Manager) Put(ctx context.Context, labels map[string]string, payload interface{}) (string, error) {
 	if labels["type"] == "" {
-		return "", fmt.Errorf("'type' label is required")
+		return "", errors.Errorf("'type' label is required")
 	}
 
 	if err := m.ensureInitialized(ctx); err != nil {
@@ -121,7 +120,7 @@ func (m *Manager) Get(ctx context.Context, id string, data interface{}) error {
 	}
 
 	if err := json.Unmarshal(b, data); err != nil {
-		return fmt.Errorf("unable to unmashal %q: %v", id, err)
+		return errors.Wrapf(err, "unable to unmashal %q", id)
 	}
 
 	return nil
@@ -297,7 +296,7 @@ func (m *Manager) loadCommittedBlocksLocked(ctx context.Context) error {
 	}
 
 	if err := m.maybeCompactLocked(ctx); err != nil {
-		return fmt.Errorf("error auto-compacting blocks")
+		return errors.Errorf("error auto-compacting blocks")
 	}
 
 	return nil
@@ -394,11 +393,11 @@ func (m *Manager) loadManifestBlock(ctx context.Context, blockID string) (manife
 
 	gz, err := gzip.NewReader(bytes.NewReader(blk))
 	if err != nil {
-		return man, fmt.Errorf("unable to unpack block %q: %v", blockID, err)
+		return man, errors.Wrapf(err, "unable to unpack block %q", blockID)
 	}
 
 	if err := json.NewDecoder(gz).Decode(&man); err != nil {
-		return man, fmt.Errorf("unable to parse block %q: %v", blockID, err)
+		return man, errors.Wrapf(err, "unable to parse block %q", blockID)
 	}
 
 	return man, nil
@@ -458,7 +457,7 @@ func (m *Manager) compactLocked(ctx context.Context) error {
 		}
 
 		if err := m.b.DeleteBlock(b); err != nil {
-			return fmt.Errorf("unable to delete block %q: %v", b, err)
+			return errors.Wrapf(err, "unable to delete block %q", b)
 		}
 
 		delete(m.committedBlockIDs, b)

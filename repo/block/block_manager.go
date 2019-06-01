@@ -272,7 +272,7 @@ func (bm *Manager) flushPackIndexesLocked(ctx context.Context) error {
 		var buf bytes.Buffer
 
 		if err := bm.packIndexBuilder.Build(&buf); err != nil {
-			return fmt.Errorf("unable to build pack index: %v", err)
+			return errors.Wrap(err, "unable to build pack index")
 		}
 
 		data := buf.Bytes()
@@ -284,7 +284,7 @@ func (bm *Manager) flushPackIndexesLocked(ctx context.Context) error {
 		}
 
 		if err := bm.committedBlocks.addBlock(indexBlockID, dataCopy, true); err != nil {
-			return fmt.Errorf("unable to add committed block: %v", err)
+			return errors.Wrap(err, "unable to add committed block")
 		}
 		bm.packIndexBuilder = make(packIndexBuilder)
 	}
@@ -304,7 +304,7 @@ func (bm *Manager) finishPackLocked(ctx context.Context) error {
 	}
 
 	if err := bm.writePackBlockLocked(ctx); err != nil {
-		return fmt.Errorf("error writing pack block: %v", err)
+		return errors.Wrap(err, "error writing pack block")
 	}
 
 	bm.startPackIndexLocked()
@@ -316,19 +316,19 @@ func (bm *Manager) writePackBlockLocked(ctx context.Context) error {
 
 	blockID := make([]byte, 16)
 	if _, err := cryptorand.Read(blockID); err != nil {
-		return fmt.Errorf("unable to read crypto bytes: %v", err)
+		return errors.Wrap(err, "unable to read crypto bytes")
 	}
 
 	packFile := fmt.Sprintf("%v%x", PackBlockPrefix, blockID)
 
 	blockData, packFileIndex, err := bm.preparePackDataBlock(packFile)
 	if err != nil {
-		return fmt.Errorf("error preparing data block: %v", err)
+		return errors.Wrap(err, "error preparing data block")
 	}
 
 	if len(blockData) > 0 {
 		if err := bm.writePackFileNotLocked(ctx, packFile, blockData); err != nil {
-			return fmt.Errorf("can't save pack data block: %v", err)
+			return errors.Wrap(err, "can't save pack data block")
 		}
 	}
 
@@ -345,7 +345,7 @@ func (bm *Manager) preparePackDataBlock(packFile string) ([]byte, packIndexBuild
 
 	blockData, err := appendRandomBytes(append([]byte(nil), bm.repositoryFormatBytes...), rand.Intn(bm.maxPreambleLength-bm.minPreambleLength+1)+bm.minPreambleLength)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to prepare block preamble: %v", err)
+		return nil, nil, errors.Wrap(err, "unable to prepare block preamble")
 	}
 
 	packFileIndex := packIndexBuilder{}
@@ -357,7 +357,7 @@ func (bm *Manager) preparePackDataBlock(packFile string) ([]byte, packIndexBuild
 		var encrypted []byte
 		encrypted, err = bm.maybeEncryptBlockDataForPacking(info.Payload, info.BlockID)
 		if err != nil {
-			return nil, nil, fmt.Errorf("unable to encrypt %q: %v", blockID, err)
+			return nil, nil, errors.Wrapf(err, "unable to encrypt %q", blockID)
 		}
 
 		formatLog.Debugf("adding %v length=%v deleted=%v", blockID, len(info.Payload), info.Deleted)
@@ -383,7 +383,7 @@ func (bm *Manager) preparePackDataBlock(packFile string) ([]byte, packIndexBuild
 		if missing := bm.paddingUnit - (len(blockData) % bm.paddingUnit); missing > 0 {
 			blockData, err = appendRandomBytes(blockData, missing)
 			if err != nil {
-				return nil, nil, fmt.Errorf("unable to prepare block postamble: %v", err)
+				return nil, nil, errors.Wrap(err, "unable to prepare block postamble")
 			}
 		}
 	}
@@ -460,7 +460,7 @@ func (bm *Manager) loadPackIndexesUnlocked(ctx context.Context) ([]IndexInfo, bo
 		}
 	}
 
-	return nil, false, fmt.Errorf("unable to load pack indexes despite %v retries", indexLoadAttempts)
+	return nil, false, errors.Errorf("unable to load pack indexes despite %v retries", indexLoadAttempts)
 }
 
 func (bm *Manager) tryLoadPackIndexBlocksUnlocked(ctx context.Context, blocks []IndexInfo) error {
@@ -475,7 +475,7 @@ func (bm *Manager) tryLoadPackIndexBlocksUnlocked(ctx context.Context, blocks []
 	log.Infof("downloading %v new index blocks (%v bytes)...", len(ch), unprocessedIndexesSize)
 	var wg sync.WaitGroup
 
-	errors := make(chan error, parallelFetches)
+	errch := make(chan error, parallelFetches)
 
 	for i := 0; i < parallelFetches; i++ {
 		wg.Add(1)
@@ -485,12 +485,12 @@ func (bm *Manager) tryLoadPackIndexBlocksUnlocked(ctx context.Context, blocks []
 			for indexBlockID := range ch {
 				data, err := bm.getPhysicalBlockInternal(ctx, indexBlockID)
 				if err != nil {
-					errors <- err
+					errch <- err
 					return
 				}
 
 				if err := bm.committedBlocks.addBlock(indexBlockID, data, false); err != nil {
-					errors <- fmt.Errorf("unable to add to committed block cache: %v", err)
+					errch <- errors.Wrap(err, "unable to add to committed block cache")
 					return
 				}
 			}
@@ -498,10 +498,10 @@ func (bm *Manager) tryLoadPackIndexBlocksUnlocked(ctx context.Context, blocks []
 	}
 
 	wg.Wait()
-	close(errors)
+	close(errch)
 
 	// Propagate async errors, if any.
-	for err := range errors {
+	for err := range errch {
 		return err
 	}
 	log.Infof("Index blocks downloaded.")
@@ -594,11 +594,11 @@ func (bm *Manager) Flush(ctx context.Context) error {
 	defer bm.unlock()
 
 	if err := bm.finishPackLocked(ctx); err != nil {
-		return fmt.Errorf("error writing pending block: %v", err)
+		return errors.Wrap(err, "error writing pending block")
 	}
 
 	if err := bm.flushPackIndexesLocked(ctx); err != nil {
-		return fmt.Errorf("error flushing indexes: %v", err)
+		return errors.Wrap(err, "error flushing indexes")
 	}
 
 	return nil
@@ -653,7 +653,7 @@ func validatePrefix(prefix string) error {
 		}
 	}
 
-	return fmt.Errorf("invalid prefix, must be a empty or single letter between 'g' and 'z'")
+	return errors.Errorf("invalid prefix, must be a empty or single letter between 'g' and 'z'")
 }
 
 func (bm *Manager) writePackFileNotLocked(ctx context.Context, packFile string, data []byte) error {
@@ -749,7 +749,7 @@ func (bm *Manager) BlockInfo(ctx context.Context, blockID string) (Info, error) 
 func (bm *Manager) FindUnreferencedStorageFiles(ctx context.Context) ([]storage.BlockMetadata, error) {
 	infos, err := bm.ListBlockInfos("", true)
 	if err != nil {
-		return nil, fmt.Errorf("unable to list index blocks: %v", err)
+		return nil, errors.Wrap(err, "unable to list index blocks")
 	}
 
 	usedPackBlocks := findPackBlocksInUse(infos)
@@ -766,7 +766,7 @@ func (bm *Manager) FindUnreferencedStorageFiles(ctx context.Context) ([]storage.
 		return nil
 	})
 	if err != nil {
-		return nil, fmt.Errorf("error listing storage blocks: %v", err)
+		return nil, errors.Wrap(err, "error listing storage blocks")
 	}
 
 	return unused, nil
@@ -871,7 +871,7 @@ func (bm *Manager) verifyChecksum(data []byte, blockID []byte) error {
 	expected = expected[len(expected)-aes.BlockSize:]
 	if !bytes.HasSuffix(blockID, expected) {
 		atomic.AddInt32(&bm.stats.InvalidBlocks, 1)
-		return fmt.Errorf("invalid checksum for blob %x, expected %x", blockID, expected)
+		return errors.Errorf("invalid checksum for blob %x, expected %x", blockID, expected)
 	}
 
 	atomic.AddInt32(&bm.stats.ValidBlocks, 1)
@@ -943,7 +943,7 @@ func NewManager(ctx context.Context, st storage.Storage, f FormattingOptions, ca
 
 func newManagerWithOptions(ctx context.Context, st storage.Storage, f FormattingOptions, caching CachingOptions, timeNow func() time.Time, repositoryFormatBytes []byte) (*Manager, error) {
 	if f.Version < minSupportedReadVersion || f.Version > currentWriteVersion {
-		return nil, fmt.Errorf("can't handle repositories created using version %v (min supported %v, max supported %v)", f.Version, minSupportedReadVersion, maxSupportedReadVersion)
+		return nil, errors.Errorf("can't handle repositories created using version %v (min supported %v, max supported %v)", f.Version, minSupportedReadVersion, maxSupportedReadVersion)
 	}
 
 	hasher, encryptor, err := CreateHashAndEncryptor(f)
@@ -953,17 +953,17 @@ func newManagerWithOptions(ctx context.Context, st storage.Storage, f Formatting
 
 	blockCache, err := newBlockCache(ctx, st, caching)
 	if err != nil {
-		return nil, fmt.Errorf("unable to initialize block cache: %v", err)
+		return nil, errors.Wrap(err, "unable to initialize block cache")
 	}
 
 	listCache, err := newListCache(ctx, st, caching)
 	if err != nil {
-		return nil, fmt.Errorf("unable to initialize list cache: %v", err)
+		return nil, errors.Wrap(err, "unable to initialize list cache")
 	}
 
 	blockIndex, err := newCommittedBlockIndex(caching)
 	if err != nil {
-		return nil, fmt.Errorf("unable to initialize committed block index: %v", err)
+		return nil, errors.Wrap(err, "unable to initialize committed block index")
 	}
 
 	m := &Manager{
@@ -992,7 +992,7 @@ func newManagerWithOptions(ctx context.Context, st storage.Storage, f Formatting
 	m.startPackIndexLocked()
 
 	if err := m.CompactIndexes(ctx, autoCompactionOptions); err != nil {
-		return nil, fmt.Errorf("error initializing block manager: %v", err)
+		return nil, errors.Wrap(err, "error initializing block manager")
 	}
 
 	return m, nil
@@ -1001,18 +1001,18 @@ func newManagerWithOptions(ctx context.Context, st storage.Storage, f Formatting
 func CreateHashAndEncryptor(f FormattingOptions) (HashFunc, Encryptor, error) {
 	h, err := createHashFunc(f)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to create hash: %v", err)
+		return nil, nil, errors.Wrap(err, "unable to create hash")
 	}
 
 	e, err := createEncryptor(f)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unable to create encryptor: %v", err)
+		return nil, nil, errors.Wrap(err, "unable to create encryptor")
 	}
 
 	blockID := h(nil)
 	_, err = e.Encrypt(nil, blockID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("invalid encryptor: %v", err)
+		return nil, nil, errors.Wrap(err, "invalid encryptor")
 	}
 
 	return h, e, nil
@@ -1021,16 +1021,16 @@ func CreateHashAndEncryptor(f FormattingOptions) (HashFunc, Encryptor, error) {
 func createHashFunc(f FormattingOptions) (HashFunc, error) {
 	h := hashFunctions[f.Hash]
 	if h == nil {
-		return nil, fmt.Errorf("unknown hash function %v", f.Hash)
+		return nil, errors.Errorf("unknown hash function %v", f.Hash)
 	}
 
 	hashFunc, err := h(f)
 	if err != nil {
-		return nil, fmt.Errorf("unable to initialize hash: %v", err)
+		return nil, errors.Wrap(err, "unable to initialize hash")
 	}
 
 	if hashFunc == nil {
-		return nil, fmt.Errorf("nil hash function returned for %v", f.Hash)
+		return nil, errors.Errorf("nil hash function returned for %v", f.Hash)
 	}
 
 	return hashFunc, nil
@@ -1039,7 +1039,7 @@ func createHashFunc(f FormattingOptions) (HashFunc, error) {
 func createEncryptor(f FormattingOptions) (Encryptor, error) {
 	e := encryptors[f.Encryption]
 	if e == nil {
-		return nil, fmt.Errorf("unknown encryption algorithm: %v", f.Encryption)
+		return nil, errors.Errorf("unknown encryption algorithm: %v", f.Encryption)
 	}
 
 	return e(f)

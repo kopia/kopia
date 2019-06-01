@@ -1,11 +1,10 @@
 package retry
 
 import (
-	"errors"
-	"fmt"
-	"reflect"
 	"testing"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 var (
@@ -38,7 +37,7 @@ func TestRetry(t *testing.T) {
 			}
 			return 4, nil
 		}, 4, nil},
-		{"retriable-never-succeeds", func() (interface{}, error) { return nil, errRetriable }, nil, fmt.Errorf("unable to complete retriable-never-succeeds despite 3 retries")},
+		{"retriable-never-succeeds", func() (interface{}, error) { return nil, errRetriable }, nil, errors.Errorf("unable to complete retriable-never-succeeds despite 3 retries")},
 	}
 
 	for _, tc := range cases {
@@ -47,7 +46,7 @@ func TestRetry(t *testing.T) {
 			t.Parallel()
 
 			got, err := WithExponentialBackoff(tc.desc, tc.f, isRetriable)
-			if !reflect.DeepEqual(err, tc.wantError) {
+			if (err != nil) != (tc.wantError != nil) {
 				t.Errorf("invalid error %q, wanted %q", err, tc.wantError)
 			}
 

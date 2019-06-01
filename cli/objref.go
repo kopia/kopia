@@ -2,13 +2,13 @@ package cli
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/snapshot/snapshotfs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/object"
+	"github.com/kopia/kopia/snapshot/snapshotfs"
+	"github.com/pkg/errors"
 )
 
 // ParseObjectID interprets the given ID string and returns corresponding object.ID.
@@ -16,7 +16,7 @@ func parseObjectID(ctx context.Context, rep *repo.Repository, id string) (object
 	parts := strings.Split(id, "/")
 	oid, err := object.ParseID(parts[0])
 	if err != nil {
-		return "", fmt.Errorf("can't parse object ID %v: %v", id, err)
+		return "", errors.Wrapf(err, "can't parse object ID %v", id)
 	}
 
 	if len(parts) == 1 {
@@ -35,7 +35,7 @@ func getNestedEntry(ctx context.Context, startingDir fs.Entry, parts []string) (
 		}
 		dir, ok := current.(fs.Directory)
 		if !ok {
-			return nil, fmt.Errorf("entry not found %q: parent is not a directory", part)
+			return nil, errors.Errorf("entry not found %q: parent is not a directory", part)
 		}
 
 		entries, err := dir.Readdir(ctx)
@@ -45,7 +45,7 @@ func getNestedEntry(ctx context.Context, startingDir fs.Entry, parts []string) (
 
 		e := entries.FindByName(part)
 		if e == nil {
-			return nil, fmt.Errorf("entry not found: %q", part)
+			return nil, errors.Errorf("entry not found: %q", part)
 		}
 
 		current = e

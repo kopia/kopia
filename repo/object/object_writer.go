@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"sync"
 
@@ -97,7 +96,7 @@ func (w *objectWriter) flushBuffer() error {
 	blockID, err := w.repo.blockMgr.WriteBlock(w.ctx, b2.Bytes(), w.prefix)
 	w.repo.trace("OBJECT_WRITER(%q) stored %v (%v bytes)", w.description, blockID, length)
 	if err != nil {
-		return fmt.Errorf("error when flushing chunk %d of %s: %v", chunkID, w.description, err)
+		return errors.Wrapf(err, "error when flushing chunk %d of %s", chunkID, w.description)
 	}
 
 	w.blockIndex[chunkID].Object = DirectObjectID(blockID)

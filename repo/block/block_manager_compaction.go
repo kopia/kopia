@@ -3,7 +3,6 @@ package block
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -26,7 +25,7 @@ type CompactOptions struct {
 func (bm *Manager) CompactIndexes(ctx context.Context, opt CompactOptions) error {
 	log.Debugf("CompactIndexes(%+v)", opt)
 	if opt.MaxSmallBlocks < opt.MinSmallBlocks {
-		return fmt.Errorf("invalid block counts")
+		return errors.Errorf("invalid block counts")
 	}
 
 	indexBlocks, _, err := bm.loadPackIndexesUnlocked(ctx)
@@ -132,7 +131,7 @@ func (bm *Manager) addIndexBlocksToBuilder(ctx context.Context, bld packIndexBui
 
 	index, err := openPackIndex(bytes.NewReader(data))
 	if err != nil {
-		return fmt.Errorf("unable to open index block %q: %v", indexBlock, err)
+		return errors.Wrapf(err, "unable to open index block %q", indexBlock)
 	}
 
 	_ = index.Iterate("", func(i Info) error {

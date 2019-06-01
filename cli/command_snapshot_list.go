@@ -9,11 +9,12 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/units"
+	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
-	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/object"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -69,7 +70,7 @@ func findManifestIDs(ctx context.Context, rep *repo.Repository, source string) (
 
 	si, err := snapshot.ParseSourceInfo(source, getHostName(), getUserName())
 	if err != nil {
-		return nil, "", fmt.Errorf("invalid directory: '%s': %s", source, err)
+		return nil, "", errors.Errorf("invalid directory: '%s': %s", source, err)
 	}
 
 	manifestIDs, relPath, err := findSnapshotsForSource(ctx, rep, si)

@@ -18,6 +18,7 @@ import (
 	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/storage"
 	"github.com/kopia/kopia/repo/storage/filesystem"
+	"github.com/pkg/errors"
 )
 
 const masterPassword = "foo-bar-baz-1234"
@@ -135,7 +136,7 @@ func longLivedRepositoryTest(ctx context.Context, t *testing.T, cancel chan stru
 func repositoryTest(ctx context.Context, t *testing.T, cancel chan struct{}, rep *repo.Repository) {
 	// reopen := func(t *testing.T, r *repo.Repository) error {
 	// 	if err := rep.Close(ctx); err != nil {
-	// 		return fmt.Errorf("error closing: %v", err)
+	// 		return errors.Wrap(err, "error closing")
 	// 	}
 
 	// 	t0 := time.Now()
@@ -192,7 +193,7 @@ func repositoryTest(ctx context.Context, t *testing.T, cancel chan struct{}, rep
 				//log.Printf("running %v", w.name)
 				if err := w.fun(ctx, t, rep); err != nil {
 					w.hitCount++
-					t.Errorf("error: %v", fmt.Errorf("error running %v: %v", w.name, err))
+					t.Errorf("error: %v", errors.Wrapf(err, "error running %v", w.name))
 					return
 				}
 				break
@@ -256,7 +257,7 @@ func listAndReadAllBlocks(ctx context.Context, t *testing.T, r *repo.Repository)
 				// this is ok, sometimes manifest manager will perform compaction and 'm' blocks will be marked as deleted
 				continue
 			}
-			return fmt.Errorf("error reading block %v: %v", bi, err)
+			return errors.Wrapf(err, "error reading block %v", bi)
 		}
 	}
 

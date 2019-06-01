@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/kopia/kopia/repo"
 	"github.com/pkg/errors"
@@ -43,7 +42,7 @@ func verifyAllBlocks(ctx context.Context, rep *repo.Repository) error {
 		return nil
 	}
 
-	return fmt.Errorf("encountered %v errors", errorCount)
+	return errors.Errorf("encountered %v errors", errorCount)
 }
 
 func verifyBlock(ctx context.Context, r *repo.Repository, blockID string) error {

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/repo/storage"
+	"github.com/pkg/errors"
 )
 
 type listCache struct {
@@ -84,11 +85,11 @@ func (c *listCache) readBlocksFromCache(ctx context.Context) (*cachedList, error
 
 	data, err = verifyAndStripHMAC(data, c.hmacSecret)
 	if err != nil {
-		return nil, fmt.Errorf("invalid file %v: %v", c.cacheFile, err)
+		return nil, errors.Wrapf(err, "invalid file %v", c.cacheFile)
 	}
 
 	if err := json.Unmarshal(data, &ci); err != nil {
-		return nil, fmt.Errorf("can't unmarshal cached list results: %v", err)
+		return nil, errors.Wrap(err, "can't unmarshal cached list results")
 	}
 
 	return ci, nil

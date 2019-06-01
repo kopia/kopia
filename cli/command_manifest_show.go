@@ -3,9 +3,9 @@ package cli
 import (
 	"bytes"
 	"context"
-	"fmt"
 
 	"github.com/kopia/kopia/repo"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -21,12 +21,12 @@ func showManifestItems(ctx context.Context, rep *repo.Repository) error {
 	for _, it := range *manifestShowItems {
 		md, err := rep.Manifests.GetMetadata(ctx, it)
 		if err != nil {
-			return fmt.Errorf("error getting metadata for %q: %v", it, err)
+			return errors.Wrapf(err, "error getting metadata for %q", it)
 		}
 
 		b, err := rep.Manifests.GetRaw(ctx, it)
 		if err != nil {
-			return fmt.Errorf("error showing %q: %v", it, err)
+			return errors.Wrapf(err, "error showing %q", it)
 		}
 
 		printStderr("// id: %v\n", it)

@@ -2,7 +2,8 @@ package block
 
 import (
 	"encoding/binary"
-	"fmt"
+
+	"github.com/pkg/errors"
 )
 
 // Format describes a format of a single pack index. The actual structure is not used,
@@ -35,7 +36,7 @@ type entry struct {
 
 func (e *entry) parse(b []byte) error {
 	if len(b) < 20 {
-		return fmt.Errorf("invalid entry length: %v", len(b))
+		return errors.Errorf("invalid entry length: %v", len(b))
 	}
 
 	e.timestampAndFlags = binary.BigEndian.Uint64(b[0:8])

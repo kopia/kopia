@@ -2,9 +2,9 @@ package repo
 
 import (
 	"crypto/sha256"
-	"fmt"
 	"io"
 
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/hkdf"
 	"golang.org/x/crypto/scrypt"
 )
@@ -20,7 +20,7 @@ func (f formatBlock) deriveMasterKeyFromPassword(password string) ([]byte, error
 		return scrypt.Key([]byte(password), f.UniqueID, 65536, 8, 1, masterKeySize)
 
 	default:
-		return nil, fmt.Errorf("unsupported key algorithm: %v", f.KeyDerivationAlgorithm)
+		return nil, errors.Errorf("unsupported key algorithm: %v", f.KeyDerivationAlgorithm)
 	}
 }
 

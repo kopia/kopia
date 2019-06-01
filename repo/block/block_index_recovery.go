@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"fmt"
 	"hash/crc32"
 	"reflect"
+
+	"github.com/pkg/errors"
 )
 
 // RecoverIndexFromPackFile attempts to recover index block entries from a given pack file.
@@ -19,7 +20,7 @@ func (bm *Manager) RecoverIndexFromPackFile(ctx context.Context, packFile string
 
 	ndx, err := openPackIndex(bytes.NewReader(localIndexBytes))
 	if err != nil {
-		return nil, fmt.Errorf("unable to open index in file %v", packFile)
+		return nil, errors.Errorf("unable to open index in file %v", packFile)
 	}
 	defer ndx.Close() //nolint:errcheck
 
@@ -58,7 +59,7 @@ func (p *packBlockPostamble) toBytes() ([]byte, error) {
 	binary.BigEndian.PutUint32(buf[n:], checksum)
 	n += 4
 	if n > 255 {
-		return nil, fmt.Errorf("postamble too long: %v", n)
+		return nil, errors.Errorf("postamble too long: %v", n)
 	}
 
 	buf[n] = byte(n)
@@ -149,7 +150,7 @@ func decodePostamble(payload []byte) *packBlockPostamble {
 func (bm *Manager) buildLocalIndex(pending packIndexBuilder) ([]byte, error) {
 	var buf bytes.Buffer
 	if err := pending.Build(&buf); err != nil {
-		return nil, fmt.Errorf("unable to build local index: %v", err)
+		return nil, errors.Wrap(err, "unable to build local index")
 	}
 
 	return buf.Bytes(), nil
@@ -204,22 +205,22 @@ func (bm *Manager) readPackFileLocalIndex(ctx context.Context, packFile string, 
 
 	postamble := findPostamble(payload)
 	if postamble == nil {
-		return nil, fmt.Errorf("unable to find valid postamble in file %v", packFile)
+		return nil, errors.Errorf("unable to find valid postamble in file %v", packFile)
 	}
 
 	if uint64(postamble.localIndexOffset+postamble.localIndexLength) > uint64(len(payload)) {
 		// invalid offset/length
-		return nil, fmt.Errorf("unable to find valid local index in file %v", packFile)
+		return nil, errors.Errorf("unable to find valid local index in file %v", packFile)
 	}
 
 	encryptedLocalIndexBytes := payload[postamble.localIndexOffset : postamble.localIndexOffset+postamble.localIndexLength]
 	if encryptedLocalIndexBytes == nil {
-		return nil, fmt.Errorf("unable to find valid local index in file %v", packFile)
+		return nil, errors.Errorf("unable to find valid local index in file %v", packFile)
 	}
 
 	localIndexBytes, err := bm.decryptAndVerify(encryptedLocalIndexBytes, postamble.localIndexIV)
 	if err != nil {
-		return nil, fmt.Errorf("unable to decrypt local index: %v", err)
+		return nil, errors.Wrap(err, "unable to decrypt local index")
 	}
 
 	return localIndexBytes, nil

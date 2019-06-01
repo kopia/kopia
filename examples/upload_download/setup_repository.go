@@ -4,13 +4,13 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/storage/filesystem"
 	"github.com/kopia/kopia/repo/storage/logging"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -22,13 +22,13 @@ const (
 
 func setupRepositoryAndConnect(ctx context.Context, password string) error {
 	if err := os.MkdirAll(storageDir, 0700); err != nil {
-		return fmt.Errorf("unable to create directory: %v", err)
+		return errors.Wrap(err, "unable to create directory")
 	}
 	st, err := filesystem.New(ctx, &filesystem.Options{
 		Path: storageDir,
 	})
 	if err != nil {
-		return fmt.Errorf("unable to connect to storage: %v", err)
+		return errors.Wrap(err, "unable to connect to storage")
 	}
 
 	// set up logging so we can see what's going on
@@ -38,7 +38,7 @@ func setupRepositoryAndConnect(ctx context.Context, password string) error {
 	if _, err := os.Stat(configFile); os.IsNotExist(err) {
 		// initialize repository
 		if err := repo.Initialize(ctx, st, &repo.NewRepositoryOptions{}, password); err != nil {
-			return fmt.Errorf("unable to initialize repository: %v", err)
+			return errors.Wrap(err, "unable to initialize repository")
 		}
 
 		// now establish connection to repository and create configuration file.
@@ -48,7 +48,7 @@ func setupRepositoryAndConnect(ctx context.Context, password string) error {
 				MaxCacheSizeBytes: 100000000,
 			},
 		}); err != nil {
-			return fmt.Errorf("unable to connect to repository: %v", err)
+			return errors.Wrap(err, "unable to connect to repository")
 		}
 	}
 

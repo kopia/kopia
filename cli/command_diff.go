@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/internal/diff"
-	"github.com/kopia/kopia/snapshot/snapshotfs"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot/snapshotfs"
 	"github.com/pkg/errors"
 )
 

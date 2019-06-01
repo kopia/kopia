@@ -1,13 +1,13 @@
 package block
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
 	"golang.org/x/exp/mmap"
 )
 
@@ -70,7 +70,7 @@ func (c *diskCommittedBlockIndexCache) addBlockToCache(indexBlockID string, data
 			return err
 		}
 		if !exists {
-			return fmt.Errorf("unsuccessful index write of block %q", indexBlockID)
+			return errors.Errorf("unsuccessful index write of block %q", indexBlockID)
 		}
 	}
 
@@ -87,14 +87,14 @@ func writeTempFileAtomic(dirname string, data []byte) (string, error) {
 		}
 	}
 	if err != nil {
-		return "", fmt.Errorf("can't create tmp file: %v", err)
+		return "", errors.Wrap(err, "can't create tmp file")
 	}
 
 	if _, err := tf.Write(data); err != nil {
-		return "", fmt.Errorf("can't write to temp file: %v", err)
+		return "", errors.Wrap(err, "can't write to temp file")
 	}
 	if err := tf.Close(); err != nil {
-		return "", fmt.Errorf("can't close tmp file")
+		return "", errors.Errorf("can't close tmp file")
 	}
 
 	return tf.Name(), nil
@@ -103,7 +103,7 @@ func writeTempFileAtomic(dirname string, data []byte) (string, error) {
 func (c *diskCommittedBlockIndexCache) expireUnused(used []string) error {
 	entries, err := ioutil.ReadDir(c.dirname)
 	if err != nil {
-		return fmt.Errorf("can't list cache: %v", err)
+		return errors.Wrap(err, "can't list cache")
 	}
 
 	remaining := map[string]os.FileInfo{}

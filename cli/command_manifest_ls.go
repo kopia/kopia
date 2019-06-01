@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/repo"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -25,7 +26,7 @@ func listManifestItems(ctx context.Context, rep *repo.Repository) error {
 	for _, kv := range *manifestListFilter {
 		p := strings.Index(kv, ":")
 		if p <= 0 {
-			return fmt.Errorf("invalid list filter %q, missing ':'", kv)
+			return errors.Errorf("invalid list filter %q, missing ':'", kv)
 		}
 
 		filter[kv[0:p]] = kv[p+1:]

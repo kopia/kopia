@@ -8,6 +8,7 @@ import (
 
 	"github.com/kopia/kopia/fs/ignorefs"
 	"github.com/kopia/kopia/snapshot/policy"
+	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo"
 
@@ -64,7 +65,7 @@ func makeBuckets() buckets {
 func runSnapshotEstimateCommand(ctx context.Context, rep *repo.Repository) error {
 	path, err := filepath.Abs(*snapshotEstimateSource)
 	if err != nil {
-		return fmt.Errorf("invalid path: '%s': %s", path, err)
+		return errors.Errorf("invalid path: '%s': %s", path, err)
 	}
 
 	sourceInfo := snapshot.SourceInfo{Path: filepath.Clean(path), Host: getHostName(), UserName: getUserName()}

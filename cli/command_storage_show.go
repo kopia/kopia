@@ -3,11 +3,11 @@ package cli
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"os"
 
 	"github.com/kopia/kopia/repo"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -19,7 +19,7 @@ func runShowStorageBlocks(ctx context.Context, rep *repo.Repository) error {
 	for _, b := range *storageShowBlockIDs {
 		d, err := rep.Storage.GetBlock(ctx, b, 0, -1)
 		if err != nil {
-			return fmt.Errorf("error getting %v: %v", b, err)
+			return errors.Wrapf(err, "error getting %v", b)
 		}
 		if _, err := io.Copy(os.Stdout, bytes.NewReader(d)); err != nil {
 			return err

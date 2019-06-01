@@ -3,7 +3,6 @@ package repo
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"path/filepath"
 
@@ -90,7 +89,7 @@ func OpenWithConfig(ctx context.Context, st storage.Storage, lc *LocalConfig, pa
 
 	fb, err = addFormatBlockChecksumAndLength(fb)
 	if err != nil {
-		return nil, fmt.Errorf("unable to add checksum")
+		return nil, errors.Errorf("unable to add checksum")
 	}
 
 	masterKey, err := f.deriveMasterKeyFromPassword(password)

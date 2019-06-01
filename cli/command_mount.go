@@ -2,13 +2,13 @@ package cli
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/cachefs"
 	"github.com/kopia/kopia/fs/loggingfs"
-	"github.com/kopia/kopia/snapshot/snapshotfs"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot/snapshotfs"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -44,7 +44,7 @@ func runMountCommand(ctx context.Context, rep *repo.Repository) error {
 	case "WEBDAV":
 		return mountDirectoryWebDAV(entry, *mountPoint)
 	default:
-		return fmt.Errorf("unsupported mode: %q", *mountMode)
+		return errors.Errorf("unsupported mode: %q", *mountMode)
 	}
 }
 

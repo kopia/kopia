@@ -46,14 +46,14 @@ func (c *Comparer) compareDirectories(ctx context.Context, dir1, dir2 fs.Directo
 	if dir1 != nil {
 		entries1, err = dir1.Readdir(ctx)
 		if err != nil {
-			return fmt.Errorf("unable to read first directory %v: %v", parent, err)
+			return errors.Wrapf(err, "unable to read first directory %v", parent)
 		}
 	}
 
 	if dir2 != nil {
 		entries2, err = dir2.Readdir(ctx)
 		if err != nil {
-			return fmt.Errorf("unable to read second directory %v: %v", parent, err)
+			return errors.Wrapf(err, "unable to read second directory %v", parent)
 		}
 	}
 
@@ -141,7 +141,7 @@ func (c *Comparer) compareDirectoryEntries(ctx context.Context, entries1, entrie
 	for _, e2 := range entries2 {
 		entryName := e2.Name()
 		if err := c.compareEntry(ctx, e1byname[entryName], e2, dirPath+"/"+entryName); err != nil {
-			return fmt.Errorf("error comparing %v: %v", entryName, err)
+			return errors.Wrapf(err, "error comparing %v", entryName)
 		}
 		delete(e1byname, entryName)
 	}
@@ -151,7 +151,7 @@ func (c *Comparer) compareDirectoryEntries(ctx context.Context, entries1, entrie
 		entryName := e1.Name()
 		if _, ok := e1byname[entryName]; ok {
 			if err := c.compareEntry(ctx, e1, nil, dirPath+"/"+entryName); err != nil {
-				return fmt.Errorf("error comparing %v: %v", entryName, err)
+				return errors.Wrapf(err, "error comparing %v", entryName)
 			}
 		}
 	}

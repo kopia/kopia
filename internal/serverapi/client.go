@@ -3,7 +3,6 @@ package serverapi
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/pkg/errors"
@@ -24,7 +23,7 @@ func (c *Client) Get(path string, respPayload interface{}) error {
 	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("invalid server response: %v", resp.Status)
+		return errors.Errorf("invalid server response: %v", resp.Status)
 	}
 	if err := json.NewDecoder(resp.Body).Decode(respPayload); err != nil {
 		return errors.Wrap(err, "malformed server response")
@@ -48,7 +47,7 @@ func (c *Client) Post(path string, reqPayload, respPayload interface{}) error {
 	defer resp.Body.Close() //nolint:errcheck
 
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("invalid server response: %v", resp.Status)
+		return errors.Errorf("invalid server response: %v", resp.Status)
 	}
 	if err := json.NewDecoder(resp.Body).Decode(respPayload); err != nil {
 		return errors.Wrap(err, "malformed server response")

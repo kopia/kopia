@@ -14,6 +14,7 @@ import (
 
 	"github.com/kopia/kopia/internal/repologging"
 	"github.com/kopia/kopia/repo/storage"
+	"github.com/pkg/errors"
 )
 
 var log = repologging.Logger("repo/filesystem")
@@ -58,7 +59,7 @@ func (fs *fsStorage) GetBlock(ctx context.Context, blockID string, offset, lengt
 		return nil, err
 	}
 	if int64(len(b)) != length {
-		return nil, fmt.Errorf("invalid length")
+		return nil, errors.Errorf("invalid length")
 	}
 	return b, nil
 }
@@ -143,14 +144,14 @@ func (fs *fsStorage) PutBlock(ctx context.Context, blockID string, data []byte) 
 	tempFile := fmt.Sprintf("%s.tmp.%d", path, rand.Int())
 	f, err := fs.createTempFileAndDir(tempFile)
 	if err != nil {
-		return fmt.Errorf("cannot create temporary file: %v", err)
+		return errors.Wrap(err, "cannot create temporary file")
 	}
 
 	if _, err = f.Write(data); err != nil {
-		return fmt.Errorf("can't write temporary file: %v", err)
+		return errors.Wrap(err, "can't write temporary file")
 	}
 	if err = f.Close(); err != nil {
-		return fmt.Errorf("can't close temporary file: %v", err)
+		return errors.Wrap(err, "can't close temporary file")
 	}
 
 	err = os.Rename(tempFile, path)
@@ -175,7 +176,7 @@ func (fs *fsStorage) createTempFileAndDir(tempFile string) (*os.File, error) {
 	f, err := os.OpenFile(tempFile, flags, fs.fileMode())
 	if os.IsNotExist(err) {
 		if err = os.MkdirAll(filepath.Dir(tempFile), fs.dirMode()); err != nil {
-			return nil, fmt.Errorf("cannot create directory: %v", err)
+			return nil, errors.Wrap(err, "cannot create directory")
 		}
 		return os.OpenFile(tempFile, flags, fs.fileMode())
 	}
@@ -228,7 +229,7 @@ func New(ctx context.Context, opts *Options) (storage.Storage, error) {
 	var err error
 
 	if _, err = os.Stat(opts.Path); err != nil {
-		return nil, fmt.Errorf("cannot access storage path: %v", err)
+		return nil, errors.Wrap(err, "cannot access storage path")
 	}
 
 	r := &fsStorage{

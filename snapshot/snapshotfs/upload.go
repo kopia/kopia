@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"fmt"
 	"hash/fnv"
 	"io"
 	"math/rand"
@@ -18,9 +17,9 @@ import (
 	"github.com/kopia/kopia/fs/ignorefs"
 	"github.com/kopia/kopia/internal/hashcache"
 	"github.com/kopia/kopia/internal/kopialogging"
-	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/object"
+	"github.com/kopia/kopia/snapshot"
 	"github.com/pkg/errors"
 )
 
@@ -334,7 +333,7 @@ func (u *Uploader) processSubdirectories(ctx context.Context, relativePath strin
 		}
 
 		if err != nil {
-			return fmt.Errorf("unable to process directory %q: %s", entry.Name(), err)
+			return errors.Errorf("unable to process directory %q: %s", entry.Name(), err)
 		}
 
 		de := newDirEntry(dir, oid)
@@ -446,7 +445,7 @@ func (u *Uploader) prepareWorkItems(ctx context.Context, dirRelativePath string,
 				})
 
 			default:
-				return fmt.Errorf("file type not supported: %v", entry.Mode())
+				return errors.Errorf("file type not supported: %v", entry.Mode())
 			}
 		}
 		return nil
@@ -510,7 +509,7 @@ func (u *Uploader) processUploadWorkItems(workItems []*uploadWorkItem, dw *dirWr
 				log.Warningf("unable to hash file %q: %s, ignoring", it.entryRelativePath, result.err)
 				continue
 			}
-			return fmt.Errorf("unable to process %q: %s", it.entryRelativePath, result.err)
+			return errors.Errorf("unable to process %q: %s", it.entryRelativePath, result.err)
 		}
 
 		if err := dw.WriteEntry(result.de); err != nil {
@@ -653,7 +652,7 @@ func (u *Uploader) Upload(
 		s.RootEntry, err = u.uploadFile(ctx, entry)
 
 	default:
-		return nil, fmt.Errorf("unsupported source: %v", s.Source)
+		return nil, errors.Errorf("unsupported source: %v", s.Source)
 	}
 
 	if err != nil {

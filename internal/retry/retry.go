@@ -2,10 +2,10 @@
 package retry
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/kopia/kopia/internal/repologging"
+	"github.com/pkg/errors"
 )
 
 var log = repologging.Logger("repo/retry")
@@ -40,5 +40,5 @@ func WithExponentialBackoff(desc string, attempt AttemptFunc, isRetriableError I
 		}
 	}
 
-	return nil, fmt.Errorf("unable to complete %v despite %v retries", desc, maxAttempts)
+	return nil, errors.Errorf("unable to complete %v despite %v retries", desc, maxAttempts)
 }

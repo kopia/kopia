@@ -2,14 +2,13 @@ package cli
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"sync"
 	"time"
 
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
-	"github.com/kopia/kopia/repo"
 	"github.com/pkg/errors"
 )
 
@@ -114,7 +113,7 @@ func migrateSingleSource(ctx context.Context, uploader *snapshotfs.Uploader, sou
 	}
 	snapshots, err := snapshot.LoadSnapshots(ctx, sourceRepo, manifests)
 	if err != nil {
-		return fmt.Errorf("unable to load snapshot manifests for %v: %v", s, err)
+		return errors.Wrapf(err, "unable to load snapshot manifests for %v", s)
 	}
 
 	sort.Slice(snapshots, func(i, j int) bool {
@@ -159,7 +158,7 @@ func migrateSingleSourceSnapshot(ctx context.Context, uploader *snapshotfs.Uploa
 
 	newm, err := uploader.Upload(ctx, sourceEntry, m.Source, previousManifest)
 	if err != nil {
-		return fmt.Errorf("error migrating shapshot %v @ %v: %v", m.Source, m.StartTime, err)
+		return errors.Wrapf(err, "error migrating shapshot %v @ %v", m.Source, m.StartTime)
 	}
 
 	newm.StartTime = m.StartTime
