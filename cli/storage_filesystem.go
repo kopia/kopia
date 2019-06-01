@@ -5,9 +5,10 @@ import (
 	"os"
 	"strconv"
 
+	"gopkg.in/alecthomas/kingpin.v2"
+
 	"github.com/kopia/kopia/repo/storage"
 	"github.com/kopia/kopia/repo/storage/filesystem"
-	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 var options filesystem.Options

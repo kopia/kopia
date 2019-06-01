@@ -9,10 +9,11 @@ import (
 	"io/ioutil"
 
 	"github.com/efarrer/iothrottler"
-	"github.com/kopia/kopia/internal/retry"
-	"github.com/kopia/kopia/repo/storage"
 	"github.com/minio/minio-go"
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/internal/retry"
+	"github.com/kopia/kopia/repo/storage"
 )
 
 const (

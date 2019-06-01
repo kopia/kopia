@@ -7,10 +7,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/internal/editor"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot/policy"
-	"github.com/pkg/errors"
 )
 
 const policyEditHelpText = `

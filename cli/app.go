@@ -7,12 +7,13 @@ import (
 	"os"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/storage"
-	"github.com/pkg/errors"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )

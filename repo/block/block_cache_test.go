@@ -11,9 +11,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/internal/storagetesting"
 	"github.com/kopia/kopia/repo/storage"
-	"github.com/pkg/errors"
 )
 
 func newUnderlyingStorageForBlockCacheTesting(t *testing.T) storage.Storage {

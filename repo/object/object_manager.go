@@ -7,8 +7,9 @@ import (
 	"encoding/json"
 	"io"
 
-	"github.com/kopia/kopia/repo/block"
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/repo/block"
 )
 
 // Reader allows reading, seeking, getting the length of and closing of a repository object.

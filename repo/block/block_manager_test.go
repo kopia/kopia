@@ -15,9 +15,10 @@ import (
 	"testing"
 	"time"
 
+	logging "github.com/op/go-logging"
+
 	"github.com/kopia/kopia/internal/storagetesting"
 	"github.com/kopia/kopia/repo/storage"
-	logging "github.com/op/go-logging"
 )
 
 const (

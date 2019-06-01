@@ -9,11 +9,12 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/object"
-	"github.com/pkg/errors"
 )
 
 var log = kopialogging.Logger("diff")

@@ -12,9 +12,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/internal/repologging"
 	"github.com/kopia/kopia/repo/storage"
-	"github.com/pkg/errors"
 )
 
 var log = repologging.Logger("kopia/manifest")

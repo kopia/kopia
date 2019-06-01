@@ -6,9 +6,10 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/fs/ignorefs"
 	"github.com/kopia/kopia/snapshot/policy"
-	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo"
 

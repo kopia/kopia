@@ -11,9 +11,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/minio/minio-go"
+
 	"github.com/kopia/kopia/internal/storagetesting"
 	"github.com/kopia/kopia/repo/storage"
-	"github.com/minio/minio-go"
 )
 
 // https://github.com/minio/minio-go

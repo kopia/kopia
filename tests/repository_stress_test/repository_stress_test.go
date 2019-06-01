@@ -14,11 +14,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/storage"
 	"github.com/kopia/kopia/repo/storage/filesystem"
-	"github.com/pkg/errors"
 )
 
 const masterPassword = "foo-bar-baz-1234"

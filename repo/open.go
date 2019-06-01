@@ -6,13 +6,14 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/internal/repologging"
 	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/repo/storage"
 	"github.com/kopia/kopia/repo/storage/logging"
-	"github.com/pkg/errors"
 )
 
 var (

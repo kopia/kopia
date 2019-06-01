@@ -11,6 +11,7 @@ import (
 	"time"
 
 	ga "github.com/jpillora/go-ogle-analytics"
+
 	"github.com/kopia/kopia/internal/ospath"
 	"github.com/kopia/kopia/repo"
 )

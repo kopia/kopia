@@ -7,9 +7,10 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/kopialogging"
-	"github.com/pkg/errors"
 )
 
 var log = kopialogging.Logger("kopia/localfs")

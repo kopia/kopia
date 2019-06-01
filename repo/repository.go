@@ -4,11 +4,12 @@ import (
 	"context"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/repo/storage"
-	"github.com/pkg/errors"
 )
 
 // Repository represents storage where both content-addressable and user-addressable data is kept.

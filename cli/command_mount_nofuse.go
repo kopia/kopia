@@ -3,8 +3,9 @@
 package cli
 
 import (
-	"github.com/kopia/kopia/fs"
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/fs"
 )
 
 var (

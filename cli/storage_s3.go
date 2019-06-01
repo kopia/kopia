@@ -3,9 +3,10 @@ package cli
 import (
 	"context"
 
+	"gopkg.in/alecthomas/kingpin.v2"
+
 	"github.com/kopia/kopia/repo/storage"
 	"github.com/kopia/kopia/repo/storage/s3"
-	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 func init() {

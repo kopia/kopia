@@ -4,8 +4,9 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/kopia/kopia/repo/storage"
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/repo/storage"
 )
 
 type committedBlockIndex struct {

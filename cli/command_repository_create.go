@@ -4,13 +4,14 @@ import (
 	"context"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/fs/ignorefs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/repo/storage"
 	"github.com/kopia/kopia/snapshot/policy"
-	"github.com/pkg/errors"
 )
 
 var (

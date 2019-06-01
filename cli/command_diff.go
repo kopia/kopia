@@ -5,10 +5,11 @@ import (
 	"os"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/internal/diff"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
-	"github.com/pkg/errors"
 )
 
 var (

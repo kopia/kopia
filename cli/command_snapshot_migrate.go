@@ -6,10 +6,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
-	"github.com/pkg/errors"
 )
 
 var (

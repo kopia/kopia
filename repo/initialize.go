@@ -5,10 +5,11 @@ import (
 	"crypto/rand"
 	"io"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/repo/storage"
-	"github.com/pkg/errors"
 )
 
 // BuildInfo is the build information of Kopia.

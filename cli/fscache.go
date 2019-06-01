@@ -1,8 +1,9 @@
 package cli
 
 import (
-	"github.com/kopia/kopia/fs/cachefs"
 	"gopkg.in/alecthomas/kingpin.v2"
+
+	"github.com/kopia/kopia/fs/cachefs"
 )
 
 var (

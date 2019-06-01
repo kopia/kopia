@@ -6,11 +6,12 @@ import (
 	"context"
 	"os"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/storage/filesystem"
 	"github.com/kopia/kopia/repo/storage/logging"
-	"github.com/pkg/errors"
 )
 
 const (

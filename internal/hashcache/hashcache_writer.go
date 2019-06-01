@@ -3,8 +3,9 @@ package hashcache
 import (
 	"io"
 
-	"github.com/kopia/kopia/internal/jsonstream"
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/internal/jsonstream"
 )
 
 // Writer emits hash cache entries.
