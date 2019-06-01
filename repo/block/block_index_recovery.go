@@ -173,7 +173,7 @@ func (bm *Manager) appendPackFileIndexRecoveryData(blockData []byte, pending pac
 	postamble := packBlockPostamble{
 		localIndexIV:     localIndexIV,
 		localIndexOffset: uint32(localIndexOffset),
-		localIndexLength: uint32(len(localIndex)),
+		localIndexLength: uint32(len(encryptedLocalIndex)),
 	}
 
 	blockData = append(blockData, encryptedLocalIndex...)

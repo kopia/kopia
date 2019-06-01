@@ -9,10 +9,14 @@ import (
 
 // combinations of hash and encryption that are not compatible.
 var incompatibleAlgorithms = map[string]string{
-	"BLAKE2B-256-128/XSALSA20": "invalid encryptor: hash too short, expected >=24 bytes, got 16",
-	"BLAKE2S-128/XSALSA20":     "invalid encryptor: hash too short, expected >=24 bytes, got 16",
-	"HMAC-RIPEMD-160/XSALSA20": "invalid encryptor: hash too short, expected >=24 bytes, got 20",
-	"HMAC-SHA256-128/XSALSA20": "invalid encryptor: hash too short, expected >=24 bytes, got 16",
+	"BLAKE2B-256-128/XSALSA20":      "invalid encryptor: hash too short, expected >=24 bytes, got 16",
+	"BLAKE2S-128/XSALSA20":          "invalid encryptor: hash too short, expected >=24 bytes, got 16",
+	"HMAC-RIPEMD-160/XSALSA20":      "invalid encryptor: hash too short, expected >=24 bytes, got 20",
+	"HMAC-SHA256-128/XSALSA20":      "invalid encryptor: hash too short, expected >=24 bytes, got 16",
+	"BLAKE2B-256-128/XSALSA20-HMAC": "invalid encryptor: hash too short, expected >=24 bytes, got 16",
+	"BLAKE2S-128/XSALSA20-HMAC":     "invalid encryptor: hash too short, expected >=24 bytes, got 16",
+	"HMAC-RIPEMD-160/XSALSA20-HMAC": "invalid encryptor: hash too short, expected >=24 bytes, got 20",
+	"HMAC-SHA256-128/XSALSA20-HMAC": "invalid encryptor: hash too short, expected >=24 bytes, got 16",
 }
 
 func TestFormatters(t *testing.T) {
@@ -34,10 +38,14 @@ func TestFormatters(t *testing.T) {
 			if err != nil {
 				key := hashAlgo + "/" + encryptionAlgo
 				errmsg := incompatibleAlgorithms[key]
-				if err.Error() == errmsg {
+				if errmsg == "" {
+					t.Errorf("Algorithm %v not marked as incompatible and failed with %v", key, err)
 					continue
 				}
-				t.Errorf("Algorithm %v not marked as incompatible and failed with %v", key, err)
+				if err.Error() == errmsg {
+					t.Errorf("unexpected error message %v, wanted %v", err.Error(), errmsg)
+					continue
+				}
 				continue
 			}
 
