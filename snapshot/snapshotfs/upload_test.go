@@ -8,12 +8,13 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/internal/mockfs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/repo/storage/filesystem"
 	"github.com/kopia/kopia/snapshot"
-	"github.com/pkg/errors"
 )
 
 const masterPassword = "foofoofoofoofoofoofoofoo"

@@ -5,6 +5,7 @@ package cli
 import (
 	"bazil.org/fuse"
 	fusefs "bazil.org/fuse/fs"
+
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/fusemount"
 )

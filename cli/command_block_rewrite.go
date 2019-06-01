@@ -6,9 +6,10 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/block"
-	"github.com/pkg/errors"
 )
 
 var (

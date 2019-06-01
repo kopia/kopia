@@ -12,10 +12,11 @@ package main
 import (
 	"os"
 
+	"gopkg.in/alecthomas/kingpin.v2"
+
 	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/internal/logfile"
 	"github.com/kopia/kopia/repo"
-	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 var usageTemplate = `{{define "FormatCommand"}}\

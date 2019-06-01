@@ -102,3 +102,6 @@ coverage-html:
 official-release:
 	git tag $(RELEASE_VERSION) -m $(RELEASE_VERSION)
 	git push -u upstream $(RELEASE_VERSION)
+
+goreturns:
+	find . -name '*.go' | xargs goreturns -w --local github.com/kopia/kopia

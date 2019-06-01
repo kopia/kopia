@@ -10,9 +10,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/kopia/kopia/internal/units"
 	"github.com/pkg/errors"
 	"gopkg.in/alecthomas/kingpin.v2"
+
+	"github.com/kopia/kopia/internal/units"
 )
 
 var (

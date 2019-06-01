@@ -5,9 +5,10 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/internal/server"
 	"github.com/kopia/kopia/repo"
-	"github.com/pkg/errors"
 )
 
 var (

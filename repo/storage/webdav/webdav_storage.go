@@ -10,9 +10,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/kopia/kopia/repo/storage"
 	"github.com/pkg/errors"
 	"github.com/studio-b12/gowebdav"
+
+	"github.com/kopia/kopia/repo/storage"
 )
 
 const (

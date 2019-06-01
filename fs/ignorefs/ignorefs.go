@@ -6,9 +6,10 @@ import (
 	"context"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/ignore"
-	"github.com/pkg/errors"
 )
 
 // IgnoreCallback is a function called by ignorefs to report whenever a file or directory is being ignored while listing its parent.

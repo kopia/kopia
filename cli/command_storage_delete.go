@@ -3,8 +3,9 @@ package cli
 import (
 	"context"
 
-	"github.com/kopia/kopia/repo"
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/repo"
 )
 
 var (

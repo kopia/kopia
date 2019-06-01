@@ -9,8 +9,9 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/kopia/kopia/fs"
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/fs"
 
 	"bazil.org/fuse"
 	fusefs "bazil.org/fuse/fs"

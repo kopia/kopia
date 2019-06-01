@@ -13,11 +13,12 @@ import (
 	"sync"
 	"time"
 
+	logging "github.com/op/go-logging"
+	"gopkg.in/alecthomas/kingpin.v2"
+
 	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/internal/ospath"
-	logging "github.com/op/go-logging"
-	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 var fileLogFormat = logging.MustStringFormatter(

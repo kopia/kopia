@@ -8,11 +8,12 @@ import (
 	"os"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
-	"github.com/pkg/errors"
 )
 
 type repositoryEntry struct {

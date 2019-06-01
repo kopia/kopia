@@ -4,10 +4,11 @@ package snapshot
 import (
 	"context"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/manifest"
-	"github.com/pkg/errors"
 )
 
 var log = kopialogging.Logger("kopia/snapshot")

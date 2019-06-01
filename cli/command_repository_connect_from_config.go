@@ -4,10 +4,11 @@ import (
 	"context"
 	"os"
 
-	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/storage"
 	"github.com/pkg/errors"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
+
+	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/storage"
 )
 
 var connectToStorageFromConfigPath string

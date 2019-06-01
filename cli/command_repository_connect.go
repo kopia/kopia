@@ -4,10 +4,11 @@ import (
 	"context"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/storage"
-	"github.com/pkg/errors"
 
 	"gopkg.in/alecthomas/kingpin.v2"
 )

@@ -3,9 +3,10 @@ package cli
 import (
 	"context"
 
-	"github.com/kopia/kopia/repo/storage"
 	"github.com/pkg/errors"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
+
+	"github.com/kopia/kopia/repo/storage"
 )
 
 // RegisterStorageConnectFlags registers repository subcommand to connect to a storage

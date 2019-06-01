@@ -9,8 +9,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/kopia/kopia/repo/storage"
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/repo/storage"
 )
 
 type listCache struct {

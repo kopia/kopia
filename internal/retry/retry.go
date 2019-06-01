@@ -4,8 +4,9 @@ package retry
 import (
 	"time"
 
-	"github.com/kopia/kopia/internal/repologging"
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/internal/repologging"
 )
 
 var log = repologging.Logger("repo/retry")

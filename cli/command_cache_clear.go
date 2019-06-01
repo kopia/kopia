@@ -4,8 +4,9 @@ import (
 	"context"
 	"os"
 
-	"github.com/kopia/kopia/repo"
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/repo"
 )
 
 var (

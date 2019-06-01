@@ -9,9 +9,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/storage"
-	"github.com/pkg/errors"
 )
 
 // ConnectOptions specifies options when persisting configuration to connect to a repository.

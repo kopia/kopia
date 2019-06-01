@@ -9,15 +9,16 @@ import (
 	"io/ioutil"
 
 	"github.com/efarrer/iothrottler"
-	"github.com/kopia/kopia/internal/retry"
-	"github.com/kopia/kopia/internal/throttle"
-	"github.com/kopia/kopia/repo/storage"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
+
+	"github.com/kopia/kopia/internal/retry"
+	"github.com/kopia/kopia/internal/throttle"
+	"github.com/kopia/kopia/repo/storage"
 
 	gcsclient "cloud.google.com/go/storage"
 )

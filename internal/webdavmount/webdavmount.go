@@ -5,11 +5,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 	"golang.org/x/net/webdav"
+
+	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/kopialogging"
 )
 
 var log = kopialogging.Logger("kopia/webdavmount")

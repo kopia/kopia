@@ -10,10 +10,11 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/kopia/kopia/cli"
-	_ "github.com/kopia/kopia/internal/logfile"
 	"github.com/pkg/errors"
 	"gopkg.in/alecthomas/kingpin.v2"
+
+	"github.com/kopia/kopia/cli"
+	_ "github.com/kopia/kopia/internal/logfile"
 )
 
 var baseDir = "content/docs/Reference/Command-Line"
