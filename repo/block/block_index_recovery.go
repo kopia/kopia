@@ -8,11 +8,13 @@ import (
 	"reflect"
 
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/repo/blob"
 )
 
-// RecoverIndexFromPackFile attempts to recover index block entries from a given pack file.
+// RecoverIndexFromPackBlob attempts to recover index block entries from a given pack file.
 // Pack file length may be provided (if known) to reduce the number of bytes that are read from the storage.
-func (bm *Manager) RecoverIndexFromPackFile(ctx context.Context, packFile string, packFileLength int64, commit bool) ([]Info, error) {
+func (bm *Manager) RecoverIndexFromPackBlob(ctx context.Context, packFile blob.ID, packFileLength int64, commit bool) ([]Info, error) {
 	localIndexBytes, err := bm.readPackFileLocalIndex(ctx, packFile, packFileLength)
 	if err != nil {
 		return nil, err
@@ -197,8 +199,8 @@ func (bm *Manager) appendPackFileIndexRecoveryData(blockData []byte, pending pac
 	return blockData, nil
 }
 
-func (bm *Manager) readPackFileLocalIndex(ctx context.Context, packFile string, packFileLength int64) ([]byte, error) {
-	payload, err := bm.st.GetBlock(ctx, packFile, 0, -1)
+func (bm *Manager) readPackFileLocalIndex(ctx context.Context, packFile blob.ID, packFileLength int64) ([]byte, error) {
+	payload, err := bm.st.GetBlob(ctx, packFile, 0, -1)
 	if err != nil {
 		return nil, err
 	}

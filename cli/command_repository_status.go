@@ -27,7 +27,7 @@ func runStatusCommand(ctx context.Context, rep *repo.Repository) error {
 	}
 	fmt.Println()
 
-	ci := rep.Storage.ConnectionInfo()
+	ci := rep.Blobs.ConnectionInfo()
 	fmt.Printf("Storage type:        %v\n", ci.Type)
 
 	if cjson, err := json.MarshalIndent(scrubber.ScrubSensitiveData(reflect.ValueOf(ci.Config)).Interface(), "                     ", "  "); err == nil {

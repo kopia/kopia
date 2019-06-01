@@ -6,6 +6,7 @@ import (
 	"sort"
 
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/block"
 )
 
@@ -31,15 +32,15 @@ func runListBlocksAction(ctx context.Context, rep *repo.Repository) error {
 
 	var count int
 	var totalSize int64
-	uniquePacks := map[string]bool{}
+	uniquePacks := map[blob.ID]bool{}
 	for _, b := range blocks {
 		if *blockListDeletedOnly && !b.Deleted {
 			continue
 		}
 		totalSize += int64(b.Length)
 		count++
-		if b.PackFile != "" {
-			uniquePacks[b.PackFile] = true
+		if b.PackBlobID != "" {
+			uniquePacks[b.PackBlobID] = true
 		}
 		if *blockListLong {
 			optionalDeleted := ""
@@ -49,7 +50,7 @@ func runListBlocksAction(ctx context.Context, rep *repo.Repository) error {
 			fmt.Printf("%v %v %v %v+%v%v\n",
 				b.BlockID,
 				formatTimestamp(b.Timestamp()),
-				b.PackFile,
+				b.PackBlobID,
 				b.PackOffset,
 				maybeHumanReadableBytes(*blockListHuman, int64(b.Length)),
 				optionalDeleted)
@@ -88,7 +89,7 @@ func sortBlocks(blocks []block.Info) {
 }
 
 func comparePacks(a, b block.Info) bool {
-	if a, b := a.PackFile, b.PackFile; a != b {
+	if a, b := a.PackBlobID, b.PackBlobID; a != b {
 		return a < b
 	}
 

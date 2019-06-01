@@ -5,8 +5,8 @@ import (
 
 	"gopkg.in/alecthomas/kingpin.v2"
 
-	"github.com/kopia/kopia/repo/storage"
-	"github.com/kopia/kopia/repo/storage/s3"
+	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/s3"
 )
 
 func init() {
@@ -25,7 +25,7 @@ func init() {
 			cmd.Flag("max-download-speed", "Limit the download speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&s3options.MaxDownloadSpeedBytesPerSecond)
 			cmd.Flag("max-upload-speed", "Limit the upload speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&s3options.MaxUploadSpeedBytesPerSecond)
 		},
-		func(ctx context.Context, isNew bool) (storage.Storage, error) {
+		func(ctx context.Context, isNew bool) (blob.Storage, error) {
 			return s3.New(ctx, &s3options)
 		},
 	)

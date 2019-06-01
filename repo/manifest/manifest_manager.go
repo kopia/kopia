@@ -15,7 +15,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/repologging"
-	"github.com/kopia/kopia/repo/storage"
+	"github.com/kopia/kopia/repo/blob"
 )
 
 var log = repologging.Logger("kopia/manifest")
@@ -289,7 +289,7 @@ func (m *Manager) loadCommittedBlocksLocked(ctx context.Context) error {
 			// success
 			break
 		}
-		if err == storage.ErrBlockNotFound {
+		if err == blob.ErrBlobNotFound {
 			// try again, lost a race with another manifest manager which just did compaction
 			continue
 		}
@@ -387,7 +387,7 @@ func (m *Manager) loadManifestBlock(ctx context.Context, blockID string) (manife
 	man := manifest{}
 	blk, err := m.b.GetBlock(ctx, blockID)
 	if err != nil {
-		// do not wrap the error here, we want to propagate original ErrBlockNotFound
+		// do not wrap the error here, we want to propagate original ErrNotFound
 		// which causes a retry if we lose list/delete race.
 		return man, err
 	}

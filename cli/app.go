@@ -12,8 +12,8 @@ import (
 	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/block"
-	"github.com/kopia/kopia/repo/storage"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -32,7 +32,7 @@ var (
 	serverCommands     = app.Command("server", "Commands to control HTTP API server.")
 	manifestCommands   = app.Command("manifest", "Low-level commands to manipulate manifest items.").Hidden()
 	blockCommands      = app.Command("block", "Commands to manipulate virtual blocks in repository.").Alias("blk").Hidden()
-	storageCommands    = app.Command("storage", "Commands to manipulate raw storage blocks.").Hidden()
+	blobCommands       = app.Command("blob", "Commands to manipulate BLOBs.").Hidden()
 	blockIndexCommands = app.Command("blockindex", "Commands to manipulate block index.").Hidden()
 	benchmarkCommands  = app.Command("benchmark", "Commands to test performance of algorithms.").Hidden()
 )
@@ -60,7 +60,7 @@ func repositoryAction(act func(ctx context.Context, rep *repo.Repository) error)
 		ctx := context.Background()
 		ctx = block.UsingBlockCache(ctx, *enableCaching)
 		ctx = block.UsingListCache(ctx, *enableListCaching)
-		ctx = storage.WithUploadProgressCallback(ctx, func(desc string, progress, total int64) {
+		ctx = blob.WithUploadProgressCallback(ctx, func(desc string, progress, total int64) {
 			cliProgress.Report("upload '"+desc+"'", progress, total)
 		})
 
@@ -68,7 +68,7 @@ func repositoryAction(act func(ctx context.Context, rep *repo.Repository) error)
 		rep := mustOpenRepository(ctx, nil)
 		repositoryOpenTime := time.Since(t0)
 
-		storageType := rep.Storage.ConnectionInfo().Type
+		storageType := rep.Blobs.ConnectionInfo().Type
 
 		reportStartupTime(storageType, rep.Blocks.Format.Version, repositoryOpenTime)
 

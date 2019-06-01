@@ -13,22 +13,22 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/storagetesting"
-	"github.com/kopia/kopia/repo/storage"
+	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/repo/blob"
 )
 
-func newUnderlyingStorageForBlockCacheTesting(t *testing.T) storage.Storage {
+func newUnderlyingStorageForBlockCacheTesting(t *testing.T) blob.Storage {
 	ctx := context.Background()
-	data := map[string][]byte{}
-	st := storagetesting.NewMapStorage(data, nil, nil)
-	assertNoError(t, st.PutBlock(ctx, "block-1", []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}))
-	assertNoError(t, st.PutBlock(ctx, "block-4k", bytes.Repeat([]byte{1, 2, 3, 4}, 1000))) // 4000 bytes
+	data := blobtesting.DataMap{}
+	st := blobtesting.NewMapStorage(data, nil, nil)
+	assertNoError(t, st.PutBlob(ctx, "block-1", []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}))
+	assertNoError(t, st.PutBlob(ctx, "block-4k", bytes.Repeat([]byte{1, 2, 3, 4}, 1000))) // 4000 bytes
 	return st
 }
 
 func TestCacheExpiration(t *testing.T) {
-	cacheData := map[string][]byte{}
-	cacheStorage := storagetesting.NewMapStorage(cacheData, nil, nil)
+	cacheData := blobtesting.DataMap{}
+	cacheStorage := blobtesting.NewMapStorage(cacheData, nil, nil)
 
 	underlyingStorage := newUnderlyingStorageForBlockCacheTesting(t)
 
@@ -56,24 +56,24 @@ func TestCacheExpiration(t *testing.T) {
 	// 00000a and 00000b will be removed from cache because it's the oldest.
 	// to verify, let's remove block-4k from the underlying storage and make sure we can still read
 	// 00000c and 00000d from the cache but not 00000a nor 00000b
-	assertNoError(t, underlyingStorage.DeleteBlock(ctx, "block-4k"))
+	assertNoError(t, underlyingStorage.DeleteBlob(ctx, "block-4k"))
 
 	cases := []struct {
-		block         string
+		blobID        blob.ID
 		expectedError error
 	}{
-		{"00000a", storage.ErrBlockNotFound},
-		{"00000b", storage.ErrBlockNotFound},
+		{"00000a", blob.ErrBlobNotFound},
+		{"00000b", blob.ErrBlobNotFound},
 		{"00000c", nil},
 		{"00000d", nil},
 	}
 
 	for _, tc := range cases {
-		_, got := cache.getContentBlock(ctx, tc.block, "block-4k", 0, -1)
+		_, got := cache.getContentBlock(ctx, tc.blobID, "block-4k", 0, -1)
 		if want := tc.expectedError; got != want {
-			t.Errorf("unexpected error when getting block %v: %v wanted %v", tc.block, got, want)
+			t.Errorf("unexpected error when getting block %v: %v wanted %v", tc.blobID, got, want)
 		} else {
-			t.Logf("got correct error %v when reading block %v", tc.expectedError, tc.block)
+			t.Logf("got correct error %v when reading block %v", tc.expectedError, tc.blobID)
 		}
 	}
 }
@@ -104,10 +104,10 @@ func verifyBlockCache(t *testing.T, cache *blockCache) {
 
 	t.Run("GetContentBlock", func(t *testing.T) {
 		cases := []struct {
-			cacheKey        string
-			physicalBlockID string
-			offset          int64
-			length          int64
+			cacheKey blob.ID
+			blobID   blob.ID
+			offset   int64
+			length   int64
 
 			expected []byte
 			err      error
@@ -116,15 +116,15 @@ func verifyBlockCache(t *testing.T, cache *blockCache) {
 			{"xf0f0f2", "block-1", 0, -1, []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, nil},
 			{"xf0f0f1", "block-1", 1, 5, []byte{2, 3, 4, 5, 6}, nil},
 			{"xf0f0f2", "block-1", 0, -1, []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, nil},
-			{"xf0f0f3", "no-such-block", 0, -1, nil, storage.ErrBlockNotFound},
-			{"xf0f0f4", "no-such-block", 10, 5, nil, storage.ErrBlockNotFound},
+			{"xf0f0f3", "no-such-block", 0, -1, nil, blob.ErrBlobNotFound},
+			{"xf0f0f4", "no-such-block", 10, 5, nil, blob.ErrBlobNotFound},
 			{"f0f0f5", "block-1", 7, 3, []byte{8, 9, 10}, nil},
 			{"xf0f0f6", "block-1", 11, 10, nil, errors.Errorf("invalid offset")},
 			{"xf0f0f6", "block-1", -1, 5, nil, errors.Errorf("invalid offset")},
 		}
 
 		for _, tc := range cases {
-			v, err := cache.getContentBlock(ctx, tc.cacheKey, tc.physicalBlockID, tc.offset, tc.length)
+			v, err := cache.getContentBlock(ctx, tc.cacheKey, tc.blobID, tc.offset, tc.length)
 			if (err != nil) != (tc.err != nil) {
 				t.Errorf("unexpected error for %v: %+v, wanted %+v", tc.cacheKey, err, tc.err)
 			} else if err != nil && err.Error() != tc.err.Error() {
@@ -139,8 +139,8 @@ func verifyBlockCache(t *testing.T, cache *blockCache) {
 	})
 
 	t.Run("DataCorruption", func(t *testing.T) {
-		cacheKey := "f0f0f1x"
-		d, err := cache.cacheStorage.GetBlock(ctx, cacheKey, 0, -1)
+		var cacheKey blob.ID = "f0f0f1x"
+		d, err := cache.cacheStorage.GetBlob(ctx, cacheKey, 0, -1)
 		if err != nil {
 			t.Fatalf("unable to retrieve data from cache: %v", err)
 		}
@@ -148,7 +148,7 @@ func verifyBlockCache(t *testing.T, cache *blockCache) {
 		// corrupt the data and write back
 		d[0] ^= 1
 
-		if err := cache.cacheStorage.PutBlock(ctx, cacheKey, d); err != nil {
+		if err := cache.cacheStorage.PutBlob(ctx, cacheKey, d); err != nil {
 			t.Fatalf("unable to write corrupted block: %v", err)
 		}
 
@@ -165,19 +165,19 @@ func verifyBlockCache(t *testing.T, cache *blockCache) {
 func TestCacheFailureToOpen(t *testing.T) {
 	someError := errors.New("some error")
 
-	cacheData := map[string][]byte{}
-	cacheStorage := storagetesting.NewMapStorage(cacheData, nil, nil)
+	cacheData := blobtesting.DataMap{}
+	cacheStorage := blobtesting.NewMapStorage(cacheData, nil, nil)
 	underlyingStorage := newUnderlyingStorageForBlockCacheTesting(t)
-	faultyCache := &storagetesting.FaultyStorage{
+	faultyCache := &blobtesting.FaultyStorage{
 		Base: cacheStorage,
-		Faults: map[string][]*storagetesting.Fault{
-			"ListBlocks": {
+		Faults: map[string][]*blobtesting.Fault{
+			"ListBlobs": {
 				{Err: someError},
 			},
 		},
 	}
 
-	// Will fail because of ListBlocks failure.
+	// Will fail because of ListBlobs failure.
 	_, err := newBlockCacheWithCacheStorage(context.Background(), underlyingStorage, faultyCache, CachingOptions{
 		MaxCacheSizeBytes: 10000,
 	}, 0, 5*time.Hour)
@@ -185,7 +185,7 @@ func TestCacheFailureToOpen(t *testing.T) {
 		t.Errorf("invalid error %v, wanted: %v", err, someError)
 	}
 
-	// ListBlocks fails only once, next time it succeeds.
+	// ListBlobs fails only once, next time it succeeds.
 	cache, err := newBlockCacheWithCacheStorage(context.Background(), underlyingStorage, faultyCache, CachingOptions{
 		MaxCacheSizeBytes: 10000,
 	}, 0, 100*time.Millisecond)
@@ -199,10 +199,10 @@ func TestCacheFailureToOpen(t *testing.T) {
 func TestCacheFailureToWrite(t *testing.T) {
 	someError := errors.New("some error")
 
-	cacheData := map[string][]byte{}
-	cacheStorage := storagetesting.NewMapStorage(cacheData, nil, nil)
+	cacheData := blobtesting.DataMap{}
+	cacheStorage := blobtesting.NewMapStorage(cacheData, nil, nil)
 	underlyingStorage := newUnderlyingStorageForBlockCacheTesting(t)
-	faultyCache := &storagetesting.FaultyStorage{
+	faultyCache := &blobtesting.FaultyStorage{
 		Base: cacheStorage,
 	}
 
@@ -216,8 +216,8 @@ func TestCacheFailureToWrite(t *testing.T) {
 	defer cache.close()
 
 	ctx := context.Background()
-	faultyCache.Faults = map[string][]*storagetesting.Fault{
-		"PutBlock": {
+	faultyCache.Faults = map[string][]*blobtesting.Fault{
+		"PutBlob": {
 			{Err: someError},
 		},
 	}
@@ -231,7 +231,7 @@ func TestCacheFailureToWrite(t *testing.T) {
 		t.Errorf("unexpected value retrieved from cache: %v, want: %v", got, want)
 	}
 
-	all, err := storage.ListAllBlocks(ctx, cacheStorage, "")
+	all, err := blob.ListAllBlobs(ctx, cacheStorage, "")
 	if err != nil {
 		t.Errorf("error listing cache: %v", err)
 	}
@@ -243,10 +243,10 @@ func TestCacheFailureToWrite(t *testing.T) {
 func TestCacheFailureToRead(t *testing.T) {
 	someError := errors.New("some error")
 
-	cacheData := map[string][]byte{}
-	cacheStorage := storagetesting.NewMapStorage(cacheData, nil, nil)
+	cacheData := blobtesting.DataMap{}
+	cacheStorage := blobtesting.NewMapStorage(cacheData, nil, nil)
 	underlyingStorage := newUnderlyingStorageForBlockCacheTesting(t)
-	faultyCache := &storagetesting.FaultyStorage{
+	faultyCache := &blobtesting.FaultyStorage{
 		Base: cacheStorage,
 	}
 
@@ -260,8 +260,8 @@ func TestCacheFailureToRead(t *testing.T) {
 	defer cache.close()
 
 	ctx := context.Background()
-	faultyCache.Faults = map[string][]*storagetesting.Fault{
-		"GetBlock": {
+	faultyCache.Faults = map[string][]*blobtesting.Fault{
+		"GetBlob": {
 			{Err: someError, Repeat: 100},
 		},
 	}
@@ -278,15 +278,17 @@ func TestCacheFailureToRead(t *testing.T) {
 	}
 }
 
-func verifyStorageBlockList(t *testing.T, st storage.Storage, expectedBlocks ...string) {
+func verifyStorageBlockList(t *testing.T, st blob.Storage, expectedBlocks ...blob.ID) {
 	t.Helper()
-	var foundBlocks []string
-	assertNoError(t, st.ListBlocks(context.Background(), "", func(bm storage.BlockMetadata) error {
-		foundBlocks = append(foundBlocks, bm.BlockID)
+	var foundBlocks []blob.ID
+	assertNoError(t, st.ListBlobs(context.Background(), "", func(bm blob.Metadata) error {
+		foundBlocks = append(foundBlocks, bm.BlobID)
 		return nil
 	}))
 
-	sort.Strings(foundBlocks)
+	sort.Slice(foundBlocks, func(i, j int) bool {
+		return foundBlocks[i] < foundBlocks[j]
+	})
 	if !reflect.DeepEqual(foundBlocks, expectedBlocks) {
 		t.Errorf("unexpected block list: %v, wanted %v", foundBlocks, expectedBlocks)
 	}

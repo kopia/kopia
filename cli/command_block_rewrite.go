@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/block"
 )
 
@@ -58,7 +59,7 @@ func runRewriteBlocksAction(ctx context.Context, rep *repo.Repository) error {
 					optDeleted = " (deleted)"
 				}
 
-				printStderr("Rewriting block %v (%v bytes) from pack %v%v\n", b.BlockID, b.Length, b.PackFile, optDeleted)
+				printStderr("Rewriting block %v (%v bytes) from pack %v%v\n", b.BlockID, b.Length, b.PackBlobID, optDeleted)
 				mu.Lock()
 				totalBytes += int64(b.Length)
 				mu.Unlock()
@@ -128,7 +129,7 @@ func findBlocksWithFormatVersion(ctx context.Context, rep *repo.Repository, ch c
 	}
 
 	for _, b := range infos {
-		if int(b.FormatVersion) == *blockRewriteFormatVersion && strings.HasPrefix(b.PackFile, *blockRewritePackPrefix) {
+		if int(b.FormatVersion) == *blockRewriteFormatVersion && strings.HasPrefix(string(b.PackBlobID), *blockRewritePackPrefix) {
 			ch <- blockInfoOrError{Info: b}
 		}
 	}
@@ -154,25 +155,25 @@ func findBlocksInShortPacks(ctx context.Context, rep *repo.Repository, ch chan b
 		fmt.Printf("Nothing to do, found %v short pack blocks\n", len(shortPackBlocks))
 	} else {
 		for _, b := range infos {
-			if shortPackBlocks[b.PackFile] && strings.HasPrefix(b.PackFile, *blockRewritePackPrefix) {
+			if shortPackBlocks[b.PackBlobID] && strings.HasPrefix(string(b.PackBlobID), *blockRewritePackPrefix) {
 				ch <- blockInfoOrError{Info: b}
 			}
 		}
 	}
 }
 
-func findShortPackBlocks(infos []block.Info, threshold uint32) (map[string]bool, error) {
-	packUsage := map[string]uint32{}
+func findShortPackBlocks(infos []block.Info, threshold uint32) (map[blob.ID]bool, error) {
+	packUsage := map[blob.ID]uint32{}
 
 	for _, bi := range infos {
-		packUsage[bi.PackFile] += bi.Length
+		packUsage[bi.PackBlobID] += bi.Length
 	}
 
-	shortPackBlocks := map[string]bool{}
+	shortPackBlocks := map[blob.ID]bool{}
 
-	for packFile, usage := range packUsage {
+	for blobID, usage := range packUsage {
 		if usage < threshold {
-			shortPackBlocks[packFile] = true
+			shortPackBlocks[blobID] = true
 		}
 	}
 

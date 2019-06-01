@@ -8,12 +8,12 @@ import (
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/storage"
+	"github.com/kopia/kopia/repo/blob"
 )
 
 var connectToStorageFromConfigPath string
 
-func connectToStorageFromConfig(ctx context.Context, isNew bool) (storage.Storage, error) {
+func connectToStorageFromConfig(ctx context.Context, isNew bool) (blob.Storage, error) {
 	if isNew {
 		return nil, errors.New("not supported")
 	}
@@ -30,7 +30,7 @@ func connectToStorageFromConfig(ctx context.Context, isNew bool) (storage.Storag
 		return nil, errors.Wrap(err, "unable to load config")
 	}
 
-	return storage.NewStorage(ctx, cfg.Storage)
+	return blob.NewStorage(ctx, cfg.Storage)
 }
 
 func init() {

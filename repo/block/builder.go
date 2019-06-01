@@ -7,6 +7,8 @@ import (
 	"sort"
 
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/repo/blob"
 )
 
 // packIndexBuilder prepares and writes block index for writing.
@@ -35,21 +37,21 @@ func (b packIndexBuilder) sortedBlocks() []*Info {
 }
 
 type indexLayout struct {
-	packFileOffsets map[string]uint32
-	entryCount      int
-	keyLength       int
-	entryLength     int
-	extraDataOffset uint32
+	packBlobIDOffsets map[blob.ID]uint32
+	entryCount        int
+	keyLength         int
+	entryLength       int
+	extraDataOffset   uint32
 }
 
 // Build writes the pack index to the provided output.
 func (b packIndexBuilder) Build(output io.Writer) error {
 	allBlocks := b.sortedBlocks()
 	layout := &indexLayout{
-		packFileOffsets: map[string]uint32{},
-		keyLength:       -1,
-		entryLength:     20,
-		entryCount:      len(allBlocks),
+		packBlobIDOffsets: map[blob.ID]uint32{},
+		keyLength:         -1,
+		entryLength:       20,
+		entryCount:        len(allBlocks),
 	}
 
 	w := bufio.NewWriter(output)
@@ -89,10 +91,10 @@ func prepareExtraData(allBlocks []*Info, layout *indexLayout) []byte {
 		if i == 0 {
 			layout.keyLength = len(contentIDToBytes(it.BlockID))
 		}
-		if it.PackFile != "" {
-			if _, ok := layout.packFileOffsets[it.PackFile]; !ok {
-				layout.packFileOffsets[it.PackFile] = uint32(len(extraData))
-				extraData = append(extraData, []byte(it.PackFile)...)
+		if it.PackBlobID != "" {
+			if _, ok := layout.packBlobIDOffsets[it.PackBlobID]; !ok {
+				layout.packBlobIDOffsets[it.PackBlobID] = uint32(len(extraData))
+				extraData = append(extraData, []byte(it.PackBlobID)...)
 			}
 		}
 		if len(it.Payload) > 0 {
@@ -130,11 +132,11 @@ func formatEntry(entry []byte, it *Info, layout *indexLayout) error {
 	entryPackedLength := entry[16:20]
 	timestampAndFlags := uint64(it.TimestampSeconds) << 16
 
-	if len(it.PackFile) == 0 {
+	if len(it.PackBlobID) == 0 {
 		return errors.Errorf("empty pack block ID for %v", it.BlockID)
 	}
 
-	binary.BigEndian.PutUint32(entryPackFileOffset, layout.extraDataOffset+layout.packFileOffsets[it.PackFile])
+	binary.BigEndian.PutUint32(entryPackFileOffset, layout.extraDataOffset+layout.packBlobIDOffsets[it.PackBlobID])
 	if it.Deleted {
 		binary.BigEndian.PutUint32(entryPackedOffset, it.PackOffset|0x80000000)
 	} else {
@@ -142,7 +144,7 @@ func formatEntry(entry []byte, it *Info, layout *indexLayout) error {
 	}
 	binary.BigEndian.PutUint32(entryPackedLength, it.Length)
 	timestampAndFlags |= uint64(it.FormatVersion) << 8
-	timestampAndFlags |= uint64(len(it.PackFile))
+	timestampAndFlags |= uint64(len(it.PackBlobID))
 	binary.BigEndian.PutUint64(entryTimestampAndFlags, timestampAndFlags)
 	return nil
 }

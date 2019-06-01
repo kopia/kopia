@@ -7,9 +7,9 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/object"
-	"github.com/kopia/kopia/repo/storage"
 )
 
 // BuildInfo is the build information of Kopia.
@@ -28,17 +28,17 @@ type NewRepositoryOptions struct {
 }
 
 // Initialize creates initial repository data structures in the specified storage with given credentials.
-func Initialize(ctx context.Context, st storage.Storage, opt *NewRepositoryOptions, password string) error {
+func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions, password string) error {
 	if opt == nil {
 		opt = &NewRepositoryOptions{}
 	}
 
-	// get the block - expect ErrBlockNotFound
-	_, err := st.GetBlock(ctx, FormatBlockID, 0, -1)
+	// get the blob - expect ErrNotFound
+	_, err := st.GetBlob(ctx, FormatBlobID, 0, -1)
 	if err == nil {
 		return errors.Errorf("repository already initialized")
 	}
-	if err != storage.ErrBlockNotFound {
+	if err != blob.ErrBlobNotFound {
 		return err
 	}
 

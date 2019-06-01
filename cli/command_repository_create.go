@@ -8,9 +8,9 @@ import (
 
 	"github.com/kopia/kopia/fs/ignorefs"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/object"
-	"github.com/kopia/kopia/repo/storage"
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
@@ -53,9 +53,9 @@ func newRepositoryOptionsFromFlags() *repo.NewRepositoryOptions {
 	}
 }
 
-func ensureEmpty(ctx context.Context, s storage.Storage) error {
+func ensureEmpty(ctx context.Context, s blob.Storage) error {
 	hasDataError := errors.New("has data")
-	err := s.ListBlocks(ctx, "", func(cb storage.BlockMetadata) error {
+	err := s.ListBlobs(ctx, "", func(cb blob.Metadata) error {
 		return hasDataError
 	})
 	if err == hasDataError {
@@ -65,7 +65,7 @@ func ensureEmpty(ctx context.Context, s storage.Storage) error {
 	return err
 }
 
-func runCreateCommandWithStorage(ctx context.Context, st storage.Storage) error {
+func runCreateCommandWithStorage(ctx context.Context, st blob.Storage) error {
 	err := ensureEmpty(ctx, st)
 	if err != nil {
 		return errors.Wrap(err, "unable to get repository storage")

@@ -11,8 +11,8 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/block"
-	"github.com/kopia/kopia/repo/storage"
 )
 
 // ConnectOptions specifies options when persisting configuration to connect to a repository.
@@ -21,8 +21,8 @@ type ConnectOptions struct {
 }
 
 // Connect connects to the repository in the specified storage and persists the configuration and credentials in the file provided.
-func Connect(ctx context.Context, configFile string, st storage.Storage, password string, opt ConnectOptions) error {
-	formatBytes, err := st.GetBlock(ctx, FormatBlockID, 0, -1)
+func Connect(ctx context.Context, configFile string, st blob.Storage, password string, opt ConnectOptions) error {
+	formatBytes, err := st.GetBlob(ctx, FormatBlobID, 0, -1)
 	if err != nil {
 		return errors.Wrap(err, "unable to read format block")
 	}

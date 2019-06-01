@@ -7,8 +7,8 @@ import (
 
 	"gopkg.in/alecthomas/kingpin.v2"
 
-	"github.com/kopia/kopia/repo/storage"
-	"github.com/kopia/kopia/repo/storage/filesystem"
+	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/filesystem"
 )
 
 var options filesystem.Options
@@ -21,7 +21,7 @@ var (
 	connectFlat     bool
 )
 
-func connect(ctx context.Context, isNew bool) (storage.Storage, error) {
+func connect(ctx context.Context, isNew bool) (blob.Storage, error) {
 	fso := options
 	if v := connectOwnerUID; v != "" {
 		fso.FileUID = getIntPtrValue(v, 10)

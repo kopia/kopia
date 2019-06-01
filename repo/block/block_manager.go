@@ -21,7 +21,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/repologging"
-	"github.com/kopia/kopia/repo/storage"
+	"github.com/kopia/kopia/repo/blob"
 )
 
 var (
@@ -29,8 +29,8 @@ var (
 	formatLog = repologging.Logger("kopia/block/format")
 )
 
-// PackBlockPrefix is the prefix for all pack storage blocks.
-const PackBlockPrefix = "p"
+// PackBlobIDPrefix is the prefix for all pack blobs.
+const PackBlobIDPrefix = "p"
 
 const (
 	parallelFetches          = 5                // number of parallel reads goroutines
@@ -47,9 +47,12 @@ const (
 	indexLoadAttempts = 10
 )
 
+// ErrBlockNotFound is returned when block is not found.
+var ErrBlockNotFound = errors.New("block not found")
+
 // IndexInfo is an information about a single index block managed by Manager.
 type IndexInfo struct {
-	FileName  string
+	BlobID    blob.ID
 	Length    int64
 	Timestamp time.Time
 }
@@ -61,7 +64,7 @@ type Manager struct {
 	stats      Stats
 	blockCache *blockCache
 	listCache  *listCache
-	st         storage.Storage
+	st         blob.Storage
 
 	mu                      sync.Mutex
 	locked                  bool
@@ -105,7 +108,7 @@ func (bm *Manager) DeleteBlock(blockID string) error {
 	// We have this block in current pack index and it's already deleted there.
 	if bi, ok := bm.packIndexBuilder[blockID]; ok {
 		if !bi.Deleted {
-			if bi.PackFile == "" {
+			if bi.PackBlobID == "" {
 				// added and never committed, just forget about it.
 				delete(bm.packIndexBuilder, blockID)
 				delete(bm.currentPackItems, blockID)
@@ -219,7 +222,7 @@ func (bm *Manager) verifyInvariantsLocked() {
 func (bm *Manager) verifyCurrentPackItemsLocked() {
 	for k, cpi := range bm.currentPackItems {
 		bm.assertInvariant(cpi.BlockID == k, "block ID entry has invalid key: %v %v", cpi.BlockID, k)
-		bm.assertInvariant(cpi.Deleted || cpi.PackFile == "", "block ID entry has unexpected pack block ID %v: %v", cpi.BlockID, cpi.PackFile)
+		bm.assertInvariant(cpi.Deleted || cpi.PackBlobID == "", "block ID entry has unexpected pack block ID %v: %v", cpi.BlockID, cpi.PackBlobID)
 		bm.assertInvariant(cpi.TimestampSeconds != 0, "block has no timestamp: %v", cpi.BlockID)
 		bi, ok := bm.packIndexBuilder[k]
 		bm.assertInvariant(ok, "block ID entry not present in pack index builder: %v", cpi.BlockID)
@@ -235,9 +238,9 @@ func (bm *Manager) verifyPackIndexBuilderLocked() {
 			continue
 		}
 		if cpi.Deleted {
-			bm.assertInvariant(cpi.PackFile == "", "block can't be both deleted and have a pack block: %v", cpi.BlockID)
+			bm.assertInvariant(cpi.PackBlobID == "", "block can't be both deleted and have a pack block: %v", cpi.BlockID)
 		} else {
-			bm.assertInvariant(cpi.PackFile != "", "block that's not deleted must have a pack block: %+v", cpi)
+			bm.assertInvariant(cpi.PackBlobID != "", "block that's not deleted must have a pack block: %+v", cpi)
 			bm.assertInvariant(cpi.FormatVersion == byte(bm.writeFormatVersion), "block that's not deleted must have a valid format version: %+v", cpi)
 		}
 		bm.assertInvariant(cpi.TimestampSeconds != 0, "block has no timestamp: %v", cpi.BlockID)
@@ -279,12 +282,12 @@ func (bm *Manager) flushPackIndexesLocked(ctx context.Context) error {
 		data := buf.Bytes()
 		dataCopy := append([]byte(nil), data...)
 
-		indexBlockID, err := bm.writePackIndexesNew(ctx, data)
+		indexBlobID, err := bm.writePackIndexesNew(ctx, data)
 		if err != nil {
 			return err
 		}
 
-		if err := bm.committedBlocks.addBlock(indexBlockID, dataCopy, true); err != nil {
+		if err := bm.committedBlocks.addBlock(indexBlobID, dataCopy, true); err != nil {
 			return errors.Wrap(err, "unable to add committed block")
 		}
 		bm.packIndexBuilder = make(packIndexBuilder)
@@ -294,7 +297,7 @@ func (bm *Manager) flushPackIndexesLocked(ctx context.Context) error {
 	return nil
 }
 
-func (bm *Manager) writePackIndexesNew(ctx context.Context, data []byte) (string, error) {
+func (bm *Manager) writePackIndexesNew(ctx context.Context, data []byte) (blob.ID, error) {
 	return bm.encryptAndWriteBlockNotLocked(ctx, data, newIndexBlockPrefix)
 }
 
@@ -320,7 +323,7 @@ func (bm *Manager) writePackBlockLocked(ctx context.Context) error {
 		return errors.Wrap(err, "unable to read crypto bytes")
 	}
 
-	packFile := fmt.Sprintf("%v%x", PackBlockPrefix, blockID)
+	packFile := blob.ID(fmt.Sprintf("%v%x", PackBlobIDPrefix, blockID))
 
 	blockData, packFileIndex, err := bm.preparePackDataBlock(packFile)
 	if err != nil {
@@ -341,7 +344,7 @@ func (bm *Manager) writePackBlockLocked(ctx context.Context) error {
 	return nil
 }
 
-func (bm *Manager) preparePackDataBlock(packFile string) ([]byte, packIndexBuilder, error) {
+func (bm *Manager) preparePackDataBlock(packFile blob.ID) ([]byte, packIndexBuilder, error) {
 	formatLog.Debugf("preparing block data with %v items", len(bm.currentPackItems))
 
 	blockData, err := appendRandomBytes(append([]byte(nil), bm.repositoryFormatBytes...), rand.Intn(bm.maxPreambleLength-bm.minPreambleLength+1)+bm.minPreambleLength)
@@ -367,7 +370,7 @@ func (bm *Manager) preparePackDataBlock(packFile string) ([]byte, packIndexBuild
 			BlockID:          blockID,
 			Deleted:          info.Deleted,
 			FormatVersion:    byte(bm.writeFormatVersion),
-			PackFile:         packFile,
+			PackBlobID:       packFile,
 			PackOffset:       uint32(len(blockData)),
 			Length:           uint32(len(encrypted)),
 			TimestampSeconds: info.TimestampSeconds,
@@ -445,9 +448,9 @@ func (bm *Manager) loadPackIndexesUnlocked(ctx context.Context) ([]IndexInfo, bo
 
 		err = bm.tryLoadPackIndexBlocksUnlocked(ctx, blocks)
 		if err == nil {
-			var blockIDs []string
+			var blockIDs []blob.ID
 			for _, b := range blocks {
-				blockIDs = append(blockIDs, b.FileName)
+				blockIDs = append(blockIDs, b.BlobID)
 			}
 			var updated bool
 			updated, err = bm.committedBlocks.use(blockIDs)
@@ -456,7 +459,7 @@ func (bm *Manager) loadPackIndexesUnlocked(ctx context.Context) ([]IndexInfo, bo
 			}
 			return blocks, updated, nil
 		}
-		if err != storage.ErrBlockNotFound {
+		if err != blob.ErrBlobNotFound {
 			return nil, false, err
 		}
 	}
@@ -511,19 +514,19 @@ func (bm *Manager) tryLoadPackIndexBlocksUnlocked(ctx context.Context, blocks []
 }
 
 // unprocessedIndexBlocksUnlocked returns a closed channel filled with block IDs that are not in committedBlocks cache.
-func (bm *Manager) unprocessedIndexBlocksUnlocked(blocks []IndexInfo) (<-chan string, int64, error) {
+func (bm *Manager) unprocessedIndexBlocksUnlocked(blocks []IndexInfo) (<-chan blob.ID, int64, error) {
 	var totalSize int64
-	ch := make(chan string, len(blocks))
+	ch := make(chan blob.ID, len(blocks))
 	for _, block := range blocks {
-		has, err := bm.committedBlocks.cache.hasIndexBlockID(block.FileName)
+		has, err := bm.committedBlocks.cache.hasIndexBlockID(block.BlobID)
 		if err != nil {
 			return nil, 0, err
 		}
 		if has {
-			log.Debugf("index block %q already in cache, skipping", block.FileName)
+			log.Debugf("index block %q already in cache, skipping", block.BlobID)
 			continue
 		}
-		ch <- block.FileName
+		ch <- block.BlobID
 		totalSize += block.Length
 	}
 	close(ch)
@@ -657,16 +660,16 @@ func validatePrefix(prefix string) error {
 	return errors.Errorf("invalid prefix, must be a empty or single letter between 'g' and 'z'")
 }
 
-func (bm *Manager) writePackFileNotLocked(ctx context.Context, packFile string, data []byte) error {
+func (bm *Manager) writePackFileNotLocked(ctx context.Context, packFile blob.ID, data []byte) error {
 	atomic.AddInt32(&bm.stats.WrittenBlocks, 1)
 	atomic.AddInt64(&bm.stats.WrittenBytes, int64(len(data)))
 	bm.listCache.deleteListCache(ctx)
-	return bm.st.PutBlock(ctx, packFile, data)
+	return bm.st.PutBlob(ctx, packFile, data)
 }
 
-func (bm *Manager) encryptAndWriteBlockNotLocked(ctx context.Context, data []byte, prefix string) (string, error) {
+func (bm *Manager) encryptAndWriteBlockNotLocked(ctx context.Context, data []byte, prefix blob.ID) (blob.ID, error) {
 	hash := bm.hashData(data)
-	physicalBlockID := prefix + hex.EncodeToString(hash)
+	blobID := prefix + blob.ID(hex.EncodeToString(hash))
 
 	// Encrypt the block in-place.
 	atomic.AddInt64(&bm.stats.EncryptedBytes, int64(len(data)))
@@ -678,11 +681,11 @@ func (bm *Manager) encryptAndWriteBlockNotLocked(ctx context.Context, data []byt
 	atomic.AddInt32(&bm.stats.WrittenBlocks, 1)
 	atomic.AddInt64(&bm.stats.WrittenBytes, int64(len(data2)))
 	bm.listCache.deleteListCache(ctx)
-	if err := bm.st.PutBlock(ctx, physicalBlockID, data2); err != nil {
+	if err := bm.st.PutBlob(ctx, blobID, data2); err != nil {
 		return "", err
 	}
 
-	return physicalBlockID, nil
+	return blobID, nil
 }
 
 func (bm *Manager) hashData(data []byte) []byte {
@@ -697,7 +700,7 @@ func cloneBytes(b []byte) []byte {
 	return append([]byte{}, b...)
 }
 
-// GetBlock gets the contents of a given block. If the block is not found returns blob.ErrBlockNotFound.
+// GetBlock gets the contents of a given block. If the block is not found returns blob.ErrBlobNotFound.
 func (bm *Manager) GetBlock(ctx context.Context, blockID string) ([]byte, error) {
 	bi, err := bm.getBlockInfo(blockID)
 	if err != nil {
@@ -705,7 +708,7 @@ func (bm *Manager) GetBlock(ctx context.Context, blockID string) ([]byte, error)
 	}
 
 	if bi.Deleted {
-		return nil, storage.ErrBlockNotFound
+		return nil, ErrBlockNotFound
 	}
 
 	return bm.getBlockContentsUnlocked(ctx, bi)
@@ -740,14 +743,14 @@ func (bm *Manager) BlockInfo(ctx context.Context, blockID string) (Info, error) 
 	if bi.Deleted {
 		log.Debugf("BlockInfo(%q) - deleted", blockID)
 	} else {
-		log.Debugf("BlockInfo(%q) - exists in %v", blockID, bi.PackFile)
+		log.Debugf("BlockInfo(%q) - exists in %v", blockID, bi.PackBlobID)
 	}
 
 	return bi, err
 }
 
-// FindUnreferencedStorageFiles returns the list of unreferenced storage blocks.
-func (bm *Manager) FindUnreferencedStorageFiles(ctx context.Context) ([]storage.BlockMetadata, error) {
+// FindUnreferencedBlobs returns the list of unreferenced storage blocks.
+func (bm *Manager) FindUnreferencedBlobs(ctx context.Context) ([]blob.Metadata, error) {
 	infos, err := bm.ListBlockInfos("", true)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to list index blocks")
@@ -755,11 +758,11 @@ func (bm *Manager) FindUnreferencedStorageFiles(ctx context.Context) ([]storage.
 
 	usedPackBlocks := findPackBlocksInUse(infos)
 
-	var unused []storage.BlockMetadata
-	err = bm.st.ListBlocks(ctx, PackBlockPrefix, func(bi storage.BlockMetadata) error {
-		u := usedPackBlocks[bi.BlockID]
+	var unused []blob.Metadata
+	err = bm.st.ListBlobs(ctx, PackBlobIDPrefix, func(bi blob.Metadata) error {
+		u := usedPackBlocks[bi.BlobID]
 		if u > 0 {
-			log.Debugf("pack %v, in use by %v blocks", bi.BlockID, u)
+			log.Debugf("pack %v, in use by %v blocks", bi.BlobID, u)
 			return nil
 		}
 
@@ -773,11 +776,11 @@ func (bm *Manager) FindUnreferencedStorageFiles(ctx context.Context) ([]storage.
 	return unused, nil
 }
 
-func findPackBlocksInUse(infos []Info) map[string]int {
-	packUsage := map[string]int{}
+func findPackBlocksInUse(infos []Info) map[blob.ID]int {
+	packUsage := map[blob.ID]int{}
 
 	for _, bi := range infos {
-		packUsage[bi.PackFile]++
+		packUsage[bi.PackBlobID]++
 	}
 
 	return packUsage
@@ -788,7 +791,7 @@ func (bm *Manager) getBlockContentsUnlocked(ctx context.Context, bi Info) ([]byt
 		return cloneBytes(bi.Payload), nil
 	}
 
-	payload, err := bm.blockCache.getContentBlock(ctx, bi.BlockID, bi.PackFile, int64(bi.PackOffset), int64(bi.Length))
+	payload, err := bm.blockCache.getContentBlock(ctx, blob.ID(bi.BlockID), bi.PackBlobID, int64(bi.PackOffset), int64(bi.Length))
 	if err != nil {
 		return nil, err
 	}
@@ -803,7 +806,7 @@ func (bm *Manager) getBlockContentsUnlocked(ctx context.Context, bi Info) ([]byt
 
 	decrypted, err := bm.decryptAndVerify(payload, iv)
 	if err != nil {
-		return nil, errors.Wrapf(err, "invalid checksum at %v offset %v length %v", bi.PackFile, bi.PackOffset, len(payload))
+		return nil, errors.Wrapf(err, "invalid checksum at %v offset %v length %v", bi.PackBlobID, bi.PackOffset, len(payload))
 	}
 
 	return decrypted, nil
@@ -827,13 +830,13 @@ func (bm *Manager) decryptAndVerify(encrypted []byte, iv []byte) ([]byte, error)
 	return decrypted, bm.verifyChecksum(decrypted, iv)
 }
 
-func (bm *Manager) getPhysicalBlockInternal(ctx context.Context, blockID string) ([]byte, error) {
-	payload, err := bm.blockCache.getContentBlock(ctx, blockID, blockID, 0, -1)
+func (bm *Manager) getPhysicalBlockInternal(ctx context.Context, blobID blob.ID) ([]byte, error) {
+	payload, err := bm.blockCache.getContentBlock(ctx, blobID, blobID, 0, -1)
 	if err != nil {
 		return nil, err
 	}
 
-	iv, err := getPhysicalBlockIV(blockID)
+	iv, err := getPhysicalBlockIV(blobID)
 	if err != nil {
 		return nil, err
 	}
@@ -860,11 +863,11 @@ func getPackedBlockIV(blockID string) ([]byte, error) {
 	return hex.DecodeString(blockID[len(blockID)-(aes.BlockSize*2):])
 }
 
-func getPhysicalBlockIV(s string) ([]byte, error) {
-	if p := strings.Index(s, "-"); p >= 0 {
+func getPhysicalBlockIV(s blob.ID) ([]byte, error) {
+	if p := strings.Index(string(s), "-"); p >= 0 {
 		s = s[0:p]
 	}
-	return hex.DecodeString(s[len(s)-(aes.BlockSize*2):])
+	return hex.DecodeString(string(s[len(s)-(aes.BlockSize*2):]))
 }
 
 func (bm *Manager) verifyChecksum(data []byte, blockID []byte) error {
@@ -918,8 +921,8 @@ type cachedList struct {
 
 // listIndexBlocksFromStorage returns the list of index blocks in the given storage.
 // The list of blocks is not guaranteed to be sorted.
-func listIndexBlocksFromStorage(ctx context.Context, st storage.Storage) ([]IndexInfo, error) {
-	snapshot, err := storage.ListAllBlocksConsistent(ctx, st, newIndexBlockPrefix, math.MaxInt32)
+func listIndexBlocksFromStorage(ctx context.Context, st blob.Storage) ([]IndexInfo, error) {
+	snapshot, err := blob.ListAllBlobsConsistent(ctx, st, newIndexBlockPrefix, math.MaxInt32)
 	if err != nil {
 		return nil, err
 	}
@@ -927,7 +930,7 @@ func listIndexBlocksFromStorage(ctx context.Context, st storage.Storage) ([]Inde
 	var results []IndexInfo
 	for _, it := range snapshot {
 		ii := IndexInfo{
-			FileName:  it.BlockID,
+			BlobID:    it.BlobID,
 			Timestamp: it.Timestamp,
 			Length:    it.Length,
 		}
@@ -938,11 +941,11 @@ func listIndexBlocksFromStorage(ctx context.Context, st storage.Storage) ([]Inde
 }
 
 // NewManager creates new block manager with given packing options and a formatter.
-func NewManager(ctx context.Context, st storage.Storage, f FormattingOptions, caching CachingOptions, repositoryFormatBytes []byte) (*Manager, error) {
+func NewManager(ctx context.Context, st blob.Storage, f FormattingOptions, caching CachingOptions, repositoryFormatBytes []byte) (*Manager, error) {
 	return newManagerWithOptions(ctx, st, f, caching, time.Now, repositoryFormatBytes)
 }
 
-func newManagerWithOptions(ctx context.Context, st storage.Storage, f FormattingOptions, caching CachingOptions, timeNow func() time.Time, repositoryFormatBytes []byte) (*Manager, error) {
+func newManagerWithOptions(ctx context.Context, st blob.Storage, f FormattingOptions, caching CachingOptions, timeNow func() time.Time, repositoryFormatBytes []byte) (*Manager, error) {
 	if f.Version < minSupportedReadVersion || f.Version > currentWriteVersion {
 		return nil, errors.Errorf("can't handle repositories created using version %v (min supported %v, max supported %v)", f.Version, minSupportedReadVersion, maxSupportedReadVersion)
 	}

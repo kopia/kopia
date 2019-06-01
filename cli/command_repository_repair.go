@@ -6,7 +6,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/storage"
+	"github.com/kopia/kopia/repo/blob"
 )
 
 var (
@@ -17,19 +17,19 @@ var (
 	repairDryDrun                         = repairCommand.Flag("dry-run", "Do not modify repository").Short('n').Bool()
 )
 
-func runRepairCommandWithStorage(ctx context.Context, st storage.Storage) error {
+func runRepairCommandWithStorage(ctx context.Context, st blob.Storage) error {
 	if err := maybeRecoverFormatBlock(ctx, st, *repairCommandRecoverFormatBlockPrefix); err != nil {
 		return err
 	}
 	return nil
 }
 
-func maybeRecoverFormatBlock(ctx context.Context, st storage.Storage, prefix string) error {
+func maybeRecoverFormatBlock(ctx context.Context, st blob.Storage, prefix string) error {
 	switch *repairCommandRecoverFormatBlock {
 	case "auto":
-		log.Infof("looking for format block...")
-		if _, err := st.GetBlock(ctx, repo.FormatBlockID, 0, -1); err == nil {
-			log.Infof("format block already exists, not recovering, pass --recover-format=yes")
+		log.Infof("looking for format blob...")
+		if _, err := st.GetBlob(ctx, repo.FormatBlobID, 0, -1); err == nil {
+			log.Infof("format blob already exists, not recovering, pass --recover-format=yes")
 			return nil
 		}
 
@@ -40,19 +40,19 @@ func maybeRecoverFormatBlock(ctx context.Context, st storage.Storage, prefix str
 	return recoverFormatBlock(ctx, st, *repairCommandRecoverFormatBlockPrefix)
 }
 
-func recoverFormatBlock(ctx context.Context, st storage.Storage, prefix string) error {
+func recoverFormatBlock(ctx context.Context, st blob.Storage, prefix string) error {
 	errSuccess := errors.New("success")
 
-	err := st.ListBlocks(ctx, *repairCommandRecoverFormatBlockPrefix, func(bi storage.BlockMetadata) error {
-		log.Infof("looking for replica of format block in %v...", bi.BlockID)
-		if b, err := repo.RecoverFormatBlock(ctx, st, bi.BlockID, bi.Length); err == nil {
+	err := st.ListBlobs(ctx, blob.ID(*repairCommandRecoverFormatBlockPrefix), func(bi blob.Metadata) error {
+		log.Infof("looking for replica of format block in %v...", bi.BlobID)
+		if b, err := repo.RecoverFormatBlock(ctx, st, bi.BlobID, bi.Length); err == nil {
 			if !*repairDryDrun {
-				if puterr := st.PutBlock(ctx, repo.FormatBlockID, b); puterr != nil {
+				if puterr := st.PutBlob(ctx, repo.FormatBlobID, b); puterr != nil {
 					return puterr
 				}
 			}
 
-			log.Infof("recovered replica block from %v", bi.BlockID)
+			log.Infof("recovered replica block from %v", bi.BlobID)
 			return errSuccess
 		}
 

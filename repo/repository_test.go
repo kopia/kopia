@@ -15,7 +15,6 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/object"
-	"github.com/kopia/kopia/repo/storage"
 )
 
 func TestWriters(t *testing.T) {
@@ -182,7 +181,7 @@ func TestReaderStoredBlockNotFound(t *testing.T) {
 		t.Errorf("cannot parse object ID: %v", err)
 	}
 	reader, err := env.Repository.Objects.Open(ctx, objectID)
-	if err != storage.ErrBlockNotFound || reader != nil {
+	if err != object.ErrObjectNotFound || reader != nil {
 		t.Errorf("unexpected result: reader: %v err: %v", reader, err)
 	}
 }

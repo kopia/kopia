@@ -17,8 +17,8 @@ import (
 
 	logging "github.com/op/go-logging"
 
-	"github.com/kopia/kopia/internal/storagetesting"
-	"github.com/kopia/kopia/repo/storage"
+	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/repo/blob"
 )
 
 const (
@@ -34,8 +34,8 @@ func init() {
 
 func TestBlockManagerEmptyFlush(t *testing.T) {
 	ctx := context.Background()
-	data := map[string][]byte{}
-	keyTime := map[string]time.Time{}
+	data := blobtesting.DataMap{}
+	keyTime := map[blob.ID]time.Time{}
 	bm := newTestBlockManager(data, keyTime, nil)
 	bm.Flush(ctx)
 	if got, want := len(data), 0; got != want {
@@ -45,8 +45,8 @@ func TestBlockManagerEmptyFlush(t *testing.T) {
 
 func TestBlockZeroBytes1(t *testing.T) {
 	ctx := context.Background()
-	data := map[string][]byte{}
-	keyTime := map[string]time.Time{}
+	data := blobtesting.DataMap{}
+	keyTime := map[blob.ID]time.Time{}
 	bm := newTestBlockManager(data, keyTime, nil)
 	blockID := writeBlockAndVerify(ctx, t, bm, []byte{})
 	bm.Flush(ctx)
@@ -60,8 +60,8 @@ func TestBlockZeroBytes1(t *testing.T) {
 
 func TestBlockZeroBytes2(t *testing.T) {
 	ctx := context.Background()
-	data := map[string][]byte{}
-	keyTime := map[string]time.Time{}
+	data := blobtesting.DataMap{}
+	keyTime := map[blob.ID]time.Time{}
 	bm := newTestBlockManager(data, keyTime, nil)
 	writeBlockAndVerify(ctx, t, bm, seededRandomData(10, 10))
 	writeBlockAndVerify(ctx, t, bm, []byte{})
@@ -74,8 +74,8 @@ func TestBlockZeroBytes2(t *testing.T) {
 
 func TestBlockManagerSmallBlockWrites(t *testing.T) {
 	ctx := context.Background()
-	data := map[string][]byte{}
-	keyTime := map[string]time.Time{}
+	data := blobtesting.DataMap{}
+	keyTime := map[blob.ID]time.Time{}
 	bm := newTestBlockManager(data, keyTime, nil)
 
 	for i := 0; i < 100; i++ {
@@ -92,8 +92,8 @@ func TestBlockManagerSmallBlockWrites(t *testing.T) {
 
 func TestBlockManagerDedupesPendingBlocks(t *testing.T) {
 	ctx := context.Background()
-	data := map[string][]byte{}
-	keyTime := map[string]time.Time{}
+	data := blobtesting.DataMap{}
+	keyTime := map[blob.ID]time.Time{}
 	bm := newTestBlockManager(data, keyTime, nil)
 
 	for i := 0; i < 100; i++ {
@@ -110,8 +110,8 @@ func TestBlockManagerDedupesPendingBlocks(t *testing.T) {
 
 func TestBlockManagerDedupesPendingAndUncommittedBlocks(t *testing.T) {
 	ctx := context.Background()
-	data := map[string][]byte{}
-	keyTime := map[string]time.Time{}
+	data := blobtesting.DataMap{}
+	keyTime := map[blob.ID]time.Time{}
 	bm := newTestBlockManager(data, keyTime, nil)
 
 	// no writes here, all data fits in a single pack.
@@ -140,19 +140,19 @@ func TestBlockManagerDedupesPendingAndUncommittedBlocks(t *testing.T) {
 
 func TestBlockManagerEmpty(t *testing.T) {
 	ctx := context.Background()
-	data := map[string][]byte{}
-	keyTime := map[string]time.Time{}
+	data := blobtesting.DataMap{}
+	keyTime := map[blob.ID]time.Time{}
 	bm := newTestBlockManager(data, keyTime, nil)
 
 	noSuchBlockID := string(hashValue([]byte("foo")))
 
 	b, err := bm.GetBlock(ctx, noSuchBlockID)
-	if err != storage.ErrBlockNotFound {
+	if err != ErrBlockNotFound {
 		t.Errorf("unexpected error when getting non-existent block: %v, %v", b, err)
 	}
 
 	bi, err := bm.BlockInfo(ctx, noSuchBlockID)
-	if err != storage.ErrBlockNotFound {
+	if err != ErrBlockNotFound {
 		t.Errorf("unexpected error when getting non-existent block info: %v, %v", bi, err)
 	}
 
@@ -176,8 +176,8 @@ func verifyActiveIndexBlockCount(ctx context.Context, t *testing.T, bm *Manager,
 }
 func TestBlockManagerInternalFlush(t *testing.T) {
 	ctx := context.Background()
-	data := map[string][]byte{}
-	keyTime := map[string]time.Time{}
+	data := blobtesting.DataMap{}
+	keyTime := map[blob.ID]time.Time{}
 	bm := newTestBlockManager(data, keyTime, nil)
 
 	for i := 0; i < 100; i++ {
@@ -214,8 +214,8 @@ func TestBlockManagerInternalFlush(t *testing.T) {
 
 func TestBlockManagerWriteMultiple(t *testing.T) {
 	ctx := context.Background()
-	data := map[string][]byte{}
-	keyTime := map[string]time.Time{}
+	data := blobtesting.DataMap{}
+	keyTime := map[blob.ID]time.Time{}
 	timeFunc := fakeTimeNowWithAutoAdvance(fakeTime, 1*time.Second)
 	bm := newTestBlockManager(data, keyTime, timeFunc)
 
@@ -262,10 +262,10 @@ func TestBlockManagerWriteMultiple(t *testing.T) {
 // was done in place and clobbered pending data in memory.
 func TestBlockManagerFailedToWritePack(t *testing.T) {
 	ctx := context.Background()
-	data := map[string][]byte{}
-	keyTime := map[string]time.Time{}
-	st := storagetesting.NewMapStorage(data, keyTime, nil)
-	faulty := &storagetesting.FaultyStorage{
+	data := blobtesting.DataMap{}
+	keyTime := map[blob.ID]time.Time{}
+	st := blobtesting.NewMapStorage(data, keyTime, nil)
+	faulty := &blobtesting.FaultyStorage{
 		Base: st,
 	}
 	st = faulty
@@ -283,7 +283,7 @@ func TestBlockManagerFailedToWritePack(t *testing.T) {
 	}
 	logging.SetLevel(logging.DEBUG, "faulty-storage")
 
-	faulty.Faults = map[string][]*storagetesting.Fault{
+	faulty.Faults = map[string][]*blobtesting.Fault{
 		"PutBlock": {
 			{Err: errors.New("booboo")},
 		},
@@ -303,8 +303,8 @@ func TestBlockManagerFailedToWritePack(t *testing.T) {
 
 func TestBlockManagerConcurrency(t *testing.T) {
 	ctx := context.Background()
-	data := map[string][]byte{}
-	keyTime := map[string]time.Time{}
+	data := blobtesting.DataMap{}
+	keyTime := map[blob.ID]time.Time{}
 	bm := newTestBlockManager(data, keyTime, nil)
 	preexistingBlock := writeBlockAndVerify(ctx, t, bm, seededRandomData(10, 100))
 	bm.Flush(ctx)
@@ -387,8 +387,8 @@ func TestBlockManagerConcurrency(t *testing.T) {
 
 func TestDeleteBlock(t *testing.T) {
 	ctx := context.Background()
-	data := map[string][]byte{}
-	keyTime := map[string]time.Time{}
+	data := blobtesting.DataMap{}
+	keyTime := map[blob.ID]time.Time{}
 	bm := newTestBlockManager(data, keyTime, nil)
 	block1 := writeBlockAndVerify(ctx, t, bm, seededRandomData(10, 100))
 	bm.Flush(ctx)
@@ -418,8 +418,8 @@ func TestRewriteNonDeleted(t *testing.T) {
 		for action2 := 0; action2 < stepBehaviors; action2++ {
 			t.Run(fmt.Sprintf("case-%v-%v", action1, action2), func(t *testing.T) {
 				ctx := context.Background()
-				data := map[string][]byte{}
-				keyTime := map[string]time.Time{}
+				data := blobtesting.DataMap{}
+				keyTime := map[blob.ID]time.Time{}
 				fakeNow := fakeTimeNowWithAutoAdvance(fakeTime, 1*time.Second)
 				bm := newTestBlockManager(data, keyTime, fakeNow)
 
@@ -450,8 +450,8 @@ func TestRewriteNonDeleted(t *testing.T) {
 
 func TestDisableFlush(t *testing.T) {
 	ctx := context.Background()
-	data := map[string][]byte{}
-	keyTime := map[string]time.Time{}
+	data := blobtesting.DataMap{}
+	keyTime := map[blob.ID]time.Time{}
 	bm := newTestBlockManager(data, keyTime, nil)
 	bm.DisableIndexFlush()
 	bm.DisableIndexFlush()
@@ -480,8 +480,8 @@ func TestRewriteDeleted(t *testing.T) {
 			for action3 := 0; action3 < stepBehaviors; action3++ {
 				t.Run(fmt.Sprintf("case-%v-%v-%v", action1, action2, action3), func(t *testing.T) {
 					ctx := context.Background()
-					data := map[string][]byte{}
-					keyTime := map[string]time.Time{}
+					data := blobtesting.DataMap{}
+					keyTime := map[blob.ID]time.Time{}
 					fakeNow := fakeTimeNowWithAutoAdvance(fakeTime, 1*time.Second)
 					bm := newTestBlockManager(data, keyTime, fakeNow)
 
@@ -503,7 +503,7 @@ func TestRewriteDeleted(t *testing.T) {
 					applyStep(action1)
 					assertNoError(t, bm.DeleteBlock(block1))
 					applyStep(action2)
-					if got, want := bm.RewriteBlock(ctx, block1), storage.ErrBlockNotFound; got != want && got != nil {
+					if got, want := bm.RewriteBlock(ctx, block1), ErrBlockNotFound; got != want && got != nil {
 						t.Errorf("unexpected error %v, wanted %v", got, want)
 					}
 					applyStep(action3)
@@ -532,8 +532,8 @@ func TestDeleteAndRecreate(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
 			// write a block
-			data := map[string][]byte{}
-			keyTime := map[string]time.Time{}
+			data := blobtesting.DataMap{}
+			keyTime := map[blob.ID]time.Time{}
 			bm := newTestBlockManager(data, keyTime, fakeTimeNowFrozen(fakeTime))
 			block1 := writeBlockAndVerify(ctx, t, bm, seededRandomData(10, 100))
 			bm.Flush(ctx)
@@ -573,10 +573,10 @@ func TestDeleteAndRecreate(t *testing.T) {
 	}
 }
 
-func TestFindUnreferencedStorageFiles(t *testing.T) {
+func TestFindUnreferencedBlobs(t *testing.T) {
 	ctx := context.Background()
-	data := map[string][]byte{}
-	keyTime := map[string]time.Time{}
+	data := blobtesting.DataMap{}
+	keyTime := map[blob.ID]time.Time{}
 	bm := newTestBlockManager(data, keyTime, nil)
 	verifyUnreferencedStorageFilesCount(ctx, t, bm, 0)
 	blockID := writeBlockAndVerify(ctx, t, bm, seededRandomData(10, 100))
@@ -606,10 +606,10 @@ func TestFindUnreferencedStorageFiles(t *testing.T) {
 	verifyUnreferencedStorageFilesCount(ctx, t, bm, 2)
 }
 
-func TestFindUnreferencedStorageFiles2(t *testing.T) {
+func TestFindUnreferencedBlobs2(t *testing.T) {
 	ctx := context.Background()
-	data := map[string][]byte{}
-	keyTime := map[string]time.Time{}
+	data := blobtesting.DataMap{}
+	keyTime := map[blob.ID]time.Time{}
 	bm := newTestBlockManager(data, keyTime, nil)
 	verifyUnreferencedStorageFilesCount(ctx, t, bm, 0)
 	blockID := writeBlockAndVerify(ctx, t, bm, seededRandomData(10, 100))
@@ -649,9 +649,9 @@ func dumpBlocks(t *testing.T, bm *Manager, caption string) {
 
 func verifyUnreferencedStorageFilesCount(ctx context.Context, t *testing.T, bm *Manager, want int) {
 	t.Helper()
-	unref, err := bm.FindUnreferencedStorageFiles(ctx)
+	unref, err := bm.FindUnreferencedBlobs(ctx)
 	if err != nil {
-		t.Errorf("error in FindUnreferencedStorageFiles: %v", err)
+		t.Errorf("error in FindUnreferencedBlobs: %v", err)
 	}
 
 	log.Infof("got %v expecting %v", unref, want)
@@ -662,8 +662,8 @@ func verifyUnreferencedStorageFilesCount(ctx context.Context, t *testing.T, bm *
 
 func TestBlockWriteAliasing(t *testing.T) {
 	ctx := context.Background()
-	data := map[string][]byte{}
-	keyTime := map[string]time.Time{}
+	data := blobtesting.DataMap{}
+	keyTime := map[blob.ID]time.Time{}
 	bm := newTestBlockManager(data, keyTime, fakeTimeNowFrozen(fakeTime))
 
 	blockData := []byte{100, 0, 0}
@@ -683,8 +683,8 @@ func TestBlockWriteAliasing(t *testing.T) {
 
 func TestBlockReadAliasing(t *testing.T) {
 	ctx := context.Background()
-	data := map[string][]byte{}
-	keyTime := map[string]time.Time{}
+	data := blobtesting.DataMap{}
+	keyTime := map[blob.ID]time.Time{}
 	bm := newTestBlockManager(data, keyTime, fakeTimeNowFrozen(fakeTime))
 
 	blockData := []byte{100, 0, 0}
@@ -712,8 +712,8 @@ func verifyVersionCompat(t *testing.T, writeVersion int) {
 	ctx := context.Background()
 
 	// create block manager that writes 'writeVersion' and reads all versions >= minSupportedReadVersion
-	data := map[string][]byte{}
-	keyTime := map[string]time.Time{}
+	data := blobtesting.DataMap{}
+	keyTime := map[blob.ID]time.Time{}
 	mgr := newTestBlockManager(data, keyTime, nil)
 	mgr.writeFormatVersion = int32(writeVersion)
 
@@ -733,10 +733,10 @@ func verifyVersionCompat(t *testing.T, writeVersion int) {
 
 	// delete random 3 items (map iteration order is random)
 	cnt := 0
-	for blockID := range dataSet {
-		t.Logf("deleting %v", blockID)
-		assertNoError(t, mgr.DeleteBlock(blockID))
-		delete(dataSet, blockID)
+	for blobID := range dataSet {
+		t.Logf("deleting %v", blobID)
+		assertNoError(t, mgr.DeleteBlock(blobID))
+		delete(dataSet, blobID)
 		cnt++
 		if cnt >= 3 {
 			break
@@ -782,12 +782,12 @@ func verifyBlockManagerDataSet(ctx context.Context, t *testing.T, mgr *Manager, 
 	}
 }
 
-func newTestBlockManager(data map[string][]byte, keyTime map[string]time.Time, timeFunc func() time.Time) *Manager {
+func newTestBlockManager(data blobtesting.DataMap, keyTime map[blob.ID]time.Time, timeFunc func() time.Time) *Manager {
 	//st = logging.NewWrapper(st)
 	if timeFunc == nil {
 		timeFunc = fakeTimeNowWithAutoAdvance(fakeTime, 1*time.Second)
 	}
-	st := storagetesting.NewMapStorage(data, keyTime, timeFunc)
+	st := blobtesting.NewMapStorage(data, keyTime, timeFunc)
 	bm, err := newManagerWithOptions(context.Background(), st, FormattingOptions{
 		Hash:        "HMAC-SHA256",
 		Encryption:  "NONE",
@@ -801,11 +801,11 @@ func newTestBlockManager(data map[string][]byte, keyTime map[string]time.Time, t
 	return bm
 }
 
-func getIndexCount(d map[string][]byte) int {
+func getIndexCount(d blobtesting.DataMap) int {
 	var cnt int
 
-	for k := range d {
-		if strings.HasPrefix(k, newIndexBlockPrefix) {
+	for blobID := range d {
+		if strings.HasPrefix(string(blobID), newIndexBlockPrefix) {
 			cnt++
 		}
 	}
@@ -832,8 +832,8 @@ func verifyBlockNotFound(ctx context.Context, t *testing.T, bm *Manager, blockID
 	t.Helper()
 
 	b, err := bm.GetBlock(ctx, blockID)
-	if err != storage.ErrBlockNotFound {
-		t.Errorf("unexpected response from GetBlock(%q), got %v,%v, expected %v", blockID, b, err, storage.ErrBlockNotFound)
+	if err != ErrBlockNotFound {
+		t.Errorf("unexpected response from GetBlock(%q), got %v,%v, expected %v", blockID, b, err, ErrBlockNotFound)
 	}
 }
 
@@ -890,7 +890,7 @@ func hashValue(b []byte) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-func dumpBlockManagerData(t *testing.T, data map[string][]byte) {
+func dumpBlockManagerData(t *testing.T, data blobtesting.DataMap) {
 	t.Helper()
 	for k, v := range data {
 		if k[0] == 'n' {

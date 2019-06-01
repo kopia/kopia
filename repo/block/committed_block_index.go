@@ -6,22 +6,22 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/repo/storage"
+	"github.com/kopia/kopia/repo/blob"
 )
 
 type committedBlockIndex struct {
 	cache committedBlockIndexCache
 
 	mu     sync.Mutex
-	inUse  map[string]packIndex
+	inUse  map[blob.ID]packIndex
 	merged mergedIndex
 }
 
 type committedBlockIndexCache interface {
-	hasIndexBlockID(indexBlockID string) (bool, error)
-	addBlockToCache(indexBlockID string, data []byte) error
-	openIndex(indexBlockID string) (packIndex, error)
-	expireUnused(used []string) error
+	hasIndexBlockID(indexBlob blob.ID) (bool, error)
+	addBlockToCache(indexBlob blob.ID, data []byte) error
+	openIndex(indexBlob blob.ID) (packIndex, error)
+	expireUnused(used []blob.ID) error
 }
 
 func (b *committedBlockIndex) getBlock(blockID string) (Info, error) {
@@ -33,12 +33,12 @@ func (b *committedBlockIndex) getBlock(blockID string) (Info, error) {
 		return *info, nil
 	}
 	if err == nil {
-		return Info{}, storage.ErrBlockNotFound
+		return Info{}, ErrBlockNotFound
 	}
 	return Info{}, err
 }
 
-func (b *committedBlockIndex) addBlock(indexBlockID string, data []byte, use bool) error {
+func (b *committedBlockIndex) addBlock(indexBlockID blob.ID, data []byte, use bool) error {
 	if err := b.cache.addBlockToCache(indexBlockID, data); err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ func (b *committedBlockIndex) listBlocks(prefix string, cb func(i Info) error) e
 	return m.Iterate(prefix, cb)
 }
 
-func (b *committedBlockIndex) packFilesChanged(packFiles []string) bool {
+func (b *committedBlockIndex) packFilesChanged(packFiles []blob.ID) bool {
 	if len(packFiles) != len(b.inUse) {
 		return true
 	}
@@ -85,7 +85,7 @@ func (b *committedBlockIndex) packFilesChanged(packFiles []string) bool {
 	return false
 }
 
-func (b *committedBlockIndex) use(packFiles []string) (bool, error) {
+func (b *committedBlockIndex) use(packFiles []blob.ID) (bool, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -95,7 +95,7 @@ func (b *committedBlockIndex) use(packFiles []string) (bool, error) {
 	log.Debugf("set of index files has changed (had %v, now %v)", len(b.inUse), len(packFiles))
 
 	var newMerged mergedIndex
-	newInUse := map[string]packIndex{}
+	newInUse := map[blob.ID]packIndex{}
 	defer func() {
 		newMerged.Close() //nolint:errcheck
 	}()
@@ -128,12 +128,12 @@ func newCommittedBlockIndex(caching CachingOptions) (*committedBlockIndex, error
 		cache = &diskCommittedBlockIndexCache{dirname}
 	} else {
 		cache = &memoryCommittedBlockIndexCache{
-			blocks: map[string]packIndex{},
+			blocks: map[blob.ID]packIndex{},
 		}
 	}
 
 	return &committedBlockIndex{
 		cache: cache,
-		inUse: map[string]packIndex{},
+		inUse: map[blob.ID]packIndex{},
 	}, nil
 }

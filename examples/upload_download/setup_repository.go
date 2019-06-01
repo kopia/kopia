@@ -9,9 +9,9 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/blob/filesystem"
+	"github.com/kopia/kopia/repo/blob/logging"
 	"github.com/kopia/kopia/repo/block"
-	"github.com/kopia/kopia/repo/storage/filesystem"
-	"github.com/kopia/kopia/repo/storage/logging"
 )
 
 const (

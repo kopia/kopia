@@ -31,12 +31,12 @@ func runListBlockIndexesAction(ctx context.Context, rep *repo.Repository) error 
 		})
 	case "name":
 		sort.Slice(blks, func(i, j int) bool {
-			return blks[i].FileName < blks[j].FileName
+			return blks[i].BlobID < blks[j].BlobID
 		})
 	}
 
 	for _, b := range blks {
-		fmt.Printf("%-70v %10v %v\n", b.FileName, b.Length, formatTimestampPrecise(b.Timestamp))
+		fmt.Printf("%-70v %10v %v\n", b.BlobID, b.Length, formatTimestampPrecise(b.Timestamp))
 	}
 
 	if *blockIndexListSummary {

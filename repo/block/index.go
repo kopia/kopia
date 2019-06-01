@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/repo/blob"
 )
 
 // packIndex is a read-only index of packed blocks.
@@ -174,7 +176,7 @@ func (b *index) entryToInfo(blockID string, entryData []byte) (Info, error) {
 		FormatVersion:    e.PackedFormatVersion(),
 		PackOffset:       e.PackedOffset(),
 		Length:           e.PackedLength(),
-		PackFile:         string(packFile),
+		PackBlobID:       blob.ID(packFile),
 	}, nil
 }
 

@@ -165,7 +165,7 @@ func TestEndToEnd(t *testing.T) {
 		lines := e.runAndVerifyOutputLineCount(t, 2, "blockindex", "ls")
 		for _, l := range lines {
 			indexFile := strings.Split(l, " ")[0]
-			e.runAndExpectSuccess(t, "storage", "delete", indexFile)
+			e.runAndExpectSuccess(t, "blob", "delete", indexFile)
 		}
 
 		// there should be no index files at this point
@@ -186,7 +186,7 @@ func TestEndToEnd(t *testing.T) {
 
 	t.Run("RepairFormatBlock", func(t *testing.T) {
 		// remove kopia.repository
-		e.runAndExpectSuccess(t, "storage", "rm", "kopia.repository")
+		e.runAndExpectSuccess(t, "blob", "rm", "kopia.repository")
 		e.runAndExpectSuccess(t, "repo", "disconnect")
 
 		// this will fail because the format block in the repository is not found

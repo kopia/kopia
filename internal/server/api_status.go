@@ -16,6 +16,6 @@ func (s *Server) handleStatus(ctx context.Context, r *http.Request) (interface{}
 		ConfigFile:      s.rep.ConfigFile,
 		CacheDir:        s.rep.CacheDirectory,
 		BlockFormatting: bf,
-		Storage:         s.rep.Storage.ConnectionInfo().Type,
+		Storage:         s.rep.Blobs.ConnectionInfo().Type,
 	}, nil
 }

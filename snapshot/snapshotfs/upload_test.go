@@ -12,8 +12,8 @@ import (
 
 	"github.com/kopia/kopia/internal/mockfs"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/kopia/kopia/repo/object"
-	"github.com/kopia/kopia/repo/storage/filesystem"
 	"github.com/kopia/kopia/snapshot"
 )
 
