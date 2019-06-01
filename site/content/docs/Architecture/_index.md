@@ -16,7 +16,7 @@ The following diagram illustrates the key components of Kopia:
 
 ### Binary Large Object Storage (BLOB)
 
-BLOB storage is the place where your data is ultimately stored. Any type that implements simple Go [API](https://godoc.org/github.com/kopia/kopia/repo/storage#Storage) can be used as Kopia's blob storage.
+BLOB storage is the place where your data is ultimately stored. Any type that implements simple Go [API](https://godoc.org/github.com/kopia/kopia/repo/blob#Storage) can be used as Kopia's blob storage.
 
 Kopia currently supports the following storage providers:
 
@@ -29,7 +29,7 @@ Cloud storage solutions are a great choice because they provide high availabilit
 
 Kopia does not require low-latency storage, it uses caching and other optimizations to be able to work efficiently with high-latency backends.
 
-The API for BLOB storage can be found in https://godoc.org/github.com/kopia/kopia/repo/storage
+The API for BLOB storage can be found in https://godoc.org/github.com/kopia/kopia/repo/blob
 
 ### Content-Addressable Block Storage (CABS)
 

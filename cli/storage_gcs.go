@@ -5,8 +5,8 @@ import (
 
 	"gopkg.in/alecthomas/kingpin.v2"
 
-	"github.com/kopia/kopia/repo/storage"
-	"github.com/kopia/kopia/repo/storage/gcs"
+	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/gcs"
 )
 
 func init() {
@@ -24,7 +24,7 @@ func init() {
 			cmd.Flag("max-upload-speed", "Limit the upload speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&options.MaxUploadSpeedBytesPerSecond)
 
 		},
-		func(ctx context.Context, isNew bool) (storage.Storage, error) {
+		func(ctx context.Context, isNew bool) (blob.Storage, error) {
 			return gcs.New(ctx, &options)
 		},
 	)

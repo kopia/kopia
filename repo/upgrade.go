@@ -30,5 +30,5 @@ func (r *Repository) Upgrade(ctx context.Context) error {
 	}
 
 	log.Infof("writing updated format block...")
-	return writeFormatBlock(ctx, r.Storage, f)
+	return writeFormatBlock(ctx, r.Blobs, f)
 }

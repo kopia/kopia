@@ -10,8 +10,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/repo/storage"
-	"github.com/kopia/kopia/repo/storage/filesystem"
+	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/filesystem"
 )
 
 const (
@@ -20,8 +20,8 @@ const (
 )
 
 type blockCache struct {
-	st             storage.Storage
-	cacheStorage   storage.Storage
+	st             blob.Storage
+	cacheStorage   blob.Storage
 	maxSizeBytes   int64
 	hmacSecret     []byte
 	sweepFrequency time.Duration
@@ -34,10 +34,10 @@ type blockCache struct {
 }
 
 type blockToucher interface {
-	TouchBlock(ctx context.Context, blockID string, threshold time.Duration) error
+	TouchBlob(ctx context.Context, blockID blob.ID, threshold time.Duration) error
 }
 
-func adjustCacheKey(cacheKey string) string {
+func adjustCacheKey(cacheKey blob.ID) blob.ID {
 	// block IDs with odd length have a single-byte prefix.
 	// move the prefix to the end of cache key to make sure the top level shard is spread 256 ways.
 	if len(cacheKey)%2 == 1 {
@@ -47,7 +47,7 @@ func adjustCacheKey(cacheKey string) string {
 	return cacheKey
 }
 
-func (c *blockCache) getContentBlock(ctx context.Context, cacheKey string, physicalBlockID string, offset, length int64) ([]byte, error) {
+func (c *blockCache) getContentBlock(ctx context.Context, cacheKey blob.ID, blobID blob.ID, offset, length int64) ([]byte, error) {
 	cacheKey = adjustCacheKey(cacheKey)
 
 	useCache := shouldUseBlockCache(ctx) && c.cacheStorage != nil
@@ -57,14 +57,14 @@ func (c *blockCache) getContentBlock(ctx context.Context, cacheKey string, physi
 		}
 	}
 
-	b, err := c.st.GetBlock(ctx, physicalBlockID, offset, length)
-	if err == storage.ErrBlockNotFound {
+	b, err := c.st.GetBlob(ctx, blobID, offset, length)
+	if err == blob.ErrBlobNotFound {
 		// not found in underlying storage
 		return nil, err
 	}
 
 	if err == nil && useCache {
-		if puterr := c.cacheStorage.PutBlock(ctx, cacheKey, appendHMAC(b, c.hmacSecret)); puterr != nil {
+		if puterr := c.cacheStorage.PutBlob(ctx, cacheKey, appendHMAC(b, c.hmacSecret)); puterr != nil {
 			log.Warningf("unable to write cache item %v: %v", cacheKey, puterr)
 		}
 	}
@@ -72,13 +72,13 @@ func (c *blockCache) getContentBlock(ctx context.Context, cacheKey string, physi
 	return b, err
 }
 
-func (c *blockCache) readAndVerifyCacheBlock(ctx context.Context, cacheKey string) []byte {
-	b, err := c.cacheStorage.GetBlock(ctx, cacheKey, 0, -1)
+func (c *blockCache) readAndVerifyCacheBlock(ctx context.Context, cacheKey blob.ID) []byte {
+	b, err := c.cacheStorage.GetBlob(ctx, cacheKey, 0, -1)
 	if err == nil {
 		b, err = verifyAndStripHMAC(b, c.hmacSecret)
 		if err == nil {
 			if t, ok := c.cacheStorage.(blockToucher); ok {
-				t.TouchBlock(ctx, cacheKey, c.touchThreshold) //nolint:errcheck
+				t.TouchBlob(ctx, cacheKey, c.touchThreshold) //nolint:errcheck
 			}
 
 			// retrieved from cache and HMAC valid
@@ -90,7 +90,7 @@ func (c *blockCache) readAndVerifyCacheBlock(ctx context.Context, cacheKey strin
 		return nil
 	}
 
-	if err != storage.ErrBlockNotFound {
+	if err != blob.ErrBlobNotFound {
 		log.Warningf("unable to read cache %v: %v", cacheKey, err)
 	}
 	return nil
@@ -115,8 +115,8 @@ func (c *blockCache) sweepDirectoryPeriodically(ctx context.Context) {
 	}
 }
 
-// A blockMetadataHeap implements heap.Interface and holds storage.BlockMetadata.
-type blockMetadataHeap []storage.BlockMetadata
+// A blockMetadataHeap implements heap.Interface and holds blob.Metadata.
+type blockMetadataHeap []blob.Metadata
 
 func (h blockMetadataHeap) Len() int { return len(h) }
 
@@ -129,7 +129,7 @@ func (h blockMetadataHeap) Swap(i, j int) {
 }
 
 func (h *blockMetadataHeap) Push(x interface{}) {
-	*h = append(*h, x.(storage.BlockMetadata))
+	*h = append(*h, x.(blob.Metadata))
 }
 
 func (h *blockMetadataHeap) Pop() interface{} {
@@ -153,14 +153,14 @@ func (c *blockCache) sweepDirectory(ctx context.Context) (err error) {
 	var h blockMetadataHeap
 	var totalRetainedSize int64
 
-	err = c.cacheStorage.ListBlocks(ctx, "", func(it storage.BlockMetadata) error {
+	err = c.cacheStorage.ListBlobs(ctx, "", func(it blob.Metadata) error {
 		heap.Push(&h, it)
 		totalRetainedSize += it.Length
 
 		if totalRetainedSize > c.maxSizeBytes {
-			oldest := heap.Pop(&h).(storage.BlockMetadata)
-			if delerr := c.cacheStorage.DeleteBlock(ctx, oldest.BlockID); delerr != nil {
-				log.Warningf("unable to remove %v: %v", oldest.BlockID, delerr)
+			oldest := heap.Pop(&h).(blob.Metadata)
+			if delerr := c.cacheStorage.DeleteBlob(ctx, oldest.BlobID); delerr != nil {
+				log.Warningf("unable to remove %v: %v", oldest.BlobID, delerr)
 			} else {
 				totalRetainedSize -= oldest.Length
 			}
@@ -176,8 +176,8 @@ func (c *blockCache) sweepDirectory(ctx context.Context) (err error) {
 	return nil
 }
 
-func newBlockCache(ctx context.Context, st storage.Storage, caching CachingOptions) (*blockCache, error) {
-	var cacheStorage storage.Storage
+func newBlockCache(ctx context.Context, st blob.Storage, caching CachingOptions) (*blockCache, error) {
+	var cacheStorage blob.Storage
 	var err error
 
 	if caching.MaxCacheSizeBytes > 0 && caching.CacheDirectory != "" {
@@ -201,7 +201,7 @@ func newBlockCache(ctx context.Context, st storage.Storage, caching CachingOptio
 	return newBlockCacheWithCacheStorage(ctx, st, cacheStorage, caching, defaultTouchThreshold, defaultSweepFrequency)
 }
 
-func newBlockCacheWithCacheStorage(ctx context.Context, st, cacheStorage storage.Storage, caching CachingOptions, touchThreshold time.Duration, sweepFrequency time.Duration) (*blockCache, error) {
+func newBlockCacheWithCacheStorage(ctx context.Context, st, cacheStorage blob.Storage, caching CachingOptions, touchThreshold time.Duration, sweepFrequency time.Duration) (*blockCache, error) {
 	c := &blockCache{
 		st:             st,
 		cacheStorage:   cacheStorage,

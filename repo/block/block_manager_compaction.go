@@ -110,13 +110,13 @@ func (bm *Manager) compactAndDeleteIndexBlocks(ctx context.Context, indexBlocks 
 	formatLog.Debugf("wrote compacted index (%v bytes) in %v", compactedIndexBlock, time.Since(t0))
 
 	for _, indexBlock := range indexBlocks {
-		if indexBlock.FileName == compactedIndexBlock {
+		if indexBlock.BlobID == compactedIndexBlock {
 			continue
 		}
 
 		bm.listCache.deleteListCache(ctx)
-		if err := bm.st.DeleteBlock(ctx, indexBlock.FileName); err != nil {
-			log.Warningf("unable to delete compacted block %q: %v", indexBlock.FileName, err)
+		if err := bm.st.DeleteBlob(ctx, indexBlock.BlobID); err != nil {
+			log.Warningf("unable to delete compacted blob %q: %v", indexBlock.BlobID, err)
 		}
 	}
 
@@ -124,7 +124,7 @@ func (bm *Manager) compactAndDeleteIndexBlocks(ctx context.Context, indexBlocks 
 }
 
 func (bm *Manager) addIndexBlocksToBuilder(ctx context.Context, bld packIndexBuilder, indexBlock IndexInfo, opt CompactOptions) error {
-	data, err := bm.getPhysicalBlockInternal(ctx, indexBlock.FileName)
+	data, err := bm.getPhysicalBlockInternal(ctx, indexBlock.BlobID)
 	if err != nil {
 		return err
 	}

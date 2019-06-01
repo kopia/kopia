@@ -5,21 +5,23 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/repo/blob"
 )
 
 type memoryCommittedBlockIndexCache struct {
 	mu     sync.Mutex
-	blocks map[string]packIndex
+	blocks map[blob.ID]packIndex
 }
 
-func (m *memoryCommittedBlockIndexCache) hasIndexBlockID(indexBlockID string) (bool, error) {
+func (m *memoryCommittedBlockIndexCache) hasIndexBlockID(indexBlockID blob.ID) (bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	return m.blocks[indexBlockID] != nil, nil
 }
 
-func (m *memoryCommittedBlockIndexCache) addBlockToCache(indexBlockID string, data []byte) error {
+func (m *memoryCommittedBlockIndexCache) addBlockToCache(indexBlockID blob.ID, data []byte) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -32,7 +34,7 @@ func (m *memoryCommittedBlockIndexCache) addBlockToCache(indexBlockID string, da
 	return nil
 }
 
-func (m *memoryCommittedBlockIndexCache) openIndex(indexBlockID string) (packIndex, error) {
+func (m *memoryCommittedBlockIndexCache) openIndex(indexBlockID blob.ID) (packIndex, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -44,6 +46,6 @@ func (m *memoryCommittedBlockIndexCache) openIndex(indexBlockID string) (packInd
 	return v, nil
 }
 
-func (m *memoryCommittedBlockIndexCache) expireUnused(used []string) error {
+func (m *memoryCommittedBlockIndexCache) expireUnused(used []blob.ID) error {
 	return nil
 }

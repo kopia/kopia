@@ -10,27 +10,27 @@ import (
 
 func TestMerged(t *testing.T) {
 	i1, err := indexWithItems(
-		Info{BlockID: "aabbcc", TimestampSeconds: 1, PackFile: "xx", PackOffset: 11},
-		Info{BlockID: "ddeeff", TimestampSeconds: 1, PackFile: "xx", PackOffset: 111},
-		Info{BlockID: "z010203", TimestampSeconds: 1, PackFile: "xx", PackOffset: 111},
-		Info{BlockID: "de1e1e", TimestampSeconds: 4, PackFile: "xx", PackOffset: 111},
+		Info{BlockID: "aabbcc", TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 11},
+		Info{BlockID: "ddeeff", TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
+		Info{BlockID: "z010203", TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
+		Info{BlockID: "de1e1e", TimestampSeconds: 4, PackBlobID: "xx", PackOffset: 111},
 	)
 	if err != nil {
 		t.Fatalf("can't create index: %v", err)
 	}
 	i2, err := indexWithItems(
-		Info{BlockID: "aabbcc", TimestampSeconds: 3, PackFile: "yy", PackOffset: 33},
-		Info{BlockID: "xaabbcc", TimestampSeconds: 1, PackFile: "xx", PackOffset: 111},
-		Info{BlockID: "de1e1e", TimestampSeconds: 4, PackFile: "xx", PackOffset: 222, Deleted: true},
+		Info{BlockID: "aabbcc", TimestampSeconds: 3, PackBlobID: "yy", PackOffset: 33},
+		Info{BlockID: "xaabbcc", TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
+		Info{BlockID: "de1e1e", TimestampSeconds: 4, PackBlobID: "xx", PackOffset: 222, Deleted: true},
 	)
 	if err != nil {
 		t.Fatalf("can't create index: %v", err)
 	}
 	i3, err := indexWithItems(
-		Info{BlockID: "aabbcc", TimestampSeconds: 2, PackFile: "zz", PackOffset: 22},
-		Info{BlockID: "ddeeff", TimestampSeconds: 1, PackFile: "zz", PackOffset: 222},
-		Info{BlockID: "k010203", TimestampSeconds: 1, PackFile: "xx", PackOffset: 111},
-		Info{BlockID: "k020304", TimestampSeconds: 1, PackFile: "xx", PackOffset: 111},
+		Info{BlockID: "aabbcc", TimestampSeconds: 2, PackBlobID: "zz", PackOffset: 22},
+		Info{BlockID: "ddeeff", TimestampSeconds: 1, PackBlobID: "zz", PackOffset: 222},
+		Info{BlockID: "k010203", TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
+		Info{BlockID: "k020304", TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
 	)
 	if err != nil {
 		t.Fatalf("can't create index: %v", err)

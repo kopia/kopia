@@ -11,11 +11,11 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/repo/storage"
+	"github.com/kopia/kopia/repo/blob"
 )
 
 type listCache struct {
-	st                storage.Storage
+	st                blob.Storage
 	cacheFile         string
 	listCacheDuration time.Duration
 	hmacSecret        []byte
@@ -30,7 +30,7 @@ func (c *listCache) listIndexBlocks(ctx context.Context) ([]IndexInfo, error) {
 				log.Debugf("retrieved list of index blocks from cache")
 				return ci.Blocks, nil
 			}
-		} else if err != storage.ErrBlockNotFound {
+		} else if err != blob.ErrBlobNotFound {
 			log.Warningf("unable to open cache file: %v", err)
 		}
 	}
@@ -70,7 +70,7 @@ func (c *listCache) deleteListCache(ctx context.Context) {
 
 func (c *listCache) readBlocksFromCache(ctx context.Context) (*cachedList, error) {
 	if !shouldUseListCache(ctx) {
-		return nil, storage.ErrBlockNotFound
+		return nil, blob.ErrBlobNotFound
 	}
 
 	ci := &cachedList{}
@@ -78,7 +78,7 @@ func (c *listCache) readBlocksFromCache(ctx context.Context) (*cachedList, error
 	data, err := ioutil.ReadFile(c.cacheFile)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, storage.ErrBlockNotFound
+			return nil, blob.ErrBlobNotFound
 		}
 
 		return nil, err
@@ -97,7 +97,7 @@ func (c *listCache) readBlocksFromCache(ctx context.Context) (*cachedList, error
 
 }
 
-func newListCache(ctx context.Context, st storage.Storage, caching CachingOptions) (*listCache, error) {
+func newListCache(ctx context.Context, st blob.Storage, caching CachingOptions) (*listCache, error) {
 	var listCacheFile string
 
 	if caching.CacheDirectory != "" {

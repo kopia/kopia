@@ -6,17 +6,17 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
-	"github.com/kopia/kopia/repo/storage"
 )
 
 // Repository represents storage where both content-addressable and user-addressable data is kept.
 type Repository struct {
+	Blobs     blob.Storage
 	Blocks    *block.Manager
 	Objects   *object.Manager
-	Storage   storage.Storage
 	Manifests *manifest.Manager
 	UniqueID  []byte
 
@@ -35,8 +35,8 @@ func (r *Repository) Close(ctx context.Context) error {
 	if err := r.Blocks.Flush(ctx); err != nil {
 		return errors.Wrap(err, "error closing blocks")
 	}
-	if err := r.Storage.Close(ctx); err != nil {
-		return errors.Wrap(err, "error closing storage")
+	if err := r.Blobs.Close(ctx); err != nil {
+		return errors.Wrap(err, "error closing blob storage")
 	}
 	return nil
 }

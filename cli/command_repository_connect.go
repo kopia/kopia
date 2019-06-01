@@ -7,8 +7,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/block"
-	"github.com/kopia/kopia/repo/storage"
 
 	"gopkg.in/alecthomas/kingpin.v2"
 )
@@ -44,12 +44,12 @@ func init() {
 	setupConnectOptions(connectCommand)
 }
 
-func runConnectCommandWithStorage(ctx context.Context, st storage.Storage) error {
+func runConnectCommandWithStorage(ctx context.Context, st blob.Storage) error {
 	password := mustGetPasswordFromFlags(false, false)
 	return runConnectCommandWithStorageAndPassword(ctx, st, password)
 }
 
-func runConnectCommandWithStorageAndPassword(ctx context.Context, st storage.Storage, password string) error {
+func runConnectCommandWithStorageAndPassword(ctx context.Context, st blob.Storage, password string) error {
 	configFile := repositoryConfigFileName()
 	if err := repo.Connect(ctx, configFile, st, password, connectOptions()); err != nil {
 		return err

@@ -6,7 +6,7 @@ import (
 	"github.com/pkg/errors"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 
-	"github.com/kopia/kopia/repo/storage"
+	"github.com/kopia/kopia/repo/blob"
 )
 
 // RegisterStorageConnectFlags registers repository subcommand to connect to a storage
@@ -15,7 +15,7 @@ func RegisterStorageConnectFlags(
 	name string,
 	description string,
 	flags func(*kingpin.CmdClause),
-	connect func(ctx context.Context, isNew bool) (storage.Storage, error)) {
+	connect func(ctx context.Context, isNew bool) (blob.Storage, error)) {
 
 	if name != "from-config" {
 		// Set up 'create' subcommand

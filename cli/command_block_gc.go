@@ -14,9 +14,9 @@ var (
 )
 
 func runBlockGarbageCollectAction(ctx context.Context, rep *repo.Repository) error {
-	unused, err := rep.Blocks.FindUnreferencedStorageFiles(ctx)
+	unused, err := rep.Blocks.FindUnreferencedBlobs(ctx)
 	if err != nil {
-		return errors.Wrap(err, "error looking for unreferenced storage files")
+		return errors.Wrap(err, "error looking for unreferenced blobs")
 	}
 
 	if len(unused) == 0 {
@@ -27,7 +27,7 @@ func runBlockGarbageCollectAction(ctx context.Context, rep *repo.Repository) err
 	if *blockGarbageCollectCommandDelete != "yes" {
 		var totalBytes int64
 		for _, u := range unused {
-			printStderr("unused %v (%v bytes)\n", u.BlockID, u.Length)
+			printStderr("unused %v (%v bytes)\n", u.BlobID, u.Length)
 			totalBytes += u.Length
 		}
 		printStderr("Would delete %v unused blocks (%v bytes), pass '--delete=yes' to actually delete.\n", len(unused), totalBytes)
@@ -36,9 +36,9 @@ func runBlockGarbageCollectAction(ctx context.Context, rep *repo.Repository) err
 	}
 
 	for _, u := range unused {
-		printStderr("Deleting unused block %q (%v bytes)...\n", u.BlockID, u.Length)
-		if err := rep.Storage.DeleteBlock(ctx, u.BlockID); err != nil {
-			return errors.Wrapf(err, "unable to delete block %q", u.BlockID)
+		printStderr("Deleting unused block %q (%v bytes)...\n", u.BlobID, u.Length)
+		if err := rep.Blobs.DeleteBlob(ctx, u.BlobID); err != nil {
+			return errors.Wrapf(err, "unable to delete block %q", u.BlobID)
 		}
 	}
 

@@ -17,9 +17,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/kopia/kopia/repo/block"
-	"github.com/kopia/kopia/repo/storage"
-	"github.com/kopia/kopia/repo/storage/filesystem"
 )
 
 const masterPassword = "foo-bar-baz-1234"
@@ -233,7 +232,7 @@ func readKnownBlock(ctx context.Context, t *testing.T, r *repo.Repository) error
 	knownBlocksMutex.Unlock()
 
 	_, err := r.Blocks.GetBlock(ctx, blockID)
-	if err == nil || err == storage.ErrBlockNotFound {
+	if err == nil || err == block.ErrBlockNotFound {
 		return nil
 	}
 
@@ -254,7 +253,7 @@ func listAndReadAllBlocks(ctx context.Context, t *testing.T, r *repo.Repository)
 	for _, bi := range blocks {
 		_, err := r.Blocks.GetBlock(ctx, bi)
 		if err != nil {
-			if err == storage.ErrBlockNotFound && strings.HasPrefix(bi, "m") {
+			if err == block.ErrBlockNotFound && strings.HasPrefix(bi, "m") {
 				// this is ok, sometimes manifest manager will perform compaction and 'm' blocks will be marked as deleted
 				continue
 			}

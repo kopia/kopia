@@ -9,10 +9,10 @@ import (
 	"testing"
 
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/object"
-	"github.com/kopia/kopia/repo/storage"
-	"github.com/kopia/kopia/repo/storage/filesystem"
 )
 
 const masterPassword = "foobarbazfoobarbaz"
@@ -125,7 +125,7 @@ func (e *Environment) MustReopen(t *testing.T) {
 func (e *Environment) VerifyStorageBlockCount(t *testing.T, want int) {
 	var got int
 
-	_ = e.Repository.Storage.ListBlocks(context.Background(), "", func(_ storage.BlockMetadata) error {
+	_ = e.Repository.Blobs.ListBlobs(context.Background(), "", func(_ blob.Metadata) error {
 		got++
 		return nil
 	})

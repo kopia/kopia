@@ -9,6 +9,8 @@ import (
 
 	"github.com/pkg/errors"
 	"golang.org/x/exp/mmap"
+
+	"github.com/kopia/kopia/repo/blob"
 )
 
 const (
@@ -20,11 +22,11 @@ type diskCommittedBlockIndexCache struct {
 	dirname string
 }
 
-func (c *diskCommittedBlockIndexCache) indexBlockPath(indexBlockID string) string {
-	return filepath.Join(c.dirname, indexBlockID+simpleIndexSuffix)
+func (c *diskCommittedBlockIndexCache) indexBlockPath(indexBlockID blob.ID) string {
+	return filepath.Join(c.dirname, string(indexBlockID)+simpleIndexSuffix)
 }
 
-func (c *diskCommittedBlockIndexCache) openIndex(indexBlockID string) (packIndex, error) {
+func (c *diskCommittedBlockIndexCache) openIndex(indexBlockID blob.ID) (packIndex, error) {
 	fullpath := c.indexBlockPath(indexBlockID)
 
 	f, err := mmap.Open(fullpath)
@@ -35,7 +37,7 @@ func (c *diskCommittedBlockIndexCache) openIndex(indexBlockID string) (packIndex
 	return openPackIndex(f)
 }
 
-func (c *diskCommittedBlockIndexCache) hasIndexBlockID(indexBlockID string) (bool, error) {
+func (c *diskCommittedBlockIndexCache) hasIndexBlockID(indexBlockID blob.ID) (bool, error) {
 	_, err := os.Stat(c.indexBlockPath(indexBlockID))
 	if err == nil {
 		return true, nil
@@ -47,7 +49,7 @@ func (c *diskCommittedBlockIndexCache) hasIndexBlockID(indexBlockID string) (boo
 	return false, err
 }
 
-func (c *diskCommittedBlockIndexCache) addBlockToCache(indexBlockID string, data []byte) error {
+func (c *diskCommittedBlockIndexCache) addBlockToCache(indexBlockID blob.ID, data []byte) error {
 	exists, err := c.hasIndexBlockID(indexBlockID)
 	if err != nil {
 		return err
@@ -100,18 +102,18 @@ func writeTempFileAtomic(dirname string, data []byte) (string, error) {
 	return tf.Name(), nil
 }
 
-func (c *diskCommittedBlockIndexCache) expireUnused(used []string) error {
+func (c *diskCommittedBlockIndexCache) expireUnused(used []blob.ID) error {
 	entries, err := ioutil.ReadDir(c.dirname)
 	if err != nil {
 		return errors.Wrap(err, "can't list cache")
 	}
 
-	remaining := map[string]os.FileInfo{}
+	remaining := map[blob.ID]os.FileInfo{}
 
 	for _, ent := range entries {
 		if strings.HasSuffix(ent.Name(), simpleIndexSuffix) {
 			n := strings.TrimSuffix(ent.Name(), simpleIndexSuffix)
-			remaining[n] = ent
+			remaining[blob.ID(n)] = ent
 		}
 	}
 

@@ -15,8 +15,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/block"
-	"github.com/kopia/kopia/repo/storage"
 )
 
 type fakeBlockManager struct {
@@ -32,7 +32,7 @@ func (f *fakeBlockManager) GetBlock(ctx context.Context, blockID string) ([]byte
 		return append([]byte(nil), d...), nil
 	}
 
-	return nil, storage.ErrBlockNotFound
+	return nil, block.ErrBlockNotFound
 }
 
 func (f *fakeBlockManager) WriteBlock(ctx context.Context, data []byte, prefix string) (string, error) {
@@ -55,7 +55,7 @@ func (f *fakeBlockManager) BlockInfo(ctx context.Context, blockID string) (block
 		return block.Info{BlockID: blockID, Length: uint32(len(d))}, nil
 	}
 
-	return block.Info{}, storage.ErrBlockNotFound
+	return block.Info{}, blob.ErrBlobNotFound
 }
 
 func (f *fakeBlockManager) Flush(ctx context.Context) error {
@@ -289,7 +289,7 @@ func TestReaderStoredBlockNotFound(t *testing.T) {
 		t.Errorf("cannot parse object ID: %v", err)
 	}
 	reader, err := om.Open(ctx, objectID)
-	if err != storage.ErrBlockNotFound || reader != nil {
+	if err != ErrObjectNotFound || reader != nil {
 		t.Errorf("unexpected result: reader: %v err: %v", reader, err)
 	}
 }

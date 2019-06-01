@@ -5,13 +5,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kopia/kopia/repo/storage"
+	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/repo/blob"
 )
 
 func TestBlockIndexRecovery(t *testing.T) {
 	ctx := context.Background()
-	data := map[string][]byte{}
-	keyTime := map[string]time.Time{}
+	data := blobtesting.DataMap{}
+	keyTime := map[blob.ID]time.Time{}
 	bm := newTestBlockManager(data, keyTime, nil)
 	block1 := writeBlockAndVerify(ctx, t, bm, seededRandomData(10, 100))
 	block2 := writeBlockAndVerify(ctx, t, bm, seededRandomData(11, 100))
@@ -22,9 +23,9 @@ func TestBlockIndexRecovery(t *testing.T) {
 	}
 
 	// delete all index blocks
-	assertNoError(t, bm.st.ListBlocks(ctx, newIndexBlockPrefix, func(bi storage.BlockMetadata) error {
-		log.Debugf("deleting %v", bi.BlockID)
-		return bm.st.DeleteBlock(ctx, bi.BlockID)
+	assertNoError(t, bm.st.ListBlobs(ctx, newIndexBlockPrefix, func(bi blob.Metadata) error {
+		log.Debugf("deleting %v", bi.BlobID)
+		return bm.st.DeleteBlob(ctx, bi.BlobID)
 	}))
 
 	// now with index blocks gone, all blocks appear to not be found
@@ -36,8 +37,8 @@ func TestBlockIndexRecovery(t *testing.T) {
 	totalRecovered := 0
 
 	// pass 1 - just list blocks to recover, but don't commit
-	err := bm.st.ListBlocks(ctx, PackBlockPrefix, func(bi storage.BlockMetadata) error {
-		infos, err := bm.RecoverIndexFromPackFile(ctx, bi.BlockID, bi.Length, false)
+	err := bm.st.ListBlobs(ctx, PackBlobIDPrefix, func(bi blob.Metadata) error {
+		infos, err := bm.RecoverIndexFromPackBlob(ctx, bi.BlobID, bi.Length, false)
 		if err != nil {
 			return err
 		}
@@ -61,8 +62,8 @@ func TestBlockIndexRecovery(t *testing.T) {
 	// pass 2 now pass commit=true to add recovered blocks to index
 	totalRecovered = 0
 
-	err = bm.st.ListBlocks(ctx, PackBlockPrefix, func(bi storage.BlockMetadata) error {
-		infos, err := bm.RecoverIndexFromPackFile(ctx, bi.BlockID, bi.Length, true)
+	err = bm.st.ListBlobs(ctx, PackBlobIDPrefix, func(bi blob.Metadata) error {
+		infos, err := bm.RecoverIndexFromPackBlob(ctx, bi.BlobID, bi.Length, true)
 		if err != nil {
 			return err
 		}

@@ -9,6 +9,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/kopia/kopia/repo/blob"
 )
 
 func TestPackIndex(t *testing.T) {
@@ -31,11 +33,11 @@ func TestPackIndex(t *testing.T) {
 		}
 		return string(fmt.Sprintf("%v%x", prefix2, h.Sum(nil)))
 	}
-	deterministicPackFile := func(id int) string {
+	deterministicPackBlobID := func(id int) blob.ID {
 		h := sha1.New()
 		fmt.Fprintf(h, "%v", id)
 		blockNumber++
-		return string(fmt.Sprintf("%x", h.Sum(nil)))
+		return blob.ID(fmt.Sprintf("%x", h.Sum(nil)))
 	}
 
 	deterministicPackedOffset := func(id int) uint32 {
@@ -64,7 +66,7 @@ func TestPackIndex(t *testing.T) {
 			TimestampSeconds: randomUnixTime(),
 			Deleted:          true,
 			BlockID:          deterministicBlockID("deleted-packed", i),
-			PackFile:         deterministicPackFile(i),
+			PackBlobID:       deterministicPackBlobID(i),
 			PackOffset:       deterministicPackedOffset(i),
 			Length:           deterministicPackedLength(i),
 			FormatVersion:    deterministicFormatVersion(i),
@@ -75,7 +77,7 @@ func TestPackIndex(t *testing.T) {
 		infos = append(infos, Info{
 			TimestampSeconds: randomUnixTime(),
 			BlockID:          deterministicBlockID("packed", i),
-			PackFile:         deterministicPackFile(i),
+			PackBlobID:       deterministicPackBlobID(i),
 			PackOffset:       deterministicPackedOffset(i),
 			Length:           deterministicPackedLength(i),
 			FormatVersion:    deterministicFormatVersion(i),

@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kopia/kopia/internal/storagetesting"
+	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/block"
-	"github.com/kopia/kopia/repo/storage"
 )
 
 const goroutineCount = 16
@@ -21,9 +21,9 @@ func TestStressBlockManager(t *testing.T) {
 		t.Skip("skipping stress test during short tests")
 	}
 
-	data := map[string][]byte{}
-	keyTimes := map[string]time.Time{}
-	memst := storagetesting.NewMapStorage(data, keyTimes, time.Now)
+	data := blobtesting.DataMap{}
+	keyTimes := map[blob.ID]time.Time{}
+	memst := blobtesting.NewMapStorage(data, keyTimes, time.Now)
 
 	var duration = 3 * time.Second
 	if os.Getenv("KOPIA_LONG_STRESS_TEST") != "" {
@@ -33,7 +33,7 @@ func TestStressBlockManager(t *testing.T) {
 	stressTestWithStorage(t, memst, duration)
 }
 
-func stressTestWithStorage(t *testing.T, st storage.Storage, duration time.Duration) {
+func stressTestWithStorage(t *testing.T, st blob.Storage, duration time.Duration) {
 	ctx := context.Background()
 
 	openMgr := func() (*block.Manager, error) {

@@ -13,7 +13,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/repo/storage"
+	"github.com/kopia/kopia/repo/blob"
 )
 
 const defaultFormatEncryption = "AES256_GCM"
@@ -28,8 +28,8 @@ const (
 // are repository format blocks.
 var formatBlockChecksumSecret = []byte("kopia-repository")
 
-// FormatBlockID is the identifier of a storage block that describes repository format.
-const FormatBlockID = "kopia.repository"
+// FormatBlobID is the identifier of a BLOB that describes repository format.
+const FormatBlobID = "kopia.repository"
 
 var (
 	purposeAESKey   = []byte("AES")
@@ -70,16 +70,16 @@ func parseFormatBlock(b []byte) (*formatBlock, error) {
 // RecoverFormatBlock attempts to recover format block replica from the specified file.
 // The format block can be either the prefix or a suffix of the given file.
 // optionally the length can be provided (if known) to speed up recovery.
-func RecoverFormatBlock(ctx context.Context, st storage.Storage, filename string, optionalLength int64) ([]byte, error) {
+func RecoverFormatBlock(ctx context.Context, st blob.Storage, blobID blob.ID, optionalLength int64) ([]byte, error) {
 	if optionalLength > 0 {
-		return recoverFormatBlockWithLength(ctx, st, filename, optionalLength)
+		return recoverFormatBlockWithLength(ctx, st, blobID, optionalLength)
 	}
 
-	var foundMetadata storage.BlockMetadata
+	var foundMetadata blob.Metadata
 
-	if err := st.ListBlocks(ctx, filename, func(bm storage.BlockMetadata) error {
-		if foundMetadata.BlockID != "" {
-			return errors.Errorf("found multiple blocks with a given prefix: %v", filename)
+	if err := st.ListBlobs(ctx, blobID, func(bm blob.Metadata) error {
+		if foundMetadata.BlobID != "" {
+			return errors.Errorf("found multiple blocks with a given prefix: %v", blobID)
 		}
 		foundMetadata = bm
 		return nil
@@ -87,23 +87,22 @@ func RecoverFormatBlock(ctx context.Context, st storage.Storage, filename string
 		return nil, errors.Wrap(err, "error")
 	}
 
-	if foundMetadata.BlockID == "" {
-		return nil, storage.ErrBlockNotFound
+	if foundMetadata.BlobID == "" {
+		return nil, blob.ErrBlobNotFound
 	}
 
-	return recoverFormatBlockWithLength(ctx, st, foundMetadata.BlockID, foundMetadata.Length)
+	return recoverFormatBlockWithLength(ctx, st, foundMetadata.BlobID, foundMetadata.Length)
 }
 
-func recoverFormatBlockWithLength(ctx context.Context, st storage.Storage, filename string, length int64) ([]byte, error) {
+func recoverFormatBlockWithLength(ctx context.Context, st blob.Storage, blobID blob.ID, length int64) ([]byte, error) {
 	chunkLength := int64(65536)
 	if chunkLength > length {
 		chunkLength = length
 	}
 
 	if chunkLength > 4 {
-
 		// try prefix
-		prefixChunk, err := st.GetBlock(ctx, filename, 0, chunkLength)
+		prefixChunk, err := st.GetBlob(ctx, blobID, 0, chunkLength)
 		if err != nil {
 			return nil, err
 		}
@@ -114,7 +113,7 @@ func recoverFormatBlockWithLength(ctx context.Context, st storage.Storage, filen
 		}
 
 		// try the suffix
-		suffixChunk, err := st.GetBlock(ctx, filename, length-chunkLength, chunkLength)
+		suffixChunk, err := st.GetBlob(ctx, blobID, length-chunkLength, chunkLength)
 		if err != nil {
 			return nil, err
 		}
@@ -144,7 +143,7 @@ func verifyFormatBlockChecksum(b []byte) ([]byte, bool) {
 	return data, true
 }
 
-func writeFormatBlock(ctx context.Context, st storage.Storage, f *formatBlock) error {
+func writeFormatBlock(ctx context.Context, st blob.Storage, f *formatBlock) error {
 	var buf bytes.Buffer
 	e := json.NewEncoder(&buf)
 	e.SetIndent("", "  ")
@@ -152,7 +151,7 @@ func writeFormatBlock(ctx context.Context, st storage.Storage, f *formatBlock) e
 		return errors.Wrap(err, "unable to marshal format block")
 	}
 
-	if err := st.PutBlock(ctx, FormatBlockID, buf.Bytes()); err != nil {
+	if err := st.PutBlob(ctx, FormatBlobID, buf.Bytes()); err != nil {
 		return errors.Wrap(err, "unable to write format block")
 	}
 

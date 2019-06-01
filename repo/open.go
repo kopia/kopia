@@ -9,11 +9,11 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/repologging"
+	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/logging"
 	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
-	"github.com/kopia/kopia/repo/storage"
-	"github.com/kopia/kopia/repo/storage/logging"
 )
 
 var (
@@ -54,7 +54,7 @@ func Open(ctx context.Context, configFile string, password string, options *Opti
 
 	log.Debugf("opening storage: %v", lc.Storage.Type)
 
-	st, err := storage.NewStorage(ctx, lc.Storage)
+	st, err := blob.NewStorage(ctx, lc.Storage)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot open storage")
 	}
@@ -75,7 +75,7 @@ func Open(ctx context.Context, configFile string, password string, options *Opti
 }
 
 // OpenWithConfig opens the repository with a given configuration, avoiding the need for a config file.
-func OpenWithConfig(ctx context.Context, st storage.Storage, lc *LocalConfig, password string, options *Options, caching block.CachingOptions) (*Repository, error) {
+func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, password string, options *Options, caching block.CachingOptions) (*Repository, error) {
 	log.Debugf("reading encrypted format block")
 	// Read cache block, potentially from cache.
 	fb, err := readAndCacheFormatBlockBytes(ctx, st, caching.CacheDirectory)
@@ -131,7 +131,7 @@ func OpenWithConfig(ctx context.Context, st storage.Storage, lc *LocalConfig, pa
 	return &Repository{
 		Blocks:         bm,
 		Objects:        om,
-		Storage:        st,
+		Blobs:          st,
 		Manifests:      manifests,
 		CacheDirectory: caching.CacheDirectory,
 		UniqueID:       f.UniqueID,
@@ -153,7 +153,7 @@ func SetCachingConfig(ctx context.Context, configFile string, opt block.CachingO
 		return err
 	}
 
-	st, err := storage.NewStorage(ctx, lc.Storage)
+	st, err := blob.NewStorage(ctx, lc.Storage)
 	if err != nil {
 		return errors.Wrap(err, "cannot open storage")
 	}
@@ -184,7 +184,7 @@ func SetCachingConfig(ctx context.Context, configFile string, opt block.CachingO
 	return nil
 }
 
-func readAndCacheFormatBlockBytes(ctx context.Context, st storage.Storage, cacheDirectory string) ([]byte, error) {
+func readAndCacheFormatBlockBytes(ctx context.Context, st blob.Storage, cacheDirectory string) ([]byte, error) {
 	cachedFile := filepath.Join(cacheDirectory, "kopia.repository")
 	if cacheDirectory != "" {
 		b, err := ioutil.ReadFile(cachedFile)
@@ -194,7 +194,7 @@ func readAndCacheFormatBlockBytes(ctx context.Context, st storage.Storage, cache
 		}
 	}
 
-	b, err := st.GetBlock(ctx, FormatBlockID, 0, -1)
+	b, err := st.GetBlob(ctx, FormatBlobID, 0, -1)
 	if err != nil {
 		return nil, err
 	}

@@ -12,6 +12,9 @@ import (
 	"github.com/kopia/kopia/repo/block"
 )
 
+// ErrObjectNotFound is returned when an object cannot be found.
+var ErrObjectNotFound = errors.New("object not found")
+
 // Reader allows reading, seeking, getting the length of and closing of a repository object.
 type Reader interface {
 	io.Reader
@@ -209,8 +212,11 @@ func (om *Manager) flattenListChunk(rawReader io.Reader) ([]indirectObjectEntry,
 func (om *Manager) newRawReader(ctx context.Context, objectID ID) (Reader, error) {
 	if blockID, ok := objectID.BlockID(); ok {
 		payload, err := om.blockMgr.GetBlock(ctx, blockID)
+		if err == block.ErrBlockNotFound {
+			return nil, ErrObjectNotFound
+		}
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "unexpected block error")
 		}
 
 		return newObjectReaderWithData(payload), nil

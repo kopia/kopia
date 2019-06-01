@@ -5,8 +5,8 @@ import (
 
 	"gopkg.in/alecthomas/kingpin.v2"
 
-	"github.com/kopia/kopia/repo/storage"
-	"github.com/kopia/kopia/repo/storage/webdav"
+	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/webdav"
 )
 
 func init() {
@@ -22,7 +22,7 @@ func init() {
 			cmd.Flag("url", "URL of WebDAV server").Required().StringVar(&options.URL)
 			cmd.Flag("flat", "Use flat directory structure").BoolVar(&connectFlat)
 		},
-		func(ctx context.Context, isNew bool) (storage.Storage, error) {
+		func(ctx context.Context, isNew bool) (blob.Storage, error) {
 			wo := options
 
 			if wo.Username != "" {

@@ -10,13 +10,13 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/storagetesting"
+	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/repo/block"
 )
 
 func TestManifest(t *testing.T) {
 	ctx := context.Background()
-	data := map[string][]byte{}
+	data := blobtesting.DataMap{}
 	mgr, setupErr := newManagerForTesting(ctx, t, data)
 	if setupErr != nil {
 		t.Fatalf("unable to open block manager: %v", setupErr)
@@ -126,8 +126,8 @@ func TestManifest(t *testing.T) {
 
 func TestManifestInitCorruptedBlock(t *testing.T) {
 	ctx := context.Background()
-	data := map[string][]byte{}
-	st := storagetesting.NewMapStorage(data, nil, nil)
+	data := blobtesting.DataMap{}
+	st := blobtesting.NewMapStorage(data, nil, nil)
 
 	f := block.FormattingOptions{
 		Hash:        "HMAC-SHA256-128",
@@ -151,8 +151,8 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 	bm.Flush(ctx)
 
 	// corrupt data at the storage level.
-	for k, v := range data {
-		if strings.HasPrefix(k, "p") {
+	for blobID, v := range data {
+		if strings.HasPrefix(string(blobID), "p") {
 			for i := 0; i < len(v); i++ {
 				v[i] ^= 1
 			}
@@ -264,8 +264,8 @@ func verifyMatches(ctx context.Context, t *testing.T, mgr *Manager, labels map[s
 	}
 }
 
-func newManagerForTesting(ctx context.Context, t *testing.T, data map[string][]byte) (*Manager, error) {
-	st := storagetesting.NewMapStorage(data, nil, nil)
+func newManagerForTesting(ctx context.Context, t *testing.T, data blobtesting.DataMap) (*Manager, error) {
+	st := blobtesting.NewMapStorage(data, nil, nil)
 
 	bm, err := block.NewManager(ctx, st, block.FormattingOptions{
 		Hash:        "HMAC-SHA256-128",
@@ -281,7 +281,7 @@ func newManagerForTesting(ctx context.Context, t *testing.T, data map[string][]b
 
 func TestManifestInvalidPut(t *testing.T) {
 	ctx := context.Background()
-	data := map[string][]byte{}
+	data := blobtesting.DataMap{}
 	mgr, setupErr := newManagerForTesting(ctx, t, data)
 	if setupErr != nil {
 		t.Fatalf("unable to open block manager: %v", setupErr)
@@ -306,7 +306,7 @@ func TestManifestInvalidPut(t *testing.T) {
 
 func TestManifestAutoCompaction(t *testing.T) {
 	ctx := context.Background()
-	data := map[string][]byte{}
+	data := blobtesting.DataMap{}
 
 	for i := 0; i < 100; i++ {
 		mgr, setupErr := newManagerForTesting(ctx, t, data)

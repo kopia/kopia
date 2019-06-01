@@ -1,0 +1,270 @@
+// Package gcs implements Storage based on Google Cloud Storage bucket.
+package gcs
+
+import (
+	"bytes"
+	"context"
+	"fmt"
+	"io"
+	"io/ioutil"
+
+	"github.com/efarrer/iothrottler"
+	"github.com/pkg/errors"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/googleapi"
+	"google.golang.org/api/iterator"
+	"google.golang.org/api/option"
+
+	"github.com/kopia/kopia/internal/retry"
+	"github.com/kopia/kopia/internal/throttle"
+	"github.com/kopia/kopia/repo/blob"
+
+	gcsclient "cloud.google.com/go/storage"
+)
+
+const (
+	gcsStorageType = "gcs"
+)
+
+type gcsStorage struct {
+	Options
+
+	ctx           context.Context
+	storageClient *gcsclient.Client
+	bucket        *gcsclient.BucketHandle
+
+	downloadThrottler *iothrottler.IOThrottlerPool
+	uploadThrottler   *iothrottler.IOThrottlerPool
+}
+
+func (gcs *gcsStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int64) ([]byte, error) {
+	if offset < 0 {
+		return nil, errors.Errorf("invalid offset")
+	}
+
+	attempt := func() (interface{}, error) {
+		reader, err := gcs.bucket.Object(gcs.getObjectNameString(b)).NewRangeReader(gcs.ctx, offset, length)
+		if err != nil {
+			return nil, err
+		}
+		defer reader.Close() //nolint:errcheck
+
+		return ioutil.ReadAll(reader)
+	}
+
+	v, err := exponentialBackoff(fmt.Sprintf("GetBlob(%q,%v,%v)", b, offset, length), attempt)
+	if err != nil {
+		return nil, translateError(err)
+	}
+
+	fetched := v.([]byte)
+	if len(fetched) != int(length) && length >= 0 {
+		return nil, errors.Errorf("invalid offset/length")
+	}
+
+	return fetched, nil
+}
+
+func exponentialBackoff(desc string, att retry.AttemptFunc) (interface{}, error) {
+	return retry.WithExponentialBackoff(desc, att, isRetriableError)
+}
+
+func isRetriableError(err error) bool {
+	if apiError, ok := err.(*googleapi.Error); ok {
+		return apiError.Code >= 500
+	}
+
+	switch err {
+	case nil:
+		return false
+	case gcsclient.ErrObjectNotExist:
+		return false
+	case gcsclient.ErrBucketNotExist:
+		return false
+	default:
+		return true
+	}
+}
+
+func translateError(err error) error {
+	switch err {
+	case nil:
+		return nil
+	case gcsclient.ErrObjectNotExist:
+		return blob.ErrBlobNotFound
+	case gcsclient.ErrBucketNotExist:
+		return blob.ErrBlobNotFound
+	default:
+		return errors.Wrap(err, "unexpected GCS error")
+	}
+}
+func (gcs *gcsStorage) PutBlob(ctx context.Context, b blob.ID, data []byte) error {
+	ctx, cancel := context.WithCancel(ctx)
+
+	obj := gcs.bucket.Object(gcs.getObjectNameString(b))
+	writer := obj.NewWriter(ctx)
+	writer.ChunkSize = 1 << 20
+	writer.ContentType = "application/x-kopia"
+
+	progressCallback := blob.ProgressCallback(ctx)
+
+	if progressCallback != nil {
+		progressCallback(string(b), 0, int64(len(data)))
+		defer progressCallback(string(b), int64(len(data)), int64(len(data)))
+
+		writer.ProgressFunc = func(completed int64) {
+			if completed != int64(len(data)) {
+				progressCallback(string(b), completed, int64(len(data)))
+			}
+		}
+	}
+
+	_, err := io.Copy(writer, bytes.NewReader(data))
+	if err != nil {
+		// cancel context before closing the writer causes it to abandon the upload.
+		cancel()
+		writer.Close() //nolint:errcheck
+		return translateError(err)
+	}
+	defer cancel()
+
+	// calling close before cancel() causes it to commit the upload.
+	return translateError(writer.Close())
+}
+
+func (gcs *gcsStorage) DeleteBlob(ctx context.Context, b blob.ID) error {
+	attempt := func() (interface{}, error) {
+		return nil, gcs.bucket.Object(gcs.getObjectNameString(b)).Delete(gcs.ctx)
+	}
+
+	_, err := exponentialBackoff(fmt.Sprintf("DeleteBlob(%q)", b), attempt)
+	err = translateError(err)
+	if err == blob.ErrBlobNotFound {
+		return nil
+	}
+
+	return err
+}
+
+func (gcs *gcsStorage) getObjectNameString(blobID blob.ID) string {
+	return gcs.Prefix + string(blobID)
+}
+
+func (gcs *gcsStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(blob.Metadata) error) error {
+	lst := gcs.bucket.Objects(gcs.ctx, &gcsclient.Query{
+		Prefix: gcs.getObjectNameString(prefix),
+	})
+
+	oa, err := lst.Next()
+	for err == nil {
+		if err = callback(blob.Metadata{
+			BlobID:    blob.ID(oa.Name[len(gcs.Prefix):]),
+			Length:    oa.Size,
+			Timestamp: oa.Created,
+		}); err != nil {
+			return err
+		}
+		oa, err = lst.Next()
+	}
+
+	if err != iterator.Done {
+		return err
+	}
+
+	return nil
+}
+
+func (gcs *gcsStorage) ConnectionInfo() blob.ConnectionInfo {
+	return blob.ConnectionInfo{
+		Type:   gcsStorageType,
+		Config: &gcs.Options,
+	}
+}
+
+func (gcs *gcsStorage) Close(ctx context.Context) error {
+	gcs.storageClient.Close() //nolint:errcheck
+	return nil
+}
+
+func toBandwidth(bytesPerSecond int) iothrottler.Bandwidth {
+	if bytesPerSecond <= 0 {
+		return iothrottler.Unlimited
+	}
+
+	return iothrottler.Bandwidth(bytesPerSecond) * iothrottler.BytesPerSecond
+}
+
+func tokenSourceFromCredentialsFile(ctx context.Context, fn string, scopes ...string) (oauth2.TokenSource, error) {
+	data, err := ioutil.ReadFile(fn)
+	if err != nil {
+		return nil, err
+	}
+
+	cfg, err := google.JWTConfigFromJSON(data, scopes...)
+	if err != nil {
+		return nil, errors.Wrap(err, "google.JWTConfigFromJSON")
+	}
+	return cfg.TokenSource(ctx), nil
+}
+
+// New creates new Google Cloud Storage-backed storage with specified options:
+//
+// - the 'BucketName' field is required and all other parameters are optional.
+//
+// By default the connection reuses credentials managed by (https://cloud.google.com/sdk/),
+// but this can be disabled by setting IgnoreDefaultCredentials to true.
+func New(ctx context.Context, opt *Options) (blob.Storage, error) {
+	var ts oauth2.TokenSource
+	var err error
+
+	scope := gcsclient.ScopeReadWrite
+	if opt.ReadOnly {
+		scope = gcsclient.ScopeReadOnly
+	}
+
+	if sa := opt.ServiceAccountCredentials; sa != "" {
+		ts, err = tokenSourceFromCredentialsFile(ctx, sa, scope)
+	} else {
+		ts, err = google.DefaultTokenSource(ctx, scope)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	downloadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.MaxDownloadSpeedBytesPerSecond))
+	uploadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.MaxUploadSpeedBytesPerSecond))
+
+	hc := oauth2.NewClient(ctx, ts)
+	hc.Transport = throttle.NewRoundTripper(hc.Transport, downloadThrottler, uploadThrottler)
+
+	cli, err := gcsclient.NewClient(ctx, option.WithHTTPClient(hc))
+	if err != nil {
+		return nil, err
+	}
+
+	if opt.BucketName == "" {
+		return nil, errors.New("bucket name must be specified")
+	}
+
+	return &gcsStorage{
+		Options:           *opt,
+		ctx:               ctx,
+		storageClient:     cli,
+		bucket:            cli.Bucket(opt.BucketName),
+		downloadThrottler: downloadThrottler,
+		uploadThrottler:   uploadThrottler,
+	}, nil
+}
+
+func init() {
+	blob.AddSupportedStorage(
+		gcsStorageType,
+		func() interface{} {
+			return &Options{}
+		},
+		func(ctx context.Context, o interface{}) (blob.Storage, error) {
+			return New(ctx, o.(*Options))
+		})
+}
