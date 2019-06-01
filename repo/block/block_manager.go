@@ -35,13 +35,17 @@ const PackBlobIDPrefix = "p"
 const (
 	parallelFetches          = 5                // number of parallel reads goroutines
 	flushPackIndexTimeout    = 10 * time.Minute // time after which all pending indexes are flushes
-	newIndexBlockPrefix      = "n"
+	newIndexBlobPrefix       = "n"
 	defaultMinPreambleLength = 32
 	defaultMaxPreambleLength = 32
 	defaultPaddingUnit       = 4096
 
-	currentWriteVersion     = 1
-	minSupportedReadVersion = 0
+	currentWriteVersion = 1
+
+	minSupportedWriteVersion = 1
+	maxSupportedWriteVersion = currentWriteVersion
+
+	minSupportedReadVersion = 1
 	maxSupportedReadVersion = currentWriteVersion
 
 	indexLoadAttempts = 10
@@ -50,8 +54,8 @@ const (
 // ErrBlockNotFound is returned when block is not found.
 var ErrBlockNotFound = errors.New("block not found")
 
-// IndexInfo is an information about a single index block managed by Manager.
-type IndexInfo struct {
+// IndexBlobInfo is an information about a single index blob managed by Manager.
+type IndexBlobInfo struct {
 	BlobID    blob.ID
 	Length    int64
 	Timestamp time.Time
@@ -298,7 +302,7 @@ func (bm *Manager) flushPackIndexesLocked(ctx context.Context) error {
 }
 
 func (bm *Manager) writePackIndexesNew(ctx context.Context, data []byte) (blob.ID, error) {
-	return bm.encryptAndWriteBlockNotLocked(ctx, data, newIndexBlockPrefix)
+	return bm.encryptAndWriteBlockNotLocked(ctx, data, newIndexBlobPrefix)
 }
 
 func (bm *Manager) finishPackLocked(ctx context.Context) error {
@@ -400,10 +404,6 @@ func (bm *Manager) preparePackDataBlock(packFile blob.ID) ([]byte, packIndexBuil
 }
 
 func (bm *Manager) maybeEncryptBlockDataForPacking(data []byte, blockID string) ([]byte, error) {
-	if bm.writeFormatVersion == 0 {
-		// in v0 the entire block is encrypted together later on
-		return data, nil
-	}
 	iv, err := getPackedBlockIV(blockID)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to get packed block IV for %q", blockID)
@@ -421,12 +421,12 @@ func appendRandomBytes(b []byte, count int) ([]byte, error) {
 	return append(b, rnd...), nil
 }
 
-// IndexBlocks returns the list of active index blocks.
-func (bm *Manager) IndexBlocks(ctx context.Context) ([]IndexInfo, error) {
-	return bm.listCache.listIndexBlocks(ctx)
+// IndexBlobs returns the list of active index blobs.
+func (bm *Manager) IndexBlobs(ctx context.Context) ([]IndexBlobInfo, error) {
+	return bm.listCache.listIndexBlobs(ctx)
 }
 
-func (bm *Manager) loadPackIndexesUnlocked(ctx context.Context) ([]IndexInfo, bool, error) {
+func (bm *Manager) loadPackIndexesUnlocked(ctx context.Context) ([]IndexBlobInfo, bool, error) {
 	nextSleepTime := 100 * time.Millisecond
 
 	for i := 0; i < indexLoadAttempts; i++ {
@@ -441,12 +441,12 @@ func (bm *Manager) loadPackIndexesUnlocked(ctx context.Context) ([]IndexInfo, bo
 			nextSleepTime *= 2
 		}
 
-		blocks, err := bm.listCache.listIndexBlocks(ctx)
+		blocks, err := bm.listCache.listIndexBlobs(ctx)
 		if err != nil {
 			return nil, false, err
 		}
 
-		err = bm.tryLoadPackIndexBlocksUnlocked(ctx, blocks)
+		err = bm.tryLoadPackIndexBlobsUnlocked(ctx, blocks)
 		if err == nil {
 			var blockIDs []blob.ID
 			for _, b := range blocks {
@@ -467,8 +467,8 @@ func (bm *Manager) loadPackIndexesUnlocked(ctx context.Context) ([]IndexInfo, bo
 	return nil, false, errors.Errorf("unable to load pack indexes despite %v retries", indexLoadAttempts)
 }
 
-func (bm *Manager) tryLoadPackIndexBlocksUnlocked(ctx context.Context, blocks []IndexInfo) error {
-	ch, unprocessedIndexesSize, err := bm.unprocessedIndexBlocksUnlocked(blocks)
+func (bm *Manager) tryLoadPackIndexBlobsUnlocked(ctx context.Context, blocks []IndexBlobInfo) error {
+	ch, unprocessedIndexesSize, err := bm.unprocessedIndexBlobsUnlocked(blocks)
 	if err != nil {
 		return err
 	}
@@ -476,7 +476,7 @@ func (bm *Manager) tryLoadPackIndexBlocksUnlocked(ctx context.Context, blocks []
 		return nil
 	}
 
-	log.Infof("downloading %v new index blocks (%v bytes)...", len(ch), unprocessedIndexesSize)
+	log.Infof("downloading %v new index blobs (%v bytes)...", len(ch), unprocessedIndexesSize)
 	var wg sync.WaitGroup
 
 	errch := make(chan error, parallelFetches)
@@ -486,14 +486,14 @@ func (bm *Manager) tryLoadPackIndexBlocksUnlocked(ctx context.Context, blocks []
 		go func() {
 			defer wg.Done()
 
-			for indexBlockID := range ch {
-				data, err := bm.getPhysicalBlockInternal(ctx, indexBlockID)
+			for indexBlobID := range ch {
+				data, err := bm.getIndexBlobInternal(ctx, indexBlobID)
 				if err != nil {
 					errch <- err
 					return
 				}
 
-				if err := bm.committedBlocks.addBlock(indexBlockID, data, false); err != nil {
+				if err := bm.committedBlocks.addBlock(indexBlobID, data, false); err != nil {
 					errch <- errors.Wrap(err, "unable to add to committed block cache")
 					return
 				}
@@ -513,17 +513,17 @@ func (bm *Manager) tryLoadPackIndexBlocksUnlocked(ctx context.Context, blocks []
 	return nil
 }
 
-// unprocessedIndexBlocksUnlocked returns a closed channel filled with block IDs that are not in committedBlocks cache.
-func (bm *Manager) unprocessedIndexBlocksUnlocked(blocks []IndexInfo) (<-chan blob.ID, int64, error) {
+// unprocessedIndexBlobsUnlocked returns a closed channel filled with block IDs that are not in committedBlocks cache.
+func (bm *Manager) unprocessedIndexBlobsUnlocked(blocks []IndexBlobInfo) (<-chan blob.ID, int64, error) {
 	var totalSize int64
 	ch := make(chan blob.ID, len(blocks))
 	for _, block := range blocks {
-		has, err := bm.committedBlocks.cache.hasIndexBlockID(block.BlobID)
+		has, err := bm.committedBlocks.cache.hasIndexBlobID(block.BlobID)
 		if err != nil {
 			return nil, 0, err
 		}
 		if has {
-			log.Debugf("index block %q already in cache, skipping", block.BlobID)
+			log.Debugf("index blob %q already in cache, skipping", block.BlobID)
 			continue
 		}
 		ch <- block.BlobID
@@ -753,7 +753,7 @@ func (bm *Manager) BlockInfo(ctx context.Context, blockID string) (Info, error) 
 func (bm *Manager) FindUnreferencedBlobs(ctx context.Context) ([]blob.Metadata, error) {
 	infos, err := bm.ListBlockInfos("", true)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to list index blocks")
+		return nil, errors.Wrap(err, "unable to list index blobs")
 	}
 
 	usedPackBlocks := findPackBlocksInUse(infos)
@@ -830,13 +830,13 @@ func (bm *Manager) decryptAndVerify(encrypted []byte, iv []byte) ([]byte, error)
 	return decrypted, bm.verifyChecksum(decrypted, iv)
 }
 
-func (bm *Manager) getPhysicalBlockInternal(ctx context.Context, blobID blob.ID) ([]byte, error) {
+func (bm *Manager) getIndexBlobInternal(ctx context.Context, blobID blob.ID) ([]byte, error) {
 	payload, err := bm.blockCache.getContentBlock(ctx, blobID, blobID, 0, -1)
 	if err != nil {
 		return nil, err
 	}
 
-	iv, err := getPhysicalBlockIV(blobID)
+	iv, err := getIndexBlobIV(blobID)
 	if err != nil {
 		return nil, err
 	}
@@ -863,7 +863,7 @@ func getPackedBlockIV(blockID string) ([]byte, error) {
 	return hex.DecodeString(blockID[len(blockID)-(aes.BlockSize*2):])
 }
 
-func getPhysicalBlockIV(s blob.ID) ([]byte, error) {
+func getIndexBlobIV(s blob.ID) ([]byte, error) {
 	if p := strings.Index(string(s), "-"); p >= 0 {
 		s = s[0:p]
 	}
@@ -915,21 +915,21 @@ func (bm *Manager) Refresh(ctx context.Context) (bool, error) {
 }
 
 type cachedList struct {
-	Timestamp time.Time   `json:"timestamp"`
-	Blocks    []IndexInfo `json:"blocks"`
+	Timestamp time.Time       `json:"timestamp"`
+	Blocks    []IndexBlobInfo `json:"blocks"`
 }
 
-// listIndexBlocksFromStorage returns the list of index blocks in the given storage.
+// listIndexBlobsFromStorage returns the list of index blobs in the given storage.
 // The list of blocks is not guaranteed to be sorted.
-func listIndexBlocksFromStorage(ctx context.Context, st blob.Storage) ([]IndexInfo, error) {
-	snapshot, err := blob.ListAllBlobsConsistent(ctx, st, newIndexBlockPrefix, math.MaxInt32)
+func listIndexBlobsFromStorage(ctx context.Context, st blob.Storage) ([]IndexBlobInfo, error) {
+	snapshot, err := blob.ListAllBlobsConsistent(ctx, st, newIndexBlobPrefix, math.MaxInt32)
 	if err != nil {
 		return nil, err
 	}
 
-	var results []IndexInfo
+	var results []IndexBlobInfo
 	for _, it := range snapshot {
-		ii := IndexInfo{
+		ii := IndexBlobInfo{
 			BlobID:    it.BlobID,
 			Timestamp: it.Timestamp,
 			Length:    it.Length,
@@ -948,6 +948,10 @@ func NewManager(ctx context.Context, st blob.Storage, f FormattingOptions, cachi
 func newManagerWithOptions(ctx context.Context, st blob.Storage, f FormattingOptions, caching CachingOptions, timeNow func() time.Time, repositoryFormatBytes []byte) (*Manager, error) {
 	if f.Version < minSupportedReadVersion || f.Version > currentWriteVersion {
 		return nil, errors.Errorf("can't handle repositories created using version %v (min supported %v, max supported %v)", f.Version, minSupportedReadVersion, maxSupportedReadVersion)
+	}
+
+	if f.Version < minSupportedWriteVersion || f.Version > currentWriteVersion {
+		return nil, errors.Errorf("can't handle repositories created using version %v (min supported %v, max supported %v)", f.Version, minSupportedWriteVersion, maxSupportedWriteVersion)
 	}
 
 	hasher, encryptor, err := CreateHashAndEncryptor(f)

@@ -22,13 +22,13 @@ func TestBlockIndexRecovery(t *testing.T) {
 		t.Errorf("flush error: %v", err)
 	}
 
-	// delete all index blocks
-	assertNoError(t, bm.st.ListBlobs(ctx, newIndexBlockPrefix, func(bi blob.Metadata) error {
+	// delete all index blobs
+	assertNoError(t, bm.st.ListBlobs(ctx, newIndexBlobPrefix, func(bi blob.Metadata) error {
 		log.Debugf("deleting %v", bi.BlobID)
 		return bm.st.DeleteBlob(ctx, bi.BlobID)
 	}))
 
-	// now with index blocks gone, all blocks appear to not be found
+	// now with index blobs gone, all blocks appear to not be found
 	bm = newTestBlockManager(data, keyTime, nil)
 	verifyBlockNotFound(ctx, t, bm, block1)
 	verifyBlockNotFound(ctx, t, bm, block2)

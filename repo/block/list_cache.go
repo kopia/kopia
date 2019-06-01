@@ -21,13 +21,13 @@ type listCache struct {
 	hmacSecret        []byte
 }
 
-func (c *listCache) listIndexBlocks(ctx context.Context) ([]IndexInfo, error) {
+func (c *listCache) listIndexBlobs(ctx context.Context) ([]IndexBlobInfo, error) {
 	if c.cacheFile != "" {
 		ci, err := c.readBlocksFromCache(ctx)
 		if err == nil {
 			expirationTime := ci.Timestamp.Add(c.listCacheDuration)
 			if time.Now().Before(expirationTime) {
-				log.Debugf("retrieved list of index blocks from cache")
+				log.Debugf("retrieved list of index blobs from cache")
 				return ci.Blocks, nil
 			}
 		} else if err != blob.ErrBlobNotFound {
@@ -35,14 +35,14 @@ func (c *listCache) listIndexBlocks(ctx context.Context) ([]IndexInfo, error) {
 		}
 	}
 
-	blocks, err := listIndexBlocksFromStorage(ctx, c.st)
+	blocks, err := listIndexBlobsFromStorage(ctx, c.st)
 	if err == nil {
 		c.saveListToCache(ctx, &cachedList{
 			Blocks:    blocks,
 			Timestamp: time.Now(),
 		})
 	}
-	log.Debugf("found %v index blocks from source", len(blocks))
+	log.Debugf("found %v index blobs from source", len(blocks))
 
 	return blocks, err
 }
@@ -51,7 +51,7 @@ func (c *listCache) saveListToCache(ctx context.Context, ci *cachedList) {
 	if c.cacheFile == "" {
 		return
 	}
-	log.Debugf("saving index blocks to cache: %v", len(ci.Blocks))
+	log.Debugf("saving index blobs to cache: %v", len(ci.Blocks))
 	if data, err := json.Marshal(ci); err == nil {
 		mySuffix := fmt.Sprintf(".tmp-%v-%v", os.Getpid(), time.Now().UnixNano())
 		if err := ioutil.WriteFile(c.cacheFile+mySuffix, appendHMAC(data, c.hmacSecret), 0600); err != nil {

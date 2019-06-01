@@ -436,7 +436,7 @@ func (m *Manager) compactLocked(ctx context.Context) error {
 		return nil
 	}
 
-	// compaction needs to be atomic (deletes and rewrite should show up in one index block or not show up at all)
+	// compaction needs to be atomic (deletes and rewrite should show up in one index blob or not show up at all)
 	// that's why we want to prevent index flushes while we're d.
 	m.b.DisableIndexFlush()
 	defer m.b.EnableIndexFlush()

@@ -15,19 +15,19 @@ import (
 
 const (
 	simpleIndexSuffix                    = ".sndx"
-	unusedCommittedBlockIndexCleanupTime = 1 * time.Hour // delete unused committed index blocks after 1 hour
+	unusedCommittedBlockIndexCleanupTime = 1 * time.Hour // delete unused committed index blobs after 1 hour
 )
 
 type diskCommittedBlockIndexCache struct {
 	dirname string
 }
 
-func (c *diskCommittedBlockIndexCache) indexBlockPath(indexBlockID blob.ID) string {
-	return filepath.Join(c.dirname, string(indexBlockID)+simpleIndexSuffix)
+func (c *diskCommittedBlockIndexCache) indexBlobPath(indexBlobID blob.ID) string {
+	return filepath.Join(c.dirname, string(indexBlobID)+simpleIndexSuffix)
 }
 
-func (c *diskCommittedBlockIndexCache) openIndex(indexBlockID blob.ID) (packIndex, error) {
-	fullpath := c.indexBlockPath(indexBlockID)
+func (c *diskCommittedBlockIndexCache) openIndex(indexBlobID blob.ID) (packIndex, error) {
+	fullpath := c.indexBlobPath(indexBlobID)
 
 	f, err := mmap.Open(fullpath)
 	if err != nil {
@@ -37,8 +37,8 @@ func (c *diskCommittedBlockIndexCache) openIndex(indexBlockID blob.ID) (packInde
 	return openPackIndex(f)
 }
 
-func (c *diskCommittedBlockIndexCache) hasIndexBlockID(indexBlockID blob.ID) (bool, error) {
-	_, err := os.Stat(c.indexBlockPath(indexBlockID))
+func (c *diskCommittedBlockIndexCache) hasIndexBlobID(indexBlobID blob.ID) (bool, error) {
+	_, err := os.Stat(c.indexBlobPath(indexBlobID))
 	if err == nil {
 		return true, nil
 	}
@@ -49,8 +49,8 @@ func (c *diskCommittedBlockIndexCache) hasIndexBlockID(indexBlockID blob.ID) (bo
 	return false, err
 }
 
-func (c *diskCommittedBlockIndexCache) addBlockToCache(indexBlockID blob.ID, data []byte) error {
-	exists, err := c.hasIndexBlockID(indexBlockID)
+func (c *diskCommittedBlockIndexCache) addBlockToCache(indexBlobID blob.ID, data []byte) error {
+	exists, err := c.hasIndexBlobID(indexBlobID)
 	if err != nil {
 		return err
 	}
@@ -65,14 +65,14 @@ func (c *diskCommittedBlockIndexCache) addBlockToCache(indexBlockID blob.ID, dat
 	}
 
 	// rename() is atomic, so one process will succeed, but the other will fail
-	if err := os.Rename(tmpFile, c.indexBlockPath(indexBlockID)); err != nil {
+	if err := os.Rename(tmpFile, c.indexBlobPath(indexBlobID)); err != nil {
 		// verify that the block exists
-		exists, err := c.hasIndexBlockID(indexBlockID)
+		exists, err := c.hasIndexBlobID(indexBlobID)
 		if err != nil {
 			return err
 		}
 		if !exists {
-			return errors.Errorf("unsuccessful index write of block %q", indexBlockID)
+			return errors.Errorf("unsuccessful index write of block %q", indexBlobID)
 		}
 	}
 

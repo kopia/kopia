@@ -133,6 +133,7 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 		Hash:        "HMAC-SHA256-128",
 		Encryption:  "NONE",
 		MaxPackSize: 100000,
+		Version:     1,
 	}
 
 	// write some data to storage
@@ -271,6 +272,7 @@ func newManagerForTesting(ctx context.Context, t *testing.T, data blobtesting.Da
 		Hash:        "HMAC-SHA256-128",
 		Encryption:  "NONE",
 		MaxPackSize: 100000,
+		Version:     1,
 	}, block.CachingOptions{}, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "can't create block manager")

@@ -40,6 +40,7 @@ func runStatusCommand(ctx context.Context, rep *repo.Repository) error {
 	fmt.Println()
 	fmt.Printf("Block hash:          %v\n", rep.Blocks.Format.Hash)
 	fmt.Printf("Block encryption:    %v\n", rep.Blocks.Format.Encryption)
+	fmt.Printf("Block fmt version:   %v\n", rep.Blocks.Format.Version)
 	fmt.Printf("Max pack length:     %v\n", units.BytesStringBase2(int64(rep.Blocks.Format.MaxPackSize)))
 	fmt.Printf("Splitter:            %v\n", rep.Objects.Format.Splitter)
 

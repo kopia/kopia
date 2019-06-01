@@ -14,14 +14,14 @@ type memoryCommittedBlockIndexCache struct {
 	blocks map[blob.ID]packIndex
 }
 
-func (m *memoryCommittedBlockIndexCache) hasIndexBlockID(indexBlockID blob.ID) (bool, error) {
+func (m *memoryCommittedBlockIndexCache) hasIndexBlobID(indexBlobID blob.ID) (bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	return m.blocks[indexBlockID] != nil, nil
+	return m.blocks[indexBlobID] != nil, nil
 }
 
-func (m *memoryCommittedBlockIndexCache) addBlockToCache(indexBlockID blob.ID, data []byte) error {
+func (m *memoryCommittedBlockIndexCache) addBlockToCache(indexBlobID blob.ID, data []byte) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -30,17 +30,17 @@ func (m *memoryCommittedBlockIndexCache) addBlockToCache(indexBlockID blob.ID, d
 		return err
 	}
 
-	m.blocks[indexBlockID] = ndx
+	m.blocks[indexBlobID] = ndx
 	return nil
 }
 
-func (m *memoryCommittedBlockIndexCache) openIndex(indexBlockID blob.ID) (packIndex, error) {
+func (m *memoryCommittedBlockIndexCache) openIndex(indexBlobID blob.ID) (packIndex, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	v := m.blocks[indexBlockID]
+	v := m.blocks[indexBlobID]
 	if v == nil {
-		return nil, errors.Errorf("block not found in cache: %v", indexBlockID)
+		return nil, errors.Errorf("block not found in cache: %v", indexBlobID)
 	}
 
 	return v, nil

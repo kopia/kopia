@@ -15,7 +15,7 @@ var (
 )
 
 func runListBlockIndexesAction(ctx context.Context, rep *repo.Repository) error {
-	blks, err := rep.Blocks.IndexBlocks(ctx)
+	blks, err := rep.Blocks.IndexBlobs(ctx)
 	if err != nil {
 		return err
 	}

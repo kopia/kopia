@@ -124,7 +124,7 @@ func findBlockInfos(ctx context.Context, rep *repo.Repository, ch chan blockInfo
 func findBlocksWithFormatVersion(ctx context.Context, rep *repo.Repository, ch chan blockInfoOrError, version int) {
 	infos, err := rep.Blocks.ListBlockInfos("", true)
 	if err != nil {
-		ch <- blockInfoOrError{err: errors.Wrap(err, "unable to list index blocks")}
+		ch <- blockInfoOrError{err: errors.Wrap(err, "unable to list index blobs")}
 		return
 	}
 
@@ -139,7 +139,7 @@ func findBlocksInShortPacks(ctx context.Context, rep *repo.Repository, ch chan b
 	log.Debugf("listing blocks...")
 	infos, err := rep.Blocks.ListBlockInfos("", true)
 	if err != nil {
-		ch <- blockInfoOrError{err: errors.Wrap(err, "unable to list index blocks")}
+		ch <- blockInfoOrError{err: errors.Wrap(err, "unable to list index blobs")}
 		return
 	}
 
