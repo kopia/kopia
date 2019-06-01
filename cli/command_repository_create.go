@@ -18,10 +18,9 @@ var (
 
 	createBlockHashFormat       = createCommand.Flag("block-hash", "Block hash algorithm.").PlaceHolder("ALGO").Default(block.DefaultHash).Enum(block.SupportedHashAlgorithms()...)
 	createBlockEncryptionFormat = createCommand.Flag("encryption", "Block encryption algorithm.").PlaceHolder("ALGO").Default(block.DefaultEncryption).Enum(block.SupportedEncryptionAlgorithms()...)
-	createSplitter              = createCommand.Flag("object-splitter", "The splitter to use for new objects in the repository").Default("DYNAMIC").Enum(object.SupportedSplitters...)
+	createSplitter              = createCommand.Flag("object-splitter", "The splitter to use for new objects in the repository").Default(object.DefaultSplitter).Enum(object.SupportedSplitters...)
 
-	createOverwrite = createCommand.Flag("overwrite", "Overwrite existing data (DANGEROUS).").Bool()
-	createOnly      = createCommand.Flag("create-only", "Create repository, but don't connect to it.").Short('c').Bool()
+	createOnly = createCommand.Flag("create-only", "Create repository, but don't connect to it.").Short('c').Bool()
 
 	createGlobalPolicyKeepLatest  = createCommand.Flag("keep-latest", "Number of most recent backups to keep per source").PlaceHolder("N").Default("10").Int()
 	createGlobalPolicyKeepHourly  = createCommand.Flag("keep-hourly", "Number of most-recent hourly backups to keep per source").PlaceHolder("N").Default("48").Int()
@@ -59,9 +58,7 @@ func ensureEmpty(ctx context.Context, s storage.Storage) error {
 		return hasDataError
 	})
 	if err == hasDataError {
-		if !*createOverwrite {
-			return errors.New("found existing data in storage, specify --overwrite to use anyway")
-		}
+		return errors.New("found existing data in storage location")
 	}
 
 	return err

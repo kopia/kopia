@@ -21,7 +21,7 @@ func init() {
 			cmd.Flag("url", "URL of WebDAV server").Required().StringVar(&options.URL)
 			cmd.Flag("flat", "Use flat directory structure").BoolVar(&connectFlat)
 		},
-		func(ctx context.Context) (storage.Storage, error) {
+		func(ctx context.Context, isNew bool) (storage.Storage, error) {
 			wo := options
 
 			if wo.Username != "" {

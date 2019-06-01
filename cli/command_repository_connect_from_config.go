@@ -12,7 +12,11 @@ import (
 
 var connectToStorageFromConfigPath string
 
-func connectToStorageFromConfig(ctx context.Context) (storage.Storage, error) {
+func connectToStorageFromConfig(ctx context.Context, isNew bool) (storage.Storage, error) {
+	if isNew {
+		return nil, errors.New("not supported")
+	}
+
 	var cfg repo.LocalConfig
 
 	f, err := os.Open(connectToStorageFromConfigPath)

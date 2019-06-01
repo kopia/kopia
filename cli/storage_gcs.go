@@ -23,7 +23,7 @@ func init() {
 			cmd.Flag("max-upload-speed", "Limit the upload speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&options.MaxUploadSpeedBytesPerSecond)
 
 		},
-		func(ctx context.Context) (storage.Storage, error) {
+		func(ctx context.Context, isNew bool) (storage.Storage, error) {
 			return gcs.New(ctx, &options)
 		},
 	)
