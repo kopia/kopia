@@ -131,7 +131,7 @@ func TestBlockManagerDedupesPendingAndUncommittedBlocks(t *testing.T) {
 	}
 	bm.Flush(ctx)
 
-	// this flushes the pack block + index block
+	// this flushes the pack block + index blob
 	if got, want := len(data), 2; got != want {
 		dumpBlockManagerData(t, data)
 		t.Errorf("unexpected number of blocks: %v, wanted %v", got, want)
@@ -161,17 +161,17 @@ func TestBlockManagerEmpty(t *testing.T) {
 	}
 }
 
-func verifyActiveIndexBlockCount(ctx context.Context, t *testing.T, bm *Manager, expected int) {
+func verifyActiveIndexBlobCount(ctx context.Context, t *testing.T, bm *Manager, expected int) {
 	t.Helper()
 
-	blks, err := bm.IndexBlocks(ctx)
+	blks, err := bm.IndexBlobs(ctx)
 	if err != nil {
-		t.Errorf("error listing active index blocks: %v", err)
+		t.Errorf("error listing active index blobs: %v", err)
 		return
 	}
 
 	if got, want := len(blks), expected; got != want {
-		t.Errorf("unexpected number of active index blocks %v, expected %v (%v)", got, want, blks)
+		t.Errorf("unexpected number of active index blobs %v, expected %v (%v)", got, want, blks)
 	}
 }
 func TestBlockManagerInternalFlush(t *testing.T) {
@@ -463,11 +463,11 @@ func TestDisableFlush(t *testing.T) {
 	bm.Flush(ctx) // flush will not have effect
 	bm.EnableIndexFlush()
 
-	verifyActiveIndexBlockCount(ctx, t, bm, 0)
+	verifyActiveIndexBlobCount(ctx, t, bm, 0)
 	bm.EnableIndexFlush()
-	verifyActiveIndexBlockCount(ctx, t, bm, 0)
+	verifyActiveIndexBlobCount(ctx, t, bm, 0)
 	bm.Flush(ctx) // flush will happen now
-	verifyActiveIndexBlockCount(ctx, t, bm, 1)
+	verifyActiveIndexBlobCount(ctx, t, bm, 1)
 }
 
 func TestRewriteDeleted(t *testing.T) {
@@ -793,6 +793,7 @@ func newTestBlockManager(data blobtesting.DataMap, keyTime map[blob.ID]time.Time
 		Encryption:  "NONE",
 		HMACSecret:  hmacSecret,
 		MaxPackSize: maxPackSize,
+		Version:     1,
 	}, CachingOptions{}, timeFunc, nil)
 	if err != nil {
 		panic("can't create block manager: " + err.Error())
@@ -805,7 +806,7 @@ func getIndexCount(d blobtesting.DataMap) int {
 	var cnt int
 
 	for blobID := range d {
-		if strings.HasPrefix(string(blobID), newIndexBlockPrefix) {
+		if strings.HasPrefix(string(blobID), newIndexBlobPrefix) {
 			cnt++
 		}
 	}

@@ -21,38 +21,38 @@ type CompactOptions struct {
 	SkipDeletedOlderThan time.Duration
 }
 
-// CompactIndexes performs compaction of index blocks ensuring that # of small blocks is between minSmallBlockCount and maxSmallBlockCount
+// CompactIndexes performs compaction of index blobs ensuring that # of small blocks is between minSmallBlockCount and maxSmallBlockCount
 func (bm *Manager) CompactIndexes(ctx context.Context, opt CompactOptions) error {
 	log.Debugf("CompactIndexes(%+v)", opt)
 	if opt.MaxSmallBlocks < opt.MinSmallBlocks {
 		return errors.Errorf("invalid block counts")
 	}
 
-	indexBlocks, _, err := bm.loadPackIndexesUnlocked(ctx)
+	indexBlobs, _, err := bm.loadPackIndexesUnlocked(ctx)
 	if err != nil {
 		return errors.Wrap(err, "error loading indexes")
 	}
 
-	blocksToCompact := bm.getBlocksToCompact(indexBlocks, opt)
+	blocksToCompact := bm.getBlocksToCompact(indexBlobs, opt)
 
-	if err := bm.compactAndDeleteIndexBlocks(ctx, blocksToCompact, opt); err != nil {
+	if err := bm.compactAndDeleteIndexBlobs(ctx, blocksToCompact, opt); err != nil {
 		log.Warningf("error performing quick compaction: %v", err)
 	}
 
 	return nil
 }
 
-func (bm *Manager) getBlocksToCompact(indexBlocks []IndexInfo, opt CompactOptions) []IndexInfo {
-	var nonCompactedBlocks []IndexInfo
+func (bm *Manager) getBlocksToCompact(indexBlobs []IndexBlobInfo, opt CompactOptions) []IndexBlobInfo {
+	var nonCompactedBlocks []IndexBlobInfo
 	var totalSizeNonCompactedBlocks int64
 
-	var verySmallBlocks []IndexInfo
+	var verySmallBlocks []IndexBlobInfo
 	var totalSizeVerySmallBlocks int64
 
-	var mediumSizedBlocks []IndexInfo
+	var mediumSizedBlocks []IndexBlobInfo
 	var totalSizeMediumSizedBlocks int64
 
-	for _, b := range indexBlocks {
+	for _, b := range indexBlobs {
 		if b.Length > int64(bm.maxPackSize) && !opt.AllBlocks {
 			continue
 		}
@@ -83,16 +83,16 @@ func (bm *Manager) getBlocksToCompact(indexBlocks []IndexInfo, opt CompactOption
 	return nonCompactedBlocks
 }
 
-func (bm *Manager) compactAndDeleteIndexBlocks(ctx context.Context, indexBlocks []IndexInfo, opt CompactOptions) error {
-	if len(indexBlocks) <= 1 {
+func (bm *Manager) compactAndDeleteIndexBlobs(ctx context.Context, indexBlobs []IndexBlobInfo, opt CompactOptions) error {
+	if len(indexBlobs) <= 1 {
 		return nil
 	}
-	formatLog.Debugf("compacting %v blocks", len(indexBlocks))
+	formatLog.Debugf("compacting %v blocks", len(indexBlobs))
 	t0 := time.Now()
 
 	bld := make(packIndexBuilder)
-	for _, indexBlock := range indexBlocks {
-		if err := bm.addIndexBlocksToBuilder(ctx, bld, indexBlock, opt); err != nil {
+	for _, indexBlob := range indexBlobs {
+		if err := bm.addIndexBlobsToBuilder(ctx, bld, indexBlob, opt); err != nil {
 			return err
 		}
 	}
@@ -102,36 +102,36 @@ func (bm *Manager) compactAndDeleteIndexBlocks(ctx context.Context, indexBlocks 
 		return errors.Wrap(err, "unable to build an index")
 	}
 
-	compactedIndexBlock, err := bm.writePackIndexesNew(ctx, buf.Bytes())
+	compactedIndexBlob, err := bm.writePackIndexesNew(ctx, buf.Bytes())
 	if err != nil {
 		return errors.Wrap(err, "unable to write compacted indexes")
 	}
 
-	formatLog.Debugf("wrote compacted index (%v bytes) in %v", compactedIndexBlock, time.Since(t0))
+	formatLog.Debugf("wrote compacted index (%v bytes) in %v", compactedIndexBlob, time.Since(t0))
 
-	for _, indexBlock := range indexBlocks {
-		if indexBlock.BlobID == compactedIndexBlock {
+	for _, indexBlob := range indexBlobs {
+		if indexBlob.BlobID == compactedIndexBlob {
 			continue
 		}
 
 		bm.listCache.deleteListCache(ctx)
-		if err := bm.st.DeleteBlob(ctx, indexBlock.BlobID); err != nil {
-			log.Warningf("unable to delete compacted blob %q: %v", indexBlock.BlobID, err)
+		if err := bm.st.DeleteBlob(ctx, indexBlob.BlobID); err != nil {
+			log.Warningf("unable to delete compacted blob %q: %v", indexBlob.BlobID, err)
 		}
 	}
 
 	return nil
 }
 
-func (bm *Manager) addIndexBlocksToBuilder(ctx context.Context, bld packIndexBuilder, indexBlock IndexInfo, opt CompactOptions) error {
-	data, err := bm.getPhysicalBlockInternal(ctx, indexBlock.BlobID)
+func (bm *Manager) addIndexBlobsToBuilder(ctx context.Context, bld packIndexBuilder, indexBlob IndexBlobInfo, opt CompactOptions) error {
+	data, err := bm.getIndexBlobInternal(ctx, indexBlob.BlobID)
 	if err != nil {
 		return err
 	}
 
 	index, err := openPackIndex(bytes.NewReader(data))
 	if err != nil {
-		return errors.Wrapf(err, "unable to open index block %q", indexBlock)
+		return errors.Wrapf(err, "unable to open index blob %q", indexBlob)
 	}
 
 	_ = index.Iterate("", func(i Info) error {

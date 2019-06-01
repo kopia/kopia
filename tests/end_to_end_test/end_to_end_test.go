@@ -137,7 +137,7 @@ func TestEndToEnd(t *testing.T) {
 		t.Errorf("unexpected number of sources: %v, want %v in %#v", got, want, sources)
 	}
 
-	// expect 5 blocks, each snapshot creation adds one index block
+	// expect 5 blocks, each snapshot creation adds one index blob
 	e.runAndVerifyOutputLineCount(t, 6, "blockindex", "ls")
 	e.runAndExpectSuccess(t, "blockindex", "optimize")
 	e.runAndVerifyOutputLineCount(t, 1, "blockindex", "ls")
@@ -159,7 +159,7 @@ func TestEndToEnd(t *testing.T) {
 		dstenv.runAndVerifyOutputLineCount(t, sourceSnapshotCount, "snapshot", "list", ".", "-a")
 	})
 
-	t.Run("RepairIndexBlocks", func(t *testing.T) {
+	t.Run("RepairIndexBlobs", func(t *testing.T) {
 		blocksBefore := e.runAndExpectSuccess(t, "block", "ls")
 
 		lines := e.runAndVerifyOutputLineCount(t, 2, "blockindex", "ls")

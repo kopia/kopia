@@ -9,8 +9,8 @@ import (
 
 var (
 	optimizeCommand              = blockIndexCommands.Command("optimize", "Optimize block indexes.")
-	optimizeMinSmallBlocks       = optimizeCommand.Flag("min-small-blocks", "Minimum number of small index blocks that can be left after compaction.").Default("1").Int()
-	optimizeMaxSmallBlocks       = optimizeCommand.Flag("max-small-blocks", "Maximum number of small index blocks that can be left after compaction.").Default("1").Int()
+	optimizeMinSmallBlocks       = optimizeCommand.Flag("min-small-blocks", "Minimum number of small index blobs that can be left after compaction.").Default("1").Int()
+	optimizeMaxSmallBlocks       = optimizeCommand.Flag("max-small-blocks", "Maximum number of small index blobs that can be left after compaction.").Default("1").Int()
 	optimizeSkipDeletedOlderThan = optimizeCommand.Flag("skip-deleted-older-than", "Skip deleted blocks above given age").Duration()
 	optimizeAllBlocks            = optimizeCommand.Flag("all", "Optimize all indexes, even those above maximum size.").Bool()
 )

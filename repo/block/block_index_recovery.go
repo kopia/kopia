@@ -12,7 +12,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-// RecoverIndexFromPackBlob attempts to recover index block entries from a given pack file.
+// RecoverIndexFromPackBlob attempts to recover index blob entries from a given pack file.
 // Pack file length may be provided (if known) to reduce the number of bytes that are read from the storage.
 func (bm *Manager) RecoverIndexFromPackBlob(ctx context.Context, packFile blob.ID, packFileLength int64, commit bool) ([]Info, error) {
 	localIndexBytes, err := bm.readPackFileLocalIndex(ctx, packFile, packFileLength)

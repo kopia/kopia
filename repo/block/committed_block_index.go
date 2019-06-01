@@ -18,7 +18,7 @@ type committedBlockIndex struct {
 }
 
 type committedBlockIndexCache interface {
-	hasIndexBlockID(indexBlob blob.ID) (bool, error)
+	hasIndexBlobID(indexBlob blob.ID) (bool, error)
 	addBlockToCache(indexBlob blob.ID, data []byte) error
 	openIndex(indexBlob blob.ID) (packIndex, error)
 	expireUnused(used []blob.ID) error
@@ -38,8 +38,8 @@ func (b *committedBlockIndex) getBlock(blockID string) (Info, error) {
 	return Info{}, err
 }
 
-func (b *committedBlockIndex) addBlock(indexBlockID blob.ID, data []byte, use bool) error {
-	if err := b.cache.addBlockToCache(indexBlockID, data); err != nil {
+func (b *committedBlockIndex) addBlock(indexBlobID blob.ID, data []byte, use bool) error {
+	if err := b.cache.addBlockToCache(indexBlobID, data); err != nil {
 		return err
 	}
 
@@ -50,15 +50,15 @@ func (b *committedBlockIndex) addBlock(indexBlockID blob.ID, data []byte, use bo
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	if b.inUse[indexBlockID] != nil {
+	if b.inUse[indexBlobID] != nil {
 		return nil
 	}
 
-	ndx, err := b.cache.openIndex(indexBlockID)
+	ndx, err := b.cache.openIndex(indexBlobID)
 	if err != nil {
-		return errors.Wrapf(err, "unable to open pack index %q", indexBlockID)
+		return errors.Wrapf(err, "unable to open pack index %q", indexBlobID)
 	}
-	b.inUse[indexBlockID] = ndx
+	b.inUse[indexBlobID] = ndx
 	b.merged = append(b.merged, ndx)
 	return nil
 }

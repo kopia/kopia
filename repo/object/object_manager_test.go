@@ -141,8 +141,8 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 }
 
 func verifyIndirectBlock(ctx context.Context, t *testing.T, r *Manager, oid ID) {
-	for indexBlockID, isIndirect := oid.IndexObjectID(); isIndirect; indexBlockID, isIndirect = indexBlockID.IndexObjectID() {
-		rd, err := r.Open(ctx, indexBlockID)
+	for indexBlobID, isIndirect := oid.IndexObjectID(); isIndirect; indexBlobID, isIndirect = indexBlobID.IndexObjectID() {
+		rd, err := r.Open(ctx, indexBlobID)
 		if err != nil {
 			t.Errorf("unable to open %v: %v", oid.String(), err)
 			return
@@ -168,11 +168,11 @@ func TestIndirection(t *testing.T) {
 		{dataLength: 200, expectedBlockCount: 1, expectedIndirection: 0},
 		{dataLength: 1000, expectedBlockCount: 1, expectedIndirection: 0},
 		{dataLength: 1001, expectedBlockCount: 3, expectedIndirection: 1},
-		// 1 block of 1000 zeros, 1 block of 5 zeros + 1 index block
+		// 1 block of 1000 zeros, 1 block of 5 zeros + 1 index blob
 		{dataLength: 3005, expectedBlockCount: 3, expectedIndirection: 1},
-		// 1 block of 1000 zeros + 1 index block
+		// 1 block of 1000 zeros + 1 index blob
 		{dataLength: 4000, expectedBlockCount: 2, expectedIndirection: 1},
-		// 1 block of 1000 zeros + 1 index block
+		// 1 block of 1000 zeros + 1 index blob
 		{dataLength: 10000, expectedBlockCount: 2, expectedIndirection: 1},
 	}
 
