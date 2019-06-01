@@ -10,4 +10,5 @@ dist/
 .tools/
 kopia
 kopia.exe
+Makefile.local.mk
 

@@ -2,6 +2,8 @@ COVERAGE_PACKAGES=./repo/...,./fs/...,./snapshot/...
 LINTER_TOOL=.tools/bin/golangci-lint
 GOVERALLS_TOOL=.tools/bin/goveralls
 
+-include ./Makefile.local.mk
+
 all: test lint vet integration-tests
 
 build:
