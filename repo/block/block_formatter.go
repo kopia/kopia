@@ -9,10 +9,18 @@ import (
 	"hash"
 	"sort"
 
+	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/blake2s"
 	"golang.org/x/crypto/salsa20"
 	"golang.org/x/crypto/sha3"
+)
+
+const (
+	purposeEncryptionKey = "encryption"
+	purposeHMACSecret    = "hmac"
+	hmacLength           = 32
+	salsaKeyLength       = 32
 )
 
 // HashFunc computes hash of block of data using a cryptographic hash function, possibly with HMAC and/or truncation.
@@ -23,11 +31,18 @@ type HashFuncFactory func(o FormattingOptions) (HashFunc, error)
 
 // Encryptor performs encryption and decryption of blocks of data.
 type Encryptor interface {
-	// Encrypt returns encrypted bytes corresponding to the given plaintext. Must not clobber the input slice.
+	// Encrypt returns encrypted bytes corresponding to the given plaintext.
+	// Must not clobber the input slice and return ciphertext with additional padding and checksum.
 	Encrypt(plainText []byte, blockID []byte) ([]byte, error)
 
-	// Decrypt returns unencrypted bytes corresponding to the given ciphertext. Must not clobber the input slice.
+	// Decrypt returns unencrypted bytes corresponding to the given ciphertext.
+	// Must not clobber the input slice. If IsAuthenticated() == true, Decrypt will perform
+	// authenticity check before decrypting.
 	Decrypt(cipherText []byte, blockID []byte) ([]byte, error)
+
+	// IsAuthenticated returns true if encryption is authenticated.
+	// In this case Decrypt() is expected to perform authenticity check.
+	IsAuthenticated() bool
 }
 
 // EncryptorFactory creates new Encryptor for given FormattingOptions
@@ -48,6 +63,10 @@ func (fi nullEncryptor) Decrypt(cipherText []byte, blockID []byte) ([]byte, erro
 	return cloneBytes(cipherText), nil
 }
 
+func (fi nullEncryptor) IsAuthenticated() bool {
+	return false
+}
+
 // ctrEncryptor implements encrypted format which uses CTR mode of a block cipher with nonce==IV.
 type ctrEncryptor struct {
 	createCipher func() (cipher.Block, error)
@@ -59,6 +78,10 @@ func (fi ctrEncryptor) Encrypt(plainText []byte, blockID []byte) ([]byte, error)
 
 func (fi ctrEncryptor) Decrypt(cipherText []byte, blockID []byte) ([]byte, error) {
 	return symmetricEncrypt(fi.createCipher, blockID, cipherText)
+}
+
+func (fi ctrEncryptor) IsAuthenticated() bool {
+	return false
 }
 
 func symmetricEncrypt(createCipher func() (cipher.Block, error), iv []byte, b []byte) ([]byte, error) {
@@ -74,16 +97,38 @@ func symmetricEncrypt(createCipher func() (cipher.Block, error), iv []byte, b []
 }
 
 type salsaEncryptor struct {
-	nonceSize int
-	key       *[32]byte
+	nonceSize  int
+	key        *[32]byte
+	hmacSecret []byte
 }
 
 func (s salsaEncryptor) Decrypt(input []byte, blockID []byte) ([]byte, error) {
+	if s.hmacSecret != nil {
+		var err error
+		input, err = verifyAndStripHMAC(input, s.hmacSecret)
+		if err != nil {
+			return nil, errors.Wrap(err, "verifyAndStripHMAC")
+		}
+	}
+
 	return s.encryptDecrypt(input, blockID)
 }
 
 func (s salsaEncryptor) Encrypt(input []byte, blockID []byte) ([]byte, error) {
-	return s.encryptDecrypt(input, blockID)
+	v, err := s.encryptDecrypt(input, blockID)
+	if err != nil {
+		return nil, errors.Wrap(err, "decrypt")
+	}
+
+	if s.hmacSecret == nil {
+		return v, nil
+	}
+
+	return appendHMAC(v, s.hmacSecret), nil
+}
+
+func (s salsaEncryptor) IsAuthenticated() bool {
+	return s.hmacSecret != nil
 }
 
 func (s salsaEncryptor) encryptDecrypt(input []byte, blockID []byte) ([]byte, error) {
@@ -172,7 +217,7 @@ func RegisterEncryption(name string, newEncryptor EncryptorFactory) {
 const DefaultHash = "BLAKE2B-256-128"
 
 // DefaultEncryption is the name of the default encryption algorithm.
-const DefaultEncryption = "SALSA20"
+const DefaultEncryption = "SALSA20-HMAC"
 
 func init() {
 	RegisterHash("HMAC-SHA256", truncatedHMACHashFuncFactory(sha256.New, 32))
@@ -195,12 +240,27 @@ func init() {
 	RegisterEncryption("SALSA20", func(f FormattingOptions) (Encryptor, error) {
 		var k [32]byte
 		copy(k[:], f.MasterKey[0:32])
-		return salsaEncryptor{8, &k}, nil
+		return salsaEncryptor{8, &k, nil}, nil
 	})
 	RegisterEncryption("XSALSA20", func(f FormattingOptions) (Encryptor, error) {
 		var k [32]byte
 		copy(k[:], f.MasterKey[0:32])
-		return salsaEncryptor{24, &k}, nil
+		return salsaEncryptor{24, &k, nil}, nil
+	})
+	RegisterEncryption("SALSA20-HMAC", func(f FormattingOptions) (Encryptor, error) {
+		encryptionKey := f.DeriveKey([]byte(purposeEncryptionKey), salsaKeyLength)
+		hmacSecret := f.DeriveKey([]byte(purposeHMACSecret), hmacLength)
+
+		var k [salsaKeyLength]byte
+		copy(k[:], encryptionKey)
+		return salsaEncryptor{8, &k, hmacSecret}, nil
+	})
+	RegisterEncryption("XSALSA20-HMAC", func(f FormattingOptions) (Encryptor, error) {
+		encryptionKey := f.DeriveKey([]byte(purposeEncryptionKey), salsaKeyLength)
+		hmacSecret := f.DeriveKey([]byte(purposeHMACSecret), hmacLength)
+		var k [salsaKeyLength]byte
+		copy(k[:], encryptionKey)
+		return salsaEncryptor{24, &k, hmacSecret}, nil
 	})
 }
 

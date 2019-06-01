@@ -20,6 +20,7 @@ import (
 
 	"github.com/kopia/kopia/internal/repologging"
 	"github.com/kopia/kopia/repo/storage"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -367,7 +368,7 @@ func (bm *Manager) preparePackDataBlock(packFile string) ([]byte, packIndexBuild
 			FormatVersion:    byte(bm.writeFormatVersion),
 			PackFile:         packFile,
 			PackOffset:       uint32(len(blockData)),
-			Length:           uint32(len(info.Payload)),
+			Length:           uint32(len(encrypted)),
 			TimestampSeconds: info.TimestampSeconds,
 		})
 
@@ -401,8 +402,9 @@ func (bm *Manager) maybeEncryptBlockDataForPacking(data []byte, blockID string) 
 	}
 	iv, err := getPackedBlockIV(blockID)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get packed block IV for %q: %v", blockID, err)
+		return nil, errors.Wrapf(err, "unable to get packed block IV for %q", blockID)
 	}
+
 	return bm.encryptor.Encrypt(data, iv)
 }
 
@@ -673,7 +675,7 @@ func (bm *Manager) encryptAndWriteBlockNotLocked(ctx context.Context, data []byt
 	}
 
 	atomic.AddInt32(&bm.stats.WrittenBlocks, 1)
-	atomic.AddInt64(&bm.stats.WrittenBytes, int64(len(data)))
+	atomic.AddInt64(&bm.stats.WrittenBytes, int64(len(data2)))
 	bm.listCache.deleteListCache(ctx)
 	if err := bm.st.PutBlock(ctx, physicalBlockID, data2); err != nil {
 		return "", err
@@ -800,7 +802,7 @@ func (bm *Manager) getBlockContentsUnlocked(ctx context.Context, bi Info) ([]byt
 
 	decrypted, err := bm.decryptAndVerify(payload, iv)
 	if err != nil {
-		return nil, fmt.Errorf("invalid checksum at %v offset %v length %v: %v", bi.PackFile, bi.PackOffset, len(payload), err)
+		return nil, errors.Wrapf(err, "invalid checksum at %v offset %v length %v", bi.PackFile, bi.PackOffset, len(payload))
 	}
 
 	return decrypted, nil
@@ -809,10 +811,15 @@ func (bm *Manager) getBlockContentsUnlocked(ctx context.Context, bi Info) ([]byt
 func (bm *Manager) decryptAndVerify(encrypted []byte, iv []byte) ([]byte, error) {
 	decrypted, err := bm.encryptor.Decrypt(encrypted, iv)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "decrypt")
 	}
 
 	atomic.AddInt64(&bm.stats.DecryptedBytes, int64(len(decrypted)))
+
+	if bm.encryptor.IsAuthenticated() {
+		// already verified
+		return decrypted, nil
+	}
 
 	// Since the encryption key is a function of data, we must be able to generate exactly the same key
 	// after decrypting the content. This serves as a checksum.
