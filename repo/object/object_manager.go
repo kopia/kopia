@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 
 	"github.com/kopia/kopia/repo/block"
@@ -116,7 +115,7 @@ func (om *Manager) verifyIndirectObjectInternal(ctx context.Context, indexObject
 		}
 
 		if l != m.Length {
-			return 0, fmt.Errorf("unexpected length of part %#v of indirect object %q: %v %v, expected %v", i, indexObjectID, m.Object, l, m.Length)
+			return 0, errors.Errorf("unexpected length of part %#v of indirect object %q: %v %v, expected %v", i, indexObjectID, m.Object, l, m.Length)
 		}
 	}
 
@@ -138,7 +137,7 @@ func (om *Manager) verifyObjectInternal(ctx context.Context, oid ID, blocks *blo
 		return int64(p.Length), nil
 	}
 
-	return 0, fmt.Errorf("unrecognized object type: %v", oid)
+	return 0, errors.Errorf("unrecognized object type: %v", oid)
 
 }
 
@@ -165,7 +164,7 @@ func NewObjectManager(ctx context.Context, bm blockManager, f Format, opts Manag
 
 	os := GetSplitterFactory(splitterID)
 	if os == nil {
-		return nil, fmt.Errorf("unsupported splitter %q", f.Splitter)
+		return nil, errors.Errorf("unsupported splitter %q", f.Splitter)
 	}
 
 	om.newSplitter = os
@@ -216,7 +215,7 @@ func (om *Manager) newRawReader(ctx context.Context, objectID ID) (Reader, error
 		return newObjectReaderWithData(payload), nil
 	}
 
-	return nil, fmt.Errorf("unsupported object ID: %v", objectID)
+	return nil, errors.Errorf("unsupported object ID: %v", objectID)
 }
 
 type readerWithData struct {

@@ -3,7 +3,6 @@ package block
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"io"
 	"sort"
 	"strings"
@@ -38,7 +37,7 @@ func readHeader(readerAt io.ReaderAt) (headerInfo, error) {
 	}
 
 	if header[0] != 1 {
-		return headerInfo{}, fmt.Errorf("invalid header format: %v", header[0])
+		return headerInfo{}, errors.Errorf("invalid header format: %v", header[0])
 	}
 
 	hi := headerInfo{
@@ -48,7 +47,7 @@ func readHeader(readerAt io.ReaderAt) (headerInfo, error) {
 	}
 
 	if hi.keySize <= 1 || hi.valueSize < 0 || hi.entryCount < 0 {
-		return headerInfo{}, fmt.Errorf("invalid header")
+		return headerInfo{}, errors.Errorf("invalid header")
 	}
 
 	return hi, nil
@@ -110,7 +109,7 @@ func (b *index) findEntryPosition(blockID string) (int, error) {
 func (b *index) findEntry(blockID string) ([]byte, error) {
 	key := contentIDToBytes(blockID)
 	if len(key) != b.hdr.keySize {
-		return nil, fmt.Errorf("invalid block ID: %q", blockID)
+		return nil, errors.Errorf("invalid block ID: %q", blockID)
 	}
 	stride := b.hdr.keySize + b.hdr.valueSize
 
@@ -154,7 +153,7 @@ func (b *index) GetInfo(blockID string) (*Info, error) {
 
 func (b *index) entryToInfo(blockID string, entryData []byte) (Info, error) {
 	if len(entryData) < 20 {
-		return Info{}, fmt.Errorf("invalid entry length: %v", len(entryData))
+		return Info{}, errors.Errorf("invalid entry length: %v", len(entryData))
 	}
 
 	var e entry

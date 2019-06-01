@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/snapshot/snapshotfs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/object"
+	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
 var (

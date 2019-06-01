@@ -2,9 +2,9 @@ package storage
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 // CancelFunc requests cancellation of a storage operation.
@@ -87,7 +87,7 @@ func ListAllBlocksConsistent(ctx context.Context, st Storage, prefix string, max
 		previous = result
 	}
 
-	return nil, fmt.Errorf("unable to achieve consistent snapshot despite %v attempts", maxAttempts)
+	return nil, errors.Errorf("unable to achieve consistent snapshot despite %v attempts", maxAttempts)
 }
 
 // sameBlocks returns true if b1 & b2 contain the same blocks (ignoring order).

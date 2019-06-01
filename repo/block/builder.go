@@ -3,9 +3,10 @@ package block
 import (
 	"bufio"
 	"encoding/binary"
-	"fmt"
 	"io"
 	"sort"
+
+	"github.com/pkg/errors"
 )
 
 // packIndexBuilder prepares and writes block index for writing.
@@ -63,19 +64,19 @@ func (b packIndexBuilder) Build(output io.Writer) error {
 	binary.BigEndian.PutUint16(header[2:4], uint16(layout.entryLength))
 	binary.BigEndian.PutUint32(header[4:8], uint32(layout.entryCount))
 	if _, err := w.Write(header); err != nil {
-		return fmt.Errorf("unable to write header: %v", err)
+		return errors.Wrap(err, "unable to write header")
 	}
 
 	// write all sorted blocks.
 	entry := make([]byte, layout.entryLength)
 	for _, it := range allBlocks {
 		if err := writeEntry(w, it, layout, entry); err != nil {
-			return fmt.Errorf("unable to write entry: %v", err)
+			return errors.Wrap(err, "unable to write entry")
 		}
 	}
 
 	if _, err := w.Write(extraData); err != nil {
-		return fmt.Errorf("error writing extra data: %v", err)
+		return errors.Wrap(err, "error writing extra data")
 	}
 
 	return w.Flush()
@@ -105,18 +106,18 @@ func prepareExtraData(allBlocks []*Info, layout *indexLayout) []byte {
 func writeEntry(w io.Writer, it *Info, layout *indexLayout, entry []byte) error {
 	k := contentIDToBytes(it.BlockID)
 	if len(k) != layout.keyLength {
-		return fmt.Errorf("inconsistent key length: %v vs %v", len(k), layout.keyLength)
+		return errors.Errorf("inconsistent key length: %v vs %v", len(k), layout.keyLength)
 	}
 
 	if err := formatEntry(entry, it, layout); err != nil {
-		return fmt.Errorf("unable to format entry: %v", err)
+		return errors.Wrap(err, "unable to format entry")
 	}
 
 	if _, err := w.Write(k); err != nil {
-		return fmt.Errorf("error writing entry key: %v", err)
+		return errors.Wrap(err, "error writing entry key")
 	}
 	if _, err := w.Write(entry); err != nil {
-		return fmt.Errorf("error writing entry: %v", err)
+		return errors.Wrap(err, "error writing entry")
 	}
 
 	return nil
@@ -130,7 +131,7 @@ func formatEntry(entry []byte, it *Info, layout *indexLayout) error {
 	timestampAndFlags := uint64(it.TimestampSeconds) << 16
 
 	if len(it.PackFile) == 0 {
-		return fmt.Errorf("empty pack block ID for %v", it.BlockID)
+		return errors.Errorf("empty pack block ID for %v", it.BlockID)
 	}
 
 	binary.BigEndian.PutUint32(entryPackFileOffset, layout.extraDataOffset+layout.packFileOffsets[it.PackFile])

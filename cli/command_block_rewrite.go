@@ -82,7 +82,7 @@ func runRewriteBlocksAction(ctx context.Context, rep *repo.Repository) error {
 		return nil
 	}
 
-	return fmt.Errorf("failed to rewrite %v blocks", failedCount)
+	return errors.Errorf("failed to rewrite %v blocks", failedCount)
 }
 
 func getBlocksToRewrite(ctx context.Context, rep *repo.Repository) <-chan blockInfoOrError {
@@ -112,7 +112,7 @@ func findBlockInfos(ctx context.Context, rep *repo.Repository, ch chan blockInfo
 	for _, blockID := range blockIDs {
 		i, err := rep.Blocks.BlockInfo(ctx, blockID)
 		if err != nil {
-			ch <- blockInfoOrError{err: fmt.Errorf("unable to get info for block %q: %v", blockID, err)}
+			ch <- blockInfoOrError{err: errors.Wrapf(err, "unable to get info for block %q", blockID)}
 		} else {
 			ch <- blockInfoOrError{Info: i}
 		}

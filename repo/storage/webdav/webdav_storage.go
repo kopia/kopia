@@ -3,7 +3,6 @@ package webdav
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/rand"
 	"os"
@@ -12,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/repo/storage"
+	"github.com/pkg/errors"
 	"github.com/studio-b12/gowebdav"
 )
 
@@ -88,7 +88,7 @@ func (d *davStorage) ListBlocks(ctx context.Context, prefix string, callback fun
 	walkDir = func(path string, currentPrefix string) error {
 		entries, err := d.cli.ReadDir(gowebdav.FixSlash(path))
 		if err != nil {
-			return fmt.Errorf("read dir error on %v: %v", path, err)
+			return errors.Wrapf(err, "read dir error on %v", path)
 		}
 
 		sort.Slice(entries, func(i, j int) bool {
@@ -192,7 +192,7 @@ func New(ctx context.Context, opts *Options) (storage.Storage, error) {
 
 	for _, s := range r.shards() {
 		if s == 0 {
-			return nil, fmt.Errorf("invalid shard spec: %v", opts.DirectoryShards)
+			return nil, errors.Errorf("invalid shard spec: %v", opts.DirectoryShards)
 		}
 	}
 

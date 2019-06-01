@@ -8,8 +8,9 @@ import (
 	"strings"
 
 	"github.com/kopia/kopia/internal/editor"
-	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot/policy"
+	"github.com/pkg/errors"
 )
 
 const policyEditHelpText = `
@@ -99,7 +100,7 @@ func editPolicy(ctx context.Context, rep *repo.Repository) error {
 
 		if strings.HasPrefix(strings.ToLower(shouldSave), "y") {
 			if err := policy.SetPolicy(ctx, rep, target, updated); err != nil {
-				return fmt.Errorf("can't save policy for %v: %v", target, err)
+				return errors.Wrapf(err, "can't save policy for %v", target)
 			}
 		}
 	}

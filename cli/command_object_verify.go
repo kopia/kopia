@@ -10,11 +10,12 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/internal/parallelwork"
-	"github.com/kopia/kopia/snapshot"
-	"github.com/kopia/kopia/snapshot/snapshotfs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/block"
 	"github.com/kopia/kopia/repo/object"
+	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/snapshotfs"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -114,7 +115,7 @@ func (v *verifier) doVerifyDirectory(ctx context.Context, oid object.ID, path st
 	d := snapshotfs.DirectoryEntry(v.rep, oid, nil)
 	entries, err := d.Readdir(ctx)
 	if err != nil {
-		v.reportError(path, fmt.Errorf("error reading %v: %v", oid, err))
+		v.reportError(path, errors.Wrapf(err, "error reading %v", oid))
 		return
 	}
 
@@ -145,16 +146,16 @@ func (v *verifier) doVerifyObject(ctx context.Context, oid object.ID, path strin
 
 	length, _, err = v.om.VerifyObject(ctx, oid)
 	if err != nil {
-		v.reportError(path, fmt.Errorf("error verifying %v: %v", oid, err))
+		v.reportError(path, errors.Wrapf(err, "error verifying %v", oid))
 	}
 
 	if expectedLength >= 0 && length != expectedLength {
-		v.reportError(path, fmt.Errorf("invalid object length %q, %v, expected %v", oid, length, expectedLength))
+		v.reportError(path, errors.Errorf("invalid object length %q, %v, expected %v", oid, length, expectedLength))
 	}
 
 	if rand.Intn(100) < *verifyCommandFilesPercent {
 		if err := v.readEntireObject(ctx, oid, path); err != nil {
-			v.reportError(path, fmt.Errorf("error reading object %v: %v", oid, err))
+			v.reportError(path, errors.Wrapf(err, "error reading object %v", oid))
 		}
 	}
 }
@@ -194,7 +195,7 @@ func runVerifyCommand(ctx context.Context, rep *repo.Repository) error {
 		return nil
 	}
 
-	return fmt.Errorf("encountered %v errors", len(v.errors))
+	return errors.Errorf("encountered %v errors", len(v.errors))
 }
 
 func enqueueRootsToVerify(ctx context.Context, v *verifier, rep *repo.Repository) error {
@@ -249,7 +250,7 @@ func loadSourceManifests(ctx context.Context, rep *repo.Repository, all bool, so
 		for _, srcStr := range *verifyCommandSources {
 			src, err := snapshot.ParseSourceInfo(srcStr, getHostName(), getUserName())
 			if err != nil {
-				return nil, fmt.Errorf("error parsing %q: %v", srcStr, err)
+				return nil, errors.Wrapf(err, "error parsing %q", srcStr)
 			}
 			man, err := snapshot.ListSnapshotManifests(ctx, rep, &src)
 			if err != nil {

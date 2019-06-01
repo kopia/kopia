@@ -2,7 +2,6 @@ package localfs
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/kopialogging"
+	"github.com/pkg/errors"
 )
 
 var log = kopialogging.Logger("kopia/localfs")
@@ -137,7 +137,7 @@ func Directory(path string) (fs.Directory, error) {
 		return e, nil
 
 	default:
-		return nil, fmt.Errorf("not a directory: %v", path)
+		return nil, errors.Errorf("not a directory: %v", path)
 	}
 }
 
@@ -153,7 +153,7 @@ func entryFromFileInfo(fi os.FileInfo, path string) (fs.Entry, error) {
 		return &filesystemFile{newEntry(fi, path)}, nil
 
 	default:
-		return nil, fmt.Errorf("unsupported filesystem entry: %v", path)
+		return nil, errors.Errorf("unsupported filesystem entry: %v", path)
 	}
 }
 

@@ -2,8 +2,9 @@ package object
 
 import (
 	"encoding/hex"
-	"fmt"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 // ID is an identifier of a repository object. Repository objects can be stored.
@@ -48,7 +49,7 @@ func (i ID) BlockID() (string, bool) {
 func (i ID) Validate() error {
 	if indexObjectID, ok := i.IndexObjectID(); ok {
 		if err := indexObjectID.Validate(); err != nil {
-			return fmt.Errorf("invalid indirect object ID %v: %v", i, err)
+			return errors.Wrapf(err, "invalid indirect object ID %v", i)
 		}
 
 		return nil
@@ -56,25 +57,25 @@ func (i ID) Validate() error {
 
 	if blockID, ok := i.BlockID(); ok {
 		if len(blockID) < 2 {
-			return fmt.Errorf("missing block ID")
+			return errors.Errorf("missing block ID")
 		}
 
 		// odd length - firstcharacter must be a single character between 'g' and 'z'
 		if len(blockID)%2 == 1 {
 			if blockID[0] < 'g' || blockID[0] > 'z' {
-				return fmt.Errorf("invalid block ID prefix: %v", blockID)
+				return errors.Errorf("invalid block ID prefix: %v", blockID)
 			}
 			blockID = blockID[1:]
 		}
 
 		if _, err := hex.DecodeString(blockID); err != nil {
-			return fmt.Errorf("invalid blockID suffix, must be base-16 encoded: %v", blockID)
+			return errors.Errorf("invalid blockID suffix, must be base-16 encoded: %v", blockID)
 		}
 
 		return nil
 	}
 
-	return fmt.Errorf("invalid object ID: %v", i)
+	return errors.Errorf("invalid object ID: %v", i)
 }
 
 // DirectObjectID returns direct object ID based on the provided block ID.

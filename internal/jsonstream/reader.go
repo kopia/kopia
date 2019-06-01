@@ -2,8 +2,9 @@ package jsonstream
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
+
+	"github.com/pkg/errors"
 )
 
 // Reader reads a stream of JSON objects.
@@ -56,7 +57,7 @@ func ensureDelimiter(d *json.Decoder, expected json.Delim) error {
 	}
 
 	if t != expected {
-		return fmt.Errorf("expected '%v', got %v", expected.String(), t)
+		return errors.Errorf("expected '%v', got %v", expected.String(), t)
 	}
 
 	return nil
@@ -73,11 +74,11 @@ func ensureStringToken(d *json.Decoder, expected string) error {
 		}
 	}
 
-	return fmt.Errorf("expected '%v', got '%v'", expected, t)
+	return errors.Errorf("expected '%v', got '%v'", expected, t)
 }
 
 func invalidStreamFormatError(cause error) error {
-	return fmt.Errorf("invalid stream format: %v", cause)
+	return errors.Errorf("invalid stream format: %v", cause)
 }
 
 // NewReader returns new Reader on top of a given buffered reader.

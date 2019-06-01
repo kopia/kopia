@@ -2,9 +2,10 @@
 package ignore
 
 import (
-	"fmt"
 	"path/filepath"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 // Matcher returns true if the given path matches the pattern.
@@ -145,5 +146,5 @@ func parseNonGlobPattern(pattern string) (nameMatcher, error) {
 	}
 
 	// Other consecutive asterisks are considered invalid.
-	return nil, fmt.Errorf("invalid pattern: '%v'", pattern)
+	return nil, errors.Errorf("invalid pattern: '%v'", pattern)
 }

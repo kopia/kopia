@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/kopia/kopia/internal/repotesting"
-	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot"
 )
 
 func TestSnapshotsAPI(t *testing.T) {

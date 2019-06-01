@@ -4,7 +4,6 @@ package ignorefs
 import (
 	"bufio"
 	"context"
-	"fmt"
 	"strings"
 
 	"github.com/kopia/kopia/fs"
@@ -100,7 +99,7 @@ func (d *ignoreDirectory) buildContext(ctx context.Context, entries fs.Entries) 
 
 	policy, err := d.parentContext.policyGetter.GetPolicyForPath(d.relativePath)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get policy for %q: %v", d.relativePath, err)
+		return nil, errors.Wrapf(err, "unable to get policy for %q", d.relativePath)
 	}
 
 	if policy != nil {
@@ -158,7 +157,7 @@ func (c *ignoreContext) overrideFromPolicy(policy *FilesPolicy, dirPath string) 
 	for _, rule := range policy.IgnoreRules {
 		m, err := ignore.ParseGitIgnore(dirPath, rule)
 		if err != nil {
-			return fmt.Errorf("unable to parse ignore entry %v: %v", dirPath, err)
+			return errors.Wrapf(err, "unable to parse ignore entry %v", dirPath)
 		}
 
 		c.matchers = append(c.matchers, m)
@@ -182,7 +181,7 @@ func (c *ignoreContext) loadDotIgnoreFiles(ctx context.Context, dirPath string, 
 
 		matchers, err := parseIgnoreFile(ctx, dirPath, f)
 		if err != nil {
-			return fmt.Errorf("unable to parse ignore file %v: %v", f.Name(), err)
+			return errors.Wrapf(err, "unable to parse ignore file %v", f.Name())
 		}
 
 		c.matchers = append(c.matchers, matchers...)
@@ -231,7 +230,7 @@ func parseIgnoreFile(ctx context.Context, baseDir string, file fs.File) ([]ignor
 
 		m, err := ignore.ParseGitIgnore(baseDir, line)
 		if err != nil {
-			return nil, fmt.Errorf("unable to parse ignore entry %v: %v", line, err)
+			return nil, errors.Wrapf(err, "unable to parse ignore entry %v", line)
 		}
 
 		matchers = append(matchers, m)

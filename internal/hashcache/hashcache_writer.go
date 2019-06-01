@@ -1,10 +1,10 @@
 package hashcache
 
 import (
-	"fmt"
 	"io"
 
 	"github.com/kopia/kopia/internal/jsonstream"
+	"github.com/pkg/errors"
 )
 
 // Writer emits hash cache entries.
@@ -34,7 +34,7 @@ func (hcw *writer) WriteEntry(e Entry) error {
 
 	if hcw.lastNameWritten != "" {
 		if isLessOrEqual(e.Name, hcw.lastNameWritten) {
-			return fmt.Errorf("out-of-order directory entry, previous '%v' current '%v'", hcw.lastNameWritten, e.Name)
+			return errors.Errorf("out-of-order directory entry, previous '%v' current '%v'", hcw.lastNameWritten, e.Name)
 		}
 		hcw.lastNameWritten = e.Name
 	}

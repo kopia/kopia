@@ -2,8 +2,9 @@ package object
 
 import (
 	"context"
-	"fmt"
 	"io"
+
+	"github.com/pkg/errors"
 )
 
 func (i *indirectObjectEntry) endOffset() int64 {
@@ -106,7 +107,7 @@ func (r *objectReader) findChunkIndexForOffset(offset int64) (int, error) {
 		return middle, nil
 	}
 
-	return 0, fmt.Errorf("can't find chunk for offset %v", offset)
+	return 0, errors.Errorf("can't find chunk for offset %v", offset)
 }
 
 func (r *objectReader) Seek(offset int64, whence int) (int64, error) {
@@ -119,7 +120,7 @@ func (r *objectReader) Seek(offset int64, whence int) (int64, error) {
 	}
 
 	if offset < 0 {
-		return -1, fmt.Errorf("invalid seek %v %v", offset, whence)
+		return -1, errors.Errorf("invalid seek %v %v", offset, whence)
 	}
 
 	if offset > r.totalLength {
@@ -128,7 +129,7 @@ func (r *objectReader) Seek(offset int64, whence int) (int64, error) {
 
 	index, err := r.findChunkIndexForOffset(offset)
 	if err != nil {
-		return -1, fmt.Errorf("invalid seek %v %v: %v", offset, whence, err)
+		return -1, errors.Wrapf(err, "invalid seek %v %v", offset, whence)
 	}
 
 	chunkStartOffset := r.seekTable[index].Start

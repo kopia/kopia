@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot"
 )
 
 // ApplyRetentionPolicy applies retention policy to a given source by deleting expired snapshots.

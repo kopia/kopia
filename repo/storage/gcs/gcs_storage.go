@@ -4,19 +4,18 @@ package gcs
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
-
-	"google.golang.org/api/googleapi"
 
 	"github.com/efarrer/iothrottler"
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/internal/throttle"
 	"github.com/kopia/kopia/repo/storage"
+	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 
@@ -40,7 +39,7 @@ type gcsStorage struct {
 
 func (gcs *gcsStorage) GetBlock(ctx context.Context, b string, offset, length int64) ([]byte, error) {
 	if offset < 0 {
-		return nil, fmt.Errorf("invalid offset")
+		return nil, errors.Errorf("invalid offset")
 	}
 
 	attempt := func() (interface{}, error) {
@@ -60,7 +59,7 @@ func (gcs *gcsStorage) GetBlock(ctx context.Context, b string, offset, length in
 
 	fetched := v.([]byte)
 	if len(fetched) != int(length) && length >= 0 {
-		return nil, fmt.Errorf("invalid offset/length")
+		return nil, errors.Errorf("invalid offset/length")
 	}
 
 	return fetched, nil
@@ -96,7 +95,7 @@ func translateError(err error) error {
 	case gcsclient.ErrBucketNotExist:
 		return storage.ErrBlockNotFound
 	default:
-		return fmt.Errorf("unexpected GCS error: %v", err)
+		return errors.Wrap(err, "unexpected GCS error")
 	}
 }
 func (gcs *gcsStorage) PutBlock(ctx context.Context, b string, data []byte) error {
@@ -203,7 +202,7 @@ func tokenSourceFromCredentialsFile(ctx context.Context, fn string, scopes ...st
 
 	cfg, err := google.JWTConfigFromJSON(data, scopes...)
 	if err != nil {
-		return nil, fmt.Errorf("google.JWTConfigFromJSON: %v", err)
+		return nil, errors.Wrap(err, "google.JWTConfigFromJSON")
 	}
 	return cfg.TokenSource(ctx), nil
 }

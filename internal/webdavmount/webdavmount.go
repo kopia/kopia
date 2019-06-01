@@ -1,7 +1,6 @@
 package webdavmount
 
 import (
-	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -134,15 +133,15 @@ type webdavFS struct {
 }
 
 func (w *webdavFS) Mkdir(ctx context.Context, path string, mode os.FileMode) error {
-	return fmt.Errorf("can't create %q: read-only filesystem", path)
+	return errors.Errorf("can't create %q: read-only filesystem", path)
 }
 
 func (w *webdavFS) RemoveAll(ctx context.Context, path string) error {
-	return fmt.Errorf("can't remove %q: read-only filesystem", path)
+	return errors.Errorf("can't remove %q: read-only filesystem", path)
 }
 
 func (w *webdavFS) Rename(ctx context.Context, oldPath, newPath string) error {
-	return fmt.Errorf("can't rename %q to %q: read-only filesystem", oldPath, newPath)
+	return errors.Errorf("can't rename %q to %q: read-only filesystem", oldPath, newPath)
 }
 
 func (w *webdavFS) OpenFile(ctx context.Context, path string, flags int, mode os.FileMode) (webdav.File, error) {
@@ -159,7 +158,7 @@ func (w *webdavFS) OpenFile(ctx context.Context, path string, flags int, mode os
 		return &webdavFile{ctx: ctx, entry: f}, nil
 	}
 
-	return nil, fmt.Errorf("can't open %q: not implemented", path)
+	return nil, errors.Errorf("can't open %q: not implemented", path)
 }
 
 func (w *webdavFS) Stat(ctx context.Context, path string) (os.FileInfo, error) {

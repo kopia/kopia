@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 // SourceInfo represents the information about snapshot source.
@@ -53,12 +55,12 @@ func ParseSourceInfo(path string, hostname string, username string) (SourceInfo,
 			}, nil
 		}
 
-		return SourceInfo{}, fmt.Errorf("invalid hostname in %q", path)
+		return SourceInfo{}, errors.Errorf("invalid hostname in %q", path)
 	}
 
 	absPath, err := filepath.Abs(path)
 	if err != nil {
-		return SourceInfo{}, fmt.Errorf("invalid directory: '%s': %s", path, err)
+		return SourceInfo{}, errors.Errorf("invalid directory: '%s': %s", path, err)
 	}
 
 	return SourceInfo{

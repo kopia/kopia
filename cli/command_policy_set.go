@@ -2,15 +2,14 @@ package cli
 
 import (
 	"context"
-	"fmt"
 	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/kopia/kopia/fs/ignorefs"
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
-	"github.com/kopia/kopia/repo"
 	"github.com/pkg/errors"
 )
 
@@ -78,7 +77,7 @@ func setPolicy(ctx context.Context, rep *repo.Repository) error {
 		}
 
 		if err := policy.SetPolicy(ctx, rep, target, p); err != nil {
-			return fmt.Errorf("can't save policy for %v: %v", target, err)
+			return errors.Wrapf(err, "can't save policy for %v", target)
 		}
 	}
 
@@ -230,7 +229,7 @@ func applyPolicyNumber(desc string, val **int, str string, changeCount *int) err
 
 	v, err := strconv.ParseInt(str, 10, 32)
 	if err != nil {
-		return fmt.Errorf("can't parse the %v %q: %v", desc, str, err)
+		return errors.Wrapf(err, "can't parse the %v %q", desc, str)
 	}
 
 	i := int(v)
@@ -255,7 +254,7 @@ func applyPolicyNumber64(desc string, val *int64, str string, changeCount *int) 
 
 	v, err := strconv.ParseInt(str, 10, 64)
 	if err != nil {
-		return fmt.Errorf("can't parse the %v %q: %v", desc, str, err)
+		return errors.Wrapf(err, "can't parse the %v %q", desc, str)
 	}
 
 	*changeCount++

@@ -2,7 +2,8 @@ package storage
 
 import (
 	"context"
-	"fmt"
+
+	"github.com/pkg/errors"
 )
 
 var (
@@ -35,5 +36,5 @@ func NewStorage(ctx context.Context, cfg ConnectionInfo) (Storage, error) {
 		return factory.createStorageFunc(ctx, cfg.Config)
 	}
 
-	return nil, fmt.Errorf("unknown storage type: %s", cfg.Type)
+	return nil, errors.Errorf("unknown storage type: %s", cfg.Type)
 }

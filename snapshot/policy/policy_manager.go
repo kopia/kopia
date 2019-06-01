@@ -3,15 +3,14 @@ package policy
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 	"strings"
 
 	"github.com/kopia/kopia/fs/ignorefs"
 	"github.com/kopia/kopia/internal/kopialogging"
-	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/manifest"
+	"github.com/kopia/kopia/snapshot"
 	"github.com/pkg/errors"
 )
 
@@ -67,7 +66,7 @@ func GetEffectivePolicy(ctx context.Context, rep *repo.Repository, si snapshot.S
 	for _, em := range md {
 		p := &Policy{}
 		if err := rep.Manifests.Get(ctx, em.ID, &p); err != nil {
-			return nil, nil, fmt.Errorf("got unexpected error when loading policy item %v: %v", em.ID, err)
+			return nil, nil, errors.Wrapf(err, "got unexpected error when loading policy item %v", em.ID)
 		}
 		p.Labels = em.Labels
 		policies = append(policies, p)
@@ -119,7 +118,7 @@ func GetDefinedPolicy(ctx context.Context, rep *repo.Repository, si snapshot.Sou
 func SetPolicy(ctx context.Context, rep *repo.Repository, si snapshot.SourceInfo, pol *Policy) error {
 	md, err := rep.Manifests.Find(ctx, labelsForSource(si))
 	if err != nil {
-		return fmt.Errorf("unable to load manifests for %v: %v", si, err)
+		return errors.Wrapf(err, "unable to load manifests for %v", si)
 	}
 
 	if _, err := rep.Manifests.Put(ctx, labelsForSource(si), pol); err != nil {
@@ -139,7 +138,7 @@ func SetPolicy(ctx context.Context, rep *repo.Repository, si snapshot.SourceInfo
 func RemovePolicy(ctx context.Context, rep *repo.Repository, si snapshot.SourceInfo) error {
 	md, err := rep.Manifests.Find(ctx, labelsForSource(si))
 	if err != nil {
-		return fmt.Errorf("unable to load manifests for %v: %v", si, err)
+		return errors.Wrapf(err, "unable to load manifests for %v", si)
 	}
 
 	for _, em := range md {
@@ -213,7 +212,7 @@ func FilesPolicyGetter(ctx context.Context, rep *repo.Repository, si snapshot.So
 		"hostname":   si.Host,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("unable to find manifests for %v@%v: %v", si.UserName, si.Host, err)
+		return nil, errors.Wrapf(err, "unable to find manifests for %v@%v", si.UserName, si.Host)
 	}
 
 	log.Debugf("found %v policies for %v@%v", si.UserName, si.Host)
@@ -238,7 +237,7 @@ func FilesPolicyGetter(ctx context.Context, rep *repo.Repository, si snapshot.So
 		log.Debugf("loading policy for %v (%v)", policyPath, rel)
 		pol := &Policy{}
 		if err := rep.Manifests.Get(ctx, id.ID, pol); err != nil {
-			return nil, fmt.Errorf("unable to load policy %v: %v", id.ID, err)
+			return nil, errors.Wrapf(err, "unable to load policy %v", id.ID)
 		}
 		result[rel] = &pol.FilesPolicy
 	}

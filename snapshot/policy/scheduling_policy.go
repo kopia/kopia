@@ -20,10 +20,10 @@ func (t *TimeOfDay) Parse(s string) error {
 		return errors.New("invalid time of day, must be HH:MM")
 	}
 	if t.Hour < 0 || t.Hour > 23 {
-		return fmt.Errorf("invalid hour %q, must be between 0 and 23", s)
+		return errors.Errorf("invalid hour %q, must be between 0 and 23", s)
 	}
 	if t.Minute < 0 || t.Minute > 59 {
-		return fmt.Errorf("invalid minute %q, must be between 0 and 59", s)
+		return errors.Errorf("invalid minute %q, must be between 0 and 59", s)
 	}
 
 	return nil

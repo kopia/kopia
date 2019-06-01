@@ -6,11 +6,11 @@
 package fusemount
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/pkg/errors"
 
 	"bazil.org/fuse"
 	fusefs "bazil.org/fuse/fs"
@@ -117,7 +117,7 @@ func newFuseNode(e fs.Entry) (fusefs.Node, error) {
 	case fs.Symlink:
 		return &fuseSymlinkNode{fuseNode{e}}, nil
 	default:
-		return nil, fmt.Errorf("entry type not supported: %v", e.Mode())
+		return nil, errors.Errorf("entry type not supported: %v", e.Mode())
 	}
 }
 

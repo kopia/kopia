@@ -9,7 +9,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/json"
-	"fmt"
 	"io"
 
 	"github.com/kopia/kopia/repo/storage"
@@ -79,7 +78,7 @@ func RecoverFormatBlock(ctx context.Context, st storage.Storage, filename string
 
 	if err := st.ListBlocks(ctx, filename, func(bm storage.BlockMetadata) error {
 		if foundMetadata.BlockID != "" {
-			return fmt.Errorf("found multiple blocks with a given prefix: %v", filename)
+			return errors.Errorf("found multiple blocks with a given prefix: %v", filename)
 		}
 		foundMetadata = bm
 		return nil
@@ -172,14 +171,14 @@ func (f *formatBlock) decryptFormatBytes(masterKey []byte) (*repositoryObjectFor
 
 		content := append([]byte(nil), f.EncryptedFormatBytes...)
 		if len(content) < aead.NonceSize() {
-			return nil, fmt.Errorf("invalid encrypted payload, too short")
+			return nil, errors.Errorf("invalid encrypted payload, too short")
 		}
 		nonce := content[0:aead.NonceSize()]
 		payload := content[aead.NonceSize():]
 
 		plainText, err := aead.Open(payload[:0], nonce, payload, authData)
 		if err != nil {
-			return nil, fmt.Errorf("unable to decrypt repository format, invalid credentials?")
+			return nil, errors.Errorf("unable to decrypt repository format, invalid credentials?")
 		}
 
 		var erc encryptedRepositoryConfig
@@ -190,7 +189,7 @@ func (f *formatBlock) decryptFormatBytes(masterKey []byte) (*repositoryObjectFor
 		return &erc.Format, nil
 
 	default:
-		return nil, fmt.Errorf("unknown encryption algorithm: '%v'", f.EncryptionAlgorithm)
+		return nil, errors.Errorf("unknown encryption algorithm: '%v'", f.EncryptionAlgorithm)
 	}
 }
 
@@ -241,7 +240,7 @@ func encryptFormatBytes(f *formatBlock, format *repositoryObjectFormat, masterKe
 		return nil
 
 	default:
-		return fmt.Errorf("unknown encryption algorithm: '%v'", f.EncryptionAlgorithm)
+		return errors.Errorf("unknown encryption algorithm: '%v'", f.EncryptionAlgorithm)
 	}
 }
 
@@ -252,7 +251,7 @@ func addFormatBlockChecksumAndLength(fb []byte) ([]byte, error) {
 
 	l := len(checksummedFormatBytes)
 	if l > maxChecksummedFormatBytesLength {
-		return nil, fmt.Errorf("format block too big: %v", l)
+		return nil, errors.Errorf("format block too big: %v", l)
 	}
 
 	// return <length><checksummed-bytes><length>

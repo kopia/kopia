@@ -1,11 +1,11 @@
 package block
 
 import (
-	"fmt"
 	"path/filepath"
 	"sync"
 
 	"github.com/kopia/kopia/repo/storage"
+	"github.com/pkg/errors"
 )
 
 type committedBlockIndex struct {
@@ -55,7 +55,7 @@ func (b *committedBlockIndex) addBlock(indexBlockID string, data []byte, use boo
 
 	ndx, err := b.cache.openIndex(indexBlockID)
 	if err != nil {
-		return fmt.Errorf("unable to open pack index %q: %v", indexBlockID, err)
+		return errors.Wrapf(err, "unable to open pack index %q", indexBlockID)
 	}
 	b.inUse[indexBlockID] = ndx
 	b.merged = append(b.merged, ndx)
@@ -102,7 +102,7 @@ func (b *committedBlockIndex) use(packFiles []string) (bool, error) {
 	for _, e := range packFiles {
 		ndx, err := b.cache.openIndex(e)
 		if err != nil {
-			return false, fmt.Errorf("unable to open pack index %q: %v", e, err)
+			return false, errors.Wrapf(err, "unable to open pack index %q", e)
 		}
 
 		newMerged = append(newMerged, ndx)

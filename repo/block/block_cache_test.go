@@ -3,8 +3,6 @@ package block
 import (
 	"bytes"
 	"context"
-	"errors"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"reflect"
@@ -15,6 +13,7 @@ import (
 
 	"github.com/kopia/kopia/internal/storagetesting"
 	"github.com/kopia/kopia/repo/storage"
+	"github.com/pkg/errors"
 )
 
 func newUnderlyingStorageForBlockCacheTesting(t *testing.T) storage.Storage {
@@ -119,13 +118,15 @@ func verifyBlockCache(t *testing.T, cache *blockCache) {
 			{"xf0f0f3", "no-such-block", 0, -1, nil, storage.ErrBlockNotFound},
 			{"xf0f0f4", "no-such-block", 10, 5, nil, storage.ErrBlockNotFound},
 			{"f0f0f5", "block-1", 7, 3, []byte{8, 9, 10}, nil},
-			{"xf0f0f6", "block-1", 11, 10, nil, fmt.Errorf("invalid offset")},
-			{"xf0f0f6", "block-1", -1, 5, nil, fmt.Errorf("invalid offset")},
+			{"xf0f0f6", "block-1", 11, 10, nil, errors.Errorf("invalid offset")},
+			{"xf0f0f6", "block-1", -1, 5, nil, errors.Errorf("invalid offset")},
 		}
 
 		for _, tc := range cases {
 			v, err := cache.getContentBlock(ctx, tc.cacheKey, tc.physicalBlockID, tc.offset, tc.length)
-			if !reflect.DeepEqual(err, tc.err) {
+			if (err != nil) != (tc.err != nil) {
+				t.Errorf("unexpected error for %v: %+v, wanted %+v", tc.cacheKey, err, tc.err)
+			} else if err != nil && err.Error() != tc.err.Error() {
 				t.Errorf("unexpected error for %v: %+v, wanted %+v", tc.cacheKey, err, tc.err)
 			}
 			if !reflect.DeepEqual(v, tc.expected) {

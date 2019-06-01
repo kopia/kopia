@@ -2,8 +2,9 @@ package block
 
 import (
 	"bytes"
-	"fmt"
 	"sync"
+
+	"github.com/pkg/errors"
 )
 
 type memoryCommittedBlockIndexCache struct {
@@ -37,7 +38,7 @@ func (m *memoryCommittedBlockIndexCache) openIndex(indexBlockID string) (packInd
 
 	v := m.blocks[indexBlockID]
 	if v == nil {
-		return nil, fmt.Errorf("block not found in cache: %v", indexBlockID)
+		return nil, errors.Errorf("block not found in cache: %v", indexBlockID)
 	}
 
 	return v, nil

@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -10,10 +9,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
-	"github.com/kopia/kopia/repo"
 	"github.com/pkg/errors"
 )
 
@@ -66,7 +65,7 @@ func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
 		log.Debugf("Backing up %v", snapshotDir)
 		dir, err := filepath.Abs(snapshotDir)
 		if err != nil {
-			return fmt.Errorf("invalid source: '%s': %s", snapshotDir, err)
+			return errors.Errorf("invalid source: '%s': %s", snapshotDir, err)
 		}
 
 		sourceInfo := snapshot.SourceInfo{Path: filepath.Clean(dir), Host: getHostName(), UserName: getUserName()}
