@@ -12,22 +12,22 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/content"
 )
 
 // ConnectOptions specifies options when persisting configuration to connect to a repository.
 type ConnectOptions struct {
-	block.CachingOptions
+	content.CachingOptions
 }
 
 // Connect connects to the repository in the specified storage and persists the configuration and credentials in the file provided.
 func Connect(ctx context.Context, configFile string, st blob.Storage, password string, opt ConnectOptions) error {
 	formatBytes, err := st.GetBlob(ctx, FormatBlobID, 0, -1)
 	if err != nil {
-		return errors.Wrap(err, "unable to read format block")
+		return errors.Wrap(err, "unable to read format blob")
 	}
 
-	f, err := parseFormatBlock(formatBytes)
+	f, err := parseFormatBlob(formatBytes)
 	if err != nil {
 		return err
 	}
@@ -61,9 +61,9 @@ func Connect(ctx context.Context, configFile string, st blob.Storage, password s
 	return r.Close(ctx)
 }
 
-func setupCaching(configPath string, lc *LocalConfig, opt block.CachingOptions, uniqueID []byte) error {
+func setupCaching(configPath string, lc *LocalConfig, opt content.CachingOptions, uniqueID []byte) error {
 	if opt.MaxCacheSizeBytes == 0 {
-		lc.Caching = block.CachingOptions{}
+		lc.Caching = content.CachingOptions{}
 		return nil
 	}
 

@@ -11,7 +11,7 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/kopia/kopia/repo/blob/logging"
-	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/content"
 )
 
 const (
@@ -44,7 +44,7 @@ func setupRepositoryAndConnect(ctx context.Context, password string) error {
 
 		// now establish connection to repository and create configuration file.
 		if err := repo.Connect(ctx, configFile, st, password, repo.ConnectOptions{
-			CachingOptions: block.CachingOptions{
+			CachingOptions: content.CachingOptions{
 				CacheDirectory:    cacheDirectory,
 				MaxCacheSizeBytes: 100000000,
 			},

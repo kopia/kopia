@@ -49,7 +49,7 @@ Pack files in blob storage have random names and don't reveal anything about the
 
 CABS is not meant to be used directly, instead it's a building block for object storage (CAOS) and manifest storage layers (LAMS) described below.
 
-The API for CABS can be found in https://godoc.org/github.com/kopia/kopia/repo/block
+The API for CABS can be found in https://godoc.org/github.com/kopia/kopia/repo/content
 
 ### Content-Addressable Object Storage (CAOS)
 
@@ -63,7 +63,7 @@ Object IDs can also have an optional single-letter prefix `g..z` that helps quic
 * `m` represents manifest block (e.g. `m0bf4da00801bd8c6ecfb66cffa67f32c`)
 * `h` represents hash-cache (e.g. `h2e88080490a83c4b1cb344d861a3f537`)
 
-To represent objects larger than the size of a single CABS block, Kopia links together multiple blocks via special indirect JSON block. Such blocks are distinguished from regular blocks by the `I` prefix. For example very large hash-cache object might have an identifier such as `Ih746f0a60f744d0a69e397a6128356331` and JSON content:
+To represent objects larger than the size of a single CABS block, Kopia links together multiple blocks via special indirect JSON content. Such blocks are distinguished from regular blocks by the `I` prefix. For example very large hash-cache object might have an identifier such as `Ih746f0a60f744d0a69e397a6128356331` and JSON content:
 
 ```json
 {"stream":"kopia:indirect","entries":[

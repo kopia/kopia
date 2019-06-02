@@ -5,7 +5,7 @@ import "time"
 // EntryMetadata contains metadata about manifest item. Each manifest item has one or more labels
 // Including required "type" label.
 type EntryMetadata struct {
-	ID      string
+	ID      ID
 	Length  int
 	Labels  map[string]string
 	ModTime time.Time

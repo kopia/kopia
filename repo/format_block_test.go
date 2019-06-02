@@ -10,13 +10,13 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-func TestFormatBlockRecovery(t *testing.T) {
+func TestFormatBlobRecovery(t *testing.T) {
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
 	ctx := context.Background()
 
 	someDataBlock := []byte("aadsdasdas")
-	checksummed, err := addFormatBlockChecksumAndLength(someDataBlock)
+	checksummed, err := addFormatBlobChecksumAndLength(someDataBlock)
 	if err != nil {
 		t.Errorf("error appending checksum: %v", err)
 	}
@@ -24,9 +24,9 @@ func TestFormatBlockRecovery(t *testing.T) {
 		t.Errorf("unexpected checksummed length: %v, want %v", got, want)
 	}
 
-	assertNoError(t, st.PutBlob(ctx, "some-block-by-itself", checksummed))
-	assertNoError(t, st.PutBlob(ctx, "some-block-suffix", append(append([]byte(nil), 1, 2, 3), checksummed...)))
-	assertNoError(t, st.PutBlob(ctx, "some-block-prefix", append(append([]byte(nil), checksummed...), 1, 2, 3)))
+	assertNoError(t, st.PutBlob(ctx, "some-blob-by-itself", checksummed))
+	assertNoError(t, st.PutBlob(ctx, "some-blob-suffix", append(append([]byte(nil), 1, 2, 3), checksummed...)))
+	assertNoError(t, st.PutBlob(ctx, "some-blob-prefix", append(append([]byte(nil), checksummed...), 1, 2, 3)))
 
 	// mess up checksum
 	checksummed[len(checksummed)-3] ^= 1
@@ -42,22 +42,22 @@ func TestFormatBlockRecovery(t *testing.T) {
 		blobID blob.ID
 		err    error
 	}{
-		{"some-block-by-itself", nil},
-		{"some-block-suffix", nil},
-		{"some-block-prefix", nil},
-		{"bad-checksum", errFormatBlockNotFound},
-		{"no-such-block", blob.ErrBlobNotFound},
-		{"zero-len", errFormatBlockNotFound},
-		{"one-len", errFormatBlockNotFound},
-		{"two-len", errFormatBlockNotFound},
-		{"three-len", errFormatBlockNotFound},
-		{"four-len", errFormatBlockNotFound},
-		{"five-len", errFormatBlockNotFound},
+		{"some-blob-by-itself", nil},
+		{"some-blob-suffix", nil},
+		{"some-blob-prefix", nil},
+		{"bad-checksum", errFormatBlobNotFound},
+		{"no-such-blob", blob.ErrBlobNotFound},
+		{"zero-len", errFormatBlobNotFound},
+		{"one-len", errFormatBlobNotFound},
+		{"two-len", errFormatBlobNotFound},
+		{"three-len", errFormatBlobNotFound},
+		{"four-len", errFormatBlobNotFound},
+		{"five-len", errFormatBlobNotFound},
 	}
 
 	for _, tc := range cases {
 		t.Run(string(tc.blobID), func(t *testing.T) {
-			v, err := RecoverFormatBlock(ctx, st, tc.blobID, -1)
+			v, err := RecoverFormatBlob(ctx, st, tc.blobID, -1)
 			if tc.err == nil {
 				if !reflect.DeepEqual(v, someDataBlock) || err != nil {
 					t.Errorf("unexpected result or error: v=%v err=%v, expected success", v, err)

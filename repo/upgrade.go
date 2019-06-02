@@ -8,7 +8,7 @@ import (
 
 // Upgrade upgrades repository data structures to the latest version.
 func (r *Repository) Upgrade(ctx context.Context) error {
-	f := r.formatBlock
+	f := r.formatBlob
 
 	log.Debug("decrypting format...")
 	repoConfig, err := f.decryptFormatBytes(r.masterKey)
@@ -29,6 +29,6 @@ func (r *Repository) Upgrade(ctx context.Context) error {
 		return errors.Errorf("unable to encrypt format bytes")
 	}
 
-	log.Infof("writing updated format block...")
-	return writeFormatBlock(ctx, r.Blobs, f)
+	log.Infof("writing updated format content...")
+	return writeFormatBlob(ctx, r.Blobs, f)
 }

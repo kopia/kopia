@@ -21,7 +21,7 @@ func runCacheInfoCommand(ctx context.Context, rep *repo.Repository) error {
 	}
 
 	log.Debugf("scanning cache...")
-	fileCount, totalFileSize, err := scanCacheDir(filepath.Join(rep.CacheDirectory, "blocks"))
+	fileCount, totalFileSize, err := scanCacheDir(filepath.Join(rep.CacheDirectory, "contents"))
 	if err != nil {
 		return err
 	}

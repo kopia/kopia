@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/content"
 )
 
 var (
@@ -16,7 +16,7 @@ var (
 )
 
 func runCacheSetCommand(ctx context.Context, rep *repo.Repository) error {
-	opts := block.CachingOptions{
+	opts := content.CachingOptions{
 		CacheDirectory:          *cacheSetDirectory,
 		MaxCacheSizeBytes:       *cacheSetMaxCacheSizeMB << 20,
 		MaxListCacheDurationSec: int(cacheSetMaxListCacheDuration.Seconds()),

@@ -14,7 +14,7 @@ var (
 	blobDeleteBlobIDs = blobDeleteCommand.Arg("blobIDs", "Blob IDs").Required().Strings()
 )
 
-func runDeleteStorageBlocks(ctx context.Context, rep *repo.Repository) error {
+func runDeleteBlobs(ctx context.Context, rep *repo.Repository) error {
 	for _, b := range *blobDeleteBlobIDs {
 		err := rep.Blobs.DeleteBlob(ctx, blob.ID(b))
 		if err != nil {
@@ -26,5 +26,5 @@ func runDeleteStorageBlocks(ctx context.Context, rep *repo.Repository) error {
 }
 
 func init() {
-	blobDeleteCommand.Action(repositoryAction(runDeleteStorageBlocks))
+	blobDeleteCommand.Action(repositoryAction(runDeleteBlobs))
 }

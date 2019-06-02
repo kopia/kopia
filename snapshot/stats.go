@@ -2,12 +2,12 @@ package snapshot
 
 import (
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/content"
 )
 
 // Stats keeps track of snapshot generation statistics.
 type Stats struct {
-	Block block.Stats `json:"repo,omitempty"`
+	Content content.Stats `json:"content,omitempty"`
 
 	TotalDirectoryCount int   `json:"dirCount"`
 	TotalFileCount      int   `json:"fileCount"`

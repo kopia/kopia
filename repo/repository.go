@@ -7,7 +7,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
 )
@@ -15,7 +15,7 @@ import (
 // Repository represents storage where both content-addressable and user-addressable data is kept.
 type Repository struct {
 	Blobs     blob.Storage
-	Blocks    *block.Manager
+	Content   *content.Manager
 	Objects   *object.Manager
 	Manifests *manifest.Manager
 	UniqueID  []byte
@@ -23,8 +23,8 @@ type Repository struct {
 	ConfigFile     string
 	CacheDirectory string
 
-	formatBlock *formatBlock
-	masterKey   []byte
+	formatBlob *formatBlob
+	masterKey  []byte
 }
 
 // Close closes the repository and releases all resources.
@@ -32,8 +32,8 @@ func (r *Repository) Close(ctx context.Context) error {
 	if err := r.Manifests.Flush(ctx); err != nil {
 		return errors.Wrap(err, "error flushing manifests")
 	}
-	if err := r.Blocks.Flush(ctx); err != nil {
-		return errors.Wrap(err, "error closing blocks")
+	if err := r.Content.Flush(ctx); err != nil {
+		return errors.Wrap(err, "error closing content-addressable storage manager")
 	}
 	if err := r.Blobs.Close(ctx); err != nil {
 		return errors.Wrap(err, "error closing blob storage")
@@ -47,21 +47,21 @@ func (r *Repository) Flush(ctx context.Context) error {
 		return err
 	}
 
-	return r.Blocks.Flush(ctx)
+	return r.Content.Flush(ctx)
 }
 
 // Refresh periodically makes external changes visible to repository.
 func (r *Repository) Refresh(ctx context.Context) error {
-	updated, err := r.Blocks.Refresh(ctx)
+	updated, err := r.Content.Refresh(ctx)
 	if err != nil {
-		return errors.Wrap(err, "error refreshing block index")
+		return errors.Wrap(err, "error refreshing content index")
 	}
 
 	if !updated {
 		return nil
 	}
 
-	log.Debugf("block index refreshed")
+	log.Debugf("content index refreshed")
 
 	if err := r.Manifests.Refresh(ctx); err != nil {
 		return errors.Wrap(err, "error reloading manifests")

@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/object"
 )
 
@@ -22,7 +22,7 @@ var (
 // All fields are optional, when not provided, reasonable defaults will be used.
 type NewRepositoryOptions struct {
 	UniqueID     []byte // force the use of particular unique ID
-	BlockFormat  block.FormattingOptions
+	BlockFormat  content.FormattingOptions
 	DisableHMAC  bool
 	ObjectFormat object.Format // object format
 }
@@ -42,7 +42,7 @@ func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions,
 		return err
 	}
 
-	format := formatBlockFromOptions(opt)
+	format := formatBlobFromOptions(opt)
 	masterKey, err := format.deriveMasterKeyFromPassword(password)
 	if err != nil {
 		return errors.Wrap(err, "unable to derive master key")
@@ -52,15 +52,15 @@ func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions,
 		return errors.Wrap(err, "unable to encrypt format bytes")
 	}
 
-	if err := writeFormatBlock(ctx, st, format); err != nil {
-		return errors.Wrap(err, "unable to write format block")
+	if err := writeFormatBlob(ctx, st, format); err != nil {
+		return errors.Wrap(err, "unable to write format blob")
 	}
 
 	return nil
 }
 
-func formatBlockFromOptions(opt *NewRepositoryOptions) *formatBlock {
-	f := &formatBlock{
+func formatBlobFromOptions(opt *NewRepositoryOptions) *formatBlob {
+	f := &formatBlob{
 		Tool:                   "https://github.com/kopia/kopia",
 		BuildInfo:              BuildInfo,
 		KeyDerivationAlgorithm: defaultKeyDerivationAlgorithm,
@@ -78,10 +78,10 @@ func formatBlockFromOptions(opt *NewRepositoryOptions) *formatBlock {
 
 func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) *repositoryObjectFormat {
 	f := &repositoryObjectFormat{
-		FormattingOptions: block.FormattingOptions{
+		FormattingOptions: content.FormattingOptions{
 			Version:     1,
-			Hash:        applyDefaultString(opt.BlockFormat.Hash, block.DefaultHash),
-			Encryption:  applyDefaultString(opt.BlockFormat.Encryption, block.DefaultEncryption),
+			Hash:        applyDefaultString(opt.BlockFormat.Hash, content.DefaultHash),
+			Encryption:  applyDefaultString(opt.BlockFormat.Encryption, content.DefaultEncryption),
 			HMACSecret:  applyDefaultRandomBytes(opt.BlockFormat.HMACSecret, 32),
 			MasterKey:   applyDefaultRandomBytes(opt.BlockFormat.MasterKey, 32),
 			MaxPackSize: applyDefaultInt(opt.BlockFormat.MaxPackSize, 20<<20), // 20 MB

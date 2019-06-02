@@ -104,8 +104,8 @@ func TestEndToEnd(t *testing.T) {
 
 	t.Run("VerifyGlobalPolicy", func(t *testing.T) {
 		// verify we created global policy entry
-		globalPolicyBlockID := e.runAndVerifyOutputLineCount(t, 1, "block", "ls")[0]
-		e.runAndExpectSuccess(t, "block", "show", "-jz", globalPolicyBlockID)
+		globalPolicyBlockID := e.runAndVerifyOutputLineCount(t, 1, "content", "ls")[0]
+		e.runAndExpectSuccess(t, "content", "show", "-jz", globalPolicyBlockID)
 
 		// make sure the policy is visible in the manifest list
 		e.runAndVerifyOutputLineCount(t, 1, "manifest", "list", "--filter=type:policy", "--filter=policyType:global")
@@ -137,13 +137,13 @@ func TestEndToEnd(t *testing.T) {
 		t.Errorf("unexpected number of sources: %v, want %v in %#v", got, want, sources)
 	}
 
-	// expect 5 blocks, each snapshot creation adds one index blob
-	e.runAndVerifyOutputLineCount(t, 6, "blockindex", "ls")
-	e.runAndExpectSuccess(t, "blockindex", "optimize")
-	e.runAndVerifyOutputLineCount(t, 1, "blockindex", "ls")
+	// expect 5 blobs, each snapshot creation adds one index blob
+	e.runAndVerifyOutputLineCount(t, 6, "index", "ls")
+	e.runAndExpectSuccess(t, "index", "optimize")
+	e.runAndVerifyOutputLineCount(t, 1, "index", "ls")
 
 	e.runAndExpectSuccess(t, "snapshot", "create", ".", dir1, dir2)
-	e.runAndVerifyOutputLineCount(t, 2, "blockindex", "ls")
+	e.runAndVerifyOutputLineCount(t, 2, "index", "ls")
 
 	t.Run("Migrate", func(t *testing.T) {
 		dstenv := newTestEnv(t)
@@ -160,39 +160,39 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("RepairIndexBlobs", func(t *testing.T) {
-		blocksBefore := e.runAndExpectSuccess(t, "block", "ls")
+		contentsBefore := e.runAndExpectSuccess(t, "content", "ls")
 
-		lines := e.runAndVerifyOutputLineCount(t, 2, "blockindex", "ls")
+		lines := e.runAndVerifyOutputLineCount(t, 2, "index", "ls")
 		for _, l := range lines {
 			indexFile := strings.Split(l, " ")[0]
 			e.runAndExpectSuccess(t, "blob", "delete", indexFile)
 		}
 
 		// there should be no index files at this point
-		e.runAndVerifyOutputLineCount(t, 0, "blockindex", "ls", "--no-list-caching")
+		e.runAndVerifyOutputLineCount(t, 0, "index", "ls", "--no-list-caching")
 		// there should be no blocks, since there are no indexesto find them
-		e.runAndVerifyOutputLineCount(t, 0, "block", "ls")
+		e.runAndVerifyOutputLineCount(t, 0, "content", "ls")
 
 		// now recover index from all blocks
-		e.runAndExpectSuccess(t, "blockindex", "recover", "--commit")
+		e.runAndExpectSuccess(t, "index", "recover", "--commit")
 
 		// all recovered index entries are added as index file
-		e.runAndVerifyOutputLineCount(t, 1, "blockindex", "ls")
-		blocksAfter := e.runAndExpectSuccess(t, "block", "ls")
-		if diff := pretty.Compare(blocksBefore, blocksAfter); diff != "" {
+		e.runAndVerifyOutputLineCount(t, 1, "index", "ls")
+		contentsAfter := e.runAndExpectSuccess(t, "content", "ls")
+		if diff := pretty.Compare(contentsBefore, contentsAfter); diff != "" {
 			t.Errorf("unexpected block diff after recovery: %v", diff)
 		}
 	})
 
-	t.Run("RepairFormatBlock", func(t *testing.T) {
+	t.Run("RepairFormatBlob", func(t *testing.T) {
 		// remove kopia.repository
 		e.runAndExpectSuccess(t, "blob", "rm", "kopia.repository")
 		e.runAndExpectSuccess(t, "repo", "disconnect")
 
-		// this will fail because the format block in the repository is not found
+		// this will fail because the format blob in the repository is not found
 		e.runAndExpectFailure(t, "repo", "connect", "filesystem", "--path", e.repoDir)
 
-		// now run repair, which will recover the format block from one of the pack blocks.
+		// now run repair, which will recover the format blob from one of the pack blobs.
 		e.runAndExpectSuccess(t, "repo", "repair", "filesystem", "--path", e.repoDir)
 
 		// now connect can succeed

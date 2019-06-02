@@ -6,19 +6,19 @@ import (
 	"os"
 
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/object"
 )
 
 // LocalConfig is a configuration of Kopia stored in a configuration file.
 type LocalConfig struct {
-	Storage blob.ConnectionInfo  `json:"storage"`
-	Caching block.CachingOptions `json:"caching"`
+	Storage blob.ConnectionInfo    `json:"storage"`
+	Caching content.CachingOptions `json:"caching"`
 }
 
 // repositoryObjectFormat describes the format of objects in a repository.
 type repositoryObjectFormat struct {
-	block.FormattingOptions
+	content.FormattingOptions
 	object.Format
 }
 

@@ -8,6 +8,8 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/repo/content"
 )
 
 // Writer allows writing content to the storage and supports automatic deduplication and encryption
@@ -18,27 +20,27 @@ type Writer interface {
 	Result() (ID, error)
 }
 
-type blockTracker struct {
-	mu     sync.Mutex
-	blocks map[string]bool
+type contentIDTracker struct {
+	mu       sync.Mutex
+	contents map[content.ID]bool
 }
 
-func (t *blockTracker) addBlock(blockID string) {
+func (t *contentIDTracker) addContentID(contentID content.ID) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	if t.blocks == nil {
-		t.blocks = make(map[string]bool)
+	if t.contents == nil {
+		t.contents = make(map[content.ID]bool)
 	}
-	t.blocks[blockID] = true
+	t.contents[contentID] = true
 }
 
-func (t *blockTracker) blockIDs() []string {
+func (t *contentIDTracker) contentIDs() []content.ID {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	result := make([]string, 0, len(t.blocks))
-	for k := range t.blocks {
+	result := make([]content.ID, 0, len(t.contents))
+	for k := range t.contents {
 		result = append(result, k)
 	}
 	return result
@@ -48,12 +50,12 @@ type objectWriter struct {
 	ctx  context.Context
 	repo *Manager
 
-	prefix      string
+	prefix      content.ID
 	buffer      bytes.Buffer
 	totalLength int64
 
 	currentPosition int64
-	blockIndex      []indirectObjectEntry
+	indirectIndex   []indirectObjectEntry
 
 	description string
 
@@ -83,35 +85,35 @@ func (w *objectWriter) Write(data []byte) (n int, err error) {
 
 func (w *objectWriter) flushBuffer() error {
 	length := w.buffer.Len()
-	chunkID := len(w.blockIndex)
-	w.blockIndex = append(w.blockIndex, indirectObjectEntry{})
-	w.blockIndex[chunkID].Start = w.currentPosition
-	w.blockIndex[chunkID].Length = int64(length)
+	chunkID := len(w.indirectIndex)
+	w.indirectIndex = append(w.indirectIndex, indirectObjectEntry{})
+	w.indirectIndex[chunkID].Start = w.currentPosition
+	w.indirectIndex[chunkID].Length = int64(length)
 	w.currentPosition += int64(length)
 
 	var b2 bytes.Buffer
 	w.buffer.WriteTo(&b2) //nolint:errcheck
 	w.buffer.Reset()
 
-	blockID, err := w.repo.blockMgr.WriteBlock(w.ctx, b2.Bytes(), w.prefix)
-	w.repo.trace("OBJECT_WRITER(%q) stored %v (%v bytes)", w.description, blockID, length)
+	contentID, err := w.repo.contentMgr.WriteContent(w.ctx, b2.Bytes(), w.prefix)
+	w.repo.trace("OBJECT_WRITER(%q) stored %v (%v bytes)", w.description, contentID, length)
 	if err != nil {
 		return errors.Wrapf(err, "error when flushing chunk %d of %s", chunkID, w.description)
 	}
 
-	w.blockIndex[chunkID].Object = DirectObjectID(blockID)
+	w.indirectIndex[chunkID].Object = DirectObjectID(contentID)
 	return nil
 }
 
 func (w *objectWriter) Result() (ID, error) {
-	if w.buffer.Len() > 0 || len(w.blockIndex) == 0 {
+	if w.buffer.Len() > 0 || len(w.indirectIndex) == 0 {
 		if err := w.flushBuffer(); err != nil {
 			return "", err
 		}
 	}
 
-	if len(w.blockIndex) == 1 {
-		return w.blockIndex[0].Object, nil
+	if len(w.indirectIndex) == 1 {
+		return w.indirectIndex[0].Object, nil
 	}
 
 	iw := &objectWriter{
@@ -124,11 +126,11 @@ func (w *objectWriter) Result() (ID, error) {
 
 	ind := indirectObject{
 		StreamID: "kopia:indirect",
-		Entries:  w.blockIndex,
+		Entries:  w.indirectIndex,
 	}
 
 	if err := json.NewEncoder(iw).Encode(ind); err != nil {
-		return "", errors.Wrap(err, "unable to write indirect block index")
+		return "", errors.Wrap(err, "unable to write indirect object index")
 	}
 	oid, err := iw.Result()
 	if err != nil {
@@ -140,5 +142,5 @@ func (w *objectWriter) Result() (ID, error) {
 // WriterOptions can be passed to Repository.NewWriter()
 type WriterOptions struct {
 	Description string
-	Prefix      string // empty string or a single-character ('g'..'z')
+	Prefix      content.ID // empty string or a single-character ('g'..'z')
 }

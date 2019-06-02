@@ -13,7 +13,7 @@ import (
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/content"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -31,9 +31,9 @@ var (
 	policyCommands     = app.Command("policy", "Commands to manipulate snapshotting policies.").Alias("policies")
 	serverCommands     = app.Command("server", "Commands to control HTTP API server.")
 	manifestCommands   = app.Command("manifest", "Low-level commands to manipulate manifest items.").Hidden()
-	blockCommands      = app.Command("block", "Commands to manipulate virtual blocks in repository.").Alias("blk").Hidden()
+	contentCommands    = app.Command("content", "Commands to manipulate content in repository.").Alias("contents").Hidden()
 	blobCommands       = app.Command("blob", "Commands to manipulate BLOBs.").Hidden()
-	blockIndexCommands = app.Command("blockindex", "Commands to manipulate block index.").Hidden()
+	indexCommands      = app.Command("index", "Commands to manipulate content index.").Hidden()
 	benchmarkCommands  = app.Command("benchmark", "Commands to test performance of algorithms.").Hidden()
 )
 
@@ -58,8 +58,8 @@ func serverAction(act func(ctx context.Context, cli *serverapi.Client) error) fu
 func repositoryAction(act func(ctx context.Context, rep *repo.Repository) error) func(ctx *kingpin.ParseContext) error {
 	return func(kpc *kingpin.ParseContext) error {
 		ctx := context.Background()
-		ctx = block.UsingBlockCache(ctx, *enableCaching)
-		ctx = block.UsingListCache(ctx, *enableListCaching)
+		ctx = content.UsingContentCache(ctx, *enableCaching)
+		ctx = content.UsingListCache(ctx, *enableListCaching)
 		ctx = blob.WithUploadProgressCallback(ctx, func(desc string, progress, total int64) {
 			cliProgress.Report("upload '"+desc+"'", progress, total)
 		})
@@ -70,13 +70,13 @@ func repositoryAction(act func(ctx context.Context, rep *repo.Repository) error)
 
 		storageType := rep.Blobs.ConnectionInfo().Type
 
-		reportStartupTime(storageType, rep.Blocks.Format.Version, repositoryOpenTime)
+		reportStartupTime(storageType, rep.Content.Format.Version, repositoryOpenTime)
 
 		t1 := time.Now()
 		err := act(ctx, rep)
 		commandDuration := time.Since(t1)
 
-		reportSubcommandFinished(kpc.SelectedCommand.FullCommand(), err == nil, storageType, rep.Blocks.Format.Version, commandDuration)
+		reportSubcommandFinished(kpc.SelectedCommand.FullCommand(), err == nil, storageType, rep.Content.Format.Version, commandDuration)
 		if cerr := rep.Close(ctx); cerr != nil {
 			return errors.Wrap(cerr, "unable to close repository")
 		}

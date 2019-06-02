@@ -7,13 +7,14 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
 )
 
 // Manifest represents information about a single point-in-time filesystem snapshot.
 type Manifest struct {
-	ID     string     `json:"-"`
-	Source SourceInfo `json:"source"`
+	ID     manifest.ID `json:"-"`
+	Source SourceInfo  `json:"source"`
 
 	Description string    `json:"description"`
 	StartTime   time.Time `json:"startTime"`

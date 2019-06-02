@@ -1,0 +1,91 @@
+package content
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/repo/blob"
+)
+
+func TestContentIndexRecovery(t *testing.T) {
+	ctx := context.Background()
+	data := blobtesting.DataMap{}
+	keyTime := map[blob.ID]time.Time{}
+	bm := newTestContentManager(data, keyTime, nil)
+	content1 := writeContentAndVerify(ctx, t, bm, seededRandomData(10, 100))
+	content2 := writeContentAndVerify(ctx, t, bm, seededRandomData(11, 100))
+	content3 := writeContentAndVerify(ctx, t, bm, seededRandomData(12, 100))
+
+	if err := bm.Flush(ctx); err != nil {
+		t.Errorf("flush error: %v", err)
+	}
+
+	// delete all index blobs
+	assertNoError(t, bm.st.ListBlobs(ctx, newIndexBlobPrefix, func(bi blob.Metadata) error {
+		log.Debugf("deleting %v", bi.BlobID)
+		return bm.st.DeleteBlob(ctx, bi.BlobID)
+	}))
+
+	// now with index blobs gone, all contents appear to not be found
+	bm = newTestContentManager(data, keyTime, nil)
+	verifyContentNotFound(ctx, t, bm, content1)
+	verifyContentNotFound(ctx, t, bm, content2)
+	verifyContentNotFound(ctx, t, bm, content3)
+
+	totalRecovered := 0
+
+	// pass 1 - just list contents to recover, but don't commit
+	err := bm.st.ListBlobs(ctx, PackBlobIDPrefix, func(bi blob.Metadata) error {
+		infos, err := bm.RecoverIndexFromPackBlob(ctx, bi.BlobID, bi.Length, false)
+		if err != nil {
+			return err
+		}
+		totalRecovered += len(infos)
+		log.Debugf("recovered %v contents", len(infos))
+		return nil
+	})
+	if err != nil {
+		t.Errorf("error recovering: %v", err)
+	}
+
+	if got, want := totalRecovered, 3; got != want {
+		t.Errorf("invalid # of contents recovered: %v, want %v", got, want)
+	}
+
+	// contents are stil not found
+	verifyContentNotFound(ctx, t, bm, content1)
+	verifyContentNotFound(ctx, t, bm, content2)
+	verifyContentNotFound(ctx, t, bm, content3)
+
+	// pass 2 now pass commit=true to add recovered contents to index
+	totalRecovered = 0
+
+	err = bm.st.ListBlobs(ctx, PackBlobIDPrefix, func(bi blob.Metadata) error {
+		infos, err := bm.RecoverIndexFromPackBlob(ctx, bi.BlobID, bi.Length, true)
+		if err != nil {
+			return err
+		}
+		totalRecovered += len(infos)
+		log.Debugf("recovered %v contents", len(infos))
+		return nil
+	})
+	if err != nil {
+		t.Errorf("error recovering: %v", err)
+	}
+
+	if got, want := totalRecovered, 3; got != want {
+		t.Errorf("invalid # of contents recovered: %v, want %v", got, want)
+	}
+
+	verifyContent(ctx, t, bm, content1, seededRandomData(10, 100))
+	verifyContent(ctx, t, bm, content2, seededRandomData(11, 100))
+	verifyContent(ctx, t, bm, content3, seededRandomData(12, 100))
+	if err := bm.Flush(ctx); err != nil {
+		t.Errorf("flush error: %v", err)
+	}
+	verifyContent(ctx, t, bm, content1, seededRandomData(10, 100))
+	verifyContent(ctx, t, bm, content2, seededRandomData(11, 100))
+	verifyContent(ctx, t, bm, content3, seededRandomData(12, 100))
+}

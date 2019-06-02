@@ -9,7 +9,7 @@ import (
 	"github.com/kopia/kopia/fs/ignorefs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot/policy"
 )
@@ -17,8 +17,8 @@ import (
 var (
 	createCommand = repositoryCommands.Command("create", "Create new repository in a specified location.")
 
-	createBlockHashFormat       = createCommand.Flag("block-hash", "Block hash algorithm.").PlaceHolder("ALGO").Default(block.DefaultHash).Enum(block.SupportedHashAlgorithms()...)
-	createBlockEncryptionFormat = createCommand.Flag("encryption", "Block encryption algorithm.").PlaceHolder("ALGO").Default(block.DefaultEncryption).Enum(block.SupportedEncryptionAlgorithms()...)
+	createBlockHashFormat       = createCommand.Flag("block-hash", "Block hash algorithm.").PlaceHolder("ALGO").Default(content.DefaultHash).Enum(content.SupportedHashAlgorithms()...)
+	createBlockEncryptionFormat = createCommand.Flag("encryption", "Block encryption algorithm.").PlaceHolder("ALGO").Default(content.DefaultEncryption).Enum(content.SupportedEncryptionAlgorithms()...)
 	createSplitter              = createCommand.Flag("object-splitter", "The splitter to use for new objects in the repository").Default(object.DefaultSplitter).Enum(object.SupportedSplitters...)
 
 	createOnly = createCommand.Flag("create-only", "Create repository, but don't connect to it.").Short('c').Bool()
@@ -42,7 +42,7 @@ func init() {
 
 func newRepositoryOptionsFromFlags() *repo.NewRepositoryOptions {
 	return &repo.NewRepositoryOptions{
-		BlockFormat: block.FormattingOptions{
+		BlockFormat: content.FormattingOptions{
 			Hash:       *createBlockHashFormat,
 			Encryption: *createBlockEncryptionFormat,
 		},

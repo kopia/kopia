@@ -8,7 +8,7 @@ import (
 
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/content"
 
 	"gopkg.in/alecthomas/kingpin.v2"
 )
@@ -32,7 +32,7 @@ func setupConnectOptions(cmd *kingpin.CmdClause) {
 
 func connectOptions() repo.ConnectOptions {
 	return repo.ConnectOptions{
-		CachingOptions: block.CachingOptions{
+		CachingOptions: content.CachingOptions{
 			CacheDirectory:          connectCacheDirectory,
 			MaxCacheSizeBytes:       connectMaxCacheSizeMB << 20,
 			MaxListCacheDurationSec: int(connectMaxListCacheDuration.Seconds()),

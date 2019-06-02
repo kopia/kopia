@@ -13,7 +13,8 @@ import (
 
 	"github.com/kopia/kopia/internal/parallelwork"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
@@ -163,7 +164,7 @@ func (v *verifier) doVerifyObject(ctx context.Context, oid object.ID, path strin
 
 func (v *verifier) readEntireObject(ctx context.Context, oid object.ID, path string) error {
 	log.Debugf("reading object %v %v", oid, path)
-	ctx = block.UsingBlockCache(ctx, false)
+	ctx = content.UsingContentCache(ctx, false)
 
 	// also read the entire file
 	r, err := v.om.Open(ctx, oid)
@@ -240,7 +241,7 @@ func enqueueRootsToVerify(ctx context.Context, v *verifier, rep *repo.Repository
 }
 
 func loadSourceManifests(ctx context.Context, rep *repo.Repository, all bool, sources []string) ([]*snapshot.Manifest, error) {
-	var manifestIDs []string
+	var manifestIDs []manifest.ID
 	if *verifyCommandAllSources {
 		man, err := snapshot.ListSnapshotManifests(ctx, rep, nil)
 		if err != nil {
