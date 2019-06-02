@@ -13,7 +13,7 @@ import (
 
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/object"
 )
 
@@ -50,7 +50,7 @@ func TestWriters(t *testing.T) {
 			t.Errorf("incorrect result for %v, expected: %v got: %v", c.data, c.objectID.String(), result.String())
 		}
 
-		env.Repository.Blocks.Flush(ctx)
+		env.Repository.Content.Flush(ctx)
 	}
 }
 
@@ -95,7 +95,7 @@ func TestPackingSimple(t *testing.T) {
 	oid2c := writeObject(ctx, t, env.Repository, []byte(content2), "packed-object-2c")
 	oid1c := writeObject(ctx, t, env.Repository, []byte(content1), "packed-object-1c")
 
-	env.Repository.Blocks.Flush(ctx)
+	env.Repository.Content.Flush(ctx)
 
 	if got, want := oid1a.String(), oid1b.String(); got != want {
 		t.Errorf("oid1a(%q) != oid1b(%q)", got, want)
@@ -113,7 +113,7 @@ func TestPackingSimple(t *testing.T) {
 		t.Errorf("oid3a(%q) != oid3b(%q)", got, want)
 	}
 
-	env.VerifyStorageBlockCount(t, 3)
+	env.VerifyBlobCount(t, 3)
 
 	env.MustReopen(t)
 
@@ -121,7 +121,7 @@ func TestPackingSimple(t *testing.T) {
 	verify(ctx, t, env.Repository, oid2a, []byte(content2), "packed-object-2")
 	verify(ctx, t, env.Repository, oid3a, []byte(content3), "packed-object-3")
 
-	if err := env.Repository.Blocks.CompactIndexes(ctx, block.CompactOptions{MinSmallBlocks: 1, MaxSmallBlocks: 1}); err != nil {
+	if err := env.Repository.Content.CompactIndexes(ctx, content.CompactOptions{MinSmallBlobs: 1, MaxSmallBlobs: 1}); err != nil {
 		t.Errorf("optimize error: %v", err)
 	}
 
@@ -131,7 +131,7 @@ func TestPackingSimple(t *testing.T) {
 	verify(ctx, t, env.Repository, oid2a, []byte(content2), "packed-object-2")
 	verify(ctx, t, env.Repository, oid3a, []byte(content3), "packed-object-3")
 
-	if err := env.Repository.Blocks.CompactIndexes(ctx, block.CompactOptions{MinSmallBlocks: 1, MaxSmallBlocks: 1}); err != nil {
+	if err := env.Repository.Content.CompactIndexes(ctx, content.CompactOptions{MinSmallBlobs: 1, MaxSmallBlobs: 1}); err != nil {
 		t.Errorf("optimize error: %v", err)
 	}
 

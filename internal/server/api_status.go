@@ -8,7 +8,7 @@ import (
 )
 
 func (s *Server) handleStatus(ctx context.Context, r *http.Request) (interface{}, *apiError) {
-	bf := s.rep.Blocks.Format
+	bf := s.rep.Content.Format
 	bf.HMACSecret = nil
 	bf.MasterKey = nil
 

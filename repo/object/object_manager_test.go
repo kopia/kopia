@@ -16,58 +16,58 @@ import (
 	"testing"
 
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/content"
 )
 
-type fakeBlockManager struct {
+type fakeContentManager struct {
 	mu   sync.Mutex
-	data map[string][]byte
+	data map[content.ID][]byte
 }
 
-func (f *fakeBlockManager) GetBlock(ctx context.Context, blockID string) ([]byte, error) {
+func (f *fakeContentManager) GetContent(ctx context.Context, contentID content.ID) ([]byte, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	if d, ok := f.data[blockID]; ok {
+	if d, ok := f.data[contentID]; ok {
 		return append([]byte(nil), d...), nil
 	}
 
-	return nil, block.ErrBlockNotFound
+	return nil, content.ErrContentNotFound
 }
 
-func (f *fakeBlockManager) WriteBlock(ctx context.Context, data []byte, prefix string) (string, error) {
+func (f *fakeContentManager) WriteContent(ctx context.Context, data []byte, prefix content.ID) (content.ID, error) {
 	h := sha256.New()
 	h.Write(data) //nolint:errcheck
-	blockID := prefix + string(hex.EncodeToString(h.Sum(nil)))
+	contentID := prefix + content.ID(hex.EncodeToString(h.Sum(nil)))
 
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	f.data[blockID] = append([]byte(nil), data...)
-	return blockID, nil
+	f.data[contentID] = append([]byte(nil), data...)
+	return contentID, nil
 }
 
-func (f *fakeBlockManager) BlockInfo(ctx context.Context, blockID string) (block.Info, error) {
+func (f *fakeContentManager) ContentInfo(ctx context.Context, contentID content.ID) (content.Info, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	if d, ok := f.data[blockID]; ok {
-		return block.Info{BlockID: blockID, Length: uint32(len(d))}, nil
+	if d, ok := f.data[contentID]; ok {
+		return content.Info{ID: contentID, Length: uint32(len(d))}, nil
 	}
 
-	return block.Info{}, blob.ErrBlobNotFound
+	return content.Info{}, blob.ErrBlobNotFound
 }
 
-func (f *fakeBlockManager) Flush(ctx context.Context) error {
+func (f *fakeContentManager) Flush(ctx context.Context) error {
 	return nil
 }
 
-func setupTest(t *testing.T) (map[string][]byte, *Manager) {
-	return setupTestWithData(t, map[string][]byte{}, ManagerOptions{})
+func setupTest(t *testing.T) (map[content.ID][]byte, *Manager) {
+	return setupTestWithData(t, map[content.ID][]byte{}, ManagerOptions{})
 }
 
-func setupTestWithData(t *testing.T, data map[string][]byte, opts ManagerOptions) (map[string][]byte, *Manager) {
-	r, err := NewObjectManager(context.Background(), &fakeBlockManager{data: data}, Format{
+func setupTestWithData(t *testing.T, data map[content.ID][]byte, opts ManagerOptions) (map[content.ID][]byte, *Manager) {
+	r, err := NewObjectManager(context.Background(), &fakeContentManager{data: data}, Format{
 		Splitter: "FIXED-1M",
 	}, opts)
 	if err != nil {
@@ -109,7 +109,7 @@ func TestWriters(t *testing.T) {
 			t.Errorf("incorrect result for %v, expected: %v got: %v", c.data, c.objectID.String(), result.String())
 		}
 
-		if _, ok := c.objectID.BlockID(); !ok {
+		if _, ok := c.objectID.ContentID(); !ok {
 			if len(data) != 0 {
 				t.Errorf("unexpected data written to the storage: %v", data)
 			}
@@ -162,18 +162,18 @@ func TestIndirection(t *testing.T) {
 	splitterFactory := newFixedSplitterFactory(1000)
 	cases := []struct {
 		dataLength          int
-		expectedBlockCount  int
+		expectedBlobCount   int
 		expectedIndirection int
 	}{
-		{dataLength: 200, expectedBlockCount: 1, expectedIndirection: 0},
-		{dataLength: 1000, expectedBlockCount: 1, expectedIndirection: 0},
-		{dataLength: 1001, expectedBlockCount: 3, expectedIndirection: 1},
-		// 1 block of 1000 zeros, 1 block of 5 zeros + 1 index blob
-		{dataLength: 3005, expectedBlockCount: 3, expectedIndirection: 1},
-		// 1 block of 1000 zeros + 1 index blob
-		{dataLength: 4000, expectedBlockCount: 2, expectedIndirection: 1},
-		// 1 block of 1000 zeros + 1 index blob
-		{dataLength: 10000, expectedBlockCount: 2, expectedIndirection: 1},
+		{dataLength: 200, expectedBlobCount: 1, expectedIndirection: 0},
+		{dataLength: 1000, expectedBlobCount: 1, expectedIndirection: 0},
+		{dataLength: 1001, expectedBlobCount: 3, expectedIndirection: 1},
+		// 1 blob of 1000 zeros, 1 blob of 5 zeros + 1 index blob
+		{dataLength: 3005, expectedBlobCount: 3, expectedIndirection: 1},
+		// 1 blob of 1000 zeros + 1 index blob
+		{dataLength: 4000, expectedBlobCount: 2, expectedIndirection: 1},
+		// 1 blob of 1000 zeros + 1 index blob
+		{dataLength: 10000, expectedBlobCount: 2, expectedIndirection: 1},
 	}
 
 	for _, c := range cases {
@@ -197,8 +197,8 @@ func TestIndirection(t *testing.T) {
 			t.Errorf("incorrect indirection level for size: %v: %v, expected %v", c.dataLength, indirectionLevel(result), c.expectedIndirection)
 		}
 
-		if got, want := len(data), c.expectedBlockCount; got != want {
-			t.Errorf("unexpected block count for %v: %v, expected %v", c.dataLength, got, want)
+		if got, want := len(data), c.expectedBlobCount; got != want {
+			t.Errorf("unexpected blob count for %v: %v, expected %v", c.dataLength, got, want)
 		}
 
 		l, b, err := om.VerifyObject(ctx, result)
@@ -210,8 +210,8 @@ func TestIndirection(t *testing.T) {
 			t.Errorf("got invalid byte count for %q: %v, wanted %v", result, got, want)
 		}
 
-		if got, want := len(b), c.expectedBlockCount; got != want {
-			t.Errorf("invalid block count for %v, got %v, wanted %v", result, got, want)
+		if got, want := len(b), c.expectedBlobCount; got != want {
+			t.Errorf("invalid blob count for %v, got %v, wanted %v", result, got, want)
 		}
 
 		verifyIndirectBlock(ctx, t, om, result)

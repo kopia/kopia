@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/repo/content"
 )
 
 // ID is an identifier of a repository object. Repository objects can be stored.
@@ -33,16 +35,16 @@ func (i ID) IndexObjectID() (ID, bool) {
 	return "", false
 }
 
-// BlockID returns the block ID of the underlying content storage block.
-func (i ID) BlockID() (string, bool) {
+// ContentID returns the ID of the underlying content.
+func (i ID) ContentID() (content.ID, bool) {
 	if strings.HasPrefix(string(i), "D") {
-		return string(i[1:]), true
+		return content.ID(i[1:]), true
 	}
 	if strings.HasPrefix(string(i), "I") {
 		return "", false
 	}
 
-	return string(i), true
+	return content.ID(i), true
 }
 
 // Validate checks the ID format for validity and reports any errors.
@@ -55,21 +57,21 @@ func (i ID) Validate() error {
 		return nil
 	}
 
-	if blockID, ok := i.BlockID(); ok {
-		if len(blockID) < 2 {
-			return errors.Errorf("missing block ID")
+	if contentID, ok := i.ContentID(); ok {
+		if len(contentID) < 2 {
+			return errors.Errorf("missing content ID")
 		}
 
 		// odd length - firstcharacter must be a single character between 'g' and 'z'
-		if len(blockID)%2 == 1 {
-			if blockID[0] < 'g' || blockID[0] > 'z' {
-				return errors.Errorf("invalid block ID prefix: %v", blockID)
+		if len(contentID)%2 == 1 {
+			if contentID[0] < 'g' || contentID[0] > 'z' {
+				return errors.Errorf("invalid content ID prefix: %v", contentID)
 			}
-			blockID = blockID[1:]
+			contentID = contentID[1:]
 		}
 
-		if _, err := hex.DecodeString(blockID); err != nil {
-			return errors.Errorf("invalid blockID suffix, must be base-16 encoded: %v", blockID)
+		if _, err := hex.DecodeString(string(contentID)); err != nil {
+			return errors.Errorf("invalid contentID suffix, must be base-16 encoded: %v", contentID)
 		}
 
 		return nil
@@ -79,8 +81,8 @@ func (i ID) Validate() error {
 }
 
 // DirectObjectID returns direct object ID based on the provided block ID.
-func DirectObjectID(blockID string) ID {
-	return ID(blockID)
+func DirectObjectID(contentID content.ID) ID {
+	return ID(contentID)
 }
 
 // IndirectObjectID returns indirect object ID based on the underlying index object ID.

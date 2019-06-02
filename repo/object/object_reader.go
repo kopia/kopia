@@ -68,14 +68,14 @@ func (r *objectReader) Read(buffer []byte) (int, error) {
 
 func (r *objectReader) openCurrentChunk() error {
 	st := r.seekTable[r.currentChunkIndex]
-	blockData, err := r.repo.Open(r.ctx, st.Object)
+	rd, err := r.repo.Open(r.ctx, st.Object)
 	if err != nil {
 		return err
 	}
-	defer blockData.Close() //nolint:errcheck
+	defer rd.Close() //nolint:errcheck
 
 	b := make([]byte, st.Length)
-	if _, err := io.ReadFull(blockData, b); err != nil {
+	if _, err := io.ReadFull(rd, b); err != nil {
 		return err
 	}
 

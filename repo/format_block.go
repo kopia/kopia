@@ -20,13 +20,13 @@ const defaultFormatEncryption = "AES256_GCM"
 
 const (
 	maxChecksummedFormatBytesLength = 65000
-	formatBlockChecksumSize         = sha256.Size
+	formatBlobChecksumSize          = sha256.Size
 )
 
-// formatBlockChecksumSecret is a HMAC secret used for checksumming the format block.
+// formatBlobChecksumSecret is a HMAC secret used for checksumming the format content.
 // It's not really a secret, but will provide positive identification of blocks that
 // are repository format blocks.
-var formatBlockChecksumSecret = []byte("kopia-repository")
+var formatBlobChecksumSecret = []byte("kopia-repository")
 
 // FormatBlobID is the identifier of a BLOB that describes repository format.
 const FormatBlobID = "kopia.repository"
@@ -35,10 +35,10 @@ var (
 	purposeAESKey   = []byte("AES")
 	purposeAuthData = []byte("CHECKSUM")
 
-	errFormatBlockNotFound = errors.New("format block not found")
+	errFormatBlobNotFound = errors.New("format blob not found")
 )
 
-type formatBlock struct {
+type formatBlob struct {
 	Tool         string `json:"tool"`
 	BuildVersion string `json:"buildVersion"`
 	BuildInfo    string `json:"buildInfo"`
@@ -57,22 +57,22 @@ type encryptedRepositoryConfig struct {
 	Format repositoryObjectFormat `json:"format"`
 }
 
-func parseFormatBlock(b []byte) (*formatBlock, error) {
-	f := &formatBlock{}
+func parseFormatBlob(b []byte) (*formatBlob, error) {
+	f := &formatBlob{}
 
 	if err := json.Unmarshal(b, &f); err != nil {
-		return nil, errors.Wrap(err, "invalid format block")
+		return nil, errors.Wrap(err, "invalid format blob")
 	}
 
 	return f, nil
 }
 
-// RecoverFormatBlock attempts to recover format block replica from the specified file.
-// The format block can be either the prefix or a suffix of the given file.
+// RecoverFormatBlob attempts to recover format blob replica from the specified file.
+// The format blob can be either the prefix or a suffix of the given file.
 // optionally the length can be provided (if known) to speed up recovery.
-func RecoverFormatBlock(ctx context.Context, st blob.Storage, blobID blob.ID, optionalLength int64) ([]byte, error) {
+func RecoverFormatBlob(ctx context.Context, st blob.Storage, blobID blob.ID, optionalLength int64) ([]byte, error) {
 	if optionalLength > 0 {
-		return recoverFormatBlockWithLength(ctx, st, blobID, optionalLength)
+		return recoverFormatBlobWithLength(ctx, st, blobID, optionalLength)
 	}
 
 	var foundMetadata blob.Metadata
@@ -91,10 +91,10 @@ func RecoverFormatBlock(ctx context.Context, st blob.Storage, blobID blob.ID, op
 		return nil, blob.ErrBlobNotFound
 	}
 
-	return recoverFormatBlockWithLength(ctx, st, foundMetadata.BlobID, foundMetadata.Length)
+	return recoverFormatBlobWithLength(ctx, st, foundMetadata.BlobID, foundMetadata.Length)
 }
 
-func recoverFormatBlockWithLength(ctx context.Context, st blob.Storage, blobID blob.ID, length int64) ([]byte, error) {
+func recoverFormatBlobWithLength(ctx context.Context, st blob.Storage, blobID blob.ID, length int64) ([]byte, error) {
 	chunkLength := int64(65536)
 	if chunkLength > length {
 		chunkLength = length
@@ -107,7 +107,7 @@ func recoverFormatBlockWithLength(ctx context.Context, st blob.Storage, blobID b
 			return nil, err
 		}
 		if l := int(prefixChunk[0]) + int(prefixChunk[1])<<8; l <= maxChecksummedFormatBytesLength && l+2 < len(prefixChunk) {
-			if b, ok := verifyFormatBlockChecksum(prefixChunk[2 : 2+l]); ok {
+			if b, ok := verifyFormatBlobChecksum(prefixChunk[2 : 2+l]); ok {
 				return b, nil
 			}
 		}
@@ -118,22 +118,22 @@ func recoverFormatBlockWithLength(ctx context.Context, st blob.Storage, blobID b
 			return nil, err
 		}
 		if l := int(suffixChunk[len(suffixChunk)-2]) + int(suffixChunk[len(suffixChunk)-1])<<8; l <= maxChecksummedFormatBytesLength && l+2 < len(suffixChunk) {
-			if b, ok := verifyFormatBlockChecksum(suffixChunk[len(suffixChunk)-2-l : len(suffixChunk)-2]); ok {
+			if b, ok := verifyFormatBlobChecksum(suffixChunk[len(suffixChunk)-2-l : len(suffixChunk)-2]); ok {
 				return b, nil
 			}
 		}
 	}
 
-	return nil, errFormatBlockNotFound
+	return nil, errFormatBlobNotFound
 }
 
-func verifyFormatBlockChecksum(b []byte) ([]byte, bool) {
-	if len(b) < formatBlockChecksumSize {
+func verifyFormatBlobChecksum(b []byte) ([]byte, bool) {
+	if len(b) < formatBlobChecksumSize {
 		return nil, false
 	}
 
-	data, checksum := b[0:len(b)-formatBlockChecksumSize], b[len(b)-formatBlockChecksumSize:]
-	h := hmac.New(sha256.New, formatBlockChecksumSecret)
+	data, checksum := b[0:len(b)-formatBlobChecksumSize], b[len(b)-formatBlobChecksumSize:]
+	h := hmac.New(sha256.New, formatBlobChecksumSecret)
 	h.Write(data) //nolint:errcheck
 	actualChecksum := h.Sum(nil)
 	if !hmac.Equal(actualChecksum, checksum) {
@@ -143,22 +143,22 @@ func verifyFormatBlockChecksum(b []byte) ([]byte, bool) {
 	return data, true
 }
 
-func writeFormatBlock(ctx context.Context, st blob.Storage, f *formatBlock) error {
+func writeFormatBlob(ctx context.Context, st blob.Storage, f *formatBlob) error {
 	var buf bytes.Buffer
 	e := json.NewEncoder(&buf)
 	e.SetIndent("", "  ")
 	if err := e.Encode(f); err != nil {
-		return errors.Wrap(err, "unable to marshal format block")
+		return errors.Wrap(err, "unable to marshal format blob")
 	}
 
 	if err := st.PutBlob(ctx, FormatBlobID, buf.Bytes()); err != nil {
-		return errors.Wrap(err, "unable to write format block")
+		return errors.Wrap(err, "unable to write format blob")
 	}
 
 	return nil
 }
 
-func (f *formatBlock) decryptFormatBytes(masterKey []byte) (*repositoryObjectFormat, error) {
+func (f *formatBlob) decryptFormatBytes(masterKey []byte) (*repositoryObjectFormat, error) {
 	switch f.EncryptionAlgorithm {
 	case "NONE": // do nothing
 		return f.UnencryptedFormat, nil
@@ -209,7 +209,7 @@ func initCrypto(masterKey, repositoryID []byte) (cipher.AEAD, []byte, error) {
 	return aead, authData, nil
 }
 
-func encryptFormatBytes(f *formatBlock, format *repositoryObjectFormat, masterKey, repositoryID []byte) error {
+func encryptFormatBytes(f *formatBlob, format *repositoryObjectFormat, masterKey, repositoryID []byte) error {
 	switch f.EncryptionAlgorithm {
 	case "NONE":
 		f.UnencryptedFormat = format
@@ -244,14 +244,14 @@ func encryptFormatBytes(f *formatBlock, format *repositoryObjectFormat, masterKe
 	}
 }
 
-func addFormatBlockChecksumAndLength(fb []byte) ([]byte, error) {
-	h := hmac.New(sha256.New, formatBlockChecksumSecret)
+func addFormatBlobChecksumAndLength(fb []byte) ([]byte, error) {
+	h := hmac.New(sha256.New, formatBlobChecksumSecret)
 	h.Write(fb) //nolint:errcheck
 	checksummedFormatBytes := h.Sum(fb)
 
 	l := len(checksummedFormatBytes)
 	if l > maxChecksummedFormatBytesLength {
-		return nil, errors.Errorf("format block too big: %v", l)
+		return nil, errors.Errorf("format blob too big: %v", l)
 	}
 
 	// return <length><checksummed-bytes><length>

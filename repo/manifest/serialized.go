@@ -10,7 +10,7 @@ type manifest struct {
 }
 
 type manifestEntry struct {
-	ID      string            `json:"id"`
+	ID      ID                `json:"id"`
 	Labels  map[string]string `json:"labels"`
 	ModTime time.Time         `json:"modified"`
 	Deleted bool              `json:"deleted,omitempty"`

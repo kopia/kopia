@@ -18,13 +18,13 @@ import (
 
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob/filesystem"
-	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/content"
 )
 
 const masterPassword = "foo-bar-baz-1234"
 
 var (
-	knownBlocks      []string
+	knownBlocks      []content.ID
 	knownBlocksMutex sync.Mutex
 )
 
@@ -32,7 +32,7 @@ func TestStressRepository(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping stress test during short tests")
 	}
-	ctx := block.UsingListCache(context.Background(), false)
+	ctx := content.UsingListCache(context.Background(), false)
 
 	tmpPath, err := ioutil.TempDir("", "kopia")
 	if err != nil {
@@ -66,7 +66,7 @@ func TestStressRepository(t *testing.T) {
 
 	// set up two parallel kopia connections, each with its own config file and cache.
 	if err := repo.Connect(ctx, configFile1, st, masterPassword, repo.ConnectOptions{
-		CachingOptions: block.CachingOptions{
+		CachingOptions: content.CachingOptions{
 			CacheDirectory:    filepath.Join(tmpPath, "cache1"),
 			MaxCacheSizeBytes: 2000000000,
 		},
@@ -75,7 +75,7 @@ func TestStressRepository(t *testing.T) {
 	}
 
 	if err := repo.Connect(ctx, configFile2, st, masterPassword, repo.ConnectOptions{
-		CachingOptions: block.CachingOptions{
+		CachingOptions: content.CachingOptions{
 			CacheDirectory:    filepath.Join(tmpPath, "cache2"),
 			MaxCacheSizeBytes: 2000000000,
 		},
@@ -155,8 +155,8 @@ func repositoryTest(ctx context.Context, t *testing.T, cancel chan struct{}, rep
 		{"writeRandomBlock", writeRandomBlock, 100, 0},
 		{"writeRandomManifest", writeRandomManifest, 100, 0},
 		{"readKnownBlock", readKnownBlock, 500, 0},
-		{"listBlocks", listBlocks, 50, 0},
-		{"listAndReadAllBlocks", listAndReadAllBlocks, 5, 0},
+		{"listContents", listContents, 50, 0},
+		{"listAndReadAllContents", listAndReadAllContents, 5, 0},
 		{"readRandomManifest", readRandomManifest, 50, 0},
 		{"compact", compact, 1, 0},
 		{"refresh", refresh, 3, 0},
@@ -208,14 +208,14 @@ func repositoryTest(ctx context.Context, t *testing.T, cancel chan struct{}, rep
 func writeRandomBlock(ctx context.Context, t *testing.T, r *repo.Repository) error {
 	data := make([]byte, 1000)
 	rand.Read(data)
-	blockID, err := r.Blocks.WriteBlock(ctx, data, "")
+	contentID, err := r.Content.WriteContent(ctx, data, "")
 	if err == nil {
 		knownBlocksMutex.Lock()
 		if len(knownBlocks) >= 1000 {
 			n := rand.Intn(len(knownBlocks))
-			knownBlocks[n] = blockID
+			knownBlocks[n] = contentID
 		} else {
-			knownBlocks = append(knownBlocks, blockID)
+			knownBlocks = append(knownBlocks, contentID)
 		}
 		knownBlocksMutex.Unlock()
 	}
@@ -228,36 +228,36 @@ func readKnownBlock(ctx context.Context, t *testing.T, r *repo.Repository) error
 		knownBlocksMutex.Unlock()
 		return nil
 	}
-	blockID := knownBlocks[rand.Intn(len(knownBlocks))]
+	contentID := knownBlocks[rand.Intn(len(knownBlocks))]
 	knownBlocksMutex.Unlock()
 
-	_, err := r.Blocks.GetBlock(ctx, blockID)
-	if err == nil || err == block.ErrBlockNotFound {
+	_, err := r.Content.GetContent(ctx, contentID)
+	if err == nil || err == content.ErrContentNotFound {
 		return nil
 	}
 
 	return err
 }
 
-func listBlocks(ctx context.Context, t *testing.T, r *repo.Repository) error {
-	_, err := r.Blocks.ListBlocks("")
+func listContents(ctx context.Context, t *testing.T, r *repo.Repository) error {
+	_, err := r.Content.ListContents("")
 	return err
 }
 
-func listAndReadAllBlocks(ctx context.Context, t *testing.T, r *repo.Repository) error {
-	blocks, err := r.Blocks.ListBlocks("")
+func listAndReadAllContents(ctx context.Context, t *testing.T, r *repo.Repository) error {
+	contentIDs, err := r.Content.ListContents("")
 	if err != nil {
 		return err
 	}
 
-	for _, bi := range blocks {
-		_, err := r.Blocks.GetBlock(ctx, bi)
+	for _, cid := range contentIDs {
+		_, err := r.Content.GetContent(ctx, cid)
 		if err != nil {
-			if err == block.ErrBlockNotFound && strings.HasPrefix(bi, "m") {
-				// this is ok, sometimes manifest manager will perform compaction and 'm' blocks will be marked as deleted
+			if err == content.ErrContentNotFound && strings.HasPrefix(string(cid), "m") {
+				// this is ok, sometimes manifest manager will perform compaction and 'm' contents will be marked as deleted
 				continue
 			}
-			return errors.Wrapf(err, "error reading block %v", bi)
+			return errors.Wrapf(err, "error reading content %v", cid)
 		}
 	}
 
@@ -265,9 +265,9 @@ func listAndReadAllBlocks(ctx context.Context, t *testing.T, r *repo.Repository)
 }
 
 func compact(ctx context.Context, t *testing.T, r *repo.Repository) error {
-	return r.Blocks.CompactIndexes(ctx, block.CompactOptions{
-		MinSmallBlocks: 1,
-		MaxSmallBlocks: 1,
+	return r.Content.CompactIndexes(ctx, content.CompactOptions{
+		MinSmallBlobs: 1,
+		MaxSmallBlobs: 1,
 	})
 }
 

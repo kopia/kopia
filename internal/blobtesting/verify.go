@@ -24,7 +24,7 @@ func VerifyStorage(ctx context.Context, t *testing.T, r blob.Storage) {
 
 	// First verify that blocks don't exist.
 	for _, b := range blocks {
-		AssertGetBlockNotFound(ctx, t, r, b.blk)
+		AssertGetBlobNotFound(ctx, t, r, b.blk)
 	}
 
 	ctx2 := blob.WithUploadProgressCallback(ctx, func(desc string, completed, total int64) {
@@ -34,10 +34,10 @@ func VerifyStorage(ctx context.Context, t *testing.T, r blob.Storage) {
 	// Now add blocks.
 	for _, b := range blocks {
 		if err := r.PutBlob(ctx2, b.blk, b.contents); err != nil {
-			t.Errorf("can't put block: %v", err)
+			t.Errorf("can't put blob: %v", err)
 		}
 
-		AssertGetBlock(ctx, t, r, b.blk, b.contents)
+		AssertGetBlob(ctx, t, r, b.blk, b.contents)
 	}
 
 	AssertListResults(ctx, t, r, "", blocks[0].blk, blocks[1].blk, blocks[2].blk, blocks[3].blk, blocks[4].blk)
@@ -46,10 +46,10 @@ func VerifyStorage(ctx context.Context, t *testing.T, r blob.Storage) {
 	// Overwrite blocks.
 	for _, b := range blocks {
 		if err := r.PutBlob(ctx, b.blk, b.contents); err != nil {
-			t.Errorf("can't put block: %v", err)
+			t.Errorf("can't put blob: %v", err)
 		}
 
-		AssertGetBlock(ctx, t, r, b.blk, b.contents)
+		AssertGetBlob(ctx, t, r, b.blk, b.contents)
 	}
 
 	if err := r.DeleteBlob(ctx, blocks[0].blk); err != nil {

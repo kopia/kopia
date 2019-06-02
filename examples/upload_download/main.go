@@ -28,13 +28,13 @@ func main() {
 
 	uploadAndDownloadObjects(ctx, r)
 
-	// Now list blocks found in the repository.
-	blks, err := r.Blocks.ListBlocks("")
+	// Now list contents found in the repository.
+	cnts, err := r.Content.ListContents("")
 	if err != nil {
 		log.Printf("err: %v", err)
 	}
 
-	for _, b := range blks {
-		log.Printf("found block %v", b)
+	for _, c := range cnts {
+		log.Printf("found content %v", c)
 	}
 }

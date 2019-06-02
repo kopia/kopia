@@ -85,7 +85,7 @@ func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
 
 func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo) error {
 	t0 := time.Now()
-	rep.Blocks.ResetStats()
+	rep.Content.ResetStats()
 
 	localEntry := mustGetLocalFSEntry(sourceInfo.Path)
 

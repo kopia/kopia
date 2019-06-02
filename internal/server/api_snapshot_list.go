@@ -8,12 +8,13 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
 type snapshotListEntry struct {
-	ID               string               `json:"id"`
+	ID               manifest.ID          `json:"id"`
 	Source           snapshot.SourceInfo  `json:"source"`
 	Description      string               `json:"description"`
 	StartTime        time.Time            `json:"startTime"`

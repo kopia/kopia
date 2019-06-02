@@ -8,19 +8,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/kopia/kopia/internal/blobtesting"
-	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/content"
 )
 
 func TestManifest(t *testing.T) {
 	ctx := context.Background()
 	data := blobtesting.DataMap{}
-	mgr, setupErr := newManagerForTesting(ctx, t, data)
-	if setupErr != nil {
-		t.Fatalf("unable to open block manager: %v", setupErr)
-	}
+	mgr := newManagerForTesting(ctx, t, data)
 
 	item1 := map[string]int{"foo": 1, "bar": 2}
 	item2 := map[string]int{"foo": 2, "bar": 3}
@@ -36,13 +31,13 @@ func TestManifest(t *testing.T) {
 
 	cases := []struct {
 		criteria map[string]string
-		expected []string
+		expected []ID
 	}{
-		{map[string]string{"color": "red"}, []string{id1, id3}},
-		{map[string]string{"color": "blue"}, []string{id2}},
+		{map[string]string{"color": "red"}, []ID{id1, id3}},
+		{map[string]string{"color": "blue"}, []ID{id2}},
 		{map[string]string{"color": "green"}, nil},
-		{map[string]string{"color": "red", "shape": "square"}, []string{id3}},
-		{map[string]string{"color": "blue", "shape": "square"}, []string{id2}},
+		{map[string]string{"color": "red", "shape": "square"}, []ID{id3}},
+		{map[string]string{"color": "blue", "shape": "square"}, []ID{id2}},
 		{map[string]string{"color": "red", "shape": "circle"}, nil},
 	}
 
@@ -69,12 +64,9 @@ func TestManifest(t *testing.T) {
 	verifyItem(ctx, t, mgr, id2, labels2, item2)
 	verifyItem(ctx, t, mgr, id3, labels3, item3)
 
-	// flush underlying block manager and verify in new manifest manager.
+	// flush underlying content manager and verify in new manifest manager.
 	mgr.b.Flush(ctx)
-	mgr2, setupErr := newManagerForTesting(ctx, t, data)
-	if setupErr != nil {
-		t.Fatalf("can't open block manager: %v", setupErr)
-	}
+	mgr2 := newManagerForTesting(ctx, t, data)
 	for _, tc := range cases {
 		verifyMatches(ctx, t, mgr2, tc.criteria, tc.expected)
 	}
@@ -96,7 +88,7 @@ func TestManifest(t *testing.T) {
 
 	// still found in another
 	verifyItem(ctx, t, mgr2, id3, labels3, item3)
-	if err := mgr2.loadCommittedBlocksLocked(ctx); err != nil {
+	if err := mgr2.loadCommittedContentsLocked(ctx); err != nil {
 		t.Errorf("unable to load: %v", err)
 	}
 
@@ -104,7 +96,7 @@ func TestManifest(t *testing.T) {
 		t.Errorf("can't compact: %v", err)
 	}
 
-	blks, err := mgr.b.ListBlocks(manifestBlockPrefix)
+	blks, err := mgr.b.ListContents(manifestContentPrefix)
 	if err != nil {
 		t.Errorf("unable to list manifest blocks: %v", err)
 	}
@@ -114,10 +106,7 @@ func TestManifest(t *testing.T) {
 
 	mgr.b.Flush(ctx)
 
-	mgr3, err := newManagerForTesting(ctx, t, data)
-	if err != nil {
-		t.Fatalf("can't open manager: %v", err)
-	}
+	mgr3 := newManagerForTesting(ctx, t, data)
 
 	verifyItem(ctx, t, mgr3, id1, labels1, item1)
 	verifyItem(ctx, t, mgr3, id2, labels2, item2)
@@ -129,7 +118,7 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
 
-	f := block.FormattingOptions{
+	f := content.FormattingOptions{
 		Hash:        "HMAC-SHA256-128",
 		Encryption:  "NONE",
 		MaxPackSize: 100000,
@@ -137,7 +126,7 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 	}
 
 	// write some data to storage
-	bm, err := block.NewManager(ctx, st, f, block.CachingOptions{}, nil)
+	bm, err := content.NewManager(ctx, st, f, content.CachingOptions{}, nil)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -160,8 +149,8 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 		}
 	}
 
-	// make a new block manager based on corrupted data.
-	bm, err = block.NewManager(ctx, st, f, block.CachingOptions{}, nil)
+	// make a new content manager based on corrupted data.
+	bm, err = content.NewManager(ctx, st, f, content.CachingOptions{}, nil)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -200,7 +189,7 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 	}
 }
 
-func addAndVerify(ctx context.Context, t *testing.T, mgr *Manager, labels map[string]string, data map[string]int) string {
+func addAndVerify(ctx context.Context, t *testing.T, mgr *Manager, labels map[string]string, data map[string]int) ID {
 	t.Helper()
 	id, err := mgr.Put(ctx, labels, data)
 	if err != nil {
@@ -212,7 +201,7 @@ func addAndVerify(ctx context.Context, t *testing.T, mgr *Manager, labels map[st
 	return id
 }
 
-func verifyItem(ctx context.Context, t *testing.T, mgr *Manager, id string, labels map[string]string, data map[string]int) {
+func verifyItem(ctx context.Context, t *testing.T, mgr *Manager, id ID, labels map[string]string, data map[string]int) {
 	t.Helper()
 
 	l, err := mgr.GetMetadata(ctx, id)
@@ -235,7 +224,7 @@ func verifyItem(ctx context.Context, t *testing.T, mgr *Manager, id string, labe
 	}
 }
 
-func verifyItemNotFound(ctx context.Context, t *testing.T, mgr *Manager, id string) {
+func verifyItemNotFound(ctx context.Context, t *testing.T, mgr *Manager, id ID) {
 	t.Helper()
 
 	_, err := mgr.GetMetadata(ctx, id)
@@ -245,10 +234,10 @@ func verifyItemNotFound(ctx context.Context, t *testing.T, mgr *Manager, id stri
 	}
 }
 
-func verifyMatches(ctx context.Context, t *testing.T, mgr *Manager, labels map[string]string, expected []string) {
+func verifyMatches(ctx context.Context, t *testing.T, mgr *Manager, labels map[string]string, expected []ID) {
 	t.Helper()
 
-	var matches []string
+	var matches []ID
 	items, err := mgr.Find(ctx, labels)
 	if err != nil {
 		t.Errorf("error in Find(): %v", err)
@@ -257,37 +246,45 @@ func verifyMatches(ctx context.Context, t *testing.T, mgr *Manager, labels map[s
 	for _, m := range items {
 		matches = append(matches, m.ID)
 	}
-	sort.Strings(matches)
-	sort.Strings(expected)
+	sortIDs(matches)
+	sortIDs(expected)
 
 	if !reflect.DeepEqual(matches, expected) {
 		t.Errorf("invalid matches for %v: %v, expected %v", labels, matches, expected)
 	}
 }
 
-func newManagerForTesting(ctx context.Context, t *testing.T, data blobtesting.DataMap) (*Manager, error) {
+func sortIDs(s []ID) {
+	sort.Slice(s, func(i, j int) bool {
+		return s[i] < s[j]
+	})
+}
+
+func newManagerForTesting(ctx context.Context, t *testing.T, data blobtesting.DataMap) *Manager {
 	st := blobtesting.NewMapStorage(data, nil, nil)
 
-	bm, err := block.NewManager(ctx, st, block.FormattingOptions{
+	bm, err := content.NewManager(ctx, st, content.FormattingOptions{
 		Hash:        "HMAC-SHA256-128",
 		Encryption:  "NONE",
 		MaxPackSize: 100000,
 		Version:     1,
-	}, block.CachingOptions{}, nil)
+	}, content.CachingOptions{}, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "can't create block manager")
+		t.Fatalf("can't create content manager: %v", err)
 	}
 
-	return NewManager(ctx, bm)
+	mm, err := NewManager(ctx, bm)
+	if err != nil {
+		t.Fatalf("can't create manifest manager: %v", err)
+	}
+
+	return mm
 }
 
 func TestManifestInvalidPut(t *testing.T) {
 	ctx := context.Background()
 	data := blobtesting.DataMap{}
-	mgr, setupErr := newManagerForTesting(ctx, t, data)
-	if setupErr != nil {
-		t.Fatalf("unable to open block manager: %v", setupErr)
-	}
+	mgr := newManagerForTesting(ctx, t, data)
 
 	cases := []struct {
 		labels        map[string]string
@@ -311,10 +308,7 @@ func TestManifestAutoCompaction(t *testing.T) {
 	data := blobtesting.DataMap{}
 
 	for i := 0; i < 100; i++ {
-		mgr, setupErr := newManagerForTesting(ctx, t, data)
-		if setupErr != nil {
-			t.Fatalf("unable to open block manager: %v", setupErr)
-		}
+		mgr := newManagerForTesting(ctx, t, data)
 
 		item1 := map[string]int{"foo": 1, "bar": 2}
 		labels1 := map[string]string{"type": "item", "color": "red"}

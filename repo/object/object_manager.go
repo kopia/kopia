@@ -9,7 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/content"
 )
 
 // ErrObjectNotFound is returned when an object cannot be found.
@@ -23,23 +23,23 @@ type Reader interface {
 	Length() int64
 }
 
-type blockManager interface {
-	BlockInfo(ctx context.Context, blockID string) (block.Info, error)
-	GetBlock(ctx context.Context, blockID string) ([]byte, error)
-	WriteBlock(ctx context.Context, data []byte, prefix string) (string, error)
+type contentManager interface {
+	ContentInfo(ctx context.Context, contentID content.ID) (content.Info, error)
+	GetContent(ctx context.Context, contentID content.ID) ([]byte, error)
+	WriteContent(ctx context.Context, data []byte, prefix content.ID) (content.ID, error)
 }
 
 // Format describes the format of objects in a repository.
 type Format struct {
-	Splitter string `json:"splitter,omitempty"` // splitter used to break objects into storage blocks
+	Splitter string `json:"splitter,omitempty"` // splitter used to break objects into pieces of content
 }
 
 // Manager implements a content-addressable storage on top of blob storage.
 type Manager struct {
 	Format Format
 
-	blockMgr blockManager
-	trace    func(message string, args ...interface{})
+	contentMgr contentManager
+	trace      func(message string, args ...interface{})
 
 	newSplitter func() Splitter
 }
@@ -86,19 +86,19 @@ func (om *Manager) Open(ctx context.Context, objectID ID) (Reader, error) {
 }
 
 // VerifyObject ensures that all objects backing ObjectID are present in the repository
-// and returns the total length of the object and storage blocks of which it is composed.
-func (om *Manager) VerifyObject(ctx context.Context, oid ID) (int64, []string, error) {
-	blocks := &blockTracker{}
-	l, err := om.verifyObjectInternal(ctx, oid, blocks)
+// and returns the total length of the object and content IDs of which it is composed.
+func (om *Manager) VerifyObject(ctx context.Context, oid ID) (int64, []content.ID, error) {
+	tracker := &contentIDTracker{}
+	l, err := om.verifyObjectInternal(ctx, oid, tracker)
 	if err != nil {
 		return 0, nil, err
 	}
 
-	return l, blocks.blockIDs(), nil
+	return l, tracker.contentIDs(), nil
 }
 
-func (om *Manager) verifyIndirectObjectInternal(ctx context.Context, indexObjectID ID, blocks *blockTracker) (int64, error) {
-	if _, err := om.verifyObjectInternal(ctx, indexObjectID, blocks); err != nil {
+func (om *Manager) verifyIndirectObjectInternal(ctx context.Context, indexObjectID ID, tracker *contentIDTracker) (int64, error) {
+	if _, err := om.verifyObjectInternal(ctx, indexObjectID, tracker); err != nil {
 		return 0, errors.Wrap(err, "unable to read index")
 	}
 	rd, err := om.Open(ctx, indexObjectID)
@@ -113,7 +113,7 @@ func (om *Manager) verifyIndirectObjectInternal(ctx context.Context, indexObject
 	}
 
 	for i, m := range seekTable {
-		l, err := om.verifyObjectInternal(ctx, m.Object, blocks)
+		l, err := om.verifyObjectInternal(ctx, m.Object, tracker)
 		if err != nil {
 			return 0, err
 		}
@@ -127,17 +127,17 @@ func (om *Manager) verifyIndirectObjectInternal(ctx context.Context, indexObject
 	return totalLength, nil
 }
 
-func (om *Manager) verifyObjectInternal(ctx context.Context, oid ID, blocks *blockTracker) (int64, error) {
+func (om *Manager) verifyObjectInternal(ctx context.Context, oid ID, tracker *contentIDTracker) (int64, error) {
 	if indexObjectID, ok := oid.IndexObjectID(); ok {
-		return om.verifyIndirectObjectInternal(ctx, indexObjectID, blocks)
+		return om.verifyIndirectObjectInternal(ctx, indexObjectID, tracker)
 	}
 
-	if blockID, ok := oid.BlockID(); ok {
-		p, err := om.blockMgr.BlockInfo(ctx, blockID)
+	if contentID, ok := oid.ContentID(); ok {
+		p, err := om.contentMgr.ContentInfo(ctx, contentID)
 		if err != nil {
 			return 0, err
 		}
-		blocks.addBlock(blockID)
+		tracker.addContentID(contentID)
 		return int64(p.Length), nil
 	}
 
@@ -153,12 +153,12 @@ type ManagerOptions struct {
 	Trace func(message string, args ...interface{})
 }
 
-// NewObjectManager creates an ObjectManager with the specified block manager and format.
-func NewObjectManager(ctx context.Context, bm blockManager, f Format, opts ManagerOptions) (*Manager, error) {
+// NewObjectManager creates an ObjectManager with the specified content manager and format.
+func NewObjectManager(ctx context.Context, bm contentManager, f Format, opts ManagerOptions) (*Manager, error) {
 	om := &Manager{
-		blockMgr: bm,
-		Format:   f,
-		trace:    nullTrace,
+		contentMgr: bm,
+		Format:     f,
+		trace:      nullTrace,
 	}
 
 	splitterID := f.Splitter
@@ -210,13 +210,13 @@ func (om *Manager) flattenListChunk(rawReader io.Reader) ([]indirectObjectEntry,
 }
 
 func (om *Manager) newRawReader(ctx context.Context, objectID ID) (Reader, error) {
-	if blockID, ok := objectID.BlockID(); ok {
-		payload, err := om.blockMgr.GetBlock(ctx, blockID)
-		if err == block.ErrBlockNotFound {
+	if contentID, ok := objectID.ContentID(); ok {
+		payload, err := om.contentMgr.GetContent(ctx, contentID)
+		if err == content.ErrContentNotFound {
 			return nil, ErrObjectNotFound
 		}
 		if err != nil {
-			return nil, errors.Wrap(err, "unexpected block error")
+			return nil, errors.Wrap(err, "unexpected content error")
 		}
 
 		return newObjectReaderWithData(payload), nil

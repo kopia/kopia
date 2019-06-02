@@ -11,7 +11,7 @@ import (
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/content"
 )
 
 const goroutineCount = 16
@@ -36,14 +36,14 @@ func TestStressBlockManager(t *testing.T) {
 func stressTestWithStorage(t *testing.T, st blob.Storage, duration time.Duration) {
 	ctx := context.Background()
 
-	openMgr := func() (*block.Manager, error) {
-		return block.NewManager(ctx, st, block.FormattingOptions{
+	openMgr := func() (*content.Manager, error) {
+		return content.NewManager(ctx, st, content.FormattingOptions{
 			Version:     1,
 			Hash:        "HMAC-SHA256-128",
 			Encryption:  "AES-256-CTR",
 			MaxPackSize: 20000000,
 			MasterKey:   []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
-		}, block.CachingOptions{}, nil)
+		}, content.CachingOptions{}, nil)
 	}
 
 	seed0 := time.Now().Nanosecond()
@@ -63,7 +63,7 @@ func stressTestWithStorage(t *testing.T, st blob.Storage, duration time.Duration
 	})
 }
 
-func stressWorker(ctx context.Context, t *testing.T, deadline time.Time, workerID int, openMgr func() (*block.Manager, error), seed int64) {
+func stressWorker(ctx context.Context, t *testing.T, deadline time.Time, workerID int, openMgr func() (*content.Manager, error), seed int64) {
 	src := rand.NewSource(seed)
 	rand := rand.New(src)
 
@@ -73,7 +73,7 @@ func stressWorker(ctx context.Context, t *testing.T, deadline time.Time, workerI
 	}
 
 	type writtenBlock struct {
-		contentID string
+		contentID content.ID
 		data      []byte
 	}
 
@@ -87,7 +87,7 @@ func stressWorker(ctx context.Context, t *testing.T, deadline time.Time, workerI
 			return
 		}
 		dataCopy := append([]byte{}, data...)
-		contentID, err := bm.WriteBlock(ctx, data, "")
+		contentID, err := bm.WriteContent(ctx, data, "")
 		if err != nil {
 			t.Errorf("err: %v", err)
 			return
@@ -117,9 +117,9 @@ func stressWorker(ctx context.Context, t *testing.T, deadline time.Time, workerI
 			pos := rand.Intn(len(workerBlocks))
 			previous := workerBlocks[pos]
 			//log.Printf("reading %v", previous.contentID)
-			d2, err := bm.GetBlock(ctx, previous.contentID)
+			d2, err := bm.GetContent(ctx, previous.contentID)
 			if err != nil {
-				t.Errorf("error verifying block %q: %v", previous.contentID, err)
+				t.Errorf("error verifying content %q: %v", previous.contentID, err)
 				return
 			}
 			if !reflect.DeepEqual(previous.data, d2) {

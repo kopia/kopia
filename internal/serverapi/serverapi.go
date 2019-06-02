@@ -3,17 +3,17 @@ package serverapi
 import (
 	"time"
 
-	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
 // StatusResponse is the response of 'status' HTTP API command.
 type StatusResponse struct {
-	ConfigFile      string                  `json:"configFile"`
-	CacheDir        string                  `json:"cacheDir"`
-	BlockFormatting block.FormattingOptions `json:"blockFormatting"`
-	Storage         string                  `json:"storage"`
+	ConfigFile      string                    `json:"configFile"`
+	CacheDir        string                    `json:"cacheDir"`
+	BlockFormatting content.FormattingOptions `json:"blockFormatting"`
+	Storage         string                    `json:"storage"`
 }
 
 // SourcesResponse is the response of 'sources' HTTP API command.

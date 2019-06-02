@@ -152,7 +152,7 @@ func RemovePolicy(ctx context.Context, rep *repo.Repository, si snapshot.SourceI
 }
 
 // GetPolicyByID gets the policy for a given unique ID or ErrPolicyNotFound if not found.
-func GetPolicyByID(ctx context.Context, rep *repo.Repository, id string) (*Policy, error) {
+func GetPolicyByID(ctx context.Context, rep *repo.Repository, id manifest.ID) (*Policy, error) {
 	p := &Policy{}
 	if err := rep.Manifests.Get(ctx, id, &p); err != nil {
 		if err == manifest.ErrNotFound {
@@ -187,7 +187,7 @@ func ListPolicies(ctx context.Context, rep *repo.Repository) ([]*Policy, error) 
 		}
 
 		pol.Labels = md.Labels
-		pol.Labels["id"] = id.ID
+		pol.Labels["id"] = string(id.ID)
 		policies = append(policies, pol)
 	}
 

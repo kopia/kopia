@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 )
@@ -23,7 +24,8 @@ func policyTargets(ctx context.Context, rep *repo.Repository, globalFlag *bool, 
 
 	var res []snapshot.SourceInfo
 	for _, ts := range *targetsFlag {
-		if t, err := policy.GetPolicyByID(ctx, rep, ts); err == nil {
+		// try loading policy by its manifest ID
+		if t, err := policy.GetPolicyByID(ctx, rep, manifest.ID(ts)); err == nil {
 			res = append(res, t.Target())
 			continue
 		}

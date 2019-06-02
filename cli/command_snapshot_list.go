@@ -12,6 +12,7 @@ import (
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
@@ -34,7 +35,7 @@ var (
 	maxResultsPerPath                = snapshotListCommand.Flag("max-results", "Maximum number of entries per source.").Default("100").Short('n').Int()
 )
 
-func findSnapshotsForSource(ctx context.Context, rep *repo.Repository, sourceInfo snapshot.SourceInfo) (manifestIDs []string, relPath string, err error) {
+func findSnapshotsForSource(ctx context.Context, rep *repo.Repository, sourceInfo snapshot.SourceInfo) (manifestIDs []manifest.ID, relPath string, err error) {
 	for len(sourceInfo.Path) > 0 {
 		list, err := snapshot.ListSnapshotManifests(ctx, rep, &sourceInfo)
 		if err != nil {
@@ -63,7 +64,7 @@ func findSnapshotsForSource(ctx context.Context, rep *repo.Repository, sourceInf
 	return nil, "", nil
 }
 
-func findManifestIDs(ctx context.Context, rep *repo.Repository, source string) ([]string, string, error) {
+func findManifestIDs(ctx context.Context, rep *repo.Repository, source string) ([]manifest.ID, string, error) {
 	if source == "" {
 		man, err := snapshot.ListSnapshotManifests(ctx, rep, nil)
 		return man, "", err
@@ -200,7 +201,7 @@ func outputManifestFromSingleSource(ctx context.Context, rep *repo.Repository, m
 		}
 
 		if *snapshotListShowItemID {
-			bits = append(bits, "manifest:"+m.ID)
+			bits = append(bits, "manifest:"+string(m.ID))
 		}
 		if *snapshotListShowHashCache {
 			bits = append(bits, "hashcache:"+m.HashCacheID.String())

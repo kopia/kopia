@@ -15,7 +15,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/repologging"
-	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/content"
 )
 
 var log = repologging.Logger("kopia/manifest")
@@ -23,33 +23,36 @@ var log = repologging.Logger("kopia/manifest")
 // ErrNotFound is returned when the metadata item is not found.
 var ErrNotFound = errors.New("not found")
 
-const manifestBlockPrefix = "m"
-const autoCompactionBlockCount = 16
+const manifestContentPrefix = "m"
+const autoCompactionContentCount = 16
 
-type blockManager interface {
-	GetBlock(ctx context.Context, blockID string) ([]byte, error)
-	WriteBlock(ctx context.Context, data []byte, prefix string) (string, error)
-	DeleteBlock(blockID string) error
-	ListBlocks(prefix string) ([]string, error)
+type contentManager interface {
+	GetContent(ctx context.Context, contentID content.ID) ([]byte, error)
+	WriteContent(ctx context.Context, data []byte, prefix content.ID) (content.ID, error)
+	DeleteContent(contentID content.ID) error
+	ListContents(prefix content.ID) ([]content.ID, error)
 	DisableIndexFlush()
 	EnableIndexFlush()
 	Flush(ctx context.Context) error
 }
 
+// ID is a unique identifier of a single manifest.
+type ID string
+
 // Manager organizes JSON manifests of various kinds, including snapshot manifests
 type Manager struct {
 	mu sync.Mutex
-	b  blockManager
+	b  contentManager
 
 	initialized    bool
-	pendingEntries map[string]*manifestEntry
+	pendingEntries map[ID]*manifestEntry
 
-	committedEntries  map[string]*manifestEntry
-	committedBlockIDs map[string]bool
+	committedEntries    map[ID]*manifestEntry
+	committedContentIDs map[content.ID]bool
 }
 
-// Put serializes the provided payload to JSON and persists it. Returns unique handle that represents the object.
-func (m *Manager) Put(ctx context.Context, labels map[string]string, payload interface{}) (string, error) {
+// Put serializes the provided payload to JSON and persists it. Returns unique identifier that represents the manifest.
+func (m *Manager) Put(ctx context.Context, labels map[string]string, payload interface{}) (ID, error) {
 	if labels["type"] == "" {
 		return "", errors.Errorf("'type' label is required")
 	}
@@ -71,7 +74,7 @@ func (m *Manager) Put(ctx context.Context, labels map[string]string, payload int
 	}
 
 	e := &manifestEntry{
-		ID:      hex.EncodeToString(random),
+		ID:      ID(hex.EncodeToString(random)),
 		ModTime: time.Now().UTC(),
 		Labels:  copyLabels(labels),
 		Content: b,
@@ -83,7 +86,7 @@ func (m *Manager) Put(ctx context.Context, labels map[string]string, payload int
 }
 
 // GetMetadata returns metadata about provided manifest item or ErrNotFound if the item can't be found.
-func (m *Manager) GetMetadata(ctx context.Context, id string) (*EntryMetadata, error) {
+func (m *Manager) GetMetadata(ctx context.Context, id ID) (*EntryMetadata, error) {
 	if err := m.ensureInitialized(ctx); err != nil {
 		return nil, err
 	}
@@ -110,7 +113,7 @@ func (m *Manager) GetMetadata(ctx context.Context, id string) (*EntryMetadata, e
 
 // Get retrieves the contents of the provided manifest item by deserializing it as JSON to provided object.
 // If the manifest is not found, returns ErrNotFound.
-func (m *Manager) Get(ctx context.Context, id string, data interface{}) error {
+func (m *Manager) Get(ctx context.Context, id ID, data interface{}) error {
 	if err := m.ensureInitialized(ctx); err != nil {
 		return err
 	}
@@ -128,7 +131,7 @@ func (m *Manager) Get(ctx context.Context, id string, data interface{}) error {
 }
 
 // GetRaw returns raw contents of the provided manifest (JSON bytes) or ErrNotFound if not found.
-func (m *Manager) GetRaw(ctx context.Context, id string) ([]byte, error) {
+func (m *Manager) GetRaw(ctx context.Context, id ID) ([]byte, error) {
 	if err := m.ensureInitialized(ctx); err != nil {
 		return nil, err
 	}
@@ -208,7 +211,7 @@ func (m *Manager) Flush(ctx context.Context) error {
 	return err
 }
 
-func (m *Manager) flushPendingEntriesLocked(ctx context.Context) (string, error) {
+func (m *Manager) flushPendingEntriesLocked(ctx context.Context) (content.ID, error) {
 	if len(m.pendingEntries) == 0 {
 		return "", nil
 	}
@@ -225,7 +228,7 @@ func (m *Manager) flushPendingEntriesLocked(ctx context.Context) (string, error)
 	mustSucceed(gz.Flush())
 	mustSucceed(gz.Close())
 
-	blockID, err := m.b.WriteBlock(ctx, buf.Bytes(), manifestBlockPrefix)
+	contentID, err := m.b.WriteContent(ctx, buf.Bytes(), manifestContentPrefix)
 	if err != nil {
 		return "", err
 	}
@@ -235,9 +238,9 @@ func (m *Manager) flushPendingEntriesLocked(ctx context.Context) (string, error)
 		delete(m.pendingEntries, e.ID)
 	}
 
-	m.committedBlockIDs[blockID] = true
+	m.committedContentIDs[contentID] = true
 
-	return blockID, nil
+	return contentID, nil
 }
 
 func mustSucceed(e error) {
@@ -247,7 +250,7 @@ func mustSucceed(e error) {
 }
 
 // Delete marks the specified manifest ID for deletion.
-func (m *Manager) Delete(ctx context.Context, id string) error {
+func (m *Manager) Delete(ctx context.Context, id ID) error {
 	if err := m.ensureInitialized(ctx); err != nil {
 		return err
 	}
@@ -264,53 +267,53 @@ func (m *Manager) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-// Refresh updates the committed blocks from the underlying storage.
+// Refresh updates the committed contents from the underlying storage.
 func (m *Manager) Refresh(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	return m.loadCommittedBlocksLocked(ctx)
+	return m.loadCommittedContentsLocked(ctx)
 }
 
-func (m *Manager) loadCommittedBlocksLocked(ctx context.Context) error {
-	log.Debugf("listing manifest blocks")
+func (m *Manager) loadCommittedContentsLocked(ctx context.Context) error {
+	log.Debugf("listing manifest contents")
 	for {
-		blocks, err := m.b.ListBlocks(manifestBlockPrefix)
+		contents, err := m.b.ListContents(manifestContentPrefix)
 		if err != nil {
-			return errors.Wrap(err, "unable to list manifest blocks")
+			return errors.Wrap(err, "unable to list manifest contents")
 		}
 
-		m.committedEntries = map[string]*manifestEntry{}
-		m.committedBlockIDs = map[string]bool{}
+		m.committedEntries = map[ID]*manifestEntry{}
+		m.committedContentIDs = map[content.ID]bool{}
 
-		log.Debugf("found %v manifest blocks", len(blocks))
-		err = m.loadManifestBlocks(ctx, blocks)
+		log.Debugf("found %v manifest contents", len(contents))
+		err = m.loadManifestContents(ctx, contents)
 		if err == nil {
 			// success
 			break
 		}
-		if err == blob.ErrBlobNotFound {
+		if err == content.ErrContentNotFound {
 			// try again, lost a race with another manifest manager which just did compaction
 			continue
 		}
-		return errors.Wrap(err, "unable to load manifest blocks")
+		return errors.Wrap(err, "unable to load manifest contents")
 	}
 
 	if err := m.maybeCompactLocked(ctx); err != nil {
-		return errors.Errorf("error auto-compacting blocks")
+		return errors.Errorf("error auto-compacting contents")
 	}
 
 	return nil
 }
 
-func (m *Manager) loadManifestBlocks(ctx context.Context, blockIDs []string) error {
+func (m *Manager) loadManifestContents(ctx context.Context, contentIDs []content.ID) error {
 	t0 := time.Now()
 
-	for _, b := range blockIDs {
-		m.committedBlockIDs[b] = true
+	for _, b := range contentIDs {
+		m.committedContentIDs[b] = true
 	}
 
-	manifests, err := m.loadBlocksInParallel(ctx, blockIDs)
+	manifests, err := m.loadContentsInParallel(ctx, contentIDs)
 	if err != nil {
 		return err
 	}
@@ -321,22 +324,22 @@ func (m *Manager) loadManifestBlocks(ctx context.Context, blockIDs []string) err
 		}
 	}
 
-	// after merging, remove blocks marked as deleted.
+	// after merging, remove contents marked as deleted.
 	for k, e := range m.committedEntries {
 		if e.Deleted {
 			delete(m.committedEntries, k)
 		}
 	}
 
-	log.Debugf("finished loading manifest blocks in %v.", time.Since(t0))
+	log.Debugf("finished loading manifest contents in %v.", time.Since(t0))
 
 	return nil
 }
 
-func (m *Manager) loadBlocksInParallel(ctx context.Context, blockIDs []string) ([]manifest, error) {
-	errors := make(chan error, len(blockIDs))
-	manifests := make(chan manifest, len(blockIDs))
-	ch := make(chan string, len(blockIDs))
+func (m *Manager) loadContentsInParallel(ctx context.Context, contentIDs []content.ID) ([]manifest, error) {
+	errors := make(chan error, len(contentIDs))
+	manifests := make(chan manifest, len(contentIDs))
+	ch := make(chan content.ID, len(contentIDs))
 	var wg sync.WaitGroup
 
 	for i := 0; i < 8; i++ {
@@ -346,21 +349,21 @@ func (m *Manager) loadBlocksInParallel(ctx context.Context, blockIDs []string) (
 
 			for blk := range ch {
 				t1 := time.Now()
-				man, err := m.loadManifestBlock(ctx, blk)
+				man, err := m.loadManifestContent(ctx, blk)
 
 				if err != nil {
 					errors <- err
-					log.Debugf("block %v failed to be loaded by worker %v in %v: %v.", blk, workerID, time.Since(t1), err)
+					log.Debugf("manifest content %v failed to be loaded by worker %v in %v: %v.", blk, workerID, time.Since(t1), err)
 				} else {
-					log.Debugf("block %v loaded by worker %v in %v.", blk, workerID, time.Since(t1))
+					log.Debugf("manifest content %v loaded by worker %v in %v.", blk, workerID, time.Since(t1))
 					manifests <- man
 				}
 			}
 		}(i)
 	}
 
-	// feed block IDs for goroutines
-	for _, b := range blockIDs {
+	// feed manifest content IDs for goroutines
+	for _, b := range contentIDs {
 		ch <- b
 	}
 	close(ch)
@@ -383,9 +386,9 @@ func (m *Manager) loadBlocksInParallel(ctx context.Context, blockIDs []string) (
 	return man, nil
 }
 
-func (m *Manager) loadManifestBlock(ctx context.Context, blockID string) (manifest, error) {
+func (m *Manager) loadManifestContent(ctx context.Context, contentID content.ID) (manifest, error) {
 	man := manifest{}
-	blk, err := m.b.GetBlock(ctx, blockID)
+	blk, err := m.b.GetContent(ctx, contentID)
 	if err != nil {
 		// do not wrap the error here, we want to propagate original ErrNotFound
 		// which causes a retry if we lose list/delete race.
@@ -394,17 +397,17 @@ func (m *Manager) loadManifestBlock(ctx context.Context, blockID string) (manife
 
 	gz, err := gzip.NewReader(bytes.NewReader(blk))
 	if err != nil {
-		return man, errors.Wrapf(err, "unable to unpack block %q", blockID)
+		return man, errors.Wrapf(err, "unable to unpack manifest data %q", contentID)
 	}
 
 	if err := json.NewDecoder(gz).Decode(&man); err != nil {
-		return man, errors.Wrapf(err, "unable to parse block %q", blockID)
+		return man, errors.Wrapf(err, "unable to parse manifest %q", contentID)
 	}
 
 	return man, nil
 }
 
-// Compact performs compaction of manifest blocks.
+// Compact performs compaction of manifest contents.
 func (m *Manager) Compact(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -413,26 +416,26 @@ func (m *Manager) Compact(ctx context.Context) error {
 }
 
 func (m *Manager) maybeCompactLocked(ctx context.Context) error {
-	if len(m.committedBlockIDs) < autoCompactionBlockCount {
+	if len(m.committedContentIDs) < autoCompactionContentCount {
 		return nil
 	}
 
-	log.Debugf("performing automatic compaction of %v blocks", len(m.committedBlockIDs))
+	log.Debugf("performing automatic compaction of %v contents", len(m.committedContentIDs))
 	if err := m.compactLocked(ctx); err != nil {
-		return errors.Wrap(err, "unable to compact manifest blocks")
+		return errors.Wrap(err, "unable to compact manifest contents")
 	}
 
 	if err := m.b.Flush(ctx); err != nil {
-		return errors.Wrap(err, "unable to flush blocks after auto-compaction")
+		return errors.Wrap(err, "unable to flush contents after auto-compaction")
 	}
 
 	return nil
 }
 
 func (m *Manager) compactLocked(ctx context.Context) error {
-	log.Debugf("compactLocked: pendingEntries=%v blockIDs=%v", len(m.pendingEntries), len(m.committedBlockIDs))
+	log.Debugf("compactLocked: pendingEntries=%v contentIDs=%v", len(m.pendingEntries), len(m.committedContentIDs))
 
-	if len(m.committedBlockIDs) == 1 && len(m.pendingEntries) == 0 {
+	if len(m.committedContentIDs) == 1 && len(m.pendingEntries) == 0 {
 		return nil
 	}
 
@@ -445,23 +448,23 @@ func (m *Manager) compactLocked(ctx context.Context) error {
 		m.pendingEntries[e.ID] = e
 	}
 
-	blockID, err := m.flushPendingEntriesLocked(ctx)
+	contentID, err := m.flushPendingEntriesLocked(ctx)
 	if err != nil {
 		return err
 	}
 
-	// add the newly-created block to the list, could be duplicate
-	for b := range m.committedBlockIDs {
-		if b == blockID {
-			// do not delete block that was just written.
+	// add the newly-created content to the list, could be duplicate
+	for b := range m.committedContentIDs {
+		if b == contentID {
+			// do not delete content that was just written.
 			continue
 		}
 
-		if err := m.b.DeleteBlock(b); err != nil {
-			return errors.Wrapf(err, "unable to delete block %q", b)
+		if err := m.b.DeleteContent(b); err != nil {
+			return errors.Wrapf(err, "unable to delete content %q", b)
 		}
 
-		delete(m.committedBlockIDs, b)
+		delete(m.committedContentIDs, b)
 	}
 
 	return nil
@@ -487,7 +490,7 @@ func (m *Manager) ensureInitialized(ctx context.Context) error {
 		return nil
 	}
 
-	if err := m.loadCommittedBlocksLocked(ctx); err != nil {
+	if err := m.loadCommittedContentsLocked(ctx); err != nil {
 		return err
 	}
 
@@ -503,13 +506,13 @@ func copyLabels(m map[string]string) map[string]string {
 	return r
 }
 
-// NewManager returns new manifest manager for the provided block manager.
-func NewManager(ctx context.Context, b blockManager) (*Manager, error) {
+// NewManager returns new manifest manager for the provided content manager.
+func NewManager(ctx context.Context, b contentManager) (*Manager, error) {
 	m := &Manager{
-		b:                 b,
-		pendingEntries:    map[string]*manifestEntry{},
-		committedEntries:  map[string]*manifestEntry{},
-		committedBlockIDs: map[string]bool{},
+		b:                   b,
+		pendingEntries:      map[ID]*manifestEntry{},
+		committedEntries:    map[ID]*manifestEntry{},
+		committedContentIDs: map[content.ID]bool{},
 	}
 
 	return m, nil

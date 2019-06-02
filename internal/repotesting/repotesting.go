@@ -11,7 +11,7 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/filesystem"
-	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/object"
 )
 
@@ -42,7 +42,7 @@ func (e *Environment) Setup(t *testing.T, opts ...func(*repo.NewRepositoryOption
 	}
 
 	opt := &repo.NewRepositoryOptions{
-		BlockFormat: block.FormattingOptions{
+		BlockFormat: content.FormattingOptions{
 			HMACSecret: []byte{},
 			Hash:       "HMAC-SHA256",
 			Encryption: "NONE",
@@ -121,8 +121,8 @@ func (e *Environment) MustReopen(t *testing.T) {
 	}
 }
 
-// VerifyStorageBlockCount verifies that the underlying storage contains the specified number of blocks.
-func (e *Environment) VerifyStorageBlockCount(t *testing.T, want int) {
+// VerifyBlobCount verifies that the underlying storage contains the specified number of blobs.
+func (e *Environment) VerifyBlobCount(t *testing.T, want int) {
 	var got int
 
 	_ = e.Repository.Blobs.ListBlobs(context.Background(), "", func(_ blob.Metadata) error {
@@ -131,6 +131,6 @@ func (e *Environment) VerifyStorageBlockCount(t *testing.T, want int) {
 	})
 
 	if got != want {
-		t.Errorf("got unexpected number of storage blocks: %v, wanted %v", got, want)
+		t.Errorf("got unexpected number of BLOBs: %v, wanted %v", got, want)
 	}
 }

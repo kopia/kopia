@@ -10,6 +10,7 @@ import (
 
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/snapshot"
 )
 
@@ -39,8 +40,8 @@ func TestSnapshotsAPI(t *testing.T) {
 		Description: "some-description",
 	}
 	id1 := mustSaveSnapshot(t, env.Repository, manifest1)
-	verifySnapshotManifestIDs(t, env.Repository, nil, []string{id1})
-	verifySnapshotManifestIDs(t, env.Repository, &src1, []string{id1})
+	verifySnapshotManifestIDs(t, env.Repository, nil, []manifest.ID{id1})
+	verifySnapshotManifestIDs(t, env.Repository, &src1, []manifest.ID{id1})
 	verifySnapshotManifestIDs(t, env.Repository, &src2, nil)
 	verifyListSnapshots(t, env.Repository, src1, []*snapshot.Manifest{manifest1})
 
@@ -52,8 +53,8 @@ func TestSnapshotsAPI(t *testing.T) {
 	if id1 == id2 {
 		t.Errorf("expected different manifest IDs, got same: %v", id1)
 	}
-	verifySnapshotManifestIDs(t, env.Repository, nil, []string{id1, id2})
-	verifySnapshotManifestIDs(t, env.Repository, &src1, []string{id1, id2})
+	verifySnapshotManifestIDs(t, env.Repository, nil, []manifest.ID{id1, id2})
+	verifySnapshotManifestIDs(t, env.Repository, &src1, []manifest.ID{id1, id2})
 	verifySnapshotManifestIDs(t, env.Repository, &src2, nil)
 
 	manifest3 := &snapshot.Manifest{
@@ -62,21 +63,21 @@ func TestSnapshotsAPI(t *testing.T) {
 	}
 
 	id3 := mustSaveSnapshot(t, env.Repository, manifest3)
-	verifySnapshotManifestIDs(t, env.Repository, nil, []string{id1, id2, id3})
-	verifySnapshotManifestIDs(t, env.Repository, &src1, []string{id1, id2})
-	verifySnapshotManifestIDs(t, env.Repository, &src2, []string{id3})
+	verifySnapshotManifestIDs(t, env.Repository, nil, []manifest.ID{id1, id2, id3})
+	verifySnapshotManifestIDs(t, env.Repository, &src1, []manifest.ID{id1, id2})
+	verifySnapshotManifestIDs(t, env.Repository, &src2, []manifest.ID{id3})
 	verifySources(t, env.Repository, src1, src2)
-	verifyLoadSnapshots(t, env.Repository, []string{id1, id2, id3}, []*snapshot.Manifest{manifest1, manifest2, manifest3})
+	verifyLoadSnapshots(t, env.Repository, []manifest.ID{id1, id2, id3}, []*snapshot.Manifest{manifest1, manifest2, manifest3})
 }
 
-func verifySnapshotManifestIDs(t *testing.T, rep *repo.Repository, src *snapshot.SourceInfo, expected []string) []string {
+func verifySnapshotManifestIDs(t *testing.T, rep *repo.Repository, src *snapshot.SourceInfo, expected []manifest.ID) []manifest.ID {
 	t.Helper()
 	res, err := snapshot.ListSnapshotManifests(context.Background(), rep, src)
 	if err != nil {
 		t.Errorf("error listing snapshot manifests: %v", err)
 	}
-	sort.Strings(res)
-	sort.Strings(expected)
+	sortManifestIDs(res)
+	sortManifestIDs(expected)
 	if !reflect.DeepEqual(res, expected) {
 		t.Errorf("unexpected manifests: %v, wanted %v", res, expected)
 		return expected
@@ -84,7 +85,13 @@ func verifySnapshotManifestIDs(t *testing.T, rep *repo.Repository, src *snapshot
 	return res
 }
 
-func mustSaveSnapshot(t *testing.T, rep *repo.Repository, man *snapshot.Manifest) string {
+func sortManifestIDs(s []manifest.ID) {
+	sort.Slice(s, func(i, j int) bool {
+		return s[i] < s[j]
+	})
+}
+
+func mustSaveSnapshot(t *testing.T, rep *repo.Repository, man *snapshot.Manifest) manifest.ID {
 	t.Helper()
 	id, err := snapshot.SaveSnapshot(context.Background(), rep, man)
 	if err != nil {
@@ -123,7 +130,7 @@ func verifyListSnapshots(t *testing.T, rep *repo.Repository, src snapshot.Source
 	}
 }
 
-func verifyLoadSnapshots(t *testing.T, rep *repo.Repository, ids []string, expected []*snapshot.Manifest) {
+func verifyLoadSnapshots(t *testing.T, rep *repo.Repository, ids []manifest.ID, expected []*snapshot.Manifest) {
 	got, err := snapshot.LoadSnapshots(context.Background(), rep, ids)
 	if err != nil {
 		t.Errorf("error loading manifests: %v", err)

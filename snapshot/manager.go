@@ -58,7 +58,7 @@ func ListSnapshots(ctx context.Context, rep *repo.Repository, si SourceInfo) ([]
 }
 
 // loadSnapshot loads and parses a snapshot with a given ID.
-func loadSnapshot(ctx context.Context, rep *repo.Repository, manifestID string) (*Manifest, error) {
+func loadSnapshot(ctx context.Context, rep *repo.Repository, manifestID manifest.ID) (*Manifest, error) {
 	sm := &Manifest{}
 	if err := rep.Manifests.Get(ctx, manifestID, sm); err != nil {
 		return nil, errors.Wrap(err, "unable to find manifest entries")
@@ -69,7 +69,7 @@ func loadSnapshot(ctx context.Context, rep *repo.Repository, manifestID string) 
 }
 
 // SaveSnapshot persists given snapshot manifest and returns manifest ID.
-func SaveSnapshot(ctx context.Context, rep *repo.Repository, manifest *Manifest) (string, error) {
+func SaveSnapshot(ctx context.Context, rep *repo.Repository, manifest *Manifest) (manifest.ID, error) {
 	if manifest.Source.Host == "" {
 		return "", errors.New("missing host")
 	}
@@ -89,13 +89,13 @@ func SaveSnapshot(ctx context.Context, rep *repo.Repository, manifest *Manifest)
 }
 
 // LoadSnapshots efficiently loads and parses a given list of snapshot IDs.
-func LoadSnapshots(ctx context.Context, rep *repo.Repository, names []string) ([]*Manifest, error) {
-	result := make([]*Manifest, len(names))
+func LoadSnapshots(ctx context.Context, rep *repo.Repository, manifestIDs []manifest.ID) ([]*Manifest, error) {
+	result := make([]*Manifest, len(manifestIDs))
 	sem := make(chan bool, 50)
 
-	for i, n := range names {
+	for i, n := range manifestIDs {
 		sem <- true
-		go func(i int, n string) {
+		go func(i int, n manifest.ID) {
 			defer func() { <-sem }()
 
 			m, err := loadSnapshot(ctx, rep, n)
@@ -123,7 +123,7 @@ func LoadSnapshots(ctx context.Context, rep *repo.Repository, names []string) ([
 }
 
 // ListSnapshotManifests returns the list of snapshot manifests for a given source or all sources if nil.
-func ListSnapshotManifests(ctx context.Context, rep *repo.Repository, src *SourceInfo) ([]string, error) {
+func ListSnapshotManifests(ctx context.Context, rep *repo.Repository, src *SourceInfo) ([]manifest.ID, error) {
 	labels := map[string]string{
 		"type": "snapshot",
 	}
@@ -139,8 +139,8 @@ func ListSnapshotManifests(ctx context.Context, rep *repo.Repository, src *Sourc
 	return entryIDs(entries), nil
 }
 
-func entryIDs(entries []*manifest.EntryMetadata) []string {
-	var ids []string
+func entryIDs(entries []*manifest.EntryMetadata) []manifest.ID {
+	var ids []manifest.ID
 	for _, e := range entries {
 		ids = append(ids, e.ID)
 	}

@@ -11,7 +11,7 @@ import (
 	"github.com/kopia/kopia/internal/repologging"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/logging"
-	"github.com/kopia/kopia/repo/block"
+	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
 )
@@ -75,20 +75,20 @@ func Open(ctx context.Context, configFile string, password string, options *Opti
 }
 
 // OpenWithConfig opens the repository with a given configuration, avoiding the need for a config file.
-func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, password string, options *Options, caching block.CachingOptions) (*Repository, error) {
-	log.Debugf("reading encrypted format block")
-	// Read cache block, potentially from cache.
-	fb, err := readAndCacheFormatBlockBytes(ctx, st, caching.CacheDirectory)
+func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, password string, options *Options, caching content.CachingOptions) (*Repository, error) {
+	log.Debugf("reading encrypted format blob")
+	// Read format blob, potentially from cache.
+	fb, err := readAndCacheFormatBlobBytes(ctx, st, caching.CacheDirectory)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to read format block")
+		return nil, errors.Wrap(err, "unable to read format blob")
 	}
 
-	f, err := parseFormatBlock(fb)
+	f, err := parseFormatBlob(fb)
 	if err != nil {
-		return nil, errors.Wrap(err, "can't parse format block")
+		return nil, errors.Wrap(err, "can't parse format blob")
 	}
 
-	fb, err = addFormatBlockChecksumAndLength(fb)
+	fb, err = addFormatBlobChecksumAndLength(fb)
 	if err != nil {
 		return nil, errors.Errorf("unable to add checksum")
 	}
@@ -110,39 +110,39 @@ func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		fo.MaxPackSize = 20 << 20 // 20 MB
 	}
 
-	log.Debugf("initializing block manager")
-	bm, err := block.NewManager(ctx, st, fo, caching, fb)
+	log.Debugf("initializing content-addressable storage manager")
+	cm, err := content.NewManager(ctx, st, fo, caching, fb)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to open block manager")
+		return nil, errors.Wrap(err, "unable to open content manager")
 	}
 
 	log.Debugf("initializing object manager")
-	om, err := object.NewObjectManager(ctx, bm, repoConfig.Format, options.ObjectManagerOptions)
+	om, err := object.NewObjectManager(ctx, cm, repoConfig.Format, options.ObjectManagerOptions)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open object manager")
 	}
 
 	log.Debugf("initializing manifest manager")
-	manifests, err := manifest.NewManager(ctx, bm)
+	manifests, err := manifest.NewManager(ctx, cm)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open manifests")
 	}
 
 	return &Repository{
-		Blocks:         bm,
+		Content:        cm,
 		Objects:        om,
 		Blobs:          st,
 		Manifests:      manifests,
 		CacheDirectory: caching.CacheDirectory,
 		UniqueID:       f.UniqueID,
 
-		formatBlock: f,
-		masterKey:   masterKey,
+		formatBlob: f,
+		masterKey:  masterKey,
 	}, nil
 }
 
 // SetCachingConfig changes caching configuration for a given repository config file.
-func SetCachingConfig(ctx context.Context, configFile string, opt block.CachingOptions) error {
+func SetCachingConfig(ctx context.Context, configFile string, opt content.CachingOptions) error {
 	configFile, err := filepath.Abs(configFile)
 	if err != nil {
 		return err
@@ -158,14 +158,14 @@ func SetCachingConfig(ctx context.Context, configFile string, opt block.CachingO
 		return errors.Wrap(err, "cannot open storage")
 	}
 
-	fb, err := readAndCacheFormatBlockBytes(ctx, st, "")
+	fb, err := readAndCacheFormatBlobBytes(ctx, st, "")
 	if err != nil {
-		return errors.Wrap(err, "can't read format block")
+		return errors.Wrap(err, "can't read format blob")
 	}
 
-	f, err := parseFormatBlock(fb)
+	f, err := parseFormatBlob(fb)
 	if err != nil {
-		return errors.Wrap(err, "can't parse format block")
+		return errors.Wrap(err, "can't parse format blob")
 	}
 
 	if err = setupCaching(configFile, lc, opt, f.UniqueID); err != nil {
@@ -184,7 +184,7 @@ func SetCachingConfig(ctx context.Context, configFile string, opt block.CachingO
 	return nil
 }
 
-func readAndCacheFormatBlockBytes(ctx context.Context, st blob.Storage, cacheDirectory string) ([]byte, error) {
+func readAndCacheFormatBlobBytes(ctx context.Context, st blob.Storage, cacheDirectory string) ([]byte, error) {
 	cachedFile := filepath.Join(cacheDirectory, "kopia.repository")
 	if cacheDirectory != "" {
 		b, err := ioutil.ReadFile(cachedFile)

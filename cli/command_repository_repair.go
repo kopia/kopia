@@ -12,20 +12,20 @@ import (
 var (
 	repairCommand = repositoryCommands.Command("repair", "Repairs respository.")
 
-	repairCommandRecoverFormatBlock       = repairCommand.Flag("recover-format", "Recover format block from a copy").Default("auto").Enum("auto", "yes", "no")
-	repairCommandRecoverFormatBlockPrefix = repairCommand.Flag("recover-format-block-prefix", "Prefix of file names").Default("p").String()
-	repairDryDrun                         = repairCommand.Flag("dry-run", "Do not modify repository").Short('n').Bool()
+	repairCommandRecoverFormatBlob       = repairCommand.Flag("recover-format", "Recover format blob from a copy").Default("auto").Enum("auto", "yes", "no")
+	repairCommandRecoverFormatBlobPrefix = repairCommand.Flag("recover-format-block-prefix", "Prefix of file names").Default("p").String()
+	repairDryDrun                        = repairCommand.Flag("dry-run", "Do not modify repository").Short('n').Bool()
 )
 
 func runRepairCommandWithStorage(ctx context.Context, st blob.Storage) error {
-	if err := maybeRecoverFormatBlock(ctx, st, *repairCommandRecoverFormatBlockPrefix); err != nil {
+	if err := maybeRecoverFormatBlob(ctx, st, *repairCommandRecoverFormatBlobPrefix); err != nil {
 		return err
 	}
 	return nil
 }
 
-func maybeRecoverFormatBlock(ctx context.Context, st blob.Storage, prefix string) error {
-	switch *repairCommandRecoverFormatBlock {
+func maybeRecoverFormatBlob(ctx context.Context, st blob.Storage, prefix string) error {
+	switch *repairCommandRecoverFormatBlob {
 	case "auto":
 		log.Infof("looking for format blob...")
 		if _, err := st.GetBlob(ctx, repo.FormatBlobID, 0, -1); err == nil {
@@ -37,15 +37,15 @@ func maybeRecoverFormatBlock(ctx context.Context, st blob.Storage, prefix string
 		return nil
 	}
 
-	return recoverFormatBlock(ctx, st, *repairCommandRecoverFormatBlockPrefix)
+	return recoverFormatBlob(ctx, st, *repairCommandRecoverFormatBlobPrefix)
 }
 
-func recoverFormatBlock(ctx context.Context, st blob.Storage, prefix string) error {
+func recoverFormatBlob(ctx context.Context, st blob.Storage, prefix string) error {
 	errSuccess := errors.New("success")
 
-	err := st.ListBlobs(ctx, blob.ID(*repairCommandRecoverFormatBlockPrefix), func(bi blob.Metadata) error {
-		log.Infof("looking for replica of format block in %v...", bi.BlobID)
-		if b, err := repo.RecoverFormatBlock(ctx, st, bi.BlobID, bi.Length); err == nil {
+	err := st.ListBlobs(ctx, blob.ID(*repairCommandRecoverFormatBlobPrefix), func(bi blob.Metadata) error {
+		log.Infof("looking for replica of format blob in %v...", bi.BlobID)
+		if b, err := repo.RecoverFormatBlob(ctx, st, bi.BlobID, bi.Length); err == nil {
 			if !*repairDryDrun {
 				if puterr := st.PutBlob(ctx, repo.FormatBlobID, b); puterr != nil {
 					return puterr
@@ -63,7 +63,7 @@ func recoverFormatBlock(ctx context.Context, st blob.Storage, prefix string) err
 	case errSuccess:
 		return nil
 	case nil:
-		return errors.New("could not find a replica of a format block")
+		return errors.New("could not find a replica of a format blob")
 	default:
 		return err
 	}
