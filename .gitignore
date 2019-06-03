@@ -11,4 +11,4 @@ dist/
 kopia
 kopia.exe
 Makefile.local.mk
-
+.linterr.txt

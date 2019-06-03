@@ -125,7 +125,7 @@ func (imd *Directory) addChild(e fs.Entry) {
 	imd.children.Sort()
 }
 
-func (imd *Directory) resolveSubdir(name string) (*Directory, string) {
+func (imd *Directory) resolveSubdir(name string) (parent *Directory, leaf string) {
 	parts := strings.Split(name, "/")
 	for _, n := range parts[0 : len(parts)-1] {
 		imd = imd.Subdir(n)

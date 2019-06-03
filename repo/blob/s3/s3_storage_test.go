@@ -20,8 +20,8 @@ import (
 // https://github.com/minio/minio-go
 const (
 	endpoint        = "play.minio.io:9000"
-	accessKeyID     = "Q3AM3UQ867SPQQA43P2F"
-	secretAccessKey = "zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG"
+	accessKeyID     = "Q3AM3UQ867SPQQA43P2F"                     //nolint:gosec
+	secretAccessKey = "zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG" //nolint:gosec
 	useSSL          = true
 
 	// the test takes a few seconds, delete stuff older than 1h to avoid accumulating cruft

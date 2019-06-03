@@ -41,7 +41,7 @@ func metadataHash(e fs.Entry, fileSize int64) uint64 {
 	return h.Sum64()
 }
 
-var errCancelled = errors.New("cancelled")
+var errCancelled = errors.New("canceled")
 
 // Uploader supports efficient uploading files and directories to repository.
 type Uploader struct {
@@ -73,7 +73,7 @@ type Uploader struct {
 
 	hashCacheCutoff time.Time
 	stats           snapshot.Stats
-	cancelled       int32
+	canceled        int32
 
 	progressMutex          sync.Mutex
 	nextProgressReportTime time.Time
@@ -83,14 +83,14 @@ type Uploader struct {
 	currentDirTotalSize    int64  // total # of bytes in current directory
 }
 
-// IsCancelled returns true if the upload is cancelled.
+// IsCancelled returns true if the upload is canceled.
 func (u *Uploader) IsCancelled() bool {
 	return u.cancelReason() != ""
 }
 
 func (u *Uploader) cancelReason() string {
-	if c := atomic.LoadInt32(&u.cancelled) != 0; c {
-		return "cancelled"
+	if c := atomic.LoadInt32(&u.canceled) != 0; c {
+		return "canceled"
 	}
 
 	if mub := u.MaxUploadBytes; mub > 0 && u.repo.Content.Stats().WrittenBytes > mub {
@@ -100,7 +100,7 @@ func (u *Uploader) cancelReason() string {
 	return ""
 }
 
-func (u *Uploader) uploadFileInternal(ctx context.Context, f fs.File, relativePath string) entryResult {
+func (u *Uploader) uploadFileInternal(ctx context.Context, f fs.File) entryResult {
 	file, err := f.Open(ctx)
 	if err != nil {
 		return entryResult{err: errors.Wrap(err, "unable to open file")}
@@ -112,7 +112,7 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, f fs.File, relativePa
 	})
 	defer writer.Close() //nolint:errcheck
 
-	written, err := u.copyWithProgress(relativePath, writer, file, 0, f.Size())
+	written, err := u.copyWithProgress(writer, file, 0, f.Size())
 	if err != nil {
 		return entryResult{err: err}
 	}
@@ -133,7 +133,7 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, f fs.File, relativePa
 	return entryResult{de: de, hash: metadataHash(fi2, written)}
 }
 
-func (u *Uploader) uploadSymlinkInternal(ctx context.Context, f fs.Symlink, relativePath string) entryResult {
+func (u *Uploader) uploadSymlinkInternal(ctx context.Context, f fs.Symlink) entryResult {
 	target, err := f.Readlink(ctx)
 	if err != nil {
 		return entryResult{err: errors.Wrap(err, "unable to read symlink")}
@@ -144,7 +144,7 @@ func (u *Uploader) uploadSymlinkInternal(ctx context.Context, f fs.Symlink, rela
 	})
 	defer writer.Close() //nolint:errcheck
 
-	written, err := u.copyWithProgress(relativePath, writer, bytes.NewBufferString(target), 0, f.Size())
+	written, err := u.copyWithProgress(writer, bytes.NewBufferString(target), 0, f.Size())
 	if err != nil {
 		return entryResult{err: err}
 	}
@@ -178,7 +178,7 @@ func (u *Uploader) addDirProgress(length int64) {
 	}
 }
 
-func (u *Uploader) copyWithProgress(path string, dst io.Writer, src io.Reader, completed int64, length int64) (int64, error) {
+func (u *Uploader) copyWithProgress(dst io.Writer, src io.Reader, completed, length int64) (int64, error) {
 	uploadBuf := make([]byte, 128*1024) // 128 KB buffer
 
 	var written int64
@@ -247,7 +247,7 @@ func newDirEntry(md fs.Entry, oid object.ID) *snapshot.DirEntry {
 
 // uploadFile uploads the specified File to the repository.
 func (u *Uploader) uploadFile(ctx context.Context, file fs.File) (*snapshot.DirEntry, error) {
-	res := u.uploadFileInternal(ctx, file, file.Name())
+	res := u.uploadFileInternal(ctx, file)
 	if res.err != nil {
 		return nil, res.err
 	}
@@ -393,8 +393,7 @@ func (u *Uploader) prepareWorkItems(ctx context.Context, dirRelativePath string,
 		// ... and whether file metadata is identical to the previous one.
 		computedHash := metadataHash(entry, entry.Size())
 
-		switch entry.(type) {
-		case fs.File:
+		if entry, ok := entry.(fs.File); ok {
 			u.stats.TotalFileCount++
 			u.stats.TotalFileSize += entry.Size()
 			summ.TotalFileCount++
@@ -431,7 +430,7 @@ func (u *Uploader) prepareWorkItems(ctx context.Context, dirRelativePath string,
 					entry:             entry,
 					entryRelativePath: entryRelativePath,
 					uploadFunc: func() entryResult {
-						return u.uploadSymlinkInternal(ctx, entry, entryRelativePath)
+						return u.uploadSymlinkInternal(ctx, entry)
 					},
 				})
 
@@ -441,7 +440,7 @@ func (u *Uploader) prepareWorkItems(ctx context.Context, dirRelativePath string,
 					entry:             entry,
 					entryRelativePath: entryRelativePath,
 					uploadFunc: func() entryResult {
-						return u.uploadFileInternal(ctx, entry, entryRelativePath)
+						return u.uploadFileInternal(ctx, entry)
 					},
 				})
 
@@ -606,7 +605,7 @@ func NewUploader(r *repo.Repository) *Uploader {
 
 // Cancel requests cancellation of an upload that's in progress. Will typically result in an incomplete snapshot.
 func (u *Uploader) Cancel() {
-	atomic.StoreInt32(&u.cancelled, 1)
+	atomic.StoreInt32(&u.canceled, 1)
 }
 
 // Upload uploads contents of the specified filesystem entry (file or directory) to the repository and returns snapshot.Manifest with statistics.

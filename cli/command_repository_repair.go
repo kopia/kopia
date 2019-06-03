@@ -18,13 +18,13 @@ var (
 )
 
 func runRepairCommandWithStorage(ctx context.Context, st blob.Storage) error {
-	if err := maybeRecoverFormatBlob(ctx, st, *repairCommandRecoverFormatBlobPrefix); err != nil {
+	if err := maybeRecoverFormatBlob(ctx, st); err != nil {
 		return err
 	}
 	return nil
 }
 
-func maybeRecoverFormatBlob(ctx context.Context, st blob.Storage, prefix string) error {
+func maybeRecoverFormatBlob(ctx context.Context, st blob.Storage) error {
 	switch *repairCommandRecoverFormatBlob {
 	case "auto":
 		log.Infof("looking for format blob...")
@@ -43,7 +43,7 @@ func maybeRecoverFormatBlob(ctx context.Context, st blob.Storage, prefix string)
 func recoverFormatBlob(ctx context.Context, st blob.Storage, prefix string) error {
 	errSuccess := errors.New("success")
 
-	err := st.ListBlobs(ctx, blob.ID(*repairCommandRecoverFormatBlobPrefix), func(bi blob.Metadata) error {
+	err := st.ListBlobs(ctx, blob.ID(prefix), func(bi blob.Metadata) error {
 		log.Infof("looking for replica of format blob in %v...", bi.BlobID)
 		if b, err := repo.RecoverFormatBlob(ctx, st, bi.BlobID, bi.Length); err == nil {
 			if !*repairDryDrun {

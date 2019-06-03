@@ -2,8 +2,8 @@ package content
 
 import (
 	"bytes"
+	cryptorand "crypto/rand"
 	"crypto/sha1"
-	"math/rand"
 	"testing"
 )
 
@@ -23,12 +23,12 @@ func TestFormatters(t *testing.T) {
 	secret := []byte("secret")
 
 	data := make([]byte, 100)
-	rand.Read(data)
+	cryptorand.Read(data) //nolint:errcheck
 	h0 := sha1.Sum(data)
 
 	for _, hashAlgo := range SupportedHashAlgorithms() {
 		for _, encryptionAlgo := range SupportedEncryptionAlgorithms() {
-			h, e, err := CreateHashAndEncryptor(FormattingOptions{
+			h, e, err := CreateHashAndEncryptor(&FormattingOptions{
 				HMACSecret: secret,
 				MasterKey:  make([]byte, 32),
 				Hash:       hashAlgo,

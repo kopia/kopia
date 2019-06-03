@@ -147,6 +147,8 @@ func (bm *Manager) DeleteContent(contentID ID) error {
 	return nil
 }
 
+//nolint:gocritic
+// We're intentionally passing "i" by value
 func (bm *Manager) setPendingContent(i Info) {
 	bm.packIndexBuilder.Add(i)
 	bm.currentPackItems[i.ID] = i
@@ -435,7 +437,7 @@ func (bm *Manager) loadPackIndexesUnlocked(ctx context.Context) ([]IndexBlobInfo
 		}
 
 		if i > 0 {
-			bm.listCache.deleteListCache(ctx)
+			bm.listCache.deleteListCache()
 			log.Debugf("encountered NOT_FOUND when loading, sleeping %v before retrying #%v", nextSleepTime, i)
 			time.Sleep(nextSleepTime)
 			nextSleepTime *= 2
@@ -514,8 +516,7 @@ func (bm *Manager) tryLoadPackIndexBlobsUnlocked(ctx context.Context, contents [
 }
 
 // unprocessedIndexBlobsUnlocked returns a closed channel filled with content IDs that are not in committedContents cache.
-func (bm *Manager) unprocessedIndexBlobsUnlocked(contents []IndexBlobInfo) (<-chan blob.ID, int64, error) {
-	var totalSize int64
+func (bm *Manager) unprocessedIndexBlobsUnlocked(contents []IndexBlobInfo) (resultCh <-chan blob.ID, totalSize int64, err error) {
 	ch := make(chan blob.ID, len(contents))
 	for _, c := range contents {
 		has, err := bm.committedContents.cache.hasIndexBlobID(c.BlobID)
@@ -615,7 +616,7 @@ func (bm *Manager) RewriteContent(ctx context.Context, contentID ID) error {
 		return err
 	}
 
-	data, err := bm.getContentContentsUnlocked(ctx, bi)
+	data, err := bm.getContentDataUnlocked(ctx, &bi)
 	if err != nil {
 		return err
 	}
@@ -663,7 +664,7 @@ func validatePrefix(prefix ID) error {
 func (bm *Manager) writePackFileNotLocked(ctx context.Context, packFile blob.ID, data []byte) error {
 	atomic.AddInt32(&bm.stats.WrittenContents, 1)
 	atomic.AddInt64(&bm.stats.WrittenBytes, int64(len(data)))
-	bm.listCache.deleteListCache(ctx)
+	bm.listCache.deleteListCache()
 	return bm.st.PutBlob(ctx, packFile, data)
 }
 
@@ -680,7 +681,7 @@ func (bm *Manager) encryptAndWriteContentNotLocked(ctx context.Context, data []b
 
 	atomic.AddInt32(&bm.stats.WrittenContents, 1)
 	atomic.AddInt64(&bm.stats.WrittenBytes, int64(len(data2)))
-	bm.listCache.deleteListCache(ctx)
+	bm.listCache.deleteListCache()
 	if err := bm.st.PutBlob(ctx, blobID, data2); err != nil {
 		return "", err
 	}
@@ -711,7 +712,7 @@ func (bm *Manager) GetContent(ctx context.Context, contentID ID) ([]byte, error)
 		return nil, ErrContentNotFound
 	}
 
-	return bm.getContentContentsUnlocked(ctx, bi)
+	return bm.getContentDataUnlocked(ctx, &bi)
 }
 
 func (bm *Manager) getContentInfo(contentID ID) (Info, error) {
@@ -786,7 +787,7 @@ func findPackContentsInUse(infos []Info) map[blob.ID]int {
 	return packUsage
 }
 
-func (bm *Manager) getContentContentsUnlocked(ctx context.Context, bi Info) ([]byte, error) {
+func (bm *Manager) getContentDataUnlocked(ctx context.Context, bi *Info) ([]byte, error) {
 	if bi.Payload != nil {
 		return cloneBytes(bi.Payload), nil
 	}
@@ -812,7 +813,7 @@ func (bm *Manager) getContentContentsUnlocked(ctx context.Context, bi Info) ([]b
 	return decrypted, nil
 }
 
-func (bm *Manager) decryptAndVerify(encrypted []byte, iv []byte) ([]byte, error) {
+func (bm *Manager) decryptAndVerify(encrypted, iv []byte) ([]byte, error) {
 	decrypted, err := bm.encryptor.Decrypt(encrypted, iv)
 	if err != nil {
 		return nil, errors.Wrap(err, "decrypt")
@@ -864,13 +865,13 @@ func getPackedContentIV(contentID ID) ([]byte, error) {
 }
 
 func getIndexBlobIV(s blob.ID) ([]byte, error) {
-	if p := strings.Index(string(s), "-"); p >= 0 {
+	if p := strings.Index(string(s), "-"); p >= 0 { // nolint:gocritic
 		s = s[0:p]
 	}
 	return hex.DecodeString(string(s[len(s)-(aes.BlockSize*2):]))
 }
 
-func (bm *Manager) verifyChecksum(data []byte, contentID []byte) error {
+func (bm *Manager) verifyChecksum(data, contentID []byte) error {
 	expected := bm.hasher(data)
 	expected = expected[len(expected)-aes.BlockSize:]
 	if !bytes.HasSuffix(contentID, expected) {
@@ -941,11 +942,11 @@ func listIndexBlobsFromStorage(ctx context.Context, st blob.Storage) ([]IndexBlo
 }
 
 // NewManager creates new content manager with given packing options and a formatter.
-func NewManager(ctx context.Context, st blob.Storage, f FormattingOptions, caching CachingOptions, repositoryFormatBytes []byte) (*Manager, error) {
+func NewManager(ctx context.Context, st blob.Storage, f *FormattingOptions, caching CachingOptions, repositoryFormatBytes []byte) (*Manager, error) {
 	return newManagerWithOptions(ctx, st, f, caching, time.Now, repositoryFormatBytes)
 }
 
-func newManagerWithOptions(ctx context.Context, st blob.Storage, f FormattingOptions, caching CachingOptions, timeNow func() time.Time, repositoryFormatBytes []byte) (*Manager, error) {
+func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOptions, caching CachingOptions, timeNow func() time.Time, repositoryFormatBytes []byte) (*Manager, error) {
 	if f.Version < minSupportedReadVersion || f.Version > currentWriteVersion {
 		return nil, errors.Errorf("can't handle repositories created using version %v (min supported %v, max supported %v)", f.Version, minSupportedReadVersion, maxSupportedReadVersion)
 	}
@@ -964,18 +965,15 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f FormattingOpt
 		return nil, errors.Wrap(err, "unable to initialize content cache")
 	}
 
-	listCache, err := newListCache(ctx, st, caching)
+	listCache, err := newListCache(st, caching)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to initialize list cache")
 	}
 
-	contentIndex, err := newCommittedContentIndex(caching)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to initialize committed content index")
-	}
+	contentIndex := newCommittedContentIndex(caching)
 
 	m := &Manager{
-		Format:                f,
+		Format:                *f,
 		timeNow:               timeNow,
 		flushPackIndexesAfter: timeNow().Add(flushPackIndexTimeout),
 		maxPackSize:           f.MaxPackSize,
@@ -1006,7 +1004,7 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f FormattingOpt
 	return m, nil
 }
 
-func CreateHashAndEncryptor(f FormattingOptions) (HashFunc, Encryptor, error) {
+func CreateHashAndEncryptor(f *FormattingOptions) (HashFunc, Encryptor, error) {
 	h, err := createHashFunc(f)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "unable to create hash")
@@ -1026,7 +1024,7 @@ func CreateHashAndEncryptor(f FormattingOptions) (HashFunc, Encryptor, error) {
 	return h, e, nil
 }
 
-func createHashFunc(f FormattingOptions) (HashFunc, error) {
+func createHashFunc(f *FormattingOptions) (HashFunc, error) {
 	h := hashFunctions[f.Hash]
 	if h == nil {
 		return nil, errors.Errorf("unknown hash function %v", f.Hash)
@@ -1044,7 +1042,7 @@ func createHashFunc(f FormattingOptions) (HashFunc, error) {
 	return hashFunc, nil
 }
 
-func createEncryptor(f FormattingOptions) (Encryptor, error) {
+func createEncryptor(f *FormattingOptions) (Encryptor, error) {
 	e := encryptors[f.Encryption]
 	if e == nil {
 		return nil, errors.Errorf("unknown encryption algorithm: %v", f.Encryption)

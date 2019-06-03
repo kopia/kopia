@@ -37,7 +37,7 @@ func stressTestWithStorage(t *testing.T, st blob.Storage, duration time.Duration
 	ctx := context.Background()
 
 	openMgr := func() (*content.Manager, error) {
-		return content.NewManager(ctx, st, content.FormattingOptions{
+		return content.NewManager(ctx, st, &content.FormattingOptions{
 			Version:     1,
 			Hash:        "HMAC-SHA256-128",
 			Encryption:  "AES-256-CTR",
@@ -57,15 +57,15 @@ func stressTestWithStorage(t *testing.T, st blob.Storage, duration time.Duration
 			i := i
 			t.Run(fmt.Sprintf("worker-%v", i), func(t *testing.T) {
 				t.Parallel()
-				stressWorker(ctx, t, deadline, i, openMgr, int64(seed0+i))
+				stressWorker(ctx, t, deadline, openMgr, int64(seed0+i))
 			})
 		}
 	})
 }
 
-func stressWorker(ctx context.Context, t *testing.T, deadline time.Time, workerID int, openMgr func() (*content.Manager, error), seed int64) {
+func stressWorker(ctx context.Context, t *testing.T, deadline time.Time, openMgr func() (*content.Manager, error), seed int64) {
 	src := rand.NewSource(seed)
-	rand := rand.New(src)
+	rnd := rand.New(src)
 
 	bm, err := openMgr()
 	if err != nil {
@@ -80,9 +80,9 @@ func stressWorker(ctx context.Context, t *testing.T, deadline time.Time, workerI
 	var workerBlocks []writtenBlock
 
 	for time.Now().Before(deadline) {
-		l := rand.Intn(30000)
+		l := rnd.Intn(30000)
 		data := make([]byte, l)
-		if _, err := rand.Read(data); err != nil {
+		if _, err := rnd.Read(data); err != nil {
 			t.Errorf("err: %v", err)
 			return
 		}
@@ -93,15 +93,15 @@ func stressWorker(ctx context.Context, t *testing.T, deadline time.Time, workerI
 			return
 		}
 
-		switch rand.Intn(20) {
+		switch rnd.Intn(20) {
 		case 0:
-			if err := bm.Flush(ctx); err != nil {
-				t.Errorf("flush error: %v", err)
+			if ferr := bm.Flush(ctx); ferr != nil {
+				t.Errorf("flush error: %v", ferr)
 				return
 			}
 		case 1:
-			if err := bm.Flush(ctx); err != nil {
-				t.Errorf("flush error: %v", err)
+			if ferr := bm.Flush(ctx); ferr != nil {
+				t.Errorf("flush error: %v", ferr)
 				return
 			}
 			bm, err = openMgr()
@@ -111,12 +111,10 @@ func stressWorker(ctx context.Context, t *testing.T, deadline time.Time, workerI
 			}
 		}
 
-		//log.Printf("wrote %v", contentID)
 		workerBlocks = append(workerBlocks, writtenBlock{contentID, dataCopy})
 		if len(workerBlocks) > 5 {
-			pos := rand.Intn(len(workerBlocks))
+			pos := rnd.Intn(len(workerBlocks))
 			previous := workerBlocks[pos]
-			//log.Printf("reading %v", previous.contentID)
 			d2, err := bm.GetContent(ctx, previous.contentID)
 			if err != nil {
 				t.Errorf("error verifying content %q: %v", previous.contentID, err)

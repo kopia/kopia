@@ -181,12 +181,6 @@ func flattenCommands(cmds []*kingpin.CmdModel) []*kingpin.CmdModel {
 		root.Commands = flattenChildren(c, nil, c.Hidden)
 	}
 
-	// for _, root := range result {
-	// 	sort.Slice(root.Commands, func(i, j int) bool {
-	// 		return root.Commands[i].FullCommand < root.Commands[j].FullCommand
-	// 	})
-	// }
-
 	return result
 }
 
@@ -212,7 +206,7 @@ func flattenChildren(cmd *kingpin.CmdModel, parentFlags []*kingpin.FlagModel, fo
 	return result
 }
 
-func generateSubcommands(w io.Writer, dir string, sectionTitle string, cmds []*kingpin.CmdModel, advanced bool) {
+func generateSubcommands(w io.Writer, dir, sectionTitle string, cmds []*kingpin.CmdModel, advanced bool) {
 	cmds = append([]*kingpin.CmdModel(nil), cmds...)
 	first := true
 	for _, c := range cmds {

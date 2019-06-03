@@ -19,6 +19,9 @@ import (
 const (
 	davStorageType       = "webdav"
 	fsStorageChunkSuffix = ".f"
+
+	defaultFilePerm = 0600
+	defaultDirPerm  = 0700
 )
 
 var (
@@ -64,8 +67,9 @@ func (d *davStorage) translateError(err error) error {
 		switch err.Err.Error() {
 		case "404":
 			return blob.ErrBlobNotFound
+		default:
+			return err
 		}
-		return err
 	default:
 		return err
 	}
@@ -135,13 +139,13 @@ func (d *davStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback fun
 func (d *davStorage) PutBlob(ctx context.Context, blobID blob.ID, data []byte) error {
 	dirPath, filePath := d.getDirPathAndFilePath(blobID)
 	tmpPath := fmt.Sprintf("%v-%v", filePath, rand.Int63())
-	if err := d.translateError(d.cli.Write(tmpPath, data, 0600)); err != nil {
+	if err := d.translateError(d.cli.Write(tmpPath, data, defaultFilePerm)); err != nil {
 		if err != blob.ErrBlobNotFound {
 			return err
 		}
 
-		d.cli.MkdirAll(dirPath, 0700) //nolint:errcheck
-		if err = d.translateError(d.cli.Write(tmpPath, data, 0600)); err != nil {
+		d.cli.MkdirAll(dirPath, defaultDirPerm) //nolint:errcheck
+		if err := d.translateError(d.cli.Write(tmpPath, data, defaultFilePerm)); err != nil {
 			return err
 		}
 	}
@@ -167,7 +171,7 @@ func (d *davStorage) getShardDirectory(blobID blob.ID) (string, blob.ID) {
 	return shardPath, blobID
 }
 
-func (d *davStorage) getDirPathAndFilePath(blobID blob.ID) (string, string) {
+func (d *davStorage) getDirPathAndFilePath(blobID blob.ID) (dirPath, filePath string) {
 	shardPath, blobID := d.getShardDirectory(blobID)
 	result := filepath.Join(shardPath, makeFileName(blobID))
 	return shardPath, result

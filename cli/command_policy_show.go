@@ -124,6 +124,7 @@ func printFilesPolicy(p *policy.Policy, parents []*policy.Policy) {
 		printStdout("  No ignore rules.\n")
 	}
 	for _, rule := range p.FilesPolicy.IgnoreRules {
+		rule := rule
 		printStdout("    %-30v %v\n", rule, getDefinitionPoint(parents, func(pol *policy.Policy) bool {
 			return containsString(pol.FilesPolicy.IgnoreRules, rule)
 		}))
@@ -132,6 +133,7 @@ func printFilesPolicy(p *policy.Policy, parents []*policy.Policy) {
 		printStdout("  Read ignore rules from files:\n")
 	}
 	for _, dotFile := range p.FilesPolicy.DotIgnoreFiles {
+		dotFile := dotFile
 		printStdout("    %-30v %v\n", dotFile, getDefinitionPoint(parents, func(pol *policy.Policy) bool {
 			return containsString(pol.FilesPolicy.DotIgnoreFiles, dotFile)
 		}))
@@ -155,6 +157,7 @@ func printSchedulingPolicy(p *policy.Policy, parents []*policy.Policy) {
 	if len(p.SchedulingPolicy.TimesOfDay) > 0 {
 		printStdout("Snapshot times:\n")
 		for _, tod := range p.SchedulingPolicy.TimesOfDay {
+			tod := tod
 			printStdout("  %9v                        %v\n", tod, getDefinitionPoint(parents, func(pol *policy.Policy) bool {
 				for _, t := range pol.SchedulingPolicy.TimesOfDay {
 					if t == tod {

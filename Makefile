@@ -16,7 +16,7 @@ play:
 	go run cmd/playground/main.go
 
 lint: $(LINTER_TOOL)
-	$(LINTER_TOOL) run
+	$(LINTER_TOOL) --deadline 180s run | tee .linterr.txt
 
 vet:
 	go vet -all .

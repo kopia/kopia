@@ -121,7 +121,7 @@ func jsonEqual(v1, v2 interface{}) bool {
 	return prettyJSON(v1) == prettyJSON(v2)
 }
 
-func insertHelpText(s string, lookFor string, help string) string {
+func insertHelpText(s, lookFor, help string) string {
 	p := strings.Index(s, lookFor)
 	if p < 0 {
 		return s

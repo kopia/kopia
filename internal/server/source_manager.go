@@ -38,11 +38,11 @@ type sourceManager struct {
 	uploadPathTotal     int64
 }
 
-func (s *sourceManager) Status() serverapi.SourceStatus {
+func (s *sourceManager) Status() *serverapi.SourceStatus {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	st := serverapi.SourceStatus{
+	st := &serverapi.SourceStatus{
 		Source:           s.src,
 		Status:           s.state,
 		LastSnapshotSize: s.lastSnapshot.Stats.TotalFileSize,

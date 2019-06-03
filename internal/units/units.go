@@ -12,12 +12,12 @@ func niceNumber(f float64) string {
 	return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.1f", f), "0"), ".")
 }
 
-func toDecimalUnitString(f float64, thousand float64, prefixes []string, suffix string) string {
+func toDecimalUnitString(f, thousand float64, prefixes []string, suffix string) string {
 	for i := range prefixes {
 		if f < 0.9*thousand {
 			return fmt.Sprintf("%v %v%v", niceNumber(f), prefixes[i], suffix)
 		}
-		f = f / thousand
+		f /= thousand
 	}
 
 	return fmt.Sprintf("%v %v%v", niceNumber(f), prefixes[len(prefixes)-1], suffix)

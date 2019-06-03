@@ -40,7 +40,7 @@ var splitterFactories = map[string]SplitterFactory{
 	// handle deprecated legacy names to splitters of arbitrary size
 	"FIXED": newFixedSplitterFactory(4 << 20),
 
-	// we don't want to use old DYNAMIC splitter because of its licence, so
+	// we don't want to use old DYNAMIC splitter because of its license, so
 	// map this one to arbitrary buzhash32 (different)
 	"DYNAMIC": newBuzHash32SplitterFactory(megabytes(4)),
 }

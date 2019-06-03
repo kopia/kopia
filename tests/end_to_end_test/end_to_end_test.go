@@ -1,6 +1,7 @@
 package endtoend_test
 
 import (
+	cryptorand "crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -17,7 +18,7 @@ import (
 	"github.com/kylelemons/godebug/pretty"
 )
 
-const repoPassword = "qWQPJ2hiiLgWRRCr"
+const repoPassword = "qWQPJ2hiiLgWRRCr" // nolint:gosec
 
 type testenv struct {
 	repoDir   string
@@ -392,7 +393,7 @@ func mustParseSnapshots(t *testing.T, lines []string) []sourceInfo {
 
 func randomName() string {
 	b := make([]byte, rand.Intn(10)+3)
-	rand.Read(b)
+	cryptorand.Read(b) // nolint:errcheck
 	return hex.EncodeToString(b)
 }
 

@@ -31,7 +31,7 @@ func (r *RetentionPolicy) ComputeRetentionReasons(manifests []*snapshot.Manifest
 		return maxTime
 	}
 
-	cutoff := cutoffTimes{
+	cutoff := &cutoffTimes{
 		annual:  cutoffTime(r.KeepAnnual, yearsAgo),
 		monthly: cutoffTime(r.KeepMonthly, monthsAgo),
 		daily:   cutoffTime(r.KeepDaily, daysAgo),
@@ -51,7 +51,7 @@ func (r *RetentionPolicy) ComputeRetentionReasons(manifests []*snapshot.Manifest
 	}
 }
 
-func (r *RetentionPolicy) getRetentionReasons(i int, s *snapshot.Manifest, cutoff cutoffTimes, ids map[string]bool, idCounters map[string]int) []string {
+func (r *RetentionPolicy) getRetentionReasons(i int, s *snapshot.Manifest, cutoff *cutoffTimes, ids map[string]bool, idCounters map[string]int) []string {
 	if s.IncompleteReason != "" {
 		return nil
 	}

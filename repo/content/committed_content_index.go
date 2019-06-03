@@ -120,7 +120,7 @@ func (b *committedContentIndex) use(packFiles []blob.ID) (bool, error) {
 	return true, nil
 }
 
-func newCommittedContentIndex(caching CachingOptions) (*committedContentIndex, error) {
+func newCommittedContentIndex(caching CachingOptions) *committedContentIndex {
 	var cache committedContentIndexCache
 
 	if caching.CacheDirectory != "" {
@@ -135,5 +135,5 @@ func newCommittedContentIndex(caching CachingOptions) (*committedContentIndex, e
 	return &committedContentIndex{
 		cache: cache,
 		inUse: map[blob.ID]packIndex{},
-	}, nil
+	}
 }

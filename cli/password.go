@@ -40,7 +40,7 @@ func mustAskForExistingRepositoryPassword() string {
 	return p1
 }
 
-func mustGetPasswordFromFlags(isNew bool, allowPersistent bool) string {
+func mustGetPasswordFromFlags(isNew, allowPersistent bool) string {
 	if !isNew && allowPersistent {
 		pass, ok := getPersistedPassword(repositoryConfigFileName(), getUserName())
 		if ok {
@@ -66,7 +66,7 @@ func askPass(prompt string) (string, error) {
 			return "", err
 		}
 
-		if len(p) == 0 {
+		if p == "" {
 			continue
 		}
 
@@ -76,7 +76,7 @@ func askPass(prompt string) (string, error) {
 	return "", errors.New("can't get password")
 }
 
-func getPersistedPassword(configFile string, username string) (string, bool) {
+func getPersistedPassword(configFile, username string) (string, bool) {
 	if *keyringEnabled {
 		kr, err := keyring.Get(getKeyringItemID(configFile), username)
 		if err == nil {
@@ -98,7 +98,7 @@ func getPersistedPassword(configFile string, username string) (string, bool) {
 	return "", false
 }
 
-func persistPassword(configFile string, username string, password string) error {
+func persistPassword(configFile, username, password string) error {
 	if *keyringEnabled {
 		log.Debugf("saving password to OS keyring...")
 		err := keyring.Set(getKeyringItemID(configFile), username, password)
@@ -116,7 +116,7 @@ func persistPassword(configFile string, username string, password string) error 
 	return ioutil.WriteFile(fn, []byte(base64.StdEncoding.EncodeToString([]byte(password))), 0600)
 }
 
-func deletePassword(configFile string, username string) {
+func deletePassword(configFile, username string) {
 	// delete from both keyring and a file
 	if *keyringEnabled {
 		err := keyring.Delete(getKeyringItemID(configFile), username)

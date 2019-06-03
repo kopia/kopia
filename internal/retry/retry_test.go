@@ -41,8 +41,8 @@ func TestRetry(t *testing.T) {
 	}
 
 	for _, tc := range cases {
+		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
-			tc := tc
 			t.Parallel()
 
 			got, err := WithExponentialBackoff(tc.desc, tc.f, isRetriable)

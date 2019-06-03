@@ -14,7 +14,7 @@ type Matcher func(path string, isDir bool) bool
 type nameMatcher func(path string) bool
 
 // ParseGitIgnore returns a Matcher for a given gitignore-formatted pattern.
-func ParseGitIgnore(baseDir string, pattern string) (Matcher, error) {
+func ParseGitIgnore(baseDir, pattern string) (Matcher, error) {
 	if !strings.HasSuffix(baseDir, "/") {
 		baseDir += "/"
 	}

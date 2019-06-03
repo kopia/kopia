@@ -120,7 +120,7 @@ func (s *Server) endUpload(src snapshot.SourceInfo) {
 
 // New creates a Server on top of a given Repository.
 // The server will manage sources for a given username@hostname.
-func New(ctx context.Context, rep *repo.Repository, hostname string, username string) (*Server, error) {
+func New(ctx context.Context, rep *repo.Repository, hostname, username string) (*Server, error) {
 	s := &Server{
 		hostname:        hostname,
 		username:        username,

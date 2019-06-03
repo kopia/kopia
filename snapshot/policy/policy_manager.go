@@ -23,7 +23,7 @@ var log = kopialogging.Logger("kopia/snapshot/policy")
 // GetEffectivePolicy calculates effective snapshot policy for a given source by combining the source-specifc policy (if any)
 // with parent policies. The source must contain a path.
 // Returns the effective policies and all source policies that contributed to that (most specific first).
-func GetEffectivePolicy(ctx context.Context, rep *repo.Repository, si snapshot.SourceInfo) (*Policy, []*Policy, error) {
+func GetEffectivePolicy(ctx context.Context, rep *repo.Repository, si snapshot.SourceInfo) (effective *Policy, sources []*Policy, e error) {
 	var md []*manifest.EntryMetadata
 
 	// Find policies applying to paths all the way up to the root.

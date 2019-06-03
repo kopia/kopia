@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/rand"
-	"reflect"
 	"runtime/debug"
 	"sync"
 	"testing"
@@ -122,18 +121,18 @@ func TestWriters(t *testing.T) {
 	}
 }
 
-func objectIDsEqual(o1 ID, o2 ID) bool {
-	return reflect.DeepEqual(o1, o2)
+func objectIDsEqual(o1, o2 ID) bool {
+	return o1 == o2
 }
 
 func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	ctx := context.Background()
 	_, om := setupTest(t)
 
-	bytes := make([]byte, 100)
+	b := make([]byte, 100)
 	writer := om.NewWriter(ctx, WriterOptions{})
-	writer.Write(bytes[0:50]) //nolint:errcheck
-	writer.Write(bytes[0:50]) //nolint:errcheck
+	writer.Write(b[0:50]) //nolint:errcheck
+	writer.Write(b[0:50]) //nolint:errcheck
 	result, err := writer.Result()
 	if !objectIDsEqual(result, "cd00e292c5970d3c5e2f0ffa5171e555bc46bfc4faddfb4a418b6840b86e79a3") {
 		t.Errorf("unexpected result: %v err: %v", result, err)
@@ -229,12 +228,12 @@ func indirectionLevel(oid ID) int {
 
 func TestHMAC(t *testing.T) {
 	ctx := context.Background()
-	content := bytes.Repeat([]byte{0xcd}, 50)
+	c := bytes.Repeat([]byte{0xcd}, 50)
 
 	_, om := setupTest(t)
 
 	w := om.NewWriter(ctx, WriterOptions{})
-	w.Write(content) //nolint:errcheck
+	w.Write(c) //nolint:errcheck
 	result, err := w.Result()
 	if result.String() != "cad29ff89951a3c085c86cb7ed22b82b51f7bdfda24f932c7f9601f51d5975ba" {
 		t.Errorf("unexpected result: %v err: %v", result.String(), err)
@@ -326,6 +325,7 @@ func verify(ctx context.Context, t *testing.T, om *Manager, objectID ID, expecte
 		return
 	}
 
+	// nolint:dupl
 	for i := 0; i < 20; i++ {
 		sampleSize := int(rand.Int31n(300))
 		seekOffset := int(rand.Int31n(int32(len(expectedData))))

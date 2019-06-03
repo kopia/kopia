@@ -2,6 +2,7 @@ package repositorystress_test
 
 import (
 	"context"
+	cryptorand "crypto/rand"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -21,7 +22,7 @@ import (
 	"github.com/kopia/kopia/repo/content"
 )
 
-const masterPassword = "foo-bar-baz-1234"
+const masterPassword = "foo-bar-baz-1234" // nolint:gosec
 
 var (
 	knownBlocks      []content.ID
@@ -151,7 +152,7 @@ func repositoryTest(ctx context.Context, t *testing.T, cancel chan struct{}, rep
 		weight   int
 		hitCount int
 	}{
-		//{"reopen", reopen, 1, 0},
+		// {"reopen", reopen, 1, 0},
 		{"writeRandomBlock", writeRandomBlock, 100, 0},
 		{"writeRandomManifest", writeRandomManifest, 100, 0},
 		{"readKnownBlock", readKnownBlock, 500, 0},
@@ -190,7 +191,6 @@ func repositoryTest(ctx context.Context, t *testing.T, cancel chan struct{}, rep
 		for _, w := range workTypes {
 			if roulette < w.weight {
 				w.hitCount++
-				//log.Printf("running %v", w.name)
 				if err := w.fun(ctx, t, rep); err != nil {
 					w.hitCount++
 					t.Errorf("error: %v", errors.Wrapf(err, "error running %v", w.name))
@@ -207,7 +207,7 @@ func repositoryTest(ctx context.Context, t *testing.T, cancel chan struct{}, rep
 
 func writeRandomBlock(ctx context.Context, t *testing.T, r *repo.Repository) error {
 	data := make([]byte, 1000)
-	rand.Read(data)
+	cryptorand.Read(data) //nolint:errcheck
 	contentID, err := r.Content.WriteContent(ctx, data, "")
 	if err == nil {
 		knownBlocksMutex.Lock()

@@ -49,7 +49,10 @@ func (r *objectReader) Read(buffer []byte) (int, error) {
 			r.currentPosition += int64(toCopy)
 			readBytes += toCopy
 			remaining -= toCopy
-		} else if r.currentChunkIndex < len(r.seekTable) {
+			continue
+		}
+
+		if r.currentChunkIndex < len(r.seekTable) {
 			err := r.openCurrentChunk()
 			if err != nil {
 				return 0, err

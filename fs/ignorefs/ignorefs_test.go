@@ -210,6 +210,7 @@ func TestIgnoreFS(t *testing.T) {
 	}
 
 	for _, tc := range cases {
+		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
 			root := setupFilesystem()
 			originalFiles := walkTree(t, root)
@@ -260,8 +261,8 @@ func walkTree(t *testing.T, dir fs.Directory) []string {
 		for _, e := range entries {
 			relPath := path + "/" + e.Name()
 
-			if dir, ok := e.(fs.Directory); ok {
-				if err := walk(relPath, dir); err != nil {
+			if subdir, ok := e.(fs.Directory); ok {
+				if err := walk(relPath, subdir); err != nil {
 					return err
 				}
 			} else {

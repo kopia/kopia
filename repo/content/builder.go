@@ -15,6 +15,7 @@ import (
 type packIndexBuilder map[ID]*Info
 
 // Add adds a new entry to the builder or conditionally replaces it if the timestamp is greater.
+// nolint:gocritic
 func (b packIndexBuilder) Add(i Info) {
 	old, ok := b[i.ID]
 	if !ok || i.TimestampSeconds >= old.TimestampSeconds {

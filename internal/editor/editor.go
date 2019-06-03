@@ -19,8 +19,8 @@ var log = kopialogging.Logger("editor")
 
 // EditLoop launches OS-specific editor (VI, notepad.exe or anoter editor configured through environment variables)
 // It creates a temporary file with 'initial' contents and repeatedly invokes the editor until the provided 'parse' function
-// returns nil result indicating success. The 'parse' function is passed the contents of edited files without # line commments.
-func EditLoop(fname string, initial string, parse func(updated string) error) error {
+// returns nil result indicating success. The 'parse' function is passed the contents of edited files without # line comments.
+func EditLoop(fname, initial string, parse func(updated string) error) error {
 	tmpDir, err := ioutil.TempDir("", "kopia")
 	if err != nil {
 		return err
@@ -99,7 +99,7 @@ func editFile(file string) error {
 	return nil
 }
 
-func getEditorCommand() (string, []string) {
+func getEditorCommand() (cmd string, args []string) {
 	editor := os.Getenv("VISUAL")
 	if editor == "" {
 		editor = os.Getenv("EDITOR")
@@ -116,7 +116,7 @@ func getEditorCommand() (string, []string) {
 	return "vi", nil
 }
 
-func parseEditor(s string) (string, []string) {
+func parseEditor(s string) (cmd string, args []string) {
 	// quoted editor path
 	if s[0] == '"' {
 		p := strings.Index(s[1:], "\"")

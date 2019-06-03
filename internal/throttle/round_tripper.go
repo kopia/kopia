@@ -31,7 +31,7 @@ func (rt *throttlingRoundTripper) RoundTrip(req *http.Request) (*http.Response, 
 }
 
 // NewRoundTripper returns http.RoundTripper that throttles upload and downloads.
-func NewRoundTripper(base http.RoundTripper, downloadPool throttlerPool, uploadPool throttlerPool) http.RoundTripper {
+func NewRoundTripper(base http.RoundTripper, downloadPool, uploadPool throttlerPool) http.RoundTripper {
 	if base == nil {
 		base = http.DefaultTransport
 	}

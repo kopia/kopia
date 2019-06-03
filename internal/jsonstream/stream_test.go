@@ -23,13 +23,14 @@ func TestStream(t *testing.T) {
 	var buf bytes.Buffer
 
 	data := []TestObj{
-		TestObj{Name: "foo"},
-		TestObj{Name: "bar"},
-		TestObj{Name: "baz"},
+		{Name: "foo"},
+		{Name: "bar"},
+		{Name: "baz"},
 	}
 
 	w := NewWriter(&buf, testHeader1)
 	for _, d := range data {
+		d := d
 		if err := w.Write(&d); err != nil {
 			t.Errorf("write error: %v", err)
 		}
@@ -61,13 +62,14 @@ func TestStreamWithSummary(t *testing.T) {
 	var buf bytes.Buffer
 
 	data := []TestObj{
-		TestObj{Name: "foo"},
-		TestObj{Name: "bar"},
-		TestObj{Name: "baz"},
+		{Name: "foo"},
+		{Name: "bar"},
+		{Name: "baz"},
 	}
 
 	w := NewWriter(&buf, testHeader1)
 	for _, d := range data {
+		d := d
 		if err := w.Write(&d); err != nil {
 			t.Errorf("write error: %v", err)
 		}

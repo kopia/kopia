@@ -20,8 +20,7 @@ func ScrubSensitiveData(v reflect.Value) reflect.Value {
 			sf := v.Type().Field(i)
 
 			if sf.Tag.Get("kopia") == "sensitive" {
-				switch sf.Type.Kind() {
-				case reflect.String:
+				if sf.Type.Kind() == reflect.String {
 					res.Field(i).SetString(strings.Repeat("*", fv.Len()))
 				}
 			} else {

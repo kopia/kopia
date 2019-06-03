@@ -63,9 +63,9 @@ func TestContentIndexRecovery(t *testing.T) {
 	totalRecovered = 0
 
 	err = bm.st.ListBlobs(ctx, PackBlobIDPrefix, func(bi blob.Metadata) error {
-		infos, err := bm.RecoverIndexFromPackBlob(ctx, bi.BlobID, bi.Length, true)
-		if err != nil {
-			return err
+		infos, rerr := bm.RecoverIndexFromPackBlob(ctx, bi.BlobID, bi.Length, true)
+		if rerr != nil {
+			return rerr
 		}
 		totalRecovered += len(infos)
 		log.Debugf("recovered %v contents", len(infos))

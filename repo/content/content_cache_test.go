@@ -148,8 +148,8 @@ func verifyContentCache(t *testing.T, cache *contentCache) {
 		// corrupt the data and write back
 		d[0] ^= 1
 
-		if err := cache.cacheStorage.PutBlob(ctx, cacheKey, d); err != nil {
-			t.Fatalf("unable to write corrupted content: %v", err)
+		if puterr := cache.cacheStorage.PutBlob(ctx, cacheKey, d); puterr != nil {
+			t.Fatalf("unable to write corrupted content: %v", puterr)
 		}
 
 		v, err := cache.getContentContent(ctx, "xf0f0f1", "content-1", 1, 5)

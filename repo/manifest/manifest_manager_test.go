@@ -118,7 +118,7 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
 
-	f := content.FormattingOptions{
+	f := &content.FormattingOptions{
 		Hash:        "HMAC-SHA256-128",
 		Encryption:  "NONE",
 		MaxPackSize: 100000,
@@ -180,6 +180,7 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 	}
 
 	for _, tc := range cases {
+		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
 			err := tc.f()
 			if err == nil || !strings.Contains(err.Error(), "invalid checksum") {
@@ -263,7 +264,7 @@ func sortIDs(s []ID) {
 func newManagerForTesting(ctx context.Context, t *testing.T, data blobtesting.DataMap) *Manager {
 	st := blobtesting.NewMapStorage(data, nil, nil)
 
-	bm, err := content.NewManager(ctx, st, content.FormattingOptions{
+	bm, err := content.NewManager(ctx, st, &content.FormattingOptions{
 		Hash:        "HMAC-SHA256-128",
 		Encryption:  "NONE",
 		MaxPackSize: 100000,

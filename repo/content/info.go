@@ -22,6 +22,6 @@ type Info struct {
 }
 
 // Timestamp returns the time when a content was created or deleted.
-func (i Info) Timestamp() time.Time {
+func (i *Info) Timestamp() time.Time {
 	return time.Unix(i.TimestampSeconds, 0)
 }

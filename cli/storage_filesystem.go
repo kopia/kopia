@@ -13,6 +13,11 @@ import (
 
 var options filesystem.Options
 
+const (
+	defaultFileMode = 0600
+	defaultDirMode  = 0700
+)
+
 var (
 	connectOwnerUID string
 	connectOwnerGID string
@@ -30,8 +35,8 @@ func connect(ctx context.Context, isNew bool) (blob.Storage, error) {
 		fso.FileGID = getIntPtrValue(v, 10)
 	}
 
-	fso.FileMode = getFileModeValue(connectFileMode, 0600)
-	fso.DirectoryMode = getFileModeValue(connectDirMode, 0700)
+	fso.FileMode = getFileModeValue(connectFileMode, defaultFileMode)
+	fso.DirectoryMode = getFileModeValue(connectDirMode, defaultDirMode)
 
 	if connectFlat {
 		fso.DirectoryShards = []int{}

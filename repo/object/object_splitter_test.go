@@ -1,6 +1,7 @@
 package object
 
 import (
+	cryptorand "crypto/rand"
 	"math"
 	"math/rand"
 	"testing"
@@ -20,7 +21,7 @@ func TestSplitters(t *testing.T) {
 		s2 := tc.newSplitter()
 
 		rnd := make([]byte, 50000000)
-		rand.Read(rnd)
+		cryptorand.Read(rnd) //nolint:errcheck
 
 		for i, p := range rnd {
 			if got, want := s1.ShouldSplit(p), s2.ShouldSplit(p); got != want {
@@ -67,17 +68,18 @@ func TestSplitterStability(t *testing.T) {
 		minSplit := int(math.MaxInt32)
 		count := 0
 		for i, p := range rnd {
-			if s.ShouldSplit(p) {
-				l := i - lastSplit
-				if l >= maxSplit {
-					maxSplit = l
-				}
-				if l < minSplit {
-					minSplit = l
-				}
-				count++
-				lastSplit = i
+			if !s.ShouldSplit(p) {
+				continue
 			}
+			l := i - lastSplit
+			if l >= maxSplit {
+				maxSplit = l
+			}
+			if l < minSplit {
+				minSplit = l
+			}
+			count++
+			lastSplit = i
 		}
 
 		var avg int

@@ -191,8 +191,7 @@ func (c *Comparer) compareFiles(ctx context.Context, f1, f2 fs.File, fname strin
 
 	var args []string
 	args = append(args, c.DiffArguments...)
-	args = append(args, oldName)
-	args = append(args, newName)
+	args = append(args, oldName, newName)
 
 	cmd := exec.CommandContext(ctx, c.DiffCommand, args...)
 	cmd.Dir = c.tmpDir
