@@ -52,7 +52,7 @@ travis-setup:
 website:
 	$(MAKE) -C site
 
-travis-release: test-with-coverage lint vet verify-release integration-tests upload-coverage website
+travis-release: test-with-coverage lint vet verify-release integration-tests upload-coverage website stress-test
 
 verify-release:
 	curl -sL https://git.io/goreleaser | bash /dev/stdin --skip-publish --skip-sign --rm-dist --snapshot 
@@ -88,8 +88,8 @@ integration-tests: dist-binary
 	KOPIA_EXE=$(CURDIR)/dist/integration/kopia go test -count=1 -timeout 90s github.com/kopia/kopia/tests/end_to_end_test
 
 stress-test:
-	KOPIA_LONG_STRESS_TEST=1 go test -count=1 -timeout 200s github.com/kopia/kopia/repo/tests/stress_test
-	go test -count=1 -timeout 200s github.com/kopia/kopia/repo/tests/repository_stress_test
+	KOPIA_LONG_STRESS_TEST=1 go test -count=1 -timeout 200s github.com/kopia/kopia/tests/stress_test
+	go test -count=1 -timeout 200s github.com/kopia/kopia/tests/repository_stress_test
 
 godoc:
 	godoc -http=:33333
