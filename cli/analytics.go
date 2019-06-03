@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"crypto/rand"
+	cryptorand "crypto/rand"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -75,7 +75,7 @@ func displayAnalyticsConsentPrompt(clientID string) bool {
 func promptForAnalyticsConsent() {
 	// generate 64-bit ID as 16 hex digits.
 	x := make([]byte, 8)
-	rand.Read(x) //nolint:errcheck
+	cryptorand.Read(x) //nolint:errcheck
 	clientID := fmt.Sprintf("%x", x)
 
 	switch *analyticsConsent {

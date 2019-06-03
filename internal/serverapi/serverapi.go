@@ -18,7 +18,7 @@ type StatusResponse struct {
 
 // SourcesResponse is the response of 'sources' HTTP API command.
 type SourcesResponse struct {
-	Sources []SourceStatus `json:"sources"`
+	Sources []*SourceStatus `json:"sources"`
 }
 
 // SourceStatus describes the status of a single source.

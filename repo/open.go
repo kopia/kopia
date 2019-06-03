@@ -27,7 +27,7 @@ type Options struct {
 }
 
 // Open opens a Repository specified in the configuration file.
-func Open(ctx context.Context, configFile string, password string, options *Options) (rep *Repository, err error) {
+func Open(ctx context.Context, configFile, password string, options *Options) (rep *Repository, err error) {
 	log.Debugf("opening repository from %v", configFile)
 	defer func() {
 		if err == nil {
@@ -105,7 +105,7 @@ func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 
 	caching.HMACSecret = deriveKeyFromMasterKey(masterKey, f.UniqueID, []byte("local-cache-integrity"), 16)
 
-	fo := repoConfig.FormattingOptions
+	fo := &repoConfig.FormattingOptions
 	if fo.MaxPackSize == 0 {
 		fo.MaxPackSize = 20 << 20 // 20 MB
 	}

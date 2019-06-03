@@ -69,22 +69,22 @@ func loadSnapshot(ctx context.Context, rep *repo.Repository, manifestID manifest
 }
 
 // SaveSnapshot persists given snapshot manifest and returns manifest ID.
-func SaveSnapshot(ctx context.Context, rep *repo.Repository, manifest *Manifest) (manifest.ID, error) {
-	if manifest.Source.Host == "" {
+func SaveSnapshot(ctx context.Context, rep *repo.Repository, man *Manifest) (manifest.ID, error) {
+	if man.Source.Host == "" {
 		return "", errors.New("missing host")
 	}
-	if manifest.Source.UserName == "" {
+	if man.Source.UserName == "" {
 		return "", errors.New("missing username")
 	}
-	if manifest.Source.Path == "" {
+	if man.Source.Path == "" {
 		return "", errors.New("missing path")
 	}
 
-	id, err := rep.Manifests.Put(ctx, sourceInfoToLabels(manifest.Source), manifest)
+	id, err := rep.Manifests.Put(ctx, sourceInfoToLabels(man.Source), man)
 	if err != nil {
 		return "", err
 	}
-	manifest.ID = id
+	man.ID = id
 	return id, nil
 }
 

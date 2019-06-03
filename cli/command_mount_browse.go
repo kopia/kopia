@@ -12,13 +12,13 @@ var (
 	mountBrowser = mountCommand.Flag("browse", "Browse mounted filesystem using the provided method").Default("OS").Enum("NONE", "WEB", "OS")
 )
 
-var mountBrowsers = map[string]func(mountPoint string, addr string) error{
+var mountBrowsers = map[string]func(mountPoint, addr string) error{
 	"NONE": nil,
 	"WEB":  openInWebBrowser,
 	"OS":   openInOSBrowser,
 }
 
-func browseMount(mountPoint string, addr string) error {
+func browseMount(mountPoint, addr string) error {
 	b := mountBrowsers[*mountBrowser]
 	if b == nil {
 		waitForCtrlC()
@@ -28,13 +28,14 @@ func browseMount(mountPoint string, addr string) error {
 	return b(mountPoint, addr)
 }
 
-func openInWebBrowser(mountPoint string, addr string) error {
+// nolint:unparam
+func openInWebBrowser(mountPoint, addr string) error {
 	startWebBrowser(addr)
 	waitForCtrlC()
 	return nil
 }
 
-func openInOSBrowser(mountPoint string, addr string) error {
+func openInOSBrowser(mountPoint, addr string) error {
 	if isWindows() {
 		return netUSE(mountPoint, addr)
 	}
@@ -44,7 +45,7 @@ func openInOSBrowser(mountPoint string, addr string) error {
 	return nil
 }
 
-func netUSE(mountPoint string, addr string) error {
+func netUSE(mountPoint, addr string) error {
 	c := exec.Command("net", "use", mountPoint, addr)
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr

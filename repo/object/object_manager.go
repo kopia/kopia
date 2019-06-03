@@ -57,9 +57,6 @@ func (om *Manager) NewWriter(ctx context.Context, opt WriterOptions) Writer {
 
 // Open creates new ObjectReader for reading given object from a repository.
 func (om *Manager) Open(ctx context.Context, objectID ID) (Reader, error) {
-	// log.Printf("Repository::Open %v", objectID.String())
-	// defer log.Printf("finished Repository::Open() %v", objectID.String())
-
 	if indexObjectID, ok := objectID.IndexObjectID(); ok {
 		rd, err := om.Open(ctx, indexObjectID)
 		if err != nil {

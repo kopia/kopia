@@ -114,7 +114,7 @@ func (bm *Manager) compactAndDeleteIndexBlobs(ctx context.Context, indexBlobs []
 			continue
 		}
 
-		bm.listCache.deleteListCache(ctx)
+		bm.listCache.deleteListCache()
 		if err := bm.st.DeleteBlob(ctx, indexBlob.BlobID); err != nil {
 			log.Warningf("unable to delete compacted blob %q: %v", indexBlob.BlobID, err)
 		}

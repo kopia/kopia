@@ -1,3 +1,4 @@
+//nolint:dupl
 package object
 
 import "github.com/chmduquesne/rollinghash/rabinkarp64"

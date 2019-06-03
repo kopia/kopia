@@ -12,8 +12,7 @@ import (
 // RegisterStorageConnectFlags registers repository subcommand to connect to a storage
 // or create new repository in a given storage.
 func RegisterStorageConnectFlags(
-	name string,
-	description string,
+	name, description string,
 	flags func(*kingpin.CmdClause),
 	connect func(ctx context.Context, isNew bool) (blob.Storage, error)) {
 

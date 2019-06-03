@@ -56,6 +56,7 @@ func (v *Queue) Process(workers int) {
 
 		go func(workerID int) {
 			defer wg.Done()
+			_ = workerID
 
 			for {
 				callback := v.dequeue()

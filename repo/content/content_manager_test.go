@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/hmac"
+	cryptorand "crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -182,7 +183,7 @@ func TestContentManagerInternalFlush(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		b := make([]byte, 25)
-		rand.Read(b)
+		cryptorand.Read(b) //nolint:errcheck
 		writeContentAndVerify(ctx, t, bm, b)
 	}
 
@@ -194,7 +195,7 @@ func TestContentManagerInternalFlush(t *testing.T) {
 	// do it again - should be 2 contents + 1000 bytes pending.
 	for i := 0; i < 100; i++ {
 		b := make([]byte, 25)
-		rand.Read(b)
+		cryptorand.Read(b) //nolint:errcheck
 		writeContentAndVerify(ctx, t, bm, b)
 	}
 
@@ -222,7 +223,6 @@ func TestContentManagerWriteMultiple(t *testing.T) {
 	var contentIDs []ID
 
 	for i := 0; i < 5000; i++ {
-		//t.Logf("i=%v", i)
 		b := seededRandomData(i, i%113)
 		blkID, err := bm.WriteContent(ctx, b, "")
 		if err != nil {
@@ -232,20 +232,15 @@ func TestContentManagerWriteMultiple(t *testing.T) {
 		contentIDs = append(contentIDs, blkID)
 
 		if i%17 == 0 {
-			//t.Logf("flushing %v", i)
 			if err := bm.Flush(ctx); err != nil {
 				t.Fatalf("error flushing: %v", err)
 			}
-			//dumpContentManagerData(t, data)
 		}
 
 		if i%41 == 0 {
-			//t.Logf("opening new manager: %v", i)
 			if err := bm.Flush(ctx); err != nil {
 				t.Fatalf("error flushing: %v", err)
 			}
-			//t.Logf("data content count: %v", len(data))
-			//dumpContentManagerData(t, data)
 			bm = newTestContentManager(data, keyTime, timeFunc)
 		}
 
@@ -270,7 +265,7 @@ func TestContentManagerFailedToWritePack(t *testing.T) {
 	}
 	st = faulty
 
-	bm, err := newManagerWithOptions(context.Background(), st, FormattingOptions{
+	bm, err := newManagerWithOptions(context.Background(), st, &FormattingOptions{
 		Version:     1,
 		Hash:        "HMAC-SHA256-128",
 		Encryption:  "AES-256-CTR",
@@ -404,7 +399,6 @@ func TestDeleteContent(t *testing.T) {
 	bm.Flush(ctx)
 	log.Debugf("-----------")
 	bm = newTestContentManager(data, keyTime, nil)
-	//dumpContentManagerData(t, data)
 	verifyContentNotFound(ctx, t, bm, content1)
 	verifyContentNotFound(ctx, t, bm, content2)
 }
@@ -416,6 +410,9 @@ func TestRewriteNonDeleted(t *testing.T) {
 	// where actionX can be (0=flush and reopen, 1=flush, 2=nothing)
 	for action1 := 0; action1 < stepBehaviors; action1++ {
 		for action2 := 0; action2 < stepBehaviors; action2++ {
+			action1 := action1
+			action2 := action2
+
 			t.Run(fmt.Sprintf("case-%v-%v", action1, action2), func(t *testing.T) {
 				ctx := context.Background()
 				data := blobtesting.DataMap{}
@@ -478,6 +475,9 @@ func TestRewriteDeleted(t *testing.T) {
 	for action1 := 0; action1 < stepBehaviors; action1++ {
 		for action2 := 0; action2 < stepBehaviors; action2++ {
 			for action3 := 0; action3 < stepBehaviors; action3++ {
+				action1 := action1
+				action2 := action2
+				action3 := action3
 				t.Run(fmt.Sprintf("case-%v-%v-%v", action1, action2, action3), func(t *testing.T) {
 					ctx := context.Background()
 					data := blobtesting.DataMap{}
@@ -526,10 +526,10 @@ func TestDeleteAndRecreate(t *testing.T) {
 		isVisible    bool
 	}{
 		{"deleted before delete and-recreate", fakeTime.Add(5 * time.Second), true},
-		//{"deleted after delete and recreate", fakeTime.Add(25 * time.Second), false},
 	}
 
 	for _, tc := range cases {
+		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
 			// write a content
 			data := blobtesting.DataMap{}
@@ -555,8 +555,6 @@ func TestDeleteAndRecreate(t *testing.T) {
 
 			// commit deletion from bm0 (t0+5)
 			bm0.Flush(ctx)
-
-			//dumpContentManagerData(t, data)
 
 			if content1 != content2 {
 				t.Errorf("got invalid content %v, expected %v", content2, content1)
@@ -702,6 +700,7 @@ func TestContentReadAliasing(t *testing.T) {
 
 func TestVersionCompatibility(t *testing.T) {
 	for writeVer := minSupportedReadVersion; writeVer <= currentWriteVersion; writeVer++ {
+		writeVer := writeVer
 		t.Run(fmt.Sprintf("version-%v", writeVer), func(t *testing.T) {
 			verifyVersionCompat(t, writeVer)
 		})
@@ -721,7 +720,7 @@ func verifyVersionCompat(t *testing.T, writeVersion int) {
 
 	for i := 0; i < 3000000; i = (i + 1) * 2 {
 		data := make([]byte, i)
-		rand.Read(data)
+		cryptorand.Read(data) //nolint:errcheck
 
 		cid, err := mgr.WriteContent(ctx, data, "")
 		if err != nil {
@@ -783,12 +782,11 @@ func verifyContentManagerDataSet(ctx context.Context, t *testing.T, mgr *Manager
 }
 
 func newTestContentManager(data blobtesting.DataMap, keyTime map[blob.ID]time.Time, timeFunc func() time.Time) *Manager {
-	//st = logging.NewWrapper(st)
 	if timeFunc == nil {
 		timeFunc = fakeTimeNowWithAutoAdvance(fakeTime, 1*time.Second)
 	}
 	st := blobtesting.NewMapStorage(data, keyTime, timeFunc)
-	bm, err := newManagerWithOptions(context.Background(), st, FormattingOptions{
+	bm, err := newManagerWithOptions(context.Background(), st, &FormattingOptions{
 		Hash:        "HMAC-SHA256",
 		Encryption:  "NONE",
 		HMACSecret:  hmacSecret,
@@ -878,7 +876,7 @@ func writeContentAndVerify(ctx context.Context, t *testing.T, bm *Manager, b []b
 	return contentID
 }
 
-func seededRandomData(seed int, length int) []byte {
+func seededRandomData(seed, length int) []byte {
 	b := make([]byte, length)
 	rnd := rand.New(rand.NewSource(int64(seed)))
 	rnd.Read(b)

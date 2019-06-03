@@ -34,7 +34,7 @@ func runBenchmarkCryptoAction(ctx *kingpin.ParseContext) error {
 				continue
 			}
 
-			h, e, err := content.CreateHashAndEncryptor(content.FormattingOptions{
+			h, e, err := content.CreateHashAndEncryptor(&content.FormattingOptions{
 				Encryption: ea,
 				Hash:       ha,
 				MasterKey:  make([]byte, 32),

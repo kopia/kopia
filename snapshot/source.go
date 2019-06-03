@@ -30,7 +30,7 @@ func (ssi SourceInfo) String() string {
 // ParseSourceInfo parses a given path in the context of given hostname and username and returns
 // SourceInfo. The path may be bare (in which case it's interpreted as local path and canonicalized)
 // or may be 'username@host:path' where path, username and host are not processed.
-func ParseSourceInfo(path string, hostname string, username string) (SourceInfo, error) {
+func ParseSourceInfo(path, hostname, username string) (SourceInfo, error) {
 	if path == "(global)" {
 		return SourceInfo{}, nil
 	}

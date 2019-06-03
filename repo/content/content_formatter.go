@@ -26,18 +26,18 @@ const (
 type HashFunc func(data []byte) []byte
 
 // HashFuncFactory returns a hash function for given formatting options.
-type HashFuncFactory func(o FormattingOptions) (HashFunc, error)
+type HashFuncFactory func(o *FormattingOptions) (HashFunc, error)
 
 // Encryptor performs encryption and decryption of contents of data.
 type Encryptor interface {
 	// Encrypt returns encrypted bytes corresponding to the given plaintext.
 	// Must not clobber the input slice and return ciphertext with additional padding and checksum.
-	Encrypt(plainText []byte, contentID []byte) ([]byte, error)
+	Encrypt(plainText, contentID []byte) ([]byte, error)
 
 	// Decrypt returns unencrypted bytes corresponding to the given ciphertext.
 	// Must not clobber the input slice. If IsAuthenticated() == true, Decrypt will perform
 	// authenticity check before decrypting.
-	Decrypt(cipherText []byte, contentID []byte) ([]byte, error)
+	Decrypt(cipherText, contentID []byte) ([]byte, error)
 
 	// IsAuthenticated returns true if encryption is authenticated.
 	// In this case Decrypt() is expected to perform authenticity check.
@@ -45,7 +45,7 @@ type Encryptor interface {
 }
 
 // EncryptorFactory creates new Encryptor for given FormattingOptions
-type EncryptorFactory func(o FormattingOptions) (Encryptor, error)
+type EncryptorFactory func(o *FormattingOptions) (Encryptor, error)
 
 var hashFunctions = map[string]HashFuncFactory{}
 var encryptors = map[string]EncryptorFactory{}
@@ -54,11 +54,11 @@ var encryptors = map[string]EncryptorFactory{}
 type nullEncryptor struct {
 }
 
-func (fi nullEncryptor) Encrypt(plainText []byte, contentID []byte) ([]byte, error) {
+func (fi nullEncryptor) Encrypt(plainText, contentID []byte) ([]byte, error) {
 	return cloneBytes(plainText), nil
 }
 
-func (fi nullEncryptor) Decrypt(cipherText []byte, contentID []byte) ([]byte, error) {
+func (fi nullEncryptor) Decrypt(cipherText, contentID []byte) ([]byte, error) {
 	return cloneBytes(cipherText), nil
 }
 
@@ -71,11 +71,11 @@ type ctrEncryptor struct {
 	createCipher func() (cipher.Block, error)
 }
 
-func (fi ctrEncryptor) Encrypt(plainText []byte, contentID []byte) ([]byte, error) {
+func (fi ctrEncryptor) Encrypt(plainText, contentID []byte) ([]byte, error) {
 	return symmetricEncrypt(fi.createCipher, contentID, plainText)
 }
 
-func (fi ctrEncryptor) Decrypt(cipherText []byte, contentID []byte) ([]byte, error) {
+func (fi ctrEncryptor) Decrypt(cipherText, contentID []byte) ([]byte, error) {
 	return symmetricEncrypt(fi.createCipher, contentID, cipherText)
 }
 
@@ -83,7 +83,7 @@ func (fi ctrEncryptor) IsAuthenticated() bool {
 	return false
 }
 
-func symmetricEncrypt(createCipher func() (cipher.Block, error), iv []byte, b []byte) ([]byte, error) {
+func symmetricEncrypt(createCipher func() (cipher.Block, error), iv, b []byte) ([]byte, error) {
 	blockCipher, err := createCipher()
 	if err != nil {
 		return nil, err
@@ -101,7 +101,7 @@ type salsaEncryptor struct {
 	hmacSecret []byte
 }
 
-func (s salsaEncryptor) Decrypt(input []byte, contentID []byte) ([]byte, error) {
+func (s salsaEncryptor) Decrypt(input, contentID []byte) ([]byte, error) {
 	if s.hmacSecret != nil {
 		var err error
 		input, err = verifyAndStripHMAC(input, s.hmacSecret)
@@ -113,7 +113,7 @@ func (s salsaEncryptor) Decrypt(input []byte, contentID []byte) ([]byte, error) 
 	return s.encryptDecrypt(input, contentID)
 }
 
-func (s salsaEncryptor) Encrypt(input []byte, contentID []byte) ([]byte, error) {
+func (s salsaEncryptor) Encrypt(input, contentID []byte) ([]byte, error) {
 	v, err := s.encryptDecrypt(input, contentID)
 	if err != nil {
 		return nil, errors.Wrap(err, "decrypt")
@@ -130,7 +130,7 @@ func (s salsaEncryptor) IsAuthenticated() bool {
 	return s.hmacSecret != nil
 }
 
-func (s salsaEncryptor) encryptDecrypt(input []byte, contentID []byte) ([]byte, error) {
+func (s salsaEncryptor) encryptDecrypt(input, contentID []byte) ([]byte, error) {
 	if len(contentID) < s.nonceSize {
 		return nil, errors.Errorf("hash too short, expected >=%v bytes, got %v", s.nonceSize, len(contentID))
 	}
@@ -143,7 +143,7 @@ func (s salsaEncryptor) encryptDecrypt(input []byte, contentID []byte) ([]byte, 
 // truncatedHMACHashFuncFactory returns a HashFuncFactory that computes HMAC(hash, secret) of a given content of bytes
 // and truncates results to the given size.
 func truncatedHMACHashFuncFactory(hf func() hash.Hash, truncate int) HashFuncFactory {
-	return func(o FormattingOptions) (HashFunc, error) {
+	return func(o *FormattingOptions) (HashFunc, error) {
 		return func(b []byte) []byte {
 			h := hmac.New(hf, o.HMACSecret)
 			h.Write(b) // nolint:errcheck
@@ -155,7 +155,7 @@ func truncatedHMACHashFuncFactory(hf func() hash.Hash, truncate int) HashFuncFac
 // truncatedKeyedHashFuncFactory returns a HashFuncFactory that computes keyed hash of a given content of bytes
 // and truncates results to the given size.
 func truncatedKeyedHashFuncFactory(hf func(key []byte) (hash.Hash, error), truncate int) HashFuncFactory {
-	return func(o FormattingOptions) (HashFunc, error) {
+	return func(o *FormattingOptions) (HashFunc, error) {
 		if _, err := hf(o.HMACSecret); err != nil {
 			return nil, err
 		}
@@ -170,7 +170,7 @@ func truncatedKeyedHashFuncFactory(hf func(key []byte) (hash.Hash, error), trunc
 
 // newCTREncryptorFactory returns new EncryptorFactory that uses CTR with symmetric encryption (such as AES) and a given key size.
 func newCTREncryptorFactory(keySize int, createCipherWithKey func(key []byte) (cipher.Block, error)) EncryptorFactory {
-	return func(o FormattingOptions) (Encryptor, error) {
+	return func(o *FormattingOptions) (Encryptor, error) {
 		key, err := adjustKey(o.MasterKey, keySize)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to get encryption key")
@@ -230,23 +230,23 @@ func init() {
 	RegisterHash("BLAKE2B-256-128", truncatedKeyedHashFuncFactory(blake2b.New256, 16))
 	RegisterHash("BLAKE2B-256", truncatedKeyedHashFuncFactory(blake2b.New256, 32))
 
-	RegisterEncryption("NONE", func(f FormattingOptions) (Encryptor, error) {
+	RegisterEncryption("NONE", func(f *FormattingOptions) (Encryptor, error) {
 		return nullEncryptor{}, nil
 	})
 	RegisterEncryption("AES-128-CTR", newCTREncryptorFactory(16, aes.NewCipher))
 	RegisterEncryption("AES-192-CTR", newCTREncryptorFactory(24, aes.NewCipher))
 	RegisterEncryption("AES-256-CTR", newCTREncryptorFactory(32, aes.NewCipher))
-	RegisterEncryption("SALSA20", func(f FormattingOptions) (Encryptor, error) {
+	RegisterEncryption("SALSA20", func(f *FormattingOptions) (Encryptor, error) {
 		var k [32]byte
 		copy(k[:], f.MasterKey[0:32])
 		return salsaEncryptor{8, &k, nil}, nil
 	})
-	RegisterEncryption("XSALSA20", func(f FormattingOptions) (Encryptor, error) {
+	RegisterEncryption("XSALSA20", func(f *FormattingOptions) (Encryptor, error) {
 		var k [32]byte
 		copy(k[:], f.MasterKey[0:32])
 		return salsaEncryptor{24, &k, nil}, nil
 	})
-	RegisterEncryption("SALSA20-HMAC", func(f FormattingOptions) (Encryptor, error) {
+	RegisterEncryption("SALSA20-HMAC", func(f *FormattingOptions) (Encryptor, error) {
 		encryptionKey := f.DeriveKey([]byte(purposeEncryptionKey), salsaKeyLength)
 		hmacSecret := f.DeriveKey([]byte(purposeHMACSecret), hmacLength)
 
@@ -254,7 +254,7 @@ func init() {
 		copy(k[:], encryptionKey)
 		return salsaEncryptor{8, &k, hmacSecret}, nil
 	})
-	RegisterEncryption("XSALSA20-HMAC", func(f FormattingOptions) (Encryptor, error) {
+	RegisterEncryption("XSALSA20-HMAC", func(f *FormattingOptions) (Encryptor, error) {
 		encryptionKey := f.DeriveKey([]byte(purposeEncryptionKey), salsaKeyLength)
 		hmacSecret := f.DeriveKey([]byte(purposeHMACSecret), hmacLength)
 		var k [salsaKeyLength]byte

@@ -200,6 +200,8 @@ func (bm *Manager) appendPackFileIndexRecoveryData(contentData []byte, pending p
 }
 
 func (bm *Manager) readPackFileLocalIndex(ctx context.Context, packFile blob.ID, packFileLength int64) ([]byte, error) {
+	// TODO(jkowalski): optimize read when packFileLength is provided
+	_ = packFileLength
 	payload, err := bm.st.GetBlob(ctx, packFile, 0, -1)
 	if err != nil {
 		return nil, err

@@ -98,12 +98,12 @@ func getContentToRewrite(ctx context.Context, rep *repo.Repository) <-chan conte
 		// add all content IDs from short packs
 		if *contentRewriteShortPacks {
 			threshold := uint32(rep.Content.Format.MaxPackSize * 6 / 10)
-			findContentInShortPacks(ctx, rep, ch, threshold)
+			findContentInShortPacks(rep, ch, threshold)
 		}
 
 		// add all blocks with given format version
 		if *contentRewriteFormatVersion != -1 {
-			findContentWithFormatVersion(ctx, rep, ch, *contentRewriteFormatVersion)
+			findContentWithFormatVersion(rep, ch, *contentRewriteFormatVersion)
 		}
 	}()
 
@@ -129,7 +129,7 @@ func findContentInfos(ctx context.Context, rep *repo.Repository, ch chan content
 	}
 }
 
-func findContentWithFormatVersion(ctx context.Context, rep *repo.Repository, ch chan contentInfoOrError, version int) {
+func findContentWithFormatVersion(rep *repo.Repository, ch chan contentInfoOrError, version int) {
 	infos, err := rep.Content.ListContentInfos("", true)
 	if err != nil {
 		ch <- contentInfoOrError{err: errors.Wrap(err, "unable to list index blobs")}
@@ -137,13 +137,13 @@ func findContentWithFormatVersion(ctx context.Context, rep *repo.Repository, ch 
 	}
 
 	for _, b := range infos {
-		if int(b.FormatVersion) == *contentRewriteFormatVersion && strings.HasPrefix(string(b.PackBlobID), *contentRewritePackPrefix) {
+		if int(b.FormatVersion) == version && strings.HasPrefix(string(b.PackBlobID), *contentRewritePackPrefix) {
 			ch <- contentInfoOrError{Info: b}
 		}
 	}
 }
 
-func findContentInShortPacks(ctx context.Context, rep *repo.Repository, ch chan contentInfoOrError, threshold uint32) {
+func findContentInShortPacks(rep *repo.Repository, ch chan contentInfoOrError, threshold uint32) {
 	log.Debugf("listing contents...")
 	infos, err := rep.Content.ListContentInfos("", true)
 	if err != nil {
@@ -152,11 +152,7 @@ func findContentInShortPacks(ctx context.Context, rep *repo.Repository, ch chan 
 	}
 
 	log.Debugf("finding content in short pack blobs...")
-	shortPackBlocks, err := findShortPackBlobs(infos, threshold)
-	if err != nil {
-		ch <- contentInfoOrError{err: errors.Wrap(err, "unable to find short pack blobs")}
-		return
-	}
+	shortPackBlocks := findShortPackBlobs(infos, threshold)
 	log.Debugf("found %v short pack blobs", len(shortPackBlocks))
 
 	if len(shortPackBlocks) <= 1 {
@@ -170,7 +166,7 @@ func findContentInShortPacks(ctx context.Context, rep *repo.Repository, ch chan 
 	}
 }
 
-func findShortPackBlobs(infos []content.Info, threshold uint32) (map[blob.ID]bool, error) {
+func findShortPackBlobs(infos []content.Info, threshold uint32) map[blob.ID]bool {
 	packUsage := map[blob.ID]uint32{}
 
 	for _, bi := range infos {
@@ -185,7 +181,7 @@ func findShortPackBlobs(infos []content.Info, threshold uint32) (map[blob.ID]boo
 		}
 	}
 
-	return shortPackBlocks, nil
+	return shortPackBlocks
 }
 
 func init() {

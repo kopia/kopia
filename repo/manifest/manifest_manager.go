@@ -337,7 +337,7 @@ func (m *Manager) loadManifestContents(ctx context.Context, contentIDs []content
 }
 
 func (m *Manager) loadContentsInParallel(ctx context.Context, contentIDs []content.ID) ([]manifest, error) {
-	errors := make(chan error, len(contentIDs))
+	errch := make(chan error, len(contentIDs))
 	manifests := make(chan manifest, len(contentIDs))
 	ch := make(chan content.ID, len(contentIDs))
 	var wg sync.WaitGroup
@@ -352,7 +352,7 @@ func (m *Manager) loadContentsInParallel(ctx context.Context, contentIDs []conte
 				man, err := m.loadManifestContent(ctx, blk)
 
 				if err != nil {
-					errors <- err
+					errch <- err
 					log.Debugf("manifest content %v failed to be loaded by worker %v in %v: %v.", blk, workerID, time.Since(t1), err)
 				} else {
 					log.Debugf("manifest content %v loaded by worker %v in %v.", blk, workerID, time.Since(t1))
@@ -370,11 +370,11 @@ func (m *Manager) loadContentsInParallel(ctx context.Context, contentIDs []conte
 
 	// wait for workers to complete
 	wg.Wait()
-	close(errors)
+	close(errch)
 	close(manifests)
 
 	// if there was any error, forward it
-	if err := <-errors; err != nil {
+	if err := <-errch; err != nil {
 		return nil, err
 	}
 

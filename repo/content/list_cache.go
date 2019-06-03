@@ -37,7 +37,7 @@ func (c *listCache) listIndexBlobs(ctx context.Context) ([]IndexBlobInfo, error)
 
 	contents, err := listIndexBlobsFromStorage(ctx, c.st)
 	if err == nil {
-		c.saveListToCache(ctx, &cachedList{
+		c.saveListToCache(&cachedList{
 			Contents:  contents,
 			Timestamp: time.Now(),
 		})
@@ -47,7 +47,7 @@ func (c *listCache) listIndexBlobs(ctx context.Context) ([]IndexBlobInfo, error)
 	return contents, err
 }
 
-func (c *listCache) saveListToCache(ctx context.Context, ci *cachedList) {
+func (c *listCache) saveListToCache(ci *cachedList) {
 	if c.cacheFile == "" {
 		return
 	}
@@ -62,7 +62,7 @@ func (c *listCache) saveListToCache(ctx context.Context, ci *cachedList) {
 	}
 }
 
-func (c *listCache) deleteListCache(ctx context.Context) {
+func (c *listCache) deleteListCache() {
 	if c.cacheFile != "" {
 		os.Remove(c.cacheFile) //nolint:errcheck
 	}
@@ -97,7 +97,7 @@ func (c *listCache) readContentsFromCache(ctx context.Context) (*cachedList, err
 
 }
 
-func newListCache(ctx context.Context, st blob.Storage, caching CachingOptions) (*listCache, error) {
+func newListCache(st blob.Storage, caching CachingOptions) (*listCache, error) {
 	var listCacheFile string
 
 	if caching.CacheDirectory != "" {
@@ -118,7 +118,7 @@ func newListCache(ctx context.Context, st blob.Storage, caching CachingOptions) 
 	}
 
 	if caching.IgnoreListCache {
-		c.deleteListCache(ctx)
+		c.deleteListCache()
 	}
 
 	return c, nil

@@ -158,12 +158,12 @@ func (gcs *gcsStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback f
 
 	oa, err := lst.Next()
 	for err == nil {
-		if err = callback(blob.Metadata{
+		if cberr := callback(blob.Metadata{
 			BlobID:    blob.ID(oa.Name[len(gcs.Prefix):]),
 			Length:    oa.Size,
 			Timestamp: oa.Created,
-		}); err != nil {
-			return err
+		}); cberr != nil {
+			return cberr
 		}
 		oa, err = lst.Next()
 	}

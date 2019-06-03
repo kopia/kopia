@@ -39,7 +39,7 @@ func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 
 	var (
 		mu              sync.Mutex
-		cancelled       bool
+		canceled        bool
 		activeUploaders = map[snapshot.SourceInfo]*snapshotfs.Uploader{}
 	)
 
@@ -47,8 +47,8 @@ func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 		mu.Lock()
 		defer mu.Unlock()
 
-		if !cancelled {
-			cancelled = true
+		if !canceled {
+			canceled = true
 			for s, u := range activeUploaders {
 				log.Warningf("cancelling active uploader for %v", s)
 				u.Cancel()
@@ -57,9 +57,9 @@ func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 	})
 
 	for _, s := range sources {
-		// start a new uploader unless already cancelled
+		// start a new uploader unless already canceled
 		mu.Lock()
-		if cancelled {
+		if canceled {
 			mu.Unlock()
 			break
 		}

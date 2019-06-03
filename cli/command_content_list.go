@@ -84,11 +84,11 @@ func sortContents(contents []content.Info) {
 	case "time":
 		sort.Slice(contents, func(i, j int) bool { return maybeReverse(contents[i].TimestampSeconds < contents[j].TimestampSeconds) })
 	case "pack":
-		sort.Slice(contents, func(i, j int) bool { return maybeReverse(comparePacks(contents[i], contents[j])) })
+		sort.Slice(contents, func(i, j int) bool { return maybeReverse(comparePacks(&contents[i], &contents[j])) })
 	}
 }
 
-func comparePacks(a, b content.Info) bool {
+func comparePacks(a, b *content.Info) bool {
 	if a, b := a.PackBlobID, b.PackBlobID; a != b {
 		return a < b
 	}

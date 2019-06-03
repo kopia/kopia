@@ -1,0 +1,57 @@
+linters-settings:
+  govet:
+    check-shadowing: true
+    settings:
+      printf:
+        funcs:
+          - (github.com/op/go-logging/Logger).Infof
+          - (github.com/op/go-logging/Logger).Warningf
+          - (github.com/op/go-logging/Logger).Errorf
+          - (github.com/op/go-logging/Logger).Fatalf
+  golint:
+    min-confidence: 0
+  gocyclo:
+    min-complexity: 15
+  maligned:
+    suggest-new: true
+  dupl:
+    threshold: 100
+  goconst:
+    min-len: 5
+    min-occurrences: 3
+  misspell:
+    locale: US
+  lll:
+    line-length: 256
+  goimports:
+    local-prefixes: github.com/kopia/kopia
+  gocritic:
+    enabled-tags:
+      - performance
+      - style
+      - experimental
+    disabled-checks:
+      - wrapperFunc
+
+linters:
+  enable-all: true
+  disable:
+    - maligned
+    - prealloc
+    - gochecknoglobals
+    - gochecknoinits
+
+run:
+  skip-dirs:
+    - test/testdata_etc
+
+issues:
+  exclude-rules:
+    - text: "weak cryptographic primitive"
+      linters:
+        - gosec
+
+# golangci.com configuration
+# https://github.com/golangci/golangci/wiki/Configuration
+service:
+  golangci-lint-version: 1.16.x # use the fixed version to not introduce new linters unexpectedly

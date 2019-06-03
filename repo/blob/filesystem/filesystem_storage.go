@@ -3,10 +3,10 @@ package filesystem
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"strings"
@@ -142,7 +142,11 @@ func (fs *fsStorage) TouchBlob(ctx context.Context, blobID blob.ID, threshold ti
 func (fs *fsStorage) PutBlob(ctx context.Context, blobID blob.ID, data []byte) error {
 	_, path := fs.getShardedPathAndFilePath(blobID)
 
-	tempFile := fmt.Sprintf("%s.tmp.%d", path, rand.Int())
+	randSuffix := make([]byte, 8)
+	if _, err := rand.Read(randSuffix); err != nil {
+		return errors.Wrap(err, "can't get random bytes")
+	}
+	tempFile := fmt.Sprintf("%s.tmp.%x", path, randSuffix)
 	f, err := fs.createTempFileAndDir(tempFile)
 	if err != nil {
 		return errors.Wrap(err, "cannot create temporary file")
@@ -208,10 +212,10 @@ func (fs *fsStorage) getShardDirectory(blobID blob.ID) (string, blob.ID) {
 	return shardPath, blobID
 }
 
-func (fs *fsStorage) getShardedPathAndFilePath(blobID blob.ID) (string, string) {
-	shardPath, blobID := fs.getShardDirectory(blobID)
-	result := filepath.Join(shardPath, makeFileName(blobID))
-	return shardPath, result
+func (fs *fsStorage) getShardedPathAndFilePath(blobID blob.ID) (shardPath, filePath string) {
+	shardPath, blobID = fs.getShardDirectory(blobID)
+	filePath = filepath.Join(shardPath, makeFileName(blobID))
+	return
 }
 
 func (fs *fsStorage) ConnectionInfo() blob.ConnectionInfo {

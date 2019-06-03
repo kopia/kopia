@@ -24,7 +24,6 @@ func (w *Writer) Write(v interface{}) error {
 	if err != nil {
 		return err
 	}
-	// log.Printf("*** %v: %v", w.header, string(j))
 	if _, err := w.output.Write(j); err != nil {
 		return err
 	}

@@ -10,7 +10,6 @@ import (
 
 	"github.com/kopia/kopia/fs/ignorefs"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
@@ -69,7 +68,7 @@ func setPolicy(ctx context.Context, rep *repo.Repository) error {
 		printStderr("Setting policy for %v\n", target)
 		changeCount := 0
 
-		if err := setPolicyFromFlags(target, p, &changeCount); err != nil {
+		if err := setPolicyFromFlags(p, &changeCount); err != nil {
 			return err
 		}
 
@@ -85,14 +84,12 @@ func setPolicy(ctx context.Context, rep *repo.Repository) error {
 	return nil
 }
 
-func setPolicyFromFlags(target snapshot.SourceInfo, p *policy.Policy, changeCount *int) error {
+func setPolicyFromFlags(p *policy.Policy, changeCount *int) error {
 	if err := setRetentionPolicyFromFlags(&p.RetentionPolicy, changeCount); err != nil {
 		return errors.Wrap(err, "retention policy")
 	}
 
-	if err := setFilesPolicyFromFlags(&p.FilesPolicy, changeCount); err != nil {
-		return errors.Wrap(err, "files policy")
-	}
+	setFilesPolicyFromFlags(&p.FilesPolicy, changeCount)
 
 	if err := setSchedulingPolicyFromFlags(&p.SchedulingPolicy, changeCount); err != nil {
 		return errors.Wrap(err, "scheduling policy")
@@ -111,7 +108,7 @@ func setPolicyFromFlags(target snapshot.SourceInfo, p *policy.Policy, changeCoun
 	return nil
 }
 
-func setFilesPolicyFromFlags(fp *ignorefs.FilesPolicy, changeCount *int) error {
+func setFilesPolicyFromFlags(fp *ignorefs.FilesPolicy, changeCount *int) {
 	if *policySetClearDotIgnore {
 		*changeCount++
 		printStderr(" - removing all rules for dot-ignore files\n")
@@ -126,7 +123,6 @@ func setFilesPolicyFromFlags(fp *ignorefs.FilesPolicy, changeCount *int) error {
 	} else {
 		fp.IgnoreRules = addRemoveDedupeAndSort("ignored files", fp.IgnoreRules, *policySetAddIgnore, *policySetRemoveIgnore, changeCount)
 	}
-	return nil
 }
 
 func setRetentionPolicyFromFlags(rp *policy.RetentionPolicy, changeCount *int) error {

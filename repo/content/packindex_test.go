@@ -13,6 +13,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
+//nolint:gocyclo
 func TestPackIndex(t *testing.T) {
 	contentNumber := 0
 
@@ -120,7 +121,7 @@ func TestPackIndex(t *testing.T) {
 	}
 
 	t.Run("FuzzTest", func(t *testing.T) {
-		fuzzTestIndexOpen(t, data1)
+		fuzzTestIndexOpen(data1)
 	})
 
 	ndx, err := openPackIndex(bytes.NewReader(data1))
@@ -168,6 +169,7 @@ func TestPackIndex(t *testing.T) {
 
 	for _, prefix := range prefixes {
 		cnt2 := 0
+		prefix := prefix
 		assertNoError(t, ndx.Iterate(prefix, func(info2 Info) error {
 			cnt2++
 			if !strings.HasPrefix(string(info2.ID), string(prefix)) {
@@ -179,7 +181,7 @@ func TestPackIndex(t *testing.T) {
 	}
 }
 
-func fuzzTestIndexOpen(t *testing.T, originalData []byte) {
+func fuzzTestIndexOpen(originalData []byte) {
 	// use consistent random
 	rnd := rand.New(rand.NewSource(12345))
 

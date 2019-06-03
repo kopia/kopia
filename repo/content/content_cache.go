@@ -47,7 +47,7 @@ func adjustCacheKey(cacheKey blob.ID) blob.ID {
 	return cacheKey
 }
 
-func (c *contentCache) getContentContent(ctx context.Context, cacheKey blob.ID, blobID blob.ID, offset, length int64) ([]byte, error) {
+func (c *contentCache) getContentContent(ctx context.Context, cacheKey, blobID blob.ID, offset, length int64) ([]byte, error) {
 	cacheKey = adjustCacheKey(cacheKey)
 
 	useCache := shouldUseContentCache(ctx) && c.cacheStorage != nil
@@ -184,8 +184,8 @@ func newContentCache(ctx context.Context, st blob.Storage, caching CachingOption
 		contentCacheDir := filepath.Join(caching.CacheDirectory, "contents")
 
 		if _, err = os.Stat(contentCacheDir); os.IsNotExist(err) {
-			if err = os.MkdirAll(contentCacheDir, 0700); err != nil {
-				return nil, err
+			if mkdirerr := os.MkdirAll(contentCacheDir, 0700); mkdirerr != nil {
+				return nil, mkdirerr
 			}
 		}
 
@@ -201,7 +201,7 @@ func newContentCache(ctx context.Context, st blob.Storage, caching CachingOption
 	return newContentCacheWithCacheStorage(ctx, st, cacheStorage, caching, defaultTouchThreshold, defaultSweepFrequency)
 }
 
-func newContentCacheWithCacheStorage(ctx context.Context, st, cacheStorage blob.Storage, caching CachingOptions, touchThreshold time.Duration, sweepFrequency time.Duration) (*contentCache, error) {
+func newContentCacheWithCacheStorage(ctx context.Context, st, cacheStorage blob.Storage, caching CachingOptions, touchThreshold, sweepFrequency time.Duration) (*contentCache, error) {
 	c := &contentCache{
 		st:             st,
 		cacheStorage:   cacheStorage,

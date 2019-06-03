@@ -17,7 +17,10 @@ import (
 	"github.com/kopia/kopia/snapshot"
 )
 
-const masterPassword = "foofoofoofoofoofoofoofoo"
+const (
+	masterPassword     = "foofoofoofoofoofoofoofoo"
+	defaultPermissions = 0777
+)
 
 type uploadTestHarness struct {
 	sourceDir *mockfs.Directory
@@ -63,24 +66,24 @@ func newUploadTestHarness() *uploadTestHarness {
 	}
 
 	sourceDir := mockfs.NewDirectory()
-	sourceDir.AddFile("f1", []byte{1, 2, 3}, 0777)
-	sourceDir.AddFile("f2", []byte{1, 2, 3, 4}, 0777)
-	sourceDir.AddFile("f3", []byte{1, 2, 3, 4, 5}, 0777)
+	sourceDir.AddFile("f1", []byte{1, 2, 3}, defaultPermissions)
+	sourceDir.AddFile("f2", []byte{1, 2, 3, 4}, defaultPermissions)
+	sourceDir.AddFile("f3", []byte{1, 2, 3, 4, 5}, defaultPermissions)
 
-	sourceDir.AddDir("d1", 0777)
-	sourceDir.AddDir("d1/d1", 0777)
-	sourceDir.AddDir("d1/d2", 0777)
-	sourceDir.AddDir("d2", 0777)
-	sourceDir.AddDir("d2/d1", 0777)
+	sourceDir.AddDir("d1", defaultPermissions)
+	sourceDir.AddDir("d1/d1", defaultPermissions)
+	sourceDir.AddDir("d1/d2", defaultPermissions)
+	sourceDir.AddDir("d2", defaultPermissions)
+	sourceDir.AddDir("d2/d1", defaultPermissions)
 
 	// Prepare directory contents.
-	sourceDir.AddFile("d1/d1/f1", []byte{1, 2, 3}, 0777)
-	sourceDir.AddFile("d1/d1/f2", []byte{1, 2, 3, 4}, 0777)
-	sourceDir.AddFile("d1/f2", []byte{1, 2, 3, 4}, 0777)
-	sourceDir.AddFile("d1/d2/f1", []byte{1, 2, 3}, 0777)
-	sourceDir.AddFile("d1/d2/f2", []byte{1, 2, 3, 4}, 0777)
-	sourceDir.AddFile("d2/d1/f1", []byte{1, 2, 3}, 0777)
-	sourceDir.AddFile("d2/d1/f2", []byte{1, 2, 3, 4}, 0777)
+	sourceDir.AddFile("d1/d1/f1", []byte{1, 2, 3}, defaultPermissions)
+	sourceDir.AddFile("d1/d1/f2", []byte{1, 2, 3, 4}, defaultPermissions)
+	sourceDir.AddFile("d1/f2", []byte{1, 2, 3, 4}, defaultPermissions)
+	sourceDir.AddFile("d1/d2/f1", []byte{1, 2, 3}, defaultPermissions)
+	sourceDir.AddFile("d1/d2/f2", []byte{1, 2, 3, 4}, defaultPermissions)
+	sourceDir.AddFile("d2/d1/f1", []byte{1, 2, 3}, defaultPermissions)
+	sourceDir.AddFile("d2/d1/f2", []byte{1, 2, 3, 4}, defaultPermissions)
 
 	th := &uploadTestHarness{
 		sourceDir: sourceDir,
@@ -91,6 +94,7 @@ func newUploadTestHarness() *uploadTestHarness {
 	return th
 }
 
+// nolint:gocyclo
 func TestUpload(t *testing.T) {
 	ctx := context.Background()
 	th := newUploadTestHarness()
@@ -125,7 +129,7 @@ func TestUpload(t *testing.T) {
 	}
 
 	// Add one more file, the s1.RootObjectID should change.
-	th.sourceDir.AddFile("d2/d1/f3", []byte{1, 2, 3, 4, 5}, 0777)
+	th.sourceDir.AddFile("d2/d1/f3", []byte{1, 2, 3, 4, 5}, defaultPermissions)
 	s3, err := u.Upload(ctx, th.sourceDir, snapshot.SourceInfo{}, s1)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
@@ -218,7 +222,7 @@ func TestUpload_SubDirectoryReadFailure(t *testing.T) {
 	}
 }
 
-func objectIDsEqual(o1 object.ID, o2 object.ID) bool {
+func objectIDsEqual(o1, o2 object.ID) bool {
 	return reflect.DeepEqual(o1, o2)
 }
 

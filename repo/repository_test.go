@@ -3,11 +3,8 @@ package repo_test
 import (
 	"bytes"
 	"context"
-	cryptorand "crypto/rand"
-	"fmt"
 	"io/ioutil"
 	"math/rand"
-	"reflect"
 	"runtime/debug"
 	"testing"
 
@@ -54,8 +51,8 @@ func TestWriters(t *testing.T) {
 	}
 }
 
-func objectIDsEqual(o1 object.ID, o2 object.ID) bool {
-	return reflect.DeepEqual(o1, o2)
+func objectIDsEqual(o1, o2 object.ID) bool {
+	return o1 == o2
 }
 
 func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
@@ -63,10 +60,10 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	defer env.Setup(t).Close(t)
 	ctx := context.Background()
 
-	bytes := make([]byte, 100)
+	b := make([]byte, 100)
 	writer := env.Repository.Objects.NewWriter(ctx, object.WriterOptions{})
-	writer.Write(bytes[0:50]) //nolint:errcheck
-	writer.Write(bytes[0:50]) //nolint:errcheck
+	writer.Write(b[0:50]) //nolint:errcheck
+	writer.Write(b[0:50]) //nolint:errcheck
 	result, err := writer.Result()
 	if result != "1d804f1f69df08f3f59070bf962de69433e3d61ac18522a805a84d8c92741340" {
 		t.Errorf("unexpected result: %v err: %v", result, err)
@@ -147,10 +144,10 @@ func TestHMAC(t *testing.T) {
 	defer env.Setup(t).Close(t)
 	ctx := context.Background()
 
-	content := bytes.Repeat([]byte{0xcd}, 50)
+	c := bytes.Repeat([]byte{0xcd}, 50)
 
 	w := env.Repository.Objects.NewWriter(ctx, object.WriterOptions{})
-	w.Write(content) //nolint:errcheck
+	w.Write(c) //nolint:errcheck
 	result, err := w.Result()
 	if result.String() != "367352007ee6ca9fa755ce8352347d092c17a24077fd33c62f655574a8cf906d" {
 		t.Errorf("unexpected result: %v err: %v", result.String(), err)
@@ -186,29 +183,6 @@ func TestReaderStoredBlockNotFound(t *testing.T) {
 	}
 }
 
-func TestEndToEndReadAndSeek(t *testing.T) {
-	var env repotesting.Environment
-	defer env.Setup(t).Close(t)
-	ctx := context.Background()
-
-	for _, size := range []int{1, 199, 200, 201, 9999, 512434} {
-		// Create some random data sample of the specified size.
-		randomData := make([]byte, size)
-		cryptorand.Read(randomData) //nolint:errcheck
-
-		writer := env.Repository.Objects.NewWriter(ctx, object.WriterOptions{})
-		writer.Write(randomData) //nolint:errcheck
-		objectID, err := writer.Result()
-		writer.Close()
-		if err != nil {
-			t.Errorf("cannot get writer result for %v: %v", size, err)
-			continue
-		}
-
-		verify(ctx, t, env.Repository, objectID, randomData, fmt.Sprintf("%v %v", objectID, size))
-	}
-}
-
 func writeObject(ctx context.Context, t *testing.T, rep *repo.Repository, data []byte, testCaseID string) object.ID {
 	w := rep.Objects.NewWriter(ctx, object.WriterOptions{})
 	if _, err := w.Write(data); err != nil {
@@ -231,6 +205,7 @@ func verify(ctx context.Context, t *testing.T, rep *repo.Repository, objectID ob
 		return
 	}
 
+	// nolint:dupl
 	for i := 0; i < 20; i++ {
 		sampleSize := int(rand.Int31n(300))
 		seekOffset := int(rand.Int31n(int32(len(expectedData))))

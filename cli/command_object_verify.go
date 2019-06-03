@@ -201,7 +201,7 @@ func runVerifyCommand(ctx context.Context, rep *repo.Repository) error {
 }
 
 func enqueueRootsToVerify(ctx context.Context, v *verifier, rep *repo.Repository) error {
-	manifests, err := loadSourceManifests(ctx, rep, *verifyCommandAllSources, *verifyCommandSources)
+	manifests, err := loadSourceManifests(ctx, rep, *verifyCommandSources)
 	if err != nil {
 		return err
 	}
@@ -240,7 +240,7 @@ func enqueueRootsToVerify(ctx context.Context, v *verifier, rep *repo.Repository
 	return nil
 }
 
-func loadSourceManifests(ctx context.Context, rep *repo.Repository, all bool, sources []string) ([]*snapshot.Manifest, error) {
+func loadSourceManifests(ctx context.Context, rep *repo.Repository, sources []string) ([]*snapshot.Manifest, error) {
 	var manifestIDs []manifest.ID
 	if *verifyCommandAllSources {
 		man, err := snapshot.ListSnapshotManifests(ctx, rep, nil)
@@ -249,7 +249,7 @@ func loadSourceManifests(ctx context.Context, rep *repo.Repository, all bool, so
 		}
 		manifestIDs = append(manifestIDs, man...)
 	} else {
-		for _, srcStr := range *verifyCommandSources {
+		for _, srcStr := range sources {
 			src, err := snapshot.ParseSourceInfo(srcStr, getHostName(), getUserName())
 			if err != nil {
 				return nil, errors.Wrapf(err, "error parsing %q", srcStr)

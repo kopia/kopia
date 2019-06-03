@@ -13,6 +13,7 @@ import (
 	"testing"
 )
 
+//nolint:gocyclo
 func TestFiles(t *testing.T) {
 	ctx := context.Background()
 	var err error

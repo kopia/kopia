@@ -1,3 +1,4 @@
+//nolint:dupl
 package object
 
 import (
@@ -36,8 +37,6 @@ func newBuzHash32SplitterFactory(avgSize int) SplitterFactory {
 	mask := uint32(avgSize - 1)
 	maxSize := avgSize * 2
 	minSize := avgSize / 2
-
-	// log.Printf("Setting up buzhash with avg size: %v mask: %v %032b", avgSize, avgSize-1, mask)
 
 	return func() Splitter {
 		s := buzhash32.New()

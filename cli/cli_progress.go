@@ -17,7 +17,7 @@ type singleProgress struct {
 	total     int64
 }
 
-func (p *singleProgress) update(progress int64, total int64) {
+func (p *singleProgress) update(progress, total int64) {
 	p.total = total
 	p.progress = progress
 }
@@ -54,7 +54,7 @@ type multiProgress struct {
 	items []*singleProgress
 }
 
-func (mp *multiProgress) findLocked(desc string) (*singleProgress, int) {
+func (mp *multiProgress) findLocked(desc string) (progress *singleProgress, ordinal int) {
 	for i, p := range mp.items {
 		if p.desc == desc {
 			return p, i
@@ -64,7 +64,7 @@ func (mp *multiProgress) findLocked(desc string) (*singleProgress, int) {
 	return nil, 0
 }
 
-func (mp *multiProgress) Report(desc string, progress int64, total int64) {
+func (mp *multiProgress) Report(desc string, progress, total int64) {
 	mp.mu.Lock()
 	defer mp.mu.Unlock()
 
@@ -95,10 +95,8 @@ func (mp *multiProgress) Report(desc string, progress int64, total int64) {
 		if len(segments) > 0 {
 			log.Notice(segments[len(segments)-1])
 		}
-	} else {
-		if len(segments) > 0 {
-			log.Info(segments[len(segments)-1])
-		}
+	} else if len(segments) > 0 {
+		log.Info(segments[len(segments)-1])
 	}
 }
 

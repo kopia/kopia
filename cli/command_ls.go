@@ -53,7 +53,8 @@ func listDirectory(ctx context.Context, rep *repo.Repository, prefix string, oid
 		var info string
 		objectID := e.(object.HasObjectID).ObjectID()
 		oid := objectID.String()
-		if *lsCommandLong {
+		switch {
+		case *lsCommandLong:
 			info = fmt.Sprintf(
 				"%v %12d %v %-34v %v",
 				e.Mode(),
@@ -62,12 +63,12 @@ func listDirectory(ctx context.Context, rep *repo.Repository, prefix string, oid
 				oid,
 				nameToDisplay(prefix, e),
 			)
-		} else if *lsCommandShowOID {
+		case *lsCommandShowOID:
 			info = fmt.Sprintf(
 				"%-34v %v",
 				oid,
 				nameToDisplay(prefix, e))
-		} else {
+		default:
 			info = nameToDisplay(prefix, e)
 		}
 		fmt.Println(info)
