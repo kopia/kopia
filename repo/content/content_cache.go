@@ -19,6 +19,8 @@ const (
 	defaultTouchThreshold = 10 * time.Minute
 )
 
+type cacheKey string
+
 type contentCache struct {
 	st             blob.Storage
 	cacheStorage   blob.Storage
@@ -37,7 +39,7 @@ type contentToucher interface {
 	TouchBlob(ctx context.Context, contentID blob.ID, threshold time.Duration) error
 }
 
-func adjustCacheKey(cacheKey blob.ID) blob.ID {
+func adjustCacheKey(cacheKey cacheKey) cacheKey {
 	// content IDs with odd length have a single-byte prefix.
 	// move the prefix to the end of cache key to make sure the top level shard is spread 256 ways.
 	if len(cacheKey)%2 == 1 {
@@ -47,7 +49,7 @@ func adjustCacheKey(cacheKey blob.ID) blob.ID {
 	return cacheKey
 }
 
-func (c *contentCache) getContentContent(ctx context.Context, cacheKey, blobID blob.ID, offset, length int64) ([]byte, error) {
+func (c *contentCache) getContent(ctx context.Context, cacheKey cacheKey, blobID blob.ID, offset, length int64) ([]byte, error) {
 	cacheKey = adjustCacheKey(cacheKey)
 
 	useCache := shouldUseContentCache(ctx) && c.cacheStorage != nil
@@ -64,7 +66,7 @@ func (c *contentCache) getContentContent(ctx context.Context, cacheKey, blobID b
 	}
 
 	if err == nil && useCache {
-		if puterr := c.cacheStorage.PutBlob(ctx, cacheKey, appendHMAC(b, c.hmacSecret)); puterr != nil {
+		if puterr := c.cacheStorage.PutBlob(ctx, blob.ID(cacheKey), appendHMAC(b, c.hmacSecret)); puterr != nil {
 			log.Warningf("unable to write cache item %v: %v", cacheKey, puterr)
 		}
 	}
@@ -72,13 +74,24 @@ func (c *contentCache) getContentContent(ctx context.Context, cacheKey, blobID b
 	return b, err
 }
 
-func (c *contentCache) readAndVerifyCacheContent(ctx context.Context, cacheKey blob.ID) []byte {
-	b, err := c.cacheStorage.GetBlob(ctx, cacheKey, 0, -1)
+func (c *contentCache) put(ctx context.Context, cacheKey cacheKey, data []byte) {
+	cacheKey = adjustCacheKey(cacheKey)
+
+	useCache := shouldUseContentCache(ctx) && c.cacheStorage != nil
+	if useCache {
+		if puterr := c.cacheStorage.PutBlob(ctx, blob.ID(cacheKey), appendHMAC(data, c.hmacSecret)); puterr != nil {
+			log.Warningf("unable to write cache item %v: %v", cacheKey, puterr)
+		}
+	}
+}
+
+func (c *contentCache) readAndVerifyCacheContent(ctx context.Context, cacheKey cacheKey) []byte {
+	b, err := c.cacheStorage.GetBlob(ctx, blob.ID(cacheKey), 0, -1)
 	if err == nil {
 		b, err = verifyAndStripHMAC(b, c.hmacSecret)
 		if err == nil {
 			if t, ok := c.cacheStorage.(contentToucher); ok {
-				t.TouchBlob(ctx, cacheKey, c.touchThreshold) //nolint:errcheck
+				t.TouchBlob(ctx, blob.ID(cacheKey), c.touchThreshold) //nolint:errcheck
 			}
 
 			// retrieved from cache and HMAC valid
@@ -176,12 +189,12 @@ func (c *contentCache) sweepDirectory(ctx context.Context) (err error) {
 	return nil
 }
 
-func newContentCache(ctx context.Context, st blob.Storage, caching CachingOptions) (*contentCache, error) {
+func newContentCache(ctx context.Context, st blob.Storage, caching CachingOptions, maxBytes int64, subdir string) (*contentCache, error) {
 	var cacheStorage blob.Storage
 	var err error
 
-	if caching.MaxCacheSizeBytes > 0 && caching.CacheDirectory != "" {
-		contentCacheDir := filepath.Join(caching.CacheDirectory, "contents")
+	if maxBytes > 0 && caching.CacheDirectory != "" {
+		contentCacheDir := filepath.Join(caching.CacheDirectory, subdir)
 
 		if _, err = os.Stat(contentCacheDir); os.IsNotExist(err) {
 			if mkdirerr := os.MkdirAll(contentCacheDir, 0700); mkdirerr != nil {
@@ -198,14 +211,14 @@ func newContentCache(ctx context.Context, st blob.Storage, caching CachingOption
 		}
 	}
 
-	return newContentCacheWithCacheStorage(ctx, st, cacheStorage, caching, defaultTouchThreshold, defaultSweepFrequency)
+	return newContentCacheWithCacheStorage(ctx, st, cacheStorage, maxBytes, caching, defaultTouchThreshold, defaultSweepFrequency)
 }
 
-func newContentCacheWithCacheStorage(ctx context.Context, st, cacheStorage blob.Storage, caching CachingOptions, touchThreshold, sweepFrequency time.Duration) (*contentCache, error) {
+func newContentCacheWithCacheStorage(ctx context.Context, st, cacheStorage blob.Storage, maxSizeBytes int64, caching CachingOptions, touchThreshold, sweepFrequency time.Duration) (*contentCache, error) {
 	c := &contentCache{
 		st:             st,
 		cacheStorage:   cacheStorage,
-		maxSizeBytes:   caching.MaxCacheSizeBytes,
+		maxSizeBytes:   maxSizeBytes,
 		hmacSecret:     append([]byte(nil), caching.HMACSecret...),
 		closed:         make(chan struct{}),
 		touchThreshold: touchThreshold,

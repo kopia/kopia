@@ -65,10 +65,11 @@ type IndexBlobInfo struct {
 type Manager struct {
 	Format FormattingOptions
 
-	stats        Stats
-	contentCache *contentCache
-	listCache    *listCache
-	st           blob.Storage
+	stats         Stats
+	contentCache  *contentCache
+	metadataCache *contentCache
+	listCache     *listCache
+	st            blob.Storage
 
 	mu                      sync.Mutex
 	locked                  bool
@@ -331,7 +332,7 @@ func (bm *Manager) writePackContentLocked(ctx context.Context) error {
 
 	packFile := blob.ID(fmt.Sprintf("%v%x", PackBlobIDPrefix, contentID))
 
-	contentData, packFileIndex, err := bm.preparePackDataContent(packFile)
+	contentData, packFileIndex, err := bm.preparePackDataContent(ctx, packFile)
 	if err != nil {
 		return errors.Wrap(err, "error preparing data content")
 	}
@@ -350,7 +351,7 @@ func (bm *Manager) writePackContentLocked(ctx context.Context) error {
 	return nil
 }
 
-func (bm *Manager) preparePackDataContent(packFile blob.ID) ([]byte, packIndexBuilder, error) {
+func (bm *Manager) preparePackDataContent(ctx context.Context, packFile blob.ID) ([]byte, packIndexBuilder, error) {
 	formatLog.Debugf("preparing content data with %v items", len(bm.currentPackItems))
 
 	contentData, err := appendRandomBytes(append([]byte(nil), bm.repositoryFormatBytes...), rand.Intn(bm.maxPreambleLength-bm.minPreambleLength+1)+bm.minPreambleLength)
@@ -381,6 +382,10 @@ func (bm *Manager) preparePackDataContent(packFile blob.ID) ([]byte, packIndexBu
 			Length:           uint32(len(encrypted)),
 			TimestampSeconds: info.TimestampSeconds,
 		})
+
+		if contentID.HasPrefix() {
+			bm.metadataCache.put(ctx, cacheKey(contentID), cloneBytes(encrypted))
+		}
 
 		contentData = append(contentData, encrypted...)
 	}
@@ -537,6 +542,7 @@ func (bm *Manager) unprocessedIndexBlobsUnlocked(contents []IndexBlobInfo) (resu
 // Close closes the content manager.
 func (bm *Manager) Close() {
 	bm.contentCache.close()
+	bm.metadataCache.close()
 	close(bm.closed)
 }
 
@@ -787,12 +793,20 @@ func findPackContentsInUse(infos []Info) map[blob.ID]int {
 	return packUsage
 }
 
+func (bm *Manager) getCacheForContentID(id ID) *contentCache {
+	if id.HasPrefix() {
+		return bm.metadataCache
+	}
+
+	return bm.contentCache
+}
+
 func (bm *Manager) getContentDataUnlocked(ctx context.Context, bi *Info) ([]byte, error) {
 	if bi.Payload != nil {
 		return cloneBytes(bi.Payload), nil
 	}
 
-	payload, err := bm.contentCache.getContentContent(ctx, blob.ID(bi.ID), bi.PackBlobID, int64(bi.PackOffset), int64(bi.Length))
+	payload, err := bm.getCacheForContentID(bi.ID).getContent(ctx, cacheKey(bi.ID), bi.PackBlobID, int64(bi.PackOffset), int64(bi.Length))
 	if err != nil {
 		return nil, err
 	}
@@ -832,7 +846,7 @@ func (bm *Manager) decryptAndVerify(encrypted, iv []byte) ([]byte, error) {
 }
 
 func (bm *Manager) getIndexBlobInternal(ctx context.Context, blobID blob.ID) ([]byte, error) {
-	payload, err := bm.contentCache.getContentContent(ctx, blobID, blobID, 0, -1)
+	payload, err := bm.contentCache.getContent(ctx, cacheKey(blobID), blobID, 0, -1)
 	if err != nil {
 		return nil, err
 	}
@@ -960,9 +974,19 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 		return nil, err
 	}
 
-	contentCache, err := newContentCache(ctx, st, caching)
+	contentCache, err := newContentCache(ctx, st, caching, caching.MaxCacheSizeBytes, "contents")
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to initialize content cache")
+	}
+
+	metadataCacheSize := caching.MaxMetadataCacheSizeBytes
+	if metadataCacheSize == 0 && caching.MaxCacheSizeBytes > 0 {
+		metadataCacheSize = caching.MaxCacheSizeBytes
+	}
+
+	metadataCache, err := newContentCache(ctx, st, caching, metadataCacheSize, "metadata")
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to initialize metadata cache")
 	}
 
 	listCache, err := newListCache(st, caching)
@@ -986,6 +1010,7 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 		maxPreambleLength:     defaultMaxPreambleLength,
 		paddingUnit:           defaultPaddingUnit,
 		contentCache:          contentCache,
+		metadataCache:         metadataCache,
 		listCache:             listCache,
 		st:                    st,
 		repositoryFormatBytes: repositoryFormatBytes,

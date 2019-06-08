@@ -32,22 +32,20 @@ func TestCacheExpiration(t *testing.T) {
 
 	underlyingStorage := newUnderlyingStorageForContentCacheTesting(t)
 
-	cache, err := newContentCacheWithCacheStorage(context.Background(), underlyingStorage, cacheStorage, CachingOptions{
-		MaxCacheSizeBytes: 10000,
-	}, 0, 500*time.Millisecond)
+	cache, err := newContentCacheWithCacheStorage(context.Background(), underlyingStorage, cacheStorage, 10000, CachingOptions{}, 0, 500*time.Millisecond)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 	defer cache.close()
 
 	ctx := context.Background()
-	_, err = cache.getContentContent(ctx, "00000a", "content-4k", 0, -1) // 4k
+	_, err = cache.getContent(ctx, "00000a", "content-4k", 0, -1) // 4k
 	assertNoError(t, err)
-	_, err = cache.getContentContent(ctx, "00000b", "content-4k", 0, -1) // 4k
+	_, err = cache.getContent(ctx, "00000b", "content-4k", 0, -1) // 4k
 	assertNoError(t, err)
-	_, err = cache.getContentContent(ctx, "00000c", "content-4k", 0, -1) // 4k
+	_, err = cache.getContent(ctx, "00000c", "content-4k", 0, -1) // 4k
 	assertNoError(t, err)
-	_, err = cache.getContentContent(ctx, "00000d", "content-4k", 0, -1) // 4k
+	_, err = cache.getContent(ctx, "00000d", "content-4k", 0, -1) // 4k
 	assertNoError(t, err)
 
 	// wait for a sweep
@@ -69,7 +67,7 @@ func TestCacheExpiration(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		_, got := cache.getContentContent(ctx, tc.blobID, "content-4k", 0, -1)
+		_, got := cache.getContent(ctx, cacheKey(tc.blobID), "content-4k", 0, -1)
 		if want := tc.expectedError; got != want {
 			t.Errorf("unexpected error when getting content %v: %v wanted %v", tc.blobID, got, want)
 		} else {
@@ -88,9 +86,8 @@ func TestDiskContentCache(t *testing.T) {
 	defer os.RemoveAll(tmpDir)
 
 	cache, err := newContentCache(ctx, newUnderlyingStorageForContentCacheTesting(t), CachingOptions{
-		MaxCacheSizeBytes: 10000,
-		CacheDirectory:    tmpDir,
-	})
+		CacheDirectory: tmpDir,
+	}, 10000, "contents")
 
 	if err != nil {
 		t.Fatalf("err: %v", err)
@@ -104,7 +101,7 @@ func verifyContentCache(t *testing.T, cache *contentCache) {
 
 	t.Run("GetContentContent", func(t *testing.T) {
 		cases := []struct {
-			cacheKey blob.ID
+			cacheKey cacheKey
 			blobID   blob.ID
 			offset   int64
 			length   int64
@@ -124,7 +121,7 @@ func verifyContentCache(t *testing.T, cache *contentCache) {
 		}
 
 		for _, tc := range cases {
-			v, err := cache.getContentContent(ctx, tc.cacheKey, tc.blobID, tc.offset, tc.length)
+			v, err := cache.getContent(ctx, tc.cacheKey, tc.blobID, tc.offset, tc.length)
 			if (err != nil) != (tc.err != nil) {
 				t.Errorf("unexpected error for %v: %+v, wanted %+v", tc.cacheKey, err, tc.err)
 			} else if err != nil && err.Error() != tc.err.Error() {
@@ -152,9 +149,9 @@ func verifyContentCache(t *testing.T, cache *contentCache) {
 			t.Fatalf("unable to write corrupted content: %v", puterr)
 		}
 
-		v, err := cache.getContentContent(ctx, "xf0f0f1", "content-1", 1, 5)
+		v, err := cache.getContent(ctx, "xf0f0f1", "content-1", 1, 5)
 		if err != nil {
-			t.Fatalf("error in getContentContent: %v", err)
+			t.Fatalf("error in getContent: %v", err)
 		}
 		if got, want := v, []byte{2, 3, 4, 5, 6}; !reflect.DeepEqual(v, want) {
 			t.Errorf("invalid result when reading corrupted data: %v, wanted %v", got, want)
@@ -178,17 +175,13 @@ func TestCacheFailureToOpen(t *testing.T) {
 	}
 
 	// Will fail because of ListBlobs failure.
-	_, err := newContentCacheWithCacheStorage(context.Background(), underlyingStorage, faultyCache, CachingOptions{
-		MaxCacheSizeBytes: 10000,
-	}, 0, 5*time.Hour)
+	_, err := newContentCacheWithCacheStorage(context.Background(), underlyingStorage, faultyCache, 10000, CachingOptions{}, 0, 5*time.Hour)
 	if err == nil || !strings.Contains(err.Error(), someError.Error()) {
 		t.Errorf("invalid error %v, wanted: %v", err, someError)
 	}
 
 	// ListBlobs fails only once, next time it succeeds.
-	cache, err := newContentCacheWithCacheStorage(context.Background(), underlyingStorage, faultyCache, CachingOptions{
-		MaxCacheSizeBytes: 10000,
-	}, 0, 100*time.Millisecond)
+	cache, err := newContentCacheWithCacheStorage(context.Background(), underlyingStorage, faultyCache, 10000, CachingOptions{}, 0, 100*time.Millisecond)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -206,9 +199,7 @@ func TestCacheFailureToWrite(t *testing.T) {
 		Base: cacheStorage,
 	}
 
-	cache, err := newContentCacheWithCacheStorage(context.Background(), underlyingStorage, faultyCache, CachingOptions{
-		MaxCacheSizeBytes: 10000,
-	}, 0, 5*time.Hour)
+	cache, err := newContentCacheWithCacheStorage(context.Background(), underlyingStorage, faultyCache, 10000, CachingOptions{}, 0, 5*time.Hour)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -222,7 +213,7 @@ func TestCacheFailureToWrite(t *testing.T) {
 		},
 	}
 
-	v, err := cache.getContentContent(ctx, "aa", "content-1", 0, 3)
+	v, err := cache.getContent(ctx, "aa", "content-1", 0, 3)
 	if err != nil {
 		t.Errorf("write failure wasn't ignored: %v", err)
 	}
@@ -250,9 +241,7 @@ func TestCacheFailureToRead(t *testing.T) {
 		Base: cacheStorage,
 	}
 
-	cache, err := newContentCacheWithCacheStorage(context.Background(), underlyingStorage, faultyCache, CachingOptions{
-		MaxCacheSizeBytes: 10000,
-	}, 0, 5*time.Hour)
+	cache, err := newContentCacheWithCacheStorage(context.Background(), underlyingStorage, faultyCache, 10000, CachingOptions{}, 0, 5*time.Hour)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -267,7 +256,7 @@ func TestCacheFailureToRead(t *testing.T) {
 	}
 
 	for i := 0; i < 2; i++ {
-		v, err := cache.getContentContent(ctx, "aa", "content-1", 0, 3)
+		v, err := cache.getContent(ctx, "aa", "content-1", 0, 3)
 		if err != nil {
 			t.Errorf("read failure wasn't ignored: %v", err)
 		}

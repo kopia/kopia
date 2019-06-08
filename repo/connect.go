@@ -86,6 +86,7 @@ func setupCaching(configPath string, lc *LocalConfig, opt content.CachingOptions
 		lc.Caching.CacheDirectory = absCacheDir
 	}
 	lc.Caching.MaxCacheSizeBytes = opt.MaxCacheSizeBytes
+	lc.Caching.MaxMetadataCacheSizeBytes = opt.MaxMetadataCacheSizeBytes
 	lc.Caching.MaxListCacheDurationSec = opt.MaxListCacheDurationSec
 
 	log.Debugf("Creating cache directory '%v' with max size %v", lc.Caching.CacheDirectory, lc.Caching.MaxCacheSizeBytes)
