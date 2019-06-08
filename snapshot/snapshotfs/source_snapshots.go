@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
@@ -80,7 +82,10 @@ func (s *sourceSnapshots) Readdir(ctx context.Context) (fs.Entries, error) {
 			de.DirSummary = m.RootEntry.DirSummary
 		}
 
-		e := newRepoEntry(s.rep, de)
+		e, err := newRepoEntry(s.rep, de)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to create entry")
+		}
 
 		result = append(result, e)
 	}

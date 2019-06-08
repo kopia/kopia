@@ -100,7 +100,7 @@ func (f *fileWithMetadata) Entry() (fs.Entry, error) {
 	if err != nil {
 		return nil, err
 	}
-	return filesystemFile{newEntry(fi, f.Name())}, nil
+	return &filesystemFile{newEntry(fi, f.Name())}, nil
 }
 
 func (fsf *filesystemFile) Open(ctx context.Context) (fs.Reader, error) {

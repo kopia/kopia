@@ -152,12 +152,12 @@ func migrateSingleSourceSnapshot(ctx context.Context, uploader *snapshotfs.Uploa
 	}
 
 	log.Infof("migrating snapshot of %v at %v", s, formatTimestamp(m.StartTime))
-	previousManifest, err := findPreviousSnapshotManifest(ctx, destRepo, m.Source, &m.StartTime)
+	previousCompleteManifest, previousIncompleteManifest, err := findPreviousSnapshotManifest(ctx, destRepo, m.Source, &m.StartTime)
 	if err != nil {
 		return err
 	}
 
-	newm, err := uploader.Upload(ctx, sourceEntry, m.Source, previousManifest)
+	newm, err := uploader.Upload(ctx, sourceEntry, m.Source, previousCompleteManifest, previousIncompleteManifest)
 	if err != nil {
 		return errors.Wrapf(err, "error migrating shapshot %v @ %v", m.Source, m.StartTime)
 	}

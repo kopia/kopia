@@ -29,7 +29,6 @@ var (
 	snapshotCreateCheckpointUploadLimitMB = snapshotCreateCommand.Flag("upload-limit-mb", "Stop the backup process after the specified amount of data (in MB) has been uploaded.").PlaceHolder("MB").Default("0").Int64()
 	snapshotCreateDescription             = snapshotCreateCommand.Flag("description", "Free-form snapshot description.").String()
 	snapshotCreateForceHash               = snapshotCreateCommand.Flag("force-hash", "Force hashing of source files for a given percentage of files [0..100]").Default("0").Int()
-	snapshotCreateHashCacheMinAge         = snapshotCreateCommand.Flag("hash-cache-min-age", "Do not hash-cache files below certain age").Default("10m").Duration()
 	snapshotCreateParallelUploads         = snapshotCreateCommand.Flag("parallel", "Upload N files in parallel").PlaceHolder("N").Default("0").Int()
 )
 
@@ -50,7 +49,6 @@ func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
 	u := snapshotfs.NewUploader(rep)
 	u.MaxUploadBytes = *snapshotCreateCheckpointUploadLimitMB * 1024 * 1024
 	u.ForceHashPercentage = *snapshotCreateForceHash
-	u.HashCacheMinAge = *snapshotCreateHashCacheMinAge
 	u.ParallelUploads = *snapshotCreateParallelUploads
 	onCtrlC(u.Cancel)
 
@@ -89,7 +87,7 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshot
 
 	localEntry := mustGetLocalFSEntry(sourceInfo.Path)
 
-	previousManifest, err := findPreviousSnapshotManifest(ctx, rep, sourceInfo, nil)
+	previousComplete, previousIncomplete, err := findPreviousSnapshotManifest(ctx, rep, sourceInfo, nil)
 	if err != nil {
 		return err
 	}
@@ -99,8 +97,8 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshot
 		return err
 	}
 
-	log.Debugf("uploading %v using previous manifest %v", sourceInfo, previousManifest)
-	manifest, err := u.Upload(ctx, localEntry, sourceInfo, previousManifest)
+	log.Debugf("uploading %v using previous manifest %v", sourceInfo, previousIncomplete)
+	manifest, err := u.Upload(ctx, localEntry, sourceInfo, previousComplete, previousIncomplete)
 	if err != nil {
 		return err
 	}
@@ -113,35 +111,42 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshot
 	}
 
 	printStderr("uploaded snapshot %v (root %v) in %v\n", snapID, manifest.RootObjectID(), time.Since(t0))
-	log.Debugf("Hash Cache: %v", manifest.HashCacheID.String())
 
 	_, err = policy.ApplyRetentionPolicy(ctx, rep, sourceInfo, true)
 	return err
 }
 
-func findPreviousSnapshotManifest(ctx context.Context, rep *repo.Repository, sourceInfo snapshot.SourceInfo, noLaterThan *time.Time) (*snapshot.Manifest, error) {
-	previous, err := snapshot.ListSnapshots(ctx, rep, sourceInfo)
+func findPreviousSnapshotManifest(ctx context.Context, rep *repo.Repository, sourceInfo snapshot.SourceInfo, noLaterThan *time.Time) (previousComplete, previousIncomplete *snapshot.Manifest, err error) {
+	previousManifests, err := snapshot.ListSnapshots(ctx, rep, sourceInfo)
 	if err != nil {
-		return nil, errors.Wrap(err, "error listing previous backups")
+		return nil, nil, errors.Wrap(err, "error listing previous snapshots")
 	}
 
-	var previousManifest *snapshot.Manifest
-	for _, p := range previous {
+	for _, p := range previousManifests {
 		if noLaterThan != nil && p.StartTime.After(*noLaterThan) {
 			continue
 		}
-		if previousManifest == nil || p.StartTime.After(previousManifest.StartTime) {
-			previousManifest = p
+		if p.IncompleteReason != "" && (previousIncomplete == nil || p.StartTime.After(previousIncomplete.StartTime)) {
+			previousIncomplete = p
+		}
+		if p.IncompleteReason == "" && (previousComplete == nil || p.StartTime.After(previousComplete.StartTime)) {
+			previousComplete = p
 		}
 	}
 
-	if previousManifest != nil {
-		log.Debugf("found previous manifest for %v with start time %v", sourceInfo, previousManifest.StartTime)
-	} else {
+	if previousComplete != nil {
+		log.Debugf("found previous complete manifest for %v with start time %v", sourceInfo, previousComplete.StartTime)
+	}
+
+	if previousIncomplete != nil {
+		log.Debugf("found previous incomplete manifest for %v with start time %v", sourceInfo, previousIncomplete.StartTime)
+	}
+
+	if previousIncomplete == nil && previousComplete == nil {
 		log.Debugf("no previous manifest for %v", sourceInfo)
 	}
 
-	return previousManifest, nil
+	return previousComplete, previousIncomplete, nil
 }
 
 func getLocalBackupPaths(ctx context.Context, rep *repo.Repository) ([]string, error) {

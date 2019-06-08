@@ -28,11 +28,8 @@ type Options struct {
 
 // Open opens a Repository specified in the configuration file.
 func Open(ctx context.Context, configFile, password string, options *Options) (rep *Repository, err error) {
-	log.Debugf("opening repository from %v", configFile)
 	defer func() {
-		if err == nil {
-			log.Debugf("opened repository")
-		} else {
+		if err != nil {
 			log.Errorf("failed to open repository: %v", err)
 		}
 	}()
@@ -46,13 +43,10 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 		return nil, err
 	}
 
-	log.Debugf("loading config from file: %v", configFile)
 	lc, err := loadConfigFromFile(configFile)
 	if err != nil {
 		return nil, err
 	}
-
-	log.Debugf("opening storage: %v", lc.Storage.Type)
 
 	st, err := blob.NewStorage(ctx, lc.Storage)
 	if err != nil {
@@ -76,7 +70,6 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 
 // OpenWithConfig opens the repository with a given configuration, avoiding the need for a config file.
 func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, password string, options *Options, caching content.CachingOptions) (*Repository, error) {
-	log.Debugf("reading encrypted format blob")
 	// Read format blob, potentially from cache.
 	fb, err := readAndCacheFormatBlobBytes(ctx, st, caching.CacheDirectory)
 	if err != nil {
@@ -110,19 +103,16 @@ func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		fo.MaxPackSize = 20 << 20 // 20 MB
 	}
 
-	log.Debugf("initializing content-addressable storage manager")
 	cm, err := content.NewManager(ctx, st, fo, caching, fb)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open content manager")
 	}
 
-	log.Debugf("initializing object manager")
 	om, err := object.NewObjectManager(ctx, cm, repoConfig.Format, options.ObjectManagerOptions)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open object manager")
 	}
 
-	log.Debugf("initializing manifest manager")
 	manifests, err := manifest.NewManager(ctx, cm)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open manifests")

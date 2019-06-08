@@ -20,10 +20,8 @@ type Manifest struct {
 	StartTime   time.Time `json:"startTime"`
 	EndTime     time.Time `json:"endTime"`
 
-	HashCacheID         object.ID `json:"hashCache"`
-	HashCacheCutoffTime time.Time `json:"hashCacheCutoff"`
-	Stats               Stats     `json:"stats"`
-	IncompleteReason    string    `json:"incomplete,omitempty"`
+	Stats            Stats  `json:"stats"`
+	IncompleteReason string `json:"incomplete,omitempty"`
 
 	RootEntry *DirEntry `json:"rootEntry"`
 

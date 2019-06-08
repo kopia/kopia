@@ -173,7 +173,7 @@ func (s *sourceManager) snapshot(ctx context.Context) {
 	u.Progress = s
 
 	log.Infof("starting upload of %v", s.src)
-	manifest, err := u.Upload(ctx, localEntry, s.src, s.lastSnapshot)
+	manifest, err := u.Upload(ctx, localEntry, s.src, s.lastCompleteSnapshot, s.lastSnapshot)
 	if err != nil {
 		log.Errorf("upload error: %v", err)
 		return
