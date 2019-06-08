@@ -50,7 +50,7 @@ func runStatusCommand(ctx context.Context, rep *repo.Repository) error {
 func scanCacheDir(dirname string) (fileCount int, totalFileLength int64, err error) {
 	entries, err := ioutil.ReadDir(dirname)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, nil
 	}
 
 	for _, e := range entries {
