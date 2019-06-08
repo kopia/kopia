@@ -26,7 +26,6 @@ var (
 	snapshotListShowHumanReadable    = snapshotListCommand.Flag("human-readable", "Show human-readable units").Default("true").Bool()
 	snapshotListShowDelta            = snapshotListCommand.Flag("delta", "Include deltas.").Short('d').Bool()
 	snapshotListShowItemID           = snapshotListCommand.Flag("manifest-id", "Include manifest item ID.").Short('m').Bool()
-	snapshotListShowHashCache        = snapshotListCommand.Flag("hashcache", "Include hashcache object ID.").Bool()
 	snapshotListShowRetentionReasons = snapshotListCommand.Flag("retention", "Include retention reasons.").Default("true").Bool()
 	snapshotListShowModTime          = snapshotListCommand.Flag("mtime", "Include file mod time").Bool()
 	shapshotListShowOwner            = snapshotListCommand.Flag("owner", "Include owner").Bool()
@@ -204,9 +203,6 @@ func outputManifestFromSingleSource(ctx context.Context, rep *repo.Repository, m
 
 		if *snapshotListShowItemID {
 			bits = append(bits, "manifest:"+string(m.ID))
-		}
-		if *snapshotListShowHashCache {
-			bits = append(bits, "hashcache:"+m.HashCacheID.String())
 		}
 
 		if *snapshotListShowDelta {

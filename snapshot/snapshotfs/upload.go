@@ -3,10 +3,8 @@ package snapshotfs
 import (
 	"bytes"
 	"context"
-	"encoding/binary"
 	"hash/fnv"
 	"io"
-	"math/rand"
 	"os"
 	"runtime"
 	"sync"
@@ -17,7 +15,6 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/ignorefs"
-	"github.com/kopia/kopia/internal/hashcache"
 	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/object"
@@ -25,21 +22,6 @@ import (
 )
 
 var log = kopialogging.Logger("kopia/upload")
-
-func hashEntryMetadata(w io.Writer, e fs.Entry, fileSize int64) {
-	io.WriteString(w, e.Name())                                  //nolint:errcheck
-	binary.Write(w, binary.LittleEndian, e.ModTime().UnixNano()) //nolint:errcheck
-	binary.Write(w, binary.LittleEndian, e.Mode())               //nolint:errcheck
-	binary.Write(w, binary.LittleEndian, fileSize)               //nolint:errcheck
-	binary.Write(w, binary.LittleEndian, e.Owner().UserID)       //nolint:errcheck
-	binary.Write(w, binary.LittleEndian, e.Owner().GroupID)      //nolint:errcheck
-}
-
-func metadataHash(e fs.Entry, fileSize int64) uint64 {
-	h := fnv.New64a()
-	hashEntryMetadata(h, e, fileSize)
-	return h.Sum64()
-}
 
 var errCancelled = errors.New("canceled")
 
@@ -55,25 +37,18 @@ type Uploader struct {
 	// ignore file read errors
 	IgnoreFileErrors bool
 
-	// probability with hich hashcache entries will be ignored, must be [0..100]
-	// 0=always use hash cache if possible
-	// 100=never use hash cache
+	// probability with cached entries will be ignored, must be [0..100]
+	// 0=always use cached object entries if possible
+	// 100=never use cached entries
 	ForceHashPercentage int
-
-	// Do not hash-cache files younger than this age.
-	// Protects from accidentally caching incorrect hashes of files that are being modified.
-	HashCacheMinAge time.Duration
 
 	// Number of files to hash and upload in parallel.
 	ParallelUploads int
 
-	repo        *repo.Repository
-	cacheWriter hashcache.Writer
-	cacheReader hashcache.Reader
+	repo *repo.Repository
 
-	hashCacheCutoff time.Time
-	stats           snapshot.Stats
-	canceled        int32
+	stats    snapshot.Stats
+	canceled int32
 
 	progressMutex          sync.Mutex
 	nextProgressReportTime time.Time
@@ -127,10 +102,13 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, f fs.File) entryResul
 		return entryResult{err: err}
 	}
 
-	de := newDirEntry(fi2, r)
+	de, err := newDirEntry(fi2, r)
+	if err != nil {
+		return entryResult{err: errors.Wrap(err, "unable to create dir entry")}
+	}
 	de.FileSize = written
 
-	return entryResult{de: de, hash: metadataHash(fi2, written)}
+	return entryResult{de: de}
 }
 
 func (u *Uploader) uploadSymlinkInternal(ctx context.Context, f fs.Symlink) entryResult {
@@ -154,9 +132,12 @@ func (u *Uploader) uploadSymlinkInternal(ctx context.Context, f fs.Symlink) entr
 		return entryResult{err: err}
 	}
 
-	de := newDirEntry(f, r)
+	de, err := newDirEntry(f, r)
+	if err != nil {
+		return entryResult{err: errors.Wrap(err, "unable to create dir entry")}
+	}
 	de.FileSize = written
-	return entryResult{de: de, hash: metadataHash(f, written)}
+	return entryResult{de: de}
 }
 
 func (u *Uploader) addDirProgress(length int64) {
@@ -219,18 +200,18 @@ func (u *Uploader) copyWithProgress(dst io.Writer, src io.Reader, completed, len
 	return written, nil
 }
 
-func newDirEntry(md fs.Entry, oid object.ID) *snapshot.DirEntry {
+func newDirEntry(md fs.Entry, oid object.ID) (*snapshot.DirEntry, error) {
 	var entryType snapshot.EntryType
 
-	switch md.Mode() & os.ModeType {
-	case os.ModeDir:
+	switch md := md.(type) {
+	case fs.Directory:
 		entryType = snapshot.EntryTypeDirectory
-	case os.ModeSymlink:
+	case fs.Symlink:
 		entryType = snapshot.EntryTypeSymlink
-	case 0:
+	case fs.File:
 		entryType = snapshot.EntryTypeFile
 	default:
-		entryType = snapshot.EntryTypeUnknown
+		return nil, errors.Errorf("invalid entry type %T", md)
 	}
 
 	return &snapshot.DirEntry{
@@ -242,7 +223,7 @@ func newDirEntry(md fs.Entry, oid object.ID) *snapshot.DirEntry {
 		UserID:      md.Owner().UserID,
 		GroupID:     md.Owner().GroupID,
 		ObjectID:    oid,
-	}
+	}, nil
 }
 
 // uploadFile uploads the specified File to the repository.
@@ -252,7 +233,10 @@ func (u *Uploader) uploadFile(ctx context.Context, file fs.File) (*snapshot.DirE
 		return nil, res.err
 	}
 
-	de := newDirEntry(file, res.de.ObjectID)
+	de, err := newDirEntry(file, res.de.ObjectID)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to create dir entry")
+	}
 	de.DirSummary = &fs.DirectorySummary{
 		TotalFileCount: 1,
 		TotalFileSize:  res.de.FileSize,
@@ -265,30 +249,19 @@ func (u *Uploader) uploadFile(ctx context.Context, file fs.File) (*snapshot.DirE
 // uploadDir uploads the specified Directory to the repository.
 // An optional ID of a hash-cache object may be provided, in which case the Uploader will use its
 // contents to avoid hashing
-func (u *Uploader) uploadDir(ctx context.Context, rootDir fs.Directory) (*snapshot.DirEntry, object.ID, error) {
-	mw := u.repo.Objects.NewWriter(ctx, object.WriterOptions{
-		Description: "HASHCACHE:" + rootDir.Name(),
-		Prefix:      "h",
-	})
-	defer mw.Close() //nolint:errcheck
-	u.cacheWriter = hashcache.NewWriter(mw)
-	oid, summ, err := uploadDirInternal(ctx, u, rootDir, ".")
-	if u.IsCancelled() {
-		if err2 := u.cacheReader.CopyTo(u.cacheWriter); err != nil {
-			return nil, "", err2
-		}
-	}
-	defer u.cacheWriter.Finalize() //nolint:errcheck
-	u.cacheWriter = nil
-
+func (u *Uploader) uploadDir(ctx context.Context, rootDir, previousIncomplete, previousComplete fs.Directory) (*snapshot.DirEntry, error) {
+	oid, summ, err := uploadDirInternal(ctx, u, rootDir, previousIncomplete, previousComplete, ".")
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
-	hcid, err := mw.Result()
-	de := newDirEntry(rootDir, oid)
+	de, err := newDirEntry(rootDir, oid)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to create dir entry")
+	}
+
 	de.DirSummary = &summ
-	return de, hcid, err
+	return de, err
 }
 
 func (u *Uploader) foreachEntryUnlessCancelled(relativePath string, entries fs.Entries, cb func(entry fs.Entry, entryRelativePath string) error) error {
@@ -308,12 +281,11 @@ func (u *Uploader) foreachEntryUnlessCancelled(relativePath string, entries fs.E
 }
 
 type entryResult struct {
-	err  error
-	de   *snapshot.DirEntry
-	hash uint64
+	err error
+	de  *snapshot.DirEntry
 }
 
-func (u *Uploader) processSubdirectories(ctx context.Context, relativePath string, entries fs.Entries, dw *dirWriter, summ *fs.DirectorySummary) error {
+func (u *Uploader) processSubdirectories(ctx context.Context, relativePath string, entries, prevIncomplete, prevComplete fs.Entries, dw *dirWriter, summ *fs.DirectorySummary) error {
 	return u.foreachEntryUnlessCancelled(relativePath, entries, func(entry fs.Entry, entryRelativePath string) error {
 		dir, ok := entry.(fs.Directory)
 		if !ok {
@@ -321,7 +293,9 @@ func (u *Uploader) processSubdirectories(ctx context.Context, relativePath strin
 			return nil
 		}
 
-		oid, subdirsumm, err := uploadDirInternal(ctx, u, dir, entryRelativePath)
+		prevIncompleteDir, _ := prevIncomplete.FindByName(entry.Name()).(fs.Directory)
+		prevCompleteDir, _ := prevComplete.FindByName(entry.Name()).(fs.Directory)
+		oid, subdirsumm, err := uploadDirInternal(ctx, u, dir, prevIncompleteDir, prevCompleteDir, entryRelativePath)
 		if err == errCancelled {
 			return err
 		}
@@ -337,7 +311,11 @@ func (u *Uploader) processSubdirectories(ctx context.Context, relativePath strin
 			return errors.Errorf("unable to process directory %q: %s", entry.Name(), err)
 		}
 
-		de := newDirEntry(dir, oid)
+		de, err := newDirEntry(dir, oid)
+		if err != nil {
+			return errors.Wrap(err, "unable to create dir entry")
+		}
+
 		de.DirSummary = &subdirsumm
 		if err := dw.WriteEntry(de); err != nil {
 			return errors.Wrap(err, "unable to write dir entry")
@@ -373,7 +351,56 @@ type uploadWorkItem struct {
 	resultChan        chan entryResult
 }
 
-func (u *Uploader) prepareWorkItems(ctx context.Context, dirRelativePath string, entries fs.Entries, summ *fs.DirectorySummary) ([]*uploadWorkItem, error) {
+func metadataEquals(e1, e2 fs.Entry) bool {
+	if l, r := e1.ModTime(), e2.ModTime(); l != r {
+		return false
+	}
+	if l, r := e1.Mode(), e2.Mode(); l != r {
+		return false
+	}
+	if l, r := e1.Size(), e2.Size(); l != r {
+		return false
+	}
+	if l, r := e1.Owner(), e2.Owner(); l != r {
+		return false
+	}
+	return true
+}
+
+func findCachedEntry(entry fs.Entry, prevIncomplete, prevComplete fs.Entries) fs.Entry {
+	if ent := prevComplete.FindByName(entry.Name()); ent != nil && metadataEquals(entry, ent) {
+		return ent
+	}
+
+	if ent := prevIncomplete.FindByName(entry.Name()); ent != nil && metadataEquals(entry, ent) {
+		if metadataEquals(entry, ent) {
+			return ent
+		}
+	}
+
+	return nil
+}
+
+// objectIDPercent arbitrarily maps given object ID onto a number 0.99
+func objectIDPercent(obj object.ID) int {
+	h := fnv.New32a()
+	io.WriteString(h, obj.String()) //nolint:errcheck
+	return int(h.Sum32() % 100)
+}
+
+func (u *Uploader) maybeIgnoreCachedEntry(ent fs.Entry) fs.Entry {
+	if h, ok := ent.(object.HasObjectID); ok {
+		if objectIDPercent(h.ObjectID()) < u.ForceHashPercentage {
+			log.Debugf("ignoring valid cached object: %v", h.ObjectID())
+			return nil
+		}
+		return ent
+	}
+
+	return nil
+}
+
+func (u *Uploader) prepareWorkItems(ctx context.Context, dirRelativePath string, entries, previousIncomplete, previousComplete fs.Entries, summ *fs.DirectorySummary) ([]*uploadWorkItem, error) {
 	var result []*uploadWorkItem
 
 	resultErr := u.foreachEntryUnlessCancelled(dirRelativePath, entries, func(entry fs.Entry, entryRelativePath string) error {
@@ -383,16 +410,6 @@ func (u *Uploader) prepareWorkItems(ctx context.Context, dirRelativePath string,
 		}
 
 		// regular file
-		// See if we had this name during previous pass.
-		cachedEntry := u.maybeIgnoreHashCacheEntry(u.cacheReader.FindEntry(entryRelativePath))
-		var cachedHash uint64
-		if cachedEntry != nil {
-			cachedHash = cachedEntry.Hash
-		}
-
-		// ... and whether file metadata is identical to the previous one.
-		computedHash := metadataHash(entry, entry.Size())
-
 		if entry, ok := entry.(fs.File); ok {
 			u.stats.TotalFileCount++
 			u.stats.TotalFileSize += entry.Size()
@@ -403,14 +420,15 @@ func (u *Uploader) prepareWorkItems(ctx context.Context, dirRelativePath string,
 			}
 		}
 
-		if cachedHash == computedHash {
+		// See if we had this name during either of previous passes.
+		if cachedEntry := u.maybeIgnoreCachedEntry(findCachedEntry(entry, previousIncomplete, previousComplete)); cachedEntry != nil {
 			u.stats.CachedFiles++
 			u.addDirProgress(entry.Size())
 
 			// compute entryResult now, cachedEntry is short-lived
-			cachedResult := entryResult{
-				de:   newDirEntry(entry, cachedEntry.ObjectID),
-				hash: cachedEntry.Hash,
+			cachedDirEntry, err := newDirEntry(entry, cachedEntry.(object.HasObjectID).ObjectID())
+			if err != nil {
+				return errors.Wrap(err, "unable to create dir entry")
 			}
 
 			// Avoid hashing by reusing previous object ID.
@@ -418,12 +436,10 @@ func (u *Uploader) prepareWorkItems(ctx context.Context, dirRelativePath string,
 				entry:             entry,
 				entryRelativePath: entryRelativePath,
 				uploadFunc: func() entryResult {
-					return cachedResult
+					return entryResult{de: cachedDirEntry}
 				},
 			})
 		} else {
-			log.Debugf("hash cache miss for %v (cached %v computed %v)", entryRelativePath, cachedHash, computedHash)
-
 			switch entry := entry.(type) {
 			case fs.Symlink:
 				result = append(result, &uploadWorkItem{
@@ -515,16 +531,6 @@ func (u *Uploader) processUploadWorkItems(workItems []*uploadWorkItem, dw *dirWr
 		if err := dw.WriteEntry(result.de); err != nil {
 			return errors.Wrap(err, "unable to write directory entry")
 		}
-
-		if result.hash != 0 && it.entry.ModTime().Before(u.hashCacheCutoff) {
-			if err := u.cacheWriter.WriteEntry(hashcache.Entry{
-				Name:     it.entryRelativePath,
-				Hash:     result.hash,
-				ObjectID: result.de.ObjectID,
-			}); err != nil {
-				return errors.Wrap(err, "unable to write hash cache entry")
-			}
-		}
 	}
 
 	// wait for workers, this is technically not needed, but let's make sure we don't leak goroutines
@@ -533,10 +539,24 @@ func (u *Uploader) processUploadWorkItems(workItems []*uploadWorkItem, dw *dirWr
 	return nil
 }
 
+func maybeReadDirectoryEntries(ctx context.Context, desc string, dir fs.Directory) fs.Entries {
+	if dir == nil {
+		return nil
+	}
+
+	ent, err := dir.Readdir(ctx)
+	if err != nil {
+		log.Warningf("unable to read previous %v directory entries: %v", desc, err)
+		return nil
+	}
+
+	return ent
+}
+
 func uploadDirInternal(
 	ctx context.Context,
 	u *Uploader,
-	directory fs.Directory,
+	directory, previousIncomplete, previousComplete fs.Directory,
 	dirRelativePath string,
 ) (object.ID, fs.DirectorySummary, error) {
 	u.stats.TotalDirectoryCount++
@@ -552,6 +572,10 @@ func uploadDirInternal(
 	if direrr != nil {
 		return "", fs.DirectorySummary{}, direrr
 	}
+
+	prevIncompleteEntries := maybeReadDirectoryEntries(ctx, "incomplete", previousIncomplete)
+	prevCompleteEntries := maybeReadDirectoryEntries(ctx, "complete", previousComplete)
+
 	if len(entries) == 0 {
 		summ.MaxModTime = directory.ModTime()
 	}
@@ -564,12 +588,12 @@ func uploadDirInternal(
 	dw := newDirWriter(writer)
 	defer writer.Close() //nolint:errcheck
 
-	if err := u.processSubdirectories(ctx, dirRelativePath, entries, dw, &summ); err != nil && err != errCancelled {
+	if err := u.processSubdirectories(ctx, dirRelativePath, entries, prevIncompleteEntries, prevCompleteEntries, dw, &summ); err != nil && err != errCancelled {
 		return "", fs.DirectorySummary{}, err
 	}
 	u.prepareProgress(dirRelativePath, entries)
 
-	workItems, workItemErr := u.prepareWorkItems(ctx, dirRelativePath, entries, &summ)
+	workItems, workItemErr := u.prepareWorkItems(ctx, dirRelativePath, entries, prevIncompleteEntries, prevCompleteEntries, &summ)
 	if workItemErr != nil && workItemErr != errCancelled {
 		return "", fs.DirectorySummary{}, workItemErr
 	}
@@ -584,20 +608,11 @@ func uploadDirInternal(
 	return oid, summ, err
 }
 
-func (u *Uploader) maybeIgnoreHashCacheEntry(e *hashcache.Entry) *hashcache.Entry {
-	if rand.Intn(100) < u.ForceHashPercentage {
-		return nil
-	}
-
-	return e
-}
-
 // NewUploader creates new Uploader object for a given repository.
 func NewUploader(r *repo.Repository) *Uploader {
 	return &Uploader{
 		repo:             r,
 		Progress:         &nullUploadProgress{},
-		HashCacheMinAge:  1 * time.Hour,
 		IgnoreFileErrors: true,
 		ParallelUploads:  1,
 	}
@@ -608,45 +623,57 @@ func (u *Uploader) Cancel() {
 	atomic.StoreInt32(&u.canceled, 1)
 }
 
+func (u *Uploader) maybeOpenDirectoryFromManifest(desc string, man *snapshot.Manifest) fs.Directory {
+	if man == nil {
+		log.Debugf("previous %v manifest is not provided", desc)
+		return nil
+	}
+
+	ent, err := newRepoEntry(u.repo, man.RootEntry)
+	if err != nil {
+		log.Debugf("invalid previous %v manifest root entry %v: %v", man.RootEntry, err)
+		return nil
+	}
+
+	dir, ok := ent.(fs.Directory)
+	if !ok {
+		log.Debugf("previous %v manifest root is not a directory (was %T %+v)", desc, ent, man.RootEntry)
+		return nil
+	}
+	return dir
+}
+
 // Upload uploads contents of the specified filesystem entry (file or directory) to the repository and returns snapshot.Manifest with statistics.
 // Old snapshot manifest, when provided can be used to speed up uploads by utilizing hash cache.
 func (u *Uploader) Upload(
 	ctx context.Context,
 	source fs.Entry,
 	sourceInfo snapshot.SourceInfo,
-	old *snapshot.Manifest,
+	previousCompleteManifest,
+	previousIncompleteManifest *snapshot.Manifest,
 ) (*snapshot.Manifest, error) {
+	log.Debugf("Uploading %v", sourceInfo)
 	s := &snapshot.Manifest{
 		Source: sourceInfo,
 	}
 
 	defer u.Progress.UploadFinished()
 
-	u.cacheReader = hashcache.Open(nil)
 	u.stats = snapshot.Stats{}
-	if old != nil {
-		log.Debugf("opening hash cache: %v", old.HashCacheID)
-		if r, err := u.repo.Objects.Open(ctx, old.HashCacheID); err == nil {
-			u.cacheReader = hashcache.Open(r)
-			log.Debugf("opened hash cache: %v", old.HashCacheID)
-		} else {
-			log.Warningf("unable to open hash cache %v: %v", old.HashCacheID, err)
-
-		}
-	}
 
 	var err error
 
 	s.StartTime = time.Now()
-	u.hashCacheCutoff = time.Now().Add(-u.HashCacheMinAge)
-	s.HashCacheCutoffTime = u.hashCacheCutoff
 
 	switch entry := source.(type) {
 	case fs.Directory:
+		previousIncompleteDir := u.maybeOpenDirectoryFromManifest("incomplete", previousIncompleteManifest)
+		previousCompleteDir := u.maybeOpenDirectoryFromManifest("complete", previousCompleteManifest)
+
 		entry = ignorefs.New(entry, u.FilesPolicy, ignorefs.ReportIgnoredFiles(func(_ string, md fs.Entry) {
 			u.stats.AddExcluded(md)
 		}))
-		s.RootEntry, s.HashCacheID, err = u.uploadDir(ctx, entry)
+		s.RootEntry, err = u.uploadDir(ctx, entry, previousIncompleteDir, previousCompleteDir)
 
 	case fs.File:
 		s.RootEntry, err = u.uploadFile(ctx, entry)

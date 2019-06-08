@@ -101,12 +101,15 @@ func TestUpload(t *testing.T) {
 	defer th.cleanup()
 
 	u := NewUploader(th.repo)
-	s1, err := u.Upload(ctx, th.sourceDir, snapshot.SourceInfo{}, nil)
+	log.Infof("Uploading s1")
+	s1, err := u.Upload(ctx, th.sourceDir, snapshot.SourceInfo{}, nil, nil)
 	if err != nil {
 		t.Errorf("Upload error: %v", err)
 	}
+	log.Infof("s1: %v", s1.RootEntry)
 
-	s2, err := u.Upload(ctx, th.sourceDir, snapshot.SourceInfo{}, s1)
+	log.Infof("Uploading s2")
+	s2, err := u.Upload(ctx, th.sourceDir, snapshot.SourceInfo{}, nil, s1)
 	if err != nil {
 		t.Errorf("Upload error: %v", err)
 	}
@@ -115,32 +118,28 @@ func TestUpload(t *testing.T) {
 		t.Errorf("expected s1.RootObjectID==s2.RootObjectID, got %v and %v", s1.RootObjectID().String(), s2.RootObjectID().String())
 	}
 
-	if !objectIDsEqual(s2.HashCacheID, s1.HashCacheID) {
-		t.Errorf("expected s2.HashCacheID==s1.HashCacheID, got %v and %v", s2.HashCacheID.String(), s1.HashCacheID.String())
-	}
-
-	if s1.Stats.CachedFiles != 0 {
-		t.Errorf("unexpected s1 stats: %+v", s1.Stats)
+	if got, want := s1.Stats.CachedFiles, 0; got != want {
+		t.Errorf("unexpected s1 cached files: %v, want %v", got, want)
 	}
 
 	// All non-cached files from s1 are now cached and there are no non-cached files since nothing changed.
-	if s2.Stats.CachedFiles != s1.Stats.NonCachedFiles || s2.Stats.NonCachedFiles != 0 {
-		t.Errorf("unexpected s2 stats: %+v, vs s1: %+v", s2.Stats, s1.Stats)
+	if got, want := s2.Stats.CachedFiles, s1.Stats.NonCachedFiles; got != want {
+		t.Errorf("unexpected s2 cached files: %v, want %v", got, want)
+	}
+
+	if got, want := s2.Stats.NonCachedFiles, 0; got != want {
+		t.Errorf("unexpected non-cached files: %v", got)
 	}
 
 	// Add one more file, the s1.RootObjectID should change.
 	th.sourceDir.AddFile("d2/d1/f3", []byte{1, 2, 3, 4, 5}, defaultPermissions)
-	s3, err := u.Upload(ctx, th.sourceDir, snapshot.SourceInfo{}, s1)
+	s3, err := u.Upload(ctx, th.sourceDir, snapshot.SourceInfo{}, nil, s1)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
 
 	if objectIDsEqual(s2.RootObjectID(), s3.RootObjectID()) {
 		t.Errorf("expected s3.RootObjectID!=s2.RootObjectID, got %v", s3.RootObjectID().String())
-	}
-
-	if objectIDsEqual(s2.HashCacheID, s3.HashCacheID) {
-		t.Errorf("expected s3.HashCacheID!=s2.HashCacheID, got %v", s3.HashCacheID.String())
 	}
 
 	if s3.Stats.NonCachedFiles != 1 {
@@ -151,7 +150,7 @@ func TestUpload(t *testing.T) {
 	// Now remove the added file, OID should be identical to the original before the file got added.
 	th.sourceDir.Subdir("d2", "d1").Remove("f3")
 
-	s4, err := u.Upload(ctx, th.sourceDir, snapshot.SourceInfo{}, s1)
+	s4, err := u.Upload(ctx, th.sourceDir, snapshot.SourceInfo{}, nil, s1)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
@@ -159,25 +158,19 @@ func TestUpload(t *testing.T) {
 	if !objectIDsEqual(s4.RootObjectID(), s1.RootObjectID()) {
 		t.Errorf("expected s4.RootObjectID==s1.RootObjectID, got %v and %v", s4.RootObjectID(), s1.RootObjectID())
 	}
-	if !objectIDsEqual(s4.HashCacheID, s1.HashCacheID) {
-		t.Errorf("expected s4.HashCacheID==s1.HashCacheID, got %v and %v", s4.HashCacheID, s1.HashCacheID)
-	}
 
 	// Everything is still cached.
 	if s4.Stats.CachedFiles != s1.Stats.NonCachedFiles || s4.Stats.NonCachedFiles != 0 {
 		t.Errorf("unexpected s4 stats: %+v", s4.Stats)
 	}
 
-	s5, err := u.Upload(ctx, th.sourceDir, snapshot.SourceInfo{}, s3)
+	s5, err := u.Upload(ctx, th.sourceDir, snapshot.SourceInfo{}, nil, s3)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
 
 	if !objectIDsEqual(s4.RootObjectID(), s5.RootObjectID()) {
 		t.Errorf("expected s4.RootObjectID==s5.RootObjectID, got %v and %v", s4.RootObjectID(), s5.RootObjectID())
-	}
-	if !objectIDsEqual(s4.HashCacheID, s5.HashCacheID) {
-		t.Errorf("expected s4.HashCacheID==s5.HashCacheID, got %v and %v", s4.HashCacheID, s5.HashCacheID)
 	}
 
 	if s5.Stats.NonCachedFiles != 0 {
@@ -197,7 +190,7 @@ func TestUpload_TopLevelDirectoryReadFailure(t *testing.T) {
 	th.sourceDir.FailReaddir(errTest)
 
 	u := NewUploader(th.repo)
-	s, err := u.Upload(ctx, th.sourceDir, snapshot.SourceInfo{}, nil)
+	s, err := u.Upload(ctx, th.sourceDir, snapshot.SourceInfo{}, nil, nil)
 	if err != errTest {
 		t.Errorf("expected error: %v", err)
 	}
@@ -216,7 +209,7 @@ func TestUpload_SubDirectoryReadFailure(t *testing.T) {
 
 	u := NewUploader(th.repo)
 	u.IgnoreFileErrors = false
-	_, err := u.Upload(ctx, th.sourceDir, snapshot.SourceInfo{}, nil)
+	_, err := u.Upload(ctx, th.sourceDir, snapshot.SourceInfo{}, nil, nil)
 	if err == nil {
 		t.Errorf("expected error")
 	}

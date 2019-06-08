@@ -3,7 +3,6 @@ package snapshotfs
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"time"
@@ -94,7 +93,10 @@ func (rd *repositoryDirectory) Readdir(ctx context.Context) (fs.Entries, error) 
 
 	entries := make(fs.Entries, len(metadata))
 	for i, m := range metadata {
-		entries[i] = newRepoEntry(rd.repo, m)
+		entries[i], err = newRepoEntry(rd.repo, m)
+		if err != nil {
+			return nil, errors.Wrapf(err, "error parsing entry %v", m)
+		}
 	}
 
 	entries.Sort()
@@ -126,7 +128,7 @@ func (rsl *repositorySymlink) Readlink(ctx context.Context) (string, error) {
 	return string(b), nil
 }
 
-func newRepoEntry(r *repo.Repository, md *snapshot.DirEntry) fs.Entry {
+func newRepoEntry(r *repo.Repository, md *snapshot.DirEntry) (fs.Entry, error) {
 	re := repositoryEntry{
 		metadata: md,
 		repo:     r,
@@ -139,16 +141,16 @@ func newRepoEntry(r *repo.Repository, md *snapshot.DirEntry) fs.Entry {
 			md.ModTime = md.DirSummary.MaxModTime
 		}
 
-		return fs.Directory(&repositoryDirectory{re, md.DirSummary})
+		return fs.Directory(&repositoryDirectory{re, md.DirSummary}), nil
 
 	case snapshot.EntryTypeSymlink:
-		return fs.Symlink(&repositorySymlink{re})
+		return fs.Symlink(&repositorySymlink{re}), nil
 
 	case snapshot.EntryTypeFile:
-		return fs.File(&repositoryFile{re})
+		return fs.File(&repositoryFile{re}), nil
 
 	default:
-		panic(fmt.Sprintf("not supported entry metadata type: %v", md.Type))
+		return nil, errors.Errorf("not supported entry metadata type: %q", md.Type)
 	}
 }
 
@@ -168,7 +170,7 @@ func withFileInfo(r object.Reader, e fs.Entry) fs.Reader {
 // DirectoryEntry returns fs.Directory based on repository object with the specified ID.
 // The existence or validity of the directory object is not validated until its contents are read.
 func DirectoryEntry(rep *repo.Repository, objectID object.ID, dirSummary *fs.DirectorySummary) fs.Directory {
-	d := newRepoEntry(rep, &snapshot.DirEntry{
+	d, _ := newRepoEntry(rep, &snapshot.DirEntry{
 		Name:        "/",
 		Permissions: 0555,
 		Type:        snapshot.EntryTypeDirectory,
@@ -186,7 +188,7 @@ func SnapshotRoot(rep *repo.Repository, man *snapshot.Manifest) (fs.Entry, error
 		return nil, errors.New("manifest root object ID")
 	}
 
-	return newRepoEntry(rep, man.RootEntry), nil
+	return newRepoEntry(rep, man.RootEntry)
 }
 
 var _ fs.Directory = &repositoryDirectory{}
