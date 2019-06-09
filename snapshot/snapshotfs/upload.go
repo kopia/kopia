@@ -249,8 +249,8 @@ func (u *Uploader) uploadFile(ctx context.Context, file fs.File) (*snapshot.DirE
 // uploadDir uploads the specified Directory to the repository.
 // An optional ID of a hash-cache object may be provided, in which case the Uploader will use its
 // contents to avoid hashing
-func (u *Uploader) uploadDir(ctx context.Context, rootDir, previousIncomplete, previousComplete fs.Directory) (*snapshot.DirEntry, error) {
-	oid, summ, err := uploadDirInternal(ctx, u, rootDir, previousIncomplete, previousComplete, ".")
+func (u *Uploader) uploadDir(ctx context.Context, rootDir fs.Directory, previousDirs []fs.Directory) (*snapshot.DirEntry, error) {
+	oid, summ, err := uploadDirInternal(ctx, u, rootDir, previousDirs, ".")
 	if err != nil {
 		return nil, err
 	}
@@ -285,7 +285,7 @@ type entryResult struct {
 	de  *snapshot.DirEntry
 }
 
-func (u *Uploader) processSubdirectories(ctx context.Context, relativePath string, entries, prevIncomplete, prevComplete fs.Entries, dw *dirWriter, summ *fs.DirectorySummary) error {
+func (u *Uploader) processSubdirectories(ctx context.Context, relativePath string, entries fs.Entries, previousEntries []fs.Entries, dw *dirWriter, summ *fs.DirectorySummary) error {
 	return u.foreachEntryUnlessCancelled(relativePath, entries, func(entry fs.Entry, entryRelativePath string) error {
 		dir, ok := entry.(fs.Directory)
 		if !ok {
@@ -293,9 +293,16 @@ func (u *Uploader) processSubdirectories(ctx context.Context, relativePath strin
 			return nil
 		}
 
-		prevIncompleteDir, _ := prevIncomplete.FindByName(entry.Name()).(fs.Directory)
-		prevCompleteDir, _ := prevComplete.FindByName(entry.Name()).(fs.Directory)
-		oid, subdirsumm, err := uploadDirInternal(ctx, u, dir, prevIncompleteDir, prevCompleteDir, entryRelativePath)
+		var previousDirs []fs.Directory
+		for _, e := range previousEntries {
+			if d, _ := e.FindByName(entry.Name()).(fs.Directory); d != nil {
+				previousDirs = append(previousDirs, d)
+			}
+		}
+
+		previousDirs = uniqueDirectories(previousDirs)
+
+		oid, subdirsumm, err := uploadDirInternal(ctx, u, dir, previousDirs, entryRelativePath)
 		if err == errCancelled {
 			return err
 		}
@@ -367,13 +374,9 @@ func metadataEquals(e1, e2 fs.Entry) bool {
 	return true
 }
 
-func findCachedEntry(entry fs.Entry, prevIncomplete, prevComplete fs.Entries) fs.Entry {
-	if ent := prevComplete.FindByName(entry.Name()); ent != nil && metadataEquals(entry, ent) {
-		return ent
-	}
-
-	if ent := prevIncomplete.FindByName(entry.Name()); ent != nil && metadataEquals(entry, ent) {
-		if metadataEquals(entry, ent) {
+func findCachedEntry(entry fs.Entry, prevEntries []fs.Entries) fs.Entry {
+	for _, e := range prevEntries {
+		if ent := e.FindByName(entry.Name()); ent != nil && metadataEquals(entry, ent) {
 			return ent
 		}
 	}
@@ -400,7 +403,7 @@ func (u *Uploader) maybeIgnoreCachedEntry(ent fs.Entry) fs.Entry {
 	return nil
 }
 
-func (u *Uploader) prepareWorkItems(ctx context.Context, dirRelativePath string, entries, previousIncomplete, previousComplete fs.Entries, summ *fs.DirectorySummary) ([]*uploadWorkItem, error) {
+func (u *Uploader) prepareWorkItems(ctx context.Context, dirRelativePath string, entries fs.Entries, prevEntries []fs.Entries, summ *fs.DirectorySummary) ([]*uploadWorkItem, error) {
 	var result []*uploadWorkItem
 
 	resultErr := u.foreachEntryUnlessCancelled(dirRelativePath, entries, func(entry fs.Entry, entryRelativePath string) error {
@@ -421,7 +424,7 @@ func (u *Uploader) prepareWorkItems(ctx context.Context, dirRelativePath string,
 		}
 
 		// See if we had this name during either of previous passes.
-		if cachedEntry := u.maybeIgnoreCachedEntry(findCachedEntry(entry, previousIncomplete, previousComplete)); cachedEntry != nil {
+		if cachedEntry := u.maybeIgnoreCachedEntry(findCachedEntry(entry, prevEntries)); cachedEntry != nil {
 			u.stats.CachedFiles++
 			u.addDirProgress(entry.Size())
 
@@ -539,24 +542,46 @@ func (u *Uploader) processUploadWorkItems(workItems []*uploadWorkItem, dw *dirWr
 	return nil
 }
 
-func maybeReadDirectoryEntries(ctx context.Context, desc string, dir fs.Directory) fs.Entries {
+func maybeReadDirectoryEntries(ctx context.Context, dir fs.Directory) fs.Entries {
 	if dir == nil {
 		return nil
 	}
 
 	ent, err := dir.Readdir(ctx)
 	if err != nil {
-		log.Warningf("unable to read previous %v directory entries: %v", desc, err)
+		log.Warningf("unable to read previous directory entries: %v", err)
 		return nil
 	}
 
 	return ent
 }
 
+func uniqueDirectories(dirs []fs.Directory) []fs.Directory {
+	if len(dirs) <= 1 {
+		return dirs
+	}
+
+	var unique = map[object.ID]fs.Directory{}
+	for _, dir := range dirs {
+		unique[dir.(object.HasObjectID).ObjectID()] = dir
+	}
+
+	if len(unique) == len(dirs) {
+		return dirs
+	}
+
+	var result []fs.Directory
+	for _, d := range unique {
+		result = append(result, d)
+	}
+	return result
+}
+
 func uploadDirInternal(
 	ctx context.Context,
 	u *Uploader,
-	directory, previousIncomplete, previousComplete fs.Directory,
+	directory fs.Directory,
+	previousDirs []fs.Directory,
 	dirRelativePath string,
 ) (object.ID, fs.DirectorySummary, error) {
 	u.stats.TotalDirectoryCount++
@@ -573,9 +598,13 @@ func uploadDirInternal(
 		return "", fs.DirectorySummary{}, direrr
 	}
 
-	prevIncompleteEntries := maybeReadDirectoryEntries(ctx, "incomplete", previousIncomplete)
-	prevCompleteEntries := maybeReadDirectoryEntries(ctx, "complete", previousComplete)
+	var prevEntries []fs.Entries
+	for _, d := range uniqueDirectories(previousDirs) {
+		if ent := maybeReadDirectoryEntries(ctx, d); ent != nil {
+			prevEntries = append(prevEntries, ent)
+		}
 
+	}
 	if len(entries) == 0 {
 		summ.MaxModTime = directory.ModTime()
 	}
@@ -588,12 +617,12 @@ func uploadDirInternal(
 	dw := newDirWriter(writer)
 	defer writer.Close() //nolint:errcheck
 
-	if err := u.processSubdirectories(ctx, dirRelativePath, entries, prevIncompleteEntries, prevCompleteEntries, dw, &summ); err != nil && err != errCancelled {
+	if err := u.processSubdirectories(ctx, dirRelativePath, entries, prevEntries, dw, &summ); err != nil && err != errCancelled {
 		return "", fs.DirectorySummary{}, err
 	}
 	u.prepareProgress(dirRelativePath, entries)
 
-	workItems, workItemErr := u.prepareWorkItems(ctx, dirRelativePath, entries, prevIncompleteEntries, prevCompleteEntries, &summ)
+	workItems, workItemErr := u.prepareWorkItems(ctx, dirRelativePath, entries, prevEntries, &summ)
 	if workItemErr != nil && workItemErr != errCancelled {
 		return "", fs.DirectorySummary{}, workItemErr
 	}
@@ -623,23 +652,23 @@ func (u *Uploader) Cancel() {
 	atomic.StoreInt32(&u.canceled, 1)
 }
 
-func (u *Uploader) maybeOpenDirectoryFromManifest(desc string, man *snapshot.Manifest) fs.Directory {
+func (u *Uploader) maybeOpenDirectoryFromManifest(man *snapshot.Manifest) fs.Directory {
 	if man == nil {
-		log.Debugf("previous %v manifest is not provided", desc)
 		return nil
 	}
 
 	ent, err := newRepoEntry(u.repo, man.RootEntry)
 	if err != nil {
-		log.Debugf("invalid previous %v manifest root entry %v: %v", man.RootEntry, err)
+		log.Warningf("invalid previous manifest root entry %v: %v", man.RootEntry, err)
 		return nil
 	}
 
 	dir, ok := ent.(fs.Directory)
 	if !ok {
-		log.Debugf("previous %v manifest root is not a directory (was %T %+v)", desc, ent, man.RootEntry)
+		log.Debugf("previous manifest root is not a directory (was %T %+v)", ent, man.RootEntry)
 		return nil
 	}
+
 	return dir
 }
 
@@ -649,8 +678,7 @@ func (u *Uploader) Upload(
 	ctx context.Context,
 	source fs.Entry,
 	sourceInfo snapshot.SourceInfo,
-	previousCompleteManifest,
-	previousIncompleteManifest *snapshot.Manifest,
+	previousManifests ...*snapshot.Manifest,
 ) (*snapshot.Manifest, error) {
 	log.Debugf("Uploading %v", sourceInfo)
 	s := &snapshot.Manifest{
@@ -667,13 +695,17 @@ func (u *Uploader) Upload(
 
 	switch entry := source.(type) {
 	case fs.Directory:
-		previousIncompleteDir := u.maybeOpenDirectoryFromManifest("incomplete", previousIncompleteManifest)
-		previousCompleteDir := u.maybeOpenDirectoryFromManifest("complete", previousCompleteManifest)
+		var previousDirs []fs.Directory
+		for _, m := range previousManifests {
+			if d := u.maybeOpenDirectoryFromManifest(m); d != nil {
+				previousDirs = append(previousDirs, d)
+			}
+		}
 
 		entry = ignorefs.New(entry, u.FilesPolicy, ignorefs.ReportIgnoredFiles(func(_ string, md fs.Entry) {
 			u.stats.AddExcluded(md)
 		}))
-		s.RootEntry, err = u.uploadDir(ctx, entry, previousIncompleteDir, previousCompleteDir)
+		s.RootEntry, err = u.uploadDir(ctx, entry, previousDirs)
 
 	case fs.File:
 		s.RootEntry, err = u.uploadFile(ctx, entry)

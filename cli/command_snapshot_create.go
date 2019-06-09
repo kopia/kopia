@@ -87,7 +87,7 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshot
 
 	localEntry := mustGetLocalFSEntry(sourceInfo.Path)
 
-	previousComplete, previousIncomplete, err := findPreviousSnapshotManifest(ctx, rep, sourceInfo, nil)
+	previous, err := findPreviousSnapshotManifest(ctx, rep, sourceInfo, nil)
 	if err != nil {
 		return err
 	}
@@ -97,8 +97,8 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshot
 		return err
 	}
 
-	log.Debugf("uploading %v using previous manifest %v", sourceInfo, previousIncomplete)
-	manifest, err := u.Upload(ctx, localEntry, sourceInfo, previousComplete, previousIncomplete)
+	log.Infof("uploading %v using %v previous manifests", sourceInfo, len(previous))
+	manifest, err := u.Upload(ctx, localEntry, sourceInfo, previous...)
 	if err != nil {
 		return err
 	}
@@ -116,37 +116,44 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshot
 	return err
 }
 
-func findPreviousSnapshotManifest(ctx context.Context, rep *repo.Repository, sourceInfo snapshot.SourceInfo, noLaterThan *time.Time) (previousComplete, previousIncomplete *snapshot.Manifest, err error) {
-	previousManifests, err := snapshot.ListSnapshots(ctx, rep, sourceInfo)
+// findPreviousSnapshotManifest returns the list of previous snapshots for a given source, including
+// last complete snapshot and possibly some number of incomplete snapshots following it.
+func findPreviousSnapshotManifest(ctx context.Context, rep *repo.Repository, sourceInfo snapshot.SourceInfo, noLaterThan *time.Time) ([]*snapshot.Manifest, error) {
+	man, err := snapshot.ListSnapshots(ctx, rep, sourceInfo)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "error listing previous snapshots")
+		return nil, errors.Wrap(err, "error listing previous snapshots")
 	}
 
-	for _, p := range previousManifests {
+	// phase 1 - find latest complete snapshot.
+	var previousComplete *snapshot.Manifest
+	var previousCompleteStartTime time.Time
+	var result []*snapshot.Manifest
+
+	for _, p := range man {
 		if noLaterThan != nil && p.StartTime.After(*noLaterThan) {
 			continue
 		}
-		if p.IncompleteReason != "" && (previousIncomplete == nil || p.StartTime.After(previousIncomplete.StartTime)) {
-			previousIncomplete = p
-		}
 		if p.IncompleteReason == "" && (previousComplete == nil || p.StartTime.After(previousComplete.StartTime)) {
 			previousComplete = p
+			previousCompleteStartTime = p.StartTime
 		}
 	}
 
 	if previousComplete != nil {
-		log.Debugf("found previous complete manifest for %v with start time %v", sourceInfo, previousComplete.StartTime)
+		result = append(result, previousComplete)
 	}
 
-	if previousIncomplete != nil {
-		log.Debugf("found previous incomplete manifest for %v with start time %v", sourceInfo, previousIncomplete.StartTime)
+	// add all incomplete snapshots after that
+	for _, p := range man {
+		if noLaterThan != nil && p.StartTime.After(*noLaterThan) {
+			continue
+		}
+		if p.IncompleteReason != "" && p.StartTime.After(previousCompleteStartTime) {
+			result = append(result, p)
+		}
 	}
 
-	if previousIncomplete == nil && previousComplete == nil {
-		log.Debugf("no previous manifest for %v", sourceInfo)
-	}
-
-	return previousComplete, previousIncomplete, nil
+	return result, nil
 }
 
 func getLocalBackupPaths(ctx context.Context, rep *repo.Repository) ([]string, error) {
