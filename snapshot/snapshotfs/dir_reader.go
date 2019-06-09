@@ -1,37 +1,28 @@
 package snapshotfs
 
 import (
-	"bufio"
+	"encoding/json"
 	"io"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/internal/jsonstream"
 	"github.com/kopia/kopia/snapshot"
 )
 
 var directoryStreamType = "kopia:directory"
 
-// readDirEntries reads all the Entry from the specified reader.
+// readDirEntries reads all directory entries from the specified reader.
 func readDirEntries(r io.Reader) ([]*snapshot.DirEntry, *fs.DirectorySummary, error) {
-	var summ fs.DirectorySummary
-	psr, err := jsonstream.NewReader(bufio.NewReader(r), directoryStreamType, &summ)
-	if err != nil {
-		return nil, nil, err
-	}
-	var entries []*snapshot.DirEntry
-	for {
-		e := &snapshot.DirEntry{}
-		err := psr.Read(e)
-		if err == io.EOF {
-			break
-		}
+	var dir snapshot.DirManifest
 
-		if err != nil {
-			return nil, nil, err
-		}
-
-		entries = append(entries, e)
+	if err := json.NewDecoder(r).Decode(&dir); err != nil {
+		return nil, nil, errors.Wrap(err, "unable to parse directory object")
 	}
 
-	return entries, &summ, nil
+	if dir.StreamType != directoryStreamType {
+		return nil, nil, errors.Errorf("invalid directory stream type")
+	}
+
+	return dir.Entries, dir.Summary, nil
 }

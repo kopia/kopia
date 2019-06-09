@@ -82,6 +82,15 @@ type DirEntry struct {
 	DirSummary  *fs.DirectorySummary `json:"summ,omitempty"`
 }
 
+// DirManifest represents serialized contents of a directory.
+// The entries are sorted lexicographically and summary only refers to properties of
+// entries, so directory with the same contents always serializes to exactly the same JSON.
+type DirManifest struct {
+	StreamType string               `json:"stream"` // legacy
+	Entries    []*DirEntry          `json:"entries"`
+	Summary    *fs.DirectorySummary `json:"summary"`
+}
+
 // RootObjectID returns the ID of a root object.
 func (m *Manifest) RootObjectID() object.ID {
 	if m.RootEntry != nil {
