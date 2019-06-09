@@ -3,6 +3,7 @@ package snapshotfs
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"hash/fnv"
 	"io"
 	"os"
@@ -285,7 +286,7 @@ type entryResult struct {
 	de  *snapshot.DirEntry
 }
 
-func (u *Uploader) processSubdirectories(ctx context.Context, relativePath string, entries fs.Entries, previousEntries []fs.Entries, dw *dirWriter, summ *fs.DirectorySummary) error {
+func (u *Uploader) processSubdirectories(ctx context.Context, relativePath string, entries fs.Entries, previousEntries []fs.Entries, dirManifest *snapshot.DirManifest, summ *fs.DirectorySummary) error {
 	return u.foreachEntryUnlessCancelled(relativePath, entries, func(entry fs.Entry, entryRelativePath string) error {
 		dir, ok := entry.(fs.Directory)
 		if !ok {
@@ -324,10 +325,7 @@ func (u *Uploader) processSubdirectories(ctx context.Context, relativePath strin
 		}
 
 		de.DirSummary = &subdirsumm
-		if err := dw.WriteEntry(de); err != nil {
-			return errors.Wrap(err, "unable to write dir entry")
-		}
-
+		dirManifest.Entries = append(dirManifest.Entries, de)
 		return nil
 	})
 }
@@ -510,7 +508,7 @@ func (u *Uploader) launchWorkItems(workItems []*uploadWorkItem, wg *sync.WaitGro
 	}
 }
 
-func (u *Uploader) processUploadWorkItems(workItems []*uploadWorkItem, dw *dirWriter) error {
+func (u *Uploader) processUploadWorkItems(workItems []*uploadWorkItem, dirManifest *snapshot.DirManifest) error {
 	var wg sync.WaitGroup
 	u.launchWorkItems(workItems, &wg)
 
@@ -531,9 +529,7 @@ func (u *Uploader) processUploadWorkItems(workItems []*uploadWorkItem, dw *dirWr
 			return errors.Errorf("unable to process %q: %s", it.entryRelativePath, result.err)
 		}
 
-		if err := dw.WriteEntry(result.de); err != nil {
-			return errors.Wrap(err, "unable to write directory entry")
-		}
+		dirManifest.Entries = append(dirManifest.Entries, result.de)
 	}
 
 	// wait for workers, this is technically not needed, but let's make sure we don't leak goroutines
@@ -609,15 +605,11 @@ func uploadDirInternal(
 		summ.MaxModTime = directory.ModTime()
 	}
 
-	writer := u.repo.Objects.NewWriter(ctx, object.WriterOptions{
-		Description: "DIR:" + dirRelativePath,
-		Prefix:      "k",
-	})
+	dirManifest := &snapshot.DirManifest{
+		StreamType: directoryStreamType,
+	}
 
-	dw := newDirWriter(writer)
-	defer writer.Close() //nolint:errcheck
-
-	if err := u.processSubdirectories(ctx, dirRelativePath, entries, prevEntries, dw, &summ); err != nil && err != errCancelled {
+	if err := u.processSubdirectories(ctx, dirRelativePath, entries, prevEntries, dirManifest, &summ); err != nil && err != errCancelled {
 		return "", fs.DirectorySummary{}, err
 	}
 	u.prepareProgress(dirRelativePath, entries)
@@ -626,11 +618,18 @@ func uploadDirInternal(
 	if workItemErr != nil && workItemErr != errCancelled {
 		return "", fs.DirectorySummary{}, workItemErr
 	}
-	if err := u.processUploadWorkItems(workItems, dw); err != nil && err != errCancelled {
+	if err := u.processUploadWorkItems(workItems, dirManifest); err != nil && err != errCancelled {
 		return "", fs.DirectorySummary{}, err
 	}
-	if err := dw.Finalize(&summ); err != nil {
-		return "", fs.DirectorySummary{}, errors.Wrap(err, "unable to finalize directory")
+	dirManifest.Summary = &summ
+
+	writer := u.repo.Objects.NewWriter(ctx, object.WriterOptions{
+		Description: "DIR:" + dirRelativePath,
+		Prefix:      "k",
+	})
+
+	if err := json.NewEncoder(writer).Encode(&dirManifest); err != nil {
+		return "", fs.DirectorySummary{}, errors.Wrap(err, "unable to encode directory JSON")
 	}
 
 	oid, err := writer.Result()
