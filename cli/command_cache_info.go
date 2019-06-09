@@ -3,36 +3,43 @@ package cli
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"path/filepath"
+
+	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 )
 
 var (
-	cacheInfoCommand  = cacheCommands.Command("info", "Displays cache information and statistics")
+	cacheInfoCommand  = cacheCommands.Command("info", "Displays cache information and statistics").Default()
 	cacheInfoPathOnly = cacheInfoCommand.Flag("path", "Only display cache path").Bool()
 )
 
 func runCacheInfoCommand(ctx context.Context, rep *repo.Repository) error {
-	fmt.Println(rep.CacheDirectory)
 	if *cacheInfoPathOnly {
+		fmt.Println(rep.CacheDirectory)
 		return nil
 	}
 
-	log.Debugf("scanning contents cache...")
-	fileCount, totalFileSize, err := scanCacheDir(filepath.Join(rep.CacheDirectory, "contents"))
+	entries, err := ioutil.ReadDir(rep.CacheDirectory)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "unable to scan cache directory")
 	}
-	fmt.Printf("Content usage: %v files %v\n", fileCount, units.BytesStringBase2(totalFileSize))
 
-	log.Debugf("scanning metadata cache...")
-	metadataFileCount, totalMetadataFileSize, err := scanCacheDir(filepath.Join(rep.CacheDirectory, "metadata"))
-	if err != nil {
-		return err
+	for _, ent := range entries {
+		if !ent.IsDir() {
+			continue
+		}
+		subdir := filepath.Join(rep.CacheDirectory, ent.Name())
+		fileCount, totalFileSize, err := scanCacheDir(subdir)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("%v: %v files %v\n", subdir, fileCount, units.BytesStringBase2(totalFileSize))
 	}
-	fmt.Printf("Metadata usage: %v files %v\n", metadataFileCount, units.BytesStringBase2(totalMetadataFileSize))
+
 	return nil
 }
 
