@@ -19,13 +19,6 @@ var (
 
 func runStatusCommand(ctx context.Context, rep *repo.Repository) error {
 	fmt.Printf("Config file:         %v\n", rep.ConfigFile)
-	fileCount, totalFileSize, err := scanCacheDir(filepath.Join(rep.CacheDirectory, "blocks"))
-	if err != nil {
-		fmt.Printf("Cache directory:     %v (error: %v)\n", rep.CacheDirectory, err)
-	} else {
-		fmt.Printf("Cache directory:     %v (%v files, %v)\n", rep.CacheDirectory, fileCount, units.BytesStringBase2(totalFileSize))
-	}
-	fmt.Println()
 
 	ci := rep.Blobs.ConnectionInfo()
 	fmt.Printf("Storage type:        %v\n", ci.Type)

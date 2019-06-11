@@ -119,46 +119,25 @@ func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 	}
 
 	return &Repository{
-		Content:        cm,
-		Objects:        om,
-		Blobs:          st,
-		Manifests:      manifests,
-		CacheDirectory: caching.CacheDirectory,
-		UniqueID:       f.UniqueID,
+		Content:   cm,
+		Objects:   om,
+		Blobs:     st,
+		Manifests: manifests,
+		UniqueID:  f.UniqueID,
 
 		formatBlob: f,
 		masterKey:  masterKey,
 	}, nil
 }
 
-// SetCachingConfig changes caching configuration for a given repository config file.
-func SetCachingConfig(ctx context.Context, configFile string, opt content.CachingOptions) error {
-	configFile, err := filepath.Abs(configFile)
+// SetCachingConfig changes caching configuration for a given repository.
+func (r *Repository) SetCachingConfig(opt content.CachingOptions) error {
+	lc, err := loadConfigFromFile(r.ConfigFile)
 	if err != nil {
 		return err
 	}
 
-	lc, err := loadConfigFromFile(configFile)
-	if err != nil {
-		return err
-	}
-
-	st, err := blob.NewStorage(ctx, lc.Storage)
-	if err != nil {
-		return errors.Wrap(err, "cannot open storage")
-	}
-
-	fb, err := readAndCacheFormatBlobBytes(ctx, st, "")
-	if err != nil {
-		return errors.Wrap(err, "can't read format blob")
-	}
-
-	f, err := parseFormatBlob(fb)
-	if err != nil {
-		return errors.Wrap(err, "can't parse format blob")
-	}
-
-	if err = setupCaching(configFile, lc, opt, f.UniqueID); err != nil {
+	if err = setupCaching(r.ConfigFile, lc, opt, r.UniqueID); err != nil {
 		return errors.Wrap(err, "unable to set up caching")
 	}
 
@@ -167,7 +146,7 @@ func SetCachingConfig(ctx context.Context, configFile string, opt content.Cachin
 		return err
 	}
 
-	if err := ioutil.WriteFile(configFile, d, 0600); err != nil {
+	if err := ioutil.WriteFile(r.ConfigFile, d, 0600); err != nil {
 		return nil
 	}
 

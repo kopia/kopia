@@ -63,7 +63,8 @@ type IndexBlobInfo struct {
 
 // Manager builds content-addressable storage with encryption, deduplication and packaging on top of BLOB store.
 type Manager struct {
-	Format FormattingOptions
+	Format         FormattingOptions
+	CachingOptions CachingOptions
 
 	stats         Stats
 	contentCache  *contentCache
@@ -998,6 +999,7 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 
 	m := &Manager{
 		Format:                *f,
+		CachingOptions:        caching,
 		timeNow:               timeNow,
 		flushPackIndexesAfter: timeNow().Add(flushPackIndexTimeout),
 		maxPackSize:           f.MaxPackSize,

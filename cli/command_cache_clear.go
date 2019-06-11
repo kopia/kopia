@@ -14,7 +14,7 @@ var (
 )
 
 func runCacheClearCommand(ctx context.Context, rep *repo.Repository) error {
-	if d := rep.CacheDirectory; d != "" {
+	if d := rep.Content.CachingOptions.CacheDirectory; d != "" {
 		printStderr("Clearing cache directory: %v.\n", d)
 		err := os.RemoveAll(d)
 		if err != nil {
