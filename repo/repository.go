@@ -20,8 +20,7 @@ type Repository struct {
 	Manifests *manifest.Manager
 	UniqueID  []byte
 
-	ConfigFile     string
-	CacheDirectory string
+	ConfigFile string
 
 	formatBlob *formatBlob
 	masterKey  []byte

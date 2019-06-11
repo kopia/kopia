@@ -19,25 +19,35 @@ var (
 
 func runCacheInfoCommand(ctx context.Context, rep *repo.Repository) error {
 	if *cacheInfoPathOnly {
-		fmt.Println(rep.CacheDirectory)
+		fmt.Println(rep.Content.CachingOptions.CacheDirectory)
 		return nil
 	}
 
-	entries, err := ioutil.ReadDir(rep.CacheDirectory)
+	entries, err := ioutil.ReadDir(rep.Content.CachingOptions.CacheDirectory)
 	if err != nil {
 		return errors.Wrap(err, "unable to scan cache directory")
+	}
+
+	path2Limit := map[string]int64{
+		"contents": rep.Content.CachingOptions.MaxCacheSizeBytes,
+		"metadata": rep.Content.CachingOptions.MaxMetadataCacheSizeBytes,
 	}
 
 	for _, ent := range entries {
 		if !ent.IsDir() {
 			continue
 		}
-		subdir := filepath.Join(rep.CacheDirectory, ent.Name())
+		subdir := filepath.Join(rep.Content.CachingOptions.CacheDirectory, ent.Name())
 		fileCount, totalFileSize, err := scanCacheDir(subdir)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("%v: %v files %v\n", subdir, fileCount, units.BytesStringBase2(totalFileSize))
+
+		maybeLimit := ""
+		if l, ok := path2Limit[ent.Name()]; ok {
+			maybeLimit = fmt.Sprintf(" (limit %v)", units.BytesStringBase10(l))
+		}
+		fmt.Printf("%v: %v files %v%v\n", subdir, fileCount, units.BytesStringBase10(totalFileSize), maybeLimit)
 	}
 
 	return nil

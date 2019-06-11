@@ -3,28 +3,57 @@ package cli
 import (
 	"context"
 
+	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/content"
 )
 
 var (
 	cacheSetParamsCommand = cacheCommands.Command("set", "Sets parameters local caching of repository data")
 
 	cacheSetDirectory              = cacheSetParamsCommand.Flag("cache-directory", "Directory where to store cache files").String()
-	cacheSetMaxCacheSizeMB         = cacheSetParamsCommand.Flag("cache-size-mb", "Size of local content cache (0 disables caching)").PlaceHolder("MB").Int64()
-	cacheSetMaxMetadataCacheSizeMB = cacheSetParamsCommand.Flag("metadata-cache-size-mb", "Size of local metadata cache (0 disables caching)").PlaceHolder("MB").Int64()
-	cacheSetMaxListCacheDuration   = cacheSetParamsCommand.Flag("max-list-cache-duration", "Duration of index cache").Default("600s").Duration()
+	cacheSetContentCacheSizeMB     = cacheSetParamsCommand.Flag("content-cache-size-mb", "Size of local content cache").PlaceHolder("MB").Default("-1").Int64()
+	cacheSetMaxMetadataCacheSizeMB = cacheSetParamsCommand.Flag("metadata-cache-size-mb", "Size of local metadata cache").PlaceHolder("MB").Default("-1").Int64()
+	cacheSetMaxListCacheDuration   = cacheSetParamsCommand.Flag("max-list-cache-duration", "Duration of index cache").Default("-1ns").Duration()
 )
 
 func runCacheSetCommand(ctx context.Context, rep *repo.Repository) error {
-	opts := content.CachingOptions{
-		CacheDirectory:            *cacheSetDirectory,
-		MaxCacheSizeBytes:         *cacheSetMaxCacheSizeMB << 20,
-		MaxMetadataCacheSizeBytes: *cacheSetMaxMetadataCacheSizeMB << 20,
-		MaxListCacheDurationSec:   int(cacheSetMaxListCacheDuration.Seconds()),
+	opts := rep.Content.CachingOptions
+
+	changed := 0
+
+	if v := *cacheSetDirectory; v != "" {
+		log.Infof("setting cache directory to %v", v)
+		opts.CacheDirectory = v
+		changed++
 	}
 
-	return repo.SetCachingConfig(ctx, repositoryConfigFileName(), opts)
+	if v := *cacheSetContentCacheSizeMB; v != -1 {
+		v *= 1e6 // convert MB to bytes
+		log.Infof("changing content cache size to %v", units.BytesStringBase10(v))
+		opts.MaxCacheSizeBytes = v
+		changed++
+	}
+
+	if v := *cacheSetMaxMetadataCacheSizeMB; v != -1 {
+		v *= 1e6 // convert MB to bytes
+		log.Infof("changing metadata cache size to %v", units.BytesStringBase10(v))
+		opts.MaxMetadataCacheSizeBytes = v
+		changed++
+	}
+
+	if v := *cacheSetMaxListCacheDuration; v != -1 {
+		log.Infof("changing list cache duration to %v", v)
+		opts.MaxListCacheDurationSec = int(v.Seconds())
+		changed++
+	}
+
+	if changed == 0 {
+		return errors.Errorf("no changes")
+	}
+
+	return rep.SetCachingConfig(opts)
 }
 
 func init() {
