@@ -1,7 +1,7 @@
 ---
 title: "Features"
 linkTitle: "Features"
-weight: 2
+weight: 3
 ---
 
 ### Snapshots
