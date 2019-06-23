@@ -12,6 +12,7 @@ Kopia
 >
 > 1. _[copy, replica](https://en.wikipedia.org/wiki/Replica) (Polish)_
 > 2. _[lance, spear](https://en.wikipedia.org/wiki/Kopia)_
+> 3. _[fast and secure backup tool](https://kopia.io)_
 
 
 Kopia is a simple, cross-platform tool for managing encrypted backups in the cloud. It provides fast, incremental backups, secure, client-side encryption and data deduplication.
@@ -30,6 +31,16 @@ See [Documentation](https://kopia.io/docs/) for more information.
 Licensing
 ---
 Kopia is licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for the full license text.
+
+Contribution Guidelines
+---
+
+Kopia is open source and contributions are welcome. For more information on how to contribute see the [Contribution Guidelines](https://kopia.io/docs/contribution-guidelines/).
+
+Reporting Security Issues
+---
+If you find a security issue you'd like to disclose privately, please contact `jaak@jkowalski.net` or via direct message on [Slack](https://join.slack.com/t/kopia/shared_invite/enQtNjMxMTcxMTMxNDYwLWI4YzVkMzFhN2QwZGVhMzgwZDk2MGUzNmZhOWZkMmIzMDBlYzhmZTI3NTYxZWE1YWI4YWY1N2VhMGM4ZjJiNGQ).
+
 
 Disclaimer
 ---

@@ -5,16 +5,17 @@ NODE_VERSION=10.15.3
 TOOLS_DIR=$(CURDIR)/../.tools
 NPM_TOOL=$(TOOLS_DIR)/nodejs/node/bin/npm
 WATCH=true
+TOOL_PATH=$(PATH):$(TOOLS_DIR)/nodejs/node/bin
 
 HUGO_TOOL=$(TOOLS_DIR)/hugo/hugo
 
 uname := $(shell uname -s)
 
 build: gen-cli-reference-pages $(HUGO_TOOL)
-	$(HUGO_TOOL)
+	PATH=$(TOOL_PATH) $(HUGO_TOOL)
 
 server: $(HUGO_TOOL)
-	$(HUGO_TOOL) server --watch=$(WATCH)
+	PATH=$(TOOL_PATH) $(HUGO_TOOL) server --watch=$(WATCH)
 
 $(HUGO_TOOL):
 	make install-tools
@@ -37,7 +38,7 @@ else
 	curl -LsS https://nodejs.org/dist/v$(NODE_VERSION)/node-v$(NODE_VERSION)-darwin-x64.tar.gz | tar zx -C $(TOOLS_DIR)/nodejs
 endif
 	mv $(TOOLS_DIR)/nodejs/node-v$(NODE_VERSION)* $(TOOLS_DIR)/nodejs/node/
-	$(NPM_TOOL) install
+	PATH=$(TOOL_PATH) $(NPM_TOOL) install
 
 gen-cli-reference-pages:
 	rm -rf content/docs/Reference/Command-Line/Advanced
