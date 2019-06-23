@@ -56,7 +56,7 @@ id = "UA-256960-22"
 [languages]
 [languages.en]
 title = "Kopia"
-description = "Personal Cloud Backup"
+description = "Fast And Secure Open Source Backup"
 languageName ="English"
 weight = 1
 
