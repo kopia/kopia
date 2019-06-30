@@ -9,13 +9,13 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/repologging"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/sharded"
 )
 
 var log = repologging.Logger("repo/filesystem")
@@ -32,12 +32,14 @@ var (
 )
 
 type fsStorage struct {
+	sharded.Storage
+}
+
+type fsImpl struct {
 	Options
 }
 
-func (fs *fsStorage) GetBlob(ctx context.Context, blobID blob.ID, offset, length int64) ([]byte, error) {
-	_, path := fs.getShardedPathAndFilePath(blobID)
-
+func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, offset, length int64) ([]byte, error) {
 	f, err := os.Open(path)
 	if os.IsNotExist(err) {
 		return nil, blob.ErrBlobNotFound
@@ -65,83 +67,7 @@ func (fs *fsStorage) GetBlob(ctx context.Context, blobID blob.ID, offset, length
 	return b, nil
 }
 
-func getBlobIDFromFileName(name string) (blob.ID, bool) {
-	if strings.HasSuffix(name, fsStorageChunkSuffix) {
-		return blob.ID(name[0 : len(name)-len(fsStorageChunkSuffix)]), true
-	}
-
-	return blob.ID(""), false
-}
-
-func makeFileName(blobID blob.ID) string {
-	return string(blobID) + fsStorageChunkSuffix
-}
-
-func (fs *fsStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(blob.Metadata) error) error {
-	var walkDir func(string, string) error
-
-	walkDir = func(directory string, currentPrefix string) error {
-		entries, err := ioutil.ReadDir(directory)
-		if err != nil {
-			return err
-		}
-
-		for _, e := range entries {
-			if e.IsDir() {
-				newPrefix := currentPrefix + e.Name()
-				var match bool
-
-				if len(prefix) > len(newPrefix) {
-					match = strings.HasPrefix(string(prefix), newPrefix)
-				} else {
-					match = strings.HasPrefix(newPrefix, string(prefix))
-				}
-
-				if match {
-					if err := walkDir(directory+"/"+e.Name(), currentPrefix+e.Name()); err != nil {
-						return err
-					}
-				}
-			} else if fullID, ok := getBlobIDFromFileName(currentPrefix + e.Name()); ok {
-				if strings.HasPrefix(string(fullID), string(prefix)) {
-					if err := callback(blob.Metadata{
-						BlobID:    fullID,
-						Length:    e.Size(),
-						Timestamp: e.ModTime(),
-					}); err != nil {
-						return err
-					}
-				}
-			}
-		}
-
-		return nil
-	}
-
-	return walkDir(fs.Path, "")
-}
-
-// TouchBlob updates file modification time to current time if it's sufficiently old.
-func (fs *fsStorage) TouchBlob(ctx context.Context, blobID blob.ID, threshold time.Duration) error {
-	_, path := fs.getShardedPathAndFilePath(blobID)
-	st, err := os.Stat(path)
-	if err != nil {
-		return err
-	}
-
-	n := time.Now()
-	age := n.Sub(st.ModTime())
-	if age < threshold {
-		return nil
-	}
-
-	log.Debugf("updating timestamp on %v to %v", path, n)
-	return os.Chtimes(path, n, n)
-}
-
-func (fs *fsStorage) PutBlob(ctx context.Context, blobID blob.ID, data []byte) error {
-	_, path := fs.getShardedPathAndFilePath(blobID)
-
+func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data []byte) error {
 	randSuffix := make([]byte, 8)
 	if _, err := rand.Read(randSuffix); err != nil {
 		return errors.Wrap(err, "can't get random bytes")
@@ -176,7 +102,7 @@ func (fs *fsStorage) PutBlob(ctx context.Context, blobID blob.ID, data []byte) e
 	return nil
 }
 
-func (fs *fsStorage) createTempFileAndDir(tempFile string) (*os.File, error) {
+func (fs *fsImpl) createTempFileAndDir(tempFile string) (*os.File, error) {
 	flags := os.O_CREATE | os.O_WRONLY | os.O_EXCL
 	f, err := os.OpenFile(tempFile, flags, fs.fileMode())
 	if os.IsNotExist(err) {
@@ -189,8 +115,7 @@ func (fs *fsStorage) createTempFileAndDir(tempFile string) (*os.File, error) {
 	return f, err
 }
 
-func (fs *fsStorage) DeleteBlob(ctx context.Context, blobID blob.ID) error {
-	_, path := fs.getShardedPathAndFilePath(blobID)
+func (fs *fsImpl) DeleteBlobInPath(ctx context.Context, dirPath, path string) error {
 	err := os.Remove(path)
 	if err == nil || os.IsNotExist(err) {
 		return nil
@@ -199,29 +124,32 @@ func (fs *fsStorage) DeleteBlob(ctx context.Context, blobID blob.ID) error {
 	return err
 }
 
-func (fs *fsStorage) getShardDirectory(blobID blob.ID) (string, blob.ID) {
-	shardPath := fs.Path
-	if len(blobID) < 20 {
-		return shardPath, blobID
-	}
-	for _, size := range fs.shards() {
-		shardPath = filepath.Join(shardPath, string(blobID[0:size]))
-		blobID = blobID[size:]
-	}
-
-	return shardPath, blobID
+func (fs *fsImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, error) {
+	return ioutil.ReadDir(dirname)
 }
 
-func (fs *fsStorage) getShardedPathAndFilePath(blobID blob.ID) (shardPath, filePath string) {
-	shardPath, blobID = fs.getShardDirectory(blobID)
-	filePath = filepath.Join(shardPath, makeFileName(blobID))
-	return
+// TouchBlob updates file modification time to current time if it's sufficiently old.
+func (fs *fsStorage) TouchBlob(ctx context.Context, blobID blob.ID, threshold time.Duration) error {
+	_, path := fs.Storage.GetShardedPathAndFilePath(blobID)
+	st, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+
+	n := time.Now()
+	age := n.Sub(st.ModTime())
+	if age < threshold {
+		return nil
+	}
+
+	log.Debugf("updating timestamp on %v to %v", path, n)
+	return os.Chtimes(path, n, n)
 }
 
 func (fs *fsStorage) ConnectionInfo() blob.ConnectionInfo {
 	return blob.ConnectionInfo{
 		Type:   fsStorageType,
-		Config: &fs.Options,
+		Config: &fs.Impl.(*fsImpl).Options,
 	}
 }
 
@@ -237,11 +165,14 @@ func New(ctx context.Context, opts *Options) (blob.Storage, error) {
 		return nil, errors.Wrap(err, "cannot access storage path")
 	}
 
-	r := &fsStorage{
-		Options: *opts,
-	}
-
-	return r, nil
+	return &fsStorage{
+		sharded.Storage{
+			Impl:     &fsImpl{Options: *opts},
+			RootPath: opts.Path,
+			Suffix:   fsStorageChunkSuffix,
+			Shards:   opts.shards(),
+		},
+	}, nil
 }
 
 func init() {
