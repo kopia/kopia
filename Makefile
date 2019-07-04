@@ -46,7 +46,7 @@ $(GOVERALLS_TOOL):
 	mkdir -p .tools
 	GO111MODULE=off GOPATH=$(CURDIR)/.tools go get github.com/mattn/goveralls
 
-travis-setup:
+travis-setup: travis-install-gpg-key travis-install-test-credentials
 	go mod download
 
 website:
@@ -105,3 +105,25 @@ official-release:
 
 goreturns:
 	find . -name '*.go' | xargs goreturns -w --local github.com/kopia/kopia
+
+# this indicates we're running on Travis CI and NOT processing pull request.
+ifeq ($(TRAVIS_PULL_REQUEST),false)
+
+travis-install-gpg-key:
+	@echo Installing GPG key...
+	openssl aes-256-cbc -K "$(encrypted_de468f1bc3f5_key)" -iv "$(encrypted_de468f1bc3f5_iv)" -in kopia.gpg.enc -out /tmp/kopia.gpg -d
+	gpg --import /tmp/kopia.gpg
+	
+travis-install-test-credentials:
+	@echo Installing test credentials...
+	openssl aes-256-cbc -K "$(encrypted_0098ef8519ef_key)" -iv "$(encrypted_0098ef8519ef_iv)" -in tests/credenials/gcs/test_service_account.json.enc -out repo/blob/gcs/test_service_account.json -d
+
+else
+
+travis-install-gpg-key:
+	@echo Not installing GPG key.
+
+travis-install-test-credentials:
+	@echo Not installing test credentials.
+
+endif
