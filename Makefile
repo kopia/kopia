@@ -116,7 +116,7 @@ travis-install-gpg-key:
 	
 travis-install-test-credentials:
 	@echo Installing test credentials...
-	openssl aes-256-cbc -K "$(encrypted_0098ef8519ef_key)" -iv "$(encrypted_0098ef8519ef_iv)" -in tests/credenials/gcs/test_service_account.json.enc -out repo/blob/gcs/test_service_account.json -d
+	openssl aes-256-cbc -K "$(encrypted_0098ef8519ef_key)" -iv "$(encrypted_0098ef8519ef_iv)" -in tests/credentials/gcs/test_service_account.json.enc -out repo/blob/gcs/test_service_account.json -d
 
 else
 
