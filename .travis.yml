@@ -31,9 +31,3 @@ git:
   depth: 9999999
 env:
 - GO111MODULE=on
-before_install:
-- openssl aes-256-cbc -K $encrypted_de468f1bc3f5_key -iv $encrypted_de468f1bc3f5_iv
-  -in kopia.gpg.enc -out /tmp/kopia.gpg -d || echo OK
-- gpg --import /tmp/kopia.gpg || echo OK
-- openssl aes-256-cbc -K $encrypted_0098ef8519ef_key -iv $encrypted_0098ef8519ef_iv
-  -in test_service_account.json.enc -out storage/gcs/test_service_account.json -d || echo OK
