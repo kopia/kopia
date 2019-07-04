@@ -12,3 +12,4 @@ kopia
 kopia.exe
 Makefile.local.mk
 .linterr.txt
+test_service_account.json
