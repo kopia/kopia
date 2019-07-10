@@ -14,7 +14,9 @@ import (
 )
 
 var (
-	statusCommand = repositoryCommands.Command("status", "Display the status of connected repository.")
+	statusCommand                       = repositoryCommands.Command("status", "Display the status of connected repository.")
+	statusReconnectToken                = statusCommand.Flag("reconnect-token", "Display reconnect command").Short('t').Bool()
+	statusReconnectTokenIncludePassword = statusCommand.Flag("reconnect-token-with-password", "Include password in reconnect token").Short('s').Bool()
 )
 
 func runStatusCommand(ctx context.Context, rep *repo.Repository) error {
@@ -26,6 +28,7 @@ func runStatusCommand(ctx context.Context, rep *repo.Repository) error {
 	if cjson, err := json.MarshalIndent(scrubber.ScrubSensitiveData(reflect.ValueOf(ci.Config)).Interface(), "                     ", "  "); err == nil {
 		fmt.Printf("Storage config:      %v\n", string(cjson))
 	}
+
 	fmt.Println()
 
 	fmt.Println()
@@ -36,6 +39,24 @@ func runStatusCommand(ctx context.Context, rep *repo.Repository) error {
 	fmt.Printf("Block fmt version:   %v\n", rep.Content.Format.Version)
 	fmt.Printf("Max pack length:     %v\n", units.BytesStringBase2(int64(rep.Content.Format.MaxPackSize)))
 	fmt.Printf("Splitter:            %v\n", rep.Objects.Format.Splitter)
+
+	if *statusReconnectToken {
+		pass := ""
+
+		if *statusReconnectTokenIncludePassword {
+			pass = mustGetPasswordFromFlags(false, true)
+		}
+
+		tok, err := rep.Token(pass)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("\nTo reconnect to the repository use:\n\n$ kopia repository connect from-config --token %v\n\n", tok)
+		if pass != "" {
+			fmt.Printf("NOTICE: The token printed above can be trivially decoded to reveal the repository password. Do not store it in an unsecured place.\n")
+		}
+	}
 
 	return nil
 }

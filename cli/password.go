@@ -40,7 +40,14 @@ func mustAskForExistingRepositoryPassword() string {
 	return p1
 }
 
+var passwordFromToken string
+
 func mustGetPasswordFromFlags(isNew, allowPersistent bool) string {
+	if passwordFromToken != "" {
+		// password provided via token
+		return passwordFromToken
+	}
+
 	if !isNew && allowPersistent {
 		pass, ok := getPersistedPassword(repositoryConfigFileName(), getUserName())
 		if ok {
