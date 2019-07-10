@@ -121,6 +121,27 @@ func TestEndToEnd(t *testing.T) {
 		e.runAndExpectSuccess(t, "repo", "status")
 	})
 
+	t.Run("ReconnectUsingToken", func(t *testing.T) {
+		lines := e.runAndExpectSuccess(t, "repo", "status", "-t", "-s")
+		prefix := "$ kopia "
+		var reconnectArgs []string
+
+		// look for output line containing the prefix - this will be our reconnect command
+		for _, l := range lines {
+			if strings.HasPrefix(l, prefix) {
+				reconnectArgs = strings.Split(strings.TrimPrefix(l, prefix), " ")
+			}
+		}
+
+		if reconnectArgs == nil {
+			t.Fatalf("can't find reonnect command in kopia repo status output")
+		}
+
+		e.runAndExpectSuccess(t, "repo", "disconnect")
+		e.runAndExpectSuccess(t, reconnectArgs...)
+		e.runAndExpectSuccess(t, "repo", "status")
+	})
+
 	e.runAndExpectSuccess(t, "snapshot", "create", ".")
 	e.runAndExpectSuccess(t, "snapshot", "list", ".")
 

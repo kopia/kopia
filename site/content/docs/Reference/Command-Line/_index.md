@@ -36,6 +36,25 @@ To disconnect:
 $ kopia repository disconnect
 ```
 
+### Quick Reconnection To Repository
+
+To quickly reconnect to the repository on another machine, you can use `kopia repository status -t`, which will print quick-reconnect command that encodes all repository connection parameters in an opaque token. You can also embed the repository password, by using `kopia repository status -t -s`.
+
+Such command can be stored long-term in a secure location, such as password manager for easy recovery.
+
+```shell
+$ kopia repository status -t -s
+...
+
+To reconnect to the repository use:
+
+$ kopia repository connect from-config --token 03Fy598cYIqbMlNNDz9VLU0K6Pk9alC...BNeazLBdRzP2MHo0MS83zRb
+
+NOTICE: The token printed above can be trivially decoded to reveal the repository password. Do not store it in an unsecured place.
+```
+
+> NOTE: Make sure to safeguard the repository token, as it gives full access to the repository to anybody in its posession.
+
 ### Configuration File
 
 For each repository connection, Kopia maintains a configuration file and local cache:
