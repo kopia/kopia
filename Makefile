@@ -111,7 +111,7 @@ ifeq ($(TRAVIS_PULL_REQUEST),false)
 
 travis-install-gpg-key:
 	@echo Installing GPG key...
-	openssl aes-256-cbc -K "$(encrypted_de468f1bc3f5_key)" -iv "$(encrypted_de468f1bc3f5_iv)" -in kopia.gpg.enc -out /tmp/kopia.gpg -d
+	openssl aes-256-cbc -K "$(encrypted_fa1db4b894bb_key)" -iv "$(encrypted_fa1db4b894bb_iv)" -in kopia.gpg.enc -out /tmp/kopia.gpg -d
 	gpg --import /tmp/kopia.gpg
 	
 travis-install-test-credentials:
