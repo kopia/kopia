@@ -86,12 +86,10 @@ func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data
 	tempFile := fmt.Sprintf("%s.tmp.%x", path, randSuffix)
 	f, err := s.createTempFileAndDir(tempFile)
 	if err != nil {
-		fmt.Printf("putblob-createtempfileanddir(%s)\n", err)
 		return errors.Wrap(err, "cannot create temporary file")
 	}
 
 	if _, err = f.Write(data); err != nil {
-		fmt.Printf("putblob-write(%s)\n", err)
 		return errors.Wrap(err, "can't write temporary file")
 	}
 
@@ -99,7 +97,7 @@ func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data
 		return errors.Wrap(err, "can't close temporary file")
 	}
 
-	err = s.cli.Rename(tempFile, path)
+	err = s.cli.PosixRename(tempFile, path)
 	if err != nil {
 		if removeErr := s.cli.Remove(tempFile); removeErr != nil {
 			fmt.Printf("warning: can't remove temp file: %v", removeErr)
@@ -259,7 +257,13 @@ func New(ctx context.Context, opts *Options) (blob.Storage, error) {
 	}
 
 	if _, err = c.Stat(opts.Path); err != nil {
-		return nil, errors.Wrapf(err, "path doesn't exist: %s", opts.Path)
+		if os.IsNotExist(err) {
+			if err = c.MkdirAll(opts.Path); err != nil {
+				return nil, errors.Wrap(err, "cannot create path")
+			}
+		} else {
+			return nil, errors.Wrapf(err, "path doesn't exist: %s", opts.Path)
+		}
 	}
 
 	r := &sftpStorage{
