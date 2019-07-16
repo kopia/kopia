@@ -20,8 +20,7 @@ const (
 
 func TestSFTPStorageValid(t *testing.T) {
 	ctx := context.Background()
-	additionalPath := ""
-	st, err := createSFTPStorage(ctx, additionalPath, t)
+	st, err := createSFTPStorage(ctx, t)
 
 	if err != nil {
 		t.Fatalf("unable to connect to SSH: %v", err)
@@ -46,22 +45,6 @@ func TestSFTPStorageValid(t *testing.T) {
 	}
 }
 
-func TestSFTPStorageInvalid(t *testing.T) {
-	ctx := context.Background()
-	additionalPath := "-no-such-path"
-	st, err := createSFTPStorage(ctx, additionalPath, t)
-
-	if err != nil {
-		t.Fatalf("unable to connect to SSH: %v", err)
-	}
-
-	defer st.Close(ctx)
-
-	if err := st.PutBlob(ctx, t1, []byte{1}); err == nil {
-		t.Errorf("unexpected success when adding to non-existent path")
-	}
-}
-
 func assertNoError(t *testing.T, err error) {
 	t.Helper()
 	if err != nil {
@@ -77,7 +60,7 @@ func deleteBlobs(ctx context.Context, t *testing.T, st blob.Storage) {
 	}
 }
 
-func createSFTPStorage(ctx context.Context, additionalPath string, t *testing.T) (blob.Storage, error) {
+func createSFTPStorage(ctx context.Context, t *testing.T) (blob.Storage, error) {
 	host := os.Getenv("KOPIA_SFTP_TEST_HOST")
 	if host == "" {
 		t.Skip("KOPIA_SFTP_TEST_HOST not provided")
@@ -113,7 +96,7 @@ func createSFTPStorage(ctx context.Context, additionalPath string, t *testing.T)
 	}
 
 	return sftp.New(ctx, &sftp.Options{
-		Path:       path + additionalPath,
+		Path:       path,
 		Host:       host,
 		Username:   usr,
 		Port:       int(port),
