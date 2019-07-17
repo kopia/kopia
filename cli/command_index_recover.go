@@ -3,6 +3,8 @@ package cli
 import (
 	"context"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
@@ -31,10 +33,15 @@ func runRecoverBlockIndexesAction(ctx context.Context, rep *repo.Repository) err
 	}()
 
 	if len(*blockIndexRecoverBlobIDs) == 0 {
-		return rep.Blobs.ListBlobs(ctx, content.PackBlobIDPrefix, func(bm blob.Metadata) error {
-			recoverIndexFromSinglePackFile(ctx, rep, bm.BlobID, bm.Length, &totalCount)
-			return nil
-		})
+		for _, prefix := range content.PackBlobIDPrefixes {
+			err := rep.Blobs.ListBlobs(ctx, prefix, func(bm blob.Metadata) error {
+				recoverIndexFromSinglePackFile(ctx, rep, bm.BlobID, bm.Length, &totalCount)
+				return nil
+			})
+			if err != nil {
+				return errors.Wrapf(err, "recovering indexes from prefix %q", prefix)
+			}
+		}
 	}
 
 	for _, packFile := range *blockIndexRecoverBlobIDs {

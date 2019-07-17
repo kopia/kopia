@@ -142,9 +142,11 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 
 	// corrupt data at the storage level.
 	for blobID, v := range data {
-		if strings.HasPrefix(string(blobID), "p") {
-			for i := 0; i < len(v); i++ {
-				v[i] ^= 1
+		for _, prefix := range content.PackBlobIDPrefixes {
+			if strings.HasPrefix(string(blobID), string(prefix)) {
+				for i := 0; i < len(v); i++ {
+					v[i] ^= 1
+				}
 			}
 		}
 	}

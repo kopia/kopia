@@ -29,8 +29,16 @@ var (
 	formatLog = repologging.Logger("kopia/content/format")
 )
 
-// PackBlobIDPrefix is the prefix for all pack blobs.
-const PackBlobIDPrefix = "p"
+const (
+	PackBlobIDPrefixRegular blob.ID = "p"
+	PackBlobIDPrefixSpecial blob.ID = "q"
+)
+
+// PackBlobIDPrefixes contains all possible prefixes for pack blobs.
+var PackBlobIDPrefixes = []blob.ID{
+	PackBlobIDPrefixRegular,
+	PackBlobIDPrefixSpecial,
+}
 
 const (
 	parallelFetches          = 5                // number of parallel reads goroutines
@@ -76,10 +84,9 @@ type Manager struct {
 	locked                  bool
 	checkInvariantsOnUnlock bool
 
-	currentPackItems      map[ID]Info      // contents that are in the pack content currently being built (all inline)
-	currentPackDataLength int              // total length of all items in the current pack content
-	packIndexBuilder      packIndexBuilder // contents that are in index currently being built (current pack and all packs saved but not committed)
-	committedContents     *committedContentIndex
+	pendingPacks      map[blob.ID]*pendingPackInfo
+	packIndexBuilder  packIndexBuilder // contents that are in index currently being built (current pack and all packs saved but not committed)
+	committedContents *committedContentIndex
 
 	disableIndexFlushCount int
 	flushPackIndexesAfter  time.Time // time when those indexes should be flushed
@@ -100,6 +107,11 @@ type Manager struct {
 	repositoryFormatBytes []byte
 }
 
+type pendingPackInfo struct {
+	currentPackItems      map[ID]Info // contents that are in the pack content currently being built (all inline)
+	currentPackDataLength int         // total length of all items in the current pack content
+}
+
 // DeleteContent marks the given contentID as deleted.
 //
 // NOTE: To avoid race conditions only contents that cannot be possibly re-created
@@ -117,7 +129,9 @@ func (bm *Manager) DeleteContent(contentID ID) error {
 			if bi.PackBlobID == "" {
 				// added and never committed, just forget about it.
 				delete(bm.packIndexBuilder, contentID)
-				delete(bm.currentPackItems, contentID)
+				for _, pp := range bm.pendingPacks {
+					delete(pp.currentPackItems, contentID)
+				}
 				return nil
 			}
 
@@ -125,7 +139,7 @@ func (bm *Manager) DeleteContent(contentID ID) error {
 			bi2 := *bi
 			bi2.Deleted = true
 			bi2.TimestampSeconds = bm.timeNow().Unix()
-			bm.setPendingContent(bi2)
+			bm.setPendingContent(bm.getOrCreatePendingPackInfoLocked(bm.packPrefixForContentID(contentID)), bi2)
 		}
 		return nil
 	}
@@ -145,23 +159,26 @@ func (bm *Manager) DeleteContent(contentID ID) error {
 	bi2 := bi
 	bi2.Deleted = true
 	bi2.TimestampSeconds = bm.timeNow().Unix()
-	bm.setPendingContent(bi2)
+	bm.setPendingContent(bm.getOrCreatePendingPackInfoLocked(bm.packPrefixForContentID(contentID)), bi2)
 	return nil
 }
 
 //nolint:gocritic
 // We're intentionally passing "i" by value
-func (bm *Manager) setPendingContent(i Info) {
+func (bm *Manager) setPendingContent(pp *pendingPackInfo, i Info) {
 	bm.packIndexBuilder.Add(i)
-	bm.currentPackItems[i.ID] = i
+	pp.currentPackItems[i.ID] = i
 }
 
 func (bm *Manager) addToPackLocked(ctx context.Context, contentID ID, data []byte, isDeleted bool) error {
 	bm.assertLocked()
 
+	prefix := bm.packPrefixForContentID(contentID)
+	pp := bm.getOrCreatePendingPackInfoLocked(prefix)
+
 	data = cloneBytes(data)
-	bm.currentPackDataLength += len(data)
-	bm.setPendingContent(Info{
+	pp.currentPackDataLength += len(data)
+	bm.setPendingContent(pp, Info{
 		Deleted:          isDeleted,
 		ID:               contentID,
 		Payload:          data,
@@ -169,8 +186,8 @@ func (bm *Manager) addToPackLocked(ctx context.Context, contentID ID, data []byt
 		TimestampSeconds: bm.timeNow().Unix(),
 	})
 
-	if bm.currentPackDataLength >= bm.maxPackSize {
-		if err := bm.finishPackAndMaybeFlushIndexesLocked(ctx); err != nil {
+	if pp.currentPackDataLength >= bm.maxPackSize {
+		if err := bm.finishPackAndMaybeFlushIndexesLocked(ctx, prefix, pp); err != nil {
 			return err
 		}
 	}
@@ -178,13 +195,18 @@ func (bm *Manager) addToPackLocked(ctx context.Context, contentID ID, data []byt
 	return nil
 }
 
-func (bm *Manager) finishPackAndMaybeFlushIndexesLocked(ctx context.Context) error {
+func (bm *Manager) finishPackAndMaybeFlushIndexesLocked(ctx context.Context, prefix blob.ID, pp *pendingPackInfo) error {
 	bm.assertLocked()
-	if err := bm.finishPackLocked(ctx); err != nil {
-		return err
+
+	if err := bm.finishPackLocked(ctx, prefix, pp); err != nil {
+		return errors.Wrap(err, "unable to finish pack")
 	}
 
 	if bm.timeNow().After(bm.flushPackIndexesAfter) {
+		if err := bm.finishAllPacksLocked(ctx); err != nil {
+			return errors.Wrap(err, "finish all packs")
+		}
+
 		if err := bm.flushPackIndexesLocked(ctx); err != nil {
 			return err
 		}
@@ -228,21 +250,23 @@ func (bm *Manager) verifyInvariantsLocked() {
 }
 
 func (bm *Manager) verifyCurrentPackItemsLocked() {
-	for k, cpi := range bm.currentPackItems {
-		bm.assertInvariant(cpi.ID == k, "content ID entry has invalid key: %v %v", cpi.ID, k)
-		bm.assertInvariant(cpi.Deleted || cpi.PackBlobID == "", "content ID entry has unexpected pack content ID %v: %v", cpi.ID, cpi.PackBlobID)
-		bm.assertInvariant(cpi.TimestampSeconds != 0, "content has no timestamp: %v", cpi.ID)
-		bi, ok := bm.packIndexBuilder[k]
-		bm.assertInvariant(ok, "content ID entry not present in pack index builder: %v", cpi.ID)
-		bm.assertInvariant(reflect.DeepEqual(*bi, cpi), "current pack index does not match pack index builder: %v", cpi, *bi)
+	for _, pp := range bm.pendingPacks {
+		for k, cpi := range pp.currentPackItems {
+			bm.assertInvariant(cpi.ID == k, "content ID entry has invalid key: %v %v", cpi.ID, k)
+			bm.assertInvariant(cpi.Deleted || cpi.PackBlobID == "", "content ID entry has unexpected pack content ID %v: %v", cpi.ID, cpi.PackBlobID)
+			bm.assertInvariant(cpi.TimestampSeconds != 0, "content has no timestamp: %v", cpi.ID)
+			bi, ok := bm.packIndexBuilder[k]
+			bm.assertInvariant(ok, "content ID entry not present in pack index builder: %v", cpi.ID)
+			bm.assertInvariant(reflect.DeepEqual(*bi, cpi), "current pack index does not match pack index builder: %v", cpi, *bi)
+		}
 	}
 }
 
 func (bm *Manager) verifyPackIndexBuilderLocked() {
 	for k, cpi := range bm.packIndexBuilder {
 		bm.assertInvariant(cpi.ID == k, "content ID entry has invalid key: %v %v", cpi.ID, k)
-		if _, ok := bm.currentPackItems[cpi.ID]; ok {
-			// ignore contents also in currentPackItems
+		if _, ok := bm.findContentInPendingPacks(cpi.ID); ok {
+			// ignore contents also in current packs
 			continue
 		}
 		if cpi.Deleted {
@@ -265,11 +289,6 @@ func (bm *Manager) assertInvariant(ok bool, errorMsg string, arg ...interface{})
 	}
 
 	panic(errorMsg)
-}
-
-func (bm *Manager) startPackIndexLocked() {
-	bm.currentPackItems = make(map[ID]Info)
-	bm.currentPackDataLength = 0
 }
 
 func (bm *Manager) flushPackIndexesLocked(ctx context.Context) error {
@@ -309,21 +328,22 @@ func (bm *Manager) writePackIndexesNew(ctx context.Context, data []byte) (blob.I
 	return bm.encryptAndWriteContentNotLocked(ctx, data, newIndexBlobPrefix)
 }
 
-func (bm *Manager) finishPackLocked(ctx context.Context) error {
-	if len(bm.currentPackItems) == 0 {
-		log.Debugf("no current pack entries")
-		return nil
+func (bm *Manager) finishAllPacksLocked(ctx context.Context) error {
+	for prefix, pp := range bm.pendingPacks {
+		if len(pp.currentPackItems) == 0 {
+			log.Debugf("no current pack entries")
+			continue
+		}
+
+		if err := bm.finishPackLocked(ctx, prefix, pp); err != nil {
+			return errors.Wrap(err, "error writing pack content")
+		}
 	}
 
-	if err := bm.writePackContentLocked(ctx); err != nil {
-		return errors.Wrap(err, "error writing pack content")
-	}
-
-	bm.startPackIndexLocked()
 	return nil
 }
 
-func (bm *Manager) writePackContentLocked(ctx context.Context) error {
+func (bm *Manager) finishPackLocked(ctx context.Context, prefix blob.ID, pp *pendingPackInfo) error {
 	bm.assertLocked()
 
 	contentID := make([]byte, 16)
@@ -331,9 +351,8 @@ func (bm *Manager) writePackContentLocked(ctx context.Context) error {
 		return errors.Wrap(err, "unable to read crypto bytes")
 	}
 
-	packFile := blob.ID(fmt.Sprintf("%v%x", PackBlobIDPrefix, contentID))
-
-	contentData, packFileIndex, err := bm.preparePackDataContent(ctx, packFile)
+	packFile := blob.ID(fmt.Sprintf("%v%x", prefix, contentID))
+	contentData, packFileIndex, err := bm.preparePackDataContent(ctx, pp, packFile)
 	if err != nil {
 		return errors.Wrap(err, "error preparing data content")
 	}
@@ -349,11 +368,13 @@ func (bm *Manager) writePackContentLocked(ctx context.Context) error {
 		bm.packIndexBuilder.Add(*info)
 	}
 
+	delete(bm.pendingPacks, prefix)
+
 	return nil
 }
 
-func (bm *Manager) preparePackDataContent(ctx context.Context, packFile blob.ID) ([]byte, packIndexBuilder, error) {
-	formatLog.Debugf("preparing content data with %v items", len(bm.currentPackItems))
+func (bm *Manager) preparePackDataContent(ctx context.Context, pp *pendingPackInfo, packFile blob.ID) ([]byte, packIndexBuilder, error) {
+	formatLog.Debugf("preparing content data with %v items", len(pp.currentPackItems))
 
 	contentData, err := appendRandomBytes(append([]byte(nil), bm.repositoryFormatBytes...), rand.Intn(bm.maxPreambleLength-bm.minPreambleLength+1)+bm.minPreambleLength)
 	if err != nil {
@@ -361,7 +382,7 @@ func (bm *Manager) preparePackDataContent(ctx context.Context, packFile blob.ID)
 	}
 
 	packFileIndex := packIndexBuilder{}
-	for contentID, info := range bm.currentPackItems {
+	for contentID, info := range pp.currentPackItems {
 		if info.Payload == nil {
 			continue
 		}
@@ -605,7 +626,7 @@ func (bm *Manager) Flush(ctx context.Context) error {
 	bm.lock()
 	defer bm.unlock()
 
-	if err := bm.finishPackLocked(ctx); err != nil {
+	if err := bm.finishAllPacksLocked(ctx); err != nil {
 		return errors.Wrap(err, "error writing pending content")
 	}
 
@@ -630,7 +651,25 @@ func (bm *Manager) RewriteContent(ctx context.Context, contentID ID) error {
 
 	bm.lock()
 	defer bm.unlock()
+
 	return bm.addToPackLocked(ctx, contentID, data, bi.Deleted)
+}
+
+func (bm *Manager) packPrefixForContentID(contentID ID) blob.ID {
+	if contentID.HasPrefix() {
+		return PackBlobIDPrefixSpecial
+	}
+	return PackBlobIDPrefixRegular
+}
+
+func (bm *Manager) getOrCreatePendingPackInfoLocked(prefix blob.ID) *pendingPackInfo {
+	if bm.pendingPacks[prefix] == nil {
+		bm.pendingPacks[prefix] = &pendingPackInfo{
+			currentPackItems: map[ID]Info{},
+		}
+	}
+
+	return bm.pendingPacks[prefix]
 }
 
 // WriteContent saves a given content of data to a pack group with a provided name and returns a contentID
@@ -727,7 +766,7 @@ func (bm *Manager) getContentInfo(contentID ID) (Info, error) {
 	defer bm.unlock()
 
 	// check added contents, not written to any packs.
-	if bi, ok := bm.currentPackItems[contentID]; ok {
+	if bi, ok := bm.findContentInPendingPacks(contentID); ok {
 		return bi, nil
 	}
 
@@ -738,6 +777,17 @@ func (bm *Manager) getContentInfo(contentID ID) (Info, error) {
 
 	// read from committed content index
 	return bm.committedContents.getContent(contentID)
+}
+
+func (bm *Manager) findContentInPendingPacks(contentID ID) (Info, bool) {
+	for _, pp := range bm.pendingPacks {
+		bi, ok := pp.currentPackItems[contentID]
+		if ok {
+			return bi, true
+		}
+	}
+
+	return Info{}, false
 }
 
 // ContentInfo returns information about a single content.
@@ -767,18 +817,20 @@ func (bm *Manager) FindUnreferencedBlobs(ctx context.Context) ([]blob.Metadata, 
 	usedPackContents := findPackContentsInUse(infos)
 
 	var unused []blob.Metadata
-	err = bm.st.ListBlobs(ctx, PackBlobIDPrefix, func(bi blob.Metadata) error {
-		u := usedPackContents[bi.BlobID]
-		if u > 0 {
-			log.Debugf("pack %v, in use by %v contents", bi.BlobID, u)
-			return nil
-		}
+	for _, prefix := range PackBlobIDPrefixes {
+		err := bm.st.ListBlobs(ctx, prefix, func(bi blob.Metadata) error {
+			u := usedPackContents[bi.BlobID]
+			if u > 0 {
+				log.Debugf("pack %v, in use by %v contents", bi.BlobID, u)
+				return nil
+			}
 
-		unused = append(unused, bi)
-		return nil
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "error listing storage contents")
+			unused = append(unused, bi)
+			return nil
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "error listing storage contents")
+		}
 	}
 
 	return unused, nil
@@ -1005,7 +1057,7 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 		maxPackSize:           f.MaxPackSize,
 		encryptor:             encryptor,
 		hasher:                hasher,
-		currentPackItems:      make(map[ID]Info),
+		pendingPacks:          map[blob.ID]*pendingPackInfo{},
 		packIndexBuilder:      make(packIndexBuilder),
 		committedContents:     contentIndex,
 		minPreambleLength:     defaultMinPreambleLength,
@@ -1021,8 +1073,6 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 		closed:                  make(chan struct{}),
 		checkInvariantsOnUnlock: os.Getenv("KOPIA_VERIFY_INVARIANTS") != "",
 	}
-
-	m.startPackIndexLocked()
 
 	if err := m.CompactIndexes(ctx, autoCompactionOptions); err != nil {
 		return nil, errors.Wrap(err, "error initializing content manager")
