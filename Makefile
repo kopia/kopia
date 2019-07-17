@@ -58,8 +58,17 @@ travis-release: test-with-coverage lint vet verify-release integration-tests upl
 verify-release:
 	curl -sL https://git.io/goreleaser | bash /dev/stdin --skip-publish --skip-sign --rm-dist --snapshot 
 
+ifeq ($(TRAVIS_PULL_REQUEST),false)
+
 upload-coverage: $(GOVERALLS_TOOL)
 	$(GOVERALLS_TOOL) -service=travis-ci -coverprofile=tmp.cov
+
+else
+
+upload-coverage:
+	@echo Not uploading coverage during PR build.
+
+endif
 
 dev-deps:
 	GO111MODULE=off go get -u golang.org/x/tools/cmd/gorename
