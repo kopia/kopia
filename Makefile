@@ -1,6 +1,7 @@
 COVERAGE_PACKAGES=./repo/...,./fs/...,./snapshot/...
 LINTER_TOOL=.tools/bin/golangci-lint
 GOVERALLS_TOOL=.tools/bin/goveralls
+GO_TEST=go test
 
 -include ./Makefile.local.mk
 
@@ -70,26 +71,26 @@ dev-deps:
 	GO111MODULE=off go get -u github.com/sqs/goreturns
 	
 test-with-coverage:
-	go test -count=1 -coverprofile=tmp.cov --coverpkg $(COVERAGE_PACKAGES) -timeout 90s github.com/kopia/kopia/...
+	$(GO_TEST) -count=1 -coverprofile=tmp.cov --coverpkg $(COVERAGE_PACKAGES) -timeout 90s github.com/kopia/kopia/...
 
 test-with-coverage-pkgonly:
-	go test -count=1 -coverprofile=tmp.cov -timeout 90s github.com/kopia/kopia/...
+	$(GO_TEST) -count=1 -coverprofile=tmp.cov -timeout 90s github.com/kopia/kopia/...
 
 test:
-	go test -count=1 -timeout 90s github.com/kopia/kopia/...
+	$(GO_TEST) -count=1 -timeout 90s github.com/kopia/kopia/...
 
 vtest:
-	go test -count=1 -short -v -timeout 90s github.com/kopia/kopia/...
+	$(GO_TEST) -count=1 -short -v -timeout 90s github.com/kopia/kopia/...
 
 dist-binary:
 	go build -o dist/integration/kopia github.com/kopia/kopia
 
 integration-tests: dist-binary
-	KOPIA_EXE=$(CURDIR)/dist/integration/kopia go test -count=1 -timeout 90s github.com/kopia/kopia/tests/end_to_end_test
+	KOPIA_EXE=$(CURDIR)/dist/integration/kopia $(GO_TEST) -v -count=1 -timeout 90s github.com/kopia/kopia/tests/end_to_end_test
 
 stress-test:
-	KOPIA_LONG_STRESS_TEST=1 go test -count=1 -timeout 200s github.com/kopia/kopia/tests/stress_test
-	go test -count=1 -timeout 200s github.com/kopia/kopia/tests/repository_stress_test
+	KOPIA_LONG_STRESS_TEST=1 $(GO_TEST) -count=1 -timeout 200s github.com/kopia/kopia/tests/stress_test
+	$(GO_TEST) -count=1 -timeout 200s github.com/kopia/kopia/tests/repository_stress_test
 
 godoc:
 	godoc -http=:33333

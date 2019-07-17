@@ -215,7 +215,7 @@ func TestEndToEnd(t *testing.T) {
 		e.runAndExpectFailure(t, "repo", "connect", "filesystem", "--path", e.repoDir)
 
 		// now run repair, which will recover the format blob from one of the pack blobs.
-		e.runAndExpectSuccess(t, "repo", "repair", "filesystem", "--path", e.repoDir)
+		e.runAndExpectSuccess(t, "repo", "repair", "--log-level=debug", "--trace-storage", "filesystem", "--path", e.repoDir)
 
 		// now connect can succeed
 		e.runAndExpectSuccess(t, "repo", "connect", "filesystem", "--path", e.repoDir)
@@ -281,6 +281,7 @@ canary
 }
 
 func (e *testenv) runAndExpectSuccess(t *testing.T, args ...string) []string {
+	t.Helper()
 	stdout, err := e.run(t, args...)
 	if err != nil {
 		t.Fatalf("'kopia %v' failed with %v", strings.Join(args, " "), err)
@@ -289,6 +290,7 @@ func (e *testenv) runAndExpectSuccess(t *testing.T, args ...string) []string {
 }
 
 func (e *testenv) runAndExpectFailure(t *testing.T, args ...string) []string {
+	t.Helper()
 	stdout, err := e.run(t, args...)
 	if err == nil {
 		t.Fatalf("'kopia %v' succeeded, but expected failure", strings.Join(args, " "))
@@ -306,6 +308,7 @@ func (e *testenv) runAndVerifyOutputLineCount(t *testing.T, wantLines int, args 
 }
 
 func (e *testenv) run(t *testing.T, args ...string) ([]string, error) {
+	t.Helper()
 	t.Logf("running 'kopia %v'", strings.Join(args, " "))
 	cmdArgs := append(append([]string(nil), e.fixedArgs...), args...)
 	c := exec.Command(e.exe, cmdArgs...)
