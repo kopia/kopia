@@ -37,17 +37,19 @@ func TestContentIndexRecovery(t *testing.T) {
 	totalRecovered := 0
 
 	// pass 1 - just list contents to recover, but don't commit
-	err := bm.st.ListBlobs(ctx, PackBlobIDPrefix, func(bi blob.Metadata) error {
-		infos, err := bm.RecoverIndexFromPackBlob(ctx, bi.BlobID, bi.Length, false)
+	for _, prefix := range PackBlobIDPrefixes {
+		err := bm.st.ListBlobs(ctx, prefix, func(bi blob.Metadata) error {
+			infos, err := bm.RecoverIndexFromPackBlob(ctx, bi.BlobID, bi.Length, false)
+			if err != nil {
+				return err
+			}
+			totalRecovered += len(infos)
+			log.Debugf("recovered %v contents", len(infos))
+			return nil
+		})
 		if err != nil {
-			return err
+			t.Errorf("error recovering: %v", err)
 		}
-		totalRecovered += len(infos)
-		log.Debugf("recovered %v contents", len(infos))
-		return nil
-	})
-	if err != nil {
-		t.Errorf("error recovering: %v", err)
 	}
 
 	if got, want := totalRecovered, 3; got != want {
@@ -62,17 +64,19 @@ func TestContentIndexRecovery(t *testing.T) {
 	// pass 2 now pass commit=true to add recovered contents to index
 	totalRecovered = 0
 
-	err = bm.st.ListBlobs(ctx, PackBlobIDPrefix, func(bi blob.Metadata) error {
-		infos, rerr := bm.RecoverIndexFromPackBlob(ctx, bi.BlobID, bi.Length, true)
-		if rerr != nil {
-			return rerr
+	for _, prefix := range PackBlobIDPrefixes {
+		err := bm.st.ListBlobs(ctx, prefix, func(bi blob.Metadata) error {
+			infos, rerr := bm.RecoverIndexFromPackBlob(ctx, bi.BlobID, bi.Length, true)
+			if rerr != nil {
+				return rerr
+			}
+			totalRecovered += len(infos)
+			log.Debugf("recovered %v contents", len(infos))
+			return nil
+		})
+		if err != nil {
+			t.Errorf("error recovering: %v", err)
 		}
-		totalRecovered += len(infos)
-		log.Debugf("recovered %v contents", len(infos))
-		return nil
-	})
-	if err != nil {
-		t.Errorf("error recovering: %v", err)
 	}
 
 	if got, want := totalRecovered, 3; got != want {
