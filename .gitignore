@@ -14,3 +14,4 @@ Makefile.local.mk
 .linterr.txt
 test_service_account.json
 id_kopia
+known_hosts
