@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"reflect"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/internal/scrubber"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
@@ -44,7 +46,11 @@ func runStatusCommand(ctx context.Context, rep *repo.Repository) error {
 		pass := ""
 
 		if *statusReconnectTokenIncludePassword {
-			pass = mustGetPasswordFromFlags(false, true)
+			var err error
+			pass, err = getPasswordFromFlags(false, true)
+			if err != nil {
+				return errors.Wrap(err, "getting password")
+			}
 		}
 
 		tok, err := rep.Token(pass)

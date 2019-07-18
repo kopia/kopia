@@ -47,7 +47,10 @@ func init() {
 }
 
 func runConnectCommandWithStorage(ctx context.Context, st blob.Storage) error {
-	password := mustGetPasswordFromFlags(false, false)
+	password, err := getPasswordFromFlags(false, false)
+	if err != nil {
+		return errors.Wrap(err, "getting password")
+	}
 	return runConnectCommandWithStorageAndPassword(ctx, st, password)
 }
 
