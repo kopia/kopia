@@ -24,7 +24,12 @@ var (
 )
 
 func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
-	sourceRepo, err := repo.Open(ctx, *migrateSourceConfig, mustGetPasswordFromFlags(false, false), applyOptionsFromFlags(nil))
+	pass, err := getPasswordFromFlags(false, false)
+	if err != nil {
+		return errors.Wrap(err, "source repository password")
+	}
+
+	sourceRepo, err := repo.Open(ctx, *migrateSourceConfig, pass, applyOptionsFromFlags(nil))
 	if err != nil {
 		return errors.Wrap(err, "can't open source repository")
 	}

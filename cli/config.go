@@ -37,13 +37,6 @@ func printStdout(msg string, args ...interface{}) {
 	log.Debugf("[STDOUT] "+msg, args...)
 }
 
-func failOnError(err error) {
-	if err != nil {
-		printStderr("ERROR: %v\n", err)
-		os.Exit(1)
-	}
-}
-
 func onCtrlC(f func()) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
@@ -66,7 +59,11 @@ func waitForCtrlC() {
 }
 
 func openRepository(ctx context.Context, opts *repo.Options) (*repo.Repository, error) {
-	r, err := repo.Open(ctx, repositoryConfigFileName(), mustGetPasswordFromFlags(false, true), applyOptionsFromFlags(opts))
+	pass, err := getPasswordFromFlags(false, true)
+	if err != nil {
+		return nil, errors.Wrap(err, "get password")
+	}
+	r, err := repo.Open(ctx, repositoryConfigFileName(), pass, applyOptionsFromFlags(opts))
 	if os.IsNotExist(err) {
 		return nil, errors.New("not connected to a repository, use 'kopia connect'")
 	}
@@ -90,12 +87,6 @@ func applyOptionsFromFlags(opts *repo.Options) *repo.Options {
 	return opts
 }
 
-func mustOpenRepository(ctx context.Context, opts *repo.Options) *repo.Repository {
-	s, err := openRepository(ctx, opts)
-	failOnError(err)
-	return s
-}
-
 func repositoryConfigFileName() string {
 	return *configPath
 }
@@ -104,17 +95,26 @@ func defaultConfigFileName() string {
 	return filepath.Join(ospath.ConfigDir(), "repository.config")
 }
 
-func mustGetLocalFSEntry(path string) fs.Entry {
+func getLocalFSEntry(path0 string) (fs.Entry, error) {
+	path, err := filepath.EvalSymlinks(path0)
+	if err != nil {
+		return nil, errors.Wrap(err, "evaluate symlink")
+	}
+
+	if path != path0 {
+		log.Infof("%v resolved to %v", path0, path)
+	}
+
 	e, err := localfs.NewEntry(path)
-	if err == nil {
-		failOnError(err)
+	if err != nil {
+		return nil, errors.Wrap(err, "can't get local fs entry")
 	}
 
 	if *traceLocalFS {
-		return loggingfs.Wrap(e, loggingfs.Prefix("[LOCALFS] "))
+		e = loggingfs.Wrap(e, loggingfs.Prefix("[LOCALFS] "))
 	}
 
-	return e
+	return e, nil
 }
 
 func isWindows() bool {

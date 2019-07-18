@@ -85,7 +85,10 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshot
 	t0 := time.Now()
 	rep.Content.ResetStats()
 
-	localEntry := mustGetLocalFSEntry(sourceInfo.Path)
+	localEntry, err := getLocalFSEntry(sourceInfo.Path)
+	if err != nil {
+		return errors.Wrap(err, "unable to get local filesystem entry")
+	}
 
 	previous, err := findPreviousSnapshotManifest(ctx, rep, sourceInfo, nil)
 	if err != nil {

@@ -65,7 +65,10 @@ func repositoryAction(act func(ctx context.Context, rep *repo.Repository) error)
 		})
 
 		t0 := time.Now()
-		rep := mustOpenRepository(ctx, nil)
+		rep, err := openRepository(ctx, nil)
+		if err != nil {
+			return errors.Wrap(err, "open repository")
+		}
 		repositoryOpenTime := time.Since(t0)
 
 		storageType := rep.Blobs.ConnectionInfo().Type
@@ -73,7 +76,7 @@ func repositoryAction(act func(ctx context.Context, rep *repo.Repository) error)
 		reportStartupTime(storageType, rep.Content.Format.Version, repositoryOpenTime)
 
 		t1 := time.Now()
-		err := act(ctx, rep)
+		err = act(ctx, rep)
 		commandDuration := time.Since(t1)
 
 		reportSubcommandFinished(kpc.SelectedCommand.FullCommand(), err == nil, storageType, rep.Content.Format.Version, commandDuration)

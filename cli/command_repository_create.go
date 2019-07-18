@@ -73,7 +73,10 @@ func runCreateCommandWithStorage(ctx context.Context, st blob.Storage) error {
 
 	options := newRepositoryOptionsFromFlags()
 
-	password := mustGetPasswordFromFlags(true, false)
+	password, err := getPasswordFromFlags(true, false)
+	if err != nil {
+		return errors.Wrap(err, "getting password")
+	}
 
 	printStderr("Initializing repository with:\n")
 	printStderr("  block hash:          %v\n", options.BlockFormat.Hash)

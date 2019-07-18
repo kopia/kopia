@@ -19,49 +19,56 @@ var (
 	password = app.Flag("password", "Repository password.").Envar("KOPIA_PASSWORD").Short('p').String()
 )
 
-func mustAskForNewRepositoryPassword() string {
+func askForNewRepositoryPassword() (string, error) {
 	for {
 		p1, err := askPass("Enter password to create new repository: ")
-		failOnError(err)
+		if err != nil {
+			return "", errors.Wrap(err, "password entry")
+		}
 		p2, err := askPass("Re-enter password for verification: ")
-		failOnError(err)
+		if err != nil {
+			return "", errors.Wrap(err, "password verification")
+		}
+
 		if p1 != p2 {
 			fmt.Println("Passwords don't match!")
 		} else {
-			return p1
+			return p1, nil
 		}
 	}
 }
 
-func mustAskForExistingRepositoryPassword() string {
+func askForExistingRepositoryPassword() (string, error) {
 	p1, err := askPass("Enter password to open repository: ")
-	failOnError(err)
+	if err != nil {
+		return "", err
+	}
 	fmt.Println()
-	return p1
+	return p1, nil
 }
 
 var passwordFromToken string
 
-func mustGetPasswordFromFlags(isNew, allowPersistent bool) string {
+func getPasswordFromFlags(isNew, allowPersistent bool) (string, error) {
 	if passwordFromToken != "" {
 		// password provided via token
-		return passwordFromToken
+		return passwordFromToken, nil
 	}
 
 	if !isNew && allowPersistent {
 		pass, ok := getPersistedPassword(repositoryConfigFileName(), getUserName())
 		if ok {
-			return pass
+			return pass, nil
 		}
 	}
 
 	switch {
 	case *password != "":
-		return strings.TrimSpace(*password)
+		return strings.TrimSpace(*password), nil
 	case isNew:
-		return mustAskForNewRepositoryPassword()
+		return askForNewRepositoryPassword()
 	default:
-		return mustAskForExistingRepositoryPassword()
+		return askForExistingRepositoryPassword()
 	}
 }
 
