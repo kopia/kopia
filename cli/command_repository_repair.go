@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	repairCommand = repositoryCommands.Command("repair", "Repairs respository.")
+	repairCommand = repositoryCommands.Command("repair", "Repairs repository.")
 
 	repairCommandRecoverFormatBlob         = repairCommand.Flag("recover-format", "Recover format blob from a copy").Default("auto").Enum("auto", "yes", "no")
 	repairCommandRecoverFormatBlobPrefixes = repairCommand.Flag("recover-format-block-prefixes", "Prefixes of file names").Strings()

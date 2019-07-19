@@ -16,6 +16,7 @@ import (
 var (
 	contentRewriteCommand     = contentCommands.Command("rewrite", "Rewrite content using most recent format")
 	contentRewriteIDs         = contentRewriteCommand.Arg("contentID", "Identifiers of contents to rewrite").Strings()
+	contentRewritePrefixed    = contentRewriteCommand.Flag("prefixed", "Rewrite contents with a non-empty prefix").Bool()
 	contentRewriteParallelism = contentRewriteCommand.Flag("parallelism", "Number of parallel workers").Default("16").Int()
 
 	contentRewriteShortPacks    = contentRewriteCommand.Flag("short", "Rewrite contents from short packs").Bool()
@@ -160,7 +161,9 @@ func findContentInShortPacks(rep *repo.Repository, ch chan contentInfoOrError, t
 	} else {
 		for _, b := range infos {
 			if shortPackBlocks[b.PackBlobID] && strings.HasPrefix(string(b.PackBlobID), *contentRewritePackPrefix) {
-				ch <- contentInfoOrError{Info: b}
+				if b.ID.HasPrefix() == *contentRewritePrefixed {
+					ch <- contentInfoOrError{Info: b}
+				}
 			}
 		}
 	}
