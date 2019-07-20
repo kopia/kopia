@@ -55,7 +55,7 @@ func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 		if !canceled {
 			canceled = true
 			for s, u := range activeUploaders {
-				log.Warningf("cancelling active uploader for %v", s)
+				log.Warningf("canceling active uploader for %v", s)
 				u.Cancel()
 			}
 		}
