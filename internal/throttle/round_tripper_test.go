@@ -56,8 +56,8 @@ func TestRoundTripper(t *testing.T) {
 	// Empty request (no request, no response)
 	uploadPool.reset()
 	downloadPool.reset()
-	req1, resp1 := base.add(&http.Request{}, &http.Response{})
-	resp, err := rt.RoundTrip(req1)
+	req1, resp1 := base.add(&http.Request{}, &http.Response{}) //nolint:bodyclose
+	resp, err := rt.RoundTrip(req1)                            //nolint:bodyclose
 	if resp != resp1 || err != nil {
 		t.Errorf("invalid response or error: %v", err)
 	}
@@ -68,10 +68,10 @@ func TestRoundTripper(t *testing.T) {
 	// Upload request
 	uploadPool.reset()
 	downloadPool.reset()
-	req2, resp2 := base.add(&http.Request{
+	req2, resp2 := base.add(&http.Request{ //nolint:bodyclose
 		Body: uploadBody,
 	}, &http.Response{})
-	resp, err = rt.RoundTrip(req2)
+	resp, err = rt.RoundTrip(req2) //nolint:bodyclose
 	if resp != resp2 || err != nil {
 		t.Errorf("invalid response or error: %v", err)
 	}
@@ -82,8 +82,8 @@ func TestRoundTripper(t *testing.T) {
 	// Download request
 	uploadPool.reset()
 	downloadPool.reset()
-	req3, resp3 := base.add(&http.Request{}, &http.Response{Body: downloadBody})
-	resp, err = rt.RoundTrip(req3)
+	req3, resp3 := base.add(&http.Request{}, &http.Response{Body: downloadBody}) //nolint:bodyclose
+	resp, err = rt.RoundTrip(req3)                                               //nolint:bodyclose
 	if resp != resp3 || err != nil {
 		t.Errorf("invalid response or error: %v", err)
 	}
@@ -94,8 +94,8 @@ func TestRoundTripper(t *testing.T) {
 	// Upload/Download request
 	uploadPool.reset()
 	downloadPool.reset()
-	req4, resp4 := base.add(&http.Request{Body: uploadBody}, &http.Response{Body: downloadBody})
-	resp, err = rt.RoundTrip(req4)
+	req4, resp4 := base.add(&http.Request{Body: uploadBody}, &http.Response{Body: downloadBody}) //nolint:bodyclose
+	resp, err = rt.RoundTrip(req4)                                                               //nolint:bodyclose
 	if resp != resp4 || err != nil {
 		t.Errorf("invalid response or error: %v", err)
 	}

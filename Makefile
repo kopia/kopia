@@ -1,4 +1,5 @@
 COVERAGE_PACKAGES=./repo/...,./fs/...,./snapshot/...
+GOLANGCI_LINT_VERSION=v1.17.1
 LINTER_TOOL=.tools/bin/golangci-lint
 GOVERALLS_TOOL=.tools/bin/goveralls
 GO_TEST=go test
@@ -41,7 +42,7 @@ build-all: build-linux-amd64 build-windows-amd64 build-darwin-amd64 build-linux-
 
 $(LINTER_TOOL):
 	mkdir -p .tools
-	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b .tools/bin/ v1.16.0
+	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b .tools/bin/ $(GOLANGCI_LINT_VERSION)
 
 $(GOVERALLS_TOOL):
 	mkdir -p .tools
