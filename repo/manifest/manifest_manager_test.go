@@ -96,11 +96,16 @@ func TestManifest(t *testing.T) {
 		t.Errorf("can't compact: %v", err)
 	}
 
-	blks, err := mgr.b.ListContents(manifestContentPrefix)
-	if err != nil {
-		t.Errorf("unable to list manifest blocks: %v", err)
+	foundContents := 0
+	if err := mgr.b.IterateContents(
+		content.IterateOptions{Prefix: manifestContentPrefix},
+		func(ci content.Info) error {
+			foundContents++
+			return nil
+		}); err != nil {
+		t.Errorf("unable to list manifest content: %v", err)
 	}
-	if got, want := len(blks), 1; got != want {
+	if got, want := foundContents, 1; got != want {
 		t.Errorf("unexpected number of blocks: %v, want %v", got, want)
 	}
 

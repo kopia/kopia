@@ -1,4 +1,4 @@
-// Package content implements repository support content-addressable storage contents.
+// Package content implements repository support for content-addressable storage.
 package content
 
 import (
@@ -568,57 +568,159 @@ func (bm *Manager) Close() {
 	close(bm.closed)
 }
 
+type IterateOptions struct {
+	Prefix         ID
+	IncludeDeleted bool
+	Parallel       int
+}
+
+type IterateCallback func(Info) error
+type cancelIterateFunc func() error
+
+func maybeParallelExecutor(parallel int, originalCallback IterateCallback) (IterateCallback, cancelIterateFunc) {
+	if parallel <= 1 {
+		return originalCallback, func() error { return nil }
+	}
+
+	workch := make(chan Info, parallel)
+	workererrch := make(chan error, 1)
+	var wg sync.WaitGroup
+	var once sync.Once
+
+	lastWorkerError := func() error {
+		select {
+		case err := <-workererrch:
+			return err
+		default:
+			return nil
+		}
+	}
+
+	cleanup := func() error {
+		once.Do(func() {
+			log.Infof("finishing parallel iteration")
+			close(workch)
+			wg.Wait()
+			log.Infof("finished parallel iteration")
+		})
+		return lastWorkerError()
+	}
+
+	callback := func(i Info) error {
+		workch <- i
+		return lastWorkerError()
+	}
+
+	// start N workers, each fetching from the shared channel and invoking the provided callback.
+	// cleanup() must be called to for worker completion
+	for i := 0; i < parallel; i++ {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+			for i := range workch {
+				if err := originalCallback(i); err != nil {
+					select {
+					case workererrch <- err:
+					default:
+					}
+				}
+			}
+		}()
+	}
+
+	return callback, cleanup
+}
+
 // IterateContents invokes the provided callback for each content starting with a specified prefix
 // and possibly including deleted items.
-func (bm *Manager) IterateContents(prefix ID, includeDeleted bool, callback func(i Info) error) error {
+func (bm *Manager) IterateContents(opts IterateOptions, callback IterateCallback) error {
 	bm.lock()
 	pibClone := bm.packIndexBuilder.clone()
 	bm.unlock()
 
-	appendToResult := func(i Info) error {
-		if (i.Deleted && !includeDeleted) || !strings.HasPrefix(string(i.ID), string(prefix)) {
-			return nil
+	callback, cleanup := maybeParallelExecutor(opts.Parallel, callback)
+	defer cleanup() //nolint:errcheck
+
+	invokeCallback := func(i Info) error {
+		if !opts.IncludeDeleted {
+			if ci, ok := pibClone[i.ID]; ok {
+				if ci.Deleted {
+					return nil
+				}
+			} else if i.Deleted {
+				return nil
+			}
 		}
-		if ci, ok := pibClone[i.ID]; ok && ci.Deleted {
+
+		if !strings.HasPrefix(string(i.ID), string(opts.Prefix)) {
 			return nil
 		}
 		return callback(i)
 	}
 
-	if len(pibClone) == 0 && includeDeleted && prefix == "" {
+	if len(pibClone) == 0 && opts.IncludeDeleted && opts.Prefix == "" && opts.Parallel <= 1 {
 		// fast path, invoke callback directly
-		appendToResult = callback
+		invokeCallback = callback
 	}
 
 	for _, bi := range pibClone {
-		_ = appendToResult(*bi)
+		_ = invokeCallback(*bi)
 	}
 
-	return bm.committedContents.listContents(prefix, appendToResult)
+	if err := bm.committedContents.listContents(opts.Prefix, invokeCallback); err != nil {
+		return err
+	}
+
+	return cleanup()
 }
 
-// ListContents returns IDs of contents matching given prefix.
-func (bm *Manager) ListContents(prefix ID) ([]ID, error) {
-	var result []ID
-
-	err := bm.IterateContents(prefix, false, func(i Info) error {
-		result = append(result, i.ID)
-		return nil
-	})
-
-	return result, err
+type IteratePackOptions struct {
+	IncludePacksWithOnlyDeletedContent bool
+	IncludeContentInfos                bool
 }
 
-// ListContentInfos returns the metadata about contents with a given prefix and kind.
-func (bm *Manager) ListContentInfos(prefix ID, includeDeleted bool) ([]Info, error) {
-	var result []Info
+type PackInfo struct {
+	PackID       blob.ID
+	ContentCount int
+	TotalSize    int64
+	ContentInfos []Info
+}
 
-	err := bm.IterateContents(prefix, includeDeleted, func(i Info) error {
-		result = append(result, i)
-		return nil
-	})
+type IteratePacksCallback func(PackInfo) error
 
-	return result, err
+// IteratePacks invokes the provided callback for all pack blobs.
+func (bm *Manager) IteratePacks(options IteratePackOptions, callback IteratePacksCallback) error {
+	packUsage := map[blob.ID]*PackInfo{}
+
+	if err := bm.IterateContents(
+		IterateOptions{
+			IncludeDeleted: options.IncludePacksWithOnlyDeletedContent,
+		},
+		func(ci Info) error {
+			pi := packUsage[ci.PackBlobID]
+			if pi == nil {
+				pi = &PackInfo{}
+				packUsage[ci.PackBlobID] = pi
+			}
+			pi.PackID = ci.PackBlobID
+			pi.ContentCount++
+			pi.TotalSize += int64(ci.Length)
+			if options.IncludeContentInfos {
+				pi.ContentInfos = append(pi.ContentInfos, ci)
+			}
+			return nil
+		}); err != nil {
+		return errors.Wrap(err, "error iterating contents")
+	}
+
+	for _, v := range packUsage {
+		if err := callback(*v); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // Flush completes writing any pending packs and writes pack indexes to the underlyign storage.
@@ -798,82 +900,83 @@ func (bm *Manager) ContentInfo(ctx context.Context, contentID ID) (Info, error) 
 		return Info{}, err
 	}
 
-	if bi.Deleted {
-		log.Debugf("ContentInfo(%q) - deleted", contentID)
-	} else {
-		log.Debugf("ContentInfo(%q) - exists in %v", contentID, bi.PackBlobID)
-	}
-
 	return bi, err
 }
 
-func (bm *Manager) FindContentInShortPacks(threshold int64) ([]Info, error) {
-	infos, err := bm.ListContentInfos("", true)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to list index blobs")
-	}
-
+// IterateContentInShortPacks invokes the provided callback for all contents that are stored in
+// packs shorter than the given threshold.
+func (bm *Manager) IterateContentInShortPacks(threshold int64, callback IterateCallback) error {
 	if threshold <= 0 {
 		threshold = int64(bm.maxPackSize) * 8 / 10
 	}
 
-	var contentInfos []Info
-	for _, v := range groupByPackBlob(infos) {
-		if v.totalSize < threshold {
-			contentInfos = append(contentInfos, v.contentInfos...)
-		}
-	}
-
-	return contentInfos, nil
-}
-
-// FindUnreferencedBlobs returns the list of unreferenced storage contents.
-func (bm *Manager) FindUnreferencedBlobs(ctx context.Context) ([]blob.Metadata, error) {
-	infos, err := bm.ListContentInfos("", true)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to list index blobs")
-	}
-
-	usedPackContents := groupByPackBlob(infos)
-
-	var unused []blob.Metadata
-	for _, prefix := range PackBlobIDPrefixes {
-		err := bm.st.ListBlobs(ctx, prefix, func(bi blob.Metadata) error {
-			u := usedPackContents[bi.BlobID]
-			if u.contentCount > 0 {
-				log.Debugf("pack %v, in use by %v contents (%v total size)", bi.BlobID, u.contentCount, u.totalSize)
+	return bm.IteratePacks(
+		IteratePackOptions{
+			IncludePacksWithOnlyDeletedContent: true,
+			IncludeContentInfos:                true,
+		},
+		func(pi PackInfo) error {
+			if pi.TotalSize >= threshold {
 				return nil
 			}
 
-			unused = append(unused, bi)
+			for _, ci := range pi.ContentInfos {
+				if err := callback(ci); err != nil {
+					return err
+				}
+			}
 			return nil
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "error listing storage contents")
+		},
+	)
+}
+
+// FindUnreferencedBlobs returns the list of unreferenced storage blobs.
+func (bm *Manager) IterateUnreferencedBlobs(ctx context.Context, parallellism int, callback func(blob.Metadata) error) error {
+	usedPacks := map[blob.ID]bool{}
+
+	log.Infof("determining blobs in use")
+	// find packs in use
+	if err := bm.IteratePacks(
+		IteratePackOptions{
+			IncludePacksWithOnlyDeletedContent: true,
+		},
+		func(pi PackInfo) error {
+			if pi.ContentCount > 0 {
+				usedPacks[pi.PackID] = true
+			}
+			return nil
+		}); err != nil {
+		return errors.Wrap(err, "error iterating packs")
+	}
+	log.Infof("found %v pack blobs in use", len(usedPacks))
+
+	unusedCount := 0
+	var prefixes []blob.ID
+
+	if parallellism <= len(PackBlobIDPrefixes) {
+		prefixes = append(prefixes, PackBlobIDPrefixes...)
+	} else {
+		// iterate {p,q}[0-9,a-f]
+		for _, prefix := range PackBlobIDPrefixes {
+			for hexDigit := 0; hexDigit < 16; hexDigit++ {
+				prefixes = append(prefixes, blob.ID(fmt.Sprintf("%v%x", prefix, hexDigit)))
+			}
 		}
 	}
+	if err := blob.IterateAllPrefixesInParallel(ctx, parallellism, bm.st, prefixes,
+		func(bm blob.Metadata) error {
+			if usedPacks[bm.BlobID] {
+				return nil
+			}
 
-	return unused, nil
-}
-
-type packCounters struct {
-	contentCount int
-	totalSize    int64
-	contentInfos []Info
-}
-
-func groupByPackBlob(infos []Info) map[blob.ID]packCounters {
-	packUsage := map[blob.ID]packCounters{}
-
-	for _, ci := range infos {
-		pc := packUsage[ci.PackBlobID]
-		pc.contentCount++
-		pc.totalSize += int64(ci.Length)
-		pc.contentInfos = append(pc.contentInfos, ci)
-		packUsage[ci.PackBlobID] = pc
+			unusedCount++
+			return callback(bm)
+		}); err != nil {
+		return errors.Wrap(err, "error iterating blobs")
 	}
+	log.Infof("found %v pack blobs not in use", unusedCount)
 
-	return packUsage
+	return nil
 }
 
 func (bm *Manager) getCacheForContentID(id ID) *contentCache {

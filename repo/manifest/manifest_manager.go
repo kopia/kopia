@@ -30,7 +30,7 @@ type contentManager interface {
 	GetContent(ctx context.Context, contentID content.ID) ([]byte, error)
 	WriteContent(ctx context.Context, data []byte, prefix content.ID) (content.ID, error)
 	DeleteContent(contentID content.ID) error
-	ListContents(prefix content.ID) ([]content.ID, error)
+	IterateContents(content.IterateOptions, content.IterateCallback) error
 	DisableIndexFlush()
 	EnableIndexFlush()
 	Flush(ctx context.Context) error
@@ -277,17 +277,28 @@ func (m *Manager) Refresh(ctx context.Context) error {
 
 func (m *Manager) loadCommittedContentsLocked(ctx context.Context) error {
 	log.Debugf("listing manifest contents")
+
+	var (
+		mu        sync.Mutex
+		manifests map[content.ID]manifest
+	)
+
 	for {
-		contents, err := m.b.ListContents(manifestContentPrefix)
-		if err != nil {
-			return errors.Wrap(err, "unable to list manifest contents")
-		}
+		manifests = map[content.ID]manifest{}
 
-		m.committedEntries = map[ID]*manifestEntry{}
-		m.committedContentIDs = map[content.ID]bool{}
-
-		log.Debugf("found %v manifest contents", len(contents))
-		err = m.loadManifestContents(ctx, contents)
+		err := m.b.IterateContents(content.IterateOptions{
+			Prefix:   manifestContentPrefix,
+			Parallel: 8,
+		}, func(ci content.Info) error {
+			man, err := m.loadManifestContent(ctx, ci.ID)
+			if err != nil {
+				return err
+			}
+			mu.Lock()
+			manifests[ci.ID] = man
+			mu.Unlock()
+			return nil
+		})
 		if err == nil {
 			// success
 			break
@@ -299,6 +310,8 @@ func (m *Manager) loadCommittedContentsLocked(ctx context.Context) error {
 		return errors.Wrap(err, "unable to load manifest contents")
 	}
 
+	m.loadManifestContentsLocked(manifests)
+
 	if err := m.maybeCompactLocked(ctx); err != nil {
 		return errors.Errorf("error auto-compacting contents")
 	}
@@ -306,16 +319,12 @@ func (m *Manager) loadCommittedContentsLocked(ctx context.Context) error {
 	return nil
 }
 
-func (m *Manager) loadManifestContents(ctx context.Context, contentIDs []content.ID) error {
-	t0 := time.Now()
+func (m *Manager) loadManifestContentsLocked(manifests map[content.ID]manifest) {
+	m.committedEntries = map[ID]*manifestEntry{}
+	m.committedContentIDs = map[content.ID]bool{}
 
-	for _, b := range contentIDs {
-		m.committedContentIDs[b] = true
-	}
-
-	manifests, err := m.loadContentsInParallel(ctx, contentIDs)
-	if err != nil {
-		return err
+	for contentID := range manifests {
+		m.committedContentIDs[contentID] = true
 	}
 
 	for _, man := range manifests {
@@ -330,60 +339,6 @@ func (m *Manager) loadManifestContents(ctx context.Context, contentIDs []content
 			delete(m.committedEntries, k)
 		}
 	}
-
-	log.Debugf("finished loading manifest contents in %v.", time.Since(t0))
-
-	return nil
-}
-
-func (m *Manager) loadContentsInParallel(ctx context.Context, contentIDs []content.ID) ([]manifest, error) {
-	errch := make(chan error, len(contentIDs))
-	manifests := make(chan manifest, len(contentIDs))
-	ch := make(chan content.ID, len(contentIDs))
-	var wg sync.WaitGroup
-
-	for i := 0; i < 8; i++ {
-		wg.Add(1)
-		go func(workerID int) {
-			defer wg.Done()
-
-			for blk := range ch {
-				t1 := time.Now()
-				man, err := m.loadManifestContent(ctx, blk)
-
-				if err != nil {
-					errch <- err
-					log.Debugf("manifest content %v failed to be loaded by worker %v in %v: %v.", blk, workerID, time.Since(t1), err)
-				} else {
-					log.Debugf("manifest content %v loaded by worker %v in %v.", blk, workerID, time.Since(t1))
-					manifests <- man
-				}
-			}
-		}(i)
-	}
-
-	// feed manifest content IDs for goroutines
-	for _, b := range contentIDs {
-		ch <- b
-	}
-	close(ch)
-
-	// wait for workers to complete
-	wg.Wait()
-	close(errch)
-	close(manifests)
-
-	// if there was any error, forward it
-	if err := <-errch; err != nil {
-		return nil, err
-	}
-
-	var man []manifest
-	for m := range manifests {
-		man = append(man, m)
-	}
-
-	return man, nil
 }
 
 func (m *Manager) loadManifestContent(ctx context.Context, contentID content.ID) (manifest, error) {

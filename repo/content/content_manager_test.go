@@ -13,6 +13,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -571,17 +572,130 @@ func TestDeleteAndRecreate(t *testing.T) {
 	}
 }
 
+func TestIterateContents(t *testing.T) {
+	ctx := context.Background()
+	data := blobtesting.DataMap{}
+	keyTime := map[blob.ID]time.Time{}
+	bm := newTestContentManager(data, keyTime, nil)
+	// flushed, non-deleted
+	contentID1 := writeContentAndVerify(ctx, t, bm, seededRandomData(10, 100))
+
+	// flushed, deleted
+	contentID2 := writeContentAndVerify(ctx, t, bm, seededRandomData(11, 100))
+	bm.Flush(ctx)
+
+	if err := bm.DeleteContent(contentID2); err != nil {
+		t.Errorf("error deleting content 2 %v", err)
+	}
+
+	// pending, non-deleted
+	contentID3 := writeContentAndVerify(ctx, t, bm, seededRandomData(12, 100))
+
+	// pending, deleted - is completely discarded
+	contentID4 := writeContentAndVerify(ctx, t, bm, seededRandomData(13, 100))
+	if err := bm.DeleteContent(contentID4); err != nil {
+		t.Errorf("error deleting content 4 %v", err)
+	}
+	t.Logf("contentID1: %v", contentID1)
+	t.Logf("contentID2: %v", contentID2)
+	t.Logf("contentID3: %v", contentID3)
+	t.Logf("contentID4: %v", contentID4)
+
+	cases := []struct {
+		desc    string
+		options IterateOptions
+		want    map[ID]bool
+	}{
+		{
+			desc:    "default options",
+			options: IterateOptions{},
+			want:    map[ID]bool{contentID1: true, contentID3: true},
+		},
+		{
+			desc:    "include deleted",
+			options: IterateOptions{IncludeDeleted: true},
+			want: map[ID]bool{
+				contentID1: true,
+				contentID2: true,
+				contentID3: true,
+			},
+		},
+		{
+			desc: "parallel",
+			options: IterateOptions{
+				Parallel: 10,
+			},
+			want: map[ID]bool{
+				contentID1: true,
+				contentID3: true,
+			},
+		},
+		{
+			desc: "parallel, include deleted",
+			options: IterateOptions{
+				Parallel:       10,
+				IncludeDeleted: true,
+			},
+			want: map[ID]bool{
+				contentID1: true,
+				contentID2: true,
+				contentID3: true,
+			},
+		},
+		{
+			desc: "prefix match",
+			options: IterateOptions{
+				Prefix: contentID1,
+			},
+			want: map[ID]bool{contentID1: true},
+		},
+		{
+			desc: "prefix, include deleted",
+			options: IterateOptions{
+				Prefix:         contentID2,
+				IncludeDeleted: true,
+			},
+			want: map[ID]bool{
+				contentID2: true,
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.desc, func(t *testing.T) {
+			var mu sync.Mutex
+			got := map[ID]bool{}
+
+			err := bm.IterateContents(tc.options, func(ci Info) error {
+				mu.Lock()
+				got[ci.ID] = true
+				mu.Unlock()
+				return nil
+			})
+
+			if err != nil {
+				t.Errorf("error iterating: %v", err)
+			}
+
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("invalid content IDs got: %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestFindUnreferencedBlobs(t *testing.T) {
 	ctx := context.Background()
 	data := blobtesting.DataMap{}
 	keyTime := map[blob.ID]time.Time{}
 	bm := newTestContentManager(data, keyTime, nil)
-	verifyUnreferencedStorageFilesCount(ctx, t, bm, 0)
+	verifyUnreferencedBlobsCount(ctx, t, bm, 0)
 	contentID := writeContentAndVerify(ctx, t, bm, seededRandomData(10, 100))
 	if err := bm.Flush(ctx); err != nil {
 		t.Errorf("flush error: %v", err)
 	}
-	verifyUnreferencedStorageFilesCount(ctx, t, bm, 0)
+	verifyUnreferencedBlobsCount(ctx, t, bm, 0)
 	if err := bm.DeleteContent(contentID); err != nil {
 		t.Errorf("error deleting content: %v", contentID)
 	}
@@ -590,18 +704,18 @@ func TestFindUnreferencedBlobs(t *testing.T) {
 	}
 
 	// content still present in first pack
-	verifyUnreferencedStorageFilesCount(ctx, t, bm, 0)
+	verifyUnreferencedBlobsCount(ctx, t, bm, 0)
 
 	assertNoError(t, bm.RewriteContent(ctx, contentID))
 	if err := bm.Flush(ctx); err != nil {
 		t.Errorf("flush error: %v", err)
 	}
-	verifyUnreferencedStorageFilesCount(ctx, t, bm, 1)
+	verifyUnreferencedBlobsCount(ctx, t, bm, 1)
 	assertNoError(t, bm.RewriteContent(ctx, contentID))
 	if err := bm.Flush(ctx); err != nil {
 		t.Errorf("flush error: %v", err)
 	}
-	verifyUnreferencedStorageFilesCount(ctx, t, bm, 2)
+	verifyUnreferencedBlobsCount(ctx, t, bm, 2)
 }
 
 func TestFindUnreferencedBlobs2(t *testing.T) {
@@ -609,7 +723,7 @@ func TestFindUnreferencedBlobs2(t *testing.T) {
 	data := blobtesting.DataMap{}
 	keyTime := map[blob.ID]time.Time{}
 	bm := newTestContentManager(data, keyTime, nil)
-	verifyUnreferencedStorageFilesCount(ctx, t, bm, 0)
+	verifyUnreferencedBlobsCount(ctx, t, bm, 0)
 	contentID := writeContentAndVerify(ctx, t, bm, seededRandomData(10, 100))
 	writeContentAndVerify(ctx, t, bm, seededRandomData(11, 100))
 	dumpContents(t, bm, "after writing")
@@ -617,7 +731,7 @@ func TestFindUnreferencedBlobs2(t *testing.T) {
 		t.Errorf("flush error: %v", err)
 	}
 	dumpContents(t, bm, "after flush")
-	verifyUnreferencedStorageFilesCount(ctx, t, bm, 0)
+	verifyUnreferencedBlobsCount(ctx, t, bm, 0)
 	if err := bm.DeleteContent(contentID); err != nil {
 		t.Errorf("error deleting content: %v", contentID)
 	}
@@ -627,33 +741,38 @@ func TestFindUnreferencedBlobs2(t *testing.T) {
 	}
 	dumpContents(t, bm, "after flush")
 	// content present in first pack, original pack is still referenced
-	verifyUnreferencedStorageFilesCount(ctx, t, bm, 0)
+	verifyUnreferencedBlobsCount(ctx, t, bm, 0)
 }
 
 func dumpContents(t *testing.T, bm *Manager, caption string) {
 	t.Helper()
-	infos, err := bm.ListContentInfos("", true)
-	if err != nil {
+	count := 0
+	log.Infof("finished dumping %v contents", caption)
+	if err := bm.IterateContents(IterateOptions{IncludeDeleted: true},
+		func(ci Info) error {
+			log.Debugf(" ci[%v]=%#v", count, ci)
+			count++
+			return nil
+		}); err != nil {
 		t.Errorf("error listing contents: %v", err)
 		return
 	}
-
-	log.Infof("**** dumping %v contents %v", len(infos), caption)
-	for i, bi := range infos {
-		log.Debugf(" bi[%v]=%#v", i, bi)
-	}
-	log.Infof("finished dumping %v contents", len(infos))
+	log.Infof("finished dumping %v %v contents", count, caption)
 }
 
-func verifyUnreferencedStorageFilesCount(ctx context.Context, t *testing.T, bm *Manager, want int) {
+func verifyUnreferencedBlobsCount(ctx context.Context, t *testing.T, bm *Manager, want int) {
 	t.Helper()
-	unref, err := bm.FindUnreferencedBlobs(ctx)
+	var unrefCount int32
+	err := bm.IterateUnreferencedBlobs(ctx, 1, func(_ blob.Metadata) error {
+		atomic.AddInt32(&unrefCount, 1)
+		return nil
+	})
 	if err != nil {
-		t.Errorf("error in FindUnreferencedBlobs: %v", err)
+		t.Errorf("error in IterateUnreferencedBlobs: %v", err)
 	}
 
-	log.Infof("got %v expecting %v", unref, want)
-	if got := len(unref); got != want {
+	log.Infof("got %v expecting %v", unrefCount, want)
+	if got := int(unrefCount); got != want {
 		t.Errorf("invalid number of unreferenced contents: %v, wanted %v", got, want)
 	}
 }

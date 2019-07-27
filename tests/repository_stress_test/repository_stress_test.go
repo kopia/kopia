@@ -240,28 +240,28 @@ func readKnownBlock(ctx context.Context, t *testing.T, r *repo.Repository) error
 }
 
 func listContents(ctx context.Context, t *testing.T, r *repo.Repository) error {
-	_, err := r.Content.ListContents("")
-	return err
+	return r.Content.IterateContents(
+		content.IterateOptions{},
+		func(i content.Info) error { return nil },
+	)
 }
 
 func listAndReadAllContents(ctx context.Context, t *testing.T, r *repo.Repository) error {
-	contentIDs, err := r.Content.ListContents("")
-	if err != nil {
-		return err
-	}
-
-	for _, cid := range contentIDs {
-		_, err := r.Content.GetContent(ctx, cid)
-		if err != nil {
-			if err == content.ErrContentNotFound && strings.HasPrefix(string(cid), "m") {
-				// this is ok, sometimes manifest manager will perform compaction and 'm' contents will be marked as deleted
-				continue
+	return r.Content.IterateContents(
+		content.IterateOptions{},
+		func(ci content.Info) error {
+			cid := ci.ID
+			_, err := r.Content.GetContent(ctx, cid)
+			if err != nil {
+				if err == content.ErrContentNotFound && strings.HasPrefix(string(cid), "m") {
+					// this is ok, sometimes manifest manager will perform compaction and 'm' contents will be marked as deleted
+					return nil
+				}
+				return errors.Wrapf(err, "error reading content %v", cid)
 			}
-			return errors.Wrapf(err, "error reading content %v", cid)
-		}
-	}
 
-	return nil
+			return nil
+		})
 }
 
 func compact(ctx context.Context, t *testing.T, r *repo.Repository) error {

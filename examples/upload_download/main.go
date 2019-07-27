@@ -9,6 +9,7 @@ import (
 	"os"
 
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/content"
 )
 
 func main() {
@@ -29,12 +30,12 @@ func main() {
 	uploadAndDownloadObjects(ctx, r)
 
 	// Now list contents found in the repository.
-	cnts, err := r.Content.ListContents("")
-	if err != nil {
+	if err := r.Content.IterateContents(
+		content.IterateOptions{},
+		func(ci content.Info) error {
+			log.Printf("found content %v", ci)
+			return nil
+		}); err != nil {
 		log.Printf("err: %v", err)
-	}
-
-	for _, c := range cnts {
-		log.Printf("found content %v", c)
 	}
 }
