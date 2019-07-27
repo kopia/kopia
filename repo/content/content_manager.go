@@ -598,10 +598,8 @@ func maybeParallelExecutor(parallel int, originalCallback IterateCallback) (Iter
 
 	cleanup := func() error {
 		once.Do(func() {
-			log.Infof("finishing parallel iteration")
 			close(workch)
 			wg.Wait()
-			log.Infof("finished parallel iteration")
 		})
 		return lastWorkerError()
 	}
