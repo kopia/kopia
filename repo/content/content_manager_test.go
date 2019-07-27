@@ -636,6 +636,7 @@ func TestIterateContents(t *testing.T) {
 			desc:    "failure",
 			options: IterateOptions{},
 			fail:    someError,
+			want:    map[ID]bool{},
 		},
 		{
 			desc: "failure-parallel",
@@ -643,6 +644,7 @@ func TestIterateContents(t *testing.T) {
 				Parallel: 10,
 			},
 			fail: someError,
+			want: map[ID]bool{},
 		},
 		{
 			desc: "parallel, include deleted",
@@ -685,20 +687,19 @@ func TestIterateContents(t *testing.T) {
 				if tc.fail != nil {
 					return tc.fail
 				}
+
 				mu.Lock()
 				got[ci.ID] = true
 				mu.Unlock()
 				return nil
 			})
 
-			if (err != nil) != (tc.fail != nil) {
+			if tc.fail != err {
 				t.Errorf("error iterating: %v", err)
 			}
 
-			if err == nil {
-				if !reflect.DeepEqual(got, tc.want) {
-					t.Errorf("invalid content IDs got: %v, want %v", got, tc.want)
-				}
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("invalid content IDs got: %v, want %v", got, tc.want)
 			}
 		})
 	}
