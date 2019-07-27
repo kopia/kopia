@@ -3,7 +3,8 @@ package cli
 import (
 	"context"
 	"fmt"
-	"sort"
+
+	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
@@ -16,26 +17,17 @@ var (
 	contentListPrefix         = contentListCommand.Flag("prefix", "Prefix").String()
 	contentListIncludeDeleted = contentListCommand.Flag("deleted", "Include deleted content").Bool()
 	contentListDeletedOnly    = contentListCommand.Flag("deleted-only", "Only show deleted content").Bool()
-	contentListSort           = contentListCommand.Flag("sort", "Sort order").Default("name").Enum("name", "size", "time", "none", "pack")
-	contentListReverse        = contentListCommand.Flag("reverse", "Reverse sort").Short('r').Bool()
 	contentListSummary        = contentListCommand.Flag("summary", "Summarize the list").Short('s').Bool()
 	contentListHuman          = contentListCommand.Flag("human", "Human-readable output").Short('h').Bool()
 )
 
 func runContentListCommand(ctx context.Context, rep *repo.Repository) error {
-	contents, err := rep.Content.ListContentInfos(content.ID(*contentListPrefix), *contentListIncludeDeleted || *contentListDeletedOnly)
-	if err != nil {
-		return err
-	}
-
-	sortContents(contents)
-
 	var count int
 	var totalSize int64
 	uniquePacks := map[blob.ID]bool{}
-	for _, b := range contents {
+	err := rep.Content.IterateContents(content.ID(*contentListPrefix), *contentListIncludeDeleted || *contentListDeletedOnly, func(b content.Info) error {
 		if *contentListDeletedOnly && !b.Deleted {
-			continue
+			return nil
 		}
 		totalSize += int64(b.Length)
 		count++
@@ -57,6 +49,12 @@ func runContentListCommand(ctx context.Context, rep *repo.Repository) error {
 		} else {
 			fmt.Printf("%v\n", b.ID)
 		}
+
+		return nil
+	})
+
+	if err != nil {
+		return errors.Wrap(err, "error iterating")
 	}
 
 	if *contentListSummary {
@@ -67,33 +65,6 @@ func runContentListCommand(ctx context.Context, rep *repo.Repository) error {
 	}
 
 	return nil
-}
-
-func sortContents(contents []content.Info) {
-	maybeReverse := func(b bool) bool { return b }
-
-	if *contentListReverse {
-		maybeReverse = func(b bool) bool { return !b }
-	}
-
-	switch *contentListSort {
-	case "name":
-		sort.Slice(contents, func(i, j int) bool { return maybeReverse(contents[i].ID < contents[j].ID) })
-	case "size":
-		sort.Slice(contents, func(i, j int) bool { return maybeReverse(contents[i].Length < contents[j].Length) })
-	case "time":
-		sort.Slice(contents, func(i, j int) bool { return maybeReverse(contents[i].TimestampSeconds < contents[j].TimestampSeconds) })
-	case "pack":
-		sort.Slice(contents, func(i, j int) bool { return maybeReverse(comparePacks(&contents[i], &contents[j])) })
-	}
-}
-
-func comparePacks(a, b *content.Info) bool {
-	if a, b := a.PackBlobID, b.PackBlobID; a != b {
-		return a < b
-	}
-
-	return a.PackOffset < b.PackOffset
 }
 
 func init() {

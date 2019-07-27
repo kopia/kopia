@@ -2,14 +2,13 @@ package cli
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 )
 
@@ -98,7 +97,7 @@ func getContentToRewrite(ctx context.Context, rep *repo.Repository) <-chan conte
 
 		// add all content IDs from short packs
 		if *contentRewriteShortPacks {
-			threshold := uint32(rep.Content.Format.MaxPackSize * 6 / 10)
+			threshold := int64(rep.Content.Format.MaxPackSize * 6 / 10)
 			findContentInShortPacks(rep, ch, threshold)
 		}
 
@@ -131,60 +130,28 @@ func findContentInfos(ctx context.Context, rep *repo.Repository, ch chan content
 }
 
 func findContentWithFormatVersion(rep *repo.Repository, ch chan contentInfoOrError, version int) {
-	infos, err := rep.Content.ListContentInfos("", true)
-	if err != nil {
-		ch <- contentInfoOrError{err: errors.Wrap(err, "unable to list index blobs")}
-		return
-	}
-
-	for _, b := range infos {
+	_ = rep.Content.IterateContents("", true, func(b content.Info) error {
 		if int(b.FormatVersion) == version && strings.HasPrefix(string(b.PackBlobID), *contentRewritePackPrefix) {
 			ch <- contentInfoOrError{Info: b}
 		}
-	}
+		return nil
+	})
 }
 
-func findContentInShortPacks(rep *repo.Repository, ch chan contentInfoOrError, threshold uint32) {
-	log.Debugf("listing contents...")
-	infos, err := rep.Content.ListContentInfos("", true)
+func findContentInShortPacks(rep *repo.Repository, ch chan contentInfoOrError, threshold int64) {
+	t0 := time.Now()
+	contentIDs, err := rep.Content.FindContentInShortPacks(threshold)
+	log.Infof("content in short packs determined in %v", time.Since(t0))
 	if err != nil {
-		ch <- contentInfoOrError{err: errors.Wrap(err, "unable to list index blobs")}
+		ch <- contentInfoOrError{err: err}
 		return
 	}
 
-	log.Debugf("finding content in short pack blobs...")
-	shortPackBlocks := findShortPackBlobs(infos, threshold)
-	log.Debugf("found %v short pack blobs", len(shortPackBlocks))
-
-	if len(shortPackBlocks) <= 1 {
-		fmt.Printf("Nothing to do, found %v short pack blobs\n", len(shortPackBlocks))
-	} else {
-		for _, b := range infos {
-			if shortPackBlocks[b.PackBlobID] && strings.HasPrefix(string(b.PackBlobID), *contentRewritePackPrefix) {
-				if b.ID.HasPrefix() == *contentRewritePrefixed {
-					ch <- contentInfoOrError{Info: b}
-				}
-			}
+	for _, b := range contentIDs {
+		if b.ID.HasPrefix() == *contentRewritePrefixed {
+			ch <- contentInfoOrError{Info: b}
 		}
 	}
-}
-
-func findShortPackBlobs(infos []content.Info, threshold uint32) map[blob.ID]bool {
-	packUsage := map[blob.ID]uint32{}
-
-	for _, bi := range infos {
-		packUsage[bi.PackBlobID] += bi.Length
-	}
-
-	shortPackBlocks := map[blob.ID]bool{}
-
-	for blobID, usage := range packUsage {
-		if usage < threshold {
-			shortPackBlocks[blobID] = true
-		}
-	}
-
-	return shortPackBlocks
 }
 
 func init() {
