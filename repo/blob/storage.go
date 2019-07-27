@@ -2,6 +2,7 @@ package blob
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -69,6 +70,44 @@ func ListAllBlobs(ctx context.Context, st Storage, prefix ID) ([]Metadata, error
 	})
 
 	return result, err
+}
+
+// IterateAllPrefixesInParallel invokes the provided callback and returns the first error returned by the callback or nil.
+func IterateAllPrefixesInParallel(ctx context.Context, parallelism int, st Storage, prefixes []ID, callback func(Metadata) error) error {
+	if len(prefixes) == 1 {
+		return st.ListBlobs(ctx, prefixes[0], callback)
+	}
+
+	if parallelism <= 0 {
+		parallelism = 1
+	}
+
+	var wg sync.WaitGroup
+	semaphore := make(chan struct{}, parallelism)
+	errch := make(chan error, len(prefixes))
+	for _, prefix := range prefixes {
+		wg.Add(1)
+		prefix := prefix
+
+		// acquire semaphore
+		semaphore <- struct{}{}
+		go func() {
+			defer wg.Done()
+			defer func() {
+				<-semaphore // release semaphore
+			}()
+
+			if err := st.ListBlobs(ctx, prefix, callback); err != nil {
+				errch <- err
+			}
+		}()
+	}
+
+	wg.Wait()
+	close(errch)
+
+	// return first error or nil
+	return <-errch
 }
 
 // ListAllBlobsConsistent lists all blobs with given name prefix in the provided storage until the results are

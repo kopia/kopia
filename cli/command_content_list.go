@@ -3,11 +3,11 @@ package cli
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 )
 
@@ -22,45 +22,45 @@ var (
 )
 
 func runContentListCommand(ctx context.Context, rep *repo.Repository) error {
-	var count int
+	var count int32
 	var totalSize int64
-	uniquePacks := map[blob.ID]bool{}
-	err := rep.Content.IterateContents(content.ID(*contentListPrefix), *contentListIncludeDeleted || *contentListDeletedOnly, func(b content.Info) error {
-		if *contentListDeletedOnly && !b.Deleted {
-			return nil
-		}
-		totalSize += int64(b.Length)
-		count++
-		if b.PackBlobID != "" {
-			uniquePacks[b.PackBlobID] = true
-		}
-		if *contentListLong {
-			optionalDeleted := ""
-			if b.Deleted {
-				optionalDeleted = " (deleted)"
+	err := rep.Content.IterateContents(
+		content.IterateOptions{
+			Prefix:         content.ID(*contentListPrefix),
+			IncludeDeleted: *contentListIncludeDeleted || *contentListDeletedOnly,
+		},
+		func(b content.Info) error {
+			if *contentListDeletedOnly && !b.Deleted {
+				return nil
 			}
-			fmt.Printf("%v %v %v %v+%v%v\n",
-				b.ID,
-				formatTimestamp(b.Timestamp()),
-				b.PackBlobID,
-				b.PackOffset,
-				maybeHumanReadableBytes(*contentListHuman, int64(b.Length)),
-				optionalDeleted)
-		} else {
-			fmt.Printf("%v\n", b.ID)
-		}
+			atomic.AddInt64(&totalSize, int64(b.Length))
+			atomic.AddInt32(&count, 1)
+			if *contentListLong {
+				optionalDeleted := ""
+				if b.Deleted {
+					optionalDeleted = " (deleted)"
+				}
+				fmt.Printf("%v %v %v %v+%v%v\n",
+					b.ID,
+					formatTimestamp(b.Timestamp()),
+					b.PackBlobID,
+					b.PackOffset,
+					maybeHumanReadableBytes(*contentListHuman, int64(b.Length)),
+					optionalDeleted)
+			} else {
+				fmt.Printf("%v\n", b.ID)
+			}
 
-		return nil
-	})
+			return nil
+		})
 
 	if err != nil {
 		return errors.Wrap(err, "error iterating")
 	}
 
 	if *contentListSummary {
-		fmt.Printf("Total: %v contents, %v packs, %v total size\n",
+		fmt.Printf("Total: %v contents, %v total size\n",
 			maybeHumanReadableCount(*contentListHuman, int64(count)),
-			maybeHumanReadableCount(*contentListHuman, int64(len(uniquePacks))),
 			maybeHumanReadableBytes(*contentListHuman, totalSize))
 	}
 

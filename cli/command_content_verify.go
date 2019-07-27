@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/pkg/errors"
 
@@ -12,13 +13,14 @@ import (
 var (
 	contentVerifyCommand = contentCommands.Command("verify", "Verify contents")
 
-	contentVerifyIDs = contentVerifyCommand.Arg("id", "IDs of blocks to show (or 'all')").Required().Strings()
+	contentVerifyIDs      = contentVerifyCommand.Arg("id", "IDs of blocks to show (or 'all')").Required().Strings()
+	contentVerifyParallel = contentVerifyCommand.Flag("parallel", "Parallelism").Int()
 )
 
 func runContentVerifyCommand(ctx context.Context, rep *repo.Repository) error {
 	for _, contentID := range toContentIDs(*contentVerifyIDs) {
 		if contentID == "all" {
-			return verifyAllBlocks(ctx, rep)
+			return verifyAllContents(ctx, rep)
 		}
 		if err := contentVerify(ctx, rep, contentID); err != nil {
 			return err
@@ -28,18 +30,20 @@ func runContentVerifyCommand(ctx context.Context, rep *repo.Repository) error {
 	return nil
 }
 
-func verifyAllBlocks(ctx context.Context, rep *repo.Repository) error {
-	contentIDs, err := rep.Content.ListContents("")
+func verifyAllContents(ctx context.Context, rep *repo.Repository) error {
+	var errorCount int32
+	err := rep.Content.IterateContents(content.IterateOptions{
+		Parallel: *contentVerifyParallel,
+	}, func(ci content.Info) error {
+		if err := contentVerify(ctx, rep, ci.ID); err != nil {
+			atomic.AddInt32(&errorCount, 1)
+		}
+		return nil
+	})
 	if err != nil {
-		return errors.Wrap(err, "unable to list contents")
+		return errors.Wrap(err, "iterate contents")
 	}
 
-	var errorCount int
-	for _, contentID := range contentIDs {
-		if err := contentVerify(ctx, rep, contentID); err != nil {
-			errorCount++
-		}
-	}
 	if errorCount == 0 {
 		return nil
 	}
@@ -52,7 +56,6 @@ func contentVerify(ctx context.Context, r *repo.Repository, contentID content.ID
 		log.Warningf("content %v is invalid: %v", contentID, err)
 		return err
 	}
-
 	log.Infof("content %v is ok", contentID)
 	return nil
 }

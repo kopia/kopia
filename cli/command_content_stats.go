@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strconv"
 
 	"github.com/kopia/kopia/internal/units"
@@ -17,14 +16,6 @@ var (
 )
 
 func runContentStatsCommand(ctx context.Context, rep *repo.Repository) error {
-	contents, err := rep.Content.ListContentInfos("", true)
-	if err != nil {
-		return err
-	}
-	sort.Slice(contents, func(i, j int) bool {
-		return contents[i].Length < contents[j].Length
-	})
-
 	var sizeThreshold uint32 = 10
 	countMap := map[uint32]int{}
 	totalSizeOfContentsUnder := map[uint32]int64{}
@@ -36,19 +27,21 @@ func runContentStatsCommand(ctx context.Context, rep *repo.Repository) error {
 	}
 
 	var totalSize int64
-	for _, b := range contents {
-		totalSize += int64(b.Length)
-		for s := range countMap {
-			if b.Length < s {
-				countMap[s]++
-				totalSizeOfContentsUnder[s] += int64(b.Length)
+	var count int64
+	if err := rep.Content.IterateContents(
+		content.IterateOptions{},
+		func(b content.Info) error {
+			totalSize += int64(b.Length)
+			count++
+			for s := range countMap {
+				if b.Length < s {
+					countMap[s]++
+					totalSizeOfContentsUnder[s] += int64(b.Length)
+				}
 			}
-		}
-	}
-
-	fmt.Printf("Content statistics\n")
-	if len(contents) == 0 {
-		return nil
+			return nil
+		}); err != nil {
+		return err
 	}
 
 	sizeToString := units.BytesStringBase10
@@ -56,29 +49,26 @@ func runContentStatsCommand(ctx context.Context, rep *repo.Repository) error {
 		sizeToString = func(l int64) string { return strconv.FormatInt(l, 10) }
 	}
 
-	fmt.Println("Size:          ")
-	fmt.Println("  Total              ", sizeToString(totalSize))
-	fmt.Println("  Average            ", sizeToString(totalSize/int64(len(contents))))
-	fmt.Println("  1st percentile     ", sizeToString(percentileSize(1, contents)))
-	fmt.Println("  5th percentile     ", sizeToString(percentileSize(5, contents)))
-	fmt.Println("  10th percentile    ", sizeToString(percentileSize(10, contents)))
-	fmt.Println("  50th percentile    ", sizeToString(percentileSize(50, contents)))
-	fmt.Println("  90th percentile    ", sizeToString(percentileSize(90, contents)))
-	fmt.Println("  95th percentile    ", sizeToString(percentileSize(95, contents)))
-	fmt.Println("  99th percentile    ", sizeToString(percentileSize(99, contents)))
+	fmt.Println("Count:", count)
+	fmt.Println("Total:", sizeToString(totalSize))
+	if count == 0 {
+		return nil
+	}
+	fmt.Println("Average:", sizeToString(totalSize/count))
 
-	fmt.Println("Counts:")
+	fmt.Printf("Histogram:\n\n")
+	var lastSize uint32
 	for _, size := range sizeThresholds {
-		fmt.Printf("  %v contents with size <%v (total %v)\n", countMap[size], sizeToString(int64(size)), sizeToString(totalSizeOfContentsUnder[size]))
+		fmt.Printf("%9v between %v and %v (total %v)\n",
+			countMap[size]-countMap[lastSize],
+			sizeToString(int64(lastSize)),
+			sizeToString(int64(size)),
+			sizeToString(totalSizeOfContentsUnder[size]-totalSizeOfContentsUnder[lastSize]),
+		)
+		lastSize = size
 	}
 
 	return nil
-}
-
-func percentileSize(p int, contents []content.Info) int64 {
-	pos := p * len(contents) / 100
-
-	return int64(contents[pos].Length)
 }
 
 func init() {

@@ -21,7 +21,7 @@ func (b packIndexBuilder) clone() packIndexBuilder {
 	}
 
 	r := packIndexBuilder{}
-	for k, v := range r {
+	for k, v := range b {
 		i2 := *v
 		r[k] = &i2
 	}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/pkg/errors"
 
@@ -130,27 +129,25 @@ func findContentInfos(ctx context.Context, rep *repo.Repository, ch chan content
 }
 
 func findContentWithFormatVersion(rep *repo.Repository, ch chan contentInfoOrError, version int) {
-	_ = rep.Content.IterateContents("", true, func(b content.Info) error {
-		if int(b.FormatVersion) == version && strings.HasPrefix(string(b.PackBlobID), *contentRewritePackPrefix) {
-			ch <- contentInfoOrError{Info: b}
-		}
-		return nil
-	})
+	_ = rep.Content.IterateContents(
+		content.IterateOptions{IncludeDeleted: true},
+		func(b content.Info) error {
+			if int(b.FormatVersion) == version && strings.HasPrefix(string(b.PackBlobID), *contentRewritePackPrefix) {
+				ch <- contentInfoOrError{Info: b}
+			}
+			return nil
+		})
 }
 
 func findContentInShortPacks(rep *repo.Repository, ch chan contentInfoOrError, threshold int64) {
-	t0 := time.Now()
-	contentIDs, err := rep.Content.FindContentInShortPacks(threshold)
-	log.Infof("content in short packs determined in %v", time.Since(t0))
-	if err != nil {
+	if err := rep.Content.IterateContentInShortPacks(threshold, func(ci content.Info) error {
+		if ci.ID.HasPrefix() == *contentRewritePrefixed {
+			ch <- contentInfoOrError{Info: ci}
+		}
+		return nil
+	}); err != nil {
 		ch <- contentInfoOrError{err: err}
 		return
-	}
-
-	for _, b := range contentIDs {
-		if b.ID.HasPrefix() == *contentRewritePrefixed {
-			ch <- contentInfoOrError{Info: b}
-		}
 	}
 }
 
