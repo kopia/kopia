@@ -14,6 +14,20 @@ import (
 // packIndexBuilder prepares and writes content index.
 type packIndexBuilder map[ID]*Info
 
+// clone returns a deep clone of packIndexBuilder
+func (b packIndexBuilder) clone() packIndexBuilder {
+	if b == nil {
+		return nil
+	}
+
+	r := packIndexBuilder{}
+	for k, v := range r {
+		i2 := *v
+		r[k] = &i2
+	}
+	return r
+}
+
 // Add adds a new entry to the builder or conditionally replaces it if the timestamp is greater.
 // nolint:gocritic
 func (b packIndexBuilder) Add(i Info) {

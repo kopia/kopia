@@ -69,7 +69,7 @@ func (h *nextInfoHeap) Pop() interface{} {
 }
 
 func iterateChan(prefix ID, ndx packIndex, done chan bool) <-chan Info {
-	ch := make(chan Info)
+	ch := make(chan Info, 16)
 	go func() {
 		defer close(ch)
 

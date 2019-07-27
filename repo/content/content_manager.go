@@ -568,57 +568,57 @@ func (bm *Manager) Close() {
 	close(bm.closed)
 }
 
-// ListContents returns IDs of contents matching given prefix.
-func (bm *Manager) ListContents(prefix ID) ([]ID, error) {
+// IterateContents invokes the provided callback for each content starting with a specified prefix
+// and possibly including deleted items.
+func (bm *Manager) IterateContents(prefix ID, includeDeleted bool, callback func(i Info) error) error {
 	bm.lock()
-	defer bm.unlock()
-
-	var result []ID
-
-	appendToResult := func(i Info) error {
-		if i.Deleted || !strings.HasPrefix(string(i.ID), string(prefix)) {
-			return nil
-		}
-		if bi, ok := bm.packIndexBuilder[i.ID]; ok && bi.Deleted {
-			return nil
-		}
-		result = append(result, i.ID)
-		return nil
-	}
-
-	for _, bi := range bm.packIndexBuilder {
-		_ = appendToResult(*bi)
-	}
-
-	_ = bm.committedContents.listContents(prefix, appendToResult)
-	return result, nil
-}
-
-// ListContentInfos returns the metadata about contents with a given prefix and kind.
-func (bm *Manager) ListContentInfos(prefix ID, includeDeleted bool) ([]Info, error) {
-	bm.lock()
-	defer bm.unlock()
-
-	var result []Info
+	pibClone := bm.packIndexBuilder.clone()
+	bm.unlock()
 
 	appendToResult := func(i Info) error {
 		if (i.Deleted && !includeDeleted) || !strings.HasPrefix(string(i.ID), string(prefix)) {
 			return nil
 		}
-		if bi, ok := bm.packIndexBuilder[i.ID]; ok && bi.Deleted {
+		if ci, ok := pibClone[i.ID]; ok && ci.Deleted {
 			return nil
 		}
-		result = append(result, i)
-		return nil
+		return callback(i)
 	}
 
-	for _, bi := range bm.packIndexBuilder {
+	if len(pibClone) == 0 && includeDeleted && prefix == "" {
+		// fast path, invoke callback directly
+		appendToResult = callback
+	}
+
+	for _, bi := range pibClone {
 		_ = appendToResult(*bi)
 	}
 
-	_ = bm.committedContents.listContents(prefix, appendToResult)
+	return bm.committedContents.listContents(prefix, appendToResult)
+}
 
-	return result, nil
+// ListContents returns IDs of contents matching given prefix.
+func (bm *Manager) ListContents(prefix ID) ([]ID, error) {
+	var result []ID
+
+	err := bm.IterateContents(prefix, false, func(i Info) error {
+		result = append(result, i.ID)
+		return nil
+	})
+
+	return result, err
+}
+
+// ListContentInfos returns the metadata about contents with a given prefix and kind.
+func (bm *Manager) ListContentInfos(prefix ID, includeDeleted bool) ([]Info, error) {
+	var result []Info
+
+	err := bm.IterateContents(prefix, includeDeleted, func(i Info) error {
+		result = append(result, i)
+		return nil
+	})
+
+	return result, err
 }
 
 // Flush completes writing any pending packs and writes pack indexes to the underlyign storage.
@@ -807,6 +807,26 @@ func (bm *Manager) ContentInfo(ctx context.Context, contentID ID) (Info, error) 
 	return bi, err
 }
 
+func (bm *Manager) FindContentInShortPacks(threshold int64) ([]Info, error) {
+	infos, err := bm.ListContentInfos("", true)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to list index blobs")
+	}
+
+	if threshold <= 0 {
+		threshold = int64(bm.maxPackSize) * 8 / 10
+	}
+
+	var contentInfos []Info
+	for _, v := range groupByPackBlob(infos) {
+		if v.totalSize < threshold {
+			contentInfos = append(contentInfos, v.contentInfos...)
+		}
+	}
+
+	return contentInfos, nil
+}
+
 // FindUnreferencedBlobs returns the list of unreferenced storage contents.
 func (bm *Manager) FindUnreferencedBlobs(ctx context.Context) ([]blob.Metadata, error) {
 	infos, err := bm.ListContentInfos("", true)
@@ -814,14 +834,14 @@ func (bm *Manager) FindUnreferencedBlobs(ctx context.Context) ([]blob.Metadata, 
 		return nil, errors.Wrap(err, "unable to list index blobs")
 	}
 
-	usedPackContents := findPackContentsInUse(infos)
+	usedPackContents := groupByPackBlob(infos)
 
 	var unused []blob.Metadata
 	for _, prefix := range PackBlobIDPrefixes {
 		err := bm.st.ListBlobs(ctx, prefix, func(bi blob.Metadata) error {
 			u := usedPackContents[bi.BlobID]
-			if u > 0 {
-				log.Debugf("pack %v, in use by %v contents", bi.BlobID, u)
+			if u.contentCount > 0 {
+				log.Debugf("pack %v, in use by %v contents (%v total size)", bi.BlobID, u.contentCount, u.totalSize)
 				return nil
 			}
 
@@ -836,11 +856,21 @@ func (bm *Manager) FindUnreferencedBlobs(ctx context.Context) ([]blob.Metadata, 
 	return unused, nil
 }
 
-func findPackContentsInUse(infos []Info) map[blob.ID]int {
-	packUsage := map[blob.ID]int{}
+type packCounters struct {
+	contentCount int
+	totalSize    int64
+	contentInfos []Info
+}
 
-	for _, bi := range infos {
-		packUsage[bi.PackBlobID]++
+func groupByPackBlob(infos []Info) map[blob.ID]packCounters {
+	packUsage := map[blob.ID]packCounters{}
+
+	for _, ci := range infos {
+		pc := packUsage[ci.PackBlobID]
+		pc.contentCount++
+		pc.totalSize += int64(ci.Length)
+		pc.contentInfos = append(pc.contentInfos, ci)
+		packUsage[ci.PackBlobID] = pc
 	}
 
 	return packUsage
