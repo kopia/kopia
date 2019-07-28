@@ -7,7 +7,6 @@ import (
 	cryptorand "crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"math/rand"
 	"reflect"
@@ -18,6 +17,7 @@ import (
 	"time"
 
 	logging "github.com/op/go-logging"
+	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/repo/blob"
@@ -601,10 +601,12 @@ func TestIterateContents(t *testing.T) {
 	t.Logf("contentID3: %v", contentID3)
 	t.Logf("contentID4: %v", contentID4)
 
+	someError := errors.New("some error")
 	cases := []struct {
 		desc    string
 		options IterateOptions
 		want    map[ID]bool
+		fail    error
 	}{
 		{
 			desc:    "default options",
@@ -629,6 +631,18 @@ func TestIterateContents(t *testing.T) {
 				contentID1: true,
 				contentID3: true,
 			},
+		},
+		{
+			desc:    "failure",
+			options: IterateOptions{},
+			fail:    someError,
+		},
+		{
+			desc: "failure-parallel",
+			options: IterateOptions{
+				Parallel: 10,
+			},
+			fail: someError,
 		},
 		{
 			desc: "parallel, include deleted",
@@ -668,18 +682,23 @@ func TestIterateContents(t *testing.T) {
 			got := map[ID]bool{}
 
 			err := bm.IterateContents(tc.options, func(ci Info) error {
+				if tc.fail != nil {
+					return tc.fail
+				}
 				mu.Lock()
 				got[ci.ID] = true
 				mu.Unlock()
 				return nil
 			})
 
-			if err != nil {
+			if (err != nil) != (tc.fail != nil) {
 				t.Errorf("error iterating: %v", err)
 			}
 
-			if !reflect.DeepEqual(got, tc.want) {
-				t.Errorf("invalid content IDs got: %v, want %v", got, tc.want)
+			if err == nil {
+				if !reflect.DeepEqual(got, tc.want) {
+					t.Errorf("invalid content IDs got: %v, want %v", got, tc.want)
+				}
 			}
 		})
 	}
