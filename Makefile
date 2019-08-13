@@ -59,6 +59,11 @@ travis-release: test-with-coverage lint vet verify-release integration-tests upl
 verify-release:
 	curl -sL https://git.io/goreleaser | bash /dev/stdin --skip-publish --skip-sign --rm-dist --snapshot 
 
+tagged-release:
+	curl -sL https://git.io/goreleaser | bash /dev/stdin --rm-dist
+	# this is a no-op for PRs and non-tagged releses
+	$(MAKE) travis-create-long-term-repository
+
 ifeq ($(TRAVIS_PULL_REQUEST),false)
 
 upload-coverage: $(GOVERALLS_TOOL)
@@ -131,6 +136,10 @@ travis-install-test-credentials:
 	openssl aes-256-cbc -K "$(encrypted_fa1db4b894bb_key)" -iv "$(encrypted_fa1db4b894bb_iv)" -in tests/credentials/sftp/id_kopia.enc -out repo/blob/sftp/id_kopia -d
 	openssl aes-256-cbc -K "$(encrypted_fa1db4b894bb_key)" -iv "$(encrypted_fa1db4b894bb_iv)" -in tests/credentials/sftp/known_hosts.enc -out repo/blob/sftp/known_hosts -d
 
+travis-install-cloud-sdk: travis-install-test-credentials
+	if [ ! -d $(HOME)/google-cloud-sdk ]; then curl https://sdk.cloud.google.com | bash; fi
+	$(HOME)/google-cloud-sdk/bin/gcloud auth activate-service-account --key-file repo/blob/gcs/test_service_account.json
+
 else
 
 travis-install-gpg-key:
@@ -138,5 +147,21 @@ travis-install-gpg-key:
 
 travis-install-test-credentials:
 	@echo Not installing test credentials.
+
+travis-install-cloud-sdk:
+	@echo Not installing Cloud SDK.
+
+endif
+
+ifneq ($(TRAVIS_TAG),)
+
+travis-create-long-term-repository: dist-binary travis-install-cloud-sdk
+	echo Creating long-term repository $(TRAVIS_TAG)...
+	KOPIA_EXE=$(CURDIR)/dist/integration/kopia ./tests/compat_test/gen-compat-repo.sh
+
+else
+
+travis-create-long-term-repository:
+	echo Not creating long-term repository.
 
 endif
