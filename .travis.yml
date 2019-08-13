@@ -12,7 +12,7 @@ install: make travis-setup
 script: make travis-release
 deploy:
 - provider: script
-  script: curl -sL https://git.io/goreleaser | bash /dev/stdin --rm-dist
+  script: make tagged-release
   skip_cleanup: true
   on:
     tags: true
