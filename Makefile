@@ -137,7 +137,7 @@ travis-install-test-credentials:
 	openssl aes-256-cbc -K "$(encrypted_fa1db4b894bb_key)" -iv "$(encrypted_fa1db4b894bb_iv)" -in tests/credentials/sftp/known_hosts.enc -out repo/blob/sftp/known_hosts -d
 
 travis-install-cloud-sdk: travis-install-test-credentials
-	if [ ! -d $(HOME)/google-cloud-sdk ]; then curl https://sdk.cloud.google.com | bash; fi
+	if [ ! -d $(HOME)/google-cloud-sdk ]; then curl https://sdk.cloud.google.com | CLOUDSDK_CORE_DISABLE_PROMPTS=1 bash; fi
 	$(HOME)/google-cloud-sdk/bin/gcloud auth activate-service-account --key-file repo/blob/gcs/test_service_account.json
 
 else
