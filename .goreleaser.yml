@@ -49,10 +49,11 @@ brews:
       name: homebrew-kopia
     description: "Fast and secure open source backup."
     install:
-      bin.install "program"
-sign:
-  artifacts: checksum
-  args: ["-a", "--output", "${signature}", "--detach-sign", "${artifact}"]
+      bin.install "kopia"
+signs:
+  -
+    artifacts: checksum
+    args: ["-a", "--output", "${signature}", "--detach-sign", "${artifact}"]
 changelog:
   sort: asc
   filters:
