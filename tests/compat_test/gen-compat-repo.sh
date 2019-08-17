@@ -17,7 +17,7 @@ mkdir -pv "$OUTPUT_DIR"
 TMP_DIR=$(mktemp -d)
 mkdir -pv $TMP_DIR/{config,repo}
 export KOPIA_PASSWORD=long-term-test 
-KOPIA_ARGS="--analytics-consent=disagree --config-file=$TMP_DIR/config/kopia.config"
+KOPIA_ARGS="--config-file=$TMP_DIR/config/kopia.config"
 $KOPIA_EXE $KOPIA_ARGS repository create filesystem --path "$TMP_DIR/repo"
 
 $KOPIA_EXE $KOPIA_ARGS snap create repo

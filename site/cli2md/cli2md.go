@@ -23,9 +23,8 @@ const advancedSection = "Advanced"
 const commonSection = "Common"
 
 var overrideDefault = map[string]string{
-	"client-id-file": "client_id.txt",
-	"config-file":    "repository.config",
-	"log-dir":        "kopia",
+	"config-file": "repository.config",
+	"log-dir":     "kopia",
 }
 
 func emitFlags(w io.Writer, flags []*kingpin.FlagModel) {

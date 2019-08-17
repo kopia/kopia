@@ -69,7 +69,5 @@ func runConnectCommandWithStorageAndPassword(ctx context.Context, st blob.Storag
 	}
 
 	printStderr("Connected to repository.\n")
-	promptForAnalyticsConsent()
-
 	return nil
 }

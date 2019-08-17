@@ -71,7 +71,6 @@ func newTestEnv(t *testing.T) *testenv {
 		fixedArgs: []string{
 			// use per-test config file, to avoid clobbering current user's setup.
 			"--config-file", filepath.Join(configDir, ".kopia.config"),
-			"--client-id-file", filepath.Join(configDir, "client-id"),
 		},
 		environment: []string{"KOPIA_PASSWORD=" + repoPassword},
 	}

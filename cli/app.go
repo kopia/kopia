@@ -5,7 +5,6 @@ import (
 	"context"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/pkg/errors"
 
@@ -64,22 +63,12 @@ func repositoryAction(act func(ctx context.Context, rep *repo.Repository) error)
 			cliProgress.Report("upload '"+desc+"'", progress, total)
 		})
 
-		t0 := time.Now()
 		rep, err := openRepository(ctx, nil)
 		if err != nil {
 			return errors.Wrap(err, "open repository")
 		}
-		repositoryOpenTime := time.Since(t0)
 
-		storageType := rep.Blobs.ConnectionInfo().Type
-
-		reportStartupTime(storageType, rep.Content.Format.Version, repositoryOpenTime)
-
-		t1 := time.Now()
 		err = act(ctx, rep)
-		commandDuration := time.Since(t1)
-
-		reportSubcommandFinished(kpc.SelectedCommand.FullCommand(), err == nil, storageType, rep.Content.Format.Version, commandDuration)
 		if cerr := rep.Close(ctx); cerr != nil {
 			return errors.Wrap(cerr, "unable to close repository")
 		}
