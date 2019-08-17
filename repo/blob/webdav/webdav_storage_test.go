@@ -14,6 +14,23 @@ import (
 	"github.com/kopia/kopia/internal/blobtesting"
 )
 
+func basicAuth(h http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if user, passwd, ok := r.BasicAuth(); ok {
+			if user == "user" && passwd == "password" {
+				h.ServeHTTP(w, r)
+				return
+			}
+
+			http.Error(w, "not authorized", http.StatusForbidden)
+		} else {
+			w.Header().Set("WWW-Authenticate", `Basic realm="testing"`)
+			w.WriteHeader(401)
+			w.Write([]byte("Unauthorized.\n")) //nolint:errcheck
+		}
+	}
+}
+
 func TestWebDAVStorage(t *testing.T) {
 	tmpDir, _ := ioutil.TempDir("", "webdav")
 	defer os.RemoveAll(tmpDir)
@@ -21,10 +38,10 @@ func TestWebDAVStorage(t *testing.T) {
 	t.Logf("tmpDir: %v", tmpDir)
 
 	mux := http.NewServeMux()
-	mux.Handle("/", &webdav.Handler{
+	mux.HandleFunc("/", basicAuth(&webdav.Handler{
 		FileSystem: webdav.Dir(tmpDir),
 		LockSystem: webdav.NewMemLS(),
-	})
+	}))
 
 	server := httptest.NewServer(mux)
 	defer server.Close()
@@ -50,6 +67,8 @@ func TestWebDAVStorage(t *testing.T) {
 			r, err := New(context.Background(), &Options{
 				URL:             server.URL,
 				DirectoryShards: shardSpec,
+				Username:        "user",
+				Password:        "password",
 			})
 
 			if r == nil || err != nil {
