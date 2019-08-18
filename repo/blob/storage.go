@@ -2,6 +2,7 @@ package blob
 
 import (
 	"context"
+	"log"
 	"sync"
 	"time"
 
@@ -135,16 +136,25 @@ func ListAllBlobsConsistent(ctx context.Context, st Storage, prefix ID, maxAttem
 // sameBlobs returns true if b1 & b2 contain the same blobs (ignoring order).
 func sameBlobs(b1, b2 []Metadata) bool {
 	if len(b1) != len(b2) {
+		log.Printf("a")
 		return false
 	}
 	m := map[ID]Metadata{}
 	for _, b := range b1 {
-		m[b.BlobID] = b
+		m[b.BlobID] = normalizeMetadata(b)
 	}
 	for _, b := range b2 {
-		if m[b.BlobID] != b {
+		if r := m[b.BlobID]; r != normalizeMetadata(b) {
 			return false
 		}
 	}
 	return true
+}
+
+func normalizeMetadata(m Metadata) Metadata {
+	return Metadata{m.BlobID, m.Length, normalizeTimestamp(m.Timestamp)}
+}
+
+func normalizeTimestamp(t time.Time) time.Time {
+	return time.Unix(0, t.UnixNano())
 }
