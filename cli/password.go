@@ -94,7 +94,7 @@ func getPersistedPassword(configFile, username string) (string, bool) {
 	if *keyringEnabled {
 		kr, err := keyring.Get(getKeyringItemID(configFile), username)
 		if err == nil {
-			log.Debugf("password for %v retrieved from OS keyring")
+			log.Debugf("password for %v retrieved from OS keyring", configFile)
 			return kr, true
 		}
 	}

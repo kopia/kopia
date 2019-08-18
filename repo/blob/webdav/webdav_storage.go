@@ -5,11 +5,15 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/studio-b12/gowebdav"
 
+	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/sharded"
 )
@@ -41,10 +45,13 @@ type davStorageImpl struct {
 }
 
 func (d *davStorageImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, offset, length int64) ([]byte, error) {
-	data, err := d.cli.Read(path)
+	v, err := retry.WithExponentialBackoff("GetBlobFromPath", func() (interface{}, error) {
+		return d.cli.Read(path)
+	}, isRetriable)
 	if err != nil {
 		return nil, d.translateError(err)
 	}
+	data := v.([]byte)
 	if length < 0 {
 		return data, nil
 	}
@@ -61,11 +68,22 @@ func (d *davStorageImpl) GetBlobFromPath(ctx context.Context, dirPath, path stri
 	return data[0:length], nil
 }
 
+func httpErrorCode(err error) int {
+	if err, ok := err.(*os.PathError); ok {
+		code, err := strconv.Atoi(strings.Split(err.Err.Error(), " ")[0])
+		if err == nil {
+			return code
+		}
+	}
+
+	return 0
+}
+
 func (d *davStorageImpl) translateError(err error) error {
 	switch err := err.(type) {
 	case *os.PathError:
-		switch err.Err.Error() {
-		case "404":
+		switch httpErrorCode(err) {
+		case http.StatusNotFound:
 			return blob.ErrBlobNotFound
 		default:
 			return err
@@ -76,18 +94,32 @@ func (d *davStorageImpl) translateError(err error) error {
 }
 
 func (d *davStorageImpl) ReadDir(ctx context.Context, dir string) ([]os.FileInfo, error) {
-	return d.cli.ReadDir(gowebdav.FixSlash(dir))
+	v, err := retry.WithExponentialBackoff("ReadDir("+dir+")", func() (interface{}, error) {
+		return d.cli.ReadDir(gowebdav.FixSlash(dir))
+	}, isRetriable)
+	if err == nil {
+		return v.([]os.FileInfo), nil
+	}
+
+	return nil, err
 }
 
 func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath string, data []byte) error {
 	tmpPath := fmt.Sprintf("%v-%v", filePath, rand.Int63())
-	if err := d.translateError(d.cli.Write(tmpPath, data, defaultFilePerm)); err != nil {
+	if err := d.translateError(retry.WithExponentialBackoffNoValue("Write", func() error {
+		return d.cli.Write(tmpPath, data, defaultFilePerm)
+	}, isRetriable)); err != nil {
 		if err != blob.ErrBlobNotFound {
 			return err
 		}
 
-		d.cli.MkdirAll(dirPath, defaultDirPerm) //nolint:errcheck
-		if err := d.translateError(d.cli.Write(tmpPath, data, defaultFilePerm)); err != nil {
+		_ = retry.WithExponentialBackoffNoValue("MkdirAll", func() error {
+			return d.cli.MkdirAll(dirPath, defaultDirPerm)
+		}, isRetriable)
+
+		if err := d.translateError(retry.WithExponentialBackoffNoValue("Write", func() error {
+			return d.cli.Write(tmpPath, data, defaultFilePerm)
+		}, isRetriable)); err != nil {
 			return err
 		}
 	}
@@ -96,7 +128,9 @@ func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath st
 }
 
 func (d *davStorageImpl) DeleteBlobInPath(ctx context.Context, dirPath, filePath string) error {
-	return d.translateError(d.cli.Remove(filePath))
+	return d.translateError(retry.WithExponentialBackoffNoValue("DeleteBlobInPath", func() error {
+		return d.cli.Remove(filePath)
+	}, isRetriable))
 }
 
 func (d *davStorage) ConnectionInfo() blob.ConnectionInfo {
@@ -108,6 +142,20 @@ func (d *davStorage) ConnectionInfo() blob.ConnectionInfo {
 
 func (d *davStorage) Close(ctx context.Context) error {
 	return nil
+}
+
+func isRetriable(err error) bool {
+	switch err := err.(type) {
+	case nil:
+		return false
+
+	case *os.PathError:
+		httpCode := httpErrorCode(err)
+		return httpCode == 429 || httpCode >= 500
+
+	default:
+		return true
+	}
 }
 
 // New creates new WebDAV-backed storage in a specified URL.

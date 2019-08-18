@@ -43,3 +43,12 @@ func WithExponentialBackoff(desc string, attempt AttemptFunc, isRetriableError I
 
 	return nil, errors.Errorf("unable to complete %v despite %v retries", desc, maxAttempts)
 }
+
+// WithExponentialBackoffNoValue is a shorthand for WithExponentialBackoff except the
+// attempt function does not return any value.
+func WithExponentialBackoffNoValue(desc string, attempt func() error, isRetriableError IsRetriableFunc) error {
+	_, err := WithExponentialBackoff(desc, func() (interface{}, error) {
+		return nil, attempt()
+	}, isRetriableError)
+	return err
+}

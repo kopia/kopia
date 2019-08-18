@@ -109,7 +109,6 @@ func sweepLogDir(dirname string, maxCount int, maxAge time.Duration) {
 	if maxCount == 0 {
 		maxCount = math.MaxInt32
 	}
-	log.Debugf("log file time cut-off: %v max count: %v", timeCutoff, maxCount)
 
 	entries, err := ioutil.ReadDir(dirname)
 	if err != nil {
