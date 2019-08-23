@@ -8,8 +8,6 @@ Kopia stores its data in a data structure called Repository.
 
 Repository adapts simple storage such as NAS filesystem, Google Cloud Storage or Amazon S3 to add features such as encryption, deduplication, content-addressability and ability to maintain rich snapshot history.
 
-Repository codebase is maintained in a stand-alone GitHub project at https://github.com/kopia/kopia/repo, separate from Kopia command-line tool and can be used for any purpose.
-
 The following diagram illustrates the key components of Kopia:
 
 ![Architecture Of Kopia](architecture.png)
