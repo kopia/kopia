@@ -357,7 +357,7 @@ type uploadWorkItem struct {
 }
 
 func metadataEquals(e1, e2 fs.Entry) bool {
-	if l, r := e1.ModTime(), e2.ModTime(); l != r {
+	if l, r := e1.ModTime(), e2.ModTime(); !l.Equal(r) {
 		return false
 	}
 	if l, r := e1.Mode(), e2.Mode(); l != r {
@@ -374,11 +374,15 @@ func metadataEquals(e1, e2 fs.Entry) bool {
 
 func findCachedEntry(entry fs.Entry, prevEntries []fs.Entries) fs.Entry {
 	for _, e := range prevEntries {
-		if ent := e.FindByName(entry.Name()); ent != nil && metadataEquals(entry, ent) {
-			return ent
+		if ent := e.FindByName(entry.Name()); ent != nil {
+			if metadataEquals(entry, ent) {
+				return ent
+			}
+
+			log.Debugf("found non-matching entry for %v: %v %v %v", entry.Name(), ent.Mode(), ent.Size(), ent.ModTime())
 		}
 	}
-
+	log.Debugf("could not find cache entry for %v", entry.Name())
 	return nil
 }
 
