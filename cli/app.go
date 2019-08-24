@@ -57,6 +57,9 @@ func serverAction(act func(ctx context.Context, cli *serverapi.Client) error) fu
 func repositoryAction(act func(ctx context.Context, rep *repo.Repository) error) func(ctx *kingpin.ParseContext) error {
 	return func(kpc *kingpin.ParseContext) error {
 		return withProfiling(func() error {
+			startMemoryTracking()
+			defer finishMemoryTracking()
+
 			ctx := context.Background()
 			ctx = content.UsingContentCache(ctx, *enableCaching)
 			ctx = content.UsingListCache(ctx, *enableListCaching)
