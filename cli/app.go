@@ -56,23 +56,25 @@ func serverAction(act func(ctx context.Context, cli *serverapi.Client) error) fu
 
 func repositoryAction(act func(ctx context.Context, rep *repo.Repository) error) func(ctx *kingpin.ParseContext) error {
 	return func(kpc *kingpin.ParseContext) error {
-		ctx := context.Background()
-		ctx = content.UsingContentCache(ctx, *enableCaching)
-		ctx = content.UsingListCache(ctx, *enableListCaching)
-		ctx = blob.WithUploadProgressCallback(ctx, func(desc string, progress, total int64) {
-			cliProgress.Report("upload '"+desc+"'", progress, total)
+		return withProfiling(func() error {
+			ctx := context.Background()
+			ctx = content.UsingContentCache(ctx, *enableCaching)
+			ctx = content.UsingListCache(ctx, *enableListCaching)
+			ctx = blob.WithUploadProgressCallback(ctx, func(desc string, progress, total int64) {
+				cliProgress.Report("upload '"+desc+"'", progress, total)
+			})
+
+			rep, err := openRepository(ctx, nil)
+			if err != nil {
+				return errors.Wrap(err, "open repository")
+			}
+
+			err = act(ctx, rep)
+			if cerr := rep.Close(ctx); cerr != nil {
+				return errors.Wrap(cerr, "unable to close repository")
+			}
+			return err
 		})
-
-		rep, err := openRepository(ctx, nil)
-		if err != nil {
-			return errors.Wrap(err, "open repository")
-		}
-
-		err = act(ctx, rep)
-		if cerr := rep.Close(ctx); cerr != nil {
-			return errors.Wrap(cerr, "unable to close repository")
-		}
-		return err
 	}
 }
 

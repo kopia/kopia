@@ -65,6 +65,7 @@ Commands (use --help-full to list all commands):
 
 func main() {
 	app := cli.App()
+
 	app.Version(repo.BuildVersion + " build: " + repo.BuildInfo)
 	app.PreAction(logfile.Initialize)
 	app.UsageTemplate(usageTemplate)
