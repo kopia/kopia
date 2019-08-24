@@ -589,7 +589,9 @@ func uploadDirInternal(
 		summ.IncompleteReason = u.cancelReason()
 	}()
 
+	log.Infof("reading directory %v", dirRelativePath)
 	entries, direrr := directory.Readdir(ctx)
+	log.Infof("finished reading directory %v", dirRelativePath)
 	if direrr != nil {
 		return "", fs.DirectorySummary{}, direrr
 	}
@@ -599,7 +601,6 @@ func uploadDirInternal(
 		if ent := maybeReadDirectoryEntries(ctx, d); ent != nil {
 			prevEntries = append(prevEntries, ent)
 		}
-
 	}
 	if len(entries) == 0 {
 		summ.MaxModTime = directory.ModTime()
@@ -614,13 +615,16 @@ func uploadDirInternal(
 	}
 	u.prepareProgress(dirRelativePath, entries)
 
+	log.Infof("preparing work items %v", dirRelativePath)
 	workItems, workItemErr := u.prepareWorkItems(ctx, dirRelativePath, entries, prevEntries, &summ)
+	log.Infof("finished preparing work items %v", dirRelativePath)
 	if workItemErr != nil && workItemErr != errCancelled {
 		return "", fs.DirectorySummary{}, workItemErr
 	}
 	if err := u.processUploadWorkItems(workItems, dirManifest); err != nil && err != errCancelled {
 		return "", fs.DirectorySummary{}, err
 	}
+	log.Infof("finished processing uploads %v", dirRelativePath)
 	dirManifest.Summary = &summ
 
 	writer := u.repo.Objects.NewWriter(ctx, object.WriterOptions{

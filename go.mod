@@ -21,6 +21,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
 	github.com/pkg/errors v0.8.1
+	github.com/pkg/profile v1.3.0
 	github.com/pkg/sftp v1.10.0
 	github.com/skratchdot/open-golang v0.0.0-20190402232053-79abb63cd66e
 	github.com/smartystreets/goconvey v0.0.0-20190330032615-68dc04aab96a // indirect
