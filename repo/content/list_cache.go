@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"os"
 	"path/filepath"
 	"time"
@@ -94,7 +95,32 @@ func (c *listCache) readContentsFromCache(ctx context.Context) (*cachedList, err
 	}
 
 	return ci, nil
+}
 
+type cachedList struct {
+	Timestamp time.Time       `json:"timestamp"`
+	Contents  []IndexBlobInfo `json:"contents"`
+}
+
+// listIndexBlobsFromStorage returns the list of index blobs in the given storage.
+// The list of contents is not guaranteed to be sorted.
+func listIndexBlobsFromStorage(ctx context.Context, st blob.Storage) ([]IndexBlobInfo, error) {
+	snapshot, err := blob.ListAllBlobsConsistent(ctx, st, newIndexBlobPrefix, math.MaxInt32)
+	if err != nil {
+		return nil, err
+	}
+
+	var results []IndexBlobInfo
+	for _, it := range snapshot {
+		ii := IndexBlobInfo{
+			BlobID:    it.BlobID,
+			Timestamp: it.Timestamp,
+			Length:    it.Length,
+		}
+		results = append(results, ii)
+	}
+
+	return results, err
 }
 
 func newListCache(st blob.Storage, caching CachingOptions) (*listCache, error) {
