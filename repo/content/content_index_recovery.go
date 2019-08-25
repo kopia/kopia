@@ -149,7 +149,7 @@ func decodePostamble(payload []byte) *packContentPostamble {
 	}
 }
 
-func (bm *Manager) buildLocalIndex(pending packIndexBuilder) ([]byte, error) {
+func (bm *lockFreeManager) buildLocalIndex(pending packIndexBuilder) ([]byte, error) {
 	var buf bytes.Buffer
 	if err := pending.Build(&buf); err != nil {
 		return nil, errors.Wrap(err, "unable to build local index")
@@ -159,7 +159,7 @@ func (bm *Manager) buildLocalIndex(pending packIndexBuilder) ([]byte, error) {
 }
 
 // appendPackFileIndexRecoveryData appends data designed to help with recovery of pack index in case it gets damaged or lost.
-func (bm *Manager) appendPackFileIndexRecoveryData(contentData []byte, pending packIndexBuilder) ([]byte, error) {
+func (bm *lockFreeManager) appendPackFileIndexRecoveryData(contentData []byte, pending packIndexBuilder) ([]byte, error) {
 	// build, encrypt and append local index
 	localIndexOffset := len(contentData)
 	localIndex, err := bm.buildLocalIndex(pending)
@@ -199,7 +199,7 @@ func (bm *Manager) appendPackFileIndexRecoveryData(contentData []byte, pending p
 	return contentData, nil
 }
 
-func (bm *Manager) readPackFileLocalIndex(ctx context.Context, packFile blob.ID, packFileLength int64) ([]byte, error) {
+func (bm *lockFreeManager) readPackFileLocalIndex(ctx context.Context, packFile blob.ID, packFileLength int64) ([]byte, error) {
 	// TODO(jkowalski): optimize read when packFileLength is provided
 	_ = packFileLength
 	payload, err := bm.st.GetBlob(ctx, packFile, 0, -1)
