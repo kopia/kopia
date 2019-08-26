@@ -404,6 +404,32 @@ func TestDeleteContent(t *testing.T) {
 	verifyContentNotFound(ctx, t, bm, content2)
 }
 
+func TestParallelWrites(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	data := blobtesting.DataMap{}
+	keyTime := map[blob.ID]time.Time{}
+	bm := newTestContentManager(data, keyTime, nil)
+
+	workers := 8
+	writesPerWorker := 1000
+	var wg sync.WaitGroup
+	for workerID := 0; workerID < workers; workerID++ {
+		workerID := workerID
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := 0; i < writesPerWorker; i++ {
+				writeContentAndVerify(ctx, t, bm, seededRandomData(writesPerWorker*workerID+i, 100))
+			}
+		}()
+	}
+	wg.Wait()
+	if err := bm.Flush(ctx); err != nil {
+		t.Fatalf("flush error: %v", err)
+	}
+}
+
 func TestRewriteNonDeleted(t *testing.T) {
 	const stepBehaviors = 3
 
