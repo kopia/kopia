@@ -249,10 +249,15 @@ func (bm *lockFreeManager) preparePackDataContent(ctx context.Context, pp *pendi
 	}
 
 	packFileIndex := packIndexBuilder{}
+	haveContent := false
 	for contentID, info := range pp.currentPackItems {
 		if info.Payload == nil {
+			// no payload, it's a deletion of a previously-committed content.
+			packFileIndex.Add(info)
 			continue
 		}
+
+		haveContent = true
 
 		var encrypted []byte
 		encrypted, err = bm.maybeEncryptContentDataForPacking(info.Payload, info.ID)
@@ -281,6 +286,10 @@ func (bm *lockFreeManager) preparePackDataContent(ctx context.Context, pp *pendi
 
 	if len(packFileIndex) == 0 {
 		return nil, nil, nil
+	}
+
+	if !haveContent {
+		return nil, packFileIndex, nil
 	}
 
 	if bm.paddingUnit > 0 {

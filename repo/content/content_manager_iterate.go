@@ -77,7 +77,12 @@ func maybeParallelExecutor(parallel int, originalCallback IterateCallback) (Iter
 // and possibly including deleted items.
 func (bm *Manager) IterateContents(opts IterateOptions, callback IterateCallback) error {
 	bm.lock()
-	pibClone := bm.packIndexBuilder.clone()
+	overlay := bm.packIndexBuilder.clone()
+	for _, pp := range bm.pendingPacks {
+		for _, pi := range pp.currentPackItems {
+			overlay.Add(pi)
+		}
+	}
 	bm.unlock()
 
 	callback, cleanup := maybeParallelExecutor(opts.Parallel, callback)
@@ -85,7 +90,7 @@ func (bm *Manager) IterateContents(opts IterateOptions, callback IterateCallback
 
 	invokeCallback := func(i Info) error {
 		if !opts.IncludeDeleted {
-			if ci, ok := pibClone[i.ID]; ok {
+			if ci, ok := overlay[i.ID]; ok {
 				if ci.Deleted {
 					return nil
 				}
@@ -100,12 +105,12 @@ func (bm *Manager) IterateContents(opts IterateOptions, callback IterateCallback
 		return callback(i)
 	}
 
-	if len(pibClone) == 0 && opts.IncludeDeleted && opts.Prefix == "" && opts.Parallel <= 1 {
+	if len(overlay) == 0 && opts.IncludeDeleted && opts.Prefix == "" && opts.Parallel <= 1 {
 		// fast path, invoke callback directly
 		invokeCallback = callback
 	}
 
-	for _, bi := range pibClone {
+	for _, bi := range overlay {
 		_ = invokeCallback(*bi)
 	}
 

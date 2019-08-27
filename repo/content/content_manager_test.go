@@ -389,15 +389,19 @@ func TestDeleteContent(t *testing.T) {
 	content1 := writeContentAndVerify(ctx, t, bm, seededRandomData(10, 100))
 	bm.Flush(ctx)
 	content2 := writeContentAndVerify(ctx, t, bm, seededRandomData(11, 100))
+	log.Infof("xxx deleting.")
 	if err := bm.DeleteContent(content1); err != nil {
-		t.Errorf("unable to delete content: %v", content1)
+		t.Fatalf("unable to delete content %v: %v", content1, err)
 	}
+	log.Infof("yyy deleting.")
 	if err := bm.DeleteContent(content2); err != nil {
-		t.Errorf("unable to delete content: %v", content1)
+		t.Fatalf("unable to delete content %v: %v", content2, err)
 	}
 	verifyContentNotFound(ctx, t, bm, content1)
 	verifyContentNotFound(ctx, t, bm, content2)
+	log.Infof("flushing")
 	bm.Flush(ctx)
+	log.Infof("flushed")
 	log.Debugf("-----------")
 	bm = newTestContentManager(data, keyTime, nil)
 	verifyContentNotFound(ctx, t, bm, content1)
@@ -620,7 +624,7 @@ func TestIterateContents(t *testing.T) {
 	// pending, deleted - is completely discarded
 	contentID4 := writeContentAndVerify(ctx, t, bm, seededRandomData(13, 100))
 	if err := bm.DeleteContent(contentID4); err != nil {
-		t.Errorf("error deleting content 4 %v", err)
+		t.Fatalf("error deleting content 4 %v", err)
 	}
 	t.Logf("contentID1: %v", contentID1)
 	t.Logf("contentID2: %v", contentID2)
@@ -738,9 +742,12 @@ func TestFindUnreferencedBlobs(t *testing.T) {
 	bm := newTestContentManager(data, keyTime, nil)
 	verifyUnreferencedBlobsCount(ctx, t, bm, 0)
 	contentID := writeContentAndVerify(ctx, t, bm, seededRandomData(10, 100))
+	log.Infof("flushing")
 	if err := bm.Flush(ctx); err != nil {
 		t.Errorf("flush error: %v", err)
 	}
+	dumpContents(t, bm, "after flush #1")
+	dumpContentManagerData(t, data)
 	verifyUnreferencedBlobsCount(ctx, t, bm, 0)
 	if err := bm.DeleteContent(contentID); err != nil {
 		t.Errorf("error deleting content: %v", contentID)
@@ -749,6 +756,8 @@ func TestFindUnreferencedBlobs(t *testing.T) {
 		t.Errorf("flush error: %v", err)
 	}
 
+	dumpContents(t, bm, "after flush #2")
+	dumpContentManagerData(t, data)
 	// content still present in first pack
 	verifyUnreferencedBlobsCount(ctx, t, bm, 0)
 
@@ -793,7 +802,7 @@ func TestFindUnreferencedBlobs2(t *testing.T) {
 func dumpContents(t *testing.T, bm *Manager, caption string) {
 	t.Helper()
 	count := 0
-	log.Infof("finished dumping %v contents", caption)
+	log.Infof("dumping %v contents", caption)
 	if err := bm.IterateContents(IterateOptions{IncludeDeleted: true},
 		func(ci Info) error {
 			log.Debugf(" ci[%v]=%#v", count, ci)
@@ -1056,19 +1065,20 @@ func hashValue(b []byte) string {
 
 func dumpContentManagerData(t *testing.T, data blobtesting.DataMap) {
 	t.Helper()
+	log.Infof("***data - %v items", len(data))
 	for k, v := range data {
 		if k[0] == 'n' {
 			ndx, err := openPackIndex(bytes.NewReader(v))
 			if err == nil {
-				t.Logf("index %v (%v bytes)", k, len(v))
+				log.Infof("index %v (%v bytes)", k, len(v))
 				assertNoError(t, ndx.Iterate("", func(i Info) error {
-					t.Logf("  %+v\n", i)
+					log.Infof("  %+v\n", i)
 					return nil
 				}))
-
 			}
 		} else {
-			t.Logf("data %v (%v bytes)\n", k, len(v))
+			log.Infof("non-index %v (%v bytes)\n", k, len(v))
 		}
 	}
+	log.Infof("*** end of data")
 }
