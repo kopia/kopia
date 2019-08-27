@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
-	"reflect"
 	"sync"
 	"time"
 
@@ -69,7 +68,7 @@ type Manager struct {
 	locked bool
 
 	pendingPacks     map[blob.ID]*pendingPackInfo
-	packIndexBuilder packIndexBuilder // contents that are in index currently being built (current pack and all packs saved but not committed)
+	packIndexBuilder packIndexBuilder // contents that are in index currently being built (all packs saved but not committed)
 
 	disableIndexFlushCount int
 	flushPackIndexesAfter  time.Time // time when those indexes should be flushed
@@ -94,28 +93,29 @@ func (bm *Manager) DeleteContent(contentID ID) error {
 
 	log.Debugf("DeleteContent(%q)", contentID)
 
-	// We have this content in current pack index and it's already deleted there.
+	// remove from all pending packs
+	for _, pp := range bm.pendingPacks {
+		if bi, ok := pp.currentPackItems[contentID]; ok && !bi.Deleted {
+			delete(pp.currentPackItems, contentID)
+			return nil
+		}
+	}
+
+	// if found in committed index, add another entry that's marked for deletion
 	if bi, ok := bm.packIndexBuilder[contentID]; ok {
 		if !bi.Deleted {
-			if bi.PackBlobID == "" {
-				// added and never committed, just forget about it.
-				delete(bm.packIndexBuilder, contentID)
-				for _, pp := range bm.pendingPacks {
-					delete(pp.currentPackItems, contentID)
-				}
-				return nil
-			}
-
-			// added and committed.
+			// we have this content in index and it's not deleted.
 			bi2 := *bi
 			bi2.Deleted = true
 			bi2.TimestampSeconds = bm.timeNow().Unix()
 			bm.setPendingContent(bm.getOrCreatePendingPackInfoLocked(packPrefixForContentID(contentID)), bi2)
 		}
+
+		// we have this content in index and it already deleted - do nothing.
 		return nil
 	}
 
-	// We have this content in current pack index and it's already deleted there.
+	// see if the block existed before
 	bi, err := bm.committedContents.getContent(contentID)
 	if err != nil {
 		return err
@@ -130,6 +130,7 @@ func (bm *Manager) DeleteContent(contentID ID) error {
 	bi2 := bi
 	bi2.Deleted = true
 	bi2.TimestampSeconds = bm.timeNow().Unix()
+
 	bm.setPendingContent(bm.getOrCreatePendingPackInfoLocked(packPrefixForContentID(contentID)), bi2)
 	return nil
 }
@@ -137,7 +138,6 @@ func (bm *Manager) DeleteContent(contentID ID) error {
 //nolint:gocritic
 // We're intentionally passing "i" by value
 func (bm *Manager) setPendingContent(pp *pendingPackInfo, i Info) {
-	bm.packIndexBuilder.Add(i)
 	pp.currentPackItems[i.ID] = i
 }
 
@@ -226,9 +226,6 @@ func (bm *Manager) verifyCurrentPackItemsLocked() {
 			bm.assertInvariant(cpi.ID == k, "content ID entry has invalid key: %v %v", cpi.ID, k)
 			bm.assertInvariant(cpi.Deleted || cpi.PackBlobID == "", "content ID entry has unexpected pack content ID %v: %v", cpi.ID, cpi.PackBlobID)
 			bm.assertInvariant(cpi.TimestampSeconds != 0, "content has no timestamp: %v", cpi.ID)
-			bi, ok := bm.packIndexBuilder[k]
-			bm.assertInvariant(ok, "content ID entry not present in pack index builder: %v", cpi.ID)
-			bm.assertInvariant(reflect.DeepEqual(*bi, cpi), "current pack index does not match pack index builder: %v", cpi, *bi)
 		}
 	}
 }
@@ -236,10 +233,6 @@ func (bm *Manager) verifyCurrentPackItemsLocked() {
 func (bm *Manager) verifyPackIndexBuilderLocked() {
 	for k, cpi := range bm.packIndexBuilder {
 		bm.assertInvariant(cpi.ID == k, "content ID entry has invalid key: %v %v", cpi.ID, k)
-		if _, ok := bm.findContentInPendingPacks(cpi.ID); ok {
-			// ignore contents also in current packs
-			continue
-		}
 		if cpi.Deleted {
 			bm.assertInvariant(cpi.PackBlobID == "", "content can't be both deleted and have a pack content: %v", cpi.ID)
 		} else {
@@ -328,15 +321,14 @@ func (bm *Manager) finishPackLocked(ctx context.Context, prefix blob.ID, pp *pen
 		if err := bm.writePackFileNotLocked(ctx, packFile, contentData); err != nil {
 			return errors.Wrap(err, "can't save pack data content")
 		}
+		formatLog.Debugf("wrote pack file: %v (%v bytes)", packFile, len(contentData))
 	}
 
-	formatLog.Debugf("wrote pack file: %v (%v bytes)", packFile, len(contentData))
 	for _, info := range packFileIndex {
 		bm.packIndexBuilder.Add(*info)
 	}
 
 	delete(bm.pendingPacks, prefix)
-
 	return nil
 }
 
