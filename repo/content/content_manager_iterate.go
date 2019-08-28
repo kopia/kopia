@@ -73,24 +73,36 @@ func maybeParallelExecutor(parallel int, originalCallback IterateCallback) (Iter
 	return callback, cleanup
 }
 
-// IterateContents invokes the provided callback for each content starting with a specified prefix
-// and possibly including deleted items.
-func (bm *Manager) IterateContents(opts IterateOptions, callback IterateCallback) error {
+func (bm *Manager) snapshotUncommittedItems() packIndexBuilder {
 	bm.lock()
+	defer bm.unlock()
+
 	overlay := bm.packIndexBuilder.clone()
 	for _, pp := range bm.pendingPacks {
 		for _, pi := range pp.currentPackItems {
 			overlay.Add(pi)
 		}
 	}
-	bm.unlock()
+	for _, pp := range bm.writingPacks {
+		for _, pi := range pp.currentPackItems {
+			overlay.Add(pi)
+		}
+	}
 
+	return overlay
+}
+
+// IterateContents invokes the provided callback for each content starting with a specified prefix
+// and possibly including deleted items.
+func (bm *Manager) IterateContents(opts IterateOptions, callback IterateCallback) error {
 	callback, cleanup := maybeParallelExecutor(opts.Parallel, callback)
 	defer cleanup() //nolint:errcheck
 
+	uncommitted := bm.snapshotUncommittedItems()
+
 	invokeCallback := func(i Info) error {
 		if !opts.IncludeDeleted {
-			if ci, ok := overlay[i.ID]; ok {
+			if ci, ok := uncommitted[i.ID]; ok {
 				if ci.Deleted {
 					return nil
 				}
@@ -105,12 +117,12 @@ func (bm *Manager) IterateContents(opts IterateOptions, callback IterateCallback
 		return callback(i)
 	}
 
-	if len(overlay) == 0 && opts.IncludeDeleted && opts.Prefix == "" && opts.Parallel <= 1 {
+	if len(uncommitted) == 0 && opts.IncludeDeleted && opts.Prefix == "" && opts.Parallel <= 1 {
 		// fast path, invoke callback directly
 		invokeCallback = callback
 	}
 
-	for _, bi := range overlay {
+	for _, bi := range uncommitted {
 		_ = invokeCallback(*bi)
 	}
 
