@@ -387,7 +387,10 @@ func TestDeleteContent(t *testing.T) {
 	keyTime := map[blob.ID]time.Time{}
 	bm := newTestContentManager(data, keyTime, nil)
 	content1 := writeContentAndVerify(ctx, t, bm, seededRandomData(10, 100))
-	bm.Flush(ctx)
+	if err := bm.Flush(ctx); err != nil {
+		t.Fatalf("error flushing: %v", err)
+	}
+	dumpContents(t, bm, "after first flush")
 	content2 := writeContentAndVerify(ctx, t, bm, seededRandomData(11, 100))
 	log.Infof("xxx deleting.")
 	if err := bm.DeleteContent(content1); err != nil {
