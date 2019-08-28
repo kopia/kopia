@@ -64,7 +64,7 @@ type IndexBlobInfo struct {
 
 // Manager builds content-addressable storage with encryption, deduplication and packaging on top of BLOB store.
 type Manager struct {
-	mu     sync.Mutex
+	mu     sync.RWMutex
 	locked bool
 
 	pendingPacks     map[blob.ID]*pendingPackInfo
@@ -427,30 +427,37 @@ func (bm *Manager) GetContent(ctx context.Context, contentID ID) ([]byte, error)
 	return bm.getContentDataUnlocked(ctx, &bi)
 }
 
-func (bm *Manager) getContentInfo(contentID ID) (Info, error) {
-	bm.lock()
-	defer bm.unlock()
+func (bm *Manager) getOverlayContentInfo(contentID ID) (Info, bool) {
+	bm.mu.RLock()
+	defer bm.mu.RUnlock()
 
 	// check added contents, not written to any packs yet.
 	for _, pp := range bm.pendingPacks {
 		if ci, ok := pp.currentPackItems[contentID]; ok {
-			return ci, nil
+			return ci, true
 		}
 	}
 
 	// check contents being written to packs right now.
 	for _, pp := range bm.writingPacks {
 		if ci, ok := pp.currentPackItems[contentID]; ok {
-			return ci, nil
+			return ci, true
 		}
 	}
 
 	// added contents, written to packs but not yet added to indexes
 	if ci, ok := bm.packIndexBuilder[contentID]; ok {
-		return *ci, nil
+		return *ci, true
 	}
 
-	// read from committed content index
+	return Info{}, false
+}
+
+func (bm *Manager) getContentInfo(contentID ID) (Info, error) {
+	if ci, ok := bm.getOverlayContentInfo(contentID); ok {
+		return ci, nil
+	}
+
 	return bm.committedContents.getContent(contentID)
 }
 
