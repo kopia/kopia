@@ -142,6 +142,7 @@ func (bm *Manager) deletePreexistingContent(ci Info) {
 func (bm *Manager) addToPackUnlocked(ctx context.Context, contentID ID, data []byte, isDeleted bool) error {
 	prefix := packPrefixForContentID(contentID)
 
+	data = cloneBytes(data)
 	bm.lock()
 	if bm.timeNow().After(bm.flushPackIndexesAfter) {
 		if err := bm.flushPackIndexesLocked(ctx); err != nil {
@@ -150,7 +151,6 @@ func (bm *Manager) addToPackUnlocked(ctx context.Context, contentID ID, data []b
 	}
 
 	pp := bm.getOrCreatePendingPackInfoLocked(prefix)
-	data = cloneBytes(data)
 	pp.currentPackDataLength += len(data)
 	pp.currentPackItems[contentID] = Info{
 		Deleted:          isDeleted,
