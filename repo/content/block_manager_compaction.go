@@ -23,6 +23,9 @@ type CompactOptions struct {
 
 // CompactIndexes performs compaction of index blobs ensuring that # of small contents is between minSmallContentCount and maxSmallContentCount
 func (bm *Manager) CompactIndexes(ctx context.Context, opt CompactOptions) error {
+	bm.lock()
+	defer bm.unlock()
+
 	log.Debugf("CompactIndexes(%+v)", opt)
 	if opt.MaxSmallBlobs < opt.MinSmallBlobs {
 		return errors.Errorf("invalid content counts")
