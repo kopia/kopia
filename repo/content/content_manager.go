@@ -494,6 +494,9 @@ func (bm *Manager) assertLocked() {
 
 // Refresh reloads the committed content indexes.
 func (bm *Manager) Refresh(ctx context.Context) (bool, error) {
+	bm.lock()
+	defer bm.unlock()
+
 	log.Debugf("Refresh started")
 	t0 := time.Now()
 	_, updated, err := bm.loadPackIndexesUnlocked(ctx)
