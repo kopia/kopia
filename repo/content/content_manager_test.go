@@ -414,26 +414,107 @@ func TestDeleteContent(t *testing.T) {
 func TestParallelWrites(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
+
 	data := blobtesting.DataMap{}
 	keyTime := map[blob.ID]time.Time{}
-	bm := newTestContentManager(data, keyTime, nil)
+	st := blobtesting.NewMapStorage(data, keyTime, nil)
 
-	workers := 8
-	writesPerWorker := 1000
-	var wg sync.WaitGroup
-	for workerID := 0; workerID < workers; workerID++ {
+	// set up fake storage that is slow at PutBlob causing writes to be piling up
+	fs := &blobtesting.FaultyStorage{
+		Base: st,
+		Faults: map[string][]*blobtesting.Fault{
+			"PutBlob": {
+				{
+					Repeat: 1000000000,
+					Sleep:  1 * time.Second,
+				},
+			},
+		},
+	}
+	bm := newTestContentManagerWithStorage(fs, nil)
+
+	numWorkers := 8
+
+	var workersWG sync.WaitGroup
+	closeWorkers := make(chan bool)
+
+	// workerLock allows workers to append to their own list of IDs (when R-locked) in parallel.
+	// W-lock allows flusher to capture the state without any worker being able to modify it.
+	var workerLock sync.RWMutex
+	workerWritten := make([][]ID, numWorkers)
+
+	// start numWorkers, each writing random block and recording it
+	for workerID := 0; workerID < numWorkers; workerID++ {
 		workerID := workerID
-		wg.Add(1)
+		workersWG.Add(1)
 		go func() {
-			defer wg.Done()
-			for i := 0; i < writesPerWorker; i++ {
-				writeContentAndVerify(ctx, t, bm, seededRandomData(writesPerWorker*workerID+i, 100))
+			defer workersWG.Done()
+			for {
+				select {
+				case <-closeWorkers:
+					return
+				case <-time.After(1 * time.Nanosecond):
+					id := writeContentAndVerify(ctx, t, bm, seededRandomData(rand.Int(), 100)) //nolint:gosec
+					workerLock.RLock()
+					workerWritten[workerID] = append(workerWritten[workerID], id)
+					workerLock.RUnlock()
+				}
 			}
 		}()
 	}
-	wg.Wait()
-	if err := bm.Flush(ctx); err != nil {
-		t.Fatalf("flush error: %v", err)
+
+	closeFlusher := make(chan bool)
+	var flusherWG sync.WaitGroup
+	flusherWG.Add(1)
+	go func() {
+		defer flusherWG.Done()
+		for {
+			select {
+			case <-closeFlusher:
+				log.Infof("closing flusher goroutine")
+				return
+			case <-time.After(2 * time.Second):
+				log.Infof("about to flush")
+
+				// capture snapshot of all content IDs while holding a writer lock
+				allWritten := map[ID]bool{}
+				workerLock.Lock()
+				for _, ww := range workerWritten {
+					for _, id := range ww {
+						allWritten[id] = true
+					}
+				}
+				workerLock.Unlock()
+				log.Infof("captured %v contents", len(allWritten))
+				if err := bm.Flush(ctx); err != nil {
+					t.Errorf("flush error: %v", err)
+				}
+
+				// open new content manager and verify all contents are visible there.
+				verifyAllDataPresent(t, data, allWritten)
+			}
+		}
+	}()
+
+	// run workers and flushers for some time, enough for 2 flushes to complete
+	time.Sleep(5 * time.Second)
+
+	// shut down workers and wait for them
+	close(closeWorkers)
+	workersWG.Wait()
+
+	close(closeFlusher)
+	flusherWG.Wait()
+}
+
+func verifyAllDataPresent(t *testing.T, data map[blob.ID][]byte, contentIDs map[ID]bool) {
+	bm := newTestContentManager(data, nil, nil)
+	_ = bm.IterateContents(IterateOptions{}, func(ci Info) error {
+		delete(contentIDs, ci.ID)
+		return nil
+	})
+	if len(contentIDs) != 0 {
+		t.Errorf("some blocks not written: %v", contentIDs)
 	}
 }
 
@@ -959,10 +1040,14 @@ func verifyContentManagerDataSet(ctx context.Context, t *testing.T, mgr *Manager
 }
 
 func newTestContentManager(data blobtesting.DataMap, keyTime map[blob.ID]time.Time, timeFunc func() time.Time) *Manager {
+	st := blobtesting.NewMapStorage(data, keyTime, timeFunc)
+	return newTestContentManagerWithStorage(st, timeFunc)
+}
+
+func newTestContentManagerWithStorage(st blob.Storage, timeFunc func() time.Time) *Manager {
 	if timeFunc == nil {
 		timeFunc = fakeTimeNowWithAutoAdvance(fakeTime, 1*time.Second)
 	}
-	st := blobtesting.NewMapStorage(data, keyTime, timeFunc)
 	bm, err := newManagerWithOptions(context.Background(), st, &FormattingOptions{
 		Hash:        "HMAC-SHA256",
 		Encryption:  "NONE",

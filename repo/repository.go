@@ -31,7 +31,7 @@ func (r *Repository) Close(ctx context.Context) error {
 	if err := r.Manifests.Flush(ctx); err != nil {
 		return errors.Wrap(err, "error flushing manifests")
 	}
-	if err := r.Content.Flush(ctx); err != nil {
+	if err := r.Content.Close(ctx); err != nil {
 		return errors.Wrap(err, "error closing content-addressable storage manager")
 	}
 	if err := r.Blobs.Close(ctx); err != nil {

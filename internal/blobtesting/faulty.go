@@ -102,6 +102,7 @@ func (s *FaultyStorage) getNextFault(method string, args ...interface{}) error {
 	}
 	if f.Sleep > 0 {
 		log.Debugf("sleeping for %v in %v %v", f.Sleep, method, args)
+		time.Sleep(f.Sleep)
 	}
 	if f.ErrCallback != nil {
 		err := f.ErrCallback()
