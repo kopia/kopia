@@ -173,7 +173,6 @@ func repositoryTest(ctx context.Context, t *testing.T, cancel chan struct{}, rep
 	for {
 		select {
 		case <-cancel:
-			rep.Close(ctx)
 			return
 		default:
 		}

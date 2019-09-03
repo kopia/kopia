@@ -64,8 +64,9 @@ type IndexBlobInfo struct {
 
 // Manager builds content-addressable storage with encryption, deduplication and packaging on top of BLOB store.
 type Manager struct {
-	mu     sync.RWMutex
-	locked bool
+	mu       *sync.RWMutex
+	cond     *sync.Cond
+	flushing bool
 
 	pendingPacks     map[blob.ID]*pendingPackInfo
 	writingPacks     []*pendingPackInfo // list of packs that are being written
@@ -144,6 +145,12 @@ func (bm *Manager) addToPackUnlocked(ctx context.Context, contentID ID, data []b
 
 	data = cloneBytes(data)
 	bm.lock()
+
+	// do not start new uploads while flushing
+	for bm.flushing {
+		bm.cond.Wait()
+	}
+
 	if bm.timeNow().After(bm.flushPackIndexesAfter) {
 		if err := bm.flushPackIndexesLocked(ctx); err != nil {
 			return err
@@ -207,8 +214,6 @@ func (bm *Manager) EnableIndexFlush() {
 }
 
 func (bm *Manager) verifyInvariantsLocked() {
-	bm.assertLocked()
-
 	bm.verifyCurrentPackItemsLocked()
 	bm.verifyPackIndexBuilderLocked()
 }
@@ -249,8 +254,6 @@ func (bm *Manager) assertInvariant(ok bool, errorMsg string, arg ...interface{})
 }
 
 func (bm *Manager) flushPackIndexesLocked(ctx context.Context) error {
-	bm.assertLocked()
-
 	if bm.disableIndexFlushCount > 0 {
 		log.Debugf("not flushing index because flushes are currently disabled")
 		return nil
@@ -324,6 +327,8 @@ func (bm *Manager) writePackAndAddToIndex(ctx context.Context, pp *pendingPackIn
 	}
 
 	if !lockHeld {
+		// we changed the in-flight packs, notify all waiting on the condition variable
+		bm.cond.Broadcast()
 		bm.unlock()
 	}
 	return nil
@@ -340,17 +345,36 @@ func removePendingPack(slice []*pendingPackInfo, pp *pendingPackInfo) []*pending
 }
 
 // Close closes the content manager.
-func (bm *Manager) Close() {
+func (bm *Manager) Close(ctx context.Context) error {
+	if err := bm.Flush(ctx); err != nil {
+		return errors.Wrap(err, "error flushing")
+	}
 	bm.contentCache.close()
 	bm.metadataCache.close()
 	close(bm.closed)
+	return nil
 }
 
-// Flush completes writing any pending packs and writes pack indexes to the underlyign storage.
+// Flush completes writing any pending packs and writes pack indexes to the underlying storage.
+// Any pending writes completed before Flush() has started are guaranteed to be committed to the
+// repository before Flush() returns.
 func (bm *Manager) Flush(ctx context.Context) error {
 	bm.lock()
 	defer bm.unlock()
 
+	bm.flushing = true
+	defer func() {
+		bm.flushing = false
+	}()
+
+	for len(bm.writingPacks) > 0 {
+		log.Infof("waiting for %v in-progress packs to finish", len(bm.writingPacks))
+
+		// wait packs that are currently writing in other goroutines to finish
+		bm.cond.Wait()
+	}
+
+	// finish all new pending packs
 	if err := bm.finishAllPacksLocked(ctx); err != nil {
 		return errors.Wrap(err, "error writing pending content")
 	}
@@ -358,6 +382,7 @@ func (bm *Manager) Flush(ctx context.Context) error {
 	if err := bm.flushPackIndexesLocked(ctx); err != nil {
 		return errors.Wrap(err, "error flushing indexes")
 	}
+
 	return nil
 }
 
@@ -474,7 +499,6 @@ func (bm *Manager) ContentInfo(ctx context.Context, contentID ID) (Info, error) 
 
 func (bm *Manager) lock() {
 	bm.mu.Lock()
-	bm.locked = true
 }
 
 func (bm *Manager) unlock() {
@@ -482,14 +506,7 @@ func (bm *Manager) unlock() {
 		bm.verifyInvariantsLocked()
 	}
 
-	bm.locked = false
 	bm.mu.Unlock()
-}
-
-func (bm *Manager) assertLocked() {
-	if !bm.locked {
-		panic("must be locked")
-	}
 }
 
 // Refresh reloads the committed content indexes.
@@ -545,6 +562,7 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 
 	contentIndex := newCommittedContentIndex(caching)
 
+	mu := &sync.RWMutex{}
 	m := &Manager{
 		lockFreeManager: lockFreeManager{
 			Format:                  *f,
@@ -565,6 +583,9 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 			writeFormatVersion:      int32(f.Version),
 			committedContents:       contentIndex,
 		},
+
+		mu:   mu,
+		cond: sync.NewCond(mu),
 
 		flushPackIndexesAfter: timeNow().Add(flushPackIndexTimeout),
 		pendingPacks:          map[blob.ID]*pendingPackInfo{},
