@@ -148,6 +148,7 @@ func (bm *Manager) addToPackUnlocked(ctx context.Context, contentID ID, data []b
 
 	// do not start new uploads while flushing
 	for bm.flushing {
+		formatLog.Debugf("waiting before flush completes")
 		bm.cond.Wait()
 	}
 
