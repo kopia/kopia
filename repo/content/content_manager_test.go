@@ -507,6 +507,61 @@ func TestParallelWrites(t *testing.T) {
 	flusherWG.Wait()
 }
 
+func TestFlushResumesWriters(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	data := blobtesting.DataMap{}
+	keyTime := map[blob.ID]time.Time{}
+	st := blobtesting.NewMapStorage(data, keyTime, nil)
+
+	// set up fake storage that is slow at PutBlob causing writes to be piling up
+	fs := &blobtesting.FaultyStorage{
+		Base: st,
+		Faults: map[string][]*blobtesting.Fault{
+			"PutBlob": {
+				{
+					Repeat: 1000000000,
+					Sleep:  3 * time.Second,
+				},
+			},
+		},
+	}
+
+	bm := newTestContentManagerWithStorage(fs, nil)
+	first := writeContentAndVerify(ctx, t, bm, []byte{1, 2, 3})
+	var second ID
+
+	var writeWG sync.WaitGroup
+	writeWG.Add(1)
+	go func() {
+		defer writeWG.Done()
+		// start a write while flush is ongoing, the write will block on the condition variable
+		time.Sleep(1 * time.Second)
+		log.Infof("write started")
+		second = writeContentAndVerify(ctx, t, bm, []byte{3, 4, 5})
+		log.Infof("write finished")
+	}()
+
+	// flush will take 5 seconds, 1 second into that we will start a write
+	bm.Flush(ctx)
+
+	// wait for write to complete, if this times out, Flush() is not waking up writers
+	writeWG.Wait()
+
+	verifyAllDataPresent(t, data, map[ID]bool{
+		first: true,
+	})
+
+	// flush again, this will include buffer
+	bm.Flush(ctx)
+
+	verifyAllDataPresent(t, data, map[ID]bool{
+		first:  true,
+		second: true,
+	})
+}
+
 func verifyAllDataPresent(t *testing.T, data map[blob.ID][]byte, contentIDs map[ID]bool) {
 	bm := newTestContentManager(data, nil, nil)
 	_ = bm.IterateContents(IterateOptions{}, func(ci Info) error {
