@@ -14,6 +14,7 @@ require (
 	github.com/efarrer/iothrottler v0.0.1
 	github.com/go-ini/ini v1.46.0 // indirect
 	github.com/godbus/dbus v4.1.0+incompatible // indirect
+	github.com/kylelemons/godebug v1.1.0
 	github.com/minio/minio-go v6.0.14+incompatible
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
