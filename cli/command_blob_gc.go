@@ -11,16 +11,16 @@ import (
 )
 
 var (
-	contentGarbageCollectCommand       = contentCommands.Command("gc", "Garbage-collect unused blobs")
-	contentGarbageCollectCommandDelete = contentGarbageCollectCommand.Flag("delete", "Whether to delete unused blobs").String()
-	contentGarbageCollectParallel      = contentGarbageCollectCommand.Flag("parallel", "Number of parallel blob scans").Int()
+	blobGarbageCollectCommand       = blobCommands.Command("gc", "Garbage-collect unused blobs")
+	blobGarbageCollectCommandDelete = blobGarbageCollectCommand.Flag("delete", "Whether to delete unused blobs").String()
+	blobGarbageCollectParallel      = blobGarbageCollectCommand.Flag("parallel", "Number of parallel blob scans").Int()
 )
 
-func runContentGarbageCollectCommand(ctx context.Context, rep *repo.Repository) error {
+func runBlobGarbageCollectCommand(ctx context.Context, rep *repo.Repository) error {
 	var mu sync.Mutex
 	var unused []blob.Metadata
 
-	if err := rep.Content.IterateUnreferencedBlobs(ctx, *contentGarbageCollectParallel, func(bm blob.Metadata) error {
+	if err := rep.Content.IterateUnreferencedBlobs(ctx, *blobGarbageCollectParallel, func(bm blob.Metadata) error {
 		mu.Lock()
 		unused = append(unused, bm)
 		mu.Unlock()
@@ -34,7 +34,7 @@ func runContentGarbageCollectCommand(ctx context.Context, rep *repo.Repository) 
 		return nil
 	}
 
-	if *contentGarbageCollectCommandDelete != "yes" {
+	if *blobGarbageCollectCommandDelete != "yes" {
 		var totalBytes int64
 		for _, u := range unused {
 			totalBytes += u.Length
@@ -55,5 +55,5 @@ func runContentGarbageCollectCommand(ctx context.Context, rep *repo.Repository) 
 }
 
 func init() {
-	contentGarbageCollectCommand.Action(repositoryAction(runContentGarbageCollectCommand))
+	blobGarbageCollectCommand.Action(repositoryAction(runBlobGarbageCollectCommand))
 }
