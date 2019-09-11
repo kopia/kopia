@@ -23,7 +23,7 @@ var log = repologging.Logger("kopia/manifest")
 // ErrNotFound is returned when the metadata item is not found.
 var ErrNotFound = errors.New("not found")
 
-const manifestContentPrefix = "m"
+const ContentPrefix = "m"
 const autoCompactionContentCount = 16
 
 type contentManager interface {
@@ -228,7 +228,7 @@ func (m *Manager) flushPendingEntriesLocked(ctx context.Context) (content.ID, er
 	mustSucceed(gz.Flush())
 	mustSucceed(gz.Close())
 
-	contentID, err := m.b.WriteContent(ctx, buf.Bytes(), manifestContentPrefix)
+	contentID, err := m.b.WriteContent(ctx, buf.Bytes(), ContentPrefix)
 	if err != nil {
 		return "", err
 	}
@@ -287,7 +287,7 @@ func (m *Manager) loadCommittedContentsLocked(ctx context.Context) error {
 		manifests = map[content.ID]manifest{}
 
 		err := m.b.IterateContents(content.IterateOptions{
-			Prefix:   manifestContentPrefix,
+			Prefix:   ContentPrefix,
 			Parallel: 8,
 		}, func(ci content.Info) error {
 			man, err := m.loadManifestContent(ctx, ci.ID)

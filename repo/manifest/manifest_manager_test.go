@@ -99,7 +99,7 @@ func TestManifest(t *testing.T) {
 
 	foundContents := 0
 	if err := mgr.b.IterateContents(
-		content.IterateOptions{Prefix: manifestContentPrefix},
+		content.IterateOptions{Prefix: ContentPrefix},
 		func(ci content.Info) error {
 			foundContents++
 			return nil

@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	verifyCommand               = app.Command("verify", "Verify the contents of stored object")
+	verifyCommand               = snapshotCommands.Command("verify", "Verify the contents of stored snapshot")
 	verifyCommandErrorThreshold = verifyCommand.Flag("max-errors", "Maximum number of errors before stopping").Default("0").Int()
 	verifyCommandDirObjectIDs   = verifyCommand.Flag("directory-id", "Directory object IDs to verify").Strings()
 	verifyCommandFileObjectIDs  = verifyCommand.Flag("file-id", "File object IDs to verify").Strings()
@@ -96,8 +96,8 @@ func (v *verifier) enqueueVerifyDirectory(ctx context.Context, oid object.ID, pa
 	if !v.shouldEnqueue(oid) {
 		return
 	}
-	v.workQueue.EnqueueFront(func() {
-		v.doVerifyDirectory(ctx, oid, path)
+	v.workQueue.EnqueueFront(func() error {
+		return v.doVerifyDirectory(ctx, oid, path)
 	})
 }
 
@@ -106,19 +106,19 @@ func (v *verifier) enqueueVerifyObject(ctx context.Context, oid object.ID, path 
 	if !v.shouldEnqueue(oid) {
 		return
 	}
-	v.workQueue.EnqueueBack(func() {
-		v.doVerifyObject(ctx, oid, path, expectedLength)
+	v.workQueue.EnqueueBack(func() error {
+		return v.doVerifyObject(ctx, oid, path, expectedLength)
 	})
 }
 
-func (v *verifier) doVerifyDirectory(ctx context.Context, oid object.ID, path string) {
+func (v *verifier) doVerifyDirectory(ctx context.Context, oid object.ID, path string) error {
 	log.Debugf("verifying directory %q (%v)", path, oid)
 
 	d := snapshotfs.DirectoryEntry(v.rep, oid, nil)
 	entries, err := d.Readdir(ctx)
 	if err != nil {
 		v.reportError(path, errors.Wrapf(err, "error reading %v", oid))
-		return
+		return nil
 	}
 
 	for _, e := range entries {
@@ -134,9 +134,11 @@ func (v *verifier) doVerifyDirectory(ctx context.Context, oid object.ID, path st
 			v.enqueueVerifyObject(ctx, objectID, childPath, e.Size())
 		}
 	}
+
+	return nil
 }
 
-func (v *verifier) doVerifyObject(ctx context.Context, oid object.ID, path string, expectedLength int64) {
+func (v *verifier) doVerifyObject(ctx context.Context, oid object.ID, path string, expectedLength int64) error {
 	if expectedLength < 0 {
 		log.Debugf("verifying object %v", oid)
 	} else {
@@ -160,6 +162,8 @@ func (v *verifier) doVerifyObject(ctx context.Context, oid object.ID, path strin
 			v.reportError(path, errors.Wrapf(err, "error reading object %v", oid))
 		}
 	}
+
+	return nil
 }
 
 func (v *verifier) readEntireObject(ctx context.Context, oid object.ID, path string) error {
@@ -191,7 +195,9 @@ func runVerifyCommand(ctx context.Context, rep *repo.Repository) error {
 	}
 
 	v.workQueue.ProgressCallback = v.progressCallback
-	v.workQueue.Process(*verifyCommandParallel)
+	if err := v.workQueue.Process(*verifyCommandParallel); err != nil {
+		return errors.Wrap(err, "error processing work queue")
+	}
 
 	if len(v.errors) == 0 {
 		return nil
