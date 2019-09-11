@@ -13,52 +13,48 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-//nolint:gocyclo
+func deterministicContentID(prefix string, id int) ID {
+	h := sha1.New()
+	fmt.Fprintf(h, "%v%v", prefix, id)
+
+	prefix2 := ""
+	if id%2 == 0 {
+		prefix2 = "x"
+	}
+	if id%7 == 0 {
+		prefix2 = "y"
+	}
+	if id%5 == 0 {
+		prefix2 = "m"
+	}
+	return ID(fmt.Sprintf("%v%x", prefix2, h.Sum(nil)))
+}
+func deterministicPackBlobID(id int) blob.ID {
+	h := sha1.New()
+	fmt.Fprintf(h, "%v", id)
+	return blob.ID(fmt.Sprintf("%x", h.Sum(nil)))
+}
+
+func deterministicPackedOffset(id int) uint32 {
+	s := rand.NewSource(int64(id + 1))
+	rnd := rand.New(s)
+	return uint32(rnd.Int31())
+}
+func deterministicPackedLength(id int) uint32 {
+	s := rand.NewSource(int64(id + 2))
+	rnd := rand.New(s)
+	return uint32(rnd.Int31())
+}
+func deterministicFormatVersion(id int) byte {
+	return byte(id % 100)
+}
+
+func randomUnixTime() int64 {
+	return int64(rand.Int31())
+}
+
+//nolint:gocyclo,funlen
 func TestPackIndex(t *testing.T) {
-	contentNumber := 0
-
-	deterministicContentID := func(prefix string, id int) ID {
-		h := sha1.New()
-		fmt.Fprintf(h, "%v%v", prefix, id)
-		contentNumber++
-
-		prefix2 := ""
-		if id%2 == 0 {
-			prefix2 = "x"
-		}
-		if id%7 == 0 {
-			prefix2 = "y"
-		}
-		if id%5 == 0 {
-			prefix2 = "m"
-		}
-		return ID(fmt.Sprintf("%v%x", prefix2, h.Sum(nil)))
-	}
-	deterministicPackBlobID := func(id int) blob.ID {
-		h := sha1.New()
-		fmt.Fprintf(h, "%v", id)
-		contentNumber++
-		return blob.ID(fmt.Sprintf("%x", h.Sum(nil)))
-	}
-
-	deterministicPackedOffset := func(id int) uint32 {
-		s := rand.NewSource(int64(id + 1))
-		rnd := rand.New(s)
-		return uint32(rnd.Int31())
-	}
-	deterministicPackedLength := func(id int) uint32 {
-		s := rand.NewSource(int64(id + 2))
-		rnd := rand.New(s)
-		return uint32(rnd.Int31())
-	}
-	deterministicFormatVersion := func(id int) byte {
-		return byte(id % 100)
-	}
-
-	randomUnixTime := func() int64 {
-		return int64(rand.Int31())
-	}
-
 	var infos []Info
 
 	// deleted contents with all information

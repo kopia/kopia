@@ -71,144 +71,144 @@ var rootAndSrcPolicy = ignorefs.FilesPolicyMap{
 	},
 }
 
-func TestIgnoreFS(t *testing.T) {
-	cases := []struct {
-		desc         string
-		policy       ignorefs.FilesPolicyMap
-		setup        func(root *mockfs.Directory)
-		addedFiles   []string
-		ignoredFiles []string
-	}{
-		{desc: "null policy, missing dotignore"},
-		{
-			desc:       "default policy missing dotignore",
-			policy:     defaultPolicy,
-			addedFiles: nil,
-			ignoredFiles: []string{
-				"./ignored-by-rule",
-				"./largefile1",
-			},
+var cases = []struct {
+	desc         string
+	policy       ignorefs.FilesPolicyMap
+	setup        func(root *mockfs.Directory)
+	addedFiles   []string
+	ignoredFiles []string
+}{
+	{desc: "null policy, missing dotignore"},
+	{
+		desc:       "default policy missing dotignore",
+		policy:     defaultPolicy,
+		addedFiles: nil,
+		ignoredFiles: []string{
+			"./ignored-by-rule",
+			"./largefile1",
 		},
-		{
-			desc:   "default policy, have dotignore",
-			policy: defaultPolicy,
-			setup: func(root *mockfs.Directory) {
-				root.AddFileLines(".kopiaignore", []string{"file[12]"}, 0)
-			},
-			addedFiles: []string{"./.kopiaignore"},
-			ignoredFiles: []string{
-				"./ignored-by-rule",
-				"./largefile1",
-				"./file1",
-				"./file2",
-			},
+	},
+	{
+		desc:   "default policy, have dotignore",
+		policy: defaultPolicy,
+		setup: func(root *mockfs.Directory) {
+			root.AddFileLines(".kopiaignore", []string{"file[12]"}, 0)
 		},
-		{
-			desc:   "default policy, have dotignore #2",
-			policy: defaultPolicy,
-			setup: func(root *mockfs.Directory) {
-				root.AddFileLines(".kopiaignore", []string{
-					"pkg",
-					"file*",
-				}, 0)
-			},
-			addedFiles: []string{"./.kopiaignore"},
-			ignoredFiles: []string{
-				"./ignored-by-rule",
-				"./largefile1",
-				"./file1",
-				"./file2",
-				"./file3",
-				"./pkg/",
-				"./pkg/some-pkg",
-			},
+		addedFiles: []string{"./.kopiaignore"},
+		ignoredFiles: []string{
+			"./ignored-by-rule",
+			"./largefile1",
+			"./file1",
+			"./file2",
 		},
-		{
-			desc:   "default policy, have dotignore #3",
-			policy: defaultPolicy,
-			setup: func(root *mockfs.Directory) {
-				root.AddFileLines(".kopiaignore", []string{
-					"pkg",
-					"file*",
-				}, 0)
-			},
-			addedFiles: []string{"./.kopiaignore"},
-			ignoredFiles: []string{
-				"./ignored-by-rule",
-				"./largefile1",
-				"./file1",
-				"./file2",
-				"./file3",
-				"./pkg/",
-				"./pkg/some-pkg",
-			},
+	},
+	{
+		desc:   "default policy, have dotignore #2",
+		policy: defaultPolicy,
+		setup: func(root *mockfs.Directory) {
+			root.AddFileLines(".kopiaignore", []string{
+				"pkg",
+				"file*",
+			}, 0)
 		},
-		{
-			desc:   "default policy, have dotignore #4",
-			policy: defaultPolicy,
-			setup: func(root *mockfs.Directory) {
-				root.AddFileLines(".kopiaignore", []string{
-					"file[12]",
-					"**/some-src",
-					"bin/",
-				}, 0)
-			},
-			addedFiles: []string{"./.kopiaignore"},
-			ignoredFiles: []string{
-				"./ignored-by-rule",
-				"./largefile1",
-				"./file1",
-				"./file2",
-				"./bin/",
-				"./bin/some-bin",
-				"./src/some-src/",
-				"./src/some-src/f1",
-			},
+		addedFiles: []string{"./.kopiaignore"},
+		ignoredFiles: []string{
+			"./ignored-by-rule",
+			"./largefile1",
+			"./file1",
+			"./file2",
+			"./file3",
+			"./pkg/",
+			"./pkg/some-pkg",
 		},
-		{
-			desc:   "two policies, nested policy excludes files",
-			policy: rootAndSrcPolicy,
-			ignoredFiles: []string{
-				"./ignored-by-rule",
-				"./largefile1",
-				"./src/some-src/", // excluded by policy at './src'
-				"./src/some-src/f1",
-			},
+	},
+	{
+		desc:   "default policy, have dotignore #3",
+		policy: defaultPolicy,
+		setup: func(root *mockfs.Directory) {
+			root.AddFileLines(".kopiaignore", []string{
+				"pkg",
+				"file*",
+			}, 0)
 		},
-		{
-			desc: "non-root policy excludes files",
-			setup: func(root *mockfs.Directory) {
-				root.Subdir("src").AddFileLines(".extraignore", []string{
-					"zzz",
-				}, 0)
-				root.Subdir("src").AddFile("yyy", dummyFileContents, 0)
-				root.Subdir("src").AddFile("zzz", dummyFileContents, 0)         // ignored by .extraignore
-				root.Subdir("src").AddFile("another-yyy", dummyFileContents, 0) // ignored by policy rule
-				root.AddFile("zzz", dummyFileContents, 0)                       // not ignored, at parent level
-			},
-			policy: ignorefs.FilesPolicyMap{
-				"./src": &ignorefs.FilesPolicy{
-					IgnoreRules: []string{
-						"some-*",
-						"another-*",
-					},
-					DotIgnoreFiles: []string{
-						".extraignore",
-					},
+		addedFiles: []string{"./.kopiaignore"},
+		ignoredFiles: []string{
+			"./ignored-by-rule",
+			"./largefile1",
+			"./file1",
+			"./file2",
+			"./file3",
+			"./pkg/",
+			"./pkg/some-pkg",
+		},
+	},
+	{
+		desc:   "default policy, have dotignore #4",
+		policy: defaultPolicy,
+		setup: func(root *mockfs.Directory) {
+			root.AddFileLines(".kopiaignore", []string{
+				"file[12]",
+				"**/some-src",
+				"bin/",
+			}, 0)
+		},
+		addedFiles: []string{"./.kopiaignore"},
+		ignoredFiles: []string{
+			"./ignored-by-rule",
+			"./largefile1",
+			"./file1",
+			"./file2",
+			"./bin/",
+			"./bin/some-bin",
+			"./src/some-src/",
+			"./src/some-src/f1",
+		},
+	},
+	{
+		desc:   "two policies, nested policy excludes files",
+		policy: rootAndSrcPolicy,
+		ignoredFiles: []string{
+			"./ignored-by-rule",
+			"./largefile1",
+			"./src/some-src/", // excluded by policy at './src'
+			"./src/some-src/f1",
+		},
+	},
+	{
+		desc: "non-root policy excludes files",
+		setup: func(root *mockfs.Directory) {
+			root.Subdir("src").AddFileLines(".extraignore", []string{
+				"zzz",
+			}, 0)
+			root.Subdir("src").AddFile("yyy", dummyFileContents, 0)
+			root.Subdir("src").AddFile("zzz", dummyFileContents, 0)         // ignored by .extraignore
+			root.Subdir("src").AddFile("another-yyy", dummyFileContents, 0) // ignored by policy rule
+			root.AddFile("zzz", dummyFileContents, 0)                       // not ignored, at parent level
+		},
+		policy: ignorefs.FilesPolicyMap{
+			"./src": &ignorefs.FilesPolicy{
+				IgnoreRules: []string{
+					"some-*",
+					"another-*",
+				},
+				DotIgnoreFiles: []string{
+					".extraignore",
 				},
 			},
-			addedFiles: []string{
-				"./src/.extraignore",
-				"./src/yyy",
-				"./zzz",
-			},
-			ignoredFiles: []string{
-				"./src/some-src/", // excluded by policy at './src'
-				"./src/some-src/f1",
-			},
 		},
-	}
+		addedFiles: []string{
+			"./src/.extraignore",
+			"./src/yyy",
+			"./zzz",
+		},
+		ignoredFiles: []string{
+			"./src/some-src/", // excluded by policy at './src'
+			"./src/some-src/f1",
+		},
+	},
+}
 
+func TestIgnoreFS(t *testing.T) {
 	for _, tc := range cases {
 		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {

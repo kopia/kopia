@@ -140,7 +140,7 @@ func outputManifestGroups(ctx context.Context, rep *repo.Repository, manifests [
 	return nil
 }
 
-//nolint:gocyclo
+//nolint:gocyclo,funlen
 func outputManifestFromSingleSource(ctx context.Context, rep *repo.Repository, manifests []*snapshot.Manifest, parts []string) error {
 	var count int
 	var lastTotalFileSize int64

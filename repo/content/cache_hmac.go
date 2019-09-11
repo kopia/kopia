@@ -1,8 +1,10 @@
 package content
 
-import "crypto/hmac"
-import "crypto/sha256"
-import "errors"
+import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"errors"
+)
 
 func appendHMAC(data, secret []byte) []byte {
 	h := hmac.New(sha256.New, secret)

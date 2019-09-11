@@ -92,6 +92,7 @@ func (e *testenv) cleanup(t *testing.T) {
 	}
 }
 
+//nolint:funlen
 func TestEndToEnd(t *testing.T) {
 	e := newTestEnv(t)
 	defer e.cleanup(t)

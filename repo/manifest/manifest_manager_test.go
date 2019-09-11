@@ -12,6 +12,7 @@ import (
 	"github.com/kopia/kopia/repo/content"
 )
 
+//nolint:funlen
 func TestManifest(t *testing.T) {
 	ctx := context.Background()
 	data := blobtesting.DataMap{}
