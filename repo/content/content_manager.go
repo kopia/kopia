@@ -129,7 +129,7 @@ func (bm *Manager) DeleteContent(contentID ID) error {
 }
 
 // Intentionally passing bi by value.
-// nolint:hugeParam
+// nolint:gocritic
 func (bm *Manager) deletePreexistingContent(ci Info) {
 	if ci.Deleted {
 		return

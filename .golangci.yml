@@ -8,6 +8,9 @@ linters-settings:
           - (github.com/op/go-logging/Logger).Warningf
           - (github.com/op/go-logging/Logger).Errorf
           - (github.com/op/go-logging/Logger).Fatalf
+  funlen:
+    lines: 100
+    statements: 60
   golint:
     min-confidence: 0
   gocyclo:
@@ -54,4 +57,5 @@ issues:
 # golangci.com configuration
 # https://github.com/golangci/golangci/wiki/Configuration
 service:
-  golangci-lint-version: 1.17.x # use the fixed version to not introduce new linters unexpectedly
+  golangci-lint-version: 1.18.0 # use the fixed version to not introduce new linters unexpectedly
+

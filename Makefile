@@ -1,5 +1,5 @@
 COVERAGE_PACKAGES=./repo/...,./fs/...,./snapshot/...
-GOLANGCI_LINT_VERSION=v1.17.1
+GOLANGCI_LINT_VERSION=v1.18.0
 LINTER_TOOL=.tools/bin/golangci-lint
 GOVERALLS_TOOL=.tools/bin/goveralls
 GO_TEST=go test

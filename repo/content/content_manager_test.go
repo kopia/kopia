@@ -741,6 +741,7 @@ func TestDeleteAndRecreate(t *testing.T) {
 	}
 }
 
+// nolint:funlen
 func TestIterateContents(t *testing.T) {
 	ctx := context.Background()
 	data := blobtesting.DataMap{}
