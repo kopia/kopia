@@ -20,17 +20,20 @@ type Queue struct {
 	ProgressCallback func(enqueued, active, completed int64)
 }
 
+// CallbackFunc is a callback function
+type CallbackFunc func() error
+
 // EnqueueFront adds the work to the front of the queue.
-func (v *Queue) EnqueueFront(callback func()) {
+func (v *Queue) EnqueueFront(callback CallbackFunc) {
 	v.enqueue(true, callback)
 }
 
 // EnqueueBack adds the work to the back of the queue.
-func (v *Queue) EnqueueBack(callback func()) {
+func (v *Queue) EnqueueBack(callback CallbackFunc) {
 	v.enqueue(false, callback)
 }
 
-func (v *Queue) enqueue(front bool, callback func()) {
+func (v *Queue) enqueue(front bool, callback CallbackFunc) {
 	v.monitor.L.Lock()
 	defer v.monitor.L.Unlock()
 
@@ -48,8 +51,9 @@ func (v *Queue) enqueue(front bool, callback func()) {
 
 // Process starts N workers, which will be processing elements in the queue until the queue
 // is empty and all workers are idle.
-func (v *Queue) Process(workers int) {
+func (v *Queue) Process(workers int) error {
 	var wg sync.WaitGroup
+	errors := make(chan error, workers)
 
 	for i := 0; i < workers; i++ {
 		wg.Add(1)
@@ -63,16 +67,23 @@ func (v *Queue) Process(workers int) {
 				if callback == nil {
 					break
 				}
-				callback()
+				if err := callback(); err != nil {
+					errors <- err
+					break
+				}
 				v.completed()
 			}
 		}(i)
 	}
 
 	wg.Wait()
+	close(errors)
+
+	// return first error or nil
+	return <-errors
 }
 
-func (v *Queue) dequeue() func() {
+func (v *Queue) dequeue() CallbackFunc {
 	v.monitor.L.Lock()
 	defer v.monitor.L.Unlock()
 
@@ -91,7 +102,7 @@ func (v *Queue) dequeue() func() {
 
 	front := v.queueItems.Front()
 	v.queueItems.Remove(front)
-	return front.Value.(func())
+	return front.Value.(CallbackFunc)
 }
 
 func (v *Queue) completed() {

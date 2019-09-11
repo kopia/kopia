@@ -222,6 +222,65 @@ func TestEndToEnd(t *testing.T) {
 	})
 }
 
+func TestSnapshotGC(t *testing.T) {
+	e := newTestEnv(t)
+	defer e.cleanup(t)
+	defer e.runAndExpectSuccess(t, "repo", "disconnect")
+
+	e.runAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.repoDir)
+
+	expectedContentCount := len(e.runAndExpectSuccess(t, "content", "list"))
+
+	dataDir := filepath.Join(e.dataDir, "dir1")
+	assertNoError(t, os.MkdirAll(dataDir, 0777))
+	assertNoError(t, ioutil.WriteFile(filepath.Join(dataDir, "some-file1"), []byte(`
+hello world
+how are you
+`), 0600))
+
+	// take a snapshot of a directory with 1 file
+	e.runAndExpectSuccess(t, "snap", "create", dataDir)
+
+	// data block + directory block + manifest block
+	expectedContentCount += 3
+	e.runAndVerifyOutputLineCount(t, expectedContentCount, "content", "list")
+
+	// now delete all manifests, making the content unreachable
+	for _, line := range e.runAndExpectSuccess(t, "snap", "list", "-m") {
+		p := strings.Index(line, "manifest:")
+		if p >= 0 {
+			manifestID := strings.TrimPrefix(strings.Split(line[p:], " ")[0], "manifest:")
+			t.Logf("manifestID: %v", manifestID)
+			e.runAndExpectSuccess(t, "manifest", "rm", manifestID)
+		}
+	}
+
+	// deletion of manifests creates a new manifest
+	expectedContentCount++
+
+	// run verification
+	e.runAndExpectSuccess(t, "snapshot", "verify", "--all-sources")
+
+	// garbage-collect in dry run mode
+	e.runAndExpectSuccess(t, "snapshot", "gc")
+
+	// data block + directory block + manifest block + manifest block from manifest deletion
+	e.runAndVerifyOutputLineCount(t, expectedContentCount, "content", "list")
+
+	// garbage-collect for real, but contents are too recent so won't be deleted
+	e.runAndExpectSuccess(t, "snapshot", "gc", "--delete")
+
+	// data block + directory block + manifest block + manifest block from manifest deletion
+	e.runAndVerifyOutputLineCount(t, expectedContentCount, "content", "list")
+
+	// garbage-collect for real, this time without age limit
+	e.runAndExpectSuccess(t, "snapshot", "gc", "--delete", "--min-age", "0s")
+
+	// two contents are deleted
+	expectedContentCount -= 2
+	e.runAndVerifyOutputLineCount(t, expectedContentCount, "content", "list")
+}
+
 func TestDiff(t *testing.T) {
 	e := newTestEnv(t)
 	defer e.cleanup(t)
