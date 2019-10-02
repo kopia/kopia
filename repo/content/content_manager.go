@@ -155,6 +155,9 @@ func (bm *Manager) addToPackUnlocked(ctx context.Context, contentID ID, data []b
 
 	// see if we have any packs that have failed previously
 	// retry writing them now.
+	//
+	// we're making a copy of bm.failedPacks since bm.writePackAndAddToIndex()
+	// will remove from it on success.
 	fp := append([]*pendingPackInfo(nil), bm.failedPacks...)
 	for _, pp := range fp {
 		if err := bm.writePackAndAddToIndex(ctx, pp, true); err != nil {
@@ -165,6 +168,7 @@ func (bm *Manager) addToPackUnlocked(ctx context.Context, contentID ID, data []b
 
 	if bm.timeNow().After(bm.flushPackIndexesAfter) {
 		if err := bm.flushPackIndexesLocked(ctx); err != nil {
+			bm.unlock()
 			return err
 		}
 	}
