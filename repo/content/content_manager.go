@@ -70,6 +70,7 @@ type Manager struct {
 
 	pendingPacks     map[blob.ID]*pendingPackInfo
 	writingPacks     []*pendingPackInfo // list of packs that are being written
+	failedPacks      []*pendingPackInfo // list of packs that failed to write, will be retried
 	packIndexBuilder packIndexBuilder   // contents that are in index currently being built (all packs saved but not committed)
 
 	disableIndexFlushCount int
@@ -152,8 +153,22 @@ func (bm *Manager) addToPackUnlocked(ctx context.Context, contentID ID, data []b
 		bm.cond.Wait()
 	}
 
+	// see if we have any packs that have failed previously
+	// retry writing them now.
+	//
+	// we're making a copy of bm.failedPacks since bm.writePackAndAddToIndex()
+	// will remove from it on success.
+	fp := append([]*pendingPackInfo(nil), bm.failedPacks...)
+	for _, pp := range fp {
+		if err := bm.writePackAndAddToIndex(ctx, pp, true); err != nil {
+			bm.unlock()
+			return errors.Wrap(err, "error writing previously failed pack")
+		}
+	}
+
 	if bm.timeNow().After(bm.flushPackIndexesAfter) {
 		if err := bm.flushPackIndexesLocked(ctx); err != nil {
+			bm.unlock()
 			return err
 		}
 	}
@@ -298,41 +313,54 @@ func (bm *Manager) finishAllPacksLocked(ctx context.Context) error {
 	return nil
 }
 
-func (bm *Manager) writePackAndAddToIndex(ctx context.Context, pp *pendingPackInfo, lockHeld bool) error {
+func (bm *Manager) writePackAndAddToIndex(ctx context.Context, pp *pendingPackInfo, holdingLock bool) error {
+	packFileIndex, err := bm.prepareAndWritePackInternal(ctx, pp)
+
+	if !holdingLock {
+		bm.lock()
+		defer func() {
+			bm.cond.Broadcast()
+			bm.unlock()
+		}()
+	}
+
+	// after finishing writing, remove from both writingPacks and failedPacks
+	bm.writingPacks = removePendingPack(bm.writingPacks, pp)
+	bm.failedPacks = removePendingPack(bm.failedPacks, pp)
+
+	if err == nil {
+		// success, add pack index builder entries to index.
+		for _, info := range packFileIndex {
+			bm.packIndexBuilder.Add(*info)
+		}
+		return nil
+	}
+
+	// failure - add to failedPacks slice again
+	bm.failedPacks = append(bm.failedPacks, pp)
+	return errors.Wrap(err, "error writing pack")
+}
+
+func (bm *Manager) prepareAndWritePackInternal(ctx context.Context, pp *pendingPackInfo) (packIndexBuilder, error) {
 	contentID := make([]byte, 16)
 	if _, err := cryptorand.Read(contentID); err != nil {
-		return errors.Wrap(err, "unable to read crypto bytes")
+		return nil, errors.Wrap(err, "unable to read crypto bytes")
 	}
 
 	packFile := blob.ID(fmt.Sprintf("%v%x", pp.prefix, contentID))
 	contentData, packFileIndex, err := bm.preparePackDataContent(ctx, pp, packFile)
 	if err != nil {
-		return errors.Wrap(err, "error preparing data content")
+		return nil, errors.Wrap(err, "error preparing data content")
 	}
 
 	if len(contentData) > 0 {
 		if err := bm.writePackFileNotLocked(ctx, packFile, contentData); err != nil {
-			return errors.Wrap(err, "can't save pack data content")
+			return nil, errors.Wrap(err, "can't save pack data content")
 		}
 		formatLog.Debugf("wrote pack file: %v (%v bytes)", packFile, len(contentData))
 	}
 
-	// after the file has been writte, add pack index builder entries to index.
-	if !lockHeld {
-		bm.lock()
-	}
-
-	bm.writingPacks = removePendingPack(bm.writingPacks, pp)
-	for _, info := range packFileIndex {
-		bm.packIndexBuilder.Add(*info)
-	}
-
-	if !lockHeld {
-		// we changed the in-flight packs, notify all waiting on the condition variable
-		bm.cond.Broadcast()
-		bm.unlock()
-	}
-	return nil
+	return packFileIndex, nil
 }
 
 func removePendingPack(slice []*pendingPackInfo, pp *pendingPackInfo) []*pendingPackInfo {

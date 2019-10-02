@@ -25,6 +25,7 @@ import (
 
 const (
 	maxPackSize = 2000
+	maxRetries  = 100
 )
 
 var fakeTime = time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -570,6 +571,84 @@ func verifyAllDataPresent(t *testing.T, data map[blob.ID][]byte, contentIDs map[
 	})
 	if len(contentIDs) != 0 {
 		t.Errorf("some blocks not written: %v", contentIDs)
+	}
+}
+
+func TestHandleWriteErrors(t *testing.T) {
+	ctx := context.Background()
+
+	// genFaults(S0,F0,S1,F1,...,) generates a list of faults
+	// where success is returned Sn times followed by failure returned Fn times
+	genFaults := func(counts ...int) []*blobtesting.Fault {
+		var result []*blobtesting.Fault
+
+		for i, cnt := range counts {
+			if i%2 == 0 {
+				result = append(result, &blobtesting.Fault{
+					Repeat: cnt - 1,
+				})
+			} else {
+				result = append(result, &blobtesting.Fault{
+					Repeat: cnt - 1,
+					Err:    errors.Errorf("some write error"),
+				})
+			}
+		}
+		return result
+	}
+
+	// simulate a stream of PutBlob failures, write some contents followed by flush
+	// count how many times we retried writes/flushes
+	// also, verify that all the data is durable
+	cases := []struct {
+		faults               []*blobtesting.Fault // failures to similuate
+		numContents          int                  // how many contents to write
+		contentSize          int                  // size of each content
+		expectedFlushRetries int
+		expectedWriteRetries int
+	}{
+		{faults: genFaults(0, 10, 10, 10, 10, 10, 10, 10, 10, 10), numContents: 5, contentSize: maxPackSize, expectedWriteRetries: 10, expectedFlushRetries: 0},
+		{faults: genFaults(1, 2), numContents: 1, contentSize: maxPackSize, expectedWriteRetries: 0, expectedFlushRetries: 2},
+		{faults: genFaults(1, 2), numContents: 10, contentSize: maxPackSize, expectedWriteRetries: 2, expectedFlushRetries: 0},
+		// 2 failures, 2 successes (pack blobs), 1 failure (flush), 1 success (flush)
+		{faults: genFaults(0, 2, 2, 1, 1, 1, 1), numContents: 2, contentSize: maxPackSize, expectedWriteRetries: 2, expectedFlushRetries: 1},
+		{faults: genFaults(0, 2, 2, 1, 1, 1, 1), numContents: 4, contentSize: maxPackSize / 2, expectedWriteRetries: 2, expectedFlushRetries: 1},
+	}
+
+	for n, tc := range cases {
+		tc := tc
+		t.Run(fmt.Sprintf("case-%v", n), func(t *testing.T) {
+			data := blobtesting.DataMap{}
+			keyTime := map[blob.ID]time.Time{}
+			st := blobtesting.NewMapStorage(data, keyTime, nil)
+
+			// set up fake storage that is slow at PutBlob causing writes to be piling up
+			fs := &blobtesting.FaultyStorage{
+				Base: st,
+				Faults: map[string][]*blobtesting.Fault{
+					"PutBlob": tc.faults,
+				},
+			}
+
+			bm := newTestContentManagerWithStorage(fs, nil)
+			writeRetries := 0
+			var cids []ID
+			for i := 0; i < tc.numContents; i++ {
+				cid, retries := writeContentWithRetriesAndVerify(ctx, t, bm, seededRandomData(i, tc.contentSize))
+				writeRetries += retries
+				cids = append(cids, cid)
+			}
+			if got, want := flushWithRetries(ctx, t, bm), tc.expectedFlushRetries; got != want {
+				t.Errorf("invalid # of flush retries %v, wanted %v", got, want)
+			}
+			if got, want := writeRetries, tc.expectedWriteRetries; got != want {
+				t.Errorf("invalid # of write retries %v, wanted %v", got, want)
+			}
+			bm2 := newTestContentManagerWithStorage(st, nil)
+			for i, cid := range cids {
+				verifyContent(ctx, t, bm2, cid, seededRandomData(i, tc.contentSize))
+			}
+		})
 	}
 }
 
@@ -1192,6 +1271,45 @@ func writeContentAndVerify(ctx context.Context, t *testing.T, bm *Manager, b []b
 	verifyContent(ctx, t, bm, contentID, b)
 
 	return contentID
+}
+func flushWithRetries(ctx context.Context, t *testing.T, bm *Manager) int {
+	t.Helper()
+
+	var retryCount int
+
+	err := bm.Flush(ctx)
+	for i := 0; err != nil && i < maxRetries; i++ {
+		log.Warningf("flush failed %v, retrying", err)
+		err = bm.Flush(ctx)
+		retryCount++
+	}
+
+	if err != nil {
+		t.Errorf("err: %v", err)
+	}
+	return retryCount
+}
+
+func writeContentWithRetriesAndVerify(ctx context.Context, t *testing.T, bm *Manager, b []byte) (contentID ID, retryCount int) {
+	t.Helper()
+
+	contentID, err := bm.WriteContent(ctx, b, "")
+	for i := 0; err != nil && i < maxRetries; i++ {
+		retryCount++
+		log.Warningf("WriteContent failed %v, retrying", err)
+		contentID, err = bm.WriteContent(ctx, b, "")
+	}
+	if err != nil {
+		t.Errorf("err: %v", err)
+	}
+
+	if got, want := contentID, ID(hashValue(b)); got != want {
+		t.Errorf("invalid content ID for %x, got %v, want %v", b, got, want)
+	}
+
+	verifyContent(ctx, t, bm, contentID, b)
+
+	return contentID, retryCount
 }
 
 func seededRandomData(seed, length int) []byte {
