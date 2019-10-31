@@ -7,7 +7,7 @@ import "github.com/pkg/profile"
 var (
 	profileDir      = app.Flag("profile-dir", "Write profile to the specified directory").Hidden().String()
 	profileCPU      = app.Flag("profile-cpu", "Enable CPU profiling").Hidden().Bool()
-	profileMemory   = app.Flag("profile-memory", "Enable memory profiling").Hidden().Bool()
+	profileMemory   = app.Flag("profile-memory", "Enable memory profiling").Hidden().Int()
 	profileBlocking = app.Flag("profile-blocking", "Enable block profiling").Hidden().Bool()
 	profileMutex    = app.Flag("profile-mutex", "Enable mutex profiling").Hidden().Bool()
 )
@@ -15,24 +15,19 @@ var (
 // withProfiling runs the given callback with profiling enabled, configured according to command line flags
 func withProfiling(callback func() error) error {
 	if *profileDir != "" {
-		profileOpts := []func(*profile.Profile){
-			profile.ProfilePath(*profileDir),
-		}
-
-		if *profileMemory {
-			profileOpts = append(profileOpts, profile.MemProfile)
+		pp := profile.ProfilePath(*profileDir)
+		if *profileMemory > 0 {
+			defer profile.Start(pp, profile.MemProfileRate(*profileMemory)).Stop()
 		}
 		if *profileCPU {
-			profileOpts = append(profileOpts, profile.CPUProfile)
+			defer profile.Start(pp, profile.CPUProfile).Stop()
 		}
 		if *profileBlocking {
-			profileOpts = append(profileOpts, profile.BlockProfile)
+			defer profile.Start(pp, profile.BlockProfile).Stop()
 		}
 		if *profileMutex {
-			profileOpts = append(profileOpts, profile.MutexProfile)
+			defer profile.Start(pp, profile.MutexProfile).Stop()
 		}
-
-		defer profile.Start(profileOpts...).Stop()
 	}
 
 	return callback()

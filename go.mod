@@ -19,6 +19,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
 	github.com/pkg/errors v0.8.1
+	github.com/pkg/profile v1.3.0
 	github.com/pkg/sftp v1.10.1
 	github.com/skratchdot/open-golang v0.0.0-20190402232053-79abb63cd66e
 	github.com/studio-b12/gowebdav v0.0.0-20190103184047-38f79aeaf1ac
