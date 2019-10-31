@@ -51,6 +51,7 @@ type formatBlob struct {
 * `keyAlgo` identifies the password-based key derivation function (PBKDF). Only _scrypt_ with the currently recommended cost parameters (N=65536, r=8, p=1) is supported at the moment. The main purpose of this field is to be able to change and extend the key derivation algorithm in the future. For example, by increasing the cost parameters for _scrypt_ or using a different algorithm altogether.
 * `encryption` identifies the encryption algorithm that was used to encrypt the encryptedBlockFormat field.
 * `encryptedBlockFormat` is a ciphertext containing among others, the encryption secrets and parameters used for encrypting the repository content. Below is additional information about its plaintext content and how it is encrypted.
+* Alternatively, the unencrypted block format parameters can be specified in the the `blockFormat` field.
 
 The `formatBlob.encryptedBlockFormat` field is the result of encrypting a JSON-serialized version of the `encryptedRepositoryConfig` struct shown below. The plaintext version contains the parameters for performing block chunking, as well as for encrypting and authenticating "content" objects.
 
