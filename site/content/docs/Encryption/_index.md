@@ -4,11 +4,11 @@ linkTitle: "Encryption"
 weight: 4
 ---
 
+### Format Blob Encryption
+
 Kopia uses a standard envelope encryption technique to de-couple the repository passphrase from the keys used for encrypting and authenticating the contents of the repository.
 
 Each repository has a format blob containing configuration parameters for the repository. The format blob itself is serialized and persistent as JSON, such as the one below.
-
-not a good random initial value
 
 ```json
 {
