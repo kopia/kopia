@@ -9,7 +9,6 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/parallelwork"
-	"github.com/kopia/kopia/repo/object"
 )
 
 // TreeWalker holds information for concurrently walking down FS trees specified
@@ -17,17 +16,13 @@ import (
 type TreeWalker struct {
 	Parallelism    int
 	RootEntries    []fs.Entry
-	ObjectCallback func(oid object.ID) error
+	ObjectCallback func(entry fs.Entry) error
 	// EntryID extracts or generates an id from an fs.Entry.
 	// It can be used to eliminate duplicate entries when in a FS
 	EntryID func(entry fs.Entry) interface{}
 
 	enqueued sync.Map
 	queue    *parallelwork.Queue
-}
-
-func oidOf(entry fs.Entry) object.ID {
-	return entry.(object.HasObjectID).ObjectID()
 }
 
 func (w *TreeWalker) enqueueEntry(ctx context.Context, entry fs.Entry) {
@@ -40,7 +35,7 @@ func (w *TreeWalker) enqueueEntry(ctx context.Context, entry fs.Entry) {
 }
 
 func (w *TreeWalker) processEntry(ctx context.Context, entry fs.Entry) error {
-	err := w.ObjectCallback(oidOf(entry))
+	err := w.ObjectCallback(entry)
 	if err != nil {
 		return err
 	}
