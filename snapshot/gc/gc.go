@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
@@ -20,9 +21,11 @@ import (
 
 var log = kopialogging.Logger("kopia/snapshot/gc")
 
-func findInUseContentIDs(ctx context.Context, rep *repo.Repository, used *sync.Map) error {
-	w := snapshotfs.NewTreeWalker()
+func oidOf(entry fs.Entry) object.ID {
+	return entry.(object.HasObjectID).ObjectID()
+}
 
+func findInUseContentIDs(ctx context.Context, rep *repo.Repository, used *sync.Map) error {
 	ids, err := snapshot.ListSnapshotManifests(ctx, rep, nil)
 	if err != nil {
 		return errors.Wrap(err, "unable to list snapshot manifest IDs")
@@ -33,6 +36,8 @@ func findInUseContentIDs(ctx context.Context, rep *repo.Repository, used *sync.M
 		return errors.Wrap(err, "unable to load manifest IDs")
 	}
 
+	w := snapshotfs.NewTreeWalker()
+	w.EntryID = func(e fs.Entry) interface{} { return oidOf(e) }
 	for _, m := range manifests {
 		root, err := snapshotfs.SnapshotRoot(rep, m)
 		if err != nil {
