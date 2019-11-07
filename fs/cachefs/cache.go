@@ -118,6 +118,7 @@ func (c *Cache) getEntries(ctx context.Context, id string, expirationTime time.D
 	}
 
 	c.mu.Lock()
+	defer c.mu.Unlock()
 	if entries := c.getEntriesFromCache(id); entries != nil {
 		return entries, nil
 	}
@@ -132,7 +133,6 @@ func (c *Cache) getEntries(ctx context.Context, id string, expirationTime time.D
 
 	if len(raw) > c.maxDirectoryEntries {
 		// no point caching since it would not fit anyway, just return it.
-		c.mu.Unlock()
 		return raw, nil
 	}
 
@@ -148,8 +148,6 @@ func (c *Cache) getEntries(ctx context.Context, id string, expirationTime time.D
 	for c.totalDirectoryEntries > c.maxDirectoryEntries || len(c.data) > c.maxDirectories {
 		c.removeEntryLocked(c.tail)
 	}
-
-	c.mu.Unlock()
 
 	return raw, nil
 }
