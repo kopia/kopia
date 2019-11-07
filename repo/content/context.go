@@ -4,8 +4,10 @@ import "context"
 
 type contextKey string
 
-var useContentCacheContextKey contextKey = "use-content-cache"
-var useListCacheContextKey contextKey = "use-list-cache"
+const (
+	useContentCacheContextKey contextKey = "use-content-cache"
+	useListCacheContextKey    contextKey = "use-list-cache"
+)
 
 // UsingContentCache returns a derived context that causes content manager to use cache.
 func UsingContentCache(ctx context.Context, enabled bool) context.Context {
