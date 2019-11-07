@@ -23,13 +23,12 @@ var log = repologging.Logger("repo/filesystem")
 const (
 	fsStorageType        = "filesystem"
 	fsStorageChunkSuffix = ".f"
-)
 
-var (
-	fsDefaultShards               = []int{3, 3}
 	fsDefaultFileMode os.FileMode = 0600
 	fsDefaultDirMode  os.FileMode = 0700
 )
+
+var fsDefaultShards = []int{3, 3}
 
 type fsStorage struct {
 	sharded.Storage

@@ -10,7 +10,7 @@ import (
 	"github.com/kopia/kopia/snapshot"
 )
 
-var directoryStreamType = "kopia:directory"
+const directoryStreamType = "kopia:directory"
 
 // readDirEntries reads all directory entries from the specified reader.
 func readDirEntries(r io.Reader) ([]*snapshot.DirEntry, *fs.DirectorySummary, error) {
