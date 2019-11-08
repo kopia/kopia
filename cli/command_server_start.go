@@ -16,6 +16,7 @@ var (
 
 	serverStartCommand  = serverCommands.Command("start", "Start Kopia server").Default()
 	serverStartHTMLPath = serverStartCommand.Flag("html", "Server the provided HTML at the root URL").ExistingDir()
+	serverStartUI       = serverStartCommand.Flag("ui", "Start the server with HTML UI (EXPERIMENTAL)").Bool()
 )
 
 func init() {
@@ -36,6 +37,8 @@ func runServer(ctx context.Context, rep *repo.Repository) error {
 	if *serverStartHTMLPath != "" {
 		fileServer := http.FileServer(http.Dir(*serverStartHTMLPath))
 		http.Handle("/", fileServer)
+	} else if *serverStartUI {
+		http.Handle("/", http.FileServer(server.AssetFile()))
 	}
 	return http.ListenAndServe(*serverAddress, nil)
 }

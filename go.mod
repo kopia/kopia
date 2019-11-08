@@ -12,6 +12,7 @@ require (
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/danieljoos/wincred v1.0.2 // indirect
 	github.com/efarrer/iothrottler v0.0.1
+	github.com/go-bindata/go-bindata v3.1.2+incompatible // indirect
 	github.com/go-ini/ini v1.46.0 // indirect
 	github.com/godbus/dbus v4.1.0+incompatible // indirect
 	github.com/kylelemons/godebug v1.1.0
