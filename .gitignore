@@ -16,3 +16,4 @@ Makefile.local.mk
 test_service_account.json
 id_kopia
 known_hosts
+node_modules/

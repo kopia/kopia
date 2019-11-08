@@ -1,7 +1,7 @@
 Kopia
 =====
 
-![Kopia](kopia.svg)
+![Kopia](icons/kopia.svg)
 [![Linux/macOS Build Status](https://travis-ci.org/kopia/kopia.svg?branch=master)](https://travis-ci.org/kopia/kopia)
 [![GoDoc](https://godoc.org/github.com/kopia/kopia/repo?status.svg)](https://godoc.org/github.com/kopia/kopia/repo)
 [![Coverage Status](https://coveralls.io/repos/github/kopia/kopia/badge.svg?branch=master)](https://coveralls.io/github/kopia/kopia?branch=master)
@@ -18,11 +18,6 @@ Kopia
 Kopia is a simple, cross-platform tool for managing encrypted backups in the cloud. It provides fast, incremental backups, secure, client-side encryption and data deduplication.
 
 Unlike other cloud backup solutions, the user in full control of backup storage and is responsible for purchasing one of the cloud storage products  (such as [Google Cloud Storage](https://cloud.google.com/storage/)), which offer great durability and availability for your data.
-
-> **NOTICE**:
->
-> Kopia is still in early stages of development and is **not ready for general use**.
-> The repository data format is subject to change, including backwards-incompatible changes. Use at your own risk.
 
 Getting Started
 ---
