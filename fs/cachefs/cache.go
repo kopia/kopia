@@ -93,7 +93,6 @@ func (c *Cache) getEntriesFromCache(id string) fs.Entries {
 	if v, ok := c.data[id]; id != "" && ok {
 		if time.Now().Before(v.expireAfter) {
 			c.moveToHead(v)
-			c.mu.Unlock()
 			if c.debug {
 				log.Debugf("cache hit for %q (valid until %v)", id, v.expireAfter)
 			}
