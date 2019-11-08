@@ -89,7 +89,7 @@ func (c *Cache) Readdir(ctx context.Context, d fs.Directory) (fs.Entries, error)
 	return d.Readdir(ctx)
 }
 
-func (c *Cache) getEntriesFromCache(id string) fs.Entries {
+func (c *Cache) getEntriesFromCacheLocked(id string) fs.Entries {
 	if v, ok := c.data[id]; id != "" && ok {
 		if time.Now().Before(v.expireAfter) {
 			c.moveToHead(v)
@@ -118,7 +118,7 @@ func (c *Cache) getEntries(ctx context.Context, id string, expirationTime time.D
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if entries := c.getEntriesFromCache(id); entries != nil {
+	if entries := c.getEntriesFromCacheLocked(id); entries != nil {
 		return entries, nil
 	}
 
