@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/kopia/kopia/fs"
@@ -70,7 +69,7 @@ func sourceMatchesURLFilter(src snapshot.SourceInfo, query url.Values) bool {
 	if v := query.Get("userName"); v != "" && src.UserName != v {
 		return false
 	}
-	if v := query.Get("path"); v != "" && !strings.Contains(src.Path, v) {
+	if v := query.Get("path"); v != "" && src.Path != v {
 		return false
 	}
 

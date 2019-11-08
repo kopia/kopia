@@ -1,11 +1,7 @@
 COVERAGE_PACKAGES=./repo/...,./fs/...,./snapshot/...
-GOLANGCI_LINT_VERSION=v1.18.0
-LINTER_TOOL=.tools/bin/golangci-lint
-GOVERALLS_TOOL=.tools/bin/goveralls
 GO_TEST=go test
-NODE_VERSION=12.13.0
-TOOLS_DIR=$(CURDIR)/.tools
-NPM_TOOL=$(TOOLS_DIR)/nodejs/node/bin/npm
+
+include tools/tools.mk
 
 -include ./Makefile.local.mk
 
@@ -43,19 +39,20 @@ build-linux-arm64:
 
 build-all: build-linux-amd64 build-windows-amd64 build-darwin-amd64 build-linux-arm build-linux-arm64
 
-$(LINTER_TOOL):
-	mkdir -p .tools
-	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b .tools/bin/ $(GOLANGCI_LINT_VERSION)
-
-$(GOVERALLS_TOOL):
-	mkdir -p .tools
-	GO111MODULE=off GOPATH=$(CURDIR)/.tools go get github.com/mattn/goveralls
-
 travis-setup: travis-install-gpg-key travis-install-test-credentials
 	go mod download
 
 website:
-	$(MAKE) -C site
+	$(MAKE) -C site build
+
+html-ui:
+	$(MAKE) -C htmlui build-html
+
+html-ui-bindata: html-ui $(BINDATA_TOOL)
+	(cd htmlui/build && $(BINDATA_TOOL) -fs -tags embedhtml -o "$(CURDIR)/internal/server/htmlui_bindata.go" -pkg server -ignore '.map' . static/css static/js static/media)
+
+html-ui-bindata-fallback: $(BINDATA_TOOL)
+	(cd internal/server && $(BINDATA_TOOL) -fs -tags !embedhtml -o "$(CURDIR)/internal/server/htmlui_fallback.go" -pkg server index.html)
 
 travis-release: test-with-coverage lint vet verify-release integration-tests upload-coverage website stress-test
 
@@ -169,14 +166,4 @@ travis-create-long-term-repository:
 
 endif
 
-site/node_modules: install-webtools
 
-install-webtools:
-	mkdir -p $(TOOLS_DIR)/nodejs
-
-ifeq ($(uname),Linux)
-	curl -LsS https://nodejs.org/dist/v$(NODE_VERSION)/node-v$(NODE_VERSION)-linux-x64.tar.gz | tar zx -C $(TOOLS_DIR)/nodejs
-else
-	curl -LsS https://nodejs.org/dist/v$(NODE_VERSION)/node-v$(NODE_VERSION)-darwin-x64.tar.gz | tar zx -C $(TOOLS_DIR)/nodejs
-endif
-	mv $(TOOLS_DIR)/nodejs/node-v$(NODE_VERSION)* $(TOOLS_DIR)/nodejs/node/
