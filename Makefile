@@ -3,6 +3,9 @@ GOLANGCI_LINT_VERSION=v1.18.0
 LINTER_TOOL=.tools/bin/golangci-lint
 GOVERALLS_TOOL=.tools/bin/goveralls
 GO_TEST=go test
+NODE_VERSION=12.13.0
+TOOLS_DIR=$(CURDIR)/.tools
+NPM_TOOL=$(TOOLS_DIR)/nodejs/node/bin/npm
 
 -include ./Makefile.local.mk
 
@@ -165,3 +168,15 @@ travis-create-long-term-repository:
 	echo Not creating long-term repository.
 
 endif
+
+site/node_modules: install-webtools
+
+install-webtools:
+	mkdir -p $(TOOLS_DIR)/nodejs
+
+ifeq ($(uname),Linux)
+	curl -LsS https://nodejs.org/dist/v$(NODE_VERSION)/node-v$(NODE_VERSION)-linux-x64.tar.gz | tar zx -C $(TOOLS_DIR)/nodejs
+else
+	curl -LsS https://nodejs.org/dist/v$(NODE_VERSION)/node-v$(NODE_VERSION)-darwin-x64.tar.gz | tar zx -C $(TOOLS_DIR)/nodejs
+endif
+	mv $(TOOLS_DIR)/nodejs/node-v$(NODE_VERSION)* $(TOOLS_DIR)/nodejs/node/
