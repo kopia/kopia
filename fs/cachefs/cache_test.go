@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -119,6 +121,25 @@ func (cv *cacheVerifier) reset() {
 	}
 }
 
+type lockState struct {
+	l      sync.Locker
+	locked int32
+}
+
+func (ls *lockState) Lock() {
+	ls.l.Lock()
+	atomic.AddInt32(&ls.locked, 1)
+}
+
+func (ls *lockState) Unlock() {
+	atomic.AddInt32(&ls.locked, -1)
+	ls.l.Unlock()
+}
+
+func (ls *lockState) Unlocked() bool {
+	return atomic.LoadInt32(&ls.locked) == 0
+}
+
 func TestCache(t *testing.T) {
 	ctx := context.Background()
 	c := NewCache(&Options{
@@ -202,4 +223,50 @@ func TestCache(t *testing.T) {
 	_, _ = c.getEntries(ctx, id7, expirationTime, cs.get(id7))
 	cv.verifyCacheMiss(t, id7)
 	cv.verifyCacheOrdering(t, id6)
+}
+
+// Simple test for getEntries() locking/unlocking. Related to PRs #130 and #132
+func TestCacheGetEntriesLocking(t *testing.T) {
+	ctx := context.Background()
+	c := NewCache(&Options{
+		MaxCachedDirectories: 4,
+		MaxCachedEntries:     100,
+	})
+	lock := &lockState{l: c.mu}
+	c.mu = lock // allow checking the lock state below
+
+	if len(c.data) != 0 || c.totalDirectoryEntries != 0 || c.head != nil || c.tail != nil {
+		t.Errorf("invalid initial state: %v %v %v %v", c.data, c.totalDirectoryEntries, c.head, c.tail)
+	}
+
+	cs := newCacheSource()
+	cv := cacheVerifier{cacheSource: cs, cache: c}
+	const id1 = "1"
+	cs.setEntryCount(id1, 1)
+
+	// fetch non-existing entry, the loader will return an error
+	actualEs, err := c.getEntries(ctx, id1, expirationTime, cs.get("foo"))
+	if err == nil {
+		t.Fatal("Expected non-nil error when retrieving non-existing cache entry")
+	}
+	const expectedEsLength = 0
+	actualEsLength := len(actualEs)
+	if actualEsLength != expectedEsLength {
+		t.Fatal("Expected empty entries, got: ", actualEsLength)
+	}
+	// cache must be unlocked at this point: See #130
+	if !lock.Unlocked() {
+		t.Fatal("Cache is locked after returning from getEntries")
+	}
+
+	// fetch id1
+	_, _ = c.getEntries(ctx, id1, expirationTime, cs.get(id1))
+	cv.verifyCacheMiss(t, id1)
+	// fetch id1 again - cache hit, no change
+	_, _ = c.getEntries(ctx, id1, expirationTime, cs.get(id1))
+	cv.verifyCacheHit(t, id1)
+	// cache must be unlocked and there should be no double unlock: See #132
+	if !lock.Unlocked() {
+		t.Fatal("Cache is locked after returning from getEntries")
+	}
 }
