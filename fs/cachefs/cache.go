@@ -23,7 +23,7 @@ type cacheEntry struct {
 
 // Cache maintains in-memory cache of recently-read data to speed up filesystem operations.
 type Cache struct {
-	mu sync.Mutex
+	mu sync.Locker
 
 	totalDirectoryEntries int
 	maxDirectories        int
@@ -175,6 +175,7 @@ func NewCache(options *Options) *Cache {
 	}
 
 	return &Cache{
+		mu:                  &sync.Mutex{},
 		data:                make(map[string]*cacheEntry),
 		maxDirectories:      options.MaxCachedDirectories,
 		maxDirectoryEntries: options.MaxCachedEntries,
