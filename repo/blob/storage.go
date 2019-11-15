@@ -9,9 +9,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-// CancelFunc requests cancellation of a storage operation.
-type CancelFunc func()
-
 // Storage encapsulates API for connecting to blob storage.
 //
 // The underlying storage system must provide:
