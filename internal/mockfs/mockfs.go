@@ -227,6 +227,7 @@ func NewDirectory() *Directory {
 	return &Directory{
 		entry: entry{
 			name: "<root>",
+			mode: 0777 | os.ModeDir,
 		},
 	}
 }
