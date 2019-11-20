@@ -8,7 +8,6 @@ require (
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 // indirect
 	github.com/alecthomas/units v0.0.0-20190717042225-c3de453c63f4 // indirect
 	github.com/bgentry/speakeasy v0.1.0
-	github.com/bmizerany/pat v0.0.0-20170815010413-6226ea591a40
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/danieljoos/wincred v1.0.2 // indirect
 	github.com/efarrer/iothrottler v0.0.1

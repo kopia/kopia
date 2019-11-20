@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"sync"
 
-	"github.com/bmizerany/pat"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/kopialogging"
@@ -30,24 +29,29 @@ type Server struct {
 
 // APIHandlers handles API requests.
 func (s *Server) APIHandlers() http.Handler {
-	p := pat.New()
-	p.Get("/api/v1/status", s.handleAPI(s.handleStatus))
-	p.Get("/api/v1/sources", s.handleAPI(s.handleSourcesList))
-	p.Get("/api/v1/snapshots", s.handleAPI(s.handleSourceSnapshotList))
-	p.Get("/api/v1/policies", s.handleAPI(s.handlePolicyList))
-	p.Post("/api/v1/refresh", s.handleAPI(s.handleRefresh))
-	p.Post("/api/v1/flush", s.handleAPI(s.handleFlush))
-	p.Post("/api/v1/sources/pause", s.handleAPI(s.handlePause))
-	p.Post("/api/v1/sources/resume", s.handleAPI(s.handleResume))
-	p.Post("/api/v1/sources/upload", s.handleAPI(s.handleUpload))
-	p.Post("/api/v1/sources/cancel", s.handleAPI(s.handleCancel))
-	return p
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/status", s.handleAPI(s.handleStatus, "GET"))
+	mux.HandleFunc("/api/v1/sources", s.handleAPI(s.handleSourcesList, "GET"))
+	mux.HandleFunc("/api/v1/snapshots", s.handleAPI(s.handleSourceSnapshotList, "GET"))
+	mux.HandleFunc("/api/v1/policies", s.handleAPI(s.handlePolicyList, "GET"))
+	mux.HandleFunc("/api/v1/refresh", s.handleAPI(s.handleRefresh, "POST"))
+	mux.HandleFunc("/api/v1/flush", s.handleAPI(s.handleFlush, "POST"))
+	mux.HandleFunc("/api/v1/sources/pause", s.handleAPI(s.handlePause, "POST"))
+	mux.HandleFunc("/api/v1/sources/resume", s.handleAPI(s.handleResume, "POST"))
+	mux.HandleFunc("/api/v1/sources/upload", s.handleAPI(s.handleUpload, "POST"))
+	mux.HandleFunc("/api/v1/sources/cancel", s.handleAPI(s.handleCancel, "POST"))
+	return mux
 }
 
-func (s *Server) handleAPI(f func(ctx context.Context, r *http.Request) (interface{}, *apiError)) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleAPI(f func(ctx context.Context, r *http.Request) (interface{}, *apiError), httpMethod string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		s.mu.Lock()
 		defer s.mu.Unlock()
+
+		if r.Method != httpMethod {
+			http.Error(w, "incompatible HTTP method", http.StatusMethodNotAllowed)
+			return
+		}
 
 		w.Header().Set("Content-Type", "application/json")
 		e := json.NewEncoder(w)
@@ -63,7 +67,7 @@ func (s *Server) handleAPI(f func(ctx context.Context, r *http.Request) (interfa
 		}
 
 		http.Error(w, err.message, err.code)
-	})
+	}
 }
 
 func (s *Server) handleRefresh(ctx context.Context, r *http.Request) (interface{}, *apiError) {
