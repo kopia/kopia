@@ -429,6 +429,8 @@ func (bm *lockFreeManager) verifyChecksum(data, contentID []byte) error {
 	return nil
 }
 
+// CreateHashAndEncryptor returns new hashing and encrypting functions based on
+// the specified formatting options
 func CreateHashAndEncryptor(f *FormattingOptions) (HashFunc, Encryptor, error) {
 	h, err := createHashFunc(f)
 	if err != nil {

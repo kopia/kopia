@@ -22,6 +22,7 @@ var (
 	formatLog = repologging.Logger("kopia/content/format")
 )
 
+// Prefixes for pack blobs
 const (
 	PackBlobIDPrefixRegular blob.ID = "p"
 	PackBlobIDPrefixSpecial blob.ID = "q"
