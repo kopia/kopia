@@ -35,6 +35,8 @@ linters-settings:
       - experimental
     disabled-checks:
       - wrapperFunc
+  whitespace:
+    multi-func: true
 
 linters:
   enable-all: true
