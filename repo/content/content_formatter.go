@@ -193,6 +193,7 @@ func RegisterHash(name string, newHashFunc HashFuncFactory) {
 	hashFunctions[name] = newHashFunc
 }
 
+// SupportedHashAlgorithms returns the names of the supported hashing schemes
 func SupportedHashAlgorithms() []string {
 	var result []string
 	for k := range hashFunctions {
@@ -204,6 +205,8 @@ func SupportedHashAlgorithms() []string {
 	return result
 }
 
+// SupportedEncryptionAlgorithms returns the names of the supported encryption
+// methods
 func SupportedEncryptionAlgorithms() []string {
 	var result []string
 	for k := range encryptors {
