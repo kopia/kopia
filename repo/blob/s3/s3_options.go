@@ -9,7 +9,7 @@ type Options struct {
 	Prefix string `json:"prefix,omitempty"`
 
 	Endpoint    string `json:"endpoint"`
-	DoNotUseTLS bool   `json:"doNotUseTLS,omitempyy"`
+	DoNotUseTLS bool   `json:"doNotUseTLS,omitempty"`
 
 	AccessKeyID     string `json:"accessKeyID"`
 	SecretAccessKey string `json:"secretAccessKey" kopia:"sensitive"`
