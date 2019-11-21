@@ -1254,8 +1254,8 @@ func verifyContent(ctx context.Context, t *testing.T, bm *Manager, contentID ID,
 	if got, want := bi.Length, uint32(len(b)); got != want {
 		t.Errorf("invalid content size for %q: %v, wanted %v", contentID, got, want)
 	}
-
 }
+
 func writeContentAndVerify(ctx context.Context, t *testing.T, bm *Manager, b []byte) ID {
 	t.Helper()
 
@@ -1272,6 +1272,7 @@ func writeContentAndVerify(ctx context.Context, t *testing.T, bm *Manager, b []b
 
 	return contentID
 }
+
 func flushWithRetries(ctx context.Context, t *testing.T, bm *Manager) int {
 	t.Helper()
 

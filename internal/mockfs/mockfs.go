@@ -189,7 +189,6 @@ func (imf *File) SetContents(b []byte) {
 	imf.source = func() (ReaderSeekerCloser, error) {
 		return readerSeekerCloser{bytes.NewReader(b)}, nil
 	}
-
 }
 
 type fileReader struct {
