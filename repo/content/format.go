@@ -29,7 +29,7 @@ type entry struct {
 	// 8 bits - format version (currently == 1)
 	// 8 least significant bits - length of pack content ID
 	timestampAndFlags uint64 //
-	packFileOffset    uint32 // 4 bytes, big endian, offset within index file where pack content ID begins
+	packFileOffset    uint32 // 4 bytes, big endian, offset within index file where pack (blob) ID begins
 	packedOffset      uint32 // 4 bytes, big endian, offset within pack file where the contents begin
 	packedLength      uint32 // 4 bytes, big endian, content length
 }
