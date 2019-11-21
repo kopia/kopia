@@ -38,7 +38,6 @@ func dumpMemoryUsage() {
 
 func startMemoryTracking() {
 	if *trackMemoryUsage > 0 {
-
 		go func() {
 			for {
 				dumpMemoryUsage()

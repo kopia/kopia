@@ -130,6 +130,7 @@ func showBuckets(b buckets) {
 		}
 	}
 }
+
 func estimate(ctx context.Context, relativePath string, entry fs.Entry, stats *snapshot.Stats, ib, eb buckets) error {
 	switch entry := entry.(type) {
 	case fs.Directory:

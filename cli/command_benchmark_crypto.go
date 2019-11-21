@@ -18,7 +18,6 @@ var (
 )
 
 func runBenchmarkCryptoAction(ctx *kingpin.ParseContext) error {
-
 	type benchResult struct {
 		hash       string
 		encryption string
