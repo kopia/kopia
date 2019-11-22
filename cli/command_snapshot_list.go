@@ -262,5 +262,6 @@ func deltaBytes(b int64) string {
 }
 
 func init() {
+	addUserAndHostFlags(snapshotListCommand)
 	snapshotListCommand.Action(repositoryAction(runSnapshotsCommand))
 }

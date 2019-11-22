@@ -50,6 +50,7 @@ const (
 )
 
 func init() {
+	addUserAndHostFlags(policySetCommand)
 	policySetCommand.Action(repositoryAction(setPolicy))
 }
 

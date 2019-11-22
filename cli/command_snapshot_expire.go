@@ -68,5 +68,6 @@ func runExpireCommand(ctx context.Context, rep *repo.Repository) error {
 }
 
 func init() {
+	addUserAndHostFlags(snapshotExpireCommand)
 	snapshotExpireCommand.Action(repositoryAction(runExpireCommand))
 }
