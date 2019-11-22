@@ -181,6 +181,10 @@ func getLocalBackupPaths(ctx context.Context, rep *repo.Repository) ([]string, e
 }
 
 func getUserName() string {
+	return userName
+}
+
+func getDefaultUserName() string {
 	currentUser, err := user.Current()
 	if err != nil {
 		log.Warningf("Cannot determine current user: %s", err)
@@ -199,6 +203,10 @@ func getUserName() string {
 }
 
 func getHostName() string {
+	return hostName
+}
+
+func getDefaultHostName() string {
 	hostname, err := os.Hostname()
 	if err != nil {
 		log.Warningf("Unable to determine hostname: %s", err)
@@ -212,5 +220,6 @@ func getHostName() string {
 }
 
 func init() {
+	addUserAndHostFlags(snapshotCreateCommand)
 	snapshotCreateCommand.Action(repositoryAction(runBackupCommand))
 }

@@ -23,6 +23,7 @@ var (
 )
 
 func init() {
+	addUserAndHostFlags(serverStartCommand)
 	serverStartCommand.Action(repositoryAction(runServer))
 }
 

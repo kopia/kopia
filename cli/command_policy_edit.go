@@ -26,11 +26,11 @@ const policyEditHelpText = `
 
 const policyEditRetentionHelpText = `  # Retention for snapshots of this directory. Options include:
   #   "keepLatest": number
-  #   "keepDaily": number 
-  #   "keepHourly": number 
-  #   "keepWeekly": number     
-  #   "keepMonthly": number    
-  #   "keepAnnual": number     
+  #   "keepDaily": number
+  #   "keepHourly": number
+  #   "keepWeekly": number
+  #   "keepMonthly": number
+  #   "keepAnnual": number
 `
 
 const policyEditFilesHelpText = `
@@ -45,7 +45,7 @@ const policyEditFilesHelpText = `
 const policyEditSchedulingHelpText = `
   # Snapshot scheduling options. Options include:
   #   "intervalSeconds": number /* 86400-day, 3600-hour, 60-minute */
-  #   "timesOfDay": [{"hour":H,"min":M},{"hour":H,"min":M}] 
+  #   "timesOfDay": [{"hour":H,"min":M},{"hour":H,"min":M}]
 `
 
 var (
@@ -55,6 +55,7 @@ var (
 )
 
 func init() {
+	addUserAndHostFlags(policyEditCommand)
 	policyEditCommand.Action(repositoryAction(editPolicy))
 }
 

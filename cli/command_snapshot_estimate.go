@@ -156,5 +156,6 @@ func estimate(ctx context.Context, relativePath string, entry fs.Entry, stats *s
 }
 
 func init() {
+	addUserAndHostFlags(snapshotEstimate)
 	snapshotEstimate.Action(repositoryAction(runSnapshotEstimateCommand))
 }

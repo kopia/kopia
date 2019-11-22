@@ -154,13 +154,19 @@ func TestEndToEnd(t *testing.T) {
 	createDirectory(t, dir2, 3)
 	e.runAndExpectSuccess(t, "snapshot", "create", dir2)
 	e.runAndExpectSuccess(t, "snapshot", "create", dir2)
+
+	dir3 := filepath.Join(e.dataDir, "dir3")
+	createDirectory(t, dir3, 3)
+	e.runAndExpectSuccess(t, "snapshot", "create", "--hostname", "bar", "--username", "foo", dir3)
+	e.runAndExpectSuccess(t, "snapshot", "list", "--hostname", "bar", "--username", "foo", dir3)
+
 	sources := listSnapshotsAndExpectSuccess(t, e)
 	if got, want := len(sources), 3; got != want {
 		t.Errorf("unexpected number of sources: %v, want %v in %#v", got, want, sources)
 	}
 
-	// expect 5 blobs, each snapshot creation adds one index blob
-	e.runAndVerifyOutputLineCount(t, 6, "index", "ls")
+	// expect 7 blobs, each snapshot creation adds one index blob
+	e.runAndVerifyOutputLineCount(t, 7, "index", "ls")
 	e.runAndExpectSuccess(t, "index", "optimize")
 	e.runAndVerifyOutputLineCount(t, 1, "index", "ls")
 
