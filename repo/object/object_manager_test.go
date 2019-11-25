@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"math/rand"
 	"runtime/debug"
@@ -346,6 +347,57 @@ func verify(ctx context.Context, t *testing.T, om *Manager, objectID ID, expecte
 			if !bytes.Equal(expected, got) {
 				t.Errorf("incorrect data read for %v: expected: %x, got: %x", testCaseID, expected, got)
 			}
+		}
+	}
+}
+
+// nolint:gocyclo
+func TestSeek(t *testing.T) {
+	ctx := context.Background()
+	_, om := setupTest(t)
+
+	for _, size := range []int{0, 1, 500000, 15000000} {
+		randomData := make([]byte, size)
+		cryptorand.Read(randomData) //nolint:errcheck
+
+		writer := om.NewWriter(ctx, WriterOptions{})
+		if _, err := writer.Write(randomData); err != nil {
+			t.Errorf("write error: %v", err)
+		}
+
+		objectID, err := writer.Result()
+		if err != nil {
+			t.Fatalf("unable to write: %v", err)
+		}
+
+		r, err := om.Open(ctx, objectID)
+		if err != nil {
+			t.Fatalf("open error: %v", err)
+		}
+
+		if pos, err := r.Seek(0, io.SeekStart); err != nil || pos != 0 {
+			t.Errorf("invalid seek-start result %v %v", pos, err)
+		}
+
+		if pos, err := r.Seek(0, io.SeekCurrent); err != nil || pos != 0 {
+			t.Errorf("invalid seek-current at start result %v %v", pos, err)
+		}
+
+		if pos, err := r.Seek(0, io.SeekEnd); err != nil || pos != int64(size) {
+			t.Errorf("invalid seek-end result %v %v", pos, err)
+		}
+
+		if pos, err := r.Seek(0, io.SeekCurrent); err != nil || pos != int64(size) {
+			t.Errorf("invalid seek-current at end result %v %v, wanted %v", pos, err, size)
+		}
+
+		if pos, err := r.Seek(1, io.SeekCurrent); err != nil || pos != int64(size)+1 {
+			t.Errorf("unexpected result when seeking past end of file: %v, %v, wanted %v", pos, err, size+1)
+		}
+
+		buf := make([]byte, 5)
+		if n, err := r.Read(buf); n != 0 || err != io.EOF {
+			t.Errorf("unexpected read result %v %v", n, err)
 		}
 	}
 }
