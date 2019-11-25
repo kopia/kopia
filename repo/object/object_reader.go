@@ -29,6 +29,10 @@ func (r *objectReader) Read(buffer []byte) (int, error) {
 	readBytes := 0
 	remaining := len(buffer)
 
+	if r.currentPosition >= r.totalLength {
+		return 0, io.EOF
+	}
+
 	for remaining > 0 {
 		if r.currentChunkData != nil {
 			toCopy := len(r.currentChunkData) - r.currentChunkPosition
@@ -114,20 +118,19 @@ func (r *objectReader) findChunkIndexForOffset(offset int64) (int, error) {
 }
 
 func (r *objectReader) Seek(offset int64, whence int) (int64, error) {
-	if whence == 1 {
+	if whence == io.SeekCurrent {
 		return r.Seek(r.currentPosition+offset, 0)
 	}
 
-	if whence == 2 {
+	if whence == io.SeekEnd {
 		return r.Seek(r.totalLength+offset, 0)
 	}
 
-	if offset < 0 {
-		return -1, errors.Errorf("invalid seek %v %v", offset, whence)
-	}
-
-	if offset > r.totalLength {
-		offset = r.totalLength
+	if offset >= r.totalLength {
+		r.currentChunkIndex = len(r.seekTable)
+		r.currentChunkData = nil
+		r.currentPosition = offset
+		return offset, nil
 	}
 
 	index, err := r.findChunkIndexForOffset(offset)
@@ -136,7 +139,6 @@ func (r *objectReader) Seek(offset int64, whence int) (int64, error) {
 	}
 
 	chunkStartOffset := r.seekTable[index].Start
-
 	if index != r.currentChunkIndex {
 		r.closeCurrentChunk()
 		r.currentChunkIndex = index
