@@ -107,6 +107,7 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, f fs.File) entryResul
 	if err != nil {
 		return entryResult{err: errors.Wrap(err, "unable to create dir entry")}
 	}
+
 	de.FileSize = written
 
 	return entryResult{de: de}
@@ -137,7 +138,9 @@ func (u *Uploader) uploadSymlinkInternal(ctx context.Context, f fs.Symlink) entr
 	if err != nil {
 		return entryResult{err: errors.Wrap(err, "unable to create dir entry")}
 	}
+
 	de.FileSize = written
+
 	return entryResult{de: de}
 }
 
@@ -146,13 +149,16 @@ func (u *Uploader) addDirProgress(length int64) {
 	u.currentDirCompleted += length
 	c := u.currentDirCompleted
 	shouldReport := false
+
 	if time.Now().After(u.nextProgressReportTime) {
 		shouldReport = true
 		u.nextProgressReportTime = time.Now().Add(100 * time.Millisecond)
 	}
+
 	if c == u.currentDirTotalSize {
 		shouldReport = true
 	}
+
 	u.progressMutex.Unlock()
 
 	if shouldReport {
@@ -177,13 +183,16 @@ func (u *Uploader) copyWithProgress(dst io.Writer, src io.Reader, completed, len
 				written += int64(wroteBytes)
 				completed += int64(wroteBytes)
 				u.addDirProgress(int64(wroteBytes))
+
 				if length < completed {
 					length = completed
 				}
 			}
+
 			if writeErr != nil {
 				return written, writeErr
 			}
+
 			if readBytes != wroteBytes {
 				return written, io.ErrShortWrite
 			}
@@ -238,6 +247,7 @@ func (u *Uploader) uploadFile(ctx context.Context, file fs.File) (*snapshot.DirE
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create dir entry")
 	}
+
 	de.DirSummary = &fs.DirectorySummary{
 		TotalFileCount: 1,
 		TotalFileSize:  res.de.FileSize,
@@ -262,6 +272,7 @@ func (u *Uploader) uploadDir(ctx context.Context, rootDir fs.Directory, previous
 	}
 
 	de.DirSummary = &summ
+
 	return de, err
 }
 
@@ -360,15 +371,19 @@ func metadataEquals(e1, e2 fs.Entry) bool {
 	if l, r := e1.ModTime(), e2.ModTime(); !l.Equal(r) {
 		return false
 	}
+
 	if l, r := e1.Mode(), e2.Mode(); l != r {
 		return false
 	}
+
 	if l, r := e1.Size(), e2.Size(); l != r {
 		return false
 	}
+
 	if l, r := e1.Owner(), e2.Owner(); l != r {
 		return false
 	}
+
 	return true
 }
 
@@ -382,7 +397,9 @@ func findCachedEntry(entry fs.Entry, prevEntries []fs.Entries) fs.Entry {
 			log.Debugf("found non-matching entry for %v: %v %v %v", entry.Name(), ent.Mode(), ent.Size(), ent.ModTime())
 		}
 	}
+
 	log.Debugf("could not find cache entry for %v", entry.Name())
+
 	return nil
 }
 
@@ -390,6 +407,7 @@ func findCachedEntry(entry fs.Entry, prevEntries []fs.Entries) fs.Entry {
 func objectIDPercent(obj object.ID) int {
 	h := fnv.New32a()
 	io.WriteString(h, obj.String()) //nolint:errcheck
+
 	return int(h.Sum32() % 100)
 }
 
@@ -399,6 +417,7 @@ func (u *Uploader) maybeIgnoreCachedEntry(ent fs.Entry) fs.Entry {
 			log.Debugf("ignoring valid cached object: %v", h.ObjectID())
 			return nil
 		}
+
 		return ent
 	}
 
@@ -477,6 +496,7 @@ func (u *Uploader) prepareWorkItems(ctx context.Context, dirRelativePath string,
 
 func toChannel(items []*uploadWorkItem) <-chan *uploadWorkItem {
 	ch := make(chan *uploadWorkItem)
+
 	go func() {
 		defer close(ch)
 
@@ -500,8 +520,10 @@ func (u *Uploader) launchWorkItems(workItems []*uploadWorkItem, wg *sync.WaitGro
 	}
 
 	ch := toChannel(workItems)
+
 	for i := 0; i < workerCount; i++ {
 		wg.Add(1)
+
 		go func() {
 			defer wg.Done()
 
@@ -514,6 +536,7 @@ func (u *Uploader) launchWorkItems(workItems []*uploadWorkItem, wg *sync.WaitGro
 
 func (u *Uploader) processUploadWorkItems(workItems []*uploadWorkItem, dirManifest *snapshot.DirManifest) error {
 	var wg sync.WaitGroup
+
 	u.launchWorkItems(workItems, &wg)
 
 	// Read result channels in order.
@@ -528,8 +551,10 @@ func (u *Uploader) processUploadWorkItems(workItems []*uploadWorkItem, dirManife
 			if u.IgnoreFileErrors {
 				u.stats.ReadErrors++
 				log.Warningf("unable to hash file %q: %s, ignoring", it.entryRelativePath, result.err)
+
 				continue
 			}
+
 			return errors.Errorf("unable to process %q: %s", it.entryRelativePath, result.err)
 		}
 
@@ -574,6 +599,7 @@ func uniqueDirectories(dirs []fs.Directory) []fs.Directory {
 	for _, d := range unique {
 		result = append(result, d)
 	}
+
 	return result
 }
 
@@ -594,18 +620,23 @@ func uploadDirInternal(
 	}()
 
 	log.Debugf("reading directory %v", dirRelativePath)
+
 	entries, direrr := directory.Readdir(ctx)
+
 	log.Debugf("finished reading directory %v", dirRelativePath)
+
 	if direrr != nil {
 		return "", fs.DirectorySummary{}, direrr
 	}
 
 	var prevEntries []fs.Entries
+
 	for _, d := range uniqueDirectories(previousDirs) {
 		if ent := maybeReadDirectoryEntries(ctx, d); ent != nil {
 			prevEntries = append(prevEntries, ent)
 		}
 	}
+
 	if len(entries) == 0 {
 		summ.MaxModTime = directory.ModTime()
 	}
@@ -617,18 +648,23 @@ func uploadDirInternal(
 	if err := u.processSubdirectories(ctx, dirRelativePath, entries, prevEntries, dirManifest, &summ); err != nil && err != errCancelled {
 		return "", fs.DirectorySummary{}, err
 	}
+
 	u.prepareProgress(dirRelativePath, entries)
 
 	log.Debugf("preparing work items %v", dirRelativePath)
 	workItems, workItemErr := u.prepareWorkItems(ctx, dirRelativePath, entries, prevEntries, &summ)
 	log.Debugf("finished preparing work items %v", dirRelativePath)
+
 	if workItemErr != nil && workItemErr != errCancelled {
 		return "", fs.DirectorySummary{}, workItemErr
 	}
+
 	if err := u.processUploadWorkItems(workItems, dirManifest); err != nil && err != errCancelled {
 		return "", fs.DirectorySummary{}, err
 	}
+
 	log.Debugf("finished processing uploads %v", dirRelativePath)
+
 	dirManifest.Summary = &summ
 
 	writer := u.repo.Objects.NewWriter(ctx, object.WriterOptions{
@@ -641,6 +677,7 @@ func uploadDirInternal(
 	}
 
 	oid, err := writer.Result()
+
 	return oid, summ, err
 }
 
@@ -688,6 +725,7 @@ func (u *Uploader) Upload(
 	previousManifests ...*snapshot.Manifest,
 ) (*snapshot.Manifest, error) {
 	log.Debugf("Uploading %v", sourceInfo)
+
 	s := &snapshot.Manifest{
 		Source: sourceInfo,
 	}
@@ -703,6 +741,7 @@ func (u *Uploader) Upload(
 	switch entry := source.(type) {
 	case fs.Directory:
 		var previousDirs []fs.Directory
+
 		for _, m := range previousManifests {
 			if d := u.maybeOpenDirectoryFromManifest(m); d != nil {
 				previousDirs = append(previousDirs, d)

@@ -31,6 +31,7 @@ func connect(ctx context.Context, isNew bool) (blob.Storage, error) {
 	if v := connectOwnerUID; v != "" {
 		fso.FileUID = getIntPtrValue(v, 10)
 	}
+
 	if v := connectOwnerGID; v != "" {
 		fso.FileGID = getIntPtrValue(v, 10)
 	}
@@ -44,10 +45,12 @@ func connect(ctx context.Context, isNew bool) (blob.Storage, error) {
 
 	if isNew {
 		log.Infof("creating directory for repository: %v dir mode: %v", fso.Path, fso.DirectoryMode)
+
 		if err := os.MkdirAll(fso.Path, fso.DirectoryMode); err != nil {
 			log.Warningf("unable to create directory: %v", fso.Path)
 		}
 	}
+
 	return filesystem.New(ctx, &fso)
 }
 

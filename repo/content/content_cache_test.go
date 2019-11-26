@@ -23,6 +23,7 @@ func newUnderlyingStorageForContentCacheTesting(t *testing.T) blob.Storage {
 	st := blobtesting.NewMapStorage(data, nil, nil)
 	assertNoError(t, st.PutBlob(ctx, "content-1", []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}))
 	assertNoError(t, st.PutBlob(ctx, "content-4k", bytes.Repeat([]byte{1, 2, 3, 4}, 1000))) // 4000 bytes
+
 	return st
 }
 
@@ -36,6 +37,7 @@ func TestCacheExpiration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
+
 	defer cache.close()
 
 	ctx := context.Background()
@@ -83,6 +85,7 @@ func TestDiskContentCache(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error getting temp dir: %v", err)
 	}
+
 	defer os.RemoveAll(tmpDir)
 
 	cache, err := newContentCache(ctx, newUnderlyingStorageForContentCacheTesting(t), CachingOptions{
@@ -92,7 +95,9 @@ func TestDiskContentCache(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
+
 	defer cache.close()
+
 	verifyContentCache(t, cache)
 }
 
@@ -226,6 +231,7 @@ func TestCacheFailureToWrite(t *testing.T) {
 	if err != nil {
 		t.Errorf("error listing cache: %v", err)
 	}
+
 	if len(all) != 0 {
 		t.Errorf("invalid test - cache was written")
 	}
@@ -269,7 +275,9 @@ func TestCacheFailureToRead(t *testing.T) {
 
 func verifyStorageContentList(t *testing.T, st blob.Storage, expectedContents ...blob.ID) {
 	t.Helper()
+
 	var foundContents []blob.ID
+
 	assertNoError(t, st.ListBlobs(context.Background(), "", func(bm blob.Metadata) error {
 		foundContents = append(foundContents, bm.BlobID)
 		return nil
@@ -278,6 +286,7 @@ func verifyStorageContentList(t *testing.T, st blob.Storage, expectedContents ..
 	sort.Slice(foundContents, func(i, j int) bool {
 		return foundContents[i] < foundContents[j]
 	})
+
 	if !reflect.DeepEqual(foundContents, expectedContents) {
 		t.Errorf("unexpected content list: %v, wanted %v", foundContents, expectedContents)
 	}
@@ -285,6 +294,7 @@ func verifyStorageContentList(t *testing.T, st blob.Storage, expectedContents ..
 
 func assertNoError(t *testing.T, err error) {
 	t.Helper()
+
 	if err != nil {
 		t.Errorf("err: %v", err)
 	}

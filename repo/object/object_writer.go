@@ -32,6 +32,7 @@ func (t *contentIDTracker) addContentID(contentID content.ID) {
 	if t.contents == nil {
 		t.contents = make(map[content.ID]bool)
 	}
+
 	t.contents[contentID] = true
 }
 
@@ -43,6 +44,7 @@ func (t *contentIDTracker) contentIDs() []content.ID {
 	for k := range t.contents {
 		result = append(result, k)
 	}
+
 	return result
 }
 
@@ -92,16 +94,19 @@ func (w *objectWriter) flushBuffer() error {
 	w.currentPosition += int64(length)
 
 	var b2 bytes.Buffer
+
 	w.buffer.WriteTo(&b2) //nolint:errcheck
 	w.buffer.Reset()
 
 	contentID, err := w.repo.contentMgr.WriteContent(w.ctx, b2.Bytes(), w.prefix)
 	w.repo.trace("OBJECT_WRITER(%q) stored %v (%v bytes)", w.description, contentID, length)
+
 	if err != nil {
 		return errors.Wrapf(err, "error when flushing chunk %d of %s", chunkID, w.description)
 	}
 
 	w.indirectIndex[chunkID].Object = DirectObjectID(contentID)
+
 	return nil
 }
 
@@ -132,10 +137,12 @@ func (w *objectWriter) Result() (ID, error) {
 	if err := json.NewEncoder(iw).Encode(ind); err != nil {
 		return "", errors.Wrap(err, "unable to write indirect object index")
 	}
+
 	oid, err := iw.Result()
 	if err != nil {
 		return "", err
 	}
+
 	return IndirectObjectID(oid), nil
 }
 

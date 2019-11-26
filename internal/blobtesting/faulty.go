@@ -33,6 +33,7 @@ func (s *FaultyStorage) GetBlob(ctx context.Context, id blob.ID, offset, length 
 	if err := s.getNextFault("GetBlob", id, offset, length); err != nil {
 		return nil, err
 	}
+
 	return s.Base.GetBlob(ctx, id, offset, length)
 }
 
@@ -41,6 +42,7 @@ func (s *FaultyStorage) PutBlob(ctx context.Context, id blob.ID, data []byte) er
 	if err := s.getNextFault("PutBlob", id, len(data)); err != nil {
 		return err
 	}
+
 	return s.Base.PutBlob(ctx, id, data)
 }
 
@@ -49,6 +51,7 @@ func (s *FaultyStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
 	if err := s.getNextFault("DeleteBlob", id); err != nil {
 		return err
 	}
+
 	return s.Base.DeleteBlob(ctx, id)
 }
 
@@ -71,6 +74,7 @@ func (s *FaultyStorage) Close(ctx context.Context) error {
 	if err := s.getNextFault("Close"); err != nil {
 		return err
 	}
+
 	return s.Base.Close(ctx)
 }
 
@@ -81,10 +85,12 @@ func (s *FaultyStorage) ConnectionInfo() blob.ConnectionInfo {
 
 func (s *FaultyStorage) getNextFault(method string, args ...interface{}) error {
 	s.mu.Lock()
+
 	faults := s.Faults[method]
 	if len(faults) == 0 {
 		s.mu.Unlock()
 		log.Debugf("no faults for %v %v", method, args)
+
 		return nil
 	}
 
@@ -95,21 +101,28 @@ func (s *FaultyStorage) getNextFault(method string, args ...interface{}) error {
 	} else {
 		s.Faults[method] = faults[1:]
 	}
+
 	s.mu.Unlock()
+
 	if f.WaitFor != nil {
 		log.Debugf("waiting for channel to be closed in %v %v", method, args)
 		<-f.WaitFor
 	}
+
 	if f.Sleep > 0 {
 		log.Debugf("sleeping for %v in %v %v", f.Sleep, method, args)
 		time.Sleep(f.Sleep)
 	}
+
 	if f.ErrCallback != nil {
 		err := f.ErrCallback()
 		log.Debugf("returning %v for %v %v", err, method, args)
+
 		return err
 	}
+
 	log.Debugf("returning %v for %v %v", f.Err, method, args)
+
 	return f.Err
 }
 

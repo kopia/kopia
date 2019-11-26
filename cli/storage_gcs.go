@@ -22,7 +22,6 @@ func init() {
 			cmd.Flag("credentials-file", "Use the provided JSON file with credentials").ExistingFileVar(&options.ServiceAccountCredentials)
 			cmd.Flag("max-download-speed", "Limit the download speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&options.MaxDownloadSpeedBytesPerSecond)
 			cmd.Flag("max-upload-speed", "Limit the upload speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&options.MaxUploadSpeedBytesPerSecond)
-
 		},
 		func(ctx context.Context, isNew bool) (blob.Storage, error) {
 			return gcs.New(ctx, &options)

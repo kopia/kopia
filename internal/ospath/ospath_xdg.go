@@ -13,6 +13,7 @@ func init() {
 	} else {
 		userSettingsDir = filepath.Join(os.Getenv("HOME"), ".config")
 	}
+
 	if os.Getenv("XDG_CACHE_HOME") != "" {
 		userLogsDir = os.Getenv("XDG_CACHE_HOME")
 	} else {

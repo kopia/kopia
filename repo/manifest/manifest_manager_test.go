@@ -46,6 +46,7 @@ func TestManifest(t *testing.T) {
 	for _, tc := range cases {
 		verifyMatches(ctx, t, mgr, tc.criteria, tc.expected)
 	}
+
 	verifyItem(ctx, t, mgr, id1, labels1, item1)
 	verifyItem(ctx, t, mgr, id2, labels2, item2)
 	verifyItem(ctx, t, mgr, id3, labels3, item3)
@@ -53,6 +54,7 @@ func TestManifest(t *testing.T) {
 	if err := mgr.Flush(ctx); err != nil {
 		t.Errorf("flush error: %v", err)
 	}
+
 	if err := mgr.Flush(ctx); err != nil {
 		t.Errorf("flush error: %v", err)
 	}
@@ -61,6 +63,7 @@ func TestManifest(t *testing.T) {
 	for _, tc := range cases {
 		verifyMatches(ctx, t, mgr, tc.criteria, tc.expected)
 	}
+
 	verifyItem(ctx, t, mgr, id1, labels1, item1)
 	verifyItem(ctx, t, mgr, id2, labels2, item2)
 	verifyItem(ctx, t, mgr, id3, labels3, item3)
@@ -68,27 +71,33 @@ func TestManifest(t *testing.T) {
 	// flush underlying content manager and verify in new manifest manager.
 	mgr.b.Flush(ctx)
 	mgr2 := newManagerForTesting(ctx, t, data)
+
 	for _, tc := range cases {
 		verifyMatches(ctx, t, mgr2, tc.criteria, tc.expected)
 	}
+
 	verifyItem(ctx, t, mgr2, id1, labels1, item1)
 	verifyItem(ctx, t, mgr2, id2, labels2, item2)
 	verifyItem(ctx, t, mgr2, id3, labels3, item3)
+
 	if err := mgr2.Flush(ctx); err != nil {
 		t.Errorf("flush error: %v", err)
 	}
 
 	// delete from one
 	time.Sleep(1 * time.Second)
+
 	if err := mgr.Delete(ctx, id3); err != nil {
 		t.Errorf("delete error: %v", err)
 	}
+
 	verifyItemNotFound(ctx, t, mgr, id3)
 	mgr.Flush(ctx)
 	verifyItemNotFound(ctx, t, mgr, id3)
 
 	// still found in another
 	verifyItem(ctx, t, mgr2, id3, labels3, item3)
+
 	if err := mgr2.loadCommittedContentsLocked(ctx); err != nil {
 		t.Errorf("unable to load: %v", err)
 	}
@@ -98,6 +107,7 @@ func TestManifest(t *testing.T) {
 	}
 
 	foundContents := 0
+
 	if err := mgr.b.IterateContents(
 		content.IterateOptions{Prefix: ContentPrefix},
 		func(ci content.Info) error {
@@ -106,6 +116,7 @@ func TestManifest(t *testing.T) {
 		}); err != nil {
 		t.Errorf("unable to list manifest content: %v", err)
 	}
+
 	if got, want := foundContents, 1; got != want {
 		t.Errorf("unexpected number of blocks: %v, want %v", got, want)
 	}
@@ -200,6 +211,7 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 
 func addAndVerify(ctx context.Context, t *testing.T, mgr *Manager, labels map[string]string, data map[string]int) ID {
 	t.Helper()
+
 	id, err := mgr.Put(ctx, labels, data)
 	if err != nil {
 		t.Errorf("unable to add %v (%v): %v", labels, data, err)
@@ -207,6 +219,7 @@ func addAndVerify(ctx context.Context, t *testing.T, mgr *Manager, labels map[st
 	}
 
 	verifyItem(ctx, t, mgr, id, labels, data)
+
 	return id
 }
 
@@ -247,14 +260,17 @@ func verifyMatches(ctx context.Context, t *testing.T, mgr *Manager, labels map[s
 	t.Helper()
 
 	var matches []ID
+
 	items, err := mgr.Find(ctx, labels)
 	if err != nil {
 		t.Errorf("error in Find(): %v", err)
 		return
 	}
+
 	for _, m := range items {
 		matches = append(matches, m.ID)
 	}
+
 	sortIDs(matches)
 	sortIDs(expected)
 

@@ -35,6 +35,7 @@ func runBenchmarkSplitterAction(ctx *kingpin.ParseContext) error {
 
 	// generate data blocks
 	var dataBlocks [][]byte
+
 	rnd := rand.New(rand.NewSource(*benchmarkSplitterRandSeed))
 
 	for i := 0; i < *benchmarkSplitterBlockCount; i++ {
@@ -47,24 +48,31 @@ func runBenchmarkSplitterAction(ctx *kingpin.ParseContext) error {
 
 	for _, sp := range object.SupportedSplitters {
 		fact := object.GetSplitterFactory(sp)
+
 		var segmentLengths []int
 
 		t0 := time.Now()
+
 		for _, data := range dataBlocks {
 			s := fact()
 			l := 0
+
 			for _, d := range data {
 				l++
+
 				if s.ShouldSplit(d) {
 					segmentLengths = append(segmentLengths, l)
 					l = 0
 				}
 			}
+
 			if l > 0 {
 				segmentLengths = append(segmentLengths, l)
 			}
 		}
+
 		dur := time.Since(t0)
+
 		sort.Ints(segmentLengths)
 
 		r := benchResult{
@@ -93,6 +101,7 @@ func runBenchmarkSplitterAction(ctx *kingpin.ParseContext) error {
 		return results[i].duration < results[j].duration
 	})
 	printStdout("-----------------------------------------------------------------\n")
+
 	for ndx, r := range results {
 		printStdout("%3v. %-25v %6v ms count:%v min:%v 10th:%v 25th:%v 50th:%v 75th:%v 90th:%v max:%v\n",
 			ndx,
@@ -100,8 +109,8 @@ func runBenchmarkSplitterAction(ctx *kingpin.ParseContext) error {
 			r.duration.Nanoseconds()/1e6,
 			r.segmentCount,
 			r.min, r.p10, r.p25, r.p50, r.p75, r.p90, r.max)
-
 	}
+
 	return nil
 }
 

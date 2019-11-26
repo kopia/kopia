@@ -60,11 +60,13 @@ func (p *packContentPostamble) toBytes() ([]byte, error) {
 	checksum := crc32.ChecksumIEEE(buf[0:n])
 	binary.BigEndian.PutUint32(buf[n:], checksum)
 	n += 4
+
 	if n > 255 {
 		return nil, errors.Errorf("postamble too long: %v", n)
 	}
 
 	buf[n] = byte(n)
+
 	return buf[0 : n+1], nil
 }
 
@@ -83,8 +85,10 @@ func findPostamble(b []byte) *packContentPostamble {
 		// too short, must be at least 5 bytes (checksum + own length)
 		return nil
 	}
+
 	postambleStart := len(b) - 1 - postambleLength
 	postambleEnd := len(b) - 1
+
 	if postambleStart < 0 {
 		// invalid last byte
 		return nil
@@ -109,10 +113,12 @@ func decodePostamble(payload []byte) *packContentPostamble {
 		// invalid flags
 		return nil
 	}
+
 	if flags != 1 {
 		// unsupported flag
 		return nil
 	}
+
 	payload = payload[n:]
 
 	ivLength, n := binary.Uvarint(payload)
@@ -120,6 +126,7 @@ func decodePostamble(payload []byte) *packContentPostamble {
 		// invalid flags
 		return nil
 	}
+
 	payload = payload[n:]
 	if ivLength > uint64(len(payload)) {
 		// invalid IV length
@@ -134,6 +141,7 @@ func decodePostamble(payload []byte) *packContentPostamble {
 		// invalid offset
 		return nil
 	}
+
 	payload = payload[n:]
 
 	length, n := binary.Uvarint(payload)
@@ -162,12 +170,14 @@ func (bm *lockFreeManager) buildLocalIndex(pending packIndexBuilder) ([]byte, er
 func (bm *lockFreeManager) appendPackFileIndexRecoveryData(contentData []byte, pending packIndexBuilder) ([]byte, error) {
 	// build, encrypt and append local index
 	localIndexOffset := len(contentData)
+
 	localIndex, err := bm.buildLocalIndex(pending)
 	if err != nil {
 		return nil, err
 	}
 
 	localIndexIV := bm.hashData(localIndex)
+
 	encryptedLocalIndex, err := bm.encryptor.Encrypt(localIndex, localIndexIV)
 	if err != nil {
 		return nil, err
@@ -180,6 +190,7 @@ func (bm *lockFreeManager) appendPackFileIndexRecoveryData(contentData []byte, p
 	}
 
 	contentData = append(contentData, encryptedLocalIndex...)
+
 	postambleBytes, err := postamble.toBytes()
 	if err != nil {
 		return nil, err
@@ -202,6 +213,7 @@ func (bm *lockFreeManager) appendPackFileIndexRecoveryData(contentData []byte, p
 func (bm *lockFreeManager) readPackFileLocalIndex(ctx context.Context, packFile blob.ID, packFileLength int64) ([]byte, error) {
 	// TODO(jkowalski): optimize read when packFileLength is provided
 	_ = packFileLength
+
 	payload, err := bm.st.GetBlob(ctx, packFile, 0, -1)
 	if err != nil {
 		return nil, err

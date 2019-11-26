@@ -67,8 +67,8 @@ func setPolicy(ctx context.Context, rep *repo.Repository) error {
 		}
 
 		printStderr("Setting policy for %v\n", target)
-		changeCount := 0
 
+		changeCount := 0
 		if err := setPolicyFromFlags(p, &changeCount); err != nil {
 			return err
 		}
@@ -103,6 +103,7 @@ func setPolicyFromFlags(p *policy.Policy, changeCount *int) error {
 	// It's not really a list, just optional boolean, last one wins.
 	for _, inherit := range *policySetInherit {
 		*changeCount++
+
 		p.NoParent = !inherit
 	}
 
@@ -113,13 +114,17 @@ func setFilesPolicyFromFlags(fp *ignorefs.FilesPolicy, changeCount *int) {
 	if *policySetClearDotIgnore {
 		*changeCount++
 		printStderr(" - removing all rules for dot-ignore files\n")
+
 		fp.DotIgnoreFiles = nil
 	} else {
 		fp.DotIgnoreFiles = addRemoveDedupeAndSort("dot-ignore files", fp.DotIgnoreFiles, *policySetAddDotIgnore, *policySetRemoveDotIgnore, changeCount)
 	}
+
 	if *policySetClearIgnore {
 		*changeCount++
+
 		fp.IgnoreRules = nil
+
 		printStderr(" - removing all ignore rules\n")
 	} else {
 		fp.IgnoreRules = addRemoveDedupeAndSort("ignored files", fp.IgnoreRules, *policySetAddIgnore, *policySetRemoveIgnore, changeCount)
@@ -145,6 +150,7 @@ func setRetentionPolicyFromFlags(rp *policy.RetentionPolicy, changeCount *int) e
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -154,6 +160,7 @@ func setSchedulingPolicyFromFlags(sp *policy.SchedulingPolicy, changeCount *int)
 		*changeCount++
 		sp.SetInterval(interval)
 		printStderr(" - setting snapshot interval to %v\n", sp.Interval())
+
 		break
 	}
 
@@ -171,6 +178,7 @@ func setSchedulingPolicyFromFlags(sp *policy.SchedulingPolicy, changeCount *int)
 				if err := timeOfDay.Parse(tod); err != nil {
 					return errors.Wrap(err, "unable to parse time of day")
 				}
+
 				timesOfDay = append(timesOfDay, timeOfDay)
 			}
 		}
@@ -193,11 +201,14 @@ func addRemoveDedupeAndSort(desc string, base, add, remove []string, changeCount
 	for _, b := range base {
 		entries[b] = true
 	}
+
 	for _, b := range add {
 		*changeCount++
 		printStderr(" - adding %v to %v\n", b, desc)
+
 		entries[b] = true
 	}
+
 	for _, b := range remove {
 		*changeCount++
 		printStderr(" - removing %v from %v\n", b, desc)
@@ -208,7 +219,9 @@ func addRemoveDedupeAndSort(desc string, base, add, remove []string, changeCount
 	for k := range entries {
 		s = append(s, k)
 	}
+
 	sort.Strings(s)
+
 	return s
 }
 
@@ -221,7 +234,9 @@ func applyPolicyNumber(desc string, val **int, str string, changeCount *int) err
 	if str == inheritPolicyString || str == "default" {
 		*changeCount++
 		printStderr(" - resetting %v to a default value inherited from parent.\n", desc)
+
 		*val = nil
+
 		return nil
 	}
 
@@ -234,6 +249,7 @@ func applyPolicyNumber(desc string, val **int, str string, changeCount *int) err
 	*changeCount++
 	printStderr(" - setting %v to %v.\n", desc, i)
 	*val = &i
+
 	return nil
 }
 
@@ -246,7 +262,9 @@ func applyPolicyNumber64(desc string, val *int64, str string, changeCount *int) 
 	if str == inheritPolicyString || str == "default" {
 		*changeCount++
 		printStderr(" - resetting %v to a default value inherited from parent.\n", desc)
+
 		*val = 0
+
 		return nil
 	}
 
@@ -258,5 +276,6 @@ func applyPolicyNumber64(desc string, val *int64, str string, changeCount *int) 
 	*changeCount++
 	printStderr(" - setting %v to %v.\n", desc, v)
 	*val = v
+
 	return nil
 }

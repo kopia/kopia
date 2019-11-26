@@ -16,6 +16,7 @@ import (
 
 func TestFileStorage(t *testing.T) {
 	t.Parallel()
+
 	ctx := context.Background()
 
 	// Test varioush shard configurations.
@@ -42,6 +43,7 @@ func TestFileStorage(t *testing.T) {
 
 		blobtesting.VerifyStorage(ctx, t, r)
 		blobtesting.AssertConnectionInfoRoundTrips(ctx, t, r)
+
 		if err := r.Close(ctx); err != nil {
 			t.Fatalf("err: %v", err)
 		}
@@ -56,6 +58,7 @@ const (
 
 func TestFileStorageTouch(t *testing.T) {
 	t.Parallel()
+
 	ctx := context.Background()
 
 	path, _ := ioutil.TempDir("", "r-fs")
@@ -116,6 +119,7 @@ func verifyBlobTimestampOrder(t *testing.T, st blob.Storage, want ...blob.ID) {
 
 func assertNoError(t *testing.T, err error) {
 	t.Helper()
+
 	if err != nil {
 		t.Errorf("err: %v", err)
 	}

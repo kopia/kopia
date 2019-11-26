@@ -47,6 +47,7 @@ func runStatusCommand(ctx context.Context, rep *repo.Repository) error {
 
 		if *statusReconnectTokenIncludePassword {
 			var err error
+
 			pass, err = getPasswordFromFlags(false, true)
 			if err != nil {
 				return errors.Wrap(err, "getting password")
@@ -59,6 +60,7 @@ func runStatusCommand(ctx context.Context, rep *repo.Repository) error {
 		}
 
 		fmt.Printf("\nTo reconnect to the repository use:\n\n$ kopia repository connect from-config --token %v\n\n", tok)
+
 		if pass != "" {
 			fmt.Printf("NOTICE: The token printed above can be trivially decoded to reveal the repository password. Do not store it in an unsecured place.\n")
 		}
@@ -76,16 +78,20 @@ func scanCacheDir(dirname string) (fileCount int, totalFileLength int64, err err
 	for _, e := range entries {
 		if e.IsDir() {
 			subdir := filepath.Join(dirname, e.Name())
+
 			c, l, err2 := scanCacheDir(subdir)
 			if err2 != nil {
 				return 0, 0, err2
 			}
+
 			fileCount += c
 			totalFileLength += l
+
 			continue
 		}
 
 		fileCount++
+
 		totalFileLength += e.Size()
 	}
 

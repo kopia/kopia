@@ -92,6 +92,7 @@ func symmetricEncrypt(createCipher func() (cipher.Block, error), iv, b []byte) (
 	ctr := cipher.NewCTR(blockCipher, iv[0:blockCipher.BlockSize()])
 	result := make([]byte, len(b))
 	ctr.XORKeyStream(result, b)
+
 	return result, nil
 }
 
@@ -104,6 +105,7 @@ type salsaEncryptor struct {
 func (s salsaEncryptor) Decrypt(input, contentID []byte) ([]byte, error) {
 	if s.hmacSecret != nil {
 		var err error
+
 		input, err = verifyAndStripHMAC(input, s.hmacSecret)
 		if err != nil {
 			return nil, errors.Wrap(err, "verifyAndStripHMAC")
@@ -134,9 +136,11 @@ func (s salsaEncryptor) encryptDecrypt(input, contentID []byte) ([]byte, error) 
 	if len(contentID) < s.nonceSize {
 		return nil, errors.Errorf("hash too short, expected >=%v bytes, got %v", s.nonceSize, len(contentID))
 	}
+
 	result := make([]byte, len(input))
 	nonce := contentID[0:s.nonceSize]
 	salsa20.XORKeyStream(result, input, nonce, s.key)
+
 	return result, nil
 }
 
@@ -194,7 +198,9 @@ func SupportedHashAlgorithms() []string {
 	for k := range hashFunctions {
 		result = append(result, k)
 	}
+
 	sort.Strings(result)
+
 	return result
 }
 
@@ -203,7 +209,9 @@ func SupportedEncryptionAlgorithms() []string {
 	for k := range encryptors {
 		result = append(result, k)
 	}
+
 	sort.Strings(result)
+
 	return result
 }
 

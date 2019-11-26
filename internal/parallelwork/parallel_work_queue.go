@@ -45,6 +45,7 @@ func (v *Queue) enqueue(front bool, callback CallbackFunc) {
 	} else {
 		v.queueItems.PushBack(callback)
 	}
+
 	v.maybeReportProgress()
 	v.monitor.Signal()
 }
@@ -53,6 +54,7 @@ func (v *Queue) enqueue(front bool, callback CallbackFunc) {
 // is empty and all workers are idle.
 func (v *Queue) Process(workers int) error {
 	var wg sync.WaitGroup
+
 	errors := make(chan error, workers)
 
 	for i := 0; i < workers; i++ {
@@ -102,6 +104,7 @@ func (v *Queue) dequeue() CallbackFunc {
 
 	front := v.queueItems.Front()
 	v.queueItems.Remove(front)
+
 	return front.Value.(CallbackFunc)
 }
 
@@ -125,6 +128,7 @@ func (v *Queue) maybeReportProgress() {
 	if time.Now().Before(v.nextReportTime) {
 		return
 	}
+
 	v.nextReportTime = time.Now().Add(1 * time.Second)
 
 	cb(v.enqueuedWork, v.activeWorkerCount, v.completedWork)

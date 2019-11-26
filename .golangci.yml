@@ -35,9 +35,6 @@ linters-settings:
       - experimental
     disabled-checks:
       - wrapperFunc
-  whitespace:
-    multi-func: true
-
 linters:
   enable-all: true
   disable:
@@ -45,6 +42,7 @@ linters:
     - prealloc
     - gochecknoglobals
     - gochecknoinits
+    - whitespace
 
 run:
   skip-dirs:
@@ -55,9 +53,12 @@ issues:
     - text: "weak cryptographic primitive"
       linters:
         - gosec
+    - text: "Line contains TODO"
+      linters:
+        - godox
 
 # golangci.com configuration
 # https://github.com/golangci/golangci/wiki/Configuration
 service:
-  golangci-lint-version: 1.18.x # use the fixed version to not introduce new linters unexpectedly
+  golangci-lint-version: 1.21.x # use the fixed version to not introduce new linters unexpectedly
 

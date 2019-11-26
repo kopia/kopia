@@ -7,6 +7,7 @@ type fixedSplitter struct {
 
 func (s *fixedSplitter) ShouldSplit(b byte) bool {
 	s.cur++
+
 	if s.cur >= s.chunkLength {
 		s.cur = 0
 		return true

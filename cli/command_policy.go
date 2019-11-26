@@ -23,12 +23,14 @@ func policyTargets(ctx context.Context, rep *repo.Repository, globalFlag *bool, 
 	}
 
 	var res []snapshot.SourceInfo
+
 	for _, ts := range *targetsFlag {
 		// try loading policy by its manifest ID
 		if t, err := policy.GetPolicyByID(ctx, rep, manifest.ID(ts)); err == nil {
 			res = append(res, t.Target())
 			continue
 		}
+
 		target, err := snapshot.ParseSourceInfo(ts, getHostName(), getUserName())
 		if err != nil {
 			return nil, err

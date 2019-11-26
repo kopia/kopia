@@ -44,6 +44,7 @@ func (f *fakeContentManager) WriteContent(ctx context.Context, data []byte, pref
 	defer f.mu.Unlock()
 
 	f.data[contentID] = append([]byte(nil), data...)
+
 	return contentID, nil
 }
 
@@ -135,6 +136,7 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	writer.Write(b[0:50]) //nolint:errcheck
 	writer.Write(b[0:50]) //nolint:errcheck
 	result, err := writer.Result()
+
 	if !objectIDsEqual(result, "cd00e292c5970d3c5e2f0ffa5171e555bc46bfc4faddfb4a418b6840b86e79a3") {
 		t.Errorf("unexpected result: %v err: %v", result, err)
 	}
@@ -183,9 +185,11 @@ func TestIndirection(t *testing.T) {
 
 		writer := om.NewWriter(ctx, WriterOptions{})
 		writer.(*objectWriter).splitter = splitterFactory()
+
 		if _, err := writer.Write(contentBytes); err != nil {
 			t.Errorf("write error: %v", err)
 		}
+
 		result, err := writer.Result()
 		if err != nil {
 			t.Errorf("error getting writer results: %v", err)
@@ -236,6 +240,7 @@ func TestHMAC(t *testing.T) {
 	w := om.NewWriter(ctx, WriterOptions{})
 	w.Write(c) //nolint:errcheck
 	result, err := w.Result()
+
 	if result.String() != "cad29ff89951a3c085c86cb7ed22b82b51f7bdfda24f932c7f9601f51d5975ba" {
 		t.Errorf("unexpected result: %v err: %v", result.String(), err)
 	}
@@ -273,6 +278,7 @@ func TestReader(t *testing.T) {
 			t.Errorf("cannot read all data for %v: %v", objectID, err)
 			continue
 		}
+
 		if !bytes.Equal(d, c.payload) {
 			t.Errorf("incorrect payload for %v: expected: %v got: %v", objectID, c.payload, d)
 			continue
@@ -288,6 +294,7 @@ func TestReaderStoredBlockNotFound(t *testing.T) {
 	if err != nil {
 		t.Errorf("cannot parse object ID: %v", err)
 	}
+
 	reader, err := om.Open(ctx, objectID)
 	if err != ErrObjectNotFound || reader != nil {
 		t.Errorf("unexpected result: reader: %v err: %v", reader, err)
@@ -307,8 +314,11 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 		if _, err := writer.Write(randomData); err != nil {
 			t.Errorf("write error: %v", err)
 		}
+
 		objectID, err := writer.Result()
+
 		writer.Close()
+
 		if err != nil {
 			t.Errorf("cannot get writer result for %v: %v", size, err)
 			continue
@@ -320,6 +330,7 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 
 func verify(ctx context.Context, t *testing.T, om *Manager, objectID ID, expectedData []byte, testCaseID string) {
 	t.Helper()
+
 	reader, err := om.Open(ctx, objectID)
 	if err != nil {
 		t.Errorf("cannot get reader for %v (%v): %v %v", testCaseID, objectID, err, string(debug.Stack()))
@@ -330,14 +341,18 @@ func verify(ctx context.Context, t *testing.T, om *Manager, objectID ID, expecte
 	for i := 0; i < 20; i++ {
 		sampleSize := int(rand.Int31n(300))
 		seekOffset := int(rand.Int31n(int32(len(expectedData))))
+
 		if seekOffset+sampleSize > len(expectedData) {
 			sampleSize = len(expectedData) - seekOffset
 		}
+
 		if sampleSize > 0 {
 			got := make([]byte, sampleSize)
+
 			if offset, err := reader.Seek(int64(seekOffset), 0); err != nil || offset != int64(seekOffset) {
 				t.Errorf("seek error: %v offset=%v expected:%v", err, offset, seekOffset)
 			}
+
 			if n, err := reader.Read(got); err != nil || n != sampleSize {
 				t.Errorf("invalid data: n=%v, expected=%v, err:%v", n, sampleSize, err)
 			}

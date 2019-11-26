@@ -37,9 +37,10 @@ func (r *objectReader) Read(buffer []byte) (int, error) {
 		if r.currentChunkData != nil {
 			toCopy := len(r.currentChunkData) - r.currentChunkPosition
 			if toCopy == 0 {
-				// EOF on curren chunk
+				// EOF on current chunk
 				r.closeCurrentChunk()
 				r.currentChunkIndex++
+
 				continue
 			}
 
@@ -49,10 +50,12 @@ func (r *objectReader) Read(buffer []byte) (int, error) {
 
 			copy(buffer[readBytes:],
 				r.currentChunkData[r.currentChunkPosition:r.currentChunkPosition+toCopy])
+
 			r.currentChunkPosition += toCopy
 			r.currentPosition += int64(toCopy)
 			readBytes += toCopy
 			remaining -= toCopy
+
 			continue
 		}
 
@@ -75,10 +78,12 @@ func (r *objectReader) Read(buffer []byte) (int, error) {
 
 func (r *objectReader) openCurrentChunk() error {
 	st := r.seekTable[r.currentChunkIndex]
+
 	rd, err := r.repo.Open(r.ctx, st.Object)
 	if err != nil {
 		return err
 	}
+
 	defer rd.Close() //nolint:errcheck
 
 	b := make([]byte, st.Length)
@@ -88,6 +93,7 @@ func (r *objectReader) openCurrentChunk() error {
 
 	r.currentChunkData = b
 	r.currentChunkPosition = 0
+
 	return nil
 }
 
@@ -98,6 +104,7 @@ func (r *objectReader) closeCurrentChunk() {
 func (r *objectReader) findChunkIndexForOffset(offset int64) (int, error) {
 	left := 0
 	right := len(r.seekTable) - 1
+
 	for left <= right {
 		middle := (left + right) / 2
 
@@ -130,6 +137,7 @@ func (r *objectReader) Seek(offset int64, whence int) (int64, error) {
 		r.currentChunkIndex = len(r.seekTable)
 		r.currentChunkData = nil
 		r.currentPosition = offset
+
 		return offset, nil
 	}
 
@@ -139,6 +147,7 @@ func (r *objectReader) Seek(offset int64, whence int) (int64, error) {
 	}
 
 	chunkStartOffset := r.seekTable[index].Start
+
 	if index != r.currentChunkIndex {
 		r.closeCurrentChunk()
 		r.currentChunkIndex = index

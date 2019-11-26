@@ -83,6 +83,7 @@ func (c *Cache) Readdir(ctx context.Context, d fs.Directory) (fs.Entries, error)
 	if h, ok := d.(object.HasObjectID); ok {
 		cacheID := string(h.ObjectID())
 		cacheExpiration := 24 * time.Hour
+
 		return c.getEntries(ctx, cacheID, cacheExpiration, d.Readdir)
 	}
 
@@ -93,9 +94,11 @@ func (c *Cache) getEntriesFromCacheLocked(id string) fs.Entries {
 	if v, ok := c.data[id]; id != "" && ok {
 		if time.Now().Before(v.expireAfter) {
 			c.moveToHead(v)
+
 			if c.debug {
 				log.Debugf("cache hit for %q (valid until %v)", id, v.expireAfter)
 			}
+
 			return v.entries
 		}
 
@@ -103,6 +106,7 @@ func (c *Cache) getEntriesFromCacheLocked(id string) fs.Entries {
 		if c.debug {
 			log.Debugf("removing expired cache entry %q after %v", id, v.expireAfter)
 		}
+
 		c.removeEntryLocked(v)
 	}
 
@@ -118,6 +122,7 @@ func (c *Cache) getEntries(ctx context.Context, id string, expirationTime time.D
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	if entries := c.getEntriesFromCacheLocked(id); entries != nil {
 		return entries, nil
 	}
@@ -125,6 +130,7 @@ func (c *Cache) getEntries(ctx context.Context, id string, expirationTime time.D
 	if c.debug {
 		log.Debugf("cache miss for %q", id)
 	}
+
 	raw, err := cb(ctx)
 	if err != nil {
 		return nil, err
@@ -140,6 +146,7 @@ func (c *Cache) getEntries(ctx context.Context, id string, expirationTime time.D
 		entries:     raw,
 		expireAfter: time.Now().Add(expirationTime),
 	}
+
 	c.addToHead(entry)
 	c.data[id] = entry
 

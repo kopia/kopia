@@ -18,6 +18,7 @@ func TestMerged(t *testing.T) {
 	if err != nil {
 		t.Fatalf("can't create index: %v", err)
 	}
+
 	i2, err := indexWithItems(
 		Info{ID: "aabbcc", TimestampSeconds: 3, PackBlobID: "yy", PackOffset: 33},
 		Info{ID: "xaabbcc", TimestampSeconds: 1, PackBlobID: "xx", PackOffset: 111},
@@ -26,6 +27,7 @@ func TestMerged(t *testing.T) {
 	if err != nil {
 		t.Fatalf("can't create index: %v", err)
 	}
+
 	i3, err := indexWithItems(
 		Info{ID: "aabbcc", TimestampSeconds: 2, PackBlobID: "zz", PackOffset: 22},
 		Info{ID: "ddeeff", TimestampSeconds: 1, PackBlobID: "zz", PackOffset: 222},
@@ -37,15 +39,18 @@ func TestMerged(t *testing.T) {
 	}
 
 	m := mergedIndex{i1, i2, i3}
+
 	i, err := m.GetInfo("aabbcc")
 	if err != nil || i == nil {
 		t.Fatalf("unable to get info: %v", err)
 	}
+
 	if got, want := i.PackOffset, uint32(33); got != want {
 		t.Errorf("invalid pack offset %v, wanted %v", got, want)
 	}
 
 	var inOrder []ID
+
 	assertNoError(t, m.Iterate("", func(i Info) error {
 		inOrder = append(inOrder, i.ID)
 		if i.ID == "de1e1e" {
@@ -82,12 +87,15 @@ func TestMerged(t *testing.T) {
 
 func indexWithItems(items ...Info) (packIndex, error) {
 	b := make(packIndexBuilder)
+
 	for _, it := range items {
 		b.Add(it)
 	}
+
 	var buf bytes.Buffer
 	if err := b.Build(&buf); err != nil {
 		return nil, errors.Wrap(err, "build error")
 	}
+
 	return openPackIndex(bytes.NewReader(buf.Bytes()))
 }

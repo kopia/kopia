@@ -86,6 +86,7 @@ func AssertGetBlobNotFound(ctx context.Context, t *testing.T, s blob.Storage, bl
 // AssertListResults asserts that the list results with given prefix return the specified list of names in order.
 func AssertListResults(ctx context.Context, t *testing.T, s blob.Storage, prefix blob.ID, want ...blob.ID) {
 	t.Helper()
+
 	var names []blob.ID
 
 	if err := s.ListBlobs(ctx, prefix, func(e blob.Metadata) error {
@@ -108,5 +109,6 @@ func sorted(s []blob.ID) []blob.ID {
 	sort.Slice(x, func(i, j int) bool {
 		return x[i] < x[j]
 	})
+
 	return x
 }

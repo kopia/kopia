@@ -121,6 +121,7 @@ func (imd *Directory) addChild(e fs.Entry) {
 	if strings.Contains(e.Name(), "/") {
 		panic("child name cannot contain '/'")
 	}
+
 	imd.children = append(imd.children, e)
 	imd.children.Sort()
 }
@@ -130,23 +131,27 @@ func (imd *Directory) resolveSubdir(name string) (parent *Directory, leaf string
 	for _, n := range parts[0 : len(parts)-1] {
 		imd = imd.Subdir(n)
 	}
+
 	return imd, parts[len(parts)-1]
 }
 
 // Subdir finds a subdirectory with a given name.
 func (imd *Directory) Subdir(name ...string) *Directory {
 	i := imd
+
 	for _, n := range name {
 		i2 := i.children.FindByName(n)
 		if i2 == nil {
 			panic(fmt.Sprintf("'%s' not found in '%s'", n, i.Name()))
 		}
+
 		if !i2.IsDir() {
 			panic(fmt.Sprintf("'%s' is not a directory in '%s'", n, i.Name()))
 		}
 
 		i = i2.(*Directory)
 	}
+
 	return i
 }
 

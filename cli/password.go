@@ -25,6 +25,7 @@ func askForNewRepositoryPassword() (string, error) {
 		if err != nil {
 			return "", errors.Wrap(err, "password entry")
 		}
+
 		p2, err := askPass("Re-enter password for verification: ")
 		if err != nil {
 			return "", errors.Wrap(err, "password verification")
@@ -43,7 +44,9 @@ func askForExistingRepositoryPassword() (string, error) {
 	if err != nil {
 		return "", err
 	}
+
 	fmt.Println()
+
 	return p1, nil
 }
 
@@ -109,12 +112,14 @@ func getPersistedPassword(configFile, username string) (string, bool) {
 	}
 
 	log.Debugf("could not find persisted password")
+
 	return "", false
 }
 
 func persistPassword(configFile, username, password string) error {
 	if *keyringEnabled {
 		log.Debugf("saving password to OS keyring...")
+
 		err := keyring.Set(getKeyringItemID(configFile), username, password)
 		if err == nil {
 			log.Infof("Saved password")
@@ -147,6 +152,7 @@ func deletePassword(configFile, username string) {
 func getKeyringItemID(configFile string) string {
 	h := sha256.New()
 	io.WriteString(h, configFile) //nolint:errcheck
+
 	return fmt.Sprintf("%v-%x", filepath.Base(configFile), h.Sum(nil)[0:8])
 }
 

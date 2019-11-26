@@ -33,6 +33,7 @@ func TestStats(t *testing.T) {
 	for _, tc := range tcs {
 		got := snapshot.Stats{}
 		got.AddExcluded(tc.entry)
+
 		if got != tc.want {
 			t.Errorf("Stats do not match, got: %#v, want %#v", got, tc.want)
 		}

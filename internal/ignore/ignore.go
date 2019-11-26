@@ -19,8 +19,7 @@ func ParseGitIgnore(baseDir, pattern string) (Matcher, error) {
 		baseDir += "/"
 	}
 
-	var dirOnly bool
-	var negate bool
+	var dirOnly, negate bool
 
 	// Trailing spaces are ignored unless they are quoted with backslash ("\").
 	if !strings.HasSuffix(pattern, "\\ ") {
@@ -119,6 +118,7 @@ func parseNonGlobPattern(pattern string) (nameMatcher, error) {
 	if strings.HasPrefix(pattern, "**/") {
 		suffix := strings.TrimPrefix(pattern, "**/")
 		suffixWithSlash := strings.TrimPrefix(pattern, "**")
+
 		return func(path string) bool {
 			return path == suffix || strings.HasSuffix(path, suffixWithSlash)
 		}, nil
@@ -129,6 +129,7 @@ func parseNonGlobPattern(pattern string) (nameMatcher, error) {
 	if strings.HasSuffix(pattern, "/**") {
 		prefix := strings.TrimSuffix(pattern, "/**")
 		prefixWithSlash := strings.TrimSuffix(pattern, "**")
+
 		return func(path string) bool {
 			return path == prefix || strings.HasPrefix(path, prefixWithSlash)
 		}, nil

@@ -49,6 +49,7 @@ func (p Permissions) MarshalJSON() ([]byte, error) {
 	}
 
 	s := "0" + strconv.FormatInt(int64(p), 8)
+
 	return json.Marshal(&s)
 }
 
@@ -66,6 +67,7 @@ func (p *Permissions) UnmarshalJSON(b []byte) error {
 	}
 
 	*p = Permissions(v)
+
 	return nil
 }
 

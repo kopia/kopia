@@ -155,6 +155,7 @@ func (r *Repository) SetCachingConfig(opt content.CachingOptions) error {
 
 func readAndCacheFormatBlobBytes(ctx context.Context, st blob.Storage, cacheDirectory string) ([]byte, error) {
 	cachedFile := filepath.Join(cacheDirectory, "kopia.repository")
+
 	if cacheDirectory != "" {
 		b, err := ioutil.ReadFile(cachedFile)
 		if err == nil {

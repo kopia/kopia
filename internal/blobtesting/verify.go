@@ -55,9 +55,11 @@ func VerifyStorage(ctx context.Context, t *testing.T, r blob.Storage) {
 	if err := r.DeleteBlob(ctx, blocks[0].blk); err != nil {
 		t.Errorf("unable to delete block: %v", err)
 	}
+
 	if err := r.DeleteBlob(ctx, blocks[0].blk); err != nil {
 		t.Errorf("invalid error when deleting deleted block: %v", err)
 	}
+
 	AssertListResults(ctx, t, r, "ab", blocks[2].blk, blocks[3].blk)
 	AssertListResults(ctx, t, r, "", blocks[1].blk, blocks[2].blk, blocks[3].blk, blocks[4].blk)
 }
@@ -68,6 +70,7 @@ func AssertConnectionInfoRoundTrips(ctx context.Context, t *testing.T, s blob.St
 	t.Helper()
 
 	ci := s.ConnectionInfo()
+
 	s2, err := blob.NewStorage(ctx, ci)
 	if err != nil {
 		t.Fatalf("err: %v", err)

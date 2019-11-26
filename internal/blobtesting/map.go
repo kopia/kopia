@@ -27,6 +27,7 @@ func (s *mapStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int
 	data, ok := s.data[id]
 	if ok {
 		data = append([]byte(nil), data...)
+
 		if length < 0 {
 			return data, nil
 		}
@@ -39,6 +40,7 @@ func (s *mapStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int
 		if int(length) > len(data) {
 			return nil, errors.New("invalid length")
 		}
+
 		return data[0:length], nil
 	}
 
@@ -54,7 +56,9 @@ func (s *mapStorage) PutBlob(ctx context.Context, id blob.ID, data []byte) error
 	}
 
 	s.keyTime[id] = s.timeNow()
+
 	s.data[id] = append([]byte{}, data...)
+
 	return nil
 }
 
@@ -64,6 +68,7 @@ func (s *mapStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
 
 	delete(s.data, id)
 	delete(s.keyTime, id)
+
 	return nil
 }
 
@@ -71,11 +76,13 @@ func (s *mapStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback fun
 	s.mutex.RLock()
 
 	keys := []blob.ID{}
+
 	for k := range s.data {
 		if strings.HasPrefix(string(k), string(prefix)) {
 			keys = append(keys, k)
 		}
 	}
+
 	s.mutex.RUnlock()
 
 	sort.Slice(keys, func(i, j int) bool {
@@ -87,9 +94,11 @@ func (s *mapStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback fun
 		v, ok := s.data[k]
 		ts := s.keyTime[k]
 		s.mutex.RUnlock()
+
 		if !ok {
 			continue
 		}
+
 		if err := callback(blob.Metadata{
 			BlobID:    k,
 			Length:    int64(len(v)),
@@ -98,6 +107,7 @@ func (s *mapStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback fun
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -130,8 +140,10 @@ func NewMapStorage(data DataMap, keyTime map[blob.ID]time.Time, timeNow func() t
 	if keyTime == nil {
 		keyTime = make(map[blob.ID]time.Time)
 	}
+
 	if timeNow == nil {
 		timeNow = time.Now
 	}
+
 	return &mapStorage{data: data, keyTime: keyTime, timeNow: timeNow}
 }

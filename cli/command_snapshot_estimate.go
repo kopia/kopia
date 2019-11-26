@@ -36,6 +36,7 @@ type bucket struct {
 func (b *bucket) add(fname string, size int64) {
 	b.Count++
 	b.TotalSize += size
+
 	if len(b.Examples) < 10 {
 		b.Examples = append(b.Examples, fmt.Sprintf("%v - %v", fname, units.BytesStringBase10(size)))
 	}
@@ -72,12 +73,14 @@ func runSnapshotEstimateCommand(ctx context.Context, rep *repo.Repository) error
 	sourceInfo := snapshot.SourceInfo{Path: filepath.Clean(path), Host: getHostName(), UserName: getUserName()}
 
 	var stats snapshot.Stats
+
 	ib := makeBuckets()
 	eb := makeBuckets()
 
 	onIgnoredFile := func(relativePath string, e fs.Entry) {
 		log.Noticef("ignoring %v", relativePath)
 		eb.add(relativePath, e.Size())
+
 		if e.IsDir() {
 			stats.ExcludedDirCount++
 		} else {
@@ -90,14 +93,17 @@ func runSnapshotEstimateCommand(ctx context.Context, rep *repo.Repository) error
 	if err != nil {
 		return err
 	}
+
 	if dir, ok := entry.(fs.Directory); ok {
 		ignorePolicy, err := policy.FilesPolicyGetter(ctx, rep, sourceInfo)
 		if err != nil {
 			return err
 		}
+
 		entry = ignorefs.New(dir, ignorePolicy, ignorefs.ReportIgnoredFiles(onIgnoredFile))
 	}
-	if err := estimate(ctx, ".", entry, &stats, ib, eb); err != nil {
+
+	if err := estimate(ctx, ".", entry, &stats, ib); err != nil {
 		return err
 	}
 
@@ -122,7 +128,9 @@ func showBuckets(b buckets) {
 		if bucket.Count == 0 {
 			continue
 		}
+
 		fmt.Printf("  with size over %-5v: %7v files, total size %v\n", units.BytesStringBase10(bucket.MinSize), bucket.Count, units.BytesStringBase10(bucket.TotalSize))
+
 		if *snapshotEstimateShowFiles {
 			for _, sample := range bucket.Examples {
 				fmt.Printf("    %v\n", sample)
@@ -131,19 +139,20 @@ func showBuckets(b buckets) {
 	}
 }
 
-func estimate(ctx context.Context, relativePath string, entry fs.Entry, stats *snapshot.Stats, ib, eb buckets) error {
+func estimate(ctx context.Context, relativePath string, entry fs.Entry, stats *snapshot.Stats, ib buckets) error {
 	switch entry := entry.(type) {
 	case fs.Directory:
 		if !*snapshotEstimateQuiet {
 			printStderr("Scanning %v\n", relativePath)
 		}
+
 		children, err := entry.Readdir(ctx)
 		if err != nil {
 			return err
 		}
 
 		for _, child := range children {
-			if err := estimate(ctx, filepath.Join(relativePath, child.Name()), child, stats, ib, eb); err != nil {
+			if err := estimate(ctx, filepath.Join(relativePath, child.Name()), child, stats, ib); err != nil {
 				return err
 			}
 		}
@@ -153,6 +162,7 @@ func estimate(ctx context.Context, relativePath string, entry fs.Entry, stats *s
 		stats.TotalFileCount++
 		stats.TotalFileSize += entry.Size()
 	}
+
 	return nil
 }
 

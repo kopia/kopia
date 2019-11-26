@@ -32,9 +32,11 @@ func (b *committedContentIndex) getContent(contentID ID) (Info, error) {
 	if info != nil {
 		return *info, nil
 	}
+
 	if err == nil {
 		return Info{}, ErrContentNotFound
 	}
+
 	return Info{}, err
 }
 
@@ -58,8 +60,10 @@ func (b *committedContentIndex) addContent(indexBlobID blob.ID, data []byte, use
 	if err != nil {
 		return errors.Wrapf(err, "unable to open pack index %q", indexBlobID)
 	}
+
 	b.inUse[indexBlobID] = ndx
 	b.merged = append(b.merged, ndx)
+
 	return nil
 }
 
@@ -92,10 +96,13 @@ func (b *committedContentIndex) use(packFiles []blob.ID) (bool, error) {
 	if !b.packFilesChanged(packFiles) {
 		return false, nil
 	}
+
 	log.Debugf("set of index files has changed (had %v, now %v)", len(b.inUse), len(packFiles))
 
 	var newMerged mergedIndex
+
 	newInUse := map[blob.ID]packIndex{}
+
 	defer func() {
 		newMerged.Close() //nolint:errcheck
 	}()
@@ -109,12 +116,14 @@ func (b *committedContentIndex) use(packFiles []blob.ID) (bool, error) {
 		newMerged = append(newMerged, ndx)
 		newInUse[e] = ndx
 	}
+
 	b.merged = newMerged
 	b.inUse = newInUse
 
 	if err := b.cache.expireUnused(packFiles); err != nil {
 		log.Warningf("unable to expire unused content index files: %v", err)
 	}
+
 	newMerged = nil
 
 	return true, nil

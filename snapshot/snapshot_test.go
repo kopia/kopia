@@ -35,10 +35,12 @@ func TestSnapshotsAPI(t *testing.T) {
 	verifySnapshotManifestIDs(t, env.Repository, &src2, nil)
 	verifyListSnapshots(t, env.Repository, src1, []*snapshot.Manifest{})
 	verifyListSnapshots(t, env.Repository, src2, []*snapshot.Manifest{})
+
 	manifest1 := &snapshot.Manifest{
 		Source:      src1,
 		Description: "some-description",
 	}
+
 	id1 := mustSaveSnapshot(t, env.Repository, manifest1)
 	verifySnapshotManifestIDs(t, env.Repository, nil, []manifest.ID{id1})
 	verifySnapshotManifestIDs(t, env.Repository, &src1, []manifest.ID{id1})
@@ -49,10 +51,12 @@ func TestSnapshotsAPI(t *testing.T) {
 		Source:      src1,
 		Description: "some-other-description",
 	}
+
 	id2 := mustSaveSnapshot(t, env.Repository, manifest2)
 	if id1 == id2 {
 		t.Errorf("expected different manifest IDs, got same: %v", id1)
 	}
+
 	verifySnapshotManifestIDs(t, env.Repository, nil, []manifest.ID{id1, id2})
 	verifySnapshotManifestIDs(t, env.Repository, &src1, []manifest.ID{id1, id2})
 	verifySnapshotManifestIDs(t, env.Repository, &src2, nil)
@@ -70,19 +74,20 @@ func TestSnapshotsAPI(t *testing.T) {
 	verifyLoadSnapshots(t, env.Repository, []manifest.ID{id1, id2, id3}, []*snapshot.Manifest{manifest1, manifest2, manifest3})
 }
 
-func verifySnapshotManifestIDs(t *testing.T, rep *repo.Repository, src *snapshot.SourceInfo, expected []manifest.ID) []manifest.ID {
+func verifySnapshotManifestIDs(t *testing.T, rep *repo.Repository, src *snapshot.SourceInfo, expected []manifest.ID) {
 	t.Helper()
+
 	res, err := snapshot.ListSnapshotManifests(context.Background(), rep, src)
 	if err != nil {
 		t.Errorf("error listing snapshot manifests: %v", err)
 	}
+
 	sortManifestIDs(res)
 	sortManifestIDs(expected)
+
 	if !reflect.DeepEqual(res, expected) {
 		t.Errorf("unexpected manifests: %v, wanted %v", res, expected)
-		return expected
 	}
-	return res
 }
 
 func sortManifestIDs(s []manifest.ID) {
@@ -93,10 +98,12 @@ func sortManifestIDs(s []manifest.ID) {
 
 func mustSaveSnapshot(t *testing.T, rep *repo.Repository, man *snapshot.Manifest) manifest.ID {
 	t.Helper()
+
 	id, err := snapshot.SaveSnapshot(context.Background(), rep, man)
 	if err != nil {
 		t.Fatalf("error saving snapshot: %v", err)
 	}
+
 	return id
 }
 
@@ -113,6 +120,7 @@ func verifySources(t *testing.T, rep *repo.Repository, sources ...snapshot.Sourc
 
 func verifyListSnapshots(t *testing.T, rep *repo.Repository, src snapshot.SourceInfo, expected []*snapshot.Manifest) {
 	t.Helper()
+
 	got, err := snapshot.ListSnapshots(context.Background(), rep, src)
 	if err != nil {
 		t.Errorf("error loading manifests: %v", err)
@@ -121,9 +129,11 @@ func verifyListSnapshots(t *testing.T, rep *repo.Repository, src snapshot.Source
 
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("unexpected manifests: %v, wanted %v", got, expected)
+
 		for i, m := range got {
 			t.Logf("got[%v]=%#v", i, m)
 		}
+
 		for i, m := range expected {
 			t.Logf("want[%v]=%#v", i, m)
 		}
@@ -139,9 +149,11 @@ func verifyLoadSnapshots(t *testing.T, rep *repo.Repository, ids []manifest.ID, 
 
 	if !reflect.DeepEqual(got, expected) {
 		t.Errorf("unexpected manifests: %v, wanted %v", got, expected)
+
 		for i, m := range got {
 			t.Logf("got[%v]=%#v", i, m)
 		}
+
 		for i, m := range expected {
 			t.Logf("want[%v]=%#v", i, m)
 		}
@@ -151,6 +163,7 @@ func verifyLoadSnapshots(t *testing.T, rep *repo.Repository, ids []manifest.ID, 
 func sorted(s []string) []string {
 	res := append([]string(nil), s...)
 	sort.Strings(res)
+
 	return res
 }
 
@@ -188,19 +201,21 @@ func TestParseSourceInfo(t *testing.T) {
 			t.Errorf("error parsing %q: %v", tc.path, err)
 			continue
 		}
+
 		if got != tc.want {
 			t.Errorf("unexpected parsed value of %q: %v, wanted %v", tc.path, got, tc.want)
 		}
+
 		got2, err := snapshot.ParseSourceInfo(got.String(), "default-host", "default-user")
 		if err != nil {
 			t.Errorf("error parsing %q: %v", tc.path, err)
 			continue
 		}
+
 		if got != got2 {
 			t.Errorf("unexpected parsed value of %q: %v, wanted %v", got.String(), got2, got)
 		}
 	}
-
 }
 
 func TestParseInvalidSourceInfo(t *testing.T) {

@@ -126,6 +126,7 @@ func (bm *Manager) DeleteContent(contentID ID) error {
 	}
 
 	bm.deletePreexistingContent(bi)
+
 	return nil
 }
 
@@ -135,6 +136,7 @@ func (bm *Manager) deletePreexistingContent(ci Info) {
 	if ci.Deleted {
 		return
 	}
+
 	pp := bm.getOrCreatePendingPackInfoLocked(packPrefixForContentID(ci.ID))
 	ci.Deleted = true
 	ci.TimestampSeconds = bm.timeNow().Unix()
@@ -145,6 +147,7 @@ func (bm *Manager) addToPackUnlocked(ctx context.Context, contentID ID, data []b
 	prefix := packPrefixForContentID(contentID)
 
 	data = cloneBytes(data)
+
 	bm.lock()
 
 	// do not start new uploads while flushing
@@ -182,6 +185,7 @@ func (bm *Manager) addToPackUnlocked(ctx context.Context, contentID ID, data []b
 		Length:           uint32(len(data)),
 		TimestampSeconds: bm.timeNow().Unix(),
 	}
+
 	shouldWrite := pp.currentPackDataLength >= bm.maxPackSize
 	if shouldWrite {
 		// we're about to write to storage without holding a lock
@@ -189,6 +193,7 @@ func (bm *Manager) addToPackUnlocked(ctx context.Context, contentID ID, data []b
 		delete(bm.pendingPacks, pp.prefix)
 		bm.writingPacks = append(bm.writingPacks, pp)
 	}
+
 	bm.unlock()
 
 	// at this point we're unlocked so different goroutines can encrypt and
@@ -247,12 +252,14 @@ func (bm *Manager) verifyCurrentPackItemsLocked() {
 func (bm *Manager) verifyPackIndexBuilderLocked() {
 	for k, cpi := range bm.packIndexBuilder {
 		bm.assertInvariant(cpi.ID == k, "content ID entry has invalid key: %v %v", cpi.ID, k)
+
 		if cpi.Deleted {
 			bm.assertInvariant(cpi.PackBlobID == "", "content can't be both deleted and have a pack content: %v", cpi.ID)
 		} else {
 			bm.assertInvariant(cpi.PackBlobID != "", "content that's not deleted must have a pack content: %+v", cpi)
 			bm.assertInvariant(cpi.FormatVersion == byte(bm.writeFormatVersion), "content that's not deleted must have a valid format version: %+v", cpi)
 		}
+
 		bm.assertInvariant(cpi.TimestampSeconds != 0, "content has no timestamp: %v", cpi.ID)
 	}
 }
@@ -293,10 +300,12 @@ func (bm *Manager) flushPackIndexesLocked(ctx context.Context) error {
 		if err := bm.committedContents.addContent(indexBlobID, dataCopy, true); err != nil {
 			return errors.Wrap(err, "unable to add committed content")
 		}
+
 		bm.packIndexBuilder = make(packIndexBuilder)
 	}
 
 	bm.flushPackIndexesAfter = bm.timeNow().Add(flushPackIndexTimeout)
+
 	return nil
 }
 
@@ -318,6 +327,7 @@ func (bm *Manager) writePackAndAddToIndex(ctx context.Context, pp *pendingPackIn
 
 	if !holdingLock {
 		bm.lock()
+
 		defer func() {
 			bm.cond.Broadcast()
 			bm.unlock()
@@ -333,11 +343,13 @@ func (bm *Manager) writePackAndAddToIndex(ctx context.Context, pp *pendingPackIn
 		for _, info := range packFileIndex {
 			bm.packIndexBuilder.Add(*info)
 		}
+
 		return nil
 	}
 
 	// failure - add to failedPacks slice again
 	bm.failedPacks = append(bm.failedPacks, pp)
+
 	return errors.Wrap(err, "error writing pack")
 }
 
@@ -348,6 +360,7 @@ func (bm *Manager) prepareAndWritePackInternal(ctx context.Context, pp *pendingP
 	}
 
 	packFile := blob.ID(fmt.Sprintf("%v%x", pp.prefix, contentID))
+
 	contentData, packFileIndex, err := bm.preparePackDataContent(ctx, pp, packFile)
 	if err != nil {
 		return nil, errors.Wrap(err, "error preparing data content")
@@ -357,6 +370,7 @@ func (bm *Manager) prepareAndWritePackInternal(ctx context.Context, pp *pendingP
 		if err := bm.writePackFileNotLocked(ctx, packFile, contentData); err != nil {
 			return nil, errors.Wrap(err, "can't save pack data content")
 		}
+
 		formatLog.Debugf("wrote pack file: %v (%v bytes)", packFile, len(contentData))
 	}
 
@@ -365,11 +379,13 @@ func (bm *Manager) prepareAndWritePackInternal(ctx context.Context, pp *pendingP
 
 func removePendingPack(slice []*pendingPackInfo, pp *pendingPackInfo) []*pendingPackInfo {
 	result := slice[:0]
+
 	for _, p := range slice {
 		if p != pp {
 			result = append(result, p)
 		}
 	}
+
 	return result
 }
 
@@ -378,9 +394,11 @@ func (bm *Manager) Close(ctx context.Context) error {
 	if err := bm.Flush(ctx); err != nil {
 		return errors.Wrap(err, "error flushing")
 	}
+
 	bm.contentCache.close()
 	bm.metadataCache.close()
 	close(bm.closed)
+
 	return nil
 }
 
@@ -392,6 +410,7 @@ func (bm *Manager) Flush(ctx context.Context) error {
 	defer bm.unlock()
 
 	bm.flushing = true
+
 	defer func() {
 		bm.flushing = false
 	}()
@@ -434,6 +453,7 @@ func packPrefixForContentID(contentID ID) blob.ID {
 	if contentID.HasPrefix() {
 		return PackBlobIDPrefixSpecial
 	}
+
 	return PackBlobIDPrefixRegular
 }
 
@@ -454,6 +474,7 @@ func (bm *Manager) WriteContent(ctx context.Context, data []byte, prefix ID) (ID
 	if err := validatePrefix(prefix); err != nil {
 		return "", err
 	}
+
 	contentID := prefix + ID(hex.EncodeToString(bm.hashData(data)))
 
 	// content already tracked
@@ -464,6 +485,7 @@ func (bm *Manager) WriteContent(ctx context.Context, data []byte, prefix ID) (ID
 	}
 
 	err := bm.addToPackUnlocked(ctx, contentID, data, false)
+
 	return contentID, err
 }
 
@@ -544,9 +566,12 @@ func (bm *Manager) Refresh(ctx context.Context) (bool, error) {
 	defer bm.unlock()
 
 	log.Debugf("Refresh started")
+
 	t0 := time.Now()
+
 	_, updated, err := bm.loadPackIndexesUnlocked(ctx)
 	log.Debugf("Refresh completed in %v and updated=%v", time.Since(t0), updated)
+
 	return updated, err
 }
 

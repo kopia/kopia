@@ -16,10 +16,12 @@ type rabinKarp64Splitter struct {
 func (rs *rabinKarp64Splitter) ShouldSplit(b byte) bool {
 	rs.rh.Roll(b)
 	rs.count++
+
 	if rs.rh.Sum64()&rs.mask == 0 && rs.count >= rs.minSize {
 		rs.count = 0
 		return true
 	}
+
 	if rs.count >= rs.maxSize {
 		rs.count = 0
 		return true

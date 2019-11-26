@@ -21,11 +21,13 @@ func (s *loggingStorage) GetBlob(ctx context.Context, id blob.ID, offset, length
 	t0 := time.Now()
 	result, err := s.base.GetBlob(ctx, id, offset, length)
 	dt := time.Since(t0)
+
 	if len(result) < 20 {
 		s.printf(s.prefix+"GetBlob(%q,%v,%v)=(%#v, %#v) took %v", id, offset, length, result, err, dt)
 	} else {
 		s.printf(s.prefix+"GetBlob(%q,%v,%v)=({%#v bytes}, %#v) took %v", id, offset, length, len(result), err, dt)
 	}
+
 	return result, err
 }
 
@@ -34,6 +36,7 @@ func (s *loggingStorage) PutBlob(ctx context.Context, id blob.ID, data []byte) e
 	err := s.base.PutBlob(ctx, id, data)
 	dt := time.Since(t0)
 	s.printf(s.prefix+"PutBlob(%q,len=%v)=%#v took %v", id, len(data), err, dt)
+
 	return err
 }
 
@@ -42,6 +45,7 @@ func (s *loggingStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
 	err := s.base.DeleteBlob(ctx, id)
 	dt := time.Since(t0)
 	s.printf(s.prefix+"DeleteBlob(%q)=%#v took %v", id, err, dt)
+
 	return err
 }
 
@@ -53,6 +57,7 @@ func (s *loggingStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback
 		return callback(bi)
 	})
 	s.printf(s.prefix+"ListBlobs(%q)=%v returned %v items and took %v", prefix, err, cnt, time.Since(t0))
+
 	return err
 }
 
@@ -61,6 +66,7 @@ func (s *loggingStorage) Close(ctx context.Context) error {
 	err := s.base.Close(ctx)
 	dt := time.Since(t0)
 	s.printf(s.prefix+"Close()=%#v took %v", err, dt)
+
 	return err
 }
 
@@ -74,6 +80,7 @@ type Option func(s *loggingStorage)
 // NewWrapper returns a Storage wrapper that logs all storage commands.
 func NewWrapper(wrapped blob.Storage, options ...Option) blob.Storage {
 	s := &loggingStorage{base: wrapped, printf: log.Debugf}
+
 	for _, o := range options {
 		o(s)
 	}

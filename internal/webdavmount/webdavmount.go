@@ -38,11 +38,13 @@ func (f *webdavFile) Stat() (os.FileInfo, error) {
 func (f *webdavFile) getReader() (fs.Reader, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+
 	if f.r == nil {
 		r, err := f.entry.Open(f.ctx)
 		if err != nil {
 			return nil, err
 		}
+
 		f.r = r
 	}
 
@@ -54,6 +56,7 @@ func (f *webdavFile) Read(b []byte) (int, error) {
 	if err != nil {
 		return 0, err
 	}
+
 	return r.Read(b)
 }
 
@@ -94,6 +97,7 @@ func (d *webdavDir) Readdir(n int) ([]os.FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if n > 0 && n < len(entries) {
 		entries = entries[0:n]
 	}
@@ -102,6 +106,7 @@ func (d *webdavDir) Readdir(n int) ([]os.FileInfo, error) {
 	for _, e := range entries {
 		fis = append(fis, &webdavFileInfo{e})
 	}
+
 	return fis, nil
 }
 
@@ -173,7 +178,9 @@ func (w *webdavFS) Stat(ctx context.Context, path string) (os.FileInfo, error) {
 
 func (w *webdavFS) findEntry(ctx context.Context, path string) (fs.Entry, error) {
 	parts := removeEmpty(strings.Split(path, "/"))
+
 	var e fs.Entry = w.dir
+
 	for i, p := range parts {
 		d, ok := e.(fs.Directory)
 		if !ok {
@@ -196,10 +203,12 @@ func (w *webdavFS) findEntry(ctx context.Context, path string) (fs.Entry, error)
 
 func removeEmpty(s []string) []string {
 	result := s[:0]
+
 	for _, e := range s {
 		if e == "" {
 			continue
 		}
+
 		result = append(result, e)
 	}
 

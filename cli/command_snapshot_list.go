@@ -57,6 +57,7 @@ func findSnapshotsForSource(ctx context.Context, rep *repo.Repository, sourceInf
 		if parentPath == sourceInfo.Path {
 			break
 		}
+
 		sourceInfo.Path = parentPath
 	}
 
@@ -103,7 +104,6 @@ func shouldOutputSnapshotSource(src snapshot.SourceInfo) bool {
 
 	if src.Host != getHostName() {
 		return false
-
 	}
 
 	return src.UserName == getUserName()
@@ -111,14 +111,18 @@ func shouldOutputSnapshotSource(src snapshot.SourceInfo) bool {
 
 func outputManifestGroups(ctx context.Context, rep *repo.Repository, manifests []*snapshot.Manifest, relPathParts []string) error {
 	separator := ""
+
 	var anyOutput bool
+
 	for _, snapshotGroup := range snapshot.GroupBySource(manifests) {
 		src := snapshotGroup[0].Source
 		if !shouldOutputSnapshotSource(src) {
 			log.Debugf("skipping %v", src)
 			continue
 		}
+
 		fmt.Printf("%v%v\n", separator, src)
+
 		separator = "\n"
 		anyOutput = true
 
@@ -128,6 +132,7 @@ func outputManifestGroups(ctx context.Context, rep *repo.Repository, manifests [
 		} else {
 			pol.RetentionPolicy.ComputeRetentionReasons(snapshotGroup)
 		}
+
 		if err := outputManifestFromSingleSource(ctx, rep, snapshotGroup, relPathParts); err != nil {
 			return err
 		}
@@ -143,6 +148,7 @@ func outputManifestGroups(ctx context.Context, rep *repo.Repository, manifests [
 //nolint:gocyclo,funlen
 func outputManifestFromSingleSource(ctx context.Context, rep *repo.Repository, manifests []*snapshot.Manifest, parts []string) error {
 	var count int
+
 	var lastTotalFileSize int64
 
 	manifests = snapshot.SortByTime(manifests, false)
@@ -151,7 +157,9 @@ func outputManifestFromSingleSource(ctx context.Context, rep *repo.Repository, m
 	}
 
 	var previousOID object.ID
+
 	var elidedCount int
+
 	var maxElidedTime time.Time
 
 	outputElided := func() {
@@ -170,6 +178,7 @@ func outputManifestFromSingleSource(ctx context.Context, rep *repo.Repository, m
 			fmt.Printf("  %v <ERROR> %v\n", formatTimestamp(m.StartTime), err)
 			continue
 		}
+
 		ent, err := getNestedEntry(ctx, root, parts)
 		if err != nil {
 			fmt.Printf("  %v <ERROR> %v\n", formatTimestamp(m.StartTime), err)
@@ -182,10 +191,12 @@ func outputManifestFromSingleSource(ctx context.Context, rep *repo.Repository, m
 		}
 
 		var bits []string
+
 		if m.IncompleteReason != "" {
 			if !*snapshotListIncludeIncomplete {
 				continue
 			}
+
 			bits = append(bits, "incomplete:"+m.IncompleteReason)
 		}
 
@@ -197,6 +208,7 @@ func outputManifestFromSingleSource(ctx context.Context, rep *repo.Repository, m
 				fmt.Sprintf("uid:%v", ent.Owner().UserID),
 				fmt.Sprintf("gid:%v", ent.Owner().GroupID))
 		}
+
 		if *snapshotListShowModTime {
 			bits = append(bits, fmt.Sprintf("modified:%v", formatTimestamp(ent.ModTime())))
 		}
@@ -227,13 +239,16 @@ func outputManifestFromSingleSource(ctx context.Context, rep *repo.Repository, m
 		oid := ent.(object.HasObjectID).ObjectID()
 		if !*snapshotListShowIdentical && oid == previousOID {
 			elidedCount++
+
 			maxElidedTime = m.StartTime
+
 			continue
 		}
 
 		previousOID = oid
 
 		outputElided()
+
 		elidedCount = 0
 
 		fmt.Printf(
@@ -244,10 +259,12 @@ func outputManifestFromSingleSource(ctx context.Context, rep *repo.Repository, m
 		)
 
 		count++
+
 		if m.IncompleteReason == "" {
 			lastTotalFileSize = m.Stats.TotalFileSize
 		}
 	}
+
 	outputElided()
 
 	return nil

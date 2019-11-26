@@ -54,8 +54,8 @@ func (s *sourceManager) Status() *serverapi.SourceStatus {
 	st.UploadStatus.UploadingPath = s.uploadPath
 	st.UploadStatus.UploadingPathCompleted = s.uploadPathCompleted
 	st.UploadStatus.UploadingPathTotal = s.uploadPathTotal
-	return st
 
+	return st
 }
 
 func (s *sourceManager) setStatus(stat string) {
@@ -77,8 +77,10 @@ func (s *sourceManager) run(ctx context.Context) {
 
 func (s *sourceManager) runLocal(ctx context.Context) {
 	s.refreshStatus(ctx)
+
 	for {
 		var timeBeforeNextSnapshot time.Duration
+
 		if !s.nextSnapshotTime.IsZero() {
 			timeBeforeNextSnapshot = time.Until(s.nextSnapshotTime)
 			log.Infof("time to next snapshot %v is %v", s.src, timeBeforeNextSnapshot)
@@ -106,6 +108,7 @@ func (s *sourceManager) runLocal(ctx context.Context) {
 func (s *sourceManager) runRemote(ctx context.Context) {
 	s.refreshStatus(ctx)
 	s.setStatus("REMOTE")
+
 	for {
 		select {
 		case <-s.closed:
@@ -164,15 +167,19 @@ func (s *sourceManager) snapshot(ctx context.Context) {
 		log.Errorf("unable to create local filesystem: %v", err)
 		return
 	}
+
 	u := snapshotfs.NewUploader(s.server.rep)
+
 	polGetter, err := policy.FilesPolicyGetter(ctx, s.server.rep, s.src)
 	if err != nil {
 		log.Errorf("unable to create policy getter: %v", err)
 	}
+
 	u.FilesPolicy = polGetter
 	u.Progress = s
 
 	log.Infof("starting upload of %v", s.src)
+
 	manifest, err := u.Upload(ctx, localEntry, s.src, s.lastCompleteSnapshot, s.lastSnapshot)
 	if err != nil {
 		log.Errorf("upload error: %v", err)
@@ -191,6 +198,7 @@ func (s *sourceManager) snapshot(ctx context.Context) {
 	}
 
 	log.Infof("created snapshot %v", snapshotID)
+
 	if err := s.server.rep.Flush(ctx); err != nil {
 		log.Errorf("unable to flush: %v", err)
 		return
@@ -199,11 +207,13 @@ func (s *sourceManager) snapshot(ctx context.Context) {
 
 func (s *sourceManager) findClosestNextSnapshotTime() time.Time {
 	nextSnapshotTime := time.Now().Add(24 * time.Hour)
+
 	if s.pol != nil {
 		// compute next snapshot time based on interval
 		if interval := s.pol.SchedulingPolicy.IntervalSeconds; interval != 0 {
 			interval := time.Duration(interval) * time.Second
 			nt := s.lastSnapshot.StartTime.Add(interval).Truncate(interval)
+
 			if nt.Before(nextSnapshotTime) {
 				nextSnapshotTime = nt
 			}
@@ -212,9 +222,11 @@ func (s *sourceManager) findClosestNextSnapshotTime() time.Time {
 		for _, tod := range s.pol.SchedulingPolicy.TimesOfDay {
 			nowLocalTime := time.Now().Local()
 			localSnapshotTime := time.Date(nowLocalTime.Year(), nowLocalTime.Month(), nowLocalTime.Day(), tod.Hour, tod.Minute, 0, 0, time.Local)
+
 			if tod.Hour < nowLocalTime.Hour() || (tod.Hour == nowLocalTime.Hour() && tod.Minute < nowLocalTime.Minute()) {
 				localSnapshotTime = localSnapshotTime.Add(24 * time.Hour)
 			}
+
 			if localSnapshotTime.Before(nextSnapshotTime) {
 				nextSnapshotTime = localSnapshotTime
 			}
@@ -226,6 +238,7 @@ func (s *sourceManager) findClosestNextSnapshotTime() time.Time {
 
 func (s *sourceManager) refreshStatus(ctx context.Context) {
 	log.Debugf("refreshing state for %v", s.src)
+
 	pol, _, err := policy.GetEffectivePolicy(ctx, s.server.rep, s.src)
 	if err != nil {
 		s.setStatus("FAILED")
@@ -233,6 +246,7 @@ func (s *sourceManager) refreshStatus(ctx context.Context) {
 	}
 
 	s.pol = pol
+
 	snapshots, err := snapshot.ListSnapshots(ctx, s.server.rep, s.src)
 	if err != nil {
 		s.setStatus("FAILED")
@@ -240,6 +254,7 @@ func (s *sourceManager) refreshStatus(ctx context.Context) {
 	}
 
 	s.lastCompleteSnapshot = nil
+
 	snaps := snapshot.SortByTime(snapshots, true)
 	if len(snaps) > 0 {
 		s.lastSnapshot = snaps[0]

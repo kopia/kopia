@@ -51,8 +51,10 @@ func listDirectory(ctx context.Context, rep *repo.Repository, prefix string, oid
 
 	for _, e := range entries {
 		var info string
+
 		objectID := e.(object.HasObjectID).ObjectID()
 		oid := objectID.String()
+
 		switch {
 		case *lsCommandLong:
 			info = fmt.Sprintf(
@@ -71,7 +73,9 @@ func listDirectory(ctx context.Context, rep *repo.Repository, prefix string, oid
 		default:
 			info = nameToDisplay(prefix, e)
 		}
+
 		fmt.Println(info)
+
 		if *lsCommandRecursive && e.Mode().IsDir() {
 			if listerr := listDirectory(ctx, rep, prefix+e.Name()+"/", objectID, indent+"  "); listerr != nil {
 				return listerr
@@ -86,8 +90,8 @@ func nameToDisplay(prefix string, e fs.Entry) string {
 	suffix := ""
 	if e.IsDir() {
 		suffix = "/"
-
 	}
+
 	if *lsCommandLong || *lsCommandRecursive {
 		return prefix + e.Name() + suffix
 	}

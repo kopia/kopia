@@ -13,9 +13,10 @@ import (
 	"testing"
 )
 
-//nolint:gocyclo
+//nolint:gocyclo,gocognit
 func TestFiles(t *testing.T) {
 	ctx := context.Background()
+
 	var err error
 
 	tmp, err := ioutil.TempDir("", "kopia")
@@ -72,20 +73,26 @@ func TestFiles(t *testing.T) {
 	if entries[0].Name() == "f1" && entries[0].Size() == 5 && entries[0].Mode().IsRegular() {
 		goodCount++
 	}
+
 	if entries[1].Name() == "f2" && entries[1].Size() == 4 && entries[1].Mode().IsRegular() {
 		goodCount++
 	}
+
 	if entries[2].Name() == "f3" && entries[2].Size() == 3 && entries[2].Mode().IsRegular() {
 		goodCount++
 	}
+
 	if entries[3].Name() == "y" && entries[3].Size() == 0 && entries[3].Mode().IsDir() {
 		goodCount++
 	}
+
 	if entries[4].Name() == "z" && entries[4].Size() == 0 && entries[4].Mode().IsDir() {
 		goodCount++
 	}
+
 	if goodCount != 5 {
 		t.Errorf("invalid dir data: %v good entries", goodCount)
+
 		for i, e := range entries {
 			t.Logf("e[%v] = %v %v %v", i, e.Name(), e.Size(), e.Mode())
 		}
@@ -94,6 +101,7 @@ func TestFiles(t *testing.T) {
 
 func assertNoError(t *testing.T, err error) {
 	t.Helper()
+
 	if err != nil {
 		t.Errorf("err: %v", err)
 	}

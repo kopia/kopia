@@ -46,6 +46,7 @@ func (r *RetentionPolicy) ComputeRetentionReasons(manifests []*snapshot.Manifest
 	for i, s := range sorted {
 		s.RetentionReasons = r.getRetentionReasons(i, s, cutoff, ids, idCounters)
 	}
+
 	for _, s := range sorted {
 		if s.IncompleteReason != "" {
 			s.RetentionReasons = append(s.RetentionReasons, "incomplete")
@@ -61,6 +62,7 @@ func (r *RetentionPolicy) getRetentionReasons(i int, s *snapshot.Manifest, cutof
 	}
 
 	keepReasons := []string{}
+
 	var zeroTime time.Time
 
 	yyyy, wk := s.StartTime.ISOWeek()
@@ -83,6 +85,7 @@ func (r *RetentionPolicy) getRetentionReasons(i int, s *snapshot.Manifest, cutof
 		if c.max == nil {
 			continue
 		}
+
 		if s.StartTime.Before(c.cutoffTime) {
 			continue
 		}
@@ -143,18 +146,23 @@ func (r *RetentionPolicy) Merge(src RetentionPolicy) {
 	if r.KeepLatest == nil {
 		r.KeepLatest = src.KeepLatest
 	}
+
 	if r.KeepHourly == nil {
 		r.KeepHourly = src.KeepHourly
 	}
+
 	if r.KeepDaily == nil {
 		r.KeepDaily = src.KeepDaily
 	}
+
 	if r.KeepWeekly == nil {
 		r.KeepWeekly = src.KeepWeekly
 	}
+
 	if r.KeepMonthly == nil {
 		r.KeepMonthly = src.KeepMonthly
 	}
+
 	if r.KeepAnnual == nil {
 		r.KeepAnnual = src.KeepAnnual
 	}

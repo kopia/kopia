@@ -120,6 +120,7 @@ func (rsl *repositorySymlink) Readlink(ctx context.Context) (string, error) {
 	}
 
 	defer r.Close() //nolint:errcheck
+
 	b, err := ioutil.ReadAll(r)
 	if err != nil {
 		return "", err

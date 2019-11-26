@@ -16,10 +16,12 @@ func TestFormatBlobRecovery(t *testing.T) {
 	ctx := context.Background()
 
 	someDataBlock := []byte("aadsdasdas")
+
 	checksummed, err := addFormatBlobChecksumAndLength(someDataBlock)
 	if err != nil {
 		t.Errorf("error appending checksum: %v", err)
 	}
+
 	if got, want := len(checksummed), 2+2+sha256.Size+len(someDataBlock); got != want {
 		t.Errorf("unexpected checksummed length: %v, want %v", got, want)
 	}
@@ -74,6 +76,7 @@ func TestFormatBlobRecovery(t *testing.T) {
 
 func assertNoError(t *testing.T, err error) {
 	t.Helper()
+
 	if err != nil {
 		t.Errorf("err: %v", err)
 	}

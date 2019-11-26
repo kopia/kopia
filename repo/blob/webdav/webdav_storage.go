@@ -51,7 +51,9 @@ func (d *davStorageImpl) GetBlobFromPath(ctx context.Context, dirPath, path stri
 	if err != nil {
 		return nil, d.translateError(err)
 	}
+
 	data := v.([]byte)
+
 	if length < 0 {
 		return data, nil
 	}
@@ -106,6 +108,7 @@ func (d *davStorageImpl) ReadDir(ctx context.Context, dir string) ([]os.FileInfo
 
 func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath string, data []byte) error {
 	tmpPath := fmt.Sprintf("%v-%v", filePath, rand.Int63())
+
 	if err := d.translateError(retry.WithExponentialBackoffNoValue("Write", func() error {
 		return d.cli.Write(tmpPath, data, defaultFilePerm)
 	}, isRetriable)); err != nil {

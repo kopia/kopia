@@ -56,13 +56,16 @@ func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, off
 	if _, err = f.Seek(offset, io.SeekStart); err != nil {
 		return nil, err
 	}
+
 	b, err := ioutil.ReadAll(io.LimitReader(f, length))
 	if err != nil {
 		return nil, err
 	}
+
 	if int64(len(b)) != length {
 		return nil, errors.Errorf("invalid length")
 	}
+
 	return b, nil
 }
 
@@ -71,7 +74,9 @@ func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data 
 	if _, err := rand.Read(randSuffix); err != nil {
 		return errors.Wrap(err, "can't get random bytes")
 	}
+
 	tempFile := fmt.Sprintf("%s.tmp.%x", path, randSuffix)
+
 	f, err := fs.createTempFileAndDir(tempFile)
 	if err != nil {
 		return errors.Wrap(err, "cannot create temporary file")
@@ -80,6 +85,7 @@ func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data 
 	if _, err = f.Write(data); err != nil {
 		return errors.Wrap(err, "can't write temporary file")
 	}
+
 	if err = f.Close(); err != nil {
 		return errors.Wrap(err, "can't close temporary file")
 	}
@@ -89,6 +95,7 @@ func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data 
 		if removeErr := os.Remove(tempFile); removeErr != nil {
 			log.Warningf("can't remove temp file: %v", removeErr)
 		}
+
 		return err
 	}
 
@@ -103,11 +110,13 @@ func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data 
 
 func (fs *fsImpl) createTempFileAndDir(tempFile string) (*os.File, error) {
 	flags := os.O_CREATE | os.O_WRONLY | os.O_EXCL
+
 	f, err := os.OpenFile(tempFile, flags, fs.fileMode())
 	if os.IsNotExist(err) {
 		if err = os.MkdirAll(filepath.Dir(tempFile), fs.dirMode()); err != nil {
 			return nil, errors.Wrap(err, "cannot create directory")
 		}
+
 		return os.OpenFile(tempFile, flags, fs.fileMode())
 	}
 
@@ -130,18 +139,21 @@ func (fs *fsImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, e
 // TouchBlob updates file modification time to current time if it's sufficiently old.
 func (fs *fsStorage) TouchBlob(ctx context.Context, blobID blob.ID, threshold time.Duration) error {
 	_, path := fs.Storage.GetShardedPathAndFilePath(blobID)
+
 	st, err := os.Stat(path)
 	if err != nil {
 		return err
 	}
 
 	n := time.Now()
+
 	age := n.Sub(st.ModTime())
 	if age < threshold {
 		return nil
 	}
 
 	log.Debugf("updating timestamp on %v to %v", path, n)
+
 	return os.Chtimes(path, n, n)
 }
 

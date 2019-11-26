@@ -45,11 +45,12 @@ const logFileNameSuffix = ".log"
 // Initialize is invoked as part of command execution to create log file just before it's needed.
 func Initialize(ctx *kingpin.ParseContext) error {
 	var logBackends []logging.Backend
-	var logFileName string
-	var symlinkName string
+
+	var logFileName, symlinkName string
 
 	if lfn := *logFile; lfn != "" {
 		var err error
+
 		logFileName, err = filepath.Abs(lfn)
 		if err != nil {
 			return err
@@ -57,10 +58,12 @@ func Initialize(ctx *kingpin.ParseContext) error {
 	}
 
 	var shouldSweepLogs bool
+
 	if logFileName == "" && *logDir != "" {
 		logBaseName := fmt.Sprintf("%v%v-%v%v", logFileNamePrefix, time.Now().Format("20060102-150405"), os.Getpid(), logFileNameSuffix)
 		logFileName = filepath.Join(*logDir, logBaseName)
 		symlinkName = "kopia.latest.log"
+
 		if *logDirMaxAge > 0 || *logDirMaxFiles > 0 {
 			shouldSweepLogs = true
 		}
@@ -69,6 +72,7 @@ func Initialize(ctx *kingpin.ParseContext) error {
 	if logFileName != "" {
 		logFileDir := filepath.Dir(logFileName)
 		logFileBaseName := filepath.Base(logFileName)
+
 		if err := os.MkdirAll(logFileDir, 0700); err != nil {
 			fmt.Fprintln(os.Stderr, "Unable to create logs directory:", err) // nolint:errcheck
 		}
@@ -106,6 +110,7 @@ func sweepLogDir(dirname string, maxCount int, maxAge time.Duration) {
 	if maxAge > 0 {
 		timeCutoff = time.Now().Add(-maxAge)
 	}
+
 	if maxCount == 0 {
 		maxCount = math.MaxInt32
 	}
@@ -132,6 +137,7 @@ func sweepLogDir(dirname string, maxCount int, maxAge time.Duration) {
 		}
 
 		cnt++
+
 		if cnt > maxCount || e.ModTime().Before(timeCutoff) {
 			if err = os.Remove(filepath.Join(dirname, e.Name())); err != nil {
 				log.Warningf("unable to remove log file: %v", err)

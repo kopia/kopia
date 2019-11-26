@@ -18,6 +18,7 @@ type buzhash32Splitter struct {
 func (rs *buzhash32Splitter) ShouldSplit(b byte) bool {
 	rs.rh.Roll(b)
 	rs.count++
+
 	if rs.rh.Sum32()&rs.mask == 0 && rs.count >= rs.minSize {
 		rs.count = 0
 		return true

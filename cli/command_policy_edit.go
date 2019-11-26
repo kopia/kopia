@@ -97,7 +97,9 @@ func editPolicy(ctx context.Context, rep *repo.Repository) error {
 		printStderr("Updated policy for %v\n%v\n", target, prettyJSON(updated))
 
 		fmt.Print("Save updated policy? (y/N) ")
+
 		var shouldSave string
+
 		fmt.Scanf("%v", &shouldSave) //nolint:errcheck
 
 		if strings.HasPrefix(strings.ToLower(shouldSave), "y") {
@@ -115,6 +117,7 @@ func prettyJSON(v interface{}) string {
 	e := json.NewEncoder(&b)
 	e.SetIndent("", "  ")
 	e.Encode(v) //nolint:errcheck
+
 	return b.String()
 }
 

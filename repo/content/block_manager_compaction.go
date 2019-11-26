@@ -27,6 +27,7 @@ func (bm *Manager) CompactIndexes(ctx context.Context, opt CompactOptions) error
 	defer bm.unlock()
 
 	log.Debugf("CompactIndexes(%+v)", opt)
+
 	if opt.MaxSmallBlobs < opt.MinSmallBlobs {
 		return errors.Errorf("invalid content counts")
 	}
@@ -47,12 +48,15 @@ func (bm *Manager) CompactIndexes(ctx context.Context, opt CompactOptions) error
 
 func (bm *Manager) getContentsToCompact(indexBlobs []IndexBlobInfo, opt CompactOptions) []IndexBlobInfo {
 	var nonCompactedContents []IndexBlobInfo
+
 	var totalSizeNonCompactedContents int64
 
 	var verySmallContents []IndexBlobInfo
+
 	var totalSizeVerySmallContents int64
 
 	var mediumSizedContents []IndexBlobInfo
+
 	var totalSizeMediumSizedContents int64
 
 	for _, b := range indexBlobs {
@@ -61,6 +65,7 @@ func (bm *Manager) getContentsToCompact(indexBlobs []IndexBlobInfo, opt CompactO
 		}
 
 		nonCompactedContents = append(nonCompactedContents, b)
+
 		if b.Length < int64(bm.maxPackSize/20) {
 			verySmallContents = append(verySmallContents, b)
 			totalSizeVerySmallContents += b.Length
@@ -68,6 +73,7 @@ func (bm *Manager) getContentsToCompact(indexBlobs []IndexBlobInfo, opt CompactO
 			mediumSizedContents = append(mediumSizedContents, b)
 			totalSizeMediumSizedContents += b.Length
 		}
+
 		totalSizeNonCompactedContents += b.Length
 	}
 
@@ -83,6 +89,7 @@ func (bm *Manager) getContentsToCompact(indexBlobs []IndexBlobInfo, opt CompactO
 	}
 
 	formatLog.Debugf("compacting all %v non-compacted contents", len(nonCompactedContents))
+
 	return nonCompactedContents
 }
 
@@ -90,10 +97,12 @@ func (bm *Manager) compactAndDeleteIndexBlobs(ctx context.Context, indexBlobs []
 	if len(indexBlobs) <= 1 {
 		return nil
 	}
-	formatLog.Debugf("compacting %v contents", len(indexBlobs))
-	t0 := time.Now()
 
+	formatLog.Debugf("compacting %v contents", len(indexBlobs))
+
+	t0 := time.Now()
 	bld := make(packIndexBuilder)
+
 	for _, indexBlob := range indexBlobs {
 		if err := bm.addIndexBlobsToBuilder(ctx, bld, indexBlob, opt); err != nil {
 			return err
@@ -118,6 +127,7 @@ func (bm *Manager) compactAndDeleteIndexBlobs(ctx context.Context, indexBlobs []
 		}
 
 		bm.listCache.deleteListCache()
+
 		if err := bm.st.DeleteBlob(ctx, indexBlob.BlobID); err != nil {
 			log.Warningf("unable to delete compacted blob %q: %v", indexBlob.BlobID, err)
 		}

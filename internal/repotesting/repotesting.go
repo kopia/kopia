@@ -36,6 +36,7 @@ func (e *Environment) Setup(t *testing.T, opts ...func(*repo.NewRepositoryOption
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
+
 	e.storageDir, err = ioutil.TempDir("", "")
 	if err != nil {
 		t.Fatalf("err: %v", err)
@@ -90,15 +91,18 @@ func (e *Environment) Close(t *testing.T) {
 	if err := e.Repository.Close(context.Background()); err != nil {
 		t.Fatalf("unable to close: %v", err)
 	}
+
 	if e.connected {
 		if err := repo.Disconnect(e.configFile()); err != nil {
 			t.Errorf("error disconnecting: %v", err)
 		}
 	}
+
 	if err := os.Remove(e.configDir); err != nil {
 		// should be empty, assuming Disconnect was successful
 		t.Errorf("error removing config directory: %v", err)
 	}
+
 	if err := os.RemoveAll(e.storageDir); err != nil {
 		t.Errorf("error removing storage directory: %v", err)
 	}

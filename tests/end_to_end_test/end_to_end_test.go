@@ -81,12 +81,15 @@ func (e *testenv) cleanup(t *testing.T) {
 		t.Logf("skipped cleanup for failed test, examine repository: %v", e.repoDir)
 		return
 	}
+
 	if e.repoDir != "" {
 		os.RemoveAll(e.repoDir)
 	}
+
 	if e.configDir != "" {
 		os.RemoveAll(e.configDir)
 	}
+
 	if e.dataDir != "" {
 		os.RemoveAll(e.dataDir)
 	}
@@ -347,35 +350,44 @@ canary
 
 func (e *testenv) runAndExpectSuccess(t *testing.T, args ...string) []string {
 	t.Helper()
+
 	stdout, err := e.run(t, args...)
 	if err != nil {
 		t.Fatalf("'kopia %v' failed with %v", strings.Join(args, " "), err)
 	}
+
 	return stdout
 }
 
 func (e *testenv) runAndExpectFailure(t *testing.T, args ...string) []string {
 	t.Helper()
+
 	stdout, err := e.run(t, args...)
 	if err == nil {
 		t.Fatalf("'kopia %v' succeeded, but expected failure", strings.Join(args, " "))
 	}
+
 	return stdout
 }
 
 func (e *testenv) runAndVerifyOutputLineCount(t *testing.T, wantLines int, args ...string) []string {
 	t.Helper()
+
 	lines := e.runAndExpectSuccess(t, args...)
 	if len(lines) != wantLines {
 		t.Errorf("unexpected list of results of 'kopia %v': %v (%v lines), wanted %v", strings.Join(args, " "), lines, len(lines), wantLines)
 	}
+
 	return lines
 }
 
 func (e *testenv) run(t *testing.T, args ...string) ([]string, error) {
 	t.Helper()
 	t.Logf("running 'kopia %v'", strings.Join(args, " "))
+	// nolint:gosec
 	cmdArgs := append(append([]string(nil), e.fixedArgs...), args...)
+
+	// nolint:gosec
 	c := exec.Command(e.exe, cmdArgs...)
 	c.Env = append(os.Environ(), e.environment...)
 
@@ -385,9 +397,11 @@ func (e *testenv) run(t *testing.T, args ...string) ([]string, error) {
 	}
 
 	var stderr []byte
+
 	var wg sync.WaitGroup
 
 	wg.Add(1)
+
 	go func() {
 		defer wg.Done()
 
@@ -395,9 +409,10 @@ func (e *testenv) run(t *testing.T, args ...string) ([]string, error) {
 	}()
 
 	o, err := c.Output()
-	wg.Wait()
 
+	wg.Wait()
 	t.Logf("finished 'kopia %v' with err=%v and output:\n%v\nstderr:\n%v\n", strings.Join(args, " "), err, trimOutput(string(o)), trimOutput(string(stderr)))
+
 	return splitLines(string(o)), err
 }
 
@@ -412,8 +427,8 @@ func trimOutput(s string) string {
 	lines2 = append(lines2, lines[len(lines)-50:]...)
 
 	return strings.Join(lines2, "\n")
-
 }
+
 func listSnapshotsAndExpectSuccess(t *testing.T, e *testenv, targets ...string) []sourceInfo {
 	lines := e.runAndExpectSuccess(t, append([]string{"snapshot", "list", "-l"}, targets...)...)
 	return mustParseSnapshots(t, lines)
@@ -468,7 +483,9 @@ func mustParseSnapshots(t *testing.T, lines []string) []sourceInfo {
 				t.Errorf("snapshot without a source: %q", l)
 				return nil
 			}
+
 			currentSource.snapshots = append(currentSource.snapshots, mustParseSnaphotInfo(t, l[2:]))
+
 			continue
 		}
 
@@ -483,15 +500,18 @@ func mustParseSnapshots(t *testing.T, lines []string) []sourceInfo {
 func randomName() string {
 	b := make([]byte, rand.Intn(10)+3)
 	cryptorand.Read(b) // nolint:errcheck
+
 	return hex.EncodeToString(b)
 }
 
 func mustParseSnaphotInfo(t *testing.T, l string) snapshotInfo {
 	parts := strings.Split(l, " ")
+
 	ts, err := time.Parse("2006-01-02 15:04:05 MST", strings.Join(parts[0:3], " "))
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
+
 	return snapshotInfo{
 		time:     ts,
 		objectID: parts[3],
@@ -500,12 +520,15 @@ func mustParseSnaphotInfo(t *testing.T, l string) snapshotInfo {
 
 func mustParseSourceInfo(t *testing.T, l string) sourceInfo {
 	p1 := strings.Index(l, "@")
+
 	p2 := strings.Index(l, ":")
+
 	if p1 >= 0 && p2 > p1 {
 		return sourceInfo{user: l[0:p1], host: l[p1+1 : p2], path: l[p2+1:]}
 	}
 
 	t.Fatalf("can't parse source info: %q", l)
+
 	return sourceInfo{}
 }
 
@@ -519,11 +542,13 @@ func splitLines(s string) []string {
 	for _, l := range strings.Split(s, "\n") {
 		result = append(result, strings.TrimRight(l, "\r"))
 	}
+
 	return result
 }
 
 func assertNoError(t *testing.T, err error) {
 	t.Helper()
+
 	if err != nil {
 		t.Errorf("err: %v", err)
 	}

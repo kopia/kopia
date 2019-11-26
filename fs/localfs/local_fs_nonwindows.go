@@ -15,5 +15,6 @@ func platformSpecificOwnerInfo(fi os.FileInfo) fs.OwnerInfo {
 		oi.UserID = stat.Uid
 		oi.GroupID = stat.Gid
 	}
+
 	return oi
 }

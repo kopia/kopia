@@ -52,6 +52,7 @@ func (s *sourceDirectories) Readdir(ctx context.Context) (fs.Entries, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	var result fs.Entries
 
 	for _, src := range sources {

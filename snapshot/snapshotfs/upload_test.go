@@ -36,6 +36,7 @@ func (th *uploadTestHarness) cleanup() {
 
 func newUploadTestHarness() *uploadTestHarness {
 	ctx := context.Background()
+
 	repoDir, err := ioutil.TempDir("", "kopia-repo")
 	if err != nil {
 		panic("cannot create temp directory: " + err.Error())
@@ -98,17 +99,22 @@ func newUploadTestHarness() *uploadTestHarness {
 func TestUpload(t *testing.T) {
 	ctx := context.Background()
 	th := newUploadTestHarness()
+
 	defer th.cleanup()
 
-	u := NewUploader(th.repo)
 	log.Infof("Uploading s1")
+
+	u := NewUploader(th.repo)
+
 	s1, err := u.Upload(ctx, th.sourceDir, snapshot.SourceInfo{})
 	if err != nil {
 		t.Errorf("Upload error: %v", err)
 	}
+
 	log.Infof("s1: %v", s1.RootEntry)
 
 	log.Infof("Uploading s2")
+
 	s2, err := u.Upload(ctx, th.sourceDir, snapshot.SourceInfo{}, s1)
 	if err != nil {
 		t.Errorf("Upload error: %v", err)
@@ -133,6 +139,7 @@ func TestUpload(t *testing.T) {
 
 	// Add one more file, the s1.RootObjectID should change.
 	th.sourceDir.AddFile("d2/d1/f3", []byte{1, 2, 3, 4, 5}, defaultPermissions)
+
 	s3, err := u.Upload(ctx, th.sourceDir, snapshot.SourceInfo{}, s1)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
@@ -185,11 +192,13 @@ func TestUpload_Cancel(t *testing.T) {
 func TestUpload_TopLevelDirectoryReadFailure(t *testing.T) {
 	ctx := context.Background()
 	th := newUploadTestHarness()
+
 	defer th.cleanup()
 
 	th.sourceDir.FailReaddir(errTest)
 
 	u := NewUploader(th.repo)
+
 	s, err := u.Upload(ctx, th.sourceDir, snapshot.SourceInfo{})
 	if err != errTest {
 		t.Errorf("expected error: %v", err)
@@ -203,12 +212,14 @@ func TestUpload_TopLevelDirectoryReadFailure(t *testing.T) {
 func TestUpload_SubDirectoryReadFailure(t *testing.T) {
 	ctx := context.Background()
 	th := newUploadTestHarness()
+
 	defer th.cleanup()
 
 	th.sourceDir.Subdir("d1").FailReaddir(errTest)
 
 	u := NewUploader(th.repo)
 	u.IgnoreFileErrors = false
+
 	_, err := u.Upload(ctx, th.sourceDir, snapshot.SourceInfo{})
 	if err == nil {
 		t.Errorf("expected error")

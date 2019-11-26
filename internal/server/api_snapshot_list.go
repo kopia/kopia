@@ -42,6 +42,7 @@ func (s *Server) handleSourceSnapshotList(ctx context.Context, r *http.Request) 
 	resp := &snapshotListResponse{
 		Snapshots: []*snapshotListEntry{},
 	}
+
 	groups := snapshot.GroupBySource(manifests)
 	for _, grp := range groups {
 		first := grp[0]
@@ -66,9 +67,11 @@ func sourceMatchesURLFilter(src snapshot.SourceInfo, query url.Values) bool {
 	if v := query.Get("host"); v != "" && src.Host != v {
 		return false
 	}
+
 	if v := query.Get("userName"); v != "" && src.UserName != v {
 		return false
 	}
+
 	if v := query.Get("path"); v != "" && src.Path != v {
 		return false
 	}

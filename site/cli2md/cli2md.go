@@ -31,6 +31,7 @@ func emitFlags(w io.Writer, flags []*kingpin.FlagModel) {
 	if len(flags) == 0 {
 		return
 	}
+
 	fmt.Fprintf(w, "| Flag | Short | Defaut | Help |\n")
 	fmt.Fprintf(w, "| ---- | ----- | --- | --- |\n")
 
@@ -44,6 +45,7 @@ func emitFlags(w io.Writer, flags []*kingpin.FlagModel) {
 		if f.Short != 0 {
 			shortFlag = "`-" + string([]byte{byte(f.Short)}) + "`"
 		}
+
 		defaultValue := ""
 		if len(f.Default) > 0 {
 			defaultValue = f.Default[0]
@@ -61,11 +63,13 @@ func emitFlags(w io.Writer, flags []*kingpin.FlagModel) {
 			if defaultValue == "" {
 				defaultValue = "`false`"
 			}
+
 			fmt.Fprintf(w, "| `--[no-]%v` | %v | %v | %v%v |\n", f.Name, shortFlag, defaultValue, maybeAdvanced, f.Help)
 		} else {
 			fmt.Fprintf(w, "| `--%v` | %v | %v | %v%v |\n", f.Name, shortFlag, defaultValue, maybeAdvanced, f.Help)
 		}
 	}
+
 	fmt.Fprintf(w, "\n")
 }
 
@@ -89,6 +93,7 @@ func sortFlags(f []*kingpin.FlagModel) []*kingpin.FlagModel {
 
 		return a.Name < b.Name
 	})
+
 	return f
 }
 
@@ -96,8 +101,10 @@ func emitArgs(w io.Writer, args []*kingpin.ArgModel) {
 	if len(args) == 0 {
 		return
 	}
+
 	fmt.Fprintf(w, "| Argument | Help |\n")
 	fmt.Fprintf(w, "| -------- | ---  |\n")
+
 	args2 := append([]*kingpin.ArgModel(nil), args...)
 	sort.Slice(args2, func(i, j int) bool {
 		return args2[i].Name < args2[j].Name
@@ -106,6 +113,7 @@ func emitArgs(w io.Writer, args []*kingpin.ArgModel) {
 	for _, f := range args2 {
 		fmt.Fprintf(w, "| `%v` | %v |\n", f.Name, f.Help)
 	}
+
 	fmt.Fprintf(w, "\n")
 }
 
@@ -124,6 +132,7 @@ weight: 3
 ---
 `, title, title)
 	emitFlags(f, app.Flags)
+
 	return nil
 }
 
@@ -132,6 +141,7 @@ func generateCommands(app *kingpin.ApplicationModel, section string, weight int,
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return err
 	}
+
 	f, err := os.Create(filepath.Join(dir, "_index.md"))
 	if err != nil {
 		return errors.Wrap(err, "unable to create common flags file")
@@ -169,6 +179,7 @@ func flattenCommands(cmds []*kingpin.CmdModel) []*kingpin.CmdModel {
 			commonRoot.Commands = append(commonRoot.Commands, c)
 			continue
 		}
+
 		root := &kingpin.CmdModel{
 			Name:          c.Name,
 			FullCommand:   c.FullCommand,
@@ -193,6 +204,7 @@ func flattenChildren(cmd *kingpin.CmdModel, parentFlags []*kingpin.FlagModel, fo
 		if forceHidden {
 			cmdClone.Hidden = true
 		}
+
 		cmdClone.Flags = cmdFlags
 
 		result = append(result, &cmdClone)
@@ -207,15 +219,20 @@ func flattenChildren(cmd *kingpin.CmdModel, parentFlags []*kingpin.FlagModel, fo
 
 func generateSubcommands(w io.Writer, dir, sectionTitle string, cmds []*kingpin.CmdModel, advanced bool) {
 	cmds = append([]*kingpin.CmdModel(nil), cmds...)
+
 	first := true
+
 	for _, c := range cmds {
 		if c.Hidden != advanced {
 			continue
 		}
+
 		if first {
 			fmt.Fprintf(w, "\n### %v\n\n", sectionTitle)
+
 			first = false
 		}
+
 		subcommandSlug := strings.Replace(c.FullCommand, " ", "-", -1)
 		fmt.Fprintf(w, "* [`%v`](%v) - %v\n", c.FullCommand, subcommandSlug+"/", c.Help)
 		generateSubcommandPage(filepath.Join(dir, subcommandSlug+".md"), c)

@@ -84,14 +84,18 @@ func IterateAllPrefixesInParallel(ctx context.Context, parallelism int, st Stora
 	}
 
 	var wg sync.WaitGroup
+
 	semaphore := make(chan struct{}, parallelism)
 	errch := make(chan error, len(prefixes))
+
 	for _, prefix := range prefixes {
 		wg.Add(1)
+
 		prefix := prefix
 
 		// acquire semaphore
 		semaphore <- struct{}{}
+
 		go func() {
 			defer wg.Done()
 			defer func() {
@@ -123,6 +127,7 @@ func ListAllBlobsConsistent(ctx context.Context, st Storage, prefix ID, maxAttem
 		if err != nil {
 			return nil, err
 		}
+
 		if i > 0 && sameBlobs(result, previous) {
 			return result, nil
 		}
@@ -137,17 +142,22 @@ func ListAllBlobsConsistent(ctx context.Context, st Storage, prefix ID, maxAttem
 func sameBlobs(b1, b2 []Metadata) bool {
 	if len(b1) != len(b2) {
 		log.Printf("a")
+
 		return false
 	}
+
 	m := map[ID]Metadata{}
+
 	for _, b := range b1 {
 		m[b.BlobID] = normalizeMetadata(b)
 	}
+
 	for _, b := range b2 {
 		if r := m[b.BlobID]; r != normalizeMetadata(b) {
 			return false
 		}
 	}
+
 	return true
 }
 

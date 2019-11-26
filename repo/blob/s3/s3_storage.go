@@ -34,6 +34,7 @@ type s3Storage struct {
 func (s *s3Storage) GetBlob(ctx context.Context, b blob.ID, offset, length int64) ([]byte, error) {
 	attempt := func() (interface{}, error) {
 		var opt minio.GetObjectOptions
+
 		if length > 0 {
 			if err := opt.SetRange(offset, offset+length-1); err != nil {
 				return nil, errors.Wrap(err, "unable to set range")
@@ -46,6 +47,7 @@ func (s *s3Storage) GetBlob(ctx context.Context, b blob.ID, offset, length int64
 		}
 
 		defer o.Close() //nolint:errcheck
+
 		throttled, err := s.downloadThrottler.AddReader(o)
 		if err != nil {
 			return nil, err
@@ -93,6 +95,7 @@ func translateError(err error) error {
 		if me.StatusCode == 200 {
 			return nil
 		}
+
 		if me.StatusCode == 404 {
 			return blob.ErrBlobNotFound
 		}
@@ -112,10 +115,12 @@ func (s *s3Storage) PutBlob(ctx context.Context, b blob.ID, data []byte) error {
 		progressCallback(string(b), 0, int64(len(data)))
 		defer progressCallback(string(b), int64(len(data)), int64(len(data)))
 	}
+
 	n, err := s.cli.PutObject(s.BucketName, s.getObjectNameString(b), throttled, -1, minio.PutObjectOptions{
 		ContentType: "application/x-kopia",
 		Progress:    newProgressReader(progressCallback, string(b), int64(len(data))),
 	})
+
 	if err == io.EOF && n == 0 {
 		// special case empty stream
 		_, err = s.cli.PutObject(s.BucketName, s.getObjectNameString(b), bytes.NewBuffer(nil), 0, minio.PutObjectOptions{
@@ -132,6 +137,7 @@ func (s *s3Storage) DeleteBlob(ctx context.Context, b blob.ID) error {
 	}
 
 	_, err := exponentialBackoff(fmt.Sprintf("DeleteBlob(%q)", b), attempt)
+
 	return translateError(err)
 }
 
@@ -189,6 +195,7 @@ func (r *progressReader) Read(b []byte) (int, error) {
 		r.cb(r.blobID, r.completed, r.totalLength)
 		r.lastReported = r.completed
 	}
+
 	return len(b), nil
 }
 

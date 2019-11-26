@@ -37,7 +37,9 @@ func runCacheInfoCommand(ctx context.Context, rep *repo.Repository) error {
 		if !ent.IsDir() {
 			continue
 		}
+
 		subdir := filepath.Join(rep.Content.CachingOptions.CacheDirectory, ent.Name())
+
 		fileCount, totalFileSize, err := scanCacheDir(subdir)
 		if err != nil {
 			return err
@@ -47,6 +49,7 @@ func runCacheInfoCommand(ctx context.Context, rep *repo.Repository) error {
 		if l, ok := path2Limit[ent.Name()]; ok {
 			maybeLimit = fmt.Sprintf(" (limit %v)", units.BytesStringBase10(l))
 		}
+
 		fmt.Printf("%v: %v files %v%v\n", subdir, fileCount, units.BytesStringBase10(totalFileSize), maybeLimit)
 	}
 

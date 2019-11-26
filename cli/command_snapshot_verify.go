@@ -46,6 +46,7 @@ type verifier struct {
 func (v *verifier) progressCallback(enqueued, active, completed int64) {
 	elapsed := time.Since(v.startTime)
 	maybeTimeRemaining := ""
+
 	if elapsed > 1*time.Second && enqueued > 0 && completed > 0 {
 		completedRatio := float64(completed) / float64(enqueued)
 		predictedSeconds := elapsed.Seconds() / completedRatio
@@ -56,6 +57,7 @@ func (v *verifier) progressCallback(enqueued, active, completed int64) {
 			maybeTimeRemaining = fmt.Sprintf(" remaining %v (ETA %v)", dt.Truncate(1*time.Second), formatTimestamp(predictedEndTime.Truncate(1*time.Second)))
 		}
 	}
+
 	printStderr("Found %v objects, verifying %v, completed %v objects%v.\n", enqueued, active, completed, maybeTimeRemaining)
 }
 
@@ -70,13 +72,12 @@ func (v *verifier) tooManyErrors() bool {
 	return len(v.errors) >= *verifyCommandErrorThreshold
 }
 
-func (v *verifier) reportError(path string, err error) bool {
+func (v *verifier) reportError(path string, err error) {
 	v.mu.Lock()
 	defer v.mu.Unlock()
 
 	log.Warningf("failed on %v: %v", path, err)
 	v.errors = append(v.errors, err)
-	return len(v.errors) >= *verifyCommandErrorThreshold
 }
 
 func (v *verifier) shouldEnqueue(oid object.ID) bool {
@@ -88,6 +89,7 @@ func (v *verifier) shouldEnqueue(oid object.ID) bool {
 	}
 
 	v.seen[oid] = true
+
 	return true
 }
 
@@ -96,6 +98,7 @@ func (v *verifier) enqueueVerifyDirectory(ctx context.Context, oid object.ID, pa
 	if !v.shouldEnqueue(oid) {
 		return
 	}
+
 	v.workQueue.EnqueueFront(func() error {
 		return v.doVerifyDirectory(ctx, oid, path)
 	})
@@ -106,6 +109,7 @@ func (v *verifier) enqueueVerifyObject(ctx context.Context, oid object.ID, path 
 	if !v.shouldEnqueue(oid) {
 		return
 	}
+
 	v.workQueue.EnqueueBack(func() error {
 		return v.doVerifyObject(ctx, oid, path, expectedLength)
 	})
@@ -115,6 +119,7 @@ func (v *verifier) doVerifyDirectory(ctx context.Context, oid object.ID, path st
 	log.Debugf("verifying directory %q (%v)", path, oid)
 
 	d := snapshotfs.DirectoryEntry(v.rep, oid, nil)
+
 	entries, err := d.Readdir(ctx)
 	if err != nil {
 		v.reportError(path, errors.Wrapf(err, "error reading %v", oid))
@@ -128,6 +133,7 @@ func (v *verifier) doVerifyDirectory(ctx context.Context, oid object.ID, path st
 
 		objectID := e.(object.HasObjectID).ObjectID()
 		childPath := path + "/" + e.Name()
+
 		if e.IsDir() {
 			v.enqueueVerifyDirectory(ctx, objectID, childPath)
 		} else {
@@ -146,6 +152,7 @@ func (v *verifier) doVerifyObject(ctx context.Context, oid object.ID, path strin
 	}
 
 	var length int64
+
 	var err error
 
 	length, _, err = v.om.VerifyObject(ctx, oid)
@@ -168,6 +175,7 @@ func (v *verifier) doVerifyObject(ctx context.Context, oid object.ID, path strin
 
 func (v *verifier) readEntireObject(ctx context.Context, oid object.ID, path string) error {
 	log.Debugf("reading object %v %v", oid, path)
+
 	ctx = content.UsingContentCache(ctx, false)
 
 	// also read the entire file
@@ -178,6 +186,7 @@ func (v *verifier) readEntireObject(ctx context.Context, oid object.ID, path str
 	defer r.Close() //nolint:errcheck
 
 	_, err = io.Copy(ioutil.Discard, r)
+
 	return err
 }
 
@@ -214,6 +223,7 @@ func enqueueRootsToVerify(ctx context.Context, v *verifier, rep *repo.Repository
 
 	for _, man := range manifests {
 		path := fmt.Sprintf("%v@%v", man.Source, formatTimestamp(man.StartTime))
+
 		if man.RootEntry == nil {
 			continue
 		}
@@ -248,11 +258,13 @@ func enqueueRootsToVerify(ctx context.Context, v *verifier, rep *repo.Repository
 
 func loadSourceManifests(ctx context.Context, rep *repo.Repository, sources []string) ([]*snapshot.Manifest, error) {
 	var manifestIDs []manifest.ID
+
 	if *verifyCommandAllSources {
 		man, err := snapshot.ListSnapshotManifests(ctx, rep, nil)
 		if err != nil {
 			return nil, err
 		}
+
 		manifestIDs = append(manifestIDs, man...)
 	} else {
 		for _, srcStr := range sources {
@@ -267,6 +279,7 @@ func loadSourceManifests(ctx context.Context, rep *repo.Repository, sources []st
 			manifestIDs = append(manifestIDs, man...)
 		}
 	}
+
 	return snapshot.LoadSnapshots(ctx, rep, manifestIDs)
 }
 

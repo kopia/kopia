@@ -24,10 +24,12 @@ func (c *ConnectionInfo) UnmarshalJSON(b []byte) error {
 	}
 
 	c.Type = raw.Type
+
 	f := factories[raw.Type]
 	if f == nil {
 		return errors.Errorf("storage type '%v' not registered", raw.Type)
 	}
+
 	c.Config = f.defaultConfigFunc()
 	if err := json.Unmarshal(raw.Data, c.Config); err != nil {
 		return errors.Wrap(err, "unable to unmarshal config")

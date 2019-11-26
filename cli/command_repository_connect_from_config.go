@@ -53,6 +53,7 @@ func connectToStorageFromConfigToken(ctx context.Context) (blob.Storage, error) 
 	}
 
 	passwordFromToken = pass
+
 	return blob.NewStorage(ctx, ci)
 }
 

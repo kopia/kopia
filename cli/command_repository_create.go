@@ -55,6 +55,7 @@ func newRepositoryOptionsFromFlags() *repo.NewRepositoryOptions {
 
 func ensureEmpty(ctx context.Context, s blob.Storage) error {
 	hasDataError := errors.New("has data")
+
 	err := s.ListBlobs(ctx, "", func(cb blob.Metadata) error {
 		return hasDataError
 	})
@@ -115,6 +116,7 @@ func populateRepository(ctx context.Context, password string) error {
 	}
 
 	printPolicy(globalPolicy, nil)
+
 	return nil
 }
 
@@ -122,6 +124,7 @@ func getInitialGlobalPolicy() (*policy.Policy, error) {
 	var sp policy.SchedulingPolicy
 
 	sp.SetInterval(*createGlobalPolicyInterval)
+
 	var timesOfDay []policy.TimeOfDay
 
 	for _, tods := range *createGlobalPolicyTimesOfDay {
@@ -130,9 +133,11 @@ func getInitialGlobalPolicy() (*policy.Policy, error) {
 			if err := timeOfDay.Parse(tod); err != nil {
 				return nil, errors.Wrap(err, "unable to parse time of day")
 			}
+
 			timesOfDay = append(timesOfDay, timeOfDay)
 		}
 	}
+
 	sp.TimesOfDay = policy.SortAndDedupeTimesOfDay(timesOfDay)
 
 	return &policy.Policy{

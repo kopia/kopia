@@ -21,10 +21,12 @@ func (b packIndexBuilder) clone() packIndexBuilder {
 	}
 
 	r := packIndexBuilder{}
+
 	for k, v := range b {
 		i2 := *v
 		r[k] = &i2
 	}
+
 	return r
 }
 
@@ -80,12 +82,14 @@ func (b packIndexBuilder) Build(output io.Writer) error {
 	header[1] = byte(layout.keyLength)
 	binary.BigEndian.PutUint16(header[2:4], uint16(layout.entryLength))
 	binary.BigEndian.PutUint32(header[4:8], uint32(layout.entryCount))
+
 	if _, err := w.Write(header); err != nil {
 		return errors.Wrap(err, "unable to write header")
 	}
 
 	// write all sorted contents.
 	entry := make([]byte, layout.entryLength)
+
 	for _, it := range allContents {
 		if err := writeEntry(w, it, layout, entry); err != nil {
 			return errors.Wrap(err, "unable to write entry")
@@ -106,17 +110,21 @@ func prepareExtraData(allContents []*Info, layout *indexLayout) []byte {
 		if i == 0 {
 			layout.keyLength = len(contentIDToBytes(it.ID))
 		}
+
 		if it.PackBlobID != "" {
 			if _, ok := layout.packBlobIDOffsets[it.PackBlobID]; !ok {
 				layout.packBlobIDOffsets[it.PackBlobID] = uint32(len(extraData))
 				extraData = append(extraData, []byte(it.PackBlobID)...)
 			}
 		}
+
 		if len(it.Payload) > 0 {
 			panic("storing payloads in indexes is not supported")
 		}
 	}
+
 	layout.extraDataOffset = uint32(8 + layout.entryCount*(layout.keyLength+layout.entryLength))
+
 	return extraData
 }
 
@@ -133,6 +141,7 @@ func writeEntry(w io.Writer, it *Info, layout *indexLayout, entry []byte) error 
 	if _, err := w.Write(k); err != nil {
 		return errors.Wrap(err, "error writing entry key")
 	}
+
 	if _, err := w.Write(entry); err != nil {
 		return errors.Wrap(err, "error writing entry")
 	}
@@ -152,14 +161,17 @@ func formatEntry(entry []byte, it *Info, layout *indexLayout) error {
 	}
 
 	binary.BigEndian.PutUint32(entryPackFileOffset, layout.extraDataOffset+layout.packBlobIDOffsets[it.PackBlobID])
+
 	if it.Deleted {
 		binary.BigEndian.PutUint32(entryPackedOffset, it.PackOffset|0x80000000)
 	} else {
 		binary.BigEndian.PutUint32(entryPackedOffset, it.PackOffset)
 	}
+
 	binary.BigEndian.PutUint32(entryPackedLength, it.Length)
 	timestampAndFlags |= uint64(it.FormatVersion) << 8
 	timestampAndFlags |= uint64(len(it.PackBlobID))
 	binary.BigEndian.PutUint64(entryTimestampAndFlags, timestampAndFlags)
+
 	return nil
 }

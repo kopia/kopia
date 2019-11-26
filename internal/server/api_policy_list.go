@@ -23,6 +23,7 @@ func (s *Server) handlePolicyList(ctx context.Context, r *http.Request) (interfa
 		if !sourceMatchesURLFilter(target, r.URL.Query()) {
 			continue
 		}
+
 		resp.Policies = append(resp.Policies, &serverapi.PolicyListEntry{
 			ID:     pol.ID(),
 			Target: target,

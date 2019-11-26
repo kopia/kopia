@@ -41,6 +41,7 @@ func runContentRewriteCommand(ctx context.Context, rep *repo.Repository) error {
 
 	for i := 0; i < *contentRewriteParallelism; i++ {
 		wg.Add(1)
+
 		go func() {
 			defer wg.Done()
 
@@ -88,6 +89,7 @@ func runContentRewriteCommand(ctx context.Context, rep *repo.Repository) error {
 
 func getContentToRewrite(ctx context.Context, rep *repo.Repository) <-chan contentInfoOrError {
 	ch := make(chan contentInfoOrError)
+
 	go func() {
 		defer close(ch)
 
@@ -114,6 +116,7 @@ func toContentIDs(s []string) []content.ID {
 	for _, cid := range s {
 		result = append(result, content.ID(cid))
 	}
+
 	return result
 }
 

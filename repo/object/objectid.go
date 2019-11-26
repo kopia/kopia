@@ -40,6 +40,7 @@ func (i ID) ContentID() (content.ID, bool) {
 	if strings.HasPrefix(string(i), "D") {
 		return content.ID(i[1:]), true
 	}
+
 	if strings.HasPrefix(string(i), "I") {
 		return "", false
 	}
@@ -67,6 +68,7 @@ func (i ID) Validate() error {
 			if contentID[0] < 'g' || contentID[0] > 'z' {
 				return errors.Errorf("invalid content ID prefix: %v", contentID)
 			}
+
 			contentID = contentID[1:]
 		}
 

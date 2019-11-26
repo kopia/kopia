@@ -33,6 +33,7 @@ func setupFilesystem() *mockfs.Directory {
 
 	d1.AddFile("some-bin", dummyFileContents, 0)
 	d2.AddFile("some-pkg", dummyFileContents, 0)
+
 	d4 := d3.AddDir("some-src", 0)
 	d4.AddFile("f1", dummyFileContents, 0)
 
@@ -231,19 +232,25 @@ func addAndSubtractFiles(original, added, removed []string) []string {
 	for _, ri := range removed {
 		m[ri] = true
 	}
+
 	var result []string
+
 	for _, ai := range added {
 		if !m[ai] {
 			m[ai] = true
+
 			result = append(result, ai)
 		}
 	}
+
 	for _, oi := range original {
 		if !m[oi] {
 			result = append(result, oi)
 		}
 	}
+
 	sort.Strings(result)
+
 	return result
 }
 
@@ -254,10 +261,12 @@ func walkTree(t *testing.T, dir fs.Directory) []string {
 
 	walk = func(path string, d fs.Directory) error {
 		output = append(output, path+"/")
+
 		entries, err := d.Readdir(context.Background())
 		if err != nil {
 			return err
 		}
+
 		for _, e := range entries {
 			relPath := path + "/" + e.Name()
 
@@ -269,6 +278,7 @@ func walkTree(t *testing.T, dir fs.Directory) []string {
 				output = append(output, relPath)
 			}
 		}
+
 		return nil
 	}
 

@@ -103,6 +103,7 @@ func (fsd *filesystemDirectory) Summary() *fs.DirectorySummary {
 
 func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
 	fullPath := fsd.fullPath()
+
 	f, direrr := os.Open(fullPath)
 	if direrr != nil {
 		return nil, direrr
@@ -111,9 +112,13 @@ func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error)
 
 	// start feeding directory entry names to namesCh
 	namesCh := make(chan string, 200)
+
 	var namesErr error
+
 	var namesWG sync.WaitGroup
+
 	namesWG.Add(1)
+
 	go func() {
 		defer namesWG.Done()
 		defer close(namesCh)
@@ -135,11 +140,13 @@ func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error)
 
 	entriesCh := make(chan fs.Entry, 200)
 
+	var workersWG sync.WaitGroup
+
 	// launch N workers to os.Lstat() each name in parallel and push to entriesCh
 	workers := 16
-	var workersWG sync.WaitGroup
 	for i := 0; i < workers; i++ {
 		workersWG.Add(1)
+
 		go func() {
 			defer workersWG.Done()
 
@@ -186,6 +193,7 @@ func (f *fileWithMetadata) Entry() (fs.Entry, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return &filesystemFile{newEntry(fi, filepath.Dir(f.Name()))}, nil
 }
 

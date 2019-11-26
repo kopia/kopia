@@ -67,6 +67,7 @@ func (s *repositoryAllSources) Readdir(ctx context.Context) (fs.Entries, error) 
 	}
 
 	result.Sort()
+
 	return result, nil
 }
 

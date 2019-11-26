@@ -40,6 +40,7 @@ func printStdout(msg string, args ...interface{}) {
 func onCtrlC(f func()) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
+
 	go func() {
 		<-c
 		f()
@@ -49,6 +50,7 @@ func onCtrlC(f func()) {
 func waitForCtrlC() {
 	// Wait until ctrl-c pressed
 	done := make(chan bool)
+
 	onCtrlC(func() {
 		if done != nil {
 			close(done)
@@ -63,6 +65,7 @@ func openRepository(ctx context.Context, opts *repo.Options) (*repo.Repository, 
 	if err != nil {
 		return nil, errors.Wrap(err, "get password")
 	}
+
 	r, err := repo.Open(ctx, repositoryConfigFileName(), pass, applyOptionsFromFlags(opts))
 	if os.IsNotExist(err) {
 		return nil, errors.New("not connected to a repository, use 'kopia connect'")

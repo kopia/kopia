@@ -21,28 +21,34 @@ func deterministicContentID(prefix string, id int) ID {
 	if id%2 == 0 {
 		prefix2 = "x"
 	}
+
 	if id%7 == 0 {
 		prefix2 = "y"
 	}
+
 	if id%5 == 0 {
 		prefix2 = "m"
 	}
+
 	return ID(fmt.Sprintf("%v%x", prefix2, h.Sum(nil)))
 }
 func deterministicPackBlobID(id int) blob.ID {
 	h := sha1.New()
 	fmt.Fprintf(h, "%v", id)
+
 	return blob.ID(fmt.Sprintf("%x", h.Sum(nil)))
 }
 
 func deterministicPackedOffset(id int) uint32 {
 	s := rand.NewSource(int64(id + 1))
 	rnd := rand.New(s)
+
 	return uint32(rnd.Int31())
 }
 func deterministicPackedLength(id int) uint32 {
 	s := rand.NewSource(int64(id + 2))
 	rnd := rand.New(s)
+
 	return uint32(rnd.Int31())
 }
 func deterministicFormatVersion(id int) byte {
@@ -93,18 +99,20 @@ func TestPackIndex(t *testing.T) {
 		b3.Add(info)
 	}
 
-	var buf1 bytes.Buffer
-	var buf2 bytes.Buffer
-	var buf3 bytes.Buffer
+	var buf1, buf2, buf3 bytes.Buffer
+
 	if err := b1.Build(&buf1); err != nil {
 		t.Errorf("unable to build: %v", err)
 	}
+
 	if err := b1.Build(&buf2); err != nil {
 		t.Errorf("unable to build: %v", err)
 	}
+
 	if err := b1.Build(&buf3); err != nil {
 		t.Errorf("unable to build: %v", err)
 	}
+
 	data1 := buf1.Bytes()
 	data2 := buf2.Bytes()
 	data3 := buf3.Bytes()
@@ -112,6 +120,7 @@ func TestPackIndex(t *testing.T) {
 	if !reflect.DeepEqual(data1, data2) {
 		t.Errorf("builder output not stable: %x vs %x", hex.Dump(data1), hex.Dump(data2))
 	}
+
 	if !reflect.DeepEqual(data2, data3) {
 		t.Errorf("builder output not stable: %x vs %x", hex.Dump(data2), hex.Dump(data3))
 	}
@@ -132,12 +141,14 @@ func TestPackIndex(t *testing.T) {
 			t.Errorf("unable to find %v", info.ID)
 			continue
 		}
+
 		if !reflect.DeepEqual(info, *info2) {
 			t.Errorf("invalid value retrieved: %+v, wanted %+v", info2, info)
 		}
 	}
 
 	cnt := 0
+
 	assertNoError(t, ndx.Iterate("", func(info2 Info) error {
 		info := infoMap[info2.ID]
 		if !reflect.DeepEqual(info, info2) {
@@ -146,6 +157,7 @@ func TestPackIndex(t *testing.T) {
 		cnt++
 		return nil
 	}))
+
 	if cnt != len(infoMap) {
 		t.Errorf("invalid number of iterations: %v, wanted %v", cnt, len(infoMap))
 	}
@@ -154,10 +166,12 @@ func TestPackIndex(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		contentID := deterministicContentID("no-such-content", i)
+
 		v, err := ndx.GetInfo(contentID)
 		if err != nil {
 			t.Errorf("unable to get content %v: %v", contentID, err)
 		}
+
 		if v != nil {
 			t.Errorf("unexpected result when getting content %v: %v", contentID, v)
 		}
@@ -222,6 +236,7 @@ func fuzzTest(rnd *rand.Rand, originalData []byte, rounds int, callback func(d [
 		sectionsToDelete := rnd.Intn(3)
 		for i := 0; i < sectionsToDelete; i++ {
 			pos := rnd.Intn(len(data))
+
 			deletedLength := rnd.Intn(10)
 			if pos+deletedLength > len(data) {
 				continue

@@ -18,15 +18,18 @@ type throttlingRoundTripper struct {
 func (rt *throttlingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if req.Body != nil && rt.uploadPool != nil {
 		var err error
+
 		req.Body, err = rt.uploadPool.AddReader(req.Body)
 		if err != nil {
 			return nil, err
 		}
 	}
+
 	resp, err := rt.base.RoundTrip(req)
 	if resp != nil && resp.Body != nil && rt.downloadPool != nil {
 		resp.Body, err = rt.downloadPool.AddReader(resp.Body)
 	}
+
 	return resp, err
 }
 

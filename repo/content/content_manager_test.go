@@ -41,6 +41,7 @@ func TestContentManagerEmptyFlush(t *testing.T) {
 	keyTime := map[blob.ID]time.Time{}
 	bm := newTestContentManager(data, keyTime, nil)
 	bm.Flush(ctx)
+
 	if got, want := len(data), 0; got != want {
 		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
 	}
@@ -53,9 +54,11 @@ func TestContentZeroBytes1(t *testing.T) {
 	bm := newTestContentManager(data, keyTime, nil)
 	contentID := writeContentAndVerify(ctx, t, bm, []byte{})
 	bm.Flush(ctx)
+
 	if got, want := len(data), 2; got != want {
 		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
 	}
+
 	dumpContentManagerData(t, data)
 	bm = newTestContentManager(data, keyTime, nil)
 	verifyContent(ctx, t, bm, contentID, []byte{})
@@ -69,6 +72,7 @@ func TestContentZeroBytes2(t *testing.T) {
 	writeContentAndVerify(ctx, t, bm, seededRandomData(10, 10))
 	writeContentAndVerify(ctx, t, bm, []byte{})
 	bm.Flush(ctx)
+
 	if got, want := len(data), 2; got != want {
 		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
 		dumpContentManagerData(t, data)
@@ -84,10 +88,13 @@ func TestContentManagerSmallContentWrites(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		writeContentAndVerify(ctx, t, bm, seededRandomData(i, 10))
 	}
+
 	if got, want := len(data), 0; got != want {
 		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
 	}
+
 	bm.Flush(ctx)
+
 	if got, want := len(data), 2; got != want {
 		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
 	}
@@ -102,10 +109,13 @@ func TestContentManagerDedupesPendingContents(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		writeContentAndVerify(ctx, t, bm, seededRandomData(0, 999))
 	}
+
 	if got, want := len(data), 0; got != want {
 		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
 	}
+
 	bm.Flush(ctx)
+
 	if got, want := len(data), 2; got != want {
 		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
 	}
@@ -121,6 +131,7 @@ func TestContentManagerDedupesPendingAndUncommittedContents(t *testing.T) {
 	writeContentAndVerify(ctx, t, bm, seededRandomData(0, 950))
 	writeContentAndVerify(ctx, t, bm, seededRandomData(1, 950))
 	writeContentAndVerify(ctx, t, bm, seededRandomData(2, 10))
+
 	if got, want := len(data), 0; got != want {
 		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
 	}
@@ -129,9 +140,11 @@ func TestContentManagerDedupesPendingAndUncommittedContents(t *testing.T) {
 	writeContentAndVerify(ctx, t, bm, seededRandomData(0, 950))
 	writeContentAndVerify(ctx, t, bm, seededRandomData(1, 950))
 	writeContentAndVerify(ctx, t, bm, seededRandomData(2, 10))
+
 	if got, want := len(data), 0; got != want {
 		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
 	}
+
 	bm.Flush(ctx)
 
 	// this flushes the pack content + index blob
@@ -226,6 +239,7 @@ func TestContentManagerWriteMultiple(t *testing.T) {
 
 	for i := 0; i < 5000; i++ {
 		b := seededRandomData(i, i%113)
+
 		blkID, err := bm.WriteContent(ctx, b, "")
 		if err != nil {
 			t.Errorf("err: %v", err)
@@ -243,6 +257,7 @@ func TestContentManagerWriteMultiple(t *testing.T) {
 			if err := bm.Flush(ctx); err != nil {
 				t.Fatalf("error flushing: %v", err)
 			}
+
 			bm = newTestContentManager(data, keyTime, timeFunc)
 		}
 
@@ -250,6 +265,7 @@ func TestContentManagerWriteMultiple(t *testing.T) {
 		if _, err := bm.GetContent(ctx, contentIDs[pos]); err != nil {
 			dumpContentManagerData(t, data)
 			t.Fatalf("can't read content %q: %v", contentIDs[pos], err)
+
 			continue
 		}
 	}
@@ -278,6 +294,7 @@ func TestContentManagerFailedToWritePack(t *testing.T) {
 	if err != nil {
 		t.Fatalf("can't create bm: %v", err)
 	}
+
 	logging.SetLevel(logging.DEBUG, "faulty-storage")
 
 	faulty.Faults = map[string][]*blobtesting.Fault{
@@ -363,6 +380,7 @@ func TestContentManagerConcurrency(t *testing.T) {
 	}); err != nil {
 		t.Errorf("compaction error: %v", err)
 	}
+
 	if got, want := getIndexCount(data), 1; got != want {
 		t.Errorf("unexpected index count after compaction: %v, wanted %v", got, want)
 	}
@@ -374,6 +392,7 @@ func TestContentManagerConcurrency(t *testing.T) {
 	verifyContent(ctx, t, bm5, bm1content, seededRandomData(31, 100))
 	verifyContent(ctx, t, bm5, bm2content, seededRandomData(32, 100))
 	verifyContent(ctx, t, bm5, bm3content, seededRandomData(33, 100))
+
 	if err := bm5.CompactIndexes(ctx, CompactOptions{
 		MinSmallBlobs: 1,
 		MaxSmallBlobs: 1,
@@ -387,26 +406,36 @@ func TestDeleteContent(t *testing.T) {
 	data := blobtesting.DataMap{}
 	keyTime := map[blob.ID]time.Time{}
 	bm := newTestContentManager(data, keyTime, nil)
+
 	content1 := writeContentAndVerify(ctx, t, bm, seededRandomData(10, 100))
+
 	if err := bm.Flush(ctx); err != nil {
 		t.Fatalf("error flushing: %v", err)
 	}
+
 	dumpContents(t, bm, "after first flush")
+
 	content2 := writeContentAndVerify(ctx, t, bm, seededRandomData(11, 100))
+
 	log.Infof("xxx deleting.")
+
 	if err := bm.DeleteContent(content1); err != nil {
 		t.Fatalf("unable to delete content %v: %v", content1, err)
 	}
+
 	log.Infof("yyy deleting.")
+
 	if err := bm.DeleteContent(content2); err != nil {
 		t.Fatalf("unable to delete content %v: %v", content2, err)
 	}
+
 	verifyContentNotFound(ctx, t, bm, content1)
 	verifyContentNotFound(ctx, t, bm, content2)
 	log.Infof("flushing")
 	bm.Flush(ctx)
 	log.Infof("flushed")
 	log.Debugf("-----------")
+
 	bm = newTestContentManager(data, keyTime, nil)
 	verifyContentNotFound(ctx, t, bm, content1)
 	verifyContentNotFound(ctx, t, bm, content2)
@@ -414,6 +443,7 @@ func TestDeleteContent(t *testing.T) {
 
 func TestParallelWrites(t *testing.T) {
 	t.Parallel()
+
 	ctx := context.Background()
 
 	data := blobtesting.DataMap{}
@@ -432,22 +462,25 @@ func TestParallelWrites(t *testing.T) {
 			},
 		},
 	}
-	bm := newTestContentManagerWithStorage(fs, nil)
-
-	numWorkers := 8
 
 	var workersWG sync.WaitGroup
+
+	var workerLock sync.RWMutex
+
+	bm := newTestContentManagerWithStorage(fs, nil)
+	numWorkers := 8
 	closeWorkers := make(chan bool)
 
 	// workerLock allows workers to append to their own list of IDs (when R-locked) in parallel.
 	// W-lock allows flusher to capture the state without any worker being able to modify it.
-	var workerLock sync.RWMutex
 	workerWritten := make([][]ID, numWorkers)
 
 	// start numWorkers, each writing random block and recording it
 	for workerID := 0; workerID < numWorkers; workerID++ {
 		workerID := workerID
+
 		workersWG.Add(1)
+
 		go func() {
 			defer workersWG.Done()
 			for {
@@ -465,8 +498,11 @@ func TestParallelWrites(t *testing.T) {
 	}
 
 	closeFlusher := make(chan bool)
+
 	var flusherWG sync.WaitGroup
+
 	flusherWG.Add(1)
+
 	go func() {
 		defer flusherWG.Done()
 		for {
@@ -510,6 +546,7 @@ func TestParallelWrites(t *testing.T) {
 
 func TestFlushResumesWriters(t *testing.T) {
 	t.Parallel()
+
 	ctx := context.Background()
 
 	data := blobtesting.DataMap{}
@@ -531,10 +568,13 @@ func TestFlushResumesWriters(t *testing.T) {
 
 	bm := newTestContentManagerWithStorage(fs, nil)
 	first := writeContentAndVerify(ctx, t, bm, []byte{1, 2, 3})
+
 	var second ID
 
 	var writeWG sync.WaitGroup
+
 	writeWG.Add(1)
+
 	go func() {
 		defer writeWG.Done()
 		// start a write while flush is ongoing, the write will block on the condition variable
@@ -569,6 +609,7 @@ func verifyAllDataPresent(t *testing.T, data map[blob.ID][]byte, contentIDs map[
 		delete(contentIDs, ci.ID)
 		return nil
 	})
+
 	if len(contentIDs) != 0 {
 		t.Errorf("some blocks not written: %v", contentIDs)
 	}
@@ -594,6 +635,7 @@ func TestHandleWriteErrors(t *testing.T) {
 				})
 			}
 		}
+
 		return result
 	}
 
@@ -617,6 +659,7 @@ func TestHandleWriteErrors(t *testing.T) {
 
 	for n, tc := range cases {
 		tc := tc
+
 		t.Run(fmt.Sprintf("case-%v", n), func(t *testing.T) {
 			data := blobtesting.DataMap{}
 			keyTime := map[blob.ID]time.Time{}
@@ -701,6 +744,7 @@ func TestDisableFlush(t *testing.T) {
 	bm := newTestContentManager(data, keyTime, nil)
 	bm.DisableIndexFlush()
 	bm.DisableIndexFlush()
+
 	for i := 0; i < 500; i++ {
 		writeContentAndVerify(ctx, t, bm, seededRandomData(i, 100))
 	}
@@ -845,6 +889,7 @@ func TestIterateContents(t *testing.T) {
 	if err := bm.DeleteContent(contentID4); err != nil {
 		t.Fatalf("error deleting content 4 %v", err)
 	}
+
 	t.Logf("contentID1: %v", contentID1)
 	t.Logf("contentID2: %v", contentID2)
 	t.Logf("contentID3: %v", contentID3)
@@ -961,16 +1006,21 @@ func TestFindUnreferencedBlobs(t *testing.T) {
 	bm := newTestContentManager(data, keyTime, nil)
 	verifyUnreferencedBlobsCount(ctx, t, bm, 0)
 	contentID := writeContentAndVerify(ctx, t, bm, seededRandomData(10, 100))
+
 	log.Infof("flushing")
+
 	if err := bm.Flush(ctx); err != nil {
 		t.Errorf("flush error: %v", err)
 	}
+
 	dumpContents(t, bm, "after flush #1")
 	dumpContentManagerData(t, data)
 	verifyUnreferencedBlobsCount(ctx, t, bm, 0)
+
 	if err := bm.DeleteContent(contentID); err != nil {
 		t.Errorf("error deleting content: %v", contentID)
 	}
+
 	if err := bm.Flush(ctx); err != nil {
 		t.Errorf("flush error: %v", err)
 	}
@@ -981,14 +1031,18 @@ func TestFindUnreferencedBlobs(t *testing.T) {
 	verifyUnreferencedBlobsCount(ctx, t, bm, 0)
 
 	assertNoError(t, bm.RewriteContent(ctx, contentID))
+
 	if err := bm.Flush(ctx); err != nil {
 		t.Errorf("flush error: %v", err)
 	}
+
 	verifyUnreferencedBlobsCount(ctx, t, bm, 1)
 	assertNoError(t, bm.RewriteContent(ctx, contentID))
+
 	if err := bm.Flush(ctx); err != nil {
 		t.Errorf("flush error: %v", err)
 	}
+
 	verifyUnreferencedBlobsCount(ctx, t, bm, 2)
 }
 
@@ -1001,18 +1055,24 @@ func TestFindUnreferencedBlobs2(t *testing.T) {
 	contentID := writeContentAndVerify(ctx, t, bm, seededRandomData(10, 100))
 	writeContentAndVerify(ctx, t, bm, seededRandomData(11, 100))
 	dumpContents(t, bm, "after writing")
+
 	if err := bm.Flush(ctx); err != nil {
 		t.Errorf("flush error: %v", err)
 	}
+
 	dumpContents(t, bm, "after flush")
 	verifyUnreferencedBlobsCount(ctx, t, bm, 0)
+
 	if err := bm.DeleteContent(contentID); err != nil {
 		t.Errorf("error deleting content: %v", contentID)
 	}
+
 	dumpContents(t, bm, "after delete")
+
 	if err := bm.Flush(ctx); err != nil {
 		t.Errorf("flush error: %v", err)
 	}
+
 	dumpContents(t, bm, "after flush")
 	// content present in first pack, original pack is still referenced
 	verifyUnreferencedBlobsCount(ctx, t, bm, 0)
@@ -1020,8 +1080,11 @@ func TestFindUnreferencedBlobs2(t *testing.T) {
 
 func dumpContents(t *testing.T, bm *Manager, caption string) {
 	t.Helper()
+
 	count := 0
+
 	log.Infof("dumping %v contents", caption)
+
 	if err := bm.IterateContents(IterateOptions{IncludeDeleted: true},
 		func(ci Info) error {
 			log.Debugf(" ci[%v]=%#v", count, ci)
@@ -1031,12 +1094,15 @@ func dumpContents(t *testing.T, bm *Manager, caption string) {
 		t.Errorf("error listing contents: %v", err)
 		return
 	}
+
 	log.Infof("finished dumping %v %v contents", count, caption)
 }
 
 func verifyUnreferencedBlobsCount(ctx context.Context, t *testing.T, bm *Manager, want int) {
 	t.Helper()
+
 	var unrefCount int32
+
 	err := bm.IterateUnreferencedBlobs(ctx, 1, func(_ blob.Metadata) error {
 		atomic.AddInt32(&unrefCount, 1)
 		return nil
@@ -1046,6 +1112,7 @@ func verifyUnreferencedBlobsCount(ctx context.Context, t *testing.T, bm *Manager
 	}
 
 	log.Infof("got %v expecting %v", unrefCount, want)
+
 	if got := int(unrefCount); got != want {
 		t.Errorf("invalid number of unreferenced contents: %v, wanted %v", got, want)
 	}
@@ -1062,10 +1129,15 @@ func TestContentWriteAliasing(t *testing.T) {
 	contentData[0] = 101
 	id2 := writeContentAndVerify(ctx, t, bm, contentData)
 	bm.Flush(ctx)
+
 	contentData[0] = 102
+
 	id3 := writeContentAndVerify(ctx, t, bm, contentData)
+
 	contentData[0] = 103
+
 	id4 := writeContentAndVerify(ctx, t, bm, contentData)
+
 	verifyContent(ctx, t, bm, id1, []byte{100, 0, 0})
 	verifyContent(ctx, t, bm, id2, []byte{101, 0, 0})
 	verifyContent(ctx, t, bm, id3, []byte{102, 0, 0})
@@ -1080,6 +1152,7 @@ func TestContentReadAliasing(t *testing.T) {
 
 	contentData := []byte{100, 0, 0}
 	id1 := writeContentAndVerify(ctx, t, bm, contentData)
+
 	contentData2, err := bm.GetContent(ctx, id1)
 	if err != nil {
 		t.Fatalf("can't get content data: %v", err)
@@ -1119,21 +1192,25 @@ func verifyVersionCompat(t *testing.T, writeVersion int) {
 		if err != nil {
 			t.Fatalf("unable to write %v bytes: %v", len(data), err)
 		}
+
 		dataSet[cid] = data
 	}
 	verifyContentManagerDataSet(ctx, t, mgr, dataSet)
 
 	// delete random 3 items (map iteration order is random)
 	cnt := 0
+
 	for blobID := range dataSet {
 		t.Logf("deleting %v", blobID)
 		assertNoError(t, mgr.DeleteContent(blobID))
 		delete(dataSet, blobID)
 		cnt++
+
 		if cnt >= 3 {
 			break
 		}
 	}
+
 	if err := mgr.Flush(ctx); err != nil {
 		t.Fatalf("failed to flush: %v", err)
 	}
@@ -1150,9 +1227,11 @@ func verifyVersionCompat(t *testing.T, writeVersion int) {
 	}); err != nil {
 		t.Fatalf("unable to compact indexes: %v", err)
 	}
+
 	if err := mgr.Flush(ctx); err != nil {
 		t.Fatalf("failed to flush: %v", err)
 	}
+
 	verifyContentManagerDataSet(ctx, t, mgr, dataSet)
 
 	// now open one more manager
@@ -1183,6 +1262,7 @@ func newTestContentManagerWithStorage(st blob.Storage, timeFunc func() time.Time
 	if timeFunc == nil {
 		timeFunc = fakeTimeNowWithAutoAdvance(fakeTime, 1*time.Second)
 	}
+
 	bm, err := newManagerWithOptions(context.Background(), st, &FormattingOptions{
 		Hash:        "HMAC-SHA256",
 		Encryption:  "NONE",
@@ -1193,7 +1273,9 @@ func newTestContentManagerWithStorage(st blob.Storage, timeFunc func() time.Time
 	if err != nil {
 		panic("can't create content manager: " + err.Error())
 	}
+
 	bm.checkInvariantsOnUnlock = true
+
 	return bm
 }
 
@@ -1215,6 +1297,7 @@ func fakeTimeNowFrozen(t time.Time) func() time.Time {
 
 func fakeTimeNowWithAutoAdvance(t time.Time, dt time.Duration) func() time.Time {
 	var mu sync.Mutex
+
 	return func() time.Time {
 		mu.Lock()
 		defer mu.Unlock()
@@ -1288,6 +1371,7 @@ func flushWithRetries(ctx context.Context, t *testing.T, bm *Manager) int {
 	if err != nil {
 		t.Errorf("err: %v", err)
 	}
+
 	return retryCount
 }
 
@@ -1300,6 +1384,7 @@ func writeContentWithRetriesAndVerify(ctx context.Context, t *testing.T, bm *Man
 		log.Warningf("WriteContent failed %v, retrying", err)
 		contentID, err = bm.WriteContent(ctx, b, "")
 	}
+
 	if err != nil {
 		t.Errorf("err: %v", err)
 	}
@@ -1317,18 +1402,21 @@ func seededRandomData(seed, length int) []byte {
 	b := make([]byte, length)
 	rnd := rand.New(rand.NewSource(int64(seed)))
 	rnd.Read(b)
+
 	return b
 }
 
 func hashValue(b []byte) string {
 	h := hmac.New(sha256.New, hmacSecret)
 	h.Write(b) //nolint:errcheck
+
 	return hex.EncodeToString(h.Sum(nil))
 }
 
 func dumpContentManagerData(t *testing.T, data blobtesting.DataMap) {
 	t.Helper()
 	log.Infof("***data - %v items", len(data))
+
 	for k, v := range data {
 		if k[0] == 'n' {
 			ndx, err := openPackIndex(bytes.NewReader(v))
@@ -1343,5 +1431,6 @@ func dumpContentManagerData(t *testing.T, data blobtesting.DataMap) {
 			log.Infof("non-index %v (%v bytes)\n", k, len(v))
 		}
 	}
+
 	log.Infof("*** end of data")
 }

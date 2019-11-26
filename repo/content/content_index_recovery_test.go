@@ -86,9 +86,11 @@ func TestContentIndexRecovery(t *testing.T) {
 	verifyContent(ctx, t, bm, content1, seededRandomData(10, 100))
 	verifyContent(ctx, t, bm, content2, seededRandomData(11, 100))
 	verifyContent(ctx, t, bm, content3, seededRandomData(12, 100))
+
 	if err := bm.Flush(ctx); err != nil {
 		t.Errorf("flush error: %v", err)
 	}
+
 	verifyContent(ctx, t, bm, content1, seededRandomData(10, 100))
 	verifyContent(ctx, t, bm, content2, seededRandomData(11, 100))
 	verifyContent(ctx, t, bm, content3, seededRandomData(12, 100))

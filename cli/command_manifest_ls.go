@@ -63,9 +63,11 @@ func sortedMapValues(m map[string]string) string {
 		if k == "type" {
 			continue
 		}
+
 		result = append(result, fmt.Sprintf("%v:%v", k, v))
 	}
 
 	sort.Strings(result)
+
 	return strings.Join(result, " ")
 }
