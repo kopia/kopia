@@ -230,7 +230,7 @@ func (c *Comparer) compareFiles(ctx context.Context, f1, f2 fs.File, fname strin
 	newName := "/dev/null"
 
 	if f1 != nil {
-		oldName = filepath.Clean("old/" + fname)
+		oldName = filepath.Join("old", fname)
 		oldFile := filepath.Join(c.tmpDir, oldName)
 
 		if err := c.downloadFile(ctx, f1, oldFile); err != nil {
@@ -241,7 +241,7 @@ func (c *Comparer) compareFiles(ctx context.Context, f1, f2 fs.File, fname strin
 	}
 
 	if f2 != nil {
-		newName = filepath.Clean("new/" + fname)
+		newName = filepath.Join("new", fname)
 		newFile := filepath.Join(c.tmpDir, newName)
 
 		if err := c.downloadFile(ctx, f2, newFile); err != nil {
