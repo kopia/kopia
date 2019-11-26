@@ -233,7 +233,7 @@ func (c *Comparer) compareFiles(ctx context.Context, f1, f2 fs.File, fname strin
 		oldName = filepath.Join("old", fname)
 		oldFile := filepath.Join(c.tmpDir, oldName)
 
-		if err := c.downloadFile(ctx, f1, oldFile); err != nil {
+		if err := downloadFile(ctx, f1, oldFile); err != nil {
 			return errors.Wrap(err, "error downloading old file")
 		}
 
@@ -244,7 +244,7 @@ func (c *Comparer) compareFiles(ctx context.Context, f1, f2 fs.File, fname strin
 		newName = filepath.Join("new", fname)
 		newFile := filepath.Join(c.tmpDir, newName)
 
-		if err := c.downloadFile(ctx, f2, newFile); err != nil {
+		if err := downloadFile(ctx, f2, newFile); err != nil {
 			return errors.Wrap(err, "error downloading new file")
 		}
 		defer os.Remove(newFile) //nolint:errcheck
@@ -263,7 +263,7 @@ func (c *Comparer) compareFiles(ctx context.Context, f1, f2 fs.File, fname strin
 	return nil
 }
 
-func (c *Comparer) downloadFile(ctx context.Context, f fs.File, fname string) error {
+func downloadFile(ctx context.Context, f fs.File, fname string) error {
 	if err := os.MkdirAll(filepath.Dir(fname), 0700); err != nil {
 		return err
 	}
