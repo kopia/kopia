@@ -58,6 +58,7 @@ func init() {
 	for k := range splitterFactories {
 		SupportedSplitters = append(SupportedSplitters, k)
 	}
+
 	sort.Strings(SupportedSplitters)
 }
 

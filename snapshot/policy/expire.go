@@ -33,18 +33,22 @@ func ApplyRetentionPolicy(ctx context.Context, rep *repo.Repository, sourceInfo 
 
 func getExpiredSnapshots(ctx context.Context, rep *repo.Repository, snapshots []*snapshot.Manifest) ([]*snapshot.Manifest, error) {
 	var toDelete []*snapshot.Manifest
+
 	for _, snapshotGroup := range snapshot.GroupBySource(snapshots) {
 		td, err := getExpiredSnapshotsForSource(ctx, rep, snapshotGroup)
 		if err != nil {
 			return nil, err
 		}
+
 		toDelete = append(toDelete, td...)
 	}
+
 	return toDelete, nil
 }
 
 func getExpiredSnapshotsForSource(ctx context.Context, rep *repo.Repository, snapshots []*snapshot.Manifest) ([]*snapshot.Manifest, error) {
 	src := snapshots[0].Source
+
 	pol, _, err := GetEffectivePolicy(ctx, rep, src)
 	if err != nil {
 		return nil, err
@@ -53,6 +57,7 @@ func getExpiredSnapshotsForSource(ctx context.Context, rep *repo.Repository, sna
 	pol.RetentionPolicy.ComputeRetentionReasons(snapshots)
 
 	var toDelete []*snapshot.Manifest
+
 	for _, s := range snapshots {
 		if len(s.RetentionReasons) == 0 {
 			log.Debugf("  deleting %v", s.StartTime)
@@ -61,5 +66,6 @@ func getExpiredSnapshotsForSource(ctx context.Context, rep *repo.Repository, sna
 			log.Debugf("  keeping %v reasons: [%v]", s.StartTime, strings.Join(s.RetentionReasons, ","))
 		}
 	}
+
 	return toDelete, nil
 }

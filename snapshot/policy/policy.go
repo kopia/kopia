@@ -26,9 +26,11 @@ func (p *Policy) String() string {
 
 	e := json.NewEncoder(&buf)
 	e.SetIndent("", "  ")
+
 	if err := e.Encode(p); err != nil {
 		log.Warningf("unable to policy as JSON: %v", err)
 	}
+
 	return buf.String()
 }
 

@@ -35,8 +35,10 @@ func getBucketName() string {
 	if err != nil {
 		return "kopia-test-1"
 	}
+
 	h := sha1.New()
 	fmt.Fprintf(h, "%v", hn)
+
 	return fmt.Sprintf("kopia-test-%x", h.Sum(nil)[0:8])
 }
 
@@ -77,6 +79,7 @@ func TestS3Storage(t *testing.T) {
 
 	blobtesting.VerifyStorage(ctx, t, st)
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
+
 	if err := st.Close(ctx); err != nil {
 		t.Fatalf("err: %v", err)
 	}

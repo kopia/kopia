@@ -38,11 +38,13 @@ func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions,
 	if err == nil {
 		return errors.Errorf("repository already initialized")
 	}
+
 	if err != blob.ErrBlobNotFound {
 		return err
 	}
 
 	format := formatBlobFromOptions(opt)
+
 	masterKey, err := format.deriveMasterKeyFromPassword(password)
 	if err != nil {
 		return errors.Wrap(err, "unable to derive master key")
@@ -101,6 +103,7 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) *repositoryObj
 func randomBytes(n int) []byte {
 	b := make([]byte, n)
 	io.ReadFull(rand.Reader, b) //nolint:errcheck
+
 	return b
 }
 

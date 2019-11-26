@@ -51,6 +51,7 @@ func runConnectCommandWithStorage(ctx context.Context, st blob.Storage) error {
 	if err != nil {
 		return errors.Wrap(err, "getting password")
 	}
+
 	return runConnectCommandWithStorageAndPassword(ctx, st, password)
 }
 
@@ -69,5 +70,6 @@ func runConnectCommandWithStorageAndPassword(ctx context.Context, st blob.Storag
 	}
 
 	printStderr("Connected to repository.\n")
+
 	return nil
 }

@@ -25,6 +25,7 @@ func toManifestIDs(s []string) []manifest.ID {
 	for _, it := range s {
 		result = append(result, manifest.ID(it))
 	}
+
 	return result
 }
 
@@ -43,9 +44,11 @@ func showManifestItems(ctx context.Context, rep *repo.Repository) error {
 		printStderr("// id: %v\n", it)
 		printStderr("// length: %v\n", md.Length)
 		printStderr("// modified: %v\n", formatTimestamp(md.ModTime))
+
 		for k, v := range md.Labels {
 			printStderr("// label %v:%v\n", k, v)
 		}
+
 		if showerr := showContentWithFlags(bytes.NewReader(b), false, true); showerr != nil {
 			return showerr
 		}

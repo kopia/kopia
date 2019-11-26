@@ -47,6 +47,7 @@ func TestGCSStorage(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("unable to clear GCS bucket: %v", err)
 	}
+
 	if err := st.Close(ctx); err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -69,6 +70,7 @@ func TestGCSStorageInvalid(t *testing.T) {
 	}
 
 	defer st.Close(ctx)
+
 	if err := st.PutBlob(ctx, "xxx", []byte{1, 2, 3}); err == nil {
 		t.Errorf("unexpecte success when adding to non-existent bucket")
 	}

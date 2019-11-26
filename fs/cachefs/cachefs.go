@@ -31,6 +31,7 @@ func (d *directory) Readdir(ctx context.Context) (fs.Entries, error) {
 	for i, entry := range entries {
 		wrapped[i] = wrapWithContext(entry, d.ctx)
 	}
+
 	return wrapped, err
 }
 

@@ -23,9 +23,11 @@ func runBenchmarkCryptoAction(ctx *kingpin.ParseContext) error {
 		encryption string
 		throughput float64
 	}
+
 	var results []benchResult
 
 	data := make([]byte, *benchmarkCryptoBlockSize)
+
 	for _, ha := range content.SupportedHashAlgorithms() {
 		for _, ea := range content.SupportedEncryptionAlgorithms() {
 			isEncrypted := ea != "NONE"
@@ -44,7 +46,9 @@ func runBenchmarkCryptoAction(ctx *kingpin.ParseContext) error {
 			}
 
 			log.Infof("Benchmarking hash '%v' and encryption '%v'... (%v x %v bytes)", ha, ea, *benchmarkCryptoRepeat, len(data))
+
 			t0 := time.Now()
+
 			hashCount := *benchmarkCryptoRepeat
 			for i := 0; i < hashCount; i++ {
 				contentID := h(data)
@@ -53,6 +57,7 @@ func runBenchmarkCryptoAction(ctx *kingpin.ParseContext) error {
 					break
 				}
 			}
+
 			hashTime := time.Since(t0)
 			bytesPerSecond := float64(len(data)) * float64(hashCount) / hashTime.Seconds()
 
@@ -65,10 +70,11 @@ func runBenchmarkCryptoAction(ctx *kingpin.ParseContext) error {
 	})
 	printStdout("     %-20v %-20v %v\n", "Hash", "Encryption", "Throughput")
 	printStdout("-----------------------------------------------------------------\n")
+
 	for ndx, r := range results {
 		printStdout("%3d. %-20v %-20v %v / second\n", ndx, r.hash, r.encryption, units.BytesStringBase2(int64(r.throughput)))
-
 	}
+
 	return nil
 }
 

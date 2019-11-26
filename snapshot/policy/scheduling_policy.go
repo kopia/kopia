@@ -19,9 +19,11 @@ func (t *TimeOfDay) Parse(s string) error {
 	if _, err := fmt.Sscanf(s, "%v:%02v", &t.Hour, &t.Minute); err != nil {
 		return errors.New("invalid time of day, must be HH:MM")
 	}
+
 	if t.Hour < 0 || t.Hour > 23 {
 		return errors.Errorf("invalid hour %q, must be between 0 and 23", s)
 	}
+
 	if t.Minute < 0 || t.Minute > 59 {
 		return errors.Errorf("invalid minute %q, must be between 0 and 59", s)
 	}
@@ -67,6 +69,7 @@ func (p *SchedulingPolicy) Merge(src SchedulingPolicy) {
 	if p.IntervalSeconds == 0 {
 		p.IntervalSeconds = src.IntervalSeconds
 	}
+
 	p.TimesOfDay = SortAndDedupeTimesOfDay(
 		append(append([]TimeOfDay(nil), src.TimesOfDay...), p.TimesOfDay...))
 }

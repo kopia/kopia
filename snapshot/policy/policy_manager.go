@@ -32,6 +32,7 @@ func GetEffectivePolicy(ctx context.Context, rep *repo.Repository, si snapshot.S
 		if err != nil {
 			return nil, nil, err
 		}
+
 		md = append(md, manifests...)
 
 		parentPath := filepath.Dir(tmp.Path)
@@ -47,6 +48,7 @@ func GetEffectivePolicy(ctx context.Context, rep *repo.Repository, si snapshot.S
 	if err != nil {
 		return nil, nil, err
 	}
+
 	md = append(md, userHostManifests...)
 
 	// Try host-level policy.
@@ -54,6 +56,7 @@ func GetEffectivePolicy(ctx context.Context, rep *repo.Repository, si snapshot.S
 	if err != nil {
 		return nil, nil, err
 	}
+
 	md = append(md, hostManifests...)
 
 	// Global policy.
@@ -61,14 +64,17 @@ func GetEffectivePolicy(ctx context.Context, rep *repo.Repository, si snapshot.S
 	if err != nil {
 		return nil, nil, err
 	}
+
 	md = append(md, globalManifests...)
 
 	var policies []*Policy
+
 	for _, em := range md {
 		p := &Policy{}
 		if err := rep.Manifests.Get(ctx, em.ID, &p); err != nil {
 			return nil, nil, errors.Wrapf(err, "got unexpected error when loading policy item %v", em.ID)
 		}
+
 		p.Labels = em.Labels
 		policies = append(policies, p)
 		log.Debugf("loaded parent policy for %v: %v", si, p.Target())
@@ -109,6 +115,7 @@ func GetDefinedPolicy(ctx context.Context, rep *repo.Repository, si snapshot.Sou
 		}
 
 		p.Labels = em.Labels
+
 		return p, nil
 	}
 
@@ -176,8 +183,8 @@ func ListPolicies(ctx context.Context, rep *repo.Repository) ([]*Policy, error) 
 
 	for _, id := range ids {
 		pol := &Policy{}
-		err := rep.Manifests.Get(ctx, id.ID, pol)
-		if err != nil {
+
+		if err := rep.Manifests.Get(ctx, id.ID, pol); err != nil {
 			return nil, err
 		}
 
@@ -234,12 +241,15 @@ func FilesPolicyGetter(ctx context.Context, rep *repo.Repository, si snapshot.So
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to determine relative path")
 		}
+
 		rel = "./" + rel
 		log.Debugf("loading policy for %v (%v)", policyPath, rel)
+
 		pol := &Policy{}
 		if err := rep.Manifests.Get(ctx, id.ID, pol); err != nil {
 			return nil, errors.Wrapf(err, "unable to load policy %v", id.ID)
 		}
+
 		result[rel] = &pol.FilesPolicy
 	}
 
@@ -275,5 +285,4 @@ func labelsForSource(si snapshot.SourceInfo) map[string]string {
 			"policyType": "global",
 		}
 	}
-
 }

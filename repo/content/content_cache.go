@@ -100,12 +100,14 @@ func (c *contentCache) readAndVerifyCacheContent(ctx context.Context, cacheKey c
 
 		// ignore malformed contents
 		log.Warningf("malformed content %v: %v", cacheKey, err)
+
 		return nil
 	}
 
 	if err != blob.ErrBlobNotFound {
 		log.Warningf("unable to read cache %v: %v", cacheKey, err)
 	}
+
 	return nil
 }
 
@@ -150,6 +152,7 @@ func (h *contentMetadataHeap) Pop() interface{} {
 	n := len(old)
 	item := old[n-1]
 	*h = old[0 : n-1]
+
 	return item
 }
 
@@ -164,6 +167,7 @@ func (c *contentCache) sweepDirectory(ctx context.Context) (err error) {
 	t0 := time.Now()
 
 	var h contentMetadataHeap
+
 	var totalRetainedSize int64
 
 	err = c.cacheStorage.ListBlobs(ctx, "", func(it blob.Metadata) error {
@@ -186,11 +190,13 @@ func (c *contentCache) sweepDirectory(ctx context.Context) (err error) {
 
 	log.Debugf("finished sweeping directory in %v and retained %v/%v bytes (%v %%)", time.Since(t0), totalRetainedSize, c.maxSizeBytes, 100*totalRetainedSize/c.maxSizeBytes)
 	c.lastTotalSizeBytes = totalRetainedSize
+
 	return nil
 }
 
 func newContentCache(ctx context.Context, st blob.Storage, caching CachingOptions, maxBytes int64, subdir string) (*contentCache, error) {
 	var cacheStorage blob.Storage
+
 	var err error
 
 	if maxBytes > 0 && caching.CacheDirectory != "" {
@@ -228,6 +234,7 @@ func newContentCacheWithCacheStorage(ctx context.Context, st, cacheStorage blob.
 	if err := c.sweepDirectory(ctx); err != nil {
 		return nil, err
 	}
+
 	go c.sweepDirectoryPeriodically(ctx)
 
 	return c, nil

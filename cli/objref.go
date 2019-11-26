@@ -15,6 +15,7 @@ import (
 // ParseObjectID interprets the given ID string and returns corresponding object.ID.
 func parseObjectID(ctx context.Context, rep *repo.Repository, id string) (object.ID, error) {
 	parts := strings.Split(id, "/")
+
 	oid, err := object.ParseID(parts[0])
 	if err != nil {
 		return "", errors.Wrapf(err, "can't parse object ID %v", id)
@@ -25,15 +26,18 @@ func parseObjectID(ctx context.Context, rep *repo.Repository, id string) (object
 	}
 
 	dir := snapshotfs.DirectoryEntry(rep, oid, nil)
+
 	return parseNestedObjectID(ctx, dir, parts[1:])
 }
 
 func getNestedEntry(ctx context.Context, startingDir fs.Entry, parts []string) (fs.Entry, error) {
 	current := startingDir
+
 	for _, part := range parts {
 		if part == "" {
 			continue
 		}
+
 		dir, ok := current.(fs.Directory)
 		if !ok {
 			return nil, errors.Errorf("entry not found %q: parent is not a directory", part)
@@ -60,5 +64,6 @@ func parseNestedObjectID(ctx context.Context, startingDir fs.Entry, parts []stri
 	if err != nil {
 		return "", err
 	}
+
 	return e.(object.HasObjectID).ObjectID(), nil
 }

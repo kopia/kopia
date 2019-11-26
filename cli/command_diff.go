@@ -25,6 +25,7 @@ func runDiffCommand(ctx context.Context, rep *repo.Repository) error {
 	if err != nil {
 		return err
 	}
+
 	oid2, err := parseObjectID(ctx, rep, *diffSecondObjectPath)
 	if err != nil {
 		return err
@@ -32,6 +33,7 @@ func runDiffCommand(ctx context.Context, rep *repo.Repository) error {
 
 	isDir1 := strings.HasPrefix(string(oid1), "k")
 	isDir2 := strings.HasPrefix(string(oid2), "k")
+
 	if isDir1 != isDir2 {
 		return errors.New("arguments do diff must both be directories or both non-directories")
 	}

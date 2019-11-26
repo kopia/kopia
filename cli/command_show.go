@@ -18,12 +18,16 @@ func runCatCommand(ctx context.Context, rep *repo.Repository) error {
 	if err != nil {
 		return err
 	}
+
 	r, err := rep.Objects.Open(ctx, oid)
 	if err != nil {
 		return err
 	}
+
 	defer r.Close() //nolint:errcheck
+
 	_, err = io.Copy(os.Stdout, r)
+
 	return err
 }
 

@@ -58,6 +58,7 @@ func objectIDsEqual(o1, o2 object.ID) bool {
 func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	var env repotesting.Environment
 	defer env.Setup(t).Close(t)
+
 	ctx := context.Background()
 
 	b := make([]byte, 100)
@@ -65,6 +66,7 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	writer.Write(b[0:50]) //nolint:errcheck
 	writer.Write(b[0:50]) //nolint:errcheck
 	result, err := writer.Result()
+
 	if result != "1d804f1f69df08f3f59070bf962de69433e3d61ac18522a805a84d8c92741340" {
 		t.Errorf("unexpected result: %v err: %v", result, err)
 	}
@@ -97,15 +99,19 @@ func TestPackingSimple(t *testing.T) {
 	if got, want := oid1a.String(), oid1b.String(); got != want {
 		t.Errorf("oid1a(%q) != oid1b(%q)", got, want)
 	}
+
 	if got, want := oid1a.String(), oid1c.String(); got != want {
 		t.Errorf("oid1a(%q) != oid1c(%q)", got, want)
 	}
+
 	if got, want := oid2a.String(), oid2b.String(); got != want {
 		t.Errorf("oid2(%q)a != oidb(%q)", got, want)
 	}
+
 	if got, want := oid2a.String(), oid2c.String(); got != want {
 		t.Errorf("oid2(%q)a != oidc(%q)", got, want)
 	}
+
 	if got, want := oid3a.String(), oid3b.String(); got != want {
 		t.Errorf("oid3a(%q) != oid3b(%q)", got, want)
 	}
@@ -142,6 +148,7 @@ func TestPackingSimple(t *testing.T) {
 func TestHMAC(t *testing.T) {
 	var env repotesting.Environment
 	defer env.Setup(t).Close(t)
+
 	ctx := context.Background()
 
 	c := bytes.Repeat([]byte{0xcd}, 50)
@@ -149,6 +156,7 @@ func TestHMAC(t *testing.T) {
 	w := env.Repository.Objects.NewWriter(ctx, object.WriterOptions{})
 	w.Write(c) //nolint:errcheck
 	result, err := w.Result()
+
 	if result.String() != "367352007ee6ca9fa755ce8352347d092c17a24077fd33c62f655574a8cf906d" {
 		t.Errorf("unexpected result: %v err: %v", result.String(), err)
 	}
@@ -157,6 +165,7 @@ func TestHMAC(t *testing.T) {
 func TestUpgrade(t *testing.T) {
 	var env repotesting.Environment
 	defer env.Setup(t).Close(t)
+
 	ctx := context.Background()
 
 	if err := env.Repository.Upgrade(ctx); err != nil {
@@ -171,12 +180,14 @@ func TestUpgrade(t *testing.T) {
 func TestReaderStoredBlockNotFound(t *testing.T) {
 	var env repotesting.Environment
 	defer env.Setup(t).Close(t)
+
 	ctx := context.Background()
 
 	objectID, err := object.ParseID("Ddeadbeef")
 	if err != nil {
 		t.Errorf("cannot parse object ID: %v", err)
 	}
+
 	reader, err := env.Repository.Objects.Open(ctx, objectID)
 	if err != object.ErrObjectNotFound || reader != nil {
 		t.Errorf("unexpected result: reader: %v err: %v", reader, err)
@@ -187,8 +198,8 @@ func writeObject(ctx context.Context, t *testing.T, rep *repo.Repository, data [
 	w := rep.Objects.NewWriter(ctx, object.WriterOptions{})
 	if _, err := w.Write(data); err != nil {
 		t.Fatalf("can't write object %q - write failed: %v", testCaseID, err)
-
 	}
+
 	oid, err := w.Result()
 	if err != nil {
 		t.Fatalf("can't write object %q - result failed: %v", testCaseID, err)
@@ -199,6 +210,7 @@ func writeObject(ctx context.Context, t *testing.T, rep *repo.Repository, data [
 
 func verify(ctx context.Context, t *testing.T, rep *repo.Repository, objectID object.ID, expectedData []byte, testCaseID string) {
 	t.Helper()
+
 	reader, err := rep.Objects.Open(ctx, objectID)
 	if err != nil {
 		t.Errorf("cannot get reader for %v (%v): %v %v", testCaseID, objectID, err, string(debug.Stack()))
@@ -209,14 +221,18 @@ func verify(ctx context.Context, t *testing.T, rep *repo.Repository, objectID ob
 	for i := 0; i < 20; i++ {
 		sampleSize := int(rand.Int31n(300))
 		seekOffset := int(rand.Int31n(int32(len(expectedData))))
+
 		if seekOffset+sampleSize > len(expectedData) {
 			sampleSize = len(expectedData) - seekOffset
 		}
+
 		if sampleSize > 0 {
 			got := make([]byte, sampleSize)
+
 			if offset, err := reader.Seek(int64(seekOffset), 0); err != nil || offset != int64(seekOffset) {
 				t.Errorf("seek error: %v offset=%v expected:%v", err, offset, seekOffset)
 			}
+
 			if n, err := reader.Read(got); err != nil || n != sampleSize {
 				t.Errorf("invalid data: n=%v, expected=%v, err:%v", n, sampleSize, err)
 			}
@@ -275,10 +291,12 @@ func TestFormats(t *testing.T) {
 			bytesToWrite := []byte(k)
 			w := env.Repository.Objects.NewWriter(ctx, object.WriterOptions{})
 			w.Write(bytesToWrite) //nolint:errcheck
+
 			oid, err := w.Result()
 			if err != nil {
 				t.Errorf("error: %v", err)
 			}
+
 			if !objectIDsEqual(oid, v) {
 				t.Errorf("invalid oid for #%v\ngot:\n%#v\nexpected:\n%#v", caseIndex, oid.String(), v.String())
 			}
@@ -288,10 +306,12 @@ func TestFormats(t *testing.T) {
 				t.Errorf("open failed: %v", err)
 				continue
 			}
+
 			bytesRead, err := ioutil.ReadAll(rc)
 			if err != nil {
 				t.Errorf("error reading: %v", err)
 			}
+
 			if !bytes.Equal(bytesRead, bytesToWrite) {
 				t.Errorf("data mismatch, read:%x vs written:%v", bytesRead, bytesToWrite)
 			}

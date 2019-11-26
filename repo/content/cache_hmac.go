@@ -9,6 +9,7 @@ import (
 func appendHMAC(data, secret []byte) []byte {
 	h := hmac.New(sha256.New, secret)
 	h.Write(data) // nolint:errcheck
+
 	return h.Sum(data)
 }
 
@@ -24,9 +25,11 @@ func verifyAndStripHMAC(b, secret []byte) ([]byte, error) {
 	h := hmac.New(sha256.New, secret)
 	h.Write(data) // nolint:errcheck
 	validSignature := h.Sum(nil)
+
 	if len(signature) != len(validSignature) {
 		return nil, errors.New("invalid signature length")
 	}
+
 	if hmac.Equal(validSignature, signature) {
 		return data, nil
 	}

@@ -38,27 +38,33 @@ func findInUseContentIDs(ctx context.Context, rep *repo.Repository, used *sync.M
 
 	w := snapshotfs.NewTreeWalker()
 	w.EntryID = func(e fs.Entry) interface{} { return oidOf(e) }
+
 	for _, m := range manifests {
 		root, err := snapshotfs.SnapshotRoot(rep, m)
 		if err != nil {
 			return errors.Wrap(err, "unable to get snapshot root")
 		}
+
 		w.RootEntries = append(w.RootEntries, root)
 	}
 
 	w.ObjectCallback = func(entry fs.Entry) error {
 		oid := oidOf(entry)
 		_, contentIDs, err := rep.Objects.VerifyObject(ctx, oid)
+
 		if err != nil {
 			return errors.Wrapf(err, "error verifying %v", oid)
 		}
+
 		for _, cid := range contentIDs {
 			used.Store(cid, nil)
 		}
+
 		return nil
 	}
 
 	log.Info("looking for active contents")
+
 	if err := w.Run(ctx); err != nil {
 		return errors.Wrap(err, "error walking snapshot tree")
 	}
@@ -67,6 +73,7 @@ func findInUseContentIDs(ctx context.Context, rep *repo.Repository, used *sync.M
 }
 
 // Run performs garbage collection on all the snapshots in the repository.
+// nolint:gocognit
 func Run(ctx context.Context, rep *repo.Repository, minContentAge time.Duration, gcDelete bool) error {
 	var used sync.Map
 	if err := findInUseContentIDs(ctx, rep, &used); err != nil {
@@ -74,9 +81,11 @@ func Run(ctx context.Context, rep *repo.Repository, minContentAge time.Duration,
 	}
 
 	var unusedCount, inUseCount, systemCount, tooRecentCount int32
+
 	var totalUnusedBytes, totalInUseBytes, totalSystemBytes, totalTooRecentBytes int64
 
 	log.Info("looking for unreferenced contents")
+
 	if err := rep.Content.IterateContents(content.IterateOptions{}, func(ci content.Info) error {
 		if manifest.ContentPrefix == ci.ID.Prefix() {
 			atomic.AddInt32(&systemCount, 1)

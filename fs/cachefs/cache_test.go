@@ -36,7 +36,9 @@ func (cs *cacheSource) get(id string) func(ctx context.Context) (fs.Entries, err
 
 func (cs *cacheSource) setEntryCount(id string, cnt int) {
 	var fakeEntries fs.Entries
+
 	var fakeEntry fs.Entry
+
 	for i := 0; i < cnt; i++ {
 		fakeEntries = append(fakeEntries, fakeEntry)
 	}
@@ -61,9 +63,11 @@ type cacheVerifier struct {
 func (cv *cacheVerifier) verifyCacheMiss(t *testing.T, id string) {
 	actual := cv.cacheSource.callCounter[id]
 	expected := cv.lastCallCounter[id] + 1
+
 	if actual != expected {
 		t.Errorf(errorPrefix()+"invalid call counter for %v, got %v, expected %v", id, actual, expected)
 	}
+
 	cv.reset()
 }
 
@@ -71,13 +75,15 @@ func (cv *cacheVerifier) verifyCacheHit(t *testing.T, id string) {
 	if !reflect.DeepEqual(cv.lastCallCounter, cv.cacheSource.callCounter) {
 		t.Errorf(errorPrefix()+" unexpected call counters for %v, got %v, expected %v", id, cv.cacheSource.callCounter, cv.lastCallCounter)
 	}
+
 	cv.reset()
 }
 
 func (cv *cacheVerifier) verifyCacheOrdering(t *testing.T, expectedOrdering ...string) {
 	var actualOrdering []string
-	var totalDirectoryEntries int
-	var totalDirectories int
+
+	var totalDirectoryEntries, totalDirectories int
+
 	for e := cv.cache.head; e != nil; e = e.next {
 		actualOrdering = append(actualOrdering, e.id)
 		totalDirectoryEntries += len(e.entries)
@@ -103,7 +109,6 @@ func (cv *cacheVerifier) verifyCacheOrdering(t *testing.T, expectedOrdering ...s
 	if totalDirectoryEntries > cv.cache.maxDirectoryEntries {
 		t.Errorf(errorPrefix()+"total directory entries exceeds limit: %v, expected %v", totalDirectoryEntries, cv.cache.maxDirectoryEntries)
 	}
-
 }
 
 func errorPrefix() string {
@@ -146,6 +151,7 @@ func TestCache(t *testing.T) {
 		MaxCachedDirectories: 4,
 		MaxCachedEntries:     100,
 	})
+
 	if len(c.data) != 0 || c.totalDirectoryEntries != 0 || c.head != nil || c.tail != nil {
 		t.Errorf("invalid initial state: %v %v %v %v", c.data, c.totalDirectoryEntries, c.head, c.tail)
 	}
@@ -159,6 +165,7 @@ func TestCache(t *testing.T) {
 	id5 := "5"
 	id6 := "6"
 	id7 := "7"
+
 	cs.setEntryCount(id1, 3)
 	cs.setEntryCount(id2, 3)
 	cs.setEntryCount(id3, 3)
@@ -241,7 +248,9 @@ func TestCacheGetEntriesLocking(t *testing.T) {
 
 	cs := newCacheSource()
 	cv := cacheVerifier{cacheSource: cs, cache: c}
+
 	const id1 = "1"
+
 	cs.setEntryCount(id1, 1)
 
 	// fetch non-existing entry, the loader will return an error
@@ -249,7 +258,9 @@ func TestCacheGetEntriesLocking(t *testing.T) {
 	if err == nil {
 		t.Fatal("Expected non-nil error when retrieving non-existing cache entry")
 	}
+
 	const expectedEsLength = 0
+
 	actualEsLength := len(actualEs)
 	if actualEsLength != expectedEsLength {
 		t.Fatal("Expected empty entries, got: ", actualEsLength)

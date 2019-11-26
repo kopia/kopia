@@ -46,6 +46,7 @@ func (c *ignoreContext) shouldIncludeByName(path string, e fs.Entry) bool {
 			for _, oi := range c.onIgnore {
 				oi(path, e)
 			}
+
 			return false
 		}
 	}
@@ -76,6 +77,7 @@ func (d *ignoreDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
 	}
 
 	result := make(fs.Entries, 0, len(entries))
+
 	for _, e := range entries {
 		if !thisContext.shouldIncludeByName(d.relativePath+"/"+e.Name(), e) {
 			continue
@@ -145,6 +147,7 @@ func (c *ignoreContext) overrideFromPolicy(policy *FilesPolicy, dirPath string) 
 	if policy.NoParentDotIgnoreFiles {
 		c.dotIgnoreFiles = nil
 	}
+
 	if policy.NoParentIgnoreRules {
 		c.matchers = nil
 	}
@@ -163,6 +166,7 @@ func (c *ignoreContext) overrideFromPolicy(policy *FilesPolicy, dirPath string) 
 
 		c.matchers = append(c.matchers, m)
 	}
+
 	return nil
 }
 
@@ -193,16 +197,21 @@ func (c *ignoreContext) loadDotIgnoreFiles(ctx context.Context, dirPath string, 
 
 func combineAndDedupe(slices ...[]string) []string {
 	var result []string
+
 	existing := map[string]bool{}
+
 	for _, slice := range slices {
 		for _, it := range slice {
 			if existing[it] {
 				continue
 			}
+
 			existing[it] = true
+
 			result = append(result, it)
 		}
 	}
+
 	return result
 }
 

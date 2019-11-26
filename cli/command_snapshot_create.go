@@ -34,11 +34,13 @@ var (
 
 func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
 	sources := *snapshotCreateSources
+
 	if *snapshotCreateAll {
 		local, err := getLocalBackupPaths(ctx, rep)
 		if err != nil {
 			return err
 		}
+
 		sources = append(sources, local...)
 	}
 
@@ -62,13 +64,16 @@ func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
 
 	for _, snapshotDir := range sources {
 		log.Debugf("Backing up %v", snapshotDir)
+
 		dir, err := filepath.Abs(snapshotDir)
 		if err != nil {
 			return errors.Errorf("invalid source: '%s': %s", snapshotDir, err)
 		}
 
 		sourceInfo := snapshot.SourceInfo{Path: filepath.Clean(dir), Host: getHostName(), UserName: getUserName()}
+
 		log.Infof("snapshotting %v", sourceInfo)
+
 		if err := snapshotSingleSource(ctx, rep, u, sourceInfo); err != nil {
 			finalErrors = append(finalErrors, err.Error())
 		}
@@ -83,6 +88,7 @@ func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
 
 func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo) error {
 	t0 := time.Now()
+
 	rep.Content.ResetStats()
 
 	localEntry, err := getLocalFSEntry(sourceInfo.Path)
@@ -101,6 +107,7 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshot
 	}
 
 	log.Infof("uploading %v using %v previous manifests", sourceInfo, len(previous))
+
 	manifest, err := u.Upload(ctx, localEntry, sourceInfo, previous...)
 	if err != nil {
 		return err
@@ -116,6 +123,7 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshot
 	printStderr("uploaded snapshot %v (root %v) in %v\n", snapID, manifest.RootObjectID(), time.Since(t0))
 
 	_, err = policy.ApplyRetentionPolicy(ctx, rep, sourceInfo, true)
+
 	return err
 }
 
@@ -129,13 +137,16 @@ func findPreviousSnapshotManifest(ctx context.Context, rep *repo.Repository, sou
 
 	// phase 1 - find latest complete snapshot.
 	var previousComplete *snapshot.Manifest
+
 	var previousCompleteStartTime time.Time
+
 	var result []*snapshot.Manifest
 
 	for _, p := range man {
 		if noLaterThan != nil && p.StartTime.After(*noLaterThan) {
 			continue
 		}
+
 		if p.IncompleteReason == "" && (previousComplete == nil || p.StartTime.After(previousComplete.StartTime)) {
 			previousComplete = p
 			previousCompleteStartTime = p.StartTime
@@ -151,6 +162,7 @@ func findPreviousSnapshotManifest(ctx context.Context, rep *repo.Repository, sou
 		if noLaterThan != nil && p.StartTime.After(*noLaterThan) {
 			continue
 		}
+
 		if p.IncompleteReason != "" && p.StartTime.After(previousCompleteStartTime) {
 			result = append(result, p)
 		}
@@ -192,6 +204,7 @@ func getDefaultUserName() string {
 	}
 
 	u := currentUser.Username
+
 	if runtime.GOOS == "windows" {
 		if p := strings.Index(u, "\\"); p >= 0 {
 			// On Windows ignore domain name.

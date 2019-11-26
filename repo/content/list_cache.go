@@ -43,6 +43,7 @@ func (c *listCache) listIndexBlobs(ctx context.Context) ([]IndexBlobInfo, error)
 			Timestamp: time.Now(),
 		})
 	}
+
 	log.Debugf("found %v index blobs from source", len(contents))
 
 	return contents, err
@@ -52,12 +53,15 @@ func (c *listCache) saveListToCache(ci *cachedList) {
 	if c.cacheFile == "" {
 		return
 	}
+
 	log.Debugf("saving index blobs to cache: %v", len(ci.Contents))
+
 	if data, err := json.Marshal(ci); err == nil {
 		mySuffix := fmt.Sprintf(".tmp-%v-%v", os.Getpid(), time.Now().UnixNano())
 		if err := ioutil.WriteFile(c.cacheFile+mySuffix, appendHMAC(data, c.hmacSecret), 0600); err != nil {
 			log.Warningf("unable to write list cache: %v", err)
 		}
+
 		os.Rename(c.cacheFile+mySuffix, c.cacheFile) //nolint:errcheck
 		os.Remove(c.cacheFile + mySuffix)            //nolint:errcheck
 	}
@@ -111,6 +115,7 @@ func listIndexBlobsFromStorage(ctx context.Context, st blob.Storage) ([]IndexBlo
 	}
 
 	var results []IndexBlobInfo
+
 	for _, it := range snapshot {
 		ii := IndexBlobInfo{
 			BlobID:    it.BlobID,

@@ -21,6 +21,7 @@ func webdavServerLogger(r *http.Request, err error) {
 	if r := r.Header.Get("Range"); r != "" {
 		maybeRange = " " + r
 	}
+
 	if err != nil {
 		log.Debugf("%v %v%v err: %v", r.Method, r.URL.RequestURI(), maybeRange, err)
 	} else {
@@ -51,6 +52,7 @@ func mountDirectoryWebDAV(entry fs.Directory, mountPoint string) error {
 	var wg sync.WaitGroup
 
 	wg.Add(1)
+
 	go func() {
 		defer wg.Done()
 		printStderr("Server listening at http://%v/ Press Ctrl-C to shut down.\n", s.Addr)
@@ -67,6 +69,8 @@ func mountDirectoryWebDAV(entry fs.Directory, mountPoint string) error {
 	if err := s.Shutdown(context.Background()); err != nil {
 		log.Warningf("shutdown failed: %v", err)
 	}
+
 	wg.Wait()
+
 	return nil
 }

@@ -22,5 +22,6 @@ func (o *FormattingOptions) DeriveKey(purpose []byte, length int) []byte {
 	key := make([]byte, length)
 	k := hkdf.New(sha256.New, o.MasterKey, purpose, nil)
 	io.ReadFull(k, key) //nolint:errcheck
+
 	return key
 }

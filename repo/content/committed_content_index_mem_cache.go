@@ -31,6 +31,7 @@ func (m *memoryCommittedContentIndexCache) addContentToCache(indexBlobID blob.ID
 	}
 
 	m.contents[indexBlobID] = ndx
+
 	return nil
 }
 

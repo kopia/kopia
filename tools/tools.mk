@@ -3,7 +3,7 @@ TOOLS_DIR:=$(SELF_DIR)/.tools
 uname := $(shell uname -s)
 
 # tool versions
-GOLANGCI_LINT_VERSION=v1.18.0
+GOLANGCI_LINT_VERSION=v1.21.0
 NODE_VERSION=12.13.0
 HUGO_VERSION=0.59.1
 

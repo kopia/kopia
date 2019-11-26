@@ -25,6 +25,7 @@ func (c *Client) Get(path string, respPayload interface{}) error {
 	if resp.StatusCode != 200 {
 		return errors.Errorf("invalid server response: %v", resp.Status)
 	}
+
 	if err := json.NewDecoder(resp.Body).Decode(respPayload); err != nil {
 		return errors.Wrap(err, "malformed server response")
 	}
@@ -49,6 +50,7 @@ func (c *Client) Post(path string, reqPayload, respPayload interface{}) error {
 	if resp.StatusCode != 200 {
 		return errors.Errorf("invalid server response: %v", resp.Status)
 	}
+
 	if err := json.NewDecoder(resp.Body).Decode(respPayload); err != nil {
 		return errors.Wrap(err, "malformed server response")
 	}
@@ -61,5 +63,6 @@ func NewClient(serverAddress string, cli *http.Client) *Client {
 	if cli == nil {
 		cli = http.DefaultClient
 	}
+
 	return &Client{"http://" + serverAddress + "/api/v1/", cli}
 }

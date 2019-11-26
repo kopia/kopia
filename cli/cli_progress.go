@@ -29,6 +29,7 @@ func (p *singleProgress) toString(details bool) string {
 
 	dur := time.Since(p.startTime)
 	extraInfo := ""
+
 	if dur > 1*time.Second && details {
 		extraInfo = " " + units.BitsPerSecondsString(8*float64(p.progress)/time.Since(p.startTime).Seconds())
 	}
@@ -90,8 +91,10 @@ func (mp *multiProgress) Report(desc string, progress, total int64) {
 	for i, p := range mp.items {
 		segments = append(segments, p.toString(i > 0))
 	}
+
 	if found.progress >= found.total && foundPos == len(segments)-1 {
 		mp.items = append(mp.items[0:foundPos], mp.items[foundPos+1:]...)
+
 		if len(segments) > 0 {
 			log.Notice(segments[len(segments)-1])
 		}

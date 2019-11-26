@@ -17,6 +17,7 @@ func toDecimalUnitString(f, thousand float64, prefixes []string, suffix string) 
 		if f < 0.9*thousand {
 			return fmt.Sprintf("%v %v%v", niceNumber(f), prefixes[i], suffix)
 		}
+
 		f /= thousand
 	}
 

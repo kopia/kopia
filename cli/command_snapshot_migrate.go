@@ -40,9 +40,9 @@ func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 	}
 
 	semaphore := make(chan struct{}, *migrateParallelism)
-	var wg sync.WaitGroup
 
 	var (
+		wg              sync.WaitGroup
 		mu              sync.Mutex
 		canceled        bool
 		activeUploaders = map[snapshot.SourceInfo]*snapshotfs.Uploader{}
@@ -77,6 +77,7 @@ func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 
 		wg.Add(1)
 		semaphore <- struct{}{}
+
 		go func(s snapshot.SourceInfo) {
 			defer func() {
 				mu.Lock()
@@ -92,6 +93,7 @@ func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 			}
 		}(s)
 	}
+
 	wg.Wait()
 
 	return nil
@@ -117,6 +119,7 @@ func migrateSingleSource(ctx context.Context, uploader *snapshotfs.Uploader, sou
 	if err != nil {
 		return err
 	}
+
 	snapshots, err := snapshot.LoadSnapshots(ctx, sourceRepo, manifests)
 	if err != nil {
 		return errors.Wrapf(err, "unable to load snapshot manifests for %v", s)
@@ -134,7 +137,6 @@ func migrateSingleSource(ctx context.Context, uploader *snapshotfs.Uploader, sou
 		if err := migrateSingleSourceSnapshot(ctx, uploader, sourceRepo, destRepo, s, m); err != nil {
 			return err
 		}
-
 	}
 
 	return nil
@@ -145,18 +147,21 @@ func migrateSingleSourceSnapshot(ctx context.Context, uploader *snapshotfs.Uploa
 		log.Infof("ignoring incomplete %v at %v", s, formatTimestamp(m.StartTime))
 		return nil
 	}
+
 	sourceEntry := snapshotfs.DirectoryEntry(sourceRepo, m.RootObjectID(), nil)
 
 	existing, err := findPreviousSnapshotManifestWithStartTime(ctx, destRepo, m.Source, m.StartTime)
 	if err != nil {
 		return err
 	}
+
 	if existing != nil {
 		log.Infof("already migrated %v at %v", s, formatTimestamp(m.StartTime))
 		return nil
 	}
 
 	log.Infof("migrating snapshot of %v at %v", s, formatTimestamp(m.StartTime))
+
 	previous, err := findPreviousSnapshotManifest(ctx, destRepo, m.Source, &m.StartTime)
 	if err != nil {
 		return err
@@ -170,11 +175,13 @@ func migrateSingleSourceSnapshot(ctx context.Context, uploader *snapshotfs.Uploa
 	newm.StartTime = m.StartTime
 	newm.EndTime = m.EndTime
 	newm.Description = m.Description
+
 	if newm.IncompleteReason == "" {
 		if _, err := snapshot.SaveSnapshot(ctx, destRepo, newm); err != nil {
 			return errors.Wrap(err, "cannot save manifest")
 		}
 	}
+
 	return nil
 }
 
@@ -182,6 +189,7 @@ func filterSnapshotsToMigrate(s []*snapshot.Manifest) []*snapshot.Manifest {
 	if *migrateLatestOnly && len(s) > 0 {
 		s = s[0:1]
 	}
+
 	return s
 }
 

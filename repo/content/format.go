@@ -43,6 +43,7 @@ func (e *entry) parse(b []byte) error {
 	e.packFileOffset = binary.BigEndian.Uint32(b[8:12])
 	e.packedOffset = binary.BigEndian.Uint32(b[12:16])
 	e.packedLength = binary.BigEndian.Uint32(b[16:20])
+
 	return nil
 }
 

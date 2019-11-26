@@ -20,16 +20,19 @@ var (
 
 func packBlockPrefixes() []string {
 	var str []string
+
 	for _, p := range content.PackBlobIDPrefixes {
 		str = append(str, string(p))
 	}
-	return str
 
+	return str
 }
+
 func runRepairCommandWithStorage(ctx context.Context, st blob.Storage) error {
 	if err := maybeRecoverFormatBlob(ctx, st); err != nil {
 		return err
 	}
+
 	return nil
 }
 
@@ -37,6 +40,7 @@ func maybeRecoverFormatBlob(ctx context.Context, st blob.Storage) error {
 	switch *repairCommandRecoverFormatBlob {
 	case "auto":
 		log.Infof("looking for format blob...")
+
 		if _, err := st.GetBlob(ctx, repo.FormatBlobID, 0, -1); err == nil {
 			log.Infof("format blob already exists, not recovering, pass --recover-format=yes")
 			return nil
@@ -82,7 +86,6 @@ func recoverFormatBlob(ctx context.Context, st blob.Storage, prefixes []string) 
 		default:
 			return err
 		}
-
 	}
 
 	return errors.New("could not find a replica of a format blob")

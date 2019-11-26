@@ -58,6 +58,7 @@ func (s *sftpImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, of
 	// and either return it all or return the offset/length bytes
 	buf := new(bytes.Buffer)
 	n, err := r.WriteTo(buf)
+
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +84,9 @@ func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data
 	if _, err := rand.Read(randSuffix); err != nil {
 		return errors.Wrap(err, "can't get random bytes")
 	}
+
 	tempFile := fmt.Sprintf("%s.tmp.%x", path, randSuffix)
+
 	f, err := s.createTempFileAndDir(tempFile)
 	if err != nil {
 		return errors.Wrap(err, "cannot create temporary file")
@@ -102,6 +105,7 @@ func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data
 		if removeErr := s.cli.Remove(tempFile); removeErr != nil {
 			fmt.Printf("warning: can't remove temp file: %v", removeErr)
 		}
+
 		return err
 	}
 
@@ -110,11 +114,13 @@ func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data
 
 func (s *sftpImpl) createTempFileAndDir(tempFile string) (*psftp.File, error) {
 	flags := os.O_CREATE | os.O_WRONLY | os.O_EXCL
+
 	f, err := s.cli.OpenFile(tempFile, flags)
 	if os.IsNotExist(err) {
 		if err = s.cli.MkdirAll(filepath.Dir(tempFile)); err != nil {
 			return nil, errors.Wrap(err, "cannot create directory")
 		}
+
 		return s.cli.OpenFile(tempFile, flags)
 	}
 
@@ -181,6 +187,7 @@ func getHostKey(host, knownHosts string) (ssh.PublicKey, error) {
 	defer file.Close()
 
 	var hostKey ssh.PublicKey
+
 	var hosts []string
 
 	scanner := bufio.NewScanner(file)
@@ -209,6 +216,7 @@ func getSigner(path string) (ssh.Signer, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return key, nil
 }
 
@@ -246,6 +254,7 @@ func New(ctx context.Context, opts *Options) (blob.Storage, error) {
 	}
 
 	addr := fmt.Sprintf("%s:%d", opts.Host, opts.Port)
+
 	conn, err := ssh.Dial("tcp", addr, config)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to dial [%s]: %+v", addr, config)

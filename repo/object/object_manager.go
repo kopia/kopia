@@ -86,6 +86,7 @@ func (om *Manager) Open(ctx context.Context, objectID ID) (Reader, error) {
 // and returns the total length of the object and content IDs of which it is composed.
 func (om *Manager) VerifyObject(ctx context.Context, oid ID) (int64, []content.ID, error) {
 	tracker := &contentIDTracker{}
+
 	l, err := om.verifyObjectInternal(ctx, oid, tracker)
 	if err != nil {
 		return 0, nil, err
@@ -98,6 +99,7 @@ func (om *Manager) verifyIndirectObjectInternal(ctx context.Context, indexObject
 	if _, err := om.verifyObjectInternal(ctx, indexObjectID, tracker); err != nil {
 		return 0, errors.Wrap(err, "unable to read index")
 	}
+
 	rd, err := om.Open(ctx, indexObjectID)
 	if err != nil {
 		return 0, err
@@ -121,6 +123,7 @@ func (om *Manager) verifyIndirectObjectInternal(ctx context.Context, indexObject
 	}
 
 	totalLength := seekTable[len(seekTable)-1].endOffset()
+
 	return totalLength, nil
 }
 
@@ -134,12 +137,13 @@ func (om *Manager) verifyObjectInternal(ctx context.Context, oid ID, tracker *co
 		if err != nil {
 			return 0, err
 		}
+
 		tracker.addContentID(contentID)
+
 		return int64(p.Length), nil
 	}
 
 	return 0, errors.Errorf("unrecognized object type: %v", oid)
-
 }
 
 func nullTrace(message string, args ...interface{}) {
@@ -212,6 +216,7 @@ func (om *Manager) newRawReader(ctx context.Context, objectID ID) (Reader, error
 		if err == content.ErrContentNotFound {
 			return nil, ErrObjectNotFound
 		}
+
 		if err != nil {
 			return nil, errors.Wrap(err, "unexpected content error")
 		}

@@ -89,6 +89,7 @@ func (s *sourceSnapshots) Readdir(ctx context.Context) (fs.Entries, error) {
 
 		result = append(result, e)
 	}
+
 	result.Sort()
 
 	return result, nil

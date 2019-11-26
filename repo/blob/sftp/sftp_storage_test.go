@@ -47,6 +47,7 @@ func TestSFTPStorageValid(t *testing.T) {
 
 func assertNoError(t *testing.T, err error) {
 	t.Helper()
+
 	if err != nil {
 		t.Errorf("err: %v", err)
 	}
@@ -70,6 +71,7 @@ func createSFTPStorage(ctx context.Context, t *testing.T) (blob.Storage, error) 
 	if envPort == "" {
 		t.Skip("KOPIA_SFTP_TEST_PORT not provided")
 	}
+
 	port, err := strconv.ParseInt(envPort, 10, 64)
 	if err != nil {
 		t.Skip("skipping test because port is not numeric")

@@ -60,6 +60,7 @@ func (m *Manager) Put(ctx context.Context, labels map[string]string, payload int
 	if err := m.ensureInitialized(ctx); err != nil {
 		return "", err
 	}
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -143,6 +144,7 @@ func (m *Manager) GetRaw(ctx context.Context, id ID) ([]byte, error) {
 	if e == nil {
 		e = m.committedEntries[id]
 	}
+
 	if e == nil || e.Deleted {
 		return nil, ErrNotFound
 	}
@@ -160,11 +162,13 @@ func (m *Manager) Find(ctx context.Context, labels map[string]string) ([]*EntryM
 	defer m.mu.Unlock()
 
 	var matches []*EntryMetadata
+
 	for _, e := range m.pendingEntries {
 		if matchesLabels(e.Labels, labels) {
 			matches = append(matches, cloneEntryMetadata(e))
 		}
 	}
+
 	for _, e := range m.committedEntries {
 		if m.pendingEntries[e.ID] != nil {
 			// ignore committed that are also in pending
@@ -179,6 +183,7 @@ func (m *Manager) Find(ctx context.Context, labels map[string]string) ([]*EntryM
 	sort.Slice(matches, func(i, j int) bool {
 		return matches[i].ModTime.Before(matches[j].ModTime)
 	})
+
 	return matches, nil
 }
 
@@ -208,6 +213,7 @@ func (m *Manager) Flush(ctx context.Context) error {
 	defer m.mu.Unlock()
 
 	_, err := m.flushPendingEntriesLocked(ctx)
+
 	return err
 }
 
@@ -264,6 +270,7 @@ func (m *Manager) Delete(ctx context.Context, id ID) error {
 		ModTime: time.Now().UTC(),
 		Deleted: true,
 	}
+
 	return nil
 }
 
@@ -303,10 +310,12 @@ func (m *Manager) loadCommittedContentsLocked(ctx context.Context) error {
 			// success
 			break
 		}
+
 		if err == content.ErrContentNotFound {
 			// try again, lost a race with another manifest manager which just did compaction
 			continue
 		}
+
 		return errors.Wrap(err, "unable to load manifest contents")
 	}
 
@@ -343,6 +352,7 @@ func (m *Manager) loadManifestContentsLocked(manifests map[content.ID]manifest) 
 
 func (m *Manager) loadManifestContent(ctx context.Context, contentID content.ID) (manifest, error) {
 	man := manifest{}
+
 	blk, err := m.b.GetContent(ctx, contentID)
 	if err != nil {
 		// do not wrap the error here, we want to propagate original ErrNotFound
@@ -376,6 +386,7 @@ func (m *Manager) maybeCompactLocked(ctx context.Context) error {
 	}
 
 	log.Debugf("performing automatic compaction of %v contents", len(m.committedContentIDs))
+
 	if err := m.compactLocked(ctx); err != nil {
 		return errors.Wrap(err, "unable to compact manifest contents")
 	}
@@ -450,6 +461,7 @@ func (m *Manager) ensureInitialized(ctx context.Context) error {
 	}
 
 	m.initialized = true
+
 	return nil
 }
 
@@ -458,6 +470,7 @@ func copyLabels(m map[string]string) map[string]string {
 	for k, v := range m {
 		r[k] = v
 	}
+
 	return r
 }
 

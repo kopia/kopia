@@ -106,6 +106,7 @@ func recoverFormatBlobWithLength(ctx context.Context, st blob.Storage, blobID bl
 		if err != nil {
 			return nil, err
 		}
+
 		if l := int(prefixChunk[0]) + int(prefixChunk[1])<<8; l <= maxChecksummedFormatBytesLength && l+2 < len(prefixChunk) {
 			if b, ok := verifyFormatBlobChecksum(prefixChunk[2 : 2+l]); ok {
 				return b, nil
@@ -117,6 +118,7 @@ func recoverFormatBlobWithLength(ctx context.Context, st blob.Storage, blobID bl
 		if err != nil {
 			return nil, err
 		}
+
 		if l := int(suffixChunk[len(suffixChunk)-2]) + int(suffixChunk[len(suffixChunk)-1])<<8; l <= maxChecksummedFormatBytesLength && l+2 < len(suffixChunk) {
 			if b, ok := verifyFormatBlobChecksum(suffixChunk[len(suffixChunk)-2-l : len(suffixChunk)-2]); ok {
 				return b, nil
@@ -136,6 +138,7 @@ func verifyFormatBlobChecksum(b []byte) ([]byte, bool) {
 	h := hmac.New(sha256.New, formatBlobChecksumSecret)
 	h.Write(data) //nolint:errcheck
 	actualChecksum := h.Sum(nil)
+
 	if !hmac.Equal(actualChecksum, checksum) {
 		return nil, false
 	}
@@ -147,6 +150,7 @@ func writeFormatBlob(ctx context.Context, st blob.Storage, f *formatBlob) error 
 	var buf bytes.Buffer
 	e := json.NewEncoder(&buf)
 	e.SetIndent("", "  ")
+
 	if err := e.Encode(f); err != nil {
 		return errors.Wrap(err, "unable to marshal format blob")
 	}
@@ -173,6 +177,7 @@ func (f *formatBlob) decryptFormatBytes(masterKey []byte) (*repositoryObjectForm
 		if len(content) < aead.NonceSize() {
 			return nil, errors.Errorf("invalid encrypted payload, too short")
 		}
+
 		nonce := content[0:aead.NonceSize()]
 		payload := content[aead.NonceSize():]
 
@@ -201,6 +206,7 @@ func initCrypto(masterKey, repositoryID []byte) (cipher.AEAD, []byte, error) {
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "cannot create cipher")
 	}
+
 	aead, err := cipher.NewGCM(blk)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "cannot create cipher")
@@ -220,10 +226,12 @@ func encryptFormatBytes(f *formatBlob, format *repositoryObjectFormat, masterKey
 		if err != nil {
 			return errors.Wrap(err, "can't marshal format to JSON")
 		}
+
 		aead, authData, err := initCrypto(masterKey, repositoryID)
 		if err != nil {
 			return errors.Wrap(err, "unable to initialize crypto")
 		}
+
 		nonceLength := aead.NonceSize()
 		noncePlusContentLength := nonceLength + len(content)
 		cipherText := make([]byte, noncePlusContentLength+aead.Overhead())
@@ -237,6 +245,7 @@ func encryptFormatBytes(f *formatBlob, format *repositoryObjectFormat, masterKey
 		b := aead.Seal(cipherText[nonceLength:nonceLength], nonce, content, authData)
 		content = nonce[0 : nonceLength+len(b)]
 		f.EncryptedFormatBytes = content
+
 		return nil
 
 	default:
@@ -258,5 +267,6 @@ func addFormatBlobChecksumAndLength(fb []byte) ([]byte, error) {
 	result := append([]byte(nil), byte(l), byte(l>>8))
 	result = append(result, checksummedFormatBytes...)
 	result = append(result, byte(l), byte(l>>8))
+
 	return result, nil
 }

@@ -34,7 +34,9 @@ func (lc *LocalConfig) Save(w io.Writer) error {
 	if err != nil {
 		return nil
 	}
+
 	_, err = w.Write(b)
+
 	return err
 }
 

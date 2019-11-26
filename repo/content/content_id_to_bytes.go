@@ -8,10 +8,13 @@ func bytesToContentID(b []byte) ID {
 	if len(b) == 0 {
 		return ""
 	}
+
 	if b[0] == 0xff {
 		return ID(b[1:])
 	}
+
 	prefix := ""
+
 	if b[0] != 0 {
 		prefix = string(b[0:1])
 	}
@@ -21,7 +24,9 @@ func bytesToContentID(b []byte) ID {
 
 func contentIDToBytes(c ID) []byte {
 	var prefix []byte
+
 	var skip int
+
 	if len(c)%2 == 1 {
 		prefix = []byte(c[0:1])
 		skip = 1

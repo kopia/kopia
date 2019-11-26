@@ -20,18 +20,23 @@ var (
 
 func dumpMemoryUsage() {
 	runtime.GC()
+
 	var ms runtime.MemStats
+
 	runtime.ReadMemStats(&ms)
 
 	memoryTrackerMutex.Lock()
 	defer memoryTrackerMutex.Unlock()
 	memlog.Debugf("in use heap %v (delta %v max %v) stack %v (delta %v max %v)", ms.HeapInuse, int64(ms.HeapInuse-lastHeapUsage), maxHeapUsage, ms.StackInuse, int64(ms.StackInuse-lastStackInUse), maxStackInUse)
+
 	if ms.HeapInuse > maxHeapUsage {
 		maxHeapUsage = ms.HeapInuse
 	}
+
 	if ms.StackInuse > maxStackInUse {
 		maxStackInUse = ms.StackInuse
 	}
+
 	lastHeapUsage = ms.HeapInuse
 	lastStackInUse = ms.StackInuse
 }

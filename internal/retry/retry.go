@@ -28,14 +28,17 @@ type IsRetriableFunc func(err error) bool
 // a certain limit.
 func WithExponentialBackoff(desc string, attempt AttemptFunc, isRetriableError IsRetriableFunc) (interface{}, error) {
 	sleepAmount := retryInitialSleepAmount
+
 	for i := 0; i < maxAttempts; i++ {
 		v, err := attempt()
 		if !isRetriableError(err) {
 			return v, err
 		}
+
 		log.Debugf("got error %v when %v (#%v), sleeping for %v before retrying", err, desc, i, sleepAmount)
 		time.Sleep(sleepAmount)
 		sleepAmount *= 2
+
 		if sleepAmount > retryMaxSleepAmount {
 			sleepAmount = retryMaxSleepAmount
 		}
@@ -50,5 +53,6 @@ func WithExponentialBackoffNoValue(desc string, attempt func() error, isRetriabl
 	_, err := WithExponentialBackoff(desc, func() (interface{}, error) {
 		return nil, attempt()
 	}, isRetriableError)
+
 	return err
 }

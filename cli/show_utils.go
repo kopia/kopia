@@ -43,6 +43,7 @@ func showContentWithFlags(rd io.Reader, unzip, indentJSON bool) error {
 	}
 
 	var buf1, buf2 bytes.Buffer
+
 	if indentJSON {
 		if _, err := io.Copy(&buf1, rd); err != nil {
 			return err

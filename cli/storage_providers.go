@@ -14,8 +14,8 @@ import (
 func RegisterStorageConnectFlags(
 	name, description string,
 	flags func(*kingpin.CmdClause),
-	connect func(ctx context.Context, isNew bool) (blob.Storage, error)) {
-
+	connect func(ctx context.Context, isNew bool) (blob.Storage, error),
+) {
 	if name != "from-config" {
 		// Set up 'create' subcommand
 		cc := createCommand.Command(name, "Create repository in "+description)

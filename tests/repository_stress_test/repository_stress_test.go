@@ -33,6 +33,7 @@ func TestStressRepository(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping stress test during short tests")
 	}
+
 	ctx := content.UsingListCache(context.Background(), false)
 
 	tmpPath, err := ioutil.TempDir("", "kopia")
@@ -53,9 +54,11 @@ func TestStressRepository(t *testing.T) {
 	configFile2 := filepath.Join(tmpPath, "kopia2.config")
 
 	assertNoError(t, os.MkdirAll(storagePath, 0700))
+
 	st, err := filesystem.New(ctx, &filesystem.Options{
 		Path: storagePath,
 	})
+
 	if err != nil {
 		t.Fatalf("unable to initialize storage: %v", err)
 	}
@@ -87,21 +90,37 @@ func TestStressRepository(t *testing.T) {
 	cancel := make(chan struct{})
 
 	var wg sync.WaitGroup
+
 	wg.Add(1)
+
 	go longLivedRepositoryTest(ctx, t, cancel, configFile1, &wg)
+
 	wg.Add(1)
+
 	go longLivedRepositoryTest(ctx, t, cancel, configFile1, &wg)
+
 	wg.Add(1)
+
 	go longLivedRepositoryTest(ctx, t, cancel, configFile1, &wg)
+
 	wg.Add(1)
+
 	go longLivedRepositoryTest(ctx, t, cancel, configFile1, &wg)
+
 	wg.Add(1)
+
 	go longLivedRepositoryTest(ctx, t, cancel, configFile2, &wg)
+
 	wg.Add(1)
+
 	go longLivedRepositoryTest(ctx, t, cancel, configFile2, &wg)
+
 	wg.Add(1)
+
 	go longLivedRepositoryTest(ctx, t, cancel, configFile2, &wg)
+
 	wg.Add(1)
+
 	go longLivedRepositoryTest(ctx, t, cancel, configFile2, &wg)
 
 	time.Sleep(5 * time.Second)
@@ -124,6 +143,7 @@ func longLivedRepositoryTest(ctx context.Context, t *testing.T, cancel chan stru
 
 	for i := 0; i < 4; i++ {
 		wg2.Add(1)
+
 		go func() {
 			defer wg2.Done()
 
@@ -135,17 +155,6 @@ func longLivedRepositoryTest(ctx context.Context, t *testing.T, cancel chan stru
 }
 
 func repositoryTest(ctx context.Context, t *testing.T, cancel chan struct{}, rep *repo.Repository) {
-	// reopen := func(t *testing.T, r *repo.Repository) error {
-	// 	if err := rep.Close(ctx); err != nil {
-	// 		return errors.Wrap(err, "error closing")
-	// 	}
-
-	// 	t0 := time.Now()
-	// 	rep, err = repo.Open(ctx, configFile, &repo.Options{})
-	// 	log.Printf("reopened in %v", time.Since(t0))
-	// 	return err
-	// }
-
 	workTypes := []*struct {
 		name     string
 		fun      func(ctx context.Context, t *testing.T, r *repo.Repository) error
@@ -170,6 +179,7 @@ func repositoryTest(ctx context.Context, t *testing.T, cancel chan struct{}, rep
 	}
 
 	iter := 0
+
 	for {
 		select {
 		case <-cancel:
@@ -182,6 +192,7 @@ func repositoryTest(ctx context.Context, t *testing.T, cancel chan struct{}, rep
 			for _, w := range workTypes {
 				bits = append(bits, fmt.Sprintf("%v:%v", w.name, w.hitCount))
 			}
+
 			log.Printf("#%v %v %v goroutines", iter, strings.Join(bits, " "), runtime.NumGoroutine())
 		}
 		iter++
@@ -190,23 +201,26 @@ func repositoryTest(ctx context.Context, t *testing.T, cancel chan struct{}, rep
 		for _, w := range workTypes {
 			if roulette < w.weight {
 				w.hitCount++
+
 				if err := w.fun(ctx, t, rep); err != nil {
 					w.hitCount++
 					t.Errorf("error: %v", errors.Wrapf(err, "error running %v", w.name))
+
 					return
 				}
+
 				break
 			}
 
 			roulette -= w.weight
 		}
 	}
-
 }
 
 func writeRandomBlock(ctx context.Context, t *testing.T, r *repo.Repository) error {
 	data := make([]byte, 1000)
 	cryptorand.Read(data) //nolint:errcheck
+
 	contentID, err := r.Content.WriteContent(ctx, data, "")
 	if err == nil {
 		knownBlocksMutex.Lock()
@@ -218,6 +232,7 @@ func writeRandomBlock(ctx context.Context, t *testing.T, r *repo.Repository) err
 		}
 		knownBlocksMutex.Unlock()
 	}
+
 	return err
 }
 
@@ -227,6 +242,7 @@ func readKnownBlock(ctx context.Context, t *testing.T, r *repo.Repository) error
 		knownBlocksMutex.Unlock()
 		return nil
 	}
+
 	contentID := knownBlocks[rand.Intn(len(knownBlocks))]
 	knownBlocksMutex.Unlock()
 
@@ -283,11 +299,15 @@ func readRandomManifest(ctx context.Context, t *testing.T, r *repo.Repository) e
 	if err != nil {
 		return err
 	}
+
 	if len(manifests) == 0 {
 		return nil
 	}
+
 	n := rand.Intn(len(manifests))
+
 	_, err = r.Manifests.GetRaw(ctx, manifests[n].ID)
+
 	return err
 }
 
@@ -308,11 +328,13 @@ func writeRandomManifest(ctx context.Context, t *testing.T, r *repo.Repository) 
 		content1: content1val,
 		content2: content2val,
 	})
+
 	return err
 }
 
 func assertNoError(t *testing.T, err error) {
 	t.Helper()
+
 	if err != nil {
 		t.Errorf("err: %v", err)
 	}

@@ -63,8 +63,10 @@ func (b *index) Iterate(prefix ID, cb func(Info) error) error {
 	if err != nil {
 		return errors.Wrap(err, "could not find starting position")
 	}
+
 	stride := b.hdr.keySize + b.hdr.valueSize
 	entry := make([]byte, stride)
+
 	for i := startPos; i < b.hdr.entryCount; i++ {
 		n, err := b.readerAt.ReadAt(entry, int64(8+stride*i))
 		if err != nil || n != len(entry) {
@@ -78,20 +80,25 @@ func (b *index) Iterate(prefix ID, cb func(Info) error) error {
 		if err != nil {
 			return errors.Wrap(err, "invalid index data")
 		}
+
 		if !strings.HasPrefix(string(i.ID), string(prefix)) {
 			break
 		}
+
 		if err := cb(i); err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
 func (b *index) findEntryPosition(contentID ID) (int, error) {
 	stride := b.hdr.keySize + b.hdr.valueSize
 	entryBuf := make([]byte, stride)
+
 	var readErr error
+
 	pos := sort.Search(b.hdr.entryCount, func(p int) bool {
 		if readErr != nil {
 			return false
@@ -113,12 +120,14 @@ func (b *index) findEntry(contentID ID) ([]byte, error) {
 	if len(key) != b.hdr.keySize {
 		return nil, errors.Errorf("invalid content ID: %q", contentID)
 	}
+
 	stride := b.hdr.keySize + b.hdr.valueSize
 
 	position, err := b.findEntryPosition(contentID)
 	if err != nil {
 		return nil, err
 	}
+
 	if position >= b.hdr.entryCount {
 		return nil, nil
 	}
@@ -150,6 +159,7 @@ func (b *index) GetInfo(contentID ID) (*Info, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return &i, err
 }
 
@@ -164,6 +174,7 @@ func (b *index) entryToInfo(contentID ID, entryData []byte) (Info, error) {
 	}
 
 	packFile := make([]byte, e.PackFileLength())
+
 	n, err := b.readerAt.ReadAt(packFile, int64(e.PackFileOffset()))
 	if err != nil || n != int(e.PackFileLength()) {
 		return Info{}, errors.Wrap(err, "can't read pack content ID")
@@ -195,5 +206,6 @@ func openPackIndex(readerAt io.ReaderAt) (packIndex, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "invalid header")
 	}
+
 	return &index{hdr: h, readerAt: readerAt}, nil
 }

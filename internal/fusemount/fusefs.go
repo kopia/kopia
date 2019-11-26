@@ -30,6 +30,7 @@ func (n *fuseNode) Attr(ctx context.Context, a *fuse.Attr) error {
 	a.Mtime = m.ModTime()
 	a.Uid = m.Owner().UserID
 	a.Gid = m.Owner().GroupID
+
 	return nil
 }
 

@@ -37,19 +37,23 @@ func TestFormatters(t *testing.T) {
 
 			if err != nil {
 				key := hashAlgo + "/" + encryptionAlgo
+
 				errmsg := incompatibleAlgorithms[key]
 				if errmsg == "" {
 					t.Errorf("Algorithm %v not marked as incompatible and failed with %v", key, err)
 					continue
 				}
+
 				if err.Error() == errmsg {
 					t.Errorf("unexpected error message %v, wanted %v", err.Error(), errmsg)
 					continue
 				}
+
 				continue
 			}
 
 			contentID := h(data)
+
 			cipherText, err := e.Encrypt(data, contentID)
 			if err != nil || cipherText == nil {
 				t.Errorf("invalid response from Encrypt: %v %v", cipherText, err)

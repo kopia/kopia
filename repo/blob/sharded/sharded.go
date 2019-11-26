@@ -52,9 +52,9 @@ func (s Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(bl
 
 		for _, e := range entries {
 			if e.IsDir() {
-				newPrefix := currentPrefix + e.Name()
 				var match bool
 
+				newPrefix := currentPrefix + e.Name()
 				if len(prefix) > len(newPrefix) {
 					match = strings.HasPrefix(string(prefix), newPrefix)
 				} else {
@@ -98,9 +98,11 @@ func (s Storage) DeleteBlob(ctx context.Context, blobID blob.ID) error {
 
 func (s Storage) getShardDirectory(blobID blob.ID) (string, blob.ID) {
 	shardPath := s.RootPath
+
 	if len(blobID) < 20 {
 		return shardPath, blobID
 	}
+
 	for _, size := range s.Shards {
 		shardPath = filepath.Join(shardPath, string(blobID[0:size]))
 		blobID = blobID[size:]
@@ -112,5 +114,6 @@ func (s Storage) getShardDirectory(blobID blob.ID) (string, blob.ID) {
 func (s Storage) GetShardedPathAndFilePath(blobID blob.ID) (shardPath, filePath string) {
 	shardPath, blobID = s.getShardDirectory(blobID)
 	filePath = filepath.Join(shardPath, s.makeFileName(blobID))
+
 	return
 }

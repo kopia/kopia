@@ -82,11 +82,14 @@ func stressWorker(ctx context.Context, t *testing.T, deadline time.Time, openMgr
 	for time.Now().Before(deadline) {
 		l := rnd.Intn(30000)
 		data := make([]byte, l)
+
 		if _, err := rnd.Read(data); err != nil {
 			t.Errorf("err: %v", err)
 			return
 		}
+
 		dataCopy := append([]byte{}, data...)
+
 		contentID, err := bm.WriteContent(ctx, data, "")
 		if err != nil {
 			t.Errorf("err: %v", err)
@@ -104,6 +107,7 @@ func stressWorker(ctx context.Context, t *testing.T, deadline time.Time, openMgr
 				t.Errorf("flush error: %v", ferr)
 				return
 			}
+
 			bm, err = openMgr()
 			if err != nil {
 				t.Errorf("error opening: %v", err)
@@ -115,15 +119,18 @@ func stressWorker(ctx context.Context, t *testing.T, deadline time.Time, openMgr
 		if len(workerBlocks) > 5 {
 			pos := rnd.Intn(len(workerBlocks))
 			previous := workerBlocks[pos]
+
 			d2, err := bm.GetContent(ctx, previous.contentID)
 			if err != nil {
 				t.Errorf("error verifying content %q: %v", previous.contentID, err)
 				return
 			}
+
 			if !reflect.DeepEqual(previous.data, d2) {
 				t.Errorf("invalid previous data for %q %x %x", previous.contentID, d2, previous.data)
 				return
 			}
+
 			workerBlocks = append(workerBlocks[0:pos], workerBlocks[pos+1:]...)
 		}
 	}

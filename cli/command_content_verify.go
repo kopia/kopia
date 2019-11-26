@@ -22,6 +22,7 @@ func runContentVerifyCommand(ctx context.Context, rep *repo.Repository) error {
 		if contentID == "all" {
 			return verifyAllContents(ctx, rep)
 		}
+
 		if err := contentVerify(ctx, rep, contentID); err != nil {
 			return err
 		}
@@ -32,6 +33,7 @@ func runContentVerifyCommand(ctx context.Context, rep *repo.Repository) error {
 
 func verifyAllContents(ctx context.Context, rep *repo.Repository) error {
 	var errorCount int32
+
 	err := rep.Content.IterateContents(content.IterateOptions{
 		Parallel: *contentVerifyParallel,
 	}, func(ci content.Info) error {
@@ -40,6 +42,7 @@ func verifyAllContents(ctx context.Context, rep *repo.Repository) error {
 		}
 		return nil
 	})
+
 	if err != nil {
 		return errors.Wrap(err, "iterate contents")
 	}
@@ -56,7 +59,9 @@ func contentVerify(ctx context.Context, r *repo.Repository, contentID content.ID
 		log.Warningf("content %v is invalid: %v", contentID, err)
 		return err
 	}
+
 	log.Infof("content %v is ok", contentID)
+
 	return nil
 }
 

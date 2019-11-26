@@ -17,6 +17,7 @@ func (s *Server) handleSourcesList(ctx context.Context, r *http.Request) (interf
 		if !sourceMatchesURLFilter(v.src, r.URL.Query()) {
 			continue
 		}
+
 		resp.Sources = append(resp.Sources, v.Status())
 	}
 

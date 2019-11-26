@@ -29,5 +29,6 @@ func deriveKeyFromMasterKey(masterKey, uniqueID, purpose []byte, length int) []b
 	key := make([]byte, length)
 	k := hkdf.New(sha256.New, masterKey, uniqueID, purpose)
 	io.ReadFull(k, key) //nolint:errcheck
+
 	return key
 }

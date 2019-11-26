@@ -23,7 +23,9 @@ var (
 
 func runContentListCommand(ctx context.Context, rep *repo.Repository) error {
 	var count int32
+
 	var totalSize int64
+
 	err := rep.Content.IterateContents(
 		content.IterateOptions{
 			Prefix:         content.ID(*contentListPrefix),

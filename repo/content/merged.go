@@ -22,17 +22,20 @@ func (m mergedIndex) Close() error {
 // GetInfo returns information about a single content. If a content is not found, returns (nil,nil)
 func (m mergedIndex) GetInfo(id ID) (*Info, error) {
 	var best *Info
+
 	for _, ndx := range m {
 		i, err := ndx.GetInfo(id)
 		if err != nil {
 			return nil, err
 		}
+
 		if i != nil {
 			if best == nil || i.TimestampSeconds > best.TimestampSeconds || (i.TimestampSeconds == best.TimestampSeconds && !i.Deleted) {
 				best = i
 			}
 		}
 	}
+
 	return best, nil
 }
 
@@ -65,11 +68,13 @@ func (h *nextInfoHeap) Pop() interface{} {
 	n := len(old)
 	x := old[n-1]
 	*h = old[0 : n-1]
+
 	return x
 }
 
 func iterateChan(prefix ID, ndx packIndex, done chan bool) <-chan Info {
 	ch := make(chan Info, 16)
+
 	go func() {
 		defer close(ch)
 
@@ -82,6 +87,7 @@ func iterateChan(prefix ID, ndx packIndex, done chan bool) <-chan Info {
 			}
 		})
 	}()
+
 	return ch
 }
 
@@ -89,11 +95,14 @@ func iterateChan(prefix ID, ndx packIndex, done chan bool) <-chan Info {
 // all contents have been visited or until an error is returned by the callback.
 func (m mergedIndex) Iterate(prefix ID, cb func(i Info) error) error {
 	var minHeap nextInfoHeap
+
 	done := make(chan bool)
+
 	defer close(done)
 
 	for _, ndx := range m {
 		ch := iterateChan(prefix, ndx, done)
+
 		it, ok := <-ch
 		if ok {
 			heap.Push(&minHeap, &nextInfo{it, ch})

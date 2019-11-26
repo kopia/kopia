@@ -27,7 +27,9 @@ func maybeParallelExecutor(parallel int, originalCallback IterateCallback) (Iter
 
 	workch := make(chan Info, parallel)
 	workererrch := make(chan error, 1)
+
 	var wg sync.WaitGroup
+
 	var once sync.Once
 
 	lastWorkerError := func() error {
@@ -44,6 +46,7 @@ func maybeParallelExecutor(parallel int, originalCallback IterateCallback) (Iter
 			close(workch)
 			wg.Wait()
 		})
+
 		return lastWorkerError()
 	}
 
@@ -78,11 +81,13 @@ func (bm *Manager) snapshotUncommittedItems() packIndexBuilder {
 	defer bm.unlock()
 
 	overlay := bm.packIndexBuilder.clone()
+
 	for _, pp := range bm.pendingPacks {
 		for _, pi := range pp.currentPackItems {
 			overlay.Add(pi)
 		}
 	}
+
 	for _, pp := range bm.writingPacks {
 		for _, pi := range pp.currentPackItems {
 			overlay.Add(pi)
@@ -114,6 +119,7 @@ func (bm *Manager) IterateContents(opts IterateOptions, callback IterateCallback
 		if !strings.HasPrefix(string(i.ID), string(opts.Prefix)) {
 			return nil
 		}
+
 		return callback(i)
 	}
 
@@ -226,9 +232,11 @@ func (bm *Manager) IterateUnreferencedBlobs(ctx context.Context, parallellism in
 		}); err != nil {
 		return errors.Wrap(err, "error iterating packs")
 	}
+
 	log.Infof("found %v pack blobs in use", len(usedPacks))
 
 	unusedCount := 0
+
 	var prefixes []blob.ID
 
 	if parallellism <= len(PackBlobIDPrefixes) {
@@ -241,6 +249,7 @@ func (bm *Manager) IterateUnreferencedBlobs(ctx context.Context, parallellism in
 			}
 		}
 	}
+
 	if err := blob.IterateAllPrefixesInParallel(ctx, parallellism, bm.st, prefixes,
 		func(bm blob.Metadata) error {
 			if usedPacks[bm.BlobID] {
@@ -248,10 +257,12 @@ func (bm *Manager) IterateUnreferencedBlobs(ctx context.Context, parallellism in
 			}
 
 			unusedCount++
+
 			return callback(bm)
 		}); err != nil {
 		return errors.Wrap(err, "error iterating blobs")
 	}
+
 	log.Infof("found %v pack blobs not in use", unusedCount)
 
 	return nil

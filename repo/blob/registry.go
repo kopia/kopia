@@ -20,12 +20,13 @@ type storageFactory struct {
 func AddSupportedStorage(
 	urlScheme string,
 	defaultConfigFunc func() interface{},
-	createStorageFunc func(context.Context, interface{}) (Storage, error)) {
-
+	createStorageFunc func(context.Context, interface{}) (Storage, error),
+) {
 	f := &storageFactory{
 		defaultConfigFunc: defaultConfigFunc,
 		createStorageFunc: createStorageFunc,
 	}
+
 	factories[urlScheme] = f
 }
 

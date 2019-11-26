@@ -30,6 +30,7 @@ type Server struct {
 // APIHandlers handles API requests.
 func (s *Server) APIHandlers() http.Handler {
 	mux := http.NewServeMux()
+
 	mux.HandleFunc("/api/v1/status", s.handleAPI(s.handleStatus, "GET"))
 	mux.HandleFunc("/api/v1/sources", s.handleAPI(s.handleSourcesList, "GET"))
 	mux.HandleFunc("/api/v1/snapshots", s.handleAPI(s.handleSourceSnapshotList, "GET"))
@@ -40,6 +41,7 @@ func (s *Server) APIHandlers() http.Handler {
 	mux.HandleFunc("/api/v1/sources/resume", s.handleAPI(s.handleResume, "POST"))
 	mux.HandleFunc("/api/v1/sources/upload", s.handleAPI(s.handleUpload, "POST"))
 	mux.HandleFunc("/api/v1/sources/cancel", s.handleAPI(s.handleCancel, "POST"))
+
 	return mux
 }
 
@@ -89,6 +91,7 @@ func (s *Server) forAllSourceManagersMatchingURLFilter(c func(s *sourceManager) 
 		if !sourceMatchesURLFilter(src, values) {
 			continue
 		}
+
 		resp.Sources[src.String()] = c(mgr)
 	}
 
@@ -114,6 +117,7 @@ func (s *Server) handleCancel(ctx context.Context, r *http.Request) (interface{}
 func (s *Server) beginUpload(src snapshot.SourceInfo) {
 	log.Infof("waiting on semaphore to upload %v", src)
 	s.uploadSemaphore <- struct{}{}
+
 	log.Infof("entered semaphore to upload %v", src)
 }
 

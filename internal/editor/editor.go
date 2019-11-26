@@ -25,6 +25,7 @@ func EditLoop(fname, initial string, parse func(updated string) error) error {
 	if err != nil {
 		return err
 	}
+
 	tmpFile := filepath.Join(tmpDir, fname)
 	defer os.RemoveAll(tmpDir) //nolint:errcheck
 
@@ -51,7 +52,9 @@ func EditLoop(fname, initial string, parse func(updated string) error) error {
 		fmt.Print("Reopen editor to fix? (Y/n) ")
 
 		var shouldReopen string
+
 		fmt.Scanf("%s", &shouldReopen) //nolint:errcheck
+
 		if strings.HasPrefix(strings.ToLower(shouldReopen), "n") {
 			return errors.New("aborted")
 		}
@@ -71,10 +74,12 @@ func readAndStripComments(fname string) (string, error) {
 	for s.Scan() {
 		l := s.Text()
 		l = strings.TrimSpace(strings.Split(l, "#")[0])
+
 		if l != "" {
 			result = append(result, l)
 		}
 	}
+
 	return strings.Join(result, "\n"), nil
 }
 
@@ -91,6 +96,7 @@ func editFile(file string) error {
 	cmd.Stdout = os.Stdout
 
 	log.Debugf("launching editor %q on file %q", editor, file)
+
 	err := cmd.Run()
 	if err != nil {
 		log.Errorf("unable to launch editor: %v", err)
@@ -129,5 +135,6 @@ func parseEditor(s string) (cmd string, args []string) {
 	}
 
 	parts := strings.Split(s, " ")
+
 	return parts[0], parts[1:]
 }

@@ -32,6 +32,7 @@ func browseMount(mountPoint, addr string) error {
 func openInWebBrowser(mountPoint, addr string) error {
 	startWebBrowser(addr)
 	waitForCtrlC()
+
 	return nil
 }
 
@@ -42,6 +43,7 @@ func openInOSBrowser(mountPoint, addr string) error {
 
 	startWebBrowser(addr)
 	waitForCtrlC()
+
 	return nil
 }
 
@@ -50,6 +52,7 @@ func netUSE(mountPoint, addr string) error {
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
 	c.Stdin = os.Stdin
+
 	if err := c.Run(); err != nil {
 		return errors.Wrap(err, "unable to mount")
 	}
@@ -61,6 +64,7 @@ func netUSE(mountPoint, addr string) error {
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
 	c.Stdin = os.Stdin
+
 	if err := c.Run(); err != nil {
 		return errors.Wrap(err, "unable to unmount")
 	}

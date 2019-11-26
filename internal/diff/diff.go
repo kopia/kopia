@@ -41,7 +41,9 @@ func (c *Comparer) Close() error {
 
 func (c *Comparer) compareDirectories(ctx context.Context, dir1, dir2 fs.Directory, parent string) error {
 	log.Debugf("comparing directories %v", parent)
+
 	var entries1, entries2 fs.Entries
+
 	var err error
 
 	if dir1 != nil {
@@ -61,7 +63,7 @@ func (c *Comparer) compareDirectories(ctx context.Context, dir1, dir2 fs.Directo
 	return c.compareDirectoryEntries(ctx, entries1, entries2, parent)
 }
 
-// nolint:gocyclo
+// nolint:gocyclo,gocognit
 func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path string) error {
 	// see if we have the same object IDs, which implies identical objects, thanks to content-addressable-storage
 	if h1, ok := e1.(object.HasObjectID); ok {
@@ -80,11 +82,13 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 		}
 
 		c.output("added file %v (%v bytes)\n", path, e2.Size())
+
 		if f, ok := e2.(fs.File); ok {
 			if err := c.compareFiles(ctx, nil, f, path); err != nil {
 				return err
 			}
 		}
+
 		return nil
 	}
 
@@ -95,16 +99,19 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 		}
 
 		c.output("removed file %v (%v bytes)\n", path, e1.Size())
+
 		if f, ok := e1.(fs.File); ok {
 			if err := c.compareFiles(ctx, f, nil, path); err != nil {
 				return err
 			}
 		}
+
 		return nil
 	}
 
 	dir1, isDir1 := e1.(fs.Directory)
 	dir2, isDir2 := e2.(fs.Directory)
+
 	if isDir1 {
 		if !isDir2 {
 			// right is a non-directory, left is a directory
@@ -122,6 +129,7 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 	}
 
 	c.output("changed %v at %v (size %v -> %v)\n", path, e2.ModTime().String(), e1.Size(), e2.Size())
+
 	if f1, ok := e1.(fs.File); ok {
 		if f2, ok := e2.(fs.File); ok {
 			if err := c.compareFiles(ctx, f1, f2, path); err != nil {
@@ -144,6 +152,7 @@ func (c *Comparer) compareDirectoryEntries(ctx context.Context, entries1, entrie
 		if err := c.compareEntry(ctx, e1byname[entryName], e2, dirPath+"/"+entryName); err != nil {
 			return errors.Wrapf(err, "error comparing %v", entryName)
 		}
+
 		delete(e1byname, entryName)
 	}
 
@@ -198,6 +207,7 @@ func (c *Comparer) compareFiles(ctx context.Context, f1, f2 fs.File, fname strin
 	cmd.Stdout = c.out
 	cmd.Stderr = c.out
 	cmd.Run() //nolint:errcheck
+
 	return nil
 }
 
@@ -219,6 +229,7 @@ func (c *Comparer) downloadFile(ctx context.Context, f fs.File, fname string) er
 	defer dst.Close() //nolint:errcheck
 
 	_, err = io.Copy(dst, src)
+
 	return err
 }
 

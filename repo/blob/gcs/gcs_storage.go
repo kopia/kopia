@@ -125,8 +125,10 @@ func (gcs *gcsStorage) PutBlob(ctx context.Context, b blob.ID, data []byte) erro
 		// cancel context before closing the writer causes it to abandon the upload.
 		cancel()
 		writer.Close() //nolint:errcheck
+
 		return translateError(err)
 	}
+
 	defer cancel()
 
 	// calling close before cancel() causes it to commit the upload.
@@ -140,6 +142,7 @@ func (gcs *gcsStorage) DeleteBlob(ctx context.Context, b blob.ID) error {
 
 	_, err := exponentialBackoff(fmt.Sprintf("DeleteBlob(%q)", b), attempt)
 	err = translateError(err)
+
 	if err == blob.ErrBlobNotFound {
 		return nil
 	}
@@ -165,6 +168,7 @@ func (gcs *gcsStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback f
 		}); cberr != nil {
 			return cberr
 		}
+
 		oa, err = lst.Next()
 	}
 
@@ -205,6 +209,7 @@ func tokenSourceFromCredentialsFile(ctx context.Context, fn string, scopes ...st
 	if err != nil {
 		return nil, errors.Wrap(err, "google.JWTConfigFromJSON")
 	}
+
 	return cfg.TokenSource(ctx), nil
 }
 
@@ -216,6 +221,7 @@ func tokenSourceFromCredentialsFile(ctx context.Context, fn string, scopes ...st
 // but this can be disabled by setting IgnoreDefaultCredentials to true.
 func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 	var ts oauth2.TokenSource
+
 	var err error
 
 	scope := gcsclient.ScopeReadWrite

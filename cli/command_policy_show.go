@@ -54,13 +54,13 @@ func getDefinitionPoint(parents []*policy.Policy, match func(p *policy.Policy) b
 
 			return "inherited from " + p.Target().String()
 		}
+
 		if p.NoParent {
 			break
 		}
 	}
 
 	return "(default)"
-
 }
 
 func containsString(s []string, v string) bool {
@@ -69,6 +69,7 @@ func containsString(s []string, v string) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -124,21 +125,25 @@ func printFilesPolicy(p *policy.Policy, parents []*policy.Policy) {
 	} else {
 		printStdout("  No ignore rules.\n")
 	}
+
 	for _, rule := range p.FilesPolicy.IgnoreRules {
 		rule := rule
 		printStdout("    %-30v %v\n", rule, getDefinitionPoint(parents, func(pol *policy.Policy) bool {
 			return containsString(pol.FilesPolicy.IgnoreRules, rule)
 		}))
 	}
+
 	if len(p.FilesPolicy.DotIgnoreFiles) > 0 {
 		printStdout("  Read ignore rules from files:\n")
 	}
+
 	for _, dotFile := range p.FilesPolicy.DotIgnoreFiles {
 		dotFile := dotFile
 		printStdout("    %-30v %v\n", dotFile, getDefinitionPoint(parents, func(pol *policy.Policy) bool {
 			return containsString(pol.FilesPolicy.DotIgnoreFiles, dotFile)
 		}))
 	}
+
 	if maxSize := p.FilesPolicy.MaxFileSize; maxSize > 0 {
 		printStdout("  Ignore files above: %10v  %v\n",
 			units.BytesStringBase2(maxSize),
@@ -157,6 +162,7 @@ func printSchedulingPolicy(p *policy.Policy, parents []*policy.Policy) {
 
 	if len(p.SchedulingPolicy.TimesOfDay) > 0 {
 		printStdout("Snapshot times:\n")
+
 		for _, tod := range p.SchedulingPolicy.TimesOfDay {
 			tod := tod
 			printStdout("  %9v                        %v\n", tod, getDefinitionPoint(parents, func(pol *policy.Policy) bool {

@@ -50,5 +50,6 @@ func mountDirectoryFUSE(entry fs.Directory, mountPoint string) error {
 	}
 	// wait for mount to stop.
 	<-fuseConnection.Ready
+
 	return fuseConnection.MountError
 }

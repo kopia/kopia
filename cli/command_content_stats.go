@@ -17,17 +17,20 @@ var (
 
 func runContentStatsCommand(ctx context.Context, rep *repo.Repository) error {
 	var sizeThreshold uint32 = 10
+
 	countMap := map[uint32]int{}
 	totalSizeOfContentsUnder := map[uint32]int64{}
+
 	var sizeThresholds []uint32
+
 	for i := 0; i < 8; i++ {
 		sizeThresholds = append(sizeThresholds, sizeThreshold)
 		countMap[sizeThreshold] = 0
 		sizeThreshold *= 10
 	}
 
-	var totalSize int64
-	var count int64
+	var totalSize, count int64
+
 	if err := rep.Content.IterateContents(
 		content.IterateOptions{},
 		func(b content.Info) error {
@@ -51,13 +54,17 @@ func runContentStatsCommand(ctx context.Context, rep *repo.Repository) error {
 
 	fmt.Println("Count:", count)
 	fmt.Println("Total:", sizeToString(totalSize))
+
 	if count == 0 {
 		return nil
 	}
+
 	fmt.Println("Average:", sizeToString(totalSize/count))
 
 	fmt.Printf("Histogram:\n\n")
+
 	var lastSize uint32
+
 	for _, size := range sizeThresholds {
 		fmt.Printf("%9v between %v and %v (total %v)\n",
 			countMap[size]-countMap[lastSize],
@@ -65,6 +72,7 @@ func runContentStatsCommand(ctx context.Context, rep *repo.Repository) error {
 			sizeToString(int64(size)),
 			sizeToString(totalSizeOfContentsUnder[size]-totalSizeOfContentsUnder[lastSize]),
 		)
+
 		lastSize = size
 	}
 

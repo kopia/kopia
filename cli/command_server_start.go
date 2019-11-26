@@ -38,12 +38,14 @@ func runServer(ctx context.Context, rep *repo.Repository) error {
 	url := "http://" + *serverAddress
 	log.Infof("starting server on %v", url)
 	http.Handle("/api/", maybeRequireAuth(srv.APIHandlers()))
+
 	if *serverStartHTMLPath != "" {
 		fileServer := http.FileServer(http.Dir(*serverStartHTMLPath))
 		http.Handle("/", maybeRequireAuth(fileServer))
 	} else if *serverStartUI {
 		http.Handle("/", maybeRequireAuth(http.FileServer(server.AssetFile())))
 	}
+
 	return http.ListenAndServe(*serverAddress, nil)
 }
 
@@ -66,6 +68,7 @@ func (a requireAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		w.Header().Set("WWW-Authenticate", `Basic realm="Kopia"`)
 		http.Error(w, "Missing credentials.\n", http.StatusUnauthorized)
+
 		return
 	}
 
@@ -75,6 +78,7 @@ func (a requireAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if valid != 1 {
 		w.Header().Set("WWW-Authenticate", `Basic realm="Kopia"`)
 		http.Error(w, "Access denied.\n", http.StatusUnauthorized)
+
 		return
 	}
 

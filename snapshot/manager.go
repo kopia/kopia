@@ -54,6 +54,7 @@ func ListSnapshots(ctx context.Context, rep *repo.Repository, si SourceInfo) ([]
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to find manifest entries")
 	}
+
 	return LoadSnapshots(ctx, rep, entryIDs(entries))
 }
 
@@ -65,6 +66,7 @@ func loadSnapshot(ctx context.Context, rep *repo.Repository, manifestID manifest
 	}
 
 	sm.ID = manifestID
+
 	return sm, nil
 }
 
@@ -73,9 +75,11 @@ func SaveSnapshot(ctx context.Context, rep *repo.Repository, man *Manifest) (man
 	if man.Source.Host == "" {
 		return "", errors.New("missing host")
 	}
+
 	if man.Source.UserName == "" {
 		return "", errors.New("missing username")
 	}
+
 	if man.Source.Path == "" {
 		return "", errors.New("missing path")
 	}
@@ -84,7 +88,9 @@ func SaveSnapshot(ctx context.Context, rep *repo.Repository, man *Manifest) (man
 	if err != nil {
 		return "", err
 	}
+
 	man.ID = id
+
 	return id, nil
 }
 
@@ -95,6 +101,7 @@ func LoadSnapshots(ctx context.Context, rep *repo.Repository, manifestIDs []mani
 
 	for i, n := range manifestIDs {
 		sem <- true
+
 		go func(i int, n manifest.ID) {
 			defer func() { <-sem }()
 
@@ -113,6 +120,7 @@ func LoadSnapshots(ctx context.Context, rep *repo.Repository, manifestIDs []mani
 	close(sem)
 
 	successful := result[:0]
+
 	for _, m := range result {
 		if m != nil {
 			successful = append(successful, m)
@@ -136,6 +144,7 @@ func ListSnapshotManifests(ctx context.Context, rep *repo.Repository, src *Sourc
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to find manifest entries")
 	}
+
 	return entryIDs(entries), nil
 }
 
@@ -144,5 +153,6 @@ func entryIDs(entries []*manifest.EntryMetadata) []manifest.ID {
 	for _, e := range entries {
 		ids = append(ids, e.ID)
 	}
+
 	return ids
 }

@@ -23,11 +23,13 @@ func getSnapshotSourcesToExpire(ctx context.Context, rep *repo.Repository) ([]sn
 	}
 
 	var result []snapshot.SourceInfo
+
 	for _, p := range *snapshotExpirePaths {
 		src, err := snapshot.ParseSourceInfo(p, getHostName(), getUserName())
 		if err != nil {
 			return nil, err
 		}
+
 		result = append(result, src)
 	}
 
@@ -54,10 +56,12 @@ func runExpireCommand(ctx context.Context, rep *repo.Repository) error {
 			printStderr("Nothing to delete for %v.\n", src)
 			continue
 		}
+
 		if *snapshotExpireDelete {
 			printStderr("Deleted %v snapshots of %v...\n", len(deleted), src)
 		} else {
 			printStderr("%v snapshot(s) of %v would be deleted. Pass --delete to do it.\n", len(deleted), src)
+
 			for _, it := range deleted {
 				printStderr("  %v\n", formatTimestamp(it.StartTime))
 			}

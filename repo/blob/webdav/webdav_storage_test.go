@@ -35,6 +35,7 @@ func basicAuth(h http.Handler) http.HandlerFunc {
 
 func TestWebDAVStorageExternalServer(t *testing.T) {
 	t.Parallel()
+
 	testURL := os.Getenv("KOPIA_WEBDAV_TEST_URL")
 	if testURL == "" {
 		t.Skip("KOPIA_WEBDAV_TEST_URL not provided")
@@ -111,6 +112,7 @@ func verifyWebDAVStorage(t *testing.T, url, username, password string, shardSpec
 
 	blobtesting.VerifyStorage(ctx, t, st)
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
+
 	if err := st.Close(ctx); err != nil {
 		t.Fatalf("err: %v", err)
 	}

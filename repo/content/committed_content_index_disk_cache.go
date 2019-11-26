@@ -42,6 +42,7 @@ func (c *diskCommittedContentIndexCache) hasIndexBlobID(indexBlobID blob.ID) (bo
 	if err == nil {
 		return true, nil
 	}
+
 	if os.IsNotExist(err) {
 		return false, nil
 	}
@@ -71,6 +72,7 @@ func (c *diskCommittedContentIndexCache) addContentToCache(indexBlobID blob.ID, 
 		if err != nil {
 			return err
 		}
+
 		if !exists {
 			return errors.Errorf("unsuccessful index write of content %q", indexBlobID)
 		}
@@ -88,6 +90,7 @@ func writeTempFileAtomic(dirname string, data []byte) (string, error) {
 			tf, err = ioutil.TempFile(dirname, "tmp")
 		}
 	}
+
 	if err != nil {
 		return "", errors.Wrap(err, "can't create tmp file")
 	}
@@ -95,6 +98,7 @@ func writeTempFileAtomic(dirname string, data []byte) (string, error) {
 	if _, err := tf.Write(data); err != nil {
 		return "", errors.Wrap(err, "can't write to temp file")
 	}
+
 	if err := tf.Close(); err != nil {
 		return "", errors.Errorf("can't close tmp file")
 	}
@@ -124,6 +128,7 @@ func (c *diskCommittedContentIndexCache) expireUnused(used []blob.ID) error {
 	for _, rem := range remaining {
 		if time.Since(rem.ModTime()) > unusedCommittedContentIndexCleanupTime {
 			log.Debugf("removing unused %v %v", rem.Name(), rem.ModTime())
+
 			if err := os.Remove(filepath.Join(c.dirname, rem.Name())); err != nil {
 				log.Warningf("unable to remove unused index file: %v", err)
 			}
