@@ -254,13 +254,11 @@ func Directory(path string) (fs.Directory, error) {
 		return nil, err
 	}
 
-	switch e := e.(type) {
-	case fs.Directory:
-		return e, nil
-
-	default:
-		return nil, errors.Errorf("not a directory: %v", path)
+	if d, ok := e.(fs.Directory); ok {
+		return d, nil
 	}
+
+	return nil, errors.Errorf("not a directory: %v", path)
 }
 
 func entryFromChildFileInfo(fi os.FileInfo, parentDir string) (fs.Entry, error) {
