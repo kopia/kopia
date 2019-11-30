@@ -1,11 +1,11 @@
 COVERAGE_PACKAGES=./repo/...,./fs/...,./snapshot/...
 GO_TEST=go test
 
+all: test lint vet integration-tests
+
 include tools/tools.mk
 
 -include ./Makefile.local.mk
-
-all: test lint vet integration-tests
 
 build:
 	go build github.com/kopia/kopia/...
