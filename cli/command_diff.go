@@ -38,7 +38,7 @@ func runDiffCommand(ctx context.Context, rep *repo.Repository) error {
 		return errors.New("arguments do diff must both be directories or both non-directories")
 	}
 
-	d, err := diff.NewComparer(rep, os.Stdout)
+	d, err := diff.NewComparer(os.Stdout)
 	if err != nil {
 		return err
 	}
