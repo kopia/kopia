@@ -7,14 +7,13 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
+	kingpin "gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
-
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 var log = kopialogging.Logger("kopia/cli")
