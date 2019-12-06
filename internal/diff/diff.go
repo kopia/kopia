@@ -13,7 +13,6 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/kopialogging"
-	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/object"
 )
 
@@ -21,7 +20,6 @@ var log = kopialogging.Logger("diff")
 
 // Comparer outputs diff information between two filesystems.
 type Comparer struct {
-	rep    *repo.Repository
 	out    io.Writer
 	tmpDir string
 
@@ -109,6 +107,8 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 		return nil
 	}
 
+	compareEntry(e1, e2, path, c.out)
+
 	dir1, isDir1 := e1.(fs.Directory)
 	dir2, isDir2 := e2.(fs.Directory)
 
@@ -128,10 +128,10 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 		return nil
 	}
 
-	c.output("changed %v at %v (size %v -> %v)\n", path, e2.ModTime().String(), e1.Size(), e2.Size())
-
 	if f1, ok := e1.(fs.File); ok {
 		if f2, ok := e2.(fs.File); ok {
+			c.output("changed %v at %v (size %v -> %v)\n", path, e2.ModTime().String(), e1.Size(), e2.Size())
+
 			if err := c.compareFiles(ctx, f1, f2, path); err != nil {
 				return err
 			}
@@ -139,6 +139,57 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 	}
 
 	return nil
+}
+
+func compareEntry(e1, e2 fs.Entry, fullpath string, out io.Writer) bool {
+	if e1 == e2 { // in particular e1 == nil && e2 == nil
+		return true
+	}
+
+	if e1 == nil {
+		fmt.Fprintln(out, fullpath, "does not exist in source directory")
+		return false
+	}
+
+	if e2 == nil {
+		fmt.Fprintln(out, fullpath, "does not exist in destination directory")
+		return false
+	}
+
+	equal := true
+
+	if m1, m2 := e1.Mode(), e2.Mode(); m1 != m2 {
+		equal = false
+
+		fmt.Fprintln(out, fullpath, "modes differ: ", m1, m2)
+	}
+
+	if s1, s2 := e1.Size(), e2.Size(); s1 != s2 {
+		equal = false
+
+		fmt.Fprintln(out, fullpath, "sizes differ: ", s1, s2)
+	}
+
+	if mt1, mt2 := e1.ModTime(), e2.ModTime(); !mt1.Equal(mt2) {
+		equal = false
+
+		fmt.Fprintln(out, fullpath, "modification times differ: ", mt1, mt2)
+	}
+
+	o1, o2 := e1.Owner(), e2.Owner()
+	if o1.UserID != o2.UserID {
+		equal = false
+
+		fmt.Fprintln(out, fullpath, "owner users differ: ", o1.UserID, o2.UserID)
+	}
+
+	if o1.GroupID != o2.GroupID {
+		equal = false
+
+		fmt.Fprintln(out, fullpath, "owner groups differ: ", o1.GroupID, o2.GroupID)
+	}
+
+	return equal
 }
 
 func (c *Comparer) compareDirectoryEntries(ctx context.Context, entries1, entries2 fs.Entries, dirPath string) error {
@@ -238,11 +289,11 @@ func (c *Comparer) output(msg string, args ...interface{}) {
 }
 
 // NewComparer creates a comparer for a given repository that will output the results to a given writer.
-func NewComparer(rep *repo.Repository, out io.Writer) (*Comparer, error) {
+func NewComparer(out io.Writer) (*Comparer, error) {
 	tmp, err := ioutil.TempDir("", "kopia")
 	if err != nil {
 		return nil, err
 	}
 
-	return &Comparer{rep: rep, out: out, tmpDir: tmp}, nil
+	return &Comparer{out: out, tmpDir: tmp}, nil
 }
