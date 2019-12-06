@@ -1,6 +1,7 @@
 package endtoend_test
 
 import (
+	"context"
 	cryptorand "crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -16,6 +17,10 @@ import (
 	"time"
 
 	"github.com/kylelemons/godebug/pretty"
+	"github.com/stretchr/testify/assert"
+
+	"github.com/kopia/kopia/fs/localfs"
+	"github.com/kopia/kopia/internal/fshasher"
 )
 
 const repoPassword = "qWQPJ2hiiLgWRRCr" // nolint:gosec
@@ -348,6 +353,58 @@ canary
 	}
 }
 
+func TestSnapshotRestore(t *testing.T) {
+	e := newTestEnv(t)
+	defer e.cleanup(t)
+	defer e.runAndExpectSuccess(t, "repo", "disconnect")
+
+	e.runAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.repoDir)
+
+	source := filepath.Join(e.dataDir, "source")
+	createDirectory(t, source, 1)
+
+	restoreDir := filepath.Join(e.dataDir, "restored")
+	// Attempt to restore a snapshot from an empty repo.
+	e.runAndExpectFailure(t, "restore", "kffbb7c28ea6c34d6cbe555d1cf80faa9", "r1")
+	e.runAndExpectSuccess(t, "snapshot", "create", source)
+	o := e.runAndExpectSuccess(t, "snapshot", "list")
+
+	// obtain snapshot root id and use it for restore
+	root := getLastSnapshotRootID(t, o)
+	t.Log("root id: ", root)
+
+	// Attempt to restore a non-existing snapshot.
+	e.runAndExpectFailure(t, "restore", "kffbb7c28ea6c34d6cbe555d1cf80fdd9", "r2")
+
+	// Ensure restored files are created with a different ModTime
+	time.Sleep(time.Second)
+
+	// Restore last snapshot
+	e.runAndExpectSuccess(t, "restore", root, restoreDir)
+
+	// Note: restore does not reset the permissions for the top directory due to
+	// the way the top FS entry is created in snapshotfs. Force the permissions
+	// of the top directory to match those of the source so the recursive
+	// directory comparison has a chance of succeeding.
+	assertNoError(t, os.Chmod(restoreDir, 0700))
+
+	// Restored contents should match source
+	s, err := localfs.Directory(source)
+	assertNoError(t, err)
+	wantHash, err := fshasher.Hash(context.Background(), s)
+	assertNoError(t, err)
+
+	// check restored contents
+	r, err := localfs.Directory(restoreDir)
+	assertNoError(t, err)
+
+	ctx := context.Background()
+	gotHash, err := fshasher.Hash(ctx, r)
+	assertNoError(t, err)
+
+	assert.Equal(t, wantHash, gotHash, "restored directory hash does not match source's hash")
+}
+
 func (e *testenv) runAndExpectSuccess(t *testing.T, args ...string) []string {
 	t.Helper()
 
@@ -552,4 +609,19 @@ func assertNoError(t *testing.T, err error) {
 	if err != nil {
 		t.Errorf("err: %v", err)
 	}
+}
+
+func getLastSnapshotRootID(t *testing.T, listOutput []string) string {
+	t.Helper()
+
+	if len(listOutput) == 0 {
+		t.Fatal("Expected non-empty snapshot list")
+	}
+
+	f := strings.Fields(listOutput[len(listOutput)-1])
+	if len(f) < 4 {
+		t.Fatal("Could not parse snapshot list output: ", listOutput)
+	}
+
+	return f[3]
 }
