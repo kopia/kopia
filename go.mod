@@ -22,6 +22,7 @@ require (
 	github.com/pkg/profile v1.3.0
 	github.com/pkg/sftp v1.10.1
 	github.com/skratchdot/open-golang v0.0.0-20190402232053-79abb63cd66e
+	github.com/stretchr/testify v1.4.0
 	github.com/studio-b12/gowebdav v0.0.0-20190103184047-38f79aeaf1ac
 	github.com/zalando/go-keyring v0.0.0-20190715212148-76787ff3b3bd
 	golang.org/x/crypto v0.0.0-20190829043050-9756ffdc2472
