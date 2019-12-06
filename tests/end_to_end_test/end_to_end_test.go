@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/kopia/kopia/fs/localfs"
+	"github.com/kopia/kopia/internal/diff"
 	"github.com/kopia/kopia/internal/fshasher"
 )
 
@@ -215,8 +216,8 @@ func TestEndToEnd(t *testing.T) {
 		// all recovered index entries are added as index file
 		e.runAndVerifyOutputLineCount(t, 1, "index", "ls")
 		contentsAfter := e.runAndExpectSuccess(t, "content", "ls")
-		if diff := pretty.Compare(contentsBefore, contentsAfter); diff != "" {
-			t.Errorf("unexpected block diff after recovery: %v", diff)
+		if d := pretty.Compare(contentsBefore, contentsAfter); d != "" {
+			t.Errorf("unexpected block diff after recovery: %v", d)
 		}
 	})
 
@@ -402,7 +403,13 @@ func TestSnapshotRestore(t *testing.T) {
 	gotHash, err := fshasher.Hash(ctx, r)
 	assertNoError(t, err)
 
-	assert.Equal(t, wantHash, gotHash, "restored directory hash does not match source's hash")
+	if !assert.Equal(t, wantHash, gotHash, "restored directory hash does not match source's hash") {
+		cmp, err := diff.NewComparer(os.Stderr)
+		assertNoError(t, err)
+
+		cmp.DiffCommand = "cmp"
+		_ = cmp.Compare(ctx, s, r)
+	}
 }
 
 func (e *testenv) runAndExpectSuccess(t *testing.T, args ...string) []string {
