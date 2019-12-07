@@ -41,8 +41,8 @@ func setupFilesystem() *mockfs.Directory {
 	return root
 }
 
-var defaultPolicy = policy.SubdirectoryPolicyMap{
-	".": &policy.Policy{
+var defaultPolicy = policy.BuildTree(map[string]*policy.Policy{
+	".": {
 		FilesPolicy: policy.FilesPolicy{
 			DotIgnoreFiles: []string{
 				".kopiaignore",
@@ -53,10 +53,10 @@ var defaultPolicy = policy.SubdirectoryPolicyMap{
 			},
 		},
 	},
-}
+}, policy.DefaultPolicy)
 
-var rootAndSrcPolicy = policy.SubdirectoryPolicyMap{
-	".": &policy.Policy{
+var rootAndSrcPolicy = policy.BuildTree(map[string]*policy.Policy{
+	".": {
 		FilesPolicy: policy.FilesPolicy{
 			DotIgnoreFiles: []string{
 				".kopiaignore",
@@ -65,8 +65,9 @@ var rootAndSrcPolicy = policy.SubdirectoryPolicyMap{
 			IgnoreRules: []string{
 				"*-by-rule",
 			},
-		}},
-	"./src": &policy.Policy{
+		},
+	},
+	"./src": {
 		FilesPolicy: policy.FilesPolicy{
 			DotIgnoreFiles: []string{
 				".newignore",
@@ -74,12 +75,13 @@ var rootAndSrcPolicy = policy.SubdirectoryPolicyMap{
 			IgnoreRules: []string{
 				"some-*",
 			},
-		}},
-}
+		},
+	},
+}, policy.DefaultPolicy)
 
 var cases = []struct {
 	desc         string
-	policy       policy.SubdirectoryPolicyMap
+	policyTree   *policy.Tree
 	setup        func(root *mockfs.Directory)
 	addedFiles   []string
 	ignoredFiles []string
@@ -87,7 +89,7 @@ var cases = []struct {
 	{desc: "null policy, missing dotignore"},
 	{
 		desc:       "default policy missing dotignore",
-		policy:     defaultPolicy,
+		policyTree: defaultPolicy,
 		addedFiles: nil,
 		ignoredFiles: []string{
 			"./ignored-by-rule",
@@ -95,8 +97,8 @@ var cases = []struct {
 		},
 	},
 	{
-		desc:   "default policy, have dotignore",
-		policy: defaultPolicy,
+		desc:       "default policy, have dotignore",
+		policyTree: defaultPolicy,
 		setup: func(root *mockfs.Directory) {
 			root.AddFileLines(".kopiaignore", []string{"file[12]"}, 0)
 		},
@@ -109,8 +111,8 @@ var cases = []struct {
 		},
 	},
 	{
-		desc:   "default policy, have dotignore #2",
-		policy: defaultPolicy,
+		desc:       "default policy, have dotignore #2",
+		policyTree: defaultPolicy,
 		setup: func(root *mockfs.Directory) {
 			root.AddFileLines(".kopiaignore", []string{
 				"pkg",
@@ -129,8 +131,8 @@ var cases = []struct {
 		},
 	},
 	{
-		desc:   "default policy, have dotignore #3",
-		policy: defaultPolicy,
+		desc:       "default policy, have dotignore #3",
+		policyTree: defaultPolicy,
 		setup: func(root *mockfs.Directory) {
 			root.AddFileLines(".kopiaignore", []string{
 				"pkg",
@@ -149,8 +151,8 @@ var cases = []struct {
 		},
 	},
 	{
-		desc:   "default policy, have dotignore #4",
-		policy: defaultPolicy,
+		desc:       "default policy, have dotignore #4",
+		policyTree: defaultPolicy,
 		setup: func(root *mockfs.Directory) {
 			root.AddFileLines(".kopiaignore", []string{
 				"file[12]",
@@ -171,8 +173,8 @@ var cases = []struct {
 		},
 	},
 	{
-		desc:   "two policies, nested policy excludes files",
-		policy: rootAndSrcPolicy,
+		desc:       "two policies, nested policy excludes files",
+		policyTree: rootAndSrcPolicy,
 		ignoredFiles: []string{
 			"./ignored-by-rule",
 			"./largefile1",
@@ -191,8 +193,8 @@ var cases = []struct {
 			root.Subdir("src").AddFile("another-yyy", dummyFileContents, 0) // ignored by policy rule
 			root.AddFile("zzz", dummyFileContents, 0)                       // not ignored, at parent level
 		},
-		policy: policy.SubdirectoryPolicyMap{
-			"./src": &policy.Policy{
+		policyTree: policy.BuildTree(map[string]*policy.Policy{
+			"./src": {
 				FilesPolicy: policy.FilesPolicy{
 					IgnoreRules: []string{
 						"some-*",
@@ -203,7 +205,7 @@ var cases = []struct {
 					},
 				},
 			},
-		},
+		}, policy.DefaultPolicy),
 		addedFiles: []string{
 			"./src/.extraignore",
 			"./src/yyy",
@@ -226,7 +228,7 @@ func TestIgnoreFS(t *testing.T) {
 			if tc.setup != nil {
 				tc.setup(root)
 			}
-			ifs := ignorefs.New(root, tc.policy)
+			ifs := ignorefs.New(root, tc.policyTree)
 
 			expectedFiles := addAndSubtractFiles(originalFiles, tc.addedFiles, tc.ignoredFiles)
 			verifyDirectoryTree(t, ifs, expectedFiles)
@@ -302,6 +304,6 @@ func verifyDirectoryTree(t *testing.T, dir fs.Directory, expected []string) {
 	output := walkTree(t, dir)
 
 	if diff := pretty.Compare(output, expected); diff != "" {
-		t.Errorf("unexpected directory tree, diff=%v\n", diff)
+		t.Errorf("unexpected directory tree, diff(-got,+want): %v\n", diff)
 	}
 }

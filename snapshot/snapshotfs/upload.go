@@ -31,8 +31,6 @@ var errCancelled = errors.New("canceled")
 type Uploader struct {
 	Progress UploadProgress
 
-	PolicyGetter policy.Getter
-
 	// automatically cancel the Upload after certain number of bytes
 	MaxUploadBytes int64
 
@@ -722,6 +720,7 @@ func (u *Uploader) maybeOpenDirectoryFromManifest(man *snapshot.Manifest) fs.Dir
 func (u *Uploader) Upload(
 	ctx context.Context,
 	source fs.Entry,
+	policyTree *policy.Tree,
 	sourceInfo snapshot.SourceInfo,
 	previousManifests ...*snapshot.Manifest,
 ) (*snapshot.Manifest, error) {
@@ -749,7 +748,7 @@ func (u *Uploader) Upload(
 			}
 		}
 
-		entry = ignorefs.New(entry, u.PolicyGetter, ignorefs.ReportIgnoredFiles(func(_ string, md fs.Entry) {
+		entry = ignorefs.New(entry, policyTree, ignorefs.ReportIgnoredFiles(func(_ string, md fs.Entry) {
 			u.stats.AddExcluded(md)
 		}))
 		s.RootEntry, err = u.uploadDir(ctx, entry, previousDirs)

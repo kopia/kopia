@@ -101,14 +101,14 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshot
 		return err
 	}
 
-	u.PolicyGetter, err = policy.NewPolicyGetter(ctx, rep, sourceInfo)
+	policyTree, err := policy.TreeForSource(ctx, rep, sourceInfo)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "unable to get policy tree")
 	}
 
 	log.Infof("uploading %v using %v previous manifests", sourceInfo, len(previous))
 
-	manifest, err := u.Upload(ctx, localEntry, sourceInfo, previous...)
+	manifest, err := u.Upload(ctx, localEntry, policyTree, sourceInfo, previous...)
 	if err != nil {
 		return err
 	}

@@ -208,14 +208,9 @@ func (m SubdirectoryPolicyMap) GetPolicyForPath(relativePath string) (*Policy, e
 	return m[relativePath], nil
 }
 
-// Getter
-type Getter interface {
-	GetPolicyForPath(relativePath string) (*Policy, error)
-}
-
-// NewPolicyGetter returns policy Getter for a given source.
-func NewPolicyGetter(ctx context.Context, rep *repo.Repository, si snapshot.SourceInfo) (Getter, error) {
-	result := SubdirectoryPolicyMap{}
+// TreeForSource returns policy Tree for a given source.
+func TreeForSource(ctx context.Context, rep *repo.Repository, si snapshot.SourceInfo) (*Tree, error) {
+	result := map[string]*Policy{}
 
 	pol, _, err := GetEffectivePolicy(ctx, rep, si)
 	if err != nil {
@@ -265,7 +260,7 @@ func NewPolicyGetter(ctx context.Context, rep *repo.Repository, si snapshot.Sour
 		result[rel] = pol
 	}
 
-	return result, nil
+	return BuildTree(result, DefaultPolicy), nil
 }
 
 func labelsForSource(si snapshot.SourceInfo) map[string]string {
