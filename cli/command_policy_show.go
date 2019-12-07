@@ -81,6 +81,8 @@ func printPolicy(p *policy.Policy, parents []*policy.Policy) {
 	printFilesPolicy(p, parents)
 	printStdout("\n")
 	printSchedulingPolicy(p, parents)
+	printStdout("\n")
+	printCompressionPolicy(p, parents)
 }
 
 func printRetentionPolicy(p *policy.Policy, parents []*policy.Policy) {
@@ -175,6 +177,41 @@ func printSchedulingPolicy(p *policy.Policy, parents []*policy.Policy) {
 				return false
 			}))
 		}
+	}
+}
+
+func printCompressionPolicy(p *policy.Policy, parents []*policy.Policy) {
+	printStdout("Compression policy:\n")
+
+	if p.CompressionPolicy.CompressorName != "" {
+		printStdout("  Compressor:     %10v  %v\n", p.CompressionPolicy.CompressorName, getDefinitionPoint(parents, func(pol *policy.Policy) bool {
+			return pol.CompressionPolicy.CompressorName != ""
+		}))
+	}
+
+	switch {
+	case len(p.CompressionPolicy.OnlyCompress) > 0:
+		printStdout("  Only compress files with the following extensions:\n")
+
+		for _, rule := range p.CompressionPolicy.OnlyCompress {
+			rule := rule
+			printStdout("    %-30v %v\n", rule, getDefinitionPoint(parents, func(pol *policy.Policy) bool {
+				return containsString(pol.CompressionPolicy.OnlyCompress, rule)
+			}))
+		}
+
+	case len(p.CompressionPolicy.NeverCompress) > 0:
+		printStdout("  Try to compress all files except the following extensions:\n")
+
+		for _, rule := range p.CompressionPolicy.NeverCompress {
+			rule := rule
+			printStdout("    %-30v %v\n", rule, getDefinitionPoint(parents, func(pol *policy.Policy) bool {
+				return containsString(pol.CompressionPolicy.NeverCompress, rule)
+			}))
+		}
+
+	default:
+		printStdout("  Try to compress all files regardless of extensions.\n")
 	}
 }
 
