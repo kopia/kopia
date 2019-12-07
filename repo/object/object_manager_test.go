@@ -205,13 +205,9 @@ func TestIndirection(t *testing.T) {
 			t.Errorf("unexpected blob count for %v: %v, expected %v", c.dataLength, got, want)
 		}
 
-		l, b, err := om.VerifyObject(ctx, result)
+		b, err := om.VerifyObject(ctx, result)
 		if err != nil {
 			t.Errorf("error verifying %q: %v", result, err)
-		}
-
-		if got, want := int(l), len(contentBytes); got != want {
-			t.Errorf("got invalid byte count for %q: %v, wanted %v", result, got, want)
 		}
 
 		if got, want := len(b), c.expectedBlobCount; got != want {
@@ -316,6 +312,7 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 		}
 
 		objectID, err := writer.Result()
+		t.Logf("oid: %v", objectID)
 
 		writer.Close()
 

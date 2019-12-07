@@ -104,14 +104,14 @@ func (v *verifier) enqueueVerifyDirectory(ctx context.Context, oid object.ID, pa
 	})
 }
 
-func (v *verifier) enqueueVerifyObject(ctx context.Context, oid object.ID, path string, expectedLength int64) {
+func (v *verifier) enqueueVerifyObject(ctx context.Context, oid object.ID, path string) {
 	// push to the back of the queue, so that we process non-directories at the end.
 	if !v.shouldEnqueue(oid) {
 		return
 	}
 
 	v.workQueue.EnqueueBack(func() error {
-		return v.doVerifyObject(ctx, oid, path, expectedLength)
+		return v.doVerifyObject(ctx, oid, path)
 	})
 }
 
@@ -137,31 +137,18 @@ func (v *verifier) doVerifyDirectory(ctx context.Context, oid object.ID, path st
 		if e.IsDir() {
 			v.enqueueVerifyDirectory(ctx, objectID, childPath)
 		} else {
-			v.enqueueVerifyObject(ctx, objectID, childPath, e.Size())
+			v.enqueueVerifyObject(ctx, objectID, childPath)
 		}
 	}
 
 	return nil
 }
 
-func (v *verifier) doVerifyObject(ctx context.Context, oid object.ID, path string, expectedLength int64) error {
-	if expectedLength < 0 {
-		log.Debugf("verifying object %v", oid)
-	} else {
-		log.Debugf("verifying object %v (%v) with length %v", path, oid, expectedLength)
-	}
+func (v *verifier) doVerifyObject(ctx context.Context, oid object.ID, path string) error {
+	log.Debugf("verifying object %v", oid)
 
-	var length int64
-
-	var err error
-
-	length, _, err = v.om.VerifyObject(ctx, oid)
-	if err != nil {
+	if _, err := v.om.VerifyObject(ctx, oid); err != nil {
 		v.reportError(path, errors.Wrapf(err, "error verifying %v", oid))
-	}
-
-	if expectedLength >= 0 && length != expectedLength {
-		v.reportError(path, errors.Errorf("invalid object length %q, %v, expected %v", oid, length, expectedLength))
 	}
 
 	if rand.Intn(100) < *verifyCommandFilesPercent {
@@ -231,7 +218,7 @@ func enqueueRootsToVerify(ctx context.Context, v *verifier, rep *repo.Repository
 		if man.RootEntry.Type == snapshot.EntryTypeDirectory {
 			v.enqueueVerifyDirectory(ctx, man.RootObjectID(), path)
 		} else {
-			v.enqueueVerifyObject(ctx, man.RootObjectID(), path, -1)
+			v.enqueueVerifyObject(ctx, man.RootObjectID(), path)
 		}
 	}
 
@@ -250,7 +237,7 @@ func enqueueRootsToVerify(ctx context.Context, v *verifier, rep *repo.Repository
 			return err
 		}
 
-		v.enqueueVerifyObject(ctx, oid, oidStr, -1)
+		v.enqueueVerifyObject(ctx, oid, oidStr)
 	}
 
 	return nil
