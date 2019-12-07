@@ -57,6 +57,10 @@ func (om *Manager) NewWriter(ctx context.Context, opt WriterOptions) Writer {
 
 // Open creates new ObjectReader for reading given object from a repository.
 func (om *Manager) Open(ctx context.Context, objectID ID) (Reader, error) {
+	return om.openAndAssertLength(ctx, objectID, -1)
+}
+
+func (om *Manager) openAndAssertLength(ctx context.Context, objectID ID, assertLength int64) (Reader, error) {
 	if indexObjectID, ok := objectID.IndexObjectID(); ok {
 		rd, err := om.Open(ctx, indexObjectID)
 		if err != nil {
@@ -79,71 +83,63 @@ func (om *Manager) Open(ctx context.Context, objectID ID) (Reader, error) {
 		}, nil
 	}
 
-	return om.newRawReader(ctx, objectID)
+	return om.newRawReader(ctx, objectID, assertLength)
 }
 
 // VerifyObject ensures that all objects backing ObjectID are present in the repository
-// and returns the total length of the object and content IDs of which it is composed.
-func (om *Manager) VerifyObject(ctx context.Context, oid ID) (int64, []content.ID, error) {
+// and returns the content IDs of which it is composed.
+func (om *Manager) VerifyObject(ctx context.Context, oid ID) ([]content.ID, error) {
 	tracker := &contentIDTracker{}
 
-	l, err := om.verifyObjectInternal(ctx, oid, tracker)
-	if err != nil {
-		return 0, nil, err
+	if err := om.verifyObjectInternal(ctx, oid, tracker); err != nil {
+		return nil, err
 	}
 
-	return l, tracker.contentIDs(), nil
+	return tracker.contentIDs(), nil
 }
 
-func (om *Manager) verifyIndirectObjectInternal(ctx context.Context, indexObjectID ID, tracker *contentIDTracker) (int64, error) {
-	if _, err := om.verifyObjectInternal(ctx, indexObjectID, tracker); err != nil {
-		return 0, errors.Wrap(err, "unable to read index")
+func (om *Manager) verifyIndirectObjectInternal(ctx context.Context, indexObjectID ID, tracker *contentIDTracker) error {
+	if err := om.verifyObjectInternal(ctx, indexObjectID, tracker); err != nil {
+		return errors.Wrap(err, "unable to read index")
 	}
 
 	rd, err := om.Open(ctx, indexObjectID)
 	if err != nil {
-		return 0, err
+		return err
 	}
 	defer rd.Close() //nolint:errcheck
 
 	seekTable, err := om.flattenListChunk(rd)
 	if err != nil {
-		return 0, err
+		return err
 	}
 
-	for i, m := range seekTable {
-		l, err := om.verifyObjectInternal(ctx, m.Object, tracker)
+	for _, m := range seekTable {
+		err := om.verifyObjectInternal(ctx, m.Object, tracker)
 		if err != nil {
-			return 0, err
-		}
-
-		if l != m.Length {
-			return 0, errors.Errorf("unexpected length of part %#v of indirect object %q: %v %v, expected %v", i, indexObjectID, m.Object, l, m.Length)
+			return err
 		}
 	}
 
-	totalLength := seekTable[len(seekTable)-1].endOffset()
-
-	return totalLength, nil
+	return nil
 }
 
-func (om *Manager) verifyObjectInternal(ctx context.Context, oid ID, tracker *contentIDTracker) (int64, error) {
+func (om *Manager) verifyObjectInternal(ctx context.Context, oid ID, tracker *contentIDTracker) error {
 	if indexObjectID, ok := oid.IndexObjectID(); ok {
 		return om.verifyIndirectObjectInternal(ctx, indexObjectID, tracker)
 	}
 
 	if contentID, ok := oid.ContentID(); ok {
-		p, err := om.contentMgr.ContentInfo(ctx, contentID)
-		if err != nil {
-			return 0, err
+		if _, err := om.contentMgr.ContentInfo(ctx, contentID); err != nil {
+			return err
 		}
 
 		tracker.addContentID(contentID)
 
-		return int64(p.Length), nil
+		return nil
 	}
 
-	return 0, errors.Errorf("unrecognized object type: %v", oid)
+	return errors.Errorf("unrecognized object type: %v", oid)
 }
 
 func nullTrace(message string, args ...interface{}) {
@@ -210,7 +206,7 @@ func (om *Manager) flattenListChunk(rawReader io.Reader) ([]indirectObjectEntry,
 	return ind.Entries, nil
 }
 
-func (om *Manager) newRawReader(ctx context.Context, objectID ID) (Reader, error) {
+func (om *Manager) newRawReader(ctx context.Context, objectID ID, assertLength int64) (Reader, error) {
 	if contentID, ok := objectID.ContentID(); ok {
 		payload, err := om.contentMgr.GetContent(ctx, contentID)
 		if err == content.ErrContentNotFound {
@@ -219,6 +215,10 @@ func (om *Manager) newRawReader(ctx context.Context, objectID ID) (Reader, error
 
 		if err != nil {
 			return nil, errors.Wrap(err, "unexpected content error")
+		}
+
+		if assertLength != -1 && int64(len(payload)) != assertLength {
+			return nil, errors.Wrapf(err, "unexpected chunk length %v, expected %v", len(payload), assertLength)
 		}
 
 		return newObjectReaderWithData(payload), nil
