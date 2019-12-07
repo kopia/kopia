@@ -4,6 +4,7 @@ package object
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"io"
 
@@ -52,6 +53,7 @@ func (om *Manager) NewWriter(ctx context.Context, opt WriterOptions) Writer {
 		splitter:    om.newSplitter(),
 		description: opt.Description,
 		prefix:      opt.Prefix,
+		compressor:  CompressorsByName[opt.Compressor],
 	}
 }
 
@@ -129,7 +131,7 @@ func (om *Manager) verifyObjectInternal(ctx context.Context, oid ID, tracker *co
 		return om.verifyIndirectObjectInternal(ctx, indexObjectID, tracker)
 	}
 
-	if contentID, ok := oid.ContentID(); ok {
+	if contentID, _, ok := oid.ContentID(); ok {
 		if _, err := om.contentMgr.ContentInfo(ctx, contentID); err != nil {
 			return err
 		}
@@ -207,7 +209,7 @@ func (om *Manager) flattenListChunk(rawReader io.Reader) ([]indirectObjectEntry,
 }
 
 func (om *Manager) newRawReader(ctx context.Context, objectID ID, assertLength int64) (Reader, error) {
-	if contentID, ok := objectID.ContentID(); ok {
+	if contentID, compressed, ok := objectID.ContentID(); ok {
 		payload, err := om.contentMgr.GetContent(ctx, contentID)
 		if err == content.ErrContentNotFound {
 			return nil, ErrObjectNotFound
@@ -215,6 +217,13 @@ func (om *Manager) newRawReader(ctx context.Context, objectID ID, assertLength i
 
 		if err != nil {
 			return nil, errors.Wrap(err, "unexpected content error")
+		}
+
+		if compressed {
+			payload, err = om.decompress(payload)
+			if err != nil {
+				return nil, errors.Wrap(err, "decompression error")
+			}
 		}
 
 		if assertLength != -1 && int64(len(payload)) != assertLength {
@@ -225,6 +234,21 @@ func (om *Manager) newRawReader(ctx context.Context, objectID ID, assertLength i
 	}
 
 	return nil, errors.Errorf("unsupported object ID: %v", objectID)
+}
+
+func (om *Manager) decompress(b []byte) ([]byte, error) {
+	if len(b) < 4 {
+		return nil, errors.Errorf("invalid compression header")
+	}
+
+	compressorID := binary.BigEndian.Uint32(b[0:4])
+
+	compressor := Compressors[compressorID]
+	if compressor == nil {
+		return nil, errors.Errorf("unsupported compressor %x", compressorID)
+	}
+
+	return compressor.Decompress(b)
 }
 
 type readerWithData struct {

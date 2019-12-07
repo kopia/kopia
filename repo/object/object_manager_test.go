@@ -110,7 +110,7 @@ func TestWriters(t *testing.T) {
 			t.Errorf("incorrect result for %v, expected: %v got: %v", c.data, c.objectID.String(), result.String())
 		}
 
-		if _, ok := c.objectID.ContentID(); !ok {
+		if _, _, ok := c.objectID.ContentID(); !ok {
 			if len(data) != 0 {
 				t.Errorf("unexpected data written to the storage: %v", data)
 			}
@@ -325,6 +325,34 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 	}
 }
 
+func TestEndToEndReadAndSeekWithCompression(t *testing.T) {
+	ctx := context.Background()
+	_, om := setupTest(t)
+
+	for compressorName := range CompressorsByName {
+		for _, size := range []int{1, 199, 200, 201, 9999, 512434} {
+			// Create some random data sample of the specified size.
+			randomData := make([]byte, size)
+
+			writer := om.NewWriter(ctx, WriterOptions{Compressor: compressorName})
+			if _, err := writer.Write(randomData); err != nil {
+				t.Errorf("write error: %v", err)
+			}
+
+			objectID, err := writer.Result()
+			t.Logf("oid: %v", objectID)
+
+			writer.Close()
+
+			if err != nil {
+				t.Errorf("cannot get writer result for %v: %v", size, err)
+				continue
+			}
+
+			verify(ctx, t, om, objectID, randomData, fmt.Sprintf("%v %v", objectID, size))
+		}
+	}
+}
 func verify(ctx context.Context, t *testing.T, om *Manager, objectID ID, expectedData []byte, testCaseID string) {
 	t.Helper()
 
