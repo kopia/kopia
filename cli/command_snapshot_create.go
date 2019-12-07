@@ -101,7 +101,7 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshot
 		return err
 	}
 
-	u.FilesPolicy, err = policy.FilesPolicyGetter(ctx, rep, sourceInfo)
+	u.PolicyGetter, err = policy.NewPolicyGetter(ctx, rep, sourceInfo)
 	if err != nil {
 		return err
 	}

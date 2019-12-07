@@ -8,7 +8,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/fs/ignorefs"
 	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/manifest"
@@ -201,16 +200,29 @@ func ListPolicies(ctx context.Context, rep *repo.Repository) ([]*Policy, error) 
 	return policies, nil
 }
 
-// FilesPolicyGetter returns ignorefs.FilesPolicyGetter for a given source.
-func FilesPolicyGetter(ctx context.Context, rep *repo.Repository, si snapshot.SourceInfo) (ignorefs.FilesPolicyGetter, error) {
-	result := ignorefs.FilesPolicyMap{}
+// SubdirectoryPolicyMap implements Getter for a static mapping of relative paths to Policy for subdirectories
+type SubdirectoryPolicyMap map[string]*Policy
+
+// GetPolicyForPath returns Policy defined in the map or nil.
+func (m SubdirectoryPolicyMap) GetPolicyForPath(relativePath string) (*Policy, error) {
+	return m[relativePath], nil
+}
+
+// Getter
+type Getter interface {
+	GetPolicyForPath(relativePath string) (*Policy, error)
+}
+
+// NewPolicyGetter returns policy Getter for a given source.
+func NewPolicyGetter(ctx context.Context, rep *repo.Repository, si snapshot.SourceInfo) (Getter, error) {
+	result := SubdirectoryPolicyMap{}
 
 	pol, _, err := GetEffectivePolicy(ctx, rep, si)
 	if err != nil {
 		return nil, err
 	}
 
-	result["."] = &pol.FilesPolicy
+	result["."] = pol
 
 	// Find all policies for this host and user
 	policies, err := rep.Manifests.Find(ctx, map[string]string{
@@ -250,7 +262,7 @@ func FilesPolicyGetter(ctx context.Context, rep *repo.Repository, si snapshot.So
 			return nil, errors.Wrapf(err, "unable to load policy %v", id.ID)
 		}
 
-		result[rel] = &pol.FilesPolicy
+		result[rel] = pol
 	}
 
 	return result, nil

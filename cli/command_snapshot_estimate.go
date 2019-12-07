@@ -95,12 +95,12 @@ func runSnapshotEstimateCommand(ctx context.Context, rep *repo.Repository) error
 	}
 
 	if dir, ok := entry.(fs.Directory); ok {
-		ignorePolicy, err := policy.FilesPolicyGetter(ctx, rep, sourceInfo)
+		policyGetter, err := policy.NewPolicyGetter(ctx, rep, sourceInfo)
 		if err != nil {
 			return err
 		}
 
-		entry = ignorefs.New(dir, ignorePolicy, ignorefs.ReportIgnoredFiles(onIgnoredFile))
+		entry = ignorefs.New(dir, policyGetter, ignorefs.ReportIgnoredFiles(onIgnoredFile))
 	}
 
 	if err := estimate(ctx, ".", entry, &stats, ib); err != nil {

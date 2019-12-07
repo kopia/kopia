@@ -17,8 +17,6 @@ linters-settings:
     min-complexity: 15
   maligned:
     suggest-new: true
-  dupl:
-    threshold: 100
   goconst:
     min-len: 5
     min-occurrences: 3
@@ -53,6 +51,9 @@ issues:
     - text: "weak cryptographic primitive"
       linters:
         - gosec
+    - text: "lines are duplicate of"
+      linters:
+        - dupl
     - text: "Line contains TODO"
       linters:
         - godox

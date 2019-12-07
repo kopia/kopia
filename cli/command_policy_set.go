@@ -8,7 +8,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/fs/ignorefs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot/policy"
 )
@@ -110,7 +109,7 @@ func setPolicyFromFlags(p *policy.Policy, changeCount *int) error {
 	return nil
 }
 
-func setFilesPolicyFromFlags(fp *ignorefs.FilesPolicy, changeCount *int) {
+func setFilesPolicyFromFlags(fp *policy.FilesPolicy, changeCount *int) {
 	if *policySetClearDotIgnore {
 		*changeCount++
 		printStderr(" - removing all rules for dot-ignore files\n")

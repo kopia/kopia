@@ -10,29 +10,16 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/ignore"
+	"github.com/kopia/kopia/snapshot/policy"
 )
 
 // IgnoreCallback is a function called by ignorefs to report whenever a file or directory is being ignored while listing its parent.
 type IgnoreCallback func(path string, metadata fs.Entry)
 
-// FilesPolicyGetter fetches FilesPolicy for a path relative to the root of the filesystem.
-// relativePath always starts with "." and path elements are separated with "/".
-type FilesPolicyGetter interface {
-	GetPolicyForPath(relativePath string) (*FilesPolicy, error)
-}
-
-// FilesPolicyMap implements FilesPolicyGetter for a static mapping of relative paths to FilesPolicy.
-type FilesPolicyMap map[string]*FilesPolicy
-
-// GetPolicyForPath returns FilePolicy defined in the map or nil.
-func (m FilesPolicyMap) GetPolicyForPath(relativePath string) (*FilesPolicy, error) {
-	return m[relativePath], nil
-}
-
 type ignoreContext struct {
 	parent *ignoreContext
 
-	policyGetter FilesPolicyGetter
+	policyGetter policy.Getter
 	onIgnore     []IgnoreCallback
 
 	dotIgnoreFiles []string         // which files to look for more ignore rules
@@ -100,13 +87,13 @@ func (d *ignoreDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
 func (d *ignoreDirectory) buildContext(ctx context.Context, entries fs.Entries) (*ignoreContext, error) {
 	var effectiveDotIgnoreFiles = d.parentContext.dotIgnoreFiles
 
-	policy, err := d.parentContext.policyGetter.GetPolicyForPath(d.relativePath)
+	pol, err := d.parentContext.policyGetter.GetPolicyForPath(d.relativePath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to get policy for %q", d.relativePath)
 	}
 
-	if policy != nil {
-		effectiveDotIgnoreFiles = policy.DotIgnoreFiles
+	if pol != nil {
+		effectiveDotIgnoreFiles = pol.FilesPolicy.DotIgnoreFiles
 	}
 
 	var foundDotIgnoreFiles bool
@@ -117,7 +104,7 @@ func (d *ignoreDirectory) buildContext(ctx context.Context, entries fs.Entries) 
 		}
 	}
 
-	if !foundDotIgnoreFiles && policy == nil {
+	if !foundDotIgnoreFiles && pol == nil {
 		// no dotfiles and no policy at this level, reuse parent ignore rules
 		return d.parentContext, nil
 	}
@@ -130,8 +117,8 @@ func (d *ignoreDirectory) buildContext(ctx context.Context, entries fs.Entries) 
 		maxFileSize:    d.parentContext.maxFileSize,
 	}
 
-	if policy != nil {
-		if err := newic.overrideFromPolicy(policy, d.relativePath); err != nil {
+	if pol != nil {
+		if err := newic.overrideFromPolicy(pol.FilesPolicy, d.relativePath); err != nil {
 			return nil, err
 		}
 	}
@@ -143,22 +130,22 @@ func (d *ignoreDirectory) buildContext(ctx context.Context, entries fs.Entries) 
 	return newic, nil
 }
 
-func (c *ignoreContext) overrideFromPolicy(policy *FilesPolicy, dirPath string) error {
-	if policy.NoParentDotIgnoreFiles {
+func (c *ignoreContext) overrideFromPolicy(fp policy.FilesPolicy, dirPath string) error {
+	if fp.NoParentDotIgnoreFiles {
 		c.dotIgnoreFiles = nil
 	}
 
-	if policy.NoParentIgnoreRules {
+	if fp.NoParentIgnoreRules {
 		c.matchers = nil
 	}
 
-	c.dotIgnoreFiles = combineAndDedupe(c.dotIgnoreFiles, policy.DotIgnoreFiles)
-	if policy.MaxFileSize != 0 {
-		c.maxFileSize = policy.MaxFileSize
+	c.dotIgnoreFiles = combineAndDedupe(c.dotIgnoreFiles, fp.DotIgnoreFiles)
+	if fp.MaxFileSize != 0 {
+		c.maxFileSize = fp.MaxFileSize
 	}
 
 	// append policy-level rules
-	for _, rule := range policy.IgnoreRules {
+	for _, rule := range fp.IgnoreRules {
 		m, err := ignore.ParseGitIgnore(dirPath, rule)
 		if err != nil {
 			return errors.Wrapf(err, "unable to parse ignore entry %v", dirPath)
@@ -252,10 +239,17 @@ func parseIgnoreFile(ctx context.Context, baseDir string, file fs.File) ([]ignor
 // Option modifies the behavior of ignorefs
 type Option func(parentContext *ignoreContext)
 
+type nullPolicyGetter struct {
+}
+
+func (n nullPolicyGetter) GetPolicyForPath(relPath string) (*policy.Policy, error) {
+	return nil, nil
+}
+
 // New returns a fs.Directory that wraps another fs.Directory and hides files specified in the ignore dotfiles.
-func New(dir fs.Directory, policyGetter FilesPolicyGetter, options ...Option) fs.Directory {
+func New(dir fs.Directory, policyGetter policy.Getter, options ...Option) fs.Directory {
 	if policyGetter == nil {
-		policyGetter = FilesPolicyMap{}
+		policyGetter = nullPolicyGetter{}
 	}
 
 	rootContext := &ignoreContext{

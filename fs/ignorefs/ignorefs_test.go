@@ -11,6 +11,7 @@ import (
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/ignorefs"
 	"github.com/kopia/kopia/internal/mockfs"
+	"github.com/kopia/kopia/snapshot/policy"
 )
 
 var (
@@ -40,41 +41,45 @@ func setupFilesystem() *mockfs.Directory {
 	return root
 }
 
-var defaultPolicy = ignorefs.FilesPolicyMap{
-	".": &ignorefs.FilesPolicy{
-		DotIgnoreFiles: []string{
-			".kopiaignore",
-		},
-		MaxFileSize: int64(len(tooLargeFileContents)) - 1,
-		IgnoreRules: []string{
-			"*-by-rule",
+var defaultPolicy = policy.SubdirectoryPolicyMap{
+	".": &policy.Policy{
+		FilesPolicy: policy.FilesPolicy{
+			DotIgnoreFiles: []string{
+				".kopiaignore",
+			},
+			MaxFileSize: int64(len(tooLargeFileContents)) - 1,
+			IgnoreRules: []string{
+				"*-by-rule",
+			},
 		},
 	},
 }
 
-var rootAndSrcPolicy = ignorefs.FilesPolicyMap{
-	".": &ignorefs.FilesPolicy{
-		DotIgnoreFiles: []string{
-			".kopiaignore",
-		},
-		MaxFileSize: int64(len(tooLargeFileContents)) - 1,
-		IgnoreRules: []string{
-			"*-by-rule",
-		},
-	},
-	"./src": &ignorefs.FilesPolicy{
-		DotIgnoreFiles: []string{
-			".newignore",
-		},
-		IgnoreRules: []string{
-			"some-*",
-		},
-	},
+var rootAndSrcPolicy = policy.SubdirectoryPolicyMap{
+	".": &policy.Policy{
+		FilesPolicy: policy.FilesPolicy{
+			DotIgnoreFiles: []string{
+				".kopiaignore",
+			},
+			MaxFileSize: int64(len(tooLargeFileContents)) - 1,
+			IgnoreRules: []string{
+				"*-by-rule",
+			},
+		}},
+	"./src": &policy.Policy{
+		FilesPolicy: policy.FilesPolicy{
+			DotIgnoreFiles: []string{
+				".newignore",
+			},
+			IgnoreRules: []string{
+				"some-*",
+			},
+		}},
 }
 
 var cases = []struct {
 	desc         string
-	policy       ignorefs.FilesPolicyMap
+	policy       policy.SubdirectoryPolicyMap
 	setup        func(root *mockfs.Directory)
 	addedFiles   []string
 	ignoredFiles []string
@@ -186,14 +191,16 @@ var cases = []struct {
 			root.Subdir("src").AddFile("another-yyy", dummyFileContents, 0) // ignored by policy rule
 			root.AddFile("zzz", dummyFileContents, 0)                       // not ignored, at parent level
 		},
-		policy: ignorefs.FilesPolicyMap{
-			"./src": &ignorefs.FilesPolicy{
-				IgnoreRules: []string{
-					"some-*",
-					"another-*",
-				},
-				DotIgnoreFiles: []string{
-					".extraignore",
+		policy: policy.SubdirectoryPolicyMap{
+			"./src": &policy.Policy{
+				FilesPolicy: policy.FilesPolicy{
+					IgnoreRules: []string{
+						"some-*",
+						"another-*",
+					},
+					DotIgnoreFiles: []string{
+						".extraignore",
+					},
 				},
 			},
 		},
