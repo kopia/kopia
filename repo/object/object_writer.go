@@ -52,6 +52,8 @@ type objectWriter struct {
 	ctx  context.Context
 	repo *Manager
 
+	compressor Compressor
+
 	prefix      content.ID
 	buffer      bytes.Buffer
 	totalLength int64
@@ -93,21 +95,47 @@ func (w *objectWriter) flushBuffer() error {
 	w.indirectIndex[chunkID].Length = int64(length)
 	w.currentPosition += int64(length)
 
-	var b2 bytes.Buffer
+	contentBytes, isCompressed, err := w.maybeCompressedContentBytes()
+	if err != nil {
+		return errors.Wrap(err, "unable to prepare content bytes")
+	}
 
-	w.buffer.WriteTo(&b2) //nolint:errcheck
-	w.buffer.Reset()
-
-	contentID, err := w.repo.contentMgr.WriteContent(w.ctx, b2.Bytes(), w.prefix)
+	contentID, err := w.repo.contentMgr.WriteContent(w.ctx, contentBytes, w.prefix)
 	w.repo.trace("OBJECT_WRITER(%q) stored %v (%v bytes)", w.description, contentID, length)
 
 	if err != nil {
 		return errors.Wrapf(err, "error when flushing chunk %d of %s", chunkID, w.description)
 	}
 
-	w.indirectIndex[chunkID].Object = DirectObjectID(contentID)
+	oid := DirectObjectID(contentID)
+
+	if isCompressed {
+		oid = Compressed(oid)
+	}
+
+	w.indirectIndex[chunkID].Object = oid
 
 	return nil
+}
+
+func (w *objectWriter) maybeCompressedContentBytes() (data []byte, isCompressed bool, err error) {
+	if w.compressor != nil {
+		compressedBytes, err := w.compressor.Compress(w.buffer.Bytes())
+		if err != nil {
+			return nil, false, errors.Wrap(err, "compression error")
+		}
+
+		if len(compressedBytes) < w.buffer.Len() {
+			return compressedBytes, true, nil
+		}
+	}
+
+	var b2 bytes.Buffer
+
+	w.buffer.WriteTo(&b2) //nolint:errcheck
+	w.buffer.Reset()
+
+	return b2.Bytes(), false, nil
 }
 
 func (w *objectWriter) Result() (ID, error) {
@@ -124,6 +152,7 @@ func (w *objectWriter) Result() (ID, error) {
 	iw := &objectWriter{
 		ctx:         w.ctx,
 		repo:        w.repo,
+		compressor:  nil,
 		description: "LIST(" + w.description + ")",
 		splitter:    w.repo.newSplitter(),
 		prefix:      w.prefix,
@@ -150,4 +179,5 @@ func (w *objectWriter) Result() (ID, error) {
 type WriterOptions struct {
 	Description string
 	Prefix      content.ID // empty string or a single-character ('g'..'z')
+	Compressor  CompressorName
 }

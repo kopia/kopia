@@ -36,16 +36,20 @@ func (i ID) IndexObjectID() (ID, bool) {
 }
 
 // ContentID returns the ID of the underlying content.
-func (i ID) ContentID() (content.ID, bool) {
+func (i ID) ContentID() (id content.ID, compressed, ok bool) {
 	if strings.HasPrefix(string(i), "D") {
-		return content.ID(i[1:]), true
+		return content.ID(i[1:]), false, true
 	}
 
 	if strings.HasPrefix(string(i), "I") {
-		return "", false
+		return "", false, false
 	}
 
-	return content.ID(i), true
+	if strings.HasPrefix(string(i), "Z") {
+		return content.ID(i[1:]), true, true
+	}
+
+	return content.ID(i), false, true
 }
 
 // Validate checks the ID format for validity and reports any errors.
@@ -58,7 +62,7 @@ func (i ID) Validate() error {
 		return nil
 	}
 
-	if contentID, ok := i.ContentID(); ok {
+	if contentID, _, ok := i.ContentID(); ok {
 		if len(contentID) < 2 {
 			return errors.Errorf("missing content ID")
 		}
@@ -85,6 +89,11 @@ func (i ID) Validate() error {
 // DirectObjectID returns direct object ID based on the provided block ID.
 func DirectObjectID(contentID content.ID) ID {
 	return ID(contentID)
+}
+
+// Compressed returns object ID with 'Z' prefix indicating it's compressed.
+func Compressed(objectID ID) ID {
+	return "Z" + objectID
 }
 
 // IndirectObjectID returns indirect object ID based on the underlying index object ID.
