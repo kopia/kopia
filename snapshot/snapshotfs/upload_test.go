@@ -15,6 +15,7 @@ import (
 	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/policy"
 )
 
 const (
@@ -106,7 +107,9 @@ func TestUpload(t *testing.T) {
 
 	u := NewUploader(th.repo)
 
-	s1, err := u.Upload(ctx, th.sourceDir, snapshot.SourceInfo{})
+	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
+
+	s1, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
 	if err != nil {
 		t.Errorf("Upload error: %v", err)
 	}
@@ -115,7 +118,7 @@ func TestUpload(t *testing.T) {
 
 	log.Infof("Uploading s2")
 
-	s2, err := u.Upload(ctx, th.sourceDir, snapshot.SourceInfo{}, s1)
+	s2, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{}, s1)
 	if err != nil {
 		t.Errorf("Upload error: %v", err)
 	}
@@ -140,7 +143,7 @@ func TestUpload(t *testing.T) {
 	// Add one more file, the s1.RootObjectID should change.
 	th.sourceDir.AddFile("d2/d1/f3", []byte{1, 2, 3, 4, 5}, defaultPermissions)
 
-	s3, err := u.Upload(ctx, th.sourceDir, snapshot.SourceInfo{}, s1)
+	s3, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{}, s1)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
@@ -157,7 +160,7 @@ func TestUpload(t *testing.T) {
 	// Now remove the added file, OID should be identical to the original before the file got added.
 	th.sourceDir.Subdir("d2", "d1").Remove("f3")
 
-	s4, err := u.Upload(ctx, th.sourceDir, snapshot.SourceInfo{}, s1)
+	s4, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{}, s1)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
@@ -171,7 +174,7 @@ func TestUpload(t *testing.T) {
 		t.Errorf("unexpected s4 stats: %+v", s4.Stats)
 	}
 
-	s5, err := u.Upload(ctx, th.sourceDir, snapshot.SourceInfo{}, s3)
+	s5, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{}, s3)
 	if err != nil {
 		t.Errorf("upload failed: %v", err)
 	}
@@ -199,7 +202,9 @@ func TestUpload_TopLevelDirectoryReadFailure(t *testing.T) {
 
 	u := NewUploader(th.repo)
 
-	s, err := u.Upload(ctx, th.sourceDir, snapshot.SourceInfo{})
+	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
+
+	s, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
 	if err != errTest {
 		t.Errorf("expected error: %v", err)
 	}
@@ -220,7 +225,9 @@ func TestUpload_SubDirectoryReadFailure(t *testing.T) {
 	u := NewUploader(th.repo)
 	u.IgnoreFileErrors = false
 
-	_, err := u.Upload(ctx, th.sourceDir, snapshot.SourceInfo{})
+	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
+
+	_, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
 	if err == nil {
 		t.Errorf("expected error")
 	}

@@ -10,6 +10,7 @@ import (
 
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
@@ -167,7 +168,9 @@ func migrateSingleSourceSnapshot(ctx context.Context, uploader *snapshotfs.Uploa
 		return err
 	}
 
-	newm, err := uploader.Upload(ctx, sourceEntry, m.Source, previous...)
+	var policyTree *policy.Tree
+
+	newm, err := uploader.Upload(ctx, sourceEntry, policyTree, m.Source, previous...)
 	if err != nil {
 		return errors.Wrapf(err, "error migrating shapshot %v @ %v", m.Source, m.StartTime)
 	}

@@ -19,8 +19,7 @@ type IgnoreCallback func(path string, metadata fs.Entry)
 type ignoreContext struct {
 	parent *ignoreContext
 
-	policyGetter policy.Getter
-	onIgnore     []IgnoreCallback
+	onIgnore []IgnoreCallback
 
 	dotIgnoreFiles []string         // which files to look for more ignore rules
 	matchers       []ignore.Matcher // current set of rules to ignore files
@@ -48,6 +47,7 @@ func (c *ignoreContext) shouldIncludeByName(path string, e fs.Entry) bool {
 type ignoreDirectory struct {
 	relativePath  string
 	parentContext *ignoreContext
+	policyTree    *policy.Tree
 
 	fs.Directory
 }
@@ -75,7 +75,7 @@ func (d *ignoreDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
 		}
 
 		if dir, ok := e.(fs.Directory); ok {
-			e = &ignoreDirectory{d.relativePath + "/" + e.Name(), thisContext, dir}
+			e = &ignoreDirectory{d.relativePath + "/" + e.Name(), thisContext, d.policyTree.Child(e.Name()), dir}
 		}
 
 		result = append(result, e)
@@ -87,11 +87,7 @@ func (d *ignoreDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
 func (d *ignoreDirectory) buildContext(ctx context.Context, entries fs.Entries) (*ignoreContext, error) {
 	var effectiveDotIgnoreFiles = d.parentContext.dotIgnoreFiles
 
-	pol, err := d.parentContext.policyGetter.GetPolicyForPath(d.relativePath)
-	if err != nil {
-		return nil, errors.Wrapf(err, "unable to get policy for %q", d.relativePath)
-	}
-
+	pol := d.policyTree.DefinedPolicy()
 	if pol != nil {
 		effectiveDotIgnoreFiles = pol.FilesPolicy.DotIgnoreFiles
 	}
@@ -111,7 +107,6 @@ func (d *ignoreDirectory) buildContext(ctx context.Context, entries fs.Entries) 
 
 	newic := &ignoreContext{
 		parent:         d.parentContext,
-		policyGetter:   d.parentContext.policyGetter,
 		onIgnore:       d.parentContext.onIgnore,
 		dotIgnoreFiles: effectiveDotIgnoreFiles,
 		maxFileSize:    d.parentContext.maxFileSize,
@@ -239,28 +234,15 @@ func parseIgnoreFile(ctx context.Context, baseDir string, file fs.File) ([]ignor
 // Option modifies the behavior of ignorefs
 type Option func(parentContext *ignoreContext)
 
-type nullPolicyGetter struct {
-}
-
-func (n nullPolicyGetter) GetPolicyForPath(relPath string) (*policy.Policy, error) {
-	return nil, nil
-}
-
 // New returns a fs.Directory that wraps another fs.Directory and hides files specified in the ignore dotfiles.
-func New(dir fs.Directory, policyGetter policy.Getter, options ...Option) fs.Directory {
-	if policyGetter == nil {
-		policyGetter = nullPolicyGetter{}
-	}
-
-	rootContext := &ignoreContext{
-		policyGetter: policyGetter,
-	}
+func New(dir fs.Directory, policyTree *policy.Tree, options ...Option) fs.Directory {
+	rootContext := &ignoreContext{}
 
 	for _, opt := range options {
 		opt(rootContext)
 	}
 
-	return &ignoreDirectory{".", rootContext, dir}
+	return &ignoreDirectory{".", rootContext, policyTree, dir}
 }
 
 var _ fs.Directory = &ignoreDirectory{}
