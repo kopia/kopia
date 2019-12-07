@@ -20,6 +20,7 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/policy"
 )
 
 var log = kopialogging.Logger("kopia/upload")
@@ -30,7 +31,7 @@ var errCancelled = errors.New("canceled")
 type Uploader struct {
 	Progress UploadProgress
 
-	FilesPolicy ignorefs.FilesPolicyGetter
+	PolicyGetter policy.Getter
 
 	// automatically cancel the Upload after certain number of bytes
 	MaxUploadBytes int64
@@ -748,7 +749,7 @@ func (u *Uploader) Upload(
 			}
 		}
 
-		entry = ignorefs.New(entry, u.FilesPolicy, ignorefs.ReportIgnoredFiles(func(_ string, md fs.Entry) {
+		entry = ignorefs.New(entry, u.PolicyGetter, ignorefs.ReportIgnoredFiles(func(_ string, md fs.Entry) {
 			u.stats.AddExcluded(md)
 		}))
 		s.RootEntry, err = u.uploadDir(ctx, entry, previousDirs)

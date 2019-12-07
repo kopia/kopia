@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 
-	"github.com/kopia/kopia/fs/ignorefs"
 	"github.com/kopia/kopia/snapshot"
 )
 
@@ -14,11 +13,11 @@ var ErrPolicyNotFound = errors.New("policy not found")
 
 // Policy describes snapshot policy for a single source.
 type Policy struct {
-	Labels           map[string]string    `json:"-"`
-	RetentionPolicy  RetentionPolicy      `json:"retention,omitempty"`
-	FilesPolicy      ignorefs.FilesPolicy `json:"files,omitempty"`
-	SchedulingPolicy SchedulingPolicy     `json:"scheduling,omitempty"`
-	NoParent         bool                 `json:"noParent,omitempty"`
+	Labels           map[string]string `json:"-"`
+	RetentionPolicy  RetentionPolicy   `json:"retention,omitempty"`
+	FilesPolicy      FilesPolicy       `json:"files,omitempty"`
+	SchedulingPolicy SchedulingPolicy  `json:"scheduling,omitempty"`
+	NoParent         bool              `json:"noParent,omitempty"`
 }
 
 func (p *Policy) String() string {
@@ -64,7 +63,7 @@ func MergePolicies(policies []*Policy) *Policy {
 
 	// Merge default expiration policy.
 	merged.RetentionPolicy.Merge(defaultRetentionPolicy)
-	merged.FilesPolicy.Merge(ignorefs.DefaultFilesPolicy)
+	merged.FilesPolicy.Merge(defaultFilesPolicy)
 	merged.SchedulingPolicy.Merge(defaultSchedulingPolicy)
 
 	return &merged

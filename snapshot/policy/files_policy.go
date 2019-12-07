@@ -1,4 +1,4 @@
-package ignorefs
+package policy
 
 // FilesPolicy describes files to be ignored when taking snapshots.
 type FilesPolicy struct {
@@ -12,7 +12,7 @@ type FilesPolicy struct {
 }
 
 // Merge applies default values from the provided policy.
-func (p *FilesPolicy) Merge(src FilesPolicy) {
+func (p *FilesPolicy) Merge(src FilesPolicy) { //nolint:hugeParam
 	if p.MaxFileSize == 0 {
 		p.MaxFileSize = src.MaxFileSize
 	}
@@ -26,7 +26,7 @@ func (p *FilesPolicy) Merge(src FilesPolicy) {
 	}
 }
 
-// DefaultFilesPolicy is the default file ignore policy.
-var DefaultFilesPolicy = FilesPolicy{
+// defaultFilesPolicy is the default file ignore policy.
+var defaultFilesPolicy = FilesPolicy{
 	DotIgnoreFiles: []string{".kopiaignore"},
 }

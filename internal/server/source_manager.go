@@ -170,12 +170,12 @@ func (s *sourceManager) snapshot(ctx context.Context) {
 
 	u := snapshotfs.NewUploader(s.server.rep)
 
-	polGetter, err := policy.FilesPolicyGetter(ctx, s.server.rep, s.src)
+	polGetter, err := policy.NewPolicyGetter(ctx, s.server.rep, s.src)
 	if err != nil {
 		log.Errorf("unable to create policy getter: %v", err)
 	}
 
-	u.FilesPolicy = polGetter
+	u.PolicyGetter = polGetter
 	u.Progress = s
 
 	log.Infof("starting upload of %v", s.src)

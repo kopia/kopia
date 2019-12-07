@@ -6,7 +6,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/fs/ignorefs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
@@ -141,7 +140,7 @@ func getInitialGlobalPolicy() (*policy.Policy, error) {
 	sp.TimesOfDay = policy.SortAndDedupeTimesOfDay(timesOfDay)
 
 	return &policy.Policy{
-		FilesPolicy: ignorefs.FilesPolicy{
+		FilesPolicy: policy.FilesPolicy{
 			DotIgnoreFiles: *createGlobalPolicyDotIgnoreFiles,
 		},
 		RetentionPolicy: policy.RetentionPolicy{
