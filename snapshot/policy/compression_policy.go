@@ -4,18 +4,34 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo/object"
 )
 
 // CompressionPolicy specifies compression policy.
 type CompressionPolicy struct {
 	CompressorName object.CompressorName `json:"compressorName,omitempty"`
-	OnlyCompress   []string              `json:"onlyCompress"`
-	NeverCompress  []string              `json:"neverCompress"`
+	OnlyCompress   []string              `json:"onlyCompress,omitempty"`
+	NeverCompress  []string              `json:"neverCompress,omitempty"`
+	MinSize        int64                 `json:"minSize,omitempty"`
+	MaxSize        int64                 `json:"maxSize,omitempty"`
 }
 
-func (p *CompressionPolicy) CompressorForFile(fname string) object.CompressorName {
-	ext := filepath.Ext(fname)
+func (p *CompressionPolicy) CompressorForFile(e fs.File) object.CompressorName {
+	ext := filepath.Ext(e.Name())
+	size := e.Size()
+
+	if p.CompressorName == "none" {
+		return ""
+	}
+
+	if v := p.MinSize; v > 0 && size < v {
+		return ""
+	}
+
+	if v := p.MaxSize; v > 0 && size > v {
+		return ""
+	}
 
 	if len(p.OnlyCompress) > 0 && isInSortedSlice(ext, p.OnlyCompress) {
 		return p.CompressorName
@@ -29,16 +45,27 @@ func (p *CompressionPolicy) CompressorForFile(fname string) object.CompressorNam
 }
 
 // Merge applies default values from the provided policy.
+// nolint:gocritic
 func (p *CompressionPolicy) Merge(src CompressionPolicy) {
 	if p.CompressorName == "" {
 		p.CompressorName = src.CompressorName
+	}
+
+	if p.MinSize == 0 {
+		p.MinSize = src.MinSize
+	}
+
+	if p.MaxSize == 0 {
+		p.MaxSize = src.MaxSize
 	}
 
 	p.OnlyCompress = mergeStrings(p.OnlyCompress, src.OnlyCompress)
 	p.NeverCompress = mergeStrings(p.NeverCompress, src.NeverCompress)
 }
 
-var defaultCompressionPolicy = CompressionPolicy{}
+var defaultCompressionPolicy = CompressionPolicy{
+	CompressorName: "none",
+}
 
 func mergeStrings(s1, s2 []string) []string {
 	merged := map[string]bool{}

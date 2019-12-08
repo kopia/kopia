@@ -74,7 +74,7 @@ func containsString(s []string, v string) bool {
 }
 
 func printPolicy(p *policy.Policy, parents []*policy.Policy) {
-	printStdout("Policy for %v:\n", p.Target())
+	printStdout("Policy for %v:\n\n", p.Target())
 
 	printRetentionPolicy(p, parents)
 	printStdout("\n")
@@ -86,7 +86,7 @@ func printPolicy(p *policy.Policy, parents []*policy.Policy) {
 }
 
 func printRetentionPolicy(p *policy.Policy, parents []*policy.Policy) {
-	printStdout("Keep:\n")
+	printStdout("Retention:\n")
 	printStdout("  Annual snapshots:  %3v           %v\n",
 		valueOrNotSet(p.RetentionPolicy.KeepAnnual),
 		getDefinitionPoint(parents, func(pol *policy.Policy) bool {
@@ -156,18 +156,24 @@ func printFilesPolicy(p *policy.Policy, parents []*policy.Policy) {
 }
 
 func printSchedulingPolicy(p *policy.Policy, parents []*policy.Policy) {
+	printStdout("Scheduled snapshots:\n")
+
+	any := false
+
 	if p.SchedulingPolicy.Interval() != 0 {
-		printStdout("Snapshot interval:     %10v  %v\n", p.SchedulingPolicy.Interval(), getDefinitionPoint(parents, func(pol *policy.Policy) bool {
+		printStdout("  Snapshot interval:   %10v  %v\n", p.SchedulingPolicy.Interval(), getDefinitionPoint(parents, func(pol *policy.Policy) bool {
 			return pol.SchedulingPolicy.Interval() != 0
 		}))
+
+		any = true
 	}
 
 	if len(p.SchedulingPolicy.TimesOfDay) > 0 {
-		printStdout("Snapshot times:\n")
+		printStdout("  Snapshot times:\n")
 
 		for _, tod := range p.SchedulingPolicy.TimesOfDay {
 			tod := tod
-			printStdout("  %9v                        %v\n", tod, getDefinitionPoint(parents, func(pol *policy.Policy) bool {
+			printStdout("    %9v                      %v\n", tod, getDefinitionPoint(parents, func(pol *policy.Policy) bool {
 				for _, t := range pol.SchedulingPolicy.TimesOfDay {
 					if t == tod {
 						return true
@@ -177,16 +183,24 @@ func printSchedulingPolicy(p *policy.Policy, parents []*policy.Policy) {
 				return false
 			}))
 		}
+
+		any = true
+	}
+
+	if !any {
+		printStdout("  None\n")
 	}
 }
 
 func printCompressionPolicy(p *policy.Policy, parents []*policy.Policy) {
-	printStdout("Compression policy:\n")
-
 	if p.CompressionPolicy.CompressorName != "" {
-		printStdout("  Compressor:     %10v  %v\n", p.CompressionPolicy.CompressorName, getDefinitionPoint(parents, func(pol *policy.Policy) bool {
+		printStdout("Compression:\n")
+		printStdout("  Compressor: %q %v\n", p.CompressionPolicy.CompressorName, getDefinitionPoint(parents, func(pol *policy.Policy) bool {
 			return pol.CompressionPolicy.CompressorName != ""
 		}))
+	} else {
+		printStdout("Compression disabled.\n")
+		return
 	}
 
 	switch {
@@ -201,7 +215,7 @@ func printCompressionPolicy(p *policy.Policy, parents []*policy.Policy) {
 		}
 
 	case len(p.CompressionPolicy.NeverCompress) > 0:
-		printStdout("  Try to compress all files except the following extensions:\n")
+		printStdout("  Compress all files except the following extensions:\n")
 
 		for _, rule := range p.CompressionPolicy.NeverCompress {
 			rule := rule
@@ -211,7 +225,18 @@ func printCompressionPolicy(p *policy.Policy, parents []*policy.Policy) {
 		}
 
 	default:
-		printStdout("  Try to compress all files regardless of extensions.\n")
+		printStdout("  Compress files regardless of extensions.\n")
+	}
+
+	switch {
+	case p.CompressionPolicy.MaxSize > 0:
+		printStdout("  Only compress files between %v and %v.\n", units.BytesStringBase10(p.CompressionPolicy.MinSize), units.BytesStringBase10(p.CompressionPolicy.MaxSize))
+
+	case p.CompressionPolicy.MinSize > 0:
+		printStdout("  Only compress files bigger than %v.\n", units.BytesStringBase10(p.CompressionPolicy.MinSize))
+
+	default:
+		printStdout("  Compress files of all sizes.\n")
 	}
 }
 
