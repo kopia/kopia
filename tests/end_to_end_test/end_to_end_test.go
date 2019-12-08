@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"testing"
@@ -412,6 +413,54 @@ func TestSnapshotRestore(t *testing.T) {
 	}
 }
 
+func TestCompression(t *testing.T) {
+	e := newTestEnv(t)
+	defer e.cleanup(t)
+	defer e.runAndExpectSuccess(t, "repo", "disconnect")
+
+	e.runAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.repoDir)
+
+	// set global policy
+	e.runAndExpectSuccess(t, "policy", "set", "--global", "--compression", "pgzip")
+
+	dataDir := filepath.Join(e.dataDir, "dir1")
+	assertNoError(t, os.MkdirAll(dataDir, 0777))
+
+	dataLines := []string{
+		"hello world",
+		"how are you",
+		"hello world",
+		"how are you",
+		"hello world",
+		"how are you",
+		"hello world",
+		"how are you",
+		"hello world",
+		"how are you",
+		"hello world",
+		"how are you",
+		"hello world",
+		"how are you",
+		"hello world",
+		"how are you",
+	}
+	// add a file that compresses well
+	assertNoError(t, ioutil.WriteFile(filepath.Join(dataDir, "some-file1"), []byte(strings.Join(dataLines, "\n")), 0600))
+
+	e.runAndExpectSuccess(t, "snapshot", "create", dataDir)
+	sources := listSnapshotsAndExpectSuccess(t, e)
+	oid := sources[0].snapshots[0].objectID
+	entries := listDirectory(t, e, oid)
+
+	if !strings.HasPrefix(entries[0].oid, "Z") {
+		t.Errorf("expected compressed object, got %v", entries[0].oid)
+	}
+
+	if lines := e.runAndExpectSuccess(t, "show", entries[0].oid); !reflect.DeepEqual(dataLines, lines) {
+		t.Errorf("invalid object contents")
+	}
+}
+
 func (e *testenv) runAndExpectSuccess(t *testing.T, args ...string) []string {
 	t.Helper()
 
@@ -496,6 +545,42 @@ func trimOutput(s string) string {
 func listSnapshotsAndExpectSuccess(t *testing.T, e *testenv, targets ...string) []sourceInfo {
 	lines := e.runAndExpectSuccess(t, append([]string{"snapshot", "list", "-l"}, targets...)...)
 	return mustParseSnapshots(t, lines)
+}
+
+type dirEntry struct {
+	name string
+	oid  string
+}
+
+func listDirectory(t *testing.T, e *testenv, targets ...string) []dirEntry {
+	lines := e.runAndExpectSuccess(t, append([]string{"ls", "-l"}, targets...)...)
+	return mustParseDirectoryEntries(lines)
+}
+
+func mustParseDirectoryEntries(lines []string) []dirEntry {
+	var result []dirEntry
+
+	for _, l := range lines {
+		parts := strings.Split(compressSpaces(l), " ")
+
+		result = append(result, dirEntry{
+			name: parts[6],
+			oid:  parts[5],
+		})
+	}
+
+	return result
+}
+
+func compressSpaces(l string) string {
+	for {
+		l2 := strings.ReplaceAll(l, "  ", " ")
+		if l2 == l {
+			return l
+		}
+
+		l = l2
+	}
 }
 
 func createDirectory(t *testing.T, dirname string, depth int) {
