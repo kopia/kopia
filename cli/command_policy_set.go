@@ -37,6 +37,8 @@ var (
 
 	// Name of compression algorithm.
 	policySetCompressionAlgorithm = policySetCommand.Flag("compression", "Compression algorithm").Enum(supportedCompressionAlgorithms()...)
+	policySetCompressionMinSize   = policySetCommand.Flag("compression-min-size", "Min size of file to attempt compression for").String()
+	policySetCompressionMaxSize   = policySetCommand.Flag("compression-max-size", "Max size of file to attempt compression for").String()
 
 	// Files to only compress.
 	policySetAddOnlyCompress    = policySetCommand.Flag("add-only-compress", "List of extensions to add to the only-compress list").PlaceHolder("PATTERN").Strings()
@@ -104,7 +106,10 @@ func setPolicyFromFlags(p *policy.Policy, changeCount *int) error {
 	}
 
 	setFilesPolicyFromFlags(&p.FilesPolicy, changeCount)
-	setCompressionPolicyFromFlags(&p.CompressionPolicy, changeCount)
+
+	if err := setCompressionPolicyFromFlags(&p.CompressionPolicy, changeCount); err != nil {
+		return errors.Wrap(err, "compression policy")
+	}
 
 	if err := setSchedulingPolicyFromFlags(&p.SchedulingPolicy, changeCount); err != nil {
 		return errors.Wrap(err, "scheduling policy")
@@ -210,7 +215,15 @@ func setSchedulingPolicyFromFlags(sp *policy.SchedulingPolicy, changeCount *int)
 	return nil
 }
 
-func setCompressionPolicyFromFlags(p *policy.CompressionPolicy, changeCount *int) {
+func setCompressionPolicyFromFlags(p *policy.CompressionPolicy, changeCount *int) error {
+	if err := applyPolicyNumber64("minimum file size subject to compression", &p.MaxSize, *policySetCompressionMinSize, changeCount); err != nil {
+		return errors.Wrap(err, "minimum file size subject to compression")
+	}
+
+	if err := applyPolicyNumber64("maximum file size subject to compression", &p.MaxSize, *policySetCompressionMaxSize, changeCount); err != nil {
+		return errors.Wrap(err, "maximum file size subject to compression")
+	}
+
 	if v := *policySetCompressionAlgorithm; v != "" {
 		*changeCount++
 
@@ -246,6 +259,8 @@ func setCompressionPolicyFromFlags(p *policy.CompressionPolicy, changeCount *int
 		p.NeverCompress = addRemoveDedupeAndSort("never-compress extensions",
 			p.NeverCompress, *policySetAddNeverCompress, *policySetRemoveNeverCompress, changeCount)
 	}
+
+	return nil
 }
 
 func addRemoveDedupeAndSort(desc string, base, add, remove []string, changeCount *int) []string {
@@ -340,5 +355,5 @@ func supportedCompressionAlgorithms() []string {
 
 	sort.Strings(res)
 
-	return append([]string{inheritPolicyString}, res...)
+	return append([]string{inheritPolicyString, "none"}, res...)
 }

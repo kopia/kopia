@@ -84,7 +84,7 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, f fs.File, pol *polic
 
 	writer := u.repo.Objects.NewWriter(ctx, object.WriterOptions{
 		Description: "FILE:" + f.Name(),
-		Compressor:  pol.CompressionPolicy.CompressorForFile(f.Name()),
+		Compressor:  pol.CompressionPolicy.CompressorForFile(f),
 	})
 	defer writer.Close() //nolint:errcheck
 

@@ -152,5 +152,8 @@ func getInitialGlobalPolicy() (*policy.Policy, error) {
 			KeepAnnual:  createGlobalPolicyKeepAnnual,
 		},
 		SchedulingPolicy: sp,
+		CompressionPolicy: policy.CompressionPolicy{
+			CompressorName: "none",
+		},
 	}, nil
 }
