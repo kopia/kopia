@@ -2,10 +2,10 @@ package localfs
 
 import (
 	"context"
-	"io"
 	"os"
 	"path/filepath"
 
+	"github.com/natefinch/atomic"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
@@ -136,14 +136,8 @@ func createDirectory(path string) error {
 }
 
 func copyFileContent(ctx context.Context, targetPath string, f fs.File) error {
-	var out *os.File
-
 	switch _, err := os.Stat(targetPath); {
-	case os.IsNotExist(err):
-		if out, err = os.Create(targetPath); err != nil {
-			return errors.Wrap(err, "failed to create new file "+targetPath)
-		}
-		defer out.Close() //nolint:errcheck
+	case os.IsNotExist(err): // copy file below
 	case err == nil:
 		return errors.Errorf("unable to create %q, it already exists", targetPath)
 	default:
@@ -156,9 +150,5 @@ func copyFileContent(ctx context.Context, targetPath string, f fs.File) error {
 	}
 	defer r.Close() //nolint:errcheck
 
-	if _, err = io.Copy(out, r); err != nil {
-		return errors.Wrapf(err, "unable to restore %q content", targetPath)
-	}
-
-	return out.Sync()
+	return atomic.WriteFile(targetPath, r)
 }
