@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/internal/units"
-	"github.com/kopia/kopia/repo/object"
+	"github.com/kopia/kopia/repo/compression"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -23,7 +23,7 @@ var (
 
 func runBenchmarkCompressionAction(ctx *kingpin.ParseContext) error {
 	type benchResult struct {
-		compression    object.CompressorName
+		compression    compression.Name
 		throughput     float64
 		compressedSize int64
 	}
@@ -41,7 +41,7 @@ func runBenchmarkCompressionAction(ctx *kingpin.ParseContext) error {
 		data = d
 	}
 
-	for name, comp := range object.CompressorsByName {
+	for name, comp := range compression.ByName {
 		log.Infof("Benchmarking compressor '%v' (%v x %v bytes)", name, *benchmarkCompressionRepeat, len(data))
 
 		t0 := time.Now()

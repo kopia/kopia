@@ -1,4 +1,4 @@
-package object
+package compression
 
 import (
 	"bytes"
@@ -9,22 +9,22 @@ import (
 )
 
 func init() {
-	RegisterCompressor("gzip", newGZipCompressor(0x1000, gzip.DefaultCompression))
-	RegisterCompressor("gzip-best-speed", newGZipCompressor(0x1001, gzip.BestSpeed))
-	RegisterCompressor("gzip-best-compression", newGZipCompressor(0x1002, gzip.BestCompression))
+	RegisterCompressor("gzip", newGZipCompressor(headerGzipDefault, gzip.DefaultCompression))
+	RegisterCompressor("gzip-best-speed", newGZipCompressor(headerGzipBestSpeed, gzip.BestSpeed))
+	RegisterCompressor("gzip-best-compression", newGZipCompressor(headerGzipBestCompression, gzip.BestCompression))
 }
 
-func newGZipCompressor(id uint32, level int) Compressor {
+func newGZipCompressor(id HeaderID, level int) Compressor {
 	return &gzipCompressor{id, compressionHeader(id), level}
 }
 
 type gzipCompressor struct {
-	id     uint32
+	id     HeaderID
 	header []byte
 	level  int
 }
 
-func (c *gzipCompressor) ID() uint32 {
+func (c *gzipCompressor) HeaderID() HeaderID {
 	return c.id
 }
 

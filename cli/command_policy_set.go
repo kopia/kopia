@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/object"
+	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
@@ -234,7 +234,7 @@ func setCompressionPolicyFromFlags(p *policy.CompressionPolicy, changeCount *int
 		} else {
 			printStderr(" - setting compression algorithm to %v\n", v)
 
-			p.CompressorName = object.CompressorName(v)
+			p.CompressorName = compression.Name(v)
 		}
 	}
 
@@ -349,7 +349,7 @@ func applyPolicyNumber64(desc string, val *int64, str string, changeCount *int) 
 
 func supportedCompressionAlgorithms() []string {
 	var res []string
-	for name := range object.CompressorsByName {
+	for name := range compression.ByName {
 		res = append(res, string(name))
 	}
 

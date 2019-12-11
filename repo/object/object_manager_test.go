@@ -16,6 +16,7 @@ import (
 	"testing"
 
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
 )
 
@@ -329,7 +330,7 @@ func TestEndToEndReadAndSeekWithCompression(t *testing.T) {
 	ctx := context.Background()
 	_, om := setupTest(t)
 
-	for compressorName := range CompressorsByName {
+	for compressorName := range compression.ByName {
 		for _, size := range []int{1, 199, 200, 201, 9999, 512434} {
 			// Create some random data sample of the specified size.
 			randomData := make([]byte, size)
