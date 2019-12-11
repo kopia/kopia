@@ -216,7 +216,7 @@ func setSchedulingPolicyFromFlags(sp *policy.SchedulingPolicy, changeCount *int)
 }
 
 func setCompressionPolicyFromFlags(p *policy.CompressionPolicy, changeCount *int) error {
-	if err := applyPolicyNumber64("minimum file size subject to compression", &p.MaxSize, *policySetCompressionMinSize, changeCount); err != nil {
+	if err := applyPolicyNumber64("minimum file size subject to compression", &p.MinSize, *policySetCompressionMinSize, changeCount); err != nil {
 		return errors.Wrap(err, "minimum file size subject to compression")
 	}
 

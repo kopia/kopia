@@ -561,7 +561,7 @@ func mustParseDirectoryEntries(lines []string) []dirEntry {
 	var result []dirEntry
 
 	for _, l := range lines {
-		parts := strings.Split(compressSpaces(l), " ")
+		parts := strings.Fields(l)
 
 		result = append(result, dirEntry{
 			name: parts[6],
@@ -570,17 +570,6 @@ func mustParseDirectoryEntries(lines []string) []dirEntry {
 	}
 
 	return result
-}
-
-func compressSpaces(l string) string {
-	for {
-		l2 := strings.ReplaceAll(l, "  ", " ")
-		if l2 == l {
-			return l
-		}
-
-		l = l2
-	}
 }
 
 func createDirectory(t *testing.T, dirname string, depth int) {
