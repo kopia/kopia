@@ -5,19 +5,19 @@ import (
 	"sort"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/repo/object"
+	"github.com/kopia/kopia/repo/compression"
 )
 
 // CompressionPolicy specifies compression policy.
 type CompressionPolicy struct {
-	CompressorName object.CompressorName `json:"compressorName,omitempty"`
-	OnlyCompress   []string              `json:"onlyCompress,omitempty"`
-	NeverCompress  []string              `json:"neverCompress,omitempty"`
-	MinSize        int64                 `json:"minSize,omitempty"`
-	MaxSize        int64                 `json:"maxSize,omitempty"`
+	CompressorName compression.Name `json:"compressorName,omitempty"`
+	OnlyCompress   []string         `json:"onlyCompress,omitempty"`
+	NeverCompress  []string         `json:"neverCompress,omitempty"`
+	MinSize        int64            `json:"minSize,omitempty"`
+	MaxSize        int64            `json:"maxSize,omitempty"`
 }
 
-func (p *CompressionPolicy) CompressorForFile(e fs.File) object.CompressorName {
+func (p *CompressionPolicy) CompressorForFile(e fs.File) compression.Name {
 	ext := filepath.Ext(e.Name())
 	size := e.Size()
 

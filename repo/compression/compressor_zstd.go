@@ -1,4 +1,4 @@
-package object
+package compression
 
 import (
 	"bytes"
@@ -9,23 +9,23 @@ import (
 )
 
 func init() {
-	RegisterCompressor("zstd", newZstdCompressor(0x1100, zstd.SpeedDefault))
-	RegisterCompressor("zstd-fastest", newZstdCompressor(0x1101, zstd.SpeedFastest))
-	RegisterCompressor("zstd-better-compression", newZstdCompressor(0x1102, zstd.SpeedBetterCompression))
-	RegisterCompressor("zstd-best-compression", newZstdCompressor(0x1103, zstd.SpeedBestCompression))
+	RegisterCompressor("zstd", newZstdCompressor(headerZstdDefault, zstd.SpeedDefault))
+	RegisterCompressor("zstd-fastest", newZstdCompressor(headerZstdFastest, zstd.SpeedFastest))
+	RegisterCompressor("zstd-better-compression", newZstdCompressor(headerZstdBetterCompression, zstd.SpeedBetterCompression))
+	RegisterCompressor("zstd-best-compression", newZstdCompressor(headerZstdBestCompression, zstd.SpeedBestCompression))
 }
 
-func newZstdCompressor(id uint32, level zstd.EncoderLevel) Compressor {
+func newZstdCompressor(id HeaderID, level zstd.EncoderLevel) Compressor {
 	return &zstdCompressor{id, compressionHeader(id), level}
 }
 
 type zstdCompressor struct {
-	id     uint32
+	id     HeaderID
 	header []byte
 	level  zstd.EncoderLevel
 }
 
-func (c *zstdCompressor) ID() uint32 {
+func (c *zstdCompressor) HeaderID() HeaderID {
 	return c.id
 }
 

@@ -1,4 +1,4 @@
-package object
+package compression
 
 import (
 	"bytes"
@@ -8,7 +8,7 @@ import (
 )
 
 func TestCompressor(t *testing.T) {
-	for id, comp := range Compressors {
+	for id, comp := range ByHeaderID {
 		id, comp := id, comp
 
 		t.Run(fmt.Sprintf("compressible-data-%x", id), func(t *testing.T) {
@@ -25,7 +25,7 @@ func TestCompressor(t *testing.T) {
 				t.Errorf("compression not effective for all-zero data")
 			}
 
-			for id2, comp2 := range Compressors {
+			for id2, comp2 := range ByHeaderID {
 				if id != id2 {
 					if _, err2 := comp2.Decompress(cData); err2 == nil {
 						t.Errorf("compressor %x was able to decompress results of %x", id2, id)

@@ -1,4 +1,4 @@
-package object
+package compression
 
 import (
 	"bytes"
@@ -9,23 +9,23 @@ import (
 )
 
 func init() {
-	RegisterCompressor("s2-default", newS2Compressor(0x1200))
-	RegisterCompressor("s2-better", newS2Compressor(0x1201, s2.WriterBetterCompression()))
-	RegisterCompressor("s2-parallel-4", newS2Compressor(0x1202, s2.WriterConcurrency(4)))
-	RegisterCompressor("s2-parallel-8", newS2Compressor(0x1203, s2.WriterConcurrency(8)))
+	RegisterCompressor("s2-default", newS2Compressor(headerS2Default))
+	RegisterCompressor("s2-better", newS2Compressor(headerS2Better, s2.WriterBetterCompression()))
+	RegisterCompressor("s2-parallel-4", newS2Compressor(headerS2Parallel4, s2.WriterConcurrency(4)))
+	RegisterCompressor("s2-parallel-8", newS2Compressor(headerS2Parallel8, s2.WriterConcurrency(8)))
 }
 
-func newS2Compressor(id uint32, opts ...s2.WriterOption) Compressor {
+func newS2Compressor(id HeaderID, opts ...s2.WriterOption) Compressor {
 	return &s2Compressor{id, compressionHeader(id), opts}
 }
 
 type s2Compressor struct {
-	id     uint32
+	id     HeaderID
 	header []byte
 	opts   []s2.WriterOption
 }
 
-func (c *s2Compressor) ID() uint32 {
+func (c *s2Compressor) HeaderID() HeaderID {
 	return c.id
 }
 

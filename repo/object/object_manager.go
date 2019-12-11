@@ -10,6 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
 )
 
@@ -53,7 +54,7 @@ func (om *Manager) NewWriter(ctx context.Context, opt WriterOptions) Writer {
 		splitter:    om.newSplitter(),
 		description: opt.Description,
 		prefix:      opt.Prefix,
-		compressor:  CompressorsByName[opt.Compressor],
+		compressor:  compression.ByName[opt.Compressor],
 	}
 }
 
@@ -241,9 +242,9 @@ func (om *Manager) decompress(b []byte) ([]byte, error) {
 		return nil, errors.Errorf("invalid compression header")
 	}
 
-	compressorID := binary.BigEndian.Uint32(b[0:4])
+	compressorID := compression.HeaderID(binary.BigEndian.Uint32(b[0:4]))
 
-	compressor := Compressors[compressorID]
+	compressor := compression.ByHeaderID[compressorID]
 	if compressor == nil {
 		return nil, errors.Errorf("unsupported compressor %x", compressorID)
 	}

@@ -9,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
 )
 
@@ -52,7 +53,7 @@ type objectWriter struct {
 	ctx  context.Context
 	repo *Manager
 
-	compressor Compressor
+	compressor compression.Compressor
 
 	prefix      content.ID
 	buffer      bytes.Buffer
@@ -179,5 +180,5 @@ func (w *objectWriter) Result() (ID, error) {
 type WriterOptions struct {
 	Description string
 	Prefix      content.ID // empty string or a single-character ('g'..'z')
-	Compressor  CompressorName
+	Compressor  compression.Name
 }
