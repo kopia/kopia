@@ -13,7 +13,7 @@ var (
 	snapshotExpireCommand = snapshotCommands.Command("expire", "Remove old snapshots according to defined expiration policies.")
 
 	snapshotExpireAll    = snapshotExpireCommand.Flag("all", "Expire all snapshots").Bool()
-	snapshotExpirePaths  = snapshotExpireCommand.Arg("path", "Expire snapshots for a given paths only").Strings()
+	snapshotExpirePaths  = snapshotExpireCommand.Arg("path", "Expire snapshots for given paths only").Strings()
 	snapshotExpireDelete = snapshotExpireCommand.Flag("delete", "Whether to actually delete snapshots").Bool()
 )
 
