@@ -29,7 +29,7 @@ else
 endif
 	mv $(TOOLS_DIR)/nodejs/node-v$(NODE_VERSION)* $(TOOLS_DIR)/nodejs/node/
 
-BINDATA_TOOL=$(TOOLS_DIR)/go-bindata
+BINDATA_TOOL=$(TOOLS_DIR)/bin/go-bindata
 
 $(BINDATA_TOOL):
 	go build -o $(BINDATA_TOOL) github.com/go-bindata/go-bindata/go-bindata
