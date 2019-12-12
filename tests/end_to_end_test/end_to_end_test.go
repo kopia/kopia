@@ -45,8 +45,9 @@ type sourceInfo struct {
 }
 
 type snapshotInfo struct {
-	objectID string
-	time     time.Time
+	objectID   string
+	snapshotID string
+	time       time.Time
 }
 
 func newTestEnv(t *testing.T) *testenv {
@@ -297,6 +298,314 @@ how are you
 	e.runAndVerifyOutputLineCount(t, expectedContentCount, "content", "list")
 }
 
+type deleteArgMaker func(manifestID string, source sourceInfo) []string
+
+func TestSnapshotDelete(t *testing.T) {
+	expectFail := false
+	expectSuccess := true
+	for _, tc := range []struct {
+		desc          string
+		mf            deleteArgMaker
+		expectSuccess bool
+	}{
+		{
+			"Test manifest rm function",
+			func(manifestID string, source sourceInfo) []string {
+				return []string{"manifest", "rm", manifestID}
+			},
+			expectSuccess,
+		},
+		{
+			"Specify all source values correctly",
+			func(manifestID string, source sourceInfo) []string {
+				return []string{"snapshot", "delete", manifestID,
+					"--hostname", source.host,
+					"--username", source.user,
+					"--path", source.path,
+				}
+			},
+			expectSuccess,
+		},
+		{
+			"Specify path and username, using default hostname",
+			func(manifestID string, source sourceInfo) []string {
+				return []string{"snapshot", "delete", manifestID,
+					"--username", source.user,
+					"--path", source.path,
+				}
+			},
+			expectSuccess,
+		},
+		{
+			"Specify path and hostname, using default username",
+			func(manifestID string, source sourceInfo) []string {
+				return []string{"snapshot", "delete", manifestID,
+					"--hostname", source.host,
+					"--path", source.path,
+				}
+			},
+			expectSuccess,
+		},
+		{
+			"No source flags, with unsafe ignore source flag",
+			func(manifestID string, source sourceInfo) []string {
+				return []string{"snapshot", "delete", manifestID,
+					"--unsafe-ignore-source",
+				}
+			},
+			expectSuccess,
+		},
+		{
+			"Specify path only, using default username and hostname",
+			func(manifestID string, source sourceInfo) []string {
+				return []string{"snapshot", "delete", manifestID,
+					"--path", source.path,
+				}
+			},
+			expectSuccess,
+		},
+		{
+			"Specify all source flags, incorrect host name",
+			func(manifestID string, source sourceInfo) []string {
+				return []string{"snapshot", "delete", manifestID,
+					"--hostname", "some-other-host",
+					"--username", source.user,
+					"--path", source.path,
+				}
+			},
+			expectFail,
+		},
+		{
+			"Specify all source flags, incorrect user name",
+			func(manifestID string, source sourceInfo) []string {
+				return []string{"snapshot", "delete", manifestID,
+					"--hostname", source.host,
+					"--username", "some-other-user",
+					"--path", source.path,
+				}
+			},
+			expectFail,
+		},
+		{
+			"Specify all source flags, incorrect path",
+			func(manifestID string, source sourceInfo) []string {
+				return []string{"snapshot", "delete", manifestID,
+					"--hostname", source.host,
+					"--username", source.user,
+					"--path", "some-wrong-path",
+				}
+			},
+			expectFail,
+		},
+		{
+			"Specify all source flags, incorrect hostname, ignore flag set",
+			func(manifestID string, source sourceInfo) []string {
+				return []string{"snapshot", "delete", manifestID,
+					"--unsafe-ignore-source",
+					"--hostname", "some-other-host",
+					"--username", source.user,
+					"--path", source.path,
+				}
+			},
+			expectSuccess,
+		},
+		{
+			"Specify all source flags, incorrect username, ignore flag set",
+			func(manifestID string, source sourceInfo) []string {
+				return []string{"snapshot", "delete", manifestID,
+					"--hostname", source.host,
+					"--username", "some-other-user",
+					"--unsafe-ignore-source",
+					"--path", source.path,
+				}
+			},
+			expectSuccess,
+		},
+		{
+			"Specify all source flags, incorrect path, ignore flag set",
+			func(manifestID string, source sourceInfo) []string {
+				return []string{"snapshot", "delete", manifestID,
+					"--hostname", source.host,
+					"--username", source.user,
+					"--path", "some-wrong-path",
+					"--unsafe-ignore-source",
+				}
+			},
+			expectSuccess,
+		},
+		{
+			"No manifest ID provided",
+			func(manifestID string, source sourceInfo) []string {
+				return []string{"snapshot", "delete"}
+			},
+			expectFail,
+		},
+		{
+			"No manifest ID provided, ignore source flag set",
+			func(manifestID string, source sourceInfo) []string {
+				return []string{"snapshot", "delete",
+					"--unsafe-ignore-source",
+				}
+			},
+			expectFail,
+		},
+		{
+			"Garbage manifest ID provided",
+			func(manifestID string, source sourceInfo) []string {
+				return []string{"snapshot", "delete", "some-garbage-manifestID"}
+			},
+			expectFail,
+		},
+		{
+			"Hostname flag provided but no value input",
+			func(manifestID string, source sourceInfo) []string {
+				return []string{"snapshot", "delete", manifestID,
+					"--hostname",
+					"--username", source.user,
+					"--path", source.path,
+				}
+			},
+			expectFail,
+		},
+		{
+			"No path provided and no unsafe ignore source flag provided",
+			func(manifestID string, source sourceInfo) []string {
+				return []string{"snapshot", "delete", manifestID}
+			},
+			expectFail,
+		},
+		{
+			"Specify hostname and username with no path provided",
+			func(manifestID string, source sourceInfo) []string {
+				return []string{"snapshot", "delete", manifestID,
+					"--hostname", source.host,
+					"--username", source.user,
+				}
+			},
+			expectFail,
+		},
+	} {
+		t.Log(tc.desc)
+		testSnapshotDelete(t, tc.mf, tc.expectSuccess)
+	}
+}
+
+func testSnapshotDelete(t *testing.T, argMaker deleteArgMaker, expectDeleteSucceeds bool) {
+	e := newTestEnv(t)
+	defer e.cleanup(t)
+	defer e.runAndExpectSuccess(t, "repo", "disconnect")
+
+	e.runAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.repoDir)
+
+	dataDir := filepath.Join(e.dataDir, "dir1")
+	assertNoError(t, os.MkdirAll(dataDir, 0777))
+	assertNoError(t, ioutil.WriteFile(filepath.Join(dataDir, "some-file1"), []byte(`
+hello world
+how are you
+`), 0600))
+
+	// take a snapshot of a directory with 1 file
+	e.runAndExpectSuccess(t, "snap", "create", dataDir)
+
+	// now delete all manifests, making the content unreachable
+	si := listSnapshotsAndExpectSuccess(t, e, dataDir)
+	for _, source := range si {
+		for _, ss := range source.snapshots {
+			manifestID := ss.snapshotID
+			t.Logf("manifestID: %v", manifestID)
+			args := argMaker(manifestID, source)
+			if expectDeleteSucceeds {
+				e.runAndExpectSuccess(t, args...)
+			} else {
+				e.runAndExpectFailure(t, args...)
+			}
+		}
+	}
+}
+
+func TestSnapshotDeleteTypeCheck(t *testing.T) {
+	e := newTestEnv(t)
+	defer e.cleanup(t)
+	defer e.runAndExpectSuccess(t, "repo", "disconnect")
+
+	e.runAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.repoDir)
+
+	lines := e.runAndExpectSuccess(t, "manifest", "ls")
+	if len(lines) != 1 {
+		t.Fatalf("Expected 1 line global policy output for manifest ls")
+	}
+	line := lines[0]
+	fields := strings.Fields(line)
+	manifestID := fields[0]
+	typeField := fields[5]
+	typeVal := strings.TrimPrefix(typeField, "type:")
+	if typeVal != "policy" {
+		t.Fatalf("Expected global policy manifest on a fresh repo")
+	}
+
+	e.runAndExpectFailure(t, "snapshot", "delete", manifestID, "--unsafe-ignore-source")
+}
+
+func TestSnapshotDeleteRestore(t *testing.T) {
+	e := newTestEnv(t)
+	defer e.cleanup(t)
+	defer e.runAndExpectSuccess(t, "repo", "disconnect")
+
+	e.runAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.repoDir)
+
+	source := filepath.Join(e.dataDir, "source")
+	createDirectory(t, source, 1)
+	restoreDir := filepath.Join(e.dataDir, "restored")
+
+	// Create snapshot
+	e.runAndExpectSuccess(t, "snapshot", "create", source)
+
+	// obtain snapshot root id and use it for restore
+	si := listSnapshotsAndExpectSuccess(t, e, source)
+	if got, want := len(si), 1; got != want {
+		t.Fatalf("got %v sources, wanted %v", got, want)
+	}
+	if got, want := len(si[0].snapshots), 1; got != want {
+		t.Fatalf("got %v snapshots, wanted %v", got, want)
+	}
+	snapID := si[0].snapshots[0].snapshotID
+	rootID := si[0].snapshots[0].objectID
+
+	e.runAndExpectSuccess(t, "restore", rootID, restoreDir)
+
+	// Note: restore does not reset the permissions for the top directory due to
+	// the way the top FS entry is created in snapshotfs. Force the permissions
+	// of the top directory to match those of the source so the recursive
+	// directory comparison has a chance of succeeding.
+	assertNoError(t, os.Chmod(restoreDir, 0700))
+	compareDirs(t, source, restoreDir)
+
+	// snapshot delete should succeed
+	e.runAndExpectSuccess(t, "snapshot", "delete", snapID,
+		"--unsafe-ignore-source",
+	)
+
+	// Subsequent snapshot delete to the same ID should fail
+	e.runAndExpectFailure(t, "snapshot", "delete", snapID,
+		"--unsafe-ignore-source",
+	)
+
+	// garbage-collect to clean up the root object. Otherwise
+	// a restore will succeed
+	e.runAndExpectSuccess(t, "snapshot", "gc", "--delete", "--min-age", "0s")
+
+	// Run a restore on the deleted snapshot's root ID
+	notRestoreDir := filepath.Join(e.dataDir, "notrestored")
+	e.runAndExpectFailure(t, "restore", rootID, notRestoreDir)
+
+	// Make sure the restore did not happen from the deleted snapshot
+	fileInfo, err := ioutil.ReadDir(notRestoreDir)
+	assertNoError(t, err)
+	if len(fileInfo) != 0 {
+		t.Fatalf("expected nothing to be restored")
+	}
+}
+
 func TestDiff(t *testing.T) {
 	e := newTestEnv(t)
 	defer e.cleanup(t)
@@ -390,6 +699,10 @@ func TestSnapshotRestore(t *testing.T) {
 	// directory comparison has a chance of succeeding.
 	assertNoError(t, os.Chmod(restoreDir, 0700))
 
+	compareDirs(t, source, restoreDir)
+}
+
+func compareDirs(t *testing.T, source, restoreDir string) {
 	// Restored contents should match source
 	s, err := localfs.Directory(source)
 	assertNoError(t, err)
@@ -543,7 +856,7 @@ func trimOutput(s string) string {
 }
 
 func listSnapshotsAndExpectSuccess(t *testing.T, e *testenv, targets ...string) []sourceInfo {
-	lines := e.runAndExpectSuccess(t, append([]string{"snapshot", "list", "-l"}, targets...)...)
+	lines := e.runAndExpectSuccess(t, append([]string{"snapshot", "list", "-l", "--manifest-id"}, targets...)...)
 	return mustParseSnapshots(t, lines)
 }
 
@@ -650,9 +963,13 @@ func mustParseSnaphotInfo(t *testing.T, l string) snapshotInfo {
 		t.Fatalf("err: %v", err)
 	}
 
+	manifestField := parts[7]
+	snapID := strings.TrimPrefix(manifestField, "manifest:")
+
 	return snapshotInfo{
-		time:     ts,
-		objectID: parts[3],
+		time:       ts,
+		objectID:   parts[3],
+		snapshotID: snapID,
 	}
 }
 
