@@ -58,8 +58,8 @@ func ListSnapshots(ctx context.Context, rep *repo.Repository, si SourceInfo) ([]
 	return LoadSnapshots(ctx, rep, entryIDs(entries))
 }
 
-// loadSnapshot loads and parses a snapshot with a given ID.
-func loadSnapshot(ctx context.Context, rep *repo.Repository, manifestID manifest.ID) (*Manifest, error) {
+// LoadSnapshot loads and parses a snapshot with a given ID.
+func LoadSnapshot(ctx context.Context, rep *repo.Repository, manifestID manifest.ID) (*Manifest, error) {
 	sm := &Manifest{}
 	if err := rep.Manifests.Get(ctx, manifestID, sm); err != nil {
 		return nil, errors.Wrap(err, "unable to find manifest entries")
@@ -105,7 +105,7 @@ func LoadSnapshots(ctx context.Context, rep *repo.Repository, manifestIDs []mani
 		go func(i int, n manifest.ID) {
 			defer func() { <-sem }()
 
-			m, err := loadSnapshot(ctx, rep, n)
+			m, err := LoadSnapshot(ctx, rep, n)
 			if err != nil {
 				log.Warningf("unable to parse snapshot manifest %v: %v", n, err)
 				return

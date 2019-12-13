@@ -51,7 +51,7 @@ func runRestoreCommand(ctx context.Context, rep *repo.Repository) error {
 		return err
 	}
 
-	return snapshotfs.Restore(ctx, rep, *restoreCommandTargetPath, oid)
+	return snapshotfs.RestoreRoot(ctx, rep, *restoreCommandTargetPath, oid)
 }
 
 func init() {
