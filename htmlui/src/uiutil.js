@@ -29,6 +29,9 @@ function toDecimalUnitString(f, thousand, prefixes, suffix) {
 
 
 export function sizeDisplayName(s) {
+    if (s === undefined) {
+        return "";
+    }
     return toDecimalUnitString(s, 1000, base10UnitPrefixes, "B");
 }
 
@@ -62,5 +65,5 @@ export function objectLink(n) {
     if (n.startsWith("k")) {
         return "/snapshots/dir/" + n;
     }
-    return "/snapshots/file/" + n;
+    return "/api/v1/objects/" + n;
 }

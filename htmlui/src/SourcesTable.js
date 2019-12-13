@@ -25,7 +25,7 @@ export class SourcesTable extends Component {
             selectedUser: allUsers,
         };
     }
-    ;
+
     componentDidMount() {
         this.setState({ isLoading: true });
         axios.get('/api/v1/sources').then(result => {
@@ -54,6 +54,7 @@ export class SourcesTable extends Component {
     hostClicked(h) {
         alert('host clicked ' + h);
     }
+
     render() {
         let { sources, isLoading, error } = this.state;
         if (error) {
@@ -124,7 +125,7 @@ export class SourcesTable extends Component {
       <Dropdown.Item onClick={() => this.selectHost(allHosts)}>(all)</Dropdown.Item>
       {uniqueHosts.map(v => <Dropdown.Item onClick={() => this.selectHost(v)}>{v}</Dropdown.Item>)}
   </Dropdown.Menu>
-</Dropdown>      
+</Dropdown>
 
 &nbsp;
 <Dropdown>
@@ -139,7 +140,7 @@ export class SourcesTable extends Component {
 </Dropdown>
 </Row>
 
-<p></p>      
+<p></p>
             <Row><ReactTable data={sources} columns={columns} /></Row>
         </div>;
 
