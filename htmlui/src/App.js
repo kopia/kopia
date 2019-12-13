@@ -8,20 +8,17 @@ import 'react-table/react-table.css'
 import { SourcesTable } from "./SourcesTable";
 import { PoliciesTable } from "./PoliciesTable";
 import { SnapshotsTable } from "./SnapshotsTable";
+import { DirectoryObject } from "./DirectoryObject";
 import Navbar from 'react-bootstrap/Navbar';
 import { NavLink } from 'react-router-dom';
 import Nav from 'react-bootstrap/Nav';
 import Container from 'react-bootstrap/Container';
-
-import { withRouter } from "react-router";
 
 import {
   BrowserRouter as Router,
   Switch,
   Route,
 } from "react-router-dom";
-
-const SnapshotsTableWithRouter = withRouter(SnapshotsTable);
 
 function App() {
   return (
@@ -40,21 +37,10 @@ function App() {
 
         <Container>
           <Switch>
-            <Route path="/snapshots/single-source/">
-              <SnapshotsTableWithRouter />
-            </Route>
-            <Route path="/snapshots/dir/">
-              <p>not implemented: directory browser</p>
-            </Route>
-            <Route path="/snapshots/file/">
-            <p>not implemented: file browser</p>
-            </Route>
-            <Route path="/snapshots">
-              <SourcesTable />
-            </Route>
-            <Route path="/policies">
-              <PoliciesTable />
-            </Route>
+            <Route path="/snapshots/single-source/" component={SnapshotsTable} />
+            <Route path="/snapshots/dir/:oid" component={DirectoryObject} />
+            <Route path="/snapshots" component={SourcesTable} />
+            <Route path="/policies" component={PoliciesTable} />
             <Route exact path="/">
               <p>not implemented: Status</p>
             </Route>

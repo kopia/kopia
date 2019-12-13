@@ -58,7 +58,6 @@ export class SnapshotsTable extends Component {
             selectedSnapshot: null,
          });
         const u = '/api/v1/snapshots?host=' + q.host + '&userName=' + q.userName + '&path=' + q.path;
-        console.log('u', u);
         axios.get(u).then(result => {
             console.log('got snapshots', result.data);
             this.setState({

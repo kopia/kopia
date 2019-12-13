@@ -1,6 +1,5 @@
 import React, { Component } from 'react';
 import ReactTable from 'react-table';
-import Button from 'react-bootstrap/Button';
 import axios from 'axios';
 
 import {
@@ -67,11 +66,6 @@ export class PoliciesTable extends Component {
             accessor: x => timesOfDayDisplayName(x.policy.scheduling.timesOfDay),
         }]
         
-        return <div>
- <Button size="xxl">
-    flat button
-  </Button>
-              <ReactTable data={items} columns={columns} />;
-            </div>
+        return <ReactTable data={items} columns={columns} />;
     }
 }
