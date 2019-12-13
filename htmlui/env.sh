@@ -1,1 +1,1 @@
-PATH=$(pwd)/../.tools/nodejs/node/bin:$PATH
+PATH=$(pwd)/../tools/.tools/nodejs/node/bin:$PATH
