@@ -7,8 +7,11 @@ include tools/tools.mk
 
 -include ./Makefile.local.mk
 
-build:
-	go build github.com/kopia/kopia/...
+install: html-ui-bindata
+	go install -tags embedhtml
+
+install-noui: 
+	go install
 
 escape-analysis:
 	go build -gcflags '-m -l' github.com/kopia/kopia/...
