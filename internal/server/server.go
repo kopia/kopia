@@ -42,6 +42,7 @@ func (s *Server) APIHandlers() http.Handler {
 	mux.HandleFunc("/api/v1/sources/upload", s.handleAPI(s.handleUpload, "POST"))
 	mux.HandleFunc("/api/v1/sources/cancel", s.handleAPI(s.handleCancel, "POST"))
 	mux.HandleFunc("/api/v1/objects/", s.handleObjectGet)
+
 	return mux
 }
 

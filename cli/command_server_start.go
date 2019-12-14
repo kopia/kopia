@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/subtle"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -35,18 +37,36 @@ func runServer(ctx context.Context, rep *repo.Repository) error {
 
 	go rep.RefreshPeriodically(ctx, 10*time.Second)
 
-	url := "http://" + *serverAddress
-	log.Infof("starting server on %v", url)
+	rootURL := "http://" + *serverAddress
+	log.Infof("starting server on %v", rootURL)
 	http.Handle("/api/", maybeRequireAuth(srv.APIHandlers()))
 
 	if *serverStartHTMLPath != "" {
 		fileServer := http.FileServer(http.Dir(*serverStartHTMLPath))
 		http.Handle("/", maybeRequireAuth(fileServer))
 	} else if *serverStartUI {
-		http.Handle("/", maybeRequireAuth(http.FileServer(server.AssetFile())))
+		http.Handle("/", maybeRequireAuth(serveIndexFileForKnownUIRoutes(http.FileServer(server.AssetFile()))))
 	}
 
 	return http.ListenAndServe(*serverAddress, nil)
+}
+
+func isKnownUIRoute(path string) bool {
+	return strings.HasPrefix(path, "/snapshots/")
+}
+
+func serveIndexFileForKnownUIRoutes(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if isKnownUIRoute(r.URL.Path) {
+			r2 := new(http.Request)
+			*r2 = *r
+			r2.URL = new(url.URL)
+			*r2.URL = *r.URL
+			r2.URL.Path = "/"
+			r = r2
+		}
+		h.ServeHTTP(w, r)
+	})
 }
 
 func maybeRequireAuth(handler http.Handler) http.Handler {
