@@ -3,7 +3,6 @@ import logo from './kopia-flat.svg';
 import './App.css';
 
 import 'bootstrap/dist/css/bootstrap.min.css';
-import 'react-table/react-table.css'
  
 import { SourcesTable } from "./SourcesTable";
 import { PoliciesTable } from "./PoliciesTable";

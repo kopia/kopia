@@ -1,6 +1,6 @@
 import React, { Component } from 'react';
-import ReactTable from 'react-table';
 import axios from 'axios';
+import MyTable from './Table';
 
 import {
     sourceDisplayName,
@@ -65,7 +65,7 @@ export class PoliciesTable extends Component {
             Header: 'Times of Day',
             accessor: x => timesOfDayDisplayName(x.policy.scheduling.timesOfDay),
         }]
-        
-        return <ReactTable data={items} columns={columns} />;
+
+        return <MyTable data={items} columns={columns} />;
     }
 }

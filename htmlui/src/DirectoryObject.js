@@ -1,9 +1,10 @@
 import React, { Component } from 'react';
 import axios from 'axios';
-
-import { DirectoryItems } from "./DirectoryItems";
 import Button from 'react-bootstrap/Button';
 import Spinner from 'react-bootstrap/Spinner';
+import Row from 'react-bootstrap/Row';
+
+import { DirectoryItems } from "./DirectoryItems";
 
 export class DirectoryObject extends Component {
     constructor() {
@@ -51,11 +52,16 @@ export class DirectoryObject extends Component {
             return <Spinner animation="border" variant="primary" />;
         }
 
-        return <div>
-            <Button size="xxl" onClick={this.props.history.goBack} >
+        return <>
+            <Row>
+            <Button size="xxl" variant="dark" onClick={this.props.history.goBack} >
                 Back
             </Button>
+            </Row>
+            <hr/>
+            <Row>
             <DirectoryItems items={items} />
-        </div>
+            </Row>
+        </>
     }
 }

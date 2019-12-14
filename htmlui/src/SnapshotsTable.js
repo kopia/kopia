@@ -1,12 +1,12 @@
 import React, { Component } from 'react';
-import ReactTable from 'react-table';
+import MyTable from './Table';
 import axios from 'axios';
 
 import {
     parseQuery,
     sizeDisplayName,
     objectLink,
-    rfc3339TimestampDisplayName,
+    rfc3339TimestampForDisplay,
 } from './uiutil';
 
 import {
@@ -16,6 +16,7 @@ import {
 import Spinner from 'react-bootstrap/Spinner';
 import Badge from 'react-bootstrap/Badge';
 import Form from 'react-bootstrap/Form';
+import Row from 'react-bootstrap/Row';
 
 
 function pillVariant(tag) {
@@ -36,27 +37,29 @@ function pillVariant(tag) {
     }
     return "primary";
 }
-  
+
 export class SnapshotsTable extends Component {
     constructor() {
         super();
         this.state = {
             snapshots: [],
+            showHidden: false,
             isLoading: false,
             error: null,
         };
+        this.onChange = this.onChange.bind(this);
     }
     componentDidMount() {
         let q = parseQuery(this.props.location.search);
 
-        this.setState({ 
+        this.setState({
             isLoading: true,
             host: q.host,
             userName: q.userName,
             path: q.path,
             hiddenCount: 0,
             selectedSnapshot: null,
-         });
+        });
         const u = '/api/v1/snapshots?host=' + q.host + '&userName=' + q.userName + '&path=' + q.path;
         axios.get(u).then(result => {
             console.log('got snapshots', result.data);
@@ -84,6 +87,11 @@ export class SnapshotsTable extends Component {
             }
             lastRootID = s[i].rootID;
         }
+
+        if (this.state.showHidden) {
+            return { filteredSnapshots: s, hiddenCount: hiddenCount };
+        }
+
         return { filteredSnapshots, hiddenCount };
     }
 
@@ -91,6 +99,12 @@ export class SnapshotsTable extends Component {
         this.setState({
             selectedSnapshot: x,
         })
+    }
+
+    onChange(x) {
+        this.setState({
+            showHidden: x.target.checked
+        });
     }
 
     render() {
@@ -102,7 +116,7 @@ export class SnapshotsTable extends Component {
             return <Spinner animation="border" variant="primary" />;
         }
 
-        snapshots.sort((a,b)=> {
+        snapshots.sort((a, b) => {
             if (a.startTime < b.startTime) { return 1; };
             if (a.startTime > b.startTime) { return -1; };
             return 0;
@@ -111,15 +125,27 @@ export class SnapshotsTable extends Component {
         let { filteredSnapshots, hiddenCount } = this.coalesceSnapshots(snapshots);
 
         const columns = [{
+            id: 'startTime',
             Header: 'Start time',
-            accessor: 'startTime',
             width: 200,
-            Cell: x => rfc3339TimestampDisplayName(x.value),
+            accessor: x => <Link to={objectLink(x.rootID)}>{rfc3339TimestampForDisplay(x.startTime)}</Link>,
+        }, {
+            id: 'rootID',
+            Header: 'Root',
+            width: "",
+            accessor: x => x.rootID,
+        }, {
+            Header: 'Retention',
+            accessor: 'retention',
+            width: "",
+            Cell: x => <span>{x.cell.value.map(l =>
+                <><Badge variant={pillVariant(l)}>{l}</Badge>{' '}</>
+            )}</span>
         }, {
             Header: 'Size',
             accessor: 'summary.size',
             width: 100,
-            Cell: x => sizeDisplayName(x.value),
+            Cell: x => sizeDisplayName(x.cell.value),
         }, {
             Header: 'Files',
             accessor: 'summary.files',
@@ -128,35 +154,26 @@ export class SnapshotsTable extends Component {
             Header: 'Dirs',
             accessor: 'summary.dirs',
             width: 100,
-        }, {
-            id: 'rootID',
-            Header: 'Root',
-            accessor: x => <Link to={objectLink(x.rootID)}>{x.rootID}</Link>,
-            width: 300,
-        }, {
-            Header: 'Retention',
-            accessor: 'retention',
-            Cell: x => <span>{x.value.map(l => 
-                <Badge variant={pillVariant(l)}>{l}</Badge>
-            )}</span>
         }]
 
-        return <div>
+        return <>
+            <Row>
             <Form>
-            <Form.Group controlId="formBasicCheckbox">
-                <Form.Label>Displaying {filteredSnapshots.length} snapshots of <b>{this.state.userName}@{this.state.host}:{this.state.path}</b></Form.Label>
-            </Form.Group>
-                
-  <Form.Group controlId="formBasicCheckbox">
-    <Form.Check type="checkbox" label={'Show ' + hiddenCount + ' hidden snapshots'} />
-  </Form.Group>
-
-  {this.state.selectedSnapshot ? 
-    <Form.Group controlId="formSelected">
-    <Form.Label>Selected <pre>{JSON.stringify(this.state.selectedSnapshot, null, 2)}</pre></Form.Label>
-  </Form.Group> : null}
-</Form>
-            <ReactTable data={filteredSnapshots} columns={columns} />
-            </div>;
+                <Form.Label>Displaying {filteredSnapshots.length !== snapshots.length ? filteredSnapshots.length + ' out of ' + snapshots.length : snapshots.length } snapshots of <b>{this.state.userName}@{this.state.host}:{this.state.path}</b></Form.Label>
+                {hiddenCount > 0 &&
+                <Form.Group controlId="formBasicCheckbox">
+                    <Form.Check
+                        type="checkbox"
+                        checked={this.state.showHidden}
+                        label={'Show ' + hiddenCount + ' identical snapshots'}
+                        onChange={this.onChange} />
+                </Form.Group>}
+            </Form>
+            </Row>
+            <hr />
+            <Row>
+            <MyTable data={filteredSnapshots} columns={columns} />
+            </Row>
+        </>;
     }
 }

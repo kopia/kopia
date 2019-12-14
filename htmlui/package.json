@@ -10,7 +10,7 @@
     "react-dom": "^16.11.0",
     "react-router-dom": "^5.1.2",
     "react-scripts": "^3.3.0",
-    "react-table": "^6.10.3"
+    "react-table": "^7.0.0-rc.10"
   },
   "scripts": {
     "start": "react-scripts start",

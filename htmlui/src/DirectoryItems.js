@@ -1,10 +1,11 @@
 import React, { Component } from 'react';
-import ReactTable from 'react-table';
+import MyTable from './Table';
 import { Link } from "react-router-dom";
 
 import {
     sizeDisplayName,
     objectLink,
+    rfc3339TimestampForDisplay,
 } from './uiutil';
 
 function objectName(name, typeID) {
@@ -17,17 +18,6 @@ function objectName(name, typeID) {
 
 function sizeInfo(item) {
     if (item.size) {
-        return sizeDisplayName(item.size);
-    }
-    const summ = item.summ;
-    if (!summ) {
-        return "";
-    }
-    return sizeDisplayName(summ.size) + ", " + summ.files + " files, " + summ.dirs + " dirs";
-}
-
-function sizeForSorting(item) {
-    if (item.size) {
         return item.size;
     }
 
@@ -35,19 +25,6 @@ function sizeForSorting(item) {
         return item.summ.size;
     }
 
-    return 0;
-}
-
-function sizeSortMethod(a, b, desc) {
-    const l = sizeForSorting(a);
-    const r = sizeForSorting(b);
-
-    if (l < r) {
-        return -1;
-    }
-    if (l > r) {
-        return 1;
-    }
     return 0;
 }
 
@@ -64,18 +41,32 @@ export class DirectoryItems extends Component {
         const columns = [{
             id: "name",
             Header: 'Name',
+            width: "",
             accessor: x => directoryLinkOrDownload(x),
         }, {
             id: "mtime",
             accessor: "mtime",
             Header: "Last Mod",
+            width: 200,
+            Cell: x => rfc3339TimestampForDisplay(x.cell.value),
         }, {
             id: "size",
             accessor: x => sizeInfo(x),
             Header: "Size",
-            sortMethod: sizeSortMethod,
+            width: 100,
+            Cell: x => sizeDisplayName(x.cell.value),
+        }, {
+            id: "files",
+            accessor: "summ.files",
+            Header: "Files",
+            width: 100,
+        }, {
+            id: "dirs",
+            accessor: "summ.dirs",
+            Header: "Dirs",
+            width: 100,
         }]
 
-        return <ReactTable data={this.props.items} columns={columns} />;
+        return <MyTable data={this.props.items} columns={columns} />;
     }
 }
