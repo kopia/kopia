@@ -10,3 +10,6 @@ build-html: node_modules
 
 node_modules: $(NPM_TOOL)
 	PATH=$(TOOL_PATH) $(NPM_TOOL) install
+
+clean:
+	rm -rf node_modules build
