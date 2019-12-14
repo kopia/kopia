@@ -16,6 +16,11 @@ install-noui:
 escape-analysis:
 	go build -gcflags '-m -l' github.com/kopia/kopia/...
 
+clean:
+	make clean-tools
+	make -C htmlui clean
+	rm -rf dist/ internal/server/htmlui_bindata.go
+
 play:
 	go run cmd/playground/main.go
 
