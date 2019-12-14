@@ -56,7 +56,7 @@ export function parseQuery(queryString) {
     return query;
 }
 
-export function rfc3339TimestampDisplayName(n) {
+export function rfc3339TimestampForDisplay(n) {
     let t = new Date(n);
     return t.toLocaleString();
 }
@@ -66,4 +66,8 @@ export function objectLink(n) {
         return "/snapshots/dir/" + n;
     }
     return "/api/v1/objects/" + n;
+}
+
+export function ownerName(s) {
+    return s.userName + "@" + s.host;
 }

@@ -1,6 +1,7 @@
 import React, { Component } from 'react';
-import ReactTable from 'react-table';
 import axios from 'axios';
+
+import MyTable from './Table';
 
 import {
     Link
@@ -10,8 +11,10 @@ import Dropdown from 'react-bootstrap/Dropdown';
 import Spinner from 'react-bootstrap/Spinner';
 import Row from 'react-bootstrap/Row';
 
-const allHosts = "(all)"
-const allUsers = "(all)"
+import { rfc3339TimestampForDisplay, sizeDisplayName, ownerName } from './uiutil';
+
+const allOwners = "(all)"
+
 
 export class SourcesTable extends Component {
     constructor() {
@@ -21,8 +24,7 @@ export class SourcesTable extends Component {
             isLoading: false,
             error: null,
 
-            selectedHost: allHosts,
-            selectedUser: allUsers,
+            selectedOwner: allOwners,
         };
     }
 
@@ -39,20 +41,10 @@ export class SourcesTable extends Component {
         }));
     }
 
-    selectHost(h) {
+    selectOwner(h) {
         this.setState({
-            selectedHost: h,
+            selectedOwner: h,
         });
-    }
-
-    selectUser(u) {
-        this.setState({
-            selectedUser: u,
-        });
-    }
-
-    hostClicked(h) {
-        alert('host clicked ' + h);
     }
 
     render() {
@@ -64,85 +56,67 @@ export class SourcesTable extends Component {
             return <Spinner animation="border" variant="primary" />;
         }
 
-        let uniqueHosts = sources.reduce((a, d) => {
-            if (!a.includes(d.source.host)) { a.push(d.source.host); }
+        let uniqueOwners = sources.reduce((a, d) => {
+            const owner = ownerName(d.source);
+
+            if (!a.includes(owner)) { a.push(owner); }
             return a;
-          }, []);
+        }, []);
 
-        uniqueHosts.sort();
+        uniqueOwners.sort();
 
-        let uniqueUsers = sources.reduce((a, d) => {
-            if (!a.includes(d.source.userName)) { a.push(d.source.userName); }
-            return a;
-          }, []);
-
-        uniqueUsers.sort();
-
-        if (this.state.selectedHost !== allHosts) {
-            sources = sources.filter(x => x.source.host === this.state.selectedHost);
-        };
-
-        if (this.state.selectedUser !== allUsers) {
-            sources = sources.filter(x => x.source.userName === this.state.selectedUser);
+        if (this.state.selectedOwner !== allOwners) {
+            sources = sources.filter(x => ownerName(x.source) === this.state.selectedOwner);
         };
 
         const columns = [{
-            id: 'host',
-            Header: 'Host',
-            accessor: 'source.host',
-            width: 150,
-        }, {
-            id: 'user',
-            Header: 'User',
-            accessor: 'source.userName',
-            width: 150,
-        }, {
             id: 'path',
             Header: 'Path',
             accessor: x => x.source,
-            Cell: x => <Link to={'/snapshots/single-source?userName=' + x.value.userName + '&host=' + x.value.host + '&path=' + x.value.path}>{x.value.path}</Link>,
-            width: 600,
+            width: "",
+            Cell: x => <Link to={'/snapshots/single-source?userName=' + x.cell.value.userName + '&host=' + x.cell.value.host + '&path=' + x.cell.value.path}>{x.cell.value.path}</Link>,
+        }, {
+            id: 'owner',
+            Header: 'Owner',
+            accessor: x => x.source.userName + '@' + x.source.host,
+            width: 250,
         }, {
             id: 'lastSnapshotTime',
             Header: 'Last Snapshot',
-            width: 200,
+            width: 250,
             accessor: x => x.lastSnapshotTime,
+            Cell: x => rfc3339TimestampForDisplay(x.cell.value),
         }, {
             id: 'lastSnapshotSize',
             Header: 'Size',
-            width: 100,
+            width: 300,
             accessor: x => x.lastSnapshotSize,
+            Cell: x => sizeDisplayName(x.cell.value),
+        }, {
+            id: 'status',
+            Header: 'Status',
+            width: 100,
+            accessor: x => x.status,
         }]
 
-        return <div>
+        return <>
             <Row>
-<Dropdown>
-  <Dropdown.Toggle variant="primary" id="dropdown-basic">
-    Host: {this.state.selectedHost}
-  </Dropdown.Toggle>
+                <Dropdown>
+                    <Dropdown.Toggle variant="dark" id="dropdown-basic">
+                        Owner: {this.state.selectedOwner}
+                    </Dropdown.Toggle>
 
-  <Dropdown.Menu>
-      <Dropdown.Item onClick={() => this.selectHost(allHosts)}>(all)</Dropdown.Item>
-      {uniqueHosts.map(v => <Dropdown.Item onClick={() => this.selectHost(v)}>{v}</Dropdown.Item>)}
-  </Dropdown.Menu>
-</Dropdown>
-
-&nbsp;
-<Dropdown>
-  <Dropdown.Toggle variant="primary" id="dropdown-basic">
-    User: {this.state.selectedUser}
-  </Dropdown.Toggle>
-
-  <Dropdown.Menu>
-      <Dropdown.Item onClick={() => this.selectUser(allUsers)}>(all)</Dropdown.Item>
-      {uniqueUsers.map(v => <Dropdown.Item onClick={() => this.selectUser(v)}>{v}</Dropdown.Item>)}
-  </Dropdown.Menu>
-</Dropdown>
-</Row>
-
-<p></p>
-            <Row><ReactTable data={sources} columns={columns} /></Row>
-        </div>;
+                    <Dropdown.Menu>
+                        <Dropdown.Item onClick={() => this.selectOwner(allOwners)}>(all)</Dropdown.Item>
+                        {uniqueOwners.map(v => <Dropdown.Item key={v}  onClick={() => this.selectOwner(v)}>{v}</Dropdown.Item>)}
+                    </Dropdown.Menu>
+                </Dropdown>
+            </Row>
+            <hr/>
+            <Row>
+            <MyTable data={sources} columns={columns} />
+            </Row>
+        </>;
 
     }
 }
