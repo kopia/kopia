@@ -10,6 +10,10 @@ include tools/tools.mk
 install: html-ui-bindata
 	go install -tags embedhtml
 
+quick-install:
+	# same as install but assumes HTMLUI has been built
+	go install -tags embedhtml
+
 install-noui: 
 	go install
 
