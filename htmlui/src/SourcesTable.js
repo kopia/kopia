@@ -11,10 +11,9 @@ import Dropdown from 'react-bootstrap/Dropdown';
 import Spinner from 'react-bootstrap/Spinner';
 import Row from 'react-bootstrap/Row';
 
-import { rfc3339TimestampForDisplay, sizeDisplayName, ownerName } from './uiutil';
+import { rfc3339TimestampForDisplay, sizeDisplayName, ownerName, compare } from './uiutil';
 
 const allOwners = "(all)"
-
 
 export class SourcesTable extends Component {
     constructor() {
@@ -73,6 +72,14 @@ export class SourcesTable extends Component {
             id: 'path',
             Header: 'Path',
             accessor: x => x.source,
+            sortType: (a, b) => {
+                const v = compare(a.original.source.path, b.original.source.path);
+                if (v !== 0) {
+                    return v;
+                }
+
+                return compare(ownerName(a.original.source), ownerName(b.original.source));
+            },
             width: "",
             Cell: x => <Link to={'/snapshots/single-source?userName=' + x.cell.value.userName + '&host=' + x.cell.value.host + '&path=' + x.cell.value.path}>{x.cell.value.path}</Link>,
         }, {
@@ -108,13 +115,13 @@ export class SourcesTable extends Component {
 
                     <Dropdown.Menu>
                         <Dropdown.Item onClick={() => this.selectOwner(allOwners)}>(all)</Dropdown.Item>
-                        {uniqueOwners.map(v => <Dropdown.Item key={v}  onClick={() => this.selectOwner(v)}>{v}</Dropdown.Item>)}
+                        {uniqueOwners.map(v => <Dropdown.Item key={v} onClick={() => this.selectOwner(v)}>{v}</Dropdown.Item>)}
                     </Dropdown.Menu>
                 </Dropdown>
             </Row>
-            <hr/>
+            <hr />
             <Row>
-            <MyTable data={sources} columns={columns} />
+                <MyTable data={sources} columns={columns} />
             </Row>
         </>;
 

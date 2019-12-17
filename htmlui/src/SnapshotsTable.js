@@ -7,6 +7,7 @@ import {
     sizeDisplayName,
     objectLink,
     rfc3339TimestampForDisplay,
+    compare,
 } from './uiutil';
 
 import {
@@ -116,11 +117,7 @@ export class SnapshotsTable extends Component {
             return <Spinner animation="border" variant="primary" />;
         }
 
-        snapshots.sort((a, b) => {
-            if (a.startTime < b.startTime) { return 1; };
-            if (a.startTime > b.startTime) { return -1; };
-            return 0;
-        });
+        snapshots.sort((a, b) => -compare(a.startTime, b.startTime));
 
         let { filteredSnapshots, hiddenCount } = this.coalesceSnapshots(snapshots);
 
