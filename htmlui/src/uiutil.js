@@ -18,11 +18,11 @@ function niceNumber(f) {
 
 function toDecimalUnitString(f, thousand, prefixes, suffix) {
     for (var i = 0; i < prefixes.length; i++) {
-		if (f < 0.9*thousand) {
-			return niceNumber(f) + ' ' + prefixes[i] + suffix;
-		}
-		f /= thousand
-	}
+        if (f < 0.9 * thousand) {
+            return niceNumber(f) + ' ' + prefixes[i] + suffix;
+        }
+        f /= thousand
+    }
 
     return niceNumber(f) + ' ' + prefixes[prefixes.length - 1] + suffix;
 }
@@ -70,4 +70,8 @@ export function objectLink(n) {
 
 export function ownerName(s) {
     return s.userName + "@" + s.host;
+}
+
+export function compare(a, b) {
+    return (a < b ? -1 : (a > b ? 1 : 0));
 }
