@@ -5,13 +5,42 @@ import Pagination from 'react-bootstrap/Pagination';
 
 function paginationItems(count, active, gotoPage) {
   let items = [];
-  for (let number = 1; number <= count; number++) {
-    items.push(
-      <Pagination.Item key={number} active={number === active} onClick={() => gotoPage(number-1)}>
-        {number}
-      </Pagination.Item>,
-    );
+
+  function pageWithNumber(number) {
+    return <Pagination.Item key={number} active={number === active} onClick={() => gotoPage(number-1)}>
+      {number}
+    </Pagination.Item>;
   }
+
+  function dotDotDot() {
+    return <Pagination.Ellipsis />;
+  }
+
+  let minPageNumber = active - 10;
+  if (minPageNumber < 1) {
+    minPageNumber = 1;
+  }
+
+  let maxPageNumber = active + 9;
+  if (minPageNumber + 19 >= maxPageNumber) {
+    maxPageNumber = minPageNumber + 19;
+  }
+  if (maxPageNumber > count) {
+    maxPageNumber = count;
+  }
+
+  if (minPageNumber > 1) {
+    items.push(dotDotDot());
+  }
+
+  for (let number = minPageNumber; number <= maxPageNumber; number++) {
+    items.push(pageWithNumber(number));
+  }
+
+  if (maxPageNumber < count) {
+    items.push(dotDotDot());
+  }
+
   return items;
 }
 
@@ -41,13 +70,19 @@ export default function MyTable({ columns, data }) {
   )
 
   const paginationUI = pageOptions.length > 1 && 
+  <>
     <Pagination size="sm" variant="dark">
       <Pagination.First onClick={() => gotoPage(0)} disabled={!canPreviousPage} />
       <Pagination.Prev onClick={() => previousPage()} disabled={!canPreviousPage} />
-      {paginationItems(pageOptions.length, pageIndex+1, gotoPage)}
       <Pagination.Next onClick={() => nextPage()} disabled={!canNextPage} />
       <Pagination.Last onClick={() => gotoPage(pageCount - 1)} disabled={!canNextPage} />
-    </Pagination>;
+    </Pagination>
+
+    &nbsp;
+    <Pagination size="sm" variant="dark">
+      {paginationItems(pageOptions.length, pageIndex+1, gotoPage)}
+    </Pagination>
+    </>;
 
   return (
     <>
