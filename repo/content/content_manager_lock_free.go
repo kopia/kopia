@@ -163,6 +163,7 @@ func (bm *lockFreeManager) tryLoadPackIndexBlobsUnlocked(ctx context.Context, co
 // unprocessedIndexBlobsUnlocked returns a closed channel filled with content IDs that are not in committedContents cache.
 func (bm *lockFreeManager) unprocessedIndexBlobsUnlocked(contents []IndexBlobInfo) (resultCh <-chan blob.ID, totalSize int64, err error) {
 	ch := make(chan blob.ID, len(contents))
+	defer close(ch)
 
 	for _, c := range contents {
 		has, err := bm.committedContents.cache.hasIndexBlobID(c.BlobID)
@@ -178,8 +179,6 @@ func (bm *lockFreeManager) unprocessedIndexBlobsUnlocked(contents []IndexBlobInf
 		ch <- c.BlobID
 		totalSize += c.Length
 	}
-
-	close(ch)
 
 	return ch, totalSize, nil
 }
