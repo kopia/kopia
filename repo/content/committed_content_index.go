@@ -89,6 +89,9 @@ func (b *committedContentIndex) packFilesChanged(packFiles []blob.ID) bool {
 	return false
 }
 
+// Uses packFiles for indexing and returns whether or not the set of index
+// packs have changed compared to the previous set. An error is returned if the
+// indices cannot be read for any reason.
 func (b *committedContentIndex) use(packFiles []blob.ID) (bool, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -124,7 +127,7 @@ func (b *committedContentIndex) use(packFiles []blob.ID) (bool, error) {
 		log.Warningf("unable to expire unused content index files: %v", err)
 	}
 
-	newMerged = nil
+	newMerged = nil // prevent closing newMerged indices
 
 	return true, nil
 }
