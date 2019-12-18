@@ -4,12 +4,12 @@ package gc
 import (
 	"context"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/stats"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
@@ -81,29 +81,26 @@ func Run(ctx context.Context, rep *repo.Repository, minContentAge time.Duration,
 		return errors.Wrap(err, "unable to find in-use content ID")
 	}
 
-	var unusedCount, inUseCount, systemCount, tooRecentCount int32
-
-	var totalUnusedBytes, totalInUseBytes, totalSystemBytes, totalTooRecentBytes int64
+	var unused, inUse, system, tooRecent stats.CountSum
 
 	log(ctx).Infof("looking for unreferenced contents")
 
 	if err := rep.Content.IterateContents(ctx, content.IterateOptions{}, func(ci content.Info) error {
 		if manifest.ContentPrefix == ci.ID.Prefix() {
-			atomic.AddInt32(&systemCount, 1)
-			atomic.AddInt64(&totalSystemBytes, int64(ci.Length))
+			system.Add(int64(ci.Length))
 			return nil
 		}
 
 		if _, ok := used.Load(ci.ID); !ok {
 			if rep.Time().Sub(ci.Timestamp()) < minContentAge {
 				log(ctx).Debugf("recent unreferenced content %v (%v bytes, modified %v)", ci.ID, ci.Length, ci.Timestamp())
-				atomic.AddInt32(&tooRecentCount, 1)
-				atomic.AddInt64(&totalTooRecentBytes, int64(ci.Length))
+				tooRecent.Add(int64(ci.Length))
 				return nil
 			}
+
 			log(ctx).Debugf("unreferenced %v (%v bytes, modified %v)", ci.ID, ci.Length, ci.Timestamp())
-			cnt := atomic.AddInt32(&unusedCount, 1)
-			totalSize := atomic.AddInt64(&totalUnusedBytes, int64(ci.Length))
+			cnt, totalSize := unused.Add(int64(ci.Length))
+
 			if gcDelete {
 				if err := rep.Content.DeleteContent(ctx, ci.ID); err != nil {
 					return errors.Wrap(err, "error deleting content")
@@ -119,21 +116,24 @@ func Run(ctx context.Context, rep *repo.Repository, minContentAge time.Duration,
 				}
 			}
 		} else {
-			atomic.AddInt32(&inUseCount, 1)
-			atomic.AddInt64(&totalInUseBytes, int64(ci.Length))
+			inUse.Add(int64(ci.Length))
 		}
 		return nil
 	}); err != nil {
 		return errors.Wrap(err, "error iterating contents")
 	}
 
-	log(ctx).Infof("found %v unused contents (%v bytes)", unusedCount, units.BytesStringBase2(totalUnusedBytes))
-	log(ctx).Infof("found %v unused contents that are too recent to delete (%v bytes)", tooRecentCount, units.BytesStringBase2(totalTooRecentBytes))
-	log(ctx).Infof("found %v in-use contents (%v bytes)", inUseCount, units.BytesStringBase2(totalInUseBytes))
-	log(ctx).Infof("found %v in-use system-contents (%v bytes)", systemCount, units.BytesStringBase2(totalSystemBytes))
+	unusedCount, totalBytes := unused.Approximate()
+	log(ctx).Infof("found %v unused contents (%v bytes)", unusedCount, units.BytesStringBase2(totalBytes))
+	cnt, totalBytes := tooRecent.Approximate()
+	log(ctx).Infof("found %v unused contents that are too recent to delete (%v bytes)", cnt, units.BytesStringBase2(totalBytes))
+	cnt, totalBytes = inUse.Approximate()
+	log(ctx).Infof("found %v in-use contents (%v bytes)", cnt, units.BytesStringBase2(totalBytes))
+	cnt, totalBytes = system.Approximate()
+	log(ctx).Infof("found %v in-use system-contents (%v bytes)", cnt, units.BytesStringBase2(totalBytes))
 
 	if unusedCount > 0 && !gcDelete {
-		return errors.Errorf("not deleting because '--delete' flag was not set")
+		return errors.Errorf("Not deleting because '--delete' flag was not set")
 	}
 
 	return nil
