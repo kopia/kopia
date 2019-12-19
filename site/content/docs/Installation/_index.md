@@ -80,13 +80,12 @@ $ deb -i kopia*.deb
 
 ### Compilation From Source
 
-If you have [Go 1.12](https://golang.org/) or newer, you may download and build Kopia yourself. No special setup is necessary, other than the Go compiler. You can simply run:
+If you have [Go 1.13](https://golang.org/) or newer, you may download and build Kopia yourself. No special setup is necessary, other than the Go compiler. You can simply run:
 
 ```shell
 $ go get github.com/kopia/kopia
 ```
 
-The resulting binary will be available in `$HOME/go/bin`.
+The resulting binary will be available in `$HOME/go/bin`. Note that this will produce basic binary that has all the features except support for HTML-based UI. To build full binary, download the source from GitHub and run:
 
-
-
+`make install` (on macOS/Linux) or `install.cmd` on Windows. Note that building on Windows also requires [NPM](https://nodejs.org/) to be installed.
