@@ -5,6 +5,7 @@ import (
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 
+	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
@@ -52,13 +53,20 @@ func addRestoreFlags(cmd *kingpin.CmdClause) {
 		BoolVar(&restoreOverwriteFiles)
 }
 
+func restoreOptions() localfs.CopyOptions {
+	return localfs.CopyOptions{
+		OverwriteDirectories: restoreOverwriteDirectories,
+		OverwriteFiles:       restoreOverwriteFiles,
+	}
+}
+
 func runRestoreCommand(ctx context.Context, rep *repo.Repository) error {
 	oid, err := parseObjectID(ctx, rep, *restoreCommandSourcePath)
 	if err != nil {
 		return err
 	}
 
-	return snapshotfs.RestoreRoot(ctx, rep, *restoreCommandTargetPath, oid)
+	return snapshotfs.RestoreRoot(ctx, rep, *restoreCommandTargetPath, oid, restoreOptions())
 }
 
 func init() {

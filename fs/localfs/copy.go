@@ -11,6 +11,16 @@ import (
 	"github.com/kopia/kopia/fs"
 )
 
+// CopyOptions contains the options for copying a file system tree
+type CopyOptions struct {
+	// If a directory already exists, overwrite the directory.
+	OverwriteDirectories bool
+	// Indicate whether or not to overwrite existing files. When set to false,
+	// the copier does not modify already existing files and returns an error
+	// instead.
+	OverwriteFiles bool
+}
+
 // Copy copies e into targetPath in the local file system. If e is an
 // fs.Directory, then the contents are recursively copied.
 // The targetPath must not exist, except when the target path is the root
@@ -19,23 +29,28 @@ import (
 // Copy does not overwrite files or directories and returns an error in that
 // case. It also returns an error when the the contents cannot be restored,
 // for example due to an I/O error.
-func Copy(ctx context.Context, targetPath string, e fs.Entry) error {
+func Copy(ctx context.Context, targetPath string, e fs.Entry, opt CopyOptions) error {
 	targetPath, err := filepath.Abs(filepath.FromSlash(targetPath))
 	if err != nil {
 		return err
 	}
 
-	return copyEntry(ctx, e, targetPath)
+	c := copier{CopyOptions: opt}
+	return c.copyEntry(ctx, e, targetPath)
 }
 
-func copyEntry(ctx context.Context, e fs.Entry, targetPath string) error {
+type copier struct {
+	CopyOptions
+}
+
+func (c *copier) copyEntry(ctx context.Context, e fs.Entry, targetPath string) error {
 	var err error
 
 	switch e := e.(type) {
 	case fs.Directory:
-		err = copyDirectory(ctx, e, targetPath)
+		err = c.copyDirectory(ctx, e, targetPath)
 	case fs.File:
-		err = copyFileContent(ctx, targetPath, e)
+		err = c.copyFileContent(ctx, targetPath, e)
 	case fs.Symlink:
 		// Not yet implemented
 		log.Warningf("Not creating symlink %q from %v", targetPath, e)
@@ -48,11 +63,11 @@ func copyEntry(ctx context.Context, e fs.Entry, targetPath string) error {
 		return err
 	}
 
-	return setAttributes(targetPath, e)
+	return c.setAttributes(targetPath, e)
 }
 
 // set permission, modification time and user/group ids on targetPath
-func setAttributes(targetPath string, e fs.Entry) error {
+func (c *copier) setAttributes(targetPath string, e fs.Entry) error {
 	const modBits = os.ModePerm | os.ModeSetgid | os.ModeSetuid | os.ModeSticky
 
 	le, err := NewEntry(targetPath)
@@ -85,22 +100,22 @@ func setAttributes(targetPath string, e fs.Entry) error {
 	return nil
 }
 
-func copyDirectory(ctx context.Context, d fs.Directory, targetPath string) error {
-	if err := createDirectory(targetPath); err != nil {
+func (c *copier) copyDirectory(ctx context.Context, d fs.Directory, targetPath string) error {
+	if err := c.createDirectory(targetPath); err != nil {
 		return err
 	}
 
-	return copyDirectoryContent(ctx, d, targetPath)
+	return c.copyDirectoryContent(ctx, d, targetPath)
 }
 
-func copyDirectoryContent(ctx context.Context, d fs.Directory, targetPath string) error {
+func (c *copier) copyDirectoryContent(ctx context.Context, d fs.Directory, targetPath string) error {
 	entries, err := d.Readdir(ctx)
 	if err != nil {
 		return err
 	}
 
 	for _, e := range entries {
-		if err := copyEntry(ctx, e, filepath.Join(targetPath, e.Name())); err != nil {
+		if err := c.copyEntry(ctx, e, filepath.Join(targetPath, e.Name())); err != nil {
 			return err
 		}
 	}
@@ -108,7 +123,7 @@ func copyDirectoryContent(ctx context.Context, d fs.Directory, targetPath string
 	return nil
 }
 
-func createDirectory(path string) error {
+func (c *copier) createDirectory(path string) error {
 	switch stat, err := os.Stat(path); {
 	case os.IsNotExist(err):
 		return os.MkdirAll(path, 0700)
@@ -121,11 +136,14 @@ func createDirectory(path string) error {
 	}
 }
 
-func copyFileContent(ctx context.Context, targetPath string, f fs.File) error {
+func (c *copier) copyFileContent(ctx context.Context, targetPath string, f fs.File) error {
 	switch _, err := os.Stat(targetPath); {
 	case os.IsNotExist(err): // copy file below
 	case err == nil:
-		return errors.Errorf("unable to create %q, it already exists", targetPath)
+		if !c.OverwriteFiles {
+			return errors.Errorf("unable to create %q, it already exists", targetPath)
+		}
+		log.Debug("Overwriting existing file: ", targetPath)
 	default:
 		return errors.Wrap(err, "failed to stat "+targetPath)
 	}
