@@ -2,6 +2,7 @@ package localfs
 
 import (
 	"context"
+	"io"
 	"os"
 	"path/filepath"
 
@@ -130,7 +131,13 @@ func (c *copier) createDirectory(path string) error {
 	case err != nil:
 		return errors.Wrap(err, "failed to stat path "+path)
 	case stat.Mode().IsDir():
-		return errors.Errorf("directory already exists, not overwriting it: %q", path)
+		if !c.OverwriteDirectories {
+			if empty, _ := isEmptyDirectory(path); !empty {
+				return errors.Errorf("non-empty directory already exists, not overwriting it: %q", path)
+			}
+		}
+		log.Debug("Not creating already existing directory: ", path)
+		return nil
 	default:
 		return errors.Errorf("unable to create directory, %q already exists and it is not a directory", path)
 	}
@@ -154,5 +161,22 @@ func (c *copier) copyFileContent(ctx context.Context, targetPath string, f fs.Fi
 	}
 	defer r.Close() //nolint:errcheck
 
+	log.Debug("copying file contents to: ", targetPath)
+
 	return atomic.WriteFile(targetPath, r)
+}
+
+func isEmptyDirectory(name string) (bool, error) {
+	f, err := os.Open(name)
+	if err != nil {
+		return false, err
+	}
+
+	defer f.Close()
+
+	if _, err = f.Readdirnames(1); err == io.EOF {
+		return true, nil
+	}
+
+	return false, err // Either not empty or error
 }
