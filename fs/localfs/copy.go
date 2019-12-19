@@ -25,20 +25,6 @@ func Copy(ctx context.Context, targetPath string, e fs.Entry) error {
 		return err
 	}
 
-	root, err := filepath.Abs(filepath.FromSlash("/"))
-	if err != nil {
-		return err
-	}
-
-	// special case when the target is the root directory
-	if targetPath == root {
-		if d, ok := e.(fs.Directory); ok {
-			return copyDirectoryContent(ctx, d, targetPath)
-		}
-
-		return errors.Errorf("cannot restore non-directory to root target path %q: %#v", targetPath, e)
-	}
-
 	return copyEntry(ctx, e, targetPath)
 }
 
