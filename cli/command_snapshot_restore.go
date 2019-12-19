@@ -19,5 +19,6 @@ func runSnapRestoreCommand(ctx context.Context, rep *repo.Repository) error {
 }
 
 func init() {
+	addRestoreFlags(snapshotRestoreCommand)
 	snapshotRestoreCommand.Action(repositoryAction(runSnapRestoreCommand))
 }
