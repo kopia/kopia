@@ -300,9 +300,13 @@ how are you
 
 type deleteArgMaker func(manifestID string, source sourceInfo) []string
 
+//nolint:funlen
 func TestSnapshotDelete(t *testing.T) {
-	expectFail := false
-	expectSuccess := true
+	const (
+		expectFail    = false
+		expectSuccess = true
+	)
+
 	for _, tc := range []struct {
 		desc          string
 		mf            deleteArgMaker
@@ -512,8 +516,9 @@ how are you
 	for _, source := range si {
 		for _, ss := range source.snapshots {
 			manifestID := ss.snapshotID
-			t.Logf("manifestID: %v", manifestID)
 			args := argMaker(manifestID, source)
+			t.Logf("manifestID: %v", manifestID)
+
 			if expectDeleteSucceeds {
 				e.runAndExpectSuccess(t, args...)
 			} else {
@@ -534,10 +539,12 @@ func TestSnapshotDeleteTypeCheck(t *testing.T) {
 	if len(lines) != 1 {
 		t.Fatalf("Expected 1 line global policy output for manifest ls")
 	}
+
 	line := lines[0]
 	fields := strings.Fields(line)
 	manifestID := fields[0]
 	typeField := fields[5]
+
 	typeVal := strings.TrimPrefix(typeField, "type:")
 	if typeVal != "policy" {
 		t.Fatalf("Expected global policy manifest on a fresh repo")
@@ -555,7 +562,6 @@ func TestSnapshotDeleteRestore(t *testing.T) {
 
 	source := filepath.Join(e.dataDir, "source")
 	createDirectory(t, source, 1)
-	restoreDir := filepath.Join(e.dataDir, "restored")
 
 	// Create snapshot
 	e.runAndExpectSuccess(t, "snapshot", "create", source)
@@ -565,12 +571,15 @@ func TestSnapshotDeleteRestore(t *testing.T) {
 	if got, want := len(si), 1; got != want {
 		t.Fatalf("got %v sources, wanted %v", got, want)
 	}
+
 	if got, want := len(si[0].snapshots), 1; got != want {
 		t.Fatalf("got %v snapshots, wanted %v", got, want)
 	}
+
 	snapID := si[0].snapshots[0].snapshotID
 	rootID := si[0].snapshots[0].objectID
 
+	restoreDir := filepath.Join(e.dataDir, "restored")
 	e.runAndExpectSuccess(t, "restore", rootID, restoreDir)
 
 	// Note: restore does not reset the permissions for the top directory due to
@@ -581,14 +590,10 @@ func TestSnapshotDeleteRestore(t *testing.T) {
 	compareDirs(t, source, restoreDir)
 
 	// snapshot delete should succeed
-	e.runAndExpectSuccess(t, "snapshot", "delete", snapID,
-		"--unsafe-ignore-source",
-	)
+	e.runAndExpectSuccess(t, "snapshot", "delete", snapID, "--unsafe-ignore-source")
 
 	// Subsequent snapshot delete to the same ID should fail
-	e.runAndExpectFailure(t, "snapshot", "delete", snapID,
-		"--unsafe-ignore-source",
-	)
+	e.runAndExpectFailure(t, "snapshot", "delete", snapID, "--unsafe-ignore-source")
 
 	// garbage-collect to clean up the root object. Otherwise
 	// a restore will succeed
@@ -601,6 +606,7 @@ func TestSnapshotDeleteRestore(t *testing.T) {
 	// Make sure the restore did not happen from the deleted snapshot
 	fileInfo, err := ioutil.ReadDir(notRestoreDir)
 	assertNoError(t, err)
+
 	if len(fileInfo) != 0 {
 		t.Fatalf("expected nothing to be restored")
 	}
