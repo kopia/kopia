@@ -708,9 +708,6 @@ func TestRestoreCommand(t *testing.T) {
 	restoreFailDir := filepath.Join(e.dataDir, "restorefail")
 	e.runAndExpectFailure(t, "restore", snapID, restoreFailDir)
 
-	// Attempt to restore into a target directory that already exists
-	e.runAndExpectFailure(t, "restore", rootID, restoreFailDir)
-
 	// Restore last snapshot
 	e.runAndExpectSuccess(t, "restore", rootID, restoreDir)
 
@@ -720,6 +717,12 @@ func TestRestoreCommand(t *testing.T) {
 	// directory comparison has a chance of succeeding.
 	assertNoError(t, os.Chmod(restoreDir, 0700))
 	compareDirs(t, source, restoreDir)
+
+	// Attempt to restore into a target directory that already exists
+	e.runAndExpectFailure(t, "restore", rootID, restoreDir, "--no-overwrite-directories")
+
+	// Attempt to restore into a target directory that already exists
+	e.runAndExpectFailure(t, "restore", rootID, restoreDir, "--no-overwrite-files")
 }
 
 func compareDirs(t *testing.T, source, restoreDir string) {
@@ -784,15 +787,21 @@ func TestSnapshotRestore(t *testing.T) {
 	restoreFailDir := filepath.Join(e.dataDir, "restorefail")
 	e.runAndExpectFailure(t, "snapshot", "restore", rootID, restoreFailDir)
 
-	// Attempt to restore snapshot with an already-existing target directory
-	_ = os.MkdirAll(restoreFailDir, 0700)
-	e.runAndExpectFailure(t, "snapshot", "restore", snapID, restoreFailDir)
-
 	// Restore last snapshot using the snapshot ID
 	e.runAndExpectSuccess(t, "snapshot", "restore", snapID, restoreDir)
 
 	// Restored contents should match source
 	compareDirs(t, source, restoreDir)
+
+	// Attempt to restore snapshot with an already-existing target directory
+	// It should fail because the directory is not empty
+	_ = os.MkdirAll(restoreFailDir, 0700)
+	e.runAndExpectFailure(t, "snapshot", "restore", "--no-overwrite-directories", snapID, restoreDir)
+
+	// Attempt to restore snapshot with an already-existing target directory
+	// It should fail because target files already exist
+	_ = os.MkdirAll(restoreFailDir, 0700)
+	e.runAndExpectFailure(t, "snapshot", "restore", "--no-overwrite-files", snapID, restoreDir)
 }
 
 func TestCompression(t *testing.T) {
