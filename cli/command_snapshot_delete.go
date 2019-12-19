@@ -3,9 +3,10 @@ package cli
 import (
 	"context"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/manifest"
-	"github.com/pkg/errors"
 )
 
 var (
@@ -21,21 +22,26 @@ func runDeleteCommand(ctx context.Context, rep *repo.Repository) error {
 	}
 
 	manifestID := manifest.ID(*snapshotDeleteID)
+
 	manifestMeta, err := rep.Manifests.GetMetadata(ctx, manifestID)
 	if err != nil {
 		return err
 	}
+
 	labels := manifestMeta.Labels
 	if labels["type"] != "snapshot" {
 		return errors.Errorf("snapshot ID provided (%v) did not reference a snapshot", manifestID)
 	}
+
 	if !*snapshotDeleteIgnoreSource {
 		if labels["hostname"] != getHostName() {
 			return errors.New("host name does not match for deleting requested snapshot ID")
 		}
+
 		if labels["username"] != getUserName() {
 			return errors.New("user name does not match for deleting requested snapshot ID")
 		}
+
 		if labels["path"] != *snapshotDeletePath {
 			return errors.New("path does not match for deleting requested snapshot ID")
 		}
