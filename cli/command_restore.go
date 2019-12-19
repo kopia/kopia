@@ -3,6 +3,8 @@ package cli
 import (
 	"context"
 
+	kingpin "gopkg.in/alecthomas/kingpin.v2"
+
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
@@ -10,12 +12,8 @@ import (
 const (
 	restoreCommandHelp = `Restore a directory from a snapshot into the specified target path.
 
-The target path must not exist and it is created by the restore command. The
-case when the target is the root directory in the local machine is an exception,
-in this case no attempt is made to create the root directory and the contents of
-the source directory are copied to the local root directory.
-The restore command conservatively refuses to overwrite previously existing
-files or directories.
+By default, the target path will be created by the restore command if it does
+not exist.
 
 The source to be restored is specified in the form of a directory ID and
 optionally a sub-directory path.
@@ -34,7 +32,7 @@ directory named 'sd2'
 `
 	restoreCommandSourcePathHelp = `Source directory ID/path in the form of a
 directory ID and optionally a sub-directory path. For example,
-' kffbb7c28ea6c34d6cbe555d1cf80faa9' or
+'kffbb7c28ea6c34d6cbe555d1cf80faa9' or
 'kffbb7c28ea6c34d6cbe555d1cf80faa9/subdir1/subdir2'
 `
 )
@@ -43,7 +41,16 @@ var (
 	restoreCommand           = app.Command("restore", restoreCommandHelp)
 	restoreCommandSourcePath = restoreCommand.Arg("source-path", restoreCommandSourcePathHelp).Required().String()
 	restoreCommandTargetPath = restoreCommand.Arg("target-path", "Path of the directory for the contents to be restored").Required().String()
+
+	restoreOverwriteDirectories = true
+	restoreOverwriteFiles       = true
 )
+
+func addRestoreFlags(cmd *kingpin.CmdClause) {
+	cmd.Flag("overwrite-directories", "Overwrite existing directories").BoolVar(&restoreOverwriteDirectories)
+	cmd.Flag("overwrite-files", "Specifies whether or not to overwrite already existing files").
+		BoolVar(&restoreOverwriteFiles)
+}
 
 func runRestoreCommand(ctx context.Context, rep *repo.Repository) error {
 	oid, err := parseObjectID(ctx, rep, *restoreCommandSourcePath)
@@ -55,5 +62,6 @@ func runRestoreCommand(ctx context.Context, rep *repo.Repository) error {
 }
 
 func init() {
+	addRestoreFlags(restoreCommand)
 	restoreCommand.Action(repositoryAction(runRestoreCommand))
 }
