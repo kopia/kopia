@@ -11,12 +11,15 @@ import (
 	"github.com/kopia/kopia/repo/manifest"
 )
 
+// ManifestType is the value of the "type" label for snapshot manifests
+const ManifestType = "snapshot"
+
 var log = kopialogging.Logger("kopia/snapshot")
 
 // ListSources lists all snapshot sources in a given repository.
 func ListSources(ctx context.Context, rep *repo.Repository) ([]SourceInfo, error) {
 	items, err := rep.Manifests.Find(ctx, map[string]string{
-		"type": "snapshot",
+		"type": ManifestType,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to find manifest entries")
@@ -41,7 +44,7 @@ func sourceInfoFromLabels(labels map[string]string) SourceInfo {
 
 func sourceInfoToLabels(si SourceInfo) map[string]string {
 	return map[string]string{
-		"type":     "snapshot",
+		"type":     ManifestType,
 		"hostname": si.Host,
 		"username": si.UserName,
 		"path":     si.Path,
@@ -133,7 +136,7 @@ func LoadSnapshots(ctx context.Context, rep *repo.Repository, manifestIDs []mani
 // ListSnapshotManifests returns the list of snapshot manifests for a given source or all sources if nil.
 func ListSnapshotManifests(ctx context.Context, rep *repo.Repository, src *SourceInfo) ([]manifest.ID, error) {
 	labels := map[string]string{
-		"type": "snapshot",
+		"type": ManifestType,
 	}
 
 	if src != nil {
