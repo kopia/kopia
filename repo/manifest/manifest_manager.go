@@ -26,6 +26,9 @@ var ErrNotFound = errors.New("not found")
 const ContentPrefix = "m"
 const autoCompactionContentCount = 16
 
+// TypeLabelKey is the label key for manifest type
+const TypeLabelKey = "type"
+
 type contentManager interface {
 	GetContent(ctx context.Context, contentID content.ID) ([]byte, error)
 	WriteContent(ctx context.Context, data []byte, prefix content.ID) (content.ID, error)
@@ -53,7 +56,7 @@ type Manager struct {
 
 // Put serializes the provided payload to JSON and persists it. Returns unique identifier that represents the manifest.
 func (m *Manager) Put(ctx context.Context, labels map[string]string, payload interface{}) (ID, error) {
-	if labels["type"] == "" {
+	if labels[TypeLabelKey] == "" {
 		return "", errors.Errorf("'type' label is required")
 	}
 
