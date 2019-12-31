@@ -22,6 +22,19 @@ type loggingDirectory struct {
 	fs.Directory
 }
 
+func (ld *loggingDirectory) Child(ctx context.Context, name string) (fs.Entry, error) {
+	t0 := time.Now()
+	entry, err := ld.Directory.Child(ctx, name)
+	dt := time.Since(t0)
+	ld.options.printf(ld.options.prefix+"Child(%v) took %v and returned %v", ld.relativePath, dt, err)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return wrapWithOptions(entry, ld.options, ld.relativePath+"/"+entry.Name()), nil
+}
+
 func (ld *loggingDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
 	t0 := time.Now()
 	entries, err := ld.Directory.Readdir(ctx)

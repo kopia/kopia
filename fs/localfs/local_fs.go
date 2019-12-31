@@ -101,6 +101,21 @@ func (fsd *filesystemDirectory) Summary() *fs.DirectorySummary {
 	return nil
 }
 
+func (fsd *filesystemDirectory) Child(ctx context.Context, name string) (fs.Entry, error) {
+	fullPath := fsd.fullPath()
+
+	st, err := os.Stat(filepath.Join(fullPath, name))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fs.ErrEntryNotFound
+		}
+
+		return nil, errors.Wrap(err, "unable to get child")
+	}
+
+	return entryFromChildFileInfo(st, fullPath)
+}
+
 func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
 	fullPath := fsd.fullPath()
 

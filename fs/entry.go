@@ -2,6 +2,7 @@ package fs
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 	"sort"
@@ -40,8 +41,28 @@ type File interface {
 // Directory represents contents of a directory.
 type Directory interface {
 	Entry
+	Child(ctx context.Context, name string) (Entry, error)
 	Readdir(ctx context.Context) (Entries, error)
 	Summary() *DirectorySummary
+}
+
+// ErrEntryNotFound is returned when an entry is not found.
+var ErrEntryNotFound = errors.New("entry not found")
+
+// ReadDirAndFindChild reads all entries from a directory and returns one by name.
+// This is a convenience function that may be helpful in implementations of Directory.Child()
+func ReadDirAndFindChild(ctx context.Context, d Directory, name string) (Entry, error) {
+	children, err := d.Readdir(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	e := children.FindByName(name)
+	if e == nil {
+		return nil, ErrEntryNotFound
+	}
+
+	return e, nil
 }
 
 // DirectorySummary represents summary information about a directory.

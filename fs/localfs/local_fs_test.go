@@ -97,6 +97,47 @@ func TestFiles(t *testing.T) {
 			t.Logf("e[%v] = %v %v %v", i, e.Name(), e.Size(), e.Mode())
 		}
 	}
+
+	verifyChild(t, dir)
+}
+
+func verifyChild(t *testing.T, dir fs.Directory) {
+	ctx := context.Background()
+
+	child, err := dir.Child(ctx, "f3")
+	if err != nil {
+		t.Errorf("child error: %v", err)
+	}
+
+	if _, err = dir.Child(ctx, "f4"); err != fs.ErrEntryNotFound {
+		t.Errorf("unexpected child error: %v", err)
+	}
+
+	if got, want := child.Name(), "f3"; got != want {
+		t.Errorf("unexpected child name: %v, want %v", got, want)
+	}
+
+	if got, want := child.Size(), int64(3); got != want {
+		t.Errorf("unexpected child size: %v, want %v", got, want)
+	}
+
+	if _, err = fs.ReadDirAndFindChild(ctx, dir, "f4"); err != fs.ErrEntryNotFound {
+		t.Errorf("unexpected child error: %v", err)
+	}
+
+	// read child again, this time using ReadAndFindChild
+	child2, err := fs.ReadDirAndFindChild(ctx, dir, "f3")
+	if err != nil {
+		t.Errorf("child2 error: %v", err)
+	}
+
+	if got, want := child2.Name(), "f3"; got != want {
+		t.Errorf("unexpected child2 name: %v, want %v", got, want)
+	}
+
+	if got, want := child2.Size(), int64(3); got != want {
+		t.Errorf("unexpected child2 size: %v, want %v", got, want)
+	}
 }
 
 func assertNoError(t *testing.T, err error) {
