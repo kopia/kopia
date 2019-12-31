@@ -173,6 +173,10 @@ func (imd *Directory) FailReaddir(err error) {
 	imd.readdirError = err
 }
 
+func (imd *Directory) Child(ctx context.Context, name string) (fs.Entry, error) {
+	return fs.ReadDirAndFindChild(ctx, imd, name)
+}
+
 // Readdir gets the contents of a directory.
 func (imd *Directory) Readdir(ctx context.Context) (fs.Entries, error) {
 	if imd.readdirError != nil {

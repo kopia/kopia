@@ -47,6 +47,10 @@ func (s *sourceDirectories) Owner() fs.OwnerInfo {
 	return fs.OwnerInfo{}
 }
 
+func (s *sourceDirectories) Child(ctx context.Context, name string) (fs.Entry, error) {
+	return fs.ReadDirAndFindChild(ctx, s, name)
+}
+
 func (s *sourceDirectories) Readdir(ctx context.Context) (fs.Entries, error) {
 	sources, err := snapshot.ListSources(ctx, s.rep)
 	if err != nil {
@@ -67,3 +71,5 @@ func (s *sourceDirectories) Readdir(ctx context.Context) (fs.Entries, error) {
 
 	return result, nil
 }
+
+var _ fs.Directory = (*sourceDirectories)(nil)

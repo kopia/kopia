@@ -47,6 +47,10 @@ func (s *repositoryAllSources) Sys() interface{} {
 	return nil
 }
 
+func (s *repositoryAllSources) Child(ctx context.Context, name string) (fs.Entry, error) {
+	return fs.ReadDirAndFindChild(ctx, s, name)
+}
+
 func (s *repositoryAllSources) Readdir(ctx context.Context) (fs.Entries, error) {
 	srcs, err := snapshot.ListSources(ctx, s.rep)
 	if err != nil {

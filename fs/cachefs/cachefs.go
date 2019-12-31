@@ -21,6 +21,15 @@ type directory struct {
 	fs.Directory
 }
 
+func (d *directory) Child(ctx context.Context, name string) (fs.Entry, error) {
+	e, err := d.Directory.Child(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+
+	return wrapWithContext(e, d.ctx), nil
+}
+
 func (d *directory) Readdir(ctx context.Context) (fs.Entries, error) {
 	entries, err := d.ctx.cacher.Readdir(ctx, d.Directory)
 	if err != nil {

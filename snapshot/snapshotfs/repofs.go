@@ -79,6 +79,10 @@ func (rd *repositoryDirectory) Summary() *fs.DirectorySummary {
 	return rd.summary
 }
 
+func (rd *repositoryDirectory) Child(ctx context.Context, name string) (fs.Entry, error) {
+	return fs.ReadDirAndFindChild(ctx, rd, name)
+}
+
 func (rd *repositoryDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
 	r, err := rd.repo.Objects.Open(ctx, rd.metadata.ObjectID)
 	if err != nil {

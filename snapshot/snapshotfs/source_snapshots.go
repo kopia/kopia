@@ -56,6 +56,10 @@ func (s *sourceSnapshots) Summary() *fs.DirectorySummary {
 	return nil
 }
 
+func (s *sourceSnapshots) Child(ctx context.Context, name string) (fs.Entry, error) {
+	return fs.ReadDirAndFindChild(ctx, s, name)
+}
+
 func (s *sourceSnapshots) Readdir(ctx context.Context) (fs.Entries, error) {
 	manifests, err := snapshot.ListSnapshots(ctx, s.rep, s.src)
 	if err != nil {
@@ -94,3 +98,5 @@ func (s *sourceSnapshots) Readdir(ctx context.Context) (fs.Entries, error) {
 
 	return result, nil
 }
+
+var _ fs.Directory = (*sourceSnapshots)(nil)
