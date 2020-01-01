@@ -702,7 +702,7 @@ func (u *Uploader) maybeOpenDirectoryFromManifest(man *snapshot.Manifest) fs.Dir
 		return nil
 	}
 
-	ent, err := newRepoEntry(u.repo, man.RootEntry)
+	ent, err := EntryFromDirEntry(u.repo, man.RootEntry)
 	if err != nil {
 		log.Warningf("invalid previous manifest root entry %v: %v", man.RootEntry, err)
 		return nil

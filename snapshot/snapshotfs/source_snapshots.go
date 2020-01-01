@@ -86,7 +86,7 @@ func (s *sourceSnapshots) Readdir(ctx context.Context) (fs.Entries, error) {
 			de.DirSummary = m.RootEntry.DirSummary
 		}
 
-		e, err := newRepoEntry(s.rep, de)
+		e, err := EntryFromDirEntry(s.rep, de)
 		if err != nil {
 			return nil, errors.Wrap(err, "unable to create entry")
 		}
