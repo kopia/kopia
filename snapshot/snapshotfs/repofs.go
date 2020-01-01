@@ -201,6 +201,10 @@ func SnapshotRoot(rep *repo.Repository, man *snapshot.Manifest) (fs.Entry, error
 	return EntryFromDirEntry(rep, man.RootEntry)
 }
 
-var _ fs.Directory = &repositoryDirectory{}
-var _ fs.File = &repositoryFile{}
-var _ fs.Symlink = &repositorySymlink{}
+var _ fs.Directory = (*repositoryDirectory)(nil)
+var _ fs.File = (*repositoryFile)(nil)
+var _ fs.Symlink = (*repositorySymlink)(nil)
+
+var _ snapshot.HasDirEntry = (*repositoryDirectory)(nil)
+var _ snapshot.HasDirEntry = (*repositoryFile)(nil)
+var _ snapshot.HasDirEntry = (*repositorySymlink)(nil)

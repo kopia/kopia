@@ -84,6 +84,11 @@ type DirEntry struct {
 	DirSummary  *fs.DirectorySummary `json:"summ,omitempty"`
 }
 
+// HasDirEntry is implemented by objects that have a DirEntry associated with them.
+type HasDirEntry interface {
+	DirEntry() *DirEntry
+}
+
 // DirManifest represents serialized contents of a directory.
 // The entries are sorted lexicographically and summary only refers to properties of
 // entries, so directory with the same contents always serializes to exactly the same JSON.
