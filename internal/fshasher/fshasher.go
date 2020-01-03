@@ -25,7 +25,7 @@ func Hash(ctx context.Context, e fs.Entry) ([]byte, error) {
 	}
 
 	tw := tar.NewWriter(h)
-	defer tw.Close()
+	defer tw.Close() //nolint:errcheck
 
 	if err := write(ctx, tw, "", e); err != nil {
 		return nil, err
@@ -114,9 +114,10 @@ func writeFile(ctx context.Context, w io.Writer, f fs.File) error {
 	if err != nil {
 		return err
 	}
-	defer r.Close()
 
-	_, err = io.Copy(w, r)
+	if _, err = io.Copy(w, r); err != nil {
+		return err
+	}
 
-	return err
+	return r.Close()
 }

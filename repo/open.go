@@ -99,8 +99,10 @@ func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 	caching.HMACSecret = deriveKeyFromMasterKey(masterKey, f.UniqueID, []byte("local-cache-integrity"), 16)
 
 	fo := &repoConfig.FormattingOptions
+
 	if fo.MaxPackSize == 0 {
-		fo.MaxPackSize = 20 << 20 // 20 MB
+		// legacy only, apply default
+		fo.MaxPackSize = 20 << 20 // nolint:gomnd
 	}
 
 	cm, err := content.NewManager(ctx, st, fo, caching, fb)
@@ -157,7 +159,7 @@ func readAndCacheFormatBlobBytes(ctx context.Context, st blob.Storage, cacheDire
 	cachedFile := filepath.Join(cacheDirectory, "kopia.repository")
 
 	if cacheDirectory != "" {
-		b, err := ioutil.ReadFile(cachedFile)
+		b, err := ioutil.ReadFile(cachedFile) //nolint:gosec
 		if err == nil {
 			// read from cache.
 			return b, nil

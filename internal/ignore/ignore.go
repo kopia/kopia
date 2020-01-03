@@ -65,6 +65,7 @@ func matchBaseDir(baseDir string, m nameMatcher) nameMatcher {
 		}
 
 		path = path[len(baseDir):]
+
 		return m(path)
 	}
 }
@@ -99,6 +100,7 @@ func parseGlobPattern(pattern string) nameMatcher {
 	return func(path string) bool {
 		last := path[strings.LastIndex(path, "/")+1:]
 		ok, _ := filepath.Match(pattern, last)
+
 		return ok
 	}
 }

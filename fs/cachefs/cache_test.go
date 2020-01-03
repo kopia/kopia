@@ -25,6 +25,7 @@ type cacheSource struct {
 func (cs *cacheSource) get(id string) func(ctx context.Context) (fs.Entries, error) {
 	return func(context.Context) (fs.Entries, error) {
 		cs.callCounter[id]++
+
 		d, ok := cs.data[id]
 		if !ok {
 			return nil, errors.New("no such id")

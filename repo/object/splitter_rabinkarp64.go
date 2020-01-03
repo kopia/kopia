@@ -1,4 +1,3 @@
-//nolint:dupl
 package object
 
 import "github.com/chmduquesne/rollinghash/rabinkarp64"
@@ -32,12 +31,12 @@ func (rs *rabinKarp64Splitter) ShouldSplit(b byte) bool {
 
 func newRabinKarp64SplitterFactory(avgSize int) SplitterFactory {
 	mask := uint64(avgSize - 1)
-	maxSize := avgSize * 2
-	minSize := avgSize / 2
+	minSize, maxSize := avgSize/2, avgSize*2 //nolint:gomnd
 
 	return func() Splitter {
 		s := rabinkarp64.New()
 		s.Write(make([]byte, splitterSlidingWindowSize)) //nolint:errcheck
+
 		return &rabinKarp64Splitter{s, mask, 0, minSize, maxSize}
 	}
 }

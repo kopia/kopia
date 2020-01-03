@@ -66,7 +66,7 @@ func appendRandomBytes(b []byte, count int) ([]byte, error) {
 }
 
 func (bm *lockFreeManager) loadPackIndexesUnlocked(ctx context.Context) ([]IndexBlobInfo, bool, error) {
-	nextSleepTime := 100 * time.Millisecond
+	nextSleepTime := 100 * time.Millisecond //nolint:gomnd
 
 	for i := 0; i < indexLoadAttempts; i++ {
 		if err := ctx.Err(); err != nil {

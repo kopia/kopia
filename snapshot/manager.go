@@ -14,7 +14,11 @@ import (
 // ManifestType is the value of the "type" label for snapshot manifests
 const ManifestType = "snapshot"
 
-const typeKey = manifest.TypeLabelKey
+const (
+	typeKey = manifest.TypeLabelKey
+
+	loadSnapshotsConcurrency = 50 // number of snapshots to load in parallel
+)
 
 var log = kopialogging.Logger("kopia/snapshot")
 
@@ -102,7 +106,7 @@ func SaveSnapshot(ctx context.Context, rep *repo.Repository, man *Manifest) (man
 // LoadSnapshots efficiently loads and parses a given list of snapshot IDs.
 func LoadSnapshots(ctx context.Context, rep *repo.Repository, manifestIDs []manifest.ID) ([]*Manifest, error) {
 	result := make([]*Manifest, len(manifestIDs))
-	sem := make(chan bool, 50)
+	sem := make(chan bool, loadSnapshotsConcurrency)
 
 	for i, n := range manifestIDs {
 		sem <- true
@@ -115,6 +119,7 @@ func LoadSnapshots(ctx context.Context, rep *repo.Repository, manifestIDs []mani
 				log.Warningf("unable to parse snapshot manifest %v: %v", n, err)
 				return
 			}
+
 			result[i] = m
 		}(i, n)
 	}

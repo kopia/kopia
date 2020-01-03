@@ -9,6 +9,8 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
+const maxLoggedBlobLength = 20 // maximum length of the blob to log contents of
+
 var log = repologging.Logger("repo/blob")
 
 type loggingStorage struct {
@@ -22,7 +24,7 @@ func (s *loggingStorage) GetBlob(ctx context.Context, id blob.ID, offset, length
 	result, err := s.base.GetBlob(ctx, id, offset, length)
 	dt := time.Since(t0)
 
-	if len(result) < 20 {
+	if len(result) < maxLoggedBlobLength {
 		s.printf(s.prefix+"GetBlob(%q,%v,%v)=(%#v, %#v) took %v", id, offset, length, result, err, dt)
 	} else {
 		s.printf(s.prefix+"GetBlob(%q,%v,%v)=({%#v bytes}, %#v) took %v", id, offset, length, len(result), err, dt)

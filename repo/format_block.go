@@ -16,10 +16,12 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-const defaultFormatEncryption = "AES256_GCM"
-
 const (
+	defaultFormatEncryption         = "AES256_GCM"
+	lengthOfRecoverBlockLength      = 2 // number of bytes used to store recover block length
 	maxChecksummedFormatBytesLength = 65000
+	maxRecoverChunkLength           = 65536
+	minRecoverableChunkLength       = lengthOfRecoverBlockLength + 2
 	formatBlobChecksumSize          = sha256.Size
 )
 
@@ -95,20 +97,21 @@ func RecoverFormatBlob(ctx context.Context, st blob.Storage, blobID blob.ID, opt
 }
 
 func recoverFormatBlobWithLength(ctx context.Context, st blob.Storage, blobID blob.ID, length int64) ([]byte, error) {
-	chunkLength := int64(65536)
+	chunkLength := int64(maxRecoverChunkLength)
 	if chunkLength > length {
 		chunkLength = length
 	}
 
-	if chunkLength > 4 {
+	if chunkLength > minRecoverableChunkLength {
 		// try prefix
 		prefixChunk, err := st.GetBlob(ctx, blobID, 0, chunkLength)
 		if err != nil {
 			return nil, err
 		}
 
-		if l := int(prefixChunk[0]) + int(prefixChunk[1])<<8; l <= maxChecksummedFormatBytesLength && l+2 < len(prefixChunk) {
-			if b, ok := verifyFormatBlobChecksum(prefixChunk[2 : 2+l]); ok {
+		l := decodeInt16(prefixChunk)
+		if l <= maxChecksummedFormatBytesLength && l+lengthOfRecoverBlockLength < len(prefixChunk) {
+			if b, ok := verifyFormatBlobChecksum(prefixChunk[lengthOfRecoverBlockLength : lengthOfRecoverBlockLength+l]); ok {
 				return b, nil
 			}
 		}
@@ -119,14 +122,19 @@ func recoverFormatBlobWithLength(ctx context.Context, st blob.Storage, blobID bl
 			return nil, err
 		}
 
-		if l := int(suffixChunk[len(suffixChunk)-2]) + int(suffixChunk[len(suffixChunk)-1])<<8; l <= maxChecksummedFormatBytesLength && l+2 < len(suffixChunk) {
-			if b, ok := verifyFormatBlobChecksum(suffixChunk[len(suffixChunk)-2-l : len(suffixChunk)-2]); ok {
+		l = decodeInt16(suffixChunk[len(suffixChunk)-lengthOfRecoverBlockLength:])
+		if l <= maxChecksummedFormatBytesLength && l+lengthOfRecoverBlockLength < len(suffixChunk) {
+			if b, ok := verifyFormatBlobChecksum(suffixChunk[len(suffixChunk)-lengthOfRecoverBlockLength-l : len(suffixChunk)-lengthOfRecoverBlockLength]); ok {
 				return b, nil
 			}
 		}
 	}
 
 	return nil, errFormatBlobNotFound
+}
+
+func decodeInt16(b []byte) int {
+	return int(b[0]) + int(b[1])<<8
 }
 
 func verifyFormatBlobChecksum(b []byte) ([]byte, bool) {
@@ -264,9 +272,9 @@ func addFormatBlobChecksumAndLength(fb []byte) ([]byte, error) {
 	}
 
 	// return <length><checksummed-bytes><length>
-	result := append([]byte(nil), byte(l), byte(l>>8))
+	result := append([]byte(nil), byte(l), byte(l>>8)) //nolint:gomnd
 	result = append(result, checksummedFormatBytes...)
-	result = append(result, byte(l), byte(l>>8))
+	result = append(result, byte(l), byte(l>>8)) //nolint:gomnd
 
 	return result, nil
 }

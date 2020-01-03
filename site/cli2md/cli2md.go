@@ -122,7 +122,7 @@ func generateAppFlags(app *kingpin.ApplicationModel) error {
 	if err != nil {
 		return errors.Wrap(err, "unable to create common flags file")
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck
 
 	title := "Flags"
 	fmt.Fprintf(f, `---
@@ -138,7 +138,7 @@ weight: 3
 
 func generateCommands(app *kingpin.ApplicationModel, section string, weight int, advanced bool) error {
 	dir := filepath.Join(baseDir, section)
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		return err
 	}
 
@@ -146,7 +146,7 @@ func generateCommands(app *kingpin.ApplicationModel, section string, weight int,
 	if err != nil {
 		return errors.Wrap(err, "unable to create common flags file")
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck
 
 	title := section + " Commands"
 	fmt.Fprintf(f, `---
@@ -244,7 +244,7 @@ func generateSubcommandPage(fname string, cmd *kingpin.CmdModel) {
 	if err != nil {
 		log.Fatalf("unable to create page: %v", err)
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck
 
 	title := cmd.FullCommand
 	fmt.Fprintf(f, `---

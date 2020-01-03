@@ -12,6 +12,8 @@ import (
 
 var log = kopialogging.Logger("kopia/cachefs")
 
+const dirCacheExpiration = 24 * time.Hour
+
 type cacheEntry struct {
 	id   string
 	prev *cacheEntry
@@ -82,9 +84,8 @@ type Loader func(ctx context.Context) (fs.Entries, error)
 func (c *Cache) Readdir(ctx context.Context, d fs.Directory) (fs.Entries, error) {
 	if h, ok := d.(object.HasObjectID); ok {
 		cacheID := string(h.ObjectID())
-		cacheExpiration := 24 * time.Hour
 
-		return c.getEntries(ctx, cacheID, cacheExpiration, d.Readdir)
+		return c.getEntries(ctx, cacheID, dirCacheExpiration, d.Readdir)
 	}
 
 	return d.Readdir(ctx)
@@ -171,8 +172,8 @@ type Options struct {
 }
 
 var defaultOptions = &Options{
-	MaxCachedDirectories: 1000,
-	MaxCachedEntries:     100000,
+	MaxCachedDirectories: 1000,   //nolint:gomnd
+	MaxCachedEntries:     100000, //nolint:gomnd
 }
 
 // NewCache creates filesystem cache.

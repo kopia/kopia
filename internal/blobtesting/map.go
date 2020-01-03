@@ -11,6 +11,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
+// DataMap is a map of blob ID to their contents.
 type DataMap map[blob.ID][]byte
 
 type mapStorage struct {

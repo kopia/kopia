@@ -4,7 +4,11 @@ package compression
 import (
 	"encoding/binary"
 	"fmt"
+
+	"github.com/pkg/errors"
 )
+
+const compressionHeaderSize = 4
 
 // Name is the name of the compressor to use.
 type Name string
@@ -41,4 +45,13 @@ func compressionHeader(id HeaderID) []byte {
 	binary.BigEndian.PutUint32(b, uint32(id))
 
 	return b
+}
+
+// IDFromHeader retrieves compression ID from content header
+func IDFromHeader(b []byte) (HeaderID, error) {
+	if len(b) < compressionHeaderSize {
+		return 0, errors.Errorf("invalid size: %v", len(b))
+	}
+
+	return HeaderID(binary.BigEndian.Uint32(b[0:compressionHeaderSize])), nil
 }

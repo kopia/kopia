@@ -1,3 +1,4 @@
+// Package scrubber contains helpers that remove sensitive information from Go structs before it's presented to users.
 package scrubber
 
 import (

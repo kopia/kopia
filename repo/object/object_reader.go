@@ -106,7 +106,7 @@ func (r *objectReader) findChunkIndexForOffset(offset int64) (int, error) {
 	right := len(r.seekTable) - 1
 
 	for left <= right {
-		middle := (left + right) / 2
+		middle := (left + right) / 2 //nolint:gomnd
 
 		if offset < r.seekTable[middle].Start {
 			right = middle - 1

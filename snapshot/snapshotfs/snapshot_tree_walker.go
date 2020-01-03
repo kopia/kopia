@@ -11,6 +11,8 @@ import (
 	"github.com/kopia/kopia/internal/parallelwork"
 )
 
+const walkersPerCPU = 4
+
 // TreeWalker holds information for concurrently walking down FS trees specified
 // by their roots
 type TreeWalker struct {
@@ -70,7 +72,7 @@ func (w *TreeWalker) Run(ctx context.Context) error {
 // NewTreeWalker creates new tree walker.
 func NewTreeWalker() *TreeWalker {
 	return &TreeWalker{
-		Parallelism: 4 * runtime.NumCPU(),
+		Parallelism: walkersPerCPU * runtime.NumCPU(),
 		queue:       parallelwork.NewQueue(),
 	}
 }

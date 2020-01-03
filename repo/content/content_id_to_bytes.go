@@ -4,12 +4,15 @@ import (
 	"encoding/hex"
 )
 
+// unpackedContentIDPrefix is a prefix for all content IDs that are stored unpacked in the index.
+const unpackedContentIDPrefix = 0xff
+
 func bytesToContentID(b []byte) ID {
 	if len(b) == 0 {
 		return ""
 	}
 
-	if b[0] == 0xff {
+	if b[0] == unpackedContentIDPrefix {
 		return ID(b[1:])
 	}
 
@@ -36,7 +39,7 @@ func contentIDToBytes(c ID) []byte {
 
 	b, err := hex.DecodeString(string(c[skip:]))
 	if err != nil {
-		return append([]byte{0xff}, []byte(c)...)
+		return append([]byte{unpackedContentIDPrefix}, []byte(c)...)
 	}
 
 	return append(prefix, b...)

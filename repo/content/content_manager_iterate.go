@@ -64,6 +64,7 @@ func maybeParallelExecutor(parallel int, originalCallback IterateCallback) (Iter
 
 		go func() {
 			defer wg.Done()
+
 			for i := range workch {
 				if err := originalCallback(i); err != nil {
 					select {
@@ -196,7 +197,7 @@ func (bm *Manager) IteratePacks(options IteratePackOptions, callback IteratePack
 // packs shorter than the given threshold.
 func (bm *Manager) IterateContentInShortPacks(threshold int64, callback IterateCallback) error {
 	if threshold <= 0 {
-		threshold = int64(bm.maxPackSize) * 8 / 10
+		threshold = int64(bm.maxPackSize) * 8 / 10 // nolint:gomnd
 	}
 
 	return bm.IteratePacks(

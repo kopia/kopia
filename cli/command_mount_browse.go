@@ -48,7 +48,7 @@ func openInOSBrowser(mountPoint, addr string) error {
 }
 
 func netUSE(mountPoint, addr string) error {
-	c := exec.Command("net", "use", mountPoint, addr)
+	c := exec.Command("net", "use", mountPoint, addr) // nolint:gosec
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
 	c.Stdin = os.Stdin
@@ -60,7 +60,7 @@ func netUSE(mountPoint, addr string) error {
 	startWebBrowser("x:\\")
 	waitForCtrlC()
 
-	c = exec.Command("net", "use", mountPoint, "/d")
+	c = exec.Command("net", "use", mountPoint, "/d") // nolint:gosec
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
 	c.Stdin = os.Stdin

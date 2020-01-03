@@ -1,3 +1,4 @@
+// Package serverapi contains GO types corresponding to Kopia server API.
 package serverapi
 
 import (

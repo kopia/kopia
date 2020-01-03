@@ -52,19 +52,19 @@ func (c *pgzipCompressor) Compress(b []byte) ([]byte, error) {
 }
 
 func (c *pgzipCompressor) Decompress(b []byte) ([]byte, error) {
-	if len(b) < 4 {
+	if len(b) < compressionHeaderSize {
 		return nil, errors.Errorf("invalid compression header")
 	}
 
-	if !bytes.Equal(b[0:4], c.header) {
+	if !bytes.Equal(b[0:compressionHeaderSize], c.header) {
 		return nil, errors.Errorf("invalid compression header")
 	}
 
-	r, err := pgzip.NewReader(bytes.NewReader(b[4:]))
+	r, err := pgzip.NewReader(bytes.NewReader(b[compressionHeaderSize:]))
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open gzip stream")
 	}
-	defer r.Close()
+	defer r.Close() //nolint:errcheck
 
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, r); err != nil {

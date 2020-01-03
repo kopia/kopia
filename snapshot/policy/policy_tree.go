@@ -33,6 +33,7 @@ func (t *Tree) EffectivePolicy() *Policy {
 	return t.effective
 }
 
+// IsInherited returns true if the policy inherited to the given tree hode has been inherited from its parent.
 func (t *Tree) IsInherited() bool {
 	if t == nil {
 		return true
@@ -41,6 +42,7 @@ func (t *Tree) IsInherited() bool {
 	return t.inherited
 }
 
+// Child gets a subtree for an entry with a given name.
 func (t *Tree) Child(name string) *Tree {
 	if t == nil {
 		return nil

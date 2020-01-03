@@ -40,7 +40,10 @@ func runBenchmarkSplitterAction(ctx *kingpin.ParseContext) error {
 
 	for i := 0; i < *benchmarkSplitterBlockCount; i++ {
 		b := make([]byte, *benchmarkSplitterBlockSize)
-		rnd.Read(b)
+		if _, err := rnd.Read(b); err != nil {
+			return err
+		}
+
 		dataBlocks = append(dataBlocks, b)
 	}
 

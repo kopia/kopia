@@ -53,15 +53,15 @@ func (c *zstdCompressor) Compress(b []byte) ([]byte, error) {
 }
 
 func (c *zstdCompressor) Decompress(b []byte) ([]byte, error) {
-	if len(b) < 4 {
+	if len(b) < compressionHeaderSize {
 		return nil, errors.Errorf("invalid compression header")
 	}
 
-	if !bytes.Equal(b[0:4], c.header) {
+	if !bytes.Equal(b[0:compressionHeaderSize], c.header) {
 		return nil, errors.Errorf("invalid compression header")
 	}
 
-	r, err := zstd.NewReader(bytes.NewReader(b[4:]))
+	r, err := zstd.NewReader(bytes.NewReader(b[compressionHeaderSize:]))
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open zstd stream")
 	}

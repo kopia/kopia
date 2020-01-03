@@ -132,6 +132,7 @@ func setPolicyFromFlags(p *policy.Policy, changeCount *int) error {
 func setFilesPolicyFromFlags(fp *policy.FilesPolicy, changeCount *int) {
 	if *policySetClearDotIgnore {
 		*changeCount++
+
 		printStderr(" - removing all rules for dot-ignore files\n")
 
 		fp.DotIgnoreFiles = nil
@@ -177,6 +178,7 @@ func setSchedulingPolicyFromFlags(sp *policy.SchedulingPolicy, changeCount *int)
 	// It's not really a list, just optional value.
 	for _, interval := range *policySetInterval {
 		*changeCount++
+
 		sp.SetInterval(interval)
 		printStderr(" - setting snapshot interval to %v\n", sp.Interval())
 
@@ -271,6 +273,7 @@ func addRemoveDedupeAndSort(desc string, base, add, remove []string, changeCount
 
 	for _, b := range add {
 		*changeCount++
+
 		printStderr(" - adding %v to %v\n", b, desc)
 
 		entries[b] = true
@@ -278,6 +281,7 @@ func addRemoveDedupeAndSort(desc string, base, add, remove []string, changeCount
 
 	for _, b := range remove {
 		*changeCount++
+
 		printStderr(" - removing %v from %v\n", b, desc)
 		delete(entries, b)
 	}
@@ -300,6 +304,7 @@ func applyPolicyNumber(desc string, val **int, str string, changeCount *int) err
 
 	if str == inheritPolicyString || str == "default" {
 		*changeCount++
+
 		printStderr(" - resetting %v to a default value inherited from parent.\n", desc)
 
 		*val = nil
@@ -314,6 +319,7 @@ func applyPolicyNumber(desc string, val **int, str string, changeCount *int) err
 
 	i := int(v)
 	*changeCount++
+
 	printStderr(" - setting %v to %v.\n", desc, i)
 	*val = &i
 
@@ -328,6 +334,7 @@ func applyPolicyNumber64(desc string, val *int64, str string, changeCount *int) 
 
 	if str == inheritPolicyString || str == "default" {
 		*changeCount++
+
 		printStderr(" - resetting %v to a default value inherited from parent.\n", desc)
 
 		*val = 0
@@ -341,6 +348,7 @@ func applyPolicyNumber64(desc string, val *int64, str string, changeCount *int) 
 	}
 
 	*changeCount++
+
 	printStderr(" - setting %v to %v.\n", desc, v)
 	*val = v
 

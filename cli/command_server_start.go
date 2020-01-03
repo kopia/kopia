@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/pkg/errors"
 
@@ -17,11 +16,12 @@ import (
 var (
 	serverAddress = serverCommands.Flag("address", "Server address").Default("127.0.0.1:51515").String()
 
-	serverStartCommand  = serverCommands.Command("start", "Start Kopia server").Default()
-	serverStartHTMLPath = serverStartCommand.Flag("html", "Server the provided HTML at the root URL").ExistingDir()
-	serverStartUI       = serverStartCommand.Flag("ui", "Start the server with HTML UI (EXPERIMENTAL)").Bool()
-	serverStartUsername = serverStartCommand.Flag("server-username", "HTTP server username (basic auth)").Envar("KOPIA_SERVER_USERNAME").Default("kopia").String()
-	serverStartPassword = serverStartCommand.Flag("server-password", "Require HTTP server password (basic auth)").Envar("KOPIA_SERVER_PASSWORD").String()
+	serverStartCommand         = serverCommands.Command("start", "Start Kopia server").Default()
+	serverStartHTMLPath        = serverStartCommand.Flag("html", "Server the provided HTML at the root URL").ExistingDir()
+	serverStartUI              = serverStartCommand.Flag("ui", "Start the server with HTML UI (EXPERIMENTAL)").Bool()
+	serverStartUsername        = serverStartCommand.Flag("server-username", "HTTP server username (basic auth)").Envar("KOPIA_SERVER_USERNAME").Default("kopia").String()
+	serverStartPassword        = serverStartCommand.Flag("server-password", "Require HTTP server password (basic auth)").Envar("KOPIA_SERVER_PASSWORD").String()
+	serverStartRefreshInterval = serverStartCommand.Flag("refresh-interval", "Frequency for refreshing repository status").Default("10s").Duration()
 )
 
 func init() {
@@ -35,7 +35,7 @@ func runServer(ctx context.Context, rep *repo.Repository) error {
 		return errors.Wrap(err, "unable to initialize server")
 	}
 
-	go rep.RefreshPeriodically(ctx, 10*time.Second)
+	go rep.RefreshPeriodically(ctx, *serverStartRefreshInterval)
 
 	rootURL := "http://" + *serverAddress
 	log.Infof("starting server on %v", rootURL)

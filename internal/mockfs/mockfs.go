@@ -173,6 +173,7 @@ func (imd *Directory) FailReaddir(err error) {
 	imd.readdirError = err
 }
 
+// Child gets the named child of a directory.
 func (imd *Directory) Child(ctx context.Context, name string) (fs.Entry, error) {
 	return fs.ReadDirAndFindChild(ctx, imd, name)
 }
@@ -230,16 +231,18 @@ func (imsl *inmemorySymlink) Readlink(ctx context.Context) (string, error) {
 	panic("not implemented yet")
 }
 
-// NewDirectory returns new mock directory.ds
+// NewDirectory returns new mock directory.
 func NewDirectory() *Directory {
 	return &Directory{
 		entry: entry{
 			name: "<root>",
-			mode: 0777 | os.ModeDir,
+			mode: 0777 | os.ModeDir, // nolint:gomnd
 		},
 	}
 }
 
-var _ fs.Directory = &Directory{}
-var _ fs.File = &File{}
-var _ fs.Symlink = &inmemorySymlink{}
+var (
+	_ fs.Directory = &Directory{}
+	_ fs.File      = &File{}
+	_ fs.Symlink   = &inmemorySymlink{}
+)

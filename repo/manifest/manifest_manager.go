@@ -18,6 +18,8 @@ import (
 	"github.com/kopia/kopia/repo/content"
 )
 
+const manifestLoadParallelism = 8
+
 var log = repologging.Logger("kopia/manifest")
 
 // ErrNotFound is returned when the metadata item is not found.
@@ -299,7 +301,7 @@ func (m *Manager) loadCommittedContentsLocked(ctx context.Context) error {
 
 		err := m.b.IterateContents(content.IterateOptions{
 			Prefix:   ContentPrefix,
-			Parallel: 8,
+			Parallel: manifestLoadParallelism,
 		}, func(ci content.Info) error {
 			man, err := m.loadManifestContent(ctx, ci.ID)
 			if err != nil {

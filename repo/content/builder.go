@@ -11,6 +11,13 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
+const (
+	packHeaderSize = 8
+	deletedMarker  = 0x80000000
+
+	entryFixedHeaderLength = 20
+)
+
 // packIndexBuilder prepares and writes content index.
 type packIndexBuilder map[ID]*Info
 
@@ -67,7 +74,7 @@ func (b packIndexBuilder) Build(output io.Writer) error {
 	layout := &indexLayout{
 		packBlobIDOffsets: map[blob.ID]uint32{},
 		keyLength:         -1,
-		entryLength:       20,
+		entryLength:       entryFixedHeaderLength,
 		entryCount:        len(allContents),
 	}
 
@@ -77,7 +84,7 @@ func (b packIndexBuilder) Build(output io.Writer) error {
 	extraData := prepareExtraData(allContents, layout)
 
 	// write header
-	header := make([]byte, 8)
+	header := make([]byte, packHeaderSize)
 	header[0] = 1 // version
 	header[1] = byte(layout.keyLength)
 	binary.BigEndian.PutUint16(header[2:4], uint16(layout.entryLength))
@@ -123,7 +130,7 @@ func prepareExtraData(allContents []*Info, layout *indexLayout) []byte {
 		}
 	}
 
-	layout.extraDataOffset = uint32(8 + layout.entryCount*(layout.keyLength+layout.entryLength))
+	layout.extraDataOffset = uint32(packHeaderSize + layout.entryCount*(layout.keyLength+layout.entryLength))
 
 	return extraData
 }
@@ -154,7 +161,7 @@ func formatEntry(entry []byte, it *Info, layout *indexLayout) error {
 	entryPackFileOffset := entry[8:12]
 	entryPackedOffset := entry[12:16]
 	entryPackedLength := entry[16:20]
-	timestampAndFlags := uint64(it.TimestampSeconds) << 16
+	timestampAndFlags := uint64(it.TimestampSeconds) << 16 // nolint:gomnd
 
 	if len(it.PackBlobID) == 0 {
 		return errors.Errorf("empty pack content ID for %v", it.ID)
@@ -163,13 +170,13 @@ func formatEntry(entry []byte, it *Info, layout *indexLayout) error {
 	binary.BigEndian.PutUint32(entryPackFileOffset, layout.extraDataOffset+layout.packBlobIDOffsets[it.PackBlobID])
 
 	if it.Deleted {
-		binary.BigEndian.PutUint32(entryPackedOffset, it.PackOffset|0x80000000)
+		binary.BigEndian.PutUint32(entryPackedOffset, it.PackOffset|deletedMarker)
 	} else {
 		binary.BigEndian.PutUint32(entryPackedOffset, it.PackOffset)
 	}
 
 	binary.BigEndian.PutUint32(entryPackedLength, it.Length)
-	timestampAndFlags |= uint64(it.FormatVersion) << 8
+	timestampAndFlags |= uint64(it.FormatVersion) << 8 // nolint:gomnd
 	timestampAndFlags |= uint64(len(it.PackBlobID))
 	binary.BigEndian.PutUint64(entryTimestampAndFlags, timestampAndFlags)
 

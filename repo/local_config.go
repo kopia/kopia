@@ -42,7 +42,7 @@ func (lc *LocalConfig) Save(w io.Writer) error {
 
 // loadConfigFromFile reads the local configuration from the specified file.
 func loadConfigFromFile(fileName string) (*LocalConfig, error) {
-	f, err := os.Open(fileName)
+	f, err := os.Open(fileName) //nolint:gosec
 	if err != nil {
 		return nil, err
 	}

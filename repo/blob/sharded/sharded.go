@@ -1,3 +1,4 @@
+// Package sharded implements common support for sharded blob providers, such as filesystem or webdav.
 package sharded
 
 import (
@@ -9,6 +10,9 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
+const minShardedBlobIDLength = 20
+
+// Impl must be implemented by underlying provided.
 type Impl interface {
 	GetBlobFromPath(ctx context.Context, dirPath, filePath string, offset, length int64) ([]byte, error)
 	PutBlobInPath(ctx context.Context, dirPath, filePath string, data []byte) error
@@ -16,6 +20,7 @@ type Impl interface {
 	ReadDir(ctx context.Context, path string) ([]os.FileInfo, error)
 }
 
+// Storage provides common implementation of sharded storage.
 type Storage struct {
 	Impl Impl
 
@@ -24,6 +29,7 @@ type Storage struct {
 	Shards   []int
 }
 
+// GetBlob implements blob.Storage
 func (s Storage) GetBlob(ctx context.Context, blobID blob.ID, offset, length int64) ([]byte, error) {
 	dirPath, filePath := s.GetShardedPathAndFilePath(blobID)
 	return s.Impl.GetBlobFromPath(ctx, dirPath, filePath, offset, length)
@@ -41,6 +47,7 @@ func (s Storage) makeFileName(blobID blob.ID) string {
 	return string(blobID) + s.Suffix
 }
 
+// ListBlobs implements blob.Storage
 func (s Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(blob.Metadata) error) error {
 	var walkDir func(string, string) error
 
@@ -85,12 +92,14 @@ func (s Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(bl
 	return walkDir(s.RootPath, "")
 }
 
+// PutBlob implements blob.Storage
 func (s Storage) PutBlob(ctx context.Context, blobID blob.ID, data []byte) error {
 	dirPath, filePath := s.GetShardedPathAndFilePath(blobID)
 
 	return s.Impl.PutBlobInPath(ctx, dirPath, filePath, data)
 }
 
+// DeleteBlob implements blob.Storage
 func (s Storage) DeleteBlob(ctx context.Context, blobID blob.ID) error {
 	dirPath, filePath := s.GetShardedPathAndFilePath(blobID)
 	return s.Impl.DeleteBlobInPath(ctx, dirPath, filePath)
@@ -99,7 +108,7 @@ func (s Storage) DeleteBlob(ctx context.Context, blobID blob.ID) error {
 func (s Storage) getShardDirectory(blobID blob.ID) (string, blob.ID) {
 	shardPath := s.RootPath
 
-	if len(blobID) < 20 {
+	if len(blobID) < minShardedBlobIDLength {
 		return shardPath, blobID
 	}
 
@@ -111,6 +120,7 @@ func (s Storage) getShardDirectory(blobID blob.ID) (string, blob.ID) {
 	return shardPath, blobID
 }
 
+// GetShardedPathAndFilePath returns the path of the shard and file name within the shard for a given blob ID.
 func (s Storage) GetShardedPathAndFilePath(blobID blob.ID) (shardPath, filePath string) {
 	shardPath, blobID = s.getShardDirectory(blobID)
 	filePath = filepath.Join(shardPath, s.makeFileName(blobID))

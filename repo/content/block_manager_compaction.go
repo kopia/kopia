@@ -8,9 +8,11 @@ import (
 	"github.com/pkg/errors"
 )
 
+const verySmallContentFraction = 20 // blobs less than 1/verySmallContentFraction of maxPackSize are considered 'very small'
+
 var autoCompactionOptions = CompactOptions{
-	MinSmallBlobs: 4 * parallelFetches,
-	MaxSmallBlobs: 64,
+	MinSmallBlobs: 4 * parallelFetches, // nolint:gomnd
+	MaxSmallBlobs: 64,                  // nolint:gomnd
 }
 
 // CompactOptions provides options for compaction
@@ -47,50 +49,41 @@ func (bm *Manager) CompactIndexes(ctx context.Context, opt CompactOptions) error
 }
 
 func (bm *Manager) getContentsToCompact(indexBlobs []IndexBlobInfo, opt CompactOptions) []IndexBlobInfo {
-	var nonCompactedContents []IndexBlobInfo
+	var nonCompactedBlobs, verySmallBlobs, mediumSizedBlobs []IndexBlobInfo
 
-	var totalSizeNonCompactedContents int64
-
-	var verySmallContents []IndexBlobInfo
-
-	var totalSizeVerySmallContents int64
-
-	var mediumSizedContents []IndexBlobInfo
-
-	var totalSizeMediumSizedContents int64
+	var totalSizeNonCompactedBlobs, totalSizeVerySmallBlobs, totalSizeMediumSizedBlobs int64
 
 	for _, b := range indexBlobs {
 		if b.Length > int64(bm.maxPackSize) && !opt.AllIndexes {
 			continue
 		}
 
-		nonCompactedContents = append(nonCompactedContents, b)
+		nonCompactedBlobs = append(nonCompactedBlobs, b)
+		totalSizeNonCompactedBlobs += b.Length
 
-		if b.Length < int64(bm.maxPackSize/20) {
-			verySmallContents = append(verySmallContents, b)
-			totalSizeVerySmallContents += b.Length
+		if b.Length < int64(bm.maxPackSize/verySmallContentFraction) {
+			verySmallBlobs = append(verySmallBlobs, b)
+			totalSizeVerySmallBlobs += b.Length
 		} else {
-			mediumSizedContents = append(mediumSizedContents, b)
-			totalSizeMediumSizedContents += b.Length
+			mediumSizedBlobs = append(mediumSizedBlobs, b)
+			totalSizeMediumSizedBlobs += b.Length
 		}
-
-		totalSizeNonCompactedContents += b.Length
 	}
 
-	if len(nonCompactedContents) < opt.MinSmallBlobs {
+	if len(nonCompactedBlobs) < opt.MinSmallBlobs {
 		// current count is below min allowed - nothing to do
 		formatLog.Debugf("no small contents to compact")
 		return nil
 	}
 
-	if len(verySmallContents) > len(nonCompactedContents)/2 && len(mediumSizedContents)+1 < opt.MinSmallBlobs {
-		formatLog.Debugf("compacting %v very small contents", len(verySmallContents))
-		return verySmallContents
+	if len(verySmallBlobs) > len(nonCompactedBlobs)/2 && len(mediumSizedBlobs)+1 < opt.MinSmallBlobs {
+		formatLog.Debugf("compacting %v very small contents", len(verySmallBlobs))
+		return verySmallBlobs
 	}
 
-	formatLog.Debugf("compacting all %v non-compacted contents", len(nonCompactedContents))
+	formatLog.Debugf("compacting all %v non-compacted contents", len(nonCompactedBlobs))
 
-	return nonCompactedContents
+	return nonCompactedBlobs
 }
 
 func (bm *Manager) compactAndDeleteIndexBlobs(ctx context.Context, indexBlobs []IndexBlobInfo, opt CompactOptions) error {

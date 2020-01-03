@@ -35,7 +35,7 @@ type entry struct {
 }
 
 func (e *entry) parse(b []byte) error {
-	if len(b) < 20 {
+	if len(b) < entryFixedHeaderLength {
 		return errors.Errorf("invalid entry length: %v", len(b))
 	}
 
@@ -52,11 +52,11 @@ func (e *entry) IsDeleted() bool {
 }
 
 func (e *entry) TimestampSeconds() int64 {
-	return int64(e.timestampAndFlags >> 16)
+	return int64(e.timestampAndFlags >> 16) // nolint:gomnd
 }
 
 func (e *entry) PackedFormatVersion() byte {
-	return byte(e.timestampAndFlags >> 8)
+	return byte(e.timestampAndFlags >> 8) // nolint:gomnd
 }
 
 func (e *entry) PackFileLength() byte {

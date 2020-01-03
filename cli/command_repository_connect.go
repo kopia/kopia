@@ -36,7 +36,7 @@ func connectOptions() repo.ConnectOptions {
 	return repo.ConnectOptions{
 		CachingOptions: content.CachingOptions{
 			CacheDirectory:          connectCacheDirectory,
-			MaxCacheSizeBytes:       connectMaxCacheSizeMB << 20,
+			MaxCacheSizeBytes:       connectMaxCacheSizeMB << 20, //nolint:gomnd
 			MaxListCacheDurationSec: int(connectMaxListCacheDuration.Seconds()),
 		},
 	}

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 
 	"github.com/efarrer/iothrottler"
 	"github.com/minio/minio-go"
@@ -92,11 +93,11 @@ func isRetriableError(err error) bool {
 
 func translateError(err error) error {
 	if me, ok := err.(minio.ErrorResponse); ok {
-		if me.StatusCode == 200 {
+		if me.StatusCode == http.StatusOK {
 			return nil
 		}
 
-		if me.StatusCode == 404 {
+		if me.StatusCode == http.StatusNotFound {
 			return blob.ErrBlobNotFound
 		}
 	}
