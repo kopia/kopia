@@ -61,7 +61,7 @@ func (p *packContentPostamble) toBytes() ([]byte, error) {
 	binary.BigEndian.PutUint32(buf[n:], checksum)
 	n += 4
 
-	if n > 255 {
+	if n > 255 { // nolint:gomnd
 		return nil, errors.Errorf("postamble too long: %v", n)
 	}
 
@@ -81,7 +81,7 @@ func findPostamble(b []byte) *packContentPostamble {
 
 	// length of postamble is the last byte
 	postambleLength := int(b[len(b)-1])
-	if postambleLength < 5 {
+	if postambleLength < 5 { // nolint:gomnd
 		// too short, must be at least 5 bytes (checksum + own length)
 		return nil
 	}

@@ -1,3 +1,4 @@
+// Package throttle implements helpers for throttling uploads and downloads.
 package throttle
 
 import (

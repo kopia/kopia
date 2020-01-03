@@ -3,7 +3,7 @@ TOOLS_DIR:=$(SELF_DIR)/.tools
 uname := $(shell uname -s)
 
 # tool versions
-GOLANGCI_LINT_VERSION=v1.21.0
+GOLANGCI_LINT_VERSION=v1.22.2
 NODE_VERSION=12.13.0
 HUGO_VERSION=0.59.1
 
@@ -35,11 +35,12 @@ $(BINDATA_TOOL):
 	go build -o $(BINDATA_TOOL) github.com/go-bindata/go-bindata/go-bindata
 
 # linter
-LINTER_TOOL=$(TOOLS_DIR)/bin/golangci-lint
+LINTER_TOOL=$(TOOLS_DIR)/bin/golangci-lint-$(GOLANGCI_LINT_VERSION)
 
 $(LINTER_TOOL):
 	mkdir -p $(TOOLS_DIR)
 	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(TOOLS_DIR)/bin/ $(GOLANGCI_LINT_VERSION)
+	ln -sf $(TOOLS_DIR)/bin/golangci-lint $(LINTER_TOOL)
 
 # hugo
 HUGO_TOOL=$(TOOLS_DIR)/hugo/hugo

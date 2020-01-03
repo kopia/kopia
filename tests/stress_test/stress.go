@@ -1,3 +1,0 @@
-package stress
-
-// dummy package

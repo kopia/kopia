@@ -10,6 +10,8 @@ import (
 	"github.com/kopia/kopia/snapshot"
 )
 
+const maxUnshortenedPath = 60
+
 type singleProgress struct {
 	desc      string
 	startTime time.Time
@@ -114,11 +116,14 @@ func (mp *multiProgress) UploadFinished() {
 }
 
 func shortenPath(s string) string {
-	if len(s) < 60 {
+	if len(s) < maxUnshortenedPath {
 		return s
 	}
 
-	return s[0:30] + "..." + s[len(s)-27:]
+	p1 := maxUnshortenedPath / 2 //nolint:gomnd
+	p2 := p1 - 3                 //nolint:gomnd
+
+	return s[0:p1] + "..." + s[len(s)-p2:]
 }
 
 var cliProgress = &multiProgress{}

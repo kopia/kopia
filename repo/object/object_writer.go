@@ -76,7 +76,9 @@ func (w *objectWriter) Write(data []byte) (n int, err error) {
 	w.totalLength += int64(dataLen)
 
 	for _, d := range data {
-		w.buffer.WriteByte(d)
+		if err := w.buffer.WriteByte(d); err != nil {
+			return 0, err
+		}
 
 		if w.splitter.ShouldSplit(d) {
 			if err := w.flushBuffer(); err != nil {
@@ -133,7 +135,10 @@ func (w *objectWriter) maybeCompressedContentBytes() (data []byte, isCompressed 
 
 	var b2 bytes.Buffer
 
-	w.buffer.WriteTo(&b2) //nolint:errcheck
+	if _, err := w.buffer.WriteTo(&b2); err != nil {
+		return nil, false, err
+	}
+
 	w.buffer.Reset()
 
 	return b2.Bytes(), false, nil

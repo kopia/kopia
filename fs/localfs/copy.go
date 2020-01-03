@@ -37,6 +37,7 @@ func Copy(ctx context.Context, targetPath string, e fs.Entry, opt CopyOptions) e
 	}
 
 	c := copier{CopyOptions: opt}
+
 	return c.copyEntry(ctx, e, targetPath)
 }
 
@@ -136,7 +137,9 @@ func (c *copier) createDirectory(path string) error {
 				return errors.Errorf("non-empty directory already exists, not overwriting it: %q", path)
 			}
 		}
+
 		log.Debug("Not creating already existing directory: ", path)
+
 		return nil
 	default:
 		return errors.Errorf("unable to create directory, %q already exists and it is not a directory", path)
@@ -150,6 +153,7 @@ func (c *copier) copyFileContent(ctx context.Context, targetPath string, f fs.Fi
 		if !c.OverwriteFiles {
 			return errors.Errorf("unable to create %q, it already exists", targetPath)
 		}
+
 		log.Debug("Overwriting existing file: ", targetPath)
 	default:
 		return errors.Wrap(err, "failed to stat "+targetPath)
@@ -167,12 +171,12 @@ func (c *copier) copyFileContent(ctx context.Context, targetPath string, f fs.Fi
 }
 
 func isEmptyDirectory(name string) (bool, error) {
-	f, err := os.Open(name)
+	f, err := os.Open(name) //nolint:gosec
 	if err != nil {
 		return false, err
 	}
 
-	defer f.Close()
+	defer f.Close() //nolint:errcheck
 
 	if _, err = f.Readdirnames(1); err == io.EOF {
 		return true, nil

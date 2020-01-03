@@ -15,6 +15,11 @@ import (
 	"github.com/kopia/kopia/internal/kopialogging"
 )
 
+const (
+	numEntriesToRead   = 100 // number of directory entries to read in one shot
+	dirListingPrefetch = 200 // number of directory items to os.Lstat() in advance
+)
+
 var log = kopialogging.Logger("kopia/localfs")
 
 type sortedEntries fs.Entries
@@ -119,14 +124,14 @@ func (fsd *filesystemDirectory) Child(ctx context.Context, name string) (fs.Entr
 func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
 	fullPath := fsd.fullPath()
 
-	f, direrr := os.Open(fullPath)
+	f, direrr := os.Open(fullPath) //nolint:gosec
 	if direrr != nil {
 		return nil, direrr
 	}
 	defer f.Close() //nolint:errcheck
 
 	// start feeding directory entry names to namesCh
-	namesCh := make(chan string, 200)
+	namesCh := make(chan string, dirListingPrefetch)
 
 	var namesErr error
 
@@ -137,23 +142,28 @@ func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error)
 	go func() {
 		defer namesWG.Done()
 		defer close(namesCh)
+
 		for {
-			names, err := f.Readdirnames(100)
+			names, err := f.Readdirnames(numEntriesToRead)
 			for _, name := range names {
 				namesCh <- name
 			}
+
 			if err == nil {
 				continue
 			}
+
 			if err == io.EOF {
 				break
 			}
+
 			namesErr = err
+
 			break
 		}
 	}()
 
-	entriesCh := make(chan fs.Entry, 200)
+	entriesCh := make(chan fs.Entry, dirListingPrefetch)
 
 	var workersWG sync.WaitGroup
 
@@ -171,11 +181,13 @@ func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error)
 					// lost the race - ignore.
 					continue
 				}
+
 				e, fierr := entryFromChildFileInfo(fi, fullPath)
 				if fierr != nil {
 					log.Warningf("unable to create directory entry %q: %v", fi.Name(), fierr)
 					continue
 				}
+
 				entriesCh <- e
 			}
 		}()

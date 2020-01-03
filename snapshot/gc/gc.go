@@ -1,3 +1,4 @@
+// Package gc implements garbage collection of contents that are no longer referenced through snapshots.
 package gc
 
 import (

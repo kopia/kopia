@@ -46,7 +46,7 @@ func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
 	}
 
 	u := snapshotfs.NewUploader(rep)
-	u.MaxUploadBytes = *snapshotCreateCheckpointUploadLimitMB * 1024 * 1024
+	u.MaxUploadBytes = *snapshotCreateCheckpointUploadLimitMB << 20 //nolint:gomnd
 	u.ForceHashPercentage = *snapshotCreateForceHash
 	u.ParallelUploads = *snapshotCreateParallelUploads
 	onCtrlC(u.Cancel)

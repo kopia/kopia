@@ -483,12 +483,14 @@ func TestParallelWrites(t *testing.T) {
 
 		go func() {
 			defer workersWG.Done()
+
 			for {
 				select {
 				case <-closeWorkers:
 					return
 				case <-time.After(1 * time.Nanosecond):
 					id := writeContentAndVerify(ctx, t, bm, seededRandomData(rand.Int(), 100)) //nolint:gosec
+
 					workerLock.RLock()
 					workerWritten[workerID] = append(workerWritten[workerID], id)
 					workerLock.RUnlock()
@@ -505,6 +507,7 @@ func TestParallelWrites(t *testing.T) {
 
 	go func() {
 		defer flusherWG.Done()
+
 		for {
 			select {
 			case <-closeFlusher:
@@ -515,14 +518,19 @@ func TestParallelWrites(t *testing.T) {
 
 				// capture snapshot of all content IDs while holding a writer lock
 				allWritten := map[ID]bool{}
+
 				workerLock.Lock()
+
 				for _, ww := range workerWritten {
 					for _, id := range ww {
 						allWritten[id] = true
 					}
 				}
+
 				workerLock.Unlock()
+
 				log.Infof("captured %v contents", len(allWritten))
+
 				if err := bm.Flush(ctx); err != nil {
 					t.Errorf("flush error: %v", err)
 				}
@@ -577,10 +585,13 @@ func TestFlushResumesWriters(t *testing.T) {
 
 	go func() {
 		defer writeWG.Done()
+
 		// start a write while flush is ongoing, the write will block on the condition variable
 		time.Sleep(1 * time.Second)
 		log.Infof("write started")
+
 		second = writeContentAndVerify(ctx, t, bm, []byte{3, 4, 5})
+
 		log.Infof("write finished")
 	}()
 
@@ -1159,6 +1170,7 @@ func TestContentReadAliasing(t *testing.T) {
 	}
 
 	contentData2[0]++
+
 	verifyContent(ctx, t, bm, id1, contentData)
 	bm.Flush(ctx)
 	verifyContent(ctx, t, bm, id1, contentData)
@@ -1301,8 +1313,10 @@ func fakeTimeNowWithAutoAdvance(t time.Time, dt time.Duration) func() time.Time 
 	return func() time.Time {
 		mu.Lock()
 		defer mu.Unlock()
+
 		ret := t
 		t = t.Add(dt)
+
 		return ret
 	}
 }
@@ -1381,7 +1395,9 @@ func writeContentWithRetriesAndVerify(ctx context.Context, t *testing.T, bm *Man
 	contentID, err := bm.WriteContent(ctx, b, "")
 	for i := 0; err != nil && i < maxRetries; i++ {
 		retryCount++
+
 		log.Warningf("WriteContent failed %v, retrying", err)
+
 		contentID, err = bm.WriteContent(ctx, b, "")
 	}
 

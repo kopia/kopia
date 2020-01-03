@@ -151,6 +151,7 @@ func truncatedHMACHashFuncFactory(hf func() hash.Hash, truncate int) HashFuncFac
 		return func(b []byte) []byte {
 			h := hmac.New(hf, o.HMACSecret)
 			h.Write(b) // nolint:errcheck
+
 			return h.Sum(nil)[0:truncate]
 		}, nil
 	}
@@ -167,6 +168,7 @@ func truncatedKeyedHashFuncFactory(hf func(key []byte) (hash.Hash, error), trunc
 		return func(b []byte) []byte {
 			h, _ := hf(o.HMACSecret)
 			h.Write(b) // nolint:errcheck
+
 			return h.Sum(nil)[0:truncate]
 		}, nil
 	}
@@ -244,9 +246,9 @@ func init() {
 	RegisterEncryption("NONE", func(f *FormattingOptions) (Encryptor, error) {
 		return nullEncryptor{}, nil
 	})
-	RegisterEncryption("AES-128-CTR", newCTREncryptorFactory(16, aes.NewCipher))
-	RegisterEncryption("AES-192-CTR", newCTREncryptorFactory(24, aes.NewCipher))
-	RegisterEncryption("AES-256-CTR", newCTREncryptorFactory(32, aes.NewCipher))
+	RegisterEncryption("AES-128-CTR", newCTREncryptorFactory(16, aes.NewCipher)) //nolint:gomnd
+	RegisterEncryption("AES-192-CTR", newCTREncryptorFactory(24, aes.NewCipher)) //nolint:gomnd
+	RegisterEncryption("AES-256-CTR", newCTREncryptorFactory(32, aes.NewCipher)) //nolint:gomnd
 	RegisterEncryption("SALSA20", func(f *FormattingOptions) (Encryptor, error) {
 		var k [32]byte
 		copy(k[:], f.MasterKey[0:32])

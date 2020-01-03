@@ -1,3 +1,4 @@
+// Package server implements Kopia API server handlers.
 package server
 
 import (
@@ -62,10 +63,12 @@ func (s *Server) handleAPI(f func(ctx context.Context, r *http.Request) (interfa
 
 		v, err := f(context.Background(), r)
 		log.Debugf("returned %+v", v)
+
 		if err == nil {
 			if err := e.Encode(v); err != nil {
 				log.Warningf("error encoding response: %v", err)
 			}
+
 			return
 		}
 

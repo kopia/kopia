@@ -76,7 +76,7 @@ func (s *sourceSnapshots) Readdir(ctx context.Context) (fs.Entries, error) {
 
 		de := &snapshot.DirEntry{
 			Name:        name,
-			Permissions: 0555,
+			Permissions: 0555, //nolint:gomnd
 			Type:        snapshot.EntryTypeDirectory,
 			ModTime:     m.StartTime,
 			ObjectID:    m.RootObjectID(),

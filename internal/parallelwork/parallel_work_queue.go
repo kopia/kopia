@@ -1,3 +1,4 @@
+// Package parallelwork implements pallel work queue with fixed number of workers that concurrently process and add work items to the queue.
 package parallelwork
 
 import (
@@ -60,19 +61,20 @@ func (v *Queue) Process(workers int) error {
 	for i := 0; i < workers; i++ {
 		wg.Add(1)
 
-		go func(workerID int) {
+		go func(_ int) {
 			defer wg.Done()
-			_ = workerID
 
 			for {
 				callback := v.dequeue()
 				if callback == nil {
 					break
 				}
+
 				if err := callback(); err != nil {
 					errors <- err
 					break
 				}
+
 				v.completed()
 			}
 		}(i)

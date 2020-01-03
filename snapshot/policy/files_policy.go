@@ -12,7 +12,7 @@ type FilesPolicy struct {
 }
 
 // Merge applies default values from the provided policy.
-func (p *FilesPolicy) Merge(src FilesPolicy) { //nolint:hugeParam
+func (p *FilesPolicy) Merge(src FilesPolicy) {
 	if p.MaxFileSize == 0 {
 		p.MaxFileSize = src.MaxFileSize
 	}

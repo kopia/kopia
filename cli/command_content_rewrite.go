@@ -23,6 +23,8 @@ var (
 	contentRewriteDryRun        = contentRewriteCommand.Flag("dry-run", "Do not actually rewrite, only print what would happen").Short('n').Bool()
 )
 
+const shortPackThresholdPercent = 60 // blocks below 60% of max block size are considered to be 'short
+
 type contentInfoOrError struct {
 	content.Info
 	err error
@@ -51,6 +53,7 @@ func runContentRewriteCommand(ctx context.Context, rep *repo.Repository) error {
 					mu.Lock()
 					failedCount++
 					mu.Unlock()
+
 					return
 				}
 
@@ -63,9 +66,11 @@ func runContentRewriteCommand(ctx context.Context, rep *repo.Repository) error {
 				mu.Lock()
 				totalBytes += int64(c.Length)
 				mu.Unlock()
+
 				if *contentRewriteDryRun {
 					continue
 				}
+
 				if err := rep.Content.RewriteContent(ctx, c.ID); err != nil {
 					log.Warningf("unable to rewrite content %q: %v", c.ID, err)
 					mu.Lock()
@@ -98,7 +103,7 @@ func getContentToRewrite(ctx context.Context, rep *repo.Repository) <-chan conte
 
 		// add all content IDs from short packs
 		if *contentRewriteShortPacks {
-			threshold := int64(rep.Content.Format.MaxPackSize * 6 / 10)
+			threshold := int64(rep.Content.Format.MaxPackSize * shortPackThresholdPercent / 100) //nolint:gomnd
 			findContentInShortPacks(rep, ch, threshold)
 		}
 

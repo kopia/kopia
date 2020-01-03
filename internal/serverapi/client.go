@@ -22,7 +22,7 @@ func (c *Client) Get(path string, respPayload interface{}) error {
 	}
 	defer resp.Body.Close() //nolint:errcheck
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return errors.Errorf("invalid server response: %v", resp.Status)
 	}
 
@@ -47,7 +47,7 @@ func (c *Client) Post(path string, reqPayload, respPayload interface{}) error {
 	}
 	defer resp.Body.Close() //nolint:errcheck
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return errors.Errorf("invalid server response: %v", resp.Status)
 	}
 

@@ -29,6 +29,9 @@ play:
 	go run cmd/playground/main.go
 
 lint: $(LINTER_TOOL)
+	$(LINTER_TOOL) --deadline 180s run
+
+lint-and-log: $(LINTER_TOOL)
 	$(LINTER_TOOL) --deadline 180s run | tee .linterr.txt
 
 vet:
@@ -177,5 +180,3 @@ travis-create-long-term-repository:
 	echo Not creating long-term repository.
 
 endif
-
-

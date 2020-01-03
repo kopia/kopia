@@ -104,7 +104,7 @@ func init() {
 
 func hashOf(b []byte) uint64 {
 	h := fnv.New64a()
-	h.Write(b) // nolint:errcheck
+	h.Write(b) //nolint:errcheck
 
 	return h.Sum64()
 }

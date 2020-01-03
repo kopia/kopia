@@ -53,7 +53,7 @@ func EditLoop(fname, initial string, parse func(updated string) error) error {
 
 		var shouldReopen string
 
-		fmt.Scanf("%s", &shouldReopen) //nolint:errcheck
+		_, _ = fmt.Scanf("%s", &shouldReopen)
 
 		if strings.HasPrefix(strings.ToLower(shouldReopen), "n") {
 			return errors.New("aborted")
@@ -62,7 +62,7 @@ func EditLoop(fname, initial string, parse func(updated string) error) error {
 }
 
 func readAndStripComments(fname string) (string, error) {
-	f, err := os.Open(fname)
+	f, err := os.Open(fname) //nolint:gosec
 	if err != nil {
 		return "", err
 	}
@@ -90,7 +90,7 @@ func editFile(file string) error {
 	args = append(args, editorArgs...)
 	args = append(args, file)
 
-	cmd := exec.Command(editor, args...)
+	cmd := exec.Command(editor, args...) //nolint:gosec
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout

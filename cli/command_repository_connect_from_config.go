@@ -33,7 +33,7 @@ func connectToStorageFromConfig(ctx context.Context, isNew bool) (blob.Storage, 
 func connectToStorageFromConfigFile(ctx context.Context) (blob.Storage, error) {
 	var cfg repo.LocalConfig
 
-	f, err := os.Open(connectFromConfigFile)
+	f, err := os.Open(connectFromConfigFile) //nolint:gosec
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open config")
 	}

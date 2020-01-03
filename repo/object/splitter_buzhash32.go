@@ -1,4 +1,3 @@
-//nolint:dupl
 package object
 
 import (
@@ -36,12 +35,13 @@ func newBuzHash32SplitterFactory(avgSize int) SplitterFactory {
 	// avgSize must be a power of two, so 0b000001000...0000
 	// it just so happens that mask is avgSize-1 :)
 	mask := uint32(avgSize - 1)
-	maxSize := avgSize * 2
-	minSize := avgSize / 2
+	maxSize := avgSize * 2 // nolint:gomnd
+	minSize := avgSize / 2 // nolint:gomnd
 
 	return func() Splitter {
 		s := buzhash32.New()
 		s.Write(make([]byte, splitterSlidingWindowSize)) //nolint:errcheck
+
 		return &buzhash32Splitter{s, mask, 0, minSize, maxSize}
 	}
 }

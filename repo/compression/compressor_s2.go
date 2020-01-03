@@ -11,8 +11,8 @@ import (
 func init() {
 	RegisterCompressor("s2-default", newS2Compressor(headerS2Default))
 	RegisterCompressor("s2-better", newS2Compressor(headerS2Better, s2.WriterBetterCompression()))
-	RegisterCompressor("s2-parallel-4", newS2Compressor(headerS2Parallel4, s2.WriterConcurrency(4)))
-	RegisterCompressor("s2-parallel-8", newS2Compressor(headerS2Parallel8, s2.WriterConcurrency(8)))
+	RegisterCompressor("s2-parallel-4", newS2Compressor(headerS2Parallel4, s2.WriterConcurrency(4))) //nolint:gomnd
+	RegisterCompressor("s2-parallel-8", newS2Compressor(headerS2Parallel8, s2.WriterConcurrency(8))) //nolint:gomnd
 }
 
 func newS2Compressor(id HeaderID, opts ...s2.WriterOption) Compressor {
@@ -50,15 +50,15 @@ func (c *s2Compressor) Compress(b []byte) ([]byte, error) {
 }
 
 func (c *s2Compressor) Decompress(b []byte) ([]byte, error) {
-	if len(b) < 4 {
+	if len(b) < compressionHeaderSize {
 		return nil, errors.Errorf("invalid compression header")
 	}
 
-	if !bytes.Equal(b[0:4], c.header) {
+	if !bytes.Equal(b[0:compressionHeaderSize], c.header) {
 		return nil, errors.Errorf("invalid compression header")
 	}
 
-	r := s2.NewReader(bytes.NewReader(b[4:]))
+	r := s2.NewReader(bytes.NewReader(b[compressionHeaderSize:]))
 
 	var buf bytes.Buffer
 	if _, err := io.Copy(&buf, r); err != nil {

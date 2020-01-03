@@ -12,6 +12,11 @@ import (
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
+const (
+	statusRefreshInterval = 15 * time.Second // how frequently to refresh source status
+	oneDay                = 24 * time.Hour
+)
+
 // sourceManager manages the state machine of each source
 // Possible states:
 //
@@ -85,7 +90,7 @@ func (s *sourceManager) runLocal(ctx context.Context) {
 			timeBeforeNextSnapshot = time.Until(s.nextSnapshotTime)
 			log.Infof("time to next snapshot %v is %v", s.src, timeBeforeNextSnapshot)
 		} else {
-			timeBeforeNextSnapshot = 24 * time.Hour
+			timeBeforeNextSnapshot = oneDay
 		}
 
 		s.setStatus("WAITING")
@@ -93,7 +98,7 @@ func (s *sourceManager) runLocal(ctx context.Context) {
 		case <-s.closed:
 			return
 
-		case <-time.After(15 * time.Second):
+		case <-time.After(statusRefreshInterval):
 			s.refreshStatus(ctx)
 
 		case <-time.After(timeBeforeNextSnapshot):
@@ -113,7 +118,7 @@ func (s *sourceManager) runRemote(ctx context.Context) {
 		select {
 		case <-s.closed:
 			return
-		case <-time.After(15 * time.Second):
+		case <-time.After(statusRefreshInterval):
 			s.refreshStatus(ctx)
 		}
 	}
@@ -205,7 +210,7 @@ func (s *sourceManager) snapshot(ctx context.Context) {
 }
 
 func (s *sourceManager) findClosestNextSnapshotTime() time.Time {
-	nextSnapshotTime := time.Now().Add(24 * time.Hour)
+	nextSnapshotTime := time.Now().Add(oneDay)
 
 	if s.pol != nil {
 		// compute next snapshot time based on interval
@@ -223,7 +228,7 @@ func (s *sourceManager) findClosestNextSnapshotTime() time.Time {
 			localSnapshotTime := time.Date(nowLocalTime.Year(), nowLocalTime.Month(), nowLocalTime.Day(), tod.Hour, tod.Minute, 0, 0, time.Local)
 
 			if tod.Hour < nowLocalTime.Hour() || (tod.Hour == nowLocalTime.Hour() && tod.Minute < nowLocalTime.Minute()) {
-				localSnapshotTime = localSnapshotTime.Add(24 * time.Hour)
+				localSnapshotTime = localSnapshotTime.Add(oneDay)
 			}
 
 			if localSnapshotTime.Before(nextSnapshotTime) {

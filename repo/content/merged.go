@@ -5,6 +5,8 @@ import (
 	"errors"
 )
 
+const iterateParallelism = 16
+
 // mergedIndex is an implementation of Index that transparently merges returns from underlying Indexes.
 type mergedIndex []packIndex
 
@@ -73,7 +75,7 @@ func (h *nextInfoHeap) Pop() interface{} {
 }
 
 func iterateChan(prefix ID, ndx packIndex, done chan bool) <-chan Info {
-	ch := make(chan Info, 16)
+	ch := make(chan Info, iterateParallelism)
 
 	go func() {
 		defer close(ch)

@@ -63,7 +63,7 @@ func (i ID) Validate() error {
 	}
 
 	if contentID, _, ok := i.ContentID(); ok {
-		if len(contentID) < 2 {
+		if len(contentID) <= 1 {
 			return errors.Errorf("missing content ID")
 		}
 

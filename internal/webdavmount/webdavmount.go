@@ -1,3 +1,4 @@
+// Package webdavmount implements webdav filesystem for serving snapshots.
 package webdavmount
 
 import (

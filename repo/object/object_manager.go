@@ -4,7 +4,6 @@ package object
 import (
 	"bytes"
 	"context"
-	"encoding/binary"
 	"encoding/json"
 	"io"
 
@@ -238,11 +237,10 @@ func (om *Manager) newRawReader(ctx context.Context, objectID ID, assertLength i
 }
 
 func (om *Manager) decompress(b []byte) ([]byte, error) {
-	if len(b) < 4 {
-		return nil, errors.Errorf("invalid compression header")
+	compressorID, err := compression.IDFromHeader(b)
+	if err != nil {
+		return nil, errors.Wrap(err, "invalid compression header")
 	}
-
-	compressorID := compression.HeaderID(binary.BigEndian.Uint32(b[0:4]))
 
 	compressor := compression.ByHeaderID[compressorID]
 	if compressor == nil {

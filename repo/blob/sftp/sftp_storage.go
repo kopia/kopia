@@ -1,3 +1,4 @@
+// Package sftp implements blob storage provided for SFTP/SSH.
 package sftp
 
 import (
@@ -52,7 +53,7 @@ func (s *sftpImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, of
 	if err != nil {
 		return nil, err
 	}
-	defer r.Close()
+	defer r.Close() //nolint:errcheck
 
 	// pkg/sftp doesn't have a `ioutil.Readall`, so we WriteTo to a buffer
 	// and either return it all or return the offset/length bytes
@@ -148,8 +149,13 @@ func (s *sftpStorage) ConnectionInfo() blob.ConnectionInfo {
 }
 
 func (s *sftpStorage) Close(ctx context.Context) error {
-	s.Impl.(*sftpImpl).cli.Close()
-	s.Impl.(*sftpImpl).conn.Close()
+	if err := s.Impl.(*sftpImpl).cli.Close(); err != nil {
+		return errors.Wrap(err, "closing SFTP client")
+	}
+
+	if err := s.Impl.(*sftpImpl).conn.Close(); err != nil {
+		return errors.Wrap(err, "closing SFTP connection")
+	}
 
 	return nil
 }
@@ -180,11 +186,11 @@ func hostExists(host string, hosts []string) bool {
 // getHostKey parses OpenSSH known_hosts file for a public key that matches the host
 // The known_hosts file format is documented in the sshd(8) manual page
 func getHostKey(host, knownHosts string) (ssh.PublicKey, error) {
-	file, err := os.Open(knownHosts)
+	file, err := os.Open(knownHosts) //nolint:gosec
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer file.Close() //nolint:errcheck
 
 	var hostKey ssh.PublicKey
 
@@ -207,7 +213,7 @@ func getHostKey(host, knownHosts string) (ssh.PublicKey, error) {
 
 // getSigner parses and returns a signer for the user-entered private key
 func getSigner(path string) (ssh.Signer, error) {
-	buffer, err := ioutil.ReadFile(path)
+	buffer, err := ioutil.ReadFile(path) //nolint:gosec
 	if err != nil {
 		return nil, err
 	}

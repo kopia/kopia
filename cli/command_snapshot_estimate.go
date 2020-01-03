@@ -8,14 +8,12 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/fs/ignorefs"
-	"github.com/kopia/kopia/snapshot/policy"
-
-	"github.com/kopia/kopia/repo"
-
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/fs/ignorefs"
 	"github.com/kopia/kopia/internal/units"
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/policy"
 )
 
 var (
@@ -25,6 +23,8 @@ var (
 	snapshotEstimateQuiet       = snapshotEstimate.Flag("quiet", "Do not display scanning progress").Short('q').Bool()
 	snapshotEstimateUploadSpeed = snapshotEstimate.Flag("upload-speed", "Upload speed to use for estimation").Default("10").PlaceHolder("mbit/s").Float64()
 )
+
+const maxExamplesPerBucket = 10
 
 type bucket struct {
 	MinSize   int64    `json:"minSize"`
@@ -37,7 +37,7 @@ func (b *bucket) add(fname string, size int64) {
 	b.Count++
 	b.TotalSize += size
 
-	if len(b.Examples) < 10 {
+	if len(b.Examples) < maxExamplesPerBucket {
 		b.Examples = append(b.Examples, fmt.Sprintf("%v - %v", fname, units.BytesStringBase10(size)))
 	}
 }
@@ -114,7 +114,7 @@ func runSnapshotEstimateCommand(ctx context.Context, rep *repo.Repository) error
 	fmt.Printf("Snapshot excludes %v directories and %v files with total size %v\n", stats.ExcludedDirCount, stats.ExcludedFileCount, units.BytesStringBase10(stats.ExcludedTotalFileSize))
 	showBuckets(eb)
 
-	megabits := float64(stats.TotalFileSize) * 8 / 1000000
+	megabits := float64(stats.TotalFileSize) * 8 / 1000000 //nolint:gomnd
 	seconds := megabits / *snapshotEstimateUploadSpeed
 
 	fmt.Println()

@@ -24,7 +24,8 @@ import (
 )
 
 const (
-	gcsStorageType = "gcs"
+	gcsStorageType  = "gcs"
+	writerChunkSize = 1 << 20
 )
 
 type gcsStorage struct {
@@ -104,7 +105,7 @@ func (gcs *gcsStorage) PutBlob(ctx context.Context, b blob.ID, data []byte) erro
 
 	obj := gcs.bucket.Object(gcs.getObjectNameString(b))
 	writer := obj.NewWriter(ctx)
-	writer.ChunkSize = 1 << 20
+	writer.ChunkSize = writerChunkSize
 	writer.ContentType = "application/x-kopia"
 
 	progressCallback := blob.ProgressCallback(ctx)
@@ -124,7 +125,8 @@ func (gcs *gcsStorage) PutBlob(ctx context.Context, b blob.ID, data []byte) erro
 	if err != nil {
 		// cancel context before closing the writer causes it to abandon the upload.
 		cancel()
-		writer.Close() //nolint:errcheck
+
+		_ = writer.Close() // failing already, ignore the error
 
 		return translateError(err)
 	}
@@ -187,8 +189,7 @@ func (gcs *gcsStorage) ConnectionInfo() blob.ConnectionInfo {
 }
 
 func (gcs *gcsStorage) Close(ctx context.Context) error {
-	gcs.storageClient.Close() //nolint:errcheck
-	return nil
+	return gcs.storageClient.Close()
 }
 
 func toBandwidth(bytesPerSecond int) iothrottler.Bandwidth {
@@ -200,7 +201,7 @@ func toBandwidth(bytesPerSecond int) iothrottler.Bandwidth {
 }
 
 func tokenSourceFromCredentialsFile(ctx context.Context, fn string, scopes ...string) (oauth2.TokenSource, error) {
-	data, err := ioutil.ReadFile(fn)
+	data, err := ioutil.ReadFile(fn) //nolint:gosec
 	if err != nil {
 		return nil, err
 	}

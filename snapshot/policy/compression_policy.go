@@ -17,6 +17,7 @@ type CompressionPolicy struct {
 	MaxSize        int64            `json:"maxSize,omitempty"`
 }
 
+// CompressorForFile returns compression name to be used for compressing a given file according to policy, using attributes such as name or size.
 func (p *CompressionPolicy) CompressorForFile(e fs.File) compression.Name {
 	ext := filepath.Ext(e.Name())
 	size := e.Size()

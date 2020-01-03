@@ -1,3 +1,4 @@
+// Package units contains helpers to convert sizes to humand-readable strings.
 package units
 
 import (

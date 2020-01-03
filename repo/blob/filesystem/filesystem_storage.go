@@ -39,7 +39,7 @@ type fsImpl struct {
 }
 
 func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, offset, length int64) ([]byte, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(path) //nolint:gosec
 	if os.IsNotExist(err) {
 		return nil, blob.ErrBlobNotFound
 	}

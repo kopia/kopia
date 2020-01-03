@@ -23,6 +23,8 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
+const copyBufferSize = 128 * 1024
+
 var log = kopialogging.Logger("kopia/upload")
 
 var errCancelled = errors.New("canceled")
@@ -152,7 +154,7 @@ func (u *Uploader) addDirProgress(length int64) {
 
 	if time.Now().After(u.nextProgressReportTime) {
 		shouldReport = true
-		u.nextProgressReportTime = time.Now().Add(100 * time.Millisecond)
+		u.nextProgressReportTime = time.Now().Add(100 * time.Millisecond) //nolint:gomnd
 	}
 
 	if c == u.currentDirTotalSize {
@@ -167,7 +169,7 @@ func (u *Uploader) addDirProgress(length int64) {
 }
 
 func (u *Uploader) copyWithProgress(dst io.Writer, src io.Reader, completed, length int64) (int64, error) {
-	uploadBuf := make([]byte, 128*1024) // 128 KB buffer
+	uploadBuf := make([]byte, copyBufferSize)
 
 	var written int64
 
@@ -408,7 +410,7 @@ func objectIDPercent(obj object.ID) int {
 	h := fnv.New32a()
 	io.WriteString(h, obj.String()) //nolint:errcheck
 
-	return int(h.Sum32() % 100)
+	return int(h.Sum32() % 100) //nolint:gomnd
 }
 
 func (u *Uploader) maybeIgnoreCachedEntry(ent fs.Entry) fs.Entry {
@@ -550,6 +552,7 @@ func (u *Uploader) processUploadWorkItems(workItems []*uploadWorkItem, dirManife
 		if result.err != nil {
 			if u.IgnoreFileErrors {
 				u.stats.ReadErrors++
+
 				log.Warningf("unable to hash file %q: %s, ignoring", it.entryRelativePath, result.err)
 
 				continue

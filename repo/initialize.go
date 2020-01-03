@@ -18,6 +18,12 @@ var (
 	BuildVersion = "v0-unofficial"
 )
 
+const (
+	hmacSecretLength = 32
+	masterKeyLength  = 32
+	uniqueIDLength   = 32
+)
+
 // NewRepositoryOptions specifies options that apply to newly created repositories.
 // All fields are optional, when not provided, reasonable defaults will be used.
 type NewRepositoryOptions struct {
@@ -66,7 +72,7 @@ func formatBlobFromOptions(opt *NewRepositoryOptions) *formatBlob {
 		Tool:                   "https://github.com/kopia/kopia",
 		BuildInfo:              BuildInfo,
 		KeyDerivationAlgorithm: defaultKeyDerivationAlgorithm,
-		UniqueID:               applyDefaultRandomBytes(opt.UniqueID, 32),
+		UniqueID:               applyDefaultRandomBytes(opt.UniqueID, uniqueIDLength),
 		Version:                "1",
 		EncryptionAlgorithm:    defaultFormatEncryption,
 	}
@@ -84,9 +90,9 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) *repositoryObj
 			Version:     1,
 			Hash:        applyDefaultString(opt.BlockFormat.Hash, content.DefaultHash),
 			Encryption:  applyDefaultString(opt.BlockFormat.Encryption, content.DefaultEncryption),
-			HMACSecret:  applyDefaultRandomBytes(opt.BlockFormat.HMACSecret, 32),
-			MasterKey:   applyDefaultRandomBytes(opt.BlockFormat.MasterKey, 32),
-			MaxPackSize: applyDefaultInt(opt.BlockFormat.MaxPackSize, 20<<20), // 20 MB
+			HMACSecret:  applyDefaultRandomBytes(opt.BlockFormat.HMACSecret, hmacSecretLength), //nolint:gomnd
+			MasterKey:   applyDefaultRandomBytes(opt.BlockFormat.MasterKey, masterKeyLength),   //nolint:gomnd
+			MaxPackSize: applyDefaultInt(opt.BlockFormat.MaxPackSize, 20<<20),                  //nolint:gomnd
 		},
 		Format: object.Format{
 			Splitter: applyDefaultString(opt.ObjectFormat.Splitter, object.DefaultSplitter),

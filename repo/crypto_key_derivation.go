@@ -28,7 +28,10 @@ func (f *formatBlob) deriveMasterKeyFromPassword(password string) ([]byte, error
 func deriveKeyFromMasterKey(masterKey, uniqueID, purpose []byte, length int) []byte {
 	key := make([]byte, length)
 	k := hkdf.New(sha256.New, masterKey, uniqueID, purpose)
-	io.ReadFull(k, key) //nolint:errcheck
+
+	if _, err := io.ReadFull(k, key); err != nil {
+		panic("unable to derive key from master key, this should never happen")
+	}
 
 	return key
 }

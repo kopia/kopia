@@ -1,3 +1,4 @@
+// Package diff implements helpers for comparing two filesystems.
 package diff
 
 import (
@@ -253,7 +254,7 @@ func (c *Comparer) compareFiles(ctx context.Context, f1, f2 fs.File, fname strin
 	args = append(args, c.DiffArguments...)
 	args = append(args, oldName, newName)
 
-	cmd := exec.CommandContext(ctx, c.DiffCommand, args...)
+	cmd := exec.CommandContext(ctx, c.DiffCommand, args...) // nolint:gosec
 	cmd.Dir = c.tmpDir
 	cmd.Stdout = c.out
 	cmd.Stderr = c.out

@@ -68,7 +68,7 @@ func (b *index) Iterate(prefix ID, cb func(Info) error) error {
 	entry := make([]byte, stride)
 
 	for i := startPos; i < b.hdr.entryCount; i++ {
-		n, err := b.readerAt.ReadAt(entry, int64(8+stride*i))
+		n, err := b.readerAt.ReadAt(entry, int64(packHeaderSize+stride*i))
 		if err != nil || n != len(entry) {
 			return errors.Wrap(err, "unable to read from index")
 		}
@@ -103,7 +103,7 @@ func (b *index) findEntryPosition(contentID ID) (int, error) {
 		if readErr != nil {
 			return false
 		}
-		_, err := b.readerAt.ReadAt(entryBuf, int64(8+stride*p))
+		_, err := b.readerAt.ReadAt(entryBuf, int64(packHeaderSize+stride*p))
 		if err != nil {
 			readErr = err
 			return false
@@ -133,7 +133,7 @@ func (b *index) findEntry(contentID ID) ([]byte, error) {
 	}
 
 	entryBuf := make([]byte, stride)
-	if _, err := b.readerAt.ReadAt(entryBuf, int64(8+stride*position)); err != nil {
+	if _, err := b.readerAt.ReadAt(entryBuf, int64(packHeaderSize+stride*position)); err != nil {
 		return nil, err
 	}
 
@@ -164,10 +164,6 @@ func (b *index) GetInfo(contentID ID) (*Info, error) {
 }
 
 func (b *index) entryToInfo(contentID ID, entryData []byte) (Info, error) {
-	if len(entryData) < 20 {
-		return Info{}, errors.Errorf("invalid entry length: %v", len(entryData))
-	}
-
 	var e entry
 	if err := e.parse(entryData); err != nil {
 		return Info{}, err

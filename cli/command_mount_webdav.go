@@ -56,6 +56,7 @@ func mountDirectoryWebDAV(entry fs.Directory, mountPoint string) error {
 	go func() {
 		defer wg.Done()
 		printStderr("Server listening at http://%v/ Press Ctrl-C to shut down.\n", s.Addr)
+
 		if err := s.ListenAndServe(); err != nil {
 			log.Warningf("server shut down with error: %v", err)
 		}
