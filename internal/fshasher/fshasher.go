@@ -114,10 +114,11 @@ func writeFile(ctx context.Context, w io.Writer, f fs.File) error {
 	if err != nil {
 		return err
 	}
+	defer r.Close() //nolint:errcheck
 
 	if _, err = io.Copy(w, r); err != nil {
 		return err
 	}
 
-	return r.Close()
+	return nil
 }
