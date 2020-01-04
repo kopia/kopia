@@ -29,7 +29,8 @@ play:
 	go run cmd/playground/main.go
 
 lint: $(LINTER_TOOL)
-	$(LINTER_TOOL) --deadline 180s run
+	# try running linter a couple of times since it is pretty flaky, especially on cold start
+	for retry in 1 2 3; do echo "Running linter, attempt #$$retry"; $(LINTER_TOOL) --deadline 180s run && s=0 && break || s=$$? && sleep 1; done; (exit $$s)
 
 lint-and-log: $(LINTER_TOOL)
 	$(LINTER_TOOL) --deadline 180s run | tee .linterr.txt
