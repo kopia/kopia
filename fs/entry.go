@@ -95,6 +95,56 @@ func (e Entries) FindByName(n string) Entry {
 	return nil
 }
 
+// Update returns a copy of Entries with the provided entry included, by either replacing
+// existing entry with the same name or inserted in the appropriate place to maintain sorted order.
+func (e Entries) Update(newEntry Entry) Entries {
+	name := newEntry.Name()
+	pos := sort.Search(len(e), func(i int) bool {
+		return e[i].Name() >= name
+	})
+
+	// append at the end
+	if pos >= len(e) {
+		return append(append(Entries(nil), e...), newEntry)
+	}
+
+	if e[pos].Name() == name {
+		if pos > 0 {
+			return append(append(append(Entries(nil), e[0:pos]...), newEntry), e[pos+1:]...)
+		}
+
+		return append(append(Entries(nil), newEntry), e[pos+1:]...)
+	}
+
+	if pos > 0 {
+		return append(append(append(Entries(nil), e[0:pos]...), newEntry), e[pos:]...)
+	}
+
+	return append(append(Entries(nil), newEntry), e[pos:]...)
+}
+
+// Remove returns a copy of Entries with the provided entry removed, while maintaining sorted order.
+func (e Entries) Remove(name string) Entries {
+	pos := sort.Search(len(e), func(i int) bool {
+		return e[i].Name() >= name
+	})
+
+	// not found
+	if pos >= len(e) {
+		return e
+	}
+
+	if e[pos].Name() != name {
+		return e
+	}
+
+	if pos > 0 {
+		return append(append(Entries(nil), e[0:pos]...), e[pos+1:]...)
+	}
+
+	return append(Entries(nil), e[pos+1:]...)
+}
+
 // Sort sorts the entries by name.
 func (e Entries) Sort() {
 	sort.Slice(e, func(i, j int) bool {
