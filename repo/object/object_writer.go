@@ -98,10 +98,12 @@ func (w *objectWriter) flushBuffer() error {
 	w.indirectIndex[chunkID].Length = int64(length)
 	w.currentPosition += int64(length)
 
-	contentBytes, isCompressed, err := w.maybeCompressedContentBytes()
+	contentBytes, isCompressed, err := maybeCompressedContentBytes(w.compressor, w.buffer.Bytes())
 	if err != nil {
 		return errors.Wrap(err, "unable to prepare content bytes")
 	}
+
+	w.buffer.Reset()
 
 	contentID, err := w.repo.contentMgr.WriteContent(w.ctx, contentBytes, w.prefix)
 	w.repo.trace("OBJECT_WRITER(%q) stored %v (%v bytes)", w.description, contentID, length)
@@ -121,27 +123,19 @@ func (w *objectWriter) flushBuffer() error {
 	return nil
 }
 
-func (w *objectWriter) maybeCompressedContentBytes() (data []byte, isCompressed bool, err error) {
-	if w.compressor != nil {
-		compressedBytes, err := w.compressor.Compress(w.buffer.Bytes())
+func maybeCompressedContentBytes(comp compression.Compressor, b []byte) (data []byte, isCompressed bool, err error) {
+	if comp != nil {
+		compressedBytes, err := comp.Compress(b)
 		if err != nil {
 			return nil, false, errors.Wrap(err, "compression error")
 		}
 
-		if len(compressedBytes) < w.buffer.Len() {
+		if len(compressedBytes) < len(b) {
 			return compressedBytes, true, nil
 		}
 	}
 
-	var b2 bytes.Buffer
-
-	if _, err := w.buffer.WriteTo(&b2); err != nil {
-		return nil, false, err
-	}
-
-	w.buffer.Reset()
-
-	return b2.Bytes(), false, nil
+	return append([]byte{}, b...), false, nil
 }
 
 func (w *objectWriter) Result() (ID, error) {
