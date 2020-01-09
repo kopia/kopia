@@ -224,7 +224,7 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		return nil, errors.New("bucket name must be specified")
 	}
 
-	cli, err := minio.New(opt.Endpoint, opt.AccessKeyID, opt.SecretAccessKey, !opt.DoNotUseTLS)
+	cli, err := minio.NewWithRegion(opt.Endpoint, opt.AccessKeyID, opt.SecretAccessKey, !opt.DoNotUseTLS, opt.Region)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create client")
 	}

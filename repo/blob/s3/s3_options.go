@@ -14,6 +14,9 @@ type Options struct {
 	AccessKeyID     string `json:"accessKeyID"`
 	SecretAccessKey string `json:"secretAccessKey" kopia:"sensitive"`
 
+	// Region is an optional region to pass in authorization header.
+	Region string `json:"region,omitempty"`
+
 	MaxUploadSpeedBytesPerSecond int `json:"maxUploadSpeedBytesPerSecond,omitempty"`
 
 	MaxDownloadSpeedBytesPerSecond int `json:"maxDownloadSpeedBytesPerSecond,omitempty"`
