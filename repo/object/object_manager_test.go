@@ -302,7 +302,7 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 	ctx := context.Background()
 	_, om := setupTest(t)
 
-	for _, size := range []int{1, 199, 200, 201, 9999, 512434} {
+	for _, size := range []int{1, 199, 200, 201, 9999, 512434, 5012434} {
 		// Create some random data sample of the specified size.
 		randomData := make([]byte, size)
 		cryptorand.Read(randomData) //nolint:errcheck
@@ -328,20 +328,23 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 
 func TestEndToEndReadAndSeekWithCompression(t *testing.T) {
 	ctx := context.Background()
-	_, om := setupTest(t)
 
 	for compressorName := range compression.ByName {
-		for _, size := range []int{1, 199, 200, 201, 9999, 512434} {
-			// Create some random data sample of the specified size.
-			randomData := make([]byte, size)
+		totalBytesWritten := 0
+		data, om := setupTest(t)
+
+		for _, size := range []int{1, 199, 200, 201, 9999, 512434, 5012434} {
+			// Create some compressible data sample of the specified size.
+			randomData := makeCompressibleData(size)
 
 			writer := om.NewWriter(ctx, WriterOptions{Compressor: compressorName})
 			if _, err := writer.Write(randomData); err != nil {
 				t.Errorf("write error: %v", err)
 			}
 
+			totalBytesWritten += size
+
 			objectID, err := writer.Result()
-			t.Logf("oid: %v", objectID)
 
 			writer.Close()
 
@@ -352,8 +355,25 @@ func TestEndToEndReadAndSeekWithCompression(t *testing.T) {
 
 			verify(ctx, t, om, objectID, randomData, fmt.Sprintf("%v %v", objectID, size))
 		}
+
+		compressedBytes := 0
+		for _, d := range data {
+			compressedBytes += len(d)
+		}
+
+		// data is highly compressible, should easily compress to 1% of original size or less
+		ratio := float64(compressedBytes) / float64(totalBytesWritten)
+		if ratio > 0.01 {
+			t.Errorf("compression not effective for %v wrote %v, compressed %v, ratio %v", compressorName, totalBytesWritten, compressedBytes, ratio)
+		}
 	}
 }
+
+func makeCompressibleData(size int) []byte {
+	phrase := []byte("quick brown fox")
+	return append(append([]byte(nil), phrase[0:size%len(phrase)]...), bytes.Repeat(phrase, size/len(phrase))...)
+}
+
 func verify(ctx context.Context, t *testing.T, om *Manager, objectID ID, expectedData []byte, testCaseID string) {
 	t.Helper()
 
