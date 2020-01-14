@@ -916,6 +916,14 @@ func (e *testenv) run(t *testing.T, args ...string) ([]string, error) {
 
 	o, err := c.Output()
 
+	code := c.ProcessState.ExitCode()
+	if code != 0 && err == nil {
+		t.Fatalf("kopia exited with code %d but no error status", code)
+	}
+	if code == 0 && err != nil {
+		t.Fatalf("kopia exited with an error %s but zero exit code", err)
+	}
+
 	wg.Wait()
 	t.Logf("finished 'kopia %v' with err=%v and output:\n%v\nstderr:\n%v\n", strings.Join(args, " "), err, trimOutput(string(o)), trimOutput(string(stderr)))
 
