@@ -23,14 +23,6 @@ import (
 const (
 	repoPassword        = "qWQPJ2hiiLgWRRCr" // nolint:gosec
 	maxOutputLinesToLog = 40
-
-	maxSubdirsPerDirectory = 10
-	maxFilesPerDirectory   = 10
-
-	maxNameLength = 13
-	minNameLength = 3
-
-	maxFileSize = 100000
 )
 
 // CLITest encapsulates state for a CLI-based test.
@@ -232,56 +224,99 @@ func mustParseDirectoryEntries(lines []string) []DirEntry {
 	return result
 }
 
+// DirectoryTreeOptions lists options for CreateDirectoryTree
+type DirectoryTreeOptions struct {
+	Depth                  int
+	MaxSubdirsPerDirectory int
+	MaxFilesPerDirectory   int
+	MaxFileSize            int
+	MinNameLength          int
+	MaxNameLength          int
+}
+
+// DirectoryTreeCounters stores stats about files and directories created by CreateDirectoryTree
+type DirectoryTreeCounters struct {
+	Files         int
+	Directories   int
+	TotalFileSize int64
+	MaxFileSize   int64
+}
+
 // MustCreateDirectoryTree creates a directory tree of a given depth with random files.
-func MustCreateDirectoryTree(t *testing.T, dirname string, depth int) {
+func MustCreateDirectoryTree(t *testing.T, dirname string, options DirectoryTreeOptions) {
 	t.Helper()
 
-	if err := CreateDirectoryTree(dirname, depth); err != nil {
+	var counters DirectoryTreeCounters
+	if err := createDirectoryTreeInternal(dirname, options, &counters); err != nil {
 		t.Error(err)
 	}
 }
 
 // CreateDirectoryTree creates a directory tree of a given depth with random files.
-func CreateDirectoryTree(dirname string, depth int) error {
+func CreateDirectoryTree(dirname string, options DirectoryTreeOptions, counters *DirectoryTreeCounters) error {
+	if counters == nil {
+		counters = &DirectoryTreeCounters{}
+	}
+
+	return createDirectoryTreeInternal(dirname, options, counters)
+}
+
+// createDirectoryTreeInternal creates a directory tree of a given depth with random files.
+func createDirectoryTreeInternal(dirname string, options DirectoryTreeOptions, counters *DirectoryTreeCounters) error {
 	if err := os.MkdirAll(dirname, 0700); err != nil {
 		return errors.Wrapf(err, "unable to create directory %v", dirname)
 	}
 
-	if depth > 0 {
-		numSubDirs := rand.Intn(maxSubdirsPerDirectory) + 1
-		for i := 0; i < numSubDirs; i++ {
-			subdirName := randomName()
+	counters.Directories++
 
-			if err := CreateDirectoryTree(filepath.Join(dirname, subdirName), depth-1); err != nil {
+	if options.Depth > 0 && options.MaxSubdirsPerDirectory > 0 {
+		childOptions := options
+		childOptions.Depth--
+
+		numSubDirs := rand.Intn(options.MaxSubdirsPerDirectory) + 1
+		for i := 0; i < numSubDirs; i++ {
+			subdirName := randomName(options)
+
+			if err := createDirectoryTreeInternal(filepath.Join(dirname, subdirName), childOptions, counters); err != nil {
 				return errors.Wrap(err, "unable to create subdirectory")
 			}
 		}
 	}
 
-	numFiles := rand.Intn(maxFilesPerDirectory) + 1
-	for i := 0; i < numFiles; i++ {
-		fileName := randomName()
+	if options.MaxFilesPerDirectory > 0 {
+		numFiles := rand.Intn(options.MaxFilesPerDirectory) + 1
+		for i := 0; i < numFiles; i++ {
+			fileName := randomName(options)
 
-		if err := createRandomFile(filepath.Join(dirname, fileName)); err != nil {
-			return errors.Wrap(err, "unable to create random file")
+			if err := createRandomFile(filepath.Join(dirname, fileName), options, counters); err != nil {
+				return errors.Wrap(err, "unable to create random file")
+			}
 		}
 	}
 
 	return nil
 }
-
-func createRandomFile(filename string) error {
+func createRandomFile(filename string, options DirectoryTreeOptions, counters *DirectoryTreeCounters) error {
 	f, err := os.Create(filename)
 	if err != nil {
 		return errors.Wrap(err, "unable to create random file")
 	}
 	defer f.Close() //nolint:errcheck
 
+	maxFileSize := int64(intOrDefault(options.MaxFileSize, 100000))
+
 	length := rand.Int63n(maxFileSize)
 
 	_, err = io.Copy(f, io.LimitReader(rand.New(rand.NewSource(time.Now().UnixNano())), length))
 	if err != nil {
 		return errors.Wrap(err, "file create error")
+	}
+
+	counters.Files++
+	counters.TotalFileSize += length
+
+	if length > counters.MaxFileSize {
+		counters.MaxFileSize = length
 	}
 
 	return nil
@@ -316,7 +351,10 @@ func mustParseSnapshots(t *testing.T, lines []string) []SourceInfo {
 	return result
 }
 
-func randomName() string {
+func randomName(opt DirectoryTreeOptions) string {
+	maxNameLength := intOrDefault(opt.MaxNameLength, 15)
+	minNameLength := intOrDefault(opt.MinNameLength, 3)
+
 	b := make([]byte, rand.Intn(maxNameLength-minNameLength)+minNameLength)
 	cryptorand.Read(b) // nolint:errcheck
 
@@ -376,4 +414,12 @@ func AssertNoError(t *testing.T, err error) {
 	if err != nil {
 		t.Errorf("err: %v", err)
 	}
+}
+
+func intOrDefault(a, b int) int {
+	if a > 0 {
+		return a
+	}
+
+	return b
 }
