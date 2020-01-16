@@ -1,5 +1,6 @@
 COVERAGE_PACKAGES=./repo/...,./fs/...,./snapshot/...
 GO_TEST=go test
+PARALLEL=8
 
 all: test lint vet integration-tests
 
@@ -117,7 +118,7 @@ dist-binary:
 	go build -o dist/integration/kopia github.com/kopia/kopia
 
 integration-tests: dist-binary
-	KOPIA_EXE=$(CURDIR)/dist/integration/kopia $(GO_TEST) -v -count=1 -timeout 90s github.com/kopia/kopia/tests/end_to_end_test
+	KOPIA_EXE=$(CURDIR)/dist/integration/kopia $(GO_TEST) -count=1 -parallel $(PARALLEL) -timeout 300s github.com/kopia/kopia/tests/end_to_end_test
 
 stress-test:
 	KOPIA_LONG_STRESS_TEST=1 $(GO_TEST) -count=1 -timeout 200s github.com/kopia/kopia/tests/stress_test
