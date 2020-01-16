@@ -275,7 +275,11 @@ func TestSnapshotDeleteRestore(t *testing.T) {
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
 	source := makeScratchDir(t)
-	testenv.MustCreateDirectoryTree(t, source, 1)
+	testenv.MustCreateDirectoryTree(t, source, testenv.DirectoryTreeOptions{
+		Depth:                  1,
+		MaxSubdirsPerDirectory: 10,
+		MaxFilesPerDirectory:   10,
+	})
 
 	// Create snapshot
 	e.RunAndExpectSuccess(t, "snapshot", "create", source)

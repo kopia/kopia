@@ -23,7 +23,10 @@ func TestRestoreCommand(t *testing.T) {
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
 	source := makeScratchDir(t)
-	testenv.MustCreateDirectoryTree(t, source, 1)
+	testenv.MustCreateDirectoryTree(t, source, testenv.DirectoryTreeOptions{
+		Depth:                1,
+		MaxFilesPerDirectory: 10,
+	})
 
 	restoreDir := makeScratchDir(t)
 	r1 := makeScratchDir(t)
@@ -106,7 +109,11 @@ func TestSnapshotRestore(t *testing.T) {
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
 	source := makeScratchDir(t)
-	testenv.MustCreateDirectoryTree(t, source, 1)
+	testenv.MustCreateDirectoryTree(t, source, testenv.DirectoryTreeOptions{
+		Depth:                  5,
+		MaxSubdirsPerDirectory: 5,
+		MaxFilesPerDirectory:   5,
+	})
 
 	restoreDir := makeScratchDir(t)
 	r1 := makeScratchDir(t)
