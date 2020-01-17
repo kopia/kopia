@@ -243,6 +243,8 @@ how are you
 }
 
 func TestSnapshotDeleteTypeCheck(t *testing.T) {
+	t.Parallel()
+
 	e := testenv.NewCLITest(t)
 	defer e.Cleanup(t)
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
@@ -268,6 +270,8 @@ func TestSnapshotDeleteTypeCheck(t *testing.T) {
 }
 
 func TestSnapshotDeleteRestore(t *testing.T) {
+	t.Parallel()
+
 	e := testenv.NewCLITest(t)
 	defer e.Cleanup(t)
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
