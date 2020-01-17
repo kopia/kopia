@@ -144,6 +144,59 @@ func (bm *Manager) deletePreexistingContent(ci Info) {
 	pp.currentPackItems[ci.ID] = ci
 }
 
+// UndeleteContent removes the 'deleted' mark from the given contentID.
+func (bm *Manager) UndeleteContent(contentID ID) error {
+	bm.lock()
+	defer bm.unlock()
+
+	log.Debugf("UndeleteContent(%q)", contentID)
+
+	// remove from pending packs if the content is marked as deleted
+	for _, pp := range bm.pendingPacks {
+		if bi, ok := pp.currentPackItems[contentID]; ok && bi.Deleted {
+			delete(pp.currentPackItems, contentID)
+			return nil
+		}
+	}
+
+	// remove from packs that are being written, since they will be committed to index soon
+	for _, pp := range bm.writingPacks {
+		if bi, ok := pp.currentPackItems[contentID]; ok && bi.Deleted {
+			bm.undeletePreexistingContent(bi)
+			return nil
+		}
+	}
+
+	// if found in committed index, add another entry without the delete marker
+	if bi, ok := bm.packIndexBuilder[contentID]; ok {
+		bm.undeletePreexistingContent(*bi)
+		return nil
+	}
+
+	// see if the block existed before
+	bi, err := bm.committedContents.getContent(contentID)
+	if err != nil {
+		return err
+	}
+
+	bm.undeletePreexistingContent(bi)
+
+	return nil
+}
+
+// Intentionally passing bi by value.
+// nolint:gocritic
+func (bm *Manager) undeletePreexistingContent(ci Info) {
+	if !ci.Deleted {
+		return
+	}
+
+	pp := bm.getOrCreatePendingPackInfoLocked(packPrefixForContentID(ci.ID))
+	ci.Deleted = false
+	ci.TimestampSeconds = bm.timeNow().Unix()
+	pp.currentPackItems[ci.ID] = ci
+}
+
 func (bm *Manager) addToPackUnlocked(ctx context.Context, contentID ID, data []byte, isDeleted bool) error {
 	prefix := packPrefixForContentID(contentID)
 
