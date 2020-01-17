@@ -102,6 +102,8 @@ func compareDirs(t *testing.T, source, restoreDir string) {
 }
 
 func TestSnapshotRestore(t *testing.T) {
+	t.Parallel()
+
 	e := testenv.NewCLITest(t)
 	defer e.Cleanup(t)
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
