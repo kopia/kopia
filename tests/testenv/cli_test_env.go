@@ -110,7 +110,7 @@ func (e *CLITest) Cleanup(t *testing.T) {
 func (e *CLITest) RunAndExpectSuccess(t *testing.T, args ...string) []string {
 	t.Helper()
 
-	stdout, err := e.Run(t, args...)
+	stdout, _, err := e.Run(t, args...)
 	if err != nil {
 		t.Fatalf("'kopia %v' failed with %v", strings.Join(args, " "), err)
 	}
@@ -118,11 +118,23 @@ func (e *CLITest) RunAndExpectSuccess(t *testing.T, args ...string) []string {
 	return stdout
 }
 
+// RunAndExpectSuccessWithErrOut runs the given command, expects it to succeed and returns its stdout and stderr lines.
+func (e *CLITest) RunAndExpectSuccessWithErrOut(t *testing.T, args ...string) (stdout, stderr []string) {
+	t.Helper()
+
+	stdout, stderr, err := e.Run(t, args...)
+	if err != nil {
+		t.Fatalf("'kopia %v' failed with %v", strings.Join(args, " "), err)
+	}
+
+	return stdout, stderr
+}
+
 // RunAndExpectFailure runs the given command, expects it to fail and returns its output lines.
 func (e *CLITest) RunAndExpectFailure(t *testing.T, args ...string) []string {
 	t.Helper()
 
-	stdout, err := e.Run(t, args...)
+	stdout, _, err := e.Run(t, args...)
 	if err == nil {
 		t.Fatalf("'kopia %v' succeeded, but expected failure", strings.Join(args, " "))
 	}
@@ -143,7 +155,7 @@ func (e *CLITest) RunAndVerifyOutputLineCount(t *testing.T, wantLines int, args 
 }
 
 // Run executes kopia with given arguments and returns the output lines.
-func (e *CLITest) Run(t *testing.T, args ...string) ([]string, error) {
+func (e *CLITest) Run(t *testing.T, args ...string) (stdout, stderr []string, err error) {
 	t.Helper()
 	t.Logf("running 'kopia %v'", strings.Join(args, " "))
 	// nolint:gosec
@@ -158,7 +170,7 @@ func (e *CLITest) Run(t *testing.T, args ...string) ([]string, error) {
 		t.Fatalf("can't set up stderr pipe reader")
 	}
 
-	var stderr []byte
+	var errOut []byte
 
 	var wg sync.WaitGroup
 
@@ -167,15 +179,15 @@ func (e *CLITest) Run(t *testing.T, args ...string) ([]string, error) {
 	go func() {
 		defer wg.Done()
 
-		stderr, err = ioutil.ReadAll(stderrPipe)
+		errOut, err = ioutil.ReadAll(stderrPipe)
 	}()
 
 	o, err := c.Output()
 
 	wg.Wait()
-	t.Logf("finished 'kopia %v' with err=%v and output:\n%v\nstderr:\n%v\n", strings.Join(args, " "), err, trimOutput(string(o)), trimOutput(string(stderr)))
+	t.Logf("finished 'kopia %v' with err=%v and output:\n%v\nstderr:\n%v\n", strings.Join(args, " "), err, trimOutput(string(o)), trimOutput(string(errOut)))
 
-	return splitLines(string(o)), err
+	return splitLines(string(o)), splitLines(string(errOut)), err
 }
 
 func trimOutput(s string) string {
@@ -259,6 +271,23 @@ func CreateDirectoryTree(dirname string, options DirectoryTreeOptions, counters 
 	}
 
 	return createDirectoryTreeInternal(dirname, options, counters)
+}
+
+// MustCreateRandomFile creates a new file at the provided path with randomized contents.
+// It will fail with a test error if the creation does not succeed.
+func MustCreateRandomFile(t *testing.T, filePath string, options DirectoryTreeOptions, counters *DirectoryTreeCounters) {
+	if err := CreateRandomFile(filePath, options, counters); err != nil {
+		t.Error(err)
+	}
+}
+
+// CreateRandomFile creates a new file at the provided path with randomized contents
+func CreateRandomFile(filePath string, options DirectoryTreeOptions, counters *DirectoryTreeCounters) error {
+	if counters == nil {
+		counters = &DirectoryTreeCounters{}
+	}
+
+	return createRandomFile(filePath, options, counters)
 }
 
 // createDirectoryTreeInternal creates a directory tree of a given depth with random files.
