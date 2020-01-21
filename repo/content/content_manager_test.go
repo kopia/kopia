@@ -480,6 +480,345 @@ func TestDeleteContent(t *testing.T) {
 	verifyContentNotFound(ctx, t, bm, content2)
 }
 
+func TestUndeleteContentSimple(t *testing.T) {
+	ctx := testlogging.Context(t)
+	data := blobtesting.DataMap{}
+	keyTime := map[blob.ID]time.Time{}
+	bm := newTestContentManager(t, data, keyTime, nil)
+
+	content1 := writeContentAndVerify(ctx, t, bm, seededRandomData(40, 16))
+	content2 := writeContentAndVerify(ctx, t, bm, seededRandomData(41, 16))
+	content3 := writeContentAndVerify(ctx, t, bm, seededRandomData(42, 16))
+
+	if err := bm.Flush(ctx); err != nil {
+		t.Fatal("error while flushing:", err)
+	}
+
+	dumpContents(ctx, t, bm, "after first flush")
+
+	c1Info := getContentInfo(t, bm, content1)
+	c2Info := getContentInfo(t, bm, content2)
+	c3Info := getContentInfo(t, bm, content3)
+
+	t.Log("deleting content 2: ", content2)
+	deleteContent(ctx, t, bm, content2)
+
+	if err := bm.Flush(ctx); err != nil {
+		t.Fatal("error while flushing:", err)
+	}
+
+	t.Log("deleting content 3: ", content3)
+	deleteContent(ctx, t, bm, content3)
+
+	content4 := writeContentAndVerify(ctx, t, bm, seededRandomData(43, 16))
+
+	t.Log("deleting content 4: ", content4)
+	deleteContent(ctx, t, bm, content4)
+
+	tcs := []struct {
+		name    string
+		cid     ID
+		wantErr bool
+		info    Info
+	}{
+		{
+			name:    "existing content",
+			cid:     content1,
+			wantErr: false,
+			info:    c1Info,
+		},
+		{
+			name:    "flush after delete",
+			cid:     content2,
+			wantErr: false,
+			info:    c2Info,
+		},
+		{
+			name:    "no flush after delete",
+			cid:     content3,
+			wantErr: false,
+			info:    c3Info,
+		},
+		{
+			name:    "no flush after create and delete",
+			cid:     content4,
+			wantErr: true,
+		},
+		{
+			name:    "non-existing content",
+			cid:     ID(makeRandomHexString(t, len(content3))), // non-existing
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range tcs {
+		t.Log("case name:", tc.name)
+
+		err := bm.UndeleteContent(ctx, tc.cid)
+		if got := err != nil; got != tc.wantErr {
+			t.Errorf("did not get the expected error return valuem, want: %v, got: %v", tc.wantErr, err)
+			continue
+		}
+
+		if tc.wantErr {
+			continue
+		}
+
+		got, want := getContentInfo(t, bm, tc.cid), tc.info
+		// ignore different timestamps and operation
+		got.TimestampSeconds = want.TimestampSeconds
+		got.operation = want.operation
+
+		if got.Deleted {
+			t.Error("Content marked as deleted:", got)
+		}
+
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("content info does not match.\nwant: %#v\ngot:  %#v", want, got)
+		}
+	}
+
+	// ensure content is still there after flushing
+	if err := bm.Flush(ctx); err != nil {
+		t.Fatal("error while flushing:", err)
+	}
+
+	tcs2 := []struct {
+		name string
+		cid  ID
+		want Info
+	}{
+		{
+			name: "content1",
+			cid:  content1,
+			want: c1Info,
+		},
+		{
+			name: "content2",
+			cid:  content2,
+			want: c2Info,
+		},
+		{
+			name: "content3",
+			cid:  content3,
+			want: c3Info,
+		},
+	}
+
+	for _, tc := range tcs2 {
+		t.Log("case name:", tc.name)
+		got := getContentInfo(t, bm, tc.cid)
+
+		if got.Deleted {
+			t.Error("Content marked as deleted:", got)
+		}
+
+		got.TimestampSeconds = tc.want.TimestampSeconds // ignore timestamp
+		if !reflect.DeepEqual(got, tc.want) {
+			t.Errorf("content info does not match.\nwant: %#v\ngot:  %#v", tc.want, got)
+		}
+	}
+}
+
+// nolint:gocyclo
+func TestUndeleteContent(t *testing.T) {
+	ctx := testlogging.Context(t)
+	data := blobtesting.DataMap{}
+	keyTime := map[blob.ID]time.Time{}
+	bm := newTestContentManager(t, data, keyTime, nil)
+
+	content1 := writeContentAndVerify(ctx, t, bm, seededRandomData(20, 10))
+	content2 := writeContentAndVerify(ctx, t, bm, seededRandomData(21, 10))
+	content3 := writeContentAndVerify(ctx, t, bm, seededRandomData(31, 10))
+
+	if err := bm.Flush(ctx); err != nil {
+		t.Fatalf("error flushing: %v", err)
+	}
+
+	dumpContents(ctx, t, bm, "after first flush")
+
+	log(ctx).Infof("deleting content 1: %s", content1)
+
+	if err := bm.DeleteContent(ctx, content1); err != nil {
+		t.Fatalf("unable to delete content %v: %v", content1, err)
+	}
+
+	if err := bm.Flush(ctx); err != nil {
+		t.Fatalf("error flushing: %v", err)
+	}
+
+	log(ctx).Infof("deleting content 2: %s", content2)
+
+	if err := bm.DeleteContent(ctx, content2); err != nil {
+		t.Fatalf("unable to delete content %v: %v", content2, err)
+	}
+
+	content4 := writeContentAndVerify(ctx, t, bm, seededRandomData(41, 10))
+	content5 := writeContentAndVerify(ctx, t, bm, seededRandomData(51, 10))
+
+	log(ctx).Infof("deleting content 4: %s", content4)
+
+	if err := bm.DeleteContent(ctx, content4); err != nil {
+		t.Fatalf("unable to delete content %v: %v", content4, err)
+	}
+
+	verifyContentNotFound(ctx, t, bm, content1)
+	verifyContentNotFound(ctx, t, bm, content2)
+	verifyContentNotFound(ctx, t, bm, content4)
+
+	// At this point:
+	// - content 1 is flushed, deleted index entry has been flushed
+	// - content 2 is flushed, deleted index entry has not been flushed
+	// - content 3 is flushed, not deleted
+	// - content 4 is not flushed and deleted, it cannot be undeleted
+	// - content 5 is not flushed and not deleted
+
+	if err := bm.UndeleteContent(ctx, content1); err != nil {
+		t.Fatal("unable to undelete content 1: ", content1, err)
+	}
+
+	if err := bm.UndeleteContent(ctx, content2); err != nil {
+		t.Fatal("unable to undelete content 2: ", content2, err)
+	}
+
+	if err := bm.UndeleteContent(ctx, content3); err != nil {
+		t.Fatal("unable to undelete content 3: ", content3, err)
+	}
+
+	if err := bm.UndeleteContent(ctx, content4); err == nil {
+		t.Fatal("was able to undelete content 4: ", content4)
+	}
+
+	if err := bm.UndeleteContent(ctx, content5); err != nil {
+		t.Fatal("unable to undelete content 5: ", content5, err)
+	}
+
+	// verify content is not marked as deleted
+	for _, id := range []ID{} {
+		ci, err := bm.ContentInfo(ctx, id)
+		if err != nil {
+			t.Fatalf("unable to get content info for %v: %v", id, err)
+		}
+
+		if got, want := ci.Deleted, false; got != want {
+			t.Fatalf("content %v was not undeleted: %v", id, ci)
+		}
+	}
+
+	log(ctx).Infof("flushing ...")
+	bm.Flush(ctx)
+	log(ctx).Infof("... flushed")
+
+	// verify content is not marked as deleted
+	for _, id := range []ID{} {
+		ci, err := bm.ContentInfo(ctx, id)
+		if err != nil {
+			t.Fatalf("unable to get content info for %v: %v", id, err)
+		}
+
+		if got, want := ci.Deleted, false; got != want {
+			t.Fatalf("content %v was not undeleted: %v", id, ci)
+		}
+	}
+
+	bm = newTestContentManager(t, data, keyTime, nil)
+	verifyContentNotFound(ctx, t, bm, content4)
+
+	// verify content is not marked as deleted
+	for _, id := range []ID{} {
+		ci, err := bm.ContentInfo(ctx, id)
+		if err != nil {
+			t.Fatalf("unable to get content info for %v: %v", id, err)
+		}
+
+		if got, want := ci.Deleted, false; got != want {
+			t.Fatalf("content %v was not undeleted: %v", id, ci)
+		}
+	}
+}
+
+func TestDeleteAfterUndelete(t *testing.T) {
+	ctx := testlogging.Context(t)
+	data := blobtesting.DataMap{}
+	keyTime := map[blob.ID]time.Time{}
+	bm := newTestContentManager(t, data, keyTime, nil)
+
+	content1 := writeContentAndVerify(ctx, t, bm, seededRandomData(40, 16))
+	content2 := writeContentAndVerify(ctx, t, bm, seededRandomData(41, 16))
+
+	if err := bm.Flush(ctx); err != nil {
+		t.Fatal("error while flushing:", err)
+	}
+
+	dumpContents(ctx, t, bm, "after first flush")
+
+	deleteContent(ctx, t, bm, content1)
+	deleteContent(ctx, t, bm, content2)
+
+	if err := bm.Flush(ctx); err != nil {
+		t.Fatal("error while flushing:", err)
+	}
+
+	c1Want := getContentInfo(t, bm, content1)
+	c2Want := getContentInfo(t, bm, content2)
+
+	// undelete, delete, check, flush, check
+	if err := bm.UndeleteContent(ctx, content1); err != nil {
+		t.Fatal("unable to undelete content 1: ", content1, err)
+	}
+
+	// undelete, flush, delete, check, flush, check
+	if err := bm.UndeleteContent(ctx, content2); err != nil {
+		t.Fatal("unable to undelete content 2: ", content2, err)
+	}
+
+	// delete content1 before flushing
+	deleteContentAfterUndeleteAndCheck(ctx, t, bm, content1, c1Want)
+
+	// now delete c2 after having flushed
+	if err := bm.Flush(ctx); err != nil {
+		t.Fatal("error while flushing:", err)
+	}
+
+	deleteContentAfterUndeleteAndCheck(ctx, t, bm, content2, c2Want)
+}
+
+func deleteContentAfterUndeleteAndCheck(ctx context.Context, t *testing.T, bm *Manager, id ID, want Info) { // nolint:gocritic
+	t.Helper()
+	deleteContent(ctx, t, bm, id)
+
+	got := getContentInfo(t, bm, id)
+	if !got.Deleted {
+		t.Errorf("Expected content %q to be deleted, got: %#v", id, got)
+	}
+
+	// ignore timestamp and operation
+	got.TimestampSeconds = want.TimestampSeconds
+	got.operation = want.operation
+
+	if !reflect.DeepEqual(want, got) {
+		t.Errorf("Content %q info does not match\nwant: %#v\ngot:  %#v", id, want, got)
+	}
+
+	if err := bm.Flush(ctx); err != nil {
+		t.Fatal("error while flushing:", err)
+	}
+
+	// check c1 again
+	got = getContentInfo(t, bm, id)
+	if !got.Deleted {
+		t.Error("Expected content to be deleted, got: ", got)
+	}
+
+	// ignore timestamp and operation
+	got.TimestampSeconds = want.TimestampSeconds
+	got.operation = want.operation
+
+	if !reflect.DeepEqual(want, got) {
+		t.Errorf("Content info does not match\nwant: %#v\ngot:  %#v", want, got)
+	}
+}
+
 func TestParallelWrites(t *testing.T) {
 	t.Parallel()
 
@@ -1500,4 +1839,34 @@ func dumpContentManagerData(ctx context.Context, t *testing.T, data blobtesting.
 	}
 
 	log(ctx).Infof("*** end of data")
+}
+
+func makeRandomHexString(t *testing.T, length int) string {
+	t.Helper()
+
+	b := make([]byte, (length-1)/2+1)
+	if _, err := rand.Read(b); err != nil { // nolint:gosec
+		t.Fatal("Could not read random bytes", err)
+	}
+
+	return hex.EncodeToString(b)
+}
+
+func deleteContent(ctx context.Context, t *testing.T, bm *Manager, c ID) {
+	t.Helper()
+
+	if err := bm.DeleteContent(ctx, c); err != nil {
+		t.Fatalf("Unable to delete content %v: %v", c, err)
+	}
+}
+
+func getContentInfo(t *testing.T, bm *Manager, c ID) Info {
+	t.Helper()
+
+	_, i, err := bm.getContentInfo(c)
+	if err != nil {
+		t.Fatalf("Unable to get content info for %q: %v", c, err)
+	}
+
+	return i
 }
