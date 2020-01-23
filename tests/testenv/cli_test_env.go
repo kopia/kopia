@@ -2,6 +2,7 @@
 package testenv
 
 import (
+	"bufio"
 	cryptorand "crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -116,6 +117,42 @@ func (e *CLITest) RunAndExpectSuccess(t *testing.T, args ...string) []string {
 	}
 
 	return stdout
+}
+
+// RunAndProcessStderr runs the given command, and streams its output line-by-line to a given function until it returns false.
+func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) bool, args ...string) *exec.Cmd {
+	t.Helper()
+
+	t.Logf("running 'kopia %v'", strings.Join(args, " "))
+	cmdArgs := append(append([]string(nil), e.fixedArgs...), args...)
+
+	// nolint:gosec
+	c := exec.Command(e.Exe, cmdArgs...)
+	c.Env = append(os.Environ(), e.environment...)
+
+	stderrPipe, err := c.StderrPipe()
+	if err != nil {
+		t.Fatalf("can't set up stderr pipe reader")
+	}
+
+	if err := c.Start(); err != nil {
+		t.Fatalf("unable to start")
+	}
+
+	scanner := bufio.NewScanner(stderrPipe)
+	for scanner.Scan() {
+		if !callback(scanner.Text()) {
+			break
+		}
+	}
+
+	// complete the scan in background without processing lines.
+	go func() {
+		for scanner.Scan() {
+		}
+	}()
+
+	return c
 }
 
 // RunAndExpectSuccessWithErrOut runs the given command, expects it to succeed and returns its stdout and stderr lines.

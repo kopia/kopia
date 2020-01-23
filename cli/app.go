@@ -3,7 +3,6 @@ package cli
 
 import (
 	"context"
-	"net/http"
 	"os"
 
 	"github.com/pkg/errors"
@@ -51,7 +50,17 @@ func noRepositoryAction(act func(ctx context.Context) error) func(ctx *kingpin.P
 
 func serverAction(act func(ctx context.Context, cli *serverapi.Client) error) func(ctx *kingpin.ParseContext) error {
 	return func(_ *kingpin.ParseContext) error {
-		return act(context.Background(), serverapi.NewClient(*serverAddress, http.DefaultClient))
+		opts, err := serverAPIClientOptions()
+		if err != nil {
+			return errors.Wrap(err, "unable to create API client options")
+		}
+
+		apiClient, err := serverapi.NewClient(opts)
+		if err != nil {
+			return errors.Wrap(err, "unable to create API client")
+		}
+
+		return act(context.Background(), apiClient)
 	}
 }
 

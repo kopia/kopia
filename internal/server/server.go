@@ -20,6 +20,8 @@ var log = kopialogging.Logger("kopia/server")
 
 // Server exposes simple HTTP API for programmatically accessing Kopia features.
 type Server struct {
+	OnShutdown func(ctx context.Context) error
+
 	hostname        string
 	username        string
 	rep             *repo.Repository
@@ -38,6 +40,7 @@ func (s *Server) APIHandlers() http.Handler {
 	mux.HandleFunc("/api/v1/policies", s.handleAPI(s.handlePolicyList, "GET"))
 	mux.HandleFunc("/api/v1/refresh", s.handleAPI(s.handleRefresh, "POST"))
 	mux.HandleFunc("/api/v1/flush", s.handleAPI(s.handleFlush, "POST"))
+	mux.HandleFunc("/api/v1/shutdown", s.handleAPI(s.handleShutdown, "POST"))
 	mux.HandleFunc("/api/v1/sources/pause", s.handleAPI(s.handlePause, "POST"))
 	mux.HandleFunc("/api/v1/sources/resume", s.handleAPI(s.handleResume, "POST"))
 	mux.HandleFunc("/api/v1/sources/upload", s.handleAPI(s.handleUpload, "POST"))
@@ -62,7 +65,6 @@ func (s *Server) handleAPI(f func(ctx context.Context, r *http.Request) (interfa
 		e.SetIndent("", "  ")
 
 		v, err := f(context.Background(), r)
-		log.Debugf("returned %+v", v)
 
 		if err == nil {
 			if err := e.Encode(v); err != nil {
@@ -83,6 +85,18 @@ func (s *Server) handleRefresh(ctx context.Context, r *http.Request) (interface{
 
 func (s *Server) handleFlush(ctx context.Context, r *http.Request) (interface{}, *apiError) {
 	log.Infof("flushing")
+	return &serverapi.Empty{}, nil
+}
+
+func (s *Server) handleShutdown(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+	log.Infof("shutting down due to API request")
+
+	if s.OnShutdown != nil {
+		if err := s.OnShutdown(ctx); err != nil {
+			return nil, internalServerError(err)
+		}
+	}
+
 	return &serverapi.Empty{}, nil
 }
 
