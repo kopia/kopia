@@ -2,9 +2,14 @@ package cli
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/subtle"
+	"encoding/hex"
+	"fmt"
+	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -14,14 +19,13 @@ import (
 )
 
 var (
-	serverAddress = serverCommands.Flag("address", "Server address").Default("127.0.0.1:51515").String()
-
 	serverStartCommand         = serverCommands.Command("start", "Start Kopia server").Default()
 	serverStartHTMLPath        = serverStartCommand.Flag("html", "Server the provided HTML at the root URL").ExistingDir()
 	serverStartUI              = serverStartCommand.Flag("ui", "Start the server with HTML UI (EXPERIMENTAL)").Bool()
-	serverStartUsername        = serverStartCommand.Flag("server-username", "HTTP server username (basic auth)").Envar("KOPIA_SERVER_USERNAME").Default("kopia").String()
-	serverStartPassword        = serverStartCommand.Flag("server-password", "Require HTTP server password (basic auth)").Envar("KOPIA_SERVER_PASSWORD").String()
 	serverStartRefreshInterval = serverStartCommand.Flag("refresh-interval", "Frequency for refreshing repository status").Default("10s").Duration()
+
+	serverStartRandomPassword = serverStartCommand.Flag("random-password", "Generate random password and print to stderr").Hidden().Bool()
+	serverStartAutoShutdown   = serverStartCommand.Flag("auto-shutdown", "Auto shutdown the server if API requests not received within given time").Hidden().Duration()
 )
 
 func init() {
@@ -37,18 +41,42 @@ func runServer(ctx context.Context, rep *repo.Repository) error {
 
 	go rep.RefreshPeriodically(ctx, *serverStartRefreshInterval)
 
-	rootURL := "http://" + *serverAddress
-	log.Infof("starting server on %v", rootURL)
-	http.Handle("/api/", maybeRequireAuth(srv.APIHandlers()))
+	mux := http.NewServeMux()
+	mux.Handle("/api/", srv.APIHandlers())
 
 	if *serverStartHTMLPath != "" {
 		fileServer := http.FileServer(http.Dir(*serverStartHTMLPath))
-		http.Handle("/", maybeRequireAuth(fileServer))
+		mux.Handle("/", fileServer)
 	} else if *serverStartUI {
-		http.Handle("/", maybeRequireAuth(serveIndexFileForKnownUIRoutes(http.FileServer(server.AssetFile()))))
+		mux.Handle("/", serveIndexFileForKnownUIRoutes(http.FileServer(server.AssetFile())))
 	}
 
-	return http.ListenAndServe(*serverAddress, nil)
+	httpServer := &http.Server{Addr: stripProtocol(*serverAddress)}
+	srv.OnShutdown = httpServer.Shutdown
+
+	handler := addInterceptors(mux)
+
+	if as := *serverStartAutoShutdown; as > 0 {
+		log.Infof("starting a watchdog to stop the server if there's no activity for %v", as)
+		handler = startServerWatchdog(handler, as, func() {
+			if serr := httpServer.Shutdown(ctx); err != nil {
+				log.Warningf("unable to stop the server: %v", serr)
+			}
+		})
+	}
+
+	httpServer.Handler = handler
+
+	err = startServerWithOptionalTLS(httpServer)
+	if err == http.ErrServerClosed {
+		return nil
+	}
+
+	return err
+}
+
+func stripProtocol(addr string) string {
+	return strings.TrimPrefix(strings.TrimPrefix(addr, "https://"), "http://")
 }
 
 func isKnownUIRoute(path string) bool {
@@ -69,9 +97,22 @@ func serveIndexFileForKnownUIRoutes(h http.Handler) http.Handler {
 	})
 }
 
-func maybeRequireAuth(handler http.Handler) http.Handler {
-	if *serverStartPassword != "" {
-		return requireAuth{handler, *serverStartUsername, *serverStartPassword}
+func addInterceptors(handler http.Handler) http.Handler {
+	if *serverPassword != "" {
+		handler = requireAuth{handler, *serverUsername, *serverPassword}
+	}
+
+	if *serverStartRandomPassword {
+		// generate very long random one-time password
+		b := make([]byte, 32)
+		io.ReadFull(rand.Reader, b) //nolint:errcheck
+
+		randomPassword := hex.EncodeToString(b)
+
+		// print it to the stderr bypassing any log file so that the user or calling process can connect
+		fmt.Fprintln(os.Stderr, "SERVER PASSWORD:", randomPassword)
+
+		handler = requireAuth{handler, *serverUsername, randomPassword}
 	}
 
 	return handler
