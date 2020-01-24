@@ -133,7 +133,7 @@ func Run(ctx context.Context, rep *repo.Repository, minContentAge time.Duration,
 	log(ctx).Infof("found %v in-use system-contents (%v bytes)", systemCount, units.BytesStringBase2(totalSystemBytes))
 
 	if unusedCount > 0 && !gcDelete {
-		return errors.Errorf("Not deleting because '--delete' flag was not set.")
+		return errors.Errorf("not deleting because '--delete' flag was not set")
 	}
 
 	return nil
