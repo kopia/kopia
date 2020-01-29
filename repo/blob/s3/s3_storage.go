@@ -10,7 +10,7 @@ import (
 	"net/http"
 
 	"github.com/efarrer/iothrottler"
-	"github.com/minio/minio-go"
+	minio "github.com/minio/minio-go/v6"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/retry"
