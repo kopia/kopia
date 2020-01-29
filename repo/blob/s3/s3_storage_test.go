@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/minio/minio-go"
+	minio "github.com/minio/minio-go/v6"
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/repo/blob"

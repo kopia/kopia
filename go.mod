@@ -18,7 +18,7 @@ require (
 	github.com/klauspost/crc32 v1.2.0 // indirect
 	github.com/klauspost/pgzip v1.2.1
 	github.com/kylelemons/godebug v1.1.0
-	github.com/minio/minio-go v6.0.14+incompatible
+	github.com/minio/minio-go/v6 v6.0.45
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/natefinch/atomic v0.0.0-20150920032501-a62ce929ffcc
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
