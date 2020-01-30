@@ -8,6 +8,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -90,8 +91,32 @@ func createBucket(t *testing.T) {
 	if err != nil {
 		t.Fatalf("can't initialize minio client: %v", err)
 	}
-	// ignore error
-	_ = minioClient.MakeBucket(bucketName, "us-east-1")
+
+	// Attempt to make bucket in one of several regions.
+	// It was assumed that play.minio.io was in us-east-1 region, but
+	// at some point the region changed to us-east-2.
+	possibleRegions := []string{
+		"us-east-1",
+		"us-east-2",
+	}
+
+	for _, tryRegion := range possibleRegions {
+		err = minioClient.MakeBucket(bucketName, tryRegion)
+
+		switch {
+		case err == nil:
+			return
+		case strings.Contains(err.Error(), "the region is wrong"):
+			t.Logf("tried region %v but returned error: %v", tryRegion, err.Error())
+			continue
+		case strings.Contains(err.Error(), "Your previous request to create the named bucket succeeded and you already own it"):
+			return
+		default:
+			t.Fatalf("error during bucket creation: %v", err)
+		}
+	}
+
+	t.Fatalf("Tried all listed regions for play.minio.io; check what region it is running in")
 }
 
 func cleanupOldData(ctx context.Context, t *testing.T) {
