@@ -14,6 +14,8 @@ require (
 	github.com/go-bindata/go-bindata v3.1.2+incompatible // indirect
 	github.com/go-ini/ini v1.46.0 // indirect
 	github.com/godbus/dbus v4.1.0+incompatible // indirect
+	github.com/golang/protobuf v1.3.2
+	github.com/google/fswalker v0.2.0
 	github.com/klauspost/compress v1.9.4
 	github.com/klauspost/crc32 v1.2.0 // indirect
 	github.com/klauspost/pgzip v1.2.1

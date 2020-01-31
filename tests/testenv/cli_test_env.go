@@ -478,6 +478,15 @@ func AssertNoError(t *testing.T, err error) {
 	t.Helper()
 
 	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+}
+
+// CheckNoError fails the test if a given error is not nil.
+func CheckNoError(t *testing.T, err error) {
+	t.Helper()
+
+	if err != nil {
 		t.Errorf("err: %v", err)
 	}
 }
