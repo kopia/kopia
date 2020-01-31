@@ -1,0 +1,51 @@
+// Package walker wraps calls to the the fswalker Walker
+package walker
+
+import (
+	"context"
+	"io/ioutil"
+	"os"
+
+	"github.com/google/fswalker"
+	fspb "github.com/google/fswalker/proto/fswalker"
+
+	"github.com/kopia/kopia/tests/tools/fswalker/protofile"
+)
+
+// Walk performs a walk governed by the contents of the provided
+// Policy, and returns the pointer to the Walk.
+func Walk(ctx context.Context, policy *fspb.Policy) (*fspb.Walk, error) { //nolint:interfacer
+	f, err := ioutil.TempFile("", "fswalker-policy-")
+	if err != nil {
+		return nil, err
+	}
+
+	f.Close() //nolint:errcheck
+
+	policyFileName := f.Name()
+	defer os.RemoveAll(policyFileName) //nolint:errcheck
+
+	err = protofile.WriteTextProto(policyFileName, policy)
+	if err != nil {
+		return nil, err
+	}
+
+	walker, err := fswalker.WalkerFromPolicyFile(ctx, policyFileName)
+	if err != nil {
+		return nil, err
+	}
+
+	var retWalk *fspb.Walk
+
+	walker.WalkCallback = func(ctx context.Context, walk *fspb.Walk) error {
+		retWalk = walk
+		return nil
+	}
+
+	err = walker.Run(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return retWalk, nil
+}
