@@ -8,7 +8,7 @@ addons:
   apt:
     packages:
     - rpm
-    - wine
+    - wine-stable
 install: make travis-setup
 script: make travis-release
 deploy:
