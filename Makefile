@@ -63,6 +63,9 @@ travis-setup: travis-install-gpg-key travis-install-test-credentials
 website:
 	$(MAKE) -C site build
 
+kopia-ui: goreleaser-nopublish
+	$(MAKE) -C app build-electron-all
+
 html-ui:
 	$(MAKE) -C htmlui build-html
 
@@ -72,13 +75,13 @@ html-ui-bindata: html-ui $(BINDATA_TOOL)
 html-ui-bindata-fallback: $(BINDATA_TOOL)
 	(cd internal/server && $(BINDATA_TOOL) -fs -tags !embedhtml -o "$(CURDIR)/internal/server/htmlui_fallback.go" -pkg server index.html)
 
-travis-release: test-with-coverage lint vet verify-release integration-tests upload-coverage website stress-test
+travis-release: test-with-coverage lint vet goreleaser-nopublish integration-tests upload-coverage website stress-test kopia-ui
 
-verify-release:
-	curl -sL https://git.io/goreleaser | bash /dev/stdin --skip-publish --skip-sign --rm-dist --snapshot 
+goreleaser-nopublish: $(GORELEASER_TOOL)
+	$(GORELEASER_TOOL) --skip-publish --skip-sign --rm-dist --snapshot 
 
-tagged-release:
-	curl -sL https://git.io/goreleaser | bash /dev/stdin --rm-dist
+tagged-release: $(GORELEASER_TOOL)
+	$(GORELEASER_TOOL) --rm-dist
 	# this is a no-op for PRs and non-tagged releses
 	$(MAKE) travis-create-long-term-repository
 

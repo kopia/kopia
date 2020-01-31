@@ -1,0 +1,107 @@
+{
+  "name": "kopia-ui",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "auto-launch": "^5.0.5",
+    "bootstrap": "^4.3.1",
+    "electron-is-dev": "^1.1.0",
+    "electron-json-config": "^1.5.3",
+    "react": "^16.12.0",
+    "react-bootstrap": "^1.0.0-beta.14",
+    "react-dom": "^16.12.0",
+    "react-router-dom": "^5.1.2",
+    "react-scripts": "^3.3.0"
+  },
+  "build": {
+    "productName": "KopiaUI",
+    "files": [
+      "build/**/*",
+      "node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/${os}",
+        "to": ".",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "directories": {
+      "buildResources": "assets",
+      "output": "../dist/kopia-ui"
+    },
+    "win": {
+      "extraResources": [
+        {
+          "from": "../dist/kopia_windows_amd64",
+          "to": "server",
+          "filter": [
+            "kopia.exe"
+          ]
+        }
+      ]
+    },
+    "mac": {
+      "extraResources": [
+        {
+          "from": "../dist/kopia_darwin_amd64",
+          "to": "server",
+          "filter": [
+            "kopia"
+          ]
+        }
+      ]
+    },
+    "linux": {
+      "extraResources": [
+        {
+          "from": "../dist/kopia_linux_amd64",
+          "to": "server",
+          "filter": [
+            "kopia"
+          ]
+        }
+      ]
+    }
+  },
+  "devDependencies": {
+    "asar": "^2.0.3",
+    "concurrently": "^5.0.0",
+    "electron": "^7.1.2",
+    "electron-builder": "^21.2.0"
+  },
+  "homepage": "./",
+  "main": "public/electron.js",
+  "scripts": {
+    "start": "react-scripts start",
+    "build-html": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "start-electron": "electron .",
+    "build-electron": "electron-builder -mwl",
+    "build-electron-all": "electron-builder -wlm --dir",
+    "build-electron-win": "electron-builder -w --dir",
+    "build-electron-linux": "electron-builder -l",
+    "build-electron-mac": "electron-builder -m",
+    "build-electron-dir": "electron-builder --dir",
+    "start-electron-prebuilt": "ELECTRON_IS_DEV=0 electron .",
+    "dev": "concurrently \"react-scripts start\" \"sleep 3s; electron .\""
+  },
+  "eslintConfig": {
+    "extends": "react-app"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  }
+}
