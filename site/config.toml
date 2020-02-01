@@ -107,6 +107,6 @@ no = 'Sorry to hear that. Please <a href="https://github.com/kopia/kopia/issues/
     desc = "Development takes place here!"
 [[params.links.developer]]
 	name = "Slack"
-	url = "https://join.slack.com/t/kopia/shared_invite/enQtNjMxMTcxMTMxNDYwLWI4YzVkMzFhN2QwZGVhMzgwZDk2MGUzNmZhOWZkMmIzMDBlYzhmZTI3NTYxZWE1YWI4YWY1N2VhMGM4ZjJiNGQ"
+	url = "https://slack.kopia.io"
 	icon = "fab fa-slack"
     desc = "Chat with other project developers"

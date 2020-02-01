@@ -8,7 +8,7 @@ weight: 100
 
 ## Contacting Developers
 
-* Using [Slack](https://join.slack.com/t/kopia/shared_invite/enQtNjMxMTcxMTMxNDYwLWI4YzVkMzFhN2QwZGVhMzgwZDk2MGUzNmZhOWZkMmIzMDBlYzhmZTI3NTYxZWE1YWI4YWY1N2VhMGM4ZjJiNGQ) is the quickest way to get in touch with developers.
+* Using [Slack](https://slack.kopia.io) is the quickest way to get in touch with developers.
 
 ## Submitting issues
 
