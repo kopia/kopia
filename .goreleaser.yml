@@ -18,6 +18,8 @@ builds:
     - -tags=embedhtml
   ldflags:
   - -s -w -X "github.com/kopia/kopia/repo.BuildVersion={{.Version}}" -X "github.com/kopia/kopia/repo.BuildInfo={{.Commit}}"
+release:
+  draft: true
 archives:
   - id: default
     replacements:

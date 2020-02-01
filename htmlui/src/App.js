@@ -22,7 +22,7 @@ import {
 function App() {
   return (
       <Router>
-        <Navbar bg="light" expand="lg">
+        <Navbar bg="light" expand="sm">
           <Navbar.Brand href="/"><img src={logo} className="App-logo" alt="logo" /></Navbar.Brand>
           <Navbar.Toggle aria-controls="basic-navbar-nav" />
           <Navbar.Collapse id="basic-navbar-nav">
@@ -34,7 +34,7 @@ function App() {
           </Navbar.Collapse>
         </Navbar>
 
-        <Container>
+        <Container fluid>
           <Switch>
             <Route path="/snapshots/single-source/" component={SnapshotsTable} />
             <Route path="/snapshots/dir/:oid" component={DirectoryObject} />
