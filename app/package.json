@@ -16,7 +16,6 @@
   },
   "build": {
     "productName": "KopiaUI",
-    "repository": {},
     "publish": [{"provider":"github"}],
     "files": [
       "build/**/*",
