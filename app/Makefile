@@ -1,4 +1,4 @@
-DOCKER_ENV_FILE=.tmp.docker-env.txt
+DOCKER_ENV_FILE=$(CURDIR)/.tmp.docker-env.txt
 
 dev: node_modules
 	PATH=$(TOOL_PATH) $(NPM_TOOL) run dev
