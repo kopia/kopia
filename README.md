@@ -34,7 +34,7 @@ Kopia is open source and contributions are welcome. For more information on how 
 
 Reporting Security Issues
 ---
-If you find a security issue you'd like to disclose privately, please contact `jaak@jkowalski.net` or via direct message on [Slack](https://join.slack.com/t/kopia/shared_invite/enQtNjMxMTcxMTMxNDYwLWI4YzVkMzFhN2QwZGVhMzgwZDk2MGUzNmZhOWZkMmIzMDBlYzhmZTI3NTYxZWE1YWI4YWY1N2VhMGM4ZjJiNGQ).
+If you find a security issue you'd like to disclose privately, please contact `jaak@jkowalski.net` or via direct message on [Slack](https://slack.kopia.io).
 
 
 Disclaimer
