@@ -22,6 +22,17 @@ build-electron-all: node_modules build-html
 build-electron-dir: node_modules build-html
 	PATH=$(TOOL_PATH) $(NPM_TOOL) run build-electron-dir
 
+build-all-docker:
+	docker run --rm -ti \
+		--env ELECTRON_CACHE="/root/.cache/electron" \
+		--env ELECTRON_BUILDER_CACHE="/root/.cache/electron-builder" \
+		-v $(CURDIR):/project \
+		-v ~/.cache/electron:/root/.cache/electron \
+		-v $(CURDIR)/../dist:/dist \
+		-v ~/.cache/electron-builder:/root/.cache/electron-builder \
+		electronuserland/builder:wine \
+		/bin/bash -c "npm install && npm run build-html && npm run build-electron-all"
+
 include ../tools/tools.mk
 
 node_modules: $(NPM_TOOL)
