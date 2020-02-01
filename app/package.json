@@ -1,6 +1,6 @@
 {
   "name": "kopia-ui",
-  "version": "0.1.0",
+  "version": "0.5.0-test1",
   "private": true,
   "dependencies": {
     "auto-launch": "^5.0.5",
@@ -15,6 +15,7 @@
   },
   "build": {
     "productName": "KopiaUI",
+    "publish": [{"provider":"github"}],
     "files": [
       "build/**/*",
       "node_modules/**/*"
@@ -81,11 +82,12 @@
     "eject": "react-scripts eject",
     "start-electron": "electron .",
     "build-electron": "electron-builder -mwl",
-    "build-electron-all": "electron-builder -wlm --dir",
+    "build-electron-all": "electron-builder -wlm",
     "build-electron-win": "electron-builder -w --dir",
     "build-electron-linux": "electron-builder -l",
+    "build-electron-win-linux": "electron-builder -wl",
     "build-electron-mac": "electron-builder -m",
-    "build-electron-dir": "electron-builder --dir",
+    "build-electron-dir": "electron-builder --dir -wlm",
     "start-electron-prebuilt": "ELECTRON_IS_DEV=0 electron .",
     "dev": "concurrently \"react-scripts start\" \"sleep 3s; electron .\""
   },

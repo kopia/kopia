@@ -7,22 +7,13 @@ run: build-html
 build-html: node_modules
 	PATH=$(TOOL_PATH) $(NPM_TOOL) run build-html
 
-build-electron-win: node_modules build-html
-	PATH=$(TOOL_PATH) $(NPM_TOOL) run build-electron-win
-
-build-electron-linux: node_modules build-html
-	PATH=$(TOOL_PATH) $(NPM_TOOL) run build-electron-linux
-
-build-electron-mac: node_modules build-html
-	PATH=$(TOOL_PATH) $(NPM_TOOL) run build-electron-mac
-
-build-electron-all: node_modules build-html
-	PATH=$(TOOL_PATH) $(NPM_TOOL) run build-electron-all
-
 build-electron-dir: node_modules build-html
 	PATH=$(TOOL_PATH) $(NPM_TOOL) run build-electron-dir
 
-build-all-docker:
+build-all-mac: node_modules build-html
+	PATH=$(TOOL_PATH) $(NPM_TOOL) run build-electron-mac
+
+build-all-win-linux-docker:
 	docker run --rm -ti \
 		--env ELECTRON_CACHE="/root/.cache/electron" \
 		--env ELECTRON_BUILDER_CACHE="/root/.cache/electron-builder" \
@@ -31,7 +22,7 @@ build-all-docker:
 		-v $(CURDIR)/../dist:/dist \
 		-v ~/.cache/electron-builder:/root/.cache/electron-builder \
 		electronuserland/builder:wine \
-		/bin/bash -c "npm install && npm run build-html && npm run build-electron-all"
+		/bin/bash -c "npm install && npm run build-html && npm run build-electron-win-linux"
 
 include ../tools/tools.mk
 

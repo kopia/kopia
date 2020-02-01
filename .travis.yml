@@ -4,6 +4,7 @@ go:
 - '1.13.x'
 os:
 - linux
+- osx
 addons:
   apt:
     packages:
