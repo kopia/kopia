@@ -16,7 +16,11 @@
   },
   "build": {
     "productName": "KopiaUI",
-    "publish": [{"provider":"github"}],
+    "publish": [
+      {
+        "provider": "github"
+      }
+    ],
     "files": [
       "build/**/*",
       "node_modules/**/*"
