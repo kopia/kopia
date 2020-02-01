@@ -18,3 +18,4 @@ id_kopia
 known_hosts
 node_modules/
 *_bindata.go
+.tmp.*
