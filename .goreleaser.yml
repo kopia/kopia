@@ -62,7 +62,6 @@ signs:
     artifacts: checksum
     args: ["-a", "--output", "${signature}", "--detach-sign", "${artifact}"]
 changelog:
-  sort: asc
   filters:
     exclude:
     - '^docs:'
