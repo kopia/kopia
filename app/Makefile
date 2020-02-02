@@ -1,4 +1,4 @@
-DOCKER_ENV_FILE=$(CURDIR)/.tmp.docker-env.txt
+SHELL:=/bin/bash
 
 dev: node_modules
 	PATH=$(TOOL_PATH) $(NPM_TOOL) run dev
@@ -16,9 +16,8 @@ build-all-mac: node_modules build-html
 	PATH=$(TOOL_PATH) $(NPM_TOOL) run build-electron-mac
 
 build-all-win-linux-docker:
-	-env | grep -iE "DEBUG|NODE_|ELECTRON_|YARN_|NPM_|CI|CIRCLE|TRAVIS_TAG|TRAVIS|TRAVIS_REPO_|TRAVIS_BUILD_|TRAVIS_BRANCH|TRAVIS_PULL_REQUEST_|APPVEYOR_|CSC_|GH_|GITHUB_|BT_|AWS_|STRIP|BUILD_" > $(DOCKER_ENV_FILE)
 	docker run --rm -ti \
-        --env-file $(DOCKER_ENV_FILE) \
+        --env-file <(env | grep -E "^DEBUG|^NODE_|^ELECTRON_|^YARN_|^NPM_|^CI|^CIRCLE|^TRAVIS_TAG|^TRAVIS|^TRAVIS_REPO_|^TRAVIS_BUILD_|^TRAVIS_BRANCH|^TRAVIS_PULL_REQUEST_|^APPVEYOR_|^CSC_|^GH_|^GITHUB_|^BT_|^AWS_|^STRIP|^BUILD_") \
 		--env ELECTRON_CACHE="/root/.cache/electron" \
 		--env ELECTRON_BUILDER_CACHE="/root/.cache/electron-builder" \
 		-v $(CURDIR):/project \
