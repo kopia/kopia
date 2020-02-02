@@ -10,7 +10,7 @@ addons:
     packages:
     - rpm
 install: make travis-setup
-script: make travis-release
+script: make -j4 travis-release
 cache:
   directories:
   - $HOME/.cache/electron
