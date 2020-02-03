@@ -27,7 +27,7 @@ func TestStressBlockManager(t *testing.T) {
 
 	var duration = 3 * time.Second
 	if os.Getenv("KOPIA_LONG_STRESS_TEST") != "" {
-		duration = 3 * time.Minute
+		duration = 30 * time.Second
 	}
 
 	stressTestWithStorage(t, memst, duration)
