@@ -1,4 +1,4 @@
-COVERAGE_PACKAGES=./repo/...,./fs/...,./snapshot/...
+COVERAGE_PACKAGES=github.com/kopia/kopia/repo/...,github.com/kopia/kopia/fs/...,github.com/kopia/kopia/snapshot/...
 GO_TEST=go test
 PARALLEL=8
 TEST_FLAGS=
@@ -40,31 +40,11 @@ lint-and-log: $(LINTER_TOOL)
 vet:
 	go vet -all .
 
-build-linux-amd64:
-	CGO_ENABLED=0 GOARCH=amd64 GOOS=linux go build ./...
-
-build-windows-amd64:
-	CGO_ENABLED=0 GOARCH=amd64 GOOS=windows go build ./...
-
-build-darwin-amd64:
-	CGO_ENABLED=0 GOARCH=amd64 GOOS=darwin go build ./...
-
-build-linux-arm:
-	CGO_ENABLED=0 GOARCH=arm GOOS=linux go build ./...
-
-build-linux-arm64:
-	CGO_ENABLED=0 GOARCH=arm64 GOOS=linux go build ./...
-
-build-all: build-linux-amd64 build-windows-amd64 build-darwin-amd64 build-linux-arm build-linux-arm64
-
 travis-setup: travis-install-gpg-key travis-install-test-credentials
 	go mod download
 
 website:
 	$(MAKE) -C site build
-
-kopia-ui: build-electron-all
-	$(MAKE) -C app build-electron-dir
 
 html-ui:
 	$(MAKE) -C htmlui build-html
@@ -75,43 +55,50 @@ html-ui-bindata: html-ui $(BINDATA_TOOL)
 html-ui-bindata-fallback: $(BINDATA_TOOL)
 	(cd internal/server && $(BINDATA_TOOL) -fs -tags !embedhtml -o "$(CURDIR)/internal/server/htmlui_fallback.go" -pkg server index.html)
 
+# by default build unpacked Kopia UI for current OS only
+KOPIA_UI_BUILD_TARGET=build-electron-dir
+
 ifeq ($(TRAVIS_OS_NAME),osx)
-
-kopia-ui-osx: goreleaser-nopublish
-	$(MAKE) -C app build-all-mac
-
-travis-release-os-specific: kopia-ui-osx
-
+# build and package Mac app
+KOPIA_UI_BUILD_TARGET=build-all-mac
 endif
-
 ifeq ($(TRAVIS_OS_NAME),linux)
-
-travis-release-os-specific: kopia-ui-win-linux
-
-kopia-ui-win-linux: goreleaser-nopublish
-	$(MAKE) -C app build-all-win-linux-docker
-
+# build and package Windows and Linux app
+KOPIA_UI_BUILD_TARGET=build-all-win-linux-docker
 endif
+
+kopia-ui: goreleaser
+	$(MAKE) -C app $(KOPIA_UI_BUILD_TARGET)
+
+travis-release: goreleaser kopia-ui  website
+	$(MAKE) test-all
+	$(MAKE) integration-tests
+	$(MAKE) stress-test
+ifneq ($(TRAVIS_TAG),)
+	$(MAKE) travis-create-long-term-repository
+endif
+
+test-all: lint vet test-with-coverage
+
+# goreleaser - builds binaries for all platforms
+GORELEASER_OPTIONS=--rm-dist --skip-publish
 
 ifeq ($(TRAVIS_OS_NAME),)
-
-travis-release-os-specific:
-
+	# not running on travis, skip signing
+	GORELEASER_OPTIONS+=--skip-sign
 endif
 
-travis-release: test-with-coverage lint vet goreleaser-nopublish integration-tests upload-coverage website stress-test travis-release-os-specific
+ifeq ($(TRAVIS_TAG),)
+	# not a tagged release
+	GORELEASER_OPTIONS+=--snapshot
+endif
 
-goreleaser-nopublish: $(GORELEASER_TOOL)
-	$(GORELEASER_TOOL) --skip-publish --skip-sign --rm-dist --snapshot 
-
-tagged-release: $(GORELEASER_TOOL)
-	$(GORELEASER_TOOL) --rm-dist
-	# this is a no-op for PRs and non-tagged releses
-	$(MAKE) travis-create-long-term-repository
+goreleaser: $(GORELEASER_TOOL)
+	$(GORELEASER_TOOL) $(GORELEASER_OPTIONS)
 
 ifeq ($(TRAVIS_PULL_REQUEST),false)
 
-upload-coverage: $(GOVERALLS_TOOL)
+upload-coverage: $(GOVERALLS_TOOL) test-with-coverage
 	$(GOVERALLS_TOOL) -service=travis-ci -coverprofile=tmp.cov
 
 else
@@ -131,7 +118,7 @@ dev-deps:
 	GO111MODULE=off go get -u github.com/sqs/goreturns
 	
 test-with-coverage:
-	$(GO_TEST) -count=1 -coverprofile=tmp.cov --coverpkg $(COVERAGE_PACKAGES) -timeout 90s github.com/kopia/kopia/...
+	$(GO_TEST) -count=1 -coverprofile=tmp.cov --coverpkg $(COVERAGE_PACKAGES) -timeout 90s `go list ./...`
 
 test-with-coverage-pkgonly:
 	$(GO_TEST) -count=1 -coverprofile=tmp.cov -timeout 90s github.com/kopia/kopia/...
