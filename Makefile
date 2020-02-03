@@ -83,8 +83,8 @@ test-all: lint vet test-with-coverage
 # goreleaser - builds binaries for all platforms
 GORELEASER_OPTIONS=--rm-dist --skip-publish
 
-ifeq ($(TRAVIS_OS_NAME),)
-	# not running on travis, skip signing
+ifneq ($(TRAVIS_PULL_REQUEST),false)
+	# not running on travis, or travis in PR mode, skip signing
 	GORELEASER_OPTIONS+=--skip-sign
 endif
 
