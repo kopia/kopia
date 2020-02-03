@@ -11,6 +11,7 @@ import (
 
 	"github.com/efarrer/iothrottler"
 	minio "github.com/minio/minio-go/v6"
+	"github.com/minio/minio-go/v6/pkg/credentials"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/retry"
@@ -224,7 +225,7 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		return nil, errors.New("bucket name must be specified")
 	}
 
-	cli, err := minio.NewWithRegion(opt.Endpoint, opt.AccessKeyID, opt.SecretAccessKey, !opt.DoNotUseTLS, opt.Region)
+	cli, err := minio.NewWithCredentials(opt.Endpoint, credentials.NewStaticV4(opt.AccessKeyID, opt.SecretAccessKey, opt.SessionToken), !opt.DoNotUseTLS, opt.Region)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create client")
 	}

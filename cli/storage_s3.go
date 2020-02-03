@@ -21,6 +21,7 @@ func init() {
 			cmd.Flag("region", "S3 Region").Default("").StringVar(&s3options.Region)
 			cmd.Flag("access-key", "Access key ID (overrides AWS_ACCESS_KEY_ID environment variable)").Required().Envar("AWS_ACCESS_KEY_ID").StringVar(&s3options.AccessKeyID)
 			cmd.Flag("secret-access-key", "Secret access key (overrides AWS_SECRET_ACCESS_KEY environment variable)").Required().Envar("AWS_SECRET_ACCESS_KEY").StringVar(&s3options.SecretAccessKey)
+			cmd.Flag("session-token", "Session token (overrides AWS_SESSION_TOKEN environment variable)").Envar("AWS_SESSION_TOKEN").StringVar(&s3options.SessionToken)
 			cmd.Flag("prefix", "Prefix to use for objects in the bucket").StringVar(&s3options.Prefix)
 			cmd.Flag("disable-tls", "Disable TLS security (HTTPS)").BoolVar(&s3options.DoNotUseTLS)
 			cmd.Flag("max-download-speed", "Limit the download speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&s3options.MaxDownloadSpeedBytesPerSecond)
