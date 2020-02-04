@@ -21,9 +21,9 @@ build-all-win-linux-docker:
 		--env ELECTRON_CACHE="/root/.cache/electron" \
 		--env ELECTRON_BUILDER_CACHE="/root/.cache/electron-builder" \
 		-v $(CURDIR):/project \
-		-v ~/.cache/electron:/root/.cache/electron \
 		-v $(CURDIR)/../dist:/dist \
-		-v ~/.cache/electron-builder:/root/.cache/electron-builder \
+		-v ~/.cache/electron-docker:/root/.cache/electron \
+		-v ~/.cache/electron-builder-docker:/root/.cache/electron-builder \
 		electronuserland/builder:wine \
 		/bin/bash -c "npm install && npm run build-html && npm run build-electron-win-linux"
 
