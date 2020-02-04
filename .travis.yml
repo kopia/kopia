@@ -37,6 +37,7 @@ deploy:
   on:
     repo: kopia/kopia
     branch: master
+    condition: $TRAVIS_OS_NAME = linux
 git:
   depth: 9999999
 env:
