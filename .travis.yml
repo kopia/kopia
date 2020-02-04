@@ -11,6 +11,12 @@ addons:
     - rpm
 install: make travis-setup
 script: make travis-release
+cache:
+  directories:
+  - $HOME/.cache/electron
+  - $HOME/.cache/electron-builder
+  - $HOME/.cache/electron-docker
+  - $HOME/.cache/electron-builder-docker
 deploy:
 - provider: releases
   api_key:
