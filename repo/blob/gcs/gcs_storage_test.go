@@ -2,6 +2,7 @@ package gcs_test
 
 import (
 	"context"
+	"io/ioutil"
 	"os"
 	"testing"
 
@@ -17,15 +18,15 @@ func TestGCSStorage(t *testing.T) {
 		t.Skip("KOPIA_GCS_TEST_BUCKET not provided")
 	}
 
-	credsFile := os.Getenv("KOPIA_GCS_CREDENTIALS_FILE")
-	if _, err := os.Stat(credsFile); err != nil {
+	credData, err := ioutil.ReadFile(os.Getenv("KOPIA_GCS_CREDENTIALS_FILE"))
+	if err != nil {
 		t.Skip("skipping test because GCS credentials file can't be opened")
 	}
 
 	ctx := context.Background()
 	st, err := gcs.New(ctx, &gcs.Options{
-		BucketName:                bucket,
-		ServiceAccountCredentials: credsFile,
+		BucketName:                   bucket,
+		ServiceAccountCredentialJSON: credData,
 	})
 
 	if err != nil {
@@ -61,8 +62,8 @@ func TestGCSStorageInvalid(t *testing.T) {
 
 	ctx := context.Background()
 	st, err := gcs.New(ctx, &gcs.Options{
-		BucketName:                bucket + "-no-such-bucket",
-		ServiceAccountCredentials: os.Getenv("KOPIA_GCS_CREDENTIALS_FILE"),
+		BucketName:                    bucket + "-no-such-bucket",
+		ServiceAccountCredentialsFile: os.Getenv("KOPIA_GCS_CREDENTIALS_FILE"),
 	})
 
 	if err != nil {
