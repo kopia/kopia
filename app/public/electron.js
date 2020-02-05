@@ -5,7 +5,7 @@ const config = require('electron-json-config');
 
 const { resourcesPath, selectByOS } = require('./utils');
 const { toggleLaunchAtStartup, willLaunchAtStartup, refreshWillLaunchAtStartup } = require('./auto-launch');
-const { stopServer, actuateServer } = require('./server');
+const { stopServer, actuateServer, getServerAddress, getServerCertSHA256, getServerPassword } = require('./server');
 
 
 ipcMain.on('fetch-config', (event, arg) => {
@@ -62,7 +62,7 @@ function showMainWindow() {
     autoHideMenuBar: true,
   })
 
-  mainWindow.loadURL('http://localhost:51515/?ts=' + new Date().valueOf());
+  mainWindow.loadURL(getServerAddress() + '/?ts=' + new Date().valueOf());
 
   mainWindow.on('closed', function () {
     // forget the reference.
@@ -84,6 +84,32 @@ if (!app.requestSingleInstanceLock()) {
 
 app.on('will-quit', function () {
   stopServer();
+});
+
+app.on('login', (event, webContents, request, authInfo, callback) => {
+  // intercept password prompts and automatically enter password that the server has printed for us.
+  const p = getServerPassword();
+  if (p) {
+    event.preventDefault();
+    console.log('automatically logging in...');
+    callback('kopia', p);
+  }
+});
+
+app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
+  // intercept certificate errors and automatically trust the certificate the server has printed for us. 
+  const expected = 'sha256/' + Buffer.from(getServerCertSHA256(), 'hex').toString('base64');
+  if (certificate.fingerprint === expected) {
+    console.log('accepting server certificate.');
+
+    // On certificate error we disable default behaviour (stop loading the page)
+    // and we then say "it is all fine - true" to the callback
+    event.preventDefault();
+    callback(true);
+    return;
+  }
+
+  console.log('certificate error:', certificate.fingerprint, expected);
 });
 
 // Ignore
