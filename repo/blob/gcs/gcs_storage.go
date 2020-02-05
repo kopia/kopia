@@ -4,6 +4,7 @@ package gcs
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -214,6 +215,15 @@ func tokenSourceFromCredentialsFile(ctx context.Context, fn string, scopes ...st
 	return cfg.TokenSource(ctx), nil
 }
 
+func tokenSourceFromCredentialsJSON(ctx context.Context, data json.RawMessage, scopes ...string) (oauth2.TokenSource, error) {
+	cfg, err := google.JWTConfigFromJSON([]byte(data), scopes...)
+	if err != nil {
+		return nil, errors.Wrap(err, "google.JWTConfigFromJSON")
+	}
+
+	return cfg.TokenSource(ctx), nil
+}
+
 // New creates new Google Cloud Storage-backed storage with specified options:
 //
 // - the 'BucketName' field is required and all other parameters are optional.
@@ -230,7 +240,9 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		scope = gcsclient.ScopeReadOnly
 	}
 
-	if sa := opt.ServiceAccountCredentials; sa != "" {
+	if sa := opt.ServiceAccountCredentialJSON; len(sa) > 0 {
+		ts, err = tokenSourceFromCredentialsJSON(ctx, sa, scope)
+	} else if sa := opt.ServiceAccountCredentialsFile; sa != "" {
 		ts, err = tokenSourceFromCredentialsFile(ctx, sa, scope)
 	} else {
 		ts, err = google.DefaultTokenSource(ctx, scope)
