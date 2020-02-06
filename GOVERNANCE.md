@@ -12,7 +12,7 @@ Users are community members who have a need for the project. They are the most i
 
 The project asks its users to participate in the project and community as much as possible. User contributions enable the project team to ensure that they are satisfying the needs of those users. Common user contributions include (but are not limited to):
 
-* evangelising about the project (e.g. a link on a website and word-of-mouth awareness raising)
+* evangelizing about the project (e.g. a link on a website and word-of-mouth awareness raising)
 * informing developers of strengths and weaknesses from a new user perspective
 * providing moral support (a ‘thank you’ goes a long way)
 * providing financial support (the software is open source, but its developers need to eat)
@@ -53,7 +53,7 @@ New committers can be nominated by any existing committer. Once they have been n
 
 Nominees may decline their appointment as a committer. However, this is unusual, as the project does not expect any specific time or resource commitment from its community members. The intention behind the role of committer is to allow people to contribute to the project more easily, not to tie them in to the project in any formal way.
 
-It is important to recognise that commitership is a privilege, not a right. That privilege must be earned and once earned it can be removed by the PMC for conduct inconsistent with the [Code of Conduct](https://github.com/kopia/kopia/blob/master/CODE_OF_CONDUCT.md) or if they drop below a level of commitment and engagement required to be a Committer, as determined by the PMC. The PMC also reserves the right to remove a person for any other reason inconsistent with the goals of Kopia.
+It is important to recognize that committership is a privilege, not a right. That privilege must be earned and once earned it can be removed by the PMC for conduct inconsistent with the [Code of Conduct](https://github.com/kopia/kopia/blob/master/CODE_OF_CONDUCT.md) or if they drop below a level of commitment and engagement required to be a Committer, as determined by the PMC. The PMC also reserves the right to remove a person for any other reason inconsistent with the goals of Kopia.
 
 A committer who shows an above-average level of contribution to the project, particularly with respect to its strategic direction and long-term health, may be nominated to become a member of the PMC. This role is described below.
 
@@ -105,7 +105,7 @@ Decision making typically involves the following steps:
 
 Any community member can make a proposal for consideration by the community. In order to initiate a discussion about a new idea, they should send an email to the project contributors’ list or submit a patch implementing the idea to the issue tracker (or version-control system if they have commit access). This will prompt a review and, if necessary, a discussion of the idea. The goal of this review and discussion is to gain approval for the contribution. Since most people in the project community have a shared vision, there is often little need for discussion in order to reach consensus.
 
-In general, as long as nobody explicitly opposes a proposal or patch, it is recognised as having the support of the community. This is called lazy consensus - that is, those who have not stated their opinion explicitly have implicitly agreed to the implementation of the proposal.
+In general, as long as nobody explicitly opposes a proposal or patch, it is recognized as having the support of the community. This is called lazy consensus - that is, those who have not stated their opinion explicitly have implicitly agreed to the implementation of the proposal.
 
 Lazy consensus is a very important concept within the project. It is this process that allows a large group of people to efficiently reach consensus, as someone with no objections to a proposal need not spend time stating their position, and others need not spend time reading such mails.
 
