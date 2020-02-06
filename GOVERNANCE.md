@@ -1,6 +1,8 @@
+# Kopia Governance
+
 # Overview
 
-This is a meritocratic, consensus-based community project. Anyone with an interest in the project can join the community, contribute to the project design and participate in the decision making process. This document describes how that participation takes place and how to set about earning merit within the project community.
+Kopia is a meritocratic, consensus-based community project. Anyone with an interest in the project can join the community, contribute to the project design and participate in the decision making process. This document describes how that participation takes place and how to set about earning merit within the project community.
 
 # Roles And Responsibilities
 
@@ -14,7 +16,8 @@ The project asks its users to participate in the project and community as much a
 * informing developers of strengths and weaknesses from a new user perspective
 * providing moral support (a ‘thank you’ goes a long way)
 * providing financial support (the software is open source, but its developers need to eat)
-* Users who continue to engage with the project and its community will often become more and more involved. Such users may find themselves becoming contributors, as described in the next section.
+
+Users who continue to engage with the project and its community will often become more and more involved. Such users may find themselves becoming contributors, as described in the next section.
 
 ## Contributors
 
@@ -32,7 +35,7 @@ In addition to their actions as users, contributors may also find themselves doi
 * fixing bugs
 * adding features
 
-Contributors engage with the project through the issue tracker and mailing list, or by writing or editing documentation. They submit changes to the project itself via patches, which will be considered for inclusion in the project by existing committers (see next section). The developer mailing list is the most appropriate place to ask for help when making that first contribution.
+Contributors engage with the project through the issue tracker, mailing list, the Slack channel, or by writing or editing documentation. They submit changes to the project itself via patches, which will be considered for inclusion in the project by existing committers (see next section). The Slack channel is the most appropriate place to ask for help when making that first contribution.
 
 As contributors gain experience and familiarity with the project, their profile within, and commitment to, the community will increase. At some stage, they may find themselves being nominated for committership.
 
@@ -50,18 +53,26 @@ New committers can be nominated by any existing committer. Once they have been n
 
 Nominees may decline their appointment as a committer. However, this is unusual, as the project does not expect any specific time or resource commitment from its community members. The intention behind the role of committer is to allow people to contribute to the project more easily, not to tie them in to the project in any formal way.
 
-It is important to recognise that commitership is a privilege, not a right. That privilege must be earned and once earned it can be removed by the PMC (see next section) in extreme circumstances. However, under normal circumstances committership exists for as long as the committer wishes to continue engaging with the project.
+It is important to recognise that commitership is a privilege, not a right. That privilege must be earned and once earned it can be removed by the PMC for conduct inconsistent with the [Code of Conduct](https://github.com/kopia/kopia/blob/master/CODE_OF_CONDUCT.md) or if they drop below a level of commitment and engagement required to be a Committer, as determined by the PMC. The PMC also reserves the right to remove a person for any other reason inconsistent with the goals of Kopia.
 
 A committer who shows an above-average level of contribution to the project, particularly with respect to its strategic direction and long-term health, may be nominated to become a member of the PMC. This role is described below.
 
-## Project management committee
+## Project Management Committee
+
+The current list of PMC members and their GitHub handles are:
+
+* Jarek Kowalski (jkowalski)
+* Julio Lopez (julio-lopez)
+
 The project management committee consists of those individuals identified as ‘project owners’ on the development site. The PMC has additional responsibilities over and above those of a committer. These responsibilities ensure the smooth running of the project. PMC members are expected to review code contributions, participate in strategic planning, approve changes to the governance model and manage the copyrights within the project outputs.
 
-Members of the PMC do not have significant authority over other members of the community, although it is the PMC that votes on new committers. It also makes decisions when community consensus cannot be reached. In addition, the PMC has access to the project’s private mailing list and its archives. This list is used for sensitive issues, such as votes for new committers and legal matters that cannot be discussed in public. It is never used for project management or planning.
+Members of the PMC do not have significant authority over other members of the community, although it is the PMC that votes on new committers, and makes all major decisions for the future with respect to Kopia. It also makes decisions when community consensus cannot be reached. In addition, the PMC has access to the project’s private mailing list and its archives. This list is used for sensitive issues, such as votes for new committers and legal matters that cannot be discussed in public. It is never used for project management or planning.
 
 Membership of the PMC is by invitation from the existing PMC members. A nomination will result in discussion and then a vote by the existing PMC members. PMC membership votes are subject to consensus approval of the current PMC members.
 
 ## PMC Chair
+
+The current PMC chair is: Jarek Kowalski (jkowalski)
 
 The PMC Chair is a single individual, voted for by the PMC members. Once someone has been appointed Chair, they remain in that role until they choose to retire, or the PMC casts a two-thirds majority vote to remove them.
 
@@ -73,17 +84,18 @@ All participants in the community are encouraged to provide support for new user
 
 # Contribution Process
 
-Anyone can contribute to the project, regardless of their skills, as there are many ways to contribute. For instance, a contributor might be active on the project mailing list and issue tracker, or might supply patches. The various ways of contributing are described in more detail in a separate document.
+Anyone can contribute to the project, regardless of their skills, as there are many ways to contribute. For instance, a contributor might be active on the project mailing list, Slack channel and issue tracker, or might supply patches. The various ways of contributing are described in more detail in a separate document.
 
-The developer mailing list is the most appropriate place for a contributor to ask for help when making their first contribution.
+The Slack channel list is the most appropriate place for a contributor to ask for help when making their first contribution.
 
 # Decision Making Process
 
-Decisions about the future of the project are made through discussion with all members of the community, from the newest user to the most experienced PMC member. All non-sensitive project management discussion takes place on the project contributors’ mailing list. Occasionally, sensitive discussion occurs on a private list.
+Decisions about the future of the project are made by the PMC. New proposals and ideas can be brought to the PMC’s attention through the Slack channel or by filing an issue. If necessary, the PMC will seek input from others to come to the final decision.
 
 In order to ensure that the project is not bogged down by endless discussion and continual voting, the project operates a policy of lazy consensus. This allows the majority of decisions to be made without resorting to a formal vote.
 
-## Lazy consensus
+## Lazy Consensus
+
 Decision making typically involves the following steps:
 
 * Proposal
@@ -99,10 +111,10 @@ Lazy consensus is a very important concept within the project. It is this proces
 
 For lazy consensus to be effective, it is necessary to allow at least 72 hours before assuming that there are no objections to the proposal. This requirement ensures that everyone is given enough time to read, digest and respond to the proposal. This time period is chosen so as to be as inclusive as possible of all participants, regardless of their location and time commitments.
 
-# Voting
+## Voting
 
-Not all decisions can be made using lazy consensus. Issues such as those affecting the strategic direction or legal standing of the project must gain explicit approval in the form of a vote. Every member of the community is encouraged to express their opinions in all discussion and all votes. However, only project committers and/or PMC members (as defined above) have binding votes for the purposes of decision making. 
+Not all decisions can be made using lazy consensus. Issues such as those affecting the strategic direction or legal standing of the project must gain explicit approval in the form of a vote. Every member of the community is encouraged to express their opinions in all discussion and all votes. However, only project committers and/or PMC members (as defined above) have binding votes for the purposes of decision making. In case of a tie, the PMC chair has the casting vote.
 
 # Credits
 
-The contents of this document are based on http://oss-watch.ac.uk/resources/meritocraticgovernancemodel by Ross Gardler and Gabriel Hanganu.
+The contents of this document are based on http://oss-watch.ac.uk/resources/meritocraticgovernancemodel by Ross Gardler and Gabriel Hanganu. Edits were inspired by the [Vitess project](https://github.com/vitessio/vitess).
