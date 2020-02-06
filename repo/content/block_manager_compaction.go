@@ -11,28 +11,22 @@ import (
 const verySmallContentFraction = 20 // blobs less than 1/verySmallContentFraction of maxPackSize are considered 'very small'
 
 var autoCompactionOptions = CompactOptions{
-	MinSmallBlobs: 4 * parallelFetches, // nolint:gomnd
-	MaxSmallBlobs: 64,                  // nolint:gomnd
+	MaxSmallBlobs: 4 * parallelFetches, // nolint:gomnd
 }
 
 // CompactOptions provides options for compaction
 type CompactOptions struct {
-	MinSmallBlobs        int
 	MaxSmallBlobs        int
 	AllIndexes           bool
 	SkipDeletedOlderThan time.Duration
 }
 
-// CompactIndexes performs compaction of index blobs ensuring that # of small contents is between minSmallContentCount and maxSmallContentCount
+// CompactIndexes performs compaction of index blobs ensuring that # of small index blobs is below opt.maxSmallBlobs
 func (bm *Manager) CompactIndexes(ctx context.Context, opt CompactOptions) error {
-	bm.lock()
-	defer bm.unlock()
-
 	log.Debugf("CompactIndexes(%+v)", opt)
 
-	if opt.MaxSmallBlobs < opt.MinSmallBlobs {
-		return errors.Errorf("invalid content counts")
-	}
+	bm.lock()
+	defer bm.unlock()
 
 	indexBlobs, _, err := bm.loadPackIndexesUnlocked(ctx)
 	if err != nil {
@@ -70,13 +64,13 @@ func (bm *Manager) getContentsToCompact(indexBlobs []IndexBlobInfo, opt CompactO
 		}
 	}
 
-	if len(nonCompactedBlobs) < opt.MinSmallBlobs {
+	if len(nonCompactedBlobs) < opt.MaxSmallBlobs {
 		// current count is below min allowed - nothing to do
 		formatLog.Debugf("no small contents to compact")
 		return nil
 	}
 
-	if len(verySmallBlobs) > len(nonCompactedBlobs)/2 && len(mediumSizedBlobs)+1 < opt.MinSmallBlobs {
+	if len(verySmallBlobs) > len(nonCompactedBlobs)/2 && len(mediumSizedBlobs)+1 < opt.MaxSmallBlobs {
 		formatLog.Debugf("compacting %v very small contents", len(verySmallBlobs))
 		return verySmallBlobs
 	}
