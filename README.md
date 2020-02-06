@@ -17,7 +17,7 @@ Kopia
 > 3. _[fast and secure backup tool](https://kopia.io)_
 
 
-Kopia is a simple, cross-platform tool for managing encrypted backups in the cloud. It provides fast, incremental backups, secure, client-side encryption, compression and data deduplication.
+Kopia is a simple, cross-platform tool for managing encrypted backups in the cloud. It provides fast, incremental backups, secure, client-side end-to-end encryption, compression and data deduplication.
 
 Unlike other cloud backup solutions, the user in full control of backup storage and is responsible for purchasing one of the cloud storage products  (such as [Google Cloud Storage](https://cloud.google.com/storage/)), which offer great durability and availability for your data.
 
