@@ -100,7 +100,7 @@ type ClientOptions struct {
 }
 
 // NewClient creates a options.HTTPClient for connecting to Kopia HTTP API.
-// nolint:hugeParam
+// nolint:gocritic
 func NewClient(options ClientOptions) (*Client, error) {
 	if options.HTTPClient == nil {
 		transport := &http.Transport{
