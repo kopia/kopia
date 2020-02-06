@@ -8,6 +8,7 @@ Kopia
 [![Coverage Status](https://coveralls.io/repos/github/kopia/kopia/badge.svg?branch=master)](https://coveralls.io/github/kopia/kopia?branch=master)
 [![Go Report Card](https://goreportcard.com/badge/github.com/kopia/kopia)](https://goreportcard.com/report/github.com/kopia/kopia)
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fkopia%2Fkopia.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fkopia%2Fkopia?ref=badge_shield)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-v2.0%20adopted-ff69b4.svg)](code_of_conduct.md)
 
 > _n._
 >
