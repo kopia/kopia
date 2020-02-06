@@ -280,10 +280,7 @@ func listAndReadAllContents(ctx context.Context, t *testing.T, r *repo.Repositor
 }
 
 func compact(ctx context.Context, t *testing.T, r *repo.Repository) error {
-	return r.Content.CompactIndexes(ctx, content.CompactOptions{
-		MinSmallBlobs: 1,
-		MaxSmallBlobs: 1,
-	})
+	return r.Content.CompactIndexes(ctx, content.CompactOptions{MaxSmallBlobs: 1})
 }
 
 func flush(ctx context.Context, t *testing.T, r *repo.Repository) error {

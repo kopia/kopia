@@ -374,10 +374,7 @@ func TestContentManagerConcurrency(t *testing.T) {
 		t.Errorf("unexpected index count before compaction: %v, wanted %v", got, want)
 	}
 
-	if err := bm4.CompactIndexes(ctx, CompactOptions{
-		MinSmallBlobs: 1,
-		MaxSmallBlobs: 1,
-	}); err != nil {
+	if err := bm4.CompactIndexes(ctx, CompactOptions{MaxSmallBlobs: 1}); err != nil {
 		t.Errorf("compaction error: %v", err)
 	}
 
@@ -393,10 +390,7 @@ func TestContentManagerConcurrency(t *testing.T) {
 	verifyContent(ctx, t, bm5, bm2content, seededRandomData(32, 100))
 	verifyContent(ctx, t, bm5, bm3content, seededRandomData(33, 100))
 
-	if err := bm5.CompactIndexes(ctx, CompactOptions{
-		MinSmallBlobs: 1,
-		MaxSmallBlobs: 1,
-	}); err != nil {
+	if err := bm5.CompactIndexes(ctx, CompactOptions{MaxSmallBlobs: 1}); err != nil {
 		t.Errorf("compaction error: %v", err)
 	}
 }
@@ -1233,10 +1227,7 @@ func verifyVersionCompat(t *testing.T, writeVersion int) {
 	// make sure we can read everything
 	verifyContentManagerDataSet(ctx, t, mgr, dataSet)
 
-	if err := mgr.CompactIndexes(ctx, CompactOptions{
-		MinSmallBlobs: 1,
-		MaxSmallBlobs: 1,
-	}); err != nil {
+	if err := mgr.CompactIndexes(ctx, CompactOptions{MaxSmallBlobs: 1}); err != nil {
 		t.Fatalf("unable to compact indexes: %v", err)
 	}
 

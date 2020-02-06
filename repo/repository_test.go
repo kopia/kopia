@@ -124,7 +124,7 @@ func TestPackingSimple(t *testing.T) {
 	verify(ctx, t, env.Repository, oid2a, []byte(content2), "packed-object-2")
 	verify(ctx, t, env.Repository, oid3a, []byte(content3), "packed-object-3")
 
-	if err := env.Repository.Content.CompactIndexes(ctx, content.CompactOptions{MinSmallBlobs: 1, MaxSmallBlobs: 1}); err != nil {
+	if err := env.Repository.Content.CompactIndexes(ctx, content.CompactOptions{MaxSmallBlobs: 1}); err != nil {
 		t.Errorf("optimize error: %v", err)
 	}
 
@@ -134,7 +134,7 @@ func TestPackingSimple(t *testing.T) {
 	verify(ctx, t, env.Repository, oid2a, []byte(content2), "packed-object-2")
 	verify(ctx, t, env.Repository, oid3a, []byte(content3), "packed-object-3")
 
-	if err := env.Repository.Content.CompactIndexes(ctx, content.CompactOptions{MinSmallBlobs: 1, MaxSmallBlobs: 1}); err != nil {
+	if err := env.Repository.Content.CompactIndexes(ctx, content.CompactOptions{MaxSmallBlobs: 1}); err != nil {
 		t.Errorf("optimize error: %v", err)
 	}
 
