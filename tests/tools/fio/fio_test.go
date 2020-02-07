@@ -18,7 +18,7 @@ func TestFIORun(t *testing.T) {
 		t.Fatal("Expected error to be set as no params were passed")
 	}
 
-	if !strings.Contains(stderr, "No job(s) defined") {
+	if !strings.Contains(stderr, "No job") {
 		t.Fatal("Expected an error indicating no jobs were defined")
 	}
 

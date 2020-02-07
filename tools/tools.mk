@@ -55,6 +55,15 @@ else
 	curl -LsS https://github.com/gohugoio/hugo/releases/download/v$(HUGO_VERSION)/hugo_extended_$(HUGO_VERSION)_macOS-64bit.tar.gz | tar zxv -C $(TOOLS_DIR)/hugo
 endif
 
+# fio 
+# - this install is currently conditional, only supported on systems with apt-get capability. Tests relying on fio should be skipped if it is not found.
+# - fio is installed using the package manager, and is thus not installed into TOOLS_DIR. It is not purged with the clean-tools target.
+fio:
+ifneq (, $(strip $(shell which apt-get)))
+	sudo apt-get -qq update
+	sudo apt-get -y install fio
+endif
+
 # linter
 GORELEASER_TOOL=$(TOOLS_DIR)/goreleaser-$(GORELEASER_VERSION)/goreleaser
 

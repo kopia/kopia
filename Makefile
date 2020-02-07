@@ -16,7 +16,7 @@ quick-install:
 	# same as install but assumes HTMLUI has been built
 	go install -tags embedhtml
 
-install-noui: 
+install-noui:
 	go install
 
 escape-analysis:
@@ -76,6 +76,7 @@ else
 travis-release: goreleaser kopia-ui website
 	$(MAKE) test-all
 	$(MAKE) integration-tests
+	$(MAKE) robustness-tool-tests
 	$(MAKE) stress-test
 ifneq ($(TRAVIS_TAG),)
 	$(MAKE) travis-create-long-term-repository
@@ -119,7 +120,7 @@ dev-deps:
 	GO111MODULE=off go get -u github.com/lukehoban/go-outline
 	GO111MODULE=off go get -u github.com/newhook/go-symbols
 	GO111MODULE=off go get -u github.com/sqs/goreturns
-	
+
 test-with-coverage:
 	$(GO_TEST) -count=1 -coverprofile=tmp.cov --coverpkg $(COVERAGE_PACKAGES) -timeout 90s `go list ./...`
 
@@ -137,6 +138,9 @@ dist-binary:
 
 integration-tests: dist-binary
 	KOPIA_EXE=$(CURDIR)/dist/integration/kopia $(GO_TEST) $(TEST_FLAGS) -count=1 -parallel $(PARALLEL) -timeout 300s github.com/kopia/kopia/tests/end_to_end_test
+
+robustness-tool-tests: fio
+	FIO_EXE=$(shell which fio) $(GO_TEST) -v -count=1 -timeout 90s github.com/kopia/kopia/tests/tools/...
 
 stress-test:
 	KOPIA_LONG_STRESS_TEST=1 $(GO_TEST) -count=1 -timeout 200s github.com/kopia/kopia/tests/stress_test
@@ -164,7 +168,7 @@ travis-install-gpg-key:
 	@echo Installing GPG key...
 	openssl aes-256-cbc -K "$(encrypted_fa1db4b894bb_key)" -iv "$(encrypted_fa1db4b894bb_iv)" -in kopia.gpg.enc -out /tmp/kopia.gpg -d
 	gpg --import /tmp/kopia.gpg
-	
+
 travis-install-test-credentials:
 	@echo Installing test credentials...
 	openssl aes-256-cbc -K "$(encrypted_fa1db4b894bb_key)" -iv "$(encrypted_fa1db4b894bb_iv)" -in tests/credentials/gcs/test_service_account.json.enc -out repo/blob/gcs/test_service_account.json -d

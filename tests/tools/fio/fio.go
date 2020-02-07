@@ -54,7 +54,6 @@ func NewRunner() (*Runner, error) {
 					"blocksize":         "1m",
 					"refill_buffers":    "",
 					"rw":                "write",
-					"unique_filename":   "1",
 					"directory":         dataDir,
 				},
 			},
