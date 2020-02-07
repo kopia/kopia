@@ -43,9 +43,11 @@ func (bm *Manager) CompactIndexes(ctx context.Context, opt CompactOptions) error
 }
 
 func (bm *Manager) getContentsToCompact(indexBlobs []IndexBlobInfo, opt CompactOptions) []IndexBlobInfo {
-	var nonCompactedBlobs, verySmallBlobs, mediumSizedBlobs []IndexBlobInfo
+	var nonCompactedBlobs, verySmallBlobs []IndexBlobInfo
 
 	var totalSizeNonCompactedBlobs, totalSizeVerySmallBlobs, totalSizeMediumSizedBlobs int64
+
+	var mediumSizedBlobCount int
 
 	for _, b := range indexBlobs {
 		if b.Length > int64(bm.maxPackSize) && !opt.AllIndexes {
@@ -59,7 +61,7 @@ func (bm *Manager) getContentsToCompact(indexBlobs []IndexBlobInfo, opt CompactO
 			verySmallBlobs = append(verySmallBlobs, b)
 			totalSizeVerySmallBlobs += b.Length
 		} else {
-			mediumSizedBlobs = append(mediumSizedBlobs, b)
+			mediumSizedBlobCount++
 			totalSizeMediumSizedBlobs += b.Length
 		}
 	}
@@ -70,7 +72,7 @@ func (bm *Manager) getContentsToCompact(indexBlobs []IndexBlobInfo, opt CompactO
 		return nil
 	}
 
-	if len(verySmallBlobs) > len(nonCompactedBlobs)/2 && len(mediumSizedBlobs)+1 < opt.MaxSmallBlobs {
+	if len(verySmallBlobs) > len(nonCompactedBlobs)/2 && mediumSizedBlobCount+1 < opt.MaxSmallBlobs {
 		formatLog.Debugf("compacting %v very small contents", len(verySmallBlobs))
 		return verySmallBlobs
 	}
