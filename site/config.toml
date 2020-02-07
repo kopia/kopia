@@ -90,23 +90,22 @@ no = 'Sorry to hear that. Please <a href="https://github.com/kopia/kopia/issues/
 [params.links]
 # End user relevant links. These will show up on left side of footer and in the community page if you have one.
 [[params.links.user]]
-	name = "User mailing list"
+	name = "Slack"
+	url = "https://slack.kopia.io"
+	icon = "fab fa-slack"
+        desc = "Chat with fellow Kopia users"
+[[params.links.user]]
+	name = "User Mailing List"
 	url = "https://groups.google.com/forum/#!forum/kopia-users"
 	icon = "fa fa-envelope"
         desc = "Discussion and help from your fellow users"
-# [[params.links.user]]
-# 	name = "Stack Overflow"
-# 	url = "https://example.org/stack"
-# 	icon = "fab fa-stack-overflow"
-#         desc = "Practical questions and curated answers"
-# Developer relevant links. These will show up on right side of footer and in the community page if you have one.
-[[params.links.developer]]
-	name = "GitHub"
-	url = "https://github.com/kopia/kopia"
-	icon = "fab fa-github"
-    desc = "Development takes place here!"
 [[params.links.developer]]
 	name = "Slack"
 	url = "https://slack.kopia.io"
 	icon = "fab fa-slack"
     desc = "Chat with other project developers"
+[[params.links.developer]]
+	name = "GitHub"
+	url = "https://github.com/kopia/kopia"
+	icon = "fab fa-github"
+    desc = "Development takes place here!"
