@@ -242,7 +242,7 @@ func trimOutput(s string) string {
 
 // ListSnapshotsAndExpectSuccess lists given snapshots and parses the output.
 func (e *CLITest) ListSnapshotsAndExpectSuccess(t *testing.T, targets ...string) []SourceInfo {
-	lines := e.RunAndExpectSuccess(t, append([]string{"snapshot", "list", "-l", "--manifest-id"}, targets...)...)
+	lines := e.RunAndExpectSuccess(t, append([]string{"snapshot", "list", "-l", "--manifest-id", "--max-results", "400"}, targets...)...)
 	return mustParseSnapshots(t, lines)
 }
 

@@ -50,11 +50,15 @@ var (
 	policySetRemoveNeverCompress = policySetCommand.Flag("remove-never-compress", "List of extensions to remove from the never compress list").PlaceHolder("PATTERN").Strings()
 	policySetClearNeverCompress  = policySetCommand.Flag("clear-never-compress", "Clear list of extensions in the never compress list").Bool()
 
-	// Dot-ignore iles to look at.
+	// Dot-ignore files to look at.
 	policySetAddDotIgnore    = policySetCommand.Flag("add-dot-ignore", "List of paths to add to the dot-ignore list").PlaceHolder("FILENAME").Strings()
 	policySetRemoveDotIgnore = policySetCommand.Flag("remove-dot-ignore", "List of paths to remove from the dot-ignore list").PlaceHolder("FILENAME").Strings()
 	policySetClearDotIgnore  = policySetCommand.Flag("clear-dot-ignore", "Clear list of paths in the dot-ignore list").Bool()
 	policySetMaxFileSize     = policySetCommand.Flag("max-file-size", "Exclude files above given size").PlaceHolder("N").String()
+
+	// Error handling behavior.
+	policyIgnoreFileErrors      = policySetCommand.Flag("ignore-file-errors", "Ignore errors reading files while traversing ('true', 'false', 'inherit')").String()
+	policyIgnoreDirectoryErrors = policySetCommand.Flag("ignore-dir-errors", "Ignore errors reading directories while traversing ('true', 'false', 'inherit").String()
 
 	// General policy.
 	policySetInherit = policySetCommand.Flag(inheritPolicyString, "Enable or disable inheriting policies from the parent").BoolList()
@@ -107,6 +111,10 @@ func setPolicyFromFlags(p *policy.Policy, changeCount *int) error {
 
 	setFilesPolicyFromFlags(&p.FilesPolicy, changeCount)
 
+	if err := setErrorHandlingPolicyFromFlags(&p.ErrorHandlingPolicy, changeCount); err != nil {
+		return errors.Wrap(err, "error handling policy")
+	}
+
 	if err := setCompressionPolicyFromFlags(&p.CompressionPolicy, changeCount); err != nil {
 		return errors.Wrap(err, "compression policy")
 	}
@@ -149,6 +157,54 @@ func setFilesPolicyFromFlags(fp *policy.FilesPolicy, changeCount *int) {
 	} else {
 		fp.IgnoreRules = addRemoveDedupeAndSort("ignored files", fp.IgnoreRules, *policySetAddIgnore, *policySetRemoveIgnore, changeCount)
 	}
+}
+
+func setErrorHandlingPolicyFromFlags(fp *policy.ErrorHandlingPolicy, changeCount *int) error {
+	switch {
+	case *policyIgnoreFileErrors == "":
+	case *policyIgnoreFileErrors == inheritPolicyString:
+		*changeCount++
+
+		fp.IgnoreFileErrorsSet = false
+
+		printStderr(" - inherit file read error behavior from parent\n")
+	default:
+		val, err := strconv.ParseBool(*policyIgnoreFileErrors)
+		if err != nil {
+			return err
+		}
+
+		*changeCount++
+
+		fp.IgnoreFileErrors = val
+		fp.IgnoreFileErrorsSet = true
+
+		printStderr(" - setting ignore file read errors to %v\n", val)
+	}
+
+	switch {
+	case *policyIgnoreDirectoryErrors == "":
+	case *policyIgnoreDirectoryErrors == inheritPolicyString:
+		*changeCount++
+
+		fp.IgnoreDirectoryErrorsSet = false
+
+		printStderr(" - inherit directory read error behavior from parent\n")
+	default:
+		val, err := strconv.ParseBool(*policyIgnoreDirectoryErrors)
+		if err != nil {
+			return err
+		}
+
+		*changeCount++
+
+		fp.IgnoreDirectoryErrors = val
+		fp.IgnoreDirectoryErrorsSet = true
+
+		printStderr(" - setting ignore directory read errors to %v\n", val)
+	}
+
+	return nil
 }
 
 func setRetentionPolicyFromFlags(rp *policy.RetentionPolicy, changeCount *int) error {

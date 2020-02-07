@@ -80,6 +80,8 @@ func printPolicy(p *policy.Policy, parents []*policy.Policy) {
 	printStdout("\n")
 	printFilesPolicy(p, parents)
 	printStdout("\n")
+	printErrorHandlingPolicy(p, parents)
+	printStdout("\n")
 	printSchedulingPolicy(p, parents)
 	printStdout("\n")
 	printCompressionPolicy(p, parents)
@@ -153,6 +155,22 @@ func printFilesPolicy(p *policy.Policy, parents []*policy.Policy) {
 				return pol.FilesPolicy.MaxFileSize != 0
 			}))
 	}
+}
+
+func printErrorHandlingPolicy(p *policy.Policy, parents []*policy.Policy) {
+	printStdout("Error handling policy:\n")
+
+	printStdout("  Ignore file read errors:       %5v       %v\n",
+		p.ErrorHandlingPolicy.IgnoreFileErrors,
+		getDefinitionPoint(parents, func(pol *policy.Policy) bool {
+			return pol.ErrorHandlingPolicy.IgnoreFileErrorsSet
+		}))
+
+	printStdout("  Ignore directory read errors:  %5v       %v\n",
+		p.ErrorHandlingPolicy.IgnoreDirectoryErrors,
+		getDefinitionPoint(parents, func(pol *policy.Policy) bool {
+			return pol.ErrorHandlingPolicy.IgnoreDirectoryErrorsSet
+		}))
 }
 
 func printSchedulingPolicy(p *policy.Policy, parents []*policy.Policy) {
