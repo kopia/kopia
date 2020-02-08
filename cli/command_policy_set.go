@@ -165,7 +165,7 @@ func setErrorHandlingPolicyFromFlags(fp *policy.ErrorHandlingPolicy, changeCount
 	case *policyIgnoreFileErrors == inheritPolicyString:
 		*changeCount++
 
-		fp.IgnoreFileErrorsSet = false
+		fp.IgnoreFileErrors = nil
 
 		printStderr(" - inherit file read error behavior from parent\n")
 	default:
@@ -176,8 +176,7 @@ func setErrorHandlingPolicyFromFlags(fp *policy.ErrorHandlingPolicy, changeCount
 
 		*changeCount++
 
-		fp.IgnoreFileErrors = val
-		fp.IgnoreFileErrorsSet = true
+		fp.IgnoreFileErrors = &val
 
 		printStderr(" - setting ignore file read errors to %v\n", val)
 	}
@@ -187,7 +186,7 @@ func setErrorHandlingPolicyFromFlags(fp *policy.ErrorHandlingPolicy, changeCount
 	case *policyIgnoreDirectoryErrors == inheritPolicyString:
 		*changeCount++
 
-		fp.IgnoreDirectoryErrorsSet = false
+		fp.IgnoreDirectoryErrors = nil
 
 		printStderr(" - inherit directory read error behavior from parent\n")
 	default:
@@ -198,8 +197,7 @@ func setErrorHandlingPolicyFromFlags(fp *policy.ErrorHandlingPolicy, changeCount
 
 		*changeCount++
 
-		fp.IgnoreDirectoryErrors = val
-		fp.IgnoreDirectoryErrorsSet = true
+		fp.IgnoreDirectoryErrors = &val
 
 		printStderr(" - setting ignore directory read errors to %v\n", val)
 	}

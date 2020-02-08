@@ -28,18 +28,14 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 		{
 			name: "No values provided as command line arguments",
 			startingPolicy: &policy.ErrorHandlingPolicy{
-				IgnoreFileErrors:         true,
-				IgnoreFileErrorsSet:      true,
-				IgnoreDirectoryErrors:    true,
-				IgnoreDirectoryErrorsSet: true,
+				IgnoreFileErrors:      newBool(true),
+				IgnoreDirectoryErrors: newBool(true),
 			},
 			fileArg: "",
 			dirArg:  "",
 			expResult: &policy.ErrorHandlingPolicy{
-				IgnoreFileErrors:         true,
-				IgnoreFileErrorsSet:      true,
-				IgnoreDirectoryErrors:    true,
-				IgnoreDirectoryErrorsSet: true,
+				IgnoreFileErrors:      newBool(true),
+				IgnoreDirectoryErrors: newBool(true),
 			},
 			expErr:         false,
 			expChangeCount: 0,
@@ -50,10 +46,8 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 			fileArg:        "not-true-or-false",
 			dirArg:         "not-even-inherit",
 			expResult: &policy.ErrorHandlingPolicy{
-				IgnoreFileErrors:         false,
-				IgnoreFileErrorsSet:      false,
-				IgnoreDirectoryErrors:    false,
-				IgnoreDirectoryErrorsSet: false,
+				IgnoreFileErrors:      nil,
+				IgnoreDirectoryErrors: nil,
 			},
 			expErr:         true,
 			expChangeCount: 0,
@@ -64,27 +58,20 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 			fileArg:        "true",
 			dirArg:         "some-malformed-arg",
 			expResult: &policy.ErrorHandlingPolicy{
-				IgnoreFileErrors:         true,
-				IgnoreFileErrorsSet:      true,
-				IgnoreDirectoryErrors:    false,
-				IgnoreDirectoryErrorsSet: false,
+				IgnoreFileErrors:      newBool(true),
+				IgnoreDirectoryErrors: nil,
 			},
 			expErr:         true,
 			expChangeCount: 1,
 		},
 		{
-			name: "Inherit case",
-			startingPolicy: &policy.ErrorHandlingPolicy{
-				IgnoreFileErrorsSet:      true,
-				IgnoreDirectoryErrorsSet: true,
-			},
-			fileArg: "inherit",
-			dirArg:  "inherit",
+			name:           "Inherit case",
+			startingPolicy: &policy.ErrorHandlingPolicy{},
+			fileArg:        "inherit",
+			dirArg:         "inherit",
 			expResult: &policy.ErrorHandlingPolicy{
-				IgnoreFileErrors:         false,
-				IgnoreFileErrorsSet:      false,
-				IgnoreDirectoryErrors:    false,
-				IgnoreDirectoryErrorsSet: false,
+				IgnoreFileErrors:      nil,
+				IgnoreDirectoryErrors: nil,
 			},
 			expErr:         false,
 			expChangeCount: 2,
@@ -95,10 +82,8 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 			fileArg:        "true",
 			dirArg:         "true",
 			expResult: &policy.ErrorHandlingPolicy{
-				IgnoreFileErrors:         true,
-				IgnoreFileErrorsSet:      true,
-				IgnoreDirectoryErrors:    true,
-				IgnoreDirectoryErrorsSet: true,
+				IgnoreFileErrors:      newBool(true),
+				IgnoreDirectoryErrors: newBool(true),
 			},
 			expErr:         false,
 			expChangeCount: 2,
@@ -106,16 +91,14 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 		{
 			name: "Set to false",
 			startingPolicy: &policy.ErrorHandlingPolicy{
-				IgnoreFileErrors:      true,
-				IgnoreDirectoryErrors: true,
+				IgnoreFileErrors:      newBool(true),
+				IgnoreDirectoryErrors: newBool(true),
 			},
 			fileArg: "false",
 			dirArg:  "false",
 			expResult: &policy.ErrorHandlingPolicy{
-				IgnoreFileErrors:         false,
-				IgnoreFileErrorsSet:      true,
-				IgnoreDirectoryErrors:    false,
-				IgnoreDirectoryErrorsSet: true,
+				IgnoreFileErrors:      newBool(false),
+				IgnoreDirectoryErrors: newBool(false),
 			},
 			expErr:         false,
 			expChangeCount: 2,
@@ -123,16 +106,14 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 		{
 			name: "File false, dir true",
 			startingPolicy: &policy.ErrorHandlingPolicy{
-				IgnoreFileErrors:      true,
-				IgnoreDirectoryErrors: true,
+				IgnoreFileErrors:      newBool(true),
+				IgnoreDirectoryErrors: newBool(false),
 			},
 			fileArg: "false",
 			dirArg:  "true",
 			expResult: &policy.ErrorHandlingPolicy{
-				IgnoreFileErrors:         false,
-				IgnoreFileErrorsSet:      true,
-				IgnoreDirectoryErrors:    true,
-				IgnoreDirectoryErrorsSet: true,
+				IgnoreFileErrors:      newBool(false),
+				IgnoreDirectoryErrors: newBool(true),
 			},
 			expErr:         false,
 			expChangeCount: 2,
@@ -140,16 +121,14 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 		{
 			name: "File true, dir false",
 			startingPolicy: &policy.ErrorHandlingPolicy{
-				IgnoreFileErrors:      true,
-				IgnoreDirectoryErrors: true,
+				IgnoreFileErrors:      newBool(false),
+				IgnoreDirectoryErrors: newBool(true),
 			},
 			fileArg: "true",
 			dirArg:  "false",
 			expResult: &policy.ErrorHandlingPolicy{
-				IgnoreFileErrors:         true,
-				IgnoreFileErrorsSet:      true,
-				IgnoreDirectoryErrors:    false,
-				IgnoreDirectoryErrorsSet: true,
+				IgnoreFileErrors:      newBool(true),
+				IgnoreDirectoryErrors: newBool(false),
 			},
 			expErr:         false,
 			expChangeCount: 2,
@@ -157,16 +136,14 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 		{
 			name: "File inherit, dir true",
 			startingPolicy: &policy.ErrorHandlingPolicy{
-				IgnoreFileErrors:      true,
-				IgnoreDirectoryErrors: true,
+				IgnoreFileErrors:      newBool(true),
+				IgnoreDirectoryErrors: newBool(false),
 			},
 			fileArg: "inherit",
 			dirArg:  "true",
 			expResult: &policy.ErrorHandlingPolicy{
-				IgnoreFileErrors:         true,
-				IgnoreFileErrorsSet:      false,
-				IgnoreDirectoryErrors:    true,
-				IgnoreDirectoryErrorsSet: true,
+				IgnoreFileErrors:      nil,
+				IgnoreDirectoryErrors: newBool(true),
 			},
 			expErr:         false,
 			expChangeCount: 2,
@@ -174,16 +151,14 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 		{
 			name: "File true, dir inherit",
 			startingPolicy: &policy.ErrorHandlingPolicy{
-				IgnoreFileErrors:      true,
-				IgnoreDirectoryErrors: true,
+				IgnoreFileErrors:      newBool(false),
+				IgnoreDirectoryErrors: newBool(true),
 			},
 			fileArg: "true",
 			dirArg:  "inherit",
 			expResult: &policy.ErrorHandlingPolicy{
-				IgnoreFileErrors:         true,
-				IgnoreFileErrorsSet:      true,
-				IgnoreDirectoryErrors:    true,
-				IgnoreDirectoryErrorsSet: false,
+				IgnoreFileErrors:      newBool(true),
+				IgnoreDirectoryErrors: nil,
 			},
 			expErr:         false,
 			expChangeCount: 2,
@@ -202,4 +177,8 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 			t.Errorf("Did not get expected output: (actual) %v != %v (expected)", tc.startingPolicy, tc.expResult)
 		}
 	}
+}
+
+func newBool(b bool) *bool {
+	return &b
 }

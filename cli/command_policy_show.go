@@ -163,13 +163,13 @@ func printErrorHandlingPolicy(p *policy.Policy, parents []*policy.Policy) {
 	printStdout("  Ignore file read errors:       %5v       %v\n",
 		p.ErrorHandlingPolicy.IgnoreFileErrors,
 		getDefinitionPoint(parents, func(pol *policy.Policy) bool {
-			return pol.ErrorHandlingPolicy.IgnoreFileErrorsSet
+			return pol.ErrorHandlingPolicy.IgnoreFileErrors != nil
 		}))
 
 	printStdout("  Ignore directory read errors:  %5v       %v\n",
 		p.ErrorHandlingPolicy.IgnoreDirectoryErrors,
 		getDefinitionPoint(parents, func(pol *policy.Policy) bool {
-			return pol.ErrorHandlingPolicy.IgnoreDirectoryErrorsSet
+			return pol.ErrorHandlingPolicy.IgnoreDirectoryErrors != nil
 		}))
 }
 
