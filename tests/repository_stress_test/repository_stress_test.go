@@ -69,7 +69,7 @@ func TestStressRepository(t *testing.T) {
 	}
 
 	// set up two parallel kopia connections, each with its own config file and cache.
-	if err := repo.Connect(ctx, configFile1, st, masterPassword, repo.ConnectOptions{
+	if err := repo.Connect(ctx, configFile1, st, masterPassword, &repo.ConnectOptions{
 		CachingOptions: content.CachingOptions{
 			CacheDirectory:    filepath.Join(tmpPath, "cache1"),
 			MaxCacheSizeBytes: 2000000000,
@@ -78,7 +78,7 @@ func TestStressRepository(t *testing.T) {
 		t.Fatalf("unable to connect 1: %v", err)
 	}
 
-	if err := repo.Connect(ctx, configFile2, st, masterPassword, repo.ConnectOptions{
+	if err := repo.Connect(ctx, configFile2, st, masterPassword, &repo.ConnectOptions{
 		CachingOptions: content.CachingOptions{
 			CacheDirectory:    filepath.Join(tmpPath, "cache2"),
 			MaxCacheSizeBytes: 2000000000,

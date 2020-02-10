@@ -15,6 +15,5 @@ func init() {
 }
 
 func runDisconnectCommand(ctx context.Context) error {
-	deletePassword(repositoryConfigFileName(), getUserName())
 	return repo.Disconnect(repositoryConfigFileName())
 }

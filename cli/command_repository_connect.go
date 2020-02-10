@@ -32,8 +32,9 @@ func setupConnectOptions(cmd *kingpin.CmdClause) {
 	cmd.Flag("max-list-cache-duration", "Duration of index cache").Default("600s").Hidden().DurationVar(&connectMaxListCacheDuration)
 }
 
-func connectOptions() repo.ConnectOptions {
-	return repo.ConnectOptions{
+func connectOptions() *repo.ConnectOptions {
+	return &repo.ConnectOptions{
+		PersistCredentials: connectPersistCredentials,
 		CachingOptions: content.CachingOptions{
 			CacheDirectory:          connectCacheDirectory,
 			MaxCacheSizeBytes:       connectMaxCacheSizeMB << 20, //nolint:gomnd
@@ -59,14 +60,6 @@ func runConnectCommandWithStorageAndPassword(ctx context.Context, st blob.Storag
 	configFile := repositoryConfigFileName()
 	if err := repo.Connect(ctx, configFile, st, password, connectOptions()); err != nil {
 		return err
-	}
-
-	if connectPersistCredentials {
-		if err := persistPassword(configFile, getUserName(), password); err != nil {
-			return errors.Wrap(err, "unable to persist password")
-		}
-	} else {
-		deletePassword(configFile, getUserName())
 	}
 
 	printStderr("Connected to repository.\n")
