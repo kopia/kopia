@@ -1,3 +1,5 @@
+// +build linux
+
 // Package walker wraps calls to the the fswalker Walker
 package walker
 
