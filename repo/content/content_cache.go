@@ -66,7 +66,12 @@ func (c *contentCache) getContent(ctx context.Context, cacheKey cacheKey, blobID
 	}
 
 	if err == nil && useCache {
-		if puterr := c.cacheStorage.PutBlob(ctx, blob.ID(cacheKey), appendHMAC(b, c.hmacSecret)); puterr != nil {
+		// do not report cache writes as uploads.
+		if puterr := c.cacheStorage.PutBlob(
+			blob.WithUploadProgressCallback(ctx, nil),
+			blob.ID(cacheKey),
+			appendHMAC(b, c.hmacSecret),
+		); puterr != nil {
 			log.Warningf("unable to write cache item %v: %v", cacheKey, puterr)
 		}
 	}
@@ -79,7 +84,11 @@ func (c *contentCache) put(ctx context.Context, cacheKey cacheKey, data []byte) 
 
 	useCache := shouldUseContentCache(ctx) && c.cacheStorage != nil
 	if useCache {
-		if puterr := c.cacheStorage.PutBlob(ctx, blob.ID(cacheKey), appendHMAC(data, c.hmacSecret)); puterr != nil {
+		if puterr := c.cacheStorage.PutBlob(
+			blob.WithUploadProgressCallback(ctx, nil),
+			blob.ID(cacheKey),
+			appendHMAC(data, c.hmacSecret),
+		); puterr != nil {
 			log.Warningf("unable to write cache item %v: %v", cacheKey, puterr)
 		}
 	}

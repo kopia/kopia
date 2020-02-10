@@ -51,7 +51,7 @@ func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
 	u.ParallelUploads = *snapshotCreateParallelUploads
 	onCtrlC(u.Cancel)
 
-	u.Progress = cliProgress
+	u.Progress = progress
 
 	if len(*snapshotCreateDescription) > maxSnapshotDescriptionLength {
 		return errors.New("description too long")
@@ -60,7 +60,10 @@ func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
 	var finalErrors []string
 
 	for _, snapshotDir := range sources {
-		log.Debugf("Backing up %v", snapshotDir)
+		if u.IsCancelled() {
+			printStderr("Upload canceled\n")
+			break
+		}
 
 		dir, err := filepath.Abs(snapshotDir)
 		if err != nil {
@@ -68,8 +71,6 @@ func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
 		}
 
 		sourceInfo := snapshot.SourceInfo{Path: filepath.Clean(dir), Host: getHostName(), UserName: getUserName()}
-
-		log.Infof("snapshotting %v", sourceInfo)
 
 		if err := snapshotSingleSource(ctx, rep, u, sourceInfo); err != nil {
 			finalErrors = append(finalErrors, err.Error())
@@ -84,6 +85,8 @@ func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
 }
 
 func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo) error {
+	printStdout("Snapshotting %v ...\n", sourceInfo)
+
 	t0 := time.Now()
 
 	rep.Content.ResetStats()
@@ -103,7 +106,7 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshot
 		return errors.Wrap(err, "unable to get policy tree")
 	}
 
-	log.Infof("uploading %v using %v previous manifests", sourceInfo, len(previous))
+	log.Debugf("uploading %v using %v previous manifests", sourceInfo, len(previous))
 
 	manifest, err := u.Upload(ctx, localEntry, policyTree, sourceInfo, previous...)
 	if err != nil {
@@ -117,9 +120,22 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshot
 		return errors.Wrap(err, "cannot save manifest")
 	}
 
-	printStderr("uploaded snapshot %v (root %v) in %v\n", snapID, manifest.RootObjectID(), time.Since(t0))
+	if _, err = policy.ApplyRetentionPolicy(ctx, rep, sourceInfo, true); err != nil {
+		return errors.Wrap(err, "unable to apply retention policy")
+	}
 
-	_, err = policy.ApplyRetentionPolicy(ctx, rep, sourceInfo, true)
+	if ferr := rep.Flush(ctx); ferr != nil {
+		return errors.Wrap(ferr, "flush error")
+	}
+
+	progress.Finish()
+
+	var maybePartial string
+	if manifest.IncompleteReason != "" {
+		maybePartial = " partial"
+	}
+
+	printStderr("\nCreated%v snapshot with root %v and ID %v in %v\n", maybePartial, manifest.RootObjectID(), snapID, time.Since(t0).Truncate(time.Second))
 
 	return err
 }

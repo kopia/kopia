@@ -28,5 +28,7 @@ func TestIndexOptimize(t *testing.T) {
 	e.RunAndVerifyOutputLineCount(t, 1, "index", "ls")
 
 	e.RunAndExpectSuccess(t, "snapshot", "create", ".", sharedTestDataDir1, sharedTestDataDir2)
-	e.RunAndVerifyOutputLineCount(t, 2, "index", "ls")
+
+	// we flush individually after each snapshot source, so this adds 3 indexes
+	e.RunAndVerifyOutputLineCount(t, 4, "index", "ls")
 }

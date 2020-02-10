@@ -21,6 +21,11 @@ Kopia is a simple, cross-platform tool for managing encrypted backups in the clo
 
 Unlike other cloud backup solutions, the user in full control of backup storage and is responsible for purchasing one of the cloud storage products  (such as [Google Cloud Storage](https://cloud.google.com/storage/)), which offer great durability and availability for your data.
 
+Kopia in action
+---
+
+[![asciicast](https://asciinema.org/a/ykx6uzEhKY3451fWEnX9nm9uo.svg)](https://asciinema.org/a/ykx6uzEhKY3451fWEnX9nm9uo)
+
 Getting Started
 ---
 See [Documentation](https://kopia.io/docs/) for more information.

@@ -3,127 +3,142 @@ package cli
 import (
 	"fmt"
 	"strings"
-	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/kopia/kopia/internal/units"
-	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
-const maxUnshortenedPath = 60
+const spinner = `|/-\`
 
-type singleProgress struct {
-	desc      string
-	startTime time.Time
-	progress  int64
-	total     int64
+type cliProgress struct {
+	snapshotfs.NullUploadProgress
+
+	// all int64 must precede all int32 due to alignment requirements on ARM
+	uploadedBytes          int64
+	cachedBytes            int64
+	hashedBytes            int64
+	nextOutputTimeUnixNano int64
+
+	cachedFiles   int32
+	hashedFiles   int32
+	uploadedFiles int32
+
+	uploading      int32
+	uploadFinished int32
+
+	lastLineLength  int
+	spinPhase       int
+	uploadStartTime time.Time
 }
 
-func (p *singleProgress) update(progress, total int64) {
-	p.total = total
-	p.progress = progress
+func (p *cliProgress) FinishedHashingFile(fname string, totalSize int64) {
+	atomic.AddInt32(&p.hashedFiles, 1)
+	p.maybeOutput()
 }
 
-func (p *singleProgress) toString(details bool) string {
-	if p.total == 0 {
-		return fmt.Sprintf("empty %v", p.desc)
-	}
+func (p *cliProgress) UploadedBytes(numBytes int64) {
+	atomic.AddInt64(&p.uploadedBytes, numBytes)
+	atomic.AddInt32(&p.uploadedFiles, 1)
 
-	dur := time.Since(p.startTime)
-	extraInfo := ""
-
-	if dur > 1*time.Second && details {
-		extraInfo = " " + units.BitsPerSecondsString(8*float64(p.progress)/time.Since(p.startTime).Seconds())
-	}
-
-	if p.progress == p.total {
-		return fmt.Sprintf("completed %v %v",
-			p.desc,
-			units.BytesStringBase10(p.progress),
-		)
-	}
-
-	return fmt.Sprintf("processing %v %v of %v (%v%%)%v",
-		p.desc,
-		units.BytesStringBase10(p.progress),
-		units.BytesStringBase10(p.total),
-		100*p.progress/p.total,
-		extraInfo,
-	)
+	p.maybeOutput()
 }
 
-type multiProgress struct {
-	mu    sync.Mutex
-	items []*singleProgress
+func (p *cliProgress) HashedBytes(numBytes int64) {
+	atomic.AddInt64(&p.hashedBytes, numBytes)
+	p.maybeOutput()
 }
 
-func (mp *multiProgress) findLocked(desc string) (progress *singleProgress, ordinal int) {
-	for i, p := range mp.items {
-		if p.desc == desc {
-			return p, i
-		}
-	}
-
-	return nil, 0
+func (p *cliProgress) CachedFile(fname string, numBytes int64) {
+	atomic.AddInt64(&p.cachedBytes, numBytes)
+	atomic.AddInt32(&p.cachedFiles, 1)
+	p.maybeOutput()
 }
 
-func (mp *multiProgress) Report(desc string, progress, total int64) {
-	mp.mu.Lock()
-	defer mp.mu.Unlock()
-
-	found, foundPos := mp.findLocked(desc)
-
-	if found != nil && found.progress == progress && found.total == total {
-		// do not print redundant progress
+func (p *cliProgress) maybeOutput() {
+	if atomic.LoadInt32(&p.uploading) == 0 {
 		return
 	}
 
-	if found == nil {
-		found = &singleProgress{
-			desc:      desc,
-			startTime: time.Now(),
+	var shouldOutput bool
+
+	nextOutputTimeUnixNano := atomic.LoadInt64(&p.nextOutputTimeUnixNano)
+	if nowNano := time.Now().UnixNano(); nowNano > nextOutputTimeUnixNano {
+		const interval = 300 * time.Millisecond
+
+		if atomic.CompareAndSwapInt64(&p.nextOutputTimeUnixNano, nextOutputTimeUnixNano, nowNano+interval.Nanoseconds()) {
+			shouldOutput = true
 		}
-		foundPos = len(mp.items)
-		mp.items = append(mp.items, found)
 	}
 
-	found.update(progress, total)
-
-	var segments []string
-	for i, p := range mp.items {
-		segments = append(segments, p.toString(i > 0))
-	}
-
-	if found.progress >= found.total && foundPos == len(segments)-1 {
-		mp.items = append(mp.items[0:foundPos], mp.items[foundPos+1:]...)
-
-		if len(segments) > 0 {
-			log.Notice(segments[len(segments)-1])
-		}
-	} else if len(segments) > 0 {
-		log.Info(segments[len(segments)-1])
+	if shouldOutput {
+		p.output()
 	}
 }
 
-func (mp *multiProgress) Progress(path string, numFiles int, dirCompleted, dirTotal int64, stats *snapshot.Stats) {
-	mp.Report(
-		fmt.Sprintf("directory '%v' (%v files)", shortenPath(strings.TrimPrefix(path, "./")), numFiles),
-		dirCompleted,
-		dirTotal)
-}
+func (p *cliProgress) output() {
+	hashedBytes := atomic.LoadInt64(&p.hashedBytes)
+	cachedBytes := atomic.LoadInt64(&p.cachedBytes)
+	uploadedBytes := atomic.LoadInt64(&p.uploadedBytes)
+	cachedFiles := atomic.LoadInt32(&p.cachedFiles)
+	hashedFiles := atomic.LoadInt32(&p.hashedFiles)
+	uploadedFiles := atomic.LoadInt32(&p.uploadedFiles)
 
-func (mp *multiProgress) UploadFinished() {
-}
+	line := fmt.Sprintf(
+		" %v %v hashed (%v), %v cached (%v), %v uploaded (%v)",
+		p.spinnerCharacter(),
 
-func shortenPath(s string) string {
-	if len(s) < maxUnshortenedPath {
-		return s
+		hashedFiles,
+		units.BytesStringBase10(hashedBytes),
+
+		cachedFiles,
+		units.BytesStringBase10(cachedBytes),
+
+		uploadedFiles,
+		units.BytesStringBase10(uploadedBytes),
+	)
+
+	var extraSpaces string
+
+	if len(line) < p.lastLineLength {
+		// add extra spaces to wipe over previous line if it was longer than current
+		extraSpaces = strings.Repeat(" ", p.lastLineLength-len(line))
 	}
 
-	p1 := maxUnshortenedPath / 2 //nolint:gomnd
-	p2 := p1 - 3                 //nolint:gomnd
-
-	return s[0:p1] + "..." + s[len(s)-p2:]
+	p.lastLineLength = len(line)
+	printStderr("\r%v%v", line, extraSpaces)
 }
 
-var cliProgress = &multiProgress{}
+func (p *cliProgress) spinnerCharacter() string {
+	if atomic.LoadInt32(&p.uploadFinished) == 1 {
+		return "*"
+	}
+
+	x := p.spinPhase % len(spinner)
+	s := spinner[x : x+1]
+	p.spinPhase = (p.spinPhase + 1) % len(spinner)
+
+	return s
+}
+
+func (p *cliProgress) UploadStarted() {
+	*p = cliProgress{
+		uploading:       1,
+		uploadStartTime: time.Now(),
+	}
+}
+
+func (p *cliProgress) UploadFinished() {
+	// do nothing here, we still want to report the files flushed after the Upload has completed.
+	// instead, Finish() will be called.
+}
+
+func (p *cliProgress) Finish() {
+	atomic.StoreInt32(&p.uploadFinished, 1)
+	p.output()
+}
+
+var progress = &cliProgress{}
+
+var _ snapshotfs.UploadProgress = (*cliProgress)(nil)

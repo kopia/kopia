@@ -120,7 +120,7 @@ func (bm *lockFreeManager) tryLoadPackIndexBlobsUnlocked(ctx context.Context, co
 		return nil
 	}
 
-	log.Infof("downloading %v new index blobs (%v bytes)...", len(ch), unprocessedIndexesSize)
+	log.Debugf("downloading %v new index blobs (%v bytes)...", len(ch), unprocessedIndexesSize)
 
 	var wg sync.WaitGroup
 
@@ -155,7 +155,7 @@ func (bm *lockFreeManager) tryLoadPackIndexBlobsUnlocked(ctx context.Context, co
 		return err
 	}
 
-	log.Infof("Index contents downloaded.")
+	log.Debugf("Index contents downloaded.")
 
 	return nil
 }

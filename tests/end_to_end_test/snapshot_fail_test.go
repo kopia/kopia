@@ -285,7 +285,7 @@ func testPermissions(e *testenv.CLITest, t *testing.T, source, modifyEntry, rest
 }
 
 func parseSnapID(t *testing.T, lines []string) string {
-	pattern := regexp.MustCompile(`uploaded snapshot ([\S]+)`)
+	pattern := regexp.MustCompile(`Created snapshot with root [\S]+ and ID ([\S]+) in .*`)
 
 	for _, l := range lines {
 		match := pattern.FindAllStringSubmatch(l, 1)
