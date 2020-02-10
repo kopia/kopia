@@ -2,6 +2,7 @@ COVERAGE_PACKAGES=github.com/kopia/kopia/repo/...,github.com/kopia/kopia/fs/...,
 GO_TEST=go test
 PARALLEL=8
 TEST_FLAGS=
+KOPIA_INTEGRATION_EXE=$(CURDIR)/dist/integration/kopia.exe
 
 all: test lint vet integration-tests
 
@@ -71,7 +72,8 @@ kopia-ui: goreleaser
 	$(MAKE) -C app $(KOPIA_UI_BUILD_TARGET)
 
 ifeq ($(TRAVIS_OS_NAME),windows)
-travis-release: test
+travis-release: install-noui test
+	$(MAKE) integration-tests
 endif
 
 ifeq ($(TRAVIS_OS_NAME),osx)
@@ -140,10 +142,10 @@ vtest:
 	$(GO_TEST) -count=1 -short -v -timeout 90s github.com/kopia/kopia/...
 
 dist-binary:
-	go build -o dist/integration/kopia github.com/kopia/kopia
+	go build -o $(KOPIA_INTEGRATION_EXE) github.com/kopia/kopia
 
 integration-tests: dist-binary
-	KOPIA_EXE=$(CURDIR)/dist/integration/kopia $(GO_TEST) $(TEST_FLAGS) -count=1 -parallel $(PARALLEL) -timeout 300s github.com/kopia/kopia/tests/end_to_end_test
+	KOPIA_EXE=$(KOPIA_INTEGRATION_EXE) $(GO_TEST) $(TEST_FLAGS) -count=1 -parallel $(PARALLEL) -timeout 300s github.com/kopia/kopia/tests/end_to_end_test
 
 stress-test:
 	KOPIA_LONG_STRESS_TEST=1 $(GO_TEST) -count=1 -timeout 200s github.com/kopia/kopia/tests/stress_test
@@ -199,7 +201,7 @@ ifneq ($(TRAVIS_TAG),)
 
 travis-create-long-term-repository: dist-binary travis-install-cloud-sdk
 	echo Creating long-term repository $(TRAVIS_TAG)...
-	KOPIA_EXE=$(CURDIR)/dist/integration/kopia ./tests/compat_test/gen-compat-repo.sh
+	KOPIA_EXE=$(KOPIA_INTEGRATION_EXE) ./tests/compat_test/gen-compat-repo.sh
 
 else
 

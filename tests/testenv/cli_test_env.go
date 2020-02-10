@@ -55,9 +55,9 @@ type SnapshotInfo struct {
 
 // NewCLITest creates a new instance of *CLITest
 func NewCLITest(t *testing.T) *CLITest {
-	Exe := os.Getenv("KOPIA_EXE")
-	if Exe == "" {
-		// Exe = "kopia"
+	exe := os.Getenv("KOPIA_EXE")
+	if exe == "" {
+		// exe = "kopia"
 		t.Skip()
 	}
 
@@ -76,16 +76,21 @@ func NewCLITest(t *testing.T) *CLITest {
 		"--config-file", filepath.Join(ConfigDir, ".kopia.config"),
 	}
 
-	if runtime.GOOS == "darwin" {
-		// this prevents kopia from spawning `security` subprocess which speeds up the test on macOS.
+	// disable the use of keyring
+	switch runtime.GOOS {
+	case "darwin":
 		fixedArgs = append(fixedArgs, "--no-use-keychain")
+	case "windows":
+		fixedArgs = append(fixedArgs, "--no-use-credential-manager")
+	case "linux":
+		fixedArgs = append(fixedArgs, "--no-use-keyring")
 	}
 
 	return &CLITest{
 		startTime:   time.Now(),
 		RepoDir:     RepoDir,
 		ConfigDir:   ConfigDir,
-		Exe:         Exe,
+		Exe:         filepath.FromSlash(exe),
 		fixedArgs:   fixedArgs,
 		environment: []string{"KOPIA_PASSWORD=" + repoPassword},
 	}
@@ -194,7 +199,7 @@ func (e *CLITest) RunAndVerifyOutputLineCount(t *testing.T, wantLines int, args 
 // Run executes kopia with given arguments and returns the output lines.
 func (e *CLITest) Run(t *testing.T, args ...string) (stdout, stderr []string, err error) {
 	t.Helper()
-	t.Logf("running 'kopia %v'", strings.Join(args, " "))
+	t.Logf("running '%v %v'", e.Exe, strings.Join(args, " "))
 	// nolint:gosec
 	cmdArgs := append(append([]string(nil), e.fixedArgs...), args...)
 

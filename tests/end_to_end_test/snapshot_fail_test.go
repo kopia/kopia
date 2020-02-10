@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"testing"
 
@@ -13,6 +14,10 @@ import (
 
 func TestSnapshotFail(t *testing.T) {
 	t.Parallel()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("this test does not work on Windows")
+	}
 
 	e := testenv.NewCLITest(t)
 	defer e.Cleanup(t)
