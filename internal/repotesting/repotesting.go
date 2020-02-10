@@ -68,11 +68,7 @@ func (e *Environment) Setup(t *testing.T, opts ...func(*repo.NewRepositoryOption
 		t.Fatalf("err: %v", err)
 	}
 
-	connOpts := repo.ConnectOptions{
-		//TraceStorage: log.Printf,
-	}
-
-	if err = repo.Connect(ctx, e.configFile(), st, masterPassword, connOpts); err != nil {
+	if err = repo.Connect(ctx, e.configFile(), st, masterPassword, nil); err != nil {
 		t.Fatalf("can't connect: %v", err)
 	}
 

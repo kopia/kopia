@@ -43,7 +43,7 @@ func setupRepositoryAndConnect(ctx context.Context, password string) error {
 		}
 
 		// now establish connection to repository and create configuration file.
-		if err := repo.Connect(ctx, configFile, st, password, repo.ConnectOptions{
+		if err := repo.Connect(ctx, configFile, st, password, &repo.ConnectOptions{
 			CachingOptions: content.CachingOptions{
 				CacheDirectory:    cacheDirectory,
 				MaxCacheSizeBytes: 100000000,
