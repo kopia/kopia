@@ -3,6 +3,7 @@ package sftp_test
 import (
 	"context"
 	"os"
+	"runtime"
 	"strconv"
 	"testing"
 	"time"
@@ -20,6 +21,11 @@ const (
 
 func TestSFTPStorageValid(t *testing.T) {
 	ctx := context.Background()
+
+	if runtime.GOOS == "windows" {
+		t.Skip("temporarily disabled - https://github.com/kopia/kopia/issues/216")
+	}
+
 	st, err := createSFTPStorage(ctx, t)
 
 	if err != nil {
