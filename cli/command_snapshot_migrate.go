@@ -71,7 +71,7 @@ func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 		}
 
 		uploader := snapshotfs.NewUploader(destRepo)
-		uploader.Progress = cliProgress
+		uploader.Progress = progress
 		uploader.IgnoreReadErrors = *migrateIgnoreErrors
 		activeUploaders[s] = uploader
 		mu.Unlock()

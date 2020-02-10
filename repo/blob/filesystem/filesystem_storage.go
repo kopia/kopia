@@ -75,6 +75,13 @@ func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data 
 		return errors.Wrap(err, "can't get random bytes")
 	}
 
+	progressCallback := blob.ProgressCallback(ctx)
+
+	if progressCallback != nil {
+		progressCallback(path, 0, int64(len(data)))
+		defer progressCallback(path, int64(len(data)), int64(len(data)))
+	}
+
 	tempFile := fmt.Sprintf("%s.tmp.%x", path, randSuffix)
 
 	f, err := fs.createTempFileAndDir(tempFile)

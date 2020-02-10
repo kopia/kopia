@@ -26,6 +26,8 @@ const (
 // - FAILED - inactive
 // - UPLOADING - uploading a snapshot
 type sourceManager struct {
+	snapshotfs.NullUploadProgress
+
 	server *Server
 	src    snapshot.SourceInfo
 	closed chan struct{}

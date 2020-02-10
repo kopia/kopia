@@ -73,8 +73,11 @@ func repositoryAction(act func(ctx context.Context, rep *repo.Repository) error)
 			ctx := context.Background()
 			ctx = content.UsingContentCache(ctx, *enableCaching)
 			ctx = content.UsingListCache(ctx, *enableListCaching)
-			ctx = blob.WithUploadProgressCallback(ctx, func(desc string, progress, total int64) {
-				cliProgress.Report("upload '"+desc+"'", progress, total)
+			ctx = blob.WithUploadProgressCallback(ctx, func(desc string, bytesSent, totalBytes int64) {
+				if bytesSent >= totalBytes {
+					log.Debugf("Uploaded %v %v %v", desc, bytesSent, totalBytes)
+					progress.UploadedBytes(totalBytes)
+				}
 			})
 
 			rep, err := openRepository(ctx, nil)

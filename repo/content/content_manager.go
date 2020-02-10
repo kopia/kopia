@@ -417,7 +417,7 @@ func (bm *Manager) Flush(ctx context.Context) error {
 	}()
 
 	for len(bm.writingPacks) > 0 {
-		log.Infof("waiting for %v in-progress packs to finish", len(bm.writingPacks))
+		log.Debugf("waiting for %v in-progress packs to finish", len(bm.writingPacks))
 
 		// wait packs that are currently writing in other goroutines to finish
 		bm.cond.Wait()
