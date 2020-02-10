@@ -4,7 +4,7 @@ package sharded
 import (
 	"context"
 	"os"
-	"path/filepath"
+	"path"
 	"strings"
 
 	"github.com/kopia/kopia/repo/blob"
@@ -113,7 +113,7 @@ func (s Storage) getShardDirectory(blobID blob.ID) (string, blob.ID) {
 	}
 
 	for _, size := range s.Shards {
-		shardPath = filepath.Join(shardPath, string(blobID[0:size]))
+		shardPath = path.Join(shardPath, string(blobID[0:size]))
 		blobID = blobID[size:]
 	}
 
@@ -123,7 +123,7 @@ func (s Storage) getShardDirectory(blobID blob.ID) (string, blob.ID) {
 // GetShardedPathAndFilePath returns the path of the shard and file name within the shard for a given blob ID.
 func (s Storage) GetShardedPathAndFilePath(blobID blob.ID) (shardPath, filePath string) {
 	shardPath, blobID = s.getShardDirectory(blobID)
-	filePath = filepath.Join(shardPath, s.makeFileName(blobID))
+	filePath = path.Join(shardPath, s.makeFileName(blobID))
 
 	return
 }

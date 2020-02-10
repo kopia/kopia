@@ -5,10 +5,18 @@ go:
 os:
 - linux
 - osx
+- windows
 addons:
   apt:
     packages:
     - rpm
+before_install:
+- |-
+    case $TRAVIS_OS_NAME in
+      windows)
+        choco install --no-progress -y make
+        ;;
+    esac
 install: make travis-setup
 script: make -j4 travis-release
 cache:
@@ -27,6 +35,7 @@ deploy:
   on:
     repo: kopia/kopia
     tags: true
+    condition: $TRAVIS_OS_NAME != windows
 - provider: pages
   skip_cleanup: true
   github_token: "$GITHUB_TOKEN"
