@@ -71,7 +71,7 @@ kopia-ui: goreleaser
 	$(MAKE) -C app $(KOPIA_UI_BUILD_TARGET)
 
 ifeq ($(TRAVIS_OS_NAME),osx)
-travis-release: kopia-ui
+travis-release: lint kopia-ui test
 else
 travis-release: goreleaser kopia-ui website
 	$(MAKE) test-all
