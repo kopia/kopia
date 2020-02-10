@@ -70,9 +70,15 @@ endif
 kopia-ui: goreleaser
 	$(MAKE) -C app $(KOPIA_UI_BUILD_TARGET)
 
+ifeq ($(TRAVIS_OS_NAME),windows)
+travis-release: test
+endif
+
 ifeq ($(TRAVIS_OS_NAME),osx)
 travis-release: lint kopia-ui test
-else
+endif
+
+ifeq ($(TRAVIS_OS_NAME),linux)
 travis-release: goreleaser kopia-ui website
 	$(MAKE) test-all
 	$(MAKE) integration-tests
@@ -81,6 +87,7 @@ ifneq ($(TRAVIS_TAG),)
 	$(MAKE) travis-create-long-term-repository
 endif
 endif
+
 test-all: lint vet test-with-coverage
 
 # goreleaser - builds binaries for all platforms

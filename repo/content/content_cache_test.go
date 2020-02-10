@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -29,7 +30,22 @@ func newUnderlyingStorageForContentCacheTesting(t *testing.T) blob.Storage {
 
 func TestCacheExpiration(t *testing.T) {
 	cacheData := blobtesting.DataMap{}
-	cacheStorage := blobtesting.NewMapStorage(cacheData, nil, nil)
+
+	// on Windows, the time does not always move forward (sometimes time.Now() returns exactly the same value for consecutive invocations)
+	// this matters here so we return a fake time.Now() function that always moves forward.
+	var currentTimeMutex sync.Mutex
+
+	currentTime := time.Now()
+
+	movingTimeFunc := func() time.Time {
+		currentTimeMutex.Lock()
+		defer currentTimeMutex.Unlock()
+
+		currentTime = currentTime.Add(1 * time.Millisecond)
+
+		return currentTime
+	}
+	cacheStorage := blobtesting.NewMapStorage(cacheData, nil, movingTimeFunc)
 
 	underlyingStorage := newUnderlyingStorageForContentCacheTesting(t)
 

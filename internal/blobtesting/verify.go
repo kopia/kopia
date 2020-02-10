@@ -11,6 +11,8 @@ import (
 
 // VerifyStorage verifies the behavior of the specified storage.
 func VerifyStorage(ctx context.Context, t *testing.T, r blob.Storage) {
+	t.Helper()
+
 	blocks := []struct {
 		blk      blob.ID
 		contents []byte

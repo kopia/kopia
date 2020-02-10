@@ -177,6 +177,15 @@ func sourcesToStrings(sources ...snapshot.SourceInfo) []string {
 	return res
 }
 
+func mustAbs(t *testing.T, p string) string {
+	p2, err := filepath.Abs(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return p2
+}
+
 func TestParseSourceInfo(t *testing.T) {
 	cwd, _ := os.Getwd()
 
@@ -189,8 +198,8 @@ func TestParseSourceInfo(t *testing.T) {
 		{".", snapshot.SourceInfo{UserName: "default-user", Host: "default-host", Path: cwd}},
 		{"..", snapshot.SourceInfo{UserName: "default-user", Host: "default-host", Path: filepath.Clean(filepath.Join(cwd, ".."))}},
 		{"foo@bar:/some/path", snapshot.SourceInfo{UserName: "foo", Host: "bar", Path: "/some/path"}},
-		{"/some/path", snapshot.SourceInfo{UserName: "default-user", Host: "default-host", Path: "/some/path"}},
-		{"/some/path/../other-path", snapshot.SourceInfo{UserName: "default-user", Host: "default-host", Path: "/some/other-path"}},
+		{"/some/path", snapshot.SourceInfo{UserName: "default-user", Host: "default-host", Path: mustAbs(t, "/some/path")}},
+		{"/some/path/../other-path", snapshot.SourceInfo{UserName: "default-user", Host: "default-host", Path: mustAbs(t, "/some/other-path")}},
 		{"@some-host", snapshot.SourceInfo{Host: "some-host"}},
 		{"some-user@some-host", snapshot.SourceInfo{UserName: "some-user", Host: "some-host"}},
 	}

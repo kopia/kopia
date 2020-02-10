@@ -29,12 +29,36 @@ func (c *diskCommittedContentIndexCache) indexBlobPath(indexBlobID blob.ID) stri
 func (c *diskCommittedContentIndexCache) openIndex(indexBlobID blob.ID) (packIndex, error) {
 	fullpath := c.indexBlobPath(indexBlobID)
 
-	f, err := mmap.Open(fullpath)
+	f, err := mmapOpenWithRetry(fullpath)
 	if err != nil {
 		return nil, err
 	}
 
 	return openPackIndex(f)
+}
+
+// mmapOpenWithRetry attempts mmap.Open() with exponential back-off to work around rare issue specific to Windows where
+// we can't open the file right after it has been written.
+func mmapOpenWithRetry(path string) (*mmap.ReaderAt, error) {
+	const (
+		maxRetries    = 8
+		startingDelay = 10 * time.Millisecond
+	)
+
+	// retry milliseconds: 10, 20, 40, 80, 160, 320, 640, 1280, total ~2.5s
+	f, err := mmap.Open(path)
+	nextDelay := startingDelay
+
+	retryCount := 0
+	for err != nil && retryCount < maxRetries {
+		retryCount++
+		log.Debugf("retry #%v unable to mmap.Open(): %v", retryCount, err)
+		time.Sleep(nextDelay)
+		nextDelay *= 2
+		f, err = mmap.Open(path)
+	}
+
+	return f, err
 }
 
 func (c *diskCommittedContentIndexCache) hasIndexBlobID(indexBlobID blob.ID) (bool, error) {
