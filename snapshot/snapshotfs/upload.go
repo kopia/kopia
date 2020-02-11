@@ -588,6 +588,9 @@ func uploadDirInternal(
 ) (object.ID, fs.DirectorySummary, error) {
 	u.stats.TotalDirectoryCount++
 
+	u.Progress.StartedDirectory(dirRelativePath)
+	defer u.Progress.FinishedDirectory(dirRelativePath)
+
 	var summ fs.DirectorySummary
 	summ.TotalDirCount = 1
 
