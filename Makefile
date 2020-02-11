@@ -169,10 +169,15 @@ goreturns:
 ifeq ($(TRAVIS_PULL_REQUEST),false)
 
 travis-install-gpg-key:
+ifeq ($(TRAVIS_OS_NAME),windows)
+	# https://travis-ci.community/t/windows-build-timeout-after-success-ps-shows-gpg-agent/4967/4
+	@echo Not installing GPG key on Windows...
+else
 	@echo Installing GPG key...
 	openssl aes-256-cbc -K "$(encrypted_fa1db4b894bb_key)" -iv "$(encrypted_fa1db4b894bb_iv)" -in kopia.gpg.enc -out /tmp/kopia.gpg -d
 	gpg --import /tmp/kopia.gpg
-	
+endif
+
 travis-install-test-credentials:
 	@echo Installing test credentials...
 	openssl aes-256-cbc -K "$(encrypted_fa1db4b894bb_key)" -iv "$(encrypted_fa1db4b894bb_iv)" -in tests/credentials/gcs/test_service_account.json.enc -out repo/blob/gcs/test_service_account.json -d
