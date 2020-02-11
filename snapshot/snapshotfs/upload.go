@@ -706,11 +706,7 @@ func (u *Uploader) shouldIgnoreFileReadErrors(policyTree *policy.Tree) bool {
 		return true
 	}
 
-	if errHandlingPolicy.IgnoreFileErrors != nil {
-		return *errHandlingPolicy.IgnoreFileErrors
-	}
-
-	return false
+	return errHandlingPolicy.IgnoreFileErrorsOrDefault(false)
 }
 
 func (u *Uploader) shouldIgnoreDirectoryReadErrors(policyTree *policy.Tree) bool {
@@ -720,11 +716,7 @@ func (u *Uploader) shouldIgnoreDirectoryReadErrors(policyTree *policy.Tree) bool
 		return true
 	}
 
-	if errHandlingPolicy.IgnoreDirectoryErrors != nil {
-		return *errHandlingPolicy.IgnoreDirectoryErrors
-	}
-
-	return false
+	return errHandlingPolicy.IgnoreDirectoryErrorsOrDefault(false)
 }
 
 // NewUploader creates new Uploader object for a given repository.
