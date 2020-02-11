@@ -13,6 +13,8 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
+var booleanEnumValues = []string{"true", "false", "inherit"}
+
 var (
 	policySetCommand = policyCommands.Command("set", "Set snapshot policy for a single directory, user@host or a global policy.")
 	policySetTargets = policySetCommand.Arg("target", "Target of a policy ('global','user@host','@host') or a path").Strings()
@@ -57,8 +59,8 @@ var (
 	policySetMaxFileSize     = policySetCommand.Flag("max-file-size", "Exclude files above given size").PlaceHolder("N").String()
 
 	// Error handling behavior.
-	policyIgnoreFileErrors      = policySetCommand.Flag("ignore-file-errors", "Ignore errors reading files while traversing ('true', 'false', 'inherit')").String()
-	policyIgnoreDirectoryErrors = policySetCommand.Flag("ignore-dir-errors", "Ignore errors reading directories while traversing ('true', 'false', 'inherit").String()
+	policyIgnoreFileErrors      = policySetCommand.Flag("ignore-file-errors", "Ignore errors reading files while traversing ('true', 'false', 'inherit')").Enum(booleanEnumValues...)
+	policyIgnoreDirectoryErrors = policySetCommand.Flag("ignore-dir-errors", "Ignore errors reading directories while traversing ('true', 'false', 'inherit").Enum(booleanEnumValues...)
 
 	// General policy.
 	policySetInherit = policySetCommand.Flag(inheritPolicyString, "Enable or disable inheriting policies from the parent").BoolList()
