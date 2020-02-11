@@ -701,12 +701,30 @@ func uploadDirInternal(
 
 func (u *Uploader) shouldIgnoreFileReadErrors(policyTree *policy.Tree) bool {
 	errHandlingPolicy := policyTree.EffectivePolicy().ErrorHandlingPolicy
-	return u.IgnoreReadErrors || (errHandlingPolicy.IgnoreFileErrors != nil && *errHandlingPolicy.IgnoreFileErrors)
+
+	if u.IgnoreReadErrors {
+		return true
+	}
+
+	if errHandlingPolicy.IgnoreFileErrors != nil {
+		return *errHandlingPolicy.IgnoreFileErrors
+	}
+
+	return false
 }
 
 func (u *Uploader) shouldIgnoreDirectoryReadErrors(policyTree *policy.Tree) bool {
 	errHandlingPolicy := policyTree.EffectivePolicy().ErrorHandlingPolicy
-	return u.IgnoreReadErrors || (errHandlingPolicy.IgnoreDirectoryErrors != nil && *errHandlingPolicy.IgnoreDirectoryErrors)
+
+	if u.IgnoreReadErrors {
+		return true
+	}
+
+	if errHandlingPolicy.IgnoreDirectoryErrors != nil {
+		return *errHandlingPolicy.IgnoreDirectoryErrors
+	}
+
+	return false
 }
 
 // NewUploader creates new Uploader object for a given repository.
