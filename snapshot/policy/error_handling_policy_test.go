@@ -137,3 +137,115 @@ func TestErrorHandlingPolicyMerge(t *testing.T) {
 		}
 	}
 }
+
+func TestErrorHandlingPolicy_IgnoreFileErrorsOrDefault(t *testing.T) {
+	for _, tt := range []struct {
+		name             string
+		ignoreFileErrors *bool
+		def              bool
+		want             bool
+	}{
+		{
+			name:             "ignoreFileErrors is nil, default is false",
+			ignoreFileErrors: nil,
+			def:              false,
+			want:             false,
+		},
+		{
+			name:             "ignoreFileErrors is false, default is false",
+			ignoreFileErrors: newBool(false),
+			def:              false,
+			want:             false,
+		},
+		{
+			name:             "ignoreFileErrors is true, default is false",
+			ignoreFileErrors: newBool(true),
+			def:              false,
+			want:             true,
+		},
+		{
+			name:             "ignoreFileErrors is nil, default is true",
+			ignoreFileErrors: nil,
+			def:              true,
+			want:             true,
+		},
+		{
+			name:             "ignoreFileErrors is false, default is true",
+			ignoreFileErrors: newBool(false),
+			def:              true,
+			want:             false,
+		},
+		{
+			name:             "ignoreFileErrors is true, default is true",
+			ignoreFileErrors: newBool(true),
+			def:              true,
+			want:             true,
+		},
+	} {
+		t.Log(tt.name)
+
+		p := &ErrorHandlingPolicy{
+			IgnoreFileErrors: tt.ignoreFileErrors,
+		}
+
+		if got := p.IgnoreFileErrorsOrDefault(tt.def); got != tt.want {
+			t.Errorf("ErrorHandlingPolicy.IgnoreFileErrorsOrDefault() = %v, want %v", got, tt.want)
+		}
+	}
+}
+
+func TestErrorHandlingPolicy_IgnoreDirectoryErrorsOrDefault(t *testing.T) {
+	for _, tt := range []struct {
+		name            string
+		ignoreDirErrors *bool
+		def             bool
+		want            bool
+	}{
+		{
+			name:            "ignoreDirErrors is nil, default is false",
+			ignoreDirErrors: nil,
+			def:             false,
+			want:            false,
+		},
+		{
+			name:            "ignoreDirErrors is false, default is false",
+			ignoreDirErrors: newBool(false),
+			def:             false,
+			want:            false,
+		},
+		{
+			name:            "ignoreDirErrors is true, default is false",
+			ignoreDirErrors: newBool(true),
+			def:             false,
+			want:            true,
+		},
+		{
+			name:            "ignoreDirErrors is nil, default is true",
+			ignoreDirErrors: nil,
+			def:             true,
+			want:            true,
+		},
+		{
+			name:            "ignoreDirErrors is false, default is true",
+			ignoreDirErrors: newBool(false),
+			def:             true,
+			want:            false,
+		},
+		{
+			name:            "ignoreDirErrors is true, default is true",
+			ignoreDirErrors: newBool(true),
+			def:             true,
+			want:            true,
+		},
+	} {
+		t.Log(tt.name)
+
+		p := &ErrorHandlingPolicy{
+			IgnoreDirectoryErrors: tt.ignoreDirErrors,
+		}
+
+		if got := p.IgnoreDirectoryErrorsOrDefault(tt.def); got != tt.want {
+			t.Errorf("ErrorHandlingPolicy.IgnoreDirectoryErrorsOrDefault() = %v, want %v", got, tt.want)
+		}
+	}
+}
