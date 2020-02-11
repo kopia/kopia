@@ -73,6 +73,7 @@ kopia-ui: goreleaser
 
 ifeq ($(TRAVIS_OS_NAME),windows)
 travis-release: install-noui test
+	$(MAKE) integration-tests
 endif
 
 ifeq ($(TRAVIS_OS_NAME),osx)
