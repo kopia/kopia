@@ -116,6 +116,18 @@ func writeCertificateToFile(fname string, cert *x509.Certificate) error {
 }
 
 func startServerWithOptionalTLS(httpServer *http.Server) error {
+	l, err := net.Listen("tcp", httpServer.Addr)
+	if err != nil {
+		return errors.Wrap(err, "listen error")
+	}
+	defer l.Close() //nolint:errcheck
+
+	httpServer.Addr = l.Addr().String()
+
+	return startServerWithOptionalTLSAndListener(httpServer, l)
+}
+
+func startServerWithOptionalTLSAndListener(httpServer *http.Server, listener net.Listener) error {
 	// generate and save to PEM files
 	if *serverStartTLSGenerateCert && *serverStartTLSCertFile != "" && *serverStartTLSKeyFile != "" {
 		if _, err := os.Stat(*serverStartTLSCertFile); err == nil {
@@ -148,7 +160,7 @@ func startServerWithOptionalTLS(httpServer *http.Server) error {
 	case *serverStartTLSCertFile != "" && *serverStartTLSKeyFile != "":
 		// PEM files provided
 		fmt.Fprintf(os.Stderr, "SERVER ADDRESS: https://%v\n", httpServer.Addr)
-		return httpServer.ListenAndServeTLS(*serverStartTLSCertFile, *serverStartTLSKeyFile)
+		return httpServer.ServeTLS(listener, *serverStartTLSCertFile, *serverStartTLSKeyFile)
 
 	case *serverStartTLSGenerateCert:
 		// PEM files not provided, generate in-memory TLS cert/key but don't persit.
@@ -170,10 +182,10 @@ func startServerWithOptionalTLS(httpServer *http.Server) error {
 		fmt.Fprintf(os.Stderr, "SERVER CERT SHA256: %v\n", hex.EncodeToString(fingerprint[:]))
 		fmt.Fprintf(os.Stderr, "SERVER ADDRESS: https://%v\n", httpServer.Addr)
 
-		return httpServer.ListenAndServeTLS("", "")
+		return httpServer.ServeTLS(listener, "", "")
 
 	default:
 		fmt.Fprintf(os.Stderr, "SERVER ADDRESS: http://%v\n", httpServer.Addr)
-		return httpServer.ListenAndServe()
+		return httpServer.Serve(listener)
 	}
 }
