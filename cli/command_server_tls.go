@@ -123,6 +123,7 @@ func startServerWithOptionalTLS(httpServer *http.Server) error {
 	defer l.Close() //nolint:errcheck
 
 	httpServer.Addr = l.Addr().String()
+
 	return startServerWithOptionalTLSAndListener(httpServer, l)
 }
 
