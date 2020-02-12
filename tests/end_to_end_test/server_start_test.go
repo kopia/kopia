@@ -1,11 +1,14 @@
 package endtoend_test
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/kopia/kopia/internal/serverapi"
+	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -42,20 +45,74 @@ func (s *serverParameters) ProcessOutput(l string) bool {
 func TestServerStart(t *testing.T) {
 	t.Parallel()
 
+	ctx := context.Background()
+
 	e := testenv.NewCLITest(t)
 	defer e.Cleanup(t)
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
-	// Start the server and wait for it to auto-shutdown in 3 seconds.
-	// If this does not work, we avoid starting a longer test.
-	e.RunAndExpectSuccess(t, "server", "start", "--ui", "--auto-shutdown=3s")
-	time.Sleep(3 * time.Second)
+	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
+	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
 
 	var sp serverParameters
 
-	e.RunAndProcessStderr(t, sp.ProcessOutput, "server", "start", "--ui", "--random-password", "--tls-generate-cert", "--auto-shutdown=60s")
+	e.RunAndProcessStderr(t, sp.ProcessOutput, "server", "start", "--ui", "--address=localhost:0", "--random-password", "--tls-generate-cert", "--auto-shutdown=10s")
+	t.Logf("detected server parameters %#v", sp)
+
+	cli, err := serverapi.NewClient(serverapi.ClientOptions{
+		BaseURL:                             sp.baseURL,
+		Password:                            sp.password,
+		TrustedServerCertificateFingerprint: sp.sha256Fingerprint,
+		LogRequests:                         true,
+	})
+	if err != nil {
+		t.Fatalf("unable to create API client")
+	}
+
+	defer cli.Shutdown(ctx) // nolint:errcheck
+
+	time.Sleep(1 * time.Second)
+
+	st := verifyServerConnected(t, cli, true)
+	if got, want := st.Storage, "filesystem"; got != want {
+		t.Errorf("unexpected storage type: %v, want %v", got, want)
+	}
+
+	sources, err := cli.Sources(ctx)
+	if err != nil {
+		t.Fatalf("error listing sources: %v", err)
+	}
+
+	if got, want := len(sources.Sources), 1; got != want {
+		t.Errorf("unexpected number of sources %v, want %v", got, want)
+	}
+
+	if got, want := sources.Sources[0].Source.Path, sharedTestDataDir1; got != want {
+		t.Errorf("unexpected source path: %v, want %v", got, want)
+	}
+}
+
+func TestServerStartWithoutInitialRepository(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	e := testenv.NewCLITest(t)
+	defer e.Cleanup(t)
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	var sp serverParameters
+
+	connInfo := blob.ConnectionInfo{
+		Type: "filesystem",
+		Config: filesystem.Options{
+			Path: e.RepoDir,
+		},
+	}
+
+	e.RunAndProcessStderr(t, sp.ProcessOutput, "server", "start", "--ui", "--address=localhost:0", "--random-password", "--tls-generate-cert", "--auto-shutdown=60s")
 	t.Logf("detected server parameters %#v", sp)
 
 	cli, err := serverapi.NewClient(serverapi.ClientOptions{
@@ -67,16 +124,48 @@ func TestServerStart(t *testing.T) {
 		t.Fatalf("unable to create API client")
 	}
 
+	defer cli.Shutdown(ctx) // nolint:errcheck
+
 	time.Sleep(1 * time.Second)
 
-	if err := cli.Get("status", &serverapi.Empty{}); err != nil {
-		t.Errorf("status error: %v", err)
+	verifyServerConnected(t, cli, false)
+
+	if err = cli.CreateRepository(ctx, &serverapi.CreateRequest{
+		Password: "foofoo",
+		Storage:  connInfo,
+	}); err != nil {
+		t.Fatalf("create error: %v", err)
 	}
 
-	// TODO - add more tests
+	verifyServerConnected(t, cli, true)
 
-	// explicit shutdown
-	if err := cli.Post("shutdown", &serverapi.Empty{}, &serverapi.Empty{}); err != nil {
-		t.Logf("expected shutdown error: %v", err)
+	if err = cli.DisconnectFromRepository(ctx); err != nil {
+		t.Fatalf("disconnect error: %v", err)
 	}
+
+	verifyServerConnected(t, cli, false)
+
+	if err = cli.ConnectToRepository(ctx, &serverapi.ConnectRequest{
+		Password: "foofoo",
+		Storage:  connInfo,
+	}); err != nil {
+		t.Fatalf("create error: %v", err)
+	}
+
+	verifyServerConnected(t, cli, true)
+}
+
+func verifyServerConnected(t *testing.T, cli *serverapi.Client, want bool) *serverapi.StatusResponse {
+	t.Helper()
+
+	st, err := cli.Status(context.Background())
+	if err != nil {
+		t.Fatalf("status error: %v", err)
+	}
+
+	if got := st.Connected; got != want {
+		t.Errorf("invalid status connected %v, want %v", st.Connected, want)
+	}
+
+	return st
 }

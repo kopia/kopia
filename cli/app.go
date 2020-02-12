@@ -65,6 +65,14 @@ func serverAction(act func(ctx context.Context, cli *serverapi.Client) error) fu
 }
 
 func repositoryAction(act func(ctx context.Context, rep *repo.Repository) error) func(ctx *kingpin.ParseContext) error {
+	return maybeRepositoryAction(act, true)
+}
+
+func optionalRepositoryAction(act func(ctx context.Context, rep *repo.Repository) error) func(ctx *kingpin.ParseContext) error {
+	return maybeRepositoryAction(act, false)
+}
+
+func maybeRepositoryAction(act func(ctx context.Context, rep *repo.Repository) error, required bool) func(ctx *kingpin.ParseContext) error {
 	return func(kpc *kingpin.ParseContext) error {
 		return withProfiling(func() error {
 			startMemoryTracking()
@@ -80,14 +88,16 @@ func repositoryAction(act func(ctx context.Context, rep *repo.Repository) error)
 				}
 			})
 
-			rep, err := openRepository(ctx, nil)
-			if err != nil {
+			rep, err := openRepository(ctx, nil, required)
+			if err != nil && required {
 				return errors.Wrap(err, "open repository")
 			}
 
 			err = act(ctx, rep)
-			if cerr := rep.Close(ctx); cerr != nil {
-				return errors.Wrap(cerr, "unable to close repository")
+			if rep != nil {
+				if cerr := rep.Close(ctx); cerr != nil {
+					return errors.Wrap(cerr, "unable to close repository")
+				}
 			}
 			return err
 		})

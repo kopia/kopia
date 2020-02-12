@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -22,9 +23,12 @@ var log = kopialogging.Logger("kopia/server")
 type Server struct {
 	OnShutdown func(ctx context.Context) error
 
-	hostname        string
-	username        string
-	rep             *repo.Repository
+	options   Options
+	rep       *repo.Repository
+	cancelRep context.CancelFunc
+
+	// all API requests run with shared lock on this mutex
+	// administrative actions run with an exclusive lock and block API calls.
 	mu              sync.RWMutex
 	sourceManagers  map[snapshot.SourceInfo]*sourceManager
 	uploadSemaphore chan struct{}
@@ -34,26 +38,35 @@ type Server struct {
 func (s *Server) APIHandlers() http.Handler {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/api/v1/status", s.handleAPI(s.handleStatus, "GET"))
 	mux.HandleFunc("/api/v1/sources", s.handleAPI(s.handleSourcesList, "GET"))
 	mux.HandleFunc("/api/v1/snapshots", s.handleAPI(s.handleSourceSnapshotList, "GET"))
 	mux.HandleFunc("/api/v1/policies", s.handleAPI(s.handlePolicyList, "GET"))
+
 	mux.HandleFunc("/api/v1/refresh", s.handleAPI(s.handleRefresh, "POST"))
 	mux.HandleFunc("/api/v1/flush", s.handleAPI(s.handleFlush, "POST"))
 	mux.HandleFunc("/api/v1/shutdown", s.handleAPI(s.handleShutdown, "POST"))
+
 	mux.HandleFunc("/api/v1/sources/pause", s.handleAPI(s.handlePause, "POST"))
 	mux.HandleFunc("/api/v1/sources/resume", s.handleAPI(s.handleResume, "POST"))
 	mux.HandleFunc("/api/v1/sources/upload", s.handleAPI(s.handleUpload, "POST"))
 	mux.HandleFunc("/api/v1/sources/cancel", s.handleAPI(s.handleCancel, "POST"))
+
 	mux.HandleFunc("/api/v1/objects/", s.handleObjectGet)
+
+	mux.HandleFunc("/api/v1/repo/status", s.handleAPI(s.handleRepoStatus, "GET"))
+	mux.HandleFunc("/api/v1/repo/connect", s.handleAPI(s.handleRepoConnect, "POST"))
+	mux.HandleFunc("/api/v1/repo/create", s.handleAPI(s.handleRepoCreate, "POST"))
+	mux.HandleFunc("/api/v1/repo/disconnect", s.handleAPI(s.handleRepoDisconnect, "POST"))
+	mux.HandleFunc("/api/v1/repo/lock", s.handleAPI(s.handleRepoLock, "POST"))
+	mux.HandleFunc("/api/v1/repo/unlock", s.handleAPI(s.handleRepoUnlock, "POST"))
 
 	return mux
 }
 
 func (s *Server) handleAPI(f func(ctx context.Context, r *http.Request) (interface{}, *apiError), httpMethod string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		s.mu.Lock()
-		defer s.mu.Unlock()
+		s.mu.RLock()
+		defer s.mu.RUnlock()
 
 		if r.Method != httpMethod {
 			http.Error(w, "incompatible HTTP method", http.StatusMethodNotAllowed)
@@ -74,7 +87,13 @@ func (s *Server) handleAPI(f func(ctx context.Context, r *http.Request) (interfa
 			return
 		}
 
-		http.Error(w, err.message, err.code)
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.WriteHeader(err.code)
+
+		_ = e.Encode(&serverapi.ErrorResponse{
+			Error: err.message,
+		})
 	}
 }
 
@@ -91,10 +110,12 @@ func (s *Server) handleFlush(ctx context.Context, r *http.Request) (interface{},
 func (s *Server) handleShutdown(ctx context.Context, r *http.Request) (interface{}, *apiError) {
 	log.Infof("shutting down due to API request")
 
-	if s.OnShutdown != nil {
-		if err := s.OnShutdown(ctx); err != nil {
-			return nil, internalServerError(err)
-		}
+	if f := s.OnShutdown; f != nil {
+		go func() {
+			if err := f(ctx); err != nil {
+				log.Warningf("shutdown failed: %v", err)
+			}
+		}()
 	}
 
 	return &serverapi.Empty{}, nil
@@ -144,29 +165,140 @@ func (s *Server) endUpload(src snapshot.SourceInfo) {
 	<-s.uploadSemaphore
 }
 
-// New creates a Server on top of a given Repository.
-// The server will manage sources for a given username@hostname.
-func New(ctx context.Context, rep *repo.Repository, hostname, username string) (*Server, error) {
-	s := &Server{
-		hostname:        hostname,
-		username:        username,
-		rep:             rep,
-		sourceManagers:  map[snapshot.SourceInfo]*sourceManager{},
-		uploadSemaphore: make(chan struct{}, 1),
+// SetRepository sets the repository (nil is allowed and indicates server that is not
+// connected to the repository).
+func (s *Server) SetRepository(ctx context.Context, rep *repo.Repository) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.rep == rep {
+		// nothing to do
+		return nil
 	}
 
-	sources, err := snapshot.ListSources(ctx, rep)
+	if s.rep != nil {
+		// close previous source managers
+		s.stopAllSourceManagersLocked()
+
+		if err := s.rep.Close(ctx); err != nil {
+			return errors.Wrap(err, "unable to close previous repository")
+		}
+
+		cr := s.cancelRep
+		s.cancelRep = nil
+
+		if cr != nil {
+			cr()
+		}
+	}
+
+	s.rep = rep
+	if s.rep == nil {
+		return nil
+	}
+
+	if err := s.syncSourcesLocked(ctx); err != nil {
+		s.stopAllSourceManagersLocked()
+		s.rep = nil
+
+		return err
+	}
+
+	ctx, s.cancelRep = context.WithCancel(ctx)
+	go s.refreshPeriodically(ctx, rep)
+
+	return nil
+}
+
+func (s *Server) refreshPeriodically(ctx context.Context, r *repo.Repository) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+
+		case <-time.After(s.options.RefreshInterval):
+			if err := r.Refresh(ctx); err != nil {
+				log.Warningf("error refreshing repository: %v", err)
+			}
+		}
+	}
+}
+
+// StopAllSourceManagers causes all source managers to stop.
+func (s *Server) StopAllSourceManagers() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.stopAllSourceManagersLocked()
+}
+
+func (s *Server) stopAllSourceManagersLocked() {
+	for _, sm := range s.sourceManagers {
+		sm.stop()
+	}
+
+	for _, sm := range s.sourceManagers {
+		sm.waitUntilStopped()
+	}
+
+	s.sourceManagers = map[snapshot.SourceInfo]*sourceManager{}
+}
+
+func (s *Server) syncSourcesLocked(ctx context.Context) error {
+	sources, err := snapshot.ListSources(ctx, s.rep)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to list sources")
+		return errors.Wrap(err, "unable to list sources")
+	}
+
+	// copy existing sources to a map, from which we will remove sources that are found
+	// in the repository
+	oldSourceManagers := map[snapshot.SourceInfo]*sourceManager{}
+	for k, v := range s.sourceManagers {
+		oldSourceManagers[k] = v
 	}
 
 	for _, src := range sources {
-		sm := newSourceManager(src, s)
-		s.sourceManagers[src] = sm
+		if _, ok := oldSourceManagers[src]; ok {
+			// pre-existing source, already has a manager
+			delete(oldSourceManagers, src)
+		} else {
+			sm := newSourceManager(src, s)
+			s.sourceManagers[src] = sm
+
+			go sm.run(ctx)
+		}
 	}
 
-	for _, src := range s.sourceManagers {
-		go src.run(ctx)
+	// whatever is left in oldSourceManagers are managers for sources that don't exist anymore.
+	// stop source manager for sources no longer in the repo.
+	for _, sm := range oldSourceManagers {
+		sm.stop()
+	}
+
+	for src, sm := range oldSourceManagers {
+		sm.waitUntilStopped()
+		delete(s.sourceManagers, src)
+	}
+
+	return nil
+}
+
+// Options encompasses all API server options.
+type Options struct {
+	ConfigFile      string
+	Hostname        string
+	Username        string
+	ConnectOptions  *repo.ConnectOptions
+	RefreshInterval time.Duration
+}
+
+// New creates a Server on top of a given Repository.
+// The server will manage sources for a given username@hostname.
+func New(ctx context.Context, rep *repo.Repository, options Options) (*Server, error) {
+	s := &Server{
+		options:         options,
+		sourceManagers:  map[snapshot.SourceInfo]*sourceManager{},
+		uploadSemaphore: make(chan struct{}, 1),
 	}
 
 	return s, nil

@@ -30,16 +30,25 @@ var (
 
 func init() {
 	addUserAndHostFlags(serverStartCommand)
-	serverStartCommand.Action(repositoryAction(runServer))
+	setupConnectOptions(serverStartCommand)
+	serverStartCommand.Action(optionalRepositoryAction(runServer))
 }
 
 func runServer(ctx context.Context, rep *repo.Repository) error {
-	srv, err := server.New(ctx, rep, getHostName(), getUserName())
+	srv, err := server.New(ctx, rep, server.Options{
+		ConfigFile:      repositoryConfigFileName(),
+		Hostname:        getHostName(),
+		Username:        getUserName(),
+		ConnectOptions:  connectOptions(),
+		RefreshInterval: *serverStartRefreshInterval,
+	})
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize server")
 	}
 
-	go rep.RefreshPeriodically(ctx, *serverStartRefreshInterval)
+	if err = srv.SetRepository(ctx, rep); err != nil {
+		return errors.Wrap(err, "error connecting to repository")
+	}
 
 	mux := http.NewServeMux()
 	mux.Handle("/api/", srv.APIHandlers())
@@ -53,6 +62,14 @@ func runServer(ctx context.Context, rep *repo.Repository) error {
 
 	httpServer := &http.Server{Addr: stripProtocol(*serverAddress)}
 	srv.OnShutdown = httpServer.Shutdown
+
+	onCtrlC(func() {
+		log.Infof("Shutting down...")
+
+		if err = httpServer.Shutdown(ctx); err != nil {
+			log.Warningf("unable to shut down: %v", err)
+		}
+	})
 
 	handler := addInterceptors(mux)
 
@@ -68,11 +85,13 @@ func runServer(ctx context.Context, rep *repo.Repository) error {
 	httpServer.Handler = handler
 
 	err = startServerWithOptionalTLS(httpServer)
-	if err == http.ErrServerClosed {
-		return nil
+	if err != http.ErrServerClosed {
+		return err
 	}
 
-	return err
+	srv.StopAllSourceManagers()
+
+	return nil
 }
 
 func stripProtocol(addr string) string {

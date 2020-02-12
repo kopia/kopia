@@ -28,8 +28,8 @@ type Repository struct {
 
 // Close closes the repository and releases all resources.
 func (r *Repository) Close(ctx context.Context) error {
-	if err := r.Manifests.Flush(ctx); err != nil {
-		return errors.Wrap(err, "error flushing manifests")
+	if err := r.Flush(ctx); err != nil {
+		return errors.Wrap(err, "error flushing")
 	}
 
 	if err := r.Content.Close(ctx); err != nil {
