@@ -27,10 +27,10 @@ const (
 // NewRepositoryOptions specifies options that apply to newly created repositories.
 // All fields are optional, when not provided, reasonable defaults will be used.
 type NewRepositoryOptions struct {
-	UniqueID     []byte // force the use of particular unique ID
-	BlockFormat  content.FormattingOptions
-	DisableHMAC  bool
-	ObjectFormat object.Format // object format
+	UniqueID     []byte                    `json:"uniqueID"` // force the use of particular unique ID
+	BlockFormat  content.FormattingOptions `json:"blockFormat"`
+	DisableHMAC  bool                      `json:"disableHMAC"`
+	ObjectFormat object.Format             `json:"objectFormat"` // object format
 }
 
 // Initialize creates initial repository data structures in the specified storage with given credentials.

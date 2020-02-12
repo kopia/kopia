@@ -60,7 +60,11 @@ func waitForCtrlC() {
 	<-done
 }
 
-func openRepository(ctx context.Context, opts *repo.Options) (*repo.Repository, error) {
+func openRepository(ctx context.Context, opts *repo.Options, required bool) (*repo.Repository, error) {
+	if _, err := os.Stat(repositoryConfigFileName()); os.IsNotExist(err) && !required {
+		return nil, nil
+	}
+
 	pass, err := getPasswordFromFlags(false, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "get password")

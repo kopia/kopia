@@ -9,8 +9,11 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/pkg/errors"
 )
+
+var log = kopialogging.Logger("kopia/client")
 
 // DefaultUsername is the default username for Kopia server.
 const DefaultUsername = "kopia"
@@ -25,6 +28,10 @@ func (c *Client) Get(path string, respPayload interface{}) error {
 	req, err := http.NewRequest("GET", c.options.BaseURL+path, nil)
 	if err != nil {
 		return err
+	}
+
+	if c.options.LogRequests {
+		log.Debugf("GET %v", c.options.BaseURL+path)
 	}
 
 	if c.options.Username != "" {
@@ -54,6 +61,10 @@ func (c *Client) Post(path string, reqPayload, respPayload interface{}) error {
 
 	if err := json.NewEncoder(&buf).Encode(reqPayload); err != nil {
 		return errors.Wrap(err, "unable to encode request")
+	}
+
+	if c.options.LogRequests {
+		log.Infof("POST %v (%v bytes)", c.options.BaseURL+path, buf.Len())
 	}
 
 	req, err := http.NewRequest("POST", c.options.BaseURL+path, &buf)
@@ -97,6 +108,8 @@ type ClientOptions struct {
 	TrustedServerCertificateFingerprint string
 
 	RootCAs *x509.CertPool
+
+	LogRequests bool
 }
 
 // NewClient creates a options.HTTPClient for connecting to Kopia HTTP API.
