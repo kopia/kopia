@@ -9,8 +9,9 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/internal/kopialogging"
 )
 
 var log = kopialogging.Logger("kopia/client")
