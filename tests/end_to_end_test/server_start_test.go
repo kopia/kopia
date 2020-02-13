@@ -58,7 +58,7 @@ func TestServerStart(t *testing.T) {
 
 	var sp serverParameters
 
-	e.RunAndProcessStderr(t, sp.ProcessOutput, "server", "start", "--ui", "--address=localhost:0", "--random-password", "--tls-generate-cert", "--auto-shutdown=10s")
+	e.RunAndProcessStderr(t, sp.ProcessOutput, "server", "start", "--ui", "--address=localhost:0", "--random-password", "--tls-generate-cert", "--auto-shutdown=60s")
 	t.Logf("detected server parameters %#v", sp)
 
 	cli, err := serverapi.NewClient(serverapi.ClientOptions{
@@ -73,7 +73,7 @@ func TestServerStart(t *testing.T) {
 
 	defer cli.Shutdown(ctx) // nolint:errcheck
 
-	time.Sleep(1 * time.Second)
+	waitUntilServerStarted(t, cli)
 
 	st := verifyServerConnected(t, cli, true)
 	if got, want := st.Storage, "filesystem"; got != want {
@@ -126,8 +126,7 @@ func TestServerStartWithoutInitialRepository(t *testing.T) {
 
 	defer cli.Shutdown(ctx) // nolint:errcheck
 
-	time.Sleep(1 * time.Second)
-
+	waitUntilServerStarted(t, cli)
 	verifyServerConnected(t, cli, false)
 
 	if err = cli.CreateRepository(ctx, &serverapi.CreateRequest{
@@ -168,4 +167,16 @@ func verifyServerConnected(t *testing.T, cli *serverapi.Client, want bool) *serv
 	}
 
 	return st
+}
+
+func waitUntilServerStarted(t *testing.T, cli *serverapi.Client) {
+	for i := 0; i < 60; i++ {
+		if _, err := cli.Status(context.Background()); err == nil {
+			return
+		}
+
+		time.Sleep(1 * time.Second)
+	}
+
+	t.Fatalf("server failed to start")
 }
