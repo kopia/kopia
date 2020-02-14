@@ -426,10 +426,12 @@ func randomName(opt DirectoryTreeOptions) string {
 	maxNameLength := intOrDefault(opt.MaxNameLength, 15)
 	minNameLength := intOrDefault(opt.MinNameLength, 3)
 
-	b := make([]byte, rand.Intn(maxNameLength-minNameLength)+minNameLength)
+	l := rand.Intn(maxNameLength-minNameLength) + minNameLength
+	b := make([]byte, (l+1)/2) // nolint:gomnd
+
 	cryptorand.Read(b) // nolint:errcheck
 
-	return hex.EncodeToString(b)
+	return hex.EncodeToString(b)[:l]
 }
 
 func mustParseSnaphotInfo(t *testing.T, l string) SnapshotInfo {
