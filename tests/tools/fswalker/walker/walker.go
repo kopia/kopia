@@ -14,6 +14,11 @@ import (
 	"github.com/kopia/kopia/tests/tools/fswalker/protofile"
 )
 
+const (
+	// MaxFileSizeToHash gives an upper bound to the size of file that can be hashed by the walker
+	MaxFileSizeToHash = 1 << 32
+)
+
 // Walk performs a walk governed by the contents of the provided
 // Policy, and returns the pointer to the Walk.
 func Walk(ctx context.Context, policy *fspb.Policy) (*fspb.Walk, error) { //nolint:interfacer
@@ -50,4 +55,15 @@ func Walk(ctx context.Context, policy *fspb.Policy) (*fspb.Walk, error) { //noli
 	}
 
 	return retWalk, nil
+}
+
+// WalkPathHash performs a walk at the path prvided and returns a pointer
+// to the Walk result
+func WalkPathHash(ctx context.Context, path string) (*fspb.Walk, error) {
+	return Walk(ctx, &fspb.Policy{
+		Version:         1,
+		Include:         []string{path},
+		HashPfx:         []string{""}, // Hash everything
+		MaxHashFileSize: MaxFileSizeToHash,
+	})
 }
