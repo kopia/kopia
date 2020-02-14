@@ -37,6 +37,7 @@ func TestWalk(t *testing.T) {
 			Include: []string{
 				dataDir,
 			},
+			WalkCrossDevice: true,
 		})
 	testenv.AssertNoError(t, err)
 
