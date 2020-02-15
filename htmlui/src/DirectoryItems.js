@@ -1,12 +1,7 @@
 import React, { Component } from 'react';
-import MyTable from './Table';
 import { Link } from "react-router-dom";
-
-import {
-    sizeDisplayName,
-    objectLink,
-    rfc3339TimestampForDisplay,
-} from './uiutil';
+import MyTable from './Table';
+import { objectLink, rfc3339TimestampForDisplay, sizeDisplayName } from './uiutil';
 
 function objectName(name, typeID) {
     if (typeID === "d") {

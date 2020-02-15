@@ -1,17 +1,12 @@
-import React, { Component } from 'react';
 import axios from 'axios';
-
-import MyTable from './Table';
-
-import {
-    Link
-} from 'react-router-dom';
-
+import React, { Component } from 'react';
 import Dropdown from 'react-bootstrap/Dropdown';
-import Spinner from 'react-bootstrap/Spinner';
 import Row from 'react-bootstrap/Row';
-
-import { rfc3339TimestampForDisplay, sizeDisplayName, ownerName, compare } from './uiutil';
+import Spinner from 'react-bootstrap/Spinner';
+import { Link } from 'react-router-dom';
+import MyTable from './Table';
+import { compare, ownerName, rfc3339TimestampForDisplay, sizeDisplayName } from './uiutil';
+import Button from 'react-bootstrap/Button';
 
 const allOwners = "(all)"
 
@@ -25,9 +20,21 @@ export class SourcesTable extends Component {
 
             selectedOwner: allOwners,
         };
+
+        this.sync = this.sync.bind(this);
+        this.fetchSources = this.fetchSources.bind(this);
     }
 
     componentDidMount() {
+        this.fetchSources();
+        this.interval = window.setInterval(this.fetchSources, 5000);
+    }
+
+    componentWillUnmount() {
+        window.clearInterval(this.interval);
+    }
+
+    fetchSources() {
         this.setState({ isLoading: true });
         axios.get('/api/v1/sources').then(result => {
             this.setState({
@@ -43,6 +50,19 @@ export class SourcesTable extends Component {
     selectOwner(h) {
         this.setState({
             selectedOwner: h,
+        });
+    }
+
+    sync() {
+        this.setState({ isLoading: true });
+        axios.post('/api/v1/repo/sync', {}).then(result => {
+            this.fetchSources();
+        }).catch(error => {
+            alert('failed');
+            this.setState({
+                error,
+                isLoading: false
+            });
         });
     }
 
@@ -106,10 +126,10 @@ export class SourcesTable extends Component {
             accessor: x => x.status,
         }]
 
-        return <>
+        return <div className="padded">
             <Row>
                 <Dropdown>
-                    <Dropdown.Toggle variant="dark" id="dropdown-basic">
+                    <Dropdown.Toggle variant="success" id="dropdown-basic">
                         Owner: {this.state.selectedOwner}
                     </Dropdown.Toggle>
 
@@ -118,12 +138,14 @@ export class SourcesTable extends Component {
                         {uniqueOwners.map(v => <Dropdown.Item key={v} onClick={() => this.selectOwner(v)}>{v}</Dropdown.Item>)}
                     </Dropdown.Menu>
                 </Dropdown>
+
+                &nbsp;
+                <Button variant="primary" onClick={this.sync}>Sync</Button>
             </Row>
             <hr />
             <Row>
                 <MyTable data={sources} columns={columns} />
             </Row>
-        </>;
-
+        </div>;
     }
 }

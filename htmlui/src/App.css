@@ -5,3 +5,31 @@
 .active{
   font-weight: bold;
 }
+
+.required {
+  font-weight: bold;
+}
+
+.providerParams {
+  padding: 10px;
+}
+
+.padded {
+  padding: 10px;
+}
+
+.debug-json {
+  font-size: 60%;
+}
+
+.error {
+  color: red;
+}
+
+.normal {
+  display: block;
+}
+
+.hidden {
+  display: none;
+}

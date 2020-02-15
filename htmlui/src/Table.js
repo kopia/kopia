@@ -1,7 +1,7 @@
 import React from 'react';
-import { useTable, usePagination, useSortBy } from 'react-table';
-import Table from 'react-bootstrap/Table';
 import Pagination from 'react-bootstrap/Pagination';
+import Table from 'react-bootstrap/Table';
+import { usePagination, useSortBy, useTable } from 'react-table';
 
 function paginationItems(count, active, gotoPage) {
   let items = [];

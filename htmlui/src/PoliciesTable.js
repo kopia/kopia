@@ -1,12 +1,7 @@
-import React, { Component } from 'react';
 import axios from 'axios';
+import React, { Component } from 'react';
 import MyTable from './Table';
-
-import {
-    sourceDisplayName,
-    intervalDisplayName,
-    timesOfDayDisplayName,
-} from './uiutil';
+import { intervalDisplayName, sourceDisplayName, timesOfDayDisplayName } from './uiutil';
 
 export class PoliciesTable extends Component {
     constructor() {
@@ -17,7 +12,6 @@ export class PoliciesTable extends Component {
             error: null,
         };
     }
-    ;
     componentDidMount() {
         axios.get('/api/v1/policies').then(result => {
             this.setState({ "items": result.data.policies });
@@ -66,6 +60,8 @@ export class PoliciesTable extends Component {
             accessor: x => timesOfDayDisplayName(x.policy.scheduling.timesOfDay),
         }]
 
-        return <MyTable data={items} columns={columns} />;
+        return <div className="padded">
+            <MyTable data={items} columns={columns} />
+        </div>;
     }
 }
