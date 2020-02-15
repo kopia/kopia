@@ -233,6 +233,15 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 	downloadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.MaxDownloadSpeedBytesPerSecond))
 	uploadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.MaxUploadSpeedBytesPerSecond))
 
+	ok, err := cli.BucketExistsWithContext(ctx, opt.BucketName)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to determine if bucket %q exists", opt.BucketName)
+	}
+
+	if !ok {
+		return nil, errors.Errorf("bucket %q does not exist", opt.BucketName)
+	}
+
 	return &s3Storage{
 		Options:           *opt,
 		ctx:               ctx,
