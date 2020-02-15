@@ -26,6 +26,9 @@ type Options struct {
 	ObjectManagerOptions object.ManagerOptions
 }
 
+// ErrInvalidPassword is returned when repository password is invalid.
+var ErrInvalidPassword = errors.Errorf("invalid repository password")
+
 // Open opens a Repository specified in the configuration file.
 func Open(ctx context.Context, configFile, password string, options *Options) (rep *Repository, err error) {
 	defer func() {
@@ -93,7 +96,7 @@ func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 
 	repoConfig, err := f.decryptFormatBytes(masterKey)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to decrypt repository config")
+		return nil, ErrInvalidPassword
 	}
 
 	caching.HMACSecret = deriveKeyFromMasterKey(masterKey, f.UniqueID, []byte("local-cache-integrity"), 16)
