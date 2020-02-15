@@ -1,24 +1,12 @@
-import React, { Component } from 'react';
-import MyTable from './Table';
 import axios from 'axios';
-
-import {
-    parseQuery,
-    sizeDisplayName,
-    objectLink,
-    rfc3339TimestampForDisplay,
-    compare,
-} from './uiutil';
-
-import {
-    Link
-} from "react-router-dom";
-
-import Spinner from 'react-bootstrap/Spinner';
+import React, { Component } from 'react';
 import Badge from 'react-bootstrap/Badge';
 import Form from 'react-bootstrap/Form';
 import Row from 'react-bootstrap/Row';
-
+import Spinner from 'react-bootstrap/Spinner';
+import { Link } from "react-router-dom";
+import MyTable from './Table';
+import { compare, objectLink, parseQuery, rfc3339TimestampForDisplay, sizeDisplayName } from './uiutil';
 
 function pillVariant(tag) {
     if (tag.startsWith("latest-")) {
@@ -113,6 +101,7 @@ export class SnapshotsTable extends Component {
         if (error) {
             return <p>{error.message}</p>;
         }
+        
         if (isLoading) {
             return <Spinner animation="border" variant="primary" />;
         }
@@ -153,24 +142,24 @@ export class SnapshotsTable extends Component {
             width: 100,
         }]
 
-        return <>
+        return <div class="padded">
             <Row>
-            <Form>
-                <Form.Label>Displaying {filteredSnapshots.length !== snapshots.length ? filteredSnapshots.length + ' out of ' + snapshots.length : snapshots.length } snapshots of <b>{this.state.userName}@{this.state.host}:{this.state.path}</b></Form.Label>
-                {hiddenCount > 0 &&
-                <Form.Group controlId="formBasicCheckbox">
-                    <Form.Check
-                        type="checkbox"
-                        checked={this.state.showHidden}
-                        label={'Show ' + hiddenCount + ' identical snapshots'}
-                        onChange={this.onChange} />
-                </Form.Group>}
-            </Form>
+                <Form>
+                    <Form.Label>Displaying {filteredSnapshots.length !== snapshots.length ? filteredSnapshots.length + ' out of ' + snapshots.length : snapshots.length} snapshots of <b>{this.state.userName}@{this.state.host}:{this.state.path}</b></Form.Label>
+                    {hiddenCount > 0 &&
+                        <Form.Group controlId="formBasicCheckbox">
+                            <Form.Check
+                                type="checkbox"
+                                checked={this.state.showHidden}
+                                label={'Show ' + hiddenCount + ' identical snapshots'}
+                                onChange={this.onChange} />
+                        </Form.Group>}
+                </Form>
             </Row>
             <hr />
             <Row>
-            <MyTable data={filteredSnapshots} columns={columns} />
+                <MyTable data={filteredSnapshots} columns={columns} />
             </Row>
-        </>;
+        </div>;
     }
 }
