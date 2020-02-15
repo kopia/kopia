@@ -44,7 +44,7 @@ func (s *Server) APIHandlers() http.Handler {
 
 	mux.HandleFunc("/api/v1/refresh", s.handleAPI(s.handleRefresh, "POST"))
 	mux.HandleFunc("/api/v1/flush", s.handleAPI(s.handleFlush, "POST"))
-	mux.HandleFunc("/api/v1/shutdown", s.handleAPI(s.handleShutdown, "POST"))
+	mux.HandleFunc("/api/v1/shutdown", s.handleAPIPossiblyNotConnected(s.handleShutdown, "POST"))
 
 	mux.HandleFunc("/api/v1/sources/pause", s.handleAPI(s.handlePause, "POST"))
 	mux.HandleFunc("/api/v1/sources/resume", s.handleAPI(s.handleResume, "POST"))
@@ -53,20 +53,32 @@ func (s *Server) APIHandlers() http.Handler {
 
 	mux.HandleFunc("/api/v1/objects/", s.handleObjectGet)
 
-	mux.HandleFunc("/api/v1/repo/status", s.handleAPI(s.handleRepoStatus, "GET"))
-	mux.HandleFunc("/api/v1/repo/connect", s.handleAPI(s.handleRepoConnect, "POST"))
-	mux.HandleFunc("/api/v1/repo/create", s.handleAPI(s.handleRepoCreate, "POST"))
+	mux.HandleFunc("/api/v1/repo/status", s.handleAPIPossiblyNotConnected(s.handleRepoStatus, "GET"))
+	mux.HandleFunc("/api/v1/repo/connect", s.handleAPIPossiblyNotConnected(s.handleRepoConnect, "POST"))
+	mux.HandleFunc("/api/v1/repo/create", s.handleAPIPossiblyNotConnected(s.handleRepoCreate, "POST"))
 	mux.HandleFunc("/api/v1/repo/disconnect", s.handleAPI(s.handleRepoDisconnect, "POST"))
-	mux.HandleFunc("/api/v1/repo/lock", s.handleAPI(s.handleRepoLock, "POST"))
-	mux.HandleFunc("/api/v1/repo/unlock", s.handleAPI(s.handleRepoUnlock, "POST"))
+	mux.HandleFunc("/api/v1/repo/algorithms", s.handleAPIPossiblyNotConnected(s.handleRepoSupportedAlgorithms, "GET"))
+	mux.HandleFunc("/api/v1/repo/sync", s.handleAPI(s.handleRepoSync, "POST"))
 
 	return mux
 }
 
 func (s *Server) handleAPI(f func(ctx context.Context, r *http.Request) (interface{}, *apiError), httpMethod string) http.HandlerFunc {
+	return s.handleAPIPossiblyNotConnected(func(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+		if s.rep == nil {
+			return nil, requestError(serverapi.ErrorNotConnected, "not connected")
+		}
+
+		return f(ctx, r)
+	}, httpMethod)
+}
+
+func (s *Server) handleAPIPossiblyNotConnected(f func(ctx context.Context, r *http.Request) (interface{}, *apiError), httpMethod string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s.mu.RLock()
 		defer s.mu.RUnlock()
+
+		log.Debug("request %v", r.URL)
 
 		if r.Method != httpMethod {
 			http.Error(w, "incompatible HTTP method", http.StatusMethodNotAllowed)
@@ -89,9 +101,11 @@ func (s *Server) handleAPI(f func(ctx context.Context, r *http.Request) (interfa
 
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.WriteHeader(err.code)
+		w.WriteHeader(err.httpErrorCode)
+		log.Debug("error code %v message %v", err.apiErrorCode, err.message)
 
 		_ = e.Encode(&serverapi.ErrorResponse{
+			Code:  err.apiErrorCode,
 			Error: err.message,
 		})
 	}
@@ -154,14 +168,14 @@ func (s *Server) handleCancel(ctx context.Context, r *http.Request) (interface{}
 }
 
 func (s *Server) beginUpload(src snapshot.SourceInfo) {
-	log.Infof("waiting on semaphore to upload %v", src)
+	log.Debugf("waiting on semaphore to upload %v", src)
 	s.uploadSemaphore <- struct{}{}
 
-	log.Infof("entered semaphore to upload %v", src)
+	log.Debugf("entered semaphore to upload %v", src)
 }
 
 func (s *Server) endUpload(src snapshot.SourceInfo) {
-	log.Infof("finished uploading %v", src)
+	log.Debugf("finished uploading %v", src)
 	<-s.uploadSemaphore
 }
 
@@ -178,7 +192,9 @@ func (s *Server) SetRepository(ctx context.Context, rep *repo.Repository) error 
 
 	if s.rep != nil {
 		// close previous source managers
+		log.Infof("stopping all source managers")
 		s.stopAllSourceManagersLocked()
+		log.Infof("stopped all source managers")
 
 		if err := s.rep.Close(ctx); err != nil {
 			return errors.Wrap(err, "unable to close previous repository")
@@ -220,8 +236,20 @@ func (s *Server) refreshPeriodically(ctx context.Context, r *repo.Repository) {
 			if err := r.Refresh(ctx); err != nil {
 				log.Warningf("error refreshing repository: %v", err)
 			}
+
+			if err := s.syncSourcesLocked(ctx); err != nil {
+				log.Warningf("unable to sync sources: %v", err)
+			}
 		}
 	}
+}
+
+// SyncSources synchronizes the repository and source managers.
+func (s *Server) SyncSources(ctx context.Context) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.syncSourcesLocked(ctx)
 }
 
 // StopAllSourceManagers causes all source managers to stop.
