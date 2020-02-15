@@ -2,17 +2,20 @@ package server
 
 import (
 	"fmt"
+
+	"github.com/kopia/kopia/internal/serverapi"
 )
 
 type apiError struct {
-	code    int
-	message string
+	httpErrorCode int
+	apiErrorCode  serverapi.APIErrorCode
+	message       string
 }
 
-func requestError(message string) *apiError {
-	return &apiError{400, message}
+func requestError(apiErrorCode serverapi.APIErrorCode, message string) *apiError {
+	return &apiError{400, apiErrorCode, message}
 }
 
 func internalServerError(err error) *apiError {
-	return &apiError{500, fmt.Sprintf("internal server error: %v", err)}
+	return &apiError{500, serverapi.ErrorInternal, fmt.Sprintf("internal server error: %v", err)}
 }

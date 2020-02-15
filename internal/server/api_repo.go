@@ -10,6 +10,8 @@ import (
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/object"
 )
 
 func (s *Server) handleRepoStatus(ctx context.Context, r *http.Request) (interface{}, *apiError) {
@@ -31,25 +33,45 @@ func (s *Server) handleRepoStatus(ctx context.Context, r *http.Request) (interfa
 	}, nil
 }
 
+func maybeDecodeToken(req *serverapi.ConnectRequest) *apiError {
+	if req.Token != "" {
+		ci, password, err := repo.DecodeToken(req.Token)
+		if err != nil {
+			return requestError(serverapi.ErrorInvalidToken, "invalid token: "+err.Error())
+		}
+
+		req.Storage = ci
+		if password != "" {
+			req.Password = password
+		}
+	}
+
+	return nil
+}
+
 func (s *Server) handleRepoCreate(ctx context.Context, r *http.Request) (interface{}, *apiError) {
 	if s.rep != nil {
-		return nil, requestError("already connected")
+		return nil, requestError(serverapi.ErrorAlreadyConnected, "already connected")
 	}
 
 	var req serverapi.CreateRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		return nil, requestError("unable to decode request: " + err.Error())
+		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
+	}
+
+	if err := maybeDecodeToken(&req.ConnectRequest); err != nil {
+		return nil, err
 	}
 
 	st, err := blob.NewStorage(ctx, req.Storage)
 	if err != nil {
-		return nil, internalServerError(errors.Wrap(err, "unable to connect to storage"))
+		return nil, requestError(serverapi.ErrorStorageConnection, "unable to connect to storage: "+err.Error())
 	}
 	defer st.Close(ctx) //nolint:errcheck
 
 	if err := repo.Initialize(ctx, st, &req.NewRepositoryOptions, req.Password); err != nil {
-		return nil, internalServerError(errors.Wrap(err, "unable to initialize repository"))
+		return nil, repoErrorToAPIError(err)
 	}
 
 	return s.connectAndOpen(ctx, req.Storage, req.Password)
@@ -57,32 +79,51 @@ func (s *Server) handleRepoCreate(ctx context.Context, r *http.Request) (interfa
 
 func (s *Server) handleRepoConnect(ctx context.Context, r *http.Request) (interface{}, *apiError) {
 	if s.rep != nil {
-		return nil, requestError("already connected")
+		return nil, requestError(serverapi.ErrorAlreadyConnected, "already connected")
 	}
 
 	var req serverapi.ConnectRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		return nil, requestError("unable to decode request: " + err.Error())
+		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
+	}
+
+	if err := maybeDecodeToken(&req); err != nil {
+		return nil, err
 	}
 
 	return s.connectAndOpen(ctx, req.Storage, req.Password)
 }
 
+func (s *Server) handleRepoSupportedAlgorithms(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+	res := &serverapi.SupportedAlgorithmsResponse{
+		DefaultHashAlgorithm: content.DefaultHash,
+		HashAlgorithms:       content.SupportedHashAlgorithms(),
+
+		DefaultEncryptionAlgorithm: content.DefaultEncryption,
+		EncryptionAlgorithms:       content.SupportedEncryptionAlgorithms(),
+
+		DefaultSplitterAlgorithm: object.DefaultSplitter,
+		SplitterAlgorithms:       object.SupportedSplitters,
+	}
+
+	return res, nil
+}
+
 func (s *Server) connectAndOpen(ctx context.Context, conn blob.ConnectionInfo, password string) (interface{}, *apiError) {
 	st, err := blob.NewStorage(ctx, conn)
 	if err != nil {
-		return nil, internalServerError(errors.Wrap(err, "can't open storage"))
+		return nil, requestError(serverapi.ErrorStorageConnection, "can't open storage: "+err.Error())
 	}
 	defer st.Close(ctx) //nolint:errcheck
 
 	if err = repo.Connect(ctx, s.options.ConfigFile, st, password, s.options.ConnectOptions); err != nil {
-		return nil, internalServerError(errors.Wrap(err, "connect error"))
+		return nil, repoErrorToAPIError(err)
 	}
 
 	rep, err := repo.Open(ctx, s.options.ConfigFile, password, nil)
 	if err != nil {
-		return nil, internalServerError(errors.Wrap(err, "open error"))
+		return nil, repoErrorToAPIError(err)
 	}
 
 	// release shared lock so that SetRepository can acquire exclusive lock
@@ -99,14 +140,6 @@ func (s *Server) connectAndOpen(ctx context.Context, conn blob.ConnectionInfo, p
 }
 
 func (s *Server) handleRepoDisconnect(ctx context.Context, r *http.Request) (interface{}, *apiError) {
-	if s.rep == nil {
-		return nil, requestError("already disconnected")
-	}
-
-	if err := repo.Disconnect(s.options.ConfigFile); err != nil {
-		return nil, internalServerError(err)
-	}
-
 	// release shared lock so that SetRepository can acquire exclusive lock
 	s.mu.RUnlock()
 	err := s.SetRepository(ctx, nil)
@@ -116,13 +149,38 @@ func (s *Server) handleRepoDisconnect(ctx context.Context, r *http.Request) (int
 		return nil, internalServerError(err)
 	}
 
+	if err := repo.Disconnect(s.options.ConfigFile); err != nil {
+		return nil, internalServerError(err)
+	}
+
 	return &serverapi.Empty{}, nil
 }
 
-func (s *Server) handleRepoLock(ctx context.Context, r *http.Request) (interface{}, *apiError) {
-	return nil, &apiError{code: http.StatusNotImplemented}
+func (s *Server) handleRepoSync(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+	if err := s.rep.Refresh(ctx); err != nil {
+		return nil, internalServerError(errors.Wrap(err, "unable to refresh repository"))
+	}
+
+	// release shared lock so that SyncSources can acquire exclusive lock
+	s.mu.RUnlock()
+	err := s.SyncSources(ctx)
+	s.mu.RLock()
+	if err != nil {
+		return nil, internalServerError(errors.Wrap(err, "unable to sync sources"))
+	}
+
+	return &serverapi.Empty{}, nil
 }
 
-func (s *Server) handleRepoUnlock(ctx context.Context, r *http.Request) (interface{}, *apiError) {
-	return nil, &apiError{code: http.StatusNotImplemented}
+func repoErrorToAPIError(err error) *apiError {
+	switch err {
+	case repo.ErrRepositoryNotInitialized:
+		return requestError(serverapi.ErrorNotInitialized, "repository not initialized")
+	case repo.ErrInvalidPassword:
+		return requestError(serverapi.ErrorInvalidPassword, "invalid password")
+	case repo.ErrAlreadyInitialized:
+		return requestError(serverapi.ErrorAlreadyInitialized, "repository already initialized")
+	default:
+		return internalServerError(errors.Wrap(err, "connect error"))
+	}
 }

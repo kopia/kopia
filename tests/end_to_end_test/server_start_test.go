@@ -130,8 +130,10 @@ func TestServerStartWithoutInitialRepository(t *testing.T) {
 	verifyServerConnected(t, cli, false)
 
 	if err = cli.CreateRepository(ctx, &serverapi.CreateRequest{
-		Password: "foofoo",
-		Storage:  connInfo,
+		ConnectRequest: serverapi.ConnectRequest{
+			Password: "foofoo",
+			Storage:  connInfo,
+		},
 	}); err != nil {
 		t.Fatalf("create error: %v", err)
 	}

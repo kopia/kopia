@@ -34,6 +34,7 @@ type sourceManager struct {
 	wg     sync.WaitGroup
 
 	mu                   sync.RWMutex
+	uploader             *snapshotfs.Uploader
 	pol                  policy.SchedulingPolicy
 	state                string
 	nextSnapshotTime     *time.Time
@@ -66,8 +67,22 @@ func (s *sourceManager) Status() *serverapi.SourceStatus {
 
 func (s *sourceManager) setStatus(stat string) {
 	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.state = stat
-	s.mu.Unlock()
+}
+
+func (s *sourceManager) currentUploader() *snapshotfs.Uploader {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	return s.uploader
+}
+
+func (s *sourceManager) setUploader(u *snapshotfs.Uploader) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.uploader = u
 }
 
 func (s *sourceManager) run(ctx context.Context) {
@@ -153,6 +168,12 @@ func (s *sourceManager) resume() serverapi.SourceActionResponse {
 
 func (s *sourceManager) stop() {
 	log.Debugf("stopping source manager for %v", s.src)
+
+	if u := s.currentUploader(); u != nil {
+		log.Infof("canceling current upload")
+		u.Cancel()
+	}
+
 	close(s.closed)
 }
 
@@ -164,6 +185,15 @@ func (s *sourceManager) waitUntilStopped() {
 func (s *sourceManager) snapshot(ctx context.Context) {
 	s.server.beginUpload(s.src)
 	defer s.server.endUpload(s.src)
+
+	// check if we got closed while waiting on semaphore
+	select {
+	case <-s.closed:
+		log.Infof("not snapshotting %v because source manager is shutting down", s.src)
+		return
+
+	default:
+	}
 
 	localEntry, err := localfs.NewEntry(s.src.Path)
 	if err != nil {
@@ -181,8 +211,10 @@ func (s *sourceManager) snapshot(ctx context.Context) {
 	u.Progress = s.progress
 
 	log.Infof("starting upload of %v", s.src)
-
+	s.setUploader(u)
 	manifest, err := u.Upload(ctx, localEntry, policyTree, s.src, s.lastCompleteSnapshot, s.lastSnapshot)
+	s.setUploader(nil)
+
 	if err != nil {
 		log.Errorf("upload error: %v", err)
 		return
