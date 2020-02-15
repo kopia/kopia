@@ -267,6 +267,11 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		return nil, errors.New("bucket name must be specified")
 	}
 
+	// make sure the bucket exists
+	if _, err := cli.Bucket(opt.BucketName).Attrs(ctx); err != nil {
+		return nil, errors.Wrap(err, "unable to read bucket")
+	}
+
 	return &gcsStorage{
 		Options:           *opt,
 		ctx:               ctx,
