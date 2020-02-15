@@ -426,7 +426,7 @@ func randomName(opt DirectoryTreeOptions) string {
 	maxNameLength := intOrDefault(opt.MaxNameLength, 15)
 	minNameLength := intOrDefault(opt.MinNameLength, 3)
 
-	l := rand.Intn(maxNameLength-minNameLength) + minNameLength
+	l := rand.Intn(maxNameLength-minNameLength + 1) + minNameLength
 	b := make([]byte, (l+1)/2) // nolint:gomnd
 
 	cryptorand.Read(b) // nolint:errcheck
