@@ -49,7 +49,7 @@ func persistPassword(configFile, password string) error {
 
 		err := keyring.Set(getKeyringItemID(configFile), keyringUsername(), password)
 		if err == nil {
-			log.Infof("Saved password")
+			log.Debugf("Saved password in OS keyring")
 			return nil
 		}
 
@@ -57,7 +57,7 @@ func persistPassword(configFile, password string) error {
 	}
 
 	fn := passwordFileName(configFile)
-	log.Infof("Saving password to file %v.", fn)
+	log.Debugf("Saving password to file %v.", fn)
 
 	return ioutil.WriteFile(fn, []byte(base64.StdEncoding.EncodeToString([]byte(password))), 0600)
 }

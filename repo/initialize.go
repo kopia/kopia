@@ -33,6 +33,9 @@ type NewRepositoryOptions struct {
 	ObjectFormat object.Format             `json:"objectFormat"` // object format
 }
 
+// ErrAlreadyInitialized indicates that repository has already been initialized.
+var ErrAlreadyInitialized = errors.Errorf("repository already initialized")
+
 // Initialize creates initial repository data structures in the specified storage with given credentials.
 func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions, password string) error {
 	if opt == nil {
@@ -42,7 +45,7 @@ func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions,
 	// get the blob - expect ErrNotFound
 	_, err := st.GetBlob(ctx, FormatBlobID, 0, -1)
 	if err == nil {
-		return errors.Errorf("repository already initialized")
+		return ErrAlreadyInitialized
 	}
 
 	if err != blob.ErrBlobNotFound {
