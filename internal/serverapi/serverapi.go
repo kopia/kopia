@@ -68,6 +68,7 @@ const (
 	ErrorAlreadyConnected   APIErrorCode = "ALREADY_CONNECTED"
 	ErrorNotConnected       APIErrorCode = "NOT_CONNECTED"
 	ErrorInvalidPassword    APIErrorCode = "INVALID_PASSWORD"
+	ErrorNotFound           APIErrorCode = "NOT_FOUND"
 )
 
 // ErrorResponse represents error response.
@@ -107,4 +108,5 @@ type SupportedAlgorithmsResponse struct {
 	HashAlgorithms             []string `json:"hash"`
 	EncryptionAlgorithms       []string `json:"encryption"`
 	SplitterAlgorithms         []string `json:"splitter"`
+	CompressionAlgorithms      []string `json:"compression"`
 }

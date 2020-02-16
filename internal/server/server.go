@@ -41,6 +41,7 @@ func (s *Server) APIHandlers() http.Handler {
 	mux.HandleFunc("/api/v1/sources", s.handleAPI(s.handleSourcesList, "GET"))
 	mux.HandleFunc("/api/v1/snapshots", s.handleAPI(s.handleSourceSnapshotList, "GET"))
 	mux.HandleFunc("/api/v1/policies", s.handleAPI(s.handlePolicyList, "GET"))
+	mux.HandleFunc("/api/v1/policy", s.handleAPI(s.handlePolicyCRUD, "GET", "PUT", "DELETE"))
 
 	mux.HandleFunc("/api/v1/refresh", s.handleAPI(s.handleRefresh, "POST"))
 	mux.HandleFunc("/api/v1/flush", s.handleAPI(s.handleFlush, "POST"))
@@ -63,24 +64,33 @@ func (s *Server) APIHandlers() http.Handler {
 	return mux
 }
 
-func (s *Server) handleAPI(f func(ctx context.Context, r *http.Request) (interface{}, *apiError), httpMethod string) http.HandlerFunc {
+func (s *Server) handleAPI(f func(ctx context.Context, r *http.Request) (interface{}, *apiError), httpMethods ...string) http.HandlerFunc {
 	return s.handleAPIPossiblyNotConnected(func(ctx context.Context, r *http.Request) (interface{}, *apiError) {
 		if s.rep == nil {
 			return nil, requestError(serverapi.ErrorNotConnected, "not connected")
 		}
 
 		return f(ctx, r)
-	}, httpMethod)
+	}, httpMethods...)
 }
 
-func (s *Server) handleAPIPossiblyNotConnected(f func(ctx context.Context, r *http.Request) (interface{}, *apiError), httpMethod string) http.HandlerFunc {
+func (s *Server) handleAPIPossiblyNotConnected(f func(ctx context.Context, r *http.Request) (interface{}, *apiError), httpMethods ...string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s.mu.RLock()
 		defer s.mu.RUnlock()
 
 		log.Debug("request %v", r.URL)
 
-		if r.Method != httpMethod {
+		methodOK := false
+
+		for _, m := range httpMethods {
+			if r.Method == m {
+				methodOK = true
+				break
+			}
+		}
+
+		if !methodOK {
 			http.Error(w, "incompatible HTTP method", http.StatusMethodNotAllowed)
 			return
 		}
