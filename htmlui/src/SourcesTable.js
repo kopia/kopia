@@ -22,20 +22,20 @@ export class SourcesTable extends Component {
         };
 
         this.sync = this.sync.bind(this);
-        this.fetchSources = this.fetchSources.bind(this);
+        this.fetchSourcesWithoutSpinner = this.fetchSourcesWithoutSpinner.bind(this);
     }
 
     componentDidMount() {
-        this.fetchSources();
-        this.interval = window.setInterval(this.fetchSources, 5000);
+        this.setState({ isLoading: true });
+        this.fetchSourcesWithoutSpinner();
+        this.interval = window.setInterval(this.fetchSourcesWithoutSpinner, 5000);
     }
 
     componentWillUnmount() {
         window.clearInterval(this.interval);
     }
 
-    fetchSources() {
-        this.setState({ isLoading: true });
+    fetchSourcesWithoutSpinner() {
         axios.get('/api/v1/sources').then(result => {
             this.setState({
                 sources: result.data.sources,
@@ -56,7 +56,7 @@ export class SourcesTable extends Component {
     sync() {
         this.setState({ isLoading: true });
         axios.post('/api/v1/repo/sync', {}).then(result => {
-            this.fetchSources();
+            this.fetchSourcesWithoutSpinner();
         }).catch(error => {
             alert('failed');
             this.setState({
