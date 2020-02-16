@@ -94,7 +94,7 @@ func maybeRepositoryAction(act func(ctx context.Context, rep *repo.Repository) e
 			}
 
 			err = act(ctx, rep)
-			if rep != nil {
+			if rep != nil && required {
 				if cerr := rep.Close(ctx); cerr != nil {
 					return errors.Wrap(cerr, "unable to close repository")
 				}
