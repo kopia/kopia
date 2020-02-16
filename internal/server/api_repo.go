@@ -12,6 +12,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/object"
+	"github.com/kopia/kopia/snapshot/policy"
 )
 
 func (s *Server) handleRepoStatus(ctx context.Context, r *http.Request) (interface{}, *apiError) {
@@ -74,7 +75,19 @@ func (s *Server) handleRepoCreate(ctx context.Context, r *http.Request) (interfa
 		return nil, repoErrorToAPIError(err)
 	}
 
-	return s.connectAndOpen(ctx, req.Storage, req.Password)
+	if err := s.connectAndOpen(ctx, req.Storage, req.Password); err != nil {
+		return nil, err
+	}
+
+	if err := policy.SetPolicy(ctx, s.rep, policy.GlobalPolicySourceInfo, policy.DefaultPolicy); err != nil {
+		return nil, internalServerError(errors.Wrap(err, "set global policy"))
+	}
+
+	if err := s.rep.Flush(ctx); err != nil {
+		return nil, internalServerError(errors.Wrap(err, "flush"))
+	}
+
+	return s.handleRepoStatus(ctx, r)
 }
 
 func (s *Server) handleRepoConnect(ctx context.Context, r *http.Request) (interface{}, *apiError) {
@@ -92,7 +105,11 @@ func (s *Server) handleRepoConnect(ctx context.Context, r *http.Request) (interf
 		return nil, err
 	}
 
-	return s.connectAndOpen(ctx, req.Storage, req.Password)
+	if err := s.connectAndOpen(ctx, req.Storage, req.Password); err != nil {
+		return nil, err
+	}
+
+	return s.handleRepoStatus(ctx, r)
 }
 
 func (s *Server) handleRepoSupportedAlgorithms(ctx context.Context, r *http.Request) (interface{}, *apiError) {
@@ -110,20 +127,20 @@ func (s *Server) handleRepoSupportedAlgorithms(ctx context.Context, r *http.Requ
 	return res, nil
 }
 
-func (s *Server) connectAndOpen(ctx context.Context, conn blob.ConnectionInfo, password string) (interface{}, *apiError) {
+func (s *Server) connectAndOpen(ctx context.Context, conn blob.ConnectionInfo, password string) *apiError {
 	st, err := blob.NewStorage(ctx, conn)
 	if err != nil {
-		return nil, requestError(serverapi.ErrorStorageConnection, "can't open storage: "+err.Error())
+		return requestError(serverapi.ErrorStorageConnection, "can't open storage: "+err.Error())
 	}
 	defer st.Close(ctx) //nolint:errcheck
 
 	if err = repo.Connect(ctx, s.options.ConfigFile, st, password, s.options.ConnectOptions); err != nil {
-		return nil, repoErrorToAPIError(err)
+		return repoErrorToAPIError(err)
 	}
 
 	rep, err := repo.Open(ctx, s.options.ConfigFile, password, nil)
 	if err != nil {
-		return nil, repoErrorToAPIError(err)
+		return repoErrorToAPIError(err)
 	}
 
 	// release shared lock so that SetRepository can acquire exclusive lock
@@ -133,10 +150,10 @@ func (s *Server) connectAndOpen(ctx context.Context, conn blob.ConnectionInfo, p
 
 	if err != nil {
 		defer rep.Close(ctx) // nolint:errcheck
-		return nil, internalServerError(err)
+		return internalServerError(err)
 	}
 
-	return s.handleRepoStatus(ctx, &http.Request{})
+	return nil
 }
 
 func (s *Server) handleRepoDisconnect(ctx context.Context, r *http.Request) (interface{}, *apiError) {
