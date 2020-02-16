@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"sort"
 
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot/policy"
@@ -123,6 +125,12 @@ func (s *Server) handleRepoSupportedAlgorithms(ctx context.Context, r *http.Requ
 		DefaultSplitterAlgorithm: object.DefaultSplitter,
 		SplitterAlgorithms:       object.SupportedSplitters,
 	}
+
+	for k := range compression.ByName {
+		res.CompressionAlgorithms = append(res.CompressionAlgorithms, string(k))
+	}
+
+	sort.Strings(res.CompressionAlgorithms)
 
 	return res, nil
 }
