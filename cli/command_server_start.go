@@ -89,9 +89,7 @@ func runServer(ctx context.Context, rep *repo.Repository) error {
 		return err
 	}
 
-	srv.StopAllSourceManagers()
-
-	return nil
+	return srv.SetRepository(ctx, nil)
 }
 
 func stripProtocol(addr string) string {
