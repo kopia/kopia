@@ -33,3 +33,20 @@
 .hidden {
   display: none;
 }
+
+div.tab-body {
+  padding: 10px;
+  border-left: 1px solid #ccc;
+  border-right: 1px solid #ccc;
+  border-bottom: 1px solid #ccc;
+}
+
+.policy-help {
+  font-size: 80%;
+  font-weight: normal;
+}
+
+.new-policy-panel {
+  background-color: #f0f0f0;
+  padding: 10px;
+}
