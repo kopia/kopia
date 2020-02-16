@@ -1,15 +1,3 @@
-export function sourceDisplayName(s) {
-    if (!s.host && !s.userName) {
-        return "(all)"
-    }
-
-    if (!s.userName) {
-        return "(all)@" + s.host;
-    }
-
-    return s.userName + "@" + s.host + ":" + s.path;
-}
-
 const base10UnitPrefixes = ["", "K", "M", "G", "T"];
 
 function niceNumber(f) {
