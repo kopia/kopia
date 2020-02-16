@@ -16,7 +16,7 @@ type Policy struct {
 	Labels              map[string]string   `json:"-"`
 	RetentionPolicy     RetentionPolicy     `json:"retention,omitempty"`
 	FilesPolicy         FilesPolicy         `json:"files,omitempty"`
-	ErrorHandlingPolicy ErrorHandlingPolicy `json:"errorhandling,omitempty"`
+	ErrorHandlingPolicy ErrorHandlingPolicy `json:"errorHandling,omitempty"`
 	SchedulingPolicy    SchedulingPolicy    `json:"scheduling,omitempty"`
 	CompressionPolicy   CompressionPolicy   `json:"compression,omitempty"`
 	NoParent            bool                `json:"noParent,omitempty"`
