@@ -4,7 +4,11 @@ import "strings"
 
 // DefaultPolicy is a default policy returned by policy tree in absence of other policies.
 var DefaultPolicy = &Policy{
-	FilesPolicy: defaultFilesPolicy,
+	FilesPolicy:         defaultFilesPolicy,
+	RetentionPolicy:     defaultRetentionPolicy,
+	CompressionPolicy:   defaultCompressionPolicy,
+	ErrorHandlingPolicy: defaultErrorHandlingPolicy,
+	SchedulingPolicy:    defaultSchedulingPolicy,
 }
 
 // Tree represents a node in the policy tree, where a policy can be

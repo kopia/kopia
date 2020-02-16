@@ -211,7 +211,7 @@ func printSchedulingPolicy(p *policy.Policy, parents []*policy.Policy) {
 }
 
 func printCompressionPolicy(p *policy.Policy, parents []*policy.Policy) {
-	if p.CompressionPolicy.CompressorName != "" {
+	if p.CompressionPolicy.CompressorName != "" && p.CompressionPolicy.CompressorName != "none" {
 		printStdout("Compression:\n")
 		printStdout("  Compressor: %q %v\n", p.CompressionPolicy.CompressorName, getDefinitionPoint(parents, func(pol *policy.Policy) bool {
 			return pol.CompressionPolicy.CompressorName != ""

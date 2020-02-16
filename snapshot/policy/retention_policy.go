@@ -133,12 +133,12 @@ func hoursAgo(base time.Time, n int) time.Time {
 }
 
 var defaultRetentionPolicy = RetentionPolicy{
-	KeepLatest:  intPtr(1),  // nolint:gomnd
+	KeepLatest:  intPtr(10), // nolint:gomnd
 	KeepHourly:  intPtr(48), // nolint:gomnd
 	KeepDaily:   intPtr(7),  // nolint:gomnd
 	KeepWeekly:  intPtr(4),  // nolint:gomnd
-	KeepMonthly: intPtr(4),  // nolint:gomnd
-	KeepAnnual:  intPtr(0),  // nolint:gomnd
+	KeepMonthly: intPtr(24), // nolint:gomnd
+	KeepAnnual:  intPtr(3),  // nolint:gomnd
 }
 
 // Merge applies default values from the provided policy.

@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"strings"
 
 	"github.com/pkg/errors"
 
@@ -21,18 +20,6 @@ var (
 	createSplitter              = createCommand.Flag("object-splitter", "The splitter to use for new objects in the repository").Default(object.DefaultSplitter).Enum(object.SupportedSplitters...)
 
 	createOnly = createCommand.Flag("create-only", "Create repository, but don't connect to it.").Short('c').Bool()
-
-	createGlobalPolicyKeepLatest  = createCommand.Flag("keep-latest", "Number of most recent backups to keep per source").PlaceHolder("N").Default("10").Int()
-	createGlobalPolicyKeepHourly  = createCommand.Flag("keep-hourly", "Number of most-recent hourly backups to keep per source").PlaceHolder("N").Default("48").Int()
-	createGlobalPolicyKeepDaily   = createCommand.Flag("keep-daily", "Number of most-recent daily backups to keep per source").PlaceHolder("N").Default("14").Int()
-	createGlobalPolicyKeepWeekly  = createCommand.Flag("keep-weekly", "Number of most-recent weekly backups to keep per source").PlaceHolder("N").Default("25").Int()
-	createGlobalPolicyKeepMonthly = createCommand.Flag("keep-monthly", "Number of most-recent monthly backups to keep per source").PlaceHolder("N").Default("24").Int()
-	createGlobalPolicyKeepAnnual  = createCommand.Flag("keep-annual", "Number of most-recent annual backups to keep per source").PlaceHolder("N").Default("3").Int()
-
-	createGlobalPolicyDotIgnoreFiles = createCommand.Flag("dot-ignore", "List of dotfiles to look for ignore rules").Default(".kopiaignore").Strings()
-
-	createGlobalPolicyInterval   = createCommand.Flag("snapshot-interval", "Interval between snapshots").Duration()
-	createGlobalPolicyTimesOfDay = createCommand.Flag("snapshot-time", "Times of day when to take snapshot (HH:mm)").Strings()
 )
 
 func init() {
@@ -105,55 +92,14 @@ func populateRepository(ctx context.Context, password string) error {
 	}
 	defer rep.Close(ctx) //nolint:errcheck
 
-	globalPolicy, err := getInitialGlobalPolicy()
-	if err != nil {
-		return errors.Wrap(err, "unable to initialize global policy")
-	}
-
-	if err := policy.SetPolicy(ctx, rep, policy.GlobalPolicySourceInfo, globalPolicy); err != nil {
+	if err := policy.SetPolicy(ctx, rep, policy.GlobalPolicySourceInfo, policy.DefaultPolicy); err != nil {
 		return errors.Wrap(err, "unable to set global policy")
 	}
 
-	printPolicy(globalPolicy, nil)
+	printPolicy(policy.DefaultPolicy, nil)
+	printStdout("\n")
+	printStdout("To change the policy use:\n  kopia policy set --global <options>\n")
+	printStdout("or\n  kopia policy set <dir> <options>\n")
 
 	return nil
-}
-
-func getInitialGlobalPolicy() (*policy.Policy, error) {
-	var sp policy.SchedulingPolicy
-
-	sp.SetInterval(*createGlobalPolicyInterval)
-
-	var timesOfDay []policy.TimeOfDay
-
-	for _, tods := range *createGlobalPolicyTimesOfDay {
-		for _, tod := range strings.Split(tods, ",") {
-			var timeOfDay policy.TimeOfDay
-			if err := timeOfDay.Parse(tod); err != nil {
-				return nil, errors.Wrap(err, "unable to parse time of day")
-			}
-
-			timesOfDay = append(timesOfDay, timeOfDay)
-		}
-	}
-
-	sp.TimesOfDay = policy.SortAndDedupeTimesOfDay(timesOfDay)
-
-	return &policy.Policy{
-		FilesPolicy: policy.FilesPolicy{
-			DotIgnoreFiles: *createGlobalPolicyDotIgnoreFiles,
-		},
-		RetentionPolicy: policy.RetentionPolicy{
-			KeepLatest:  createGlobalPolicyKeepLatest,
-			KeepHourly:  createGlobalPolicyKeepHourly,
-			KeepDaily:   createGlobalPolicyKeepDaily,
-			KeepWeekly:  createGlobalPolicyKeepWeekly,
-			KeepMonthly: createGlobalPolicyKeepMonthly,
-			KeepAnnual:  createGlobalPolicyKeepAnnual,
-		},
-		SchedulingPolicy: sp,
-		CompressionPolicy: policy.CompressionPolicy{
-			CompressorName: "none",
-		},
-	}, nil
 }
