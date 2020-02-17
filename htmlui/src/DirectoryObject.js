@@ -21,7 +21,6 @@ export class DirectoryObject extends Component {
     }
 
     fetchDirectory(props) {
-        console.log('fetching props:', props);
         let oid = props.match.params.oid;
 
         this.setState({

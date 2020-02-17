@@ -17,6 +17,7 @@ export class RepoStatus extends Component {
             provider: "",
         };
 
+        this.mounted = false;
         this.disconnect = this.disconnect.bind(this);
     }
 
@@ -24,19 +25,32 @@ export class RepoStatus extends Component {
         this.fetchStatus(this.props);
     }
 
+    componentWillUnmount() {
+        this.mounted = false;
+    }
+
     fetchStatus(props) {
-        this.setState({
-            isLoading: true,
-        });
-        axios.get('/api/v1/repo/status').then(result => {
+        if (this.mounted) {
             this.setState({
-                status: result.data,
-                isLoading: false,
+                isLoading: true,
             });
-        }).catch(error => this.setState({
-            error,
-            isLoading: false
-        }));
+        }
+
+        axios.get('/api/v1/repo/status').then(result => {
+            if (this.mounted) {
+                this.setState({
+                    status: result.data,
+                    isLoading: false,
+                });
+            }
+        }).catch(error => {
+            if (this.mounted) {
+                this.setState({
+                    error,
+                    isLoading: false
+                })
+            }
+        });
     }
 
     disconnect() {
