@@ -38,6 +38,10 @@
       "buildResources": "assets",
       "output": "../dist/kopia-ui"
     },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false
+    },
     "win": {
       "extraResources": [
         {
@@ -87,11 +91,6 @@
     "eject": "react-scripts eject",
     "start-electron": "electron .",
     "build-electron": "electron-builder",
-    "build-electron-all": "electron-builder -wlm",
-    "build-electron-win": "electron-builder -w --dir",
-    "build-electron-linux": "electron-builder -l",
-    "build-electron-win-linux": "electron-builder -wl",
-    "build-electron-mac": "electron-builder -m",
     "build-electron-dir": "electron-builder --dir",
     "start-electron-prebuilt": "ELECTRON_IS_DEV=0 electron .",
     "dev": "concurrently \"react-scripts start\" \"sleep 3s; electron .\""

@@ -14,7 +14,7 @@ before_install:
 - |-
     case $TRAVIS_OS_NAME in
       windows)
-        choco install --no-progress -y make
+        choco install --no-progress -y make unzip curl
         ;;
     esac
 install: make travis-setup
