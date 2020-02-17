@@ -19,6 +19,7 @@ import (
 	"github.com/minio/minio/pkg/madmin"
 
 	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -85,18 +86,23 @@ func testStorage(t *testing.T, accessID, secretKey, sessionToken string) {
 	data := make([]byte, 8)
 	rand.Read(data) //nolint:errcheck
 
-	st, err := New(context.Background(), &Options{
-		AccessKeyID:     accessID,
-		SecretAccessKey: secretKey,
-		SessionToken:    sessionToken,
-		Endpoint:        endpoint,
-		BucketName:      bucketName,
-		Prefix:          fmt.Sprintf("test-%v-%x-", time.Now().Unix(), data),
-	})
+	attempt := func() (interface{}, error) {
+		return New(context.Background(), &Options{
+			AccessKeyID:     accessID,
+			SecretAccessKey: secretKey,
+			SessionToken:    sessionToken,
+			Endpoint:        endpoint,
+			BucketName:      bucketName,
+			Prefix:          fmt.Sprintf("test-%v-%x-", time.Now().Unix(), data),
+		})
+	}
+
+	v, err := retry.WithExponentialBackoff("New() S3 storage", attempt, func(err error) bool { return err != nil })
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
+	st := v.(blob.Storage)
 	blobtesting.VerifyStorage(ctx, t, st)
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
 
