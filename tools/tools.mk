@@ -17,7 +17,7 @@ $(GOVERALLS_TOOL):
 
 # nodejs / npm
 NPM_TOOL=$(TOOLS_DIR)/nodejs/node/bin/npm
-TOOL_PATH=$(PATH):$(TOOLS_DIR)/nodejs/node/bin
+TOOL_PATH="$(PATH):$(TOOLS_DIR)/nodejs/node/bin"
 
 $(NPM_TOOL):
 	echo SELF_DIR: $(SELF_DIR)
