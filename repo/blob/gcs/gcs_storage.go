@@ -74,7 +74,7 @@ func exponentialBackoff(desc string, att retry.AttemptFunc) (interface{}, error)
 
 func isRetriableError(err error) bool {
 	if apiError, ok := err.(*googleapi.Error); ok {
-		return apiError.Code >= 500
+		return apiError.Code >= 500 || apiError.Code == 403
 	}
 
 	switch err {
@@ -94,8 +94,6 @@ func translateError(err error) error {
 	case nil:
 		return nil
 	case gcsclient.ErrObjectNotExist:
-		return blob.ErrBlobNotFound
-	case gcsclient.ErrBucketNotExist:
 		return blob.ErrBlobNotFound
 	default:
 		return errors.Wrap(err, "unexpected GCS error")
@@ -267,19 +265,22 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		return nil, errors.New("bucket name must be specified")
 	}
 
-	// make sure the bucket exists
-	if _, err := cli.Bucket(opt.BucketName).Attrs(ctx); err != nil {
-		return nil, errors.Wrap(err, "unable to read bucket")
-	}
-
-	return &gcsStorage{
+	gcs := &gcsStorage{
 		Options:           *opt,
 		ctx:               ctx,
 		storageClient:     cli,
 		bucket:            cli.Bucket(opt.BucketName),
 		downloadThrottler: downloadThrottler,
 		uploadThrottler:   uploadThrottler,
-	}, nil
+	}
+
+	// verify GCS connection is functional by fetching one blob,
+	// which must return success or ErrBlobNotFound. Any other error indicates problem with connection.
+	if _, err = gcs.GetBlob(ctx, "kopia.repository", 0, 100); err != nil && err != blob.ErrBlobNotFound {
+		return nil, err
+	}
+
+	return gcs, nil
 }
 
 func init() {

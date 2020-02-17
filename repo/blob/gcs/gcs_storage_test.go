@@ -61,18 +61,11 @@ func TestGCSStorageInvalid(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	st, err := gcs.New(ctx, &gcs.Options{
+
+	if _, err := gcs.New(ctx, &gcs.Options{
 		BucketName:                    bucket + "-no-such-bucket",
 		ServiceAccountCredentialsFile: os.Getenv("KOPIA_GCS_CREDENTIALS_FILE"),
-	})
-
-	if err != nil {
-		t.Fatalf("unable to connect to GCS: %v", err)
-	}
-
-	defer st.Close(ctx)
-
-	if err := st.PutBlob(ctx, "xxx", []byte{1, 2, 3}); err == nil {
-		t.Errorf("unexpecte success when adding to non-existent bucket")
+	}); err == nil {
+		t.Fatalf("unexpected success connecting to GCS, wanted error")
 	}
 }
