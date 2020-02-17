@@ -1,6 +1,6 @@
 # don't put tools under current directory, otherwise 'make server' fails because there are too
 # many open files due to 'node_modules'
-WATCH=true
+WATCH=false
 
 all: build
 
