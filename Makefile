@@ -31,18 +31,19 @@ clean:
 play:
 	go run cmd/playground/main.go
 
-lint: $(LINTER_TOOL)
-	# try running linter a couple of times since it is pretty flaky, especially on cold start
-	for retry in 1 2 3; do echo "Running linter, attempt #$$retry"; $(LINTER_TOOL) --deadline 180s run && s=0 && break || s=$$? && sleep 1; done; (exit $$s)
+lint: $(linter)
+	$(linter) --deadline 180s run $(linter_flags)
 
-lint-and-log: $(LINTER_TOOL)
-	$(LINTER_TOOL) --deadline 180s run | tee .linterr.txt
+lint-and-log: $(linter)
+	$(linter) --deadline 180s run $(linter_flags) | tee .linterr.txt
 
 vet:
 	go vet -all .
 
-travis-setup: travis-install-gpg-key travis-install-test-credentials
+travis-setup: travis-install-gpg-key travis-install-test-credentials all-tools
 	go mod download
+	make -C htmlui node_modules
+	make -C app node_modules
 
 website:
 	$(MAKE) -C site build
@@ -50,34 +51,33 @@ website:
 html-ui:
 	$(MAKE) -C htmlui build-html
 
-html-ui-bindata: html-ui $(BINDATA_TOOL)
-	(cd htmlui/build && $(BINDATA_TOOL) -fs -tags embedhtml -o "$(CURDIR)/internal/server/htmlui_bindata.go" -pkg server -ignore '.map' . static/css static/js static/media)
+html-ui-bindata: html-ui $(go_bindata)
+	(cd htmlui/build && $(go_bindata) -fs -tags embedhtml -o "$(CURDIR)/internal/server/htmlui_bindata.go" -pkg server -ignore '.map' . static/css static/js static/media)
 
-html-ui-bindata-fallback: $(BINDATA_TOOL)
-	(cd internal/server && $(BINDATA_TOOL) -fs -tags !embedhtml -o "$(CURDIR)/internal/server/htmlui_fallback.go" -pkg server index.html)
+html-ui-bindata-fallback: $(go_bindata)
+	(cd internal/server && $(go_bindata) -fs -tags !embedhtml -o "$(CURDIR)/internal/server/htmlui_fallback.go" -pkg server index.html)
 
 # by default build unpacked Kopia UI for current OS only
 KOPIA_UI_BUILD_TARGET=build-electron-dir
 
-ifeq ($(TRAVIS_OS_NAME),osx)
-# build and package Mac app
-KOPIA_UI_BUILD_TARGET=build-all-mac
-endif
-ifeq ($(TRAVIS_OS_NAME),linux)
-# build and package Windows and Linux app
-KOPIA_UI_BUILD_TARGET=build-all-win-linux-docker
+ifneq ($(TRAVIS_OS_NAME),)
+# on Travis, also build the setup package.
+KOPIA_UI_BUILD_TARGET=build-electron
 endif
 
 kopia-ui: goreleaser
 	$(MAKE) -C app $(KOPIA_UI_BUILD_TARGET)
 
 ifeq ($(TRAVIS_OS_NAME),windows)
-travis-release: install-noui test
+travis-release: install kopia-ui
+	$(MAKE) lint test
 	$(MAKE) integration-tests
 endif
 
 ifeq ($(TRAVIS_OS_NAME),osx)
-travis-release: lint kopia-ui test
+travis-release: install kopia-ui
+	$(MAKE) lint test
+	$(MAKE) integration-tests
 endif
 
 ifeq ($(TRAVIS_OS_NAME),linux)
@@ -105,8 +105,8 @@ ifeq ($(TRAVIS_TAG),)
 	GORELEASER_OPTIONS+=--snapshot
 endif
 
-goreleaser: $(GORELEASER_TOOL)
-	$(GORELEASER_TOOL) $(GORELEASER_OPTIONS)
+goreleaser: $(goreleaser)
+	$(goreleaser) $(GORELEASER_OPTIONS)
 
 ifeq ($(TRAVIS_PULL_REQUEST),false)
 

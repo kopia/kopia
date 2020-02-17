@@ -3,13 +3,13 @@ all:
 include ../tools/tools.mk
 
 dev: node_modules
-	PATH=$(TOOL_PATH) $(NPM_TOOL) run start
+	$(npm) $(npm_flags) run start
 
 build-html: node_modules
-	PATH=$(TOOL_PATH) $(NPM_TOOL) run build
+	$(npm) $(npm_flags) run build
 
-node_modules: $(NPM_TOOL)
-	PATH=$(TOOL_PATH) $(NPM_TOOL) install
+node_modules: $(npm)
+	$(npm) $(npm_flags) install
 
 clean:
 	rm -rf node_modules build
