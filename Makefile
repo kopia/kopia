@@ -49,7 +49,10 @@ website:
 	$(MAKE) -C site build
 
 html-ui:
-	$(MAKE) -C htmlui build-html
+	$(MAKE) -C htmlui build-html CI=true
+
+html-ui-tests:
+	$(MAKE) -C htmlui test CI=true
 
 html-ui-bindata: html-ui $(go_bindata)
 	(cd htmlui/build && $(go_bindata) -fs -tags embedhtml -o "$(CURDIR)/internal/server/htmlui_bindata.go" -pkg server -ignore '.map' . static/css static/js static/media)
@@ -76,13 +79,13 @@ kopia-ui: goreleaser
 
 ifeq ($(TRAVIS_OS_NAME),windows)
 travis-release: install kopia-ui
-	$(MAKE) lint test
+	$(MAKE) lint test html-ui-tests
 	$(MAKE) integration-tests
 endif
 
 ifeq ($(TRAVIS_OS_NAME),osx)
 travis-release: install kopia-ui
-	$(MAKE) lint test
+	$(MAKE) lint test html-ui-tests
 	$(MAKE) integration-tests
 endif
 
@@ -96,7 +99,7 @@ ifneq ($(TRAVIS_TAG),)
 endif
 endif
 
-test-all: lint vet test-with-coverage
+test-all: lint vet test-with-coverage html-ui-tests html-ui-tests
 
 # goreleaser - builds binaries for all platforms
 GORELEASER_OPTIONS=--rm-dist --skip-publish --parallelism=6

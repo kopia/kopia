@@ -28,6 +28,8 @@ export class SetupRepository extends Component {
         this.state = {
             confirmCreate: false,
             isLoading: false,
+            password: "",
+            confirmPassword: "",
         };
 
         this.handleChange = handleChange.bind(this);
@@ -178,6 +180,7 @@ export class SetupRepository extends Component {
                         name="provider"
                         value={this.state.provider}
                         onChange={this.handleChange}
+                        data-testid="providerSelector"
                         as="select">
                         <option value="">(select)</option>
                         {supportedProviders.map(x => <option key={x.provider} value={x.provider}>{x.description}</option>)}
@@ -199,7 +202,7 @@ export class SetupRepository extends Component {
                     {RequiredField(this, "Repository Password", "password", { type: "password", placeholder: "enter repository password" })}
                     {this.state.confirmCreate && RequiredField(this, "Confirm Repository Password", "confirmPassword", { type: "password", placeholder: "enter repository password again" })}
                 </Form.Row>}
-                {!this.state.confirmCreate && <Button variant="primary" onClick={this.connectToRepository} disabled={this.state.isLoading}>{this.state.isLoading && <Spinner animation="border" variant="light" size="sm" />} Connect To Repository</Button>}
+                {!this.state.confirmCreate && <Button variant="primary" data-testid="connect-to-repository" onClick={this.connectToRepository} disabled={this.state.isLoading}>{this.state.isLoading && <Spinner animation="border" variant="light" size="sm" />} Connect To Repository</Button>}
                 {this.state.connectError && <Form.Row>
                     <Form.Group as={Col}>
                         <Form.Text className="error">Connect Error: {this.state.connectError}</Form.Text>
@@ -212,6 +215,7 @@ export class SetupRepository extends Component {
                             <Form.Control as="select"
                                 name="encryption"
                                 onChange={this.handleChange}
+                                data-testid="control-encryption"
                                 value={this.state.encryption}>
                                 {this.state.algorithms.encryption.map(x => <option key={x} value={x}>{x}</option>)}
                             </Form.Control>
@@ -221,6 +225,7 @@ export class SetupRepository extends Component {
                             <Form.Control as="select"
                                 name="hash"
                                 onChange={this.handleChange}
+                                data-testid="control-hash"
                                 value={this.state.hash}>
                                 {this.state.algorithms.hash.map(x => <option key={x} value={x}>{x}</option>)}
                             </Form.Control>
@@ -230,6 +235,7 @@ export class SetupRepository extends Component {
                             <Form.Control as="select"
                                 name="splitter"
                                 onChange={this.handleChange}
+                                data-testid="control-splitter"
                                 value={this.state.splitter}>
                                 {this.state.algorithms.splitter.map(x => <option key={x} value={x}>{x}</option>)}
                             </Form.Control>
@@ -240,7 +246,7 @@ export class SetupRepository extends Component {
                             <Form.Text>Additional parameters can be set when creating repository using command line</Form.Text>
                         </Form.Group>
                     </Form.Row>
-                    <Button variant="primary" onClick={this.initRepository} disabled={this.state.isLoading}>{this.state.isLoading && <Spinner animation="border" variant="light" size="sm" />} Initialize Repository</Button>&nbsp;
+                    <Button data-testid="create-repository" variant="primary" onClick={this.initRepository} disabled={this.state.isLoading}>{this.state.isLoading && <Spinner animation="border" variant="light" size="sm" />} Initialize Repository</Button>&nbsp;
                     <Button variant="outline-secondary" onClick={this.cancelCreate} >Cancel</Button>
                 </>}
             </>

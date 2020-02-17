@@ -60,7 +60,7 @@ export function stateProperty(component, name) {
         st = st[part];
     }
 
-    return st;
+    return st || "";
 }
 
 export function RequiredField(component, label, name, props = {}, helpText = null) {
@@ -70,6 +70,7 @@ export function RequiredField(component, label, name, props = {}, helpText = nul
             isInvalid={stateProperty(component, name) === ''}
             name={name}
             value={stateProperty(component, name)}
+            data-testid={'control-'+name}
             onChange={component.handleChange}
             {...props} />
         {helpText && <Form.Text className="text-muted">{helpText}</Form.Text>}
@@ -83,6 +84,7 @@ export function OptionalField(component, label, name, props = {}, helpText = nul
         <Form.Control
             name={name}
             value={stateProperty(component, name)}
+            data-testid={'control-'+name}
             onChange={component.handleChange}
             {...props} />
         {helpText && <Form.Text className="text-muted">{helpText}</Form.Text>}
@@ -122,6 +124,7 @@ export function OptionalNumberField(component, label, name, props = {}) {
             isInvalid={isInvalidNumber(stateProperty(component, name))}
             value={stateProperty(component, name)}
             onChange={e => component.handleChange(e, valueToNumber)}
+            data-testid={'control-'+name}
             {...props} />
         <Form.Control.Feedback type="invalid">Must be a valid number or empty</Form.Control.Feedback>
     </Form.Group>

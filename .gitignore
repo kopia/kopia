@@ -2,6 +2,7 @@
 .release/
 .releases/
 compat-test/
+coverage/
 playground/
 kopia-*.tar.gz
 kopia-*.zip
