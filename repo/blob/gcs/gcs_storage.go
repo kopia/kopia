@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"time"
 
 	"github.com/efarrer/iothrottler"
 	"github.com/pkg/errors"
@@ -274,10 +275,15 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		uploadThrottler:   uploadThrottler,
 	}
 
-	// verify GCS connection is functional by fetching one blob,
-	// which must return success or ErrBlobNotFound. Any other error indicates problem with connection.
-	if _, err = gcs.GetBlob(ctx, "kopia.repository", 0, 100); err != nil && err != blob.ErrBlobNotFound {
-		return nil, err
+	// verify GCS connection is functional by listing blobs in a bucket, which will fail if the bucket
+	// does not exist. We list with a prefix that will not exist, to avoid iterating through any objects.
+	nonExistentPrefix := fmt.Sprintf("kopia-gcs-storage-initializing-%v", time.Now().UnixNano())
+	err = gcs.ListBlobs(ctx, blob.ID(nonExistentPrefix), func(md blob.Metadata) error {
+		return nil
+	})
+
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to list from the bucket")
 	}
 
 	return gcs, nil
