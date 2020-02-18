@@ -93,7 +93,7 @@ endif
 test-all: lint vet test-with-coverage
 
 # goreleaser - builds binaries for all platforms
-GORELEASER_OPTIONS=--rm-dist --skip-publish
+GORELEASER_OPTIONS=--rm-dist --skip-publish --parallelism=6
 
 ifneq ($(TRAVIS_PULL_REQUEST),false)
 	# not running on travis, or travis in PR mode, skip signing
@@ -106,7 +106,7 @@ ifeq ($(TRAVIS_TAG),)
 endif
 
 goreleaser: $(goreleaser)
-	$(goreleaser) $(GORELEASER_OPTIONS)
+	$(goreleaser) release $(GORELEASER_OPTIONS)
 
 ifeq ($(TRAVIS_PULL_REQUEST),false)
 
@@ -115,7 +115,7 @@ upload-coverage: $(GOVERALLS_TOOL) test-with-coverage
 
 else
 
-upload-coverage:
+uload-coverage:
 	@echo Not uploading coverage during PR build.
 
 endif
