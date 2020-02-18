@@ -95,19 +95,24 @@ test-all: lint vet test-with-coverage
 # goreleaser - builds binaries for all platforms
 GORELEASER_OPTIONS=--rm-dist --skip-publish --parallelism=6
 
+sign_gpg=1
 ifneq ($(TRAVIS_PULL_REQUEST),false)
 	# not running on travis, or travis in PR mode, skip signing
-	GORELEASER_OPTIONS+=--skip-sign
+	sign_gpg=0
+endif
+
+ifeq ($(TRAVIS_OS_NAME),windows)
+	# signing does not work on Windows on Travis
+	sign_gpg=0
+endif
+
+ifeq ($(sign_gpg),0)
+GORELEASER_OPTIONS+=--skip-sign
 endif
 
 ifeq ($(TRAVIS_TAG),)
 	# not a tagged release
 	GORELEASER_OPTIONS+=--snapshot
-else
-ifeq ($(TRAVIS_OS_NAME),windows)
-	# signing does not work on Windows on Travis
-	GORELEASER_OPTIONS+=--skip-sign
-endif
 endif
 
 goreleaser: $(goreleaser)
