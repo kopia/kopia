@@ -103,6 +103,11 @@ endif
 ifeq ($(TRAVIS_TAG),)
 	# not a tagged release
 	GORELEASER_OPTIONS+=--snapshot
+else
+ifeq ($(TRAVIS_OS_NAME),windows)
+	# signing does not work on Windows on Travis
+	GORELEASER_OPTIONS+=--skip-sign
+endif
 endif
 
 goreleaser: $(goreleaser)
