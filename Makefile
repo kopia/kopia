@@ -67,8 +67,8 @@ endif
 
 ifeq ($(TRAVIS_OS_NAME),windows)
 # disable Kopia UI code siging.
-CSC_LINK:=
-CSC_KEY_PASSWORD:=
+undefine CSC_LINK
+undefine CSC_KEY_PASSWORD
 endif
 
 kopia-ui: goreleaser
