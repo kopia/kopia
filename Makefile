@@ -65,6 +65,12 @@ ifneq ($(TRAVIS_OS_NAME),)
 KOPIA_UI_BUILD_TARGET=build-electron
 endif
 
+ifeq ($(TRAVIS_OS_NAME),windows)
+# disable Kopia UI code siging.
+CSC_LINK:=
+CSC_KEY_PASSWORD:=
+endif
+
 kopia-ui: goreleaser
 	$(MAKE) -C app $(KOPIA_UI_BUILD_TARGET)
 
