@@ -5,36 +5,9 @@ go:
 - 1.15.x
 os:
 - linux
-- osx
-arch:
-- amd64
-- arm64
-addons:
-  apt:
-    packages:
-    - rpm
-  snaps:
-    - name: snapcraft
-      classic: true
-before_install:
-- |-
-    case $TRAVIS_OS_NAME in
-      windows)
-        choco install --no-progress -y make unzip curl
-        ;;
-      osx):
-        sudo xcode-select -r
-        ;;
-    esac
-install: travis_retry make travis-setup
+install: go mod download
 script: make travis-release
-cache:
-  directories:
-  - $HOME/.cache/electron
-  - $HOME/.cache/electron-builder
-  - $HOME/.cache/electron-docker
-  - $HOME/.cache/electron-builder-docker
 git:
-  depth: 9999999
+  depth: 10
 env:
 - GO111MODULE=on
