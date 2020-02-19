@@ -37,6 +37,7 @@ require (
 	golang.org/x/exp v0.0.0-20190829153037-c13cbed26979
 	golang.org/x/net v0.0.0-20190923162816-aa69164e4478
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
+	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	google.golang.org/api v0.10.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 )
