@@ -111,6 +111,7 @@ func TestFileStorageConcurrency(t *testing.T) {
 	}
 
 	blobtesting.VerifyConcurrentAccess(t, st, blobtesting.ConcurrentAccessOptions{
+		NumBlobs:                        16,
 		Getters:                         8,
 		Putters:                         8,
 		Deleters:                        8,

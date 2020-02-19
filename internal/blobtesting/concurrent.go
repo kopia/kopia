@@ -2,6 +2,8 @@ package blobtesting
 
 import (
 	"context"
+	cryptorand "crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"math/rand"
 	"strings"
@@ -15,6 +17,8 @@ import (
 
 // ConcurrentAccessOptions encapsulates parameters for VerifyConcurrentAccess
 type ConcurrentAccessOptions struct {
+	NumBlobs int // number of shared blos in the pool
+
 	Getters  int
 	Putters  int
 	Deleters int
@@ -31,23 +35,13 @@ type ConcurrentAccessOptions struct {
 func VerifyConcurrentAccess(t *testing.T, st blob.Storage, options ConcurrentAccessOptions) {
 	t.Helper()
 
-	blobs := []blob.ID{
-		"77066607-c5a2-45ea-adca-6a70032d016d",
-		"9ece49fe-9c50-4f85-8907-7fe3c0727d75",
-		"2ea38c02-95e7-4552-97ff-9c20f54e5050",
-		"5e790b69-2c84-40ac-ad87-45eb0301a484",
-		"fda4b2b5-252a-4822-af18-2cbcf677a7c7",
-		"484e7bf5-444d-453a-bf56-d9dbe15ceb81",
-		"1fd31065-3b5c-4d3a-ba2e-6b423a30051e",
-		"c0742196-9c57-490f-b941-94812d85ef1f",
-		"247f6f6b-2d96-459d-9dfa-5c987a8a328d",
-		"268a350f-27d7-40a3-829b-0aa39d374a6e",
-		"45f69e53-f5b2-4d85-b9cf-000ff53965b6",
-		"9dec212a-8c37-4352-a42f-7b1467faedd8",
-		"95e887b8-f583-48e5-a1eb-3ff59adf4b2d",
-		"a1b64cca-d386-409b-a59b-58e4082c99d0",
-		"87744c3b-c0dd-4276-a6c8-242dd894794a",
-		"890bce5c-b106-4aa8-857f-5f989f2541c4",
+	// generate random blob IDs for the pool
+	var blobs []blob.ID
+
+	for i := 0; i < options.NumBlobs; i++ {
+		blobIDBytes := make([]byte, 32)
+		cryptorand.Read(blobIDBytes) // nolint:errcheck
+		blobs = append(blobs, blob.ID(hex.EncodeToString(blobIDBytes)))
 	}
 
 	randomBlobID := func() blob.ID {
