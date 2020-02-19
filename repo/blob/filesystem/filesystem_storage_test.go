@@ -96,6 +96,32 @@ func TestFileStorageTouch(t *testing.T) {
 	verifyBlobTimestampOrder(t, fs, t3, t2, t1)
 }
 
+func TestFileStorageConcurrency(t *testing.T) {
+	path, _ := ioutil.TempDir("", "fs-concurrency")
+	defer os.RemoveAll(path)
+
+	ctx := context.Background()
+
+	st, err := New(ctx, &Options{
+		Path: path,
+	})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	blobtesting.VerifyConcurrentAccess(t, st, blobtesting.ConcurrentAccessOptions{
+		NumBlobs:                        16,
+		Getters:                         8,
+		Putters:                         8,
+		Deleters:                        8,
+		Listers:                         8,
+		Iterations:                      500,
+		RangeGetPercentage:              10,
+		NonExistentListPrefixPercentage: 10,
+	})
+}
+
 func verifyBlobTimestampOrder(t *testing.T, st blob.Storage, want ...blob.ID) {
 	blobs, err := blob.ListAllBlobs(context.Background(), st, "")
 	if err != nil {

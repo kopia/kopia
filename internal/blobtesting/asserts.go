@@ -24,7 +24,7 @@ func AssertGetBlob(ctx context.Context, t *testing.T, s blob.Storage, blobID blo
 		t.Errorf("GetBlob(%v) returned %x, but expected %x", blobID, b, expected)
 	}
 
-	half := int64(len(expected) / 2)
+	half := int64(len(expected) / 2) //nolint:gomnd
 	if half == 0 {
 		return
 	}
