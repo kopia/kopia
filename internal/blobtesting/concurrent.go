@@ -7,9 +7,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kopia/kopia/repo/blob"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/kopia/kopia/repo/blob"
 )
 
 // ConcurrentAccessOptions encapsulates parameters for VerifyConcurrentAccess
@@ -26,8 +27,10 @@ type ConcurrentAccessOptions struct {
 }
 
 // VerifyConcurrentAccess tests data races on a repository to ensure only clean errors are returned.
+// nolint:gocognit,gocyclo,funlen
 func VerifyConcurrentAccess(t *testing.T, st blob.Storage, options ConcurrentAccessOptions) {
 	t.Helper()
+
 	blobs := []blob.ID{
 		"77066607-c5a2-45ea-adca-6a70032d016d",
 		"9ece49fe-9c50-4f85-8907-7fe3c0727d75",
@@ -60,9 +63,12 @@ func VerifyConcurrentAccess(t *testing.T, st blob.Storage, options ConcurrentAcc
 				blobID := randomBlobID()
 				offset := int64(0)
 				length := int64(-1)
-				if rand.Intn(100) < options.RangeGetPercentage {
 
+				if rand.Intn(100) < options.RangeGetPercentage { //nolint:gomnd
+					offset = 10
+					length = 3
 				}
+
 				data, err := st.GetBlob(ctx, blobID, offset, length)
 				switch err {
 				case nil:
@@ -130,9 +136,10 @@ func VerifyConcurrentAccess(t *testing.T, st blob.Storage, options ConcurrentAcc
 			for i := 0; i < options.Iterations; i++ {
 				blobID := randomBlobID()
 				prefix := blobID[0:rand.Intn(len(blobID))]
-				if rand.Intn(100) < options.NonExistentListPrefixPercentage {
+				if rand.Intn(100) < options.NonExistentListPrefixPercentage { //nolint:gomnd
 					prefix = "zzz"
 				}
+
 				err := st.ListBlobs(ctx, prefix, func(blob.Metadata) error {
 					return nil
 				})
@@ -141,7 +148,7 @@ func VerifyConcurrentAccess(t *testing.T, st blob.Storage, options ConcurrentAcc
 					// clean success
 
 				default:
-					return errors.Wrapf(err, "ListBlobs(%v) returned unexpected error", prefix, blobID)
+					return errors.Wrapf(err, "ListBlobs(%v) returned unexpected error", prefix)
 				}
 			}
 
