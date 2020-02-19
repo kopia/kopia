@@ -16,7 +16,7 @@ weight: 100
 
 ## Security issues
 
-* If you find a security issue that you want to disclose privately, please contact `jaak@jkowalski.net` or send a direct message on Slack.
+* If you find a security issue that you want to disclose privately, please contact `kopia-pmc@googlegroups.com` or send a direct message on Slack.
 
 ## Submitting code via Pull Requests
 
