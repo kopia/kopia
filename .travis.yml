@@ -10,6 +10,10 @@ addons:
   apt:
     packages:
     - rpm
+addons:
+  snaps:
+    - name: snapcraft
+      confinement: classic
 before_install:
 - |-
     case $TRAVIS_OS_NAME in

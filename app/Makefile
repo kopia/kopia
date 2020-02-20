@@ -16,7 +16,7 @@ electron_builder_flags+=-c.publish.owner=$(REPO_OWNER)
 electron_builder_flags+=-c.publish.repo=kopia
 else
 # post-submit run, create a release in another repo
-electron_builder_flags+=-c.extraMetadata.version=$(shell date +%Y%m%d).0.$(TRAVIS_BUILD_NUMBER)-pre-$(shell echo $(TRAVIS_COMMIT) | cut -b 1-8)
+electron_builder_flags+=-c.extraMetadata.version=$(shell date +%Y%m%d).0.$(TRAVIS_BUILD_NUMBER)
 electron_builder_flags+=-c.publish.owner=$(REPO_OWNER)
 electron_builder_flags+=-c.publish.repo=kopia-ui-release
 electron_builder_flags+=-c.publish.releaseType=release
@@ -33,12 +33,6 @@ ifeq ($(TRAVIS_OS_NAME),windows)
 # disable Kopia UI code signing on Windows.
 undefine CSC_LINK
 undefine CSC_KEY_PASSWORD
-endif
-
-ifeq ($(TRAVIS_OS_NAME),linux)
-# no packaging on Linux yet.
-electron_builder_flags+=--dir
-electron_publish_flag=never
 endif
 
 dev: node_modules
