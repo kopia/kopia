@@ -16,7 +16,7 @@ electron_builder_flags+=-c.publish.owner=$(REPO_OWNER)
 electron_builder_flags+=-c.publish.repo=kopia
 else
 # post-submit run, create a release in another repo
-electron_builder_flags+=-c.extraMetadata.version=$(shell date +%y%m%d%H%M.$(TRAVIS_BUILD_NUMBER).0)-pre-$(shell echo $(TRAVIS_COMMIT) | cut -b 1-8)
+electron_builder_flags+=-c.extraMetadata.version=$(shell date +%Y%m%d).0.$(TRAVIS_BUILD_NUMBER)-pre-$(shell echo $(TRAVIS_COMMIT) | cut -b 1-8)
 electron_builder_flags+=-c.publish.owner=$(REPO_OWNER)
 electron_builder_flags+=-c.publish.repo=kopia-ui-release
 electron_builder_flags+=-c.publish.releaseType=release
