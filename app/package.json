@@ -44,6 +44,9 @@
       "oneClick": false,
       "perMachine": false
     },
+    "snap": {
+      "publish": ["github"]
+    },
     "win": {
       "extraResources": [
         {
