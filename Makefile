@@ -57,22 +57,8 @@ html-ui-bindata: html-ui $(go_bindata)
 html-ui-bindata-fallback: $(go_bindata)
 	(cd internal/server && $(go_bindata) -fs -tags !embedhtml -o "$(CURDIR)/internal/server/htmlui_fallback.go" -pkg server index.html)
 
-# by default build unpacked Kopia UI for current OS only
-KOPIA_UI_BUILD_TARGET=build-electron-dir
-
-ifneq ($(TRAVIS_OS_NAME),)
-# on Travis, also build the setup package.
-KOPIA_UI_BUILD_TARGET=build-electron
-endif
-
-ifeq ($(TRAVIS_OS_NAME),windows)
-# disable Kopia UI code siging.
-undefine CSC_LINK
-undefine CSC_KEY_PASSWORD
-endif
-
 kopia-ui: goreleaser
-	$(MAKE) -C app $(KOPIA_UI_BUILD_TARGET)
+	$(MAKE) -C app build-electron
 
 ifeq ($(TRAVIS_OS_NAME),windows)
 travis-release: install kopia-ui

@@ -1,12 +1,12 @@
-const { app, BrowserWindow, Menu, Tray, ipcMain } = require('electron')
+const { app, BrowserWindow, Menu, Tray, ipcMain, dialog } = require('electron')
 const path = require('path');
 const isDev = require('electron-is-dev');
 const config = require('electron-json-config');
-
+const { autoUpdater } = require("electron-updater");
 const { resourcesPath, selectByOS } = require('./utils');
 const { toggleLaunchAtStartup, willLaunchAtStartup, refreshWillLaunchAtStartup } = require('./auto-launch');
 const { stopServer, actuateServer, getServerAddress, getServerCertSHA256, getServerPassword } = require('./server');
-
+const log = require("electron-log")
 
 ipcMain.on('fetch-config', (event, arg) => {
   event.sender.send('config-updated', config.all());
@@ -118,7 +118,39 @@ app.on('window-all-closed', function () {})
 ipcMain.on('server-status-updated', updateTrayContextMenu);
 ipcMain.on('launch-at-startup-updated', updateTrayContextMenu);
 
+function checkForUpdates() {
+  autoUpdater.checkForUpdatesAndNotify();
+}
+
+function maybeMoveToApplicationsFolder() {
+  try {
+    if (!app.isInApplicationsFolder()) {
+      let result = dialog.showMessageBoxSync({
+        buttons: ["Yes","No"],
+        message: "For best experience, Kopia needs to be installed in Applications folder.\n\nDo you want to move it now?"
+       });
+       if (result == 0) {
+          return app.moveToApplicationsFolder();
+       }
+    }
+  }
+  catch (e) {
+    log.error('error' + e);
+    // ignore
+  }
+  return false;
+}
+
 app.on('ready', () => {
+  log.transports.file.level = "debug"
+  autoUpdater.logger = log
+
+  if (maybeMoveToApplicationsFolder()) {
+    return
+  }
+
+  checkForUpdates();
+
   tray = new Tray(
     path.join(
       resourcesPath(), 'icons',
@@ -135,6 +167,7 @@ function updateTrayContextMenu() {
   const contextMenu = Menu.buildFromTemplate([
     { label: 'Show Main Window', click: showMainWindow },
     { label: 'Advanced Configuration...', click: advancedConfiguration },
+    { label: 'Check For Updates Now', click: checkForUpdates },
     { type: 'separator' },
     { label: 'Launch At Startup', type: 'checkbox', click: toggleLaunchAtStartup, checked: willLaunchAtStartup() },
     { label: 'Quit', role: 'quit' },

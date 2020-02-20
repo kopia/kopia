@@ -1,4 +1,39 @@
 SHELL:=/bin/bash
+REPO_OWNER=kopia
+
+electron_builder_flags:=
+
+ifeq ($(TRAVIS_PULL_REQUEST),false)
+
+electron_builder_flags+=-p always
+
+ifneq ($(TRAVIS_TAG),)
+# tagged release - create draft release, but don't publish
+electron_builder_flags+=-c.extraMetadata.version=$(TRAVIS_TAG:v%=%)
+electron_builder_flags+=-c.publish.releaseType=draft
+electron_builder_flags+=-c.publish.owner=$(REPO_OWNER)
+electron_builder_flags+=-c.publish.repo=kopia
+else
+# post-submit run, create a release in another repo
+electron_builder_flags+=-c.extraMetadata.version=$(shell date +%y%m%d.%H.%M)-pre-$(shell echo $(TRAVIS_COMMIT) | cut -b 1-8)
+electron_builder_flags+=-c.publish.owner=$(REPO_OWNER)
+electron_builder_flags+=-c.publish.repo=kopia-ui-release
+electron_builder_flags+=-c.publish.releaseType=release
+endif
+
+else
+
+# not running on Travis, or Travis in PR mode, don't build installer and don't publish
+electron_builder_flags+=--dir
+electron_builder_flags+=-p never
+
+endif
+
+ifeq ($(TRAVIS_OS_NAME),windows)
+# disable Kopia UI code signing on Windows.
+undefine CSC_LINK
+undefine CSC_KEY_PASSWORD
+endif
 
 dev: node_modules
 	$(npm) $(npm_flags) run dev
@@ -9,11 +44,8 @@ run: build-html
 build-html: node_modules
 	$(npm) $(npm_flags) run build-html
 
-build-electron-dir: node_modules build-html
-	$(npm) $(npm_flags) run build-electron-dir
-
 build-electron: node_modules build-html
-	$(npm) $(npm_flags) run build-electron
+	$(npm) $(npm_flags) run build-electron -- $(electron_builder_flags)
 
 include ../tools/tools.mk
 
