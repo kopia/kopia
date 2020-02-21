@@ -22,6 +22,7 @@ export class RepoStatus extends Component {
     }
 
     componentDidMount() {
+        this.mounted = true;
         this.fetchStatus(this.props);
     }
 

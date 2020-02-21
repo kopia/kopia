@@ -6,6 +6,7 @@
   "dependencies": {
     "auto-launch": "^5.0.5",
     "bootstrap": "^4.3.1",
+    "electron-first-run": "^3.0.0",
     "electron-is-dev": "^1.1.0",
     "electron-json-config": "^1.5.3",
     "electron-log": "^4.0.6",
@@ -45,7 +46,9 @@
       "perMachine": false
     },
     "snap": {
-      "publish": ["github"]
+      "publish": [
+        "github"
+      ]
     },
     "win": {
       "extraResources": [
