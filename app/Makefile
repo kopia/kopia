@@ -25,6 +25,9 @@ endif
 else
 
 ifneq ($(TRAVIS_PULL_REQUEST),)
+
+PUBLISH_FOR_PULL_REQUEST=true
+
 # travis PR run
 electron_publish_flag=always
 electron_builder_flags+=-c.extraMetadata.version=$(shell date +%Y%m%d).0.$(TRAVIS_BUILD_NUMBER)-pr$(TRAVIS_PULL_REQUEST)
