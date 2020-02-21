@@ -12,7 +12,7 @@ addons:
     - rpm
   snaps:
     - name: snapcraft
-      confinement: classic
+      classic: true
 before_install:
 - |-
     case $TRAVIS_OS_NAME in
