@@ -16,6 +16,9 @@ export class PoliciesTable extends Component {
             error: null,
             editorTarget: null,
             selectedRowIsNew: false,
+            targetHost: "*",
+            targetUsername: "*",
+            targetPath: "*",
         };
 
         this.editorClosed = this.editorClosed.bind(this);
@@ -25,12 +28,19 @@ export class PoliciesTable extends Component {
     }
 
     componentDidMount() {
+        this.setState({
+            isLoading: true,
+        });
+
         this.fetchPolicies();
     }
 
     fetchPolicies() {
         axios.get('/api/v1/policies').then(result => {
-            this.setState({ "items": result.data.policies });
+            this.setState({
+                items: result.data.policies,
+                isLoading: false,
+            });
         }).catch(error => this.setState({
             error,
             isLoading: false
