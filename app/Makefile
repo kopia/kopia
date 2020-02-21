@@ -3,6 +3,7 @@ REPO_OWNER=kopia
 
 electron_builder_flags:=
 electron_publish_flag:=never
+electron_builder_env:=
 
 ifeq ($(TRAVIS_PULL_REQUEST),false)
 
@@ -26,7 +27,7 @@ else
 
 ifneq ($(TRAVIS_PULL_REQUEST),)
 
-PUBLISH_FOR_PULL_REQUEST=true
+electron_builder_env=PUBLISH_FOR_PULL_REQUEST=true
 
 # travis PR run
 electron_publish_flag=always
@@ -60,7 +61,7 @@ build-html: node_modules
 	$(npm) $(npm_flags) run build-html
 
 build-electron: node_modules build-html
-	$(npm) $(npm_flags) run build-electron -- $(electron_builder_flags) -p $(electron_publish_flag)
+	$(electron_builder_env) $(npm) $(npm_flags) run build-electron -- $(electron_builder_flags) -p $(electron_publish_flag)
 
 include ../tools/tools.mk
 
