@@ -6,17 +6,17 @@ electron_publish_flag:=never
 
 ifeq ($(TRAVIS_PULL_REQUEST),false)
 
-electron_publish_flag=always
-
 ifneq ($(TRAVIS_TAG),)
 # tagged release - create draft release, but don't publish
+electron_publish_flag=always
 electron_builder_flags+=-c.extraMetadata.version=$(TRAVIS_TAG:v%=%)
 electron_builder_flags+=-c.publish.releaseType=draft
 electron_builder_flags+=-c.publish.owner=$(REPO_OWNER)
 electron_builder_flags+=-c.publish.repo=kopia
 else
 # post-submit run, create a release in another repo
-electron_builder_flags+=-c.extraMetadata.version=$(shell date +%Y%m%d).0.$(TRAVIS_BUILD_NUMBER)
+electron_publish_flag=always
+electron_builder_flags+=-c.extraMetadata.version=$(shell date +%Y%m%d).0.$(TRAVIS_BUILD_NUMBER)-testing
 electron_builder_flags+=-c.publish.owner=$(REPO_OWNER)
 electron_builder_flags+=-c.publish.repo=kopia-ui-release
 electron_builder_flags+=-c.publish.releaseType=release
@@ -24,8 +24,20 @@ endif
 
 else
 
-# not running on Travis, or Travis in PR mode, don't build installer and don't publish
+ifneq ($(TRAVIS_PULL_REQUEST),)
+# travis PR run
+electron_publish_flag=always
+electron_builder_flags+=-c.extraMetadata.version=$(shell date +%Y%m%d).0.$(TRAVIS_BUILD_NUMBER)-pr$(TRAVIS_PULL_REQUEST)
+electron_builder_flags+=-c.publish.owner=$(REPO_OWNER)
+electron_builder_flags+=-c.publish.repo=kopia-ui-pr
+electron_builder_flags+=-c.publish.releaseType=release
+else
+
+# not running on Travis, don't build installer and don't publish
+electron_publish_flag=never
 electron_builder_flags+=--dir
+
+endif
 
 endif
 
