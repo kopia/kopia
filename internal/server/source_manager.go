@@ -28,10 +28,11 @@ const (
 type sourceManager struct {
 	snapshotfs.NullUploadProgress
 
-	server *Server
-	src    snapshot.SourceInfo
-	closed chan struct{}
-	wg     sync.WaitGroup
+	server           *Server
+	src              snapshot.SourceInfo
+	closed           chan struct{}
+	snapshotRequests chan struct{}
+	wg               sync.WaitGroup
 
 	mu                   sync.RWMutex
 	uploader             *snapshotfs.Uploader
@@ -51,9 +52,12 @@ func (s *sourceManager) Status() *serverapi.SourceStatus {
 	st := &serverapi.SourceStatus{
 		Source:           s.src,
 		Status:           s.state,
-		LastSnapshotTime: s.lastSnapshot.StartTime,
 		NextSnapshotTime: s.nextSnapshotTime,
 		SchedulingPolicy: s.pol,
+	}
+
+	if ls := s.lastSnapshot; ls != nil {
+		st.LastSnapshotTime = &ls.StartTime
 	}
 
 	if st.Status == "SNAPSHOTTING" {
@@ -120,6 +124,12 @@ func (s *sourceManager) runLocal(ctx context.Context) {
 		case <-s.closed:
 			return
 
+		case <-s.snapshotRequests:
+			nt := time.Now()
+			s.nextSnapshotTime = &nt
+
+			continue
+
 		case <-time.After(statusRefreshInterval):
 			s.refreshStatus(ctx)
 
@@ -146,23 +156,28 @@ func (s *sourceManager) runRemote(ctx context.Context) {
 	}
 }
 
+func (s *sourceManager) scheduleSnapshotNow() {
+	select {
+	case s.snapshotRequests <- struct{}{}: // scheduled snapshot
+	default: // already scheduled
+	}
+}
+
 func (s *sourceManager) upload() serverapi.SourceActionResponse {
 	log.Infof("upload triggered via API: %v", s.src)
+	s.scheduleSnapshotNow()
+
 	return serverapi.SourceActionResponse{Success: true}
 }
 
 func (s *sourceManager) cancel() serverapi.SourceActionResponse {
 	log.Infof("cancel triggered via API: %v", s.src)
-	return serverapi.SourceActionResponse{Success: true}
-}
 
-func (s *sourceManager) pause() serverapi.SourceActionResponse {
-	log.Infof("pause triggered via API: %v", s.src)
-	return serverapi.SourceActionResponse{Success: true}
-}
+	if u := s.currentUploader(); u != nil {
+		log.Infof("canceling current upload")
+		u.Cancel()
+	}
 
-func (s *sourceManager) resume() serverapi.SourceActionResponse {
-	log.Infof("resume triggered via API: %v", s.src)
 	return serverapi.SourceActionResponse{Success: true}
 }
 
@@ -296,11 +311,12 @@ func (s *sourceManager) refreshStatus(ctx context.Context) {
 
 func newSourceManager(src snapshot.SourceInfo, server *Server) *sourceManager {
 	m := &sourceManager{
-		src:      src,
-		server:   server,
-		state:    "UNKNOWN",
-		closed:   make(chan struct{}),
-		progress: &snapshotfs.CountingUploadProgress{},
+		src:              src,
+		server:           server,
+		state:            "UNKNOWN",
+		closed:           make(chan struct{}),
+		snapshotRequests: make(chan struct{}, 1),
+		progress:         &snapshotfs.CountingUploadProgress{},
 	}
 
 	return m

@@ -4,31 +4,13 @@ import (
 	"context"
 	"net/http"
 	"net/url"
-	"time"
 
-	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/repo/manifest"
+	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
-type snapshotListEntry struct {
-	ID               manifest.ID          `json:"id"`
-	Source           snapshot.SourceInfo  `json:"source"`
-	Description      string               `json:"description"`
-	StartTime        time.Time            `json:"startTime"`
-	EndTime          time.Time            `json:"endTime"`
-	IncompleteReason string               `json:"incomplete,omitempty"`
-	Summary          *fs.DirectorySummary `json:"summary"`
-	RootEntry        string               `json:"rootID"`
-	RetentionReasons []string             `json:"retention"`
-}
-
-type snapshotListResponse struct {
-	Snapshots []*snapshotListEntry `json:"snapshots"`
-}
-
-func (s *Server) handleSourceSnapshotList(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+func (s *Server) handleSnapshotList(ctx context.Context, r *http.Request) (interface{}, *apiError) {
 	manifestIDs, err := snapshot.ListSnapshotManifests(ctx, s.rep, nil)
 	if err != nil {
 		return nil, internalServerError(err)
@@ -39,8 +21,8 @@ func (s *Server) handleSourceSnapshotList(ctx context.Context, r *http.Request) 
 		return nil, internalServerError(err)
 	}
 
-	resp := &snapshotListResponse{
-		Snapshots: []*snapshotListEntry{},
+	resp := &serverapi.SnapshotsResponse{
+		Snapshots: []*serverapi.Snapshot{},
 	}
 
 	groups := snapshot.GroupBySource(manifests)
@@ -79,8 +61,8 @@ func sourceMatchesURLFilter(src snapshot.SourceInfo, query url.Values) bool {
 	return true
 }
 
-func convertSnapshotManifest(m *snapshot.Manifest) *snapshotListEntry {
-	e := &snapshotListEntry{
+func convertSnapshotManifest(m *snapshot.Manifest) *serverapi.Snapshot {
+	e := &serverapi.Snapshot{
 		ID:               m.ID,
 		Source:           m.Source,
 		Description:      m.Description,

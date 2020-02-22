@@ -36,7 +36,7 @@ func (s *Server) handleRepoStatus(ctx context.Context, r *http.Request) (interfa
 	}, nil
 }
 
-func maybeDecodeToken(req *serverapi.ConnectRequest) *apiError {
+func maybeDecodeToken(req *serverapi.ConnectRepositoryRequest) *apiError {
 	if req.Token != "" {
 		ci, password, err := repo.DecodeToken(req.Token)
 		if err != nil {
@@ -57,13 +57,13 @@ func (s *Server) handleRepoCreate(ctx context.Context, r *http.Request) (interfa
 		return nil, requestError(serverapi.ErrorAlreadyConnected, "already connected")
 	}
 
-	var req serverapi.CreateRequest
+	var req serverapi.CreateRepositoryRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
 	}
 
-	if err := maybeDecodeToken(&req.ConnectRequest); err != nil {
+	if err := maybeDecodeToken(&req.ConnectRepositoryRequest); err != nil {
 		return nil, err
 	}
 
@@ -97,7 +97,7 @@ func (s *Server) handleRepoConnect(ctx context.Context, r *http.Request) (interf
 		return nil, requestError(serverapi.ErrorAlreadyConnected, "already connected")
 	}
 
-	var req serverapi.ConnectRequest
+	var req serverapi.ConnectRepositoryRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())

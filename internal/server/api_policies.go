@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/url"
 
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/snapshot"
@@ -36,45 +37,44 @@ func (s *Server) handlePolicyList(ctx context.Context, r *http.Request) (interfa
 	return resp, nil
 }
 
-func (s *Server) handlePolicyCRUD(ctx context.Context, r *http.Request) (interface{}, *apiError) {
-	host := r.URL.Query().Get("host")
-	path := r.URL.Query().Get("path")
-	username := r.URL.Query().Get("userName")
-	target := snapshot.SourceInfo{
+func getPolicyTargetFromURL(u *url.URL) snapshot.SourceInfo {
+	host := u.Query().Get("host")
+	path := u.Query().Get("path")
+	username := u.Query().Get("userName")
+
+	return snapshot.SourceInfo{
 		Host:     host,
 		Path:     path,
 		UserName: username,
 	}
+}
 
-	switch r.Method {
-	case "GET":
-		pol, err := policy.GetDefinedPolicy(ctx, s.rep, target)
-		if err == policy.ErrPolicyNotFound {
-			return nil, requestError(serverapi.ErrorNotFound, "policy not found")
-		}
-
-		return pol, nil
-
-	case "DELETE":
-		if err := policy.RemovePolicy(ctx, s.rep, target); err != nil {
-			return nil, internalServerError(err)
-		}
-
-		return &serverapi.Empty{}, nil
-
-	case "PUT":
-		newPolicy := &policy.Policy{}
-		if err := json.NewDecoder(r.Body).Decode(newPolicy); err != nil {
-			return nil, requestError(serverapi.ErrorMalformedRequest, "malformed request body")
-		}
-
-		if err := policy.SetPolicy(ctx, s.rep, target, newPolicy); err != nil {
-			return nil, internalServerError(err)
-		}
-
-		return &serverapi.Empty{}, nil
-
-	default:
-		return nil, requestError(serverapi.ErrorMalformedRequest, "incompatible HTTP method")
+func (s *Server) handlePolicyGet(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+	pol, err := policy.GetDefinedPolicy(ctx, s.rep, getPolicyTargetFromURL(r.URL))
+	if err == policy.ErrPolicyNotFound {
+		return nil, requestError(serverapi.ErrorNotFound, "policy not found")
 	}
+
+	return pol, nil
+}
+
+func (s *Server) handlePolicyDelete(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+	if err := policy.RemovePolicy(ctx, s.rep, getPolicyTargetFromURL(r.URL)); err != nil {
+		return nil, internalServerError(err)
+	}
+
+	return &serverapi.Empty{}, nil
+}
+
+func (s *Server) handlePolicyPut(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+	newPolicy := &policy.Policy{}
+	if err := json.NewDecoder(r.Body).Decode(newPolicy); err != nil {
+		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed request body")
+	}
+
+	if err := policy.SetPolicy(ctx, s.rep, getPolicyTargetFromURL(r.URL), newPolicy); err != nil {
+		return nil, internalServerError(err)
+	}
+
+	return &serverapi.Empty{}, nil
 }

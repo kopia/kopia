@@ -6,9 +6,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/filesystem"
+	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -80,7 +84,7 @@ func TestServerStart(t *testing.T) {
 		t.Errorf("unexpected storage type: %v, want %v", got, want)
 	}
 
-	sources, err := cli.Sources(ctx)
+	sources, err := cli.ListSources(ctx, nil)
 	if err != nil {
 		t.Fatalf("error listing sources: %v", err)
 	}
@@ -92,6 +96,30 @@ func TestServerStart(t *testing.T) {
 	if got, want := sources.Sources[0].Source.Path, sharedTestDataDir1; got != want {
 		t.Errorf("unexpected source path: %v, want %v", got, want)
 	}
+
+	if err = cli.CreateSnapshotSource(ctx, &serverapi.CreateSnapshotSourceRequest{
+		Path: sharedTestDataDir2,
+	}); err != nil {
+		t.Fatalf("create snapshot source error: %v", err)
+	}
+
+	verifySourceCount(t, cli, nil, 2)
+	verifySourceCount(t, cli, &snapshot.SourceInfo{Host: "no-such-host"}, 0)
+	verifySourceCount(t, cli, &snapshot.SourceInfo{Path: sharedTestDataDir2}, 1)
+
+	verifySnapshotCount(t, cli, nil, 2)
+	verifySnapshotCount(t, cli, &snapshot.SourceInfo{Path: sharedTestDataDir1}, 2)
+	verifySnapshotCount(t, cli, &snapshot.SourceInfo{Path: sharedTestDataDir2}, 0)
+	verifySnapshotCount(t, cli, &snapshot.SourceInfo{Host: "no-such-host"}, 0)
+
+	uploadMatchingSnapshots(t, cli, &snapshot.SourceInfo{Path: sharedTestDataDir2})
+	waitForSnapshotCount(t, cli, &snapshot.SourceInfo{Path: sharedTestDataDir2}, 1)
+
+	if _, err = cli.CancelUpload(ctx, nil); err != nil {
+		t.Fatalf("cancel failed: %v", err)
+	}
+
+	verifySnapshotCount(t, cli, &snapshot.SourceInfo{Path: sharedTestDataDir2}, 1)
 }
 
 func TestServerStartWithoutInitialRepository(t *testing.T) {
@@ -129,8 +157,8 @@ func TestServerStartWithoutInitialRepository(t *testing.T) {
 	waitUntilServerStarted(t, cli)
 	verifyServerConnected(t, cli, false)
 
-	if err = cli.CreateRepository(ctx, &serverapi.CreateRequest{
-		ConnectRequest: serverapi.ConnectRequest{
+	if err = cli.CreateRepository(ctx, &serverapi.CreateRepositoryRequest{
+		ConnectRepositoryRequest: serverapi.ConnectRepositoryRequest{
 			Password: "foofoo",
 			Storage:  connInfo,
 		},
@@ -146,7 +174,7 @@ func TestServerStartWithoutInitialRepository(t *testing.T) {
 
 	verifyServerConnected(t, cli, false)
 
-	if err = cli.ConnectToRepository(ctx, &serverapi.ConnectRequest{
+	if err = cli.ConnectToRepository(ctx, &serverapi.ConnectRepositoryRequest{
 		Password: "foofoo",
 		Storage:  connInfo,
 	}); err != nil {
@@ -169,6 +197,60 @@ func verifyServerConnected(t *testing.T, cli *serverapi.Client, want bool) *serv
 	}
 
 	return st
+}
+
+func waitForSnapshotCount(t *testing.T, cli *serverapi.Client, match *snapshot.SourceInfo, want int) {
+	t.Helper()
+
+	err := retry.WithExponentialBackoffNoValue("wait for snapshots", func() error {
+		snapshots, err := cli.ListSnapshots(context.Background(), match)
+		if err != nil {
+			return errors.Wrap(err, "error listing sources")
+		}
+
+		if got := len(snapshots.Snapshots); got != want {
+			return errors.Errorf("unexpected number of snapshots %v, want %v", got, want)
+		}
+
+		return nil
+	}, func(err error) bool { return err != nil })
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func uploadMatchingSnapshots(t *testing.T, cli *serverapi.Client, match *snapshot.SourceInfo) {
+	t.Helper()
+
+	if _, err := cli.UploadSnapshots(context.Background(), match); err != nil {
+		t.Fatalf("upload failed: %v", err)
+	}
+}
+
+func verifySnapshotCount(t *testing.T, cli *serverapi.Client, match *snapshot.SourceInfo, want int) {
+	t.Helper()
+
+	snapshots, err := cli.ListSnapshots(context.Background(), match)
+	if err != nil {
+		t.Fatalf("error listing sources: %v", err)
+	}
+
+	if got := len(snapshots.Snapshots); got != want {
+		t.Errorf("unexpected number of snapshots %v, want %v", got, want)
+	}
+}
+
+func verifySourceCount(t *testing.T, cli *serverapi.Client, match *snapshot.SourceInfo, want int) {
+	t.Helper()
+
+	sources, err := cli.ListSources(context.Background(), match)
+	if err != nil {
+		t.Fatalf("error listing sources: %v", err)
+	}
+
+	if got := len(sources.Sources); got != want {
+		t.Errorf("unexpected number of sources %v, want %v", got, want)
+	}
 }
 
 func waitUntilServerStarted(t *testing.T, cli *serverapi.Client) {
