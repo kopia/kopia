@@ -270,23 +270,25 @@ func (s *Server) stopAllSourceManagersLocked() {
 func (s *Server) syncSourcesLocked(ctx context.Context) error {
 	sources := map[snapshot.SourceInfo]bool{}
 
-	snapshotSources, err := snapshot.ListSources(ctx, s.rep)
-	if err != nil {
-		return errors.Wrap(err, "unable to list sources")
-	}
+	if s.rep != nil {
+		snapshotSources, err := snapshot.ListSources(ctx, s.rep)
+		if err != nil {
+			return errors.Wrap(err, "unable to list sources")
+		}
 
-	policies, err := policy.ListPolicies(ctx, s.rep)
-	if err != nil {
-		return errors.Wrap(err, "unable to list sources")
-	}
+		policies, err := policy.ListPolicies(ctx, s.rep)
+		if err != nil {
+			return errors.Wrap(err, "unable to list sources")
+		}
 
-	for _, ss := range snapshotSources {
-		sources[ss] = true
-	}
+		for _, ss := range snapshotSources {
+			sources[ss] = true
+		}
 
-	for _, pol := range policies {
-		if pol.Target().Path != "" && pol.Target().Host != "" && pol.Target().UserName != "" {
-			sources[pol.Target()] = true
+		for _, pol := range policies {
+			if pol.Target().Path != "" && pol.Target().Host != "" && pol.Target().UserName != "" {
+				sources[pol.Target()] = true
+			}
 		}
 	}
 

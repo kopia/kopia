@@ -6,8 +6,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/kopia/kopia/snapshot"
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/snapshot"
 )
 
 // CreateSnapshotSource creates snapshot source with a given path.
