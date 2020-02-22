@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/kopialogging"
@@ -36,64 +37,50 @@ type Server struct {
 
 // APIHandlers handles API requests.
 func (s *Server) APIHandlers() http.Handler {
-	mux := http.NewServeMux()
+	mux := mux.NewRouter()
 
-	mux.HandleFunc("/api/v1/sources", s.handleAPI(s.handleSourcesList, "GET"))
-	mux.HandleFunc("/api/v1/snapshots", s.handleAPI(s.handleSourceSnapshotList, "GET"))
-	mux.HandleFunc("/api/v1/policies", s.handleAPI(s.handlePolicyList, "GET"))
-	mux.HandleFunc("/api/v1/policy", s.handleAPI(s.handlePolicyCRUD, "GET", "PUT", "DELETE"))
+	mux.HandleFunc("/api/v1/sources", s.handleAPI(s.handleSourcesList)).Methods("GET")
+	mux.HandleFunc("/api/v1/snapshots", s.handleAPI(s.handleSourceSnapshotList)).Methods("GET")
+	mux.HandleFunc("/api/v1/policies", s.handleAPI(s.handlePolicyList)).Methods("GET")
+	mux.HandleFunc("/api/v1/policy", s.handleAPI(s.handlePolicyCRUD)).Methods("GET", "PUT", "DELETE")
 
-	mux.HandleFunc("/api/v1/refresh", s.handleAPI(s.handleRefresh, "POST"))
-	mux.HandleFunc("/api/v1/flush", s.handleAPI(s.handleFlush, "POST"))
-	mux.HandleFunc("/api/v1/shutdown", s.handleAPIPossiblyNotConnected(s.handleShutdown, "POST"))
+	mux.HandleFunc("/api/v1/refresh", s.handleAPI(s.handleRefresh)).Methods("POST")
+	mux.HandleFunc("/api/v1/flush", s.handleAPI(s.handleFlush)).Methods("POST")
+	mux.HandleFunc("/api/v1/shutdown", s.handleAPIPossiblyNotConnected(s.handleShutdown)).Methods("POST")
 
-	mux.HandleFunc("/api/v1/sources/pause", s.handleAPI(s.handlePause, "POST"))
-	mux.HandleFunc("/api/v1/sources/resume", s.handleAPI(s.handleResume, "POST"))
-	mux.HandleFunc("/api/v1/sources/upload", s.handleAPI(s.handleUpload, "POST"))
-	mux.HandleFunc("/api/v1/sources/cancel", s.handleAPI(s.handleCancel, "POST"))
+	mux.HandleFunc("/api/v1/sources/pause", s.handleAPI(s.handlePause)).Methods("POST")
+	mux.HandleFunc("/api/v1/sources/resume", s.handleAPI(s.handleResume)).Methods("POST")
+	mux.HandleFunc("/api/v1/sources/upload", s.handleAPI(s.handleUpload)).Methods("POST")
+	mux.HandleFunc("/api/v1/sources/cancel", s.handleAPI(s.handleCancel)).Methods("POST")
 
 	mux.HandleFunc("/api/v1/objects/", s.handleObjectGet)
 
-	mux.HandleFunc("/api/v1/repo/status", s.handleAPIPossiblyNotConnected(s.handleRepoStatus, "GET"))
-	mux.HandleFunc("/api/v1/repo/connect", s.handleAPIPossiblyNotConnected(s.handleRepoConnect, "POST"))
-	mux.HandleFunc("/api/v1/repo/create", s.handleAPIPossiblyNotConnected(s.handleRepoCreate, "POST"))
-	mux.HandleFunc("/api/v1/repo/disconnect", s.handleAPI(s.handleRepoDisconnect, "POST"))
-	mux.HandleFunc("/api/v1/repo/algorithms", s.handleAPIPossiblyNotConnected(s.handleRepoSupportedAlgorithms, "GET"))
-	mux.HandleFunc("/api/v1/repo/sync", s.handleAPI(s.handleRepoSync, "POST"))
+	mux.HandleFunc("/api/v1/repo/status", s.handleAPIPossiblyNotConnected(s.handleRepoStatus)).Methods("GET")
+	mux.HandleFunc("/api/v1/repo/connect", s.handleAPIPossiblyNotConnected(s.handleRepoConnect)).Methods("POST")
+	mux.HandleFunc("/api/v1/repo/create", s.handleAPIPossiblyNotConnected(s.handleRepoCreate)).Methods("POST")
+	mux.HandleFunc("/api/v1/repo/disconnect", s.handleAPI(s.handleRepoDisconnect)).Methods("POST")
+	mux.HandleFunc("/api/v1/repo/algorithms", s.handleAPIPossiblyNotConnected(s.handleRepoSupportedAlgorithms)).Methods("GET")
+	mux.HandleFunc("/api/v1/repo/sync", s.handleAPI(s.handleRepoSync)).Methods("POST")
 
 	return mux
 }
 
-func (s *Server) handleAPI(f func(ctx context.Context, r *http.Request) (interface{}, *apiError), httpMethods ...string) http.HandlerFunc {
+func (s *Server) handleAPI(f func(ctx context.Context, r *http.Request) (interface{}, *apiError)) http.HandlerFunc {
 	return s.handleAPIPossiblyNotConnected(func(ctx context.Context, r *http.Request) (interface{}, *apiError) {
 		if s.rep == nil {
 			return nil, requestError(serverapi.ErrorNotConnected, "not connected")
 		}
 
 		return f(ctx, r)
-	}, httpMethods...)
+	})
 }
 
-func (s *Server) handleAPIPossiblyNotConnected(f func(ctx context.Context, r *http.Request) (interface{}, *apiError), httpMethods ...string) http.HandlerFunc {
+func (s *Server) handleAPIPossiblyNotConnected(f func(ctx context.Context, r *http.Request) (interface{}, *apiError)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s.mu.RLock()
 		defer s.mu.RUnlock()
 
 		log.Debug("request %v", r.URL)
-
-		methodOK := false
-
-		for _, m := range httpMethods {
-			if r.Method == m {
-				methodOK = true
-				break
-			}
-		}
-
-		if !methodOK {
-			http.Error(w, "incompatible HTTP method", http.StatusMethodNotAllowed)
-			return
-		}
 
 		w.Header().Set("Content-Type", "application/json")
 		e := json.NewEncoder(w)
