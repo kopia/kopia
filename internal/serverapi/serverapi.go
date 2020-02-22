@@ -116,8 +116,15 @@ type SupportedAlgorithmsResponse struct {
 
 // CreateSnapshotSourceRequest contains request to create snapshot source and optionally create first snapshot.
 type CreateSnapshotSourceRequest struct {
-	Path           string `json:"path"`
-	CreateSnapshot bool   `json:"createSnapshot"`
+	Path           string        `json:"path"`
+	CreateSnapshot bool          `json:"createSnapshot"`
+	InitialPolicy  policy.Policy `json:"initialPolicy"` // policy to set on the source when first created, ignored if already exists
+}
+
+// CreateSnapshotSourceResponse contains response of creating snapshot source.
+type CreateSnapshotSourceResponse struct {
+	Created         bool `json:"created"`     // whether the source was created (false==previously existed)
+	SnapshotStarted bool `json:"snapshotted"` // whether snapshotting has been started
 }
 
 // Snapshot describes single snapshot entry.
