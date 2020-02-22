@@ -16,6 +16,7 @@ import (
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/policy"
 )
 
 var log = kopialogging.Logger("kopia/server")
@@ -37,32 +38,37 @@ type Server struct {
 
 // APIHandlers handles API requests.
 func (s *Server) APIHandlers() http.Handler {
-	mux := mux.NewRouter()
+	m := mux.NewRouter()
 
-	mux.HandleFunc("/api/v1/sources", s.handleAPI(s.handleSourcesList)).Methods("GET")
-	mux.HandleFunc("/api/v1/snapshots", s.handleAPI(s.handleSourceSnapshotList)).Methods("GET")
-	mux.HandleFunc("/api/v1/policies", s.handleAPI(s.handlePolicyList)).Methods("GET")
-	mux.HandleFunc("/api/v1/policy", s.handleAPI(s.handlePolicyCRUD)).Methods("GET", "PUT", "DELETE")
+	// sources
+	m.HandleFunc("/api/v1/sources", s.handleAPI(s.handleSourcesList)).Methods("GET")
+	m.HandleFunc("/api/v1/sources", s.handleAPI(s.handleSourcesCreate)).Methods("POST")
+	m.HandleFunc("/api/v1/sources/upload", s.handleAPI(s.handleUpload)).Methods("POST")
+	m.HandleFunc("/api/v1/sources/cancel", s.handleAPI(s.handleCancel)).Methods("POST")
 
-	mux.HandleFunc("/api/v1/refresh", s.handleAPI(s.handleRefresh)).Methods("POST")
-	mux.HandleFunc("/api/v1/flush", s.handleAPI(s.handleFlush)).Methods("POST")
-	mux.HandleFunc("/api/v1/shutdown", s.handleAPIPossiblyNotConnected(s.handleShutdown)).Methods("POST")
+	// snapshots
+	m.HandleFunc("/api/v1/snapshots", s.handleAPI(s.handleSnapshotList)).Methods("GET")
 
-	mux.HandleFunc("/api/v1/sources/pause", s.handleAPI(s.handlePause)).Methods("POST")
-	mux.HandleFunc("/api/v1/sources/resume", s.handleAPI(s.handleResume)).Methods("POST")
-	mux.HandleFunc("/api/v1/sources/upload", s.handleAPI(s.handleUpload)).Methods("POST")
-	mux.HandleFunc("/api/v1/sources/cancel", s.handleAPI(s.handleCancel)).Methods("POST")
+	m.HandleFunc("/api/v1/policy", s.handleAPI(s.handlePolicyGet)).Methods("GET")
+	m.HandleFunc("/api/v1/policy", s.handleAPI(s.handlePolicyPut)).Methods("PUT")
+	m.HandleFunc("/api/v1/policy", s.handleAPI(s.handlePolicyDelete)).Methods("DELETE")
 
-	mux.HandleFunc("/api/v1/objects/", s.handleObjectGet)
+	m.HandleFunc("/api/v1/policies", s.handleAPI(s.handlePolicyList)).Methods("GET")
 
-	mux.HandleFunc("/api/v1/repo/status", s.handleAPIPossiblyNotConnected(s.handleRepoStatus)).Methods("GET")
-	mux.HandleFunc("/api/v1/repo/connect", s.handleAPIPossiblyNotConnected(s.handleRepoConnect)).Methods("POST")
-	mux.HandleFunc("/api/v1/repo/create", s.handleAPIPossiblyNotConnected(s.handleRepoCreate)).Methods("POST")
-	mux.HandleFunc("/api/v1/repo/disconnect", s.handleAPI(s.handleRepoDisconnect)).Methods("POST")
-	mux.HandleFunc("/api/v1/repo/algorithms", s.handleAPIPossiblyNotConnected(s.handleRepoSupportedAlgorithms)).Methods("GET")
-	mux.HandleFunc("/api/v1/repo/sync", s.handleAPI(s.handleRepoSync)).Methods("POST")
+	m.HandleFunc("/api/v1/refresh", s.handleAPI(s.handleRefresh)).Methods("POST")
+	m.HandleFunc("/api/v1/flush", s.handleAPI(s.handleFlush)).Methods("POST")
+	m.HandleFunc("/api/v1/shutdown", s.handleAPIPossiblyNotConnected(s.handleShutdown)).Methods("POST")
 
-	return mux
+	m.HandleFunc("/api/v1/objects/", s.handleObjectGet).Methods("GET")
+
+	m.HandleFunc("/api/v1/repo/status", s.handleAPIPossiblyNotConnected(s.handleRepoStatus)).Methods("GET")
+	m.HandleFunc("/api/v1/repo/connect", s.handleAPIPossiblyNotConnected(s.handleRepoConnect)).Methods("POST")
+	m.HandleFunc("/api/v1/repo/create", s.handleAPIPossiblyNotConnected(s.handleRepoCreate)).Methods("POST")
+	m.HandleFunc("/api/v1/repo/disconnect", s.handleAPI(s.handleRepoDisconnect)).Methods("POST")
+	m.HandleFunc("/api/v1/repo/algorithms", s.handleAPIPossiblyNotConnected(s.handleRepoSupportedAlgorithms)).Methods("GET")
+	m.HandleFunc("/api/v1/repo/sync", s.handleAPI(s.handleRepoSync)).Methods("POST")
+
+	return m
 }
 
 func (s *Server) handleAPI(f func(ctx context.Context, r *http.Request) (interface{}, *apiError)) http.HandlerFunc {
@@ -152,14 +158,6 @@ func (s *Server) handleUpload(ctx context.Context, r *http.Request) (interface{}
 	return s.forAllSourceManagersMatchingURLFilter((*sourceManager).upload, r.URL.Query())
 }
 
-func (s *Server) handlePause(ctx context.Context, r *http.Request) (interface{}, *apiError) {
-	return s.forAllSourceManagersMatchingURLFilter((*sourceManager).pause, r.URL.Query())
-}
-
-func (s *Server) handleResume(ctx context.Context, r *http.Request) (interface{}, *apiError) {
-	return s.forAllSourceManagersMatchingURLFilter((*sourceManager).resume, r.URL.Query())
-}
-
 func (s *Server) handleCancel(ctx context.Context, r *http.Request) (interface{}, *apiError) {
 	return s.forAllSourceManagersMatchingURLFilter((*sourceManager).cancel, r.URL.Query())
 }
@@ -234,7 +232,7 @@ func (s *Server) refreshPeriodically(ctx context.Context, r *repo.Repository) {
 				log.Warningf("error refreshing repository: %v", err)
 			}
 
-			if err := s.syncSourcesLocked(ctx); err != nil {
+			if err := s.SyncSources(ctx); err != nil {
 				log.Warningf("unable to sync sources: %v", err)
 			}
 		}
@@ -270,9 +268,26 @@ func (s *Server) stopAllSourceManagersLocked() {
 }
 
 func (s *Server) syncSourcesLocked(ctx context.Context) error {
-	sources, err := snapshot.ListSources(ctx, s.rep)
+	sources := map[snapshot.SourceInfo]bool{}
+
+	snapshotSources, err := snapshot.ListSources(ctx, s.rep)
 	if err != nil {
 		return errors.Wrap(err, "unable to list sources")
+	}
+
+	policies, err := policy.ListPolicies(ctx, s.rep)
+	if err != nil {
+		return errors.Wrap(err, "unable to list sources")
+	}
+
+	for _, ss := range snapshotSources {
+		sources[ss] = true
+	}
+
+	for _, pol := range policies {
+		if pol.Target().Path != "" && pol.Target().Host != "" && pol.Target().UserName != "" {
+			sources[pol.Target()] = true
+		}
 	}
 
 	// copy existing sources to a map, from which we will remove sources that are found
@@ -282,7 +297,7 @@ func (s *Server) syncSourcesLocked(ctx context.Context) error {
 		oldSourceManagers[k] = v
 	}
 
-	for _, src := range sources {
+	for src := range sources {
 		if _, ok := oldSourceManagers[src]; ok {
 			// pre-existing source, already has a manager
 			delete(oldSourceManagers, src)
