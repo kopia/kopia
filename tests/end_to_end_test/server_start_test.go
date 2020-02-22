@@ -13,6 +13,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -97,10 +98,20 @@ func TestServerStart(t *testing.T) {
 		t.Errorf("unexpected source path: %v, want %v", got, want)
 	}
 
-	if err = cli.CreateSnapshotSource(ctx, &serverapi.CreateSnapshotSourceRequest{
+	createResp, err := cli.CreateSnapshotSource(ctx, &serverapi.CreateSnapshotSourceRequest{
 		Path: sharedTestDataDir2,
-	}); err != nil {
+	})
+
+	if err != nil {
 		t.Fatalf("create snapshot source error: %v", err)
+	}
+
+	if !createResp.Created {
+		t.Errorf("unexpected value of 'created': %v", createResp.Created)
+	}
+
+	if createResp.SnapshotStarted {
+		t.Errorf("unexpected value of 'snapshotStarted': %v", createResp.SnapshotStarted)
 	}
 
 	verifySourceCount(t, cli, nil, 2)
@@ -120,6 +131,41 @@ func TestServerStart(t *testing.T) {
 	}
 
 	verifySnapshotCount(t, cli, &snapshot.SourceInfo{Path: sharedTestDataDir2}, 1)
+
+	keepDaily := 77
+
+	createResp, err = cli.CreateSnapshotSource(ctx, &serverapi.CreateSnapshotSourceRequest{
+		Path:           sharedTestDataDir3,
+		CreateSnapshot: true,
+		InitialPolicy: policy.Policy{
+			RetentionPolicy: policy.RetentionPolicy{
+				KeepDaily: &keepDaily,
+			},
+		},
+	})
+
+	if err != nil {
+		t.Fatalf("unable to create source")
+	}
+
+	if !createResp.SnapshotStarted {
+		t.Errorf("unexpected value of 'snapshotStarted': %v", createResp.SnapshotStarted)
+	}
+
+	policies, err := cli.ListPolicies(ctx, &snapshot.SourceInfo{Path: sharedTestDataDir3})
+	if err != nil {
+		t.Errorf("aaa")
+	}
+
+	if len(policies.Policies) != 1 {
+		t.Fatalf("unexpected number of policies")
+	}
+
+	if got, want := *policies.Policies[0].Policy.RetentionPolicy.KeepDaily, keepDaily; got != want {
+		t.Errorf("initial policy not persisted")
+	}
+
+	waitForSnapshotCount(t, cli, &snapshot.SourceInfo{Path: sharedTestDataDir3}, 1)
 }
 
 func TestServerStartWithoutInitialRepository(t *testing.T) {

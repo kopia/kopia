@@ -60,20 +60,25 @@ func (s *Server) handleSourcesCreate(ctx context.Context, r *http.Request) (inte
 		Path:     req.Path,
 	}
 
+	resp := &serverapi.CreateSnapshotSourceResponse{}
+
 	// ensure we have the policy for this source, otherwise it will not show up in the
 	// list of sources at all.
 	_, err = policy.GetDefinedPolicy(ctx, s.rep, sourceInfo)
 	switch err {
 	case nil:
+		// already have policy, do nothing
 		log.Debugf("policy for %v already exists", sourceInfo)
-		// have policy, do nothing
+
+		resp.Created = false
 
 	case policy.ErrPolicyNotFound:
+		resp.Created = true
 		// don't have policy - create an empty one
 		log.Debugf("policy for %v not found, creating empty one", sourceInfo)
 
-		if err = policy.SetPolicy(ctx, s.rep, sourceInfo, &policy.Policy{}); err != nil {
-			return nil, internalServerError(errors.Wrap(err, "unable to set policy"))
+		if err = policy.SetPolicy(ctx, s.rep, sourceInfo, &req.InitialPolicy); err != nil {
+			return nil, internalServerError(errors.Wrap(err, "unable to set initial policy"))
 		}
 
 		if err = s.rep.Flush(ctx); err != nil {
@@ -103,9 +108,11 @@ func (s *Server) handleSourcesCreate(ctx context.Context, r *http.Request) (inte
 	}
 
 	if req.CreateSnapshot {
+		resp.SnapshotStarted = true
+
 		log.Debugf("scheduling snapshot of %v immediately...", sourceInfo)
 		manager.scheduleSnapshotNow()
 	}
 
-	return &serverapi.Empty{}, nil
+	return resp, nil
 }

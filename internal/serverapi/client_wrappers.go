@@ -8,8 +8,13 @@ import (
 )
 
 // CreateSnapshotSource creates snapshot source with a given path.
-func (c *Client) CreateSnapshotSource(ctx context.Context, req *CreateSnapshotSourceRequest) error {
-	return c.Post("sources", req, &CreateSnapshotSourceRequest{})
+func (c *Client) CreateSnapshotSource(ctx context.Context, req *CreateSnapshotSourceRequest) (*CreateSnapshotSourceResponse, error) {
+	resp := &CreateSnapshotSourceResponse{}
+	if err := c.Post("sources", req, resp); err != nil {
+		return nil, err
+	}
+
+	return resp, nil
 }
 
 // UploadSnapshots triggers snapshot upload on matching snapshots.
@@ -72,10 +77,20 @@ func (c *Client) ListSources(ctx context.Context, match *snapshot.SourceInfo) (*
 	return resp, nil
 }
 
-// ListSnapshots invokes the 'sources' API.
+// ListSnapshots lists the snapshots managed by the server for a given source filter.
 func (c *Client) ListSnapshots(ctx context.Context, match *snapshot.SourceInfo) (*SnapshotsResponse, error) {
 	resp := &SnapshotsResponse{}
 	if err := c.Get("snapshots"+matchSourceParameters(match), resp); err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
+
+// ListPolicies lists the policies managed by the server for a given target filter.
+func (c *Client) ListPolicies(ctx context.Context, match *snapshot.SourceInfo) (*PoliciesResponse, error) {
+	resp := &PoliciesResponse{}
+	if err := c.Get("policies"+matchSourceParameters(match), resp); err != nil {
 		return nil, err
 	}
 
