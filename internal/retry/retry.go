@@ -69,7 +69,7 @@ func internalRetry(desc string, attempt AttemptFunc, isRetriableError IsRetriabl
 		}
 	}
 
-	return nil, errors.Errorf("unable to complete %v despite %v retries", desc, maxAttempts)
+	return nil, errors.Errorf("unable to complete %v despite %v retries", desc, count)
 }
 
 // WithExponentialBackoffNoValue is a shorthand for WithExponentialBackoff except the

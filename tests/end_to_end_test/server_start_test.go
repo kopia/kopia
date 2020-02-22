@@ -48,8 +48,6 @@ func (s *serverParameters) ProcessOutput(l string) bool {
 }
 
 func TestServerStart(t *testing.T) {
-	t.Parallel()
-
 	ctx := context.Background()
 
 	e := testenv.NewCLITest(t)
@@ -248,7 +246,7 @@ func verifyServerConnected(t *testing.T, cli *serverapi.Client, want bool) *serv
 func waitForSnapshotCount(t *testing.T, cli *serverapi.Client, match *snapshot.SourceInfo, want int) {
 	t.Helper()
 
-	err := retry.PeriodicallyNoValue(1*time.Second, 30, "wait for snapshots", func() error {
+	err := retry.PeriodicallyNoValue(1*time.Second, 60, "wait for snapshots", func() error {
 		snapshots, err := cli.ListSnapshots(context.Background(), match)
 		if err != nil {
 			return errors.Wrap(err, "error listing sources")
