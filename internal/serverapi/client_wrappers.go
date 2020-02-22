@@ -2,9 +2,12 @@ package serverapi
 
 import (
 	"context"
+	"io/ioutil"
+	"net/http"
 	"strings"
 
 	"github.com/kopia/kopia/snapshot"
+	"github.com/pkg/errors"
 )
 
 // CreateSnapshotSource creates snapshot source with a given path.
@@ -95,6 +98,34 @@ func (c *Client) ListPolicies(ctx context.Context, match *snapshot.SourceInfo) (
 	}
 
 	return resp, nil
+}
+
+// GetObject returns the object payload.
+func (c *Client) GetObject(ctx context.Context, objectID string) ([]byte, error) {
+	req, err := http.NewRequest("GET", c.options.BaseURL+"objects/"+objectID, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if c.options.LogRequests {
+		log.Debugf("GET %v", req.URL)
+	}
+
+	if c.options.Username != "" {
+		req.SetBasicAuth(c.options.Username, c.options.Password)
+	}
+
+	resp, err := c.options.HTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close() //nolint:errcheck
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.Errorf("invalid server response: %v", resp.Status)
+	}
+
+	return ioutil.ReadAll(resp.Body)
 }
 
 func matchSourceParameters(match *snapshot.SourceInfo) string {

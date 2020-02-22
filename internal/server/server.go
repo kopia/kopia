@@ -59,7 +59,7 @@ func (s *Server) APIHandlers() http.Handler {
 	m.HandleFunc("/api/v1/flush", s.handleAPI(s.handleFlush)).Methods("POST")
 	m.HandleFunc("/api/v1/shutdown", s.handleAPIPossiblyNotConnected(s.handleShutdown)).Methods("POST")
 
-	m.HandleFunc("/api/v1/objects/", s.handleObjectGet).Methods("GET")
+	m.PathPrefix("/api/v1/objects/").HandlerFunc(s.handleObjectGet).Methods("GET")
 
 	m.HandleFunc("/api/v1/repo/status", s.handleAPIPossiblyNotConnected(s.handleRepoStatus)).Methods("GET")
 	m.HandleFunc("/api/v1/repo/connect", s.handleAPIPossiblyNotConnected(s.handleRepoConnect)).Methods("POST")
