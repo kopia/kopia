@@ -16,7 +16,9 @@ import (
 
 func (s *Server) handleSourcesList(ctx context.Context, r *http.Request) (interface{}, *apiError) {
 	resp := &serverapi.SourcesResponse{
-		Sources: []*serverapi.SourceStatus{},
+		Sources:       []*serverapi.SourceStatus{},
+		LocalHost:     s.options.Hostname,
+		LocalUsername: s.options.Username,
 	}
 
 	for _, v := range s.sourceManagers {
