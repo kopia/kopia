@@ -63,7 +63,9 @@ export default function MyTable({ columns, data }) {
   } = useTable({
     columns,
     data,
-    initialState: { pageSize: 15 },
+    initialState: { pageSize: 10 },
+    autoResetPage: false,
+    autoResetSortBy: false,
   },
     useSortBy,
     usePagination,

@@ -45,6 +45,10 @@ export function parseQuery(queryString) {
 }
 
 export function rfc3339TimestampForDisplay(n) {
+    if (!n) {
+        return "";
+    }
+    
     let t = new Date(n);
     return t.toLocaleString();
 }

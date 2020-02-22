@@ -60,7 +60,7 @@ func (s *sourceManager) Status() *serverapi.SourceStatus {
 		st.LastSnapshotTime = &ls.StartTime
 	}
 
-	if st.Status == "SNAPSHOTTING" {
+	if st.Status == "UPLOADING" {
 		c := s.progress.Snapshot()
 
 		st.UploadCounters = &c
@@ -119,7 +119,7 @@ func (s *sourceManager) runLocal(ctx context.Context) {
 			waitTime = oneDay
 		}
 
-		s.setStatus("WAITING")
+		s.setStatus("IDLE")
 		select {
 		case <-s.closed:
 			return
@@ -135,7 +135,6 @@ func (s *sourceManager) runLocal(ctx context.Context) {
 
 		case <-time.After(waitTime):
 			log.Debugf("snapshotting %v", s.src)
-			s.setStatus("SNAPSHOTTING")
 			s.snapshot(ctx)
 			s.refreshStatus(ctx)
 		}
@@ -198,8 +197,12 @@ func (s *sourceManager) waitUntilStopped() {
 }
 
 func (s *sourceManager) snapshot(ctx context.Context) {
+	s.setStatus("PENDING")
+
 	s.server.beginUpload(s.src)
 	defer s.server.endUpload(s.src)
+
+	s.setStatus("UPLOADING")
 
 	// check if we got closed while waiting on semaphore
 	select {

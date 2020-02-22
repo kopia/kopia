@@ -70,13 +70,13 @@ var _ UploadProgress = (*NullUploadProgress)(nil)
 
 // UploadCounters represents a snapshot of upload counters.
 type UploadCounters struct {
-	TotalCachedBytes int64
-	TotalHashedBytes int64
+	TotalCachedBytes int64 `json:"cachedBytes"`
+	TotalHashedBytes int64 `json:"hashedBytes"`
 
-	TotalCachedFiles int32
-	TotalHashedFiles int32
+	TotalCachedFiles int32 `json:"cachedFiles"`
+	TotalHashedFiles int32 `json:"hashedFiles"`
 
-	CurrentDirectory string
+	CurrentDirectory string `json:"directory"`
 }
 
 // CountingUploadProgress is an implementation of UploadProgress that accumulates counters.

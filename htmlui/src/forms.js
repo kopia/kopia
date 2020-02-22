@@ -105,7 +105,7 @@ function valueToNumber(t) {
 }
 
 function isInvalidNumber(v) {
-    if (v === undefined) {
+    if (v === undefined || v === '') {
         return false
     }
 
