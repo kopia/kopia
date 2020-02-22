@@ -35,7 +35,7 @@ function advancedConfiguration() {
     height: 700,
     autoHideMenuBar: true,
     webPreferences: {
-      nodeIntegration: true
+      nodeIntegration: true,
     },
   })
 
@@ -44,12 +44,14 @@ function advancedConfiguration() {
   } else {
     configWindow.loadFile('./build/index.html');
   }
+  updateDockIcon();
 
   configWindow.on('closed', function () {
     ipcMain.removeAllListeners('status-updated-event');
     ipcMain.removeAllListeners('logs-updated-event');
     // forget the reference.
     configWindow = null;
+    updateDockIcon();
   });
 }
 
@@ -64,6 +66,11 @@ function showMainWindow() {
     height: 700,
     title: 'Kopia UI Loading...',
     autoHideMenuBar: true,
+    webPreferences: {
+      nodeIntegration: true,
+      // use a preload script to expose node features to the browser window
+      preload: path.join(app.getAppPath(), "preload.js"),
+    },
   })
 
   mainWindow.webContents.on('did-fail-load', () => {
@@ -81,10 +88,12 @@ function showMainWindow() {
   })
 
   mainWindow.loadURL(getServerAddress() + '/?ts=' + new Date().valueOf());
+  updateDockIcon();
 
   mainWindow.on('closed', function () {
     // forget the reference.
     mainWindow = null;
+    updateDockIcon();
   });
 }
 
@@ -165,9 +174,9 @@ function maybeMoveToApplicationsFolder() {
 
 function setMenuBar() {
   if (process.platform === 'darwin') {
-    let template = []
     const name = app.getName();
-    template.unshift({
+    let template = [
+    {
       label: name,
       submenu: [
         {
@@ -180,18 +189,32 @@ function setMenuBar() {
           click() { app.quit(); }
         },
       ]
-    })
-
+    },{
+      label: "Edit",
+      submenu: [
+        { label: "Undo", accelerator: "CmdOrCtrl+Z", selector: "undo:" },
+        { label: "Redo", accelerator: "Shift+CmdOrCtrl+Z", selector: "redo:" },
+        { type: "separator" },
+        { label: "Cut", accelerator: "CmdOrCtrl+X", selector: "cut:" },
+        { label: "Copy", accelerator: "CmdOrCtrl+C", selector: "copy:" },
+        { label: "Paste", accelerator: "CmdOrCtrl+V", selector: "paste:" },
+        { label: "Select All", accelerator: "CmdOrCtrl+A", selector: "selectAll:" }
+      ]
+    }];
+    
     // Create the Menu
     const menu = Menu.buildFromTemplate(template);
     Menu.setApplicationMenu(menu);
   }
 }
 
-
-function hideFromDock() {
+function updateDockIcon() {
   if (process.platform === 'darwin') {
-    app.dock.hide();
+    if (configWindow || mainWindow) {
+      app.dock.show();
+    } else {
+      app.dock.hide();
+    }
   }
 }
 
@@ -204,7 +227,7 @@ app.on('ready', () => {
     return
   }
 
-  hideFromDock();
+  updateDockIcon();
 
   checkForUpdates();
 

@@ -25,7 +25,9 @@ endif
 else
 
 # not running on Travis, or Travis in PR mode, don't build installer and don't publish
+ifneq ($(FORCE_KOPIA_UI_SIGN),)
 electron_builder_flags+=--dir
+endif
 
 endif
 

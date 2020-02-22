@@ -28,7 +28,7 @@ export class DirectoryObject extends Component {
         });
         axios.get('/api/v1/objects/' + oid).then(result => {
             this.setState({
-                items: result.data.entries,
+                items: result.data.entries || [],
                 isLoading: false,
             });
         }).catch(error => this.setState({
