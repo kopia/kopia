@@ -2,6 +2,7 @@ package endtoend_test
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
@@ -56,12 +57,27 @@ func TestServerStart(t *testing.T) {
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
-	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
-	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
+	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1,
+		"--hostname=fake-hostname",
+		"--username=fake-username",
+	)
+	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1,
+		"--hostname=fake-hostname",
+		"--username=fake-username",
+	)
 
 	var sp serverParameters
 
-	e.RunAndProcessStderr(t, sp.ProcessOutput, "server", "start", "--ui", "--address=localhost:0", "--random-password", "--tls-generate-cert", "--auto-shutdown=60s")
+	e.RunAndProcessStderr(t, sp.ProcessOutput,
+		"server", "start",
+		"--ui",
+		"--address=localhost:0",
+		"--random-password",
+		"--tls-generate-cert",
+		"--auto-shutdown=60s",
+		"--hostname=fake-hostname",
+		"--username=fake-username",
+	)
 	t.Logf("detected server parameters %#v", sp)
 
 	cli, err := serverapi.NewClient(serverapi.ClientOptions{
@@ -83,16 +99,8 @@ func TestServerStart(t *testing.T) {
 		t.Errorf("unexpected storage type: %v, want %v", got, want)
 	}
 
-	sources, err := cli.ListSources(ctx, nil)
-	if err != nil {
-		t.Fatalf("error listing sources: %v", err)
-	}
-
-	if got, want := len(sources.Sources), 1; got != want {
-		t.Errorf("unexpected number of sources %v, want %v", got, want)
-	}
-
-	if got, want := sources.Sources[0].Source.Path, sharedTestDataDir1; got != want {
+	sources := verifySourceCount(t, cli, nil, 1)
+	if got, want := sources[0].Source.Path, sharedTestDataDir1; got != want {
 		t.Errorf("unexpected source path: %v, want %v", got, want)
 	}
 
@@ -114,21 +122,32 @@ func TestServerStart(t *testing.T) {
 
 	verifySourceCount(t, cli, nil, 2)
 	verifySourceCount(t, cli, &snapshot.SourceInfo{Host: "no-such-host"}, 0)
-	verifySourceCount(t, cli, &snapshot.SourceInfo{Path: sharedTestDataDir2}, 1)
+	verifySourceCount(t, cli, &snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir2}, 1)
 
 	verifySnapshotCount(t, cli, nil, 2)
-	verifySnapshotCount(t, cli, &snapshot.SourceInfo{Path: sharedTestDataDir1}, 2)
-	verifySnapshotCount(t, cli, &snapshot.SourceInfo{Path: sharedTestDataDir2}, 0)
+	verifySnapshotCount(t, cli, &snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir1}, 2)
+	verifySnapshotCount(t, cli, &snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir2}, 0)
 	verifySnapshotCount(t, cli, &snapshot.SourceInfo{Host: "no-such-host"}, 0)
 
-	uploadMatchingSnapshots(t, cli, &snapshot.SourceInfo{Path: sharedTestDataDir2})
-	waitForSnapshotCount(t, cli, &snapshot.SourceInfo{Path: sharedTestDataDir2}, 1)
+	uploadMatchingSnapshots(t, cli, &snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir2})
+	waitForSnapshotCount(t, cli, &snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir2}, 1)
 
 	if _, err = cli.CancelUpload(ctx, nil); err != nil {
 		t.Fatalf("cancel failed: %v", err)
 	}
 
-	verifySnapshotCount(t, cli, &snapshot.SourceInfo{Path: sharedTestDataDir2}, 1)
+	snaps := verifySnapshotCount(t, cli, &snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir2}, 1)
+
+	rootPayload, err := cli.GetObject(ctx, snaps[0].RootEntry)
+	if err != nil {
+		t.Fatalf("getObject %v", err)
+	}
+
+	// make sure root payload is valid JSON for the directory.
+	var dummy map[string]interface{}
+	if err = json.Unmarshal(rootPayload, &dummy); err != nil {
+		t.Fatalf("invalid JSON received: %v", err)
+	}
 
 	keepDaily := 77
 
@@ -150,7 +169,7 @@ func TestServerStart(t *testing.T) {
 		t.Errorf("unexpected value of 'snapshotStarted': %v", createResp.SnapshotStarted)
 	}
 
-	policies, err := cli.ListPolicies(ctx, &snapshot.SourceInfo{Path: sharedTestDataDir3})
+	policies, err := cli.ListPolicies(ctx, &snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir3})
 	if err != nil {
 		t.Errorf("aaa")
 	}
@@ -163,7 +182,7 @@ func TestServerStart(t *testing.T) {
 		t.Errorf("initial policy not persisted")
 	}
 
-	waitForSnapshotCount(t, cli, &snapshot.SourceInfo{Path: sharedTestDataDir3}, 1)
+	waitForSnapshotCount(t, cli, &snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir3}, 1)
 }
 
 func TestServerStartWithoutInitialRepository(t *testing.T) {
@@ -271,7 +290,7 @@ func uploadMatchingSnapshots(t *testing.T, cli *serverapi.Client, match *snapsho
 	}
 }
 
-func verifySnapshotCount(t *testing.T, cli *serverapi.Client, match *snapshot.SourceInfo, want int) {
+func verifySnapshotCount(t *testing.T, cli *serverapi.Client, match *snapshot.SourceInfo, want int) []*serverapi.Snapshot {
 	t.Helper()
 
 	snapshots, err := cli.ListSnapshots(context.Background(), match)
@@ -282,9 +301,11 @@ func verifySnapshotCount(t *testing.T, cli *serverapi.Client, match *snapshot.So
 	if got := len(snapshots.Snapshots); got != want {
 		t.Errorf("unexpected number of snapshots %v, want %v", got, want)
 	}
+
+	return snapshots.Snapshots
 }
 
-func verifySourceCount(t *testing.T, cli *serverapi.Client, match *snapshot.SourceInfo, want int) {
+func verifySourceCount(t *testing.T, cli *serverapi.Client, match *snapshot.SourceInfo, want int) []*serverapi.SourceStatus {
 	t.Helper()
 
 	sources, err := cli.ListSources(context.Background(), match)
@@ -292,9 +313,19 @@ func verifySourceCount(t *testing.T, cli *serverapi.Client, match *snapshot.Sour
 		t.Fatalf("error listing sources: %v", err)
 	}
 
+	if got, want := sources.LocalHost, "fake-hostname"; got != want {
+		t.Errorf("unexpected local host: %v, want %v", got, want)
+	}
+
+	if got, want := sources.LocalUsername, "fake-username"; got != want {
+		t.Errorf("unexpected local username: %v, want %v", got, want)
+	}
+
 	if got := len(sources.Sources); got != want {
 		t.Errorf("unexpected number of sources %v, want %v", got, want)
 	}
+
+	return sources.Sources
 }
 
 func waitUntilServerStarted(t *testing.T, cli *serverapi.Client) {
