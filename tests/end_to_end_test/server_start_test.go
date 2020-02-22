@@ -248,7 +248,7 @@ func verifyServerConnected(t *testing.T, cli *serverapi.Client, want bool) *serv
 func waitForSnapshotCount(t *testing.T, cli *serverapi.Client, match *snapshot.SourceInfo, want int) {
 	t.Helper()
 
-	err := retry.WithExponentialBackoffNoValue("wait for snapshots", func() error {
+	err := retry.PeriodicallyNoValue(1*time.Second, 30, "wait for snapshots", func() error {
 		snapshots, err := cli.ListSnapshots(context.Background(), match)
 		if err != nil {
 			return errors.Wrap(err, "error listing sources")
@@ -259,7 +259,7 @@ func waitForSnapshotCount(t *testing.T, cli *serverapi.Client, match *snapshot.S
 		}
 
 		return nil
-	}, func(err error) bool { return err != nil })
+	}, retry.Always)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -300,13 +300,10 @@ func verifySourceCount(t *testing.T, cli *serverapi.Client, match *snapshot.Sour
 }
 
 func waitUntilServerStarted(t *testing.T, cli *serverapi.Client) {
-	for i := 0; i < 60; i++ {
-		if _, err := cli.Status(context.Background()); err == nil {
-			return
-		}
-
-		time.Sleep(1 * time.Second)
+	if err := retry.PeriodicallyNoValue(1*time.Second, 60, "wait for server start", func() error {
+		_, err := cli.Status(context.Background())
+		return err
+	}, retry.Always); err != nil {
+		t.Fatalf("server failed to start")
 	}
-
-	t.Fatalf("server failed to start")
 }
