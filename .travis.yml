@@ -19,6 +19,9 @@ before_install:
       windows)
         choco install --no-progress -y make unzip curl
         ;;
+      osx):
+        sudo xcode-select -r
+        ;;
     esac
 install: make travis-setup
 script: make travis-release
