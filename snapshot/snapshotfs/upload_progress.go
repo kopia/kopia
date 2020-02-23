@@ -8,7 +8,7 @@ import (
 // UploadProgress is invoked by by uploader to report status of file and directory uploads.
 type UploadProgress interface {
 	// UploadStarted is emitted once at the start of an upload
-	UploadStarted()
+	UploadStarted(previousFileCount int, previousTotalSize int64)
 
 	// UploadFinished is emitted once at the end of an upload
 	UploadFinished()
@@ -40,7 +40,7 @@ type NullUploadProgress struct {
 }
 
 // UploadStarted implements UploadProgress
-func (p *NullUploadProgress) UploadStarted() {}
+func (p *NullUploadProgress) UploadStarted(previousFileCount int, previousTotalSize int64) {}
 
 // UploadFinished implements UploadProgress
 func (p *NullUploadProgress) UploadFinished() {}
@@ -89,7 +89,7 @@ type CountingUploadProgress struct {
 }
 
 // UploadStarted implements UploadProgress
-func (p *CountingUploadProgress) UploadStarted() {
+func (p *CountingUploadProgress) UploadStarted(previousFileCount int, previousTotalFileSize int64) {
 	// reset counters to all-zero values.
 	p.counters = UploadCounters{}
 }
