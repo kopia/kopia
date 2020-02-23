@@ -11,6 +11,7 @@ import (
 )
 
 const spinner = `|/-\`
+const hundredPercent = 100.0
 
 type cliProgress struct {
 	snapshotfs.NullUploadProgress
@@ -103,9 +104,9 @@ func (p *cliProgress) output() {
 	)
 
 	if p.previousTotalSize > 0 {
-		percent := (float64(hashedBytes+cachedBytes) * 100.0 / float64(p.previousTotalSize))
-		if percent > 100 {
-			percent = 100
+		percent := (float64(hashedBytes+cachedBytes) * hundredPercent / float64(p.previousTotalSize))
+		if percent > hundredPercent {
+			percent = hundredPercent
 		}
 
 		line += fmt.Sprintf(" %.1f%%", percent)
