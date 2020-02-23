@@ -6,6 +6,7 @@ import Form from 'react-bootstrap/Form';
 import { handleChange, OptionalField, RequiredField, validateRequiredFields } from './forms';
 import { PolicyEditor } from './PolicyEditor';
 import MyTable from './Table';
+import { redirectIfNotConnected } from './uiutil';
 
 export class PoliciesTable extends Component {
     constructor() {
@@ -41,10 +42,13 @@ export class PoliciesTable extends Component {
                 items: result.data.policies,
                 isLoading: false,
             });
-        }).catch(error => this.setState({
-            error,
-            isLoading: false
-        }));
+        }).catch(error => {
+            redirectIfNotConnected(error);
+            this.setState({
+                error,
+                isLoading: false
+            });
+        });
     }
 
     editorClosed() {
@@ -71,11 +75,11 @@ export class PoliciesTable extends Component {
 
             return a;
         }
-        
+
         this.setState({
             editorTarget: {
                 userName: fixInput(this.state.targetUsername),
-                host: this.state.targetHost, 
+                host: this.state.targetHost,
                 path: fixInput(this.state.targetPath),
             },
             selectedRowIsNew: true,
@@ -84,8 +88,8 @@ export class PoliciesTable extends Component {
 
     policySummary(p) {
         function isEmpty(obj) {
-            for(var key in obj) {
-                if(obj.hasOwnProperty(key))
+            for (var key in obj) {
+                if (obj.hasOwnProperty(key))
                     return false;
             }
 
@@ -151,16 +155,16 @@ export class PoliciesTable extends Component {
             </div>
 
             <div className={this.state.editorTarget ? "hidden" : "normal"}>
-                <hr/>
-            <div className="new-policy-panel"><Form>
-                <Form.Row>
-                    {OptionalField(this, "Target Username", "targetUsername", {}, "Specify * all empty to target all users")}
-                    {RequiredField(this, "Target Host", "targetHost", {})}
-                    {OptionalField(this, "Target Path", "targetPath", {}, "Specify * all empty to target all filesystem paths")}
-                </Form.Row>
-                <Button variant="primary" onClick={this.setNewPolicy}>Set New Policy</Button>
-            </Form>
-            </div>
+                <hr />
+                <div className="new-policy-panel"><Form>
+                    <Form.Row>
+                        {OptionalField(this, "Target Username", "targetUsername", {}, "Specify * all empty to target all users")}
+                        {RequiredField(this, "Target Host", "targetHost", {})}
+                        {OptionalField(this, "Target Path", "targetPath", {}, "Specify * all empty to target all filesystem paths")}
+                    </Form.Row>
+                    <Button variant="primary" onClick={this.setNewPolicy}>Set New Policy</Button>
+                </Form>
+                </div>
             </div>
             {this.state.editorTarget && <PolicyEditor host={this.state.editorTarget.host} userName={this.state.editorTarget.userName} path={this.state.editorTarget.path} close={this.editorClosed} isNew={this.state.selectedRowIsNew} />}
         </div>;
