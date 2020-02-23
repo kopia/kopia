@@ -1,6 +1,7 @@
 import axios from 'axios';
 import React, { Component } from 'react';
 import Badge from 'react-bootstrap/Badge';
+import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
 import Row from 'react-bootstrap/Row';
 import Spinner from 'react-bootstrap/Spinner';
@@ -144,17 +145,20 @@ export class SnapshotsTable extends Component {
 
         return <div class="padded">
             <Row>
-                <Form>
-                    <Form.Label>Displaying {filteredSnapshots.length !== snapshots.length ? filteredSnapshots.length + ' out of ' + snapshots.length : snapshots.length} snapshots of <b>{this.state.userName}@{this.state.host}:{this.state.path}</b></Form.Label>
+            <Button size="xxl" variant="dark" onClick={this.props.history.goBack} >
+                Back
+            </Button>
+            &nbsp;
+            Displaying {filteredSnapshots.length !== snapshots.length ? filteredSnapshots.length + ' out of ' + snapshots.length : snapshots.length} snapshots of <b>{this.state.userName}@{this.state.host}:{this.state.path}</b>
                     {hiddenCount > 0 &&
-                        <Form.Group controlId="formBasicCheckbox">
+                        <>&nbsp;<Form.Group controlId="formBasicCheckbox">
                             <Form.Check
                                 type="checkbox"
                                 checked={this.state.showHidden}
                                 label={'Show ' + hiddenCount + ' identical snapshots'}
                                 onChange={this.onChange} />
-                        </Form.Group>}
-                </Form>
+                        </Form.Group></>}
+
             </Row>
             <hr />
             <Row>

@@ -14,7 +14,7 @@ import Spinner from 'react-bootstrap/Spinner';
 import { Link } from 'react-router-dom';
 import { handleChange } from './forms';
 import MyTable from './Table';
-import { compare, ownerName, sizeDisplayName } from './uiutil';
+import { compare, ownerName, sizeDisplayName, redirectIfNotConnected } from './uiutil';
 
 const localSnapshots = "Local Snapshots"
 const allSnapshots = "All Snapshots"
@@ -62,10 +62,13 @@ export class SourcesTable extends Component {
                 sources: result.data.sources,
                 isLoading: false,
             });
-        }).catch(error => this.setState({
-            error,
-            isLoading: false
-        }));
+        }).catch(error => {
+            redirectIfNotConnected(error);
+            this.setState({
+                error,
+                isLoading: false
+            });
+        });
     }
 
     selectOwner(h) {
@@ -101,7 +104,7 @@ export class SourcesTable extends Component {
             });
             if (dir) {
                 this.setState({
-                    selectedDirectory: dir,
+                    selectedDirectory: dir[0],
                 });
             }
         } catch (e) {
@@ -173,9 +176,9 @@ export class SourcesTable extends Component {
         switch (x.cell.value) {
             case "IDLE":
                 return <>
-                <Button variant="primary" size="sm" onClick={() => {
-                    parent.startSnapshot(x.row.original.source);
-                }}>Snapshot now</Button>
+                    <Button variant="primary" size="sm" onClick={() => {
+                        parent.startSnapshot(x.row.original.source);
+                    }}>Snapshot now</Button>
                 </>;
 
             case "PENDING":
@@ -197,7 +200,7 @@ export class SourcesTable extends Component {
                 }
 
                 return <>
-                    <Spinner animation="border" variant="primary" size="sm" title={title} />&nbsp;Snapshotting { totals }
+                    <Spinner animation="border" variant="primary" size="sm" title={title} />&nbsp;Snapshotting {totals}
                     &nbsp;
                     <Button variant="danger" size="sm" onClick={() => {
                         parent.cancelSnapshot(x.row.original.source);
@@ -289,12 +292,12 @@ export class SourcesTable extends Component {
             accessor: x => x.nextSnapshotTime,
             Cell: x => (x.cell.value && x.row.original.status !== "UPLOADING") ? <>
                 <p title={moment(x.cell.value).toLocaleString()}>{moment(x.cell.value).fromNow()}
-                {moment(x.cell.value).isBefore(moment()) && <>
-                &nbsp;
+                    {moment(x.cell.value).isBefore(moment()) && <>
+                        &nbsp;
                     <Badge variant="secondary">overdue</Badge>
-                </>}
+                    </>}
                 </p>
-                </> : '',
+            </> : '',
         }, {
             id: 'status',
             Header: 'Status',

@@ -47,7 +47,7 @@ export function handleChange(event, valueGetter=x=>x.value) {
     this.setState(newState);
 }
 
-export function stateProperty(component, name) {
+export function stateProperty(component, name, defaultValue = "") {
     let st = component.state;
     const parts = name.split(/\./);
 
@@ -60,14 +60,14 @@ export function stateProperty(component, name) {
         st = st[part];
     }
 
-    return st || "";
+    return st || defaultValue;
 }
 
 export function RequiredField(component, label, name, props = {}, helpText = null) {
     return <Form.Group as={Col}>
         <Form.Label className="required">{label}</Form.Label>
         <Form.Control
-            isInvalid={stateProperty(component, name) === ''}
+            isInvalid={stateProperty(component, name, null) === ''}
             name={name}
             value={stateProperty(component, name)}
             data-testid={'control-'+name}
