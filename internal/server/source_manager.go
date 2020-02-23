@@ -34,13 +34,14 @@ type sourceManager struct {
 	snapshotRequests chan struct{}
 	wg               sync.WaitGroup
 
-	mu                   sync.RWMutex
-	uploader             *snapshotfs.Uploader
-	pol                  policy.SchedulingPolicy
-	state                string
-	nextSnapshotTime     *time.Time
-	lastCompleteSnapshot *snapshot.Manifest
-	lastSnapshot         *snapshot.Manifest
+	mu                                 sync.RWMutex
+	uploader                           *snapshotfs.Uploader
+	pol                                policy.SchedulingPolicy
+	state                              string
+	nextSnapshotTime                   *time.Time
+	lastSnapshot                       *snapshot.Manifest
+	lastCompleteSnapshot               *snapshot.Manifest
+	manifestsSinceLastCompleteSnapshot []*snapshot.Manifest
 
 	progress *snapshotfs.CountingUploadProgress
 }
@@ -58,6 +59,10 @@ func (s *sourceManager) Status() *serverapi.SourceStatus {
 
 	if ls := s.lastSnapshot; ls != nil {
 		st.LastSnapshotTime = &ls.StartTime
+	}
+
+	if ls := s.lastCompleteSnapshot; ls != nil {
+		st.LastSnapshotSize = &ls.Stats.TotalFileSize
 	}
 
 	if st.Status == "UPLOADING" {
@@ -230,7 +235,7 @@ func (s *sourceManager) snapshot(ctx context.Context) {
 
 	log.Infof("starting upload of %v", s.src)
 	s.setUploader(u)
-	manifest, err := u.Upload(ctx, localEntry, policyTree, s.src, s.lastCompleteSnapshot, s.lastSnapshot)
+	manifest, err := u.Upload(ctx, localEntry, policyTree, s.src, s.manifestsSinceLastCompleteSnapshot...)
 	s.setUploader(nil)
 
 	if err != nil {
@@ -300,11 +305,22 @@ func (s *sourceManager) refreshStatus(ctx context.Context) {
 		return
 	}
 
+	s.manifestsSinceLastCompleteSnapshot = nil
 	s.lastCompleteSnapshot = nil
 
 	snaps := snapshot.SortByTime(snapshots, true)
 	if len(snaps) > 0 {
 		s.lastSnapshot = snaps[0]
+		for _, sn := range snaps {
+			s.manifestsSinceLastCompleteSnapshot = append(s.manifestsSinceLastCompleteSnapshot, sn)
+
+			// complete snapshot, end here
+			if sn.IncompleteReason == "" {
+				s.lastCompleteSnapshot = sn
+				break
+			}
+		}
+
 		s.nextSnapshotTime = s.findClosestNextSnapshotTime()
 	} else {
 		s.nextSnapshotTime = nil
