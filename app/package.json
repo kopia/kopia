@@ -19,6 +19,7 @@
   },
   "build": {
     "productName": "KopiaUI",
+    "appId": "io.kopia.ui",
     "publish": [
       {
         "provider": "github"
@@ -62,6 +63,11 @@
       ]
     },
     "mac": {
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "entitlements.mac.plist",
+      "entitlementsInherit": "entitlements.mac.plist",
+      "category": "public.app-category.utilities",
       "extraResources": [
         {
           "from": "../dist/kopia_darwin_amd64",
@@ -82,13 +88,15 @@
           ]
         }
       ]
-    }
+    },
+    "afterSign": "notarize.js"
   },
   "devDependencies": {
     "asar": "^2.0.3",
     "concurrently": "^5.0.0",
     "electron": "^7.1.12",
-    "electron-builder": "^22.2.0"
+    "electron-builder": "^22.2.0",
+    "electron-notarize": "^0.2.1"
   },
   "homepage": "./",
   "main": "public/electron.js",
