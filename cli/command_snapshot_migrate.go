@@ -201,7 +201,7 @@ func getSourcesToMigrate(ctx context.Context, rep *repo.Repository) ([]snapshot.
 		var result []snapshot.SourceInfo
 
 		for _, s := range *migrateSources {
-			si, err := snapshot.ParseSourceInfo(s, getHostName(), getUserName())
+			si, err := snapshot.ParseSourceInfo(s, rep.Hostname, rep.Username)
 			if err != nil {
 				return nil, err
 			}
@@ -220,6 +220,5 @@ func getSourcesToMigrate(ctx context.Context, rep *repo.Repository) ([]snapshot.
 }
 
 func init() {
-	addUserAndHostFlags(migrateCommand)
 	migrateCommand.Action(repositoryAction(runMigrateCommand))
 }

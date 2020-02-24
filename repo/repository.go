@@ -22,6 +22,9 @@ type Repository struct {
 
 	ConfigFile string
 
+	Hostname string // connected (localhost) hostname
+	Username string // connected username
+
 	formatBlob *formatBlob
 	masterKey  []byte
 }

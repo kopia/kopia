@@ -56,16 +56,10 @@ func TestServerStart(t *testing.T) {
 	defer e.Cleanup(t)
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
-	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--override-hostname=fake-hostname", "--override-username=fake-username")
 
-	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1,
-		"--hostname=fake-hostname",
-		"--username=fake-username",
-	)
-	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1,
-		"--hostname=fake-hostname",
-		"--username=fake-username",
-	)
+	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
+	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
 
 	var sp serverParameters
 
@@ -76,8 +70,8 @@ func TestServerStart(t *testing.T) {
 		"--random-password",
 		"--tls-generate-cert",
 		"--auto-shutdown=60s",
-		"--hostname=fake-hostname",
-		"--username=fake-username",
+		"--override-hostname=fake-hostname",
+		"--override-username=fake-username",
 	)
 	t.Logf("detected server parameters %#v", sp)
 

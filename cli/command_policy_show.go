@@ -19,7 +19,6 @@ var (
 )
 
 func init() {
-	addUserAndHostFlags(policyShowCommand)
 	policyShowCommand.Action(repositoryAction(showPolicy))
 }
 

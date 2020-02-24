@@ -330,8 +330,6 @@ func (s *Server) syncSourcesLocked(ctx context.Context) error {
 // Options encompasses all API server options.
 type Options struct {
 	ConfigFile      string
-	Hostname        string
-	Username        string
 	ConnectOptions  *repo.ConnectOptions
 	RefreshInterval time.Duration
 }
