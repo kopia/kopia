@@ -255,7 +255,7 @@ func loadSourceManifests(ctx context.Context, rep *repo.Repository, sources []st
 		manifestIDs = append(manifestIDs, man...)
 	} else {
 		for _, srcStr := range sources {
-			src, err := snapshot.ParseSourceInfo(srcStr, getHostName(), getUserName())
+			src, err := snapshot.ParseSourceInfo(srcStr, rep.Hostname, rep.Username)
 			if err != nil {
 				return nil, errors.Wrapf(err, "error parsing %q", srcStr)
 			}
@@ -271,6 +271,5 @@ func loadSourceManifests(ctx context.Context, rep *repo.Repository, sources []st
 }
 
 func init() {
-	addUserAndHostFlags(verifyCommand)
 	verifyCommand.Action(repositoryAction(runVerifyCommand))
 }

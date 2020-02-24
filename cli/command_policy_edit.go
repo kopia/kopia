@@ -55,7 +55,6 @@ var (
 )
 
 func init() {
-	addUserAndHostFlags(policyEditCommand)
 	policyEditCommand.Action(repositoryAction(editPolicy))
 }
 

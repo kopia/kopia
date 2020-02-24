@@ -64,6 +64,17 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 		return nil, err
 	}
 
+	r.Hostname = lc.Hostname
+	r.Username = lc.Username
+
+	if r.Hostname == "" {
+		r.Hostname = getDefaultHostName(ctx)
+	}
+
+	if r.Username == "" {
+		r.Username = getDefaultUserName(ctx)
+	}
+
 	r.ConfigFile = configFile
 
 	return r, nil

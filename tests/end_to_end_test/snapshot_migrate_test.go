@@ -23,7 +23,7 @@ func TestSnapshotMigrate(t *testing.T) {
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2)
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2)
 
-	e.RunAndExpectSuccess(t, "snapshot", "create", "--hostname", "bar", "--username", "foo", sharedTestDataDir3)
+	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir3)
 
 	dstenv := testenv.NewCLITest(t)
 	defer dstenv.Cleanup(t)

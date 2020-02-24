@@ -70,7 +70,11 @@ func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
 			return errors.Errorf("invalid source: '%s': %s", snapshotDir, err)
 		}
 
-		sourceInfo := snapshot.SourceInfo{Path: filepath.Clean(dir), Host: getHostName(), UserName: getUserName()}
+		sourceInfo := snapshot.SourceInfo{
+			Path:     filepath.Clean(dir),
+			Host:     rep.Hostname,
+			UserName: rep.Username,
+		}
 
 		if err := snapshotSingleSource(ctx, rep, u, sourceInfo); err != nil {
 			finalErrors = append(finalErrors, err.Error())
@@ -185,9 +189,7 @@ func findPreviousSnapshotManifest(ctx context.Context, rep *repo.Repository, sou
 }
 
 func getLocalBackupPaths(ctx context.Context, rep *repo.Repository) ([]string, error) {
-	h := getHostName()
-	u := getUserName()
-	log(ctx).Debugf("Looking for previous backups of '%v@%v'...", u, h)
+	log(ctx).Debugf("Looking for previous backups of '%v@%v'...", rep.Hostname, rep.Username)
 
 	sources, err := snapshot.ListSources(ctx, rep)
 	if err != nil {
@@ -197,7 +199,7 @@ func getLocalBackupPaths(ctx context.Context, rep *repo.Repository) ([]string, e
 	var result []string
 
 	for _, src := range sources {
-		if src.Host == h && src.UserName == u {
+		if src.Host == rep.Hostname && src.UserName == rep.Username {
 			result = append(result, src.Path)
 		}
 	}
@@ -206,6 +208,5 @@ func getLocalBackupPaths(ctx context.Context, rep *repo.Repository) ([]string, e
 }
 
 func init() {
-	addUserAndHostFlags(snapshotCreateCommand)
 	snapshotCreateCommand.Action(repositoryAction(runBackupCommand))
 }

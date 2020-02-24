@@ -14,7 +14,6 @@ var (
 )
 
 func init() {
-	addUserAndHostFlags(policyRemoveCommand)
 	policyRemoveCommand.Action(repositoryAction(removePolicy))
 }
 

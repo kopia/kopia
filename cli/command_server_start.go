@@ -29,7 +29,6 @@ var (
 )
 
 func init() {
-	addUserAndHostFlags(serverStartCommand)
 	setupConnectOptions(serverStartCommand)
 	serverStartCommand.Action(optionalRepositoryAction(runServer))
 }
@@ -37,8 +36,6 @@ func init() {
 func runServer(ctx context.Context, rep *repo.Repository) error {
 	srv, err := server.New(ctx, rep, server.Options{
 		ConfigFile:      repositoryConfigFileName(),
-		Hostname:        getHostName(),
-		Username:        getUserName(),
 		ConnectOptions:  connectOptions(),
 		RefreshInterval: *serverStartRefreshInterval,
 	})

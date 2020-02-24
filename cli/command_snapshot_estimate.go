@@ -70,7 +70,11 @@ func runSnapshotEstimateCommand(ctx context.Context, rep *repo.Repository) error
 		return errors.Errorf("invalid path: '%s': %s", path, err)
 	}
 
-	sourceInfo := snapshot.SourceInfo{Path: filepath.Clean(path), Host: getHostName(), UserName: getUserName()}
+	sourceInfo := snapshot.SourceInfo{
+		Path:     filepath.Clean(path),
+		Host:     rep.Hostname,
+		UserName: rep.Username,
+	}
 
 	var stats snapshot.Stats
 
@@ -167,6 +171,5 @@ func estimate(ctx context.Context, relativePath string, entry fs.Entry, stats *s
 }
 
 func init() {
-	addUserAndHostFlags(snapshotEstimate)
 	snapshotEstimate.Action(repositoryAction(runSnapshotEstimateCommand))
 }

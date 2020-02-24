@@ -17,7 +17,9 @@ import (
 
 // ConnectOptions specifies options when persisting configuration to connect to a repository.
 type ConnectOptions struct {
-	PersistCredentials bool `json:"persistCredentials"`
+	PersistCredentials bool   `json:"persistCredentials"`
+	HostnameOverride   string `json:"hostnameOverride"`
+	UsernameOverride   string `json:"usernameOverride"`
 
 	content.CachingOptions
 }
@@ -48,6 +50,16 @@ func Connect(ctx context.Context, configFile string, st blob.Storage, password s
 
 	var lc LocalConfig
 	lc.Storage = st.ConnectionInfo()
+
+	lc.Hostname = opt.HostnameOverride
+	if lc.Hostname == "" {
+		lc.Hostname = getDefaultHostName(ctx)
+	}
+
+	lc.Username = opt.UsernameOverride
+	if lc.Username == "" {
+		lc.Username = getDefaultUserName(ctx)
+	}
 
 	if err = setupCaching(ctx, configFile, &lc, opt.CachingOptions, f.UniqueID); err != nil {
 		return errors.Wrap(err, "unable to set up caching")

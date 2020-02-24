@@ -20,6 +20,8 @@ var (
 	connectMaxCacheSizeMB         int64
 	connectMaxMetadataCacheSizeMB int64
 	connectMaxListCacheDuration   time.Duration
+	connectHostname               string
+	connectUsername               string
 )
 
 func setupConnectOptions(cmd *kingpin.CmdClause) {
@@ -30,6 +32,8 @@ func setupConnectOptions(cmd *kingpin.CmdClause) {
 	cmd.Flag("content-cache-size-mb", "Size of local content cache").PlaceHolder("MB").Default("5000").Int64Var(&connectMaxCacheSizeMB)
 	cmd.Flag("metadata-cache-size-mb", "Size of local metadata cache").PlaceHolder("MB").Default("500").Int64Var(&connectMaxMetadataCacheSizeMB)
 	cmd.Flag("max-list-cache-duration", "Duration of index cache").Default("600s").Hidden().DurationVar(&connectMaxListCacheDuration)
+	cmd.Flag("override-hostname", "Override hostname used by this repository connection").Hidden().StringVar(&connectHostname)
+	cmd.Flag("override-username", "Override username used by this repository connection").Hidden().StringVar(&connectUsername)
 }
 
 func connectOptions() *repo.ConnectOptions {
@@ -40,6 +44,8 @@ func connectOptions() *repo.ConnectOptions {
 			MaxCacheSizeBytes:       connectMaxCacheSizeMB << 20, //nolint:gomnd
 			MaxListCacheDurationSec: int(connectMaxListCacheDuration.Seconds()),
 		},
+		HostnameOverride: connectHostname,
+		UsernameOverride: connectUsername,
 	}
 }
 

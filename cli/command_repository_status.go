@@ -32,15 +32,15 @@ func runStatusCommand(ctx context.Context, rep *repo.Repository) error {
 	}
 
 	fmt.Println()
-
-	fmt.Println()
 	fmt.Printf("Unique ID:           %x\n", rep.UniqueID)
+	fmt.Printf("Hostname:            %v\n", rep.Hostname)
+	fmt.Printf("Username:            %v\n", rep.Username)
 	fmt.Println()
-	fmt.Printf("Block hash:          %v\n", rep.Content.Format.Hash)
-	fmt.Printf("Block encryption:    %v\n", rep.Content.Format.Encryption)
-	fmt.Printf("Block fmt version:   %v\n", rep.Content.Format.Version)
-	fmt.Printf("Max pack length:     %v\n", units.BytesStringBase2(int64(rep.Content.Format.MaxPackSize)))
+	fmt.Printf("Hash:                %v\n", rep.Content.Format.Hash)
+	fmt.Printf("Encryption:          %v\n", rep.Content.Format.Encryption)
 	fmt.Printf("Splitter:            %v\n", rep.Objects.Format.Splitter)
+	fmt.Printf("Format version:      %v\n", rep.Content.Format.Version)
+	fmt.Printf("Max pack length:     %v\n", units.BytesStringBase2(int64(rep.Content.Format.MaxPackSize)))
 
 	if *statusReconnectToken {
 		pass := ""

@@ -70,7 +70,7 @@ func findManifestIDs(ctx context.Context, rep *repo.Repository, source string) (
 		return man, "", err
 	}
 
-	si, err := snapshot.ParseSourceInfo(source, getHostName(), getUserName())
+	si, err := snapshot.ParseSourceInfo(source, rep.Hostname, rep.Username)
 	if err != nil {
 		return nil, "", errors.Errorf("invalid directory: '%s': %s", source, err)
 	}
@@ -97,16 +97,16 @@ func runSnapshotsCommand(ctx context.Context, rep *repo.Repository) error {
 	return outputManifestGroups(ctx, rep, manifests, strings.Split(relPath, "/"))
 }
 
-func shouldOutputSnapshotSource(src snapshot.SourceInfo) bool {
+func shouldOutputSnapshotSource(rep *repo.Repository, src snapshot.SourceInfo) bool {
 	if *snapshotListShowAll {
 		return true
 	}
 
-	if src.Host != getHostName() {
+	if src.Host != rep.Hostname {
 		return false
 	}
 
-	return src.UserName == getUserName()
+	return src.UserName == rep.Username
 }
 
 func outputManifestGroups(ctx context.Context, rep *repo.Repository, manifests []*snapshot.Manifest, relPathParts []string) error {
@@ -116,7 +116,7 @@ func outputManifestGroups(ctx context.Context, rep *repo.Repository, manifests [
 
 	for _, snapshotGroup := range snapshot.GroupBySource(manifests) {
 		src := snapshotGroup[0].Source
-		if !shouldOutputSnapshotSource(src) {
+		if !shouldOutputSnapshotSource(rep, src) {
 			log(ctx).Debugf("skipping %v", src)
 			continue
 		}
@@ -279,6 +279,5 @@ func deltaBytes(b int64) string {
 }
 
 func init() {
-	addUserAndHostFlags(snapshotListCommand)
 	snapshotListCommand.Action(repositoryAction(runSnapshotsCommand))
 }

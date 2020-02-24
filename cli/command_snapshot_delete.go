@@ -13,6 +13,8 @@ var (
 	snapshotDeleteCommand      = snapshotCommands.Command("delete", "Explicitly delete a snapshot by providing a snapshot ID.")
 	snapshotDeleteID           = snapshotDeleteCommand.Arg("id", "Snapshot ID to be deleted").Required().String()
 	snapshotDeletePath         = snapshotDeleteCommand.Flag("path", "Specify the path of the snapshot to be deleted").String()
+	snapshotDeleteHostname     = snapshotDeleteCommand.Flag("hostname", "Specify the hostname of the snapshot to be deleted").String()
+	snapshotDeleteUsername     = snapshotDeleteCommand.Flag("username", "Specify the username of the snapshot to be deleted").String()
 	snapshotDeleteIgnoreSource = snapshotDeleteCommand.Flag("unsafe-ignore-source", "Override the requirement to specify source info for the delete to succeed").Bool()
 )
 
@@ -34,12 +36,22 @@ func runDeleteCommand(ctx context.Context, rep *repo.Repository) error {
 	}
 
 	if !*snapshotDeleteIgnoreSource {
-		if labels["hostname"] != getHostName() {
-			return errors.New("host name does not match for deleting requested snapshot ID")
+		h := *snapshotDeleteHostname
+		if h == "" {
+			h = rep.Hostname
 		}
 
-		if labels["username"] != getUserName() {
-			return errors.New("user name does not match for deleting requested snapshot ID")
+		if labels["hostname"] != h {
+			return errors.Errorf("host name does not match for deleting requested snapshot ID (got %q, expected %q)", h, labels["hostname"])
+		}
+
+		u := *snapshotDeleteUsername
+		if u == "" {
+			u = rep.Username
+		}
+
+		if labels["username"] != u {
+			return errors.Errorf("user name does not match for deleting requested snapshot ID (got %q, expected %q)", u, labels["username"])
 		}
 
 		if labels["path"] != *snapshotDeletePath {
@@ -51,6 +63,5 @@ func runDeleteCommand(ctx context.Context, rep *repo.Repository) error {
 }
 
 func init() {
-	addUserAndHostFlags(snapshotDeleteCommand)
 	snapshotDeleteCommand.Action(repositoryAction(runDeleteCommand))
 }
