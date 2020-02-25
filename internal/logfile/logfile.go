@@ -2,6 +2,7 @@
 package logfile
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -17,8 +18,8 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/kopia/kopia/cli"
-	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/internal/ospath"
+	repologging "github.com/kopia/kopia/repo/logging"
 )
 
 var fileLogFormat = logging.MustStringFormatter(
@@ -37,7 +38,7 @@ var (
 	fileLogLevel   = cli.App().Flag("file-log-level", "File log level").Default("info").Enum(logLevels...)
 )
 
-var log = kopialogging.Logger("kopia")
+var log = repologging.GetContextLoggerFunc("kopia")
 
 const logFileNamePrefix = "kopia-"
 const logFileNameSuffix = ".log"
@@ -99,13 +100,13 @@ func Initialize(ctx *kingpin.ParseContext) error {
 	logging.SetBackend(logBackends...)
 
 	if shouldSweepLogs {
-		go sweepLogDir(*logDir, *logDirMaxFiles, *logDirMaxAge)
+		go sweepLogDir(context.TODO(), *logDir, *logDirMaxFiles, *logDirMaxAge)
 	}
 
 	return nil
 }
 
-func sweepLogDir(dirname string, maxCount int, maxAge time.Duration) {
+func sweepLogDir(ctx context.Context, dirname string, maxCount int, maxAge time.Duration) {
 	var timeCutoff time.Time
 	if maxAge > 0 {
 		timeCutoff = time.Now().Add(-maxAge)
@@ -117,7 +118,7 @@ func sweepLogDir(dirname string, maxCount int, maxAge time.Duration) {
 
 	entries, err := ioutil.ReadDir(dirname)
 	if err != nil {
-		log.Warningf("unable to read log directory: %v", err)
+		log(ctx).Warningf("unable to read log directory: %v", err)
 		return
 	}
 
@@ -140,7 +141,7 @@ func sweepLogDir(dirname string, maxCount int, maxAge time.Duration) {
 
 		if cnt > maxCount || e.ModTime().Before(timeCutoff) {
 			if err = os.Remove(filepath.Join(dirname, e.Name())); err != nil {
-				log.Warningf("unable to remove log file: %v", err)
+				log(ctx).Warningf("unable to remove log file: %v", err)
 			}
 		}
 	}

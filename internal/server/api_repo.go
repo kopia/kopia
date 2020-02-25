@@ -174,7 +174,7 @@ func (s *Server) handleRepoDisconnect(ctx context.Context, r *http.Request) (int
 		return nil, internalServerError(err)
 	}
 
-	if err := repo.Disconnect(s.options.ConfigFile); err != nil {
+	if err := repo.Disconnect(ctx, s.options.ConfigFile); err != nil {
 		return nil, internalServerError(err)
 	}
 

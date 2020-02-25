@@ -102,7 +102,7 @@ func (bm *Manager) snapshotUncommittedItems() packIndexBuilder {
 
 // IterateContents invokes the provided callback for each content starting with a specified prefix
 // and possibly including deleted items.
-func (bm *Manager) IterateContents(opts IterateOptions, callback IterateCallback) error {
+func (bm *Manager) IterateContents(ctx context.Context, opts IterateOptions, callback IterateCallback) error {
 	callback, cleanup := maybeParallelExecutor(opts.Parallel, callback)
 	defer cleanup() //nolint:errcheck
 
@@ -160,10 +160,11 @@ type PackInfo struct {
 type IteratePacksCallback func(PackInfo) error
 
 // IteratePacks invokes the provided callback for all pack blobs.
-func (bm *Manager) IteratePacks(options IteratePackOptions, callback IteratePacksCallback) error {
+func (bm *Manager) IteratePacks(ctx context.Context, options IteratePackOptions, callback IteratePacksCallback) error {
 	packUsage := map[blob.ID]*PackInfo{}
 
 	if err := bm.IterateContents(
+		ctx,
 		IterateOptions{
 			IncludeDeleted: options.IncludePacksWithOnlyDeletedContent,
 		},
@@ -195,12 +196,13 @@ func (bm *Manager) IteratePacks(options IteratePackOptions, callback IteratePack
 
 // IterateContentInShortPacks invokes the provided callback for all contents that are stored in
 // packs shorter than the given threshold.
-func (bm *Manager) IterateContentInShortPacks(threshold int64, callback IterateCallback) error {
+func (bm *Manager) IterateContentInShortPacks(ctx context.Context, threshold int64, callback IterateCallback) error {
 	if threshold <= 0 {
 		threshold = int64(bm.maxPackSize) * 8 / 10 // nolint:gomnd
 	}
 
 	return bm.IteratePacks(
+		ctx,
 		IteratePackOptions{
 			IncludePacksWithOnlyDeletedContent: true,
 			IncludeContentInfos:                true,
@@ -224,9 +226,10 @@ func (bm *Manager) IterateContentInShortPacks(threshold int64, callback IterateC
 func (bm *Manager) IterateUnreferencedBlobs(ctx context.Context, parallellism int, callback func(blob.Metadata) error) error {
 	usedPacks := map[blob.ID]bool{}
 
-	log.Infof("determining blobs in use")
+	log(ctx).Infof("determining blobs in use")
 	// find packs in use
 	if err := bm.IteratePacks(
+		ctx,
 		IteratePackOptions{
 			IncludePacksWithOnlyDeletedContent: true,
 		},
@@ -239,7 +242,7 @@ func (bm *Manager) IterateUnreferencedBlobs(ctx context.Context, parallellism in
 		return errors.Wrap(err, "error iterating packs")
 	}
 
-	log.Infof("found %v pack blobs in use", len(usedPacks))
+	log(ctx).Infof("found %v pack blobs in use", len(usedPacks))
 
 	unusedCount := 0
 
@@ -269,7 +272,7 @@ func (bm *Manager) IterateUnreferencedBlobs(ctx context.Context, parallellism in
 		return errors.Wrap(err, "error iterating blobs")
 	}
 
-	log.Infof("found %v pack blobs not in use", unusedCount)
+	log(ctx).Infof("found %v pack blobs not in use", unusedCount)
 
 	return nil
 }

@@ -15,5 +15,5 @@ func init() {
 }
 
 func runServerFlush(ctx context.Context, cli *serverapi.Client) error {
-	return cli.Post("flush", &serverapi.Empty{}, &serverapi.Empty{})
+	return cli.Post(ctx, "flush", &serverapi.Empty{}, &serverapi.Empty{})
 }

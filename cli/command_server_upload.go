@@ -16,13 +16,13 @@ func init() {
 }
 
 func runServerStartUpload(ctx context.Context, cli *serverapi.Client) error {
-	return triggerActionOnMatchingSources(cli, "sources/upload")
+	return triggerActionOnMatchingSources(ctx, cli, "sources/upload")
 }
 
-func triggerActionOnMatchingSources(cli *serverapi.Client, path string) error {
+func triggerActionOnMatchingSources(ctx context.Context, cli *serverapi.Client, path string) error {
 	var resp serverapi.MultipleSourceActionResponse
 
-	if err := cli.Post(path, &serverapi.Empty{}, &resp); err != nil {
+	if err := cli.Post(ctx, path, &serverapi.Empty{}, &resp); err != nil {
 		return err
 	}
 

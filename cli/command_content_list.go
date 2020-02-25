@@ -27,6 +27,7 @@ func runContentListCommand(ctx context.Context, rep *repo.Repository) error {
 	var totalSize int64
 
 	err := rep.Content.IterateContents(
+		ctx,
 		content.IterateOptions{
 			Prefix:         content.ID(*contentListPrefix),
 			IncludeDeleted: *contentListIncludeDeleted || *contentListDeletedOnly,

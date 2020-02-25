@@ -91,7 +91,7 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshot
 
 	rep.Content.ResetStats()
 
-	localEntry, err := getLocalFSEntry(sourceInfo.Path)
+	localEntry, err := getLocalFSEntry(ctx, sourceInfo.Path)
 	if err != nil {
 		return errors.Wrap(err, "unable to get local filesystem entry")
 	}
@@ -106,7 +106,7 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshot
 		return errors.Wrap(err, "unable to get policy tree")
 	}
 
-	log.Debugf("uploading %v using %v previous manifests", sourceInfo, len(previous))
+	log(ctx).Debugf("uploading %v using %v previous manifests", sourceInfo, len(previous))
 
 	manifest, err := u.Upload(ctx, localEntry, policyTree, sourceInfo, previous...)
 	if err != nil {
@@ -187,7 +187,7 @@ func findPreviousSnapshotManifest(ctx context.Context, rep *repo.Repository, sou
 func getLocalBackupPaths(ctx context.Context, rep *repo.Repository) ([]string, error) {
 	h := getHostName()
 	u := getUserName()
-	log.Debugf("Looking for previous backups of '%v@%v'...", u, h)
+	log(ctx).Debugf("Looking for previous backups of '%v@%v'...", u, h)
 
 	sources, err := snapshot.ListSources(ctx, rep)
 	if err != nil {

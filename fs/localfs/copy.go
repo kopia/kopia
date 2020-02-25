@@ -55,7 +55,7 @@ func (c *copier) copyEntry(ctx context.Context, e fs.Entry, targetPath string) e
 		err = c.copyFileContent(ctx, targetPath, e)
 	case fs.Symlink:
 		// Not yet implemented
-		log.Warningf("Not creating symlink %q from %v", targetPath, e)
+		log(ctx).Warningf("Not creating symlink %q from %v", targetPath, e)
 		return nil
 	default:
 		return errors.Errorf("invalid FS entry type for %q: %#v", targetPath, e)
@@ -103,7 +103,7 @@ func (c *copier) setAttributes(targetPath string, e fs.Entry) error {
 }
 
 func (c *copier) copyDirectory(ctx context.Context, d fs.Directory, targetPath string) error {
-	if err := c.createDirectory(targetPath); err != nil {
+	if err := c.createDirectory(ctx, targetPath); err != nil {
 		return err
 	}
 
@@ -125,7 +125,7 @@ func (c *copier) copyDirectoryContent(ctx context.Context, d fs.Directory, targe
 	return nil
 }
 
-func (c *copier) createDirectory(path string) error {
+func (c *copier) createDirectory(ctx context.Context, path string) error {
 	switch stat, err := os.Stat(path); {
 	case os.IsNotExist(err):
 		return os.MkdirAll(path, 0700)
@@ -138,7 +138,7 @@ func (c *copier) createDirectory(path string) error {
 			}
 		}
 
-		log.Debug("Not creating already existing directory: ", path)
+		log(ctx).Debugf("Not creating already existing directory: %v", path)
 
 		return nil
 	default:
@@ -154,7 +154,7 @@ func (c *copier) copyFileContent(ctx context.Context, targetPath string, f fs.Fi
 			return errors.Errorf("unable to create %q, it already exists", targetPath)
 		}
 
-		log.Debug("Overwriting existing file: ", targetPath)
+		log(ctx).Debugf("Overwriting existing file: %v", targetPath)
 	default:
 		return errors.Wrap(err, "failed to stat "+targetPath)
 	}
@@ -165,7 +165,7 @@ func (c *copier) copyFileContent(ctx context.Context, targetPath string, f fs.Fi
 	}
 	defer r.Close() //nolint:errcheck
 
-	log.Debug("copying file contents to: ", targetPath)
+	log(ctx).Debugf("copying file contents to: %v", targetPath)
 
 	return atomic.WriteFile(targetPath, r)
 }

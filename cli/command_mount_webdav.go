@@ -23,13 +23,13 @@ func webdavServerLogger(r *http.Request, err error) {
 	}
 
 	if err != nil {
-		log.Debugf("%v %v%v err: %v", r.Method, r.URL.RequestURI(), maybeRange, err)
+		printStderr("%v %v%v err: %v\n", r.Method, r.URL.RequestURI(), maybeRange, err)
 	} else {
-		log.Debugf("%v %v%v OK", r.Method, r.URL.RequestURI(), maybeRange)
+		printStderr("%v %v%v OK\n", r.Method, r.URL.RequestURI(), maybeRange)
 	}
 }
 
-func mountDirectoryWebDAV(entry fs.Directory, mountPoint string) error {
+func mountDirectoryWebDAV(ctx context.Context, entry fs.Directory, mountPoint string) error {
 	mux := http.NewServeMux()
 
 	var logger func(r *http.Request, err error)
@@ -58,17 +58,17 @@ func mountDirectoryWebDAV(entry fs.Directory, mountPoint string) error {
 		printStderr("Server listening at http://%v/ Press Ctrl-C to shut down.\n", s.Addr)
 
 		if err := s.ListenAndServe(); err != nil {
-			log.Warningf("server shut down with error: %v", err)
+			log(ctx).Warningf("server shut down with error: %v", err)
 		}
 	}()
 
-	if err := browseMount(mountPoint, fmt.Sprintf("http://%v", s.Addr)); err != nil {
-		log.Warningf("unable to browse %v: %v", s.Addr, err)
+	if err := browseMount(ctx, mountPoint, fmt.Sprintf("http://%v", s.Addr)); err != nil {
+		log(ctx).Warningf("unable to browse %v: %v", s.Addr, err)
 	}
 
 	// Shut down the server and wait for it.
-	if err := s.Shutdown(context.Background()); err != nil {
-		log.Warningf("shutdown failed: %v", err)
+	if err := s.Shutdown(ctx); err != nil {
+		log(ctx).Warningf("shutdown failed: %v", err)
 	}
 
 	wg.Wait()

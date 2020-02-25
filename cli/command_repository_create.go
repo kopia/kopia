@@ -60,7 +60,7 @@ func runCreateCommandWithStorage(ctx context.Context, st blob.Storage) error {
 
 	options := newRepositoryOptionsFromFlags()
 
-	password, err := getPasswordFromFlags(true, false)
+	password, err := getPasswordFromFlags(ctx, true, false)
 	if err != nil {
 		return errors.Wrap(err, "getting password")
 	}
@@ -86,7 +86,7 @@ func runCreateCommandWithStorage(ctx context.Context, st blob.Storage) error {
 }
 
 func populateRepository(ctx context.Context, password string) error {
-	rep, err := repo.Open(ctx, repositoryConfigFileName(), password, applyOptionsFromFlags(nil))
+	rep, err := repo.Open(ctx, repositoryConfigFileName(), password, applyOptionsFromFlags(ctx, nil))
 	if err != nil {
 		return errors.Wrap(err, "unable to open repository")
 	}

@@ -1,7 +1,6 @@
 package blobtesting
 
 import (
-	"context"
 	cryptorand "crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -12,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -48,7 +48,7 @@ func VerifyConcurrentAccess(t *testing.T, st blob.Storage, options ConcurrentAcc
 		return blobs[rand.Intn(len(blobs))]
 	}
 
-	eg, ctx := errgroup.WithContext(context.Background())
+	eg, ctx := errgroup.WithContext(testlogging.Context(t))
 
 	// start readers that will be reading random blob out of the pool
 	for i := 0; i < options.Getters; i++ {

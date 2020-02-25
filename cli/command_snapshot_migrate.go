@@ -25,12 +25,12 @@ var (
 )
 
 func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
-	pass, err := getPasswordFromFlags(false, false)
+	pass, err := getPasswordFromFlags(ctx, false, false)
 	if err != nil {
 		return errors.Wrap(err, "source repository password")
 	}
 
-	sourceRepo, err := repo.Open(ctx, *migrateSourceConfig, pass, applyOptionsFromFlags(nil))
+	sourceRepo, err := repo.Open(ctx, *migrateSourceConfig, pass, applyOptionsFromFlags(ctx, nil))
 	if err != nil {
 		return errors.Wrap(err, "can't open source repository")
 	}
@@ -56,7 +56,7 @@ func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 		if !canceled {
 			canceled = true
 			for s, u := range activeUploaders {
-				log.Warningf("canceling active uploader for %v", s)
+				log(ctx).Warningf("canceling active uploader for %v", s)
 				u.Cancel()
 			}
 		}
@@ -90,7 +90,7 @@ func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 			}()
 
 			if err := migrateSingleSource(ctx, uploader, sourceRepo, destRepo, s); err != nil {
-				log.Warningf("unable to migrate source: %v", err)
+				log(ctx).Warningf("unable to migrate source: %v", err)
 			}
 		}(s)
 	}
@@ -145,7 +145,7 @@ func migrateSingleSource(ctx context.Context, uploader *snapshotfs.Uploader, sou
 
 func migrateSingleSourceSnapshot(ctx context.Context, uploader *snapshotfs.Uploader, sourceRepo, destRepo *repo.Repository, s snapshot.SourceInfo, m *snapshot.Manifest) error {
 	if m.IncompleteReason != "" {
-		log.Infof("ignoring incomplete %v at %v", s, formatTimestamp(m.StartTime))
+		log(ctx).Infof("ignoring incomplete %v at %v", s, formatTimestamp(m.StartTime))
 		return nil
 	}
 
@@ -157,11 +157,11 @@ func migrateSingleSourceSnapshot(ctx context.Context, uploader *snapshotfs.Uploa
 	}
 
 	if existing != nil {
-		log.Infof("already migrated %v at %v", s, formatTimestamp(m.StartTime))
+		log(ctx).Infof("already migrated %v at %v", s, formatTimestamp(m.StartTime))
 		return nil
 	}
 
-	log.Infof("migrating snapshot of %v at %v", s, formatTimestamp(m.StartTime))
+	log(ctx).Infof("migrating snapshot of %v at %v", s, formatTimestamp(m.StartTime))
 
 	previous, err := findPreviousSnapshotManifest(ctx, destRepo, m.Source, &m.StartTime)
 	if err != nil {

@@ -24,27 +24,27 @@ func runCacheSetCommand(ctx context.Context, rep *repo.Repository) error {
 	changed := 0
 
 	if v := *cacheSetDirectory; v != "" {
-		log.Infof("setting cache directory to %v", v)
+		log(ctx).Infof("setting cache directory to %v", v)
 		opts.CacheDirectory = v
 		changed++
 	}
 
 	if v := *cacheSetContentCacheSizeMB; v != -1 {
 		v *= 1e6 // convert MB to bytes
-		log.Infof("changing content cache size to %v", units.BytesStringBase10(v))
+		log(ctx).Infof("changing content cache size to %v", units.BytesStringBase10(v))
 		opts.MaxCacheSizeBytes = v
 		changed++
 	}
 
 	if v := *cacheSetMaxMetadataCacheSizeMB; v != -1 {
 		v *= 1e6 // convert MB to bytes
-		log.Infof("changing metadata cache size to %v", units.BytesStringBase10(v))
+		log(ctx).Infof("changing metadata cache size to %v", units.BytesStringBase10(v))
 		opts.MaxMetadataCacheSizeBytes = v
 		changed++
 	}
 
 	if v := *cacheSetMaxListCacheDuration; v != -1 {
-		log.Infof("changing list cache duration to %v", v)
+		log(ctx).Infof("changing list cache duration to %v", v)
 		opts.MaxListCacheDurationSec = int(v.Seconds())
 		changed++
 	}
@@ -53,7 +53,7 @@ func runCacheSetCommand(ctx context.Context, rep *repo.Repository) error {
 		return errors.Errorf("no changes")
 	}
 
-	return rep.SetCachingConfig(opts)
+	return rep.SetCachingConfig(ctx, opts)
 }
 
 func init() {

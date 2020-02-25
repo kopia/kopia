@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/internal/kopialogging"
+	"github.com/kopia/kopia/repo/logging"
 )
 
 const (
@@ -20,7 +20,7 @@ const (
 	dirListingPrefetch = 200 // number of directory items to os.Lstat() in advance
 )
 
-var log = kopialogging.Logger("kopia/localfs")
+var log = logging.GetContextLoggerFunc("kopia/localfs")
 
 type sortedEntries fs.Entries
 
@@ -189,7 +189,7 @@ func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error)
 
 				e, fierr := entryFromChildFileInfo(fi, fullPath)
 				if fierr != nil {
-					log.Warningf("unable to create directory entry %q: %v", fi.Name(), fierr)
+					log(ctx).Warningf("unable to create directory entry %q: %v", fi.Name(), fierr)
 					continue
 				}
 

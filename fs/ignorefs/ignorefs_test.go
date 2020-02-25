@@ -2,7 +2,6 @@ package ignorefs_test
 
 import (
 	"bytes"
-	"context"
 	"sort"
 	"testing"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/ignorefs"
 	"github.com/kopia/kopia/internal/mockfs"
+	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
@@ -271,7 +271,7 @@ func walkTree(t *testing.T, dir fs.Directory) []string {
 	walk = func(path string, d fs.Directory) error {
 		output = append(output, path+"/")
 
-		entries, err := d.Readdir(context.Background())
+		entries, err := d.Readdir(testlogging.Context(t))
 		if err != nil {
 			return err
 		}

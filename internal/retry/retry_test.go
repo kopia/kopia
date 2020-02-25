@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/internal/testlogging"
 )
 
 var (
@@ -40,12 +42,14 @@ func TestRetry(t *testing.T) {
 		{"retriable-never-succeeds", func() (interface{}, error) { return nil, errRetriable }, nil, errors.Errorf("unable to complete retriable-never-succeeds despite 3 retries")},
 	}
 
+	ctx := testlogging.Context(t)
+
 	for _, tc := range cases {
 		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 
-			got, err := WithExponentialBackoff(tc.desc, tc.f, isRetriable)
+			got, err := WithExponentialBackoff(ctx, tc.desc, tc.f, isRetriable)
 			if (err != nil) != (tc.wantError != nil) {
 				t.Errorf("invalid error %q, wanted %q", err, tc.wantError)
 			}

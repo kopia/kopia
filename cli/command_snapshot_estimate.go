@@ -78,7 +78,7 @@ func runSnapshotEstimateCommand(ctx context.Context, rep *repo.Repository) error
 	eb := makeBuckets()
 
 	onIgnoredFile := func(relativePath string, e fs.Entry) {
-		log.Noticef("ignoring %v", relativePath)
+		log(ctx).Infof("ignoring %v", relativePath)
 		eb.add(relativePath, e.Size())
 
 		if e.IsDir() {
@@ -89,7 +89,7 @@ func runSnapshotEstimateCommand(ctx context.Context, rep *repo.Repository) error
 		}
 	}
 
-	entry, err := getLocalFSEntry(path)
+	entry, err := getLocalFSEntry(ctx, path)
 	if err != nil {
 		return err
 	}

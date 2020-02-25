@@ -17,7 +17,7 @@ func init() {
 
 func runServerStatus(ctx context.Context, cli *serverapi.Client) error {
 	var status serverapi.SourcesResponse
-	if err := cli.Get("sources", &status); err != nil {
+	if err := cli.Get(ctx, "sources", &status); err != nil {
 		return err
 	}
 

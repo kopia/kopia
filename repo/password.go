@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
@@ -19,11 +20,11 @@ import (
 var KeyRingEnabled = false
 
 // GetPersistedPassword retrieves persisted password for a given repository config.
-func GetPersistedPassword(configFile string) (string, bool) {
+func GetPersistedPassword(ctx context.Context, configFile string) (string, bool) {
 	if KeyRingEnabled {
-		kr, err := keyring.Get(getKeyringItemID(configFile), keyringUsername())
+		kr, err := keyring.Get(getKeyringItemID(configFile), keyringUsername(ctx))
 		if err == nil {
-			log.Debugf("password for %v retrieved from OS keyring", configFile)
+			log(ctx).Debugf("password for %v retrieved from OS keyring", configFile)
 			return kr, true
 		}
 	}
@@ -32,24 +33,24 @@ func GetPersistedPassword(configFile string) (string, bool) {
 	if err == nil {
 		s, err := base64.StdEncoding.DecodeString(string(b))
 		if err == nil {
-			log.Debugf("password for %v retrieved from password file", configFile)
+			log(ctx).Debugf("password for %v retrieved from password file", configFile)
 			return string(s), true
 		}
 	}
 
-	log.Debugf("could not find persisted password")
+	log(ctx).Debugf("could not find persisted password")
 
 	return "", false
 }
 
 // persistPassword stores password for a given repository config.
-func persistPassword(configFile, password string) error {
+func persistPassword(ctx context.Context, configFile, password string) error {
 	if KeyRingEnabled {
-		log.Debugf("saving password to OS keyring...")
+		log(ctx).Debugf("saving password to OS keyring...")
 
-		err := keyring.Set(getKeyringItemID(configFile), keyringUsername(), password)
+		err := keyring.Set(getKeyringItemID(configFile), keyringUsername(ctx), password)
 		if err == nil {
-			log.Debugf("Saved password in OS keyring")
+			log(ctx).Debugf("Saved password in OS keyring")
 			return nil
 		}
 
@@ -57,20 +58,20 @@ func persistPassword(configFile, password string) error {
 	}
 
 	fn := passwordFileName(configFile)
-	log.Debugf("Saving password to file %v.", fn)
+	log(ctx).Debugf("Saving password to file %v.", fn)
 
 	return ioutil.WriteFile(fn, []byte(base64.StdEncoding.EncodeToString([]byte(password))), 0600)
 }
 
 // deletePassword removes stored repository password.
-func deletePassword(configFile string) {
+func deletePassword(ctx context.Context, configFile string) {
 	// delete from both keyring and a file
 	if KeyRingEnabled {
-		err := keyring.Delete(getKeyringItemID(configFile), keyringUsername())
+		err := keyring.Delete(getKeyringItemID(configFile), keyringUsername(ctx))
 		if err == nil {
-			log.Infof("deleted repository password for %v.", configFile)
+			log(ctx).Infof("deleted repository password for %v.", configFile)
 		} else if err != keyring.ErrNotFound {
-			log.Warningf("unable to delete keyring item %v: %v", getKeyringItemID(configFile), err)
+			log(ctx).Warningf("unable to delete keyring item %v: %v", getKeyringItemID(configFile), err)
 		}
 	}
 
@@ -88,10 +89,10 @@ func passwordFileName(configFile string) string {
 	return configFile + ".kopia-password"
 }
 
-func keyringUsername() string {
+func keyringUsername(ctx context.Context) string {
 	currentUser, err := user.Current()
 	if err != nil {
-		log.Warningf("Cannot determine keyring username: %s", err)
+		log(ctx).Warningf("Cannot determine keyring username: %s", err)
 		return "nobody"
 	}
 

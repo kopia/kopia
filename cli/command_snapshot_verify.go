@@ -72,11 +72,11 @@ func (v *verifier) tooManyErrors() bool {
 	return len(v.errors) >= *verifyCommandErrorThreshold
 }
 
-func (v *verifier) reportError(path string, err error) {
+func (v *verifier) reportError(ctx context.Context, path string, err error) {
 	v.mu.Lock()
 	defer v.mu.Unlock()
 
-	log.Warningf("failed on %v: %v", path, err)
+	log(ctx).Warningf("failed on %v: %v", path, err)
 	v.errors = append(v.errors, err)
 }
 
@@ -116,13 +116,13 @@ func (v *verifier) enqueueVerifyObject(ctx context.Context, oid object.ID, path 
 }
 
 func (v *verifier) doVerifyDirectory(ctx context.Context, oid object.ID, path string) error {
-	log.Debugf("verifying directory %q (%v)", path, oid)
+	log(ctx).Debugf("verifying directory %q (%v)", path, oid)
 
 	d := snapshotfs.DirectoryEntry(v.rep, oid, nil)
 
 	entries, err := d.Readdir(ctx)
 	if err != nil {
-		v.reportError(path, errors.Wrapf(err, "error reading %v", oid))
+		v.reportError(ctx, path, errors.Wrapf(err, "error reading %v", oid))
 		return nil
 	}
 
@@ -145,15 +145,15 @@ func (v *verifier) doVerifyDirectory(ctx context.Context, oid object.ID, path st
 }
 
 func (v *verifier) doVerifyObject(ctx context.Context, oid object.ID, path string) error {
-	log.Debugf("verifying object %v", oid)
+	log(ctx).Debugf("verifying object %v", oid)
 
 	if _, err := v.om.VerifyObject(ctx, oid); err != nil {
-		v.reportError(path, errors.Wrapf(err, "error verifying %v", oid))
+		v.reportError(ctx, path, errors.Wrapf(err, "error verifying %v", oid))
 	}
 
 	if rand.Intn(100) < *verifyCommandFilesPercent { //nolint:gomnd
 		if err := v.readEntireObject(ctx, oid, path); err != nil {
-			v.reportError(path, errors.Wrapf(err, "error reading object %v", oid))
+			v.reportError(ctx, path, errors.Wrapf(err, "error reading object %v", oid))
 		}
 	}
 
@@ -161,7 +161,7 @@ func (v *verifier) doVerifyObject(ctx context.Context, oid object.ID, path strin
 }
 
 func (v *verifier) readEntireObject(ctx context.Context, oid object.ID, path string) error {
-	log.Debugf("reading object %v %v", oid, path)
+	log(ctx).Debugf("reading object %v %v", oid, path)
 
 	ctx = content.UsingContentCache(ctx, false)
 

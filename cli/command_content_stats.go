@@ -32,6 +32,7 @@ func runContentStatsCommand(ctx context.Context, rep *repo.Repository) error {
 	var totalSize, count int64
 
 	if err := rep.Content.IterateContents(
+		ctx,
 		content.IterateOptions{},
 		func(b content.Info) error {
 			totalSize += int64(b.Length)

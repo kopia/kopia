@@ -23,7 +23,7 @@ type CompactOptions struct {
 
 // CompactIndexes performs compaction of index blobs ensuring that # of small index blobs is below opt.maxSmallBlobs
 func (bm *Manager) CompactIndexes(ctx context.Context, opt CompactOptions) error {
-	log.Debugf("CompactIndexes(%+v)", opt)
+	log(ctx).Debugf("CompactIndexes(%+v)", opt)
 
 	bm.lock()
 	defer bm.unlock()
@@ -33,16 +33,16 @@ func (bm *Manager) CompactIndexes(ctx context.Context, opt CompactOptions) error
 		return errors.Wrap(err, "error loading indexes")
 	}
 
-	contentsToCompact := bm.getContentsToCompact(indexBlobs, opt)
+	contentsToCompact := bm.getContentsToCompact(ctx, indexBlobs, opt)
 
 	if err := bm.compactAndDeleteIndexBlobs(ctx, contentsToCompact, opt); err != nil {
-		log.Warningf("error performing quick compaction: %v", err)
+		log(ctx).Warningf("error performing quick compaction: %v", err)
 	}
 
 	return nil
 }
 
-func (bm *Manager) getContentsToCompact(indexBlobs []IndexBlobInfo, opt CompactOptions) []IndexBlobInfo {
+func (bm *Manager) getContentsToCompact(ctx context.Context, indexBlobs []IndexBlobInfo, opt CompactOptions) []IndexBlobInfo {
 	var nonCompactedBlobs, verySmallBlobs []IndexBlobInfo
 
 	var totalSizeNonCompactedBlobs, totalSizeVerySmallBlobs, totalSizeMediumSizedBlobs int64
@@ -68,16 +68,16 @@ func (bm *Manager) getContentsToCompact(indexBlobs []IndexBlobInfo, opt CompactO
 
 	if len(nonCompactedBlobs) < opt.MaxSmallBlobs {
 		// current count is below min allowed - nothing to do
-		formatLog.Debugf("no small contents to compact")
+		formatLog(ctx).Debugf("no small contents to compact")
 		return nil
 	}
 
 	if len(verySmallBlobs) > len(nonCompactedBlobs)/2 && mediumSizedBlobCount+1 < opt.MaxSmallBlobs {
-		formatLog.Debugf("compacting %v very small contents", len(verySmallBlobs))
+		formatLog(ctx).Debugf("compacting %v very small contents", len(verySmallBlobs))
 		return verySmallBlobs
 	}
 
-	formatLog.Debugf("compacting all %v non-compacted contents", len(nonCompactedBlobs))
+	formatLog(ctx).Debugf("compacting all %v non-compacted contents", len(nonCompactedBlobs))
 
 	return nonCompactedBlobs
 }
@@ -87,7 +87,7 @@ func (bm *Manager) compactAndDeleteIndexBlobs(ctx context.Context, indexBlobs []
 		return nil
 	}
 
-	formatLog.Debugf("compacting %v contents", len(indexBlobs))
+	formatLog(ctx).Debugf("compacting %v contents", len(indexBlobs))
 
 	t0 := time.Now()
 	bld := make(packIndexBuilder)
@@ -108,7 +108,7 @@ func (bm *Manager) compactAndDeleteIndexBlobs(ctx context.Context, indexBlobs []
 		return errors.Wrap(err, "unable to write compacted indexes")
 	}
 
-	formatLog.Debugf("wrote compacted index (%v bytes) in %v", compactedIndexBlob, time.Since(t0))
+	formatLog(ctx).Debugf("wrote compacted index (%v bytes) in %v", compactedIndexBlob, time.Since(t0))
 
 	for _, indexBlob := range indexBlobs {
 		if indexBlob.BlobID == compactedIndexBlob {
@@ -118,7 +118,7 @@ func (bm *Manager) compactAndDeleteIndexBlobs(ctx context.Context, indexBlobs []
 		bm.listCache.deleteListCache()
 
 		if err := bm.st.DeleteBlob(ctx, indexBlob.BlobID); err != nil {
-			log.Warningf("unable to delete compacted blob %q: %v", indexBlob.BlobID, err)
+			log(ctx).Warningf("unable to delete compacted blob %q: %v", indexBlob.BlobID, err)
 		}
 	}
 
@@ -138,7 +138,7 @@ func (bm *Manager) addIndexBlobsToBuilder(ctx context.Context, bld packIndexBuil
 
 	_ = index.Iterate("", func(i Info) error {
 		if i.Deleted && opt.SkipDeletedOlderThan > 0 && time.Since(i.Timestamp()) > opt.SkipDeletedOlderThan {
-			log.Debugf("skipping content %v deleted at %v", i.ID, i.Timestamp())
+			log(ctx).Debugf("skipping content %v deleted at %v", i.ID, i.Timestamp())
 			return nil
 		}
 		bld.Add(i)

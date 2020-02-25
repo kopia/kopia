@@ -17,6 +17,9 @@ import (
 	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/internal/logfile"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/logging"
+
+	gologging "github.com/op/go-logging"
 )
 
 const usageTemplate = `{{define "FormatCommand"}}\
@@ -66,6 +69,9 @@ Commands (use --help-full to list all commands):
 func main() {
 	app := cli.App()
 
+	logging.SetDefault(func(module string) logging.Logger {
+		return gologging.MustGetLogger(module)
+	})
 	app.Version(repo.BuildVersion + " build: " + repo.BuildInfo)
 	app.PreAction(logfile.Initialize)
 	app.UsageTemplate(usageTemplate)

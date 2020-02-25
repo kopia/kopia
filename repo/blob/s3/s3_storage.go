@@ -71,7 +71,7 @@ func (s *s3Storage) GetBlob(ctx context.Context, b blob.ID, offset, length int64
 		return b, nil
 	}
 
-	v, err := exponentialBackoff(fmt.Sprintf("GetBlob(%q,%v,%v)", b, offset, length), attempt)
+	v, err := exponentialBackoff(ctx, fmt.Sprintf("GetBlob(%q,%v,%v)", b, offset, length), attempt)
 	if err != nil {
 		return nil, translateError(err)
 	}
@@ -79,8 +79,8 @@ func (s *s3Storage) GetBlob(ctx context.Context, b blob.ID, offset, length int64
 	return v.([]byte), nil
 }
 
-func exponentialBackoff(desc string, att retry.AttemptFunc) (interface{}, error) {
-	return retry.WithExponentialBackoff(desc, att, isRetriableError)
+func exponentialBackoff(ctx context.Context, desc string, att retry.AttemptFunc) (interface{}, error) {
+	return retry.WithExponentialBackoff(ctx, desc, att, isRetriableError)
 }
 
 func isRetriableError(err error) bool {
@@ -138,7 +138,7 @@ func (s *s3Storage) DeleteBlob(ctx context.Context, b blob.ID) error {
 		return nil, s.cli.RemoveObject(s.BucketName, s.getObjectNameString(b))
 	}
 
-	_, err := exponentialBackoff(fmt.Sprintf("DeleteBlob(%q)", b), attempt)
+	_, err := exponentialBackoff(ctx, fmt.Sprintf("DeleteBlob(%q)", b), attempt)
 
 	return translateError(err)
 }

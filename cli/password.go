@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -47,14 +48,14 @@ func askForExistingRepositoryPassword() (string, error) {
 
 var passwordFromToken string
 
-func getPasswordFromFlags(isNew, allowPersistent bool) (string, error) {
+func getPasswordFromFlags(ctx context.Context, isNew, allowPersistent bool) (string, error) {
 	if passwordFromToken != "" {
 		// password provided via token
 		return passwordFromToken, nil
 	}
 
 	if !isNew && allowPersistent {
-		pass, ok := repo.GetPersistedPassword(repositoryConfigFileName())
+		pass, ok := repo.GetPersistedPassword(ctx, repositoryConfigFileName())
 		if ok {
 			return pass, nil
 		}

@@ -14,13 +14,13 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/repologging"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/logging"
 )
 
 const manifestLoadParallelism = 8
 
-var log = repologging.Logger("kopia/manifest")
+var log = logging.GetContextLoggerFunc("kopia/manifest")
 
 // ErrNotFound is returned when the metadata item is not found.
 var ErrNotFound = errors.New("not found")
@@ -35,10 +35,10 @@ const TypeLabelKey = "type"
 type contentManager interface {
 	GetContent(ctx context.Context, contentID content.ID) ([]byte, error)
 	WriteContent(ctx context.Context, data []byte, prefix content.ID) (content.ID, error)
-	DeleteContent(contentID content.ID) error
-	IterateContents(content.IterateOptions, content.IterateCallback) error
-	DisableIndexFlush()
-	EnableIndexFlush()
+	DeleteContent(ctx context.Context, contentID content.ID) error
+	IterateContents(ctx context.Context, options content.IterateOptions, callback content.IterateCallback) error
+	DisableIndexFlush(ctx context.Context)
+	EnableIndexFlush(ctx context.Context)
 	Flush(ctx context.Context) error
 }
 
@@ -289,7 +289,7 @@ func (m *Manager) Refresh(ctx context.Context) error {
 }
 
 func (m *Manager) loadCommittedContentsLocked(ctx context.Context) error {
-	log.Debugf("listing manifest contents")
+	log(ctx).Debugf("listing manifest contents")
 
 	var (
 		mu        sync.Mutex
@@ -299,7 +299,7 @@ func (m *Manager) loadCommittedContentsLocked(ctx context.Context) error {
 	for {
 		manifests = map[content.ID]manifest{}
 
-		err := m.b.IterateContents(content.IterateOptions{
+		err := m.b.IterateContents(ctx, content.IterateOptions{
 			Prefix:   ContentPrefix,
 			Parallel: manifestLoadParallelism,
 		}, func(ci content.Info) error {
@@ -391,7 +391,7 @@ func (m *Manager) maybeCompactLocked(ctx context.Context) error {
 		return nil
 	}
 
-	log.Debugf("performing automatic compaction of %v contents", len(m.committedContentIDs))
+	log(ctx).Debugf("performing automatic compaction of %v contents", len(m.committedContentIDs))
 
 	if err := m.compactLocked(ctx); err != nil {
 		return errors.Wrap(err, "unable to compact manifest contents")
@@ -405,7 +405,7 @@ func (m *Manager) maybeCompactLocked(ctx context.Context) error {
 }
 
 func (m *Manager) compactLocked(ctx context.Context) error {
-	log.Debugf("compactLocked: pendingEntries=%v contentIDs=%v", len(m.pendingEntries), len(m.committedContentIDs))
+	log(ctx).Debugf("compactLocked: pendingEntries=%v contentIDs=%v", len(m.pendingEntries), len(m.committedContentIDs))
 
 	if len(m.committedContentIDs) == 1 && len(m.pendingEntries) == 0 {
 		return nil
@@ -413,8 +413,8 @@ func (m *Manager) compactLocked(ctx context.Context) error {
 
 	// compaction needs to be atomic (deletes and rewrite should show up in one index blob or not show up at all)
 	// that's why we want to prevent index flushes while we're d.
-	m.b.DisableIndexFlush()
-	defer m.b.EnableIndexFlush()
+	m.b.DisableIndexFlush(ctx)
+	defer m.b.EnableIndexFlush(ctx)
 
 	for _, e := range m.committedEntries {
 		m.pendingEntries[e.ID] = e
@@ -432,7 +432,7 @@ func (m *Manager) compactLocked(ctx context.Context) error {
 			continue
 		}
 
-		if err := m.b.DeleteContent(b); err != nil {
+		if err := m.b.DeleteContent(ctx, b); err != nil {
 			return errors.Wrapf(err, "unable to delete content %q", b)
 		}
 

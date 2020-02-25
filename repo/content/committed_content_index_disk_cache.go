@@ -1,6 +1,7 @@
 package content
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -26,10 +27,10 @@ func (c *diskCommittedContentIndexCache) indexBlobPath(indexBlobID blob.ID) stri
 	return filepath.Join(c.dirname, string(indexBlobID)+simpleIndexSuffix)
 }
 
-func (c *diskCommittedContentIndexCache) openIndex(indexBlobID blob.ID) (packIndex, error) {
+func (c *diskCommittedContentIndexCache) openIndex(ctx context.Context, indexBlobID blob.ID) (packIndex, error) {
 	fullpath := c.indexBlobPath(indexBlobID)
 
-	f, err := mmapOpenWithRetry(fullpath)
+	f, err := mmapOpenWithRetry(ctx, fullpath)
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +40,7 @@ func (c *diskCommittedContentIndexCache) openIndex(indexBlobID blob.ID) (packInd
 
 // mmapOpenWithRetry attempts mmap.Open() with exponential back-off to work around rare issue specific to Windows where
 // we can't open the file right after it has been written.
-func mmapOpenWithRetry(path string) (*mmap.ReaderAt, error) {
+func mmapOpenWithRetry(ctx context.Context, path string) (*mmap.ReaderAt, error) {
 	const (
 		maxRetries    = 8
 		startingDelay = 10 * time.Millisecond
@@ -52,7 +53,7 @@ func mmapOpenWithRetry(path string) (*mmap.ReaderAt, error) {
 	retryCount := 0
 	for err != nil && retryCount < maxRetries {
 		retryCount++
-		log.Debugf("retry #%v unable to mmap.Open(): %v", retryCount, err)
+		log(ctx).Debugf("retry #%v unable to mmap.Open(): %v", retryCount, err)
 		time.Sleep(nextDelay)
 		nextDelay *= 2
 		f, err = mmap.Open(path)
@@ -61,7 +62,7 @@ func mmapOpenWithRetry(path string) (*mmap.ReaderAt, error) {
 	return f, err
 }
 
-func (c *diskCommittedContentIndexCache) hasIndexBlobID(indexBlobID blob.ID) (bool, error) {
+func (c *diskCommittedContentIndexCache) hasIndexBlobID(ctx context.Context, indexBlobID blob.ID) (bool, error) {
 	_, err := os.Stat(c.indexBlobPath(indexBlobID))
 	if err == nil {
 		return true, nil
@@ -74,8 +75,8 @@ func (c *diskCommittedContentIndexCache) hasIndexBlobID(indexBlobID blob.ID) (bo
 	return false, err
 }
 
-func (c *diskCommittedContentIndexCache) addContentToCache(indexBlobID blob.ID, data []byte) error {
-	exists, err := c.hasIndexBlobID(indexBlobID)
+func (c *diskCommittedContentIndexCache) addContentToCache(ctx context.Context, indexBlobID blob.ID, data []byte) error {
+	exists, err := c.hasIndexBlobID(ctx, indexBlobID)
 	if err != nil {
 		return err
 	}
@@ -92,7 +93,7 @@ func (c *diskCommittedContentIndexCache) addContentToCache(indexBlobID blob.ID, 
 	// rename() is atomic, so one process will succeed, but the other will fail
 	if err := os.Rename(tmpFile, c.indexBlobPath(indexBlobID)); err != nil {
 		// verify that the content exists
-		exists, err := c.hasIndexBlobID(indexBlobID)
+		exists, err := c.hasIndexBlobID(ctx, indexBlobID)
 		if err != nil {
 			return err
 		}
@@ -130,7 +131,7 @@ func writeTempFileAtomic(dirname string, data []byte) (string, error) {
 	return tf.Name(), nil
 }
 
-func (c *diskCommittedContentIndexCache) expireUnused(used []blob.ID) error {
+func (c *diskCommittedContentIndexCache) expireUnused(ctx context.Context, used []blob.ID) error {
 	entries, err := ioutil.ReadDir(c.dirname)
 	if err != nil {
 		return errors.Wrap(err, "can't list cache")
@@ -151,13 +152,13 @@ func (c *diskCommittedContentIndexCache) expireUnused(used []blob.ID) error {
 
 	for _, rem := range remaining {
 		if time.Since(rem.ModTime()) > unusedCommittedContentIndexCleanupTime {
-			log.Debugf("removing unused %v %v", rem.Name(), rem.ModTime())
+			log(ctx).Debugf("removing unused %v %v", rem.Name(), rem.ModTime())
 
 			if err := os.Remove(filepath.Join(c.dirname, rem.Name())); err != nil {
-				log.Warningf("unable to remove unused index file: %v", err)
+				log(ctx).Warningf("unable to remove unused index file: %v", err)
 			}
 		} else {
-			log.Debugf("keeping unused %v because it's too new %v", rem.Name(), rem.ModTime())
+			log(ctx).Debugf("keeping unused %v because it's too new %v", rem.Name(), rem.ModTime())
 		}
 	}
 

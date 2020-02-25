@@ -63,7 +63,7 @@ func (w *TreeWalker) Run(ctx context.Context) error {
 	}
 
 	w.queue.ProgressCallback = func(enqueued, active, completed int64) {
-		log.Infof("processed(%v/%v) active %v", completed, enqueued, active)
+		log(ctx).Infof("processed(%v/%v) active %v", completed, enqueued, active)
 	}
 
 	return w.queue.Process(w.Parallelism)

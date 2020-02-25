@@ -11,6 +11,7 @@ import (
 
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/internal/serverapi"
+	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/kopia/kopia/snapshot"
@@ -49,7 +50,7 @@ func (s *serverParameters) ProcessOutput(l string) bool {
 }
 
 func TestServerStart(t *testing.T) {
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 
 	e := testenv.NewCLITest(t)
 	defer e.Cleanup(t)
@@ -92,7 +93,7 @@ func TestServerStart(t *testing.T) {
 
 	defer cli.Shutdown(ctx) // nolint:errcheck
 
-	waitUntilServerStarted(t, cli)
+	waitUntilServerStarted(ctx, t, cli)
 
 	st := verifyServerConnected(t, cli, true)
 	if got, want := st.Storage, "filesystem"; got != want {
@@ -130,7 +131,7 @@ func TestServerStart(t *testing.T) {
 	verifySnapshotCount(t, cli, &snapshot.SourceInfo{Host: "no-such-host"}, 0)
 
 	uploadMatchingSnapshots(t, cli, &snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir2})
-	waitForSnapshotCount(t, cli, &snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir2}, 1)
+	waitForSnapshotCount(ctx, t, cli, &snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir2}, 1)
 
 	if _, err = cli.CancelUpload(ctx, nil); err != nil {
 		t.Fatalf("cancel failed: %v", err)
@@ -182,13 +183,13 @@ func TestServerStart(t *testing.T) {
 		t.Errorf("initial policy not persisted")
 	}
 
-	waitForSnapshotCount(t, cli, &snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir3}, 1)
+	waitForSnapshotCount(ctx, t, cli, &snapshot.SourceInfo{Host: "fake-hostname", UserName: "fake-username", Path: sharedTestDataDir3}, 1)
 }
 
 func TestServerStartWithoutInitialRepository(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 
 	e := testenv.NewCLITest(t)
 	defer e.Cleanup(t)
@@ -217,7 +218,7 @@ func TestServerStartWithoutInitialRepository(t *testing.T) {
 
 	defer cli.Shutdown(ctx) // nolint:errcheck
 
-	waitUntilServerStarted(t, cli)
+	waitUntilServerStarted(ctx, t, cli)
 	verifyServerConnected(t, cli, false)
 
 	if err = cli.CreateRepository(ctx, &serverapi.CreateRepositoryRequest{
@@ -250,7 +251,7 @@ func TestServerStartWithoutInitialRepository(t *testing.T) {
 func verifyServerConnected(t *testing.T, cli *serverapi.Client, want bool) *serverapi.StatusResponse {
 	t.Helper()
 
-	st, err := cli.Status(context.Background())
+	st, err := cli.Status(testlogging.Context(t))
 	if err != nil {
 		t.Fatalf("status error: %v", err)
 	}
@@ -262,11 +263,11 @@ func verifyServerConnected(t *testing.T, cli *serverapi.Client, want bool) *serv
 	return st
 }
 
-func waitForSnapshotCount(t *testing.T, cli *serverapi.Client, match *snapshot.SourceInfo, want int) {
+func waitForSnapshotCount(ctx context.Context, t *testing.T, cli *serverapi.Client, match *snapshot.SourceInfo, want int) {
 	t.Helper()
 
-	err := retry.PeriodicallyNoValue(1*time.Second, 60, "wait for snapshots", func() error {
-		snapshots, err := cli.ListSnapshots(context.Background(), match)
+	err := retry.PeriodicallyNoValue(ctx, 1*time.Second, 60, "wait for snapshots", func() error {
+		snapshots, err := cli.ListSnapshots(testlogging.Context(t), match)
 		if err != nil {
 			return errors.Wrap(err, "error listing sources")
 		}
@@ -285,7 +286,7 @@ func waitForSnapshotCount(t *testing.T, cli *serverapi.Client, match *snapshot.S
 func uploadMatchingSnapshots(t *testing.T, cli *serverapi.Client, match *snapshot.SourceInfo) {
 	t.Helper()
 
-	if _, err := cli.UploadSnapshots(context.Background(), match); err != nil {
+	if _, err := cli.UploadSnapshots(testlogging.Context(t), match); err != nil {
 		t.Fatalf("upload failed: %v", err)
 	}
 }
@@ -293,7 +294,7 @@ func uploadMatchingSnapshots(t *testing.T, cli *serverapi.Client, match *snapsho
 func verifySnapshotCount(t *testing.T, cli *serverapi.Client, match *snapshot.SourceInfo, want int) []*serverapi.Snapshot {
 	t.Helper()
 
-	snapshots, err := cli.ListSnapshots(context.Background(), match)
+	snapshots, err := cli.ListSnapshots(testlogging.Context(t), match)
 	if err != nil {
 		t.Fatalf("error listing sources: %v", err)
 	}
@@ -308,7 +309,7 @@ func verifySnapshotCount(t *testing.T, cli *serverapi.Client, match *snapshot.So
 func verifySourceCount(t *testing.T, cli *serverapi.Client, match *snapshot.SourceInfo, want int) []*serverapi.SourceStatus {
 	t.Helper()
 
-	sources, err := cli.ListSources(context.Background(), match)
+	sources, err := cli.ListSources(testlogging.Context(t), match)
 	if err != nil {
 		t.Fatalf("error listing sources: %v", err)
 	}
@@ -328,9 +329,9 @@ func verifySourceCount(t *testing.T, cli *serverapi.Client, match *snapshot.Sour
 	return sources.Sources
 }
 
-func waitUntilServerStarted(t *testing.T, cli *serverapi.Client) {
-	if err := retry.PeriodicallyNoValue(1*time.Second, 60, "wait for server start", func() error {
-		_, err := cli.Status(context.Background())
+func waitUntilServerStarted(ctx context.Context, t *testing.T, cli *serverapi.Client) {
+	if err := retry.PeriodicallyNoValue(ctx, 1*time.Second, 60, "wait for server start", func() error {
+		_, err := cli.Status(testlogging.Context(t))
 		return err
 	}, retry.Always); err != nil {
 		t.Fatalf("server failed to start")

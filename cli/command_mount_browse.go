@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"os"
 	"os/exec"
 
@@ -12,42 +13,42 @@ var (
 	mountBrowser = mountCommand.Flag("browse", "Browse mounted filesystem using the provided method").Default("OS").Enum("NONE", "WEB", "OS")
 )
 
-var mountBrowsers = map[string]func(mountPoint, addr string) error{
+var mountBrowsers = map[string]func(ctx context.Context, mountPoint, addr string) error{
 	"NONE": nil,
 	"WEB":  openInWebBrowser,
 	"OS":   openInOSBrowser,
 }
 
-func browseMount(mountPoint, addr string) error {
+func browseMount(ctx context.Context, mountPoint, addr string) error {
 	b := mountBrowsers[*mountBrowser]
 	if b == nil {
 		waitForCtrlC()
 		return nil
 	}
 
-	return b(mountPoint, addr)
+	return b(ctx, mountPoint, addr)
 }
 
 // nolint:unparam
-func openInWebBrowser(mountPoint, addr string) error {
-	startWebBrowser(addr)
+func openInWebBrowser(ctx context.Context, mountPoint, addr string) error {
+	startWebBrowser(ctx, addr)
 	waitForCtrlC()
 
 	return nil
 }
 
-func openInOSBrowser(mountPoint, addr string) error {
+func openInOSBrowser(ctx context.Context, mountPoint, addr string) error {
 	if isWindows() {
-		return netUSE(mountPoint, addr)
+		return netUSE(ctx, mountPoint, addr)
 	}
 
-	startWebBrowser(addr)
+	startWebBrowser(ctx, addr)
 	waitForCtrlC()
 
 	return nil
 }
 
-func netUSE(mountPoint, addr string) error {
+func netUSE(ctx context.Context, mountPoint, addr string) error {
 	c := exec.Command("net", "use", mountPoint, addr) // nolint:gosec
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
@@ -57,7 +58,7 @@ func netUSE(mountPoint, addr string) error {
 		return errors.Wrap(err, "unable to mount")
 	}
 
-	startWebBrowser("x:\\")
+	startWebBrowser(ctx, "x:\\")
 	waitForCtrlC()
 
 	c = exec.Command("net", "use", mountPoint, "/d") // nolint:gosec
@@ -72,8 +73,8 @@ func netUSE(mountPoint, addr string) error {
 	return nil
 }
 
-func startWebBrowser(url string) {
+func startWebBrowser(ctx context.Context, url string) {
 	if err := open.Start(url); err != nil {
-		log.Warningf("unable to start web browser: %v", err)
+		log(ctx).Warningf("unable to start web browser: %v", err)
 	}
 }

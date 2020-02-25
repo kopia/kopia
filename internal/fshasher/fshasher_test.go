@@ -1,12 +1,12 @@
 package fshasher
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/internal/mockfs"
+	"github.com/kopia/kopia/internal/testlogging"
 )
 
 // nolint:gocritic
@@ -20,7 +20,7 @@ func TestHash(t *testing.T) {
 	d1.AddFile("d1-f1", []byte("d1-f1-content"), 0644)
 
 	ensure := require.New(t)
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 	h1, err := Hash(ctx, root)
 	ensure.NoError(err)
 

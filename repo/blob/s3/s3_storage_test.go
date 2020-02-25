@@ -20,6 +20,7 @@ import (
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/retry"
+	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -77,7 +78,7 @@ func testStorage(t *testing.T, accessID, secretKey, sessionToken string) {
 		t.Skip("endpoint not reachable")
 	}
 
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 
 	// recreate per-host bucket, which sometimes get cleaned up by play.minio.io
 	createBucket(t)
@@ -87,7 +88,7 @@ func testStorage(t *testing.T, accessID, secretKey, sessionToken string) {
 	rand.Read(data) //nolint:errcheck
 
 	attempt := func() (interface{}, error) {
-		return New(context.Background(), &Options{
+		return New(testlogging.Context(t), &Options{
 			AccessKeyID:     accessID,
 			SecretAccessKey: secretKey,
 			SessionToken:    sessionToken,
@@ -97,7 +98,7 @@ func testStorage(t *testing.T, accessID, secretKey, sessionToken string) {
 		})
 	}
 
-	v, err := retry.WithExponentialBackoff("New() S3 storage", attempt, func(err error) bool { return err != nil })
+	v, err := retry.WithExponentialBackoff(ctx, "New() S3 storage", attempt, func(err error) bool { return err != nil })
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -179,7 +180,7 @@ func createTemporaryCreds(t *testing.T) (accessID, secretKey, sessionToken strin
 
 func cleanupOldData(ctx context.Context, t *testing.T) {
 	// cleanup old data from the bucket
-	st, err := New(context.Background(), &Options{
+	st, err := New(testlogging.Context(t), &Options{
 		AccessKeyID:     accessKeyID,
 		SecretAccessKey: secretAccessKey,
 		Endpoint:        endpoint,

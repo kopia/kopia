@@ -3,6 +3,7 @@ package editor
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -12,15 +13,15 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/kopia/kopia/internal/kopialogging"
+	"github.com/kopia/kopia/repo/logging"
 )
 
-var log = kopialogging.Logger("editor")
+var log = logging.GetContextLoggerFunc("editor")
 
 // EditLoop launches OS-specific editor (VI, notepad.exe or anoter editor configured through environment variables)
 // It creates a temporary file with 'initial' contents and repeatedly invokes the editor until the provided 'parse' function
 // returns nil result indicating success. The 'parse' function is passed the contents of edited files without # line comments.
-func EditLoop(fname, initial string, parse func(updated string) error) error {
+func EditLoop(ctx context.Context, fname, initial string, parse func(updated string) error) error {
 	tmpDir, err := ioutil.TempDir("", "kopia")
 	if err != nil {
 		return err
@@ -34,7 +35,7 @@ func EditLoop(fname, initial string, parse func(updated string) error) error {
 	}
 
 	for {
-		if err := editFile(tmpFile); err != nil {
+		if err := editFile(ctx, tmpFile); err != nil {
 			return err
 		}
 
@@ -48,7 +49,7 @@ func EditLoop(fname, initial string, parse func(updated string) error) error {
 			return nil
 		}
 
-		log.Errorf("%v", err)
+		log(ctx).Errorf("%v", err)
 		fmt.Print("Reopen editor to fix? (Y/n) ")
 
 		var shouldReopen string
@@ -83,7 +84,7 @@ func readAndStripComments(fname string) (string, error) {
 	return strings.Join(result, "\n"), nil
 }
 
-func editFile(file string) error {
+func editFile(ctx context.Context, file string) error {
 	editor, editorArgs := getEditorCommand()
 
 	var args []string
@@ -95,11 +96,11 @@ func editFile(file string) error {
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 
-	log.Debugf("launching editor %q on file %q", editor, file)
+	log(ctx).Debugf("launching editor %q on file %q", editor, file)
 
 	err := cmd.Run()
 	if err != nil {
-		log.Errorf("unable to launch editor: %v", err)
+		log(ctx).Errorf("unable to launch editor: %v", err)
 	}
 
 	return nil

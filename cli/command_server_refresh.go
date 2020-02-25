@@ -15,5 +15,5 @@ func init() {
 }
 
 func runServerRefresh(ctx context.Context, cli *serverapi.Client) error {
-	return cli.Post("refresh", &serverapi.Empty{}, &serverapi.Empty{})
+	return cli.Post(ctx, "refresh", &serverapi.Empty{}, &serverapi.Empty{})
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/mockfs"
+	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/kopia/kopia/repo/object"
@@ -35,15 +36,13 @@ func (th *uploadTestHarness) cleanup() {
 	os.RemoveAll(th.repoDir)
 }
 
-func newUploadTestHarness() *uploadTestHarness {
-	ctx := context.Background()
-
+func newUploadTestHarness(ctx context.Context) *uploadTestHarness {
 	repoDir, err := ioutil.TempDir("", "kopia-repo")
 	if err != nil {
 		panic("cannot create temp directory: " + err.Error())
 	}
 
-	storage, err := filesystem.New(context.Background(), &filesystem.Options{
+	storage, err := filesystem.New(ctx, &filesystem.Options{
 		Path: repoDir,
 	})
 
@@ -55,7 +54,7 @@ func newUploadTestHarness() *uploadTestHarness {
 		panic("unable to create repository: " + initerr.Error())
 	}
 
-	log.Debugf("repo dir: %v", repoDir)
+	log(ctx).Debugf("repo dir: %v", repoDir)
 
 	configFile := filepath.Join(repoDir, ".kopia.config")
 	if conerr := repo.Connect(ctx, configFile, storage, masterPassword, nil); conerr != nil {
@@ -98,12 +97,12 @@ func newUploadTestHarness() *uploadTestHarness {
 
 // nolint:gocyclo
 func TestUpload(t *testing.T) {
-	ctx := context.Background()
-	th := newUploadTestHarness()
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx)
 
 	defer th.cleanup()
 
-	log.Infof("Uploading s1")
+	log(ctx).Infof("Uploading s1")
 
 	u := NewUploader(th.repo)
 
@@ -114,9 +113,9 @@ func TestUpload(t *testing.T) {
 		t.Errorf("Upload error: %v", err)
 	}
 
-	log.Infof("s1: %v", s1.RootEntry)
+	log(ctx).Infof("s1: %v", s1.RootEntry)
 
-	log.Infof("Uploading s2")
+	log(ctx).Infof("Uploading s2")
 
 	s2, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{}, s1)
 	if err != nil {
@@ -193,8 +192,8 @@ func TestUpload_Cancel(t *testing.T) {
 }
 
 func TestUpload_TopLevelDirectoryReadFailure(t *testing.T) {
-	ctx := context.Background()
-	th := newUploadTestHarness()
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx)
 
 	defer th.cleanup()
 
@@ -215,8 +214,8 @@ func TestUpload_TopLevelDirectoryReadFailure(t *testing.T) {
 }
 
 func TestUpload_SubDirectoryReadFailure(t *testing.T) {
-	ctx := context.Background()
-	th := newUploadTestHarness()
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx)
 
 	defer th.cleanup()
 

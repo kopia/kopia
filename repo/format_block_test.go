@@ -1,19 +1,19 @@
 package repo
 
 import (
-	"context"
 	"crypto/sha256"
 	"reflect"
 	"testing"
 
 	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
 )
 
 func TestFormatBlobRecovery(t *testing.T) {
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 
 	someDataBlock := []byte("aadsdasdas")
 

@@ -10,8 +10,6 @@ import (
 func (r *Repository) Upgrade(ctx context.Context) error {
 	f := r.formatBlob
 
-	log.Debug("decrypting format...")
-
 	repoConfig, err := f.decryptFormatBytes(r.masterKey)
 	if err != nil {
 		return errors.Wrap(err, "unable to decrypt repository config")
@@ -21,17 +19,15 @@ func (r *Repository) Upgrade(ctx context.Context) error {
 
 	// add migration code here
 	if !migrated {
-		log.Infof("nothing to do")
+		log(ctx).Infof("nothing to do")
 		return nil
 	}
-
-	log.Debug("encrypting format...")
 
 	if err := encryptFormatBytes(f, repoConfig, r.masterKey, f.UniqueID); err != nil {
 		return errors.Errorf("unable to encrypt format bytes")
 	}
 
-	log.Infof("writing updated format content...")
+	log(ctx).Infof("writing updated format content...")
 
 	return writeFormatBlob(ctx, r.Blobs, f)
 }

@@ -1,11 +1,11 @@
 package logging
 
 import (
-	"context"
 	"strings"
 	"testing"
 
 	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/testlogging"
 )
 
 func TestLoggingStorage(t *testing.T) {
@@ -22,12 +22,12 @@ func TestLoggingStorage(t *testing.T) {
 	data := blobtesting.DataMap{}
 	underlying := blobtesting.NewMapStorage(data, nil, nil)
 
-	st := NewWrapper(underlying, Output(myOutput), Prefix(myPrefix))
+	st := NewWrapper(underlying, myOutput, myPrefix)
 	if st == nil {
 		t.Fatalf("unexpected result: %v", st)
 	}
 
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 	blobtesting.VerifyStorage(ctx, t, st)
 
 	if err := st.Close(ctx); err != nil {

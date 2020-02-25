@@ -2,6 +2,7 @@ package content
 
 import (
 	"bytes"
+	"context"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -14,14 +15,14 @@ type memoryCommittedContentIndexCache struct {
 	contents map[blob.ID]packIndex
 }
 
-func (m *memoryCommittedContentIndexCache) hasIndexBlobID(indexBlobID blob.ID) (bool, error) {
+func (m *memoryCommittedContentIndexCache) hasIndexBlobID(ctx context.Context, indexBlobID blob.ID) (bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	return m.contents[indexBlobID] != nil, nil
 }
 
-func (m *memoryCommittedContentIndexCache) addContentToCache(indexBlobID blob.ID, data []byte) error {
+func (m *memoryCommittedContentIndexCache) addContentToCache(ctx context.Context, indexBlobID blob.ID, data []byte) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -35,7 +36,7 @@ func (m *memoryCommittedContentIndexCache) addContentToCache(indexBlobID blob.ID
 	return nil
 }
 
-func (m *memoryCommittedContentIndexCache) openIndex(indexBlobID blob.ID) (packIndex, error) {
+func (m *memoryCommittedContentIndexCache) openIndex(ctx context.Context, indexBlobID blob.ID) (packIndex, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -47,6 +48,6 @@ func (m *memoryCommittedContentIndexCache) openIndex(indexBlobID blob.ID) (packI
 	return v, nil
 }
 
-func (m *memoryCommittedContentIndexCache) expireUnused(used []blob.ID) error {
+func (m *memoryCommittedContentIndexCache) expireUnused(ctx context.Context, used []blob.ID) error {
 	return nil
 }

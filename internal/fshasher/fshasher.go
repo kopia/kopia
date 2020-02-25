@@ -12,10 +12,10 @@ import (
 	"golang.org/x/crypto/blake2s"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/internal/repologging"
+	"github.com/kopia/kopia/repo/logging"
 )
 
-var log = repologging.Logger("kopia/internal/fshasher")
+var log = logging.GetContextLoggerFunc("kopia/internal/fshasher")
 
 // Hash computes a recursive hash of e using the given hasher h
 func Hash(ctx context.Context, e fs.Entry) ([]byte, error) {
@@ -45,7 +45,7 @@ func write(ctx context.Context, tw *tar.Writer, fullpath string, e fs.Entry) err
 		return err
 	}
 
-	log.Debug(e.Mode(), h.ModTime.Format(time.RFC3339), h.Size, h.Name)
+	log(ctx).Debugf("%v %v %v %v", e.Mode(), h.ModTime.Format(time.RFC3339), h.Size, h.Name)
 
 	if err := tw.WriteHeader(h); err != nil {
 		return err

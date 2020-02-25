@@ -17,8 +17,8 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/ignorefs"
-	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
@@ -26,7 +26,7 @@ import (
 
 const copyBufferSize = 128 * 1024
 
-var log = kopialogging.Logger("kopia/upload")
+var log = logging.GetContextLoggerFunc("kopia/upload")
 
 var errCancelled = errors.New("canceled")
 
@@ -312,7 +312,7 @@ func (u *Uploader) processSubdirectories(ctx context.Context, relativePath strin
 			// otherwise a meaningless, empty snapshot is created that can't be restored.
 			ignoreDirErr := u.shouldIgnoreDirectoryReadErrors(policyTree)
 			if _, ok := err.(dirReadError); ok && ignoreDirErr {
-				log.Warningf("unable to read directory %q: %s, ignoring", dir.Name(), err)
+				log(ctx).Warningf("unable to read directory %q: %s, ignoring", dir.Name(), err)
 				return nil
 			}
 			return errors.Errorf("unable to process directory %q: %s", entry.Name(), err)
@@ -356,18 +356,18 @@ func metadataEquals(e1, e2 fs.Entry) bool {
 	return true
 }
 
-func findCachedEntry(entry fs.Entry, prevEntries []fs.Entries) fs.Entry {
+func findCachedEntry(ctx context.Context, entry fs.Entry, prevEntries []fs.Entries) fs.Entry {
 	for _, e := range prevEntries {
 		if ent := e.FindByName(entry.Name()); ent != nil {
 			if metadataEquals(entry, ent) {
 				return ent
 			}
 
-			log.Debugf("found non-matching entry for %v: %v %v %v", entry.Name(), ent.Mode(), ent.Size(), ent.ModTime())
+			log(ctx).Debugf("found non-matching entry for %v: %v %v %v", entry.Name(), ent.Mode(), ent.Size(), ent.ModTime())
 		}
 	}
 
-	log.Debugf("could not find cache entry for %v", entry.Name())
+	log(ctx).Debugf("could not find cache entry for %v", entry.Name())
 
 	return nil
 }
@@ -380,10 +380,10 @@ func objectIDPercent(obj object.ID) int {
 	return int(h.Sum32() % 100) //nolint:gomnd
 }
 
-func (u *Uploader) maybeIgnoreCachedEntry(ent fs.Entry) fs.Entry {
+func (u *Uploader) maybeIgnoreCachedEntry(ctx context.Context, ent fs.Entry) fs.Entry {
 	if h, ok := ent.(object.HasObjectID); ok {
 		if objectIDPercent(h.ObjectID()) < u.ForceHashPercentage {
-			log.Debugf("ignoring valid cached object: %v", h.ObjectID())
+			log(ctx).Debugf("ignoring valid cached object: %v", h.ObjectID())
 			return nil
 		}
 
@@ -414,7 +414,7 @@ func (u *Uploader) prepareWorkItems(ctx context.Context, dirRelativePath string,
 		}
 
 		// See if we had this name during either of previous passes.
-		if cachedEntry := u.maybeIgnoreCachedEntry(findCachedEntry(entry, prevEntries)); cachedEntry != nil {
+		if cachedEntry := u.maybeIgnoreCachedEntry(ctx, findCachedEntry(ctx, entry, prevEntries)); cachedEntry != nil {
 			u.stats.CachedFiles++
 			u.Progress.CachedFile(filepath.Join(dirRelativePath, entry.Name()), entry.Size())
 
@@ -503,7 +503,7 @@ func (u *Uploader) launchWorkItems(workItems []*uploadWorkItem, wg *sync.WaitGro
 	}
 }
 
-func (u *Uploader) processUploadWorkItems(workItems []*uploadWorkItem, dirManifest *snapshot.DirManifest, ignoreFileErrs bool) error {
+func (u *Uploader) processUploadWorkItems(ctx context.Context, workItems []*uploadWorkItem, dirManifest *snapshot.DirManifest, ignoreFileErrs bool) error {
 	var wg sync.WaitGroup
 
 	u.launchWorkItems(workItems, &wg)
@@ -520,7 +520,7 @@ func (u *Uploader) processUploadWorkItems(workItems []*uploadWorkItem, dirManife
 			if ignoreFileErrs {
 				u.stats.ReadErrors++
 
-				log.Warningf("unable to hash file %q: %s, ignoring", it.entryRelativePath, result.err)
+				log(ctx).Warningf("unable to hash file %q: %s, ignoring", it.entryRelativePath, result.err)
 
 				continue
 			}
@@ -544,7 +544,7 @@ func maybeReadDirectoryEntries(ctx context.Context, dir fs.Directory) fs.Entries
 
 	ent, err := dir.Readdir(ctx)
 	if err != nil {
-		log.Warningf("unable to read previous directory entries: %v", err)
+		log(ctx).Warningf("unable to read previous directory entries: %v", err)
 		return nil
 	}
 
@@ -598,11 +598,11 @@ func uploadDirInternal(
 		summ.IncompleteReason = u.cancelReason()
 	}()
 
-	log.Debugf("reading directory %v", dirRelativePath)
+	log(ctx).Debugf("reading directory %v", dirRelativePath)
 
 	entries, direrr := directory.Readdir(ctx)
 
-	log.Debugf("finished reading directory %v", dirRelativePath)
+	log(ctx).Debugf("finished reading directory %v", dirRelativePath)
 
 	if direrr != nil {
 		return "", fs.DirectorySummary{}, dirReadError{direrr}
@@ -628,20 +628,20 @@ func uploadDirInternal(
 		return "", fs.DirectorySummary{}, err
 	}
 
-	log.Debugf("preparing work items %v", dirRelativePath)
+	log(ctx).Debugf("preparing work items %v", dirRelativePath)
 	workItems, workItemErr := u.prepareWorkItems(ctx, dirRelativePath, entries, policyTree, prevEntries, &summ)
-	log.Debugf("finished preparing work items %v", dirRelativePath)
+	log(ctx).Debugf("finished preparing work items %v", dirRelativePath)
 
 	if workItemErr != nil && workItemErr != errCancelled {
 		return "", fs.DirectorySummary{}, workItemErr
 	}
 
 	ignoreFileErrs := u.shouldIgnoreFileReadErrors(policyTree)
-	if err := u.processUploadWorkItems(workItems, dirManifest, ignoreFileErrs); err != nil && err != errCancelled {
+	if err := u.processUploadWorkItems(ctx, workItems, dirManifest, ignoreFileErrs); err != nil && err != errCancelled {
 		return "", fs.DirectorySummary{}, err
 	}
 
-	log.Debugf("finished processing uploads %v", dirRelativePath)
+	log(ctx).Debugf("finished processing uploads %v", dirRelativePath)
 
 	dirManifest.Summary = &summ
 
@@ -694,20 +694,20 @@ func (u *Uploader) Cancel() {
 	atomic.StoreInt32(&u.canceled, 1)
 }
 
-func (u *Uploader) maybeOpenDirectoryFromManifest(man *snapshot.Manifest) fs.Directory {
+func (u *Uploader) maybeOpenDirectoryFromManifest(ctx context.Context, man *snapshot.Manifest) fs.Directory {
 	if man == nil {
 		return nil
 	}
 
 	ent, err := EntryFromDirEntry(u.repo, man.RootEntry)
 	if err != nil {
-		log.Warningf("invalid previous manifest root entry %v: %v", man.RootEntry, err)
+		log(ctx).Warningf("invalid previous manifest root entry %v: %v", man.RootEntry, err)
 		return nil
 	}
 
 	dir, ok := ent.(fs.Directory)
 	if !ok {
-		log.Debugf("previous manifest root is not a directory (was %T %+v)", ent, man.RootEntry)
+		log(ctx).Debugf("previous manifest root is not a directory (was %T %+v)", ent, man.RootEntry)
 		return nil
 	}
 
@@ -723,7 +723,7 @@ func (u *Uploader) Upload(
 	sourceInfo snapshot.SourceInfo,
 	previousManifests ...*snapshot.Manifest,
 ) (*snapshot.Manifest, error) {
-	log.Debugf("Uploading %v", sourceInfo)
+	log(ctx).Debugf("Uploading %v", sourceInfo)
 
 	s := &snapshot.Manifest{
 		Source: sourceInfo,
@@ -756,7 +756,7 @@ func (u *Uploader) Upload(
 		var previousDirs []fs.Directory
 
 		for _, m := range previousManifests {
-			if d := u.maybeOpenDirectoryFromManifest(m); d != nil {
+			if d := u.maybeOpenDirectoryFromManifest(ctx, m); d != nil {
 				previousDirs = append(previousDirs, d)
 			}
 		}

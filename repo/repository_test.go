@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/kopia/kopia/internal/repotesting"
+	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/object"
@@ -26,11 +27,11 @@ func TestWriters(t *testing.T) {
 		{make([]byte, 100), "1d804f1f69df08f3f59070bf962de69433e3d61ac18522a805a84d8c92741340"}, // 100 zero bytes
 	}
 
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 
 	for _, c := range cases {
 		var env repotesting.Environment
-		defer env.Setup(t).Close(t)
+		defer env.Setup(t).Close(ctx, t)
 
 		writer := env.Repository.Objects.NewWriter(ctx, object.WriterOptions{})
 		if _, err := writer.Write(c.data); err != nil {
@@ -57,9 +58,9 @@ func objectIDsEqual(o1, o2 object.ID) bool {
 
 func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	var env repotesting.Environment
-	defer env.Setup(t).Close(t)
 
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
+	defer env.Setup(t).Close(ctx, t)
 
 	b := make([]byte, 100)
 	writer := env.Repository.Objects.NewWriter(ctx, object.WriterOptions{})
@@ -74,9 +75,9 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 
 func TestPackingSimple(t *testing.T) {
 	var env repotesting.Environment
-	defer env.Setup(t).Close(t)
 
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
+	defer env.Setup(t).Close(ctx, t)
 
 	content1 := "hello, how do you do?"
 	content2 := "hi, how are you?"
@@ -147,9 +148,9 @@ func TestPackingSimple(t *testing.T) {
 
 func TestHMAC(t *testing.T) {
 	var env repotesting.Environment
-	defer env.Setup(t).Close(t)
 
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
+	defer env.Setup(t).Close(ctx, t)
 
 	c := bytes.Repeat([]byte{0xcd}, 50)
 
@@ -164,9 +165,9 @@ func TestHMAC(t *testing.T) {
 
 func TestUpgrade(t *testing.T) {
 	var env repotesting.Environment
-	defer env.Setup(t).Close(t)
 
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
+	defer env.Setup(t).Close(ctx, t)
 
 	if err := env.Repository.Upgrade(ctx); err != nil {
 		t.Errorf("upgrade error: %v", err)
@@ -179,9 +180,9 @@ func TestUpgrade(t *testing.T) {
 
 func TestReaderStoredBlockNotFound(t *testing.T) {
 	var env repotesting.Environment
-	defer env.Setup(t).Close(t)
 
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
+	defer env.Setup(t).Close(ctx, t)
 
 	objectID, err := object.ParseID("Ddeadbeef")
 	if err != nil {
@@ -247,7 +248,7 @@ func verify(ctx context.Context, t *testing.T, rep *repo.Repository, objectID ob
 }
 
 func TestFormats(t *testing.T) {
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 	makeFormat := func(hash, encryption string) func(*repo.NewRepositoryOptions) {
 		return func(n *repo.NewRepositoryOptions) {
 			n.BlockFormat.Hash = hash
@@ -285,7 +286,7 @@ func TestFormats(t *testing.T) {
 
 	for caseIndex, c := range cases {
 		var env repotesting.Environment
-		defer env.Setup(t, c.format).Close(t)
+		defer env.Setup(t, c.format).Close(ctx, t)
 
 		for k, v := range c.oids {
 			bytesToWrite := []byte(k)

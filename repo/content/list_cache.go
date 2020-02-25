@@ -28,38 +28,38 @@ func (c *listCache) listIndexBlobs(ctx context.Context) ([]IndexBlobInfo, error)
 		if err == nil {
 			expirationTime := ci.Timestamp.Add(c.listCacheDuration)
 			if time.Now().Before(expirationTime) {
-				log.Debugf("retrieved list of index blobs from cache")
+				log(ctx).Debugf("retrieved list of index blobs from cache")
 				return ci.Contents, nil
 			}
 		} else if err != blob.ErrBlobNotFound {
-			log.Warningf("unable to open cache file: %v", err)
+			log(ctx).Warningf("unable to open cache file: %v", err)
 		}
 	}
 
 	contents, err := listIndexBlobsFromStorage(ctx, c.st)
 	if err == nil {
-		c.saveListToCache(&cachedList{
+		c.saveListToCache(ctx, &cachedList{
 			Contents:  contents,
 			Timestamp: time.Now(),
 		})
 	}
 
-	log.Debugf("found %v index blobs from source", len(contents))
+	log(ctx).Debugf("found %v index blobs from source", len(contents))
 
 	return contents, err
 }
 
-func (c *listCache) saveListToCache(ci *cachedList) {
+func (c *listCache) saveListToCache(ctx context.Context, ci *cachedList) {
 	if c.cacheFile == "" {
 		return
 	}
 
-	log.Debugf("saving index blobs to cache: %v", len(ci.Contents))
+	log(ctx).Debugf("saving index blobs to cache: %v", len(ci.Contents))
 
 	if data, err := json.Marshal(ci); err == nil {
 		mySuffix := fmt.Sprintf(".tmp-%v-%v", os.Getpid(), time.Now().UnixNano())
 		if err := ioutil.WriteFile(c.cacheFile+mySuffix, appendHMAC(data, c.hmacSecret), 0600); err != nil {
-			log.Warningf("unable to write list cache: %v", err)
+			log(ctx).Warningf("unable to write list cache: %v", err)
 		}
 
 		os.Rename(c.cacheFile+mySuffix, c.cacheFile) //nolint:errcheck

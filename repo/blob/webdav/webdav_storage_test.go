@@ -1,7 +1,6 @@
 package webdav
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -12,8 +11,8 @@ import (
 	"golang.org/x/net/webdav"
 
 	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/blob/logging"
 )
 
 func basicAuth(h http.Handler) http.HandlerFunc {
@@ -89,9 +88,9 @@ func TestWebDAVStorageBuiltInServer(t *testing.T) {
 }
 
 func verifyWebDAVStorage(t *testing.T, url, username, password string, shardSpec []int) {
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 
-	st, err := New(context.Background(), &Options{
+	st, err := New(testlogging.Context(t), &Options{
 		URL:             url,
 		DirectoryShards: shardSpec,
 		Username:        username,
@@ -101,8 +100,6 @@ func verifyWebDAVStorage(t *testing.T, url, username, password string, shardSpec
 	if st == nil || err != nil {
 		t.Errorf("unexpected result: %v %v", st, err)
 	}
-
-	st = logging.NewWrapper(st)
 
 	if err := st.ListBlobs(ctx, "", func(bm blob.Metadata) error {
 		return st.DeleteBlob(ctx, bm.BlobID)

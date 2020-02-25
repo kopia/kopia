@@ -34,16 +34,16 @@ func runMountCommand(ctx context.Context, rep *repo.Repository) error {
 	}
 
 	if *mountTraceFS {
-		entry = loggingfs.Wrap(entry).(fs.Directory)
+		entry = loggingfs.Wrap(entry, log(ctx).Debugf).(fs.Directory)
 	}
 
 	entry = cachefs.Wrap(entry, newFSCache()).(fs.Directory)
 
 	switch *mountMode {
 	case "FUSE":
-		return mountDirectoryFUSE(entry, *mountPoint)
+		return mountDirectoryFUSE(ctx, entry, *mountPoint)
 	case "WEBDAV":
-		return mountDirectoryWebDAV(entry, *mountPoint)
+		return mountDirectoryWebDAV(ctx, entry, *mountPoint)
 	default:
 		return errors.Errorf("unsupported mode: %q", *mountMode)
 	}
