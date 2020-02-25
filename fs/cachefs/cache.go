@@ -6,11 +6,11 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/internal/kopialogging"
+	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/object"
 )
 
-var log = kopialogging.Logger("kopia/cachefs")
+var log = logging.GetContextLoggerFunc("kopia/cachefs")
 
 const dirCacheExpiration = 24 * time.Hour
 
@@ -91,13 +91,13 @@ func (c *Cache) Readdir(ctx context.Context, d fs.Directory) (fs.Entries, error)
 	return d.Readdir(ctx)
 }
 
-func (c *Cache) getEntriesFromCacheLocked(id string) fs.Entries {
+func (c *Cache) getEntriesFromCacheLocked(ctx context.Context, id string) fs.Entries {
 	if v, ok := c.data[id]; id != "" && ok {
 		if time.Now().Before(v.expireAfter) {
 			c.moveToHead(v)
 
 			if c.debug {
-				log.Debugf("cache hit for %q (valid until %v)", id, v.expireAfter)
+				log(ctx).Debugf("cache hit for %q (valid until %v)", id, v.expireAfter)
 			}
 
 			return v.entries
@@ -105,7 +105,7 @@ func (c *Cache) getEntriesFromCacheLocked(id string) fs.Entries {
 
 		// time expired
 		if c.debug {
-			log.Debugf("removing expired cache entry %q after %v", id, v.expireAfter)
+			log(ctx).Debugf("removing expired cache entry %q after %v", id, v.expireAfter)
 		}
 
 		c.removeEntryLocked(v)
@@ -124,12 +124,12 @@ func (c *Cache) getEntries(ctx context.Context, id string, expirationTime time.D
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if entries := c.getEntriesFromCacheLocked(id); entries != nil {
+	if entries := c.getEntriesFromCacheLocked(ctx, id); entries != nil {
 		return entries, nil
 	}
 
 	if c.debug {
-		log.Debugf("cache miss for %q", id)
+		log(ctx).Debugf("cache miss for %q", id)
 	}
 
 	raw, err := cb(ctx)

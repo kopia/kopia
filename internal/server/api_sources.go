@@ -9,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
@@ -70,14 +71,14 @@ func (s *Server) handleSourcesCreate(ctx context.Context, r *http.Request) (inte
 	switch err {
 	case nil:
 		// already have policy, do nothing
-		log.Debugf("policy for %v already exists", sourceInfo)
+		log(ctx).Debugf("policy for %v already exists", sourceInfo)
 
 		resp.Created = false
 
 	case policy.ErrPolicyNotFound:
 		resp.Created = true
 		// don't have policy - create an empty one
-		log.Debugf("policy for %v not found, creating empty one", sourceInfo)
+		log(ctx).Debugf("policy for %v not found, creating empty one", sourceInfo)
 
 		if err = policy.SetPolicy(ctx, s.rep, sourceInfo, &req.InitialPolicy); err != nil {
 			return nil, internalServerError(errors.Wrap(err, "unable to set initial policy"))
@@ -95,11 +96,11 @@ func (s *Server) handleSourcesCreate(ctx context.Context, r *http.Request) (inte
 	s.mu.RUnlock()
 	s.mu.Lock()
 	if s.sourceManagers[sourceInfo] == nil {
-		log.Debugf("creating source manager for %v", sourceInfo)
+		log(ctx).Debugf("creating source manager for %v", sourceInfo)
 		sm := newSourceManager(sourceInfo, s)
 		s.sourceManagers[sourceInfo] = sm
 
-		go sm.run(context.Background())
+		go sm.run(ctxutil.Detach(ctx))
 	}
 	s.mu.Unlock()
 	s.mu.RLock()
@@ -112,7 +113,7 @@ func (s *Server) handleSourcesCreate(ctx context.Context, r *http.Request) (inte
 	if req.CreateSnapshot {
 		resp.SnapshotStarted = true
 
-		log.Debugf("scheduling snapshot of %v immediately...", sourceInfo)
+		log(ctx).Debugf("scheduling snapshot of %v immediately...", sourceInfo)
 		manager.scheduleSnapshotNow()
 	}
 

@@ -42,7 +42,7 @@ func runBenchmarkCompressionAction(ctx *kingpin.ParseContext) error {
 	}
 
 	for name, comp := range compression.ByName {
-		log.Infof("Benchmarking compressor '%v' (%v x %v bytes)", name, *benchmarkCompressionRepeat, len(data))
+		printStderr("Benchmarking compressor '%v' (%v x %v bytes)\n", name, *benchmarkCompressionRepeat, len(data))
 
 		t0 := time.Now()
 
@@ -54,7 +54,7 @@ func runBenchmarkCompressionAction(ctx *kingpin.ParseContext) error {
 		for i := 0; i < cnt; i++ {
 			compressed, err := comp.Compress(data)
 			if err != nil {
-				log.Warningf("compression failed: %v", err)
+				printStderr("compression %q failed: %v\n", name, err)
 				continue
 			}
 
@@ -66,7 +66,7 @@ func runBenchmarkCompressionAction(ctx *kingpin.ParseContext) error {
 				if i == 0 {
 					lastHash = h
 				} else if h != lastHash {
-					log.Warningf("compression is not stable")
+					printStderr("compression %q is not stable\n", name)
 					continue
 				}
 			}

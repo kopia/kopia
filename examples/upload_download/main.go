@@ -31,6 +31,7 @@ func main() {
 
 	// Now list contents found in the repository.
 	if err := r.Content.IterateContents(
+		ctx,
 		content.IterateOptions{},
 		func(ci content.Info) error {
 			log.Printf("found content %v", ci)

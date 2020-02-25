@@ -2,7 +2,6 @@ package content
 
 import (
 	"bytes"
-	"context"
 	"io/ioutil"
 	"os"
 	"reflect"
@@ -15,11 +14,12 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
 )
 
 func newUnderlyingStorageForContentCacheTesting(t *testing.T) blob.Storage {
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
 	assertNoError(t, st.PutBlob(ctx, "content-1", []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}))
@@ -49,14 +49,14 @@ func TestCacheExpiration(t *testing.T) {
 
 	underlyingStorage := newUnderlyingStorageForContentCacheTesting(t)
 
-	cache, err := newContentCacheWithCacheStorage(context.Background(), underlyingStorage, cacheStorage, 10000, CachingOptions{}, 0, 500*time.Millisecond)
+	cache, err := newContentCacheWithCacheStorage(testlogging.Context(t), underlyingStorage, cacheStorage, 10000, CachingOptions{}, 0, 500*time.Millisecond)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
 	defer cache.close()
 
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 	_, err = cache.getContent(ctx, "00000a", "content-4k", 0, -1) // 4k
 	assertNoError(t, err)
 	_, err = cache.getContent(ctx, "00000b", "content-4k", 0, -1) // 4k
@@ -95,7 +95,7 @@ func TestCacheExpiration(t *testing.T) {
 }
 
 func TestDiskContentCache(t *testing.T) {
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 
 	tmpDir, err := ioutil.TempDir("", "kopia")
 	if err != nil {
@@ -118,7 +118,7 @@ func TestDiskContentCache(t *testing.T) {
 }
 
 func verifyContentCache(t *testing.T, cache *contentCache) {
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 
 	t.Run("GetContentContent", func(t *testing.T) {
 		cases := []struct {
@@ -196,13 +196,13 @@ func TestCacheFailureToOpen(t *testing.T) {
 	}
 
 	// Will fail because of ListBlobs failure.
-	_, err := newContentCacheWithCacheStorage(context.Background(), underlyingStorage, faultyCache, 10000, CachingOptions{}, 0, 5*time.Hour)
+	_, err := newContentCacheWithCacheStorage(testlogging.Context(t), underlyingStorage, faultyCache, 10000, CachingOptions{}, 0, 5*time.Hour)
 	if err == nil || !strings.Contains(err.Error(), someError.Error()) {
 		t.Errorf("invalid error %v, wanted: %v", err, someError)
 	}
 
 	// ListBlobs fails only once, next time it succeeds.
-	cache, err := newContentCacheWithCacheStorage(context.Background(), underlyingStorage, faultyCache, 10000, CachingOptions{}, 0, 100*time.Millisecond)
+	cache, err := newContentCacheWithCacheStorage(testlogging.Context(t), underlyingStorage, faultyCache, 10000, CachingOptions{}, 0, 100*time.Millisecond)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -220,14 +220,14 @@ func TestCacheFailureToWrite(t *testing.T) {
 		Base: cacheStorage,
 	}
 
-	cache, err := newContentCacheWithCacheStorage(context.Background(), underlyingStorage, faultyCache, 10000, CachingOptions{}, 0, 5*time.Hour)
+	cache, err := newContentCacheWithCacheStorage(testlogging.Context(t), underlyingStorage, faultyCache, 10000, CachingOptions{}, 0, 5*time.Hour)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
 	defer cache.close()
 
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 	faultyCache.Faults = map[string][]*blobtesting.Fault{
 		"PutBlob": {
 			{Err: someError},
@@ -263,14 +263,14 @@ func TestCacheFailureToRead(t *testing.T) {
 		Base: cacheStorage,
 	}
 
-	cache, err := newContentCacheWithCacheStorage(context.Background(), underlyingStorage, faultyCache, 10000, CachingOptions{}, 0, 5*time.Hour)
+	cache, err := newContentCacheWithCacheStorage(testlogging.Context(t), underlyingStorage, faultyCache, 10000, CachingOptions{}, 0, 5*time.Hour)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
 	defer cache.close()
 
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 	faultyCache.Faults = map[string][]*blobtesting.Fault{
 		"GetBlob": {
 			{Err: someError, Repeat: 100},
@@ -294,7 +294,7 @@ func verifyStorageContentList(t *testing.T, st blob.Storage, expectedContents ..
 
 	var foundContents []blob.ID
 
-	assertNoError(t, st.ListBlobs(context.Background(), "", func(bm blob.Metadata) error {
+	assertNoError(t, st.ListBlobs(testlogging.Context(t), "", func(bm blob.Metadata) error {
 		foundContents = append(foundContents, bm.BlobID)
 		return nil
 	}))

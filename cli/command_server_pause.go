@@ -15,5 +15,5 @@ func init() {
 }
 
 func runServerPause(ctx context.Context, cli *serverapi.Client) error {
-	return cli.Post("sources/pause", &serverapi.Empty{}, &serverapi.Empty{})
+	return cli.Post(ctx, "sources/pause", &serverapi.Empty{}, &serverapi.Empty{})
 }

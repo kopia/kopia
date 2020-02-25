@@ -21,14 +21,14 @@ func runRecoverBlockIndexesAction(ctx context.Context, rep *repo.Repository) err
 
 	defer func() {
 		if totalCount == 0 {
-			log.Noticef("No blocks recovered.")
+			log(ctx).Infof("No blocks recovered.")
 			return
 		}
 
 		if !*blockIndexRecoverCommit {
-			log.Noticef("Found %v blocks to recover, but not committed. Re-run with --commit", totalCount)
+			log(ctx).Infof("Found %v blocks to recover, but not committed. Re-run with --commit", totalCount)
 		} else {
-			log.Noticef("Recovered %v blocks.", totalCount)
+			log(ctx).Infof("Recovered %v blocks.", totalCount)
 		}
 	}()
 
@@ -54,12 +54,12 @@ func runRecoverBlockIndexesAction(ctx context.Context, rep *repo.Repository) err
 func recoverIndexFromSinglePackFile(ctx context.Context, rep *repo.Repository, blobID blob.ID, length int64, totalCount *int) {
 	recovered, err := rep.Content.RecoverIndexFromPackBlob(ctx, blobID, length, *blockIndexRecoverCommit)
 	if err != nil {
-		log.Warningf("unable to recover index from %v: %v", blobID, err)
+		log(ctx).Warningf("unable to recover index from %v: %v", blobID, err)
 		return
 	}
 
 	*totalCount += len(recovered)
-	log.Infof("Recovered %v entries from %v (commit=%v)", len(recovered), blobID, *blockIndexRecoverCommit)
+	log(ctx).Infof("Recovered %v entries from %v (commit=%v)", len(recovered), blobID, *blockIndexRecoverCommit)
 }
 
 func init() {

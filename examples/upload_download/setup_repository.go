@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"log"
 	"os"
 
 	"github.com/pkg/errors"
@@ -25,6 +26,7 @@ func setupRepositoryAndConnect(ctx context.Context, password string) error {
 	if err := os.MkdirAll(storageDir, 0700); err != nil {
 		return errors.Wrap(err, "unable to create directory")
 	}
+
 	st, err := filesystem.New(ctx, &filesystem.Options{
 		Path: storageDir,
 	})
@@ -33,7 +35,7 @@ func setupRepositoryAndConnect(ctx context.Context, password string) error {
 	}
 
 	// set up logging so we can see what's going on
-	st = logging.NewWrapper(st)
+	st = logging.NewWrapper(st, log.Printf, "")
 
 	// see if we already have the config file, if not connect.
 	if _, err := os.Stat(configFile); os.IsNotExist(err) {

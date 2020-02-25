@@ -17,6 +17,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/kopia/kopia/repo/content"
@@ -34,7 +35,7 @@ func TestStressRepository(t *testing.T) {
 		t.Skip("skipping stress test during short tests")
 	}
 
-	ctx := content.UsingListCache(context.Background(), false)
+	ctx := content.UsingListCache(testlogging.Context(t), false)
 
 	tmpPath, err := ioutil.TempDir("", "kopia")
 	if err != nil {
@@ -256,6 +257,7 @@ func readKnownBlock(ctx context.Context, t *testing.T, r *repo.Repository) error
 
 func listContents(ctx context.Context, t *testing.T, r *repo.Repository) error {
 	return r.Content.IterateContents(
+		ctx,
 		content.IterateOptions{},
 		func(i content.Info) error { return nil },
 	)
@@ -263,6 +265,7 @@ func listContents(ctx context.Context, t *testing.T, r *repo.Repository) error {
 
 func listAndReadAllContents(ctx context.Context, t *testing.T, r *repo.Repository) error {
 	return r.Content.IterateContents(
+		ctx,
 		content.IterateOptions{},
 		func(ci content.Info) error {
 			cid := ci.ID

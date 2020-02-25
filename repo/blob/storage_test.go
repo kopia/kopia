@@ -1,16 +1,16 @@
 package blob_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
 	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
 )
 
 func TestListAllBlobsConsistent(t *testing.T) {
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, time.Now)
 	st.PutBlob(ctx, "foo1", []byte{1, 2, 3}) //nolint:errcheck
@@ -42,7 +42,7 @@ func TestListAllBlobsConsistent(t *testing.T) {
 }
 
 func TestListAllBlobsConsistentEmpty(t *testing.T) {
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, time.Now)
 

@@ -6,8 +6,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/manifest"
 )
 
@@ -20,7 +20,7 @@ const (
 	loadSnapshotsConcurrency = 50 // number of snapshots to load in parallel
 )
 
-var log = kopialogging.Logger("kopia/snapshot")
+var log = logging.GetContextLoggerFunc("kopia/snapshot")
 
 // ListSources lists all snapshot sources in a given repository.
 func ListSources(ctx context.Context, rep *repo.Repository) ([]SourceInfo, error) {
@@ -116,7 +116,7 @@ func LoadSnapshots(ctx context.Context, rep *repo.Repository, manifestIDs []mani
 
 			m, err := LoadSnapshot(ctx, rep, n)
 			if err != nil {
-				log.Warningf("unable to parse snapshot manifest %v: %v", n, err)
+				log(ctx).Warningf("unable to parse snapshot manifest %v: %v", n, err)
 				return
 			}
 

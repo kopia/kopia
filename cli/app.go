@@ -8,14 +8,14 @@ import (
 	"github.com/pkg/errors"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 
-	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/logging"
 )
 
-var log = kopialogging.Logger("kopia/cli")
+var log = logging.GetContextLoggerFunc("kopia/cli")
 
 var (
 	app = kingpin.New("kopia", "Kopia - Online Backup").Author("http://kopia.github.io/")
@@ -44,7 +44,7 @@ func helpFullAction(ctx *kingpin.ParseContext) error {
 
 func noRepositoryAction(act func(ctx context.Context) error) func(ctx *kingpin.ParseContext) error {
 	return func(_ *kingpin.ParseContext) error {
-		return act(context.Background())
+		return act(rootContext())
 	}
 }
 
@@ -60,7 +60,7 @@ func serverAction(act func(ctx context.Context, cli *serverapi.Client) error) fu
 			return errors.Wrap(err, "unable to create API client")
 		}
 
-		return act(context.Background(), apiClient)
+		return act(rootContext(), apiClient)
 	}
 }
 
@@ -72,21 +72,27 @@ func optionalRepositoryAction(act func(ctx context.Context, rep *repo.Repository
 	return maybeRepositoryAction(act, false)
 }
 
+func rootContext() context.Context {
+	ctx := context.Background()
+	ctx = content.UsingContentCache(ctx, *enableCaching)
+	ctx = content.UsingListCache(ctx, *enableListCaching)
+	ctx = blob.WithUploadProgressCallback(ctx, func(desc string, bytesSent, totalBytes int64) {
+		if bytesSent >= totalBytes {
+			log(ctx).Debugf("Uploaded %v %v %v", desc, bytesSent, totalBytes)
+			progress.UploadedBytes(totalBytes)
+		}
+	})
+
+	return ctx
+}
+
 func maybeRepositoryAction(act func(ctx context.Context, rep *repo.Repository) error, required bool) func(ctx *kingpin.ParseContext) error {
 	return func(kpc *kingpin.ParseContext) error {
 		return withProfiling(func() error {
-			startMemoryTracking()
-			defer finishMemoryTracking()
+			ctx := rootContext()
 
-			ctx := context.Background()
-			ctx = content.UsingContentCache(ctx, *enableCaching)
-			ctx = content.UsingListCache(ctx, *enableListCaching)
-			ctx = blob.WithUploadProgressCallback(ctx, func(desc string, bytesSent, totalBytes int64) {
-				if bytesSent >= totalBytes {
-					log.Debugf("Uploaded %v %v %v", desc, bytesSent, totalBytes)
-					progress.UploadedBytes(totalBytes)
-				}
-			})
+			startMemoryTracking(ctx)
+			defer finishMemoryTracking(ctx)
 
 			rep, err := openRepository(ctx, nil, required)
 			if err != nil && required {

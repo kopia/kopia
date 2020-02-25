@@ -56,7 +56,7 @@ func (gcs *gcsStorage) GetBlob(ctx context.Context, b blob.ID, offset, length in
 		return ioutil.ReadAll(reader)
 	}
 
-	v, err := exponentialBackoff(fmt.Sprintf("GetBlob(%q,%v,%v)", b, offset, length), attempt)
+	v, err := exponentialBackoff(ctx, fmt.Sprintf("GetBlob(%q,%v,%v)", b, offset, length), attempt)
 	if err != nil {
 		return nil, translateError(err)
 	}
@@ -69,8 +69,8 @@ func (gcs *gcsStorage) GetBlob(ctx context.Context, b blob.ID, offset, length in
 	return fetched, nil
 }
 
-func exponentialBackoff(desc string, att retry.AttemptFunc) (interface{}, error) {
-	return retry.WithExponentialBackoff(desc, att, isRetriableError)
+func exponentialBackoff(ctx context.Context, desc string, att retry.AttemptFunc) (interface{}, error) {
+	return retry.WithExponentialBackoff(ctx, desc, att, isRetriableError)
 }
 
 func isRetriableError(err error) bool {
@@ -142,7 +142,7 @@ func (gcs *gcsStorage) DeleteBlob(ctx context.Context, b blob.ID) error {
 		return nil, gcs.bucket.Object(gcs.getObjectNameString(b)).Delete(gcs.ctx)
 	}
 
-	_, err := exponentialBackoff(fmt.Sprintf("DeleteBlob(%q)", b), attempt)
+	_, err := exponentialBackoff(ctx, fmt.Sprintf("DeleteBlob(%q)", b), attempt)
 	err = translateError(err)
 
 	if err == blob.ErrBlobNotFound {

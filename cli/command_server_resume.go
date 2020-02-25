@@ -15,5 +15,5 @@ func init() {
 }
 
 func runServerResume(ctx context.Context, cli *serverapi.Client) error {
-	return cli.Post("sources/resume", &serverapi.Empty{}, &serverapi.Empty{})
+	return cli.Post(ctx, "sources/resume", &serverapi.Empty{}, &serverapi.Empty{})
 }

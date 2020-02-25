@@ -63,13 +63,13 @@ func (r *Repository) Refresh(ctx context.Context) error {
 		return nil
 	}
 
-	log.Debugf("content index refreshed")
+	log(ctx).Debugf("content index refreshed")
 
 	if err := r.Manifests.Refresh(ctx); err != nil {
 		return errors.Wrap(err, "error reloading manifests")
 	}
 
-	log.Debugf("manifests refreshed")
+	log(ctx).Debugf("manifests refreshed")
 
 	return nil
 }
@@ -83,7 +83,7 @@ func (r *Repository) RefreshPeriodically(ctx context.Context, interval time.Dura
 
 		case <-time.After(interval):
 			if err := r.Refresh(ctx); err != nil {
-				log.Warningf("error refreshing repository: %v", err)
+				log(ctx).Warningf("error refreshing repository: %v", err)
 			}
 		}
 	}

@@ -1,12 +1,12 @@
 package gcs_test
 
 import (
-	"context"
 	"io/ioutil"
 	"os"
 	"testing"
 
 	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/testlogging"
 
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/gcs"
@@ -23,7 +23,7 @@ func TestGCSStorage(t *testing.T) {
 		t.Skip("skipping test because GCS credentials file can't be opened")
 	}
 
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 	st, err := gcs.New(ctx, &gcs.Options{
 		BucketName:                   bucket,
 		ServiceAccountCredentialJSON: credData,
@@ -60,7 +60,7 @@ func TestGCSStorageInvalid(t *testing.T) {
 		t.Skip("KOPIA_GCS_TEST_BUCKET not provided")
 	}
 
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 
 	if _, err := gcs.New(ctx, &gcs.Options{
 		BucketName:                    bucket + "-no-such-bucket",

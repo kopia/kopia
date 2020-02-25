@@ -10,6 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/filesystem"
 )
@@ -72,7 +73,7 @@ func (c *contentCache) getContent(ctx context.Context, cacheKey cacheKey, blobID
 			blob.ID(cacheKey),
 			appendHMAC(b, c.hmacSecret),
 		); puterr != nil {
-			log.Warningf("unable to write cache item %v: %v", cacheKey, puterr)
+			log(ctx).Warningf("unable to write cache item %v: %v", cacheKey, puterr)
 		}
 	}
 
@@ -89,7 +90,7 @@ func (c *contentCache) put(ctx context.Context, cacheKey cacheKey, data []byte) 
 			blob.ID(cacheKey),
 			appendHMAC(data, c.hmacSecret),
 		); puterr != nil {
-			log.Warningf("unable to write cache item %v: %v", cacheKey, puterr)
+			log(ctx).Warningf("unable to write cache item %v: %v", cacheKey, puterr)
 		}
 	}
 }
@@ -108,13 +109,13 @@ func (c *contentCache) readAndVerifyCacheContent(ctx context.Context, cacheKey c
 		}
 
 		// ignore malformed contents
-		log.Warningf("malformed content %v: %v", cacheKey, err)
+		log(ctx).Warningf("malformed content %v: %v", cacheKey, err)
 
 		return nil
 	}
 
 	if err != blob.ErrBlobNotFound {
-		log.Warningf("unable to read cache %v: %v", cacheKey, err)
+		log(ctx).Warningf("unable to read cache %v: %v", cacheKey, err)
 	}
 
 	return nil
@@ -133,7 +134,7 @@ func (c *contentCache) sweepDirectoryPeriodically(ctx context.Context) {
 		case <-time.After(c.sweepFrequency):
 			err := c.sweepDirectory(ctx)
 			if err != nil {
-				log.Warningf("contentCache sweep failed: %v", err)
+				log(ctx).Warningf("contentCache sweep failed: %v", err)
 			}
 		}
 	}
@@ -186,7 +187,7 @@ func (c *contentCache) sweepDirectory(ctx context.Context) (err error) {
 		if totalRetainedSize > c.maxSizeBytes {
 			oldest := heap.Pop(&h).(blob.Metadata)
 			if delerr := c.cacheStorage.DeleteBlob(ctx, oldest.BlobID); delerr != nil {
-				log.Warningf("unable to remove %v: %v", oldest.BlobID, delerr)
+				log(ctx).Warningf("unable to remove %v: %v", oldest.BlobID, delerr)
 			} else {
 				totalRetainedSize -= oldest.Length
 			}
@@ -197,7 +198,7 @@ func (c *contentCache) sweepDirectory(ctx context.Context) (err error) {
 		return errors.Wrap(err, "error listing cache")
 	}
 
-	log.Debugf("finished sweeping directory in %v and retained %v/%v bytes (%v %%)", time.Since(t0), totalRetainedSize, c.maxSizeBytes, 100*totalRetainedSize/c.maxSizeBytes)
+	log(ctx).Debugf("finished sweeping directory in %v and retained %v/%v bytes (%v %%)", time.Since(t0), totalRetainedSize, c.maxSizeBytes, 100*totalRetainedSize/c.maxSizeBytes)
 	c.lastTotalSizeBytes = totalRetainedSize
 
 	return nil
@@ -217,7 +218,7 @@ func newContentCache(ctx context.Context, st blob.Storage, caching CachingOption
 			}
 		}
 
-		cacheStorage, err = filesystem.New(context.Background(), &filesystem.Options{
+		cacheStorage, err = filesystem.New(ctxutil.Detach(ctx), &filesystem.Options{
 			Path:            contentCacheDir,
 			DirectoryShards: []int{2},
 		})

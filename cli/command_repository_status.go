@@ -48,7 +48,7 @@ func runStatusCommand(ctx context.Context, rep *repo.Repository) error {
 		if *statusReconnectTokenIncludePassword {
 			var err error
 
-			pass, err = getPasswordFromFlags(false, true)
+			pass, err = getPasswordFromFlags(ctx, false, true)
 			if err != nil {
 				return errors.Wrap(err, "getting password")
 			}

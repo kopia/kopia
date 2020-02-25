@@ -15,5 +15,5 @@ func init() {
 }
 
 func runServerCancelUpload(ctx context.Context, cli *serverapi.Client) error {
-	return cli.Post("sources/cancel", &serverapi.Empty{}, &serverapi.Empty{})
+	return cli.Post(ctx, "sources/cancel", &serverapi.Empty{}, &serverapi.Empty{})
 }

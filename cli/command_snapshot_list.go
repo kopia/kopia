@@ -51,7 +51,7 @@ func findSnapshotsForSource(ctx context.Context, rep *repo.Repository, sourceInf
 			relPath = filepath.Base(sourceInfo.Path)
 		}
 
-		log.Debugf("No snapshots of %v@%v:%v", sourceInfo.UserName, sourceInfo.Host, sourceInfo.Path)
+		log(ctx).Debugf("No snapshots of %v@%v:%v", sourceInfo.UserName, sourceInfo.Host, sourceInfo.Path)
 
 		parentPath := filepath.Dir(sourceInfo.Path)
 		if parentPath == sourceInfo.Path {
@@ -117,7 +117,7 @@ func outputManifestGroups(ctx context.Context, rep *repo.Repository, manifests [
 	for _, snapshotGroup := range snapshot.GroupBySource(manifests) {
 		src := snapshotGroup[0].Source
 		if !shouldOutputSnapshotSource(src) {
-			log.Debugf("skipping %v", src)
+			log(ctx).Debugf("skipping %v", src)
 			continue
 		}
 
@@ -128,7 +128,7 @@ func outputManifestGroups(ctx context.Context, rep *repo.Repository, manifests [
 
 		pol, _, err := policy.GetEffectivePolicy(ctx, rep, src)
 		if err != nil {
-			log.Warningf("unable to determine effective policy for %v", src)
+			log(ctx).Warningf("unable to determine effective policy for %v", src)
 		} else {
 			pol.RetentionPolicy.ComputeRetentionReasons(snapshotGroup)
 		}
@@ -186,7 +186,7 @@ func outputManifestFromSingleSource(ctx context.Context, rep *repo.Repository, m
 		}
 
 		if _, ok := ent.(object.HasObjectID); !ok {
-			log.Warningf("entry does not have object ID: %v", ent, err)
+			log(ctx).Warningf("entry does not have object ID: %v", ent, err)
 			continue
 		}
 

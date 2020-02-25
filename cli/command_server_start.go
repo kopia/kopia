@@ -64,27 +64,27 @@ func runServer(ctx context.Context, rep *repo.Repository) error {
 	srv.OnShutdown = httpServer.Shutdown
 
 	onCtrlC(func() {
-		log.Infof("Shutting down...")
+		log(ctx).Infof("Shutting down...")
 
 		if err = httpServer.Shutdown(ctx); err != nil {
-			log.Warningf("unable to shut down: %v", err)
+			log(ctx).Warningf("unable to shut down: %v", err)
 		}
 	})
 
 	handler := addInterceptors(mux)
 
 	if as := *serverStartAutoShutdown; as > 0 {
-		log.Infof("starting a watchdog to stop the server if there's no activity for %v", as)
+		log(ctx).Infof("starting a watchdog to stop the server if there's no activity for %v", as)
 		handler = startServerWatchdog(handler, as, func() {
 			if serr := httpServer.Shutdown(ctx); err != nil {
-				log.Warningf("unable to stop the server: %v", serr)
+				log(ctx).Warningf("unable to stop the server: %v", serr)
 			}
 		})
 	}
 
 	httpServer.Handler = handler
 
-	err = startServerWithOptionalTLS(httpServer)
+	err = startServerWithOptionalTLS(ctx, httpServer)
 	if err != http.ErrServerClosed {
 		return err
 	}

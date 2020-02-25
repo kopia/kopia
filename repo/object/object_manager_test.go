@@ -15,6 +15,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
@@ -69,7 +70,7 @@ func setupTest(t *testing.T) (map[content.ID][]byte, *Manager) {
 }
 
 func setupTestWithData(t *testing.T, data map[content.ID][]byte, opts ManagerOptions) (map[content.ID][]byte, *Manager) {
-	r, err := NewObjectManager(context.Background(), &fakeContentManager{data: data}, Format{
+	r, err := NewObjectManager(testlogging.Context(t), &fakeContentManager{data: data}, Format{
 		Splitter: "FIXED-1M",
 	}, opts)
 	if err != nil {
@@ -80,7 +81,7 @@ func setupTestWithData(t *testing.T, data map[content.ID][]byte, opts ManagerOpt
 }
 
 func TestWriters(t *testing.T) {
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 	cases := []struct {
 		data     []byte
 		objectID ID
@@ -129,7 +130,7 @@ func objectIDsEqual(o1, o2 ID) bool {
 }
 
 func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 	_, om := setupTest(t)
 
 	b := make([]byte, 100)
@@ -160,7 +161,7 @@ func verifyIndirectBlock(ctx context.Context, t *testing.T, r *Manager, oid ID) 
 }
 
 func TestIndirection(t *testing.T) {
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 
 	splitterFactory := newFixedSplitterFactory(1000)
 	cases := []struct {
@@ -229,7 +230,7 @@ func indirectionLevel(oid ID) int {
 }
 
 func TestHMAC(t *testing.T) {
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 	c := bytes.Repeat([]byte{0xcd}, 50)
 
 	_, om := setupTest(t)
@@ -244,7 +245,7 @@ func TestHMAC(t *testing.T) {
 }
 
 func TestReader(t *testing.T) {
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 	data, om := setupTest(t)
 
 	storedPayload := []byte("foo\nbar")
@@ -284,7 +285,7 @@ func TestReader(t *testing.T) {
 }
 
 func TestReaderStoredBlockNotFound(t *testing.T) {
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 	_, om := setupTest(t)
 
 	objectID, err := ParseID("deadbeef")
@@ -299,7 +300,7 @@ func TestReaderStoredBlockNotFound(t *testing.T) {
 }
 
 func TestEndToEndReadAndSeek(t *testing.T) {
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 	_, om := setupTest(t)
 
 	for _, size := range []int{1, 199, 200, 201, 9999, 512434, 5012434} {
@@ -327,7 +328,7 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 }
 
 func TestEndToEndReadAndSeekWithCompression(t *testing.T) {
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 
 	for compressorName := range compression.ByName {
 		totalBytesWritten := 0
@@ -414,7 +415,7 @@ func verify(ctx context.Context, t *testing.T, om *Manager, objectID ID, expecte
 
 // nolint:gocyclo
 func TestSeek(t *testing.T) {
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 	_, om := setupTest(t)
 
 	for _, size := range []int{0, 1, 500000, 15000000} {

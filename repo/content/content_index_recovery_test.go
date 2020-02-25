@@ -1,19 +1,19 @@
 package content
 
 import (
-	"context"
 	"testing"
 	"time"
 
 	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
 )
 
 func TestContentIndexRecovery(t *testing.T) {
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	keyTime := map[blob.ID]time.Time{}
-	bm := newTestContentManager(data, keyTime, nil)
+	bm := newTestContentManager(t, data, keyTime, nil)
 	content1 := writeContentAndVerify(ctx, t, bm, seededRandomData(10, 100))
 	content2 := writeContentAndVerify(ctx, t, bm, seededRandomData(11, 100))
 	content3 := writeContentAndVerify(ctx, t, bm, seededRandomData(12, 100))
@@ -24,12 +24,12 @@ func TestContentIndexRecovery(t *testing.T) {
 
 	// delete all index blobs
 	assertNoError(t, bm.st.ListBlobs(ctx, newIndexBlobPrefix, func(bi blob.Metadata) error {
-		log.Debugf("deleting %v", bi.BlobID)
+		log(ctx).Debugf("deleting %v", bi.BlobID)
 		return bm.st.DeleteBlob(ctx, bi.BlobID)
 	}))
 
 	// now with index blobs gone, all contents appear to not be found
-	bm = newTestContentManager(data, keyTime, nil)
+	bm = newTestContentManager(t, data, keyTime, nil)
 	verifyContentNotFound(ctx, t, bm, content1)
 	verifyContentNotFound(ctx, t, bm, content2)
 	verifyContentNotFound(ctx, t, bm, content3)
@@ -44,7 +44,7 @@ func TestContentIndexRecovery(t *testing.T) {
 				return err
 			}
 			totalRecovered += len(infos)
-			log.Debugf("recovered %v contents", len(infos))
+			log(ctx).Debugf("recovered %v contents", len(infos))
 			return nil
 		})
 		if err != nil {
@@ -71,7 +71,7 @@ func TestContentIndexRecovery(t *testing.T) {
 				return rerr
 			}
 			totalRecovered += len(infos)
-			log.Debugf("recovered %v contents", len(infos))
+			log(ctx).Debugf("recovered %v contents", len(infos))
 			return nil
 		})
 		if err != nil {

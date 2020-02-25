@@ -5,13 +5,10 @@ import (
 	"context"
 	"time"
 
-	"github.com/kopia/kopia/internal/repologging"
 	"github.com/kopia/kopia/repo/blob"
 )
 
 const maxLoggedBlobLength = 20 // maximum length of the blob to log contents of
-
-var log = repologging.Logger("repo/blob")
 
 type loggingStorage struct {
 	base   blob.Storage
@@ -80,26 +77,6 @@ func (s *loggingStorage) ConnectionInfo() blob.ConnectionInfo {
 type Option func(s *loggingStorage)
 
 // NewWrapper returns a Storage wrapper that logs all storage commands.
-func NewWrapper(wrapped blob.Storage, options ...Option) blob.Storage {
-	s := &loggingStorage{base: wrapped, printf: log.Debugf}
-
-	for _, o := range options {
-		o(s)
-	}
-
-	return s
-}
-
-// Output is a logging storage option that causes all output to be sent to a given function instead of log.Printf()
-func Output(outputFunc func(fmt string, args ...interface{})) Option {
-	return func(s *loggingStorage) {
-		s.printf = outputFunc
-	}
-}
-
-// Prefix specifies prefix to be prepended to all log output.
-func Prefix(prefix string) Option {
-	return func(s *loggingStorage) {
-		s.prefix = prefix
-	}
+func NewWrapper(wrapped blob.Storage, printf func(msg string, args ...interface{}), prefix string) blob.Storage {
+	return &loggingStorage{base: wrapped, printf: printf, prefix: prefix}
 }

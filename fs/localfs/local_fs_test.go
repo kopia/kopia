@@ -1,7 +1,6 @@
 package localfs
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -9,13 +8,14 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/testlogging"
 
 	"testing"
 )
 
 //nolint:gocyclo,gocognit
 func TestFiles(t *testing.T) {
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 
 	var err error
 
@@ -102,7 +102,7 @@ func TestFiles(t *testing.T) {
 }
 
 func verifyChild(t *testing.T, dir fs.Directory) {
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 
 	child, err := dir.Child(ctx, "f3")
 	if err != nil {

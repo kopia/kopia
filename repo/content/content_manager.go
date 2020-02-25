@@ -13,13 +13,13 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/repologging"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/logging"
 )
 
 var (
-	log       = repologging.Logger("kopia/content")
-	formatLog = repologging.Logger("kopia/content/format")
+	log       = logging.GetContextLoggerFunc("kopia/content")
+	formatLog = logging.GetContextLoggerFunc("kopia/content/format")
 )
 
 // Prefixes for pack blobs
@@ -92,11 +92,11 @@ type pendingPackInfo struct {
 // NOTE: To avoid race conditions only contents that cannot be possibly re-created
 // should ever be deleted. That means that contents of such contents should include some element
 // of randomness or a contemporaneous timestamp that will never reappear.
-func (bm *Manager) DeleteContent(contentID ID) error {
+func (bm *Manager) DeleteContent(ctx context.Context, contentID ID) error {
 	bm.lock()
 	defer bm.unlock()
 
-	log.Debugf("DeleteContent(%q)", contentID)
+	log(ctx).Debugf("DeleteContent(%q)", contentID)
 
 	// remove from all pending packs
 	for _, pp := range bm.pendingPacks {
@@ -153,7 +153,7 @@ func (bm *Manager) addToPackUnlocked(ctx context.Context, contentID ID, data []b
 
 	// do not start new uploads while flushing
 	for bm.flushing {
-		formatLog.Debugf("waiting before flush completes")
+		formatLog(ctx).Debugf("waiting before flush completes")
 		bm.cond.Wait()
 	}
 
@@ -219,19 +219,19 @@ func (bm *Manager) ResetStats() {
 }
 
 // DisableIndexFlush increments the counter preventing automatic index flushes.
-func (bm *Manager) DisableIndexFlush() {
+func (bm *Manager) DisableIndexFlush(ctx context.Context) {
 	bm.lock()
 	defer bm.unlock()
-	log.Debugf("DisableIndexFlush()")
+	log(ctx).Debugf("DisableIndexFlush()")
 	bm.disableIndexFlushCount++
 }
 
 // EnableIndexFlush decrements the counter preventing automatic index flushes.
 // The flushes will be reenabled when the index drops to zero.
-func (bm *Manager) EnableIndexFlush() {
+func (bm *Manager) EnableIndexFlush(ctx context.Context) {
 	bm.lock()
 	defer bm.unlock()
-	log.Debugf("EnableIndexFlush()")
+	log(ctx).Debugf("EnableIndexFlush()")
 	bm.disableIndexFlushCount--
 }
 
@@ -279,7 +279,7 @@ func (bm *Manager) assertInvariant(ok bool, errorMsg string, arg ...interface{})
 
 func (bm *Manager) flushPackIndexesLocked(ctx context.Context) error {
 	if bm.disableIndexFlushCount > 0 {
-		log.Debugf("not flushing index because flushes are currently disabled")
+		log(ctx).Debugf("not flushing index because flushes are currently disabled")
 		return nil
 	}
 
@@ -298,7 +298,7 @@ func (bm *Manager) flushPackIndexesLocked(ctx context.Context) error {
 			return err
 		}
 
-		if err := bm.committedContents.addContent(indexBlobID, dataCopy, true); err != nil {
+		if err := bm.committedContents.addContent(ctx, indexBlobID, dataCopy, true); err != nil {
 			return errors.Wrap(err, "unable to add committed content")
 		}
 
@@ -372,7 +372,7 @@ func (bm *Manager) prepareAndWritePackInternal(ctx context.Context, pp *pendingP
 			return nil, errors.Wrap(err, "can't save pack data content")
 		}
 
-		formatLog.Debugf("wrote pack file: %v (%v bytes)", packFile, len(contentData))
+		formatLog(ctx).Debugf("wrote pack file: %v (%v bytes)", packFile, len(contentData))
 	}
 
 	return packFileIndex, nil
@@ -417,7 +417,7 @@ func (bm *Manager) Flush(ctx context.Context) error {
 	}()
 
 	for len(bm.writingPacks) > 0 {
-		log.Debugf("waiting for %v in-progress packs to finish", len(bm.writingPacks))
+		log(ctx).Debugf("waiting for %v in-progress packs to finish", len(bm.writingPacks))
 
 		// wait packs that are currently writing in other goroutines to finish
 		bm.cond.Wait()
@@ -542,7 +542,7 @@ func (bm *Manager) getContentInfo(contentID ID) (Info, error) {
 func (bm *Manager) ContentInfo(ctx context.Context, contentID ID) (Info, error) {
 	bi, err := bm.getContentInfo(contentID)
 	if err != nil {
-		log.Debugf("ContentInfo(%q) - error %v", err)
+		log(ctx).Debugf("ContentInfo(%q) - error %v", err)
 		return Info{}, err
 	}
 
@@ -566,12 +566,12 @@ func (bm *Manager) Refresh(ctx context.Context) (bool, error) {
 	bm.lock()
 	defer bm.unlock()
 
-	log.Debugf("Refresh started")
+	log(ctx).Debugf("Refresh started")
 
 	t0 := time.Now()
 
 	_, updated, err := bm.loadPackIndexesUnlocked(ctx)
-	log.Debugf("Refresh completed in %v and updated=%v", time.Since(t0), updated)
+	log(ctx).Debugf("Refresh completed in %v and updated=%v", time.Since(t0), updated)
 
 	return updated, err
 }

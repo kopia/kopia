@@ -1,7 +1,6 @@
 package endtoend_test
 
 import (
-	"context"
 	"os"
 	"testing"
 	"time"
@@ -11,6 +10,7 @@ import (
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/diff"
 	"github.com/kopia/kopia/internal/fshasher"
+	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -81,14 +81,14 @@ func compareDirs(t *testing.T, source, restoreDir string) {
 	// Restored contents should match source
 	s, err := localfs.Directory(source)
 	testenv.AssertNoError(t, err)
-	wantHash, err := fshasher.Hash(context.Background(), s)
+	wantHash, err := fshasher.Hash(testlogging.Context(t), s)
 	testenv.AssertNoError(t, err)
 
 	// check restored contents
 	r, err := localfs.Directory(restoreDir)
 	testenv.AssertNoError(t, err)
 
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 	gotHash, err := fshasher.Hash(ctx, r)
 	testenv.AssertNoError(t, err)
 

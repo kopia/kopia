@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/testlogging"
 )
 
 const expirationTime = 10 * time.Hour
@@ -147,7 +148,7 @@ func (ls *lockState) Unlocked() bool {
 }
 
 func TestCache(t *testing.T) {
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 	c := NewCache(&Options{
 		MaxCachedDirectories: 4,
 		MaxCachedEntries:     100,
@@ -235,7 +236,7 @@ func TestCache(t *testing.T) {
 
 // Simple test for getEntries() locking/unlocking. Related to PRs #130 and #132
 func TestCacheGetEntriesLocking(t *testing.T) {
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 	c := NewCache(&Options{
 		MaxCachedDirectories: 4,
 		MaxCachedEntries:     100,

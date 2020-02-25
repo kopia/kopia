@@ -6,10 +6,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/internal/kopialogging"
 )
-
-var log = kopialogging.Logger("kopia/loggingfs")
 
 type loggingOptions struct {
 	printf func(fmt string, args ...interface{})
@@ -63,8 +60,8 @@ type loggingSymlink struct {
 type Option func(o *loggingOptions)
 
 // Wrap returns an Entry that wraps another Entry and logs all method calls.
-func Wrap(e fs.Entry, options ...Option) fs.Entry {
-	return wrapWithOptions(e, applyOptions(options), ".")
+func Wrap(e fs.Entry, printf func(msg string, args ...interface{}), options ...Option) fs.Entry {
+	return wrapWithOptions(e, applyOptions(printf, options), ".")
 }
 
 func wrapWithOptions(e fs.Entry, opts *loggingOptions, relativePath string) fs.Entry {
@@ -83,9 +80,9 @@ func wrapWithOptions(e fs.Entry, opts *loggingOptions, relativePath string) fs.E
 	}
 }
 
-func applyOptions(opts []Option) *loggingOptions {
+func applyOptions(printf func(msg string, args ...interface{}), opts []Option) *loggingOptions {
 	o := &loggingOptions{
-		printf: log.Debugf,
+		printf: printf,
 	}
 
 	for _, f := range opts {

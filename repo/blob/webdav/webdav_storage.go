@@ -45,7 +45,7 @@ type davStorageImpl struct {
 }
 
 func (d *davStorageImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, offset, length int64) ([]byte, error) {
-	v, err := retry.WithExponentialBackoff("GetBlobFromPath", func() (interface{}, error) {
+	v, err := retry.WithExponentialBackoff(ctx, "GetBlobFromPath", func() (interface{}, error) {
 		return d.cli.Read(path)
 	}, isRetriable)
 	if err != nil {
@@ -96,7 +96,7 @@ func (d *davStorageImpl) translateError(err error) error {
 }
 
 func (d *davStorageImpl) ReadDir(ctx context.Context, dir string) ([]os.FileInfo, error) {
-	v, err := retry.WithExponentialBackoff("ReadDir("+dir+")", func() (interface{}, error) {
+	v, err := retry.WithExponentialBackoff(ctx, "ReadDir("+dir+")", func() (interface{}, error) {
 		return d.cli.ReadDir(gowebdav.FixSlash(dir))
 	}, isRetriable)
 	if err == nil {
@@ -109,18 +109,18 @@ func (d *davStorageImpl) ReadDir(ctx context.Context, dir string) ([]os.FileInfo
 func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath string, data []byte) error {
 	tmpPath := fmt.Sprintf("%v-%v", filePath, rand.Int63())
 
-	if err := d.translateError(retry.WithExponentialBackoffNoValue("Write", func() error {
+	if err := d.translateError(retry.WithExponentialBackoffNoValue(ctx, "Write", func() error {
 		return d.cli.Write(tmpPath, data, defaultFilePerm)
 	}, isRetriable)); err != nil {
 		if err != blob.ErrBlobNotFound {
 			return err
 		}
 
-		_ = retry.WithExponentialBackoffNoValue("MkdirAll", func() error {
+		_ = retry.WithExponentialBackoffNoValue(ctx, "MkdirAll", func() error {
 			return d.cli.MkdirAll(dirPath, defaultDirPerm)
 		}, isRetriable)
 
-		if err := d.translateError(retry.WithExponentialBackoffNoValue("Write", func() error {
+		if err := d.translateError(retry.WithExponentialBackoffNoValue(ctx, "Write", func() error {
 			return d.cli.Write(tmpPath, data, defaultFilePerm)
 		}, isRetriable)); err != nil {
 			return err
@@ -131,7 +131,7 @@ func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath st
 }
 
 func (d *davStorageImpl) DeleteBlobInPath(ctx context.Context, dirPath, filePath string) error {
-	return d.translateError(retry.WithExponentialBackoffNoValue("DeleteBlobInPath", func() error {
+	return d.translateError(retry.WithExponentialBackoffNoValue(ctx, "DeleteBlobInPath", func() error {
 		return d.cli.Remove(filePath)
 	}, isRetriable))
 }

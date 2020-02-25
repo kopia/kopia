@@ -1,8 +1,9 @@
 package blobtesting
 
 import (
-	"context"
 	"testing"
+
+	"github.com/kopia/kopia/internal/testlogging"
 )
 
 func TestMapStorage(t *testing.T) {
@@ -13,5 +14,5 @@ func TestMapStorage(t *testing.T) {
 		t.Errorf("unexpected result: %v", r)
 	}
 
-	VerifyStorage(context.Background(), t, r)
+	VerifyStorage(testlogging.Context(t), t, r)
 }

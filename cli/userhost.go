@@ -21,7 +21,7 @@ func getUserName() string {
 func getDefaultUserName() string {
 	currentUser, err := user.Current()
 	if err != nil {
-		log.Warningf("Cannot determine current user: %s", err)
+		printStderr("warning: Cannot determine current user: %s", err)
 		return "nobody"
 	}
 
@@ -44,7 +44,7 @@ func getHostName() string {
 func getDefaultHostName() string {
 	hostname, err := os.Hostname()
 	if err != nil {
-		log.Warningf("Unable to determine hostname: %s", err)
+		printStderr("Unable to determine hostname: %s\n", err)
 		return "nohost"
 	}
 

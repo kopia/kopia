@@ -167,7 +167,7 @@ func (bm *lockFreeManager) buildLocalIndex(pending packIndexBuilder) ([]byte, er
 }
 
 // appendPackFileIndexRecoveryData appends data designed to help with recovery of pack index in case it gets damaged or lost.
-func (bm *lockFreeManager) appendPackFileIndexRecoveryData(contentData []byte, pending packIndexBuilder) ([]byte, error) {
+func (bm *lockFreeManager) appendPackFileIndexRecoveryData(ctx context.Context, contentData []byte, pending packIndexBuilder) ([]byte, error) {
 	// build, encrypt and append local index
 	localIndexOffset := len(contentData)
 
@@ -200,11 +200,11 @@ func (bm *lockFreeManager) appendPackFileIndexRecoveryData(contentData []byte, p
 
 	pa2 := findPostamble(contentData)
 	if pa2 == nil {
-		log.Fatalf("invalid postamble written, that could not be immediately decoded, it's a bug")
+		log(ctx).Fatalf("invalid postamble written, that could not be immediately decoded, it's a bug")
 	}
 
 	if !reflect.DeepEqual(postamble, *pa2) {
-		log.Fatalf("postamble did not round-trip: %v %v", postamble, *pa2)
+		log(ctx).Fatalf("postamble did not round-trip: %v %v", postamble, *pa2)
 	}
 
 	return contentData, nil

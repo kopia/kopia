@@ -12,14 +12,14 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
-var log = kopialogging.Logger("kopia/server")
+var log = logging.GetContextLoggerFunc("kopia/server")
 
 // Server exposes simple HTTP API for programmatically accessing Kopia features.
 type Server struct {
@@ -86,17 +86,19 @@ func (s *Server) handleAPIPossiblyNotConnected(f func(ctx context.Context, r *ht
 		s.mu.RLock()
 		defer s.mu.RUnlock()
 
-		log.Debug("request %v", r.URL)
+		ctx := r.Context()
+
+		log(ctx).Debugf("request %v", r.URL)
 
 		w.Header().Set("Content-Type", "application/json")
 		e := json.NewEncoder(w)
 		e.SetIndent("", "  ")
 
-		v, err := f(context.Background(), r)
+		v, err := f(ctx, r)
 
 		if err == nil {
 			if err := e.Encode(v); err != nil {
-				log.Warningf("error encoding response: %v", err)
+				log(ctx).Warningf("error encoding response: %v", err)
 			}
 
 			return
@@ -105,7 +107,7 @@ func (s *Server) handleAPIPossiblyNotConnected(f func(ctx context.Context, r *ht
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.WriteHeader(err.httpErrorCode)
-		log.Debug("error code %v message %v", err.apiErrorCode, err.message)
+		log(ctx).Debugf("error code %v message %v", err.apiErrorCode, err.message)
 
 		_ = e.Encode(&serverapi.ErrorResponse{
 			Code:  err.apiErrorCode,
@@ -115,22 +117,22 @@ func (s *Server) handleAPIPossiblyNotConnected(f func(ctx context.Context, r *ht
 }
 
 func (s *Server) handleRefresh(ctx context.Context, r *http.Request) (interface{}, *apiError) {
-	log.Infof("refreshing")
+	log(ctx).Infof("refreshing")
 	return &serverapi.Empty{}, nil
 }
 
 func (s *Server) handleFlush(ctx context.Context, r *http.Request) (interface{}, *apiError) {
-	log.Infof("flushing")
+	log(ctx).Infof("flushing")
 	return &serverapi.Empty{}, nil
 }
 
 func (s *Server) handleShutdown(ctx context.Context, r *http.Request) (interface{}, *apiError) {
-	log.Infof("shutting down due to API request")
+	log(ctx).Infof("shutting down due to API request")
 
 	if f := s.OnShutdown; f != nil {
 		go func() {
 			if err := f(ctx); err != nil {
-				log.Warningf("shutdown failed: %v", err)
+				log(ctx).Warningf("shutdown failed: %v", err)
 			}
 		}()
 	}
@@ -138,7 +140,7 @@ func (s *Server) handleShutdown(ctx context.Context, r *http.Request) (interface
 	return &serverapi.Empty{}, nil
 }
 
-func (s *Server) forAllSourceManagersMatchingURLFilter(c func(s *sourceManager) serverapi.SourceActionResponse, values url.Values) (interface{}, *apiError) {
+func (s *Server) forAllSourceManagersMatchingURLFilter(ctx context.Context, c func(s *sourceManager, ctx context.Context) serverapi.SourceActionResponse, values url.Values) (interface{}, *apiError) {
 	resp := &serverapi.MultipleSourceActionResponse{
 		Sources: map[string]serverapi.SourceActionResponse{},
 	}
@@ -148,29 +150,29 @@ func (s *Server) forAllSourceManagersMatchingURLFilter(c func(s *sourceManager) 
 			continue
 		}
 
-		resp.Sources[src.String()] = c(mgr)
+		resp.Sources[src.String()] = c(mgr, ctx)
 	}
 
 	return resp, nil
 }
 
 func (s *Server) handleUpload(ctx context.Context, r *http.Request) (interface{}, *apiError) {
-	return s.forAllSourceManagersMatchingURLFilter((*sourceManager).upload, r.URL.Query())
+	return s.forAllSourceManagersMatchingURLFilter(ctx, (*sourceManager).upload, r.URL.Query())
 }
 
 func (s *Server) handleCancel(ctx context.Context, r *http.Request) (interface{}, *apiError) {
-	return s.forAllSourceManagersMatchingURLFilter((*sourceManager).cancel, r.URL.Query())
+	return s.forAllSourceManagersMatchingURLFilter(ctx, (*sourceManager).cancel, r.URL.Query())
 }
 
-func (s *Server) beginUpload(src snapshot.SourceInfo) {
-	log.Debugf("waiting on semaphore to upload %v", src)
+func (s *Server) beginUpload(ctx context.Context, src snapshot.SourceInfo) {
+	log(ctx).Debugf("waiting on semaphore to upload %v", src)
 	s.uploadSemaphore <- struct{}{}
 
-	log.Debugf("entered semaphore to upload %v", src)
+	log(ctx).Debugf("entered semaphore to upload %v", src)
 }
 
-func (s *Server) endUpload(src snapshot.SourceInfo) {
-	log.Debugf("finished uploading %v", src)
+func (s *Server) endUpload(ctx context.Context, src snapshot.SourceInfo) {
+	log(ctx).Debugf("finished uploading %v", src)
 	<-s.uploadSemaphore
 }
 
@@ -187,9 +189,9 @@ func (s *Server) SetRepository(ctx context.Context, rep *repo.Repository) error 
 
 	if s.rep != nil {
 		// close previous source managers
-		log.Infof("stopping all source managers")
-		s.stopAllSourceManagersLocked()
-		log.Infof("stopped all source managers")
+		log(ctx).Infof("stopping all source managers")
+		s.stopAllSourceManagersLocked(ctx)
+		log(ctx).Infof("stopped all source managers")
 
 		if err := s.rep.Close(ctx); err != nil {
 			return errors.Wrap(err, "unable to close previous repository")
@@ -209,7 +211,7 @@ func (s *Server) SetRepository(ctx context.Context, rep *repo.Repository) error 
 	}
 
 	if err := s.syncSourcesLocked(ctx); err != nil {
-		s.stopAllSourceManagersLocked()
+		s.stopAllSourceManagersLocked(ctx)
 		s.rep = nil
 
 		return err
@@ -229,11 +231,11 @@ func (s *Server) refreshPeriodically(ctx context.Context, r *repo.Repository) {
 
 		case <-time.After(s.options.RefreshInterval):
 			if err := r.Refresh(ctx); err != nil {
-				log.Warningf("error refreshing repository: %v", err)
+				log(ctx).Warningf("error refreshing repository: %v", err)
 			}
 
 			if err := s.SyncSources(ctx); err != nil {
-				log.Warningf("unable to sync sources: %v", err)
+				log(ctx).Warningf("unable to sync sources: %v", err)
 			}
 		}
 	}
@@ -248,20 +250,20 @@ func (s *Server) SyncSources(ctx context.Context) error {
 }
 
 // StopAllSourceManagers causes all source managers to stop.
-func (s *Server) StopAllSourceManagers() {
+func (s *Server) StopAllSourceManagers(ctx context.Context) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.stopAllSourceManagersLocked()
+	s.stopAllSourceManagersLocked(ctx)
 }
 
-func (s *Server) stopAllSourceManagersLocked() {
+func (s *Server) stopAllSourceManagersLocked(ctx context.Context) {
 	for _, sm := range s.sourceManagers {
-		sm.stop()
+		sm.stop(ctx)
 	}
 
 	for _, sm := range s.sourceManagers {
-		sm.waitUntilStopped()
+		sm.waitUntilStopped(ctx)
 	}
 
 	s.sourceManagers = map[snapshot.SourceInfo]*sourceManager{}
@@ -314,11 +316,11 @@ func (s *Server) syncSourcesLocked(ctx context.Context) error {
 	// whatever is left in oldSourceManagers are managers for sources that don't exist anymore.
 	// stop source manager for sources no longer in the repo.
 	for _, sm := range oldSourceManagers {
-		sm.stop()
+		sm.stop(ctx)
 	}
 
 	for src, sm := range oldSourceManagers {
-		sm.waitUntilStopped()
+		sm.waitUntilStopped(ctx)
 		delete(s.sourceManagers, src)
 	}
 

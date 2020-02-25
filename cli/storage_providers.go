@@ -21,7 +21,7 @@ func RegisterStorageConnectFlags(
 		cc := createCommand.Command(name, "Create repository in "+description)
 		flags(cc)
 		cc.Action(func(_ *kingpin.ParseContext) error {
-			ctx := context.Background()
+			ctx := rootContext()
 			st, err := connect(ctx, true)
 			if err != nil {
 				return errors.Wrap(err, "can't connect to storage")
@@ -35,7 +35,7 @@ func RegisterStorageConnectFlags(
 	cc := connectCommand.Command(name, "Connect to repository in "+description)
 	flags(cc)
 	cc.Action(func(_ *kingpin.ParseContext) error {
-		ctx := context.Background()
+		ctx := rootContext()
 		st, err := connect(ctx, false)
 		if err != nil {
 			return errors.Wrap(err, "can't connect to storage")
@@ -48,7 +48,7 @@ func RegisterStorageConnectFlags(
 	cc = repairCommand.Command(name, "Repair repository in "+description)
 	flags(cc)
 	cc.Action(func(_ *kingpin.ParseContext) error {
-		ctx := context.Background()
+		ctx := rootContext()
 		st, err := connect(ctx, false)
 		if err != nil {
 			return errors.Wrap(err, "can't connect to storage")

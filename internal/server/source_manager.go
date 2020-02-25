@@ -102,10 +102,10 @@ func (s *sourceManager) run(ctx context.Context) {
 	defer s.wg.Done()
 
 	if s.server.options.Hostname == s.src.Host {
-		log.Debugf("starting local source manager for %v", s.src)
+		log(ctx).Debugf("starting local source manager for %v", s.src)
 		s.runLocal(ctx)
 	} else {
-		log.Debugf("starting remote source manager for %v", s.src)
+		log(ctx).Debugf("starting remote source manager for %v", s.src)
 		s.runRemote(ctx)
 	}
 }
@@ -118,9 +118,9 @@ func (s *sourceManager) runLocal(ctx context.Context) {
 
 		if s.nextSnapshotTime != nil {
 			waitTime = time.Until(*s.nextSnapshotTime)
-			log.Debugf("time to next snapshot %v is %v", s.src, waitTime)
+			log(ctx).Debugf("time to next snapshot %v is %v", s.src, waitTime)
 		} else {
-			log.Debugf("no scheduled snapshot for %v", s.src)
+			log(ctx).Debugf("no scheduled snapshot for %v", s.src)
 			waitTime = oneDay
 		}
 
@@ -139,7 +139,7 @@ func (s *sourceManager) runLocal(ctx context.Context) {
 			s.refreshStatus(ctx)
 
 		case <-time.After(waitTime):
-			log.Debugf("snapshotting %v", s.src)
+			log(ctx).Debugf("snapshotting %v", s.src)
 			s.snapshot(ctx)
 			s.refreshStatus(ctx)
 		}
@@ -167,52 +167,52 @@ func (s *sourceManager) scheduleSnapshotNow() {
 	}
 }
 
-func (s *sourceManager) upload() serverapi.SourceActionResponse {
-	log.Infof("upload triggered via API: %v", s.src)
+func (s *sourceManager) upload(ctx context.Context) serverapi.SourceActionResponse {
+	log(ctx).Infof("upload triggered via API: %v", s.src)
 	s.scheduleSnapshotNow()
 
 	return serverapi.SourceActionResponse{Success: true}
 }
 
-func (s *sourceManager) cancel() serverapi.SourceActionResponse {
-	log.Infof("cancel triggered via API: %v", s.src)
+func (s *sourceManager) cancel(ctx context.Context) serverapi.SourceActionResponse {
+	log(ctx).Infof("cancel triggered via API: %v", s.src)
 
 	if u := s.currentUploader(); u != nil {
-		log.Infof("canceling current upload")
+		log(ctx).Infof("canceling current upload")
 		u.Cancel()
 	}
 
 	return serverapi.SourceActionResponse{Success: true}
 }
 
-func (s *sourceManager) stop() {
-	log.Debugf("stopping source manager for %v", s.src)
+func (s *sourceManager) stop(ctx context.Context) {
+	log(ctx).Debugf("stopping source manager for %v", s.src)
 
 	if u := s.currentUploader(); u != nil {
-		log.Infof("canceling current upload")
+		log(ctx).Infof("canceling current upload")
 		u.Cancel()
 	}
 
 	close(s.closed)
 }
 
-func (s *sourceManager) waitUntilStopped() {
+func (s *sourceManager) waitUntilStopped(ctx context.Context) {
 	s.wg.Wait()
-	log.Debugf("source manager for %v has stopped", s.src)
+	log(ctx).Debugf("source manager for %v has stopped", s.src)
 }
 
 func (s *sourceManager) snapshot(ctx context.Context) {
 	s.setStatus("PENDING")
 
-	s.server.beginUpload(s.src)
-	defer s.server.endUpload(s.src)
+	s.server.beginUpload(ctx, s.src)
+	defer s.server.endUpload(ctx, s.src)
 
 	s.setStatus("UPLOADING")
 
 	// check if we got closed while waiting on semaphore
 	select {
 	case <-s.closed:
-		log.Infof("not snapshotting %v because source manager is shutting down", s.src)
+		log(ctx).Infof("not snapshotting %v because source manager is shutting down", s.src)
 		return
 
 	default:
@@ -220,7 +220,7 @@ func (s *sourceManager) snapshot(ctx context.Context) {
 
 	localEntry, err := localfs.NewEntry(s.src.Path)
 	if err != nil {
-		log.Errorf("unable to create local filesystem: %v", err)
+		log(ctx).Errorf("unable to create local filesystem: %v", err)
 		return
 	}
 
@@ -228,36 +228,36 @@ func (s *sourceManager) snapshot(ctx context.Context) {
 
 	policyTree, err := policy.TreeForSource(ctx, s.server.rep, s.src)
 	if err != nil {
-		log.Errorf("unable to create policy getter: %v", err)
+		log(ctx).Errorf("unable to create policy getter: %v", err)
 	}
 
 	u.Progress = s.progress
 
-	log.Infof("starting upload of %v", s.src)
+	log(ctx).Infof("starting upload of %v", s.src)
 	s.setUploader(u)
 	manifest, err := u.Upload(ctx, localEntry, policyTree, s.src, s.manifestsSinceLastCompleteSnapshot...)
 	s.setUploader(nil)
 
 	if err != nil {
-		log.Errorf("upload error: %v", err)
+		log(ctx).Errorf("upload error: %v", err)
 		return
 	}
 
 	snapshotID, err := snapshot.SaveSnapshot(ctx, s.server.rep, manifest)
 	if err != nil {
-		log.Errorf("unable to save snapshot: %v", err)
+		log(ctx).Errorf("unable to save snapshot: %v", err)
 		return
 	}
 
 	if _, err := policy.ApplyRetentionPolicy(ctx, s.server.rep, s.src, true); err != nil {
-		log.Errorf("unable to apply retention policy: %v", err)
+		log(ctx).Errorf("unable to apply retention policy: %v", err)
 		return
 	}
 
-	log.Infof("created snapshot %v", snapshotID)
+	log(ctx).Infof("created snapshot %v", snapshotID)
 
 	if err := s.server.rep.Flush(ctx); err != nil {
-		log.Errorf("unable to flush: %v", err)
+		log(ctx).Errorf("unable to flush: %v", err)
 		return
 	}
 }
@@ -289,7 +289,7 @@ func (s *sourceManager) findClosestNextSnapshotTime() *time.Time {
 }
 
 func (s *sourceManager) refreshStatus(ctx context.Context) {
-	log.Debugf("refreshing state for %v", s.src)
+	log(ctx).Debugf("refreshing state for %v", s.src)
 
 	pol, _, err := policy.GetEffectivePolicy(ctx, s.server.rep, s.src)
 	if err != nil {

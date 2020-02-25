@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 )
@@ -34,7 +35,7 @@ func TestStressBlockManager(t *testing.T) {
 }
 
 func stressTestWithStorage(t *testing.T, st blob.Storage, duration time.Duration) {
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 
 	openMgr := func() (*content.Manager, error) {
 		return content.NewManager(ctx, st, &content.FormattingOptions{

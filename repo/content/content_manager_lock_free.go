@@ -75,7 +75,7 @@ func (bm *lockFreeManager) loadPackIndexesUnlocked(ctx context.Context) ([]Index
 
 		if i > 0 {
 			bm.listCache.deleteListCache()
-			log.Debugf("encountered NOT_FOUND when loading, sleeping %v before retrying #%v", nextSleepTime, i)
+			log(ctx).Debugf("encountered NOT_FOUND when loading, sleeping %v before retrying #%v", nextSleepTime, i)
 			time.Sleep(nextSleepTime)
 			nextSleepTime *= 2
 		}
@@ -94,7 +94,7 @@ func (bm *lockFreeManager) loadPackIndexesUnlocked(ctx context.Context) ([]Index
 
 			var updated bool
 
-			updated, err = bm.committedContents.use(contentIDs)
+			updated, err = bm.committedContents.use(ctx, contentIDs)
 			if err != nil {
 				return nil, false, err
 			}
@@ -111,7 +111,7 @@ func (bm *lockFreeManager) loadPackIndexesUnlocked(ctx context.Context) ([]Index
 }
 
 func (bm *lockFreeManager) tryLoadPackIndexBlobsUnlocked(ctx context.Context, contents []IndexBlobInfo) error {
-	ch, unprocessedIndexesSize, err := bm.unprocessedIndexBlobsUnlocked(contents)
+	ch, unprocessedIndexesSize, err := bm.unprocessedIndexBlobsUnlocked(ctx, contents)
 	if err != nil {
 		return err
 	}
@@ -120,7 +120,7 @@ func (bm *lockFreeManager) tryLoadPackIndexBlobsUnlocked(ctx context.Context, co
 		return nil
 	}
 
-	log.Debugf("downloading %v new index blobs (%v bytes)...", len(ch), unprocessedIndexesSize)
+	log(ctx).Debugf("downloading %v new index blobs (%v bytes)...", len(ch), unprocessedIndexesSize)
 
 	var wg sync.WaitGroup
 
@@ -139,7 +139,7 @@ func (bm *lockFreeManager) tryLoadPackIndexBlobsUnlocked(ctx context.Context, co
 					return
 				}
 
-				if err := bm.committedContents.addContent(indexBlobID, data, false); err != nil {
+				if err := bm.committedContents.addContent(ctx, indexBlobID, data, false); err != nil {
 					errch <- errors.Wrap(err, "unable to add to committed content cache")
 					return
 				}
@@ -155,24 +155,24 @@ func (bm *lockFreeManager) tryLoadPackIndexBlobsUnlocked(ctx context.Context, co
 		return err
 	}
 
-	log.Debugf("Index contents downloaded.")
+	log(ctx).Debugf("Index contents downloaded.")
 
 	return nil
 }
 
 // unprocessedIndexBlobsUnlocked returns a closed channel filled with content IDs that are not in committedContents cache.
-func (bm *lockFreeManager) unprocessedIndexBlobsUnlocked(contents []IndexBlobInfo) (resultCh <-chan blob.ID, totalSize int64, err error) {
+func (bm *lockFreeManager) unprocessedIndexBlobsUnlocked(ctx context.Context, contents []IndexBlobInfo) (resultCh <-chan blob.ID, totalSize int64, err error) {
 	ch := make(chan blob.ID, len(contents))
 	defer close(ch)
 
 	for _, c := range contents {
-		has, err := bm.committedContents.cache.hasIndexBlobID(c.BlobID)
+		has, err := bm.committedContents.cache.hasIndexBlobID(ctx, c.BlobID)
 		if err != nil {
 			return nil, 0, err
 		}
 
 		if has {
-			log.Debugf("index blob %q already in cache, skipping", c.BlobID)
+			log(ctx).Debugf("index blob %q already in cache, skipping", c.BlobID)
 			continue
 		}
 
@@ -253,7 +253,7 @@ func (bm *lockFreeManager) decryptAndVerify(encrypted, iv []byte) ([]byte, error
 }
 
 func (bm *lockFreeManager) preparePackDataContent(ctx context.Context, pp *pendingPackInfo, packFile blob.ID) ([]byte, packIndexBuilder, error) {
-	formatLog.Debugf("preparing content data with %v items", len(pp.currentPackItems))
+	formatLog(ctx).Debugf("preparing content data with %v items", len(pp.currentPackItems))
 
 	contentData, err := appendRandomBytes(append([]byte(nil), bm.repositoryFormatBytes...), rand.Intn(bm.maxPreambleLength-bm.minPreambleLength+1)+bm.minPreambleLength)
 	if err != nil {
@@ -279,7 +279,7 @@ func (bm *lockFreeManager) preparePackDataContent(ctx context.Context, pp *pendi
 			return nil, nil, errors.Wrapf(err, "unable to encrypt %q", contentID)
 		}
 
-		formatLog.Debugf("adding %v length=%v deleted=%v", contentID, len(info.Payload), info.Deleted)
+		formatLog(ctx).Debugf("adding %v length=%v deleted=%v", contentID, len(info.Payload), info.Deleted)
 
 		packFileIndex.Add(Info{
 			ID:               contentID,
@@ -316,9 +316,9 @@ func (bm *lockFreeManager) preparePackDataContent(ctx context.Context, pp *pendi
 	}
 
 	origContentLength := len(contentData)
-	contentData, err = bm.appendPackFileIndexRecoveryData(contentData, packFileIndex)
+	contentData, err = bm.appendPackFileIndexRecoveryData(ctx, contentData, packFileIndex)
 
-	formatLog.Debugf("finished content %v bytes (%v bytes index)", len(contentData), len(contentData)-origContentLength)
+	formatLog(ctx).Debugf("finished content %v bytes (%v bytes index)", len(contentData), len(contentData)-origContentLength)
 
 	return contentData, packFileIndex, err
 }

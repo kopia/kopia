@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/sftp"
 )
@@ -20,7 +21,7 @@ const (
 )
 
 func TestSFTPStorageValid(t *testing.T) {
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 
 	if runtime.GOOS == "windows" {
 		t.Skip("temporarily disabled - https://github.com/kopia/kopia/issues/216")

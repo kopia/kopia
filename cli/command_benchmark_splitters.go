@@ -47,7 +47,7 @@ func runBenchmarkSplitterAction(ctx *kingpin.ParseContext) error {
 		dataBlocks = append(dataBlocks, b)
 	}
 
-	log.Infof("splitting %v blocks of %v each", *benchmarkSplitterBlockCount, *benchmarkSplitterBlockSize)
+	printStderr("splitting %v blocks of %v each\n", *benchmarkSplitterBlockCount, *benchmarkSplitterBlockSize)
 
 	for _, sp := range object.SupportedSplitters {
 		fact := object.GetSplitterFactory(sp)

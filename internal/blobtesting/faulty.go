@@ -5,11 +5,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kopia/kopia/internal/repologging"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/logging"
 )
 
-var log = repologging.Logger("faulty-storage")
+var log = logging.GetContextLoggerFunc("faulty-storage")
 
 // Fault describes the behavior of a single fault.
 type Fault struct {
@@ -30,7 +30,7 @@ type FaultyStorage struct {
 
 // GetBlob implements blob.Storage
 func (s *FaultyStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int64) ([]byte, error) {
-	if err := s.getNextFault("GetBlob", id, offset, length); err != nil {
+	if err := s.getNextFault(ctx, "GetBlob", id, offset, length); err != nil {
 		return nil, err
 	}
 
@@ -39,7 +39,7 @@ func (s *FaultyStorage) GetBlob(ctx context.Context, id blob.ID, offset, length 
 
 // PutBlob implements blob.Storage
 func (s *FaultyStorage) PutBlob(ctx context.Context, id blob.ID, data []byte) error {
-	if err := s.getNextFault("PutBlob", id, len(data)); err != nil {
+	if err := s.getNextFault(ctx, "PutBlob", id, len(data)); err != nil {
 		return err
 	}
 
@@ -48,7 +48,7 @@ func (s *FaultyStorage) PutBlob(ctx context.Context, id blob.ID, data []byte) er
 
 // DeleteBlob implements blob.Storage
 func (s *FaultyStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
-	if err := s.getNextFault("DeleteBlob", id); err != nil {
+	if err := s.getNextFault(ctx, "DeleteBlob", id); err != nil {
 		return err
 	}
 
@@ -57,12 +57,12 @@ func (s *FaultyStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
 
 // ListBlobs implements blob.Storage
 func (s *FaultyStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(blob.Metadata) error) error {
-	if err := s.getNextFault("ListBlobs", prefix); err != nil {
+	if err := s.getNextFault(ctx, "ListBlobs", prefix); err != nil {
 		return err
 	}
 
 	return s.Base.ListBlobs(ctx, prefix, func(bm blob.Metadata) error {
-		if err := s.getNextFault("ListBlobsItem", prefix); err != nil {
+		if err := s.getNextFault(ctx, "ListBlobsItem", prefix); err != nil {
 			return err
 		}
 		return callback(bm)
@@ -71,7 +71,7 @@ func (s *FaultyStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback 
 
 // Close implements blob.Storage
 func (s *FaultyStorage) Close(ctx context.Context) error {
-	if err := s.getNextFault("Close"); err != nil {
+	if err := s.getNextFault(ctx, "Close"); err != nil {
 		return err
 	}
 
@@ -83,13 +83,13 @@ func (s *FaultyStorage) ConnectionInfo() blob.ConnectionInfo {
 	return s.Base.ConnectionInfo()
 }
 
-func (s *FaultyStorage) getNextFault(method string, args ...interface{}) error {
+func (s *FaultyStorage) getNextFault(ctx context.Context, method string, args ...interface{}) error {
 	s.mu.Lock()
 
 	faults := s.Faults[method]
 	if len(faults) == 0 {
 		s.mu.Unlock()
-		log.Debugf("no faults for %v %v", method, args)
+		log(ctx).Debugf("no faults for %v %v", method, args)
 
 		return nil
 	}
@@ -97,7 +97,7 @@ func (s *FaultyStorage) getNextFault(method string, args ...interface{}) error {
 	f := faults[0]
 	if f.Repeat > 0 {
 		f.Repeat--
-		log.Debugf("will repeat %v more times the fault for %v %v", f.Repeat, method, args)
+		log(ctx).Debugf("will repeat %v more times the fault for %v %v", f.Repeat, method, args)
 	} else {
 		s.Faults[method] = faults[1:]
 	}
@@ -105,23 +105,23 @@ func (s *FaultyStorage) getNextFault(method string, args ...interface{}) error {
 	s.mu.Unlock()
 
 	if f.WaitFor != nil {
-		log.Debugf("waiting for channel to be closed in %v %v", method, args)
+		log(ctx).Debugf("waiting for channel to be closed in %v %v", method, args)
 		<-f.WaitFor
 	}
 
 	if f.Sleep > 0 {
-		log.Debugf("sleeping for %v in %v %v", f.Sleep, method, args)
+		log(ctx).Debugf("sleeping for %v in %v %v", f.Sleep, method, args)
 		time.Sleep(f.Sleep)
 	}
 
 	if f.ErrCallback != nil {
 		err := f.ErrCallback()
-		log.Debugf("returning %v for %v %v", err, method, args)
+		log(ctx).Debugf("returning %v for %v %v", err, method, args)
 
 		return err
 	}
 
-	log.Debugf("returning %v for %v %v", f.Err, method, args)
+	log(ctx).Debugf("returning %v for %v %v", f.Err, method, args)
 
 	return f.Err
 }

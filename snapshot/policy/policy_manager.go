@@ -8,8 +8,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/kopialogging"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/snapshot"
 )
@@ -19,7 +19,7 @@ const typeKey = manifest.TypeLabelKey
 // GlobalPolicySourceInfo is a source where global policy is attached.
 var GlobalPolicySourceInfo = snapshot.SourceInfo{}
 
-var log = kopialogging.Logger("kopia/snapshot/policy")
+var log = logging.GetContextLoggerFunc("kopia/snapshot/policy")
 
 // GetEffectivePolicy calculates effective snapshot policy for a given source by combining the source-specifc policy (if any)
 // with parent policies. The source must contain a path.
@@ -78,7 +78,7 @@ func GetEffectivePolicy(ctx context.Context, rep *repo.Repository, si snapshot.S
 
 		p.Labels = em.Labels
 		policies = append(policies, p)
-		log.Debugf("loaded parent policy for %v: %v", si, p.Target())
+		log(ctx).Debugf("loaded parent policy for %v: %v", si, p.Target())
 	}
 
 	merged := MergePolicies(policies)
@@ -232,7 +232,7 @@ func TreeForSource(ctx context.Context, rep *repo.Repository, si snapshot.Source
 		return nil, errors.Wrapf(err, "unable to find manifests for %v@%v", si.UserName, si.Host)
 	}
 
-	log.Debugf("found %v policies for %v@%v", si.UserName, si.Host)
+	log(ctx).Debugf("found %v policies for %v@%v", si.UserName, si.Host)
 
 	for _, id := range policies {
 		em, err := rep.Manifests.GetMetadata(ctx, id.ID)
@@ -252,7 +252,7 @@ func TreeForSource(ctx context.Context, rep *repo.Repository, si snapshot.Source
 		}
 
 		rel = "./" + rel
-		log.Debugf("loading policy for %v (%v)", policyPath, rel)
+		log(ctx).Debugf("loading policy for %v (%v)", policyPath, rel)
 
 		pol := &Policy{}
 		if err := rep.Manifests.Get(ctx, id.ID, pol); err != nil {

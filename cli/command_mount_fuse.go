@@ -3,6 +3,8 @@
 package cli
 
 import (
+	"context"
+
 	"bazil.org/fuse"
 	fusefs "bazil.org/fuse/fs"
 
@@ -22,7 +24,7 @@ var (
 	mountMode = mountCommand.Flag("mode", "Mount mode").Default("FUSE").Enum("WEBDAV", "FUSE")
 )
 
-func mountDirectoryFUSE(entry fs.Directory, mountPoint string) error {
+func mountDirectoryFUSE(ctx context.Context, entry fs.Directory, mountPoint string) error {
 	rootNode := fusemount.NewDirectoryNode(entry)
 
 	fuseConnection, err := fuse.Mount(
@@ -40,7 +42,7 @@ func mountDirectoryFUSE(entry fs.Directory, mountPoint string) error {
 
 	onCtrlC(func() {
 		if unmounterr := fuse.Unmount(mountPoint); unmounterr != nil {
-			log.Warningf("unmount failed: %v", unmounterr)
+			log(ctx).Warningf("unmount failed: %v", unmounterr)
 		}
 	})
 
