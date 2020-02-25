@@ -196,7 +196,13 @@ export class SourcesTable extends Component {
                         " cached " + u.cachedFiles + " files (" + sizeDisplayName(u.cachedBytes) + ")\n" +
                         " dir " + u.directory;
 
-                    totals = sizeDisplayName(u.hashedBytes + u.cachedBytes);
+                    const totalBytes = u.hashedBytes + u.cachedBytes;
+
+                    totals = sizeDisplayName(totalBytes);
+                    if (x.row.original.lastSnapshotSize) {
+                        const percent = Math.round(totalBytes * 1000.0 / x.row.original.lastSnapshotSize) / 10.0;
+                        totals += " " + percent + "%";
+                    }
                 }
 
                 return <>
@@ -280,15 +286,21 @@ export class SourcesTable extends Component {
             accessor: x => x.source.userName + '@' + x.source.host,
             width: 250,
         }, {
+            id: 'lastSnapshotSize',
+            Header: 'Last Snapshot',
+            width: 120,
+            accessor: x => x.lastSnapshotSize,
+            Cell: x => x.cell.value ? sizeDisplayName(x.cell.value) : '',
+        }, {
             id: 'lastSnapshotTime',
             Header: 'Last Snapshot',
-            width: 250,
+            width: 160,
             accessor: x => x.lastSnapshotTime,
             Cell: x => x.cell.value ? <p title={moment(x.cell.value).toLocaleString()}>{moment(x.cell.value).fromNow()}</p> : '',
         }, {
             id: 'nextSnapshotTime',
             Header: 'Next Snapshot',
-            width: 250,
+            width: 160,
             accessor: x => x.nextSnapshotTime,
             Cell: x => (x.cell.value && x.row.original.status !== "UPLOADING") ? <>
                 <p title={moment(x.cell.value).toLocaleString()}>{moment(x.cell.value).fromNow()}

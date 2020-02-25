@@ -11,6 +11,7 @@ import (
 )
 
 const spinner = `|/-\`
+const hundredPercent = 100.0
 
 type cliProgress struct {
 	snapshotfs.NullUploadProgress
@@ -31,6 +32,9 @@ type cliProgress struct {
 	lastLineLength  int
 	spinPhase       int
 	uploadStartTime time.Time
+
+	previousFileCount int
+	previousTotalSize int64
 }
 
 func (p *cliProgress) FinishedHashingFile(fname string, totalSize int64) {
@@ -99,6 +103,15 @@ func (p *cliProgress) output() {
 		units.BytesStringBase10(uploadedBytes),
 	)
 
+	if p.previousTotalSize > 0 {
+		percent := (float64(hashedBytes+cachedBytes) * hundredPercent / float64(p.previousTotalSize))
+		if percent > hundredPercent {
+			percent = hundredPercent
+		}
+
+		line += fmt.Sprintf(" %.1f%%", percent)
+	}
+
 	var extraSpaces string
 
 	if len(line) < p.lastLineLength {
@@ -122,10 +135,12 @@ func (p *cliProgress) spinnerCharacter() string {
 	return s
 }
 
-func (p *cliProgress) UploadStarted() {
+func (p *cliProgress) UploadStarted(previousFileCount int, previousTotalSize int64) {
 	*p = cliProgress{
-		uploading:       1,
-		uploadStartTime: time.Now(),
+		uploading:         1,
+		uploadStartTime:   time.Now(),
+		previousFileCount: previousFileCount,
+		previousTotalSize: previousTotalSize,
 	}
 }
 

@@ -729,7 +729,20 @@ func (u *Uploader) Upload(
 		Source: sourceInfo,
 	}
 
-	u.Progress.UploadStarted()
+	maxPreviousTotalFileSize := int64(0)
+	maxPreviousFileCount := 0
+
+	for _, m := range previousManifests {
+		if s := m.Stats.TotalFileSize; s > maxPreviousTotalFileSize {
+			maxPreviousTotalFileSize = s
+		}
+
+		if s := m.Stats.TotalFileCount; s > maxPreviousFileCount {
+			maxPreviousFileCount = s
+		}
+	}
+
+	u.Progress.UploadStarted(maxPreviousFileCount, maxPreviousTotalFileSize)
 	defer u.Progress.UploadFinished()
 
 	u.stats = snapshot.Stats{}
