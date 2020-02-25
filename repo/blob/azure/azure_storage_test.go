@@ -63,6 +63,7 @@ func createContainer(t *testing.T, container, storageAccount, storageKey string)
 }
 
 func TestAzureStorage(t *testing.T) {
+	t.Parallel()
 	container := getEnvOrSkip(t, testContainerEnv)
 	storageAccount := getEnvOrSkip(t, testStorageAccountEnv)
 	storageKey := getEnvOrSkip(t, testStorageKeyEnv)
