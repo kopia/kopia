@@ -56,7 +56,7 @@ func (az *azStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int6
 		return ioutil.ReadAll(throttled)
 	}
 
-	v, err := exponentialBackoff(fmt.Sprintf("GetBlob(%q,%v,%v)", b, offset, length), attempt)
+	v, err := exponentialBackoff(ctx, fmt.Sprintf("GetBlob(%q,%v,%v)", b, offset, length), attempt)
 	if err != nil {
 		return nil, translateError(err)
 	}
@@ -69,8 +69,8 @@ func (az *azStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int6
 	return fetched, nil
 }
 
-func exponentialBackoff(desc string, att retry.AttemptFunc) (interface{}, error) {
-	return retry.WithExponentialBackoff(desc, att, isRetriableError)
+func exponentialBackoff(ctx context.Context, desc string, att retry.AttemptFunc) (interface{}, error) {
+	return retry.WithExponentialBackoff(ctx, desc, att, isRetriableError)
 }
 
 func isRetriableError(err error) bool {
@@ -138,7 +138,7 @@ func (az *azStorage) DeleteBlob(ctx context.Context, b blob.ID) error {
 	attempt := func() (interface{}, error) {
 		return nil, az.bucket.Delete(ctx, az.getObjectNameString(b))
 	}
-	_, err := exponentialBackoff(fmt.Sprintf("DeleteBlob(%q)", b), attempt)
+	_, err := exponentialBackoff(ctx, fmt.Sprintf("DeleteBlob(%q)", b), attempt)
 	err = translateError(err)
 
 	// don't return error if blob is already deleted
