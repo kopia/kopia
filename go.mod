@@ -5,6 +5,7 @@ go 1.13
 require (
 	bazil.org/fuse v0.0.0-20180421153158-65cc252bf669
 	cloud.google.com/go v0.45.1
+	github.com/Azure/azure-storage-blob-go v0.8.0
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 // indirect
 	github.com/alecthomas/units v0.0.0-20190717042225-c3de453c63f4 // indirect
 	github.com/aws/aws-sdk-go v1.28.13
@@ -34,6 +35,7 @@ require (
 	github.com/stretchr/testify v1.4.0
 	github.com/studio-b12/gowebdav v0.0.0-20190103184047-38f79aeaf1ac
 	github.com/zalando/go-keyring v0.0.0-20190715212148-76787ff3b3bd
+	gocloud.dev v0.18.0
 	golang.org/x/crypto v0.0.0-20191117063200-497ca9f6d64f
 	golang.org/x/exp v0.0.0-20190829153037-c13cbed26979
 	golang.org/x/net v0.0.0-20190923162816-aa69164e4478
