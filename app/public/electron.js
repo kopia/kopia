@@ -9,6 +9,8 @@ const { stopServer, actuateServer, getServerAddress, getServerCertSHA256, getSer
 const log = require("electron-log")
 const firstRun = require('electron-first-run');
 
+app.name = 'KopiaUI';
+
 ipcMain.on('fetch-config', (event, arg) => {
   event.sender.send('config-updated', config.all());
 })
@@ -172,42 +174,6 @@ function maybeMoveToApplicationsFolder() {
   return false;
 }
 
-function setMenuBar() {
-  if (process.platform === 'darwin') {
-    const name = app.getName();
-    let template = [
-    {
-      label: name,
-      submenu: [
-        {
-          label: 'About KopiaUI',
-          role: 'about'
-        },
-        {
-          label: 'Quit',
-          accelerator: 'Command+Q',
-          click() { app.quit(); }
-        },
-      ]
-    },{
-      label: "Edit",
-      submenu: [
-        { label: "Undo", accelerator: "CmdOrCtrl+Z", selector: "undo:" },
-        { label: "Redo", accelerator: "Shift+CmdOrCtrl+Z", selector: "redo:" },
-        { type: "separator" },
-        { label: "Cut", accelerator: "CmdOrCtrl+X", selector: "cut:" },
-        { label: "Copy", accelerator: "CmdOrCtrl+C", selector: "copy:" },
-        { label: "Paste", accelerator: "CmdOrCtrl+V", selector: "paste:" },
-        { label: "Select All", accelerator: "CmdOrCtrl+A", selector: "selectAll:" }
-      ]
-    }];
-    
-    // Create the Menu
-    const menu = Menu.buildFromTemplate(template);
-    Menu.setApplicationMenu(menu);
-  }
-}
-
 function updateDockIcon() {
   if (process.platform === 'darwin') {
     if (configWindow || mainWindow) {
@@ -222,7 +188,6 @@ app.on('ready', () => {
   log.transports.file.level = "debug"
   autoUpdater.logger = log
 
-  setMenuBar();
   if (maybeMoveToApplicationsFolder()) {
     return
   }
