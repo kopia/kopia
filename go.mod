@@ -18,7 +18,7 @@ require (
 	github.com/godbus/dbus v4.1.0+incompatible // indirect
 	github.com/golang/protobuf v1.3.2
 	github.com/google/fswalker v0.2.0
-	github.com/google/martian v2.1.0+incompatible
+	github.com/google/martian v2.1.1-0.20190517191504-25dcb96d9e51+incompatible
 	github.com/gorilla/mux v1.7.4
 	github.com/klauspost/compress v1.9.7
 	github.com/klauspost/crc32 v1.2.0 // indirect
