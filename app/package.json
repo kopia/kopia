@@ -79,6 +79,7 @@
       ]
     },
     "linux": {
+      "target": "AppImage",
       "extraResources": [
         {
           "from": "../dist/kopia_linux_amd64",
