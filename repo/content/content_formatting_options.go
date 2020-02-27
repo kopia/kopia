@@ -1,12 +1,5 @@
 package content
 
-import (
-	"crypto/sha256"
-	"io"
-
-	"golang.org/x/crypto/hkdf"
-)
-
 // FormattingOptions describes the rules for formatting contents in repository.
 type FormattingOptions struct {
 	Version     int    `json:"version,omitempty"`     // version number, must be "1"
@@ -17,11 +10,22 @@ type FormattingOptions struct {
 	MaxPackSize int    `json:"maxPackSize,omitempty"` // maximum size of a pack object
 }
 
-// DeriveKey uses HKDF to derive a key of a given length and a given purpose.
-func (o *FormattingOptions) DeriveKey(purpose []byte, length int) []byte {
-	key := make([]byte, length)
-	k := hkdf.New(sha256.New, o.MasterKey, purpose, nil)
-	io.ReadFull(k, key) //nolint:errcheck
+// GetEncryptionAlgorithm implements encryption.Parameters
+func (f *FormattingOptions) GetEncryptionAlgorithm() string {
+	return f.Encryption
+}
 
-	return key
+// GetMasterKey implements encryption.Parameters
+func (f *FormattingOptions) GetMasterKey() []byte {
+	return f.MasterKey
+}
+
+// GetHashFunction implements hashing.Parameters
+func (f *FormattingOptions) GetHashFunction() string {
+	return f.Hash
+}
+
+// GetHMACSecret implements hashing.Parameters
+func (f *FormattingOptions) GetHMACSecret() []byte {
+	return f.HMACSecret
 }

@@ -16,6 +16,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/encryption"
+	"github.com/kopia/kopia/repo/hashing"
 )
 
 // lockFreeManager contains parts of Manager state that can be accessed without locking
@@ -37,8 +39,8 @@ type lockFreeManager struct {
 	writeFormatVersion int32 // format version to write
 
 	maxPackSize       int
-	hasher            HashFunc
-	encryptor         Encryptor
+	hasher            hashing.HashFunc
+	encryptor         encryption.Encryptor
 	minPreambleLength int
 	maxPreambleLength int
 	paddingUnit       int
@@ -276,7 +278,7 @@ func (bm *lockFreeManager) preparePackDataContent(ctx context.Context, pp *pendi
 
 		encrypted, err = bm.maybeEncryptContentDataForPacking(info.Payload, info.ID)
 		if err != nil {
-			return nil, nil, errors.Wrapf(err, "unable to encrypt %q", contentID)
+			return nil, nil, errors.Wrapf(err, "unable to encrypt %q", info.ID)
 		}
 
 		formatLog(ctx).Debugf("adding %v length=%v deleted=%v", contentID, len(info.Payload), info.Deleted)
@@ -430,13 +432,13 @@ func (bm *lockFreeManager) verifyChecksum(data, contentID []byte) error {
 
 // CreateHashAndEncryptor returns new hashing and encrypting functions based on
 // the specified formatting options
-func CreateHashAndEncryptor(f *FormattingOptions) (HashFunc, Encryptor, error) {
-	h, err := createHashFunc(f)
+func CreateHashAndEncryptor(f *FormattingOptions) (hashing.HashFunc, encryption.Encryptor, error) {
+	h, err := hashing.CreateHashFunc(f)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "unable to create hash")
 	}
 
-	e, err := createEncryptor(f)
+	e, err := encryption.CreateEncryptor(f)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "unable to create encryptor")
 	}
@@ -449,31 +451,4 @@ func CreateHashAndEncryptor(f *FormattingOptions) (HashFunc, Encryptor, error) {
 	}
 
 	return h, e, nil
-}
-
-func createHashFunc(f *FormattingOptions) (HashFunc, error) {
-	h := hashFunctions[f.Hash]
-	if h == nil {
-		return nil, errors.Errorf("unknown hash function %v", f.Hash)
-	}
-
-	hashFunc, err := h(f)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to initialize hash")
-	}
-
-	if hashFunc == nil {
-		return nil, errors.Errorf("nil hash function returned for %v", f.Hash)
-	}
-
-	return hashFunc, nil
-}
-
-func createEncryptor(f *FormattingOptions) (Encryptor, error) {
-	e := encryptors[f.Encryption]
-	if e == nil {
-		return nil, errors.Errorf("unknown encryption algorithm: %v", f.Encryption)
-	}
-
-	return e(f)
 }

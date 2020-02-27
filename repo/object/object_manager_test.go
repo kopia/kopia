@@ -19,6 +19,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/splitter"
 )
 
 type fakeContentManager struct {
@@ -163,7 +164,7 @@ func verifyIndirectBlock(ctx context.Context, t *testing.T, r *Manager, oid ID) 
 func TestIndirection(t *testing.T) {
 	ctx := testlogging.Context(t)
 
-	splitterFactory := newFixedSplitterFactory(1000)
+	splitterFactory := splitter.Fixed(1000)
 	cases := []struct {
 		dataLength          int
 		expectedBlobCount   int

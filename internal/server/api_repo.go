@@ -12,8 +12,9 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/compression"
-	"github.com/kopia/kopia/repo/content"
-	"github.com/kopia/kopia/repo/object"
+	"github.com/kopia/kopia/repo/encryption"
+	"github.com/kopia/kopia/repo/hashing"
+	"github.com/kopia/kopia/repo/splitter"
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
@@ -116,14 +117,14 @@ func (s *Server) handleRepoConnect(ctx context.Context, r *http.Request) (interf
 
 func (s *Server) handleRepoSupportedAlgorithms(ctx context.Context, r *http.Request) (interface{}, *apiError) {
 	res := &serverapi.SupportedAlgorithmsResponse{
-		DefaultHashAlgorithm: content.DefaultHash,
-		HashAlgorithms:       content.SupportedHashAlgorithms(),
+		DefaultHashAlgorithm: hashing.DefaultAlgorithm,
+		HashAlgorithms:       hashing.SupportedAlgorithms(),
 
-		DefaultEncryptionAlgorithm: content.DefaultEncryption,
-		EncryptionAlgorithms:       content.SupportedEncryptionAlgorithms(),
+		DefaultEncryptionAlgorithm: encryption.DefaultAlgorithm,
+		EncryptionAlgorithms:       encryption.SupportedAlgorithms(),
 
-		DefaultSplitterAlgorithm: object.DefaultSplitter,
-		SplitterAlgorithms:       object.SupportedSplitters,
+		DefaultSplitterAlgorithm: splitter.DefaultAlgorithm,
+		SplitterAlgorithms:       splitter.SupportedAlgorithms(),
 	}
 
 	for k := range compression.ByName {

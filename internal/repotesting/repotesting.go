@@ -13,6 +13,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/object"
 )
 
@@ -47,7 +48,7 @@ func (e *Environment) Setup(t *testing.T, opts ...func(*repo.NewRepositoryOption
 		BlockFormat: content.FormattingOptions{
 			HMACSecret: []byte{},
 			Hash:       "HMAC-SHA256",
-			Encryption: "NONE",
+			Encryption: encryption.NoneAlgorithm,
 		},
 		ObjectFormat: object.Format{
 			Splitter: "FIXED-1M",

@@ -1,4 +1,4 @@
-package object
+package splitter
 
 import (
 	"github.com/chmduquesne/rollinghash/buzhash32"
@@ -31,7 +31,7 @@ func (rs *buzhash32Splitter) ShouldSplit(b byte) bool {
 	return false
 }
 
-func newBuzHash32SplitterFactory(avgSize int) SplitterFactory {
+func newBuzHash32SplitterFactory(avgSize int) Factory {
 	// avgSize must be a power of two, so 0b000001000...0000
 	// it just so happens that mask is avgSize-1 :)
 	mask := uint32(avgSize - 1)

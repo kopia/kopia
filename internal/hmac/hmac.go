@@ -1,4 +1,5 @@
-package content
+// Package hmac contains utilities for dealing with HMAC checksums.
+package hmac
 
 import (
 	"crypto/hmac"
@@ -6,14 +7,16 @@ import (
 	"errors"
 )
 
-func appendHMAC(data, secret []byte) []byte {
+// Append computes HMAC-SHA256 checksum for a given block of bytes and appends it.
+func Append(data, secret []byte) []byte {
 	h := hmac.New(sha256.New, secret)
 	h.Write(data) // nolint:errcheck
 
 	return h.Sum(data)
 }
 
-func verifyAndStripHMAC(b, secret []byte) ([]byte, error) {
+// VerifyAndStrip verifies that given block of bytes has correct HMAC-SHA256 checksum and strips it.
+func VerifyAndStrip(b, secret []byte) ([]byte, error) {
 	if len(b) < sha256.Size {
 		return nil, errors.New("invalid data - too short")
 	}

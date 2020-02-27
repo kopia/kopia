@@ -9,7 +9,10 @@ import (
 
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/encryption"
+	"github.com/kopia/kopia/repo/hashing"
 	"github.com/kopia/kopia/repo/object"
+	"github.com/kopia/kopia/repo/splitter"
 )
 
 // BuildInfo is the build information of Kopia.
@@ -80,8 +83,8 @@ func formatBlobFromOptions(opt *NewRepositoryOptions) *formatBlob {
 		EncryptionAlgorithm:    defaultFormatEncryption,
 	}
 
-	if opt.BlockFormat.Encryption == "NONE" {
-		f.EncryptionAlgorithm = "NONE"
+	if opt.BlockFormat.Encryption == encryption.NoneAlgorithm {
+		f.EncryptionAlgorithm = encryption.NoneAlgorithm
 	}
 
 	return f
@@ -91,14 +94,14 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) *repositoryObj
 	f := &repositoryObjectFormat{
 		FormattingOptions: content.FormattingOptions{
 			Version:     1,
-			Hash:        applyDefaultString(opt.BlockFormat.Hash, content.DefaultHash),
-			Encryption:  applyDefaultString(opt.BlockFormat.Encryption, content.DefaultEncryption),
+			Hash:        applyDefaultString(opt.BlockFormat.Hash, hashing.DefaultAlgorithm),
+			Encryption:  applyDefaultString(opt.BlockFormat.Encryption, encryption.DefaultAlgorithm),
 			HMACSecret:  applyDefaultRandomBytes(opt.BlockFormat.HMACSecret, hmacSecretLength), //nolint:gomnd
 			MasterKey:   applyDefaultRandomBytes(opt.BlockFormat.MasterKey, masterKeyLength),   //nolint:gomnd
 			MaxPackSize: applyDefaultInt(opt.BlockFormat.MaxPackSize, 20<<20),                  //nolint:gomnd
 		},
 		Format: object.Format{
-			Splitter: applyDefaultString(opt.ObjectFormat.Splitter, object.DefaultSplitter),
+			Splitter: applyDefaultString(opt.ObjectFormat.Splitter, splitter.DefaultAlgorithm),
 		},
 	}
 

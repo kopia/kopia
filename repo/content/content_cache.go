@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/ctxutil"
+	"github.com/kopia/kopia/internal/hmac"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/filesystem"
 )
@@ -71,7 +72,7 @@ func (c *contentCache) getContent(ctx context.Context, cacheKey cacheKey, blobID
 		if puterr := c.cacheStorage.PutBlob(
 			blob.WithUploadProgressCallback(ctx, nil),
 			blob.ID(cacheKey),
-			appendHMAC(b, c.hmacSecret),
+			hmac.Append(b, c.hmacSecret),
 		); puterr != nil {
 			log(ctx).Warningf("unable to write cache item %v: %v", cacheKey, puterr)
 		}
@@ -88,7 +89,7 @@ func (c *contentCache) put(ctx context.Context, cacheKey cacheKey, data []byte) 
 		if puterr := c.cacheStorage.PutBlob(
 			blob.WithUploadProgressCallback(ctx, nil),
 			blob.ID(cacheKey),
-			appendHMAC(data, c.hmacSecret),
+			hmac.Append(data, c.hmacSecret),
 		); puterr != nil {
 			log(ctx).Warningf("unable to write cache item %v: %v", cacheKey, puterr)
 		}
@@ -98,7 +99,7 @@ func (c *contentCache) put(ctx context.Context, cacheKey cacheKey, data []byte) 
 func (c *contentCache) readAndVerifyCacheContent(ctx context.Context, cacheKey cacheKey) []byte {
 	b, err := c.cacheStorage.GetBlob(ctx, blob.ID(cacheKey), 0, -1)
 	if err == nil {
-		b, err = verifyAndStripHMAC(b, c.hmacSecret)
+		b, err = hmac.VerifyAndStrip(b, c.hmacSecret)
 		if err == nil {
 			if t, ok := c.cacheStorage.(contentToucher); ok {
 				t.TouchBlob(ctx, blob.ID(cacheKey), c.touchThreshold) //nolint:errcheck
