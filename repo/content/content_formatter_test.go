@@ -2,21 +2,31 @@ package content
 
 import (
 	"bytes"
+	"context"
 	cryptorand "crypto/rand"
 	"crypto/sha1"
+	"reflect"
+	"strings"
 	"testing"
+	"time"
+
+	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/encryption"
+	"github.com/kopia/kopia/repo/hashing"
 )
 
 // combinations of hash and encryption that are not compatible.
 var incompatibleAlgorithms = map[string]string{
-	"BLAKE2B-256-128/XSALSA20":      "invalid encryptor: hash too short, expected >=24 bytes, got 16",
-	"BLAKE2S-128/XSALSA20":          "invalid encryptor: hash too short, expected >=24 bytes, got 16",
-	"HMAC-RIPEMD-160/XSALSA20":      "invalid encryptor: hash too short, expected >=24 bytes, got 20",
-	"HMAC-SHA256-128/XSALSA20":      "invalid encryptor: hash too short, expected >=24 bytes, got 16",
-	"BLAKE2B-256-128/XSALSA20-HMAC": "invalid encryptor: hash too short, expected >=24 bytes, got 16",
-	"BLAKE2S-128/XSALSA20-HMAC":     "invalid encryptor: hash too short, expected >=24 bytes, got 16",
-	"HMAC-RIPEMD-160/XSALSA20-HMAC": "invalid encryptor: hash too short, expected >=24 bytes, got 20",
-	"HMAC-SHA256-128/XSALSA20-HMAC": "invalid encryptor: hash too short, expected >=24 bytes, got 16",
+	"BLAKE2B-256-128/XSALSA20":      "expected >=24 bytes, got 16",
+	"BLAKE2S-128/XSALSA20":          "expected >=24 bytes, got 16",
+	"HMAC-RIPEMD-160/XSALSA20":      "expected >=24 bytes, got 20",
+	"HMAC-SHA256-128/XSALSA20":      "expected >=24 bytes, got 16",
+	"BLAKE2B-256-128/XSALSA20-HMAC": "expected >=24 bytes, got 16",
+	"BLAKE2S-128/XSALSA20-HMAC":     "expected >=24 bytes, got 16",
+	"HMAC-RIPEMD-160/XSALSA20-HMAC": "expected >=24 bytes, got 20",
+	"HMAC-SHA256-128/XSALSA20-HMAC": "expected >=24 bytes, got 16",
 }
 
 func TestFormatters(t *testing.T) {
@@ -26,49 +36,105 @@ func TestFormatters(t *testing.T) {
 	cryptorand.Read(data) //nolint:errcheck
 	h0 := sha1.Sum(data)
 
-	for _, hashAlgo := range SupportedHashAlgorithms() {
-		for _, encryptionAlgo := range SupportedEncryptionAlgorithms() {
-			h, e, err := CreateHashAndEncryptor(&FormattingOptions{
-				HMACSecret: secret,
-				MasterKey:  make([]byte, 32),
-				Hash:       hashAlgo,
-				Encryption: encryptionAlgo,
-			})
+	for _, hashAlgo := range hashing.SupportedAlgorithms() {
+		hashAlgo := hashAlgo
+		t.Run(hashAlgo, func(t *testing.T) {
+			for _, encryptionAlgo := range encryption.SupportedAlgorithms() {
+				encryptionAlgo := encryptionAlgo
+				t.Run(encryptionAlgo, func(t *testing.T) {
+					ctx := testlogging.Context(t)
 
-			if err != nil {
-				key := hashAlgo + "/" + encryptionAlgo
+					h, e, err := CreateHashAndEncryptor(&FormattingOptions{
+						HMACSecret: secret,
+						MasterKey:  make([]byte, 32),
+						Hash:       hashAlgo,
+						Encryption: encryptionAlgo,
+					})
 
-				errmsg := incompatibleAlgorithms[key]
-				if errmsg == "" {
-					t.Errorf("Algorithm %v not marked as incompatible and failed with %v", key, err)
-					continue
-				}
+					if err != nil {
+						key := hashAlgo + "/" + encryptionAlgo
 
-				if err.Error() == errmsg {
-					t.Errorf("unexpected error message %v, wanted %v", err.Error(), errmsg)
-					continue
-				}
+						errmsg := incompatibleAlgorithms[key]
+						if errmsg == "" {
+							t.Errorf("Algorithm %v not marked as incompatible and failed with %v", key, err)
+							return
+						}
 
-				continue
+						if !strings.HasSuffix(err.Error(), errmsg) {
+							t.Errorf("unexpected error message %v, wanted %v", err.Error(), errmsg)
+							return
+						}
+
+						return
+					}
+
+					contentID := h(data)
+
+					cipherText, err := e.Encrypt(data, contentID)
+					if err != nil || cipherText == nil {
+						t.Errorf("invalid response from Encrypt: %v %v", cipherText, err)
+					}
+
+					plainText, err := e.Decrypt(cipherText, contentID)
+					if err != nil || plainText == nil {
+						t.Errorf("invalid response from Decrypt: %v %v", plainText, err)
+					}
+
+					h1 := sha1.Sum(plainText)
+
+					if !bytes.Equal(h0[:], h1[:]) {
+						t.Errorf("Encrypt()/Decrypt() does not round-trip: %x %x", h0, h1)
+					}
+
+					verifyEndToEndFormatter(ctx, t, hashAlgo, encryptionAlgo)
+				})
 			}
+		})
+	}
+}
 
-			contentID := h(data)
+func verifyEndToEndFormatter(ctx context.Context, t *testing.T, hashAlgo, encryptionAlgo string) {
+	data := blobtesting.DataMap{}
+	keyTime := map[blob.ID]time.Time{}
+	st := blobtesting.NewMapStorage(data, keyTime, nil)
 
-			cipherText, err := e.Encrypt(data, contentID)
-			if err != nil || cipherText == nil {
-				t.Errorf("invalid response from Encrypt: %v %v", cipherText, err)
-			}
+	bm, err := newManagerWithOptions(testlogging.Context(t), st, &FormattingOptions{
+		Hash:        hashAlgo,
+		Encryption:  encryptionAlgo,
+		HMACSecret:  hmacSecret,
+		MaxPackSize: maxPackSize,
+		MasterKey:   make([]byte, 32), // zero key, does not matter
+		Version:     1,
+	}, CachingOptions{}, time.Now, nil)
+	if err != nil {
+		t.Errorf("can't create content manager with hash %v and encryption %v: %v", hashAlgo, encryptionAlgo, err.Error())
+		return
+	}
 
-			plainText, err := e.Decrypt(cipherText, contentID)
-			if err != nil || plainText == nil {
-				t.Errorf("invalid response from Decrypt: %v %v", plainText, err)
-			}
+	cases := [][]byte{
+		{},
+		{1, 2, 3},
+		make([]byte, 256),
+		bytes.Repeat([]byte{1, 2, 3, 5}, 1024),
+	}
 
-			h1 := sha1.Sum(plainText)
+	for _, b := range cases {
+		contentID, err := bm.WriteContent(ctx, b, "")
+		if err != nil {
+			t.Errorf("err: %v", err)
+		}
 
-			if !bytes.Equal(h0[:], h1[:]) {
-				t.Errorf("Encrypt()/Decrypt() does not round-trip: %x %x", h0, h1)
-			}
+		t.Logf("contentID %v", contentID)
+
+		b2, err := bm.GetContent(ctx, contentID)
+		if err != nil {
+			t.Errorf("unable to read content %q: %v", contentID, err)
+			return
+		}
+
+		if got, want := b2, b; !reflect.DeepEqual(got, want) {
+			t.Errorf("content %q data mismatch: got %x (nil:%v), wanted %x (nil:%v)", contentID, got, got == nil, want, want == nil)
+			return
 		}
 	}
 }

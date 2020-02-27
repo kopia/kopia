@@ -11,6 +11,7 @@ import (
 
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/splitter"
 )
 
 // Writer allows writing content to the storage and supports automatic deduplication and encryption
@@ -64,7 +65,7 @@ type objectWriter struct {
 
 	description string
 
-	splitter Splitter
+	splitter splitter.Splitter
 }
 
 func (w *objectWriter) Close() error {

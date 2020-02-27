@@ -12,6 +12,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/hmac"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -58,7 +59,7 @@ func (c *listCache) saveListToCache(ctx context.Context, ci *cachedList) {
 
 	if data, err := json.Marshal(ci); err == nil {
 		mySuffix := fmt.Sprintf(".tmp-%v-%v", os.Getpid(), time.Now().UnixNano())
-		if err := ioutil.WriteFile(c.cacheFile+mySuffix, appendHMAC(data, c.hmacSecret), 0600); err != nil {
+		if err := ioutil.WriteFile(c.cacheFile+mySuffix, hmac.Append(data, c.hmacSecret), 0600); err != nil {
 			log(ctx).Warningf("unable to write list cache: %v", err)
 		}
 
@@ -89,7 +90,7 @@ func (c *listCache) readContentsFromCache(ctx context.Context) (*cachedList, err
 		return nil, err
 	}
 
-	data, err = verifyAndStripHMAC(data, c.hmacSecret)
+	data, err = hmac.VerifyAndStrip(data, c.hmacSecret)
 	if err != nil {
 		return nil, errors.Wrapf(err, "invalid file %v", c.cacheFile)
 	}

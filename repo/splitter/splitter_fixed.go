@@ -1,4 +1,4 @@
-package object
+package splitter
 
 type fixedSplitter struct {
 	cur         int
@@ -16,7 +16,8 @@ func (s *fixedSplitter) ShouldSplit(b byte) bool {
 	return false
 }
 
-func newFixedSplitterFactory(length int) SplitterFactory {
+// Fixed returns a factory that creates splitters with fixed chunk length.
+func Fixed(length int) Factory {
 	return func() Splitter {
 		return &fixedSplitter{chunkLength: length}
 	}

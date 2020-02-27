@@ -1,4 +1,4 @@
-package object
+package splitter
 
 import (
 	cryptorand "crypto/rand"
@@ -10,7 +10,7 @@ import (
 func TestSplitters(t *testing.T) {
 	cases := []struct {
 		desc        string
-		newSplitter SplitterFactory
+		newSplitter Factory
 	}{
 		{"rolling buzhash with 3 bits", newBuzHash32SplitterFactory(8)},
 		{"rolling buzhash with 5 bits", newBuzHash32SplitterFactory(32)},

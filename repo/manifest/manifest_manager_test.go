@@ -11,6 +11,7 @@ import (
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/encryption"
 )
 
 //nolint:funlen
@@ -139,7 +140,7 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 
 	f := &content.FormattingOptions{
 		Hash:        "HMAC-SHA256-128",
-		Encryption:  "NONE",
+		Encryption:  encryption.NoneAlgorithm,
 		MaxPackSize: 100000,
 		Version:     1,
 	}
@@ -292,7 +293,7 @@ func newManagerForTesting(ctx context.Context, t *testing.T, data blobtesting.Da
 
 	bm, err := content.NewManager(ctx, st, &content.FormattingOptions{
 		Hash:        "HMAC-SHA256-128",
-		Encryption:  "NONE",
+		Encryption:  encryption.NoneAlgorithm,
 		MaxPackSize: 100000,
 		Version:     1,
 	}, content.CachingOptions{}, nil)

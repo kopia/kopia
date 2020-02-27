@@ -1,4 +1,5 @@
-package object
+// Package splitter manages splitting of object data into chunks.
+package splitter
 
 import (
 	"sort"
@@ -14,18 +15,28 @@ type Splitter interface {
 	ShouldSplit(b byte) bool
 }
 
-// SupportedSplitters is a list of supported object splitters.
-var SupportedSplitters []string
+// SupportedAlgorithms returns the list of supported splitters.
+func SupportedAlgorithms() []string {
+	var supportedSplitters []string
 
-// SplitterFactory creates instances of Splitter
-type SplitterFactory func() Splitter
+	for k := range splitterFactories {
+		supportedSplitters = append(supportedSplitters, k)
+	}
+
+	sort.Strings(supportedSplitters)
+
+	return supportedSplitters
+}
+
+// Factory creates instances of Splitter
+type Factory func() Splitter
 
 // splitterFactories is a map of registered splitter factories.
-var splitterFactories = map[string]SplitterFactory{
-	"FIXED-1M": newFixedSplitterFactory(megabytes(1)), //nolint:gomnd
-	"FIXED-2M": newFixedSplitterFactory(megabytes(2)), //nolint:gomnd
-	"FIXED-4M": newFixedSplitterFactory(megabytes(4)), //nolint:gomnd
-	"FIXED-8M": newFixedSplitterFactory(megabytes(8)), //nolint:gomnd
+var splitterFactories = map[string]Factory{
+	"FIXED-1M": Fixed(megabytes(1)), //nolint:gomnd
+	"FIXED-2M": Fixed(megabytes(2)), //nolint:gomnd
+	"FIXED-4M": Fixed(megabytes(4)), //nolint:gomnd
+	"FIXED-8M": Fixed(megabytes(8)), //nolint:gomnd
 
 	"DYNAMIC-1M-BUZHASH": newBuzHash32SplitterFactory(megabytes(1)), //nolint:gomnd
 	"DYNAMIC-2M-BUZHASH": newBuzHash32SplitterFactory(megabytes(2)), //nolint:gomnd
@@ -38,7 +49,7 @@ var splitterFactories = map[string]SplitterFactory{
 	"DYNAMIC-8M-RABINKARP": newRabinKarp64SplitterFactory(megabytes(8)), //nolint:gomnd
 
 	// handle deprecated legacy names to splitters of arbitrary size
-	"FIXED": newFixedSplitterFactory(4 << 20), //nolint:gomnd
+	"FIXED": Fixed(4 << 20), //nolint:gomnd
 
 	// we don't want to use old DYNAMIC splitter because of its license, so
 	// map this one to arbitrary buzhash32 (different)
@@ -49,18 +60,10 @@ func megabytes(mb int) int {
 	return mb << 20
 }
 
-// GetSplitterFactory gets splitter factory with a specified name or nil if not found.
-func GetSplitterFactory(name string) SplitterFactory {
+// GetFactory gets splitter factory with a specified name or nil if not found.
+func GetFactory(name string) Factory {
 	return splitterFactories[name]
 }
 
-func init() {
-	for k := range splitterFactories {
-		SupportedSplitters = append(SupportedSplitters, k)
-	}
-
-	sort.Strings(SupportedSplitters)
-}
-
-// DefaultSplitter is the name of the splitter used by default for new repositories.
-const DefaultSplitter = "DYNAMIC-4M-BUZHASH"
+// DefaultAlgorithm is the name of the splitter used by default for new repositories.
+const DefaultAlgorithm = "DYNAMIC-4M-BUZHASH"

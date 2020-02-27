@@ -11,6 +11,7 @@ import (
 
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/splitter"
 )
 
 // ErrObjectNotFound is returned when an object cannot be found.
@@ -42,7 +43,7 @@ type Manager struct {
 	contentMgr contentManager
 	trace      func(message string, args ...interface{})
 
-	newSplitter func() Splitter
+	newSplitter splitter.Factory
 }
 
 // NewWriter creates an ObjectWriter for writing to the repository.
@@ -165,7 +166,7 @@ func NewObjectManager(ctx context.Context, bm contentManager, f Format, opts Man
 		splitterID = "FIXED"
 	}
 
-	os := GetSplitterFactory(splitterID)
+	os := splitter.GetFactory(splitterID)
 	if os == nil {
 		return nil, errors.Errorf("unsupported splitter %q", f.Splitter)
 	}

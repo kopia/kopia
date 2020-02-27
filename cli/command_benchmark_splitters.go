@@ -5,7 +5,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/kopia/kopia/repo/object"
+	"github.com/kopia/kopia/repo/splitter"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -49,8 +49,8 @@ func runBenchmarkSplitterAction(ctx *kingpin.ParseContext) error {
 
 	printStderr("splitting %v blocks of %v each\n", *benchmarkSplitterBlockCount, *benchmarkSplitterBlockSize)
 
-	for _, sp := range object.SupportedSplitters {
-		fact := object.GetSplitterFactory(sp)
+	for _, sp := range splitter.SupportedAlgorithms() {
+		fact := splitter.GetFactory(sp)
 
 		var segmentLengths []int
 

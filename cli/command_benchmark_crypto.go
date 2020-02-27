@@ -6,6 +6,8 @@ import (
 
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/encryption"
+	"github.com/kopia/kopia/repo/hashing"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -28,9 +30,9 @@ func runBenchmarkCryptoAction(ctx *kingpin.ParseContext) error {
 
 	data := make([]byte, *benchmarkCryptoBlockSize)
 
-	for _, ha := range content.SupportedHashAlgorithms() {
-		for _, ea := range content.SupportedEncryptionAlgorithms() {
-			isEncrypted := ea != "NONE"
+	for _, ha := range hashing.SupportedAlgorithms() {
+		for _, ea := range encryption.SupportedAlgorithms() {
+			isEncrypted := ea != encryption.NoneAlgorithm
 			if *benchmarkCryptoEncryption != isEncrypted {
 				continue
 			}
