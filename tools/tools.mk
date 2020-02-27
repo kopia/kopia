@@ -79,8 +79,10 @@ endif
 
 go_bindata=$(TOOLS_DIR)$(slash)bin$(slash)go-bindata$(exe_suffix)
 
+$(go_bindata): export GO111MODULE=off
+$(go_bindata): export GOPATH=$(TOOLS_DIR)
 $(go_bindata):
-	go build -o $(go_bindata) github.com/go-bindata/go-bindata/go-bindata
+	go get github.com/go-bindata/go-bindata/go-bindata
 
 # linter
 linter_dir=$(TOOLS_DIR)$(slash)golangci-lint-$(GOLANGCI_LINT_VERSION)
