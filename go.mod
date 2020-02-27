@@ -13,15 +13,11 @@ require (
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/danieljoos/wincred v1.0.2 // indirect
 	github.com/efarrer/iothrottler v0.0.1
-	github.com/go-bindata/go-bindata v3.1.2+incompatible // indirect
-	github.com/go-ini/ini v1.46.0 // indirect
 	github.com/godbus/dbus v4.1.0+incompatible // indirect
 	github.com/golang/protobuf v1.3.2
 	github.com/google/fswalker v0.2.0
-	github.com/google/martian v2.1.1-0.20190517191504-25dcb96d9e51+incompatible
 	github.com/gorilla/mux v1.7.4
 	github.com/klauspost/compress v1.9.7
-	github.com/klauspost/crc32 v1.2.0 // indirect
 	github.com/klauspost/pgzip v1.2.1
 	github.com/kylelemons/godebug v1.1.0
 	github.com/minio/minio v0.0.0-20200208111659-6b1f2fc13365
@@ -42,6 +38,5 @@ require (
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58
 	google.golang.org/api v0.10.0
-	google.golang.org/appengine v1.6.1
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 )
