@@ -30,6 +30,10 @@ func symmetricEncrypt(createCipher func() (cipher.Block, error), iv, b []byte) (
 		return nil, err
 	}
 
+	if len(iv) < blockCipher.BlockSize() {
+		return nil, errors.Errorf("IV too short: %v expected >= %v", len(iv), blockCipher.BlockSize())
+	}
+
 	ctr := cipher.NewCTR(blockCipher, iv[0:blockCipher.BlockSize()])
 	result := make([]byte, len(b))
 	ctr.XORKeyStream(result, b)

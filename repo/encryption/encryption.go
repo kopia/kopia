@@ -43,7 +43,7 @@ func CreateEncryptor(p Parameters) (Encryptor, error) {
 }
 
 // EncryptorFactory creates new Encryptor for given parameters.
-type EncryptorFactory func(o Parameters) (Encryptor, error)
+type EncryptorFactory func(p Parameters) (Encryptor, error)
 
 // DefaultAlgorithm is the name of the default encryption algorithm.
 const DefaultAlgorithm = "SALSA20-HMAC"
