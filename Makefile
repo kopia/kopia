@@ -111,6 +111,7 @@ ifeq ($(TRAVIS_TAG),)
 endif
 
 goreleaser: $(goreleaser)
+	-git diff
 	$(goreleaser) release $(GORELEASER_OPTIONS)
 
 ifeq ($(TRAVIS_PULL_REQUEST),false)
