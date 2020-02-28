@@ -63,29 +63,16 @@ html-ui-bindata-fallback: $(go_bindata)
 kopia-ui: goreleaser
 	$(MAKE) -C app build-electron
 
-ifeq ($(TRAVIS_OS_NAME),windows)
-travis-release: install kopia-ui
-	$(MAKE) lint test html-ui-tests
+travis-release:
+	$(MAKE) goreleaser kopia-ui
+	$(MAKE) -j4 lint vet test-with-coverage html-ui-tests
 	$(MAKE) integration-tests
-endif
-
-ifeq ($(TRAVIS_OS_NAME),osx)
-travis-release: install kopia-ui
-	$(MAKE) lint test html-ui-tests
-	$(MAKE) integration-tests
-endif
-
 ifeq ($(TRAVIS_OS_NAME),linux)
-travis-release: goreleaser kopia-ui website
-	$(MAKE) test-all
-	$(MAKE) integration-tests
+	$(MAKE) website
 	$(MAKE) stress-test
-ifneq ($(TRAVIS_TAG),)
 	$(MAKE) travis-create-long-term-repository
+	$(MAKE) upload-coverage
 endif
-endif
-
-test-all: lint vet test-with-coverage html-ui-tests html-ui-tests
 
 # goreleaser - builds binaries for all platforms
 GORELEASER_OPTIONS=--rm-dist --skip-publish --parallelism=6
@@ -111,12 +98,13 @@ ifeq ($(TRAVIS_TAG),)
 endif
 
 goreleaser: $(goreleaser)
-	-git diff
+	# print current git diff, pipe through cat to avoid blocking the build on pager
+	-git diff | cat
 	$(goreleaser) release $(GORELEASER_OPTIONS)
 
 ifeq ($(TRAVIS_PULL_REQUEST),false)
 
-upload-coverage: $(GOVERALLS_TOOL) test-with-coverage
+upload-coverage: $(GOVERALLS_TOOL)
 	$(GOVERALLS_TOOL) -service=travis-ci -coverprofile=tmp.cov
 
 else
