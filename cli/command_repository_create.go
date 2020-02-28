@@ -18,8 +18,8 @@ import (
 var (
 	createCommand = repositoryCommands.Command("create", "Create new repository in a specified location.")
 
-	createBlockHashFormat       = createCommand.Flag("block-hash", "Block hash algorithm.").PlaceHolder("ALGO").Default(hashing.DefaultAlgorithm).Enum(hashing.SupportedAlgorithms()...)
-	createBlockEncryptionFormat = createCommand.Flag("encryption", "Block encryption algorithm.").PlaceHolder("ALGO").Default(encryption.DefaultAlgorithm).Enum(encryption.SupportedAlgorithms()...)
+	createBlockHashFormat       = createCommand.Flag("block-hash", "Content hash algorithm.").PlaceHolder("ALGO").Default(hashing.DefaultAlgorithm).Enum(hashing.SupportedAlgorithms()...)
+	createBlockEncryptionFormat = createCommand.Flag("encryption", "Content encryption algorithm.").PlaceHolder("ALGO").Default(encryption.DefaultAlgorithm).Enum(encryption.SupportedAlgorithms(false)...)
 	createSplitter              = createCommand.Flag("object-splitter", "The splitter to use for new objects in the repository").Default(splitter.DefaultAlgorithm).Enum(splitter.SupportedAlgorithms()...)
 
 	createOnly = createCommand.Flag("create-only", "Create repository, but don't connect to it.").Short('c').Bool()

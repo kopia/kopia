@@ -10,6 +10,8 @@ import (
 	"golang.org/x/crypto/hkdf"
 )
 
+const minDerivedKeyLength = 32
+
 // Encryptor performs encryption and decryption of contents of data.
 type Encryptor interface {
 	// Encrypt returns encrypted bytes corresponding to the given plaintext.
@@ -46,16 +48,21 @@ func CreateEncryptor(p Parameters) (Encryptor, error) {
 type EncryptorFactory func(p Parameters) (Encryptor, error)
 
 // DefaultAlgorithm is the name of the default encryption algorithm.
-const DefaultAlgorithm = "SALSA20-HMAC"
+const DefaultAlgorithm = "AES256-GCM-HMAC-SHA256"
 
 // NoneAlgorithm is the name of the algorithm that does not encrypt.
 const NoneAlgorithm = "NONE"
 
 // SupportedAlgorithms returns the names of the supported encryption
 // methods
-func SupportedAlgorithms() []string {
+func SupportedAlgorithms(includeDeprecated bool) []string {
 	var result []string
-	for k := range encryptors {
+
+	for k, e := range encryptors {
+		if e.deprecated && !includeDeprecated {
+			continue
+		}
+
 		result = append(result, k)
 	}
 
@@ -87,10 +94,14 @@ func cloneBytes(b []byte) []byte {
 
 // deriveKey uses HKDF to derive a key of a given length and a given purpose from parameters.
 // nolint:unparam
-func deriveKey(p Parameters, purpose []byte, length int) []byte {
+func deriveKey(p Parameters, purpose []byte, length int) ([]byte, error) {
+	if length < minDerivedKeyLength {
+		return nil, errors.Errorf("derived key must be at least 32 bytes, was %v", length)
+	}
+
 	key := make([]byte, length)
 	k := hkdf.New(sha256.New, p.GetMasterKey(), purpose, nil)
 	io.ReadFull(k, key) //nolint:errcheck
 
-	return key
+	return key, nil
 }
