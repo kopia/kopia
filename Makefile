@@ -44,6 +44,9 @@ travis-setup: travis-install-gpg-key travis-install-test-credentials all-tools
 	go mod download
 	make -C htmlui node_modules
 	make -C app node_modules
+ifneq ($(TRAVIS_OS_NAME),)
+	-git checkout go.mod go.sum
+endif
 
 website:
 	$(MAKE) -C site build
@@ -75,7 +78,7 @@ ifeq ($(TRAVIS_OS_NAME),linux)
 endif
 
 # goreleaser - builds binaries for all platforms
-GORELEASER_OPTIONS=--rm-dist --skip-publish --parallelism=6
+GORELEASER_OPTIONS=--rm-dist --parallelism=6
 
 sign_gpg=1
 ifneq ($(TRAVIS_PULL_REQUEST),false)
@@ -95,6 +98,7 @@ endif
 ifeq ($(TRAVIS_TAG),)
 	# not a tagged release
 	GORELEASER_OPTIONS+=--snapshot
+	GORELEASER_OPTIONS+=--skip-publish
 endif
 
 goreleaser: $(goreleaser)
