@@ -33,17 +33,6 @@ cache:
   - $HOME/.cache/electron-docker
   - $HOME/.cache/electron-builder-docker
 deploy:
-- provider: releases
-  token:
-    secure: L8xxKXwaUFByM0y/ztlimRsYOURwPY6HusQfeplHVp67y/GCpoSBDPLdk3KmzzQuxafl9u/jiSHUXAvC5h18no89a0AWjQjy63GjGAC1ND9kt2WfS6lwrtUo9ISLr5GasSOb0aMJ7V5oIrslKU1wuDraoGZIdXb0uNIiVVG86g2BDoY5gnYLpdmeqIOHtUIYgbHSfvW++t0PuD4OE/unRhoAXUFGb0Gz9KdQIBRZBvULLCySQ4wZp+LLh8GsRr982Rv4oraa++ddVGFqaDTfZq+hezuCXcmuSsWmTTk7M/J1mU0vuNQw90zAomLxPKZRWXSYBy4Sw1XBJH2Gkav3dKV3T7ZmN+mLmcUdTqnG5R2NC2lYtgQD5usFPjBgchrLUEATdlTOoKneZV3aieXcwTxRGXK9lG+a2VIHo3mAebUnbBmcASdpRwo52V42lsMgTWStTgC4Y7MdrH3zp4FolB/K6S6oKWwBakxYWAxJkMqnrG638EkJdhqGa5/rUVep6powPG4VurkNvuoNsYruj3Wp1Wzk2yj5yNIHfXHISaddeP3qqzF7Y540siyMnf+j3ji2FVrZBmqFl8/kgXd/p47Aum7XqgA7xhEgVm+6BSdheLy7FVuHfpP1G7SIw9yhuC5BSeKZ9BxYU7DHAWa2URQTTAy58NDXzB6ZeIwoFx8=
-  cleanup: false
-  skip_cleanup: true
-  file: "dist/**"
-  draft: true
-  on:
-    repo: kopia/kopia
-    tags: true
-    condition: $TRAVIS_OS_NAME != windows
 - provider: pages
   cleanup: false
   skip_cleanup: true
