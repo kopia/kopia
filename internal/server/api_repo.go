@@ -121,7 +121,7 @@ func (s *Server) handleRepoSupportedAlgorithms(ctx context.Context, r *http.Requ
 		HashAlgorithms:       hashing.SupportedAlgorithms(),
 
 		DefaultEncryptionAlgorithm: encryption.DefaultAlgorithm,
-		EncryptionAlgorithms:       encryption.SupportedAlgorithms(),
+		EncryptionAlgorithms:       encryption.SupportedAlgorithms(false),
 
 		DefaultSplitterAlgorithm: splitter.DefaultAlgorithm,
 		SplitterAlgorithms:       splitter.SupportedAlgorithms(),

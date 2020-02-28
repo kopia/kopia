@@ -63,15 +63,21 @@ func (s salsaEncryptor) encryptDecrypt(input, contentID []byte) ([]byte, error) 
 }
 
 func init() {
-	Register("SALSA20", "SALSA20 using shared key and 64-bit nonce", true, func(p Parameters) (Encryptor, error) {
+	Register("SALSA20", "DEPRECATED: SALSA20 using shared key and 64-bit nonce", true, func(p Parameters) (Encryptor, error) {
 		var k [salsaKeyLength]byte
 		copy(k[:], p.GetMasterKey()[0:salsaKeyLength])
 		return salsaEncryptor{8, &k, nil}, nil
 	})
 
-	Register("SALSA20-HMAC", "SALSA20 with HMAC-SHA256 using shared key and 64-bit nonce", true, func(p Parameters) (Encryptor, error) {
-		encryptionKey := deriveKey(p, []byte(purposeEncryptionKey), salsaKeyLength)
-		hmacSecret := deriveKey(p, []byte(purposeHMACSecret), hmacLength)
+	Register("SALSA20-HMAC", "DEPRECATED: SALSA20 with HMAC-SHA256 using shared key and 64-bit nonce", true, func(p Parameters) (Encryptor, error) {
+		encryptionKey, err := deriveKey(p, []byte(purposeEncryptionKey), salsaKeyLength)
+		if err != nil {
+			return nil, err
+		}
+		hmacSecret, err := deriveKey(p, []byte(purposeHMACSecret), hmacLength)
+		if err != nil {
+			return nil, err
+		}
 
 		var k [salsaKeyLength]byte
 		copy(k[:], encryptionKey)
