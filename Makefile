@@ -95,10 +95,19 @@ ifeq ($(sign_gpg),0)
 GORELEASER_OPTIONS+=--skip-sign
 endif
 
+publish_binaries=1
+
 ifeq ($(TRAVIS_TAG),)
 	# not a tagged release
 	GORELEASER_OPTIONS+=--snapshot
-	GORELEASER_OPTIONS+=--skip-publish
+	publish_binaries=0
+endif
+
+ifneq ($(TRAVIS_OS_NAME),linux)
+	publish_binaries=0
+endif
+ifeq ($(publish_binaries),0)
+GORELEASER_OPTIONS+=--skip-publish
 endif
 
 goreleaser: $(goreleaser)
