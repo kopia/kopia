@@ -6,6 +6,12 @@ KOPIA_INTEGRATION_EXE=$(CURDIR)/dist/integration/kopia.exe
 
 all: test lint vet integration-tests
 
+maybe_travis_retry=
+
+ifneq ($(TRAVIS_OS_NAME),)
+maybe_travis_retry=travis_retry
+endif
+
 include tools/tools.mk
 
 -include ./Makefile.local.mk
@@ -67,9 +73,9 @@ kopia-ui: goreleaser
 	$(MAKE) -C app build-electron
 
 travis-release:
-	$(MAKE) goreleaser kopia-ui
-	$(MAKE) -j4 lint vet test-with-coverage html-ui-tests
-	$(MAKE) integration-tests
+	$(maybe_travis_retry) $(MAKE) goreleaser kopia-ui
+	$(MAKE) lint vet test-with-coverage html-ui-tests
+	$(maybe_travis_retry) $(MAKE) integration-tests
 ifeq ($(TRAVIS_OS_NAME),linux)
 	$(MAKE) website
 	$(MAKE) stress-test

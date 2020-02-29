@@ -24,7 +24,7 @@ before_install:
         sudo xcode-select -r
         ;;
     esac
-install: make travis-setup
+install: travis_retry make travis-setup
 script: make travis-release
 cache:
   directories:
