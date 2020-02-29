@@ -69,11 +69,12 @@ html-ui-bindata: html-ui $(go_bindata)
 html-ui-bindata-fallback: $(go_bindata)
 	(cd internal/server && $(go_bindata) -fs -tags !embedhtml -o "$(CURDIR)/internal/server/htmlui_fallback.go" -pkg server index.html)
 
-kopia-ui: goreleaser
+kopia-ui:
 	$(MAKE) -C app build-electron
 
 travis-release:
-	$(retry) $(MAKE) goreleaser kopia-ui
+	$(retry) $(MAKE) goreleaser
+	$(retry) $(MAKE) kopia-ui
 	$(MAKE) lint vet test-with-coverage html-ui-tests
 	$(retry) $(MAKE) integration-tests
 ifeq ($(TRAVIS_OS_NAME),linux)
