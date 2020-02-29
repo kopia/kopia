@@ -13,6 +13,7 @@ require (
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/danieljoos/wincred v1.0.2 // indirect
 	github.com/efarrer/iothrottler v0.0.1
+	github.com/fatih/color v1.7.0
 	github.com/godbus/dbus v4.1.0+incompatible // indirect
 	github.com/golang/protobuf v1.3.2
 	github.com/google/fswalker v0.2.0
@@ -34,6 +35,7 @@ require (
 	gocloud.dev v0.18.0
 	golang.org/x/crypto v0.0.0-20200221231518-2aa609cf4a9d
 	golang.org/x/exp v0.0.0-20190829153037-c13cbed26979
+	golang.org/x/mod v0.1.0
 	golang.org/x/net v0.0.0-20190923162816-aa69164e4478
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45
 	golang.org/x/sync v0.0.0-20190423024810-112230192c58

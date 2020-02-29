@@ -22,6 +22,7 @@ var (
 	connectMaxListCacheDuration   time.Duration
 	connectHostname               string
 	connectUsername               string
+	connectCheckForUpdates        bool
 )
 
 func setupConnectOptions(cmd *kingpin.CmdClause) {
@@ -34,6 +35,7 @@ func setupConnectOptions(cmd *kingpin.CmdClause) {
 	cmd.Flag("max-list-cache-duration", "Duration of index cache").Default("600s").Hidden().DurationVar(&connectMaxListCacheDuration)
 	cmd.Flag("override-hostname", "Override hostname used by this repository connection").Hidden().StringVar(&connectHostname)
 	cmd.Flag("override-username", "Override username used by this repository connection").Hidden().StringVar(&connectUsername)
+	cmd.Flag("check-for-updates", "Periodically check for Kopia updates on GitHub").Default("true").Envar(checkForUpdatesEnvar).BoolVar(&connectCheckForUpdates)
 }
 
 func connectOptions() *repo.ConnectOptions {
@@ -69,6 +71,7 @@ func runConnectCommandWithStorageAndPassword(ctx context.Context, st blob.Storag
 	}
 
 	printStderr("Connected to repository.\n")
+	maybeInitializeUpdateCheck(ctx)
 
 	return nil
 }
