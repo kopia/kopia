@@ -62,6 +62,10 @@ func (s salsaEncryptor) encryptDecrypt(input, contentID []byte) ([]byte, error) 
 	return result, nil
 }
 
+func (s salsaEncryptor) IsDeprecated() bool {
+	return true
+}
+
 func init() {
 	Register("SALSA20", "DEPRECATED: SALSA20 using shared key and 64-bit nonce", true, func(p Parameters) (Encryptor, error) {
 		var k [salsaKeyLength]byte

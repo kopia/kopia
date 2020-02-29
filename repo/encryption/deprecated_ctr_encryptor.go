@@ -24,6 +24,10 @@ func (fi ctrEncryptor) IsAuthenticated() bool {
 	return false
 }
 
+func (fi ctrEncryptor) IsDeprecated() bool {
+	return true
+}
+
 func symmetricEncrypt(createCipher func() (cipher.Block, error), iv, b []byte) ([]byte, error) {
 	blockCipher, err := createCipher()
 	if err != nil {

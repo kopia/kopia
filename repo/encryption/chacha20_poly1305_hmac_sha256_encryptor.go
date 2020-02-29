@@ -9,8 +9,6 @@ import (
 	"golang.org/x/crypto/chacha20poly1305"
 )
 
-var chacha20poly1305ZeroNonce = make([]byte, chacha20poly1305.NonceSize)
-
 type chacha20poly1305hmacSha256Encryptor struct {
 	keyDerivationSecret []byte
 }
@@ -33,7 +31,7 @@ func (e chacha20poly1305hmacSha256Encryptor) Decrypt(input, contentID []byte) ([
 		return nil, err
 	}
 
-	return a.Open(nil, chacha20poly1305ZeroNonce, input, contentID)
+	return aeadOpenPrefixedWithNonce(a, input, contentID)
 }
 
 func (e chacha20poly1305hmacSha256Encryptor) Encrypt(input, contentID []byte) ([]byte, error) {
@@ -42,11 +40,15 @@ func (e chacha20poly1305hmacSha256Encryptor) Encrypt(input, contentID []byte) ([
 		return nil, err
 	}
 
-	return a.Seal(nil, chacha20poly1305ZeroNonce, input, contentID), nil
+	return aeadSealWithRandomNonce(a, input, contentID)
 }
 
 func (e chacha20poly1305hmacSha256Encryptor) IsAuthenticated() bool {
 	return true
+}
+
+func (e chacha20poly1305hmacSha256Encryptor) IsDeprecated() bool {
+	return false
 }
 
 func init() {

@@ -9,8 +9,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-var zeroAES256GCMNonce = make([]byte, 12)
-
 type aes256GCMHmacSha256 struct {
 	keyDerivationSecret []byte
 }
@@ -38,7 +36,7 @@ func (e aes256GCMHmacSha256) Decrypt(input, contentID []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	return a.Open(nil, zeroAES256GCMNonce, input, contentID)
+	return aeadOpenPrefixedWithNonce(a, input, contentID)
 }
 
 func (e aes256GCMHmacSha256) Encrypt(input, contentID []byte) ([]byte, error) {
@@ -47,11 +45,15 @@ func (e aes256GCMHmacSha256) Encrypt(input, contentID []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	return a.Seal(nil, zeroAES256GCMNonce, input, contentID), nil
+	return aeadSealWithRandomNonce(a, input, contentID)
 }
 
 func (e aes256GCMHmacSha256) IsAuthenticated() bool {
 	return true
+}
+
+func (e aes256GCMHmacSha256) IsDeprecated() bool {
+	return false
 }
 
 func init() {
