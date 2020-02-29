@@ -16,6 +16,10 @@ func (fi nullEncryptor) IsAuthenticated() bool {
 	return false
 }
 
+func (fi nullEncryptor) IsDeprecated() bool {
+	return false
+}
+
 func init() {
 	Register(NoneAlgorithm, "No encryption", false, func(p Parameters) (Encryptor, error) {
 		return nullEncryptor{}, nil

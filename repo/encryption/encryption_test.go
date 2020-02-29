@@ -45,6 +45,17 @@ func TestRoundTrip(t *testing.T) {
 				t.Errorf("invalid response from Encrypt: %v %v", cipherText1, err)
 			}
 
+			if !e.IsDeprecated() && encryptionAlgo != encryption.NoneAlgorithm {
+				cipherText1b, err2 := e.Encrypt(data, contentID1)
+				if err2 != nil || cipherText1b == nil {
+					t.Errorf("invalid response from Encrypt: %v %v", cipherText1, err2)
+				}
+
+				if bytes.Equal(cipherText1, cipherText1b) {
+					t.Errorf("multiple Encrypt returned the same ciphertext: %x", cipherText1)
+				}
+			}
+
 			plainText1, err := e.Decrypt(cipherText1, contentID1)
 			if err != nil || plainText1 == nil {
 				t.Errorf("invalid response from Decrypt: %v %v", plainText1, err)
@@ -116,8 +127,8 @@ func TestCiphertextSamples(t *testing.T) {
 			samples: map[string]string{
 				"NONE": hex.EncodeToString([]byte("foo")),
 
-				"AES256-GCM-HMAC-SHA256":        "785c71de7c8ae8a5c0b5e2ad03f0be21620329",
-				"CHACHA20-POLY1305-HMAC-SHA256": "c93d644c5de803f017cad8ca331b7331e4cf55",
+				"AES256-GCM-HMAC-SHA256":        "e43ba07f85a6d70c5f1102ca06cf19c597e5f91e527b21f00fb76e8bec3fd1",
+				"CHACHA20-POLY1305-HMAC-SHA256": "118359f3d4d589d939efbbc3168ae4c77c51bcebce6845fe6ef5d11342faa6",
 
 				// deprecated
 				"AES-128-CTR":  "54cd8d",
@@ -136,8 +147,8 @@ func TestCiphertextSamples(t *testing.T) {
 			samples: map[string]string{
 				"NONE": hex.EncodeToString([]byte("quick brown fox jumps over the lazy dog")),
 
-				"AES256-GCM-HMAC-SHA256":        "e485b1f970e5d31f74b81c5b6336c3c5ef0de8f507943ce402b8ad3f282b8fd2e0b2554b13d0274ae088e119e2823f435bff9723b8201d",
-				"CHACHA20-POLY1305-HMAC-SHA256": "3e539c14afbcb990a546404bd0f0cb4d92c7d56593e04338dbb035aa38a75df37fcc42ebbe348ef13a1a40afcb55b1e2e3834b529388c4",
+				"AES256-GCM-HMAC-SHA256":        "eaad755a238f1daa4052db2e5ccddd934790b6cca415b3ccfd46ac5746af33d9d30f4400ffa9eb3a64fb1ce21b888c12c043bf6787d4a5c15ad10f21f6a6027ee3afe0",
+				"CHACHA20-POLY1305-HMAC-SHA256": "836d2ba87892711077adbdbe1452d3b2c590bbfdf6fd3387dc6810220a32ec19de862e1a4f865575e328424b5f178afac1b7eeff11494f719d119b7ebb924d1d0846a3",
 
 				// deprecated
 				"AES-128-CTR":  "974c5c1782076e3de7255deabe8706a509b5772a8b7a8e7f83d01de7098c945934417071ec5351",

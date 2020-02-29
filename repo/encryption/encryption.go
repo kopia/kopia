@@ -26,6 +26,9 @@ type Encryptor interface {
 	// IsAuthenticated returns true if encryption is authenticated.
 	// In this case Decrypt() is expected to perform authenticity check.
 	IsAuthenticated() bool
+
+	// IsDeprecated returns true if encryption is not recommended for new repositories.
+	IsDeprecated() bool
 }
 
 // Parameters encapsulates all encryption parameters.
