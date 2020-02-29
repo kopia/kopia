@@ -1,4 +1,4 @@
-// Package testenv contains environment for use in testing.
+// Package testenv contains Environment for use in testing.
 package testenv
 
 import (
@@ -35,7 +35,7 @@ type CLITest struct {
 	Exe       string
 
 	fixedArgs   []string
-	environment []string
+	Environment []string
 }
 
 // SourceInfo reprents a single source (user@host:/path) with its snapshots.
@@ -92,11 +92,11 @@ func NewCLITest(t *testing.T) *CLITest {
 		ConfigDir:   ConfigDir,
 		Exe:         filepath.FromSlash(exe),
 		fixedArgs:   fixedArgs,
-		environment: []string{"KOPIA_PASSWORD=" + repoPassword},
+		Environment: []string{"KOPIA_PASSWORD=" + repoPassword},
 	}
 }
 
-// Cleanup cleans up the test environment unless the test has failed.
+// Cleanup cleans up the test Environment unless the test has failed.
 func (e *CLITest) Cleanup(t *testing.T) {
 	if t.Failed() {
 		t.Logf("skipped cleanup for failed test, examine repository: %v", e.RepoDir)
@@ -133,7 +133,7 @@ func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) b
 
 	// nolint:gosec
 	c := exec.Command(e.Exe, cmdArgs...)
-	c.Env = append(os.Environ(), e.environment...)
+	c.Env = append(os.Environ(), e.Environment...)
 
 	stderrPipe, err := c.StderrPipe()
 	if err != nil {
@@ -205,7 +205,7 @@ func (e *CLITest) Run(t *testing.T, args ...string) (stdout, stderr []string, er
 
 	// nolint:gosec
 	c := exec.Command(e.Exe, cmdArgs...)
-	c.Env = append(os.Environ(), e.environment...)
+	c.Env = append(os.Environ(), e.Environment...)
 
 	errOut := &bytes.Buffer{}
 	c.Stderr = errOut

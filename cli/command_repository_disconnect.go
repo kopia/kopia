@@ -15,5 +15,7 @@ func init() {
 }
 
 func runDisconnectCommand(ctx context.Context) error {
+	removeUpdateState()
+
 	return repo.Disconnect(ctx, repositoryConfigFileName())
 }

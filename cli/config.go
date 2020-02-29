@@ -63,6 +63,8 @@ func openRepository(ctx context.Context, opts *repo.Options, required bool) (*re
 		return nil, nil
 	}
 
+	maybePrintUpdateNotification(ctx)
+
 	pass, err := getPasswordFromFlags(ctx, false, true)
 	if err != nil {
 		return nil, errors.Wrap(err, "get password")
