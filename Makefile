@@ -122,7 +122,7 @@ upload-coverage: $(GOVERALLS_TOOL)
 
 else
 
-uload-coverage:
+upload-coverage:
 	@echo Not uploading coverage during PR build.
 
 endif
