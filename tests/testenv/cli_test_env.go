@@ -216,17 +216,24 @@ func (e *CLITest) Run(t *testing.T, args ...string) (stdout, stderr []string, er
 
 	var wg sync.WaitGroup
 
+	var pipeErr error
+
 	wg.Add(1)
 
 	go func() {
 		defer wg.Done()
 
-		errOut, err = ioutil.ReadAll(stderrPipe)
+		errOut, pipeErr = ioutil.ReadAll(stderrPipe)
 	}()
 
 	o, err := c.Output()
 
 	wg.Wait()
+
+	if pipeErr != nil {
+		t.Fatalf("error reading out of the stderr pipe: %s", pipeErr)
+	}
+
 	t.Logf("finished 'kopia %v' with err=%v and output:\n%v\nstderr:\n%v\n", strings.Join(args, " "), err, trimOutput(string(o)), trimOutput(string(errOut)))
 
 	return splitLines(string(o)), splitLines(string(errOut)), err
