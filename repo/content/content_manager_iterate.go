@@ -226,7 +226,7 @@ func (bm *Manager) IterateContentInShortPacks(ctx context.Context, threshold int
 func (bm *Manager) IterateUnreferencedBlobs(ctx context.Context, parallellism int, callback func(blob.Metadata) error) error {
 	usedPacks := map[blob.ID]bool{}
 
-	log(ctx).Infof("determining blobs in use")
+	log(ctx).Debugf("determining blobs in use")
 	// find packs in use
 	if err := bm.IteratePacks(
 		ctx,
@@ -242,7 +242,7 @@ func (bm *Manager) IterateUnreferencedBlobs(ctx context.Context, parallellism in
 		return errors.Wrap(err, "error iterating packs")
 	}
 
-	log(ctx).Infof("found %v pack blobs in use", len(usedPacks))
+	log(ctx).Debugf("found %v pack blobs in use", len(usedPacks))
 
 	unusedCount := 0
 
@@ -272,7 +272,7 @@ func (bm *Manager) IterateUnreferencedBlobs(ctx context.Context, parallellism in
 		return errors.Wrap(err, "error iterating blobs")
 	}
 
-	log(ctx).Infof("found %v pack blobs not in use", unusedCount)
+	log(ctx).Debugf("found %v pack blobs not in use", unusedCount)
 
 	return nil
 }
