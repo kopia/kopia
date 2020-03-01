@@ -230,7 +230,7 @@ func (e *CLITest) Run(t *testing.T, args ...string) (stdout, stderr []string, er
 
 	wg.Wait()
 
-	if pipeErr != nil {
+	if pipeErr != nil && pipeErr != os.ErrClosed {
 		t.Fatalf("error reading out of the stderr pipe: %s", pipeErr)
 	}
 
