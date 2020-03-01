@@ -118,7 +118,6 @@ GORELEASER_OPTIONS+=--skip-publish
 endif
 
 goreleaser: $(goreleaser)
-	# print current git diff, pipe through cat to avoid blocking the build on pager
 	-git diff | cat
 	$(goreleaser) release $(GORELEASER_OPTIONS)
 

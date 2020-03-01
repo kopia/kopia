@@ -30,8 +30,6 @@ export class SetupRepository extends Component {
         this.state = {
             confirmCreate: false,
             isLoading: false,
-            password: "",
-            confirmPassword: "",
         };
 
         this.handleChange = handleChange.bind(this);

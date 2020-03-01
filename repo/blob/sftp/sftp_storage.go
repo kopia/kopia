@@ -7,9 +7,10 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
-	"path/filepath"
+	"path"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -28,8 +29,7 @@ const (
 )
 
 var (
-	sftpDefaultShards     = []int{3, 3}
-	sftpDefaultKnownHosts = filepath.Join(os.Getenv("HOME"), ".ssh", "known_hosts")
+	sftpDefaultShards = []int{3, 3}
 )
 
 // sftpStorage implements blob.Storage on top of sftp.
@@ -44,9 +44,9 @@ type sftpImpl struct {
 	cli  *psftp.Client
 }
 
-func (s *sftpImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, offset, length int64) ([]byte, error) {
-	r, err := s.cli.Open(path)
-	if os.IsNotExist(err) {
+func (s *sftpImpl) GetBlobFromPath(ctx context.Context, dirPath, fullPath string, offset, length int64) ([]byte, error) {
+	r, err := s.cli.Open(fullPath)
+	if isNotExist(err) {
 		return nil, blob.ErrBlobNotFound
 	}
 
@@ -80,13 +80,20 @@ func (s *sftpImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, of
 	return data[0:length], nil
 }
 
-func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data []byte) error {
+func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, fullPath string, data []byte) error {
 	randSuffix := make([]byte, 8)
 	if _, err := rand.Read(randSuffix); err != nil {
 		return errors.Wrap(err, "can't get random bytes")
 	}
 
-	tempFile := fmt.Sprintf("%s.tmp.%x", path, randSuffix)
+	progressCallback := blob.ProgressCallback(ctx)
+
+	if progressCallback != nil {
+		progressCallback(fullPath, 0, int64(len(data)))
+		defer progressCallback(fullPath, int64(len(data)), int64(len(data)))
+	}
+
+	tempFile := fmt.Sprintf("%s.tmp.%x", fullPath, randSuffix)
 
 	f, err := s.createTempFileAndDir(tempFile)
 	if err != nil {
@@ -101,7 +108,7 @@ func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data
 		return errors.Wrap(err, "can't close temporary file")
 	}
 
-	err = s.cli.PosixRename(tempFile, path)
+	err = s.cli.PosixRename(tempFile, fullPath)
 	if err != nil {
 		if removeErr := s.cli.Remove(tempFile); removeErr != nil {
 			fmt.Printf("warning: can't remove temp file: %v", removeErr)
@@ -117,8 +124,9 @@ func (s *sftpImpl) createTempFileAndDir(tempFile string) (*psftp.File, error) {
 	flags := os.O_CREATE | os.O_WRONLY | os.O_EXCL
 
 	f, err := s.cli.OpenFile(tempFile, flags)
-	if os.IsNotExist(err) {
-		if err = s.cli.MkdirAll(filepath.Dir(tempFile)); err != nil {
+	if isNotExist(err) {
+		parentDir := path.Dir(tempFile)
+		if err = s.cli.MkdirAll(parentDir); err != nil {
 			return nil, errors.Wrap(err, "cannot create directory")
 		}
 
@@ -128,9 +136,17 @@ func (s *sftpImpl) createTempFileAndDir(tempFile string) (*psftp.File, error) {
 	return f, err
 }
 
-func (s *sftpImpl) DeleteBlobInPath(ctx context.Context, dirPath, path string) error {
-	err := s.cli.Remove(path)
-	if err == nil || os.IsNotExist(err) {
+func isNotExist(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	return strings.Contains(err.Error(), "does not exist")
+}
+
+func (s *sftpImpl) DeleteBlobInPath(ctx context.Context, dirPath, fullPath string) error {
+	err := s.cli.Remove(fullPath)
+	if err == nil || isNotExist(err) {
 		return nil
 	}
 
@@ -185,40 +201,56 @@ func hostExists(host string, hosts []string) bool {
 
 // getHostKey parses OpenSSH known_hosts file for a public key that matches the host
 // The known_hosts file format is documented in the sshd(8) manual page
-func getHostKey(host, knownHosts string) (ssh.PublicKey, error) {
-	file, err := os.Open(knownHosts) //nolint:gosec
-	if err != nil {
-		return nil, err
+func getHostKey(opt *Options) (ssh.PublicKey, error) {
+	var reader io.Reader
+
+	if opt.KnownHostsData != "" {
+		reader = strings.NewReader(opt.KnownHostsData)
+	} else {
+		file, err := os.Open(opt.knownHostsFile()) //nolint:gosec
+		if err != nil {
+			return nil, err
+		}
+		defer file.Close() //nolint:errcheck
+
+		reader = file
 	}
-	defer file.Close() //nolint:errcheck
 
-	var hostKey ssh.PublicKey
-
-	var hosts []string
-
-	scanner := bufio.NewScanner(file)
+	scanner := bufio.NewScanner(reader)
 	for scanner.Scan() {
-		_, hosts, hostKey, _, _, err = ssh.ParseKnownHosts(scanner.Bytes())
+		_, hosts, hostKey, _, _, err := ssh.ParseKnownHosts(scanner.Bytes())
 		if err != nil {
 			return nil, errors.Wrapf(err, "error parsing %s", scanner.Text())
 		}
 
-		if hostExists(host, hosts) {
+		if hostExists(opt.Host, hosts) {
 			return hostKey, nil
 		}
 	}
 
-	return nil, errors.Wrapf(err, "no hostkey found for %s", host)
+	return nil, errors.Errorf("no hostkey found for %s", opt.Host)
 }
 
 // getSigner parses and returns a signer for the user-entered private key
-func getSigner(path string) (ssh.Signer, error) {
-	buffer, err := ioutil.ReadFile(path) //nolint:gosec
-	if err != nil {
-		return nil, err
+func getSigner(opts *Options) (ssh.Signer, error) {
+	if opts.Keyfile == "" && opts.KeyData == "" {
+		return nil, errors.New("must specify the location of the ssh server private key or the key data")
 	}
 
-	key, err := ssh.ParsePrivateKey(buffer)
+	var privateKeyData []byte
+
+	if opts.KeyData != "" {
+		privateKeyData = []byte(opts.KeyData)
+	} else {
+		var err error
+
+		privateKeyData, err = ioutil.ReadFile(opts.Keyfile) //nolint:gosec
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	key, err := ssh.ParsePrivateKey(privateKeyData)
 	if err != nil {
 		return nil, err
 	}
@@ -227,18 +259,14 @@ func getSigner(path string) (ssh.Signer, error) {
 }
 
 func createSSHConfig(opts *Options) (*ssh.ClientConfig, error) {
-	if opts.Keyfile == "" {
-		return nil, errors.New("must specify the location of the ssh server private key")
-	}
-
-	hostKey, err := getHostKey(opts.Host, opts.knownHosts())
+	hostKey, err := getHostKey(opts)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to getHostKey: %s", opts.Host)
 	}
 
-	signer, err := getSigner(opts.Keyfile)
+	signer, err := getSigner(opts)
 	if err != nil {
-		return nil, errors.Wrapf(err, "unable to getSigner: %s", opts.Keyfile)
+		return nil, errors.Wrapf(err, "unable to getSigner")
 	}
 
 	config := &ssh.ClientConfig{
@@ -272,7 +300,7 @@ func New(ctx context.Context, opts *Options) (blob.Storage, error) {
 	}
 
 	if _, err = c.Stat(opts.Path); err != nil {
-		if os.IsNotExist(err) {
+		if isNotExist(err) {
 			if err = c.MkdirAll(opts.Path); err != nil {
 				return nil, errors.Wrap(err, "cannot create path")
 			}

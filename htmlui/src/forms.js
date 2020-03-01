@@ -57,10 +57,14 @@ export function stateProperty(component, name, defaultValue = "") {
             return undefined;
         }
 
-        st = st[part];
+        if (part in st) {
+            st = st[part];
+        } else {
+            return defaultValue;
+        }
     }
 
-    return st || defaultValue;
+    return st;
 }
 
 export function RequiredField(component, label, name, props = {}, helpText = null) {
@@ -78,7 +82,7 @@ export function RequiredField(component, label, name, props = {}, helpText = nul
     </Form.Group>
 }
 
-export function OptionalField(component, label, name, props = {}, helpText = null) {
+export function OptionalField(component, label, name, props = {}, helpText = null, invalidFeedback = null) {
     return <Form.Group as={Col}>
         <Form.Label>{label}</Form.Label>
         <Form.Control
@@ -88,6 +92,7 @@ export function OptionalField(component, label, name, props = {}, helpText = nul
             onChange={component.handleChange}
             {...props} />
         {helpText && <Form.Text className="text-muted">{helpText}</Form.Text>}
+        {invalidFeedback && <Form.Control.Feedback type="invalid">{invalidFeedback}</Form.Control.Feedback>}
     </Form.Group>
 }
 
@@ -128,6 +133,18 @@ export function OptionalNumberField(component, label, name, props = {}) {
             {...props} />
         <Form.Control.Feedback type="invalid">Must be a valid number or empty</Form.Control.Feedback>
     </Form.Group>
+}
+
+export function hasExactlyOneOf(component, names) {
+    let count = 0;
+
+    for (let i = 0; i < names.length; i++) {
+        if (stateProperty(component, names[i])) {
+            count++
+        }
+    }
+
+    return count === 1;
 }
 
 function checkedToBool(t) {
