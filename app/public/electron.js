@@ -70,8 +70,6 @@ function showMainWindow() {
     autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: true,
-      // use a preload script to expose node features to the browser window
-      preload: path.join(app.getAppPath(), "preload.js"),
     },
   })
 

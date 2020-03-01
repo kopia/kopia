@@ -94,7 +94,9 @@ func stripProtocol(addr string) string {
 }
 
 func isKnownUIRoute(path string) bool {
-	return strings.HasPrefix(path, "/snapshots/")
+	return strings.HasPrefix(path, "/snapshots/") ||
+		strings.HasPrefix(path, "/policies") ||
+		strings.HasPrefix(path, "/repo")
 }
 
 func serveIndexFileForKnownUIRoutes(h http.Handler) http.Handler {
