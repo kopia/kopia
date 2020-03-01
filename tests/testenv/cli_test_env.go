@@ -5,6 +5,7 @@ import (
 	"bufio"
 	cryptorand "crypto/rand"
 	"encoding/hex"
+	goerrors "errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -224,14 +225,19 @@ func (e *CLITest) Run(t *testing.T, args ...string) (stdout, stderr []string, er
 		defer wg.Done()
 
 		errOut, pipeErr = ioutil.ReadAll(stderrPipe)
+		if goerrors.Is(pipeErr, os.ErrClosed) {
+			t.Logf("ignoring os.ErrClosed on stderr")
+
+			pipeErr = nil
+		}
 	}()
 
 	o, err := c.Output()
 
 	wg.Wait()
 
-	if pipeErr != nil && pipeErr != os.ErrClosed {
-		t.Fatalf("error reading out of the stderr pipe: %s", pipeErr)
+	if pipeErr != nil {
+		t.Fatalf("error reading out of the stderr pipe: %s %T", pipeErr, pipeErr)
 	}
 
 	t.Logf("finished 'kopia %v' with err=%v and output:\n%v\nstderr:\n%v\n", strings.Join(args, " "), err, trimOutput(string(o)), trimOutput(string(errOut)))
