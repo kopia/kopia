@@ -16,6 +16,7 @@ require (
 	github.com/godbus/dbus v4.1.0+incompatible // indirect
 	github.com/golang/protobuf v1.3.2
 	github.com/google/fswalker v0.2.0
+	github.com/google/uuid v1.1.1
 	github.com/gorilla/mux v1.7.4
 	github.com/klauspost/compress v1.9.7
 	github.com/klauspost/pgzip v1.2.1

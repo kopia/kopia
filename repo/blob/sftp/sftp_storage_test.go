@@ -7,37 +7,46 @@ import (
 	"os"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/sftp"
+	"github.com/kopia/kopia/tests/testlease"
+)
+
+const (
+	testLeaseID       = "sftp-test"
+	testLeaseDuration = 10 * time.Minute
 )
 
 func TestSFTPStorageValid(t *testing.T) {
-	for _, embedCreds := range []bool{false, true} {
-		embedCreds := embedCreds
-		t.Run(fmt.Sprintf("Embed=%v", embedCreds), func(t *testing.T) {
-			ctx := testlogging.Context(t)
+	testlease.RunWithLease(t, testLeaseID, testLeaseDuration, func() {
+		for _, embedCreds := range []bool{false, true} {
+			embedCreds := embedCreds
+			t.Run(fmt.Sprintf("Embed=%v", embedCreds), func(t *testing.T) {
+				ctx := testlogging.Context(t)
 
-			st, err := createSFTPStorage(ctx, t, embedCreds)
-			if err != nil {
-				t.Fatalf("unable to connect to SSH: %v", err)
-			}
+				st, err := createSFTPStorage(ctx, t, embedCreds)
+				if err != nil {
+					t.Fatalf("unable to connect to SSH: %v", err)
+				}
 
-			deleteBlobs(ctx, t, st)
+				deleteBlobs(ctx, t, st)
 
-			blobtesting.VerifyStorage(ctx, t, st)
-			blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
+				blobtesting.VerifyStorage(ctx, t, st)
+				blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
 
-			// delete everything again
-			deleteBlobs(ctx, t, st)
+				// delete everything again
+				deleteBlobs(ctx, t, st)
 
-			if err := st.Close(ctx); err != nil {
-				t.Fatalf("err: %v", err)
-			}
-		})
-	}
+				if err := st.Close(ctx); err != nil {
+					t.Fatalf("err: %v", err)
+				}
+			})
+		}
+	})
 }
 
 func deleteBlobs(ctx context.Context, t *testing.T, st blob.Storage) {

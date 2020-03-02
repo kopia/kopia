@@ -4,12 +4,19 @@ import (
 	"io/ioutil"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/tests/testlease"
 
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/gcs"
+)
+
+const (
+	testLeaseID       = "gcs-test"
+	testLeaseDuration = 10 * time.Minute
 )
 
 func TestGCSStorage(t *testing.T) {
@@ -23,35 +30,37 @@ func TestGCSStorage(t *testing.T) {
 		t.Skip("skipping test because GCS credentials file can't be opened")
 	}
 
-	ctx := testlogging.Context(t)
-	st, err := gcs.New(ctx, &gcs.Options{
-		BucketName:                   bucket,
-		ServiceAccountCredentialJSON: credData,
+	testlease.RunWithLease(t, testLeaseID, testLeaseDuration, func() {
+		ctx := testlogging.Context(t)
+		st, err := gcs.New(ctx, &gcs.Options{
+			BucketName:                   bucket,
+			ServiceAccountCredentialJSON: credData,
+		})
+
+		if err != nil {
+			t.Fatalf("unable to connect to GCS: %v", err)
+		}
+
+		if err := st.ListBlobs(ctx, "", func(bm blob.Metadata) error {
+			return st.DeleteBlob(ctx, bm.BlobID)
+		}); err != nil {
+			t.Fatalf("unable to clear GCS bucket: %v", err)
+		}
+
+		blobtesting.VerifyStorage(ctx, t, st)
+		blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
+
+		// delete everything again
+		if err := st.ListBlobs(ctx, "", func(bm blob.Metadata) error {
+			return st.DeleteBlob(ctx, bm.BlobID)
+		}); err != nil {
+			t.Fatalf("unable to clear GCS bucket: %v", err)
+		}
+
+		if err := st.Close(ctx); err != nil {
+			t.Fatalf("err: %v", err)
+		}
 	})
-
-	if err != nil {
-		t.Fatalf("unable to connect to GCS: %v", err)
-	}
-
-	if err := st.ListBlobs(ctx, "", func(bm blob.Metadata) error {
-		return st.DeleteBlob(ctx, bm.BlobID)
-	}); err != nil {
-		t.Fatalf("unable to clear GCS bucket: %v", err)
-	}
-
-	blobtesting.VerifyStorage(ctx, t, st)
-	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
-
-	// delete everything again
-	if err := st.ListBlobs(ctx, "", func(bm blob.Metadata) error {
-		return st.DeleteBlob(ctx, bm.BlobID)
-	}); err != nil {
-		t.Fatalf("unable to clear GCS bucket: %v", err)
-	}
-
-	if err := st.Close(ctx); err != nil {
-		t.Fatalf("err: %v", err)
-	}
 }
 
 func TestGCSStorageInvalid(t *testing.T) {

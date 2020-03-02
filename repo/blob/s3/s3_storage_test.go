@@ -22,6 +22,7 @@ import (
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/tests/testlease"
 )
 
 const (
@@ -38,6 +39,9 @@ const (
 
 	// the test takes a few seconds, delete stuff older than 1h to avoid accumulating cruft
 	cleanupAge = 1 * time.Hour
+
+	testLeaseID       = "s3-test"
+	testLeaseDuration = 10 * time.Minute
 
 	// env vars need to be set to execute TestS3StorageAWS
 	testEndpointEnv        = "KOPIA_S3_TEST_ENDPOINT"
@@ -115,8 +119,10 @@ func TestS3StorageAWS(t *testing.T) {
 		Region:          getEnvOrSkip(t, testRegionEnv),
 	}
 
-	createBucket(t, options)
-	testStorage(t, options)
+	testlease.RunWithLease(t, testLeaseID, testLeaseDuration, func() {
+		createBucket(t, options)
+		testStorage(t, options)
+	})
 }
 
 func TestS3StorageAWSSTS(t *testing.T) {
@@ -131,16 +137,18 @@ func TestS3StorageAWSSTS(t *testing.T) {
 		Region:          getEnvOrSkip(t, testRegionEnv),
 	}
 
-	// STS token may no have permission to create bucket
-	// use accesskeyid and secretaccesskey to create the bucket
-	createBucket(t, &Options{
-		Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
-		AccessKeyID:     getEnv(testAccessKeyIDEnv, ""),
-		SecretAccessKey: getEnv(testSecretAccessKeyEnv, ""),
-		BucketName:      options.BucketName,
-		Region:          options.Region,
+	testlease.RunWithLease(t, testLeaseID, testLeaseDuration, func() {
+		// STS token may no have permission to create bucket
+		// use accesskeyid and secretaccesskey to create the bucket
+		createBucket(t, &Options{
+			Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
+			AccessKeyID:     getEnv(testAccessKeyIDEnv, ""),
+			SecretAccessKey: getEnv(testSecretAccessKeyEnv, ""),
+			BucketName:      options.BucketName,
+			Region:          options.Region,
+		})
+		testStorage(t, options)
 	})
-	testStorage(t, options)
 }
 
 func TestS3StorageMinio(t *testing.T) {
@@ -159,8 +167,10 @@ func TestS3StorageMinio(t *testing.T) {
 		t.Skip("endpoint not reachable")
 	}
 
-	createBucket(t, options)
-	testStorage(t, options)
+	testlease.RunWithLease(t, testLeaseID, testLeaseDuration, func() {
+		createBucket(t, options)
+		testStorage(t, options)
+	})
 }
 
 func TestS3StorageMinioSTS(t *testing.T) {
@@ -187,8 +197,10 @@ func TestS3StorageMinioSTS(t *testing.T) {
 		t.Skip("endpoint not reachable")
 	}
 
-	createBucket(t, options)
-	testStorage(t, options)
+	testlease.RunWithLease(t, testLeaseID, testLeaseDuration, func() {
+		createBucket(t, options)
+		testStorage(t, options)
+	})
 }
 
 func testStorage(t *testing.T, options *Options) {
