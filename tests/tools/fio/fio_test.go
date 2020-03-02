@@ -1,6 +1,7 @@
 package fio
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -18,7 +19,7 @@ func TestFIORun(t *testing.T) {
 		t.Fatal("Expected error to be set as no params were passed")
 	}
 
-	if !strings.Contains(stderr, "No job(s) defined") {
+	if !strings.Contains(stderr, "No job") {
 		t.Fatal("Expected an error indicating no jobs were defined")
 	}
 
@@ -36,10 +37,11 @@ func TestFIORunConfig(t *testing.T) {
 
 	cfg := Config{
 		{
-			Name: "write-10g",
+			Name: "write-1m",
 			Options: map[string]string{
-				"size":    "1g",
-				"nrfiles": "10",
+				"size":      "1m",
+				"blocksize": "4k",
+				"nrfiles":   "10",
 			},
 		},
 	}
@@ -70,10 +72,11 @@ func TestFIOGlobalConfigOverride(t *testing.T) {
 				},
 			},
 			{
-				Name: "write-10g",
+				Name: "write-1m",
 				Options: map[string]string{
-					"size":    "1g",
-					"nrfiles": "10",
+					"size":      "1m",
+					"blocksize": "4k",
+					"nrfiles":   "10",
 				},
 			},
 		},
@@ -84,4 +87,38 @@ func TestFIOGlobalConfigOverride(t *testing.T) {
 	if !strings.Contains(stdout, "rw=read") {
 		t.Fatal("Expected the global config 'rw' flag to be overwritten by the passed config")
 	}
+}
+
+func TestFIODockerRunner(t *testing.T) {
+	if os.Getenv(FioDockerImageEnvKey) == "" {
+		t.Skip("Test requires docker image env variable to be set", FioDockerImageEnvKey)
+	}
+
+	// Unset FIO_EXE for duration of test
+	prevExeEnv := os.Getenv(FioExeEnvKey)
+	defer os.Setenv(FioExeEnvKey, prevExeEnv) //nolint:errcheck
+
+	err := os.Unsetenv(FioExeEnvKey)
+	testenv.AssertNoError(t, err)
+
+	r, err := NewRunner()
+	testenv.AssertNoError(t, err)
+
+	defer r.Cleanup() //nolint:errcheck
+
+	cfgs := []Config{
+		{
+			{
+				Name: "write-1m",
+				Options: map[string]string{
+					"blocksize": "4k",
+					"size":      "1m",
+					"nrfiles":   "10",
+				},
+			},
+		},
+	}
+
+	_, _, err = r.RunConfigs(cfgs...)
+	testenv.AssertNoError(t, err)
 }
