@@ -7,9 +7,11 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	Exe := os.Getenv("FIO_EXE")
-	if Exe == "" {
-		fmt.Println("Skipping fio tests if FIO_EXE is not set")
+	fioExe := os.Getenv(FioExeEnvKey)
+	fioImg := os.Getenv(FioDockerImageEnvKey)
+
+	if fioExe == "" && fioImg == "" {
+		fmt.Printf("Skipping fio tests if neither %s no %s is set\n", FioExeEnvKey, FioDockerImageEnvKey)
 		os.Exit(0)
 	}
 
