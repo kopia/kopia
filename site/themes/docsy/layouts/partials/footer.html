@@ -22,6 +22,11 @@
         {{ with .Site.GetPage "about" }}<p class="mt-2"><a href="{{ .RelPermalink }}">{{ .Title }}</a></p>{{ end }}
       </div>
     </div>
+    <div class="row">
+      <div class="col-12 col-sm-12 text-center py-2 order-sm-2">
+        <small class="text-white">Hosted on <a href="https://netlify.com">Netlify</a></small>
+      </div>
+    </div>
   </div>
 </footer>
 {{ define "footer-links-block" }}
