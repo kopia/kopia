@@ -6,14 +6,11 @@ all: build
 
 include ../tools/tools.mk
 
-build: gen-cli-reference-pages $(hugo) node_modules
+build: gen-cli-reference-pages $(hugo)
 	$(hugo)
 
 server: $(hugo)
 	$(hugo) server --watch=$(WATCH)
-
-node_modules: $(npm)
-	$(npm) $(npm_flags) install
 
 clean:
 	rm -rf public/ resources/ node_modules/ $(TOOLS_DIR)/
