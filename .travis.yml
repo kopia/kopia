@@ -32,19 +32,6 @@ cache:
   - $HOME/.cache/electron-builder
   - $HOME/.cache/electron-docker
   - $HOME/.cache/electron-builder-docker
-deploy:
-- provider: pages
-  cleanup: false
-  skip_cleanup: true
-  token: "$GITHUB_TOKEN"
-  keep_history: false
-  local_dir: site/public
-  repo: kopia/kopia.github.io
-  target_branch: master
-  on:
-    repo: kopia/kopia
-    branch: master
-    condition: $TRAVIS_OS_NAME = linux
 git:
   depth: 9999999
 env:
