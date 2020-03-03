@@ -1,7 +1,6 @@
 package fio
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
