@@ -7,6 +7,8 @@ os:
 - linux
 - osx
 - windows
+services:
+- docker
 addons:
   apt:
     packages:
@@ -17,6 +19,9 @@ addons:
 before_install:
 - |-
     case $TRAVIS_OS_NAME in
+      linux)
+        echo Starting SFTP server...
+        docker run -p 22222:22 -d atmoz/sftp foo:pass:::upload
       windows)
         choco install --no-progress -y make unzip curl
         ;;
