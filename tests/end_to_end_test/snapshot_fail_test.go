@@ -7,11 +7,25 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
-	"strconv"
 	"testing"
 
 	"github.com/kopia/kopia/tests/testenv"
 )
+
+func TestSnapshotNonexistent(t *testing.T) {
+	t.Parallel()
+
+	e := testenv.NewCLITest(t)
+	defer e.Cleanup(t)
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+
+	scratchDir := makeScratchDir(t)
+
+	// Test snapshot of nonexistent directory fails
+	e.RunAndExpectFailure(t, "snapshot", "create", filepath.Join(scratchDir, "notExist"))
+}
 
 func TestSnapshotFail(t *testing.T) {
 	t.Parallel()
@@ -20,30 +34,7 @@ func TestSnapshotFail(t *testing.T) {
 		t.Skip("this test does not work on Windows")
 	}
 
-	e := testenv.NewCLITest(t)
-	defer e.Cleanup(t)
-	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
-
-	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
-	e.RunAndExpectSuccess(t, "policy", "set", "--global", "--keep-latest", strconv.Itoa(1<<31-1))
-
-	scratchDir := makeScratchDir(t)
-
-	// Test snapshot of nonexistent directory fails
-	e.RunAndExpectFailure(t, "snapshot", "create", filepath.Join(scratchDir, "notExist"))
-
-	// Each directory tier will have a file, an empty directory, and the next tier's directory
-	// (unless at max depth). Naming scheme is [file|dir|emptyDir][tier #].
-	createSimplestFileTree(t, 3, 0, scratchDir)
-
-	// Create snapshot
-	dir0Path := filepath.Join(scratchDir, "dir0")
-	e.RunAndExpectSuccess(t, "snapshot", "create", filepath.Join(dir0Path, "dir1"))
-
-	restoreDirPrefix := filepath.Join(scratchDir, "target")
-
-	numSuccessfulSnapshots := 1
-	uniqueSourceMap := make(map[string]struct{})
+	dir0Path := "dir0"
 
 	for _, ignoreFileErr := range []string{"true", "false"} {
 		for _, ignoreDirErr := range []string{"true", "false"} {
@@ -60,7 +51,7 @@ func TestSnapshotFail(t *testing.T) {
 			}
 
 			// Test the root dir permissions
-			for ti, tc := range []struct {
+			for ti, tt := range []struct {
 				desc          string
 				modifyEntry   string
 				snapSource    string
@@ -187,37 +178,43 @@ func TestSnapshotFail(t *testing.T) {
 					},
 				},
 			} {
-				t.Log(tc.desc)
-				e.RunAndExpectSuccess(t, "policy", "set", tc.snapSource, "--ignore-dir-errors", ignoreDirErr, "--ignore-file-errors", ignoreFileErr)
+				// Reference test conditions outside of range variables to satisfy linter
+				tcIgnoreDirErr := ignoreDirErr
+				tcIgnoreFileErr := ignoreFileErr
+				tcIdx := ti
+				tc := tt
+				tname := fmt.Sprintf("%s_ignoreFileErr_%s_ignoreDirErr_%s", tc.desc, ignoreDirErr, ignoreFileErr)
 
-				uniqueSourceMap[tc.snapSource] = struct{}{}
-				restoreDir := fmt.Sprintf("%s%d_%v_%v", restoreDirPrefix, ti, ignoreDirErr, ignoreFileErr)
-				numSuccessfulSnapshots += testPermissions(e, t, tc.snapSource, tc.modifyEntry, restoreDir, tc.expectSuccess)
+				t.Run(tname, func(t *testing.T) {
+					t.Parallel()
 
-				e.RunAndExpectSuccess(t, "policy", "remove", tc.snapSource)
+					e := testenv.NewCLITest(t)
+					defer e.Cleanup(t)
+					defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+					e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+
+					scratchDir := makeScratchDir(t)
+
+					snapSource := filepath.Join(scratchDir, tc.snapSource)
+					modifyEntry := filepath.Join(scratchDir, tc.modifyEntry)
+
+					// Each directory tier will have a file, an empty directory, and the next tier's directory
+					// (unless at max depth). Naming scheme is [file|dir|emptyDir][tier #].
+					createSimplestFileTree(t, 3, 0, scratchDir)
+
+					restoreDirPrefix := filepath.Join(scratchDir, "target")
+
+					e.RunAndExpectSuccess(t, "policy", "set", snapSource, "--ignore-dir-errors", tcIgnoreDirErr, "--ignore-file-errors", tcIgnoreFileErr)
+					restoreDir := fmt.Sprintf("%s%d_%v_%v", restoreDirPrefix, tcIdx, tcIgnoreDirErr, tcIgnoreFileErr)
+					testPermissions(e, t, snapSource, modifyEntry, restoreDir, tc.expectSuccess)
+
+					e.RunAndExpectSuccess(t, "policy", "remove", snapSource)
+				})
 			}
 		}
 	}
-
-	// check the number of snapshots that succeeded match the length of
-	// a snap list output
-	si := e.ListSnapshotsAndExpectSuccess(t)
-	expSources := len(uniqueSourceMap)
-
-	if got, want := len(si), expSources; got != want {
-		t.Fatalf("got %v sources, wanted %v", got, want)
-	}
-
-	numSnapsListed := 0
-	for _, source := range si {
-		numSnapsListed += len(source.Snapshots)
-	}
-
-	if got, want := numSnapsListed, numSuccessfulSnapshots; got != want {
-		t.Fatalf("got %v snapshots, wanted %v", got, want)
-	}
 }
-
 func createSimplestFileTree(t *testing.T, dirDepth, currDepth int, currPath string) {
 	dirname := fmt.Sprintf("dir%d", currDepth)
 	dirPath := filepath.Join(currPath, dirname)
