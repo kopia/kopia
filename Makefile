@@ -1,9 +1,9 @@
 COVERAGE_PACKAGES=github.com/kopia/kopia/repo/...,github.com/kopia/kopia/fs/...,github.com/kopia/kopia/snapshot/...
 GO_TEST=go test
 PARALLEL=8
-TEST_FLAGS=
+TEST_FLAGS?=
 KOPIA_INTEGRATION_EXE=$(CURDIR)/dist/integration/kopia.exe
-FIO_DOCKER_TAG=kopia-test-fio
+FIO_DOCKER_TAG=ljishen/fio
 
 all: test lint vet integration-tests
 
@@ -162,14 +162,11 @@ dist-binary:
 integration-tests: dist-binary
 	KOPIA_EXE=$(KOPIA_INTEGRATION_EXE) $(GO_TEST) $(TEST_FLAGS) -count=1 -parallel $(PARALLEL) -timeout 600s github.com/kopia/kopia/tests/end_to_end_test
 
-fio-docker-build:
-	docker build -t $(FIO_DOCKER_TAG) $(CURDIR)/tests/tools/fio_docker
-
-robustness-tool-tests: fio-docker-build
+robustness-tool-tests:
 	FIO_EXE="$(shell which fio)" \
 	FIO_DOCKER_IMAGE=$(FIO_DOCKER_TAG) \
 	FIO_USE_DOCKER=1 \
-	$(GO_TEST) -count=1 -timeout 90s github.com/kopia/kopia/tests/tools/...
+	$(GO_TEST) $(TEST_FLAGS) -count=1 -timeout 90s github.com/kopia/kopia/tests/tools/...
 
 stress-test:
 	KOPIA_LONG_STRESS_TEST=1 $(GO_TEST) -count=1 -timeout 200s github.com/kopia/kopia/tests/stress_test
