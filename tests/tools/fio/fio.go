@@ -112,7 +112,7 @@ func NewRunner() (fr *Runner, err error) {
 			"run",
 			"--rm",
 			"-v",
-			fmt.Sprintf("%s:%s", hostFioDataPathStr, fioDataContainerPath), // /c/Users/usr/fio-data:/fio-data
+			fmt.Sprintf("%s:%s", hostFioDataPathStr, fioDataContainerPath),
 			imgStr,
 		}
 
