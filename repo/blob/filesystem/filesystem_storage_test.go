@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"os"
 	"reflect"
+	"runtime"
 	"sort"
 	"testing"
 	"time"
@@ -97,6 +98,10 @@ func TestFileStorageTouch(t *testing.T) {
 }
 
 func TestFileStorageConcurrency(t *testing.T) {
+	if runtime.GOOS == "darwin" {
+		t.Skip("does not work on macOS, see https://github.com/kopia/kopia/issues/299")
+	}
+
 	path, _ := ioutil.TempDir("", "fs-concurrency")
 	defer os.RemoveAll(path)
 
