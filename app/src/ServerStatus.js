@@ -19,6 +19,6 @@ export default class ServerStatus extends Component {
     }
 
     render() {
-        return <div>Server: <b>{this.state.status}</b> on <code>{this.state.serverAddress}</code></div>;
+        return <div>Server: <code>{this.state.status}</code><br/>URL: <code>{this.state.serverAddress}</code><br/>TLS Certificate Fingerprint: <code>{this.state.serverCertSHA256}</code></div>;
     }
 }

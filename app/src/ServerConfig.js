@@ -10,13 +10,15 @@ export default class ServerConfig extends Component {
       "remoteServer": false,
       "kopiaPath": "",
       "configFile": "",
-      "repositoryPassword": "",
-      'serverUsername': 'kopia',
-      "serverAddress": "https://localhost:51515",
-      "serverPassword": "",
+
+      "remoteServerAddress": "",
+      "remoteServerPassword": "",
+      "remoteServerCertificateSHA256": "",
     };
     this.updateState = this.updateState.bind(this);
     this.saveConfiguration = this.saveConfiguration.bind(this);
+
+    this.validateRemoteServerAddress = this.validateRemoteServerAddress.bind(this);
 
     if (window.require) {
       const { ipcRenderer } = window.require('electron');
@@ -50,6 +52,24 @@ export default class ServerConfig extends Component {
     window.close();
   }
 
+  validateRemoteServerAddress() {
+    return false;
+  }
+
+  isValidHttpsURL(v) {
+    try {
+      const url = new URL(v);
+      return url.protocol === "https:";
+    } catch (_) {
+      return false;  
+    }
+  }
+
+  isValidSHA256(v) {
+    const re = /^[0-9A-Fa-f]{64}$/g;
+    return re.test(v);
+  }
+
   render() {
     return <>
       <Form>
@@ -70,34 +90,31 @@ export default class ServerConfig extends Component {
                 <Form.Control type="text" placeholder="Configuration file" value={this.state.configFile} onChange={this.updateState} />
                 <Form.Text className="text-muted">Uses default configuration path, if not set.</Form.Text>
               </Form.Group>
-
-              <Form.Group controlId="repositoryPassword">
-                <Form.Label>Repository Password</Form.Label>
-                <Form.Control type="password" placeholder="Password" value={this.state.repositoryPassword} onChange={this.updateState} />
-                <Form.Text className="text-muted">Uses saved password if not set.</Form.Text>
-              </Form.Group>
             </React.Fragment>
           </div>}
         <Form.Group controlId="connectToServer">
-          <Form.Check type="radio" name="serverType" label="Connect To Server" checked={this.state.remoteServer} onChange={() => this.setState({ 'remoteServer': true })} />
+          <Form.Check type="radio" name="serverType" label="Connect To Remote Server" checked={this.state.remoteServer} onChange={() => this.setState({ 'remoteServer': true })} />
         </Form.Group>
         {this.state.remoteServer &&
           <div className="indented">
             <React.Fragment>
-              <Form.Group controlId="serverAddress">
+              <Form.Group controlId="remoteServerAddress">
                 <Form.Label>Server Address</Form.Label>
-                <Form.Control type="text" placeholder="Enter address" value={this.state.serverAddress} onChange={this.updateState} />
-                <Form.Text className="text-muted">To connect to local server, use localhost:51515</Form.Text>
+                <Form.Control type="text" isInvalid={!this.isValidHttpsURL(this.state.remoteServerAddress)} placeholder="Enter address" value={this.state.remoteServerAddress} onChange={this.updateState} />
+                <Form.Text className="text-muted">Enter server URL https://server:port</Form.Text>
+                <Form.Control.Feedback type="invalid">Must be valid server url starting with https://</Form.Control.Feedback>
               </Form.Group>
 
-              <Form.Group controlId="serverUsername">
-                <Form.Label>Server Username</Form.Label>
-                <Form.Control type="text" placeholder="Enter username" value={this.state.serverUsername} onChange={this.updateState} />
-              </Form.Group>
-
-              <Form.Group controlId="serverPassword">
+              <Form.Group controlId="remoteServerPassword">
                 <Form.Label>Server Password</Form.Label>
-                <Form.Control type="password" placeholder="Password" value={this.state.serverPassword} onChange={this.updateState} />
+                <Form.Control type="password" isInvalid={!this.state.remoteServerPassword} placeholder="Password" value={this.state.remoteServerPassword} onChange={this.updateState} />
+                <Form.Control.Feedback type="invalid">Password cannot be empty.</Form.Control.Feedback>
+              </Form.Group>
+
+              <Form.Group controlId="remoteServerCertificateSHA256">
+                <Form.Label>Server Certificate Fingerprint</Form.Label>
+                <Form.Control type="text" isInvalid={!this.isValidSHA256(this.state.remoteServerCertificateSHA256)} placeholder="server certificate fingerprint (SHA256)" value={this.state.remoteServerCertificateSHA256} onChange={this.updateState} />
+                <Form.Control.Feedback type="invalid">Must be valid server fingerprint</Form.Control.Feedback>
               </Form.Group>
             </React.Fragment>
           </div>

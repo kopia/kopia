@@ -35,3 +35,9 @@ div.tab-body {
   color: #000080;
   font-family: Consolas, 'Courier New', Courier, monospace;
 }
+
+.version-info {
+  padding-left: 10px;
+  color: #aaa;
+  font-size: 80%;
+}

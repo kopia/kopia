@@ -140,6 +140,27 @@ else
 	curl -LsS https://github.com/goreleaser/goreleaser/releases/download/$(GORELEASER_VERSION)/goreleaser_$$(uname -s)_$$(uname -m).tar.gz | tar zx -C $(TOOLS_DIR)/goreleaser-$(GORELEASER_VERSION)
 endif
 
+ifeq ($(TRAVIS_PULL_REQUEST),false)
+
+ifneq ($(TRAVIS_TAG),)
+# travis, tagged release
+KOPIA_VERSION:=$(TRAVIS_TAG:v%=%)
+else
+# travis, non-tagged release
+KOPIA_VERSION:=$(shell date +%Y%m%d).0.$(TRAVIS_BUILD_NUMBER)
+endif
+
+else
+
+# non-travis, or travis PR
+KOPIA_VERSION:=$(shell date +%Y%m%d).0.0-$(shell git rev-parse --short HEAD)
+
+endif
+
+# embedded in the HTML pages
+export REACT_APP_SHORT_VERSION_INFO:=$(KOPIA_VERSION)
+export REACT_APP_FULL_VERSION_INFO:=$(KOPIA_VERSION) built on $(shell date) $(shell hostname)
+
 clean-tools:
 	rm -rf $(TOOLS_DIR)
 
