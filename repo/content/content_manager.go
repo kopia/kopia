@@ -579,12 +579,17 @@ func (bm *Manager) Refresh(ctx context.Context) (bool, error) {
 // ManagerOptions are the optional parameters for manager creation
 type ManagerOptions struct {
 	RepositoryFormatBytes []byte
+	TimeNow               func() time.Time // Time provider
 }
 
 // NewManager creates new content manager with given packing options and a formatter.
 func NewManager(ctx context.Context, st blob.Storage, f *FormattingOptions, caching CachingOptions, options ManagerOptions) (*Manager, error) {
+	nowFn := options.TimeNow
+	if nowFn == nil {
+		nowFn = time.Now
+	}
 
-	return newManagerWithOptions(ctx, st, f, caching, time.Now, options.RepositoryFormatBytes)
+	return newManagerWithOptions(ctx, st, f, caching, nowFn, options.RepositoryFormatBytes)
 }
 
 func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOptions, caching CachingOptions, timeNow func() time.Time, repositoryFormatBytes []byte) (*Manager, error) {

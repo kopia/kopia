@@ -119,7 +119,11 @@ func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		fo.MaxPackSize = 20 << 20 // nolint:gomnd
 	}
 
-	cmOpts := content.ManagerOptions{RepositoryFormatBytes: fb}
+	cmOpts := content.ManagerOptions{
+		RepositoryFormatBytes: fb,
+		TimeNow:               defaultTime(options.TimeNowFunc),
+	}
+
 	cm, err := content.NewManager(ctx, st, fo, caching, cmOpts)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open content manager")
@@ -144,7 +148,7 @@ func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 
 		formatBlob: f,
 		masterKey:  masterKey,
-		timeNow:    defaultTime(options.TimeNowFunc),
+		timeNow:    cmOpts.TimeNow,
 	}, nil
 }
 
