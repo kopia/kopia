@@ -5,10 +5,10 @@ const { appendToLog } = require('./logging');
 const { defaultServerBinary } = require('./utils');
 const { spawn } = require('child_process');
 
-let serverProcess = null;
-let serverCertSHA256 = "";
-let serverPassword = "";
-let serverAddress = "";
+let runningServerProcess = null;
+let runningServerCertSHA256 = "";
+let runningServerPassword = "";
+let runningServerAddress = "";
 
 function detectServerParam(data) {
     let lines = (data + '').split('\n');
@@ -22,15 +22,15 @@ function detectServerParam(data) {
         const value = lines[i].substring(p + 2);
         switch (key) {
             case "SERVER PASSWORD":
-                serverPassword = value;
+                runningServerPassword = value;
                 break;
 
             case "SERVER CERT SHA256":
-                serverCertSHA256 = value;
+                runningServerCertSHA256 = value;
                 break;
 
             case "SERVER ADDRESS":
-                serverAddress = value;
+                runningServerAddress = value;
                 break;
         }
     }
@@ -55,30 +55,31 @@ function startServer() {
 
     args.push('--random-password')
     args.push('--tls-generate-cert')
+    args.push('--address=localhost:0')
     // args.push('--auto-shutdown=600s')
 
     console.log(`spawning ${kopiaPath} ${args.join(' ')}`);
-    serverProcess = spawn(kopiaPath, args);
+    runningServerProcess = spawn(kopiaPath, args);
     ipcMain.emit('server-status-updated');
 
-    serverProcess.stdout.on('data', appendToLog);
-    serverProcess.stderr.on('data', detectServerParam);
+    runningServerProcess.stdout.on('data', appendToLog);
+    runningServerProcess.stderr.on('data', detectServerParam);
 
-    serverProcess.on('close', (code, signal) => {
+    runningServerProcess.on('close', (code, signal) => {
         appendToLog(`child process exited with code ${code} and signal ${signal}`);
-        serverProcess = null;
+        runningServerProcess = null;
         ipcMain.emit('server-status-updated');
     });
 }
 
 function stopServer() {
-    if (!serverProcess) {
+    if (!runningServerProcess) {
         console.log('stopServer: server not started');
         return;
     }
 
-    serverProcess.kill();
-    serverProcess = null;
+    runningServerProcess.kill();
+    runningServerProcess = null;
 }
 
 ipcMain.on('subscribe-to-status', (event, arg) => {
@@ -90,21 +91,47 @@ ipcMain.on('subscribe-to-status', (event, arg) => {
 });
 
 function getServerStatus() {
-    if (!serverProcess) {
-        return "Stopped";
-    }
+    if (config.get('remoteServer')) {
+        return "Remote";
+    } else {
+        if (!runningServerProcess) {
+            return "Stopped";
+        }
 
-    return "Running";
+        return "Running";
+    }
 };
 
-function getServerAddress() {
-    return "localhost:51515";
+function getActiveServerAddress() {
+    if (config.get('remoteServer')) {
+        return config.get('remoteServerAddress');
+    } else {
+        return runningServerAddress;
+    }
+};
+
+
+function getActiveServerCertSHA256() {
+    if (config.get('remoteServer')) {
+        return config.get('remoteServerCertificateSHA256');
+    } else {
+        return runningServerCertSHA256;
+    }
+};
+
+function getActiveServerPassword() {
+    if (config.get('remoteServer')) {
+        return config.get('remoteServerPassword');
+    } else {
+        return runningServerPassword;
+    }
 };
 
 function sendStatusUpdate(sender) {
     sender.send('status-updated', {
         status: getServerStatus(),
-        serverAddress: getServerAddress(),
+        serverAddress: getActiveServerAddress() || "<pending>",
+        serverCertSHA256: getActiveServerCertSHA256() || "<pending>",
     });
 }
 
@@ -117,15 +144,15 @@ module.exports = {
     },
 
     getServerAddress() {
-        return serverAddress;
+        return getActiveServerAddress();
     },
 
     getServerCertSHA256() {
-        return serverCertSHA256;
+        return getActiveServerCertSHA256();
     },
 
     getServerPassword() {
-        return serverPassword;
+        return getActiveServerPassword();
     },
 
     stopServer: stopServer,

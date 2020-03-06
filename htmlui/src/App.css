@@ -54,3 +54,9 @@ div.tab-body {
 #snapshot-path {
   width: 400px;
 }
+
+.version-info {
+  padding-left: 10px;
+  color: #aaa;
+  font-size: 80%;
+}

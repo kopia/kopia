@@ -18,7 +18,6 @@ function App() {
         <img src={logo} className="App-logo" alt="logo" />
         <span className="title">Kopia</span>
       </header>
-      <ServerStatus />
       <hr/>
       <Tabs defaultActiveKey="config" transition={false}>
         <Tab eventKey="config" title="Server Configuration">
@@ -32,6 +31,8 @@ function App() {
           </div>
         </Tab>
       </Tabs>
+      <hr/>
+      <ServerStatus />
     </Container>
   );
 }
