@@ -55,6 +55,8 @@ type Manager struct {
 
 	committedEntries    map[ID]*manifestEntry
 	committedContentIDs map[content.ID]bool
+
+	timeNow func() time.Time // Time provider
 }
 
 // Put serializes the provided payload to JSON and persists it. Returns unique identifier that represents the manifest.
@@ -82,7 +84,7 @@ func (m *Manager) Put(ctx context.Context, labels map[string]string, payload int
 
 	e := &manifestEntry{
 		ID:      ID(hex.EncodeToString(random)),
-		ModTime: time.Now().UTC(),
+		ModTime: m.timeNow().UTC(),
 		Labels:  copyLabels(labels),
 		Content: b,
 	}
@@ -276,7 +278,7 @@ func (m *Manager) Delete(ctx context.Context, id ID) error {
 
 	m.pendingEntries[id] = &manifestEntry{
 		ID:      id,
-		ModTime: time.Now().UTC(),
+		ModTime: m.timeNow().UTC(),
 		Deleted: true,
 	}
 
@@ -483,13 +485,24 @@ func copyLabels(m map[string]string) map[string]string {
 	return r
 }
 
+// ManagerOptions are optional parameters for Manager creation
+type ManagerOptions struct {
+	TimeNow func() time.Time // Time provider
+}
+
 // NewManager returns new manifest manager for the provided content manager.
-func NewManager(ctx context.Context, b contentManager) (*Manager, error) {
+func NewManager(ctx context.Context, b contentManager, options ManagerOptions) (*Manager, error) {
+	timeNow := options.TimeNow
+	if timeNow == nil {
+		timeNow = time.Now
+	}
+
 	m := &Manager{
 		b:                   b,
 		pendingEntries:      map[ID]*manifestEntry{},
 		committedEntries:    map[ID]*manifestEntry{},
 		committedContentIDs: map[content.ID]bool{},
+		timeNow:             timeNow,
 	}
 
 	return m, nil

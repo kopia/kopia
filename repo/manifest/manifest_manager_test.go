@@ -151,7 +151,7 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 		t.Fatalf("err: %v", err)
 	}
 
-	mgr, err := NewManager(ctx, bm)
+	mgr, err := NewManager(ctx, bm, ManagerOptions{})
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -177,7 +177,7 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 		t.Fatalf("err: %v", err)
 	}
 
-	mgr, err = NewManager(ctx, bm)
+	mgr, err = NewManager(ctx, bm, ManagerOptions{})
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -301,7 +301,7 @@ func newManagerForTesting(ctx context.Context, t *testing.T, data blobtesting.Da
 		t.Fatalf("can't create content manager: %v", err)
 	}
 
-	mm, err := NewManager(ctx, bm)
+	mm, err := NewManager(ctx, bm, ManagerOptions{})
 	if err != nil {
 		t.Fatalf("can't create manifest manager: %v", err)
 	}

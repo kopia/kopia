@@ -134,7 +134,7 @@ func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		return nil, errors.Wrap(err, "unable to open object manager")
 	}
 
-	manifests, err := manifest.NewManager(ctx, cm)
+	manifests, err := manifest.NewManager(ctx, cm, manifest.ManagerOptions{TimeNow: cmOpts.TimeNow})
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open manifests")
 	}
