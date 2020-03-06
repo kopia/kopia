@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/faketime"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
 )
@@ -228,7 +229,7 @@ func TestContentManagerWriteMultiple(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	keyTime := map[blob.ID]time.Time{}
-	timeFunc := fakeTimeNowWithAutoAdvance(fakeTime, 1*time.Second)
+	timeFunc := faketime.AutoAdvance(fakeTime, 1*time.Second)
 	bm := newTestContentManager(t, data, keyTime, timeFunc)
 
 	var contentIDs []ID
@@ -286,7 +287,7 @@ func TestContentManagerFailedToWritePack(t *testing.T) {
 		MaxPackSize: maxPackSize,
 		HMACSecret:  []byte("foo"),
 		MasterKey:   []byte("0123456789abcdef0123456789abcdef"),
-	}, CachingOptions{}, fakeTimeNowFrozen(fakeTime), nil)
+	}, CachingOptions{}, faketime.Frozen(fakeTime), nil)
 	if err != nil {
 		t.Fatalf("can't create bm: %v", err)
 	}
@@ -320,7 +321,7 @@ func TestContentManagerConcurrency(t *testing.T) {
 	dumpContentManagerData(ctx, t, data)
 	bm1 := newTestContentManager(t, data, keyTime, nil)
 	bm2 := newTestContentManager(t, data, keyTime, nil)
-	bm3 := newTestContentManager(t, data, keyTime, fakeTimeNowWithAutoAdvance(fakeTime.Add(1), 1*time.Second))
+	bm3 := newTestContentManager(t, data, keyTime, faketime.AutoAdvance(fakeTime.Add(1), 1*time.Second))
 
 	// all bm* can see pre-existing content
 	verifyContent(ctx, t, bm1, preexistingContent, seededRandomData(10, 100))
@@ -708,7 +709,7 @@ func TestRewriteNonDeleted(t *testing.T) {
 				ctx := testlogging.Context(t)
 				data := blobtesting.DataMap{}
 				keyTime := map[blob.ID]time.Time{}
-				fakeNow := fakeTimeNowWithAutoAdvance(fakeTime, 1*time.Second)
+				fakeNow := faketime.AutoAdvance(fakeTime, 1*time.Second)
 				bm := newTestContentManager(t, data, keyTime, fakeNow)
 
 				applyStep := func(action int) {
@@ -774,7 +775,7 @@ func TestRewriteDeleted(t *testing.T) {
 					ctx := testlogging.Context(t)
 					data := blobtesting.DataMap{}
 					keyTime := map[blob.ID]time.Time{}
-					fakeNow := fakeTimeNowWithAutoAdvance(fakeTime, 1*time.Second)
+					fakeNow := faketime.AutoAdvance(fakeTime, 1*time.Second)
 					bm := newTestContentManager(t, data, keyTime, fakeNow)
 
 					applyStep := func(action int) {
@@ -826,22 +827,22 @@ func TestDeleteAndRecreate(t *testing.T) {
 			// write a content
 			data := blobtesting.DataMap{}
 			keyTime := map[blob.ID]time.Time{}
-			bm := newTestContentManager(t, data, keyTime, fakeTimeNowFrozen(fakeTime))
+			bm := newTestContentManager(t, data, keyTime, faketime.Frozen(fakeTime))
 			content1 := writeContentAndVerify(ctx, t, bm, seededRandomData(10, 100))
 			bm.Flush(ctx)
 
 			// delete but at given timestamp but don't commit yet.
-			bm0 := newTestContentManager(t, data, keyTime, fakeTimeNowWithAutoAdvance(tc.deletionTime, 1*time.Second))
+			bm0 := newTestContentManager(t, data, keyTime, faketime.AutoAdvance(tc.deletionTime, 1*time.Second))
 			assertNoError(t, bm0.DeleteContent(ctx, content1))
 
 			// delete it at t0+10
-			bm1 := newTestContentManager(t, data, keyTime, fakeTimeNowWithAutoAdvance(fakeTime.Add(10*time.Second), 1*time.Second))
+			bm1 := newTestContentManager(t, data, keyTime, faketime.AutoAdvance(fakeTime.Add(10*time.Second), 1*time.Second))
 			verifyContent(ctx, t, bm1, content1, seededRandomData(10, 100))
 			assertNoError(t, bm1.DeleteContent(ctx, content1))
 			bm1.Flush(ctx)
 
 			// recreate at t0+20
-			bm2 := newTestContentManager(t, data, keyTime, fakeTimeNowWithAutoAdvance(fakeTime.Add(20*time.Second), 1*time.Second))
+			bm2 := newTestContentManager(t, data, keyTime, faketime.AutoAdvance(fakeTime.Add(20*time.Second), 1*time.Second))
 			content2 := writeContentAndVerify(ctx, t, bm2, seededRandomData(10, 100))
 			bm2.Flush(ctx)
 
@@ -1121,7 +1122,7 @@ func TestContentWriteAliasing(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	keyTime := map[blob.ID]time.Time{}
-	bm := newTestContentManager(t, data, keyTime, fakeTimeNowFrozen(fakeTime))
+	bm := newTestContentManager(t, data, keyTime, faketime.Frozen(fakeTime))
 
 	contentData := []byte{100, 0, 0}
 	id1 := writeContentAndVerify(ctx, t, bm, contentData)
@@ -1147,7 +1148,7 @@ func TestContentReadAliasing(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	keyTime := map[blob.ID]time.Time{}
-	bm := newTestContentManager(t, data, keyTime, fakeTimeNowFrozen(fakeTime))
+	bm := newTestContentManager(t, data, keyTime, faketime.Frozen(fakeTime))
 
 	contentData := []byte{100, 0, 0}
 	id1 := writeContentAndVerify(ctx, t, bm, contentData)
@@ -1257,7 +1258,7 @@ func newTestContentManager(t *testing.T, data blobtesting.DataMap, keyTime map[b
 
 func newTestContentManagerWithStorage(t *testing.T, st blob.Storage, timeFunc func() time.Time) *Manager {
 	if timeFunc == nil {
-		timeFunc = fakeTimeNowWithAutoAdvance(fakeTime, 1*time.Second)
+		timeFunc = faketime.AutoAdvance(fakeTime, 1*time.Second)
 	}
 
 	bm, err := newManagerWithOptions(testlogging.Context(t), st, &FormattingOptions{
@@ -1286,24 +1287,6 @@ func getIndexCount(d blobtesting.DataMap) int {
 	}
 
 	return cnt
-}
-
-func fakeTimeNowFrozen(t time.Time) func() time.Time {
-	return fakeTimeNowWithAutoAdvance(t, 0)
-}
-
-func fakeTimeNowWithAutoAdvance(t time.Time, dt time.Duration) func() time.Time {
-	var mu sync.Mutex
-
-	return func() time.Time {
-		mu.Lock()
-		defer mu.Unlock()
-
-		ret := t
-		t = t.Add(dt)
-
-		return ret
-	}
 }
 
 func verifyContentNotFound(ctx context.Context, t *testing.T, bm *Manager, contentID ID) {
