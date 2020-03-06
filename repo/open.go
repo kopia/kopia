@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"path/filepath"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -22,6 +23,7 @@ var log = logging.GetContextLoggerFunc("kopia/repo")
 type Options struct {
 	TraceStorage         func(f string, args ...interface{}) // Logs all storage access using provided Printf-style function
 	ObjectManagerOptions object.ManagerOptions
+	TimeNowFunc          func() time.Time // Time provider
 }
 
 // ErrInvalidPassword is returned when repository password is invalid.
@@ -141,6 +143,7 @@ func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 
 		formatBlob: f,
 		masterKey:  masterKey,
+		timeNow:    defaultTime(options.TimeNowFunc),
 	}, nil
 }
 
