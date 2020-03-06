@@ -1,7 +1,13 @@
 SHELL:=/bin/bash
 REPO_OWNER=kopia
 
+include ../tools/tools.mk
+
+node_modules: $(npm)
+	$(npm) $(npm_flags) install
+
 electron_builder_flags:=
+electron_builder_flags+=-c.extraMetadata.version=$(KOPIA_VERSION)
 electron_publish_flag:=never
 
 ifeq ($(TRAVIS_PULL_REQUEST),false)
@@ -10,13 +16,11 @@ electron_publish_flag=always
 
 ifneq ($(TRAVIS_TAG),)
 # tagged release - create draft release, but don't publish
-electron_builder_flags+=-c.extraMetadata.version=$(TRAVIS_TAG:v%=%)
 electron_builder_flags+=-c.publish.releaseType=draft
 electron_builder_flags+=-c.publish.owner=$(REPO_OWNER)
 electron_builder_flags+=-c.publish.repo=kopia
 else
 # post-submit run, create a release in another repo
-electron_builder_flags+=-c.extraMetadata.version=$(shell date +%Y%m%d).0.$(TRAVIS_BUILD_NUMBER)
 electron_builder_flags+=-c.publish.owner=$(REPO_OWNER)
 electron_builder_flags+=-c.publish.repo=kopia-ui-release
 electron_builder_flags+=-c.publish.releaseType=release
@@ -48,8 +52,3 @@ build-html: node_modules
 
 build-electron: node_modules build-html
 	$(npm) $(npm_flags) run build-electron -- $(electron_builder_flags) -p $(electron_publish_flag)
-
-include ../tools/tools.mk
-
-node_modules: $(npm)
-	$(npm) $(npm_flags) install
