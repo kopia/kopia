@@ -267,6 +267,9 @@ func (m *Manager) Delete(ctx context.Context, id ID) error {
 		return err
 	}
 
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	if m.pendingEntries[id] == nil && m.committedEntries[id] == nil {
 		return nil
 	}
