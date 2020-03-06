@@ -576,9 +576,15 @@ func (bm *Manager) Refresh(ctx context.Context) (bool, error) {
 	return updated, err
 }
 
+// ManagerOptions are the optional parameters for manager creation
+type ManagerOptions struct {
+	RepositoryFormatBytes []byte
+}
+
 // NewManager creates new content manager with given packing options and a formatter.
-func NewManager(ctx context.Context, st blob.Storage, f *FormattingOptions, caching CachingOptions, repositoryFormatBytes []byte) (*Manager, error) {
-	return newManagerWithOptions(ctx, st, f, caching, time.Now, repositoryFormatBytes)
+func NewManager(ctx context.Context, st blob.Storage, f *FormattingOptions, caching CachingOptions, options ManagerOptions) (*Manager, error) {
+
+	return newManagerWithOptions(ctx, st, f, caching, time.Now, options.RepositoryFormatBytes)
 }
 
 func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOptions, caching CachingOptions, timeNow func() time.Time, repositoryFormatBytes []byte) (*Manager, error) {
