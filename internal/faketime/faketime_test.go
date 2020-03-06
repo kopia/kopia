@@ -72,3 +72,20 @@ func TestAutoAdvance(t *testing.T) {
 		t.Fatalf("number of generated times does not match, got: %v, want: %v", got, want)
 	}
 }
+
+func TestTimeAdvance(t *testing.T) {
+	startTime := time.Date(2019, 1, 6, 0, 0, 0, 0, time.UTC)
+	ta := NewTimeAdvance(startTime)
+	now := ta.NowFunc()
+
+	if got, want := now(), startTime; got != want {
+		t.Errorf("expected time does not match, got: %v, want: %v", got, want)
+	}
+
+	dt := 5 * time.Minute
+	ta.Advance(dt)
+
+	if got, want := now(), startTime.Add(dt); got != want {
+		t.Errorf("expected time does not match, got: %v, want: %v", got, want)
+	}
+}
