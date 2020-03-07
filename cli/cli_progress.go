@@ -35,6 +35,9 @@ type cliProgress struct {
 
 	previousFileCount int
 	previousTotalSize int64
+
+	// indicates shared instance that does not reset counters at the beginning of upload.
+	shared bool
 }
 
 func (p *cliProgress) FinishedHashingFile(fname string, totalSize int64) {
@@ -135,7 +138,25 @@ func (p *cliProgress) spinnerCharacter() string {
 	return s
 }
 
+func (p *cliProgress) StartShared() {
+	*p = cliProgress{
+		uploading:       1,
+		uploadStartTime: time.Now(),
+		shared:          true,
+	}
+}
+
+func (p *cliProgress) FinishShared() {
+	atomic.StoreInt32(&p.uploadFinished, 1)
+	p.output()
+}
+
 func (p *cliProgress) UploadStarted(previousFileCount int, previousTotalSize int64) {
+	if p.shared {
+		// do nothing
+		return
+	}
+
 	*p = cliProgress{
 		uploading:         1,
 		uploadStartTime:   time.Now(),
@@ -150,6 +171,10 @@ func (p *cliProgress) UploadFinished() {
 }
 
 func (p *cliProgress) Finish() {
+	if p.shared {
+		return
+	}
+
 	atomic.StoreInt32(&p.uploadFinished, 1)
 	p.output()
 }
