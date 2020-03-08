@@ -23,7 +23,13 @@ Unlike other cloud backup solutions, the user is in full control of the backup s
 Kopia in action
 ---
 
+Using `kopia` command line tool:
+
 [![asciicast](https://asciinema.org/a/ykx6uzEhKY3451fWEnX9nm9uo.svg)](https://asciinema.org/a/ykx6uzEhKY3451fWEnX9nm9uo)
+
+Kopia UI - experimental user interface
+
+[![Kopia UI Tutorial](https://img.youtube.com/vi/sHJjSpasWIo/0.jpg)](https://www.youtube.com/watch?v=sHJjSpasWIo)
 
 Getting Started
 ---
