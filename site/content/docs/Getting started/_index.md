@@ -11,7 +11,18 @@ Make sure to familiarize yourself with Kopia [features](../features/) before fol
 
 ## Installation
 
-Kopia is distributed as a single binary called `kopia` (except on Windows, where it's called `kopia.exe`). To install it follow the [Installation Guide](../installation/).
+Kopia is distributed as a single command-line (CLI) binary called `kopia`. 
+
+To install it follow the [Installation Guide](../installation/).
+
+## Kopia UI
+
+If you prefer a graphical user interface,
+Kopia comes with a user-friendly desktop app for Windows, macOS, and Linux called `KopiaUI`which runs in the background and allows you to create snapshots, define policies and restore files quickly. More advanced features require the use of the CLI tool.
+
+The Kopia UI is new and experimental. See the tutorial on Youtube:
+
+{{< youtube sHJjSpasWIo >}}
 
 ## Setting Up Repository
 

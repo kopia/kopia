@@ -4,7 +4,15 @@ linkTitle: "Installation"
 weight: 2
 ---
 
-The easiest way to get started with Kopia is to download pre-compiled Kopia binary. Alternatively you compile it yourself from source. 
+Kopia supports both command line (CLI) and graphical (GUI) user interfaces.
+
+### Command Line Tool
+
+The easiest way to get started with the Kopia CLI tool is to download pre-compiled `kopia` binary. Alternatively, you can compile it yourself from source. 
+
+### Kopia UI
+
+You can download installer packages of KopiaUI for Windows, macOS, and Linux from the [Releases](https://github.com/kopia/kopia/releases/latest) page on GitHub.
 
 ### Download
 
