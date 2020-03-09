@@ -28,9 +28,9 @@ To restore data, Kopia can mount contents of a Repository as a local disk and yo
 
 ### Encryption
 
-All data is encrypted before it leaves your machine. Kopia uses state-of-the-art encryption algorithms, such as [AES-256](https://en.wikipedia.org/wiki/AES256) or [Salsa20](https://en.wikipedia.org/wiki/Salsa20).
+All data is encrypted before it leaves your machine. Kopia uses state-of-the-art encryption algorithms, such as [AES-256](https://en.wikipedia.org/wiki/AES256) or [ChaCha20](https://en.wikipedia.org/wiki/ChaCha20).
 
-All data is encrypted using key derived from master passphrase and neither the key nor passphrase are ever sent to any server.
+All data is encrypted using per-content keys derived from the 256-bit master key stored in repository. Master key is encrypted with user-provided passphrase, which is never sent to any server.
 
 ### Policies
 
