@@ -11,7 +11,6 @@ import (
 	"runtime"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/pkg/errors"
 
@@ -749,7 +748,7 @@ func (u *Uploader) Upload(
 
 	var err error
 
-	s.StartTime = time.Now()
+	s.StartTime = u.repo.Time()
 
 	switch entry := source.(type) {
 	case fs.Directory:
@@ -778,7 +777,7 @@ func (u *Uploader) Upload(
 	}
 
 	s.IncompleteReason = u.cancelReason()
-	s.EndTime = time.Now()
+	s.EndTime = u.repo.Time()
 	s.Stats = u.stats
 
 	return s, nil
