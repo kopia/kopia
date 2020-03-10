@@ -77,6 +77,7 @@ travis-release:
 	$(retry) $(MAKE) goreleaser
 	$(retry) $(MAKE) kopia-ui
 	$(MAKE) lint vet test-with-coverage html-ui-tests
+	$(retry) $(MAKE) layering-test
 	$(retry) $(MAKE) integration-tests
 ifeq ($(TRAVIS_OS_NAME),linux)
 	$(MAKE) robustness-tool-tests
@@ -169,6 +170,22 @@ robustness-tool-tests:
 stress-test:
 	KOPIA_LONG_STRESS_TEST=1 $(GO_TEST) -count=1 -timeout 200s github.com/kopia/kopia/tests/stress_test
 	$(GO_TEST) -count=1 -timeout 200s github.com/kopia/kopia/tests/repository_stress_test
+
+layering-test:
+ifneq ($(uname),Windows)
+	# verify that code under repo/ can only import code also under repo/ + some
+	# whitelisted internal packages.
+	find repo/ -name '*.go' | xargs grep "^\t\"github.com/kopia/kopia" \
+	   | grep -v -e github.com/kopia/kopia/repo \
+	             -e github.com/kopia/kopia/internal/retry \
+	             -e github.com/kopia/kopia/internal/throttle \
+	             -e github.com/kopia/kopia/internal/blobtesting \
+	             -e github.com/kopia/kopia/internal/repotesting \
+	             -e github.com/kopia/kopia/internal/testlogging \
+	             -e github.com/kopia/kopia/internal/hmac \
+	             -e github.com/kopia/kopia/internal/ctxutil \
+	             -e github.com/kopia/kopia/issues && exit 0 || echo repo/ layering ok
+endif
 
 godoc:
 	godoc -http=:33333
