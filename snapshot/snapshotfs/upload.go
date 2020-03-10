@@ -9,10 +9,10 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sync"
 	"sync/atomic"
 
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/ignorefs"
@@ -70,13 +70,13 @@ func (u *Uploader) cancelReason() string {
 	return ""
 }
 
-func (u *Uploader) uploadFileInternal(ctx context.Context, relativePath string, f fs.File, pol *policy.Policy) entryResult {
+func (u *Uploader) uploadFileInternal(ctx context.Context, relativePath string, f fs.File, pol *policy.Policy) (*snapshot.DirEntry, error) {
 	u.Progress.HashingFile(relativePath)
 	defer u.Progress.FinishedHashingFile(relativePath, f.Size())
 
 	file, err := f.Open(ctx)
 	if err != nil {
-		return entryResult{err: errors.Wrap(err, "unable to open file")}
+		return nil, errors.Wrap(err, "unable to open file")
 	}
 	defer file.Close() //nolint:errcheck
 
@@ -88,36 +88,36 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, relativePath string, 
 
 	written, err := u.copyWithProgress(writer, file, 0, f.Size())
 	if err != nil {
-		return entryResult{err: err}
+		return nil, err
 	}
 
 	fi2, err := file.Entry()
 	if err != nil {
-		return entryResult{err: err}
+		return nil, err
 	}
 
 	r, err := writer.Result()
 	if err != nil {
-		return entryResult{err: err}
+		return nil, err
 	}
 
 	de, err := newDirEntry(fi2, r)
 	if err != nil {
-		return entryResult{err: errors.Wrap(err, "unable to create dir entry")}
+		return nil, errors.Wrap(err, "unable to create dir entry")
 	}
 
 	de.FileSize = written
 
-	return entryResult{de: de}
+	return de, nil
 }
 
-func (u *Uploader) uploadSymlinkInternal(ctx context.Context, relativePath string, f fs.Symlink) entryResult {
+func (u *Uploader) uploadSymlinkInternal(ctx context.Context, relativePath string, f fs.Symlink) (*snapshot.DirEntry, error) {
 	u.Progress.HashingFile(relativePath)
 	defer u.Progress.FinishedHashingFile(relativePath, f.Size())
 
 	target, err := f.Readlink(ctx)
 	if err != nil {
-		return entryResult{err: errors.Wrap(err, "unable to read symlink")}
+		return nil, errors.Wrap(err, "unable to read symlink")
 	}
 
 	writer := u.repo.Objects.NewWriter(ctx, object.WriterOptions{
@@ -127,22 +127,22 @@ func (u *Uploader) uploadSymlinkInternal(ctx context.Context, relativePath strin
 
 	written, err := u.copyWithProgress(writer, bytes.NewBufferString(target), 0, f.Size())
 	if err != nil {
-		return entryResult{err: err}
+		return nil, err
 	}
 
 	r, err := writer.Result()
 	if err != nil {
-		return entryResult{err: err}
+		return nil, err
 	}
 
 	de, err := newDirEntry(f, r)
 	if err != nil {
-		return entryResult{err: errors.Wrap(err, "unable to create dir entry")}
+		return nil, errors.Wrap(err, "unable to create dir entry")
 	}
 
 	de.FileSize = written
 
-	return entryResult{de: de}
+	return de, nil
 }
 
 func (u *Uploader) copyWithProgress(dst io.Writer, src io.Reader, completed, length int64) (int64, error) {
@@ -217,20 +217,20 @@ func newDirEntry(md fs.Entry, oid object.ID) (*snapshot.DirEntry, error) {
 
 // uploadFile uploads the specified File to the repository.
 func (u *Uploader) uploadFile(ctx context.Context, relativePath string, file fs.File, pol *policy.Policy) (*snapshot.DirEntry, error) {
-	res := u.uploadFileInternal(ctx, relativePath, file, pol)
-	if res.err != nil {
-		return nil, res.err
+	res, err := u.uploadFileInternal(ctx, relativePath, file, pol)
+	if err != nil {
+		return nil, err
 	}
 
-	de, err := newDirEntry(file, res.de.ObjectID)
+	de, err := newDirEntry(file, res.ObjectID)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create dir entry")
 	}
 
 	de.DirSummary = &fs.DirectorySummary{
 		TotalFileCount: 1,
-		TotalFileSize:  res.de.FileSize,
-		MaxModTime:     res.de.ModTime,
+		TotalFileSize:  res.FileSize,
+		MaxModTime:     res.ModTime,
 	}
 
 	return de, nil
@@ -255,29 +255,52 @@ func (u *Uploader) uploadDir(ctx context.Context, rootDir fs.Directory, policyTr
 	return de, err
 }
 
-func (u *Uploader) foreachEntryUnlessCancelled(relativePath string, entries fs.Entries, cb func(entry fs.Entry, entryRelativePath string) error) error {
-	for _, entry := range entries {
-		if u.IsCancelled() {
-			return errCancelled
-		}
-
-		entryRelativePath := relativePath + "/" + entry.Name()
-
-		if err := cb(entry, entryRelativePath); err != nil {
-			return err
-		}
+func (u *Uploader) foreachEntryUnlessCancelled(ctx context.Context, parallel int, relativePath string, entries fs.Entries, cb func(ctx context.Context, index int, entry fs.Entry, entryRelativePath string) error) error {
+	type entryWithIndex struct {
+		entry fs.Entry
+		index int
 	}
 
-	return nil
-}
+	ch := make(chan entryWithIndex)
+	eg, ctx := errgroup.WithContext(ctx)
 
-type entryResult struct {
-	err error
-	de  *snapshot.DirEntry
+	// one goroutine to pump entries into channel until ctx is closed.
+	eg.Go(func() error {
+		defer close(ch)
+
+		for i, e := range entries {
+			select {
+			case ch <- entryWithIndex{e, i}: // sent to channel
+			case <-ctx.Done(): // context closed
+				return nil
+			}
+		}
+		return nil
+	})
+
+	// launch N workers in parallel
+	for i := 0; i < parallel; i++ {
+		eg.Go(func() error {
+			for ewi := range ch {
+				if u.IsCancelled() {
+					return errCancelled
+				}
+
+				entryRelativePath := relativePath + "/" + ewi.entry.Name()
+				if err := cb(ctx, ewi.index, ewi.entry, entryRelativePath); err != nil {
+					return err
+				}
+			}
+
+			return nil
+		})
+	}
+
+	return eg.Wait()
 }
 
 func (u *Uploader) processSubdirectories(ctx context.Context, relativePath string, entries fs.Entries, policyTree *policy.Tree, previousEntries []fs.Entries, dirManifest *snapshot.DirManifest, summ *fs.DirectorySummary) error {
-	return u.foreachEntryUnlessCancelled(relativePath, entries, func(entry fs.Entry, entryRelativePath string) error {
+	return u.foreachEntryUnlessCancelled(ctx, 1, relativePath, entries, func(ctx context.Context, index int, entry fs.Entry, entryRelativePath string) error {
 		dir, ok := entry.(fs.Directory)
 		if !ok {
 			// skip non-directories
@@ -326,13 +349,6 @@ func (u *Uploader) processSubdirectories(ctx context.Context, relativePath strin
 		dirManifest.Entries = append(dirManifest.Entries, de)
 		return nil
 	})
-}
-
-type uploadWorkItem struct {
-	entry             fs.Entry
-	entryRelativePath string
-	uploadFunc        func() entryResult
-	resultChan        chan entryResult
 }
 
 func metadataEquals(e1, e2 fs.Entry) bool {
@@ -392,24 +408,20 @@ func (u *Uploader) maybeIgnoreCachedEntry(ctx context.Context, ent fs.Entry) fs.
 	return nil
 }
 
-func (u *Uploader) prepareWorkItems(ctx context.Context, dirRelativePath string, entries fs.Entries, policyTree *policy.Tree, prevEntries []fs.Entries, summ *fs.DirectorySummary) ([]*uploadWorkItem, error) {
-	var result []*uploadWorkItem
+func (u *Uploader) processNonDirectories(ctx context.Context, dirRelativePath string, entries fs.Entries, policyTree *policy.Tree, prevEntries []fs.Entries, summ *fs.DirectorySummary) ([]*snapshot.DirEntry, error) {
+	workerCount := u.ParallelUploads
+	if workerCount == 0 {
+		workerCount = runtime.NumCPU()
+	}
 
-	resultErr := u.foreachEntryUnlessCancelled(dirRelativePath, entries, func(entry fs.Entry, entryRelativePath string) error {
+	// prepare results slice, each callback below will populate one of the entries
+	results := make([]*snapshot.DirEntry, len(entries))
+
+	resultErr := u.foreachEntryUnlessCancelled(ctx, workerCount, dirRelativePath, entries, func(ctx context.Context, index int, entry fs.Entry, entryRelativePath string) error {
+		// note this function runs in parallel and updates 'u.stats', all changes to 'summ' must be safe
 		if _, ok := entry.(fs.Directory); ok {
 			// skip directories
 			return nil
-		}
-
-		// regular file
-		if entry, ok := entry.(fs.File); ok {
-			u.stats.TotalFileCount++
-			u.stats.TotalFileSize += entry.Size()
-			summ.TotalFileCount++
-			summ.TotalFileSize += entry.Size()
-			if entry.ModTime().After(summ.MaxModTime) {
-				summ.MaxModTime = entry.ModTime()
-			}
 		}
 
 		// See if we had this name during either of previous passes.
@@ -423,117 +435,65 @@ func (u *Uploader) prepareWorkItems(ctx context.Context, dirRelativePath string,
 				return errors.Wrap(err, "unable to create dir entry")
 			}
 
-			// Avoid hashing by reusing previous object ID.
-			result = append(result, &uploadWorkItem{
-				entry:             entry,
-				entryRelativePath: entryRelativePath,
-				uploadFunc: func() entryResult {
-					return entryResult{de: cachedDirEntry}
-				},
-			})
-		} else {
-			switch entry := entry.(type) {
-			case fs.Symlink:
-				result = append(result, &uploadWorkItem{
-					entry:             entry,
-					entryRelativePath: entryRelativePath,
-					uploadFunc: func() entryResult {
-						return u.uploadSymlinkInternal(ctx, filepath.Join(dirRelativePath, entry.Name()), entry)
-					},
-				})
-
-			case fs.File:
-				u.stats.NonCachedFiles++
-				result = append(result, &uploadWorkItem{
-					entry:             entry,
-					entryRelativePath: entryRelativePath,
-					uploadFunc: func() entryResult {
-						return u.uploadFileInternal(ctx, filepath.Join(dirRelativePath, entry.Name()), entry, policyTree.Child(entry.Name()).EffectivePolicy())
-					},
-				})
-
-			default:
-				return errors.Errorf("file type not supported: %v", entry.Mode())
-			}
+			results[index] = cachedDirEntry
+			return nil
 		}
+
+		switch entry := entry.(type) {
+		case fs.Symlink:
+			de, err := u.uploadSymlinkInternal(ctx, filepath.Join(dirRelativePath, entry.Name()), entry)
+			if err != nil {
+				return u.maybeIgnoreFileReadError(err, policyTree)
+			}
+
+			results[index] = de
+
+		case fs.File:
+			atomic.AddInt32(&u.stats.NonCachedFiles, 1)
+			de, err := u.uploadFileInternal(ctx, filepath.Join(dirRelativePath, entry.Name()), entry, policyTree.Child(entry.Name()).EffectivePolicy())
+			if err != nil {
+				return u.maybeIgnoreFileReadError(err, policyTree)
+			}
+
+			results[index] = de
+
+		default:
+			return errors.Errorf("file type not supported: %v", entry.Mode())
+		}
+
 		return nil
 	})
 
-	return result, resultErr
-}
-
-func toChannel(items []*uploadWorkItem) <-chan *uploadWorkItem {
-	ch := make(chan *uploadWorkItem)
-
-	go func() {
-		defer close(ch)
-
-		for _, wi := range items {
-			ch <- wi
+	for _, ent := range results {
+		if ent == nil {
+			continue
 		}
-	}()
 
-	return ch
-}
+		if ent.Type == snapshot.EntryTypeFile {
+			u.stats.TotalFileCount++
+			u.stats.TotalFileSize += ent.FileSize
+			summ.TotalFileCount++
+			summ.TotalFileSize += ent.FileSize
 
-func (u *Uploader) launchWorkItems(workItems []*uploadWorkItem, wg *sync.WaitGroup) {
-	// allocate result channel for each work item.
-	for _, it := range workItems {
-		it.resultChan = make(chan entryResult, 1)
-	}
-
-	workerCount := u.ParallelUploads
-	if workerCount == 0 {
-		workerCount = runtime.NumCPU()
-	}
-
-	ch := toChannel(workItems)
-
-	for i := 0; i < workerCount; i++ {
-		wg.Add(1)
-
-		go func() {
-			defer wg.Done()
-
-			for it := range ch {
-				it.resultChan <- it.uploadFunc()
+			if ent.ModTime.After(summ.MaxModTime) {
+				summ.MaxModTime = ent.ModTime
 			}
-		}()
+		}
 	}
+
+	return notNilEntries(results), resultErr
 }
 
-func (u *Uploader) processUploadWorkItems(ctx context.Context, workItems []*uploadWorkItem, dirManifest *snapshot.DirManifest, ignoreFileErrs bool) error {
-	var wg sync.WaitGroup
+func notNilEntries(entries []*snapshot.DirEntry) []*snapshot.DirEntry {
+	var res []*snapshot.DirEntry
 
-	u.launchWorkItems(workItems, &wg)
-
-	// Read result channels in order.
-	for _, it := range workItems {
-		result := <-it.resultChan
-
-		if result.err == errCancelled {
-			return errCancelled
+	for _, v := range entries {
+		if v != nil {
+			res = append(res, v)
 		}
-
-		if result.err != nil {
-			if ignoreFileErrs {
-				u.stats.ReadErrors++
-
-				log(ctx).Warningf("unable to hash file %q: %s, ignoring", it.entryRelativePath, result.err)
-
-				continue
-			}
-
-			return errors.Errorf("unable to process %q: %s", it.entryRelativePath, result.err)
-		}
-
-		dirManifest.Entries = append(dirManifest.Entries, result.de)
 	}
 
-	// wait for workers, this is technically not needed, but let's make sure we don't leak goroutines
-	wg.Wait()
-
-	return nil
+	return res
 }
 
 func maybeReadDirectoryEntries(ctx context.Context, dir fs.Directory) fs.Entries {
@@ -628,20 +588,16 @@ func uploadDirInternal(
 	}
 
 	log(ctx).Debugf("preparing work items %v", dirRelativePath)
-	workItems, workItemErr := u.prepareWorkItems(ctx, dirRelativePath, entries, policyTree, prevEntries, &summ)
+	uploadedEntries, workItemErr := u.processNonDirectories(ctx, dirRelativePath, entries, policyTree, prevEntries, &summ)
 	log(ctx).Debugf("finished preparing work items %v", dirRelativePath)
 
 	if workItemErr != nil && workItemErr != errCancelled {
 		return "", fs.DirectorySummary{}, workItemErr
 	}
 
-	ignoreFileErrs := u.shouldIgnoreFileReadErrors(policyTree)
-	if err := u.processUploadWorkItems(ctx, workItems, dirManifest, ignoreFileErrs); err != nil && err != errCancelled {
-		return "", fs.DirectorySummary{}, err
-	}
-
 	log(ctx).Debugf("finished processing uploads %v", dirRelativePath)
 
+	dirManifest.Entries = append(dirManifest.Entries, uploadedEntries...)
 	dirManifest.Summary = &summ
 
 	writer := u.repo.Objects.NewWriter(ctx, object.WriterOptions{
@@ -658,14 +614,14 @@ func uploadDirInternal(
 	return oid, summ, err
 }
 
-func (u *Uploader) shouldIgnoreFileReadErrors(policyTree *policy.Tree) bool {
+func (u *Uploader) maybeIgnoreFileReadError(err error, policyTree *policy.Tree) error {
 	errHandlingPolicy := policyTree.EffectivePolicy().ErrorHandlingPolicy
 
-	if u.IgnoreReadErrors {
-		return true
+	if u.IgnoreReadErrors || errHandlingPolicy.IgnoreFileErrorsOrDefault(false) {
+		return nil
 	}
 
-	return errHandlingPolicy.IgnoreFileErrorsOrDefault(false)
+	return err
 }
 
 func (u *Uploader) shouldIgnoreDirectoryReadErrors(policyTree *policy.Tree) bool {

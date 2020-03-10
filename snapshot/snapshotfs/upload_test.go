@@ -126,7 +126,7 @@ func TestUpload(t *testing.T) {
 		t.Errorf("expected s1.RootObjectID==s2.RootObjectID, got %v and %v", s1.RootObjectID().String(), s2.RootObjectID().String())
 	}
 
-	if got, want := s1.Stats.CachedFiles, 0; got != want {
+	if got, want := s1.Stats.CachedFiles, int32(0); got != want {
 		t.Errorf("unexpected s1 cached files: %v, want %v", got, want)
 	}
 
@@ -135,7 +135,7 @@ func TestUpload(t *testing.T) {
 		t.Errorf("unexpected s2 cached files: %v, want %v", got, want)
 	}
 
-	if got, want := s2.Stats.NonCachedFiles, 0; got != want {
+	if got, want := s2.Stats.NonCachedFiles, int32(0); got != want {
 		t.Errorf("unexpected non-cached files: %v", got)
 	}
 
