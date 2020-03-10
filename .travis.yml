@@ -18,7 +18,7 @@ before_install:
 - |-
     case $TRAVIS_OS_NAME in
       windows)
-        choco install --no-progress -y make unzip curl
+        choco install --no-progress --force -y make unzip curl
         ;;
       osx):
         sudo xcode-select -r
