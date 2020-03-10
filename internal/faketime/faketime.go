@@ -36,7 +36,7 @@ func AutoAdvance(t time.Time, dt time.Duration) func() time.Time {
 // tests.
 type TimeAdvance struct {
 	base  time.Time
-	delta time.Duration
+	delta int64
 }
 
 // NewTimeAdvance creates a TimeAdvance with the given start time
@@ -47,16 +47,16 @@ func NewTimeAdvance(start time.Time) *TimeAdvance {
 // NowFunc returns a time provider function for t
 func (t *TimeAdvance) NowFunc() func() time.Time {
 	return func() time.Time {
-		dt := time.Duration(atomic.LoadInt64((*int64)(&t.delta)))
+		dt := atomic.LoadInt64(&t.delta)
 
-		return t.base.Add(dt)
+		return t.base.Add(time.Duration(dt))
 	}
 }
 
 // Advance advances t by dt, such that the next call to t.NowFunc()() returns
 // current t + dt
 func (t *TimeAdvance) Advance(dt time.Duration) time.Time {
-	advance := atomic.AddInt64((*int64)(&t.delta), int64(dt))
+	advance := atomic.AddInt64(&t.delta, int64(dt))
 
 	return t.base.Add(time.Duration(advance))
 }
