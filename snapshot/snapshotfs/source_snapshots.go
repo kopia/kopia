@@ -40,7 +40,7 @@ func (s *sourceSnapshots) Sys() interface{} {
 }
 
 func (s *sourceSnapshots) ModTime() time.Time {
-	return time.Now()
+	return s.rep.Time()
 }
 
 func (s *sourceSnapshots) Owner() fs.OwnerInfo {
