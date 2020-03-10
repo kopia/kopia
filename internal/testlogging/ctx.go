@@ -3,10 +3,16 @@ package testlogging
 
 import (
 	"context"
-	"testing"
 
 	"github.com/kopia/kopia/repo/logging"
 )
+
+type testingT interface {
+	Helper()
+	Errorf(string, ...interface{})
+	Fatalf(string, ...interface{})
+	Logf(string, ...interface{})
+}
 
 // Level specifies log level.
 type Level int
@@ -21,7 +27,7 @@ const (
 )
 
 type testLogger struct {
-	t        *testing.T
+	t        testingT
 	prefix   string
 	minLevel Level
 }
@@ -70,12 +76,12 @@ func (l *testLogger) Fatalf(msg string, args ...interface{}) {
 var _ logging.Logger = &testLogger{}
 
 // Context returns a context with attached logger that emits all log entries to go testing.T log output.
-func Context(t *testing.T) context.Context {
+func Context(t testingT) context.Context {
 	return ContextWithLevel(t, LevelDebug)
 }
 
 // ContextWithLevel returns a context with attached logger that emits all log entries with given log level or above.
-func ContextWithLevel(t *testing.T, level Level) context.Context {
+func ContextWithLevel(t testingT, level Level) context.Context {
 	return logging.WithLogger(context.Background(), func(module string) logging.Logger {
 		return &testLogger{t, "[" + module + "] ", level}
 	})

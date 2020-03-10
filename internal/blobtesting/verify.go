@@ -4,13 +4,12 @@ import (
 	"bytes"
 	"context"
 	"reflect"
-	"testing"
 
 	"github.com/kopia/kopia/repo/blob"
 )
 
 // VerifyStorage verifies the behavior of the specified storage.
-func VerifyStorage(ctx context.Context, t *testing.T, r blob.Storage) {
+func VerifyStorage(ctx context.Context, t testingT, r blob.Storage) {
 	t.Helper()
 
 	blocks := []struct {
@@ -64,7 +63,7 @@ func VerifyStorage(ctx context.Context, t *testing.T, r blob.Storage) {
 
 // AssertConnectionInfoRoundTrips verifies that the ConnectionInfo returned by a given storage can be used to create
 // equivalent storage
-func AssertConnectionInfoRoundTrips(ctx context.Context, t *testing.T, s blob.Storage) {
+func AssertConnectionInfoRoundTrips(ctx context.Context, t testingT, s blob.Storage) {
 	t.Helper()
 
 	ci := s.ConnectionInfo()
