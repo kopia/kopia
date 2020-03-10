@@ -30,7 +30,7 @@ type contentInfoOrError struct {
 	err error
 }
 
-func runContentRewriteCommand(ctx context.Context, rep *repo.Repository) error {
+func runContentRewriteCommand(ctx context.Context, rep *repo.DirectRepository) error {
 	cnt := getContentToRewrite(ctx, rep)
 
 	var (
@@ -92,7 +92,7 @@ func runContentRewriteCommand(ctx context.Context, rep *repo.Repository) error {
 	return errors.Errorf("failed to rewrite %v contents", failedCount)
 }
 
-func getContentToRewrite(ctx context.Context, rep *repo.Repository) <-chan contentInfoOrError {
+func getContentToRewrite(ctx context.Context, rep *repo.DirectRepository) <-chan contentInfoOrError {
 	ch := make(chan contentInfoOrError)
 
 	go func() {
@@ -125,7 +125,7 @@ func toContentIDs(s []string) []content.ID {
 	return result
 }
 
-func findContentInfos(ctx context.Context, rep *repo.Repository, ch chan contentInfoOrError, contentIDs []content.ID) {
+func findContentInfos(ctx context.Context, rep *repo.DirectRepository, ch chan contentInfoOrError, contentIDs []content.ID) {
 	for _, contentID := range contentIDs {
 		i, err := rep.Content.ContentInfo(ctx, contentID)
 		if err != nil {
@@ -136,7 +136,7 @@ func findContentInfos(ctx context.Context, rep *repo.Repository, ch chan content
 	}
 }
 
-func findContentWithFormatVersion(ctx context.Context, rep *repo.Repository, ch chan contentInfoOrError, version int) {
+func findContentWithFormatVersion(ctx context.Context, rep *repo.DirectRepository, ch chan contentInfoOrError, version int) {
 	_ = rep.Content.IterateContents(
 		ctx,
 		content.IterateOptions{IncludeDeleted: true},
@@ -148,7 +148,7 @@ func findContentWithFormatVersion(ctx context.Context, rep *repo.Repository, ch 
 		})
 }
 
-func findContentInShortPacks(ctx context.Context, rep *repo.Repository, ch chan contentInfoOrError, threshold int64) {
+func findContentInShortPacks(ctx context.Context, rep *repo.DirectRepository, ch chan contentInfoOrError, threshold int64) {
 	if err := rep.Content.IterateContentInShortPacks(ctx, threshold, func(ci content.Info) error {
 		ch <- contentInfoOrError{Info: ci}
 		return nil
@@ -159,5 +159,5 @@ func findContentInShortPacks(ctx context.Context, rep *repo.Repository, ch chan 
 }
 
 func init() {
-	contentRewriteCommand.Action(repositoryAction(runContentRewriteCommand))
+	contentRewriteCommand.Action(directRepositoryAction(runContentRewriteCommand))
 }

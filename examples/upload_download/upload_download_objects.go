@@ -13,8 +13,8 @@ import (
 	"github.com/kopia/kopia/repo/object"
 )
 
-func uploadRandomObject(ctx context.Context, r *repo.Repository, length int) (object.ID, error) {
-	w := r.Objects.NewWriter(ctx, object.WriterOptions{})
+func uploadRandomObject(ctx context.Context, r repo.Repository, length int) (object.ID, error) {
+	w := r.NewObjectWriter(ctx, object.WriterOptions{})
 	defer w.Close() //nolint:errcheck
 
 	buf := make([]byte, 256*1024)
@@ -32,8 +32,8 @@ func uploadRandomObject(ctx context.Context, r *repo.Repository, length int) (ob
 	return w.Result()
 }
 
-func downloadObject(ctx context.Context, r *repo.Repository, oid object.ID) ([]byte, error) {
-	rd, err := r.Objects.Open(ctx, oid)
+func downloadObject(ctx context.Context, r repo.Repository, oid object.ID) ([]byte, error) {
+	rd, err := r.OpenObject(ctx, oid)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +42,7 @@ func downloadObject(ctx context.Context, r *repo.Repository, oid object.ID) ([]b
 	return ioutil.ReadAll(rd)
 }
 
-func uploadAndDownloadObjects(ctx context.Context, r *repo.Repository) {
+func uploadAndDownloadObjects(ctx context.Context, r repo.Repository) {
 	var oids []object.ID
 
 	for size := 100; size < 100000000; size *= 2 {

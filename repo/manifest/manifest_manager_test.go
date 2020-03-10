@@ -2,6 +2,7 @@ package manifest
 
 import (
 	"context"
+	"encoding/json"
 	"reflect"
 	"sort"
 	"strings"
@@ -186,9 +187,16 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 		desc string
 		f    func() error
 	}{
-		{"GetRaw", func() error { _, err := mgr.GetRaw(ctx, "anything"); return err }},
+		{"GetRaw", func() error {
+			var raw json.RawMessage
+			_, err := mgr.Get(ctx, "anything", &raw)
+			return err
+		}},
 		{"GetMetadata", func() error { _, err := mgr.GetMetadata(ctx, "anything"); return err }},
-		{"Get", func() error { return mgr.Get(ctx, "anything", nil) }},
+		{"Get", func() error {
+			_, err := mgr.Get(ctx, "anything", nil)
+			return err
+		}},
 		{"Delete", func() error { return mgr.Delete(ctx, "anything") }},
 		{"Find", func() error { _, err := mgr.Find(ctx, nil); return err }},
 		{"Put", func() error {
@@ -240,7 +248,7 @@ func verifyItem(ctx context.Context, t *testing.T, mgr *Manager, id ID, labels m
 	}
 
 	var d2 map[string]int
-	if err := mgr.Get(ctx, id, &d2); err != nil {
+	if _, err := mgr.Get(ctx, id, &d2); err != nil {
 		t.Errorf("Get failed: %v", err)
 	}
 

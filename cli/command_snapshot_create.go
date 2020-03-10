@@ -35,7 +35,7 @@ var (
 	snapshotCreateEndTime                 = snapshotCreateCommand.Flag("end-time", "Override snapshot end timestamp.").String()
 )
 
-func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
+func runBackupCommand(ctx context.Context, rep repo.Repository) error {
 	sources := *snapshotCreateSources
 
 	if *snapshotCreateAll {
@@ -92,8 +92,8 @@ func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
 
 		sourceInfo := snapshot.SourceInfo{
 			Path:     filepath.Clean(dir),
-			Host:     rep.Hostname,
-			UserName: rep.Username,
+			Host:     rep.Hostname(),
+			UserName: rep.Username(),
 		}
 
 		if h := *snapshotCreateHostname; h != "" {
@@ -136,12 +136,10 @@ func startTimeAfterEndTime(startTime, endTime time.Time) bool {
 		startTime.After(endTime)
 }
 
-func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo) error {
+func snapshotSingleSource(ctx context.Context, rep repo.Repository, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo) error {
 	printStderr("Snapshotting %v ...\n", sourceInfo)
 
 	t0 := time.Now()
-
-	rep.Content.Stats.Reset()
 
 	localEntry, err := getLocalFSEntry(ctx, sourceInfo.Path)
 	if err != nil {
@@ -223,7 +221,7 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshot
 
 // findPreviousSnapshotManifest returns the list of previous snapshots for a given source, including
 // last complete snapshot and possibly some number of incomplete snapshots following it.
-func findPreviousSnapshotManifest(ctx context.Context, rep *repo.Repository, sourceInfo snapshot.SourceInfo, noLaterThan *time.Time) ([]*snapshot.Manifest, error) {
+func findPreviousSnapshotManifest(ctx context.Context, rep repo.Repository, sourceInfo snapshot.SourceInfo, noLaterThan *time.Time) ([]*snapshot.Manifest, error) {
 	man, err := snapshot.ListSnapshots(ctx, rep, sourceInfo)
 	if err != nil {
 		return nil, errors.Wrap(err, "error listing previous snapshots")
@@ -265,8 +263,8 @@ func findPreviousSnapshotManifest(ctx context.Context, rep *repo.Repository, sou
 	return result, nil
 }
 
-func getLocalBackupPaths(ctx context.Context, rep *repo.Repository) ([]string, error) {
-	log(ctx).Debugf("Looking for previous backups of '%v@%v'...", rep.Hostname, rep.Username)
+func getLocalBackupPaths(ctx context.Context, rep repo.Repository) ([]string, error) {
+	log(ctx).Debugf("Looking for previous backups of '%v@%v'...", rep.Hostname(), rep.Username())
 
 	sources, err := snapshot.ListSources(ctx, rep)
 	if err != nil {
@@ -276,7 +274,7 @@ func getLocalBackupPaths(ctx context.Context, rep *repo.Repository) ([]string, e
 	var result []string
 
 	for _, src := range sources {
-		if src.Host == rep.Hostname && src.UserName == rep.Username {
+		if src.Host == rep.Hostname() && src.UserName == rep.Username() {
 			result = append(result, src.Path)
 		}
 	}

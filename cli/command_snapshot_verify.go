@@ -32,7 +32,7 @@ var (
 )
 
 type verifier struct {
-	rep       *repo.Repository
+	rep       repo.Repository
 	om        *object.Manager
 	workQueue *parallelwork.Queue
 	startTime time.Time
@@ -177,10 +177,9 @@ func (v *verifier) readEntireObject(ctx context.Context, oid object.ID, path str
 	return err
 }
 
-func runVerifyCommand(ctx context.Context, rep *repo.Repository) error {
+func runVerifyCommand(ctx context.Context, rep repo.Repository) error {
 	v := &verifier{
 		rep:       rep,
-		om:        rep.Objects,
 		startTime: time.Now(),
 		workQueue: parallelwork.NewQueue(),
 		seen:      map[object.ID]bool{},
@@ -202,7 +201,7 @@ func runVerifyCommand(ctx context.Context, rep *repo.Repository) error {
 	return errors.Errorf("encountered %v errors", len(v.errors))
 }
 
-func enqueueRootsToVerify(ctx context.Context, v *verifier, rep *repo.Repository) error {
+func enqueueRootsToVerify(ctx context.Context, v *verifier, rep repo.Repository) error {
 	manifests, err := loadSourceManifests(ctx, rep, *verifyCommandSources)
 	if err != nil {
 		return err
@@ -243,7 +242,7 @@ func enqueueRootsToVerify(ctx context.Context, v *verifier, rep *repo.Repository
 	return nil
 }
 
-func loadSourceManifests(ctx context.Context, rep *repo.Repository, sources []string) ([]*snapshot.Manifest, error) {
+func loadSourceManifests(ctx context.Context, rep repo.Repository, sources []string) ([]*snapshot.Manifest, error) {
 	var manifestIDs []manifest.ID
 
 	if *verifyCommandAllSources {
@@ -255,7 +254,7 @@ func loadSourceManifests(ctx context.Context, rep *repo.Repository, sources []st
 		manifestIDs = append(manifestIDs, man...)
 	} else {
 		for _, srcStr := range sources {
-			src, err := snapshot.ParseSourceInfo(srcStr, rep.Hostname, rep.Username)
+			src, err := snapshot.ParseSourceInfo(srcStr, rep.Hostname(), rep.Username())
 			if err != nil {
 				return nil, errors.Wrapf(err, "error parsing %q", srcStr)
 			}

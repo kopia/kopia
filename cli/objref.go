@@ -13,7 +13,7 @@ import (
 )
 
 // ParseObjectID interprets the given ID string and returns corresponding object.ID.
-func parseObjectID(ctx context.Context, rep *repo.Repository, id string) (object.ID, error) {
+func parseObjectID(ctx context.Context, rep repo.Repository, id string) (object.ID, error) {
 	parts := strings.Split(id, "/")
 
 	oid, err := object.ParseID(parts[0])

@@ -20,7 +20,7 @@ var (
 	diffCommandCommand   = diffCommand.Flag("diff-command", "Displays differences between two repository objects (files or directories)").Default(defaultDiffCommand()).Envar("KOPIA_DIFF").String()
 )
 
-func runDiffCommand(ctx context.Context, rep *repo.Repository) error {
+func runDiffCommand(ctx context.Context, rep repo.Repository) error {
 	oid1, err := parseObjectID(ctx, rep, *diffFirstObjectPath)
 	if err != nil {
 		return err

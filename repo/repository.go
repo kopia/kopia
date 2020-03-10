@@ -12,8 +12,29 @@ import (
 	"github.com/kopia/kopia/repo/object"
 )
 
-// Repository represents storage where both content-addressable and user-addressable data is kept.
-type Repository struct {
+// Repository exposes public API of Kopia repository, including objects and manifests.
+type Repository interface {
+	OpenObject(ctx context.Context, id object.ID) (object.Reader, error)
+	NewObjectWriter(ctx context.Context, opt object.WriterOptions) object.Writer
+	VerifyObject(ctx context.Context, id object.ID) ([]content.ID, error)
+
+	GetManifest(ctx context.Context, id manifest.ID, data interface{}) (*manifest.EntryMetadata, error)
+	PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error)
+	FindManifests(ctx context.Context, labels map[string]string) ([]*manifest.EntryMetadata, error)
+	DeleteManifest(ctx context.Context, id manifest.ID) error
+
+	Hostname() string
+	Username() string
+
+	Time() time.Time
+
+	Refresh(ctx context.Context) error
+	Flush(ctx context.Context) error
+	Close(ctx context.Context) error
+}
+
+// DirectRepository is an implementation of repository that directly manipulates underlying storage.
+type DirectRepository struct {
 	Blobs     blob.Storage
 	Content   *content.Manager
 	Objects   *object.Manager
@@ -22,16 +43,57 @@ type Repository struct {
 
 	ConfigFile string
 
-	Hostname string // connected (localhost) hostname
-	Username string // connected username
+	hostname string // connected (localhost) hostname
+	username string // connected username
 
 	timeNow    func() time.Time
 	formatBlob *formatBlob
 	masterKey  []byte
 }
 
+// Hostname returns the hostname that connected to the repository.
+func (r *DirectRepository) Hostname() string { return r.hostname }
+
+// Username returns the username that's connect to the repository.
+func (r *DirectRepository) Username() string { return r.username }
+
+// OpenObject opens the reader for a given object, returns object.ErrNotFound
+func (r *DirectRepository) OpenObject(ctx context.Context, id object.ID) (object.Reader, error) {
+	return r.Objects.Open(ctx, id)
+}
+
+// NewObjectWriter creates an object writer.
+func (r *DirectRepository) NewObjectWriter(ctx context.Context, opt object.WriterOptions) object.Writer {
+	return r.Objects.NewWriter(ctx, opt)
+}
+
+// VerifyObject verifies that the given object is stored properly in a repository and returns backing content IDs.
+func (r *DirectRepository) VerifyObject(ctx context.Context, id object.ID) ([]content.ID, error) {
+	return r.Objects.VerifyObject(ctx, id)
+}
+
+// GetManifest returns the given manifest data and metadata.
+func (r *DirectRepository) GetManifest(ctx context.Context, id manifest.ID, data interface{}) (*manifest.EntryMetadata, error) {
+	return r.Manifests.Get(ctx, id, data)
+}
+
+// PutManifest saves the given manifest payload with a set of labels.
+func (r *DirectRepository) PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error) {
+	return r.Manifests.Put(ctx, labels, payload)
+}
+
+// FindManifests returns metadata for manifests matching given set of labels.
+func (r *DirectRepository) FindManifests(ctx context.Context, labels map[string]string) ([]*manifest.EntryMetadata, error) {
+	return r.Manifests.Find(ctx, labels)
+}
+
+// DeleteManifest deletes the manifest with a given ID.
+func (r *DirectRepository) DeleteManifest(ctx context.Context, id manifest.ID) error {
+	return r.Manifests.Delete(ctx, id)
+}
+
 // Close closes the repository and releases all resources.
-func (r *Repository) Close(ctx context.Context) error {
+func (r *DirectRepository) Close(ctx context.Context) error {
 	if err := r.Flush(ctx); err != nil {
 		return errors.Wrap(err, "error flushing")
 	}
@@ -52,7 +114,7 @@ func (r *Repository) Close(ctx context.Context) error {
 }
 
 // Flush waits for all in-flight writes to complete.
-func (r *Repository) Flush(ctx context.Context) error {
+func (r *DirectRepository) Flush(ctx context.Context) error {
 	if err := r.Manifests.Flush(ctx); err != nil {
 		return err
 	}
@@ -61,7 +123,7 @@ func (r *Repository) Flush(ctx context.Context) error {
 }
 
 // Refresh periodically makes external changes visible to repository.
-func (r *Repository) Refresh(ctx context.Context) error {
+func (r *DirectRepository) Refresh(ctx context.Context) error {
 	updated, err := r.Content.Refresh(ctx)
 	if err != nil {
 		return errors.Wrap(err, "error refreshing content index")
@@ -83,7 +145,7 @@ func (r *Repository) Refresh(ctx context.Context) error {
 }
 
 // RefreshPeriodically periodically refreshes the repository to reflect the changes made by other hosts.
-func (r *Repository) RefreshPeriodically(ctx context.Context, interval time.Duration) {
+func (r *DirectRepository) RefreshPeriodically(ctx context.Context, interval time.Duration) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -98,7 +160,7 @@ func (r *Repository) RefreshPeriodically(ctx context.Context, interval time.Dura
 }
 
 // Time returns the current local time for the repo
-func (r *Repository) Time() time.Time {
+func (r *DirectRepository) Time() time.Time {
 	return defaultTime(r.timeNow)()
 }
 

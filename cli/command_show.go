@@ -13,13 +13,13 @@ var (
 	catCommandPath = catCommand.Arg("object-path", "Path").Required().String()
 )
 
-func runCatCommand(ctx context.Context, rep *repo.Repository) error {
+func runCatCommand(ctx context.Context, rep repo.Repository) error {
 	oid, err := parseObjectID(ctx, rep, *catCommandPath)
 	if err != nil {
 		return err
 	}
 
-	r, err := rep.Objects.Open(ctx, oid)
+	r, err := rep.OpenObject(ctx, oid)
 	if err != nil {
 		return err
 	}

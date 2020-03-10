@@ -20,7 +20,7 @@ var (
 	mountTraceFS  = mountCommand.Flag("trace-fs", "Trace filesystem operations").Bool()
 )
 
-func runMountCommand(ctx context.Context, rep *repo.Repository) error {
+func runMountCommand(ctx context.Context, rep repo.Repository) error {
 	var entry fs.Directory
 
 	if *mountObjectID == "all" {

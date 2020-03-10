@@ -17,7 +17,7 @@ var (
 	snapshotExpireDelete = snapshotExpireCommand.Flag("delete", "Whether to actually delete snapshots").Bool()
 )
 
-func getSnapshotSourcesToExpire(ctx context.Context, rep *repo.Repository) ([]snapshot.SourceInfo, error) {
+func getSnapshotSourcesToExpire(ctx context.Context, rep repo.Repository) ([]snapshot.SourceInfo, error) {
 	if *snapshotExpireAll {
 		return snapshot.ListSources(ctx, rep)
 	}
@@ -25,7 +25,7 @@ func getSnapshotSourcesToExpire(ctx context.Context, rep *repo.Repository) ([]sn
 	var result []snapshot.SourceInfo
 
 	for _, p := range *snapshotExpirePaths {
-		src, err := snapshot.ParseSourceInfo(p, rep.Hostname, rep.Username)
+		src, err := snapshot.ParseSourceInfo(p, rep.Hostname(), rep.Username())
 		if err != nil {
 			return nil, err
 		}
@@ -36,7 +36,7 @@ func getSnapshotSourcesToExpire(ctx context.Context, rep *repo.Repository) ([]sn
 	return result, nil
 }
 
-func runExpireCommand(ctx context.Context, rep *repo.Repository) error {
+func runExpireCommand(ctx context.Context, rep repo.Repository) error {
 	sources, err := getSnapshotSourcesToExpire(ctx, rep)
 	if err != nil {
 		return err

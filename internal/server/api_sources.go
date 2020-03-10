@@ -18,8 +18,8 @@ import (
 func (s *Server) handleSourcesList(ctx context.Context, r *http.Request) (interface{}, *apiError) {
 	resp := &serverapi.SourcesResponse{
 		Sources:       []*serverapi.SourceStatus{},
-		LocalHost:     s.rep.Hostname,
-		LocalUsername: s.rep.Username,
+		LocalHost:     s.rep.Hostname(),
+		LocalUsername: s.rep.Username(),
 	}
 
 	for _, v := range s.sourceManagers {
@@ -58,8 +58,8 @@ func (s *Server) handleSourcesCreate(ctx context.Context, r *http.Request) (inte
 	}
 
 	sourceInfo := snapshot.SourceInfo{
-		UserName: s.rep.Username,
-		Host:     s.rep.Hostname,
+		UserName: s.rep.Username(),
+		Host:     s.rep.Hostname(),
 		Path:     req.Path,
 	}
 

@@ -11,7 +11,7 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
-func policyTargets(ctx context.Context, rep *repo.Repository, globalFlag *bool, targetsFlag *[]string) ([]snapshot.SourceInfo, error) {
+func policyTargets(ctx context.Context, rep repo.Repository, globalFlag *bool, targetsFlag *[]string) ([]snapshot.SourceInfo, error) {
 	if *globalFlag == (len(*targetsFlag) > 0) {
 		return nil, errors.New("must pass either '--global' or a list of path targets")
 	}
@@ -31,7 +31,7 @@ func policyTargets(ctx context.Context, rep *repo.Repository, globalFlag *bool, 
 			continue
 		}
 
-		target, err := snapshot.ParseSourceInfo(ts, rep.Hostname, rep.Username)
+		target, err := snapshot.ParseSourceInfo(ts, rep.Hostname(), rep.Username())
 		if err != nil {
 			return nil, err
 		}

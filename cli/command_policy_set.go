@@ -74,7 +74,7 @@ func init() {
 	policySetCommand.Action(repositoryAction(setPolicy))
 }
 
-func setPolicy(ctx context.Context, rep *repo.Repository) error {
+func setPolicy(ctx context.Context, rep repo.Repository) error {
 	targets, err := policyTargets(ctx, rep, policySetGlobal, policySetTargets)
 	if err != nil {
 		return err

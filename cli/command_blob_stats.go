@@ -15,7 +15,7 @@ var (
 	blobStatsRaw     = blobStatsCommand.Flag("raw", "Raw numbers").Short('r').Bool()
 )
 
-func runBlobStatsCommand(ctx context.Context, rep *repo.Repository) error {
+func runBlobStatsCommand(ctx context.Context, rep *repo.DirectRepository) error {
 	var sizeThreshold int64 = 10
 
 	countMap := map[int64]int{}
@@ -84,5 +84,5 @@ func runBlobStatsCommand(ctx context.Context, rep *repo.Repository) error {
 }
 
 func init() {
-	blobStatsCommand.Action(repositoryAction(runBlobStatsCommand))
+	blobStatsCommand.Action(directRepositoryAction(runBlobStatsCommand))
 }

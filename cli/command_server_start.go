@@ -35,8 +35,8 @@ func init() {
 	serverStartCommand.Action(optionalRepositoryAction(runServer))
 }
 
-func runServer(ctx context.Context, rep *repo.Repository) error {
-	srv, err := server.New(ctx, rep, server.Options{
+func runServer(ctx context.Context, rep repo.Repository) error {
+	srv, err := server.New(ctx, server.Options{
 		ConfigFile:      repositoryConfigFileName(),
 		ConnectOptions:  connectOptions(),
 		RefreshInterval: *serverStartRefreshInterval,

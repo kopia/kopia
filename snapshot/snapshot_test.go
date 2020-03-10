@@ -76,7 +76,7 @@ func TestSnapshotsAPI(t *testing.T) {
 	verifyLoadSnapshots(t, env.Repository, []manifest.ID{id1, id2, id3}, []*snapshot.Manifest{manifest1, manifest2, manifest3})
 }
 
-func verifySnapshotManifestIDs(t *testing.T, rep *repo.Repository, src *snapshot.SourceInfo, expected []manifest.ID) {
+func verifySnapshotManifestIDs(t *testing.T, rep repo.Repository, src *snapshot.SourceInfo, expected []manifest.ID) {
 	t.Helper()
 
 	res, err := snapshot.ListSnapshotManifests(testlogging.Context(t), rep, src)
@@ -98,7 +98,7 @@ func sortManifestIDs(s []manifest.ID) {
 	})
 }
 
-func mustSaveSnapshot(t *testing.T, rep *repo.Repository, man *snapshot.Manifest) manifest.ID {
+func mustSaveSnapshot(t *testing.T, rep repo.Repository, man *snapshot.Manifest) manifest.ID {
 	t.Helper()
 
 	id, err := snapshot.SaveSnapshot(testlogging.Context(t), rep, man)
@@ -109,7 +109,7 @@ func mustSaveSnapshot(t *testing.T, rep *repo.Repository, man *snapshot.Manifest
 	return id
 }
 
-func verifySources(t *testing.T, rep *repo.Repository, sources ...snapshot.SourceInfo) {
+func verifySources(t *testing.T, rep repo.Repository, sources ...snapshot.SourceInfo) {
 	actualSources, err := snapshot.ListSources(testlogging.Context(t), rep)
 	if err != nil {
 		t.Errorf("error listing sources: %v", err)
@@ -120,7 +120,7 @@ func verifySources(t *testing.T, rep *repo.Repository, sources ...snapshot.Sourc
 	}
 }
 
-func verifyListSnapshots(t *testing.T, rep *repo.Repository, src snapshot.SourceInfo, expected []*snapshot.Manifest) {
+func verifyListSnapshots(t *testing.T, rep repo.Repository, src snapshot.SourceInfo, expected []*snapshot.Manifest) {
 	t.Helper()
 
 	got, err := snapshot.ListSnapshots(testlogging.Context(t), rep, src)
@@ -142,7 +142,7 @@ func verifyListSnapshots(t *testing.T, rep *repo.Repository, src snapshot.Source
 	}
 }
 
-func verifyLoadSnapshots(t *testing.T, rep *repo.Repository, ids []manifest.ID, expected []*snapshot.Manifest) {
+func verifyLoadSnapshots(t *testing.T, rep repo.Repository, ids []manifest.ID, expected []*snapshot.Manifest) {
 	got, err := snapshot.LoadSnapshots(testlogging.Context(t), rep, ids)
 	if err != nil {
 		t.Errorf("error loading manifests: %v", err)

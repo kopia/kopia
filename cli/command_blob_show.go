@@ -17,7 +17,7 @@ var (
 	blobShowIDs     = blobShowCommand.Arg("blobID", "Blob IDs").Required().Strings()
 )
 
-func runBlobShow(ctx context.Context, rep *repo.Repository) error {
+func runBlobShow(ctx context.Context, rep *repo.DirectRepository) error {
 	for _, blobID := range *blobShowIDs {
 		d, err := rep.Blobs.GetBlob(ctx, blob.ID(blobID), 0, -1)
 		if err != nil {
@@ -33,5 +33,5 @@ func runBlobShow(ctx context.Context, rep *repo.Repository) error {
 }
 
 func init() {
-	blobShowCommand.Action(repositoryAction(runBlobShow))
+	blobShowCommand.Action(directRepositoryAction(runBlobShow))
 }

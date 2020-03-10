@@ -15,7 +15,7 @@ import (
 )
 
 type sourceSnapshots struct {
-	rep *repo.Repository
+	rep repo.Repository
 	src snapshot.SourceInfo
 }
 

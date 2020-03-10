@@ -16,7 +16,7 @@ var (
 	blockIndexRecoverCommit  = blockIndexRecoverCommand.Flag("commit", "Commit recovered content").Bool()
 )
 
-func runRecoverBlockIndexesAction(ctx context.Context, rep *repo.Repository) error {
+func runRecoverBlockIndexesAction(ctx context.Context, rep *repo.DirectRepository) error {
 	var totalCount int
 
 	defer func() {
@@ -51,7 +51,7 @@ func runRecoverBlockIndexesAction(ctx context.Context, rep *repo.Repository) err
 	return nil
 }
 
-func recoverIndexFromSinglePackFile(ctx context.Context, rep *repo.Repository, blobID blob.ID, length int64, totalCount *int) {
+func recoverIndexFromSinglePackFile(ctx context.Context, rep *repo.DirectRepository, blobID blob.ID, length int64, totalCount *int) {
 	recovered, err := rep.Content.RecoverIndexFromPackBlob(ctx, blobID, length, *blockIndexRecoverCommit)
 	if err != nil {
 		log(ctx).Warningf("unable to recover index from %v: %v", blobID, err)
@@ -63,5 +63,5 @@ func recoverIndexFromSinglePackFile(ctx context.Context, rep *repo.Repository, b
 }
 
 func init() {
-	blockIndexRecoverCommand.Action(repositoryAction(runRecoverBlockIndexesAction))
+	blockIndexRecoverCommand.Action(directRepositoryAction(runRecoverBlockIndexesAction))
 }

@@ -17,7 +17,7 @@ func init() {
 	policyRemoveCommand.Action(repositoryAction(removePolicy))
 }
 
-func removePolicy(ctx context.Context, rep *repo.Repository) error {
+func removePolicy(ctx context.Context, rep repo.Repository) error {
 	targets, err := policyTargets(ctx, rep, policyRemoveGlobal, policyRemoveTargets)
 	if err != nil {
 		return err

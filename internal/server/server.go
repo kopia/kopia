@@ -26,7 +26,7 @@ type Server struct {
 	OnShutdown func(ctx context.Context) error
 
 	options   Options
-	rep       *repo.Repository
+	rep       repo.Repository
 	cancelRep context.CancelFunc
 
 	// all API requests run with shared lock on this mutex
@@ -178,7 +178,7 @@ func (s *Server) endUpload(ctx context.Context, src snapshot.SourceInfo) {
 
 // SetRepository sets the repository (nil is allowed and indicates server that is not
 // connected to the repository).
-func (s *Server) SetRepository(ctx context.Context, rep *repo.Repository) error {
+func (s *Server) SetRepository(ctx context.Context, rep repo.Repository) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -223,7 +223,7 @@ func (s *Server) SetRepository(ctx context.Context, rep *repo.Repository) error 
 	return nil
 }
 
-func (s *Server) refreshPeriodically(ctx context.Context, r *repo.Repository) {
+func (s *Server) refreshPeriodically(ctx context.Context, r repo.Repository) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -334,9 +334,9 @@ type Options struct {
 	RefreshInterval time.Duration
 }
 
-// New creates a Server on top of a given Repository.
+// New creates a Server.
 // The server will manage sources for a given username@hostname.
-func New(ctx context.Context, rep *repo.Repository, options Options) (*Server, error) {
+func New(ctx context.Context, options Options) (*Server, error) {
 	s := &Server{
 		options:         options,
 		sourceManagers:  map[snapshot.SourceInfo]*sourceManager{},

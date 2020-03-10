@@ -17,7 +17,7 @@ func init() {
 	policyListCommand.Action(repositoryAction(listPolicies))
 }
 
-func listPolicies(ctx context.Context, rep *repo.Repository) error {
+func listPolicies(ctx context.Context, rep repo.Repository) error {
 	policies, err := policy.ListPolicies(ctx, rep)
 	if err != nil {
 		return err

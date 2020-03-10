@@ -14,7 +14,7 @@ var (
 	contentShowIDs = contentShowCommand.Arg("id", "IDs of contents to show").Required().Strings()
 )
 
-func runContentShowCommand(ctx context.Context, rep *repo.Repository) error {
+func runContentShowCommand(ctx context.Context, rep *repo.DirectRepository) error {
 	for _, contentID := range toContentIDs(*contentShowIDs) {
 		if err := contentShow(ctx, rep, contentID); err != nil {
 			return err
@@ -24,7 +24,7 @@ func runContentShowCommand(ctx context.Context, rep *repo.Repository) error {
 	return nil
 }
 
-func contentShow(ctx context.Context, r *repo.Repository, contentID content.ID) error {
+func contentShow(ctx context.Context, r *repo.DirectRepository, contentID content.ID) error {
 	data, err := r.Content.GetContent(ctx, contentID)
 	if err != nil {
 		return err
@@ -35,5 +35,5 @@ func contentShow(ctx context.Context, r *repo.Repository, contentID content.ID) 
 
 func init() {
 	setupShowCommand(contentShowCommand)
-	contentShowCommand.Action(repositoryAction(runContentShowCommand))
+	contentShowCommand.Action(directRepositoryAction(runContentShowCommand))
 }

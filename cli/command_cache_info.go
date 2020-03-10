@@ -17,7 +17,7 @@ var (
 	cacheInfoPathOnly = cacheInfoCommand.Flag("path", "Only display cache path").Bool()
 )
 
-func runCacheInfoCommand(ctx context.Context, rep *repo.Repository) error {
+func runCacheInfoCommand(ctx context.Context, rep *repo.DirectRepository) error {
 	if *cacheInfoPathOnly {
 		fmt.Println(rep.Content.CachingOptions.CacheDirectory)
 		return nil
@@ -57,5 +57,5 @@ func runCacheInfoCommand(ctx context.Context, rep *repo.Repository) error {
 }
 
 func init() {
-	cacheInfoCommand.Action(repositoryAction(runCacheInfoCommand))
+	cacheInfoCommand.Action(directRepositoryAction(runCacheInfoCommand))
 }

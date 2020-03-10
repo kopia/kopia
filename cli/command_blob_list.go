@@ -15,7 +15,7 @@ var (
 	blobListMaxSize = blobListCommand.Flag("max-size", "Maximum size").Int64()
 )
 
-func runBlobList(ctx context.Context, rep *repo.Repository) error {
+func runBlobList(ctx context.Context, rep *repo.DirectRepository) error {
 	return rep.Blobs.ListBlobs(ctx, blob.ID(*blobListPrefix), func(b blob.Metadata) error {
 		if *blobListMaxSize != 0 && b.Length > *blobListMaxSize {
 			return nil
@@ -31,5 +31,5 @@ func runBlobList(ctx context.Context, rep *repo.Repository) error {
 }
 
 func init() {
-	blobListCommand.Action(repositoryAction(runBlobList))
+	blobListCommand.Action(directRepositoryAction(runBlobList))
 }

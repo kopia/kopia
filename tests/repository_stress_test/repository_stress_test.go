@@ -155,10 +155,10 @@ func longLivedRepositoryTest(ctx context.Context, t *testing.T, cancel chan stru
 	wg2.Wait()
 }
 
-func repositoryTest(ctx context.Context, t *testing.T, cancel chan struct{}, rep *repo.Repository) {
+func repositoryTest(ctx context.Context, t *testing.T, cancel chan struct{}, rep *repo.DirectRepository) {
 	workTypes := []*struct {
 		name     string
-		fun      func(ctx context.Context, t *testing.T, r *repo.Repository) error
+		fun      func(ctx context.Context, t *testing.T, r *repo.DirectRepository) error
 		weight   int
 		hitCount int
 	}{
@@ -218,7 +218,7 @@ func repositoryTest(ctx context.Context, t *testing.T, cancel chan struct{}, rep
 	}
 }
 
-func writeRandomBlock(ctx context.Context, t *testing.T, r *repo.Repository) error {
+func writeRandomBlock(ctx context.Context, t *testing.T, r *repo.DirectRepository) error {
 	data := make([]byte, 1000)
 	cryptorand.Read(data) //nolint:errcheck
 
@@ -237,7 +237,7 @@ func writeRandomBlock(ctx context.Context, t *testing.T, r *repo.Repository) err
 	return err
 }
 
-func readKnownBlock(ctx context.Context, t *testing.T, r *repo.Repository) error {
+func readKnownBlock(ctx context.Context, t *testing.T, r *repo.DirectRepository) error {
 	knownBlocksMutex.Lock()
 	if len(knownBlocks) == 0 {
 		knownBlocksMutex.Unlock()
@@ -255,7 +255,7 @@ func readKnownBlock(ctx context.Context, t *testing.T, r *repo.Repository) error
 	return err
 }
 
-func listContents(ctx context.Context, t *testing.T, r *repo.Repository) error {
+func listContents(ctx context.Context, t *testing.T, r *repo.DirectRepository) error {
 	return r.Content.IterateContents(
 		ctx,
 		content.IterateOptions{},
@@ -263,7 +263,7 @@ func listContents(ctx context.Context, t *testing.T, r *repo.Repository) error {
 	)
 }
 
-func listAndReadAllContents(ctx context.Context, t *testing.T, r *repo.Repository) error {
+func listAndReadAllContents(ctx context.Context, t *testing.T, r *repo.DirectRepository) error {
 	return r.Content.IterateContents(
 		ctx,
 		content.IterateOptions{},
@@ -282,20 +282,20 @@ func listAndReadAllContents(ctx context.Context, t *testing.T, r *repo.Repositor
 		})
 }
 
-func compact(ctx context.Context, t *testing.T, r *repo.Repository) error {
+func compact(ctx context.Context, t *testing.T, r *repo.DirectRepository) error {
 	return r.Content.CompactIndexes(ctx, content.CompactOptions{MaxSmallBlobs: 1})
 }
 
-func flush(ctx context.Context, t *testing.T, r *repo.Repository) error {
+func flush(ctx context.Context, t *testing.T, r *repo.DirectRepository) error {
 	return r.Flush(ctx)
 }
 
-func refresh(ctx context.Context, t *testing.T, r *repo.Repository) error {
+func refresh(ctx context.Context, t *testing.T, r *repo.DirectRepository) error {
 	return r.Refresh(ctx)
 }
 
-func readRandomManifest(ctx context.Context, t *testing.T, r *repo.Repository) error {
-	manifests, err := r.Manifests.Find(ctx, nil)
+func readRandomManifest(ctx context.Context, t *testing.T, r *repo.DirectRepository) error {
+	manifests, err := r.FindManifests(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -306,12 +306,12 @@ func readRandomManifest(ctx context.Context, t *testing.T, r *repo.Repository) e
 
 	n := rand.Intn(len(manifests))
 
-	_, err = r.Manifests.GetRaw(ctx, manifests[n].ID)
+	_, err = r.GetManifest(ctx, manifests[n].ID, nil)
 
 	return err
 }
 
-func writeRandomManifest(ctx context.Context, t *testing.T, r *repo.Repository) error {
+func writeRandomManifest(ctx context.Context, t *testing.T, r *repo.DirectRepository) error {
 	key1 := fmt.Sprintf("key-%v", rand.Intn(10))
 	key2 := fmt.Sprintf("key-%v", rand.Intn(10))
 	val1 := fmt.Sprintf("val1-%v", rand.Intn(10))
@@ -320,7 +320,7 @@ func writeRandomManifest(ctx context.Context, t *testing.T, r *repo.Repository) 
 	content2 := fmt.Sprintf("content-%v", rand.Intn(10))
 	content1val := fmt.Sprintf("val1-%v", rand.Intn(10))
 	content2val := fmt.Sprintf("val2-%v", rand.Intn(10))
-	_, err := r.Manifests.Put(ctx, map[string]string{
+	_, err := r.PutManifest(ctx, map[string]string{
 		"type": key1,
 		key1:   val1,
 		key2:   val2,

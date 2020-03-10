@@ -19,7 +19,7 @@ var (
 	contentVerifyFull     = contentVerifyCommand.Flag("full", "Full verification (including download)").Bool()
 )
 
-func runContentVerifyCommand(ctx context.Context, rep *repo.Repository) error {
+func runContentVerifyCommand(ctx context.Context, rep *repo.DirectRepository) error {
 	blobMap := map[blob.ID]blob.Metadata{}
 
 	if !*contentVerifyFull {
@@ -56,7 +56,7 @@ func runContentVerifyCommand(ctx context.Context, rep *repo.Repository) error {
 	return nil
 }
 
-func verifyAllContents(ctx context.Context, rep *repo.Repository, blobMap map[blob.ID]blob.Metadata) error {
+func verifyAllContents(ctx context.Context, rep *repo.DirectRepository, blobMap map[blob.ID]blob.Metadata) error {
 	var totalCount, successCount, errorCount int32
 
 	printStderr("Verifying all contents...\n")
@@ -91,7 +91,7 @@ func verifyAllContents(ctx context.Context, rep *repo.Repository, blobMap map[bl
 	return errors.Errorf("encountered %v errors", errorCount)
 }
 
-func contentVerify(ctx context.Context, r *repo.Repository, ci *content.Info, blobMap map[blob.ID]blob.Metadata) error {
+func contentVerify(ctx context.Context, r *repo.DirectRepository, ci *content.Info, blobMap map[blob.ID]blob.Metadata) error {
 	if *contentVerifyFull {
 		if _, err := r.Content.GetContent(ctx, ci.ID); err != nil {
 			return errors.Wrapf(err, "content %v is invalid", ci.ID)
@@ -113,5 +113,5 @@ func contentVerify(ctx context.Context, r *repo.Repository, ci *content.Info, bl
 }
 
 func init() {
-	contentVerifyCommand.Action(repositoryAction(runContentVerifyCommand))
+	contentVerifyCommand.Action(directRepositoryAction(runContentVerifyCommand))
 }

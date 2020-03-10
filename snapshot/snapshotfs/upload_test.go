@@ -29,7 +29,7 @@ const (
 type uploadTestHarness struct {
 	sourceDir *mockfs.Directory
 	repoDir   string
-	repo      *repo.Repository
+	repo      repo.Repository
 }
 
 var errTest = errors.New("test error")

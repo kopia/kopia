@@ -21,7 +21,7 @@ const masterPassword = "foobarbazfoobarbaz"
 
 // Environment encapsulates details of a test environment.
 type Environment struct {
-	Repository *repo.Repository
+	Repository *repo.DirectRepository
 
 	configDir  string
 	storageDir string
@@ -124,7 +124,7 @@ func (e *Environment) MustReopen(t *testing.T) {
 }
 
 // MustOpenAnother opens another repository backend by the same storage.
-func (e *Environment) MustOpenAnother(t *testing.T) *repo.Repository {
+func (e *Environment) MustOpenAnother(t *testing.T) repo.Repository {
 	rep2, err := repo.Open(testlogging.Context(t), e.configFile(), masterPassword, &repo.Options{})
 	if err != nil {
 		t.Fatalf("err: %v", err)
