@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"path/filepath"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -22,6 +23,7 @@ var log = logging.GetContextLoggerFunc("kopia/repo")
 type Options struct {
 	TraceStorage         func(f string, args ...interface{}) // Logs all storage access using provided Printf-style function
 	ObjectManagerOptions object.ManagerOptions
+	TimeNowFunc          func() time.Time // Time provider
 }
 
 // ErrInvalidPassword is returned when repository password is invalid.
@@ -117,7 +119,12 @@ func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		fo.MaxPackSize = 20 << 20 // nolint:gomnd
 	}
 
-	cm, err := content.NewManager(ctx, st, fo, caching, fb)
+	cmOpts := content.ManagerOptions{
+		RepositoryFormatBytes: fb,
+		TimeNow:               defaultTime(options.TimeNowFunc),
+	}
+
+	cm, err := content.NewManager(ctx, st, fo, caching, cmOpts)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open content manager")
 	}
@@ -127,7 +134,7 @@ func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		return nil, errors.Wrap(err, "unable to open object manager")
 	}
 
-	manifests, err := manifest.NewManager(ctx, cm)
+	manifests, err := manifest.NewManager(ctx, cm, manifest.ManagerOptions{TimeNow: cmOpts.TimeNow})
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open manifests")
 	}
@@ -141,6 +148,7 @@ func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 
 		formatBlob: f,
 		masterKey:  masterKey,
+		timeNow:    cmOpts.TimeNow,
 	}, nil
 }
 

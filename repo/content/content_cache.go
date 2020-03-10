@@ -175,7 +175,7 @@ func (c *contentCache) sweepDirectory(ctx context.Context) (err error) {
 		return nil
 	}
 
-	t0 := time.Now()
+	t0 := time.Now() // allow:no-inject-time
 
 	var h contentMetadataHeap
 
@@ -199,7 +199,7 @@ func (c *contentCache) sweepDirectory(ctx context.Context) (err error) {
 		return errors.Wrap(err, "error listing cache")
 	}
 
-	log(ctx).Debugf("finished sweeping directory in %v and retained %v/%v bytes (%v %%)", time.Since(t0), totalRetainedSize, c.maxSizeBytes, 100*totalRetainedSize/c.maxSizeBytes)
+	log(ctx).Debugf("finished sweeping directory in %v and retained %v/%v bytes (%v %%)", time.Since(t0), totalRetainedSize, c.maxSizeBytes, 100*totalRetainedSize/c.maxSizeBytes) // allow:no-inject-time
 	c.lastTotalSizeBytes = totalRetainedSize
 
 	return nil

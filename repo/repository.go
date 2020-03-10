@@ -25,6 +25,7 @@ type Repository struct {
 	Hostname string // connected (localhost) hostname
 	Username string // connected username
 
+	timeNow    func() time.Time
 	formatBlob *formatBlob
 	masterKey  []byte
 }
@@ -90,4 +91,17 @@ func (r *Repository) RefreshPeriodically(ctx context.Context, interval time.Dura
 			}
 		}
 	}
+}
+
+// Time returns the current local time for the repo
+func (r *Repository) Time() time.Time {
+	return defaultTime(r.timeNow)()
+}
+
+func defaultTime(f func() time.Time) func() time.Time {
+	if f != nil {
+		return f
+	}
+
+	return time.Now // allow:no-inject-time
 }

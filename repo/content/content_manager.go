@@ -568,17 +568,28 @@ func (bm *Manager) Refresh(ctx context.Context) (bool, error) {
 
 	log(ctx).Debugf("Refresh started")
 
-	t0 := time.Now()
+	t0 := time.Now() // allow:no-inject-time
 
 	_, updated, err := bm.loadPackIndexesUnlocked(ctx)
-	log(ctx).Debugf("Refresh completed in %v and updated=%v", time.Since(t0), updated)
+	log(ctx).Debugf("Refresh completed in %v and updated=%v", time.Since(t0), updated) // allow:no-inject-time
 
 	return updated, err
 }
 
+// ManagerOptions are the optional parameters for manager creation
+type ManagerOptions struct {
+	RepositoryFormatBytes []byte
+	TimeNow               func() time.Time // Time provider
+}
+
 // NewManager creates new content manager with given packing options and a formatter.
-func NewManager(ctx context.Context, st blob.Storage, f *FormattingOptions, caching CachingOptions, repositoryFormatBytes []byte) (*Manager, error) {
-	return newManagerWithOptions(ctx, st, f, caching, time.Now, repositoryFormatBytes)
+func NewManager(ctx context.Context, st blob.Storage, f *FormattingOptions, caching CachingOptions, options ManagerOptions) (*Manager, error) {
+	nowFn := options.TimeNow
+	if nowFn == nil {
+		nowFn = time.Now // allow:no-inject-time
+	}
+
+	return newManagerWithOptions(ctx, st, f, caching, nowFn, options.RepositoryFormatBytes)
 }
 
 func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOptions, caching CachingOptions, timeNow func() time.Time, repositoryFormatBytes []byte) (*Manager, error) {

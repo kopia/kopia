@@ -95,7 +95,7 @@ func Run(ctx context.Context, rep *repo.Repository, minContentAge time.Duration,
 		}
 
 		if _, ok := used.Load(ci.ID); !ok {
-			if time.Since(ci.Timestamp()) < minContentAge {
+			if rep.Time().Sub(ci.Timestamp()) < minContentAge {
 				log(ctx).Debugf("recent unreferenced content %v (%v bytes, modified %v)", ci.ID, ci.Length, ci.Timestamp())
 				atomic.AddInt32(&tooRecentCount, 1)
 				atomic.AddInt64(&totalTooRecentBytes, int64(ci.Length))

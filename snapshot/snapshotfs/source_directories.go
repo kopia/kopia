@@ -28,7 +28,7 @@ func (s *sourceDirectories) Mode() os.FileMode {
 }
 
 func (s *sourceDirectories) ModTime() time.Time {
-	return time.Now()
+	return s.rep.Time()
 }
 
 func (s *sourceDirectories) Sys() interface{} {

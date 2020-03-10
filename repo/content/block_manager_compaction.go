@@ -89,7 +89,7 @@ func (bm *Manager) compactAndDeleteIndexBlobs(ctx context.Context, indexBlobs []
 
 	formatLog(ctx).Debugf("compacting %v contents", len(indexBlobs))
 
-	t0 := time.Now()
+	t0 := time.Now() // allow:no-inject-time
 	bld := make(packIndexBuilder)
 
 	for _, indexBlob := range indexBlobs {
@@ -108,7 +108,7 @@ func (bm *Manager) compactAndDeleteIndexBlobs(ctx context.Context, indexBlobs []
 		return errors.Wrap(err, "unable to write compacted indexes")
 	}
 
-	formatLog(ctx).Debugf("wrote compacted index (%v bytes) in %v", compactedIndexBlob, time.Since(t0))
+	formatLog(ctx).Debugf("wrote compacted index (%v bytes) in %v", compactedIndexBlob, time.Since(t0)) // allow:no-inject-time
 
 	for _, indexBlob := range indexBlobs {
 		if indexBlob.BlobID == compactedIndexBlob {
@@ -137,7 +137,7 @@ func (bm *Manager) addIndexBlobsToBuilder(ctx context.Context, bld packIndexBuil
 	}
 
 	_ = index.Iterate("", func(i Info) error {
-		if i.Deleted && opt.SkipDeletedOlderThan > 0 && time.Since(i.Timestamp()) > opt.SkipDeletedOlderThan {
+		if i.Deleted && opt.SkipDeletedOlderThan > 0 && bm.timeNow().Sub(i.Timestamp()) > opt.SkipDeletedOlderThan {
 			log(ctx).Debugf("skipping content %v deleted at %v", i.ID, i.Timestamp())
 			return nil
 		}

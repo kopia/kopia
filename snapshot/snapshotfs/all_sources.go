@@ -28,7 +28,7 @@ func (s *repositoryAllSources) Name() string {
 }
 
 func (s *repositoryAllSources) ModTime() time.Time {
-	return time.Now()
+	return s.rep.Time()
 }
 
 func (s *repositoryAllSources) Mode() os.FileMode {
