@@ -21,6 +21,7 @@ import (
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -76,7 +77,7 @@ func generateName(name string) string {
 	return fmt.Sprintf("%s-%x", name, b)
 }
 
-func getEnvOrSkip(t *testing.T, name string) string {
+func getEnvOrSkip(t *testutil.RetriableT, name string) string {
 	value, ok := os.LookupEnv(name)
 	if !ok {
 		t.Skip(fmt.Sprintf("Environment variable '%s' not provided", name))
@@ -106,92 +107,104 @@ func endpointReachable(endpoint string) bool {
 
 func TestS3StorageAWS(t *testing.T) {
 	t.Parallel()
-	// skip the test if AWS creds are not provided
-	options := &Options{
-		Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
-		AccessKeyID:     getEnvOrSkip(t, testAccessKeyIDEnv),
-		SecretAccessKey: getEnvOrSkip(t, testSecretAccessKeyEnv),
-		BucketName:      getEnvOrSkip(t, testBucketEnv),
-		Region:          getEnvOrSkip(t, testRegionEnv),
-	}
 
-	createBucket(t, options)
-	testStorage(t, options)
+	testutil.Retry(t, func(t *testutil.RetriableT) {
+		// skip the test if AWS creds are not provided
+		options := &Options{
+			Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
+			AccessKeyID:     getEnvOrSkip(t, testAccessKeyIDEnv),
+			SecretAccessKey: getEnvOrSkip(t, testSecretAccessKeyEnv),
+			BucketName:      getEnvOrSkip(t, testBucketEnv),
+			Region:          getEnvOrSkip(t, testRegionEnv),
+		}
+
+		createBucket(t, options)
+		testStorage(t, options)
+	})
 }
 
 func TestS3StorageAWSSTS(t *testing.T) {
 	t.Parallel()
-	// skip the test if AWS STS creds are not provided
-	options := &Options{
-		Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
-		AccessKeyID:     getEnvOrSkip(t, testSTSAccessKeyIDEnv),
-		SecretAccessKey: getEnvOrSkip(t, testSTSSecretAccessKeyEnv),
-		SessionToken:    getEnvOrSkip(t, testSessionTokenEnv),
-		BucketName:      getEnvOrSkip(t, testBucketEnv),
-		Region:          getEnvOrSkip(t, testRegionEnv),
-	}
 
-	// STS token may no have permission to create bucket
-	// use accesskeyid and secretaccesskey to create the bucket
-	createBucket(t, &Options{
-		Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
-		AccessKeyID:     getEnv(testAccessKeyIDEnv, ""),
-		SecretAccessKey: getEnv(testSecretAccessKeyEnv, ""),
-		BucketName:      options.BucketName,
-		Region:          options.Region,
+	testutil.Retry(t, func(t *testutil.RetriableT) {
+		// skip the test if AWS STS creds are not provided
+		options := &Options{
+			Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
+			AccessKeyID:     getEnvOrSkip(t, testSTSAccessKeyIDEnv),
+			SecretAccessKey: getEnvOrSkip(t, testSTSSecretAccessKeyEnv),
+			SessionToken:    getEnvOrSkip(t, testSessionTokenEnv),
+			BucketName:      getEnvOrSkip(t, testBucketEnv),
+			Region:          getEnvOrSkip(t, testRegionEnv),
+		}
+
+		// STS token may no have permission to create bucket
+		// use accesskeyid and secretaccesskey to create the bucket
+		createBucket(t, &Options{
+			Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
+			AccessKeyID:     getEnv(testAccessKeyIDEnv, ""),
+			SecretAccessKey: getEnv(testSecretAccessKeyEnv, ""),
+			BucketName:      options.BucketName,
+			Region:          options.Region,
+		})
+		testStorage(t, options)
 	})
-	testStorage(t, options)
 }
 
 func TestS3StorageMinio(t *testing.T) {
 	t.Parallel()
 
-	options := &Options{
-		Endpoint:        minioEndpoint,
-		AccessKeyID:     minioAccessKeyID,
-		SecretAccessKey: minioSecretAccessKey,
-		BucketName:      minioBucketName,
-		Region:          minioRegion,
-		DoNotUseTLS:     !minioUseSSL,
-	}
+	testutil.Retry(t, func(t *testutil.RetriableT) {
+		options := &Options{
+			Endpoint:        minioEndpoint,
+			AccessKeyID:     minioAccessKeyID,
+			SecretAccessKey: minioSecretAccessKey,
+			BucketName:      minioBucketName,
+			Region:          minioRegion,
+			DoNotUseTLS:     !minioUseSSL,
+		}
 
-	if !endpointReachable(options.Endpoint) {
-		t.Skip("endpoint not reachable")
-	}
+		if !endpointReachable(options.Endpoint) {
+			t.Skip("endpoint not reachable")
+		}
 
-	createBucket(t, options)
-	testStorage(t, options)
+		createBucket(t, options)
+		testStorage(t, options)
+	})
 }
 
 func TestS3StorageMinioSTS(t *testing.T) {
 	t.Parallel()
-	// create kopia user and session token
-	kopiaUserName := generateName("kopiauser")
-	kopiaUserPasswd := generateName("kopiapassword")
 
-	createMinioUser(t, kopiaUserName, kopiaUserPasswd)
-	defer deleteMinioUser(t, kopiaUserName)
-	kopiaAccessKeyID, kopiaSecretKey, kopiaSessionToken := createMinioSessionToken(t, kopiaUserName, kopiaUserPasswd, minioBucketName)
+	testutil.Retry(t, func(t *testutil.RetriableT) {
 
-	options := &Options{
-		Endpoint:        minioEndpoint,
-		AccessKeyID:     kopiaAccessKeyID,
-		SecretAccessKey: kopiaSecretKey,
-		SessionToken:    kopiaSessionToken,
-		BucketName:      minioBucketName,
-		Region:          minioRegion,
-		DoNotUseTLS:     !minioUseSSL,
-	}
+		// create kopia user and session token
+		kopiaUserName := generateName("kopiauser")
+		kopiaUserPasswd := generateName("kopiapassword")
 
-	if !endpointReachable(options.Endpoint) {
-		t.Skip("endpoint not reachable")
-	}
+		createMinioUser(t, kopiaUserName, kopiaUserPasswd)
+		defer deleteMinioUser(t, kopiaUserName)
+		kopiaAccessKeyID, kopiaSecretKey, kopiaSessionToken := createMinioSessionToken(t, kopiaUserName, kopiaUserPasswd, minioBucketName)
 
-	createBucket(t, options)
-	testStorage(t, options)
+		options := &Options{
+			Endpoint:        minioEndpoint,
+			AccessKeyID:     kopiaAccessKeyID,
+			SecretAccessKey: kopiaSecretKey,
+			SessionToken:    kopiaSessionToken,
+			BucketName:      minioBucketName,
+			Region:          minioRegion,
+			DoNotUseTLS:     !minioUseSSL,
+		}
+
+		if !endpointReachable(options.Endpoint) {
+			t.Skip("endpoint not reachable")
+		}
+
+		createBucket(t, options)
+		testStorage(t, options)
+	})
 }
 
-func testStorage(t *testing.T, options *Options) {
+func testStorage(t *testutil.RetriableT, options *Options) {
 	ctx := context.Background()
 
 	data := make([]byte, 8)
@@ -218,7 +231,7 @@ func testStorage(t *testing.T, options *Options) {
 	}
 }
 
-func createBucket(t *testing.T, opt *Options) {
+func createBucket(t *testutil.RetriableT, opt *Options) {
 	minioClient, err := minio.New(opt.Endpoint, opt.AccessKeyID, opt.SecretAccessKey, !opt.DoNotUseTLS)
 	if err != nil {
 		t.Fatalf("can't initialize minio client: %v", err)
@@ -227,7 +240,7 @@ func createBucket(t *testing.T, opt *Options) {
 	_ = minioClient.MakeBucket(opt.BucketName, opt.Region)
 }
 
-func createMinioUser(t *testing.T, kopiaUserName, kopiaPasswd string) {
+func createMinioUser(t *testutil.RetriableT, kopiaUserName, kopiaPasswd string) {
 	// create minio admin client
 	adminCli, err := madmin.New(minioEndpoint, minioAccessKeyID, minioSecretAccessKey, minioUseSSL)
 	if err != nil {
@@ -245,7 +258,7 @@ func createMinioUser(t *testing.T, kopiaUserName, kopiaPasswd string) {
 	}
 }
 
-func deleteMinioUser(t *testing.T, kopiaUserName string) {
+func deleteMinioUser(t *testutil.RetriableT, kopiaUserName string) {
 	// create minio admin client
 	adminCli, err := madmin.New(minioEndpoint, minioAccessKeyID, minioSecretAccessKey, minioUseSSL)
 	if err != nil {
@@ -257,7 +270,7 @@ func deleteMinioUser(t *testing.T, kopiaUserName string) {
 	_ = adminCli.RemoveUser(kopiaUserName)
 }
 
-func createMinioSessionToken(t *testing.T, kopiaUserName, kopiaUserPasswd, bucketName string) (accessID, secretKey, sessionToken string) {
+func createMinioSessionToken(t *testutil.RetriableT, kopiaUserName, kopiaUserPasswd, bucketName string) (accessID, secretKey, sessionToken string) {
 	// Configure to use MinIO Server
 	awsConfig := &aws.Config{
 		Credentials:      credentials.NewStaticCredentials(kopiaUserName, kopiaUserPasswd, ""),
@@ -296,7 +309,7 @@ func createMinioSessionToken(t *testing.T, kopiaUserName, kopiaUserPasswd, bucke
 	return *result.Credentials.AccessKeyId, *result.Credentials.SecretAccessKey, *result.Credentials.SessionToken
 }
 
-func cleanupOldData(ctx context.Context, t *testing.T, options *Options) {
+func cleanupOldData(ctx context.Context, t *testutil.RetriableT, options *Options) {
 	// cleanup old data from the bucket
 	st, err := New(testlogging.Context(t), options)
 	if err != nil {
@@ -309,8 +322,6 @@ func cleanupOldData(ctx context.Context, t *testing.T, options *Options) {
 			if err := st.DeleteBlob(ctx, it.BlobID); err != nil {
 				t.Errorf("warning: unable to delete %q: %v", it.BlobID, err)
 			}
-		} else {
-			log.Printf("keeping %v", it.BlobID)
 		}
 		return nil
 	})

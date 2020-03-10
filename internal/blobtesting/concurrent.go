@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
-	"testing"
 
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
@@ -32,7 +31,7 @@ type ConcurrentAccessOptions struct {
 
 // VerifyConcurrentAccess tests data races on a repository to ensure only clean errors are returned.
 // nolint:gocognit,gocyclo,funlen
-func VerifyConcurrentAccess(t *testing.T, st blob.Storage, options ConcurrentAccessOptions) {
+func VerifyConcurrentAccess(t testingT, st blob.Storage, options ConcurrentAccessOptions) {
 	t.Helper()
 
 	// generate random blob IDs for the pool
