@@ -780,7 +780,6 @@ func (u *Uploader) Upload(
 	s.IncompleteReason = u.cancelReason()
 	s.EndTime = time.Now()
 	s.Stats = u.stats
-	s.Stats.Content = u.repo.Content.Stats()
 
 	return s, nil
 }

@@ -2,13 +2,10 @@ package snapshot
 
 import (
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/repo/content"
 )
 
 // Stats keeps track of snapshot generation statistics.
 type Stats struct {
-	Content content.Stats `json:"content,omitempty"`
-
 	TotalDirectoryCount int   `json:"dirCount"`
 	TotalFileCount      int   `json:"fileCount"`
 	TotalFileSize       int64 `json:"totalSize"`
