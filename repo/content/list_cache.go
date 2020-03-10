@@ -28,7 +28,7 @@ func (c *listCache) listIndexBlobs(ctx context.Context) ([]IndexBlobInfo, error)
 		ci, err := c.readContentsFromCache(ctx)
 		if err == nil {
 			expirationTime := ci.Timestamp.Add(c.listCacheDuration)
-			if time.Now().Before(expirationTime) {
+			if time.Now().Before(expirationTime) { // allow:no-inject-time
 				log(ctx).Debugf("retrieved list of index blobs from cache")
 				return ci.Contents, nil
 			}
@@ -41,7 +41,7 @@ func (c *listCache) listIndexBlobs(ctx context.Context) ([]IndexBlobInfo, error)
 	if err == nil {
 		c.saveListToCache(ctx, &cachedList{
 			Contents:  contents,
-			Timestamp: time.Now(),
+			Timestamp: time.Now(), // allow:no-inject-time
 		})
 	}
 
@@ -58,7 +58,7 @@ func (c *listCache) saveListToCache(ctx context.Context, ci *cachedList) {
 	log(ctx).Debugf("saving index blobs to cache: %v", len(ci.Contents))
 
 	if data, err := json.Marshal(ci); err == nil {
-		mySuffix := fmt.Sprintf(".tmp-%v-%v", os.Getpid(), time.Now().UnixNano())
+		mySuffix := fmt.Sprintf(".tmp-%v-%v", os.Getpid(), time.Now().UnixNano()) // allow:no-inject-time
 		if err := ioutil.WriteFile(c.cacheFile+mySuffix, hmac.Append(data, c.hmacSecret), 0600); err != nil {
 			log(ctx).Warningf("unable to write list cache: %v", err)
 		}

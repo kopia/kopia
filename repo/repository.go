@@ -103,5 +103,5 @@ func defaultTime(f func() time.Time) func() time.Time {
 		return f
 	}
 
-	return time.Now
+	return time.Now // allow:no-inject-time
 }

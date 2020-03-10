@@ -151,7 +151,7 @@ func (c *diskCommittedContentIndexCache) expireUnused(ctx context.Context, used 
 	}
 
 	for _, rem := range remaining {
-		if time.Since(rem.ModTime()) > unusedCommittedContentIndexCleanupTime {
+		if time.Since(rem.ModTime()) > unusedCommittedContentIndexCleanupTime { // allow:no-inject-time
 			log(ctx).Debugf("removing unused %v %v", rem.Name(), rem.ModTime())
 
 			if err := os.Remove(filepath.Join(c.dirname, rem.Name())); err != nil {

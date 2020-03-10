@@ -494,7 +494,7 @@ type ManagerOptions struct {
 func NewManager(ctx context.Context, b contentManager, options ManagerOptions) (*Manager, error) {
 	timeNow := options.TimeNow
 	if timeNow == nil {
-		timeNow = time.Now
+		timeNow = time.Now // allow:no-inject-time
 	}
 
 	m := &Manager{

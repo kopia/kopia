@@ -193,7 +193,7 @@ func (fs *fsStorage) TouchBlob(ctx context.Context, blobID blob.ID, threshold ti
 		return err
 	}
 
-	n := time.Now()
+	n := time.Now() // allow:no-inject-time
 
 	age := n.Sub(st.ModTime())
 	if age < threshold {

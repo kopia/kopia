@@ -20,7 +20,7 @@ type RetentionPolicy struct {
 // ComputeRetentionReasons computes the reasons why each snapshot is retained, based on
 // the settings in retention policy and stores them in RetentionReason field.
 func (r *RetentionPolicy) ComputeRetentionReasons(manifests []*snapshot.Manifest) {
-	now := time.Now()
+	now := time.Now() // allow:no-inject-time
 	maxTime := now.Add(365 * 24 * time.Hour)
 
 	cutoffTime := func(setting *int, add func(time.Time, int) time.Time) time.Time {

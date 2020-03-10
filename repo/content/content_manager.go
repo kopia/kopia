@@ -568,10 +568,10 @@ func (bm *Manager) Refresh(ctx context.Context) (bool, error) {
 
 	log(ctx).Debugf("Refresh started")
 
-	t0 := time.Now()
+	t0 := time.Now() // allow:no-inject-time
 
 	_, updated, err := bm.loadPackIndexesUnlocked(ctx)
-	log(ctx).Debugf("Refresh completed in %v and updated=%v", time.Since(t0), updated)
+	log(ctx).Debugf("Refresh completed in %v and updated=%v", time.Since(t0), updated) // allow:no-inject-time
 
 	return updated, err
 }
@@ -586,7 +586,7 @@ type ManagerOptions struct {
 func NewManager(ctx context.Context, st blob.Storage, f *FormattingOptions, caching CachingOptions, options ManagerOptions) (*Manager, error) {
 	nowFn := options.TimeNow
 	if nowFn == nil {
-		nowFn = time.Now
+		nowFn = time.Now // allow:no-inject-time
 	}
 
 	return newManagerWithOptions(ctx, st, f, caching, nowFn, options.RepositoryFormatBytes)

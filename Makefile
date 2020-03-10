@@ -44,7 +44,13 @@ lint: $(linter)
 lint-and-log: $(linter)
 	$(linter) --deadline 180s run $(linter_flags) | tee .linterr.txt
 
-vet:
+
+vet-time-inject:
+	! find repo snapshot -name '*.go' -not -path 'repo/blob/logging/*' -not -name '*_test.go' \
+	-exec grep -n -e time.Now -e time.Since -e time.Until {} + \
+	| grep -v -e allow:no-inject-time
+
+vet: vet-time-inject
 	go vet -all .
 
 travis-setup: travis-install-gpg-key travis-install-test-credentials all-tools
