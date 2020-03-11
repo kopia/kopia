@@ -9,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/bufcache"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/splitter"
@@ -57,7 +58,7 @@ type objectWriter struct {
 	compressor compression.Compressor
 
 	prefix      content.ID
-	buffer      bytes.Buffer
+	buffer      *bytes.Buffer
 	totalLength int64
 
 	currentPosition int64
@@ -69,6 +70,12 @@ type objectWriter struct {
 }
 
 func (w *objectWriter) Close() error {
+	w.repo.bufferPool.Put(w.buffer)
+
+	if w.splitter != nil {
+		w.splitter.Close()
+	}
+
 	return nil
 }
 
@@ -99,7 +106,15 @@ func (w *objectWriter) flushBuffer() error {
 	w.indirectIndex[chunkID].Length = int64(length)
 	w.currentPosition += int64(length)
 
-	contentBytes, isCompressed, err := maybeCompressedContentBytes(w.compressor, w.buffer.Bytes())
+	const (
+		// allows extra 10 KB for non-compressible outputs to avoid allocations
+		nonCompressibleOverhead = 10240
+	)
+
+	var compressedBuf = bufcache.EmptyBytesWithCapacity(length + nonCompressibleOverhead)
+	defer bufcache.Return(compressedBuf)
+
+	contentBytes, isCompressed, err := maybeCompressedContentBytes(w.compressor, compressedBuf, w.buffer.Bytes())
 	if err != nil {
 		return errors.Wrap(err, "unable to prepare content bytes")
 	}
@@ -124,9 +139,9 @@ func (w *objectWriter) flushBuffer() error {
 	return nil
 }
 
-func maybeCompressedContentBytes(comp compression.Compressor, b []byte) (data []byte, isCompressed bool, err error) {
+func maybeCompressedContentBytes(comp compression.Compressor, output, b []byte) (data []byte, isCompressed bool, err error) {
 	if comp != nil {
-		compressedBytes, err := comp.Compress(b)
+		compressedBytes, err := comp.Compress(output, b)
 		if err != nil {
 			return nil, false, errors.Wrap(err, "compression error")
 		}
@@ -136,7 +151,7 @@ func maybeCompressedContentBytes(comp compression.Compressor, b []byte) (data []
 		}
 	}
 
-	return append([]byte{}, b...), false, nil
+	return append(output, b...), false, nil
 }
 
 func (w *objectWriter) Result() (ID, error) {
@@ -157,6 +172,7 @@ func (w *objectWriter) Result() (ID, error) {
 		description: "LIST(" + w.description + ")",
 		splitter:    w.repo.newSplitter(),
 		prefix:      w.prefix,
+		buffer:      w.repo.bufferPool.Get().(*bytes.Buffer),
 	}
 
 	ind := indirectObject{

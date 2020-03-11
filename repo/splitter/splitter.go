@@ -13,6 +13,8 @@ const (
 // It must return true if the object should be split after byte b is processed.
 type Splitter interface {
 	ShouldSplit(b byte) bool
+	Reset()
+	Close()
 }
 
 // SupportedAlgorithms returns the list of supported splitters.

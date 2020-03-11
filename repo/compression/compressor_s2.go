@@ -2,6 +2,7 @@ package compression
 
 import (
 	"bytes"
+	"sync"
 
 	"github.com/klauspost/compress/s2"
 	"github.com/pkg/errors"
@@ -17,27 +18,34 @@ func init() {
 }
 
 func newS2Compressor(id HeaderID, opts ...s2.WriterOption) Compressor {
-	return &s2Compressor{id, compressionHeader(id), opts}
+	return &s2Compressor{id, compressionHeader(id), sync.Pool{
+		New: func() interface{} {
+			return s2.NewWriter(bytes.NewBuffer(nil), opts...)
+		},
+	}}
 }
 
 type s2Compressor struct {
 	id     HeaderID
 	header []byte
-	opts   []s2.WriterOption
+	pool   sync.Pool
 }
 
 func (c *s2Compressor) HeaderID() HeaderID {
 	return c.id
 }
 
-func (c *s2Compressor) Compress(b []byte) ([]byte, error) {
-	var buf bytes.Buffer
+func (c *s2Compressor) Compress(output, b []byte) ([]byte, error) {
+	buf := bytes.NewBuffer(output[:0])
 
 	if _, err := buf.Write(c.header); err != nil {
 		return nil, errors.Wrap(err, "unable to write header")
 	}
 
-	w := s2.NewWriter(&buf, c.opts...)
+	w := c.pool.Get().(*s2.Writer)
+	defer c.pool.Put(w)
+
+	w.Reset(buf)
 
 	if _, err := w.Write(b); err != nil {
 		return nil, errors.Wrap(err, "compression error")
@@ -50,7 +58,7 @@ func (c *s2Compressor) Compress(b []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (c *s2Compressor) Decompress(b []byte) ([]byte, error) {
+func (c *s2Compressor) Decompress(output, b []byte) ([]byte, error) {
 	if len(b) < compressionHeaderSize {
 		return nil, errors.Errorf("invalid compression header")
 	}
@@ -61,8 +69,8 @@ func (c *s2Compressor) Decompress(b []byte) ([]byte, error) {
 
 	r := s2.NewReader(bytes.NewReader(b[compressionHeaderSize:]))
 
-	var buf bytes.Buffer
-	if _, err := iocopy.Copy(&buf, r); err != nil {
+	buf := bytes.NewBuffer(output[:0])
+	if _, err := iocopy.Copy(buf, r); err != nil {
 		return nil, errors.Wrap(err, "decompression error")
 	}
 

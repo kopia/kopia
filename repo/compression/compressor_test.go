@@ -15,7 +15,7 @@ func TestCompressor(t *testing.T) {
 			// make sure all-zero data is compressed
 			data := make([]byte, 10000)
 
-			cData, err := comp.Compress(data)
+			cData, err := comp.Compress(nil, data)
 			if err != nil {
 				t.Fatalf("compression error %v", err)
 				return
@@ -27,13 +27,13 @@ func TestCompressor(t *testing.T) {
 
 			for id2, comp2 := range ByHeaderID {
 				if id != id2 {
-					if _, err2 := comp2.Decompress(cData); err2 == nil {
+					if _, err2 := comp2.Decompress(nil, cData); err2 == nil {
 						t.Errorf("compressor %x was able to decompress results of %x", id2, id)
 					}
 				}
 			}
 
-			data2, err := comp.Decompress(cData)
+			data2, err := comp.Decompress(nil, cData)
 			if err != nil {
 				t.Fatalf("decompression error %v", err)
 			}
@@ -50,7 +50,7 @@ func TestCompressor(t *testing.T) {
 			data := make([]byte, 10000)
 			rand.Read(data) //nolint:errcheck
 
-			cData, err := comp.Compress(data)
+			cData, err := comp.Compress(nil, data)
 			if err != nil {
 				t.Fatalf("compression error %v", err)
 				return
@@ -60,7 +60,7 @@ func TestCompressor(t *testing.T) {
 				t.Errorf("compression magically effective for random data")
 			}
 
-			data2, err := comp.Decompress(cData)
+			data2, err := comp.Decompress(nil, cData)
 			if err != nil {
 				t.Fatalf("decompression error %v", err)
 			}

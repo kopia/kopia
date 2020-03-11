@@ -5,6 +5,13 @@ type fixedSplitter struct {
 	chunkLength int
 }
 
+func (s *fixedSplitter) Close() {
+}
+
+func (s *fixedSplitter) Reset() {
+	s.cur = 0
+}
+
 func (s *fixedSplitter) ShouldSplit(b byte) bool {
 	s.cur++
 

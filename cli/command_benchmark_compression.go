@@ -52,7 +52,7 @@ func runBenchmarkCompressionAction(ctx *kingpin.ParseContext) error {
 
 		cnt := *benchmarkCompressionRepeat
 		for i := 0; i < cnt; i++ {
-			compressed, err := comp.Compress(data)
+			compressed, err := comp.Compress(nil, data)
 			if err != nil {
 				printStderr("compression %q failed: %v\n", name, err)
 				continue

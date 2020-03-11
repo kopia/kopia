@@ -16,8 +16,8 @@ type Name string
 // Compressor implements compression and decompression of a byte slice.
 type Compressor interface {
 	HeaderID() HeaderID
-	Compress(b []byte) ([]byte, error)
-	Decompress(b []byte) ([]byte, error)
+	Compress(output, b []byte) ([]byte, error)
+	Decompress(output, b []byte) ([]byte, error)
 }
 
 // maps of registered compressors by header ID and name.

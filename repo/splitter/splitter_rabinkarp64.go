@@ -1,6 +1,8 @@
 package splitter
 
-import "github.com/chmduquesne/rollinghash/rabinkarp64"
+import (
+	"github.com/chmduquesne/rollinghash/rabinkarp64"
+)
 
 type rabinKarp64Splitter struct {
 	// we're intentionally not using rollinghash.Hash32 interface because doing this in a tight loop
@@ -10,6 +12,14 @@ type rabinKarp64Splitter struct {
 	count   int
 	minSize int
 	maxSize int
+}
+
+func (rs *rabinKarp64Splitter) Close() {
+}
+
+func (rs *rabinKarp64Splitter) Reset() {
+	rs.rh.Reset()
+	rs.rh.Write(make([]byte, splitterSlidingWindowSize)) //nolint:errcheck
 }
 
 func (rs *rabinKarp64Splitter) ShouldSplit(b byte) bool {

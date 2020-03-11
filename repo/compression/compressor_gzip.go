@@ -3,6 +3,7 @@ package compression
 import (
 	"bytes"
 	"compress/gzip"
+	"sync"
 
 	"github.com/pkg/errors"
 
@@ -16,30 +17,40 @@ func init() {
 }
 
 func newGZipCompressor(id HeaderID, level int) Compressor {
-	return &gzipCompressor{id, compressionHeader(id), level}
+	// check that this works, we'll be using this without possibility of returning error below
+	if _, err := gzip.NewWriterLevel(bytes.NewBuffer(nil), level); err != nil {
+		panic("unexpected failure when creting writer")
+	}
+
+	return &gzipCompressor{id, compressionHeader(id), sync.Pool{
+		New: func() interface{} {
+			w, _ := gzip.NewWriterLevel(bytes.NewBuffer(nil), level)
+			return w
+		},
+	}}
 }
 
 type gzipCompressor struct {
 	id     HeaderID
 	header []byte
-	level  int
+	pool   sync.Pool
 }
 
 func (c *gzipCompressor) HeaderID() HeaderID {
 	return c.id
 }
 
-func (c *gzipCompressor) Compress(b []byte) ([]byte, error) {
-	var buf bytes.Buffer
+func (c *gzipCompressor) Compress(output, b []byte) ([]byte, error) {
+	buf := bytes.NewBuffer(output[:0])
 
 	if _, err := buf.Write(c.header); err != nil {
 		return nil, errors.Wrap(err, "unable to write header")
 	}
 
-	w, err := gzip.NewWriterLevel(&buf, c.level)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to create compressor")
-	}
+	w := c.pool.Get().(*gzip.Writer)
+	defer c.pool.Put(w)
+
+	w.Reset(buf)
 
 	if _, err := w.Write(b); err != nil {
 		return nil, errors.Wrap(err, "compression error")
@@ -52,7 +63,7 @@ func (c *gzipCompressor) Compress(b []byte) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (c *gzipCompressor) Decompress(b []byte) ([]byte, error) {
+func (c *gzipCompressor) Decompress(output, b []byte) ([]byte, error) {
 	if len(b) < compressionHeaderSize {
 		return nil, errors.Errorf("invalid compression header")
 	}
@@ -67,8 +78,8 @@ func (c *gzipCompressor) Decompress(b []byte) ([]byte, error) {
 	}
 	defer r.Close() //nolint:errcheck
 
-	var buf bytes.Buffer
-	if _, err := iocopy.Copy(&buf, r); err != nil {
+	buf := bytes.NewBuffer(output[:0])
+	if _, err := iocopy.Copy(buf, r); err != nil {
 		return nil, errors.Wrap(err, "decompression error")
 	}
 
