@@ -5,7 +5,6 @@ import (
 	"context"
 	cryptorand "crypto/rand"
 	"crypto/sha1"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -132,8 +131,8 @@ func verifyEndToEndFormatter(ctx context.Context, t *testing.T, hashAlgo, encryp
 			return
 		}
 
-		if got, want := b2, b; !reflect.DeepEqual(got, want) {
-			t.Errorf("content %q data mismatch: got %x (nil:%v), wanted %x (nil:%v)", contentID, got, got == nil, want, want == nil)
+		if got, want := b2, b; !bytes.Equal(got, want) {
+			t.Errorf("content %q data mismatch: got %x, wanted %x", contentID, got, want)
 			return
 		}
 	}

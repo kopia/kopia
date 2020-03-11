@@ -1,11 +1,11 @@
 package stress_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math/rand"
 	"os"
-	"reflect"
 	"testing"
 	"time"
 
@@ -127,7 +127,7 @@ func stressWorker(ctx context.Context, t *testing.T, deadline time.Time, openMgr
 				return
 			}
 
-			if !reflect.DeepEqual(previous.data, d2) {
+			if !bytes.Equal(previous.data, d2) {
 				t.Errorf("invalid previous data for %q %x %x", previous.contentID, d2, previous.data)
 				return
 			}

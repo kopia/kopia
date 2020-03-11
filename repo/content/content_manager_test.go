@@ -1245,7 +1245,7 @@ func verifyContentManagerDataSet(ctx context.Context, t *testing.T, mgr *Manager
 			continue
 		}
 
-		if !reflect.DeepEqual(v, originalPayload) {
+		if !bytes.Equal(v, originalPayload) {
 			t.Errorf("payload for %q does not match original: %v", v, originalPayload)
 		}
 	}
@@ -1307,7 +1307,7 @@ func verifyContent(ctx context.Context, t *testing.T, bm *Manager, contentID ID,
 		return
 	}
 
-	if got, want := b2, b; !reflect.DeepEqual(got, want) {
+	if got, want := b2, b; !bytes.Equal(got, want) {
 		t.Errorf("content %q data mismatch: got %x (nil:%v), wanted %x (nil:%v)", contentID, got, got == nil, want, want == nil)
 	}
 

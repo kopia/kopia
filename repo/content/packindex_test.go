@@ -117,11 +117,11 @@ func TestPackIndex(t *testing.T) {
 	data2 := buf2.Bytes()
 	data3 := buf3.Bytes()
 
-	if !reflect.DeepEqual(data1, data2) {
+	if !bytes.Equal(data1, data2) {
 		t.Errorf("builder output not stable: %x vs %x", hex.Dump(data1), hex.Dump(data2))
 	}
 
-	if !reflect.DeepEqual(data2, data3) {
+	if !bytes.Equal(data2, data3) {
 		t.Errorf("builder output not stable: %x vs %x", hex.Dump(data2), hex.Dump(data3))
 	}
 
