@@ -2,10 +2,11 @@ package compression
 
 import (
 	"bytes"
-	"io"
 
 	"github.com/klauspost/compress/s2"
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/internal/iocopy"
 )
 
 func init() {
@@ -61,7 +62,7 @@ func (c *s2Compressor) Decompress(b []byte) ([]byte, error) {
 	r := s2.NewReader(bytes.NewReader(b[compressionHeaderSize:]))
 
 	var buf bytes.Buffer
-	if _, err := io.Copy(&buf, r); err != nil {
+	if _, err := iocopy.Copy(&buf, r); err != nil {
 		return nil, errors.Wrap(err, "decompression error")
 	}
 

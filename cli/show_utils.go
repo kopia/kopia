@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/alecthomas/kingpin.v2"
 
+	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/units"
 )
 
@@ -45,7 +46,7 @@ func showContentWithFlags(rd io.Reader, unzip, indentJSON bool) error {
 	var buf1, buf2 bytes.Buffer
 
 	if indentJSON {
-		if _, err := io.Copy(&buf1, rd); err != nil {
+		if _, err := iocopy.Copy(&buf1, rd); err != nil {
 			return err
 		}
 
@@ -56,7 +57,7 @@ func showContentWithFlags(rd io.Reader, unzip, indentJSON bool) error {
 		rd = ioutil.NopCloser(&buf2)
 	}
 
-	if _, err := io.Copy(os.Stdout, rd); err != nil {
+	if _, err := iocopy.Copy(os.Stdout, rd); err != nil {
 		return err
 	}
 

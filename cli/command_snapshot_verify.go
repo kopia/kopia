@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"math/rand"
 	"sync"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/parallelwork"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
@@ -172,7 +172,7 @@ func (v *verifier) readEntireObject(ctx context.Context, oid object.ID, path str
 	}
 	defer r.Close() //nolint:errcheck
 
-	_, err = io.Copy(ioutil.Discard, r)
+	_, err = iocopy.Copy(ioutil.Discard, r)
 
 	return err
 }
