@@ -53,9 +53,11 @@ func runBenchmarkCryptoAction(ctx *kingpin.ParseContext) error {
 			t0 := time.Now()
 
 			hashCount := *benchmarkCryptoRepeat
+			hashOutput := make([]byte, 0, 64)
+
 			for i := 0; i < hashCount; i++ {
-				contentID := h(data)
-				if _, encerr := e.Encrypt(data, contentID); encerr != nil {
+				contentID := h(hashOutput[:0], data)
+				if _, encerr := e.Encrypt(nil, data, contentID); encerr != nil {
 					printStderr("encryption failed: %v\n", encerr)
 					break
 				}

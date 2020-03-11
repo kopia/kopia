@@ -4,12 +4,22 @@ package encryption
 type nullEncryptor struct {
 }
 
-func (fi nullEncryptor) Encrypt(plainText, contentID []byte) ([]byte, error) {
-	return cloneBytes(plainText), nil
+var zeroBytes = []byte{}
+
+func (fi nullEncryptor) Encrypt(output, plainText, contentID []byte) ([]byte, error) {
+	if len(plainText) == 0 {
+		return zeroBytes, nil
+	}
+
+	return append(output, plainText...), nil
 }
 
-func (fi nullEncryptor) Decrypt(cipherText, contentID []byte) ([]byte, error) {
-	return cloneBytes(cipherText), nil
+func (fi nullEncryptor) Decrypt(output, cipherText, contentID []byte) ([]byte, error) {
+	if len(cipherText) == 0 {
+		return zeroBytes, nil
+	}
+
+	return append(output, cipherText...), nil
 }
 
 func (fi nullEncryptor) IsAuthenticated() bool {

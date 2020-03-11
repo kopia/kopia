@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"hash"
 	"sort"
+	"sync"
 
 	"github.com/pkg/errors"
 )
@@ -16,7 +17,7 @@ type Parameters interface {
 }
 
 // HashFunc computes hash of content of data using a cryptographic hash function, possibly with HMAC and/or truncation.
-type HashFunc func(data []byte) []byte
+type HashFunc func(output, data []byte) []byte
 
 // HashFuncFactory returns a hash function for given formatting options.
 type HashFuncFactory func(p Parameters) (HashFunc, error)
@@ -47,11 +48,20 @@ const DefaultAlgorithm = "BLAKE2B-256-128"
 // and truncates results to the given size.
 func truncatedHMACHashFuncFactory(hf func() hash.Hash, truncate int) HashFuncFactory {
 	return func(p Parameters) (HashFunc, error) {
-		return func(b []byte) []byte {
-			h := hmac.New(hf, p.GetHMACSecret())
+		pool := sync.Pool{
+			New: func() interface{} {
+				return hmac.New(hf, p.GetHMACSecret())
+			},
+		}
+
+		return func(output, b []byte) []byte {
+			h := pool.Get().(hash.Hash)
+			defer pool.Put(h)
+
+			h.Reset()
 			h.Write(b) // nolint:errcheck
 
-			return h.Sum(nil)[0:truncate]
+			return h.Sum(output)[0:truncate]
 		}, nil
 	}
 }
@@ -60,15 +70,26 @@ func truncatedHMACHashFuncFactory(hf func() hash.Hash, truncate int) HashFuncFac
 // and truncates results to the given size.
 func truncatedKeyedHashFuncFactory(hf func(key []byte) (hash.Hash, error), truncate int) HashFuncFactory {
 	return func(p Parameters) (HashFunc, error) {
-		if _, err := hf(p.GetHMACSecret()); err != nil {
+		secret := p.GetHMACSecret()
+		if _, err := hf(secret); err != nil {
 			return nil, err
 		}
 
-		return func(b []byte) []byte {
-			h, _ := hf(p.GetHMACSecret())
+		pool := sync.Pool{
+			New: func() interface{} {
+				h, _ := hf(secret)
+				return h
+			},
+		}
+
+		return func(output, b []byte) []byte {
+			h := pool.Get().(hash.Hash)
+			defer pool.Put(h)
+
+			h.Reset()
 			h.Write(b) // nolint:errcheck
 
-			return h.Sum(nil)[0:truncate]
+			return h.Sum(output)[0:truncate]
 		}, nil
 	}
 }

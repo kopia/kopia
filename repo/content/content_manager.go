@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/stats"
 
+	"github.com/kopia/kopia/internal/bufcache"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
 )
@@ -27,6 +28,8 @@ var (
 const (
 	PackBlobIDPrefixRegular blob.ID = "p"
 	PackBlobIDPrefixSpecial blob.ID = "q"
+
+	maxHashSize = 64
 )
 
 // PackBlobIDPrefixes contains all possible prefixes for pack blobs.
@@ -78,6 +81,7 @@ type Manager struct {
 	disableIndexFlushCount int
 	flushPackIndexesAfter  time.Time // time when those indexes should be flushed
 	closed                 chan struct{}
+	bufferPool             sync.Pool
 
 	lockFreeManager
 }
@@ -148,7 +152,7 @@ func (bm *Manager) deletePreexistingContent(ci Info) {
 func (bm *Manager) addToPackUnlocked(ctx context.Context, contentID ID, data []byte, isDeleted bool) error {
 	prefix := packPrefixForContentID(contentID)
 
-	data = cloneBytes(data)
+	data = bufcache.Clone(data)
 
 	bm.lock()
 
@@ -336,6 +340,11 @@ func (bm *Manager) writePackAndAddToIndex(ctx context.Context, pp *pendingPackIn
 			bm.packIndexBuilder.Add(*info)
 		}
 
+		// return all cloned memory back to the buffer so that it can be used again
+		for _, it := range pp.currentPackItems {
+			bufcache.Return(it.Payload)
+		}
+
 		return nil
 	}
 
@@ -353,7 +362,9 @@ func (bm *Manager) prepareAndWritePackInternal(ctx context.Context, pp *pendingP
 
 	packFile := blob.ID(fmt.Sprintf("%v%x", pp.prefix, contentID))
 
-	contentData, packFileIndex, err := bm.preparePackDataContent(ctx, pp, packFile)
+	estimated := bm.estimatePackBlobSize(pp)
+
+	contentData, packFileIndex, err := bm.preparePackDataContent(ctx, bufcache.EmptyBytesWithCapacity(estimated), pp, packFile)
 	if err != nil {
 		return nil, errors.Wrap(err, "error preparing data content")
 	}
@@ -364,9 +375,34 @@ func (bm *Manager) prepareAndWritePackInternal(ctx context.Context, pp *pendingP
 		}
 
 		formatLog(ctx).Debugf("wrote pack file: %v (%v bytes)", packFile, len(contentData))
+		bufcache.Return(contentData)
+	}
+
+	if estimated < len(contentData) {
+		log(ctx).Warningf("did not estimate content length: %v, predicted %v", len(contentData), estimated)
 	}
 
 	return packFileIndex, nil
+}
+
+// estimatePackBlobSize estimates the size of the buffer to hold the pack blob.
+// we use this to preallocate buffer and avoid wasteful reallocations.
+// this function can overshoot, but best not to overshoot by too much.
+func (bm *Manager) estimatePackBlobSize(pp *pendingPackInfo) int {
+	const (
+		estimatedPackIndexOverhead = 10000
+		estimatedPerItemOverhead   = 64
+	)
+
+	estimateCapacity := 0
+	for _, pp := range pp.currentPackItems {
+		estimateCapacity += int(pp.Length) + estimatedPerItemOverhead
+	}
+
+	estimateCapacity += len(bm.repositoryFormatBytes)
+	estimateCapacity += estimatedPackIndexOverhead
+
+	return estimateCapacity
 }
 
 func removePendingPack(slice []*pendingPackInfo, pp *pendingPackInfo) []*pendingPackInfo {
@@ -470,7 +506,10 @@ func (bm *Manager) WriteContent(ctx context.Context, data []byte, prefix ID) (ID
 		return "", err
 	}
 
-	contentID := prefix + ID(hex.EncodeToString(bm.hashData(data)))
+	hashOutput := bufcache.EmptyBytesWithCapacity(maxHashSize)
+	defer bufcache.Return(hashOutput)
+
+	contentID := prefix + ID(hex.EncodeToString(bm.hashData(hashOutput, data)))
 
 	// content already tracked
 	if bi, err := bm.getContentInfo(contentID); err == nil {
@@ -664,6 +703,11 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 		pendingPacks:          map[blob.ID]*pendingPackInfo{},
 		packIndexBuilder:      make(packIndexBuilder),
 		closed:                make(chan struct{}),
+		bufferPool: sync.Pool{
+			New: func() interface{} {
+				return &bytes.Buffer{}
+			},
+		},
 	}
 
 	if err := m.CompactIndexes(ctx, autoCompactionOptions); err != nil {

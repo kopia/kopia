@@ -68,14 +68,14 @@ func TestFormatters(t *testing.T) {
 						return
 					}
 
-					contentID := h(data)
+					contentID := h(nil, data)
 
-					cipherText, err := e.Encrypt(data, contentID)
+					cipherText, err := e.Encrypt(nil, data, contentID)
 					if err != nil || cipherText == nil {
 						t.Errorf("invalid response from Encrypt: %v %v", cipherText, err)
 					}
 
-					plainText, err := e.Decrypt(cipherText, contentID)
+					plainText, err := e.Decrypt(nil, cipherText, contentID)
 					if err != nil || plainText == nil {
 						t.Errorf("invalid response from Decrypt: %v %v", plainText, err)
 					}

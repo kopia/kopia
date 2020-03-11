@@ -40,13 +40,13 @@ func TestRoundTrip(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			cipherText1, err := e.Encrypt(data, contentID1)
+			cipherText1, err := e.Encrypt(nil, data, contentID1)
 			if err != nil || cipherText1 == nil {
 				t.Errorf("invalid response from Encrypt: %v %v", cipherText1, err)
 			}
 
 			if !e.IsDeprecated() && encryptionAlgo != encryption.NoneAlgorithm {
-				cipherText1b, err2 := e.Encrypt(data, contentID1)
+				cipherText1b, err2 := e.Encrypt(nil, data, contentID1)
 				if err2 != nil || cipherText1b == nil {
 					t.Errorf("invalid response from Encrypt: %v %v", cipherText1, err2)
 				}
@@ -56,7 +56,7 @@ func TestRoundTrip(t *testing.T) {
 				}
 			}
 
-			plainText1, err := e.Decrypt(cipherText1, contentID1)
+			plainText1, err := e.Decrypt(nil, cipherText1, contentID1)
 			if err != nil || plainText1 == nil {
 				t.Errorf("invalid response from Decrypt: %v %v", plainText1, err)
 			}
@@ -65,12 +65,23 @@ func TestRoundTrip(t *testing.T) {
 				t.Errorf("Encrypt()/Decrypt() does not round-trip: %x %x", plainText1, data)
 			}
 
-			cipherText2, err := e.Encrypt(data, contentID2)
+			plaintextOutput := make([]byte, 0, 256)
+
+			plainText1a, err := e.Decrypt(plaintextOutput, cipherText1, contentID1)
+			if err != nil || plainText1 == nil {
+				t.Errorf("invalid response from Decrypt: %v %v", plainText1, err)
+			}
+
+			if !bytes.Equal(plainText1a, plaintextOutput[0:len(plainText1a)]) {
+				t.Errorf("Decrypt() does not use output buffer")
+			}
+
+			cipherText2, err := e.Encrypt(nil, data, contentID2)
 			if err != nil || cipherText2 == nil {
 				t.Errorf("invalid response from Encrypt: %v %v", cipherText2, err)
 			}
 
-			plainText2, err := e.Decrypt(cipherText2, contentID2)
+			plainText2, err := e.Decrypt(nil, cipherText2, contentID2)
 			if err != nil || plainText2 == nil {
 				t.Errorf("invalid response from Decrypt: %v %v", plainText2, err)
 			}
@@ -85,7 +96,7 @@ func TestRoundTrip(t *testing.T) {
 				}
 
 				// decrypt using wrong content ID
-				badPlainText2, err := e.Decrypt(cipherText2, contentID1)
+				badPlainText2, err := e.Decrypt(nil, cipherText2, contentID1)
 				if e.IsAuthenticated() {
 					if err == nil && encryptionAlgo != "SALSA20-HMAC" {
 						// "SALSA20-HMAC" is deprecated & wrong, and only validates that checksum is
@@ -102,7 +113,7 @@ func TestRoundTrip(t *testing.T) {
 				// flip some bits in the cipherText
 				if e.IsAuthenticated() {
 					cipherText2[mathrand.Intn(len(cipherText2))] ^= byte(1 + mathrand.Intn(254))
-					if _, err := e.Decrypt(cipherText2, contentID1); err == nil {
+					if _, err := e.Decrypt(nil, cipherText2, contentID1); err == nil {
 						t.Errorf("expected decrypt failure on invalid ciphertext, got success")
 					}
 				}
@@ -173,7 +184,7 @@ func verifyCiphertextSamples(t *testing.T, masterKey, contentID, payload []byte,
 
 		ct := samples[encryptionAlgo]
 		if ct == "" {
-			v, err := enc.Encrypt(payload, contentID)
+			v, err := enc.Encrypt(nil, payload, contentID)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -186,7 +197,7 @@ func verifyCiphertextSamples(t *testing.T, masterKey, contentID, payload []byte,
 				continue
 			}
 
-			plainText, err := enc.Decrypt(b, contentID)
+			plainText, err := enc.Decrypt(nil, b, contentID)
 			if err != nil {
 				t.Errorf("unable to decrypt %v: %v", encryptionAlgo, err)
 				continue

@@ -27,7 +27,9 @@ func VerifyAndStrip(b, secret []byte) ([]byte, error) {
 
 	h := hmac.New(sha256.New, secret)
 	h.Write(data) // nolint:errcheck
-	validSignature := h.Sum(nil)
+
+	var sigBuf [32]byte
+	validSignature := h.Sum(sigBuf[:0])
 
 	if len(signature) != len(validSignature) {
 		return nil, errors.New("invalid signature length")

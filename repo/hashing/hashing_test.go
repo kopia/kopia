@@ -36,12 +36,17 @@ func TestRoundTrip(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			hash1a := f(data1)
-			hash1b := f(data1)
-			hash2 := f(data2)
+			outputBuffer := make([]byte, 0, 256)
+			hash1a := f(nil, data1)
+			hash1b := f(outputBuffer, data1)
+			hash2 := f(nil, data2)
 
 			if !bytes.Equal(hash1a, hash1b) {
 				t.Fatalf("hashing not stable: %x %x", hash1a, hash1b)
+			}
+
+			if !bytes.Equal(hash1a, outputBuffer[0:len(hash1a)]) {
+				t.Fatalf("hash did not populate output buffer")
 			}
 
 			if bytes.Equal(hash1a, hash2) {

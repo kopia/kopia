@@ -14,6 +14,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/bufcache"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/hashing"
@@ -48,13 +49,13 @@ type lockFreeManager struct {
 	repositoryFormatBytes []byte
 }
 
-func (bm *lockFreeManager) maybeEncryptContentDataForPacking(data []byte, contentID ID) ([]byte, error) {
+func (bm *lockFreeManager) maybeEncryptContentDataForPacking(output, data []byte, contentID ID) ([]byte, error) {
 	iv, err := getPackedContentIV(contentID)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to get packed content IV for %q", contentID)
 	}
 
-	return bm.encryptor.Encrypt(data, iv)
+	return bm.encryptor.Encrypt(output, data, iv)
 }
 
 func appendRandomBytes(b []byte, count int) ([]byte, error) {
@@ -235,7 +236,7 @@ func (bm *lockFreeManager) getContentDataUnlocked(ctx context.Context, bi *Info)
 }
 
 func (bm *lockFreeManager) decryptAndVerify(encrypted, iv []byte) ([]byte, error) {
-	decrypted, err := bm.encryptor.Decrypt(encrypted, iv)
+	decrypted, err := bm.encryptor.Decrypt(nil, encrypted, iv)
 	if err != nil {
 		return nil, errors.Wrap(err, "decrypt")
 	}
@@ -252,16 +253,18 @@ func (bm *lockFreeManager) decryptAndVerify(encrypted, iv []byte) ([]byte, error
 	return decrypted, bm.verifyChecksum(decrypted, iv)
 }
 
-func (bm *lockFreeManager) preparePackDataContent(ctx context.Context, pp *pendingPackInfo, packFile blob.ID) ([]byte, packIndexBuilder, error) {
+func (bm *lockFreeManager) preparePackDataContent(ctx context.Context, contentData []byte, pp *pendingPackInfo, packFile blob.ID) ([]byte, packIndexBuilder, error) {
 	formatLog(ctx).Debugf("preparing content data with %v items", len(pp.currentPackItems))
 
-	contentData, err := appendRandomBytes(append([]byte(nil), bm.repositoryFormatBytes...), rand.Intn(bm.maxPreambleLength-bm.minPreambleLength+1)+bm.minPreambleLength)
+	contentData, err := appendRandomBytes(append(contentData, bm.repositoryFormatBytes...), rand.Intn(bm.maxPreambleLength-bm.minPreambleLength+1)+bm.minPreambleLength)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "unable to prepare content preamble")
 	}
 
 	packFileIndex := packIndexBuilder{}
 	haveContent := false
+
+	var encryptedTmp []byte
 
 	for contentID, info := range pp.currentPackItems {
 		if info.Payload == nil {
@@ -272,9 +275,7 @@ func (bm *lockFreeManager) preparePackDataContent(ctx context.Context, pp *pendi
 
 		haveContent = true
 
-		var encrypted []byte
-
-		encrypted, err = bm.maybeEncryptContentDataForPacking(info.Payload, info.ID)
+		encryptedTmp, err = bm.maybeEncryptContentDataForPacking(encryptedTmp[:0], info.Payload, info.ID)
 		if err != nil {
 			return nil, nil, errors.Wrapf(err, "unable to encrypt %q", info.ID)
 		}
@@ -287,15 +288,15 @@ func (bm *lockFreeManager) preparePackDataContent(ctx context.Context, pp *pendi
 			FormatVersion:    byte(bm.writeFormatVersion),
 			PackBlobID:       packFile,
 			PackOffset:       uint32(len(contentData)),
-			Length:           uint32(len(encrypted)),
+			Length:           uint32(len(encryptedTmp)),
 			TimestampSeconds: info.TimestampSeconds,
 		})
 
 		if contentID.HasPrefix() {
-			bm.metadataCache.put(ctx, cacheKey(contentID), cloneBytes(encrypted))
+			bm.metadataCache.put(ctx, cacheKey(contentID), cloneBytes(encryptedTmp))
 		}
 
-		contentData = append(contentData, encrypted...)
+		contentData = append(contentData, encryptedTmp...)
 	}
 
 	if len(packFileIndex) == 0 {
@@ -341,7 +342,7 @@ func (bm *lockFreeManager) getIndexBlobInternal(ctx context.Context, blobID blob
 
 	bm.Stats.readContent(len(payload))
 
-	payload, err = bm.encryptor.Decrypt(payload, iv)
+	payload, err = bm.encryptor.Decrypt(nil, payload, iv)
 	bm.Stats.decrypted(len(payload))
 
 	if err != nil {
@@ -376,14 +377,16 @@ func (bm *lockFreeManager) writePackFileNotLocked(ctx context.Context, packFile 
 	return bm.st.PutBlob(ctx, packFile, data)
 }
 
-func (bm *lockFreeManager) encryptAndWriteContentNotLocked(ctx context.Context, data []byte, prefix blob.ID) (blob.ID, error) {
-	hash := bm.hashData(data)
+func (bm *lockFreeManager) encryptAndWriteBlobNotLocked(ctx context.Context, data []byte, prefix blob.ID) (blob.ID, error) {
+	hashOutput := bufcache.EmptyBytesWithCapacity(maxHashSize)
+	defer bufcache.Return(hashOutput)
+
+	hash := bm.hashData(hashOutput, data)
 	blobID := prefix + blob.ID(hex.EncodeToString(hash))
 
-	// Encrypt the content in-place.
 	bm.Stats.encrypted(len(data))
 
-	data2, err := bm.encryptor.Encrypt(data, hash)
+	data2, err := bm.encryptor.Encrypt(nil, data, hash)
 	if err != nil {
 		return "", err
 	}
@@ -398,20 +401,23 @@ func (bm *lockFreeManager) encryptAndWriteContentNotLocked(ctx context.Context, 
 	return blobID, nil
 }
 
-func (bm *lockFreeManager) hashData(data []byte) []byte {
+func (bm *lockFreeManager) hashData(output, data []byte) []byte {
 	// Hash the content and compute encryption key.
-	contentID := bm.hasher(data)
+	contentID := bm.hasher(output, data)
 	bm.Stats.hashedContent(len(data))
 
 	return contentID
 }
 
 func (bm *lockFreeManager) writePackIndexesNew(ctx context.Context, data []byte) (blob.ID, error) {
-	return bm.encryptAndWriteContentNotLocked(ctx, data, newIndexBlobPrefix)
+	return bm.encryptAndWriteBlobNotLocked(ctx, data, newIndexBlobPrefix)
 }
 
 func (bm *lockFreeManager) verifyChecksum(data, contentID []byte) error {
-	expected := bm.hasher(data)
+	hashOutput := bufcache.EmptyBytesWithCapacity(maxHashSize)
+	defer bufcache.Return(hashOutput)
+
+	expected := bm.hasher(hashOutput, data)
 	expected = expected[len(expected)-aes.BlockSize:]
 
 	if !bytes.HasSuffix(contentID, expected) {
@@ -437,9 +443,9 @@ func CreateHashAndEncryptor(f *FormattingOptions) (hashing.HashFunc, encryption.
 		return nil, nil, errors.Wrap(err, "unable to create encryptor")
 	}
 
-	contentID := h(nil)
+	contentID := h(nil, nil)
 
-	_, err = e.Encrypt(nil, contentID)
+	_, err = e.Encrypt(nil, nil, contentID)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "invalid encryptor")
 	}
