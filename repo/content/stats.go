@@ -12,10 +12,8 @@ type Stats struct {
 
 	ReadContents    int32 `json:"readContents,omitempty"`
 	WrittenContents int32 `json:"writtenContents,omitempty"`
-	CheckedContents int32 `json:"checkedContents,omitempty"`
 	HashedContents  int32 `json:"hashedContents,omitempty"`
 	InvalidContents int32 `json:"invalidContents,omitempty"`
-	PresentContents int32 `json:"presentContents,omitempty"`
 	ValidContents   int32 `json:"validContents,omitempty"`
 }
 
