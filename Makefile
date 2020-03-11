@@ -189,8 +189,10 @@ ifneq ($(uname),Windows)
 	             -e github.com/kopia/kopia/internal/repotesting \
 	             -e github.com/kopia/kopia/internal/testlogging \
 	             -e github.com/kopia/kopia/internal/hmac \
+	             -e github.com/kopia/kopia/internal/faketime \
+	             -e github.com/kopia/kopia/internal/testutil \
 	             -e github.com/kopia/kopia/internal/ctxutil \
-	             -e github.com/kopia/kopia/issues && exit 0 || echo repo/ layering ok
+	             -e github.com/kopia/kopia/issues && exit 1 || echo repo/ layering ok
 endif
 
 godoc:
