@@ -3,9 +3,10 @@ package compression
 import (
 	"bytes"
 	"compress/gzip"
-	"io"
 
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/internal/iocopy"
 )
 
 func init() {
@@ -67,7 +68,7 @@ func (c *gzipCompressor) Decompress(b []byte) ([]byte, error) {
 	defer r.Close() //nolint:errcheck
 
 	var buf bytes.Buffer
-	if _, err := io.Copy(&buf, r); err != nil {
+	if _, err := iocopy.Copy(&buf, r); err != nil {
 		return nil, errors.Wrap(err, "decompression error")
 	}
 

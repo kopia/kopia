@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/object"
 )
@@ -280,7 +281,7 @@ func downloadFile(ctx context.Context, f fs.File, fname string) error {
 	}
 	defer dst.Close() //nolint:errcheck
 
-	_, err = io.Copy(dst, src)
+	_, err = iocopy.Copy(dst, src)
 
 	return err
 }

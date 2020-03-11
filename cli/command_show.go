@@ -2,9 +2,9 @@ package cli
 
 import (
 	"context"
-	"io"
 	"os"
 
+	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/repo"
 )
 
@@ -26,7 +26,7 @@ func runCatCommand(ctx context.Context, rep *repo.Repository) error {
 
 	defer r.Close() //nolint:errcheck
 
-	_, err = io.Copy(os.Stdout, r)
+	_, err = iocopy.Copy(os.Stdout, r)
 
 	return err
 }

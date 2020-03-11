@@ -185,6 +185,7 @@ ifneq ($(uname),Windows)
 	   | grep -v -e github.com/kopia/kopia/repo \
 	             -e github.com/kopia/kopia/internal/retry \
 	             -e github.com/kopia/kopia/internal/throttle \
+	             -e github.com/kopia/kopia/internal/iocopy \
 	             -e github.com/kopia/kopia/internal/blobtesting \
 	             -e github.com/kopia/kopia/internal/repotesting \
 	             -e github.com/kopia/kopia/internal/testlogging \

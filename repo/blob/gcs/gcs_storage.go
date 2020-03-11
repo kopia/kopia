@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"time"
 
@@ -18,6 +17,7 @@ import (
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 
+	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/internal/throttle"
 	"github.com/kopia/kopia/repo/blob"
@@ -121,7 +121,7 @@ func (gcs *gcsStorage) PutBlob(ctx context.Context, b blob.ID, data []byte) erro
 		}
 	}
 
-	_, err := io.Copy(writer, bytes.NewReader(data))
+	_, err := iocopy.Copy(writer, bytes.NewReader(data))
 	if err != nil {
 		// cancel context before closing the writer causes it to abandon the upload.
 		cancel()

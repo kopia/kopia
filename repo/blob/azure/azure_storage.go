@@ -16,6 +16,7 @@ import (
 	"gocloud.dev/blob/azureblob"
 	"gocloud.dev/gcerrors"
 
+	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/repo/blob"
 )
@@ -119,7 +120,7 @@ func (az *azStorage) PutBlob(ctx context.Context, b blob.ID, data []byte) error 
 		return err
 	}
 
-	_, err = io.Copy(writer, throttled)
+	_, err = iocopy.Copy(writer, throttled)
 	if err != nil {
 		// cancel context before closing the writer causes it to abandon the upload.
 		cancel()

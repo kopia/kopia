@@ -9,13 +9,14 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
-	"net/http"
-	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/kopia/kopia/internal/iocopy"
 )
 
 func bindataRead(data []byte, name string) ([]byte, error) {
@@ -25,7 +26,7 @@ func bindataRead(data []byte, name string) ([]byte, error) {
 	}
 
 	var buf bytes.Buffer
-	_, err = io.Copy(&buf, gz)
+	_, err = iocopy.Copy(&buf, gz)
 	clErr := gz.Close()
 
 	if err != nil {
@@ -79,7 +80,6 @@ func (fi bindataFileInfo) IsDir() bool {
 func (fi bindataFileInfo) Sys() interface{} {
 	return nil
 }
-
 
 type assetFile struct {
 	*bytes.Reader

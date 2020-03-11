@@ -19,6 +19,8 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/internal/iocopy"
 )
 
 const (
@@ -363,7 +365,7 @@ func createRandomFile(filename string, options DirectoryTreeOptions, counters *D
 
 	length := rand.Int63n(maxFileSize)
 
-	_, err = io.Copy(f, io.LimitReader(rand.New(rand.NewSource(time.Now().UnixNano())), length))
+	_, err = iocopy.Copy(f, io.LimitReader(rand.New(rand.NewSource(time.Now().UnixNano())), length))
 	if err != nil {
 		return errors.Wrap(err, "file create error")
 	}

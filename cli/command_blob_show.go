@@ -3,11 +3,11 @@ package cli
 import (
 	"bytes"
 	"context"
-	"io"
 	"os"
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 )
@@ -24,7 +24,7 @@ func runBlobShow(ctx context.Context, rep *repo.Repository) error {
 			return errors.Wrapf(err, "error getting %v", blobID)
 		}
 
-		if _, err := io.Copy(os.Stdout, bytes.NewReader(d)); err != nil {
+		if _, err := iocopy.Copy(os.Stdout, bytes.NewReader(d)); err != nil {
 			return err
 		}
 	}

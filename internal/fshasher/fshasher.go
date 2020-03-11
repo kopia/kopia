@@ -12,6 +12,7 @@ import (
 	"golang.org/x/crypto/blake2s"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/repo/logging"
 )
 
@@ -116,7 +117,7 @@ func writeFile(ctx context.Context, w io.Writer, f fs.File) error {
 	}
 	defer r.Close() //nolint:errcheck
 
-	if _, err = io.Copy(w, r); err != nil {
+	if _, err = iocopy.Copy(w, r); err != nil {
 		return err
 	}
 
