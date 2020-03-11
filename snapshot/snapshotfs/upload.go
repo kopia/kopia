@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"sync/atomic"
 
 	"github.com/pkg/errors"
@@ -51,6 +52,8 @@ type Uploader struct {
 
 	stats    snapshot.Stats
 	canceled int32
+
+	uploadBufPool sync.Pool
 }
 
 // IsCancelled returns true if the upload is canceled.
@@ -146,7 +149,10 @@ func (u *Uploader) uploadSymlinkInternal(ctx context.Context, relativePath strin
 }
 
 func (u *Uploader) copyWithProgress(dst io.Writer, src io.Reader, completed, length int64) (int64, error) {
-	uploadBuf := make([]byte, copyBufferSize)
+	uploadBufPtr := u.uploadBufPool.Get().(*[]byte)
+	defer u.uploadBufPool.Put(uploadBufPtr)
+
+	uploadBuf := *uploadBufPtr
 
 	var written int64
 
@@ -641,6 +647,13 @@ func NewUploader(r *repo.Repository) *Uploader {
 		Progress:         &NullUploadProgress{},
 		IgnoreReadErrors: false,
 		ParallelUploads:  1,
+		uploadBufPool: sync.Pool{
+			New: func() interface{} {
+				p := make([]byte, copyBufferSize)
+
+				return &p
+			},
+		},
 	}
 }
 
