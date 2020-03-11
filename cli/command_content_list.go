@@ -3,10 +3,10 @@ package cli
 import (
 	"context"
 	"fmt"
-	"sync/atomic"
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/stats"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
 )
@@ -22,9 +22,7 @@ var (
 )
 
 func runContentListCommand(ctx context.Context, rep *repo.Repository) error {
-	var count int32
-
-	var totalSize int64
+	var totalSize stats.CountSum
 
 	err := rep.Content.IterateContents(
 		ctx,
@@ -36,8 +34,9 @@ func runContentListCommand(ctx context.Context, rep *repo.Repository) error {
 			if *contentListDeletedOnly && !b.Deleted {
 				return nil
 			}
-			atomic.AddInt64(&totalSize, int64(b.Length))
-			atomic.AddInt32(&count, 1)
+
+			totalSize.Add(int64(b.Length))
+
 			if *contentListLong {
 				optionalDeleted := ""
 				if b.Deleted {
@@ -62,9 +61,10 @@ func runContentListCommand(ctx context.Context, rep *repo.Repository) error {
 	}
 
 	if *contentListSummary {
+		count, sz := totalSize.Approximate()
 		fmt.Printf("Total: %v contents, %v total size\n",
 			maybeHumanReadableCount(*contentListHuman, int64(count)),
-			maybeHumanReadableBytes(*contentListHuman, totalSize))
+			maybeHumanReadableBytes(*contentListHuman, sz))
 	}
 
 	return nil
