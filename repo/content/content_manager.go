@@ -506,10 +506,9 @@ func (bm *Manager) WriteContent(ctx context.Context, data []byte, prefix ID) (ID
 		return "", err
 	}
 
-	hashOutput := bufcache.EmptyBytesWithCapacity(maxHashSize)
-	defer bufcache.Return(hashOutput)
+	var hashOutput [maxHashSize]byte
 
-	contentID := prefix + ID(hex.EncodeToString(bm.hashData(hashOutput, data)))
+	contentID := prefix + ID(hex.EncodeToString(bm.hashData(hashOutput[:0], data)))
 
 	// content already tracked
 	if bi, err := bm.getContentInfo(contentID); err == nil {

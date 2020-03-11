@@ -14,7 +14,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/bufcache"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/hashing"
@@ -378,10 +377,9 @@ func (bm *lockFreeManager) writePackFileNotLocked(ctx context.Context, packFile 
 }
 
 func (bm *lockFreeManager) encryptAndWriteBlobNotLocked(ctx context.Context, data []byte, prefix blob.ID) (blob.ID, error) {
-	hashOutput := bufcache.EmptyBytesWithCapacity(maxHashSize)
-	defer bufcache.Return(hashOutput)
+	var hashOutput [maxHashSize]byte
 
-	hash := bm.hashData(hashOutput, data)
+	hash := bm.hashData(hashOutput[:0], data)
 	blobID := prefix + blob.ID(hex.EncodeToString(hash))
 
 	bm.Stats.encrypted(len(data))
@@ -414,10 +412,9 @@ func (bm *lockFreeManager) writePackIndexesNew(ctx context.Context, data []byte)
 }
 
 func (bm *lockFreeManager) verifyChecksum(data, contentID []byte) error {
-	hashOutput := bufcache.EmptyBytesWithCapacity(maxHashSize)
-	defer bufcache.Return(hashOutput)
+	var hashOutput [maxHashSize]byte
 
-	expected := bm.hasher(hashOutput, data)
+	expected := bm.hasher(hashOutput[:0], data)
 	expected = expected[len(expected)-aes.BlockSize:]
 
 	if !bytes.HasSuffix(contentID, expected) {
