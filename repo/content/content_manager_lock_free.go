@@ -10,7 +10,6 @@ import (
 	"math/rand"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -23,7 +22,7 @@ import (
 // lockFreeManager contains parts of Manager state that can be accessed without locking
 type lockFreeManager struct {
 	// this one is not lock-free
-	stats Stats
+	Stats Stats
 
 	listCache      *listCache
 	st             blob.Storage
@@ -220,8 +219,7 @@ func (bm *lockFreeManager) getContentDataUnlocked(ctx context.Context, bi *Info)
 		return nil, err
 	}
 
-	atomic.AddInt32(&bm.stats.ReadContents, 1)
-	atomic.AddInt64(&bm.stats.ReadBytes, int64(len(payload)))
+	bm.Stats.readContent(len(payload))
 
 	iv, err := getPackedContentIV(bi.ID)
 	if err != nil {
@@ -242,7 +240,7 @@ func (bm *lockFreeManager) decryptAndVerify(encrypted, iv []byte) ([]byte, error
 		return nil, errors.Wrap(err, "decrypt")
 	}
 
-	atomic.AddInt64(&bm.stats.DecryptedBytes, int64(len(decrypted)))
+	bm.Stats.decrypted(len(decrypted))
 
 	if bm.encryptor.IsAuthenticated() {
 		// already verified
@@ -341,11 +339,10 @@ func (bm *lockFreeManager) getIndexBlobInternal(ctx context.Context, blobID blob
 		return nil, err
 	}
 
-	atomic.AddInt32(&bm.stats.ReadContents, 1)
-	atomic.AddInt64(&bm.stats.ReadBytes, int64(len(payload)))
+	bm.Stats.readContent(len(payload))
 
 	payload, err = bm.encryptor.Decrypt(payload, iv)
-	atomic.AddInt64(&bm.stats.DecryptedBytes, int64(len(payload)))
+	bm.Stats.decrypted(len(payload))
 
 	if err != nil {
 		return nil, err
@@ -373,8 +370,7 @@ func getIndexBlobIV(s blob.ID) ([]byte, error) {
 }
 
 func (bm *lockFreeManager) writePackFileNotLocked(ctx context.Context, packFile blob.ID, data []byte) error {
-	atomic.AddInt32(&bm.stats.WrittenContents, 1)
-	atomic.AddInt64(&bm.stats.WrittenBytes, int64(len(data)))
+	bm.Stats.wroteContent(len(data))
 	bm.listCache.deleteListCache()
 
 	return bm.st.PutBlob(ctx, packFile, data)
@@ -385,15 +381,14 @@ func (bm *lockFreeManager) encryptAndWriteContentNotLocked(ctx context.Context, 
 	blobID := prefix + blob.ID(hex.EncodeToString(hash))
 
 	// Encrypt the content in-place.
-	atomic.AddInt64(&bm.stats.EncryptedBytes, int64(len(data)))
+	bm.Stats.encrypted(len(data))
 
 	data2, err := bm.encryptor.Encrypt(data, hash)
 	if err != nil {
 		return "", err
 	}
 
-	atomic.AddInt32(&bm.stats.WrittenContents, 1)
-	atomic.AddInt64(&bm.stats.WrittenBytes, int64(len(data2)))
+	bm.Stats.wroteContent(len(data2))
 	bm.listCache.deleteListCache()
 
 	if err := bm.st.PutBlob(ctx, blobID, data2); err != nil {
@@ -406,8 +401,7 @@ func (bm *lockFreeManager) encryptAndWriteContentNotLocked(ctx context.Context, 
 func (bm *lockFreeManager) hashData(data []byte) []byte {
 	// Hash the content and compute encryption key.
 	contentID := bm.hasher(data)
-	atomic.AddInt32(&bm.stats.HashedContents, 1)
-	atomic.AddInt64(&bm.stats.HashedBytes, int64(len(data)))
+	bm.Stats.hashedContent(len(data))
 
 	return contentID
 }
@@ -421,11 +415,11 @@ func (bm *lockFreeManager) verifyChecksum(data, contentID []byte) error {
 	expected = expected[len(expected)-aes.BlockSize:]
 
 	if !bytes.HasSuffix(contentID, expected) {
-		atomic.AddInt32(&bm.stats.InvalidContents, 1)
+		bm.Stats.foundInvalidContent()
 		return errors.Errorf("invalid checksum for blob %x, expected %x", contentID, expected)
 	}
 
-	atomic.AddInt32(&bm.stats.ValidContents, 1)
+	bm.Stats.foundValidContent()
 
 	return nil
 }

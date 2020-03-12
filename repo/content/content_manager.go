@@ -208,16 +208,6 @@ func (bm *Manager) addToPackUnlocked(ctx context.Context, contentID ID, data []b
 	return nil
 }
 
-// Stats returns statistics about content manager operations.
-func (bm *Manager) Stats() Stats {
-	return bm.stats
-}
-
-// ResetStats resets statistics to zero values.
-func (bm *Manager) ResetStats() {
-	bm.stats = Stats{}
-}
-
 // DisableIndexFlush increments the counter preventing automatic index flushes.
 func (bm *Manager) DisableIndexFlush(ctx context.Context) {
 	bm.lock()

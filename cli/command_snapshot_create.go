@@ -103,7 +103,7 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshot
 
 	t0 := time.Now()
 
-	rep.Content.ResetStats()
+	rep.Content.Stats.Reset()
 
 	localEntry, err := getLocalFSEntry(ctx, sourceInfo.Path)
 	if err != nil {
