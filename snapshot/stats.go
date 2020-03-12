@@ -14,8 +14,8 @@ type Stats struct {
 	ExcludedTotalFileSize int64 `json:"excludedTotalSize"`
 	ExcludedDirCount      int   `json:"excludedDirCount"`
 
-	CachedFiles    int `json:"cachedFiles"`
-	NonCachedFiles int `json:"nonCachedFiles"`
+	CachedFiles    int32 `json:"cachedFiles"`
+	NonCachedFiles int32 `json:"nonCachedFiles"`
 
 	ReadErrors int `json:"readErrors"`
 }
