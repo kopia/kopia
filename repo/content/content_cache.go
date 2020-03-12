@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.opencensus.io/stats"
 
 	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/hmac"
@@ -57,11 +58,24 @@ func (c *contentCache) getContent(ctx context.Context, cacheKey cacheKey, blobID
 	useCache := shouldUseContentCache(ctx) && c.cacheStorage != nil
 	if useCache {
 		if b := c.readAndVerifyCacheContent(ctx, cacheKey); b != nil {
+			stats.Record(ctx,
+				metricContentCacheHitCount.M(1),
+				metricContentCacheHitBytes.M(int64(len(b))),
+			)
+
 			return b, nil
 		}
 	}
 
+	stats.Record(ctx, metricContentCacheMissCount.M(1))
+
 	b, err := c.st.GetBlob(ctx, blobID, offset, length)
+	if err != nil {
+		stats.Record(ctx, metricContentCacheMissErrors.M(1))
+	} else {
+		stats.Record(ctx, metricContentCacheMissBytes.M(int64(len(b))))
+	}
+
 	if err == blob.ErrBlobNotFound {
 		// not found in underlying storage
 		return nil, err
@@ -74,6 +88,7 @@ func (c *contentCache) getContent(ctx context.Context, cacheKey cacheKey, blobID
 			blob.ID(cacheKey),
 			hmac.Append(b, c.hmacSecret),
 		); puterr != nil {
+			stats.Record(ctx, metricContentCacheStoreErrors.M(1))
 			log(ctx).Warningf("unable to write cache item %v: %v", cacheKey, puterr)
 		}
 	}
