@@ -2,12 +2,12 @@ package cli
 
 import (
 	"context"
-	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/kopia/kopia/internal/stats"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
@@ -23,9 +23,7 @@ var (
 func runBlobGarbageCollectCommand(ctx context.Context, rep *repo.Repository) error {
 	const deleteQueueSize = 100
 
-	var totalUnreferencedSize, totalDeletedSize int64
-
-	var totalUnreferencedCount, totalDeletedCount int32
+	var unreferenced, deleted stats.CountSum
 
 	var eg errgroup.Group
 
@@ -39,9 +37,7 @@ func runBlobGarbageCollectCommand(ctx context.Context, rep *repo.Repository) err
 					if err := rep.Blobs.DeleteBlob(ctx, bm.BlobID); err != nil {
 						return errors.Wrapf(err, "unable to delete blob %q", bm.BlobID)
 					}
-
-					del := atomic.AddInt64(&totalDeletedSize, bm.Length)
-					cnt := atomic.AddInt32(&totalDeletedCount, 1)
+					cnt, del := deleted.Add(bm.Length)
 					if cnt%100 == 0 {
 						printStderr("  deleted %v unreferenced blobs (%v)\n", cnt, units.BytesStringBase10(del))
 					}
@@ -61,8 +57,7 @@ func runBlobGarbageCollectCommand(ctx context.Context, rep *repo.Repository) err
 			return nil
 		}
 
-		atomic.AddInt64(&totalUnreferencedSize, bm.Length)
-		atomic.AddInt32(&totalUnreferencedCount, 1)
+		unreferenced.Add(bm.Length)
 
 		if *blobGarbageCollectCommandDelete == "yes" {
 			unused <- bm
@@ -75,7 +70,8 @@ func runBlobGarbageCollectCommand(ctx context.Context, rep *repo.Repository) err
 
 	close(unused)
 
-	printStderr("Found %v blobs to delete (%v)\n", totalUnreferencedCount, units.BytesStringBase10(totalUnreferencedSize))
+	unreferencedCount, unreferencedSize := unreferenced.Approximate()
+	printStderr("Found %v blobs to delete (%v)\n", unreferencedCount, units.BytesStringBase10(unreferencedSize))
 
 	// wait for all delete workers to finish.
 	if err := eg.Wait(); err != nil {
@@ -83,14 +79,16 @@ func runBlobGarbageCollectCommand(ctx context.Context, rep *repo.Repository) err
 	}
 
 	if *blobGarbageCollectCommandDelete != "yes" {
-		if totalUnreferencedCount > 0 {
+		if unreferencedCount > 0 {
 			printStderr("Pass --delete=yes to delete.\n")
 		}
 
 		return nil
 	}
 
-	printStderr("Deleted total %v unreferenced blobs (%v)\n", totalDeletedCount, units.BytesStringBase10(totalDeletedSize))
+	del, cnt := deleted.Approximate()
+
+	printStderr("Deleted total %v unreferenced blobs (%v)\n", del, units.BytesStringBase10(cnt))
 
 	return nil
 }
