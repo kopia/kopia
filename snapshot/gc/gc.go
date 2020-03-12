@@ -94,33 +94,35 @@ func Run(ctx context.Context, rep *repo.Repository, minContentAge time.Duration,
 			return nil
 		}
 
-		if _, ok := used.Load(ci.ID); !ok {
-			if rep.Time().Sub(ci.Timestamp()) < minContentAge {
-				log(ctx).Debugf("recent unreferenced content %v (%v bytes, modified %v)", ci.ID, ci.Length, ci.Timestamp())
-				tooRecent.Add(int64(ci.Length))
-				return nil
-			}
-
-			log(ctx).Debugf("unreferenced %v (%v bytes, modified %v)", ci.ID, ci.Length, ci.Timestamp())
-			cnt, totalSize := unused.Add(int64(ci.Length))
-
-			if gcDelete {
-				if err := rep.Content.DeleteContent(ctx, ci.ID); err != nil {
-					return errors.Wrap(err, "error deleting content")
-				}
-			}
-
-			if cnt%100000 == 0 {
-				log(ctx).Infof("... found %v unused contents so far (%v bytes)", cnt, units.BytesStringBase2(totalSize))
-				if gcDelete {
-					if err := rep.Flush(ctx); err != nil {
-						return errors.Wrap(err, "flush error")
-					}
-				}
-			}
-		} else {
+		if _, ok := used.Load(ci.ID); ok {
 			inUse.Add(int64(ci.Length))
+			return nil
 		}
+
+		if rep.Time().Sub(ci.Timestamp()) < minContentAge {
+			log(ctx).Debugf("recent unreferenced content %v (%v bytes, modified %v)", ci.ID, ci.Length, ci.Timestamp())
+			tooRecent.Add(int64(ci.Length))
+			return nil
+		}
+
+		log(ctx).Debugf("unreferenced %v (%v bytes, modified %v)", ci.ID, ci.Length, ci.Timestamp())
+		cnt, totalSize := unused.Add(int64(ci.Length))
+
+		if gcDelete {
+			if err := rep.Content.DeleteContent(ctx, ci.ID); err != nil {
+				return errors.Wrap(err, "error deleting content")
+			}
+		}
+
+		if cnt%100000 == 0 {
+			log(ctx).Infof("... found %v unused contents so far (%v bytes)", cnt, units.BytesStringBase2(totalSize))
+			if gcDelete {
+				if err := rep.Flush(ctx); err != nil {
+					return errors.Wrap(err, "flush error")
+				}
+			}
+		}
+
 		return nil
 	})
 
