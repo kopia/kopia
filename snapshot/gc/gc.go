@@ -75,17 +75,20 @@ func findInUseContentIDs(ctx context.Context, rep *repo.Repository, used *sync.M
 
 // Run performs garbage collection on all the snapshots in the repository.
 // nolint:gocognit
-func Run(ctx context.Context, rep *repo.Repository, minContentAge time.Duration, gcDelete bool) error {
+func Run(ctx context.Context, rep *repo.Repository, minContentAge time.Duration, gcDelete bool) (Stats, error) {
 	var used sync.Map
+
+	var st Stats
+
 	if err := findInUseContentIDs(ctx, rep, &used); err != nil {
-		return errors.Wrap(err, "unable to find in-use content ID")
+		return st, errors.Wrap(err, "unable to find in-use content ID")
 	}
 
 	var unused, inUse, system, tooRecent stats.CountSum
 
 	log(ctx).Infof("looking for unreferenced contents")
 
-	if err := rep.Content.IterateContents(ctx, content.IterateOptions{}, func(ci content.Info) error {
+	err := rep.Content.IterateContents(ctx, content.IterateOptions{}, func(ci content.Info) error {
 		if manifest.ContentPrefix == ci.ID.Prefix() {
 			system.Add(int64(ci.Length))
 			return nil
@@ -119,22 +122,20 @@ func Run(ctx context.Context, rep *repo.Repository, minContentAge time.Duration,
 			inUse.Add(int64(ci.Length))
 		}
 		return nil
-	}); err != nil {
-		return errors.Wrap(err, "error iterating contents")
+	})
+
+	st.UnusedCount, st.UnusedBytes = unused.Approximate()
+	st.InUseCount, st.InUseBytes = inUse.Approximate()
+	st.SystemCount, st.SystemBytes = system.Approximate()
+	st.TooRecentCount, st.TooRecentBytes = tooRecent.Approximate()
+
+	if err != nil {
+		return st, errors.Wrap(err, "error iterating contents")
 	}
 
-	unusedCount, totalBytes := unused.Approximate()
-	log(ctx).Infof("found %v unused contents (%v bytes)", unusedCount, units.BytesStringBase2(totalBytes))
-	cnt, totalBytes := tooRecent.Approximate()
-	log(ctx).Infof("found %v unused contents that are too recent to delete (%v bytes)", cnt, units.BytesStringBase2(totalBytes))
-	cnt, totalBytes = inUse.Approximate()
-	log(ctx).Infof("found %v in-use contents (%v bytes)", cnt, units.BytesStringBase2(totalBytes))
-	cnt, totalBytes = system.Approximate()
-	log(ctx).Infof("found %v in-use system-contents (%v bytes)", cnt, units.BytesStringBase2(totalBytes))
-
-	if unusedCount > 0 && !gcDelete {
-		return errors.Errorf("Not deleting because '--delete' flag was not set")
+	if st.UnusedCount > 0 && !gcDelete {
+		return st, errors.Errorf("Not deleting because '--delete' flag was not set")
 	}
 
-	return nil
+	return st, nil
 }
