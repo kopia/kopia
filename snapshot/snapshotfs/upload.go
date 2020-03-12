@@ -63,7 +63,8 @@ func (u *Uploader) cancelReason() string {
 		return "canceled"
 	}
 
-	if mub := u.MaxUploadBytes; mub > 0 && u.repo.Content.Stats().WrittenBytes > mub {
+	_, wb := u.repo.Content.Stats.WrittenContent()
+	if mub := u.MaxUploadBytes; mub > 0 && wb > mub {
 		return "limit reached"
 	}
 
