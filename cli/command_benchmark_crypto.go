@@ -31,6 +31,15 @@ func runBenchmarkCryptoAction(ctx *kingpin.ParseContext) error {
 
 	data := make([]byte, *benchmarkCryptoBlockSize)
 
+	const (
+		maxEncryptionOverhead = 1024
+		maxHashSize           = 64
+	)
+
+	var hashOutput [maxHashSize]byte
+
+	encryptOutput := make([]byte, len(data)+maxEncryptionOverhead)
+
 	for _, ha := range hashing.SupportedAlgorithms() {
 		for _, ea := range encryption.SupportedAlgorithms(*benchmarkCryptoDeprecatedAlgorithms) {
 			isEncrypted := ea != encryption.NoneAlgorithm
@@ -53,11 +62,10 @@ func runBenchmarkCryptoAction(ctx *kingpin.ParseContext) error {
 			t0 := time.Now()
 
 			hashCount := *benchmarkCryptoRepeat
-			hashOutput := make([]byte, 0, 64)
 
 			for i := 0; i < hashCount; i++ {
 				contentID := h(hashOutput[:0], data)
-				if _, encerr := e.Encrypt(nil, data, contentID); encerr != nil {
+				if _, encerr := e.Encrypt(encryptOutput[:0], data, contentID); encerr != nil {
 					printStderr("encryption failed: %v\n", encerr)
 					break
 				}
