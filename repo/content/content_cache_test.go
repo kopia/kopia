@@ -148,7 +148,7 @@ func verifyContentCache(t *testing.T, cache *contentCache) {
 			} else if err != nil && err.Error() != tc.err.Error() {
 				t.Errorf("unexpected error for %v: %+v, wanted %+v", tc.cacheKey, err, tc.err)
 			}
-			if !reflect.DeepEqual(v, tc.expected) {
+			if !bytes.Equal(v, tc.expected) {
 				t.Errorf("unexpected data for %v: %x, wanted %x", tc.cacheKey, v, tc.expected)
 			}
 		}

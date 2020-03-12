@@ -20,7 +20,7 @@ type salsaEncryptor struct {
 	hmacSecret []byte
 }
 
-func (s salsaEncryptor) Decrypt(input, contentID []byte) ([]byte, error) {
+func (s salsaEncryptor) Decrypt(output, input, contentID []byte) ([]byte, error) {
 	if s.hmacSecret != nil {
 		var err error
 
@@ -30,11 +30,11 @@ func (s salsaEncryptor) Decrypt(input, contentID []byte) ([]byte, error) {
 		}
 	}
 
-	return s.encryptDecrypt(input, contentID)
+	return s.encryptDecrypt(output, input, contentID)
 }
 
-func (s salsaEncryptor) Encrypt(input, contentID []byte) ([]byte, error) {
-	v, err := s.encryptDecrypt(input, contentID)
+func (s salsaEncryptor) Encrypt(output, input, contentID []byte) ([]byte, error) {
+	v, err := s.encryptDecrypt(output, input, contentID)
 	if err != nil {
 		return nil, errors.Wrap(err, "decrypt")
 	}
@@ -50,14 +50,14 @@ func (s salsaEncryptor) IsAuthenticated() bool {
 	return s.hmacSecret != nil
 }
 
-func (s salsaEncryptor) encryptDecrypt(input, contentID []byte) ([]byte, error) {
+func (s salsaEncryptor) encryptDecrypt(output, input, contentID []byte) ([]byte, error) {
 	if len(contentID) < s.nonceSize {
 		return nil, errors.Errorf("hash too short, expected >=%v bytes, got %v", s.nonceSize, len(contentID))
 	}
 
-	result := make([]byte, len(input))
+	result, out := sliceForAppend(output, len(input))
 	nonce := contentID[0:s.nonceSize]
-	salsa20.XORKeyStream(result, input, nonce, s.key)
+	salsa20.XORKeyStream(out, input, nonce, s.key)
 
 	return result, nil
 }

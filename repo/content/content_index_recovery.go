@@ -176,9 +176,9 @@ func (bm *lockFreeManager) appendPackFileIndexRecoveryData(ctx context.Context, 
 		return nil, err
 	}
 
-	localIndexIV := bm.hashData(localIndex)
+	localIndexIV := bm.hashData(nil, localIndex)
 
-	encryptedLocalIndex, err := bm.encryptor.Encrypt(localIndex, localIndexIV)
+	encryptedLocalIndex, err := bm.encryptor.Encrypt(nil, localIndex, localIndexIV)
 	if err != nil {
 		return nil, err
 	}

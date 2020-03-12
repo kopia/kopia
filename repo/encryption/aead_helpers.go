@@ -8,9 +8,15 @@ import (
 )
 
 // aeadSealWithRandomNonce returns AEAD-sealed content prepended with random nonce.
-func aeadSealWithRandomNonce(a cipher.AEAD, plaintext, contentID []byte) ([]byte, error) {
-	// pre-allocate a slice with len()=size of a nonce, and cap() for the entire ciphertext
-	result := make([]byte, a.NonceSize(), len(plaintext)+a.NonceSize()+a.Overhead())
+func aeadSealWithRandomNonce(result []byte, a cipher.AEAD, plaintext, contentID []byte) ([]byte, error) {
+	resultLen := len(plaintext) + a.NonceSize() + a.Overhead()
+
+	if cap(result) < resultLen {
+		// result slice too small, make a new one
+		result = make([]byte, 0, resultLen)
+	}
+
+	result = result[0:a.NonceSize()]
 
 	n, err := rand.Read(result)
 	if err != nil {
@@ -25,10 +31,10 @@ func aeadSealWithRandomNonce(a cipher.AEAD, plaintext, contentID []byte) ([]byte
 }
 
 // aeadOpenPrefixedWithNonce opens AEAD-protected content, assuming first bytes are the nonce.
-func aeadOpenPrefixedWithNonce(a cipher.AEAD, ciphertext, contentID []byte) ([]byte, error) {
+func aeadOpenPrefixedWithNonce(output []byte, a cipher.AEAD, ciphertext, contentID []byte) ([]byte, error) {
 	if len(ciphertext) < a.NonceSize() {
 		return nil, errors.Errorf("ciphertext too short")
 	}
 
-	return a.Open(nil, ciphertext[0:a.NonceSize()], ciphertext[a.NonceSize():], contentID)
+	return a.Open(output[:0], ciphertext[0:a.NonceSize()], ciphertext[a.NonceSize():], contentID)
 }

@@ -12,12 +12,12 @@ type ctrEncryptor struct {
 	createCipher func() (cipher.Block, error)
 }
 
-func (fi ctrEncryptor) Encrypt(plainText, contentID []byte) ([]byte, error) {
-	return symmetricEncrypt(fi.createCipher, contentID, plainText)
+func (fi ctrEncryptor) Encrypt(output, plainText, contentID []byte) ([]byte, error) {
+	return symmetricEncrypt(output, fi.createCipher, contentID, plainText)
 }
 
-func (fi ctrEncryptor) Decrypt(cipherText, contentID []byte) ([]byte, error) {
-	return symmetricEncrypt(fi.createCipher, contentID, cipherText)
+func (fi ctrEncryptor) Decrypt(output, cipherText, contentID []byte) ([]byte, error) {
+	return symmetricEncrypt(output, fi.createCipher, contentID, cipherText)
 }
 
 func (fi ctrEncryptor) IsAuthenticated() bool {
@@ -28,7 +28,7 @@ func (fi ctrEncryptor) IsDeprecated() bool {
 	return true
 }
 
-func symmetricEncrypt(createCipher func() (cipher.Block, error), iv, b []byte) ([]byte, error) {
+func symmetricEncrypt(output []byte, createCipher func() (cipher.Block, error), iv, b []byte) ([]byte, error) {
 	blockCipher, err := createCipher()
 	if err != nil {
 		return nil, err
@@ -39,8 +39,9 @@ func symmetricEncrypt(createCipher func() (cipher.Block, error), iv, b []byte) (
 	}
 
 	ctr := cipher.NewCTR(blockCipher, iv[0:blockCipher.BlockSize()])
-	result := make([]byte, len(b))
-	ctr.XORKeyStream(result, b)
+
+	result, out := sliceForAppend(output, len(b))
+	ctr.XORKeyStream(out, b)
 
 	return result, nil
 }
