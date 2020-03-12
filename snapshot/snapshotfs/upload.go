@@ -7,8 +7,10 @@ import (
 	"hash/fnv"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"sync"
 	"sync/atomic"
 
@@ -261,22 +263,26 @@ func (u *Uploader) uploadDir(ctx context.Context, rootDir fs.Directory, policyTr
 	return de, err
 }
 
-func (u *Uploader) foreachEntryUnlessCancelled(ctx context.Context, parallel int, relativePath string, entries fs.Entries, cb func(ctx context.Context, index int, entry fs.Entry, entryRelativePath string) error) error {
-	type entryWithIndex struct {
-		entry fs.Entry
-		index int
+func (u *Uploader) foreachEntryUnlessCancelled(ctx context.Context, parallel int, relativePath string, entries fs.Entries, cb func(ctx context.Context, entry fs.Entry, entryRelativePath string) error) error {
+	if parallel > len(entries) {
+		// don't launch more goroutines than needed
+		parallel = len(entries)
 	}
 
-	ch := make(chan entryWithIndex)
+	if parallel == 0 {
+		return nil
+	}
+
+	ch := make(chan fs.Entry)
 	eg, ctx := errgroup.WithContext(ctx)
 
 	// one goroutine to pump entries into channel until ctx is closed.
 	eg.Go(func() error {
 		defer close(ch)
 
-		for i, e := range entries {
+		for _, e := range entries {
 			select {
-			case ch <- entryWithIndex{e, i}: // sent to channel
+			case ch <- e: // sent to channel
 			case <-ctx.Done(): // context closed
 				return nil
 			}
@@ -287,13 +293,13 @@ func (u *Uploader) foreachEntryUnlessCancelled(ctx context.Context, parallel int
 	// launch N workers in parallel
 	for i := 0; i < parallel; i++ {
 		eg.Go(func() error {
-			for ewi := range ch {
+			for entry := range ch {
 				if u.IsCancelled() {
 					return errCancelled
 				}
 
-				entryRelativePath := relativePath + "/" + ewi.entry.Name()
-				if err := cb(ctx, ewi.index, ewi.entry, entryRelativePath); err != nil {
+				entryRelativePath := path.Join(relativePath, entry.Name())
+				if err := cb(ctx, entry, entryRelativePath); err != nil {
 					return err
 				}
 			}
@@ -305,8 +311,88 @@ func (u *Uploader) foreachEntryUnlessCancelled(ctx context.Context, parallel int
 	return eg.Wait()
 }
 
-func (u *Uploader) processSubdirectories(ctx context.Context, relativePath string, entries fs.Entries, policyTree *policy.Tree, previousEntries []fs.Entries, dirManifest *snapshot.DirManifest, summ *fs.DirectorySummary) error {
-	return u.foreachEntryUnlessCancelled(ctx, 1, relativePath, entries, func(ctx context.Context, index int, entry fs.Entry, entryRelativePath string) error {
+func (u *Uploader) populateChildEntries(parent *snapshot.DirManifest, children <-chan *snapshot.DirEntry) {
+	parentSummary := parent.Summary
+
+	for de := range children {
+		switch de.Type {
+		case snapshot.EntryTypeFile:
+			u.stats.TotalFileCount++
+			u.stats.TotalFileSize += de.FileSize
+			parentSummary.TotalFileCount++
+			parentSummary.TotalFileSize += de.FileSize
+
+			if de.ModTime.After(parentSummary.MaxModTime) {
+				parentSummary.MaxModTime = de.ModTime
+			}
+
+		case snapshot.EntryTypeDirectory:
+			if childSummary := de.DirSummary; childSummary != nil {
+				parentSummary.TotalFileCount += childSummary.TotalFileCount
+				parentSummary.TotalFileSize += childSummary.TotalFileSize
+				parentSummary.TotalDirCount += childSummary.TotalDirCount
+
+				if childSummary.MaxModTime.After(parentSummary.MaxModTime) {
+					parentSummary.MaxModTime = childSummary.MaxModTime
+				}
+			}
+		}
+
+		parent.Entries = append(parent.Entries, de)
+	}
+
+	// sort the result, directories first, then non-directories, ordered by name
+	sort.Slice(parent.Entries, func(i, j int) bool {
+		if leftDir, rightDir := isDir(parent.Entries[i]), isDir(parent.Entries[j]); leftDir != rightDir {
+			// directories get sorted before non-directories
+			return leftDir
+		}
+
+		return parent.Entries[i].Name < parent.Entries[j].Name
+	})
+}
+
+func isDir(e *snapshot.DirEntry) bool {
+	return e.Type == snapshot.EntryTypeDirectory
+}
+
+func (u *Uploader) processChildren(ctx context.Context, dirManifest *snapshot.DirManifest, relativePath string, entries fs.Entries, policyTree *policy.Tree, previousEntries []fs.Entries) error {
+	var wg sync.WaitGroup
+
+	// channel where we will add directory and file entries, possibly in parallel
+	output := make(chan *snapshot.DirEntry)
+
+	// goroutine that will drain data from 'output' and update dirManifest
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		u.populateChildEntries(dirManifest, output)
+	}()
+
+	defer func() {
+		// before this function returns, close the output channel and wait for the goroutine above to complete.
+		close(output)
+		wg.Wait()
+	}()
+
+	if err := u.processSubdirectories(ctx, output, relativePath, entries, policyTree, previousEntries); err != nil {
+		return err
+	}
+
+	if err := u.processNonDirectories(ctx, output, relativePath, entries, policyTree, previousEntries); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (u *Uploader) processSubdirectories(ctx context.Context, output chan *snapshot.DirEntry, relativePath string, entries fs.Entries, policyTree *policy.Tree, previousEntries []fs.Entries) error {
+	// for now don't process subdirectories in parallel, we need a mechanism to
+	// prevent explosion of parallelism
+	const parallelism = 1
+
+	return u.foreachEntryUnlessCancelled(ctx, parallelism, relativePath, entries, func(ctx context.Context, entry fs.Entry, entryRelativePath string) error {
 		dir, ok := entry.(fs.Directory)
 		if !ok {
 			// skip non-directories
@@ -327,13 +413,6 @@ func (u *Uploader) processSubdirectories(ctx context.Context, relativePath strin
 			return err
 		}
 
-		summ.TotalFileCount += subdirsumm.TotalFileCount
-		summ.TotalFileSize += subdirsumm.TotalFileSize
-		summ.TotalDirCount += subdirsumm.TotalDirCount
-		if subdirsumm.MaxModTime.After(summ.MaxModTime) {
-			summ.MaxModTime = subdirsumm.MaxModTime
-		}
-
 		if err != nil {
 			// Note: This only catches errors in subdirectories of the snapshot root, not on the snapshot
 			// root itself. The intention is to always fail if the top level directory can't be read,
@@ -352,7 +431,7 @@ func (u *Uploader) processSubdirectories(ctx context.Context, relativePath strin
 		}
 
 		de.DirSummary = &subdirsumm
-		dirManifest.Entries = append(dirManifest.Entries, de)
+		output <- de
 		return nil
 	})
 }
@@ -414,17 +493,14 @@ func (u *Uploader) maybeIgnoreCachedEntry(ctx context.Context, ent fs.Entry) fs.
 	return nil
 }
 
-func (u *Uploader) processNonDirectories(ctx context.Context, dirRelativePath string, entries fs.Entries, policyTree *policy.Tree, prevEntries []fs.Entries, summ *fs.DirectorySummary) ([]*snapshot.DirEntry, error) {
+func (u *Uploader) processNonDirectories(ctx context.Context, output chan *snapshot.DirEntry, dirRelativePath string, entries fs.Entries, policyTree *policy.Tree, prevEntries []fs.Entries) error {
 	workerCount := u.ParallelUploads
 	if workerCount == 0 {
 		workerCount = runtime.NumCPU()
 	}
 
-	// prepare results slice, each callback below will populate one of the entries
-	results := make([]*snapshot.DirEntry, len(entries))
-
-	resultErr := u.foreachEntryUnlessCancelled(ctx, workerCount, dirRelativePath, entries, func(ctx context.Context, index int, entry fs.Entry, entryRelativePath string) error {
-		// note this function runs in parallel and updates 'u.stats', all changes to 'summ' must be safe
+	return u.foreachEntryUnlessCancelled(ctx, workerCount, dirRelativePath, entries, func(ctx context.Context, entry fs.Entry, entryRelativePath string) error {
+		// note this function runs in parallel and updates 'u.stats', which must be done using atomic operations.
 		if _, ok := entry.(fs.Directory); ok {
 			// skip directories
 			return nil
@@ -432,7 +508,7 @@ func (u *Uploader) processNonDirectories(ctx context.Context, dirRelativePath st
 
 		// See if we had this name during either of previous passes.
 		if cachedEntry := u.maybeIgnoreCachedEntry(ctx, findCachedEntry(ctx, entry, prevEntries)); cachedEntry != nil {
-			u.stats.CachedFiles++
+			atomic.AddInt32(&u.stats.CachedFiles, 1)
 			u.Progress.CachedFile(filepath.Join(dirRelativePath, entry.Name()), entry.Size())
 
 			// compute entryResult now, cachedEntry is short-lived
@@ -441,7 +517,7 @@ func (u *Uploader) processNonDirectories(ctx context.Context, dirRelativePath st
 				return errors.Wrap(err, "unable to create dir entry")
 			}
 
-			results[index] = cachedDirEntry
+			output <- cachedDirEntry
 			return nil
 		}
 
@@ -452,7 +528,8 @@ func (u *Uploader) processNonDirectories(ctx context.Context, dirRelativePath st
 				return u.maybeIgnoreFileReadError(err, policyTree)
 			}
 
-			results[index] = de
+			output <- de
+			return nil
 
 		case fs.File:
 			atomic.AddInt32(&u.stats.NonCachedFiles, 1)
@@ -461,45 +538,13 @@ func (u *Uploader) processNonDirectories(ctx context.Context, dirRelativePath st
 				return u.maybeIgnoreFileReadError(err, policyTree)
 			}
 
-			results[index] = de
+			output <- de
+			return nil
 
 		default:
 			return errors.Errorf("file type not supported: %v", entry.Mode())
 		}
-
-		return nil
 	})
-
-	for _, ent := range results {
-		if ent == nil {
-			continue
-		}
-
-		if ent.Type == snapshot.EntryTypeFile {
-			u.stats.TotalFileCount++
-			u.stats.TotalFileSize += ent.FileSize
-			summ.TotalFileCount++
-			summ.TotalFileSize += ent.FileSize
-
-			if ent.ModTime.After(summ.MaxModTime) {
-				summ.MaxModTime = ent.ModTime
-			}
-		}
-	}
-
-	return notNilEntries(results), resultErr
-}
-
-func notNilEntries(entries []*snapshot.DirEntry) []*snapshot.DirEntry {
-	var res []*snapshot.DirEntry
-
-	for _, v := range entries {
-		if v != nil {
-			res = append(res, v)
-		}
-	}
-
-	return res
 }
 
 func maybeReadDirectoryEntries(ctx context.Context, dir fs.Directory) fs.Entries {
@@ -556,18 +601,20 @@ func uploadDirInternal(
 	u.Progress.StartedDirectory(dirRelativePath)
 	defer u.Progress.FinishedDirectory(dirRelativePath)
 
-	var summ fs.DirectorySummary
-	summ.TotalDirCount = 1
+	dirManifest := &snapshot.DirManifest{
+		StreamType: directoryStreamType,
+		Summary: &fs.DirectorySummary{
+			TotalDirCount: 1,
+		},
+	}
 
 	defer func() {
-		summ.IncompleteReason = u.cancelReason()
+		dirManifest.Summary.IncompleteReason = u.cancelReason()
 	}()
 
-	log(ctx).Debugf("reading directory %v", dirRelativePath)
-
+	t0 := u.repo.Time()
 	entries, direrr := directory.Readdir(ctx)
-
-	log(ctx).Debugf("finished reading directory %v", dirRelativePath)
+	log(ctx).Debugf("finished reading directory %v in %v", dirRelativePath, u.repo.Time().Sub(t0))
 
 	if direrr != nil {
 		return "", fs.DirectorySummary{}, dirReadError{direrr}
@@ -581,43 +628,28 @@ func uploadDirInternal(
 		}
 	}
 
-	if len(entries) == 0 {
-		summ.MaxModTime = directory.ModTime()
-	}
-
-	dirManifest := &snapshot.DirManifest{
-		StreamType: directoryStreamType,
-	}
-
-	if err := u.processSubdirectories(ctx, dirRelativePath, entries, policyTree, prevEntries, dirManifest, &summ); err != nil && err != errCancelled {
+	if err := u.processChildren(ctx, dirManifest, dirRelativePath, entries, policyTree, prevEntries); err != nil && err != errCancelled {
 		return "", fs.DirectorySummary{}, err
 	}
 
-	log(ctx).Debugf("preparing work items %v", dirRelativePath)
-	uploadedEntries, workItemErr := u.processNonDirectories(ctx, dirRelativePath, entries, policyTree, prevEntries, &summ)
-	log(ctx).Debugf("finished preparing work items %v", dirRelativePath)
-
-	if workItemErr != nil && workItemErr != errCancelled {
-		return "", fs.DirectorySummary{}, workItemErr
+	if len(dirManifest.Entries) == 0 {
+		dirManifest.Summary.MaxModTime = directory.ModTime()
 	}
 
-	log(ctx).Debugf("finished processing uploads %v", dirRelativePath)
-
-	dirManifest.Entries = append(dirManifest.Entries, uploadedEntries...)
-	dirManifest.Summary = &summ
+	// at this point dirManifest is ready to go
 
 	writer := u.repo.Objects.NewWriter(ctx, object.WriterOptions{
 		Description: "DIR:" + dirRelativePath,
 		Prefix:      "k",
 	})
 
-	if err := json.NewEncoder(writer).Encode(&dirManifest); err != nil {
+	if err := json.NewEncoder(writer).Encode(dirManifest); err != nil {
 		return "", fs.DirectorySummary{}, errors.Wrap(err, "unable to encode directory JSON")
 	}
 
 	oid, err := writer.Result()
 
-	return oid, summ, err
+	return oid, *dirManifest.Summary, err
 }
 
 func (u *Uploader) maybeIgnoreFileReadError(err error, policyTree *policy.Tree) error {
