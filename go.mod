@@ -5,6 +5,7 @@ go 1.13
 require (
 	bazil.org/fuse v0.0.0-20180421153158-65cc252bf669
 	cloud.google.com/go v0.45.1
+	contrib.go.opencensus.io/exporter/prometheus v0.1.0
 	github.com/Azure/azure-storage-blob-go v0.8.0
 	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 // indirect
 	github.com/alecthomas/units v0.0.0-20190717042225-c3de453c63f4 // indirect
@@ -28,10 +29,12 @@ require (
 	github.com/pkg/errors v0.8.1
 	github.com/pkg/profile v1.3.0
 	github.com/pkg/sftp v1.10.1
+	github.com/prometheus/client_golang v0.9.3-0.20190127221311-3c4408c8b829
 	github.com/skratchdot/open-golang v0.0.0-20190402232053-79abb63cd66e
 	github.com/stretchr/testify v1.4.0
 	github.com/studio-b12/gowebdav v0.0.0-20190103184047-38f79aeaf1ac
 	github.com/zalando/go-keyring v0.0.0-20190715212148-76787ff3b3bd
+	go.opencensus.io v0.22.0
 	gocloud.dev v0.18.0
 	golang.org/x/crypto v0.0.0-20200221231518-2aa609cf4a9d
 	golang.org/x/exp v0.0.0-20190829153037-c13cbed26979

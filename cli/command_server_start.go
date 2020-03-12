@@ -12,7 +12,9 @@ import (
 	"os"
 	"strings"
 
+	"contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/pkg/errors"
+	prom "github.com/prometheus/client_golang/prometheus"
 
 	"github.com/kopia/kopia/internal/server"
 	"github.com/kopia/kopia/repo"
@@ -48,6 +50,7 @@ func runServer(ctx context.Context, rep *repo.Repository) error {
 	}
 
 	mux := http.NewServeMux()
+
 	mux.Handle("/api/", srv.APIHandlers())
 
 	if *serverStartHTMLPath != "" {
@@ -68,7 +71,15 @@ func runServer(ctx context.Context, rep *repo.Repository) error {
 		}
 	})
 
-	handler := addInterceptors(mux)
+	mux = requireCredentials(mux)
+
+	// init prometheus after adding interceptors that require credentials, so that this
+	// handler can be called without auth
+	if err = initPrometheus(mux); err != nil {
+		return errors.Wrap(err, "error initializing Prometheus")
+	}
+
+	var handler http.Handler = mux
 
 	if as := *serverStartAutoShutdown; as > 0 {
 		log(ctx).Infof("starting a watchdog to stop the server if there's no activity for %v", as)
@@ -87,6 +98,29 @@ func runServer(ctx context.Context, rep *repo.Repository) error {
 	}
 
 	return srv.SetRepository(ctx, nil)
+}
+
+func initPrometheus(mux *http.ServeMux) error {
+	reg := prom.NewRegistry()
+	if err := reg.Register(prom.NewProcessCollector(prom.ProcessCollectorOpts{})); err != nil {
+		return errors.Wrap(err, "error registering process collector")
+	}
+
+	if err := reg.Register(prom.NewGoCollector()); err != nil {
+		return errors.Wrap(err, "error registering go collector")
+	}
+
+	pe, err := prometheus.NewExporter(prometheus.Options{
+		Registry: reg,
+	})
+
+	if err != nil {
+		return errors.Wrap(err, "unable to initialize prometheus exporter")
+	}
+
+	mux.Handle("/metrics", pe)
+
+	return nil
 }
 
 func stripProtocol(addr string) string {
@@ -113,7 +147,7 @@ func serveIndexFileForKnownUIRoutes(h http.Handler) http.Handler {
 	})
 }
 
-func addInterceptors(handler http.Handler) http.Handler {
+func requireCredentials(handler http.Handler) *http.ServeMux {
 	if *serverPassword != "" {
 		handler = requireAuth{handler, *serverUsername, *serverPassword}
 	}
@@ -131,7 +165,10 @@ func addInterceptors(handler http.Handler) http.Handler {
 		handler = requireAuth{handler, *serverUsername, randomPassword}
 	}
 
-	return handler
+	mux := http.NewServeMux()
+	mux.Handle("/", handler)
+
+	return mux
 }
 
 type requireAuth struct {

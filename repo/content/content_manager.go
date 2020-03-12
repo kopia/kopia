@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"go.opencensus.io/stats"
 
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
@@ -462,6 +463,9 @@ func (bm *Manager) getOrCreatePendingPackInfoLocked(prefix blob.ID) *pendingPack
 // WriteContent saves a given content of data to a pack group with a provided name and returns a contentID
 // that's based on the contents of data written.
 func (bm *Manager) WriteContent(ctx context.Context, data []byte, prefix ID) (ID, error) {
+	stats.Record(ctx, metricContentWriteContentCount.M(1))
+	stats.Record(ctx, metricContentWriteContentBytes.M(int64(len(data))))
+
 	if err := validatePrefix(prefix); err != nil {
 		return "", err
 	}
@@ -481,7 +485,20 @@ func (bm *Manager) WriteContent(ctx context.Context, data []byte, prefix ID) (ID
 }
 
 // GetContent gets the contents of a given content. If the content is not found returns ErrContentNotFound.
-func (bm *Manager) GetContent(ctx context.Context, contentID ID) ([]byte, error) {
+func (bm *Manager) GetContent(ctx context.Context, contentID ID) (v []byte, err error) {
+	defer func() {
+		switch err {
+		case nil:
+			stats.Record(ctx,
+				metricContentGetCount.M(1),
+				metricContentGetBytes.M(int64(len(v))))
+		case ErrContentNotFound:
+			stats.Record(ctx, metricContentGetNotFoundCount.M(1))
+		default:
+			stats.Record(ctx, metricContentGetErrorCount.M(1))
+		}
+	}()
+
 	bi, err := bm.getContentInfo(contentID)
 	if err != nil {
 		return nil, err

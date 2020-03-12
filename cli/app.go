@@ -3,6 +3,7 @@ package cli
 
 import (
 	"context"
+	"net/http"
 	"os"
 
 	"github.com/pkg/errors"
@@ -93,6 +94,16 @@ func maybeRepositoryAction(act func(ctx context.Context, rep *repo.Repository) e
 
 			startMemoryTracking(ctx)
 			defer finishMemoryTracking(ctx)
+
+			if *metricsListenAddr != "" {
+				mux := http.NewServeMux()
+				if err := initPrometheus(mux); err != nil {
+					return errors.Wrap(err, "unable to initialize prometheus.")
+				}
+
+				log(ctx).Infof("starting prometheus metrics on %v", *metricsListenAddr)
+				go http.ListenAndServe(*metricsListenAddr, mux) // nolint:errcheck
+			}
 
 			rep, err := openRepository(ctx, nil, required)
 			if err != nil && required {
