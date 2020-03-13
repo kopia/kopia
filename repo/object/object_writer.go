@@ -9,7 +9,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/bufcache"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/splitter"
@@ -70,6 +69,7 @@ type objectWriter struct {
 }
 
 func (w *objectWriter) Close() error {
+	w.buffer.Reset()
 	w.repo.bufferPool.Put(w.buffer)
 
 	if w.splitter != nil {
@@ -106,22 +106,15 @@ func (w *objectWriter) flushBuffer() error {
 	w.indirectIndex[chunkID].Length = int64(length)
 	w.currentPosition += int64(length)
 
-	const (
-		// allows extra 10 KB for non-compressible outputs to avoid allocations
-		nonCompressibleOverhead = 10240
-	)
+	var compressedBuf bytes.Buffer
 
-	var compressedBuf = bufcache.EmptyBytesWithCapacity(length + nonCompressibleOverhead)
-	defer bufcache.Return(compressedBuf)
-
-	contentBytes, isCompressed, err := maybeCompressedContentBytes(w.compressor, compressedBuf, w.buffer.Bytes())
+	contentBytes, isCompressed, err := maybeCompressedContentBytes(w.compressor, &compressedBuf, w.buffer.Bytes())
 	if err != nil {
 		return errors.Wrap(err, "unable to prepare content bytes")
 	}
 
-	w.buffer.Reset()
-
 	contentID, err := w.repo.contentMgr.WriteContent(w.ctx, contentBytes, w.prefix)
+	w.buffer.Reset()
 	w.repo.trace("OBJECT_WRITER(%q) stored %v (%v bytes)", w.description, contentID, length)
 
 	if err != nil {
@@ -139,19 +132,18 @@ func (w *objectWriter) flushBuffer() error {
 	return nil
 }
 
-func maybeCompressedContentBytes(comp compression.Compressor, output, b []byte) (data []byte, isCompressed bool, err error) {
+func maybeCompressedContentBytes(comp compression.Compressor, output *bytes.Buffer, input []byte) (data []byte, isCompressed bool, err error) {
 	if comp != nil {
-		compressedBytes, err := comp.Compress(output, b)
-		if err != nil {
+		if err := comp.Compress(output, input); err != nil {
 			return nil, false, errors.Wrap(err, "compression error")
 		}
 
-		if len(compressedBytes) < len(b) {
-			return compressedBytes, true, nil
+		if output.Len() < len(input) {
+			return output.Bytes(), true, nil
 		}
 	}
 
-	return append(output, b...), false, nil
+	return input, false, nil
 }
 
 func (w *objectWriter) Result() (ID, error) {
@@ -174,6 +166,8 @@ func (w *objectWriter) Result() (ID, error) {
 		prefix:      w.prefix,
 		buffer:      w.repo.bufferPool.Get().(*bytes.Buffer),
 	}
+
+	defer iw.Close() //nolint:errcheck
 
 	ind := indirectObject{
 		StreamID: "kopia:indirect",

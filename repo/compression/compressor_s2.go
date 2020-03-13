@@ -35,44 +35,41 @@ func (c *s2Compressor) HeaderID() HeaderID {
 	return c.id
 }
 
-func (c *s2Compressor) Compress(output, b []byte) ([]byte, error) {
-	buf := bytes.NewBuffer(output[:0])
-
-	if _, err := buf.Write(c.header); err != nil {
-		return nil, errors.Wrap(err, "unable to write header")
+func (c *s2Compressor) Compress(output *bytes.Buffer, input []byte) error {
+	if _, err := output.Write(c.header); err != nil {
+		return errors.Wrap(err, "unable to write header")
 	}
 
 	w := c.pool.Get().(*s2.Writer)
 	defer c.pool.Put(w)
 
-	w.Reset(buf)
+	w.Reset(output)
 
-	if _, err := w.Write(b); err != nil {
-		return nil, errors.Wrap(err, "compression error")
+	if _, err := w.Write(input); err != nil {
+		return errors.Wrap(err, "compression error")
 	}
 
 	if err := w.Close(); err != nil {
-		return nil, errors.Wrap(err, "compression close error")
+		return errors.Wrap(err, "compression close error")
 	}
 
-	return buf.Bytes(), nil
+	return nil
 }
 
-func (c *s2Compressor) Decompress(output, b []byte) ([]byte, error) {
-	if len(b) < compressionHeaderSize {
-		return nil, errors.Errorf("invalid compression header")
+func (c *s2Compressor) Decompress(output *bytes.Buffer, input []byte) error {
+	if len(input) < compressionHeaderSize {
+		return errors.Errorf("invalid compression header")
 	}
 
-	if !bytes.Equal(b[0:compressionHeaderSize], c.header) {
-		return nil, errors.Errorf("invalid compression header")
+	if !bytes.Equal(input[0:compressionHeaderSize], c.header) {
+		return errors.Errorf("invalid compression header")
 	}
 
-	r := s2.NewReader(bytes.NewReader(b[compressionHeaderSize:]))
+	r := s2.NewReader(bytes.NewReader(input[compressionHeaderSize:]))
 
-	buf := bytes.NewBuffer(output[:0])
-	if _, err := iocopy.Copy(buf, r); err != nil {
-		return nil, errors.Wrap(err, "decompression error")
+	if _, err := iocopy.Copy(output, r); err != nil {
+		return errors.Wrap(err, "decompression error")
 	}
 
-	return buf.Bytes(), nil
+	return nil
 }
