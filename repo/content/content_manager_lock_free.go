@@ -384,7 +384,12 @@ func (bm *lockFreeManager) encryptAndWriteBlobNotLocked(ctx context.Context, dat
 
 	bm.Stats.encrypted(len(data))
 
-	data2, err := bm.encryptor.Encrypt(nil, data, hash)
+	iv, err := getIndexBlobIV(blobID)
+	if err != nil {
+		return "", errors.Wrap(err, "unable to get IV from index blob")
+	}
+
+	data2, err := bm.encryptor.Encrypt(nil, data, iv)
 	if err != nil {
 		return "", err
 	}
