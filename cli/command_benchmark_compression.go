@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"hash/fnv"
 	"io/ioutil"
 	"sort"
@@ -51,17 +52,21 @@ func runBenchmarkCompressionAction(ctx *kingpin.ParseContext) error {
 		var lastHash uint64
 
 		cnt := *benchmarkCompressionRepeat
+
+		var compressed bytes.Buffer
+
 		for i := 0; i < cnt; i++ {
-			compressed, err := comp.Compress(data)
-			if err != nil {
+			compressed.Reset()
+
+			if err := comp.Compress(&compressed, data); err != nil {
 				printStderr("compression %q failed: %v\n", name, err)
 				continue
 			}
 
-			compressedSize = int64(len(compressed))
+			compressedSize = int64(compressed.Len())
 
 			if *benchmarkCompressionVerifyStable {
-				h := hashOf(compressed)
+				h := hashOf(compressed.Bytes())
 
 				if i == 0 {
 					lastHash = h

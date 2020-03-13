@@ -2,6 +2,7 @@ package compression
 
 import (
 	"bytes"
+	"sync"
 
 	"github.com/klauspost/compress/s2"
 	"github.com/pkg/errors"
@@ -17,54 +18,58 @@ func init() {
 }
 
 func newS2Compressor(id HeaderID, opts ...s2.WriterOption) Compressor {
-	return &s2Compressor{id, compressionHeader(id), opts}
+	return &s2Compressor{id, compressionHeader(id), sync.Pool{
+		New: func() interface{} {
+			return s2.NewWriter(bytes.NewBuffer(nil), opts...)
+		},
+	}}
 }
 
 type s2Compressor struct {
 	id     HeaderID
 	header []byte
-	opts   []s2.WriterOption
+	pool   sync.Pool
 }
 
 func (c *s2Compressor) HeaderID() HeaderID {
 	return c.id
 }
 
-func (c *s2Compressor) Compress(b []byte) ([]byte, error) {
-	var buf bytes.Buffer
-
-	if _, err := buf.Write(c.header); err != nil {
-		return nil, errors.Wrap(err, "unable to write header")
+func (c *s2Compressor) Compress(output *bytes.Buffer, input []byte) error {
+	if _, err := output.Write(c.header); err != nil {
+		return errors.Wrap(err, "unable to write header")
 	}
 
-	w := s2.NewWriter(&buf, c.opts...)
+	w := c.pool.Get().(*s2.Writer)
+	defer c.pool.Put(w)
 
-	if _, err := w.Write(b); err != nil {
-		return nil, errors.Wrap(err, "compression error")
+	w.Reset(output)
+
+	if _, err := w.Write(input); err != nil {
+		return errors.Wrap(err, "compression error")
 	}
 
 	if err := w.Close(); err != nil {
-		return nil, errors.Wrap(err, "compression close error")
+		return errors.Wrap(err, "compression close error")
 	}
 
-	return buf.Bytes(), nil
+	return nil
 }
 
-func (c *s2Compressor) Decompress(b []byte) ([]byte, error) {
-	if len(b) < compressionHeaderSize {
-		return nil, errors.Errorf("invalid compression header")
+func (c *s2Compressor) Decompress(output *bytes.Buffer, input []byte) error {
+	if len(input) < compressionHeaderSize {
+		return errors.Errorf("invalid compression header")
 	}
 
-	if !bytes.Equal(b[0:compressionHeaderSize], c.header) {
-		return nil, errors.Errorf("invalid compression header")
+	if !bytes.Equal(input[0:compressionHeaderSize], c.header) {
+		return errors.Errorf("invalid compression header")
 	}
 
-	r := s2.NewReader(bytes.NewReader(b[compressionHeaderSize:]))
+	r := s2.NewReader(bytes.NewReader(input[compressionHeaderSize:]))
 
-	var buf bytes.Buffer
-	if _, err := iocopy.Copy(&buf, r); err != nil {
-		return nil, errors.Wrap(err, "decompression error")
+	if _, err := iocopy.Copy(output, r); err != nil {
+		return errors.Wrap(err, "decompression error")
 	}
 
-	return buf.Bytes(), nil
+	return nil
 }

@@ -3,6 +3,7 @@ package compression
 import (
 	"bytes"
 	"compress/gzip"
+	"sync"
 
 	"github.com/pkg/errors"
 
@@ -16,61 +17,64 @@ func init() {
 }
 
 func newGZipCompressor(id HeaderID, level int) Compressor {
-	return &gzipCompressor{id, compressionHeader(id), level}
+	return &gzipCompressor{id, compressionHeader(id), sync.Pool{
+		New: func() interface{} {
+			w, err := gzip.NewWriterLevel(bytes.NewBuffer(nil), level)
+			mustSucceed(err)
+			return w
+		},
+	}}
 }
 
 type gzipCompressor struct {
 	id     HeaderID
 	header []byte
-	level  int
+	pool   sync.Pool
 }
 
 func (c *gzipCompressor) HeaderID() HeaderID {
 	return c.id
 }
 
-func (c *gzipCompressor) Compress(b []byte) ([]byte, error) {
-	var buf bytes.Buffer
-
-	if _, err := buf.Write(c.header); err != nil {
-		return nil, errors.Wrap(err, "unable to write header")
+func (c *gzipCompressor) Compress(output *bytes.Buffer, input []byte) error {
+	if _, err := output.Write(c.header); err != nil {
+		return errors.Wrap(err, "unable to write header")
 	}
 
-	w, err := gzip.NewWriterLevel(&buf, c.level)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to create compressor")
-	}
+	w := c.pool.Get().(*gzip.Writer)
+	defer c.pool.Put(w)
 
-	if _, err := w.Write(b); err != nil {
-		return nil, errors.Wrap(err, "compression error")
+	w.Reset(output)
+
+	if _, err := w.Write(input); err != nil {
+		return errors.Wrap(err, "compression error")
 	}
 
 	if err := w.Close(); err != nil {
-		return nil, errors.Wrap(err, "compression close error")
+		return errors.Wrap(err, "compression close error")
 	}
 
-	return buf.Bytes(), nil
+	return nil
 }
 
-func (c *gzipCompressor) Decompress(b []byte) ([]byte, error) {
+func (c *gzipCompressor) Decompress(output *bytes.Buffer, b []byte) error {
 	if len(b) < compressionHeaderSize {
-		return nil, errors.Errorf("invalid compression header")
+		return errors.Errorf("invalid compression header")
 	}
 
 	if !bytes.Equal(b[0:compressionHeaderSize], c.header) {
-		return nil, errors.Errorf("invalid compression header")
+		return errors.Errorf("invalid compression header")
 	}
 
 	r, err := gzip.NewReader(bytes.NewReader(b[compressionHeaderSize:]))
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to open gzip stream")
+		return errors.Wrap(err, "unable to open gzip stream")
 	}
 	defer r.Close() //nolint:errcheck
 
-	var buf bytes.Buffer
-	if _, err := iocopy.Copy(&buf, r); err != nil {
-		return nil, errors.Wrap(err, "decompression error")
+	if _, err := iocopy.Copy(output, r); err != nil {
+		return errors.Wrap(err, "decompression error")
 	}
 
-	return buf.Bytes(), nil
+	return nil
 }

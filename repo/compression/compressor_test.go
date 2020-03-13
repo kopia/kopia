@@ -15,34 +15,37 @@ func TestCompressor(t *testing.T) {
 			// make sure all-zero data is compressed
 			data := make([]byte, 10000)
 
-			cData, err := comp.Compress(data)
-			if err != nil {
+			var cData bytes.Buffer
+
+			if err := comp.Compress(&cData, data); err != nil {
 				t.Fatalf("compression error %v", err)
 				return
 			}
 
-			if len(cData) >= len(data) {
+			if cData.Len() >= len(data) {
 				t.Errorf("compression not effective for all-zero data")
 			}
 
 			for id2, comp2 := range ByHeaderID {
 				if id != id2 {
-					if _, err2 := comp2.Decompress(cData); err2 == nil {
+					var dData bytes.Buffer
+
+					if err2 := comp2.Decompress(&dData, cData.Bytes()); err2 == nil {
 						t.Errorf("compressor %x was able to decompress results of %x", id2, id)
 					}
 				}
 			}
 
-			data2, err := comp.Decompress(cData)
-			if err != nil {
+			var data2 bytes.Buffer
+			if err := comp.Decompress(&data2, cData.Bytes()); err != nil {
 				t.Fatalf("decompression error %v", err)
 			}
 
-			if !bytes.Equal(data, data2) {
+			if !bytes.Equal(data, data2.Bytes()) {
 				t.Errorf("invalid decompressed data %x, wanted %x", data2, data)
 			}
 
-			t.Logf("compressed %v => %v", len(data), len(cData))
+			t.Logf("compressed %v => %v", len(data), cData.Len())
 		})
 
 		t.Run(fmt.Sprintf("non-compressible-data-%x", id), func(t *testing.T) {
@@ -50,26 +53,28 @@ func TestCompressor(t *testing.T) {
 			data := make([]byte, 10000)
 			rand.Read(data) //nolint:errcheck
 
-			cData, err := comp.Compress(data)
+			var cData bytes.Buffer
+
+			err := comp.Compress(&cData, data)
 			if err != nil {
 				t.Fatalf("compression error %v", err)
 				return
 			}
 
-			if len(cData) < len(data) {
+			if cData.Len() < len(data) {
 				t.Errorf("compression magically effective for random data")
 			}
 
-			data2, err := comp.Decompress(cData)
-			if err != nil {
+			var data2 bytes.Buffer
+			if err := comp.Decompress(&data2, cData.Bytes()); err != nil {
 				t.Fatalf("decompression error %v", err)
 			}
 
-			if !bytes.Equal(data, data2) {
+			if !bytes.Equal(data, data2.Bytes()) {
 				t.Errorf("invalid decompressed data %x, wanted %x", data2, data)
 			}
 
-			t.Logf("compressed %v => %v", len(data), len(cData))
+			t.Logf("compressed %v => %v", len(data), cData.Bytes())
 		})
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"sync"
 
 	"github.com/pkg/errors"
 
@@ -44,6 +45,8 @@ type Manager struct {
 	trace      func(message string, args ...interface{})
 
 	newSplitter splitter.Factory
+
+	bufferPool sync.Pool
 }
 
 // NewWriter creates an ObjectWriter for writing to the repository.
@@ -55,6 +58,7 @@ func (om *Manager) NewWriter(ctx context.Context, opt WriterOptions) Writer {
 		description: opt.Description,
 		prefix:      opt.Prefix,
 		compressor:  compression.ByName[opt.Compressor],
+		buffer:      om.bufferPool.Get().(*bytes.Buffer),
 	}
 }
 
@@ -159,6 +163,11 @@ func NewObjectManager(ctx context.Context, bm contentManager, f Format, opts Man
 		contentMgr: bm,
 		Format:     f,
 		trace:      nullTrace,
+		bufferPool: sync.Pool{
+			New: func() interface{} {
+				return bytes.NewBuffer(nil)
+			},
+		},
 	}
 
 	splitterID := f.Splitter
@@ -171,7 +180,7 @@ func NewObjectManager(ctx context.Context, bm contentManager, f Format, opts Man
 		return nil, errors.Errorf("unsupported splitter %q", f.Splitter)
 	}
 
-	om.newSplitter = os
+	om.newSplitter = splitter.Pooled(os)
 
 	if opts.Trace != nil {
 		om.trace = opts.Trace
@@ -221,10 +230,13 @@ func (om *Manager) newRawReader(ctx context.Context, objectID ID, assertLength i
 		}
 
 		if compressed {
-			payload, err = om.decompress(payload)
-			if err != nil {
+			var buf bytes.Buffer
+
+			if err = om.decompress(&buf, payload); err != nil {
 				return nil, errors.Wrap(err, "decompression error")
 			}
+
+			payload = buf.Bytes()
 		}
 
 		if assertLength != -1 && int64(len(payload)) != assertLength {
@@ -237,18 +249,18 @@ func (om *Manager) newRawReader(ctx context.Context, objectID ID, assertLength i
 	return nil, errors.Errorf("unsupported object ID: %v", objectID)
 }
 
-func (om *Manager) decompress(b []byte) ([]byte, error) {
+func (om *Manager) decompress(buf *bytes.Buffer, b []byte) error {
 	compressorID, err := compression.IDFromHeader(b)
 	if err != nil {
-		return nil, errors.Wrap(err, "invalid compression header")
+		return errors.Wrap(err, "invalid compression header")
 	}
 
 	compressor := compression.ByHeaderID[compressorID]
 	if compressor == nil {
-		return nil, errors.Errorf("unsupported compressor %x", compressorID)
+		return errors.Errorf("unsupported compressor %x", compressorID)
 	}
 
-	return compressor.Decompress(b)
+	return compressor.Decompress(buf, b)
 }
 
 type readerWithData struct {

@@ -57,7 +57,7 @@ type objectWriter struct {
 	compressor compression.Compressor
 
 	prefix      content.ID
-	buffer      bytes.Buffer
+	buffer      *bytes.Buffer
 	totalLength int64
 
 	currentPosition int64
@@ -69,6 +69,13 @@ type objectWriter struct {
 }
 
 func (w *objectWriter) Close() error {
+	w.buffer.Reset()
+	w.repo.bufferPool.Put(w.buffer)
+
+	if w.splitter != nil {
+		w.splitter.Close()
+	}
+
 	return nil
 }
 
@@ -99,14 +106,15 @@ func (w *objectWriter) flushBuffer() error {
 	w.indirectIndex[chunkID].Length = int64(length)
 	w.currentPosition += int64(length)
 
-	contentBytes, isCompressed, err := maybeCompressedContentBytes(w.compressor, w.buffer.Bytes())
+	var compressedBuf bytes.Buffer
+
+	contentBytes, isCompressed, err := maybeCompressedContentBytes(w.compressor, &compressedBuf, w.buffer.Bytes())
 	if err != nil {
 		return errors.Wrap(err, "unable to prepare content bytes")
 	}
 
-	w.buffer.Reset()
-
 	contentID, err := w.repo.contentMgr.WriteContent(w.ctx, contentBytes, w.prefix)
+	w.buffer.Reset()
 	w.repo.trace("OBJECT_WRITER(%q) stored %v (%v bytes)", w.description, contentID, length)
 
 	if err != nil {
@@ -124,19 +132,18 @@ func (w *objectWriter) flushBuffer() error {
 	return nil
 }
 
-func maybeCompressedContentBytes(comp compression.Compressor, b []byte) (data []byte, isCompressed bool, err error) {
+func maybeCompressedContentBytes(comp compression.Compressor, output *bytes.Buffer, input []byte) (data []byte, isCompressed bool, err error) {
 	if comp != nil {
-		compressedBytes, err := comp.Compress(b)
-		if err != nil {
+		if err := comp.Compress(output, input); err != nil {
 			return nil, false, errors.Wrap(err, "compression error")
 		}
 
-		if len(compressedBytes) < len(b) {
-			return compressedBytes, true, nil
+		if output.Len() < len(input) {
+			return output.Bytes(), true, nil
 		}
 	}
 
-	return append([]byte{}, b...), false, nil
+	return input, false, nil
 }
 
 func (w *objectWriter) Result() (ID, error) {
@@ -157,7 +164,10 @@ func (w *objectWriter) Result() (ID, error) {
 		description: "LIST(" + w.description + ")",
 		splitter:    w.repo.newSplitter(),
 		prefix:      w.prefix,
+		buffer:      w.repo.bufferPool.Get().(*bytes.Buffer),
 	}
+
+	defer iw.Close() //nolint:errcheck
 
 	ind := indirectObject{
 		StreamID: "kopia:indirect",
