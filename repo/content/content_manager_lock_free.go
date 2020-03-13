@@ -384,10 +384,15 @@ func (bm *lockFreeManager) encryptAndWriteContentNotLocked(ctx context.Context, 
 	hash := bm.hashData(data)
 	blobID := prefix + blob.ID(hex.EncodeToString(hash))
 
+	iv, err := getIndexBlobIV(blobID)
+	if err != nil {
+		return "", errors.Wrap(err, "unable to get IV from index blob")
+	}
+
 	// Encrypt the content in-place.
 	atomic.AddInt64(&bm.stats.EncryptedBytes, int64(len(data)))
 
-	data2, err := bm.encryptor.Encrypt(data, hash)
+	data2, err := bm.encryptor.Encrypt(data, iv)
 	if err != nil {
 		return "", err
 	}
