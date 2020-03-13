@@ -7,7 +7,6 @@ import (
 	cryptorand "crypto/rand"
 	"encoding/hex"
 	"io"
-	"math/rand"
 	"strings"
 	"sync"
 	"time"
@@ -48,22 +47,39 @@ type lockFreeManager struct {
 	repositoryFormatBytes []byte
 }
 
-func (bm *lockFreeManager) maybeEncryptContentDataForPacking(output, data []byte, contentID ID) ([]byte, error) {
-	iv, err := getPackedContentIV(contentID)
+func (bm *lockFreeManager) maybeEncryptContentDataForPacking(output *bytes.Buffer, data []byte, contentID ID) error {
+	var hashOutput [maxHashSize]byte
+
+	iv, err := getPackedContentIV(hashOutput[:], contentID)
 	if err != nil {
-		return nil, errors.Wrapf(err, "unable to get packed content IV for %q", contentID)
+		return errors.Wrapf(err, "unable to get packed content IV for %q", contentID)
 	}
 
-	return bm.encryptor.Encrypt(output, data, iv)
+	cipherText, err := bm.encryptor.Encrypt(nil, data, iv)
+	if err != nil {
+		return errors.Wrap(err, "unable to encrypt")
+	}
+
+	writeToBuffer(output, cipherText)
+
+	return nil
 }
 
-func appendRandomBytes(b []byte, count int) ([]byte, error) {
-	rnd := make([]byte, count)
-	if _, err := io.ReadFull(cryptorand.Reader, rnd); err != nil {
-		return nil, err
+func writeToBuffer(buf *bytes.Buffer, data []byte) {
+	// buffer writes never fail, safe to ignore errors
+	_, _ = buf.Write(data)
+}
+
+func writeRandomBytesToBuffer(buf *bytes.Buffer, count int) error {
+	var rnd [defaultPaddingUnit]byte
+
+	if _, err := io.ReadFull(cryptorand.Reader, rnd[0:count]); err != nil {
+		return err
 	}
 
-	return append(b, rnd...), nil
+	writeToBuffer(buf, rnd[0:count])
+
+	return nil
 }
 
 func (bm *lockFreeManager) loadPackIndexesUnlocked(ctx context.Context) ([]IndexBlobInfo, bool, error) {
@@ -197,10 +213,6 @@ func validatePrefix(prefix ID) error {
 	return errors.Errorf("invalid prefix, must be a empty or single letter between 'g' and 'z'")
 }
 
-func cloneBytes(b []byte) []byte {
-	return append([]byte{}, b...)
-}
-
 func (bm *lockFreeManager) getCacheForContentID(id ID) *contentCache {
 	if id.HasPrefix() {
 		return bm.metadataCache
@@ -209,19 +221,25 @@ func (bm *lockFreeManager) getCacheForContentID(id ID) *contentCache {
 	return bm.contentCache
 }
 
-func (bm *lockFreeManager) getContentDataUnlocked(ctx context.Context, bi *Info) ([]byte, error) {
-	if bi.Payload != nil {
-		return cloneBytes(bi.Payload), nil
-	}
+func (bm *lockFreeManager) getContentDataUnlocked(ctx context.Context, pp *pendingPackInfo, bi *Info) ([]byte, error) {
+	var payload []byte
 
-	payload, err := bm.getCacheForContentID(bi.ID).getContent(ctx, cacheKey(bi.ID), bi.PackBlobID, int64(bi.PackOffset), int64(bi.Length))
-	if err != nil {
-		return nil, err
+	if pp != nil && pp.packBlobID == bi.PackBlobID {
+		payload = pp.currentPackData.Bytes()[bi.PackOffset : bi.PackOffset+bi.Length]
+	} else {
+		var err error
+
+		payload, err = bm.getCacheForContentID(bi.ID).getContent(ctx, cacheKey(bi.ID), bi.PackBlobID, int64(bi.PackOffset), int64(bi.Length))
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	bm.Stats.readContent(len(payload))
 
-	iv, err := getPackedContentIV(bi.ID)
+	var hashBuf [maxHashSize]byte
+
+	iv, err := getPackedContentIV(hashBuf[:], bi.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -252,75 +270,47 @@ func (bm *lockFreeManager) decryptAndVerify(encrypted, iv []byte) ([]byte, error
 	return decrypted, bm.verifyChecksum(decrypted, iv)
 }
 
-func (bm *lockFreeManager) preparePackDataContent(ctx context.Context, contentData []byte, pp *pendingPackInfo, packFile blob.ID) ([]byte, packIndexBuilder, error) {
-	formatLog(ctx).Debugf("preparing content data with %v items", len(pp.currentPackItems))
-
-	contentData, err := appendRandomBytes(append(contentData, bm.repositoryFormatBytes...), rand.Intn(bm.maxPreambleLength-bm.minPreambleLength+1)+bm.minPreambleLength)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "unable to prepare content preamble")
-	}
+func (bm *lockFreeManager) preparePackDataContent(ctx context.Context, pp *pendingPackInfo) (packIndexBuilder, error) {
+	formatLog(ctx).Debugf("preparing content data with %v items (contents %v)", len(pp.currentPackItems), pp.currentPackData.Len())
 
 	packFileIndex := packIndexBuilder{}
 	haveContent := false
 
-	var encryptedTmp []byte
-
-	for contentID, info := range pp.currentPackItems {
-		if info.Payload == nil {
-			// no payload, it's a deletion of a previously-committed content.
-			packFileIndex.Add(info)
-			continue
+	for _, info := range pp.currentPackItems {
+		if info.PackBlobID == pp.packBlobID {
+			haveContent = true
 		}
 
-		haveContent = true
-
-		encryptedTmp, err = bm.maybeEncryptContentDataForPacking(encryptedTmp[:0], info.Payload, info.ID)
-		if err != nil {
-			return nil, nil, errors.Wrapf(err, "unable to encrypt %q", info.ID)
-		}
-
-		formatLog(ctx).Debugf("adding %v length=%v deleted=%v", contentID, len(info.Payload), info.Deleted)
-
-		packFileIndex.Add(Info{
-			ID:               contentID,
-			Deleted:          info.Deleted,
-			FormatVersion:    byte(bm.writeFormatVersion),
-			PackBlobID:       packFile,
-			PackOffset:       uint32(len(contentData)),
-			Length:           uint32(len(encryptedTmp)),
-			TimestampSeconds: info.TimestampSeconds,
-		})
-
-		if contentID.HasPrefix() {
-			bm.metadataCache.put(ctx, cacheKey(contentID), cloneBytes(encryptedTmp))
-		}
-
-		contentData = append(contentData, encryptedTmp...)
+		packFileIndex.Add(info)
 	}
 
 	if len(packFileIndex) == 0 {
-		return nil, nil, nil
+		return nil, nil
 	}
 
 	if !haveContent {
-		return nil, packFileIndex, nil
+		// we wrote pack preamble but no actual content, revert it
+		pp.currentPackData.Reset()
+		return packFileIndex, nil
 	}
 
+	if pp.finalized {
+		return packFileIndex, nil
+	}
+
+	pp.finalized = true
+
 	if bm.paddingUnit > 0 {
-		if missing := bm.paddingUnit - (len(contentData) % bm.paddingUnit); missing > 0 {
-			contentData, err = appendRandomBytes(contentData, missing)
-			if err != nil {
-				return nil, nil, errors.Wrap(err, "unable to prepare content postamble")
+		if missing := bm.paddingUnit - (pp.currentPackData.Len() % bm.paddingUnit); missing > 0 {
+			if err := writeRandomBytesToBuffer(pp.currentPackData, missing); err != nil {
+				return nil, errors.Wrap(err, "unable to prepare content postamble")
 			}
 		}
 	}
 
-	origContentLength := len(contentData)
-	contentData, err = bm.appendPackFileIndexRecoveryData(ctx, contentData, packFileIndex)
+	err := bm.writePackFileIndexRecoveryData(pp.currentPackData, packFileIndex)
 
-	formatLog(ctx).Debugf("finished content %v bytes (%v bytes index)", len(contentData), len(contentData)-origContentLength)
-
-	return contentData, packFileIndex, err
+	return packFileIndex, err
 }
 
 // IndexBlobs returns the list of active index blobs.
@@ -345,7 +335,7 @@ func (bm *lockFreeManager) getIndexBlobInternal(ctx context.Context, blobID blob
 	bm.Stats.decrypted(len(payload))
 
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "decrypt error")
 	}
 
 	// Since the encryption key is a function of data, we must be able to generate exactly the same key
@@ -357,8 +347,13 @@ func (bm *lockFreeManager) getIndexBlobInternal(ctx context.Context, blobID blob
 	return payload, nil
 }
 
-func getPackedContentIV(contentID ID) ([]byte, error) {
-	return hex.DecodeString(string(contentID[len(contentID)-(aes.BlockSize*2):]))
+func getPackedContentIV(output []byte, contentID ID) ([]byte, error) {
+	n, err := hex.Decode(output, []byte(contentID[len(contentID)-(aes.BlockSize*2):]))
+	if err != nil {
+		return nil, err
+	}
+
+	return output[0:n], nil
 }
 
 func getIndexBlobIV(s blob.ID) ([]byte, error) {
@@ -382,12 +377,12 @@ func (bm *lockFreeManager) encryptAndWriteBlobNotLocked(ctx context.Context, dat
 	hash := bm.hashData(hashOutput[:0], data)
 	blobID := prefix + blob.ID(hex.EncodeToString(hash))
 
-	bm.Stats.encrypted(len(data))
-
 	iv, err := getIndexBlobIV(blobID)
 	if err != nil {
-		return "", errors.Wrap(err, "unable to get IV from index blob")
+		return "", err
 	}
+
+	bm.Stats.encrypted(len(data))
 
 	data2, err := bm.encryptor.Encrypt(nil, data, iv)
 	if err != nil {

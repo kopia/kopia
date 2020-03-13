@@ -189,7 +189,6 @@ ifneq ($(uname),Windows)
 	             -e github.com/kopia/kopia/internal/blobtesting \
 	             -e github.com/kopia/kopia/internal/repotesting \
 	             -e github.com/kopia/kopia/internal/testlogging \
-	             -e github.com/kopia/kopia/internal/bufcache \
 	             -e github.com/kopia/kopia/internal/hmac \
 	             -e github.com/kopia/kopia/internal/faketime \
 	             -e github.com/kopia/kopia/internal/testutil \

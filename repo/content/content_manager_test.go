@@ -25,8 +25,11 @@ import (
 )
 
 const (
-	maxPackSize = 2000
-	maxRetries  = 100
+	maxPackSize     = 2000
+	maxPackCapacity = maxPackSize - defaultMaxPreambleLength
+	maxRetries      = 100
+
+	encryptionOverhead = 12 + 16
 )
 
 var fakeTime = time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -94,7 +97,8 @@ func TestContentManagerSmallContentWrites(t *testing.T) {
 
 	defer bm.Close(ctx)
 
-	for i := 0; i < 100; i++ {
+	itemCount := maxPackCapacity / (10 + encryptionOverhead)
+	for i := 0; i < itemCount; i++ {
 		writeContentAndVerify(ctx, t, bm, seededRandomData(i, 10))
 	}
 
@@ -118,7 +122,7 @@ func TestContentManagerDedupesPendingContents(t *testing.T) {
 	defer bm.Close(ctx)
 
 	for i := 0; i < 100; i++ {
-		writeContentAndVerify(ctx, t, bm, seededRandomData(0, 999))
+		writeContentAndVerify(ctx, t, bm, seededRandomData(0, maxPackCapacity/2))
 	}
 
 	if got, want := len(data), 0; got != want {
@@ -140,19 +144,22 @@ func TestContentManagerDedupesPendingAndUncommittedContents(t *testing.T) {
 
 	defer bm.Close(ctx)
 
+	// compute content size so that 3 contents will fit in a pack without overflowing
+	contentSize := maxPackCapacity/3 - encryptionOverhead - 1
+
 	// no writes here, all data fits in a single pack.
-	writeContentAndVerify(ctx, t, bm, seededRandomData(0, 950))
-	writeContentAndVerify(ctx, t, bm, seededRandomData(1, 950))
-	writeContentAndVerify(ctx, t, bm, seededRandomData(2, 10))
+	writeContentAndVerify(ctx, t, bm, seededRandomData(0, contentSize))
+	writeContentAndVerify(ctx, t, bm, seededRandomData(1, contentSize))
+	writeContentAndVerify(ctx, t, bm, seededRandomData(2, contentSize))
 
 	if got, want := len(data), 0; got != want {
 		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
 	}
 
 	// no writes here
-	writeContentAndVerify(ctx, t, bm, seededRandomData(0, 950))
-	writeContentAndVerify(ctx, t, bm, seededRandomData(1, 950))
-	writeContentAndVerify(ctx, t, bm, seededRandomData(2, 10))
+	writeContentAndVerify(ctx, t, bm, seededRandomData(0, contentSize))
+	writeContentAndVerify(ctx, t, bm, seededRandomData(1, contentSize))
+	writeContentAndVerify(ctx, t, bm, seededRandomData(2, contentSize))
 
 	if got, want := len(data), 0; got != want {
 		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
@@ -205,6 +212,7 @@ func verifyActiveIndexBlobCount(ctx context.Context, t *testing.T, bm *Manager, 
 		t.Errorf("unexpected number of active index blobs %v, expected %v (%v)", got, want, blks)
 	}
 }
+
 func TestContentManagerInternalFlush(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
@@ -213,7 +221,8 @@ func TestContentManagerInternalFlush(t *testing.T) {
 
 	defer bm.Close(ctx)
 
-	for i := 0; i < 100; i++ {
+	itemsToOverflow := (maxPackCapacity)/(25+encryptionOverhead) + 2
+	for i := 0; i < itemsToOverflow; i++ {
 		b := make([]byte, 25)
 		cryptorand.Read(b) //nolint:errcheck
 		writeContentAndVerify(ctx, t, bm, b)
@@ -224,8 +233,8 @@ func TestContentManagerInternalFlush(t *testing.T) {
 		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
 	}
 
-	// do it again - should be 2 contents + 1000 bytes pending.
-	for i := 0; i < 100; i++ {
+	// do it again - should be 2 blobs + some bytes pending.
+	for i := 0; i < itemsToOverflow; i++ {
 		b := make([]byte, 25)
 		cryptorand.Read(b) //nolint:errcheck
 		writeContentAndVerify(ctx, t, bm, b)
@@ -306,7 +315,7 @@ func TestContentManagerFailedToWritePack(t *testing.T) {
 	bm, err := newManagerWithOptions(testlogging.Context(t), st, &FormattingOptions{
 		Version:     1,
 		Hash:        "HMAC-SHA256-128",
-		Encryption:  "AES-256-CTR",
+		Encryption:  "AES256-GCM-HMAC-SHA256",
 		MaxPackSize: maxPackSize,
 		HMACSecret:  []byte("foo"),
 		MasterKey:   []byte("0123456789abcdef0123456789abcdef"),
@@ -1191,7 +1200,7 @@ func verifyUnreferencedBlobsCount(ctx context.Context, t *testing.T, bm *Manager
 	log(ctx).Infof("got %v expecting %v", unrefCount, want)
 
 	if got := int(unrefCount); got != want {
-		t.Errorf("invalid number of unreferenced contents: %v, wanted %v", got, want)
+		t.Fatalf("invalid number of unreferenced contents: %v, wanted %v", got, want)
 	}
 }
 
@@ -1349,7 +1358,7 @@ func newTestContentManagerWithStorage(t *testing.T, st blob.Storage, timeFunc fu
 
 	bm, err := newManagerWithOptions(testlogging.Context(t), st, &FormattingOptions{
 		Hash:        "HMAC-SHA256",
-		Encryption:  "NONE",
+		Encryption:  "AES256-GCM-HMAC-SHA256",
 		HMACSecret:  hmacSecret,
 		MaxPackSize: maxPackSize,
 		Version:     1,
@@ -1397,13 +1406,8 @@ func verifyContent(ctx context.Context, t *testing.T, bm *Manager, contentID ID,
 		t.Errorf("content %q data mismatch: got %x (nil:%v), wanted %x (nil:%v)", contentID, got, got == nil, want, want == nil)
 	}
 
-	bi, err := bm.ContentInfo(ctx, contentID)
-	if err != nil {
+	if _, err := bm.ContentInfo(ctx, contentID); err != nil {
 		t.Errorf("error getting content info %q: %v", contentID, err)
-	}
-
-	if got, want := bi.Length, uint32(len(b)); got != want {
-		t.Errorf("invalid content size for %q: %v, wanted %v", contentID, got, want)
 	}
 }
 
