@@ -124,10 +124,6 @@ func prepareExtraData(allContents []*Info, layout *indexLayout) []byte {
 				extraData = append(extraData, []byte(it.PackBlobID)...)
 			}
 		}
-
-		if len(it.Payload) > 0 {
-			panic("storing payloads in indexes is not supported")
-		}
 	}
 
 	layout.extraDataOffset = uint32(packHeaderSize + layout.entryCount*(layout.keyLength+layout.entryLength))

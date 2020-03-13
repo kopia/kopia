@@ -137,5 +137,20 @@ func verifyEndToEndFormatter(ctx context.Context, t *testing.T, hashAlgo, encryp
 			t.Errorf("content %q data mismatch: got %x, wanted %x", contentID, got, want)
 			return
 		}
+
+		if err = bm.Flush(ctx); err != nil {
+			t.Errorf("flush error: %v", err)
+		}
+
+		b3, err := bm.GetContent(ctx, contentID)
+		if err != nil {
+			t.Errorf("unable to read content after flush %q: %v", contentID, err)
+			return
+		}
+
+		if got, want := b3, b; !bytes.Equal(got, want) {
+			t.Errorf("content %q data mismatch: got %x, wanted %x", contentID, got, want)
+			return
+		}
 	}
 }

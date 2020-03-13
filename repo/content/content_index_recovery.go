@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/binary"
 	"hash/crc32"
-	"reflect"
 
 	"github.com/pkg/errors"
 
@@ -166,21 +165,21 @@ func (bm *lockFreeManager) buildLocalIndex(pending packIndexBuilder) ([]byte, er
 	return buf.Bytes(), nil
 }
 
-// appendPackFileIndexRecoveryData appends data designed to help with recovery of pack index in case it gets damaged or lost.
-func (bm *lockFreeManager) appendPackFileIndexRecoveryData(ctx context.Context, contentData []byte, pending packIndexBuilder) ([]byte, error) {
+// writePackFileIndexRecoveryData appends data designed to help with recovery of pack index in case it gets damaged or lost.
+func (bm *lockFreeManager) writePackFileIndexRecoveryData(buf *bytes.Buffer, pending packIndexBuilder) error {
 	// build, encrypt and append local index
-	localIndexOffset := len(contentData)
+	localIndexOffset := buf.Len()
 
 	localIndex, err := bm.buildLocalIndex(pending)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	localIndexIV := bm.hashData(nil, localIndex)
 
 	encryptedLocalIndex, err := bm.encryptor.Encrypt(nil, localIndex, localIndexIV)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	postamble := packContentPostamble{
@@ -189,23 +188,16 @@ func (bm *lockFreeManager) appendPackFileIndexRecoveryData(ctx context.Context, 
 		localIndexLength: uint32(len(encryptedLocalIndex)),
 	}
 
-	contentData = append(contentData, encryptedLocalIndex...)
+	writeToBuffer(buf, encryptedLocalIndex)
 
 	postambleBytes, err := postamble.toBytes()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	contentData = append(contentData, postambleBytes...)
+	writeToBuffer(buf, postambleBytes)
 
-	pa2 := findPostamble(contentData)
-	if pa2 == nil {
-		log(ctx).Fatalf("invalid postamble written, that could not be immediately decoded, it's a bug")
-	} else if !reflect.DeepEqual(postamble, *pa2) {
-		log(ctx).Fatalf("postamble did not round-trip: %v %v", postamble, *pa2)
-	}
-
-	return contentData, nil
+	return nil
 }
 
 func (bm *lockFreeManager) readPackFileLocalIndex(ctx context.Context, packFile blob.ID, packFileLength int64) ([]byte, error) {

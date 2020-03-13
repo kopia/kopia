@@ -97,21 +97,6 @@ func (c *contentCache) getContent(ctx context.Context, cacheKey cacheKey, blobID
 	return b, err
 }
 
-func (c *contentCache) put(ctx context.Context, cacheKey cacheKey, data []byte) {
-	cacheKey = adjustCacheKey(cacheKey)
-
-	useCache := shouldUseContentCache(ctx) && c.cacheStorage != nil
-	if useCache {
-		if puterr := c.cacheStorage.PutBlob(
-			blob.WithUploadProgressCallback(ctx, nil),
-			blob.ID(cacheKey),
-			hmac.Append(data, c.hmacSecret),
-		); puterr != nil {
-			log(ctx).Warningf("unable to write cache item %v: %v", cacheKey, puterr)
-		}
-	}
-}
-
 func (c *contentCache) readAndVerifyCacheContent(ctx context.Context, cacheKey cacheKey) []byte {
 	b, err := c.cacheStorage.GetBlob(ctx, blob.ID(cacheKey), 0, -1)
 	if err == nil {

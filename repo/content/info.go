@@ -31,7 +31,6 @@ type Info struct {
 	PackBlobID       blob.ID `json:"packFile,omitempty"`
 	PackOffset       uint32  `json:"packOffset,omitempty"`
 	Deleted          bool    `json:"deleted"`
-	Payload          []byte  `json:"payload"` // set for payloads stored inline
 	FormatVersion    byte    `json:"formatVersion"`
 }
 
