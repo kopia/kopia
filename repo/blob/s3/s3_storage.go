@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/efarrer/iothrottler"
 	minio "github.com/minio/minio-go/v6"
@@ -89,6 +90,11 @@ func isRetriableError(err error) bool {
 		return me.StatusCode >= 500
 	}
 
+	if strings.Contains(strings.ToLower(err.Error()), "http") {
+		// retry http transport errors, unfortunately no other way to detect them
+		return true
+	}
+
 	return false
 }
 
@@ -107,30 +113,32 @@ func translateError(err error) error {
 }
 
 func (s *s3Storage) PutBlob(ctx context.Context, b blob.ID, data []byte) error {
-	throttled, err := s.uploadThrottler.AddReader(ioutil.NopCloser(bytes.NewReader(data)))
-	if err != nil {
-		return err
-	}
+	return translateError(retry.WithExponentialBackoffNoValue(ctx, fmt.Sprintf("PutBlob(%v)", b), func() error {
+		throttled, err := s.uploadThrottler.AddReader(ioutil.NopCloser(bytes.NewReader(data)))
+		if err != nil {
+			return err
+		}
 
-	progressCallback := blob.ProgressCallback(ctx)
-	if progressCallback != nil {
-		progressCallback(string(b), 0, int64(len(data)))
-		defer progressCallback(string(b), int64(len(data)), int64(len(data)))
-	}
+		progressCallback := blob.ProgressCallback(ctx)
+		if progressCallback != nil {
+			progressCallback(string(b), 0, int64(len(data)))
+			defer progressCallback(string(b), int64(len(data)), int64(len(data)))
+		}
 
-	n, err := s.cli.PutObject(s.BucketName, s.getObjectNameString(b), throttled, -1, minio.PutObjectOptions{
-		ContentType: "application/x-kopia",
-		Progress:    newProgressReader(progressCallback, string(b), int64(len(data))),
-	})
-
-	if err == io.EOF && n == 0 {
-		// special case empty stream
-		_, err = s.cli.PutObject(s.BucketName, s.getObjectNameString(b), bytes.NewBuffer(nil), 0, minio.PutObjectOptions{
+		n, err := s.cli.PutObject(s.BucketName, s.getObjectNameString(b), throttled, int64(len(data)), minio.PutObjectOptions{
 			ContentType: "application/x-kopia",
+			Progress:    newProgressReader(progressCallback, string(b), int64(len(data))),
 		})
-	}
 
-	return translateError(err)
+		if err == io.EOF && n == 0 {
+			// special case empty stream
+			_, err = s.cli.PutObject(s.BucketName, s.getObjectNameString(b), bytes.NewBuffer(nil), 0, minio.PutObjectOptions{
+				ContentType: "application/x-kopia",
+			})
+		}
+
+		return err
+	}, isRetriableError))
 }
 
 func (s *s3Storage) DeleteBlob(ctx context.Context, b blob.ID) error {
