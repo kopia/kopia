@@ -9,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/buf"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/splitter"
@@ -51,12 +52,13 @@ func (t *contentIDTracker) contentIDs() []content.ID {
 }
 
 type objectWriter struct {
-	ctx  context.Context
-	repo *Manager
+	ctx context.Context
+	om  *Manager
 
 	compressor compression.Compressor
 
 	prefix      content.ID
+	buf         buf.Buf
 	buffer      *bytes.Buffer
 	totalLength int64
 
@@ -68,9 +70,13 @@ type objectWriter struct {
 	splitter splitter.Splitter
 }
 
+func (w *objectWriter) initBuffer() {
+	w.buf = w.om.bufferPool.Allocate(w.splitter.MaxSegmentSize())
+	w.buffer = bytes.NewBuffer(w.buf.Data[:0])
+}
+
 func (w *objectWriter) Close() error {
-	w.buffer.Reset()
-	w.repo.bufferPool.Put(w.buffer)
+	w.buf.Release()
 
 	if w.splitter != nil {
 		w.splitter.Close()
@@ -113,9 +119,9 @@ func (w *objectWriter) flushBuffer() error {
 		return errors.Wrap(err, "unable to prepare content bytes")
 	}
 
-	contentID, err := w.repo.contentMgr.WriteContent(w.ctx, contentBytes, w.prefix)
+	contentID, err := w.om.contentMgr.WriteContent(w.ctx, contentBytes, w.prefix)
 	w.buffer.Reset()
-	w.repo.trace("OBJECT_WRITER(%q) stored %v (%v bytes)", w.description, contentID, length)
+	w.om.trace("OBJECT_WRITER(%q) stored %v (%v bytes)", w.description, contentID, length)
 
 	if err != nil {
 		return errors.Wrapf(err, "error when flushing chunk %d of %s", chunkID, w.description)
@@ -159,13 +165,14 @@ func (w *objectWriter) Result() (ID, error) {
 
 	iw := &objectWriter{
 		ctx:         w.ctx,
-		repo:        w.repo,
+		om:          w.om,
 		compressor:  nil,
 		description: "LIST(" + w.description + ")",
-		splitter:    w.repo.newSplitter(),
+		splitter:    w.om.newSplitter(),
 		prefix:      w.prefix,
-		buffer:      w.repo.bufferPool.Get().(*bytes.Buffer),
 	}
+
+	iw.initBuffer()
 
 	defer iw.Close() //nolint:errcheck
 

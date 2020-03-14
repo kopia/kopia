@@ -6,10 +6,11 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"sync"
+	"runtime"
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/buf"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/splitter"
@@ -46,20 +47,22 @@ type Manager struct {
 
 	newSplitter splitter.Factory
 
-	bufferPool sync.Pool
+	bufferPool *buf.Pool
 }
 
 // NewWriter creates an ObjectWriter for writing to the repository.
 func (om *Manager) NewWriter(ctx context.Context, opt WriterOptions) Writer {
-	return &objectWriter{
+	w := &objectWriter{
 		ctx:         ctx,
-		repo:        om,
+		om:          om,
 		splitter:    om.newSplitter(),
 		description: opt.Description,
 		prefix:      opt.Prefix,
 		compressor:  compression.ByName[opt.Compressor],
-		buffer:      om.bufferPool.Get().(*bytes.Buffer),
 	}
+
+	w.initBuffer()
+	return w
 }
 
 // Open creates new ObjectReader for reading given object from a repository.
@@ -163,11 +166,6 @@ func NewObjectManager(ctx context.Context, bm contentManager, f Format, opts Man
 		contentMgr: bm,
 		Format:     f,
 		trace:      nullTrace,
-		bufferPool: sync.Pool{
-			New: func() interface{} {
-				return bytes.NewBuffer(nil)
-			},
-		},
 	}
 
 	splitterID := f.Splitter
@@ -181,6 +179,8 @@ func NewObjectManager(ctx context.Context, bm contentManager, f Format, opts Man
 	}
 
 	om.newSplitter = splitter.Pooled(os)
+
+	om.bufferPool = buf.NewPool(om.newSplitter().MaxSegmentSize(), 4*runtime.NumCPU())
 
 	if opts.Trace != nil {
 		om.trace = opts.Trace
