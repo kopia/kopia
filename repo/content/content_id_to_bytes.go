@@ -1,6 +1,7 @@
 package content
 
 import (
+	"bytes"
 	"encoding/hex"
 )
 
@@ -25,22 +26,27 @@ func bytesToContentID(b []byte) ID {
 	return ID(prefix + hex.EncodeToString(b[1:]))
 }
 
-func contentIDToBytes(c ID) []byte {
-	var prefix []byte
+func contentIDBytesGreaterOrEqual(a, b []byte) bool {
+	return bytes.Compare(a, b) >= 0
+}
 
+func contentIDToBytes(output []byte, c ID) []byte {
 	var skip int
 
 	if len(c)%2 == 1 {
-		prefix = []byte(c[0:1])
+		output = append(output, c[0])
 		skip = 1
 	} else {
-		prefix = []byte{0}
+		output = append(output, 0)
 	}
 
-	b, err := hex.DecodeString(string(c[skip:]))
+	var hashBuf [maxHashSize]byte
+
+	n, err := hex.Decode(hashBuf[:], []byte(c[skip:]))
 	if err != nil {
+		// rare case
 		return append([]byte{unpackedContentIDPrefix}, []byte(c)...)
 	}
 
-	return append(prefix, b...)
+	return append(output, hashBuf[0:n]...)
 }

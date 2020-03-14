@@ -12,6 +12,9 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
+const maxEntrySize = 256
+const maxContentIDSize = maxHashSize + 1
+
 // packIndex is a read-only index of packed contents.
 type packIndex interface {
 	io.Closer
@@ -95,7 +98,16 @@ func (b *index) Iterate(prefix ID, cb func(Info) error) error {
 
 func (b *index) findEntryPosition(contentID ID) (int, error) {
 	stride := b.hdr.keySize + b.hdr.valueSize
-	entryBuf := make([]byte, stride)
+
+	var entryArr [maxEntrySize]byte
+
+	var entryBuf []byte
+
+	if stride <= len(entryArr) {
+		entryBuf = entryArr[0:stride]
+	} else {
+		entryBuf = make([]byte, stride)
+	}
 
 	var readErr error
 
@@ -115,15 +127,48 @@ func (b *index) findEntryPosition(contentID ID) (int, error) {
 	return pos, readErr
 }
 
-func (b *index) findEntry(contentID ID) ([]byte, error) {
-	key := contentIDToBytes(contentID)
+func (b *index) findEntryPositionExact(idBytes, entryBuf []byte) (int, error) {
+	stride := b.hdr.keySize + b.hdr.valueSize
+
+	var readErr error
+
+	pos := sort.Search(b.hdr.entryCount, func(p int) bool {
+		if readErr != nil {
+			return false
+		}
+		_, err := b.readerAt.ReadAt(entryBuf, int64(packHeaderSize+stride*p))
+		if err != nil {
+			readErr = err
+			return false
+		}
+
+		return contentIDBytesGreaterOrEqual(entryBuf[0:b.hdr.keySize], idBytes)
+	})
+
+	return pos, readErr
+}
+
+func (b *index) findEntry(output []byte, contentID ID) ([]byte, error) {
+	var hashBuf [maxContentIDSize]byte
+
+	key := contentIDToBytes(hashBuf[:0], contentID)
 	if len(key) != b.hdr.keySize {
 		return nil, errors.Errorf("invalid content ID: %q", contentID)
 	}
 
 	stride := b.hdr.keySize + b.hdr.valueSize
 
-	position, err := b.findEntryPosition(contentID)
+	var entryArr [maxEntrySize]byte
+
+	var entryBuf []byte
+
+	if stride <= len(entryArr) {
+		entryBuf = entryArr[0:stride]
+	} else {
+		entryBuf = make([]byte, stride)
+	}
+
+	position, err := b.findEntryPositionExact(key, entryBuf)
 	if err != nil {
 		return nil, err
 	}
@@ -132,13 +177,12 @@ func (b *index) findEntry(contentID ID) ([]byte, error) {
 		return nil, nil
 	}
 
-	entryBuf := make([]byte, stride)
 	if _, err := b.readerAt.ReadAt(entryBuf, int64(packHeaderSize+stride*position)); err != nil {
 		return nil, err
 	}
 
 	if bytes.Equal(entryBuf[0:len(key)], key) {
-		return entryBuf[len(key):], nil
+		return append(output, entryBuf[len(key):]...), nil
 	}
 
 	return nil, nil
@@ -146,7 +190,9 @@ func (b *index) findEntry(contentID ID) ([]byte, error) {
 
 // GetInfo returns information about a given content. If a content is not found, nil is returned.
 func (b *index) GetInfo(contentID ID) (*Info, error) {
-	e, err := b.findEntry(contentID)
+	var entryBuf [maxEntrySize]byte
+
+	e, err := b.findEntry(entryBuf[:0], contentID)
 	if err != nil {
 		return nil, err
 	}

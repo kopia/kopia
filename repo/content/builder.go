@@ -113,9 +113,11 @@ func (b packIndexBuilder) Build(output io.Writer) error {
 func prepareExtraData(allContents []*Info, layout *indexLayout) []byte {
 	var extraData []byte
 
+	var hashBuf [maxContentIDSize]byte
+
 	for i, it := range allContents {
 		if i == 0 {
-			layout.keyLength = len(contentIDToBytes(it.ID))
+			layout.keyLength = len(contentIDToBytes(hashBuf[:0], it.ID))
 		}
 
 		if it.PackBlobID != "" {
@@ -132,7 +134,10 @@ func prepareExtraData(allContents []*Info, layout *indexLayout) []byte {
 }
 
 func writeEntry(w io.Writer, it *Info, layout *indexLayout, entry []byte) error {
-	k := contentIDToBytes(it.ID)
+	var hashBuf [maxContentIDSize]byte
+
+	k := contentIDToBytes(hashBuf[:0], it.ID)
+
 	if len(k) != layout.keyLength {
 		return errors.Errorf("inconsistent key length: %v vs %v", len(k), layout.keyLength)
 	}
