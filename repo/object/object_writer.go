@@ -112,16 +112,18 @@ func (w *objectWriter) flushBuffer() error {
 	w.indirectIndex[chunkID].Length = int64(length)
 	w.currentPosition += int64(length)
 
-	var compressedBuf bytes.Buffer
+	b := w.om.bufferPool.Allocate(length)
+	defer b.Release()
 
-	contentBytes, isCompressed, err := maybeCompressedContentBytes(w.compressor, &compressedBuf, w.buffer.Bytes())
+	compressedBuf := bytes.NewBuffer(b.Data[:0])
+
+	contentBytes, isCompressed, err := maybeCompressedContentBytes(w.compressor, compressedBuf, w.buffer.Bytes())
 	if err != nil {
 		return errors.Wrap(err, "unable to prepare content bytes")
 	}
 
 	contentID, err := w.om.contentMgr.WriteContent(w.ctx, contentBytes, w.prefix)
 	w.buffer.Reset()
-	w.om.trace("OBJECT_WRITER(%q) stored %v (%v bytes)", w.description, contentID, length)
 
 	if err != nil {
 		return errors.Wrapf(err, "error when flushing chunk %d of %s", chunkID, w.description)
