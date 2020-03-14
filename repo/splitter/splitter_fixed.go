@@ -23,6 +23,10 @@ func (s *fixedSplitter) ShouldSplit(b byte) bool {
 	return false
 }
 
+func (s *fixedSplitter) MaxSegmentSize() int {
+	return s.chunkLength
+}
+
 // Fixed returns a factory that creates splitters with fixed chunk length.
 func Fixed(length int) Factory {
 	return func() Splitter {

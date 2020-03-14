@@ -39,6 +39,10 @@ func (rs *rabinKarp64Splitter) ShouldSplit(b byte) bool {
 	return false
 }
 
+func (rs *rabinKarp64Splitter) MaxSegmentSize() int {
+	return rs.maxSize
+}
+
 func newRabinKarp64SplitterFactory(avgSize int) Factory {
 	mask := uint64(avgSize - 1)
 	minSize, maxSize := avgSize/2, avgSize*2 //nolint:gomnd
