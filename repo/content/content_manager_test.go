@@ -1493,14 +1493,7 @@ func dumpContentManagerData(ctx context.Context, t *testing.T, data blobtesting.
 
 	for k, v := range data {
 		if k[0] == 'n' {
-			ndx, err := openPackIndex(bytes.NewReader(v))
-			if err == nil {
-				log(ctx).Infof("index %v (%v bytes)", k, len(v))
-				assertNoError(t, ndx.Iterate("", func(i Info) error {
-					log(ctx).Infof("  %+v\n", i)
-					return nil
-				}))
-			}
+			log(ctx).Infof("index %v (%v bytes)", k, len(v))
 		} else {
 			log(ctx).Infof("non-index %v (%v bytes)\n", k, len(v))
 		}
