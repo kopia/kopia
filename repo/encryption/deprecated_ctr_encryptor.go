@@ -28,6 +28,10 @@ func (fi ctrEncryptor) IsDeprecated() bool {
 	return true
 }
 
+func (fi ctrEncryptor) MaxOverhead() int {
+	return 0
+}
+
 func symmetricEncrypt(output []byte, createCipher func() (cipher.Block, error), iv, b []byte) ([]byte, error) {
 	blockCipher, err := createCipher()
 	if err != nil {

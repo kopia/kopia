@@ -11,6 +11,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+const aes256GCMHmacSha256Overhead = 28
+
 type aes256GCMHmacSha256 struct {
 	hmacPool *sync.Pool
 }
@@ -60,6 +62,10 @@ func (e aes256GCMHmacSha256) IsAuthenticated() bool {
 
 func (e aes256GCMHmacSha256) IsDeprecated() bool {
 	return false
+}
+
+func (e aes256GCMHmacSha256) MaxOverhead() int {
+	return aes256GCMHmacSha256Overhead
 }
 
 func init() {

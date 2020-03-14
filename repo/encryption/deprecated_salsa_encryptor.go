@@ -1,6 +1,8 @@
 package encryption
 
 import (
+	"crypto/sha256"
+
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/salsa20"
 
@@ -48,6 +50,14 @@ func (s salsaEncryptor) Encrypt(output, input, contentID []byte) ([]byte, error)
 
 func (s salsaEncryptor) IsAuthenticated() bool {
 	return s.hmacSecret != nil
+}
+
+func (s salsaEncryptor) MaxOverhead() int {
+	if s.hmacSecret == nil {
+		return 0
+	}
+
+	return sha256.Size
 }
 
 func (s salsaEncryptor) encryptDecrypt(output, input, contentID []byte) ([]byte, error) {
