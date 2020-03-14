@@ -29,6 +29,9 @@ type Encryptor interface {
 
 	// IsDeprecated returns true if encryption is not recommended for new repositories.
 	IsDeprecated() bool
+
+	// MaxOverhead is the maximum number of bytes of overhead added by Encrypt()
+	MaxOverhead() int
 }
 
 // Parameters encapsulates all encryption parameters.

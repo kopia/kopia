@@ -11,6 +11,8 @@ import (
 	"golang.org/x/crypto/chacha20poly1305"
 )
 
+const chacha20poly1305hmacSha256EncryptorOverhead = 28
+
 type chacha20poly1305hmacSha256Encryptor struct {
 	hmacPool *sync.Pool
 }
@@ -56,6 +58,10 @@ func (e chacha20poly1305hmacSha256Encryptor) IsAuthenticated() bool {
 
 func (e chacha20poly1305hmacSha256Encryptor) IsDeprecated() bool {
 	return false
+}
+
+func (e chacha20poly1305hmacSha256Encryptor) MaxOverhead() int {
+	return chacha20poly1305hmacSha256EncryptorOverhead
 }
 
 func init() {
