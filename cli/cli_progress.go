@@ -22,9 +22,10 @@ type cliProgress struct {
 	hashedBytes            int64
 	nextOutputTimeUnixNano int64
 
-	cachedFiles   int32
-	hashedFiles   int32
-	uploadedFiles int32
+	cachedFiles       int32
+	inProgressHashing int32
+	hashedFiles       int32
+	uploadedFiles     int32
 
 	uploading      int32
 	uploadFinished int32
@@ -40,8 +41,13 @@ type cliProgress struct {
 	shared bool
 }
 
+func (p *cliProgress) HashingFile(fname string) {
+	atomic.AddInt32(&p.inProgressHashing, 1)
+}
+
 func (p *cliProgress) FinishedHashingFile(fname string, totalSize int64) {
 	atomic.AddInt32(&p.hashedFiles, 1)
+	atomic.AddInt32(&p.inProgressHashing, -1)
 	p.maybeOutput()
 }
 
@@ -89,12 +95,15 @@ func (p *cliProgress) output() {
 	cachedBytes := atomic.LoadInt64(&p.cachedBytes)
 	uploadedBytes := atomic.LoadInt64(&p.uploadedBytes)
 	cachedFiles := atomic.LoadInt32(&p.cachedFiles)
+	inProgressHashing := atomic.LoadInt32(&p.inProgressHashing)
 	hashedFiles := atomic.LoadInt32(&p.hashedFiles)
 	uploadedFiles := atomic.LoadInt32(&p.uploadedFiles)
 
 	line := fmt.Sprintf(
-		" %v %v hashed (%v), %v cached (%v), %v uploaded (%v)",
+		" %v %v hashing, %v hashed (%v), %v cached (%v), %v uploaded (%v)",
 		p.spinnerCharacter(),
+
+		inProgressHashing,
 
 		hashedFiles,
 		units.BytesStringBase10(hashedBytes),
