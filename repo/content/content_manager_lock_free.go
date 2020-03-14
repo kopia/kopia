@@ -13,6 +13,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/buf"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/hashing"
@@ -45,6 +46,8 @@ type lockFreeManager struct {
 	timeNow           func() time.Time
 
 	repositoryFormatBytes []byte
+
+	encryptionBufferPool *buf.Pool
 }
 
 func (bm *lockFreeManager) maybeEncryptContentDataForPacking(output *bytes.Buffer, data []byte, contentID ID) error {
@@ -55,7 +58,10 @@ func (bm *lockFreeManager) maybeEncryptContentDataForPacking(output *bytes.Buffe
 		return errors.Wrapf(err, "unable to get packed content IV for %q", contentID)
 	}
 
-	cipherText, err := bm.encryptor.Encrypt(nil, data, iv)
+	b := bm.encryptionBufferPool.Allocate(len(data) + bm.encryptor.MaxOverhead())
+	defer b.Release()
+
+	cipherText, err := bm.encryptor.Encrypt(b.Data[:0], data, iv)
 	if err != nil {
 		return errors.Wrap(err, "unable to encrypt")
 	}
@@ -65,19 +71,19 @@ func (bm *lockFreeManager) maybeEncryptContentDataForPacking(output *bytes.Buffe
 	return nil
 }
 
-func writeToBuffer(buf *bytes.Buffer, data []byte) {
+func writeToBuffer(b *bytes.Buffer, data []byte) {
 	// buffer writes never fail, safe to ignore errors
-	_, _ = buf.Write(data)
+	_, _ = b.Write(data)
 }
 
-func writeRandomBytesToBuffer(buf *bytes.Buffer, count int) error {
+func writeRandomBytesToBuffer(b *bytes.Buffer, count int) error {
 	var rnd [defaultPaddingUnit]byte
 
 	if _, err := io.ReadFull(cryptorand.Reader, rnd[0:count]); err != nil {
 		return err
 	}
 
-	writeToBuffer(buf, rnd[0:count])
+	writeToBuffer(b, rnd[0:count])
 
 	return nil
 }
