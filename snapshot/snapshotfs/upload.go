@@ -644,6 +644,8 @@ func uploadDirInternal(
 		Prefix:      "k",
 	})
 
+	defer writer.Close() //nolint:errcheck
+
 	if err := json.NewEncoder(writer).Encode(dirManifest); err != nil {
 		return "", fs.DirectorySummary{}, errors.Wrap(err, "unable to encode directory JSON")
 	}
