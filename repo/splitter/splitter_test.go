@@ -69,6 +69,10 @@ func TestSplitterStability(t *testing.T) {
 		minSplit := int(math.MaxInt32)
 		count := 0
 
+		if got, want := s.MaxSegmentSize(), tc.maxSplit; got != want {
+			t.Errorf("unexpected max segment size: %v, want %v", got, want)
+		}
+
 		for i, p := range rnd {
 			if !s.ShouldSplit(p) {
 				continue

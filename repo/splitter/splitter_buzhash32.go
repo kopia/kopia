@@ -39,6 +39,10 @@ func (rs *buzhash32Splitter) ShouldSplit(b byte) bool {
 	return false
 }
 
+func (rs *buzhash32Splitter) MaxSegmentSize() int {
+	return rs.maxSize
+}
+
 func newBuzHash32SplitterFactory(avgSize int) Factory {
 	// avgSize must be a power of two, so 0b000001000...0000
 	// it just so happens that mask is avgSize-1 :)
