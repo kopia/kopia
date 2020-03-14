@@ -64,7 +64,7 @@ weight = 1
 
 [params]
 copyright = "Kopia Project"
-privacy_policy = "https://kopia.io/privacy/"
+privacy_policy = "https://kopia.io/docs/privacy-policy/"
 github_repo = "https://github.com/kopia/kopia"
 
 # Google Custom Search Engine ID. Remove or comment out to disable search.
