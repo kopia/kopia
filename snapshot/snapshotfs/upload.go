@@ -76,7 +76,7 @@ func (u *Uploader) cancelReason() string {
 	return ""
 }
 
-func (u *Uploader) uploadFileInternal(ctx context.Context, relativePath string, f fs.File, pol *policy.Policy) (*snapshot.DirEntry, error) {
+func (u *Uploader) uploadFileInternal(ctx context.Context, relativePath string, f fs.File, pol *policy.Policy, asyncWrites int) (*snapshot.DirEntry, error) {
 	u.Progress.HashingFile(relativePath)
 	defer u.Progress.FinishedHashingFile(relativePath, f.Size())
 
@@ -86,9 +86,14 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, relativePath string, 
 	}
 	defer file.Close() //nolint:errcheck
 
+	if asyncWrites > 1 {
+		log(ctx).Debugf("uploading %v with %v async writes", relativePath, asyncWrites)
+	}
+
 	writer := u.repo.Objects.NewWriter(ctx, object.WriterOptions{
 		Description: "FILE:" + f.Name(),
 		Compressor:  pol.CompressionPolicy.CompressorForFile(f),
+		AsyncWrites: asyncWrites,
 	})
 	defer writer.Close() //nolint:errcheck
 
@@ -226,7 +231,12 @@ func newDirEntry(md fs.Entry, oid object.ID) (*snapshot.DirEntry, error) {
 
 // uploadFile uploads the specified File to the repository.
 func (u *Uploader) uploadFile(ctx context.Context, relativePath string, file fs.File, pol *policy.Policy) (*snapshot.DirEntry, error) {
-	res, err := u.uploadFileInternal(ctx, relativePath, file, pol)
+	par := u.effectiveParallelUploads()
+	if par == 1 {
+		par = 0
+	}
+
+	res, err := u.uploadFileInternal(ctx, relativePath, file, pol, par)
 	if err != nil {
 		return nil, err
 	}
@@ -494,10 +504,31 @@ func (u *Uploader) maybeIgnoreCachedEntry(ctx context.Context, ent fs.Entry) fs.
 	return nil
 }
 
+func (u *Uploader) effectiveParallelUploads() int {
+	p := u.ParallelUploads
+	if p == 0 {
+		p = runtime.NumCPU()
+	}
+
+	return p
+}
+
 func (u *Uploader) processNonDirectories(ctx context.Context, output chan *snapshot.DirEntry, dirRelativePath string, entries fs.Entries, policyTree *policy.Tree, prevEntries []fs.Entries) error {
-	workerCount := u.ParallelUploads
-	if workerCount == 0 {
-		workerCount = runtime.NumCPU()
+	par := u.effectiveParallelUploads()
+
+	var workerCount, asyncWritesPerFile int
+
+	if len(entries) < par {
+		workerCount = len(entries)
+
+		if len(entries) > 0 {
+			asyncWritesPerFile = par / len(entries)
+			if asyncWritesPerFile == 1 {
+				asyncWritesPerFile = 0
+			}
+		}
+	} else {
+		workerCount = par
 	}
 
 	return u.foreachEntryUnlessCancelled(ctx, workerCount, dirRelativePath, entries, func(ctx context.Context, entry fs.Entry, entryRelativePath string) error {
@@ -534,7 +565,7 @@ func (u *Uploader) processNonDirectories(ctx context.Context, output chan *snaps
 
 		case fs.File:
 			atomic.AddInt32(&u.stats.NonCachedFiles, 1)
-			de, err := u.uploadFileInternal(ctx, filepath.Join(dirRelativePath, entry.Name()), entry, policyTree.Child(entry.Name()).EffectivePolicy())
+			de, err := u.uploadFileInternal(ctx, filepath.Join(dirRelativePath, entry.Name()), entry, policyTree.Child(entry.Name()).EffectivePolicy(), asyncWritesPerFile)
 			if err != nil {
 				return u.maybeIgnoreFileReadError(err, policyTree)
 			}

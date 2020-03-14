@@ -63,6 +63,13 @@ func (om *Manager) NewWriter(ctx context.Context, opt WriterOptions) Writer {
 		compressor:  compression.ByName[opt.Compressor],
 	}
 
+	// point the slice at the embedded array, so that we avoid allocations most of the time
+	w.indirectIndex = w.indirectIndexBuf[:0]
+
+	if opt.AsyncWrites > 0 {
+		w.asyncWritesSemaphore = make(chan struct{}, opt.AsyncWrites)
+	}
+
 	w.initBuffer()
 
 	return w
