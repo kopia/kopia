@@ -22,7 +22,8 @@
     "appId": "io.kopia.ui",
     "publish": [
       {
-        "provider": "github"
+        "provider": "github",
+        "vPrefixedTagName": false
       }
     ],
     "files": [
