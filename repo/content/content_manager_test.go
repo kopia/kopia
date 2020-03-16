@@ -1647,6 +1647,10 @@ func newTestContentManagerWithStorage(t *testing.T, st blob.Storage, timeFunc fu
 
 	bm.checkInvariantsOnUnlock = true
 
+	t.Cleanup(func() {
+		bm.Close(context.Background())
+	})
+
 	return bm
 }
 
