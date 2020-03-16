@@ -201,9 +201,7 @@ func (bm *lockFreeManager) appendPackFileIndexRecoveryData(ctx context.Context, 
 	pa2 := findPostamble(contentData)
 	if pa2 == nil {
 		log(ctx).Fatalf("invalid postamble written, that could not be immediately decoded, it's a bug")
-	}
-
-	if !reflect.DeepEqual(postamble, *pa2) {
+	} else if !reflect.DeepEqual(postamble, *pa2) {
 		log(ctx).Fatalf("postamble did not round-trip: %v %v", postamble, *pa2)
 	}
 
