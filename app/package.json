@@ -9,13 +9,13 @@
     "electron-first-run": "^3.0.0",
     "electron-is-dev": "^1.1.0",
     "electron-json-config": "^1.5.3",
-    "electron-log": "^4.0.6",
-    "electron-updater": "^4.2.2",
-    "react": "^16.12.0",
-    "react-bootstrap": "^1.0.0-beta.14",
-    "react-dom": "^16.12.0",
+    "electron-log": "^4.1.0",
+    "electron-updater": "^4.2.5",
+    "react": "^16.13.0",
+    "react-bootstrap": "^1.0.0-beta.17",
+    "react-dom": "^16.13.0",
     "react-router-dom": "^5.1.2",
-    "react-scripts": "^3.3.0"
+    "react-scripts": "^3.4.0"
   },
   "build": {
     "productName": "KopiaUI",
@@ -94,10 +94,10 @@
     "afterSign": "notarize.js"
   },
   "devDependencies": {
-    "asar": "^2.0.3",
-    "concurrently": "^5.0.0",
-    "electron": "^7.1.12",
-    "electron-builder": "^22.2.0",
+    "asar": "^2.1.0",
+    "concurrently": "^5.1.0",
+    "electron": "^7.1.14",
+    "electron-builder": "^22.4.1",
     "electron-notarize": "^0.2.1"
   },
   "homepage": "./",

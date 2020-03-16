@@ -31,7 +31,7 @@ func (t *TimeOfDay) Parse(s string) error {
 	return nil
 }
 
-// TimeOfDay returns string representation of time of day.
+// String returns string representation of time of day.
 func (t TimeOfDay) String() string {
 	return fmt.Sprintf("%v:%02v", t.Hour, t.Minute)
 }
