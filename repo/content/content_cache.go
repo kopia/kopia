@@ -266,6 +266,7 @@ func newContentCacheWithCacheStorage(ctx context.Context, st, cacheStorage blob.
 	}
 
 	c.asyncWG.Add(1)
+
 	go c.sweepDirectoryPeriodically(ctx)
 
 	return c, nil
