@@ -10,6 +10,11 @@ import (
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
+var (
+	enableProgress         = app.Flag("progress", "Enable progress bar").Hidden().Default("true").Bool()
+	progressUpdateInterval = app.Flag("progress-update-interval", "How ofter to update progress information").Hidden().Default("300ms").Duration()
+)
+
 const spinner = `|/-\`
 const hundredPercent = 100.0
 
@@ -78,9 +83,7 @@ func (p *cliProgress) maybeOutput() {
 
 	nextOutputTimeUnixNano := atomic.LoadInt64(&p.nextOutputTimeUnixNano)
 	if nowNano := time.Now().UnixNano(); nowNano > nextOutputTimeUnixNano {
-		const interval = 300 * time.Millisecond
-
-		if atomic.CompareAndSwapInt64(&p.nextOutputTimeUnixNano, nextOutputTimeUnixNano, nowNano+interval.Nanoseconds()) {
+		if atomic.CompareAndSwapInt64(&p.nextOutputTimeUnixNano, nextOutputTimeUnixNano, nowNano+progressUpdateInterval.Nanoseconds()) {
 			shouldOutput = true
 		}
 	}
@@ -91,6 +94,10 @@ func (p *cliProgress) maybeOutput() {
 }
 
 func (p *cliProgress) output() {
+	if !*enableProgress {
+		return
+	}
+
 	hashedBytes := atomic.LoadInt64(&p.hashedBytes)
 	cachedBytes := atomic.LoadInt64(&p.cachedBytes)
 	uploadedBytes := atomic.LoadInt64(&p.uploadedBytes)
