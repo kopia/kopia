@@ -35,7 +35,8 @@ type contentCache struct {
 	mu                 sync.Mutex
 	lastTotalSizeBytes int64
 
-	closed chan struct{}
+	asyncWG sync.WaitGroup
+	closed  chan struct{}
 }
 
 type contentToucher interface {
@@ -139,9 +140,12 @@ func (c *contentCache) readAndVerifyCacheContent(ctx context.Context, cacheKey c
 
 func (c *contentCache) close() {
 	close(c.closed)
+	c.asyncWG.Wait()
 }
 
 func (c *contentCache) sweepDirectoryPeriodically(ctx context.Context) {
+	defer c.asyncWG.Done()
+
 	for {
 		select {
 		case <-c.closed:
@@ -260,6 +264,8 @@ func newContentCacheWithCacheStorage(ctx context.Context, st, cacheStorage blob.
 	if err := c.sweepDirectory(ctx); err != nil {
 		return nil, err
 	}
+
+	c.asyncWG.Add(1)
 
 	go c.sweepDirectoryPeriodically(ctx)
 

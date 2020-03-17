@@ -110,6 +110,8 @@ func verifyEndToEndFormatter(ctx context.Context, t *testing.T, hashAlgo, encryp
 		return
 	}
 
+	defer bm.Close(ctx)
+
 	cases := [][]byte{
 		{},
 		{1, 2, 3},
