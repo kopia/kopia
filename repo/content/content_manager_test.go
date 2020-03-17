@@ -315,6 +315,8 @@ func TestContentManagerFailedToWritePack(t *testing.T) {
 		t.Fatalf("can't create bm: %v", err)
 	}
 
+	defer bm.Close(ctx)
+
 	faulty.Faults = map[string][]*blobtesting.Fault{
 		"PutContent": {
 			{Err: errors.New("booboo")},
