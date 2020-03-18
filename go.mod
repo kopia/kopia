@@ -17,6 +17,7 @@ require (
 	github.com/fatih/color v1.9.0
 	github.com/golang/protobuf v1.3.5
 	github.com/google/fswalker v0.2.0
+	github.com/google/readahead v0.0.0-20161222183148-eaceba169032 // indirect
 	github.com/google/wire v0.4.0 // indirect
 	github.com/gorilla/mux v1.7.4
 	github.com/klauspost/compress v1.10.3
@@ -32,6 +33,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/profile v1.4.0
 	github.com/pkg/sftp v1.11.0
+	github.com/pquerna/ffjson v0.0.0-20190930134022-aa0246cd15f7 // indirect
 	github.com/prometheus/client_golang v1.5.1
 	github.com/prometheus/procfs v0.0.10 // indirect
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
@@ -52,4 +54,5 @@ require (
 	google.golang.org/grpc v1.28.0 // indirect
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	gopkg.in/ini.v1 v1.55.0 // indirect
+	gopkg.in/kothar/go-backblaze.v0 v0.0.0-20191215213626-7594ed38700f
 )
