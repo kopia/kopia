@@ -34,6 +34,7 @@ require (
 	github.com/pkg/sftp v1.11.0
 	github.com/prometheus/client_golang v1.5.1
 	github.com/prometheus/procfs v0.0.10 // indirect
+	github.com/shirou/gopsutil v2.20.2+incompatible
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 	github.com/stretchr/testify v1.4.0
 	github.com/studio-b12/gowebdav v0.0.0-20200303150724-9380631c29a1
