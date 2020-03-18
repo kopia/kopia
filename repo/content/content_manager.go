@@ -420,6 +420,9 @@ func (bm *Manager) Flush(ctx context.Context) error {
 
 	defer func() {
 		bm.flushing = false
+
+		// we finished flushing, notify goroutines that were waiting for it.
+		bm.cond.Broadcast()
 	}()
 
 	for len(bm.writingPacks) > 0 {
