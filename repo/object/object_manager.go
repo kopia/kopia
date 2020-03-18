@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"runtime"
 
 	"github.com/pkg/errors"
 
@@ -15,9 +14,6 @@ import (
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/splitter"
 )
-
-// number of buffer pool segments
-var bufferPoolNumSegments = 4 * runtime.NumCPU()
 
 // maxCompressionOverheadPerSegment is maximum overhead that compression can incur.
 const maxCompressionOverheadPerSegment = 16384
@@ -187,7 +183,7 @@ func NewObjectManager(ctx context.Context, bm contentManager, f Format, opts Man
 
 	om.newSplitter = splitter.Pooled(os)
 
-	om.bufferPool = buf.NewPool(om.newSplitter().MaxSegmentSize()+maxCompressionOverheadPerSegment, bufferPoolNumSegments)
+	om.bufferPool = buf.NewPool(om.newSplitter().MaxSegmentSize()+maxCompressionOverheadPerSegment, "object-manager")
 
 	if opts.Trace != nil {
 		om.trace = opts.Trace
@@ -196,6 +192,12 @@ func NewObjectManager(ctx context.Context, bm contentManager, f Format, opts Man
 	}
 
 	return om, nil
+}
+
+// Close closes the object manager.
+func (om *Manager) Close() error {
+	om.bufferPool.Close()
+	return nil
 }
 
 /*

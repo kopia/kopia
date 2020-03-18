@@ -10,9 +10,10 @@ func TestPool(t *testing.T) {
 	var wg sync.WaitGroup
 
 	// 20 buffers of 1 MB each
-	var a = NewPool(1000000, 20)
+	var a = NewPool(1000000, "testing-pool")
+	defer a.Close()
 
-	a.InitializeSegments(20)
+	a.AddSegments(20)
 
 	var ms1, ms2 runtime.MemStats
 

@@ -36,6 +36,10 @@ func (r *Repository) Close(ctx context.Context) error {
 		return errors.Wrap(err, "error flushing")
 	}
 
+	if err := r.Objects.Close(); err != nil {
+		return errors.Wrap(err, "error closing object manager")
+	}
+
 	if err := r.Content.Close(ctx); err != nil {
 		return errors.Wrap(err, "error closing content-addressable storage manager")
 	}

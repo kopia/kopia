@@ -2,19 +2,20 @@
 package buf
 
 import (
+	"context"
 	"sync"
 	"sync/atomic"
 	"time"
-)
 
-const (
-	maxAllocAttempts       = 3
-	allocationRetryTimeout = 500 * time.Millisecond
+	"go.opencensus.io/stats"
+	"go.opencensus.io/tag"
 )
 
 type segment struct {
-	nextUnallocated   int32  // high water mark
-	allocatedBufCount int32  // how many outstanding users of the segment there are
+	mu sync.RWMutex
+
+	nextUnallocated   int    // high water mark
+	allocatedBufCount int    // how many outstanding users of the segment there are
 	data              []byte // the underlying buffer from which we're allocating
 	pool              *Pool
 }
@@ -22,12 +23,11 @@ type segment struct {
 // Buf represents allocated slice of memory pool. At the end of using the buffer, Release() must be called to
 // reclaim memory.
 type Buf struct {
-	nextUnallocated         int32
-	previousNextUnallocated int32
-
 	Data []byte
 
-	segment *segment // segment from which the data was allocated
+	nextUnallocated         int
+	previousNextUnallocated int
+	segment                 *segment // segment from which the data was allocated
 }
 
 // IsPooled determines whether data slice is part of a pool.
@@ -39,51 +39,53 @@ func (b *Buf) Release() {
 		return
 	}
 
-	notify := false
+	atomic.AddInt64(&b.segment.pool.totalReleasedBytes, int64(len(b.Data)))
+	atomic.AddInt64(&b.segment.pool.totalReleasedBuffers, 1)
+
+	b.segment.mu.Lock()
+	defer b.segment.mu.Unlock()
 
 	// best effort compare-and-swap, which will pop the buffer off the stack in its appropriate segment
-	if atomic.CompareAndSwapInt32(&b.segment.nextUnallocated, b.nextUnallocated, b.previousNextUnallocated) {
-		// popped from the stack in the segment
-		notify = true
+	if b.segment.nextUnallocated == b.nextUnallocated {
+		b.segment.nextUnallocated = b.previousNextUnallocated
 	}
 
-	if atomic.AddInt32(&b.segment.allocatedBufCount, -1) == 0 {
+	b.segment.allocatedBufCount--
+	if b.segment.allocatedBufCount == 0 {
 		// last allocated Buf, we can reset 'next' to zero
-		atomic.StoreInt32(&b.segment.nextUnallocated, 0)
-
-		notify = true
-	}
-
-	if notify {
-		// this segment just became free, notify other goroutines doing Allocate()
-		select {
-		case b.segment.pool.segmentReleased <- struct{}{}: // notified
-		default: // nobody is waiting
-		}
+		b.segment.nextUnallocated = 0
 	}
 
 	b.Data = nil
-
 	b.segment = nil
 }
 
-func (s *segment) allocate(count int) (Buf, bool) {
-	n := int32(count)
+func (s *segment) allocate(n int) (Buf, bool) {
+	// quick check using shared lock
+	s.mu.RLock()
+	haveRoom := s.nextUnallocated+n <= len(s.data)
+	s.mu.RUnlock()
 
-	for {
-		// see if we have capacity in this segment
-		v := atomic.LoadInt32(&s.nextUnallocated)
-		if v+n > int32(len(s.data)) {
-			// out of space in this segment
-			return Buf{}, false
-		}
-
-		if atomic.CompareAndSwapInt32(&s.nextUnallocated, v, v+n) {
-			atomic.AddInt32(&s.allocatedBufCount, 1)
-
-			return Buf{v + n, v, s.data[v : v+n : v+n], s}, true
-		}
+	if !haveRoom {
+		return Buf{}, false
 	}
+
+	// we likely have space, allocate under exclusive lock
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// see if we have capacity in this segment
+	v := s.nextUnallocated
+
+	if v+n > len(s.data) {
+		// out of space in this segment
+		return Buf{}, false
+	}
+
+	s.allocatedBufCount++
+	s.nextUnallocated += n
+
+	return Buf{s.data[v : v+n : v+n], v + n, v, s}, true
 }
 
 // Pool manages allocations of short-term data buffers from a pool.
@@ -91,7 +93,7 @@ func (s *segment) allocate(count int) (Buf, bool) {
 // Note that buffers managed by the pool are meant to be extremely short lived and are suitable
 // for in-memory operations, such as encryption, compression, etc, but not for I/O buffers of any kind.
 // It is EXTREMELY important to always release memory allocated from the Pool. Failure to do so will
-// result in
+// result in memory leaks.
 //
 // The pool uses N segments, with each segment tracking its high water mark usage.
 //
@@ -107,8 +109,16 @@ func (s *segment) allocate(count int) (Buf, bool) {
 // If no segment has available capacity, the pool waits a few times until memory becomes released
 // and falls back to allocating from the heap.
 type Pool struct {
-	maxSegments     int
-	segmentReleased chan struct{} // channel which is notified whenever any segment becomes available for allocations
+	totalAllocatedBytes   int64
+	totalReleasedBytes    int64
+	totalAllocatedBuffers int64
+	totalReleasedBuffers  int64
+
+	poolID string
+
+	closed chan struct{}
+
+	tagMutators []tag.Mutator
 
 	// this protects the slice, to be able to atomically replace it
 	mu          sync.Mutex
@@ -116,15 +126,52 @@ type Pool struct {
 	segments    []*segment
 }
 
-// NewPool creates a buffer pool, composed of N fixed-length segments of specified maximum size.
-func NewPool(segmentSize, maxSegments int) *Pool {
+// NewPool creates a buffer pool, composed of fixed-length segments of specified maximum size.
+func NewPool(segmentSize int, poolID string) *Pool {
 	p := &Pool{
-		segmentSize:     segmentSize,
-		segmentReleased: make(chan struct{}),
-		maxSegments:     maxSegments,
+		poolID:      poolID,
+		tagMutators: []tag.Mutator{tag.Insert(tagKeyPool, poolID)},
+		segmentSize: segmentSize,
+		closed:      make(chan struct{}),
 	}
 
+	go func() {
+		for {
+			select {
+			case <-p.closed:
+				return
+
+			case <-time.After(1 * time.Second):
+				p.reportMetrics()
+			}
+		}
+	}()
+
 	return p
+}
+
+// Close closes the pool
+func (p *Pool) Close() {
+	close(p.closed)
+}
+
+func (p *Pool) reportMetrics() {
+	allBytes := atomic.LoadInt64(&p.totalAllocatedBytes)
+	relBytes := atomic.LoadInt64(&p.totalReleasedBytes)
+	allBuffers := atomic.LoadInt64(&p.totalAllocatedBuffers)
+	relBuffers := atomic.LoadInt64(&p.totalReleasedBuffers)
+
+	_ = stats.RecordWithTags(
+		context.Background(),
+		p.tagMutators,
+		metricPoolAllocatedBytes.M(allBytes),
+		metricPoolReleasedBytes.M(relBytes),
+		metricPoolOutstandingBytes.M(allBytes-relBytes),
+		metricPoolAllocatedBuffers.M(allBuffers),
+		metricPoolReleasedBuffers.M(relBuffers),
+		metricPoolOutstandingBuffers.M(allBuffers-relBuffers),
+		metricPoolNumSegments.M(int64(len(p.currentSegments()))),
+	)
 }
 
 func (p *Pool) currentSegments() []*segment {
@@ -142,19 +189,10 @@ func (p *Pool) SetSegmentSize(maxSize int) {
 	p.segmentSize = maxSize
 }
 
-// InitializeSegments initializes n segments up to the maximum number of segments.
-func (p *Pool) InitializeSegments(n int) bool {
+// AddSegments n segments to the pool.
+func (p *Pool) AddSegments(n int) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-
-	remaining := p.maxSegments - len(p.segments)
-	if n > remaining {
-		n = remaining
-	}
-
-	if n == 0 {
-		return false
-	}
 
 	var newSegments []*segment
 
@@ -168,18 +206,19 @@ func (p *Pool) InitializeSegments(n int) bool {
 	}
 
 	p.segments = newSegments
-
-	return true
 }
 
-// Allocate allocates a slice of the buffer
+// Allocate allocates from the buffer a slice of size n.
 func (p *Pool) Allocate(n int) Buf {
 	// requested more than the pool can cache, allocate throw-away buffer.
 	if p == nil || n > p.segmentSize {
-		return Buf{0, 0, make([]byte, n), nil}
+		return Buf{make([]byte, n), 0, 0, nil}
 	}
 
-	for i := 0; i < maxAllocAttempts; i++ {
+	atomic.AddInt64(&p.totalAllocatedBytes, int64(n))
+	atomic.AddInt64(&p.totalAllocatedBuffers, 1)
+
+	for {
 		// try to allocate
 		for _, s := range p.currentSegments() {
 			buf, ok := s.allocate(n)
@@ -188,18 +227,7 @@ func (p *Pool) Allocate(n int) Buf {
 			}
 		}
 
-		// add one more segment up to specified limit
-		if p.InitializeSegments(1) {
-			continue
-		}
-
-		// wait until some segment becomes free or some time passes, whichever comes first
-		select {
-		case <-p.segmentReleased:
-		case <-time.After(allocationRetryTimeout):
-		}
+		// add one more segment
+		p.AddSegments(1)
 	}
-
-	// fall back to heap allocation
-	return Buf{0, 0, make([]byte, n), nil}
 }

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"runtime"
 	"sync"
 	"time"
 
@@ -20,8 +19,6 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
 )
-
-var encryptionBufferPoolNumSegments = 4 * runtime.NumCPU()
 
 var (
 	log       = logging.GetContextLoggerFunc("kopia/content")
@@ -410,6 +407,7 @@ func (bm *Manager) Close(ctx context.Context) error {
 	bm.contentCache.close()
 	bm.metadataCache.close()
 	close(bm.closed)
+	bm.encryptionBufferPool.Close()
 
 	return nil
 }
@@ -697,7 +695,7 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 			checkInvariantsOnUnlock: os.Getenv("KOPIA_VERIFY_INVARIANTS") != "",
 			writeFormatVersion:      int32(f.Version),
 			committedContents:       contentIndex,
-			encryptionBufferPool:    buf.NewPool(defaultEncryptionBufferPoolSegmentSize+encryptor.MaxOverhead(), encryptionBufferPoolNumSegments),
+			encryptionBufferPool:    buf.NewPool(defaultEncryptionBufferPoolSegmentSize+encryptor.MaxOverhead(), "content-manager-encryption"),
 		},
 
 		mu:   mu,
