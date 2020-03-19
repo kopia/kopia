@@ -227,6 +227,7 @@ func toBandwidth(bytesPerSecond int) iothrottler.Bandwidth {
 }
 
 func getCustomTransport(insecureSkipVerify bool) (transport *http.Transport) {
+	// nolint:gosec
 	customTransport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: insecureSkipVerify}}
 	return customTransport
 }
