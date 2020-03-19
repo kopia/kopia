@@ -4,6 +4,7 @@ package s3
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -225,6 +226,14 @@ func toBandwidth(bytesPerSecond int) iothrottler.Bandwidth {
 	return iothrottler.Bandwidth(bytesPerSecond) * iothrottler.BytesPerSecond
 }
 
+func getCustomTransport(insecureSkipVerify bool) (transport *http.Transport) {
+	customTransport := http.DefaultTransport.(*http.Transport).Clone()
+	// nolint:gosec
+	customTransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: insecureSkipVerify}
+
+	return customTransport
+}
+
 // New creates new S3-backed storage with specified options:
 //
 // - the 'BucketName' field is required and all other parameters are optional.
@@ -236,6 +245,10 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 	cli, err := minio.NewWithCredentials(opt.Endpoint, credentials.NewStaticV4(opt.AccessKeyID, opt.SecretAccessKey, opt.SessionToken), !opt.DoNotUseTLS, opt.Region)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create client")
+	}
+
+	if opt.DoNotVerifyTLS {
+		cli.SetCustomTransport(getCustomTransport(true))
 	}
 
 	downloadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.MaxDownloadSpeedBytesPerSecond))
