@@ -65,7 +65,7 @@ By default the configuration file is located in your home directory under:
 * `$HOME/Library/Application Support/kopia/repository.config` on macOS
 * `$HOME/.config/kopia/repository.config` on Linux
 
-The location can be overridden using `--config-path`.
+The location can be overridden using `--config-file`.
 
 The configuration file stores the connection parameters, for example:
 
