@@ -1,6 +1,7 @@
 package buf
 
 import (
+	"context"
 	"runtime"
 	"sync"
 	"testing"
@@ -9,8 +10,10 @@ import (
 func TestPool(t *testing.T) {
 	var wg sync.WaitGroup
 
+	ctx := context.Background()
+
 	// 20 buffers of 1 MB each
-	var a = NewPool(1000000, "testing-pool")
+	var a = NewPool(ctx, 1000000, "testing-pool")
 	defer a.Close()
 
 	a.AddSegments(20)

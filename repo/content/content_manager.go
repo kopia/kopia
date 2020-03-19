@@ -695,7 +695,7 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 			checkInvariantsOnUnlock: os.Getenv("KOPIA_VERIFY_INVARIANTS") != "",
 			writeFormatVersion:      int32(f.Version),
 			committedContents:       contentIndex,
-			encryptionBufferPool:    buf.NewPool(defaultEncryptionBufferPoolSegmentSize+encryptor.MaxOverhead(), "content-manager-encryption"),
+			encryptionBufferPool:    buf.NewPool(ctx, defaultEncryptionBufferPoolSegmentSize+encryptor.MaxOverhead(), "content-manager-encryption"),
 		},
 
 		mu:   mu,

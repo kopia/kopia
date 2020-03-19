@@ -75,9 +75,9 @@ func (s *segment) allocate(n int) (Buf, bool) {
 	defer s.mu.Unlock()
 
 	// see if we have capacity in this segment
-	v := s.nextUnallocated
+	nu := s.nextUnallocated
 
-	if v+n > len(s.data) {
+	if nu+n > len(s.data) {
 		// out of space in this segment
 		return Buf{}, false
 	}
@@ -85,7 +85,12 @@ func (s *segment) allocate(n int) (Buf, bool) {
 	s.allocatedBufCount++
 	s.nextUnallocated += n
 
-	return Buf{s.data[v : v+n : v+n], v + n, v, s}, true
+	return Buf{
+		Data:                    s.data[nu : nu+n : nu+n],
+		nextUnallocated:         nu + n,
+		previousNextUnallocated: nu,
+		segment:                 s,
+	}, true
 }
 
 // Pool manages allocations of short-term data buffers from a pool.
@@ -127,7 +132,7 @@ type Pool struct {
 }
 
 // NewPool creates a buffer pool, composed of fixed-length segments of specified maximum size.
-func NewPool(segmentSize int, poolID string) *Pool {
+func NewPool(ctx context.Context, segmentSize int, poolID string) *Pool {
 	p := &Pool{
 		poolID:      poolID,
 		tagMutators: []tag.Mutator{tag.Insert(tagKeyPool, poolID)},
@@ -142,7 +147,7 @@ func NewPool(segmentSize int, poolID string) *Pool {
 				return
 
 			case <-time.After(1 * time.Second):
-				p.reportMetrics()
+				p.reportMetrics(ctx)
 			}
 		}
 	}()
@@ -155,14 +160,14 @@ func (p *Pool) Close() {
 	close(p.closed)
 }
 
-func (p *Pool) reportMetrics() {
+func (p *Pool) reportMetrics(ctx context.Context) {
 	allBytes := atomic.LoadInt64(&p.totalAllocatedBytes)
 	relBytes := atomic.LoadInt64(&p.totalReleasedBytes)
 	allBuffers := atomic.LoadInt64(&p.totalAllocatedBuffers)
 	relBuffers := atomic.LoadInt64(&p.totalReleasedBuffers)
 
 	_ = stats.RecordWithTags(
-		context.Background(),
+		ctx,
 		p.tagMutators,
 		metricPoolAllocatedBytes.M(allBytes),
 		metricPoolReleasedBytes.M(relBytes),

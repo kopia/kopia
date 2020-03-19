@@ -183,7 +183,7 @@ func NewObjectManager(ctx context.Context, bm contentManager, f Format, opts Man
 
 	om.newSplitter = splitter.Pooled(os)
 
-	om.bufferPool = buf.NewPool(om.newSplitter().MaxSegmentSize()+maxCompressionOverheadPerSegment, "object-manager")
+	om.bufferPool = buf.NewPool(ctx, om.newSplitter().MaxSegmentSize()+maxCompressionOverheadPerSegment, "object-manager")
 
 	if opts.Trace != nil {
 		om.trace = opts.Trace
