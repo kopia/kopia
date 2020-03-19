@@ -15,6 +15,7 @@ import (
 	"github.com/pkg/errors"
 	"go.opencensus.io/stats"
 
+	"github.com/kopia/kopia/internal/buf"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
 )
@@ -29,7 +30,8 @@ const (
 	PackBlobIDPrefixRegular blob.ID = "p"
 	PackBlobIDPrefixSpecial blob.ID = "q"
 
-	maxHashSize = 64
+	maxHashSize                            = 64
+	defaultEncryptionBufferPoolSegmentSize = 8 << 20 // 8 MB
 )
 
 // PackBlobIDPrefixes contains all possible prefixes for pack blobs.
@@ -297,13 +299,13 @@ func (bm *Manager) flushPackIndexesLocked(ctx context.Context) error {
 	}
 
 	if len(bm.packIndexBuilder) > 0 {
-		var buf bytes.Buffer
+		var b bytes.Buffer
 
-		if err := bm.packIndexBuilder.Build(&buf); err != nil {
+		if err := bm.packIndexBuilder.Build(&b); err != nil {
 			return errors.Wrap(err, "unable to build pack index")
 		}
 
-		data := buf.Bytes()
+		data := b.Bytes()
 		dataCopy := append([]byte(nil), data...)
 
 		indexBlobID, err := bm.writePackIndexesNew(ctx, data)
@@ -405,6 +407,7 @@ func (bm *Manager) Close(ctx context.Context) error {
 	bm.contentCache.close()
 	bm.metadataCache.close()
 	close(bm.closed)
+	bm.encryptionBufferPool.Close()
 
 	return nil
 }
@@ -471,17 +474,17 @@ func packPrefixForContentID(contentID ID) blob.ID {
 
 func (bm *Manager) getOrCreatePendingPackInfoLocked(prefix blob.ID) (*pendingPackInfo, error) {
 	if bm.pendingPacks[prefix] == nil {
-		buf := bm.bufferPool.Get().(*bytes.Buffer)
-		buf.Reset()
+		b := bm.bufferPool.Get().(*bytes.Buffer)
+		b.Reset()
 
 		contentID := make([]byte, 16)
 		if _, err := cryptorand.Read(contentID); err != nil {
 			return nil, errors.Wrap(err, "unable to read crypto bytes")
 		}
 
-		writeToBuffer(buf, bm.repositoryFormatBytes)
+		writeToBuffer(b, bm.repositoryFormatBytes)
 
-		if err := writeRandomBytesToBuffer(buf, rand.Intn(bm.maxPreambleLength-bm.minPreambleLength+1)+bm.minPreambleLength); err != nil {
+		if err := writeRandomBytesToBuffer(b, rand.Intn(bm.maxPreambleLength-bm.minPreambleLength+1)+bm.minPreambleLength); err != nil {
 			return nil, errors.Wrap(err, "unable to prepare content preamble")
 		}
 
@@ -489,7 +492,7 @@ func (bm *Manager) getOrCreatePendingPackInfoLocked(prefix blob.ID) (*pendingPac
 			prefix:           prefix,
 			packBlobID:       blob.ID(fmt.Sprintf("%v%x", prefix, contentID)),
 			currentPackItems: map[ID]Info{},
-			currentPackData:  buf,
+			currentPackData:  b,
 		}
 	}
 
@@ -695,6 +698,7 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 			checkInvariantsOnUnlock: os.Getenv("KOPIA_VERIFY_INVARIANTS") != "",
 			writeFormatVersion:      int32(f.Version),
 			committedContents:       contentIndex,
+			encryptionBufferPool:    buf.NewPool(ctx, defaultEncryptionBufferPoolSegmentSize+encryptor.MaxOverhead(), "content-manager-encryption"),
 		},
 
 		mu:   mu,

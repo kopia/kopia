@@ -6,14 +6,17 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"sync"
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/buf"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/splitter"
 )
+
+// maxCompressionOverheadPerSegment is maximum overhead that compression can incur.
+const maxCompressionOverheadPerSegment = 16384
 
 // ErrObjectNotFound is returned when an object cannot be found.
 var ErrObjectNotFound = errors.New("object not found")
@@ -46,20 +49,23 @@ type Manager struct {
 
 	newSplitter splitter.Factory
 
-	bufferPool sync.Pool
+	bufferPool *buf.Pool
 }
 
 // NewWriter creates an ObjectWriter for writing to the repository.
 func (om *Manager) NewWriter(ctx context.Context, opt WriterOptions) Writer {
-	return &objectWriter{
+	w := &objectWriter{
 		ctx:         ctx,
-		repo:        om,
+		om:          om,
 		splitter:    om.newSplitter(),
 		description: opt.Description,
 		prefix:      opt.Prefix,
 		compressor:  compression.ByName[opt.Compressor],
-		buffer:      om.bufferPool.Get().(*bytes.Buffer),
 	}
+
+	w.initBuffer()
+
+	return w
 }
 
 // Open creates new ObjectReader for reading given object from a repository.
@@ -163,11 +169,6 @@ func NewObjectManager(ctx context.Context, bm contentManager, f Format, opts Man
 		contentMgr: bm,
 		Format:     f,
 		trace:      nullTrace,
-		bufferPool: sync.Pool{
-			New: func() interface{} {
-				return bytes.NewBuffer(nil)
-			},
-		},
 	}
 
 	splitterID := f.Splitter
@@ -182,6 +183,8 @@ func NewObjectManager(ctx context.Context, bm contentManager, f Format, opts Man
 
 	om.newSplitter = splitter.Pooled(os)
 
+	om.bufferPool = buf.NewPool(ctx, om.newSplitter().MaxSegmentSize()+maxCompressionOverheadPerSegment, "object-manager")
+
 	if opts.Trace != nil {
 		om.trace = opts.Trace
 	} else {
@@ -189,6 +192,12 @@ func NewObjectManager(ctx context.Context, bm contentManager, f Format, opts Man
 	}
 
 	return om, nil
+}
+
+// Close closes the object manager.
+func (om *Manager) Close() error {
+	om.bufferPool.Close()
+	return nil
 }
 
 /*
@@ -230,13 +239,13 @@ func (om *Manager) newRawReader(ctx context.Context, objectID ID, assertLength i
 		}
 
 		if compressed {
-			var buf bytes.Buffer
+			var b bytes.Buffer
 
-			if err = om.decompress(&buf, payload); err != nil {
+			if err = om.decompress(&b, payload); err != nil {
 				return nil, errors.Wrap(err, "decompression error")
 			}
 
-			payload = buf.Bytes()
+			payload = b.Bytes()
 		}
 
 		if assertLength != -1 && int64(len(payload)) != assertLength {
@@ -249,7 +258,7 @@ func (om *Manager) newRawReader(ctx context.Context, objectID ID, assertLength i
 	return nil, errors.Errorf("unsupported object ID: %v", objectID)
 }
 
-func (om *Manager) decompress(buf *bytes.Buffer, b []byte) error {
+func (om *Manager) decompress(output *bytes.Buffer, b []byte) error {
 	compressorID, err := compression.IDFromHeader(b)
 	if err != nil {
 		return errors.Wrap(err, "invalid compression header")
@@ -260,7 +269,7 @@ func (om *Manager) decompress(buf *bytes.Buffer, b []byte) error {
 		return errors.Errorf("unsupported compressor %x", compressorID)
 	}
 
-	return compressor.Decompress(buf, b)
+	return compressor.Decompress(output, b)
 }
 
 type readerWithData struct {

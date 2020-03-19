@@ -109,6 +109,11 @@ func stressWorker(ctx context.Context, t *testing.T, deadline time.Time, openMgr
 				return
 			}
 
+			if cerr := bm.Close(ctx); cerr != nil {
+				t.Errorf("close error: %v", cerr)
+				return
+			}
+
 			bm, err = openMgr()
 			if err != nil {
 				t.Errorf("error opening: %v", err)

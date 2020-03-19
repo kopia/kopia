@@ -184,6 +184,7 @@ ifneq ($(uname),Windows)
 	find repo/ -name '*.go' | xargs grep "^\t\"github.com/kopia/kopia" \
 	   | grep -v -e github.com/kopia/kopia/repo \
 	             -e github.com/kopia/kopia/internal/retry \
+	             -e github.com/kopia/kopia/internal/buf \
 	             -e github.com/kopia/kopia/internal/throttle \
 	             -e github.com/kopia/kopia/internal/iocopy \
 	             -e github.com/kopia/kopia/internal/blobtesting \
