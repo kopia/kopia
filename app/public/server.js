@@ -48,7 +48,7 @@ function startServer() {
 
     let configFile = config.get('configFile');
     if (configFile) {
-        args.push("--config", configFile);
+        args.push("--config-file", configFile);
     }
 
     args.push('server', '--ui');
