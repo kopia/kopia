@@ -2,6 +2,7 @@
 package webdav
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math/rand"
@@ -106,11 +107,17 @@ func (d *davStorageImpl) ReadDir(ctx context.Context, dir string) ([]os.FileInfo
 	return nil, err
 }
 
-func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath string, data []byte) error {
+func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath string, data blob.Bytes) error {
 	tmpPath := fmt.Sprintf("%v-%v", filePath, rand.Int63())
 
+	var buf bytes.Buffer
+
+	data.WriteTo(&buf) // nolint:errcheck
+
+	b := buf.Bytes()
+
 	if err := d.translateError(retry.WithExponentialBackoffNoValue(ctx, "Write", func() error {
-		return d.cli.Write(tmpPath, data, defaultFilePerm)
+		return d.cli.Write(tmpPath, b, defaultFilePerm)
 	}, isRetriable)); err != nil {
 		if err != blob.ErrBlobNotFound {
 			return err
@@ -121,7 +128,7 @@ func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath st
 		}, isRetriable)
 
 		if err := d.translateError(retry.WithExponentialBackoffNoValue(ctx, "Write", func() error {
-			return d.cli.Write(tmpPath, data, defaultFilePerm)
+			return d.cli.Write(tmpPath, b, defaultFilePerm)
 		}, isRetriable)); err != nil {
 			return err
 		}

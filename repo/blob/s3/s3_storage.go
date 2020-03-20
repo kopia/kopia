@@ -113,22 +113,24 @@ func translateError(err error) error {
 	return err
 }
 
-func (s *s3Storage) PutBlob(ctx context.Context, b blob.ID, data []byte) error {
+func (s *s3Storage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) error {
 	return translateError(retry.WithExponentialBackoffNoValue(ctx, fmt.Sprintf("PutBlob(%v)", b), func() error {
-		throttled, err := s.uploadThrottler.AddReader(ioutil.NopCloser(bytes.NewReader(data)))
+		throttled, err := s.uploadThrottler.AddReader(ioutil.NopCloser(data.Reader()))
 		if err != nil {
 			return err
 		}
 
+		combinedLength := data.Length()
+
 		progressCallback := blob.ProgressCallback(ctx)
 		if progressCallback != nil {
-			progressCallback(string(b), 0, int64(len(data)))
-			defer progressCallback(string(b), int64(len(data)), int64(len(data)))
+			progressCallback(string(b), 0, int64(combinedLength))
+			defer progressCallback(string(b), int64(combinedLength), int64(combinedLength))
 		}
 
-		n, err := s.cli.PutObject(s.BucketName, s.getObjectNameString(b), throttled, int64(len(data)), minio.PutObjectOptions{
+		n, err := s.cli.PutObject(s.BucketName, s.getObjectNameString(b), throttled, int64(combinedLength), minio.PutObjectOptions{
 			ContentType: "application/x-kopia",
-			Progress:    newProgressReader(progressCallback, string(b), int64(len(data))),
+			Progress:    newProgressReader(progressCallback, string(b), int64(combinedLength)),
 		})
 
 		if err == io.EOF && n == 0 {

@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
 )
@@ -22,8 +23,8 @@ func newUnderlyingStorageForContentCacheTesting(t *testing.T) blob.Storage {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
-	assertNoError(t, st.PutBlob(ctx, "content-1", []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}))
-	assertNoError(t, st.PutBlob(ctx, "content-4k", bytes.Repeat([]byte{1, 2, 3, 4}, 1000))) // 4000 bytes
+	assertNoError(t, st.PutBlob(ctx, "content-1", gather.FromSlice([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10})))
+	assertNoError(t, st.PutBlob(ctx, "content-4k", gather.FromSlice(bytes.Repeat([]byte{1, 2, 3, 4}, 1000)))) // 4000 bytes
 
 	return st
 }
@@ -166,7 +167,7 @@ func verifyContentCache(t *testing.T, cache *contentCache) {
 		// corrupt the data and write back
 		d[0] ^= 1
 
-		if puterr := cache.cacheStorage.PutBlob(ctx, cacheKey, d); puterr != nil {
+		if puterr := cache.cacheStorage.PutBlob(ctx, cacheKey, gather.FromSlice(d)); puterr != nil {
 			t.Fatalf("unable to write corrupted content: %v", puterr)
 		}
 

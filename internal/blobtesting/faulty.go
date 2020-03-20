@@ -38,8 +38,8 @@ func (s *FaultyStorage) GetBlob(ctx context.Context, id blob.ID, offset, length 
 }
 
 // PutBlob implements blob.Storage
-func (s *FaultyStorage) PutBlob(ctx context.Context, id blob.ID, data []byte) error {
-	if err := s.getNextFault(ctx, "PutBlob", id, len(data)); err != nil {
+func (s *FaultyStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes) error {
+	if err := s.getNextFault(ctx, "PutBlob", id); err != nil {
 		return err
 	}
 

@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/buf"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/hashing"
@@ -50,7 +51,7 @@ type lockFreeManager struct {
 	encryptionBufferPool *buf.Pool
 }
 
-func (bm *lockFreeManager) maybeEncryptContentDataForPacking(output *bytes.Buffer, data []byte, contentID ID) error {
+func (bm *lockFreeManager) maybeEncryptContentDataForPacking(output *gather.WriteBuffer, data []byte, contentID ID) error {
 	var hashOutput [maxHashSize]byte
 
 	iv, err := getPackedContentIV(hashOutput[:], contentID)
@@ -66,24 +67,19 @@ func (bm *lockFreeManager) maybeEncryptContentDataForPacking(output *bytes.Buffe
 		return errors.Wrap(err, "unable to encrypt")
 	}
 
-	writeToBuffer(output, cipherText)
+	output.Append(cipherText)
 
 	return nil
 }
 
-func writeToBuffer(b *bytes.Buffer, data []byte) {
-	// buffer writes never fail, safe to ignore errors
-	_, _ = b.Write(data)
-}
-
-func writeRandomBytesToBuffer(b *bytes.Buffer, count int) error {
+func writeRandomBytesToBuffer(b *gather.WriteBuffer, count int) error {
 	var rnd [defaultPaddingUnit]byte
 
 	if _, err := io.ReadFull(cryptorand.Reader, rnd[0:count]); err != nil {
 		return err
 	}
 
-	writeToBuffer(b, rnd[0:count])
+	b.Append(rnd[0:count])
 
 	return nil
 }
@@ -231,7 +227,7 @@ func (bm *lockFreeManager) getContentDataUnlocked(ctx context.Context, pp *pendi
 	var payload []byte
 
 	if pp != nil && pp.packBlobID == bi.PackBlobID {
-		payload = pp.currentPackData.Bytes()[bi.PackOffset : bi.PackOffset+bi.Length]
+		payload = pp.currentPackData.GetSection(nil, int(bi.PackOffset), int(bi.Length))
 	} else {
 		var err error
 
@@ -277,7 +273,7 @@ func (bm *lockFreeManager) decryptAndVerify(encrypted, iv []byte) ([]byte, error
 }
 
 func (bm *lockFreeManager) preparePackDataContent(ctx context.Context, pp *pendingPackInfo) (packIndexBuilder, error) {
-	formatLog(ctx).Debugf("preparing content data with %v items (contents %v)", len(pp.currentPackItems), pp.currentPackData.Len())
+	formatLog(ctx).Debugf("preparing content data with %v items (contents %v)", len(pp.currentPackItems), pp.currentPackData.Length())
 
 	packFileIndex := packIndexBuilder{}
 	haveContent := false
@@ -307,7 +303,7 @@ func (bm *lockFreeManager) preparePackDataContent(ctx context.Context, pp *pendi
 	pp.finalized = true
 
 	if bm.paddingUnit > 0 {
-		if missing := bm.paddingUnit - (pp.currentPackData.Len() % bm.paddingUnit); missing > 0 {
+		if missing := bm.paddingUnit - (pp.currentPackData.Length() % bm.paddingUnit); missing > 0 {
 			if err := writeRandomBytesToBuffer(pp.currentPackData, missing); err != nil {
 				return nil, errors.Wrap(err, "unable to prepare content postamble")
 			}
@@ -370,8 +366,8 @@ func getIndexBlobIV(s blob.ID) ([]byte, error) {
 	return hex.DecodeString(string(s[len(s)-(aes.BlockSize*2):]))
 }
 
-func (bm *lockFreeManager) writePackFileNotLocked(ctx context.Context, packFile blob.ID, data []byte) error {
-	bm.Stats.wroteContent(len(data))
+func (bm *lockFreeManager) writePackFileNotLocked(ctx context.Context, packFile blob.ID, data gather.Bytes) error {
+	bm.Stats.wroteContent(data.Length())
 	bm.listCache.deleteListCache()
 
 	return bm.st.PutBlob(ctx, packFile, data)
@@ -398,7 +394,7 @@ func (bm *lockFreeManager) encryptAndWriteBlobNotLocked(ctx context.Context, dat
 	bm.Stats.wroteContent(len(data2))
 	bm.listCache.deleteListCache()
 
-	if err := bm.st.PutBlob(ctx, blobID, data2); err != nil {
+	if err := bm.st.PutBlob(ctx, blobID, gather.FromSlice(data2)); err != nil {
 		return "", err
 	}
 

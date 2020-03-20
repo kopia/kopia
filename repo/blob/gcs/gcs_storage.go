@@ -2,7 +2,6 @@
 package gcs
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -100,7 +99,7 @@ func translateError(err error) error {
 		return errors.Wrap(err, "unexpected GCS error")
 	}
 }
-func (gcs *gcsStorage) PutBlob(ctx context.Context, b blob.ID, data []byte) error {
+func (gcs *gcsStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) error {
 	ctx, cancel := context.WithCancel(ctx)
 
 	obj := gcs.bucket.Object(gcs.getObjectNameString(b))
@@ -108,20 +107,21 @@ func (gcs *gcsStorage) PutBlob(ctx context.Context, b blob.ID, data []byte) erro
 	writer.ChunkSize = writerChunkSize
 	writer.ContentType = "application/x-kopia"
 
+	combinedLength := data.Length()
 	progressCallback := blob.ProgressCallback(ctx)
 
 	if progressCallback != nil {
-		progressCallback(string(b), 0, int64(len(data)))
-		defer progressCallback(string(b), int64(len(data)), int64(len(data)))
+		progressCallback(string(b), 0, int64(combinedLength))
+		defer progressCallback(string(b), int64(combinedLength), int64(combinedLength))
 
 		writer.ProgressFunc = func(completed int64) {
-			if completed != int64(len(data)) {
-				progressCallback(string(b), completed, int64(len(data)))
+			if completed != int64(combinedLength) {
+				progressCallback(string(b), completed, int64(combinedLength))
 			}
 		}
 	}
 
-	_, err := iocopy.Copy(writer, bytes.NewReader(data))
+	_, err := iocopy.Copy(writer, data.Reader())
 	if err != nil {
 		// cancel context before closing the writer causes it to abandon the upload.
 		cancel()

@@ -97,7 +97,7 @@ func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, off
 	return b, nil
 }
 
-func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data []byte) error {
+func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data blob.Bytes) error {
 	return retry.WithExponentialBackoffNoValue(ctx, "PutBlobInPath:"+path, func() error {
 		randSuffix := make([]byte, 8)
 		if _, err := rand.Read(randSuffix); err != nil {
@@ -106,9 +106,11 @@ func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data 
 
 		progressCallback := blob.ProgressCallback(ctx)
 
+		combinedLength := data.Length()
+
 		if progressCallback != nil {
-			progressCallback(path, 0, int64(len(data)))
-			defer progressCallback(path, int64(len(data)), int64(len(data)))
+			progressCallback(path, 0, int64(combinedLength))
+			defer progressCallback(path, int64(combinedLength), int64(combinedLength))
 		}
 
 		tempFile := fmt.Sprintf("%s.tmp.%x", path, randSuffix)
@@ -118,7 +120,7 @@ func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data 
 			return errors.Wrap(err, "cannot create temporary file")
 		}
 
-		if _, err = f.Write(data); err != nil {
+		if _, err = data.WriteTo(f); err != nil {
 			return errors.Wrap(err, "can't write temporary file")
 		}
 

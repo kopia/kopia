@@ -16,6 +16,7 @@ import (
 	"go.opencensus.io/stats"
 
 	"github.com/kopia/kopia/internal/buf"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
 )
@@ -83,7 +84,6 @@ type Manager struct {
 	disableIndexFlushCount int
 	flushPackIndexesAfter  time.Time // time when those indexes should be flushed
 	closed                 chan struct{}
-	bufferPool             sync.Pool
 
 	lockFreeManager
 }
@@ -91,9 +91,9 @@ type Manager struct {
 type pendingPackInfo struct {
 	prefix           blob.ID
 	packBlobID       blob.ID
-	currentPackItems map[ID]Info   // contents that are in the pack content currently being built (all inline)
-	currentPackData  *bytes.Buffer // total length of all items in the current pack content
-	finalized        bool          // indicates whether currentPackData has local index appended to it
+	currentPackItems map[ID]Info         // contents that are in the pack content currently being built (all inline)
+	currentPackData  *gather.WriteBuffer // total length of all items in the current pack content
+	finalized        bool                // indicates whether currentPackData has local index appended to it
 }
 
 // DeleteContent marks the given contentID as deleted.
@@ -195,7 +195,7 @@ func (bm *Manager) addToPackUnlocked(ctx context.Context, contentID ID, data []b
 		Deleted:          isDeleted,
 		ID:               contentID,
 		PackBlobID:       pp.packBlobID,
-		PackOffset:       uint32(pp.currentPackData.Len()),
+		PackOffset:       uint32(pp.currentPackData.Length()),
 		TimestampSeconds: bm.timeNow().Unix(),
 		FormatVersion:    byte(bm.writeFormatVersion),
 	}
@@ -204,11 +204,11 @@ func (bm *Manager) addToPackUnlocked(ctx context.Context, contentID ID, data []b
 		return errors.Wrapf(err, "unable to encrypt %q", contentID)
 	}
 
-	info.Length = uint32(pp.currentPackData.Len()) - info.PackOffset
+	info.Length = uint32(pp.currentPackData.Length()) - info.PackOffset
 
 	pp.currentPackItems[contentID] = info
 
-	shouldWrite := pp.currentPackData.Len() >= bm.maxPackSize
+	shouldWrite := pp.currentPackData.Length() >= bm.maxPackSize
 	if shouldWrite {
 		// we're about to write to storage without holding a lock
 		// remove from pendingPacks so other goroutine tries to mess with this pending pack.
@@ -360,6 +360,8 @@ func (bm *Manager) writePackAndAddToIndex(ctx context.Context, pp *pendingPackIn
 			bm.packIndexBuilder.Add(*info)
 		}
 
+		pp.currentPackData.Close()
+
 		return nil
 	}
 
@@ -375,12 +377,12 @@ func (bm *Manager) prepareAndWritePackInternal(ctx context.Context, pp *pendingP
 		return nil, errors.Wrap(err, "error preparing data content")
 	}
 
-	if pp.currentPackData.Len() > 0 {
-		if err := bm.writePackFileNotLocked(ctx, pp.packBlobID, pp.currentPackData.Bytes()); err != nil {
+	if pp.currentPackData.Length() > 0 {
+		if err := bm.writePackFileNotLocked(ctx, pp.packBlobID, pp.currentPackData.Bytes); err != nil {
 			return nil, errors.Wrap(err, "can't save pack data content")
 		}
 
-		formatLog(ctx).Debugf("wrote pack file: %v (%v bytes)", pp.packBlobID, pp.currentPackData.Len())
+		formatLog(ctx).Debugf("wrote pack file: %v (%v bytes)", pp.packBlobID, pp.currentPackData.Length())
 	}
 
 	return packFileIndex, nil
@@ -474,15 +476,14 @@ func packPrefixForContentID(contentID ID) blob.ID {
 
 func (bm *Manager) getOrCreatePendingPackInfoLocked(prefix blob.ID) (*pendingPackInfo, error) {
 	if bm.pendingPacks[prefix] == nil {
-		b := bm.bufferPool.Get().(*bytes.Buffer)
-		b.Reset()
+		b := gather.NewWriteBuffer()
 
 		contentID := make([]byte, 16)
 		if _, err := cryptorand.Read(contentID); err != nil {
 			return nil, errors.Wrap(err, "unable to read crypto bytes")
 		}
 
-		writeToBuffer(b, bm.repositoryFormatBytes)
+		b.Append(bm.repositoryFormatBytes)
 
 		if err := writeRandomBytesToBuffer(b, rand.Intn(bm.maxPreambleLength-bm.minPreambleLength+1)+bm.minPreambleLength); err != nil {
 			return nil, errors.Wrap(err, "unable to prepare content preamble")
@@ -708,11 +709,6 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 		pendingPacks:          map[blob.ID]*pendingPackInfo{},
 		packIndexBuilder:      make(packIndexBuilder),
 		closed:                make(chan struct{}),
-		bufferPool: sync.Pool{
-			New: func() interface{} {
-				return &bytes.Buffer{}
-			},
-		},
 	}
 
 	if err := m.CompactIndexes(ctx, autoCompactionOptions); err != nil {

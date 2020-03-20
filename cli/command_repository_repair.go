@@ -5,6 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
@@ -66,7 +67,7 @@ func recoverFormatBlob(ctx context.Context, st blob.Storage, prefixes []string) 
 			log(ctx).Infof("looking for replica of format blob in %v...", bi.BlobID)
 			if b, err := repo.RecoverFormatBlob(ctx, st, bi.BlobID, bi.Length); err == nil {
 				if !*repairDryDrun {
-					if puterr := st.PutBlob(ctx, repo.FormatBlobID, b); puterr != nil {
+					if puterr := st.PutBlob(ctx, repo.FormatBlobID, gather.FromSlice(b)); puterr != nil {
 						return puterr
 					}
 				}
