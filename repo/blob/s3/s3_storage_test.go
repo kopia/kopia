@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/http"
 	"os"
 	"testing"
 	"time"
@@ -50,6 +51,11 @@ const (
 	testSTSAccessKeyIDEnv     = "KOPIA_S3_TEST_STS_ACCESS_KEY_ID"
 	testSTSSecretAccessKeyEnv = "KOPIA_S3_TEST_STS_SECRET_ACCESS_KEY"
 	testSessionTokenEnv       = "KOPIA_S3_TEST_SESSION_TOKEN"
+
+	expiredBadSSL       = "https://expired.badssl.com/"
+	selfSignedBadSSL    = "https://self-signed.badssl.com/"
+	untrustedRootBadSSL = "https://untrusted-root.badssl.com/"
+	wrongHostBadSSL     = "https://wrong.host.badssl.com/"
 )
 
 var minioBucketName = getBucketName()
@@ -153,55 +159,64 @@ func TestS3StorageAWSSTS(t *testing.T) {
 func TestS3StorageMinio(t *testing.T) {
 	t.Parallel()
 
-	testutil.Retry(t, func(t *testutil.RetriableT) {
-		options := &Options{
-			Endpoint:        minioEndpoint,
-			AccessKeyID:     minioAccessKeyID,
-			SecretAccessKey: minioSecretAccessKey,
-			BucketName:      minioBucketName,
-			Region:          minioRegion,
-			DoNotUseTLS:     !minioUseSSL,
-		}
+	for _, disableTLSVerify := range []bool{true, false} {
+		disableTLSVerify := disableTLSVerify
 
-		if !endpointReachable(options.Endpoint) {
-			t.Skip("endpoint not reachable")
-		}
+		testutil.Retry(t, func(t *testutil.RetriableT) {
+			options := &Options{
+				Endpoint:        minioEndpoint,
+				AccessKeyID:     minioAccessKeyID,
+				SecretAccessKey: minioSecretAccessKey,
+				BucketName:      minioBucketName,
+				Region:          minioRegion,
+				DoNotUseTLS:     !minioUseSSL,
+				DoNotVerifyTLS:  disableTLSVerify,
+			}
 
-		createBucket(t, options)
-		testStorage(t, options)
-	})
+			if !endpointReachable(options.Endpoint) {
+				t.Skip("endpoint not reachable")
+			}
+
+			createBucket(t, options)
+			testStorage(t, options)
+		})
+	}
 }
 
 func TestS3StorageMinioSTS(t *testing.T) {
 	t.Parallel()
 
-	testutil.Retry(t, func(t *testutil.RetriableT) {
+	for _, disableTLSVerify := range []bool{true, false} {
+		disableTLSVerify := disableTLSVerify
 
-		// create kopia user and session token
-		kopiaUserName := generateName("kopiauser")
-		kopiaUserPasswd := generateName("kopiapassword")
+		testutil.Retry(t, func(t *testutil.RetriableT) {
+			// create kopia user and session token
+			kopiaUserName := generateName("kopiauser")
+			kopiaUserPasswd := generateName("kopiapassword")
 
-		createMinioUser(t, kopiaUserName, kopiaUserPasswd)
-		defer deleteMinioUser(t, kopiaUserName)
-		kopiaAccessKeyID, kopiaSecretKey, kopiaSessionToken := createMinioSessionToken(t, kopiaUserName, kopiaUserPasswd, minioBucketName)
+			createMinioUser(t, kopiaUserName, kopiaUserPasswd)
+			defer deleteMinioUser(t, kopiaUserName)
+			kopiaAccessKeyID, kopiaSecretKey, kopiaSessionToken := createMinioSessionToken(t, kopiaUserName, kopiaUserPasswd, minioBucketName)
 
-		options := &Options{
-			Endpoint:        minioEndpoint,
-			AccessKeyID:     kopiaAccessKeyID,
-			SecretAccessKey: kopiaSecretKey,
-			SessionToken:    kopiaSessionToken,
-			BucketName:      minioBucketName,
-			Region:          minioRegion,
-			DoNotUseTLS:     !minioUseSSL,
-		}
+			options := &Options{
+				Endpoint:        minioEndpoint,
+				AccessKeyID:     kopiaAccessKeyID,
+				SecretAccessKey: kopiaSecretKey,
+				SessionToken:    kopiaSessionToken,
+				BucketName:      minioBucketName,
+				Region:          minioRegion,
+				DoNotUseTLS:     !minioUseSSL,
+				DoNotVerifyTLS:  disableTLSVerify,
+			}
 
-		if !endpointReachable(options.Endpoint) {
-			t.Skip("endpoint not reachable")
-		}
+			if !endpointReachable(options.Endpoint) {
+				t.Skip("endpoint not reachable")
+			}
 
-		createBucket(t, options)
-		testStorage(t, options)
-	})
+			createBucket(t, options)
+			testStorage(t, options)
+		})
+	}
 }
 
 func testStorage(t *testutil.RetriableT, options *Options) {
@@ -219,7 +234,7 @@ func testStorage(t *testutil.RetriableT, options *Options) {
 
 	v, err := retry.WithExponentialBackoff(ctx, "New() S3 storage", attempt, func(err error) bool { return err != nil })
 	if err != nil {
-		t.Fatalf("err: %v", err)
+		t.Fatalf("err: %v, options:%v", err, options)
 	}
 
 	st := v.(blob.Storage)
@@ -228,6 +243,38 @@ func testStorage(t *testutil.RetriableT, options *Options) {
 
 	if err := st.Close(ctx); err != nil {
 		t.Fatalf("err: %v", err)
+	}
+}
+
+func TestCustomTransportNoSSLVerify(t *testing.T) {
+	testURL(expiredBadSSL, t)
+	testURL(selfSignedBadSSL, t)
+	testURL(untrustedRootBadSSL, t)
+	testURL(wrongHostBadSSL, t)
+}
+
+func getURL(url string, insecureSkipVerify bool) error {
+	client := &http.Client{Transport: getCustomTransport(insecureSkipVerify)}
+	resp, err := client.Get(url)
+
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close()
+
+	return nil
+}
+
+func testURL(url string, t *testing.T) {
+	err := getURL(url, true)
+	if err != nil {
+		t.Fatalf("could not get url:%s, error:%v", url, err)
+	}
+
+	err = getURL(url, false)
+	if err == nil {
+		t.Fatalf("expected a TLS issue, but none found for url:%s", url)
 	}
 }
 
