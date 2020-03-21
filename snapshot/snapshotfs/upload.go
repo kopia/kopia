@@ -324,14 +324,23 @@ func (u *Uploader) foreachEntryUnlessCancelled(ctx context.Context, parallel int
 
 type dirEntryOrError struct {
 	de          *snapshot.DirEntry
-	failedEntry string
+	failedEntry *fs.EntryWithError
+}
+
+func rootCauseError(err error) error {
+	err = errors.Cause(err)
+	if oserr, ok := err.(*os.PathError); ok {
+		err = oserr.Err
+	}
+
+	return err
 }
 
 func (u *Uploader) populateChildEntries(parent *snapshot.DirManifest, children <-chan dirEntryOrError) {
 	parentSummary := parent.Summary
 
 	for it := range children {
-		if it.failedEntry != "" {
+		if it.failedEntry != nil {
 			parentSummary.NumFailed++
 			parentSummary.FailedEntries = append(parentSummary.FailedEntries, it.failedEntry)
 
@@ -369,7 +378,10 @@ func (u *Uploader) populateChildEntries(parent *snapshot.DirManifest, children <
 
 	// take top N sorted failed entries
 	if len(parent.Summary.FailedEntries) > 0 {
-		sort.Strings(parent.Summary.FailedEntries)
+		sort.Slice(parent.Summary.FailedEntries, func(i, j int) bool {
+			return parent.Summary.FailedEntries[i].EntryPath < parent.Summary.FailedEntries[j].EntryPath
+		})
+
 		if len(parent.Summary.FailedEntries) > fs.MaxFailedEntriesPerDirectorySummary {
 			parent.Summary.FailedEntries = parent.Summary.FailedEntries[0:fs.MaxFailedEntriesPerDirectorySummary]
 		}
@@ -452,9 +464,16 @@ func (u *Uploader) processSubdirectories(ctx context.Context, output chan dirEnt
 			// root itself. The intention is to always fail if the top level directory can't be read,
 			// otherwise a meaningless, empty snapshot is created that can't be restored.
 			ignoreDirErr := u.shouldIgnoreDirectoryReadErrors(policyTree)
-			if _, ok := err.(dirReadError); ok && ignoreDirErr {
-				log(ctx).Warningf("unable to read directory %q: %s, ignoring", dir.Name(), err)
-				output <- dirEntryOrError{failedEntry: relativePath}
+			if dre, ok := err.(dirReadError); ok && ignoreDirErr {
+				rc := rootCauseError(dre.error)
+
+				u.Progress.IgnoredError(entryRelativePath, rc)
+				output <- dirEntryOrError{
+					failedEntry: &fs.EntryWithError{
+						EntryPath: entryRelativePath,
+						Error:     rc.Error(),
+					},
+				}
 				return nil
 			}
 			return errors.Errorf("unable to process directory %q: %s", entry.Name(), err)
@@ -712,7 +731,13 @@ func (u *Uploader) maybeIgnoreFileReadError(err error, output chan dirEntryOrErr
 	errHandlingPolicy := policyTree.EffectivePolicy().ErrorHandlingPolicy
 
 	if u.IgnoreReadErrors || errHandlingPolicy.IgnoreFileErrorsOrDefault(false) {
-		output <- dirEntryOrError{failedEntry: entryRelativePath}
+		err = rootCauseError(err)
+		u.Progress.IgnoredError(entryRelativePath, err)
+		output <- dirEntryOrError{failedEntry: &fs.EntryWithError{
+			EntryPath: entryRelativePath,
+			Error:     err.Error(),
+		}}
+
 		return nil
 	}
 

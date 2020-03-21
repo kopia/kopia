@@ -68,6 +68,12 @@ func ReadDirAndFindChild(ctx context.Context, d Directory, name string) (Entry, 
 // MaxFailedEntriesPerDirectorySummary is the maximum number of failed entries per directory summary.
 const MaxFailedEntriesPerDirectorySummary = 10
 
+// EntryWithError describes error encountered when processing an entry
+type EntryWithError struct {
+	EntryPath string `json:"path"`
+	Error     string `json:"error"`
+}
+
 // DirectorySummary represents summary information about a directory.
 type DirectorySummary struct {
 	TotalFileSize    int64     `json:"size"`
@@ -80,7 +86,7 @@ type DirectorySummary struct {
 	NumFailed int `json:"numFailed"`
 
 	// first 10 failed entries
-	FailedEntries []string `json:"failed,omitempty"`
+	FailedEntries []*EntryWithError `json:"errors,omitempty"`
 }
 
 // Symlink represents a symbolic link entry.

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/fatih/color"
 	"github.com/pkg/errors"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 
@@ -17,6 +18,12 @@ import (
 )
 
 var log = logging.GetContextLoggerFunc("kopia/cli")
+
+var (
+	defaultColor = color.New()
+	warningColor = color.New(color.FgYellow)
+	errorColor   = color.New(color.FgHiRed)
+)
 
 var (
 	app = kingpin.New("kopia", "Kopia - Online Backup").Author("http://kopia.github.io/")

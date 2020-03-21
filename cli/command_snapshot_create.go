@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -207,6 +208,12 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshot
 	var maybePartial string
 	if manifest.IncompleteReason != "" {
 		maybePartial = " partial"
+	}
+
+	if ds := manifest.RootEntry.DirSummary; ds != nil {
+		if ds.NumFailed > 0 {
+			errorColor.Fprintf(os.Stderr, "\nIgnored %v errors while snapshotting.", ds.NumFailed) //nolint:errcheck
+		}
 	}
 
 	printStderr("\nCreated%v snapshot with root %v and ID %v in %v\n", maybePartial, manifest.RootObjectID(), snapID, time.Since(t0).Truncate(time.Second))
