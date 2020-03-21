@@ -24,6 +24,7 @@ func init() {
 			cmd.Flag("session-token", "Session token (overrides AWS_SESSION_TOKEN environment variable)").Envar("AWS_SESSION_TOKEN").StringVar(&s3options.SessionToken)
 			cmd.Flag("prefix", "Prefix to use for objects in the bucket").StringVar(&s3options.Prefix)
 			cmd.Flag("disable-tls", "Disable TLS security (HTTPS)").BoolVar(&s3options.DoNotUseTLS)
+			cmd.Flag("disable-tls-verification", "Disable TLS (HTTPS) certificate verification").BoolVar(&s3options.DoNotVerifyTLS)
 			cmd.Flag("max-download-speed", "Limit the download speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&s3options.MaxDownloadSpeedBytesPerSecond)
 			cmd.Flag("max-upload-speed", "Limit the upload speed.").PlaceHolder("BYTES_PER_SEC").IntVar(&s3options.MaxUploadSpeedBytesPerSecond)
 		},

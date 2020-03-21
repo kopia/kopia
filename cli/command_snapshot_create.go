@@ -16,6 +16,7 @@ import (
 
 const (
 	maxSnapshotDescriptionLength = 1024
+	timeFormat                   = "2006-01-02 15:04:05 MST"
 )
 
 var (
@@ -29,6 +30,8 @@ var (
 	snapshotCreateParallelUploads         = snapshotCreateCommand.Flag("parallel", "Upload N files in parallel").PlaceHolder("N").Default("0").Int()
 	snapshotCreateHostname                = snapshotCreateCommand.Flag("hostname", "Override local hostname.").String()
 	snapshotCreateUsername                = snapshotCreateCommand.Flag("username", "Override local username.").String()
+	snapshotCreateStartTime               = snapshotCreateCommand.Flag("start-time", "Override snapshot start timestamp.").String()
+	snapshotCreateEndTime                 = snapshotCreateCommand.Flag("end-time", "Override snapshot end timestamp.").String()
 )
 
 func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
@@ -54,6 +57,20 @@ func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
 	onCtrlC(u.Cancel)
 
 	u.Progress = progress
+
+	startTime, err := parseTimestamp(*snapshotCreateStartTime)
+	if err != nil {
+		return errors.Wrap(err, "could not parse start-time")
+	}
+
+	endTime, err := parseTimestamp(*snapshotCreateEndTime)
+	if err != nil {
+		return errors.Wrap(err, "could not parse end-time")
+	}
+
+	if startTimeAfterEndTime(startTime, endTime) {
+		return errors.New("start time override cannot be after the end time override")
+	}
 
 	if len(*snapshotCreateDescription) > maxSnapshotDescriptionLength {
 		return errors.New("description too long")
@@ -98,6 +115,26 @@ func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
 	return errors.Errorf("encountered %v errors:\n%v", len(finalErrors), strings.Join(finalErrors, "\n"))
 }
 
+func parseTimestamp(timestamp string) (time.Time, error) {
+	if timestamp != "" {
+		parsedTimestamp, err := time.Parse(timeFormat, timestamp)
+
+		if err != nil {
+			return time.Time{}, err
+		}
+
+		return parsedTimestamp, nil
+	}
+
+	return time.Time{}, nil
+}
+
+func startTimeAfterEndTime(startTime, endTime time.Time) bool {
+	return !startTime.IsZero() &&
+		!endTime.IsZero() &&
+		startTime.After(endTime)
+}
+
 func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo) error {
 	printStderr("Snapshotting %v ...\n", sourceInfo)
 
@@ -128,6 +165,29 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshot
 	}
 
 	manifest.Description = *snapshotCreateDescription
+
+	duration := manifest.EndTime.Sub(manifest.StartTime)
+	inverseDuration := manifest.StartTime.Sub(manifest.EndTime)
+
+	startTimeOverride, _ := parseTimestamp(*snapshotCreateStartTime)
+	endTimeOverride, _ := parseTimestamp(*snapshotCreateEndTime)
+
+	if !startTimeOverride.IsZero() {
+		manifest.StartTime = startTimeOverride
+
+		if endTimeOverride.IsZero() {
+			// Calculate the correct end time based on current duration if they're not specified
+			manifest.EndTime = startTimeOverride.Add(duration)
+		}
+	}
+
+	if !endTimeOverride.IsZero() {
+		manifest.EndTime = endTimeOverride
+
+		if startTimeOverride.IsZero() {
+			manifest.StartTime = endTimeOverride.Add(inverseDuration)
+		}
+	}
 
 	snapID, err := snapshot.SaveSnapshot(ctx, rep, manifest)
 	if err != nil {

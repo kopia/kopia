@@ -8,8 +8,9 @@ type Options struct {
 	// Prefix specifies additional string to prepend to all objects.
 	Prefix string `json:"prefix,omitempty"`
 
-	Endpoint    string `json:"endpoint"`
-	DoNotUseTLS bool   `json:"doNotUseTLS,omitempty"`
+	Endpoint       string `json:"endpoint"`
+	DoNotUseTLS    bool   `json:"doNotUseTLS,omitempty"`
+	DoNotVerifyTLS bool   `json:"doNotVerifyTLS,omitempty"`
 
 	AccessKeyID     string `json:"accessKeyID"`
 	SecretAccessKey string `json:"secretAccessKey" kopia:"sensitive"`
