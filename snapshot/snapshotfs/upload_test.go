@@ -8,8 +8,10 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/kylelemons/godebug/pretty"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/mockfs"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo"
@@ -188,9 +190,6 @@ func TestUpload(t *testing.T) {
 	}
 }
 
-func TestUpload_Cancel(t *testing.T) {
-}
-
 func TestUpload_TopLevelDirectoryReadFailure(t *testing.T) {
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx)
@@ -222,7 +221,6 @@ func TestUpload_SubDirectoryReadFailure(t *testing.T) {
 	th.sourceDir.Subdir("d1").FailReaddir(errTest)
 
 	u := NewUploader(th.repo)
-	u.IgnoreReadErrors = false
 
 	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
 
@@ -236,35 +234,42 @@ func objectIDsEqual(o1, o2 object.ID) bool {
 	return reflect.DeepEqual(o1, o2)
 }
 
-func TestUpload_SubdirectoryDeleted(t *testing.T) {
-}
+func TestUpload_SubDirectoryReadFailureIgnoreFailures(t *testing.T) {
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx)
 
-func TestUpload_SubdirectoryBecameSymlink(t *testing.T) {
-}
+	defer th.cleanup()
 
-func TestUpload_SubdirectoryBecameFile(t *testing.T) {
-}
+	th.sourceDir.Subdir("d1").FailReaddir(errTest)
+	th.sourceDir.Subdir("d2").Subdir("d1").FailReaddir(errTest)
 
-func TestUpload_FileReadFailure(t *testing.T) {
-}
+	u := NewUploader(th.repo)
 
-func TestUpload_FileUploadFailure(t *testing.T) {
-}
+	trueValue := true
 
-func TestUpload_FileDeleted(t *testing.T) {
-}
+	policyTree := policy.BuildTree(nil, &policy.Policy{
+		ErrorHandlingPolicy: policy.ErrorHandlingPolicy{
+			IgnoreFileErrors:      &trueValue,
+			IgnoreDirectoryErrors: &trueValue,
+		},
+	})
 
-func TestUpload_FileBecameDirectory(t *testing.T) {
-}
+	man, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
 
-func TestUpload_FileBecameSymlink(t *testing.T) {
-}
+	// make sure we have 2 errors
+	if got, want := man.RootEntry.DirSummary.NumFailed, 2; got != want {
+		t.Errorf("invalid number of failed entries: %v, want %v", got, want)
+	}
 
-func TestUpload_SymlinkDeleted(t *testing.T) {
-}
+	wantErrors := []*fs.EntryWithError{
+		{EntryPath: "d1", Error: errTest.Error()},
+		{EntryPath: "d2/d1", Error: errTest.Error()},
+	}
 
-func TestUpload_SymlinkBecameDirectory(t *testing.T) {
-}
-
-func TestUpload_SymlinkBecameFile(t *testing.T) {
+	if diff := pretty.Compare(man.RootEntry.DirSummary.FailedEntries, wantErrors); diff != "" {
+		t.Errorf("unexpected directory tree, diff(-got,+want): %v\n", diff)
+	}
 }
