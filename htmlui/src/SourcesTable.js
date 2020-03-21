@@ -14,7 +14,7 @@ import Spinner from 'react-bootstrap/Spinner';
 import { Link } from 'react-router-dom';
 import { handleChange } from './forms';
 import MyTable from './Table';
-import { compare, ownerName, sizeDisplayName, redirectIfNotConnected } from './uiutil';
+import { compare, ownerName, redirectIfNotConnected, sizeDisplayName, sizeWithFailures } from './uiutil';
 
 const localSnapshots = "Local Snapshots"
 const allSnapshots = "All Snapshots"
@@ -185,7 +185,7 @@ export class SourcesTable extends Component {
                 return <>
                     <Spinner animation="border" variant="secondary" size="sm" title="Snapshot will after the previous snapshot completes" />
                     &nbsp;Pending
-                    </>;
+                </>;
 
             case "UPLOADING":
                 let u = x.row.original.upload;
@@ -199,8 +199,8 @@ export class SourcesTable extends Component {
                     const totalBytes = u.hashedBytes + u.cachedBytes;
 
                     totals = sizeDisplayName(totalBytes);
-                    if (x.row.original.lastSnapshotSize) {
-                        const percent = Math.round(totalBytes * 1000.0 / x.row.original.lastSnapshotSize) / 10.0;
+                    if (x.row.original.lastSnapshot) {
+                        const percent = Math.round(totalBytes * 1000.0 / x.row.original.lastSnapshot.stats.totalSize) / 10.0;
                         totals += " " + percent + "%";
                     }
                 }
@@ -287,15 +287,17 @@ export class SourcesTable extends Component {
             width: 250,
         }, {
             id: 'lastSnapshotSize',
-            Header: 'Last Snapshot',
+            Header: 'Size',
             width: 120,
-            accessor: x => x.lastSnapshotSize,
-            Cell: x => x.cell.value ? sizeDisplayName(x.cell.value) : '',
+            accessor: x => x.lastSnapshot ? x.lastSnapshot.stats.totalSize : 0,
+            Cell: x => sizeWithFailures(
+                x.cell.value,
+                x.row.original.lastSnapshot && x.row.original.lastSnapshot.rootEntry ? x.row.original.lastSnapshot.rootEntry.summ : null),
         }, {
             id: 'lastSnapshotTime',
             Header: 'Last Snapshot',
             width: 160,
-            accessor: x => x.lastSnapshotTime,
+            accessor: x => x.lastSnapshot ? x.lastSnapshot.startTime : null,
             Cell: x => x.cell.value ? <p title={moment(x.cell.value).toLocaleString()}>{moment(x.cell.value).fromNow()}</p> : '',
         }, {
             id: 'nextSnapshotTime',

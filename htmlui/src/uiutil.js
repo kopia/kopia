@@ -1,3 +1,9 @@
+import React from 'react';
+import Button from 'react-bootstrap/Button';
+import ListGroup from 'react-bootstrap/ListGroup';
+import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
+import Popover from 'react-bootstrap/Popover';
+
 const base10UnitPrefixes = ["", "K", "M", "G", "T"];
 
 function niceNumber(f) {
@@ -15,6 +21,38 @@ function toDecimalUnitString(f, thousand, prefixes, suffix) {
     return niceNumber(f) + ' ' + prefixes[prefixes.length - 1] + suffix;
 }
 
+export function sizeWithFailures(size, summ) {
+    if (size === undefined) {
+        return "";
+    }
+
+    if (!summ || !summ.errors || !summ.numFailed) {
+        return <span>{sizeDisplayName(size)}</span>
+    }
+
+    let caption = summ.numFailed + " Errors";
+    if (summ.numFailed === 1) {
+        caption = "Error";
+    }
+
+    let overlay = <Popover id="popover-basic">
+        <Popover.Title as="h3">{caption} During Snapshot</Popover.Title>
+        <Popover.Content>
+            <ListGroup>
+                {summ.errors.map(x => <ListGroup.Item key={x.path}>Path: <code>{x.path}</code><br />Error: <span className="error">{x.error}</span></ListGroup.Item>)}
+            </ListGroup>
+        </Popover.Content>
+    </Popover>;
+
+    return <span>
+        {sizeDisplayName(size)}<br />
+        <OverlayTrigger placement="bottom"
+            delay={{ show: 0, hide: 1000 }}
+            overlay={overlay}>
+            <Button size="sm" variant="danger">{caption}</Button>
+        </OverlayTrigger>
+    </span>;
+}
 
 export function sizeDisplayName(s) {
     if (s === undefined) {
@@ -48,7 +86,7 @@ export function rfc3339TimestampForDisplay(n) {
     if (!n) {
         return "";
     }
-    
+
     let t = new Date(n);
     return t.toLocaleString();
 }

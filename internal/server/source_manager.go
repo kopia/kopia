@@ -55,14 +55,7 @@ func (s *sourceManager) Status() *serverapi.SourceStatus {
 		Status:           s.state,
 		NextSnapshotTime: s.nextSnapshotTime,
 		SchedulingPolicy: s.pol,
-	}
-
-	if ls := s.lastSnapshot; ls != nil {
-		st.LastSnapshotTime = &ls.StartTime
-	}
-
-	if ls := s.lastCompleteSnapshot; ls != nil {
-		st.LastSnapshotSize = &ls.Stats.TotalFileSize
+		LastSnapshot:     s.lastSnapshot,
 	}
 
 	if st.Status == "UPLOADING" {
