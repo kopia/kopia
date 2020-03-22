@@ -3,6 +3,8 @@
 # make
 # unzip
 # curl
+#
+# you will need to have git and golang too in the PATH.
 
 # uname will be Windows, Darwin, Linux
 ifeq ($(OS),Windows_NT)
@@ -11,6 +13,8 @@ ifeq ($(OS),Windows_NT)
 	uname := Windows
 	slash=\\
 	path_separator=;
+	date_ymd := $(shell powershell -noprofile -executionpolicy bypass -Command "(Get-Date).ToString('yyyyMMdd')")
+	date_full := $(shell powershell -noprofile -executionpolicy bypass -Command "(Get-Date).datetime")
 ifeq ($(TRAVIS_OS_NAME),windows)
 	mkdir=mkdir -p
 	move=mv
@@ -27,6 +31,8 @@ else
 	slash=/
 	path_separator=:
 	mkdir=mkdir -p
+	date_ymd := $(shell date +%Y%m%d)
+	date_full := $(shell date)
 endif
 
 SELF_DIR := $(subst /,$(slash),$(realpath $(dir $(lastword $(MAKEFILE_LIST)))))
@@ -147,19 +153,19 @@ ifneq ($(TRAVIS_TAG),)
 KOPIA_VERSION:=$(TRAVIS_TAG:v%=%)
 else
 # travis, non-tagged release
-KOPIA_VERSION:=$(shell date +%Y%m%d).0.$(TRAVIS_BUILD_NUMBER)
+KOPIA_VERSION:=$(date_ymd).0.$(TRAVIS_BUILD_NUMBER)
 endif
 
 else
 
 # non-travis, or travis PR
-KOPIA_VERSION:=$(shell date +%Y%m%d).0.0-$(shell git rev-parse --short HEAD)
+KOPIA_VERSION:=$(date_ymd).0.0-$(shell git rev-parse --short HEAD)
 
 endif
 
 # embedded in the HTML pages
 export REACT_APP_SHORT_VERSION_INFO:=$(KOPIA_VERSION)
-export REACT_APP_FULL_VERSION_INFO:=$(KOPIA_VERSION) built on $(shell date) $(shell hostname)
+export REACT_APP_FULL_VERSION_INFO:=$(KOPIA_VERSION) built on $(date_full) $(shell hostname)
 
 clean-tools:
 	rm -rf $(TOOLS_DIR)
