@@ -82,7 +82,7 @@ type DirectorySummary struct {
 	MaxModTime       time.Time `json:"maxTime"`
 	IncompleteReason string    `json:"incomplete,omitempty"`
 
-	// numfer of failed files
+	// number of failed files
 	NumFailed int `json:"numFailed"`
 
 	// first 10 failed entries

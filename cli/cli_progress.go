@@ -104,10 +104,6 @@ func (p *cliProgress) maybeOutput() {
 }
 
 func (p *cliProgress) output(errPath string, err error) {
-	if !*enableProgress {
-		return
-	}
-
 	p.outputMutex.Lock()
 	defer p.outputMutex.Unlock()
 
@@ -139,7 +135,16 @@ func (p *cliProgress) output(errPath string, err error) {
 	)
 
 	if err != nil {
-		warningColor.Fprintf(os.Stderr, "\n ! Ignored error when processing \"%v\": %v\n", errPath, err) //nolint:errcheck
+		prefix := "\n ! "
+		if !*enableProgress {
+			prefix = ""
+		}
+
+		warningColor.Fprintf(os.Stderr, "%vIgnored error when processing \"%v\": %v\n", prefix, errPath, err) //nolint:errcheck
+	}
+
+	if !*enableProgress {
+		return
 	}
 
 	if p.previousTotalSize > 0 {
