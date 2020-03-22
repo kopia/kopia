@@ -315,7 +315,7 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 				randomData := make([]byte, size)
 				cryptorand.Read(randomData) //nolint:errcheck
 
-				writer := om.NewWriter(ctx, WriterOptions{})
+				writer := om.NewWriter(ctx, WriterOptions{AsyncWrites: asyncWrites})
 				if _, err := writer.Write(randomData); err != nil {
 					t.Errorf("write error: %v", err)
 				}
