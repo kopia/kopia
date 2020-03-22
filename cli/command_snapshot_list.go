@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
@@ -147,20 +148,18 @@ func outputManifestGroups(ctx context.Context, rep *repo.Repository, manifests [
 
 //nolint:gocyclo,funlen
 func outputManifestFromSingleSource(ctx context.Context, rep *repo.Repository, manifests []*snapshot.Manifest, parts []string) error {
-	var count int
-
-	var lastTotalFileSize int64
+	var (
+		count             int
+		lastTotalFileSize int64
+		previousOID       object.ID
+		elidedCount       int
+		maxElidedTime     time.Time
+	)
 
 	manifests = snapshot.SortByTime(manifests, false)
 	if len(manifests) > *maxResultsPerPath {
 		manifests = manifests[len(manifests)-*maxResultsPerPath:]
 	}
-
-	var previousOID object.ID
-
-	var elidedCount int
-
-	var maxElidedTime time.Time
 
 	outputElided := func() {
 		if elidedCount > 0 {
@@ -190,51 +189,11 @@ func outputManifestFromSingleSource(ctx context.Context, rep *repo.Repository, m
 			continue
 		}
 
-		var bits []string
-
-		if m.IncompleteReason != "" {
-			if !*snapshotListIncludeIncomplete {
-				continue
-			}
-
-			bits = append(bits, "incomplete:"+m.IncompleteReason)
+		if m.IncompleteReason != "" && !*snapshotListIncludeIncomplete {
+			continue
 		}
 
-		bits = append(bits,
-			maybeHumanReadableBytes(*snapshotListShowHumanReadable, ent.Size()),
-			fmt.Sprintf("%v", ent.Mode()))
-		if *shapshotListShowOwner {
-			bits = append(bits,
-				fmt.Sprintf("uid:%v", ent.Owner().UserID),
-				fmt.Sprintf("gid:%v", ent.Owner().GroupID))
-		}
-
-		if *snapshotListShowModTime {
-			bits = append(bits, fmt.Sprintf("modified:%v", formatTimestamp(ent.ModTime())))
-		}
-
-		if *snapshotListShowItemID {
-			bits = append(bits, "manifest:"+string(m.ID))
-		}
-
-		if *snapshotListShowDelta {
-			bits = append(bits, deltaBytes(ent.Size()-lastTotalFileSize))
-		}
-
-		if d, ok := ent.(fs.Directory); ok {
-			s := d.Summary()
-			if s != nil {
-				bits = append(bits,
-					fmt.Sprintf("files:%v", s.TotalFileCount),
-					fmt.Sprintf("dirs:%v", s.TotalDirCount))
-			}
-		}
-
-		if *snapshotListShowRetentionReasons {
-			if len(m.RetentionReasons) > 0 {
-				bits = append(bits, "("+strings.Join(m.RetentionReasons, ",")+")")
-			}
-		}
+		bits, col := entryBits(m, ent, lastTotalFileSize)
 
 		oid := ent.(object.HasObjectID).ObjectID()
 		if !*snapshotListShowIdentical && oid == previousOID {
@@ -245,18 +204,12 @@ func outputManifestFromSingleSource(ctx context.Context, rep *repo.Repository, m
 			continue
 		}
 
-		previousOID = oid
-
 		outputElided()
 
 		elidedCount = 0
+		previousOID = oid
 
-		fmt.Printf(
-			"  %v %v %v\n",
-			formatTimestamp(m.StartTime),
-			oid,
-			strings.Join(bits, " "),
-		)
+		col.Print(fmt.Sprintf("  %v %v %v\n", formatTimestamp(m.StartTime), oid, strings.Join(bits, " "))) //nolint:errcheck
 
 		count++
 
@@ -268,6 +221,56 @@ func outputManifestFromSingleSource(ctx context.Context, rep *repo.Repository, m
 	outputElided()
 
 	return nil
+}
+
+func entryBits(m *snapshot.Manifest, ent fs.Entry, lastTotalFileSize int64) (bits []string, col *color.Color) {
+	col = color.New() // default color
+
+	if m.IncompleteReason != "" {
+		bits = append(bits, "incomplete:"+m.IncompleteReason)
+	}
+
+	bits = append(bits,
+		maybeHumanReadableBytes(*snapshotListShowHumanReadable, ent.Size()),
+		fmt.Sprintf("%v", ent.Mode()))
+	if *shapshotListShowOwner {
+		bits = append(bits,
+			fmt.Sprintf("uid:%v", ent.Owner().UserID),
+			fmt.Sprintf("gid:%v", ent.Owner().GroupID))
+	}
+
+	if *snapshotListShowModTime {
+		bits = append(bits, fmt.Sprintf("modified:%v", formatTimestamp(ent.ModTime())))
+	}
+
+	if *snapshotListShowItemID {
+		bits = append(bits, "manifest:"+string(m.ID))
+	}
+
+	if *snapshotListShowDelta {
+		bits = append(bits, deltaBytes(ent.Size()-lastTotalFileSize))
+	}
+
+	if d, ok := ent.(fs.Directory); ok {
+		s := d.Summary()
+		if s != nil {
+			bits = append(bits,
+				fmt.Sprintf("files:%v", s.TotalFileCount),
+				fmt.Sprintf("dirs:%v", s.TotalDirCount))
+			if s.NumFailed > 0 {
+				bits = append(bits, fmt.Sprintf("errors:%v", s.NumFailed))
+				col = errorColor
+			}
+		}
+	}
+
+	if *snapshotListShowRetentionReasons {
+		if len(m.RetentionReasons) > 0 {
+			bits = append(bits, "("+strings.Join(m.RetentionReasons, ",")+")")
+		}
+	}
+
+	return bits, col
 }
 
 func deltaBytes(b int64) string {

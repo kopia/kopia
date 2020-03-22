@@ -2,7 +2,9 @@ package cli
 
 import (
 	"fmt"
+	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -31,6 +33,7 @@ type cliProgress struct {
 	inProgressHashing int32
 	hashedFiles       int32
 	uploadedFiles     int32
+	errorCount        int32
 
 	uploading      int32
 	uploadFinished int32
@@ -44,6 +47,8 @@ type cliProgress struct {
 
 	// indicates shared instance that does not reset counters at the beginning of upload.
 	shared bool
+
+	outputMutex sync.Mutex
 }
 
 func (p *cliProgress) HashingFile(fname string) {
@@ -68,6 +73,11 @@ func (p *cliProgress) HashedBytes(numBytes int64) {
 	p.maybeOutput()
 }
 
+func (p *cliProgress) IgnoredError(path string, err error) {
+	atomic.AddInt32(&p.errorCount, 1)
+	p.output(path, err)
+}
+
 func (p *cliProgress) CachedFile(fname string, numBytes int64) {
 	atomic.AddInt64(&p.cachedBytes, numBytes)
 	atomic.AddInt32(&p.cachedFiles, 1)
@@ -89,14 +99,13 @@ func (p *cliProgress) maybeOutput() {
 	}
 
 	if shouldOutput {
-		p.output()
+		p.output("", nil)
 	}
 }
 
-func (p *cliProgress) output() {
-	if !*enableProgress {
-		return
-	}
+func (p *cliProgress) output(errPath string, err error) {
+	p.outputMutex.Lock()
+	defer p.outputMutex.Unlock()
 
 	hashedBytes := atomic.LoadInt64(&p.hashedBytes)
 	cachedBytes := atomic.LoadInt64(&p.cachedBytes)
@@ -105,9 +114,10 @@ func (p *cliProgress) output() {
 	inProgressHashing := atomic.LoadInt32(&p.inProgressHashing)
 	hashedFiles := atomic.LoadInt32(&p.hashedFiles)
 	uploadedFiles := atomic.LoadInt32(&p.uploadedFiles)
+	errorCount := atomic.LoadInt32(&p.errorCount)
 
 	line := fmt.Sprintf(
-		" %v %v hashing, %v hashed (%v), %v cached (%v), %v uploaded (%v)",
+		" %v %v hashing, %v hashed (%v), %v cached (%v), %v uploaded (%v), %v errors",
 		p.spinnerCharacter(),
 
 		inProgressHashing,
@@ -120,7 +130,22 @@ func (p *cliProgress) output() {
 
 		uploadedFiles,
 		units.BytesStringBase10(uploadedBytes),
+
+		errorCount,
 	)
+
+	if err != nil {
+		prefix := "\n ! "
+		if !*enableProgress {
+			prefix = ""
+		}
+
+		warningColor.Fprintf(os.Stderr, "%vIgnored error when processing \"%v\": %v\n", prefix, errPath, err) //nolint:errcheck
+	}
+
+	if !*enableProgress {
+		return
+	}
 
 	if p.previousTotalSize > 0 {
 		percent := (float64(hashedBytes+cachedBytes) * hundredPercent / float64(p.previousTotalSize))
@@ -164,7 +189,7 @@ func (p *cliProgress) StartShared() {
 
 func (p *cliProgress) FinishShared() {
 	atomic.StoreInt32(&p.uploadFinished, 1)
-	p.output()
+	p.output("", nil)
 }
 
 func (p *cliProgress) UploadStarted(previousFileCount int, previousTotalSize int64) {
@@ -192,7 +217,7 @@ func (p *cliProgress) Finish() {
 	}
 
 	atomic.StoreInt32(&p.uploadFinished, 1)
-	p.output()
+	p.output("", nil)
 }
 
 var progress = &cliProgress{}

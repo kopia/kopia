@@ -25,6 +25,9 @@ type UploadProgress interface {
 	// HashedBytes is emitted while hashing any blocks of bytes.
 	HashedBytes(numBytes int64)
 
+	// IgnoredError is emitted when an error is encountered and ignored
+	IgnoredError(path string, err error)
+
 	// UploadedBytes is emitted whenever bytes are written to the blob storage.
 	UploadedBytes(numBytes int64)
 
@@ -66,6 +69,9 @@ func (p *NullUploadProgress) StartedDirectory(dirname string) {}
 // FinishedDirectory implements UploadProgress
 func (p *NullUploadProgress) FinishedDirectory(dirname string) {}
 
+// IgnoredError implements UploadProgress
+func (p *NullUploadProgress) IgnoredError(path string, err error) {}
+
 var _ UploadProgress = (*NullUploadProgress)(nil)
 
 // UploadCounters represents a snapshot of upload counters.
@@ -76,7 +82,12 @@ type UploadCounters struct {
 	TotalCachedFiles int32 `json:"cachedFiles"`
 	TotalHashedFiles int32 `json:"hashedFiles"`
 
+	TotalIgnoredErrors int32 `json:"ignoredErrors"`
+
 	CurrentDirectory string `json:"directory"`
+
+	LastErrorPath string `json:"lastErrorPath"`
+	LastError     string `json:"lastError"`
 }
 
 // CountingUploadProgress is an implementation of UploadProgress that accumulates counters.
@@ -110,6 +121,16 @@ func (p *CountingUploadProgress) FinishedHashingFile(fname string, numBytes int6
 	atomic.AddInt32(&p.counters.TotalHashedFiles, 1)
 }
 
+// IgnoredError implements UploadProgress
+func (p *CountingUploadProgress) IgnoredError(path string, err error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	p.counters.TotalIgnoredErrors++
+	p.counters.LastErrorPath = path
+	p.counters.LastError = err.Error()
+}
+
 // StartedDirectory implements UploadProgress
 func (p *CountingUploadProgress) StartedDirectory(dirname string) {
 	p.mu.Lock()
@@ -129,6 +150,8 @@ func (p *CountingUploadProgress) Snapshot() UploadCounters {
 		TotalCachedBytes: atomic.LoadInt64(&p.counters.TotalCachedBytes),
 		TotalHashedBytes: atomic.LoadInt64(&p.counters.TotalHashedBytes),
 		CurrentDirectory: p.counters.CurrentDirectory,
+		LastErrorPath:    p.counters.LastErrorPath,
+		LastError:        p.counters.LastError,
 	}
 }
 

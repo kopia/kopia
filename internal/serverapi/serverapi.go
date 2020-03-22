@@ -38,8 +38,7 @@ type SourceStatus struct {
 	Source           snapshot.SourceInfo        `json:"source"`
 	Status           string                     `json:"status"`
 	SchedulingPolicy policy.SchedulingPolicy    `json:"schedule"`
-	LastSnapshotSize *int64                     `json:"lastSnapshotSize,omitempty"`
-	LastSnapshotTime *time.Time                 `json:"lastSnapshotTime,omitempty"`
+	LastSnapshot     *snapshot.Manifest         `json:"lastSnapshot,omitempty"`
 	NextSnapshotTime *time.Time                 `json:"nextSnapshotTime,omitempty"`
 	UploadCounters   *snapshotfs.UploadCounters `json:"upload,omitempty"`
 }

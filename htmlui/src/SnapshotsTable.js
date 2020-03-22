@@ -7,7 +7,7 @@ import Row from 'react-bootstrap/Row';
 import Spinner from 'react-bootstrap/Spinner';
 import { Link } from "react-router-dom";
 import MyTable from './Table';
-import { compare, objectLink, parseQuery, rfc3339TimestampForDisplay, sizeDisplayName } from './uiutil';
+import { compare, objectLink, parseQuery, rfc3339TimestampForDisplay, sizeWithFailures } from './uiutil';
 
 function pillVariant(tag) {
     if (tag.startsWith("latest-")) {
@@ -102,7 +102,7 @@ export class SnapshotsTable extends Component {
         if (error) {
             return <p>{error.message}</p>;
         }
-        
+
         if (isLoading) {
             return <Spinner animation="border" variant="primary" />;
         }
@@ -132,7 +132,7 @@ export class SnapshotsTable extends Component {
             Header: 'Size',
             accessor: 'summary.size',
             width: 100,
-            Cell: x => sizeDisplayName(x.cell.value),
+            Cell: x => sizeWithFailures(x.cell.value, x.row.original.summary),
         }, {
             Header: 'Files',
             accessor: 'summary.files',
@@ -145,19 +145,19 @@ export class SnapshotsTable extends Component {
 
         return <div class="padded">
             <Row>
-            <Button size="xxl" variant="dark" onClick={this.props.history.goBack} >
-                Back
+                <Button size="xxl" variant="dark" onClick={this.props.history.goBack} >
+                    Back
             </Button>
             &nbsp;
             Displaying {filteredSnapshots.length !== snapshots.length ? filteredSnapshots.length + ' out of ' + snapshots.length : snapshots.length} snapshots of <b>{this.state.userName}@{this.state.host}:{this.state.path}</b>
-                    {hiddenCount > 0 &&
-                        <>&nbsp;<Form.Group controlId="formBasicCheckbox">
-                            <Form.Check
-                                type="checkbox"
-                                checked={this.state.showHidden}
-                                label={'Show ' + hiddenCount + ' identical snapshots'}
-                                onChange={this.onChange} />
-                        </Form.Group></>}
+                {hiddenCount > 0 &&
+                    <>&nbsp;<Form.Group controlId="formBasicCheckbox">
+                        <Form.Check
+                            type="checkbox"
+                            checked={this.state.showHidden}
+                            label={'Show ' + hiddenCount + ' identical snapshots'}
+                            onChange={this.onChange} />
+                    </Form.Group></>}
 
             </Row>
             <hr />

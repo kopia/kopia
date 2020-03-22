@@ -1,7 +1,7 @@
 import React, { Component } from 'react';
 import { Link } from "react-router-dom";
 import MyTable from './Table';
-import { objectLink, rfc3339TimestampForDisplay, sizeDisplayName } from './uiutil';
+import { objectLink, rfc3339TimestampForDisplay, sizeWithFailures } from './uiutil';
 
 function objectName(name, typeID) {
     if (typeID === "d") {
@@ -49,7 +49,7 @@ export class DirectoryItems extends Component {
             accessor: x => sizeInfo(x),
             Header: "Size",
             width: 100,
-            Cell: x => sizeDisplayName(x.cell.value),
+            Cell: x => sizeWithFailures(x.cell.value, x.row.original.summ),
         }, {
             id: "files",
             accessor: "summ.files",
