@@ -51,6 +51,10 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 		return nil, err
 	}
 
+	if lc.Caching.CacheDirectory != "" && !filepath.IsAbs(lc.Caching.CacheDirectory) {
+		lc.Caching.CacheDirectory = filepath.Join(filepath.Dir(configFile), lc.Caching.CacheDirectory)
+	}
+
 	st, err := blob.NewStorage(ctx, lc.Storage)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot open storage")

@@ -116,14 +116,21 @@ func setupCaching(ctx context.Context, configPath string, lc *LocalConfig, opt c
 		h := sha256.New()
 		h.Write(uniqueID)           //nolint:errcheck
 		h.Write([]byte(configPath)) //nolint:errcheck
-		lc.Caching.CacheDirectory = filepath.Join(cacheDir, "kopia", hex.EncodeToString(h.Sum(nil))[0:16])
-	} else {
-		absCacheDir, err := filepath.Abs(opt.CacheDirectory)
-		if err != nil {
-			return err
-		}
+		opt.CacheDirectory = filepath.Join(cacheDir, "kopia", hex.EncodeToString(h.Sum(nil))[0:16])
+	}
 
-		lc.Caching.CacheDirectory = absCacheDir
+	var err error
+
+	// try computing relative pathname from config dir to the cache dir.
+	lc.Caching.CacheDirectory, err = filepath.Rel(filepath.Dir(configPath), opt.CacheDirectory)
+
+	if err != nil {
+		// fall back to storing absolute path
+		lc.Caching.CacheDirectory, err = filepath.Abs(opt.CacheDirectory)
+	}
+
+	if err != nil {
+		return errors.Wrap(err, "error computing cache directory")
 	}
 
 	lc.Caching.MaxCacheSizeBytes = opt.MaxCacheSizeBytes
