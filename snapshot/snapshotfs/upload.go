@@ -514,21 +514,19 @@ func (u *Uploader) effectiveParallelUploads() int {
 }
 
 func (u *Uploader) processNonDirectories(ctx context.Context, output chan *snapshot.DirEntry, dirRelativePath string, entries fs.Entries, policyTree *policy.Tree, prevEntries []fs.Entries) error {
-	par := u.effectiveParallelUploads()
+	workerCount := u.effectiveParallelUploads()
 
-	var workerCount, asyncWritesPerFile int
+	var asyncWritesPerFile int
 
 	if len(entries) < par {
-		workerCount = len(entries)
-
 		if len(entries) > 0 {
-			asyncWritesPerFile = par / len(entries)
+			asyncWritesPerFile = workerCount / len(entries)
 			if asyncWritesPerFile == 1 {
 				asyncWritesPerFile = 0
 			}
 		}
-	} else {
-		workerCount = par
+		workerCount = len(entries)
+	}
 	}
 
 	return u.foreachEntryUnlessCancelled(ctx, workerCount, dirRelativePath, entries, func(ctx context.Context, entry fs.Entry, entryRelativePath string) error {
