@@ -518,15 +518,15 @@ func (u *Uploader) processNonDirectories(ctx context.Context, output chan *snaps
 
 	var asyncWritesPerFile int
 
-	if len(entries) < par {
+	if len(entries) < workerCount {
 		if len(entries) > 0 {
 			asyncWritesPerFile = workerCount / len(entries)
 			if asyncWritesPerFile == 1 {
 				asyncWritesPerFile = 0
 			}
 		}
+
 		workerCount = len(entries)
-	}
 	}
 
 	return u.foreachEntryUnlessCancelled(ctx, workerCount, dirRelativePath, entries, func(ctx context.Context, entry fs.Entry, entryRelativePath string) error {
