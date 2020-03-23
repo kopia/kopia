@@ -1,12 +1,14 @@
 package repo
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io/ioutil"
 	"path/filepath"
 	"time"
 
+	"github.com/natefinch/atomic"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo/blob"
@@ -196,7 +198,7 @@ func readAndCacheFormatBlobBytes(ctx context.Context, st blob.Storage, cacheDire
 	}
 
 	if cacheDirectory != "" {
-		if err := ioutil.WriteFile(cachedFile, b, 0600); err != nil {
+		if err := atomic.WriteFile(cachedFile, bytes.NewReader(b)); err != nil {
 			log(ctx).Warningf("warning: unable to write cache: %v", err)
 		}
 	}
