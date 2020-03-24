@@ -98,29 +98,32 @@ func GetDefinedPolicy(ctx context.Context, rep *repo.Repository, si snapshot.Sou
 		return nil, ErrPolicyNotFound
 	}
 
-	if len(md) == 1 {
-		p := &Policy{}
+	// arbitrality pick first pick ID to return in case there's more than one
+	// this is possible when two repository clients independently create manifests at approximately the same time
+	// so it should not really matter which one we pick.
+	// see https://github.com/kopia/kopia/issues/391
+	manifestID := md[0].ID
 
-		err := rep.Manifests.Get(ctx, md[0].ID, p)
+	p := &Policy{}
+
+	err = rep.Manifests.Get(ctx, manifestID, p)
+
+	if err != nil {
 		if err == manifest.ErrNotFound {
 			return nil, ErrPolicyNotFound
 		}
 
-		if err != nil {
-			return nil, err
-		}
-
-		em, err := rep.Manifests.GetMetadata(ctx, md[0].ID)
-		if err != nil {
-			return nil, ErrPolicyNotFound
-		}
-
-		p.Labels = em.Labels
-
-		return p, nil
+		return nil, err
 	}
 
-	return nil, errors.New("ambiguous policy")
+	em, err := rep.Manifests.GetMetadata(ctx, manifestID)
+	if err != nil {
+		return nil, ErrPolicyNotFound
+	}
+
+	p.Labels = em.Labels
+
+	return p, nil
 }
 
 // SetPolicy sets the policy on a given source.

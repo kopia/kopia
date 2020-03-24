@@ -123,6 +123,16 @@ func (e *Environment) MustReopen(t *testing.T) {
 	}
 }
 
+// MustOpenAnother opens another repository backend by the same storage.
+func (e *Environment) MustOpenAnother(t *testing.T) *repo.Repository {
+	rep2, err := repo.Open(testlogging.Context(t), e.configFile(), masterPassword, &repo.Options{})
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+
+	return rep2
+}
+
 // VerifyBlobCount verifies that the underlying storage contains the specified number of blobs.
 func (e *Environment) VerifyBlobCount(t *testing.T, want int) {
 	var got int
