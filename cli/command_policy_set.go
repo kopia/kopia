@@ -82,6 +82,7 @@ func setPolicy(ctx context.Context, rep *repo.Repository) error {
 
 	for _, target := range targets {
 		p, err := policy.GetDefinedPolicy(ctx, rep, target)
+
 		switch {
 		case err == policy.ErrPolicyNotFound:
 			p = &policy.Policy{}
