@@ -2,7 +2,6 @@
 package azure
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -105,11 +104,11 @@ func translateError(err error) error {
 	return err
 }
 
-func (az *azStorage) PutBlob(ctx context.Context, b blob.ID, data []byte) error {
+func (az *azStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	throttled, err := az.uploadThrottler.AddReader(ioutil.NopCloser(bytes.NewReader(data)))
+	throttled, err := az.uploadThrottler.AddReader(ioutil.NopCloser(data.Reader()))
 	if err != nil {
 		return err
 	}

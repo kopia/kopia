@@ -12,6 +12,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 
 	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
 )
 
@@ -74,11 +75,11 @@ func TestFileStorageTouch(t *testing.T) {
 	}
 
 	fs := r.(*fsStorage)
-	assertNoError(t, fs.PutBlob(ctx, t1, []byte{1}))
+	assertNoError(t, fs.PutBlob(ctx, t1, gather.FromSlice([]byte{1})))
 	time.Sleep(1 * time.Second) // sleep a bit to accommodate Apple filesystems with low timestamp resolution
-	assertNoError(t, fs.PutBlob(ctx, t2, []byte{1}))
+	assertNoError(t, fs.PutBlob(ctx, t2, gather.FromSlice([]byte{1})))
 	time.Sleep(1 * time.Second)
-	assertNoError(t, fs.PutBlob(ctx, t3, []byte{1}))
+	assertNoError(t, fs.PutBlob(ctx, t3, gather.FromSlice([]byte{1})))
 
 	verifyBlobTimestampOrder(t, fs, t1, t2, t3)
 

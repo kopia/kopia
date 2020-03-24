@@ -80,17 +80,18 @@ func (s *sftpImpl) GetBlobFromPath(ctx context.Context, dirPath, fullPath string
 	return data[0:length], nil
 }
 
-func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, fullPath string, data []byte) error {
+func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, fullPath string, data blob.Bytes) error {
 	randSuffix := make([]byte, 8)
 	if _, err := rand.Read(randSuffix); err != nil {
 		return errors.Wrap(err, "can't get random bytes")
 	}
 
 	progressCallback := blob.ProgressCallback(ctx)
+	combinedLength := data.Length()
 
 	if progressCallback != nil {
-		progressCallback(fullPath, 0, int64(len(data)))
-		defer progressCallback(fullPath, int64(len(data)), int64(len(data)))
+		progressCallback(fullPath, 0, int64(combinedLength))
+		defer progressCallback(fullPath, int64(combinedLength), int64(combinedLength))
 	}
 
 	tempFile := fmt.Sprintf("%s.tmp.%x", fullPath, randSuffix)
@@ -100,7 +101,7 @@ func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, fullPath string, 
 		return errors.Wrap(err, "cannot create temporary file")
 	}
 
-	if _, err = f.Write(data); err != nil {
+	if _, err = data.WriteTo(f); err != nil {
 		return errors.Wrap(err, "can't write temporary file")
 	}
 

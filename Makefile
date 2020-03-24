@@ -187,6 +187,7 @@ ifneq ($(uname),Windows)
 	             -e github.com/kopia/kopia/internal/buf \
 	             -e github.com/kopia/kopia/internal/throttle \
 	             -e github.com/kopia/kopia/internal/iocopy \
+	             -e github.com/kopia/kopia/internal/gather \
 	             -e github.com/kopia/kopia/internal/blobtesting \
 	             -e github.com/kopia/kopia/internal/repotesting \
 	             -e github.com/kopia/kopia/internal/testlogging \

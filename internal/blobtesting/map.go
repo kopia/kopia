@@ -1,6 +1,7 @@
 package blobtesting
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"sort"
@@ -48,7 +49,7 @@ func (s *mapStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int
 	return nil, blob.ErrBlobNotFound
 }
 
-func (s *mapStorage) PutBlob(ctx context.Context, id blob.ID, data []byte) error {
+func (s *mapStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -58,7 +59,11 @@ func (s *mapStorage) PutBlob(ctx context.Context, id blob.ID, data []byte) error
 
 	s.keyTime[id] = s.timeNow()
 
-	s.data[id] = append([]byte{}, data...)
+	var b bytes.Buffer
+
+	data.WriteTo(&b) //nolint:errcheck
+
+	s.data[id] = b.Bytes()
 
 	return nil
 }

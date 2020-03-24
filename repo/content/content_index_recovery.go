@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -166,9 +167,9 @@ func (bm *lockFreeManager) buildLocalIndex(pending packIndexBuilder) ([]byte, er
 }
 
 // writePackFileIndexRecoveryData appends data designed to help with recovery of pack index in case it gets damaged or lost.
-func (bm *lockFreeManager) writePackFileIndexRecoveryData(buf *bytes.Buffer, pending packIndexBuilder) error {
+func (bm *lockFreeManager) writePackFileIndexRecoveryData(buf *gather.WriteBuffer, pending packIndexBuilder) error {
 	// build, encrypt and append local index
-	localIndexOffset := buf.Len()
+	localIndexOffset := buf.Length()
 
 	localIndex, err := bm.buildLocalIndex(pending)
 	if err != nil {
@@ -188,14 +189,14 @@ func (bm *lockFreeManager) writePackFileIndexRecoveryData(buf *bytes.Buffer, pen
 		localIndexLength: uint32(len(encryptedLocalIndex)),
 	}
 
-	writeToBuffer(buf, encryptedLocalIndex)
+	buf.Append(encryptedLocalIndex)
 
 	postambleBytes, err := postamble.toBytes()
 	if err != nil {
 		return err
 	}
 
-	writeToBuffer(buf, postambleBytes)
+	buf.Append(postambleBytes)
 
 	return nil
 }

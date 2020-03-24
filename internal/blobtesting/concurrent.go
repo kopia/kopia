@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
 )
@@ -87,7 +88,7 @@ func VerifyConcurrentAccess(t testingT, st blob.Storage, options ConcurrentAcces
 			for i := 0; i < options.Iterations; i++ {
 				blobID := randomBlobID()
 				data := fmt.Sprintf("%v-%v", blobID, rand.Int63())
-				err := st.PutBlob(ctx, blobID, []byte(data))
+				err := st.PutBlob(ctx, blobID, gather.FromSlice([]byte(data)))
 				switch err {
 				case nil:
 					// clean success

@@ -12,6 +12,7 @@ import (
 	"go.opencensus.io/stats"
 
 	"github.com/kopia/kopia/internal/ctxutil"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/hmac"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/filesystem"
@@ -87,7 +88,7 @@ func (c *contentCache) getContent(ctx context.Context, cacheKey cacheKey, blobID
 		if puterr := c.cacheStorage.PutBlob(
 			blob.WithUploadProgressCallback(ctx, nil),
 			blob.ID(cacheKey),
-			hmac.Append(b, c.hmacSecret),
+			gather.FromSlice(hmac.Append(b, c.hmacSecret)),
 		); puterr != nil {
 			stats.Record(ctx, metricContentCacheStoreErrors.M(1))
 			log(ctx).Warningf("unable to write cache item %v: %v", cacheKey, puterr)

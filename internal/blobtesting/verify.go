@@ -5,6 +5,7 @@ import (
 	"context"
 	"reflect"
 
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -30,7 +31,7 @@ func VerifyStorage(ctx context.Context, t testingT, r blob.Storage) {
 
 	// Now add blocks.
 	for _, b := range blocks {
-		if err := r.PutBlob(ctx, b.blk, b.contents); err != nil {
+		if err := r.PutBlob(ctx, b.blk, gather.FromSlice(b.contents)); err != nil {
 			t.Errorf("can't put blob: %v", err)
 		}
 
@@ -42,7 +43,7 @@ func VerifyStorage(ctx context.Context, t testingT, r blob.Storage) {
 
 	// Overwrite blocks.
 	for _, b := range blocks {
-		if err := r.PutBlob(ctx, b.blk, b.contents); err != nil {
+		if err := r.PutBlob(ctx, b.blk, gather.FromSlice(b.contents)); err != nil {
 			t.Errorf("can't put blob: %v", err)
 		}
 

@@ -30,11 +30,11 @@ func (s *loggingStorage) GetBlob(ctx context.Context, id blob.ID, offset, length
 	return result, err
 }
 
-func (s *loggingStorage) PutBlob(ctx context.Context, id blob.ID, data []byte) error {
+func (s *loggingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes) error {
 	t0 := time.Now()
 	err := s.base.PutBlob(ctx, id, data)
 	dt := time.Since(t0)
-	s.printf(s.prefix+"PutBlob(%q,len=%v)=%#v took %v", id, len(data), err, dt)
+	s.printf(s.prefix+"PutBlob(%q,len=%v)=%#v took %v", id, data.Length(), err, dt)
 
 	return err
 }

@@ -2,12 +2,22 @@ package blob
 
 import (
 	"context"
+	"io"
 	"log"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
 )
+
+// Bytes encapsulates a sequence of bytes, possibly stored in a non-contiguous buffers,
+// which can be written sequentially or treated as a io.Reader.
+type Bytes interface {
+	io.WriterTo
+
+	Length() int
+	Reader() io.Reader
+}
 
 // Storage encapsulates API for connecting to blob storage.
 //
@@ -22,8 +32,8 @@ import (
 // The required semantics are provided by existing commercial cloud storage products (Google Cloud, AWS, Azure).
 type Storage interface {
 	// PutBlob uploads the blob with given data to the repository or replaces existing blob with the provided
-	// id with given contents.
-	PutBlob(ctx context.Context, blobID ID, data []byte) error
+	// id with contents gathered from the specified list of slices.
+	PutBlob(ctx context.Context, blobID ID, data Bytes) error
 
 	// DeleteBlob removes the blob from storage. Future Get() operations will fail with ErrNotFound.
 	DeleteBlob(ctx context.Context, blobID ID) error
