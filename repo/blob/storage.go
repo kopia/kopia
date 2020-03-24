@@ -10,7 +10,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Bytes encapsulates
+// Bytes encapsulates a sequence of bytes, possibly stored in a non-contiguous buffers,
+// which can be written sequentially or treated as a io.Reader.
 type Bytes interface {
 	io.WriterTo
 

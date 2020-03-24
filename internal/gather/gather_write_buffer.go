@@ -21,8 +21,7 @@ func (b *WriteBuffer) Reset() {
 		releaseChunk(s)
 	}
 
-	b.sliceBuf[0] = allocChunk()
-	b.Slices = b.sliceBuf[0:1]
+	b.Slices = nil
 }
 
 // Write implements io.Writer for appending to the buffer.
@@ -60,8 +59,5 @@ func (b *WriteBuffer) Append(data []byte) {
 
 // NewWriteBuffer creates new write buffer.
 func NewWriteBuffer() *WriteBuffer {
-	b := &WriteBuffer{}
-	b.Reset()
-
-	return b
+	return &WriteBuffer{}
 }

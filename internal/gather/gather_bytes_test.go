@@ -96,10 +96,10 @@ func TestGatherBytes(t *testing.T) {
 			t.Errorf("unexpected data from GetBytes() %v, want %v", string(all), string(tc.whole))
 		}
 
-		// GetSection - test exhaustively all combinationf os start, length
+		// AppendSectionTo - test exhaustively all combinationf os start, length
 		for i := 0; i <= len(tc.whole); i++ {
 			for j := i; j <= len(tc.whole); j++ {
-				result := b.GetSection(nil, i, j-i)
+				result := b.AppendSectionTo(nil, i, j-i)
 				if !bytes.Equal(result, tc.whole[i:j]) {
 					t.Fatalf("invalid section")
 				}

@@ -16,8 +16,8 @@ type Bytes struct {
 	sliceBuf [1][]byte
 }
 
-// GetSection appends the section of the buffer to the provided slice and returns it.
-func (b *Bytes) GetSection(output []byte, offset, size int) []byte {
+// AppendSectionTo appends the section of the buffer to the provided slice and returns it.
+func (b *Bytes) AppendSectionTo(output []byte, offset, size int) []byte {
 	// find the index of starting slice
 	sliceNdx := -1
 

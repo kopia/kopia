@@ -227,7 +227,7 @@ func (bm *lockFreeManager) getContentDataUnlocked(ctx context.Context, pp *pendi
 	var payload []byte
 
 	if pp != nil && pp.packBlobID == bi.PackBlobID {
-		payload = pp.currentPackData.GetSection(nil, int(bi.PackOffset), int(bi.Length))
+		payload = pp.currentPackData.AppendSectionTo(nil, int(bi.PackOffset), int(bi.Length))
 	} else {
 		var err error
 
