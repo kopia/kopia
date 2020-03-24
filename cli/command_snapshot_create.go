@@ -160,10 +160,6 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshot
 	}
 
 	manifest.Description = *snapshotCreateDescription
-
-	duration := manifest.EndTime.Sub(manifest.StartTime)
-	inverseDuration := manifest.StartTime.Sub(manifest.EndTime)
-
 	startTimeOverride, _ := parseTimestamp(*snapshotCreateStartTime)
 	endTimeOverride, _ := parseTimestamp(*snapshotCreateEndTime)
 
@@ -172,6 +168,7 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshot
 
 		if endTimeOverride.IsZero() {
 			// Calculate the correct end time based on current duration if they're not specified
+			duration := manifest.EndTime.Sub(manifest.StartTime)
 			manifest.EndTime = startTimeOverride.Add(duration)
 		}
 	}
@@ -180,6 +177,7 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshot
 		manifest.EndTime = endTimeOverride
 
 		if startTimeOverride.IsZero() {
+			inverseDuration := manifest.StartTime.Sub(manifest.EndTime)
 			manifest.StartTime = endTimeOverride.Add(inverseDuration)
 		}
 	}
