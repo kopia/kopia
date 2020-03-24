@@ -117,17 +117,11 @@ func runBackupCommand(ctx context.Context, rep *repo.Repository) error {
 }
 
 func parseTimestamp(timestamp string) (time.Time, error) {
-	if timestamp != "" {
-		parsedTimestamp, err := time.Parse(timeFormat, timestamp)
-
-		if err != nil {
-			return time.Time{}, err
-		}
-
-		return parsedTimestamp, nil
+	if timestamp == "" {
+		return time.Time{}, nil
 	}
 
-	return time.Time{}, nil
+	return time.Parse(timeFormat, timestamp)
 }
 
 func startTimeAfterEndTime(startTime, endTime time.Time) bool {
