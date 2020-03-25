@@ -45,7 +45,7 @@ func TestRoundTrip(t *testing.T) {
 				t.Errorf("invalid response from Encrypt: %v %v", cipherText1, err)
 			}
 
-			if !e.IsDeprecated() && encryptionAlgo != encryption.NoneAlgorithm {
+			if !e.IsDeprecated() && encryptionAlgo != encryption.DeprecatedNoneAlgorithm {
 				cipherText1b, err2 := e.Encrypt(nil, data, contentID1)
 				if err2 != nil || cipherText1b == nil {
 					t.Errorf("invalid response from Encrypt: %v %v", cipherText1, err2)
@@ -90,7 +90,7 @@ func TestRoundTrip(t *testing.T) {
 				t.Errorf("Encrypt()/Decrypt() does not round-trip: %x %x", plainText2, data)
 			}
 
-			if encryptionAlgo != encryption.NoneAlgorithm {
+			if encryptionAlgo != encryption.DeprecatedNoneAlgorithm {
 				if bytes.Equal(cipherText1, cipherText2) {
 					t.Errorf("ciphertexts should be different, were %x", cipherText1)
 				}

@@ -25,7 +25,7 @@ func (fi nullEncryptor) MaxOverhead() int {
 }
 
 func init() {
-	Register(NoneAlgorithm, "No encryption", false, func(p Parameters) (Encryptor, error) {
+	Register(DeprecatedNoneAlgorithm, "No encryption", true, func(p Parameters) (Encryptor, error) {
 		return nullEncryptor{}, nil
 	})
 }

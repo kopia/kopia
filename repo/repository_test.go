@@ -249,10 +249,10 @@ func verify(ctx context.Context, t *testing.T, rep *repo.Repository, objectID ob
 
 func TestFormats(t *testing.T) {
 	ctx := testlogging.Context(t)
-	makeFormat := func(hash, encryption string) func(*repo.NewRepositoryOptions) {
+
+	makeFormat := func(hashAlgo string) func(*repo.NewRepositoryOptions) {
 		return func(n *repo.NewRepositoryOptions) {
-			n.BlockFormat.Hash = hash
-			n.BlockFormat.Encryption = encryption
+			n.BlockFormat.Hash = hashAlgo
 			n.BlockFormat.HMACSecret = []byte("key")
 			n.ObjectFormat.Splitter = "FIXED-1M"
 		}
@@ -271,13 +271,13 @@ func TestFormats(t *testing.T) {
 			},
 		},
 		{
-			format: makeFormat("HMAC-SHA256", "NONE"),
+			format: makeFormat("HMAC-SHA256"),
 			oids: map[string]object.ID{
 				"The quick brown fox jumps over the lazy dog": "f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8",
 			},
 		},
 		{
-			format: makeFormat("HMAC-SHA256-128", "NONE"),
+			format: makeFormat("HMAC-SHA256-128"),
 			oids: map[string]object.ID{
 				"The quick brown fox jumps over the lazy dog": "f7bc83f430538424b13298e6aa6fb143",
 			},
