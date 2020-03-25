@@ -293,7 +293,7 @@ func newManagerForTesting(ctx context.Context, t *testing.T, data blobtesting.Da
 	st := blobtesting.NewMapStorage(data, nil, nil)
 
 	bm, err := content.NewManager(ctx, st, &content.FormattingOptions{
-		Hash:        "HMAC-SHA256-128",
+		Hash:        hashing.DefaultAlgorithm,
 		Encryption:  encryption.DefaultAlgorithm,
 		MaxPackSize: 100000,
 		Version:     1,
