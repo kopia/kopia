@@ -74,7 +74,7 @@ func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions,
 }
 
 func formatBlobFromOptions(opt *NewRepositoryOptions) *formatBlob {
-	f := &formatBlob{
+	return &formatBlob{
 		Tool:                   "https://github.com/kopia/kopia",
 		BuildInfo:              BuildInfo,
 		KeyDerivationAlgorithm: defaultKeyDerivationAlgorithm,
@@ -82,12 +82,6 @@ func formatBlobFromOptions(opt *NewRepositoryOptions) *formatBlob {
 		Version:                "1",
 		EncryptionAlgorithm:    defaultFormatEncryption,
 	}
-
-	if opt.BlockFormat.Encryption == encryption.NoneAlgorithm {
-		f.EncryptionAlgorithm = encryption.NoneAlgorithm
-	}
-
-	return f
 }
 
 func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) *repositoryObjectFormat {

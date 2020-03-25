@@ -15,7 +15,6 @@ import (
 var (
 	benchmarkCryptoCommand              = benchmarkCommands.Command("crypto", "Run hash and encryption benchmarks")
 	benchmarkCryptoBlockSize            = benchmarkCryptoCommand.Flag("block-size", "Size of a block to encrypt").Default("1MB").Bytes()
-	benchmarkCryptoEncryption           = benchmarkCryptoCommand.Flag("encryption", "Test encrypted formats").Default("true").Bool()
 	benchmarkCryptoRepeat               = benchmarkCryptoCommand.Flag("repeat", "Number of repetitions").Default("100").Int()
 	benchmarkCryptoDeprecatedAlgorithms = benchmarkCryptoCommand.Flag("deprecated", "Include deprecated algorithms").Bool()
 )
@@ -42,11 +41,6 @@ func runBenchmarkCryptoAction(ctx *kingpin.ParseContext) error {
 
 	for _, ha := range hashing.SupportedAlgorithms() {
 		for _, ea := range encryption.SupportedAlgorithms(*benchmarkCryptoDeprecatedAlgorithms) {
-			isEncrypted := ea != encryption.NoneAlgorithm
-			if *benchmarkCryptoEncryption != isEncrypted {
-				continue
-			}
-
 			h, e, err := content.CreateHashAndEncryptor(&content.FormattingOptions{
 				Encryption: ea,
 				Hash:       ha,
