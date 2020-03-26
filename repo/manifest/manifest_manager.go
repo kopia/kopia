@@ -127,10 +127,6 @@ func (m *Manager) Get(ctx context.Context, id ID, data interface{}) (*EntryMetad
 		return nil, err
 	}
 
-	if err := m.ensureInitialized(ctx); err != nil {
-		return nil, err
-	}
-
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
