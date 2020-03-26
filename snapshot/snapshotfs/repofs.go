@@ -17,7 +17,7 @@ import (
 
 type repositoryEntry struct {
 	metadata *snapshot.DirEntry
-	repo     *repo.Repository
+	repo     repo.Repository
 }
 
 func (e *repositoryEntry) IsDir() bool {
@@ -88,7 +88,7 @@ func (rd *repositoryDirectory) Child(ctx context.Context, name string) (fs.Entry
 }
 
 func (rd *repositoryDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
-	r, err := rd.repo.Objects.Open(ctx, rd.metadata.ObjectID)
+	r, err := rd.repo.OpenObject(ctx, rd.metadata.ObjectID)
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +113,7 @@ func (rd *repositoryDirectory) Readdir(ctx context.Context) (fs.Entries, error) 
 }
 
 func (rf *repositoryFile) Open(ctx context.Context) (fs.Reader, error) {
-	r, err := rf.repo.Objects.Open(ctx, rf.metadata.ObjectID)
+	r, err := rf.repo.OpenObject(ctx, rf.metadata.ObjectID)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +122,7 @@ func (rf *repositoryFile) Open(ctx context.Context) (fs.Reader, error) {
 }
 
 func (rsl *repositorySymlink) Readlink(ctx context.Context) (string, error) {
-	r, err := rsl.repo.Objects.Open(ctx, rsl.metadata.ObjectID)
+	r, err := rsl.repo.OpenObject(ctx, rsl.metadata.ObjectID)
 	if err != nil {
 		return "", err
 	}
@@ -138,7 +138,7 @@ func (rsl *repositorySymlink) Readlink(ctx context.Context) (string, error) {
 }
 
 // EntryFromDirEntry returns a filesystem entry based on the directory entry.
-func EntryFromDirEntry(r *repo.Repository, md *snapshot.DirEntry) (fs.Entry, error) {
+func EntryFromDirEntry(r repo.Repository, md *snapshot.DirEntry) (fs.Entry, error) {
 	re := repositoryEntry{
 		metadata: md,
 		repo:     r,
@@ -179,7 +179,7 @@ func withFileInfo(r object.Reader, e fs.Entry) fs.Reader {
 
 // DirectoryEntry returns fs.Directory based on repository object with the specified ID.
 // The existence or validity of the directory object is not validated until its contents are read.
-func DirectoryEntry(rep *repo.Repository, objectID object.ID, dirSummary *fs.DirectorySummary) fs.Directory {
+func DirectoryEntry(rep repo.Repository, objectID object.ID, dirSummary *fs.DirectorySummary) fs.Directory {
 	d, _ := EntryFromDirEntry(rep, &snapshot.DirEntry{
 		Name:        "/",
 		Permissions: 0555, //nolint:gomnd
@@ -192,7 +192,7 @@ func DirectoryEntry(rep *repo.Repository, objectID object.ID, dirSummary *fs.Dir
 }
 
 // SnapshotRoot returns fs.Entry representing the root of a snapshot.
-func SnapshotRoot(rep *repo.Repository, man *snapshot.Manifest) (fs.Entry, error) {
+func SnapshotRoot(rep repo.Repository, man *snapshot.Manifest) (fs.Entry, error) {
 	oid := man.RootObjectID()
 	if oid == "" {
 		return nil, errors.New("manifest root object ID")

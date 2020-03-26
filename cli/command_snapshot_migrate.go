@@ -26,7 +26,7 @@ var (
 	migrateParallel          = migrateCommand.Flag("parallel", "Number of sources to migrate in parallel").Default("1").Int()
 )
 
-func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
+func runMigrateCommand(ctx context.Context, destRepo repo.Repository) error {
 	sourceRepo, err := openSourceRepo(ctx)
 	if err != nil {
 		return errors.Wrap(err, "can't open source repository")
@@ -113,7 +113,7 @@ func runMigrateCommand(ctx context.Context, destRepo *repo.Repository) error {
 	return nil
 }
 
-func openSourceRepo(ctx context.Context) (*repo.Repository, error) {
+func openSourceRepo(ctx context.Context) (repo.Repository, error) {
 	pass, ok := repo.GetPersistedPassword(ctx, *migrateSourceConfig)
 	if !ok {
 		var err error
@@ -131,7 +131,7 @@ func openSourceRepo(ctx context.Context) (*repo.Repository, error) {
 	return sourceRepo, nil
 }
 
-func migratePoliciesForSources(ctx context.Context, sourceRepo, destRepo *repo.Repository, sources []snapshot.SourceInfo) error {
+func migratePoliciesForSources(ctx context.Context, sourceRepo, destRepo repo.Repository, sources []snapshot.SourceInfo) error {
 	for _, si := range sources {
 		if err := migrateSinglePolicy(ctx, sourceRepo, destRepo, si); err != nil {
 			return errors.Wrapf(err, "unable to migrate policy for %v", si)
@@ -141,7 +141,7 @@ func migratePoliciesForSources(ctx context.Context, sourceRepo, destRepo *repo.R
 	return nil
 }
 
-func migrateAllPolicies(ctx context.Context, sourceRepo, destRepo *repo.Repository) error {
+func migrateAllPolicies(ctx context.Context, sourceRepo, destRepo repo.Repository) error {
 	policies, err := policy.ListPolicies(ctx, sourceRepo)
 	if err != nil {
 		return errors.Wrap(err, "unable to list source policies")
@@ -156,7 +156,7 @@ func migrateAllPolicies(ctx context.Context, sourceRepo, destRepo *repo.Reposito
 	return nil
 }
 
-func migrateSinglePolicy(ctx context.Context, sourceRepo, destRepo *repo.Repository, si snapshot.SourceInfo) error {
+func migrateSinglePolicy(ctx context.Context, sourceRepo, destRepo repo.Repository, si snapshot.SourceInfo) error {
 	pol, err := policy.GetDefinedPolicy(ctx, sourceRepo, si)
 	if err == policy.ErrPolicyNotFound {
 		return nil
@@ -182,7 +182,7 @@ func migrateSinglePolicy(ctx context.Context, sourceRepo, destRepo *repo.Reposit
 	return policy.SetPolicy(ctx, destRepo, si, pol)
 }
 
-func findPreviousSnapshotManifestWithStartTime(ctx context.Context, rep *repo.Repository, sourceInfo snapshot.SourceInfo, startTime time.Time) (*snapshot.Manifest, error) {
+func findPreviousSnapshotManifestWithStartTime(ctx context.Context, rep repo.Repository, sourceInfo snapshot.SourceInfo, startTime time.Time) (*snapshot.Manifest, error) {
 	previous, err := snapshot.ListSnapshots(ctx, rep, sourceInfo)
 	if err != nil {
 		return nil, errors.Wrap(err, "error listing previous snapshots")
@@ -197,7 +197,7 @@ func findPreviousSnapshotManifestWithStartTime(ctx context.Context, rep *repo.Re
 	return nil, nil
 }
 
-func migrateSingleSource(ctx context.Context, uploader *snapshotfs.Uploader, sourceRepo, destRepo *repo.Repository, s snapshot.SourceInfo) error {
+func migrateSingleSource(ctx context.Context, uploader *snapshotfs.Uploader, sourceRepo, destRepo repo.Repository, s snapshot.SourceInfo) error {
 	manifests, err := snapshot.ListSnapshotManifests(ctx, sourceRepo, &s)
 	if err != nil {
 		return err
@@ -225,7 +225,7 @@ func migrateSingleSource(ctx context.Context, uploader *snapshotfs.Uploader, sou
 	return nil
 }
 
-func migrateSingleSourceSnapshot(ctx context.Context, uploader *snapshotfs.Uploader, sourceRepo, destRepo *repo.Repository, s snapshot.SourceInfo, m *snapshot.Manifest) error {
+func migrateSingleSourceSnapshot(ctx context.Context, uploader *snapshotfs.Uploader, sourceRepo, destRepo repo.Repository, s snapshot.SourceInfo, m *snapshot.Manifest) error {
 	if m.IncompleteReason != "" {
 		log(ctx).Debugf("ignoring incomplete %v at %v", s, formatTimestamp(m.StartTime))
 		return nil
@@ -278,12 +278,12 @@ func filterSnapshotsToMigrate(s []*snapshot.Manifest) []*snapshot.Manifest {
 	return s
 }
 
-func getSourcesToMigrate(ctx context.Context, rep *repo.Repository) ([]snapshot.SourceInfo, error) {
+func getSourcesToMigrate(ctx context.Context, rep repo.Repository) ([]snapshot.SourceInfo, error) {
 	if len(*migrateSources) > 0 {
 		var result []snapshot.SourceInfo
 
 		for _, s := range *migrateSources {
-			si, err := snapshot.ParseSourceInfo(s, rep.Hostname, rep.Username)
+			si, err := snapshot.ParseSourceInfo(s, rep.Hostname(), rep.Username())
 			if err != nil {
 				return nil, err
 			}

@@ -14,7 +14,7 @@ var (
 	snapshotGCDelete        = snapshotGCCommand.Flag("delete", "Delete unreferenced contents").Bool()
 )
 
-func runSnapshotGCCommand(ctx context.Context, rep *repo.Repository) error {
+func runSnapshotGCCommand(ctx context.Context, rep *repo.DirectRepository) error {
 	st, err := gc.Run(ctx, rep, *snapshotGCMinContentAge, *snapshotGCDelete)
 
 	log(ctx).Infof("GC found %v unused contents (%v bytes)", st.UnusedCount, units.BytesStringBase2(st.UnusedBytes))
@@ -26,5 +26,5 @@ func runSnapshotGCCommand(ctx context.Context, rep *repo.Repository) error {
 }
 
 func init() {
-	snapshotGCCommand.Action(repositoryAction(runSnapshotGCCommand))
+	snapshotGCCommand.Action(directRepositoryAction(runSnapshotGCCommand))
 }

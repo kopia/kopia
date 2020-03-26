@@ -50,12 +50,14 @@ type Uploader struct {
 	// Number of files to hash and upload in parallel.
 	ParallelUploads int
 
-	repo *repo.Repository
+	repo repo.Repository
 
 	stats    snapshot.Stats
 	canceled int32
 
 	uploadBufPool sync.Pool
+
+	totalWrittenBytes int64
 }
 
 // IsCancelled returns true if the upload is canceled.
@@ -68,7 +70,7 @@ func (u *Uploader) cancelReason() string {
 		return "canceled"
 	}
 
-	_, wb := u.repo.Content.Stats.WrittenContent()
+	wb := atomic.LoadInt64(&u.totalWrittenBytes)
 	if mub := u.MaxUploadBytes; mub > 0 && wb > mub {
 		return "limit reached"
 	}
@@ -86,11 +88,7 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, relativePath string, 
 	}
 	defer file.Close() //nolint:errcheck
 
-	if asyncWrites > 1 {
-		log(ctx).Debugf("uploading %v with %v async writes", relativePath, asyncWrites)
-	}
-
-	writer := u.repo.Objects.NewWriter(ctx, object.WriterOptions{
+	writer := u.repo.NewObjectWriter(ctx, object.WriterOptions{
 		Description: "FILE:" + f.Name(),
 		Compressor:  pol.CompressionPolicy.CompressorForFile(f),
 		AsyncWrites: asyncWrites,
@@ -131,7 +129,7 @@ func (u *Uploader) uploadSymlinkInternal(ctx context.Context, relativePath strin
 		return nil, errors.Wrap(err, "unable to read symlink")
 	}
 
-	writer := u.repo.Objects.NewWriter(ctx, object.WriterOptions{
+	writer := u.repo.NewObjectWriter(ctx, object.WriterOptions{
 		Description: "SYMLINK:" + f.Name(),
 	})
 	defer writer.Close() //nolint:errcheck
@@ -175,6 +173,7 @@ func (u *Uploader) copyWithProgress(dst io.Writer, src io.Reader, completed, len
 			if wroteBytes > 0 {
 				written += int64(wroteBytes)
 				completed += int64(wroteBytes)
+				atomic.AddInt64(&u.totalWrittenBytes, int64(wroteBytes))
 				u.Progress.HashedBytes(int64(wroteBytes))
 
 				if length < completed {
@@ -711,7 +710,7 @@ func uploadDirInternal(
 
 	// at this point dirManifest is ready to go
 
-	writer := u.repo.Objects.NewWriter(ctx, object.WriterOptions{
+	writer := u.repo.NewObjectWriter(ctx, object.WriterOptions{
 		Description: "DIR:" + dirRelativePath,
 		Prefix:      "k",
 	})
@@ -755,7 +754,7 @@ func (u *Uploader) shouldIgnoreDirectoryReadErrors(policyTree *policy.Tree) bool
 }
 
 // NewUploader creates new Uploader object for a given repository.
-func NewUploader(r *repo.Repository) *Uploader {
+func NewUploader(r repo.Repository) *Uploader {
 	return &Uploader{
 		repo:             r,
 		Progress:         &NullUploadProgress{},
@@ -828,6 +827,7 @@ func (u *Uploader) Upload(
 	defer u.Progress.UploadFinished()
 
 	u.stats = snapshot.Stats{}
+	u.totalWrittenBytes = 0
 
 	var err error
 

@@ -122,25 +122,7 @@ func (m *Manager) GetMetadata(ctx context.Context, id ID) (*EntryMetadata, error
 
 // Get retrieves the contents of the provided manifest item by deserializing it as JSON to provided object.
 // If the manifest is not found, returns ErrNotFound.
-func (m *Manager) Get(ctx context.Context, id ID, data interface{}) error {
-	if err := m.ensureInitialized(ctx); err != nil {
-		return err
-	}
-
-	b, err := m.GetRaw(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	if err := json.Unmarshal(b, data); err != nil {
-		return errors.Wrapf(err, "unable to unmashal %q", id)
-	}
-
-	return nil
-}
-
-// GetRaw returns raw contents of the provided manifest (JSON bytes) or ErrNotFound if not found.
-func (m *Manager) GetRaw(ctx context.Context, id ID) ([]byte, error) {
+func (m *Manager) Get(ctx context.Context, id ID, data interface{}) (*EntryMetadata, error) {
 	if err := m.ensureInitialized(ctx); err != nil {
 		return nil, err
 	}
@@ -157,7 +139,13 @@ func (m *Manager) GetRaw(ctx context.Context, id ID) ([]byte, error) {
 		return nil, ErrNotFound
 	}
 
-	return e.Content, nil
+	if data != nil {
+		if err := json.Unmarshal([]byte(e.Content), data); err != nil {
+			return nil, errors.Wrapf(err, "unable to unmashal %q", id)
+		}
+	}
+
+	return cloneEntryMetadata(e), nil
 }
 
 // Find returns the list of EntryMetadata for manifest entries matching all provided labels.

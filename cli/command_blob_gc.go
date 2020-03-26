@@ -20,7 +20,7 @@ var (
 	blobGarbageCollectMinAge        = blobGarbageCollectCommand.Flag("min-age", "Garbage-collect blobs with minimum age").Default("24h").Duration()
 )
 
-func runBlobGarbageCollectCommand(ctx context.Context, rep *repo.Repository) error {
+func runBlobGarbageCollectCommand(ctx context.Context, rep *repo.DirectRepository) error {
 	const deleteQueueSize = 100
 
 	var unreferenced, deleted stats.CountSum
@@ -94,5 +94,5 @@ func runBlobGarbageCollectCommand(ctx context.Context, rep *repo.Repository) err
 }
 
 func init() {
-	blobGarbageCollectCommand.Action(repositoryAction(runBlobGarbageCollectCommand))
+	blobGarbageCollectCommand.Action(directRepositoryAction(runBlobGarbageCollectCommand))
 }

@@ -15,7 +15,7 @@ var (
 	contentStatsRaw     = contentStatsCommand.Flag("raw", "Raw numbers").Short('r').Bool()
 )
 
-func runContentStatsCommand(ctx context.Context, rep *repo.Repository) error {
+func runContentStatsCommand(ctx context.Context, rep *repo.DirectRepository) error {
 	var sizeThreshold uint32 = 10
 
 	countMap := map[uint32]int{}
@@ -81,5 +81,5 @@ func runContentStatsCommand(ctx context.Context, rep *repo.Repository) error {
 }
 
 func init() {
-	contentStatsCommand.Action(repositoryAction(runContentStatsCommand))
+	contentStatsCommand.Action(directRepositoryAction(runContentStatsCommand))
 }

@@ -14,7 +14,7 @@ var (
 	optimizeAllIndexes           = optimizeCommand.Flag("all", "Optimize all indexes, even those above maximum size.").Bool()
 )
 
-func runOptimizeCommand(ctx context.Context, rep *repo.Repository) error {
+func runOptimizeCommand(ctx context.Context, rep *repo.DirectRepository) error {
 	return rep.Content.CompactIndexes(ctx, content.CompactOptions{
 		MaxSmallBlobs:        *optimizeMaxSmallBlobs,
 		AllIndexes:           *optimizeAllIndexes,
@@ -23,5 +23,5 @@ func runOptimizeCommand(ctx context.Context, rep *repo.Repository) error {
 }
 
 func init() {
-	optimizeCommand.Action(repositoryAction(runOptimizeCommand))
+	optimizeCommand.Action(directRepositoryAction(runOptimizeCommand))
 }

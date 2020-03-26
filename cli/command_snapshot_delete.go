@@ -18,14 +18,14 @@ var (
 	snapshotDeleteIgnoreSource = snapshotDeleteCommand.Flag("unsafe-ignore-source", "Override the requirement to specify source info for the delete to succeed").Bool()
 )
 
-func runDeleteCommand(ctx context.Context, rep *repo.Repository) error {
+func runDeleteCommand(ctx context.Context, rep repo.Repository) error {
 	if !*snapshotDeleteIgnoreSource && *snapshotDeletePath == "" {
 		return errors.New("path is required")
 	}
 
 	manifestID := manifest.ID(*snapshotDeleteID)
 
-	manifestMeta, err := rep.Manifests.GetMetadata(ctx, manifestID)
+	manifestMeta, err := rep.GetManifest(ctx, manifestID, nil)
 	if err != nil {
 		return err
 	}
@@ -38,7 +38,7 @@ func runDeleteCommand(ctx context.Context, rep *repo.Repository) error {
 	if !*snapshotDeleteIgnoreSource {
 		h := *snapshotDeleteHostname
 		if h == "" {
-			h = rep.Hostname
+			h = rep.Hostname()
 		}
 
 		if labels["hostname"] != h {
@@ -47,7 +47,7 @@ func runDeleteCommand(ctx context.Context, rep *repo.Repository) error {
 
 		u := *snapshotDeleteUsername
 		if u == "" {
-			u = rep.Username
+			u = rep.Username()
 		}
 
 		if labels["username"] != u {
@@ -59,7 +59,7 @@ func runDeleteCommand(ctx context.Context, rep *repo.Repository) error {
 		}
 	}
 
-	return rep.Manifests.Delete(ctx, manifestID)
+	return rep.DeleteManifest(ctx, manifestID)
 }
 
 func init() {

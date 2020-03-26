@@ -23,8 +23,8 @@ const (
 var log = logging.GetContextLoggerFunc("kopia/snapshot")
 
 // ListSources lists all snapshot sources in a given repository.
-func ListSources(ctx context.Context, rep *repo.Repository) ([]SourceInfo, error) {
-	items, err := rep.Manifests.Find(ctx, map[string]string{
+func ListSources(ctx context.Context, rep repo.Repository) ([]SourceInfo, error) {
+	items, err := rep.FindManifests(ctx, map[string]string{
 		typeKey: ManifestType,
 	})
 	if err != nil {
@@ -58,8 +58,8 @@ func sourceInfoToLabels(si SourceInfo) map[string]string {
 }
 
 // ListSnapshots lists all snapshots for a given source.
-func ListSnapshots(ctx context.Context, rep *repo.Repository, si SourceInfo) ([]*Manifest, error) {
-	entries, err := rep.Manifests.Find(ctx, sourceInfoToLabels(si))
+func ListSnapshots(ctx context.Context, rep repo.Repository, si SourceInfo) ([]*Manifest, error) {
+	entries, err := rep.FindManifests(ctx, sourceInfoToLabels(si))
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to find manifest entries")
 	}
@@ -68,9 +68,9 @@ func ListSnapshots(ctx context.Context, rep *repo.Repository, si SourceInfo) ([]
 }
 
 // LoadSnapshot loads and parses a snapshot with a given ID.
-func LoadSnapshot(ctx context.Context, rep *repo.Repository, manifestID manifest.ID) (*Manifest, error) {
+func LoadSnapshot(ctx context.Context, rep repo.Repository, manifestID manifest.ID) (*Manifest, error) {
 	sm := &Manifest{}
-	if err := rep.Manifests.Get(ctx, manifestID, sm); err != nil {
+	if _, err := rep.GetManifest(ctx, manifestID, sm); err != nil {
 		return nil, errors.Wrap(err, "unable to find manifest entries")
 	}
 
@@ -80,7 +80,7 @@ func LoadSnapshot(ctx context.Context, rep *repo.Repository, manifestID manifest
 }
 
 // SaveSnapshot persists given snapshot manifest and returns manifest ID.
-func SaveSnapshot(ctx context.Context, rep *repo.Repository, man *Manifest) (manifest.ID, error) {
+func SaveSnapshot(ctx context.Context, rep repo.Repository, man *Manifest) (manifest.ID, error) {
 	if man.Source.Host == "" {
 		return "", errors.New("missing host")
 	}
@@ -93,7 +93,7 @@ func SaveSnapshot(ctx context.Context, rep *repo.Repository, man *Manifest) (man
 		return "", errors.New("missing path")
 	}
 
-	id, err := rep.Manifests.Put(ctx, sourceInfoToLabels(man.Source), man)
+	id, err := rep.PutManifest(ctx, sourceInfoToLabels(man.Source), man)
 	if err != nil {
 		return "", err
 	}
@@ -104,7 +104,7 @@ func SaveSnapshot(ctx context.Context, rep *repo.Repository, man *Manifest) (man
 }
 
 // LoadSnapshots efficiently loads and parses a given list of snapshot IDs.
-func LoadSnapshots(ctx context.Context, rep *repo.Repository, manifestIDs []manifest.ID) ([]*Manifest, error) {
+func LoadSnapshots(ctx context.Context, rep repo.Repository, manifestIDs []manifest.ID) ([]*Manifest, error) {
 	result := make([]*Manifest, len(manifestIDs))
 	sem := make(chan bool, loadSnapshotsConcurrency)
 
@@ -141,7 +141,7 @@ func LoadSnapshots(ctx context.Context, rep *repo.Repository, manifestIDs []mani
 }
 
 // ListSnapshotManifests returns the list of snapshot manifests for a given source or all sources if nil.
-func ListSnapshotManifests(ctx context.Context, rep *repo.Repository, src *SourceInfo) ([]manifest.ID, error) {
+func ListSnapshotManifests(ctx context.Context, rep repo.Repository, src *SourceInfo) ([]manifest.ID, error) {
 	labels := map[string]string{
 		typeKey: ManifestType,
 	}
@@ -150,7 +150,7 @@ func ListSnapshotManifests(ctx context.Context, rep *repo.Repository, src *Sourc
 		labels = sourceInfoToLabels(*src)
 	}
 
-	entries, err := rep.Manifests.Find(ctx, labels)
+	entries, err := rep.FindManifests(ctx, labels)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to find manifest entries")
 	}

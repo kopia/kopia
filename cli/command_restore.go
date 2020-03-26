@@ -60,7 +60,7 @@ func restoreOptions() localfs.CopyOptions {
 	}
 }
 
-func runRestoreCommand(ctx context.Context, rep *repo.Repository) error {
+func runRestoreCommand(ctx context.Context, rep repo.Repository) error {
 	oid, err := parseObjectID(ctx, rep, *restoreCommandSourcePath)
 	if err != nil {
 		return err

@@ -25,15 +25,22 @@ func (s *Server) handleRepoStatus(ctx context.Context, r *http.Request) (interfa
 		}, nil
 	}
 
+	dr, ok := s.rep.(*repo.DirectRepository)
+	if ok {
+		return &serverapi.StatusResponse{
+			Connected:   true,
+			ConfigFile:  dr.ConfigFile,
+			CacheDir:    dr.Content.CachingOptions.CacheDirectory,
+			Hash:        dr.Content.Format.Hash,
+			Encryption:  dr.Content.Format.Encryption,
+			MaxPackSize: dr.Content.Format.MaxPackSize,
+			Splitter:    dr.Objects.Format.Splitter,
+			Storage:     dr.Blobs.ConnectionInfo().Type,
+		}, nil
+	}
+
 	return &serverapi.StatusResponse{
-		Connected:   true,
-		ConfigFile:  s.rep.ConfigFile,
-		CacheDir:    s.rep.Content.CachingOptions.CacheDirectory,
-		Hash:        s.rep.Content.Format.Hash,
-		Encryption:  s.rep.Content.Format.Encryption,
-		MaxPackSize: s.rep.Content.Format.MaxPackSize,
-		Splitter:    s.rep.Objects.Format.Splitter,
-		Storage:     s.rep.Blobs.ConnectionInfo().Type,
+		Connected: true,
 	}, nil
 }
 

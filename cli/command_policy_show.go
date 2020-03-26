@@ -22,7 +22,7 @@ func init() {
 	policyShowCommand.Action(repositoryAction(showPolicy))
 }
 
-func showPolicy(ctx context.Context, rep *repo.Repository) error {
+func showPolicy(ctx context.Context, rep repo.Repository) error {
 	targets, err := policyTargets(ctx, rep, policyShowGlobal, policyShowTargets)
 	if err != nil {
 		return err

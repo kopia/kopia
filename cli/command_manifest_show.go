@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 
 	"github.com/pkg/errors"
 
@@ -29,16 +30,13 @@ func toManifestIDs(s []string) []manifest.ID {
 	return result
 }
 
-func showManifestItems(ctx context.Context, rep *repo.Repository) error {
+func showManifestItems(ctx context.Context, rep repo.Repository) error {
 	for _, it := range toManifestIDs(*manifestShowItems) {
-		md, err := rep.Manifests.GetMetadata(ctx, it)
+		var b json.RawMessage
+
+		md, err := rep.GetManifest(ctx, it, &b)
 		if err != nil {
 			return errors.Wrapf(err, "error getting metadata for %q", it)
-		}
-
-		b, err := rep.Manifests.GetRaw(ctx, it)
-		if err != nil {
-			return errors.Wrapf(err, "error showing %q", it)
 		}
 
 		printStderr("// id: %v\n", it)

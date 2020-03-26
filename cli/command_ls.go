@@ -20,7 +20,7 @@ var (
 	lsCommandPath      = lsCommand.Arg("object-path", "Path").Required().String()
 )
 
-func runLSCommand(ctx context.Context, rep *repo.Repository) error {
+func runLSCommand(ctx context.Context, rep repo.Repository) error {
 	oid, err := parseObjectID(ctx, rep, *lsCommandPath)
 	if err != nil {
 		return err
@@ -41,7 +41,7 @@ func init() {
 	lsCommand.Action(repositoryAction(runLSCommand))
 }
 
-func listDirectory(ctx context.Context, rep *repo.Repository, prefix string, oid object.ID, indent string) error {
+func listDirectory(ctx context.Context, rep repo.Repository, prefix string, oid object.ID, indent string) error {
 	d := snapshotfs.DirectoryEntry(rep, oid, nil)
 
 	entries, err := d.Readdir(ctx)

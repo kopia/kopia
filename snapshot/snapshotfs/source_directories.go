@@ -11,7 +11,7 @@ import (
 )
 
 type sourceDirectories struct {
-	rep      *repo.Repository
+	rep      repo.Repository
 	userHost string
 }
 

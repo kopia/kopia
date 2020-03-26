@@ -14,7 +14,7 @@ var (
 	blockIndexListSort    = blockIndexListCommand.Flag("sort", "Index blob sort order").Default("time").Enum("time", "size", "name")
 )
 
-func runListBlockIndexesAction(ctx context.Context, rep *repo.Repository) error {
+func runListBlockIndexesAction(ctx context.Context, rep *repo.DirectRepository) error {
 	blks, err := rep.Content.IndexBlobs(ctx)
 	if err != nil {
 		return err
@@ -47,5 +47,5 @@ func runListBlockIndexesAction(ctx context.Context, rep *repo.Repository) error 
 }
 
 func init() {
-	blockIndexListCommand.Action(repositoryAction(runListBlockIndexesAction))
+	blockIndexListCommand.Action(directRepositoryAction(runListBlockIndexesAction))
 }

@@ -18,7 +18,7 @@ var (
 	cacheSetMaxListCacheDuration   = cacheSetParamsCommand.Flag("max-list-cache-duration", "Duration of index cache").Default("-1ns").Duration()
 )
 
-func runCacheSetCommand(ctx context.Context, rep *repo.Repository) error {
+func runCacheSetCommand(ctx context.Context, rep *repo.DirectRepository) error {
 	opts := rep.Content.CachingOptions
 
 	changed := 0
@@ -57,5 +57,5 @@ func runCacheSetCommand(ctx context.Context, rep *repo.Repository) error {
 }
 
 func init() {
-	cacheSetParamsCommand.Action(repositoryAction(runCacheSetCommand))
+	cacheSetParamsCommand.Action(directRepositoryAction(runCacheSetCommand))
 }

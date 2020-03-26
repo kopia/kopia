@@ -21,7 +21,7 @@ func init() {
 	manifestListCommand.Action(repositoryAction(listManifestItems))
 }
 
-func listManifestItems(ctx context.Context, rep *repo.Repository) error {
+func listManifestItems(ctx context.Context, rep repo.Repository) error {
 	filter := map[string]string{}
 
 	for _, kv := range *manifestListFilter {
@@ -33,7 +33,7 @@ func listManifestItems(ctx context.Context, rep *repo.Repository) error {
 		filter[kv[0:p]] = kv[p+1:]
 	}
 
-	items, err := rep.Manifests.Find(ctx, filter)
+	items, err := rep.FindManifests(ctx, filter)
 	if err != nil {
 		return err
 	}

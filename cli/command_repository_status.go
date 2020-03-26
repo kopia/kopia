@@ -21,7 +21,7 @@ var (
 	statusReconnectTokenIncludePassword = statusCommand.Flag("reconnect-token-with-password", "Include password in reconnect token").Short('s').Bool()
 )
 
-func runStatusCommand(ctx context.Context, rep *repo.Repository) error {
+func runStatusCommand(ctx context.Context, rep *repo.DirectRepository) error {
 	fmt.Printf("Config file:         %v\n", rep.ConfigFile)
 
 	ci := rep.Blobs.ConnectionInfo()
@@ -33,8 +33,8 @@ func runStatusCommand(ctx context.Context, rep *repo.Repository) error {
 
 	fmt.Println()
 	fmt.Printf("Unique ID:           %x\n", rep.UniqueID)
-	fmt.Printf("Hostname:            %v\n", rep.Hostname)
-	fmt.Printf("Username:            %v\n", rep.Username)
+	fmt.Printf("Hostname:            %v\n", rep.Hostname())
+	fmt.Printf("Username:            %v\n", rep.Username())
 	fmt.Println()
 	fmt.Printf("Hash:                %v\n", rep.Content.Format.Hash)
 	fmt.Printf("Encryption:          %v\n", rep.Content.Format.Encryption)
@@ -99,5 +99,5 @@ func scanCacheDir(dirname string) (fileCount int, totalFileLength int64, err err
 }
 
 func init() {
-	statusCommand.Action(repositoryAction(runStatusCommand))
+	statusCommand.Action(directRepositoryAction(runStatusCommand))
 }

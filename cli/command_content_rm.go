@@ -12,7 +12,7 @@ var (
 	contentRemoveIDs = contentRemoveCommand.Arg("id", "IDs of content to remove").Required().Strings()
 )
 
-func runContentRemoveCommand(ctx context.Context, rep *repo.Repository) error {
+func runContentRemoveCommand(ctx context.Context, rep *repo.DirectRepository) error {
 	for _, contentID := range toContentIDs(*contentRemoveIDs) {
 		if err := rep.Content.DeleteContent(ctx, contentID); err != nil {
 			return err
@@ -24,5 +24,5 @@ func runContentRemoveCommand(ctx context.Context, rep *repo.Repository) error {
 
 func init() {
 	setupShowCommand(contentRemoveCommand)
-	contentRemoveCommand.Action(repositoryAction(runContentRemoveCommand))
+	contentRemoveCommand.Action(directRepositoryAction(runContentRemoveCommand))
 }

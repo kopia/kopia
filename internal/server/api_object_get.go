@@ -22,7 +22,7 @@ func (s *Server) handleObjectGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	obj, err := s.rep.Objects.Open(r.Context(), oid)
+	obj, err := s.rep.OpenObject(r.Context(), oid)
 	if err == object.ErrObjectNotFound {
 		http.Error(w, "object not found", http.StatusNotFound)
 		return
