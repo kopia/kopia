@@ -164,22 +164,22 @@ func snapshotSingleSource(ctx context.Context, rep *repo.Repository, u *snapshot
 	endTimeOverride, _ := parseTimestamp(*snapshotCreateEndTime)
 
 	if !startTimeOverride.IsZero() {
-		manifest.StartTime = startTimeOverride
-
 		if endTimeOverride.IsZero() {
 			// Calculate the correct end time based on current duration if they're not specified
 			duration := manifest.EndTime.Sub(manifest.StartTime)
 			manifest.EndTime = startTimeOverride.Add(duration)
 		}
+
+		manifest.StartTime = startTimeOverride
 	}
 
 	if !endTimeOverride.IsZero() {
-		manifest.EndTime = endTimeOverride
-
 		if startTimeOverride.IsZero() {
 			inverseDuration := manifest.StartTime.Sub(manifest.EndTime)
 			manifest.StartTime = endTimeOverride.Add(inverseDuration)
 		}
+
+		manifest.EndTime = endTimeOverride
 	}
 
 	snapID, err := snapshot.SaveSnapshot(ctx, rep, manifest)
