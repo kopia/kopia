@@ -117,17 +117,11 @@ func runBackupCommand(ctx context.Context, rep repo.Repository) error {
 }
 
 func parseTimestamp(timestamp string) (time.Time, error) {
-	if timestamp != "" {
-		parsedTimestamp, err := time.Parse(timeFormat, timestamp)
-
-		if err != nil {
-			return time.Time{}, err
-		}
-
-		return parsedTimestamp, nil
+	if timestamp == "" {
+		return time.Time{}, nil
 	}
 
-	return time.Time{}, nil
+	return time.Parse(timeFormat, timestamp)
 }
 
 func startTimeAfterEndTime(startTime, endTime time.Time) bool {
@@ -164,28 +158,26 @@ func snapshotSingleSource(ctx context.Context, rep repo.Repository, u *snapshotf
 	}
 
 	manifest.Description = *snapshotCreateDescription
-
-	duration := manifest.EndTime.Sub(manifest.StartTime)
-	inverseDuration := manifest.StartTime.Sub(manifest.EndTime)
-
 	startTimeOverride, _ := parseTimestamp(*snapshotCreateStartTime)
 	endTimeOverride, _ := parseTimestamp(*snapshotCreateEndTime)
 
 	if !startTimeOverride.IsZero() {
-		manifest.StartTime = startTimeOverride
-
 		if endTimeOverride.IsZero() {
 			// Calculate the correct end time based on current duration if they're not specified
+			duration := manifest.EndTime.Sub(manifest.StartTime)
 			manifest.EndTime = startTimeOverride.Add(duration)
 		}
+
+		manifest.StartTime = startTimeOverride
 	}
 
 	if !endTimeOverride.IsZero() {
-		manifest.EndTime = endTimeOverride
-
 		if startTimeOverride.IsZero() {
+			inverseDuration := manifest.StartTime.Sub(manifest.EndTime)
 			manifest.StartTime = endTimeOverride.Add(inverseDuration)
 		}
+
+		manifest.EndTime = endTimeOverride
 	}
 
 	snapID, err := snapshot.SaveSnapshot(ctx, rep, manifest)
