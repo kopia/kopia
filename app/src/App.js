@@ -1,40 +1,113 @@
-import React from 'react';
-import './App.css';
-import Container from 'react-bootstrap/Container';
-import Tabs from 'react-bootstrap/Tabs';
-import Tab from 'react-bootstrap/Tab';
-import logo from './kopia-flat.svg';
-
-import ServerConfig from './ServerConfig.js';
-import ServerLogs from './ServerLogs';
-import ServerStatus from './ServerStatus';
-
 import 'bootstrap/dist/css/bootstrap.min.css';
+import React, { Component } from 'react';
+import Col from 'react-bootstrap/Col';
+import Container from 'react-bootstrap/Container';
+import Nav from 'react-bootstrap/Nav';
+import Row from 'react-bootstrap/Row';
+import Tab from 'react-bootstrap/Tab';
 
-function App() {
-  return (
-    <Container fluid>
-      <header>
-        <img src={logo} className="App-logo" alt="logo" />
-        <span className="title">Kopia</span>
-      </header>
-      <hr/>
-      <Tabs defaultActiveKey="config" transition={false}>
-        <Tab eventKey="config" title="Server Configuration">
-          <div className="tab-body">
-            <ServerConfig />
-          </div>
-        </Tab>
-        <Tab eventKey="logs" title="Logs">
-          <div className="tab-body">
-            <ServerLogs />
-          </div>
-        </Tab>
-      </Tabs>
-      <hr/>
-      <ServerStatus />
-    </Container>
-  );
-}
+import { v4 } from 'uuid';
 
-export default App;
+import './App.css';
+import Repo from './Repo';
+
+export default class App extends Component {
+  constructor() {
+    super();
+    this.state = {
+      sortedConfigs: [],
+      activeTabKey: "",
+    };
+
+    this.addNewServer = this.addNewServer.bind(this);
+
+    if (window.require) {
+      const { ipcRenderer } = window.require('electron');
+
+      ipcRenderer.on('config-list-updated-event', (event, arg) => this.configListUpdated(arg));
+      ipcRenderer.send('config-list-fetch')
+    }
+  }
+
+  configListUpdated(sortedConfigs) {
+    console.log('config-list-updated', sortedConfigs);
+
+    let ak = this.state.activeTabKey;
+
+    if (!sortedConfigs.find(e => e.repoID === ak)) {
+      console.log('active repo was not found', ak, 'among', sortedConfigs);
+      ak = "";
+    }
+
+    if (!ak && sortedConfigs.length > 0) {
+      ak = sortedConfigs[0].repoID;
+    }
+
+    this.setState({
+      sortedConfigs: sortedConfigs,
+      activeTabKey: ak,
+    });
+  }
+
+  addNewServer() {
+    let newRepoID = v4();
+
+    if (!this.state.sortedConfigs) {
+      newRepoID = "default";
+    }
+    
+    const newConfigs = this.state.sortedConfigs.concat([{
+      repoID: newRepoID,
+      desc: "<New Repository>",
+    }])
+
+    this.setState({
+      sortedConfigs: newConfigs,
+      activeTabKey: newRepoID,
+    })
+
+    if (window.require) {
+      const { ipcRenderer } = window.require('electron');
+
+      ipcRenderer.sendSync('config-add', {
+        repoID: newRepoID,
+        data: {
+          configFile: newRepoID + ".config",
+        },
+      });
+    }
+  }
+
+  render() {
+    console.log('rendering ', this.state);
+    return (
+      <Container fluid>
+        <hr />
+        <Tab.Container id="left-tabs-example" activeKey={this.state.activeTabKey} onSelect={(k) => this.setState({ activeTabKey: k })}>
+          <Row>
+            <Col sm={2}>
+              <Nav variant="pills" className="flex-column">
+                {this.state.sortedConfigs.map(v => <Nav.Item key={v.repoID} >
+                  <Nav.Link eventKey={v.repoID}>{v.desc || v.repoID}</Nav.Link>
+                </Nav.Item>)}
+                <Nav.Item>
+                  <Nav.Link onClick={this.addNewServer}>+ New</Nav.Link>
+                </Nav.Item>
+              </Nav>
+            </Col>
+            <Col sm={10}>
+              <Tab.Content>
+                {this.state.sortedConfigs.map(v => <Tab.Pane key={v.repoID} eventKey={v.repoID}>
+                  <Repo repoID={v.repoID} />
+                </Tab.Pane>)}
+              </Tab.Content>
+            </Col>
+          </Row>
+        </Tab.Container>
+
+        {/* {JSON.stringify(this.state)} */}
+
+      </Container>
+    );
+  }
+};
