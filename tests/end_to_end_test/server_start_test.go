@@ -1,8 +1,11 @@
 package endtoend_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"io/ioutil"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -63,6 +66,7 @@ func TestServerStart(t *testing.T) {
 
 	var sp serverParameters
 
+	e.Environment = append(e.Environment, `KOPIA_UI_TITLE_PREFIX=Blah: <script>bleh</script> `)
 	e.RunAndProcessStderr(t, sp.ProcessOutput,
 		"server", "start",
 		"--ui",
@@ -88,6 +92,7 @@ func TestServerStart(t *testing.T) {
 	defer cli.Shutdown(ctx) // nolint:errcheck
 
 	waitUntilServerStarted(ctx, t, cli)
+	verifyUIServedWithCorrectTitle(t, cli, sp)
 
 	st := verifyServerConnected(t, cli, true)
 	if got, want := st.Storage, "filesystem"; got != want {
@@ -321,6 +326,33 @@ func verifySourceCount(t *testing.T, cli *serverapi.Client, match *snapshot.Sour
 	}
 
 	return sources.Sources
+}
+
+func verifyUIServedWithCorrectTitle(t *testing.T, cli *serverapi.Client, sp serverParameters) {
+	req, err := http.NewRequest("GET", sp.baseURL, nil)
+	if err != nil {
+		t.Fatalf("unable to create HTTP request: %v", err)
+	}
+
+	req.SetBasicAuth("kopia", sp.password)
+
+	resp, err := cli.HTTPClient().Do(req)
+	if err != nil {
+		t.Fatalf("unable to get HTML root: %v", err)
+	}
+
+	defer resp.Body.Close()
+
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("error reading response body: %v", err)
+	}
+
+	// make sure the UI correctly inserts prefix from KOPIA_UI_TITLE_PREFIX
+	// and it's correctly HTML-escaped.
+	if !bytes.Contains(b, []byte(`<title>Blah: &lt;script&gt;bleh&lt;/script&gt; Kopia UI`)) {
+		t.Errorf("invalid title served by the UI: %v.", string(b))
+	}
 }
 
 func waitUntilServerStarted(ctx context.Context, t *testing.T, cli *serverapi.Client) {
