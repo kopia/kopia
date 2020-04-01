@@ -1,6 +1,4 @@
 const { spawnSync } = require("child_process");
-const signTool = process.env.WINDOWS_SIGN_TOOL || "signtool.exe";
-
 exports.default = async function (configuration) {
   if (process.platform !== "win32") {
     return;
@@ -12,6 +10,10 @@ exports.default = async function (configuration) {
     return;
   }
 
+  const signTool = process.env.WINDOWS_SIGN_TOOL || "signtool.exe";
+
+  console.log('signTool', signTool);
+  
   const signToolArgs = [
     "sign",
     "/sha1", sha1,
@@ -37,7 +39,7 @@ exports.default = async function (configuration) {
     nextSleepTime *= 2;
 
     const result = spawnSync(signTool, signToolArgs, {
-      // stdio: "inherit",
+      stdio: "inherit",
     });
 
     if (!result.error && 0 === result.status) {
