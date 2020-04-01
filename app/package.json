@@ -63,7 +63,9 @@
         }
       ],
       "sign": "./sign.js",
-      "signingHashAlgorithms": ["sha256"]
+      "signingHashAlgorithms": [
+        "sha256"
+      ]
     },
     "mac": {
       "hardenedRuntime": true,
