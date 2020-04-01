@@ -61,7 +61,9 @@
             "kopia.exe"
           ]
         }
-      ]
+      ],
+      "sign": "./sign.js",
+      "signingHashAlgorithms": ["sha256"]
     },
     "mac": {
       "hardenedRuntime": true,
