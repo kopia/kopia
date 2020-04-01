@@ -170,4 +170,20 @@ export REACT_APP_FULL_VERSION_INFO:=$(KOPIA_VERSION) built on $(date_full) $(she
 clean-tools:
 	rm -rf $(TOOLS_DIR)
 
-all-tools: $(npm) $(goreleaser) $(linter) $(hugo) $(go_bindata)
+windows_signing_dir=$(TOOLS_DIR)$(slash)win_signing
+
+windows-signing-tools:
+ifeq ($(TRAVIS_OS_NAME),windows)
+ifneq ($(WINDOWS_SIGNING_TOOLS_URL),)
+	echo Installing Windows signing tools to $(windows_signing_dir)...
+	-$(mkdir) $(windows_signing_dir)
+	curl -LsS -o $(windows_signing_dir).zip $(WINDOWS_SIGNING_TOOLS_URL)
+	unzip -a -q $(windows_signing_dir).zip -d $(windows_signing_dir)
+	powershell -noprofile -executionpolicy bypass $(windows_signing_dir)\\setup.ps1
+else
+	echo Not installing Windows signing tools because WINDOWS_SIGNING_TOOLS_URL is not set
+endif
+endif
+
+all-tools: $(npm) $(goreleaser) $(linter) $(hugo) $(go_bindata) windows-signing-tools
+
