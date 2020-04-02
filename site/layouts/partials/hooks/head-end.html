@@ -6,9 +6,6 @@
 <script>
 window.addEventListener('load', function(){
   window.cookieconsent.initialise({
-   revokeBtn: "<div class='cc-revoke'></div>",
-   type: "opt-in",
-   theme: "classic",
    palette: {
        popup: {
            background: "#000",
@@ -19,7 +16,8 @@ window.addEventListener('load', function(){
            text: "#000"
         }
     },
-   content: {
+    position: "bottom-right",
+    content: {
        link: "Read more",
        href: "https://kopia.io/docs/privacy-policy/"
     },
