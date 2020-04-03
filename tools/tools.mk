@@ -35,6 +35,26 @@ else
 	date_full := $(shell date)
 endif
 
+# compute build date and time from the current commit
+commit_date_ymd:=$(subst -,,$(word 1, $(shell git show -s --format=%ci HEAD)))
+
+# compute time of day as a decimal number, without leading zeroes
+# midnight will be 0
+# 00:01:00 becomes 100
+# 00:10:00 becomes 1000
+# 07:00:00 becomes 70000
+# end of day is 235959
+# time of day as hhmmss from 000000 to 235969
+commit_time_raw:=$(subst :,,$(word 2, $(shell git show -s --format=%ci HEAD)))
+commit_time_stripped1=$(commit_time_raw:0%=%)
+commit_time_stripped2=$(commit_time_stripped1:0%=%)
+commit_time_stripped3=$(commit_time_stripped2:0%=%)
+commit_time_stripped4=$(commit_time_stripped3:0%=%)
+
+# final time of day number
+commit_time_of_day=$(commit_time_stripped4:0%=%)
+
+
 SELF_DIR := $(subst /,$(slash),$(realpath $(dir $(lastword $(MAKEFILE_LIST)))))
 TOOLS_DIR:=$(SELF_DIR)$(slash).tools
 
@@ -153,7 +173,7 @@ ifneq ($(TRAVIS_TAG),)
 KOPIA_VERSION:=$(TRAVIS_TAG:v%=%)
 else
 # travis, non-tagged release
-KOPIA_VERSION:=$(date_ymd).0.$(TRAVIS_BUILD_NUMBER)
+KOPIA_VERSION:=$(commit_date_ymd).0.$(commit_time_of_day)
 endif
 
 else
