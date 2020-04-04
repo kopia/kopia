@@ -6,7 +6,7 @@ environment:
   WINDOWS_SIGN_AUTH: 
     secure: 7gsvPGqUrq3mr0wXpdWyq00GvJY7CDoS3vzMdkXN1dZGsoS2xihAD5zRJ+/lGqig
   WINDOWS_SIGN_USER: 
-    PC1hesS7kuWn96McAzOcCxkgVQkc9yaOdUm2IlNXico=
+    secure: PC1hesS7kuWn96McAzOcCxkgVQkc9yaOdUm2IlNXico=
   WINDOWS_CERT_SHA1: 311dc12ccfaaf7f3236e855c6a81451b2c11e375
   WINDOWS_SIGN_TOOL: C:\Program Files (x86)\Windows Kits\10\bin\10.0.18362.0\x64\signtool.exe
 init:
