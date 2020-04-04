@@ -9,8 +9,10 @@ environment:
     secure: PC1hesS7kuWn96McAzOcCxkgVQkc9yaOdUm2IlNXico=
   WINDOWS_CERT_SHA1: 311dc12ccfaaf7f3236e855c6a81451b2c11e375
   WINDOWS_SIGN_TOOL: C:\Program Files (x86)\Windows Kits\10\bin\10.0.18362.0\x64\signtool.exe
-init:
-  - ps: iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
+  GH_TOKEN:
+    secure: 3gKqe7aTP4hMA4T1CrLF2G+3zf01ciR5NNeIAMIealG4hkjnMdl44L0c6tAIvGHg
+#init:
+#  - ps: iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
 install:
 - cmd: >-
     reg add "HKEY_LOCAL_MACHINE\Software\Microsoft\Command Processor" /v EnableExtensions /d 1 /t REG_DWORD /f
