@@ -224,9 +224,10 @@ goreturns:
 # this indicates we're running on Travis CI and NOT processing pull request.
 ifeq ($(TRAVIS_PULL_REQUEST),false)
 
+# https://travis-ci.community/t/windows-build-timeout-after-success-ps-shows-gpg-agent/4967/4
+
 travis-install-gpg-key:
 ifeq ($(TRAVIS_OS_NAME),windows)
-	# https://travis-ci.community/t/windows-build-timeout-after-success-ps-shows-gpg-agent/4967/4
 	@echo Not installing GPG key on Windows...
 else
 	@echo Installing GPG key...
@@ -236,9 +237,11 @@ endif
 
 travis-install-test-credentials:
 	@echo Installing test credentials...
+ifneq ($(TRAVIS_OS_NAME),windows)
 	openssl aes-256-cbc -K "$(encrypted_fa1db4b894bb_key)" -iv "$(encrypted_fa1db4b894bb_iv)" -in tests/credentials/gcs/test_service_account.json.enc -out repo/blob/gcs/test_service_account.json -d
 	openssl aes-256-cbc -K "$(encrypted_fa1db4b894bb_key)" -iv "$(encrypted_fa1db4b894bb_iv)" -in tests/credentials/sftp/id_kopia.enc -out repo/blob/sftp/id_kopia -d
 	openssl aes-256-cbc -K "$(encrypted_fa1db4b894bb_key)" -iv "$(encrypted_fa1db4b894bb_iv)" -in tests/credentials/sftp/known_hosts.enc -out repo/blob/sftp/known_hosts -d
+endif
 
 travis-install-cloud-sdk: travis-install-test-credentials
 	if [ ! -d $(HOME)/google-cloud-sdk ]; then curl https://sdk.cloud.google.com | CLOUDSDK_CORE_DISABLE_PROMPTS=1 bash; fi
