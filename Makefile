@@ -126,7 +126,12 @@ ifeq ($(publish_binaries),0)
 GORELEASER_OPTIONS+=--skip-publish
 endif
 
-goreleaser: $(goreleaser)
+print_build_info:
+	@echo TRAVIS_TAG: $(TRAVIS_TAG)
+	@echo TRAVIS_PULL_REQUEST: $(TRAVIS_PULL_REQUEST)
+	@echo TRAVIS_OS_NAME: $(TRAVIS_OS_NAME)
+
+goreleaser: $(goreleaser) print_build_info
 	-git diff | cat
 	$(goreleaser) release $(GORELEASER_OPTIONS)
 
