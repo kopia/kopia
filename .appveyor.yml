@@ -1,0 +1,20 @@
+version: 1.0.{build}
+image: Visual Studio 2019
+environment:
+  WINDOWS_SIGNING_TOOLS_URL: 
+    secure: BQZZ+U5LmX/t6DUF3AbPFxvmDYrKoLUI5aVvTMOho0FrkHrxR+vGKYEeCKxtWPMKjlA0q60lii+cP8VNbpMo3Q==
+  WINDOWS_SIGN_AUTH: 
+    secure: 7gsvPGqUrq3mr0wXpdWyq00GvJY7CDoS3vzMdkXN1dZGsoS2xihAD5zRJ+/lGqig
+  WINDOWS_SIGN_USER: 
+    PC1hesS7kuWn96McAzOcCxkgVQkc9yaOdUm2IlNXico=
+  WINDOWS_CERT_SHA1: 311dc12ccfaaf7f3236e855c6a81451b2c11e375
+  WINDOWS_SIGN_TOOL: C:\Program Files (x86)\Windows Kits\10\bin\10.0.18362.0\x64\signtool.exe
+install:
+- cmd: >-
+    reg add "HKEY_LOCAL_MACHINE\Software\Microsoft\Command Processor" /v EnableExtensions /d 1 /t REG_DWORD /f
+
+    choco install -y make unzip curl
+    
+    make travis-setup SHELL=cmd
+build_script:
+- cmd: make travis-release SHELL=cmd

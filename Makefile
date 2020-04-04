@@ -46,9 +46,11 @@ lint-and-log: $(linter)
 
 
 vet-time-inject:
+ifneq ($(TRAVIS_OS_NAME),windows)
 	! find repo snapshot -name '*.go' -not -path 'repo/blob/logging/*' -not -name '*_test.go' \
 	-exec grep -n -e time.Now -e time.Since -e time.Until {} + \
 	| grep -v -e allow:no-inject-time
+endif
 
 vet: vet-time-inject
 	go vet -all .
@@ -126,7 +128,12 @@ ifeq ($(publish_binaries),0)
 GORELEASER_OPTIONS+=--skip-publish
 endif
 
-goreleaser: $(goreleaser)
+print_build_info:
+	@echo TRAVIS_TAG: $(TRAVIS_TAG)
+	@echo TRAVIS_PULL_REQUEST: $(TRAVIS_PULL_REQUEST)
+	@echo TRAVIS_OS_NAME: $(TRAVIS_OS_NAME)
+
+goreleaser: $(goreleaser) print_build_info
 	-git diff | cat
 	$(goreleaser) release $(GORELEASER_OPTIONS)
 
@@ -152,7 +159,7 @@ dev-deps:
 	GO111MODULE=off go get -u github.com/sqs/goreturns
 
 test-with-coverage:
-	$(GO_TEST) -count=1 -coverprofile=tmp.cov --coverpkg $(COVERAGE_PACKAGES) -timeout 90s `go list ./...`
+	$(GO_TEST) -count=1 -coverprofile=tmp.cov --coverpkg $(COVERAGE_PACKAGES) -timeout 90s $(shell go list ./...)
 
 test-with-coverage-pkgonly:
 	$(GO_TEST) -count=1 -coverprofile=tmp.cov -timeout 90s github.com/kopia/kopia/...
@@ -166,8 +173,9 @@ vtest:
 dist-binary:
 	go build -o $(KOPIA_INTEGRATION_EXE) github.com/kopia/kopia
 
+integration-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
 integration-tests: dist-binary
-	KOPIA_EXE=$(KOPIA_INTEGRATION_EXE) $(GO_TEST) $(TEST_FLAGS) -count=1 -parallel $(PARALLEL) -timeout 600s github.com/kopia/kopia/tests/end_to_end_test
+	 $(GO_TEST) $(TEST_FLAGS) -count=1 -parallel $(PARALLEL) -timeout 600s github.com/kopia/kopia/tests/end_to_end_test
 
 robustness-tool-tests:
 	FIO_DOCKER_IMAGE=$(FIO_DOCKER_TAG) \

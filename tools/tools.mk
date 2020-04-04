@@ -6,6 +6,31 @@
 #
 # you will need to have git and golang too in the PATH.
 
+ifeq ($(TRAVIS_OS_NAME),windows)
+UNIX_SHELL_ON_WINDOWS=true
+endif
+
+ifneq ($(APPVEYOR),)
+
+UNIX_SHELL_ON_WINDOWS=false
+
+# running Windows build on AppVeyor
+# emulate Travis CI environment variables, so we can use TRAVIS logic everywhere
+
+ifeq ($(APPVEYOR_PULL_REQUEST_NUMBER),)
+export TRAVIS_PULL_REQUEST=false
+else
+export TRAVIS_PULL_REQUEST=$(APPVEYOR_PULL_REQUEST_NUMBER)
+endif
+
+ifneq ($(APPVEYOR_REPO_TAG_NAME),)
+export TRAVIS_TAG=$(APPVEYOR_REPO_TAG_NAME)
+endif
+
+TRAVIS_OS_NAME=windows
+
+endif
+
 # uname will be Windows, Darwin, Linux
 ifeq ($(OS),Windows_NT)
 	exe_suffix := .exe
@@ -15,7 +40,7 @@ ifeq ($(OS),Windows_NT)
 	path_separator=;
 	date_ymd := $(shell powershell -noprofile -executionpolicy bypass -Command "(Get-Date).ToString('yyyyMMdd')")
 	date_full := $(shell powershell -noprofile -executionpolicy bypass -Command "(Get-Date).datetime")
-ifeq ($(TRAVIS_OS_NAME),windows)
+ifeq ($(UNIX_SHELL_ON_WINDOWS),true)
 	mkdir=mkdir -p
 	move=mv
 	slash=/
