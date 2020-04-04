@@ -6,7 +6,6 @@ go:
 os:
 - linux
 - osx
-- windows
 addons:
   apt:
     packages:
