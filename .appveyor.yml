@@ -7,7 +7,8 @@ environment:
     secure: 7gsvPGqUrq3mr0wXpdWyq00GvJY7CDoS3vzMdkXN1dZGsoS2xihAD5zRJ+/lGqig
   WINDOWS_SIGN_USER: 
     secure: PC1hesS7kuWn96McAzOcCxkgVQkc9yaOdUm2IlNXico=
-  WINDOWS_CERT_SHA1: 311dc12ccfaaf7f3236e855c6a81451b2c11e375
+  WINDOWS_CERT_SHA1:
+    secure: C3sIp2WeLpZko1ohGcKwO2rO2i8yh/9KkHcBHTGQiBGq+gjYfgM/d5KYDDsvSS4o
   WINDOWS_SIGN_TOOL: C:\Program Files (x86)\Windows Kits\10\bin\10.0.18362.0\x64\signtool.exe
   GH_TOKEN:
     secure: 3gKqe7aTP4hMA4T1CrLF2G+3zf01ciR5NNeIAMIealG4hkjnMdl44L0c6tAIvGHg
