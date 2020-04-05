@@ -1,69 +1,41 @@
 const { app, BrowserWindow, Menu, Tray, ipcMain, dialog } = require('electron')
 const path = require('path');
 const isDev = require('electron-is-dev');
-const config = require('electron-json-config');
 const { autoUpdater } = require("electron-updater");
 const { resourcesPath, selectByOS } = require('./utils');
 const { toggleLaunchAtStartup, willLaunchAtStartup, refreshWillLaunchAtStartup } = require('./auto-launch');
-const { stopServer, actuateServer, getServerAddress, getServerCertSHA256, getServerPassword } = require('./server');
+const { serverForRepo } = require('./server');
 const log = require("electron-log")
-const firstRun = require('electron-first-run');
+const { loadConfigs, configForRepo, deleteConfigForRepo, currentConfigSummary, configDir, isFirstRun, isPortableConfig } = require('./config');
+const { showConfigWindow, isConfigWindowOpen } = require('./config_window');
 
 app.name = 'KopiaUI';
 
-ipcMain.on('fetch-config', (event, arg) => {
-  event.sender.send('config-updated', config.all());
+ipcMain.on('config-save', (event, arg) => {
+  console.log('saving config', arg);
+  configForRepo(arg.repoID).setBulk(arg.config);
+  serverForRepo(arg.repoID).actuateServer();
+  event.returnValue = true;
 })
 
-ipcMain.on('save-config', (event, arg) => {
-  console.log('saving config', arg);
-  config.setBulk(arg);
-  actuateServer();
+ipcMain.on('config-delete', (event, arg) => {
+  console.log('deleting config', arg);
+  serverForRepo(arg.repoID).stopServer();
+  deleteConfigForRepo(arg.repoID);
   event.returnValue = true;
 })
 
 let tray = null
-let configWindow = null;
-let mainWindow = null;
+let repoWindows = {};
+let repoIDForWebContents = {};
 
-function serverConfiguration() {
-  if (configWindow) {
-    configWindow.focus();
+function showRepoWindow(repoID) {
+  if (repoWindows[repoID]) {
+    repoWindows[repoID].focus();
     return;
   }
 
-  configWindow = new BrowserWindow({
-    width: 1000,
-    height: 700,
-    autoHideMenuBar: true,
-    webPreferences: {
-      nodeIntegration: true,
-    },
-  })
-
-  if (isDev) {
-    configWindow.loadURL('http://localhost:3000/?ts=' + new Date().valueOf());
-  } else {
-    configWindow.loadFile('./build/index.html');
-  }
-  updateDockIcon();
-
-  configWindow.on('closed', function () {
-    ipcMain.removeAllListeners('status-updated-event');
-    ipcMain.removeAllListeners('logs-updated-event');
-    // forget the reference.
-    configWindow = null;
-    updateDockIcon();
-  });
-}
-
-function showMainWindow() {
-  if (mainWindow) {
-    mainWindow.focus();
-    return;
-  }
-
-  mainWindow = new BrowserWindow({
+  let rw = new BrowserWindow({
     width: 1000,
     height: 700,
     title: 'Kopia UI Loading...',
@@ -73,26 +45,33 @@ function showMainWindow() {
     },
   })
 
-  mainWindow.webContents.on('did-fail-load', () => {
+  repoWindows[repoID] = rw
+
+  const wcID = rw.webContents.id;
+  repoIDForWebContents[wcID] = repoID
+
+  rw.webContents.on('did-fail-load', () => {
     log.error('failed to load');
 
     // schedule another attempt in 0.5s
-    if (mainWindow) {
+    if (repoWindows[repoID]) {
       setTimeout(() => {
         log.info('reloading');
-        if (mainWindow) {
-          mainWindow.loadURL(getServerAddress() + '/?ts=' + new Date().valueOf());
+        if (repoWindows[repoID]) {
+          repoWindows[repoID].loadURL(serverForRepo(repoID).getServerAddress() + '/?ts=' + new Date().valueOf());
         }
       }, 500)
     }
   })
 
-  mainWindow.loadURL(getServerAddress() + '/?ts=' + new Date().valueOf());
+  rw.loadURL(serverForRepo(repoID).getServerAddress() + '/?ts=' + new Date().valueOf());
   updateDockIcon();
 
-  mainWindow.on('closed', function () {
+  rw.on('closed', function () {
     // forget the reference.
-    mainWindow = null;
+    rw = null;
+    delete (repoWindows[repoID]);
+    delete (repoIDForWebContents[wcID]);
     updateDockIcon();
   });
 }
@@ -102,20 +81,26 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   app.on('second-instance', (event, commandLine, workingDirectory) => {
     // Someone tried to run a second instance, we should focus our window.
-    if (mainWindow) {
-      if (mainWindow.isMinimized()) mainWindow.restore()
-      mainWindow.focus()
+    for (let repoID in repoWindows) {
+      let rw = repoWindows[repoID];
+      if (rw.isMinimized()) {
+        rw.restore()
+      }
+
+      rw.focus()
     }
   })
 }
 
 app.on('will-quit', function () {
-  stopServer();
+  currentConfigSummary().forEach(v => serverForRepo(v.repoID).stopServer());
 });
 
 app.on('login', (event, webContents, request, authInfo, callback) => {
+  const repoID = repoIDForWebContents[webContents.id];
+
   // intercept password prompts and automatically enter password that the server has printed for us.
-  const p = getServerPassword();
+  const p = serverForRepo(repoID).getServerPassword();
   if (p) {
     event.preventDefault();
     console.log('automatically logging in...');
@@ -124,8 +109,10 @@ app.on('login', (event, webContents, request, authInfo, callback) => {
 });
 
 app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
+  const repoID = repoIDForWebContents[webContents.id];
+  console.log('cert error', repoID);
   // intercept certificate errors and automatically trust the certificate the server has printed for us. 
-  const expected = 'sha256/' + Buffer.from(getServerCertSHA256(), 'hex').toString('base64');
+  const expected = 'sha256/' + Buffer.from(serverForRepo(repoID).getServerCertSHA256(), 'hex').toString('base64');
   if (certificate.fingerprint === expected) {
     console.log('accepting server certificate.');
 
@@ -150,7 +137,7 @@ function checkForUpdates() {
 }
 
 function maybeMoveToApplicationsFolder() {
-  if (isDev) {
+  if (isDev || isPortableConfig()) {
     return;
   }
 
@@ -174,7 +161,7 @@ function maybeMoveToApplicationsFolder() {
 
 function updateDockIcon() {
   if (process.platform === 'darwin') {
-    if (configWindow || mainWindow) {
+    if (isConfigWindowOpen() || repoWindows) {
       app.dock.show();
     } else {
       app.dock.hide();
@@ -182,7 +169,19 @@ function updateDockIcon() {
   }
 }
 
+function showAllRepoWindows() {
+  currentConfigSummary().forEach(v => showRepoWindow(v.repoID));
+}
+
 app.on('ready', () => {
+  loadConfigs();
+
+  if (isPortableConfig()) {
+    const logDir = path.join(configDir(), "logs");
+
+    log.transports.file.resolvePath = (variables) => path.join(logDir, variables.fileName);
+  }
+
   log.transports.file.level = "debug"
   autoUpdater.logger = log
 
@@ -205,22 +204,56 @@ app.on('ready', () => {
   tray.setToolTip('Kopia');
   updateTrayContextMenu();
   refreshWillLaunchAtStartup();
-  actuateServer();
-  if (firstRun()) {
-    showMainWindow();
+
+  currentConfigSummary().forEach(v => serverForRepo(v.repoID).actuateServer());
+
+  tray.on('balloon-click', tray.popUpContextMenu);
+  tray.on('click', tray.popUpContextMenu);
+  tray.on('double-click', showAllRepoWindows);
+
+if (isFirstRun()) {
+    // open all repo windows on first run.
+    showAllRepoWindows();
+
+    // on Windows, also show the notification.
+    if (process.platform === "win32") {
+      tray.displayBalloon({
+        title: "Kopia is running in the background",
+        content: "Click on the system tray icon to open the menu",
+      });
+    }
   }
 })
 
+ipcMain.addListener('config-list-updated-event', () => updateTrayContextMenu());
+ipcMain.addListener('status-updated-event', () => updateTrayContextMenu());
+
 function updateTrayContextMenu() {
-  console.log('updating tray...');
-  const contextMenu = Menu.buildFromTemplate([
-    { label: 'Show Main Window', click: showMainWindow },
-    { label: 'Server Configuration...', click: serverConfiguration },
+  if (!tray) {
+    return;
+  }
+
+  let reposTemplates = [];
+
+  currentConfigSummary().forEach(v => {
+    reposTemplates.push(
+      {
+        label: v.desc, click: () => showRepoWindow(v.repoID),
+      },
+    );
+  });
+
+  reposTemplates.sort((a, b) => a.label.localeCompare(b.label));
+
+  template = reposTemplates.concat([
+    { type: 'separator' },
+    { label: 'Configure Repositories...', click: () => showConfigWindow() },
+    { type: 'separator' },
     { label: 'Check For Updates Now', click: checkForUpdates },
     { type: 'separator' },
     { label: 'Launch At Startup', type: 'checkbox', click: toggleLaunchAtStartup, checked: willLaunchAtStartup() },
     { label: 'Quit', role: 'quit' },
-  ])
+  ]);
 
-  tray.setContextMenu(contextMenu);
+  tray.setContextMenu(Menu.buildFromTemplate(template));
 }

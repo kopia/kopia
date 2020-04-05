@@ -25,6 +25,11 @@ type Client struct {
 	options ClientOptions
 }
 
+// HTTPClient returns HTTP client that connects to the server.
+func (c *Client) HTTPClient() *http.Client {
+	return c.options.HTTPClient
+}
+
 // Get sends HTTP GET request and decodes the JSON response into the provided payload structure.
 func (c *Client) Get(ctx context.Context, path string, respPayload interface{}) error {
 	req, err := http.NewRequest("GET", c.options.BaseURL+path, nil)

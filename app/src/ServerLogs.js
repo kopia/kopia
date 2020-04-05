@@ -3,7 +3,7 @@ import React, { Component } from 'react';
 import Form from 'react-bootstrap/Form';
 
 export default class ServerLogs extends Component {
-    constructor() {
+    constructor(props) {
         super();
         this.state = {
             logs: "",
@@ -12,11 +12,13 @@ export default class ServerLogs extends Component {
         if (window.require) {
             const { ipcRenderer } = window.require('electron');
 
-            ipcRenderer.on('logs-updated', (event, args) => {
-                this.setState({logs:args});
-            })
+            const repoID = props.repoID;
 
-            ipcRenderer.send('subscribe-to-logs');
+            ipcRenderer.on('logs-updated-event', (event, args) => {
+                if (args.repoID === repoID) {
+                    this.setState({logs:args.logs});
+                }
+            })
         }
     }
 

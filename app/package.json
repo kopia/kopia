@@ -8,14 +8,14 @@
     "bootstrap": "^4.3.1",
     "electron-first-run": "^3.0.0",
     "electron-is-dev": "^1.1.0",
-    "electron-json-config": "^1.5.3",
     "electron-log": "^4.1.0",
     "electron-updater": "^4.2.5",
     "react": "^16.13.0",
     "react-bootstrap": "^1.0.0-beta.17",
     "react-dom": "^16.13.0",
     "react-router-dom": "^5.1.2",
-    "react-scripts": "^3.4.0"
+    "react-scripts": "^3.4.0",
+    "uuid": "^7.0.2"
   },
   "build": {
     "productName": "KopiaUI",
@@ -53,6 +53,7 @@
       ]
     },
     "win": {
+      "target": ["nsis", "zip"],
       "extraResources": [
         {
           "from": "../dist/kopia_windows_amd64",

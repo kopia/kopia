@@ -1,16 +1,20 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
+	"html"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/pkg/errors"
@@ -54,10 +58,10 @@ func runServer(ctx context.Context, rep repo.Repository) error {
 	mux.Handle("/api/", srv.APIHandlers())
 
 	if *serverStartHTMLPath != "" {
-		fileServer := http.FileServer(http.Dir(*serverStartHTMLPath))
+		fileServer := serveIndexFileForKnownUIRoutes(http.Dir(*serverStartHTMLPath))
 		mux.Handle("/", fileServer)
 	} else if *serverStartUI {
-		mux.Handle("/", serveIndexFileForKnownUIRoutes(http.FileServer(server.AssetFile())))
+		mux.Handle("/", serveIndexFileForKnownUIRoutes(server.AssetFile()))
 	}
 
 	httpServer := &http.Server{Addr: stripProtocol(*serverAddress)}
@@ -133,7 +137,36 @@ func isKnownUIRoute(path string) bool {
 		strings.HasPrefix(path, "/repo")
 }
 
-func serveIndexFileForKnownUIRoutes(h http.Handler) http.Handler {
+func patchIndexBytes(b []byte) []byte {
+	if prefix := os.Getenv("KOPIA_UI_TITLE_PREFIX"); prefix != "" {
+		b = bytes.ReplaceAll(b, []byte("<title>"), []byte("<title>"+html.EscapeString(prefix)))
+	}
+
+	return b
+}
+
+func maybeReadIndexBytes(fs http.FileSystem) []byte {
+	rootFile, err := fs.Open("index.html")
+	if err != nil {
+		return nil
+	}
+
+	defer rootFile.Close() //nolint:errcheck
+
+	rd, err := ioutil.ReadAll(rootFile)
+	if err != nil {
+		return nil
+	}
+
+	return rd
+}
+
+func serveIndexFileForKnownUIRoutes(fs http.FileSystem) http.Handler {
+	h := http.FileServer(fs)
+
+	// read bytes from 'index.html' and patch based on optional environment variables.
+	indexBytes := patchIndexBytes(maybeReadIndexBytes(fs))
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if isKnownUIRoute(r.URL.Path) {
 			r2 := new(http.Request)
@@ -143,6 +176,13 @@ func serveIndexFileForKnownUIRoutes(h http.Handler) http.Handler {
 			r2.URL.Path = "/"
 			r = r2
 		}
+
+		if r.URL.Path == "/" && indexBytes != nil {
+			fmt.Println("serving patched index")
+			http.ServeContent(w, r, "/", time.Now(), bytes.NewReader(indexBytes))
+			return
+		}
+
 		h.ServeHTTP(w, r)
 	})
 }
