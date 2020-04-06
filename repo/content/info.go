@@ -6,6 +6,18 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
+// operation indicates the life-cycle state of a content
+type operation uint8
+
+// Content write operations corresponding to create, delete, undelete
+const (
+	// creating is the 0 value for this enum
+	// nolint:deadcode,varcheck
+	creating operation = iota
+	deleting
+	undeleting
+)
+
 // ID is an identifier of content in content-addressable storage.
 type ID string
 
@@ -32,6 +44,7 @@ type Info struct {
 	PackOffset       uint32  `json:"packOffset,omitempty"`
 	Deleted          bool    `json:"deleted"`
 	FormatVersion    byte    `json:"formatVersion"`
+	operation        operation
 }
 
 // Timestamp returns the time when a content was created or deleted.
