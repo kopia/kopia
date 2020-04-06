@@ -18,6 +18,7 @@ var (
 	blobGarbageCollectCommandDelete = blobGarbageCollectCommand.Flag("delete", "Whether to delete unused blobs").String()
 	blobGarbageCollectParallel      = blobGarbageCollectCommand.Flag("parallel", "Number of parallel blob scans").Default("16").Int()
 	blobGarbageCollectMinAge        = blobGarbageCollectCommand.Flag("min-age", "Garbage-collect blobs with minimum age").Default("24h").Duration()
+	blobGarbageCollectPrefix        = blobGarbageCollectCommand.Flag("prefix", "Only GC blobs with given prefix").String()
 )
 
 func runBlobGarbageCollectCommand(ctx context.Context, rep *repo.DirectRepository) error {
@@ -51,7 +52,12 @@ func runBlobGarbageCollectCommand(ctx context.Context, rep *repo.DirectRepositor
 	// iterate unreferenced blobs and count them + optionally send to the channel to be deleted
 	printStderr("Looking for unreferenced blobs...\n")
 
-	if err := rep.Content.IterateUnreferencedBlobs(ctx, *blobGarbageCollectParallel, func(bm blob.Metadata) error {
+	var prefixes []blob.ID
+	if p := *blobGarbageCollectPrefix; p != "" {
+		prefixes = append(prefixes, blob.ID(p))
+	}
+
+	if err := rep.Content.IterateUnreferencedBlobs(ctx, prefixes, *blobGarbageCollectParallel, func(bm blob.Metadata) error {
 		if age := time.Since(bm.Timestamp); age < *blobGarbageCollectMinAge {
 			printStderr("  preserving %v because it's too new (age: %v)\n", bm.BlobID, age)
 			return nil
