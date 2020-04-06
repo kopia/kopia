@@ -49,10 +49,7 @@ func TestMerged(t *testing.T) {
 		t.Errorf("invalid pack offset %v, wanted %v", got, want)
 	}
 
-	var inOrder []ID
-
-	assertNoError(t, m.Iterate("", func(i Info) error {
-		inOrder = append(inOrder, i.ID)
+	assertNoError(t, m.Iterate(AllIDs, func(i Info) error {
 		if i.ID == "de1e1e" {
 			if i.Deleted {
 				t.Errorf("iteration preferred deleted content over non-deleted")
@@ -67,22 +64,84 @@ func TestMerged(t *testing.T) {
 		t.Errorf("GetInfo preferred deleted content over non-deleted")
 	}
 
-	expectedInOrder := []ID{
-		"aabbcc",
-		"ddeeff",
-		"de1e1e",
-		"k010203",
-		"k020304",
-		"xaabbcc",
-		"z010203",
+	cases := []struct {
+		r IDRange
+
+		wantIDs []ID
+	}{
+		{
+			r: AllIDs,
+			wantIDs: []ID{
+				"aabbcc",
+				"ddeeff",
+				"de1e1e",
+				"k010203",
+				"k020304",
+				"xaabbcc",
+				"z010203",
+			},
+		},
+		{
+			r: AllNonPrefixedIDs,
+			wantIDs: []ID{
+				"aabbcc",
+				"ddeeff",
+				"de1e1e",
+			},
+		},
+		{
+			r: AllPrefixedIDs,
+			wantIDs: []ID{
+				"k010203",
+				"k020304",
+				"xaabbcc",
+				"z010203",
+			},
+		},
+		{
+			r: IDRange{"a", "e"},
+			wantIDs: []ID{
+				"aabbcc",
+				"ddeeff",
+				"de1e1e",
+			},
+		},
+		{
+			r: PrefixRange("dd"),
+			wantIDs: []ID{
+				"ddeeff",
+			},
+		},
+		{
+			r: IDRange{"dd", "df"},
+			wantIDs: []ID{
+				"ddeeff",
+				"de1e1e",
+			},
+		},
 	}
-	if !reflect.DeepEqual(inOrder, expectedInOrder) {
-		t.Errorf("unexpected items in order: %v, wanted %v", inOrder, expectedInOrder)
+
+	for _, tc := range cases {
+		inOrder := iterateIDRange(t, m, tc.r)
+		if !reflect.DeepEqual(inOrder, tc.wantIDs) {
+			t.Errorf("unexpected items in order: %v, wanted %v", inOrder, tc.wantIDs)
+		}
 	}
 
 	if err := m.Close(); err != nil {
 		t.Errorf("unexpected error in Close(): %v", err)
 	}
+}
+
+func iterateIDRange(t *testing.T, m packIndex, r IDRange) []ID {
+	var inOrder []ID
+
+	assertNoError(t, m.Iterate(r, func(i Info) error {
+		inOrder = append(inOrder, i.ID)
+		return nil
+	}))
+
+	return inOrder
 }
 
 func indexWithItems(items ...Info) (packIndex, error) {

@@ -68,12 +68,12 @@ func (b *committedContentIndex) addContent(ctx context.Context, indexBlobID blob
 	return nil
 }
 
-func (b *committedContentIndex) listContents(prefix ID, cb func(i Info) error) error {
+func (b *committedContentIndex) listContents(r IDRange, cb func(i Info) error) error {
 	b.mu.Lock()
 	m := append(mergedIndex(nil), b.merged...)
 	b.mu.Unlock()
 
-	return m.Iterate(prefix, cb)
+	return m.Iterate(r, cb)
 }
 
 func (b *committedContentIndex) packFilesChanged(packFiles []blob.ID) bool {

@@ -4,11 +4,13 @@ import (
 	"context"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 )
 
@@ -21,6 +23,7 @@ var (
 	contentRewriteFormatVersion = contentRewriteCommand.Flag("format-version", "Rewrite contents using the provided format version").Default("-1").Int()
 	contentRewritePackPrefix    = contentRewriteCommand.Flag("pack-prefix", "Only rewrite contents from pack blobs with a given prefix").String()
 	contentRewriteDryRun        = contentRewriteCommand.Flag("dry-run", "Do not actually rewrite, only print what would happen").Short('n').Bool()
+	contentRewriteMinAge        = contentRewriteCommand.Flag("min-age", "Only rewrite contents above given age").Default("1h").Duration()
 )
 
 const shortPackThresholdPercent = 60 // blocks below 60% of max block size are considered to be 'short
@@ -60,6 +63,11 @@ func runContentRewriteCommand(ctx context.Context, rep *repo.DirectRepository) e
 				var optDeleted string
 				if c.Deleted {
 					optDeleted = " (deleted)"
+				}
+
+				if age := time.Since(c.Timestamp()); age < *contentRewriteMinAge {
+					printStderr("Not rewriting content %v (%v bytes) from pack %v%v %v, because it's too new.\n", c.ID, c.Length, c.PackBlobID, optDeleted, formatTimestamp(c.Timestamp()))
+					continue
 				}
 
 				printStderr("Rewriting content %v (%v bytes) from pack %v%v %v\n", c.ID, c.Length, c.PackBlobID, optDeleted, formatTimestamp(c.Timestamp()))
@@ -139,7 +147,10 @@ func findContentInfos(ctx context.Context, rep *repo.DirectRepository, ch chan c
 func findContentWithFormatVersion(ctx context.Context, rep *repo.DirectRepository, ch chan contentInfoOrError, version int) {
 	_ = rep.Content.IterateContents(
 		ctx,
-		content.IterateOptions{IncludeDeleted: true},
+		content.IterateOptions{
+			Range:          contentIDRange(),
+			IncludeDeleted: true,
+		},
 		func(b content.Info) error {
 			if int(b.FormatVersion) == version && strings.HasPrefix(string(b.PackBlobID), *contentRewritePackPrefix) {
 				ch <- contentInfoOrError{Info: b}
@@ -149,10 +160,33 @@ func findContentWithFormatVersion(ctx context.Context, rep *repo.DirectRepositor
 }
 
 func findContentInShortPacks(ctx context.Context, rep *repo.DirectRepository, ch chan contentInfoOrError, threshold int64) {
-	if err := rep.Content.IterateContentInShortPacks(ctx, threshold, func(ci content.Info) error {
-		ch <- contentInfoOrError{Info: ci}
-		return nil
-	}); err != nil {
+	var prefixes []blob.ID
+
+	if *contentRewritePackPrefix != "" {
+		prefixes = append(prefixes, blob.ID(*contentRewritePackPrefix))
+	}
+
+	err := rep.Content.IteratePacks(
+		ctx,
+		content.IteratePackOptions{
+			Prefixes:                           prefixes,
+			IncludePacksWithOnlyDeletedContent: true,
+			IncludeContentInfos:                true,
+		},
+		func(pi content.PackInfo) error {
+			if pi.TotalSize >= threshold {
+				return nil
+			}
+
+			for _, ci := range pi.ContentInfos {
+				ch <- contentInfoOrError{Info: ci}
+			}
+
+			return nil
+		},
+	)
+
+	if err != nil {
 		ch <- contentInfoOrError{err: err}
 		return
 	}
@@ -160,4 +194,5 @@ func findContentInShortPacks(ctx context.Context, rep *repo.DirectRepository, ch
 
 func init() {
 	contentRewriteCommand.Action(directRepositoryAction(runContentRewriteCommand))
+	setupContentIDRangeFlags(contentRewriteCommand)
 }

@@ -33,7 +33,9 @@ func runContentStatsCommand(ctx context.Context, rep *repo.DirectRepository) err
 
 	if err := rep.Content.IterateContents(
 		ctx,
-		content.IterateOptions{},
+		content.IterateOptions{
+			Range: contentIDRange(),
+		},
 		func(b content.Info) error {
 			totalSize += int64(b.Length)
 			count++
@@ -82,4 +84,5 @@ func runContentStatsCommand(ctx context.Context, rep *repo.DirectRepository) err
 
 func init() {
 	contentStatsCommand.Action(directRepositoryAction(runContentStatsCommand))
+	setupContentIDRangeFlags(contentStatsCommand)
 }

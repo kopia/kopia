@@ -149,7 +149,7 @@ func TestPackIndex(t *testing.T) {
 
 	cnt := 0
 
-	assertNoError(t, ndx.Iterate("", func(info2 Info) error {
+	assertNoError(t, ndx.Iterate(AllIDs, func(info2 Info) error {
 		info := infoMap[info2.ID]
 		if !reflect.DeepEqual(info, info2) {
 			t.Errorf("invalid value retrieved: %+v, wanted %+v", info2, info)
@@ -180,7 +180,7 @@ func TestPackIndex(t *testing.T) {
 	for _, prefix := range prefixes {
 		cnt2 := 0
 		prefix := prefix
-		assertNoError(t, ndx.Iterate(prefix, func(info2 Info) error {
+		assertNoError(t, ndx.Iterate(PrefixRange(prefix), func(info2 Info) error {
 			cnt2++
 			if !strings.HasPrefix(string(info2.ID), string(prefix)) {
 				t.Errorf("unexpected item %v when iterating prefix %v", info2.ID, prefix)
@@ -202,7 +202,7 @@ func fuzzTestIndexOpen(originalData []byte) {
 		}
 		defer ndx.Close()
 		cnt := 0
-		_ = ndx.Iterate("", func(cb Info) error {
+		_ = ndx.Iterate(AllIDs, func(cb Info) error {
 			if cnt < 10 {
 				_, _ = ndx.GetInfo(cb.ID)
 			}

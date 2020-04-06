@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"io"
 	"sort"
-	"strings"
 
 	"github.com/pkg/errors"
 
@@ -20,8 +19,37 @@ type packIndex interface {
 	io.Closer
 
 	GetInfo(contentID ID) (*Info, error)
-	Iterate(prefix ID, cb func(Info) error) error
+
+	// invoked the provided callback for all entries such that entry.ID >= startID and entry.ID < endID
+	Iterate(r IDRange, cb func(Info) error) error
 }
+
+// IDRange represents a range of IDs
+type IDRange struct {
+	StartID ID // inclusive
+	EndID   ID // exclusive
+}
+
+// Contains determines whether given ID is in the range.
+func (r IDRange) Contains(id ID) bool {
+	return id >= r.StartID && id < r.EndID
+}
+
+const maxIDCharacterPlus1 = "\x7B"
+
+// PrefixRange returns ID range that contains all IDs with a given prefix.
+func PrefixRange(prefix ID) IDRange {
+	return IDRange{prefix, prefix + maxIDCharacterPlus1}
+}
+
+// AllIDs is an IDRange that contains all valid IDs.
+var AllIDs = IDRange{"", maxIDCharacterPlus1}
+
+// AllPrefixedIDs is an IDRange that contains all valid IDs prefixed IDs ('g' .. 'z')
+var AllPrefixedIDs = IDRange{"g", maxIDCharacterPlus1}
+
+// AllNonPrefixedIDs is an IDRange that contains all valid IDs non-prefixed IDs ('0' .. 'f')
+var AllNonPrefixedIDs = IDRange{"0", "g"}
 
 type index struct {
 	hdr      headerInfo
@@ -58,11 +86,11 @@ func readHeader(readerAt io.ReaderAt) (headerInfo, error) {
 	return hi, nil
 }
 
-// Iterate invokes the provided callback function for all contents in the index, sorted alphabetically.
+// Iterate invokes the provided callback function for a range of contents in the index, sorted alphabetically.
 // The iteration ends when the callback returns an error, which is propagated to the caller or when
 // all contents have been visited.
-func (b *index) Iterate(prefix ID, cb func(Info) error) error {
-	startPos, err := b.findEntryPosition(prefix)
+func (b *index) Iterate(r IDRange, cb func(Info) error) error {
+	startPos, err := b.findEntryPosition(r.StartID)
 	if err != nil {
 		return errors.Wrap(err, "could not find starting position")
 	}
@@ -84,7 +112,7 @@ func (b *index) Iterate(prefix ID, cb func(Info) error) error {
 			return errors.Wrap(err, "invalid index data")
 		}
 
-		if !strings.HasPrefix(string(i.ID), string(prefix)) {
+		if i.ID >= r.EndID {
 			break
 		}
 
