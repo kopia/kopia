@@ -34,7 +34,7 @@ const copyBufferSize = 128 * 1024
 
 var log = logging.GetContextLoggerFunc("kopia/upload")
 
-var errCancelled = errors.New("canceled")
+var errCanceled = errors.New("canceled")
 
 // reasons why a snapshot is incomplete
 const (
@@ -75,8 +75,8 @@ type Uploader struct {
 	totalWrittenBytes int64
 }
 
-// IsCancelled returns true if the upload is canceled.
-func (u *Uploader) IsCancelled() bool {
+// IsCanceled returns true if the upload is canceled.
+func (u *Uploader) IsCanceled() bool {
 	return u.incompleteReason() != ""
 }
 
@@ -183,8 +183,8 @@ func (u *Uploader) copyWithProgress(dst io.Writer, src io.Reader, completed, len
 	var written int64
 
 	for {
-		if u.IsCancelled() {
-			return 0, errCancelled
+		if u.IsCanceled() {
+			return 0, errCanceled
 		}
 
 		readBytes, readErr := src.Read(uploadBuf)
@@ -286,7 +286,7 @@ func (u *Uploader) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Di
 		startTime := u.repo.Time()
 
 		oid, summ, err := uploadDirInternal(ctx, u, rootDir, policyTree, previousDirs, ".")
-		if err != nil && err != errCancelled {
+		if err != nil && err != errCanceled {
 			return nil, err
 		}
 
@@ -326,7 +326,7 @@ func (u *Uploader) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Di
 	}
 }
 
-func (u *Uploader) foreachEntryUnlessCancelled(ctx context.Context, parallel int, relativePath string, entries fs.Entries, cb func(ctx context.Context, entry fs.Entry, entryRelativePath string) error) error {
+func (u *Uploader) foreachEntryUnlessCanceled(ctx context.Context, parallel int, relativePath string, entries fs.Entries, cb func(ctx context.Context, entry fs.Entry, entryRelativePath string) error) error {
 	if parallel > len(entries) {
 		// don't launch more goroutines than needed
 		parallel = len(entries)
@@ -357,8 +357,8 @@ func (u *Uploader) foreachEntryUnlessCancelled(ctx context.Context, parallel int
 	for i := 0; i < parallel; i++ {
 		eg.Go(func() error {
 			for entry := range ch {
-				if u.IsCancelled() {
-					return errCancelled
+				if u.IsCanceled() {
+					return errCanceled
 				}
 
 				entryRelativePath := path.Join(relativePath, entry.Name())
@@ -490,7 +490,7 @@ func (u *Uploader) processSubdirectories(ctx context.Context, output chan dirEnt
 	// prevent explosion of parallelism
 	const parallelism = 1
 
-	return u.foreachEntryUnlessCancelled(ctx, parallelism, relativePath, entries, func(ctx context.Context, entry fs.Entry, entryRelativePath string) error {
+	return u.foreachEntryUnlessCanceled(ctx, parallelism, relativePath, entries, func(ctx context.Context, entry fs.Entry, entryRelativePath string) error {
 		dir, ok := entry.(fs.Directory)
 		if !ok {
 			// skip non-directories
@@ -507,7 +507,7 @@ func (u *Uploader) processSubdirectories(ctx context.Context, output chan dirEnt
 		previousDirs = uniqueDirectories(previousDirs)
 
 		oid, subdirsumm, err := uploadDirInternal(ctx, u, dir, policyTree.Child(entry.Name()), previousDirs, entryRelativePath)
-		if err == errCancelled {
+		if err == errCanceled {
 			return err
 		}
 
@@ -624,7 +624,7 @@ func (u *Uploader) processNonDirectories(ctx context.Context, output chan dirEnt
 		workerCount = len(entries)
 	}
 
-	return u.foreachEntryUnlessCancelled(ctx, workerCount, dirRelativePath, entries, func(ctx context.Context, entry fs.Entry, entryRelativePath string) error {
+	return u.foreachEntryUnlessCanceled(ctx, workerCount, dirRelativePath, entries, func(ctx context.Context, entry fs.Entry, entryRelativePath string) error {
 		// note this function runs in parallel and updates 'u.stats', which must be done using atomic operations.
 		if _, ok := entry.(fs.Directory); ok {
 			// skip directories
@@ -749,7 +749,7 @@ func uploadDirInternal(
 		}
 	}
 
-	if err := u.processChildren(ctx, dirManifest, dirRelativePath, entries, policyTree, prevEntries); err != nil && err != errCancelled {
+	if err := u.processChildren(ctx, dirManifest, dirRelativePath, entries, policyTree, prevEntries); err != nil && err != errCanceled {
 		return "", fs.DirectorySummary{}, err
 	}
 

@@ -65,7 +65,7 @@ func runSnapshotCommand(ctx context.Context, rep repo.Repository) error {
 	var finalErrors []string
 
 	for _, snapshotDir := range sources {
-		if u.IsCancelled() {
+		if u.IsCanceled() {
 			printStderr("Upload canceled\n")
 			break
 		}
