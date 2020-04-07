@@ -114,7 +114,7 @@ func TestManifest(t *testing.T) {
 
 	if err := mgr.b.IterateContents(
 		ctx,
-		content.IterateOptions{Prefix: ContentPrefix},
+		content.IterateOptions{Range: content.PrefixRange(ContentPrefix)},
 		func(ci content.Info) error {
 			foundContents++
 			return nil

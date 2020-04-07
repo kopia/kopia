@@ -1035,14 +1035,14 @@ func TestIterateContents(t *testing.T) {
 		{
 			desc: "prefix match",
 			options: IterateOptions{
-				Prefix: contentID1,
+				Range: PrefixRange(contentID1),
 			},
 			want: map[ID]bool{contentID1: true},
 		},
 		{
 			desc: "prefix, include deleted",
 			options: IterateOptions{
-				Prefix:         contentID2,
+				Range:          PrefixRange(contentID2),
 				IncludeDeleted: true,
 			},
 			want: map[ID]bool{
@@ -1189,7 +1189,7 @@ func verifyUnreferencedBlobsCount(ctx context.Context, t *testing.T, bm *Manager
 
 	var unrefCount int32
 
-	err := bm.IterateUnreferencedBlobs(ctx, 1, func(_ blob.Metadata) error {
+	err := bm.IterateUnreferencedBlobs(ctx, nil, 1, func(_ blob.Metadata) error {
 		atomic.AddInt32(&unrefCount, 1)
 		return nil
 	})

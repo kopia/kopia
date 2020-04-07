@@ -293,7 +293,7 @@ func (m *Manager) loadCommittedContentsLocked(ctx context.Context) error {
 		manifests = map[content.ID]manifest{}
 
 		err := m.b.IterateContents(ctx, content.IterateOptions{
-			Prefix:   ContentPrefix,
+			Range:    content.PrefixRange(ContentPrefix),
 			Parallel: manifestLoadParallelism,
 		}, func(ci content.Info) error {
 			man, err := m.loadManifestContent(ctx, ci.ID)

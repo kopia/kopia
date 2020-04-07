@@ -28,7 +28,7 @@ func (bm *Manager) RecoverIndexFromPackBlob(ctx context.Context, packFile blob.I
 
 	var recovered []Info
 
-	err = ndx.Iterate("", func(i Info) error {
+	err = ndx.Iterate(AllIDs, func(i Info) error {
 		recovered = append(recovered, i)
 		if commit {
 			bm.packIndexBuilder.Add(i)
