@@ -36,6 +36,9 @@ type UploadProgress interface {
 
 	// FinishedDirectory is emitted whenever a directory is finished uploading.
 	FinishedDirectory(dirname string)
+
+	// Checkpoint is emitted whenever snapshot is checkpointed.
+	Checkpoint()
 }
 
 // NullUploadProgress is an implementation of UploadProgress that does not produce any output.
@@ -71,6 +74,9 @@ func (p *NullUploadProgress) FinishedDirectory(dirname string) {}
 
 // IgnoredError implements UploadProgress
 func (p *NullUploadProgress) IgnoredError(path string, err error) {}
+
+// Checkpoint implements UploadProgress
+func (p *NullUploadProgress) Checkpoint() {}
 
 var _ UploadProgress = (*NullUploadProgress)(nil)
 
