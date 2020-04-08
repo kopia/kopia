@@ -213,7 +213,7 @@ func migrateSingleSource(ctx context.Context, uploader *snapshotfs.Uploader, sou
 	})
 
 	for _, m := range filterSnapshotsToMigrate(snapshots) {
-		if uploader.IsCancelled() {
+		if uploader.IsCanceled() {
 			break
 		}
 

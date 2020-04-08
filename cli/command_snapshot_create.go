@@ -26,6 +26,7 @@ var (
 	snapshotCreateSources                 = snapshotCreateCommand.Arg("source", "Files or directories to create snapshot(s) of.").ExistingFilesOrDirs()
 	snapshotCreateAll                     = snapshotCreateCommand.Flag("all", "Create snapshots for files or directories previously backed up by this user on this computer").Bool()
 	snapshotCreateCheckpointUploadLimitMB = snapshotCreateCommand.Flag("upload-limit-mb", "Stop the backup process after the specified amount of data (in MB) has been uploaded.").PlaceHolder("MB").Default("0").Int64()
+	snapshotCreateCheckpointInterval      = snapshotCreateCommand.Flag("checkpoint-interval", "Frequency for creating periodic checkpoint.").Duration()
 	snapshotCreateDescription             = snapshotCreateCommand.Flag("description", "Free-form snapshot description.").String()
 	snapshotCreateForceHash               = snapshotCreateCommand.Flag("force-hash", "Force hashing of source files for a given percentage of files [0..100]").Default("0").Int()
 	snapshotCreateParallelUploads         = snapshotCreateCommand.Flag("parallel", "Upload N files in parallel").PlaceHolder("N").Default("0").Int()
@@ -35,7 +36,7 @@ var (
 	snapshotCreateEndTime                 = snapshotCreateCommand.Flag("end-time", "Override snapshot end timestamp.").String()
 )
 
-func runBackupCommand(ctx context.Context, rep repo.Repository) error {
+func runSnapshotCommand(ctx context.Context, rep repo.Repository) error {
 	sources := *snapshotCreateSources
 
 	if *snapshotCreateAll {
@@ -48,39 +49,23 @@ func runBackupCommand(ctx context.Context, rep repo.Repository) error {
 	}
 
 	if len(sources) == 0 {
-		return errors.New("no backup sources")
+		return errors.New("no snapshot sources")
 	}
 
-	u := snapshotfs.NewUploader(rep)
-	u.MaxUploadBytes = *snapshotCreateCheckpointUploadLimitMB << 20 //nolint:gomnd
-	u.ForceHashPercentage = *snapshotCreateForceHash
-	u.ParallelUploads = *snapshotCreateParallelUploads
-	onCtrlC(u.Cancel)
-
-	u.Progress = progress
-
-	startTime, err := parseTimestamp(*snapshotCreateStartTime)
-	if err != nil {
-		return errors.Wrap(err, "could not parse start-time")
-	}
-
-	endTime, err := parseTimestamp(*snapshotCreateEndTime)
-	if err != nil {
-		return errors.Wrap(err, "could not parse end-time")
-	}
-
-	if startTimeAfterEndTime(startTime, endTime) {
-		return errors.New("start time override cannot be after the end time override")
+	if err := validateStartEndTime(*snapshotCreateStartTime, *snapshotCreateEndTime); err != nil {
+		return err
 	}
 
 	if len(*snapshotCreateDescription) > maxSnapshotDescriptionLength {
 		return errors.New("description too long")
 	}
 
+	u := setupUploader(rep)
+
 	var finalErrors []string
 
 	for _, snapshotDir := range sources {
-		if u.IsCancelled() {
+		if u.IsCanceled() {
 			printStderr("Upload canceled\n")
 			break
 		}
@@ -114,6 +99,41 @@ func runBackupCommand(ctx context.Context, rep repo.Repository) error {
 	}
 
 	return errors.Errorf("encountered %v errors:\n%v", len(finalErrors), strings.Join(finalErrors, "\n"))
+}
+
+func validateStartEndTime(st, et string) error {
+	startTime, err := parseTimestamp(st)
+	if err != nil {
+		return errors.Wrap(err, "could not parse start-time")
+	}
+
+	endTime, err := parseTimestamp(et)
+	if err != nil {
+		return errors.Wrap(err, "could not parse end-time")
+	}
+
+	if startTimeAfterEndTime(startTime, endTime) {
+		return errors.New("start time override cannot be after the end time override")
+	}
+
+	return nil
+}
+
+func setupUploader(rep repo.Repository) *snapshotfs.Uploader {
+	u := snapshotfs.NewUploader(rep)
+	u.MaxUploadBytes = *snapshotCreateCheckpointUploadLimitMB << 20 //nolint:gomnd
+
+	if interval := *snapshotCreateCheckpointInterval; interval != 0 {
+		u.CheckpointInterval = interval
+	}
+
+	u.ForceHashPercentage = *snapshotCreateForceHash
+	u.ParallelUploads = *snapshotCreateParallelUploads
+	onCtrlC(u.Cancel)
+
+	u.Progress = progress
+
+	return u
 }
 
 func parseTimestamp(timestamp string) (time.Time, error) {
@@ -275,5 +295,5 @@ func getLocalBackupPaths(ctx context.Context, rep repo.Repository) ([]string, er
 }
 
 func init() {
-	snapshotCreateCommand.Action(repositoryAction(runBackupCommand))
+	snapshotCreateCommand.Action(repositoryAction(runSnapshotCommand))
 }

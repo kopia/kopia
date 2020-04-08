@@ -13,6 +13,7 @@ import (
 	"sort"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
@@ -26,11 +27,21 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
+// DefaultCheckpointInterval is the default frequency of mid-upload checkpointing.
+const DefaultCheckpointInterval = 45 * time.Minute
+
 const copyBufferSize = 128 * 1024
 
 var log = logging.GetContextLoggerFunc("kopia/upload")
 
-var errCancelled = errors.New("canceled")
+var errCanceled = errors.New("canceled")
+
+// reasons why a snapshot is incomplete
+const (
+	IncompleteReasonCheckpoint   = "checkpoint"
+	IncompleteReasonCanceled     = "canceled"
+	IncompleteReasonLimitReached = "limit reached"
+)
 
 // Uploader supports efficient uploading files and directories to repository.
 type Uploader struct {
@@ -50,29 +61,38 @@ type Uploader struct {
 	// Number of files to hash and upload in parallel.
 	ParallelUploads int
 
+	// How frequently to create checkpoint snapshot entries.
+	CheckpointInterval time.Duration
+
 	repo repo.Repository
 
-	stats    snapshot.Stats
-	canceled int32
+	stats              snapshot.Stats
+	canceled           int32
+	nextCheckpointTime time.Time
 
 	uploadBufPool sync.Pool
 
 	totalWrittenBytes int64
 }
 
-// IsCancelled returns true if the upload is canceled.
-func (u *Uploader) IsCancelled() bool {
-	return u.cancelReason() != ""
+// IsCanceled returns true if the upload is canceled.
+func (u *Uploader) IsCanceled() bool {
+	return u.incompleteReason() != ""
 }
 
-func (u *Uploader) cancelReason() string {
+//
+func (u *Uploader) incompleteReason() string {
 	if c := atomic.LoadInt32(&u.canceled) != 0; c {
-		return "canceled"
+		return IncompleteReasonCanceled
+	}
+
+	if !u.nextCheckpointTime.IsZero() && u.repo.Time().After(u.nextCheckpointTime) {
+		return IncompleteReasonCheckpoint
 	}
 
 	wb := atomic.LoadInt64(&u.totalWrittenBytes)
 	if mub := u.MaxUploadBytes; mub > 0 && wb > mub {
-		return "limit reached"
+		return IncompleteReasonLimitReached
 	}
 
 	return ""
@@ -163,8 +183,8 @@ func (u *Uploader) copyWithProgress(dst io.Writer, src io.Reader, completed, len
 	var written int64
 
 	for {
-		if u.IsCancelled() {
-			return 0, errCancelled
+		if u.IsCanceled() {
+			return 0, errCanceled
 		}
 
 		readBytes, readErr := src.Read(uploadBuf)
@@ -254,26 +274,59 @@ func (u *Uploader) uploadFile(ctx context.Context, relativePath string, file fs.
 	return de, nil
 }
 
-// uploadDir uploads the specified Directory to the repository.
-// An optional ID of a hash-cache object may be provided, in which case the Uploader will use its
-// contents to avoid hashing
-func (u *Uploader) uploadDir(ctx context.Context, rootDir fs.Directory, policyTree *policy.Tree, previousDirs []fs.Directory) (*snapshot.DirEntry, error) {
-	oid, summ, err := uploadDirInternal(ctx, u, rootDir, policyTree, previousDirs, ".")
-	if err != nil {
-		return nil, err
+// uploadDirWithCheckpointing uploads the specified Directory to the repository.
+func (u *Uploader) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Directory, policyTree *policy.Tree, previousDirs []fs.Directory, sourceInfo snapshot.SourceInfo) (*snapshot.DirEntry, error) {
+	for {
+		if u.CheckpointInterval != 0 {
+			u.nextCheckpointTime = u.repo.Time().Add(u.CheckpointInterval)
+		} else {
+			u.nextCheckpointTime = time.Time{}
+		}
+
+		startTime := u.repo.Time()
+
+		oid, summ, err := uploadDirInternal(ctx, u, rootDir, policyTree, previousDirs, ".")
+		if err != nil && err != errCanceled {
+			return nil, err
+		}
+
+		de, err := newDirEntry(rootDir, oid)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to create dir entry")
+		}
+
+		de.DirSummary = &summ
+
+		if summ.IncompleteReason == IncompleteReasonCheckpoint {
+			u.Progress.Checkpoint()
+
+			// when retrying use the partial snapshot
+			previousDirs = append(previousDirs, DirectoryEntry(u.repo, oid, &summ))
+
+			man := &snapshot.Manifest{
+				StartTime:        startTime,
+				EndTime:          u.repo.Time(),
+				RootEntry:        de,
+				Source:           sourceInfo,
+				IncompleteReason: summ.IncompleteReason,
+			}
+
+			if _, err = snapshot.SaveSnapshot(ctx, u.repo, man); err != nil {
+				return nil, errors.Wrap(err, "error saving checkpoint")
+			}
+
+			if err = u.repo.Flush(ctx); err != nil {
+				return nil, errors.Wrap(err, "error flushing saving checkpoint")
+			}
+
+			continue
+		}
+
+		return de, err
 	}
-
-	de, err := newDirEntry(rootDir, oid)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to create dir entry")
-	}
-
-	de.DirSummary = &summ
-
-	return de, err
 }
 
-func (u *Uploader) foreachEntryUnlessCancelled(ctx context.Context, parallel int, relativePath string, entries fs.Entries, cb func(ctx context.Context, entry fs.Entry, entryRelativePath string) error) error {
+func (u *Uploader) foreachEntryUnlessCanceled(ctx context.Context, parallel int, relativePath string, entries fs.Entries, cb func(ctx context.Context, entry fs.Entry, entryRelativePath string) error) error {
 	if parallel > len(entries) {
 		// don't launch more goroutines than needed
 		parallel = len(entries)
@@ -304,8 +357,8 @@ func (u *Uploader) foreachEntryUnlessCancelled(ctx context.Context, parallel int
 	for i := 0; i < parallel; i++ {
 		eg.Go(func() error {
 			for entry := range ch {
-				if u.IsCancelled() {
-					return errCancelled
+				if u.IsCanceled() {
+					return errCanceled
 				}
 
 				entryRelativePath := path.Join(relativePath, entry.Name())
@@ -437,7 +490,7 @@ func (u *Uploader) processSubdirectories(ctx context.Context, output chan dirEnt
 	// prevent explosion of parallelism
 	const parallelism = 1
 
-	return u.foreachEntryUnlessCancelled(ctx, parallelism, relativePath, entries, func(ctx context.Context, entry fs.Entry, entryRelativePath string) error {
+	return u.foreachEntryUnlessCanceled(ctx, parallelism, relativePath, entries, func(ctx context.Context, entry fs.Entry, entryRelativePath string) error {
 		dir, ok := entry.(fs.Directory)
 		if !ok {
 			// skip non-directories
@@ -454,7 +507,7 @@ func (u *Uploader) processSubdirectories(ctx context.Context, output chan dirEnt
 		previousDirs = uniqueDirectories(previousDirs)
 
 		oid, subdirsumm, err := uploadDirInternal(ctx, u, dir, policyTree.Child(entry.Name()), previousDirs, entryRelativePath)
-		if err == errCancelled {
+		if err == errCanceled {
 			return err
 		}
 
@@ -571,7 +624,7 @@ func (u *Uploader) processNonDirectories(ctx context.Context, output chan dirEnt
 		workerCount = len(entries)
 	}
 
-	return u.foreachEntryUnlessCancelled(ctx, workerCount, dirRelativePath, entries, func(ctx context.Context, entry fs.Entry, entryRelativePath string) error {
+	return u.foreachEntryUnlessCanceled(ctx, workerCount, dirRelativePath, entries, func(ctx context.Context, entry fs.Entry, entryRelativePath string) error {
 		// note this function runs in parallel and updates 'u.stats', which must be done using atomic operations.
 		if _, ok := entry.(fs.Directory); ok {
 			// skip directories
@@ -680,10 +733,6 @@ func uploadDirInternal(
 		},
 	}
 
-	defer func() {
-		dirManifest.Summary.IncompleteReason = u.cancelReason()
-	}()
-
 	t0 := u.repo.Time()
 	entries, direrr := directory.Readdir(ctx)
 	log(ctx).Debugf("finished reading directory %v in %v", dirRelativePath, u.repo.Time().Sub(t0))
@@ -700,7 +749,7 @@ func uploadDirInternal(
 		}
 	}
 
-	if err := u.processChildren(ctx, dirManifest, dirRelativePath, entries, policyTree, prevEntries); err != nil && err != errCancelled {
+	if err := u.processChildren(ctx, dirManifest, dirRelativePath, entries, policyTree, prevEntries); err != nil && err != errCanceled {
 		return "", fs.DirectorySummary{}, err
 	}
 
@@ -722,6 +771,8 @@ func uploadDirInternal(
 	}
 
 	oid, err := writer.Result()
+
+	dirManifest.Summary.IncompleteReason = u.incompleteReason()
 
 	return oid, *dirManifest.Summary, err
 }
@@ -756,10 +807,11 @@ func (u *Uploader) shouldIgnoreDirectoryReadErrors(policyTree *policy.Tree) bool
 // NewUploader creates new Uploader object for a given repository.
 func NewUploader(r repo.Repository) *Uploader {
 	return &Uploader{
-		repo:             r,
-		Progress:         &NullUploadProgress{},
-		IgnoreReadErrors: false,
-		ParallelUploads:  1,
+		repo:               r,
+		Progress:           &NullUploadProgress{},
+		IgnoreReadErrors:   false,
+		ParallelUploads:    1,
+		CheckpointInterval: DefaultCheckpointInterval,
 		uploadBufPool: sync.Pool{
 			New: func() interface{} {
 				p := make([]byte, copyBufferSize)
@@ -846,7 +898,7 @@ func (u *Uploader) Upload(
 		entry = ignorefs.New(entry, policyTree, ignorefs.ReportIgnoredFiles(func(_ string, md fs.Entry) {
 			u.stats.AddExcluded(md)
 		}))
-		s.RootEntry, err = u.uploadDir(ctx, entry, policyTree, previousDirs)
+		s.RootEntry, err = u.uploadDirWithCheckpointing(ctx, entry, policyTree, previousDirs, sourceInfo)
 
 	case fs.File:
 		s.RootEntry, err = u.uploadFile(ctx, entry.Name(), entry, policyTree.EffectivePolicy())
@@ -859,7 +911,7 @@ func (u *Uploader) Upload(
 		return nil, err
 	}
 
-	s.IncompleteReason = u.cancelReason()
+	s.IncompleteReason = u.incompleteReason()
 	s.EndTime = u.repo.Time()
 	s.Stats = u.stats
 

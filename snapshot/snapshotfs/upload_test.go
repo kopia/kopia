@@ -7,11 +7,13 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/kylelemons/godebug/pretty"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/faketime"
 	"github.com/kopia/kopia/internal/mockfs"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo"
@@ -30,6 +32,7 @@ type uploadTestHarness struct {
 	sourceDir *mockfs.Directory
 	repoDir   string
 	repo      repo.Repository
+	ft        *faketime.TimeAdvance
 }
 
 var errTest = errors.New("test error")
@@ -63,7 +66,12 @@ func newUploadTestHarness(ctx context.Context) *uploadTestHarness {
 		panic("unable to connect to repository: " + conerr.Error())
 	}
 
-	rep, err := repo.Open(ctx, configFile, masterPassword, &repo.Options{})
+	ft := faketime.NewTimeAdvance(time.Date(2018, time.February, 6, 0, 0, 0, 0, time.UTC))
+
+	rep, err := repo.Open(ctx, configFile, masterPassword, &repo.Options{
+		TimeNowFunc: ft.NowFunc(),
+	})
+
 	if err != nil {
 		panic("unable to open repository: " + err.Error())
 	}
@@ -92,6 +100,7 @@ func newUploadTestHarness(ctx context.Context) *uploadTestHarness {
 		sourceDir: sourceDir,
 		repoDir:   repoDir,
 		repo:      rep,
+		ft:        ft,
 	}
 
 	return th
@@ -271,5 +280,55 @@ func TestUpload_SubDirectoryReadFailureIgnoreFailures(t *testing.T) {
 
 	if diff := pretty.Compare(man.RootEntry.DirSummary.FailedEntries, wantErrors); diff != "" {
 		t.Errorf("unexpected directory tree, diff(-got,+want): %v\n", diff)
+	}
+}
+
+// nolint:gocyclo
+func TestUploadWithCheckpointing(t *testing.T) {
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx)
+
+	defer th.cleanup()
+
+	u := NewUploader(th.repo)
+
+	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
+
+	si := snapshot.SourceInfo{
+		UserName: "user",
+		Host:     "host",
+		Path:     "path",
+	}
+
+	count := 0
+
+	// when reading d1 advanced the time, to trigger checkpoint
+	th.sourceDir.Subdir("d1").OnReaddir(func() {
+		count++
+
+		// when reading this directory advance the time to cancel the snapshot
+		// and trigger a checkpoint
+		if count <= 2 {
+			th.ft.Advance(DefaultCheckpointInterval + 1)
+		}
+	})
+
+	if _, err := u.Upload(ctx, th.sourceDir, policyTree, si); err != nil {
+		t.Errorf("Upload error: %v", err)
+	}
+
+	snapshots, err := snapshot.ListSnapshots(ctx, th.repo, si)
+	if err != nil {
+		t.Fatalf("error listing snapshots: %v", err)
+	}
+
+	if got, want := len(snapshots), 2; got != want {
+		t.Fatalf("unexpected number of snapshots: %v, want %v", got, want)
+	}
+
+	for _, sn := range snapshots {
+		if got, want := sn.IncompleteReason, IncompleteReasonCheckpoint; got != want {
+			t.Errorf("unexpected incompleteReason %q, want %q", got, want)
+		}
 	}
 }

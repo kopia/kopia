@@ -8,6 +8,8 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/fatih/color"
+
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
@@ -75,13 +77,31 @@ func (p *cliProgress) HashedBytes(numBytes int64) {
 
 func (p *cliProgress) IgnoredError(path string, err error) {
 	atomic.AddInt32(&p.errorCount, 1)
-	p.output(path, err)
+	p.output(warningColor, fmt.Sprintf("Ignored error when processing \"%v\": %v\n", path, err))
 }
 
 func (p *cliProgress) CachedFile(fname string, numBytes int64) {
 	atomic.AddInt64(&p.cachedBytes, numBytes)
 	atomic.AddInt32(&p.cachedFiles, 1)
 	p.maybeOutput()
+}
+
+func (p *cliProgress) Checkpoint() {
+	p.output(noticeColor, "Saving a checkpoint...\n")
+
+	if p.shared {
+		// do not reset counters
+		return
+	}
+
+	*p = cliProgress{
+		uploading:         1,
+		uploadStartTime:   time.Now(),
+		previousFileCount: p.previousFileCount,
+		previousTotalSize: p.previousTotalSize,
+		uploadedBytes:     p.uploadedBytes,
+		uploadedFiles:     p.uploadedFiles,
+	}
 }
 
 func (p *cliProgress) maybeOutput() {
@@ -99,11 +119,11 @@ func (p *cliProgress) maybeOutput() {
 	}
 
 	if shouldOutput {
-		p.output("", nil)
+		p.output(defaultColor, "")
 	}
 }
 
-func (p *cliProgress) output(errPath string, err error) {
+func (p *cliProgress) output(col *color.Color, msg string) {
 	p.outputMutex.Lock()
 	defer p.outputMutex.Unlock()
 
@@ -134,13 +154,13 @@ func (p *cliProgress) output(errPath string, err error) {
 		errorCount,
 	)
 
-	if err != nil {
+	if msg != "" {
 		prefix := "\n ! "
 		if !*enableProgress {
 			prefix = ""
 		}
 
-		warningColor.Fprintf(os.Stderr, "%vIgnored error when processing \"%v\": %v\n", prefix, errPath, err) //nolint:errcheck
+		col.Fprintf(os.Stderr, "%v%v", prefix, msg) // nolint:errcheck
 	}
 
 	if !*enableProgress {
@@ -189,7 +209,7 @@ func (p *cliProgress) StartShared() {
 
 func (p *cliProgress) FinishShared() {
 	atomic.StoreInt32(&p.uploadFinished, 1)
-	p.output("", nil)
+	p.output(defaultColor, "")
 }
 
 func (p *cliProgress) UploadStarted(previousFileCount int, previousTotalSize int64) {
@@ -217,7 +237,7 @@ func (p *cliProgress) Finish() {
 	}
 
 	atomic.StoreInt32(&p.uploadFinished, 1)
-	p.output("", nil)
+	p.output(defaultColor, "")
 }
 
 var progress = &cliProgress{}

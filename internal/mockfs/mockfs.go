@@ -70,6 +70,7 @@ type Directory struct {
 
 	children     fs.Entries
 	readdirError error
+	onReaddir    func()
 }
 
 // Summary returns summary of a directory.
@@ -173,6 +174,11 @@ func (imd *Directory) FailReaddir(err error) {
 	imd.readdirError = err
 }
 
+// OnReaddir invokes the provided function on read.
+func (imd *Directory) OnReaddir(cb func()) {
+	imd.onReaddir = cb
+}
+
 // Child gets the named child of a directory.
 func (imd *Directory) Child(ctx context.Context, name string) (fs.Entry, error) {
 	return fs.ReadDirAndFindChild(ctx, imd, name)
@@ -182,6 +188,10 @@ func (imd *Directory) Child(ctx context.Context, name string) (fs.Entry, error) 
 func (imd *Directory) Readdir(ctx context.Context) (fs.Entries, error) {
 	if imd.readdirError != nil {
 		return nil, imd.readdirError
+	}
+
+	if imd.onReaddir != nil {
+		imd.onReaddir()
 	}
 
 	return append(fs.Entries(nil), imd.children...), nil
