@@ -15,6 +15,8 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/logging"
+	"github.com/kopia/kopia/repo/maintenance"
+	"github.com/kopia/kopia/snapshot/gc"
 )
 
 var log = logging.GetContextLoggerFunc("kopia/cli")
@@ -28,18 +30,21 @@ var (
 var (
 	app = kingpin.New("kopia", "Kopia - Online Backup").Author("http://kopia.github.io/")
 
+	enableAutomaticMaintenance = app.Flag("auto-maintenance", "Automatic maintenance").Default("true").Hidden().Bool()
+
 	_ = app.Flag("help-full", "Show help for all commands, including hidden").Action(helpFullAction).Bool()
 
-	repositoryCommands = app.Command("repository", "Commands to manipulate repository.").Alias("repo")
-	cacheCommands      = app.Command("cache", "Commands to manipulate local cache").Hidden()
-	snapshotCommands   = app.Command("snapshot", "Commands to manipulate snapshots.").Alias("snap")
-	policyCommands     = app.Command("policy", "Commands to manipulate snapshotting policies.").Alias("policies")
-	serverCommands     = app.Command("server", "Commands to control HTTP API server.")
-	manifestCommands   = app.Command("manifest", "Low-level commands to manipulate manifest items.").Hidden()
-	contentCommands    = app.Command("content", "Commands to manipulate content in repository.").Alias("contents").Hidden()
-	blobCommands       = app.Command("blob", "Commands to manipulate BLOBs.").Hidden()
-	indexCommands      = app.Command("index", "Commands to manipulate content index.").Hidden()
-	benchmarkCommands  = app.Command("benchmark", "Commands to test performance of algorithms.").Hidden()
+	repositoryCommands  = app.Command("repository", "Commands to manipulate repository.").Alias("repo")
+	cacheCommands       = app.Command("cache", "Commands to manipulate local cache").Hidden()
+	snapshotCommands    = app.Command("snapshot", "Commands to manipulate snapshots.").Alias("snap")
+	policyCommands      = app.Command("policy", "Commands to manipulate snapshotting policies.").Alias("policies")
+	serverCommands      = app.Command("server", "Commands to control HTTP API server.")
+	manifestCommands    = app.Command("manifest", "Low-level commands to manipulate manifest items.").Hidden()
+	contentCommands     = app.Command("content", "Commands to manipulate content in repository.").Alias("contents").Hidden()
+	blobCommands        = app.Command("blob", "Commands to manipulate BLOBs.").Hidden()
+	indexCommands       = app.Command("index", "Commands to manipulate content index.").Hidden()
+	benchmarkCommands   = app.Command("benchmark", "Commands to test performance of algorithms.").Hidden()
+	maintenanceCommands = app.Command("maintenance", "Maintenance commands.").Hidden().Alias("gc")
 )
 
 func helpFullAction(ctx *kingpin.ParseContext) error {
@@ -139,14 +144,44 @@ func maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) er
 			}
 
 			err = act(ctx, rep)
+
+			if err == nil && rep != nil {
+				err = maybeRunMaintenance(ctx, rep)
+			}
+
 			if rep != nil && required {
 				if cerr := rep.Close(ctx); cerr != nil {
 					return errors.Wrap(cerr, "unable to close repository")
 				}
 			}
+
 			return err
 		})
 	}
+}
+
+func maybeRunMaintenance(ctx context.Context, rep repo.Repository) error {
+	if !*enableAutomaticMaintenance {
+		return nil
+	}
+
+	dr, ok := rep.(*repo.DirectRepository)
+	if !ok {
+		return nil
+	}
+
+	// run maintenance if scheduled.
+	return maintenance.RunExclusive(ctx, dr, maintenance.ModeAuto,
+		func(runParams maintenance.RunParameters) error {
+			// run snapshot GC before full maintenance
+			if runParams.Mode == maintenance.ModeFull {
+				if _, err := gc.Run(ctx, dr, runParams.Params.SnapshotGC, true); err != nil {
+					return errors.Wrap(err, "snapshot GC failure")
+				}
+			}
+
+			return maintenance.Run(ctx, runParams)
+		})
 }
 
 // App returns an instance of command-line application object.

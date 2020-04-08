@@ -5,6 +5,7 @@ import (
 
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/maintenance"
 	"github.com/kopia/kopia/snapshot/gc"
 )
 
@@ -15,7 +16,9 @@ var (
 )
 
 func runSnapshotGCCommand(ctx context.Context, rep *repo.DirectRepository) error {
-	st, err := gc.Run(ctx, rep, *snapshotGCMinContentAge, *snapshotGCDelete)
+	st, err := gc.Run(ctx, rep, maintenance.SnapshotGCParams{
+		MinContentAge: *snapshotGCMinContentAge,
+	}, *snapshotGCDelete)
 
 	log(ctx).Infof("GC found %v unused contents (%v bytes)", st.UnusedCount, units.BytesStringBase2(st.UnusedBytes))
 	log(ctx).Infof("GC found %v unused contents that are too recent to delete (%v bytes)", st.TooRecentCount, units.BytesStringBase2(st.TooRecentBytes))

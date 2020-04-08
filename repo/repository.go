@@ -57,6 +57,21 @@ func (r *DirectRepository) Hostname() string { return r.hostname }
 // Username returns the username that's connect to the repository.
 func (r *DirectRepository) Username() string { return r.username }
 
+// BlobStorage returns the blob storage.
+func (r *DirectRepository) BlobStorage() blob.Storage {
+	return r.Blobs
+}
+
+// ContentManager returns the content manager.
+func (r *DirectRepository) ContentManager() *content.Manager {
+	return r.Content
+}
+
+// ConfigFilename returns the name of the configuration file
+func (r *DirectRepository) ConfigFilename() string {
+	return r.ConfigFile
+}
+
 // OpenObject opens the reader for a given object, returns object.ErrNotFound
 func (r *DirectRepository) OpenObject(ctx context.Context, id object.ID) (object.Reader, error) {
 	return r.Objects.Open(ctx, id)
