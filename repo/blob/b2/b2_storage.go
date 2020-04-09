@@ -10,7 +10,7 @@ import (
 
 	"github.com/efarrer/iothrottler"
 	"github.com/pkg/errors"
-	"gopkg.in/kothar/go-backblaze.v0"
+	backblaze "gopkg.in/kothar/go-backblaze.v0"
 
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/repo/blob"
