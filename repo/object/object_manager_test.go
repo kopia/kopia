@@ -146,8 +146,14 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 }
 
 func verifyIndirectBlock(ctx context.Context, t *testing.T, r *Manager, oid ID) {
-	for indexBlobID, isIndirect := oid.IndexObjectID(); isIndirect; indexBlobID, isIndirect = indexBlobID.IndexObjectID() {
-		rd, err := r.Open(ctx, indexBlobID)
+	for indexContentID, isIndirect := oid.IndexObjectID(); isIndirect; indexContentID, isIndirect = indexContentID.IndexObjectID() {
+		if c, _, ok := indexContentID.ContentID(); ok {
+			if !c.HasPrefix() {
+				t.Errorf("expected base content ID to be prefixed, was %v", c)
+			}
+		}
+
+		rd, err := r.Open(ctx, indexContentID)
 		if err != nil {
 			t.Errorf("unable to open %v: %v", oid.String(), err)
 			return
