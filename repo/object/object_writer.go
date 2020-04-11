@@ -18,6 +18,8 @@ import (
 
 var log = logging.GetContextLoggerFunc("object")
 
+const indirectContentPrefix = "x"
+
 // Writer allows writing content to the storage and supports automatic deduplication and encryption
 // of written data.
 type Writer interface {
@@ -248,6 +250,11 @@ func (w *objectWriter) Result() (ID, error) {
 		description: "LIST(" + w.description + ")",
 		splitter:    w.om.newSplitter(),
 		prefix:      w.prefix,
+	}
+
+	if iw.prefix == "" {
+		// force a prefix for indirect contents to make sure they get packaged into metadata (q) blobs.
+		iw.prefix = indirectContentPrefix
 	}
 
 	iw.initBuffer()
