@@ -118,7 +118,7 @@ func TestDiskContentCache(t *testing.T) {
 	verifyContentCache(t, cache)
 }
 
-func verifyContentCache(t *testing.T, cache *contentCache) {
+func verifyContentCache(t *testing.T, cache contentCache) {
 	ctx := testlogging.Context(t)
 
 	t.Run("GetContentContent", func(t *testing.T) {
@@ -154,12 +154,12 @@ func verifyContentCache(t *testing.T, cache *contentCache) {
 			}
 		}
 
-		verifyStorageContentList(t, cache.cacheStorage, "f0f0f1x", "f0f0f2x", "f0f0f5")
+		verifyStorageContentList(t, cache.(*contentCacheWithStorage).cacheStorage, "f0f0f1x", "f0f0f2x", "f0f0f5")
 	})
 
 	t.Run("DataCorruption", func(t *testing.T) {
 		var cacheKey blob.ID = "f0f0f1x"
-		d, err := cache.cacheStorage.GetBlob(ctx, cacheKey, 0, -1)
+		d, err := cache.(*contentCacheWithStorage).cacheStorage.GetBlob(ctx, cacheKey, 0, -1)
 		if err != nil {
 			t.Fatalf("unable to retrieve data from cache: %v", err)
 		}
@@ -167,7 +167,7 @@ func verifyContentCache(t *testing.T, cache *contentCache) {
 		// corrupt the data and write back
 		d[0] ^= 1
 
-		if puterr := cache.cacheStorage.PutBlob(ctx, cacheKey, gather.FromSlice(d)); puterr != nil {
+		if puterr := cache.(*contentCacheWithStorage).cacheStorage.PutBlob(ctx, cacheKey, gather.FromSlice(d)); puterr != nil {
 			t.Fatalf("unable to write corrupted content: %v", puterr)
 		}
 

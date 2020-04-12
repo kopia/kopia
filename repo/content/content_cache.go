@@ -25,16 +25,18 @@ const (
 
 type cacheKey string
 
-type contentCache struct {
+type contentCache interface {
+	close()
+	getContent(ctx context.Context, cacheKey cacheKey, blobID blob.ID, offset, length int64) ([]byte, error)
+}
+
+type contentCacheWithStorage struct {
 	st             blob.Storage
 	cacheStorage   blob.Storage
 	maxSizeBytes   int64
 	hmacSecret     []byte
 	sweepFrequency time.Duration
 	touchThreshold time.Duration
-
-	mu                 sync.Mutex
-	lastTotalSizeBytes int64
 
 	asyncWG sync.WaitGroup
 	closed  chan struct{}
@@ -54,10 +56,10 @@ func adjustCacheKey(cacheKey cacheKey) cacheKey {
 	return cacheKey
 }
 
-func (c *contentCache) getContent(ctx context.Context, cacheKey cacheKey, blobID blob.ID, offset, length int64) ([]byte, error) {
+func (c *contentCacheWithStorage) getContent(ctx context.Context, cacheKey cacheKey, blobID blob.ID, offset, length int64) ([]byte, error) {
 	cacheKey = adjustCacheKey(cacheKey)
 
-	useCache := shouldUseContentCache(ctx) && c.cacheStorage != nil
+	useCache := shouldUseContentCache(ctx)
 	if useCache {
 		if b := c.readAndVerifyCacheContent(ctx, cacheKey); b != nil {
 			stats.Record(ctx,
@@ -98,7 +100,7 @@ func (c *contentCache) getContent(ctx context.Context, cacheKey cacheKey, blobID
 	return b, err
 }
 
-func (c *contentCache) readAndVerifyCacheContent(ctx context.Context, cacheKey cacheKey) []byte {
+func (c *contentCacheWithStorage) readAndVerifyCacheContent(ctx context.Context, cacheKey cacheKey) []byte {
 	b, err := c.cacheStorage.GetBlob(ctx, blob.ID(cacheKey), 0, -1)
 	if err == nil {
 		b, err = hmac.VerifyAndStrip(b, c.hmacSecret)
@@ -124,12 +126,12 @@ func (c *contentCache) readAndVerifyCacheContent(ctx context.Context, cacheKey c
 	return nil
 }
 
-func (c *contentCache) close() {
+func (c *contentCacheWithStorage) close() {
 	close(c.closed)
 	c.asyncWG.Wait()
 }
 
-func (c *contentCache) sweepDirectoryPeriodically(ctx context.Context) {
+func (c *contentCacheWithStorage) sweepDirectoryPeriodically(ctx context.Context) {
 	defer c.asyncWG.Done()
 
 	for {
@@ -140,7 +142,7 @@ func (c *contentCache) sweepDirectoryPeriodically(ctx context.Context) {
 		case <-time.After(c.sweepFrequency):
 			err := c.sweepDirectory(ctx)
 			if err != nil {
-				log(ctx).Warningf("contentCache sweep failed: %v", err)
+				log(ctx).Warningf("contentCacheWithStorage sweep failed: %v", err)
 			}
 		}
 	}
@@ -172,14 +174,7 @@ func (h *contentMetadataHeap) Pop() interface{} {
 	return item
 }
 
-func (c *contentCache) sweepDirectory(ctx context.Context) (err error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	if c.cacheStorage == nil {
-		return nil
-	}
-
+func (c *contentCacheWithStorage) sweepDirectory(ctx context.Context) (err error) {
 	t0 := time.Now() // allow:no-inject-time
 
 	var h contentMetadataHeap
@@ -205,12 +200,11 @@ func (c *contentCache) sweepDirectory(ctx context.Context) (err error) {
 	}
 
 	log(ctx).Debugf("finished sweeping directory in %v and retained %v/%v bytes (%v %%)", time.Since(t0), totalRetainedSize, c.maxSizeBytes, 100*totalRetainedSize/c.maxSizeBytes) // allow:no-inject-time
-	c.lastTotalSizeBytes = totalRetainedSize
 
 	return nil
 }
 
-func newContentCache(ctx context.Context, st blob.Storage, caching CachingOptions, maxBytes int64, subdir string) (*contentCache, error) {
+func newContentCache(ctx context.Context, st blob.Storage, caching CachingOptions, maxBytes int64, subdir string) (contentCache, error) {
 	var cacheStorage blob.Storage
 
 	var err error
@@ -236,8 +230,12 @@ func newContentCache(ctx context.Context, st blob.Storage, caching CachingOption
 	return newContentCacheWithCacheStorage(ctx, st, cacheStorage, maxBytes, caching, defaultTouchThreshold, defaultSweepFrequency)
 }
 
-func newContentCacheWithCacheStorage(ctx context.Context, st, cacheStorage blob.Storage, maxSizeBytes int64, caching CachingOptions, touchThreshold, sweepFrequency time.Duration) (*contentCache, error) {
-	c := &contentCache{
+func newContentCacheWithCacheStorage(ctx context.Context, st, cacheStorage blob.Storage, maxSizeBytes int64, caching CachingOptions, touchThreshold, sweepFrequency time.Duration) (contentCache, error) {
+	if cacheStorage == nil {
+		return passthroughContentCache{st}, nil
+	}
+
+	c := &contentCacheWithStorage{
 		st:             st,
 		cacheStorage:   cacheStorage,
 		maxSizeBytes:   maxSizeBytes,
@@ -247,8 +245,15 @@ func newContentCacheWithCacheStorage(ctx context.Context, st, cacheStorage blob.
 		sweepFrequency: sweepFrequency,
 	}
 
-	if err := c.sweepDirectory(ctx); err != nil {
-		return nil, err
+	// errGood is a marker error to stop blob iteration quickly, does not
+	// indicate any problem.
+	var errGood = errors.Errorf("good")
+
+	// verify that cache storage is functional by listing from it
+	if err := c.cacheStorage.ListBlobs(ctx, "", func(it blob.Metadata) error {
+		return errGood
+	}); err != nil && err != errGood {
+		return nil, errors.Wrap(err, "unable to open cache")
 	}
 
 	c.asyncWG.Add(1)
@@ -256,4 +261,15 @@ func newContentCacheWithCacheStorage(ctx context.Context, st, cacheStorage blob.
 	go c.sweepDirectoryPeriodically(ctx)
 
 	return c, nil
+}
+
+// passthroughContentCache is a contentCache which does no caching.
+type passthroughContentCache struct {
+	st blob.Storage
+}
+
+func (c passthroughContentCache) close() {}
+
+func (c passthroughContentCache) getContent(ctx context.Context, cacheKey cacheKey, blobID blob.ID, offset, length int64) ([]byte, error) {
+	return c.st.GetBlob(ctx, blobID, offset, length)
 }
