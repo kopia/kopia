@@ -30,8 +30,8 @@ type lockFreeManager struct {
 	Format         FormattingOptions
 	CachingOptions CachingOptions
 
-	contentCache      *contentCache
-	metadataCache     *contentCache
+	contentCache      contentCache
+	metadataCache     contentCache
 	committedContents *committedContentIndex
 
 	checkInvariantsOnUnlock bool
@@ -215,7 +215,7 @@ func validatePrefix(prefix ID) error {
 	return errors.Errorf("invalid prefix, must be a empty or single letter between 'g' and 'z'")
 }
 
-func (bm *lockFreeManager) getCacheForContentID(id ID) *contentCache {
+func (bm *lockFreeManager) getCacheForContentID(id ID) contentCache {
 	if id.HasPrefix() {
 		return bm.metadataCache
 	}

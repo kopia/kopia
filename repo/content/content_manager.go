@@ -657,7 +657,7 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 		return nil, err
 	}
 
-	contentCache, err := newContentCache(ctx, st, caching, caching.MaxCacheSizeBytes, "contents")
+	dataCache, err := newContentCache(ctx, st, caching, caching.MaxCacheSizeBytes, "contents")
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to initialize content cache")
 	}
@@ -691,7 +691,7 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 			minPreambleLength:       defaultMinPreambleLength,
 			maxPreambleLength:       defaultMaxPreambleLength,
 			paddingUnit:             defaultPaddingUnit,
-			contentCache:            contentCache,
+			contentCache:            dataCache,
 			metadataCache:           metadataCache,
 			listCache:               listCache,
 			st:                      st,
