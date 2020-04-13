@@ -191,18 +191,7 @@ ifneq ($(uname),Windows)
 	# whitelisted internal packages.
 	find repo/ -name '*.go' | xargs grep "^\t\"github.com/kopia/kopia" \
 	   | grep -v -e github.com/kopia/kopia/repo \
-	             -e github.com/kopia/kopia/internal/retry \
-	             -e github.com/kopia/kopia/internal/buf \
-	             -e github.com/kopia/kopia/internal/throttle \
-	             -e github.com/kopia/kopia/internal/iocopy \
-	             -e github.com/kopia/kopia/internal/gather \
-	             -e github.com/kopia/kopia/internal/blobtesting \
-	             -e github.com/kopia/kopia/internal/repotesting \
-	             -e github.com/kopia/kopia/internal/testlogging \
-	             -e github.com/kopia/kopia/internal/hmac \
-	             -e github.com/kopia/kopia/internal/faketime \
-	             -e github.com/kopia/kopia/internal/testutil \
-	             -e github.com/kopia/kopia/internal/ctxutil \
+	             -e github.com/kopia/kopia/internal \
 	             -e github.com/kopia/kopia/issues && exit 1 || echo repo/ layering ok
 endif
 
