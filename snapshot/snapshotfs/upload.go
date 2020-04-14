@@ -32,7 +32,7 @@ const DefaultCheckpointInterval = 45 * time.Minute
 
 const copyBufferSize = 128 * 1024
 
-var log = logging.GetContextLoggerFunc("kopia/upload")
+var log = logging.GetContextLoggerFunc("snapshotfs")
 
 var errCanceled = errors.New("canceled")
 

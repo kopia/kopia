@@ -252,21 +252,26 @@ func TestSnapshotDeleteTypeCheck(t *testing.T) {
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
 	lines := e.RunAndExpectSuccess(t, "manifest", "ls")
-	if len(lines) != 1 {
-		t.Fatalf("Expected 1 line global policy output for manifest ls")
+	if len(lines) != 2 {
+		t.Fatalf("Expected 2 line global policy + maintenance config output for manifest ls")
 	}
 
-	line := lines[0]
-	fields := strings.Fields(line)
-	manifestID := fields[0]
-	typeField := fields[5]
+	for _, line := range lines {
+		fields := strings.Fields(line)
+		manifestID := fields[0]
+		typeField := fields[5]
 
-	typeVal := strings.TrimPrefix(typeField, "type:")
-	if typeVal != "policy" {
-		t.Fatalf("Expected global policy manifest on a fresh repo")
+		typeVal := strings.TrimPrefix(typeField, "type:")
+		if typeVal == "maintenance" {
+			continue
+		}
+
+		if typeVal != "policy" {
+			t.Fatalf("Expected global policy manifest on a fresh repo")
+		}
+
+		e.RunAndExpectFailure(t, "snapshot", "delete", manifestID, "--unsafe-ignore-source")
 	}
-
-	e.RunAndExpectFailure(t, "snapshot", "delete", manifestID, "--unsafe-ignore-source")
 }
 
 func TestSnapshotDeleteRestore(t *testing.T) {

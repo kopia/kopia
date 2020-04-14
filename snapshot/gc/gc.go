@@ -4,7 +4,6 @@ package gc
 import (
 	"context"
 	"sync"
-	"time"
 
 	"github.com/pkg/errors"
 
@@ -14,13 +13,14 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/logging"
+	"github.com/kopia/kopia/repo/maintenance"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
-var log = logging.GetContextLoggerFunc("kopia/snapshot/gc")
+var log = logging.GetContextLoggerFunc("snapshotgc")
 
 func oidOf(entry fs.Entry) object.ID {
 	return entry.(object.HasObjectID).ObjectID()
@@ -75,7 +75,7 @@ func findInUseContentIDs(ctx context.Context, rep repo.Repository, used *sync.Ma
 
 // Run performs garbage collection on all the snapshots in the repository.
 // nolint:gocognit
-func Run(ctx context.Context, rep *repo.DirectRepository, minContentAge time.Duration, gcDelete bool) (Stats, error) {
+func Run(ctx context.Context, rep *repo.DirectRepository, params maintenance.SnapshotGCParams, gcDelete bool) (Stats, error) {
 	var used sync.Map
 
 	var st Stats
@@ -99,7 +99,7 @@ func Run(ctx context.Context, rep *repo.DirectRepository, minContentAge time.Dur
 			return nil
 		}
 
-		if rep.Time().Sub(ci.Timestamp()) < minContentAge {
+		if rep.Time().Sub(ci.Timestamp()) < params.MinContentAge {
 			log(ctx).Debugf("recent unreferenced content %v (%v bytes, modified %v)", ci.ID, ci.Length, ci.Timestamp())
 			tooRecent.Add(int64(ci.Length))
 			return nil
