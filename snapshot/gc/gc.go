@@ -84,7 +84,7 @@ func Run(ctx context.Context, rep *repo.DirectRepository, params maintenance.Sna
 		return st, errors.Wrap(err, "unable to find in-use content ID")
 	}
 
-	var unused, inUse, system, tooRecent stats.CountSum
+	var unused, inUse, system, tooRecent, undeleted stats.CountSum
 
 	log(ctx).Infof("looking for unreferenced contents")
 
@@ -95,6 +95,13 @@ func Run(ctx context.Context, rep *repo.DirectRepository, params maintenance.Sna
 		}
 
 		if _, ok := used.Load(ci.ID); ok {
+			if ci.Deleted {
+				if err := rep.Content.UndeleteContent(ctx, ci.ID); err != nil {
+					return errors.Wrapf(err, "Could not undelete referenced content: %v", ci)
+				}
+				undeleted.Add(int64(ci.Length))
+			}
+
 			inUse.Add(int64(ci.Length))
 			return nil
 		}
@@ -130,6 +137,7 @@ func Run(ctx context.Context, rep *repo.DirectRepository, params maintenance.Sna
 	st.InUseCount, st.InUseBytes = inUse.Approximate()
 	st.SystemCount, st.SystemBytes = system.Approximate()
 	st.TooRecentCount, st.TooRecentBytes = tooRecent.Approximate()
+	st.UndeletedCount, st.UndeletedBytes = undeleted.Approximate()
 
 	if err != nil {
 		return st, errors.Wrap(err, "error iterating contents")
