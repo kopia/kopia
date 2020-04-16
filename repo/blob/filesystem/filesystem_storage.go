@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/pkg/errors"
@@ -39,6 +40,8 @@ type fsImpl struct {
 	Options
 }
 
+var errRetriableInvalidLength = errors.Errorf("invalid length (retriable)")
+
 func isRetriable(err error) bool {
 	if err == nil {
 		return false
@@ -54,14 +57,58 @@ func isRetriable(err error) bool {
 		return false
 	}
 
-	return true
+	// retry errors during file operations
+	if _, ok := err.(*os.PathError); ok {
+		return true
+	}
+
+	// retry errors during rename
+	if _, ok := err.(*os.LinkError); ok {
+		return true
+	}
+
+	return err == errRetriableInvalidLength
 }
 
 func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, offset, length int64) ([]byte, error) {
 	val, err := retry.WithExponentialBackoff(ctx, "GetBlobFromPath:"+path, func() (interface{}, error) {
 		f, err := os.Open(path) //nolint:gosec
-		return f, err
+		if err != nil {
+			return nil, err
+		}
+
+		defer f.Close() //nolint:errcheck
+
+		if length < 0 {
+			return ioutil.ReadAll(f)
+		}
+
+		if _, err = f.Seek(offset, io.SeekStart); err != nil {
+			// do not wrap seek error, we don't want to retry on it.
+			return nil, errors.Errorf("seek error: %v", err)
+		}
+
+		b, err := ioutil.ReadAll(io.LimitReader(f, length))
+		if err != nil {
+			return nil, err
+		}
+
+		if int64(len(b)) != length && length > 0 {
+			if runtime.GOOS == "darwin" {
+				if st, err := f.Stat(); err == nil && st.Size() == 0 {
+					// this sometimes fails on macOS for unknown reasons, likely a bug in the filesystem
+					// retry deals with this transient state.
+					// see see https://github.com/kopia/kopia/issues/299
+					return nil, errRetriableInvalidLength
+				}
+			}
+
+			return nil, errors.Errorf("invalid length")
+		}
+
+		return b, nil
 	}, isRetriable)
+
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, blob.ErrBlobNotFound
@@ -70,31 +117,7 @@ func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, off
 		return nil, err
 	}
 
-	f := val.(*os.File)
-
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close() //nolint:errcheck
-
-	if length < 0 {
-		return ioutil.ReadAll(f)
-	}
-
-	if _, err = f.Seek(offset, io.SeekStart); err != nil {
-		return nil, err
-	}
-
-	b, err := ioutil.ReadAll(io.LimitReader(f, length))
-	if err != nil {
-		return nil, err
-	}
-
-	if int64(len(b)) != length {
-		return nil, errors.Errorf("invalid length")
-	}
-
-	return b, nil
+	return val.([]byte), nil
 }
 
 func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data blob.Bytes) error {
