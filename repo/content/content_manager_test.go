@@ -480,6 +480,7 @@ func TestDeleteContent(t *testing.T) {
 	verifyContentNotFound(ctx, t, bm, content2)
 }
 
+// nolint:gocyclo
 func TestUndeleteContentSimple(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
