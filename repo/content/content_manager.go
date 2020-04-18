@@ -650,6 +650,17 @@ func (bm *Manager) Refresh(ctx context.Context) (bool, error) {
 	return updated, err
 }
 
+// SyncMetadataCache synchronizes metadata cache with metadata blobs in storage.
+func (bm *Manager) SyncMetadataCache(ctx context.Context) error {
+	if cm, ok := bm.metadataCache.(*contentCacheForMetadata); ok {
+		return cm.sync(ctx)
+	}
+
+	log(ctx).Debugf("metadata cache not enabled")
+
+	return nil
+}
+
 // ManagerOptions are the optional parameters for manager creation
 type ManagerOptions struct {
 	RepositoryFormatBytes []byte
@@ -680,7 +691,12 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 		return nil, err
 	}
 
-	dataCache, err := newContentCache(ctx, st, caching, caching.MaxCacheSizeBytes, "contents")
+	dataCacheStorage, err := newCacheStorageOrNil(ctx, caching.CacheDirectory, caching.MaxCacheSizeBytes, "contents")
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to initialize data cache storage")
+	}
+
+	dataCache, err := newContentCacheForData(ctx, st, dataCacheStorage, caching.MaxCacheSizeBytes, caching.HMACSecret)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to initialize content cache")
 	}
@@ -690,7 +706,12 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 		metadataCacheSize = caching.MaxCacheSizeBytes
 	}
 
-	metadataCache, err := newContentCache(ctx, st, caching, metadataCacheSize, "metadata")
+	metadataCacheStorage, err := newCacheStorageOrNil(ctx, caching.CacheDirectory, metadataCacheSize, "metadata")
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to initialize data cache storage")
+	}
+
+	metadataCache, err := newContentCacheForMetadata(ctx, st, metadataCacheStorage, metadataCacheSize)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to initialize metadata cache")
 	}
