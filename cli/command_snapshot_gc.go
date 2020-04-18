@@ -6,7 +6,7 @@ import (
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/maintenance"
-	"github.com/kopia/kopia/snapshot/gc"
+	"github.com/kopia/kopia/snapshot/snapshotgc"
 )
 
 var (
@@ -16,7 +16,7 @@ var (
 )
 
 func runSnapshotGCCommand(ctx context.Context, rep *repo.DirectRepository) error {
-	st, err := gc.Run(ctx, rep, maintenance.SnapshotGCParams{
+	st, err := snapshotgc.Run(ctx, rep, maintenance.SnapshotGCParams{
 		MinContentAge: *snapshotGCMinContentAge,
 	}, *snapshotGCDelete)
 

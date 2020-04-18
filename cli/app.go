@@ -16,7 +16,7 @@ import (
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/maintenance"
-	"github.com/kopia/kopia/snapshot/gc"
+	"github.com/kopia/kopia/snapshot/snapshotgc"
 )
 
 var log = logging.GetContextLoggerFunc("kopia/cli")
@@ -175,7 +175,7 @@ func maybeRunMaintenance(ctx context.Context, rep repo.Repository) error {
 		func(runParams maintenance.RunParameters) error {
 			// run snapshot GC before full maintenance
 			if runParams.Mode == maintenance.ModeFull {
-				if _, err := gc.Run(ctx, dr, runParams.Params.SnapshotGC, true); err != nil {
+				if _, err := snapshotgc.Run(ctx, dr, runParams.Params.SnapshotGC, true); err != nil {
 					return errors.Wrap(err, "snapshot GC failure")
 				}
 			}
