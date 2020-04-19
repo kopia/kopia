@@ -76,15 +76,25 @@ func findInUseContentIDs(ctx context.Context, rep repo.Repository, used *sync.Ma
 // Run performs garbage collection on all the snapshots in the repository.
 // nolint:gocognit
 func Run(ctx context.Context, rep *repo.DirectRepository, params maintenance.SnapshotGCParams, gcDelete bool) (Stats, error) {
-	var used sync.Map
-
 	var st Stats
 
-	if err := findInUseContentIDs(ctx, rep, &used); err != nil {
-		return st, errors.Wrap(err, "unable to find in-use content ID")
-	}
+	err := maintenance.ReportRun(ctx, rep, "snapshot-gc", func() error {
+		return runInternal(ctx, rep, params, gcDelete, &st)
+	})
 
-	var unused, inUse, system, tooRecent, undeleted stats.CountSum
+	return st, err
+}
+
+func runInternal(ctx context.Context, rep *repo.DirectRepository, params maintenance.SnapshotGCParams, gcDelete bool, st *Stats) error {
+	var (
+		used sync.Map
+
+		unused, inUse, system, tooRecent, undeleted stats.CountSum
+	)
+
+	if err := findInUseContentIDs(ctx, rep, &used); err != nil {
+		return errors.Wrap(err, "unable to find in-use content ID")
+	}
 
 	log(ctx).Infof("looking for unreferenced contents")
 
@@ -140,12 +150,12 @@ func Run(ctx context.Context, rep *repo.DirectRepository, params maintenance.Sna
 	st.UndeletedCount, st.UndeletedBytes = undeleted.Approximate()
 
 	if err != nil {
-		return st, errors.Wrap(err, "error iterating contents")
+		return errors.Wrap(err, "error iterating contents")
 	}
 
 	if st.UnusedCount > 0 && !gcDelete {
-		return st, errors.Errorf("Not deleting because '--delete' flag was not set")
+		return errors.Errorf("Not deleting because '--delete' flag was not set")
 	}
 
-	return st, nil
+	return nil
 }

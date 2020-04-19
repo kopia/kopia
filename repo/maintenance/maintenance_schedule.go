@@ -13,10 +13,38 @@ import (
 
 const maintenanceScheduleBlobID = "kopia.schedule"
 
+const maxRunsPerRun = 5
+
+// RunInfo represents information about a single run of a maintenance task.
+type RunInfo struct {
+	Start   time.Time `json:"start"`
+	End     time.Time `json:"end"`
+	Success bool      `json:"success,omitempty"`
+	Error   string    `json:"error,omitempty"`
+}
+
 // Schedule keeps track of scheduled maintenance times.
 type Schedule struct {
 	NextFullMaintenanceTime  time.Time `json:"nextFullMaintenance"`
 	NextQuickMaintenanceTime time.Time `json:"nextQuickMaintenance"`
+
+	Runs map[string][]RunInfo `json:"runs"`
+}
+
+// ReportRun adds the provided run information to the history and discards oldest entried.
+func (s *Schedule) ReportRun(runType string, info RunInfo) {
+	if s.Runs == nil {
+		s.Runs = map[string][]RunInfo{}
+	}
+
+	// insert as first item
+	history := append([]RunInfo{info}, s.Runs[runType]...)
+
+	if len(history) > maxRunsPerRun {
+		history = history[0:maxRunsPerRun]
+	}
+
+	s.Runs[runType] = history
 }
 
 // GetSchedule gets the scheduled maintenance times.
@@ -46,4 +74,34 @@ func SetSchedule(ctx context.Context, rep MaintainableRepository, s *Schedule) e
 	}
 
 	return rep.BlobStorage().PutBlob(ctx, maintenanceScheduleBlobID, gather.FromSlice(v))
+}
+
+// ReportRun reports timing of a maintenance run and persists it in repository.
+func ReportRun(ctx context.Context, rep MaintainableRepository, runType string, run func() error) error {
+	ri := RunInfo{
+		Start: rep.Time(),
+	}
+
+	runErr := run()
+
+	ri.End = rep.Time()
+
+	if runErr != nil {
+		ri.Error = runErr.Error()
+	} else {
+		ri.Success = true
+	}
+
+	s, err := GetSchedule(ctx, rep)
+	if err != nil {
+		log(ctx).Warningf("unable to get schedule")
+	}
+
+	s.ReportRun(runType, ri)
+
+	if err := SetSchedule(ctx, rep, s); err != nil {
+		log(ctx).Warningf("unable to report run: %v", err)
+	}
+
+	return runErr
 }

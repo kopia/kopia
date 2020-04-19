@@ -196,25 +196,24 @@ func Run(ctx context.Context, runParams RunParameters) error {
 }
 
 func runQuickMaintenance(ctx context.Context, runParams RunParameters) error {
-	// rewrite indexes by dropping content entries that have been marked
-	// as deleted for a long time
-	if err := DropDeletedContents(ctx, runParams.rep, &runParams.Params.DropDeletedContent); err != nil {
-		return errors.Wrap(err, "error dropping deleted contents")
-	}
-
 	// find 'q' packs that are less than 80% full and rewrite contents in them into
 	// new consolidated packs, orphaning old packs in the process.
-	if err := RewriteContents(ctx, runParams.rep, &RewriteContentsOptions{
-		ContentIDRange: content.AllPrefixedIDs,
-		PackPrefix:     content.PackBlobIDPrefixSpecial,
-		ShortPacks:     true,
+	if err := ReportRun(ctx, runParams.rep, "quick-rewrite-contents", func() error {
+		return RewriteContents(ctx, runParams.rep, &RewriteContentsOptions{
+			ContentIDRange: content.AllPrefixedIDs,
+			PackPrefix:     content.PackBlobIDPrefixSpecial,
+			ShortPacks:     true,
+		})
 	}); err != nil {
 		return errors.Wrap(err, "error rewriting metadata contents")
 	}
 
 	// delete orphaned 'q' packs after some time.
-	if _, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{
-		Prefix: content.PackBlobIDPrefixSpecial,
+	if err := ReportRun(ctx, runParams.rep, "quick-delete-blobs", func() error {
+		_, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{
+			Prefix: content.PackBlobIDPrefixSpecial,
+		})
+		return err
 	}); err != nil {
 		return errors.Wrap(err, "error deleting unreferenced metadata blobs")
 	}
@@ -225,21 +224,28 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters) error {
 func runFullMaintenance(ctx context.Context, runParams RunParameters) error {
 	// rewrite indexes by dropping content entries that have been marked
 	// as deleted for a long time
-	if err := DropDeletedContents(ctx, runParams.rep, &runParams.Params.DropDeletedContent); err != nil {
+	if err := ReportRun(ctx, runParams.rep, "full-drop-deleted-content", func() error {
+		return DropDeletedContents(ctx, runParams.rep, &runParams.Params.DropDeletedContent)
+	}); err != nil {
 		return errors.Wrap(err, "error dropping deleted contents")
 	}
 
 	// find packs that are less than 80% full and rewrite contents in them into
 	// new consolidated packs, orphaning old packs in the process.
-	if err := RewriteContents(ctx, runParams.rep, &RewriteContentsOptions{
-		ContentIDRange: content.AllIDs,
-		ShortPacks:     true,
+	if err := ReportRun(ctx, runParams.rep, "full-rewrite-contents", func() error {
+		return RewriteContents(ctx, runParams.rep, &RewriteContentsOptions{
+			ContentIDRange: content.AllIDs,
+			ShortPacks:     true,
+		})
 	}); err != nil {
 		return errors.Wrap(err, "error rewriting contents in short packs")
 	}
 
 	// delete orphaned packs after some time.
-	if _, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{}); err != nil {
+	if err := ReportRun(ctx, runParams.rep, "full-delete-blobs", func() error {
+		_, err := DeleteUnreferencedBlobs(ctx, runParams.rep, DeleteUnreferencedBlobsOptions{})
+		return err
+	}); err != nil {
 		return errors.Wrap(err, "error deleting unreferenced blobs")
 	}
 
