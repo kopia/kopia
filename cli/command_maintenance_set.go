@@ -23,8 +23,6 @@ var (
 
 	maintenanceSetPauseQuick = maintenanceSetCommand.Flag("pause-quick", "Pause quick maintenance for a specified duration").DurationList()
 	maintenanceSetPauseFull  = maintenanceSetCommand.Flag("pause-full", "Pause full maintenance for a specified duration").DurationList()
-
-	maintenanceSetDropDeletedAge = maintenanceSetCommand.Flag("drop-deleted-age", "Drop deleted contents older than").DurationList()
 )
 
 func setMaintenanceOwnerFromFlags(p *maintenance.Params, rep *repo.DirectRepository, changed *bool) {
@@ -65,17 +63,6 @@ func setMaintenanceEnabledAndIntervalFromFlags(c *maintenance.CycleParams, cycle
 	}
 }
 
-func setMaintenanceIndexRewriteParamsFromFlags(p *maintenance.Params, changed *bool) {
-	if v := *maintenanceSetDropDeletedAge; len(v) > 0 {
-		lastVal := v[len(v)-1]
-
-		p.DropDeletedContent.MinDeletedAge = lastVal
-		printStderr("Index rewrite will drop deleted contents older than %v.\n", p.DropDeletedContent.MinDeletedAge)
-
-		*changed = true
-	}
-}
-
 func runMaintenanceSetParams(ctx context.Context, rep *repo.DirectRepository) error {
 	p, err := maintenance.GetParams(ctx, rep)
 	if err != nil {
@@ -92,7 +79,6 @@ func runMaintenanceSetParams(ctx context.Context, rep *repo.DirectRepository) er
 	setMaintenanceOwnerFromFlags(p, rep, &changedParams)
 	setMaintenanceEnabledAndIntervalFromFlags(&p.QuickCycle, "quick", *maintenanceSetEnableQuick, *maintenanceSetQuickFrequency, &changedParams)
 	setMaintenanceEnabledAndIntervalFromFlags(&p.FullCycle, "full", *maintenanceSetEnableFull, *maintenanceSetFullFrequency, &changedParams)
-	setMaintenanceIndexRewriteParamsFromFlags(p, &changedParams)
 
 	if v := *maintenanceSetPauseQuick; len(v) > 0 {
 		pauseDuration := v[len(v)-1]
