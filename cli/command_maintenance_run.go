@@ -7,7 +7,7 @@ import (
 
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/maintenance"
-	"github.com/kopia/kopia/snapshot/gc"
+	"github.com/kopia/kopia/snapshot/snapshotgc"
 )
 
 var (
@@ -23,7 +23,7 @@ func runMaintenanceCommand(ctx context.Context, rep *repo.DirectRepository) erro
 
 	return maintenance.RunExclusive(ctx, rep, mode, func(p maintenance.RunParameters) error {
 		if p.Mode == maintenance.ModeFull {
-			if _, err := gc.Run(ctx, rep, p.Params.SnapshotGC, true); err != nil {
+			if _, err := snapshotgc.Run(ctx, rep, p.Params.SnapshotGC, true); err != nil {
 				return errors.Wrap(err, "error running snapshot GC")
 			}
 		}

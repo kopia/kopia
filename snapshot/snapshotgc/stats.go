@@ -1,4 +1,4 @@
-package gc
+package snapshotgc
 
 // Stats contains statistics about a GC run
 type Stats struct {

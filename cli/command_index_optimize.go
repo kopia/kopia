@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"time"
 
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
@@ -10,16 +11,21 @@ import (
 var (
 	optimizeCommand              = indexCommands.Command("optimize", "Optimize indexes blobs.")
 	optimizeMaxSmallBlobs        = optimizeCommand.Flag("max-small-blobs", "Maximum number of small index blobs that can be left after compaction.").Default("1").Int()
-	optimizeSkipDeletedOlderThan = optimizeCommand.Flag("skip-deleted-older-than", "Skip deleted blobs above given age").Duration()
+	optimizeDropDeletedOlderThan = optimizeCommand.Flag("drop-deleted-older-than", "Drop deleted contents above given age").Duration()
 	optimizeAllIndexes           = optimizeCommand.Flag("all", "Optimize all indexes, even those above maximum size.").Bool()
 )
 
 func runOptimizeCommand(ctx context.Context, rep *repo.DirectRepository) error {
-	return rep.Content.CompactIndexes(ctx, content.CompactOptions{
-		MaxSmallBlobs:        *optimizeMaxSmallBlobs,
-		AllIndexes:           *optimizeAllIndexes,
-		SkipDeletedOlderThan: *optimizeSkipDeletedOlderThan,
-	})
+	opt := content.CompactOptions{
+		MaxSmallBlobs: *optimizeMaxSmallBlobs,
+		AllIndexes:    *optimizeAllIndexes,
+	}
+
+	if age := *optimizeDropDeletedOlderThan; age > 0 {
+		opt.DropDeletedBefore = time.Now().Add(-age)
+	}
+
+	return rep.Content.CompactIndexes(ctx, opt)
 }
 
 func init() {
