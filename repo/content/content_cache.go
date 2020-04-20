@@ -1,26 +1,13 @@
 package content
 
 import (
-	"container/heap"
 	"context"
 	"os"
 	"path/filepath"
-	"sync"
-	"time"
-
-	"github.com/pkg/errors"
-	"go.opencensus.io/stats"
 
 	"github.com/kopia/kopia/internal/ctxutil"
-	"github.com/kopia/kopia/internal/gather"
-	"github.com/kopia/kopia/internal/hmac"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/filesystem"
-)
-
-const (
-	defaultSweepFrequency = 1 * time.Minute
-	defaultTouchThreshold = 10 * time.Minute
 )
 
 type cacheKey string
@@ -30,187 +17,13 @@ type contentCache interface {
 	getContent(ctx context.Context, cacheKey cacheKey, blobID blob.ID, offset, length int64) ([]byte, error)
 }
 
-type contentCacheWithStorage struct {
-	st             blob.Storage
-	cacheStorage   blob.Storage
-	maxSizeBytes   int64
-	hmacSecret     []byte
-	sweepFrequency time.Duration
-	touchThreshold time.Duration
-
-	asyncWG sync.WaitGroup
-	closed  chan struct{}
-}
-
-type contentToucher interface {
-	TouchBlob(ctx context.Context, contentID blob.ID, threshold time.Duration) error
-}
-
-func adjustCacheKey(cacheKey cacheKey) cacheKey {
-	// content IDs with odd length have a single-byte prefix.
-	// move the prefix to the end of cache key to make sure the top level shard is spread 256 ways.
-	if len(cacheKey)%2 == 1 {
-		return cacheKey[1:] + cacheKey[0:1]
-	}
-
-	return cacheKey
-}
-
-func (c *contentCacheWithStorage) getContent(ctx context.Context, cacheKey cacheKey, blobID blob.ID, offset, length int64) ([]byte, error) {
-	cacheKey = adjustCacheKey(cacheKey)
-
-	useCache := shouldUseContentCache(ctx)
-	if useCache {
-		if b := c.readAndVerifyCacheContent(ctx, cacheKey); b != nil {
-			stats.Record(ctx,
-				metricContentCacheHitCount.M(1),
-				metricContentCacheHitBytes.M(int64(len(b))),
-			)
-
-			return b, nil
-		}
-	}
-
-	stats.Record(ctx, metricContentCacheMissCount.M(1))
-
-	b, err := c.st.GetBlob(ctx, blobID, offset, length)
-	if err != nil {
-		stats.Record(ctx, metricContentCacheMissErrors.M(1))
-	} else {
-		stats.Record(ctx, metricContentCacheMissBytes.M(int64(len(b))))
-	}
-
-	if err == blob.ErrBlobNotFound {
-		// not found in underlying storage
-		return nil, err
-	}
-
-	if err == nil && useCache {
-		// do not report cache writes as uploads.
-		if puterr := c.cacheStorage.PutBlob(
-			blob.WithUploadProgressCallback(ctx, nil),
-			blob.ID(cacheKey),
-			gather.FromSlice(hmac.Append(b, c.hmacSecret)),
-		); puterr != nil {
-			stats.Record(ctx, metricContentCacheStoreErrors.M(1))
-			log(ctx).Warningf("unable to write cache item %v: %v", cacheKey, puterr)
-		}
-	}
-
-	return b, err
-}
-
-func (c *contentCacheWithStorage) readAndVerifyCacheContent(ctx context.Context, cacheKey cacheKey) []byte {
-	b, err := c.cacheStorage.GetBlob(ctx, blob.ID(cacheKey), 0, -1)
-	if err == nil {
-		b, err = hmac.VerifyAndStrip(b, c.hmacSecret)
-		if err == nil {
-			if t, ok := c.cacheStorage.(contentToucher); ok {
-				t.TouchBlob(ctx, blob.ID(cacheKey), c.touchThreshold) //nolint:errcheck
-			}
-
-			// retrieved from cache and HMAC valid
-			return b
-		}
-
-		// ignore malformed contents
-		log(ctx).Warningf("malformed content %v: %v", cacheKey, err)
-
-		return nil
-	}
-
-	if err != blob.ErrBlobNotFound {
-		log(ctx).Warningf("unable to read cache %v: %v", cacheKey, err)
-	}
-
-	return nil
-}
-
-func (c *contentCacheWithStorage) close() {
-	close(c.closed)
-	c.asyncWG.Wait()
-}
-
-func (c *contentCacheWithStorage) sweepDirectoryPeriodically(ctx context.Context) {
-	defer c.asyncWG.Done()
-
-	for {
-		select {
-		case <-c.closed:
-			return
-
-		case <-time.After(c.sweepFrequency):
-			err := c.sweepDirectory(ctx)
-			if err != nil {
-				log(ctx).Warningf("contentCacheWithStorage sweep failed: %v", err)
-			}
-		}
-	}
-}
-
-// A contentMetadataHeap implements heap.Interface and holds blob.Metadata.
-type contentMetadataHeap []blob.Metadata
-
-func (h contentMetadataHeap) Len() int { return len(h) }
-
-func (h contentMetadataHeap) Less(i, j int) bool {
-	return h[i].Timestamp.Before(h[j].Timestamp)
-}
-
-func (h contentMetadataHeap) Swap(i, j int) {
-	h[i], h[j] = h[j], h[i]
-}
-
-func (h *contentMetadataHeap) Push(x interface{}) {
-	*h = append(*h, x.(blob.Metadata))
-}
-
-func (h *contentMetadataHeap) Pop() interface{} {
-	old := *h
-	n := len(old)
-	item := old[n-1]
-	*h = old[0 : n-1]
-
-	return item
-}
-
-func (c *contentCacheWithStorage) sweepDirectory(ctx context.Context) (err error) {
-	t0 := time.Now() // allow:no-inject-time
-
-	var h contentMetadataHeap
-
-	var totalRetainedSize int64
-
-	err = c.cacheStorage.ListBlobs(ctx, "", func(it blob.Metadata) error {
-		heap.Push(&h, it)
-		totalRetainedSize += it.Length
-
-		if totalRetainedSize > c.maxSizeBytes {
-			oldest := heap.Pop(&h).(blob.Metadata)
-			if delerr := c.cacheStorage.DeleteBlob(ctx, oldest.BlobID); delerr != nil {
-				log(ctx).Warningf("unable to remove %v: %v", oldest.BlobID, delerr)
-			} else {
-				totalRetainedSize -= oldest.Length
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		return errors.Wrap(err, "error listing cache")
-	}
-
-	log(ctx).Debugf("finished sweeping directory in %v and retained %v/%v bytes (%v %%)", time.Since(t0), totalRetainedSize, c.maxSizeBytes, 100*totalRetainedSize/c.maxSizeBytes) // allow:no-inject-time
-
-	return nil
-}
-
-func newContentCache(ctx context.Context, st blob.Storage, caching CachingOptions, maxBytes int64, subdir string) (contentCache, error) {
+func newCacheStorageOrNil(ctx context.Context, cacheDir string, maxBytes int64, subdir string) (blob.Storage, error) {
 	var cacheStorage blob.Storage
 
 	var err error
 
-	if maxBytes > 0 && caching.CacheDirectory != "" {
-		contentCacheDir := filepath.Join(caching.CacheDirectory, subdir)
+	if maxBytes > 0 && cacheDir != "" {
+		contentCacheDir := filepath.Join(cacheDir, subdir)
 
 		if _, err = os.Stat(contentCacheDir); os.IsNotExist(err) {
 			if mkdirerr := os.MkdirAll(contentCacheDir, 0700); mkdirerr != nil {
@@ -227,49 +40,5 @@ func newContentCache(ctx context.Context, st blob.Storage, caching CachingOption
 		}
 	}
 
-	return newContentCacheWithCacheStorage(ctx, st, cacheStorage, maxBytes, caching, defaultTouchThreshold, defaultSweepFrequency)
-}
-
-func newContentCacheWithCacheStorage(ctx context.Context, st, cacheStorage blob.Storage, maxSizeBytes int64, caching CachingOptions, touchThreshold, sweepFrequency time.Duration) (contentCache, error) {
-	if cacheStorage == nil {
-		return passthroughContentCache{st}, nil
-	}
-
-	c := &contentCacheWithStorage{
-		st:             st,
-		cacheStorage:   cacheStorage,
-		maxSizeBytes:   maxSizeBytes,
-		hmacSecret:     append([]byte(nil), caching.HMACSecret...),
-		closed:         make(chan struct{}),
-		touchThreshold: touchThreshold,
-		sweepFrequency: sweepFrequency,
-	}
-
-	// errGood is a marker error to stop blob iteration quickly, does not
-	// indicate any problem.
-	var errGood = errors.Errorf("good")
-
-	// verify that cache storage is functional by listing from it
-	if err := c.cacheStorage.ListBlobs(ctx, "", func(it blob.Metadata) error {
-		return errGood
-	}); err != nil && err != errGood {
-		return nil, errors.Wrap(err, "unable to open cache")
-	}
-
-	c.asyncWG.Add(1)
-
-	go c.sweepDirectoryPeriodically(ctx)
-
-	return c, nil
-}
-
-// passthroughContentCache is a contentCache which does no caching.
-type passthroughContentCache struct {
-	st blob.Storage
-}
-
-func (c passthroughContentCache) close() {}
-
-func (c passthroughContentCache) getContent(ctx context.Context, cacheKey cacheKey, blobID blob.ID, offset, length int64) ([]byte, error) {
-	return c.st.GetBlob(ctx, blobID, offset, length)
+	return cacheStorage, nil
 }
