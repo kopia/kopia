@@ -118,7 +118,7 @@ func RewriteContents(ctx context.Context, rep MaintainableRepository, opt *Rewri
 	log(ctx).Debugf("Total bytes rewritten %v", units.BytesStringBase10(totalBytes))
 
 	if failedCount == 0 {
-		return nil
+		return rep.ContentManager().Flush(ctx)
 	}
 
 	return errors.Errorf("failed to rewrite %v contents", failedCount)
