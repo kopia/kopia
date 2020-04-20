@@ -13,7 +13,8 @@ import (
 
 const maintenanceScheduleBlobID = "kopia.schedule"
 
-const maxRunsPerRun = 5
+// maxRetainedRunInfoPerRunType the maximum number of retained RunInfo entries per run type.
+const maxRetainedRunInfoPerRunType = 5
 
 // RunInfo represents information about a single run of a maintenance task.
 type RunInfo struct {
@@ -40,8 +41,8 @@ func (s *Schedule) ReportRun(runType string, info RunInfo) {
 	// insert as first item
 	history := append([]RunInfo{info}, s.Runs[runType]...)
 
-	if len(history) > maxRunsPerRun {
-		history = history[0:maxRunsPerRun]
+	if len(history) > maxRetainedRunInfoPerRunType {
+		history = history[0:maxRetainedRunInfoPerRunType]
 	}
 
 	s.Runs[runType] = history
