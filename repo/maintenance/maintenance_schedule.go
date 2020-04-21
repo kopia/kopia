@@ -2,6 +2,9 @@ package maintenance
 
 import (
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	"encoding/json"
 	"time"
 
@@ -11,7 +14,15 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-const maintenanceScheduleBlobID = "kopia.schedule"
+const (
+	maintenanceScheduleKeySize = 32
+	maintenanceScheduleBlobID  = "kopia.maintenance"
+)
+
+var (
+	maintenanceScheduleKeyPurpose    = []byte("maintenance schedule")
+	maintenanceScheduleAEADExtraData = []byte("maintenance")
+)
 
 // maxRetainedRunInfoPerRunType the maximum number of retained RunInfo entries per run type.
 const maxRetainedRunInfoPerRunType = 5
@@ -48,8 +59,18 @@ func (s *Schedule) ReportRun(runType string, info RunInfo) {
 	s.Runs[runType] = history
 }
 
+func getAES256GCM(rep MaintainableRepository) (cipher.AEAD, error) {
+	c, err := aes.NewCipher(rep.DeriveKey(maintenanceScheduleKeyPurpose, maintenanceScheduleKeySize))
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to create AES-256 cipher")
+	}
+
+	return cipher.NewGCM(c)
+}
+
 // GetSchedule gets the scheduled maintenance times.
 func GetSchedule(ctx context.Context, rep MaintainableRepository) (*Schedule, error) {
+	// read
 	v, err := rep.BlobStorage().GetBlob(ctx, maintenanceScheduleBlobID, 0, -1)
 	if err == blob.ErrBlobNotFound {
 		return &Schedule{}, nil
@@ -59,8 +80,24 @@ func GetSchedule(ctx context.Context, rep MaintainableRepository) (*Schedule, er
 		return nil, errors.Wrap(err, "error reading schedule blob")
 	}
 
+	// decrypt
+	c, err := getAES256GCM(rep)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to get cipher")
+	}
+
+	if len(v) < c.NonceSize() {
+		return nil, errors.Wrap(err, "invalid schedule blob")
+	}
+
+	j, err := c.Open(nil, v[0:c.NonceSize()], v[c.NonceSize():], maintenanceScheduleAEADExtraData)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to decrypt schedule blob")
+	}
+
+	// parse JSON
 	s := &Schedule{}
-	if err := json.Unmarshal(v, s); err != nil {
+	if err := json.Unmarshal(j, s); err != nil {
 		return nil, errors.Wrap(err, "malformed schedule blob")
 	}
 
@@ -69,12 +106,28 @@ func GetSchedule(ctx context.Context, rep MaintainableRepository) (*Schedule, er
 
 // SetSchedule updates scheduled maintenance times.
 func SetSchedule(ctx context.Context, rep MaintainableRepository, s *Schedule) error {
+	// encode JSON
 	v, err := json.Marshal(s)
 	if err != nil {
 		return errors.Wrap(err, "unable to serialize JSON")
 	}
 
-	return rep.BlobStorage().PutBlob(ctx, maintenanceScheduleBlobID, gather.FromSlice(v))
+	// encrypt with AES-256-GCM and random nonce
+	c, err := getAES256GCM(rep)
+	if err != nil {
+		return errors.Wrap(err, "unable to get cipher")
+	}
+
+	// generate random nonce
+	nonce := make([]byte, c.NonceSize())
+	if _, err := rand.Read(nonce); err != nil {
+		return errors.Wrap(err, "unable to initialize nonce")
+	}
+
+	result := append([]byte(nil), nonce...)
+	ciphertext := c.Seal(result, nonce, v, maintenanceScheduleAEADExtraData)
+
+	return rep.BlobStorage().PutBlob(ctx, maintenanceScheduleBlobID, gather.FromSlice(ciphertext))
 }
 
 // ReportRun reports timing of a maintenance run and persists it in repository.

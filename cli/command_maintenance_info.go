@@ -2,6 +2,8 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
+	"os"
 	"time"
 
 	"github.com/pkg/errors"
@@ -12,6 +14,7 @@ import (
 
 var (
 	maintenanceInfoCommand = maintenanceCommands.Command("info", "Display maintenance information").Alias("status")
+	maintenanceInfoJSON    = maintenanceInfoCommand.Flag("json", "Show raw JSON data").Short('j').Bool()
 )
 
 func runMaintenanceInfoCommand(ctx context.Context, rep *repo.DirectRepository) error {
@@ -23,6 +26,14 @@ func runMaintenanceInfoCommand(ctx context.Context, rep *repo.DirectRepository) 
 	s, err := maintenance.GetSchedule(ctx, rep)
 	if err != nil {
 		return errors.Wrap(err, "unable to get maintenance schedule")
+	}
+
+	if *maintenanceInfoJSON {
+		e := json.NewEncoder(os.Stderr)
+		e.SetIndent("", "  ")
+		e.Encode(s) //nolint:errcheck
+
+		return nil
 	}
 
 	printStderr("Owner: %v\n", p.Owner)

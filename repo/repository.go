@@ -51,6 +51,11 @@ type DirectRepository struct {
 	masterKey  []byte
 }
 
+// DeriveKey derives encryption key of the provided length from the master key.
+func (r *DirectRepository) DeriveKey(purpose []byte, keyLength int) []byte {
+	return deriveKeyFromMasterKey(r.masterKey, r.UniqueID, purpose, keyLength)
+}
+
 // Hostname returns the hostname that connected to the repository.
 func (r *DirectRepository) Hostname() string { return r.hostname }
 

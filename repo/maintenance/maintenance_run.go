@@ -44,6 +44,8 @@ type MaintainableRepository interface {
 	PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error)
 	FindManifests(ctx context.Context, labels map[string]string) ([]*manifest.EntryMetadata, error)
 	DeleteManifest(ctx context.Context, id manifest.ID) error
+
+	DeriveKey(purpose []byte, keyLength int) []byte
 }
 
 // Supported maintenance modes
