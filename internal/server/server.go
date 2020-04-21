@@ -15,11 +15,15 @@ import (
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/logging"
+	"github.com/kopia/kopia/repo/maintenance"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
+	"github.com/kopia/kopia/snapshot/snapshotmaintenance"
 )
 
 var log = logging.GetContextLoggerFunc("kopia/server")
+
+const maintenanceAttemptFrequency = 10 * time.Minute
 
 // Server exposes simple HTTP API for programmatically accessing Kopia features.
 type Server struct {
@@ -219,6 +223,7 @@ func (s *Server) SetRepository(ctx context.Context, rep repo.Repository) error {
 
 	ctx, s.cancelRep = context.WithCancel(ctx)
 	go s.refreshPeriodically(ctx, rep)
+	go s.periodicMaintenance(ctx, rep)
 
 	return nil
 }
@@ -236,6 +241,20 @@ func (s *Server) refreshPeriodically(ctx context.Context, r repo.Repository) {
 
 			if err := s.SyncSources(ctx); err != nil {
 				log(ctx).Warningf("unable to sync sources: %v", err)
+			}
+		}
+	}
+}
+
+func (s *Server) periodicMaintenance(ctx context.Context, r repo.Repository) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+
+		case <-time.After(maintenanceAttemptFrequency):
+			if err := snapshotmaintenance.Run(ctx, r, maintenance.ModeAuto); err != nil {
+				log(ctx).Warningf("unable to run maintenance: %v", err)
 			}
 		}
 	}
