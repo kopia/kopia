@@ -1,4 +1,5 @@
-package serverapi
+// Package apiclient implements a client for connecting to Kopia HTTP API server.
+package apiclient
 
 import (
 	"bytes"
@@ -15,45 +16,29 @@ import (
 	"github.com/kopia/kopia/repo/logging"
 )
 
-var log = logging.GetContextLoggerFunc("kopia/client")
+var log = logging.GetContextLoggerFunc("client")
 
 // DefaultUsername is the default username for Kopia server.
 const DefaultUsername = "kopia"
 
-// Client provides helper methods for communicating with Kopia API serevr.
-type Client struct {
-	options ClientOptions
+// KopiaAPIClient provides helper methods for communicating with Kopia API server.
+type KopiaAPIClient struct {
+	options Options
 }
 
 // HTTPClient returns HTTP client that connects to the server.
-func (c *Client) HTTPClient() *http.Client {
+func (c *KopiaAPIClient) HTTPClient() *http.Client {
 	return c.options.HTTPClient
 }
 
 // Get sends HTTP GET request and decodes the JSON response into the provided payload structure.
-func (c *Client) Get(ctx context.Context, path string, respPayload interface{}) error {
-	req, err := http.NewRequest("GET", c.options.BaseURL+path, nil)
+func (c *KopiaAPIClient) Get(ctx context.Context, path string, respPayload interface{}) error {
+	resp, err := c.GetRaw(ctx, path)
 	if err != nil {
 		return err
 	}
 
-	if c.options.LogRequests {
-		log(ctx).Debugf("GET %v", c.options.BaseURL+path)
-	}
-
-	if c.options.Username != "" {
-		req.SetBasicAuth(c.options.Username, c.options.Password)
-	}
-
-	resp, err := c.options.HTTPClient.Do(req)
-	if err != nil {
-		return err
-	}
 	defer resp.Body.Close() //nolint:errcheck
-
-	if resp.StatusCode != http.StatusOK {
-		return errors.Errorf("invalid server response: %v", resp.Status)
-	}
 
 	if err := json.NewDecoder(resp.Body).Decode(respPayload); err != nil {
 		return errors.Wrap(err, "malformed server response")
@@ -62,8 +47,36 @@ func (c *Client) Get(ctx context.Context, path string, respPayload interface{}) 
 	return nil
 }
 
+// GetRaw returns the response of a GET call
+func (c *KopiaAPIClient) GetRaw(ctx context.Context, path string) (*http.Response, error) {
+	req, err := http.NewRequest("GET", c.options.BaseURL+path, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if c.options.LogRequests {
+		log(ctx).Debugf("GET %v", req.URL)
+	}
+
+	if c.options.Username != "" {
+		req.SetBasicAuth(c.options.Username, c.options.Password)
+	}
+
+	resp, err := c.HTTPClient().Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		resp.Body.Close() //nolint:errcheck
+		return nil, errors.Errorf("invalid server response: %v", resp.Status)
+	}
+
+	return resp, nil
+}
+
 // Post sends HTTP post request with given JSON payload structure and decodes the JSON response into another payload structure.
-func (c *Client) Post(ctx context.Context, path string, reqPayload, respPayload interface{}) error {
+func (c *KopiaAPIClient) Post(ctx context.Context, path string, reqPayload, respPayload interface{}) error {
 	var buf bytes.Buffer
 
 	if err := json.NewEncoder(&buf).Encode(reqPayload); err != nil {
@@ -103,8 +116,8 @@ func (c *Client) Post(ctx context.Context, path string, reqPayload, respPayload 
 	return nil
 }
 
-// ClientOptions encapsulates all optional API options.HTTPClient options.
-type ClientOptions struct {
+// Options encapsulates all optional API options.HTTPClient options.
+type Options struct {
 	BaseURL string
 
 	HTTPClient *http.Client
@@ -119,9 +132,9 @@ type ClientOptions struct {
 	LogRequests bool
 }
 
-// NewClient creates a options.HTTPClient for connecting to Kopia HTTP API.
+// NewKopiaAPIClient creates a options.HTTPClient for connecting to Kopia HTTP API.
 // nolint:gocritic
-func NewClient(options ClientOptions) (*Client, error) {
+func NewKopiaAPIClient(options Options) (*KopiaAPIClient, error) {
 	if options.HTTPClient == nil {
 		transport := &http.Transport{
 			TLSClientConfig: &tls.Config{
@@ -149,7 +162,7 @@ func NewClient(options ClientOptions) (*Client, error) {
 
 	options.BaseURL += "/api/v1/"
 
-	return &Client{options}, nil
+	return &KopiaAPIClient{options}, nil
 }
 
 func verifyPeerCertificate(sha256Fingerprint string) func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/kopia/kopia/apiclient"
 	"github.com/kopia/kopia/internal/serverapi"
 )
 
@@ -15,7 +16,7 @@ func init() {
 	serverStatusCommand.Action(serverAction(runServerStatus))
 }
 
-func runServerStatus(ctx context.Context, cli *serverapi.Client) error {
+func runServerStatus(ctx context.Context, cli *apiclient.KopiaAPIClient) error {
 	var status serverapi.SourcesResponse
 	if err := cli.Get(ctx, "sources", &status); err != nil {
 		return err
