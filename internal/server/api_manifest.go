@@ -13,6 +13,9 @@ import (
 )
 
 func (s *Server) handleManifestGet(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+	// password already validated by a wrapper, no need to check here.
+	userAtHost, _, _ := r.BasicAuth()
+
 	mid := manifest.ID(mux.Vars(r)["manifestID"])
 
 	var data json.RawMessage
@@ -24,6 +27,10 @@ func (s *Server) handleManifestGet(ctx context.Context, r *http.Request) (interf
 
 	if err != nil {
 		return nil, internalServerError(err)
+	}
+
+	if !manifestMatchesUser(md, userAtHost) {
+		return nil, notFoundError("manifest not found")
 	}
 
 	return &remoterepoapi.ManifestWithMetadata{
@@ -47,6 +54,9 @@ func (s *Server) handleManifestDelete(ctx context.Context, r *http.Request) (int
 	return &serverapi.Empty{}, nil
 }
 func (s *Server) handleManifestList(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+	// password already validated by a wrapper, no need to check here.
+	userAtHost, _, _ := r.BasicAuth()
+
 	labels := map[string]string{}
 
 	for k, v := range r.URL.Query() {
@@ -58,11 +68,29 @@ func (s *Server) handleManifestList(ctx context.Context, r *http.Request) (inter
 		return nil, internalServerError(err)
 	}
 
-	if m == nil {
-		m = []*manifest.EntryMetadata{}
+	return filterManifests(m, userAtHost), nil
+}
+
+func manifestMatchesUser(m *manifest.EntryMetadata, userAtHost string) bool {
+	if userAtHost == "" {
+		return true
 	}
 
-	return m, nil
+	actualUser := m.Labels["username"] + "@" + m.Labels["hostname"]
+
+	return actualUser == userAtHost
+}
+
+func filterManifests(manifests []*manifest.EntryMetadata, userAtHost string) []*manifest.EntryMetadata {
+	result := []*manifest.EntryMetadata{}
+
+	for _, m := range manifests {
+		if manifestMatchesUser(m, userAtHost) {
+			result = append(result, m)
+		}
+	}
+
+	return result
 }
 
 func (s *Server) handleManifestCreate(ctx context.Context, r *http.Request) (interface{}, *apiError) {
