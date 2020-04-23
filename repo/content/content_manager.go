@@ -529,7 +529,7 @@ func (bm *Manager) WriteContent(ctx context.Context, data []byte, prefix ID) (ID
 	stats.Record(ctx, metricContentWriteContentCount.M(1))
 	stats.Record(ctx, metricContentWriteContentBytes.M(int64(len(data))))
 
-	if err := validatePrefix(prefix); err != nil {
+	if err := ValidatePrefix(prefix); err != nil {
 		return "", err
 	}
 
