@@ -43,7 +43,7 @@ func connectToStorageFromConfigFile(ctx context.Context) (blob.Storage, error) {
 		return nil, errors.Wrap(err, "unable to load config")
 	}
 
-	return blob.NewStorage(ctx, cfg.Storage)
+	return blob.NewStorage(ctx, *cfg.Storage)
 }
 
 func connectToStorageFromConfigToken(ctx context.Context) (blob.Storage, error) {

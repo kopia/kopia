@@ -32,7 +32,7 @@ type Options struct {
 var ErrInvalidPassword = errors.Errorf("invalid repository password")
 
 // Open opens a Repository specified in the configuration file.
-func Open(ctx context.Context, configFile, password string, options *Options) (rep *DirectRepository, err error) {
+func Open(ctx context.Context, configFile, password string, options *Options) (rep Repository, err error) {
 	defer func() {
 		if err != nil {
 			log(ctx).Errorf("failed to open repository: %v", err)
@@ -53,11 +53,24 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 		return nil, err
 	}
 
+	if lc.APIServer != nil {
+		return openAPIServer(ctx, lc.APIServer, lc.Username, lc.Hostname, password)
+	}
+
+	return openDirect(ctx, configFile, lc, password, options)
+}
+
+// openDirect opens the repository that directly manipulates blob storage..
+func openDirect(ctx context.Context, configFile string, lc *LocalConfig, password string, options *Options) (rep *DirectRepository, err error) {
 	if lc.Caching.CacheDirectory != "" && !filepath.IsAbs(lc.Caching.CacheDirectory) {
 		lc.Caching.CacheDirectory = filepath.Join(filepath.Dir(configFile), lc.Caching.CacheDirectory)
 	}
 
-	st, err := blob.NewStorage(ctx, lc.Storage)
+	if lc.Storage == nil {
+		return nil, errors.Errorf("storage not set in the configuration file")
+	}
+
+	st, err := blob.NewStorage(ctx, *lc.Storage)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot open storage")
 	}
@@ -66,7 +79,7 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 		st = loggingwrapper.NewWrapper(st, options.TraceStorage, "[STORAGE] ")
 	}
 
-	r, err := OpenWithConfig(ctx, st, lc, password, options, lc.Caching)
+	r, err := OpenWithConfig(ctx, st, lc, password, options, *lc.Caching)
 	if err != nil {
 		st.Close(ctx) //nolint:errcheck
 		return nil, err
