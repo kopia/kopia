@@ -1,0 +1,211 @@
+// Package apiclient implements a client for connecting to Kopia HTTP API server.
+package apiclient
+
+import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/hex"
+	"encoding/json"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"time"
+
+	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/repo/logging"
+)
+
+var log = logging.GetContextLoggerFunc("client")
+
+// KopiaAPIClient provides helper methods for communicating with Kopia API server.
+type KopiaAPIClient struct {
+	BaseURL    string
+	HTTPClient *http.Client
+}
+
+// Get is a helper that performs HTTP GET on a URL with the specified suffix and decodes the response
+// onto respPayload which must be a pointer to byte slice or JSON-serializable structure.
+func (c *KopiaAPIClient) Get(ctx context.Context, urlSuffix string, onNotFound error, respPayload interface{}) error {
+	return c.runRequest(ctx, http.MethodGet, c.BaseURL+urlSuffix, onNotFound, nil, respPayload)
+}
+
+// Post is a helper that performs HTTP POST on a URL with the specified body from reqPayload and decodes the response
+// onto respPayload which must be a pointer to byte slice or JSON-serializable structure.
+func (c *KopiaAPIClient) Post(ctx context.Context, urlSuffix string, reqPayload, respPayload interface{}) error {
+	return c.runRequest(ctx, http.MethodPost, c.BaseURL+urlSuffix, nil, reqPayload, respPayload)
+}
+
+// Put is a helper that performs HTTP PUT on a URL with the specified body from reqPayload and decodes the response
+// onto respPayload which must be a pointer to byte slice or JSON-serializable structure.
+func (c *KopiaAPIClient) Put(ctx context.Context, urlSuffix string, reqPayload, respPayload interface{}) error {
+	return c.runRequest(ctx, http.MethodPut, c.BaseURL+urlSuffix, nil, reqPayload, respPayload)
+}
+
+// Delete is a helper that performs HTTP DELETE on a URL with the specified body from reqPayload and decodes the response
+// onto respPayload which must be a pointer to byte slice or JSON-serializable structure.
+func (c *KopiaAPIClient) Delete(ctx context.Context, urlSuffix string, reqPayload, respPayload interface{}) error {
+	return c.runRequest(ctx, http.MethodDelete, c.BaseURL+urlSuffix, nil, reqPayload, respPayload)
+}
+
+func (c *KopiaAPIClient) runRequest(ctx context.Context, method, url string, notFoundError error, reqPayload, respPayload interface{}) error {
+	payload, contentType, err := requestReader(reqPayload)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, method, url, payload)
+	if err != nil {
+		return err
+	}
+
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close() //nolint:errcheck
+
+	if resp.StatusCode == http.StatusNotFound && notFoundError != nil {
+		return notFoundError
+	}
+
+	return decodeResponse(resp, respPayload)
+}
+
+func requestReader(reqPayload interface{}) (io.Reader, string, error) {
+	if reqPayload == nil {
+		return nil, "", nil
+	}
+
+	if bs, ok := reqPayload.([]byte); ok {
+		return bytes.NewReader(bs), "application/octet-stream", nil
+	}
+
+	var b bytes.Buffer
+	if err := json.NewEncoder(&b).Encode(reqPayload); err != nil {
+		return nil, "", errors.Wrap(err, "unable to serialize JSON")
+	}
+
+	return bytes.NewReader(b.Bytes()), "application/json", nil
+}
+
+func decodeResponse(resp *http.Response, respPayload interface{}) error {
+	if resp.StatusCode != http.StatusOK {
+		return errors.Errorf("server error: %v", resp.Status)
+	}
+
+	if respPayload == nil {
+		return nil
+	}
+
+	if b, ok := respPayload.(*[]byte); ok {
+		v, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return errors.Wrap(err, "unable to read response")
+		}
+
+		*b = v
+	} else if err := json.NewDecoder(resp.Body).Decode(respPayload); err != nil {
+		return errors.Wrap(err, "unable to parse JSON response")
+	}
+
+	return nil
+}
+
+// Options encapsulates all optional parameters for KopiaAPIClient.
+type Options struct {
+	BaseURL string
+
+	Username string
+	Password string
+
+	TrustedServerCertificateFingerprint string
+
+	LogRequests bool
+}
+
+// NewKopiaAPIClient creates a client for connecting to Kopia HTTP API.
+// nolint:gocritic
+func NewKopiaAPIClient(options Options) (*KopiaAPIClient, error) {
+	var transport http.RoundTripper
+
+	// override transport which trusts only one certificate
+	if f := options.TrustedServerCertificateFingerprint; f != "" {
+		t2 := http.DefaultTransport.(*http.Transport).Clone()
+		t2.TLSClientConfig = &tls.Config{
+			InsecureSkipVerify:    true, //nolint:gosec
+			VerifyPeerCertificate: verifyPeerCertificate(f),
+		}
+
+		transport = t2
+	} else {
+		transport = http.DefaultTransport
+	}
+
+	// wrap with a round-tripper that provides basic authentication
+	if options.Username != "" || options.Password != "" {
+		transport = basicAuthTransport{transport, options.Username, options.Password}
+	}
+
+	if options.LogRequests {
+		transport = loggingTransport{transport}
+	}
+
+	return &KopiaAPIClient{
+		options.BaseURL + "/api/v1/",
+		&http.Client{
+			Transport: transport,
+		},
+	}, nil
+}
+
+func verifyPeerCertificate(sha256Fingerprint string) func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+	return func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+		for _, c := range rawCerts {
+			h := sha256.Sum256(c)
+			if hex.EncodeToString(h[:]) == sha256Fingerprint {
+				return nil
+			}
+		}
+
+		return errors.Errorf("can't find certificate matching SHA256 fingerprint %q", sha256Fingerprint)
+	}
+}
+
+type basicAuthTransport struct {
+	base     http.RoundTripper
+	username string
+	password string
+}
+
+func (t basicAuthTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	req.SetBasicAuth(t.username, t.password)
+
+	return t.base.RoundTrip(req)
+}
+
+type loggingTransport struct {
+	base http.RoundTripper
+}
+
+func (t loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	t0 := time.Now()
+
+	resp, err := t.base.RoundTrip(req)
+	if err != nil {
+		log(req.Context()).Debugf("%v %v took %v and failed with %v", req.Method, req.URL, time.Since(t0), err)
+		return nil, err
+	}
+
+	log(req.Context()).Debugf("%v %v took %v and returned %v", req.Method, req.URL, time.Since(t0), resp.Status)
+
+	return resp, nil
+}

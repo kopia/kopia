@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 
+	"github.com/kopia/kopia/internal/apiclient"
 	"github.com/kopia/kopia/internal/serverapi"
 )
 
@@ -14,6 +15,6 @@ func init() {
 	serverRefreshCommand.Action(serverAction(runServerRefresh))
 }
 
-func runServerRefresh(ctx context.Context, cli *serverapi.Client) error {
+func runServerRefresh(ctx context.Context, cli *apiclient.KopiaAPIClient) error {
 	return cli.Post(ctx, "refresh", &serverapi.Empty{}, &serverapi.Empty{})
 }

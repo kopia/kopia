@@ -1,9 +1,9 @@
 package cli
 
 import (
-	"github.com/kopia/kopia/internal/serverapi"
-
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/internal/apiclient"
 )
 
 var (
@@ -12,12 +12,12 @@ var (
 	serverPassword = serverCommands.Flag("server-password", "HTTP server password (basic auth)").Envar("KOPIA_SERVER_PASSWORD").String()
 )
 
-func serverAPIClientOptions() (serverapi.ClientOptions, error) {
+func serverAPIClientOptions() (apiclient.Options, error) {
 	if *serverAddress == "" {
-		return serverapi.ClientOptions{}, errors.Errorf("missing server address")
+		return apiclient.Options{}, errors.Errorf("missing server address")
 	}
 
-	return serverapi.ClientOptions{
+	return apiclient.Options{
 		BaseURL:  *serverAddress,
 		Username: *serverUsername,
 		Password: *serverPassword,
