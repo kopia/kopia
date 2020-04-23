@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/remoterepoapi"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
@@ -18,6 +19,23 @@ import (
 	"github.com/kopia/kopia/repo/splitter"
 	"github.com/kopia/kopia/snapshot/policy"
 )
+
+func (s *Server) handleRepoParameters(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+	dr, ok := s.rep.(*repo.DirectRepository)
+	if !ok {
+		return &serverapi.StatusResponse{
+			Connected: false,
+		}, nil
+	}
+
+	rp := &remoterepoapi.Parameters{
+		HashFunction: dr.Content.Format.Hash,
+		HMACSecret:   dr.Content.Format.HMACSecret,
+		Format:       dr.Objects.Format,
+	}
+
+	return rp, nil
+}
 
 func (s *Server) handleRepoStatus(ctx context.Context, r *http.Request) (interface{}, *apiError) {
 	if s.rep == nil {

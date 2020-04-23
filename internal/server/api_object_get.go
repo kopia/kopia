@@ -2,19 +2,15 @@ package server
 
 import (
 	"net/http"
-	"strings"
 	"time"
+
+	"github.com/gorilla/mux"
 
 	"github.com/kopia/kopia/repo/object"
 )
 
 func (s *Server) handleObjectGet(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.Error(w, "incompatible HTTP method", http.StatusMethodNotAllowed)
-		return
-	}
-
-	oidstr := r.URL.Path[strings.LastIndex(r.URL.Path, "/")+1:]
+	oidstr := mux.Vars(r)["objectID"]
 
 	oid, err := object.ParseID(oidstr)
 	if err != nil {
