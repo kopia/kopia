@@ -16,7 +16,7 @@ import (
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/maintenance"
-	"github.com/kopia/kopia/snapshot/snapshotgc"
+	"github.com/kopia/kopia/snapshot/snapshotmaintenance"
 )
 
 var log = logging.GetContextLoggerFunc("kopia/cli")
@@ -165,23 +165,7 @@ func maybeRunMaintenance(ctx context.Context, rep repo.Repository) error {
 		return nil
 	}
 
-	dr, ok := rep.(*repo.DirectRepository)
-	if !ok {
-		return nil
-	}
-
-	// run maintenance if scheduled.
-	return maintenance.RunExclusive(ctx, dr, maintenance.ModeAuto,
-		func(runParams maintenance.RunParameters) error {
-			// run snapshot GC before full maintenance
-			if runParams.Mode == maintenance.ModeFull {
-				if _, err := snapshotgc.Run(ctx, dr, runParams.Params.SnapshotGC, true); err != nil {
-					return errors.Wrap(err, "snapshot GC failure")
-				}
-			}
-
-			return maintenance.Run(ctx, runParams)
-		})
+	return snapshotmaintenance.Run(ctx, rep, maintenance.ModeAuto)
 }
 
 // App returns an instance of command-line application object.

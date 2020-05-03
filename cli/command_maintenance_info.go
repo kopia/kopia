@@ -2,6 +2,8 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
+	"os"
 	"time"
 
 	"github.com/pkg/errors"
@@ -12,6 +14,7 @@ import (
 
 var (
 	maintenanceInfoCommand = maintenanceCommands.Command("info", "Display maintenance information").Alias("status")
+	maintenanceInfoJSON    = maintenanceInfoCommand.Flag("json", "Show raw JSON data").Short('j').Bool()
 )
 
 func runMaintenanceInfoCommand(ctx context.Context, rep *repo.DirectRepository) error {
@@ -25,17 +28,25 @@ func runMaintenanceInfoCommand(ctx context.Context, rep *repo.DirectRepository) 
 		return errors.Wrap(err, "unable to get maintenance schedule")
 	}
 
-	printStderr("Owner: %v\n", p.Owner)
-	printStderr("Quick Cycle:\n")
+	if *maintenanceInfoJSON {
+		e := json.NewEncoder(os.Stdout)
+		e.SetIndent("", "  ")
+		e.Encode(s) //nolint:errcheck
+
+		return nil
+	}
+
+	printStdout("Owner: %v\n", p.Owner)
+	printStdout("Quick Cycle:\n")
 	displayCycleInfo(&p.QuickCycle, s.NextQuickMaintenanceTime, rep)
 
-	printStderr("Full Cycle:\n")
+	printStdout("Full Cycle:\n")
 	displayCycleInfo(&p.FullCycle, s.NextFullMaintenanceTime, rep)
 
-	printStderr("Recent Maintenance Runs:\n")
+	printStdout("Recent Maintenance Runs:\n")
 
 	for run, timings := range s.Runs {
-		printStderr("  %v:\n", run)
+		printStdout("  %v:\n", run)
 
 		for _, t := range timings {
 			errInfo := ""
@@ -45,7 +56,7 @@ func runMaintenanceInfoCommand(ctx context.Context, rep *repo.DirectRepository) 
 				errInfo = "ERROR: " + t.Error
 			}
 
-			printStderr(
+			printStdout(
 				"    %v (%v) %v\n",
 				formatTimestamp(t.Start),
 				t.End.Sub(t.Start).Truncate(time.Second),
@@ -57,15 +68,15 @@ func runMaintenanceInfoCommand(ctx context.Context, rep *repo.DirectRepository) 
 }
 
 func displayCycleInfo(c *maintenance.CycleParams, t time.Time, rep *repo.DirectRepository) {
-	printStderr("  scheduled: %v\n", c.Enabled)
+	printStdout("  scheduled: %v\n", c.Enabled)
 
 	if c.Enabled {
-		printStderr("  interval: %v\n", c.Interval)
+		printStdout("  interval: %v\n", c.Interval)
 
 		if rep.Time().Before(t) {
-			printStderr("  next run: %v (in %v)\n", formatTimestamp(t), time.Until(t).Truncate(time.Second))
+			printStdout("  next run: %v (in %v)\n", formatTimestamp(t), time.Until(t).Truncate(time.Second))
 		} else {
-			printStderr("  next run: now\n")
+			printStdout("  next run: now\n")
 		}
 	}
 }
