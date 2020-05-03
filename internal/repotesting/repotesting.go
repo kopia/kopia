@@ -76,10 +76,12 @@ func (e *Environment) Setup(t *testing.T, opts ...func(*repo.NewRepositoryOption
 
 	e.connected = true
 
-	e.Repository, err = repo.Open(ctx, e.configFile(), masterPassword, &repo.Options{})
+	rep, err := repo.Open(ctx, e.configFile(), masterPassword, &repo.Options{})
 	if err != nil {
 		t.Fatalf("can't open: %v", err)
 	}
+
+	e.Repository = rep.(*repo.DirectRepository)
 
 	return e
 }
@@ -117,10 +119,12 @@ func (e *Environment) MustReopen(t *testing.T) {
 		t.Fatalf("close error: %v", err)
 	}
 
-	e.Repository, err = repo.Open(testlogging.Context(t), e.configFile(), masterPassword, &repo.Options{})
+	rep, err := repo.Open(testlogging.Context(t), e.configFile(), masterPassword, &repo.Options{})
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
+
+	e.Repository = rep.(*repo.DirectRepository)
 }
 
 // MustOpenAnother opens another repository backend by the same storage.

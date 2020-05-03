@@ -49,7 +49,9 @@ func Connect(ctx context.Context, configFile string, st blob.Storage, password s
 	}
 
 	var lc LocalConfig
-	lc.Storage = st.ConnectionInfo()
+
+	ci := st.ConnectionInfo()
+	lc.Storage = &ci
 
 	lc.Hostname = opt.HostnameOverride
 	if lc.Hostname == "" {
@@ -78,6 +80,10 @@ func Connect(ctx context.Context, configFile string, st blob.Storage, password s
 		return errors.Wrap(err, "unable to write config file")
 	}
 
+	return verifyConnect(ctx, configFile, password, opt.PersistCredentials)
+}
+
+func verifyConnect(ctx context.Context, configFile, password string, persist bool) error {
 	// now verify that the repository can be opened with the provided config file.
 	r, err := Open(ctx, configFile, password, nil)
 	if err != nil {
@@ -90,7 +96,7 @@ func Connect(ctx context.Context, configFile string, st blob.Storage, password s
 		return err
 	}
 
-	if opt.PersistCredentials {
+	if persist {
 		if err := persistPassword(ctx, configFile, password); err != nil {
 			return errors.Wrap(err, "unable to persist password")
 		}
@@ -103,8 +109,12 @@ func Connect(ctx context.Context, configFile string, st blob.Storage, password s
 
 func setupCaching(ctx context.Context, configPath string, lc *LocalConfig, opt content.CachingOptions, uniqueID []byte) error {
 	if opt.MaxCacheSizeBytes == 0 {
-		lc.Caching = content.CachingOptions{}
+		lc.Caching = &content.CachingOptions{}
 		return nil
+	}
+
+	if lc.Caching == nil {
+		lc.Caching = &content.CachingOptions{}
 	}
 
 	if opt.CacheDirectory == "" {
@@ -155,7 +165,7 @@ func Disconnect(ctx context.Context, configFile string) error {
 
 	deletePassword(ctx, configFile)
 
-	if cfg.Caching.CacheDirectory != "" {
+	if cfg.Caching != nil && cfg.Caching.CacheDirectory != "" {
 		if err = os.RemoveAll(cfg.Caching.CacheDirectory); err != nil {
 			log(ctx).Warningf("unable to remove cache directory: %v", err)
 		}

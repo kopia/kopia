@@ -148,7 +148,7 @@ func longLivedRepositoryTest(ctx context.Context, t *testing.T, cancel chan stru
 		go func() {
 			defer wg2.Done()
 
-			repositoryTest(ctx, t, cancel, rep)
+			repositoryTest(ctx, t, cancel, rep.(*repo.DirectRepository))
 		}()
 	}
 

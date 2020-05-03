@@ -16,6 +16,8 @@ import (
 	"strings"
 	"time"
 
+	htpasswd "github.com/tg123/go-htpasswd"
+
 	"contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/pkg/errors"
 	prom "github.com/prometheus/client_golang/prometheus"
@@ -32,6 +34,7 @@ var (
 
 	serverStartRandomPassword = serverStartCommand.Flag("random-password", "Generate random password and print to stderr").Hidden().Bool()
 	serverStartAutoShutdown   = serverStartCommand.Flag("auto-shutdown", "Auto shutdown the server if API requests not received within given time").Hidden().Duration()
+	serverStartHtpasswdFile   = serverStartCommand.Flag("htpasswd-file", "Path to htpasswd file that contains allowed user@hostname entries").Hidden().ExistingFile()
 )
 
 func init() {
@@ -75,7 +78,10 @@ func runServer(ctx context.Context, rep repo.Repository) error {
 		}
 	})
 
-	mux = requireCredentials(mux)
+	mux, err = requireCredentials(mux)
+	if err != nil {
+		return errors.Wrap(err, "unable to setup credentials")
+	}
 
 	// init prometheus after adding interceptors that require credentials, so that this
 	// handler can be called without auth
@@ -187,12 +193,24 @@ func serveIndexFileForKnownUIRoutes(fs http.FileSystem) http.Handler {
 	})
 }
 
-func requireCredentials(handler http.Handler) *http.ServeMux {
-	if *serverPassword != "" {
-		handler = requireAuth{handler, *serverUsername, *serverPassword}
-	}
+func requireCredentials(handler http.Handler) (*http.ServeMux, error) {
+	switch {
+	case *serverStartHtpasswdFile != "":
+		f, err := htpasswd.New(*serverStartHtpasswdFile, htpasswd.DefaultSystems, nil)
+		if err != nil {
+			return nil, err
+		}
 
-	if *serverStartRandomPassword {
+		handler = requireAuth{inner: handler, htpasswdFile: f}
+
+	case *serverPassword != "":
+		handler = requireAuth{
+			inner:            handler,
+			expectedUsername: *serverUsername,
+			expectedPassword: *serverPassword,
+		}
+
+	case *serverStartRandomPassword:
 		// generate very long random one-time password
 		b := make([]byte, 32)
 		io.ReadFull(rand.Reader, b) //nolint:errcheck
@@ -202,19 +220,24 @@ func requireCredentials(handler http.Handler) *http.ServeMux {
 		// print it to the stderr bypassing any log file so that the user or calling process can connect
 		fmt.Fprintln(os.Stderr, "SERVER PASSWORD:", randomPassword)
 
-		handler = requireAuth{handler, *serverUsername, randomPassword}
+		handler = requireAuth{
+			inner:            handler,
+			expectedUsername: *serverUsername,
+			expectedPassword: randomPassword,
+		}
 	}
 
 	mux := http.NewServeMux()
 	mux.Handle("/", handler)
 
-	return mux
+	return mux, nil
 }
 
 type requireAuth struct {
 	inner            http.Handler
 	expectedUsername string
 	expectedPassword string
+	htpasswdFile     *htpasswd.File
 }
 
 func (a requireAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -226,8 +249,16 @@ func (a requireAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	valid := subtle.ConstantTimeCompare([]byte(user), []byte(a.expectedUsername)) *
-		subtle.ConstantTimeCompare([]byte(pass), []byte(a.expectedPassword))
+	var valid int
+
+	if a.htpasswdFile != nil {
+		if a.htpasswdFile.Match(user, pass) {
+			valid = 1
+		}
+	} else {
+		valid = subtle.ConstantTimeCompare([]byte(user), []byte(a.expectedUsername)) *
+			subtle.ConstantTimeCompare([]byte(pass), []byte(a.expectedPassword))
+	}
 
 	if valid != 1 {
 		w.Header().Set("WWW-Authenticate", `Basic realm="Kopia"`)

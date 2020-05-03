@@ -9,7 +9,6 @@ import (
 	"os"
 
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/content"
 )
 
 func main() {
@@ -28,15 +27,4 @@ func main() {
 	defer r.Close(ctx) //nolint:errcheck
 
 	uploadAndDownloadObjects(ctx, r)
-
-	// Now list contents found in the repository.
-	if err := r.Content.IterateContents(
-		ctx,
-		content.IterateOptions{},
-		func(ci content.Info) error {
-			log.Printf("found content %v", ci)
-			return nil
-		}); err != nil {
-		log.Printf("err: %v", err)
-	}
 }

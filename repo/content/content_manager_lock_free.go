@@ -202,7 +202,8 @@ func (bm *lockFreeManager) unprocessedIndexBlobsUnlocked(ctx context.Context, co
 	return ch, totalSize, nil
 }
 
-func validatePrefix(prefix ID) error {
+// ValidatePrefix returns an error if a given prefix is invalid.
+func ValidatePrefix(prefix ID) error {
 	switch len(prefix) {
 	case 0:
 		return nil

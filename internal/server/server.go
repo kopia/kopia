@@ -45,32 +45,42 @@ func (s *Server) APIHandlers() http.Handler {
 	m := mux.NewRouter()
 
 	// sources
-	m.HandleFunc("/api/v1/sources", s.handleAPI(s.handleSourcesList)).Methods("GET")
-	m.HandleFunc("/api/v1/sources", s.handleAPI(s.handleSourcesCreate)).Methods("POST")
-	m.HandleFunc("/api/v1/sources/upload", s.handleAPI(s.handleUpload)).Methods("POST")
-	m.HandleFunc("/api/v1/sources/cancel", s.handleAPI(s.handleCancel)).Methods("POST")
+	m.HandleFunc("/api/v1/sources", s.handleAPI(s.handleSourcesList)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/sources", s.handleAPI(s.handleSourcesCreate)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/sources/upload", s.handleAPI(s.handleUpload)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/sources/cancel", s.handleAPI(s.handleCancel)).Methods(http.MethodPost)
 
 	// snapshots
-	m.HandleFunc("/api/v1/snapshots", s.handleAPI(s.handleSnapshotList)).Methods("GET")
+	m.HandleFunc("/api/v1/snapshots", s.handleAPI(s.handleSnapshotList)).Methods(http.MethodGet)
 
-	m.HandleFunc("/api/v1/policy", s.handleAPI(s.handlePolicyGet)).Methods("GET")
-	m.HandleFunc("/api/v1/policy", s.handleAPI(s.handlePolicyPut)).Methods("PUT")
-	m.HandleFunc("/api/v1/policy", s.handleAPI(s.handlePolicyDelete)).Methods("DELETE")
+	m.HandleFunc("/api/v1/policy", s.handleAPI(s.handlePolicyGet)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/policy", s.handleAPI(s.handlePolicyPut)).Methods(http.MethodPut)
+	m.HandleFunc("/api/v1/policy", s.handleAPI(s.handlePolicyDelete)).Methods(http.MethodDelete)
 
-	m.HandleFunc("/api/v1/policies", s.handleAPI(s.handlePolicyList)).Methods("GET")
+	m.HandleFunc("/api/v1/policies", s.handleAPI(s.handlePolicyList)).Methods(http.MethodGet)
 
-	m.HandleFunc("/api/v1/refresh", s.handleAPI(s.handleRefresh)).Methods("POST")
-	m.HandleFunc("/api/v1/flush", s.handleAPI(s.handleFlush)).Methods("POST")
-	m.HandleFunc("/api/v1/shutdown", s.handleAPIPossiblyNotConnected(s.handleShutdown)).Methods("POST")
+	m.HandleFunc("/api/v1/refresh", s.handleAPI(s.handleRefresh)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/flush", s.handleAPI(s.handleFlush)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/shutdown", s.handleAPIPossiblyNotConnected(s.handleShutdown)).Methods(http.MethodPost)
 
-	m.PathPrefix("/api/v1/objects/").HandlerFunc(s.handleObjectGet).Methods("GET")
+	m.HandleFunc("/api/v1/objects/{objectID}", s.handleObjectGet).Methods(http.MethodGet)
 
-	m.HandleFunc("/api/v1/repo/status", s.handleAPIPossiblyNotConnected(s.handleRepoStatus)).Methods("GET")
-	m.HandleFunc("/api/v1/repo/connect", s.handleAPIPossiblyNotConnected(s.handleRepoConnect)).Methods("POST")
-	m.HandleFunc("/api/v1/repo/create", s.handleAPIPossiblyNotConnected(s.handleRepoCreate)).Methods("POST")
-	m.HandleFunc("/api/v1/repo/disconnect", s.handleAPI(s.handleRepoDisconnect)).Methods("POST")
-	m.HandleFunc("/api/v1/repo/algorithms", s.handleAPIPossiblyNotConnected(s.handleRepoSupportedAlgorithms)).Methods("GET")
-	m.HandleFunc("/api/v1/repo/sync", s.handleAPI(s.handleRepoSync)).Methods("POST")
+	m.HandleFunc("/api/v1/repo/status", s.handleAPIPossiblyNotConnected(s.handleRepoStatus)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/repo/connect", s.handleAPIPossiblyNotConnected(s.handleRepoConnect)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/repo/create", s.handleAPIPossiblyNotConnected(s.handleRepoCreate)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/repo/disconnect", s.handleAPI(s.handleRepoDisconnect)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/repo/algorithms", s.handleAPIPossiblyNotConnected(s.handleRepoSupportedAlgorithms)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/repo/sync", s.handleAPI(s.handleRepoSync)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/repo/parameters", s.handleAPI(s.handleRepoParameters)).Methods(http.MethodGet)
+
+	m.HandleFunc("/api/v1/contents/{contentID}", s.handleAPI(s.handleContentInfo)).Methods(http.MethodGet).Queries("info", "1")
+	m.HandleFunc("/api/v1/contents/{contentID}", s.handleAPI(s.handleContentGet)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/contents/{contentID}", s.handleAPI(s.handleContentPut)).Methods(http.MethodPut)
+
+	m.HandleFunc("/api/v1/manifests/{manifestID}", s.handleAPI(s.handleManifestGet)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/manifests/{manifestID}", s.handleAPI(s.handleManifestDelete)).Methods(http.MethodDelete)
+	m.HandleFunc("/api/v1/manifests", s.handleAPI(s.handleManifestCreate)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/manifests", s.handleAPI(s.handleManifestList)).Methods(http.MethodGet)
 
 	return m
 }
@@ -101,7 +111,11 @@ func (s *Server) handleAPIPossiblyNotConnected(f func(ctx context.Context, r *ht
 		v, err := f(ctx, r)
 
 		if err == nil {
-			if err := e.Encode(v); err != nil {
+			if b, ok := v.([]byte); ok {
+				if _, err := w.Write(b); err != nil {
+					log(ctx).Warningf("error writing response: %v", err)
+				}
+			} else if err := e.Encode(v); err != nil {
 				log(ctx).Warningf("error encoding response: %v", err)
 			}
 

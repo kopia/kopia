@@ -10,7 +10,7 @@ import (
 	"github.com/pkg/errors"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 
-	"github.com/kopia/kopia/internal/serverapi"
+	"github.com/kopia/kopia/internal/apiclient"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
@@ -61,14 +61,14 @@ func noRepositoryAction(act func(ctx context.Context) error) func(ctx *kingpin.P
 	}
 }
 
-func serverAction(act func(ctx context.Context, cli *serverapi.Client) error) func(ctx *kingpin.ParseContext) error {
+func serverAction(act func(ctx context.Context, cli *apiclient.KopiaAPIClient) error) func(ctx *kingpin.ParseContext) error {
 	return func(_ *kingpin.ParseContext) error {
 		opts, err := serverAPIClientOptions()
 		if err != nil {
 			return errors.Wrap(err, "unable to create API client options")
 		}
 
-		apiClient, err := serverapi.NewClient(opts)
+		apiClient, err := apiclient.NewKopiaAPIClient(opts)
 		if err != nil {
 			return errors.Wrap(err, "unable to create API client")
 		}
