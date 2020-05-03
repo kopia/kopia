@@ -76,9 +76,13 @@ function newConfigForRepo(repoID) {
 
         if (repoID == "default") {
             data.description = "My Repository";
-            data.configFile = "";
         } else {
             data.description = "Unnamed Repository";
+        }
+
+        if (repoID == "default" && !isPortable) {
+            data.configFile = "";
+        } else {
             data.configFile = "./" + repoID + ".config";
         }
 
@@ -164,6 +168,7 @@ module.exports = {
     },
 
     isPortableConfig() {
+        globalConfigDir();
         return isPortable;
     },
 
