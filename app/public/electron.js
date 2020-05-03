@@ -11,6 +11,11 @@ const { showConfigWindow, isConfigWindowOpen } = require('./config_window');
 
 app.name = 'KopiaUI';
 
+if (isPortableConfig()) {
+  // in portable mode, write cache under 'repositories'
+  app.setPath('userData', path.join(configDir(), 'cache'));
+}
+
 ipcMain.on('config-save', (event, arg) => {
   console.log('saving config', arg);
   configForRepo(arg.repoID).setBulk(arg.config);
