@@ -3,7 +3,6 @@ package blob
 import (
 	"context"
 	"io"
-	"log"
 	"sync"
 	"time"
 
@@ -148,8 +147,6 @@ func ListAllBlobsConsistent(ctx context.Context, st Storage, prefix ID, maxAttem
 // sameBlobs returns true if b1 & b2 contain the same blobs (ignoring order).
 func sameBlobs(b1, b2 []Metadata) bool {
 	if len(b1) != len(b2) {
-		log.Printf("a")
-
 		return false
 	}
 
