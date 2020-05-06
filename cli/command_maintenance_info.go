@@ -32,6 +32,27 @@ func runMaintenanceInfoCommand(ctx context.Context, rep *repo.DirectRepository) 
 	printStderr("Full Cycle:\n")
 	displayCycleInfo(&p.FullCycle, s.NextFullMaintenanceTime, rep)
 
+	printStderr("Recent Maintenance Runs:\n")
+
+	for run, timings := range s.Runs {
+		printStderr("  %v:\n", run)
+
+		for _, t := range timings {
+			errInfo := ""
+			if t.Success {
+				errInfo = "SUCCESS"
+			} else {
+				errInfo = "ERROR: " + t.Error
+			}
+
+			printStderr(
+				"    %v (%v) %v\n",
+				formatTimestamp(t.Start),
+				t.End.Sub(t.Start).Truncate(time.Second),
+				errInfo)
+		}
+	}
+
 	return nil
 }
 

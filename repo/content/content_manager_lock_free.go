@@ -321,7 +321,7 @@ func (bm *lockFreeManager) IndexBlobs(ctx context.Context) ([]IndexBlobInfo, err
 }
 
 func (bm *lockFreeManager) getIndexBlobInternal(ctx context.Context, blobID blob.ID) ([]byte, error) {
-	payload, err := bm.contentCache.getContent(ctx, cacheKey(blobID), blobID, 0, -1)
+	payload, err := bm.metadataCache.getContent(ctx, cacheKey(blobID), blobID, 0, -1)
 	if err != nil {
 		return nil, err
 	}

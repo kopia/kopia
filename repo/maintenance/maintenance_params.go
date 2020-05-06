@@ -20,8 +20,6 @@ type Params struct {
 	QuickCycle CycleParams `json:"quick"`
 	FullCycle  CycleParams `json:"full"`
 
-	DropDeletedContent DropDeletedContentOptions `json:"dropDeletedContent"`
-
 	SnapshotGC SnapshotGCParams `json:"snapshotGC"`
 }
 
@@ -44,9 +42,6 @@ func DefaultParams() Params {
 			// TODO: enable this when ready for public consumption
 			// Enabled:  true,
 			Interval: 1 * time.Hour,
-		},
-		DropDeletedContent: DropDeletedContentOptions{
-			MinDeletedAge: 1 * time.Hour,
 		},
 		SnapshotGC: SnapshotGCParams{
 			MinContentAge: 24 * time.Hour, //nolint:gomnd
