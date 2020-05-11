@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math"
 	"os"
 	"path/filepath"
 	"time"
@@ -110,7 +109,7 @@ type cachedList struct {
 // listIndexBlobsFromStorage returns the list of index blobs in the given storage.
 // The list of contents is not guaranteed to be sorted.
 func listIndexBlobsFromStorage(ctx context.Context, st blob.Storage) ([]IndexBlobInfo, error) {
-	snapshot, err := blob.ListAllBlobsConsistent(ctx, st, newIndexBlobPrefix, math.MaxInt32)
+	snapshot, err := blob.ListAllBlobs(ctx, st, indexBlobPrefix)
 	if err != nil {
 		return nil, err
 	}

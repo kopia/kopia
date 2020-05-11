@@ -44,7 +44,7 @@ var PackBlobIDPrefixes = []blob.ID{
 const (
 	parallelFetches          = 5                // number of parallel reads goroutines
 	flushPackIndexTimeout    = 10 * time.Minute // time after which all pending indexes are flushes
-	newIndexBlobPrefix       = "n"
+	indexBlobPrefix          = "n"
 	defaultMinPreambleLength = 32
 	defaultMaxPreambleLength = 32
 	defaultPaddingUnit       = 4096
@@ -65,9 +65,10 @@ var ErrContentNotFound = errors.New("content not found")
 
 // IndexBlobInfo is an information about a single index blob managed by Manager.
 type IndexBlobInfo struct {
-	BlobID    blob.ID
-	Length    int64
-	Timestamp time.Time
+	BlobID     blob.ID
+	Length     int64
+	Timestamp  time.Time
+	Superseded []blob.ID
 }
 
 // Manager builds content-addressable storage with encryption, deduplication and packaging on top of BLOB store.

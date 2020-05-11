@@ -35,7 +35,7 @@ func TestStressRepository(t *testing.T) {
 		t.Skip("skipping stress test during short tests")
 	}
 
-	ctx := content.UsingListCache(testlogging.Context(t), false)
+	ctx := testlogging.Context(t)
 
 	tmpPath, err := ioutil.TempDir("", "kopia")
 	if err != nil {

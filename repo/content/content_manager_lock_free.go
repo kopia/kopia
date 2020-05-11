@@ -99,26 +99,26 @@ func (bm *lockFreeManager) loadPackIndexesUnlocked(ctx context.Context) ([]Index
 			nextSleepTime *= 2
 		}
 
-		contents, err := bm.listCache.listIndexBlobs(ctx)
+		indexBlobs, err := bm.listEffectiveIndexBlobs(ctx, false)
 		if err != nil {
 			return nil, false, err
 		}
 
-		err = bm.tryLoadPackIndexBlobsUnlocked(ctx, contents)
+		err = bm.tryLoadPackIndexBlobsUnlocked(ctx, indexBlobs)
 		if err == nil {
-			var contentIDs []blob.ID
-			for _, b := range contents {
-				contentIDs = append(contentIDs, b.BlobID)
+			var indexBlobIDs []blob.ID
+			for _, b := range indexBlobs {
+				indexBlobIDs = append(indexBlobIDs, b.BlobID)
 			}
 
 			var updated bool
 
-			updated, err = bm.committedContents.use(ctx, contentIDs)
+			updated, err = bm.committedContents.use(ctx, indexBlobIDs)
 			if err != nil {
 				return nil, false, err
 			}
 
-			return contents, updated, nil
+			return indexBlobs, updated, nil
 		}
 
 		if err != blob.ErrBlobNotFound {
@@ -129,8 +129,8 @@ func (bm *lockFreeManager) loadPackIndexesUnlocked(ctx context.Context) ([]Index
 	return nil, false, errors.Errorf("unable to load pack indexes despite %v retries", indexLoadAttempts)
 }
 
-func (bm *lockFreeManager) tryLoadPackIndexBlobsUnlocked(ctx context.Context, contents []IndexBlobInfo) error {
-	ch, unprocessedIndexesSize, err := bm.unprocessedIndexBlobsUnlocked(ctx, contents)
+func (bm *lockFreeManager) tryLoadPackIndexBlobsUnlocked(ctx context.Context, indexBlobs []IndexBlobInfo) error {
+	ch, unprocessedIndexesSize, err := bm.unprocessedIndexBlobsUnlocked(ctx, indexBlobs)
 	if err != nil {
 		return err
 	}
@@ -317,8 +317,8 @@ func (bm *lockFreeManager) preparePackDataContent(ctx context.Context, pp *pendi
 }
 
 // IndexBlobs returns the list of active index blobs.
-func (bm *lockFreeManager) IndexBlobs(ctx context.Context) ([]IndexBlobInfo, error) {
-	return bm.listCache.listIndexBlobs(ctx)
+func (bm *lockFreeManager) IndexBlobs(ctx context.Context, includeInactive bool) ([]IndexBlobInfo, error) {
+	return bm.listEffectiveIndexBlobs(ctx, includeInactive)
 }
 
 func (bm *lockFreeManager) getIndexBlobInternal(ctx context.Context, blobID blob.ID) ([]byte, error) {
@@ -411,7 +411,7 @@ func (bm *lockFreeManager) hashData(output, data []byte) []byte {
 }
 
 func (bm *lockFreeManager) writePackIndexesNew(ctx context.Context, data []byte) (blob.ID, error) {
-	return bm.encryptAndWriteBlobNotLocked(ctx, data, newIndexBlobPrefix)
+	return bm.encryptAndWriteBlobNotLocked(ctx, data, indexBlobPrefix)
 }
 
 func (bm *lockFreeManager) verifyChecksum(data, contentID []byte) error {

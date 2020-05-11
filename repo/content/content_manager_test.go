@@ -1738,7 +1738,7 @@ func getIndexCount(d blobtesting.DataMap) int {
 	var cnt int
 
 	for blobID := range d {
-		if strings.HasPrefix(string(blobID), newIndexBlobPrefix) {
+		if strings.HasPrefix(string(blobID), indexBlobPrefix) {
 			cnt++
 		}
 	}
