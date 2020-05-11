@@ -62,9 +62,9 @@ type ID string
 
 // Metadata represents metadata about a single BLOB in a storage.
 type Metadata struct {
-	BlobID    ID
-	Length    int64
-	Timestamp time.Time
+	BlobID    ID        `json:"id"`
+	Length    int64     `json:"length"`
+	Timestamp time.Time `json:"timestamp"`
 }
 
 // ErrBlobNotFound is returned when a BLOB cannot be found in storage.

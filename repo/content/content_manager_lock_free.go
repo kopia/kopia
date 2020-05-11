@@ -46,6 +46,8 @@ type lockFreeManager struct {
 	paddingUnit       int
 	timeNow           func() time.Time
 
+	ownWritesCache ownWritesCache
+
 	repositoryFormatBytes []byte
 
 	encryptionBufferPool *buf.Pool
@@ -397,6 +399,14 @@ func (bm *lockFreeManager) encryptAndWriteBlobNotLocked(ctx context.Context, dat
 
 	if err := bm.st.PutBlob(ctx, blobID, gather.FromSlice(data2)); err != nil {
 		return "", err
+	}
+
+	if err := bm.ownWritesCache.add(ctx, blob.Metadata{
+		BlobID:    blobID,
+		Length:    int64(len(data2)),
+		Timestamp: bm.timeNow(),
+	}); err != nil {
+		log(ctx).Warningf("unable to cache own write: %v", err)
 	}
 
 	return blobID, nil

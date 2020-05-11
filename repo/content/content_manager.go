@@ -722,6 +722,14 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 		return nil, errors.Wrap(err, "unable to initialize list cache")
 	}
 
+	if caching.ownWritesCache == nil {
+		// this is test hook to allow test to specify custom cache
+		caching.ownWritesCache, err = newOwnWritesCache(ctx, caching, timeNow)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to initialize own writes cache")
+		}
+	}
+
 	contentIndex := newCommittedContentIndex(caching)
 
 	mu := &sync.RWMutex{}
@@ -739,6 +747,7 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 			contentCache:            dataCache,
 			metadataCache:           metadataCache,
 			listCache:               listCache,
+			ownWritesCache:          caching.ownWritesCache,
 			st:                      st,
 			repositoryFormatBytes:   repositoryFormatBytes,
 			checkInvariantsOnUnlock: os.Getenv("KOPIA_VERIFY_INVARIANTS") != "",

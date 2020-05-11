@@ -8,4 +8,6 @@ type CachingOptions struct {
 	MaxListCacheDurationSec   int    `json:"maxListCacheDuration,omitempty"`
 	IgnoreListCache           bool   `json:"-"`
 	HMACSecret                []byte `json:"-"`
+
+	ownWritesCache ownWritesCache
 }

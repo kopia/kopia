@@ -31,7 +31,7 @@ func TestStressBlockManager(t *testing.T) {
 		duration = 30 * time.Second
 	}
 
-	stressTestWithStorage(t, blobtesting.NewEventuallyConsistentStorage(memst, 0.1), duration)
+	stressTestWithStorage(t, memst, duration)
 }
 
 func stressTestWithStorage(t *testing.T, st blob.Storage, duration time.Duration) {
