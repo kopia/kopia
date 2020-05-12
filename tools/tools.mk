@@ -84,7 +84,7 @@ SELF_DIR := $(subst /,$(slash),$(realpath $(dir $(lastword $(MAKEFILE_LIST)))))
 TOOLS_DIR:=$(SELF_DIR)$(slash).tools
 
 # tool versions
-GOLANGCI_LINT_VERSION=1.23.6
+GOLANGCI_LINT_VERSION=1.23.7
 NODE_VERSION=12.16.1
 HUGO_VERSION=0.67.1
 GORELEASER_VERSION=v0.128.0
@@ -153,7 +153,12 @@ ifeq ($(uname),Windows)
 	$(move) $(linter_dir)\golangci-lint-$(GOLANGCI_LINT_VERSION)-windows-amd64\golangci-lint.exe $(linter)
 else
 	mkdir -p $(linter_dir)
-	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s -- -b $(linter_dir) v$(GOLANGCI_LINT_VERSION)
+ifeq ($(uname),Linux)
+	curl -LsS https://github.com/golangci/golangci-lint/releases/download/v$(GOLANGCI_LINT_VERSION)/golangci-lint-$(GOLANGCI_LINT_VERSION)-linux-amd64.tar.gz | tar zxv --strip=1 -C $(linter_dir)
+else
+	curl -LsS https://github.com/golangci/golangci-lint/releases/download/v$(GOLANGCI_LINT_VERSION)/golangci-lint-$(GOLANGCI_LINT_VERSION)-darwin-amd64.tar.gz | tar zxv --strip=1 -C $(linter_dir)
+endif
+
 endif
 
 # hugo
