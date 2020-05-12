@@ -19,7 +19,7 @@ var (
 )
 
 func runCacheSetCommand(ctx context.Context, rep *repo.DirectRepository) error {
-	opts := rep.Content.CachingOptions
+	opts := rep.Content.CachingOptions.CloneOrDefault()
 
 	changed := 0
 

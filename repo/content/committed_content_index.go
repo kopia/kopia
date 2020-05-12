@@ -133,7 +133,7 @@ func (b *committedContentIndex) use(ctx context.Context, packFiles []blob.ID) (b
 	return true, nil
 }
 
-func newCommittedContentIndex(caching CachingOptions) *committedContentIndex {
+func newCommittedContentIndex(caching *CachingOptions) *committedContentIndex {
 	var cache committedContentIndexCache
 
 	if caching.CacheDirectory != "" {

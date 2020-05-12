@@ -320,7 +320,7 @@ func TestContentManagerFailedToWritePack(t *testing.T) {
 		MaxPackSize: maxPackSize,
 		HMACSecret:  []byte("foo"),
 		MasterKey:   []byte("0123456789abcdef0123456789abcdef"),
-	}, CachingOptions{}, faketime.Frozen(fakeTime), nil)
+	}, nil, faketime.Frozen(fakeTime), nil)
 	if err != nil {
 		t.Fatalf("can't create bm: %v", err)
 	}
@@ -1754,7 +1754,7 @@ func TestReadsOwnWritesWithEventualConsistencyInMemoryOwnWritesCache(t *testing.
 
 func verifyReadsOwnWrites(t *testing.T, st blob.Storage, timeNow func() time.Time, sharedOwnWritesCache ownWritesCache) {
 	ctx := testlogging.Context(t)
-	cachingOptions := CachingOptions{
+	cachingOptions := &CachingOptions{
 		ownWritesCache: sharedOwnWritesCache,
 	}
 
@@ -1805,10 +1805,10 @@ func newTestContentManager(t *testing.T, data blobtesting.DataMap, keyTime map[b
 }
 
 func newTestContentManagerWithStorage(t *testing.T, st blob.Storage, timeFunc func() time.Time) *Manager {
-	return newTestContentManagerWithStorageAndCaching(t, st, CachingOptions{}, timeFunc)
+	return newTestContentManagerWithStorageAndCaching(t, st, nil, timeFunc)
 }
 
-func newTestContentManagerWithStorageAndCaching(t *testing.T, st blob.Storage, co CachingOptions, timeFunc func() time.Time) *Manager {
+func newTestContentManagerWithStorageAndCaching(t *testing.T, st blob.Storage, co *CachingOptions, timeFunc func() time.Time) *Manager {
 	if timeFunc == nil {
 		timeFunc = faketime.AutoAdvance(fakeTime, 1*time.Second)
 	}

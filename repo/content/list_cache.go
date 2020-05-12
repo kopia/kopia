@@ -80,7 +80,7 @@ func (c *listCache) readBlobsFromCache(ctx context.Context, prefix blob.ID) (*ca
 
 	fname := c.cacheFilePrefix + string(prefix)
 
-	data, err := ioutil.ReadFile(fname)
+	data, err := ioutil.ReadFile(fname) //nolint:gosec
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, blob.ErrBlobNotFound
@@ -106,7 +106,7 @@ type cachedList struct {
 	Blobs     []blob.Metadata `json:"blobs"`
 }
 
-func newListCache(st blob.Storage, caching CachingOptions) (*listCache, error) {
+func newListCache(st blob.Storage, caching *CachingOptions) (*listCache, error) {
 	var listCacheFilePrefix string
 
 	if caching.CacheDirectory != "" {

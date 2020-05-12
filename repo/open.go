@@ -79,7 +79,7 @@ func openDirect(ctx context.Context, configFile string, lc *LocalConfig, passwor
 		st = loggingwrapper.NewWrapper(st, options.TraceStorage, "[STORAGE] ")
 	}
 
-	r, err := OpenWithConfig(ctx, st, lc, password, options, *lc.Caching)
+	r, err := OpenWithConfig(ctx, st, lc, password, options, lc.Caching)
 	if err != nil {
 		st.Close(ctx) //nolint:errcheck
 		return nil, err
@@ -102,7 +102,9 @@ func openDirect(ctx context.Context, configFile string, lc *LocalConfig, passwor
 }
 
 // OpenWithConfig opens the repository with a given configuration, avoiding the need for a config file.
-func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, password string, options *Options, caching content.CachingOptions) (*DirectRepository, error) {
+func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, password string, options *Options, caching *content.CachingOptions) (*DirectRepository, error) {
+	caching = caching.CloneOrDefault()
+
 	// Read format blob, potentially from cache.
 	fb, err := readAndCacheFormatBlobBytes(ctx, st, caching.CacheDirectory)
 	if err != nil {
@@ -172,7 +174,7 @@ func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 }
 
 // SetCachingConfig changes caching configuration for a given repository.
-func (r *DirectRepository) SetCachingConfig(ctx context.Context, opt content.CachingOptions) error {
+func (r *DirectRepository) SetCachingConfig(ctx context.Context, opt *content.CachingOptions) error {
 	lc, err := loadConfigFromFile(r.ConfigFile)
 	if err != nil {
 		return err

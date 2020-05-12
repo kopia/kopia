@@ -10,3 +10,14 @@ type CachingOptions struct {
 
 	ownWritesCache ownWritesCache
 }
+
+// CloneOrDefault returns a clone of the caching options or empty options for nil.
+func (c *CachingOptions) CloneOrDefault() *CachingOptions {
+	if c == nil {
+		return &CachingOptions{}
+	}
+
+	c2 := *c
+
+	return &c2
+}

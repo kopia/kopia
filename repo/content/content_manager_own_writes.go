@@ -168,7 +168,7 @@ func mergeOwnWrites(ctx context.Context, source, own []blob.Metadata) []blob.Met
 	return s
 }
 
-func newOwnWritesCache(ctx context.Context, caching CachingOptions, timeNow func() time.Time) (ownWritesCache, error) {
+func newOwnWritesCache(ctx context.Context, caching *CachingOptions, timeNow func() time.Time) (ownWritesCache, error) {
 	if caching.CacheDirectory == "" {
 		return &memoryOwnWritesCache{timeNow: timeNow}, nil
 	}
