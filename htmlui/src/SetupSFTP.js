@@ -54,7 +54,7 @@ export class SetupSFTP extends Component {
                     as: "textarea", 
                     rows: 5,
                     isInvalid: !hasExactlyOneOf(this, ["knownHostsFile", "knownHostsData"]),
-                }, null, <>Either <b>Known Hosts File</b> or <b>Known Hosts Data</b> is required, but not both.</>)})}
+                }, null, <>Either <b>Known Hosts File</b> or <b>Known Hosts Data</b> is required, but not both.</>)}
             </Form.Row>
         </>;
     }
