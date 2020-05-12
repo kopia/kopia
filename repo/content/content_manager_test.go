@@ -411,17 +411,13 @@ func TestContentManagerConcurrency(t *testing.T) {
 	verifyContent(ctx, t, bm4, bm2content, seededRandomData(32, 100))
 	verifyContent(ctx, t, bm4, bm3content, seededRandomData(33, 100))
 
-	if got, want := getIndexCount(data), 4; got != want {
-		t.Errorf("unexpected index count before compaction: %v, wanted %v", got, want)
-	}
+	validateIndexCount(t, data, 4, 0)
 
 	if err := bm4.CompactIndexes(ctx, CompactOptions{MaxSmallBlobs: 1}); err != nil {
 		t.Errorf("compaction error: %v", err)
 	}
 
-	if got, want := getIndexCount(data), 1; got != want {
-		t.Errorf("unexpected index count after compaction: %v, wanted %v", got, want)
-	}
+	validateIndexCount(t, data, 5, 1)
 
 	// new content manager at this point can see all data.
 	bm5 := newTestContentManager(t, data, keyTime, nil)
@@ -435,6 +431,30 @@ func TestContentManagerConcurrency(t *testing.T) {
 
 	if err := bm5.CompactIndexes(ctx, CompactOptions{MaxSmallBlobs: 1}); err != nil {
 		t.Errorf("compaction error: %v", err)
+	}
+}
+
+func validateIndexCount(t *testing.T, data map[blob.ID][]byte, wantIndexCount, wantCompactionLogCount int) {
+	t.Helper()
+
+	var indexCnt, compactionLogCnt int
+
+	for blobID := range data {
+		if strings.HasPrefix(string(blobID), indexBlobPrefix) {
+			indexCnt++
+		}
+
+		if strings.HasPrefix(string(blobID), compactionLogBlobPrefix) {
+			compactionLogCnt++
+		}
+	}
+
+	if got, want := indexCnt, wantIndexCount; got != want {
+		t.Fatalf("unexpected index blob count %v, want %v", got, want)
+	}
+
+	if got, want := compactionLogCnt, wantCompactionLogCount; got != want {
+		t.Fatalf("unexpected compaction log blob count %v, want %v", got, want)
 	}
 }
 
@@ -1807,18 +1827,6 @@ func newTestContentManagerWithStorageAndCaching(t *testing.T, st blob.Storage, c
 	bm.checkInvariantsOnUnlock = true
 
 	return bm
-}
-
-func getIndexCount(d blobtesting.DataMap) int {
-	var cnt int
-
-	for blobID := range d {
-		if strings.HasPrefix(string(blobID), indexBlobPrefix) {
-			cnt++
-		}
-	}
-
-	return cnt
 }
 
 func verifyContentNotFound(ctx context.Context, t *testing.T, bm *Manager, contentID ID) {

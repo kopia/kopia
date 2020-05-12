@@ -95,7 +95,8 @@ func (bm *lockFreeManager) loadPackIndexesUnlocked(ctx context.Context) ([]Index
 		}
 
 		if i > 0 {
-			bm.listCache.deleteListCache()
+			bm.listCache.deleteListCache(indexBlobPrefix)
+			bm.listCache.deleteListCache(compactionLogBlobPrefix)
 			log(ctx).Debugf("encountered NOT_FOUND when loading, sleeping %v before retrying #%v", nextSleepTime, i)
 			time.Sleep(nextSleepTime)
 			nextSleepTime *= 2
@@ -371,7 +372,6 @@ func getIndexBlobIV(s blob.ID) ([]byte, error) {
 
 func (bm *lockFreeManager) writePackFileNotLocked(ctx context.Context, packFile blob.ID, data gather.Bytes) error {
 	bm.Stats.wroteContent(data.Length())
-	bm.listCache.deleteListCache()
 
 	return bm.st.PutBlob(ctx, packFile, data)
 }
@@ -395,7 +395,7 @@ func (bm *lockFreeManager) encryptAndWriteBlobNotLocked(ctx context.Context, dat
 	}
 
 	bm.Stats.wroteContent(len(data2))
-	bm.listCache.deleteListCache()
+	bm.listCache.deleteListCache(prefix)
 
 	if err := bm.st.PutBlob(ctx, blobID, gather.FromSlice(data2)); err != nil {
 		return "", err

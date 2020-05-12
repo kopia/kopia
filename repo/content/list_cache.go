@@ -1,14 +1,15 @@
 package content
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"time"
 
+	"github.com/natefinch/atomic"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/hmac"
@@ -17,70 +18,69 @@ import (
 
 type listCache struct {
 	st                blob.Storage
-	cacheFile         string
+	cacheFilePrefix   string
 	listCacheDuration time.Duration
 	hmacSecret        []byte
 }
 
-func (c *listCache) listIndexBlobs(ctx context.Context) ([]IndexBlobInfo, error) {
-	if c.cacheFile != "" {
-		ci, err := c.readContentsFromCache(ctx)
+func (c *listCache) listIndexBlobs(ctx context.Context, prefix blob.ID) ([]blob.Metadata, error) {
+	if c.cacheFilePrefix != "" {
+		ci, err := c.readBlobsFromCache(ctx, prefix)
 		if err == nil {
 			expirationTime := ci.Timestamp.Add(c.listCacheDuration)
 			if time.Now().Before(expirationTime) { // allow:no-inject-time
-				log(ctx).Debugf("retrieved list of index blobs from cache")
-				return ci.Contents, nil
+				log(ctx).Debugf("retrieved list of %v '%v' index blobs from cache", len(ci.Blobs), prefix)
+				return ci.Blobs, nil
 			}
 		} else if err != blob.ErrBlobNotFound {
 			log(ctx).Warningf("unable to open cache file: %v", err)
 		}
 	}
 
-	contents, err := listIndexBlobsFromStorage(ctx, c.st)
+	blobs, err := blob.ListAllBlobs(ctx, c.st, prefix)
 	if err == nil {
-		c.saveListToCache(ctx, &cachedList{
-			Contents:  contents,
+		c.saveListToCache(ctx, prefix, &cachedList{
+			Blobs:     blobs,
 			Timestamp: time.Now(), // allow:no-inject-time
 		})
 	}
 
-	log(ctx).Debugf("found %v index blobs from source", len(contents))
+	log(ctx).Debugf("found %v index blobs from source", len(blobs))
 
-	return contents, err
+	return blobs, err
 }
 
-func (c *listCache) saveListToCache(ctx context.Context, ci *cachedList) {
-	if c.cacheFile == "" {
+func (c *listCache) saveListToCache(ctx context.Context, prefix blob.ID, ci *cachedList) {
+	if c.cacheFilePrefix == "" {
 		return
 	}
 
-	log(ctx).Debugf("saving index blobs to cache: %v", len(ci.Contents))
+	log(ctx).Debugf("saving %v blobs with prefix %v to cache", len(ci.Blobs), prefix)
 
 	if data, err := json.Marshal(ci); err == nil {
-		mySuffix := fmt.Sprintf(".tmp-%v-%v", os.Getpid(), time.Now().UnixNano()) // allow:no-inject-time
-		if err := ioutil.WriteFile(c.cacheFile+mySuffix, hmac.Append(data, c.hmacSecret), 0600); err != nil {
+		b := hmac.Append(data, c.hmacSecret)
+		if err := atomic.WriteFile(c.cacheFilePrefix+string(prefix), bytes.NewReader(b)); err != nil {
 			log(ctx).Warningf("unable to write list cache: %v", err)
 		}
-
-		os.Rename(c.cacheFile+mySuffix, c.cacheFile) //nolint:errcheck
-		os.Remove(c.cacheFile + mySuffix)            //nolint:errcheck
 	}
 }
 
-func (c *listCache) deleteListCache() {
-	if c.cacheFile != "" {
-		os.Remove(c.cacheFile) //nolint:errcheck
+func (c *listCache) deleteListCache(prefix blob.ID) {
+	if c.cacheFilePrefix != "" {
+		os.Remove(c.cacheFilePrefix + string(prefix)) //nolint:errcheck
 	}
 }
 
-func (c *listCache) readContentsFromCache(ctx context.Context) (*cachedList, error) {
+func (c *listCache) readBlobsFromCache(ctx context.Context, prefix blob.ID) (*cachedList, error) {
 	if !shouldUseListCache(ctx) {
 		return nil, blob.ErrBlobNotFound
 	}
 
 	ci := &cachedList{}
 
-	data, err := ioutil.ReadFile(c.cacheFile)
+	fname := c.cacheFilePrefix + string(prefix)
+
+	data, err := ioutil.ReadFile(fname)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, blob.ErrBlobNotFound
@@ -91,7 +91,7 @@ func (c *listCache) readContentsFromCache(ctx context.Context) (*cachedList, err
 
 	data, err = hmac.VerifyAndStrip(data, c.hmacSecret)
 	if err != nil {
-		return nil, errors.Wrapf(err, "invalid file %v", c.cacheFile)
+		return nil, errors.Wrapf(err, "invalid file %v", fname)
 	}
 
 	if err := json.Unmarshal(data, &ci); err != nil {
@@ -103,36 +103,14 @@ func (c *listCache) readContentsFromCache(ctx context.Context) (*cachedList, err
 
 type cachedList struct {
 	Timestamp time.Time       `json:"timestamp"`
-	Contents  []IndexBlobInfo `json:"contents"`
-}
-
-// listIndexBlobsFromStorage returns the list of index blobs in the given storage.
-// The list of contents is not guaranteed to be sorted.
-func listIndexBlobsFromStorage(ctx context.Context, st blob.Storage) ([]IndexBlobInfo, error) {
-	snapshot, err := blob.ListAllBlobs(ctx, st, indexBlobPrefix)
-	if err != nil {
-		return nil, err
-	}
-
-	var results []IndexBlobInfo
-
-	for _, it := range snapshot {
-		ii := IndexBlobInfo{
-			BlobID:    it.BlobID,
-			Timestamp: it.Timestamp,
-			Length:    it.Length,
-		}
-		results = append(results, ii)
-	}
-
-	return results, err
+	Blobs     []blob.Metadata `json:"blobs"`
 }
 
 func newListCache(st blob.Storage, caching CachingOptions) (*listCache, error) {
-	var listCacheFile string
+	var listCacheFilePrefix string
 
 	if caching.CacheDirectory != "" {
-		listCacheFile = filepath.Join(caching.CacheDirectory, "list")
+		listCacheFilePrefix = filepath.Join(caching.CacheDirectory, "blob-list-")
 
 		if _, err := os.Stat(caching.CacheDirectory); os.IsNotExist(err) {
 			if err := os.MkdirAll(caching.CacheDirectory, 0700); err != nil {
@@ -143,13 +121,9 @@ func newListCache(st blob.Storage, caching CachingOptions) (*listCache, error) {
 
 	c := &listCache{
 		st:                st,
-		cacheFile:         listCacheFile,
+		cacheFilePrefix:   listCacheFilePrefix,
 		hmacSecret:        caching.HMACSecret,
 		listCacheDuration: time.Duration(caching.MaxListCacheDurationSec) * time.Second,
-	}
-
-	if caching.IgnoreListCache {
-		c.deleteListCache()
 	}
 
 	return c, nil

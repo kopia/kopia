@@ -108,7 +108,7 @@ func (bm *Manager) compactAndDeleteIndexBlobs(ctx context.Context, indexBlobs []
 		return nil
 	}
 
-	formatLog(ctx).Debugf("compacting %v contents", len(indexBlobs))
+	formatLog(ctx).Debugf("compacting %v index blobs", len(indexBlobs))
 
 	t0 := time.Now() // allow:no-inject-time
 	bld := make(packIndexBuilder)
@@ -192,7 +192,7 @@ func (bm *lockFreeManager) getCompactionLogEntries(ctx context.Context, blobs []
 }
 
 func (bm *Manager) deleteOldIndexBlobs(ctx context.Context, latestBlobID blob.ID) error {
-	allCompactionLogBlobs, err := blob.ListAllBlobs(ctx, bm.st, compactionLogBlobPrefix)
+	allCompactionLogBlobs, err := bm.listCache.listIndexBlobs(ctx, compactionLogBlobPrefix)
 	if err != nil {
 		return errors.Wrap(err, "error listing compaction log blobs")
 	}
@@ -237,6 +237,9 @@ func (bm *Manager) deleteOldIndexBlobs(ctx context.Context, latestBlobID blob.ID
 			formatLog(ctx).Warningf("unable to delete compaction log blob %v, %v", cb.BlobID, err)
 		}
 	}
+
+	bm.listCache.deleteListCache(indexBlobPrefix)
+	bm.listCache.deleteListCache(compactionLogBlobPrefix)
 
 	return nil
 }
@@ -287,7 +290,7 @@ func (bm *Manager) addIndexBlobsToBuilder(ctx context.Context, bld packIndexBuil
 }
 
 func (bm *lockFreeManager) listEffectiveIndexBlobs(ctx context.Context, includeInactive bool) ([]IndexBlobInfo, error) {
-	compactionLogMetadata, err := blob.ListAllBlobs(ctx, bm.st, compactionLogBlobPrefix)
+	compactionLogMetadata, err := bm.listCache.listIndexBlobs(ctx, compactionLogBlobPrefix)
 	if err != nil {
 		return nil, errors.Wrap(err, "error listing compaction log entries")
 	}
@@ -297,7 +300,7 @@ func (bm *lockFreeManager) listEffectiveIndexBlobs(ctx context.Context, includeI
 		return nil, errors.Wrap(err, "error merging local writes for compaction log entries")
 	}
 
-	storageIndexBlobs, err := blob.ListAllBlobs(ctx, bm.st, indexBlobPrefix)
+	storageIndexBlobs, err := bm.listCache.listIndexBlobs(ctx, indexBlobPrefix)
 	if err != nil {
 		return nil, errors.Wrap(err, "error listing index blobs")
 	}
