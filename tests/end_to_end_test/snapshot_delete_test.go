@@ -48,6 +48,13 @@ func TestSnapshotDelete(t *testing.T) {
 			expectSuccess,
 		},
 		{
+			"Delete - by manifest ID - legacy flag",
+			func(manifestID, objectID string, source testenv.SourceInfo) []string {
+				return []string{"snapshot", "delete", manifestID, "--unsafe-ignore-source"}
+			},
+			expectSuccess,
+		},
+		{
 			"Dry run - by objectID ID",
 			func(manifestID, objectID string, source testenv.SourceInfo) []string {
 				return []string{"snapshot", "delete", objectID}

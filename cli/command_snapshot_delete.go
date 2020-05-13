@@ -85,4 +85,7 @@ func deleteSnapshotsByRootObjectID(ctx context.Context, rep repo.Repository, roo
 
 func init() {
 	snapshotDeleteCommand.Action(repositoryAction(runDeleteCommand))
+
+	// hidden flag for backwards compatibility
+	snapshotDeleteCommand.Flag("unsafe-ignore-source", "Alias for --delete").Hidden().BoolVar(snapshotDeleteConfirm)
 }
