@@ -407,6 +407,10 @@ func (bm *Manager) Close(ctx context.Context) error {
 		return errors.Wrap(err, "error flushing")
 	}
 
+	if err := bm.committedContents.close(); err != nil {
+		return errors.Wrap(err, "error closed committed content index")
+	}
+
 	bm.contentCache.close()
 	bm.metadataCache.close()
 	close(bm.closed)

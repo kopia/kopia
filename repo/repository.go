@@ -49,6 +49,8 @@ type DirectRepository struct {
 	timeNow    func() time.Time
 	formatBlob *formatBlob
 	masterKey  []byte
+
+	closed bool
 }
 
 // DeriveKey derives encryption key of the provided length from the master key.
@@ -114,6 +116,10 @@ func (r *DirectRepository) DeleteManifest(ctx context.Context, id manifest.ID) e
 
 // Close closes the repository and releases all resources.
 func (r *DirectRepository) Close(ctx context.Context) error {
+	if r.closed {
+		return nil
+	}
+
 	if err := r.Flush(ctx); err != nil {
 		return errors.Wrap(err, "error flushing")
 	}
@@ -129,6 +135,8 @@ func (r *DirectRepository) Close(ctx context.Context) error {
 	if err := r.Blobs.Close(ctx); err != nil {
 		return errors.Wrap(err, "error closing blob storage")
 	}
+
+	r.closed = true
 
 	return nil
 }

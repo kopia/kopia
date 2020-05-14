@@ -82,7 +82,7 @@ func (c *cacheBase) sweepDirectoryPeriodically(ctx context.Context) {
 			c.sweepMutexes()
 
 			if err := c.sweepDirectory(ctx); err != nil {
-				log(ctx).Warningf("cacheBase sweep failed: %v", err)
+				log(ctx).Warningf("cache sweep failed: %v", err)
 			}
 		}
 	}

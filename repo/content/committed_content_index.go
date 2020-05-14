@@ -133,6 +133,19 @@ func (b *committedContentIndex) use(ctx context.Context, packFiles []blob.ID) (b
 	return true, nil
 }
 
+func (b *committedContentIndex) close() error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	for _, pi := range b.inUse {
+		if err := pi.Close(); err != nil {
+			return errors.Wrap(err, "unable to close index")
+		}
+	}
+
+	return nil
+}
+
 func newCommittedContentIndex(caching *CachingOptions) *committedContentIndex {
 	var cache committedContentIndexCache
 
