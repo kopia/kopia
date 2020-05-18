@@ -37,6 +37,15 @@ func (s *FaultyStorage) GetBlob(ctx context.Context, id blob.ID, offset, length 
 	return s.Base.GetBlob(ctx, id, offset, length)
 }
 
+// GetMetadata implements blob.Storage
+func (s *FaultyStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {
+	if err := s.getNextFault(ctx, "GetMetadata", id); err != nil {
+		return blob.Metadata{}, err
+	}
+
+	return s.Base.GetMetadata(ctx, id)
+}
+
 // PutBlob implements blob.Storage
 func (s *FaultyStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes) error {
 	if err := s.getNextFault(ctx, "PutBlob", id); err != nil {

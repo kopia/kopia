@@ -15,6 +15,7 @@ const minShardedBlobIDLength = 20
 // Impl must be implemented by underlying provided.
 type Impl interface {
 	GetBlobFromPath(ctx context.Context, dirPath, filePath string, offset, length int64) ([]byte, error)
+	GetMetadataFromPath(ctx context.Context, dirPath, filePath string) (blob.Metadata, error)
 	PutBlobInPath(ctx context.Context, dirPath, filePath string, dataSlices blob.Bytes) error
 	DeleteBlobInPath(ctx context.Context, dirPath, filePath string) error
 	ReadDir(ctx context.Context, path string) ([]os.FileInfo, error)
@@ -90,6 +91,16 @@ func (s Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(bl
 	}
 
 	return walkDir(s.RootPath, "")
+}
+
+// GetMetadata implements blob.Storage
+func (s Storage) GetMetadata(ctx context.Context, blobID blob.ID) (blob.Metadata, error) {
+	dirPath, filePath := s.GetShardedPathAndFilePath(blobID)
+
+	m, err := s.Impl.GetMetadataFromPath(ctx, dirPath, filePath)
+	m.BlobID = blobID
+
+	return m, err
 }
 
 // PutBlob implements blob.Storage

@@ -80,6 +80,22 @@ func (s *sftpImpl) GetBlobFromPath(ctx context.Context, dirPath, fullPath string
 	return data[0:length], nil
 }
 
+func (s *sftpImpl) GetMetadataFromPath(ctx context.Context, dirPath, fullPath string) (blob.Metadata, error) {
+	fi, err := s.cli.Stat(fullPath)
+	if isNotExist(err) {
+		return blob.Metadata{}, blob.ErrBlobNotFound
+	}
+
+	if err != nil {
+		return blob.Metadata{}, err
+	}
+
+	return blob.Metadata{
+		Length:    fi.Size(),
+		Timestamp: fi.ModTime(),
+	}, nil
+}
+
 func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, fullPath string, data blob.Bytes) error {
 	randSuffix := make([]byte, 8)
 	if _, err := rand.Read(randSuffix); err != nil {

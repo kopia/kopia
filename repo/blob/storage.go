@@ -42,6 +42,9 @@ type Storage interface {
 	// If length<0, the entire blob must be fetched.
 	GetBlob(ctx context.Context, blobID ID, offset, length int64) ([]byte, error)
 
+	// GetMetadata returns Metadata about single blob.
+	GetMetadata(ctx context.Context, blobID ID) (Metadata, error)
+
 	// ListBlobs invokes the provided callback for each blob in the storage.
 	// Iteration continues until the callback returns an error or until all matching blobs have been reported.
 	ListBlobs(ctx context.Context, blobIDPrefix ID, cb func(bm Metadata) error) error

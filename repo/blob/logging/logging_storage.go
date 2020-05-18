@@ -30,6 +30,15 @@ func (s *loggingStorage) GetBlob(ctx context.Context, id blob.ID, offset, length
 	return result, err
 }
 
+func (s *loggingStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {
+	t0 := time.Now()
+	result, err := s.base.GetMetadata(ctx, id)
+	dt := time.Since(t0)
+
+	s.printf(s.prefix+"GetMetadata(%q)=(%#v, %#v) took %v", id, result, err, dt)
+
+	return result, err
+}
 func (s *loggingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes) error {
 	t0 := time.Now()
 	err := s.base.PutBlob(ctx, id, data)
