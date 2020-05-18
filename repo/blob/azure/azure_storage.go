@@ -69,6 +69,28 @@ func (az *azStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int6
 	return fetched, nil
 }
 
+func (az *azStorage) GetMetadata(ctx context.Context, b blob.ID) (blob.Metadata, error) {
+	attempt := func() (interface{}, error) {
+		fi, err := az.bucket.Attributes(ctx, az.getObjectNameString(b))
+		if err != nil {
+			return nil, err
+		}
+
+		return blob.Metadata{
+			BlobID:    b,
+			Length:    fi.Size,
+			Timestamp: fi.ModTime,
+		}, nil
+	}
+
+	v, err := exponentialBackoff(ctx, fmt.Sprintf("GetMetadaa(%q)", b), attempt)
+	if err != nil {
+		return blob.Metadata{}, translateError(err)
+	}
+
+	return v.(blob.Metadata), nil
+}
+
 func exponentialBackoff(ctx context.Context, desc string, att retry.AttemptFunc) (interface{}, error) {
 	return retry.WithExponentialBackoff(ctx, desc, att, isRetriableError)
 }

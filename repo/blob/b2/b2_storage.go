@@ -80,6 +80,30 @@ func (s *b2Storage) GetBlob(ctx context.Context, id blob.ID, offset, length int6
 	return v.([]byte), nil
 }
 
+func (s *b2Storage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {
+	fileName := s.getObjectNameString(id)
+
+	attempt := func() (interface{}, error) {
+		fi, err := s.bucket.GetFileInfo(fileName)
+		if err != nil {
+			return nil, err
+		}
+
+		return blob.Metadata{
+			BlobID:    id,
+			Length:    fi.ContentLength,
+			Timestamp: time.Unix(0, fi.UploadTimestamp*1e6),
+		}, nil
+	}
+
+	v, err := exponentialBackoff(ctx, fmt.Sprintf("GetMetadata(%q)", id), attempt)
+	if err != nil {
+		return blob.Metadata{}, translateError(err)
+	}
+
+	return v.(blob.Metadata), nil
+}
+
 func translateError(err error) error {
 	if b2err, ok := err.(*backblaze.B2Error); ok {
 		if b2err.Status == http.StatusNotFound {

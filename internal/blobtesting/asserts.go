@@ -5,6 +5,7 @@ import (
 	"context"
 	"reflect"
 	"sort"
+	"time"
 
 	"github.com/kopia/kopia/repo/blob"
 )
@@ -95,8 +96,27 @@ func AssertListResults(ctx context.Context, t testingT, s blob.Storage, prefix b
 
 	var names []blob.ID
 
-	if err := s.ListBlobs(ctx, prefix, func(e blob.Metadata) error {
-		names = append(names, e.BlobID)
+	if err := s.ListBlobs(ctx, prefix, func(m blob.Metadata) error {
+		names = append(names, m.BlobID)
+
+		m2, err := s.GetMetadata(ctx, m.BlobID)
+		if err != nil {
+			t.Errorf("GetMetadata() failed: %v", err)
+		}
+
+		if got, want := m2.BlobID, m.BlobID; got != want {
+			t.Errorf("invalid blob ID on %v: %v, want %v", m.BlobID, got, want)
+		}
+
+		if got, want := m2.Length, m.Length; got != want {
+			t.Errorf("invalid length on %v: %v, want %v", m.BlobID, got, want)
+		}
+
+		// truncated time comparison, because some providers return different precision of time in list vs get
+		if got, want := m2.Timestamp, m.Timestamp; !got.Truncate(time.Second).Equal(want.Truncate(time.Second)) {
+			t.Errorf("invalid timestamp on %v: %v, want %v", m.BlobID, got, want)
+		}
+
 		return nil
 	}); err != nil {
 		t.Fatalf("err: %v", err)

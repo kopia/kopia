@@ -68,6 +68,27 @@ func (gcs *gcsStorage) GetBlob(ctx context.Context, b blob.ID, offset, length in
 	return fetched, nil
 }
 
+func (gcs *gcsStorage) GetMetadata(ctx context.Context, b blob.ID) (blob.Metadata, error) {
+	attempt := func() (interface{}, error) {
+		attrs, err := gcs.bucket.Object(gcs.getObjectNameString(b)).Attrs(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		return blob.Metadata{
+			BlobID:    b,
+			Length:    attrs.Size,
+			Timestamp: attrs.Created,
+		}, nil
+	}
+
+	v, err := exponentialBackoff(ctx, fmt.Sprintf("GetMetadata(%q)", b), attempt)
+	if err != nil {
+		return blob.Metadata{}, translateError(err)
+	}
+
+	return v.(blob.Metadata), nil
+}
 func exponentialBackoff(ctx context.Context, desc string, att retry.AttemptFunc) (interface{}, error) {
 	return retry.WithExponentialBackoff(ctx, desc, att, isRetriableError)
 }

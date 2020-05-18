@@ -71,6 +71,22 @@ func (d *davStorageImpl) GetBlobFromPath(ctx context.Context, dirPath, path stri
 	return data[0:length], nil
 }
 
+func (d *davStorageImpl) GetMetadataFromPath(ctx context.Context, dirPath, path string) (blob.Metadata, error) {
+	v, err := retry.WithExponentialBackoff(ctx, "GetMetadataFromPath", func() (interface{}, error) {
+		return d.cli.Stat(path)
+	}, isRetriable)
+	if err != nil {
+		return blob.Metadata{}, d.translateError(err)
+	}
+
+	fi := v.(os.FileInfo)
+
+	return blob.Metadata{
+		Length:    fi.Size(),
+		Timestamp: fi.ModTime(),
+	}, nil
+}
+
 func httpErrorCode(err error) int {
 	if err, ok := err.(*os.PathError); ok {
 		code, err := strconv.Atoi(strings.Split(err.Err.Error(), " ")[0])
