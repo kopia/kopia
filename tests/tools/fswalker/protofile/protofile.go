@@ -3,17 +3,23 @@
 package protofile
 
 import (
+	"bytes"
 	"io/ioutil"
-	"strings"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/proto" // nolint:staticcheck
+	"google.golang.org/protobuf/encoding/prototext"
 )
 
 // WriteTextProto writes a text format proto buf for the provided proto message.
 func WriteTextProto(path string, pb proto.Message) error {
-	blob := proto.MarshalTextString(pb)
-	// replace message boundary characters as curly braces look nicer (both is fine to parse)
-	blob = strings.Replace(strings.Replace(blob, "<", "{", -1), ">", "}", -1)
+	blob, err := prototext.Marshal(proto.MessageV2(pb))
+	if err != nil {
+		return err
+	}
 
-	return ioutil.WriteFile(path, []byte(blob), 0644)
+	// replace message boundary characters as curly braces look nicer (both is fine to parse)
+	blob = bytes.ReplaceAll(blob, []byte("<"), []byte("{"))
+	blob = bytes.ReplaceAll(blob, []byte(">"), []byte("}"))
+
+	return ioutil.WriteFile(path, blob, 0644)
 }

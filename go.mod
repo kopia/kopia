@@ -15,7 +15,7 @@ require (
 	github.com/efarrer/iothrottler v0.0.1
 	github.com/fatih/color v1.9.0
 	github.com/gofrs/flock v0.7.1
-	github.com/golang/protobuf v1.4.1
+	github.com/golang/protobuf v1.4.2
 	github.com/google/fswalker v0.2.1-0.20200214223026-f0e929ba4126
 	github.com/google/readahead v0.0.0-20161222183148-eaceba169032 // indirect
 	github.com/google/wire v0.4.0 // indirect
@@ -50,6 +50,7 @@ require (
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a
 	golang.org/x/tools v0.0.0-20200519205726-57a9e4404bf7 // indirect
 	google.golang.org/api v0.24.0
+	google.golang.org/protobuf v1.23.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	gopkg.in/ini.v1 v1.56.0 // indirect
 	gopkg.in/kothar/go-backblaze.v0 v0.0.0-20191215213626-7594ed38700f
