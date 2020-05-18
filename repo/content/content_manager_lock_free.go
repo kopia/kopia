@@ -7,7 +7,6 @@ import (
 	cryptorand "crypto/rand"
 	"encoding/hex"
 	"io"
-	"strings"
 	"sync"
 	"time"
 
@@ -25,11 +24,11 @@ type lockFreeManager struct {
 	// this one is not lock-free
 	Stats Stats
 
-	listCache      *listCache
 	st             blob.Storage
 	Format         FormattingOptions
 	CachingOptions CachingOptions
 
+	indexBlobManager  *indexBlobManager
 	contentCache      contentCache
 	metadataCache     contentCache
 	committedContents *committedContentIndex
@@ -45,8 +44,6 @@ type lockFreeManager struct {
 	maxPreambleLength int
 	paddingUnit       int
 	timeNow           func() time.Time
-
-	ownWritesCache ownWritesCache
 
 	repositoryFormatBytes []byte
 
@@ -68,6 +65,8 @@ func (bm *lockFreeManager) maybeEncryptContentDataForPacking(output *gather.Writ
 	if err != nil {
 		return errors.Wrap(err, "unable to encrypt")
 	}
+
+	bm.Stats.encrypted(len(data))
 
 	output.Append(cipherText)
 
@@ -95,14 +94,14 @@ func (bm *lockFreeManager) loadPackIndexesUnlocked(ctx context.Context) ([]Index
 		}
 
 		if i > 0 {
-			bm.listCache.deleteListCache(indexBlobPrefix)
-			bm.listCache.deleteListCache(compactionLogBlobPrefix)
+			bm.indexBlobManager.listCache.deleteListCache(indexBlobPrefix)
+			bm.indexBlobManager.listCache.deleteListCache(compactionLogBlobPrefix)
 			log(ctx).Debugf("encountered NOT_FOUND when loading, sleeping %v before retrying #%v", nextSleepTime, i)
 			time.Sleep(nextSleepTime)
 			nextSleepTime *= 2
 		}
 
-		indexBlobs, err := bm.listEffectiveIndexBlobs(ctx, false)
+		indexBlobs, err := bm.indexBlobManager.listEffectiveIndexBlobs(ctx, false)
 		if err != nil {
 			return nil, false, err
 		}
@@ -155,7 +154,7 @@ func (bm *lockFreeManager) tryLoadPackIndexBlobsUnlocked(ctx context.Context, in
 			defer wg.Done()
 
 			for indexBlobID := range ch {
-				data, err := bm.getIndexBlobInternal(ctx, indexBlobID)
+				data, err := bm.indexBlobManager.getIndexBlob(ctx, indexBlobID)
 				if err != nil {
 					errch <- err
 					return
@@ -321,36 +320,7 @@ func (bm *lockFreeManager) preparePackDataContent(ctx context.Context, pp *pendi
 
 // IndexBlobs returns the list of active index blobs.
 func (bm *lockFreeManager) IndexBlobs(ctx context.Context, includeInactive bool) ([]IndexBlobInfo, error) {
-	return bm.listEffectiveIndexBlobs(ctx, includeInactive)
-}
-
-func (bm *lockFreeManager) getIndexBlobInternal(ctx context.Context, blobID blob.ID) ([]byte, error) {
-	payload, err := bm.metadataCache.getContent(ctx, cacheKey(blobID), blobID, 0, -1)
-	if err != nil {
-		return nil, err
-	}
-
-	iv, err := getIndexBlobIV(blobID)
-	if err != nil {
-		return nil, err
-	}
-
-	bm.Stats.readContent(len(payload))
-
-	payload, err = bm.encryptor.Decrypt(nil, payload, iv)
-	bm.Stats.decrypted(len(payload))
-
-	if err != nil {
-		return nil, errors.Wrap(err, "decrypt error")
-	}
-
-	// Since the encryption key is a function of data, we must be able to generate exactly the same key
-	// after decrypting the content. This serves as a checksum.
-	if err := bm.verifyChecksum(payload, iv); err != nil {
-		return nil, err
-	}
-
-	return payload, nil
+	return bm.indexBlobManager.listEffectiveIndexBlobs(ctx, includeInactive)
 }
 
 func getPackedContentIV(output []byte, contentID ID) ([]byte, error) {
@@ -362,54 +332,10 @@ func getPackedContentIV(output []byte, contentID ID) ([]byte, error) {
 	return output[0:n], nil
 }
 
-func getIndexBlobIV(s blob.ID) ([]byte, error) {
-	if p := strings.Index(string(s), "-"); p >= 0 { // nolint:gocritic
-		s = s[0:p]
-	}
-
-	return hex.DecodeString(string(s[len(s)-(aes.BlockSize*2):]))
-}
-
 func (bm *lockFreeManager) writePackFileNotLocked(ctx context.Context, packFile blob.ID, data gather.Bytes) error {
 	bm.Stats.wroteContent(data.Length())
 
 	return bm.st.PutBlob(ctx, packFile, data)
-}
-
-func (bm *lockFreeManager) encryptAndWriteBlobNotLocked(ctx context.Context, data []byte, prefix blob.ID) (blob.ID, error) {
-	var hashOutput [maxHashSize]byte
-
-	hash := bm.hashData(hashOutput[:0], data)
-	blobID := prefix + blob.ID(hex.EncodeToString(hash))
-
-	iv, err := getIndexBlobIV(blobID)
-	if err != nil {
-		return "", err
-	}
-
-	bm.Stats.encrypted(len(data))
-
-	data2, err := bm.encryptor.Encrypt(nil, data, iv)
-	if err != nil {
-		return "", err
-	}
-
-	bm.Stats.wroteContent(len(data2))
-	bm.listCache.deleteListCache(prefix)
-
-	if err := bm.st.PutBlob(ctx, blobID, gather.FromSlice(data2)); err != nil {
-		return "", err
-	}
-
-	if err := bm.ownWritesCache.add(ctx, blob.Metadata{
-		BlobID:    blobID,
-		Length:    int64(len(data2)),
-		Timestamp: bm.timeNow(),
-	}); err != nil {
-		log(ctx).Warningf("unable to cache own write: %v", err)
-	}
-
-	return blobID, nil
 }
 
 func (bm *lockFreeManager) hashData(output, data []byte) []byte {
@@ -421,7 +347,7 @@ func (bm *lockFreeManager) hashData(output, data []byte) []byte {
 }
 
 func (bm *lockFreeManager) writePackIndexesNew(ctx context.Context, data []byte) (blob.ID, error) {
-	return bm.encryptAndWriteBlobNotLocked(ctx, data, indexBlobPrefix)
+	return bm.indexBlobManager.encryptAndWriteBlob(ctx, data, indexBlobPrefix)
 }
 
 func (bm *lockFreeManager) verifyChecksum(data, contentID []byte) error {

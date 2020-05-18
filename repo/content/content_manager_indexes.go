@@ -3,8 +3,6 @@ package content
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
-	"encoding/json"
 	"time"
 
 	"github.com/pkg/errors"
@@ -110,24 +108,16 @@ func (bm *Manager) compactAndDeleteIndexBlobs(ctx context.Context, indexBlobs []
 
 	formatLog(ctx).Debugf("compacting %v index blobs", len(indexBlobs))
 
-	t0 := time.Now() // allow:no-inject-time
 	bld := make(packIndexBuilder)
 
-	var logEntry compactionLogEntry
-
-	// generate random log entry ID to ensure that when it is hashed later,
-	// we don't get any collisions.
-	logEntry.RandomID = make([]byte, 32)
-	if _, err := rand.Read(logEntry.RandomID); err != nil {
-		return errors.Wrap(err, "unable to get random log entry ID")
-	}
+	var inputs, outputs []blob.ID
 
 	for _, indexBlob := range indexBlobs {
 		if err := bm.addIndexBlobsToBuilder(ctx, bld, indexBlob, opt); err != nil {
 			return errors.Wrap(err, "error adding index to builder")
 		}
 
-		logEntry.InputBlobs = append(logEntry.InputBlobs, indexBlob.BlobID)
+		inputs = append(inputs, indexBlob.BlobID)
 	}
 
 	var buf bytes.Buffer
@@ -149,125 +139,17 @@ func (bm *Manager) compactAndDeleteIndexBlobs(ctx context.Context, indexBlobs []
 		}
 	}
 
-	logEntry.OutputBlobs = append(logEntry.OutputBlobs, compactedIndexBlob)
+	outputs = append(outputs, compactedIndexBlob)
 
-	logEntryBytes, err := json.Marshal(logEntry)
-	if err != nil {
-		return errors.Wrap(err, "unable to marshal log entry bytes")
-	}
-
-	compactionLogBlobID, err := bm.encryptAndWriteBlobNotLocked(ctx, logEntryBytes, compactionLogBlobPrefix)
-	if err != nil {
-		return errors.Wrap(err, "unable to write compaction log")
-	}
-
-	formatLog(ctx).Debugf("compacted indexes %v into %v and wrote log %v in %v", logEntry.InputBlobs, logEntry.OutputBlobs, compactionLogBlobID, time.Since(t0)) // allow:no-inject-time
-
-	if err := bm.deleteOldIndexBlobs(ctx, compactionLogBlobID); err != nil {
-		return errors.Wrap(err, "error deleting old index blobs")
+	if err := bm.indexBlobManager.registerCompaction(ctx, inputs, outputs); err != nil {
+		return errors.Wrap(err, "unable to register compaction")
 	}
 
 	return nil
-}
-
-func (bm *lockFreeManager) getCompactionLogEntries(ctx context.Context, blobs []blob.Metadata) (map[blob.ID]*compactionLogEntry, error) {
-	results := map[blob.ID]*compactionLogEntry{}
-
-	for _, cb := range blobs {
-		data, err := bm.getIndexBlobInternal(ctx, cb.BlobID)
-		if err != nil {
-			return nil, errors.Wrapf(err, "unable to read compaction blob %q", cb.BlobID)
-		}
-
-		le := &compactionLogEntry{}
-
-		if err := json.Unmarshal(data, le); err != nil {
-			return nil, errors.Wrap(err, "unable to read compaction log entry %q")
-		}
-
-		results[cb.BlobID] = le
-	}
-
-	return results, nil
-}
-
-func (bm *Manager) deleteOldIndexBlobs(ctx context.Context, latestBlobID blob.ID) error {
-	allCompactionLogBlobs, err := bm.listCache.listIndexBlobs(ctx, compactionLogBlobPrefix)
-	if err != nil {
-		return errors.Wrap(err, "error listing compaction log blobs")
-	}
-
-	// look for server-assigned timestamp of the compaction log entry we just wrote as a reference.
-	// we're assuming server-generated timestamps are somewhat reasonable and time is moving
-	latestBlobTime := blobTime(allCompactionLogBlobs, latestBlobID)
-	if latestBlobTime.IsZero() {
-		formatLog(ctx).Warningf("compaction log blob %q was not found in list results due to eventual consistency, ignoring", latestBlobID)
-		return nil
-	}
-
-	fetchCompactionLogs := blobsOlderThan(allCompactionLogBlobs, latestBlobTime.Add(-blobDeleteSafeTime))
-
-	entries, err := bm.getCompactionLogEntries(ctx, fetchCompactionLogs)
-	if err != nil {
-		return errors.Wrap(err, "unable to get compaction log entries")
-	}
-
-	oldCompactedBlobs := map[blob.ID]bool{}
-
-	for _, cl := range entries {
-		for _, b := range cl.InputBlobs {
-			log(ctx).Debugf("will delete old index %q compacted to %v", b, cl.OutputBlobs)
-
-			oldCompactedBlobs[b] = true
-		}
-	}
-
-	for cb := range oldCompactedBlobs {
-		log(ctx).Debugf("deleting compacted blob %v", cb)
-
-		if err := bm.st.DeleteBlob(ctx, cb); err != nil && err != blob.ErrBlobNotFound {
-			formatLog(ctx).Warningf("unable to delete compacted blob %v, %v", cb, err)
-		}
-	}
-
-	for _, cb := range fetchCompactionLogs {
-		log(ctx).Debugf("deleting compaction log blob %v", cb)
-
-		if err := bm.st.DeleteBlob(ctx, cb.BlobID); err != nil && err != blob.ErrBlobNotFound {
-			formatLog(ctx).Warningf("unable to delete compaction log blob %v, %v", cb.BlobID, err)
-		}
-	}
-
-	bm.listCache.deleteListCache(indexBlobPrefix)
-	bm.listCache.deleteListCache(compactionLogBlobPrefix)
-
-	return nil
-}
-
-func blobsOlderThan(bm []blob.Metadata, cutoffTime time.Time) []blob.Metadata {
-	var res []blob.Metadata
-
-	for _, m := range bm {
-		if m.Timestamp.Before(cutoffTime) {
-			res = append(res, m)
-		}
-	}
-
-	return res
-}
-
-func blobTime(bm []blob.Metadata, blobID blob.ID) time.Time {
-	for _, m := range bm {
-		if m.BlobID == blobID {
-			return m.Timestamp
-		}
-	}
-
-	return time.Time{}
 }
 
 func (bm *Manager) addIndexBlobsToBuilder(ctx context.Context, bld packIndexBuilder, indexBlob IndexBlobInfo, opt CompactOptions) error {
-	data, err := bm.getIndexBlobInternal(ctx, indexBlob.BlobID)
+	data, err := bm.indexBlobManager.getIndexBlob(ctx, indexBlob.BlobID)
 	if err != nil {
 		return errors.Wrapf(err, "error getting index %q", indexBlob.BlobID)
 	}
@@ -287,46 +169,6 @@ func (bm *Manager) addIndexBlobsToBuilder(ctx context.Context, bld packIndexBuil
 	})
 
 	return nil
-}
-
-func (bm *lockFreeManager) listEffectiveIndexBlobs(ctx context.Context, includeInactive bool) ([]IndexBlobInfo, error) {
-	compactionLogMetadata, err := bm.listCache.listIndexBlobs(ctx, compactionLogBlobPrefix)
-	if err != nil {
-		return nil, errors.Wrap(err, "error listing compaction log entries")
-	}
-
-	compactionLogMetadata, err = bm.ownWritesCache.merge(ctx, compactionLogBlobPrefix, compactionLogMetadata)
-	if err != nil {
-		return nil, errors.Wrap(err, "error merging local writes for compaction log entries")
-	}
-
-	storageIndexBlobs, err := bm.listCache.listIndexBlobs(ctx, indexBlobPrefix)
-	if err != nil {
-		return nil, errors.Wrap(err, "error listing index blobs")
-	}
-
-	storageIndexBlobs, err = bm.ownWritesCache.merge(ctx, indexBlobPrefix, storageIndexBlobs)
-	if err != nil {
-		return nil, errors.Wrap(err, "error merging local writes for index blobs")
-	}
-
-	indexMap := map[blob.ID]*IndexBlobInfo{}
-	addBlobsToIndex(indexMap, storageIndexBlobs)
-
-	compactionLogs, err := bm.getCompactionLogEntries(ctx, compactionLogMetadata)
-	if err != nil {
-		return nil, errors.Wrap(err, "error reading compaction log compactionLogs")
-	}
-
-	// remove entries from indexMap that have been compacted and replaced by other indexes.
-	removeCompactedIndexes(ctx, indexMap, compactionLogs, includeInactive)
-
-	var results []IndexBlobInfo
-	for _, v := range indexMap {
-		results = append(results, *v)
-	}
-
-	return results, nil
 }
 
 func addBlobsToIndex(ndx map[blob.ID]*IndexBlobInfo, blobs []blob.Metadata) {

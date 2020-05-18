@@ -699,14 +699,20 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 	mu := &sync.RWMutex{}
 	m := &Manager{
 		lockFreeManager: lockFreeManager{
-			Format:                  *f,
-			timeNow:                 timeNow,
-			maxPackSize:             f.MaxPackSize,
-			encryptor:               encryptor,
-			hasher:                  hasher,
-			minPreambleLength:       defaultMinPreambleLength,
-			maxPreambleLength:       defaultMaxPreambleLength,
-			paddingUnit:             defaultPaddingUnit,
+			Format:            *f,
+			timeNow:           timeNow,
+			maxPackSize:       f.MaxPackSize,
+			encryptor:         encryptor,
+			hasher:            hasher,
+			minPreambleLength: defaultMinPreambleLength,
+			maxPreambleLength: defaultMaxPreambleLength,
+			paddingUnit:       defaultPaddingUnit,
+			indexBlobManager: &indexBlobManager{
+				st:        st,
+				encryptor: encryptor,
+				hasher:    hasher,
+				timeNow:   timeNow,
+			},
 			st:                      st,
 			repositoryFormatBytes:   repositoryFormatBytes,
 			checkInvariantsOnUnlock: os.Getenv("KOPIA_VERIFY_INVARIANTS") != "",
@@ -779,11 +785,13 @@ func setupCaches(ctx context.Context, m *Manager, caching *CachingOptions) error
 
 	// once everything is ready, set it up
 	m.CachingOptions = *caching
-	m.ownWritesCache = caching.ownWritesCache
 	m.contentCache = dataCache
 	m.metadataCache = metadataCache
-	m.listCache = listCache
 	m.committedContents = contentIndex
+
+	m.indexBlobManager.ownWritesCache = caching.ownWritesCache
+	m.indexBlobManager.listCache = listCache
+	m.indexBlobManager.indexBlobCache = metadataCache
 
 	return nil
 }
