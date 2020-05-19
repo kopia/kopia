@@ -9,7 +9,7 @@ require (
 	github.com/Azure/azure-pipeline-go v0.2.2 // indirect
 	github.com/Azure/azure-storage-blob-go v0.8.0
 	github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d // indirect
-	github.com/aws/aws-sdk-go v1.31.1
+	github.com/aws/aws-sdk-go v1.31.3
 	github.com/bgentry/speakeasy v0.1.0
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/efarrer/iothrottler v0.0.1
