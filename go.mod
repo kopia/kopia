@@ -22,7 +22,7 @@ require (
 	github.com/google/wire v0.4.0 // indirect
 	github.com/gorilla/mux v1.7.4
 	github.com/klauspost/compress v1.10.5
-	github.com/klauspost/pgzip v1.2.2
+	github.com/klauspost/pgzip v1.2.4
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mattn/go-colorable v0.1.6 // indirect
 	github.com/mattn/go-ieproxy v0.0.0-20200203040449-2dbc853185d9 // indirect
