@@ -10,7 +10,7 @@ require (
 	github.com/Azure/azure-pipeline-go v0.2.2 // indirect
 	github.com/Azure/azure-storage-blob-go v0.8.0
 	github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d // indirect
-	github.com/aws/aws-sdk-go v1.28.13
+	github.com/aws/aws-sdk-go v1.31.1
 	github.com/bgentry/speakeasy v0.1.0
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
 	github.com/efarrer/iothrottler v0.0.1
@@ -38,7 +38,7 @@ require (
 	github.com/prometheus/client_golang v1.5.1
 	github.com/prometheus/procfs v0.0.10 // indirect
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.5.1
 	github.com/studio-b12/gowebdav v0.0.0-20200303150724-9380631c29a1
 	github.com/tg123/go-htpasswd v1.0.0
 	github.com/zalando/go-keyring v0.0.0-20200121091418-667557018717
