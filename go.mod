@@ -21,7 +21,7 @@ require (
 	github.com/google/readahead v0.0.0-20161222183148-eaceba169032 // indirect
 	github.com/google/wire v0.4.0 // indirect
 	github.com/gorilla/mux v1.7.4
-	github.com/klauspost/compress v1.10.3
+	github.com/klauspost/compress v1.10.5
 	github.com/klauspost/pgzip v1.2.2
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mattn/go-colorable v0.1.6 // indirect
