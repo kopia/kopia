@@ -26,9 +26,8 @@ require (
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mattn/go-colorable v0.1.6 // indirect
 	github.com/mattn/go-ieproxy v0.0.1 // indirect
-	github.com/minio/minio v0.0.0-20200208111659-6b1f2fc13365
-	github.com/minio/minio-go/v6 v6.0.50
-	github.com/mmcloughlin/avo v0.0.0-20200303042253-6df701fe672f // indirect
+	github.com/minio/minio v0.0.0-20200520013402-0cc2ed04f59c
+	github.com/minio/minio-go/v6 v6.0.55
 	github.com/natefinch/atomic v0.0.0-20150920032501-a62ce929ffcc
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
 	github.com/pkg/errors v0.9.1

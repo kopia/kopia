@@ -294,13 +294,14 @@ func createMinioUser(t *testutil.RetriableT, kopiaUserName, kopiaPasswd string) 
 		t.Fatalf("can't initialize minio admin client: %v", err)
 	}
 
+	ctx := testlogging.Context(t)
 	// add new kopia user
-	if err = adminCli.AddUser(kopiaUserName, kopiaPasswd); err != nil {
+	if err = adminCli.AddUser(ctx, kopiaUserName, kopiaPasswd); err != nil {
 		t.Fatalf("failed to add new minio user: %v", err)
 	}
 
 	// set user policy
-	if err = adminCli.SetPolicy("readwrite", kopiaUserName, false); err != nil {
+	if err = adminCli.SetPolicy(ctx, "readwrite", kopiaUserName, false); err != nil {
 		t.Fatalf("failed to set user policy: %v", err)
 	}
 }
@@ -314,7 +315,7 @@ func deleteMinioUser(t *testutil.RetriableT, kopiaUserName string) {
 
 	// delete temp kopia user
 	// ignore error
-	_ = adminCli.RemoveUser(kopiaUserName)
+	_ = adminCli.RemoveUser(testlogging.Context(t), kopiaUserName)
 }
 
 func createMinioSessionToken(t *testutil.RetriableT, kopiaUserName, kopiaUserPasswd, bucketName string) (accessID, secretKey, sessionToken string) {
