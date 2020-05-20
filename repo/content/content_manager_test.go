@@ -1722,7 +1722,10 @@ func TestReadsOwnWritesWithEventualConsistencyPersistentOwnWritesCache(t *testin
 	cacheData := blobtesting.DataMap{}
 	cacheKeyTime := map[blob.ID]time.Time{}
 	cacheSt := blobtesting.NewMapStorage(cacheData, cacheKeyTime, timeNow)
-	ecst := blobtesting.NewEventuallyConsistentStorage(logging.NewWrapper(st, t.Logf, "[STORAGE] "), 0.1)
+	ecst := blobtesting.NewEventuallyConsistentStorage(
+		logging.NewWrapper(st, t.Logf, "[STORAGE] "),
+		0.1,
+		timeNow)
 
 	// disable own writes cache, will still be ok if store is strongly consistent
 	verifyReadsOwnWrites(t, ecst, timeNow, &persistentOwnWritesCache{
@@ -1747,7 +1750,10 @@ func TestReadsOwnWritesWithEventualConsistencyInMemoryOwnWritesCache(t *testing.
 	data := blobtesting.DataMap{}
 	timeNow := faketime.AutoAdvance(fakeTime, 1*time.Second)
 	st := blobtesting.NewMapStorage(data, nil, timeNow)
-	ecst := blobtesting.NewEventuallyConsistentStorage(logging.NewWrapper(st, t.Logf, "[STORAGE] "), 0.1)
+	ecst := blobtesting.NewEventuallyConsistentStorage(
+		logging.NewWrapper(st, t.Logf, "[STORAGE] "),
+		0.1,
+		timeNow)
 
 	verifyReadsOwnWrites(t, ecst, timeNow, &memoryOwnWritesCache{timeNow: timeNow})
 }
