@@ -17,7 +17,7 @@ require (
 	github.com/fatih/color v1.9.0
 	github.com/gofrs/flock v0.7.1
 	github.com/golang/protobuf v1.3.5
-	github.com/google/fswalker v0.2.0
+	github.com/google/fswalker v0.2.1-0.20200214223026-f0e929ba4126
 	github.com/google/readahead v0.0.0-20161222183148-eaceba169032 // indirect
 	github.com/google/wire v0.4.0 // indirect
 	github.com/gorilla/mux v1.7.4
