@@ -44,10 +44,10 @@ require (
 	golang.org/x/crypto v0.0.0-20200510223506-06a226fb4e37
 	golang.org/x/exp v0.0.0-20200513190911-00229845015e
 	golang.org/x/mod v0.3.0
-	golang.org/x/net v0.0.0-20200520004742-59133d7f0dd7
+	golang.org/x/net v0.0.0-20200520182314-0ba52f642ac2
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a
-	golang.org/x/tools v0.0.0-20200519205726-57a9e4404bf7 // indirect
+	golang.org/x/tools v0.0.0-20200521155704-91d71f6c2f04 // indirect
 	google.golang.org/api v0.25.0
 	google.golang.org/protobuf v1.23.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
