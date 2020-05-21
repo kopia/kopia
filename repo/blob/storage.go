@@ -2,6 +2,7 @@ package blob
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"sync"
 	"time"
@@ -65,6 +66,11 @@ type Metadata struct {
 	BlobID    ID        `json:"id"`
 	Length    int64     `json:"length"`
 	Timestamp time.Time `json:"timestamp"`
+}
+
+func (m *Metadata) String() string {
+	b, _ := json.Marshal(m)
+	return string(b)
 }
 
 // ErrBlobNotFound is returned when a BLOB cannot be found in storage.
