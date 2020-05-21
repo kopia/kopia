@@ -48,7 +48,7 @@ require (
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a
 	golang.org/x/tools v0.0.0-20200519205726-57a9e4404bf7 // indirect
-	google.golang.org/api v0.24.0
+	google.golang.org/api v0.25.0
 	google.golang.org/protobuf v1.23.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	gopkg.in/ini.v1 v1.56.0 // indirect
