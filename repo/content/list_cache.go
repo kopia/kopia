@@ -45,7 +45,7 @@ func (c *listCache) listIndexBlobs(ctx context.Context, prefix blob.ID) ([]blob.
 		})
 	}
 
-	log(ctx).Debugf("found %v index blobs from source", len(blobs))
+	log(ctx).Debugf("listed %v index blobs with prefix %v from source", len(blobs), prefix)
 
 	return blobs, err
 }

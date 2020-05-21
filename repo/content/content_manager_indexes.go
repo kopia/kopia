@@ -18,19 +18,15 @@ var autoCompactionOptions = CompactOptions{
 
 const (
 	compactionLogBlobPrefix = "m"
-	blobDeleteSafeTime      = 1 * time.Hour
 )
 
 // compactionLogEntry represents contents of compaction log entry stored in `m` blob.
 type compactionLogEntry struct {
-	// random ID which ensures that each compaction log entry is unique
-	RandomID []byte `json:"randomID"`
-
 	// list of input blob names that were compacted together.
-	InputBlobs []blob.ID `json:"inputs"`
+	InputBlobs []blob.Metadata `json:"inputMetadata"`
 
 	// list of blobs that are results of compaction.
-	OutputBlobs []blob.ID `json:"outputs"`
+	OutputBlobs []blob.Metadata `json:"outputMetadata"`
 }
 
 // CompactOptions provides options for compaction
@@ -110,14 +106,14 @@ func (bm *Manager) compactAndDeleteIndexBlobs(ctx context.Context, indexBlobs []
 
 	bld := make(packIndexBuilder)
 
-	var inputs, outputs []blob.ID
+	var inputs, outputs []blob.Metadata
 
 	for _, indexBlob := range indexBlobs {
 		if err := bm.addIndexBlobsToBuilder(ctx, bld, indexBlob, opt); err != nil {
 			return errors.Wrap(err, "error adding index to builder")
 		}
 
-		inputs = append(inputs, indexBlob.BlobID)
+		inputs = append(inputs, indexBlob.Metadata)
 	}
 
 	var buf bytes.Buffer
@@ -125,7 +121,7 @@ func (bm *Manager) compactAndDeleteIndexBlobs(ctx context.Context, indexBlobs []
 		return errors.Wrap(err, "unable to build an index")
 	}
 
-	compactedIndexBlob, err := bm.writePackIndexesNew(ctx, buf.Bytes())
+	compactedIndexBlob, err := bm.indexBlobManager.writeIndexBlob(ctx, buf.Bytes())
 	if err != nil {
 		return errors.Wrap(err, "unable to write compacted indexes")
 	}
@@ -133,7 +129,7 @@ func (bm *Manager) compactAndDeleteIndexBlobs(ctx context.Context, indexBlobs []
 	// compaction wrote index blob that's the same as one of the sources
 	// it must be a no-op.
 	for _, indexBlob := range indexBlobs {
-		if indexBlob.BlobID == compactedIndexBlob {
+		if indexBlob.BlobID == compactedIndexBlob.BlobID {
 			formatLog(ctx).Debugf("compaction was a no-op")
 			return nil
 		}
@@ -175,9 +171,11 @@ func addBlobsToIndex(ndx map[blob.ID]*IndexBlobInfo, blobs []blob.Metadata) {
 	for _, it := range blobs {
 		if ndx[it.BlobID] == nil {
 			ndx[it.BlobID] = &IndexBlobInfo{
-				BlobID:    it.BlobID,
-				Length:    it.Length,
-				Timestamp: it.Timestamp,
+				Metadata: blob.Metadata{
+					BlobID:    it.BlobID,
+					Length:    it.Length,
+					Timestamp: it.Timestamp,
+				},
 			}
 		}
 	}
@@ -191,10 +189,10 @@ func removeCompactedIndexes(ctx context.Context, m map[blob.ID]*IndexBlobInfo, c
 		haveAllOutputs := true
 
 		for _, o := range cl.OutputBlobs {
-			if m[o] == nil {
+			if m[o.BlobID] == nil {
 				haveAllOutputs = false
 
-				log(ctx).Debugf("blob %v referenced by compaction log is not found", o)
+				log(ctx).Debugf("blob %v referenced by compaction log is not found", o.BlobID)
 
 				break
 			}
@@ -208,13 +206,13 @@ func removeCompactedIndexes(ctx context.Context, m map[blob.ID]*IndexBlobInfo, c
 	// now remove all inputs from the set if there's a valid compaction log entry with all the outputs.
 	for _, cl := range validCompactionLogs {
 		for _, ib := range cl.InputBlobs {
-			if md := m[ib]; md != nil && md.Superseded == nil {
+			if md := m[ib.BlobID]; md != nil && md.Superseded == nil {
 				log(ctx).Debugf("ignoring index blob %v (%v) because it's been compacted to %v", ib, md.Timestamp, cl.OutputBlobs)
 
 				if markAsSuperseded {
 					md.Superseded = cl.OutputBlobs
 				} else {
-					delete(m, ib)
+					delete(m, ib.BlobID)
 				}
 			}
 		}

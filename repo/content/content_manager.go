@@ -33,6 +33,9 @@ const (
 
 	maxHashSize                            = 64
 	defaultEncryptionBufferPoolSegmentSize = 8 << 20 // 8 MB
+
+	defaultMinCompactionLogBlobDeleteAge = 2 * time.Hour
+	defaultMinIndexBlobDeleteAge         = 1 * time.Hour
 )
 
 // PackBlobIDPrefixes contains all possible prefixes for pack blobs.
@@ -65,10 +68,8 @@ var ErrContentNotFound = errors.New("content not found")
 
 // IndexBlobInfo is an information about a single index blob managed by Manager.
 type IndexBlobInfo struct {
-	BlobID     blob.ID
-	Length     int64
-	Timestamp  time.Time
-	Superseded []blob.ID
+	blob.Metadata
+	Superseded []blob.Metadata
 }
 
 // Manager builds content-addressable storage with encryption, deduplication and packaging on top of BLOB store.
@@ -309,12 +310,12 @@ func (bm *Manager) flushPackIndexesLocked(ctx context.Context) error {
 		data := b.Bytes()
 		dataCopy := append([]byte(nil), data...)
 
-		indexBlobID, err := bm.writePackIndexesNew(ctx, data)
+		indexBlobMD, err := bm.indexBlobManager.writeIndexBlob(ctx, data)
 		if err != nil {
 			return err
 		}
 
-		if err := bm.committedContents.addContent(ctx, indexBlobID, dataCopy, true); err != nil {
+		if err := bm.committedContents.addContent(ctx, indexBlobMD.BlobID, dataCopy, true); err != nil {
 			return errors.Wrap(err, "unable to add committed content")
 		}
 
@@ -699,20 +700,14 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 	mu := &sync.RWMutex{}
 	m := &Manager{
 		lockFreeManager: lockFreeManager{
-			Format:            *f,
-			timeNow:           timeNow,
-			maxPackSize:       f.MaxPackSize,
-			encryptor:         encryptor,
-			hasher:            hasher,
-			minPreambleLength: defaultMinPreambleLength,
-			maxPreambleLength: defaultMaxPreambleLength,
-			paddingUnit:       defaultPaddingUnit,
-			indexBlobManager: &indexBlobManager{
-				st:        st,
-				encryptor: encryptor,
-				hasher:    hasher,
-				timeNow:   timeNow,
-			},
+			Format:                  *f,
+			timeNow:                 timeNow,
+			maxPackSize:             f.MaxPackSize,
+			encryptor:               encryptor,
+			hasher:                  hasher,
+			minPreambleLength:       defaultMinPreambleLength,
+			maxPreambleLength:       defaultMaxPreambleLength,
+			paddingUnit:             defaultPaddingUnit,
 			st:                      st,
 			repositoryFormatBytes:   repositoryFormatBytes,
 			checkInvariantsOnUnlock: os.Getenv("KOPIA_VERIFY_INVARIANTS") != "",
@@ -789,9 +784,17 @@ func setupCaches(ctx context.Context, m *Manager, caching *CachingOptions) error
 	m.metadataCache = metadataCache
 	m.committedContents = contentIndex
 
-	m.indexBlobManager.ownWritesCache = caching.ownWritesCache
-	m.indexBlobManager.listCache = listCache
-	m.indexBlobManager.indexBlobCache = metadataCache
+	m.indexBlobManager = &indexBlobManagerImpl{
+		st:                            m.st,
+		encryptor:                     m.encryptor,
+		hasher:                        m.hasher,
+		timeNow:                       m.timeNow,
+		ownWritesCache:                caching.ownWritesCache,
+		listCache:                     listCache,
+		indexBlobCache:                metadataCache,
+		minCompactionLogBlobDeleteAge: defaultMinCompactionLogBlobDeleteAge,
+		minIndexBlobDeleteAge:         defaultMinIndexBlobDeleteAge,
+	}
 
 	return nil
 }

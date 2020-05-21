@@ -28,7 +28,7 @@ type lockFreeManager struct {
 	Format         FormattingOptions
 	CachingOptions CachingOptions
 
-	indexBlobManager  *indexBlobManager
+	indexBlobManager  indexBlobManager
 	contentCache      contentCache
 	metadataCache     contentCache
 	committedContents *committedContentIndex
@@ -94,14 +94,13 @@ func (bm *lockFreeManager) loadPackIndexesUnlocked(ctx context.Context) ([]Index
 		}
 
 		if i > 0 {
-			bm.indexBlobManager.listCache.deleteListCache(indexBlobPrefix)
-			bm.indexBlobManager.listCache.deleteListCache(compactionLogBlobPrefix)
+			bm.indexBlobManager.flushCache()
 			log(ctx).Debugf("encountered NOT_FOUND when loading, sleeping %v before retrying #%v", nextSleepTime, i)
 			time.Sleep(nextSleepTime)
 			nextSleepTime *= 2
 		}
 
-		indexBlobs, err := bm.indexBlobManager.listEffectiveIndexBlobs(ctx, false)
+		indexBlobs, err := bm.indexBlobManager.listIndexBlobs(ctx, false)
 		if err != nil {
 			return nil, false, err
 		}
@@ -320,7 +319,7 @@ func (bm *lockFreeManager) preparePackDataContent(ctx context.Context, pp *pendi
 
 // IndexBlobs returns the list of active index blobs.
 func (bm *lockFreeManager) IndexBlobs(ctx context.Context, includeInactive bool) ([]IndexBlobInfo, error) {
-	return bm.indexBlobManager.listEffectiveIndexBlobs(ctx, includeInactive)
+	return bm.indexBlobManager.listIndexBlobs(ctx, includeInactive)
 }
 
 func getPackedContentIV(output []byte, contentID ID) ([]byte, error) {
@@ -344,10 +343,6 @@ func (bm *lockFreeManager) hashData(output, data []byte) []byte {
 	bm.Stats.hashedContent(len(data))
 
 	return contentID
-}
-
-func (bm *lockFreeManager) writePackIndexesNew(ctx context.Context, data []byte) (blob.ID, error) {
-	return bm.indexBlobManager.encryptAndWriteBlob(ctx, data, indexBlobPrefix)
 }
 
 func (bm *lockFreeManager) verifyChecksum(data, contentID []byte) error {
