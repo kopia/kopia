@@ -69,10 +69,6 @@ func (s *mapStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes) e
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if _, ok := s.data[id]; ok {
-		return nil
-	}
-
 	s.keyTime[id] = s.timeNow()
 
 	var b bytes.Buffer
