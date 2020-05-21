@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/golang/protobuf/proto"
+	"github.com/golang/protobuf/proto" // nolint:staticcheck
 	"github.com/google/fswalker"
 	fspb "github.com/google/fswalker/proto/fswalker"
 	"github.com/pkg/errors"

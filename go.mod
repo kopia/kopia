@@ -4,8 +4,7 @@ go 1.14
 
 require (
 	bazil.org/fuse v0.0.0-20200117225306-7b5117fecadc
-	cloud.google.com/go v0.54.0 // indirect
-	cloud.google.com/go/storage v1.6.0
+	cloud.google.com/go/storage v1.8.0
 	contrib.go.opencensus.io/exporter/prometheus v0.1.0
 	github.com/Azure/azure-pipeline-go v0.2.2 // indirect
 	github.com/Azure/azure-storage-blob-go v0.8.0
@@ -16,7 +15,7 @@ require (
 	github.com/efarrer/iothrottler v0.0.1
 	github.com/fatih/color v1.9.0
 	github.com/gofrs/flock v0.7.1
-	github.com/golang/protobuf v1.3.5
+	github.com/golang/protobuf v1.4.2
 	github.com/google/fswalker v0.2.1-0.20200214223026-f0e929ba4126
 	github.com/google/readahead v0.0.0-20161222183148-eaceba169032 // indirect
 	github.com/google/wire v0.4.0 // indirect
@@ -34,8 +33,7 @@ require (
 	github.com/pkg/profile v1.5.0
 	github.com/pkg/sftp v1.11.0
 	github.com/pquerna/ffjson v0.0.0-20190930134022-aa0246cd15f7 // indirect
-	github.com/prometheus/client_golang v1.5.1
-	github.com/prometheus/procfs v0.0.10 // indirect
+	github.com/prometheus/client_golang v1.6.0
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 	github.com/stretchr/testify v1.5.1
 	github.com/studio-b12/gowebdav v0.0.0-20200303150724-9380631c29a1
@@ -50,9 +48,8 @@ require (
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a
 	golang.org/x/tools v0.0.0-20200519205726-57a9e4404bf7 // indirect
-	google.golang.org/api v0.20.0
-	google.golang.org/genproto v0.0.0-20200313141609-30c55424f95d // indirect
-	google.golang.org/grpc v1.28.0 // indirect
+	google.golang.org/api v0.25.0
+	google.golang.org/protobuf v1.23.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	gopkg.in/ini.v1 v1.56.0 // indirect
 	gopkg.in/kothar/go-backblaze.v0 v0.0.0-20191215213626-7594ed38700f
