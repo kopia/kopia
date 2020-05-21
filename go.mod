@@ -33,8 +33,7 @@ require (
 	github.com/pkg/profile v1.5.0
 	github.com/pkg/sftp v1.11.0
 	github.com/pquerna/ffjson v0.0.0-20190930134022-aa0246cd15f7 // indirect
-	github.com/prometheus/client_golang v1.5.1
-	github.com/prometheus/procfs v0.0.10 // indirect
+	github.com/prometheus/client_golang v1.6.0
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 	github.com/stretchr/testify v1.5.1
 	github.com/studio-b12/gowebdav v0.0.0-20200303150724-9380631c29a1
