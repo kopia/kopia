@@ -118,7 +118,7 @@ func (d *persistentOwnWritesCache) merge(ctx context.Context, prefix blob.ID, so
 			return errors.Wrapf(err, "error unmarshaling own write cache entry %v", md.BlobID)
 		}
 
-		if age := d.timeNow().Sub(originalMD.Timestamp); age < ownWritesCacheRetention {
+		if age := d.timeNow().Sub(md.Timestamp); age < ownWritesCacheRetention {
 			myWrites = append(myWrites, originalMD)
 		} else {
 			log(ctx).Debugf("deleting blob %v from own-write cache because it's too old: %v", age, d.timeNow(), originalMD.Timestamp)
@@ -163,7 +163,7 @@ func mergeOwnWrites(ctx context.Context, source, own []blob.Metadata) []blob.Met
 		s = append(s, v)
 	}
 
-	log(ctx).Debugf("merged %v backend blobs and %v local blobs into %v", len(source), len(own), len(s))
+	log(ctx).Debugf("merged %v backend blobs and %v local blobs into %v", source, own, s)
 
 	return s
 }
