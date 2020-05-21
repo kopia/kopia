@@ -1,4 +1,4 @@
-// +build linux
+// +build darwin linux
 
 // Package reporter wraps calls to the the fswalker Reporter
 package reporter
