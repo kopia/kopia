@@ -25,8 +25,9 @@ var (
 )
 
 const (
-	testIndexBlobDeleteAge         = 1 * time.Minute
-	testCompactionLogBlobDeleteAge = 2 * time.Minute
+	testIndexBlobDeleteAge            = 1 * time.Minute
+	testCompactionLogBlobDeleteAge    = 2 * time.Minute
+	testEventualConsistencySettleTime = 45 * time.Second
 )
 
 func TestIndexBlobManager(t *testing.T) {
@@ -183,6 +184,7 @@ func newIndexBlobManagerForTesting(t *testing.T, data blobtesting.DataMap, local
 	}
 
 	st := blobtesting.NewMapStorage(data, nil, storageTimeNow)
+	st = blobtesting.NewEventuallyConsistentStorage(st, testEventualConsistencySettleTime, storageTimeNow)
 	st = logging.NewWrapper(st, t.Logf, "STORE:")
 
 	lc, err := newListCache(st, &CachingOptions{})
