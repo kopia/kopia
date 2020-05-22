@@ -83,7 +83,6 @@ type Manager struct {
 
 	disableIndexFlushCount int
 	flushPackIndexesAfter  time.Time // time when those indexes should be flushed
-	closed                 chan struct{}
 
 	lockFreeManager
 }
@@ -408,7 +407,6 @@ func (bm *Manager) Close(ctx context.Context) error {
 
 	bm.contentCache.close()
 	bm.metadataCache.close()
-	close(bm.closed)
 	bm.encryptionBufferPool.Close()
 
 	return nil
@@ -752,7 +750,6 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 		flushPackIndexesAfter: timeNow().Add(flushPackIndexTimeout),
 		pendingPacks:          map[blob.ID]*pendingPackInfo{},
 		packIndexBuilder:      make(packIndexBuilder),
-		closed:                make(chan struct{}),
 	}
 
 	if err := m.CompactIndexes(ctx, autoCompactionOptions); err != nil {
