@@ -149,10 +149,6 @@ func setupCaching(ctx context.Context, configPath string, lc *LocalConfig, opt c
 
 	log(ctx).Debugf("Creating cache directory '%v' with max size %v", lc.Caching.CacheDirectory, lc.Caching.MaxCacheSizeBytes)
 
-	if err := os.MkdirAll(lc.Caching.CacheDirectory, 0700); err != nil {
-		log(ctx).Warningf("unablet to create cache directory: %v", err)
-	}
-
 	return nil
 }
 
