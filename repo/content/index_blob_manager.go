@@ -221,62 +221,85 @@ func (m *indexBlobManagerImpl) deleteOldIndexBlobs(ctx context.Context, latestBl
 
 	// look for server-assigned timestamp of the compaction log entry we just wrote as a reference.
 	// we're assuming server-generated timestamps are somewhat reasonable and time is moving
-	latestServerBlobTime := latestBlob.Timestamp
+	compactionLogServerTimeCutoff := latestBlob.Timestamp.Add(-m.minIndexBlobDeleteAge)
+	compactionBlobs := blobsOlderThan(allCompactionLogBlobs, compactionLogServerTimeCutoff)
 
-	compactionLogServerTimeCutoff := latestServerBlobTime.Add(-m.minIndexBlobDeleteAge)
-	fetchCompactionLogs := blobsOlderThan(allCompactionLogBlobs, compactionLogServerTimeCutoff)
-	log(ctx).Debugf("fetching %v/%v compaction logs older than %v", len(fetchCompactionLogs), len(allCompactionLogBlobs), compactionLogServerTimeCutoff)
+	log(ctx).Debugf("fetching %v/%v compaction logs older than %v", len(compactionBlobs), len(allCompactionLogBlobs), compactionLogServerTimeCutoff)
 
-	entries, err := m.getCompactionLogEntries(ctx, fetchCompactionLogs)
+	compactionBlobEntries, err := m.getCompactionLogEntries(ctx, compactionBlobs)
 	if err != nil {
 		return errors.Wrap(err, "unable to get compaction log entries")
 	}
 
-	indexBlobsToDelete := map[blob.ID]bool{}
+	indexBlobsToDelete := m.findIndexBlobsToDelete(ctx, latestBlob.Timestamp, compactionBlobEntries)
+	compactionLogBlobsToDelete := m.findCompactionLogBlobsToDelete(ctx, latestBlob.Timestamp, compactionBlobs)
+
+	// note that we must always delete index blobs first before compaction logs
+	// otherwise we may inadvertedly resurrect an index blob that should have been removed.
+	if err := m.deleteBlobsFromStorageAndCache(ctx, indexBlobsToDelete); err != nil {
+		return errors.Wrap(err, "unable to delete compaction logs")
+	}
+
+	if err := m.deleteBlobsFromStorageAndCache(ctx, compactionLogBlobsToDelete); err != nil {
+		return errors.Wrap(err, "unable to delete compaction logs")
+	}
+
+	m.flushCache()
+
+	return nil
+}
+
+func (m *indexBlobManagerImpl) findIndexBlobsToDelete(ctx context.Context, latestServerBlobTime time.Time, entries map[blob.ID]*compactionLogEntry) []blob.ID {
+	tmp := map[blob.ID]bool{}
 
 	for _, cl := range entries {
 		for _, b := range cl.InputBlobs {
 			if age := latestServerBlobTime.Sub(b.Timestamp); age < m.minIndexBlobDeleteAge {
-				log(ctx).Debugf("not deleting index blob %v, because it's too recent: %v < %v", b.BlobID, age, m.minIndexBlobDeleteAge)
+				log(ctx).Debugf("not deleting compacted index blob %v, because it's too recent: %v < %v", b.BlobID, age, m.minIndexBlobDeleteAge)
 				continue
 			}
 
-			log(ctx).Debugf("will delete old index %q compacted to %v", b, cl.OutputBlobs)
+			log(ctx).Debugf("will delete old index %v compacted to %v", b, cl.OutputBlobs)
 
-			indexBlobsToDelete[b.BlobID] = true
+			tmp[b.BlobID] = true
 		}
 	}
 
-	for cb := range indexBlobsToDelete {
-		log(ctx).Debugf("deleting compacted blob %v", cb)
+	var result []blob.ID
 
-		if err := m.st.DeleteBlob(ctx, cb); err != nil && err != blob.ErrBlobNotFound {
-			return errors.Wrapf(err, "unable to delete compacted blob %v", cb)
-		}
-
-		if err := m.ownWritesCache.delete(ctx, cb); err != nil {
-			return errors.Wrapf(err, "unable to register deletion of compacted blob %v in own-writes cache", cb)
-		}
+	for k := range tmp {
+		result = append(result, k)
 	}
 
-	for _, cb := range fetchCompactionLogs {
+	return result
+}
+
+func (m *indexBlobManagerImpl) findCompactionLogBlobsToDelete(ctx context.Context, latestServerBlobTime time.Time, compactionBlobs []blob.Metadata) []blob.ID {
+	var result []blob.ID
+
+	for _, cb := range compactionBlobs {
 		if age := latestServerBlobTime.Sub(cb.Timestamp); age < m.minCompactionLogBlobDeleteAge {
 			log(ctx).Debugf("not deleting compaction log blob %v, because it's too recent: %v < %v", cb, age, m.minCompactionLogBlobDeleteAge)
 			continue
 		}
 
-		log(ctx).Debugf("deleting compaction log blob %v", cb)
-
-		if err := m.st.DeleteBlob(ctx, cb.BlobID); err != nil && err != blob.ErrBlobNotFound {
-			formatLog(ctx).Warningf("unable to delete compaction log blob %v, %v", cb.BlobID, err)
-		}
-
-		if err := m.ownWritesCache.delete(ctx, cb.BlobID); err != nil {
-			formatLog(ctx).Warningf("unable to delete compaction log entry %v, %v from own-writes cache", cb.BlobID, err)
-		}
+		log(ctx).Debugf("will delete compaction log blob %v", cb)
+		result = append(result, cb.BlobID)
 	}
 
-	m.flushCache()
+	return result
+}
+
+func (m *indexBlobManagerImpl) deleteBlobsFromStorageAndCache(ctx context.Context, blobIDs []blob.ID) error {
+	for _, blobID := range blobIDs {
+		if err := m.st.DeleteBlob(ctx, blobID); err != nil && err != blob.ErrBlobNotFound {
+			return errors.Wrapf(err, "unable to delete blob %v", blobID)
+		}
+
+		if err := m.ownWritesCache.delete(ctx, blobID); err != nil {
+			return errors.Wrapf(err, "unable to delete blob %v from own-writes cache", blobID)
+		}
+	}
 
 	return nil
 }
