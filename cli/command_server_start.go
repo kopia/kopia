@@ -29,7 +29,7 @@ import (
 var (
 	serverStartCommand         = serverCommands.Command("start", "Start Kopia server").Default()
 	serverStartHTMLPath        = serverStartCommand.Flag("html", "Server the provided HTML at the root URL").ExistingDir()
-	serverStartUI              = serverStartCommand.Flag("ui", "Start the server with HTML UI (EXPERIMENTAL)").Bool()
+	serverStartUI              = serverStartCommand.Flag("ui", "Start the server with HTML UI").Default("true").Bool()
 	serverStartRefreshInterval = serverStartCommand.Flag("refresh-interval", "Frequency for refreshing repository status").Default("10s").Duration()
 
 	serverStartRandomPassword = serverStartCommand.Flag("random-password", "Generate random password and print to stderr").Hidden().Bool()
@@ -138,7 +138,7 @@ func stripProtocol(addr string) string {
 }
 
 func isKnownUIRoute(path string) bool {
-	return strings.HasPrefix(path, "/snapshots/") ||
+	return strings.HasPrefix(path, "/snapshots") ||
 		strings.HasPrefix(path, "/policies") ||
 		strings.HasPrefix(path, "/repo")
 }

@@ -161,6 +161,8 @@ func startServerWithOptionalTLSAndListener(ctx context.Context, httpServer *http
 	case *serverStartTLSCertFile != "" && *serverStartTLSKeyFile != "":
 		// PEM files provided
 		fmt.Fprintf(os.Stderr, "SERVER ADDRESS: https://%v\n", httpServer.Addr)
+		showServerUIPrompt()
+
 		return httpServer.ServeTLS(listener, *serverStartTLSCertFile, *serverStartTLSKeyFile)
 
 	case *serverStartTLSGenerateCert:
@@ -182,11 +184,20 @@ func startServerWithOptionalTLSAndListener(ctx context.Context, httpServer *http
 		fingerprint := sha256.Sum256(cert.Raw)
 		fmt.Fprintf(os.Stderr, "SERVER CERT SHA256: %v\n", hex.EncodeToString(fingerprint[:]))
 		fmt.Fprintf(os.Stderr, "SERVER ADDRESS: https://%v\n", httpServer.Addr)
+		showServerUIPrompt()
 
 		return httpServer.ServeTLS(listener, "", "")
 
 	default:
 		fmt.Fprintf(os.Stderr, "SERVER ADDRESS: http://%v\n", httpServer.Addr)
+		showServerUIPrompt()
+
 		return httpServer.Serve(listener)
+	}
+}
+
+func showServerUIPrompt() {
+	if *serverStartUI {
+		printStderr("\nOpen the address above in a web browser to use the UI.\n")
 	}
 }
