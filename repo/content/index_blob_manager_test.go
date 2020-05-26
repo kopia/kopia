@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -133,8 +134,6 @@ var actionsTestIndexBlobManagerStress = []struct {
 	{actionDelete, 10},
 }
 
-const numActorsTestIndexBlobManagerStress = 10
-
 func pickRandomActionTestIndexBlobManagerStress() action {
 	sum := 0
 	for _, a := range actionsTestIndexBlobManagerStress {
@@ -181,7 +180,9 @@ func TestIndexBlobManagerStress(t *testing.T) {
 
 	var eg errgroup.Group
 
-	for actorID := 0; actorID < numActorsTestIndexBlobManagerStress; actorID++ {
+	numActors := 2 * runtime.NumCPU()
+
+	for actorID := 0; actorID < numActors; actorID++ {
 		actorID := actorID
 
 		eg.Go(func() error {
