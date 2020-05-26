@@ -31,9 +31,11 @@ var (
 	fakeStoreStartTime = time.Date(2020, 1, 1, 10, 0, 0, 0, time.UTC)
 )
 
+// the values here must be O(minutes), so that with all actors racing in the stress test they won't inadvertedly
+// advance the time too much to not even give blob storage a chance to react in time.
 const (
-	testIndexBlobDeleteAge            = 1 * time.Minute
-	testCompactionLogBlobDeleteAge    = 2 * time.Minute
+	testIndexBlobDeleteAge            = 10 * time.Minute
+	testCompactionLogBlobDeleteAge    = 20 * time.Minute
 	testEventualConsistencySettleTime = 45 * time.Second
 )
 
@@ -117,10 +119,11 @@ func TestIndexBlobManager(t *testing.T) {
 type action int
 
 const (
-	actionWrite   = 1
-	actionRead    = 2
-	actionCompact = 3
-	actionDelete  = 4
+	actionWrite    = 1
+	actionRead     = 2
+	actionCompact  = 3
+	actionDelete   = 4
+	actionUndelete = 5
 )
 
 // actionsTestIndexBlobManagerStress is a set of actionsTestIndexBlobManagerStress by each actor performed in TestIndexBlobManagerStress with weights
@@ -128,10 +131,11 @@ var actionsTestIndexBlobManagerStress = []struct {
 	a      action
 	weight int
 }{
-	{actionWrite, 20},
-	{actionRead, 60},
-	{actionCompact, 10},
+	{actionWrite, 10},
+	{actionRead, 100},
+	{actionCompact, 1000},
 	{actionDelete, 10},
+	{actionUndelete, 15},
 }
 
 func pickRandomActionTestIndexBlobManagerStress() action {
@@ -154,6 +158,7 @@ func pickRandomActionTestIndexBlobManagerStress() action {
 
 // TestIndexBlobManagerStress launches N actors, each randomly writing new index blobs,
 // verifying that all blobs previously written by it are correct and randomly compacting blobs.
+// nolint:gocyclo
 func TestIndexBlobManagerStress(t *testing.T) {
 	t.Parallel()
 
@@ -184,14 +189,17 @@ func TestIndexBlobManagerStress(t *testing.T) {
 
 	for actorID := 0; actorID < numActors; actorID++ {
 		actorID := actorID
+		loggedSt := logging.NewWrapper(st, func(m string, args ...interface{}) {
+			t.Logf(m, args...)
+		}, fmt.Sprintf("actor[%v]:", actorID))
+		contentPrefix := fmt.Sprintf("a%v", actorID)
 
 		eg.Go(func() error {
-			loggedSt := logging.NewWrapper(st, t.Logf, fmt.Sprintf("actor[%v]:", actorID))
-
-			contentPrefix := fmt.Sprintf("a%v", actorID)
 			numWritten := 0
 			deletedContents := map[string]bool{}
-			ctx := testlogging.ContextWithLevelAndPrefix(t, testlogging.LevelDebug, fmt.Sprintf("actor[%v]:", actorID))
+			ctx := testlogging.ContextWithLevelAndPrefixFunc(t, testlogging.LevelDebug, func() string {
+				return fmt.Sprintf("actor[%v]@%v:", actorID, fakeTimeFunc().Format("150405.000"))
+			})
 
 			m := newIndexBlobManagerForTesting(t, loggedSt, fakeTimeFunc, fakeTimeFunc)
 
@@ -211,6 +219,11 @@ func TestIndexBlobManagerStress(t *testing.T) {
 				case actionDelete:
 					if err := deleteFakeContents(ctx, m, contentPrefix, numWritten, deletedContents, fakeTimeFunc); err != nil {
 						return errors.Wrapf(err, "actor[%v] delete error", actorID)
+					}
+
+				case actionUndelete:
+					if err := undeleteFakeContents(ctx, m, deletedContents, fakeTimeFunc); err != nil {
+						return errors.Wrapf(err, "actor[%v] undelete error", actorID)
 					}
 
 				case actionCompact:
@@ -235,6 +248,9 @@ type fakeContentIndexEntry struct {
 }
 
 func verifyFakeContentsWritten(ctx context.Context, m indexBlobManager, numWritten int, contentPrefix string, deletedContents map[string]bool) error {
+	log(ctx).Debugf("verifyFakeContentsWritten()")
+	defer log(ctx).Debugf("finished verifyFakeContentsWritten()")
+
 	all, _, err := getAllFakeContents(ctx, m)
 	if err != nil {
 		return errors.Wrap(err, "error getting all contents")
@@ -322,6 +338,38 @@ func deleteFakeContents(ctx context.Context, m indexBlobManager, prefix string, 
 		}
 
 		deleted[n] = true
+	}
+
+	if len(ndx) == 0 {
+		return nil
+	}
+
+	_, err := writeFakeIndex(ctx, m, ndx)
+
+	return err
+}
+
+func undeleteFakeContents(ctx context.Context, m indexBlobManager, deleted map[string]bool, timeFunc func() time.Time) error {
+	log(ctx).Debugf("undeleteFakeContents()")
+	defer log(ctx).Debugf("finished undeleteFakeContents()")
+
+	count := rand.Intn(5)
+
+	ndx := map[string]fakeContentIndexEntry{}
+
+	for n := range deleted {
+		if count == 0 {
+			break
+		}
+
+		// undelete
+		ndx[n] = fakeContentIndexEntry{
+			ModTime: timeFunc(),
+			Deleted: false,
+		}
+
+		delete(deleted, n)
+		count--
 	}
 
 	if len(ndx) == 0 {
