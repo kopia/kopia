@@ -161,9 +161,12 @@ func TestIndexBlobManagerStress(t *testing.T) {
 	rand.Seed(time.Now().UnixNano())
 
 	var (
-		fakeTimeFunc = faketime.AutoAdvance(fakeLocalStartTime, 100*time.Millisecond)
-		deadline     time.Time // when (according to fakeTimeFunc should the test finish)
+		fakeTimeFunc      = faketime.AutoAdvance(fakeLocalStartTime, 100*time.Millisecond)
+		deadline          time.Time // when (according to fakeTimeFunc should the test finish)
+		localTimeDeadline time.Time // when (according to time.Now, the test should finish)
 	)
+
+	localTimeDeadline = time.Now().Add(30 * time.Second)
 
 	if os.Getenv("CI") != "" {
 		// when running on CI, simulate 4 hours, this takes about ~15-20 seconds.
@@ -192,7 +195,7 @@ func TestIndexBlobManagerStress(t *testing.T) {
 			m := newIndexBlobManagerForTesting(t, loggedSt, fakeTimeFunc, fakeTimeFunc)
 
 			// run stress test until the deadline, aborting early on any failure
-			for fakeTimeFunc().Before(deadline) {
+			for fakeTimeFunc().Before(deadline) && time.Now().Before(localTimeDeadline) {
 				switch pickRandomActionTestIndexBlobManagerStress() {
 				case actionRead:
 					if err := verifyFakeContentsWritten(ctx, m, numWritten, contentPrefix, deletedContents); err != nil {
