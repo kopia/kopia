@@ -222,7 +222,7 @@ func (s *eventuallyConsistentStorage) ListBlobs(ctx context.Context, prefix blob
 	now := s.timeNow()
 
 	if err := s.realStorage.ListBlobs(ctx, prefix, func(bm blob.Metadata) error {
-		if age := now.Sub(bm.Timestamp); s.shouldApplyInconsistency(ctx, age, "hide recently created") {
+		if age := now.Sub(bm.Timestamp); s.shouldApplyInconsistency(ctx, age, "hide recently created "+string(bm.BlobID)) {
 			return nil
 		}
 
@@ -236,7 +236,7 @@ func (s *eventuallyConsistentStorage) ListBlobs(ctx context.Context, prefix blob
 	// process recently deleted items and resurrect them with some probability
 	s.recentlyDeleted.Range(func(key, value interface{}) bool {
 		bm := value.(blob.Metadata)
-		if age := now.Sub(bm.Timestamp); s.shouldApplyInconsistency(ctx, age, "resurrect recently deleted") {
+		if age := now.Sub(bm.Timestamp); s.shouldApplyInconsistency(ctx, age, "resurrect recently deleted "+string(bm.BlobID)) {
 			if resultErr = callback(bm); resultErr != nil {
 				return false
 			}

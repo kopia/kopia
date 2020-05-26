@@ -1,12 +1,18 @@
 package content
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"math/rand"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/faketime"
@@ -69,7 +75,8 @@ func TestIndexBlobManager(t *testing.T) {
 			fakeLocalTime := faketime.NewTimeAdvance(fakeLocalStartTime)
 			fakeStorageTime := faketime.NewTimeAdvance(fakeStoreStartTime)
 
-			m := newIndexBlobManagerForTesting(t, storageData, fakeLocalTime.NowFunc(), fakeStorageTime.NowFunc())
+			st := blobtesting.NewMapStorage(storageData, nil, fakeStorageTime.NowFunc())
+			m := newIndexBlobManagerForTesting(t, st, fakeLocalTime.NowFunc(), fakeStorageTime.NowFunc())
 
 			assetIndexBlobList(t, m)
 
@@ -104,6 +111,303 @@ func TestIndexBlobManager(t *testing.T) {
 			assertBlobCounts(t, storageData, tc.wantIndexCount, tc.wantCompactionLogCount)
 		})
 	}
+}
+
+type action int
+
+const (
+	actionWrite   = 1
+	actionRead    = 2
+	actionCompact = 3
+	actionDelete  = 4
+)
+
+// actionsTestIndexBlobManagerStress is a set of actionsTestIndexBlobManagerStress by each actor performed in TestIndexBlobManagerStress with weights
+var actionsTestIndexBlobManagerStress = []struct {
+	a      action
+	weight int
+}{
+	{actionWrite, 20},
+	{actionRead, 60},
+	{actionCompact, 10},
+	{actionDelete, 10},
+}
+
+const numActorsTestIndexBlobManagerStress = 10
+
+func pickRandomActionTestIndexBlobManagerStress() action {
+	sum := 0
+	for _, a := range actionsTestIndexBlobManagerStress {
+		sum += a.weight
+	}
+
+	n := rand.Intn(sum)
+	for _, a := range actionsTestIndexBlobManagerStress {
+		if n < a.weight {
+			return a.a
+		}
+
+		n -= a.weight
+	}
+
+	panic("impossible")
+}
+
+// TestIndexBlobManagerStress launches N actors, each randomly writing new index blobs,
+// verifying that all blobs previously written by it are correct and randomly compacting blobs.
+func TestIndexBlobManagerStress(t *testing.T) {
+	t.Parallel()
+
+	rand.Seed(time.Now().UnixNano())
+
+	var (
+		fakeTimeFunc = faketime.AutoAdvance(fakeLocalStartTime, 100*time.Millisecond)
+		deadline     time.Time // when (according to fakeTimeFunc should the test finish)
+	)
+
+	if os.Getenv("CI") != "" {
+		// when running on CI, simulate 4 hours, this takes about ~15-20 seconds.
+		deadline = fakeTimeFunc().Add(4 * time.Hour)
+	} else {
+		// otherwise test only 1 hour, which still provides decent coverage, takes about 3-5 seconds.
+		deadline = fakeTimeFunc().Add(1 * time.Hour)
+	}
+
+	// shared storage
+	st := blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, fakeTimeFunc)
+
+	var eg errgroup.Group
+
+	for actorID := 0; actorID < numActorsTestIndexBlobManagerStress; actorID++ {
+		actorID := actorID
+
+		eg.Go(func() error {
+			loggedSt := logging.NewWrapper(st, t.Logf, fmt.Sprintf("actor[%v]:", actorID))
+
+			contentPrefix := fmt.Sprintf("a%v", actorID)
+			numWritten := 0
+			deletedContents := map[string]bool{}
+			ctx := testlogging.ContextWithLevelAndPrefix(t, testlogging.LevelDebug, fmt.Sprintf("actor[%v]:", actorID))
+
+			m := newIndexBlobManagerForTesting(t, loggedSt, fakeTimeFunc, fakeTimeFunc)
+
+			// run stress test until the deadline, aborting early on any failure
+			for fakeTimeFunc().Before(deadline) {
+				switch pickRandomActionTestIndexBlobManagerStress() {
+				case actionRead:
+					if err := verifyFakeContentsWritten(ctx, m, numWritten, contentPrefix, deletedContents); err != nil {
+						return errors.Wrapf(err, "actor[%v] error verifying contents", actorID)
+					}
+
+				case actionWrite:
+					if err := writeFakeContents(ctx, m, contentPrefix, &numWritten, fakeTimeFunc); err != nil {
+						return errors.Wrapf(err, "actor[%v] write error", actorID)
+					}
+
+				case actionDelete:
+					if err := deleteFakeContents(ctx, m, contentPrefix, numWritten, deletedContents, fakeTimeFunc); err != nil {
+						return errors.Wrapf(err, "actor[%v] delete error", actorID)
+					}
+
+				case actionCompact:
+					if err := fakeCompaction(ctx, m); err != nil {
+						return errors.Wrapf(err, "actor[%v] compaction error", actorID)
+					}
+				}
+			}
+
+			return nil
+		})
+	}
+
+	if err := eg.Wait(); err != nil {
+		t.Errorf("err: %+v", err)
+	}
+}
+
+type fakeContentIndexEntry struct {
+	ModTime time.Time
+	Deleted bool
+}
+
+func verifyFakeContentsWritten(ctx context.Context, m indexBlobManager, numWritten int, contentPrefix string, deletedContents map[string]bool) error {
+	all, _, err := getAllFakeContents(ctx, m)
+	if err != nil {
+		return errors.Wrap(err, "error getting all contents")
+	}
+
+	// verify that all contents previously written can be read.
+	for i := 0; i < numWritten; i++ {
+		id := fakeContentID(contentPrefix, i)
+		if _, ok := all[id]; !ok {
+			return errors.Errorf("could not find content previously written by itself: %v (got %v)", id, all)
+		}
+
+		if got, want := all[id].Deleted, deletedContents[id]; got != want {
+			return errors.Errorf("deleted flag does not match for %v: %v want %v", id, got, want)
+		}
+	}
+
+	return nil
+}
+
+func fakeCompaction(ctx context.Context, m indexBlobManager) error {
+	log(ctx).Debugf("fakeCompaction()")
+	defer log(ctx).Debugf("finished fakeCompaction()")
+
+	allContents, allBlobs, err := getAllFakeContents(ctx, m)
+	if err != nil {
+		return errors.Wrap(err, "error getting contents")
+	}
+
+	if len(allBlobs) <= 1 {
+		return nil
+	}
+
+	outputBM, err := writeFakeIndex(ctx, m, allContents)
+	if err != nil {
+		return errors.Wrap(err, "unable to write index")
+	}
+
+	var (
+		inputs  []blob.Metadata
+		outputs = []blob.Metadata{outputBM}
+	)
+
+	for _, bi := range allBlobs {
+		if bi.BlobID == outputBM.BlobID {
+			// no compaction, output is the same as one of the inputs
+			return nil
+		}
+
+		inputs = append(inputs, bi.Metadata)
+	}
+
+	if err := m.registerCompaction(ctx, inputs, outputs); err != nil {
+		return errors.Wrap(err, "compaction error")
+	}
+
+	return nil
+}
+
+func fakeContentID(prefix string, n int) string {
+	return fmt.Sprintf("%v-%06v", prefix, n)
+}
+
+func deleteFakeContents(ctx context.Context, m indexBlobManager, prefix string, numWritten int, deleted map[string]bool, timeFunc func() time.Time) error {
+	log(ctx).Debugf("deleteFakeContents()")
+	defer log(ctx).Debugf("finished deleteFakeContents()")
+
+	if numWritten == 0 {
+		return nil
+	}
+
+	count := rand.Intn(10) + 5
+
+	ndx := map[string]fakeContentIndexEntry{}
+
+	for i := 0; i < count; i++ {
+		n := fakeContentID(prefix, rand.Intn(numWritten))
+		if deleted[n] {
+			continue
+		}
+
+		ndx[n] = fakeContentIndexEntry{
+			ModTime: timeFunc(),
+			Deleted: true,
+		}
+
+		deleted[n] = true
+	}
+
+	if len(ndx) == 0 {
+		return nil
+	}
+
+	_, err := writeFakeIndex(ctx, m, ndx)
+
+	return err
+}
+
+func writeFakeContents(ctx context.Context, m indexBlobManager, prefix string, numWritten *int, timeFunc func() time.Time) error {
+	log(ctx).Debugf("writeFakeContents()")
+	defer log(ctx).Debugf("finished writeFakeContents()")
+
+	count := rand.Intn(10) + 5
+
+	ndx := map[string]fakeContentIndexEntry{}
+
+	for i := 0; i < count; i++ {
+		n := fakeContentID(prefix, *numWritten)
+		ndx[n] = fakeContentIndexEntry{
+			ModTime: timeFunc(),
+		}
+
+		(*numWritten)++
+	}
+
+	_, err := writeFakeIndex(ctx, m, ndx)
+
+	return err
+}
+
+func writeFakeIndex(ctx context.Context, m indexBlobManager, ndx map[string]fakeContentIndexEntry) (blob.Metadata, error) {
+	j, err := json.Marshal(ndx)
+	if err != nil {
+		return blob.Metadata{}, errors.Wrap(err, "json error")
+	}
+
+	bm, err := m.writeIndexBlob(ctx, j)
+	if err != nil {
+		return blob.Metadata{}, errors.Wrap(err, "error writing blob")
+	}
+
+	for k, v := range ndx {
+		log(ctx).Debugf("wrote content %v %v in blob %v", k, v, bm)
+	}
+
+	return bm, nil
+}
+
+func getAllFakeContents(ctx context.Context, m indexBlobManager) (map[string]fakeContentIndexEntry, []IndexBlobInfo, error) {
+	blobs, err := m.listIndexBlobs(ctx, false)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "error listing index blobs")
+	}
+
+	log(ctx).Debugf("got blobs: %v", blobs)
+
+	allContents := map[string]fakeContentIndexEntry{}
+
+	for _, bi := range blobs {
+		bb, err := m.getIndexBlob(ctx, bi.BlobID)
+		if err == blob.ErrBlobNotFound {
+			log(ctx).Debugf("ignoring NOT FOUND on %v", bi.BlobID)
+			continue
+		}
+
+		if err != nil {
+			return nil, nil, errors.Wrap(err, "error reading blob")
+		}
+
+		var contentIDs map[string]fakeContentIndexEntry
+		if err := json.Unmarshal(bb, &contentIDs); err != nil {
+			return nil, nil, errors.Wrap(err, "error unmarshaling")
+		}
+
+		// merge contents based based on time
+		for k, v := range contentIDs {
+			old, ok := allContents[k]
+
+			if !ok {
+				allContents[k] = v
+			} else if v.ModTime.After(old.ModTime) {
+				allContents[k] = v
+			}
+		}
+	}
+
+	return allContents, blobs, nil
 }
 
 func assertBlobCounts(t *testing.T, data blobtesting.DataMap, wantN, wantM int) {
@@ -167,7 +471,7 @@ func assetIndexBlobList(t *testing.T, m indexBlobManager, wantMD ...blob.Metadat
 	assert.ElementsMatch(t, got, want)
 }
 
-func newIndexBlobManagerForTesting(t *testing.T, data blobtesting.DataMap, localTimeNow, storageTimeNow func() time.Time) indexBlobManager {
+func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow, storageTimeNow func() time.Time) indexBlobManager {
 	p := &FormattingOptions{
 		Encryption: encryption.DeprecatedNoneAlgorithm,
 		Hash:       hashing.DefaultAlgorithm,
@@ -183,9 +487,7 @@ func newIndexBlobManagerForTesting(t *testing.T, data blobtesting.DataMap, local
 		t.Fatalf("unable to create hash: %v", err)
 	}
 
-	st := blobtesting.NewMapStorage(data, nil, storageTimeNow)
 	st = blobtesting.NewEventuallyConsistentStorage(st, testEventualConsistencySettleTime, storageTimeNow)
-	st = logging.NewWrapper(st, t.Logf, "STORE:")
 
 	lc, err := newListCache(st, &CachingOptions{})
 	if err != nil {
@@ -195,7 +497,7 @@ func newIndexBlobManagerForTesting(t *testing.T, data blobtesting.DataMap, local
 	m := &indexBlobManagerImpl{
 		st: st,
 		ownWritesCache: &persistentOwnWritesCache{
-			logging.NewWrapper(blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, localTimeNow), t.Logf, "CACHE:"),
+			blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, localTimeNow),
 			localTimeNow},
 		indexBlobCache:                passthroughContentCache{st},
 		encryptor:                     enc,
