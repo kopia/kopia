@@ -81,36 +81,36 @@ func TestIndexBlobManager(t *testing.T) {
 			st := blobtesting.NewMapStorage(storageData, nil, fakeStorageTime.NowFunc())
 			m := newIndexBlobManagerForTesting(t, st, fakeLocalTime.NowFunc(), fakeStorageTime.NowFunc())
 
-			assetIndexBlobList(t, m)
+			assertIndexBlobList(t, m)
 
 			b1 := mustWriteIndexBlob(t, m, "index-1")
-			assetIndexBlobList(t, m, b1)
+			assertIndexBlobList(t, m, b1)
 			fakeStorageTime.Advance(1 * time.Second)
 
 			b2 := mustWriteIndexBlob(t, m, "index-2")
-			assetIndexBlobList(t, m, b1, b2)
+			assertIndexBlobList(t, m, b1, b2)
 			fakeStorageTime.Advance(1 * time.Second)
 
 			b3 := mustWriteIndexBlob(t, m, "index-3")
-			assetIndexBlobList(t, m, b1, b2, b3)
+			assertIndexBlobList(t, m, b1, b2, b3)
 			fakeStorageTime.Advance(1 * time.Second)
 
 			b4 := mustWriteIndexBlob(t, m, "index-4")
-			assetIndexBlobList(t, m, b1, b2, b3, b4)
+			assertIndexBlobList(t, m, b1, b2, b3, b4)
 			fakeStorageTime.Advance(1 * time.Second)
 			assertBlobCounts(t, storageData, 4, 0)
 
 			// first compaction b1+b2+b3=>b4
 			mustRegisterCompaction(t, m, []blob.Metadata{b1, b2, b3}, []blob.Metadata{b4})
 
-			assetIndexBlobList(t, m, b4)
+			assertIndexBlobList(t, m, b4)
 			fakeStorageTime.Advance(tc.storageTimeAdvanceBetweenCompactions)
 
 			// second compaction b4+b5=>b6
 			b5 := mustWriteIndexBlob(t, m, "index-5")
 			b6 := mustWriteIndexBlob(t, m, "index-6")
 			mustRegisterCompaction(t, m, []blob.Metadata{b4, b5}, []blob.Metadata{b6})
-			assetIndexBlobList(t, m, b6)
+			assertIndexBlobList(t, m, b6)
 			assertBlobCounts(t, storageData, tc.wantIndexCount, tc.wantCompactionLogCount)
 		})
 	}
@@ -500,7 +500,7 @@ func mustWriteIndexBlob(t *testing.T, m indexBlobManager, data string) blob.Meta
 	return blobMD
 }
 
-func assetIndexBlobList(t *testing.T, m indexBlobManager, wantMD ...blob.Metadata) {
+func assertIndexBlobList(t *testing.T, m indexBlobManager, wantMD ...blob.Metadata) {
 	t.Helper()
 
 	var want []blob.ID
