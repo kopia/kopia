@@ -119,7 +119,7 @@ func (d *persistentOwnWritesCache) merge(ctx context.Context, prefix blob.ID, so
 		}
 
 		// note that we're assuming that time scale used by timeNow() is the same as used by
-		// cache storage (which is fined, since the cache is local, and not on remote FS).
+		// cache storage, which is fine, since the cache is local and not on remote FS.
 		if age := d.timeNow().Sub(md.Timestamp); age < ownWritesCacheRetention {
 			myWrites = append(myWrites, originalMD)
 		} else {
