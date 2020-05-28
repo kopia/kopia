@@ -2,7 +2,7 @@
 ---
 title: "Getting Started"
 linkTitle: "Getting Started"
-weight: 1
+weight: 10
 ---
 
 This guide will walk you through installing Kopia, creating, managing and restoring snapshots and defining snapshot policies. 
@@ -26,7 +26,7 @@ The Kopia UI is new and experimental. See the tutorial on Youtube:
 
 ## Setting Up Repository
 
-Repository is a place where Kopia stores all its snapshot data. It's typically remote storage, such as [Google Cloud Storage](https://cloud.google.com/storage/), [Amazon S3](https://aws.amazon.com/s3/), sftp, webdav or similar. You can also use any locally-mounted storage (using SMB, NFS or similar). For more details about repository see [Architecture](../architecture/).
+Repository is a place where Kopia stores all its snapshot data. It's typically remote storage, such as [Google Cloud Storage](https://cloud.google.com/storage/), [Amazon S3](https://aws.amazon.com/s3/) (or copmatible such as Minio.io, Wasabi, B2), [Azure](https://azure.microsoft.com/services/storage/), sftp, http/s, webdav or similar. You can also use any locally-mounted storage (using SMB, NFS or similar). For more details about repository see [Architecture](../architecture/) and [Repositories](../repositories).
 
 To create a repository use one of the subcommands of `kopia repository create`. 
 
