@@ -55,7 +55,7 @@ To connect to a repository that already exists, simply use `kopia repository con
 $ kopia repository connect google --bucket kopia-test-123
 ```
 
-[Detailed informations and settings](common/repository-connect-filesystem/)
+[Detailed informations and settings](/docs/reference/command-line/common/repository-connect-filesystem/)
 
 ---
 
@@ -80,7 +80,7 @@ $ kopia repository create s3 \
 $ kopia repository connect s3 
 ```
 
-[Detailed informations and settings](common/repository-create-s3/)
+[Detailed informations and settings](/docs/reference/command-line/common/repository-create-s3/)
 
 ---
 
@@ -105,7 +105,7 @@ $ kopia repository connect b2 \
 $ kopia repository connect b2 
 ```
 
-[Detailed informations and settings](common/repository-connect-b2/)
+[Detailed informations and settings](/docs/reference/command-line/common/repository-connect-b2/)
 
 ---
 
@@ -143,7 +143,7 @@ $ find /tmp/my-repository -type f
 /tmp/my-repository/kopia.repository.f
 ```
 
-[Detailed informations and settings](common/repository-connect-filesystem/)
+[Detailed informations and settings](/docs/reference/command-line/common/repository-connect-filesystem/)
 
 ---
 
