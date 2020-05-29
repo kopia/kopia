@@ -25,6 +25,20 @@ type indexBlobManager interface {
 	registerCompaction(ctx context.Context, inputs, outputs []blob.Metadata) error
 	flushCache()
 }
+
+const (
+	compactionLogBlobPrefix = "m"
+)
+
+// compactionLogEntry represents contents of compaction log entry stored in `m` blob.
+type compactionLogEntry struct {
+	// list of input blob names that were compacted together.
+	InputBlobs []blob.Metadata `json:"inputMetadata"`
+
+	// list of blobs that are results of compaction.
+	OutputBlobs []blob.Metadata `json:"outputMetadata"`
+}
+
 type indexBlobManagerImpl struct {
 	st                            blob.Storage
 	hasher                        hashing.HashFunc
@@ -322,4 +336,42 @@ func getIndexBlobIV(s blob.ID) ([]byte, error) {
 	}
 
 	return hex.DecodeString(string(s[len(s)-(aes.BlockSize*2):]))
+}
+
+func removeCompactedIndexes(ctx context.Context, m map[blob.ID]*IndexBlobInfo, compactionLogs map[blob.ID]*compactionLogEntry, markAsSuperseded bool) {
+	var validCompactionLogs []*compactionLogEntry
+
+	for _, cl := range compactionLogs {
+		// only process compaction logs for which we have found all the outputs.
+		haveAllOutputs := true
+
+		for _, o := range cl.OutputBlobs {
+			if m[o.BlobID] == nil {
+				haveAllOutputs = false
+
+				log(ctx).Debugf("blob %v referenced by compaction log is not found", o.BlobID)
+
+				break
+			}
+		}
+
+		if haveAllOutputs {
+			validCompactionLogs = append(validCompactionLogs, cl)
+		}
+	}
+
+	// now remove all inputs from the set if there's a valid compaction log entry with all the outputs.
+	for _, cl := range validCompactionLogs {
+		for _, ib := range cl.InputBlobs {
+			if md := m[ib.BlobID]; md != nil && md.Superseded == nil {
+				log(ctx).Debugf("ignoring index blob %v (%v) because it's been compacted to %v", ib, md.Timestamp, cl.OutputBlobs)
+
+				if markAsSuperseded {
+					md.Superseded = cl.OutputBlobs
+				} else {
+					delete(m, ib.BlobID)
+				}
+			}
+		}
+	}
 }
