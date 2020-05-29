@@ -52,7 +52,7 @@ type indexBlobManagerImpl struct {
 }
 
 func (m *indexBlobManagerImpl) listIndexBlobs(ctx context.Context, includeInactive bool) ([]IndexBlobInfo, error) {
-	compactionLogMetadata, err := m.listCache.listIndexBlobs(ctx, compactionLogBlobPrefix)
+	compactionLogMetadata, err := m.listCache.listBlobs(ctx, compactionLogBlobPrefix)
 	if err != nil {
 		return nil, errors.Wrap(err, "error listing compaction log entries")
 	}
@@ -62,7 +62,7 @@ func (m *indexBlobManagerImpl) listIndexBlobs(ctx context.Context, includeInacti
 		return nil, errors.Wrap(err, "error merging local writes for compaction log entries")
 	}
 
-	storageIndexBlobs, err := m.listCache.listIndexBlobs(ctx, indexBlobPrefix)
+	storageIndexBlobs, err := m.listCache.listBlobs(ctx, indexBlobPrefix)
 	if err != nil {
 		return nil, errors.Wrap(err, "error listing index blobs")
 	}
@@ -112,7 +112,7 @@ func (m *indexBlobManagerImpl) registerCompaction(ctx context.Context, inputs, o
 
 	formatLog(ctx).Debugf("compacted indexes %v into %v and wrote log %v", inputs, outputs, compactionLogBlobMetadata)
 
-	if err := m.deleteOldIndexBlobs(ctx, compactionLogBlobMetadata); err != nil {
+	if err := m.deleteOldBlobs(ctx, compactionLogBlobMetadata); err != nil {
 		return errors.Wrap(err, "error deleting old index blobs")
 	}
 
@@ -120,6 +120,10 @@ func (m *indexBlobManagerImpl) registerCompaction(ctx context.Context, inputs, o
 }
 
 func (m *indexBlobManagerImpl) getIndexBlob(ctx context.Context, blobID blob.ID) ([]byte, error) {
+	return m.getEncryptedBlob(ctx, blobID)
+}
+
+func (m *indexBlobManagerImpl) getEncryptedBlob(ctx context.Context, blobID blob.ID) ([]byte, error) {
 	payload, err := m.indexBlobCache.getContent(ctx, cacheKey(blobID), blobID, 0, -1)
 	if err != nil {
 		return nil, err
@@ -201,7 +205,7 @@ func (m *indexBlobManagerImpl) getCompactionLogEntries(ctx context.Context, blob
 	results := map[blob.ID]*compactionLogEntry{}
 
 	for _, cb := range blobs {
-		data, err := m.getIndexBlob(ctx, cb.BlobID)
+		data, err := m.getEncryptedBlob(ctx, cb.BlobID)
 
 		if errors.Is(err, blob.ErrBlobNotFound) {
 			continue
@@ -223,8 +227,8 @@ func (m *indexBlobManagerImpl) getCompactionLogEntries(ctx context.Context, blob
 	return results, nil
 }
 
-func (m *indexBlobManagerImpl) deleteOldIndexBlobs(ctx context.Context, latestBlob blob.Metadata) error {
-	allCompactionLogBlobs, err := m.listCache.listIndexBlobs(ctx, compactionLogBlobPrefix)
+func (m *indexBlobManagerImpl) deleteOldBlobs(ctx context.Context, latestBlob blob.Metadata) error {
+	allCompactionLogBlobs, err := m.listCache.listBlobs(ctx, compactionLogBlobPrefix)
 	if err != nil {
 		return errors.Wrap(err, "error listing compaction log blobs")
 	}

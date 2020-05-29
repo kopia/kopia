@@ -23,7 +23,7 @@ type listCache struct {
 	hmacSecret        []byte
 }
 
-func (c *listCache) listIndexBlobs(ctx context.Context, prefix blob.ID) ([]blob.Metadata, error) {
+func (c *listCache) listBlobs(ctx context.Context, prefix blob.ID) ([]blob.Metadata, error) {
 	if c.cacheFilePrefix != "" {
 		ci, err := c.readBlobsFromCache(ctx, prefix)
 		if err == nil {
