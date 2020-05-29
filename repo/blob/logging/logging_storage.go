@@ -82,9 +82,6 @@ func (s *loggingStorage) ConnectionInfo() blob.ConnectionInfo {
 	return s.base.ConnectionInfo()
 }
 
-// Option modifies the behavior of logging storage wrapper.
-type Option func(s *loggingStorage)
-
 // NewWrapper returns a Storage wrapper that logs all storage commands.
 func NewWrapper(wrapped blob.Storage, printf func(msg string, args ...interface{}), prefix string) blob.Storage {
 	return &loggingStorage{base: wrapped, printf: printf, prefix: prefix}
