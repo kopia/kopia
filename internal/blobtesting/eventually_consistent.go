@@ -129,6 +129,21 @@ func (s *eventuallyConsistentStorage) GetBlob(ctx context.Context, id blob.ID, o
 	return v, nil
 }
 
+func (s *eventuallyConsistentStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {
+	c := s.randomFrontendCache()
+
+	// see if the frontend has cached blob deleted/not exists
+	e := c.get(id)
+	if e != nil {
+		if e.data == nil {
+			return blob.Metadata{}, blob.ErrBlobNotFound
+		}
+	}
+
+	// fetch from the underlying storage.
+	return s.realStorage.GetMetadata(ctx, id)
+}
+
 func (s *eventuallyConsistentStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes) error {
 	if err := s.realStorage.PutBlob(ctx, id, data); err != nil {
 		return err

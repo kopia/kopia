@@ -49,6 +49,22 @@ func (s *mapStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int
 	return nil, blob.ErrBlobNotFound
 }
 
+func (s *mapStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	data, ok := s.data[id]
+	if ok {
+		return blob.Metadata{
+			BlobID:    id,
+			Length:    int64(len(data)),
+			Timestamp: s.keyTime[id],
+		}, nil
+	}
+
+	return blob.Metadata{}, blob.ErrBlobNotFound
+}
+
 func (s *mapStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()

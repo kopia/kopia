@@ -120,6 +120,26 @@ func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, off
 	return val.([]byte), nil
 }
 
+func (fs *fsImpl) GetMetadataFromPath(ctx context.Context, dirPath, path string) (blob.Metadata, error) {
+	fi, err := os.Stat(path) //nolint:gosec
+	if err != nil {
+		return blob.Metadata{}, err
+	}
+
+	if err != nil {
+		if os.IsNotExist(err) {
+			return blob.Metadata{}, blob.ErrBlobNotFound
+		}
+
+		return blob.Metadata{}, err
+	}
+
+	return blob.Metadata{
+		Length:    fi.Size(),
+		Timestamp: fi.ModTime(),
+	}, nil
+}
+
 func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data blob.Bytes) error {
 	return retry.WithExponentialBackoffNoValue(ctx, "PutBlobInPath:"+path, func() error {
 		randSuffix := make([]byte, 8)

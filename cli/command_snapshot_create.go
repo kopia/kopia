@@ -30,8 +30,6 @@ var (
 	snapshotCreateDescription             = snapshotCreateCommand.Flag("description", "Free-form snapshot description.").String()
 	snapshotCreateForceHash               = snapshotCreateCommand.Flag("force-hash", "Force hashing of source files for a given percentage of files [0..100]").Default("0").Int()
 	snapshotCreateParallelUploads         = snapshotCreateCommand.Flag("parallel", "Upload N files in parallel").PlaceHolder("N").Default("0").Int()
-	snapshotCreateHostname                = snapshotCreateCommand.Flag("hostname", "Override local hostname.").String()
-	snapshotCreateUsername                = snapshotCreateCommand.Flag("username", "Override local username.").String()
 	snapshotCreateStartTime               = snapshotCreateCommand.Flag("start-time", "Override snapshot start timestamp.").String()
 	snapshotCreateEndTime                 = snapshotCreateCommand.Flag("end-time", "Override snapshot end timestamp.").String()
 )
@@ -79,14 +77,6 @@ func runSnapshotCommand(ctx context.Context, rep repo.Repository) error {
 			Path:     filepath.Clean(dir),
 			Host:     rep.Hostname(),
 			UserName: rep.Username(),
-		}
-
-		if h := *snapshotCreateHostname; h != "" {
-			sourceInfo.Host = h
-		}
-
-		if u := *snapshotCreateUsername; u != "" {
-			sourceInfo.UserName = u
 		}
 
 		if err := snapshotSingleSource(ctx, rep, u, sourceInfo); err != nil {

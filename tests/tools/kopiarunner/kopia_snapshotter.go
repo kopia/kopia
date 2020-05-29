@@ -100,7 +100,7 @@ func (ks *KopiaSnapshotter) RestoreSnapshot(snapID, restoreDir string) (err erro
 // DeleteSnapshot implements the Snapshotter interface, issues a kopia snapshot
 // delete of the provided snapshot ID
 func (ks *KopiaSnapshotter) DeleteSnapshot(snapID string) (err error) {
-	_, _, err = ks.Runner.Run("snapshot", "delete", snapID, "--unsafe-ignore-source")
+	_, _, err = ks.Runner.Run("snapshot", "delete", snapID, "--delete")
 	return err
 }
 

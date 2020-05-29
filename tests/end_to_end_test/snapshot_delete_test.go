@@ -10,7 +10,7 @@ import (
 	"github.com/kopia/kopia/tests/testenv"
 )
 
-type deleteArgMaker func(manifestID string, source testenv.SourceInfo) []string
+type deleteArgMaker func(manifestID, objectID string, source testenv.SourceInfo) []string
 
 //nolint:funlen
 func TestSnapshotDelete(t *testing.T) {
@@ -28,181 +28,73 @@ func TestSnapshotDelete(t *testing.T) {
 	}{
 		{
 			"Test manifest rm function",
-			func(manifestID string, source testenv.SourceInfo) []string {
+			func(manifestID, objectID string, source testenv.SourceInfo) []string {
 				return []string{"manifest", "rm", manifestID}
 			},
 			expectSuccess,
 		},
 		{
-			"Specify all source values correctly",
-			func(manifestID string, source testenv.SourceInfo) []string {
-				return []string{"snapshot", "delete", manifestID,
-					"--hostname", source.Host,
-					"--username", source.User,
-					"--path", source.Path,
-				}
-			},
-			expectSuccess,
-		},
-		{
-			"Specify path and username, using default hostname",
-			func(manifestID string, source testenv.SourceInfo) []string {
-				return []string{"snapshot", "delete", manifestID,
-					"--username", source.User,
-					"--path", source.Path,
-				}
-			},
-			expectSuccess,
-		},
-		{
-			"Specify path and hostname, using default username",
-			func(manifestID string, source testenv.SourceInfo) []string {
-				return []string{"snapshot", "delete", manifestID,
-					"--hostname", source.Host,
-					"--path", source.Path,
-				}
-			},
-			expectSuccess,
-		},
-		{
-			"No source flags, with unsafe ignore source flag",
-			func(manifestID string, source testenv.SourceInfo) []string {
-				return []string{"snapshot", "delete", manifestID,
-					"--unsafe-ignore-source",
-				}
-			},
-			expectSuccess,
-		},
-		{
-			"Specify path only, using default username and hostname",
-			func(manifestID string, source testenv.SourceInfo) []string {
-				return []string{"snapshot", "delete", manifestID,
-					"--path", source.Path,
-				}
-			},
-			expectSuccess,
-		},
-		{
-			"Specify all source flags, incorrect host name",
-			func(manifestID string, source testenv.SourceInfo) []string {
-				return []string{"snapshot", "delete", manifestID,
-					"--hostname", "some-other-host",
-					"--username", source.User,
-					"--path", source.Path,
-				}
-			},
-			expectFail,
-		},
-		{
-			"Specify all source flags, incorrect user name",
-			func(manifestID string, source testenv.SourceInfo) []string {
-				return []string{"snapshot", "delete", manifestID,
-					"--hostname", source.Host,
-					"--username", "some-other-user",
-					"--path", source.Path,
-				}
-			},
-			expectFail,
-		},
-		{
-			"Specify all source flags, incorrect path",
-			func(manifestID string, source testenv.SourceInfo) []string {
-				return []string{"snapshot", "delete", manifestID,
-					"--hostname", source.Host,
-					"--username", source.User,
-					"--path", "some-wrong-path",
-				}
-			},
-			expectFail,
-		},
-		{
-			"Specify all source flags, incorrect hostname, ignore flag set",
-			func(manifestID string, source testenv.SourceInfo) []string {
-				return []string{"snapshot", "delete", manifestID,
-					"--unsafe-ignore-source",
-					"--hostname", "some-other-host",
-					"--username", source.User,
-					"--path", source.Path,
-				}
-			},
-			expectSuccess,
-		},
-		{
-			"Specify all source flags, incorrect username, ignore flag set",
-			func(manifestID string, source testenv.SourceInfo) []string {
-				return []string{"snapshot", "delete", manifestID,
-					"--hostname", source.Host,
-					"--username", "some-other-user",
-					"--unsafe-ignore-source",
-					"--path", source.Path,
-				}
-			},
-			expectSuccess,
-		},
-		{
-			"Specify all source flags, incorrect path, ignore flag set",
-			func(manifestID string, source testenv.SourceInfo) []string {
-				return []string{"snapshot", "delete", manifestID,
-					"--hostname", source.Host,
-					"--username", source.User,
-					"--path", "some-wrong-path",
-					"--unsafe-ignore-source",
-				}
-			},
-			expectSuccess,
-		},
-		{
-			"No manifest ID provided",
-			func(manifestID string, source testenv.SourceInfo) []string {
-				return []string{"snapshot", "delete"}
-			},
-			expectFail,
-		},
-		{
-			"No manifest ID provided, ignore source flag set",
-			func(manifestID string, source testenv.SourceInfo) []string {
-				return []string{"snapshot", "delete",
-					"--unsafe-ignore-source",
-				}
-			},
-			expectFail,
-		},
-		{
-			"Garbage manifest ID provided",
-			func(manifestID string, source testenv.SourceInfo) []string {
-				return []string{"snapshot", "delete", "some-garbage-manifestID"}
-			},
-			expectFail,
-		},
-		{
-			"Hostname flag provided but no value input",
-			func(manifestID string, source testenv.SourceInfo) []string {
-				return []string{"snapshot", "delete", manifestID,
-					"--hostname",
-					"--username", source.User,
-					"--path", source.Path,
-				}
-			},
-			expectFail,
-		},
-		{
-			"No path provided and no unsafe ignore source flag provided",
-			func(manifestID string, source testenv.SourceInfo) []string {
+			"Dry run - by manifest ID",
+			func(manifestID, objectID string, source testenv.SourceInfo) []string {
 				return []string{"snapshot", "delete", manifestID}
 			},
-			expectFail,
+			expectSuccess,
 		},
 		{
-			"Specify hostname and username with no path provided",
-			func(manifestID string, source testenv.SourceInfo) []string {
-				return []string{"snapshot", "delete", manifestID,
-					"--hostname", source.Host,
-					"--username", source.User,
-				}
+			"Delete - by manifest ID",
+			func(manifestID, objectID string, source testenv.SourceInfo) []string {
+				return []string{"snapshot", "delete", manifestID, "--delete"}
+			},
+			expectSuccess,
+		},
+		{
+			"Delete - by manifest ID - legacy flag",
+			func(manifestID, objectID string, source testenv.SourceInfo) []string {
+				return []string{"snapshot", "delete", manifestID, "--unsafe-ignore-source"}
+			},
+			expectSuccess,
+		},
+		{
+			"Dry run - by objectID ID",
+			func(manifestID, objectID string, source testenv.SourceInfo) []string {
+				return []string{"snapshot", "delete", objectID}
+			},
+			expectSuccess,
+		},
+		{
+			"Delete - by object ID",
+			func(manifestID, objectID string, source testenv.SourceInfo) []string {
+				return []string{"snapshot", "delete", objectID, "--delete"}
+			},
+			expectSuccess,
+		}, {
+			"Dry run - invalid object ID",
+			func(manifestID, objectID string, source testenv.SourceInfo) []string {
+				return []string{"snapshot", "delete", "no-such-manifest"}
 			},
 			expectFail,
 		},
-	} {
+		{
+			"Delete - invalid manifest ID",
+			func(manifestID, objectID string, source testenv.SourceInfo) []string {
+				return []string{"snapshot", "delete", "no-such-manifest", "--delete"}
+			},
+			expectFail,
+		},
+		{
+			"Dry run - invalid object ID",
+			func(manifestID, objectID string, source testenv.SourceInfo) []string {
+				return []string{"snapshot", "delete", "k001122"}
+			},
+			expectFail,
+		},
+		{
+			"Delete - invalid object ID",
+			func(manifestID, objectID string, source testenv.SourceInfo) []string {
+				return []string{"snapshot", "delete", "k001122", "--delete"}
+			},
+			expectFail,
+		}} {
 		t.Log(tc.desc)
 		testSnapshotDelete(t, tc.mf, tc.expectSuccess)
 	}
@@ -230,8 +122,7 @@ how are you
 	for _, source := range si {
 		for _, ss := range source.Snapshots {
 			manifestID := ss.SnapshotID
-			args := argMaker(manifestID, source)
-			t.Logf("manifestID: %v", manifestID)
+			args := argMaker(manifestID, ss.ObjectID, source)
 
 			if expectDeleteSucceeds {
 				e.RunAndExpectSuccess(t, args...)
@@ -270,7 +161,7 @@ func TestSnapshotDeleteTypeCheck(t *testing.T) {
 			t.Fatalf("Expected global policy manifest on a fresh repo")
 		}
 
-		e.RunAndExpectFailure(t, "snapshot", "delete", manifestID, "--unsafe-ignore-source")
+		e.RunAndExpectFailure(t, "snapshot", "delete", manifestID)
 	}
 }
 
@@ -317,10 +208,10 @@ func TestSnapshotDeleteRestore(t *testing.T) {
 	compareDirs(t, source, restoreDir)
 
 	// snapshot delete should succeed
-	e.RunAndExpectSuccess(t, "snapshot", "delete", snapID, "--unsafe-ignore-source")
+	e.RunAndExpectSuccess(t, "snapshot", "delete", snapID, "--delete")
 
 	// Subsequent snapshot delete to the same ID should fail
-	e.RunAndExpectFailure(t, "snapshot", "delete", snapID, "--unsafe-ignore-source")
+	e.RunAndExpectFailure(t, "snapshot", "delete", snapID, "--delete")
 
 	// garbage-collect to clean up the root object. Otherwise
 	// a restore will succeed

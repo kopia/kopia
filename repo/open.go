@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -198,6 +199,10 @@ func readAndCacheFormatBlobBytes(ctx context.Context, st blob.Storage, cacheDire
 	cachedFile := filepath.Join(cacheDirectory, "kopia.repository")
 
 	if cacheDirectory != "" {
+		if err := os.MkdirAll(cacheDirectory, 0700); err != nil && !os.IsExist(err) {
+			log(ctx).Warningf("unable to create cache directory: %v", err)
+		}
+
 		b, err := ioutil.ReadFile(cachedFile) //nolint:gosec
 		if err == nil {
 			// read from cache.

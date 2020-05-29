@@ -113,6 +113,23 @@ func translateError(err error) error {
 	return err
 }
 
+func (s *s3Storage) GetMetadata(ctx context.Context, b blob.ID) (blob.Metadata, error) {
+	v, err := retry.WithExponentialBackoff(ctx, fmt.Sprintf("GetMetadata(%v)", b), func() (interface{}, error) {
+		oi, err := s.cli.StatObject(s.BucketName, s.getObjectNameString(b), minio.StatObjectOptions{})
+		if err != nil {
+			return blob.Metadata{}, err
+		}
+
+		return blob.Metadata{
+			BlobID:    b,
+			Length:    oi.Size,
+			Timestamp: oi.LastModified,
+		}, nil
+	}, isRetriableError)
+
+	return v.(blob.Metadata), translateError(err)
+}
+
 func (s *s3Storage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) error {
 	return translateError(retry.WithExponentialBackoffNoValue(ctx, fmt.Sprintf("PutBlob(%v)", b), func() error {
 		throttled, err := s.uploadThrottler.AddReader(ioutil.NopCloser(data.Reader()))
