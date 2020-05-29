@@ -35,7 +35,6 @@ var (
 // advance the time too much to not even give blob storage a chance to react in time.
 const (
 	testIndexBlobDeleteAge            = 10 * time.Minute
-	testCompactionLogBlobDeleteAge    = 20 * time.Minute
 	testEventualConsistencySettleTime = 45 * time.Second
 )
 
@@ -54,15 +53,8 @@ func TestIndexBlobManager(t *testing.T) {
 		},
 		{
 			// we write 6 index blobs and 2 compaction logs
-			// enough time has passed to delete 3 indexes but not compaction logs
+			// enough time has passed to delete 3 indexes and compaction logs
 			storageTimeAdvanceBetweenCompactions: testIndexBlobDeleteAge + 1*time.Second,
-			wantIndexCount:                       3,
-			wantCompactionLogCount:               2,
-		},
-		{
-			// we write 6 index blobs and 2 compaction logs
-			// enough time has passed to delete 3 indexes and 1 compaction log
-			storageTimeAdvanceBetweenCompactions: testCompactionLogBlobDeleteAge + 1*time.Second,
 			wantIndexCount:                       3,
 			wantCompactionLogCount:               1,
 		},
@@ -212,7 +204,7 @@ func TestIndexBlobManagerStress(t *testing.T) {
 					}
 
 				case actionWrite:
-					if err := writeFakeContents(ctx, m, contentPrefix, &numWritten, fakeTimeFunc); err != nil {
+					if err := writeFakeContents(ctx, m, contentPrefix, rand.Intn(10)+5, &numWritten, fakeTimeFunc); err != nil {
 						return errors.Wrapf(err, "actor[%v] write error", actorID)
 					}
 
@@ -381,11 +373,9 @@ func undeleteFakeContents(ctx context.Context, m indexBlobManager, deleted map[s
 	return err
 }
 
-func writeFakeContents(ctx context.Context, m indexBlobManager, prefix string, numWritten *int, timeFunc func() time.Time) error {
+func writeFakeContents(ctx context.Context, m indexBlobManager, prefix string, count int, numWritten *int, timeFunc func() time.Time) error {
 	log(ctx).Debugf("writeFakeContents()")
 	defer log(ctx).Debugf("finished writeFakeContents()")
-
-	count := rand.Intn(10) + 5
 
 	ndx := map[string]fakeContentIndexEntry{}
 
@@ -551,13 +541,12 @@ func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow, 
 		ownWritesCache: &persistentOwnWritesCache{
 			blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, localTimeNow),
 			localTimeNow},
-		indexBlobCache:                passthroughContentCache{st},
-		encryptor:                     enc,
-		hasher:                        hf,
-		listCache:                     lc,
-		timeNow:                       localTimeNow,
-		minIndexBlobDeleteAge:         testIndexBlobDeleteAge,
-		minCompactionLogBlobDeleteAge: testCompactionLogBlobDeleteAge,
+		indexBlobCache:        passthroughContentCache{st},
+		encryptor:             enc,
+		hasher:                hf,
+		listCache:             lc,
+		timeNow:               localTimeNow,
+		minIndexBlobDeleteAge: testIndexBlobDeleteAge,
 	}
 
 	return m

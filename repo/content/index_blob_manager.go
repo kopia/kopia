@@ -27,7 +27,8 @@ type indexBlobManager interface {
 }
 
 const (
-	compactionLogBlobPrefix = "m"
+	compactionLogBlobPrefix      = "m"
+	defaultMinIndexBlobDeleteAge = 1 * time.Hour
 )
 
 // compactionLogEntry represents contents of compaction log entry stored in `m` blob.
@@ -40,15 +41,14 @@ type compactionLogEntry struct {
 }
 
 type indexBlobManagerImpl struct {
-	st                            blob.Storage
-	hasher                        hashing.HashFunc
-	encryptor                     encryption.Encryptor
-	listCache                     *listCache
-	ownWritesCache                ownWritesCache
-	timeNow                       func() time.Time
-	indexBlobCache                contentCache
-	minIndexBlobDeleteAge         time.Duration
-	minCompactionLogBlobDeleteAge time.Duration
+	st                    blob.Storage
+	hasher                hashing.HashFunc
+	encryptor             encryption.Encryptor
+	listCache             *listCache
+	ownWritesCache        ownWritesCache
+	timeNow               func() time.Time
+	indexBlobCache        contentCache
+	minIndexBlobDeleteAge time.Duration
 }
 
 func (m *indexBlobManagerImpl) listIndexBlobs(ctx context.Context, includeInactive bool) ([]IndexBlobInfo, error) {
@@ -224,10 +224,6 @@ func (m *indexBlobManagerImpl) getCompactionLogEntries(ctx context.Context, blob
 }
 
 func (m *indexBlobManagerImpl) deleteOldIndexBlobs(ctx context.Context, latestBlob blob.Metadata) error {
-	if m.minCompactionLogBlobDeleteAge <= m.minIndexBlobDeleteAge {
-		return errors.Errorf("configuration error - compaction log deletion age (%v) must be greater than index blob deletion age (%v)", m.minCompactionLogBlobDeleteAge, m.minIndexBlobDeleteAge)
-	}
-
 	allCompactionLogBlobs, err := m.listCache.listIndexBlobs(ctx, compactionLogBlobPrefix)
 	if err != nil {
 		return errors.Wrap(err, "error listing compaction log blobs")
@@ -246,7 +242,7 @@ func (m *indexBlobManagerImpl) deleteOldIndexBlobs(ctx context.Context, latestBl
 	}
 
 	indexBlobsToDelete := m.findIndexBlobsToDelete(ctx, latestBlob.Timestamp, compactionBlobEntries)
-	compactionLogBlobsToDelete := m.findCompactionLogBlobsToDelete(ctx, latestBlob.Timestamp, compactionBlobs)
+	compactionLogBlobsToDelete := m.findCompactionLogBlobsToDelete(ctx, compactionBlobs)
 
 	// note that we must always delete index blobs first before compaction logs
 	// otherwise we may inadvertedly resurrect an index blob that should have been removed.
@@ -288,15 +284,10 @@ func (m *indexBlobManagerImpl) findIndexBlobsToDelete(ctx context.Context, lates
 	return result
 }
 
-func (m *indexBlobManagerImpl) findCompactionLogBlobsToDelete(ctx context.Context, latestServerBlobTime time.Time, compactionBlobs []blob.Metadata) []blob.ID {
+func (m *indexBlobManagerImpl) findCompactionLogBlobsToDelete(ctx context.Context, compactionBlobs []blob.Metadata) []blob.ID {
 	var result []blob.ID
 
 	for _, cb := range compactionBlobs {
-		if age := latestServerBlobTime.Sub(cb.Timestamp); age < m.minCompactionLogBlobDeleteAge {
-			log(ctx).Debugf("not deleting compaction log blob %v, because it's too recent: %v < %v", cb, age, m.minCompactionLogBlobDeleteAge)
-			continue
-		}
-
 		log(ctx).Debugf("will delete compaction log blob %v", cb)
 		result = append(result, cb.BlobID)
 	}

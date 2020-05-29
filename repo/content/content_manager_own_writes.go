@@ -123,7 +123,7 @@ func (d *persistentOwnWritesCache) merge(ctx context.Context, prefix blob.ID, so
 		if age := d.timeNow().Sub(md.Timestamp); age < ownWritesCacheRetention {
 			myWrites = append(myWrites, originalMD)
 		} else {
-			log(ctx).Debugf("deleting blob %v from own-write cache because it's too old: %v", age, d.timeNow(), originalMD.Timestamp)
+			log(ctx).Debugf("deleting blob %v from own-write cache because it's too old: %v (%v)", md.BlobID, age, originalMD.Timestamp)
 
 			if err := d.st.DeleteBlob(ctx, md.BlobID); err != nil && err != blob.ErrBlobNotFound {
 				return errors.Wrap(err, "error deleting stale blob")
