@@ -111,11 +111,12 @@ func TestIndexBlobManager(t *testing.T) {
 type action int
 
 const (
-	actionWrite    = 1
-	actionRead     = 2
-	actionCompact  = 3
-	actionDelete   = 4
-	actionUndelete = 5
+	actionWrite                 = 1
+	actionRead                  = 2
+	actionCompact               = 3
+	actionDelete                = 4
+	actionUndelete              = 5
+	actionCompactAndDropDeleted = 6
 )
 
 // actionsTestIndexBlobManagerStress is a set of actionsTestIndexBlobManagerStress by each actor performed in TestIndexBlobManagerStress with weights
@@ -125,9 +126,10 @@ var actionsTestIndexBlobManagerStress = []struct {
 }{
 	{actionWrite, 10},
 	{actionRead, 100},
-	{actionCompact, 1000},
+	{actionCompact, 100},
 	{actionDelete, 10},
 	{actionUndelete, 15},
+	{actionCompactAndDropDeleted, 10},
 }
 
 func pickRandomActionTestIndexBlobManagerStress() action {
@@ -219,7 +221,12 @@ func TestIndexBlobManagerStress(t *testing.T) {
 					}
 
 				case actionCompact:
-					if err := fakeCompaction(ctx, m); err != nil {
+					if err := fakeCompaction(ctx, m, false); err != nil {
+						return errors.Wrapf(err, "actor[%v] compaction error", actorID)
+					}
+
+				case actionCompactAndDropDeleted:
+					if err := fakeCompaction(ctx, m, true); err != nil {
 						return errors.Wrapf(err, "actor[%v] compaction error", actorID)
 					}
 				}
@@ -252,6 +259,10 @@ func verifyFakeContentsWritten(ctx context.Context, m indexBlobManager, numWritt
 	for i := 0; i < numWritten; i++ {
 		id := fakeContentID(contentPrefix, i)
 		if _, ok := all[id]; !ok {
+			if deletedContents[id] {
+				continue
+			}
+
 			return errors.Errorf("could not find content previously written by itself: %v (got %v)", id, all)
 		}
 
@@ -263,13 +274,21 @@ func verifyFakeContentsWritten(ctx context.Context, m indexBlobManager, numWritt
 	return nil
 }
 
-func fakeCompaction(ctx context.Context, m indexBlobManager) error {
+func fakeCompaction(ctx context.Context, m indexBlobManager, dropDeleted bool) error {
 	log(ctx).Debugf("fakeCompaction()")
 	defer log(ctx).Debugf("finished fakeCompaction()")
 
 	allContents, allBlobs, err := getAllFakeContents(ctx, m)
 	if err != nil {
 		return errors.Wrap(err, "error getting contents")
+	}
+
+	if dropDeleted {
+		for cid, e := range allContents {
+			if e.Deleted {
+				delete(allContents, cid)
+			}
+		}
 	}
 
 	if len(allBlobs) <= 1 {
