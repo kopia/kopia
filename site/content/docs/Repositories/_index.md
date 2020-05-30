@@ -153,7 +153,7 @@ Kopia can be installed on a remote server and started in server mode. This featu
 
 ### Initial setup
 
-* Install Kopia on yout server
+* Install Kopia on your server
 You can download and compile kopia directly from github or download and compile it on your computer then transfer to your server using sftp or similar)
 
 #### On server
