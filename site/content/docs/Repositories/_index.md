@@ -149,7 +149,7 @@ $ find /tmp/my-repository -type f
 
 ## Http/s server
 
-Kopia can be installed on a remote server and started in server mode. Actually under heavy development, this feature is only available if you download and use github version.
+Kopia can be installed on a remote server and started in server mode. This features is currently under active development and is only available if you download and build the latest version from Github.
 
 ### Initial setup
 
