@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"math"
 	"math/rand"
+	"strings"
 	"sync"
 	"time"
 
@@ -181,9 +182,7 @@ func (s *eventuallyConsistentStorage) DeleteBlob(ctx context.Context, id blob.ID
 		return err
 	}
 
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
+	md.Timestamp = s.timeNow()
 	s.recentlyDeleted.Store(id, md)
 
 	return nil
@@ -235,6 +234,11 @@ func (s *eventuallyConsistentStorage) ListBlobs(ctx context.Context, prefix blob
 
 	// process recently deleted items and resurrect them with some probability
 	s.recentlyDeleted.Range(func(key, value interface{}) bool {
+		blobID := key.(blob.ID)
+		if !strings.HasPrefix(string(blobID), string(prefix)) {
+			return true
+		}
+
 		bm := value.(blob.Metadata)
 		if age := now.Sub(bm.Timestamp); s.shouldApplyInconsistency(ctx, age, "resurrect recently deleted "+string(bm.BlobID)) {
 			if resultErr = callback(bm); resultErr != nil {
