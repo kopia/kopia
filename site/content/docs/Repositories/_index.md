@@ -171,7 +171,7 @@ Password files are created with [httpaswd](https://httpd.apache.org/docs/2.4/pro
 <client-username>@<client-host-name-lowercase-without-domain>
 ```
 
-where &lt;client-host-name-lowercase-without-domain&gt; is the domain of the computer of the client **lowercase and without domain**. On linux computers, this host name can be found with the following command. THIS IS NOT THE SERVER HOST NAME.
+where `<client-host-name-lowercase-without-domain>` is the host name of the client computer in **lowercase and without domain component**. On Linux clients, the client host name can be found with the following command. Notice that this is *not* the server host name, but the client host name instead.
 
 ```shell
 $ cat /etc/hostname
