@@ -782,14 +782,14 @@ func setupCaches(ctx context.Context, m *Manager, caching *CachingOptions) error
 	m.committedContents = contentIndex
 
 	m.indexBlobManager = &indexBlobManagerImpl{
-		st:                    m.st,
-		encryptor:             m.encryptor,
-		hasher:                m.hasher,
-		timeNow:               m.timeNow,
-		ownWritesCache:        caching.ownWritesCache,
-		listCache:             listCache,
-		indexBlobCache:        metadataCache,
-		minIndexBlobDeleteAge: defaultMinIndexBlobDeleteAge,
+		st:                               m.st,
+		encryptor:                        m.encryptor,
+		hasher:                           m.hasher,
+		timeNow:                          m.timeNow,
+		ownWritesCache:                   caching.ownWritesCache,
+		listCache:                        listCache,
+		indexBlobCache:                   metadataCache,
+		maxEventualConsistencySettleTime: defaultEventualConsistencySettleTime,
 	}
 
 	return nil

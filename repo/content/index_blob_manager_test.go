@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/kopia/kopia/internal/blobtesting"
@@ -41,8 +41,9 @@ const (
 func TestIndexBlobManager(t *testing.T) {
 	cases := []struct {
 		storageTimeAdvanceBetweenCompactions time.Duration
-		wantCompactionLogCount               int
 		wantIndexCount                       int
+		wantCompactionLogCount               int
+		wantCleanupCount                     int
 	}{
 		{
 			// we write 6 index blobs and 2 compaction logs
@@ -53,10 +54,11 @@ func TestIndexBlobManager(t *testing.T) {
 		},
 		{
 			// we write 6 index blobs and 2 compaction logs
-			// enough time has passed to delete 3 indexes and compaction logs
+			// enough time has passed to delete 3 indexes and create cleanup log
 			storageTimeAdvanceBetweenCompactions: testIndexBlobDeleteAge + 1*time.Second,
 			wantIndexCount:                       3,
-			wantCompactionLogCount:               1,
+			wantCompactionLogCount:               2,
+			wantCleanupCount:                     1,
 		},
 	}
 
@@ -71,7 +73,8 @@ func TestIndexBlobManager(t *testing.T) {
 			fakeStorageTime := faketime.NewTimeAdvance(fakeStoreStartTime)
 
 			st := blobtesting.NewMapStorage(storageData, nil, fakeStorageTime.NowFunc())
-			m := newIndexBlobManagerForTesting(t, st, fakeLocalTime.NowFunc(), fakeStorageTime.NowFunc())
+			st = blobtesting.NewEventuallyConsistentStorage(st, testEventualConsistencySettleTime, fakeStorageTime.NowFunc())
+			m := newIndexBlobManagerForTesting(t, st, fakeLocalTime.NowFunc())
 
 			assertIndexBlobList(t, m)
 
@@ -90,7 +93,7 @@ func TestIndexBlobManager(t *testing.T) {
 			b4 := mustWriteIndexBlob(t, m, "index-4")
 			assertIndexBlobList(t, m, b1, b2, b3, b4)
 			fakeStorageTime.Advance(1 * time.Second)
-			assertBlobCounts(t, storageData, 4, 0)
+			assertBlobCounts(t, storageData, 4, 0, 0)
 
 			// first compaction b1+b2+b3=>b4
 			mustRegisterCompaction(t, m, []blob.Metadata{b1, b2, b3}, []blob.Metadata{b4})
@@ -103,7 +106,7 @@ func TestIndexBlobManager(t *testing.T) {
 			b6 := mustWriteIndexBlob(t, m, "index-6")
 			mustRegisterCompaction(t, m, []blob.Metadata{b4, b5}, []blob.Metadata{b6})
 			assertIndexBlobList(t, m, b6)
-			assertBlobCounts(t, storageData, tc.wantIndexCount, tc.wantCompactionLogCount)
+			assertBlobCounts(t, storageData, tc.wantIndexCount, tc.wantCompactionLogCount, tc.wantCleanupCount)
 		})
 	}
 }
@@ -195,7 +198,7 @@ func TestIndexBlobManagerStress(t *testing.T) {
 				return fmt.Sprintf("actor[%v]@%v:", actorID, fakeTimeFunc().Format("150405.000"))
 			})
 
-			m := newIndexBlobManagerForTesting(t, loggedSt, fakeTimeFunc, fakeTimeFunc)
+			m := newIndexBlobManagerForTesting(t, loggedSt, fakeTimeFunc)
 
 			// run stress test until the deadline, aborting early on any failure
 			for fakeTimeFunc().Before(deadline) && time.Now().Before(localTimeDeadline) {
@@ -239,6 +242,107 @@ func TestIndexBlobManagerStress(t *testing.T) {
 	if err := eg.Wait(); err != nil {
 		t.Errorf("err: %+v", err)
 	}
+}
+
+func TestIndexBlobManagerPreventsResurrectOfDeletedContents(t *testing.T) {
+	rand.Seed(time.Now().UnixNano())
+
+	// the test is randomized and runs very quickly, run it lots of times
+	failed := false
+	for i := 0; i < 100 && !failed; i++ {
+		t.Run(fmt.Sprintf("attempt-%v", i), func(t *testing.T) {
+			verifyIndexBlobManagerPreventsResurrectOfDeletedContents(
+				t, 1*time.Second, 1*time.Second, testIndexBlobDeleteAge, 1*time.Second, 2*time.Second,
+			)
+		})
+	}
+}
+
+// 4.183111259s 6.432739638s 2.129912133s 1.229212039s 154.813901ms
+func TestIndexBlobManagerPreventsResurrectOfDeletedContents_Repro(t *testing.T) {
+	verifyIndexBlobManagerPreventsResurrectOfDeletedContents(t, 4183*time.Millisecond, 6432*time.Millisecond, 2129*time.Millisecond, 1229*time.Millisecond, 155*time.Millisecond)
+}
+
+func TestIndexBlobManagerPreventsResurrectOfDeletedContents_RandomizedTimings(t *testing.T) {
+	rand.Seed(time.Now().UnixNano())
+
+	// the test is randomized and runs very quickly, run it lots of times
+	for i := 0; i < 1000; i++ {
+		t.Run(fmt.Sprintf("attempt-%v", i), func(t *testing.T) {
+			verifyIndexBlobManagerPreventsResurrectOfDeletedContents(
+				t,
+				randomDuration(10*time.Second),
+				randomDuration(10*time.Second),
+				testIndexBlobDeleteAge+randomDuration(testIndexBlobDeleteAge),
+				randomDuration(10*time.Second),
+				randomDuration(2*testEventualConsistencySettleTime),
+			)
+		})
+	}
+}
+
+func randomDuration(max time.Duration) time.Duration {
+	return time.Duration(float64(max) * rand.Float64())
+}
+
+func verifyIndexBlobManagerPreventsResurrectOfDeletedContents(t *testing.T, delay1, delay2, delay3, delay4, delay5 time.Duration) {
+	t.Logf("delays: %v %v %v %v %v", delay1, delay2, delay3, delay4, delay5)
+
+	storageData := blobtesting.DataMap{}
+
+	fakeTime := faketime.NewTimeAdvance(fakeLocalStartTime)
+	fakeTimeFunc := fakeTime.NowFunc()
+
+	st := blobtesting.NewMapStorage(storageData, nil, fakeTimeFunc)
+	st = blobtesting.NewEventuallyConsistentStorage(st, testEventualConsistencySettleTime, fakeTimeFunc)
+	st = logging.NewWrapper(st, func(msg string, args ...interface{}) {
+		t.Logf("[store] "+fakeTimeFunc().Format("150405.000")+" "+msg, args...)
+	}, "store: ")
+	m := newIndexBlobManagerForTesting(t, st, fakeTimeFunc)
+
+	numWritten := 0
+	deleted := map[string]bool{}
+
+	prefix := "prefix"
+	ctx := testlogging.ContextWithLevelAndPrefixFunc(t, testlogging.LevelDebug, func() string {
+		return fakeTimeFunc().Format("150405.000") + " "
+	})
+
+	// index#1 - write 2 contents
+	must(t, writeFakeContents(ctx, m, prefix, 2, &numWritten, fakeTimeFunc))
+	fakeTime.Advance(delay1)
+	// index#2 - delete first of the two contents.
+	must(t, deleteFakeContents(ctx, m, prefix, 1, deleted, fakeTimeFunc))
+	fakeTime.Advance(delay2)
+	// index#3, log#3 - replaces index#1 and #2
+	must(t, fakeCompaction(ctx, m, true))
+	fakeTime.Advance(delay3)
+
+	numWritten2 := numWritten
+
+	// index#4 - create one more content
+	must(t, writeFakeContents(ctx, m, prefix, 2, &numWritten, fakeTimeFunc))
+	fakeTime.Advance(delay4)
+
+	// index#5, log#4 replaces index#3 and index#4, this will delete index#1 and index#2 and log#3
+	must(t, fakeCompaction(ctx, m, true))
+
+	t.Logf("************************************************ VERIFY")
+
+	// advance the time just enough for eventual consistency to be visible
+	fakeTime.Advance(delay5)
+
+	// using another reader, make sure that all writes up to numWritten2 are correct regardless of whether
+	// compaction is visible
+	another := newIndexBlobManagerForTesting(t, st, fakeTimeFunc)
+	must(t, verifyFakeContentsWritten(ctx, another, numWritten2, prefix, deleted))
+
+	// verify that this reader can see all its own writes regardless of eventual consistency
+	must(t, verifyFakeContentsWritten(ctx, m, numWritten, prefix, deleted))
+
+	// after eventual consistency is settled, another reader can see all our writes
+	fakeTime.Advance(testEventualConsistencySettleTime)
+	must(t, verifyFakeContentsWritten(ctx, another, numWritten, prefix, deleted))
 }
 
 type fakeContentIndexEntry struct {
@@ -452,7 +556,9 @@ func getAllFakeContents(ctx context.Context, m indexBlobManager) (map[string]fak
 		}
 
 		var contentIDs map[string]fakeContentIndexEntry
+
 		if err := json.Unmarshal(bb, &contentIDs); err != nil {
+			log(ctx).Debugf("invalid JSON %v: %v", string(bb), err)
 			return nil, nil, errors.Wrap(err, "error unmarshaling")
 		}
 
@@ -471,10 +577,11 @@ func getAllFakeContents(ctx context.Context, m indexBlobManager) (map[string]fak
 	return allContents, blobs, nil
 }
 
-func assertBlobCounts(t *testing.T, data blobtesting.DataMap, wantN, wantM int) {
+func assertBlobCounts(t *testing.T, data blobtesting.DataMap, wantN, wantM, wantL int) {
 	t.Helper()
-	assert.Len(t, keysWithPrefix(data, compactionLogBlobPrefix), wantM)
-	assert.Len(t, keysWithPrefix(data, indexBlobPrefix), wantN)
+	require.Len(t, keysWithPrefix(data, compactionLogBlobPrefix), wantM)
+	require.Len(t, keysWithPrefix(data, indexBlobPrefix), wantN)
+	require.Len(t, keysWithPrefix(data, "l"), wantL)
 }
 
 func keysWithPrefix(data blobtesting.DataMap, prefix blob.ID) []blob.ID {
@@ -529,10 +636,10 @@ func assertIndexBlobList(t *testing.T, m indexBlobManager, wantMD ...blob.Metada
 		got = append(got, it.BlobID)
 	}
 
-	assert.ElementsMatch(t, got, want)
+	require.ElementsMatch(t, got, want)
 }
 
-func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow, storageTimeNow func() time.Time) indexBlobManager {
+func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow func() time.Time) indexBlobManager {
 	p := &FormattingOptions{
 		Encryption: encryption.DeprecatedNoneAlgorithm,
 		Hash:       hashing.DefaultAlgorithm,
@@ -548,8 +655,6 @@ func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow, 
 		t.Fatalf("unable to create hash: %v", err)
 	}
 
-	st = blobtesting.NewEventuallyConsistentStorage(st, testEventualConsistencySettleTime, storageTimeNow)
-
 	lc, err := newListCache(st, &CachingOptions{})
 	if err != nil {
 		t.Fatalf("unable to create list cache: %v", err)
@@ -560,12 +665,12 @@ func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow, 
 		ownWritesCache: &persistentOwnWritesCache{
 			blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, localTimeNow),
 			localTimeNow},
-		indexBlobCache:        passthroughContentCache{st},
-		encryptor:             enc,
-		hasher:                hf,
-		listCache:             lc,
-		timeNow:               localTimeNow,
-		minIndexBlobDeleteAge: testIndexBlobDeleteAge,
+		indexBlobCache:                   passthroughContentCache{st},
+		encryptor:                        enc,
+		hasher:                           hf,
+		listCache:                        lc,
+		timeNow:                          localTimeNow,
+		maxEventualConsistencySettleTime: testIndexBlobDeleteAge,
 	}
 
 	return m
