@@ -258,11 +258,6 @@ func TestIndexBlobManagerPreventsResurrectOfDeletedContents(t *testing.T) {
 	}
 }
 
-// 4.183111259s 6.432739638s 2.129912133s 1.229212039s 154.813901ms
-func TestIndexBlobManagerPreventsResurrectOfDeletedContents_Repro(t *testing.T) {
-	verifyIndexBlobManagerPreventsResurrectOfDeletedContents(t, 4183*time.Millisecond, 6432*time.Millisecond, 2129*time.Millisecond, 1229*time.Millisecond, 155*time.Millisecond)
-}
-
 func TestIndexBlobManagerPreventsResurrectOfDeletedContents_RandomizedTimings(t *testing.T) {
 	rand.Seed(time.Now().UnixNano())
 
