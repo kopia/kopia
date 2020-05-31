@@ -270,6 +270,57 @@ func TestIndexBlobManagerPreventsResurrectOfDeletedContents(t *testing.T) {
 	}
 }
 
+func TestCompactionCreatesPreviousIndex(t *testing.T) {
+	rand.Seed(time.Now().UnixNano())
+
+	storageData := blobtesting.DataMap{}
+
+	fakeTime := faketime.NewTimeAdvance(fakeLocalStartTime)
+	fakeTimeFunc := fakeTime.NowFunc()
+
+	st := blobtesting.NewMapStorage(storageData, nil, fakeTimeFunc)
+	st = blobtesting.NewEventuallyConsistentStorage(st, testEventualConsistencySettleTime, fakeTimeFunc)
+	st = logging.NewWrapper(st, func(msg string, args ...interface{}) {
+		t.Logf("[store] "+fakeTimeFunc().Format("150405.000")+" "+msg, args...)
+	}, "store: ")
+	m := newIndexBlobManagerForTesting(t, st, fakeTimeFunc)
+
+	numWritten := 0
+	deleted := map[string]bool{}
+
+	prefix := "prefix"
+	ctx := testlogging.ContextWithLevelAndPrefixFunc(t, testlogging.LevelDebug, func() string {
+		return fakeTimeFunc().Format("150405.000") + " "
+	})
+
+	// index#1 - add content1
+	must(t, writeFakeContents(ctx, m, prefix, 1, &numWritten, fakeTimeFunc))
+	fakeTime.Advance(1 * time.Second)
+
+	// index#2 - add content2
+	must(t, writeFakeContents(ctx, m, prefix, 1, &numWritten, fakeTimeFunc))
+	fakeTime.Advance(1 * time.Second)
+
+	// index#3 - {content1, content2}, index#1, index#2 marked for deletion
+	must(t, fakeCompaction(ctx, m, false))
+	fakeTime.Advance(1 * time.Second)
+
+	// index#4 - delete content1
+	must(t, deleteFakeContents(ctx, m, prefix, 1, deleted, fakeTimeFunc))
+	fakeTime.Advance(1 * time.Second)
+
+	// this will create index identical to index#2,
+	// we will embed random ID in the index to ensure that they get different blob ID each time.
+	// otherwise (since indexes are based on hash of content) they would create the same blob ID.
+	// if this was the case, first compaction marks index#1 as deleted and second compaction
+	// revives it.
+	must(t, fakeCompaction(ctx, m, true))
+	fakeTime.Advance(testEventualConsistencySettleTime)
+
+	// if we were not to add randomness to index blobs, this would fail.
+	must(t, verifyFakeContentsWritten(ctx, m, 2, prefix, deleted))
+}
+
 func TestIndexBlobManagerPreventsResurrectOfDeletedContents_RandomizedTimings(t *testing.T) {
 	rand.Seed(time.Now().UnixNano())
 
@@ -539,8 +590,16 @@ func writeFakeContents(ctx context.Context, m indexBlobManager, prefix string, c
 	return err
 }
 
+type fakeIndexData struct {
+	RandomID int64
+	Entries  map[string]fakeContentIndexEntry
+}
+
 func writeFakeIndex(ctx context.Context, m indexBlobManager, ndx map[string]fakeContentIndexEntry) (blob.Metadata, error) {
-	j, err := json.Marshal(ndx)
+	j, err := json.Marshal(fakeIndexData{
+		RandomID: rand.Int63(),
+		Entries:  ndx,
+	})
 	if err != nil {
 		return blob.Metadata{}, errors.Wrap(err, "json error")
 	}
@@ -578,15 +637,15 @@ func getAllFakeContents(ctx context.Context, m indexBlobManager) (map[string]fak
 			return nil, nil, errors.Wrap(err, "error reading blob")
 		}
 
-		var contentIDs map[string]fakeContentIndexEntry
+		var indexData fakeIndexData
 
-		if err := json.Unmarshal(bb, &contentIDs); err != nil {
+		if err := json.Unmarshal(bb, &indexData); err != nil {
 			log(ctx).Debugf("invalid JSON %v: %v", string(bb), err)
 			return nil, nil, errors.Wrap(err, "error unmarshaling")
 		}
 
 		// merge contents based based on time
-		for k, v := range contentIDs {
+		for k, v := range indexData.Entries {
 			old, ok := allContents[k]
 
 			if !ok {
