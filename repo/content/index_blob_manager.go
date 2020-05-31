@@ -39,6 +39,9 @@ type compactionLogEntry struct {
 
 	// list of blobs that are results of compaction.
 	OutputMetadata []blob.Metadata `json:"outputMetadata"`
+
+	// Metadata of the compaction blob itself, not serialized.
+	metadata blob.Metadata
 }
 
 // cleanupEntry represents contents of cleanup entry stored in `l` blob.
@@ -229,6 +232,8 @@ func (m *indexBlobManagerImpl) getCompactionLogEntries(ctx context.Context, blob
 			return nil, errors.Wrap(err, "unable to read compaction log entry %q")
 		}
 
+		le.metadata = cb
+
 		results[cb.BlobID] = le
 	}
 
@@ -323,12 +328,13 @@ func (m *indexBlobManagerImpl) findIndexBlobsToDelete(ctx context.Context, lates
 	tmp := map[blob.ID]bool{}
 
 	for _, cl := range entries {
-		for _, b := range cl.InputMetadata {
-			if age := latestServerBlobTime.Sub(b.Timestamp); age < m.maxEventualConsistencySettleTime {
-				log(ctx).Debugf("not deleting compacted index blob %v, because it's too recent: %v < %v", b.BlobID, age, m.maxEventualConsistencySettleTime)
-				continue
-			}
+		// are the input index blobs in this compaction eligble for deletion?
+		if age := latestServerBlobTime.Sub(cl.metadata.Timestamp); age < m.maxEventualConsistencySettleTime {
+			log(ctx).Debugf("not deleting compacted index blob used as inputs for compaction %v, because it's too recent: %v < %v", cl.metadata.BlobID, age, m.maxEventualConsistencySettleTime)
+			continue
+		}
 
+		for _, b := range cl.InputMetadata {
 			log(ctx).Debugf("will delete old index %v compacted to %v", b, cl.OutputMetadata)
 
 			tmp[b.BlobID] = true
