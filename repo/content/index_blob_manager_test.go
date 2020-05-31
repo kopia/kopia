@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -31,10 +30,8 @@ var (
 	fakeStoreStartTime = time.Date(2020, 1, 1, 10, 0, 0, 0, time.UTC)
 )
 
-// the values here must be O(minutes), so that with all actors racing in the stress test they won't inadvertedly
-// advance the time too much to not even give blob storage a chance to react in time.
 const (
-	testIndexBlobDeleteAge            = 10 * time.Minute
+	testIndexBlobDeleteAge            = 1 * time.Minute
 	testEventualConsistencySettleTime = 45 * time.Second
 )
 
@@ -128,10 +125,10 @@ var actionsTestIndexBlobManagerStress = []struct {
 	weight int
 }{
 	{actionWrite, 10},
-	{actionRead, 100},
-	{actionCompact, 100},
+	{actionRead, 10},
+	{actionCompact, 10},
 	{actionDelete, 10},
-	{actionUndelete, 15},
+	{actionUndelete, 10},
 	{actionCompactAndDropDeleted, 10},
 }
 
@@ -161,6 +158,11 @@ func TestIndexBlobManagerStress(t *testing.T) {
 
 	rand.Seed(time.Now().UnixNano())
 
+	for i := range actionsTestIndexBlobManagerStress {
+		actionsTestIndexBlobManagerStress[i].weight = rand.Intn(100)
+		t.Logf("weight[%v] = %v", i, actionsTestIndexBlobManagerStress[i].weight)
+	}
+
 	var (
 		fakeTimeFunc      = faketime.AutoAdvance(fakeLocalStartTime, 100*time.Millisecond)
 		deadline          time.Time // when (according to fakeTimeFunc should the test finish)
@@ -182,20 +184,20 @@ func TestIndexBlobManagerStress(t *testing.T) {
 
 	var eg errgroup.Group
 
-	numActors := 2 * runtime.NumCPU()
+	numActors := 2
 
 	for actorID := 0; actorID < numActors; actorID++ {
 		actorID := actorID
 		loggedSt := logging.NewWrapper(st, func(m string, args ...interface{}) {
-			t.Logf(m, args...)
-		}, fmt.Sprintf("actor[%v]:", actorID))
+			t.Logf(fmt.Sprintf("@%v actor[%v]:", fakeTimeFunc().Format("150405.000"), actorID)+m, args...)
+		}, "")
 		contentPrefix := fmt.Sprintf("a%v", actorID)
 
 		eg.Go(func() error {
 			numWritten := 0
 			deletedContents := map[string]bool{}
 			ctx := testlogging.ContextWithLevelAndPrefixFunc(t, testlogging.LevelDebug, func() string {
-				return fmt.Sprintf("actor[%v]@%v:", actorID, fakeTimeFunc().Format("150405.000"))
+				return fmt.Sprintf("@%v actor[%v]:", fakeTimeFunc().Format("150405.000"), actorID)
 			})
 
 			m := newIndexBlobManagerForTesting(t, loggedSt, fakeTimeFunc)
@@ -224,11 +226,21 @@ func TestIndexBlobManagerStress(t *testing.T) {
 					}
 
 				case actionCompact:
+					// compaction by more than one actor is unsafe, do it only if actorID == 0
+					if actorID != 0 {
+						continue
+					}
+
 					if err := fakeCompaction(ctx, m, false); err != nil {
 						return errors.Wrapf(err, "actor[%v] compaction error", actorID)
 					}
 
 				case actionCompactAndDropDeleted:
+					// compaction by more than one actor is unsafe, do it only if actorID == 0
+					if actorID != 0 {
+						continue
+					}
+
 					if err := fakeCompaction(ctx, m, true); err != nil {
 						return errors.Wrapf(err, "actor[%v] compaction error", actorID)
 					}
@@ -346,6 +358,10 @@ type fakeContentIndexEntry struct {
 }
 
 func verifyFakeContentsWritten(ctx context.Context, m indexBlobManager, numWritten int, contentPrefix string, deletedContents map[string]bool) error {
+	if numWritten == 0 {
+		return nil
+	}
+
 	log(ctx).Debugf("verifyFakeContentsWritten()")
 	defer log(ctx).Debugf("finished verifyFakeContentsWritten()")
 
@@ -374,17 +390,21 @@ func verifyFakeContentsWritten(ctx context.Context, m indexBlobManager, numWritt
 }
 
 func fakeCompaction(ctx context.Context, m indexBlobManager, dropDeleted bool) error {
-	log(ctx).Debugf("fakeCompaction()")
-	defer log(ctx).Debugf("finished fakeCompaction()")
+	log(ctx).Debugf("fakeCompaction(dropDeleted=%v)", dropDeleted)
+	defer log(ctx).Debugf("finished fakeCompaction(dropDeleted=%v)", dropDeleted)
 
 	allContents, allBlobs, err := getAllFakeContents(ctx, m)
 	if err != nil {
 		return errors.Wrap(err, "error getting contents")
 	}
 
+	dropped := map[string]fakeContentIndexEntry{}
+
 	if dropDeleted {
 		for cid, e := range allContents {
 			if e.Deleted {
+				dropped[cid] = e
+
 				delete(allContents, cid)
 			}
 		}
@@ -397,6 +417,10 @@ func fakeCompaction(ctx context.Context, m indexBlobManager, dropDeleted bool) e
 	outputBM, err := writeFakeIndex(ctx, m, allContents)
 	if err != nil {
 		return errors.Wrap(err, "unable to write index")
+	}
+
+	for cid, e := range dropped {
+		log(ctx).Debugf("dropped deleted %v %v from %v", cid, e, outputBM)
 	}
 
 	var (
@@ -425,12 +449,12 @@ func fakeContentID(prefix string, n int) string {
 }
 
 func deleteFakeContents(ctx context.Context, m indexBlobManager, prefix string, numWritten int, deleted map[string]bool, timeFunc func() time.Time) error {
-	log(ctx).Debugf("deleteFakeContents()")
-	defer log(ctx).Debugf("finished deleteFakeContents()")
-
 	if numWritten == 0 {
 		return nil
 	}
+
+	log(ctx).Debugf("deleteFakeContents()")
+	defer log(ctx).Debugf("finished deleteFakeContents()")
 
 	count := rand.Intn(10) + 5
 
@@ -460,6 +484,10 @@ func deleteFakeContents(ctx context.Context, m indexBlobManager, prefix string, 
 }
 
 func undeleteFakeContents(ctx context.Context, m indexBlobManager, deleted map[string]bool, timeFunc func() time.Time) error {
+	if len(deleted) == 0 {
+		return nil
+	}
+
 	log(ctx).Debugf("undeleteFakeContents()")
 	defer log(ctx).Debugf("finished undeleteFakeContents()")
 
