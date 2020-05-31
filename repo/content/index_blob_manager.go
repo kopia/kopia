@@ -292,18 +292,18 @@ func (m *indexBlobManagerImpl) deleteOldBlobs(ctx context.Context, latestBlob bl
 	}
 
 	indexBlobsToDelete := m.findIndexBlobsToDelete(ctx, latestBlob.Timestamp, compactionBlobEntries)
-	compactionLogBlobsToDelayCleanup := m.findCompactionLogBlobsToDelayCleanup(ctx, compactionBlobs)
-
-	if err := m.delayCleanupBlobs(ctx, compactionLogBlobsToDelayCleanup); err != nil {
-		return errors.Wrap(err, "unable to schedule delayed cleanup of blobs")
-	}
-
 	compactionLogBlobsToDelete, cleanupBlobsToDelete := m.findBlobsToDelete(cleanupEntries)
 
 	// note that we must always delete index blobs first before compaction logs
 	// otherwise we may inadvertedly resurrect an index blob that should have been removed.
 	if err := m.deleteBlobsFromStorageAndCache(ctx, indexBlobsToDelete); err != nil {
 		return errors.Wrap(err, "unable to delete compaction logs")
+	}
+
+	compactionLogBlobsToDelayCleanup := m.findCompactionLogBlobsToDelayCleanup(ctx, compactionBlobs)
+
+	if err := m.delayCleanupBlobs(ctx, compactionLogBlobsToDelayCleanup); err != nil {
+		return errors.Wrap(err, "unable to schedule delayed cleanup of blobs")
 	}
 
 	if err := m.deleteBlobsFromStorageAndCache(ctx, compactionLogBlobsToDelete); err != nil {
