@@ -267,7 +267,7 @@ func (s *Server) periodicMaintenance(ctx context.Context, r repo.Repository) {
 			return
 
 		case <-time.After(maintenanceAttemptFrequency):
-			if err := snapshotmaintenance.Run(ctx, r, maintenance.ModeAuto); err != nil {
+			if err := snapshotmaintenance.Run(ctx, r, maintenance.ModeAuto, false); err != nil {
 				log(ctx).Warningf("unable to run maintenance: %v", err)
 			}
 		}

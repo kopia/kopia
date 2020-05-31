@@ -165,7 +165,17 @@ func maybeRunMaintenance(ctx context.Context, rep repo.Repository) error {
 		return nil
 	}
 
-	return snapshotmaintenance.Run(ctx, rep, maintenance.ModeAuto)
+	err := snapshotmaintenance.Run(ctx, rep, maintenance.ModeAuto, false)
+	if err == nil {
+		return nil
+	}
+
+	if _, ok := err.(maintenance.NotOwnedError); ok {
+		// do not report the NotOwnedError to the user since this is automatic maintenance.
+		return nil
+	}
+
+	return err
 }
 
 // App returns an instance of command-line application object.
