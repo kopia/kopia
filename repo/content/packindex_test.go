@@ -117,12 +117,21 @@ func TestPackIndex(t *testing.T) {
 	data2 := buf2.Bytes()
 	data3 := buf3.Bytes()
 
-	if !bytes.Equal(data1, data2) {
-		t.Errorf("builder output not stable: %x vs %x", hex.Dump(data1), hex.Dump(data2))
+	// each build produces exactly idendical prefix except for the trailing random bytes.
+	data1Prefix := data1[0 : len(data1)-randomSuffixSize]
+	data2Prefix := data2[0 : len(data2)-randomSuffixSize]
+	data3Prefix := data3[0 : len(data3)-randomSuffixSize]
+
+	if !bytes.Equal(data1Prefix, data2Prefix) {
+		t.Errorf("builder output not stable: %x vs %x", hex.Dump(data1Prefix), hex.Dump(data2Prefix))
 	}
 
-	if !bytes.Equal(data2, data3) {
-		t.Errorf("builder output not stable: %x vs %x", hex.Dump(data2), hex.Dump(data3))
+	if !bytes.Equal(data2Prefix, data3Prefix) {
+		t.Errorf("builder output not stable: %x vs %x", hex.Dump(data2Prefix), hex.Dump(data3Prefix))
+	}
+
+	if bytes.Equal(data1, data2) {
+		t.Errorf("builder output expected to be different, but was the same")
 	}
 
 	t.Run("FuzzTest", func(t *testing.T) {
