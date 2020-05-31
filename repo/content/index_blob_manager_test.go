@@ -616,7 +616,19 @@ func writeFakeIndex(ctx context.Context, m indexBlobManager, ndx map[string]fake
 	return bm, nil
 }
 
+var errGetAllFakeContentsRetry = errors.New("retry")
+
 func getAllFakeContents(ctx context.Context, m indexBlobManager) (map[string]fakeContentIndexEntry, []IndexBlobInfo, error) {
+	allContents, allBlobs, err := getAllFakeContentsInternal(ctx, m)
+
+	for err == errGetAllFakeContentsRetry {
+		allContents, allBlobs, err = getAllFakeContentsInternal(ctx, m)
+	}
+
+	return allContents, allBlobs, err
+}
+
+func getAllFakeContentsInternal(ctx context.Context, m indexBlobManager) (map[string]fakeContentIndexEntry, []IndexBlobInfo, error) {
 	blobs, err := m.listIndexBlobs(ctx, false)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "error listing index blobs")
@@ -629,8 +641,7 @@ func getAllFakeContents(ctx context.Context, m indexBlobManager) (map[string]fak
 	for _, bi := range blobs {
 		bb, err := m.getIndexBlob(ctx, bi.BlobID)
 		if err == blob.ErrBlobNotFound {
-			log(ctx).Debugf("ignoring NOT FOUND on %v", bi.BlobID)
-			continue
+			return nil, nil, errGetAllFakeContentsRetry
 		}
 
 		if err != nil {
