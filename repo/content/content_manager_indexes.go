@@ -12,10 +12,6 @@ import (
 
 const verySmallContentFraction = 20 // blobs less than 1/verySmallContentFraction of maxPackSize are considered 'very small'
 
-var autoCompactionOptions = CompactOptions{
-	MaxSmallBlobs: 4 * parallelFetches, // nolint:gomnd
-}
-
 // CompactOptions provides options for compaction
 type CompactOptions struct {
 	MaxSmallBlobs     int

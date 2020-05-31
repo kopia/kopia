@@ -722,8 +722,8 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 		return nil, errors.Wrap(err, "unable to set up caches")
 	}
 
-	if err := m.CompactIndexes(ctx, autoCompactionOptions); err != nil {
-		return nil, errors.Wrap(err, "error initializing content manager")
+	if _, _, err := m.loadPackIndexesUnlocked(ctx); err != nil {
+		return nil, errors.Wrap(err, "error loading indexes")
 	}
 
 	return m, nil

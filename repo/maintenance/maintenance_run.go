@@ -136,18 +136,28 @@ type RunParameters struct {
 	Params *Params
 }
 
+// NotOwnedError is returned when maintenance cannot run because it is owned by another user.
+type NotOwnedError struct {
+	Owner string
+}
+
+func (e NotOwnedError) Error() string {
+	return "maintenance must be run by designated user: " + e.Owner
+}
+
 // RunExclusive runs the provided callback if the maintenance is owned by local user and
 // lock can be acquired. Lock is passed to the function, which ensures that every call to Run()
 // is within the exclusive context.
-func RunExclusive(ctx context.Context, rep MaintainableRepository, mode Mode, cb func(runParams RunParameters) error) error {
+func RunExclusive(ctx context.Context, rep MaintainableRepository, mode Mode, force bool, cb func(runParams RunParameters) error) error {
 	p, err := GetParams(ctx, rep)
 	if err != nil {
 		return errors.Wrap(err, "unable to get maintenance params")
 	}
 
-	if myUsername := rep.Username() + "@" + rep.Hostname(); p.Owner != myUsername {
-		log(ctx).Debugf("maintenance owned by another user '%v'", p.Owner)
-		return nil
+	if !force {
+		if myUsername := rep.Username() + "@" + rep.Hostname(); p.Owner != myUsername {
+			return NotOwnedError{p.Owner}
+		}
 	}
 
 	if mode == ModeAuto {
@@ -229,6 +239,13 @@ func runQuickMaintenance(ctx context.Context, runParams RunParameters) error {
 		return err
 	}); err != nil {
 		return errors.Wrap(err, "error deleting unreferenced metadata blobs")
+	}
+
+	// consolidate many smaller indexes into fewer larger ones.
+	if err := ReportRun(ctx, runParams.rep, "index-compaction", func() error {
+		return IndexCompaction(ctx, runParams.rep)
+	}); err != nil {
+		return errors.Wrap(err, "error performing index compaction")
 	}
 
 	return nil

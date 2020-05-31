@@ -11,6 +11,7 @@ import (
 var (
 	maintenanceRunCommand = maintenanceCommands.Command("run", "Run repository maintenance").Default()
 	maintenanceRunFull    = maintenanceRunCommand.Flag("full", "Full maintenance").Bool()
+	maintenanceRunForce   = maintenanceRunCommand.Flag("force", "Run maintenance even if not owned (unsafe)").Hidden().Bool()
 )
 
 func runMaintenanceCommand(ctx context.Context, rep *repo.DirectRepository) error {
@@ -19,7 +20,7 @@ func runMaintenanceCommand(ctx context.Context, rep *repo.DirectRepository) erro
 		mode = maintenance.ModeFull
 	}
 
-	return snapshotmaintenance.Run(ctx, rep, mode)
+	return snapshotmaintenance.Run(ctx, rep, mode, *maintenanceRunForce)
 }
 
 func init() {
