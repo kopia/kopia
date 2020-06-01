@@ -1,7 +1,7 @@
 ---
 title: "Installation"
 linkTitle: "Installation"
-weight: 2
+weight: 20
 ---
 
 Kopia supports both command line (CLI) and graphical (GUI) user interfaces.

@@ -1,7 +1,7 @@
 ---
 title: Version Compatibility
 linkTitle: Version Compatibility
-weight: 4
+weight: 80
 ---
 
 Kopia uses [semantic versioning](https://semver.org).

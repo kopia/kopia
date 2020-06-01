@@ -1,7 +1,7 @@
 ---
 title: "Reference"
 linkTitle: "Reference"
-weight: 10
+weight: 90
 ---
 
 * [Go API Reference](go-api/)
