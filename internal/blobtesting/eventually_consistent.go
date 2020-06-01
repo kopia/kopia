@@ -3,7 +3,9 @@ package blobtesting
 import (
 	"context"
 	"io/ioutil"
+	"math"
 	"math/rand"
+	"strings"
 	"sync"
 	"time"
 
@@ -77,10 +79,12 @@ func (e *ecCacheEntry) isValid() bool {
 type eventuallyConsistentStorage struct {
 	mu sync.Mutex
 
-	listDropProbability float64
+	recentlyDeleted sync.Map
+	listSettleTime  time.Duration
 
 	caches      []*ecFrontendCache
 	realStorage blob.Storage
+	timeNow     func() time.Time
 }
 
 func (s *eventuallyConsistentStorage) randomFrontendCache() *ecFrontendCache {
@@ -163,27 +167,89 @@ func (s *eventuallyConsistentStorage) PutBlob(ctx context.Context, id blob.ID, d
 func (s *eventuallyConsistentStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
 	s.randomFrontendCache().put(id, nil)
 
+	// capture metadata before deleting
+	md, err := s.realStorage.GetMetadata(ctx, id)
+
+	if errors.Is(err, blob.ErrBlobNotFound) {
+		return blob.ErrBlobNotFound
+	}
+
+	if err != nil {
+		return err
+	}
+
 	if err := s.realStorage.DeleteBlob(ctx, id); err != nil {
 		return err
 	}
 
+	md.Timestamp = s.timeNow()
+	s.recentlyDeleted.Store(id, md)
+
 	return nil
 }
 
+func (s *eventuallyConsistentStorage) shouldApplyInconsistency(ctx context.Context, age time.Duration, desc string) bool {
+	if age < 0 {
+		age = -age
+	}
+
+	if age >= s.listSettleTime {
+		return false
+	}
+
+	x := age.Seconds() / s.listSettleTime.Seconds() // [0..1)
+
+	// y=1-(x^0.3) is:
+	// about 50% probability of inconsistency after 10% of listSettleTime
+	// about 25% probability of inconsistency after 40% of listSettleTime
+	// about 10% probability of inconsistency after 67% of listSettleTime
+	// about 1% probability of inconsistency after 95% of listSettleTime
+
+	const power = 0.3
+
+	prob := 1 - math.Pow(x, power)
+
+	if rand.Float64() < prob {
+		log(ctx).Debugf("applying inconsistency %v (probability %v)", desc, prob)
+		return true
+	}
+
+	return false
+}
+
 func (s *eventuallyConsistentStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(blob.Metadata) error) error {
-	return s.realStorage.ListBlobs(ctx, prefix, func(bm blob.Metadata) error {
-		e := s.randomFrontendCache().get(bm.BlobID)
-		if e != nil {
-			// item recently manipulated by the cache, skip from the results with some
-			// probability
-			if rand.Float64() < s.listDropProbability {
-				// skip callback if locally deleted
-				return nil
-			}
+	now := s.timeNow()
+
+	if err := s.realStorage.ListBlobs(ctx, prefix, func(bm blob.Metadata) error {
+		if age := now.Sub(bm.Timestamp); s.shouldApplyInconsistency(ctx, age, "hide recently created "+string(bm.BlobID)) {
+			return nil
 		}
 
 		return callback(bm)
+	}); err != nil {
+		return err
+	}
+
+	var resultErr error
+
+	// process recently deleted items and resurrect them with some probability
+	s.recentlyDeleted.Range(func(key, value interface{}) bool {
+		blobID := key.(blob.ID)
+		if !strings.HasPrefix(string(blobID), string(prefix)) {
+			return true
+		}
+
+		bm := value.(blob.Metadata)
+		if age := now.Sub(bm.Timestamp); s.shouldApplyInconsistency(ctx, age, "resurrect recently deleted "+string(bm.BlobID)) {
+			if resultErr = callback(bm); resultErr != nil {
+				return false
+			}
+		}
+
+		return true
 	})
+
+	return resultErr
 }
 
 func (s *eventuallyConsistentStorage) Close(ctx context.Context) error {
@@ -196,10 +262,11 @@ func (s *eventuallyConsistentStorage) ConnectionInfo() blob.ConnectionInfo {
 
 // NewEventuallyConsistentStorage returns an eventually-consistent storage wrapper on top
 // of provided storage.
-func NewEventuallyConsistentStorage(st blob.Storage, listDropProbability float64) blob.Storage {
+func NewEventuallyConsistentStorage(st blob.Storage, listSettleTime time.Duration, timeNow func() time.Time) blob.Storage {
 	return &eventuallyConsistentStorage{
-		realStorage:         st,
-		caches:              make([]*ecFrontendCache, 4),
-		listDropProbability: listDropProbability,
+		realStorage:    st,
+		caches:         make([]*ecFrontendCache, 4),
+		listSettleTime: listSettleTime,
+		timeNow:        timeNow,
 	}
 }

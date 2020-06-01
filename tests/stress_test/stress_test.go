@@ -31,8 +31,6 @@ func TestStressBlockManager(t *testing.T) {
 		duration = 30 * time.Second
 	}
 
-	// TODO: use blobtesting.NewEventuallyConsistentStorage(memst, 0.1) instead of memst here
-
 	stressTestWithStorage(t, memst, duration)
 }
 
@@ -46,7 +44,7 @@ func stressTestWithStorage(t *testing.T, st blob.Storage, duration time.Duration
 			Encryption:  "AES-256-CTR",
 			MaxPackSize: 20000000,
 			MasterKey:   []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
-		}, content.CachingOptions{}, content.ManagerOptions{})
+		}, nil, content.ManagerOptions{})
 	}
 
 	seed0 := time.Now().Nanosecond()

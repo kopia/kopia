@@ -7,7 +7,6 @@ import (
 	cryptorand "crypto/rand"
 	"encoding/hex"
 	"io"
-	"strings"
 	"sync"
 	"time"
 
@@ -25,11 +24,11 @@ type lockFreeManager struct {
 	// this one is not lock-free
 	Stats Stats
 
-	listCache      *listCache
 	st             blob.Storage
 	Format         FormattingOptions
 	CachingOptions CachingOptions
 
+	indexBlobManager  indexBlobManager
 	contentCache      contentCache
 	metadataCache     contentCache
 	committedContents *committedContentIndex
@@ -67,6 +66,8 @@ func (bm *lockFreeManager) maybeEncryptContentDataForPacking(output *gather.Writ
 		return errors.Wrap(err, "unable to encrypt")
 	}
 
+	bm.Stats.encrypted(len(data))
+
 	output.Append(cipherText)
 
 	return nil
@@ -93,32 +94,32 @@ func (bm *lockFreeManager) loadPackIndexesUnlocked(ctx context.Context) ([]Index
 		}
 
 		if i > 0 {
-			bm.listCache.deleteListCache()
+			bm.indexBlobManager.flushCache()
 			log(ctx).Debugf("encountered NOT_FOUND when loading, sleeping %v before retrying #%v", nextSleepTime, i)
 			time.Sleep(nextSleepTime)
 			nextSleepTime *= 2
 		}
 
-		contents, err := bm.listCache.listIndexBlobs(ctx)
+		indexBlobs, err := bm.indexBlobManager.listIndexBlobs(ctx, false)
 		if err != nil {
 			return nil, false, err
 		}
 
-		err = bm.tryLoadPackIndexBlobsUnlocked(ctx, contents)
+		err = bm.tryLoadPackIndexBlobsUnlocked(ctx, indexBlobs)
 		if err == nil {
-			var contentIDs []blob.ID
-			for _, b := range contents {
-				contentIDs = append(contentIDs, b.BlobID)
+			var indexBlobIDs []blob.ID
+			for _, b := range indexBlobs {
+				indexBlobIDs = append(indexBlobIDs, b.BlobID)
 			}
 
 			var updated bool
 
-			updated, err = bm.committedContents.use(ctx, contentIDs)
+			updated, err = bm.committedContents.use(ctx, indexBlobIDs)
 			if err != nil {
 				return nil, false, err
 			}
 
-			return contents, updated, nil
+			return indexBlobs, updated, nil
 		}
 
 		if err != blob.ErrBlobNotFound {
@@ -129,8 +130,8 @@ func (bm *lockFreeManager) loadPackIndexesUnlocked(ctx context.Context) ([]Index
 	return nil, false, errors.Errorf("unable to load pack indexes despite %v retries", indexLoadAttempts)
 }
 
-func (bm *lockFreeManager) tryLoadPackIndexBlobsUnlocked(ctx context.Context, contents []IndexBlobInfo) error {
-	ch, unprocessedIndexesSize, err := bm.unprocessedIndexBlobsUnlocked(ctx, contents)
+func (bm *lockFreeManager) tryLoadPackIndexBlobsUnlocked(ctx context.Context, indexBlobs []IndexBlobInfo) error {
+	ch, unprocessedIndexesSize, err := bm.unprocessedIndexBlobsUnlocked(ctx, indexBlobs)
 	if err != nil {
 		return err
 	}
@@ -152,7 +153,7 @@ func (bm *lockFreeManager) tryLoadPackIndexBlobsUnlocked(ctx context.Context, co
 			defer wg.Done()
 
 			for indexBlobID := range ch {
-				data, err := bm.getIndexBlobInternal(ctx, indexBlobID)
+				data, err := bm.indexBlobManager.getIndexBlob(ctx, indexBlobID)
 				if err != nil {
 					errch <- err
 					return
@@ -317,37 +318,8 @@ func (bm *lockFreeManager) preparePackDataContent(ctx context.Context, pp *pendi
 }
 
 // IndexBlobs returns the list of active index blobs.
-func (bm *lockFreeManager) IndexBlobs(ctx context.Context) ([]IndexBlobInfo, error) {
-	return bm.listCache.listIndexBlobs(ctx)
-}
-
-func (bm *lockFreeManager) getIndexBlobInternal(ctx context.Context, blobID blob.ID) ([]byte, error) {
-	payload, err := bm.metadataCache.getContent(ctx, cacheKey(blobID), blobID, 0, -1)
-	if err != nil {
-		return nil, err
-	}
-
-	iv, err := getIndexBlobIV(blobID)
-	if err != nil {
-		return nil, err
-	}
-
-	bm.Stats.readContent(len(payload))
-
-	payload, err = bm.encryptor.Decrypt(nil, payload, iv)
-	bm.Stats.decrypted(len(payload))
-
-	if err != nil {
-		return nil, errors.Wrap(err, "decrypt error")
-	}
-
-	// Since the encryption key is a function of data, we must be able to generate exactly the same key
-	// after decrypting the content. This serves as a checksum.
-	if err := bm.verifyChecksum(payload, iv); err != nil {
-		return nil, err
-	}
-
-	return payload, nil
+func (bm *lockFreeManager) IndexBlobs(ctx context.Context, includeInactive bool) ([]IndexBlobInfo, error) {
+	return bm.indexBlobManager.listIndexBlobs(ctx, includeInactive)
 }
 
 func getPackedContentIV(output []byte, contentID ID) ([]byte, error) {
@@ -359,47 +331,10 @@ func getPackedContentIV(output []byte, contentID ID) ([]byte, error) {
 	return output[0:n], nil
 }
 
-func getIndexBlobIV(s blob.ID) ([]byte, error) {
-	if p := strings.Index(string(s), "-"); p >= 0 { // nolint:gocritic
-		s = s[0:p]
-	}
-
-	return hex.DecodeString(string(s[len(s)-(aes.BlockSize*2):]))
-}
-
 func (bm *lockFreeManager) writePackFileNotLocked(ctx context.Context, packFile blob.ID, data gather.Bytes) error {
 	bm.Stats.wroteContent(data.Length())
-	bm.listCache.deleteListCache()
 
 	return bm.st.PutBlob(ctx, packFile, data)
-}
-
-func (bm *lockFreeManager) encryptAndWriteBlobNotLocked(ctx context.Context, data []byte, prefix blob.ID) (blob.ID, error) {
-	var hashOutput [maxHashSize]byte
-
-	hash := bm.hashData(hashOutput[:0], data)
-	blobID := prefix + blob.ID(hex.EncodeToString(hash))
-
-	iv, err := getIndexBlobIV(blobID)
-	if err != nil {
-		return "", err
-	}
-
-	bm.Stats.encrypted(len(data))
-
-	data2, err := bm.encryptor.Encrypt(nil, data, iv)
-	if err != nil {
-		return "", err
-	}
-
-	bm.Stats.wroteContent(len(data2))
-	bm.listCache.deleteListCache()
-
-	if err := bm.st.PutBlob(ctx, blobID, gather.FromSlice(data2)); err != nil {
-		return "", err
-	}
-
-	return blobID, nil
 }
 
 func (bm *lockFreeManager) hashData(output, data []byte) []byte {
@@ -408,10 +343,6 @@ func (bm *lockFreeManager) hashData(output, data []byte) []byte {
 	bm.Stats.hashedContent(len(data))
 
 	return contentID
-}
-
-func (bm *lockFreeManager) writePackIndexesNew(ctx context.Context, data []byte) (blob.ID, error) {
-	return bm.encryptAndWriteBlobNotLocked(ctx, data, newIndexBlobPrefix)
 }
 
 func (bm *lockFreeManager) verifyChecksum(data, contentID []byte) error {

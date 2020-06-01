@@ -2,6 +2,7 @@ package blob
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"sync"
 	"time"
@@ -62,9 +63,14 @@ type ID string
 
 // Metadata represents metadata about a single BLOB in a storage.
 type Metadata struct {
-	BlobID    ID
-	Length    int64
-	Timestamp time.Time
+	BlobID    ID        `json:"id"`
+	Length    int64     `json:"length"`
+	Timestamp time.Time `json:"timestamp"`
+}
+
+func (m *Metadata) String() string {
+	b, _ := json.Marshal(m)
+	return string(b)
 }
 
 // ErrBlobNotFound is returned when a BLOB cannot be found in storage.
@@ -122,56 +128,4 @@ func IterateAllPrefixesInParallel(ctx context.Context, parallelism int, st Stora
 
 	// return first error or nil
 	return <-errch
-}
-
-// ListAllBlobsConsistent lists all blobs with given name prefix in the provided storage until the results are
-// consistent. The results are consistent if the list result fetched twice is identical. This guarantees that while
-// the first scan was in progress, no new blob was added or removed.
-// maxAttempts specifies maximum number of list attempts (must be >= 2)
-func ListAllBlobsConsistent(ctx context.Context, st Storage, prefix ID, maxAttempts int) ([]Metadata, error) {
-	var previous []Metadata
-
-	for i := 0; i < maxAttempts; i++ {
-		result, err := ListAllBlobs(ctx, st, prefix)
-		if err != nil {
-			return nil, err
-		}
-
-		if i > 0 && sameBlobs(result, previous) {
-			return result, nil
-		}
-
-		previous = result
-	}
-
-	return nil, errors.Errorf("unable to achieve consistent snapshot despite %v attempts", maxAttempts)
-}
-
-// sameBlobs returns true if b1 & b2 contain the same blobs (ignoring order).
-func sameBlobs(b1, b2 []Metadata) bool {
-	if len(b1) != len(b2) {
-		return false
-	}
-
-	m := map[ID]Metadata{}
-
-	for _, b := range b1 {
-		m[b.BlobID] = normalizeMetadata(b)
-	}
-
-	for _, b := range b2 {
-		if r := m[b.BlobID]; r != normalizeMetadata(b) {
-			return false
-		}
-	}
-
-	return true
-}
-
-func normalizeMetadata(m Metadata) Metadata {
-	return Metadata{m.BlobID, m.Length, normalizeTimestamp(m.Timestamp)}
-}
-
-func normalizeTimestamp(t time.Time) time.Time {
-	return time.Unix(0, t.UnixNano())
 }

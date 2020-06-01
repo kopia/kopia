@@ -86,3 +86,17 @@ func ContextWithLevel(t testingT, level Level) context.Context {
 		return &testLogger{t, "[" + module + "] ", level}
 	})
 }
+
+// ContextWithLevelAndPrefix returns a context with attached logger that emits all log entries with given log level or above.
+func ContextWithLevelAndPrefix(t testingT, level Level, prefix string) context.Context {
+	return logging.WithLogger(context.Background(), func(module string) logging.Logger {
+		return &testLogger{t, "[" + module + "] " + prefix, level}
+	})
+}
+
+// ContextWithLevelAndPrefixFunc returns a context with attached logger that emits all log entries with given log level or above.
+func ContextWithLevelAndPrefixFunc(t testingT, level Level, prefixFunc func() string) context.Context {
+	return logging.WithLogger(context.Background(), func(module string) logging.Logger {
+		return &testLogger{t, "[" + module + "] " + prefixFunc(), level}
+	})
+}

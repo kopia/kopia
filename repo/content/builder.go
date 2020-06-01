@@ -2,6 +2,7 @@ package content
 
 import (
 	"bufio"
+	"crypto/rand"
 	"encoding/binary"
 	"io"
 	"sort"
@@ -16,6 +17,7 @@ const (
 	deletedMarker  = 0x80000000
 
 	entryFixedHeaderLength = 20
+	randomSuffixSize       = 32
 )
 
 // packIndexBuilder prepares and writes content index.
@@ -105,6 +107,15 @@ func (b packIndexBuilder) Build(output io.Writer) error {
 
 	if _, err := w.Write(extraData); err != nil {
 		return errors.Wrap(err, "error writing extra data")
+	}
+
+	randomSuffix := make([]byte, randomSuffixSize)
+	if _, err := rand.Read(randomSuffix); err != nil {
+		return errors.Wrap(err, "error getting random bytes for suffix")
+	}
+
+	if _, err := w.Write(randomSuffix); err != nil {
+		return errors.Wrap(err, "error writing extra random suffix to ensure indexes are always globally unique")
 	}
 
 	return w.Flush()

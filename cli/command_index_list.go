@@ -9,13 +9,14 @@ import (
 )
 
 var (
-	blockIndexListCommand = indexCommands.Command("list", "List content indexes").Alias("ls").Default()
-	blockIndexListSummary = blockIndexListCommand.Flag("summary", "Display index blob summary").Bool()
-	blockIndexListSort    = blockIndexListCommand.Flag("sort", "Index blob sort order").Default("time").Enum("time", "size", "name")
+	blockIndexListCommand           = indexCommands.Command("list", "List content indexes").Alias("ls").Default()
+	blockIndexListSummary           = blockIndexListCommand.Flag("summary", "Display index blob summary").Bool()
+	blockIndexListIncludeSuperseded = blockIndexListCommand.Flag("superseded", "Include inactive index files superseded by compaction").Bool()
+	blockIndexListSort              = blockIndexListCommand.Flag("sort", "Index blob sort order").Default("time").Enum("time", "size", "name")
 )
 
 func runListBlockIndexesAction(ctx context.Context, rep *repo.DirectRepository) error {
-	blks, err := rep.Content.IndexBlobs(ctx)
+	blks, err := rep.Content.IndexBlobs(ctx, *blockIndexListIncludeSuperseded)
 	if err != nil {
 		return err
 	}
@@ -36,11 +37,11 @@ func runListBlockIndexesAction(ctx context.Context, rep *repo.DirectRepository) 
 	}
 
 	for _, b := range blks {
-		fmt.Printf("%-70v %10v %v\n", b.BlobID, b.Length, formatTimestampPrecise(b.Timestamp))
+		fmt.Printf("%-40v %10v %v %v\n", b.BlobID, b.Length, formatTimestampPrecise(b.Timestamp), b.Superseded)
 	}
 
 	if *blockIndexListSummary {
-		fmt.Printf("total %v blocks\n", len(blks))
+		fmt.Printf("total %v indexes\n", len(blks))
 	}
 
 	return nil

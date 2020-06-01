@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/repo/blob"
 )
 
 const verySmallContentFraction = 20 // blobs less than 1/verySmallContentFraction of maxPackSize are considered 'very small'
@@ -87,15 +89,18 @@ func (bm *Manager) compactAndDeleteIndexBlobs(ctx context.Context, indexBlobs []
 		return nil
 	}
 
-	formatLog(ctx).Debugf("compacting %v contents", len(indexBlobs))
+	formatLog(ctx).Debugf("compacting %v index blobs", len(indexBlobs))
 
-	t0 := time.Now() // allow:no-inject-time
 	bld := make(packIndexBuilder)
+
+	var inputs, outputs []blob.Metadata
 
 	for _, indexBlob := range indexBlobs {
 		if err := bm.addIndexBlobsToBuilder(ctx, bld, indexBlob, opt); err != nil {
-			return err
+			return errors.Wrap(err, "error adding index to builder")
 		}
+
+		inputs = append(inputs, indexBlob.Metadata)
 	}
 
 	var buf bytes.Buffer
@@ -103,32 +108,33 @@ func (bm *Manager) compactAndDeleteIndexBlobs(ctx context.Context, indexBlobs []
 		return errors.Wrap(err, "unable to build an index")
 	}
 
-	compactedIndexBlob, err := bm.writePackIndexesNew(ctx, buf.Bytes())
+	compactedIndexBlob, err := bm.indexBlobManager.writeIndexBlob(ctx, buf.Bytes())
 	if err != nil {
 		return errors.Wrap(err, "unable to write compacted indexes")
 	}
 
-	formatLog(ctx).Debugf("wrote compacted index (%v bytes) in %v", compactedIndexBlob, time.Since(t0)) // allow:no-inject-time
-
+	// compaction wrote index blob that's the same as one of the sources
+	// it must be a no-op.
 	for _, indexBlob := range indexBlobs {
-		if indexBlob.BlobID == compactedIndexBlob {
-			continue
+		if indexBlob.BlobID == compactedIndexBlob.BlobID {
+			formatLog(ctx).Debugf("compaction was a no-op")
+			return nil
 		}
+	}
 
-		bm.listCache.deleteListCache()
+	outputs = append(outputs, compactedIndexBlob)
 
-		if err := bm.st.DeleteBlob(ctx, indexBlob.BlobID); err != nil {
-			log(ctx).Warningf("unable to delete compacted blob %q: %v", indexBlob.BlobID, err)
-		}
+	if err := bm.indexBlobManager.registerCompaction(ctx, inputs, outputs); err != nil {
+		return errors.Wrap(err, "unable to register compaction")
 	}
 
 	return nil
 }
 
 func (bm *Manager) addIndexBlobsToBuilder(ctx context.Context, bld packIndexBuilder, indexBlob IndexBlobInfo, opt CompactOptions) error {
-	data, err := bm.getIndexBlobInternal(ctx, indexBlob.BlobID)
+	data, err := bm.indexBlobManager.getIndexBlob(ctx, indexBlob.BlobID)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "error getting index %q", indexBlob.BlobID)
 	}
 
 	index, err := openPackIndex(bytes.NewReader(data))
@@ -146,4 +152,18 @@ func (bm *Manager) addIndexBlobsToBuilder(ctx context.Context, bld packIndexBuil
 	})
 
 	return nil
+}
+
+func addBlobsToIndex(ndx map[blob.ID]*IndexBlobInfo, blobs []blob.Metadata) {
+	for _, it := range blobs {
+		if ndx[it.BlobID] == nil {
+			ndx[it.BlobID] = &IndexBlobInfo{
+				Metadata: blob.Metadata{
+					BlobID:    it.BlobID,
+					Length:    it.Length,
+					Timestamp: it.Timestamp,
+				},
+			}
+		}
+	}
 }

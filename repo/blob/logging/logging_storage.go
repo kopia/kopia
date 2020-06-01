@@ -22,9 +22,9 @@ func (s *loggingStorage) GetBlob(ctx context.Context, id blob.ID, offset, length
 	dt := time.Since(t0)
 
 	if len(result) < maxLoggedBlobLength {
-		s.printf(s.prefix+"GetBlob(%q,%v,%v)=(%#v, %#v) took %v", id, offset, length, result, err, dt)
+		s.printf(s.prefix+"GetBlob(%q,%v,%v)=(%v, %#v) took %v", id, offset, length, result, err, dt)
 	} else {
-		s.printf(s.prefix+"GetBlob(%q,%v,%v)=({%#v bytes}, %#v) took %v", id, offset, length, len(result), err, dt)
+		s.printf(s.prefix+"GetBlob(%q,%v,%v)=({%v bytes}, %#v) took %v", id, offset, length, len(result), err, dt)
 	}
 
 	return result, err
@@ -35,7 +35,7 @@ func (s *loggingStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Meta
 	result, err := s.base.GetMetadata(ctx, id)
 	dt := time.Since(t0)
 
-	s.printf(s.prefix+"GetMetadata(%q)=(%#v, %#v) took %v", id, result, err, dt)
+	s.printf(s.prefix+"GetMetadata(%q)=(%v, %#v) took %v", id, result, err, dt)
 
 	return result, err
 }

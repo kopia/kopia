@@ -22,6 +22,7 @@ import (
 	"github.com/kopia/kopia/internal/faketime"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/logging"
 )
 
 const (
@@ -202,7 +203,7 @@ func TestContentManagerEmpty(t *testing.T) {
 func verifyActiveIndexBlobCount(ctx context.Context, t *testing.T, bm *Manager, expected int) {
 	t.Helper()
 
-	blks, err := bm.IndexBlobs(ctx)
+	blks, err := bm.IndexBlobs(ctx, false)
 	if err != nil {
 		t.Errorf("error listing active index blobs: %v", err)
 		return
@@ -319,7 +320,7 @@ func TestContentManagerFailedToWritePack(t *testing.T) {
 		MaxPackSize: maxPackSize,
 		HMACSecret:  []byte("foo"),
 		MasterKey:   []byte("0123456789abcdef0123456789abcdef"),
-	}, CachingOptions{}, faketime.Frozen(fakeTime), nil)
+	}, nil, faketime.Frozen(fakeTime), nil)
 	if err != nil {
 		t.Fatalf("can't create bm: %v", err)
 	}
@@ -410,17 +411,13 @@ func TestContentManagerConcurrency(t *testing.T) {
 	verifyContent(ctx, t, bm4, bm2content, seededRandomData(32, 100))
 	verifyContent(ctx, t, bm4, bm3content, seededRandomData(33, 100))
 
-	if got, want := getIndexCount(data), 4; got != want {
-		t.Errorf("unexpected index count before compaction: %v, wanted %v", got, want)
-	}
+	validateIndexCount(t, data, 4, 0)
 
 	if err := bm4.CompactIndexes(ctx, CompactOptions{MaxSmallBlobs: 1}); err != nil {
 		t.Errorf("compaction error: %v", err)
 	}
 
-	if got, want := getIndexCount(data), 1; got != want {
-		t.Errorf("unexpected index count after compaction: %v, wanted %v", got, want)
-	}
+	validateIndexCount(t, data, 5, 1)
 
 	// new content manager at this point can see all data.
 	bm5 := newTestContentManager(t, data, keyTime, nil)
@@ -434,6 +431,30 @@ func TestContentManagerConcurrency(t *testing.T) {
 
 	if err := bm5.CompactIndexes(ctx, CompactOptions{MaxSmallBlobs: 1}); err != nil {
 		t.Errorf("compaction error: %v", err)
+	}
+}
+
+func validateIndexCount(t *testing.T, data map[blob.ID][]byte, wantIndexCount, wantCompactionLogCount int) {
+	t.Helper()
+
+	var indexCnt, compactionLogCnt int
+
+	for blobID := range data {
+		if strings.HasPrefix(string(blobID), indexBlobPrefix) {
+			indexCnt++
+		}
+
+		if strings.HasPrefix(string(blobID), compactionLogBlobPrefix) {
+			compactionLogCnt++
+		}
+	}
+
+	if got, want := indexCnt, wantIndexCount; got != want {
+		t.Fatalf("unexpected index blob count %v, want %v", got, want)
+	}
+
+	if got, want := compactionLogCnt, wantCompactionLogCount; got != want {
+		t.Fatalf("unexpected compaction log blob count %v, want %v", got, want)
 	}
 }
 
@@ -1694,6 +1715,82 @@ func verifyVersionCompat(t *testing.T, writeVersion int) {
 	verifyContentManagerDataSet(ctx, t, mgr, dataSet)
 }
 
+func TestReadsOwnWritesWithEventualConsistencyPersistentOwnWritesCache(t *testing.T) {
+	data := blobtesting.DataMap{}
+	timeNow := faketime.AutoAdvance(fakeTime, 1*time.Second)
+	st := blobtesting.NewMapStorage(data, nil, timeNow)
+	cacheData := blobtesting.DataMap{}
+	cacheKeyTime := map[blob.ID]time.Time{}
+	cacheSt := blobtesting.NewMapStorage(cacheData, cacheKeyTime, timeNow)
+	ecst := blobtesting.NewEventuallyConsistentStorage(
+		logging.NewWrapper(st, t.Logf, "[STORAGE] "),
+		3*time.Second,
+		timeNow)
+
+	// disable own writes cache, will still be ok if store is strongly consistent
+	verifyReadsOwnWrites(t, ecst, timeNow, &persistentOwnWritesCache{
+		st:      cacheSt,
+		timeNow: timeNow,
+	})
+}
+
+func TestReadsOwnWritesWithStrongConsistencyAndNoCaching(t *testing.T) {
+	data := blobtesting.DataMap{}
+	timeNow := faketime.AutoAdvance(fakeTime, 1*time.Second)
+	st := blobtesting.NewMapStorage(data, nil, timeNow)
+
+	// if we used nullOwnWritesCache and eventual consistency, the test would fail
+	// st = blobtesting.NewEventuallyConsistentStorage(logging.NewWrapper(st, t.Logf, "[STORAGE] "), 0.1)
+
+	// disable own writes cache, will still be ok if store is strongly consistent
+	verifyReadsOwnWrites(t, st, timeNow, &nullOwnWritesCache{})
+}
+
+func TestReadsOwnWritesWithEventualConsistencyInMemoryOwnWritesCache(t *testing.T) {
+	data := blobtesting.DataMap{}
+	timeNow := faketime.AutoAdvance(fakeTime, 1*time.Second)
+	st := blobtesting.NewMapStorage(data, nil, timeNow)
+	ecst := blobtesting.NewEventuallyConsistentStorage(
+		logging.NewWrapper(st, t.Logf, "[STORAGE] "),
+		3*time.Second,
+		timeNow)
+
+	verifyReadsOwnWrites(t, ecst, timeNow, &memoryOwnWritesCache{timeNow: timeNow})
+}
+
+func verifyReadsOwnWrites(t *testing.T, st blob.Storage, timeNow func() time.Time, sharedOwnWritesCache ownWritesCache) {
+	ctx := testlogging.Context(t)
+	cachingOptions := &CachingOptions{
+		ownWritesCache: sharedOwnWritesCache,
+	}
+
+	bm := newTestContentManagerWithStorageAndCaching(t, st, cachingOptions, timeNow)
+
+	ids := make([]ID, 100)
+	for i := 0; i < len(ids); i++ {
+		ids[i] = writeContentAndVerify(ctx, t, bm, seededRandomData(i, maxPackCapacity/2))
+
+		for j := 0; j < i; j++ {
+			// verify all contents written so far
+			verifyContent(ctx, t, bm, ids[j], seededRandomData(j, maxPackCapacity/2))
+		}
+
+		// every 10 contents, create new content manager
+		if i%10 == 0 {
+			t.Logf("------- reopening -----")
+			must(t, bm.Close(ctx))
+			bm = newTestContentManagerWithStorageAndCaching(t, st, cachingOptions, timeNow)
+		}
+	}
+
+	must(t, bm.Close(ctx))
+	bm = newTestContentManagerWithStorageAndCaching(t, st, cachingOptions, timeNow)
+
+	for i := 0; i < len(ids); i++ {
+		verifyContent(ctx, t, bm, ids[i], seededRandomData(i, maxPackCapacity/2))
+	}
+}
+
 func verifyContentManagerDataSet(ctx context.Context, t *testing.T, mgr *Manager, dataSet map[ID][]byte) {
 	for contentID, originalPayload := range dataSet {
 		v, err := mgr.GetContent(ctx, contentID)
@@ -1714,6 +1811,10 @@ func newTestContentManager(t *testing.T, data blobtesting.DataMap, keyTime map[b
 }
 
 func newTestContentManagerWithStorage(t *testing.T, st blob.Storage, timeFunc func() time.Time) *Manager {
+	return newTestContentManagerWithStorageAndCaching(t, st, nil, timeFunc)
+}
+
+func newTestContentManagerWithStorageAndCaching(t *testing.T, st blob.Storage, co *CachingOptions, timeFunc func() time.Time) *Manager {
 	if timeFunc == nil {
 		timeFunc = faketime.AutoAdvance(fakeTime, 1*time.Second)
 	}
@@ -1724,7 +1825,7 @@ func newTestContentManagerWithStorage(t *testing.T, st blob.Storage, timeFunc fu
 		HMACSecret:  hmacSecret,
 		MaxPackSize: maxPackSize,
 		Version:     1,
-	}, CachingOptions{}, timeFunc, nil)
+	}, co, timeFunc, nil)
 	if err != nil {
 		panic("can't create content manager: " + err.Error())
 	}
@@ -1732,18 +1833,6 @@ func newTestContentManagerWithStorage(t *testing.T, st blob.Storage, timeFunc fu
 	bm.checkInvariantsOnUnlock = true
 
 	return bm
-}
-
-func getIndexCount(d blobtesting.DataMap) int {
-	var cnt int
-
-	for blobID := range d {
-		if strings.HasPrefix(string(blobID), newIndexBlobPrefix) {
-			cnt++
-		}
-	}
-
-	return cnt
 }
 
 func verifyContentNotFound(ctx context.Context, t *testing.T, bm *Manager, contentID ID) {
@@ -1760,7 +1849,7 @@ func verifyContent(ctx context.Context, t *testing.T, bm *Manager, contentID ID,
 
 	b2, err := bm.GetContent(ctx, contentID)
 	if err != nil {
-		t.Errorf("unable to read content %q: %v", contentID, err)
+		t.Fatalf("unable to read content %q: %v", contentID, err)
 		return
 	}
 
@@ -1892,4 +1981,12 @@ func getContentInfo(t *testing.T, bm *Manager, c ID) Info {
 	}
 
 	return i
+}
+
+func must(t *testing.T, err error) {
+	t.Helper()
+
+	if err != nil {
+		t.Fatal(err)
+	}
 }
