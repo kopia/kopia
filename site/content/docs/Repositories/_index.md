@@ -180,7 +180,7 @@ You must indicate the location of the password file, ip of the server and port
 $ kopia server --htpasswd-file /tmp/htpasswd --address 123.34.56.78:51515
 ```
 
->**All datas are transfered encrypted. However, you should consider enabling https with ```--tls-cert-file``` and ```--tls-key-file``` settings**
+>**All data are transfered encrypted. However, you should consider enabling https with ```--tls-cert-file``` and ```--tls-key-file``` settings**
 
 #### On client computer
 
