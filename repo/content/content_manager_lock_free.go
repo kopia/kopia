@@ -19,6 +19,8 @@ import (
 	"github.com/kopia/kopia/repo/hashing"
 )
 
+const indexBlobCompactionWarningThreshold = 100
+
 // lockFreeManager contains parts of Manager state that can be accessed without locking
 type lockFreeManager struct {
 	// this one is not lock-free
@@ -117,6 +119,10 @@ func (bm *lockFreeManager) loadPackIndexesUnlocked(ctx context.Context) ([]Index
 			updated, err = bm.committedContents.use(ctx, indexBlobIDs)
 			if err != nil {
 				return nil, false, err
+			}
+
+			if len(indexBlobs) > indexBlobCompactionWarningThreshold {
+				log(ctx).Warningf("Found too many index blobs (%v), this may result in degraded performance.\n\nPlease ensure periodic repository maintenance is enabled or run 'kopia maintenance'.", len(indexBlobs))
 			}
 
 			return indexBlobs, updated, nil
