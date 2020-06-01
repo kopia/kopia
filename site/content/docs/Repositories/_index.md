@@ -109,15 +109,6 @@ $ kopia repository connect b2
 
 ---
 
-## Sftp
-
-
----
-
-## Webdav
-
----
-
 ## Local storage
 
 Local storage includes any directory mounted and accessible. You can mount any readable directory avaible on your storage, a directory on usb device, a directory mounted with smb, ntfs, sshfs or similar.
