@@ -53,7 +53,7 @@ $ kopia repository connect from-config --token 03Fy598cYIqbMlNNDz9VLU0K6Pk9alC..
 NOTICE: The token printed above can be trivially decoded to reveal the repository password. Do not store it in an unsecured place.
 ```
 
-> NOTE: Make sure to safeguard the repository token, as it gives full access to the repository to anybody in its posession.
+> NOTE: Make sure to safeguard the repository token, as it gives full access to the repository to anybody in its possession.
 
 ### Configuration File
 

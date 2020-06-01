@@ -32,7 +32,7 @@ func emitFlags(w io.Writer, flags []*kingpin.FlagModel) {
 		return
 	}
 
-	fmt.Fprintf(w, "| Flag | Short | Defaut | Help |\n")
+	fmt.Fprintf(w, "| Flag | Short | Default | Help |\n")
 	fmt.Fprintf(w, "| ---- | ----- | --- | --- |\n")
 
 	for _, f := range sortFlags(flags) {

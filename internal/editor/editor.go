@@ -18,7 +18,7 @@ import (
 
 var log = logging.GetContextLoggerFunc("editor")
 
-// EditLoop launches OS-specific editor (VI, notepad.exe or anoter editor configured through environment variables)
+// EditLoop launches OS-specific editor (VI, notepad.exe or another editor configured through environment variables)
 // It creates a temporary file with 'initial' contents and repeatedly invokes the editor until the provided 'parse' function
 // returns nil result indicating success. The 'parse' function is passed the contents of edited files without # line comments.
 func EditLoop(ctx context.Context, fname, initial string, parse func(updated string) error) error {

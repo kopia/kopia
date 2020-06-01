@@ -55,7 +55,7 @@ To connect to a repository that already exists, simply use `kopia repository con
 $ kopia repository connect google --bucket kopia-test-123
 ```
 
-[Detailed informations and settings](/docs/reference/command-line/common/repository-connect-filesystem/)
+[Detailed information and settings](/docs/reference/command-line/common/repository-connect-filesystem/)
 
 ---
 
@@ -77,10 +77,10 @@ $ kopia repository create s3 \
 ### Connecting To Repository
 
 ```shell
-$ kopia repository connect s3 
+$ kopia repository connect s3
 ```
 
-[Detailed informations and settings](/docs/reference/command-line/common/repository-create-s3/)
+[Detailed information and settings](/docs/reference/command-line/common/repository-create-s3/)
 
 ---
 
@@ -102,16 +102,16 @@ $ kopia repository connect b2 \
 ### Connecting To Repository
 
 ```shell
-$ kopia repository connect b2 
+$ kopia repository connect b2
 ```
 
-[Detailed informations and settings](/docs/reference/command-line/common/repository-connect-b2/)
+[Detailed information and settings](/docs/reference/command-line/common/repository-connect-b2/)
 
 ---
 
 ## Local storage
 
-Local storage includes any directory mounted and accessible. You can mount any readable directory avaible on your storage, a directory on usb device, a directory mounted with smb, ntfs, sshfs or similar.
+Local storage includes any directory mounted and accessible. You can mount any readable directory available on your storage, a directory on usb device, a directory mounted with smb, ntfs, sshfs or similar.
 
 ### Creating a repository
 
@@ -134,7 +134,7 @@ $ find /tmp/my-repository -type f
 /tmp/my-repository/kopia.repository.f
 ```
 
-[Detailed informations and settings](/docs/reference/command-line/common/repository-connect-filesystem/)
+[Detailed information and settings](/docs/reference/command-line/common/repository-connect-filesystem/)
 
 ---
 
@@ -156,7 +156,7 @@ $ kopia repository create filesystem --path /tmp/my-repository
 ```
 
 * Create a password file
-Password files are created with [httpaswd](https://httpd.apache.org/docs/2.4/programs/htpasswd.html). Username must be formated like this : 
+Password files are created with [httpaswd](https://httpd.apache.org/docs/2.4/programs/htpasswd.html). Username must be formatted like this :
 
 ```
 <client-username>@<client-host-name-lowercase-without-domain>
@@ -180,7 +180,7 @@ You must indicate the location of the password file, ip of the server and port
 $ kopia server --htpasswd-file /tmp/htpasswd --address 123.34.56.78:51515
 ```
 
->**All data are transfered encrypted. However, you should consider enabling https with ```--tls-cert-file``` and ```--tls-key-file``` settings**
+>**All data transferred is encrypted. However, you should consider enabling https with ```--tls-cert-file``` and ```--tls-key-file``` settings**
 
 #### On client computer
 
