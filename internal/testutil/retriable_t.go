@@ -14,7 +14,7 @@ const (
 	maxSleep     = 10 * time.Second
 )
 
-// RetriableT is a wrapper around *testin.T with the same methods that supports retrying tests.
+// RetriableT is a wrapper around *testing.T with the same methods that supports retrying tests.
 type RetriableT struct {
 	*testing.T
 	suppressErrors bool

@@ -10,7 +10,7 @@ Kopia uploads directories and files to remote storage called [Repository](../arc
 
 Kopia uses [content-addressable storage](https://en.wikipedia.org/wiki/Content-addressable storage) for snapshots, which has many benefits:
 
-* Each snapshot is always incremental, no data included in previous snapshots is ever re-uploaded to the repository based on file content. 
+* Each snapshot is always incremental, no data included in previous snapshots is ever re-uploaded to the repository based on file content.
 
 * Multiple copies of the same file will be stored once. This is known as de-duplication.
 
@@ -34,16 +34,16 @@ All data is encrypted using per-content keys derived from the 256-bit master key
 
 ### Compression
 
-Kopia can compress your datas to save extra storage and bandwidth. There are actually 3 compression methods available :
+Kopia can compress your data to save extra storage and bandwidth. There are actually 3 compression methods available :
 
-* [pgzip](https://github.com/klauspost/pgzip) : gzip is a very common compression algorithm. It was originaly created as a replacement for the compress program used in early Unix systems.
+* [pgzip](https://github.com/klauspost/pgzip) : gzip is a very common compression algorithm. It was originally created as a replacement for the compress program used in early Unix systems.
 Compression and decompression can be parallelized to speed up the process.
 
 * [s2](https://github.com/klauspost/compress/tree/master/s2) : S2 is an extension of [Snappy](https://github.com/google/snappy). It's aimed for high throughput, which is why it features concurrent compression for bigger payloads.
 
 * [zstd](https://github.com/klauspost/compress/tree/master/zstd) : [Zstandard](https://facebook.github.io/zstd/) is a real-time compression algorithm, providing high compression ratios. It offers a very wide range of compression / speed trade-off, while being backed by a very fast decoder. A high performance compression algorithm is implemented. For now focused on speed.
 
-You can activate compression on a per directory basis 
+You can activate compression on a per directory basis
 
 ```shell
 kopia policy set <path> --compression=<pgzip|s2|zstd>

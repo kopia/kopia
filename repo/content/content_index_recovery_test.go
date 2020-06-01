@@ -61,7 +61,7 @@ func TestContentIndexRecovery(t *testing.T) {
 		t.Errorf("invalid # of contents recovered: %v, want %v", got, want)
 	}
 
-	// contents are stil not found
+	// contents are still not found
 	verifyContentNotFound(ctx, t, bm, content1)
 	verifyContentNotFound(ctx, t, bm, content2)
 	verifyContentNotFound(ctx, t, bm, content3)
