@@ -237,6 +237,8 @@ func (p *cliProgress) Finish() {
 	}
 
 	atomic.StoreInt32(&p.uploadFinished, 1)
+	atomic.StoreInt32(&p.uploading, 0)
+
 	p.output(defaultColor, "")
 }
 

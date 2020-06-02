@@ -145,8 +145,10 @@ func maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) er
 
 			err = act(ctx, rep)
 
-			if err == nil && rep != nil {
-				err = maybeRunMaintenance(ctx, rep)
+			if rep != nil {
+				if merr := maybeRunMaintenance(ctx, rep); merr != nil {
+					log(ctx).Warningf("error running maintenance: %v", merr)
+				}
 			}
 
 			if rep != nil && required {
