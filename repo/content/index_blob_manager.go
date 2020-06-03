@@ -23,6 +23,7 @@ type indexBlobManager interface {
 	listIndexBlobs(ctx context.Context, includeInactive bool) ([]IndexBlobInfo, error)
 	getIndexBlob(ctx context.Context, blobID blob.ID) ([]byte, error)
 	registerCompaction(ctx context.Context, inputs, outputs []blob.Metadata) error
+	cleanup(ctx context.Context) error
 	flushCache()
 }
 
@@ -261,7 +262,6 @@ func (m *indexBlobManagerImpl) getCleanupEntries(ctx context.Context, latestServ
 		}
 
 		le.age = latestServerBlobTime.Sub(cb.Timestamp)
-
 		results[cb.BlobID] = le
 	}
 
@@ -286,18 +286,7 @@ func (m *indexBlobManagerImpl) deleteOldBlobs(ctx context.Context, latestBlob bl
 		return errors.Wrap(err, "unable to get compaction log entries")
 	}
 
-	allCleanupBlobs, err := m.listCache.listBlobs(ctx, cleanupBlobPrefix)
-	if err != nil {
-		return errors.Wrap(err, "error listing cleanup blobs")
-	}
-
-	cleanupEntries, err := m.getCleanupEntries(ctx, latestBlob.Timestamp, allCleanupBlobs)
-	if err != nil {
-		return errors.Wrap(err, "error loading cleanup blobs")
-	}
-
 	indexBlobsToDelete := m.findIndexBlobsToDelete(ctx, latestBlob.Timestamp, compactionBlobEntries)
-	compactionLogBlobsToDelete, cleanupBlobsToDelete := m.findBlobsToDelete(cleanupEntries)
 
 	// note that we must always delete index blobs first before compaction logs
 	// otherwise we may inadvertedly resurrect an index blob that should have been removed.
@@ -311,17 +300,7 @@ func (m *indexBlobManagerImpl) deleteOldBlobs(ctx context.Context, latestBlob bl
 		return errors.Wrap(err, "unable to schedule delayed cleanup of blobs")
 	}
 
-	if err := m.deleteBlobsFromStorageAndCache(ctx, compactionLogBlobsToDelete); err != nil {
-		return errors.Wrap(err, "unable to delete compaction logs")
-	}
-
-	if err := m.deleteBlobsFromStorageAndCache(ctx, cleanupBlobsToDelete); err != nil {
-		return errors.Wrap(err, "unable to delete cleanup blobs")
-	}
-
-	m.flushCache()
-
-	return nil
+	return m.cleanupCleanupBlobs(ctx, latestBlob.Timestamp)
 }
 
 func (m *indexBlobManagerImpl) findIndexBlobsToDelete(ctx context.Context, latestServerBlobTime time.Time, entries map[blob.ID]*compactionLogEntry) []blob.ID {
@@ -362,10 +341,10 @@ func (m *indexBlobManagerImpl) findCompactionLogBlobsToDelayCleanup(ctx context.
 }
 
 func (m *indexBlobManagerImpl) findBlobsToDelete(entries map[blob.ID]*cleanupEntry) (compactionLogs, cleanupBlobs []blob.ID) {
-	for _, e := range entries {
+	for k, e := range entries {
 		if e.age > m.maxEventualConsistencySettleTime {
 			compactionLogs = append(compactionLogs, e.BlobID)
-			cleanupBlobs = append(cleanupBlobs, e.BlobID)
+			cleanupBlobs = append(cleanupBlobs, k)
 		}
 	}
 
@@ -399,6 +378,47 @@ func (m *indexBlobManagerImpl) deleteBlobsFromStorageAndCache(ctx context.Contex
 			return errors.Wrapf(err, "unable to delete blob %v from own-writes cache", blobID)
 		}
 	}
+
+	return nil
+}
+
+func (m *indexBlobManagerImpl) cleanup(ctx context.Context) error {
+	return m.cleanupCleanupBlobs(ctx, time.Time{})
+}
+
+func (m *indexBlobManagerImpl) cleanupCleanupBlobs(ctx context.Context, latestStorageWriteTimestamp time.Time) error {
+	allCleanupBlobs, err := m.listCache.listBlobs(ctx, cleanupBlobPrefix)
+	if err != nil {
+		return errors.Wrap(err, "error listing cleanup blobs")
+	}
+
+	if latestStorageWriteTimestamp.IsZero() {
+		// determine latest storage write time of a cleanup blob
+		for _, cb := range allCleanupBlobs {
+			if cb.Timestamp.After(latestStorageWriteTimestamp) {
+				latestStorageWriteTimestamp = cb.Timestamp
+			}
+		}
+	}
+
+	// load cleanup entries and compute their age
+	cleanupEntries, err := m.getCleanupEntries(ctx, latestStorageWriteTimestamp, allCleanupBlobs)
+	if err != nil {
+		return errors.Wrap(err, "error loading cleanup blobs")
+	}
+
+	// pick cleanup entries to delete that are old enough
+	compactionLogsToDelete, cleanupBlobsToDelete := m.findBlobsToDelete(cleanupEntries)
+
+	if err := m.deleteBlobsFromStorageAndCache(ctx, compactionLogsToDelete); err != nil {
+		return errors.Wrap(err, "unable to delete cleanup blobs")
+	}
+
+	if err := m.deleteBlobsFromStorageAndCache(ctx, cleanupBlobsToDelete); err != nil {
+		return errors.Wrap(err, "unable to delete cleanup blobs")
+	}
+
+	m.flushCache()
 
 	return nil
 }
