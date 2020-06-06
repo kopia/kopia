@@ -300,7 +300,7 @@ func (m *indexBlobManagerImpl) deleteOldBlobs(ctx context.Context, latestBlob bl
 		return errors.Wrap(err, "unable to schedule delayed cleanup of blobs")
 	}
 
-	return m.cleanupCleanupBlobs(ctx, latestBlob.Timestamp)
+	return nil
 }
 
 func (m *indexBlobManagerImpl) findIndexBlobsToDelete(ctx context.Context, latestServerBlobTime time.Time, entries map[blob.ID]*compactionLogEntry) []blob.ID {
@@ -383,21 +383,17 @@ func (m *indexBlobManagerImpl) deleteBlobsFromStorageAndCache(ctx context.Contex
 }
 
 func (m *indexBlobManagerImpl) cleanup(ctx context.Context) error {
-	return m.cleanupCleanupBlobs(ctx, time.Time{})
-}
-
-func (m *indexBlobManagerImpl) cleanupCleanupBlobs(ctx context.Context, latestStorageWriteTimestamp time.Time) error {
 	allCleanupBlobs, err := m.listCache.listBlobs(ctx, cleanupBlobPrefix)
 	if err != nil {
 		return errors.Wrap(err, "error listing cleanup blobs")
 	}
 
-	if latestStorageWriteTimestamp.IsZero() {
-		// determine latest storage write time of a cleanup blob
-		for _, cb := range allCleanupBlobs {
-			if cb.Timestamp.After(latestStorageWriteTimestamp) {
-				latestStorageWriteTimestamp = cb.Timestamp
-			}
+	// determine latest storage write time of a cleanup blob
+	var latestStorageWriteTimestamp time.Time
+
+	for _, cb := range allCleanupBlobs {
+		if cb.Timestamp.After(latestStorageWriteTimestamp) {
+			latestStorageWriteTimestamp = cb.Timestamp
 		}
 	}
 
