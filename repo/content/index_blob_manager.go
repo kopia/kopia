@@ -49,6 +49,12 @@ type compactionLogEntry struct {
 type cleanupEntry struct {
 	BlobID blob.ID `json:"blobID"`
 
+	// We're adding cleanup schedule time to make cleanup blobs unique which prevents them
+	// from being rewritten, random would probably work just as well or another mechanism to prevent
+	// deletion of blobs that does not require reading them in the first place (which messes up
+	// read-after-create promise in S3).
+	CleanupScheduleTime time.Time `json:"cleanupScheduleTime"`
+
 	age time.Duration // not serialized, computed on load
 }
 
@@ -261,7 +267,8 @@ func (m *indexBlobManagerImpl) getCleanupEntries(ctx context.Context, latestServ
 			return nil, errors.Wrap(err, "unable to read compaction log entry %q")
 		}
 
-		le.age = latestServerBlobTime.Sub(cb.Timestamp)
+		le.age = latestServerBlobTime.Sub(le.CleanupScheduleTime)
+
 		results[cb.BlobID] = le
 	}
 
@@ -296,7 +303,7 @@ func (m *indexBlobManagerImpl) deleteOldBlobs(ctx context.Context, latestBlob bl
 
 	compactionLogBlobsToDelayCleanup := m.findCompactionLogBlobsToDelayCleanup(ctx, compactionBlobs)
 
-	if err := m.delayCleanupBlobs(ctx, compactionLogBlobsToDelayCleanup); err != nil {
+	if err := m.delayCleanupBlobs(ctx, compactionLogBlobsToDelayCleanup, latestBlob.Timestamp); err != nil {
 		return errors.Wrap(err, "unable to schedule delayed cleanup of blobs")
 	}
 
@@ -351,10 +358,11 @@ func (m *indexBlobManagerImpl) findBlobsToDelete(entries map[blob.ID]*cleanupEnt
 	return
 }
 
-func (m *indexBlobManagerImpl) delayCleanupBlobs(ctx context.Context, blobIDs []blob.ID) error {
+func (m *indexBlobManagerImpl) delayCleanupBlobs(ctx context.Context, blobIDs []blob.ID, cleanupScheduleTime time.Time) error {
 	for _, b := range blobIDs {
 		payload, err := json.Marshal(&cleanupEntry{
-			BlobID: b,
+			BlobID:              b,
+			CleanupScheduleTime: cleanupScheduleTime,
 		})
 		if err != nil {
 			return errors.Wrap(err, "unable to marshal cleanup log bytes")
