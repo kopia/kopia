@@ -47,7 +47,7 @@ type compactionLogEntry struct {
 
 // cleanupEntry represents contents of cleanup entry stored in `l` blob.
 type cleanupEntry struct {
-	BlobID blob.ID `json:"blobID"`
+	BlobIDs []blob.ID `json:"blobs"`
 
 	// We're adding cleanup schedule time to make cleanup blobs unique which prevents them
 	// from being rewritten, random would probably work just as well or another mechanism to prevent
@@ -350,7 +350,7 @@ func (m *indexBlobManagerImpl) findCompactionLogBlobsToDelayCleanup(ctx context.
 func (m *indexBlobManagerImpl) findBlobsToDelete(entries map[blob.ID]*cleanupEntry) (compactionLogs, cleanupBlobs []blob.ID) {
 	for k, e := range entries {
 		if e.age > m.maxEventualConsistencySettleTime {
-			compactionLogs = append(compactionLogs, e.BlobID)
+			compactionLogs = append(compactionLogs, e.BlobIDs...)
 			cleanupBlobs = append(cleanupBlobs, k)
 		}
 	}
@@ -359,18 +359,20 @@ func (m *indexBlobManagerImpl) findBlobsToDelete(entries map[blob.ID]*cleanupEnt
 }
 
 func (m *indexBlobManagerImpl) delayCleanupBlobs(ctx context.Context, blobIDs []blob.ID, cleanupScheduleTime time.Time) error {
-	for _, b := range blobIDs {
-		payload, err := json.Marshal(&cleanupEntry{
-			BlobID:              b,
-			CleanupScheduleTime: cleanupScheduleTime,
-		})
-		if err != nil {
-			return errors.Wrap(err, "unable to marshal cleanup log bytes")
-		}
+	if len(blobIDs) == 0 {
+		return nil
+	}
 
-		if _, err := m.encryptAndWriteBlob(ctx, payload, cleanupBlobPrefix); err != nil {
-			return errors.Wrap(err, "unable to cleanup log")
-		}
+	payload, err := json.Marshal(&cleanupEntry{
+		BlobIDs:             blobIDs,
+		CleanupScheduleTime: cleanupScheduleTime,
+	})
+	if err != nil {
+		return errors.Wrap(err, "unable to marshal cleanup log bytes")
+	}
+
+	if _, err := m.encryptAndWriteBlob(ctx, payload, cleanupBlobPrefix); err != nil {
+		return errors.Wrap(err, "unable to cleanup log")
 	}
 
 	return nil
