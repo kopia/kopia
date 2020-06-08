@@ -135,12 +135,18 @@ func (s *Server) handleAPIPossiblyNotConnected(f func(ctx context.Context, r *ht
 }
 
 func (s *Server) handleRefresh(ctx context.Context, r *http.Request) (interface{}, *apiError) {
-	log(ctx).Infof("refreshing")
+	if err := s.rep.Refresh(ctx); err != nil {
+		return nil, internalServerError(err)
+	}
+
 	return &serverapi.Empty{}, nil
 }
 
 func (s *Server) handleFlush(ctx context.Context, r *http.Request) (interface{}, *apiError) {
-	log(ctx).Infof("flushing")
+	if err := s.rep.Flush(ctx); err != nil {
+		return nil, internalServerError(err)
+	}
+
 	return &serverapi.Empty{}, nil
 }
 
