@@ -662,6 +662,11 @@ func (bm *Manager) SyncMetadataCache(ctx context.Context) error {
 	return nil
 }
 
+// DecryptBlob returns the contents of an encrypted blob that can be decrypted (n,m,l).
+func (bm *Manager) DecryptBlob(ctx context.Context, blobID blob.ID) ([]byte, error) {
+	return bm.indexBlobManager.getIndexBlob(ctx, blobID)
+}
+
 // ManagerOptions are the optional parameters for manager creation
 type ManagerOptions struct {
 	RepositoryFormatBytes []byte

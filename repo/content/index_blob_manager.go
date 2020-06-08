@@ -23,6 +23,7 @@ type indexBlobManager interface {
 	listIndexBlobs(ctx context.Context, includeInactive bool) ([]IndexBlobInfo, error)
 	getIndexBlob(ctx context.Context, blobID blob.ID) ([]byte, error)
 	registerCompaction(ctx context.Context, inputs, outputs []blob.Metadata) error
+	cleanup(ctx context.Context) error
 	flushCache()
 }
 
@@ -46,7 +47,13 @@ type compactionLogEntry struct {
 
 // cleanupEntry represents contents of cleanup entry stored in `l` blob.
 type cleanupEntry struct {
-	BlobID blob.ID `json:"blobID"`
+	BlobIDs []blob.ID `json:"blobIDs"`
+
+	// We're adding cleanup schedule time to make cleanup blobs unique which prevents them
+	// from being rewritten, random would probably work just as well or another mechanism to prevent
+	// deletion of blobs that does not require reading them in the first place (which messes up
+	// read-after-create promise in S3).
+	CleanupScheduleTime time.Time `json:"cleanupScheduleTime"`
 
 	age time.Duration // not serialized, computed on load
 }
@@ -260,7 +267,7 @@ func (m *indexBlobManagerImpl) getCleanupEntries(ctx context.Context, latestServ
 			return nil, errors.Wrap(err, "unable to read compaction log entry %q")
 		}
 
-		le.age = latestServerBlobTime.Sub(cb.Timestamp)
+		le.age = latestServerBlobTime.Sub(le.CleanupScheduleTime)
 
 		results[cb.BlobID] = le
 	}
@@ -286,18 +293,7 @@ func (m *indexBlobManagerImpl) deleteOldBlobs(ctx context.Context, latestBlob bl
 		return errors.Wrap(err, "unable to get compaction log entries")
 	}
 
-	allCleanupBlobs, err := m.listCache.listBlobs(ctx, cleanupBlobPrefix)
-	if err != nil {
-		return errors.Wrap(err, "error listing cleanup blobs")
-	}
-
-	cleanupEntries, err := m.getCleanupEntries(ctx, latestBlob.Timestamp, allCleanupBlobs)
-	if err != nil {
-		return errors.Wrap(err, "error loading cleanup blobs")
-	}
-
 	indexBlobsToDelete := m.findIndexBlobsToDelete(ctx, latestBlob.Timestamp, compactionBlobEntries)
-	compactionLogBlobsToDelete, cleanupBlobsToDelete := m.findBlobsToDelete(cleanupEntries)
 
 	// note that we must always delete index blobs first before compaction logs
 	// otherwise we may inadvertedly resurrect an index blob that should have been removed.
@@ -307,19 +303,9 @@ func (m *indexBlobManagerImpl) deleteOldBlobs(ctx context.Context, latestBlob bl
 
 	compactionLogBlobsToDelayCleanup := m.findCompactionLogBlobsToDelayCleanup(ctx, compactionBlobs)
 
-	if err := m.delayCleanupBlobs(ctx, compactionLogBlobsToDelayCleanup); err != nil {
+	if err := m.delayCleanupBlobs(ctx, compactionLogBlobsToDelayCleanup, latestBlob.Timestamp); err != nil {
 		return errors.Wrap(err, "unable to schedule delayed cleanup of blobs")
 	}
-
-	if err := m.deleteBlobsFromStorageAndCache(ctx, compactionLogBlobsToDelete); err != nil {
-		return errors.Wrap(err, "unable to delete compaction logs")
-	}
-
-	if err := m.deleteBlobsFromStorageAndCache(ctx, cleanupBlobsToDelete); err != nil {
-		return errors.Wrap(err, "unable to delete cleanup blobs")
-	}
-
-	m.flushCache()
 
 	return nil
 }
@@ -362,28 +348,31 @@ func (m *indexBlobManagerImpl) findCompactionLogBlobsToDelayCleanup(ctx context.
 }
 
 func (m *indexBlobManagerImpl) findBlobsToDelete(entries map[blob.ID]*cleanupEntry) (compactionLogs, cleanupBlobs []blob.ID) {
-	for _, e := range entries {
+	for k, e := range entries {
 		if e.age > m.maxEventualConsistencySettleTime {
-			compactionLogs = append(compactionLogs, e.BlobID)
-			cleanupBlobs = append(cleanupBlobs, e.BlobID)
+			compactionLogs = append(compactionLogs, e.BlobIDs...)
+			cleanupBlobs = append(cleanupBlobs, k)
 		}
 	}
 
 	return
 }
 
-func (m *indexBlobManagerImpl) delayCleanupBlobs(ctx context.Context, blobIDs []blob.ID) error {
-	for _, b := range blobIDs {
-		payload, err := json.Marshal(&cleanupEntry{
-			BlobID: b,
-		})
-		if err != nil {
-			return errors.Wrap(err, "unable to marshal cleanup log bytes")
-		}
+func (m *indexBlobManagerImpl) delayCleanupBlobs(ctx context.Context, blobIDs []blob.ID, cleanupScheduleTime time.Time) error {
+	if len(blobIDs) == 0 {
+		return nil
+	}
 
-		if _, err := m.encryptAndWriteBlob(ctx, payload, cleanupBlobPrefix); err != nil {
-			return errors.Wrap(err, "unable to cleanup log")
-		}
+	payload, err := json.Marshal(&cleanupEntry{
+		BlobIDs:             blobIDs,
+		CleanupScheduleTime: cleanupScheduleTime,
+	})
+	if err != nil {
+		return errors.Wrap(err, "unable to marshal cleanup log bytes")
+	}
+
+	if _, err := m.encryptAndWriteBlob(ctx, payload, cleanupBlobPrefix); err != nil {
+		return errors.Wrap(err, "unable to cleanup log")
 	}
 
 	return nil
@@ -399,6 +388,43 @@ func (m *indexBlobManagerImpl) deleteBlobsFromStorageAndCache(ctx context.Contex
 			return errors.Wrapf(err, "unable to delete blob %v from own-writes cache", blobID)
 		}
 	}
+
+	return nil
+}
+
+func (m *indexBlobManagerImpl) cleanup(ctx context.Context) error {
+	allCleanupBlobs, err := m.listCache.listBlobs(ctx, cleanupBlobPrefix)
+	if err != nil {
+		return errors.Wrap(err, "error listing cleanup blobs")
+	}
+
+	// determine latest storage write time of a cleanup blob
+	var latestStorageWriteTimestamp time.Time
+
+	for _, cb := range allCleanupBlobs {
+		if cb.Timestamp.After(latestStorageWriteTimestamp) {
+			latestStorageWriteTimestamp = cb.Timestamp
+		}
+	}
+
+	// load cleanup entries and compute their age
+	cleanupEntries, err := m.getCleanupEntries(ctx, latestStorageWriteTimestamp, allCleanupBlobs)
+	if err != nil {
+		return errors.Wrap(err, "error loading cleanup blobs")
+	}
+
+	// pick cleanup entries to delete that are old enough
+	compactionLogsToDelete, cleanupBlobsToDelete := m.findBlobsToDelete(cleanupEntries)
+
+	if err := m.deleteBlobsFromStorageAndCache(ctx, compactionLogsToDelete); err != nil {
+		return errors.Wrap(err, "unable to delete cleanup blobs")
+	}
+
+	if err := m.deleteBlobsFromStorageAndCache(ctx, cleanupBlobsToDelete); err != nil {
+		return errors.Wrap(err, "unable to delete cleanup blobs")
+	}
+
+	m.flushCache()
 
 	return nil
 }

@@ -31,16 +31,16 @@ func (bm *Manager) CompactIndexes(ctx context.Context, opt CompactOptions) error
 		return errors.Wrap(err, "error loading indexes")
 	}
 
-	contentsToCompact := bm.getContentsToCompact(ctx, indexBlobs, opt)
+	blobsToCompact := bm.getBlobsToCompact(ctx, indexBlobs, opt)
 
-	if err := bm.compactAndDeleteIndexBlobs(ctx, contentsToCompact, opt); err != nil {
-		log(ctx).Warningf("error performing quick compaction: %v", err)
+	if err := bm.compactIndexBlobs(ctx, blobsToCompact, opt); err != nil {
+		return errors.Wrap(err, "error performing compaction")
 	}
 
-	return nil
+	return bm.indexBlobManager.cleanup(ctx)
 }
 
-func (bm *Manager) getContentsToCompact(ctx context.Context, indexBlobs []IndexBlobInfo, opt CompactOptions) []IndexBlobInfo {
+func (bm *Manager) getBlobsToCompact(ctx context.Context, indexBlobs []IndexBlobInfo, opt CompactOptions) []IndexBlobInfo {
 	var nonCompactedBlobs, verySmallBlobs []IndexBlobInfo
 
 	var totalSizeNonCompactedBlobs, totalSizeVerySmallBlobs, totalSizeMediumSizedBlobs int64
@@ -80,7 +80,7 @@ func (bm *Manager) getContentsToCompact(ctx context.Context, indexBlobs []IndexB
 	return nonCompactedBlobs
 }
 
-func (bm *Manager) compactAndDeleteIndexBlobs(ctx context.Context, indexBlobs []IndexBlobInfo, opt CompactOptions) error {
+func (bm *Manager) compactIndexBlobs(ctx context.Context, indexBlobs []IndexBlobInfo, opt CompactOptions) error {
 	if len(indexBlobs) <= 1 {
 		return nil
 	}
