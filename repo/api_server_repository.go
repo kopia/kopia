@@ -118,7 +118,7 @@ func (r *apiServerRepository) Refresh(ctx context.Context) error {
 }
 
 func (r *apiServerRepository) Flush(ctx context.Context) error {
-	return nil
+	return r.cli.Post(ctx, "flush", nil, nil)
 }
 
 func (r *apiServerRepository) Close(ctx context.Context) error {
@@ -126,7 +126,7 @@ func (r *apiServerRepository) Close(ctx context.Context) error {
 		return errors.Wrap(err, "error closing object manager")
 	}
 
-	return nil
+	return r.Flush(ctx)
 }
 
 func (r *apiServerRepository) ContentInfo(ctx context.Context, contentID content.ID) (content.Info, error) {

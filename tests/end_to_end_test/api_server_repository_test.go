@@ -33,6 +33,9 @@ func TestAPIServerRepository(t *testing.T) {
 	e1.RunAndExpectSuccess(t, "repo", "connect", "filesystem", "--path", e.RepoDir, "--override-username", "not-foo", "--override-hostname", "bar")
 	e1.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
 
+	originalPBlobCount := len(e1.RunAndExpectSuccess(t, "blob", "list", "--prefix=p"))
+	originalQBlobCount := len(e1.RunAndExpectSuccess(t, "blob", "list", "--prefix=q"))
+
 	htpasswordFile := filepath.Join(e.ConfigDir, "htpasswd.txt")
 	ioutil.WriteFile(htpasswordFile, htpasswdFileContents, 0755)
 
@@ -81,12 +84,35 @@ func TestAPIServerRepository(t *testing.T) {
 		t.Errorf("invalid number of snapshots for foo@bar")
 	}
 
+	// create very small directory
+	smallDataDir := filepath.Join(sharedTestDataDirBase, "dir-small")
+
+	testenv.CreateDirectoryTree(smallDataDir, testenv.DirectoryTreeOptions{
+		Depth:                  1,
+		MaxSubdirsPerDirectory: 1,
+		MaxFilesPerDirectory:   1,
+		MaxFileSize:            100,
+	}, nil)
+
+	// create snapshot of a very small directory using remote repository client
+	e2.RunAndExpectSuccess(t, "snapshot", "create", smallDataDir)
+
+	// make sure snapshot created by the client resulted in blobs being created by the server
+	// as opposed to buffering it in memory
+	if got, want := len(e.RunAndExpectSuccess(t, "blob", "list", "--prefix=p")), originalPBlobCount; got <= want {
+		t.Errorf("unexpected number of P blobs on the server: %v, wanted > %v", got, want)
+	}
+
+	if got, want := len(e.RunAndExpectSuccess(t, "blob", "list", "--prefix=q")), originalQBlobCount; got <= want {
+		t.Errorf("unexpected number of Q blobs on the server: %v, wanted > %v", got, want)
+	}
+
 	// create snapshot using remote repository client
 	e2.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2)
 
 	// now should see two snapshots
 	snapshots = e2.ListSnapshotsAndExpectSuccess(t)
-	if got, want := len(snapshots), 2; got != want {
+	if got, want := len(snapshots), 3; got != want {
 		t.Errorf("invalid number of snapshots for foo@bar")
 	}
 }
