@@ -47,7 +47,7 @@ type compactionLogEntry struct {
 
 // cleanupEntry represents contents of cleanup entry stored in `l` blob.
 type cleanupEntry struct {
-	BlobIDs []blob.ID `json:"blobs"`
+	BlobIDs []blob.ID `json:"blobIDs"`
 
 	// We're adding cleanup schedule time to make cleanup blobs unique which prevents them
 	// from being rewritten, random would probably work just as well or another mechanism to prevent
