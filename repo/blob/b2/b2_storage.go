@@ -80,11 +80,31 @@ func (s *b2Storage) GetBlob(ctx context.Context, id blob.ID, offset, length int6
 	return v.([]byte), nil
 }
 
+func (s *b2Storage) resolveFileID(fileName string) (string, error) {
+	resp, err := s.bucket.ListFileVersions(fileName, "", 1)
+	if err != nil {
+		return "", err
+	}
+
+	if len(resp.Files) > 0 {
+		if resp.Files[0].Name == fileName && resp.Files[0].Action == backblaze.Upload {
+			return resp.Files[0].ID, nil
+		}
+	}
+
+	return "", nil
+}
+
 func (s *b2Storage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {
 	fileName := s.getObjectNameString(id)
 
 	attempt := func() (interface{}, error) {
-		fi, err := s.bucket.GetFileInfo(fileName)
+		fileID, err := s.resolveFileID(fileName)
+		if err != nil {
+			return nil, err
+		}
+
+		fi, err := s.bucket.GetFileInfo(fileID)
 		if err != nil {
 			return nil, err
 		}
