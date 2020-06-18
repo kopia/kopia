@@ -5,7 +5,7 @@ go 1.15
 require (
 	bazil.org/fuse v0.0.0-20200117225306-7b5117fecadc
 	cloud.google.com/go/storage v1.12.0
-	contrib.go.opencensus.io/exporter/prometheus v0.1.0
+	contrib.go.opencensus.io/exporter/prometheus v0.2.0
 	github.com/Azure/azure-pipeline-go v0.2.2 // indirect
 	github.com/Azure/azure-storage-blob-go v0.8.0
 	github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d // indirect
@@ -38,13 +38,13 @@ require (
 	github.com/pkg/profile v1.5.0
 	github.com/pkg/sftp v1.11.0
 	github.com/pquerna/ffjson v0.0.0-20190930134022-aa0246cd15f7 // indirect
-	github.com/prometheus/client_golang v1.6.0
+	github.com/prometheus/client_golang v1.7.1
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 	github.com/stretchr/testify v1.5.1
 	github.com/studio-b12/gowebdav v0.0.0-20200303150724-9380631c29a1
 	github.com/tg123/go-htpasswd v1.0.0
 	github.com/zalando/go-keyring v0.0.0-20200121091418-667557018717
-	go.opencensus.io v0.22.3
+	go.opencensus.io v0.22.4
 	gocloud.dev v0.19.0
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
 	golang.org/x/exp v0.0.0-20200917184745-18d7dbdd5567
