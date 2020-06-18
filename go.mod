@@ -32,7 +32,7 @@ require (
 	github.com/mattn/go-ieproxy v0.0.1 // indirect
 	github.com/minio/minio v0.0.0-20200922223427-0537a21b7948
 	github.com/minio/minio-go/v6 v6.0.58-0.20200612001654-a57fec8037ec
-	github.com/natefinch/atomic v0.0.0-20150920032501-a62ce929ffcc
+	github.com/natefinch/atomic v0.0.0-20200526193002-18c0533a5b09
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
 	github.com/pkg/errors v0.9.1
 	github.com/pkg/profile v1.5.0
