@@ -4,7 +4,7 @@ go 1.15
 
 require (
 	bazil.org/fuse v0.0.0-20200117225306-7b5117fecadc
-	cloud.google.com/go/storage v1.8.0
+	cloud.google.com/go/storage v1.12.0
 	contrib.go.opencensus.io/exporter/prometheus v0.1.0
 	github.com/Azure/azure-pipeline-go v0.2.2 // indirect
 	github.com/Azure/azure-storage-blob-go v0.8.0
@@ -46,16 +46,15 @@ require (
 	github.com/zalando/go-keyring v0.0.0-20200121091418-667557018717
 	go.opencensus.io v0.22.3
 	gocloud.dev v0.19.0
-	golang.org/x/crypto v0.0.0-20200510223506-06a226fb4e37
-	golang.org/x/exp v0.0.0-20200513190911-00229845015e
-	golang.org/x/mod v0.3.0
-	golang.org/x/net v0.0.0-20200520182314-0ba52f642ac2
-	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
-	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a
-	golang.org/x/sys v0.0.0-20200511232937-7e40ca221e25
-	golang.org/x/tools v0.0.0-20200521155704-91d71f6c2f04 // indirect
-	google.golang.org/api v0.25.0
-	google.golang.org/protobuf v1.23.0
+	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
+	golang.org/x/exp v0.0.0-20200917184745-18d7dbdd5567
+	golang.org/x/mod v0.3.1-0.20200828183125-ce943fd02449
+	golang.org/x/net v0.0.0-20200904194848-62affa334b73
+	golang.org/x/oauth2 v0.0.0-20200902213428-5d25da1a8d43
+	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
+	golang.org/x/sys v0.0.0-20200922070232-aee5d888a860
+	google.golang.org/api v0.32.0
+	google.golang.org/protobuf v1.25.0
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	gopkg.in/ini.v1 v1.56.0 // indirect
 	gopkg.in/kothar/go-backblaze.v0 v0.0.0-20191215213626-7594ed38700f
