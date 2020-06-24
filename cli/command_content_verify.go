@@ -14,8 +14,9 @@ import (
 var (
 	contentVerifyCommand = contentCommands.Command("verify", "Verify that each content is backed by a valid blob")
 
-	contentVerifyParallel = contentVerifyCommand.Flag("parallel", "Parallelism").Default("16").Int()
-	contentVerifyFull     = contentVerifyCommand.Flag("full", "Full verification (including download)").Bool()
+	contentVerifyParallel       = contentVerifyCommand.Flag("parallel", "Parallelism").Default("16").Int()
+	contentVerifyFull           = contentVerifyCommand.Flag("full", "Full verification (including download)").Bool()
+	contentVerifyIncludeDeleted = contentVerifyCommand.Flag("include-deleted", "Include deleted contents").Bool()
 )
 
 func runContentVerifyCommand(ctx context.Context, rep *repo.DirectRepository) error {
@@ -42,8 +43,9 @@ func runContentVerifyCommand(ctx context.Context, rep *repo.DirectRepository) er
 	printStderr("Verifying all contents...\n")
 
 	err := rep.Content.IterateContents(ctx, content.IterateOptions{
-		Range:    contentIDRange(),
-		Parallel: *contentVerifyParallel,
+		Range:          contentIDRange(),
+		Parallel:       *contentVerifyParallel,
+		IncludeDeleted: *contentVerifyIncludeDeleted,
 	}, func(ci content.Info) error {
 		if err := contentVerify(ctx, rep, &ci, blobMap); err != nil {
 			log(ctx).Errorf("error %v", err)
