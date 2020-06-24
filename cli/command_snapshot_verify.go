@@ -33,7 +33,6 @@ var (
 
 type verifier struct {
 	rep       repo.Repository
-	om        *object.Manager
 	workQueue *parallelwork.Queue
 	startTime time.Time
 
@@ -147,7 +146,7 @@ func (v *verifier) doVerifyDirectory(ctx context.Context, oid object.ID, path st
 func (v *verifier) doVerifyObject(ctx context.Context, oid object.ID, path string) error {
 	log(ctx).Debugf("verifying object %v", oid)
 
-	if _, err := v.om.VerifyObject(ctx, oid); err != nil {
+	if _, err := v.rep.VerifyObject(ctx, oid); err != nil {
 		v.reportError(ctx, path, errors.Wrapf(err, "error verifying %v", oid))
 	}
 
@@ -166,7 +165,7 @@ func (v *verifier) readEntireObject(ctx context.Context, oid object.ID, path str
 	ctx = content.UsingContentCache(ctx, false)
 
 	// also read the entire file
-	r, err := v.om.Open(ctx, oid)
+	r, err := v.rep.OpenObject(ctx, oid)
 	if err != nil {
 		return err
 	}

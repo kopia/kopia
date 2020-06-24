@@ -17,6 +17,7 @@ type CompactOptions struct {
 	MaxSmallBlobs     int
 	AllIndexes        bool
 	DropDeletedBefore time.Time
+	DropContents      []ID
 }
 
 // CompactIndexes performs compaction of index blobs ensuring that # of small index blobs is below opt.maxSmallBlobs
@@ -139,6 +140,12 @@ func (bm *Manager) addIndexBlobsToBuilder(ctx context.Context, bld packIndexBuil
 	}
 
 	_ = index.Iterate(AllIDs, func(i Info) error {
+		for _, dc := range opt.DropContents {
+			if dc == i.ID {
+				log(ctx).Debugf("dropping content %v", i.ID)
+				return nil
+			}
+		}
 		if i.Deleted && !opt.DropDeletedBefore.IsZero() && i.Timestamp().Before(opt.DropDeletedBefore) {
 			log(ctx).Debugf("skipping content %v deleted at %v", i.ID, i.Timestamp())
 			return nil
