@@ -3,8 +3,11 @@ package parallelwork
 
 import (
 	"container/list"
+	"context"
 	"sync"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 )
 
 // Queue represents a work queue with multiple parallel workers.
@@ -52,39 +55,36 @@ func (v *Queue) enqueue(front bool, callback CallbackFunc) {
 }
 
 // Process starts N workers, which will be processing elements in the queue until the queue
-// is empty and all workers are idle.
+// is empty and all workers are idle or until any of the workers returns an error.
 func (v *Queue) Process(workers int) error {
-	var wg sync.WaitGroup
-
-	errors := make(chan error, workers)
+	eg, ctx := errgroup.WithContext(context.Background())
 
 	for i := 0; i < workers; i++ {
-		wg.Add(1)
-
-		go func(_ int) {
-			defer wg.Done()
-
+		eg.Go(func() error {
 			for {
-				callback := v.dequeue()
-				if callback == nil {
-					break
-				}
+				select {
+				case <-ctx.Done():
+					// context canceled - some other worker returned an error.
+					return ctx.Err()
 
-				if err := callback(); err != nil {
-					errors <- err
-					break
-				}
+				default:
+					callback := v.dequeue()
+					if callback == nil {
+						// no more work, shut down.
+						return nil
+					}
 
-				v.completed()
+					err := callback()
+					v.completed()
+					if err != nil {
+						return err
+					}
+				}
 			}
-		}(i)
+		})
 	}
 
-	wg.Wait()
-	close(errors)
-
-	// return first error or nil
-	return <-errors
+	return eg.Wait()
 }
 
 func (v *Queue) dequeue() CallbackFunc {
