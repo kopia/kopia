@@ -82,7 +82,7 @@ func (bm *Manager) getBlobsToCompact(ctx context.Context, indexBlobs []IndexBlob
 }
 
 func (bm *Manager) compactIndexBlobs(ctx context.Context, indexBlobs []IndexBlobInfo, opt CompactOptions) error {
-	if len(indexBlobs) <= 1 {
+	if len(indexBlobs) <= 1 && opt.DropDeletedBefore.IsZero() && len(opt.DropContents) == 0 {
 		return nil
 	}
 
