@@ -3,6 +3,7 @@ const path = require('path');
 
 const { defaultServerBinary } = require('./utils');
 const { spawn } = require('child_process');
+const log = require("electron-log")
 const { configForRepo, configDir, isPortableConfig } = require('./config');
 
 let servers = {};
@@ -20,7 +21,7 @@ function newServerForRepo(repoID) {
 
     return {
         actuateServer() {
-            console.log('actuating Server', repoID);
+            log.info('actuating Server', repoID);
             this.stopServer();
             if (!config.get('remoteServer')) {
                 this.startServer();
@@ -53,7 +54,7 @@ function newServerForRepo(repoID) {
             args.push('--address=localhost:0')
             // args.push('--auto-shutdown=600s')
 
-            console.log(`spawning ${kopiaPath} ${args.join(' ')}`);
+            log.info(`spawning ${kopiaPath} ${args.join(' ')}`);
             let childEnv = {
                 // set environment variable that causes given prefix to be returned in the HTML <title>
                 KOPIA_UI_TITLE_PREFIX: "[" + config.get('description') + "] ",
@@ -122,12 +123,12 @@ function newServerForRepo(repoID) {
                 repoID: repoID,
                 logs: serverLog.join(''),
             });
-            console.log(`${data}`);
+            log.info(`${data}`);
         },
 
         stopServer() {
             if (!runningServerProcess) {
-                console.log('stopServer: server not started');
+                log.info('stopServer: server not started');
                 return;
             }
 

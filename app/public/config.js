@@ -42,11 +42,9 @@ function globalConfigDir() {
             d = path.normalize(d)
 
             if (!fs.existsSync(d)) {
-                console.log('portable configuration directory not found in', d);
                 return;
             }
 
-            console.log('portable configuration directory found in', d);
             configDir = d;
             isPortable = true;
         });
@@ -54,7 +52,6 @@ function globalConfigDir() {
         // still not set, fall back to per-user config dir.
         if (!configDir) {
             configDir = path.join(Electron.app.getPath("userData"), "repositories");
-            console.log('using per-user configuration directory:', configDir);
         }
     }
 
@@ -69,7 +66,6 @@ function newConfigForRepo(repoID) {
     try {
         const b = fs.readFileSync(configFile);
         data = JSON.parse(b);
-        log.info('loaded: ' + configFile);
     } catch (e) {
         data = {
         }
@@ -85,8 +81,6 @@ function newConfigForRepo(repoID) {
         } else {
             data.configFile = "./" + repoID + ".config";
         }
-
-        log.info('initializing empty config: ' + configFile);
     }
 
     return {
@@ -154,7 +148,6 @@ module.exports = {
         let count = 0;
         entries.filter(e => path.extname(e) == configFileSuffix).forEach(v => {
             const repoID = v.replace(configFileSuffix, "");
-            console.log('found config for', repoID);
             configs[repoID] = newConfigForRepo(repoID);
             count++;
         });

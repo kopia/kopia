@@ -17,15 +17,15 @@ module.exports = {
     },
     toggleLaunchAtStartup() {
         if (enabled) {
-            console.log('disabling autorun');
+            log.info('disabling autorun');
             autoLauncher.disable()
                 .then(() => { enabled = false; ipcMain.emit('launch-at-startup-updated'); })
-                .catch((err) => console.log(err));
+                .catch((err) => log.info(err));
         } else {
-            console.log('enabling autorun');
+            log.info('enabling autorun');
             autoLauncher.enable()
                 .then(() => { enabled = true; ipcMain.emit('launch-at-startup-updated'); })
-                .catch((err) => console.log(err));
+                .catch((err) => log.info(err));
         }
     },
     refreshWillLaunchAtStartup() {
@@ -35,7 +35,7 @@ module.exports = {
                 ipcMain.emit('launch-at-startup-updated');
             })
             .catch(function (err) {
-                console.log('unable to get autoLauncher state', err);
+                log.info('unable to get autoLauncher state', err);
             });
     },
 }

@@ -10,7 +10,6 @@ forwardEventToConfigWindow('config-list-updated-event');
 function forwardEventToConfigWindow(event) {
     ipcMain.addListener(event, args => {
         if (configWindow) {
-            console.log('forwarding', event, args);
             configWindow.webContents.send(event, args);
         }
     });

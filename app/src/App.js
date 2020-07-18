@@ -30,12 +30,9 @@ export default class App extends Component {
   }
 
   configListUpdated(sortedConfigs) {
-    console.log('config-list-updated', sortedConfigs);
-
     let ak = this.state.activeTabKey;
 
     if (!sortedConfigs.find(e => e.repoID === ak)) {
-      console.log('active repo was not found', ak, 'among', sortedConfigs);
       ak = "";
     }
 
@@ -79,7 +76,6 @@ export default class App extends Component {
   }
 
   render() {
-    console.log('rendering ', this.state);
     return (
       <Container fluid>
         <hr />
