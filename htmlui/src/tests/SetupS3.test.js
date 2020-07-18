@@ -1,7 +1,7 @@
 import { render } from '@testing-library/react';
 import React from 'react';
 import { SetupS3 } from '../SetupS3';
-import { changeControlValue } from './testutils';
+import { changeControlValue, toggleCheckbox } from './testutils';
 
 it('can set fields', async () => {
   let ref = React.createRef();
@@ -15,6 +15,8 @@ it('can set fields', async () => {
   changeControlValue(getByTestId("control-endpoint"), "some-endpoint");
   expect(ref.current.validate()).toBe(true);
   // optional
+  toggleCheckbox(getByTestId("control-doNotUseTLS"));
+  toggleCheckbox(getByTestId("control-doNotValidateTLS"));
   changeControlValue(getByTestId("control-prefix"), "some-prefix");
   changeControlValue(getByTestId("control-sessionToken"), "some-sessionToken");
   changeControlValue(getByTestId("control-region"), "some-region");
@@ -26,7 +28,14 @@ it('can set fields', async () => {
     "endpoint": "some-endpoint",
     "prefix": "some-prefix",
     "region": "some-region",
+    "doNotUseTLS": true,
+    "doNotValidateTLS": true,
     "secretAccessKey": "some-secretAccessKey",
     "sessionToken": "some-sessionToken",
   });
+  
+  toggleCheckbox(getByTestId("control-doNotUseTLS"));
+  toggleCheckbox(getByTestId("control-doNotValidateTLS"));
+  expect(ref.current.state.doNotUseTLS).toBe(false);
+  expect(ref.current.state.doNotValidateTLS).toBe(false);
 });

@@ -1,12 +1,15 @@
 import React, { Component } from 'react';
 import Form from 'react-bootstrap/Form';
-import { handleChange, OptionalField, RequiredField, validateRequiredFields } from './forms';
+import { handleChange, OptionalField, RequiredBoolean, RequiredField, validateRequiredFields } from './forms';
 
 export class SetupS3 extends Component {
     constructor() {
         super();
 
-        this.state = {};
+        this.state = {
+            "doNotUseTLS": false,
+            "doNotValidateTLS": false,
+        };
         this.handleChange = handleChange.bind(this);
     }
 
@@ -20,6 +23,10 @@ export class SetupS3 extends Component {
                 {RequiredField(this, "S3 Bucket", "bucket", { placeholder: "enter bucket name" })}
                 {RequiredField(this, "Server Endpoint", "endpoint", { placeholder: "enter server address (e.g. s3.amazonaws.com)" })}
                 {OptionalField(this, "Override S3 Region", "region", { placeholder: "enter specific region (e.g. us-west-1) or leave empty" })}
+            </Form.Row>
+            <Form.Row>
+                {RequiredBoolean(this, "Use HTTP connection (insecure)", "doNotUseTLS")}
+                {RequiredBoolean(this, "Do not validate TLS certificate", "doNotValidateTLS")}
             </Form.Row>
             <Form.Row>
                 {RequiredField(this, "Access Key ID", "accessKeyID", { placeholder: "enter access key ID" })}
