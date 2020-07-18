@@ -1,7 +1,12 @@
 package endtoend_test
 
 import (
+	"archive/tar"
+	"archive/zip"
+	"compress/gzip"
+	"io"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -150,6 +155,33 @@ func TestSnapshotRestore(t *testing.T) {
 	// Restore last snapshot using the snapshot ID
 	e.RunAndExpectSuccess(t, "snapshot", "restore", snapID, restoreDir)
 
+	restoreArchiveDir := makeScratchDir(t)
+	zipFile := filepath.Join(restoreArchiveDir, "output.zip")
+	e.RunAndExpectSuccess(t, "snapshot", "restore", snapID, zipFile)
+	verifyValidZipFile(t, zipFile)
+
+	tarFile := filepath.Join(restoreArchiveDir, "output.tar")
+	e.RunAndExpectSuccess(t, "snapshot", "restore", snapID, tarFile)
+	verifyValidTarFile(t, tarFile)
+
+	targzFile := filepath.Join(restoreArchiveDir, "output.tar.gz")
+	e.RunAndExpectSuccess(t, "snapshot", "restore", snapID, targzFile)
+	verifyValidTarGzipFile(t, targzFile)
+
+	tgzFile := filepath.Join(restoreArchiveDir, "output.tgz")
+	e.RunAndExpectSuccess(t, "snapshot", "restore", snapID, tgzFile)
+	verifyValidTarGzipFile(t, tgzFile)
+
+	// create a directory whose name ends with '.zip' and override mode to force treating it as directory.
+	zipDir := filepath.Join(restoreArchiveDir, "outputdir.zip")
+	e.RunAndExpectSuccess(t, "snapshot", "restore", snapID, zipDir, "--mode=local")
+
+	// verify we got a directory
+	st, err := os.Stat(zipDir)
+	if err != nil || !st.IsDir() {
+		t.Errorf("unexpected stat() results on output.zip directory %v %v", st, err)
+	}
+
 	// Restored contents should match source
 	compareDirs(t, source, restoreDir)
 
@@ -164,4 +196,59 @@ func TestSnapshotRestore(t *testing.T) {
 	_ = os.MkdirAll(restoreFailDir, 0700)
 
 	e.RunAndExpectFailure(t, "snapshot", "restore", "--no-overwrite-files", snapID, restoreDir)
+}
+
+func verifyValidZipFile(t *testing.T, fname string) {
+	t.Helper()
+
+	zr, err := zip.OpenReader(fname)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	defer zr.Close()
+}
+
+func verifyValidTarFile(t *testing.T, fname string) {
+	t.Helper()
+
+	f, err := os.Open(fname)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	verifyValidTarReader(t, tar.NewReader(f))
+}
+
+func verifyValidTarReader(t *testing.T, tr *tar.Reader) {
+	t.Helper()
+
+	_, err := tr.Next()
+	for err == nil {
+		_, err = tr.Next()
+	}
+
+	if err != io.EOF {
+		t.Errorf("invalid tar file: %v", err)
+	}
+}
+
+func verifyValidTarGzipFile(t *testing.T, fname string) {
+	t.Helper()
+
+	t.Helper()
+
+	f, err := os.Open(fname)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Close()
+
+	gz, err := gzip.NewReader(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	verifyValidTarReader(t, tar.NewReader(gz))
 }
