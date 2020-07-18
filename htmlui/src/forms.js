@@ -152,7 +152,7 @@ function checkedToBool(t) {
         return true;
     }
 
-    return undefined;
+    return false;
 }
 
 export function RequiredBoolean(component, label, name, defaultLabel) {
@@ -162,6 +162,7 @@ export function RequiredBoolean(component, label, name, defaultLabel) {
             name={name}
             checked={stateProperty(component, name)}
             onChange={e => component.handleChange(e, checkedToBool)}
+            data-testid={'control-'+name}
             type="checkbox" />
     </Form.Group>
 }
