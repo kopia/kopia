@@ -17,6 +17,10 @@
     "react-scripts": "^3.4.0",
     "uuid": "^7.0.2"
   },
+  "author": {
+    "email": "kopia-pmc@googlegroups.com",
+    "name": "Kopia Authors"
+  },
   "build": {
     "productName": "KopiaUI",
     "appId": "io.kopia.ui",
@@ -53,7 +57,10 @@
       ]
     },
     "win": {
-      "target": ["nsis", "zip"],
+      "target": [
+        "nsis",
+        "zip"
+      ],
       "extraResources": [
         {
           "from": "../dist/kopia_windows_amd64",
@@ -85,7 +92,11 @@
       ]
     },
     "linux": {
-      "target": "AppImage",
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm"
+      ],
       "extraResources": [
         {
           "from": "../dist/kopia_linux_amd64",
@@ -114,6 +125,7 @@
     "eject": "react-scripts eject",
     "start-electron": "electron .",
     "build-electron": "electron-builder",
+    "build-electron-linux": "electron-builder -l",
     "build-electron-dir": "electron-builder --dir",
     "start-electron-prebuilt": "ELECTRON_IS_DEV=0 electron .",
     "dev": "concurrently \"react-scripts start\" \"sleep 3s; electron .\""
