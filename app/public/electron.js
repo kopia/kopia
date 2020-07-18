@@ -17,14 +17,14 @@ if (isPortableConfig()) {
 }
 
 ipcMain.on('config-save', (event, arg) => {
-  console.log('saving config', arg);
+  log.info('saving config', arg);
   configForRepo(arg.repoID).setBulk(arg.config);
   serverForRepo(arg.repoID).actuateServer();
   event.returnValue = true;
 })
 
 ipcMain.on('config-delete', (event, arg) => {
-  console.log('deleting config', arg);
+  log.info('deleting config', arg);
   serverForRepo(arg.repoID).stopServer();
   deleteConfigForRepo(arg.repoID);
   event.returnValue = true;
@@ -108,18 +108,18 @@ app.on('login', (event, webContents, request, authInfo, callback) => {
   const p = serverForRepo(repoID).getServerPassword();
   if (p) {
     event.preventDefault();
-    console.log('automatically logging in...');
+    log.info('automatically logging in...');
     callback('kopia', p);
   }
 });
 
 app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
   const repoID = repoIDForWebContents[webContents.id];
-  console.log('cert error', repoID);
+  log.info('cert error', repoID);
   // intercept certificate errors and automatically trust the certificate the server has printed for us. 
   const expected = 'sha256/' + Buffer.from(serverForRepo(repoID).getServerCertSHA256(), 'hex').toString('base64');
   if (certificate.fingerprint === expected) {
-    console.log('accepting server certificate.');
+    log.info('accepting server certificate.');
 
     // On certificate error we disable default behaviour (stop loading the page)
     // and we then say "it is all fine - true" to the callback
@@ -128,7 +128,7 @@ app.on('certificate-error', (event, webContents, url, error, certificate, callba
     return;
   }
 
-  console.log('certificate error:', certificate.fingerprint, expected);
+  log.info('certificate error:', certificate.fingerprint, expected);
 });
 
 // Ignore
@@ -187,6 +187,7 @@ app.on('ready', () => {
     log.transports.file.resolvePath = (variables) => path.join(logDir, variables.fileName);
   }
 
+  log.transports.console.level = "warn"
   log.transports.file.level = "debug"
   autoUpdater.logger = log
 
