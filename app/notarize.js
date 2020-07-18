@@ -15,10 +15,13 @@ exports.default = async function notarizing(context) {
   const appName = context.packager.appInfo.productFilename;
 
   console.log('Submitting app for Apple notarization...')
-  return await notarize({
+  let timerId = setInterval(() => { console.log('Still waiting for notarization response...') }, 30000);
+  let x =  await notarize({
     appBundleId: 'io.kopia.ui',
     appPath: `${appOutDir}/${appName}.app`,
     appleId: process.env.APPLEID,
     appleIdPassword: process.env.APPLEIDPASS,
   });
+  clearTimeout(timerId);
+  return x;
 };
