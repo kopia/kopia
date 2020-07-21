@@ -63,6 +63,10 @@ func (s *Server) handlePolicyDelete(ctx context.Context, r *http.Request) (inter
 		return nil, internalServerError(err)
 	}
 
+	if err := s.rep.Flush(ctx); err != nil {
+		return nil, internalServerError(err)
+	}
+
 	return &serverapi.Empty{}, nil
 }
 
@@ -73,6 +77,10 @@ func (s *Server) handlePolicyPut(ctx context.Context, r *http.Request) (interfac
 	}
 
 	if err := policy.SetPolicy(ctx, s.rep, getPolicyTargetFromURL(r.URL), newPolicy); err != nil {
+		return nil, internalServerError(err)
+	}
+
+	if err := s.rep.Flush(ctx); err != nil {
 		return nil, internalServerError(err)
 	}
 
