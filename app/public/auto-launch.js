@@ -1,4 +1,5 @@
 const { ipcMain } = require('electron');
+const log = require("electron-log");
 
 const AutoLaunch = require('auto-launch');
 
