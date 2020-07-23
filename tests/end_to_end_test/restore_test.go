@@ -155,6 +155,9 @@ func TestSnapshotRestore(t *testing.T) {
 	// Restore last snapshot using the snapshot ID
 	e.RunAndExpectSuccess(t, "snapshot", "restore", snapID, restoreDir)
 
+	// Restored contents should match source
+	compareDirs(t, source, restoreDir)
+
 	restoreArchiveDir := makeScratchDir(t)
 	zipFile := filepath.Join(restoreArchiveDir, "output.zip")
 	e.RunAndExpectSuccess(t, "snapshot", "restore", snapID, zipFile)
@@ -181,9 +184,6 @@ func TestSnapshotRestore(t *testing.T) {
 	if err != nil || !st.IsDir() {
 		t.Errorf("unexpected stat() results on output.zip directory %v %v", st, err)
 	}
-
-	// Restored contents should match source
-	compareDirs(t, source, restoreDir)
 
 	// Attempt to restore snapshot with an already-existing target directory
 	// It should fail because the directory is not empty
@@ -235,8 +235,6 @@ func verifyValidTarReader(t *testing.T, tr *tar.Reader) {
 }
 
 func verifyValidTarGzipFile(t *testing.T, fname string) {
-	t.Helper()
-
 	t.Helper()
 
 	f, err := os.Open(fname)
