@@ -41,6 +41,21 @@ func TestIgnore(t *testing.T) {
 
 		{"*.foo", "/", "/a.foo", true, true},
 
+		// absolute match (relative to baseDir)
+		//  pattern must be relative to baseDir "If there is a separator at the beginning or middle (or both) of the pattern"
+
+		{"sub/foo", "/base/dir", "/base/dir/sub/foo", false, true},
+		{"sub/bar/", "/base/dir", "/base/dir/sub/bar", true, true},
+
+		{"/sub/foo", "/base/dir", "/base/dir/sub/foo", false, true},
+		{"/sub/bar/", "/base/dir", "/base/dir/sub/bar", true, true},
+
+		{"bar/*.foo", "/base/dir", "/base/dir/bar/a.foo", false, true},
+		{"bar/*.foo", "/base/dir", "/base/dir/sub/bar/a.foo", false, false},
+
+		{"/bar/*.foo", "/base/dir", "/base/dir/bar/a.foo", false, true},
+		{"/bar/*.foo", "/base/dir", "/base/dir/sub/bar/a.foo", false, false},
+
 		// no match outside of base directory
 		{"foo", "/base/dir", "/base/other-dir/foo", false, false},
 

@@ -46,10 +46,10 @@ func ParseGitIgnore(baseDir, pattern string) (Matcher, error) {
 
 	var m nameMatcher
 	if !strings.Contains(pattern, "/") {
-		m = parseGlobPattern(pattern)
+		m = parseFilenamePattern(pattern)
 	} else {
 		var err error
-		m, err = parseNonGlobPattern(pattern)
+		m, err = parsePathPattern(pattern)
 		if err != nil {
 			return nil, err
 		}
@@ -96,7 +96,7 @@ func maybeMatchDirOnly(m nameMatcher, dirOnly bool) Matcher {
 	}
 }
 
-func parseGlobPattern(pattern string) nameMatcher {
+func parseFilenamePattern(pattern string) nameMatcher {
 	return func(path string) bool {
 		last := path[strings.LastIndex(path, "/")+1:]
 		ok, _ := filepath.Match(pattern, last)
@@ -105,11 +105,17 @@ func parseGlobPattern(pattern string) nameMatcher {
 	}
 }
 
-func parseNonGlobPattern(pattern string) (nameMatcher, error) {
+func parsePathPattern(pattern string) (nameMatcher, error) {
+	// Absolute paths are relative to baseDir
+	if strings.HasPrefix(pattern, "/") {
+		pattern = strings.TrimPrefix(pattern, "/")
+	}
+
 	// No double-star pattern
 	if !strings.Contains(pattern, "**") {
 		return func(path string) bool {
-			return path == pattern
+			ok, _ := filepath.Match(pattern, path)
+			return ok
 		}, nil
 	}
 
@@ -122,7 +128,8 @@ func parseNonGlobPattern(pattern string) (nameMatcher, error) {
 		suffixWithSlash := strings.TrimPrefix(pattern, "**")
 
 		return func(path string) bool {
-			return path == suffix || strings.HasSuffix(path, suffixWithSlash)
+			ok, _ := filepath.Match(suffix, path)
+			return ok || strings.HasSuffix(path, suffixWithSlash)
 		}, nil
 	}
 
@@ -133,7 +140,8 @@ func parseNonGlobPattern(pattern string) (nameMatcher, error) {
 		prefixWithSlash := strings.TrimSuffix(pattern, "**")
 
 		return func(path string) bool {
-			return path == prefix || strings.HasPrefix(path, prefixWithSlash)
+			ok, _ := filepath.Match(prefix, path)
+			return ok || strings.HasPrefix(path, prefixWithSlash)
 		}, nil
 	}
 

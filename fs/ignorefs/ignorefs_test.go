@@ -241,6 +241,38 @@ var cases = []struct {
 			"./src/some-src/f1",
 		},
 	},
+	{
+		desc: "absolut match",
+		setup: func(root *mockfs.Directory) {
+			root.Subdir("src").AddFileLines(".extraignore", []string{
+				"/sub/*.foo",
+			}, 0)
+			root.Subdir("src").AddDir("sub", 0)
+			root.Subdir("src").Subdir("sub").AddFile("a.foo", dummyFileContents, 0) // ignored by .extraignore
+			root.Subdir("src").Subdir("sub").AddFile("b.fooX", dummyFileContents, 0)
+			root.Subdir("src").Subdir("sub").AddFile("foo", dummyFileContents, 0)
+			root.Subdir("src").AddFile("c.foo", dummyFileContents, 0) // not ignored, at parent level
+		},
+		policyTree: policy.BuildTree(map[string]*policy.Policy{
+			"./src": {
+				FilesPolicy: policy.FilesPolicy{
+					DotIgnoreFiles: []string{
+						".extraignore",
+					},
+				},
+			},
+		}, policy.DefaultPolicy),
+		addedFiles: []string{
+			"./src/.extraignore",
+			"./src/sub/",
+			"./src/sub/b.fooX",
+			"./src/sub/foo",
+			"./src/c.foo",
+		},
+		ignoredFiles: []string{
+			"./src/sub/a.foo",
+		},
+	},
 }
 
 func TestIgnoreFS(t *testing.T) {
