@@ -1,4 +1,5 @@
-package localfs
+// Package restore manages restoring filesystem snapshots.
+package restore
 
 import (
 	"context"
@@ -10,69 +11,76 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/fs/localfs"
 )
 
-// CopyOptions contains the options for copying a file system tree
-type CopyOptions struct {
+// FilesystemOutput contains the options for outputting a file system tree.
+type FilesystemOutput struct {
+	// TargetPath for restore.
+	TargetPath string
+
 	// If a directory already exists, overwrite the directory.
 	OverwriteDirectories bool
+
 	// Indicate whether or not to overwrite existing files. When set to false,
 	// the copier does not modify already existing files and returns an error
 	// instead.
 	OverwriteFiles bool
 }
 
-// Copy copies e into targetPath in the local file system. If e is an
-// fs.Directory, then the contents are recursively copied.
-// The targetPath must not exist, except when the target path is the root
-// directory. In that case, e must be a fs.Directory and its contents are copied
-// to the root directory.
-// Copy does not overwrite files or directories and returns an error in that
-// case. It also returns an error when the the contents cannot be restored,
-// for example due to an I/O error.
-func Copy(ctx context.Context, targetPath string, e fs.Entry, opt CopyOptions) error {
-	targetPath, err := filepath.Abs(filepath.FromSlash(targetPath))
-	if err != nil {
-		return err
+// BeginDirectory implements restore.Output interface.
+func (o *FilesystemOutput) BeginDirectory(ctx context.Context, relativePath string, e fs.Directory) error {
+	path := filepath.Join(o.TargetPath, filepath.FromSlash(relativePath))
+
+	if err := o.createDirectory(ctx, path); err != nil {
+		return errors.Wrap(err, "error creating directory")
 	}
 
-	c := copier{CopyOptions: opt}
-
-	return c.copyEntry(ctx, e, targetPath)
+	return nil
 }
 
-type copier struct {
-	CopyOptions
+// FinishDirectory implements restore.Output interface.
+func (o *FilesystemOutput) FinishDirectory(ctx context.Context, relativePath string, e fs.Directory) error {
+	path := filepath.Join(o.TargetPath, filepath.FromSlash(relativePath))
+	if err := o.setAttributes(path, e); err != nil {
+		return errors.Wrap(err, "error setting attributes")
+	}
+
+	return nil
 }
 
-func (c *copier) copyEntry(ctx context.Context, e fs.Entry, targetPath string) error {
-	var err error
+// Close implements restore.Output interface.
+func (o *FilesystemOutput) Close(ctx context.Context) error {
+	return nil
+}
 
-	switch e := e.(type) {
-	case fs.Directory:
-		err = c.copyDirectory(ctx, e, targetPath)
-	case fs.File:
-		err = c.copyFileContent(ctx, targetPath, e)
-	case fs.Symlink:
-		// Not yet implemented
-		log(ctx).Warningf("Not creating symlink %q from %v", targetPath, e)
-		return nil
-	default:
-		return errors.Errorf("invalid FS entry type for %q: %#v", targetPath, e)
+// WriteFile implements restore.Output interface.
+func (o *FilesystemOutput) WriteFile(ctx context.Context, relativePath string, f fs.File) error {
+	log(ctx).Infof("WriteFile %v %v", relativePath, f)
+	path := filepath.Join(o.TargetPath, filepath.FromSlash(relativePath))
+
+	if err := o.copyFileContent(ctx, path, f); err != nil {
+		return errors.Wrap(err, "error creating directory")
 	}
 
-	if err != nil {
-		return err
+	if err := o.setAttributes(path, f); err != nil {
+		return errors.Wrap(err, "error setting attributes")
 	}
 
-	return c.setAttributes(targetPath, e)
+	return nil
+}
+
+// CreateSymlink implements restore.Output interface.
+func (o *FilesystemOutput) CreateSymlink(ctx context.Context, relativePath string, e fs.Symlink) error {
+	log(ctx).Debugf("create symlink not implemented yet")
+	return nil
 }
 
 // set permission, modification time and user/group ids on targetPath
-func (c *copier) setAttributes(targetPath string, e fs.Entry) error {
+func (o *FilesystemOutput) setAttributes(targetPath string, e fs.Entry) error {
 	const modBits = os.ModePerm | os.ModeSetgid | os.ModeSetuid | os.ModeSticky
 
-	le, err := NewEntry(targetPath)
+	le, err := localfs.NewEntry(targetPath)
 	if err != nil {
 		return errors.Wrap(err, "could not create local FS entry for "+targetPath)
 	}
@@ -102,37 +110,14 @@ func (c *copier) setAttributes(targetPath string, e fs.Entry) error {
 	return nil
 }
 
-func (c *copier) copyDirectory(ctx context.Context, d fs.Directory, targetPath string) error {
-	if err := c.createDirectory(ctx, targetPath); err != nil {
-		return err
-	}
-
-	return c.copyDirectoryContent(ctx, d, targetPath)
-}
-
-func (c *copier) copyDirectoryContent(ctx context.Context, d fs.Directory, targetPath string) error {
-	entries, err := d.Readdir(ctx)
-	if err != nil {
-		return err
-	}
-
-	for _, e := range entries {
-		if err := c.copyEntry(ctx, e, filepath.Join(targetPath, e.Name())); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (c *copier) createDirectory(ctx context.Context, path string) error {
+func (o *FilesystemOutput) createDirectory(ctx context.Context, path string) error {
 	switch stat, err := os.Stat(path); {
 	case os.IsNotExist(err):
 		return os.MkdirAll(path, 0700)
 	case err != nil:
 		return errors.Wrap(err, "failed to stat path "+path)
 	case stat.Mode().IsDir():
-		if !c.OverwriteDirectories {
+		if !o.OverwriteDirectories {
 			if empty, _ := isEmptyDirectory(path); !empty {
 				return errors.Errorf("non-empty directory already exists, not overwriting it: %q", path)
 			}
@@ -146,11 +131,11 @@ func (c *copier) createDirectory(ctx context.Context, path string) error {
 	}
 }
 
-func (c *copier) copyFileContent(ctx context.Context, targetPath string, f fs.File) error {
+func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath string, f fs.File) error {
 	switch _, err := os.Stat(targetPath); {
 	case os.IsNotExist(err): // copy file below
 	case err == nil:
-		if !c.OverwriteFiles {
+		if !o.OverwriteFiles {
 			return errors.Errorf("unable to create %q, it already exists", targetPath)
 		}
 

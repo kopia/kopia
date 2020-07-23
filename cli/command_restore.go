@@ -1,13 +1,19 @@
 package cli
 
 import (
+	"archive/zip"
+	"compress/gzip"
 	"context"
+	"os"
+	"path/filepath"
+	"strings"
 
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
+	"github.com/pkg/errors"
+	"gopkg.in/alecthomas/kingpin.v2"
 
-	"github.com/kopia/kopia/fs/localfs"
+	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/snapshot/snapshotfs"
+	"github.com/kopia/kopia/snapshot/restore"
 )
 
 const (
@@ -41,23 +47,104 @@ directory ID and optionally a sub-directory path. For example,
 var (
 	restoreCommand           = app.Command("restore", restoreCommandHelp)
 	restoreCommandSourcePath = restoreCommand.Arg("source-path", restoreCommandSourcePathHelp).Required().String()
-	restoreCommandTargetPath = restoreCommand.Arg("target-path", "Path of the directory for the contents to be restored").Required().String()
 
+	restoreTargetPath           = ""
 	restoreOverwriteDirectories = true
 	restoreOverwriteFiles       = true
+	restoreMode                 = restoreModeAuto
+)
+
+const (
+	restoreModeLocal         = "local"
+	restoreModeAuto          = "auto"
+	restoreModeZip           = "zip"
+	restoreModeZipNoCompress = "zip-nocompress"
+	restoreModeTar           = "tar"
+	restoreModeTgz           = "tgz"
 )
 
 func addRestoreFlags(cmd *kingpin.CmdClause) {
+	cmd.Arg("target-path", "Path of the directory for the contents to be restored").Required().StringVar(&restoreTargetPath)
 	cmd.Flag("overwrite-directories", "Overwrite existing directories").BoolVar(&restoreOverwriteDirectories)
-	cmd.Flag("overwrite-files", "Specifies whether or not to overwrite already existing files").
-		BoolVar(&restoreOverwriteFiles)
+	cmd.Flag("overwrite-files", "Specifies whether or not to overwrite already existing files").BoolVar(&restoreOverwriteFiles)
+	cmd.Flag("mode", "Override restore mode").EnumVar(&restoreMode, restoreModeAuto, restoreModeLocal, restoreModeZip, restoreModeZipNoCompress, restoreModeTar, restoreModeTgz)
 }
 
-func restoreOptions() localfs.CopyOptions {
-	return localfs.CopyOptions{
-		OverwriteDirectories: restoreOverwriteDirectories,
-		OverwriteFiles:       restoreOverwriteFiles,
+func restoreOutput() (restore.Output, error) {
+	p, err := filepath.Abs(restoreTargetPath)
+	if err != nil {
+		return nil, err
 	}
+
+	m := detectRestoreMode(restoreMode)
+	switch m {
+	case restoreModeLocal:
+		return &restore.FilesystemOutput{
+			TargetPath:           p,
+			OverwriteDirectories: restoreOverwriteDirectories,
+			OverwriteFiles:       restoreOverwriteFiles,
+		}, nil
+
+	case restoreModeZip, restoreModeZipNoCompress:
+		f, err := os.Create(restoreTargetPath)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to create output file")
+		}
+
+		method := zip.Deflate
+		if m == restoreModeZipNoCompress {
+			method = zip.Store
+		}
+
+		return restore.NewZipOutput(f, method), nil
+
+	case restoreModeTar:
+		f, err := os.Create(restoreTargetPath)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to create output file")
+		}
+
+		return restore.NewTarOutput(f), nil
+
+	case restoreModeTgz:
+		f, err := os.Create(restoreTargetPath)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to create output file")
+		}
+
+		return restore.NewTarOutput(gzip.NewWriter(f)), nil
+
+	default:
+		return nil, errors.Errorf("unknown mode %v", m)
+	}
+}
+
+func detectRestoreMode(m string) string {
+	if m != "auto" {
+		return m
+	}
+
+	switch {
+	case strings.HasSuffix(restoreTargetPath, ".zip"):
+		printStderr("Restoring to a zip file (%v)...\n", restoreTargetPath)
+		return restoreModeZip
+
+	case strings.HasSuffix(restoreTargetPath, ".tar"):
+		printStderr("Restoring to an uncompressed tar file (%v)...\n", restoreTargetPath)
+		return restoreModeTar
+
+	case strings.HasSuffix(restoreTargetPath, ".tar.gz") || strings.HasSuffix(restoreTargetPath, ".tgz"):
+		printStderr("Restoring to a tar+gzip file (%v)...\n", restoreTargetPath)
+		return restoreModeTgz
+
+	default:
+		printStderr("Restoring to local filesystem (%v)...\n", restoreTargetPath)
+		return restoreModeLocal
+	}
+}
+
+func printRestoreStats(st restore.Stats) {
+	printStderr("Restored %v files and %v directories (%v)\n", st.FileCount, st.DirCount, units.BytesStringBase10(st.TotalFileSize))
 }
 
 func runRestoreCommand(ctx context.Context, rep repo.Repository) error {
@@ -66,7 +153,19 @@ func runRestoreCommand(ctx context.Context, rep repo.Repository) error {
 		return err
 	}
 
-	return snapshotfs.RestoreRoot(ctx, rep, *restoreCommandTargetPath, oid, restoreOptions())
+	output, err := restoreOutput()
+	if err != nil {
+		return errors.Wrap(err, "unable to initialize output")
+	}
+
+	st, err := restore.Root(ctx, rep, output, oid)
+	if err != nil {
+		return err
+	}
+
+	printRestoreStats(st)
+
+	return nil
 }
 
 func init() {
