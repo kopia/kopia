@@ -158,22 +158,35 @@ func TestSnapshotRestore(t *testing.T) {
 	// Restored contents should match source
 	compareDirs(t, source, restoreDir)
 
+	cases := []struct {
+		fname     string
+		args      []string
+		validator func(t *testing.T, fname string)
+	}{
+		// auto-detected formats
+		{fname: "output.zip", args: nil, validator: verifyValidZipFile},
+		{fname: "output.tar", args: nil, validator: verifyValidTarFile},
+		{fname: "output.tar.gz", args: nil, validator: verifyValidTarGzipFile},
+		{fname: "output.tgz", args: nil, validator: verifyValidTarGzipFile},
+		// forced formats
+		{fname: "output.nonzip.blah", args: []string{"--mode=zip"}, validator: verifyValidZipFile},
+		{fname: "output.nontar.blah", args: []string{"--mode=tar"}, validator: verifyValidTarFile},
+		{fname: "output.notargz.blah", args: []string{"--mode=tgz"}, validator: verifyValidTarGzipFile},
+	}
+
 	restoreArchiveDir := makeScratchDir(t)
-	zipFile := filepath.Join(restoreArchiveDir, "output.zip")
-	e.RunAndExpectSuccess(t, "snapshot", "restore", snapID, zipFile)
-	verifyValidZipFile(t, zipFile)
 
-	tarFile := filepath.Join(restoreArchiveDir, "output.tar")
-	e.RunAndExpectSuccess(t, "snapshot", "restore", snapID, tarFile)
-	verifyValidTarFile(t, tarFile)
-
-	targzFile := filepath.Join(restoreArchiveDir, "output.tar.gz")
-	e.RunAndExpectSuccess(t, "snapshot", "restore", snapID, targzFile)
-	verifyValidTarGzipFile(t, targzFile)
-
-	tgzFile := filepath.Join(restoreArchiveDir, "output.tgz")
-	e.RunAndExpectSuccess(t, "snapshot", "restore", snapID, tgzFile)
-	verifyValidTarGzipFile(t, tgzFile)
+	t.Run("modes", func(t *testing.T) {
+		for _, tc := range cases {
+			tc := tc
+			t.Run(tc.fname, func(t *testing.T) {
+				t.Parallel()
+				fname := filepath.Join(restoreArchiveDir, tc.fname)
+				e.RunAndExpectSuccess(t, append([]string{"snapshot", "restore", snapID, fname}, tc.args...)...)
+				tc.validator(t, fname)
+			})
+		}
+	})
 
 	// create a directory whose name ends with '.zip' and override mode to force treating it as directory.
 	zipDir := filepath.Join(restoreArchiveDir, "outputdir.zip")
