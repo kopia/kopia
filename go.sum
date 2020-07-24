@@ -356,6 +356,8 @@ github.com/kisielk/errcheck v1.1.0/go.mod h1:EZBBE59ingxPouuu3KfxchcWSUPOHkagtvW
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/klauspost/compress v1.8.2/go.mod h1:RyIbtBH6LamlWaDj8nUwkbUhJ87Yi3uG0guNDohfE1A=
 github.com/klauspost/compress v1.9.4/go.mod h1:RyIbtBH6LamlWaDj8nUwkbUhJ87Yi3uG0guNDohfE1A=
+github.com/klauspost/compress v1.9.7 h1:hYW1gP94JUmAhBtJ+LNz5My+gBobDxPR1iVuKug26aA=
+github.com/klauspost/compress v1.9.7/go.mod h1:RyIbtBH6LamlWaDj8nUwkbUhJ87Yi3uG0guNDohfE1A=
 github.com/klauspost/compress v1.10.1/go.mod h1:aoV0uJVorq1K+umq18yTdKaF57EivdYsUV+/s2qKfXs=
 github.com/klauspost/compress v1.10.3 h1:OP96hzwJVBIHYU52pVTI6CczrxPvrGfgqF9N5eTO0Q8=
 github.com/klauspost/compress v1.10.3/go.mod h1:aoV0uJVorq1K+umq18yTdKaF57EivdYsUV+/s2qKfXs=
@@ -440,6 +442,11 @@ github.com/minio/parquet-go v0.0.0-20200414234858-838cfa8aae61 h1:pUSI/WKPdd77gc
 github.com/minio/parquet-go v0.0.0-20200414234858-838cfa8aae61/go.mod h1:4trzEJ7N1nBTd5Tt7OCZT5SEin+WiAXpdJ/WgPkESA8=
 github.com/minio/sha256-simd v0.1.1 h1:5QHSlgo3nt5yKOJrC7W8w7X+NFl8cMPZm96iu8kKUJU=
 github.com/minio/sha256-simd v0.1.1/go.mod h1:B5e1o+1/KgNmWrSQK08Y6Z1Vb5pwIktudl0J58iy0KM=
+github.com/minio/simdjson-go v0.1.0/go.mod h1:ZAVJ8HB/LLrnk+nt4+nYd9kTAdRKGZdvW/x5Jelgevk=
+github.com/minio/simdjson-go v0.1.1/go.mod h1:ZAVJ8HB/LLrnk+nt4+nYd9kTAdRKGZdvW/x5Jelgevk=
+github.com/minio/simdjson-go v0.1.2/go.mod h1:ZAVJ8HB/LLrnk+nt4+nYd9kTAdRKGZdvW/x5Jelgevk=
+github.com/minio/simdjson-go v0.1.3/go.mod h1:iqktgh3PvDlFrP1EUGcb3vjtKspafYfkQm1zofDuw8A=
+github.com/minio/simdjson-go v0.1.4/go.mod h1:oKURrZZEBtqObgJrSjN1Ln2n9MJj2icuBTkeJzZnvSI=
 github.com/minio/simdjson-go v0.1.5-0.20200303142138-b17fe061ea37 h1:pDeao6M5AEd8hwTtGmE0pVKomlL56JFRa5SiXDZAuJE=
 github.com/minio/simdjson-go v0.1.5-0.20200303142138-b17fe061ea37/go.mod h1:oKURrZZEBtqObgJrSjN1Ln2n9MJj2icuBTkeJzZnvSI=
 github.com/minio/sio v0.2.0 h1:NCRCFLx0r5pRbXf65LVNjxbCGZgNQvNFQkgX3XF4BoA=
