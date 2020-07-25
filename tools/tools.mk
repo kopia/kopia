@@ -85,7 +85,7 @@ TOOLS_DIR:=$(SELF_DIR)$(slash).tools
 
 # tool versions
 GOLANGCI_LINT_VERSION=1.23.7
-NODE_VERSION=12.16.1
+NODE_VERSION=12.18.3
 HUGO_VERSION=0.67.1
 GORELEASER_VERSION=v0.128.0
 
@@ -200,16 +200,16 @@ ifeq ($(TRAVIS_PULL_REQUEST),false)
 
 ifneq ($(TRAVIS_TAG),)
 # travis, tagged release
-KOPIA_VERSION:=$(TRAVIS_TAG:v%=%)
+KOPIA_VERSION:=$(TRAVIS_TAG)
 else
 # travis, non-tagged release
-KOPIA_VERSION:=$(commit_date_ymd).0.$(commit_time_of_day)
+KOPIA_VERSION:=v$(commit_date_ymd).0.$(commit_time_of_day)
 endif
 
 else
 
 # non-travis, or travis PR
-KOPIA_VERSION:=$(date_ymd).0.0-$(shell git rev-parse --short HEAD)
+KOPIA_VERSION:=v$(date_ymd).0.0-$(shell git rev-parse --short HEAD)
 
 endif
 
