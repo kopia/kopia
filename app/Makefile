@@ -7,7 +7,7 @@ node_modules: $(npm)
 	$(npm) $(npm_flags) install
 
 electron_builder_flags:=
-electron_builder_flags+=-c.extraMetadata.version=$(KOPIA_VERSION)
+electron_builder_flags+=-c.extraMetadata.version=$(KOPIA_VERSION:v%=%)
 electron_publish_flag:=never
 
 ifeq ($(TRAVIS_PULL_REQUEST),false)
