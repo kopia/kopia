@@ -348,7 +348,7 @@ func TestEndToEndReadAndSeekWithCompression(t *testing.T) {
 	asyncWritesList := []int{0, 4, 8}
 
 	if runtime.GOARCH != "amd64" {
-		sizes = []int{1, 199, 200, 201, 9999, 512434, 5012434}
+		sizes = []int{1, 199, 200, 201, 9999, 512434}
 	}
 
 	for _, compressible := range []bool{false, true} {
