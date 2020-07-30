@@ -1,6 +1,5 @@
 COVERAGE_PACKAGES=github.com/kopia/kopia/repo/...,github.com/kopia/kopia/fs/...,github.com/kopia/kopia/snapshot/...
 GO_TEST=go test
-PARALLEL=8
 TEST_FLAGS?=
 KOPIA_INTEGRATION_EXE=$(CURDIR)/dist/integration/kopia.exe
 FIO_DOCKER_TAG=ljishen/fio
@@ -15,8 +14,15 @@ endif
 
 include tools/tools.mk
 
-ifeq ($(kopia_arch_name),arm64)
+ifeq ($(kopia_arch_name),amd64)
+PARALLEL=8
+LINTER_DEADLINE=180s
+UNIT_TESTS_TIMEOUT=180s
+else
+# tweaks for less powerful platforms
 PARALLEL=2
+LINTER_DEADLINE=300s
+UNIT_TESTS_TIMEOUT=300s
 endif
 
 -include ./Makefile.local.mk
@@ -43,10 +49,10 @@ play:
 	go run cmd/playground/main.go
 
 lint: $(linter)
-	$(linter) --deadline 180s run $(linter_flags)
+	$(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
 
 lint-and-log: $(linter)
-	$(linter) --deadline 180s run $(linter_flags) | tee .linterr.txt
+	$(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags) | tee .linterr.txt
 
 
 vet-time-inject:
@@ -62,7 +68,7 @@ vet: vet-time-inject
 travis-setup: travis-install-gpg-key travis-install-test-credentials all-tools
 	go mod download
 	make -C htmlui node_modules
-ifneq ($(kopia_arch_name),arm64)
+ifeq ($(kopia_arch_name),amd64)
 	make -C app node_modules
 endif
 
@@ -181,10 +187,10 @@ test-with-coverage-pkgonly:
 	$(GO_TEST) -count=1 -coverprofile=tmp.cov -timeout 90s github.com/kopia/kopia/...
 
 test:
-	$(GO_TEST) -count=1 -timeout 180s ./...
+	$(GO_TEST) -count=1 -timeout $(UNIT_TESTS_TIMEOUT) ./...
 
 vtest:
-	$(GO_TEST) -count=1 -short -v -timeout 180s ./...
+	$(GO_TEST) -count=1 -short -v -timeout $(UNIT_TESTS_TIMEOUT) ./...
 
 dist-binary:
 	go build -o $(KOPIA_INTEGRATION_EXE) github.com/kopia/kopia

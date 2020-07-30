@@ -18,9 +18,11 @@ const (
 	mutexAgeCutoff        = 5 * time.Minute
 )
 
-type mutextLRU struct {
-	mu                  *sync.Mutex
+type mutexLRU struct {
+	// values aligned to 8-bytes due to atomic access
 	lastUsedNanoseconds int64
+
+	mu *sync.Mutex
 }
 
 // cacheBase provides common implementation for per-content and per-blob caches
@@ -58,13 +60,13 @@ func (c *cacheBase) perItemMutex(key interface{}) *sync.Mutex {
 
 	v, ok := c.loadingMap.Load(key)
 	if !ok {
-		v, _ = c.loadingMap.LoadOrStore(key, &mutextLRU{
+		v, _ = c.loadingMap.LoadOrStore(key, &mutexLRU{
 			mu:                  &sync.Mutex{},
 			lastUsedNanoseconds: now,
 		})
 	}
 
-	m := v.(*mutextLRU)
+	m := v.(*mutexLRU)
 	atomic.StoreInt64(&m.lastUsedNanoseconds, now)
 
 	return m.mu
@@ -151,7 +153,7 @@ func (c *cacheBase) sweepMutexes() {
 	// since the mutexes are only for performance (to avoid loading duplicates)
 	// and not for correctness, it's always safe to remove them.
 	c.loadingMap.Range(func(key, value interface{}) bool {
-		if m := value.(*mutextLRU); m.lastUsedNanoseconds < cutoffTime {
+		if m := value.(*mutexLRU); m.lastUsedNanoseconds < cutoffTime {
 			c.loadingMap.Delete(key)
 		}
 

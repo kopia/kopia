@@ -23,8 +23,7 @@ const indexBlobCompactionWarningThreshold = 100
 
 // lockFreeManager contains parts of Manager state that can be accessed without locking
 type lockFreeManager struct {
-	// this one is not lock-free
-	Stats Stats
+	Stats *Stats
 
 	st             blob.Storage
 	Format         FormattingOptions

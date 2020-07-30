@@ -23,6 +23,13 @@ ifeq ($(raw_arch),aarch64)
 	linter_arch_name=arm64
 endif
 
+ifeq ($(raw_arch),armv7l)
+	kopia_arch_name=arm
+	node_arch_name=armv7l
+	goreleaser_arch_name=armv6
+	linter_arch_name=armv7
+endif
+
 ifneq ($(APPVEYOR),)
 
 UNIX_SHELL_ON_WINDOWS=false
@@ -249,10 +256,10 @@ endif
 endif
 
 # disable some tools on non-default architectures
-ifeq ($(kopia_arch_name),arm64)
-maybehugo=
-else
+ifeq ($(kopia_arch_name),amd64)
 maybehugo=$(hugo)
+else
+maybehugo=
 endif
 
 all-tools: $(npm) $(goreleaser) $(linter) $(maybehugo) $(go_bindata) windows-signing-tools

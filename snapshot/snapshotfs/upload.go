@@ -45,6 +45,9 @@ const (
 
 // Uploader supports efficient uploading files and directories to repository.
 type Uploader struct {
+	// values aligned to 8-bytes due to atomic access
+	totalWrittenBytes int64
+
 	Progress UploadProgress
 
 	// automatically cancel the Upload after certain number of bytes
@@ -71,8 +74,6 @@ type Uploader struct {
 	nextCheckpointTime time.Time
 
 	uploadBufPool sync.Pool
-
-	totalWrittenBytes int64
 }
 
 // IsCanceled returns true if the upload is canceled.
