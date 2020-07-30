@@ -15,6 +15,10 @@ endif
 
 include tools/tools.mk
 
+ifeq ($(kopia_arch_name),arm64)
+PARALLEL=2
+endif
+
 -include ./Makefile.local.mk
 
 install: html-ui-bindata
@@ -58,7 +62,10 @@ vet: vet-time-inject
 travis-setup: travis-install-gpg-key travis-install-test-credentials all-tools
 	go mod download
 	make -C htmlui node_modules
+ifneq ($(kopia_arch_name),arm64)
 	make -C app node_modules
+endif
+
 ifneq ($(TRAVIS_OS_NAME),)
 	-git checkout go.mod go.sum
 endif
@@ -81,6 +88,13 @@ html-ui-bindata-fallback: $(go_bindata)
 kopia-ui:
 	$(MAKE) -C app build-electron
 
+ifeq ($(kopia_arch_name),arm64)
+travis-release:
+	$(MAKE) test
+	$(MAKE) integration-tests
+	$(MAKE) lint
+else
+
 travis-release:
 	$(retry) $(MAKE) goreleaser
 	$(retry) $(MAKE) kopia-ui
@@ -93,6 +107,8 @@ ifeq ($(TRAVIS_OS_NAME),linux)
 	$(MAKE) stress-test
 	$(MAKE) travis-create-long-term-repository
 	$(MAKE) upload-coverage
+endif
+
 endif
 
 # goreleaser - builds binaries for all platforms

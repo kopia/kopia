@@ -1,4 +1,4 @@
-// +build darwin linux
+// +build darwin,amd64 linux,amd64
 
 // Package fswalker provides the checker.Comparer interface using FSWalker
 // walker and reporter.
