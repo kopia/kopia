@@ -195,7 +195,7 @@ ifeq ($(uname),Windows)
 else
 
 ifeq ($(uname),Linux)
-	curl -LsS https://github.com/gohugoio/hugo/releases/download/v$(HUGO_VERSION)/hugo_extended$(HUGO_VERSION)_Linux-64bit.tar.gz | tar zxv -C $(hugo_dir)
+	curl -LsS https://github.com/gohugoio/hugo/releases/download/v$(HUGO_VERSION)/hugo_extended_$(HUGO_VERSION)_Linux-64bit.tar.gz | tar zxv -C $(hugo_dir)
 else
 	curl -LsS https://github.com/gohugoio/hugo/releases/download/v$(HUGO_VERSION)/hugo_extended_$(HUGO_VERSION)_macOS-64bit.tar.gz | tar zxv -C $(hugo_dir)
 endif
