@@ -21,8 +21,9 @@ func (s *CountSum) Add(size int64) (count uint32, sum int64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.count += 1
+	s.count++
 	s.sum += size
+
 	return s.count, s.sum
 }
 
