@@ -1,4 +1,4 @@
-// +build darwin linux
+// +build darwin,amd64 linux,amd64
 
 // Package engine provides the framework for a snapshot repository testing engine
 package engine

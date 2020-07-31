@@ -1,4 +1,4 @@
-// +build darwin linux
+// +build darwin,amd64 linux,amd64
 
 package walker
 

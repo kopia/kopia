@@ -1,6 +1,5 @@
 COVERAGE_PACKAGES=github.com/kopia/kopia/repo/...,github.com/kopia/kopia/fs/...,github.com/kopia/kopia/snapshot/...
 GO_TEST=go test
-PARALLEL=8
 TEST_FLAGS?=
 KOPIA_INTEGRATION_EXE=$(CURDIR)/dist/integration/kopia.exe
 FIO_DOCKER_TAG=ljishen/fio
@@ -14,6 +13,17 @@ retry=$(CURDIR)/tools/retry.sh
 endif
 
 include tools/tools.mk
+
+ifeq ($(kopia_arch_name),amd64)
+PARALLEL=8
+LINTER_DEADLINE=180s
+UNIT_TESTS_TIMEOUT=180s
+else
+# tweaks for less powerful platforms
+PARALLEL=2
+LINTER_DEADLINE=300s
+UNIT_TESTS_TIMEOUT=300s
+endif
 
 -include ./Makefile.local.mk
 
@@ -39,10 +49,10 @@ play:
 	go run cmd/playground/main.go
 
 lint: $(linter)
-	$(linter) --deadline 180s run $(linter_flags)
+	$(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
 
 lint-and-log: $(linter)
-	$(linter) --deadline 180s run $(linter_flags) | tee .linterr.txt
+	$(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags) | tee .linterr.txt
 
 
 vet-time-inject:
@@ -58,7 +68,10 @@ vet: vet-time-inject
 travis-setup: travis-install-gpg-key travis-install-test-credentials all-tools
 	go mod download
 	make -C htmlui node_modules
+ifeq ($(kopia_arch_name),amd64)
 	make -C app node_modules
+endif
+
 ifneq ($(TRAVIS_OS_NAME),)
 	-git checkout go.mod go.sum
 endif
@@ -81,6 +94,13 @@ html-ui-bindata-fallback: $(go_bindata)
 kopia-ui:
 	$(MAKE) -C app build-electron
 
+ifeq ($(kopia_arch_name),arm64)
+travis-release:
+	$(MAKE) test
+	$(MAKE) integration-tests
+	$(MAKE) lint
+else
+
 travis-release:
 	$(retry) $(MAKE) goreleaser
 	$(retry) $(MAKE) kopia-ui
@@ -93,6 +113,8 @@ ifeq ($(TRAVIS_OS_NAME),linux)
 	$(MAKE) stress-test
 	$(MAKE) travis-create-long-term-repository
 	$(MAKE) upload-coverage
+endif
+
 endif
 
 # goreleaser - builds binaries for all platforms
@@ -165,17 +187,17 @@ test-with-coverage-pkgonly:
 	$(GO_TEST) -count=1 -coverprofile=tmp.cov -timeout 90s github.com/kopia/kopia/...
 
 test:
-	$(GO_TEST) -count=1 -timeout 180s ./...
+	$(GO_TEST) -count=1 -timeout $(UNIT_TESTS_TIMEOUT) ./...
 
 vtest:
-	$(GO_TEST) -count=1 -short -v -timeout 180s ./...
+	$(GO_TEST) -count=1 -short -v -timeout $(UNIT_TESTS_TIMEOUT) ./...
 
 dist-binary:
 	go build -o $(KOPIA_INTEGRATION_EXE) github.com/kopia/kopia
 
 integration-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
 integration-tests: dist-binary
-	 $(GO_TEST) $(TEST_FLAGS) -count=1 -parallel $(PARALLEL) -timeout 600s github.com/kopia/kopia/tests/end_to_end_test
+	 $(GO_TEST) $(TEST_FLAGS) -count=1 -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/end_to_end_test
 
 robustness-tool-tests:
 	FIO_DOCKER_IMAGE=$(FIO_DOCKER_TAG) \

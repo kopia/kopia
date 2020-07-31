@@ -11,6 +11,7 @@ import (
 	"io"
 	"io/ioutil"
 	"math/rand"
+	"runtime"
 	"runtime/debug"
 	"sync"
 	"testing"
@@ -343,6 +344,13 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 }
 
 func TestEndToEndReadAndSeekWithCompression(t *testing.T) {
+	sizes := []int{1, 199, 200, 201, 9999, 512434, 5012434, 15000000}
+	asyncWritesList := []int{0, 4, 8}
+
+	if runtime.GOARCH != "amd64" {
+		sizes = []int{1, 199, 200, 201, 9999, 512434}
+	}
+
 	for _, compressible := range []bool{false, true} {
 		compressible := compressible
 
@@ -353,14 +361,14 @@ func TestEndToEndReadAndSeekWithCompression(t *testing.T) {
 
 				ctx := testlogging.Context(t)
 
-				for _, asyncWrites := range []int{0, 4, 8} {
+				for _, asyncWrites := range asyncWritesList {
 					asyncWrites := asyncWrites
 					totalBytesWritten := 0
 					data, om := setupTest(t)
 
 					t.Run(fmt.Sprintf("async-%v", asyncWrites), func(t *testing.T) {
 						t.Parallel()
-						for _, size := range []int{1, 199, 200, 201, 9999, 512434, 5012434, 15000000} {
+						for _, size := range sizes {
 
 							randomData := makeMaybeCompressibleData(size, compressible)
 

@@ -700,6 +700,7 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 	mu := &sync.RWMutex{}
 	m := &Manager{
 		lockFreeManager: lockFreeManager{
+			Stats:                   new(Stats),
 			Format:                  *f,
 			timeNow:                 timeNow,
 			maxPackSize:             f.MaxPackSize,

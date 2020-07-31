@@ -35,8 +35,8 @@ func AutoAdvance(t time.Time, dt time.Duration) func() time.Time {
 // TimeAdvance allows controlling the passage of time. Intended to be used in
 // tests.
 type TimeAdvance struct {
-	base  time.Time
 	delta int64
+	base  time.Time
 }
 
 // NewTimeAdvance creates a TimeAdvance with the given start time
