@@ -268,7 +268,7 @@ func verifyServerConnected(t *testing.T, cli *apiclient.KopiaAPIClient, want boo
 func waitForSnapshotCount(ctx context.Context, t *testing.T, cli *apiclient.KopiaAPIClient, match *snapshot.SourceInfo, want int) {
 	t.Helper()
 
-	err := retry.PeriodicallyNoValue(ctx, 1*time.Second, 60, "wait for snapshots", func() error {
+	err := retry.PeriodicallyNoValue(ctx, 1*time.Second, 180, "wait for snapshots", func() error {
 		snapshots, err := serverapi.ListSnapshots(testlogging.Context(t), cli, match)
 		if err != nil {
 			return errors.Wrap(err, "error listing sources")
@@ -359,7 +359,7 @@ func verifyUIServedWithCorrectTitle(t *testing.T, cli *apiclient.KopiaAPIClient,
 }
 
 func waitUntilServerStarted(ctx context.Context, t *testing.T, cli *apiclient.KopiaAPIClient) {
-	if err := retry.PeriodicallyNoValue(ctx, 1*time.Second, 60, "wait for server start", func() error {
+	if err := retry.PeriodicallyNoValue(ctx, 1*time.Second, 180, "wait for server start", func() error {
 		_, err := serverapi.Status(testlogging.Context(t), cli)
 		return err
 	}, retry.Always); err != nil {
