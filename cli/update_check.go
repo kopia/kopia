@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/fatih/color"
@@ -150,7 +151,7 @@ func verifyGitHubReleaseIsComplete(releaseName string) error {
 	return nil
 }
 
-func maybeCheckForUpdates() (string, error) {
+func maybeCheckForUpdates(ctx context.Context) (string, error) {
 	if v := os.Getenv(checkForUpdatesEnvar); v != "" {
 		// see if environment variable is set to false.
 		if b, err := strconv.ParseBool(v); err == nil && !b {
@@ -164,6 +165,7 @@ func maybeCheckForUpdates() (string, error) {
 	}
 
 	if time.Now().After(us.NextCheckTime) {
+		log(ctx).Debugf("time for next update check has been reached")
 		// before we check for update, write update state file again, so if this fails
 		// we won't bother GitHub for a while
 		us.NextCheckTime = time.Now().Add(*updateCheckInterval)
@@ -175,6 +177,8 @@ func maybeCheckForUpdates() (string, error) {
 		if err != nil {
 			return "", errors.Wrap(err, "update to get latest release from GitHub")
 		}
+
+		log(ctx).Debugf("latest version on github: %v previous %v", newAvailableVersion, us.AvailableVersion)
 
 		// we got updated version from GitHub, write it in a state file again
 		if newAvailableVersion != us.AvailableVersion {
@@ -190,7 +194,9 @@ func maybeCheckForUpdates() (string, error) {
 		}
 	}
 
-	if us.AvailableVersion == "" || semver.Compare(repo.BuildVersion, us.AvailableVersion) >= 0 {
+	log(ctx).Debugf("build version %v, available %v", ensureVPrefix(repo.BuildVersion), ensureVPrefix(us.AvailableVersion))
+
+	if us.AvailableVersion == "" || semver.Compare(ensureVPrefix(repo.BuildVersion), ensureVPrefix(us.AvailableVersion)) >= 0 {
 		// no new version available
 		return "", nil
 	}
@@ -210,7 +216,7 @@ func maybeCheckForUpdates() (string, error) {
 
 // maybePrintUpdateNotification prints notification about available version.
 func maybePrintUpdateNotification(ctx context.Context) {
-	updatedVersion, err := maybeCheckForUpdates()
+	updatedVersion, err := maybeCheckForUpdates(ctx)
 	if err != nil {
 		log(ctx).Debugf("unable to check for updates: %v", err)
 		return
@@ -221,5 +227,13 @@ func maybePrintUpdateNotification(ctx context.Context) {
 		return
 	}
 
-	noticeColor.Fprintf(os.Stderr, updateAvailableNotice, repo.BuildVersion, updatedVersion) //nolint:errcheck
+	noticeColor.Fprintf(os.Stderr, updateAvailableNotice, ensureVPrefix(repo.BuildVersion), ensureVPrefix(updatedVersion)) //nolint:errcheck
+}
+
+func ensureVPrefix(s string) string {
+	if strings.HasPrefix(s, "v") {
+		return s
+	}
+
+	return "v" + s
 }
