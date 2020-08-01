@@ -51,7 +51,7 @@ nfpms:
     bindir: /usr/bin
 brews:
   - homepage: "https://kopia.io"
-    github:
+    tap:
       owner: kopia
       name: homebrew-kopia
     description: "Fast and secure open source backup."
