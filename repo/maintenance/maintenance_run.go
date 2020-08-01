@@ -108,7 +108,7 @@ func updateSchedule(ctx context.Context, runParams RunParameters) error {
 	case ModeFull:
 		// on full cycle, also update the quick cycle
 		s.NextFullMaintenanceTime = rep.Time().Add(p.FullCycle.Interval)
-		s.NextQuickMaintenanceTime = s.NextFullMaintenanceTime.Add(p.QuickCycle.Interval)
+		s.NextQuickMaintenanceTime = rep.Time().Add(p.QuickCycle.Interval)
 		log(ctx).Debugf("scheduling next full cycle at %v", s.NextFullMaintenanceTime)
 		log(ctx).Debugf("scheduling next quick cycle at %v", s.NextQuickMaintenanceTime)
 
