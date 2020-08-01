@@ -14,15 +14,14 @@ endif
 
 include tools/tools.mk
 
+LINTER_DEADLINE=300s
+UNIT_TESTS_TIMEOUT=300s
+
 ifeq ($(kopia_arch_name),amd64)
 PARALLEL=8
-LINTER_DEADLINE=180s
-UNIT_TESTS_TIMEOUT=180s
 else
 # tweaks for less powerful platforms
 PARALLEL=2
-LINTER_DEADLINE=300s
-UNIT_TESTS_TIMEOUT=300s
 endif
 
 -include ./Makefile.local.mk
