@@ -52,6 +52,8 @@ func runServer(ctx context.Context, rep repo.Repository) error {
 		return errors.Wrap(err, "unable to initialize server")
 	}
 
+	maybeAutoUpgradeRepository(ctx, rep)
+
 	if err = srv.SetRepository(ctx, rep); err != nil {
 		return errors.Wrap(err, "error connecting to repository")
 	}

@@ -105,14 +105,5 @@ func populateRepository(ctx context.Context, password string) error {
 	printStdout("To change the policy use:\n  kopia policy set --global <options>\n")
 	printStdout("or\n  kopia policy set <dir> <options>\n")
 
-	if dr, ok := rep.(*repo.DirectRepository); ok {
-		p := maintenance.DefaultParams()
-		p.Owner = rep.Username() + "@" + rep.Hostname()
-
-		if err := maintenance.SetParams(ctx, dr, &p); err != nil {
-			return errors.Wrap(err, "unable to set maintenance params")
-		}
-	}
-
-	return nil
+	return setDefaultMaintenanceParameters(ctx, rep.(maintenance.MaintainableRepository))
 }
