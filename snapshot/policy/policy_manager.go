@@ -72,11 +72,10 @@ func GetEffectivePolicy(ctx context.Context, rep repo.Repository, si snapshot.So
 
 	for _, em := range md {
 		p := &Policy{}
-		if _, err := rep.GetManifest(ctx, em.ID, &p); err != nil {
+		if err := loadPolicyFromManifest(ctx, rep, em.ID, p); err != nil {
 			return nil, nil, errors.Wrapf(err, "got unexpected error when loading policy item %v", em.ID)
 		}
 
-		p.Labels = em.Labels
 		policies = append(policies, p)
 		log(ctx).Debugf("loaded parent policy for %v: %v", si, p.Target())
 	}
@@ -106,17 +105,9 @@ func GetDefinedPolicy(ctx context.Context, rep repo.Repository, si snapshot.Sour
 
 	p := &Policy{}
 
-	em, err := rep.GetManifest(ctx, manifestID, p)
-
-	if err != nil {
-		if err == manifest.ErrNotFound {
-			return nil, ErrPolicyNotFound
-		}
-
+	if err := loadPolicyFromManifest(ctx, rep, manifestID, p); err != nil {
 		return nil, err
 	}
-
-	p.Labels = em.Labels
 
 	return p, nil
 }
@@ -160,10 +151,8 @@ func RemovePolicy(ctx context.Context, rep repo.Repository, si snapshot.SourceIn
 // GetPolicyByID gets the policy for a given unique ID or ErrPolicyNotFound if not found.
 func GetPolicyByID(ctx context.Context, rep repo.Repository, id manifest.ID) (*Policy, error) {
 	p := &Policy{}
-	if _, err := rep.GetManifest(ctx, id, &p); err != nil {
-		if err == manifest.ErrNotFound {
-			return nil, ErrPolicyNotFound
-		}
+	if err := loadPolicyFromManifest(ctx, rep, id, p); err != nil {
+		return nil, err
 	}
 
 	return p, nil
@@ -183,13 +172,10 @@ func ListPolicies(ctx context.Context, rep repo.Repository) ([]*Policy, error) {
 	for _, id := range ids {
 		pol := &Policy{}
 
-		md, err := rep.GetManifest(ctx, id.ID, pol)
-		if err != nil {
+		if err := loadPolicyFromManifest(ctx, rep, id.ID, pol); err != nil {
 			return nil, err
 		}
 
-		pol.Labels = md.Labels
-		pol.Labels["id"] = string(id.ID)
 		policies = append(policies, pol)
 	}
 
@@ -231,12 +217,12 @@ func TreeForSource(ctx context.Context, rep repo.Repository, si snapshot.SourceI
 	for _, id := range policies {
 		pol := &Policy{}
 
-		em, err := rep.GetManifest(ctx, id.ID, pol)
+		err := loadPolicyFromManifest(ctx, rep, id.ID, pol)
 		if err != nil {
 			return nil, err
 		}
 
-		policyPath := em.Labels["path"]
+		policyPath := pol.Labels["path"]
 
 		if !strings.HasPrefix(policyPath, si.Path+"/") {
 			continue
@@ -254,6 +240,22 @@ func TreeForSource(ctx context.Context, rep repo.Repository, si snapshot.SourceI
 	}
 
 	return BuildTree(result, DefaultPolicy), nil
+}
+
+func loadPolicyFromManifest(ctx context.Context, rep repo.Repository, id manifest.ID, pol *Policy) error {
+	md, err := rep.GetManifest(ctx, id, pol)
+	if err != nil {
+		if errors.Is(err, manifest.ErrNotFound) {
+			return ErrPolicyNotFound
+		}
+
+		return err
+	}
+
+	pol.Labels = md.Labels
+	pol.Labels["id"] = string(md.ID)
+
+	return nil
 }
 
 func labelsForSource(si snapshot.SourceInfo) map[string]string {

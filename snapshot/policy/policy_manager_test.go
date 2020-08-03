@@ -36,7 +36,12 @@ func TestPolicyManager(t *testing.T) {
 	r3 := env.MustOpenAnother(t)
 
 	pi, err := GetDefinedPolicy(ctx, r3, sourceInfo)
+
 	must(t, err)
+
+	if got, want := pi.Target(), sourceInfo; got != want {
+		t.Errorf("invalid policy target %v, want %v", got, want)
+	}
 
 	if got := *pi.RetentionPolicy.KeepDaily; got != 33 && got != 44 {
 		t.Errorf("unexpected policy returned")
