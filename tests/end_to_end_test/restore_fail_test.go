@@ -1,7 +1,9 @@
 package endtoend_test
 
 import (
+	"fmt"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -52,14 +54,7 @@ func TestRestoreFail(t *testing.T) {
 
 	newBlobIDs := getNewBlobIDs(beforeBlobList, afterBlobList)
 
-	var blobIDToDelete string
-
-	for _, blobID := range newBlobIDs {
-		if strings.Contains(blobID, string(content.PackBlobIDPrefixRegular)) {
-			blobIDToDelete = blobID
-		}
-	}
-
+	blobIDToDelete := findPackBlob(newBlobIDs)
 	if blobIDToDelete == "" {
 		t.Fatal("Could not find a pack blob in the list of blobs created by snapshot")
 	}
@@ -69,6 +64,21 @@ func TestRestoreFail(t *testing.T) {
 
 	// Expect a subsequent restore to fail
 	e.RunAndExpectFailure(t, "snapshot", "restore", snapID, targetDir)
+}
+
+func findPackBlob(blobIDs []string) string {
+	// Pattern to match "p" followed by hexadecimal digits
+	// Ex) "pd4c69d72b75a9d3d7d9da21096c6b60a"
+	patternStr := fmt.Sprintf("^%s[0-9a-f]+$", content.PackBlobIDPrefixRegular)
+	pattern := regexp.MustCompile(patternStr)
+
+	for _, blobID := range blobIDs {
+		if pattern.MatchString(blobID) {
+			return blobID
+		}
+	}
+
+	return ""
 }
 
 func getNewBlobIDs(before, after []string) []string {
