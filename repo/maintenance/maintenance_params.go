@@ -39,8 +39,7 @@ func DefaultParams() Params {
 			Interval: 7 * 24 * time.Hour,
 		},
 		QuickCycle: CycleParams{
-			// TODO: enable this when ready for public consumption
-			// Enabled:  true,
+			Enabled:  true,
 			Interval: 1 * time.Hour,
 		},
 		SnapshotGC: SnapshotGCParams{
@@ -53,6 +52,16 @@ func DefaultParams() Params {
 type CycleParams struct {
 	Enabled  bool          `json:"enabled"`
 	Interval time.Duration `json:"interval"`
+}
+
+// HasParams determines whether repository-wide maintenance parameters have been set.
+func HasParams(ctx context.Context, rep MaintainableRepository) (bool, error) {
+	md, err := manifestIDs(ctx, rep)
+	if err != nil {
+		return false, err
+	}
+
+	return len(md) > 0, nil
 }
 
 // GetParams returns repository-wide maintenance parameters.

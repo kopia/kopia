@@ -37,6 +37,8 @@ var (
 func runSnapshotCommand(ctx context.Context, rep repo.Repository) error {
 	sources := *snapshotCreateSources
 
+	maybeAutoUpgradeRepository(ctx, rep)
+
 	if *snapshotCreateAll {
 		local, err := getLocalBackupPaths(ctx, rep)
 		if err != nil {
