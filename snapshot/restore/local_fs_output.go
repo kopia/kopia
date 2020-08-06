@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/natefinch/atomic"
 	"github.com/pkg/errors"
@@ -86,7 +87,9 @@ func (o *FilesystemOutput) setAttributes(targetPath string, e fs.Entry) error {
 	}
 
 	// Set owner user and group from e
-	if le.Owner() != e.Owner() {
+	// On Windows Chown is not supported. fs.OwnerInfo collected on Windows will always
+	// be zero-value for UID and GID, so the Chown operation is not performed.
+	if le.Owner() != e.Owner() && runtime.GOOS != "windows" {
 		if err = os.Chown(targetPath, int(e.Owner().UserID), int(e.Owner().GroupID)); err != nil && !os.IsPermission(err) {
 			return errors.Wrap(err, "could not change owner/group for "+targetPath)
 		}
