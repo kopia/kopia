@@ -3,7 +3,6 @@ package policy
 
 import (
 	"context"
-	"path/filepath"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -36,7 +35,7 @@ func GetEffectivePolicy(ctx context.Context, rep repo.Repository, si snapshot.So
 
 		md = append(md, manifests...)
 
-		parentPath := filepath.Dir(tmp.Path)
+		parentPath := getParentPathOSIndependent(tmp.Path)
 		if parentPath == tmp.Path {
 			break
 		}
@@ -192,6 +191,15 @@ func (m SubdirectoryPolicyMap) GetPolicyForPath(relativePath string) (*Policy, e
 
 // TreeForSource returns policy Tree for a given source.
 func TreeForSource(ctx context.Context, rep repo.Repository, si snapshot.SourceInfo) (*Tree, error) {
+	pols, err := applicablePoliciesForSource(ctx, rep, si)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to get policies")
+	}
+
+	return BuildTree(pols, DefaultPolicy), nil
+}
+
+func applicablePoliciesForSource(ctx context.Context, rep repo.Repository, si snapshot.SourceInfo) (map[string]*Policy, error) {
 	result := map[string]*Policy{}
 
 	pol, _, err := GetEffectivePolicy(ctx, rep, si)
@@ -212,7 +220,7 @@ func TreeForSource(ctx context.Context, rep repo.Repository, si snapshot.SourceI
 		return nil, errors.Wrapf(err, "unable to find manifests for %v@%v", si.UserName, si.Host)
 	}
 
-	log(ctx).Debugf("found %v policies for %v@%v", si.UserName, si.Host)
+	log(ctx).Debugf("found %v policies for %v@%v", len(policies), si.UserName, si.Host)
 
 	for _, id := range policies {
 		pol := &Policy{}
@@ -224,13 +232,10 @@ func TreeForSource(ctx context.Context, rep repo.Repository, si snapshot.SourceI
 
 		policyPath := pol.Labels["path"]
 
-		if !strings.HasPrefix(policyPath, si.Path+"/") {
+		rel := nestedRelativePathNormalizedToSlashes(si.Path, policyPath)
+		if rel == "" {
+			log(ctx).Debugf("%v is not under %v", policyPath, si.Path)
 			continue
-		}
-
-		rel, err := filepath.Rel(si.Path, policyPath)
-		if err != nil {
-			return nil, errors.Wrap(err, "unable to determine relative path")
 		}
 
 		rel = "./" + rel
@@ -239,7 +244,7 @@ func TreeForSource(ctx context.Context, rep repo.Repository, si snapshot.SourceI
 		result[rel] = pol
 	}
 
-	return BuildTree(result, DefaultPolicy), nil
+	return result, nil
 }
 
 func loadPolicyFromManifest(ctx context.Context, rep repo.Repository, id manifest.ID, pol *Policy) error {
@@ -287,4 +292,66 @@ func labelsForSource(si snapshot.SourceInfo) map[string]string {
 			"policyType": "global",
 		}
 	}
+}
+
+func getParentPathOSIndependent(p string) string {
+	// split into volume (Windows only, e.g. X:) and path using either slash or backslash.
+	vol, pth := volumeAndPath(p)
+
+	last := strings.LastIndexAny(pth, "/\\")
+	if last == len(pth)-1 && last != 0 {
+		pth = pth[0:last]
+		last = strings.LastIndexAny(pth, "/\\")
+	}
+
+	if last < 0 {
+		return p
+	}
+
+	// special case for root, return root path itself (either slash or backslash-separated)
+	if last == 0 {
+		return vol + pth[0:1]
+	}
+
+	return vol + pth[0:last]
+}
+
+// volumeAndPath splits path 'p' into Windows-specific volume (e.g. "X:" and path after that starting with either slash or backslash)
+func volumeAndPath(p string) (vol, path string) {
+	if len(p) >= 3 && p[1] == ':' && isSlashOrBackslash(p[2]) {
+		// "X:\"
+		return p[0:2], p[2:]
+	}
+
+	return "", p
+}
+
+func isSlashOrBackslash(c uint8) bool {
+	return c == '/' || c == '\\'
+}
+
+func isWindowsStylePath(p string) bool {
+	v, _ := volumeAndPath(p)
+	return v != ""
+}
+
+func trimTrailingSlashOrBackslash(path string) string {
+	return strings.TrimSuffix(strings.TrimSuffix(path, "/"), "\\")
+}
+
+func nestedRelativePathNormalizedToSlashes(parent, child string) string {
+	isWin := isWindowsStylePath(parent)
+	parent = trimTrailingSlashOrBackslash(parent)
+
+	if !strings.HasPrefix(child, parent+"/") && !strings.HasPrefix(child, parent+"\\") {
+		return ""
+	}
+
+	p := strings.TrimPrefix(child, parent)[1:]
+
+	if isWin {
+		return strings.ReplaceAll(p, "\\", "/")
+	}
+
+	return p
 }

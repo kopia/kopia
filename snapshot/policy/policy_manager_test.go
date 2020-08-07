@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/kopia/kopia/internal/repotesting"
+	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/snapshot"
 )
 
@@ -196,6 +198,201 @@ func TestPolicyManagerResolvesConflicts(t *testing.T) {
 
 	if got := *pi.RetentionPolicy.KeepDaily; got != 33 && got != 44 {
 		t.Errorf("unexpected policy returned")
+	}
+}
+
+func TestParentPathOSIndependent(t *testing.T) {
+	cases := []struct {
+		input, want string
+	}{
+		{"/", "/"},
+		{"/x", "/"},
+		{"/x/", "/"},
+		{"/x/a", "/x"},
+		{"/x/a/", "/x"},
+		{"x:\\", "x:\\"},
+		{"X:\\Program Files", "X:\\"},
+		{"X:\\Program Files\\Blah", "X:\\Program Files"},
+		{"X:/Program Files", "X:/"},
+		{"X:/Program Files/", "X:/"},
+		{"X:/Program Files\\", "X:/"},
+		{"X:/Program Files/Blah", "X:/Program Files"},
+		{"X:/Program Files/Blah/", "X:/Program Files"},
+		{"X:/Program Files/Blah/xxx", "X:/Program Files/Blah"},
+	}
+
+	for _, tc := range cases {
+		if got, want := getParentPathOSIndependent(tc.input), tc.want; got != want {
+			t.Errorf("invalid value of getParentPathOSIndependent(%q): %q, want %q", tc.input, got, want)
+		}
+	}
+}
+
+// TestApplicablePoliciesForSource verifies that when we build a policy tree, we pick the appropriate policies
+// defined for the subtree regardless of path style (Unix or Windows).
+func TestApplicablePoliciesForSource(t *testing.T) {
+	ctx := testlogging.Context(t)
+
+	var env repotesting.Environment
+
+	defer env.Setup(t).Close(ctx, t)
+
+	setPols := map[snapshot.SourceInfo]*Policy{
+		// unix-style path names
+		snapshot.SourceInfo{Host: "host-a"}: &Policy{
+			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(0)},
+		},
+		snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/home"}: &Policy{
+			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(1)},
+		},
+		snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/home/users"}: &Policy{
+			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(2)},
+		},
+		snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/home/users/myuser"}: &Policy{
+			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(3)},
+		},
+		snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/home/users/myuser/dir1"}: &Policy{
+			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(4)},
+		},
+		snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/home/users/myuser/dir2"}: &Policy{
+			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(5)},
+		},
+		snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/home/users/myuser/dir2/a"}: &Policy{
+			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(6)},
+		},
+		snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/home/users/myuser2"}: &Policy{
+			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(7)},
+		},
+
+		// windows-style path names with backslash
+		snapshot.SourceInfo{Host: "host-b"}: &Policy{
+			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(0)},
+		},
+		snapshot.SourceInfo{Host: "host-b", UserName: "myuser", Path: "C:\\"}: &Policy{
+			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(1)},
+		},
+		snapshot.SourceInfo{Host: "host-b", UserName: "myuser", Path: "C:\\Users"}: &Policy{
+			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(2)},
+		},
+		snapshot.SourceInfo{Host: "host-b", UserName: "myuser", Path: "C:\\Users\\myuser"}: &Policy{
+			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(3)},
+		},
+		snapshot.SourceInfo{Host: "host-b", UserName: "myuser", Path: "C:\\Users\\myuser\\dir1"}: &Policy{
+			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(4)},
+		},
+		snapshot.SourceInfo{Host: "host-b", UserName: "myuser", Path: "C:\\Users\\myuser\\dir2"}: &Policy{
+			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(5)},
+		},
+		snapshot.SourceInfo{Host: "host-b", UserName: "myuser", Path: "C:\\Users\\myuser\\dir2\\a"}: &Policy{
+			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(6)},
+		},
+		snapshot.SourceInfo{Host: "host-b", UserName: "myuser", Path: "C:\\Users\\myuser2"}: &Policy{
+			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(7)},
+		},
+
+		// windows-style path names with slashes
+		snapshot.SourceInfo{Host: "host-c"}: &Policy{
+			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(0)},
+		},
+		snapshot.SourceInfo{Host: "host-c", UserName: "myuser", Path: "C:/Users"}: &Policy{
+			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(1)},
+		},
+		snapshot.SourceInfo{Host: "host-c", UserName: "myuser", Path: "C:/Users"}: &Policy{
+			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(2)},
+		},
+		snapshot.SourceInfo{Host: "host-c", UserName: "myuser", Path: "C:/Users/myuser"}: &Policy{
+			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(3)},
+		},
+		snapshot.SourceInfo{Host: "host-c", UserName: "myuser", Path: "C:/Users/myuser/dir1"}: &Policy{
+			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(4)},
+		},
+		snapshot.SourceInfo{Host: "host-c", UserName: "myuser", Path: "C:/Users/myuser/dir2"}: &Policy{
+			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(5)},
+		},
+		snapshot.SourceInfo{Host: "host-c", UserName: "myuser", Path: "C:/Users/myuser/dir2/a"}: &Policy{
+			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(6)},
+		},
+		snapshot.SourceInfo{Host: "host-c", UserName: "myuser", Path: "C:/Users/myuser2"}: &Policy{
+			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(7)},
+		},
+	}
+
+	for si, pol := range setPols {
+		must(t, SetPolicy(ctx, env.Repository, si, pol))
+	}
+
+	cases := []struct {
+		si        snapshot.SourceInfo
+		wantPaths []string
+	}{
+		{snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/tmp"}, []string{"."}},
+		{snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/home/users/myuser"},
+			[]string{".", "./dir1", "./dir2", "./dir2/a"},
+		},
+		{snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/home/users/myuser2"},
+			[]string{"."},
+		},
+		{snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/home"},
+			[]string{
+				".",
+				"./users",
+				"./users/myuser",
+				"./users/myuser/dir1",
+				"./users/myuser/dir2",
+				"./users/myuser/dir2/a",
+				"./users/myuser2",
+			},
+		},
+		{snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/"},
+			[]string{
+				".",
+				"./home",
+				"./home/users",
+				"./home/users/myuser",
+				"./home/users/myuser/dir1",
+				"./home/users/myuser/dir2",
+				"./home/users/myuser/dir2/a",
+				"./home/users/myuser2",
+			},
+		},
+
+		{snapshot.SourceInfo{Host: "host-b", UserName: "myuser", Path: "C:\\Temp"}, []string{"."}},
+		{snapshot.SourceInfo{Host: "host-b", UserName: "myuser", Path: "C:\\Users\\myuser"},
+			[]string{".", "./dir1", "./dir2", "./dir2/a"},
+		},
+		{snapshot.SourceInfo{Host: "host-b", UserName: "myuser", Path: "C:\\"},
+			[]string{
+				".",
+				"./Users",
+				"./Users/myuser",
+				"./Users/myuser/dir1",
+				"./Users/myuser/dir2",
+				"./Users/myuser/dir2/a",
+				"./Users/myuser2",
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(fmt.Sprintf("%v", tc.si), func(t *testing.T) {
+			res, err := applicablePoliciesForSource(ctx, env.Repository, tc.si)
+			if err != nil {
+				t.Fatalf("error in applicablePoliciesForSource(%v): %v", tc.si, err)
+			}
+
+			var relPaths []string
+			for k := range res {
+				relPaths = append(relPaths, k)
+			}
+
+			sort.Strings(relPaths)
+
+			if diff := cmp.Diff(relPaths, tc.wantPaths); diff != "" {
+				t.Errorf("invalid sub-policies %v", diff)
+			}
+		})
+
 	}
 }
 

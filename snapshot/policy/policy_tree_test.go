@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	defaultPolicy = &Policy{
+	defPolicy = &Policy{
 		FilesPolicy: FilesPolicy{
 			IgnoreRules: []string{"default"},
 		},
@@ -84,7 +84,7 @@ func TestBuildTree(t *testing.T) {
 		".":              policyA,
 		"./foo":          policyB,
 		"./bar/baz/bleh": policyC,
-	}, defaultPolicy)
+	}, defPolicy)
 
 	dumpTree(n, "root")
 
