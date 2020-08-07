@@ -181,6 +181,11 @@ func (s *sftpStorage) ConnectionInfo() blob.ConnectionInfo {
 	}
 }
 
+func (s *sftpStorage) DisplayName() string {
+	o := s.Impl.(*sftpImpl).Options
+	return fmt.Sprintf("SFTP %v@%v", o.Username, o.Host)
+}
+
 func (s *sftpStorage) Close(ctx context.Context) error {
 	if err := s.Impl.(*sftpImpl).cli.Close(); err != nil {
 		return errors.Wrap(err, "closing SFTP client")

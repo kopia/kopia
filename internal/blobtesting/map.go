@@ -152,6 +152,10 @@ func (s *mapStorage) ConnectionInfo() blob.ConnectionInfo {
 	return blob.ConnectionInfo{}
 }
 
+func (s *mapStorage) DisplayName() string {
+	return "Map"
+}
+
 // NewMapStorage returns an implementation of Storage backed by the contents of given map.
 // Used primarily for testing.
 func NewMapStorage(data DataMap, keyTime map[blob.ID]time.Time, timeNow func() time.Time) blob.Storage {

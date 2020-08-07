@@ -260,6 +260,10 @@ func (s *eventuallyConsistentStorage) ConnectionInfo() blob.ConnectionInfo {
 	return s.realStorage.ConnectionInfo()
 }
 
+func (s *eventuallyConsistentStorage) DisplayName() string {
+	return s.realStorage.DisplayName()
+}
+
 // NewEventuallyConsistentStorage returns an eventually-consistent storage wrapper on top
 // of provided storage.
 func NewEventuallyConsistentStorage(st blob.Storage, listSettleTime time.Duration, timeNow func() time.Time) blob.Storage {
