@@ -201,7 +201,9 @@ export class SourcesTable extends Component {
                     totals = sizeDisplayName(totalBytes);
                     if (x.row.original.lastSnapshot) {
                         const percent = Math.round(totalBytes * 1000.0 / x.row.original.lastSnapshot.stats.totalSize) / 10.0;
-                        totals += " " + percent + "%";
+                        if (percent <= 100) {
+                            totals += " " + percent + "%";
+                        }
                     }
                 }
 
