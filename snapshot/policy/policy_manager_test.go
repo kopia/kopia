@@ -239,80 +239,80 @@ func TestApplicablePoliciesForSource(t *testing.T) {
 
 	setPols := map[snapshot.SourceInfo]*Policy{
 		// unix-style path names
-		snapshot.SourceInfo{Host: "host-a"}: &Policy{
+		{Host: "host-a"}: {
 			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(0)},
 		},
-		snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/home"}: &Policy{
+		{Host: "host-a", UserName: "myuser", Path: "/home"}: {
 			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(1)},
 		},
-		snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/home/users"}: &Policy{
+		{Host: "host-a", UserName: "myuser", Path: "/home/users"}: {
 			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(2)},
 		},
-		snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/home/users/myuser"}: &Policy{
+		{Host: "host-a", UserName: "myuser", Path: "/home/users/myuser"}: {
 			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(3)},
 		},
-		snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/home/users/myuser/dir1"}: &Policy{
+		{Host: "host-a", UserName: "myuser", Path: "/home/users/myuser/dir1"}: {
 			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(4)},
 		},
-		snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/home/users/myuser/dir2"}: &Policy{
+		{Host: "host-a", UserName: "myuser", Path: "/home/users/myuser/dir2"}: {
 			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(5)},
 		},
-		snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/home/users/myuser/dir2/a"}: &Policy{
+		{Host: "host-a", UserName: "myuser", Path: "/home/users/myuser/dir2/a"}: {
 			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(6)},
 		},
-		snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/home/users/myuser2"}: &Policy{
+		{Host: "host-a", UserName: "myuser", Path: "/home/users/myuser2"}: {
 			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(7)},
 		},
 
 		// windows-style path names with backslash
-		snapshot.SourceInfo{Host: "host-b"}: &Policy{
+		{Host: "host-b"}: {
 			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(0)},
 		},
-		snapshot.SourceInfo{Host: "host-b", UserName: "myuser", Path: "C:\\"}: &Policy{
+		{Host: "host-b", UserName: "myuser", Path: "C:\\"}: {
 			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(1)},
 		},
-		snapshot.SourceInfo{Host: "host-b", UserName: "myuser", Path: "C:\\Users"}: &Policy{
+		{Host: "host-b", UserName: "myuser", Path: "C:\\Users"}: {
 			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(2)},
 		},
-		snapshot.SourceInfo{Host: "host-b", UserName: "myuser", Path: "C:\\Users\\myuser"}: &Policy{
+		{Host: "host-b", UserName: "myuser", Path: "C:\\Users\\myuser"}: {
 			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(3)},
 		},
-		snapshot.SourceInfo{Host: "host-b", UserName: "myuser", Path: "C:\\Users\\myuser\\dir1"}: &Policy{
+		{Host: "host-b", UserName: "myuser", Path: "C:\\Users\\myuser\\dir1"}: {
 			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(4)},
 		},
-		snapshot.SourceInfo{Host: "host-b", UserName: "myuser", Path: "C:\\Users\\myuser\\dir2"}: &Policy{
+		{Host: "host-b", UserName: "myuser", Path: "C:\\Users\\myuser\\dir2"}: {
 			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(5)},
 		},
-		snapshot.SourceInfo{Host: "host-b", UserName: "myuser", Path: "C:\\Users\\myuser\\dir2\\a"}: &Policy{
+		{Host: "host-b", UserName: "myuser", Path: "C:\\Users\\myuser\\dir2\\a"}: {
 			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(6)},
 		},
-		snapshot.SourceInfo{Host: "host-b", UserName: "myuser", Path: "C:\\Users\\myuser2"}: &Policy{
+		{Host: "host-b", UserName: "myuser", Path: "C:\\Users\\myuser2"}: {
 			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(7)},
 		},
 
 		// windows-style path names with slashes
-		snapshot.SourceInfo{Host: "host-c"}: &Policy{
+		{Host: "host-c"}: {
 			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(0)},
 		},
-		snapshot.SourceInfo{Host: "host-c", UserName: "myuser", Path: "C:/Users"}: &Policy{
+		{Host: "host-c", UserName: "myuser", Path: "C:/Users"}: {
 			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(1)},
 		},
-		snapshot.SourceInfo{Host: "host-c", UserName: "myuser", Path: "C:/Users"}: &Policy{
+		{Host: "host-c", UserName: "myuser", Path: "C:/Users"}: {
 			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(2)},
 		},
-		snapshot.SourceInfo{Host: "host-c", UserName: "myuser", Path: "C:/Users/myuser"}: &Policy{
+		{Host: "host-c", UserName: "myuser", Path: "C:/Users/myuser"}: {
 			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(3)},
 		},
-		snapshot.SourceInfo{Host: "host-c", UserName: "myuser", Path: "C:/Users/myuser/dir1"}: &Policy{
+		{Host: "host-c", UserName: "myuser", Path: "C:/Users/myuser/dir1"}: {
 			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(4)},
 		},
-		snapshot.SourceInfo{Host: "host-c", UserName: "myuser", Path: "C:/Users/myuser/dir2"}: &Policy{
+		{Host: "host-c", UserName: "myuser", Path: "C:/Users/myuser/dir2"}: {
 			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(5)},
 		},
-		snapshot.SourceInfo{Host: "host-c", UserName: "myuser", Path: "C:/Users/myuser/dir2/a"}: &Policy{
+		{Host: "host-c", UserName: "myuser", Path: "C:/Users/myuser/dir2/a"}: {
 			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(6)},
 		},
-		snapshot.SourceInfo{Host: "host-c", UserName: "myuser", Path: "C:/Users/myuser2"}: &Policy{
+		{Host: "host-c", UserName: "myuser", Path: "C:/Users/myuser2"}: {
 			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(7)},
 		},
 	}
@@ -392,7 +392,6 @@ func TestApplicablePoliciesForSource(t *testing.T) {
 				t.Errorf("invalid sub-policies %v", diff)
 			}
 		})
-
 	}
 }
 
