@@ -248,6 +248,13 @@ func TestApplicablePoliciesForSource(t *testing.T) {
 		{Host: "host-a", UserName: "myuser", Path: "/home/users"}: {
 			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(2)},
 		},
+		// on Unix \ a regular character so the directory name is 'user-with\\backslash'
+		{Host: "host-a", UserName: "myuser", Path: "/home/users/user-with\\backslash"}: {
+			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(2)},
+		},
+		{Host: "host-a", UserName: "myuser", Path: "/home/users/user-with\\backslash/x"}: {
+			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(2)},
+		},
 		{Host: "host-a", UserName: "myuser", Path: "/home/users/myuser"}: {
 			RetentionPolicy: RetentionPolicy{KeepDaily: intPtr(3)},
 		},
@@ -332,6 +339,9 @@ func TestApplicablePoliciesForSource(t *testing.T) {
 		{snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/home/users/myuser2"},
 			[]string{"."},
 		},
+		{snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/home/users/user-with\\backslash"},
+			[]string{".", "./x"},
+		},
 		{snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/home"},
 			[]string{
 				".",
@@ -341,6 +351,8 @@ func TestApplicablePoliciesForSource(t *testing.T) {
 				"./users/myuser/dir2",
 				"./users/myuser/dir2/a",
 				"./users/myuser2",
+				`./users/user-with\backslash`,
+				`./users/user-with\backslash/x`,
 			},
 		},
 		{snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/"},
@@ -353,6 +365,8 @@ func TestApplicablePoliciesForSource(t *testing.T) {
 				"./home/users/myuser/dir2",
 				"./home/users/myuser/dir2/a",
 				"./home/users/myuser2",
+				`./home/users/user-with\backslash`,
+				`./home/users/user-with\backslash/x`,
 			},
 		},
 
