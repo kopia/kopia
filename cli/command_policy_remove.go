@@ -11,6 +11,7 @@ var (
 	policyRemoveCommand = policyCommands.Command("remove", "Remove snapshot policy for a single directory, user@host or a global policy.").Alias("rm").Alias("delete")
 	policyRemoveTargets = policyRemoveCommand.Arg("target", "Target of a policy ('global','user@host','@host') or a path").Strings()
 	policyRemoveGlobal  = policyRemoveCommand.Flag("global", "Set global policy").Bool()
+	policyRemoveDryRun  = policyRemoveCommand.Flag("dry-run", "Do not remove").Short('n').Bool()
 )
 
 func init() {
@@ -25,6 +26,10 @@ func removePolicy(ctx context.Context, rep repo.Repository) error {
 
 	for _, target := range targets {
 		log(ctx).Infof("Removing policy on %q...", target)
+
+		if *policyRemoveDryRun {
+			continue
+		}
 
 		if err := policy.RemovePolicy(ctx, rep, target); err != nil {
 			return err
