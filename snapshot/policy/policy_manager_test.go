@@ -66,7 +66,8 @@ func TestPolicyManagerInheritanceTest(t *testing.T) {
 				UserName: "myuser",
 				Host:     "host-c",
 				Path:     "/some/path",
-			}, wantEffective: policyWithLabels(DefaultPolicy, map[string]string{
+			},
+			wantEffective: policyWithLabels(DefaultPolicy, map[string]string{
 				"type":       "policy",
 				"policyType": "path",
 				"hostname":   "host-c",
@@ -79,13 +80,15 @@ func TestPolicyManagerInheritanceTest(t *testing.T) {
 				UserName: "myuser",
 				Host:     "host-a",
 				Path:     "/some/path",
-			}, wantEffective: policyWithLabels(defaultPolicyWithKeepDaily(t, 44), map[string]string{
+			},
+			wantEffective: policyWithLabels(defaultPolicyWithKeepDaily(t, 44), map[string]string{
 				"type":       "policy",
 				"policyType": "path",
 				"hostname":   "host-a",
 				"path":       "/some/path",
 				"username":   "myuser",
-			}), wantSources: []snapshot.SourceInfo{
+			}),
+			wantSources: []snapshot.SourceInfo{
 				{Host: "host-a"},
 			},
 		},
@@ -94,13 +97,15 @@ func TestPolicyManagerInheritanceTest(t *testing.T) {
 				UserName: "myuser",
 				Host:     "host-a",
 				Path:     "/some/path2/nested",
-			}, wantEffective: policyWithLabels(defaultPolicyWithKeepDaily(t, 66), map[string]string{
+			},
+			wantEffective: policyWithLabels(defaultPolicyWithKeepDaily(t, 66), map[string]string{
 				"type":       "policy",
 				"policyType": "path",
 				"hostname":   "host-a",
 				"path":       "/some/path2/nested",
 				"username":   "myuser",
-			}), wantSources: []snapshot.SourceInfo{
+			}),
+			wantSources: []snapshot.SourceInfo{
 				{UserName: "myuser", Path: "/some/path2", Host: "host-a"},
 				{Host: "host-a"},
 			},
