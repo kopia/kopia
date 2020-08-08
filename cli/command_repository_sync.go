@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/stats"
 	"github.com/kopia/kopia/internal/units"
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -27,9 +29,7 @@ var (
 const syncProgressInterval = 300 * time.Millisecond
 
 func runSyncWithStorage(ctx context.Context, src, dst blob.Storage) error {
-	var (
-		dstMetadata = map[blob.ID]blob.Metadata{}
-	)
+	var ()
 
 	noticeColor.Printf("Synchronizing repositories:\n\n  Source:      %v\n  Destination: %v\n\n", src.DisplayName(), dst.DisplayName()) //nolint:errcheck
 
@@ -37,11 +37,13 @@ func runSyncWithStorage(ctx context.Context, src, dst blob.Storage) error {
 		noticeColor.Printf("NOTE: By default no BLOBs are deleted, pass --delete to allow it.\n\n") //nolint:errcheck
 	}
 
+	if err := ensureRepositoriesHaveSameFormatBlob(ctx, src, dst); err != nil {
+		return err
+	}
+
 	printStderr("Looking for BLOBs to synchronize...\n")
 
 	var (
-		dstTotalBytes int64
-
 		inSyncBlobs int
 		inSyncBytes int64
 
@@ -50,25 +52,15 @@ func runSyncWithStorage(ctx context.Context, src, dst blob.Storage) error {
 
 		blobsToDelete    []blob.Metadata
 		totalDeleteBytes int64
-	)
 
-	beginSyncProgress()
-
-	if err := dst.ListBlobs(ctx, "", func(bm blob.Metadata) error {
-		dstMetadata[bm.BlobID] = bm
-		dstTotalBytes += bm.Length
-		outputSyncProgress(fmt.Sprintf("  Found %v BLOBs in the destination repository (%v)", len(dstMetadata), units.BytesStringBase10(dstTotalBytes)))
-		return nil
-	}); err != nil {
-		return errors.Wrap(err, "error listing BLOBs in destination repository")
-	}
-
-	finishSyncProcess()
-
-	var (
 		srcBlobs     int
 		totalSrcSize int64
 	)
+
+	dstMetadata, err := listDestinationBlobs(ctx, dst)
+	if err != nil {
+		return err
+	}
 
 	beginSyncProgress()
 
@@ -127,6 +119,26 @@ func runSyncWithStorage(ctx context.Context, src, dst blob.Storage) error {
 	finishSyncProcess()
 
 	return finalErr
+}
+
+func listDestinationBlobs(ctx context.Context, dst blob.Storage) (map[blob.ID]blob.Metadata, error) {
+	dstTotalBytes := int64(0)
+	dstMetadata := map[blob.ID]blob.Metadata{}
+
+	beginSyncProgress()
+
+	if err := dst.ListBlobs(ctx, "", func(bm blob.Metadata) error {
+		dstMetadata[bm.BlobID] = bm
+		dstTotalBytes += bm.Length
+		outputSyncProgress(fmt.Sprintf("  Found %v BLOBs in the destination repository (%v)", len(dstMetadata), units.BytesStringBase10(dstTotalBytes)))
+		return nil
+	}); err != nil {
+		return nil, errors.Wrap(err, "error listing BLOBs in destination repository")
+	}
+
+	finishSyncProcess()
+
+	return dstMetadata, nil
 }
 
 var (
@@ -266,4 +278,27 @@ func syncDeleteBlob(ctx context.Context, m blob.Metadata, dst blob.Storage) erro
 	}
 
 	return err
+}
+
+func ensureRepositoriesHaveSameFormatBlob(ctx context.Context, src, dst blob.Storage) error {
+	srcData, err := src.GetBlob(ctx, repo.FormatBlobID, 0, -1)
+	if err != nil {
+		return errors.Wrap(err, "error reading format blob")
+	}
+
+	dstData, err := dst.GetBlob(ctx, repo.FormatBlobID, 0, -1)
+	if err != nil {
+		// target does not have format blob, save it there first.
+		if errors.Is(err, blob.ErrBlobNotFound) {
+			return dst.PutBlob(ctx, repo.FormatBlobID, gather.FromSlice(srcData))
+		}
+
+		return errors.Wrap(err, "error reading destination repository format blob")
+	}
+
+	if bytes.Equal(srcData, dstData) {
+		return nil
+	}
+
+	return errors.Errorf("destination repository contains incompatible data")
 }
