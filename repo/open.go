@@ -20,6 +20,9 @@ import (
 	"github.com/kopia/kopia/repo/object"
 )
 
+// CacheDirMarkerFile is the name of the marker file indicating a directory contains Kopia caches.
+const CacheDirMarkerFile = ".kopia-cache"
+
 var log = logging.GetContextLoggerFunc("kopia/repo")
 
 // Options provides configuration parameters for connection to a repository.
@@ -112,6 +115,10 @@ func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		return nil, errors.Wrap(err, "unable to read format blob")
 	}
 
+	if err = writeCacheMarker(caching.CacheDirectory); err != nil {
+		return nil, errors.Wrap(err, "unable to write cache directory marker")
+	}
+
 	f, err := parseFormatBlob(fb)
 	if err != nil {
 		return nil, errors.Wrap(err, "can't parse format blob")
@@ -172,6 +179,24 @@ func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		masterKey:  masterKey,
 		timeNow:    cmOpts.TimeNow,
 	}, nil
+}
+
+func writeCacheMarker(cacheDir string) error {
+	if cacheDir == "" {
+		return nil
+	}
+
+	markerFile := filepath.Join(cacheDir, CacheDirMarkerFile)
+	if _, err := os.Stat(markerFile); !os.IsNotExist(err) {
+		return err
+	}
+
+	f, err := os.Create(markerFile)
+	if err != nil {
+		return err
+	}
+
+	return f.Close()
 }
 
 // SetCachingConfig changes caching configuration for a given repository.
