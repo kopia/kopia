@@ -36,6 +36,20 @@ func TestSnapshotCreate(t *testing.T) {
 	if got, want := len(sources), 3; got != want {
 		t.Errorf("unexpected number of sources: %v, want %v in %#v", got, want, sources)
 	}
+
+	// synchronize repository blobs to another directory
+	dir2 := makeScratchDir(t)
+	e.RunAndExpectSuccess(t, "repo", "sync-to", "filesystem", "--path", dir2)
+
+	// now connect to the new repository in new location
+	e.RunAndExpectSuccess(t, "repo", "connect", "filesystem", "--path", dir2)
+
+	// snapshot list should be the same
+	sources2 := e.ListSnapshotsAndExpectSuccess(t)
+	// will only list snapshots we created, not foo@foo
+	if got, want := len(sources2), 3; got != want {
+		t.Errorf("unexpected number of sources: %v, want %v in %#v", got, want, sources2)
+	}
 }
 
 func TestStartTimeOverride(t *testing.T) {
