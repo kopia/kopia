@@ -8,7 +8,7 @@ weight: 30
 
 Kopia uploads directories and files to remote storage called [Repository](../architecture/) and maintains a set of historical point-in-time snapshot records based on defined policies.
 
-Kopia uses [content-addressable storage](https://en.wikipedia.org/wiki/Content-addressable storage) for snapshots, which has many benefits:
+Kopia uses [content-addressable storage](https://en.wikipedia.org/wiki/Content-addressable%20storage) for snapshots, which has many benefits:
 
 * Each snapshot is always incremental, no data included in previous snapshots is ever re-uploaded to the repository based on file content.
 
