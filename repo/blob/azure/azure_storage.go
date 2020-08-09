@@ -212,6 +212,10 @@ func (az *azStorage) ConnectionInfo() blob.ConnectionInfo {
 	}
 }
 
+func (az *azStorage) DisplayName() string {
+	return fmt.Sprintf("Azure: %v", az.Options.Container)
+}
+
 func (az *azStorage) Close(ctx context.Context) error {
 	return az.bucket.Close()
 }

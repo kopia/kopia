@@ -209,6 +209,10 @@ func (gcs *gcsStorage) ConnectionInfo() blob.ConnectionInfo {
 	}
 }
 
+func (gcs *gcsStorage) DisplayName() string {
+	return fmt.Sprintf("GCS: %v", gcs.BucketName)
+}
+
 func (gcs *gcsStorage) Close(ctx context.Context) error {
 	return gcs.storageClient.Close()
 }

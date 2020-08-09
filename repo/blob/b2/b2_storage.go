@@ -241,6 +241,10 @@ func (s *b2Storage) ConnectionInfo() blob.ConnectionInfo {
 	}
 }
 
+func (s *b2Storage) DisplayName() string {
+	return fmt.Sprintf("B2: %v", s.BucketName)
+}
+
 func (s *b2Storage) Close(ctx context.Context) error {
 	return nil
 }

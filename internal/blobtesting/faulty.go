@@ -92,6 +92,11 @@ func (s *FaultyStorage) ConnectionInfo() blob.ConnectionInfo {
 	return s.Base.ConnectionInfo()
 }
 
+// DisplayName implements blob.Storage
+func (s *FaultyStorage) DisplayName() string {
+	return s.Base.DisplayName()
+}
+
 func (s *FaultyStorage) getNextFault(ctx context.Context, method string, args ...interface{}) error {
 	s.mu.Lock()
 

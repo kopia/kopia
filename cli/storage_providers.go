@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -55,5 +56,28 @@ func RegisterStorageConnectFlags(
 		}
 
 		return runRepairCommandWithStorage(ctx, st)
+	})
+
+	// Set up 'sync-to' subcommand
+	cc = repositorySyncCommand.Command(name, "Synchronize repository data to another repository in "+description)
+	flags(cc)
+	cc.Action(func(_ *kingpin.ParseContext) error {
+		ctx := rootContext()
+		st, err := connect(ctx, false)
+		if err != nil {
+			return errors.Wrap(err, "can't connect to storage")
+		}
+
+		rep, err := openRepository(ctx, nil, true)
+		if err != nil {
+			return errors.Wrap(err, "open repository")
+		}
+
+		dr, ok := rep.(*repo.DirectRepository)
+		if !ok {
+			return errors.Errorf("sync only supports directly-connected repositories")
+		}
+
+		return runSyncWithStorage(ctx, dr.BlobStorage(), st)
 	})
 }

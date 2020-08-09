@@ -257,6 +257,10 @@ func (fs *fsStorage) ConnectionInfo() blob.ConnectionInfo {
 	}
 }
 
+func (fs *fsStorage) DisplayName() string {
+	return fmt.Sprintf("Filesystem: %v", fs.RootPath)
+}
+
 func (fs *fsStorage) Close(ctx context.Context) error {
 	return nil
 }

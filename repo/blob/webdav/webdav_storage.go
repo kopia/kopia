@@ -166,6 +166,11 @@ func (d *davStorage) ConnectionInfo() blob.ConnectionInfo {
 	}
 }
 
+func (d *davStorage) DisplayName() string {
+	o := d.Storage.Impl.(*davStorageImpl).Options
+	return fmt.Sprintf("WebDAV: %v", o.URL)
+}
+
 func (d *davStorage) Close(ctx context.Context) error {
 	return nil
 }

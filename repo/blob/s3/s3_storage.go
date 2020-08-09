@@ -211,6 +211,10 @@ func (s *s3Storage) String() string {
 	return fmt.Sprintf("s3://%v/%v", s.BucketName, s.Prefix)
 }
 
+func (s *s3Storage) DisplayName() string {
+	return fmt.Sprintf("S3: %v %v", s.Endpoint, s.BucketName)
+}
+
 type progressReader struct {
 	cb           blob.ProgressFunc
 	blobID       string

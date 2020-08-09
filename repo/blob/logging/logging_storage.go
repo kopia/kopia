@@ -82,6 +82,10 @@ func (s *loggingStorage) ConnectionInfo() blob.ConnectionInfo {
 	return s.base.ConnectionInfo()
 }
 
+func (s *loggingStorage) DisplayName() string {
+	return s.base.DisplayName()
+}
+
 // NewWrapper returns a Storage wrapper that logs all storage commands.
 func NewWrapper(wrapped blob.Storage, printf func(msg string, args ...interface{}), prefix string) blob.Storage {
 	return &loggingStorage{base: wrapped, printf: printf, prefix: prefix}

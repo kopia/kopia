@@ -56,6 +56,9 @@ type Storage interface {
 
 	// Close releases all resources associated with storage.
 	Close(ctx context.Context) error
+
+	// Name of the storage used for quick identification by humans.
+	DisplayName() string
 }
 
 // ID is a string that represents blob identifier.
