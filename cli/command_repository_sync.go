@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -31,10 +32,10 @@ const syncProgressInterval = 300 * time.Millisecond
 func runSyncWithStorage(ctx context.Context, src, dst blob.Storage) error {
 	var ()
 
-	noticeColor.Printf("Synchronizing repositories:\n\n  Source:      %v\n  Destination: %v\n\n", src.DisplayName(), dst.DisplayName()) //nolint:errcheck
+	noticeColor.Fprintf(os.Stderr, "Synchronizing repositories:\n\n  Source:      %v\n  Destination: %v\n\n", src.DisplayName(), dst.DisplayName()) //nolint:errcheck
 
 	if !*repositorySyncDelete {
-		noticeColor.Printf("NOTE: By default no BLOBs are deleted, pass --delete to allow it.\n\n") //nolint:errcheck
+		noticeColor.Fprintf(os.Stderr, "NOTE: By default no BLOBs are deleted, pass --delete to allow it.\n\n") //nolint:errcheck
 	}
 
 	if err := ensureRepositoriesHaveSameFormatBlob(ctx, src, dst); err != nil {
