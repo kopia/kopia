@@ -24,6 +24,10 @@ func TestRepositorySync(t *testing.T) {
 	dir2 := makeScratchDir(t)
 	e.RunAndExpectSuccess(t, "repo", "sync-to", "filesystem", "--path", dir2)
 
+	// synchronizing to empty directory fails with --must-exist
+	dir3 := makeScratchDir(t)
+	e.RunAndExpectFailure(t, "repo", "sync-to", "filesystem", "--path", dir3, "--must-exist")
+
 	// now connect to the new repository in new location
 	e.RunAndExpectSuccess(t, "repo", "connect", "filesystem", "--path", dir2)
 

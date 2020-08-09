@@ -20,11 +20,12 @@ import (
 )
 
 var (
-	repositorySyncCommand     = repositoryCommands.Command("sync-to", "Synchronizes contents of this repository to another location")
-	repositorySyncUpdate      = repositorySyncCommand.Flag("update", "Whether to update blobs present in destination and source if the source is newer.").Default("true").Bool()
-	repositorySyncDelete      = repositorySyncCommand.Flag("delete", "Whether to delete blobs present in destination but not source.").Bool()
-	repositorySyncDryRun      = repositorySyncCommand.Flag("dry-run", "Do not perform copying.").Short('n').Bool()
-	repositorySyncParallelism = repositorySyncCommand.Flag("parallel", "Copy parallelism.").Default("1").Int()
+	repositorySyncCommand              = repositoryCommands.Command("sync-to", "Synchronizes contents of this repository to another location")
+	repositorySyncUpdate               = repositorySyncCommand.Flag("update", "Whether to update blobs present in destination and source if the source is newer.").Default("true").Bool()
+	repositorySyncDelete               = repositorySyncCommand.Flag("delete", "Whether to delete blobs present in destination but not source.").Bool()
+	repositorySyncDryRun               = repositorySyncCommand.Flag("dry-run", "Do not perform copying.").Short('n').Bool()
+	repositorySyncParallelism          = repositorySyncCommand.Flag("parallel", "Copy parallelism.").Default("1").Int()
+	repositorySyncDestinationMustExist = repositorySyncCommand.Flag("must-exist", "Fail if destination does not have repository format blob.").Bool()
 )
 
 const syncProgressInterval = 300 * time.Millisecond
@@ -291,6 +292,10 @@ func ensureRepositoriesHaveSameFormatBlob(ctx context.Context, src, dst blob.Sto
 	if err != nil {
 		// target does not have format blob, save it there first.
 		if errors.Is(err, blob.ErrBlobNotFound) {
+			if *repositorySyncDestinationMustExist {
+				return errors.Errorf("destination repository does not have a format blob")
+			}
+
 			return dst.PutBlob(ctx, repo.FormatBlobID, gather.FromSlice(srcData))
 		}
 
