@@ -21,7 +21,7 @@ func TestSplitters(t *testing.T) {
 		s2 := tc.newSplitter()
 
 		rnd := make([]byte, 50000000)
-		cryptorand.Read(rnd) //nolint:errcheck
+		cryptorand.Read(rnd)
 
 		for i, p := range rnd {
 			if got, want := s1.ShouldSplit(p), s2.ShouldSplit(p); got != want {

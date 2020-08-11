@@ -91,7 +91,7 @@ func TestServerStart(t *testing.T) {
 		t.Fatalf("unable to create API apiclient")
 	}
 
-	defer serverapi.Shutdown(ctx, cli) // nolint:errcheck
+	defer serverapi.Shutdown(ctx, cli)
 
 	waitUntilServerStarted(ctx, t, cli)
 	verifyUIServedWithCorrectTitle(t, cli, sp)
@@ -217,7 +217,7 @@ func TestServerStartWithoutInitialRepository(t *testing.T) {
 		t.Fatalf("unable to create API apiclient")
 	}
 
-	defer serverapi.Shutdown(ctx, cli) // nolint:errcheck
+	defer serverapi.Shutdown(ctx, cli)
 
 	waitUntilServerStarted(ctx, t, cli)
 	verifyServerConnected(t, cli, false)

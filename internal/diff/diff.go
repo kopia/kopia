@@ -63,7 +63,7 @@ func (c *Comparer) compareDirectories(ctx context.Context, dir1, dir2 fs.Directo
 	return c.compareDirectoryEntries(ctx, entries1, entries2, parent)
 }
 
-// nolint:gocyclo,gocognit
+// nolint:gocyclo
 func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path string) error {
 	// see if we have the same object IDs, which implies identical objects, thanks to content-addressable-storage
 	if h1, ok := e1.(object.HasObjectID); ok {
@@ -287,7 +287,7 @@ func downloadFile(ctx context.Context, f fs.File, fname string) error {
 }
 
 func (c *Comparer) output(msg string, args ...interface{}) {
-	fmt.Fprintf(c.out, msg, args...) //nolint:errcheck
+	fmt.Fprintf(c.out, msg, args...)
 }
 
 // NewComparer creates a comparer for a given repository that will output the results to a given writer.

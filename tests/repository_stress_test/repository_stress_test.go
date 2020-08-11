@@ -23,7 +23,7 @@ import (
 	"github.com/kopia/kopia/repo/content"
 )
 
-const masterPassword = "foo-bar-baz-1234" // nolint:gosec
+const masterPassword = "foo-bar-baz-1234"
 
 var (
 	knownBlocks      []content.ID
@@ -219,7 +219,7 @@ func repositoryTest(ctx context.Context, t *testing.T, cancel chan struct{}, rep
 
 func writeRandomBlock(ctx context.Context, t *testing.T, r *repo.DirectRepository) error {
 	data := make([]byte, 1000)
-	cryptorand.Read(data) //nolint:errcheck
+	cryptorand.Read(data)
 
 	contentID, err := r.Content.WriteContent(ctx, data, "")
 	if err == nil {

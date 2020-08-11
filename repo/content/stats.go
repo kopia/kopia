@@ -71,7 +71,7 @@ func (s *Stats) ValidContents() uint32 {
 	return atomic.LoadUint32(&s.validContents)
 }
 
-func (s *Stats) decrypted(size int) int64 { // nolint:unparam
+func (s *Stats) decrypted(size int) int64 {
 	return atomic.AddInt64(&s.decryptedBytes, int64(size))
 }
 

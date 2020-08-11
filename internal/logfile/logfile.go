@@ -77,7 +77,7 @@ func Initialize(ctx *kingpin.ParseContext) error {
 		logFileBaseName := filepath.Base(logFileName)
 
 		if err := os.MkdirAll(logFileDir, 0o700); err != nil {
-			fmt.Fprintln(os.Stderr, "Unable to create logs directory:", err) // nolint:errcheck
+			fmt.Fprintln(os.Stderr, "Unable to create logs directory:", err)
 		}
 
 		logBackends = append(
@@ -182,7 +182,7 @@ func (w *onDemandBackend) Log(level logging.Level, depth int, rec *logging.Recor
 		lf := filepath.Join(w.logDir, w.logFileBaseName)
 		f, err := os.Create(lf)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "unable to open log file: %v\n", err) //nolint:errcheck
+			fmt.Fprintf(os.Stderr, "unable to open log file: %v\n", err)
 			return
 		}
 

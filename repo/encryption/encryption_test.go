@@ -21,16 +21,16 @@ func (p parameters) GetMasterKey() []byte           { return p.masterKey }
 // nolint:gocyclo
 func TestRoundTrip(t *testing.T) {
 	data := make([]byte, 100)
-	rand.Read(data) //nolint:errcheck
+	rand.Read(data)
 
 	masterKey := make([]byte, 32)
-	rand.Read(masterKey) //nolint:errcheck
+	rand.Read(masterKey)
 
 	contentID1 := make([]byte, 16)
-	rand.Read(contentID1) //nolint:errcheck
+	rand.Read(contentID1)
 
 	contentID2 := make([]byte, 16)
-	rand.Read(contentID2) //nolint:errcheck
+	rand.Read(contentID2)
 
 	for _, encryptionAlgo := range encryption.SupportedAlgorithms(true) {
 		encryptionAlgo := encryptionAlgo

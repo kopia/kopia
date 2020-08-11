@@ -226,7 +226,7 @@ func getHostKey(opt *Options) (ssh.PublicKey, error) {
 	if opt.KnownHostsData != "" {
 		reader = strings.NewReader(opt.KnownHostsData)
 	} else {
-		file, err := os.Open(opt.knownHostsFile()) //nolint:gosec
+		file, err := os.Open(opt.knownHostsFile())
 		if err != nil {
 			return nil, err
 		}
@@ -263,7 +263,7 @@ func getSigner(opts *Options) (ssh.Signer, error) {
 	} else {
 		var err error
 
-		privateKeyData, err = ioutil.ReadFile(opts.Keyfile) //nolint:gosec
+		privateKeyData, err = ioutil.ReadFile(opts.Keyfile)
 		if err != nil {
 			return nil, err
 		}

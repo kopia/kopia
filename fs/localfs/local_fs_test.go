@@ -12,7 +12,7 @@ import (
 	"github.com/kopia/kopia/internal/testlogging"
 )
 
-//nolint:gocyclo,gocognit
+//nolint:gocyclo
 func TestFiles(t *testing.T) {
 	ctx := testlogging.Context(t)
 

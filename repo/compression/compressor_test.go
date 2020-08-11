@@ -51,7 +51,7 @@ func TestCompressor(t *testing.T) {
 		t.Run(fmt.Sprintf("non-compressible-data-%x", id), func(t *testing.T) {
 			// make sure all-random data is not compressed
 			data := make([]byte, 10000)
-			rand.Read(data) //nolint:errcheck
+			rand.Read(data)
 
 			var cData bytes.Buffer
 

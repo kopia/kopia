@@ -72,7 +72,7 @@ func TestAzureStorage(t *testing.T) {
 	createContainer(t, container, storageAccount, storageKey)
 
 	data := make([]byte, 8)
-	rand.Read(data) //nolint:errcheck
+	rand.Read(data)
 
 	ctx := context.Background()
 	st, err := azure.New(ctx, &azure.Options{

@@ -30,8 +30,8 @@ const (
 	// https://github.com/minio/minio-go
 	minioEndpoint        = "play.minio.io:9000"
 	minioHost            = "play.minio.io"
-	minioAccessKeyID     = "Q3AM3UQ867SPQQA43P2F"                     //nolint:gosec
-	minioSecretAccessKey = "zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG" //nolint:gosec
+	minioAccessKeyID     = "Q3AM3UQ867SPQQA43P2F"
+	minioSecretAccessKey = "zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG"
 	minioUseSSL          = true
 	minioRegion          = "us-east-1"
 
@@ -223,7 +223,7 @@ func testStorage(t *testutil.RetriableT, options *Options) {
 	ctx := context.Background()
 
 	data := make([]byte, 8)
-	rand.Read(data) //nolint:errcheck
+	rand.Read(data)
 
 	cleanupOldData(ctx, t, options)
 

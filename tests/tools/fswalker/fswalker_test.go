@@ -204,7 +204,7 @@ func TestWalkChecker_GatherCompare(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		defer os.RemoveAll(tmpDir) //nolint:errcheck
+		defer os.RemoveAll(tmpDir)
 
 		err = tt.fileTreeMaker(tmpDir)
 		if err != nil {

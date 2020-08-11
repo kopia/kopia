@@ -12,7 +12,6 @@ import (
 
 type deleteArgMaker func(manifestID, objectID string, source testenv.SourceInfo) []string
 
-//nolint:funlen
 func TestSnapshotDelete(t *testing.T) {
 	t.Parallel()
 

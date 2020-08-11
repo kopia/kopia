@@ -62,7 +62,7 @@ func TestAPIServerRepository(t *testing.T) {
 		t.Fatalf("unable to create API apiclient")
 	}
 
-	defer serverapi.Shutdown(ctx, cli) // nolint:errcheck
+	defer serverapi.Shutdown(ctx, cli)
 
 	waitUntilServerStarted(ctx, t, cli)
 

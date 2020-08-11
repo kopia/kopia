@@ -73,7 +73,7 @@ func (s *mapStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes) e
 
 	var b bytes.Buffer
 
-	data.WriteTo(&b) //nolint:errcheck
+	data.WriteTo(&b)
 
 	s.data[id] = b.Bytes()
 

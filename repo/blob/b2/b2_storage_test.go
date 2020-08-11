@@ -36,7 +36,7 @@ func TestB2Storage(t *testing.T) {
 	key := getEnvOrSkip(t, testKeyEnv)
 	testutil.Retry(t, func(t *testutil.RetriableT) {
 		data := make([]byte, 8)
-		rand.Read(data) //nolint:errcheck
+		rand.Read(data)
 
 		ctx := context.Background()
 		st, err := b2.New(ctx, &b2.Options{

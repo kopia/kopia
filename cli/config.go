@@ -29,11 +29,11 @@ var (
 )
 
 func printStderr(msg string, args ...interface{}) {
-	fmt.Fprintf(os.Stderr, msg, args...) //nolint:errcheck
+	fmt.Fprintf(os.Stderr, msg, args...)
 }
 
 func printStdout(msg string, args ...interface{}) {
-	fmt.Fprintf(os.Stdout, msg, args...) //nolint:errcheck
+	fmt.Fprintf(os.Stdout, msg, args...)
 }
 
 func onCtrlC(f func()) {

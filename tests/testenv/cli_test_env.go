@@ -202,7 +202,6 @@ func (e *CLITest) RunAndVerifyOutputLineCount(t *testing.T, wantLines int, args 
 func (e *CLITest) Run(t *testing.T, args ...string) (stdout, stderr []string, err error) {
 	t.Helper()
 	t.Logf("running '%v %v'", e.Exe, strings.Join(args, " "))
-	// nolint:gosec
 	cmdArgs := append(append([]string(nil), e.fixedArgs...), args...)
 
 	// nolint:gosec

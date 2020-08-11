@@ -281,7 +281,6 @@ func TestUpload_SubDirectoryReadFailureIgnoreFailures(t *testing.T) {
 	}
 }
 
-// nolint:gocyclo
 func TestUploadWithCheckpointing(t *testing.T) {
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx)

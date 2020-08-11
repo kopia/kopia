@@ -62,7 +62,7 @@ func randomUnixTime() int64 {
 	return int64(rand.Int31())
 }
 
-//nolint:gocyclo,funlen
+//nolint:gocyclo
 func TestPackIndex(t *testing.T) {
 	var infos []Info
 

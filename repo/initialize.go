@@ -90,9 +90,9 @@ func repositoryObjectFormatFromOptions(opt *NewRepositoryOptions) *repositoryObj
 			Version:     1,
 			Hash:        applyDefaultString(opt.BlockFormat.Hash, hashing.DefaultAlgorithm),
 			Encryption:  applyDefaultString(opt.BlockFormat.Encryption, encryption.DefaultAlgorithm),
-			HMACSecret:  applyDefaultRandomBytes(opt.BlockFormat.HMACSecret, hmacSecretLength), //nolint:gomnd
-			MasterKey:   applyDefaultRandomBytes(opt.BlockFormat.MasterKey, masterKeyLength),   //nolint:gomnd
-			MaxPackSize: applyDefaultInt(opt.BlockFormat.MaxPackSize, 20<<20),                  //nolint:gomnd
+			HMACSecret:  applyDefaultRandomBytes(opt.BlockFormat.HMACSecret, hmacSecretLength),
+			MasterKey:   applyDefaultRandomBytes(opt.BlockFormat.MasterKey, masterKeyLength),
+			MaxPackSize: applyDefaultInt(opt.BlockFormat.MaxPackSize, 20<<20), //nolint:gomnd
 		},
 		Format: object.Format{
 			Splitter: applyDefaultString(opt.ObjectFormat.Splitter, splitter.DefaultAlgorithm),

@@ -63,7 +63,6 @@ func (kr *Runner) Cleanup() {
 func (kr *Runner) Run(args ...string) (stdout, stderr string, err error) {
 	argsStr := strings.Join(args, " ")
 	log.Printf("running '%s %v'", kr.Exe, argsStr)
-	// nolint:gosec
 	cmdArgs := append(append([]string(nil), kr.fixedArgs...), args...)
 
 	// nolint:gosec

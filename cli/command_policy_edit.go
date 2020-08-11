@@ -99,7 +99,7 @@ func editPolicy(ctx context.Context, rep repo.Repository) error {
 
 		var shouldSave string
 
-		fmt.Scanf("%v", &shouldSave) //nolint:errcheck
+		fmt.Scanf("%v", &shouldSave)
 
 		if strings.HasPrefix(strings.ToLower(shouldSave), "y") {
 			if err := policy.SetPolicy(ctx, rep, target, updated); err != nil {
