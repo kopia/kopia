@@ -177,7 +177,7 @@ func newOwnWritesCache(ctx context.Context, caching *CachingOptions, timeNow fun
 
 	dirname := filepath.Join(caching.CacheDirectory, "own-writes")
 
-	if err := os.MkdirAll(dirname, 0700); err != nil {
+	if err := os.MkdirAll(dirname, 0o700); err != nil {
 		return nil, errors.Wrap(err, "unable to create own writes cache directory")
 	}
 
@@ -185,7 +185,6 @@ func newOwnWritesCache(ctx context.Context, caching *CachingOptions, timeNow fun
 		Path:            dirname,
 		DirectoryShards: []int{},
 	})
-
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create own writes cache storage")
 	}

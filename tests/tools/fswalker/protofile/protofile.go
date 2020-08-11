@@ -21,5 +21,5 @@ func WriteTextProto(path string, pb proto.Message) error {
 	blob = bytes.ReplaceAll(blob, []byte("<"), []byte("{"))
 	blob = bytes.ReplaceAll(blob, []byte(">"), []byte("}"))
 
-	return ioutil.WriteFile(path, blob, 0644)
+	return ioutil.WriteFile(path, blob, 0o644)
 }

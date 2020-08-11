@@ -7,9 +7,7 @@ import (
 	"github.com/kopia/kopia/internal/serverapi"
 )
 
-var (
-	serverRefreshCommand = serverCommands.Command("refresh", "Refresh the cache in Kopia server to observe new sources, etc.")
-)
+var serverRefreshCommand = serverCommands.Command("refresh", "Refresh the cache in Kopia server to observe new sources, etc.")
 
 func init() {
 	serverRefreshCommand.Action(serverAction(runServerRefresh))

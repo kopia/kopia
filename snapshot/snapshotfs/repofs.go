@@ -182,7 +182,7 @@ func withFileInfo(r object.Reader, e fs.Entry) fs.Reader {
 func DirectoryEntry(rep repo.Repository, objectID object.ID, dirSummary *fs.DirectorySummary) fs.Directory {
 	d, _ := EntryFromDirEntry(rep, &snapshot.DirEntry{
 		Name:        "/",
-		Permissions: 0555, //nolint:gomnd
+		Permissions: 0o555, //nolint:gomnd
 		Type:        snapshot.EntryTypeDirectory,
 		ObjectID:    objectID,
 		DirSummary:  dirSummary,
@@ -201,10 +201,14 @@ func SnapshotRoot(rep repo.Repository, man *snapshot.Manifest) (fs.Entry, error)
 	return EntryFromDirEntry(rep, man.RootEntry)
 }
 
-var _ fs.Directory = (*repositoryDirectory)(nil)
-var _ fs.File = (*repositoryFile)(nil)
-var _ fs.Symlink = (*repositorySymlink)(nil)
+var (
+	_ fs.Directory = (*repositoryDirectory)(nil)
+	_ fs.File      = (*repositoryFile)(nil)
+	_ fs.Symlink   = (*repositorySymlink)(nil)
+)
 
-var _ snapshot.HasDirEntry = (*repositoryDirectory)(nil)
-var _ snapshot.HasDirEntry = (*repositoryFile)(nil)
-var _ snapshot.HasDirEntry = (*repositorySymlink)(nil)
+var (
+	_ snapshot.HasDirEntry = (*repositoryDirectory)(nil)
+	_ snapshot.HasDirEntry = (*repositoryFile)(nil)
+	_ snapshot.HasDirEntry = (*repositorySymlink)(nil)
+)

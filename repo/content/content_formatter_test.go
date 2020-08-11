@@ -49,7 +49,6 @@ func TestFormatters(t *testing.T) {
 						Hash:       hashAlgo,
 						Encryption: encryptionAlgo,
 					})
-
 					if err != nil {
 						key := hashAlgo + "/" + encryptionAlgo
 

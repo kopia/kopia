@@ -53,6 +53,7 @@ func (s *Server) handleManifestDelete(ctx context.Context, r *http.Request) (int
 
 	return &serverapi.Empty{}, nil
 }
+
 func (s *Server) handleManifestList(ctx context.Context, r *http.Request) (interface{}, *apiError) {
 	// password already validated by a wrapper, no need to check here.
 	userAtHost, _, _ := r.BasicAuth()

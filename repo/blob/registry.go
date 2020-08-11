@@ -6,9 +6,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-var (
-	factories = map[string]*storageFactory{}
-)
+var factories = map[string]*storageFactory{}
 
 // StorageFactory allows creation of repositories in a generic way.
 type storageFactory struct {

@@ -54,7 +54,6 @@ func runContentListCommand(ctx context.Context, rep *repo.DirectRepository) erro
 
 			return nil
 		})
-
 	if err != nil {
 		return errors.Wrap(err, "error iterating")
 	}

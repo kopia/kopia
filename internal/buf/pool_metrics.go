@@ -62,6 +62,7 @@ func aggregateByPool(m stats.Measure, agg *view.Aggregation) *view.View {
 		TagKeys:     []tag.Key{tagKeyPool},
 	}
 }
+
 func init() {
 	if err := view.Register(
 		aggregateByPool(metricPoolAllocatedBytes, view.LastValue()),

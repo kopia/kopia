@@ -12,9 +12,7 @@ import (
 	"github.com/kopia/kopia/internal/webdavmount"
 )
 
-var (
-	traceWebDAVServer = mountCommand.Flag("trace-webdav", "Enable tracing on WebDAV server").Bool()
-)
+var traceWebDAVServer = mountCommand.Flag("trace-webdav", "Enable tracing on WebDAV server").Bool()
 
 func webdavServerLogger(r *http.Request, err error) {
 	var maybeRange string

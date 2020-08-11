@@ -256,7 +256,6 @@ func TestCustomTransportNoSSLVerify(t *testing.T) {
 func getURL(url string, insecureSkipVerify bool) error {
 	client := &http.Client{Transport: getCustomTransport(insecureSkipVerify)}
 	resp, err := client.Get(url)
-
 	if err != nil {
 		return err
 	}

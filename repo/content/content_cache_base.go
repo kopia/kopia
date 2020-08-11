@@ -172,7 +172,7 @@ func newContentCacheBase(ctx context.Context, cacheStorage blob.Storage, maxSize
 
 	// errGood is a marker error to stop blob iteration quickly, does not
 	// indicate any problem.
-	var errGood = errors.Errorf("good")
+	errGood := errors.Errorf("good")
 
 	// verify that cache storage is functional by listing from it
 	if err := c.cacheStorage.ListBlobs(ctx, "", func(it blob.Metadata) error {

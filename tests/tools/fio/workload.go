@@ -15,7 +15,7 @@ func (fr *Runner) WriteFiles(relPath string, opt Options) error {
 }
 
 func (fr *Runner) writeFiles(fullPath string, opt Options) error {
-	err := os.MkdirAll(fullPath, 0700)
+	err := os.MkdirAll(fullPath, 0o700)
 	if err != nil {
 		return errors.Wrap(err, "unable to make directory for write")
 	}

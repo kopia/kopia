@@ -37,7 +37,7 @@ func TestAPIServerRepository(t *testing.T) {
 	originalQBlobCount := len(e1.RunAndExpectSuccess(t, "blob", "list", "--prefix=q"))
 
 	htpasswordFile := filepath.Join(e.ConfigDir, "htpasswd.txt")
-	ioutil.WriteFile(htpasswordFile, htpasswdFileContents, 0755)
+	ioutil.WriteFile(htpasswordFile, htpasswdFileContents, 0o755)
 
 	var sp serverParameters
 

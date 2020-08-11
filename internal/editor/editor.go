@@ -30,7 +30,7 @@ func EditLoop(ctx context.Context, fname, initial string, parse func(updated str
 	tmpFile := filepath.Join(tmpDir, fname)
 	defer os.RemoveAll(tmpDir) //nolint:errcheck
 
-	if err := ioutil.WriteFile(tmpFile, []byte(initial), 0600); err != nil {
+	if err := ioutil.WriteFile(tmpFile, []byte(initial), 0o600); err != nil {
 		return err
 	}
 

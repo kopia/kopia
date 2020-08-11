@@ -80,7 +80,7 @@ func makeScratchDir(t *testing.T) string {
 	baseTestName := strings.Split(t.Name(), "/")[0]
 	d := filepath.Join(sharedTestDataDirBase, baseTestName, randomString(4))
 
-	if err := os.MkdirAll(d, 0700); err != nil {
+	if err := os.MkdirAll(d, 0o700); err != nil {
 		t.Fatalf("unable to make scratch dir: %v", err)
 	}
 

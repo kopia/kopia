@@ -692,7 +692,7 @@ func uniqueDirectories(dirs []fs.Directory) []fs.Directory {
 		return dirs
 	}
 
-	var unique = map[object.ID]fs.Directory{}
+	unique := map[object.ID]fs.Directory{}
 	for _, dir := range dirs {
 		unique[dir.(object.HasObjectID).ObjectID()] = dir
 	}

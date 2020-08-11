@@ -11,8 +11,10 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-var connectFromConfigFile string
-var connectFromConfigToken string
+var (
+	connectFromConfigFile  string
+	connectFromConfigToken string
+)
 
 func connectToStorageFromConfig(ctx context.Context, isNew bool) (blob.Storage, error) {
 	if isNew {

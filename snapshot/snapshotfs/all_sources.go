@@ -32,7 +32,7 @@ func (s *repositoryAllSources) ModTime() time.Time {
 }
 
 func (s *repositoryAllSources) Mode() os.FileMode {
-	return 0555 | os.ModeDir
+	return 0o555 | os.ModeDir
 }
 
 func (s *repositoryAllSources) Size() int64 {

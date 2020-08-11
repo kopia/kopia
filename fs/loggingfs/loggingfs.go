@@ -106,6 +106,8 @@ func Prefix(prefix string) Option {
 	}
 }
 
-var _ fs.Directory = &loggingDirectory{}
-var _ fs.File = &loggingFile{}
-var _ fs.Symlink = &loggingSymlink{}
+var (
+	_ fs.Directory = &loggingDirectory{}
+	_ fs.File      = &loggingFile{}
+	_ fs.Symlink   = &loggingSymlink{}
+)

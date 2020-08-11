@@ -14,8 +14,8 @@ import (
 var options filesystem.Options
 
 const (
-	defaultFileMode = 0600
-	defaultDirMode  = 0700
+	defaultFileMode = 0o600
+	defaultDirMode  = 0o700
 )
 
 var (

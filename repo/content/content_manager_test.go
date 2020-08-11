@@ -33,8 +33,10 @@ const (
 	encryptionOverhead = 12 + 16
 )
 
-var fakeTime = time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC)
-var hmacSecret = []byte{1, 2, 3}
+var (
+	fakeTime   = time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC)
+	hmacSecret = []byte{1, 2, 3}
+)
 
 func TestContentManagerEmptyFlush(t *testing.T) {
 	ctx := testlogging.Context(t)

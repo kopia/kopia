@@ -7,9 +7,7 @@ import (
 	"github.com/kopia/kopia/internal/serverapi"
 )
 
-var (
-	serverFlushCommand = serverCommands.Command("flush", "Flush the state of Kopia server to persistent storage, etc.")
-)
+var serverFlushCommand = serverCommands.Command("flush", "Flush the state of Kopia server to persistent storage, etc.")
 
 func init() {
 	serverFlushCommand.Action(serverAction(runServerFlush))

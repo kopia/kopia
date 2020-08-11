@@ -28,9 +28,7 @@ const (
 	packetSize = 1 << 15
 )
 
-var (
-	sftpDefaultShards = []int{3, 3}
-)
+var sftpDefaultShards = []int{3, 3}
 
 // sftpStorage implements blob.Storage on top of sftp.
 type sftpStorage struct {
@@ -59,7 +57,6 @@ func (s *sftpImpl) GetBlobFromPath(ctx context.Context, dirPath, fullPath string
 	// and either return it all or return the offset/length bytes
 	buf := new(bytes.Buffer)
 	n, err := r.WriteTo(buf)
-
 	if err != nil {
 		return nil, err
 	}

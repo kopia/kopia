@@ -125,7 +125,6 @@ func initPrometheus(mux *http.ServeMux) error {
 	pe, err := prometheus.NewExporter(prometheus.Options{
 		Registry: reg,
 	})
-
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize prometheus exporter")
 	}

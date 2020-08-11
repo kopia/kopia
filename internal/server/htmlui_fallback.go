@@ -159,7 +159,8 @@ func newDirFileInfo(name string) os.FileInfo {
 		name:    name,
 		size:    0,
 		mode:    os.FileMode(2147484068), // equal os.FileMode(0644)|os.ModeDir
-		modTime: time.Time{}}
+		modTime: time.Time{},
+	}
 }
 
 // AssetFile return a http.FileSystem instance that data backend by asset.
@@ -283,7 +284,7 @@ type bintree struct {
 }
 
 var _bintree = &bintree{nil, map[string]*bintree{
-	"index.html": &bintree{indexHtml, map[string]*bintree{}},
+	"index.html": {indexHtml, map[string]*bintree{}},
 }}
 
 // RestoreAsset restores an asset under the given directory.
@@ -296,7 +297,7 @@ func RestoreAsset(dir, name string) error {
 	if err != nil {
 		return err
 	}
-	err = os.MkdirAll(_filePath(dir, filepath.Dir(name)), os.FileMode(0755))
+	err = os.MkdirAll(_filePath(dir, filepath.Dir(name)), os.FileMode(0o755))
 	if err != nil {
 		return err
 	}

@@ -28,7 +28,6 @@ func TestGCSStorage(t *testing.T) {
 		BucketName:                   bucket,
 		ServiceAccountCredentialJSON: credData,
 	})
-
 	if err != nil {
 		t.Fatalf("unable to connect to GCS: %v", err)
 	}

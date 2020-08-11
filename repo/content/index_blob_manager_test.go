@@ -757,7 +757,8 @@ func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow f
 		st: st,
 		ownWritesCache: &persistentOwnWritesCache{
 			blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, localTimeNow),
-			localTimeNow},
+			localTimeNow,
+		},
 		indexBlobCache:                   passthroughContentCache{st},
 		encryptor:                        enc,
 		hasher:                           hf,

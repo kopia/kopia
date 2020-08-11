@@ -19,8 +19,10 @@ type IterateOptions struct {
 }
 
 // IterateCallback is the function type used as a callback during content iteration.
-type IterateCallback func(Info) error
-type cancelIterateFunc func() error
+type (
+	IterateCallback   func(Info) error
+	cancelIterateFunc func() error
+)
 
 func maybeParallelExecutor(parallel int, originalCallback IterateCallback) (IterateCallback, cancelIterateFunc) {
 	if parallel <= 1 {

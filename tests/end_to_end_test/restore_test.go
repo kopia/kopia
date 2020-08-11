@@ -70,7 +70,7 @@ func TestRestoreCommand(t *testing.T) {
 	// the way the top FS entry is created in snapshotfs. Force the permissions
 	// of the top directory to match those of the source so the recursive
 	// directory comparison has a chance of succeeding.
-	testenv.AssertNoError(t, os.Chmod(restoreDir, 0700))
+	testenv.AssertNoError(t, os.Chmod(restoreDir, 0o700))
 	compareDirs(t, source, restoreDir)
 
 	// Attempt to restore into a target directory that already exists
@@ -200,13 +200,13 @@ func TestSnapshotRestore(t *testing.T) {
 
 	// Attempt to restore snapshot with an already-existing target directory
 	// It should fail because the directory is not empty
-	_ = os.MkdirAll(restoreFailDir, 0700)
+	_ = os.MkdirAll(restoreFailDir, 0o700)
 
 	e.RunAndExpectFailure(t, "snapshot", "restore", "--no-overwrite-directories", snapID, restoreDir)
 
 	// Attempt to restore snapshot with an already-existing target directory
 	// It should fail because target files already exist
-	_ = os.MkdirAll(restoreFailDir, 0700)
+	_ = os.MkdirAll(restoreFailDir, 0o700)
 
 	e.RunAndExpectFailure(t, "snapshot", "restore", "--no-overwrite-files", snapID, restoreDir)
 }

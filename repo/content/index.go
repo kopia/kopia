@@ -11,8 +11,10 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-const maxEntrySize = 256
-const maxContentIDSize = maxHashSize + 1
+const (
+	maxEntrySize     = 256
+	maxContentIDSize = maxHashSize + 1
+)
 
 // packIndex is a read-only index of packed contents.
 type packIndex interface {

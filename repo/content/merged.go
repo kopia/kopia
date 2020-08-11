@@ -65,6 +65,7 @@ func (h nextInfoHeap) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
 func (h *nextInfoHeap) Push(x interface{}) {
 	*h = append(*h, x.(*nextInfo))
 }
+
 func (h *nextInfoHeap) Pop() interface{} {
 	old := *h
 	n := len(old)

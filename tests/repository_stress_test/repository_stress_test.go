@@ -54,12 +54,11 @@ func TestStressRepository(t *testing.T) {
 	configFile1 := filepath.Join(tmpPath, "kopia1.config")
 	configFile2 := filepath.Join(tmpPath, "kopia2.config")
 
-	assertNoError(t, os.MkdirAll(storagePath, 0700))
+	assertNoError(t, os.MkdirAll(storagePath, 0o700))
 
 	st, err := filesystem.New(ctx, &filesystem.Options{
 		Path: storagePath,
 	})
-
 	if err != nil {
 		t.Fatalf("unable to initialize storage: %v", err)
 	}

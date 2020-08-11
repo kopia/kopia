@@ -304,6 +304,8 @@ func entryFromChildFileInfo(fi os.FileInfo, parentDir string) (fs.Entry, error) 
 	}
 }
 
-var _ fs.Directory = &filesystemDirectory{}
-var _ fs.File = &filesystemFile{}
-var _ fs.Symlink = &filesystemSymlink{}
+var (
+	_ fs.Directory = &filesystemDirectory{}
+	_ fs.File      = &filesystemFile{}
+	_ fs.Symlink   = &filesystemSymlink{}
+)

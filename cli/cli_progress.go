@@ -19,8 +19,10 @@ var (
 	progressUpdateInterval = app.Flag("progress-update-interval", "How ofter to update progress information").Hidden().Default("300ms").Duration()
 )
 
-const spinner = `|/-\`
-const hundredPercent = 100.0
+const (
+	spinner        = `|/-\`
+	hundredPercent = 100.0
+)
 
 type cliProgress struct {
 	snapshotfs.NullUploadProgress

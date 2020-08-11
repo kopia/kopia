@@ -321,7 +321,7 @@ func CreateRandomFile(filePath string, options DirectoryTreeOptions, counters *D
 
 // createDirectoryTreeInternal creates a directory tree of a given depth with random files.
 func createDirectoryTreeInternal(dirname string, options DirectoryTreeOptions, counters *DirectoryTreeCounters) error {
-	if err := os.MkdirAll(dirname, 0700); err != nil {
+	if err := os.MkdirAll(dirname, 0o700); err != nil {
 		return errors.Wrapf(err, "unable to create directory %v", dirname)
 	}
 
@@ -354,6 +354,7 @@ func createDirectoryTreeInternal(dirname string, options DirectoryTreeOptions, c
 
 	return nil
 }
+
 func createRandomFile(filename string, options DirectoryTreeOptions, counters *DirectoryTreeCounters) error {
 	f, err := os.Create(filename)
 	if err != nil {

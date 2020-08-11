@@ -80,7 +80,7 @@ func TestWebDAVStorageBuiltInServer(t *testing.T) {
 			if err := os.RemoveAll(tmpDir); err != nil {
 				t.Errorf("can't remove all: %q", tmpDir)
 			}
-			os.MkdirAll(tmpDir, 0700) //nolint:errcheck
+			os.MkdirAll(tmpDir, 0o700) //nolint:errcheck
 
 			verifyWebDAVStorage(t, server.URL, "user", "password", shardSpec)
 		})

@@ -153,7 +153,7 @@ func NewRunner() (fr *Runner, err error) {
 }
 
 func (fr *Runner) verifySetupWithTestWrites() error {
-	var subDirPath = path.Join("test", "subdir")
+	subDirPath := path.Join("test", "subdir")
 
 	const (
 		maxTestFiles = 5

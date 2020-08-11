@@ -81,7 +81,6 @@ func TestAzureStorage(t *testing.T) {
 		StorageKey:     storageKey,
 		Prefix:         fmt.Sprintf("test-%v-%x-", time.Now().Unix(), data),
 	})
-
 	if err != nil {
 		t.Fatalf("unable to connect to Azure: %v", err)
 	}
@@ -118,7 +117,6 @@ func TestAzureStorageInvalidBlob(t *testing.T) {
 		StorageAccount: storageAccount,
 		StorageKey:     storageKey,
 	})
-
 	if err != nil {
 		t.Fatalf("unable to connect to Azure container: %v", err)
 	}

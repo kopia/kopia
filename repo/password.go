@@ -60,7 +60,7 @@ func persistPassword(ctx context.Context, configFile, password string) error {
 	fn := passwordFileName(configFile)
 	log(ctx).Debugf("Saving password to file %v.", fn)
 
-	return ioutil.WriteFile(fn, []byte(base64.StdEncoding.EncodeToString([]byte(password))), 0600)
+	return ioutil.WriteFile(fn, []byte(base64.StdEncoding.EncodeToString([]byte(password))), 0o600)
 }
 
 // deletePassword removes stored repository password.

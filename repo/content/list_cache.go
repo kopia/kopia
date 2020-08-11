@@ -113,7 +113,7 @@ func newListCache(st blob.Storage, caching *CachingOptions) (*listCache, error) 
 		listCacheFilePrefix = filepath.Join(caching.CacheDirectory, "blob-list-")
 
 		if _, err := os.Stat(caching.CacheDirectory); os.IsNotExist(err) {
-			if err := os.MkdirAll(caching.CacheDirectory, 0700); err != nil {
+			if err := os.MkdirAll(caching.CacheDirectory, 0o700); err != nil {
 				return nil, err
 			}
 		}

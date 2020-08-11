@@ -7,9 +7,7 @@ import (
 	"github.com/kopia/kopia/internal/serverapi"
 )
 
-var (
-	serverCancelUploadCommand = serverCommands.Command("cancel", "Cancels in-progress uploads for one or more sources")
-)
+var serverCancelUploadCommand = serverCommands.Command("cancel", "Cancels in-progress uploads for one or more sources")
 
 func init() {
 	serverCancelUploadCommand.Action(serverAction(runServerCancelUpload))

@@ -23,13 +23,11 @@ const (
 	davStorageType       = "webdav"
 	fsStorageChunkSuffix = ".f"
 
-	defaultFilePerm = 0600
-	defaultDirPerm  = 0700
+	defaultFilePerm = 0o600
+	defaultDirPerm  = 0o700
 )
 
-var (
-	fsDefaultShards = []int{3, 3}
-)
+var fsDefaultShards = []int{3, 3}
 
 // davStorage implements blob.Storage on top of remove WebDAV repository.
 // It is very similar to File storage, except uses HTTP URLs instead of local files.

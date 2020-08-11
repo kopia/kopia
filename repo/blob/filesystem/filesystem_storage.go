@@ -26,8 +26,8 @@ const (
 	fsStorageType        = "filesystem"
 	fsStorageChunkSuffix = ".f"
 
-	fsDefaultFileMode os.FileMode = 0600
-	fsDefaultDirMode  os.FileMode = 0700
+	fsDefaultFileMode os.FileMode = 0o600
+	fsDefaultDirMode  os.FileMode = 0o700
 )
 
 var fsDefaultShards = []int{3, 3}
@@ -108,7 +108,6 @@ func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, off
 
 		return b, nil
 	}, isRetriable)
-
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, blob.ErrBlobNotFound
@@ -221,7 +220,6 @@ func (fs *fsImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, e
 		v, err := ioutil.ReadDir(dirname)
 		return v, err
 	}, isRetriable)
-
 	if err != nil {
 		return nil, err
 	}

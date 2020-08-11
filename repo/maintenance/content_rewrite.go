@@ -200,7 +200,6 @@ func findContentInShortPacks(ctx context.Context, rep MaintainableRepository, ch
 			return nil
 		},
 	)
-
 	if err != nil {
 		ch <- contentInfoOrError{err: err}
 		return

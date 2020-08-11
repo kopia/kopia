@@ -26,8 +26,10 @@ var log = logging.GetContextLoggerFunc("kopia/manifest")
 var ErrNotFound = errors.New("not found")
 
 // ContentPrefix is the prefix of the content id for manifests.
-const ContentPrefix = "m"
-const autoCompactionContentCount = 16
+const (
+	ContentPrefix              = "m"
+	autoCompactionContentCount = 16
+)
 
 // TypeLabelKey is the label key for manifest type.
 const TypeLabelKey = "type"

@@ -265,7 +265,7 @@ func (c *Comparer) compareFiles(ctx context.Context, f1, f2 fs.File, fname strin
 }
 
 func downloadFile(ctx context.Context, f fs.File, fname string) error {
-	if err := os.MkdirAll(filepath.Dir(fname), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(fname), 0o700); err != nil {
 		return err
 	}
 

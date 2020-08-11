@@ -89,6 +89,7 @@ func (gcs *gcsStorage) GetMetadata(ctx context.Context, b blob.ID) (blob.Metadat
 
 	return v.(blob.Metadata), nil
 }
+
 func exponentialBackoff(ctx context.Context, desc string, att retry.AttemptFunc) (interface{}, error) {
 	return retry.WithExponentialBackoff(ctx, desc, att, isRetriableError)
 }
@@ -120,6 +121,7 @@ func translateError(err error) error {
 		return errors.Wrap(err, "unexpected GCS error")
 	}
 }
+
 func (gcs *gcsStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) error {
 	ctx, cancel := context.WithCancel(ctx)
 

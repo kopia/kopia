@@ -109,7 +109,6 @@ func TestServerStart(t *testing.T) {
 	createResp, err := serverapi.CreateSnapshotSource(ctx, cli, &serverapi.CreateSnapshotSourceRequest{
 		Path: sharedTestDataDir2,
 	})
-
 	if err != nil {
 		t.Fatalf("create snapshot source error: %v", err)
 	}

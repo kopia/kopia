@@ -19,8 +19,10 @@ import (
 
 var baseDir = "content/docs/Reference/Command-Line"
 
-const advancedSection = "Advanced"
-const commonSection = "Common"
+const (
+	advancedSection = "Advanced"
+	commonSection   = "Common"
+)
 
 var overrideDefault = map[string]string{
 	"config-file": "repository.config",
@@ -138,7 +140,7 @@ weight: 3
 
 func generateCommands(app *kingpin.ApplicationModel, section string, weight int, advanced bool) error {
 	dir := filepath.Join(baseDir, section)
-	if err := os.MkdirAll(dir, 0750); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return err
 	}
 
