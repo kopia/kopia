@@ -11,7 +11,7 @@ import (
 	"github.com/kopia/kopia/tests/testenv"
 )
 
-// foo@bar - password baz
+// foo@bar - password baz.
 var htpasswdFileContents = []byte("foo@bar:$2y$05$JWrExvBe5Knh0.AMLk5WHu.EzfOP.LhrqMIRf1YseZ/rulBjKqGJ.\n")
 
 func TestAPIServerRepository(t *testing.T) {

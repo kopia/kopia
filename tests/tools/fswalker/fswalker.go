@@ -30,7 +30,7 @@ type WalkCompare struct {
 	GlobalFilterFuncs []func(string, fswalker.ActionData) bool
 }
 
-// NewWalkCompare instantiates a new WalkCompare and returns its pointer
+// NewWalkCompare instantiates a new WalkCompare and returns its pointer.
 func NewWalkCompare() *WalkCompare {
 	return &WalkCompare{
 		GlobalFilterFuncs: []func(string, fswalker.ActionData) bool{

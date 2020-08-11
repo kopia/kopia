@@ -8,7 +8,7 @@ import (
 
 var tagKeyPool = tag.MustNewKey("pool")
 
-// buffer pool metrics
+// buffer pool metrics.
 var (
 	metricPoolAllocatedBuffers = stats.Int64(
 		"kopia/bufferpool/allocated_buffers",

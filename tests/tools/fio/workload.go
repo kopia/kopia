@@ -8,7 +8,7 @@ import (
 )
 
 // WriteFiles writes files to the directory specified by path, up to the
-// provided size and number of files
+// provided size and number of files.
 func (fr *Runner) WriteFiles(relPath string, opt Options) error {
 	fullPath := filepath.Join(fr.LocalDataDir, relPath)
 	return fr.writeFiles(fullPath, opt)
@@ -42,7 +42,7 @@ func (fr *Runner) writeFiles(fullPath string, opt Options) error {
 	return err
 }
 
-// DeleteRelDir deletes a relative directory in the runner's data directory
+// DeleteRelDir deletes a relative directory in the runner's data directory.
 func (fr *Runner) DeleteRelDir(relDirPath string) error {
 	return os.RemoveAll(filepath.Join(fr.LocalDataDir, relDirPath))
 }

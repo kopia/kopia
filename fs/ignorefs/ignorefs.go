@@ -231,7 +231,7 @@ func parseIgnoreFile(ctx context.Context, baseDir string, file fs.File) ([]ignor
 	return matchers, nil
 }
 
-// Option modifies the behavior of ignorefs
+// Option modifies the behavior of ignorefs.
 type Option func(parentContext *ignoreContext)
 
 // New returns a fs.Directory that wraps another fs.Directory and hides files specified in the ignore dotfiles.

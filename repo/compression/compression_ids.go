@@ -3,7 +3,7 @@ package compression
 // HeaderID is a unique identifier of the compressor stored in the compressed block header.
 type HeaderID uint32
 
-// defined header IDs
+// defined header IDs.
 const (
 	headerGzipDefault         HeaderID = 0x1000
 	headerGzipBestSpeed       HeaderID = 0x1001

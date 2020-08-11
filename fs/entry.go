@@ -9,13 +9,13 @@ import (
 	"time"
 )
 
-// Entry represents a filesystem entry, which can be Directory, File, or Symlink
+// Entry represents a filesystem entry, which can be Directory, File, or Symlink.
 type Entry interface {
 	os.FileInfo
 	Owner() OwnerInfo
 }
 
-// OwnerInfo describes owner of a filesystem entry
+// OwnerInfo describes owner of a filesystem entry.
 type OwnerInfo struct {
 	UserID  uint32
 	GroupID uint32
@@ -50,7 +50,7 @@ type Directory interface {
 var ErrEntryNotFound = errors.New("entry not found")
 
 // ReadDirAndFindChild reads all entries from a directory and returns one by name.
-// This is a convenience function that may be helpful in implementations of Directory.Child()
+// This is a convenience function that may be helpful in implementations of Directory.Child().
 func ReadDirAndFindChild(ctx context.Context, d Directory, name string) (Entry, error) {
 	children, err := d.Readdir(ctx)
 	if err != nil {
@@ -68,7 +68,7 @@ func ReadDirAndFindChild(ctx context.Context, d Directory, name string) (Entry, 
 // MaxFailedEntriesPerDirectorySummary is the maximum number of failed entries per directory summary.
 const MaxFailedEntriesPerDirectorySummary = 10
 
-// EntryWithError describes error encountered when processing an entry
+// EntryWithError describes error encountered when processing an entry.
 type EntryWithError struct {
 	EntryPath string `json:"path"`
 	Error     string `json:"error"`

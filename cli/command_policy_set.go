@@ -20,7 +20,7 @@ var (
 	policySetTargets = policySetCommand.Arg("target", "Target of a policy ('global','user@host','@host') or a path").Strings()
 	policySetGlobal  = policySetCommand.Flag("global", "Set global policy").Bool()
 
-	// Frequency
+	// Frequency.
 	policySetInterval   = policySetCommand.Flag("snapshot-interval", "Interval between snapshots").DurationList()
 	policySetTimesOfDay = policySetCommand.Flag("snapshot-time", "Times of day when to take snapshot (HH:mm)").Strings()
 

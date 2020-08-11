@@ -63,7 +63,7 @@ func VerifyStorage(ctx context.Context, t testingT, r blob.Storage) {
 }
 
 // AssertConnectionInfoRoundTrips verifies that the ConnectionInfo returned by a given storage can be used to create
-// equivalent storage
+// equivalent storage.
 func AssertConnectionInfoRoundTrips(ctx context.Context, t testingT, s blob.Storage) {
 	t.Helper()
 

@@ -261,7 +261,7 @@ func toBandwidth(bytesPerSecond int) iothrottler.Bandwidth {
 	return iothrottler.Bandwidth(bytesPerSecond) * iothrottler.BytesPerSecond
 }
 
-// New creates new B2-backed storage with specified options:
+// New creates new B2-backed storage with specified options:.
 func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 	if opt.BucketName == "" {
 		return nil, errors.New("bucket name must be specified")

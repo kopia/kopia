@@ -18,7 +18,7 @@ import (
 
 var log = logging.GetContextLoggerFunc("kopia/internal/fshasher")
 
-// Hash computes a recursive hash of e using the given hasher h
+// Hash computes a recursive hash of e using the given hasher h.
 func Hash(ctx context.Context, e fs.Entry) ([]byte, error) {
 	h, err := blake2s.New256(nil)
 	if err != nil {

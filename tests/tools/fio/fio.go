@@ -19,7 +19,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-// List of fio flags
+// List of fio flags.
 const (
 	JobNameFlag = "--name"
 )
@@ -29,9 +29,9 @@ const (
 	fioDataContainerPath = "/fio-data"
 )
 
-// Environment variable keys
+// Environment variable keys.
 const (
-	// FioExeEnvKey gives the path to the fio executable to use in testing
+	// FioExeEnvKey gives the path to the fio executable to use in testing.
 	FioExeEnvKey = "FIO_EXE"
 
 	// FioDockerImageEnvKey specifies the docker image tag to use. If
@@ -40,21 +40,21 @@ const (
 	FioDockerImageEnvKey = "FIO_DOCKER_IMAGE"
 
 	// LocalFioDataPathEnvKey is the local path where fio data will be
-	// accessible. If not specified, defaults to the default temp directory (os.TempDir)
+	// accessible. If not specified, defaults to the default temp directory (os.TempDir).
 	LocalFioDataPathEnvKey = "LOCAL_FIO_DATA_PATH"
 
 	// HostFioDataPathEnvKey specifies the path where fio data will be written,
 	// relative to the docker host. If left blank, defaults to local fio data path
-	// (works unless running via docker from within a container, e.g. for development)
+	// (works unless running via docker from within a container, e.g. for development).
 	HostFioDataPathEnvKey = "HOST_FIO_DATA_PATH"
 )
 
-// Known error messages
+// Known error messages.
 var (
 	ErrEnvNotSet = fmt.Errorf("must set either %v or %v", FioExeEnvKey, FioDockerImageEnvKey)
 )
 
-// Runner is a helper for running fio commands
+// Runner is a helper for running fio commands.
 type Runner struct {
 	Exe             string
 	ExecArgs        []string
@@ -63,7 +63,7 @@ type Runner struct {
 	Global          Config
 }
 
-// NewRunner creates a new fio runner
+// NewRunner creates a new fio runner.
 func NewRunner() (fr *Runner, err error) {
 	exeStr := os.Getenv(FioExeEnvKey)
 	imgStr := os.Getenv(FioDockerImageEnvKey)
@@ -189,14 +189,14 @@ func (fr *Runner) verifySetupWithTestWrites() error {
 	return nil
 }
 
-// Cleanup cleans up the data directory
+// Cleanup cleans up the data directory.
 func (fr *Runner) Cleanup() {
 	if fr.LocalDataDir != "" {
 		os.RemoveAll(fr.LocalDataDir) //nolint:errcheck
 	}
 }
 
-// RunConfigs runs fio using the provided Configs
+// RunConfigs runs fio using the provided Configs.
 func (fr *Runner) RunConfigs(cfgs ...Config) (stdout, stderr string, err error) {
 	args := argsFromConfigs(append([]Config{fr.Global}, cfgs...)...)
 
@@ -225,7 +225,7 @@ func argsFromConfigs(cfgs ...Config) []string {
 	return args
 }
 
-// Run will execute the fio command with the given args
+// Run will execute the fio command with the given args.
 func (fr *Runner) Run(args ...string) (stdout, stderr string, err error) {
 	args = append(fr.ExecArgs, args...)
 

@@ -36,7 +36,7 @@ var log = logging.GetContextLoggerFunc("snapshotfs")
 
 var errCanceled = errors.New("canceled")
 
-// reasons why a snapshot is incomplete
+// reasons why a snapshot is incomplete.
 const (
 	IncompleteReasonCheckpoint   = "checkpoint"
 	IncompleteReasonCanceled     = "canceled"
@@ -579,7 +579,7 @@ func findCachedEntry(ctx context.Context, entry fs.Entry, prevEntries []fs.Entri
 	return nil
 }
 
-// objectIDPercent arbitrarily maps given object ID onto a number 0.99
+// objectIDPercent arbitrarily maps given object ID onto a number 0.99.
 func objectIDPercent(obj object.ID) int {
 	h := fnv.New32a()
 	io.WriteString(h, obj.String()) //nolint:errcheck
@@ -709,7 +709,7 @@ func uniqueDirectories(dirs []fs.Directory) []fs.Directory {
 	return result
 }
 
-// dirReadError distinguishes an error thrown when attempting to read a directory
+// dirReadError distinguishes an error thrown when attempting to read a directory.
 type dirReadError struct {
 	error
 }

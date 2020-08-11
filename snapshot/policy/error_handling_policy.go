@@ -21,7 +21,7 @@ func (p *ErrorHandlingPolicy) Merge(src ErrorHandlingPolicy) {
 }
 
 // IgnoreFileErrorsOrDefault returns the ignore-file-error setting if it is set,
-// and returns the passed default if not
+// and returns the passed default if not.
 func (p *ErrorHandlingPolicy) IgnoreFileErrorsOrDefault(def bool) bool {
 	if p.IgnoreFileErrors == nil {
 		return def
@@ -31,7 +31,7 @@ func (p *ErrorHandlingPolicy) IgnoreFileErrorsOrDefault(def bool) bool {
 }
 
 // IgnoreDirectoryErrorsOrDefault returns the ignore-directory-error setting if it is set,
-// and returns the passed default if not
+// and returns the passed default if not.
 func (p *ErrorHandlingPolicy) IgnoreDirectoryErrorsOrDefault(def bool) bool {
 	if p.IgnoreDirectoryErrors == nil {
 		return def

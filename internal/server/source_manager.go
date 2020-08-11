@@ -24,7 +24,7 @@ const (
 // - READY - waiting for next snapshot
 // - PAUSED - inactive
 // - FAILED - inactive
-// - UPLOADING - uploading a snapshot
+// - UPLOADING - uploading a snapshot.
 type sourceManager struct {
 	snapshotfs.NullUploadProgress
 

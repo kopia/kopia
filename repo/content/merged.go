@@ -21,7 +21,7 @@ func (m mergedIndex) Close() error {
 	return nil
 }
 
-// GetInfo returns information about a single content. If a content is not found, returns (nil,nil)
+// GetInfo returns information about a single content. If a content is not found, returns (nil,nil).
 func (m mergedIndex) GetInfo(id ID) (*Info, error) {
 	var best *Info
 

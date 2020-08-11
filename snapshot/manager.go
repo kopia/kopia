@@ -11,7 +11,7 @@ import (
 	"github.com/kopia/kopia/repo/manifest"
 )
 
-// ManifestType is the value of the "type" label for snapshot manifests
+// ManifestType is the value of the "type" label for snapshot manifests.
 const ManifestType = "snapshot"
 
 const (

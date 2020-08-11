@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	// MaxFileSizeToHash gives an upper bound to the size of file that can be hashed by the walker
+	// MaxFileSizeToHash gives an upper bound to the size of file that can be hashed by the walker.
 	MaxFileSizeToHash = 1 << 32
 )
 
@@ -58,7 +58,7 @@ func Walk(ctx context.Context, policy *fspb.Policy) (*fspb.Walk, error) { //noli
 }
 
 // WalkPathHash performs a walk at the path prvided and returns a pointer
-// to the Walk result
+// to the Walk result.
 func WalkPathHash(ctx context.Context, path string) (*fspb.Walk, error) {
 	return Walk(ctx, &fspb.Policy{
 		Version:         1,

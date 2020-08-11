@@ -74,12 +74,12 @@ func (r *DirectRepository) ContentManager() *content.Manager {
 	return r.Content
 }
 
-// ConfigFilename returns the name of the configuration file
+// ConfigFilename returns the name of the configuration file.
 func (r *DirectRepository) ConfigFilename() string {
 	return r.ConfigFile
 }
 
-// OpenObject opens the reader for a given object, returns object.ErrNotFound
+// OpenObject opens the reader for a given object, returns object.ErrNotFound.
 func (r *DirectRepository) OpenObject(ctx context.Context, id object.ID) (object.Reader, error) {
 	return r.Objects.Open(ctx, id)
 }
@@ -187,7 +187,7 @@ func (r *DirectRepository) RefreshPeriodically(ctx context.Context, interval tim
 	}
 }
 
-// Time returns the current local time for the repo
+// Time returns the current local time for the repo.
 func (r *DirectRepository) Time() time.Time {
 	return defaultTime(r.timeNow)()
 }

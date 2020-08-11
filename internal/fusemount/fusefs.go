@@ -127,7 +127,7 @@ func newDirectoryNode(dir fs.Directory) fusefs.Node {
 	return &fuseDirectoryNode{fuseNode{dir}}
 }
 
-// NewDirectoryNode returns FUSE Node for a given fs.Directory
+// NewDirectoryNode returns FUSE Node for a given fs.Directory.
 func NewDirectoryNode(dir fs.Directory) fusefs.Node {
 	return newDirectoryNode(dir)
 }

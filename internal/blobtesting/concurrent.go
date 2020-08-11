@@ -15,7 +15,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-// ConcurrentAccessOptions encapsulates parameters for VerifyConcurrentAccess
+// ConcurrentAccessOptions encapsulates parameters for VerifyConcurrentAccess.
 type ConcurrentAccessOptions struct {
 	NumBlobs int // number of shared blos in the pool
 

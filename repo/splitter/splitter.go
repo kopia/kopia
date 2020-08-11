@@ -31,7 +31,7 @@ func SupportedAlgorithms() []string {
 	return supportedSplitters
 }
 
-// Factory creates instances of Splitter
+// Factory creates instances of Splitter.
 type Factory func() Splitter
 
 // splitterFactories is a map of registered splitter factories.

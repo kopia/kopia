@@ -16,7 +16,7 @@ import (
 )
 
 // Report performs a report governed by the contents of the provided
-// ReportConfig of the comparison of the two Walks provided
+// ReportConfig of the comparison of the two Walks provided.
 func Report(ctx context.Context, config *fspb.ReportConfig, beforeWalk, afterWalk *fspb.Walk) (*fswalker.Report, error) {
 	tmpCfgFile, err := writeTempConfigFile(config)
 	if err != nil {
@@ -36,7 +36,7 @@ func Report(ctx context.Context, config *fspb.ReportConfig, beforeWalk, afterWal
 }
 
 // ReportFiles performs a report governed by the contents of the provided
-// ReportConfig of the two Walks at the provided file paths
+// ReportConfig of the two Walks at the provided file paths.
 func ReportFiles(ctx context.Context, config *fspb.ReportConfig, beforeFile, afterFile string) (*fswalker.Report, error) {
 	tmpCfgFile, err := writeTempConfigFile(config)
 	if err != nil {

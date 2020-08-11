@@ -25,7 +25,7 @@ type mutexLRU struct {
 	mu *sync.Mutex
 }
 
-// cacheBase provides common implementation for per-content and per-blob caches
+// cacheBase provides common implementation for per-content and per-blob caches.
 type cacheBase struct {
 	cacheStorage   blob.Storage
 	maxSizeBytes   int64

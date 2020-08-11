@@ -27,7 +27,7 @@ const (
 
 var log = logging.GetContextLoggerFunc("maintenance")
 
-// Mode describes the mode of maintenance to perfor
+// Mode describes the mode of maintenance to perfor.
 type Mode string
 
 // MaintainableRepository is a subset of Repository required for maintenance tasks.
@@ -48,7 +48,7 @@ type MaintainableRepository interface {
 	DeriveKey(purpose []byte, keyLength int) []byte
 }
 
-// Supported maintenance modes
+// Supported maintenance modes.
 const (
 	ModeNone  Mode = "none"
 	ModeQuick Mode = "quick"

@@ -73,7 +73,7 @@ func AssertGetBlob(ctx context.Context, t testingT, s blob.Storage, blobID blob.
 	AssertInvalidOffsetLength(ctx, t, s, blobID, int64(len(expected)+1), 3)
 }
 
-// AssertInvalidOffsetLength verifies that the given combination of (offset,length) fails on GetBlob()
+// AssertInvalidOffsetLength verifies that the given combination of (offset,length) fails on GetBlob().
 func AssertInvalidOffsetLength(ctx context.Context, t testingT, s blob.Storage, blobID blob.ID, offset, length int64) {
 	if _, err := s.GetBlob(ctx, blobID, offset, length); err == nil {
 		t.Errorf("GetBlob(%v,%v,%v) did not return error for invalid offset/length", blobID, offset, length)

@@ -77,7 +77,7 @@ func (o *FilesystemOutput) CreateSymlink(ctx context.Context, relativePath strin
 	return nil
 }
 
-// set permission, modification time and user/group ids on targetPath
+// set permission, modification time and user/group ids on targetPath.
 func (o *FilesystemOutput) setAttributes(targetPath string, e fs.Entry) error {
 	const modBits = os.ModePerm | os.ModeSetgid | os.ModeSetuid | os.ModeSticky
 

@@ -101,7 +101,7 @@ func IndirectObjectID(indexObjectID ID) ID {
 	return "I" + indexObjectID
 }
 
-// ParseID converts the specified string into object ID
+// ParseID converts the specified string into object ID.
 func ParseID(s string) (ID, error) {
 	i := ID(s)
 	return i, i.Validate()

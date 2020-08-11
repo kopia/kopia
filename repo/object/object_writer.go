@@ -278,7 +278,7 @@ func (w *objectWriter) Result() (ID, error) {
 	return IndirectObjectID(oid), nil
 }
 
-// WriterOptions can be passed to Repository.NewWriter()
+// WriterOptions can be passed to Repository.NewWriter().
 type WriterOptions struct {
 	Description string
 	Prefix      content.ID // empty string or a single-character ('g'..'z')

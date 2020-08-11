@@ -17,7 +17,7 @@ type testingT interface {
 // Level specifies log level.
 type Level int
 
-// log levels
+// log levels.
 const (
 	LevelDebug Level = iota
 	LevelInfo

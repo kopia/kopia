@@ -8,7 +8,7 @@ import (
 	"sync"
 )
 
-// CountSum holds sum and count values
+// CountSum holds sum and count values.
 type CountSum struct {
 	mu    sync.Mutex
 	sum   int64
@@ -16,7 +16,7 @@ type CountSum struct {
 }
 
 // Add adds size to s and returns approximate values for the current count
-// and total bytes
+// and total bytes.
 func (s *CountSum) Add(size int64) (count uint32, sum int64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

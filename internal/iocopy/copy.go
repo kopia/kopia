@@ -16,7 +16,7 @@ var bufferPool = sync.Pool{
 	},
 }
 
-// Copy is equivalent to io.Copy()
+// Copy is equivalent to io.Copy().
 func Copy(dst io.Writer, src io.Reader) (int64, error) {
 	bufPtr := bufferPool.Get().(*[]byte)
 

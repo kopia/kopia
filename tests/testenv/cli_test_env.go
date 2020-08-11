@@ -55,7 +55,7 @@ type SnapshotInfo struct {
 	Time       time.Time
 }
 
-// NewCLITest creates a new instance of *CLITest
+// NewCLITest creates a new instance of *CLITest.
 func NewCLITest(t *testing.T) *CLITest {
 	exe := os.Getenv("KOPIA_EXE")
 	if exe == "" {
@@ -265,7 +265,7 @@ func mustParseDirectoryEntries(lines []string) []DirEntry {
 	return result
 }
 
-// DirectoryTreeOptions lists options for CreateDirectoryTree
+// DirectoryTreeOptions lists options for CreateDirectoryTree.
 type DirectoryTreeOptions struct {
 	Depth                  int
 	MaxSubdirsPerDirectory int
@@ -275,7 +275,7 @@ type DirectoryTreeOptions struct {
 	MaxNameLength          int
 }
 
-// DirectoryTreeCounters stores stats about files and directories created by CreateDirectoryTree
+// DirectoryTreeCounters stores stats about files and directories created by CreateDirectoryTree.
 type DirectoryTreeCounters struct {
 	Files         int
 	Directories   int
@@ -310,7 +310,7 @@ func MustCreateRandomFile(t *testing.T, filePath string, options DirectoryTreeOp
 	}
 }
 
-// CreateRandomFile creates a new file at the provided path with randomized contents
+// CreateRandomFile creates a new file at the provided path with randomized contents.
 func CreateRandomFile(filePath string, options DirectoryTreeOptions, counters *DirectoryTreeCounters) error {
 	if counters == nil {
 		counters = &DirectoryTreeCounters{}

@@ -22,7 +22,7 @@ import (
 
 const checkForUpdatesEnvar = "KOPIA_CHECK_FOR_UPDATES"
 
-// hidden flags to control auto-update behavior
+// hidden flags to control auto-update behavior.
 var (
 	initialUpdateCheckDelay       = app.Flag("initial-update-check-delay", "Initial delay before first time update check").Default("24h").Hidden().Envar("KOPIA_INITIAL_UPDATE_CHECK_DELAY").Duration()
 	updateCheckInterval           = app.Flag("update-check-interval", "Interval between update checks").Default("168h").Hidden().Envar("KOPIA_UPDATE_CHECK_INTERVAL").Duration()
