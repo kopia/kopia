@@ -6,7 +6,8 @@ import (
 	"bytes"
 	"io/ioutil"
 
-	"github.com/golang/protobuf/proto" // nolint:staticcheck
+	// nolint:staticcheck
+	"github.com/golang/protobuf/proto"
 	"google.golang.org/protobuf/encoding/prototext"
 )
 

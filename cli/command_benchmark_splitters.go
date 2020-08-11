@@ -5,9 +5,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/kopia/kopia/repo/splitter"
-
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
+
+	"github.com/kopia/kopia/repo/splitter"
 )
 
 var (

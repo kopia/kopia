@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"time"
 
+	gcsclient "cloud.google.com/go/storage"
 	"github.com/efarrer/iothrottler"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
@@ -20,8 +21,6 @@ import (
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/internal/throttle"
 	"github.com/kopia/kopia/repo/blob"
-
-	gcsclient "cloud.google.com/go/storage"
 )
 
 const (

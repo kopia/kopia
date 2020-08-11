@@ -7,7 +7,6 @@ import (
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/testlogging"
-
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/gcs"
 )

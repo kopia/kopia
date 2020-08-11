@@ -9,14 +9,12 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/pkg/errors"
-
-	"github.com/kopia/kopia/fs"
-
 	"bazil.org/fuse"
 	fusefs "bazil.org/fuse/fs"
-
+	"github.com/pkg/errors"
 	"golang.org/x/net/context"
+
+	"github.com/kopia/kopia/fs"
 )
 
 type fuseNode struct {

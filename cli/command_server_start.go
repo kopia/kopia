@@ -16,11 +16,10 @@ import (
 	"strings"
 	"time"
 
-	htpasswd "github.com/tg123/go-htpasswd"
-
 	"contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/pkg/errors"
 	prom "github.com/prometheus/client_golang/prometheus"
+	htpasswd "github.com/tg123/go-htpasswd"
 
 	"github.com/kopia/kopia/internal/server"
 	"github.com/kopia/kopia/repo"
