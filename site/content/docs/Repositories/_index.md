@@ -14,7 +14,7 @@ A repository is a place where Kopia stores its snapshot data. Kopia currently su
 * [WebDAV](#webdav)
 * [Local storage](#local-storage)
 
-In addition to that Kopia can connect to a [Repository server](/docs/repository-server/) which acts as a proxy to the data storage.
+In addition, Kopia can connect to a [Kopia Repository Server](/docs/repository-server/) that acts as a proxy for the storage backend.
 
 ## Google Cloud Storage
 
