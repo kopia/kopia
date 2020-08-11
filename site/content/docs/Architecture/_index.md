@@ -18,7 +18,7 @@ BLOB storage is the place where your data is ultimately stored. Any type that im
 
 See the [Repositories](/docs/repositories/) page for a list of currently supported storage backends.
 
-Cloud storage solutions (such as GCS, S3 or Azure Blob Storage) are a great choice because they provide high availability and durability of data at a very reasonable price.
+Cloud storage solutions (such as GCS, S3 or Azure Blob Storage) are great choices because they provide high availability and data durability at reasonable prices.
 
 Kopia does not require low-latency storage, it uses caching and other optimizations to be able to work efficiently with high-latency backends.
 
