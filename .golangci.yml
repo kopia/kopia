@@ -37,6 +37,8 @@ linters:
     - gochecknoglobals
     - gochecknoinits
     - whitespace
+    - nlreturn
+    - testpackage
 
 run:
   skip-dirs:
