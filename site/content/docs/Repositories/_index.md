@@ -4,7 +4,7 @@ linkTitle: "Repositories"
 weight: 40
 ---
 
-A repository is a place where Kopia stores all its snapshot data. Kopia can currently connect to the following:
+A repository is a place where Kopia stores its snapshot data. Kopia currently supports the following storage backends:
 
 * [Google Cloud Storage](#google-cloud-storage)
 * [Azure Blob Storage](#azure)
