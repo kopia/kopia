@@ -4,16 +4,17 @@ linkTitle: "Repositories"
 weight: 40
 ---
 
-A repository is a place where Kopia stores all its snapshot data. Kopia can actually connect to the following repositories :
+A repository is a place where Kopia stores its snapshot data. Kopia currently supports the following storage backends:
 
 * [Google Cloud Storage](#google-cloud-storage)
-* [Azure](#azure)
+* [Azure Blob Storage](#azure)
 * [Amazon S3](#amazon-s3) (and compatible)
-* [B2](#b2)
-* [Sftp](#sftp)
-* [Webdav](#webdav)
+* [Backblaze B2](#b2)
+* [SFTP](#sftp)
+* [WebDAV](#webdav)
 * [Local storage](#local-storage)
-* [Http/s](#https-server)
+
+In addition, Kopia can connect to a [Kopia Repository Server](/docs/repository-server/) that acts as a proxy for the storage backend.
 
 ## Google Cloud Storage
 
@@ -135,70 +136,3 @@ $ find /tmp/my-repository -type f
 ```
 
 [Detailed information and settings](/docs/reference/command-line/common/repository-connect-filesystem/)
-
----
-
-## HTTP/S server
-
-Kopia can be installed on a remote server and started in server mode. This features is currently under active development and is only available if you download and build the latest version from Github.
-
-### Initial setup
-
-* Install Kopia on your server
-You can download and compile kopia directly from github or download and compile it on your computer then transfer to your server using sftp or similar)
-
-#### On server
-
-* Create a repository
-
-```shell
-$ kopia repository create filesystem --path /tmp/my-repository
-```
-
-* Create a password file
-Password files are created with [httpaswd](https://httpd.apache.org/docs/2.4/programs/htpasswd.html). Username must be formatted like this :
-
-```
-<client-username>@<client-host-name-lowercase-without-domain>
-```
-
-where `<client-host-name-lowercase-without-domain>` is the host name of the client computer in **lowercase and without domain component**. On Linux clients, the client host name can be found with the following command. Notice that this is *not* the server host name, but the client host name instead.
-
-```shell
-$ cat /etc/hostname
-```
-
-This command line will create a 'johndoe' user whose computer hostname is 'my-laptop'
-```shell
-$ htpasswd -c /tmp/htpasswd johndoe@my-laptop
-```
-
-* Start kopia in server mode
-You must indicate the location of the password file, ip of the server and port
-
-```shell
-$ kopia server --htpasswd-file /tmp/htpasswd --address 123.34.56.78:51515
-```
-
->**All data transferred is encrypted. However, you should consider enabling https with ```--tls-cert-file``` and ```--tls-key-file``` settings**
-
-#### On client computer
-
-* Connect local Kopia to your server
-You must provide connection url and port. Kopia will use your actual username and hostname
-
-```shell
-$ kopia repo connect server --url=http://11.222.111.222:51515
-```
-
-You can override username and password with this command :
-```shell
-$ kopia repo connect server --url=http://11.222.111.222:51515 --override-username=johndoe --override-hostname=my-laptop
-```
-
-If you want to connect to a server through https with self signed certificate, you can do it with the 'server-cert-fingerprint' parameter :
-```shell
-$ kopia repo connect server --url=http://11.222.111.222:51515 --override-username=johndoe --override-hostname=my-laptop --server-cert-fingerprint
-```
-
----

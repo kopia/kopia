@@ -16,14 +16,9 @@ The following diagram illustrates the key components of Kopia:
 
 BLOB storage is the place where your data is ultimately stored. Any type that implements simple Go [API](https://godoc.org/github.com/kopia/kopia/repo/blob#Storage) can be used as Kopia's blob storage.
 
-Kopia currently supports the following storage providers:
+See the [Repositories](/docs/repositories/) page for a list of currently supported storage backends.
 
-* Google Cloud Storage
-* Amazon S3 or compatible
-* Filesystem (local or remote)
-* WebDAV
-
-Cloud storage solutions are a great choice because they provide high availability and durability of data at a very reasonable price.
+Cloud storage solutions (such as GCS, S3 or Azure Blob Storage) are great choices because they provide high availability and data durability at reasonable prices.
 
 Kopia does not require low-latency storage, it uses caching and other optimizations to be able to work efficiently with high-latency backends.
 
@@ -81,4 +76,3 @@ To address that, Kopia supports another type of storage, used to persist small J
 Internally manifests are stored as CABS blocks.
 
 The API for LAMS can be found in https://godoc.org/github.com/kopia/kopia/repo/manifest
-

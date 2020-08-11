@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -23,7 +24,7 @@ func runConnectAPIServerCommand(ctx context.Context) error {
 
 	as := &repo.APIServerInfo{
 		BaseURL:                             *connectAPIServerURL,
-		TrustedServerCertificateFingerprint: *connectAPIServerCertFingerprint,
+		TrustedServerCertificateFingerprint: strings.ToLower(*connectAPIServerCertFingerprint),
 	}
 
 	configFile := repositoryConfigFileName()

@@ -144,6 +144,9 @@ func startServerWithOptionalTLSAndListener(ctx context.Context, httpServer *http
 			return errors.Wrap(err, "unable to generate server cert")
 		}
 
+		fingerprint := sha256.Sum256(cert.Raw)
+		fmt.Fprintf(os.Stderr, "SERVER CERT SHA256: %v\n", hex.EncodeToString(fingerprint[:]))
+
 		log(ctx).Infof("writing TLS certificate to %v", *serverStartTLSCertFile)
 
 		if err := writeCertificateToFile(*serverStartTLSCertFile, cert); err != nil {
