@@ -122,7 +122,7 @@ func (d *davStorageImpl) ReadDir(ctx context.Context, dir string) ([]os.FileInfo
 }
 
 func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath string, data blob.Bytes) error {
-	tmpPath := fmt.Sprintf("%v-%v", filePath, rand.Int63())
+	tmpPath := fmt.Sprintf("%v-%v", filePath, rand.Int63()) //nolint:gosec
 
 	var buf bytes.Buffer
 

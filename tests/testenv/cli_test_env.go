@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	repoPassword        = "qWQPJ2hiiLgWRRCr" // nolint:gosec
+	repoPassword        = "qWQPJ2hiiLgWRRCr"
 	maxOutputLinesToLog = 40
 )
 
@@ -106,11 +106,11 @@ func (e *CLITest) Cleanup(t *testing.T) {
 	}
 
 	if e.RepoDir != "" {
-		os.RemoveAll(e.RepoDir) //nolint:errcheck
+		os.RemoveAll(e.RepoDir)
 	}
 
 	if e.ConfigDir != "" {
-		os.RemoveAll(e.ConfigDir) //nolint:errcheck
+		os.RemoveAll(e.ConfigDir)
 	}
 }
 
@@ -133,7 +133,6 @@ func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) b
 	t.Logf("running 'kopia %v'", strings.Join(args, " "))
 	cmdArgs := append(append([]string(nil), e.fixedArgs...), args...)
 
-	// nolint:gosec
 	c := exec.Command(e.Exe, cmdArgs...)
 	c.Env = append(os.Environ(), e.Environment...)
 
@@ -204,7 +203,6 @@ func (e *CLITest) Run(t *testing.T, args ...string) (stdout, stderr []string, er
 	t.Logf("running '%v %v'", e.Exe, strings.Join(args, " "))
 	cmdArgs := append(append([]string(nil), e.fixedArgs...), args...)
 
-	// nolint:gosec
 	c := exec.Command(e.Exe, cmdArgs...)
 	c.Env = append(os.Environ(), e.Environment...)
 
@@ -359,7 +357,7 @@ func createRandomFile(filename string, options DirectoryTreeOptions, counters *D
 	if err != nil {
 		return errors.Wrap(err, "unable to create random file")
 	}
-	defer f.Close() //nolint:errcheck
+	defer f.Close()
 
 	maxFileSize := int64(intOrDefault(options.MaxFileSize, 100000))
 

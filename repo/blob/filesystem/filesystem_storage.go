@@ -77,7 +77,7 @@ func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, off
 			return nil, err
 		}
 
-		defer f.Close() //nolint:errcheck
+		defer f.Close() //nolint:errcheck,gosec
 
 		if length < 0 {
 			return ioutil.ReadAll(f)
@@ -192,13 +192,13 @@ func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data 
 func (fs *fsImpl) createTempFileAndDir(tempFile string) (*os.File, error) {
 	flags := os.O_CREATE | os.O_WRONLY | os.O_EXCL
 
-	f, err := os.OpenFile(tempFile, flags, fs.fileMode())
+	f, err := os.OpenFile(tempFile, flags, fs.fileMode()) //nolint:gosec
 	if os.IsNotExist(err) {
 		if err = os.MkdirAll(filepath.Dir(tempFile), fs.dirMode()); err != nil {
 			return nil, errors.Wrap(err, "cannot create directory")
 		}
 
-		return os.OpenFile(tempFile, flags, fs.fileMode())
+		return os.OpenFile(tempFile, flags, fs.fileMode()) //nolint:gosec
 	}
 
 	return f, err

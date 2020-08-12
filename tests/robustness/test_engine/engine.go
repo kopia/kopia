@@ -144,7 +144,7 @@ func (e *Engine) InitS3(ctx context.Context, testRepoPath, metaRepoPath string) 
 
 	snapIDs := e.Checker.GetLiveSnapIDs()
 	if len(snapIDs) > 0 {
-		randSnapID := snapIDs[rand.Intn(len(snapIDs))]
+		randSnapID := snapIDs[rand.Intn(len(snapIDs))] //nolint:gosec
 
 		err = e.Checker.RestoreSnapshotToPath(ctx, randSnapID, e.FileWriter.LocalDataDir, os.Stdout)
 		if err != nil {
@@ -182,7 +182,7 @@ func (e *Engine) InitFilesystem(ctx context.Context, testRepoPath, metaRepoPath 
 
 	snapIDs := e.Checker.GetSnapIDs()
 	if len(snapIDs) > 0 {
-		randSnapID := snapIDs[rand.Intn(len(snapIDs))]
+		randSnapID := snapIDs[rand.Intn(len(snapIDs))] //nolint:gosec
 
 		err = e.Checker.RestoreSnapshotToPath(ctx, randSnapID, e.FileWriter.LocalDataDir, os.Stdout)
 		if err != nil {

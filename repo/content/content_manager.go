@@ -509,6 +509,7 @@ func (bm *Manager) getOrCreatePendingPackInfoLocked(prefix blob.ID) (*pendingPac
 
 		b.Append(bm.repositoryFormatBytes)
 
+		// nolint:gosec
 		if err := writeRandomBytesToBuffer(b, rand.Intn(bm.maxPreambleLength-bm.minPreambleLength+1)+bm.minPreambleLength); err != nil {
 			return nil, errors.Wrap(err, "unable to prepare content preamble")
 		}

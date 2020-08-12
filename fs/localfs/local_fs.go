@@ -133,7 +133,7 @@ func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error)
 	if direrr != nil {
 		return nil, direrr
 	}
-	defer f.Close() //nolint:errcheck
+	defer f.Close() //nolint:errcheck,gosec
 
 	// start feeding directory entry names to namesCh
 	namesCh := make(chan string, dirListingPrefetch)

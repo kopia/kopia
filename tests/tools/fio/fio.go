@@ -160,7 +160,7 @@ func (fr *Runner) verifySetupWithTestWrites() error {
 		fileSizeB    = 1 << 20 // 1 MiB
 	)
 
-	nrFiles := rand.Intn(maxTestFiles) + 1
+	nrFiles := rand.Intn(maxTestFiles) + 1 //nolint:gosec
 
 	opt := Options{}.WithNumFiles(nrFiles).WithFileSize(fileSizeB)
 

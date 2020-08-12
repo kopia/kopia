@@ -47,7 +47,7 @@ run:
 issues:
   exclude-use-default: false
   exclude-rules:
-    - path: _test\.go|testing
+    - path: _test\.go|testing|test_env
       linters:
       - gomnd
       - gocognit

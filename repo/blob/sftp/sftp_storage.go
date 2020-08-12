@@ -231,7 +231,7 @@ func getHostKey(opt *Options) (ssh.PublicKey, error) {
 		if err != nil {
 			return nil, err
 		}
-		defer file.Close() //nolint:errcheck
+		defer file.Close() //nolint:errcheck,gosec
 
 		reader = file
 	}

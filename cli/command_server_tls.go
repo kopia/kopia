@@ -88,7 +88,7 @@ func writePrivateKeyToFile(fname string, priv *rsa.PrivateKey) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close() //nolint:errcheck
+	defer f.Close() //nolint:errcheck,gosec
 
 	privBytes, err := x509.MarshalPKCS8PrivateKey(priv)
 	if err != nil {
@@ -107,7 +107,7 @@ func writeCertificateToFile(fname string, cert *x509.Certificate) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close() //nolint:errcheck
+	defer f.Close() //nolint:errcheck,gosec
 
 	if err := pem.Encode(f, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}); err != nil {
 		return errors.Wrap(err, "Failed to write data")
@@ -185,6 +185,7 @@ func startServerWithOptionalTLSAndListener(ctx context.Context, httpServer *http
 		}
 
 		httpServer.TLSConfig = &tls.Config{
+			MinVersion: tls.VersionTLS13,
 			Certificates: []tls.Certificate{
 				{
 					Certificate: [][]byte{cert.Raw},

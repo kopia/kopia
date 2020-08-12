@@ -36,7 +36,7 @@ func runBenchmarkSplitterAction(ctx *kingpin.ParseContext) error {
 	// generate data blocks
 	var dataBlocks [][]byte
 
-	rnd := rand.New(rand.NewSource(*benchmarkSplitterRandSeed))
+	rnd := rand.New(rand.NewSource(*benchmarkSplitterRandSeed)) //nolint:gosec
 
 	for i := 0; i < *benchmarkSplitterBlockCount; i++ {
 		b := make([]byte, *benchmarkSplitterBlockSize)

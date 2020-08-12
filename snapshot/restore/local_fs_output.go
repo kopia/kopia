@@ -164,7 +164,7 @@ func isEmptyDirectory(name string) (bool, error) {
 		return false, err
 	}
 
-	defer f.Close() //nolint:errcheck
+	defer f.Close() //nolint:errcheck,gosec
 
 	if _, err = f.Readdirnames(1); err == io.EOF {
 		return true, nil

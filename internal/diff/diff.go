@@ -279,11 +279,12 @@ func downloadFile(ctx context.Context, f fs.File, fname string) error {
 	if err != nil {
 		return err
 	}
-	defer dst.Close() //nolint:errcheck
 
-	_, err = iocopy.Copy(dst, src)
+	if _, err := iocopy.Copy(dst, src); err != nil {
+		return err
+	}
 
-	return err
+	return dst.Close()
 }
 
 func (c *Comparer) output(msg string, args ...interface{}) {

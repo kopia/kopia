@@ -39,7 +39,7 @@ func connectToStorageFromConfigFile(ctx context.Context) (blob.Storage, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open config")
 	}
-	defer f.Close() //nolint:errcheck
+	defer f.Close() //nolint:errcheck,gosec
 
 	if err := cfg.Load(f); err != nil {
 		return nil, errors.Wrap(err, "unable to load config")
