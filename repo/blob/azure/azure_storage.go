@@ -105,6 +105,7 @@ func isRetriableError(err error) bool {
 	}
 
 	// https://pkg.go.dev/gocloud.dev/gcerrors?tab=doc#ErrorCode
+	// nolint:exhaustive
 	switch gcerrors.Code(err) {
 	case gcerrors.Internal:
 		return true
@@ -116,6 +117,7 @@ func isRetriableError(err error) bool {
 }
 
 func translateError(err error) error {
+	// nolint:exhaustive
 	switch gcerrors.Code(err) {
 	case gcerrors.OK:
 		return nil
