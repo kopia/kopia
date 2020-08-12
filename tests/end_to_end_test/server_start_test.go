@@ -331,7 +331,7 @@ func verifySourceCount(t *testing.T, cli *apiclient.KopiaAPIClient, match *snaps
 }
 
 func verifyUIServedWithCorrectTitle(t *testing.T, cli *apiclient.KopiaAPIClient, sp serverParameters) {
-	req, err := http.NewRequest("GET", sp.baseURL, nil)
+	req, err := http.NewRequestWithContext(context.Background(), "GET", sp.baseURL, nil)
 	if err != nil {
 		t.Fatalf("unable to create HTTP request: %v", err)
 	}

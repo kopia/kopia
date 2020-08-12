@@ -20,7 +20,10 @@ import (
 	"github.com/kopia/kopia/repo"
 )
 
-const checkForUpdatesEnvar = "KOPIA_CHECK_FOR_UPDATES"
+const (
+	checkForUpdatesEnvar = "KOPIA_CHECK_FOR_UPDATES"
+	githubTimeout        = 10 * time.Second
+)
 
 // hidden flags to control auto-update behavior.
 var (
@@ -111,8 +114,16 @@ func maybeInitializeUpdateCheck(ctx context.Context) {
 }
 
 // getLatestReleaseNameFromGitHub gets the name of the release marked 'latest' on GitHub.
-func getLatestReleaseNameFromGitHub() (string, error) {
-	resp, err := http.DefaultClient.Get(latestReleaseGitHubURL)
+func getLatestReleaseNameFromGitHub(ctx context.Context) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, githubTimeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "GET", latestReleaseGitHubURL, nil)
+	if err != nil {
+		return "", errors.Wrap(err, "unable to get latest release from github")
+	}
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", errors.Wrap(err, "unable to get latest release from github")
 	}
@@ -134,10 +145,16 @@ func getLatestReleaseNameFromGitHub() (string, error) {
 }
 
 // verifyGitHubReleaseIsComplete downloads checksum file to verify that the release is complete.
-func verifyGitHubReleaseIsComplete(releaseName string) error {
-	u := fmt.Sprintf(checksumsURL, releaseName)
+func verifyGitHubReleaseIsComplete(ctx context.Context, releaseName string) error {
+	ctx, cancel := context.WithTimeout(ctx, githubTimeout)
+	defer cancel()
 
-	resp, err := http.DefaultClient.Get(u)
+	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf(checksumsURL, releaseName), nil)
+	if err != nil {
+		return errors.Wrap(err, "unable to download releases checksum")
+	}
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return errors.Wrap(err, "unable to download releases checksum")
 	}
@@ -202,7 +219,7 @@ func maybeCheckGithub(ctx context.Context, us *updateState) error {
 		return errors.Wrap(err, "unable to write update state")
 	}
 
-	newAvailableVersion, err := getLatestReleaseNameFromGitHub()
+	newAvailableVersion, err := getLatestReleaseNameFromGitHub(ctx)
 	if err != nil {
 		return errors.Wrap(err, "update to get latest release from GitHub")
 	}
@@ -211,7 +228,7 @@ func maybeCheckGithub(ctx context.Context, us *updateState) error {
 
 	// we got updated version from GitHub, write it in a state file again
 	if newAvailableVersion != us.AvailableVersion {
-		if err = verifyGitHubReleaseIsComplete(newAvailableVersion); err != nil {
+		if err = verifyGitHubReleaseIsComplete(ctx, newAvailableVersion); err != nil {
 			return errors.Wrap(err, "unable to validate GitHub release")
 		}
 
