@@ -75,13 +75,13 @@ func TestAzureStorage(t *testing.T) {
 	rand.Read(data)
 
 	ctx := context.Background()
+
 	st, err := azure.New(ctx, &azure.Options{
 		Container:      container,
 		StorageAccount: storageAccount,
 		StorageKey:     storageKey,
 		Prefix:         fmt.Sprintf("test-%v-%x-", time.Now().Unix(), data),
 	})
-
 	if err != nil {
 		t.Fatalf("unable to connect to Azure: %v", err)
 	}

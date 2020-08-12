@@ -12,9 +12,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/tests/robustness/snap"
 	"github.com/kopia/kopia/tests/robustness/snapmeta"
-	"github.com/pkg/errors"
 )
 
 // Checker is an object that can take snapshots and restore them, performing

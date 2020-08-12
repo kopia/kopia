@@ -7,8 +7,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/kopia/kopia/repo/blob"
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/repo/blob"
 )
 
 type testingT interface {
