@@ -403,6 +403,8 @@ func (u *Uploader) populateChildEntries(parent *snapshot.DirManifest, children <
 		}
 
 		de := it.de
+
+		// nolint:exhaustive
 		switch de.Type {
 		case snapshot.EntryTypeFile:
 			u.stats.TotalFileCount++

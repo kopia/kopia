@@ -85,6 +85,7 @@ func (dir *fuseDirectoryNode) ReadDirAll(ctx context.Context) ([]fuse.Dirent, er
 			Name: e.Name(),
 		}
 
+		// nolint:exhaustive
 		switch e.Mode() & os.ModeType {
 		case os.ModeDir:
 			dirent.Type = fuse.DT_Dir

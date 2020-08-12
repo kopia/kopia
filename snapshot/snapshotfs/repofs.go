@@ -30,8 +30,12 @@ func (e *repositoryEntry) Mode() os.FileMode {
 		return os.ModeDir | os.FileMode(e.metadata.Permissions)
 	case snapshot.EntryTypeSymlink:
 		return os.ModeSymlink | os.FileMode(e.metadata.Permissions)
-	default:
+	case snapshot.EntryTypeFile:
 		return os.FileMode(e.metadata.Permissions)
+	case snapshot.EntryTypeUnknown:
+		return 0
+	default:
+		return 0
 	}
 }
 
@@ -158,6 +162,9 @@ func EntryFromDirEntry(r repo.Repository, md *snapshot.DirEntry) (fs.Entry, erro
 
 	case snapshot.EntryTypeFile:
 		return fs.File(&repositoryFile{re}), nil
+
+	case snapshot.EntryTypeUnknown:
+		return nil, errors.Errorf("not supported entry metadata type: %q", md.Type)
 
 	default:
 		return nil, errors.Errorf("not supported entry metadata type: %q", md.Type)

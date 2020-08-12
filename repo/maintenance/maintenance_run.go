@@ -104,6 +104,7 @@ func updateSchedule(ctx context.Context, runParams RunParameters) error {
 		return errors.Wrap(err, "error getting schedule")
 	}
 
+	// nolint:exhaustive
 	switch runParams.Mode {
 	case ModeFull:
 		// on full cycle, also update the quick cycle
@@ -206,6 +207,7 @@ func RunExclusive(ctx context.Context, rep MaintainableRepository, mode Mode, fo
 
 // Run performs maintenance activities for a repository.
 func Run(ctx context.Context, runParams RunParameters) error {
+	// nolint:exhaustive
 	switch runParams.Mode {
 	case ModeQuick:
 		return runQuickMaintenance(ctx, runParams)

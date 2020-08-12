@@ -259,6 +259,7 @@ func NewEntry(path string) (fs.Entry, error) {
 		return nil, err
 	}
 
+	// nolint:exhaustive
 	switch fi.Mode() & os.ModeType {
 	case os.ModeDir:
 		return &filesystemDirectory{newEntry(fi, filepath.Dir(path))}, nil
@@ -289,6 +290,7 @@ func Directory(path string) (fs.Directory, error) {
 }
 
 func entryFromChildFileInfo(fi os.FileInfo, parentDir string) (fs.Entry, error) {
+	// nolint:exhaustive
 	switch fi.Mode() & os.ModeType {
 	case os.ModeDir:
 		return &filesystemDirectory{newEntry(fi, parentDir)}, nil
