@@ -56,6 +56,7 @@ func (s *sftpImpl) GetBlobFromPath(ctx context.Context, dirPath, fullPath string
 	// pkg/sftp doesn't have a `ioutil.Readall`, so we WriteTo to a buffer
 	// and either return it all or return the offset/length bytes
 	buf := new(bytes.Buffer)
+
 	n, err := r.WriteTo(buf)
 	if err != nil {
 		return nil, err

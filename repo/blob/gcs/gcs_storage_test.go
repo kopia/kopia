@@ -23,6 +23,7 @@ func TestGCSStorage(t *testing.T) {
 	}
 
 	ctx := testlogging.Context(t)
+
 	st, err := gcs.New(ctx, &gcs.Options{
 		BucketName:                   bucket,
 		ServiceAccountCredentialJSON: credData,

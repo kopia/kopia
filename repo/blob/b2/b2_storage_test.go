@@ -77,6 +77,7 @@ func TestB2StorageInvalidBlob(t *testing.T) {
 	key := getEnvOrSkip(t, testKeyEnv)
 
 	ctx := context.Background()
+
 	st, err := b2.New(ctx, &b2.Options{
 		BucketName: bucket,
 		KeyID:      keyID,

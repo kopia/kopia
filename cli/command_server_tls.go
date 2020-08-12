@@ -160,6 +160,7 @@ func maybeGenerateTLS(ctx context.Context) error {
 	if err := writePrivateKeyToFile(*serverStartTLSKeyFile, key); err != nil {
 		return errors.Wrap(err, "unable to write private key")
 	}
+
 	return nil
 }
 
