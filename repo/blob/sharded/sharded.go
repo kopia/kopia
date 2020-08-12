@@ -59,6 +59,7 @@ func (s Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(bl
 		}
 
 		for _, e := range entries {
+			// nolint:nestif
 			if e.IsDir() {
 				var match bool
 

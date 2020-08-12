@@ -189,6 +189,8 @@ func (u *Uploader) copyWithProgress(dst io.Writer, src io.Reader, completed, len
 		}
 
 		readBytes, readErr := src.Read(uploadBuf)
+
+		// nolint:nestif
 		if readBytes > 0 {
 			wroteBytes, writeErr := dst.Write(uploadBuf[0:readBytes])
 			if wroteBytes > 0 {

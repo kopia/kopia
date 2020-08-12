@@ -128,36 +128,44 @@ func startServerWithOptionalTLS(ctx context.Context, httpServer *http.Server) er
 	return startServerWithOptionalTLSAndListener(ctx, httpServer, l)
 }
 
+func maybeGenerateTLS(ctx context.Context) error {
+	if !*serverStartTLSGenerateCert || *serverStartTLSCertFile == "" || *serverStartTLSKeyFile == "" {
+		return nil
+	}
+
+	if _, err := os.Stat(*serverStartTLSCertFile); err == nil {
+		return errors.Errorf("TLS cert file already exists: %q", *serverStartTLSCertFile)
+	}
+
+	if _, err := os.Stat(*serverStartTLSKeyFile); err == nil {
+		return errors.Errorf("TLS key file already exists: %q", *serverStartTLSKeyFile)
+	}
+
+	cert, key, err := generateServerCertificate(ctx)
+	if err != nil {
+		return errors.Wrap(err, "unable to generate server cert")
+	}
+
+	fingerprint := sha256.Sum256(cert.Raw)
+	fmt.Fprintf(os.Stderr, "SERVER CERT SHA256: %v\n", hex.EncodeToString(fingerprint[:]))
+
+	log(ctx).Infof("writing TLS certificate to %v", *serverStartTLSCertFile)
+
+	if err := writeCertificateToFile(*serverStartTLSCertFile, cert); err != nil {
+		return errors.Wrap(err, "unable to write private key")
+	}
+
+	log(ctx).Infof("writing TLS private key to %v", *serverStartTLSKeyFile)
+
+	if err := writePrivateKeyToFile(*serverStartTLSKeyFile, key); err != nil {
+		return errors.Wrap(err, "unable to write private key")
+	}
+	return nil
+}
+
 func startServerWithOptionalTLSAndListener(ctx context.Context, httpServer *http.Server, listener net.Listener) error {
-	// generate and save to PEM files
-	if *serverStartTLSGenerateCert && *serverStartTLSCertFile != "" && *serverStartTLSKeyFile != "" {
-		if _, err := os.Stat(*serverStartTLSCertFile); err == nil {
-			return errors.Errorf("TLS cert file already exists: %q", *serverStartTLSCertFile)
-		}
-
-		if _, err := os.Stat(*serverStartTLSKeyFile); err == nil {
-			return errors.Errorf("TLS key file already exists: %q", *serverStartTLSKeyFile)
-		}
-
-		cert, key, err := generateServerCertificate(ctx)
-		if err != nil {
-			return errors.Wrap(err, "unable to generate server cert")
-		}
-
-		fingerprint := sha256.Sum256(cert.Raw)
-		fmt.Fprintf(os.Stderr, "SERVER CERT SHA256: %v\n", hex.EncodeToString(fingerprint[:]))
-
-		log(ctx).Infof("writing TLS certificate to %v", *serverStartTLSCertFile)
-
-		if err := writeCertificateToFile(*serverStartTLSCertFile, cert); err != nil {
-			return errors.Wrap(err, "unable to write private key")
-		}
-
-		log(ctx).Infof("writing TLS private key to %v", *serverStartTLSKeyFile)
-
-		if err := writePrivateKeyToFile(*serverStartTLSKeyFile, key); err != nil {
-			return errors.Wrap(err, "unable to write private key")
-		}
+	if err := maybeGenerateTLS(ctx); err != nil {
+		return err
 	}
 
 	switch {

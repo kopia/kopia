@@ -54,6 +54,7 @@ issues:
       - funlen
       - errcheck
       - gosec
+      - nestif
     - text: "Magic number: 1e"
       linters:
       - gomnd

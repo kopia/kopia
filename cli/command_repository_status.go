@@ -42,28 +42,30 @@ func runStatusCommand(ctx context.Context, rep *repo.DirectRepository) error {
 	fmt.Printf("Format version:      %v\n", rep.Content.Format.Version)
 	fmt.Printf("Max pack length:     %v\n", units.BytesStringBase2(int64(rep.Content.Format.MaxPackSize)))
 
-	if *statusReconnectToken {
-		pass := ""
+	if !*statusReconnectToken {
+		return nil
+	}
 
-		if *statusReconnectTokenIncludePassword {
-			var err error
+	pass := ""
 
-			pass, err = getPasswordFromFlags(ctx, false, true)
-			if err != nil {
-				return errors.Wrap(err, "getting password")
-			}
-		}
+	if *statusReconnectTokenIncludePassword {
+		var err error
 
-		tok, err := rep.Token(pass)
+		pass, err = getPasswordFromFlags(ctx, false, true)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "getting password")
 		}
+	}
 
-		fmt.Printf("\nTo reconnect to the repository use:\n\n$ kopia repository connect from-config --token %v\n\n", tok)
+	tok, err := rep.Token(pass)
+	if err != nil {
+		return err
+	}
 
-		if pass != "" {
-			fmt.Printf("NOTICE: The token printed above can be trivially decoded to reveal the repository password. Do not store it in an unsecured place.\n")
-		}
+	fmt.Printf("\nTo reconnect to the repository use:\n\n$ kopia repository connect from-config --token %v\n\n", tok)
+
+	if pass != "" {
+		fmt.Printf("NOTICE: The token printed above can be trivially decoded to reveal the repository password. Do not store it in an unsecured place.\n")
 	}
 
 	return nil

@@ -164,34 +164,8 @@ func maybeCheckForUpdates(ctx context.Context) (string, error) {
 		return "", err
 	}
 
-	if time.Now().After(us.NextCheckTime) {
-		log(ctx).Debugf("time for next update check has been reached")
-		// before we check for update, write update state file again, so if this fails
-		// we won't bother GitHub for a while
-		us.NextCheckTime = time.Now().Add(*updateCheckInterval)
-		if err = writeUpdateState(us); err != nil {
-			return "", errors.Wrap(err, "unable to write update state")
-		}
-
-		newAvailableVersion, err := getLatestReleaseNameFromGitHub()
-		if err != nil {
-			return "", errors.Wrap(err, "update to get latest release from GitHub")
-		}
-
-		log(ctx).Debugf("latest version on github: %v previous %v", newAvailableVersion, us.AvailableVersion)
-
-		// we got updated version from GitHub, write it in a state file again
-		if newAvailableVersion != us.AvailableVersion {
-			if err = verifyGitHubReleaseIsComplete(newAvailableVersion); err != nil {
-				return "", errors.Wrap(err, "unable to validate GitHub release")
-			}
-
-			us.AvailableVersion = newAvailableVersion
-
-			if err := writeUpdateState(us); err != nil {
-				return "", errors.Wrap(err, "unable to write update state")
-			}
-		}
+	if err := maybeCheckGithub(ctx, us); err != nil {
+		return "", errors.Wrap(err, "error checking github")
 	}
 
 	log(ctx).Debugf("build version %v, available %v", ensureVPrefix(repo.BuildVersion), ensureVPrefix(us.AvailableVersion))
@@ -212,6 +186,43 @@ func maybeCheckForUpdates(ctx context.Context) (string, error) {
 
 	// no time to notify yet
 	return "", nil
+}
+
+func maybeCheckGithub(ctx context.Context, us *updateState) error {
+	if !time.Now().After(us.NextCheckTime) {
+		return nil
+	}
+
+	log(ctx).Debugf("time for next update check has been reached")
+
+	// before we check for update, write update state file again, so if this fails
+	// we won't bother GitHub for a while
+	us.NextCheckTime = time.Now().Add(*updateCheckInterval)
+	if err := writeUpdateState(us); err != nil {
+		return errors.Wrap(err, "unable to write update state")
+	}
+
+	newAvailableVersion, err := getLatestReleaseNameFromGitHub()
+	if err != nil {
+		return errors.Wrap(err, "update to get latest release from GitHub")
+	}
+
+	log(ctx).Debugf("latest version on github: %v previous %v", newAvailableVersion, us.AvailableVersion)
+
+	// we got updated version from GitHub, write it in a state file again
+	if newAvailableVersion != us.AvailableVersion {
+		if err = verifyGitHubReleaseIsComplete(newAvailableVersion); err != nil {
+			return errors.Wrap(err, "unable to validate GitHub release")
+		}
+
+		us.AvailableVersion = newAvailableVersion
+
+		if err := writeUpdateState(us); err != nil {
+			return errors.Wrap(err, "unable to write update state")
+		}
+	}
+
+	return nil
 }
 
 // maybePrintUpdateNotification prints notification about available version.
