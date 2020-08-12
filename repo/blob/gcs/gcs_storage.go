@@ -167,7 +167,7 @@ func (gcs *gcsStorage) DeleteBlob(ctx context.Context, b blob.ID) error {
 	_, err := exponentialBackoff(ctx, fmt.Sprintf("DeleteBlob(%q)", b), attempt)
 	err = translateError(err)
 
-	if err == blob.ErrBlobNotFound {
+	if errors.Is(err, blob.ErrBlobNotFound) {
 		return nil
 	}
 
@@ -196,7 +196,7 @@ func (gcs *gcsStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback f
 		oa, err = lst.Next()
 	}
 
-	if err != iterator.Done {
+	if !errors.Is(err, iterator.Done) {
 		return err
 	}
 

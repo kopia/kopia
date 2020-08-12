@@ -5,12 +5,12 @@ package reporter
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
 	"os"
 
 	"github.com/google/fswalker"
 	fspb "github.com/google/fswalker/proto/fswalker"
+	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/tests/tools/fswalker/protofile"
 )
@@ -56,13 +56,13 @@ func ReportFiles(ctx context.Context, config *fspb.ReportConfig, beforeFile, aft
 
 	after, err = reporter.ReadWalk(ctx, afterFile)
 	if err != nil {
-		return nil, fmt.Errorf("file cannot be read: %s", afterFile)
+		return nil, errors.Errorf("file cannot be read: %s", afterFile)
 	}
 
 	if beforeFile != "" {
 		before, err = reporter.ReadWalk(ctx, beforeFile)
 		if err != nil {
-			return nil, fmt.Errorf("file cannot be read: %s", beforeFile)
+			return nil, errors.Errorf("file cannot be read: %s", beforeFile)
 		}
 	}
 

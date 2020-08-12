@@ -84,7 +84,7 @@ func iterateChan(r IDRange, ndx packIndex, done chan bool) <-chan Info {
 		_ = ndx.Iterate(r, func(i Info) error {
 			select {
 			case <-done:
-				return errors.New("end of iteration")
+				return errors.New("end of iteration") // nolint:goerr113
 			case ch <- i:
 				return nil
 			}

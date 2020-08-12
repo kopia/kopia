@@ -133,7 +133,7 @@ func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath st
 	if err := d.translateError(retry.WithExponentialBackoffNoValue(ctx, "Write", func() error {
 		return d.cli.Write(tmpPath, b, defaultFilePerm)
 	}, isRetriable)); err != nil {
-		if err != blob.ErrBlobNotFound {
+		if !errors.Is(err, blob.ErrBlobNotFound) {
 			return err
 		}
 

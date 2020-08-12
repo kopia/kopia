@@ -164,7 +164,7 @@ func (az *azStorage) DeleteBlob(ctx context.Context, b blob.ID) error {
 	err = translateError(err)
 
 	// don't return error if blob is already deleted
-	if err == blob.ErrBlobNotFound {
+	if errors.Is(err, blob.ErrBlobNotFound) {
 		return nil
 	}
 

@@ -3,7 +3,6 @@ package logfile
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"math"
@@ -15,6 +14,7 @@ import (
 	"time"
 
 	logging "github.com/op/go-logging"
+	"github.com/pkg/errors"
 	"gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/kopia/kopia/cli"

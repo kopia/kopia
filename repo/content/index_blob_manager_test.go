@@ -640,7 +640,7 @@ func getAllFakeContentsInternal(ctx context.Context, m indexBlobManager) (map[st
 
 	for _, bi := range blobs {
 		bb, err := m.getIndexBlob(ctx, bi.BlobID)
-		if err == blob.ErrBlobNotFound {
+		if errors.Is(err, blob.ErrBlobNotFound) {
 			return nil, nil, errGetAllFakeContentsRetry
 		}
 

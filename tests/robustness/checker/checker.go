@@ -14,6 +14,7 @@ import (
 
 	"github.com/kopia/kopia/tests/robustness/snap"
 	"github.com/kopia/kopia/tests/robustness/snapmeta"
+	"github.com/pkg/errors"
 )
 
 // Checker is an object that can take snapshots and restore them, performing
@@ -135,7 +136,7 @@ func (chk *Checker) VerifySnapshotMetadata() error {
 	}
 
 	if errCount > 0 {
-		return fmt.Errorf("hit %v errors verifying snapshot metadata", errCount)
+		return errors.Errorf("hit %v errors verifying snapshot metadata", errCount)
 	}
 
 	return nil
@@ -261,7 +262,7 @@ func (chk *Checker) loadSnapshotMetadata(snapID string) (*SnapshotMetadata, erro
 	}
 
 	if b == nil {
-		return nil, fmt.Errorf("could not find snapID %v", snapID)
+		return nil, errors.Errorf("could not find snapID %v", snapID)
 	}
 
 	ssMeta := &SnapshotMetadata{}

@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"io/ioutil"
 	"net/http"
 
@@ -21,7 +22,7 @@ func (s *Server) handleContentGet(ctx context.Context, r *http.Request) (interfa
 	cid := content.ID(mux.Vars(r)["contentID"])
 
 	data, err := dr.Content.GetContent(ctx, cid)
-	if err == content.ErrContentNotFound {
+	if errors.Is(err, content.ErrContentNotFound) {
 		return nil, notFoundError("content not found")
 	}
 

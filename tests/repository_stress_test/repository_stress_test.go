@@ -247,7 +247,7 @@ func readKnownBlock(ctx context.Context, t *testing.T, r *repo.DirectRepository)
 	knownBlocksMutex.Unlock()
 
 	_, err := r.Content.GetContent(ctx, contentID)
-	if err == nil || err == content.ErrContentNotFound {
+	if err == nil || errors.Is(err, content.ErrContentNotFound) {
 		return nil
 	}
 
@@ -270,7 +270,7 @@ func listAndReadAllContents(ctx context.Context, t *testing.T, r *repo.DirectRep
 			cid := ci.ID
 			_, err := r.Content.GetContent(ctx, cid)
 			if err != nil {
-				if err == content.ErrContentNotFound && strings.HasPrefix(string(cid), "m") {
+				if errors.Is(err, content.ErrContentNotFound) && strings.HasPrefix(string(cid), "m") {
 					// this is ok, sometimes manifest manager will perform compaction and 'm' contents will be marked as deleted
 					return nil
 				}

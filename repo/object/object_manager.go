@@ -241,7 +241,7 @@ func (om *Manager) newRawReader(ctx context.Context, objectID ID, assertLength i
 	}
 
 	payload, err := om.contentMgr.GetContent(ctx, contentID)
-	if err == content.ErrContentNotFound {
+	if errors.Is(err, content.ErrContentNotFound) {
 		return nil, ErrObjectNotFound
 	}
 

@@ -1,9 +1,10 @@
 package kopiarunner
 
 import (
-	"errors"
 	"regexp"
 	"strings"
+
+	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/tests/robustness/snap"
 )

@@ -67,7 +67,7 @@ func isRetriable(err error) bool {
 		return true
 	}
 
-	return err == errRetriableInvalidLength
+	return errors.Is(err, errRetriableInvalidLength)
 }
 
 func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, offset, length int64) ([]byte, error) {

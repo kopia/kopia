@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/pkg/errors"
 	"github.com/zalando/go-keyring"
 )
 
@@ -70,7 +71,7 @@ func deletePassword(ctx context.Context, configFile string) {
 		err := keyring.Delete(getKeyringItemID(configFile), keyringUsername(ctx))
 		if err == nil {
 			log(ctx).Infof("deleted repository password for %v.", configFile)
-		} else if err != keyring.ErrNotFound {
+		} else if !errors.Is(err, keyring.ErrNotFound) {
 			log(ctx).Warningf("unable to delete keyring item %v: %v", getKeyringItemID(configFile), err)
 		}
 	}

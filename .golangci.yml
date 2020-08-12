@@ -55,6 +55,7 @@ issues:
       - errcheck
       - gosec
       - nestif
+      - goerr113
     - text: "Magic number: 1e"
       linters:
       - gomnd

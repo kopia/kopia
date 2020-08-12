@@ -4,7 +4,6 @@ package editor
 import (
 	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -12,6 +11,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo/logging"
 )

@@ -51,7 +51,7 @@ func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions,
 		return ErrAlreadyInitialized
 	}
 
-	if err != blob.ErrBlobNotFound {
+	if !errors.Is(err, blob.ErrBlobNotFound) {
 		return err
 	}
 

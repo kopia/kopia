@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/pkg/errors"
 )
 
 type testingT interface {
@@ -85,7 +86,7 @@ func AssertGetBlobNotFound(ctx context.Context, t testingT, s blob.Storage, blob
 	t.Helper()
 
 	b, err := s.GetBlob(ctx, blobID, 0, -1)
-	if err != blob.ErrBlobNotFound || b != nil {
+	if !errors.Is(err, blob.ErrBlobNotFound) || b != nil {
 		t.Errorf("GetBlob(%v) returned %v, %v but expected ErrNotFound", blobID, b, err)
 	}
 }

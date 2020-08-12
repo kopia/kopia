@@ -32,7 +32,7 @@ func (c *listCache) listBlobs(ctx context.Context, prefix blob.ID) ([]blob.Metad
 				log(ctx).Debugf("retrieved list of %v '%v' index blobs from cache", len(ci.Blobs), prefix)
 				return ci.Blobs, nil
 			}
-		} else if err != blob.ErrBlobNotFound {
+		} else if !errors.Is(err, blob.ErrBlobNotFound) {
 			log(ctx).Warningf("unable to open cache file: %v", err)
 		}
 	}

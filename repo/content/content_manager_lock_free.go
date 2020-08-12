@@ -127,7 +127,7 @@ func (bm *lockFreeManager) loadPackIndexesUnlocked(ctx context.Context) ([]Index
 			return indexBlobs, updated, nil
 		}
 
-		if err != blob.ErrBlobNotFound {
+		if !errors.Is(err, blob.ErrBlobNotFound) {
 			return nil, false, err
 		}
 	}

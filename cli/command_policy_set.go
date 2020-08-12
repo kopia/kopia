@@ -84,7 +84,7 @@ func setPolicy(ctx context.Context, rep repo.Repository) error {
 		p, err := policy.GetDefinedPolicy(ctx, rep, target)
 
 		switch {
-		case err == policy.ErrPolicyNotFound:
+		case errors.Is(err, policy.ErrPolicyNotFound):
 			p = &policy.Policy{}
 		case err != nil:
 			return errors.Wrap(err, "could not get defined policy")

@@ -158,7 +158,7 @@ func migrateAllPolicies(ctx context.Context, sourceRepo, destRepo repo.Repositor
 
 func migrateSinglePolicy(ctx context.Context, sourceRepo, destRepo repo.Repository, si snapshot.SourceInfo) error {
 	pol, err := policy.GetDefinedPolicy(ctx, sourceRepo, si)
-	if err == policy.ErrPolicyNotFound {
+	if errors.Is(err, policy.ErrPolicyNotFound) {
 		return nil
 	}
 
@@ -173,7 +173,7 @@ func migrateSinglePolicy(ctx context.Context, sourceRepo, destRepo repo.Reposito
 			// already have destination policy
 			return nil
 		}
-	} else if err != policy.ErrPolicyNotFound {
+	} else if !errors.Is(err, policy.ErrPolicyNotFound) {
 		return errors.Wrapf(err, "unable to migrate policy for %v", si)
 	}
 

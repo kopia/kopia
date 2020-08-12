@@ -312,7 +312,7 @@ func (m *Manager) loadCommittedContentsLocked(ctx context.Context) error {
 			break
 		}
 
-		if err == content.ErrContentNotFound {
+		if errors.Is(err, content.ErrContentNotFound) {
 			// try again, lost a race with another manifest manager which just did compaction
 			continue
 		}

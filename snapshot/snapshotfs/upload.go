@@ -289,7 +289,7 @@ func (u *Uploader) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Di
 		startTime := u.repo.Time()
 
 		oid, summ, err := uploadDirInternal(ctx, u, rootDir, policyTree, previousDirs, ".")
-		if err != nil && err != errCanceled {
+		if err != nil && !errors.Is(err, errCanceled) {
 			return nil, err
 		}
 
@@ -512,7 +512,7 @@ func (u *Uploader) processSubdirectories(ctx context.Context, output chan dirEnt
 		previousDirs = uniqueDirectories(previousDirs)
 
 		oid, subdirsumm, err := uploadDirInternal(ctx, u, dir, policyTree.Child(entry.Name()), previousDirs, entryRelativePath)
-		if err == errCanceled {
+		if errors.Is(err, errCanceled) {
 			return err
 		}
 
@@ -756,7 +756,7 @@ func uploadDirInternal(
 		}
 	}
 
-	if err := u.processChildren(ctx, dirManifest, dirRelativePath, entries, policyTree, prevEntries); err != nil && err != errCanceled {
+	if err := u.processChildren(ctx, dirManifest, dirRelativePath, entries, policyTree, prevEntries); err != nil && !errors.Is(err, errCanceled) {
 		return "", fs.DirectorySummary{}, err
 	}
 

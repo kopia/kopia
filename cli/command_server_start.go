@@ -104,7 +104,7 @@ func runServer(ctx context.Context, rep repo.Repository) error {
 	httpServer.Handler = handler
 
 	err = startServerWithOptionalTLS(ctx, httpServer)
-	if err != http.ErrServerClosed {
+	if !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
 
