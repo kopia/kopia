@@ -58,6 +58,10 @@ issues:
     - text: "Magic number: 1e"
       linters:
       - gomnd
+    - text: "unnecessaryDefer"
+      linters: gocritic
+    - text: "filepathJoin"
+      linters: gocritic
     - text: "weak cryptographic primitive"
       linters:
         - gosec

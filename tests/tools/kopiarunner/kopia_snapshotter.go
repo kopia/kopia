@@ -122,7 +122,7 @@ func (ks *KopiaSnapshotter) Run(args ...string) (stdout, stderr string, err erro
 }
 
 func parseSnapID(lines []string) (string, error) {
-	pattern := regexp.MustCompile(`uploaded snapshot ([\S]+)`)
+	pattern := regexp.MustCompile(`uploaded snapshot (\S+)`)
 
 	for _, l := range lines {
 		match := pattern.FindAllStringSubmatch(l, 1)
