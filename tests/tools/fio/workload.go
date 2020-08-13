@@ -144,7 +144,7 @@ func (fr *Runner) operateAtDepth(path string, depth int, f func(string) error) e
 
 	for _, dirName := range dirList {
 		err = fr.operateAtDepth(dirName, depth-1, f)
-		if errors.Is(err, ErrNoDirFound) {
+		if !errors.Is(err, ErrNoDirFound) {
 			return err
 		}
 	}
