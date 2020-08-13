@@ -30,8 +30,12 @@ func (e *repositoryEntry) Mode() os.FileMode {
 		return os.ModeDir | os.FileMode(e.metadata.Permissions)
 	case snapshot.EntryTypeSymlink:
 		return os.ModeSymlink | os.FileMode(e.metadata.Permissions)
-	default:
+	case snapshot.EntryTypeFile:
 		return os.FileMode(e.metadata.Permissions)
+	case snapshot.EntryTypeUnknown:
+		return 0
+	default:
+		return 0
 	}
 }
 
@@ -159,6 +163,9 @@ func EntryFromDirEntry(r repo.Repository, md *snapshot.DirEntry) (fs.Entry, erro
 	case snapshot.EntryTypeFile:
 		return fs.File(&repositoryFile{re}), nil
 
+	case snapshot.EntryTypeUnknown:
+		return nil, errors.Errorf("not supported entry metadata type: %q", md.Type)
+
 	default:
 		return nil, errors.Errorf("not supported entry metadata type: %q", md.Type)
 	}
@@ -182,7 +189,7 @@ func withFileInfo(r object.Reader, e fs.Entry) fs.Reader {
 func DirectoryEntry(rep repo.Repository, objectID object.ID, dirSummary *fs.DirectorySummary) fs.Directory {
 	d, _ := EntryFromDirEntry(rep, &snapshot.DirEntry{
 		Name:        "/",
-		Permissions: 0555, //nolint:gomnd
+		Permissions: 0o555, //nolint:gomnd
 		Type:        snapshot.EntryTypeDirectory,
 		ObjectID:    objectID,
 		DirSummary:  dirSummary,
@@ -201,10 +208,14 @@ func SnapshotRoot(rep repo.Repository, man *snapshot.Manifest) (fs.Entry, error)
 	return EntryFromDirEntry(rep, man.RootEntry)
 }
 
-var _ fs.Directory = (*repositoryDirectory)(nil)
-var _ fs.File = (*repositoryFile)(nil)
-var _ fs.Symlink = (*repositorySymlink)(nil)
+var (
+	_ fs.Directory = (*repositoryDirectory)(nil)
+	_ fs.File      = (*repositoryFile)(nil)
+	_ fs.Symlink   = (*repositorySymlink)(nil)
+)
 
-var _ snapshot.HasDirEntry = (*repositoryDirectory)(nil)
-var _ snapshot.HasDirEntry = (*repositoryFile)(nil)
-var _ snapshot.HasDirEntry = (*repositorySymlink)(nil)
+var (
+	_ snapshot.HasDirEntry = (*repositoryDirectory)(nil)
+	_ snapshot.HasDirEntry = (*repositoryFile)(nil)
+	_ snapshot.HasDirEntry = (*repositorySymlink)(nil)
+)

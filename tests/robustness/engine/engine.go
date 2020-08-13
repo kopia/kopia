@@ -19,14 +19,14 @@ import (
 )
 
 const (
-	// S3BucketNameEnvKey is the environment variable required to connect to a repo on S3
+	// S3BucketNameEnvKey is the environment variable required to connect to a repo on S3.
 	S3BucketNameEnvKey = "S3_BUCKET_NAME"
 )
 
-// ErrS3BucketNameEnvUnset is the error returned when the S3BucketNameEnvKey environment variable is not set
+// ErrS3BucketNameEnvUnset is the error returned when the S3BucketNameEnvKey environment variable is not set.
 var ErrS3BucketNameEnvUnset = fmt.Errorf("environment variable required: %v", S3BucketNameEnvKey)
 
-// Engine is the outer level testing framework for robustness testing
+// Engine is the outer level testing framework for robustness testing.
 type Engine struct {
 	FileWriter      *fio.Runner
 	TestRepo        snap.Snapshotter
@@ -40,7 +40,7 @@ type Engine struct {
 // - FIO file writer
 // - Kopia test repo snapshotter
 // - Kopia metadata storage repo
-// - FSWalker data integrity checker
+// - FSWalker data integrity checker.
 func NewEngine() (*Engine, error) {
 	e := new(Engine)
 
@@ -90,7 +90,7 @@ func NewEngine() (*Engine, error) {
 	return e, nil
 }
 
-// Cleanup cleans up after each component of the test engine
+// Cleanup cleans up after each component of the test engine.
 func (e *Engine) Cleanup() error {
 	defer e.cleanup()
 
@@ -144,7 +144,7 @@ func (e *Engine) InitS3(ctx context.Context, testRepoPath, metaRepoPath string) 
 
 	snapIDs := e.Checker.GetLiveSnapIDs()
 	if len(snapIDs) > 0 {
-		randSnapID := snapIDs[rand.Intn(len(snapIDs))]
+		randSnapID := snapIDs[rand.Intn(len(snapIDs))] //nolint:gosec
 
 		err = e.Checker.RestoreSnapshotToPath(ctx, randSnapID, e.FileWriter.LocalDataDir, os.Stdout)
 		if err != nil {
@@ -182,7 +182,7 @@ func (e *Engine) InitFilesystem(ctx context.Context, testRepoPath, metaRepoPath 
 
 	snapIDs := e.Checker.GetSnapIDs()
 	if len(snapIDs) > 0 {
-		randSnapID := snapIDs[rand.Intn(len(snapIDs))]
+		randSnapID := snapIDs[rand.Intn(len(snapIDs))] //nolint:gosec
 
 		err = e.Checker.RestoreSnapshotToPath(ctx, randSnapID, e.FileWriter.LocalDataDir, os.Stdout)
 		if err != nil {

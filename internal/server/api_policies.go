@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/url"
 
@@ -51,7 +52,7 @@ func getPolicyTargetFromURL(u *url.URL) snapshot.SourceInfo {
 
 func (s *Server) handlePolicyGet(ctx context.Context, r *http.Request) (interface{}, *apiError) {
 	pol, err := policy.GetDefinedPolicy(ctx, s.rep, getPolicyTargetFromURL(r.URL))
-	if err == policy.ErrPolicyNotFound {
+	if errors.Is(err, policy.ErrPolicyNotFound) {
 		return nil, requestError(serverapi.ErrorNotFound, "policy not found")
 	}
 

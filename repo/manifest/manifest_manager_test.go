@@ -16,7 +16,6 @@ import (
 	"github.com/kopia/kopia/repo/hashing"
 )
 
-//nolint:funlen
 func TestManifest(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
@@ -158,7 +157,7 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 		t.Fatalf("err: %v", err)
 	}
 
-	mgr.Put(ctx, map[string]string{"type": "foo"}, map[string]string{"some": "value"}) //nolint:errcheck
+	mgr.Put(ctx, map[string]string{"type": "foo"}, map[string]string{"some": "value"})
 	mgr.Flush(ctx)
 	bm.Flush(ctx)
 

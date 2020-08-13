@@ -44,12 +44,12 @@ func newRepositoryOptionsFromFlags() *repo.NewRepositoryOptions {
 }
 
 func ensureEmpty(ctx context.Context, s blob.Storage) error {
-	hasDataError := errors.New("has data")
+	hasDataError := errors.Errorf("has data")
 
 	err := s.ListBlobs(ctx, "", func(cb blob.Metadata) error {
 		return hasDataError
 	})
-	if err == hasDataError {
+	if err == hasDataError { //nolint:goerr113
 		return errors.New("found existing data in storage location")
 	}
 

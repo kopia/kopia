@@ -79,7 +79,7 @@ func (c *contentCacheForMetadata) getContent(ctx context.Context, cacheKey cache
 		stats.Record(ctx, metricContentCacheMissBytes.M(int64(len(blobData))))
 	}
 
-	if err == blob.ErrBlobNotFound {
+	if errors.Is(err, blob.ErrBlobNotFound) {
 		// not found in underlying storage
 		return nil, err
 	}

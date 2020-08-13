@@ -36,7 +36,7 @@ var log = logging.GetContextLoggerFunc("snapshotfs")
 
 var errCanceled = errors.New("canceled")
 
-// reasons why a snapshot is incomplete
+// reasons why a snapshot is incomplete.
 const (
 	IncompleteReasonCheckpoint   = "checkpoint"
 	IncompleteReasonCanceled     = "canceled"
@@ -189,6 +189,8 @@ func (u *Uploader) copyWithProgress(dst io.Writer, src io.Reader, completed, len
 		}
 
 		readBytes, readErr := src.Read(uploadBuf)
+
+		// nolint:nestif
 		if readBytes > 0 {
 			wroteBytes, writeErr := dst.Write(uploadBuf[0:readBytes])
 			if wroteBytes > 0 {
@@ -287,7 +289,7 @@ func (u *Uploader) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Di
 		startTime := u.repo.Time()
 
 		oid, summ, err := uploadDirInternal(ctx, u, rootDir, policyTree, previousDirs, ".")
-		if err != nil && err != errCanceled {
+		if err != nil && !errors.Is(err, errCanceled) {
 			return nil, err
 		}
 
@@ -401,6 +403,8 @@ func (u *Uploader) populateChildEntries(parent *snapshot.DirManifest, children <
 		}
 
 		de := it.de
+
+		// nolint:exhaustive
 		switch de.Type {
 		case snapshot.EntryTypeFile:
 			u.stats.TotalFileCount++
@@ -508,7 +512,7 @@ func (u *Uploader) processSubdirectories(ctx context.Context, output chan dirEnt
 		previousDirs = uniqueDirectories(previousDirs)
 
 		oid, subdirsumm, err := uploadDirInternal(ctx, u, dir, policyTree.Child(entry.Name()), previousDirs, entryRelativePath)
-		if err == errCanceled {
+		if errors.Is(err, errCanceled) {
 			return err
 		}
 
@@ -579,7 +583,7 @@ func findCachedEntry(ctx context.Context, entry fs.Entry, prevEntries []fs.Entri
 	return nil
 }
 
-// objectIDPercent arbitrarily maps given object ID onto a number 0.99
+// objectIDPercent arbitrarily maps given object ID onto a number 0.99.
 func objectIDPercent(obj object.ID) int {
 	h := fnv.New32a()
 	io.WriteString(h, obj.String()) //nolint:errcheck
@@ -692,7 +696,7 @@ func uniqueDirectories(dirs []fs.Directory) []fs.Directory {
 		return dirs
 	}
 
-	var unique = map[object.ID]fs.Directory{}
+	unique := map[object.ID]fs.Directory{}
 	for _, dir := range dirs {
 		unique[dir.(object.HasObjectID).ObjectID()] = dir
 	}
@@ -709,7 +713,7 @@ func uniqueDirectories(dirs []fs.Directory) []fs.Directory {
 	return result
 }
 
-// dirReadError distinguishes an error thrown when attempting to read a directory
+// dirReadError distinguishes an error thrown when attempting to read a directory.
 type dirReadError struct {
 	error
 }
@@ -752,7 +756,7 @@ func uploadDirInternal(
 		}
 	}
 
-	if err := u.processChildren(ctx, dirManifest, dirRelativePath, entries, policyTree, prevEntries); err != nil && err != errCanceled {
+	if err := u.processChildren(ctx, dirManifest, dirRelativePath, entries, policyTree, prevEntries); err != nil && !errors.Is(err, errCanceled) {
 		return "", fs.DirectorySummary{}, err
 	}
 

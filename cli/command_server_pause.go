@@ -7,9 +7,7 @@ import (
 	"github.com/kopia/kopia/internal/serverapi"
 )
 
-var (
-	serverPauseCommand = serverCommands.Command("pause", "Pause the scheduled snapshots for one or more sources")
-)
+var serverPauseCommand = serverCommands.Command("pause", "Pause the scheduled snapshots for one or more sources")
 
 func init() {
 	serverPauseCommand.Action(serverAction(runServerPause))

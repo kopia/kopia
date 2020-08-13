@@ -141,7 +141,8 @@ func TestEntriesUpdate(t *testing.T) {
 				testEntry{n: "cc"},
 				testEntry{n: "dd"},
 			},
-		}, {
+		},
+		{
 			desc: "insert after last first",
 			base: Entries{
 				testEntry{n: "aa"},

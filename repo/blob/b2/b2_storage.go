@@ -187,7 +187,7 @@ func (s *b2Storage) DeleteBlob(ctx context.Context, id blob.ID) error {
 	_, err := s.bucket.HideFile(fileName)
 	err = translateError(err)
 
-	if err == blob.ErrBlobNotFound {
+	if errors.Is(err, blob.ErrBlobNotFound) {
 		// Deleting failed because it already is deleted? Fine.
 		return nil
 	}
@@ -261,7 +261,7 @@ func toBandwidth(bytesPerSecond int) iothrottler.Bandwidth {
 	return iothrottler.Bandwidth(bytesPerSecond) * iothrottler.BytesPerSecond
 }
 
-// New creates new B2-backed storage with specified options:
+// New creates new B2-backed storage with specified options.
 func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 	if opt.BucketName == "" {
 		return nil, errors.New("bucket name must be specified")
@@ -281,7 +281,7 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 	}
 
 	if bucket == nil {
-		return nil, fmt.Errorf("bucket not found: %s", opt.BucketName)
+		return nil, errors.Errorf("bucket not found: %s", opt.BucketName)
 	}
 
 	return &b2Storage{

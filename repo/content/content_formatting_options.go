@@ -10,22 +10,22 @@ type FormattingOptions struct {
 	MaxPackSize int    `json:"maxPackSize,omitempty"` // maximum size of a pack object
 }
 
-// GetEncryptionAlgorithm implements encryption.Parameters
+// GetEncryptionAlgorithm implements encryption.Parameters.
 func (f *FormattingOptions) GetEncryptionAlgorithm() string {
 	return f.Encryption
 }
 
-// GetMasterKey implements encryption.Parameters
+// GetMasterKey implements encryption.Parameters.
 func (f *FormattingOptions) GetMasterKey() []byte {
 	return f.MasterKey
 }
 
-// GetHashFunction implements hashing.Parameters
+// GetHashFunction implements hashing.Parameters.
 func (f *FormattingOptions) GetHashFunction() string {
 	return f.Hash
 }
 
-// GetHMACSecret implements hashing.Parameters
+// GetHMACSecret implements hashing.Parameters.
 func (f *FormattingOptions) GetHMACSecret() []byte {
 	return f.HMACSecret
 }

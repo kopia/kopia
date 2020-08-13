@@ -8,9 +8,7 @@ import (
 	"github.com/kopia/kopia/internal/serverapi"
 )
 
-var (
-	serverStartUploadCommand = serverCommands.Command("upload", "Trigger upload for one or more sources")
-)
+var serverStartUploadCommand = serverCommands.Command("upload", "Trigger upload for one or more sources")
 
 func init() {
 	serverStartUploadCommand.Action(serverAction(runServerStartUpload))

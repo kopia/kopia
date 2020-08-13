@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/repo"
-
 	"github.com/kopia/kopia/tests/testenv"
 )
 

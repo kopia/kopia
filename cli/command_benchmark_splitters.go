@@ -5,9 +5,9 @@ import (
 	"sort"
 	"time"
 
-	"github.com/kopia/kopia/repo/splitter"
-
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
+
+	"github.com/kopia/kopia/repo/splitter"
 )
 
 var (
@@ -36,7 +36,7 @@ func runBenchmarkSplitterAction(ctx *kingpin.ParseContext) error {
 	// generate data blocks
 	var dataBlocks [][]byte
 
-	rnd := rand.New(rand.NewSource(*benchmarkSplitterRandSeed))
+	rnd := rand.New(rand.NewSource(*benchmarkSplitterRandSeed)) //nolint:gosec
 
 	for i := 0; i < *benchmarkSplitterBlockCount; i++ {
 		b := make([]byte, *benchmarkSplitterBlockSize)

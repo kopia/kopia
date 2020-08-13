@@ -234,7 +234,7 @@ func TestCache(t *testing.T) {
 	cv.verifyCacheOrdering(t, id6)
 }
 
-// Simple test for getEntries() locking/unlocking. Related to PRs #130 and #132
+// Simple test for getEntries() locking/unlocking. Related to PRs #130 and #132.
 func TestCacheGetEntriesLocking(t *testing.T) {
 	ctx := testlogging.Context(t)
 	c := NewCache(&Options{

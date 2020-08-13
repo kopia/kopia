@@ -32,6 +32,7 @@ func deterministicContentID(prefix string, id int) ID {
 
 	return ID(fmt.Sprintf("%v%x", prefix2, h.Sum(nil)))
 }
+
 func deterministicPackBlobID(id int) blob.ID {
 	h := sha1.New()
 	fmt.Fprintf(h, "%v", id)
@@ -45,12 +46,14 @@ func deterministicPackedOffset(id int) uint32 {
 
 	return uint32(rnd.Int31())
 }
+
 func deterministicPackedLength(id int) uint32 {
 	s := rand.NewSource(int64(id + 2))
 	rnd := rand.New(s)
 
 	return uint32(rnd.Int31())
 }
+
 func deterministicFormatVersion(id int) byte {
 	return byte(id % 100)
 }
@@ -59,7 +62,7 @@ func randomUnixTime() int64 {
 	return int64(rand.Int31())
 }
 
-//nolint:gocyclo,funlen
+//nolint:gocyclo
 func TestPackIndex(t *testing.T) {
 	var infos []Info
 

@@ -35,9 +35,8 @@ func TestB2Storage(t *testing.T) {
 	keyID := getEnvOrSkip(t, testKeyIDEnv)
 	key := getEnvOrSkip(t, testKeyEnv)
 	testutil.Retry(t, func(t *testutil.RetriableT) {
-
 		data := make([]byte, 8)
-		rand.Read(data) //nolint:errcheck
+		rand.Read(data)
 
 		ctx := context.Background()
 		st, err := b2.New(ctx, &b2.Options{
@@ -46,7 +45,6 @@ func TestB2Storage(t *testing.T) {
 			Key:        key,
 			Prefix:     fmt.Sprintf("test-%v-%x-", time.Now().Unix(), data),
 		})
-
 		if err != nil {
 			t.Fatalf("unable to build b2 storage: %v", err)
 		}
@@ -79,12 +77,12 @@ func TestB2StorageInvalidBlob(t *testing.T) {
 	key := getEnvOrSkip(t, testKeyEnv)
 
 	ctx := context.Background()
+
 	st, err := b2.New(ctx, &b2.Options{
 		BucketName: bucket,
 		KeyID:      keyID,
 		Key:        key,
 	})
-
 	if err != nil {
 		t.Fatalf("unable to build b2 storage: %v", err)
 	}

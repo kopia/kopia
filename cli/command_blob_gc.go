@@ -25,7 +25,6 @@ func runBlobGarbageCollectCommand(ctx context.Context, rep *repo.DirectRepositor
 	}
 
 	n, err := maintenance.DeleteUnreferencedBlobs(ctx, rep, opts)
-
 	if err != nil {
 		return err
 	}

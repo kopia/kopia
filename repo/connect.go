@@ -36,7 +36,7 @@ func Connect(ctx context.Context, configFile string, st blob.Storage, password s
 
 	formatBytes, err := st.GetBlob(ctx, FormatBlobID, 0, -1)
 	if err != nil {
-		if err == blob.ErrBlobNotFound {
+		if errors.Is(err, blob.ErrBlobNotFound) {
 			return ErrRepositoryNotInitialized
 		}
 
@@ -72,11 +72,11 @@ func Connect(ctx context.Context, configFile string, st blob.Storage, password s
 		return err
 	}
 
-	if err = os.MkdirAll(filepath.Dir(configFile), 0700); err != nil {
+	if err = os.MkdirAll(filepath.Dir(configFile), 0o700); err != nil {
 		return errors.Wrap(err, "unable to create config directory")
 	}
 
-	if err = ioutil.WriteFile(configFile, d, 0600); err != nil {
+	if err = ioutil.WriteFile(configFile, d, 0o600); err != nil {
 		return errors.Wrap(err, "unable to write config file")
 	}
 

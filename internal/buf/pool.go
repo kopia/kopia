@@ -155,7 +155,7 @@ func NewPool(ctx context.Context, segmentSize int, poolID string) *Pool {
 	return p
 }
 
-// Close closes the pool
+// Close closes the pool.
 func (p *Pool) Close() {
 	close(p.closed)
 }

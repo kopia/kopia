@@ -30,7 +30,7 @@ func TestManySmallFiles(t *testing.T) {
 	output, err := ioutil.TempFile("", t.Name())
 	testenv.AssertNoError(t, err)
 
-	defer output.Close() //nolint:errcheck
+	defer output.Close()
 
 	err = eng.Checker.RestoreSnapshot(ctx, snapID, output)
 	testenv.AssertNoError(t, err)

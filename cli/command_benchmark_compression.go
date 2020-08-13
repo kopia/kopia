@@ -7,10 +7,10 @@ import (
 	"sort"
 	"time"
 
+	kingpin "gopkg.in/alecthomas/kingpin.v2"
+
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo/compression"
-
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (

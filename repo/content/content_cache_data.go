@@ -52,7 +52,7 @@ func (c *contentCacheForData) getContent(ctx context.Context, cacheKey cacheKey,
 		stats.Record(ctx, metricContentCacheMissBytes.M(int64(len(b))))
 	}
 
-	if err == blob.ErrBlobNotFound {
+	if errors.Is(err, blob.ErrBlobNotFound) {
 		// not found in underlying storage
 		return nil, err
 	}
@@ -89,7 +89,7 @@ func (c *contentCacheForData) readAndVerifyCacheContent(ctx context.Context, cac
 		return nil
 	}
 
-	if err != blob.ErrBlobNotFound {
+	if !errors.Is(err, blob.ErrBlobNotFound) {
 		log(ctx).Warningf("unable to read cache %v: %v", cacheKey, err)
 	}
 

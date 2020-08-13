@@ -12,7 +12,7 @@ var (
 	profileMutex    = app.Flag("profile-mutex", "Enable mutex profiling").Hidden().Bool()
 )
 
-// withProfiling runs the given callback with profiling enabled, configured according to command line flags
+// withProfiling runs the given callback with profiling enabled, configured according to command line flags.
 func withProfiling(callback func() error) error {
 	if *profileDir != "" {
 		pp := profile.ProfilePath(*profileDir)

@@ -17,7 +17,7 @@ type testingT interface {
 // Level specifies log level.
 type Level int
 
-// log levels
+// log levels.
 const (
 	LevelDebug Level = iota
 	LevelInfo
@@ -40,6 +40,7 @@ func (l *testLogger) Debugf(msg string, args ...interface{}) {
 	l.t.Helper()
 	l.t.Logf(l.prefix+msg, args...)
 }
+
 func (l *testLogger) Infof(msg string, args ...interface{}) {
 	if l.minLevel > LevelInfo {
 		return
@@ -48,6 +49,7 @@ func (l *testLogger) Infof(msg string, args ...interface{}) {
 	l.t.Helper()
 	l.t.Logf(l.prefix+msg, args...)
 }
+
 func (l *testLogger) Warningf(msg string, args ...interface{}) {
 	if l.minLevel > LevelWarning {
 		return
@@ -56,6 +58,7 @@ func (l *testLogger) Warningf(msg string, args ...interface{}) {
 	l.t.Helper()
 	l.t.Logf(l.prefix+"warning: "+msg, args...)
 }
+
 func (l *testLogger) Errorf(msg string, args ...interface{}) {
 	if l.minLevel > LevelError {
 		return
@@ -64,6 +67,7 @@ func (l *testLogger) Errorf(msg string, args ...interface{}) {
 	l.t.Helper()
 	l.t.Errorf(l.prefix+msg, args...)
 }
+
 func (l *testLogger) Fatalf(msg string, args ...interface{}) {
 	if l.minLevel > LevelFatal {
 		return

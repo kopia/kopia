@@ -26,7 +26,7 @@ func TestStressBlockManager(t *testing.T) {
 	keyTimes := map[blob.ID]time.Time{}
 	memst := blobtesting.NewMapStorage(data, keyTimes, time.Now)
 
-	var duration = 3 * time.Second
+	duration := 3 * time.Second
 	if os.Getenv("KOPIA_LONG_STRESS_TEST") != "" {
 		duration = 30 * time.Second
 	}

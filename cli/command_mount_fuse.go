@@ -20,9 +20,7 @@ func (r *root) Root() (fusefs.Node, error) {
 	return r.Node, nil
 }
 
-var (
-	mountMode = mountCommand.Flag("mode", "Mount mode").Default("FUSE").Enum("WEBDAV", "FUSE")
-)
+var mountMode = mountCommand.Flag("mode", "Mount mode").Default("FUSE").Enum("WEBDAV", "FUSE")
 
 func mountDirectoryFUSE(ctx context.Context, entry fs.Directory, mountPoint string) error {
 	rootNode := fusemount.NewDirectoryNode(entry)
@@ -34,7 +32,6 @@ func mountDirectoryFUSE(ctx context.Context, entry fs.Directory, mountPoint stri
 		fuse.Subtype("kopia"),
 		fuse.VolumeName("Kopia"),
 	)
-
 	if err != nil {
 		return err
 	}

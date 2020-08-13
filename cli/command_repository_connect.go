@@ -5,12 +5,11 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
-
-	"gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (

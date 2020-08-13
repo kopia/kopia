@@ -26,8 +26,8 @@ const (
 	fsStorageType        = "filesystem"
 	fsStorageChunkSuffix = ".f"
 
-	fsDefaultFileMode os.FileMode = 0600
-	fsDefaultDirMode  os.FileMode = 0700
+	fsDefaultFileMode os.FileMode = 0o600
+	fsDefaultDirMode  os.FileMode = 0o700
 )
 
 var fsDefaultShards = []int{3, 3}
@@ -67,7 +67,7 @@ func isRetriable(err error) bool {
 		return true
 	}
 
-	return err == errRetriableInvalidLength
+	return errors.Is(err, errRetriableInvalidLength)
 }
 
 func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, offset, length int64) ([]byte, error) {
@@ -77,7 +77,7 @@ func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, off
 			return nil, err
 		}
 
-		defer f.Close() //nolint:errcheck
+		defer f.Close() //nolint:errcheck,gosec
 
 		if length < 0 {
 			return ioutil.ReadAll(f)
@@ -108,7 +108,6 @@ func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, off
 
 		return b, nil
 	}, isRetriable)
-
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, blob.ErrBlobNotFound
@@ -121,7 +120,7 @@ func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, off
 }
 
 func (fs *fsImpl) GetMetadataFromPath(ctx context.Context, dirPath, path string) (blob.Metadata, error) {
-	fi, err := os.Stat(path) //nolint:gosec
+	fi, err := os.Stat(path)
 	if err != nil {
 		return blob.Metadata{}, err
 	}
@@ -193,13 +192,13 @@ func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data 
 func (fs *fsImpl) createTempFileAndDir(tempFile string) (*os.File, error) {
 	flags := os.O_CREATE | os.O_WRONLY | os.O_EXCL
 
-	f, err := os.OpenFile(tempFile, flags, fs.fileMode())
+	f, err := os.OpenFile(tempFile, flags, fs.fileMode()) //nolint:gosec
 	if os.IsNotExist(err) {
 		if err = os.MkdirAll(filepath.Dir(tempFile), fs.dirMode()); err != nil {
 			return nil, errors.Wrap(err, "cannot create directory")
 		}
 
-		return os.OpenFile(tempFile, flags, fs.fileMode())
+		return os.OpenFile(tempFile, flags, fs.fileMode()) //nolint:gosec
 	}
 
 	return f, err
@@ -221,7 +220,6 @@ func (fs *fsImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, e
 		v, err := ioutil.ReadDir(dirname)
 		return v, err
 	}, isRetriable)
-
 	if err != nil {
 		return nil, err
 	}

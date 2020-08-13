@@ -37,6 +37,8 @@ linters:
     - gochecknoglobals
     - gochecknoinits
     - whitespace
+    - nlreturn
+    - testpackage
 
 run:
   skip-dirs:
@@ -45,16 +47,22 @@ run:
 issues:
   exclude-use-default: false
   exclude-rules:
-    - path: _test\.go|testing
+    - path: _test\.go|testing|test_env
       linters:
       - gomnd
       - gocognit
       - funlen
       - errcheck
       - gosec
+      - nestif
+      - goerr113
     - text: "Magic number: 1e"
       linters:
       - gomnd
+    - text: "unnecessaryDefer"
+      linters: gocritic
+    - text: "filepathJoin"
+      linters: gocritic
     - text: "weak cryptographic primitive"
       linters:
         - gosec

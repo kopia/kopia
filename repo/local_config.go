@@ -54,7 +54,7 @@ func loadConfigFromFile(fileName string) (*LocalConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close() //nolint:errcheck
+	defer f.Close() //nolint:errcheck,gosec
 
 	var lc LocalConfig
 

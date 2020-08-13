@@ -16,9 +16,11 @@ import (
 
 var log = logging.GetContextLoggerFunc("kopia/webdavmount")
 
-var _ os.FileInfo = webdavFileInfo{}
-var _ webdav.File = (*webdavFile)(nil)
-var _ webdav.File = (*webdavDir)(nil)
+var (
+	_ os.FileInfo = webdavFileInfo{}
+	_ webdav.File = (*webdavFile)(nil)
+	_ webdav.File = (*webdavDir)(nil)
+)
 
 type webdavFile struct {
 	ctx   context.Context

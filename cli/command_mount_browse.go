@@ -9,9 +9,7 @@ import (
 	"github.com/skratchdot/open-golang/open"
 )
 
-var (
-	mountBrowser = mountCommand.Flag("browse", "Browse mounted filesystem using the provided method").Default("OS").Enum("NONE", "WEB", "OS")
-)
+var mountBrowser = mountCommand.Flag("browse", "Browse mounted filesystem using the provided method").Default("OS").Enum("NONE", "WEB", "OS")
 
 var mountBrowsers = map[string]func(ctx context.Context, mountPoint, addr string) error{
 	"NONE": nil,

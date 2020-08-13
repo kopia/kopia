@@ -4,12 +4,12 @@ import (
 	"sort"
 	"time"
 
+	kingpin "gopkg.in/alecthomas/kingpin.v2"
+
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/hashing"
-
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
 var (

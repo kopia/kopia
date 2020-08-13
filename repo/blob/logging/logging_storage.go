@@ -39,6 +39,7 @@ func (s *loggingStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Meta
 
 	return result, err
 }
+
 func (s *loggingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes) error {
 	t0 := time.Now()
 	err := s.base.PutBlob(ctx, id, data)

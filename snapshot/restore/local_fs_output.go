@@ -77,7 +77,7 @@ func (o *FilesystemOutput) CreateSymlink(ctx context.Context, relativePath strin
 	return nil
 }
 
-// set permission, modification time and user/group ids on targetPath
+// set permission, modification time and user/group ids on targetPath.
 func (o *FilesystemOutput) setAttributes(targetPath string, e fs.Entry) error {
 	const modBits = os.ModePerm | os.ModeSetgid | os.ModeSetuid | os.ModeSticky
 
@@ -116,7 +116,7 @@ func (o *FilesystemOutput) setAttributes(targetPath string, e fs.Entry) error {
 func (o *FilesystemOutput) createDirectory(ctx context.Context, path string) error {
 	switch stat, err := os.Stat(path); {
 	case os.IsNotExist(err):
-		return os.MkdirAll(path, 0700)
+		return os.MkdirAll(path, 0o700)
 	case err != nil:
 		return errors.Wrap(err, "failed to stat path "+path)
 	case stat.Mode().IsDir():
@@ -164,7 +164,7 @@ func isEmptyDirectory(name string) (bool, error) {
 		return false, err
 	}
 
-	defer f.Close() //nolint:errcheck
+	defer f.Close() //nolint:errcheck,gosec
 
 	if _, err = f.Readdirnames(1); err == io.EOF {
 		return true, nil

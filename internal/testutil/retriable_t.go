@@ -30,56 +30,56 @@ func (t *RetriableT) maybeSuppressAndSkip(cnt int32) {
 	}
 }
 
-// Fail wraps testing.T.Fail()
+// Fail wraps testing.T.Fail().
 func (t *RetriableT) Fail() {
 	t.T.Helper()
 	t.maybeSuppressAndSkip(1)
 	t.T.Fail()
 }
 
-// FailNow wraps testing.T.FailNow()
+// FailNow wraps testing.T.FailNow().
 func (t *RetriableT) FailNow() {
 	t.T.Helper()
 	t.maybeSuppressAndSkip(1)
 	t.T.FailNow()
 }
 
-// Error wraps testing.T.Error()
+// Error wraps testing.T.Error().
 func (t *RetriableT) Error(args ...interface{}) {
 	t.T.Helper()
 	t.maybeSuppressAndSkip(1)
 	t.T.Error(args...)
 }
 
-// Errorf wraps testing.T.Errorf()
+// Errorf wraps testing.T.Errorf().
 func (t *RetriableT) Errorf(msg string, args ...interface{}) {
 	t.T.Helper()
 	t.maybeSuppressAndSkip(1)
 	t.T.Errorf(msg, args...)
 }
 
-// Fatal wraps testing.T.Fatal()
+// Fatal wraps testing.T.Fatal().
 func (t *RetriableT) Fatal(args ...interface{}) {
 	t.T.Helper()
 	t.maybeSuppressAndSkip(1)
 	t.T.Fatal(args...)
 }
 
-// Fatalf wraps testing.T.Fatalf()
+// Fatalf wraps testing.T.Fatalf().
 func (t *RetriableT) Fatalf(msg string, args ...interface{}) {
 	t.T.Helper()
 	t.maybeSuppressAndSkip(1)
 	t.T.Fatalf(msg, args...)
 }
 
-// Skip wraps testing.T.Skip()
+// Skip wraps testing.T.Skip().
 func (t *RetriableT) Skip(args ...interface{}) {
 	t.T.Helper()
 	t.maybeSuppressAndSkip(0)
 	t.T.Skip(args...)
 }
 
-// Skipf wraps testing.T.Skipf()
+// Skipf wraps testing.T.Skipf().
 func (t *RetriableT) Skipf(msg string, args ...interface{}) {
 	t.T.Helper()
 	t.maybeSuppressAndSkip(0)
