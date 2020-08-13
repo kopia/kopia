@@ -23,7 +23,7 @@ const (
 )
 
 func setupRepositoryAndConnect(ctx context.Context, password string) error {
-	if err := os.MkdirAll(storageDir, 0700); err != nil {
+	if err := os.MkdirAll(storageDir, 0o700); err != nil {
 		return errors.Wrap(err, "unable to create directory")
 	}
 

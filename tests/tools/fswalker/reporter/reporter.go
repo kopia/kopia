@@ -5,18 +5,18 @@ package reporter
 
 import (
 	"context"
-	"fmt"
 	"io/ioutil"
 	"os"
 
 	"github.com/google/fswalker"
 	fspb "github.com/google/fswalker/proto/fswalker"
+	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/tests/tools/fswalker/protofile"
 )
 
 // Report performs a report governed by the contents of the provided
-// ReportConfig of the comparison of the two Walks provided
+// ReportConfig of the comparison of the two Walks provided.
 func Report(ctx context.Context, config *fspb.ReportConfig, beforeWalk, afterWalk *fspb.Walk) (*fswalker.Report, error) {
 	tmpCfgFile, err := writeTempConfigFile(config)
 	if err != nil {
@@ -36,7 +36,7 @@ func Report(ctx context.Context, config *fspb.ReportConfig, beforeWalk, afterWal
 }
 
 // ReportFiles performs a report governed by the contents of the provided
-// ReportConfig of the two Walks at the provided file paths
+// ReportConfig of the two Walks at the provided file paths.
 func ReportFiles(ctx context.Context, config *fspb.ReportConfig, beforeFile, afterFile string) (*fswalker.Report, error) {
 	tmpCfgFile, err := writeTempConfigFile(config)
 	if err != nil {
@@ -56,13 +56,13 @@ func ReportFiles(ctx context.Context, config *fspb.ReportConfig, beforeFile, aft
 
 	after, err = reporter.ReadWalk(ctx, afterFile)
 	if err != nil {
-		return nil, fmt.Errorf("file cannot be read: %s", afterFile)
+		return nil, errors.Errorf("file cannot be read: %s", afterFile)
 	}
 
 	if beforeFile != "" {
 		before, err = reporter.ReadWalk(ctx, beforeFile)
 		if err != nil {
-			return nil, fmt.Errorf("file cannot be read: %s", beforeFile)
+			return nil, errors.Errorf("file cannot be read: %s", beforeFile)
 		}
 	}
 

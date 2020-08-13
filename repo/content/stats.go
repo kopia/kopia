@@ -36,42 +36,42 @@ func (s *Stats) Reset() {
 	atomic.StoreUint32(&s.validContents, 0)
 }
 
-// ReadContent returns the approximate read content count and their total size in bytes
+// ReadContent returns the approximate read content count and their total size in bytes.
 func (s *Stats) ReadContent() (count uint32, bytes int64) {
 	return readCountSum(&s.readContents, &s.readBytes)
 }
 
-// WrittenContent returns the approximate written content count and their total size in bytes
+// WrittenContent returns the approximate written content count and their total size in bytes.
 func (s *Stats) WrittenContent() (count uint32, bytes int64) {
 	return readCountSum(&s.writtenContents, &s.writtenBytes)
 }
 
-// HashedContent returns the approximate hashed content count and their total size in bytes
+// HashedContent returns the approximate hashed content count and their total size in bytes.
 func (s *Stats) HashedContent() (count uint32, bytes int64) {
 	return readCountSum(&s.hashedContents, &s.hashedBytes)
 }
 
-// DecryptedBytes returns the approximate total number of decrypted bytes
+// DecryptedBytes returns the approximate total number of decrypted bytes.
 func (s *Stats) DecryptedBytes() int64 {
 	return atomic.LoadInt64(&s.decryptedBytes)
 }
 
-// EncryptedBytes returns the approximate total number of decrypted bytes
+// EncryptedBytes returns the approximate total number of decrypted bytes.
 func (s *Stats) EncryptedBytes() int64 {
 	return atomic.LoadInt64(&s.encryptedBytes)
 }
 
-// InvalidContents returns the approximate count of invalid contents found
+// InvalidContents returns the approximate count of invalid contents found.
 func (s *Stats) InvalidContents() uint32 {
 	return atomic.LoadUint32(&s.invalidContents)
 }
 
-// ValidContents returns the approximate count of valid contents found
+// ValidContents returns the approximate count of valid contents found.
 func (s *Stats) ValidContents() uint32 {
 	return atomic.LoadUint32(&s.validContents)
 }
 
-func (s *Stats) decrypted(size int) int64 { // nolint:unparam
+func (s *Stats) decrypted(size int) int64 {
 	return atomic.AddInt64(&s.decryptedBytes, int64(size))
 }
 

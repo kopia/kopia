@@ -16,7 +16,7 @@ const (
 	repoPassword = "qWQPJ2hiiLgWRRCr" // nolint:gosec
 )
 
-// Runner is a helper for running kopia commands
+// Runner is a helper for running kopia commands.
 type Runner struct {
 	Exe         string
 	ConfigDir   string
@@ -24,10 +24,10 @@ type Runner struct {
 	environment []string
 }
 
-// ErrExeVariableNotSet is an exported error
+// ErrExeVariableNotSet is an exported error.
 var ErrExeVariableNotSet = errors.New("KOPIA_EXE variable has not been set")
 
-// NewRunner initializes a new kopia runner and returns its pointer
+// NewRunner initializes a new kopia runner and returns its pointer.
 func NewRunner() (*Runner, error) {
 	exe := os.Getenv("KOPIA_EXE")
 	if exe == "" {
@@ -52,18 +52,17 @@ func NewRunner() (*Runner, error) {
 	}, nil
 }
 
-// Cleanup cleans up the directories managed by the kopia Runner
+// Cleanup cleans up the directories managed by the kopia Runner.
 func (kr *Runner) Cleanup() {
 	if kr.ConfigDir != "" {
 		os.RemoveAll(kr.ConfigDir) //nolint:errcheck
 	}
 }
 
-// Run will execute the kopia command with the given args
+// Run will execute the kopia command with the given args.
 func (kr *Runner) Run(args ...string) (stdout, stderr string, err error) {
 	argsStr := strings.Join(args, " ")
 	log.Printf("running '%s %v'", kr.Exe, argsStr)
-	// nolint:gosec
 	cmdArgs := append(append([]string(nil), kr.fixedArgs...), args...)
 
 	// nolint:gosec

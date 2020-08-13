@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	repoPassword        = "qWQPJ2hiiLgWRRCr" // nolint:gosec
+	repoPassword        = "qWQPJ2hiiLgWRRCr"
 	maxOutputLinesToLog = 40
 )
 
@@ -55,7 +55,7 @@ type SnapshotInfo struct {
 	Time       time.Time
 }
 
-// NewCLITest creates a new instance of *CLITest
+// NewCLITest creates a new instance of *CLITest.
 func NewCLITest(t *testing.T) *CLITest {
 	exe := os.Getenv("KOPIA_EXE")
 	if exe == "" {
@@ -106,11 +106,11 @@ func (e *CLITest) Cleanup(t *testing.T) {
 	}
 
 	if e.RepoDir != "" {
-		os.RemoveAll(e.RepoDir) //nolint:errcheck
+		os.RemoveAll(e.RepoDir)
 	}
 
 	if e.ConfigDir != "" {
-		os.RemoveAll(e.ConfigDir) //nolint:errcheck
+		os.RemoveAll(e.ConfigDir)
 	}
 }
 
@@ -133,7 +133,6 @@ func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) b
 	t.Logf("running 'kopia %v'", strings.Join(args, " "))
 	cmdArgs := append(append([]string(nil), e.fixedArgs...), args...)
 
-	// nolint:gosec
 	c := exec.Command(e.Exe, cmdArgs...)
 	c.Env = append(os.Environ(), e.Environment...)
 
@@ -202,10 +201,8 @@ func (e *CLITest) RunAndVerifyOutputLineCount(t *testing.T, wantLines int, args 
 func (e *CLITest) Run(t *testing.T, args ...string) (stdout, stderr []string, err error) {
 	t.Helper()
 	t.Logf("running '%v %v'", e.Exe, strings.Join(args, " "))
-	// nolint:gosec
 	cmdArgs := append(append([]string(nil), e.fixedArgs...), args...)
 
-	// nolint:gosec
 	c := exec.Command(e.Exe, cmdArgs...)
 	c.Env = append(os.Environ(), e.Environment...)
 
@@ -265,7 +262,7 @@ func mustParseDirectoryEntries(lines []string) []DirEntry {
 	return result
 }
 
-// DirectoryTreeOptions lists options for CreateDirectoryTree
+// DirectoryTreeOptions lists options for CreateDirectoryTree.
 type DirectoryTreeOptions struct {
 	Depth                  int
 	MaxSubdirsPerDirectory int
@@ -275,7 +272,7 @@ type DirectoryTreeOptions struct {
 	MaxNameLength          int
 }
 
-// DirectoryTreeCounters stores stats about files and directories created by CreateDirectoryTree
+// DirectoryTreeCounters stores stats about files and directories created by CreateDirectoryTree.
 type DirectoryTreeCounters struct {
 	Files         int
 	Directories   int
@@ -310,7 +307,7 @@ func MustCreateRandomFile(t *testing.T, filePath string, options DirectoryTreeOp
 	}
 }
 
-// CreateRandomFile creates a new file at the provided path with randomized contents
+// CreateRandomFile creates a new file at the provided path with randomized contents.
 func CreateRandomFile(filePath string, options DirectoryTreeOptions, counters *DirectoryTreeCounters) error {
 	if counters == nil {
 		counters = &DirectoryTreeCounters{}
@@ -321,7 +318,7 @@ func CreateRandomFile(filePath string, options DirectoryTreeOptions, counters *D
 
 // createDirectoryTreeInternal creates a directory tree of a given depth with random files.
 func createDirectoryTreeInternal(dirname string, options DirectoryTreeOptions, counters *DirectoryTreeCounters) error {
-	if err := os.MkdirAll(dirname, 0700); err != nil {
+	if err := os.MkdirAll(dirname, 0o700); err != nil {
 		return errors.Wrapf(err, "unable to create directory %v", dirname)
 	}
 
@@ -354,12 +351,13 @@ func createDirectoryTreeInternal(dirname string, options DirectoryTreeOptions, c
 
 	return nil
 }
+
 func createRandomFile(filename string, options DirectoryTreeOptions, counters *DirectoryTreeCounters) error {
 	f, err := os.Create(filename)
 	if err != nil {
 		return errors.Wrap(err, "unable to create random file")
 	}
-	defer f.Close() //nolint:errcheck
+	defer f.Close()
 
 	maxFileSize := int64(intOrDefault(options.MaxFileSize, 100000))
 
@@ -414,9 +412,9 @@ func randomName(opt DirectoryTreeOptions) string {
 	minNameLength := intOrDefault(opt.MinNameLength, 3)
 
 	l := rand.Intn(maxNameLength-minNameLength+1) + minNameLength
-	b := make([]byte, (l+1)/2) // nolint:gomnd
+	b := make([]byte, (l+1)/2)
 
-	cryptorand.Read(b) // nolint:errcheck
+	cryptorand.Read(b)
 
 	return hex.EncodeToString(b)[:l]
 }

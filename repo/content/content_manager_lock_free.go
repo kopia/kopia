@@ -21,7 +21,7 @@ import (
 
 const indexBlobCompactionWarningThreshold = 100
 
-// lockFreeManager contains parts of Manager state that can be accessed without locking
+// lockFreeManager contains parts of Manager state that can be accessed without locking.
 type lockFreeManager struct {
 	Stats *Stats
 
@@ -127,7 +127,7 @@ func (bm *lockFreeManager) loadPackIndexesUnlocked(ctx context.Context) ([]Index
 			return indexBlobs, updated, nil
 		}
 
-		if err != blob.ErrBlobNotFound {
+		if !errors.Is(err, blob.ErrBlobNotFound) {
 			return nil, false, err
 		}
 	}
@@ -367,7 +367,7 @@ func (bm *lockFreeManager) verifyChecksum(data, contentID []byte) error {
 }
 
 // CreateHashAndEncryptor returns new hashing and encrypting functions based on
-// the specified formatting options
+// the specified formatting options.
 func CreateHashAndEncryptor(f *FormattingOptions) (hashing.HashFunc, encryption.Encryptor, error) {
 	h, err := hashing.CreateHashFunc(f)
 	if err != nil {

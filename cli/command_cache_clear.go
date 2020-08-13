@@ -10,9 +10,7 @@ import (
 	"github.com/kopia/kopia/repo"
 )
 
-var (
-	cacheClearCommand = cacheCommands.Command("clear", "Clears the cache")
-)
+var cacheClearCommand = cacheCommands.Command("clear", "Clears the cache")
 
 func runCacheClearCommand(ctx context.Context, rep *repo.DirectRepository) error {
 	if d := rep.Content.CachingOptions.CacheDirectory; d != "" {
@@ -30,7 +28,7 @@ func runCacheClearCommand(ctx context.Context, rep *repo.DirectRepository) error
 			return err
 		}
 
-		if err := os.MkdirAll(d, 0700); err != nil {
+		if err := os.MkdirAll(d, 0o700); err != nil {
 			return err
 		}
 

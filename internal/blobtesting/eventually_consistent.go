@@ -121,7 +121,7 @@ func (s *eventuallyConsistentStorage) GetBlob(ctx context.Context, id blob.ID, o
 	// fetch from the underlying storage.
 	v, err := s.realStorage.GetBlob(ctx, id, offset, length)
 	if err != nil {
-		if err == blob.ErrBlobNotFound {
+		if errors.Is(err, blob.ErrBlobNotFound) {
 			c.put(id, nil)
 		}
 

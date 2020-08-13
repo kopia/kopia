@@ -72,7 +72,7 @@ func getAES256GCM(rep MaintainableRepository) (cipher.AEAD, error) {
 func GetSchedule(ctx context.Context, rep MaintainableRepository) (*Schedule, error) {
 	// read
 	v, err := rep.BlobStorage().GetBlob(ctx, maintenanceScheduleBlobID, 0, -1)
-	if err == blob.ErrBlobNotFound {
+	if errors.Is(err, blob.ErrBlobNotFound) {
 		return &Schedule{}, nil
 	}
 

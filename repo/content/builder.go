@@ -23,7 +23,7 @@ const (
 // packIndexBuilder prepares and writes content index.
 type packIndexBuilder map[ID]*Info
 
-// clone returns a deep clone of packIndexBuilder
+// clone returns a deep clone of packIndexBuilder.
 func (b packIndexBuilder) clone() packIndexBuilder {
 	if b == nil {
 		return nil

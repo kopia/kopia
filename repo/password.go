@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/pkg/errors"
 	"github.com/zalando/go-keyring"
 )
 
@@ -60,7 +61,7 @@ func persistPassword(ctx context.Context, configFile, password string) error {
 	fn := passwordFileName(configFile)
 	log(ctx).Debugf("Saving password to file %v.", fn)
 
-	return ioutil.WriteFile(fn, []byte(base64.StdEncoding.EncodeToString([]byte(password))), 0600)
+	return ioutil.WriteFile(fn, []byte(base64.StdEncoding.EncodeToString([]byte(password))), 0o600)
 }
 
 // deletePassword removes stored repository password.
@@ -70,7 +71,7 @@ func deletePassword(ctx context.Context, configFile string) {
 		err := keyring.Delete(getKeyringItemID(configFile), keyringUsername(ctx))
 		if err == nil {
 			log(ctx).Infof("deleted repository password for %v.", configFile)
-		} else if err != keyring.ErrNotFound {
+		} else if !errors.Is(err, keyring.ErrNotFound) {
 			log(ctx).Warningf("unable to delete keyring item %v: %v", getKeyringItemID(configFile), err)
 		}
 	}

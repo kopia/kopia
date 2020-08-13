@@ -20,7 +20,7 @@ var (
 	policySetTargets = policySetCommand.Arg("target", "Target of a policy ('global','user@host','@host') or a path").Strings()
 	policySetGlobal  = policySetCommand.Flag("global", "Set global policy").Bool()
 
-	// Frequency
+	// Frequency.
 	policySetInterval   = policySetCommand.Flag("snapshot-interval", "Interval between snapshots").DurationList()
 	policySetTimesOfDay = policySetCommand.Flag("snapshot-time", "Times of day when to take snapshot (HH:mm)").Strings()
 
@@ -84,7 +84,7 @@ func setPolicy(ctx context.Context, rep repo.Repository) error {
 		p, err := policy.GetDefinedPolicy(ctx, rep, target)
 
 		switch {
-		case err == policy.ErrPolicyNotFound:
+		case errors.Is(err, policy.ErrPolicyNotFound):
 			p = &policy.Policy{}
 		case err != nil:
 			return errors.Wrap(err, "could not get defined policy")

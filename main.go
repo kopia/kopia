@@ -12,14 +12,13 @@ package main
 import (
 	"os"
 
+	gologging "github.com/op/go-logging"
 	"gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/internal/logfile"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/logging"
-
-	gologging "github.com/op/go-logging"
 )
 
 const usageTemplate = `{{define "FormatCommand"}}\

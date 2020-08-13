@@ -231,11 +231,11 @@ func ConnectAPIServer(ctx context.Context, configFile string, si *APIServerInfo,
 		return err
 	}
 
-	if err = os.MkdirAll(filepath.Dir(configFile), 0700); err != nil {
+	if err = os.MkdirAll(filepath.Dir(configFile), 0o700); err != nil {
 		return errors.Wrap(err, "unable to create config directory")
 	}
 
-	if err = ioutil.WriteFile(configFile, d, 0600); err != nil {
+	if err = ioutil.WriteFile(configFile, d, 0o600); err != nil {
 		return errors.Wrap(err, "unable to write config file")
 	}
 

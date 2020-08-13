@@ -6,9 +6,7 @@ import (
 	"github.com/kopia/kopia/repo"
 )
 
-var (
-	disconnectCommand = repositoryCommands.Command("disconnect", "Disconnect from a repository.")
-)
+var disconnectCommand = repositoryCommands.Command("disconnect", "Disconnect from a repository.")
 
 func init() {
 	disconnectCommand.Action(noRepositoryAction(runDisconnectCommand))

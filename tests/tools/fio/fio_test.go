@@ -96,7 +96,7 @@ func TestFIODockerRunner(t *testing.T) {
 
 	// Unset FIO_EXE for duration of test
 	prevExeEnv := os.Getenv(FioExeEnvKey)
-	defer os.Setenv(FioExeEnvKey, prevExeEnv) //nolint:errcheck
+	defer os.Setenv(FioExeEnvKey, prevExeEnv)
 
 	err := os.Unsetenv(FioExeEnvKey)
 	testenv.AssertNoError(t, err)
@@ -104,7 +104,7 @@ func TestFIODockerRunner(t *testing.T) {
 	r, err := NewRunner()
 	testenv.AssertNoError(t, err)
 
-	defer r.Cleanup() //nolint:errcheck
+	defer r.Cleanup()
 
 	cfgs := []Config{
 		{

@@ -104,7 +104,7 @@ func (d *persistentOwnWritesCache) merge(ctx context.Context, prefix blob.ID, so
 
 	err := d.st.ListBlobs(ctx, prefix, func(md blob.Metadata) error {
 		b, err := d.st.GetBlob(ctx, md.BlobID, 0, -1)
-		if err == blob.ErrBlobNotFound {
+		if errors.Is(err, blob.ErrBlobNotFound) {
 			return nil
 		}
 
@@ -125,7 +125,7 @@ func (d *persistentOwnWritesCache) merge(ctx context.Context, prefix blob.ID, so
 		} else {
 			log(ctx).Debugf("deleting blob %v from own-write cache because it's too old: %v (%v)", md.BlobID, age, originalMD.Timestamp)
 
-			if err := d.st.DeleteBlob(ctx, md.BlobID); err != nil && err != blob.ErrBlobNotFound {
+			if err := d.st.DeleteBlob(ctx, md.BlobID); err != nil && !errors.Is(err, blob.ErrBlobNotFound) {
 				return errors.Wrap(err, "error deleting stale blob")
 			}
 		}
@@ -177,7 +177,7 @@ func newOwnWritesCache(ctx context.Context, caching *CachingOptions, timeNow fun
 
 	dirname := filepath.Join(caching.CacheDirectory, "own-writes")
 
-	if err := os.MkdirAll(dirname, 0700); err != nil {
+	if err := os.MkdirAll(dirname, 0o700); err != nil {
 		return nil, errors.Wrap(err, "unable to create own writes cache directory")
 	}
 
@@ -185,7 +185,6 @@ func newOwnWritesCache(ctx context.Context, caching *CachingOptions, timeNow fun
 		Path:            dirname,
 		DirectoryShards: []int{},
 	})
-
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create own writes cache storage")
 	}

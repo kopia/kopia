@@ -21,16 +21,16 @@ func (p parameters) GetMasterKey() []byte           { return p.masterKey }
 // nolint:gocyclo
 func TestRoundTrip(t *testing.T) {
 	data := make([]byte, 100)
-	rand.Read(data) //nolint:errcheck
+	rand.Read(data)
 
 	masterKey := make([]byte, 32)
-	rand.Read(masterKey) //nolint:errcheck
+	rand.Read(masterKey)
 
 	contentID1 := make([]byte, 16)
-	rand.Read(contentID1) //nolint:errcheck
+	rand.Read(contentID1)
 
 	contentID2 := make([]byte, 16)
-	rand.Read(contentID2) //nolint:errcheck
+	rand.Read(contentID2)
 
 	for _, encryptionAlgo := range encryption.SupportedAlgorithms(true) {
 		encryptionAlgo := encryptionAlgo
@@ -168,7 +168,8 @@ func TestCiphertextSamples(t *testing.T) {
 				"SALSA20":      "65ce12b14739aecbf9e6a9b9b9c4a72ffa8886fe0b071c0abdfb3d3e5c336b90f9af411ba69faf",
 				"SALSA20-HMAC": "a1dc47f250def4d97a422d505fb5e9a9a13699762cb32cfe7705982fa68ce71f54544ab932a1045fb0601087159954d563f0de0aaa15690d93ea63748bf91889e577daeeed5cf8",
 			},
-		}}
+		},
+	}
 
 	for _, tc := range cases {
 		verifyCiphertextSamples(t, tc.masterKey, tc.contentID, tc.payload, tc.samples)

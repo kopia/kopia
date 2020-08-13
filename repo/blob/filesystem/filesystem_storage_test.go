@@ -8,11 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kopia/kopia/repo/blob"
-
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/repo/blob"
 )
 
 func TestFileStorage(t *testing.T) {
@@ -106,7 +105,6 @@ func TestFileStorageConcurrency(t *testing.T) {
 	st, err := New(ctx, &Options{
 		Path: path,
 	})
-
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -6,14 +6,14 @@ package stats
 
 import "sync/atomic"
 
-// CountSum holds sum and count values
+// CountSum holds sum and count values.
 type CountSum struct {
 	sum   int64
 	count uint32
 }
 
 // Add adds size to s and returns approximate values for the current count
-// and total bytes
+// and total bytes.
 func (s *CountSum) Add(size int64) (count uint32, sum int64) {
 	return atomic.AddUint32(&s.count, 1), atomic.AddInt64(&s.sum, size)
 }

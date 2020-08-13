@@ -62,9 +62,9 @@ func TestSnapshotFail(t *testing.T) {
 					modifyEntry: dir0Path,
 					snapSource:  filepath.Join(dir0Path, "file1"),
 					expectSuccess: map[os.FileMode]bool{
-						0000: false, // --- permission: cannot read directory
-						0100: true,  // --X permission: can enter directory and take snapshot of the file (with full permissions)
-						0400: false, // R-- permission: can read the file name, but will be unable to snapshot it without entering directory
+						0o000: false, // --- permission: cannot read directory
+						0o100: true,  // --X permission: can enter directory and take snapshot of the file (with full permissions)
+						0o400: false, // R-- permission: can read the file name, but will be unable to snapshot it without entering directory
 					},
 				},
 				{
@@ -72,9 +72,9 @@ func TestSnapshotFail(t *testing.T) {
 					modifyEntry: dir0Path,
 					snapSource:  filepath.Join(dir0Path, "dir1"),
 					expectSuccess: map[os.FileMode]bool{
-						0000: false,
-						0100: true,
-						0400: false,
+						0o000: false,
+						0o100: true,
+						0o400: false,
 					},
 				},
 				{
@@ -82,9 +82,9 @@ func TestSnapshotFail(t *testing.T) {
 					modifyEntry: dir0Path,
 					snapSource:  filepath.Join(dir0Path, "emptyDir1"),
 					expectSuccess: map[os.FileMode]bool{
-						0000: false,
-						0100: true,
-						0400: false,
+						0o000: false,
+						0o100: true,
+						0o400: false,
 					},
 				},
 				{
@@ -92,9 +92,9 @@ func TestSnapshotFail(t *testing.T) {
 					modifyEntry: filepath.Join(dir0Path, "file1"),
 					snapSource:  filepath.Join(dir0Path, "file1"),
 					expectSuccess: map[os.FileMode]bool{
-						0000: false,
-						0100: false,
-						0400: true,
+						0o000: false,
+						0o100: false,
+						0o400: true,
 					},
 				},
 				{
@@ -102,9 +102,9 @@ func TestSnapshotFail(t *testing.T) {
 					modifyEntry: filepath.Join(dir0Path, "dir1"),
 					snapSource:  filepath.Join(dir0Path, "dir1"),
 					expectSuccess: map[os.FileMode]bool{
-						0000: false,
-						0100: false,
-						0400: false,
+						0o000: false,
+						0o100: false,
+						0o400: false,
 					},
 				},
 				{
@@ -112,9 +112,9 @@ func TestSnapshotFail(t *testing.T) {
 					modifyEntry: filepath.Join(dir0Path, "emptyDir1"),
 					snapSource:  filepath.Join(dir0Path, "emptyDir1"),
 					expectSuccess: map[os.FileMode]bool{
-						0000: false,
-						0100: false,
-						0400: true,
+						0o000: false,
+						0o100: false,
+						0o400: true,
 					},
 				},
 				{
@@ -122,9 +122,9 @@ func TestSnapshotFail(t *testing.T) {
 					modifyEntry: filepath.Join(dir0Path, "dir1", "file2"),
 					snapSource:  filepath.Join(dir0Path, "dir1"),
 					expectSuccess: map[os.FileMode]bool{
-						0000: ignoringFiles,
-						0100: ignoringFiles,
-						0400: true,
+						0o000: ignoringFiles,
+						0o100: ignoringFiles,
+						0o400: true,
 					},
 				},
 				{
@@ -132,9 +132,9 @@ func TestSnapshotFail(t *testing.T) {
 					modifyEntry: filepath.Join(dir0Path, "dir1", "dir2"),
 					snapSource:  filepath.Join(dir0Path, "dir1"),
 					expectSuccess: map[os.FileMode]bool{
-						0000: ignoringDirs,
-						0100: ignoringDirs,
-						0400: ignoringDirs,
+						0o000: ignoringDirs,
+						0o100: ignoringDirs,
+						0o400: ignoringDirs,
 					},
 				},
 				{
@@ -142,9 +142,9 @@ func TestSnapshotFail(t *testing.T) {
 					modifyEntry: filepath.Join(dir0Path, "dir1", "emptyDir2"),
 					snapSource:  filepath.Join(dir0Path, "dir1"),
 					expectSuccess: map[os.FileMode]bool{
-						0000: ignoringDirs,
-						0100: ignoringDirs,
-						0400: true,
+						0o000: ignoringDirs,
+						0o100: ignoringDirs,
+						0o400: true,
 					},
 				},
 				{
@@ -152,9 +152,9 @@ func TestSnapshotFail(t *testing.T) {
 					modifyEntry: filepath.Join(dir0Path, "dir1", "file2"),
 					snapSource:  dir0Path,
 					expectSuccess: map[os.FileMode]bool{
-						0000: ignoringFiles,
-						0100: ignoringFiles,
-						0400: true,
+						0o000: ignoringFiles,
+						0o100: ignoringFiles,
+						0o400: true,
 					},
 				},
 				{
@@ -162,9 +162,9 @@ func TestSnapshotFail(t *testing.T) {
 					modifyEntry: filepath.Join(dir0Path, "dir1", "dir2"),
 					snapSource:  dir0Path,
 					expectSuccess: map[os.FileMode]bool{
-						0000: ignoringDirs,
-						0100: ignoringDirs,
-						0400: ignoringDirs,
+						0o000: ignoringDirs,
+						0o100: ignoringDirs,
+						0o400: ignoringDirs,
 					},
 				},
 				{
@@ -172,9 +172,9 @@ func TestSnapshotFail(t *testing.T) {
 					modifyEntry: filepath.Join(dir0Path, "dir1", "emptyDir2"),
 					snapSource:  dir0Path,
 					expectSuccess: map[os.FileMode]bool{
-						0000: ignoringDirs,
-						0100: ignoringDirs,
-						0400: true,
+						0o000: ignoringDirs,
+						0o100: ignoringDirs,
+						0o400: true,
 					},
 				},
 			} {
@@ -215,16 +215,17 @@ func TestSnapshotFail(t *testing.T) {
 		}
 	}
 }
+
 func createSimplestFileTree(t *testing.T, dirDepth, currDepth int, currPath string) {
 	dirname := fmt.Sprintf("dir%d", currDepth)
 	dirPath := filepath.Join(currPath, dirname)
-	err := os.MkdirAll(dirPath, 0700)
+	err := os.MkdirAll(dirPath, 0o700)
 	testenv.AssertNoError(t, err)
 
 	// Put an empty directory in the new directory
 	emptyDirName := fmt.Sprintf("emptyDir%v", currDepth+1)
 	emptyDirPath := filepath.Join(dirPath, emptyDirName)
-	err = os.MkdirAll(emptyDirPath, 0700)
+	err = os.MkdirAll(emptyDirPath, 0o700)
 	testenv.AssertNoError(t, err)
 
 	// Put a file in the new directory
@@ -282,7 +283,7 @@ func testPermissions(e *testenv.CLITest, t *testing.T, source, modifyEntry, rest
 }
 
 func parseSnapID(t *testing.T, lines []string) string {
-	pattern := regexp.MustCompile(`Created snapshot with root [\S]+ and ID ([\S]+) in .*`)
+	pattern := regexp.MustCompile(`Created snapshot with root \S+ and ID (\S+) in .*`)
 
 	for _, l := range lines {
 		match := pattern.FindAllStringSubmatch(l, 1)

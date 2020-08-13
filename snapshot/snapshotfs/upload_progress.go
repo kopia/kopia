@@ -45,37 +45,37 @@ type UploadProgress interface {
 type NullUploadProgress struct {
 }
 
-// UploadStarted implements UploadProgress
+// UploadStarted implements UploadProgress.
 func (p *NullUploadProgress) UploadStarted(previousFileCount int, previousTotalSize int64) {}
 
-// UploadFinished implements UploadProgress
+// UploadFinished implements UploadProgress.
 func (p *NullUploadProgress) UploadFinished() {}
 
-// HashedBytes implements UploadProgress
+// HashedBytes implements UploadProgress.
 func (p *NullUploadProgress) HashedBytes(numBytes int64) {}
 
-// CachedFile implements UploadProgress
+// CachedFile implements UploadProgress.
 func (p *NullUploadProgress) CachedFile(fname string, numBytes int64) {}
 
-// UploadedBytes implements UploadProgress
+// UploadedBytes implements UploadProgress.
 func (p *NullUploadProgress) UploadedBytes(numBytes int64) {}
 
-// HashingFile implements UploadProgress
+// HashingFile implements UploadProgress.
 func (p *NullUploadProgress) HashingFile(fname string) {}
 
-// FinishedHashingFile implements UploadProgress
+// FinishedHashingFile implements UploadProgress.
 func (p *NullUploadProgress) FinishedHashingFile(fname string, numBytes int64) {}
 
-// StartedDirectory implements UploadProgress
+// StartedDirectory implements UploadProgress.
 func (p *NullUploadProgress) StartedDirectory(dirname string) {}
 
-// FinishedDirectory implements UploadProgress
+// FinishedDirectory implements UploadProgress.
 func (p *NullUploadProgress) FinishedDirectory(dirname string) {}
 
-// IgnoredError implements UploadProgress
+// IgnoredError implements UploadProgress.
 func (p *NullUploadProgress) IgnoredError(path string, err error) {}
 
-// Checkpoint implements UploadProgress
+// Checkpoint implements UploadProgress.
 func (p *NullUploadProgress) Checkpoint() {}
 
 var _ UploadProgress = (*NullUploadProgress)(nil)
@@ -105,29 +105,29 @@ type CountingUploadProgress struct {
 	counters UploadCounters
 }
 
-// UploadStarted implements UploadProgress
+// UploadStarted implements UploadProgress.
 func (p *CountingUploadProgress) UploadStarted(previousFileCount int, previousTotalFileSize int64) {
 	// reset counters to all-zero values.
 	p.counters = UploadCounters{}
 }
 
-// HashedBytes implements UploadProgress
+// HashedBytes implements UploadProgress.
 func (p *CountingUploadProgress) HashedBytes(numBytes int64) {
 	atomic.AddInt64(&p.counters.TotalHashedBytes, numBytes)
 }
 
-// CachedFile implements UploadProgress
+// CachedFile implements UploadProgress.
 func (p *CountingUploadProgress) CachedFile(fname string, numBytes int64) {
 	atomic.AddInt32(&p.counters.TotalCachedFiles, 1)
 	atomic.AddInt64(&p.counters.TotalCachedBytes, numBytes)
 }
 
-// FinishedHashingFile implements UploadProgress
+// FinishedHashingFile implements UploadProgress.
 func (p *CountingUploadProgress) FinishedHashingFile(fname string, numBytes int64) {
 	atomic.AddInt32(&p.counters.TotalHashedFiles, 1)
 }
 
-// IgnoredError implements UploadProgress
+// IgnoredError implements UploadProgress.
 func (p *CountingUploadProgress) IgnoredError(path string, err error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -137,7 +137,7 @@ func (p *CountingUploadProgress) IgnoredError(path string, err error) {
 	p.counters.LastError = err.Error()
 }
 
-// StartedDirectory implements UploadProgress
+// StartedDirectory implements UploadProgress.
 func (p *CountingUploadProgress) StartedDirectory(dirname string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()

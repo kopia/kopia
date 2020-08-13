@@ -6,7 +6,7 @@ import (
 	"github.com/kopia/kopia/internal/testutil"
 )
 
-// different ways a test can fail
+// different ways a test can fail.
 var cases = map[string]func(r *testutil.RetriableT){
 	"Fail":    func(r *testutil.RetriableT) { r.Fail() },
 	"FailNow": func(r *testutil.RetriableT) { r.FailNow() },

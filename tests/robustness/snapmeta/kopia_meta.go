@@ -12,7 +12,7 @@ import (
 var _ Persister = &kopiaMetadata{}
 
 // kopiaMetadata handles metadata persistency of a snapshot store, using a Kopia
-// repository as the persistency mechanism
+// repository as the persistency mechanism.
 type kopiaMetadata struct {
 	*Simple
 	localMetadataDir string
@@ -38,7 +38,7 @@ func New() (Persister, error) {
 	}, nil
 }
 
-// Cleanup cleans up the local temporary files used by a KopiaMetadata
+// Cleanup cleans up the local temporary files used by a KopiaMetadata.
 func (store *kopiaMetadata) Cleanup() {
 	if store.localMetadataDir != "" {
 		os.RemoveAll(store.localMetadataDir) //nolint:errcheck
@@ -50,13 +50,13 @@ func (store *kopiaMetadata) Cleanup() {
 }
 
 // ConnectOrCreateS3 implements the RepoManager interface, connects to a repo in an S3
-// bucket or attempts to create one if connection is unsuccessful
+// bucket or attempts to create one if connection is unsuccessful.
 func (store *kopiaMetadata) ConnectOrCreateS3(bucketName, pathPrefix string) error {
 	return store.snap.ConnectOrCreateS3(bucketName, pathPrefix)
 }
 
 // ConnectOrCreateFilesystem implements the RepoManager interface, connects to a repo in the filesystem
-// or attempts to create one if connection is unsuccessful
+// or attempts to create one if connection is unsuccessful.
 func (store *kopiaMetadata) ConnectOrCreateFilesystem(path string) error {
 	return store.snap.ConnectOrCreateFilesystem(path)
 }

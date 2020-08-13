@@ -150,7 +150,8 @@ func (v *verifier) doVerifyObject(ctx context.Context, oid object.ID, path strin
 		v.reportError(ctx, path, errors.Wrapf(err, "error verifying %v", oid))
 	}
 
-	if rand.Intn(100) < *verifyCommandFilesPercent { //nolint:gomnd
+	//nolint:gomnd,gosec
+	if rand.Intn(100) < *verifyCommandFilesPercent {
 		if err := v.readEntireObject(ctx, oid, path); err != nil {
 			v.reportError(ctx, path, errors.Wrapf(err, "error reading object %v", oid))
 		}

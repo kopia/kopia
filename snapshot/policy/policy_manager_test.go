@@ -338,16 +338,20 @@ func TestApplicablePoliciesForSource(t *testing.T) {
 		wantPaths []string
 	}{
 		{snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/tmp"}, []string{"."}},
-		{snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/home/users/myuser"},
+		{
+			snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/home/users/myuser"},
 			[]string{".", "./dir1", "./dir2", "./dir2/a"},
 		},
-		{snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/home/users/myuser2"},
+		{
+			snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/home/users/myuser2"},
 			[]string{"."},
 		},
-		{snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/home/users/user-with\\backslash"},
+		{
+			snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/home/users/user-with\\backslash"},
 			[]string{".", "./x"},
 		},
-		{snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/home"},
+		{
+			snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/home"},
 			[]string{
 				".",
 				"./users",
@@ -360,7 +364,8 @@ func TestApplicablePoliciesForSource(t *testing.T) {
 				`./users/user-with\backslash/x`,
 			},
 		},
-		{snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/"},
+		{
+			snapshot.SourceInfo{Host: "host-a", UserName: "myuser", Path: "/"},
 			[]string{
 				".",
 				"./home",
@@ -376,10 +381,12 @@ func TestApplicablePoliciesForSource(t *testing.T) {
 		},
 
 		{snapshot.SourceInfo{Host: "host-b", UserName: "myuser", Path: "C:\\Temp"}, []string{"."}},
-		{snapshot.SourceInfo{Host: "host-b", UserName: "myuser", Path: "C:\\Users\\myuser"},
+		{
+			snapshot.SourceInfo{Host: "host-b", UserName: "myuser", Path: "C:\\Users\\myuser"},
 			[]string{".", "./dir1", "./dir2", "./dir2/a"},
 		},
-		{snapshot.SourceInfo{Host: "host-b", UserName: "myuser", Path: "C:\\"},
+		{
+			snapshot.SourceInfo{Host: "host-b", UserName: "myuser", Path: "C:\\"},
 			[]string{
 				".",
 				"./Users",

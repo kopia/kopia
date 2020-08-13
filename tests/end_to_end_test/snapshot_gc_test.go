@@ -21,11 +21,11 @@ func TestSnapshotGC(t *testing.T) {
 	expectedContentCount := len(e.RunAndExpectSuccess(t, "content", "list"))
 
 	dataDir := makeScratchDir(t)
-	testenv.AssertNoError(t, os.MkdirAll(dataDir, 0777))
+	testenv.AssertNoError(t, os.MkdirAll(dataDir, 0o777))
 	testenv.AssertNoError(t, ioutil.WriteFile(filepath.Join(dataDir, "some-file1"), []byte(`
 hello world
 how are you
-`), 0600))
+`), 0o600))
 
 	// take a snapshot of a directory with 1 file
 	e.RunAndExpectSuccess(t, "snap", "create", dataDir)

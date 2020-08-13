@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// Job represents the configuration for running a FIO job
+// Job represents the configuration for running a FIO job.
 type Job struct {
 	Name    string
 	Options Options

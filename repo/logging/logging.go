@@ -8,7 +8,7 @@ import (
 // defaultLoggerForModuleFunc is a logger to use when context-specific logger is not set.
 var defaultLoggerForModuleFunc = getNullLogger
 
-// LoggerForModuleFunc retrieves logger for a given module
+// LoggerForModuleFunc retrieves logger for a given module.
 type LoggerForModuleFunc func(module string) Logger
 
 // SetDefault sets the logger to use when context-specific logger is not set.
