@@ -45,23 +45,43 @@ func NewWalkCompare() *WalkCompare {
 // Gather meets the checker.Comparer interface. It performs a fswalker Walk
 // and returns the resulting Walk as a protobuf Marshaled buffer.
 func (chk *WalkCompare) Gather(ctx context.Context, path string) ([]byte, error) {
+	walkData, err := performWalk(ctx, path)
+	if err != nil {
+		return nil, errors.Wrap(err, "walk with hashing error during gather phase")
+	}
+
+	// Store the walk data along with the snapshot ID
+	b, err := proto.Marshal(walkData)
+
+	return b, errors.Wrap(err, "walk data proto marshal error")
+}
+
+func performWalk(ctx context.Context, path string) (*fspb.Walk, error) {
 	walkData, err := walker.WalkPathHash(ctx, path)
 	if err != nil {
 		return nil, errors.Wrap(err, "walk with hashing error during gather phase")
 	}
 
-	err = rerootWalkDataPaths(walkData, path)
-	if err != nil {
-		return nil, errors.Wrap(err, "reroot walk paths error during gather phase")
-	}
+	err = processWalk(walkData, path)
 
-	// Store the walk data along with the snapshot ID
-	b, err := proto.Marshal(walkData)
-	if err != nil {
-		return nil, errors.Wrap(err, "walk data proto marshal error")
-	}
+	return walkData, errors.Wrap(err, "error during gather phase")
+}
 
-	return b, nil
+func processWalk(walk *fspb.Walk, path string) error {
+	// Hostname is cleared to allow reporting on walks done across
+	// different hosts.
+	clearHostname(walk)
+
+	// Walk paths are rerooted to be relative to the root directory
+	// so child entries of /source/rootDir/... won't be different than
+	// child entries of /target/rootDir/...
+	err := rerootWalkDataPaths(walk, path)
+
+	return errors.Wrap(err, "reroot walk paths error")
+}
+
+func clearHostname(walk *fspb.Walk) {
+	walk.Hostname = ""
 }
 
 // Compare meets the checker.Comparer interface. It performs a fswalker Walk
@@ -77,14 +97,11 @@ func (chk *WalkCompare) Compare(ctx context.Context, path string, data []byte, r
 		return errors.Wrap(err, "walk data unmarshal error")
 	}
 
-	afterWalk, err := walker.WalkPathHash(ctx, path)
+	clearHostname(beforeWalk)
+
+	afterWalk, err := performWalk(ctx, path)
 	if err != nil {
 		return errors.Wrap(err, "walk with hashing error during compare phase")
-	}
-
-	err = rerootWalkDataPaths(afterWalk, path)
-	if err != nil {
-		return errors.Wrap(err, "reroot walk paths error during compare phase")
 	}
 
 	report, err := reporter.Report(ctx, &fspb.ReportConfig{}, beforeWalk, afterWalk)
@@ -97,6 +114,11 @@ func (chk *WalkCompare) Compare(ctx context.Context, path string, data []byte, r
 	err = validateReport(report)
 	if err != nil && reportOut != nil {
 		printReportSummary(report, reportOut)
+
+		// Don't spew these fields. They can be enormous and
+		// are probably redundant
+		report.WalkBefore = nil
+		report.WalkAfter = nil
 
 		b, marshalErr := json.MarshalIndent(report, "", "   ")
 		if marshalErr != nil {
@@ -115,7 +137,7 @@ func (chk *WalkCompare) Compare(ctx context.Context, path string, data []byte, r
 		return errors.Wrap(err, "validation error")
 	}
 
-	return nil
+	return err
 }
 
 func printReportSummary(report *fswalker.Report, reportOut io.Writer) {
