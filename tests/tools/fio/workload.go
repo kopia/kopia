@@ -68,7 +68,7 @@ func (fr *Runner) WriteFilesAtDepthRandomBranch(relBasePath string, depth int, o
 		return errors.Wrapf(err, "unable to make base dir %v for writing at depth with a branch", fullBasePath)
 	}
 
-	return fr.writeFilesAtDepth(fullBasePath, depth, rand.Intn(depth+1), opt)
+	return fr.writeFilesAtDepth(fullBasePath, depth, rand.Intn(depth+1), opt) // nolint:gosec
 }
 
 // DeleteRelDir deletes a relative directory in the runner's data directory.
@@ -76,7 +76,7 @@ func (fr *Runner) DeleteRelDir(relDirPath string) error {
 	return os.RemoveAll(filepath.Join(fr.LocalDataDir, relDirPath))
 }
 
-// DeleteDirAtDepth deletes a random directory at the given depth
+// DeleteDirAtDepth deletes a random directory at the given depth.
 func (fr *Runner) DeleteDirAtDepth(relBasePath string, depth int) error {
 	if depth == 0 {
 		return ErrCanNotDeleteRoot
@@ -88,7 +88,7 @@ func (fr *Runner) DeleteDirAtDepth(relBasePath string, depth int) error {
 }
 
 // DeleteContentsAtDepth deletes some or all of the contents of a directory
-// at the provided depths
+// at the provided depths.
 func (fr *Runner) DeleteContentsAtDepth(relBasePath string, depth, pcnt int) error {
 	fullBasePath := filepath.Join(fr.LocalDataDir, relBasePath)
 
@@ -100,7 +100,7 @@ func (fr *Runner) DeleteContentsAtDepth(relBasePath string, depth, pcnt int) err
 
 		for _, fi := range fileInfoList {
 			const hundred = 100
-			if rand.Intn(hundred) < pcnt {
+			if rand.Intn(hundred) < pcnt { // nolint:gosec
 				path := filepath.Join(dirPath, fi.Name())
 				err = os.RemoveAll(path)
 				if err != nil {
@@ -113,7 +113,7 @@ func (fr *Runner) DeleteContentsAtDepth(relBasePath string, depth, pcnt int) err
 	})
 }
 
-// List of known errors
+// List of known errors.
 var (
 	ErrNoDirFound       = errors.New("no directory found at this depth")
 	ErrCanNotDeleteRoot = errors.New("can not delete root directory")
@@ -144,7 +144,7 @@ func (fr *Runner) operateAtDepth(path string, depth int, f func(string) error) e
 
 	for _, dirName := range dirList {
 		err = fr.operateAtDepth(dirName, depth-1, f)
-		if err != ErrNoDirFound {
+		if errors.Is(err, ErrNoDirFound) {
 			return err
 		}
 	}
@@ -190,7 +190,7 @@ func pickRandSubdirPath(dirPath string) (subdirPath string) {
 
 			// Decide if this directory will be selected - probability of
 			// being selected is uniform across all subdirs
-			if rand.Intn(subdirCount) == 0 {
+			if rand.Intn(subdirCount) == 0 { // nolint:gosec
 				subdirPath = filepath.Join(dirPath, fi.Name())
 			}
 		}
