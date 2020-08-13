@@ -2,7 +2,7 @@ package fio
 
 import "strings"
 
-// Config structures the fields of a FIO job run configuration
+// Config structures the fields of a FIO job run configuration.
 type Config []Job
 
 // String implements the stringer interface, formats the Config

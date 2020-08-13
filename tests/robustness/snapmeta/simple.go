@@ -13,14 +13,14 @@ type Simple struct {
 }
 
 // NewSimple instantiates a new Simple snapstore and
-// returns its pointer
+// returns its pointer.
 func NewSimple() *Simple {
 	return &Simple{
 		m: make(map[string][]byte),
 	}
 }
 
-// Store implements the Storer interface Store method
+// Store implements the Storer interface Store method.
 func (s *Simple) Store(key string, val []byte) error {
 	buf := make([]byte, len(val))
 	_ = copy(buf, val)
@@ -33,7 +33,7 @@ func (s *Simple) Store(key string, val []byte) error {
 	return nil
 }
 
-// Load implements the Storer interface Load method
+// Load implements the Storer interface Load method.
 func (s *Simple) Load(key string) ([]byte, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -48,7 +48,7 @@ func (s *Simple) Load(key string) ([]byte, error) {
 	return nil, nil
 }
 
-// Delete implements the Storer interface Delete method
+// Delete implements the Storer interface Delete method.
 func (s *Simple) Delete(key string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -56,7 +56,7 @@ func (s *Simple) Delete(key string) {
 	delete(s.m, key)
 }
 
-// GetKeys implements the Storer interface GetKeys method
+// GetKeys implements the Storer interface GetKeys method.
 func (s *Simple) GetKeys() []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()

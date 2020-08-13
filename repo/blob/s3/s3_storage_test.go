@@ -30,24 +30,24 @@ const (
 	// https://github.com/minio/minio-go
 	minioEndpoint        = "play.minio.io:9000"
 	minioHost            = "play.minio.io"
-	minioAccessKeyID     = "Q3AM3UQ867SPQQA43P2F"                     //nolint:gosec
-	minioSecretAccessKey = "zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG" //nolint:gosec
+	minioAccessKeyID     = "Q3AM3UQ867SPQQA43P2F"
+	minioSecretAccessKey = "zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG"
 	minioUseSSL          = true
 	minioRegion          = "us-east-1"
 
-	// default aws S3 endpoint
+	// default aws S3 endpoint.
 	awsEndpoint = "s3.amazonaws.com"
 
-	// the test takes a few seconds, delete stuff older than 1h to avoid accumulating cruft
+	// the test takes a few seconds, delete stuff older than 1h to avoid accumulating cruft.
 	cleanupAge = 1 * time.Hour
 
-	// env vars need to be set to execute TestS3StorageAWS
+	// env vars need to be set to execute TestS3StorageAWS.
 	testEndpointEnv        = "KOPIA_S3_TEST_ENDPOINT"
 	testAccessKeyIDEnv     = "KOPIA_S3_TEST_ACCESS_KEY_ID"
 	testSecretAccessKeyEnv = "KOPIA_S3_TEST_SECRET_ACCESS_KEY"
 	testBucketEnv          = "KOPIA_S3_TEST_BUCKET"
 	testRegionEnv          = "KOPIA_S3_TEST_REGION"
-	// additional env vars need to be set to execute TestS3StorageAWSSTS
+	// additional env vars need to be set to execute TestS3StorageAWSSTS.
 	testSTSAccessKeyIDEnv     = "KOPIA_S3_TEST_STS_ACCESS_KEY_ID"
 	testSTSSecretAccessKeyEnv = "KOPIA_S3_TEST_STS_SECRET_ACCESS_KEY"
 	testSessionTokenEnv       = "KOPIA_S3_TEST_SESSION_TOKEN"
@@ -223,7 +223,7 @@ func testStorage(t *testutil.RetriableT, options *Options) {
 	ctx := context.Background()
 
 	data := make([]byte, 8)
-	rand.Read(data) //nolint:errcheck
+	rand.Read(data)
 
 	cleanupOldData(ctx, t, options)
 
@@ -255,8 +255,8 @@ func TestCustomTransportNoSSLVerify(t *testing.T) {
 
 func getURL(url string, insecureSkipVerify bool) error {
 	client := &http.Client{Transport: getCustomTransport(insecureSkipVerify)}
-	resp, err := client.Get(url)
 
+	resp, err := client.Get(url) // nolint:noctx
 	if err != nil {
 		return err
 	}

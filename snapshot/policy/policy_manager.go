@@ -181,7 +181,7 @@ func ListPolicies(ctx context.Context, rep repo.Repository) ([]*Policy, error) {
 	return policies, nil
 }
 
-// SubdirectoryPolicyMap implements Getter for a static mapping of relative paths to Policy for subdirectories
+// SubdirectoryPolicyMap implements Getter for a static mapping of relative paths to Policy for subdirectories.
 type SubdirectoryPolicyMap map[string]*Policy
 
 // GetPolicyForPath returns Policy defined in the map or nil.
@@ -316,7 +316,7 @@ func getParentPathOSIndependent(p string) string {
 	return vol + pth[0:last]
 }
 
-// volumeAndPath splits path 'p' into Windows-specific volume (e.g. "X:" and path after that starting with either slash or backslash)
+// volumeAndPath splits path 'p' into Windows-specific volume (e.g. "X:" and path after that starting with either slash or backslash).
 func volumeAndPath(p string) (vol, path string) {
 	if len(p) >= 3 && p[1] == ':' && isSlashOrBackslash(p[2]) {
 		// "X:\"

@@ -9,9 +9,7 @@ import (
 	"github.com/kopia/kopia/internal/testlogging"
 )
 
-var (
-	errRetriable = errors.New("retriable")
-)
+var errRetriable = errors.New("retriable")
 
 func isRetriable(e error) bool {
 	return e == errRetriable

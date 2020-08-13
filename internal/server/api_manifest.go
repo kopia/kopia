@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -21,7 +22,7 @@ func (s *Server) handleManifestGet(ctx context.Context, r *http.Request) (interf
 	var data json.RawMessage
 
 	md, err := s.rep.GetManifest(ctx, mid, &data)
-	if err == manifest.ErrNotFound {
+	if errors.Is(err, manifest.ErrNotFound) {
 		return nil, notFoundError("manifest not found")
 	}
 
@@ -43,7 +44,7 @@ func (s *Server) handleManifestDelete(ctx context.Context, r *http.Request) (int
 	mid := manifest.ID(mux.Vars(r)["manifestID"])
 
 	err := s.rep.DeleteManifest(ctx, mid)
-	if err == manifest.ErrNotFound {
+	if errors.Is(err, manifest.ErrNotFound) {
 		return nil, notFoundError("manifest not found")
 	}
 
@@ -53,6 +54,7 @@ func (s *Server) handleManifestDelete(ctx context.Context, r *http.Request) (int
 
 	return &serverapi.Empty{}, nil
 }
+
 func (s *Server) handleManifestList(ctx context.Context, r *http.Request) (interface{}, *apiError) {
 	// password already validated by a wrapper, no need to check here.
 	userAtHost, _, _ := r.BasicAuth()

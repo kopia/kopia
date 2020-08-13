@@ -51,8 +51,8 @@ func findInUseContentIDs(ctx context.Context, rep repo.Repository, used *sync.Ma
 
 	w.ObjectCallback = func(entry fs.Entry) error {
 		oid := oidOf(entry)
-		contentIDs, err := rep.VerifyObject(ctx, oid)
 
+		contentIDs, err := rep.VerifyObject(ctx, oid)
 		if err != nil {
 			return errors.Wrapf(err, "error verifying %v", oid)
 		}

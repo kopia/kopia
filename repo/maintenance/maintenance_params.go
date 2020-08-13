@@ -113,7 +113,6 @@ func SetParams(ctx context.Context, rep MaintainableRepository, par *Params) err
 
 func manifestIDs(ctx context.Context, rep MaintainableRepository) ([]*manifest.EntryMetadata, error) {
 	md, err := rep.FindManifests(ctx, manifestLabels)
-
 	if err != nil {
 		return nil, errors.Wrap(err, "error looking for maintenance manifest")
 	}

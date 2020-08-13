@@ -27,7 +27,7 @@ var (
 	ByName     = map[Name]Compressor{}
 )
 
-// RegisterCompressor registers the provided compressor implementation
+// RegisterCompressor registers the provided compressor implementation.
 func RegisterCompressor(name Name, c Compressor) {
 	if ByHeaderID[c.HeaderID()] != nil {
 		panic(fmt.Sprintf("compressor with HeaderID %x already registered", c.HeaderID()))
@@ -48,7 +48,7 @@ func compressionHeader(id HeaderID) []byte {
 	return b
 }
 
-// IDFromHeader retrieves compression ID from content header
+// IDFromHeader retrieves compression ID from content header.
 func IDFromHeader(b []byte) (HeaderID, error) {
 	if len(b) < compressionHeaderSize {
 		return 0, errors.Errorf("invalid size: %v", len(b))

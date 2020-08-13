@@ -64,8 +64,8 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 
 	b := make([]byte, 100)
 	writer := env.Repository.NewObjectWriter(ctx, object.WriterOptions{})
-	writer.Write(b[0:50]) //nolint:errcheck
-	writer.Write(b[0:50]) //nolint:errcheck
+	writer.Write(b[0:50])
+	writer.Write(b[0:50])
 	result, err := writer.Result()
 
 	if result != "1d804f1f69df08f3f59070bf962de69433e3d61ac18522a805a84d8c92741340" {
@@ -155,7 +155,7 @@ func TestHMAC(t *testing.T) {
 	c := bytes.Repeat([]byte{0xcd}, 50)
 
 	w := env.Repository.NewObjectWriter(ctx, object.WriterOptions{})
-	w.Write(c) //nolint:errcheck
+	w.Write(c)
 	result, err := w.Result()
 
 	if result.String() != "367352007ee6ca9fa755ce8352347d092c17a24077fd33c62f655574a8cf906d" {
@@ -218,7 +218,6 @@ func verify(ctx context.Context, t *testing.T, rep repo.Repository, objectID obj
 		return
 	}
 
-	// nolint:dupl
 	for i := 0; i < 20; i++ {
 		sampleSize := int(rand.Int31n(300))
 		seekOffset := int(rand.Int31n(int32(len(expectedData))))
@@ -291,7 +290,7 @@ func TestFormats(t *testing.T) {
 		for k, v := range c.oids {
 			bytesToWrite := []byte(k)
 			w := env.Repository.NewObjectWriter(ctx, object.WriterOptions{})
-			w.Write(bytesToWrite) //nolint:errcheck
+			w.Write(bytesToWrite)
 
 			oid, err := w.Result()
 			if err != nil {

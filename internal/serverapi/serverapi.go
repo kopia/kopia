@@ -93,7 +93,7 @@ type MultipleSourceActionResponse struct {
 	Sources map[string]SourceActionResponse `json:"sources"`
 }
 
-// CreateRepositoryRequest contains request to create a repository in a given storage
+// CreateRepositoryRequest contains request to create a repository in a given storage.
 type CreateRepositoryRequest struct {
 	ConnectRepositoryRequest
 	NewRepositoryOptions repo.NewRepositoryOptions `json:"options"`

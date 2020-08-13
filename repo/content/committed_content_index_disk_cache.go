@@ -111,7 +111,7 @@ func writeTempFileAtomic(dirname string, data []byte) (string, error) {
 	tf, err := ioutil.TempFile(dirname, "tmp")
 	if err != nil {
 		if os.IsNotExist(err) {
-			os.MkdirAll(dirname, 0700) //nolint:errcheck
+			os.MkdirAll(dirname, 0o700) //nolint:errcheck
 			tf, err = ioutil.TempFile(dirname, "tmp")
 		}
 	}

@@ -60,7 +60,6 @@ func runContentVerifyCommand(ctx context.Context, rep *repo.DirectRepository) er
 
 		return nil
 	})
-
 	if err != nil {
 		return errors.Wrap(err, "iterate contents")
 	}

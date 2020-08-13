@@ -41,7 +41,7 @@ func (f *fakeContentManager) GetContent(ctx context.Context, contentID content.I
 
 func (f *fakeContentManager) WriteContent(ctx context.Context, data []byte, prefix content.ID) (content.ID, error) {
 	h := sha256.New()
-	h.Write(data) //nolint:errcheck
+	h.Write(data)
 	contentID := prefix + content.ID(hex.EncodeToString(h.Sum(nil)))
 
 	f.mu.Lock()
@@ -137,8 +137,8 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 
 	b := make([]byte, 100)
 	writer := om.NewWriter(ctx, WriterOptions{})
-	writer.Write(b[0:50]) //nolint:errcheck
-	writer.Write(b[0:50]) //nolint:errcheck
+	writer.Write(b[0:50])
+	writer.Write(b[0:50])
 	result, err := writer.Result()
 
 	if !objectIDsEqual(result, "cd00e292c5970d3c5e2f0ffa5171e555bc46bfc4faddfb4a418b6840b86e79a3") {
@@ -244,7 +244,7 @@ func TestHMAC(t *testing.T) {
 	_, om := setupTest(t)
 
 	w := om.NewWriter(ctx, WriterOptions{})
-	w.Write(c) //nolint:errcheck
+	w.Write(c)
 	result, err := w.Result()
 
 	if result.String() != "cad29ff89951a3c085c86cb7ed22b82b51f7bdfda24f932c7f9601f51d5975ba" {
@@ -320,7 +320,7 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 			for _, size := range []int{1, 199, 200, 201, 9999, 512434, 5012434} {
 				// Create some random data sample of the specified size.
 				randomData := make([]byte, size)
-				cryptorand.Read(randomData) //nolint:errcheck
+				cryptorand.Read(randomData)
 
 				writer := om.NewWriter(ctx, WriterOptions{AsyncWrites: asyncWrites})
 				if _, err := writer.Write(randomData); err != nil {
@@ -431,7 +431,6 @@ func verify(ctx context.Context, t *testing.T, om *Manager, objectID ID, expecte
 		return
 	}
 
-	// nolint:dupl
 	for i := 0; i < 20; i++ {
 		sampleSize := int(rand.Int31n(300))
 		seekOffset := int(rand.Int31n(int32(len(expectedData))))
@@ -467,7 +466,7 @@ func TestSeek(t *testing.T) {
 
 	for _, size := range []int{0, 1, 500000, 15000000} {
 		randomData := make([]byte, size)
-		cryptorand.Read(randomData) //nolint:errcheck
+		cryptorand.Read(randomData)
 
 		writer := om.NewWriter(ctx, WriterOptions{})
 		if _, err := writer.Write(randomData); err != nil {

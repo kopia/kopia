@@ -235,34 +235,35 @@ func (om *Manager) flattenListChunk(rawReader io.Reader) ([]indirectObjectEntry,
 }
 
 func (om *Manager) newRawReader(ctx context.Context, objectID ID, assertLength int64) (Reader, error) {
-	if contentID, compressed, ok := objectID.ContentID(); ok {
-		payload, err := om.contentMgr.GetContent(ctx, contentID)
-		if err == content.ErrContentNotFound {
-			return nil, ErrObjectNotFound
-		}
-
-		if err != nil {
-			return nil, errors.Wrap(err, "unexpected content error")
-		}
-
-		if compressed {
-			var b bytes.Buffer
-
-			if err = om.decompress(&b, payload); err != nil {
-				return nil, errors.Wrap(err, "decompression error")
-			}
-
-			payload = b.Bytes()
-		}
-
-		if assertLength != -1 && int64(len(payload)) != assertLength {
-			return nil, errors.Wrapf(err, "unexpected chunk length %v, expected %v", len(payload), assertLength)
-		}
-
-		return newObjectReaderWithData(payload), nil
+	contentID, compressed, ok := objectID.ContentID()
+	if !ok {
+		return nil, errors.Errorf("unsupported object ID: %v", objectID)
 	}
 
-	return nil, errors.Errorf("unsupported object ID: %v", objectID)
+	payload, err := om.contentMgr.GetContent(ctx, contentID)
+	if errors.Is(err, content.ErrContentNotFound) {
+		return nil, ErrObjectNotFound
+	}
+
+	if err != nil {
+		return nil, errors.Wrap(err, "unexpected content error")
+	}
+
+	if compressed {
+		var b bytes.Buffer
+
+		if err = om.decompress(&b, payload); err != nil {
+			return nil, errors.Wrap(err, "decompression error")
+		}
+
+		payload = b.Bytes()
+	}
+
+	if assertLength != -1 && int64(len(payload)) != assertLength {
+		return nil, errors.Wrapf(err, "unexpected chunk length %v, expected %v", len(payload), assertLength)
+	}
+
+	return newObjectReaderWithData(payload), nil
 }
 
 func (om *Manager) decompress(output *bytes.Buffer, b []byte) error {

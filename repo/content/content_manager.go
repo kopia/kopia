@@ -26,7 +26,7 @@ var (
 	formatLog = logging.GetContextLoggerFunc("kopia/content/format")
 )
 
-// Prefixes for pack blobs
+// Prefixes for pack blobs.
 const (
 	PackBlobIDPrefixRegular blob.ID = "p"
 	PackBlobIDPrefixSpecial blob.ID = "q"
@@ -509,6 +509,7 @@ func (bm *Manager) getOrCreatePendingPackInfoLocked(prefix blob.ID) (*pendingPac
 
 		b.Append(bm.repositoryFormatBytes)
 
+		// nolint:gosec
 		if err := writeRandomBytesToBuffer(b, rand.Intn(bm.maxPreambleLength-bm.minPreambleLength+1)+bm.minPreambleLength); err != nil {
 			return nil, errors.Wrap(err, "unable to prepare content preamble")
 		}
@@ -667,7 +668,7 @@ func (bm *Manager) DecryptBlob(ctx context.Context, blobID blob.ID) ([]byte, err
 	return bm.indexBlobManager.getIndexBlob(ctx, blobID)
 }
 
-// ManagerOptions are the optional parameters for manager creation
+// ManagerOptions are the optional parameters for manager creation.
 type ManagerOptions struct {
 	RepositoryFormatBytes []byte
 	TimeNow               func() time.Time // Time provider

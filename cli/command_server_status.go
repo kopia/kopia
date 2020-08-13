@@ -8,9 +8,7 @@ import (
 	"github.com/kopia/kopia/internal/serverapi"
 )
 
-var (
-	serverStatusCommand = serverCommands.Command("status", "Status of Kopia server")
-)
+var serverStatusCommand = serverCommands.Command("status", "Status of Kopia server")
 
 func init() {
 	serverStatusCommand.Action(serverAction(runServerStatus))

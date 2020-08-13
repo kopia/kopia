@@ -60,7 +60,7 @@ const DefaultAlgorithm = "AES256-GCM-HMAC-SHA256"
 const DeprecatedNoneAlgorithm = "NONE"
 
 // SupportedAlgorithms returns the names of the supported encryption
-// methods
+// methods.
 func SupportedAlgorithms(includeDeprecated bool) []string {
 	var result []string
 

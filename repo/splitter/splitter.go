@@ -31,22 +31,22 @@ func SupportedAlgorithms() []string {
 	return supportedSplitters
 }
 
-// Factory creates instances of Splitter
+// Factory creates instances of Splitter.
 type Factory func() Splitter
 
 // splitterFactories is a map of registered splitter factories.
 var splitterFactories = map[string]Factory{
-	"FIXED-1M": Fixed(megabytes(1)), //nolint:gomnd
+	"FIXED-1M": Fixed(megabytes(1)),
 	"FIXED-2M": Fixed(megabytes(2)), //nolint:gomnd
 	"FIXED-4M": Fixed(megabytes(4)), //nolint:gomnd
 	"FIXED-8M": Fixed(megabytes(8)), //nolint:gomnd
 
-	"DYNAMIC-1M-BUZHASH": newBuzHash32SplitterFactory(megabytes(1)), //nolint:gomnd
+	"DYNAMIC-1M-BUZHASH": newBuzHash32SplitterFactory(megabytes(1)),
 	"DYNAMIC-2M-BUZHASH": newBuzHash32SplitterFactory(megabytes(2)), //nolint:gomnd
 	"DYNAMIC-4M-BUZHASH": newBuzHash32SplitterFactory(megabytes(4)), //nolint:gomnd
 	"DYNAMIC-8M-BUZHASH": newBuzHash32SplitterFactory(megabytes(8)), //nolint:gomnd
 
-	"DYNAMIC-1M-RABINKARP": newRabinKarp64SplitterFactory(megabytes(1)), //nolint:gomnd
+	"DYNAMIC-1M-RABINKARP": newRabinKarp64SplitterFactory(megabytes(1)),
 	"DYNAMIC-2M-RABINKARP": newRabinKarp64SplitterFactory(megabytes(2)), //nolint:gomnd
 	"DYNAMIC-4M-RABINKARP": newRabinKarp64SplitterFactory(megabytes(4)), //nolint:gomnd
 	"DYNAMIC-8M-RABINKARP": newRabinKarp64SplitterFactory(megabytes(8)), //nolint:gomnd

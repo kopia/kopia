@@ -3,11 +3,12 @@ package blobtesting
 import (
 	"bytes"
 	"context"
-	"errors"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo/blob"
 )
@@ -35,12 +36,12 @@ func (s *mapStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int
 		}
 
 		if int(offset) > len(data) || offset < 0 {
-			return nil, errors.New("invalid offset")
+			return nil, errors.Errorf("invalid offset: %v", offset)
 		}
 
 		data = data[offset:]
 		if int(length) > len(data) {
-			return nil, errors.New("invalid length")
+			return nil, errors.Errorf("invalid length: %v", length)
 		}
 
 		return data[0:length], nil
@@ -73,7 +74,7 @@ func (s *mapStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes) e
 
 	var b bytes.Buffer
 
-	data.WriteTo(&b) //nolint:errcheck
+	data.WriteTo(&b)
 
 	s.data[id] = b.Bytes()
 

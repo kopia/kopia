@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"time"
 
+	gcsclient "cloud.google.com/go/storage"
 	"github.com/efarrer/iothrottler"
 	"github.com/pkg/errors"
 	"golang.org/x/oauth2"
@@ -20,8 +21,6 @@ import (
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/internal/throttle"
 	"github.com/kopia/kopia/repo/blob"
-
-	gcsclient "cloud.google.com/go/storage"
 )
 
 const (
@@ -89,6 +88,7 @@ func (gcs *gcsStorage) GetMetadata(ctx context.Context, b blob.ID) (blob.Metadat
 
 	return v.(blob.Metadata), nil
 }
+
 func exponentialBackoff(ctx context.Context, desc string, att retry.AttemptFunc) (interface{}, error) {
 	return retry.WithExponentialBackoff(ctx, desc, att, isRetriableError)
 }
@@ -120,6 +120,7 @@ func translateError(err error) error {
 		return errors.Wrap(err, "unexpected GCS error")
 	}
 }
+
 func (gcs *gcsStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) error {
 	ctx, cancel := context.WithCancel(ctx)
 
@@ -166,7 +167,7 @@ func (gcs *gcsStorage) DeleteBlob(ctx context.Context, b blob.ID) error {
 	_, err := exponentialBackoff(ctx, fmt.Sprintf("DeleteBlob(%q)", b), attempt)
 	err = translateError(err)
 
-	if err == blob.ErrBlobNotFound {
+	if errors.Is(err, blob.ErrBlobNotFound) {
 		return nil
 	}
 
@@ -195,7 +196,7 @@ func (gcs *gcsStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback f
 		oa, err = lst.Next()
 	}
 
-	if err != iterator.Done {
+	if !errors.Is(err, iterator.Done) {
 		return err
 	}
 

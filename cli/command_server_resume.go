@@ -7,9 +7,7 @@ import (
 	"github.com/kopia/kopia/internal/serverapi"
 )
 
-var (
-	serverResumeCommand = serverCommands.Command("resume", "Resume the scheduled snapshots for one or more sources")
-)
+var serverResumeCommand = serverCommands.Command("resume", "Resume the scheduled snapshots for one or more sources")
 
 func init() {
 	serverResumeCommand.Action(serverAction(runServerResume))

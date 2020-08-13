@@ -6,8 +6,10 @@ import (
 	"strings"
 )
 
-var base10UnitPrefixes = []string{"", "K", "M", "G", "T"}
-var base2UnitPrefixes = []string{"", "Ki", "Mi", "Gi", "Ti"}
+var (
+	base10UnitPrefixes = []string{"", "K", "M", "G", "T"}
+	base2UnitPrefixes  = []string{"", "Ki", "Mi", "Gi", "Ti"}
+)
 
 func niceNumber(f float64) string {
 	return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%.1f", f), "0"), ".")

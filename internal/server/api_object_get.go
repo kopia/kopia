@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -19,7 +20,7 @@ func (s *Server) handleObjectGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	obj, err := s.rep.OpenObject(r.Context(), oid)
-	if err == object.ErrObjectNotFound {
+	if errors.Is(err, object.ErrObjectNotFound) {
 		http.Error(w, "object not found", http.StatusNotFound)
 		return
 	}

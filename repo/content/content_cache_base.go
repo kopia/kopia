@@ -25,7 +25,7 @@ type mutexLRU struct {
 	mu *sync.Mutex
 }
 
-// cacheBase provides common implementation for per-content and per-blob caches
+// cacheBase provides common implementation for per-content and per-blob caches.
 type cacheBase struct {
 	cacheStorage   blob.Storage
 	maxSizeBytes   int64
@@ -172,12 +172,12 @@ func newContentCacheBase(ctx context.Context, cacheStorage blob.Storage, maxSize
 
 	// errGood is a marker error to stop blob iteration quickly, does not
 	// indicate any problem.
-	var errGood = errors.Errorf("good")
+	errGood := errors.Errorf("good")
 
 	// verify that cache storage is functional by listing from it
 	if err := c.cacheStorage.ListBlobs(ctx, "", func(it blob.Metadata) error {
 		return errGood
-	}); err != nil && err != errGood {
+	}); err != nil && err != errGood { //nolint:goerr113
 		return nil, errors.Wrap(err, "unable to open cache")
 	}
 

@@ -5,7 +5,7 @@ import (
 	"go.opencensus.io/stats/view"
 )
 
-// content cache metrics
+// content cache metrics.
 var (
 	metricContentCacheHitCount = stats.Int64(
 		"kopia/content/cache/hit_count",

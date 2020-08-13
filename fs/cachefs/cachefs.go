@@ -75,6 +75,8 @@ func wrapWithContext(e fs.Entry, opts *cacheContext) fs.Entry {
 	}
 }
 
-var _ fs.Directory = &directory{}
-var _ fs.File = &file{}
-var _ fs.Symlink = &symlink{}
+var (
+	_ fs.Directory = &directory{}
+	_ fs.File      = &file{}
+	_ fs.Symlink   = &symlink{}
+)

@@ -11,9 +11,7 @@ import (
 	"github.com/kopia/kopia/repo"
 )
 
-var (
-	password = app.Flag("password", "Repository password.").Envar("KOPIA_PASSWORD").Short('p').String()
-)
+var password = app.Flag("password", "Repository password.").Envar("KOPIA_PASSWORD").Short('p').String()
 
 func askForNewRepositoryPassword() (string, error) {
 	for {

@@ -32,7 +32,7 @@ func (c *listCache) listBlobs(ctx context.Context, prefix blob.ID) ([]blob.Metad
 				log(ctx).Debugf("retrieved list of %v '%v' index blobs from cache", len(ci.Blobs), prefix)
 				return ci.Blobs, nil
 			}
-		} else if err != blob.ErrBlobNotFound {
+		} else if !errors.Is(err, blob.ErrBlobNotFound) {
 			log(ctx).Warningf("unable to open cache file: %v", err)
 		}
 	}
@@ -113,7 +113,7 @@ func newListCache(st blob.Storage, caching *CachingOptions) (*listCache, error) 
 		listCacheFilePrefix = filepath.Join(caching.CacheDirectory, "blob-list-")
 
 		if _, err := os.Stat(caching.CacheDirectory); os.IsNotExist(err) {
-			if err := os.MkdirAll(caching.CacheDirectory, 0700); err != nil {
+			if err := os.MkdirAll(caching.CacheDirectory, 0o700); err != nil {
 				return nil, err
 			}
 		}

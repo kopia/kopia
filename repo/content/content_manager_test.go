@@ -33,8 +33,10 @@ const (
 	encryptionOverhead = 12 + 16
 )
 
-var fakeTime = time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC)
-var hmacSecret = []byte{1, 2, 3}
+var (
+	fakeTime   = time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC)
+	hmacSecret = []byte{1, 2, 3}
+)
 
 func TestContentManagerEmptyFlush(t *testing.T) {
 	ctx := testlogging.Context(t)
@@ -225,7 +227,7 @@ func TestContentManagerInternalFlush(t *testing.T) {
 	itemsToOverflow := (maxPackCapacity)/(25+encryptionOverhead) + 2
 	for i := 0; i < itemsToOverflow; i++ {
 		b := make([]byte, 25)
-		cryptorand.Read(b) //nolint:errcheck
+		cryptorand.Read(b)
 		writeContentAndVerify(ctx, t, bm, b)
 	}
 
@@ -237,7 +239,7 @@ func TestContentManagerInternalFlush(t *testing.T) {
 	// do it again - should be 2 blobs + some bytes pending.
 	for i := 0; i < itemsToOverflow; i++ {
 		b := make([]byte, 25)
-		cryptorand.Read(b) //nolint:errcheck
+		cryptorand.Read(b)
 		writeContentAndVerify(ctx, t, bm, b)
 	}
 
@@ -829,7 +831,7 @@ func TestDeleteAfterUndelete(t *testing.T) {
 	deleteContentAfterUndeleteAndCheck(ctx, t, bm, content2, c2Want)
 }
 
-func deleteContentAfterUndeleteAndCheck(ctx context.Context, t *testing.T, bm *Manager, id ID, want Info) { // nolint:gocritic
+func deleteContentAfterUndeleteAndCheck(ctx context.Context, t *testing.T, bm *Manager, id ID, want Info) {
 	t.Helper()
 	deleteContent(ctx, t, bm, id)
 
@@ -913,7 +915,7 @@ func TestParallelWrites(t *testing.T) {
 				case <-closeWorkers:
 					return
 				case <-time.After(1 * time.Nanosecond):
-					id := writeContentAndVerify(ctx, t, bm, seededRandomData(rand.Int(), 100)) //nolint:gosec
+					id := writeContentAndVerify(ctx, t, bm, seededRandomData(rand.Int(), 100))
 
 					workerLock.RLock()
 					workerWritten[workerID] = append(workerWritten[workerID], id)
@@ -1324,7 +1326,6 @@ func TestDeleteAndRecreate(t *testing.T) {
 	}
 }
 
-// nolint:funlen
 func TestIterateContents(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
@@ -1663,7 +1664,7 @@ func verifyVersionCompat(t *testing.T, writeVersion int) {
 
 	for i := 0; i < 3000000; i = (i + 1) * 2 {
 		data := make([]byte, i)
-		cryptorand.Read(data) //nolint:errcheck
+		cryptorand.Read(data)
 
 		cid, err := mgr.WriteContent(ctx, data, "")
 		if err != nil {
@@ -1933,7 +1934,7 @@ func seededRandomData(seed, length int) []byte {
 
 func hashValue(b []byte) string {
 	h := hmac.New(sha256.New, hmacSecret)
-	h.Write(b) //nolint:errcheck
+	h.Write(b)
 
 	return hex.EncodeToString(h.Sum(nil))
 }
@@ -1957,7 +1958,7 @@ func makeRandomHexString(t *testing.T, length int) string {
 	t.Helper()
 
 	b := make([]byte, (length-1)/2+1)
-	if _, err := rand.Read(b); err != nil { // nolint:gosec
+	if _, err := rand.Read(b); err != nil {
 		t.Fatal("Could not read random bytes", err)
 	}
 

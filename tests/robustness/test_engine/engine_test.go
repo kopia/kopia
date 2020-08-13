@@ -195,7 +195,7 @@ func TestSnapshotVerificationFail(t *testing.T) {
 	restoreDir, err := ioutil.TempDir(eng.Checker.RestoreDir, fmt.Sprintf("restore-snap-%v", snapID1))
 	testenv.AssertNoError(t, err)
 
-	defer os.RemoveAll(restoreDir) //nolint:errcheck
+	defer os.RemoveAll(restoreDir)
 
 	// Restore snapshot ID 1 with snapshot 2's validation data in metadata, expect error
 	err = eng.Checker.RestoreVerifySnapshot(ctx, snapID1, restoreDir, ssMeta1, os.Stdout)
@@ -208,7 +208,7 @@ func TestDataPersistency(t *testing.T) {
 	tempDir, err := ioutil.TempDir("", "")
 	testenv.AssertNoError(t, err)
 
-	defer os.RemoveAll(tempDir) //nolint:errcheck
+	defer os.RemoveAll(tempDir)
 
 	eng, err := NewEngine()
 	if err == kopiarunner.ErrExeVariableNotSet || errors.Is(err, fio.ErrEnvNotSet) {

@@ -23,13 +23,11 @@ const (
 	davStorageType       = "webdav"
 	fsStorageChunkSuffix = ".f"
 
-	defaultFilePerm = 0600
-	defaultDirPerm  = 0700
+	defaultFilePerm = 0o600
+	defaultDirPerm  = 0o700
 )
 
-var (
-	fsDefaultShards = []int{3, 3}
-)
+var fsDefaultShards = []int{3, 3}
 
 // davStorage implements blob.Storage on top of remove WebDAV repository.
 // It is very similar to File storage, except uses HTTP URLs instead of local files.
@@ -124,7 +122,7 @@ func (d *davStorageImpl) ReadDir(ctx context.Context, dir string) ([]os.FileInfo
 }
 
 func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath string, data blob.Bytes) error {
-	tmpPath := fmt.Sprintf("%v-%v", filePath, rand.Int63())
+	tmpPath := fmt.Sprintf("%v-%v", filePath, rand.Int63()) //nolint:gosec
 
 	var buf bytes.Buffer
 
@@ -135,7 +133,7 @@ func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath st
 	if err := d.translateError(retry.WithExponentialBackoffNoValue(ctx, "Write", func() error {
 		return d.cli.Write(tmpPath, b, defaultFilePerm)
 	}, isRetriable)); err != nil {
-		if err != blob.ErrBlobNotFound {
+		if !errors.Is(err, blob.ErrBlobNotFound) {
 			return err
 		}
 

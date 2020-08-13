@@ -30,7 +30,7 @@ type Storage struct {
 	Shards   []int
 }
 
-// GetBlob implements blob.Storage
+// GetBlob implements blob.Storage.
 func (s Storage) GetBlob(ctx context.Context, blobID blob.ID, offset, length int64) ([]byte, error) {
 	dirPath, filePath := s.GetShardedPathAndFilePath(blobID)
 	return s.Impl.GetBlobFromPath(ctx, dirPath, filePath, offset, length)
@@ -48,7 +48,7 @@ func (s Storage) makeFileName(blobID blob.ID) string {
 	return string(blobID) + s.Suffix
 }
 
-// ListBlobs implements blob.Storage
+// ListBlobs implements blob.Storage.
 func (s Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(blob.Metadata) error) error {
 	var walkDir func(string, string) error
 
@@ -59,6 +59,7 @@ func (s Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(bl
 		}
 
 		for _, e := range entries {
+			// nolint:nestif
 			if e.IsDir() {
 				var match bool
 
@@ -93,7 +94,7 @@ func (s Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(bl
 	return walkDir(s.RootPath, "")
 }
 
-// GetMetadata implements blob.Storage
+// GetMetadata implements blob.Storage.
 func (s Storage) GetMetadata(ctx context.Context, blobID blob.ID) (blob.Metadata, error) {
 	dirPath, filePath := s.GetShardedPathAndFilePath(blobID)
 
@@ -103,14 +104,14 @@ func (s Storage) GetMetadata(ctx context.Context, blobID blob.ID) (blob.Metadata
 	return m, err
 }
 
-// PutBlob implements blob.Storage
+// PutBlob implements blob.Storage.
 func (s Storage) PutBlob(ctx context.Context, blobID blob.ID, data blob.Bytes) error {
 	dirPath, filePath := s.GetShardedPathAndFilePath(blobID)
 
 	return s.Impl.PutBlobInPath(ctx, dirPath, filePath, data)
 }
 
-// DeleteBlob implements blob.Storage
+// DeleteBlob implements blob.Storage.
 func (s Storage) DeleteBlob(ctx context.Context, blobID blob.ID) error {
 	dirPath, filePath := s.GetShardedPathAndFilePath(blobID)
 	return s.Impl.DeleteBlobInPath(ctx, dirPath, filePath)

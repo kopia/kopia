@@ -16,11 +16,10 @@ import (
 	"strings"
 	"time"
 
-	htpasswd "github.com/tg123/go-htpasswd"
-
 	"contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/pkg/errors"
 	prom "github.com/prometheus/client_golang/prometheus"
+	htpasswd "github.com/tg123/go-htpasswd"
 
 	"github.com/kopia/kopia/internal/server"
 	"github.com/kopia/kopia/repo"
@@ -105,7 +104,7 @@ func runServer(ctx context.Context, rep repo.Repository) error {
 	httpServer.Handler = handler
 
 	err = startServerWithOptionalTLS(ctx, httpServer)
-	if err != http.ErrServerClosed {
+	if !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
 
@@ -125,7 +124,6 @@ func initPrometheus(mux *http.ServeMux) error {
 	pe, err := prometheus.NewExporter(prometheus.Options{
 		Registry: reg,
 	})
-
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize prometheus exporter")
 	}

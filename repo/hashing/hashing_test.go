@@ -16,16 +16,15 @@ type parameters struct {
 func (p parameters) GetHashFunction() string { return p.hashingAlgo }
 func (p parameters) GetHMACSecret() []byte   { return p.hmacSecret }
 
-// nolint:gocyclo
 func TestRoundTrip(t *testing.T) {
 	data1 := make([]byte, 100)
-	rand.Read(data1) //nolint:errcheck
+	rand.Read(data1)
 
 	data2 := make([]byte, 100)
-	rand.Read(data2) //nolint:errcheck
+	rand.Read(data2)
 
 	hmacSecret := make([]byte, 32)
-	rand.Read(hmacSecret) //nolint:errcheck
+	rand.Read(hmacSecret)
 
 	for _, hashingAlgo := range hashing.SupportedAlgorithms() {
 		hashingAlgo := hashingAlgo

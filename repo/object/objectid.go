@@ -62,28 +62,29 @@ func (i ID) Validate() error {
 		return nil
 	}
 
-	if contentID, _, ok := i.ContentID(); ok {
-		if len(contentID) <= 1 {
-			return errors.Errorf("missing content ID")
-		}
-
-		// odd length - firstcharacter must be a single character between 'g' and 'z'
-		if len(contentID)%2 == 1 {
-			if contentID[0] < 'g' || contentID[0] > 'z' {
-				return errors.Errorf("invalid content ID prefix: %v", contentID)
-			}
-
-			contentID = contentID[1:]
-		}
-
-		if _, err := hex.DecodeString(string(contentID)); err != nil {
-			return errors.Errorf("invalid contentID suffix, must be base-16 encoded: %v", contentID)
-		}
-
-		return nil
+	contentID, _, ok := i.ContentID()
+	if !ok {
+		return errors.Errorf("invalid object ID: %v", i)
 	}
 
-	return errors.Errorf("invalid object ID: %v", i)
+	if len(contentID) <= 1 {
+		return errors.Errorf("missing content ID")
+	}
+
+	// odd length - firstcharacter must be a single character between 'g' and 'z'
+	if len(contentID)%2 == 1 {
+		if contentID[0] < 'g' || contentID[0] > 'z' {
+			return errors.Errorf("invalid content ID prefix: %v", contentID)
+		}
+
+		contentID = contentID[1:]
+	}
+
+	if _, err := hex.DecodeString(string(contentID)); err != nil {
+		return errors.Errorf("invalid contentID suffix, must be base-16 encoded: %v", contentID)
+	}
+
+	return nil
 }
 
 // DirectObjectID returns direct object ID based on the provided block ID.
@@ -101,7 +102,7 @@ func IndirectObjectID(indexObjectID ID) ID {
 	return "I" + indexObjectID
 }
 
-// ParseID converts the specified string into object ID
+// ParseID converts the specified string into object ID.
 func ParseID(s string) (ID, error) {
 	i := ID(s)
 	return i, i.Validate()

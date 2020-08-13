@@ -11,8 +11,10 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-const maxEntrySize = 256
-const maxContentIDSize = maxHashSize + 1
+const (
+	maxEntrySize     = 256
+	maxContentIDSize = maxHashSize + 1
+)
 
 // packIndex is a read-only index of packed contents.
 type packIndex interface {
@@ -24,7 +26,7 @@ type packIndex interface {
 	Iterate(r IDRange, cb func(Info) error) error
 }
 
-// IDRange represents a range of IDs
+// IDRange represents a range of IDs.
 type IDRange struct {
 	StartID ID // inclusive
 	EndID   ID // exclusive
@@ -45,10 +47,10 @@ func PrefixRange(prefix ID) IDRange {
 // AllIDs is an IDRange that contains all valid IDs.
 var AllIDs = IDRange{"", maxIDCharacterPlus1}
 
-// AllPrefixedIDs is an IDRange that contains all valid IDs prefixed IDs ('g' .. 'z')
+// AllPrefixedIDs is an IDRange that contains all valid IDs prefixed IDs ('g' .. 'z').
 var AllPrefixedIDs = IDRange{"g", maxIDCharacterPlus1}
 
-// AllNonPrefixedIDs is an IDRange that contains all valid IDs non-prefixed IDs ('0' .. 'f')
+// AllNonPrefixedIDs is an IDRange that contains all valid IDs non-prefixed IDs ('0' .. 'f').
 var AllNonPrefixedIDs = IDRange{"0", "g"}
 
 type index struct {
