@@ -5,6 +5,7 @@
 package fio
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -14,7 +15,6 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	"sync"
 
 	"github.com/pkg/errors"
 )
@@ -61,6 +61,7 @@ type Runner struct {
 	LocalDataDir    string
 	FioWriteBaseDir string
 	Global          Config
+	Debug           bool
 }
 
 // NewRunner creates a new fio runner
@@ -198,17 +199,19 @@ func (fr *Runner) Cleanup() {
 
 // RunConfigs runs fio using the provided Configs
 func (fr *Runner) RunConfigs(cfgs ...Config) (stdout, stderr string, err error) {
-	args := argsFromConfigs(append([]Config{fr.Global}, cfgs...)...)
+	args := fr.argsFromConfigs(append([]Config{fr.Global}, cfgs...)...)
 
 	return fr.Run(args...)
 }
 
-func argsFromConfigs(cfgs ...Config) []string {
+func (fr *Runner) argsFromConfigs(cfgs ...Config) []string {
 	var args []string
 
 	// Apply global config before any other configs
 	for _, cfg := range cfgs {
-		log.Printf("Applying config:\n%s", cfg)
+		if fr.Debug {
+			log.Printf("Applying config:\n%s", cfg)
+		}
 
 		for _, job := range cfg {
 			args = append(args, JobNameFlag, job.Name)
@@ -230,32 +233,22 @@ func (fr *Runner) Run(args ...string) (stdout, stderr string, err error) {
 	args = append(fr.ExecArgs, args...)
 
 	argsStr := strings.Join(args, " ")
-	log.Printf("running '%s %v'", fr.Exe, argsStr)
+
+	if fr.Debug {
+		log.Printf("running '%s %v'", fr.Exe, argsStr)
+	}
+
 	// nolint:gosec
 	c := exec.Command(fr.Exe, args...)
 
-	stderrPipe, err := c.StderrPipe()
-	if err != nil {
-		return stdout, stderr, err
-	}
-
-	var errOut []byte
-
-	var wg sync.WaitGroup
-
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-
-		errOut, err = ioutil.ReadAll(stderrPipe)
-	}()
+	errOut := &bytes.Buffer{}
+	c.Stderr = errOut
 
 	o, err := c.Output()
 
-	wg.Wait()
+	if fr.Debug || err != nil {
+		log.Printf("finished '%s %v' with err=%v and output:\n%v\n%v", fr.Exe, argsStr, err, string(o), errOut.String())
+	}
 
-	log.Printf("finished '%s %v' with err=%v and output:\n%v\n%v", fr.Exe, argsStr, err, string(o), string(errOut))
-
-	return string(o), string(errOut), err
+	return string(o), errOut.String(), err
 }
