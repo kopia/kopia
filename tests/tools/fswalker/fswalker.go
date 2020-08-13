@@ -62,6 +62,7 @@ func performWalk(ctx context.Context, path string) (*fspb.Walk, error) {
 	}
 
 	err = processWalk(walkData, path)
+
 	return walkData, errors.Wrap(err, "error during gather phase")
 }
 
