@@ -11,7 +11,7 @@ import (
 	"github.com/kopia/kopia/tests/testenv"
 )
 
-// foo@bar - password baz
+// foo@bar - password baz.
 var htpasswdFileContents = []byte("foo@bar:$2y$05$JWrExvBe5Knh0.AMLk5WHu.EzfOP.LhrqMIRf1YseZ/rulBjKqGJ.\n")
 
 func TestAPIServerRepository(t *testing.T) {
@@ -37,7 +37,7 @@ func TestAPIServerRepository(t *testing.T) {
 	originalQBlobCount := len(e1.RunAndExpectSuccess(t, "blob", "list", "--prefix=q"))
 
 	htpasswordFile := filepath.Join(e.ConfigDir, "htpasswd.txt")
-	ioutil.WriteFile(htpasswordFile, htpasswdFileContents, 0755)
+	ioutil.WriteFile(htpasswordFile, htpasswdFileContents, 0o755)
 
 	var sp serverParameters
 
@@ -62,7 +62,7 @@ func TestAPIServerRepository(t *testing.T) {
 		t.Fatalf("unable to create API apiclient")
 	}
 
-	defer serverapi.Shutdown(ctx, cli) // nolint:errcheck
+	defer serverapi.Shutdown(ctx, cli)
 
 	waitUntilServerStarted(ctx, t, cli)
 

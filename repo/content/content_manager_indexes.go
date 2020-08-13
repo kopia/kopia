@@ -12,7 +12,7 @@ import (
 
 const verySmallContentFraction = 20 // blobs less than 1/verySmallContentFraction of maxPackSize are considered 'very small'
 
-// CompactOptions provides options for compaction
+// CompactOptions provides options for compaction.
 type CompactOptions struct {
 	MaxSmallBlobs     int
 	AllIndexes        bool
@@ -20,7 +20,7 @@ type CompactOptions struct {
 	DropContents      []ID
 }
 
-// CompactIndexes performs compaction of index blobs ensuring that # of small index blobs is below opt.maxSmallBlobs
+// CompactIndexes performs compaction of index blobs ensuring that # of small index blobs is below opt.maxSmallBlobs.
 func (bm *Manager) CompactIndexes(ctx context.Context, opt CompactOptions) error {
 	log(ctx).Debugf("CompactIndexes(%+v)", opt)
 

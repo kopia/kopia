@@ -11,16 +11,18 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-// IterateOptions contains the options used for iterating over content
+// IterateOptions contains the options used for iterating over content.
 type IterateOptions struct {
 	Range          IDRange
 	IncludeDeleted bool
 	Parallel       int
 }
 
-// IterateCallback is the function type used as a callback during content iteration
-type IterateCallback func(Info) error
-type cancelIterateFunc func() error
+// IterateCallback is the function type used as a callback during content iteration.
+type (
+	IterateCallback   func(Info) error
+	cancelIterateFunc func() error
+)
 
 func maybeParallelExecutor(parallel int, originalCallback IterateCallback) (IterateCallback, cancelIterateFunc) {
 	if parallel <= 1 {
@@ -147,7 +149,7 @@ func (bm *Manager) IterateContents(ctx context.Context, opts IterateOptions, cal
 	return cleanup()
 }
 
-// IteratePackOptions are the options used to iterate over packs
+// IteratePackOptions are the options used to iterate over packs.
 type IteratePackOptions struct {
 	IncludePacksWithOnlyDeletedContent bool
 	IncludeContentInfos                bool
@@ -168,7 +170,7 @@ func (o *IteratePackOptions) matchesBlob(id blob.ID) bool {
 	return false
 }
 
-// PackInfo contains the data for a pack
+// PackInfo contains the data for a pack.
 type PackInfo struct {
 	PackID       blob.ID
 	ContentCount int
@@ -176,7 +178,7 @@ type PackInfo struct {
 	ContentInfos []Info
 }
 
-// IteratePacksCallback is the function type used as callback during pack iteration
+// IteratePacksCallback is the function type used as callback during pack iteration.
 type IteratePacksCallback func(PackInfo) error
 
 // IteratePacks invokes the provided callback for all pack blobs.

@@ -12,7 +12,6 @@ import (
 
 type deleteArgMaker func(manifestID, objectID string, source testenv.SourceInfo) []string
 
-//nolint:funlen
 func TestSnapshotDelete(t *testing.T) {
 	t.Parallel()
 
@@ -67,7 +66,8 @@ func TestSnapshotDelete(t *testing.T) {
 				return []string{"snapshot", "delete", objectID, "--delete"}
 			},
 			expectSuccess,
-		}, {
+		},
+		{
 			"Dry run - invalid object ID",
 			func(manifestID, objectID string, source testenv.SourceInfo) []string {
 				return []string{"snapshot", "delete", "no-such-manifest"}
@@ -94,7 +94,8 @@ func TestSnapshotDelete(t *testing.T) {
 				return []string{"snapshot", "delete", "k001122", "--delete"}
 			},
 			expectFail,
-		}} {
+		},
+	} {
 		t.Log(tc.desc)
 		testSnapshotDelete(t, tc.mf, tc.expectSuccess)
 	}
@@ -108,11 +109,11 @@ func testSnapshotDelete(t *testing.T, argMaker deleteArgMaker, expectDeleteSucce
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
 	dataDir := makeScratchDir(t)
-	testenv.AssertNoError(t, os.MkdirAll(dataDir, 0777))
+	testenv.AssertNoError(t, os.MkdirAll(dataDir, 0o777))
 	testenv.AssertNoError(t, ioutil.WriteFile(filepath.Join(dataDir, "some-file1"), []byte(`
 hello world
 how are you
-`), 0600))
+`), 0o600))
 
 	// take a snapshot of a directory with 1 file
 	e.RunAndExpectSuccess(t, "snap", "create", dataDir)
@@ -204,7 +205,7 @@ func TestSnapshotDeleteRestore(t *testing.T) {
 	// the way the top FS entry is created in snapshotfs. Force the permissions
 	// of the top directory to match those of the source so the recursive
 	// directory comparison has a chance of succeeding.
-	testenv.AssertNoError(t, os.Chmod(restoreDir, 0700))
+	testenv.AssertNoError(t, os.Chmod(restoreDir, 0o700))
 	compareDirs(t, source, restoreDir)
 
 	// snapshot delete should succeed

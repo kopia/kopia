@@ -380,7 +380,7 @@ func (m *indexBlobManagerImpl) delayCleanupBlobs(ctx context.Context, blobIDs []
 
 func (m *indexBlobManagerImpl) deleteBlobsFromStorageAndCache(ctx context.Context, blobIDs []blob.ID) error {
 	for _, blobID := range blobIDs {
-		if err := m.st.DeleteBlob(ctx, blobID); err != nil && err != blob.ErrBlobNotFound {
+		if err := m.st.DeleteBlob(ctx, blobID); err != nil && !errors.Is(err, blob.ErrBlobNotFound) {
 			return errors.Wrapf(err, "unable to delete blob %v", blobID)
 		}
 

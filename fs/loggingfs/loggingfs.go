@@ -92,7 +92,7 @@ func applyOptions(printf func(msg string, args ...interface{}), opts []Option) *
 	return o
 }
 
-// Output is an option that causes all output to be sent to a given function instead of log.Printf()
+// Output is an option that causes all output to be sent to a given function instead of log.Printf().
 func Output(outputFunc func(fmt string, args ...interface{})) Option {
 	return func(o *loggingOptions) {
 		o.printf = outputFunc
@@ -106,6 +106,8 @@ func Prefix(prefix string) Option {
 	}
 }
 
-var _ fs.Directory = &loggingDirectory{}
-var _ fs.File = &loggingFile{}
-var _ fs.Symlink = &loggingSymlink{}
+var (
+	_ fs.Directory = &loggingDirectory{}
+	_ fs.File      = &loggingFile{}
+	_ fs.Symlink   = &loggingSymlink{}
+)

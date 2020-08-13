@@ -102,31 +102,33 @@ func recoverFormatBlobWithLength(ctx context.Context, st blob.Storage, blobID bl
 		chunkLength = length
 	}
 
-	if chunkLength > minRecoverableChunkLength {
-		// try prefix
-		prefixChunk, err := st.GetBlob(ctx, blobID, 0, chunkLength)
-		if err != nil {
-			return nil, err
-		}
+	if chunkLength <= minRecoverableChunkLength {
+		return nil, errFormatBlobNotFound
+	}
 
-		l := decodeInt16(prefixChunk)
-		if l <= maxChecksummedFormatBytesLength && l+lengthOfRecoverBlockLength < len(prefixChunk) {
-			if b, ok := verifyFormatBlobChecksum(prefixChunk[lengthOfRecoverBlockLength : lengthOfRecoverBlockLength+l]); ok {
-				return b, nil
-			}
-		}
+	// try prefix
+	prefixChunk, err := st.GetBlob(ctx, blobID, 0, chunkLength)
+	if err != nil {
+		return nil, err
+	}
 
-		// try the suffix
-		suffixChunk, err := st.GetBlob(ctx, blobID, length-chunkLength, chunkLength)
-		if err != nil {
-			return nil, err
+	l := decodeInt16(prefixChunk)
+	if l <= maxChecksummedFormatBytesLength && l+lengthOfRecoverBlockLength < len(prefixChunk) {
+		if b, ok := verifyFormatBlobChecksum(prefixChunk[lengthOfRecoverBlockLength : lengthOfRecoverBlockLength+l]); ok {
+			return b, nil
 		}
+	}
 
-		l = decodeInt16(suffixChunk[len(suffixChunk)-lengthOfRecoverBlockLength:])
-		if l <= maxChecksummedFormatBytesLength && l+lengthOfRecoverBlockLength < len(suffixChunk) {
-			if b, ok := verifyFormatBlobChecksum(suffixChunk[len(suffixChunk)-lengthOfRecoverBlockLength-l : len(suffixChunk)-lengthOfRecoverBlockLength]); ok {
-				return b, nil
-			}
+	// try the suffix
+	suffixChunk, err := st.GetBlob(ctx, blobID, length-chunkLength, chunkLength)
+	if err != nil {
+		return nil, err
+	}
+
+	l = decodeInt16(suffixChunk[len(suffixChunk)-lengthOfRecoverBlockLength:])
+	if l <= maxChecksummedFormatBytesLength && l+lengthOfRecoverBlockLength < len(suffixChunk) {
+		if b, ok := verifyFormatBlobChecksum(suffixChunk[len(suffixChunk)-lengthOfRecoverBlockLength-l : len(suffixChunk)-lengthOfRecoverBlockLength]); ok {
+			return b, nil
 		}
 	}
 

@@ -105,6 +105,7 @@ func isRetriableError(err error) bool {
 	}
 
 	// https://pkg.go.dev/gocloud.dev/gcerrors?tab=doc#ErrorCode
+	// nolint:exhaustive
 	switch gcerrors.Code(err) {
 	case gcerrors.Internal:
 		return true
@@ -116,6 +117,7 @@ func isRetriableError(err error) bool {
 }
 
 func translateError(err error) error {
+	// nolint:exhaustive
 	switch gcerrors.Code(err) {
 	case gcerrors.OK:
 		return nil
@@ -155,7 +157,7 @@ func (az *azStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) er
 	return translateError(writer.Close())
 }
 
-// DeleteBlob deletes azure blob from container with given ID
+// DeleteBlob deletes azure blob from container with given ID.
 func (az *azStorage) DeleteBlob(ctx context.Context, b blob.ID) error {
 	attempt := func() (interface{}, error) {
 		return nil, az.bucket.Delete(ctx, az.getObjectNameString(b))
@@ -164,7 +166,7 @@ func (az *azStorage) DeleteBlob(ctx context.Context, b blob.ID) error {
 	err = translateError(err)
 
 	// don't return error if blob is already deleted
-	if err == blob.ErrBlobNotFound {
+	if errors.Is(err, blob.ErrBlobNotFound) {
 		return nil
 	}
 
@@ -175,7 +177,7 @@ func (az *azStorage) getObjectNameString(b blob.ID) string {
 	return az.Prefix + string(b)
 }
 
-// ListBlobs list azure blobs with given prefix
+// ListBlobs list azure blobs with given prefix.
 func (az *azStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(blob.Metadata) error) error {
 	// create list iterator
 	li := az.bucket.List(&gblob.ListOptions{Prefix: az.getObjectNameString(prefix)})

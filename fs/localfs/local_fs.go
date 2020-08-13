@@ -133,7 +133,7 @@ func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error)
 	if direrr != nil {
 		return nil, direrr
 	}
-	defer f.Close() //nolint:errcheck
+	defer f.Close() //nolint:errcheck,gosec
 
 	// start feeding directory entry names to namesCh
 	namesCh := make(chan string, dirListingPrefetch)
@@ -259,6 +259,7 @@ func NewEntry(path string) (fs.Entry, error) {
 		return nil, err
 	}
 
+	// nolint:exhaustive
 	switch fi.Mode() & os.ModeType {
 	case os.ModeDir:
 		return &filesystemDirectory{newEntry(fi, filepath.Dir(path))}, nil
@@ -289,6 +290,7 @@ func Directory(path string) (fs.Directory, error) {
 }
 
 func entryFromChildFileInfo(fi os.FileInfo, parentDir string) (fs.Entry, error) {
+	// nolint:exhaustive
 	switch fi.Mode() & os.ModeType {
 	case os.ModeDir:
 		return &filesystemDirectory{newEntry(fi, parentDir)}, nil
@@ -304,6 +306,8 @@ func entryFromChildFileInfo(fi os.FileInfo, parentDir string) (fs.Entry, error) 
 	}
 }
 
-var _ fs.Directory = &filesystemDirectory{}
-var _ fs.File = &filesystemFile{}
-var _ fs.Symlink = &filesystemSymlink{}
+var (
+	_ fs.Directory = &filesystemDirectory{}
+	_ fs.File      = &filesystemFile{}
+	_ fs.Symlink   = &filesystemSymlink{}
+)

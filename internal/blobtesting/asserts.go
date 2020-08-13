@@ -7,6 +7,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -31,7 +33,7 @@ func AssertGetBlob(ctx context.Context, t testingT, s blob.Storage, blobID blob.
 		t.Errorf("GetBlob(%v) returned %x, but expected %x", blobID, b, expected)
 	}
 
-	half := int64(len(expected) / 2) //nolint:gomnd
+	half := int64(len(expected) / 2)
 	if half == 0 {
 		return
 	}
@@ -73,7 +75,7 @@ func AssertGetBlob(ctx context.Context, t testingT, s blob.Storage, blobID blob.
 	AssertInvalidOffsetLength(ctx, t, s, blobID, int64(len(expected)+1), 3)
 }
 
-// AssertInvalidOffsetLength verifies that the given combination of (offset,length) fails on GetBlob()
+// AssertInvalidOffsetLength verifies that the given combination of (offset,length) fails on GetBlob().
 func AssertInvalidOffsetLength(ctx context.Context, t testingT, s blob.Storage, blobID blob.ID, offset, length int64) {
 	if _, err := s.GetBlob(ctx, blobID, offset, length); err == nil {
 		t.Errorf("GetBlob(%v,%v,%v) did not return error for invalid offset/length", blobID, offset, length)
@@ -85,7 +87,7 @@ func AssertGetBlobNotFound(ctx context.Context, t testingT, s blob.Storage, blob
 	t.Helper()
 
 	b, err := s.GetBlob(ctx, blobID, 0, -1)
-	if err != blob.ErrBlobNotFound || b != nil {
+	if !errors.Is(err, blob.ErrBlobNotFound) || b != nil {
 		t.Errorf("GetBlob(%v) returned %v, %v but expected ErrNotFound", blobID, b, err)
 	}
 }

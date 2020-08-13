@@ -14,7 +14,7 @@ import (
 const walkersPerCPU = 4
 
 // TreeWalker holds information for concurrently walking down FS trees specified
-// by their roots
+// by their roots.
 type TreeWalker struct {
 	Parallelism    int
 	RootEntries    []fs.Entry
@@ -56,7 +56,7 @@ func (w *TreeWalker) processEntry(ctx context.Context, entry fs.Entry) error {
 	return nil
 }
 
-// Run walks the given tree roots
+// Run walks the given tree roots.
 func (w *TreeWalker) Run(ctx context.Context) error {
 	for _, root := range w.RootEntries {
 		w.enqueueEntry(ctx, root)

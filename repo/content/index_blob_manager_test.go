@@ -24,7 +24,7 @@ import (
 )
 
 // we use two fake time sources - one for local client and one for the remote store
-// to simulate clock drift
+// to simulate clock drift.
 var (
 	fakeLocalStartTime = time.Date(2020, 1, 1, 14, 0, 0, 0, time.UTC)
 	fakeStoreStartTime = time.Date(2020, 1, 1, 10, 0, 0, 0, time.UTC)
@@ -119,7 +119,7 @@ const (
 	actionCompactAndDropDeleted = 6
 )
 
-// actionsTestIndexBlobManagerStress is a set of actionsTestIndexBlobManagerStress by each actor performed in TestIndexBlobManagerStress with weights
+// actionsTestIndexBlobManagerStress is a set of actionsTestIndexBlobManagerStress by each actor performed in TestIndexBlobManagerStress with weights.
 var actionsTestIndexBlobManagerStress = []struct {
 	a      action
 	weight int
@@ -640,7 +640,7 @@ func getAllFakeContentsInternal(ctx context.Context, m indexBlobManager) (map[st
 
 	for _, bi := range blobs {
 		bb, err := m.getIndexBlob(ctx, bi.BlobID)
-		if err == blob.ErrBlobNotFound {
+		if errors.Is(err, blob.ErrBlobNotFound) {
 			return nil, nil, errGetAllFakeContentsRetry
 		}
 
@@ -757,7 +757,8 @@ func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow f
 		st: st,
 		ownWritesCache: &persistentOwnWritesCache{
 			blobtesting.NewMapStorage(blobtesting.DataMap{}, nil, localTimeNow),
-			localTimeNow},
+			localTimeNow,
+		},
 		indexBlobCache:                   passthroughContentCache{st},
 		encryptor:                        enc,
 		hasher:                           hf,

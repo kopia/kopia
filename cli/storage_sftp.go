@@ -36,6 +36,7 @@ func init() {
 		func(ctx context.Context, isNew bool) (blob.Storage, error) {
 			sftpo := options
 
+			// nolint:nestif
 			if embedCredentials {
 				if sftpo.KeyData == "" {
 					d, err := ioutil.ReadFile(sftpo.Keyfile)

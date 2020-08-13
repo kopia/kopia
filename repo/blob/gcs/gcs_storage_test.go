@@ -7,7 +7,6 @@ import (
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/testlogging"
-
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/gcs"
 )
@@ -24,11 +23,11 @@ func TestGCSStorage(t *testing.T) {
 	}
 
 	ctx := testlogging.Context(t)
+
 	st, err := gcs.New(ctx, &gcs.Options{
 		BucketName:                   bucket,
 		ServiceAccountCredentialJSON: credData,
 	})
-
 	if err != nil {
 		t.Fatalf("unable to connect to GCS: %v", err)
 	}

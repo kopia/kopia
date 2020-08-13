@@ -41,7 +41,7 @@ func (fp *fakePool) AddReader(r io.ReadCloser) (io.ReadCloser, error) {
 	return r, nil
 }
 
-//nolint:gocyclo,gocognit
+//nolint:gocyclo
 func TestRoundTripper(t *testing.T) {
 	downloadBody := ioutil.NopCloser(bytes.NewReader([]byte("data1")))
 	uploadBody := ioutil.NopCloser(bytes.NewReader([]byte("data1")))

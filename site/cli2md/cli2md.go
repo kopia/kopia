@@ -19,8 +19,10 @@ import (
 
 var baseDir = "content/docs/Reference/Command-Line"
 
-const advancedSection = "Advanced"
-const commonSection = "Common"
+const (
+	advancedSection = "Advanced"
+	commonSection   = "Common"
+)
 
 var overrideDefault = map[string]string{
 	"config-file": "repository.config",
@@ -122,7 +124,7 @@ func generateAppFlags(app *kingpin.ApplicationModel) error {
 	if err != nil {
 		return errors.Wrap(err, "unable to create common flags file")
 	}
-	defer f.Close() //nolint:errcheck
+	defer f.Close() //nolint:errcheck,gosec
 
 	title := "Flags"
 	fmt.Fprintf(f, `---
@@ -138,7 +140,7 @@ weight: 3
 
 func generateCommands(app *kingpin.ApplicationModel, section string, weight int, advanced bool) error {
 	dir := filepath.Join(baseDir, section)
-	if err := os.MkdirAll(dir, 0750); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		return err
 	}
 
@@ -146,7 +148,7 @@ func generateCommands(app *kingpin.ApplicationModel, section string, weight int,
 	if err != nil {
 		return errors.Wrap(err, "unable to create common flags file")
 	}
-	defer f.Close() //nolint:errcheck
+	defer f.Close() //nolint:errcheck,gosec
 
 	title := section + " Commands"
 	fmt.Fprintf(f, `---
@@ -244,7 +246,7 @@ func generateSubcommandPage(fname string, cmd *kingpin.CmdModel) {
 	if err != nil {
 		log.Fatalf("unable to create page: %v", err)
 	}
-	defer f.Close() //nolint:errcheck
+	defer f.Close() //nolint:errcheck,gosec
 
 	title := cmd.FullCommand
 	fmt.Fprintf(f, `---

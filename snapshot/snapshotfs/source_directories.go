@@ -24,7 +24,7 @@ func (s *sourceDirectories) Name() string {
 }
 
 func (s *sourceDirectories) Mode() os.FileMode {
-	return 0555 | os.ModeDir
+	return 0o555 | os.ModeDir
 }
 
 func (s *sourceDirectories) ModTime() time.Time {

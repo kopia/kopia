@@ -25,7 +25,7 @@ import (
 
 const (
 	masterPassword     = "foofoofoofoofoofoofoofoo"
-	defaultPermissions = 0777
+	defaultPermissions = 0o777
 )
 
 type uploadTestHarness struct {
@@ -50,7 +50,6 @@ func newUploadTestHarness(ctx context.Context) *uploadTestHarness {
 	storage, err := filesystem.New(ctx, &filesystem.Options{
 		Path: repoDir,
 	})
-
 	if err != nil {
 		panic("cannot create storage directory: " + err.Error())
 	}
@@ -71,7 +70,6 @@ func newUploadTestHarness(ctx context.Context) *uploadTestHarness {
 	rep, err := repo.Open(ctx, configFile, masterPassword, &repo.Options{
 		TimeNowFunc: ft.NowFunc(),
 	})
-
 	if err != nil {
 		panic("unable to open repository: " + err.Error())
 	}
@@ -283,7 +281,6 @@ func TestUpload_SubDirectoryReadFailureIgnoreFailures(t *testing.T) {
 	}
 }
 
-// nolint:gocyclo
 func TestUploadWithCheckpointing(t *testing.T) {
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx)

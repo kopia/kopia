@@ -18,7 +18,7 @@ const defaultRewriteContentsMinAge = 2 * time.Hour
 
 const parallelContentRewritesCPUMultiplier = 2
 
-// RewriteContentsOptions provides options for RewriteContents
+// RewriteContentsOptions provides options for RewriteContents.
 type RewriteContentsOptions struct {
 	Parallel       int
 	MinAge         time.Duration
@@ -38,7 +38,7 @@ type contentInfoOrError struct {
 }
 
 // RewriteContents rewrites contents according to provided criteria and creates new
-// blobs and index entries to point at the
+// blobs and index entries to point at the.
 func RewriteContents(ctx context.Context, rep MaintainableRepository, opt *RewriteContentsOptions) error {
 	if opt == nil {
 		return errors.Errorf("missing options")
@@ -200,7 +200,6 @@ func findContentInShortPacks(ctx context.Context, rep MaintainableRepository, ch
 			return nil
 		},
 	)
-
 	if err != nil {
 		ch <- contentInfoOrError{err: err}
 		return

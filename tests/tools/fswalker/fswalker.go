@@ -12,7 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/golang/protobuf/proto" // nolint:staticcheck
+	// nolint:staticcheck
+	"github.com/golang/protobuf/proto"
 	"github.com/google/fswalker"
 	fspb "github.com/google/fswalker/proto/fswalker"
 	"github.com/pkg/errors"
@@ -30,7 +31,7 @@ type WalkCompare struct {
 	GlobalFilterFuncs []func(string, fswalker.ActionData) bool
 }
 
-// NewWalkCompare instantiates a new WalkCompare and returns its pointer
+// NewWalkCompare instantiates a new WalkCompare and returns its pointer.
 func NewWalkCompare() *WalkCompare {
 	return &WalkCompare{
 		GlobalFilterFuncs: []func(string, fswalker.ActionData) bool{

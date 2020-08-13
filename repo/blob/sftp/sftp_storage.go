@@ -28,9 +28,7 @@ const (
 	packetSize = 1 << 15
 )
 
-var (
-	sftpDefaultShards = []int{3, 3}
-)
+var sftpDefaultShards = []int{3, 3}
 
 // sftpStorage implements blob.Storage on top of sftp.
 type sftpStorage struct {
@@ -58,8 +56,8 @@ func (s *sftpImpl) GetBlobFromPath(ctx context.Context, dirPath, fullPath string
 	// pkg/sftp doesn't have a `ioutil.Readall`, so we WriteTo to a buffer
 	// and either return it all or return the offset/length bytes
 	buf := new(bytes.Buffer)
-	n, err := r.WriteTo(buf)
 
+	n, err := r.WriteTo(buf)
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +196,7 @@ func (s *sftpStorage) Close(ctx context.Context) error {
 	return nil
 }
 
-// example host strings: [localhost]:2222, [xyz.example.com], [192.168.1.1]:2210, 192.168.1.1
+// example host strings: [localhost]:2222, [xyz.example.com], [192.168.1.1]:2210, 192.168.1.1.
 func cleanup(host string) string {
 	if index := strings.Index(host, ":"); index > 0 {
 		host = host[:index]
@@ -210,7 +208,7 @@ func cleanup(host string) string {
 	return host
 }
 
-// given a list of hosts from a known_hosts entry, determine if the host is referenced
+// given a list of hosts from a known_hosts entry, determine if the host is referenced.
 func hostExists(host string, hosts []string) bool {
 	for _, entry := range hosts {
 		if host == cleanup(entry) {
@@ -222,18 +220,18 @@ func hostExists(host string, hosts []string) bool {
 }
 
 // getHostKey parses OpenSSH known_hosts file for a public key that matches the host
-// The known_hosts file format is documented in the sshd(8) manual page
+// The known_hosts file format is documented in the sshd(8) manual page.
 func getHostKey(opt *Options) (ssh.PublicKey, error) {
 	var reader io.Reader
 
 	if opt.KnownHostsData != "" {
 		reader = strings.NewReader(opt.KnownHostsData)
 	} else {
-		file, err := os.Open(opt.knownHostsFile()) //nolint:gosec
+		file, err := os.Open(opt.knownHostsFile())
 		if err != nil {
 			return nil, err
 		}
-		defer file.Close() //nolint:errcheck
+		defer file.Close() //nolint:errcheck,gosec
 
 		reader = file
 	}
@@ -253,7 +251,7 @@ func getHostKey(opt *Options) (ssh.PublicKey, error) {
 	return nil, errors.Errorf("no hostkey found for %s", opt.Host)
 }
 
-// getSigner parses and returns a signer for the user-entered private key
+// getSigner parses and returns a signer for the user-entered private key.
 func getSigner(opts *Options) (ssh.Signer, error) {
 	if opts.Keyfile == "" && opts.KeyData == "" {
 		return nil, errors.New("must specify the location of the ssh server private key or the key data")
@@ -266,7 +264,7 @@ func getSigner(opts *Options) (ssh.Signer, error) {
 	} else {
 		var err error
 
-		privateKeyData, err = ioutil.ReadFile(opts.Keyfile) //nolint:gosec
+		privateKeyData, err = ioutil.ReadFile(opts.Keyfile)
 		if err != nil {
 			return nil, err
 		}

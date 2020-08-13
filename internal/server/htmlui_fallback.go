@@ -51,32 +51,32 @@ type bindataFileInfo struct {
 	modTime time.Time
 }
 
-// Name return file name
+// Name return file name.
 func (fi bindataFileInfo) Name() string {
 	return fi.name
 }
 
-// Size return file size
+// Size return file size.
 func (fi bindataFileInfo) Size() int64 {
 	return fi.size
 }
 
-// Mode return file mode
+// Mode return file mode.
 func (fi bindataFileInfo) Mode() os.FileMode {
 	return fi.mode
 }
 
-// Mode return file modify time
+// Mode return file modify time.
 func (fi bindataFileInfo) ModTime() time.Time {
 	return fi.modTime
 }
 
-// IsDir return file whether a directory
+// IsDir return file whether a directory.
 func (fi bindataFileInfo) IsDir() bool {
 	return fi.mode&os.ModeDir != 0
 }
 
-// Sys return file is sys mode
+// Sys return file is sys mode.
 func (fi bindataFileInfo) Sys() interface{} {
 	return nil
 }
@@ -90,7 +90,7 @@ type assetFile struct {
 
 type assetOperator struct{}
 
-// Open implement http.FileSystem interface
+// Open implement http.FileSystem interface.
 func (f *assetOperator) Open(name string) (http.File, error) {
 	var err error
 	if len(name) > 0 && name[0] == '/' {
@@ -124,12 +124,12 @@ func (f *assetOperator) Open(name string) (http.File, error) {
 	}
 }
 
-// Close no need do anything
+// Close no need do anything.
 func (f *assetFile) Close() error {
 	return nil
 }
 
-// Readdir read dir's children file info
+// Readdir read dir's children file info.
 func (f *assetFile) Readdir(count int) ([]os.FileInfo, error) {
 	if len(f.childInfos) == 0 {
 		return nil, os.ErrNotExist
@@ -145,7 +145,7 @@ func (f *assetFile) Readdir(count int) ([]os.FileInfo, error) {
 	return f.childInfos[offset : offset+count], nil
 }
 
-// Stat read file info from asset item
+// Stat read file info from asset item.
 func (f *assetFile) Stat() (os.FileInfo, error) {
 	if len(f.childInfos) != 0 {
 		return newDirFileInfo(f.name), nil
@@ -153,16 +153,17 @@ func (f *assetFile) Stat() (os.FileInfo, error) {
 	return AssetInfo(f.name)
 }
 
-// newDirFileInfo return default dir file info
+// newDirFileInfo return default dir file info.
 func newDirFileInfo(name string) os.FileInfo {
 	return &bindataFileInfo{
 		name:    name,
 		size:    0,
 		mode:    os.FileMode(2147484068), // equal os.FileMode(0644)|os.ModeDir
-		modTime: time.Time{}}
+		modTime: time.Time{},
+	}
 }
 
-// AssetFile return a http.FileSystem instance that data backend by asset
+// AssetFile return a http.FileSystem instance that data backend by asset.
 func AssetFile() http.FileSystem {
 	return &assetOperator{}
 }
@@ -283,10 +284,10 @@ type bintree struct {
 }
 
 var _bintree = &bintree{nil, map[string]*bintree{
-	"index.html": &bintree{indexHtml, map[string]*bintree{}},
+	"index.html": {indexHtml, map[string]*bintree{}},
 }}
 
-// RestoreAsset restores an asset under the given directory
+// RestoreAsset restores an asset under the given directory.
 func RestoreAsset(dir, name string) error {
 	data, err := Asset(name)
 	if err != nil {
@@ -296,7 +297,7 @@ func RestoreAsset(dir, name string) error {
 	if err != nil {
 		return err
 	}
-	err = os.MkdirAll(_filePath(dir, filepath.Dir(name)), os.FileMode(0755))
+	err = os.MkdirAll(_filePath(dir, filepath.Dir(name)), os.FileMode(0o755))
 	if err != nil {
 		return err
 	}
@@ -311,7 +312,7 @@ func RestoreAsset(dir, name string) error {
 	return nil
 }
 
-// RestoreAssets restores an asset under the given directory recursively
+// RestoreAssets restores an asset under the given directory recursively.
 func RestoreAssets(dir, name string) error {
 	children, err := AssetDir(name)
 	// File

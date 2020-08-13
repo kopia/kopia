@@ -4,7 +4,8 @@ package hmac
 import (
 	"crypto/hmac"
 	"crypto/sha256"
-	"errors"
+
+	"github.com/pkg/errors"
 )
 
 // Append computes HMAC-SHA256 checksum for a given block of bytes and appends it.

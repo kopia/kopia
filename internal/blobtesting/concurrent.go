@@ -15,7 +15,7 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-// ConcurrentAccessOptions encapsulates parameters for VerifyConcurrentAccess
+// ConcurrentAccessOptions encapsulates parameters for VerifyConcurrentAccess.
 type ConcurrentAccessOptions struct {
 	NumBlobs int // number of shared blos in the pool
 
@@ -40,7 +40,7 @@ func VerifyConcurrentAccess(t testingT, st blob.Storage, options ConcurrentAcces
 
 	for i := 0; i < options.NumBlobs; i++ {
 		blobIDBytes := make([]byte, 32)
-		cryptorand.Read(blobIDBytes) // nolint:errcheck
+		cryptorand.Read(blobIDBytes)
 		blobs = append(blobs, blob.ID(hex.EncodeToString(blobIDBytes)))
 	}
 
@@ -58,7 +58,7 @@ func VerifyConcurrentAccess(t testingT, st blob.Storage, options ConcurrentAcces
 				offset := int64(0)
 				length := int64(-1)
 
-				if rand.Intn(100) < options.RangeGetPercentage { //nolint:gomnd
+				if rand.Intn(100) < options.RangeGetPercentage {
 					offset = 10
 					length = 3
 				}
@@ -130,7 +130,7 @@ func VerifyConcurrentAccess(t testingT, st blob.Storage, options ConcurrentAcces
 			for i := 0; i < options.Iterations; i++ {
 				blobID := randomBlobID()
 				prefix := blobID[0:rand.Intn(len(blobID))]
-				if rand.Intn(100) < options.NonExistentListPrefixPercentage { //nolint:gomnd
+				if rand.Intn(100) < options.NonExistentListPrefixPercentage {
 					prefix = "zzz"
 				}
 

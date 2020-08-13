@@ -43,7 +43,7 @@ func TestCompression(t *testing.T) {
 		"how are you",
 	}
 	// add a file that compresses well
-	testenv.AssertNoError(t, ioutil.WriteFile(filepath.Join(dataDir, "some-file1"), []byte(strings.Join(dataLines, "\n")), 0600))
+	testenv.AssertNoError(t, ioutil.WriteFile(filepath.Join(dataDir, "some-file1"), []byte(strings.Join(dataLines, "\n")), 0o600))
 
 	e.RunAndExpectSuccess(t, "snapshot", "create", dataDir)
 	sources := e.ListSnapshotsAndExpectSuccess(t)

@@ -26,7 +26,7 @@ func newCacheStorageOrNil(ctx context.Context, cacheDir string, maxBytes int64, 
 		contentCacheDir := filepath.Join(cacheDir, subdir)
 
 		if _, err = os.Stat(contentCacheDir); os.IsNotExist(err) {
-			if mkdirerr := os.MkdirAll(contentCacheDir, 0700); mkdirerr != nil {
+			if mkdirerr := os.MkdirAll(contentCacheDir, 0o700); mkdirerr != nil {
 				return nil, mkdirerr
 			}
 		}

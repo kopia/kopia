@@ -71,7 +71,7 @@ func oneTimeSetup() error {
 
 func randomString(n int) string {
 	b := make([]byte, n)
-	io.ReadFull(rand.Reader, b) //nolint:errcheck
+	io.ReadFull(rand.Reader, b)
 
 	return hex.EncodeToString(b)
 }
@@ -80,7 +80,7 @@ func makeScratchDir(t *testing.T) string {
 	baseTestName := strings.Split(t.Name(), "/")[0]
 	d := filepath.Join(sharedTestDataDirBase, baseTestName, randomString(4))
 
-	if err := os.MkdirAll(d, 0700); err != nil {
+	if err := os.MkdirAll(d, 0o700); err != nil {
 		t.Fatalf("unable to make scratch dir: %v", err)
 	}
 
@@ -89,7 +89,7 @@ func makeScratchDir(t *testing.T) string {
 
 func oneTimeCleanup() {
 	if sharedTestDataDirBase != "" {
-		os.RemoveAll(sharedTestDataDirBase) //nolint:errcheck
+		os.RemoveAll(sharedTestDataDirBase)
 	}
 }
 

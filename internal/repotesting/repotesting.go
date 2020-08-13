@@ -86,7 +86,7 @@ func (e *Environment) Setup(t *testing.T, opts ...func(*repo.NewRepositoryOption
 	return e
 }
 
-// Close closes testing environment
+// Close closes testing environment.
 func (e *Environment) Close(ctx context.Context, t *testing.T) {
 	if err := e.Repository.Close(ctx); err != nil {
 		t.Fatalf("unable to close: %v", err)

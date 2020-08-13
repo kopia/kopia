@@ -61,15 +61,15 @@ func TestTimeFuncWiring(t *testing.T) {
 
 	// verify wiring for the manifest layer
 	nt = ft.Advance(3 * time.Minute)
-	labels := map[string]string{"l1": "v1", "l2": "v2", "type": "my-manifest"}
-	mid, err := r.Manifests.Put(ctx, labels, "manifest content")
 
+	labels := map[string]string{"l1": "v1", "l2": "v2", "type": "my-manifest"}
+
+	mid, err := r.Manifests.Put(ctx, labels, "manifest content")
 	if err != nil {
 		t.Fatal("failed to put manifest:", err)
 	}
 
 	meta, err := r.Manifests.GetMetadata(ctx, mid)
-
 	if err != nil {
 		t.Fatal("failed to get manifest metadata:", err)
 	}
@@ -78,7 +78,7 @@ func TestTimeFuncWiring(t *testing.T) {
 		t.Errorf("manifest time does not match, got %v, want %v", got, want)
 	}
 
-	const defaultPermissions = 0777
+	const defaultPermissions = 0o777
 
 	// verify wiring for the snapshot layer
 	sourceDir := mockfs.NewDirectory()
@@ -87,8 +87,8 @@ func TestTimeFuncWiring(t *testing.T) {
 	nt = ft.Advance(1 * time.Hour)
 	u := snapshotfs.NewUploader(r)
 	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
-	s1, err := u.Upload(ctx, sourceDir, policyTree, snapshot.SourceInfo{})
 
+	s1, err := u.Upload(ctx, sourceDir, policyTree, snapshot.SourceInfo{})
 	if err != nil {
 		t.Fatal("failed to create snapshot:", err)
 	}

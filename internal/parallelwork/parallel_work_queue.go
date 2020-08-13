@@ -24,7 +24,7 @@ type Queue struct {
 	ProgressCallback func(enqueued, active, completed int64)
 }
 
-// CallbackFunc is a callback function
+// CallbackFunc is a callback function.
 type CallbackFunc func() error
 
 // EnqueueFront adds the work to the front of the queue.

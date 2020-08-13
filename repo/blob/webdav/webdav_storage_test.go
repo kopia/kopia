@@ -27,7 +27,7 @@ func basicAuth(h http.Handler) http.HandlerFunc {
 		} else {
 			w.Header().Set("WWW-Authenticate", `Basic realm="testing"`)
 			w.WriteHeader(401)
-			w.Write([]byte("Unauthorized.\n")) //nolint:errcheck
+			w.Write([]byte("Unauthorized.\n"))
 		}
 	}
 }
@@ -80,7 +80,7 @@ func TestWebDAVStorageBuiltInServer(t *testing.T) {
 			if err := os.RemoveAll(tmpDir); err != nil {
 				t.Errorf("can't remove all: %q", tmpDir)
 			}
-			os.MkdirAll(tmpDir, 0700) //nolint:errcheck
+			os.MkdirAll(tmpDir, 0o700)
 
 			verifyWebDAVStorage(t, server.URL, "user", "password", shardSpec)
 		})

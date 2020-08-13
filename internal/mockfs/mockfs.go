@@ -13,7 +13,7 @@ import (
 	"github.com/kopia/kopia/fs"
 )
 
-// ReaderSeekerCloser implements io.Reader, io.Seeker and io.Closer
+// ReaderSeekerCloser implements io.Reader, io.Seeker and io.Closer.
 type ReaderSeekerCloser interface {
 	io.Reader
 	io.Seeker
@@ -64,7 +64,7 @@ func (e entry) Owner() fs.OwnerInfo {
 	return e.owner
 }
 
-// Directory is mock in-memory implementation of fs.Directory
+// Directory is mock in-memory implementation of fs.Directory.
 type Directory struct {
 	entry
 
@@ -246,7 +246,7 @@ func NewDirectory() *Directory {
 	return &Directory{
 		entry: entry{
 			name: "<root>",
-			mode: 0777 | os.ModeDir, // nolint:gomnd
+			mode: 0o777 | os.ModeDir, // nolint:gomnd
 		},
 	}
 }

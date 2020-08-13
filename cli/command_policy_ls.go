@@ -9,9 +9,7 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
-var (
-	policyListCommand = policyCommands.Command("list", "List policies.").Alias("ls")
-)
+var policyListCommand = policyCommands.Command("list", "List policies.").Alias("ls")
 
 func init() {
 	policyListCommand.Action(repositoryAction(listPolicies))

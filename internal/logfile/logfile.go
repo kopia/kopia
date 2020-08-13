@@ -3,7 +3,6 @@ package logfile
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"math"
@@ -15,6 +14,7 @@ import (
 	"time"
 
 	logging "github.com/op/go-logging"
+	"github.com/pkg/errors"
 	"gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/kopia/kopia/cli"
@@ -40,8 +40,10 @@ var (
 
 var log = repologging.GetContextLoggerFunc("kopia")
 
-const logFileNamePrefix = "kopia-"
-const logFileNameSuffix = ".log"
+const (
+	logFileNamePrefix = "kopia-"
+	logFileNameSuffix = ".log"
+)
 
 // Initialize is invoked as part of command execution to create log file just before it's needed.
 func Initialize(ctx *kingpin.ParseContext) error {
@@ -74,8 +76,8 @@ func Initialize(ctx *kingpin.ParseContext) error {
 		logFileDir := filepath.Dir(logFileName)
 		logFileBaseName := filepath.Base(logFileName)
 
-		if err := os.MkdirAll(logFileDir, 0700); err != nil {
-			fmt.Fprintln(os.Stderr, "Unable to create logs directory:", err) // nolint:errcheck
+		if err := os.MkdirAll(logFileDir, 0o700); err != nil {
+			fmt.Fprintln(os.Stderr, "Unable to create logs directory:", err)
 		}
 
 		logBackends = append(
@@ -126,7 +128,7 @@ func sweepLogDir(ctx context.Context, dirname string, maxCount int, maxAge time.
 		return entries[i].ModTime().After(entries[j].ModTime())
 	})
 
-	var cnt = 0
+	cnt := 0
 
 	for _, e := range entries {
 		if !strings.HasPrefix(e.Name(), logFileNamePrefix) {
@@ -180,7 +182,7 @@ func (w *onDemandBackend) Log(level logging.Level, depth int, rec *logging.Recor
 		lf := filepath.Join(w.logDir, w.logFileBaseName)
 		f, err := os.Create(lf)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "unable to open log file: %v\n", err) //nolint:errcheck
+			fmt.Fprintf(os.Stderr, "unable to open log file: %v\n", err)
 			return
 		}
 

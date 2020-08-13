@@ -215,7 +215,7 @@ func (r *DirectRepository) SetCachingConfig(ctx context.Context, opt *content.Ca
 		return err
 	}
 
-	if err := ioutil.WriteFile(r.ConfigFile, d, 0600); err != nil {
+	if err := ioutil.WriteFile(r.ConfigFile, d, 0o600); err != nil {
 		return nil
 	}
 
@@ -226,7 +226,7 @@ func readAndCacheFormatBlobBytes(ctx context.Context, st blob.Storage, cacheDire
 	cachedFile := filepath.Join(cacheDirectory, "kopia.repository")
 
 	if cacheDirectory != "" {
-		if err := os.MkdirAll(cacheDirectory, 0700); err != nil && !os.IsExist(err) {
+		if err := os.MkdirAll(cacheDirectory, 0o700); err != nil && !os.IsExist(err) {
 			log(ctx).Warningf("unable to create cache directory: %v", err)
 		}
 

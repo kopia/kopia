@@ -32,7 +32,7 @@ func TestFormatters(t *testing.T) {
 	secret := []byte("secret")
 
 	data := make([]byte, 100)
-	cryptorand.Read(data) //nolint:errcheck
+	cryptorand.Read(data)
 	h0 := sha1.Sum(data)
 
 	for _, hashAlgo := range hashing.SupportedAlgorithms() {
@@ -49,7 +49,6 @@ func TestFormatters(t *testing.T) {
 						Hash:       hashAlgo,
 						Encryption: encryptionAlgo,
 					})
-
 					if err != nil {
 						key := hashAlgo + "/" + encryptionAlgo
 
