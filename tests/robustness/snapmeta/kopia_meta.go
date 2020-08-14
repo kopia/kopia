@@ -20,13 +20,13 @@ type kopiaMetadata struct {
 }
 
 // New instantiates a new Persister and returns it.
-func New() (Persister, error) {
-	localDir, err := ioutil.TempDir("", "kopia-local-metadata-")
+func New(baseDir string) (Persister, error) {
+	localDir, err := ioutil.TempDir(baseDir, "kopia-local-metadata-")
 	if err != nil {
 		return nil, err
 	}
 
-	snap, err := kopiarunner.NewKopiaSnapshotter()
+	snap, err := kopiarunner.NewKopiaSnapshotter(localDir)
 	if err != nil {
 		return nil, err
 	}

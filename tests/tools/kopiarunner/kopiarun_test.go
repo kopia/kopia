@@ -61,7 +61,7 @@ func TestKopiaRunner(t *testing.T) {
 			t.Fatal("Unable to set environment variable KOPIA_EXE")
 		}
 
-		runner, err := NewRunner()
+		runner, err := NewRunner("")
 		if (err != nil) != tt.expNewRunnerErr {
 			t.Fatalf("Expected NewRunner error: %v, got %v", tt.expNewRunnerErr, err)
 		}
@@ -69,6 +69,8 @@ func TestKopiaRunner(t *testing.T) {
 		if err != nil {
 			continue
 		}
+
+		defer runner.Cleanup()
 
 		_, _, err = runner.Run(tt.args...)
 		if (err != nil) != tt.expRunErr {

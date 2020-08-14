@@ -16,9 +16,9 @@ type KopiaSnapshotter struct {
 	Runner *Runner
 }
 
-// NewKopiaSnapshotter instantiates a new KopiaSnapshotter and returns its pointer.
-func NewKopiaSnapshotter() (*KopiaSnapshotter, error) {
-	runner, err := NewRunner()
+// NewKopiaSnapshotter instantiates a new KopiaSnapshotter and returns its pointer
+func NewKopiaSnapshotter(baseDir string) (*KopiaSnapshotter, error) {
+	runner, err := NewRunner(baseDir)
 	if err != nil {
 		return nil, err
 	}

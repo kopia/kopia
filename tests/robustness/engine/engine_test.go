@@ -26,7 +26,7 @@ var (
 )
 
 func TestEngineWritefilesBasicFS(t *testing.T) {
-	eng, err := NewEngine()
+	eng, err := NewEngine("")
 	if err == kopiarunner.ErrExeVariableNotSet || errors.Is(err, fio.ErrEnvNotSet) {
 		t.Skip(err)
 	}
@@ -65,7 +65,7 @@ func TestEngineWritefilesBasicFS(t *testing.T) {
 }
 
 func TestWriteFilesBasicS3(t *testing.T) {
-	eng, err := NewEngine()
+	eng, err := NewEngine("")
 	if err == kopiarunner.ErrExeVariableNotSet || errors.Is(err, fio.ErrEnvNotSet) {
 		t.Skip(err)
 	}
@@ -104,7 +104,7 @@ func TestWriteFilesBasicS3(t *testing.T) {
 }
 
 func TestDeleteSnapshotS3(t *testing.T) {
-	eng, err := NewEngine()
+	eng, err := NewEngine("")
 	if err == kopiarunner.ErrExeVariableNotSet || errors.Is(err, fio.ErrEnvNotSet) {
 		t.Skip(err)
 	}
@@ -144,7 +144,7 @@ func TestDeleteSnapshotS3(t *testing.T) {
 }
 
 func TestSnapshotVerificationFail(t *testing.T) {
-	eng, err := NewEngine()
+	eng, err := NewEngine("")
 	if err == kopiarunner.ErrExeVariableNotSet || errors.Is(err, fio.ErrEnvNotSet) {
 		t.Skip(err)
 	}
@@ -210,7 +210,7 @@ func TestDataPersistency(t *testing.T) {
 
 	defer os.RemoveAll(tempDir)
 
-	eng, err := NewEngine()
+	eng, err := NewEngine("")
 	if err == kopiarunner.ErrExeVariableNotSet || errors.Is(err, fio.ErrEnvNotSet) {
 		t.Skip(err)
 	}
@@ -251,7 +251,7 @@ func TestDataPersistency(t *testing.T) {
 	testenv.AssertNoError(t, err)
 
 	// Create a new engine
-	eng2, err := NewEngine()
+	eng2, err := NewEngine("")
 	testenv.AssertNoError(t, err)
 
 	defer eng2.cleanup()

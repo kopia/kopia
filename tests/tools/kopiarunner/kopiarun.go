@@ -2,6 +2,7 @@
 package kopiarunner
 
 import (
+	"bytes"
 	"errors"
 	"io/ioutil"
 	"log"
@@ -9,7 +10,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 )
 
 const (
@@ -27,14 +27,14 @@ type Runner struct {
 // ErrExeVariableNotSet is an exported error.
 var ErrExeVariableNotSet = errors.New("KOPIA_EXE variable has not been set")
 
-// NewRunner initializes a new kopia runner and returns its pointer.
-func NewRunner() (*Runner, error) {
+// NewRunner initializes a new kopia runner and returns its pointer
+func NewRunner(baseDir string) (*Runner, error) {
 	exe := os.Getenv("KOPIA_EXE")
 	if exe == "" {
 		return nil, ErrExeVariableNotSet
 	}
 
-	configDir, err := ioutil.TempDir("", "kopia-config")
+	configDir, err := ioutil.TempDir(baseDir, "kopia-config")
 	if err != nil {
 		return nil, err
 	}
@@ -69,28 +69,12 @@ func (kr *Runner) Run(args ...string) (stdout, stderr string, err error) {
 	c := exec.Command(kr.Exe, cmdArgs...)
 	c.Env = append(os.Environ(), kr.environment...)
 
-	stderrPipe, err := c.StderrPipe()
-	if err != nil {
-		return stdout, stderr, err
-	}
-
-	var errOut []byte
-
-	var wg sync.WaitGroup
-
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-
-		errOut, err = ioutil.ReadAll(stderrPipe)
-	}()
+	errOut := &bytes.Buffer{}
+	c.Stderr = errOut
 
 	o, err := c.Output()
 
-	wg.Wait()
+	log.Printf("finished '%s %v' with err=%v and output:\nSTDOUT:\n%v\nSTDERR:\n%v", kr.Exe, argsStr, err, string(o), errOut.String())
 
-	log.Printf("finished '%s %v' with err=%v and output:\n%v\n%v", kr.Exe, argsStr, err, string(o), string(errOut))
-
-	return string(o), string(errOut), err
+	return string(o), errOut.String(), err
 }
