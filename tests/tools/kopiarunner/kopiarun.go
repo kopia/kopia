@@ -27,7 +27,7 @@ type Runner struct {
 // ErrExeVariableNotSet is an exported error.
 var ErrExeVariableNotSet = errors.New("KOPIA_EXE variable has not been set")
 
-// NewRunner initializes a new kopia runner and returns its pointer
+// NewRunner initializes a new kopia runner and returns its pointer.
 func NewRunner(baseDir string) (*Runner, error) {
 	exe := os.Getenv("KOPIA_EXE")
 	if exe == "" {

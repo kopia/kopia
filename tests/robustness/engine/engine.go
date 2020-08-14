@@ -41,7 +41,7 @@ type Engine struct {
 // - FIO file writer
 // - Kopia test repo snapshotter
 // - Kopia metadata storage repo
-// - FSWalker data integrity checker
+// - FSWalker data integrity checker.
 func NewEngine(workingDir string) (*Engine, error) {
 	baseDirPath, err := ioutil.TempDir(workingDir, "engine-data-")
 	if err != nil {
