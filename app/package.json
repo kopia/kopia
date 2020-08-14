@@ -117,6 +117,8 @@
     "electron-notarize": "^0.2.1"
   },
   "homepage": "./",
+  "description": "Fast and secure open source backup.",
+  "license": "Apache-2.0",
   "main": "public/electron.js",
   "scripts": {
     "start": "react-scripts start",
