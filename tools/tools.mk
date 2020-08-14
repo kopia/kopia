@@ -233,6 +233,8 @@ KOPIA_VERSION:=v$(date_ymd).0.0-$(shell git rev-parse --short HEAD)
 
 endif
 
+export KOPIA_VERSION_NO_PREFIX=$(KOPIA_VERSION:v%=%)
+
 # embedded in the HTML pages
 export REACT_APP_SHORT_VERSION_INFO:=$(KOPIA_VERSION)
 export REACT_APP_FULL_VERSION_INFO:=$(KOPIA_VERSION) built on $(date_full) $(shell hostname)
