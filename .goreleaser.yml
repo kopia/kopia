@@ -38,13 +38,16 @@ archives:
 checksum:
   name_template: 'checksums.txt'
 snapshot:
-  name_template: "{{ .Tag }}-next"
+  name_template: '{{ .Env.KOPIA_VERSION_NO_PREFIX }}'
 nfpms:
   - homepage: https://kopia.io
     vendor: Kopia Project
     maintainer: Kopia Project <kopia-pmc@googlegroups.com>
     description: Fast and secure open source backup.
     license: Apache 2.0
+    file_name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    replacements:
+      arm: armhf
     formats:
     - deb
     - rpm
