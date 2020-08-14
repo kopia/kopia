@@ -3,7 +3,8 @@ GO_TEST=go test
 TEST_FLAGS?=
 KOPIA_INTEGRATION_EXE=$(CURDIR)/dist/integration/kopia.exe
 FIO_DOCKER_TAG=ljishen/fio
-BOTO_PATH=/Users/jarek/Projects/Kopia/tools/.boto
+
+export BOTO_PATH=$(CURDIR)/tools/.boto
 
 all: test lint vet integration-tests
 
