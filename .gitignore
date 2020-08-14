@@ -20,3 +20,4 @@ known_hosts
 node_modules/
 *_bindata.go
 .tmp.*
+.boto
