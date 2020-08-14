@@ -55,8 +55,8 @@ for f in $deb_files; do
       dists="testing"
     fi
 
-    # 20x.y.z-hash
-    if [[ $ver =~ 20[0-9]+\.[0-9]+\.[0-9]+-.*$ ]]; then
+    # yyyymmdd.0.hhmmss starts with 20
+    if [[ $ver =~ 20[0-9]+\.[0-9]+\.[0-9]+ ]]; then
       dists="unstable"
     fi
 
