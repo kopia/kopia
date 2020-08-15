@@ -20,12 +20,12 @@ import (
 	"github.com/kopia/kopia/repo/object"
 )
 
-// CacheDirMarkerFile is the name of the marker file indicating a directory contains Kopia caches.
+// CacheDirMarkerFile is the name of the marker file indicating a directory contains Kopia caches
 const CacheDirMarkerFile = ".kopia-cache"
 
 var log = logging.GetContextLoggerFunc("kopia/repo")
 
-// Options provides configuration parameters for connection to a repository.
+// Options provides configuration parameters for connection to a repository
 type Options struct {
 	TraceStorage         func(f string, args ...interface{}) // Logs all storage access using provided Printf-style function
 	ObjectManagerOptions object.ManagerOptions
