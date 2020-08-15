@@ -6,6 +6,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"os"
 	"strconv"
@@ -41,10 +42,13 @@ type Engine struct {
 // - Kopia test repo snapshotter
 // - Kopia metadata storage repo
 // - FSWalker data integrity checker.
-func NewEngine() (*Engine, error) {
-	e := new(Engine)
+func NewEngine(workingDir string) (*Engine, error) {
+	baseDirPath, err := ioutil.TempDir(workingDir, "engine-data-")
+	if err != nil {
+		return nil, err
+	}
 
-	var err error
+	e := new(Engine)
 
 	// Fill the file writer
 	e.FileWriter, err = fio.NewRunner()
@@ -56,7 +60,7 @@ func NewEngine() (*Engine, error) {
 	e.cleanupRoutines = append(e.cleanupRoutines, e.FileWriter.Cleanup)
 
 	// Fill Snapshotter interface
-	kopiaSnapper, err := kopiarunner.NewKopiaSnapshotter()
+	kopiaSnapper, err := kopiarunner.NewKopiaSnapshotter(baseDirPath)
 	if err != nil {
 		e.Cleanup() //nolint:errcheck
 		return nil, err
@@ -66,7 +70,7 @@ func NewEngine() (*Engine, error) {
 	e.TestRepo = kopiaSnapper
 
 	// Fill the snapshot store interface
-	snapStore, err := snapmeta.New()
+	snapStore, err := snapmeta.New(baseDirPath)
 	if err != nil {
 		e.Cleanup() //nolint:errcheck
 		return nil, err

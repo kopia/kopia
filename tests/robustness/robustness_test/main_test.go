@@ -26,7 +26,7 @@ const (
 func TestMain(m *testing.M) {
 	var err error
 
-	eng, err = engine.NewEngine()
+	eng, err = engine.NewEngine("")
 	if err != nil {
 		log.Println("skipping robustness tests:", err)
 
