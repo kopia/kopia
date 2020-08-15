@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 GS_PREFIX=gs://packages.kopia.io/apt
 GPG_KEY_ID=A3B5843ED70529C23162E3687713E6D88ED70D9D
 PKGDIR=$1
@@ -96,4 +97,12 @@ for d in $distributions; do
 done
 
 # sync back to GCS
+echo Synchronizing...
 gsutil -m rsync -r $WORK_DIR/ $GS_PREFIX/
+
+# reapply caching parameters
+echo Setting caching parameters...
+gsutil -m setmeta -h "Cache-Control:no-cache, max-age=0" $GS_PREFIX/dists/{stable,testing,unstable}/{Release,Release.gpg,InRelease}
+gsutil -m setmeta -h "Cache-Control:no-cache, max-age=0" $GS_PREFIX/dists/{stable,testing,unstable}/main/binary-{amd64,arm64,armhf}/Packages{,.gz}
+
+echo Done.
