@@ -4,23 +4,13 @@ linkTitle: "Installation"
 weight: 20
 ---
 
-Kopia supports both command line (CLI) and graphical (GUI) user interfaces.
-
-### Command Line Tool
-
-The easiest way to get started with the Kopia CLI tool is to download pre-compiled `kopia` binary. Alternatively, you can compile it yourself from source. 
-
-### Kopia UI
-
-You can download installer packages of KopiaUI for Windows, macOS, and Linux from the [Releases](https://github.com/kopia/kopia/releases/latest) page on GitHub.
-
 ### Download
 
-Kopia is released as a single, stand-alone binary, available for many operating systems:
+Kopia is released as a single binary, available for many operating systems:
 
 * Windows 7 or later, 64-bit
 * macOS 10.11 or later, 64-bit
-* Linux - amd64, armv7 or arm64
+* Linux - amd64, armhf or arm64
 
 To download latest binary for your platform, go to the [Releases](https://github.com/kopia/kopia/releases/latest) page on GitHub.
 
@@ -78,17 +68,33 @@ You can download a pre-built RPM package suitable for RedHat, Fedora and CentOS 
 $ rpm -Uhv kopia*.rpm
 ```
 
-### Linux installation using DEB (Debian, Ubuntu)
+### Linux installation using APT (Debian, Ubuntu)
 
-You can download a pre-built DEB package suitable for Debian and Ubuntu Linux from the [Releases](https://github.com/kopia/kopia/releases/latest) page on GitHub and install it using:
+Install GPG signing key:
 
 ```shell
-$ deb -i kopia*.deb
+curl -s https://kopia.io/signing-key | sudo apt-key add -
+```
+
+Install APT source:
+
+```shell
+echo "deb http://packages.kopia.io/apt/ stable main" | sudo tee /etc/apt/sources.list.d/kopia.list
+sudo apt update
+```
+
+>By default the **stable** channel provides official stable releases. If you prefer you can also select **testing** channel (which also provides release candidates and is generally stable) or **unstable** which includes all latest changes, but may not be stable.
+
+Finally install Kopia or KopiaUI:
+
+```shell
+sudo apt install kopia
+sudo apt install kopia-ui
 ```
 
 ### Compilation From Source
 
-If you have [Go 1.13](https://golang.org/) or newer, you may download and build Kopia yourself. No special setup is necessary, other than the Go compiler. You can simply run:
+If you have [Go 1.14](https://golang.org/) or newer, you may download and build Kopia yourself. No special setup is necessary, other than the Go compiler. You can simply run:
 
 ```shell
 $ go get github.com/kopia/kopia
