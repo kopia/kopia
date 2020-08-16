@@ -4,10 +4,6 @@ package apiclient
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"crypto/tls"
-	"crypto/x509"
-	"encoding/hex"
 	"encoding/json"
 	"io"
 	"io/ioutil"
@@ -16,6 +12,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/tlsutil"
 	"github.com/kopia/kopia/repo/logging"
 )
 
@@ -139,13 +136,7 @@ func NewKopiaAPIClient(options Options) (*KopiaAPIClient, error) {
 
 	// override transport which trusts only one certificate
 	if f := options.TrustedServerCertificateFingerprint; f != "" {
-		t2 := http.DefaultTransport.(*http.Transport).Clone()
-		t2.TLSClientConfig = &tls.Config{
-			InsecureSkipVerify:    true, //nolint:gosec
-			VerifyPeerCertificate: verifyPeerCertificate(f),
-		}
-
-		transport = t2
+		transport = tlsutil.TransportTrustingSingleCertificate(f)
 	} else {
 		transport = http.DefaultTransport
 	}
@@ -165,19 +156,6 @@ func NewKopiaAPIClient(options Options) (*KopiaAPIClient, error) {
 			Transport: transport,
 		},
 	}, nil
-}
-
-func verifyPeerCertificate(sha256Fingerprint string) func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-	return func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-		for _, c := range rawCerts {
-			h := sha256.Sum256(c)
-			if hex.EncodeToString(h[:]) == sha256Fingerprint {
-				return nil
-			}
-		}
-
-		return errors.Errorf("can't find certificate matching SHA256 fingerprint %q", sha256Fingerprint)
-	}
 }
 
 type basicAuthTransport struct {
