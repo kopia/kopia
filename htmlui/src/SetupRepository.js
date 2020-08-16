@@ -13,6 +13,7 @@ import { SetupAzure } from './SetupAzure';
 import { SetupSFTP } from './SetupSFTP';
 import { SetupToken } from './SetupToken';
 import { SetupWebDAV } from './SetupWebDAV';
+import { SetupKopiaServer } from './SetupKopiaServer';
 
 const supportedProviders = [
     { provider: "filesystem", description: "Filesystem", component: SetupFilesystem },
@@ -23,6 +24,7 @@ const supportedProviders = [
     { provider: "sftp", description: "SFTP server", component: SetupSFTP },
     { provider: "webdav", description: "WebDAV server", component: SetupWebDAV },
     { provider: "_token", description: "(use token)", component: SetupToken },
+    { provider: "_server", description: "(connect to Kopia server)", component: SetupKopiaServer },
 ];
 
 export class SetupRepository extends Component {
@@ -126,18 +128,29 @@ export class SetupRepository extends Component {
         }
 
         let request = null;
-        if (this.state.provider === "_token") {
-            request = {
-                token: ed.state.token,
-            }
-        } else {
-            request = {
-                storage: {
-                    type: this.state.provider,
-                    config: ed.state,
-                },
-                password: this.state.password,
-            }
+        switch (this.state.provider) {
+            case "_token":
+                request = {
+                    token: ed.state.token,
+                };
+                break;
+
+            case "_server":
+                request = {
+                    apiServer: ed.state,
+                    password: this.state.password,
+                };
+                break;
+
+            default:
+                request = {
+                    storage: {
+                        type: this.state.provider,
+                        config: ed.state,
+                    },
+                    password: this.state.password,
+                };
+                break;
         }
 
         this.setState({ isLoading: true });

@@ -139,12 +139,18 @@ func (s *Server) handleRepoConnect(ctx context.Context, r *http.Request, body []
 		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
 	}
 
-	if err := maybeDecodeToken(&req); err != nil {
-		return nil, err
-	}
+	if req.APIServer != nil {
+		if err := s.connectAPIServerAndOpen(ctx, req.APIServer, req.Password); err != nil {
+			return nil, err
+		}
+	} else {
+		if err := maybeDecodeToken(&req); err != nil {
+			return nil, err
+		}
 
-	if err := s.connectAndOpen(ctx, req.Storage, req.Password); err != nil {
-		return nil, err
+		if err := s.connectAndOpen(ctx, req.Storage, req.Password); err != nil {
+			return nil, err
+		}
 	}
 
 	return s.handleRepoStatus(ctx, r, nil)
@@ -171,6 +177,14 @@ func (s *Server) handleRepoSupportedAlgorithms(ctx context.Context, r *http.Requ
 	return res, nil
 }
 
+func (s *Server) connectAPIServerAndOpen(ctx context.Context, si *repo.APIServerInfo, password string) *apiError {
+	if err := repo.ConnectAPIServer(ctx, s.options.ConfigFile, si, password, s.options.ConnectOptions); err != nil {
+		return repoErrorToAPIError(err)
+	}
+
+	return s.open(ctx, password)
+}
+
 func (s *Server) connectAndOpen(ctx context.Context, conn blob.ConnectionInfo, password string) *apiError {
 	st, err := blob.NewStorage(ctx, conn)
 	if err != nil {
@@ -182,6 +196,10 @@ func (s *Server) connectAndOpen(ctx context.Context, conn blob.ConnectionInfo, p
 		return repoErrorToAPIError(err)
 	}
 
+	return s.open(ctx, password)
+}
+
+func (s *Server) open(ctx context.Context, password string) *apiError {
 	rep, err := repo.Open(ctx, s.options.ConfigFile, password, nil)
 	if err != nil {
 		return repoErrorToAPIError(err)

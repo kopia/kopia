@@ -101,9 +101,10 @@ type CreateRepositoryRequest struct {
 
 // ConnectRepositoryRequest contains request to connect to a repository.
 type ConnectRepositoryRequest struct {
-	Storage  blob.ConnectionInfo `json:"storage"`
-	Password string              `json:"password"`
-	Token    string              `json:"token"` // when set, overrides Storage and Password
+	Storage   blob.ConnectionInfo `json:"storage"`
+	Password  string              `json:"password"`
+	Token     string              `json:"token"` // when set, overrides Storage and Password
+	APIServer *repo.APIServerInfo `json:"apiServer"`
 }
 
 // SupportedAlgorithmsResponse returns the list of supported algorithms for repository creation.
