@@ -15,6 +15,7 @@ import (
 	"github.com/studio-b12/gowebdav"
 
 	"github.com/kopia/kopia/internal/retry"
+	"github.com/kopia/kopia/internal/tlsutil"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/sharded"
 )
@@ -189,11 +190,17 @@ func isRetriable(err error) bool {
 
 // New creates new WebDAV-backed storage in a specified URL.
 func New(ctx context.Context, opts *Options) (blob.Storage, error) {
+	cli := gowebdav.NewClient(opts.URL, opts.Username, opts.Password)
+
+	if opts.TrustedServerCertificateFingerprint != "" {
+		cli.SetTransport(tlsutil.TransportTrustingSingleCertificate(opts.TrustedServerCertificateFingerprint))
+	}
+
 	return &davStorage{
 		sharded.Storage{
 			Impl: &davStorageImpl{
 				Options: *opts,
-				cli:     gowebdav.NewClient(opts.URL, opts.Username, opts.Password),
+				cli:     cli,
 			},
 			RootPath: "",
 			Suffix:   fsStorageChunkSuffix,
