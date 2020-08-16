@@ -10,6 +10,7 @@ import { SetupGCS } from './SetupGCS';
 import { SetupS3 } from './SetupS3';
 import { SetupB2 } from "./SetupB2";
 import { SetupAzure } from './SetupAzure';
+import { SetupRclone } from './SetupRclone';
 import { SetupSFTP } from './SetupSFTP';
 import { SetupToken } from './SetupToken';
 import { SetupWebDAV } from './SetupWebDAV';
@@ -22,6 +23,7 @@ const supportedProviders = [
     { provider: "b2", description: "Backblaze B2", component: SetupB2 },
     { provider: "azureBlob", description: "Azure Blob Storage", component: SetupAzure },
     { provider: "sftp", description: "SFTP server", component: SetupSFTP },
+    { provider: "rclone", description: "Rclone remote", component: SetupRclone },
     { provider: "webdav", description: "WebDAV server", component: SetupWebDAV },
     { provider: "_token", description: "(use token)", component: SetupToken },
     { provider: "_server", description: "(connect to Kopia server)", component: SetupKopiaServer },
