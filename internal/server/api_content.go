@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"io/ioutil"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -12,7 +11,7 @@ import (
 	"github.com/kopia/kopia/repo/content"
 )
 
-func (s *Server) handleContentGet(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+func (s *Server) handleContentGet(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	dr, ok := s.rep.(*repo.DirectRepository)
 	if !ok {
 		return nil, notFoundError("content not found")
@@ -28,7 +27,7 @@ func (s *Server) handleContentGet(ctx context.Context, r *http.Request) (interfa
 	return data, nil
 }
 
-func (s *Server) handleContentInfo(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+func (s *Server) handleContentInfo(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	dr, ok := s.rep.(*repo.DirectRepository)
 	if !ok {
 		return nil, notFoundError("content not found")
@@ -49,7 +48,7 @@ func (s *Server) handleContentInfo(ctx context.Context, r *http.Request) (interf
 	}
 }
 
-func (s *Server) handleContentPut(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+func (s *Server) handleContentPut(ctx context.Context, r *http.Request, data []byte) (interface{}, *apiError) {
 	dr, ok := s.rep.(*repo.DirectRepository)
 	if !ok {
 		return nil, notFoundError("content not found")
@@ -57,11 +56,6 @@ func (s *Server) handleContentPut(ctx context.Context, r *http.Request) (interfa
 
 	cid := content.ID(mux.Vars(r)["contentID"])
 	prefix := cid.Prefix()
-
-	data, err := ioutil.ReadAll(r.Body)
-	if err != nil {
-		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed request body")
-	}
 
 	actualCID, err := dr.Content.WriteContent(ctx, data, prefix)
 	if err != nil {
