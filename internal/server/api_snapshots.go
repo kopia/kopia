@@ -10,7 +10,7 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
-func (s *Server) handleSnapshotList(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+func (s *Server) handleSnapshotList(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	manifestIDs, err := snapshot.ListSnapshotManifests(ctx, s.rep, nil)
 	if err != nil {
 		return nil, internalServerError(err)

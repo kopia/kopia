@@ -12,7 +12,7 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
-func (s *Server) handlePolicyList(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+func (s *Server) handlePolicyList(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	policies, err := policy.ListPolicies(ctx, s.rep)
 	if err != nil {
 		return nil, internalServerError(err)
@@ -50,7 +50,7 @@ func getPolicyTargetFromURL(u *url.URL) snapshot.SourceInfo {
 	}
 }
 
-func (s *Server) handlePolicyGet(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+func (s *Server) handlePolicyGet(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	pol, err := policy.GetDefinedPolicy(ctx, s.rep, getPolicyTargetFromURL(r.URL))
 	if errors.Is(err, policy.ErrPolicyNotFound) {
 		return nil, requestError(serverapi.ErrorNotFound, "policy not found")
@@ -59,7 +59,7 @@ func (s *Server) handlePolicyGet(ctx context.Context, r *http.Request) (interfac
 	return pol, nil
 }
 
-func (s *Server) handlePolicyDelete(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+func (s *Server) handlePolicyDelete(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	if err := policy.RemovePolicy(ctx, s.rep, getPolicyTargetFromURL(r.URL)); err != nil {
 		return nil, internalServerError(err)
 	}
@@ -71,9 +71,9 @@ func (s *Server) handlePolicyDelete(ctx context.Context, r *http.Request) (inter
 	return &serverapi.Empty{}, nil
 }
 
-func (s *Server) handlePolicyPut(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+func (s *Server) handlePolicyPut(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	newPolicy := &policy.Policy{}
-	if err := json.NewDecoder(r.Body).Decode(newPolicy); err != nil {
+	if err := json.Unmarshal(body, newPolicy); err != nil {
 		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed request body")
 	}
 

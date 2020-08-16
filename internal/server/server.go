@@ -4,6 +4,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"sync"
@@ -24,6 +25,8 @@ import (
 var log = logging.GetContextLoggerFunc("kopia/server")
 
 const maintenanceAttemptFrequency = 10 * time.Minute
+
+type apiRequestFunc func(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError)
 
 // Server exposes simple HTTP API for programmatically accessing Kopia features.
 type Server struct {
@@ -85,30 +88,39 @@ func (s *Server) APIHandlers() http.Handler {
 	return m
 }
 
-func (s *Server) handleAPI(f func(ctx context.Context, r *http.Request) (interface{}, *apiError)) http.HandlerFunc {
-	return s.handleAPIPossiblyNotConnected(func(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+func (s *Server) handleAPI(f apiRequestFunc) http.HandlerFunc {
+	return s.handleAPIPossiblyNotConnected(func(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 		if s.rep == nil {
 			return nil, requestError(serverapi.ErrorNotConnected, "not connected")
 		}
 
-		return f(ctx, r)
+		return f(ctx, r, body)
 	})
 }
 
-func (s *Server) handleAPIPossiblyNotConnected(f func(ctx context.Context, r *http.Request) (interface{}, *apiError)) http.HandlerFunc {
+func (s *Server) handleAPIPossiblyNotConnected(f apiRequestFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		// we must pre-read request body before acquiring the lock as it sometimes leads to deadlock
+		// in HTTP/2 server.
+		// See https://github.com/golang/go/issues/40816
+		body, berr := ioutil.ReadAll(r.Body)
+		if berr != nil {
+			http.Error(w, "error reading request body", http.StatusInternalServerError)
+			return
+		}
+
 		s.mu.RLock()
 		defer s.mu.RUnlock()
 
 		ctx := r.Context()
 
-		log(ctx).Debugf("request %v", r.URL)
+		log(ctx).Debugf("request %v (%v bytes)", r.URL, len(body))
 
 		w.Header().Set("Content-Type", "application/json")
 		e := json.NewEncoder(w)
 		e.SetIndent("", "  ")
 
-		v, err := f(ctx, r)
+		v, err := f(ctx, r, body)
 
 		if err == nil {
 			if b, ok := v.([]byte); ok {
@@ -134,7 +146,7 @@ func (s *Server) handleAPIPossiblyNotConnected(f func(ctx context.Context, r *ht
 	}
 }
 
-func (s *Server) handleRefresh(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+func (s *Server) handleRefresh(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	if err := s.rep.Refresh(ctx); err != nil {
 		return nil, internalServerError(err)
 	}
@@ -142,7 +154,7 @@ func (s *Server) handleRefresh(ctx context.Context, r *http.Request) (interface{
 	return &serverapi.Empty{}, nil
 }
 
-func (s *Server) handleFlush(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+func (s *Server) handleFlush(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	if err := s.rep.Flush(ctx); err != nil {
 		return nil, internalServerError(err)
 	}
@@ -150,7 +162,7 @@ func (s *Server) handleFlush(ctx context.Context, r *http.Request) (interface{},
 	return &serverapi.Empty{}, nil
 }
 
-func (s *Server) handleShutdown(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+func (s *Server) handleShutdown(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	log(ctx).Infof("shutting down due to API request")
 
 	if f := s.OnShutdown; f != nil {
@@ -180,11 +192,11 @@ func (s *Server) forAllSourceManagersMatchingURLFilter(ctx context.Context, c fu
 	return resp, nil
 }
 
-func (s *Server) handleUpload(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+func (s *Server) handleUpload(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	return s.forAllSourceManagersMatchingURLFilter(ctx, (*sourceManager).upload, r.URL.Query())
 }
 
-func (s *Server) handleCancel(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+func (s *Server) handleCancel(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	return s.forAllSourceManagersMatchingURLFilter(ctx, (*sourceManager).cancel, r.URL.Query())
 }
 
