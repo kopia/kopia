@@ -15,20 +15,26 @@ import (
 
 // StatusResponse is the response of 'status' HTTP API command.
 type StatusResponse struct {
-	Connected   bool   `json:"connected"`
-	ConfigFile  string `json:"configFile,omitempty"`
-	CacheDir    string `json:"cacheDir,omitempty"`
-	Hash        string `json:"hash,omitempty"`
-	Encryption  string `json:"encryption,omitempty"`
-	Splitter    string `json:"splitter,omitempty"`
-	MaxPackSize int    `json:"maxPackSize,omitempty"`
-	Storage     string `json:"storage,omitempty"`
+	Connected    bool   `json:"connected"`
+	ConfigFile   string `json:"configFile,omitempty"`
+	CacheDir     string `json:"cacheDir,omitempty"`
+	Hash         string `json:"hash,omitempty"`
+	Encryption   string `json:"encryption,omitempty"`
+	Splitter     string `json:"splitter,omitempty"`
+	MaxPackSize  int    `json:"maxPackSize,omitempty"`
+	Storage      string `json:"storage,omitempty"`
+	Username     string `json:"username,omitempty"`
+	Host         string `json:"host,omitempty"`
+	APIServerURL string `json:"apiServerURL,omitempty"`
 }
 
 // SourcesResponse is the response of 'sources' HTTP API command.
 type SourcesResponse struct {
 	LocalUsername string `json:"localUsername"`
 	LocalHost     string `json:"localHost"`
+
+	// if set to true, current repository supports accessing data for other users.
+	MultiUser bool `json:"multiUser"`
 
 	Sources []*SourceStatus `json:"sources"`
 }

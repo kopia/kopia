@@ -55,12 +55,26 @@ func (s *Server) handleRepoStatus(ctx context.Context, r *http.Request, body []b
 			MaxPackSize: dr.Content.Format.MaxPackSize,
 			Splitter:    dr.Objects.Format.Splitter,
 			Storage:     dr.Blobs.ConnectionInfo().Type,
+			Username:    dr.Username(),
+			Host:        dr.Hostname(),
 		}, nil
 	}
 
-	return &serverapi.StatusResponse{
+	type remoteRepository interface {
+		APIServerURL() string
+	}
+
+	result := &serverapi.StatusResponse{
 		Connected: true,
-	}, nil
+		Username:  s.rep.Username(),
+		Host:      s.rep.Hostname(),
+	}
+
+	if rr, ok := s.rep.(remoteRepository); ok {
+		result.APIServerURL = rr.APIServerURL()
+	}
+
+	return result, nil
 }
 
 func maybeDecodeToken(req *serverapi.ConnectRepositoryRequest) *apiError {
