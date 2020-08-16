@@ -15,7 +15,7 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
-func (s *Server) handleSourcesList(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+func (s *Server) handleSourcesList(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	resp := &serverapi.SourcesResponse{
 		Sources:       []*serverapi.SourceStatus{},
 		LocalHost:     s.rep.Hostname(),
@@ -37,10 +37,10 @@ func (s *Server) handleSourcesList(ctx context.Context, r *http.Request) (interf
 	return resp, nil
 }
 
-func (s *Server) handleSourcesCreate(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+func (s *Server) handleSourcesCreate(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	var req serverapi.CreateSnapshotSourceRequest
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.Unmarshal(body, &req); err != nil {
 		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed request body")
 	}
 

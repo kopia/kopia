@@ -13,7 +13,7 @@ import (
 	"github.com/kopia/kopia/repo/manifest"
 )
 
-func (s *Server) handleManifestGet(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+func (s *Server) handleManifestGet(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	// password already validated by a wrapper, no need to check here.
 	userAtHost, _, _ := r.BasicAuth()
 
@@ -40,7 +40,7 @@ func (s *Server) handleManifestGet(ctx context.Context, r *http.Request) (interf
 	}, nil
 }
 
-func (s *Server) handleManifestDelete(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+func (s *Server) handleManifestDelete(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	mid := manifest.ID(mux.Vars(r)["manifestID"])
 
 	err := s.rep.DeleteManifest(ctx, mid)
@@ -55,7 +55,7 @@ func (s *Server) handleManifestDelete(ctx context.Context, r *http.Request) (int
 	return &serverapi.Empty{}, nil
 }
 
-func (s *Server) handleManifestList(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+func (s *Server) handleManifestList(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	// password already validated by a wrapper, no need to check here.
 	userAtHost, _, _ := r.BasicAuth()
 
@@ -95,10 +95,10 @@ func filterManifests(manifests []*manifest.EntryMetadata, userAtHost string) []*
 	return result
 }
 
-func (s *Server) handleManifestCreate(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+func (s *Server) handleManifestCreate(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	var req remoterepoapi.ManifestWithMetadata
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.Unmarshal(body, &req); err != nil {
 		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed request")
 	}
 

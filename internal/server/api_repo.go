@@ -20,7 +20,7 @@ import (
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
-func (s *Server) handleRepoParameters(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+func (s *Server) handleRepoParameters(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	dr, ok := s.rep.(*repo.DirectRepository)
 	if !ok {
 		return &serverapi.StatusResponse{
@@ -37,7 +37,7 @@ func (s *Server) handleRepoParameters(ctx context.Context, r *http.Request) (int
 	return rp, nil
 }
 
-func (s *Server) handleRepoStatus(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+func (s *Server) handleRepoStatus(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	if s.rep == nil {
 		return &serverapi.StatusResponse{
 			Connected: false,
@@ -79,14 +79,14 @@ func maybeDecodeToken(req *serverapi.ConnectRepositoryRequest) *apiError {
 	return nil
 }
 
-func (s *Server) handleRepoCreate(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+func (s *Server) handleRepoCreate(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	if s.rep != nil {
 		return nil, requestError(serverapi.ErrorAlreadyConnected, "already connected")
 	}
 
 	var req serverapi.CreateRepositoryRequest
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.Unmarshal(body, &req); err != nil {
 		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
 	}
 
@@ -125,17 +125,17 @@ func (s *Server) handleRepoCreate(ctx context.Context, r *http.Request) (interfa
 		return nil, internalServerError(errors.Wrap(err, "flush"))
 	}
 
-	return s.handleRepoStatus(ctx, r)
+	return s.handleRepoStatus(ctx, r, nil)
 }
 
-func (s *Server) handleRepoConnect(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+func (s *Server) handleRepoConnect(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	if s.rep != nil {
 		return nil, requestError(serverapi.ErrorAlreadyConnected, "already connected")
 	}
 
 	var req serverapi.ConnectRepositoryRequest
 
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.Unmarshal(body, &req); err != nil {
 		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
 	}
 
@@ -147,10 +147,10 @@ func (s *Server) handleRepoConnect(ctx context.Context, r *http.Request) (interf
 		return nil, err
 	}
 
-	return s.handleRepoStatus(ctx, r)
+	return s.handleRepoStatus(ctx, r, nil)
 }
 
-func (s *Server) handleRepoSupportedAlgorithms(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+func (s *Server) handleRepoSupportedAlgorithms(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	res := &serverapi.SupportedAlgorithmsResponse{
 		DefaultHashAlgorithm: hashing.DefaultAlgorithm,
 		HashAlgorithms:       hashing.SupportedAlgorithms(),
@@ -200,7 +200,7 @@ func (s *Server) connectAndOpen(ctx context.Context, conn blob.ConnectionInfo, p
 	return nil
 }
 
-func (s *Server) handleRepoDisconnect(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+func (s *Server) handleRepoDisconnect(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	// release shared lock so that SetRepository can acquire exclusive lock
 	s.mu.RUnlock()
 	err := s.SetRepository(ctx, nil)
@@ -217,7 +217,7 @@ func (s *Server) handleRepoDisconnect(ctx context.Context, r *http.Request) (int
 	return &serverapi.Empty{}, nil
 }
 
-func (s *Server) handleRepoSync(ctx context.Context, r *http.Request) (interface{}, *apiError) {
+func (s *Server) handleRepoSync(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	if err := s.rep.Refresh(ctx); err != nil {
 		return nil, internalServerError(errors.Wrap(err, "unable to refresh repository"))
 	}
