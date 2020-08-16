@@ -28,6 +28,7 @@ export class SourcesTable extends Component {
             error: null,
 
             localSourceName: "",
+            multiUser: false,
             selectedOwner: localSnapshots,
             selectedDirectory: "",
         };
@@ -59,6 +60,7 @@ export class SourcesTable extends Component {
         axios.get('/api/v1/sources').then(result => {
             this.setState({
                 localSourceName: result.data.localUsername + "@" + result.data.localHost,
+                multiUser: result.data.multiUser,
                 sources: result.data.sources,
                 isLoading: false,
             });
@@ -323,7 +325,7 @@ export class SourcesTable extends Component {
         }]
 
         return <div className="padded">
-            <ButtonToolbar className="float-sm-right">
+            {this.state.multiUser && <ButtonToolbar className="float-sm-right">
                 &nbsp;
                 <ButtonGroup>
                     <Dropdown>
@@ -343,7 +345,7 @@ export class SourcesTable extends Component {
                 <ButtonGroup>
                     <Button variant="primary">Refresh</Button>
                 </ButtonGroup>
-            </ButtonToolbar>
+            </ButtonToolbar>}
             <ButtonToolbar>
                 <InputGroup>
                     <FormControl

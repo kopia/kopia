@@ -11,15 +11,19 @@ import (
 
 	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/serverapi"
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
 func (s *Server) handleSourcesList(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+	_, multiUser := s.rep.(*repo.DirectRepository)
+
 	resp := &serverapi.SourcesResponse{
 		Sources:       []*serverapi.SourceStatus{},
 		LocalHost:     s.rep.Hostname(),
 		LocalUsername: s.rep.Username(),
+		MultiUser:     multiUser,
 	}
 
 	for _, v := range s.sourceManagers {
