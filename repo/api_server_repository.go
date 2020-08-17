@@ -37,6 +37,10 @@ type apiServerRepository struct {
 	hostname string
 }
 
+func (r *apiServerRepository) APIServerURL() string {
+	return r.cli.BaseURL
+}
+
 func (r *apiServerRepository) OpenObject(ctx context.Context, id object.ID) (object.Reader, error) {
 	return r.omgr.Open(ctx, id)
 }
