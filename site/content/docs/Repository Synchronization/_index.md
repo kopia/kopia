@@ -4,11 +4,11 @@ linkTitle: "Repository Synchronization"
 weight: 46
 ---
 
-Maintaining multiple copies of the repository is important from disaster recovery standpoint. While cloud-based repositories are often best from durability standpoint, local copy of the repository may help speed up data recovery.
+Maintaining multiple copies of a repository is important for disaster recovery scenarios. While cloud-based repositories often have better durability than local ones, a local repository copy may help speed up data recovery.
 
-Kopia v0.6.0 adds support for automatic repository replication, which performs automatic incremental copy of  currently connected repository to another storage location.
+Kopia v0.6.0 adds support for automatic repository replication, which enables incremental copies of the currently connected repository to a separate storage location.
 
-Any repository location can be used as target:
+Any repository location can be used as target. For example:
 
 ```
 $ kopia repository sync-to filesystem --path /dest/repository
