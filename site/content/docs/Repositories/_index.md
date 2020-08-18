@@ -12,6 +12,7 @@ A repository is a place where Kopia stores its snapshot data. Kopia currently su
 * [Backblaze B2](#b2)
 * [SFTP](#sftp)
 * [WebDAV](#webdav)
+* [Rclone](#rclone)
 * [Local storage](#local-storage)
 
 In addition, Kopia can connect to a [Kopia Repository Server](/docs/repository-server/) that acts as a proxy for the storage backend.
@@ -107,6 +108,33 @@ $ kopia repository connect b2
 ```
 
 [Detailed information and settings](/docs/reference/command-line/common/repository-connect-b2/)
+
+---
+
+## Rclone
+
+Kopia can connect to certain backends supported by [Rclone](https://rclone.org) as long as they support
+server-side timestamps. 
+
+>WARNING: Rclone support is experimental, use at your own risk.
+
+### Creating a repository
+
+First you should follow rclone instructions for setting up a remote. This is provider specific, detailed instructions can be fount at https://rclone.org/#providers.
+
+Assuming you've configured a remote named `my-remote`, you may create Kopia repository using:
+
+```shell
+$ kopia repository create rclone --remote-path my-remote:/some/path
+```
+
+### Connecting to repository
+
+```shell
+$ kopia repository connect rclone --remote-path my-remote:/some/path
+```
+
+[Detailed information and settings](/docs/reference/command-line/common/repository-connect-rclone/)
 
 ---
 
