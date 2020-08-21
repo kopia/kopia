@@ -1,7 +1,6 @@
 package fio
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -113,7 +112,6 @@ func testWriteAtDepth(t *testing.T, r *Runner, depth, expFileCount int) {
 			return err
 		}
 
-		fmt.Println(path, info.Name())
 		if info.IsDir() {
 			dirCount++
 		} else {
@@ -220,7 +218,6 @@ func testDeleteAtDepth(t *testing.T, r *Runner, wrDepth, delDepth, expDirCount i
 			return err
 		}
 
-		fmt.Println(path)
 		if info.IsDir() {
 			dirCount++
 		} else {
@@ -236,4 +233,83 @@ func testDeleteAtDepth(t *testing.T, r *Runner, wrDepth, delDepth, expDirCount i
 	if got, want := dirCount, expDirCount+1; got != want {
 		t.Errorf("Expected %v directories, but found %v", want, got)
 	}
+}
+
+func TestDeleteContentsAtDepth(t *testing.T) {
+	for _, tc := range []struct {
+		prob                float32
+		expFileCountChecker func(t *testing.T, fileCount int)
+	}{
+		{
+			prob: 0.0,
+			expFileCountChecker: func(t *testing.T, fileCount int) {
+				if fileCount != 100 {
+					t.Error("some files were deleted despite 0% probability")
+				}
+			},
+		},
+		{
+			prob: 1.0,
+			expFileCountChecker: func(t *testing.T, fileCount int) {
+				if fileCount != 0 {
+					t.Error("not all files were deleted despite 100% probability")
+				}
+			},
+		},
+		{
+			prob: 0.5,
+			expFileCountChecker: func(t *testing.T, fileCount int) {
+				// Broad check: just make sure a 50% probability deleted something.
+				// Extremely improbable that this causes a false failure;
+				// akin to 100 coin flips all landing on the same side.
+				if !(fileCount > 0 && fileCount < 100) {
+					t.Error("expected some but not all files to be deleted")
+				}
+			},
+		},
+	} {
+		testDeleteContentsAtDepth(t, tc.prob, tc.expFileCountChecker)
+	}
+}
+
+func testDeleteContentsAtDepth(t *testing.T, prob float32, checker func(t *testing.T, fileCount int)) {
+	r, err := NewRunner()
+	testenv.AssertNoError(t, err)
+
+	defer r.Cleanup()
+
+	testSubdir := "test"
+	testDirAbs := filepath.Join(r.LocalDataDir, testSubdir)
+
+	sizeB := int64(128 * 1024 * 1024)
+	numFiles := 100
+	fioOpt := Options{}.WithSize(sizeB).WithNumFiles(numFiles)
+
+	wrDepth := 3
+	err = r.WriteFilesAtDepth(testSubdir, wrDepth, fioOpt)
+	testenv.AssertNoError(t, err)
+
+	defer r.DeleteRelDir(testSubdir)
+
+	delDepth := 3
+	err = r.DeleteContentsAtDepth(testSubdir, delDepth, prob)
+	testenv.AssertNoError(t, err)
+
+	fileCount := 0
+
+	err = filepath.Walk(testDirAbs, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !info.IsDir() {
+			fileCount++
+		}
+
+		return nil
+	})
+
+	testenv.AssertNoError(t, err)
+
+	checker(t, fileCount)
 }
