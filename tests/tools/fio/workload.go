@@ -88,8 +88,11 @@ func (fr *Runner) DeleteDirAtDepth(relBasePath string, depth int) error {
 }
 
 // DeleteContentsAtDepth deletes some or all of the contents of a directory
-// at the provided depths.
-func (fr *Runner) DeleteContentsAtDepth(relBasePath string, depth, pcnt int) error {
+// at the provided depths. The probability argument denotes the probability in the
+// range [0.0,1.0] that a given file system entry in the directory at this depth will be
+// deleted. Probability set to 0 will delete nothing. Probability set to 1 will delete
+// everything.
+func (fr *Runner) DeleteContentsAtDepth(relBasePath string, depth int, prob float32) error {
 	fullBasePath := filepath.Join(fr.LocalDataDir, relBasePath)
 
 	return fr.operateAtDepth(fullBasePath, depth, func(dirPath string) error {
@@ -99,8 +102,7 @@ func (fr *Runner) DeleteContentsAtDepth(relBasePath string, depth, pcnt int) err
 		}
 
 		for _, fi := range fileInfoList {
-			const hundred = 100
-			if rand.Intn(hundred) < pcnt { // nolint:gosec
+			if rand.Float32() < prob { // nolint:gosec
 				path := filepath.Join(dirPath, fi.Name())
 				err = os.RemoveAll(path)
 				if err != nil {
@@ -152,6 +154,15 @@ func (fr *Runner) operateAtDepth(path string, depth int, f func(string) error) e
 	return ErrNoDirFound
 }
 
+// writeFilesAtDepth traverses the file system tree until it reaches a given "depth", at which
+// point it uses fio to write one or more files controlled by the provided Options.
+// The "branchDepth" argument gives control over whether the files will be written into
+// existing directories or a new path entirely. The function will traverse existing directories
+// (if any) until it reaches "branchDepth", after which it will begin creating new directories
+// for the remainder of the path until "depth" is reached.
+// If "branchDepth" is zero, the entire path will be newly created directories.
+// If "branchDepth" is greater than or equal to "depth", the files will be written to
+// a random existing directory, if one exists at that depth.
 func (fr *Runner) writeFilesAtDepth(fromDirPath string, depth, branchDepth int, opt Options) error {
 	if depth <= 0 {
 		return fr.writeFiles(fromDirPath, opt)
@@ -177,24 +188,27 @@ func (fr *Runner) writeFilesAtDepth(fromDirPath string, depth, branchDepth int, 
 }
 
 func pickRandSubdirPath(dirPath string) (subdirPath string) {
-	subdirCount := 0
-
 	fileInfoList, err := ioutil.ReadDir(dirPath)
 	if err != nil {
 		return ""
 	}
 
-	for _, fi := range fileInfoList {
-		if fi.IsDir() {
-			subdirCount++
+	// Find all entries that are directories, record each of their fileInfoList indexes
+	dirIdxs := make([]int, 0, len(fileInfoList))
 
-			// Decide if this directory will be selected - probability of
-			// being selected is uniform across all subdirs
-			if rand.Intn(subdirCount) == 0 { // nolint:gosec
-				subdirPath = filepath.Join(dirPath, fi.Name())
-			}
+	for idx, fi := range fileInfoList {
+		if fi.IsDir() {
+			dirIdxs = append(dirIdxs, idx)
 		}
 	}
 
-	return subdirPath
+	if len(dirIdxs) == 0 {
+		return ""
+	}
+
+	// Pick a random index from the list of indexes of fileInfo entries known to be directories.
+	randDirIdx := dirIdxs[rand.Intn(len(dirIdxs))] //nolint:gosec
+	randDirInfo := fileInfoList[randDirIdx]
+
+	return filepath.Join(dirPath, randDirInfo.Name())
 }
