@@ -14,6 +14,7 @@ import (
 
 	"github.com/kopia/kopia/repo/blob"
 	loggingwrapper "github.com/kopia/kopia/repo/blob/logging"
+	"github.com/kopia/kopia/repo/blob/readonly"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/manifest"
@@ -83,6 +84,10 @@ func openDirect(ctx context.Context, configFile string, lc *LocalConfig, passwor
 		st = loggingwrapper.NewWrapper(st, options.TraceStorage, "[STORAGE] ")
 	}
 
+	if lc.ReadOnly {
+		st = readonly.NewWrapper(st)
+	}
+
 	r, err := OpenWithConfig(ctx, st, lc, password, options, lc.Caching)
 	if err != nil {
 		st.Close(ctx) //nolint:errcheck
@@ -91,6 +96,7 @@ func openDirect(ctx context.Context, configFile string, lc *LocalConfig, passwor
 
 	r.hostname = lc.Hostname
 	r.username = lc.Username
+	r.isReadOnly = lc.ReadOnly
 
 	if r.hostname == "" {
 		r.hostname = getDefaultHostName(ctx)

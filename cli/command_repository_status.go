@@ -35,6 +35,8 @@ func runStatusCommand(ctx context.Context, rep *repo.DirectRepository) error {
 	fmt.Printf("Unique ID:           %x\n", rep.UniqueID)
 	fmt.Printf("Hostname:            %v\n", rep.Hostname())
 	fmt.Printf("Username:            %v\n", rep.Username())
+	fmt.Printf("Read-only:           %v\n", rep.IsReadOnly())
+
 	fmt.Println()
 	fmt.Printf("Hash:                %v\n", rep.Content.Format.Hash)
 	fmt.Printf("Encryption:          %v\n", rep.Content.Format.Encryption)
