@@ -35,7 +35,7 @@ var (
 	logDirMaxFiles = cli.App().Flag("log-dir-max-files", "Maximum number of log files to retain").Envar("KOPIA_LOG_DIR_MAX_FILES").Default("1000").Hidden().Int()
 	logDirMaxAge   = cli.App().Flag("log-dir-max-age", "Maximum age of log files to retain").Envar("KOPIA_LOG_DIR_MAX_AGE").Hidden().Duration()
 	logLevel       = cli.App().Flag("log-level", "Console log level").Default("info").Enum(logLevels...)
-	fileLogLevel   = cli.App().Flag("file-log-level", "File log level").Default("info").Enum(logLevels...)
+	fileLogLevel   = cli.App().Flag("file-log-level", "File log level").Default("debug").Enum(logLevels...)
 )
 
 var log = repologging.GetContextLoggerFunc("kopia")

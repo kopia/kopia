@@ -2,6 +2,7 @@ package maintenance
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/pkg/errors"
@@ -27,6 +28,12 @@ type DeleteUnreferencedBlobsOptions struct {
 
 // DeleteUnreferencedBlobs deletes old blobs that are no longer referenced by index entries.
 func DeleteUnreferencedBlobs(ctx context.Context, rep MaintainableRepository, opt DeleteUnreferencedBlobsOptions) (int, error) {
+	if os.Getenv("KOPIA_ENABLE_BLOB_DELETION") != "true" {
+		log(ctx).Debugf("Blob deletion is disabled, set KOPIA_ENABLE_BLOB_DELETION to enable it.")
+
+		return 0, nil
+	}
+
 	if opt.Parallel == 0 {
 		opt.Parallel = 16
 	}
