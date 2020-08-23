@@ -17,6 +17,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/mod/semver"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo"
 )
 
@@ -99,8 +100,8 @@ func getUpdateState() (*updateState, error) {
 func maybeInitializeUpdateCheck(ctx context.Context) {
 	if connectCheckForUpdates {
 		us := &updateState{
-			NextCheckTime:  time.Now().Add(*initialUpdateCheckDelay),
-			NextNotifyTime: time.Now().Add(*initialUpdateCheckDelay),
+			NextCheckTime:  clock.Now().Add(*initialUpdateCheckDelay),
+			NextNotifyTime: clock.Now().Add(*initialUpdateCheckDelay),
 		}
 		if err := writeUpdateState(us); err != nil {
 			log(ctx).Debugf("error initializing update state")
@@ -192,8 +193,8 @@ func maybeCheckForUpdates(ctx context.Context) (string, error) {
 		return "", nil
 	}
 
-	if time.Now().After(us.NextNotifyTime) {
-		us.NextNotifyTime = time.Now().Add(*updateAvailableNotifyInterval)
+	if clock.Now().After(us.NextNotifyTime) {
+		us.NextNotifyTime = clock.Now().Add(*updateAvailableNotifyInterval)
 		if err := writeUpdateState(us); err != nil {
 			return "", errors.Wrap(err, "unable to write update state")
 		}
@@ -206,7 +207,7 @@ func maybeCheckForUpdates(ctx context.Context) (string, error) {
 }
 
 func maybeCheckGithub(ctx context.Context, us *updateState) error {
-	if !time.Now().After(us.NextCheckTime) {
+	if !clock.Now().After(us.NextCheckTime) {
 		return nil
 	}
 
@@ -214,7 +215,7 @@ func maybeCheckGithub(ctx context.Context, us *updateState) error {
 
 	// before we check for update, write update state file again, so if this fails
 	// we won't bother GitHub for a while
-	us.NextCheckTime = time.Now().Add(*updateCheckInterval)
+	us.NextCheckTime = clock.Now().Add(*updateCheckInterval)
 	if err := writeUpdateState(us); err != nil {
 		return errors.Wrap(err, "unable to write update state")
 	}

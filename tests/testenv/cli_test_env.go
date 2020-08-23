@@ -20,6 +20,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/iocopy"
 )
 
@@ -89,7 +90,7 @@ func NewCLITest(t *testing.T) *CLITest {
 	}
 
 	return &CLITest{
-		startTime:   time.Now(),
+		startTime:   clock.Now(),
 		RepoDir:     RepoDir,
 		ConfigDir:   ConfigDir,
 		Exe:         filepath.FromSlash(exe),
@@ -363,7 +364,7 @@ func createRandomFile(filename string, options DirectoryTreeOptions, counters *D
 
 	length := rand.Int63n(maxFileSize)
 
-	_, err = iocopy.Copy(f, io.LimitReader(rand.New(rand.NewSource(time.Now().UnixNano())), length))
+	_, err = iocopy.Copy(f, io.LimitReader(rand.New(rand.NewSource(clock.Now().UnixNano())), length))
 	if err != nil {
 		return errors.Wrap(err, "file create error")
 	}

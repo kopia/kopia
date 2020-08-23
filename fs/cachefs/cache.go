@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/object"
 )
@@ -93,7 +94,7 @@ func (c *Cache) Readdir(ctx context.Context, d fs.Directory) (fs.Entries, error)
 
 func (c *Cache) getEntriesFromCacheLocked(ctx context.Context, id string) fs.Entries {
 	if v, ok := c.data[id]; id != "" && ok {
-		if time.Now().Before(v.expireAfter) {
+		if clock.Now().Before(v.expireAfter) {
 			c.moveToHead(v)
 
 			if c.debug {
@@ -145,7 +146,7 @@ func (c *Cache) getEntries(ctx context.Context, id string, expirationTime time.D
 	entry := &cacheEntry{
 		id:          id,
 		entries:     raw,
-		expireAfter: time.Now().Add(expirationTime),
+		expireAfter: clock.Now().Add(expirationTime),
 	}
 
 	c.addToHead(entry)

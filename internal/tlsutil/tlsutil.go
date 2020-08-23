@@ -20,6 +20,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/logging"
 )
 
@@ -34,7 +35,7 @@ func GenerateServerCertificate(ctx context.Context, keySize int, certValid time.
 		return nil, nil, errors.Wrap(err, "unable to generate RSA key")
 	}
 
-	notBefore := time.Now()
+	notBefore := clock.Now()
 	notAfter := notBefore.Add(certValid)
 
 	serialNumber, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))

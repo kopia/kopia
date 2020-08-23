@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/maintenance"
 )
@@ -74,7 +75,7 @@ func displayCycleInfo(c *maintenance.CycleParams, t time.Time, rep *repo.DirectR
 		printStdout("  interval: %v\n", c.Interval)
 
 		if rep.Time().Before(t) {
-			printStdout("  next run: %v (in %v)\n", formatTimestamp(t), time.Until(t).Truncate(time.Second))
+			printStdout("  next run: %v (in %v)\n", formatTimestamp(t), clock.Until(t).Truncate(time.Second))
 		} else {
 			printStdout("  next run: now\n")
 		}

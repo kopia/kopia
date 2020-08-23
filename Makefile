@@ -58,7 +58,7 @@ lint-and-log: $(linter)
 
 vet-time-inject:
 ifneq ($(TRAVIS_OS_NAME),windows)
-	! find repo snapshot -name '*.go' -not -path 'repo/blob/logging/*' -not -name '*_test.go' \
+	! find . -name '*.go' \
 	-exec grep -n -e time.Now -e time.Since -e time.Until {} + \
 	| grep -v -e allow:no-inject-time
 endif

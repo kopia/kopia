@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"time"
 
 	gcsclient "cloud.google.com/go/storage"
 	"github.com/efarrer/iothrottler"
@@ -17,6 +16,7 @@ import (
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/internal/throttle"
@@ -303,7 +303,7 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 
 	// verify GCS connection is functional by listing blobs in a bucket, which will fail if the bucket
 	// does not exist. We list with a prefix that will not exist, to avoid iterating through any objects.
-	nonExistentPrefix := fmt.Sprintf("kopia-gcs-storage-initializing-%v", time.Now().UnixNano()) // allow:no-inject-time
+	nonExistentPrefix := fmt.Sprintf("kopia-gcs-storage-initializing-%v", clock.Now().UnixNano())
 	err = gcs.ListBlobs(ctx, blob.ID(nonExistentPrefix), func(md blob.Metadata) error {
 		return nil
 	})

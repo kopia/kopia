@@ -18,6 +18,7 @@ import (
 	"gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/kopia/kopia/cli"
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/ospath"
 	repologging "github.com/kopia/kopia/repo/logging"
 )
@@ -63,7 +64,7 @@ func Initialize(ctx *kingpin.ParseContext) error {
 	var shouldSweepLogs bool
 
 	if logFileName == "" && *logDir != "" {
-		logBaseName := fmt.Sprintf("%v%v-%v%v", logFileNamePrefix, time.Now().Format("20060102-150405"), os.Getpid(), logFileNameSuffix)
+		logBaseName := fmt.Sprintf("%v%v-%v%v", logFileNamePrefix, clock.Now().Format("20060102-150405"), os.Getpid(), logFileNameSuffix)
 		logFileName = filepath.Join(*logDir, logBaseName)
 		symlinkName = "kopia.latest.log"
 
@@ -111,7 +112,7 @@ func Initialize(ctx *kingpin.ParseContext) error {
 func sweepLogDir(ctx context.Context, dirname string, maxCount int, maxAge time.Duration) {
 	var timeCutoff time.Time
 	if maxAge > 0 {
-		timeCutoff = time.Now().Add(-maxAge)
+		timeCutoff = clock.Now().Add(-maxAge)
 	}
 
 	if maxCount == 0 {

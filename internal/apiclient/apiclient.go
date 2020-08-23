@@ -8,10 +8,10 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"time"
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/tlsutil"
 	"github.com/kopia/kopia/repo/logging"
 )
@@ -175,15 +175,15 @@ type loggingTransport struct {
 }
 
 func (t loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	t0 := time.Now()
+	t0 := clock.Now()
 
 	resp, err := t.base.RoundTrip(req)
 	if err != nil {
-		log(req.Context()).Debugf("%v %v took %v and failed with %v", req.Method, req.URL, time.Since(t0), err)
+		log(req.Context()).Debugf("%v %v took %v and failed with %v", req.Method, req.URL, clock.Since(t0), err)
 		return nil, err
 	}
 
-	log(req.Context()).Debugf("%v %v took %v and returned %v", req.Method, req.URL, time.Since(t0), resp.Status)
+	log(req.Context()).Debugf("%v %v took %v and returned %v", req.Method, req.URL, clock.Since(t0), resp.Status)
 
 	return resp, nil
 }

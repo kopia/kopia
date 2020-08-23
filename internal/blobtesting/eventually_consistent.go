@@ -11,6 +11,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -53,7 +54,7 @@ func (c *ecFrontendCache) put(id blob.ID, data []byte) {
 	}
 
 	c.cachedEntries[id] = &ecCacheEntry{
-		accessTime: time.Now(),
+		accessTime: clock.Now(),
 		data:       data,
 	}
 }
@@ -73,7 +74,7 @@ type ecCacheEntry struct {
 }
 
 func (e *ecCacheEntry) isValid() bool {
-	return time.Since(e.accessTime) < ecCacheDuration
+	return clock.Since(e.accessTime) < ecCacheDuration
 }
 
 type eventuallyConsistentStorage struct {

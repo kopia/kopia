@@ -5,10 +5,10 @@ import (
 	"hash/fnv"
 	"io/ioutil"
 	"sort"
-	"time"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo/compression"
 )
@@ -45,7 +45,7 @@ func runBenchmarkCompressionAction(ctx *kingpin.ParseContext) error {
 	for name, comp := range compression.ByName {
 		printStderr("Benchmarking compressor '%v' (%v x %v bytes)\n", name, *benchmarkCompressionRepeat, len(data))
 
-		t0 := time.Now()
+		t0 := clock.Now()
 
 		var compressedSize int64
 
@@ -77,7 +77,7 @@ func runBenchmarkCompressionAction(ctx *kingpin.ParseContext) error {
 			}
 		}
 
-		hashTime := time.Since(t0)
+		hashTime := clock.Since(t0)
 		bytesPerSecond := float64(len(data)) * float64(cnt) / hashTime.Seconds()
 
 		results = append(results, benchResult{compression: name, throughput: bytesPerSecond, compressedSize: compressedSize})

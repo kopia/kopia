@@ -9,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -56,7 +57,7 @@ func (c *cacheBase) close() {
 }
 
 func (c *cacheBase) perItemMutex(key interface{}) *sync.Mutex {
-	now := time.Now().UnixNano() // allow:no-inject-time
+	now := clock.Now().UnixNano()
 
 	v, ok := c.loadingMap.Load(key)
 	if !ok {
@@ -117,7 +118,7 @@ func (h *contentMetadataHeap) Pop() interface{} {
 }
 
 func (c *cacheBase) sweepDirectory(ctx context.Context) (err error) {
-	t0 := time.Now() // allow:no-inject-time
+	t0 := clock.Now()
 
 	var h contentMetadataHeap
 
@@ -141,13 +142,13 @@ func (c *cacheBase) sweepDirectory(ctx context.Context) (err error) {
 		return errors.Wrap(err, "error listing cache")
 	}
 
-	log(ctx).Debugf("finished sweeping directory in %v and retained %v/%v bytes (%v %%)", time.Since(t0), totalRetainedSize, c.maxSizeBytes, 100*totalRetainedSize/c.maxSizeBytes) // allow:no-inject-time
+	log(ctx).Debugf("finished sweeping directory in %v and retained %v/%v bytes (%v %%)", clock.Since(t0), totalRetainedSize, c.maxSizeBytes, 100*totalRetainedSize/c.maxSizeBytes)
 
 	return nil
 }
 
 func (c *cacheBase) sweepMutexes() {
-	cutoffTime := time.Now().Add(-mutexAgeCutoff).UnixNano() // allow:no-inject-time
+	cutoffTime := clock.Now().Add(-mutexAgeCutoff).UnixNano()
 
 	// remove from loadingMap all items that have not been touched recently.
 	// since the mutexes are only for performance (to avoid loading duplicates)

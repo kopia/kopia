@@ -14,6 +14,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/logging"
 )
@@ -484,7 +485,7 @@ type ManagerOptions struct {
 func NewManager(ctx context.Context, b contentManager, options ManagerOptions) (*Manager, error) {
 	timeNow := options.TimeNow
 	if timeNow == nil {
-		timeNow = time.Now // allow:no-inject-time
+		timeNow = clock.Now
 	}
 
 	m := &Manager{

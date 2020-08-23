@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/apiclient"
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/remoterepoapi"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/hashing"
@@ -118,7 +119,7 @@ func (r *apiServerRepository) Username() string {
 }
 
 func (r *apiServerRepository) Time() time.Time {
-	return time.Now() // allow:no-inject-time
+	return clock.Now()
 }
 
 func (r *apiServerRepository) Refresh(ctx context.Context) error {

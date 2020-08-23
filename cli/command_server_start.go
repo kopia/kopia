@@ -14,13 +14,13 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	"time"
 
 	"contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/pkg/errors"
 	prom "github.com/prometheus/client_golang/prometheus"
 	htpasswd "github.com/tg123/go-htpasswd"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/server"
 	"github.com/kopia/kopia/repo"
 )
@@ -185,7 +185,7 @@ func serveIndexFileForKnownUIRoutes(fs http.FileSystem) http.Handler {
 
 		if r.URL.Path == "/" && indexBytes != nil {
 			fmt.Println("serving patched index")
-			http.ServeContent(w, r, "/", time.Now(), bytes.NewReader(indexBytes))
+			http.ServeContent(w, r, "/", clock.Now(), bytes.NewReader(indexBytes))
 			return
 		}
 

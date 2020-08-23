@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/fs/localfs"
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
@@ -110,7 +111,7 @@ func (s *sourceManager) runLocal(ctx context.Context) {
 		var waitTime time.Duration
 
 		if s.nextSnapshotTime != nil {
-			waitTime = time.Until(*s.nextSnapshotTime)
+			waitTime = clock.Until(*s.nextSnapshotTime)
 			log(ctx).Debugf("time to next snapshot %v is %v", s.src, waitTime)
 		} else {
 			log(ctx).Debugf("no scheduled snapshot for %v", s.src)
@@ -123,7 +124,7 @@ func (s *sourceManager) runLocal(ctx context.Context) {
 			return
 
 		case <-s.snapshotRequests:
-			nt := time.Now()
+			nt := clock.Now()
 			s.nextSnapshotTime = &nt
 
 			continue
@@ -266,7 +267,7 @@ func (s *sourceManager) findClosestNextSnapshotTime() *time.Time {
 	}
 
 	for _, tod := range s.pol.TimesOfDay {
-		nowLocalTime := time.Now().Local()
+		nowLocalTime := clock.Now().Local()
 		localSnapshotTime := time.Date(nowLocalTime.Year(), nowLocalTime.Month(), nowLocalTime.Day(), tod.Hour, tod.Minute, 0, 0, time.Local)
 
 		if tod.Hour < nowLocalTime.Hour() || (tod.Hour == nowLocalTime.Hour() && tod.Minute < nowLocalTime.Minute()) {
