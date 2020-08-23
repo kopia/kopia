@@ -27,6 +27,11 @@ func TestIgnore(t *testing.T) {
 		// negated match
 		{"!foo", "/base/dir", "/base/dir/foo", false, false},
 		{"!foo", "/base/dir", "/base/dir/foo2", false, true},
+		{"!foo/bar", "/base/dir", "/base/dir/foo/bar", false, false},
+		{"!foo/bar*", "/base/dir", "/base/dir/foo/bar.txt", false, false},
+		{"!foo/s*b/bar", "/base/dir", "/base/dir/foo/sub/bar", false, false},
+		{"!foo/**/bar", "/base/dir", "/base/dir/foo/a/b/bar", false, false},
+		{"!foo/**/bar/", "/base/dir", "/base/dir/foo/a/b/bar", true, false},
 
 		// escaped !
 		{"\\!important.txt", "/base/dir", "/base/dir/!important.txt", false, true},
