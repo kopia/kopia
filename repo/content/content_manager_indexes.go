@@ -157,7 +157,7 @@ func (bm *Manager) addIndexBlobsToBuilder(ctx context.Context, bld packIndexBuil
 	return nil
 }
 
-// ParseIndexBlob loads entries in agiven index blob and returns them.
+// ParseIndexBlob loads entries in a given index blob and returns them.
 func (bm *Manager) ParseIndexBlob(ctx context.Context, blobID blob.ID) ([]Info, error) {
 	data, err := bm.indexBlobManager.getIndexBlob(ctx, blobID)
 	if err != nil {
