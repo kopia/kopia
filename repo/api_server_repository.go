@@ -53,6 +53,10 @@ func (r *apiServerRepository) VerifyObject(ctx context.Context, id object.ID) ([
 	return r.omgr.VerifyObject(ctx, id)
 }
 
+func (r *apiServerRepository) IsReadOnly() bool {
+	return false
+}
+
 func (r *apiServerRepository) GetManifest(ctx context.Context, id manifest.ID, data interface{}) (*manifest.EntryMetadata, error) {
 	var mm remoterepoapi.ManifestWithMetadata
 

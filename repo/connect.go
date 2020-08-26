@@ -20,6 +20,7 @@ type ConnectOptions struct {
 	PersistCredentials bool   `json:"persistCredentials"`
 	HostnameOverride   string `json:"hostnameOverride"`
 	UsernameOverride   string `json:"usernameOverride"`
+	ReadOnly           bool   `json:"readOnly"`
 
 	content.CachingOptions
 }
@@ -52,6 +53,8 @@ func Connect(ctx context.Context, configFile string, st blob.Storage, password s
 
 	ci := st.ConnectionInfo()
 	lc.Storage = &ci
+
+	lc.ReadOnly = opt.ReadOnly
 
 	lc.Hostname = opt.HostnameOverride
 	if lc.Hostname == "" {

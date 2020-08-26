@@ -157,6 +157,28 @@ func (bm *Manager) addIndexBlobsToBuilder(ctx context.Context, bld packIndexBuil
 	return nil
 }
 
+// ParseIndexBlob loads entries in a given index blob and returns them.
+func (bm *Manager) ParseIndexBlob(ctx context.Context, blobID blob.ID) ([]Info, error) {
+	data, err := bm.indexBlobManager.getIndexBlob(ctx, blobID)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error getting index %q", blobID)
+	}
+
+	index, err := openPackIndex(bytes.NewReader(data))
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to open index blob")
+	}
+
+	var results []Info
+
+	err = index.Iterate(AllIDs, func(i Info) error {
+		results = append(results, i)
+		return nil
+	})
+
+	return results, err
+}
+
 func addBlobsToIndex(ndx map[blob.ID]*IndexBlobInfo, blobs []blob.Metadata) {
 	for _, it := range blobs {
 		if ndx[it.BlobID] == nil {

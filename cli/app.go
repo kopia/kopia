@@ -167,6 +167,10 @@ func maybeRunMaintenance(ctx context.Context, rep repo.Repository) error {
 		return nil
 	}
 
+	if rep.IsReadOnly() {
+		return nil
+	}
+
 	err := snapshotmaintenance.Run(ctx, rep, maintenance.ModeAuto, false)
 	if err == nil {
 		return nil

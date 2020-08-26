@@ -25,6 +25,7 @@ type Repository interface {
 
 	Hostname() string
 	Username() string
+	IsReadOnly() bool
 
 	Time() time.Time
 
@@ -43,8 +44,9 @@ type DirectRepository struct {
 
 	ConfigFile string
 
-	hostname string // connected (localhost) hostname
-	username string // connected username
+	hostname   string // connected (localhost) hostname
+	username   string // connected username
+	isReadOnly bool
 
 	timeNow    func() time.Time
 	formatBlob *formatBlob
@@ -63,6 +65,9 @@ func (r *DirectRepository) Hostname() string { return r.hostname }
 
 // Username returns the username that's connect to the repository.
 func (r *DirectRepository) Username() string { return r.username }
+
+// IsReadOnly returns true if repository is read-only.
+func (r *DirectRepository) IsReadOnly() bool { return r.isReadOnly }
 
 // BlobStorage returns the blob storage.
 func (r *DirectRepository) BlobStorage() blob.Storage {

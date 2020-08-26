@@ -22,6 +22,8 @@ type LocalConfig struct {
 
 	Hostname string `json:"hostname"`
 	Username string `json:"username"`
+
+	ReadOnly bool `json:"readonly,omitempty"`
 }
 
 // repositoryObjectFormat describes the format of objects in a repository.
