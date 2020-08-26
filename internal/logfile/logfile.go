@@ -143,7 +143,7 @@ func sweepLogDir(ctx context.Context, dirname string, maxCount int, maxAge time.
 		cnt++
 
 		if cnt > maxCount || e.ModTime().Before(timeCutoff) {
-			if err = os.Remove(filepath.Join(dirname, e.Name())); err != nil {
+			if err = os.Remove(filepath.Join(dirname, e.Name())); err != nil && !os.IsNotExist(err) {
 				log(ctx).Warningf("unable to remove log file: %v", err)
 			}
 		}
