@@ -39,6 +39,8 @@ type CLITest struct {
 
 	fixedArgs   []string
 	Environment []string
+
+	PassthroughStderr bool
 }
 
 // SourceInfo reprents a single source (user@host:/path) with its snapshots.
@@ -209,6 +211,10 @@ func (e *CLITest) Run(t *testing.T, args ...string) (stdout, stderr []string, er
 
 	errOut := &bytes.Buffer{}
 	c.Stderr = errOut
+
+	if e.PassthroughStderr {
+		c.Stderr = os.Stderr
+	}
 
 	o, err := c.Output()
 
