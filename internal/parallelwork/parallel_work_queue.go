@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
+
+	"github.com/kopia/kopia/internal/clock"
 )
 
 // Queue represents a work queue with multiple parallel workers.
@@ -127,11 +129,11 @@ func (v *Queue) maybeReportProgress() {
 		return
 	}
 
-	if time.Now().Before(v.nextReportTime) {
+	if clock.Now().Before(v.nextReportTime) {
 		return
 	}
 
-	v.nextReportTime = time.Now().Add(1 * time.Second)
+	v.nextReportTime = clock.Now().Add(1 * time.Second)
 
 	cb(v.enqueuedWork, v.activeWorkerCount, v.completedWork)
 }

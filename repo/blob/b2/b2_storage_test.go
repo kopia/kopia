@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/b2"
@@ -43,7 +43,7 @@ func TestB2Storage(t *testing.T) {
 			BucketName: bucket,
 			KeyID:      keyID,
 			Key:        key,
-			Prefix:     fmt.Sprintf("test-%v-%x-", time.Now().Unix(), data),
+			Prefix:     fmt.Sprintf("test-%v-%x-", clock.Now().Unix(), data),
 		})
 		if err != nil {
 			t.Fatalf("unable to build b2 storage: %v", err)
@@ -89,14 +89,14 @@ func TestB2StorageInvalidBlob(t *testing.T) {
 
 	defer st.Close(ctx)
 
-	_, err = st.GetBlob(ctx, blob.ID(fmt.Sprintf("invalid-blob-%v", time.Now().UnixNano())), 0, 30)
+	_, err = st.GetBlob(ctx, blob.ID(fmt.Sprintf("invalid-blob-%v", clock.Now().UnixNano())), 0, 30)
 	if err == nil {
 		t.Errorf("unexpected success when requesting non-existing blob")
 	}
 }
 
 func TestB2StorageInvalidBucket(t *testing.T) {
-	bucket := fmt.Sprintf("invalid-bucket-%v", time.Now().UnixNano())
+	bucket := fmt.Sprintf("invalid-bucket-%v", clock.Now().UnixNano())
 	keyID := getEnvOrSkip(t, testKeyIDEnv)
 	key := getEnvOrSkip(t, testKeyEnv)
 

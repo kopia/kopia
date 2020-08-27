@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
-	"time"
 
 	"github.com/kylelemons/godebug/pretty"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/repotesting"
 )
 
@@ -30,11 +30,11 @@ func TestMaintenanceSchedule(t *testing.T) {
 		t.Errorf("unexpected NextQuickMaintenanceTime: %v", s.NextQuickMaintenanceTime)
 	}
 
-	s.NextFullMaintenanceTime = time.Now()
-	s.NextQuickMaintenanceTime = time.Now()
+	s.NextFullMaintenanceTime = clock.Now()
+	s.NextQuickMaintenanceTime = clock.Now()
 	s.ReportRun("foo", RunInfo{
-		Start:   time.Now(),
-		End:     time.Now(),
+		Start:   clock.Now(),
+		End:     clock.Now(),
 		Success: true,
 	})
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -165,7 +166,7 @@ func NewMapStorage(data DataMap, keyTime map[blob.ID]time.Time, timeNow func() t
 	}
 
 	if timeNow == nil {
-		timeNow = time.Now
+		timeNow = clock.Now
 	}
 
 	return &mapStorage{data: data, keyTime: keyTime, timeNow: timeNow}

@@ -2,10 +2,10 @@ package cli
 
 import (
 	"sort"
-	"time"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/encryption"
@@ -53,7 +53,7 @@ func runBenchmarkCryptoAction(ctx *kingpin.ParseContext) error {
 
 			printStderr("Benchmarking hash '%v' and encryption '%v'... (%v x %v bytes)\n", ha, ea, *benchmarkCryptoRepeat, len(data))
 
-			t0 := time.Now()
+			t0 := clock.Now()
 
 			hashCount := *benchmarkCryptoRepeat
 
@@ -65,7 +65,7 @@ func runBenchmarkCryptoAction(ctx *kingpin.ParseContext) error {
 				}
 			}
 
-			hashTime := time.Since(t0)
+			hashTime := clock.Since(t0)
 			bytesPerSecond := float64(len(data)) * float64(hashCount) / hashTime.Seconds()
 
 			results = append(results, benchResult{hash: ha, encryption: ea, throughput: bytesPerSecond})

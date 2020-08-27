@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
@@ -24,7 +25,7 @@ func TestStressBlockManager(t *testing.T) {
 
 	data := blobtesting.DataMap{}
 	keyTimes := map[blob.ID]time.Time{}
-	memst := blobtesting.NewMapStorage(data, keyTimes, time.Now)
+	memst := blobtesting.NewMapStorage(data, keyTimes, clock.Now)
 
 	duration := 3 * time.Second
 	if os.Getenv("KOPIA_LONG_STRESS_TEST") != "" {
@@ -47,11 +48,11 @@ func stressTestWithStorage(t *testing.T, st blob.Storage, duration time.Duration
 		}, nil, content.ManagerOptions{})
 	}
 
-	seed0 := time.Now().Nanosecond()
+	seed0 := clock.Now().Nanosecond()
 
 	t.Logf("running with seed %v", seed0)
 
-	deadline := time.Now().Add(duration)
+	deadline := clock.Now().Add(duration)
 
 	t.Run("workers", func(t *testing.T) {
 		for i := 0; i < goroutineCount; i++ {
@@ -80,7 +81,7 @@ func stressWorker(ctx context.Context, t *testing.T, deadline time.Time, openMgr
 
 	var workerBlocks []writtenBlock
 
-	for time.Now().Before(deadline) {
+	for clock.Now().Before(deadline) {
 		l := rnd.Intn(30000)
 		data := make([]byte, l)
 

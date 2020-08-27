@@ -14,6 +14,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/sharded"
@@ -236,7 +237,7 @@ func (fs *fsStorage) TouchBlob(ctx context.Context, blobID blob.ID, threshold ti
 		return err
 	}
 
-	n := time.Now() // allow:no-inject-time
+	n := clock.Now()
 
 	age := n.Sub(st.ModTime())
 	if age < threshold {

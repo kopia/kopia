@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"time"
 
 	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/efarrer/iothrottler"
@@ -15,6 +14,7 @@ import (
 	"gocloud.dev/blob/azureblob"
 	"gocloud.dev/gcerrors"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/repo/blob"
@@ -266,7 +266,7 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 
 	// verify Azure connection is functional by listing blobs in a bucket, which will fail if the container
 	// does not exist. We list with a prefix that will not exist, to avoid iterating through any objects.
-	nonExistentPrefix := fmt.Sprintf("kopia-azure-storage-initializing-%v", time.Now().UnixNano()) // allow:no-inject-time
+	nonExistentPrefix := fmt.Sprintf("kopia-azure-storage-initializing-%v", clock.Now().UnixNano())
 	err = az.ListBlobs(ctx, blob.ID(nonExistentPrefix), func(md blob.Metadata) error {
 		return nil
 	})

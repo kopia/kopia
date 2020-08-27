@@ -9,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
@@ -145,7 +146,7 @@ func startTimeAfterEndTime(startTime, endTime time.Time) bool {
 func snapshotSingleSource(ctx context.Context, rep repo.Repository, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo) error {
 	printStderr("Snapshotting %v ...\n", sourceInfo)
 
-	t0 := time.Now()
+	t0 := clock.Now()
 
 	localEntry, err := getLocalFSEntry(ctx, sourceInfo.Path)
 	if err != nil {
@@ -218,7 +219,7 @@ func snapshotSingleSource(ctx context.Context, rep repo.Repository, u *snapshotf
 		}
 	}
 
-	printStderr("\nCreated%v snapshot with root %v and ID %v in %v\n", maybePartial, manifest.RootObjectID(), snapID, time.Since(t0).Truncate(time.Second))
+	printStderr("\nCreated%v snapshot with root %v and ID %v in %v\n", maybePartial, manifest.RootObjectID(), snapID, clock.Since(t0).Truncate(time.Second))
 
 	return err
 }

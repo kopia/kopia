@@ -16,6 +16,7 @@ import (
 	"go.opencensus.io/stats"
 
 	"github.com/kopia/kopia/internal/buf"
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/logging"
@@ -644,10 +645,10 @@ func (bm *Manager) Refresh(ctx context.Context) (bool, error) {
 
 	log(ctx).Debugf("Refresh started")
 
-	t0 := time.Now() // allow:no-inject-time
+	t0 := clock.Now()
 
 	_, updated, err := bm.loadPackIndexesUnlocked(ctx)
-	log(ctx).Debugf("Refresh completed in %v and updated=%v", time.Since(t0), updated) // allow:no-inject-time
+	log(ctx).Debugf("Refresh completed in %v and updated=%v", clock.Since(t0), updated)
 
 	return updated, err
 }
@@ -678,7 +679,7 @@ type ManagerOptions struct {
 func NewManager(ctx context.Context, st blob.Storage, f *FormattingOptions, caching *CachingOptions, options ManagerOptions) (*Manager, error) {
 	nowFn := options.TimeNow
 	if nowFn == nil {
-		nowFn = time.Now // allow:no-inject-time
+		nowFn = clock.Now
 	}
 
 	return newManagerWithOptions(ctx, st, f, caching, nowFn, options.RepositoryFormatBytes)

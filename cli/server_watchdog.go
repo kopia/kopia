@@ -5,6 +5,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/kopia/kopia/internal/clock"
 )
 
 type serverWatchdog struct {
@@ -34,9 +36,9 @@ func (d *serverWatchdog) setDeadline(t time.Time) {
 }
 
 func (d *serverWatchdog) Run() {
-	for time.Now().Before(d.getDeadline()) || atomic.LoadInt32(&d.inFlightRequests) > 0 {
+	for clock.Now().Before(d.getDeadline()) || atomic.LoadInt32(&d.inFlightRequests) > 0 {
 		// sleep for no less than 1 second to avoid burning CPU
-		sleepTime := time.Until(d.getDeadline())
+		sleepTime := clock.Until(d.getDeadline())
 		if sleepTime < time.Second {
 			sleepTime = time.Second
 		}
@@ -51,7 +53,7 @@ func (d *serverWatchdog) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	atomic.AddInt32(&d.inFlightRequests, 1)
 	defer atomic.AddInt32(&d.inFlightRequests, -1)
 
-	d.setDeadline(time.Now().Add(d.interval))
+	d.setDeadline(clock.Now().Add(d.interval))
 	d.inner.ServeHTTP(w, r)
 }
 
@@ -59,7 +61,7 @@ func startServerWatchdog(h http.Handler, interval time.Duration, stop func()) ht
 	w := &serverWatchdog{
 		inner:    h,
 		interval: interval,
-		deadline: time.Now().Add(interval),
+		deadline: clock.Now().Add(interval),
 		stop:     stop,
 	}
 	go w.Run()

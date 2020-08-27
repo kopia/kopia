@@ -4,12 +4,14 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/kopia/kopia/internal/clock"
 )
 
 func TestFrozen(t *testing.T) {
 	times := []time.Time{
 		time.Date(2015, 1, 3, 0, 0, 0, 0, time.UTC),
-		time.Now(),
+		clock.Now(),
 	}
 
 	for _, tm := range times {

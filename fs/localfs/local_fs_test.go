@@ -6,9 +6,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/testlogging"
 )
 
@@ -29,7 +29,7 @@ func TestFiles(t *testing.T) {
 	var dir fs.Directory
 
 	// Try listing directory that does not exist.
-	_, err = Directory(fmt.Sprintf("/no-such-dir-%v", time.Now().Nanosecond()))
+	_, err = Directory(fmt.Sprintf("/no-such-dir-%v", clock.Now().Nanosecond()))
 	if err == nil {
 		t.Errorf("expected error when dir directory that does not exist.")
 	}

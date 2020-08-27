@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
@@ -32,11 +33,11 @@ func newUnderlyingStorageForContentCacheTesting(t *testing.T) blob.Storage {
 func TestCacheExpiration(t *testing.T) {
 	cacheData := blobtesting.DataMap{}
 
-	// on Windows, the time does not always move forward (sometimes time.Now() returns exactly the same value for consecutive invocations)
-	// this matters here so we return a fake time.Now() function that always moves forward.
+	// on Windows, the time does not always move forward (sometimes clock.Now() returns exactly the same value for consecutive invocations)
+	// this matters here so we return a fake clock.Now() function that always moves forward.
 	var currentTimeMutex sync.Mutex
 
-	currentTime := time.Now()
+	currentTime := clock.Now()
 
 	movingTimeFunc := func() time.Time {
 		currentTimeMutex.Lock()

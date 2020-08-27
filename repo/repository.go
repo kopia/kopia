@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/manifest"
@@ -202,5 +203,5 @@ func defaultTime(f func() time.Time) func() time.Time {
 		return f
 	}
 
-	return time.Now // allow:no-inject-time
+	return clock.Now
 }

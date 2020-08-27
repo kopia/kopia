@@ -20,6 +20,7 @@ import (
 	"github.com/minio/minio/pkg/madmin"
 
 	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
@@ -227,7 +228,7 @@ func testStorage(t *testutil.RetriableT, options *Options) {
 
 	cleanupOldData(ctx, t, options)
 
-	options.Prefix = fmt.Sprintf("test-%v-%x-", time.Now().Unix(), data)
+	options.Prefix = fmt.Sprintf("test-%v-%x-", clock.Now().Unix(), data)
 	attempt := func() (interface{}, error) {
 		return New(testlogging.Context(t), options)
 	}
@@ -365,7 +366,7 @@ func cleanupOldData(ctx context.Context, t *testutil.RetriableT, options *Option
 	}
 
 	_ = st.ListBlobs(ctx, "", func(it blob.Metadata) error {
-		age := time.Since(it.Timestamp)
+		age := clock.Since(it.Timestamp)
 		if age > cleanupAge {
 			if err := st.DeleteBlob(ctx, it.BlobID); err != nil {
 				t.Errorf("warning: unable to delete %q: %v", it.BlobID, err)

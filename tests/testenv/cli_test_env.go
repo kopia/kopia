@@ -20,6 +20,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/iocopy"
 )
 
@@ -38,6 +39,8 @@ type CLITest struct {
 
 	fixedArgs   []string
 	Environment []string
+
+	PassthroughStderr bool
 }
 
 // SourceInfo reprents a single source (user@host:/path) with its snapshots.
@@ -89,7 +92,7 @@ func NewCLITest(t *testing.T) *CLITest {
 	}
 
 	return &CLITest{
-		startTime:   time.Now(),
+		startTime:   clock.Now(),
 		RepoDir:     RepoDir,
 		ConfigDir:   ConfigDir,
 		Exe:         filepath.FromSlash(exe),
@@ -208,6 +211,10 @@ func (e *CLITest) Run(t *testing.T, args ...string) (stdout, stderr []string, er
 
 	errOut := &bytes.Buffer{}
 	c.Stderr = errOut
+
+	if e.PassthroughStderr {
+		c.Stderr = os.Stderr
+	}
 
 	o, err := c.Output()
 
@@ -363,7 +370,7 @@ func createRandomFile(filename string, options DirectoryTreeOptions, counters *D
 
 	length := rand.Int63n(maxFileSize)
 
-	_, err = iocopy.Copy(f, io.LimitReader(rand.New(rand.NewSource(time.Now().UnixNano())), length))
+	_, err = iocopy.Copy(f, io.LimitReader(rand.New(rand.NewSource(clock.Now().UnixNano())), length))
 	if err != nil {
 		return errors.Wrap(err, "file create error")
 	}

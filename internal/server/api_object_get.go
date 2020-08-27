@@ -7,6 +7,7 @@ import (
 
 	"github.com/gorilla/mux"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/object"
 )
 
@@ -35,7 +36,7 @@ func (s *Server) handleObjectGet(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Disposition", "attachment; filename=\""+p+"\"")
 	}
 
-	mtime := time.Now()
+	mtime := clock.Now()
 
 	if p := r.URL.Query().Get("mtime"); p != "" {
 		if m, err := time.Parse(time.RFC3339Nano, p); err == nil {

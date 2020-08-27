@@ -10,6 +10,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/parallelwork"
 	"github.com/kopia/kopia/repo"
@@ -43,7 +44,7 @@ type verifier struct {
 }
 
 func (v *verifier) progressCallback(enqueued, active, completed int64) {
-	elapsed := time.Since(v.startTime)
+	elapsed := clock.Since(v.startTime)
 	maybeTimeRemaining := ""
 
 	if elapsed > 1*time.Second && enqueued > 0 && completed > 0 {
@@ -51,7 +52,7 @@ func (v *verifier) progressCallback(enqueued, active, completed int64) {
 		predictedSeconds := elapsed.Seconds() / completedRatio
 		predictedEndTime := v.startTime.Add(time.Duration(predictedSeconds) * time.Second)
 
-		dt := time.Until(predictedEndTime)
+		dt := clock.Until(predictedEndTime)
 		if dt > 0 {
 			maybeTimeRemaining = fmt.Sprintf(" remaining %v (ETA %v)", dt.Truncate(1*time.Second), formatTimestamp(predictedEndTime.Truncate(1*time.Second)))
 		}
@@ -180,7 +181,7 @@ func (v *verifier) readEntireObject(ctx context.Context, oid object.ID, path str
 func runVerifyCommand(ctx context.Context, rep repo.Repository) error {
 	v := &verifier{
 		rep:       rep,
-		startTime: time.Now(),
+		startTime: clock.Now(),
 		workQueue: parallelwork.NewQueue(),
 		seen:      map[object.ID]bool{},
 	}

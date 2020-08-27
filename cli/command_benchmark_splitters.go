@@ -7,6 +7,7 @@ import (
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/splitter"
 )
 
@@ -54,7 +55,7 @@ func runBenchmarkSplitterAction(ctx *kingpin.ParseContext) error {
 
 		var segmentLengths []int
 
-		t0 := time.Now()
+		t0 := clock.Now()
 
 		for _, data := range dataBlocks {
 			s := fact()
@@ -74,7 +75,7 @@ func runBenchmarkSplitterAction(ctx *kingpin.ParseContext) error {
 			}
 		}
 
-		dur := time.Since(t0)
+		dur := clock.Since(t0)
 
 		sort.Ints(segmentLengths)
 

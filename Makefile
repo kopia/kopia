@@ -58,7 +58,7 @@ lint-and-log: $(linter)
 
 vet-time-inject:
 ifneq ($(TRAVIS_OS_NAME),windows)
-	! find repo snapshot -name '*.go' -not -path 'repo/blob/logging/*' -not -name '*_test.go' \
+	! find . -name '*.go' \
 	-exec grep -n -e time.Now -e time.Since -e time.Until {} + \
 	| grep -v -e allow:no-inject-time
 endif
@@ -195,11 +195,15 @@ vtest:
 	$(GO_TEST) -count=1 -short -v -timeout $(UNIT_TESTS_TIMEOUT) ./...
 
 dist-binary:
-	go build -o $(KOPIA_INTEGRATION_EXE) github.com/kopia/kopia
+	go build -o $(KOPIA_INTEGRATION_EXE) -tags testing github.com/kopia/kopia
 
 integration-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
 integration-tests: dist-binary
 	 $(GO_TEST) $(TEST_FLAGS) -count=1 -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/end_to_end_test
+
+endurance-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
+endurance-tests: dist-binary
+	 $(GO_TEST) $(TEST_FLAGS) -count=1 -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/endurance_test
 
 robustness-tool-tests:
 	FIO_DOCKER_IMAGE=$(FIO_DOCKER_TAG) \

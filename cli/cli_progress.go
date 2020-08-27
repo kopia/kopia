@@ -10,6 +10,7 @@ import (
 
 	"github.com/fatih/color"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
@@ -98,7 +99,7 @@ func (p *cliProgress) Checkpoint() {
 
 	*p = cliProgress{
 		uploading:         1,
-		uploadStartTime:   time.Now(),
+		uploadStartTime:   clock.Now(),
 		previousFileCount: p.previousFileCount,
 		previousTotalSize: p.previousTotalSize,
 		uploadedBytes:     p.uploadedBytes,
@@ -114,7 +115,7 @@ func (p *cliProgress) maybeOutput() {
 	var shouldOutput bool
 
 	nextOutputTimeUnixNano := atomic.LoadInt64(&p.nextOutputTimeUnixNano)
-	if nowNano := time.Now().UnixNano(); nowNano > nextOutputTimeUnixNano {
+	if nowNano := clock.Now().UnixNano(); nowNano > nextOutputTimeUnixNano {
 		if atomic.CompareAndSwapInt64(&p.nextOutputTimeUnixNano, nextOutputTimeUnixNano, nowNano+progressUpdateInterval.Nanoseconds()) {
 			shouldOutput = true
 		}
@@ -204,7 +205,7 @@ func (p *cliProgress) spinnerCharacter() string {
 func (p *cliProgress) StartShared() {
 	*p = cliProgress{
 		uploading:       1,
-		uploadStartTime: time.Now(),
+		uploadStartTime: clock.Now(),
 		shared:          true,
 	}
 }
@@ -222,7 +223,7 @@ func (p *cliProgress) UploadStarted(previousFileCount int, previousTotalSize int
 
 	*p = cliProgress{
 		uploading:         1,
-		uploadStartTime:   time.Now(),
+		uploadStartTime:   clock.Now(),
 		previousFileCount: previousFileCount,
 		previousTotalSize: previousTotalSize,
 	}
