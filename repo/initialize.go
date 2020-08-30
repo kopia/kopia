@@ -77,6 +77,7 @@ func formatBlobFromOptions(opt *NewRepositoryOptions) *formatBlob {
 	return &formatBlob{
 		Tool:                   "https://github.com/kopia/kopia",
 		BuildInfo:              BuildInfo,
+		BuildVersion:           BuildVersion,
 		KeyDerivationAlgorithm: defaultKeyDerivationAlgorithm,
 		UniqueID:               applyDefaultRandomBytes(opt.UniqueID, uniqueIDLength),
 		Version:                "1",
