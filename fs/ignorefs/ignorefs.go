@@ -125,6 +125,7 @@ func (d *ignoreDirectory) buildContext(ctx context.Context, entries fs.Entries) 
 	return newic, nil
 }
 
+// nolint:gocritic
 func (c *ignoreContext) overrideFromPolicy(fp policy.FilesPolicy, dirPath string) error {
 	if fp.NoParentDotIgnoreFiles {
 		c.dotIgnoreFiles = nil

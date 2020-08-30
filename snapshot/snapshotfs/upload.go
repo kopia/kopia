@@ -677,7 +677,7 @@ func (u *Uploader) processNonDirectories(ctx context.Context, output chan dirEnt
 	})
 }
 
-func maybeReadDirectoryEntries(ctx context.Context, dir fs.Directory) fs.Entries {
+func maybeReadDirectoryEntries(ctx context.Context, dir fs.Directory, relativePath string, policyTree *policy.Tree) fs.Entries {
 	if dir == nil {
 		return nil
 	}
@@ -688,7 +688,7 @@ func maybeReadDirectoryEntries(ctx context.Context, dir fs.Directory) fs.Entries
 		return nil
 	}
 
-	return skipCacheDirectory(ctx, ent)
+	return skipCacheDirectory(ctx, ent, relativePath, policyTree)
 }
 
 func uniqueDirectories(dirs []fs.Directory) []fs.Directory {
@@ -746,12 +746,12 @@ func uploadDirInternal(
 		return "", fs.DirectorySummary{}, dirReadError{direrr}
 	}
 
-	entries = skipCacheDirectory(ctx, entries)
+	entries = skipCacheDirectory(ctx, entries, dirRelativePath, policyTree)
 
 	var prevEntries []fs.Entries
 
 	for _, d := range uniqueDirectories(previousDirs) {
-		if ent := maybeReadDirectoryEntries(ctx, d); ent != nil {
+		if ent := maybeReadDirectoryEntries(ctx, d, dirRelativePath, policyTree); ent != nil {
 			prevEntries = append(prevEntries, ent)
 		}
 	}
@@ -810,7 +810,11 @@ func correctCacheDirSignature(ctx context.Context, f fs.File) (bool, error) {
 	return string(sig) == validSignature, nil
 }
 
-func skipCacheDirectory(ctx context.Context, entries fs.Entries) fs.Entries {
+func skipCacheDirectory(ctx context.Context, entries fs.Entries, relativePath string, policyTree *policy.Tree) fs.Entries {
+	if !policyTree.EffectivePolicy().FilesPolicy.IgnoreCacheDirectoriesOrDefault(true) {
+		return entries
+	}
+
 	f, ok := entries.FindByName(repo.CacheDirMarkerFile).(fs.File)
 	if ok {
 		correct, err := correctCacheDirSignature(ctx, f)
@@ -821,6 +825,7 @@ func skipCacheDirectory(ctx context.Context, entries fs.Entries) fs.Entries {
 
 		if correct {
 			// if the given directory contains a marker file used for kopia cache, pretend the directory was empty.
+			log(ctx).Debugf("skipping cache directory: %v", relativePath)
 			return nil
 		}
 	}
