@@ -130,7 +130,7 @@ export class RepoStatus extends Component {
             </> : <>
                 <h3>Setup Repository</h3>
                 <p>Before you can use Kopia, you must connect to a repository.
-                    Select a provider blow to connect to storage where you want to store Kopia backups.</p>
+                    Select a provider below to connect to storage where you want to store Kopia backups.</p>
 
                 <SetupRepository />
             </>;
