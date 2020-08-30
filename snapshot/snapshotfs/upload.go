@@ -688,7 +688,7 @@ func maybeReadDirectoryEntries(ctx context.Context, dir fs.Directory) fs.Entries
 		return nil
 	}
 
-	return skipCacheDirectory(ent)
+	return skipCacheDirectory(ctx, ent)
 }
 
 func uniqueDirectories(dirs []fs.Directory) []fs.Directory {
@@ -746,7 +746,7 @@ func uploadDirInternal(
 		return "", fs.DirectorySummary{}, dirReadError{direrr}
 	}
 
-	entries = skipCacheDirectory(entries)
+	entries = skipCacheDirectory(ctx, entries)
 
 	var prevEntries []fs.Entries
 
@@ -784,10 +784,45 @@ func uploadDirInternal(
 	return oid, *dirManifest.Summary, err
 }
 
-func skipCacheDirectory(entries fs.Entries) fs.Entries {
-	if entries.FindByName(repo.CacheDirMarkerFile) != nil {
-		// if the given directory contains a marker file used for kopia cache, pretend the directory was empty.
-		return nil
+func correctCacheDirSignature(ctx context.Context, f fs.File) (bool, error) {
+	const (
+		validSignature    = "Signature: 8a477f597d28d172789f06886806bc55"
+		validSignatureLen = len(validSignature)
+	)
+
+	if f.Size() < int64(validSignatureLen) { // nolint:mnd
+		return false, nil
+	}
+
+	r, err := f.Open(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	defer r.Close() //nolint:errcheck
+
+	sig := make([]byte, validSignatureLen)
+
+	if _, err := r.Read(sig); err != nil {
+		return false, err
+	}
+
+	return string(sig) == validSignature, nil
+}
+
+func skipCacheDirectory(ctx context.Context, entries fs.Entries) fs.Entries {
+	f, ok := entries.FindByName(repo.CacheDirMarkerFile).(fs.File)
+	if ok {
+		correct, err := correctCacheDirSignature(ctx, f)
+		if err != nil {
+			log(ctx).Debugf("unable to check cache dir signature, assuming not a cache directory: %v", err)
+			return entries
+		}
+
+		if correct {
+			// if the given directory contains a marker file used for kopia cache, pretend the directory was empty.
+			return nil
+		}
 	}
 
 	return entries
