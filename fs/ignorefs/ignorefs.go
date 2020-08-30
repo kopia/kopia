@@ -10,8 +10,12 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/ignore"
+	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/snapshot/policy"
 )
+
+var log = logging.GetContextLoggerFunc("ignorefs")
 
 // IgnoreCallback is a function called by ignorefs to report whenever a file or directory is being ignored while listing its parent.
 type IgnoreCallback func(path string, metadata fs.Entry)
@@ -52,11 +56,65 @@ type ignoreDirectory struct {
 	fs.Directory
 }
 
+func correctCacheDirSignature(ctx context.Context, f fs.File) (bool, error) {
+	const (
+		validSignature    = "Signature: 8a477f597d28d172789f06886806bc55"
+		validSignatureLen = len(validSignature)
+	)
+
+	if f.Size() < int64(validSignatureLen) {
+		return false, nil
+	}
+
+	r, err := f.Open(ctx)
+	if err != nil {
+		return false, err
+	}
+
+	defer r.Close() //nolint:errcheck
+
+	sig := make([]byte, validSignatureLen)
+
+	if _, err := r.Read(sig); err != nil {
+		return false, err
+	}
+
+	return string(sig) == validSignature, nil
+}
+
+func (d *ignoreDirectory) skipCacheDirectory(ctx context.Context, entries fs.Entries, relativePath string, policyTree *policy.Tree) fs.Entries {
+	if !policyTree.EffectivePolicy().FilesPolicy.IgnoreCacheDirectoriesOrDefault(true) {
+		return entries
+	}
+
+	f, ok := entries.FindByName(repo.CacheDirMarkerFile).(fs.File)
+	if ok {
+		correct, err := correctCacheDirSignature(ctx, f)
+		if err != nil {
+			log(ctx).Debugf("unable to check cache dir signature, assuming not a cache directory: %v", err)
+			return entries
+		}
+
+		if correct {
+			// if the given directory contains a marker file used for kopia cache, pretend the directory was empty.
+			for _, oi := range d.parentContext.onIgnore {
+				oi(relativePath, d)
+			}
+
+			return nil
+		}
+	}
+
+	return entries
+}
+
 func (d *ignoreDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
 	entries, err := d.Directory.Readdir(ctx)
 	if err != nil {
 		return nil, err
 	}
+
+	entries = d.skipCacheDirectory(ctx, entries, d.relativePath, d.policyTree)
 
 	thisContext, err := d.buildContext(ctx, entries)
 	if err != nil {

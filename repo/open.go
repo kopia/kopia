@@ -207,7 +207,7 @@ func writeCacheMarker(cacheDir string) error {
 	markerFile := filepath.Join(cacheDir, CacheDirMarkerFile)
 
 	st, err := os.Stat(markerFile)
-	if err == nil && st.Size() >= int64(len(cacheDirMarkerContents)) { //nolint:mnd
+	if err == nil && st.Size() >= int64(len(cacheDirMarkerContents)) {
 		// ok
 		return nil
 	}

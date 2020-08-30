@@ -677,7 +677,7 @@ func (u *Uploader) processNonDirectories(ctx context.Context, output chan dirEnt
 	})
 }
 
-func maybeReadDirectoryEntries(ctx context.Context, dir fs.Directory, relativePath string, policyTree *policy.Tree) fs.Entries {
+func maybeReadDirectoryEntries(ctx context.Context, dir fs.Directory) fs.Entries {
 	if dir == nil {
 		return nil
 	}
@@ -688,7 +688,7 @@ func maybeReadDirectoryEntries(ctx context.Context, dir fs.Directory, relativePa
 		return nil
 	}
 
-	return skipCacheDirectory(ctx, ent, relativePath, policyTree)
+	return ent
 }
 
 func uniqueDirectories(dirs []fs.Directory) []fs.Directory {
@@ -746,12 +746,10 @@ func uploadDirInternal(
 		return "", fs.DirectorySummary{}, dirReadError{direrr}
 	}
 
-	entries = skipCacheDirectory(ctx, entries, dirRelativePath, policyTree)
-
 	var prevEntries []fs.Entries
 
 	for _, d := range uniqueDirectories(previousDirs) {
-		if ent := maybeReadDirectoryEntries(ctx, d, dirRelativePath, policyTree); ent != nil {
+		if ent := maybeReadDirectoryEntries(ctx, d); ent != nil {
 			prevEntries = append(prevEntries, ent)
 		}
 	}
@@ -782,55 +780,6 @@ func uploadDirInternal(
 	dirManifest.Summary.IncompleteReason = u.incompleteReason()
 
 	return oid, *dirManifest.Summary, err
-}
-
-func correctCacheDirSignature(ctx context.Context, f fs.File) (bool, error) {
-	const (
-		validSignature    = "Signature: 8a477f597d28d172789f06886806bc55"
-		validSignatureLen = len(validSignature)
-	)
-
-	if f.Size() < int64(validSignatureLen) { // nolint:mnd
-		return false, nil
-	}
-
-	r, err := f.Open(ctx)
-	if err != nil {
-		return false, err
-	}
-
-	defer r.Close() //nolint:errcheck
-
-	sig := make([]byte, validSignatureLen)
-
-	if _, err := r.Read(sig); err != nil {
-		return false, err
-	}
-
-	return string(sig) == validSignature, nil
-}
-
-func skipCacheDirectory(ctx context.Context, entries fs.Entries, relativePath string, policyTree *policy.Tree) fs.Entries {
-	if !policyTree.EffectivePolicy().FilesPolicy.IgnoreCacheDirectoriesOrDefault(true) {
-		return entries
-	}
-
-	f, ok := entries.FindByName(repo.CacheDirMarkerFile).(fs.File)
-	if ok {
-		correct, err := correctCacheDirSignature(ctx, f)
-		if err != nil {
-			log(ctx).Debugf("unable to check cache dir signature, assuming not a cache directory: %v", err)
-			return entries
-		}
-
-		if correct {
-			// if the given directory contains a marker file used for kopia cache, pretend the directory was empty.
-			log(ctx).Debugf("skipping cache directory: %v", relativePath)
-			return nil
-		}
-	}
-
-	return entries
 }
 
 func (u *Uploader) maybeIgnoreFileReadError(err error, output chan dirEntryOrError, entryRelativePath string, policyTree *policy.Tree) error {

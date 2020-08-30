@@ -52,7 +52,7 @@ func (s *FakeTimeServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func NewFakeTimeServer(startTime time.Time, step time.Duration) *FakeTimeServer {
 	return &FakeTimeServer{
 		nextTimeChunk:   startTime,
-		timeChunkLength: 100 * step, // nolint:mnd
+		timeChunkLength: 100 * step, // nolint:gomnd
 		step:            step,
 	}
 }
