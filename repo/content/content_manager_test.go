@@ -345,6 +345,42 @@ func TestContentManagerFailedToWritePack(t *testing.T) {
 	verifyContent(ctx, t, bm, b1, seededRandomData(1, 10))
 }
 
+func TestIndexCompactionDropsContent(t *testing.T) {
+	ctx := testlogging.Context(t)
+	data := blobtesting.DataMap{}
+	keyTime := map[blob.ID]time.Time{}
+	timeFunc := faketime.AutoAdvance(fakeTime.Add(1), 1*time.Second)
+
+	// create record in index #1
+	bm := newTestContentManager(t, data, keyTime, timeFunc)
+	content1 := writeContentAndVerify(ctx, t, bm, seededRandomData(10, 100))
+	bm.Close(ctx)
+
+	timeFunc()
+
+	// create record in index #2
+	bm = newTestContentManager(t, data, keyTime, timeFunc)
+	deleteContent(ctx, t, bm, content1)
+	bm.Close(ctx)
+
+	timeFunc()
+
+	deleteThreshold := timeFunc()
+
+	t.Logf("----- compaction")
+
+	bm = newTestContentManager(t, data, keyTime, timeFunc)
+	// this drops deleted entries, including from index #1
+	must(t, bm.CompactIndexes(ctx, CompactOptions{
+		DropDeletedBefore: deleteThreshold,
+		AllIndexes:        true,
+	}))
+	bm.Close(ctx)
+
+	bm = newTestContentManager(t, data, keyTime, timeFunc)
+	verifyContentNotFound(ctx, t, bm, content1)
+}
+
 func TestContentManagerConcurrency(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
