@@ -13,6 +13,7 @@ import (
 	"github.com/kopia/kopia/fs"
 )
 
+// Directory mounts a given directory under a provided drive letter.
 func Directory(ctx context.Context, entry fs.Directory, driveLetter string) (Controller, error) {
 	if !isValidWindowsDriveOrAsterisk(driveLetter) {
 		return nil, errors.Errorf("must be a valid drive letter or asteris")
@@ -38,8 +39,10 @@ func Directory(ctx context.Context, entry fs.Directory, driveLetter string) (Con
 func netUse(ctx context.Context, args ...string) (string, error) {
 	nu := exec.CommandContext(ctx, "net", append([]string{"use"}, args...)...) //nolint:gosec
 	log(ctx).Debugf("running %v %v", nu.Path, nu.Args)
+
 	out, err := nu.Output()
 	log(ctx).Debugf("net use finished with %v %v", string(out), err)
+
 	return string(out), err
 }
 
