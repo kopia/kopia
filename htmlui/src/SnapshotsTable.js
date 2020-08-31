@@ -1,3 +1,5 @@
+import { faArrowLeft } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
 import React, { Component } from 'react';
 import Badge from 'react-bootstrap/Badge';
@@ -145,11 +147,9 @@ export class SnapshotsTable extends Component {
 
         return <div class="padded">
             <Row>
-                <Button size="xxl" variant="dark" onClick={this.props.history.goBack} >
-                    Back
-            </Button>
+                <Button size="xxl" variant="secondary" onClick={this.props.history.goBack}><FontAwesomeIcon icon={faArrowLeft} /></Button>
             &nbsp;
-            Displaying {filteredSnapshots.length !== snapshots.length ? filteredSnapshots.length + ' out of ' + snapshots.length : snapshots.length} snapshots of <b>{this.state.userName}@{this.state.host}:{this.state.path}</b>
+            Displaying {filteredSnapshots.length !== snapshots.length ? filteredSnapshots.length + ' out of ' + snapshots.length : snapshots.length} snapshots of&nbsp;<b>{this.state.userName}@{this.state.host}:{this.state.path}</b>
                 {hiddenCount > 0 &&
                     <>&nbsp;<Form.Group controlId="formBasicCheckbox">
                         <Form.Check

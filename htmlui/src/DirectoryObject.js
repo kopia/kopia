@@ -1,9 +1,12 @@
+import { faArrowLeft, faCopy } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
 import React, { Component } from 'react';
 import Button from 'react-bootstrap/Button';
 import Row from 'react-bootstrap/Row';
 import Spinner from 'react-bootstrap/Spinner';
 import { DirectoryItems } from "./DirectoryItems";
+
 
 export class DirectoryObject extends Component {
     constructor() {
@@ -13,7 +16,14 @@ export class DirectoryObject extends Component {
             items: [],
             isLoading: false,
             error: null,
+            mountInfo: {},
+            oid: "",
         };
+
+        this.mount = this.mount.bind(this);
+        this.unmount = this.unmount.bind(this);
+        this.browseMounted = this.browseMounted.bind(this);
+        this.copyPath = this.copyPath.bind(this);
     }
 
     componentDidMount() {
@@ -25,7 +35,9 @@ export class DirectoryObject extends Component {
 
         this.setState({
             isLoading: true,
+            oid: oid,
         });
+
         axios.get('/api/v1/objects/' + oid).then(result => {
             this.setState({
                 items: result.data.entries || [],
@@ -35,10 +47,61 @@ export class DirectoryObject extends Component {
             error,
             isLoading: false
         }));
+
+        axios.get('/api/v1/mounts/' + oid).then(result => {
+            this.setState({
+                mountInfo: result.data,
+            });
+        }).catch(error => this.setState({
+            mountInfo: {},
+        }));
     }
 
     componentWillReceiveProps(props) {
         this.fetchDirectory(props);
+    }
+
+    mount() {
+        axios.post('/api/v1/mounts', { "root": this.state.oid }).then(result => {
+            this.setState({
+                mountInfo: result.data,
+            });
+        }).catch(error => this.setState({
+            mountInfo: {},
+        }));
+    }
+
+    unmount() {
+        axios.delete('/api/v1/mounts/' + this.state.oid).then(result => {
+            this.setState({
+                mountInfo: {},
+            });
+        }).catch(error => this.setState({
+            error: error,
+            mountInfo: {},
+        }));
+    }
+
+    browseMounted() {
+        if (!window.require) {
+            alert('Directory browsing is not supported in a web browser. Use Kopia UI.');
+            return;
+        }
+
+        const { shell } = window.require('electron').remote;
+        shell.openItem(this.state.mountInfo.path)
+    }
+
+    copyPath() {
+        const el = document.querySelector("#mountedPath");
+        if (!el) {
+            return
+        }
+
+        el.select();
+        el.setSelectionRange(0, 99999);
+
+        document.execCommand("copy");
     }
 
     render() {
@@ -50,11 +113,23 @@ export class DirectoryObject extends Component {
             return <Spinner animation="border" variant="primary" />;
         }
 
+        const browsingSupported = !!window.require;
+
         return <div class="padded">
             <Row>
-            <Button size="xxl" variant="dark" onClick={this.props.history.goBack} >
-                Back
-            </Button>
+            <Button size="xxl" variant="secondary" onClick={this.props.history.goBack} ><FontAwesomeIcon icon={faArrowLeft} /></Button>
+            &nbsp;
+            { this.state.mountInfo.path ? <>
+            <Button size="xxl" variant="info" onClick={this.unmount} >Unmount</Button>
+            {browsingSupported && <>
+            &nbsp;
+            <Button size="xxl" variant="info" onClick={this.browseMounted} >Browse</Button>
+            </>}
+            &nbsp;<input id="mountedPath" value={this.state.mountInfo.path } />
+            <Button size="xxl" variant="primary" onClick={this.copyPath} ><FontAwesomeIcon icon={faCopy} /></Button>
+            </> : <>
+            <Button size="xxl" variant="primary" onClick={this.mount} >Mount</Button>
+            </>}
             </Row>
             <hr/>
             <Row>

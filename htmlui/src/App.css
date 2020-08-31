@@ -60,3 +60,12 @@ div.tab-body {
   color: #aaa;
   font-size: 80%;
 }
+
+#mountedPath {
+  color: #444;
+  width: 30em;
+  background-color: #ccc;
+  font-size: 12pt;
+  padding: 4px;
+  border: 1px solid #aaa;
+}
