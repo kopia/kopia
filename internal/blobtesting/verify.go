@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"context"
 	"reflect"
+	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
@@ -48,6 +51,23 @@ func VerifyStorage(ctx context.Context, t testingT, r blob.Storage) {
 		}
 
 		AssertGetBlob(ctx, t, r, b.blk, b.contents)
+	}
+
+	ts := time.Date(2020, 1, 1, 15, 30, 45, 0, time.UTC)
+
+	for _, b := range blocks {
+		if err := r.SetTime(ctx, b.blk, ts); errors.Is(err, blob.ErrSetTimeUnsupported) {
+			break
+		}
+
+		md, err := r.GetMetadata(ctx, b.blk)
+		if err != nil {
+			t.Errorf("unable to get blob metadata")
+		}
+
+		if got, want := md.Timestamp, ts; !got.Equal(want) {
+			t.Errorf("invalid time after SetTme(): %vm want %v", got, want)
+		}
 	}
 
 	if err := r.DeleteBlob(ctx, blocks[0].blk); err != nil {

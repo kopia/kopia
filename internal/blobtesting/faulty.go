@@ -55,6 +55,15 @@ func (s *FaultyStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes
 	return s.Base.PutBlob(ctx, id, data)
 }
 
+// SetTime implements blob.Storage.
+func (s *FaultyStorage) SetTime(ctx context.Context, id blob.ID, t time.Time) error {
+	if err := s.getNextFault(ctx, "SetTime", id); err != nil {
+		return err
+	}
+
+	return s.Base.SetTime(ctx, id, t)
+}
+
 // DeleteBlob implements blob.Storage.
 func (s *FaultyStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
 	if err := s.getNextFault(ctx, "DeleteBlob", id); err != nil {

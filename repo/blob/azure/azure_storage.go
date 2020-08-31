@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"time"
 
 	"github.com/Azure/azure-storage-blob-go/azblob"
 	"github.com/efarrer/iothrottler"
@@ -155,6 +156,10 @@ func (az *azStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) er
 
 	// calling close before cancel() causes it to commit the upload.
 	return translateError(writer.Close())
+}
+
+func (az *azStorage) SetTime(ctx context.Context, b blob.ID, t time.Time) error {
+	return blob.ErrSetTimeUnsupported
 }
 
 // DeleteBlob deletes azure blob from container with given ID.
