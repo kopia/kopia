@@ -46,19 +46,6 @@ func onCtrlC(f func()) {
 	}()
 }
 
-func waitForCtrlC() {
-	// Wait until ctrl-c pressed
-	done := make(chan bool)
-
-	onCtrlC(func() {
-		if done != nil {
-			close(done)
-			done = nil
-		}
-	})
-	<-done
-}
-
 func openRepository(ctx context.Context, opts *repo.Options, required bool) (repo.Repository, error) {
 	if _, err := os.Stat(repositoryConfigFileName()); os.IsNotExist(err) && !required {
 		return nil, nil
