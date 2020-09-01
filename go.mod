@@ -21,7 +21,7 @@ require (
 	github.com/gofrs/flock v0.7.1
 	github.com/golang/protobuf v1.4.2
 	github.com/google/fswalker v0.2.1-0.20200214223026-f0e929ba4126
-	github.com/google/go-cmp v0.4.0
+	github.com/google/go-cmp v0.5.2
 	github.com/google/readahead v0.0.0-20161222183148-eaceba169032 // indirect
 	github.com/google/uuid v1.1.1
 	github.com/google/wire v0.4.0 // indirect
