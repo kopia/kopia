@@ -123,6 +123,12 @@ func printRetentionPolicy(p *policy.Policy, parents []*policy.Policy) {
 func printFilesPolicy(p *policy.Policy, parents []*policy.Policy) {
 	printStdout("Files policy:\n")
 
+	printStdout("  Ignore cache directories:       %5v       %v\n",
+		p.FilesPolicy.IgnoreCacheDirectoriesOrDefault(true),
+		getDefinitionPoint(parents, func(pol *policy.Policy) bool {
+			return pol.FilesPolicy.IgnoreCacheDirs != nil
+		}))
+
 	if len(p.FilesPolicy.IgnoreRules) > 0 {
 		printStdout("  Ignore rules:\n")
 	} else {

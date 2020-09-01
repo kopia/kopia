@@ -179,6 +179,9 @@ export class PolicyEditor extends Component {
                             {RequiredBoolean(this, "Ignore Parent Rules", "policy.files.noParentIgnore")}
                             {RequiredBoolean(this, "Ignore Parent Rule Files", "policy.files.noParentDotFiles")}
                         </Form.Row>
+                        <Form.Row>
+                            {OptionalBoolean(this, "Ignore Well-Known Cache Directories", "policy.files.ignoreCacheDirs", "inherit from parent")}
+                        </Form.Row>
                     </div>
                 </Tab>
                 <Tab eventKey="errors" title="Errors">
