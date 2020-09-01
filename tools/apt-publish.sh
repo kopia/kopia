@@ -15,7 +15,9 @@ if [ ! -d "$PKGDIR" ]; then
 fi
 
 distributions="stable testing unstable"
-architectures="amd64 arm64 armhf"
+
+# note we don't produce packages for i386 but lack of it confuses some amd64 clients.
+architectures="amd64 arm64 armhf i386"
 
 WORK_DIR=/tmp/apt-publish
 rm -rf "$WORK_DIR"

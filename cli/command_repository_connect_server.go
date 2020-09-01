@@ -23,7 +23,7 @@ func runConnectAPIServerCommand(ctx context.Context) error {
 	}
 
 	as := &repo.APIServerInfo{
-		BaseURL:                             *connectAPIServerURL,
+		BaseURL:                             strings.TrimSuffix(*connectAPIServerURL, "/"),
 		TrustedServerCertificateFingerprint: strings.ToLower(*connectAPIServerCertFingerprint),
 	}
 

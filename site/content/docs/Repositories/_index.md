@@ -95,7 +95,7 @@ $ kopia repository connect s3
 You will need your B2 bucket name, key-id and key.
 
 ```shell
-$ kopia repository connect b2 \
+$ kopia repository create b2 \
         --bucket=... \
         --key-id=... \
         --key=...
