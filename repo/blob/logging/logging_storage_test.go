@@ -3,9 +3,11 @@ package logging
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/repo/blob"
 )
 
 func TestLoggingStorage(t *testing.T) {
@@ -20,7 +22,8 @@ func TestLoggingStorage(t *testing.T) {
 	}
 
 	data := blobtesting.DataMap{}
-	underlying := blobtesting.NewMapStorage(data, nil, nil)
+	kt := map[blob.ID]time.Time{}
+	underlying := blobtesting.NewMapStorage(data, kt, nil)
 
 	st := NewWrapper(underlying, myOutput, myPrefix)
 	if st == nil {

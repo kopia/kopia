@@ -3,6 +3,7 @@ package logging
 
 import (
 	"context"
+	"time"
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/blob"
@@ -45,6 +46,15 @@ func (s *loggingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Byte
 	err := s.base.PutBlob(ctx, id, data)
 	dt := clock.Since(t0)
 	s.printf(s.prefix+"PutBlob(%q,len=%v)=%#v took %v", id, data.Length(), err, dt)
+
+	return err
+}
+
+func (s *loggingStorage) SetTime(ctx context.Context, id blob.ID, t time.Time) error {
+	t0 := clock.Now()
+	err := s.base.SetTime(ctx, id, t)
+	dt := clock.Since(t0)
+	s.printf(s.prefix+"SetTime(%q,%v)=%#v took %v", id, t, err, dt)
 
 	return err
 }

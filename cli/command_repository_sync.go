@@ -27,6 +27,7 @@ var (
 	repositorySyncDryRun               = repositorySyncCommand.Flag("dry-run", "Do not perform copying.").Short('n').Bool()
 	repositorySyncParallelism          = repositorySyncCommand.Flag("parallel", "Copy parallelism.").Default("1").Int()
 	repositorySyncDestinationMustExist = repositorySyncCommand.Flag("must-exist", "Fail if destination does not have repository format blob.").Bool()
+	repositorySyncTimes                = repositorySyncCommand.Flag("times", "Synchronize blob times if supported.").Bool()
 )
 
 const syncProgressInterval = 300 * time.Millisecond
@@ -255,6 +256,8 @@ func sliceToChannel(ctx context.Context, md []blob.Metadata) chan blob.Metadata 
 	return ch
 }
 
+var setTimeUnsupportedOnce sync.Once
+
 func syncCopyBlob(ctx context.Context, m blob.Metadata, src, dst blob.Storage) error {
 	data, err := src.GetBlob(ctx, m.BlobID, 0, -1)
 	if err != nil {
@@ -268,6 +271,18 @@ func syncCopyBlob(ctx context.Context, m blob.Metadata, src, dst blob.Storage) e
 
 	if err := dst.PutBlob(ctx, m.BlobID, gather.FromSlice(data)); err != nil {
 		return errors.Wrapf(err, "error writing blob '%v' to destination", m.BlobID)
+	}
+
+	if *repositorySyncTimes {
+		if err := dst.SetTime(ctx, m.BlobID, m.Timestamp); err != nil {
+			if errors.Is(err, blob.ErrSetTimeUnsupported) {
+				setTimeUnsupportedOnce.Do(func() {
+					log(ctx).Warningf("destination repository does not support setting time")
+				})
+			}
+
+			return errors.Wrapf(err, "error setting time on destination '%v'", m.BlobID)
+		}
 	}
 
 	return nil

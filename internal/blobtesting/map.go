@@ -135,6 +135,15 @@ func (s *mapStorage) Close(ctx context.Context) error {
 	return nil
 }
 
+func (s *mapStorage) SetTime(ctx context.Context, blobID blob.ID, t time.Time) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	s.keyTime[blobID] = t
+
+	return nil
+}
+
 func (s *mapStorage) TouchBlob(ctx context.Context, blobID blob.ID, threshold time.Duration) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
