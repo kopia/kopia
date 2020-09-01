@@ -14,6 +14,7 @@ import (
 const (
 	maxEntrySize     = 256
 	maxContentIDSize = maxHashSize + 1
+	unknownKeySize   = 255
 )
 
 // packIndex is a read-only index of packed contents.
@@ -182,8 +183,14 @@ func (b *index) findEntry(output []byte, contentID ID) ([]byte, error) {
 	var hashBuf [maxContentIDSize]byte
 
 	key := contentIDToBytes(hashBuf[:0], contentID)
+
+	// empty index blob, this is possible when compaction removes exactly everything
+	if b.hdr.keySize == unknownKeySize {
+		return nil, nil
+	}
+
 	if len(key) != b.hdr.keySize {
-		return nil, errors.Errorf("invalid content ID: %q", contentID)
+		return nil, errors.Errorf("invalid content ID: %q (%v vs %v)", contentID, len(key), b.hdr.keySize)
 	}
 
 	stride := b.hdr.keySize + b.hdr.valueSize
