@@ -71,7 +71,7 @@ func TestAPIServerRepository(t *testing.T) {
 	defer e2.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	e2.RunAndExpectSuccess(t, "repo", "connect", "server",
-		"--url", sp.baseURL,
+		"--url", sp.baseURL+"/",
 		"--server-cert-fingerprint", sp.sha256Fingerprint,
 		"--override-username", "foo",
 		"--override-hostname", "bar",

@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/efarrer/iothrottler"
 	minio "github.com/minio/minio-go/v6"
@@ -159,6 +160,10 @@ func (s *s3Storage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) err
 
 		return err
 	}, isRetriableError))
+}
+
+func (s *s3Storage) SetTime(ctx context.Context, b blob.ID, t time.Time) error {
+	return blob.ErrSetTimeUnsupported
 }
 
 func (s *s3Storage) DeleteBlob(ctx context.Context, b blob.ID) error {

@@ -12,6 +12,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	psftp "github.com/pkg/sftp"
@@ -133,6 +134,10 @@ func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, fullPath string, 
 	}
 
 	return nil
+}
+
+func (s *sftpImpl) SetTimeInPath(ctx context.Context, dirPath, fullPath string, n time.Time) error {
+	return s.cli.Chtimes(fullPath, n, n)
 }
 
 func (s *sftpImpl) createTempFileAndDir(tempFile string) (*psftp.File, error) {

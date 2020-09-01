@@ -10,6 +10,9 @@ import (
 	"github.com/pkg/errors"
 )
 
+// ErrSetTimeUnsupported is returned by implementations of Storage that don't support SetTime.
+var ErrSetTimeUnsupported = errors.Errorf("SetTime is not supported")
+
 // Bytes encapsulates a sequence of bytes, possibly stored in a non-contiguous buffers,
 // which can be written sequentially or treated as a io.Reader.
 type Bytes interface {
@@ -34,6 +37,9 @@ type Storage interface {
 	// PutBlob uploads the blob with given data to the repository or replaces existing blob with the provided
 	// id with contents gathered from the specified list of slices.
 	PutBlob(ctx context.Context, blobID ID, data Bytes) error
+
+	// SetTime changes last modification time of a given blob, if supported, returns ErrSetTimeUnsupported otherwise.
+	SetTime(ctx context.Context, blobID ID, t time.Time) error
 
 	// DeleteBlob removes the blob from storage. Future Get() operations will fail with ErrNotFound.
 	DeleteBlob(ctx context.Context, blobID ID) error

@@ -182,6 +182,10 @@ func (s *b2Storage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes) er
 	return translateError(err)
 }
 
+func (s *b2Storage) SetTime(ctx context.Context, b blob.ID, t time.Time) error {
+	return blob.ErrSetTimeUnsupported
+}
+
 func (s *b2Storage) DeleteBlob(ctx context.Context, id blob.ID) error {
 	fileName := s.getObjectNameString(id)
 	_, err := s.bucket.HideFile(fileName)
