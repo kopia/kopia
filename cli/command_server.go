@@ -7,9 +7,10 @@ import (
 )
 
 var (
-	serverAddress  = serverCommands.Flag("address", "Server address").Default("http://127.0.0.1:51515").String()
-	serverUsername = serverCommands.Flag("server-username", "HTTP server username (basic auth)").Envar("KOPIA_SERVER_USERNAME").Default("kopia").String()
-	serverPassword = serverCommands.Flag("server-password", "HTTP server password (basic auth)").Envar("KOPIA_SERVER_PASSWORD").String()
+	serverAddress         = serverCommands.Flag("address", "Server address").Default("http://127.0.0.1:51515").String()
+	serverUsername        = serverCommands.Flag("server-username", "HTTP server username (basic auth)").Envar("KOPIA_SERVER_USERNAME").Default("kopia").String()
+	serverPassword        = serverCommands.Flag("server-password", "HTTP server password (basic auth)").Envar("KOPIA_SERVER_PASSWORD").String()
+	serverCertFingerprint = serverCommands.Flag("server-cert-fingerprint", "Server certificate fingerprint").String()
 )
 
 func serverAPIClientOptions() (apiclient.Options, error) {
@@ -18,8 +19,9 @@ func serverAPIClientOptions() (apiclient.Options, error) {
 	}
 
 	return apiclient.Options{
-		BaseURL:  *serverAddress,
-		Username: *serverUsername,
-		Password: *serverPassword,
+		BaseURL:                             *serverAddress,
+		Username:                            *serverUsername,
+		Password:                            *serverPassword,
+		TrustedServerCertificateFingerprint: *serverCertFingerprint,
 	}, nil
 }
