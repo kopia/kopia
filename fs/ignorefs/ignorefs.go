@@ -58,7 +58,7 @@ type ignoreDirectory struct {
 
 func correctCacheDirSignature(ctx context.Context, f fs.File) (bool, error) {
 	const (
-		validSignature    = "Signature: 8a477f597d28d172789f06886806bc55"
+		validSignature    =  repo.CacheDirMarkerHeader
 		validSignatureLen = len(validSignature)
 	)
 

@@ -25,8 +25,11 @@ import (
 // See https://bford.info/cachedir/
 const CacheDirMarkerFile = "CACHEDIR.TAG"
 
-const cacheDirMarkerContents = `Signature: 8a477f597d28d172789f06886806bc55
+// CacheDirMarkerHeader is the header signature for cache dir marker files.
+const CacheDirMarkerHeader = "Signature: 8a477f597d28d172789f06886806bc55"
 
+const cacheDirMarkerContents = CacheDirMarkerHeader + `
+#
 # This file is a cache directory tag created by Kopia - Fast And Secure Open-Source Backup.
 #
 # For information about Kopia, see:
