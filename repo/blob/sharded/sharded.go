@@ -6,6 +6,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/kopia/kopia/repo/blob"
 )
@@ -17,6 +18,7 @@ type Impl interface {
 	GetBlobFromPath(ctx context.Context, dirPath, filePath string, offset, length int64) ([]byte, error)
 	GetMetadataFromPath(ctx context.Context, dirPath, filePath string) (blob.Metadata, error)
 	PutBlobInPath(ctx context.Context, dirPath, filePath string, dataSlices blob.Bytes) error
+	SetTimeInPath(ctx context.Context, dirPath, filePath string, t time.Time) error
 	DeleteBlobInPath(ctx context.Context, dirPath, filePath string) error
 	ReadDir(ctx context.Context, path string) ([]os.FileInfo, error)
 }
@@ -109,6 +111,13 @@ func (s Storage) PutBlob(ctx context.Context, blobID blob.ID, data blob.Bytes) e
 	dirPath, filePath := s.GetShardedPathAndFilePath(blobID)
 
 	return s.Impl.PutBlobInPath(ctx, dirPath, filePath, data)
+}
+
+// SetTime implements blob.Storage.
+func (s Storage) SetTime(ctx context.Context, blobID blob.ID, n time.Time) error {
+	dirPath, filePath := s.GetShardedPathAndFilePath(blobID)
+
+	return s.Impl.SetTimeInPath(ctx, dirPath, filePath, n)
 }
 
 // DeleteBlob implements blob.Storage.

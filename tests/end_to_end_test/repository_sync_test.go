@@ -22,7 +22,7 @@ func TestRepositorySync(t *testing.T) {
 
 	// synchronize repository blobs to another directory
 	dir2 := makeScratchDir(t)
-	e.RunAndExpectSuccess(t, "repo", "sync-to", "filesystem", "--path", dir2)
+	e.RunAndExpectSuccess(t, "repo", "sync-to", "filesystem", "--path", dir2, "--times")
 
 	// synchronizing to empty directory fails with --must-exist
 	dir3 := makeScratchDir(t)
