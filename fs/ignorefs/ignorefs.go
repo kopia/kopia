@@ -56,7 +56,7 @@ type ignoreDirectory struct {
 	fs.Directory
 }
 
-func correctCacheDirSignature(ctx context.Context, f fs.File) (bool, error) {
+func isCorrectCacheDirSignature(ctx context.Context, f fs.File) (bool, error) {
 	const (
 		validSignature    = repo.CacheDirMarkerHeader
 		validSignatureLen = len(validSignature)
@@ -89,7 +89,7 @@ func (d *ignoreDirectory) skipCacheDirectory(ctx context.Context, entries fs.Ent
 
 	f, ok := entries.FindByName(repo.CacheDirMarkerFile).(fs.File)
 	if ok {
-		correct, err := correctCacheDirSignature(ctx, f)
+		correct, err := isCorrectCacheDirSignature(ctx, f)
 		if err != nil {
 			log(ctx).Debugf("unable to check cache dir signature, assuming not a cache directory: %v", err)
 			return entries
