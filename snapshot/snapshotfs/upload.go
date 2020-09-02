@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"hash/fnv"
 	"io"
+	"math/rand"
 	"os"
 	"path"
 	"path/filepath"
@@ -583,18 +583,10 @@ func findCachedEntry(ctx context.Context, entry fs.Entry, prevEntries []fs.Entri
 	return nil
 }
 
-// objectIDPercent arbitrarily maps given object ID onto a number 0.99.
-func objectIDPercent(obj object.ID) int {
-	h := fnv.New32a()
-	io.WriteString(h, obj.String()) //nolint:errcheck
-
-	return int(h.Sum32() % 100) //nolint:gomnd
-}
-
 func (u *Uploader) maybeIgnoreCachedEntry(ctx context.Context, ent fs.Entry) fs.Entry {
 	if h, ok := ent.(object.HasObjectID); ok {
-		if objectIDPercent(h.ObjectID()) < u.ForceHashPercentage {
-			log(ctx).Debugf("ignoring valid cached object: %v", h.ObjectID())
+		if rand.Intn(100) < u.ForceHashPercentage { // nolint:gomnd,gosec
+			log(ctx).Debugf("re-hashing cached object: %v", h.ObjectID())
 			return nil
 		}
 
