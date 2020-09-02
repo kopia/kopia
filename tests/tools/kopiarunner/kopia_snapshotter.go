@@ -18,10 +18,8 @@ const (
 	noCheckForUpdatesFlag   = "--no-check-for-updates"
 	noProgressFlag          = "--no-progress"
 	parallelFlag            = "--parallel"
-)
 
-// Flag value settings.
-const (
+	// Flag value settings.
 	contentCacheSizeSettingMB  = 500
 	metadataCacheSizeSettingMB = 500
 	parallelSetting            = 8
