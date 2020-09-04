@@ -17,10 +17,8 @@ import (
 
 // ConnectOptions specifies options when persisting configuration to connect to a repository.
 type ConnectOptions struct {
-	PersistCredentials bool   `json:"persistCredentials"`
-	HostnameOverride   string `json:"hostnameOverride"`
-	UsernameOverride   string `json:"usernameOverride"`
-	ReadOnly           bool   `json:"readOnly"`
+	PersistCredentials bool `json:"persistCredentials"`
+	ClientOptions
 
 	content.CachingOptions
 }
@@ -53,18 +51,7 @@ func Connect(ctx context.Context, configFile string, st blob.Storage, password s
 
 	ci := st.ConnectionInfo()
 	lc.Storage = &ci
-
-	lc.ReadOnly = opt.ReadOnly
-
-	lc.Hostname = opt.HostnameOverride
-	if lc.Hostname == "" {
-		lc.Hostname = getDefaultHostName(ctx)
-	}
-
-	lc.Username = opt.UsernameOverride
-	if lc.Username == "" {
-		lc.Username = getDefaultUserName(ctx)
-	}
+	lc.ClientOptions = opt.ClientOptions.ApplyDefaults(ctx, "Repository in "+st.DisplayName())
 
 	if err = setupCaching(ctx, configFile, &lc, &opt.CachingOptions, f.UniqueID); err != nil {
 		return errors.Wrap(err, "unable to set up caching")
@@ -173,4 +160,25 @@ func Disconnect(ctx context.Context, configFile string) error {
 	}
 
 	return os.Remove(configFile)
+}
+
+// SetClientOptions updates client options stored in the provided configuration file.
+func SetClientOptions(ctx context.Context, configFile string, cliOpt ClientOptions) error {
+	lc, err := loadConfigFromFile(configFile)
+	if err != nil {
+		return err
+	}
+
+	lc.ClientOptions = cliOpt
+
+	d, err := json.MarshalIndent(lc, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	if err = ioutil.WriteFile(configFile, d, 0o600); err != nil {
+		return errors.Wrap(err, "unable to write config file")
+	}
+
+	return nil
 }

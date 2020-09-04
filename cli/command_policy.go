@@ -31,7 +31,7 @@ func policyTargets(ctx context.Context, rep repo.Repository, globalFlag *bool, t
 			continue
 		}
 
-		target, err := snapshot.ParseSourceInfo(ts, rep.Hostname(), rep.Username())
+		target, err := snapshot.ParseSourceInfo(ts, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
 		if err != nil {
 			return nil, err
 		}

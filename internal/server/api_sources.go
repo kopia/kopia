@@ -21,8 +21,8 @@ func (s *Server) handleSourcesList(ctx context.Context, r *http.Request, body []
 
 	resp := &serverapi.SourcesResponse{
 		Sources:       []*serverapi.SourceStatus{},
-		LocalHost:     s.rep.Hostname(),
-		LocalUsername: s.rep.Username(),
+		LocalHost:     s.rep.ClientOptions().Hostname,
+		LocalUsername: s.rep.ClientOptions().Username,
 		MultiUser:     multiUser,
 	}
 
@@ -62,8 +62,8 @@ func (s *Server) handleSourcesCreate(ctx context.Context, r *http.Request, body 
 	}
 
 	sourceInfo := snapshot.SourceInfo{
-		UserName: s.rep.Username(),
-		Host:     s.rep.Hostname(),
+		UserName: s.rep.ClientOptions().Username,
+		Host:     s.rep.ClientOptions().Hostname,
 		Path:     req.Path,
 	}
 

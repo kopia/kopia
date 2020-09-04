@@ -24,9 +24,7 @@ type Repository interface {
 	FindManifests(ctx context.Context, labels map[string]string) ([]*manifest.EntryMetadata, error)
 	DeleteManifest(ctx context.Context, id manifest.ID) error
 
-	Hostname() string
-	Username() string
-	IsReadOnly() bool
+	ClientOptions() ClientOptions
 
 	Time() time.Time
 
@@ -45,9 +43,7 @@ type DirectRepository struct {
 
 	ConfigFile string
 
-	hostname   string // connected (localhost) hostname
-	username   string // connected username
-	isReadOnly bool
+	cliOpts ClientOptions
 
 	timeNow    func() time.Time
 	formatBlob *formatBlob
@@ -61,14 +57,16 @@ func (r *DirectRepository) DeriveKey(purpose []byte, keyLength int) []byte {
 	return deriveKeyFromMasterKey(r.masterKey, r.UniqueID, purpose, keyLength)
 }
 
+// ClientOptions returns client options.
+func (r *DirectRepository) ClientOptions() ClientOptions {
+	return r.cliOpts
+}
+
 // Hostname returns the hostname that connected to the repository.
-func (r *DirectRepository) Hostname() string { return r.hostname }
+func (r *DirectRepository) Hostname() string { return r.cliOpts.Hostname }
 
 // Username returns the username that's connect to the repository.
-func (r *DirectRepository) Username() string { return r.username }
-
-// IsReadOnly returns true if repository is read-only.
-func (r *DirectRepository) IsReadOnly() bool { return r.isReadOnly }
+func (r *DirectRepository) Username() string { return r.cliOpts.Username }
 
 // BlobStorage returns the blob storage.
 func (r *DirectRepository) BlobStorage() blob.Storage {

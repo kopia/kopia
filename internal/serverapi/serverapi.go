@@ -24,9 +24,9 @@ type StatusResponse struct {
 	Splitter     string `json:"splitter,omitempty"`
 	MaxPackSize  int    `json:"maxPackSize,omitempty"`
 	Storage      string `json:"storage,omitempty"`
-	Username     string `json:"username,omitempty"`
-	Host         string `json:"host,omitempty"`
 	APIServerURL string `json:"apiServerURL,omitempty"`
+
+	repo.ClientOptions
 }
 
 // SourcesResponse is the response of 'sources' HTTP API command.

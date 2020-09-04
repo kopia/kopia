@@ -47,16 +47,15 @@ func (s *Server) handleRepoStatus(ctx context.Context, r *http.Request, body []b
 	dr, ok := s.rep.(*repo.DirectRepository)
 	if ok {
 		return &serverapi.StatusResponse{
-			Connected:   true,
-			ConfigFile:  dr.ConfigFile,
-			CacheDir:    dr.Content.CachingOptions.CacheDirectory,
-			Hash:        dr.Content.Format.Hash,
-			Encryption:  dr.Content.Format.Encryption,
-			MaxPackSize: dr.Content.Format.MaxPackSize,
-			Splitter:    dr.Objects.Format.Splitter,
-			Storage:     dr.Blobs.ConnectionInfo().Type,
-			Username:    dr.Username(),
-			Host:        dr.Hostname(),
+			Connected:     true,
+			ConfigFile:    dr.ConfigFile,
+			CacheDir:      dr.Content.CachingOptions.CacheDirectory,
+			Hash:          dr.Content.Format.Hash,
+			Encryption:    dr.Content.Format.Encryption,
+			MaxPackSize:   dr.Content.Format.MaxPackSize,
+			Splitter:      dr.Objects.Format.Splitter,
+			Storage:       dr.Blobs.ConnectionInfo().Type,
+			ClientOptions: dr.ClientOptions(),
 		}, nil
 	}
 
@@ -65,9 +64,8 @@ func (s *Server) handleRepoStatus(ctx context.Context, r *http.Request, body []b
 	}
 
 	result := &serverapi.StatusResponse{
-		Connected: true,
-		Username:  s.rep.Username(),
-		Host:      s.rep.Hostname(),
+		Connected:     true,
+		ClientOptions: s.rep.ClientOptions(),
 	}
 
 	if rr, ok := s.rep.(remoteRepository); ok {
@@ -128,7 +126,7 @@ func (s *Server) handleRepoCreate(ctx context.Context, r *http.Request, body []b
 
 	if dr, ok := s.rep.(*repo.DirectRepository); ok {
 		p := maintenance.DefaultParams()
-		p.Owner = s.rep.Username() + "@" + s.rep.Hostname()
+		p.Owner = dr.Username() + "@" + dr.Hostname()
 
 		if err := maintenance.SetParams(ctx, dr, &p); err != nil {
 			return nil, internalServerError(errors.Wrap(err, "unable to set maintenance params"))

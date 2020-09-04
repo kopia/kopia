@@ -74,7 +74,7 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 	}
 
 	if lc.APIServer != nil {
-		return openAPIServer(ctx, lc.APIServer, lc.Username, lc.Hostname, password)
+		return openAPIServer(ctx, lc.APIServer, lc.ClientOptions, password)
 	}
 
 	return openDirect(ctx, configFile, lc, password, options)
@@ -109,18 +109,7 @@ func openDirect(ctx context.Context, configFile string, lc *LocalConfig, passwor
 		return nil, err
 	}
 
-	r.hostname = lc.Hostname
-	r.username = lc.Username
-	r.isReadOnly = lc.ReadOnly
-
-	if r.hostname == "" {
-		r.hostname = getDefaultHostName(ctx)
-	}
-
-	if r.username == "" {
-		r.username = getDefaultUserName(ctx)
-	}
-
+	r.cliOpts = lc.ClientOptions.ApplyDefaults(ctx, "Repository in "+st.DisplayName())
 	r.ConfigFile = configFile
 
 	return r, nil

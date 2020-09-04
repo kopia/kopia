@@ -283,7 +283,7 @@ func getSourcesToMigrate(ctx context.Context, rep repo.Repository) ([]snapshot.S
 		var result []snapshot.SourceInfo
 
 		for _, s := range *migrateSources {
-			si, err := snapshot.ParseSourceInfo(s, rep.Hostname(), rep.Username())
+			si, err := snapshot.ParseSourceInfo(s, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
 			if err != nil {
 				return nil, err
 			}

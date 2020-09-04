@@ -23,6 +23,7 @@ var (
 
 func runStatusCommand(ctx context.Context, rep *repo.DirectRepository) error {
 	fmt.Printf("Config file:         %v\n", rep.ConfigFile)
+	fmt.Printf("Description:         %v\n\n", rep.ClientOptions().Description)
 
 	ci := rep.Blobs.ConnectionInfo()
 	fmt.Printf("Storage type:        %v\n", ci.Type)
@@ -33,9 +34,9 @@ func runStatusCommand(ctx context.Context, rep *repo.DirectRepository) error {
 
 	fmt.Println()
 	fmt.Printf("Unique ID:           %x\n", rep.UniqueID)
-	fmt.Printf("Hostname:            %v\n", rep.Hostname())
-	fmt.Printf("Username:            %v\n", rep.Username())
-	fmt.Printf("Read-only:           %v\n", rep.IsReadOnly())
+	fmt.Printf("Hostname:            %v\n", rep.ClientOptions().Hostname)
+	fmt.Printf("Username:            %v\n", rep.ClientOptions().Username)
+	fmt.Printf("Read-only:           %v\n", rep.ClientOptions().ReadOnly)
 
 	fmt.Println()
 	fmt.Printf("Hash:                %v\n", rep.Content.Format.Hash)

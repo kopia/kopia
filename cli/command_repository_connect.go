@@ -23,6 +23,7 @@ var (
 	connectUsername               string
 	connectCheckForUpdates        bool
 	connectReadonly               bool
+	connectDescription            string
 )
 
 func setupConnectOptions(cmd *kingpin.CmdClause) {
@@ -37,6 +38,7 @@ func setupConnectOptions(cmd *kingpin.CmdClause) {
 	cmd.Flag("override-username", "Override username used by this repository connection").Hidden().StringVar(&connectUsername)
 	cmd.Flag("check-for-updates", "Periodically check for Kopia updates on GitHub").Default("true").Envar(checkForUpdatesEnvar).BoolVar(&connectCheckForUpdates)
 	cmd.Flag("readonly", "Make repository read-only to avoid accidental changes").BoolVar(&connectReadonly)
+	cmd.Flag("description", "Human-readable description of the repository").StringVar(&connectDescription)
 }
 
 func connectOptions() *repo.ConnectOptions {
@@ -48,9 +50,12 @@ func connectOptions() *repo.ConnectOptions {
 			MaxMetadataCacheSizeBytes: connectMaxMetadataCacheSizeMB << 20, //nolint:gomnd
 			MaxListCacheDurationSec:   int(connectMaxListCacheDuration.Seconds()),
 		},
-		HostnameOverride: connectHostname,
-		UsernameOverride: connectUsername,
-		ReadOnly:         connectReadonly,
+		ClientOptions: repo.ClientOptions{
+			Hostname:    connectHostname,
+			Username:    connectUsername,
+			ReadOnly:    connectReadonly,
+			Description: connectDescription,
+		},
 	}
 }
 

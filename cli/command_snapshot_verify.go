@@ -255,7 +255,7 @@ func loadSourceManifests(ctx context.Context, rep repo.Repository, sources []str
 		manifestIDs = append(manifestIDs, man...)
 	} else {
 		for _, srcStr := range sources {
-			src, err := snapshot.ParseSourceInfo(srcStr, rep.Hostname(), rep.Username())
+			src, err := snapshot.ParseSourceInfo(srcStr, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
 			if err != nil {
 				return nil, errors.Wrapf(err, "error parsing %q", srcStr)
 			}

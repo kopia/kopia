@@ -167,7 +167,7 @@ func maybeRunMaintenance(ctx context.Context, rep repo.Repository) error {
 		return nil
 	}
 
-	if rep.IsReadOnly() {
+	if rep.ClientOptions().ReadOnly {
 		return nil
 	}
 
