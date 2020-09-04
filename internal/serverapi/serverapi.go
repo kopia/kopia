@@ -8,6 +8,7 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/manifest"
+	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
@@ -153,4 +154,25 @@ type Snapshot struct {
 // SnapshotsResponse contains a list of snapshots.
 type SnapshotsResponse struct {
 	Snapshots []*Snapshot `json:"snapshots"`
+}
+
+// MountSnapshotRequest contains request to mount a snapshot.
+type MountSnapshotRequest struct {
+	Root string `json:"root"`
+}
+
+// UnmountSnapshotRequest contains request to unmount a snapshot.
+type UnmountSnapshotRequest struct {
+	Root string `json:"root"`
+}
+
+// MountedSnapshot describes single mounted snapshot.
+type MountedSnapshot struct {
+	Path string    `json:"path"`
+	Root object.ID `json:"root"`
+}
+
+// MountedSnapshots describes single mounted snapshot.
+type MountedSnapshots struct {
+	Items []*MountedSnapshot `json:"items"`
 }
