@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"time"
 
 	gcsclient "cloud.google.com/go/storage"
 	"github.com/efarrer/iothrottler"
@@ -157,6 +158,10 @@ func (gcs *gcsStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) 
 
 	// calling close before cancel() causes it to commit the upload.
 	return translateError(writer.Close())
+}
+
+func (gcs *gcsStorage) SetTime(ctx context.Context, b blob.ID, t time.Time) error {
+	return blob.ErrSetTimeUnsupported
 }
 
 func (gcs *gcsStorage) DeleteBlob(ctx context.Context, b blob.ID) error {

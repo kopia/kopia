@@ -3,6 +3,7 @@ package readonly
 
 import (
 	"context"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -23,6 +24,10 @@ func (s readonlyStorage) GetBlob(ctx context.Context, id blob.ID, offset, length
 
 func (s readonlyStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata, error) {
 	return s.base.GetMetadata(ctx, id)
+}
+
+func (s readonlyStorage) SetTime(ctx context.Context, id blob.ID, t time.Time) error {
+	return ErrReadonly
 }
 
 func (s readonlyStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes) error {

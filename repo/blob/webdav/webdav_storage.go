@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/studio-b12/gowebdav"
@@ -150,6 +151,10 @@ func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath st
 	}
 
 	return d.translateError(d.cli.Rename(tmpPath, filePath, true))
+}
+
+func (d *davStorageImpl) SetTimeInPath(ctx context.Context, dirPath, filePath string, n time.Time) error {
+	return blob.ErrSetTimeUnsupported
 }
 
 func (d *davStorageImpl) DeleteBlobInPath(ctx context.Context, dirPath, filePath string) error {

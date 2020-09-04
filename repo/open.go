@@ -22,7 +22,22 @@ import (
 )
 
 // CacheDirMarkerFile is the name of the marker file indicating a directory contains Kopia caches.
-const CacheDirMarkerFile = ".kopia-cache"
+// See https://bford.info/cachedir/
+const CacheDirMarkerFile = "CACHEDIR.TAG"
+
+// CacheDirMarkerHeader is the header signature for cache dir marker files.
+const CacheDirMarkerHeader = "Signature: 8a477f597d28d172789f06886806bc55"
+
+const cacheDirMarkerContents = CacheDirMarkerHeader + `
+#
+# This file is a cache directory tag created by Kopia - Fast And Secure Open-Source Backup.
+#
+# For information about Kopia, see:
+#   https://kopia.io
+#
+# For information about cache directory tags, see:
+#   http://www.brynosaurus.com/cachedir/
+`
 
 var log = logging.GetContextLoggerFunc("kopia/repo")
 
@@ -193,13 +208,24 @@ func writeCacheMarker(cacheDir string) error {
 	}
 
 	markerFile := filepath.Join(cacheDir, CacheDirMarkerFile)
-	if _, err := os.Stat(markerFile); !os.IsNotExist(err) {
+
+	st, err := os.Stat(markerFile)
+	if err == nil && st.Size() >= int64(len(cacheDirMarkerContents)) {
+		// ok
+		return nil
+	}
+
+	if !os.IsNotExist(err) {
 		return err
 	}
 
 	f, err := os.Create(markerFile)
 	if err != nil {
 		return err
+	}
+
+	if _, err := f.WriteString(cacheDirMarkerContents); err != nil {
+		return errors.Wrap(err, "unable to write cachedir marker contents")
 	}
 
 	return f.Close()

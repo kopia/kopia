@@ -37,6 +37,8 @@ var (
 	policySetRemoveIgnore = policySetCommand.Flag("remove-ignore", "List of paths to remove from the ignore list").PlaceHolder("PATTERN").Strings()
 	policySetClearIgnore  = policySetCommand.Flag("clear-ignore", "Clear list of paths in the ignore list").Bool()
 
+	policyIgnoreCacheDirs = policySetCommand.Flag("ignore-cache-dirs", "Ignore cache directories ('true', 'false', 'inherit')").Enum(booleanEnumValues...)
+
 	// Name of compression algorithm.
 	policySetCompressionAlgorithm = policySetCommand.Flag("compression", "Compression algorithm").Enum(supportedCompressionAlgorithms()...)
 	policySetCompressionMinSize   = policySetCommand.Flag("compression-min-size", "Min size of file to attempt compression for").String()
@@ -114,7 +116,9 @@ func setPolicyFromFlags(p *policy.Policy, changeCount *int) error {
 		return errors.Wrap(err, "retention policy")
 	}
 
-	setFilesPolicyFromFlags(&p.FilesPolicy, changeCount)
+	if err := setFilesPolicyFromFlags(&p.FilesPolicy, changeCount); err != nil {
+		return errors.Wrap(err, "files policy")
+	}
 
 	if err := setErrorHandlingPolicyFromFlags(&p.ErrorHandlingPolicy, changeCount); err != nil {
 		return errors.Wrap(err, "error handling policy")
@@ -142,7 +146,7 @@ func setPolicyFromFlags(p *policy.Policy, changeCount *int) error {
 	return nil
 }
 
-func setFilesPolicyFromFlags(fp *policy.FilesPolicy, changeCount *int) {
+func setFilesPolicyFromFlags(fp *policy.FilesPolicy, changeCount *int) error {
 	if *policySetClearDotIgnore {
 		*changeCount++
 
@@ -162,6 +166,30 @@ func setFilesPolicyFromFlags(fp *policy.FilesPolicy, changeCount *int) {
 	} else {
 		fp.IgnoreRules = addRemoveDedupeAndSort("ignored files", fp.IgnoreRules, *policySetAddIgnore, *policySetRemoveIgnore, changeCount)
 	}
+
+	switch {
+	case *policyIgnoreCacheDirs == "":
+	case *policyIgnoreCacheDirs == inheritPolicyString:
+		*changeCount++
+
+		fp.IgnoreCacheDirs = nil
+
+		printStderr(" - inherit ignoring cache dirs from parent\n")
+
+	default:
+		val, err := strconv.ParseBool(*policyIgnoreCacheDirs)
+		if err != nil {
+			return err
+		}
+
+		*changeCount++
+
+		fp.IgnoreCacheDirs = &val
+
+		printStderr(" - setting ignore cache dirs to %v\n", val)
+	}
+
+	return nil
 }
 
 func setErrorHandlingPolicyFromFlags(fp *policy.ErrorHandlingPolicy, changeCount *int) error {
