@@ -121,7 +121,7 @@ export class RepoStatus extends Component {
                     <Form.Row>
                         <Form.Group as={Col}>
                             <Form.Label>Connected as:</Form.Label>
-                            <Form.Control readOnly defaultValue={this.state.status.username + "@" + this.state.status.host} />
+                            <Form.Control readOnly defaultValue={this.state.status.username + "@" + this.state.status.hostname} />
                         </Form.Group>
                     </Form.Row>
                     <Button variant="danger" onClick={this.disconnect}>Disconnect</Button>

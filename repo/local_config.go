@@ -1,6 +1,7 @@
 package repo
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"os"
@@ -9,6 +10,34 @@ import (
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/object"
 )
+
+// ClientOptions contains client-specific options that are persisted in local configuration file.
+type ClientOptions struct {
+	Hostname string `json:"hostname"`
+	Username string `json:"username"`
+
+	ReadOnly bool `json:"readonly,omitempty"`
+
+	// Description is human-readable description of the repository to use in the UI.
+	Description string `json:"description,omitempty"`
+}
+
+// ApplyDefaults returns a copy of ClientOptions with defaults filled out.
+func (o ClientOptions) ApplyDefaults(ctx context.Context, defaultDesc string) ClientOptions {
+	if o.Hostname == "" {
+		o.Hostname = getDefaultHostName(ctx)
+	}
+
+	if o.Username == "" {
+		o.Username = getDefaultUserName(ctx)
+	}
+
+	if o.Description == "" {
+		o.Description = defaultDesc
+	}
+
+	return o
+}
 
 // LocalConfig is a configuration of Kopia stored in a configuration file.
 type LocalConfig struct {
@@ -20,10 +49,7 @@ type LocalConfig struct {
 
 	Caching *content.CachingOptions `json:"caching,omitempty"`
 
-	Hostname string `json:"hostname"`
-	Username string `json:"username"`
-
-	ReadOnly bool `json:"readonly,omitempty"`
+	ClientOptions
 }
 
 // repositoryObjectFormat describes the format of objects in a repository.

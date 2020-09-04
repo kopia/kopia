@@ -25,7 +25,7 @@ func getSnapshotSourcesToExpire(ctx context.Context, rep repo.Repository) ([]sna
 	var result []snapshot.SourceInfo
 
 	for _, p := range *snapshotExpirePaths {
-		src, err := snapshot.ParseSourceInfo(p, rep.Hostname(), rep.Username())
+		src, err := snapshot.ParseSourceInfo(p, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
 		if err != nil {
 			return nil, err
 		}

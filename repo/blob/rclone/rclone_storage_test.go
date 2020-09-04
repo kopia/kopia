@@ -34,6 +34,8 @@ func TestRCloneStorage(t *testing.T) {
 		t.Fatalf("unable to connect to rclone backend: %v", err)
 	}
 
+	defer st.Close(ctx)
+
 	blobtesting.VerifyStorage(ctx, t, st)
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
 }

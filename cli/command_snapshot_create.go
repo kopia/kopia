@@ -78,8 +78,8 @@ func runSnapshotCommand(ctx context.Context, rep repo.Repository) error {
 
 		sourceInfo := snapshot.SourceInfo{
 			Path:     filepath.Clean(dir),
-			Host:     rep.Hostname(),
-			UserName: rep.Username(),
+			Host:     rep.ClientOptions().Hostname,
+			UserName: rep.ClientOptions().Username,
 		}
 
 		if err := snapshotSingleSource(ctx, rep, u, sourceInfo); err != nil {
@@ -269,7 +269,7 @@ func findPreviousSnapshotManifest(ctx context.Context, rep repo.Repository, sour
 }
 
 func getLocalBackupPaths(ctx context.Context, rep repo.Repository) ([]string, error) {
-	log(ctx).Debugf("Looking for previous backups of '%v@%v'...", rep.Hostname(), rep.Username())
+	log(ctx).Debugf("Looking for previous backups of '%v@%v'...", rep.ClientOptions().Hostname, rep.ClientOptions().Username)
 
 	sources, err := snapshot.ListSources(ctx, rep)
 	if err != nil {
@@ -279,7 +279,7 @@ func getLocalBackupPaths(ctx context.Context, rep repo.Repository) ([]string, er
 	var result []string
 
 	for _, src := range sources {
-		if src.Host == rep.Hostname() && src.UserName == rep.Username() {
+		if src.Host == rep.ClientOptions().Hostname && src.UserName == rep.ClientOptions().Username {
 			result = append(result, src.Path)
 		}
 	}

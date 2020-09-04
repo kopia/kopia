@@ -71,7 +71,7 @@ func findManifestIDs(ctx context.Context, rep repo.Repository, source string) ([
 		return man, "", err
 	}
 
-	si, err := snapshot.ParseSourceInfo(source, rep.Hostname(), rep.Username())
+	si, err := snapshot.ParseSourceInfo(source, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
 	if err != nil {
 		return nil, "", errors.Errorf("invalid directory: '%s': %s", source, err)
 	}
@@ -103,11 +103,13 @@ func shouldOutputSnapshotSource(rep repo.Repository, src snapshot.SourceInfo) bo
 		return true
 	}
 
-	if src.Host != rep.Hostname() {
+	co := rep.ClientOptions()
+
+	if src.Host != co.Hostname {
 		return false
 	}
 
-	return src.UserName == rep.Username()
+	return src.UserName == co.Username
 }
 
 func outputManifestGroups(ctx context.Context, rep repo.Repository, manifests []*snapshot.Manifest, relPathParts []string) error {

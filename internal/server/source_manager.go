@@ -95,7 +95,7 @@ func (s *sourceManager) run(ctx context.Context) {
 	s.wg.Add(1)
 	defer s.wg.Done()
 
-	if s.server.rep.Hostname() == s.src.Host {
+	if s.server.rep.ClientOptions().Hostname == s.src.Host {
 		log(ctx).Debugf("starting local source manager for %v", s.src)
 		s.runLocal(ctx)
 	} else {

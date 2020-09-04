@@ -13,6 +13,11 @@ linters-settings:
   goconst:
     min-len: 5
     min-occurrences: 3
+  exhaustive:
+    # indicates that switch statements are to be considered exhaustive if a
+    # 'default' case is present, even if all enum members aren't listed in the
+    # switch
+    default-signifies-exhaustive: true
   misspell:
     locale: US
   lll:

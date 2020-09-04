@@ -72,8 +72,8 @@ func runSnapshotEstimateCommand(ctx context.Context, rep repo.Repository) error 
 
 	sourceInfo := snapshot.SourceInfo{
 		Path:     filepath.Clean(path),
-		Host:     rep.Hostname(),
-		UserName: rep.Username(),
+		Host:     rep.ClientOptions().Hostname,
+		UserName: rep.ClientOptions().Username,
 	}
 
 	var stats snapshot.Stats
