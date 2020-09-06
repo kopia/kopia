@@ -116,7 +116,7 @@ func (s *Server) handleRepoCreate(ctx context.Context, r *http.Request, body []b
 		return nil, repoErrorToAPIError(err)
 	}
 
-	if err := s.connectAndOpen(ctx, req.Storage, req.Password); err != nil {
+	if err := s.connectAndOpen(ctx, req.Storage, req.Password, req.ClientOptions); err != nil {
 		return nil, err
 	}
 
@@ -178,7 +178,7 @@ func (s *Server) handleRepoConnect(ctx context.Context, r *http.Request, body []
 	}
 
 	if req.APIServer != nil {
-		if err := s.connectAPIServerAndOpen(ctx, req.APIServer, req.Password); err != nil {
+		if err := s.connectAPIServerAndOpen(ctx, req.APIServer, req.Password, req.ClientOptions); err != nil {
 			return nil, err
 		}
 	} else {
@@ -186,7 +186,7 @@ func (s *Server) handleRepoConnect(ctx context.Context, r *http.Request, body []
 			return nil, err
 		}
 
-		if err := s.connectAndOpen(ctx, req.Storage, req.Password); err != nil {
+		if err := s.connectAndOpen(ctx, req.Storage, req.Password, req.ClientOptions); err != nil {
 			return nil, err
 		}
 	}
@@ -215,22 +215,29 @@ func (s *Server) handleRepoSupportedAlgorithms(ctx context.Context, r *http.Requ
 	return res, nil
 }
 
-func (s *Server) connectAPIServerAndOpen(ctx context.Context, si *repo.APIServerInfo, password string) *apiError {
-	if err := repo.ConnectAPIServer(ctx, s.options.ConfigFile, si, password, s.options.ConnectOptions); err != nil {
+func (s *Server) getConnectOptions(cliOpts repo.ClientOptions) *repo.ConnectOptions {
+	o := *s.options.ConnectOptions
+	o.ClientOptions = o.ClientOptions.Override(cliOpts)
+
+	return &o
+}
+
+func (s *Server) connectAPIServerAndOpen(ctx context.Context, si *repo.APIServerInfo, password string, cliOpts repo.ClientOptions) *apiError {
+	if err := repo.ConnectAPIServer(ctx, s.options.ConfigFile, si, password, s.getConnectOptions(cliOpts)); err != nil {
 		return repoErrorToAPIError(err)
 	}
 
 	return s.open(ctx, password)
 }
 
-func (s *Server) connectAndOpen(ctx context.Context, conn blob.ConnectionInfo, password string) *apiError {
+func (s *Server) connectAndOpen(ctx context.Context, conn blob.ConnectionInfo, password string, cliOpts repo.ClientOptions) *apiError {
 	st, err := blob.NewStorage(ctx, conn)
 	if err != nil {
 		return requestError(serverapi.ErrorStorageConnection, "can't open storage: "+err.Error())
 	}
 	defer st.Close(ctx) //nolint:errcheck
 
-	if err = repo.Connect(ctx, s.options.ConfigFile, st, password, s.options.ConnectOptions); err != nil {
+	if err = repo.Connect(ctx, s.options.ConfigFile, st, password, s.getConnectOptions(cliOpts)); err != nil {
 		return repoErrorToAPIError(err)
 	}
 

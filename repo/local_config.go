@@ -39,6 +39,27 @@ func (o ClientOptions) ApplyDefaults(ctx context.Context, defaultDesc string) Cl
 	return o
 }
 
+// Override returns ClientOptions that overrides fields present in the provided ClientOptions.
+func (o ClientOptions) Override(other ClientOptions) ClientOptions {
+	if other.Description != "" {
+		o.Description = other.Description
+	}
+
+	if other.Hostname != "" {
+		o.Hostname = other.Hostname
+	}
+
+	if other.Username != "" {
+		o.Username = other.Username
+	}
+
+	if other.ReadOnly {
+		o.ReadOnly = other.ReadOnly
+	}
+
+	return o
+}
+
 // LocalConfig is a configuration of Kopia stored in a configuration file.
 type LocalConfig struct {
 	// APIServer is only provided for remote repository.
