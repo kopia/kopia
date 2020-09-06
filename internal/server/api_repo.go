@@ -140,6 +140,32 @@ func (s *Server) handleRepoCreate(ctx context.Context, r *http.Request, body []b
 	return s.handleRepoStatus(ctx, r, nil)
 }
 
+func (s *Server) handleRepoExists(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+	var req serverapi.CheckRepositoryExistsRequest
+
+	if err := json.Unmarshal(body, &req); err != nil {
+		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
+	}
+
+	st, err := blob.NewStorage(ctx, req.Storage)
+	if err != nil {
+		return nil, internalServerError(err)
+	}
+
+	defer st.Close(ctx) // nolint:errcheck
+
+	_, err = st.GetBlob(ctx, repo.FormatBlobID, 0, -1)
+	if err != nil {
+		if errors.Is(err, blob.ErrBlobNotFound) {
+			return nil, requestError(serverapi.ErrorNotInitialized, "repository not initialized")
+		}
+
+		return nil, internalServerError(err)
+	}
+
+	return serverapi.Empty{}, nil
+}
+
 func (s *Server) handleRepoConnect(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	if s.rep != nil {
 		return nil, requestError(serverapi.ErrorAlreadyConnected, "already connected")

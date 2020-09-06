@@ -106,6 +106,11 @@ type CreateRepositoryRequest struct {
 	NewRepositoryOptions repo.NewRepositoryOptions `json:"options"`
 }
 
+// CheckRepositoryExistsRequest returns success if a repository exists in a given storage, ErrorNotInitialized if not.
+type CheckRepositoryExistsRequest struct {
+	Storage blob.ConnectionInfo `json:"storage"`
+}
+
 // ConnectRepositoryRequest contains request to connect to a repository.
 type ConnectRepositoryRequest struct {
 	Storage   blob.ConnectionInfo `json:"storage"`
