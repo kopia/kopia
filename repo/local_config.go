@@ -25,15 +25,36 @@ type ClientOptions struct {
 // ApplyDefaults returns a copy of ClientOptions with defaults filled out.
 func (o ClientOptions) ApplyDefaults(ctx context.Context, defaultDesc string) ClientOptions {
 	if o.Hostname == "" {
-		o.Hostname = getDefaultHostName(ctx)
+		o.Hostname = GetDefaultHostName(ctx)
 	}
 
 	if o.Username == "" {
-		o.Username = getDefaultUserName(ctx)
+		o.Username = GetDefaultUserName(ctx)
 	}
 
 	if o.Description == "" {
 		o.Description = defaultDesc
+	}
+
+	return o
+}
+
+// Override returns ClientOptions that overrides fields present in the provided ClientOptions.
+func (o ClientOptions) Override(other ClientOptions) ClientOptions {
+	if other.Description != "" {
+		o.Description = other.Description
+	}
+
+	if other.Hostname != "" {
+		o.Hostname = other.Hostname
+	}
+
+	if other.Username != "" {
+		o.Username = other.Username
+	}
+
+	if other.ReadOnly {
+		o.ReadOnly = other.ReadOnly
 	}
 
 	return o

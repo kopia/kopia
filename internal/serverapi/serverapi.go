@@ -106,12 +106,18 @@ type CreateRepositoryRequest struct {
 	NewRepositoryOptions repo.NewRepositoryOptions `json:"options"`
 }
 
+// CheckRepositoryExistsRequest returns success if a repository exists in a given storage, ErrorNotInitialized if not.
+type CheckRepositoryExistsRequest struct {
+	Storage blob.ConnectionInfo `json:"storage"`
+}
+
 // ConnectRepositoryRequest contains request to connect to a repository.
 type ConnectRepositoryRequest struct {
-	Storage   blob.ConnectionInfo `json:"storage"`
-	Password  string              `json:"password"`
-	Token     string              `json:"token"` // when set, overrides Storage and Password
-	APIServer *repo.APIServerInfo `json:"apiServer"`
+	Storage       blob.ConnectionInfo `json:"storage"`
+	Password      string              `json:"password"`
+	Token         string              `json:"token"` // when set, overrides Storage and Password
+	APIServer     *repo.APIServerInfo `json:"apiServer"`
+	ClientOptions repo.ClientOptions  `json:"clientOptions"`
 }
 
 // SupportedAlgorithmsResponse returns the list of supported algorithms for repository creation.
@@ -175,4 +181,10 @@ type MountedSnapshot struct {
 // MountedSnapshots describes single mounted snapshot.
 type MountedSnapshots struct {
 	Items []*MountedSnapshot `json:"items"`
+}
+
+// CurrentUserResponse is the response of 'current-user' HTTP API command.
+type CurrentUserResponse struct {
+	Username string `json:"username"`
+	Hostname string `json:"hostname"`
 }

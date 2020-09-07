@@ -8,9 +8,8 @@ it('can create new repository when not initialized', async () => {
   let serverMock = setupAPIMock();
 
   // first attempt to connect says - NOT_INITIALIZED
-  serverMock.onPost('/api/v1/repo/connect', {
+  serverMock.onPost('/api/v1/repo/exists', {
     storage: { type: 'filesystem', config: { path: 'some-path' } },
-    password: 'foo',
   }).reply(400, {code: 'NOT_INITIALIZED', error: 'repository not initialized'});
 
   // second attempt to create is success.
@@ -24,12 +23,17 @@ it('can create new repository when not initialized', async () => {
   }).reply(200, {});
 
   const { getByTestId } = render(<SetupRepository />);
-  changeControlValue(getByTestId("providerSelector"), "filesystem")
+
+  simulateClick(getByTestId('provider-filesystem'))
+  await waitForElement(() => getByTestId('control-path'));
+
+  changeControlValue(getByTestId("control-path"), "some-path")
+  simulateClick(getByTestId('submit-button'));
+
   await waitForElement(() => getByTestId('control-password'));
   changeControlValue(getByTestId("control-password"), "foo")
-  changeControlValue(getByTestId("control-path"), "some-path")
 
-  simulateClick(getByTestId('connect-to-repository'));
+  simulateClick(getByTestId('submit-button'));
   await wait(() => serverMock.history.post.length == 1);
   await waitForElement(() => getByTestId('control-encryption'));
   changeControlValue(getByTestId("control-encryption"), "e-baz")
@@ -37,7 +41,7 @@ it('can create new repository when not initialized', async () => {
   changeControlValue(getByTestId("control-hash"), "h-bar")
   changeControlValue(getByTestId("control-confirmPassword"), "foo")
 
-  simulateClick(getByTestId('create-repository'));
+  simulateClick(getByTestId('submit-button'));
   await wait(() => serverMock.history.post.length == 2);
 });
 
@@ -45,18 +49,20 @@ it('can connect to existing repository when already initialized', async () => {
   let serverMock = setupAPIMock();
 
   // first attempt to connect is immediately successful.
-  serverMock.onPost('/api/v1/repo/connect', {
+  serverMock.onPost('/api/v1/repo/exists', {
     storage: { type: 'filesystem', config: { path: 'some-path' } },
-    password: 'foo',
   }).reply(200, {});
 
   const { getByTestId } = render(<SetupRepository />)
-  changeControlValue(getByTestId("providerSelector"), "filesystem")
+  simulateClick(getByTestId('provider-filesystem'));
+  await waitForElement(() => getByTestId('control-path'));
+  changeControlValue(getByTestId("control-path"), "some-path")
+  simulateClick(getByTestId('submit-button'));
+
   await waitForElement(() => getByTestId('control-password'));
   changeControlValue(getByTestId("control-password"), "foo")
-  changeControlValue(getByTestId("control-path"), "some-path")
 
-  simulateClick(getByTestId('connect-to-repository'));
+  simulateClick(getByTestId('submit-button'));
   await wait(() => serverMock.history.post.length == 1);
 });
 
@@ -68,10 +74,10 @@ it('can connect to existing repository using token', async () => {
   }).reply(200, {});
 
   const { getByTestId } = render(<SetupRepository />)
-  changeControlValue(getByTestId("providerSelector"), "_token")
+  simulateClick(getByTestId('provider-_token'))
   await waitForElement(() => getByTestId('control-token'));
   changeControlValue(getByTestId("control-token"), "my-token")
 
-  simulateClick(getByTestId('connect-to-repository'));
+  simulateClick(getByTestId('submit-button'));
   await wait(() => serverMock.history.post.length == 1);
 });

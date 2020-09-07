@@ -3,11 +3,12 @@ import Form from 'react-bootstrap/Form';
 import { handleChange, OptionalField, OptionalNumberField, RequiredField, validateRequiredFields, hasExactlyOneOf } from './forms';
 
 export class SetupSFTP extends Component {
-    constructor() {
+    constructor(props) {
         super();
 
         this.state = {
             port: 22,
+            ...props.initial
         };
         this.handleChange = handleChange.bind(this);
     }
@@ -31,7 +32,7 @@ export class SetupSFTP extends Component {
     render() {
         return <>
             <Form.Row>
-                {RequiredField(this, "Host", "host", { placeholder: "host name" })}
+                {RequiredField(this, "Host", "host", { autoFocus: true, placeholder: "host name" })}
                 {OptionalNumberField(this, "Port", "port", { placeholder: "port number (e.g. 22)" })}
                 {RequiredField(this, "User", "username", { placeholder: "user name" })}
             </Form.Row>

@@ -1,10 +1,10 @@
 const fs = require('fs');
 const path = require('path');
 const Electron = require('electron');
-const log = require("electron-log")
+const log = require("electron-log");
 
 let configs = {};
-const configFileSuffix = ".repo";
+const configFileSuffix = ".config";
 
 let configDir = "";
 let isPortable = false;
@@ -50,86 +50,37 @@ function globalConfigDir() {
         });
 
         // still not set, fall back to per-user config dir.
+        // we use the same directory that is used by Kopia CLI.
         if (!configDir) {
-            configDir = path.join(Electron.app.getPath("userData"), "repositories");
+            configDir = path.join(Electron.app.getPath("appData"), "kopia");
         }
     }
 
     return configDir;
 }
 
-function newConfigForRepo(repoID) {
-    const configFile = path.join(globalConfigDir(), repoID + configFileSuffix);
-
-    let data = {};
-
-    try {
-        const b = fs.readFileSync(configFile);
-        data = JSON.parse(b);
-    } catch (e) {
-        data = {
-        }
-
-        if (repoID == "default") {
-            data.description = "My Repository";
-        } else {
-            data.description = "Unnamed Repository";
-        }
-
-        if (repoID == "default" && !isPortable) {
-            data.configFile = "";
-        } else {
-            data.configFile = "./" + repoID + ".config";
-        }
-    }
-
-    return {
-        get(key) {
-            return data[key];
-        },
-
-        setBulk(dict) {
-            for (let k in dict) {
-                data[k] = dict[k];
-            }
-
-            fs.writeFileSync(configFile, JSON.stringify(data));
-
-            emitConfigListUpdated();
-        },
-
-        all() {
-            return data;
-        }
-    }
-};
-
-Electron.ipcMain.on('config-get', (event, arg) => {
-    const c = configs[arg.repoID];
-    if (c) {
-        event.returnValue = c.all();
-    } else {
-        event.returnValue = {};
-    }
-});
-
-Electron.ipcMain.on('config-add', (event, arg) => {
-    const c = newConfigForRepo(arg.repoID);
-    configs[arg.repoID] = c
-    emitConfigListUpdated();    
-    c.setBulk(arg.data);
-
-    event.returnValue = true;
-});
-
-function currentConfigSummary() {
+function allConfigs() {
     let result = [];
 
     for (let k in configs) {
-        result.push({ repoID: k, desc: configs[k].get('description') });
+        result.push(k);
     }
 
     return result;
+}
+
+function addNewConfig() {
+    let id;
+
+    if (!configs) {
+        // first repository is always named "repository" to match Kopia CLI.
+        id = "repository";
+    } else {
+        id = "repository-" + new Date().valueOf();
+    }
+
+    configs[id] = true;
+    return id;
 }
 
 Electron.ipcMain.on('config-list-fetch', (event, arg) => {
@@ -137,8 +88,23 @@ Electron.ipcMain.on('config-list-fetch', (event, arg) => {
 });
 
 function emitConfigListUpdated() {
-    Electron.ipcMain.emit('config-list-updated-event', currentConfigSummary());
+    Electron.ipcMain.emit('config-list-updated-event', allConfigs());
 };
+
+function deleteConfigIfDisconnected(repoID) {
+    if (repoID === "repository") {
+        // never delete default repository config
+        return false;
+    }
+
+    if (!fs.existsSync(path.join(globalConfigDir(), repoID + configFileSuffix))) {
+        delete (configs[repoID]);
+        emitConfigListUpdated();
+        return true;
+    }
+
+    return false;
+}
 
 module.exports = {
     loadConfigs() {
@@ -148,15 +114,13 @@ module.exports = {
         let count = 0;
         entries.filter(e => path.extname(e) == configFileSuffix).forEach(v => {
             const repoID = v.replace(configFileSuffix, "");
-            configs[repoID] = newConfigForRepo(repoID);
+            configs[repoID] = true;
             count++;
         });
 
-        if (!count) {
+        if (!configs["repository"]) {
+            configs["repository"] = true;
             firstRun = true;
-            const c = newConfigForRepo('default');
-            c.setBulk({});
-            configs['default'] = c;
         }
     },
 
@@ -173,7 +137,11 @@ module.exports = {
         return globalConfigDir();
     },
 
-    currentConfigSummary,
+    deleteConfigIfDisconnected,
+
+    addNewConfig,
+
+    allConfigs,
 
     configForRepo(repoID) {
         let c = configs[repoID];
@@ -181,15 +149,8 @@ module.exports = {
             return c;
         }
 
-        c = newConfigForRepo(repoID);
-        configs[repoID] = c
+        configs[repoID] = true;
         emitConfigListUpdated();
         return c;
-    },
-
-    deleteConfigForRepo(repoID) {
-        delete (configs[repoID]);
-        fs.unlinkSync(path.join(globalConfigDir(), repoID + configFileSuffix));
-        emitConfigListUpdated();
-    },
+    }
 }

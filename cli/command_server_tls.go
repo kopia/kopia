@@ -1,12 +1,15 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"crypto/rsa"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/hex"
+	"encoding/pem"
 	"fmt"
 	"net"
 	"net/http"
@@ -27,6 +30,7 @@ var (
 	serverStartTLSGenerateRSAKeySize    = serverStartCommand.Flag("tls-generate-rsa-key-size", "TLS RSA Key size (bits)").Hidden().Default("4096").Int()
 	serverStartTLSGenerateCertValidDays = serverStartCommand.Flag("tls-generate-cert-valid-days", "How long should the TLS certificate be valid").Default("3650").Hidden().Int()
 	serverStartTLSGenerateCertNames     = serverStartCommand.Flag("tls-generate-cert-name", "Host names/IP addresses to generate TLS certificate for").Default("127.0.0.1").Hidden().Strings()
+	serverStartTLSPrintFullServerCert   = serverStartCommand.Flag("tls-print-server-cert", "Print server certificate").Hidden().Bool()
 )
 
 func generateServerCertificate(ctx context.Context) (*x509.Certificate, *rsa.PrivateKey, error) {
@@ -117,6 +121,18 @@ func startServerWithOptionalTLSAndListener(ctx context.Context, httpServer *http
 
 		fingerprint := sha256.Sum256(cert.Raw)
 		fmt.Fprintf(os.Stderr, "SERVER CERT SHA256: %v\n", hex.EncodeToString(fingerprint[:]))
+
+		if *serverStartTLSPrintFullServerCert {
+			// dump PEM-encoded server cert, only used by KopiaUI to securely connnect.
+			var b bytes.Buffer
+
+			if err := pem.Encode(&b, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}); err != nil {
+				return errors.Wrap(err, "Failed to write data")
+			}
+
+			fmt.Fprintf(os.Stderr, "SERVER CERTIFICATE: %v\n", base64.StdEncoding.EncodeToString(b.Bytes()))
+		}
+
 		fmt.Fprintf(os.Stderr, "SERVER ADDRESS: https://%v\n", httpServer.Addr)
 		showServerUIPrompt()
 

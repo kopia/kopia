@@ -6,8 +6,7 @@ const { resourcesPath, selectByOS } = require('./utils');
 const { toggleLaunchAtStartup, willLaunchAtStartup, refreshWillLaunchAtStartup } = require('./auto-launch');
 const { serverForRepo } = require('./server');
 const log = require("electron-log")
-const { loadConfigs, configForRepo, deleteConfigForRepo, currentConfigSummary, configDir, isFirstRun, isPortableConfig } = require('./config');
-const { showConfigWindow, isConfigWindowOpen } = require('./config_window');
+const { loadConfigs, allConfigs, deleteConfigIfDisconnected, addNewConfig, configDir, isFirstRun, isPortableConfig } = require('./config');
 
 app.name = 'KopiaUI';
 
@@ -15,20 +14,6 @@ if (isPortableConfig()) {
   // in portable mode, write cache under 'repositories'
   app.setPath('userData', path.join(configDir(), 'cache'));
 }
-
-ipcMain.on('config-save', (event, arg) => {
-  log.info('saving config', arg);
-  configForRepo(arg.repoID).setBulk(arg.config);
-  serverForRepo(arg.repoID).actuateServer();
-  event.returnValue = true;
-})
-
-ipcMain.on('config-delete', (event, arg) => {
-  log.info('deleting config', arg);
-  serverForRepo(arg.repoID).stopServer();
-  deleteConfigForRepo(arg.repoID);
-  event.returnValue = true;
-})
 
 let tray = null
 let repoWindows = {};
@@ -77,6 +62,12 @@ function showRepoWindow(repoID) {
     rw = null;
     delete (repoWindows[repoID]);
     delete (repoIDForWebContents[wcID]);
+
+    const s = serverForRepo(repoID);
+    if (deleteConfigIfDisconnected(repoID)) {
+      s.stopServer();
+    }
+
     updateDockIcon();
   });
 }
@@ -98,7 +89,7 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 app.on('will-quit', function () {
-  currentConfigSummary().forEach(v => serverForRepo(v.repoID).stopServer());
+  allConfigs().forEach(v => serverForRepo(v).stopServer());
 });
 
 app.on('login', (event, webContents, request, authInfo, callback) => {
@@ -115,11 +106,10 @@ app.on('login', (event, webContents, request, authInfo, callback) => {
 
 app.on('certificate-error', (event, webContents, url, error, certificate, callback) => {
   const repoID = repoIDForWebContents[webContents.id];
-  log.info('cert error', repoID);
   // intercept certificate errors and automatically trust the certificate the server has printed for us. 
   const expected = 'sha256/' + Buffer.from(serverForRepo(repoID).getServerCertSHA256(), 'hex').toString('base64');
   if (certificate.fingerprint === expected) {
-    log.info('accepting server certificate.');
+    log.debug('accepting server certificate.');
 
     // On certificate error we disable default behaviour (stop loading the page)
     // and we then say "it is all fine - true" to the callback
@@ -128,7 +118,7 @@ app.on('certificate-error', (event, webContents, url, error, certificate, callba
     return;
   }
 
-  log.info('certificate error:', certificate.fingerprint, expected);
+  log.warn('certificate error:', certificate.fingerprint, expected);
 });
 
 // Ignore
@@ -166,7 +156,11 @@ function maybeMoveToApplicationsFolder() {
 
 function updateDockIcon() {
   if (process.platform === 'darwin') {
-    if (isConfigWindowOpen() || repoWindows) {
+    let any = false
+    for (const k in repoWindows) {
+      any = true;
+    }
+    if (any) {
       app.dock.show();
     } else {
       app.dock.hide();
@@ -175,7 +169,7 @@ function updateDockIcon() {
 }
 
 function showAllRepoWindows() {
-  currentConfigSummary().forEach(v => showRepoWindow(v.repoID));
+  allConfigs().forEach(showRepoWindow);
 }
 
 app.on('ready', () => {
@@ -195,8 +189,6 @@ app.on('ready', () => {
     return
   }
 
-  updateDockIcon();
-
   checkForUpdates();
 
   // re-check for updates every 24 hours
@@ -210,14 +202,15 @@ app.on('ready', () => {
   tray.setToolTip('Kopia');
   updateTrayContextMenu();
   refreshWillLaunchAtStartup();
+  updateDockIcon();
 
-  currentConfigSummary().forEach(v => serverForRepo(v.repoID).actuateServer());
+  allConfigs().forEach(repoID => serverForRepo(repoID).actuateServer());
 
   tray.on('balloon-click', tray.popUpContextMenu);
   tray.on('click', tray.popUpContextMenu);
   tray.on('double-click', showAllRepoWindows);
 
-if (isFirstRun()) {
+  if (isFirstRun()) {
     // open all repo windows on first run.
     showAllRepoWindows();
 
@@ -234,6 +227,12 @@ if (isFirstRun()) {
 ipcMain.addListener('config-list-updated-event', () => updateTrayContextMenu());
 ipcMain.addListener('status-updated-event', () => updateTrayContextMenu());
 
+function addAnotherRepository() {
+  const repoID = addNewConfig();
+  serverForRepo(repoID).actuateServer();
+  showRepoWindow(repoID);
+}
+
 function updateTrayContextMenu() {
   if (!tray) {
     return;
@@ -241,10 +240,21 @@ function updateTrayContextMenu() {
 
   let reposTemplates = [];
 
-  currentConfigSummary().forEach(v => {
+  allConfigs().forEach(repoID => {
+    const sd = serverForRepo(repoID).getServerStatusDetails();
+    let desc = "";
+
+    if (sd.connecting) {
+      desc = "<starting up>";
+    } else if (!sd.connected) {
+      desc = "<not connected>";
+    } else {
+      desc = sd.description;
+    }
+
     reposTemplates.push(
       {
-        label: v.desc, click: () => showRepoWindow(v.repoID),
+        label: desc, click: () => showRepoWindow(repoID),
       },
     );
   });
@@ -253,7 +263,7 @@ function updateTrayContextMenu() {
 
   template = reposTemplates.concat([
     { type: 'separator' },
-    { label: 'Configure Repositories...', click: () => showConfigWindow() },
+    { label: 'Connect To Another Repository...', click: addAnotherRepository },
     { type: 'separator' },
     { label: 'Check For Updates Now', click: checkForUpdates },
     { type: 'separator' },

@@ -25,6 +25,7 @@ type Repository interface {
 	DeleteManifest(ctx context.Context, id manifest.ID) error
 
 	ClientOptions() ClientOptions
+	UpdateDescription(d string)
 
 	Time() time.Time
 
@@ -116,6 +117,11 @@ func (r *DirectRepository) FindManifests(ctx context.Context, labels map[string]
 // DeleteManifest deletes the manifest with a given ID.
 func (r *DirectRepository) DeleteManifest(ctx context.Context, id manifest.ID) error {
 	return r.Manifests.Delete(ctx, id)
+}
+
+// UpdateDescription updates the description of a connected repository.
+func (r *DirectRepository) UpdateDescription(d string) {
+	r.cliOpts.Description = d
 }
 
 // Close closes the repository and releases all resources.

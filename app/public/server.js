@@ -1,20 +1,23 @@
 const { ipcMain } = require('electron');
 const path = require('path');
+const https = require('https');
 
 const { defaultServerBinary } = require('./utils');
 const { spawn } = require('child_process');
 const log = require("electron-log")
-const { configForRepo, configDir, isPortableConfig } = require('./config');
+const { configDir, isPortableConfig } = require('./config');
 
 let servers = {};
 
 function newServerForRepo(repoID) {
-    const config = configForRepo(repoID);
-
     let runningServerProcess = null;
     let runningServerCertSHA256 = "";
     let runningServerPassword = "";
     let runningServerAddress = "";
+    let runningServerCertificate = "";
+    let runningServerStatusDetails = {
+        connecting: true,
+    };
     let serverLog = [];
 
     const maxLogLines = 100;
@@ -23,45 +26,31 @@ function newServerForRepo(repoID) {
         actuateServer() {
             log.info('actuating Server', repoID);
             this.stopServer();
-            if (!config.get('remoteServer')) {
-                this.startServer();
-            }
+            this.startServer();
         },
 
         startServer() {
-            let kopiaPath = config.get('kopiaPath');
-            if (!kopiaPath) {
-                kopiaPath = defaultServerBinary();
-            }
-
+            let kopiaPath = defaultServerBinary();
             let args = [];
 
-            args.push('server', '--ui');
+            args.push('server', '--ui',
+                '--tls-print-server-cert',
+                '--tls-generate-cert-name=localhost',
+                '--random-password',
+                '--tls-generate-cert',
+                '--address=localhost:0');
+    
 
-            let configFile = config.get('configFile');
-            if (configFile) {
-                args.push("--config-file", path.resolve(configDir(), configFile));
-                if (isPortableConfig) {
-                    const cacheDir = path.resolve(configDir(), "cache", repoID);
-                    const logsDir = path.resolve(configDir(), "logs", repoID);
-                    args.push("--cache-directory", cacheDir);
-                    args.push("--log-dir", logsDir);
-                }
+            args.push("--config-file", path.resolve(configDir(), repoID + ".config"));
+            if (isPortableConfig()) {
+                const cacheDir = path.resolve(configDir(), "cache", repoID);
+                const logsDir = path.resolve(configDir(), "logs", repoID);
+                args.push("--cache-directory", cacheDir);
+                args.push("--log-dir", logsDir);
             }
-
-            args.push('--random-password')
-            args.push('--tls-generate-cert')
-            args.push('--address=localhost:0')
-            // args.push('--auto-shutdown=600s')
 
             log.info(`spawning ${kopiaPath} ${args.join(' ')}`);
-            let childEnv = {
-                // set environment variable that causes given prefix to be returned in the HTML <title>
-                KOPIA_UI_TITLE_PREFIX: "[" + config.get('description') + "] ",
-                ...process.env
-            }
             runningServerProcess = spawn(kopiaPath, args, {
-                env: childEnv,
             });
             this.raiseStatusUpdatedEvent();
 
@@ -69,10 +58,55 @@ function newServerForRepo(repoID) {
             runningServerProcess.stderr.on('data', this.detectServerParam.bind(this));
 
             const p = runningServerProcess;
-            
+
+            log.info('starting polling loop');
+
+            const statusUpdated = this.raiseStatusUpdatedEvent.bind(this);
+
+            function pollOnce() {
+                if (!runningServerAddress || !runningServerCertificate || !runningServerPassword) {
+                    return;
+                }
+
+                const req = https.request({
+                    ca: [runningServerCertificate],
+                    host: "localhost",
+                    port: parseInt(new URL(runningServerAddress).port),
+                    method: "GET",
+                    path: "/api/v1/repo/status",
+                    headers: {
+                        'Authorization': 'Basic ' + new Buffer("kopia" + ':' + runningServerPassword).toString('base64')
+                     }  
+                }, (resp) => {
+                    if (resp.statusCode === 200) {
+                        resp.on('data', x => { 
+                            try {
+                                const newDetails = JSON.parse(x);
+                                if (JSON.stringify(newDetails) != JSON.stringify(runningServerStatusDetails)) {
+                                    runningServerStatusDetails = newDetails;
+                                    statusUpdated();
+                                }
+                            } catch (e) {
+                                log.warn('unable to parse status JSON', e);
+                            }
+                        });
+                    } else {
+                        log.warn('error fetching status', resp.statusMessage);
+                    }
+                });
+                req.on('error', (e)=>{
+                    log.info('error fetching status', e);
+                });
+                req.end();
+            }
+
+            const statusPollInterval = setInterval(pollOnce, 3000);
+
             runningServerProcess.on('close', (code, signal) => {
                 this.appendToLog(`child process exited with code ${code} and signal ${signal}`);
                 if (runningServerProcess === p) {
+                    clearInterval(statusPollInterval);
+
                     runningServerAddress = "";
                     runningServerPassword = "";
                     runningServerCertSHA256 = "";
@@ -100,6 +134,11 @@ function newServerForRepo(repoID) {
 
                     case "SERVER CERT SHA256":
                         runningServerCertSHA256 = value;
+                        this.raiseStatusUpdatedEvent();
+                        break;
+
+                    case "SERVER CERTIFICATE":
+                        runningServerCertificate = new Buffer(value, 'base64').toString('ascii');
                         this.raiseStatusUpdatedEvent();
                         break;
 
@@ -136,48 +175,37 @@ function newServerForRepo(repoID) {
             runningServerAddress = "";
             runningServerPassword = "";
             runningServerCertSHA256 = "";
+            runningServerCertificate = "";
             runningServerProcess = null;
             this.raiseStatusUpdatedEvent();
         },
 
         getServerAddress() {
-            if (config.get('remoteServer')) {
-                return config.get('remoteServerAddress');
-            } else {
-                return runningServerAddress;
-            }
+            return runningServerAddress;
         },
 
         getServerCertSHA256() {
-            if (config.get('remoteServer')) {
-                return config.get('remoteServerCertificateSHA256');
-            } else {
-                return runningServerCertSHA256;
-            }
+            return runningServerCertSHA256;
         },
 
         getServerPassword() {
-            if (config.get('remoteServer')) {
-                return config.get('remoteServerPassword');
-            } else {
-                return runningServerPassword;
-            }
+            return runningServerPassword;
+        },
+
+        getServerStatusDetails() {
+            return runningServerStatusDetails;
         },
 
         getServerStatus() {
-            if (config.get('remoteServer')) {
-                return "Remote";
-            } else {
-                if (!runningServerProcess) {
-                    return "Stopped";
-                }
-
-                if (runningServerCertSHA256 && runningServerAddress && runningServerPassword) {
-                    return "Running";
-                }
-
-                return "Starting";
+            if (!runningServerProcess) {
+                return "Stopped";
             }
+
+            if (runningServerCertSHA256 && runningServerAddress && runningServerPassword) {
+                return "Running";
+            }
+
+            return "Starting";
         },
 
         raiseStatusUpdatedEvent() {

@@ -3,10 +3,12 @@ import Form from 'react-bootstrap/Form';
 import { handleChange, OptionalField, RequiredField, validateRequiredFields } from './forms';
 
 export class SetupAzure extends Component {
-    constructor() {
+    constructor(props) {
         super();
 
-        this.state = {};
+        this.state = {
+            ...props.initial
+        };
         this.handleChange = handleChange.bind(this);
     }
 
@@ -17,7 +19,7 @@ export class SetupAzure extends Component {
     render() {
         return <>
             <Form.Row>
-                {RequiredField(this, "Container", "container", { placeholder: "enter container name" })}
+                {RequiredField(this, "Container", "container", { autoFocus: true, placeholder: "enter container name" })}
                 {OptionalField(this, "Object Name Prefix", "prefix", { placeholder: "enter object name prefix or leave empty", type: "password" })}
             </Form.Row>
             <Form.Row>

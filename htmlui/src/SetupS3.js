@@ -3,12 +3,13 @@ import Form from 'react-bootstrap/Form';
 import { handleChange, OptionalField, RequiredBoolean, RequiredField, validateRequiredFields } from './forms';
 
 export class SetupS3 extends Component {
-    constructor() {
+    constructor(props) {
         super();
 
         this.state = {
             "doNotUseTLS": false,
             "doNotValidateTLS": false,
+            ...props.initial
         };
         this.handleChange = handleChange.bind(this);
     }
@@ -20,7 +21,7 @@ export class SetupS3 extends Component {
     render() {
         return <>
             <Form.Row>
-                {RequiredField(this, "S3 Bucket", "bucket", { placeholder: "enter bucket name" })}
+                {RequiredField(this, "S3 Bucket", "bucket", { autoFocus: true, placeholder: "enter bucket name" })}
                 {RequiredField(this, "Server Endpoint", "endpoint", { placeholder: "enter server address (e.g. s3.amazonaws.com)" })}
                 {OptionalField(this, "Override S3 Region", "region", { placeholder: "enter specific region (e.g. us-west-1) or leave empty" })}
             </Form.Row>

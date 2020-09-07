@@ -3,10 +3,12 @@ import Form from 'react-bootstrap/Form';
 import { validateRequiredFields, handleChange, RequiredField, OptionalField } from './forms';
 
 export class SetupWebDAV extends Component {
-    constructor() {
+    constructor(props) {
         super();
 
-        this.state = {};
+        this.state = {
+            ...props.initial
+        };
         this.handleChange = handleChange.bind(this);
     }
 
@@ -17,7 +19,7 @@ export class SetupWebDAV extends Component {
     render() {
         return <>
             <Form.Row>
-            {RequiredField(this, "WebDAV Server URL", "url", { placeholder: "http[s]://server:port/path" })}
+            {RequiredField(this, "WebDAV Server URL", "url", { autoFocus: true, placeholder: "http[s]://server:port/path" })}
             </Form.Row>
             <Form.Row>
             {OptionalField(this, "Username", "username", { placeholder: "enter username" })}
