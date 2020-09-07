@@ -73,6 +73,8 @@ func (s *Server) APIHandlers() http.Handler {
 	m.HandleFunc("/api/v1/repo/connect", s.handleAPIPossiblyNotConnected(s.handleRepoConnect)).Methods(http.MethodPost)
 	m.HandleFunc("/api/v1/repo/exists", s.handleAPIPossiblyNotConnected(s.handleRepoExists)).Methods(http.MethodPost)
 	m.HandleFunc("/api/v1/repo/create", s.handleAPIPossiblyNotConnected(s.handleRepoCreate)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/repo/description", s.handleAPI(s.handleRepoSetDescription)).Methods(http.MethodPost)
+
 	m.HandleFunc("/api/v1/repo/disconnect", s.handleAPI(s.handleRepoDisconnect)).Methods(http.MethodPost)
 	m.HandleFunc("/api/v1/repo/algorithms", s.handleAPIPossiblyNotConnected(s.handleRepoSupportedAlgorithms)).Methods(http.MethodGet)
 	m.HandleFunc("/api/v1/repo/sync", s.handleAPI(s.handleRepoSync)).Methods(http.MethodPost)

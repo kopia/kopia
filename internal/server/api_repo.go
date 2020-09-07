@@ -194,6 +194,25 @@ func (s *Server) handleRepoConnect(ctx context.Context, r *http.Request, body []
 	return s.handleRepoStatus(ctx, r, nil)
 }
 
+func (s *Server) handleRepoSetDescription(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+	var req repo.ClientOptions
+
+	if err := json.Unmarshal(body, &req); err != nil {
+		return nil, requestError(serverapi.ErrorMalformedRequest, "unable to decode request: "+err.Error())
+	}
+
+	cliOpt := s.rep.ClientOptions()
+	cliOpt.Description = req.Description
+
+	if err := repo.SetClientOptions(ctx, s.options.ConfigFile, cliOpt); err != nil {
+		return nil, internalServerError(err)
+	}
+
+	s.rep.UpdateDescription(req.Description)
+
+	return s.handleRepoStatus(ctx, r, nil)
+}
+
 func (s *Server) handleRepoSupportedAlgorithms(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	res := &serverapi.SupportedAlgorithmsResponse{
 		DefaultHashAlgorithm: hashing.DefaultAlgorithm,

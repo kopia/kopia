@@ -174,6 +174,11 @@ func (r *apiServerRepository) WriteContent(ctx context.Context, data []byte, pre
 	return contentID, nil
 }
 
+// UpdateDescription updates the description of a connected repository.
+func (r *apiServerRepository) UpdateDescription(d string) {
+	r.cliOpts.Description = d
+}
+
 var _ Repository = (*apiServerRepository)(nil)
 
 // openAPIServer connects remote repository over Kopia API.
