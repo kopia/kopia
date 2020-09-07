@@ -130,7 +130,7 @@
     "build-electron-linux": "electron-builder -l",
     "build-electron-dir": "electron-builder --dir",
     "start-electron-prebuilt": "ELECTRON_IS_DEV=0 electron .",
-    "dev": "concurrently \"react-scripts start\" \"sleep 3s; electron .\""
+    "dev": "electron ."
   },
   "eslintConfig": {
     "extends": "react-app"
