@@ -8,7 +8,8 @@ import (
 	"strings"
 )
 
-func getDefaultUserName(ctx context.Context) string {
+// GetDefaultUserName returns default username.
+func GetDefaultUserName(ctx context.Context) string {
 	currentUser, err := user.Current()
 	if err != nil {
 		log(ctx).Warningf("Cannot determine current user: %s", err)
@@ -27,7 +28,8 @@ func getDefaultUserName(ctx context.Context) string {
 	return u
 }
 
-func getDefaultHostName(ctx context.Context) string {
+// GetDefaultHostName returns default hostname.
+func GetDefaultHostName(ctx context.Context) string {
 	hostname, err := os.Hostname()
 	if err != nil {
 		log(ctx).Warningf("Unable to determine hostname: %s\n", err)

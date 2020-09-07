@@ -182,3 +182,9 @@ type MountedSnapshot struct {
 type MountedSnapshots struct {
 	Items []*MountedSnapshot `json:"items"`
 }
+
+// CurrentUserResponse is the response of 'current-user' HTTP API command.
+type CurrentUserResponse struct {
+	Username string `json:"username"`
+	Hostname string `json:"hostname"`
+}

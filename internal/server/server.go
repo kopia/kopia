@@ -92,6 +92,8 @@ func (s *Server) APIHandlers() http.Handler {
 	m.HandleFunc("/api/v1/mounts/{rootObjectID}", s.handleAPI(s.handleMountGet)).Methods(http.MethodGet)
 	m.HandleFunc("/api/v1/mounts", s.handleAPI(s.handleMountList)).Methods(http.MethodGet)
 
+	m.HandleFunc("/api/v1/current-user", s.handleAPIPossiblyNotConnected(s.handleCurrentUser)).Methods(http.MethodGet)
+
 	return m
 }
 

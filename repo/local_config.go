@@ -25,11 +25,11 @@ type ClientOptions struct {
 // ApplyDefaults returns a copy of ClientOptions with defaults filled out.
 func (o ClientOptions) ApplyDefaults(ctx context.Context, defaultDesc string) ClientOptions {
 	if o.Hostname == "" {
-		o.Hostname = getDefaultHostName(ctx)
+		o.Hostname = GetDefaultHostName(ctx)
 	}
 
 	if o.Username == "" {
-		o.Username = getDefaultUserName(ctx)
+		o.Username = GetDefaultUserName(ctx)
 	}
 
 	if o.Description == "" {
