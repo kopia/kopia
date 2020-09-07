@@ -3,10 +3,12 @@ import Form from 'react-bootstrap/Form';
 import { handleChange, OptionalField, RequiredField, validateRequiredFields } from './forms';
 
 export class SetupB2 extends Component {
-    constructor() {
+    constructor(props) {
         super();
 
-        this.state = {};
+        this.state = {
+            ...props.initial
+        };
         this.handleChange = handleChange.bind(this);
     }
 
@@ -17,7 +19,7 @@ export class SetupB2 extends Component {
     render() {
         return <>
             <Form.Row>
-                {RequiredField(this, "B2 Bucket", "bucket", { placeholder: "enter bucket name" })}
+                {RequiredField(this, "B2 Bucket", "bucket", { autoFocus: true, placeholder: "enter bucket name" })}
             </Form.Row>
             <Form.Row>
                 {RequiredField(this, "Key ID", "keyId", { placeholder: "enter application or account key ID" })}

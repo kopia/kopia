@@ -3,10 +3,12 @@ import Form from 'react-bootstrap/Form';
 import { handleChange, OptionalField, RequiredField, validateRequiredFields } from './forms';
 
 export class SetupRclone extends Component {
-    constructor() {
+    constructor(props) {
         super();
 
-        this.state = {};
+        this.state = {
+            ...props.initial
+        };
         this.handleChange = handleChange.bind(this);
     }
 
@@ -17,7 +19,7 @@ export class SetupRclone extends Component {
     render() {
         return <>
             <Form.Row>
-                {RequiredField(this, "Rclone Remote Path", "remotePath", { placeholder: "enter <name-of-rclone-remote>:<path>" })}
+                {RequiredField(this, "Rclone Remote Path", "remotePath", { autoFocus: true, placeholder: "enter <name-of-rclone-remote>:<path>" })}
             </Form.Row>
             <Form.Row>
                 {OptionalField(this, "rclone executable", "rcloneExe", { placeholder: "enter path to rclone executable" })}

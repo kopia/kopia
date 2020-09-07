@@ -3,10 +3,12 @@ import Form from 'react-bootstrap/Form';
 import { validateRequiredFields, handleChange, RequiredField } from './forms';
 
 export class SetupToken extends Component {
-    constructor() {
+    constructor(props) {
         super();
 
-        this.state = {};
+        this.state = {
+            ...props.initial
+        };
         this.handleChange = handleChange.bind(this);
     }
 
@@ -17,7 +19,7 @@ export class SetupToken extends Component {
     render() {
         return <>
             <Form.Row>
-                {RequiredField(this, "Token", "token", { type: "password", placeholder: "paste connection token generated using `kopia repo status -st`" })}
+                {RequiredField(this, "Token", "token", { autoFocus: true, type: "password", placeholder: "paste connection token" })}
             </Form.Row>
         </>;
     }

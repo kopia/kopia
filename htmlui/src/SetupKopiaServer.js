@@ -3,10 +3,12 @@ import Form from 'react-bootstrap/Form';
 import { handleChange, OptionalField, RequiredField, validateRequiredFields } from './forms';
 
 export class SetupKopiaServer extends Component {
-    constructor() {
+    constructor(props) {
         super();
 
-        this.state = {};
+        this.state = {
+            ...props.initial
+        };
         this.handleChange = handleChange.bind(this);
     }
 
@@ -17,7 +19,7 @@ export class SetupKopiaServer extends Component {
     render() {
         return <>
             <Form.Row>
-                {RequiredField(this, "Server address", "url", { placeholder: "enter server URL (https://<host>:port)" })}
+                {RequiredField(this, "Server address", "url", { autoFocus: true, placeholder: "enter server URL (https://<host>:port)" })}
             </Form.Row>
             <Form.Row>
                 {OptionalField(this, "Trusted server certificate finterprint (SHA256)", "serverCertFingerprint", { placeholder: "enter trusted server certificate fingerprint printed at server startup" })}

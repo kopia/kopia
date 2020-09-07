@@ -24,7 +24,7 @@ export function validateRequiredFields(component, fields) {
     return true;
 }
 
-export function handleChange(event, valueGetter=x=>x.value) {
+export function handleChange(event, valueGetter = x => x.value) {
     let newState = { ...this.state };
     let st = newState;
 
@@ -74,7 +74,7 @@ export function RequiredField(component, label, name, props = {}, helpText = nul
             isInvalid={stateProperty(component, name, null) === ''}
             name={name}
             value={stateProperty(component, name)}
-            data-testid={'control-'+name}
+            data-testid={'control-' + name}
             onChange={component.handleChange}
             {...props} />
         {helpText && <Form.Text className="text-muted">{helpText}</Form.Text>}
@@ -88,7 +88,7 @@ export function OptionalField(component, label, name, props = {}, helpText = nul
         <Form.Control
             name={name}
             value={stateProperty(component, name)}
-            data-testid={'control-'+name}
+            data-testid={'control-' + name}
             onChange={component.handleChange}
             {...props} />
         {helpText && <Form.Text className="text-muted">{helpText}</Form.Text>}
@@ -129,7 +129,7 @@ export function OptionalNumberField(component, label, name, props = {}) {
             isInvalid={isInvalidNumber(stateProperty(component, name))}
             value={stateProperty(component, name)}
             onChange={e => component.handleChange(e, valueToNumber)}
-            data-testid={'control-'+name}
+            data-testid={'control-' + name}
             {...props} />
         <Form.Control.Feedback type="invalid">Must be a valid number or empty</Form.Control.Feedback>
     </Form.Group>
@@ -155,15 +155,17 @@ function checkedToBool(t) {
     return false;
 }
 
-export function RequiredBoolean(component, label, name, defaultLabel) {
+export function RequiredBoolean(component, label, name, helpText) {
     return <Form.Group as={Col}>
         <Form.Check
             label={label}
             name={name}
+            className="required"
             checked={stateProperty(component, name)}
             onChange={e => component.handleChange(e, checkedToBool)}
-            data-testid={'control-'+name}
+            data-testid={'control-' + name}
             type="checkbox" />
+        {helpText && <Form.Text className="text-muted">{helpText}</Form.Text>}
     </Form.Group>
 }
 

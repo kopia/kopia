@@ -14,6 +14,32 @@
   padding: 10px;
 }
 
+.form-group {
+  margin-bottom: 0.5rem;
+}
+
+.providerIcon {
+  width: 120px;
+  height: 100px;
+  margin: 10px;
+  vertical-align: middle;
+}
+
+.advancedOptions {
+  background-color: #f0f0f0;
+  padding: 10px;
+  border: 1px solid #ccc;
+}
+
+.providerSpecificParams {
+  background-color: #f0f0ff;
+  border: 2px solid #ddd;
+  padding: 10px;
+  margin-left: 0px;
+  margin-top: 0px;
+  margin-bottom: 10px;
+}
+
 .padded {
   padding: 10px;
 }

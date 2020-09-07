@@ -4,10 +4,12 @@ import Form from 'react-bootstrap/Form';
 import { validateRequiredFields, handleChange, RequiredField, OptionalField } from './forms';
 
 export class SetupGCS extends Component {
-    constructor() {
+    constructor(props) {
         super();
 
-        this.state = {};
+        this.state = {
+            ...props.initial
+        };
         this.handleChange = handleChange.bind(this);
     }
 
@@ -18,7 +20,7 @@ export class SetupGCS extends Component {
     render() {
         return <>
             <Form.Row>
-                {RequiredField(this, "GCS Bucket", "bucket", { placeholder: "enter bucket name" })}
+                {RequiredField(this, "GCS Bucket", "bucket", { autoFocus: true, placeholder: "enter bucket name" })}
                 {OptionalField(this, "Object Name Prefix", "prefix", { placeholder: "enter object name prefix or leave empty", type: "password" })}
             </Form.Row>
             <Form.Row>

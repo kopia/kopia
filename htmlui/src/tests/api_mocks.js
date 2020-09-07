@@ -18,5 +18,10 @@ export function setupAPIMock() {
         compression: ["c-foo", "c-bar", "c-baz"],
     });
 
+    axiosMock.onGet("/api/v1/current-user").reply(200, {
+        username: "someuser",
+        hostname: "somehost",
+    });
+
     return axiosMock;
 }
