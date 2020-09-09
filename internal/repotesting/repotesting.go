@@ -27,11 +27,18 @@ type Environment struct {
 	connected  bool
 }
 
+// Options used during Environment Setup.
+type Options struct {
+	NewRepositoryOptions func(*repo.NewRepositoryOptions)
+	OpenOptions          func(*repo.Options)
+}
+
 // Setup sets up a test environment.
-func (e *Environment) Setup(t *testing.T, opts ...func(*repo.NewRepositoryOptions)) *Environment {
+func (e *Environment) Setup(t *testing.T, opts ...Options) *Environment {
 	ctx := testlogging.Context(t)
 	e.configDir = t.TempDir()
 	e.storageDir = t.TempDir()
+	openOpt := &repo.Options{}
 
 	opt := &repo.NewRepositoryOptions{
 		BlockFormat: content.FormattingOptions{
@@ -45,7 +52,13 @@ func (e *Environment) Setup(t *testing.T, opts ...func(*repo.NewRepositoryOption
 	}
 
 	for _, mod := range opts {
-		mod(opt)
+		if mod.NewRepositoryOptions != nil {
+			mod.NewRepositoryOptions(opt)
+		}
+
+		if mod.OpenOptions != nil {
+			mod.OpenOptions(openOpt)
+		}
 	}
 
 	st, err := filesystem.New(ctx, &filesystem.Options{
@@ -65,7 +78,7 @@ func (e *Environment) Setup(t *testing.T, opts ...func(*repo.NewRepositoryOption
 
 	e.connected = true
 
-	rep, err := repo.Open(ctx, e.configFile(), masterPassword, &repo.Options{})
+	rep, err := repo.Open(ctx, e.configFile(), masterPassword, openOpt)
 	if err != nil {
 		t.Fatalf("can't open: %v", err)
 	}

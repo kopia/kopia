@@ -285,7 +285,9 @@ func TestFormats(t *testing.T) {
 
 	for caseIndex, c := range cases {
 		var env repotesting.Environment
-		defer env.Setup(t, c.format).Close(ctx, t)
+
+		opts := repotesting.Options{NewRepositoryOptions: c.format}
+		defer env.Setup(t, opts).Close(ctx, t)
 
 		for k, v := range c.oids {
 			bytesToWrite := []byte(k)
