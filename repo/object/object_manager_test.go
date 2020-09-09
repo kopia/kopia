@@ -148,6 +148,78 @@ func TestWriterCompleteChunkInTwoWrites(t *testing.T) {
 	}
 }
 
+func TestCheckpointing(t *testing.T) {
+	ctx := testlogging.Context(t)
+	_, om := setupTest(t)
+
+	writer := om.NewWriter(ctx, WriterOptions{})
+
+	// write all zeroes
+	allZeroes := make([]byte, 1<<20)
+
+	// empty file, nothing flushed
+	checkpoint1, err := writer.Checkpoint()
+	verifyNoError(t, err)
+
+	// write some bytes, but not enough to flush.
+	writer.Write(allZeroes[0:50])
+	checkpoint2, err := writer.Checkpoint()
+	verifyNoError(t, err)
+
+	// write enough to flush first content.
+	writer.Write(allZeroes)
+	checkpoint3, err := writer.Checkpoint()
+	verifyNoError(t, err)
+
+	// write enough to flush second content.
+	writer.Write(allZeroes)
+	checkpoint4, err := writer.Checkpoint()
+	verifyNoError(t, err)
+
+	result, err := writer.Result()
+	verifyNoError(t, err)
+
+	if !objectIDsEqual(checkpoint1, "") {
+		t.Errorf("unexpected checkpoint1: %v err: %v", checkpoint1, err)
+	}
+
+	if !objectIDsEqual(checkpoint2, "") {
+		t.Errorf("unexpected checkpoint2: %v err: %v", checkpoint2, err)
+	}
+
+	verifyFull(ctx, t, om, checkpoint3, allZeroes)
+	verifyFull(ctx, t, om, checkpoint4, make([]byte, 2<<20))
+	verifyFull(ctx, t, om, result, make([]byte, 2<<20+50))
+}
+
+func verifyFull(ctx context.Context, t *testing.T, om *Manager, oid ID, want []byte) {
+	t.Helper()
+
+	r, err := om.Open(ctx, oid)
+	if err != nil {
+		t.Fatalf("unable to open %v: %v", oid, err)
+	}
+
+	defer r.Close()
+
+	data, err := ioutil.ReadAll(r)
+	if err != nil {
+		t.Fatalf("unable to read all: %v", err)
+	}
+
+	if !bytes.Equal(data, want) {
+		t.Fatalf("unexpected data read for %v", oid)
+	}
+}
+
+func verifyNoError(t *testing.T, err error) {
+	t.Helper()
+
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func verifyIndirectBlock(ctx context.Context, t *testing.T, r *Manager, oid ID) {
 	for indexContentID, isIndirect := oid.IndexObjectID(); isIndirect; indexContentID, isIndirect = indexContentID.IndexObjectID() {
 		if c, _, ok := indexContentID.ContentID(); ok {
