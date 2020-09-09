@@ -89,6 +89,16 @@ type DirectorySummary struct {
 	FailedEntries []*EntryWithError `json:"errors,omitempty"`
 }
 
+// Clone clones given directory summary.
+func (s *DirectorySummary) Clone() DirectorySummary {
+	res := *s
+
+	res.FailedEntries = nil
+	res.FailedEntries = append(res.FailedEntries, s.FailedEntries...)
+
+	return res
+}
+
 // Symlink represents a symbolic link entry.
 type Symlink interface {
 	Entry
