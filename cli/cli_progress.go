@@ -89,24 +89,6 @@ func (p *cliProgress) CachedFile(fname string, numBytes int64) {
 	p.maybeOutput()
 }
 
-func (p *cliProgress) Checkpoint() {
-	p.output(noticeColor, "Saving a checkpoint...\n")
-
-	if p.shared {
-		// do not reset counters
-		return
-	}
-
-	*p = cliProgress{
-		uploading:         1,
-		uploadStartTime:   clock.Now(),
-		previousFileCount: p.previousFileCount,
-		previousTotalSize: p.previousTotalSize,
-		uploadedBytes:     p.uploadedBytes,
-		uploadedFiles:     p.uploadedFiles,
-	}
-}
-
 func (p *cliProgress) maybeOutput() {
 	if atomic.LoadInt32(&p.uploading) == 0 {
 		return
