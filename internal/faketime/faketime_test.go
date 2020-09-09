@@ -77,7 +77,7 @@ func TestAutoAdvance(t *testing.T) {
 
 func TestTimeAdvance(t *testing.T) {
 	startTime := time.Date(2019, 1, 6, 0, 0, 0, 0, time.UTC)
-	ta := NewTimeAdvance(startTime)
+	ta := NewTimeAdvance(startTime, 0)
 	now := ta.NowFunc()
 
 	if got, want := now(), startTime; got != want {
