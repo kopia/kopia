@@ -134,6 +134,10 @@ func (e *Environment) MustOpenAnother(t *testing.T) repo.Repository {
 		t.Fatalf("err: %v", err)
 	}
 
+	t.Cleanup(func() {
+		rep2.Close(testlogging.Context(t))
+	})
+
 	return rep2
 }
 
