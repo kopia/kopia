@@ -52,6 +52,13 @@ nfpms:
     - deb
     - rpm
     bindir: /usr/bin
+    overrides:
+      rpm:
+        file_name_template: "{{ .ProjectName }}-{{ .Version }}.{{ .Arch }}"
+        replacements:
+          amd64: x86_64
+          arm64: aarch64
+          arm: armhfp
 brews:
   - homepage: "https://kopia.io"
     tap:
@@ -61,9 +68,10 @@ brews:
     install:
       bin.install "kopia"
 signs:
-  -
-    artifacts: checksum
-    args: ["-a", "--output", "${signature}", "--detach-sign", "${artifact}"]
+  - id: all
+    artifacts: all
+    cmd: tools/sign.sh
+    args: ["${artifact}", "${signature}"]
 changelog:
   filters:
     exclude:
