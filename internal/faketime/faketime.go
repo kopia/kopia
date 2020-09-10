@@ -2,7 +2,6 @@
 package faketime
 
 import (
-	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -19,35 +18,29 @@ func Frozen(t time.Time) func() time.Time {
 // the returned function. The returned function will generate a time series of
 // the form [t, t+dt, t+2dt, t+3dt, ...].
 func AutoAdvance(t time.Time, dt time.Duration) func() time.Time {
-	var mu sync.Mutex
-
-	return func() time.Time {
-		mu.Lock()
-		defer mu.Unlock()
-
-		ret := t
-		t = t.Add(dt)
-
-		return ret
-	}
+	return NewTimeAdvance(t, dt).NowFunc()
 }
 
 // TimeAdvance allows controlling the passage of time. Intended to be used in
 // tests.
 type TimeAdvance struct {
-	delta int64
-	base  time.Time
+	delta  int64
+	autoDt int64
+	base   time.Time
 }
 
 // NewTimeAdvance creates a TimeAdvance with the given start time.
-func NewTimeAdvance(start time.Time) *TimeAdvance {
-	return &TimeAdvance{base: start}
+func NewTimeAdvance(start time.Time, autoDelta time.Duration) *TimeAdvance {
+	return &TimeAdvance{
+		autoDt: int64(autoDelta),
+		base:   start,
+	}
 }
 
 // NowFunc returns a time provider function for t.
 func (t *TimeAdvance) NowFunc() func() time.Time {
 	return func() time.Time {
-		dt := atomic.LoadInt64(&t.delta)
+		dt := atomic.AddInt64(&t.delta, t.autoDt) - t.autoDt
 
 		return t.base.Add(time.Duration(dt))
 	}

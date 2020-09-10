@@ -1,6 +1,7 @@
 package faketime
 
 import (
+	"math/rand"
 	"sync"
 	"testing"
 	"time"
@@ -77,7 +78,7 @@ func TestAutoAdvance(t *testing.T) {
 
 func TestTimeAdvance(t *testing.T) {
 	startTime := time.Date(2019, 1, 6, 0, 0, 0, 0, time.UTC)
-	ta := NewTimeAdvance(startTime)
+	ta := NewTimeAdvance(startTime, 0)
 	now := ta.NowFunc()
 
 	if got, want := now(), startTime; got != want {
@@ -90,4 +91,69 @@ func TestTimeAdvance(t *testing.T) {
 	if got, want := now(), startTime.Add(dt); got != want {
 		t.Errorf("expected time does not match, got: %v, want: %v", got, want)
 	}
+}
+
+func TestTimeAdvanceConcurrent(t *testing.T) {
+	const (
+		parallelism        = 3
+		iterations         = 20
+		advanceProbability = 0.3
+	)
+
+	startTime := time.Date(2018, 1, 6, 0, 0, 0, 0, time.UTC)
+	ta := NewTimeAdvance(startTime, 3*time.Second)
+	tchan := make(chan time.Time, 2*parallelism)
+
+	var wg sync.WaitGroup
+
+	wg.Add(parallelism)
+
+	for i := 0; i < parallelism; i++ {
+		t.Run("worker", func(t *testing.T) {
+			t.Parallel()
+			defer wg.Done()
+
+			times := make([]time.Time, iterations)
+
+			var prev time.Time
+
+			for j := 0; j < iterations; j++ {
+				if advanceProbability > rand.Float64() {
+					ta.Advance(17 * time.Second)
+				}
+				times[j] = ta.NowFunc()()
+
+				if times[j].Before(prev) {
+					t.Error("Unexpected out-of-order times:", times[j], prev)
+				}
+			}
+
+			for _, ts := range times {
+				tchan <- ts
+			}
+		})
+	}
+
+	go func() {
+		wg.Wait()
+		close(tchan)
+	}()
+
+	t.Run("verify", func(t *testing.T) {
+		t.Parallel()
+
+		tMap := make(map[time.Time]struct{}, iterations*parallelism)
+
+		for ts := range tchan {
+			if _, ok := tMap[ts]; ok {
+				t.Error("Found repeated time value: ", ts)
+			}
+
+			tMap[ts] = struct{}{}
+		}
+
+		if got, want := len(tMap), parallelism*iterations; got != want {
+			t.Fatalf("number of generated times does not match, got: %v, want: %v", got, want)
+		}
+	})
 }

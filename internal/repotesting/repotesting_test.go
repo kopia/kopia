@@ -21,7 +21,7 @@ func TestTimeFuncWiring(t *testing.T) {
 
 	env.Repository.Close(ctx)
 
-	ft := faketime.NewTimeAdvance(time.Date(2018, time.February, 6, 0, 0, 0, 0, time.UTC))
+	ft := faketime.NewTimeAdvance(time.Date(2018, time.February, 6, 0, 0, 0, 0, time.UTC), 0)
 
 	// Re open with injected time
 	rep, err := repo.Open(ctx, env.Repository.ConfigFile, masterPassword, &repo.Options{TimeNowFunc: ft.NowFunc()})
