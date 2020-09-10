@@ -111,13 +111,13 @@ func (e *Environment) configFile() string {
 }
 
 // MustReopen closes and reopens the repository.
-func (e *Environment) MustReopen(t *testing.T) {
+func (e *Environment) MustReopen(t *testing.T, openOpts ...func(*repo.Options)) {
 	err := e.Repository.Close(testlogging.Context(t))
 	if err != nil {
 		t.Fatalf("close error: %v", err)
 	}
 
-	rep, err := repo.Open(testlogging.Context(t), e.configFile(), masterPassword, &repo.Options{})
+	rep, err := repo.Open(testlogging.Context(t), e.configFile(), masterPassword, repoOptions(openOpts))
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -151,4 +151,16 @@ func (e *Environment) VerifyBlobCount(t *testing.T, want int) {
 	if got != want {
 		t.Errorf("got unexpected number of BLOBs: %v, wanted %v", got, want)
 	}
+}
+
+func repoOptions(openOpts []func(*repo.Options)) *repo.Options {
+	openOpt := &repo.Options{}
+
+	for _, mod := range openOpts {
+		if mod != nil {
+			mod(openOpt)
+		}
+	}
+
+	return openOpt
 }
