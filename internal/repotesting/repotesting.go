@@ -139,6 +139,37 @@ func (e *Environment) MustOpenAnother(t *testing.T) repo.Repository {
 	return rep2
 }
 
+// MustConnectOpenAnother opens another repository backend by the same storage,
+// with independent config and cache options.
+func (e *Environment) MustConnectOpenAnother(t *testing.T, openOpts ...func(*repo.Options)) repo.Repository {
+	ctx := testlogging.Context(t)
+
+	st, err := filesystem.New(ctx, &filesystem.Options{
+		Path: e.storageDir,
+	})
+	if err != nil {
+		t.Fatal("err:", err)
+	}
+
+	config := filepath.Join(t.TempDir(), "kopia.config")
+	connOpts := &repo.ConnectOptions{
+		CachingOptions: content.CachingOptions{
+			CacheDirectory: t.TempDir(),
+		},
+	}
+
+	if err = repo.Connect(ctx, config, st, masterPassword, connOpts); err != nil {
+		t.Fatal("can't connect:", err)
+	}
+
+	rep, err := repo.Open(ctx, e.configFile(), masterPassword, repoOptions(openOpts))
+	if err != nil {
+		t.Fatal("can't open:", err)
+	}
+
+	return rep
+}
+
 // VerifyBlobCount verifies that the underlying storage contains the specified number of blobs.
 func (e *Environment) VerifyBlobCount(t *testing.T, want int) {
 	var got int
