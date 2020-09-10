@@ -20,6 +20,7 @@ func (rs *buzhash32Splitter) Close() {
 func (rs *buzhash32Splitter) Reset() {
 	rs.rh.Reset()
 	rs.rh.Write(make([]byte, splitterSlidingWindowSize)) //nolint:errcheck
+	rs.count = 0
 }
 
 func (rs *buzhash32Splitter) ShouldSplit(b byte) bool {
