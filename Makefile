@@ -109,7 +109,7 @@ travis-release:
 	$(retry) $(MAKE) layering-test
 	$(retry) $(MAKE) integration-tests
 ifeq ($(TRAVIS_OS_NAME),linux)
-	$(MAKE) apt-publish
+	$(MAKE) publish-packages
 	$(MAKE) robustness-tool-tests
 	$(MAKE) website
 	$(MAKE) stress-test
@@ -290,9 +290,10 @@ travis-create-long-term-repository:
 endif
 
 ifeq ($(TRAVIS_PULL_REQUEST),false)
-apt-publish:
+publish-packages:
 	$(CURDIR)/tools/apt-publish.sh $(CURDIR)/dist
+	$(CURDIR)/tools/rpm-publish.sh $(CURDIR)/dist
 else
-apt-publish:
-	@echo Not pushing to APT repository on pull request builds.
+publish-packages:
+	@echo Not pushing to Linux repositories on pull request builds.
 endif

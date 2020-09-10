@@ -92,6 +92,37 @@ sudo apt install kopia
 sudo apt install kopia-ui
 ```
 
+### Linux installation using RPM (RedHat, CentOS)
+
+Install GPG signing key:
+
+```shell
+rpm --import https://kopia.io/signing-key
+```
+
+Install Yum repository:
+
+```shell
+cat <<EOF | sudo tee /etc/yum.repos.d/kopia.repo
+[Kopia]
+name=Kopia
+baseurl=http://packages.kopia.io/rpm/stable/\$basearch/
+gpgcheck=1
+enabled=1
+gpgkey=https://kopia.io/signing-key
+EOF
+```
+
+>By default the **stable** channel provides official stable releases. If you prefer you can also select **testing** channel (which also provides release candidates and is generally stable) or **unstable** which includes all latest changes, but may not be stable.
+
+Finally install Kopia or KopiaUI:
+
+```shell
+sudo yum install kopia
+sudo yum install kopia-ui
+```
+
+
 ### Compilation From Source
 
 If you have [Go 1.14](https://golang.org/) or newer, you may download and build Kopia yourself. No special setup is necessary, other than the Go compiler. You can simply run:

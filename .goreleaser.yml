@@ -52,6 +52,13 @@ nfpms:
     - deb
     - rpm
     bindir: /usr/bin
+    overrides:
+      rpm:
+        file_name_template: "{{ .ProjectName }}-{{ .Version }}.{{ .Arch }}"
+        replacements:
+          amd64: x86_64
+          arm64: aarch64
+          arm: armhfp
 brews:
   - homepage: "https://kopia.io"
     tap:
