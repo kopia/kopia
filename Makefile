@@ -123,31 +123,29 @@ endif
 GORELEASER_OPTIONS=--rm-dist --parallelism=6
 
 sign_gpg=1
+publish_binaries=1
+
 ifneq ($(TRAVIS_PULL_REQUEST),false)
 	# not running on travis, or travis in PR mode, skip signing
 	sign_gpg=0
 endif
 
-ifeq ($(TRAVIS_OS_NAME),windows)
-	# signing does not work on Windows on Travis
+# publish and sign only from linux/amd64 to avoid duplicates
+ifneq ($(TRAVIS_OS_NAME)/$(kopia_arch_name),linux/amd64)
 	sign_gpg=0
+	publish_binaries=0
 endif
 
 ifeq ($(sign_gpg),0)
 GORELEASER_OPTIONS+=--skip-sign
 endif
 
-publish_binaries=1
-
+# publish only from tagged releases
 ifeq ($(TRAVIS_TAG),)
-	# not a tagged release
 	GORELEASER_OPTIONS+=--snapshot
 	publish_binaries=0
 endif
 
-ifneq ($(TRAVIS_OS_NAME),linux)
-	publish_binaries=0
-endif
 ifeq ($(publish_binaries),0)
 GORELEASER_OPTIONS+=--skip-publish
 endif

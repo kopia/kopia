@@ -61,9 +61,10 @@ brews:
     install:
       bin.install "kopia"
 signs:
-  -
-    artifacts: checksum
-    args: ["-a", "--output", "${signature}", "--detach-sign", "${artifact}"]
+  - id: all
+    artifacts: all
+    cmd: tools/sign.sh
+    args: ["${artifact}", "${signature}"]
 changelog:
   filters:
     exclude:
