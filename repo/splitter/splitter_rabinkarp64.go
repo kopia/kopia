@@ -20,6 +20,7 @@ func (rs *rabinKarp64Splitter) Close() {
 func (rs *rabinKarp64Splitter) Reset() {
 	rs.rh.Reset()
 	rs.rh.Write(make([]byte, splitterSlidingWindowSize)) //nolint:errcheck
+	rs.count = 0
 }
 
 func (rs *rabinKarp64Splitter) ShouldSplit(b byte) bool {

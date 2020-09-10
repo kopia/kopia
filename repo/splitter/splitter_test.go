@@ -2,6 +2,7 @@ package splitter
 
 import (
 	cryptorand "crypto/rand"
+	"fmt"
 	"math"
 	"math/rand"
 	"testing"
@@ -40,77 +41,100 @@ func TestSplitterStability(t *testing.T) {
 	}
 
 	cases := []struct {
-		splitter Splitter
+		factory  Factory
 		count    int
 		avg      int
 		minSplit int
 		maxSplit int
 	}{
-		{&fixedSplitter{0, 1000}, 5000, 1000, 1000, 1000},
-		{&fixedSplitter{0, 10000}, 500, 10000, 10000, 10000},
+		{Fixed(1000), 5000, 1000, 1000, 1000},
+		{Fixed(10000), 500, 10000, 10000, 10000},
 
-		{newBuzHash32SplitterFactory(32)(), 124235, 40, 16, 64},
-		{newBuzHash32SplitterFactory(1024)(), 3835, 1303, 512, 2048},
-		{newBuzHash32SplitterFactory(2048)(), 1924, 2598, 1024, 4096},
-		{newBuzHash32SplitterFactory(32768)(), 112, 44642, 16413, 65536},
-		{newBuzHash32SplitterFactory(65536)(), 57, 87719, 32932, 131072},
-		{newRabinKarp64SplitterFactory(32)(), 124108, 40, 16, 64},
-		{newRabinKarp64SplitterFactory(1024)(), 3771, 1325, 512, 2048},
-		{newRabinKarp64SplitterFactory(2048)(), 1887, 2649, 1028, 4096},
-		{newRabinKarp64SplitterFactory(32768)(), 121, 41322, 16896, 65536},
-		{newRabinKarp64SplitterFactory(65536)(), 53, 94339, 35875, 131072},
+		{newBuzHash32SplitterFactory(32), 124235, 40, 16, 64},
+		{newBuzHash32SplitterFactory(1024), 3835, 1303, 512, 2048},
+		{newBuzHash32SplitterFactory(2048), 1924, 2598, 1024, 4096},
+		{newBuzHash32SplitterFactory(32768), 112, 44642, 16413, 65536},
+		{newBuzHash32SplitterFactory(65536), 57, 87719, 32932, 131072},
+		{newRabinKarp64SplitterFactory(32), 124108, 40, 16, 64},
+		{newRabinKarp64SplitterFactory(1024), 3771, 1325, 512, 2048},
+		{newRabinKarp64SplitterFactory(2048), 1887, 2649, 1028, 4096},
+		{newRabinKarp64SplitterFactory(32768), 121, 41322, 16896, 65536},
+		{newRabinKarp64SplitterFactory(65536), 53, 94339, 35875, 131072},
+
+		{Pooled(Fixed(1000)), 5000, 1000, 1000, 1000},
+
+		{Pooled(newBuzHash32SplitterFactory(32)), 124235, 40, 16, 64},
+		{Pooled(newBuzHash32SplitterFactory(1024)), 3835, 1303, 512, 2048},
+		{Pooled(newBuzHash32SplitterFactory(2048)), 1924, 2598, 1024, 4096},
+		{Pooled(newBuzHash32SplitterFactory(32768)), 112, 44642, 16413, 65536},
+		{Pooled(newBuzHash32SplitterFactory(65536)), 57, 87719, 32932, 131072},
+		{Pooled(newRabinKarp64SplitterFactory(32)), 124108, 40, 16, 64},
+		{Pooled(newRabinKarp64SplitterFactory(1024)), 3771, 1325, 512, 2048},
+		{Pooled(newRabinKarp64SplitterFactory(2048)), 1887, 2649, 1028, 4096},
+		{Pooled(newRabinKarp64SplitterFactory(32768)), 121, 41322, 16896, 65536},
+		{Pooled(newRabinKarp64SplitterFactory(65536)), 53, 94339, 35875, 131072},
 	}
 
 	for _, tc := range cases {
-		s := tc.splitter
+		tc := tc
+		t.Run(fmt.Sprintf("%v", tc), func(t *testing.T) {
+			t.Parallel()
+			// run each test twice to rule out the possibility of some state leaking through splitter reuse
+			for repeat := 0; repeat < 2; repeat++ {
+				s := tc.factory()
 
-		lastSplit := -1
-		maxSplit := 0
-		minSplit := int(math.MaxInt32)
-		count := 0
+				lastSplit := -1
+				maxSplit := 0
+				minSplit := int(math.MaxInt32)
+				count := 0
 
-		if got, want := s.MaxSegmentSize(), tc.maxSplit; got != want {
-			t.Errorf("unexpected max segment size: %v, want %v", got, want)
-		}
+				if got, want := s.MaxSegmentSize(), tc.maxSplit; got != want {
+					t.Errorf("unexpected max segment size: %v, want %v", got, want)
+				}
 
-		for i, p := range rnd {
-			if !s.ShouldSplit(p) {
-				continue
+				for i, p := range rnd {
+					if !s.ShouldSplit(p) {
+						continue
+					}
+
+					l := i - lastSplit
+					if l >= maxSplit {
+						maxSplit = l
+					}
+
+					if l < minSplit {
+						minSplit = l
+					}
+
+					count++
+
+					lastSplit = i
+				}
+
+				var avg int
+				if count > 0 {
+					avg = len(rnd) / count
+				}
+
+				if got, want := avg, tc.avg; got != want {
+					t.Errorf("invalid split average size %v, wanted %v", got, want)
+				}
+
+				if got, want := count, tc.count; got != want {
+					t.Errorf("invalid split count %v, wanted %v", got, want)
+				}
+
+				if got, want := minSplit, tc.minSplit; got != want {
+					t.Errorf("min split %v, wanted %v", got, want)
+				}
+
+				if got, want := maxSplit, tc.maxSplit; got != want {
+					t.Errorf("max split %v, wanted %v", got, want)
+				}
+
+				// this returns the splitter back to the pool.
+				s.Close()
 			}
-
-			l := i - lastSplit
-			if l >= maxSplit {
-				maxSplit = l
-			}
-
-			if l < minSplit {
-				minSplit = l
-			}
-
-			count++
-
-			lastSplit = i
-		}
-
-		var avg int
-		if count > 0 {
-			avg = len(rnd) / count
-		}
-
-		if got, want := avg, tc.avg; got != want {
-			t.Errorf("invalid split average size %v, wanted %v", got, want)
-		}
-
-		if got, want := count, tc.count; got != want {
-			t.Errorf("invalid split count %v, wanted %v", got, want)
-		}
-
-		if got, want := minSplit, tc.minSplit; got != want {
-			t.Errorf("min split %v, wanted %v", got, want)
-		}
-
-		if got, want := maxSplit, tc.maxSplit; got != want {
-			t.Errorf("max split %v, wanted %v", got, want)
-		}
+		})
 	}
 }
