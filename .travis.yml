@@ -2,7 +2,7 @@ dist: bionic
 osx_image: xcode11.3
 language: go
 go:
-- 1.14.x
+- 1.15.x
 os:
 - linux
 - osx
