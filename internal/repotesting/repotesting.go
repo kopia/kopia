@@ -100,6 +100,9 @@ func (e *Environment) Close(ctx context.Context, t *testing.T) {
 		}
 	}
 
+	// may need to remove the maintenance lock
+	os.Remove(e.configFile() + ".mlock")
+
 	if err := os.Remove(e.configDir); err != nil {
 		// should be empty, assuming Disconnect was successful
 		t.Errorf("error removing config directory: %v", err)
