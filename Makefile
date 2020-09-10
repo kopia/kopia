@@ -289,7 +289,7 @@ travis-create-long-term-repository:
 
 endif
 
-ifeq ($(TRAVIS_PULL_REQUEST),false)
+ifeq ($(publish_binaries),1)
 publish-packages:
 	$(CURDIR)/tools/apt-publish.sh $(CURDIR)/dist
 	$(CURDIR)/tools/rpm-publish.sh $(CURDIR)/dist
