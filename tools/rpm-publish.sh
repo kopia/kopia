@@ -74,12 +74,13 @@ done
 # regenerate indexes
 for a in $architectures; do
     for d in $distributions; do
+        rm -rf $WORK_DIR/$d/$a/repomd
         docker run -it -e verbose=true -v $WORK_DIR/$d/$a:/data sark/createrepo:latest
     done
 done
 
 echo Synchronizing...
-gsutil -m rsync -r $WORK_DIR/ $GS_PREFIX/
+gsutil -m rsync -r -d $WORK_DIR/ $GS_PREFIX/
 
 for a in $architectures; do
     for d in $distributions; do
