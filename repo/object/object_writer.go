@@ -102,22 +102,12 @@ func (w *objectWriter) Close() error {
 	return nil
 }
 
-func nextSplitPoint(data []byte, s splitter.Splitter) int {
-	for i, b := range data {
-		if s.ShouldSplit(b) {
-			return i + 1
-		}
-	}
-
-	return -1
-}
-
 func (w *objectWriter) Write(data []byte) (n int, err error) {
 	dataLen := len(data)
 	w.totalLength += int64(dataLen)
 
 	for len(data) > 0 {
-		n := nextSplitPoint(data, w.splitter)
+		n := w.splitter.NextSplitPoint(data)
 		if n < 0 {
 			// no split points in the buffer
 			w.buffer.Write(data)

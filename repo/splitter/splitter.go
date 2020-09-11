@@ -10,9 +10,12 @@ const (
 )
 
 // Splitter determines when to split a given object.
-// It must return true if the object should be split after byte b is processed.
 type Splitter interface {
-	ShouldSplit(b byte) bool
+	// NextSplitPoint() determines the location of the next split point in the given slice of bytes.
+	// It returns value `n` between 1..len(b) if a split point happens AFTER byte n and the splitter
+	// has consumed `n` bytes.
+	// If there is no split point, the splitter returns -1 and consumes all bytes from the slice.
+	NextSplitPoint(b []byte) int
 	MaxSegmentSize() int
 	Reset()
 	Close()
@@ -66,6 +69,17 @@ func megabytes(mb int) int {
 // GetFactory gets splitter factory with a specified name or nil if not found.
 func GetFactory(name string) Factory {
 	return splitterFactories[name]
+}
+
+// nextSplitPointHelper implements NextSplitPoint by invoking ShouldSplit on a given splitter.
+func nextSplitPointHelper(data []byte, shouldSplit func(b byte) bool) int {
+	for i, b := range data {
+		if shouldSplit(b) {
+			return i + 1
+		}
+	}
+
+	return -1
 }
 
 // DefaultAlgorithm is the name of the splitter used by default for new repositories.

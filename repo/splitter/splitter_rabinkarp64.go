@@ -23,7 +23,11 @@ func (rs *rabinKarp64Splitter) Reset() {
 	rs.count = 0
 }
 
-func (rs *rabinKarp64Splitter) ShouldSplit(b byte) bool {
+func (rs *rabinKarp64Splitter) NextSplitPoint(b []byte) int {
+	return nextSplitPointHelper(b, rs.shouldSplit)
+}
+
+func (rs *rabinKarp64Splitter) shouldSplit(b byte) bool {
 	rs.rh.Roll(b)
 	rs.count++
 

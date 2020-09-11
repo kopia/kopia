@@ -23,7 +23,11 @@ func (rs *buzhash32Splitter) Reset() {
 	rs.count = 0
 }
 
-func (rs *buzhash32Splitter) ShouldSplit(b byte) bool {
+func (rs *buzhash32Splitter) NextSplitPoint(b []byte) int {
+	return nextSplitPointHelper(b, rs.shouldSplit)
+}
+
+func (rs *buzhash32Splitter) shouldSplit(b byte) bool {
 	rs.rh.Roll(b)
 	rs.count++
 

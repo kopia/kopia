@@ -12,7 +12,11 @@ func (s *fixedSplitter) Reset() {
 	s.cur = 0
 }
 
-func (s *fixedSplitter) ShouldSplit(b byte) bool {
+func (s *fixedSplitter) NextSplitPoint(b []byte) int {
+	return nextSplitPointHelper(b, s.shouldSplit)
+}
+
+func (s *fixedSplitter) shouldSplit(b byte) bool {
 	s.cur++
 
 	if s.cur >= s.chunkLength {

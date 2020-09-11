@@ -1,46 +1,11 @@
 package splitter
 
 import (
-	cryptorand "crypto/rand"
 	"fmt"
 	"math"
 	"math/rand"
 	"testing"
 )
-
-func TestSplitters(t *testing.T) {
-	cases := []struct {
-		desc        string
-		newSplitter Factory
-	}{
-		{"rolling buzhash with 3 bits", newBuzHash32SplitterFactory(8)},
-		{"rolling buzhash with 5 bits", newBuzHash32SplitterFactory(32)},
-	}
-
-	for _, tc := range cases {
-		s1 := tc.newSplitter()
-		s2 := tc.newSplitter()
-
-		rnd := make([]byte, 50000000)
-		cryptorand.Read(rnd)
-
-		for i, p := range rnd {
-			if got, want := s1.ShouldSplit(p), s2.ShouldSplit(p); got != want {
-				t.Errorf("incorrect ShouldSplit() result for %v at offset %v", tc.desc, i)
-			}
-		}
-	}
-}
-
-func nextSplitPoint(data []byte, s Splitter) int {
-	for i, b := range data {
-		if s.ShouldSplit(b) {
-			return i + 1
-		}
-	}
-
-	return -1
-}
 
 func TestSplitterStability(t *testing.T) {
 	r := rand.New(rand.NewSource(5))
@@ -88,94 +53,53 @@ func TestSplitterStability(t *testing.T) {
 	for _, tc := range cases {
 		tc := tc
 		t.Run(fmt.Sprintf("%v", tc), func(t *testing.T) {
-			for useNextSplitPoint := 0; useNextSplitPoint < 2; useNextSplitPoint++ {
-				useNextSplitPoint := useNextSplitPoint
+			t.Parallel()
 
-				// run the same test twice, once using the nextSplitPoint helper and once using slower ShouldSplit()
-				t.Run(fmt.Sprintf("useNextSplitPoint=%v", useNextSplitPoint), func(t *testing.T) {
-					t.Parallel()
+			// run each test twice to rule out the possibility of some state leaking through splitter reuse
+			for repeat := 0; repeat < 2; repeat++ {
+				s := tc.factory()
 
-					// run each test twice to rule out the possibility of some state leaking through splitter reuse
-					for repeat := 0; repeat < 2; repeat++ {
-						s := tc.factory()
+				if got, want := s.MaxSegmentSize(), tc.maxSplit; got != want {
+					t.Errorf("unexpected max segment size: %v, want %v", got, want)
+				}
 
-						if got, want := s.MaxSegmentSize(), tc.maxSplit; got != want {
-							t.Errorf("unexpected max segment size: %v, want %v", got, want)
-						}
+				minSplit, maxSplit, count := getSplitPoints(rnd, s)
 
-						var minSplit, maxSplit, count int
+				var avg int
+				if count > 0 {
+					avg = len(rnd) / count
+				}
 
-						if useNextSplitPoint == 1 {
-							minSplit, maxSplit, count = getSplitPointsFast(rnd, s)
-						} else {
-							minSplit, maxSplit, count = getSplitPointsSlow(rnd, s)
-						}
+				if got, want := avg, tc.avg; got != want {
+					t.Errorf("invalid split average size %v, wanted %v", got, want)
+				}
 
-						var avg int
-						if count > 0 {
-							avg = len(rnd) / count
-						}
+				if got, want := count, tc.count; got != want {
+					t.Errorf("invalid split count %v, wanted %v", got, want)
+				}
 
-						if got, want := avg, tc.avg; got != want {
-							t.Errorf("invalid split average size %v, wanted %v", got, want)
-						}
+				if got, want := minSplit, tc.minSplit; got != want {
+					t.Errorf("min split %v, wanted %v", got, want)
+				}
 
-						if got, want := count, tc.count; got != want {
-							t.Errorf("invalid split count %v, wanted %v", got, want)
-						}
+				if got, want := maxSplit, tc.maxSplit; got != want {
+					t.Errorf("max split %v, wanted %v", got, want)
+				}
 
-						if got, want := minSplit, tc.minSplit; got != want {
-							t.Errorf("min split %v, wanted %v", got, want)
-						}
-
-						if got, want := maxSplit, tc.maxSplit; got != want {
-							t.Errorf("max split %v, wanted %v", got, want)
-						}
-
-						// this returns the splitter back to the pool.
-						s.Close()
-					}
-				})
+				// this returns the splitter back to the pool.
+				s.Close()
 			}
 		})
 	}
 }
 
-func getSplitPointsSlow(data []byte, s Splitter) (minSplit, maxSplit, count int) {
-	lastSplit := -1
-	maxSplit = 0
-	minSplit = int(math.MaxInt32)
-	count = 0
-
-	for i, p := range data {
-		if !s.ShouldSplit(p) {
-			continue
-		}
-
-		l := i - lastSplit
-		if l >= maxSplit {
-			maxSplit = l
-		}
-
-		if l < minSplit {
-			minSplit = l
-		}
-
-		count++
-
-		lastSplit = i
-	}
-
-	return minSplit, maxSplit, count
-}
-
-func getSplitPointsFast(data []byte, s Splitter) (minSplit, maxSplit, count int) {
+func getSplitPoints(data []byte, s Splitter) (minSplit, maxSplit, count int) {
 	maxSplit = 0
 	minSplit = int(math.MaxInt32)
 	count = 0
 
 	for len(data) > 0 {
-		n := nextSplitPoint(data, s)
+		n := s.NextSplitPoint(data)
 		if n < 0 {
 			break
 		}
