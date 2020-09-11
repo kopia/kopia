@@ -1,7 +1,6 @@
 package policy
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -15,7 +14,7 @@ import (
 )
 
 func TestPolicyManagerInheritanceTest(t *testing.T) {
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 
 	var env repotesting.Environment
 
@@ -166,7 +165,7 @@ func defaultPolicyWithKeepDaily(t *testing.T, keepDaily int) *Policy {
 }
 
 func TestPolicyManagerResolvesConflicts(t *testing.T) {
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 
 	var env repotesting.Environment
 

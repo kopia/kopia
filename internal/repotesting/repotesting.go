@@ -3,7 +3,6 @@ package repotesting
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -30,19 +29,9 @@ type Environment struct {
 
 // Setup sets up a test environment.
 func (e *Environment) Setup(t *testing.T, opts ...func(*repo.NewRepositoryOptions)) *Environment {
-	var err error
-
 	ctx := testlogging.Context(t)
-
-	e.configDir, err = ioutil.TempDir("", "")
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-
-	e.storageDir, err = ioutil.TempDir("", "")
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
+	e.configDir = t.TempDir()
+	e.storageDir = t.TempDir()
 
 	opt := &repo.NewRepositoryOptions{
 		BlockFormat: content.FormattingOptions{
@@ -102,10 +91,6 @@ func (e *Environment) Close(ctx context.Context, t *testing.T) {
 		// should be empty, assuming Disconnect was successful
 		t.Errorf("error removing config directory: %v", err)
 	}
-
-	if err := os.RemoveAll(e.storageDir); err != nil {
-		t.Errorf("error removing storage directory: %v", err)
-	}
 }
 
 func (e *Environment) configFile() string {
@@ -133,6 +118,10 @@ func (e *Environment) MustOpenAnother(t *testing.T) repo.Repository {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
+
+	t.Cleanup(func() {
+		rep2.Close(testlogging.Context(t))
+	})
 
 	return rep2
 }
