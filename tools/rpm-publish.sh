@@ -14,7 +14,13 @@ if [ ! -d "$PKGDIR" ]; then
 fi
 
 architectures="x86_64 aarch64 armhfp"
-distributions="stable testing unstable"
+distributions="unstable"
+
+if [ "$TRAVIS_TAG" != "" ]; then
+  distributions="stable testing"
+fi
+
+echo Will process distributions $distributions
 
 WORK_DIR=/tmp/rpm-publish
 #rm -rf "$WORK_DIR"
@@ -22,13 +28,12 @@ mkdir -p "$WORK_DIR"
 
 echo Downloading packages...
 
-for a in $architectures; do
-    for d in $distributions; do
-        mkdir -p $WORK_DIR/$d/$a
-    done
+for d in $distributions; do
+  for a in $architectures; do
+    mkdir -p $WORK_DIR/$d/$a
+  done
+  gsutil -m rsync -r -d $GS_PREFIX/$d $WORK_DIR/$d
 done
-
-gsutil rsync $GS_PREFIX/ $WORK_DIR/
 
 rpm_files=$(find $1 -name '*.rpm')
 
@@ -80,13 +85,10 @@ for a in $architectures; do
 done
 
 echo Synchronizing...
-gsutil -m rsync -r -d $WORK_DIR/ $GS_PREFIX/
 
-for a in $architectures; do
-    for d in $distributions; do
-      gsutil -m setmeta -h "Cache-Control:no-cache, max-age=0" -r $GS_PREFIX/$d/$a/repodata/
-    done
+for d in $distributions; do
+  gsutil -m rsync -r -d $WORK_DIR/$d $GS_PREFIX/$d
+  gsutil -m setmeta -h "Cache-Control:no-cache, max-age=0" -r $GS_PREFIX/$d/{x86_64,aarch64,armhfp}/repodata/
 done
-
 
 echo Done.
