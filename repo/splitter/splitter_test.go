@@ -50,44 +50,57 @@ func TestSplitterStability(t *testing.T) {
 		{Pooled(newRabinKarp64SplitterFactory(65536)), 53, 94339, 35875, 131072},
 	}
 
+	getSplitPointsFunctions := map[string]func(data []byte, s Splitter) (minSplit, maxSplit, count int){
+		"getSplitPoints":             getSplitPoints,
+		"getSplitPointsByteByByte":   getSplitPointsByteByByte,
+		"getSplitPointsRandomSlices": getSplitPointsRandomSlices,
+	}
+
 	for _, tc := range cases {
 		tc := tc
 		t.Run(fmt.Sprintf("%v", tc), func(t *testing.T) {
 			t.Parallel()
 
-			// run each test twice to rule out the possibility of some state leaking through splitter reuse
-			for repeat := 0; repeat < 2; repeat++ {
-				s := tc.factory()
+			for name, getSplitPointsFunc := range getSplitPointsFunctions {
+				name := name
+				getSplitPointsFunc := getSplitPointsFunc
 
-				if got, want := s.MaxSegmentSize(), tc.maxSplit; got != want {
-					t.Errorf("unexpected max segment size: %v, want %v", got, want)
-				}
+				t.Run(name, func(t *testing.T) {
+					// run each test twice to rule out the possibility of some state leaking through splitter reuse
+					for repeat := 0; repeat < 2; repeat++ {
+						s := tc.factory()
 
-				minSplit, maxSplit, count := getSplitPoints(rnd, s)
+						if got, want := s.MaxSegmentSize(), tc.maxSplit; got != want {
+							t.Errorf("unexpected max segment size: %v, want %v", got, want)
+						}
 
-				var avg int
-				if count > 0 {
-					avg = len(rnd) / count
-				}
+						minSplit, maxSplit, count := getSplitPointsFunc(rnd, s)
 
-				if got, want := avg, tc.avg; got != want {
-					t.Errorf("invalid split average size %v, wanted %v", got, want)
-				}
+						var avg int
+						if count > 0 {
+							avg = len(rnd) / count
+						}
 
-				if got, want := count, tc.count; got != want {
-					t.Errorf("invalid split count %v, wanted %v", got, want)
-				}
+						if got, want := avg, tc.avg; got != want {
+							t.Errorf("invalid split average size %v, wanted %v", got, want)
+						}
 
-				if got, want := minSplit, tc.minSplit; got != want {
-					t.Errorf("min split %v, wanted %v", got, want)
-				}
+						if got, want := count, tc.count; got != want {
+							t.Errorf("invalid split count %v, wanted %v", got, want)
+						}
 
-				if got, want := maxSplit, tc.maxSplit; got != want {
-					t.Errorf("max split %v, wanted %v", got, want)
-				}
+						if got, want := minSplit, tc.minSplit; got != want {
+							t.Errorf("min split %v, wanted %v", got, want)
+						}
 
-				// this returns the splitter back to the pool.
-				s.Close()
+						if got, want := maxSplit, tc.maxSplit; got != want {
+							t.Errorf("max split %v, wanted %v", got, want)
+						}
+
+						// this returns the splitter back to the pool.
+						s.Close()
+					}
+				})
 			}
 		})
 	}
@@ -115,6 +128,74 @@ func getSplitPoints(data []byte, s Splitter) (minSplit, maxSplit, count int) {
 		}
 
 		data = data[n:]
+	}
+
+	return minSplit, maxSplit, count
+}
+
+func getSplitPointsByteByByte(data []byte, s Splitter) (minSplit, maxSplit, count int) {
+	lastSplit := -1
+	maxSplit = 0
+	minSplit = int(math.MaxInt32)
+	count = 0
+
+	for i := range data {
+		if s.NextSplitPoint(data[i:i+1]) == -1 {
+			continue
+		}
+
+		l := i - lastSplit
+		if l >= maxSplit {
+			maxSplit = l
+		}
+
+		if l < minSplit {
+			minSplit = l
+		}
+
+		count++
+
+		lastSplit = i
+	}
+
+	return minSplit, maxSplit, count
+}
+
+func getSplitPointsRandomSlices(data []byte, s Splitter) (minSplit, maxSplit, count int) {
+	lastSplit := -1
+	maxSplit = 0
+	minSplit = int(math.MaxInt32)
+	count = 0
+
+	for i := 0; i < len(data); {
+		// how many bytes to feed to the splitter.
+		numBytes := rand.Intn(1000) + 1
+		if i+numBytes > len(data) {
+			numBytes = len(data) - i
+		}
+
+		n := s.NextSplitPoint(data[i : i+numBytes])
+		if n == -1 {
+			// no split point in the next numBytes bytes
+			i += numBytes
+			continue
+		}
+
+		// we have a split point and the splitter consumed 'n' bytes
+		l := i + n - 1 - lastSplit
+		if l >= maxSplit {
+			maxSplit = l
+		}
+
+		if l < minSplit {
+			minSplit = l
+		}
+
+		count++
+
+		lastSplit = i + n - 1
+
+		i += n
 	}
 
 	return minSplit, maxSplit, count
