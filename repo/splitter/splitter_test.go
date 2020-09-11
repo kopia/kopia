@@ -32,6 +32,16 @@ func TestSplitters(t *testing.T) {
 	}
 }
 
+func nextSplitPoint(data []byte, s Splitter) int {
+	for i, b := range data {
+		if s.ShouldSplit(b) {
+			return i + 1
+		}
+	}
+
+	return -1
+}
+
 func TestSplitterStability(t *testing.T) {
 	r := rand.New(rand.NewSource(5))
 	rnd := make([]byte, 5000000)
@@ -78,63 +88,110 @@ func TestSplitterStability(t *testing.T) {
 	for _, tc := range cases {
 		tc := tc
 		t.Run(fmt.Sprintf("%v", tc), func(t *testing.T) {
-			t.Parallel()
-			// run each test twice to rule out the possibility of some state leaking through splitter reuse
-			for repeat := 0; repeat < 2; repeat++ {
-				s := tc.factory()
+			for useNextSplitPoint := 0; useNextSplitPoint < 2; useNextSplitPoint++ {
+				useNextSplitPoint := useNextSplitPoint
 
-				lastSplit := -1
-				maxSplit := 0
-				minSplit := int(math.MaxInt32)
-				count := 0
+				// run the same test twice, once using the nextSplitPoint helper and once using slower ShouldSplit()
+				t.Run(fmt.Sprintf("useNextSplitPoint=%v", useNextSplitPoint), func(t *testing.T) {
+					t.Parallel()
 
-				if got, want := s.MaxSegmentSize(), tc.maxSplit; got != want {
-					t.Errorf("unexpected max segment size: %v, want %v", got, want)
-				}
+					// run each test twice to rule out the possibility of some state leaking through splitter reuse
+					for repeat := 0; repeat < 2; repeat++ {
+						s := tc.factory()
 
-				for i, p := range rnd {
-					if !s.ShouldSplit(p) {
-						continue
+						if got, want := s.MaxSegmentSize(), tc.maxSplit; got != want {
+							t.Errorf("unexpected max segment size: %v, want %v", got, want)
+						}
+
+						var minSplit, maxSplit, count int
+
+						if useNextSplitPoint == 1 {
+							minSplit, maxSplit, count = getSplitPointsFast(rnd, s)
+						} else {
+							minSplit, maxSplit, count = getSplitPointsSlow(rnd, s)
+						}
+
+						var avg int
+						if count > 0 {
+							avg = len(rnd) / count
+						}
+
+						if got, want := avg, tc.avg; got != want {
+							t.Errorf("invalid split average size %v, wanted %v", got, want)
+						}
+
+						if got, want := count, tc.count; got != want {
+							t.Errorf("invalid split count %v, wanted %v", got, want)
+						}
+
+						if got, want := minSplit, tc.minSplit; got != want {
+							t.Errorf("min split %v, wanted %v", got, want)
+						}
+
+						if got, want := maxSplit, tc.maxSplit; got != want {
+							t.Errorf("max split %v, wanted %v", got, want)
+						}
+
+						// this returns the splitter back to the pool.
+						s.Close()
 					}
-
-					l := i - lastSplit
-					if l >= maxSplit {
-						maxSplit = l
-					}
-
-					if l < minSplit {
-						minSplit = l
-					}
-
-					count++
-
-					lastSplit = i
-				}
-
-				var avg int
-				if count > 0 {
-					avg = len(rnd) / count
-				}
-
-				if got, want := avg, tc.avg; got != want {
-					t.Errorf("invalid split average size %v, wanted %v", got, want)
-				}
-
-				if got, want := count, tc.count; got != want {
-					t.Errorf("invalid split count %v, wanted %v", got, want)
-				}
-
-				if got, want := minSplit, tc.minSplit; got != want {
-					t.Errorf("min split %v, wanted %v", got, want)
-				}
-
-				if got, want := maxSplit, tc.maxSplit; got != want {
-					t.Errorf("max split %v, wanted %v", got, want)
-				}
-
-				// this returns the splitter back to the pool.
-				s.Close()
+				})
 			}
 		})
 	}
+}
+
+func getSplitPointsSlow(data []byte, s Splitter) (minSplit, maxSplit, count int) {
+	lastSplit := -1
+	maxSplit = 0
+	minSplit = int(math.MaxInt32)
+	count = 0
+
+	for i, p := range data {
+		if !s.ShouldSplit(p) {
+			continue
+		}
+
+		l := i - lastSplit
+		if l >= maxSplit {
+			maxSplit = l
+		}
+
+		if l < minSplit {
+			minSplit = l
+		}
+
+		count++
+
+		lastSplit = i
+	}
+
+	return minSplit, maxSplit, count
+}
+
+func getSplitPointsFast(data []byte, s Splitter) (minSplit, maxSplit, count int) {
+	maxSplit = 0
+	minSplit = int(math.MaxInt32)
+	count = 0
+
+	for len(data) > 0 {
+		n := nextSplitPoint(data, s)
+		if n < 0 {
+			break
+		}
+
+		count++
+
+		if n >= maxSplit {
+			maxSplit = n
+		}
+
+		if n < minSplit {
+			minSplit = n
+		}
+
+		data = data[n:]
+	}
+
+	return minSplit, maxSplit, count
 }
