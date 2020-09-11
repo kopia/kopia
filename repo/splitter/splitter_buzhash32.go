@@ -24,24 +24,75 @@ func (rs *buzhash32Splitter) Reset() {
 }
 
 func (rs *buzhash32Splitter) NextSplitPoint(b []byte) int {
-	return nextSplitPointHelper(b, rs.shouldSplit)
-}
+	var fastPathBytes int
 
-func (rs *buzhash32Splitter) shouldSplit(b byte) bool {
-	rs.rh.Roll(b)
-	rs.count++
+	// simple optimization, if we're below minSize, there's no reason to even
+	// look at the Sum32() or maxSize
+	if left := rs.minSize - rs.count - 1; left > 0 {
+		fastPathBytes = left
+		if fastPathBytes > len(b) {
+			fastPathBytes = len(b)
+		}
 
-	if rs.rh.Sum32()&rs.mask == 0 && rs.count >= rs.minSize {
-		rs.count = 0
-		return true
+		var i int
+
+		for i = 0; i < fastPathBytes-3; i += 4 {
+			rs.rh.Roll(b[i])
+			rs.rh.Roll(b[i+1])
+			rs.rh.Roll(b[i+2])
+			rs.rh.Roll(b[i+3])
+		}
+
+		for ; i < fastPathBytes; i++ {
+			rs.rh.Roll(b[i])
+		}
+
+		rs.count += fastPathBytes
+		b = b[fastPathBytes:]
 	}
 
-	if rs.count >= rs.maxSize {
-		rs.count = 0
+	// second optimization, if we're safely below maxSize, there's no reason to check it
+	// in a loop
+	if left := rs.maxSize - rs.count - 1; left > 0 {
+		fp := left
+		if fp >= len(b) {
+			fp = len(b)
+		}
+
+		for i, b := range b[0:fp] {
+			if rs.shouldSplitNoMax(b) {
+				rs.count = 0
+				return fastPathBytes + i + 1
+			}
+		}
+
+		fastPathBytes += fp
+		b = b[fp:]
+	}
+
+	for i, b := range b {
+		if rs.shouldSplitWithMaxCheck(b) {
+			rs.count = 0
+			return fastPathBytes + i + 1
+		}
+	}
+
+	return -1
+}
+
+func (rs *buzhash32Splitter) shouldSplitWithMaxCheck(b byte) bool {
+	if rs.shouldSplitNoMax(b) || rs.count >= rs.maxSize {
 		return true
 	}
 
 	return false
+}
+
+func (rs *buzhash32Splitter) shouldSplitNoMax(b byte) bool {
+	rs.rh.Roll(b)
+	rs.count++
+
+	return rs.rh.Sum32()&rs.mask == 0
 }
 
 func (rs *buzhash32Splitter) MaxSegmentSize() int {

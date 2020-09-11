@@ -71,16 +71,5 @@ func GetFactory(name string) Factory {
 	return splitterFactories[name]
 }
 
-// nextSplitPointHelper implements NextSplitPoint by invoking ShouldSplit on a given splitter.
-func nextSplitPointHelper(data []byte, shouldSplit func(b byte) bool) int {
-	for i, b := range data {
-		if shouldSplit(b) {
-			return i + 1
-		}
-	}
-
-	return -1
-}
-
 // DefaultAlgorithm is the name of the splitter used by default for new repositories.
 const DefaultAlgorithm = "DYNAMIC-4M-BUZHASH"
