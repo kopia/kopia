@@ -504,7 +504,8 @@ func TestDeleteContent(t *testing.T) {
 	bm := newTestContentManager(t, data, keyTime, nil)
 	defer bm.Close(ctx)
 
-	content1 := writeContentAndVerify(ctx, t, bm, seededRandomData(10, 100))
+	c1Bytes := seededRandomData(10, 100)
+	content1 := writeContentAndVerify(ctx, t, bm, c1Bytes)
 
 	if err := bm.Flush(ctx); err != nil {
 		t.Fatalf("error flushing: %v", err)
@@ -512,30 +513,32 @@ func TestDeleteContent(t *testing.T) {
 
 	dumpContents(ctx, t, bm, "after first flush")
 
-	content2 := writeContentAndVerify(ctx, t, bm, seededRandomData(11, 100))
+	c2Bytes := seededRandomData(11, 100)
+	content2 := writeContentAndVerify(ctx, t, bm, c2Bytes)
 
-	log(ctx).Infof("xxx deleting.")
+	log(ctx).Infof("deleting previously flushed content (c1)")
 
 	if err := bm.DeleteContent(ctx, content1); err != nil {
 		t.Fatalf("unable to delete content %v: %v", content1, err)
 	}
 
-	log(ctx).Infof("yyy deleting.")
+	log(ctx).Infof("deleting not flushed content (c2)")
 
 	if err := bm.DeleteContent(ctx, content2); err != nil {
 		t.Fatalf("unable to delete content %v: %v", content2, err)
 	}
 
-	verifyContentNotFound(ctx, t, bm, content1)
+	// c1 is readable, but should be marked as deleted at this point
+	verifyDeletedContentRead(ctx, t, bm, content1, c1Bytes)
 	verifyContentNotFound(ctx, t, bm, content2)
 	log(ctx).Infof("flushing")
 	bm.Flush(ctx)
 	log(ctx).Infof("flushed")
-	log(ctx).Debugf("-----------")
 
 	bm = newTestContentManager(t, data, keyTime, nil)
 	defer bm.Close(ctx)
-	verifyContentNotFound(ctx, t, bm, content1)
+
+	verifyDeletedContentRead(ctx, t, bm, content1, c1Bytes)
 	verifyContentNotFound(ctx, t, bm, content2)
 }
 
@@ -709,8 +712,11 @@ func TestUndeleteContent(t *testing.T) {
 	keyTime := map[blob.ID]time.Time{}
 	bm := newTestContentManager(t, data, keyTime, nil)
 
-	content1 := writeContentAndVerify(ctx, t, bm, seededRandomData(20, 10))
-	content2 := writeContentAndVerify(ctx, t, bm, seededRandomData(21, 10))
+	c1Bytes := seededRandomData(20, 10)
+	content1 := writeContentAndVerify(ctx, t, bm, c1Bytes)
+
+	c2Bytes := seededRandomData(21, 10)
+	content2 := writeContentAndVerify(ctx, t, bm, c2Bytes)
 	content3 := writeContentAndVerify(ctx, t, bm, seededRandomData(31, 10))
 
 	if err := bm.Flush(ctx); err != nil {
@@ -744,8 +750,8 @@ func TestUndeleteContent(t *testing.T) {
 		t.Fatalf("unable to delete content %v: %v", content4, err)
 	}
 
-	verifyContentNotFound(ctx, t, bm, content1)
-	verifyContentNotFound(ctx, t, bm, content2)
+	verifyDeletedContentRead(ctx, t, bm, content1, c1Bytes)
+	verifyDeletedContentRead(ctx, t, bm, content2, c2Bytes)
 	verifyContentNotFound(ctx, t, bm, content4)
 
 	// At this point:
@@ -1279,15 +1285,21 @@ func TestRewriteDeleted(t *testing.T) {
 						}
 					}
 
-					content1 := writeContentAndVerify(ctx, t, bm, seededRandomData(10, 100))
+					c1Bytes := seededRandomData(10, 100)
+					content1 := writeContentAndVerify(ctx, t, bm, c1Bytes)
 					applyStep(action1)
 					assertNoError(t, bm.DeleteContent(ctx, content1))
 					applyStep(action2)
+
 					if got, want := bm.RewriteContent(ctx, content1), ErrContentNotFound; got != want && got != nil {
 						t.Errorf("unexpected error %v, wanted %v", got, want)
 					}
 					applyStep(action3)
-					verifyContentNotFound(ctx, t, bm, content1)
+					if action1 == 2 { // no flush
+						verifyContentNotFound(ctx, t, bm, content1)
+					} else {
+						verifyDeletedContentRead(ctx, t, bm, content1, c1Bytes)
+					}
 					dumpContentManagerData(ctx, t, data)
 				})
 			}
@@ -1877,7 +1889,22 @@ func verifyContentNotFound(ctx context.Context, t *testing.T, bm *Manager, conte
 
 	b, err := bm.GetContent(ctx, contentID)
 	if err != ErrContentNotFound {
-		t.Errorf("unexpected response from GetContent(%q), got %v,%v, expected %v", contentID, b, err, ErrContentNotFound)
+		t.Fatalf("unexpected response from GetContent(%q), got %v,%v, expected %v", contentID, b, err, ErrContentNotFound)
+	}
+}
+
+func verifyDeletedContentRead(ctx context.Context, t *testing.T, bm *Manager, contentID ID, b []byte) {
+	t.Helper()
+	verifyContent(ctx, t, bm, contentID, b)
+
+	ci, err := bm.ContentInfo(ctx, contentID)
+	if err != nil {
+		t.Errorf("error getting content info %q: %v", contentID, err)
+		return
+	}
+
+	if !ci.Deleted {
+		t.Errorf("Expected content to be deleted but it is not: %#v", ci)
 	}
 }
 
