@@ -289,7 +289,7 @@ travis-create-long-term-repository:
 
 endif
 
-ifeq ($(TRAVIS_OS_NAME)/$(kopia_arch_name),linux/amd64)
+ifeq ($(TRAVIS_OS_NAME)/$(kopia_arch_name)/$(TRAVIS_PULL_REQUEST),linux/amd64/false)
 publish-packages:
 	$(CURDIR)/tools/apt-publish.sh $(CURDIR)/dist
 	$(CURDIR)/tools/rpm-publish.sh $(CURDIR)/dist
