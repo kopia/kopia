@@ -1,6 +1,7 @@
 package snapshot_test
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -30,6 +31,10 @@ func TestSnapshotsAPI(t *testing.T) {
 		Host:     "host-1",
 		UserName: "user-1",
 		Path:     "/some/other/path",
+	}
+
+	if _, err := snapshot.LoadSnapshot(ctx, env.Repository, "no-such-manifest-id"); !errors.Is(err, snapshot.ErrSnapshotNotFound) {
+		t.Errorf("unexpected error when deleting snapshot for manifest that does not exist: %v", err)
 	}
 
 	verifySnapshotManifestIDs(t, env.Repository, nil, nil)
