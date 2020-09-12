@@ -34,7 +34,16 @@ func (rs *rabinKarp64Splitter) NextSplitPoint(b []byte) int {
 			fastPathBytes = len(b)
 		}
 
-		for i := 0; i < fastPathBytes; i++ {
+		var i int
+
+		for i = 0; i < fastPathBytes-3; i += 4 {
+			rs.rh.Roll(b[i])
+			rs.rh.Roll(b[i+1])
+			rs.rh.Roll(b[i+2])
+			rs.rh.Roll(b[i+3])
+		}
+
+		for ; i < fastPathBytes; i++ {
 			rs.rh.Roll(b[i])
 		}
 
