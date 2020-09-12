@@ -211,19 +211,30 @@ func TestSnapshotDeleteRestore(t *testing.T) {
 	// snapshot delete should succeed
 	e.RunAndExpectSuccess(t, "snapshot", "delete", snapID, "--delete")
 
+	notRestoreDir := makeScratchDir(t)
+
+	// Make sure the restore did not happen from the deleted snapshot
+	e.RunAndExpectFailure(t, "snapshot", "restore", snapID, notRestoreDir)
+	assertEmptyDir(t, notRestoreDir)
+
 	// Subsequent snapshot delete to the same ID should fail
 	e.RunAndExpectFailure(t, "snapshot", "delete", snapID, "--delete")
 
-	// garbage-collect to clean up the root object. Otherwise
-	// a restore will succeed
+	// garbage-collect to clean up the root object.
 	e.RunAndExpectSuccess(t, "snapshot", "gc", "--delete", "--min-age", "0s")
 
-	// Run a restore on the deleted snapshot's root ID
-	notRestoreDir := makeScratchDir(t)
-	e.RunAndExpectFailure(t, "restore", rootID, notRestoreDir)
+	// Run a restore on the deleted snapshot's root ID. The root should be
+	// marked as deleted but still recoverable
+	restoreDir2 := makeScratchDir(t)
 
+	e.RunAndExpectSuccess(t, "restore", rootID, restoreDir2)
+	testenv.AssertNoError(t, os.Chmod(restoreDir2, 0o700))
+	compareDirs(t, source, restoreDir2)
+}
+
+func assertEmptyDir(t *testing.T, dir string) {
 	// Make sure the restore did not happen from the deleted snapshot
-	fileInfo, err := ioutil.ReadDir(notRestoreDir)
+	fileInfo, err := ioutil.ReadDir(dir)
 	testenv.AssertNoError(t, err)
 
 	if len(fileInfo) != 0 {
