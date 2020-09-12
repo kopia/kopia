@@ -12,15 +12,17 @@ func (s *fixedSplitter) Reset() {
 	s.cur = 0
 }
 
-func (s *fixedSplitter) ShouldSplit(b byte) bool {
-	s.cur++
+func (s *fixedSplitter) NextSplitPoint(b []byte) int {
+	n := s.chunkLength - s.cur
 
-	if s.cur >= s.chunkLength {
-		s.cur = 0
-		return true
+	if len(b) < n {
+		s.cur += len(b)
+		return -1
 	}
 
-	return false
+	s.cur = 0
+
+	return n
 }
 
 func (s *fixedSplitter) MaxSegmentSize() int {

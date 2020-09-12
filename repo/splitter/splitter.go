@@ -10,9 +10,12 @@ const (
 )
 
 // Splitter determines when to split a given object.
-// It must return true if the object should be split after byte b is processed.
 type Splitter interface {
-	ShouldSplit(b byte) bool
+	// NextSplitPoint() determines the location of the next split point in the given slice of bytes.
+	// It returns value `n` between 1..len(b) if a split point happens AFTER byte n and the splitter
+	// has consumed `n` bytes.
+	// If there is no split point, the splitter returns -1 and consumes all bytes from the slice.
+	NextSplitPoint(b []byte) int
 	MaxSegmentSize() int
 	Reset()
 	Close()

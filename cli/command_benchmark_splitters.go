@@ -59,19 +59,17 @@ func runBenchmarkSplitterAction(ctx *kingpin.ParseContext) error {
 
 		for _, data := range dataBlocks {
 			s := fact()
-			l := 0
 
-			for _, d := range data {
-				l++
-
-				if s.ShouldSplit(d) {
-					segmentLengths = append(segmentLengths, l)
-					l = 0
+			d := data
+			for len(d) > 0 {
+				n := s.NextSplitPoint(d)
+				if n < 0 {
+					segmentLengths = append(segmentLengths, len(d))
+					break
 				}
-			}
 
-			if l > 0 {
-				segmentLengths = append(segmentLengths, l)
+				segmentLengths = append(segmentLengths, n)
+				d = d[n:]
 			}
 		}
 
