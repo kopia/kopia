@@ -267,13 +267,8 @@ func (w *objectWriter) Result() (ID, error) {
 
 	defer iw.Close() //nolint:errcheck
 
-	ind := indirectObject{
-		StreamID: "kopia:indirect",
-		Entries:  w.indirectIndex,
-	}
-
-	if err := json.NewEncoder(iw).Encode(ind); err != nil {
-		return "", errors.Wrap(err, "unable to write indirect object index")
+	if err := writeIndirectObject(iw, w.indirectIndex); err != nil {
+		return "", err
 	}
 
 	oid, err := iw.Result()
@@ -282,6 +277,19 @@ func (w *objectWriter) Result() (ID, error) {
 	}
 
 	return IndirectObjectID(oid), nil
+}
+
+func writeIndirectObject(w io.Writer, entries []indirectObjectEntry) error {
+	ind := indirectObject{
+		StreamID: "kopia:indirect",
+		Entries:  entries,
+	}
+
+	if err := json.NewEncoder(w).Encode(ind); err != nil {
+		return errors.Wrap(err, "unable to write indirect object index")
+	}
+
+	return nil
 }
 
 // WriterOptions can be passed to Repository.NewWriter().
