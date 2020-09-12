@@ -98,7 +98,7 @@ func runInternal(ctx context.Context, rep *repo.DirectRepository, params mainten
 
 	log(ctx).Infof("looking for unreferenced contents")
 
-	err := rep.Content.IterateContents(ctx, content.IterateOptions{}, func(ci content.Info) error {
+	err := rep.Content.IterateContents(ctx, content.IterateOptions{IncludeDeleted: true}, func(ci content.Info) error {
 		if manifest.ContentPrefix == ci.ID.Prefix() {
 			system.Add(int64(ci.Length))
 			return nil
