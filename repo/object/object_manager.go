@@ -82,13 +82,8 @@ func (om *Manager) Open(ctx context.Context, objectID ID) (Reader, error) {
 
 func (om *Manager) openAndAssertLength(ctx context.Context, objectID ID, assertLength int64) (Reader, error) {
 	if indexObjectID, ok := objectID.IndexObjectID(); ok {
-		rd, err := om.Open(ctx, indexObjectID)
-		if err != nil {
-			return nil, err
-		}
-		defer rd.Close() //nolint:errcheck
-
-		seekTable, err := om.flattenListChunk(rd)
+		// recursively calls openAndAssertLength
+		seekTable, err := om.loadSeekTable(ctx, indexObjectID)
 		if err != nil {
 			return nil, err
 		}
@@ -123,13 +118,7 @@ func (om *Manager) verifyIndirectObjectInternal(ctx context.Context, indexObject
 		return errors.Wrap(err, "unable to read index")
 	}
 
-	rd, err := om.Open(ctx, indexObjectID)
-	if err != nil {
-		return err
-	}
-	defer rd.Close() //nolint:errcheck
-
-	seekTable, err := om.flattenListChunk(rd)
+	seekTable, err := om.loadSeekTable(ctx, indexObjectID)
 	if err != nil {
 		return err
 	}
@@ -224,10 +213,16 @@ type indirectObject struct {
 	Entries  []indirectObjectEntry `json:"entries"`
 }
 
-func (om *Manager) flattenListChunk(rawReader io.Reader) ([]indirectObjectEntry, error) {
+func (om *Manager) loadSeekTable(ctx context.Context, indexObjectID ID) ([]indirectObjectEntry, error) {
+	r, err := om.openAndAssertLength(ctx, indexObjectID, -1)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close() //nolint:errcheck
+
 	var ind indirectObject
 
-	if err := json.NewDecoder(rawReader).Decode(&ind); err != nil {
+	if err := json.NewDecoder(r).Decode(&ind); err != nil {
 		return nil, errors.Wrap(err, "invalid indirect object")
 	}
 
