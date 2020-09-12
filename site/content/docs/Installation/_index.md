@@ -6,7 +6,7 @@ weight: 20
 
 ### Installing Kopia 
 
-Kopia in an open source software (OSS) developed by a community on GitHub.
+Kopia is an open source software (OSS) developed by a community on GitHub.
 
 The recommended way of installing Kopia is to use a package manager for your operating system (YUM or APT for Linux, Homebrew for macOS, Scoop for Windows). They offer quick and convenient way of installing and keeping Kopia up-to-date. See below for more information.
 
