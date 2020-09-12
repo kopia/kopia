@@ -16,7 +16,7 @@ Kopia is available in two variants:
 
 * `Command Line Interface (CLI)` which is a stand-alone binary called `kopia` and which can be used a terminal window or scripts. This is typically the preferred option for power users, system administrators, etc.
 
-* `Graphical User Interface (GUI)` called `KopiaUI` which is a desktop application that offers graphical user interface tailored towards less technical users. It has fewer features than CLI but 
+* `Graphical User Interface (GUI)` called `KopiaUI` which is a desktop application that offers graphical user interface tailored towards less technical users.
 
 ### Operating System Support
 
