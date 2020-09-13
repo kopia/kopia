@@ -572,10 +572,7 @@ func (bm *Manager) GetContent(ctx context.Context, contentID ID) (v []byte, err 
 		return nil, err
 	}
 
-	if bi.Deleted {
-		return nil, ErrContentNotFound
-	}
-
+	// Return content even if it is bi.Deleted so it can be recovered during GC among others.
 	return bm.getContentDataUnlocked(ctx, pp, &bi)
 }
 

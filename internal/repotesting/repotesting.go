@@ -27,11 +27,18 @@ type Environment struct {
 	connected  bool
 }
 
+// Options used during Environment Setup.
+type Options struct {
+	NewRepositoryOptions func(*repo.NewRepositoryOptions)
+	OpenOptions          func(*repo.Options)
+}
+
 // Setup sets up a test environment.
-func (e *Environment) Setup(t *testing.T, opts ...func(*repo.NewRepositoryOptions)) *Environment {
+func (e *Environment) Setup(t *testing.T, opts ...Options) *Environment {
 	ctx := testlogging.Context(t)
 	e.configDir = t.TempDir()
 	e.storageDir = t.TempDir()
+	openOpt := &repo.Options{}
 
 	opt := &repo.NewRepositoryOptions{
 		BlockFormat: content.FormattingOptions{
@@ -45,7 +52,13 @@ func (e *Environment) Setup(t *testing.T, opts ...func(*repo.NewRepositoryOption
 	}
 
 	for _, mod := range opts {
-		mod(opt)
+		if mod.NewRepositoryOptions != nil {
+			mod.NewRepositoryOptions(opt)
+		}
+
+		if mod.OpenOptions != nil {
+			mod.OpenOptions(openOpt)
+		}
 	}
 
 	st, err := filesystem.New(ctx, &filesystem.Options{
@@ -65,7 +78,7 @@ func (e *Environment) Setup(t *testing.T, opts ...func(*repo.NewRepositoryOption
 
 	e.connected = true
 
-	rep, err := repo.Open(ctx, e.configFile(), masterPassword, &repo.Options{})
+	rep, err := repo.Open(ctx, e.configFile(), masterPassword, openOpt)
 	if err != nil {
 		t.Fatalf("can't open: %v", err)
 	}
@@ -87,6 +100,9 @@ func (e *Environment) Close(ctx context.Context, t *testing.T) {
 		}
 	}
 
+	// may need to remove the maintenance lock
+	os.Remove(e.configFile() + ".mlock")
+
 	if err := os.Remove(e.configDir); err != nil {
 		// should be empty, assuming Disconnect was successful
 		t.Errorf("error removing config directory: %v", err)
@@ -98,13 +114,13 @@ func (e *Environment) configFile() string {
 }
 
 // MustReopen closes and reopens the repository.
-func (e *Environment) MustReopen(t *testing.T) {
+func (e *Environment) MustReopen(t *testing.T, openOpts ...func(*repo.Options)) {
 	err := e.Repository.Close(testlogging.Context(t))
 	if err != nil {
 		t.Fatalf("close error: %v", err)
 	}
 
-	rep, err := repo.Open(testlogging.Context(t), e.configFile(), masterPassword, &repo.Options{})
+	rep, err := repo.Open(testlogging.Context(t), e.configFile(), masterPassword, repoOptions(openOpts))
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -126,6 +142,37 @@ func (e *Environment) MustOpenAnother(t *testing.T) repo.Repository {
 	return rep2
 }
 
+// MustConnectOpenAnother opens another repository backend by the same storage,
+// with independent config and cache options.
+func (e *Environment) MustConnectOpenAnother(t *testing.T, openOpts ...func(*repo.Options)) repo.Repository {
+	ctx := testlogging.Context(t)
+
+	st, err := filesystem.New(ctx, &filesystem.Options{
+		Path: e.storageDir,
+	})
+	if err != nil {
+		t.Fatal("err:", err)
+	}
+
+	config := filepath.Join(t.TempDir(), "kopia.config")
+	connOpts := &repo.ConnectOptions{
+		CachingOptions: content.CachingOptions{
+			CacheDirectory: t.TempDir(),
+		},
+	}
+
+	if err = repo.Connect(ctx, config, st, masterPassword, connOpts); err != nil {
+		t.Fatal("can't connect:", err)
+	}
+
+	rep, err := repo.Open(ctx, e.configFile(), masterPassword, repoOptions(openOpts))
+	if err != nil {
+		t.Fatal("can't open:", err)
+	}
+
+	return rep
+}
+
 // VerifyBlobCount verifies that the underlying storage contains the specified number of blobs.
 func (e *Environment) VerifyBlobCount(t *testing.T, want int) {
 	var got int
@@ -138,4 +185,16 @@ func (e *Environment) VerifyBlobCount(t *testing.T, want int) {
 	if got != want {
 		t.Errorf("got unexpected number of BLOBs: %v, wanted %v", got, want)
 	}
+}
+
+func repoOptions(openOpts []func(*repo.Options)) *repo.Options {
+	openOpt := &repo.Options{}
+
+	for _, mod := range openOpts {
+		if mod != nil {
+			mod(openOpt)
+		}
+	}
+
+	return openOpt
 }
