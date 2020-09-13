@@ -297,7 +297,7 @@ func TestUploadWithCheckpointing(t *testing.T) {
 		return fakeTicker
 	}
 
-	// create a channel that will be sent to whenver checkpoint completes.
+	// create a channel that will be sent to whenever checkpoint completes.
 	u.checkpointFinished = make(chan struct{})
 
 	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
