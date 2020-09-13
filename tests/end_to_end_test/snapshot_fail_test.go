@@ -21,7 +21,7 @@ func TestSnapshotNonexistent(t *testing.T) {
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
-	scratchDir := makeScratchDir(t)
+	scratchDir := t.TempDir()
 
 	// Test snapshot of nonexistent directory fails
 	e.RunAndExpectFailure(t, "snapshot", "create", filepath.Join(scratchDir, "notExist"))
@@ -194,7 +194,7 @@ func TestSnapshotFail(t *testing.T) {
 
 					e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
-					scratchDir := makeScratchDir(t)
+					scratchDir := t.TempDir()
 
 					snapSource := filepath.Join(scratchDir, tc.snapSource)
 					modifyEntry := filepath.Join(scratchDir, tc.modifyEntry)

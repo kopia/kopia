@@ -35,7 +35,7 @@ func TestRestoreFail(t *testing.T) {
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
-	scratchDir := makeScratchDir(t)
+	scratchDir := t.TempDir()
 	sourceDir := filepath.Join(scratchDir, "source")
 	targetDir := filepath.Join(scratchDir, "target")
 

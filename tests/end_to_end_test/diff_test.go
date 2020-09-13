@@ -18,7 +18,7 @@ func TestDiff(t *testing.T) {
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
-	dataDir := makeScratchDir(t)
+	dataDir := t.TempDir()
 
 	// initial snapshot
 	testenv.AssertNoError(t, os.MkdirAll(dataDir, 0o777))

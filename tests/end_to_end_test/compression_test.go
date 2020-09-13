@@ -22,7 +22,7 @@ func TestCompression(t *testing.T) {
 	// set global policy
 	e.RunAndExpectSuccess(t, "policy", "set", "--global", "--compression", "pgzip")
 
-	dataDir := makeScratchDir(t)
+	dataDir := t.TempDir()
 
 	dataLines := []string{
 		"hello world",

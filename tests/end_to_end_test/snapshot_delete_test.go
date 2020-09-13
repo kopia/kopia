@@ -108,7 +108,7 @@ func testSnapshotDelete(t *testing.T, argMaker deleteArgMaker, expectDeleteSucce
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
-	dataDir := makeScratchDir(t)
+	dataDir := t.TempDir()
 	testenv.AssertNoError(t, os.MkdirAll(dataDir, 0o777))
 	testenv.AssertNoError(t, ioutil.WriteFile(filepath.Join(dataDir, "some-file1"), []byte(`
 hello world
@@ -175,7 +175,7 @@ func TestSnapshotDeleteRestore(t *testing.T) {
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
-	source := makeScratchDir(t)
+	source := filepath.Join(t.TempDir(), "source")
 	testenv.MustCreateDirectoryTree(t, source, testenv.DirectoryTreeOptions{
 		Depth:                  1,
 		MaxSubdirsPerDirectory: 10,
@@ -198,7 +198,7 @@ func TestSnapshotDeleteRestore(t *testing.T) {
 	snapID := si[0].Snapshots[0].SnapshotID
 	rootID := si[0].Snapshots[0].ObjectID
 
-	restoreDir := makeScratchDir(t)
+	restoreDir := t.TempDir()
 	e.RunAndExpectSuccess(t, "restore", rootID, restoreDir)
 
 	// Note: restore does not reset the permissions for the top directory due to
@@ -211,7 +211,7 @@ func TestSnapshotDeleteRestore(t *testing.T) {
 	// snapshot delete should succeed
 	e.RunAndExpectSuccess(t, "snapshot", "delete", snapID, "--delete")
 
-	notRestoreDir := makeScratchDir(t)
+	notRestoreDir := t.TempDir()
 
 	// Make sure the restore did not happen from the deleted snapshot
 	e.RunAndExpectFailure(t, "snapshot", "restore", snapID, notRestoreDir)
@@ -225,7 +225,7 @@ func TestSnapshotDeleteRestore(t *testing.T) {
 
 	// Run a restore on the deleted snapshot's root ID. The root should be
 	// marked as deleted but still recoverable
-	restoreDir2 := makeScratchDir(t)
+	restoreDir2 := t.TempDir()
 
 	e.RunAndExpectSuccess(t, "restore", rootID, restoreDir2)
 	testenv.AssertNoError(t, os.Chmod(restoreDir2, 0o700))
