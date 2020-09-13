@@ -159,6 +159,11 @@ func Disconnect(ctx context.Context, configFile string) error {
 		}
 	}
 
+	maintenanceLock := configFile + ".mlock"
+	if err := os.RemoveAll(maintenanceLock); err != nil {
+		log(ctx).Warningf("unable to remove maintenance lock file", maintenanceLock)
+	}
+
 	return os.Remove(configFile)
 }
 
