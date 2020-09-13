@@ -92,12 +92,15 @@ func NewCLITest(t *testing.T) *CLITest {
 	}
 
 	return &CLITest{
-		startTime:   clock.Now(),
-		RepoDir:     RepoDir,
-		ConfigDir:   ConfigDir,
-		Exe:         filepath.FromSlash(exe),
-		fixedArgs:   fixedArgs,
-		Environment: []string{"KOPIA_PASSWORD=" + repoPassword},
+		startTime: clock.Now(),
+		RepoDir:   RepoDir,
+		ConfigDir: ConfigDir,
+		Exe:       filepath.FromSlash(exe),
+		fixedArgs: fixedArgs,
+		Environment: []string{
+			"KOPIA_PASSWORD=" + repoPassword,
+			"KOPIA_ADVANCED_COMMANDS=enabled",
+		},
 	}
 }
 

@@ -17,6 +17,8 @@ var (
 )
 
 func runRecoverBlockIndexesAction(ctx context.Context, rep *repo.DirectRepository) error {
+	advancedCommand()
+
 	var totalCount int
 
 	defer func() {

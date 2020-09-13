@@ -184,6 +184,23 @@ func maybeRunMaintenance(ctx context.Context, rep repo.Repository) error {
 	return err
 }
 
+func advancedCommand() {
+	if os.Getenv("KOPIA_ADVANCED_COMMANDS") != "enabled" {
+		//nolint:errcheck
+		errorColor.Printf(`
+This command is meant for advanced users only and could be dangerous or lead to
+repository corruption when used improperly.
+
+Most users of Kopia should not have the need to run this command and instead should rely on
+periodic repository maintenance. See https://kopia.io/docs/maintenance/ for more information.
+
+To run this command despite the warning, set KOPIA_ADVANCED_COMMANDS=enabled
+
+`)
+		os.Exit(1)
+	}
+}
+
 // App returns an instance of command-line application object.
 func App() *kingpin.Application {
 	return app

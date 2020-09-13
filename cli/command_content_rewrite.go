@@ -22,6 +22,8 @@ var (
 )
 
 func runContentRewriteCommand(ctx context.Context, rep *repo.DirectRepository) error {
+	advancedCommand()
+
 	return maintenance.RewriteContents(ctx, rep, &maintenance.RewriteContentsOptions{
 		ContentIDRange: contentIDRange(),
 		ContentIDs:     toContentIDs(*contentRewriteIDs),
