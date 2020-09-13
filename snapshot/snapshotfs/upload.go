@@ -138,6 +138,9 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, relativePath string, 
 
 	de.FileSize = written
 
+	atomic.AddInt32(&u.stats.TotalFileCount, 1)
+	atomic.AddInt64(&u.stats.TotalFileSize, de.FileSize)
+
 	return de, nil
 }
 
@@ -225,6 +228,17 @@ func (u *Uploader) copyWithProgress(dst io.Writer, src io.Reader, completed, len
 	return written, nil
 }
 
+func newDirEntryWithSummary(d fs.Entry, oid object.ID, summ *fs.DirectorySummary) (*snapshot.DirEntry, error) {
+	de, err := newDirEntry(d, oid)
+	if err != nil {
+		return nil, err
+	}
+
+	de.DirSummary = summ
+
+	return de, nil
+}
+
 func newDirEntry(md fs.Entry, oid object.ID) (*snapshot.DirEntry, error) {
 	var entryType snapshot.EntryType
 
@@ -263,18 +277,11 @@ func (u *Uploader) uploadFile(ctx context.Context, relativePath string, file fs.
 		return nil, err
 	}
 
-	de, err := newDirEntry(file, res.ObjectID)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to create dir entry")
-	}
-
-	de.DirSummary = &fs.DirectorySummary{
+	return newDirEntryWithSummary(file, res.ObjectID, &fs.DirectorySummary{
 		TotalFileCount: 1,
 		TotalFileSize:  res.FileSize,
 		MaxModTime:     res.ModTime,
-	}
-
-	return de, nil
+	})
 }
 
 // uploadDirWithCheckpointing uploads the specified Directory to the repository.
@@ -288,30 +295,25 @@ func (u *Uploader) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Di
 
 		startTime := u.repo.Time()
 
-		oid, summ, err := uploadDirInternal(ctx, u, rootDir, policyTree, previousDirs, ".")
+		var dmb dirManifestBuilder
+
+		de, err := uploadDirInternal(ctx, u, rootDir, policyTree, previousDirs, ".", &dmb)
 		if err != nil && !errors.Is(err, errCanceled) {
 			return nil, err
 		}
 
-		de, err := newDirEntry(rootDir, oid)
-		if err != nil {
-			return nil, errors.Wrap(err, "unable to create dir entry")
-		}
-
-		de.DirSummary = &summ
-
-		if summ.IncompleteReason == IncompleteReasonCheckpoint {
+		if de.DirSummary.IncompleteReason == IncompleteReasonCheckpoint {
 			u.Progress.Checkpoint()
 
 			// when retrying use the partial snapshot
-			previousDirs = append(previousDirs, DirectoryEntry(u.repo, oid, &summ))
+			previousDirs = append(previousDirs, DirectoryEntry(u.repo, de.ObjectID, de.DirSummary))
 
 			man := &snapshot.Manifest{
 				StartTime:        startTime,
 				EndTime:          u.repo.Time(),
 				RootEntry:        de,
 				Source:           sourceInfo,
-				IncompleteReason: summ.IncompleteReason,
+				IncompleteReason: de.DirSummary.IncompleteReason,
 			}
 
 			if _, err = snapshot.SaveSnapshot(ctx, u.repo, man); err != nil {
@@ -377,11 +379,6 @@ func (u *Uploader) foreachEntryUnlessCanceled(ctx context.Context, parallel int,
 	return eg.Wait()
 }
 
-type dirEntryOrError struct {
-	de          *snapshot.DirEntry
-	failedEntry *fs.EntryWithError
-}
-
 func rootCauseError(err error) error {
 	err = errors.Cause(err)
 	if oserr, ok := err.(*os.PathError); ok {
@@ -391,106 +388,124 @@ func rootCauseError(err error) error {
 	return err
 }
 
-func (u *Uploader) populateChildEntries(parent *snapshot.DirManifest, children <-chan dirEntryOrError) {
-	parentSummary := parent.Summary
+type dirManifestBuilder struct {
+	mu sync.Mutex
 
-	for it := range children {
-		if it.failedEntry != nil {
-			parentSummary.NumFailed++
-			parentSummary.FailedEntries = append(parentSummary.FailedEntries, it.failedEntry)
+	summary fs.DirectorySummary
+	entries []*snapshot.DirEntry
+}
 
-			continue
+// Clone clones the current state of dirManifestBuilder.
+func (b *dirManifestBuilder) Clone() *dirManifestBuilder {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	return &dirManifestBuilder{
+		summary: b.summary.Clone(),
+		entries: append([]*snapshot.DirEntry(nil), b.entries...),
+	}
+}
+
+func (b *dirManifestBuilder) addEntry(de *snapshot.DirEntry) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	b.entries = append(b.entries, de)
+
+	// nolint:exhaustive
+	switch de.Type {
+	case snapshot.EntryTypeFile:
+		b.summary.TotalFileCount++
+		b.summary.TotalFileSize += de.FileSize
+
+		if de.ModTime.After(b.summary.MaxModTime) {
+			b.summary.MaxModTime = de.ModTime
 		}
 
-		de := it.de
+	case snapshot.EntryTypeDirectory:
+		if childSummary := de.DirSummary; childSummary != nil {
+			b.summary.TotalFileCount += childSummary.TotalFileCount
+			b.summary.TotalFileSize += childSummary.TotalFileSize
+			b.summary.TotalDirCount += childSummary.TotalDirCount
+			b.summary.NumFailed += childSummary.NumFailed
+			b.summary.FailedEntries = append(b.summary.FailedEntries, childSummary.FailedEntries...)
 
-		// nolint:exhaustive
-		switch de.Type {
-		case snapshot.EntryTypeFile:
-			u.stats.TotalFileCount++
-			u.stats.TotalFileSize += de.FileSize
-			parentSummary.TotalFileCount++
-			parentSummary.TotalFileSize += de.FileSize
-
-			if de.ModTime.After(parentSummary.MaxModTime) {
-				parentSummary.MaxModTime = de.ModTime
-			}
-
-		case snapshot.EntryTypeDirectory:
-			if childSummary := de.DirSummary; childSummary != nil {
-				parentSummary.TotalFileCount += childSummary.TotalFileCount
-				parentSummary.TotalFileSize += childSummary.TotalFileSize
-				parentSummary.TotalDirCount += childSummary.TotalDirCount
-				parentSummary.NumFailed += childSummary.NumFailed
-				parentSummary.FailedEntries = append(parentSummary.FailedEntries, childSummary.FailedEntries...)
-
-				if childSummary.MaxModTime.After(parentSummary.MaxModTime) {
-					parentSummary.MaxModTime = childSummary.MaxModTime
-				}
+			if childSummary.MaxModTime.After(b.summary.MaxModTime) {
+				b.summary.MaxModTime = childSummary.MaxModTime
 			}
 		}
+	}
+}
 
-		parent.Entries = append(parent.Entries, de)
+func (b *dirManifestBuilder) addFailedEntry(relPath string, err error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	b.summary.NumFailed++
+	b.summary.FailedEntries = append(b.summary.FailedEntries, &fs.EntryWithError{
+		EntryPath: relPath,
+		Error:     err.Error(),
+	})
+}
+
+func (b *dirManifestBuilder) Build(dirModTime time.Time, incompleteReason string) *snapshot.DirManifest {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	s := b.summary
+	s.TotalDirCount++
+
+	if len(b.entries) == 0 {
+		s.MaxModTime = dirModTime
 	}
 
+	s.IncompleteReason = incompleteReason
+
 	// take top N sorted failed entries
-	if len(parent.Summary.FailedEntries) > 0 {
-		sort.Slice(parent.Summary.FailedEntries, func(i, j int) bool {
-			return parent.Summary.FailedEntries[i].EntryPath < parent.Summary.FailedEntries[j].EntryPath
+	if len(b.summary.FailedEntries) > 0 {
+		sort.Slice(b.summary.FailedEntries, func(i, j int) bool {
+			return b.summary.FailedEntries[i].EntryPath < b.summary.FailedEntries[j].EntryPath
 		})
 
-		if len(parent.Summary.FailedEntries) > fs.MaxFailedEntriesPerDirectorySummary {
-			parent.Summary.FailedEntries = parent.Summary.FailedEntries[0:fs.MaxFailedEntriesPerDirectorySummary]
+		if len(b.summary.FailedEntries) > fs.MaxFailedEntriesPerDirectorySummary {
+			b.summary.FailedEntries = b.summary.FailedEntries[0:fs.MaxFailedEntriesPerDirectorySummary]
 		}
 	}
 
 	// sort the result, directories first, then non-directories, ordered by name
-	sort.Slice(parent.Entries, func(i, j int) bool {
-		if leftDir, rightDir := isDir(parent.Entries[i]), isDir(parent.Entries[j]); leftDir != rightDir {
+	sort.Slice(b.entries, func(i, j int) bool {
+		if leftDir, rightDir := isDir(b.entries[i]), isDir(b.entries[j]); leftDir != rightDir {
 			// directories get sorted before non-directories
 			return leftDir
 		}
 
-		return parent.Entries[i].Name < parent.Entries[j].Name
+		return b.entries[i].Name < b.entries[j].Name
 	})
+
+	return &snapshot.DirManifest{
+		StreamType: directoryStreamType,
+		Summary:    &s,
+		Entries:    b.entries,
+	}
 }
 
 func isDir(e *snapshot.DirEntry) bool {
 	return e.Type == snapshot.EntryTypeDirectory
 }
 
-func (u *Uploader) processChildren(ctx context.Context, dirManifest *snapshot.DirManifest, relativePath string, entries fs.Entries, policyTree *policy.Tree, previousEntries []fs.Entries) error {
-	var wg sync.WaitGroup
-
-	// channel where we will add directory and file entries, possibly in parallel
-	output := make(chan dirEntryOrError)
-
-	// goroutine that will drain data from 'output' and update dirManifest
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-		u.populateChildEntries(dirManifest, output)
-	}()
-
-	defer func() {
-		// before this function returns, close the output channel and wait for the goroutine above to complete.
-		close(output)
-		wg.Wait()
-	}()
-
-	if err := u.processSubdirectories(ctx, output, relativePath, entries, policyTree, previousEntries); err != nil {
+func (u *Uploader) processChildren(ctx context.Context, parentDirBuilder *dirManifestBuilder, relativePath string, entries fs.Entries, policyTree *policy.Tree, previousEntries []fs.Entries) error {
+	if err := u.processSubdirectories(ctx, parentDirBuilder, relativePath, entries, policyTree, previousEntries); err != nil {
 		return err
 	}
 
-	if err := u.processNonDirectories(ctx, output, relativePath, entries, policyTree, previousEntries); err != nil {
+	if err := u.processNonDirectories(ctx, parentDirBuilder, relativePath, entries, policyTree, previousEntries); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (u *Uploader) processSubdirectories(ctx context.Context, output chan dirEntryOrError, relativePath string, entries fs.Entries, policyTree *policy.Tree, previousEntries []fs.Entries) error {
+func (u *Uploader) processSubdirectories(ctx context.Context, parentDirBuilder *dirManifestBuilder, relativePath string, entries fs.Entries, policyTree *policy.Tree, previousEntries []fs.Entries) error {
 	// for now don't process subdirectories in parallel, we need a mechanism to
 	// prevent explosion of parallelism
 	const parallelism = 1
@@ -511,7 +526,9 @@ func (u *Uploader) processSubdirectories(ctx context.Context, output chan dirEnt
 
 		previousDirs = uniqueDirectories(previousDirs)
 
-		oid, subdirsumm, err := uploadDirInternal(ctx, u, dir, policyTree.Child(entry.Name()), previousDirs, entryRelativePath)
+		childDirBuilder := &dirManifestBuilder{}
+
+		de, err := uploadDirInternal(ctx, u, dir, policyTree.Child(entry.Name()), previousDirs, entryRelativePath, childDirBuilder)
 		if errors.Is(err, errCanceled) {
 			return err
 		}
@@ -525,24 +542,15 @@ func (u *Uploader) processSubdirectories(ctx context.Context, output chan dirEnt
 				rc := rootCauseError(dre.error)
 
 				u.Progress.IgnoredError(entryRelativePath, rc)
-				output <- dirEntryOrError{
-					failedEntry: &fs.EntryWithError{
-						EntryPath: entryRelativePath,
-						Error:     rc.Error(),
-					},
-				}
+				parentDirBuilder.addFailedEntry(entryRelativePath, rc)
 				return nil
 			}
+
 			return errors.Errorf("unable to process directory %q: %s", entry.Name(), err)
 		}
 
-		de, err := newDirEntry(dir, oid)
-		if err != nil {
-			return errors.Wrap(err, "unable to create dir entry")
-		}
+		parentDirBuilder.addEntry(de)
 
-		de.DirSummary = &subdirsumm
-		output <- dirEntryOrError{de: de}
 		return nil
 	})
 }
@@ -605,7 +613,7 @@ func (u *Uploader) effectiveParallelUploads() int {
 	return p
 }
 
-func (u *Uploader) processNonDirectories(ctx context.Context, output chan dirEntryOrError, dirRelativePath string, entries fs.Entries, policyTree *policy.Tree, prevEntries []fs.Entries) error {
+func (u *Uploader) processNonDirectories(ctx context.Context, parentDirBuilder *dirManifestBuilder, dirRelativePath string, entries fs.Entries, policyTree *policy.Tree, prevEntries []fs.Entries) error {
 	workerCount := u.effectiveParallelUploads()
 
 	var asyncWritesPerFile int
@@ -639,7 +647,7 @@ func (u *Uploader) processNonDirectories(ctx context.Context, output chan dirEnt
 				return errors.Wrap(err, "unable to create dir entry")
 			}
 
-			output <- dirEntryOrError{de: cachedDirEntry}
+			parentDirBuilder.addEntry(cachedDirEntry)
 			return nil
 		}
 
@@ -647,20 +655,20 @@ func (u *Uploader) processNonDirectories(ctx context.Context, output chan dirEnt
 		case fs.Symlink:
 			de, err := u.uploadSymlinkInternal(ctx, entryRelativePath, entry)
 			if err != nil {
-				return u.maybeIgnoreFileReadError(err, output, entryRelativePath, policyTree)
+				return u.maybeIgnoreFileReadError(err, parentDirBuilder, entryRelativePath, policyTree)
 			}
 
-			output <- dirEntryOrError{de: de}
+			parentDirBuilder.addEntry(de)
 			return nil
 
 		case fs.File:
 			atomic.AddInt32(&u.stats.NonCachedFiles, 1)
 			de, err := u.uploadFileInternal(ctx, entryRelativePath, entry, policyTree.Child(entry.Name()).EffectivePolicy(), asyncWritesPerFile)
 			if err != nil {
-				return u.maybeIgnoreFileReadError(err, output, entryRelativePath, policyTree)
+				return u.maybeIgnoreFileReadError(err, parentDirBuilder, entryRelativePath, policyTree)
 			}
 
-			output <- dirEntryOrError{de: de}
+			parentDirBuilder.addEntry(de)
 			return nil
 
 		default:
@@ -717,25 +725,19 @@ func uploadDirInternal(
 	policyTree *policy.Tree,
 	previousDirs []fs.Directory,
 	dirRelativePath string,
-) (object.ID, fs.DirectorySummary, error) {
+	thisDirBuilder *dirManifestBuilder,
+) (*snapshot.DirEntry, error) {
 	u.stats.TotalDirectoryCount++
 
 	u.Progress.StartedDirectory(dirRelativePath)
 	defer u.Progress.FinishedDirectory(dirRelativePath)
-
-	dirManifest := &snapshot.DirManifest{
-		StreamType: directoryStreamType,
-		Summary: &fs.DirectorySummary{
-			TotalDirCount: 1,
-		},
-	}
 
 	t0 := u.repo.Time()
 	entries, direrr := directory.Readdir(ctx)
 	log(ctx).Debugf("finished reading directory %v in %v", dirRelativePath, u.repo.Time().Sub(t0))
 
 	if direrr != nil {
-		return "", fs.DirectorySummary{}, dirReadError{direrr}
+		return nil, dirReadError{direrr}
 	}
 
 	var prevEntries []fs.Entries
@@ -746,16 +748,21 @@ func uploadDirInternal(
 		}
 	}
 
-	if err := u.processChildren(ctx, dirManifest, dirRelativePath, entries, policyTree, prevEntries); err != nil && !errors.Is(err, errCanceled) {
-		return "", fs.DirectorySummary{}, err
+	if err := u.processChildren(ctx, thisDirBuilder, dirRelativePath, entries, policyTree, prevEntries); err != nil && !errors.Is(err, errCanceled) {
+		return nil, err
 	}
 
-	if len(dirManifest.Entries) == 0 {
-		dirManifest.Summary.MaxModTime = directory.ModTime()
+	dirManifest := thisDirBuilder.Build(directory.ModTime(), u.incompleteReason())
+
+	oid, err := u.writeDirManifest(ctx, dirRelativePath, dirManifest)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error writing dir manifest: %v", directory.Name())
 	}
 
-	// at this point dirManifest is ready to go
+	return newDirEntryWithSummary(directory, oid, dirManifest.Summary)
+}
 
+func (u *Uploader) writeDirManifest(ctx context.Context, dirRelativePath string, dirManifest *snapshot.DirManifest) (object.ID, error) {
 	writer := u.repo.NewObjectWriter(ctx, object.WriterOptions{
 		Description: "DIR:" + dirRelativePath,
 		Prefix:      "k",
@@ -764,26 +771,24 @@ func uploadDirInternal(
 	defer writer.Close() //nolint:errcheck
 
 	if err := json.NewEncoder(writer).Encode(dirManifest); err != nil {
-		return "", fs.DirectorySummary{}, errors.Wrap(err, "unable to encode directory JSON")
+		return "", errors.Wrap(err, "unable to encode directory JSON")
 	}
 
 	oid, err := writer.Result()
+	if err != nil {
+		return "", errors.Wrap(err, "unable to write directory")
+	}
 
-	dirManifest.Summary.IncompleteReason = u.incompleteReason()
-
-	return oid, *dirManifest.Summary, err
+	return oid, nil
 }
 
-func (u *Uploader) maybeIgnoreFileReadError(err error, output chan dirEntryOrError, entryRelativePath string, policyTree *policy.Tree) error {
+func (u *Uploader) maybeIgnoreFileReadError(err error, dmb *dirManifestBuilder, entryRelativePath string, policyTree *policy.Tree) error {
 	errHandlingPolicy := policyTree.EffectivePolicy().ErrorHandlingPolicy
 
 	if u.IgnoreReadErrors || errHandlingPolicy.IgnoreFileErrorsOrDefault(false) {
 		err = rootCauseError(err)
 		u.Progress.IgnoredError(entryRelativePath, err)
-		output <- dirEntryOrError{failedEntry: &fs.EntryWithError{
-			EntryPath: entryRelativePath,
-			Error:     err.Error(),
-		}}
+		dmb.addFailedEntry(entryRelativePath, err)
 
 		return nil
 	}
@@ -867,7 +872,7 @@ func (u *Uploader) Upload(
 			maxPreviousTotalFileSize = s
 		}
 
-		if s := m.Stats.TotalFileCount; s > maxPreviousFileCount {
+		if s := int(m.Stats.TotalFileCount); s > maxPreviousFileCount {
 			maxPreviousFileCount = s
 		}
 	}
