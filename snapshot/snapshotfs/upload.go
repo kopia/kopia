@@ -69,11 +69,15 @@ type Uploader struct {
 
 	repo repo.Repository
 
-	stats              snapshot.Stats
-	canceled           int32
-	nextCheckpointTime time.Time
+	stats    snapshot.Stats
+	canceled int32
 
 	uploadBufPool sync.Pool
+
+	getTicker func(time.Duration) <-chan time.Time
+
+	// for testing only, when seet will write to a given channel whenever checkpoint completes
+	checkpointFinished chan struct{}
 }
 
 // IsCanceled returns true if the upload is canceled.
@@ -87,10 +91,6 @@ func (u *Uploader) incompleteReason() string {
 		return IncompleteReasonCanceled
 	}
 
-	if !u.nextCheckpointTime.IsZero() && u.repo.Time().After(u.nextCheckpointTime) {
-		return IncompleteReasonCheckpoint
-	}
-
 	wb := atomic.LoadInt64(&u.totalWrittenBytes)
 	if mub := u.MaxUploadBytes; mub > 0 && wb > mub {
 		return IncompleteReasonLimitReached
@@ -99,7 +99,7 @@ func (u *Uploader) incompleteReason() string {
 	return ""
 }
 
-func (u *Uploader) uploadFileInternal(ctx context.Context, relativePath string, f fs.File, pol *policy.Policy, asyncWrites int) (*snapshot.DirEntry, error) {
+func (u *Uploader) uploadFileInternal(ctx context.Context, parentCheckpointRegistry *checkpointRegistry, relativePath string, f fs.File, pol *policy.Policy, asyncWrites int) (*snapshot.DirEntry, error) {
 	u.Progress.HashingFile(relativePath)
 	defer u.Progress.FinishedHashingFile(relativePath, f.Size())
 
@@ -115,6 +115,18 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, relativePath string, 
 		AsyncWrites: asyncWrites,
 	})
 	defer writer.Close() //nolint:errcheck
+
+	parentCheckpointRegistry.addCheckpointCallback(f, func() (*snapshot.DirEntry, error) {
+		// nolint:govet
+		checkpointID, err := writer.Checkpoint()
+		if err != nil {
+			return nil, err
+		}
+
+		return newDirEntry(f, checkpointID)
+	})
+
+	defer parentCheckpointRegistry.removeCheckpointCallback(f)
 
 	written, err := u.copyWithProgress(writer, file, 0, f.Size())
 	if err != nil {
@@ -265,14 +277,19 @@ func newDirEntry(md fs.Entry, oid object.ID) (*snapshot.DirEntry, error) {
 	}, nil
 }
 
-// uploadFile uploads the specified File to the repository.
-func (u *Uploader) uploadFile(ctx context.Context, relativePath string, file fs.File, pol *policy.Policy) (*snapshot.DirEntry, error) {
+// uploadFileWithCheckpointing uploads the specified File to the repository.
+func (u *Uploader) uploadFileWithCheckpointing(ctx context.Context, relativePath string, file fs.File, pol *policy.Policy, sourceInfo snapshot.SourceInfo) (*snapshot.DirEntry, error) {
 	par := u.effectiveParallelUploads()
 	if par == 1 {
 		par = 0
 	}
 
-	res, err := u.uploadFileInternal(ctx, relativePath, file, pol, par)
+	var cp checkpointRegistry
+
+	cancelCheckpointer := u.periodicallyCheckpoint(ctx, &cp, &snapshot.Manifest{Source: sourceInfo})
+	defer cancelCheckpointer()
+
+	res, err := u.uploadFileInternal(ctx, &cp, relativePath, file, pol, par)
 	if err != nil {
 		return nil, err
 	}
@@ -284,51 +301,89 @@ func (u *Uploader) uploadFile(ctx context.Context, relativePath string, file fs.
 	})
 }
 
+// checkpointRoot invokes checkpoints on the provided registry and if a checkpoint entry was generated,
+// saves it in an incomplete snapshot manifest.
+func (u *Uploader) checkpointRoot(ctx context.Context, cp *checkpointRegistry, prototypeManifest *snapshot.Manifest) error {
+	var dmbCheckpoint dirManifestBuilder
+	if err := cp.runCheckpoints(&dmbCheckpoint); err != nil {
+		return errors.Wrap(err, "running checkpointers")
+	}
+
+	checkpointManifest := dmbCheckpoint.Build(u.repo.Time(), "dummy")
+	if len(checkpointManifest.Entries) == 0 {
+		// did not produce a checkpoint, that's ok
+		return nil
+	}
+
+	if len(checkpointManifest.Entries) > 1 {
+		return errors.Errorf("produced more than one checkpoint: %v", len(checkpointManifest.Entries))
+	}
+
+	rootEntry := checkpointManifest.Entries[0]
+
+	log(ctx).Debugf("checkpointed root %v", rootEntry.ObjectID)
+
+	man := *prototypeManifest
+	man.RootEntry = rootEntry
+	man.EndTime = u.repo.Time()
+	man.StartTime = man.EndTime
+	man.IncompleteReason = IncompleteReasonCheckpoint
+
+	if _, err := snapshot.SaveSnapshot(ctx, u.repo, &man); err != nil {
+		return errors.Wrap(err, "error saving checkpoint snapshot")
+	}
+
+	if err := u.repo.Flush(ctx); err != nil {
+		return errors.Wrap(err, "error flushing after checkpoint")
+	}
+
+	return nil
+}
+
+// periodicallyCheckpoint periodically (every CheckpointInterval) invokes checkpointRoot until the
+// returned cancelation function has been called.
+func (u *Uploader) periodicallyCheckpoint(ctx context.Context, cp *checkpointRegistry, prototypeManifest *snapshot.Manifest) (cancelFunc func()) {
+	shutdown := make(chan struct{})
+	ch := u.getTicker(u.CheckpointInterval)
+
+	go func() {
+		for {
+			select {
+			case <-shutdown:
+				return
+
+			case <-ch:
+				if err := u.checkpointRoot(ctx, cp, prototypeManifest); err != nil {
+					log(ctx).Warningf("error checkpointing: %v", err)
+					u.Cancel()
+
+					return
+				}
+
+				// test hook
+				if u.checkpointFinished != nil {
+					u.checkpointFinished <- struct{}{}
+				}
+			}
+		}
+	}()
+
+	return func() {
+		close(shutdown)
+	}
+}
+
 // uploadDirWithCheckpointing uploads the specified Directory to the repository.
 func (u *Uploader) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Directory, policyTree *policy.Tree, previousDirs []fs.Directory, sourceInfo snapshot.SourceInfo) (*snapshot.DirEntry, error) {
-	for {
-		if u.CheckpointInterval != 0 {
-			u.nextCheckpointTime = u.repo.Time().Add(u.CheckpointInterval)
-		} else {
-			u.nextCheckpointTime = time.Time{}
-		}
+	var (
+		dmb dirManifestBuilder
+		cp  checkpointRegistry
+	)
 
-		startTime := u.repo.Time()
+	cancelCheckpointer := u.periodicallyCheckpoint(ctx, &cp, &snapshot.Manifest{Source: sourceInfo})
+	defer cancelCheckpointer()
 
-		var dmb dirManifestBuilder
-
-		de, err := uploadDirInternal(ctx, u, rootDir, policyTree, previousDirs, ".", &dmb)
-		if err != nil && !errors.Is(err, errCanceled) {
-			return nil, err
-		}
-
-		if de.DirSummary.IncompleteReason == IncompleteReasonCheckpoint {
-			u.Progress.Checkpoint()
-
-			// when retrying use the partial snapshot
-			previousDirs = append(previousDirs, DirectoryEntry(u.repo, de.ObjectID, de.DirSummary))
-
-			man := &snapshot.Manifest{
-				StartTime:        startTime,
-				EndTime:          u.repo.Time(),
-				RootEntry:        de,
-				Source:           sourceInfo,
-				IncompleteReason: de.DirSummary.IncompleteReason,
-			}
-
-			if _, err = snapshot.SaveSnapshot(ctx, u.repo, man); err != nil {
-				return nil, errors.Wrap(err, "error saving checkpoint")
-			}
-
-			if err = u.repo.Flush(ctx); err != nil {
-				return nil, errors.Wrap(err, "error flushing saving checkpoint")
-			}
-
-			continue
-		}
-
-		return de, err
-	}
+	return uploadDirInternal(ctx, u, rootDir, policyTree, previousDirs, ".", &dmb, &cp)
 }
 
 func (u *Uploader) foreachEntryUnlessCanceled(ctx context.Context, parallel int, relativePath string, entries fs.Entries, cb func(ctx context.Context, entry fs.Entry, entryRelativePath string) error) error {
@@ -493,19 +548,19 @@ func isDir(e *snapshot.DirEntry) bool {
 	return e.Type == snapshot.EntryTypeDirectory
 }
 
-func (u *Uploader) processChildren(ctx context.Context, parentDirBuilder *dirManifestBuilder, relativePath string, entries fs.Entries, policyTree *policy.Tree, previousEntries []fs.Entries) error {
-	if err := u.processSubdirectories(ctx, parentDirBuilder, relativePath, entries, policyTree, previousEntries); err != nil {
+func (u *Uploader) processChildren(ctx context.Context, parentDirCheckpointRegistry *checkpointRegistry, parentDirBuilder *dirManifestBuilder, relativePath string, entries fs.Entries, policyTree *policy.Tree, previousEntries []fs.Entries) error {
+	if err := u.processSubdirectories(ctx, parentDirCheckpointRegistry, parentDirBuilder, relativePath, entries, policyTree, previousEntries); err != nil {
 		return err
 	}
 
-	if err := u.processNonDirectories(ctx, parentDirBuilder, relativePath, entries, policyTree, previousEntries); err != nil {
+	if err := u.processNonDirectories(ctx, parentDirCheckpointRegistry, parentDirBuilder, relativePath, entries, policyTree, previousEntries); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (u *Uploader) processSubdirectories(ctx context.Context, parentDirBuilder *dirManifestBuilder, relativePath string, entries fs.Entries, policyTree *policy.Tree, previousEntries []fs.Entries) error {
+func (u *Uploader) processSubdirectories(ctx context.Context, parentDirCheckpointRegistry *checkpointRegistry, parentDirBuilder *dirManifestBuilder, relativePath string, entries fs.Entries, policyTree *policy.Tree, previousEntries []fs.Entries) error {
 	// for now don't process subdirectories in parallel, we need a mechanism to
 	// prevent explosion of parallelism
 	const parallelism = 1
@@ -528,7 +583,7 @@ func (u *Uploader) processSubdirectories(ctx context.Context, parentDirBuilder *
 
 		childDirBuilder := &dirManifestBuilder{}
 
-		de, err := uploadDirInternal(ctx, u, dir, policyTree.Child(entry.Name()), previousDirs, entryRelativePath, childDirBuilder)
+		de, err := uploadDirInternal(ctx, u, dir, policyTree.Child(entry.Name()), previousDirs, entryRelativePath, childDirBuilder, parentDirCheckpointRegistry)
 		if errors.Is(err, errCanceled) {
 			return err
 		}
@@ -613,7 +668,7 @@ func (u *Uploader) effectiveParallelUploads() int {
 	return p
 }
 
-func (u *Uploader) processNonDirectories(ctx context.Context, parentDirBuilder *dirManifestBuilder, dirRelativePath string, entries fs.Entries, policyTree *policy.Tree, prevEntries []fs.Entries) error {
+func (u *Uploader) processNonDirectories(ctx context.Context, parentCheckpointRegistry *checkpointRegistry, parentDirBuilder *dirManifestBuilder, dirRelativePath string, entries fs.Entries, policyTree *policy.Tree, prevEntries []fs.Entries) error {
 	workerCount := u.effectiveParallelUploads()
 
 	var asyncWritesPerFile int
@@ -663,7 +718,7 @@ func (u *Uploader) processNonDirectories(ctx context.Context, parentDirBuilder *
 
 		case fs.File:
 			atomic.AddInt32(&u.stats.NonCachedFiles, 1)
-			de, err := u.uploadFileInternal(ctx, entryRelativePath, entry, policyTree.Child(entry.Name()).EffectivePolicy(), asyncWritesPerFile)
+			de, err := u.uploadFileInternal(ctx, parentCheckpointRegistry, entryRelativePath, entry, policyTree.Child(entry.Name()).EffectivePolicy(), asyncWritesPerFile)
 			if err != nil {
 				return u.maybeIgnoreFileReadError(err, parentDirBuilder, entryRelativePath, policyTree)
 			}
@@ -726,6 +781,7 @@ func uploadDirInternal(
 	previousDirs []fs.Directory,
 	dirRelativePath string,
 	thisDirBuilder *dirManifestBuilder,
+	thisCheckpointRegistry *checkpointRegistry,
 ) (*snapshot.DirEntry, error) {
 	u.stats.TotalDirectoryCount++
 
@@ -748,7 +804,29 @@ func uploadDirInternal(
 		}
 	}
 
-	if err := u.processChildren(ctx, thisDirBuilder, dirRelativePath, entries, policyTree, prevEntries); err != nil && !errors.Is(err, errCanceled) {
+	childCheckpointRegistry := &checkpointRegistry{}
+
+	thisCheckpointRegistry.addCheckpointCallback(directory, func() (*snapshot.DirEntry, error) {
+		// when snapshotting the parent, snapshot all our children and tell them to populate
+		// childCheckpointBuilder
+		thisCheckpointBuilder := thisDirBuilder.Clone()
+
+		// invoke all child checkpoints which will populate thisCheckpointBuilder.
+		if err := childCheckpointRegistry.runCheckpoints(thisCheckpointBuilder); err != nil {
+			return nil, errors.Wrapf(err, "error checkpointing children")
+		}
+
+		checkpointManifest := thisCheckpointBuilder.Build(directory.ModTime(), IncompleteReasonCheckpoint)
+		oid, err := u.writeDirManifest(ctx, dirRelativePath, checkpointManifest)
+		if err != nil {
+			return nil, errors.Wrap(err, "error writing dir manifest")
+		}
+
+		return newDirEntryWithSummary(directory, oid, checkpointManifest.Summary)
+	})
+	defer thisCheckpointRegistry.removeCheckpointCallback(directory)
+
+	if err := u.processChildren(ctx, childCheckpointRegistry, thisDirBuilder, dirRelativePath, entries, policyTree, prevEntries); err != nil && !errors.Is(err, errCanceled) {
 		return nil, err
 	}
 
@@ -814,6 +892,7 @@ func NewUploader(r repo.Repository) *Uploader {
 		IgnoreReadErrors:   false,
 		ParallelUploads:    1,
 		CheckpointInterval: DefaultCheckpointInterval,
+		getTicker:          time.Tick,
 		uploadBufPool: sync.Pool{
 			New: func() interface{} {
 				p := make([]byte, copyBufferSize)
@@ -903,7 +982,7 @@ func (u *Uploader) Upload(
 		s.RootEntry, err = u.uploadDirWithCheckpointing(ctx, entry, policyTree, previousDirs, sourceInfo)
 
 	case fs.File:
-		s.RootEntry, err = u.uploadFile(ctx, entry.Name(), entry, policyTree.EffectivePolicy())
+		s.RootEntry, err = u.uploadFileWithCheckpointing(ctx, entry.Name(), entry, policyTree.EffectivePolicy(), sourceInfo)
 
 	default:
 		return nil, errors.Errorf("unsupported source: %v", s.Source)
