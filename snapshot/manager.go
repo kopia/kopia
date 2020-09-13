@@ -14,6 +14,9 @@ import (
 // ManifestType is the value of the "type" label for snapshot manifests.
 const ManifestType = "snapshot"
 
+// ErrSnapshotNotFound is returned when a snapshot is not found.
+var ErrSnapshotNotFound = errors.Errorf("snapshot not found")
+
 const (
 	typeKey = manifest.TypeLabelKey
 
@@ -73,6 +76,10 @@ func LoadSnapshot(ctx context.Context, rep repo.Repository, manifestID manifest.
 
 	em, err := rep.GetManifest(ctx, manifestID, sm)
 	if err != nil {
+		if errors.Is(err, manifest.ErrNotFound) {
+			return nil, ErrSnapshotNotFound
+		}
+
 		return nil, errors.Wrap(err, "unable to find manifest entries")
 	}
 

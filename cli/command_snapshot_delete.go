@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/pkg/errors"
 
@@ -21,19 +20,16 @@ var (
 
 func runDeleteCommand(ctx context.Context, rep repo.Repository) error {
 	for _, id := range *snapshotDeleteIDs {
-		if strings.HasPrefix(id, "k") {
-			if err := deleteSnapshotsByRootObjectID(ctx, rep, object.ID(id)); err != nil {
-				return errors.Wrapf(err, "error deleting snapshots by root ID %v", id)
-			}
-		} else {
-			m, err := snapshot.LoadSnapshot(ctx, rep, manifest.ID(id))
-			if err != nil {
-				return errors.Wrapf(err, "error loading snapshot %v", id)
-			}
-
-			if err := deleteSnapshot(ctx, rep, m); err != nil {
+		m, err := snapshot.LoadSnapshot(ctx, rep, manifest.ID(id))
+		if err == nil {
+			// snapshot found by manifest ID, delete it directly.
+			if err = deleteSnapshot(ctx, rep, m); err != nil {
 				return errors.Wrapf(err, "error deleting %v", id)
 			}
+		} else if !errors.Is(err, snapshot.ErrSnapshotNotFound) {
+			return errors.Wrapf(err, "error loading snapshot %v", id)
+		} else if err := deleteSnapshotsByRootObjectID(ctx, rep, object.ID(id)); err != nil {
+			return errors.Wrapf(err, "error deleting snapshots by root ID %v", id)
 		}
 	}
 
