@@ -101,8 +101,6 @@ func (b *committedContentIndex) use(ctx context.Context, packFiles []blob.ID) (b
 		return false, nil
 	}
 
-	log(ctx).Debugf("set of index files has changed (had %v, now %v)", len(b.inUse), len(packFiles))
-
 	var newMerged mergedIndex
 
 	newInUse := map[blob.ID]packIndex{}

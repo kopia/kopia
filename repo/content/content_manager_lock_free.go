@@ -197,7 +197,7 @@ func (bm *lockFreeManager) unprocessedIndexBlobsUnlocked(ctx context.Context, co
 		}
 
 		if has {
-			log(ctx).Debugf("index blob %q already in cache, skipping", c.BlobID)
+			formatLog(ctx).Debugf("index-already-cached %v", c.BlobID)
 			continue
 		}
 
@@ -280,8 +280,6 @@ func (bm *lockFreeManager) decryptAndVerify(encrypted, iv []byte) ([]byte, error
 }
 
 func (bm *lockFreeManager) preparePackDataContent(ctx context.Context, pp *pendingPackInfo) (packIndexBuilder, error) {
-	formatLog(ctx).Debugf("preparing content data with %v items (contents %v)", len(pp.currentPackItems), pp.currentPackData.Length())
-
 	packFileIndex := packIndexBuilder{}
 	haveContent := false
 
@@ -289,6 +287,8 @@ func (bm *lockFreeManager) preparePackDataContent(ctx context.Context, pp *pendi
 		if info.PackBlobID == pp.packBlobID {
 			haveContent = true
 		}
+
+		formatLog(ctx).Debugf("add-to-pack %v %v p:%v %v d:%v", pp.packBlobID, info.ID, info.PackBlobID, info.Length, info.Deleted)
 
 		packFileIndex.Add(info)
 	}

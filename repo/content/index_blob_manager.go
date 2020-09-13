@@ -90,6 +90,14 @@ func (m *indexBlobManagerImpl) listIndexBlobs(ctx context.Context, includeInacti
 		return nil, errors.Wrap(err, "error merging local writes for index blobs")
 	}
 
+	for i, sib := range storageIndexBlobs {
+		formatLog(ctx).Debugf("found-index-blobs[%v] = %v", i, sib)
+	}
+
+	for i, clm := range compactionLogMetadata {
+		formatLog(ctx).Debugf("found-compaction-blobs[%v] %v", i, clm)
+	}
+
 	indexMap := map[blob.ID]*IndexBlobInfo{}
 	addBlobsToIndex(indexMap, storageIndexBlobs)
 
@@ -104,6 +112,10 @@ func (m *indexBlobManagerImpl) listIndexBlobs(ctx context.Context, includeInacti
 	var results []IndexBlobInfo
 	for _, v := range indexMap {
 		results = append(results, *v)
+	}
+
+	for i, res := range results {
+		formatLog(ctx).Debugf("active-index-blobs[%v] = %v", i, res)
 	}
 
 	return results, nil
@@ -128,7 +140,15 @@ func (m *indexBlobManagerImpl) registerCompaction(ctx context.Context, inputs, o
 		return errors.Wrap(err, "unable to write compaction log")
 	}
 
-	formatLog(ctx).Debugf("compacted indexes %v into %v and wrote log %v", inputs, outputs, compactionLogBlobMetadata)
+	for i, input := range inputs {
+		formatLog(ctx).Debugf("compacted-input[%v/%v] %v", i, len(inputs), input)
+	}
+
+	for i, output := range outputs {
+		formatLog(ctx).Debugf("compacted-output[%v/%v] %v", i, len(outputs), output)
+	}
+
+	formatLog(ctx).Debugf("compaction-log %v %v", compactionLogBlobMetadata.BlobID, compactionLogBlobMetadata.Timestamp)
 
 	if err := m.deleteOldBlobs(ctx, compactionLogBlobMetadata); err != nil {
 		return errors.Wrap(err, "error deleting old index blobs")
@@ -204,16 +224,20 @@ func (m *indexBlobManagerImpl) encryptAndWriteBlob(ctx context.Context, data []b
 
 	err = m.st.PutBlob(ctx, blobID, gather.FromSlice(data2))
 	if err != nil {
+		formatLog(ctx).Debugf("write-index-blob %v failed %v", blobID, err)
 		return blob.Metadata{}, err
 	}
 
 	bm, err := m.st.GetMetadata(ctx, blobID)
 	if err != nil {
+		formatLog(ctx).Debugf("write-index-blob-get-metadata %v failed %v", blobID, err)
 		return blob.Metadata{}, errors.Wrap(err, "unable to get blob metadata")
 	}
 
+	formatLog(ctx).Debugf("write-index-blob %v %v %v", blobID, bm.Length, bm.Timestamp)
+
 	if err := m.ownWritesCache.add(ctx, bm); err != nil {
-		log(ctx).Warningf("unable to cache own write: %v", err)
+		formatLog(ctx).Warningf("own-writes-cache failure: %v", err)
 	}
 
 	return bm, nil
@@ -381,8 +405,11 @@ func (m *indexBlobManagerImpl) delayCleanupBlobs(ctx context.Context, blobIDs []
 func (m *indexBlobManagerImpl) deleteBlobsFromStorageAndCache(ctx context.Context, blobIDs []blob.ID) error {
 	for _, blobID := range blobIDs {
 		if err := m.st.DeleteBlob(ctx, blobID); err != nil && !errors.Is(err, blob.ErrBlobNotFound) {
+			formatLog(ctx).Debugf("delete-blob failed %v %v", blobID, err)
 			return errors.Wrapf(err, "unable to delete blob %v", blobID)
 		}
+
+		formatLog(ctx).Debugf("delete-blob succeeded %v", blobID)
 
 		if err := m.ownWritesCache.delete(ctx, blobID); err != nil {
 			return errors.Wrapf(err, "unable to delete blob %v from own-writes cache", blobID)
@@ -475,7 +502,7 @@ func removeCompactedIndexes(ctx context.Context, m map[blob.ID]*IndexBlobInfo, c
 	for _, cl := range validCompactionLogs {
 		for _, ib := range cl.InputMetadata {
 			if md := m[ib.BlobID]; md != nil && md.Superseded == nil {
-				log(ctx).Debugf("ignoring index blob %v (%v) because it's been compacted to %v", ib, md.Timestamp, cl.OutputMetadata)
+				formatLog(ctx).Debugf("ignore-index-blob %v compacted to %v", ib, cl.OutputMetadata)
 
 				if markAsSuperseded {
 					md.Superseded = cl.OutputMetadata

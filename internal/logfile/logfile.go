@@ -20,8 +20,12 @@ import (
 	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/ospath"
+	"github.com/kopia/kopia/repo/content"
 	repologging "github.com/kopia/kopia/repo/logging"
 )
+
+var contentLogFormat = logging.MustStringFormatter(
+	`%{time:2006-01-02 15:04:05.0000000} %{message}`)
 
 var fileLogFormat = logging.MustStringFormatter(
 	`%{time:2006-01-02 15:04:05.000} %{level:.1s} [%{shortfile}] %{message}`)
@@ -31,12 +35,16 @@ var consoleLogFormat = logging.MustStringFormatter(
 
 var logLevels = []string{"debug", "info", "warning", "error"}
 var (
-	logFile        = cli.App().Flag("log-file", "Log file name.").String()
-	logDir         = cli.App().Flag("log-dir", "Directory where log files should be written.").Envar("KOPIA_LOG_DIR").Default(ospath.LogsDir()).String()
-	logDirMaxFiles = cli.App().Flag("log-dir-max-files", "Maximum number of log files to retain").Envar("KOPIA_LOG_DIR_MAX_FILES").Default("1000").Hidden().Int()
-	logDirMaxAge   = cli.App().Flag("log-dir-max-age", "Maximum age of log files to retain").Envar("KOPIA_LOG_DIR_MAX_AGE").Hidden().Duration()
-	logLevel       = cli.App().Flag("log-level", "Console log level").Default("info").Enum(logLevels...)
-	fileLogLevel   = cli.App().Flag("file-log-level", "File log level").Default("debug").Enum(logLevels...)
+	logFile        = cli.App().Flag("log-file", "Override log file.").String()
+	contentLogFile = cli.App().Flag("content-log-file", "Override content log file.").String()
+
+	logDir                = cli.App().Flag("log-dir", "Directory where log files should be written.").Envar("KOPIA_LOG_DIR").Default(ospath.LogsDir()).String()
+	logDirMaxFiles        = cli.App().Flag("log-dir-max-files", "Maximum number of log files to retain").Envar("KOPIA_LOG_DIR_MAX_FILES").Default("1000").Hidden().Int()
+	logDirMaxAge          = cli.App().Flag("log-dir-max-age", "Maximum age of log files to retain").Envar("KOPIA_LOG_DIR_MAX_AGE").Hidden().Default("720h").Duration()
+	contentLogDirMaxFiles = cli.App().Flag("content-log-dir-max-files", "Maximum number of content log files to retain").Envar("KOPIA_CONTENT_LOG_DIR_MAX_FILES").Default("5000").Hidden().Int()
+	contentLogDirMaxAge   = cli.App().Flag("content-log-dir-max-age", "Maximum age of content log files to retain").Envar("KOPIA_CONTENT_LOG_DIR_MAX_AGE").Default("720h").Hidden().Duration()
+	logLevel              = cli.App().Flag("log-level", "Console log level").Default("info").Enum(logLevels...)
+	fileLogLevel          = cli.App().Flag("file-log-level", "File log level").Default("debug").Enum(logLevels...)
 )
 
 var log = repologging.GetContextLoggerFunc("kopia")
@@ -48,65 +56,103 @@ const (
 
 // Initialize is invoked as part of command execution to create log file just before it's needed.
 func Initialize(ctx *kingpin.ParseContext) error {
-	var logBackends []logging.Backend
+	now := clock.Now()
 
-	var logFileName, symlinkName string
+	suffix := strings.ReplaceAll(ctx.SelectedCommand.FullCommand(), " ", "-")
 
-	if lfn := *logFile; lfn != "" {
-		var err error
-
-		logFileName, err = filepath.Abs(lfn)
-		if err != nil {
-			return err
-		}
-	}
-
-	var shouldSweepLogs bool
-
-	if logFileName == "" && *logDir != "" {
-		logBaseName := fmt.Sprintf("%v%v-%v%v", logFileNamePrefix, clock.Now().Format("20060102-150405"), os.Getpid(), logFileNameSuffix)
-		logFileName = filepath.Join(*logDir, logBaseName)
-		symlinkName = "kopia.latest.log"
-
-		if *logDirMaxAge > 0 || *logDirMaxFiles > 0 {
-			shouldSweepLogs = true
-		}
-	}
-
-	if logFileName != "" {
-		logFileDir := filepath.Dir(logFileName)
-		logFileBaseName := filepath.Base(logFileName)
-
-		if err := os.MkdirAll(logFileDir, 0o700); err != nil {
-			fmt.Fprintln(os.Stderr, "Unable to create logs directory:", err)
-		}
-
-		logBackends = append(
-			logBackends,
-			levelFilter(
-				*fileLogLevel,
-				logging.NewBackendFormatter(
-					&onDemandBackend{
-						logDir:          logFileDir,
-						logFileBaseName: logFileBaseName,
-						symlinkName:     symlinkName,
-					}, fileLogFormat)))
-	}
-
-	logBackends = append(logBackends,
-		levelFilter(
-			*logLevel,
-			logging.NewBackendFormatter(
-				logging.NewLogBackend(os.Stderr, "", 0),
-				consoleLogFormat)))
-
-	logging.SetBackend(logBackends...)
-
-	if shouldSweepLogs {
-		go sweepLogDir(context.TODO(), *logDir, *logDirMaxFiles, *logDirMaxAge)
-	}
+	// activate backends
+	logging.SetBackend(
+		setupConsoleBackend(),
+		setupLogFileBackend(now, suffix),
+		setupContentLogFileBackend(now, suffix),
+	)
 
 	return nil
+}
+
+func setupConsoleBackend() logging.Backend {
+	l := logging.AddModuleLevel(logging.NewBackendFormatter(
+		logging.NewLogBackend(os.Stderr, "", 0),
+		consoleLogFormat))
+
+	// do not output content logs to the console
+	l.SetLevel(logging.CRITICAL, content.FormatLogModule)
+
+	// log everything else at a level specified using --log-level
+	l.SetLevel(logLevelFromFlag(*logLevel), "")
+
+	return l
+}
+
+func setupLogFileBasedLogger(now time.Time, subdir, suffix, logFileOverride string, maxFiles int, maxAge time.Duration) logging.Backend {
+	var logFileName, symlinkName string
+
+	if logFileOverride != "" {
+		var err error
+
+		logFileName, err = filepath.Abs(logFileOverride)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "Unable to resolve logs path", err)
+		}
+	}
+
+	if logFileName == "" {
+		logBaseName := fmt.Sprintf("%v%v-%v-%v%v", logFileNamePrefix, now.Format("20060102-150405"), os.Getpid(), suffix, logFileNameSuffix)
+		logFileName = filepath.Join(*logDir, subdir, logBaseName)
+		symlinkName = "latest.log"
+	}
+
+	logDir := filepath.Dir(logFileName)
+	logFileBaseName := filepath.Base(logFileName)
+
+	if err := os.MkdirAll(logDir, 0o700); err != nil {
+		fmt.Fprintln(os.Stderr, "Unable to create logs directory:", err)
+	}
+
+	// do not scrub directory if custom log file has been provided.
+	if logFileOverride == "" && shouldSweepLog(maxFiles, maxAge) {
+		go sweepLogDir(context.TODO(), logDir, maxFiles, maxAge)
+	}
+
+	return &onDemandBackend{
+		logDir:          logDir,
+		logFileBaseName: logFileBaseName,
+		symlinkName:     symlinkName,
+	}
+}
+
+func setupLogFileBackend(now time.Time, suffix string) logging.Backend {
+	l := logging.AddModuleLevel(
+		logging.NewBackendFormatter(
+			setupLogFileBasedLogger(now, "cli-logs", suffix, *logFile, *logDirMaxFiles, *logDirMaxAge),
+			fileLogFormat))
+
+	// do not output content logs to the regular log file
+	l.SetLevel(logging.CRITICAL, content.FormatLogModule)
+
+	// log everything else at a level specified using --file-level
+	l.SetLevel(logLevelFromFlag(*fileLogLevel), "")
+
+	return l
+}
+
+func setupContentLogFileBackend(now time.Time, suffix string) logging.Backend {
+	l := logging.AddModuleLevel(
+		logging.NewBackendFormatter(
+			setupLogFileBasedLogger(now, "content-logs", suffix, *contentLogFile, *contentLogDirMaxFiles, *contentLogDirMaxAge),
+			contentLogFormat))
+
+	// only log content entries
+	l.SetLevel(logging.DEBUG, content.FormatLogModule)
+
+	// do not log anything else
+	l.SetLevel(logging.CRITICAL, "")
+
+	return l
+}
+
+func shouldSweepLog(maxFiles int, maxAge time.Duration) bool {
+	return maxFiles > 0 || maxAge > 0
 }
 
 func sweepLogDir(ctx context.Context, dirname string, maxCount int, maxAge time.Duration) {
@@ -150,23 +196,19 @@ func sweepLogDir(ctx context.Context, dirname string, maxCount int, maxAge time.
 	}
 }
 
-func levelFilter(level string, writer logging.Backend) logging.Backend {
-	l := logging.AddModuleLevel(writer)
-
-	switch level {
+func logLevelFromFlag(levelString string) logging.Level {
+	switch levelString {
 	case "debug":
-		l.SetLevel(logging.DEBUG, "")
+		return logging.DEBUG
 	case "info":
-		l.SetLevel(logging.INFO, "")
+		return logging.INFO
 	case "warning":
-		l.SetLevel(logging.WARNING, "")
+		return logging.WARNING
 	case "error":
-		l.SetLevel(logging.ERROR, "")
+		return logging.ERROR
 	default:
-		l.SetLevel(logging.CRITICAL, "")
+		return logging.CRITICAL
 	}
-
-	return l
 }
 
 type onDemandBackend struct {
