@@ -15,6 +15,8 @@ var (
 )
 
 func runDeleteBlobs(ctx context.Context, rep *repo.DirectRepository) error {
+	advancedCommand()
+
 	for _, b := range *blobDeleteBlobIDs {
 		err := rep.Blobs.DeleteBlob(ctx, blob.ID(b))
 		if err != nil {

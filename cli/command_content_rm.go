@@ -13,6 +13,8 @@ var (
 )
 
 func runContentRemoveCommand(ctx context.Context, rep *repo.DirectRepository) error {
+	advancedCommand()
+
 	for _, contentID := range toContentIDs(*contentRemoveIDs) {
 		if err := rep.Content.DeleteContent(ctx, contentID); err != nil {
 			return err

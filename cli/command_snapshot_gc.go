@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	snapshotGCCommand       = snapshotCommands.Command("gc", "Remove contents not used by any snapshot")
+	snapshotGCCommand       = snapshotCommands.Command("gc", "Mark contents as deleted which are not used by any snapshot").Hidden()
 	snapshotGCMinContentAge = snapshotGCCommand.Flag("min-age", "Minimum content age to allow deletion").Default("24h").Duration()
 	snapshotGCDelete        = snapshotGCCommand.Flag("delete", "Delete unreferenced contents").Bool()
 )
