@@ -1,4 +1,4 @@
-package snapshotmaintenance
+package snapshotmaintenance_test
 
 import (
 	"context"

@@ -1,4 +1,4 @@
-package snapshotmaintenance
+package snapshotmaintenance_test
 
 import (
 	"testing"
@@ -16,6 +16,7 @@ import (
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/maintenance"
 	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/snapshotmaintenance"
 )
 
 const (
@@ -54,10 +55,10 @@ func TestSnapshotGCSimple(t *testing.T) {
 
 	mustFlush(t, th.Repository)
 
-	// Advance time to force GC to discard the contents of the previous snapshots
+	// Advance time to force GC to mark as deleted the contents from the previous snapshot
 	th.fakeTime.Advance(maintenance.DefaultParams().SnapshotGC.MinContentAge + time.Hour)
 
-	err = Run(ctx, th.Repository, maintenance.ModeFull, true)
+	err = snapshotmaintenance.Run(ctx, th.Repository, maintenance.ModeFull, true)
 	require.NoError(t, err)
 
 	mustFlush(t, th.Repository)
@@ -108,7 +109,7 @@ func TestMaintenanceReuseDirManifest(t *testing.T) {
 
 	mustFlush(t, th.Repository)
 
-	// Advance time to force GC to discard the contents of the previous snapshots
+	// Advance time to force GC to mark as deleted the contents from the previous snapshot
 	th.fakeTime.Advance(maintenance.DefaultParams().SnapshotGC.MinContentAge + time.Hour)
 
 	r2 := th.openAnother(t)
@@ -116,7 +117,10 @@ func TestMaintenanceReuseDirManifest(t *testing.T) {
 	s2 := mustSnapshot(t, r2, th.sourceDir, si)
 	t.Log("snap 2:", pretty.Sprint(s2))
 
-	err = Run(ctx, th.Repository, maintenance.ModeFull, true)
+	// interleaving snapshot and maintenance and delaying flushing as well to
+	// create dangling references to contents that were in the previously
+	// deleted snapshot and that are reused in this new snapshot.
+	err = snapshotmaintenance.Run(ctx, th.Repository, maintenance.ModeFull, true)
 	require.NoError(t, err)
 
 	info, err := r2.(*repo.DirectRepository).Content.ContentInfo(ctx, content.ID(s2.RootObjectID()))
@@ -142,7 +146,7 @@ func TestMaintenanceReuseDirManifest(t *testing.T) {
 
 	// Run maintenance again
 	th.fakeTime.Advance(maintenance.DefaultParams().SnapshotGC.MinContentAge + time.Hour)
-	err = Run(ctx, th.Repository, maintenance.ModeFull, true)
+	err = snapshotmaintenance.Run(ctx, th.Repository, maintenance.ModeFull, true)
 	require.NoError(t, err)
 	mustFlush(t, th.Repository)
 
