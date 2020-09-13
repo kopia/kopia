@@ -188,12 +188,9 @@ func advancedCommand() {
 	if os.Getenv("KOPIA_ADVANCED_COMMANDS") != "enabled" {
 		//nolint:errcheck
 		errorColor.Printf(`
-This command is meant for advanced users only and could be dangerous or lead to
-repository corruption when used improperly.
+This command could be dangerous or lead to repository corruption when used improperly.
 
-Most users of Kopia should not have the need to run this command and instead should rely on
-periodic repository maintenance. See https://kopia.io/docs/maintenance/ for more information.
-
+Running this command is not needed for using Kopia. Instead, most users should rely on periodic repository maintenance. See https://kopia.io/docs/maintenance/ for more information.
 To run this command despite the warning, set KOPIA_ADVANCED_COMMANDS=enabled
 
 `)
