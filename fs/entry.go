@@ -93,8 +93,7 @@ type DirectorySummary struct {
 func (s *DirectorySummary) Clone() DirectorySummary {
 	res := *s
 
-	res.FailedEntries = nil
-	res.FailedEntries = append(res.FailedEntries, s.FailedEntries...)
+	res.FailedEntries = append([]*EntryWithError(nil), s.FailedEntries...)
 
 	return res
 }
