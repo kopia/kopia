@@ -103,7 +103,6 @@ func TestSnapshotDelete(t *testing.T) {
 
 func testSnapshotDelete(t *testing.T, argMaker deleteArgMaker, expectDeleteSucceeds bool) {
 	e := testenv.NewCLITest(t)
-	defer e.Cleanup(t)
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
@@ -138,7 +137,7 @@ func TestSnapshotDeleteTypeCheck(t *testing.T) {
 	t.Parallel()
 
 	e := testenv.NewCLITest(t)
-	defer e.Cleanup(t)
+
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
@@ -170,7 +169,7 @@ func TestSnapshotDeleteRestore(t *testing.T) {
 	t.Parallel()
 
 	e := testenv.NewCLITest(t)
-	defer e.Cleanup(t)
+
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)

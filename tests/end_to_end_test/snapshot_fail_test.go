@@ -16,7 +16,7 @@ func TestSnapshotNonexistent(t *testing.T) {
 	t.Parallel()
 
 	e := testenv.NewCLITest(t)
-	defer e.Cleanup(t)
+
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
@@ -189,7 +189,7 @@ func TestSnapshotFail(t *testing.T) {
 					t.Parallel()
 
 					e := testenv.NewCLITest(t)
-					defer e.Cleanup(t)
+
 					defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 					e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)

@@ -18,7 +18,6 @@ func TestAPIServerRepository(t *testing.T) {
 	ctx := testlogging.Context(t)
 
 	e := testenv.NewCLITest(t)
-	defer e.Cleanup(t)
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	// create one snapshot as foo@bar
@@ -26,7 +25,6 @@ func TestAPIServerRepository(t *testing.T) {
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
 
 	e1 := testenv.NewCLITest(t)
-	defer e1.Cleanup(t)
 	defer e1.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	// create one snapshot as not-foo@bar
@@ -67,7 +65,6 @@ func TestAPIServerRepository(t *testing.T) {
 	waitUntilServerStarted(ctx, t, cli)
 
 	e2 := testenv.NewCLITest(t)
-	defer e2.Cleanup(t)
 	defer e2.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	e2.RunAndExpectSuccess(t, "repo", "connect", "server",

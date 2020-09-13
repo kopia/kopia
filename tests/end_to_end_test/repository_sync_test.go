@@ -10,7 +10,7 @@ func TestRepositorySync(t *testing.T) {
 	t.Parallel()
 
 	e := testenv.NewCLITest(t)
-	defer e.Cleanup(t)
+
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
@@ -39,7 +39,7 @@ func TestRepositorySync(t *testing.T) {
 
 	// now create a whole new repository
 	e2 := testenv.NewCLITest(t)
-	defer e2.Cleanup(t)
+
 	defer e2.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	e2.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e2.RepoDir)

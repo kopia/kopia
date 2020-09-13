@@ -57,7 +57,6 @@ func TestServerStart(t *testing.T) {
 	ctx := testlogging.Context(t)
 
 	e := testenv.NewCLITest(t)
-	defer e.Cleanup(t)
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--override-hostname=fake-hostname", "--override-username=fake-username")
@@ -192,7 +191,7 @@ func TestServerStartWithoutInitialRepository(t *testing.T) {
 	ctx := testlogging.Context(t)
 
 	e := testenv.NewCLITest(t)
-	defer e.Cleanup(t)
+
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	var sp serverParameters

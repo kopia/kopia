@@ -52,7 +52,6 @@ func (d webdavDirWithFakeClock) OpenFile(ctx context.Context, fname string, flag
 
 func TestEndurance(t *testing.T) {
 	e := testenv.NewCLITest(t)
-	defer e.Cleanup(t)
 
 	tmpDir, err := ioutil.TempDir("", "endurance")
 	if err != nil {
@@ -194,7 +193,6 @@ func pickRandomEnduranceTestAction() action {
 
 func enduranceRunner(t *testing.T, runnerID int, fakeTimeServer, webdavServer string) {
 	e := testenv.NewCLITest(t)
-	defer e.Cleanup(t)
 
 	e.PassthroughStderr = true
 
