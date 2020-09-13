@@ -76,7 +76,7 @@ type Uploader struct {
 
 	getTicker func(time.Duration) <-chan time.Time
 
-	// for testing only, when seet will write to a given channel whenever checkpoint completes
+	// for testing only, when set will write to a given channel whenever checkpoint completes
 	checkpointFinished chan struct{}
 }
 
