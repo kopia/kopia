@@ -1,9 +1,6 @@
 package endtoend_test
 
 import (
-	"crypto/rand"
-	"encoding/hex"
-	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -66,13 +63,6 @@ func oneTimeSetup() error {
 	log.Printf("finished creating test data...")
 
 	return nil
-}
-
-func randomString(n int) string {
-	b := make([]byte, n)
-	io.ReadFull(rand.Reader, b)
-
-	return hex.EncodeToString(b)
 }
 
 func oneTimeCleanup() {
