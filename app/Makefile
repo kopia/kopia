@@ -16,7 +16,7 @@ electron_publish_flag=always
 
 ifneq ($(TRAVIS_TAG),)
 # tagged release - create draft release, but don't publish
-electron_builder_flags+=-c.publish.releaseType=draft
+electron_builder_flags+=-c.publish.releaseType=release
 electron_builder_flags+=-c.publish.owner=$(REPO_OWNER)
 electron_builder_flags+=-c.publish.repo=kopia
 else
