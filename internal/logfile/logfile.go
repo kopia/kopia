@@ -58,7 +58,10 @@ const (
 func Initialize(ctx *kingpin.ParseContext) error {
 	now := clock.Now()
 
-	suffix := strings.ReplaceAll(ctx.SelectedCommand.FullCommand(), " ", "-")
+	suffix := "unknown"
+	if c := ctx.SelectedCommand; c != nil {
+		suffix = strings.ReplaceAll(c.FullCommand(), " ", "-")
+	}
 
 	// activate backends
 	logging.SetBackend(
