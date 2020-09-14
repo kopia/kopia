@@ -79,7 +79,7 @@ scoop:
   license: Apache-2.0
 signs:
   - id: all
-    artifacts: all
+    artifacts: checksum
     cmd: tools/sign.sh
     args: ["${artifact}", "${signature}"]
 changelog:
