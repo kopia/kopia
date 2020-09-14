@@ -27,7 +27,8 @@
     "publish": [
       {
         "provider": "github",
-        "vPrefixedTagName": true
+        "vPrefixedTagName": true,
+        "releaseType": "release"
       }
     ],
     "files": [
