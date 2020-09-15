@@ -297,3 +297,34 @@ else
 publish-packages:
 	@echo Not pushing to Linux repositories on pull request builds.
 endif
+
+PERF_BENCHMARK_INSTANCE=kopia-perf
+PERF_BENCHMARK_INSTANCE_ZONE=us-west1-a
+PERF_BENCHMARK_CHANNEL=testing
+PERF_BENCHMARK_VERSION=0.6.4
+PERF_BENCHMARK_TOTAL_SIZE=20G
+
+perf-benchmark-setup:
+	gcloud compute instances create $(PERF_BENCHMARK_INSTANCE) --machine-type n1-standard-8 --zone=$(PERF_BENCHMARK_INSTANCE_ZONE) --local-ssd interface=nvme
+	# wait for instance to boot
+	sleep 20
+	gcloud compute scp tests/perf_benchmark/perf-benchmark-setup.sh $(PERF_BENCHMARK_INSTANCE):. --zone=$(PERF_BENCHMARK_INSTANCE_ZONE)
+	gcloud compute ssh $(PERF_BENCHMARK_INSTANCE) --zone=$(PERF_BENCHMARK_INSTANCE_ZONE) --command "./perf-benchmark-setup.sh"
+
+perf-benchmark-teardown:
+	gcloud compute instances delete $(PERF_BENCHMARK_INSTANCE) --zone=$(PERF_BENCHMARK_INSTANCE_ZONE)
+
+perf-benchmark-test:
+	gcloud compute scp tests/perf_benchmark/perf-benchmark.sh $(PERF_BENCHMARK_INSTANCE):. --zone=$(PERF_BENCHMARK_INSTANCE_ZONE)
+	gcloud compute ssh $(PERF_BENCHMARK_INSTANCE) --zone=$(PERF_BENCHMARK_INSTANCE_ZONE) --command "./perf-benchmark.sh $(PERF_BENCHMARK_VERSION) $(PERF_BENCHMARK_CHANNEL) $(PERF_BENCHMARK_TOTAL_SIZE)"
+
+perf-benchmark-test-all:
+	$(MAKE) perf-benchmark-test PERF_BENCHMARK_VERSION=0.4.0
+	$(MAKE) perf-benchmark-test PERF_BENCHMARK_VERSION=0.5.2
+	$(MAKE) perf-benchmark-test PERF_BENCHMARK_VERSION=0.6.4
+	$(MAKE) perf-benchmark-test PERF_BENCHMARK_VERSION=0.7.0~rc1
+
+perf-benchmark-results:
+	gcloud compute scp $(PERF_BENCHMARK_INSTANCE):psrecord-* tests/perf_benchmark --zone=$(PERF_BENCHMARK_INSTANCE_ZONE) 
+	gcloud compute scp $(PERF_BENCHMARK_INSTANCE):repo-size-* tests/perf_benchmark --zone=$(PERF_BENCHMARK_INSTANCE_ZONE)
+	(cd tests/perf_benchmark && go run process_results.go)

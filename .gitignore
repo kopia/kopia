@@ -21,3 +21,4 @@ node_modules/
 *_bindata.go
 .tmp.*
 .boto
+*.log
