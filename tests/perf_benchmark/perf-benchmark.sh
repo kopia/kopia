@@ -13,7 +13,7 @@ fio_opts="--size=$TOTAL_SIZE --bs=256k --iodepth=32 --dedupe_percentage=40 --buf
 
 set -e
 
-echo Running performance test againt version $VERSION from channel $CHANNEL with total data size $TOTAL_SIZE
+echo Running performance test against version $VERSION from channel $CHANNEL with total data size $TOTAL_SIZE
 
 # Install Kopia from APT repository...
 curl -s https://kopia.io/signing-key | sudo apt-key add -
