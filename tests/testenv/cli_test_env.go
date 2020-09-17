@@ -287,18 +287,21 @@ func mustParseDirectoryEntries(lines []string) []DirEntry {
 
 // DirectoryTreeOptions lists options for CreateDirectoryTree.
 type DirectoryTreeOptions struct {
-	Depth                  int
-	MaxSubdirsPerDirectory int
-	MaxFilesPerDirectory   int
-	MaxFileSize            int
-	MinNameLength          int
-	MaxNameLength          int
+	Depth                              int
+	MaxSubdirsPerDirectory             int
+	MaxFilesPerDirectory               int
+	MaxSymlinksPerDirectory            int
+	MaxFileSize                        int
+	MinNameLength                      int
+	MaxNameLength                      int
+	NonExistingSymlinkTargetPercentage int // 0..100
 }
 
 // DirectoryTreeCounters stores stats about files and directories created by CreateDirectoryTree.
 type DirectoryTreeCounters struct {
 	Files         int
 	Directories   int
+	Symlinks      int
 	TotalFileSize int64
 	MaxFileSize   int64
 }
@@ -311,6 +314,8 @@ func MustCreateDirectoryTree(t *testing.T, dirname string, options DirectoryTree
 	if err := createDirectoryTreeInternal(dirname, options, &counters); err != nil {
 		t.Error(err)
 	}
+
+	t.Logf("created directory tree %#v", counters)
 }
 
 // CreateDirectoryTree creates a directory tree of a given depth with random files.
@@ -361,6 +366,8 @@ func createDirectoryTreeInternal(dirname string, options DirectoryTreeOptions, c
 		}
 	}
 
+	var fileNames []string
+
 	if options.MaxFilesPerDirectory > 0 {
 		numFiles := rand.Intn(options.MaxFilesPerDirectory) + 1
 		for i := 0; i < numFiles; i++ {
@@ -368,6 +375,19 @@ func createDirectoryTreeInternal(dirname string, options DirectoryTreeOptions, c
 
 			if err := createRandomFile(filepath.Join(dirname, fileName), options, counters); err != nil {
 				return errors.Wrap(err, "unable to create random file")
+			}
+
+			fileNames = append(fileNames, fileName)
+		}
+	}
+
+	if options.MaxSymlinksPerDirectory > 0 {
+		numSymlinks := rand.Intn(options.MaxSymlinksPerDirectory) + 1
+		for i := 0; i < numSymlinks; i++ {
+			fileName := randomName(options)
+
+			if err := createRandomSymlink(filepath.Join(dirname, fileName), fileNames, options, counters); err != nil {
+				return errors.Wrap(err, "unable to create random symlink")
 			}
 		}
 	}
@@ -399,6 +419,16 @@ func createRandomFile(filename string, options DirectoryTreeOptions, counters *D
 	}
 
 	return nil
+}
+
+func createRandomSymlink(filename string, existingFiles []string, options DirectoryTreeOptions, counters *DirectoryTreeCounters) error {
+	counters.Symlinks++
+
+	if len(existingFiles) == 0 || rand.Intn(100) < options.NonExistingSymlinkTargetPercentage {
+		return os.Symlink(randomName(options), filename)
+	}
+
+	return os.Symlink(existingFiles[rand.Intn(len(existingFiles))], filename)
 }
 
 func mustParseSnapshots(t *testing.T, lines []string) []SourceInfo {

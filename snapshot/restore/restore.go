@@ -32,6 +32,7 @@ type Stats struct {
 	TotalFileSize int64
 	FileCount     int32
 	DirCount      int32
+	SymlinkCount  int32
 }
 
 // Snapshot walks a snapshot root with given snapshot ID and restores it to the provided output.
@@ -90,7 +91,9 @@ func (c *copier) copyEntry(ctx context.Context, e fs.Entry, targetPath string) e
 
 		return c.output.WriteFile(ctx, targetPath, e)
 	case fs.Symlink:
+		atomic.AddInt32(&c.stats.SymlinkCount, 1)
 		log(ctx).Debugf("symlink: '%v'", targetPath)
+
 		return c.output.CreateSymlink(ctx, targetPath, e)
 	default:
 		return errors.Errorf("invalid FS entry type for %q: %#v", targetPath, e)
