@@ -73,7 +73,7 @@ func (n *memoryOwnWritesCache) merge(ctx context.Context, prefix blob.ID, source
 		if age := n.timeNow().Sub(md.Timestamp); age < ownWritesCacheRetention {
 			result = append(result, md)
 		} else {
-			formatLog(ctx).Debugf("own-writes-cache-expired %v", key, age)
+			formatLog(ctx).Debugf("own-writes-cache-expired %v %v", key, age)
 
 			n.entries.Delete(key)
 		}
