@@ -33,7 +33,6 @@ func (bm *Manager) CompactIndexes(ctx context.Context, opt CompactOptions) error
 	}
 
 	blobsToCompact := bm.getBlobsToCompact(ctx, indexBlobs, opt)
-	log(ctx).Debugf("blobs to compact: %v", blobsToCompact)
 
 	if err := bm.compactIndexBlobs(ctx, blobsToCompact, opt); err != nil {
 		return errors.Wrap(err, "error performing compaction")
@@ -68,16 +67,16 @@ func (bm *Manager) getBlobsToCompact(ctx context.Context, indexBlobs []IndexBlob
 
 	if len(nonCompactedBlobs) < opt.MaxSmallBlobs {
 		// current count is below min allowed - nothing to do
-		formatLog(ctx).Debugf("no small contents to compact")
+		log(ctx).Debugf("no small contents to compact")
 		return nil
 	}
 
 	if len(verySmallBlobs) > len(nonCompactedBlobs)/2 && mediumSizedBlobCount+1 < opt.MaxSmallBlobs {
-		formatLog(ctx).Debugf("compacting %v very small contents", len(verySmallBlobs))
+		log(ctx).Debugf("compacting %v very small contents", len(verySmallBlobs))
 		return verySmallBlobs
 	}
 
-	formatLog(ctx).Debugf("compacting all %v non-compacted contents", len(nonCompactedBlobs))
+	log(ctx).Debugf("compacting all %v non-compacted contents", len(nonCompactedBlobs))
 
 	return nonCompactedBlobs
 }
@@ -87,14 +86,12 @@ func (bm *Manager) compactIndexBlobs(ctx context.Context, indexBlobs []IndexBlob
 		return nil
 	}
 
-	formatLog(ctx).Debugf("compacting %v index blobs", len(indexBlobs))
-
 	bld := make(packIndexBuilder)
 
 	var inputs, outputs []blob.Metadata
 
-	for _, indexBlob := range indexBlobs {
-		formatLog(ctx).Debugf("adding index entries %v to compacted index", indexBlob)
+	for i, indexBlob := range indexBlobs {
+		formatLog(ctx).Debugf("compacting-entries[%v/%v] %v", i, len(indexBlobs), indexBlob)
 
 		if err := bm.addIndexBlobsToBuilder(ctx, bld, indexBlob); err != nil {
 			return errors.Wrap(err, "error adding index to builder")
@@ -121,7 +118,7 @@ func (bm *Manager) compactIndexBlobs(ctx context.Context, indexBlobs []IndexBlob
 	// it must be a no-op.
 	for _, indexBlob := range indexBlobs {
 		if indexBlob.BlobID == compactedIndexBlob.BlobID {
-			formatLog(ctx).Debugf("compaction was a no-op")
+			formatLog(ctx).Debugf("compaction-noop")
 			return nil
 		}
 	}
@@ -138,18 +135,22 @@ func (bm *Manager) compactIndexBlobs(ctx context.Context, indexBlobs []IndexBlob
 func dropContentsFromBuilder(ctx context.Context, bld packIndexBuilder, opt CompactOptions) {
 	for _, dc := range opt.DropContents {
 		if _, ok := bld[dc]; ok {
-			log(ctx).Debugf("dropping content %v", dc)
+			formatLog(ctx).Debugf("manual-drop-from-index %v", dc)
 			delete(bld, dc)
 		}
 	}
 
 	if !opt.DropDeletedBefore.IsZero() {
+		formatLog(ctx).Debugf("drop-content-deleted-before %v", opt.DropDeletedBefore)
+
 		for _, i := range bld {
 			if i.Deleted && i.Timestamp().Before(opt.DropDeletedBefore) {
-				log(ctx).Debugf("dropping content %v deleted at %v", i.ID, i.Timestamp())
+				formatLog(ctx).Debugf("drop-from-index-old-deleted %v %v", i.ID, i.Timestamp())
 				delete(bld, i.ID)
 			}
 		}
+
+		formatLog(ctx).Debugf("finished drop-content-deleted-before %v", opt.DropDeletedBefore)
 	}
 }
 

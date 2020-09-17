@@ -47,7 +47,7 @@ type memoryOwnWritesCache struct {
 }
 
 func (n *memoryOwnWritesCache) add(ctx context.Context, mb blob.Metadata) error {
-	log(ctx).Debugf("adding %v to own-writes cache", mb.BlobID)
+	formatLog(ctx).Debugf("own-writes-cache-add %v", mb)
 	n.entries.Store(mb.BlobID, mb)
 
 	return nil
@@ -73,7 +73,7 @@ func (n *memoryOwnWritesCache) merge(ctx context.Context, prefix blob.ID, source
 		if age := n.timeNow().Sub(md.Timestamp); age < ownWritesCacheRetention {
 			result = append(result, md)
 		} else {
-			log(ctx).Debugf("deleting stale own writes cache entry: %v (%v)", key, age)
+			formatLog(ctx).Debugf("own-writes-cache-expired %v %v", key, age)
 
 			n.entries.Delete(key)
 		}
@@ -81,7 +81,7 @@ func (n *memoryOwnWritesCache) merge(ctx context.Context, prefix blob.ID, source
 		return true
 	})
 
-	return mergeOwnWrites(ctx, source, result), nil
+	return mergeOwnWrites(source, result), nil
 }
 
 // persistentOwnWritesCache is an implementation of ownWritesCache that caches entries to strongly consistent blob storage.
@@ -123,7 +123,7 @@ func (d *persistentOwnWritesCache) merge(ctx context.Context, prefix blob.ID, so
 		if age := d.timeNow().Sub(md.Timestamp); age < ownWritesCacheRetention {
 			myWrites = append(myWrites, originalMD)
 		} else {
-			log(ctx).Debugf("deleting blob %v from own-write cache because it's too old: %v (%v)", md.BlobID, age, originalMD.Timestamp)
+			log(ctx).Debugf("own-writes-cache-expired: %v (%v)", md, age)
 
 			if err := d.st.DeleteBlob(ctx, md.BlobID); err != nil && !errors.Is(err, blob.ErrBlobNotFound) {
 				return errors.Wrap(err, "error deleting stale blob")
@@ -133,7 +133,7 @@ func (d *persistentOwnWritesCache) merge(ctx context.Context, prefix blob.ID, so
 		return nil
 	})
 
-	return mergeOwnWrites(ctx, source, myWrites), err
+	return mergeOwnWrites(source, myWrites), err
 }
 
 func (d *persistentOwnWritesCache) delete(ctx context.Context, blobID blob.ID) error {
@@ -144,7 +144,7 @@ func (d *persistentOwnWritesCache) delete(ctx context.Context, blobID blob.ID) e
 	})
 }
 
-func mergeOwnWrites(ctx context.Context, source, own []blob.Metadata) []blob.Metadata {
+func mergeOwnWrites(source, own []blob.Metadata) []blob.Metadata {
 	m := map[blob.ID]blob.Metadata{}
 
 	for _, v := range source {
@@ -164,8 +164,6 @@ func mergeOwnWrites(ctx context.Context, source, own []blob.Metadata) []blob.Met
 	for _, v := range m {
 		s = append(s, v)
 	}
-
-	log(ctx).Debugf("merged %v backend blobs and %v local blobs into %v", source, own, s)
 
 	return s
 }

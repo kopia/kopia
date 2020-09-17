@@ -30,7 +30,7 @@ func (c *listCache) listBlobs(ctx context.Context, prefix blob.ID) ([]blob.Metad
 		if err == nil {
 			expirationTime := ci.Timestamp.Add(c.listCacheDuration)
 			if clock.Now().Before(expirationTime) {
-				log(ctx).Debugf("retrieved list of %v '%v' index blobs from cache", len(ci.Blobs), prefix)
+				formatLog(ctx).Debugf("list-from-cache '%v' found %v", prefix, len(ci.Blobs))
 				return ci.Blobs, nil
 			}
 		} else if !errors.Is(err, blob.ErrBlobNotFound) {

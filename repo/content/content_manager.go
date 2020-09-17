@@ -24,13 +24,15 @@ import (
 
 var (
 	log       = logging.GetContextLoggerFunc("kopia/content")
-	formatLog = logging.GetContextLoggerFunc("kopia/content/format")
+	formatLog = logging.GetContextLoggerFunc(FormatLogModule)
 )
 
 // Prefixes for pack blobs.
 const (
 	PackBlobIDPrefixRegular blob.ID = "p"
 	PackBlobIDPrefixSpecial blob.ID = "q"
+
+	FormatLogModule = "kopia/format"
 
 	maxHashSize                            = 64
 	defaultEncryptionBufferPoolSegmentSize = 8 << 20 // 8 MB
@@ -104,7 +106,7 @@ func (bm *Manager) DeleteContent(ctx context.Context, contentID ID) error {
 	bm.lock()
 	defer bm.unlock()
 
-	log(ctx).Debugf("DeleteContent(%q)", contentID)
+	formatLog(ctx).Debugf("delete-content %v", contentID)
 
 	// remove from all pending packs
 	for _, pp := range bm.pendingPacks {
@@ -161,7 +163,7 @@ func (bm *Manager) addToPackUnlocked(ctx context.Context, contentID ID, data []b
 
 	// do not start new uploads while flushing
 	for bm.flushing {
-		formatLog(ctx).Debugf("waiting before flush completes")
+		formatLog(ctx).Debugf("wait-before-flush")
 		bm.cond.Wait()
 	}
 
@@ -378,10 +380,11 @@ func (bm *Manager) prepareAndWritePackInternal(ctx context.Context, pp *pendingP
 
 	if pp.currentPackData.Length() > 0 {
 		if err := bm.writePackFileNotLocked(ctx, pp.packBlobID, pp.currentPackData.Bytes); err != nil {
+			formatLog(ctx).Debugf("failed-pack %v %v", pp.packBlobID, err)
 			return nil, errors.Wrap(err, "can't save pack data content")
 		}
 
-		formatLog(ctx).Debugf("wrote pack file: %v (%v bytes)", pp.packBlobID, pp.currentPackData.Length())
+		formatLog(ctx).Debugf("wrote-pack %v %v", pp.packBlobID, pp.currentPackData.Length())
 	}
 
 	return packFileIndex, nil
@@ -423,6 +426,8 @@ func (bm *Manager) Flush(ctx context.Context) error {
 	bm.lock()
 	defer bm.unlock()
 
+	formatLog(ctx).Debugf("flush")
+
 	bm.flushing = true
 
 	defer func() {
@@ -453,7 +458,7 @@ func (bm *Manager) Flush(ctx context.Context) error {
 
 // RewriteContent causes reads and re-writes a given content using the most recent format.
 func (bm *Manager) RewriteContent(ctx context.Context, contentID ID) error {
-	log(ctx).Debugf("RewriteContent(%q)", contentID)
+	formatLog(ctx).Debugf("rewrite-content %v", contentID)
 
 	pp, bi, err := bm.getContentInfo(contentID)
 	if err != nil {
@@ -543,8 +548,13 @@ func (bm *Manager) WriteContent(ctx context.Context, data []byte, prefix ID) (ID
 	// content already tracked
 	if _, bi, err := bm.getContentInfo(contentID); err == nil {
 		if !bi.Deleted {
+			formatLog(ctx).Debugf("write-content %v already-exists", contentID)
 			return contentID, nil
 		}
+
+		formatLog(ctx).Debugf("write-content %v previously-deleted", contentID)
+	} else {
+		formatLog(ctx).Debugf("write-content %v new", contentID)
 	}
 
 	err := bm.addToPackUnlocked(ctx, contentID, data, false)
