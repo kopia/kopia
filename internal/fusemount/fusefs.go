@@ -6,8 +6,10 @@
 package fusemount
 
 import (
+	"io"
 	"io/ioutil"
 	"os"
+	"sync"
 
 	"bazil.org/fuse"
 	fusefs "bazil.org/fuse/fs"
@@ -35,6 +37,51 @@ func (n *fuseNode) Attr(ctx context.Context, a *fuse.Attr) error {
 type fuseFileNode struct {
 	fuseNode
 }
+
+var _ fusefs.NodeOpener = (*fuseFileNode)(nil)
+
+func (f *fuseFileNode) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fusefs.Handle, error) {
+	reader, err := f.entry.(fs.File).Open(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return &fuseFileHandle{reader: reader, size: f.entry.Size()}, nil
+}
+
+type fuseFileHandle struct {
+	mu     sync.Mutex
+	reader fs.Reader
+	size   int64
+}
+
+func (f *fuseFileHandle) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadResponse) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	_, err := f.reader.Seek(req.Offset, io.SeekStart)
+	if err != nil {
+		return err
+	}
+
+	n, err := f.reader.Read(resp.Data[:req.Size])
+	if err != nil {
+		return err
+	}
+
+	resp.Data = resp.Data[:n]
+
+	return nil
+}
+
+func (f *fuseFileHandle) Release(ctx context.Context, req *fuse.ReleaseRequest) error {
+	return f.reader.Close()
+}
+
+var (
+	_ fusefs.HandleReleaser = (*fuseFileHandle)(nil)
+	_ fusefs.HandleReader   = (*fuseFileHandle)(nil)
+)
 
 func (f *fuseFileNode) ReadAll(ctx context.Context) ([]byte, error) {
 	reader, err := f.entry.(fs.File).Open(ctx)
