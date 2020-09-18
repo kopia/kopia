@@ -50,6 +50,7 @@ require (
 	golang.org/x/net v0.0.0-20200520182314-0ba52f642ac2
 	golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
 	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a
+	golang.org/x/sys v0.0.0-20200511232937-7e40ca221e25
 	golang.org/x/tools v0.0.0-20200521155704-91d71f6c2f04 // indirect
 	google.golang.org/api v0.25.0
 	google.golang.org/protobuf v1.23.0

@@ -29,8 +29,10 @@ func TestRestoreCommand(t *testing.T) {
 
 	source := makeScratchDir(t)
 	testenv.MustCreateDirectoryTree(t, source, testenv.DirectoryTreeOptions{
-		Depth:                1,
-		MaxFilesPerDirectory: 10,
+		Depth:                              1,
+		MaxFilesPerDirectory:               10,
+		MaxSymlinksPerDirectory:            4,
+		NonExistingSymlinkTargetPercentage: 50,
 	})
 
 	restoreDir := makeScratchDir(t)
@@ -117,9 +119,11 @@ func TestSnapshotRestore(t *testing.T) {
 
 	source := makeScratchDir(t)
 	testenv.MustCreateDirectoryTree(t, source, testenv.DirectoryTreeOptions{
-		Depth:                  5,
-		MaxSubdirsPerDirectory: 5,
-		MaxFilesPerDirectory:   5,
+		Depth:                              5,
+		MaxSubdirsPerDirectory:             5,
+		MaxFilesPerDirectory:               5,
+		MaxSymlinksPerDirectory:            4,
+		NonExistingSymlinkTargetPercentage: 50,
 	})
 
 	restoreDir := makeScratchDir(t)

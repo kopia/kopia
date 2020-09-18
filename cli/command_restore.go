@@ -144,7 +144,7 @@ func detectRestoreMode(m string) string {
 }
 
 func printRestoreStats(st restore.Stats) {
-	printStderr("Restored %v files and %v directories (%v)\n", st.FileCount, st.DirCount, units.BytesStringBase10(st.TotalFileSize))
+	printStderr("Restored %v files, %v directories and %v symbolic links (%v)\n", st.FileCount, st.DirCount, st.SymlinkCount, units.BytesStringBase10(st.TotalFileSize))
 }
 
 func runRestoreCommand(ctx context.Context, rep repo.Repository) error {

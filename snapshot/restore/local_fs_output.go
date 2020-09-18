@@ -43,7 +43,7 @@ func (o *FilesystemOutput) BeginDirectory(ctx context.Context, relativePath stri
 // FinishDirectory implements restore.Output interface.
 func (o *FilesystemOutput) FinishDirectory(ctx context.Context, relativePath string, e fs.Directory) error {
 	path := filepath.Join(o.TargetPath, filepath.FromSlash(relativePath))
-	if err := o.setAttributes(path, e); err != nil {
+	if err := o.setAttributes(ctx, path, e); err != nil {
 		return errors.Wrap(err, "error setting attributes")
 	}
 
@@ -57,14 +57,14 @@ func (o *FilesystemOutput) Close(ctx context.Context) error {
 
 // WriteFile implements restore.Output interface.
 func (o *FilesystemOutput) WriteFile(ctx context.Context, relativePath string, f fs.File) error {
-	log(ctx).Infof("WriteFile %v %v", relativePath, f)
+	log(ctx).Infof("WriteFile %v %v", relativePath, f.Size())
 	path := filepath.Join(o.TargetPath, filepath.FromSlash(relativePath))
 
 	if err := o.copyFileContent(ctx, path, f); err != nil {
 		return errors.Wrap(err, "error creating directory")
 	}
 
-	if err := o.setAttributes(path, f); err != nil {
+	if err := o.setAttributes(ctx, path, f); err != nil {
 		return errors.Wrap(err, "error setting attributes")
 	}
 
@@ -73,12 +73,28 @@ func (o *FilesystemOutput) WriteFile(ctx context.Context, relativePath string, f
 
 // CreateSymlink implements restore.Output interface.
 func (o *FilesystemOutput) CreateSymlink(ctx context.Context, relativePath string, e fs.Symlink) error {
-	log(ctx).Debugf("create symlink not implemented yet")
+	targetPath, err := e.Readlink(ctx)
+	if err != nil {
+		return errors.Wrap(err, "error reading link target")
+	}
+
+	log(ctx).Infof("CreateSymlink %v => %v", relativePath, targetPath)
+
+	path := filepath.Join(o.TargetPath, filepath.FromSlash(relativePath))
+
+	if err := os.Symlink(targetPath, path); err != nil {
+		return errors.Wrap(err, "error creating symlink")
+	}
+
+	if err := o.setAttributes(ctx, path, e); err != nil {
+		return errors.Wrap(err, "error setting attributes")
+	}
+
 	return nil
 }
 
 // set permission, modification time and user/group ids on targetPath.
-func (o *FilesystemOutput) setAttributes(targetPath string, e fs.Entry) error {
+func (o *FilesystemOutput) setAttributes(ctx context.Context, targetPath string, e fs.Entry) error {
 	const modBits = os.ModePerm | os.ModeSetgid | os.ModeSetuid | os.ModeSticky
 
 	le, err := localfs.NewEntry(targetPath)
@@ -103,7 +119,16 @@ func (o *FilesystemOutput) setAttributes(targetPath string, e fs.Entry) error {
 	}
 
 	// Set mod time from e
-	if !le.ModTime().Equal(e.ModTime()) {
+	if le.ModTime().Equal(e.ModTime()) {
+		return nil
+	}
+
+	if _, isSymlink := e.(fs.Symlink); isSymlink {
+		// symbolic links require special handling that is OS-specific and sometimes unsupported.
+		if err = symlinkChtimes(ctx, targetPath, e.ModTime(), e.ModTime()); err != nil && !os.IsPermission(err) {
+			return errors.Wrap(err, "could not change mod time on "+targetPath)
+		}
+	} else {
 		// Note: Set atime to ModTime as well
 		if err = os.Chtimes(targetPath, e.ModTime(), e.ModTime()); err != nil && !os.IsPermission(err) {
 			return errors.Wrap(err, "could not change mod time on "+targetPath)
