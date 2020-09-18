@@ -299,6 +299,7 @@ func TestUploadWithCheckpointing(t *testing.T) {
 
 	// create a channel that will be sent to whenever checkpoint completes.
 	u.checkpointFinished = make(chan struct{})
+	u.disableEstimation = true
 
 	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
 
