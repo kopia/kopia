@@ -8,7 +8,7 @@ import (
 // UploadProgress is invoked by by uploader to report status of file and directory uploads.
 type UploadProgress interface {
 	// UploadStarted is emitted once at the start of an upload
-	UploadStarted(previousFileCount int, previousTotalSize int64)
+	UploadStarted()
 
 	// UploadFinished is emitted once at the end of an upload
 	UploadFinished()
@@ -36,6 +36,9 @@ type UploadProgress interface {
 
 	// FinishedDirectory is emitted whenever a directory is finished uploading.
 	FinishedDirectory(dirname string)
+
+	// EstimatedDataSize is emitted whenever the size of upload is estimated.
+	EstimatedDataSize(fileCount int, totalBytes int64)
 }
 
 // NullUploadProgress is an implementation of UploadProgress that does not produce any output.
@@ -43,7 +46,10 @@ type NullUploadProgress struct {
 }
 
 // UploadStarted implements UploadProgress.
-func (p *NullUploadProgress) UploadStarted(previousFileCount int, previousTotalSize int64) {}
+func (p *NullUploadProgress) UploadStarted() {}
+
+// EstimatedDataSize implements UploadProgress.
+func (p *NullUploadProgress) EstimatedDataSize(fileCount int, totalBytes int64) {}
 
 // UploadFinished implements UploadProgress.
 func (p *NullUploadProgress) UploadFinished() {}
@@ -79,10 +85,13 @@ type UploadCounters struct {
 	TotalCachedBytes int64 `json:"cachedBytes"`
 	TotalHashedBytes int64 `json:"hashedBytes"`
 
+	EstimatedBytes int64 `json:"estimatedBytes"`
+
 	TotalCachedFiles int32 `json:"cachedFiles"`
 	TotalHashedFiles int32 `json:"hashedFiles"`
 
 	TotalIgnoredErrors int32 `json:"ignoredErrors"`
+	EstimatedFiles     int32 `json:"estimatedFiles"`
 
 	CurrentDirectory string `json:"directory"`
 
@@ -100,9 +109,15 @@ type CountingUploadProgress struct {
 }
 
 // UploadStarted implements UploadProgress.
-func (p *CountingUploadProgress) UploadStarted(previousFileCount int, previousTotalFileSize int64) {
+func (p *CountingUploadProgress) UploadStarted() {
 	// reset counters to all-zero values.
 	p.counters = UploadCounters{}
+}
+
+// EstimatedDataSize implements UploadProgress.
+func (p *CountingUploadProgress) EstimatedDataSize(numFiles int, numBytes int64) {
+	atomic.StoreInt64(&p.counters.EstimatedBytes, numBytes)
+	atomic.StoreInt32(&p.counters.EstimatedFiles, int32(numFiles))
 }
 
 // HashedBytes implements UploadProgress.
@@ -149,6 +164,8 @@ func (p *CountingUploadProgress) Snapshot() UploadCounters {
 		TotalHashedFiles: atomic.LoadInt32(&p.counters.TotalHashedFiles),
 		TotalCachedBytes: atomic.LoadInt64(&p.counters.TotalCachedBytes),
 		TotalHashedBytes: atomic.LoadInt64(&p.counters.TotalHashedBytes),
+		EstimatedBytes:   atomic.LoadInt64(&p.counters.EstimatedBytes),
+		EstimatedFiles:   atomic.LoadInt32(&p.counters.EstimatedFiles),
 		CurrentDirectory: p.counters.CurrentDirectory,
 		LastErrorPath:    p.counters.LastErrorPath,
 		LastError:        p.counters.LastError,

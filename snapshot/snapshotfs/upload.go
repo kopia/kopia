@@ -78,6 +78,9 @@ type Uploader struct {
 
 	// for testing only, when set will write to a given channel whenever checkpoint completes
 	checkpointFinished chan struct{}
+
+	// disable snapshot size estimation
+	disableEstimation bool
 }
 
 // IsCanceled returns true if the upload is canceled.
@@ -694,6 +697,7 @@ func (u *Uploader) processNonDirectories(ctx context.Context, parentCheckpointRe
 		// See if we had this name during either of previous passes.
 		if cachedEntry := u.maybeIgnoreCachedEntry(ctx, findCachedEntry(ctx, entry, prevEntries)); cachedEntry != nil {
 			atomic.AddInt32(&u.stats.CachedFiles, 1)
+			atomic.AddInt64(&u.stats.TotalFileSize, entry.Size())
 			u.Progress.CachedFile(filepath.Join(dirRelativePath, entry.Name()), entry.Size())
 
 			// compute entryResult now, cachedEntry is short-lived
@@ -943,20 +947,8 @@ func (u *Uploader) Upload(
 		Source: sourceInfo,
 	}
 
-	maxPreviousTotalFileSize := int64(0)
-	maxPreviousFileCount := 0
+	u.Progress.UploadStarted()
 
-	for _, m := range previousManifests {
-		if s := m.Stats.TotalFileSize; s > maxPreviousTotalFileSize {
-			maxPreviousTotalFileSize = s
-		}
-
-		if s := int(m.Stats.TotalFileCount); s > maxPreviousFileCount {
-			maxPreviousFileCount = s
-		}
-	}
-
-	u.Progress.UploadStarted(maxPreviousFileCount, maxPreviousTotalFileSize)
 	defer u.Progress.UploadFinished()
 
 	u.stats = snapshot.Stats{}
@@ -965,6 +957,9 @@ func (u *Uploader) Upload(
 	var err error
 
 	s.StartTime = u.repo.Time()
+
+	scanctx, cancelScan := context.WithCancel(ctx)
+	defer cancelScan()
 
 	switch entry := source.(type) {
 	case fs.Directory:
@@ -979,9 +974,17 @@ func (u *Uploader) Upload(
 		entry = ignorefs.New(entry, policyTree, ignorefs.ReportIgnoredFiles(func(_ string, md fs.Entry) {
 			u.stats.AddExcluded(md)
 		}))
+
+		go func() {
+			ds, _ := u.scanDirectory(scanctx, entry)
+
+			u.Progress.EstimatedDataSize(ds.numFiles, ds.totalFileSize)
+		}()
+
 		s.RootEntry, err = u.uploadDirWithCheckpointing(ctx, entry, policyTree, previousDirs, sourceInfo)
 
 	case fs.File:
+		u.Progress.EstimatedDataSize(1, entry.Size())
 		s.RootEntry, err = u.uploadFileWithCheckpointing(ctx, entry.Name(), entry, policyTree.EffectivePolicy(), sourceInfo)
 
 	default:

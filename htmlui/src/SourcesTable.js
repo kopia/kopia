@@ -203,8 +203,10 @@ export class SourcesTable extends Component {
                     const totalBytes = u.hashedBytes + u.cachedBytes;
 
                     totals = sizeDisplayName(totalBytes);
-                    if (x.row.original.lastSnapshot) {
-                        const percent = Math.round(totalBytes * 1000.0 / x.row.original.lastSnapshot.stats.totalSize) / 10.0;
+                    if (u.estimatedBytes) {
+                        totals += "/" + sizeDisplayName(u.estimatedBytes);
+
+                        const percent = Math.round(totalBytes * 1000.0 / u.estimatedBytes) / 10.0;
                         if (percent <= 100) {
                             totals += " " + percent + "%";
                         }
@@ -212,7 +214,7 @@ export class SourcesTable extends Component {
                 }
 
                 return <>
-                    <Spinner animation="border" variant="primary" size="sm" title={title} />&nbsp;Snapshotting {totals}
+                    <Spinner animation="border" variant="primary" size="sm" title={title} />&nbsp;Uploading {totals}
                     &nbsp;
                     <Button variant="danger" size="sm" onClick={() => {
                         parent.cancelSnapshot(x.row.original.source);
