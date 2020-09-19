@@ -6,8 +6,13 @@ import (
 	"os/exec"
 	"testing"
 
+	"github.com/google/uuid"
+	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/rclone"
 )
 
@@ -35,6 +40,24 @@ func TestRCloneStorage(t *testing.T) {
 	}
 
 	defer st.Close(ctx)
+
+	var eg errgroup.Group
+
+	// trigger multiple parallel reads to ensure we're properly preventing race
+	// described in https://github.com/kopia/kopia/issues/624
+	for i := 0; i < 100; i++ {
+		eg.Go(func() error {
+			if _, err := st.GetBlob(ctx, blob.ID(uuid.New().String()), 0, -1); !errors.Is(err, blob.ErrBlobNotFound) {
+				return errors.Errorf("unexpected error when downloading non-existent blob: %v", err)
+			}
+
+			return nil
+		})
+	}
+
+	if err := eg.Wait(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 
 	blobtesting.VerifyStorage(ctx, t, st)
 	blobtesting.AssertConnectionInfoRoundTrips(ctx, t, st)
