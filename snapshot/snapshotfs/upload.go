@@ -69,7 +69,8 @@ type Uploader struct {
 
 	repo repo.Repository
 
-	stats    snapshot.Stats
+	// stats must be allocated on heap to enforce 64-bit alignment due to atomic access on ARM.
+	stats    *snapshot.Stats
 	canceled int32
 
 	uploadBufPool sync.Pool
@@ -951,7 +952,7 @@ func (u *Uploader) Upload(
 
 	defer u.Progress.UploadFinished()
 
-	u.stats = snapshot.Stats{}
+	u.stats = &snapshot.Stats{}
 	u.totalWrittenBytes = 0
 
 	var err error
@@ -997,7 +998,7 @@ func (u *Uploader) Upload(
 
 	s.IncompleteReason = u.incompleteReason()
 	s.EndTime = u.repo.Time()
-	s.Stats = u.stats
+	s.Stats = *u.stats
 
 	return s, nil
 }
