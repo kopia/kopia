@@ -23,6 +23,7 @@ it('can set fields', async () => {
     "knownHostsFile": "some-knownHostsFile",
     "path": "some-path",
     "port": 22,
+    "validated": true,
   });
 
   // now enter key data instead of key file, make sure validation triggers along the way
@@ -44,5 +45,6 @@ it('can set fields', async () => {
     "knownHostsData": "some-knownHostsData",
     "path": "some-path",
     "port": 22,
+    "validated": true,
   });
 });

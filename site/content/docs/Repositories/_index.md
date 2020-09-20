@@ -111,6 +111,66 @@ $ kopia repository connect b2
 
 ---
 
+
+## SFTP
+
+The `SFTP` provider can be used to connect to a file server over SFTP/SSH protocol.
+
+You must first configure passwordless SFTP login by following [these instructions](https://www.redhat.com/sysadmin/passwordless-ssh). Make sure to choose empty passphrase, because Kopia does not support password prompts on each use. 
+
+If everything is configured correctly, you should be able to connect to your SFTP server without any password by using:
+
+```
+$ sftp some-user@my-server
+Connected to my-server.
+sftp> 
+```
+
+
+### Creating a repository
+
+Assiuming passwordless connection worked, you can now create SFTP repository. Assuming you want the files to be stored under `/remote/path`, run the following command:
+
+```shell
+$ kopia repository create sftp \
+        --host my-server \
+        --username some-user \
+        --keyfile ~/.ssh/id_rsa \
+        --known-hosts ~/.ssh/known_hosts \
+        --path /remote/path
+```
+
+(adjust paths to the key file and known hosts file as necessary).
+
+When prompted, enter Kopia password to encrypt the repository contents.
+
+If everything is done correctly, you should be able to verify that SFTP server indeed has Kopia files in the provided location, including special file named `kopia.repository.f`:
+
+```
+$ sftp some-user@my-server
+sftp> ls -al /remote/path
+-rw-r--r--    1 some-user  some-user  661 Sep 18 16:12 kopia.repository.f
+```
+
+### Connecting To Repository
+
+To connect to an existing SFTP repository, simply use `connect` instead of `create`:
+
+```shell
+$ kopia repository connect sftp \
+        --host my-server \
+        --username some-user \
+        --keyfile ~/.ssh/id_rsa \
+        --known-hosts ~/.ssh/known_hosts \
+        --path /remote/path
+```
+
+If the connection to SFTP server does not work, try adding `--external` which will launch external `ssh` process, which supports more connectivity options which may be needed for some hosts.
+
+[Detailed information and settings](/docs/reference/command-line/common/repository-connect-sftp/)
+
+---
+
 ## Rclone
 
 Kopia can connect to certain backends supported by [Rclone](https://rclone.org) as long as they support

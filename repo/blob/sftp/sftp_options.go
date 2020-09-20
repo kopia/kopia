@@ -17,6 +17,10 @@ type Options struct {
 	KnownHostsFile string `json:"knownHostsFile,omitempty"`
 	KnownHostsData string `json:"knownHostsData,omitempty"`
 
+	ExternalSSH  bool   `json:"externalSSH"`
+	SSHCommand   string `json:"sshCommand,omitempty"` // default "ssh"
+	SSHArguments string `json:"sshArguments,omitempty"`
+
 	DirectoryShards []int `json:"dirShards"`
 }
 
