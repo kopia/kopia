@@ -116,20 +116,20 @@ $ kopia repository connect b2
 
 The `SFTP` provider can be used to connect to a file server over SFTP/SSH protocol.
 
-You must first configure passwordless SFTP login by following [these instructions](https://www.redhat.com/sysadmin/passwordless-ssh). Make sure to choose empty passphrase, because Kopia does not support password prompts on each use. 
+You must first configure passwordless SFTP login by following [these instructions](https://www.redhat.com/sysadmin/passwordless-ssh). Choose an empty passphrase because Kopia does not allow password prompts for the backend.
 
 If everything is configured correctly, you should be able to connect to your SFTP server without any password by using:
 
 ```
 $ sftp some-user@my-server
 Connected to my-server.
-sftp> 
+sftp>
 ```
 
 
 ### Creating a repository
 
-Assiuming passwordless connection worked, you can now create SFTP repository. Assuming you want the files to be stored under `/remote/path`, run the following command:
+Once the passwordless connection works, then you can create a Kopia SFTP repository. Assuming you want the files to be stored under `/remote/path`, run the command below. Adjust the user name and paths to the key file and known hosts file as necessary.
 
 ```shell
 $ kopia repository create sftp \
@@ -139,8 +139,6 @@ $ kopia repository create sftp \
         --known-hosts ~/.ssh/known_hosts \
         --path /remote/path
 ```
-
-(adjust paths to the key file and known hosts file as necessary).
 
 When prompted, enter Kopia password to encrypt the repository contents.
 
