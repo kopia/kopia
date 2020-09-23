@@ -1,2 +1,4 @@
-*.go	whitespace=trailing-space,space-before-tab,indent-with-non-tab
-go.mod	whitespace=trailing-space,space-before-tab,indent-with-non-tab
+*.go	text eol=lf whitespace=trailing-space,space-before-tab,indent-with-non-tab diff=golang
+go.mod	text eol=lf whitespace=trailing-space,space-before-tab,indent-with-non-tab
+go.sum	text eol=lf whitespace=trailing-space,space-before-tab,indent-with-non-tab
+Makefile text eol=lf whitespace=trailing-space,space-before-tab,indent-with-non-tab
