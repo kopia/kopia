@@ -46,7 +46,7 @@ require (
 	github.com/stretchr/testify v1.6.1
 	github.com/studio-b12/gowebdav v0.0.0-20200303150724-9380631c29a1
 	github.com/tg123/go-htpasswd v1.0.0
-	github.com/zalando/go-keyring v0.0.0-20200121091418-667557018717
+	github.com/zalando/go-keyring v0.1.0
 	go.opencensus.io v0.22.4
 	gocloud.dev v0.20.0
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
