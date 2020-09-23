@@ -6,12 +6,9 @@ require (
 	bazil.org/fuse v0.0.0-20200117225306-7b5117fecadc
 	cloud.google.com/go/storage v1.12.0
 	contrib.go.opencensus.io/exporter/prometheus v0.2.0
-	github.com/Azure/azure-amqp-common-go/v2 v2.1.1 // indirect
 	github.com/Azure/azure-pipeline-go v0.2.3 // indirect
 	github.com/Azure/azure-storage-blob-go v0.10.0
-	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
 	github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d // indirect
-	github.com/alexhunt7/ssher v0.0.0-20190216204854-d36569cf7047
 	github.com/aws/aws-sdk-go v1.34.29
 	github.com/bgentry/speakeasy v0.1.0
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
@@ -24,15 +21,11 @@ require (
 	github.com/google/go-cmp v0.5.2
 	github.com/google/readahead v0.0.0-20161222183148-eaceba169032 // indirect
 	github.com/google/uuid v1.1.2
-	github.com/google/wire v0.4.0 // indirect
 	github.com/gorilla/mux v1.8.0
-	github.com/grpc-ecosystem/grpc-gateway v1.9.2 // indirect
-	github.com/kevinburke/ssh_config v0.0.0-20190725054713-01f96b0aa0cd // indirect
 	github.com/klauspost/compress v1.11.0
 	github.com/klauspost/pgzip v1.2.5
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mattn/go-colorable v0.1.7 // indirect
-	github.com/mattn/go-ieproxy v0.0.1 // indirect
 	github.com/minio/minio v0.0.0-20200922223427-0537a21b7948
 	github.com/minio/minio-go/v6 v6.0.58-0.20200612001654-a57fec8037ec
 	github.com/natefinch/atomic v0.0.0-20200526193002-18c0533a5b09
