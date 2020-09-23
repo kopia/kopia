@@ -8,11 +8,11 @@ on:
 
 jobs:
   build:
-    name: Build
+    name: Build ARMHF
     runs-on: [self-hosted, armhf]
     steps:
 
-    - name: Check out code into the Go module directory
+    - name: Check out code
       uses: actions/checkout@v2
 
     - name: Build
