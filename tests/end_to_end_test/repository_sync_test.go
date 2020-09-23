@@ -10,7 +10,7 @@ func TestRepositorySync(t *testing.T) {
 	t.Parallel()
 
 	e := testenv.NewCLITest(t)
-	defer e.Cleanup(t)
+
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
@@ -21,11 +21,11 @@ func TestRepositorySync(t *testing.T) {
 	sources := e.ListSnapshotsAndExpectSuccess(t)
 
 	// synchronize repository blobs to another directory
-	dir2 := makeScratchDir(t)
+	dir2 := t.TempDir()
 	e.RunAndExpectSuccess(t, "repo", "sync-to", "filesystem", "--path", dir2, "--times")
 
 	// synchronizing to empty directory fails with --must-exist
-	dir3 := makeScratchDir(t)
+	dir3 := t.TempDir()
 	e.RunAndExpectFailure(t, "repo", "sync-to", "filesystem", "--path", dir3, "--must-exist")
 
 	// now connect to the new repository in new location
@@ -39,7 +39,7 @@ func TestRepositorySync(t *testing.T) {
 
 	// now create a whole new repository
 	e2 := testenv.NewCLITest(t)
-	defer e2.Cleanup(t)
+
 	defer e2.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	e2.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e2.RepoDir)

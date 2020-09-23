@@ -14,13 +14,12 @@ func TestSnapshotGC(t *testing.T) {
 	t.Parallel()
 
 	e := testenv.NewCLITest(t)
-	defer e.Cleanup(t)
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
 	expectedContentCount := len(e.RunAndExpectSuccess(t, "content", "list"))
 
-	dataDir := makeScratchDir(t)
+	dataDir := t.TempDir()
 	testenv.AssertNoError(t, os.MkdirAll(dataDir, 0o777))
 	testenv.AssertNoError(t, ioutil.WriteFile(filepath.Join(dataDir, "some-file1"), []byte(`
 hello world

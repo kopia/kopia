@@ -11,7 +11,6 @@ func TestReconnect(t *testing.T) {
 	t.Parallel()
 
 	e := testenv.NewCLITest(t)
-	defer e.Cleanup(t)
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 	e.RunAndExpectSuccess(t, "repo", "disconnect")
@@ -23,7 +22,6 @@ func TestReconnectUsingToken(t *testing.T) {
 	t.Parallel()
 
 	e := testenv.NewCLITest(t)
-	defer e.Cleanup(t)
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 	lines := e.RunAndExpectSuccess(t, "repo", "status", "-t", "-s")

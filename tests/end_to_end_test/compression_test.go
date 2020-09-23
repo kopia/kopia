@@ -14,7 +14,6 @@ func TestCompression(t *testing.T) {
 	t.Parallel()
 
 	e := testenv.NewCLITest(t)
-	defer e.Cleanup(t)
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
@@ -22,7 +21,7 @@ func TestCompression(t *testing.T) {
 	// set global policy
 	e.RunAndExpectSuccess(t, "policy", "set", "--global", "--compression", "pgzip")
 
-	dataDir := makeScratchDir(t)
+	dataDir := t.TempDir()
 
 	dataLines := []string{
 		"hello world",

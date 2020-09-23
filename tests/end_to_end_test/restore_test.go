@@ -23,11 +23,10 @@ func TestRestoreCommand(t *testing.T) {
 	t.Parallel()
 
 	e := testenv.NewCLITest(t)
-	defer e.Cleanup(t)
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
-	source := makeScratchDir(t)
+	source := filepath.Join(t.TempDir(), "source")
 	testenv.MustCreateDirectoryTree(t, source, testenv.DirectoryTreeOptions{
 		Depth:                              1,
 		MaxFilesPerDirectory:               10,
@@ -35,8 +34,7 @@ func TestRestoreCommand(t *testing.T) {
 		NonExistingSymlinkTargetPercentage: 50,
 	})
 
-	restoreDir := makeScratchDir(t)
-	r1 := makeScratchDir(t)
+	r1 := t.TempDir()
 	// Attempt to restore a snapshot from an empty repo.
 	e.RunAndExpectFailure(t, "restore", "kffbb7c28ea6c34d6cbe555d1cf80faa9", r1)
 	e.RunAndExpectSuccess(t, "snapshot", "create", source)
@@ -54,7 +52,7 @@ func TestRestoreCommand(t *testing.T) {
 	snapID := si[0].Snapshots[0].SnapshotID
 	rootID := si[0].Snapshots[0].ObjectID
 
-	r2 := makeScratchDir(t)
+	r2 := t.TempDir()
 	// Attempt to restore a non-existing snapshot.
 	e.RunAndExpectFailure(t, "restore", "kffbb7c28ea6c34d6cbe555d1cf80fdd9", r2)
 
@@ -62,10 +60,11 @@ func TestRestoreCommand(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// Attempt to restore using snapshot ID
-	restoreFailDir := makeScratchDir(t)
+	restoreFailDir := t.TempDir()
 	e.RunAndExpectFailure(t, "restore", snapID, restoreFailDir)
 
 	// Restore last snapshot
+	restoreDir := t.TempDir()
 	e.RunAndExpectSuccess(t, "restore", rootID, restoreDir)
 
 	// Note: restore does not reset the permissions for the top directory due to
@@ -112,12 +111,11 @@ func TestSnapshotRestore(t *testing.T) {
 	t.Parallel()
 
 	e := testenv.NewCLITest(t)
-	defer e.Cleanup(t)
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
-	source := makeScratchDir(t)
+	source := t.TempDir()
 	testenv.MustCreateDirectoryTree(t, source, testenv.DirectoryTreeOptions{
 		Depth:                              5,
 		MaxSubdirsPerDirectory:             5,
@@ -126,8 +124,8 @@ func TestSnapshotRestore(t *testing.T) {
 		NonExistingSymlinkTargetPercentage: 50,
 	})
 
-	restoreDir := makeScratchDir(t)
-	r1 := makeScratchDir(t)
+	restoreDir := t.TempDir()
+	r1 := t.TempDir()
 	// Attempt to restore a snapshot from an empty repo.
 	e.RunAndExpectFailure(t, "snapshot", "restore", "kffbb7c28ea6c34d6cbe555d1cf80faa9", r1)
 	e.RunAndExpectSuccess(t, "snapshot", "create", source)
@@ -146,14 +144,14 @@ func TestSnapshotRestore(t *testing.T) {
 	rootID := si[0].Snapshots[0].ObjectID
 
 	// Attempt to restore a non-existing snapshot.
-	r2 := makeScratchDir(t)
+	r2 := t.TempDir()
 	e.RunAndExpectFailure(t, "snapshot", "restore", "kffbb7c28ea6c34d6cbe555d1cf80fdd9", r2)
 
 	// Ensure restored files are created with a different ModTime
 	time.Sleep(time.Second)
 
 	// Attempt to restore snapshot with root ID
-	restoreFailDir := makeScratchDir(t)
+	restoreFailDir := t.TempDir()
 	e.RunAndExpectFailure(t, "snapshot", "restore", rootID, restoreFailDir)
 
 	// Restore last snapshot using the snapshot ID
@@ -178,7 +176,7 @@ func TestSnapshotRestore(t *testing.T) {
 		{fname: "output.notargz.blah", args: []string{"--mode=tgz"}, validator: verifyValidTarGzipFile},
 	}
 
-	restoreArchiveDir := makeScratchDir(t)
+	restoreArchiveDir := t.TempDir()
 
 	t.Run("modes", func(t *testing.T) {
 		for _, tc := range cases {

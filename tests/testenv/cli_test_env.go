@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -68,24 +67,11 @@ func NewCLITest(t *testing.T) *CLITest {
 		t.Skip()
 	}
 
-	RepoDir, err := ioutil.TempDir("", "kopia-repo")
-	if err != nil {
-		t.Fatalf("can't create temp directory: %v", err)
-	}
-
-	ConfigDir, err := ioutil.TempDir("", "kopia-config")
-	if err != nil {
-		t.Fatalf("can't create temp directory: %v", err)
-	}
-
-	logsDir, err := ioutil.TempDir("", "kopia-logs")
-	if err != nil {
-		t.Fatalf("can't create temp directory: %v", err)
-	}
-
+	configDir := t.TempDir()
+	logsDir := t.TempDir()
 	fixedArgs := []string{
 		// use per-test config file, to avoid clobbering current user's setup.
-		"--config-file", filepath.Join(ConfigDir, ".kopia.config"),
+		"--config-file", filepath.Join(configDir, ".kopia.config"),
 		"--log-dir", logsDir,
 	}
 
@@ -101,8 +87,8 @@ func NewCLITest(t *testing.T) *CLITest {
 
 	return &CLITest{
 		startTime: clock.Now(),
-		RepoDir:   RepoDir,
-		ConfigDir: ConfigDir,
+		RepoDir:   t.TempDir(),
+		ConfigDir: configDir,
 		Exe:       filepath.FromSlash(exe),
 		fixedArgs: fixedArgs,
 		LogsDir:   logsDir,
@@ -110,26 +96,6 @@ func NewCLITest(t *testing.T) *CLITest {
 			"KOPIA_PASSWORD=" + repoPassword,
 			"KOPIA_ADVANCED_COMMANDS=enabled",
 		},
-	}
-}
-
-// Cleanup cleans up the test Environment unless the test has failed.
-func (e *CLITest) Cleanup(t *testing.T) {
-	if t.Failed() {
-		t.Logf("skipped cleanup for failed test, examine repository: %v and logs %v", e.RepoDir, e.LogsDir)
-		return
-	}
-
-	if e.RepoDir != "" {
-		os.RemoveAll(e.RepoDir)
-	}
-
-	if e.ConfigDir != "" {
-		os.RemoveAll(e.ConfigDir)
-	}
-
-	if e.LogsDir != "" {
-		os.RemoveAll(e.LogsDir)
 	}
 }
 

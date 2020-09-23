@@ -41,7 +41,6 @@ func TestAutoUpdateEnableTest(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			t.Parallel()
 			e := testenv.NewCLITest(t)
-			defer e.Cleanup(t)
 
 			// create repo
 			args := append([]string{
