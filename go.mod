@@ -31,7 +31,7 @@ require (
 	github.com/klauspost/compress v1.11.0
 	github.com/klauspost/pgzip v1.2.5
 	github.com/kylelemons/godebug v1.1.0
-	github.com/mattn/go-colorable v0.1.6 // indirect
+	github.com/mattn/go-colorable v0.1.7 // indirect
 	github.com/mattn/go-ieproxy v0.0.1 // indirect
 	github.com/minio/minio v0.0.0-20200922223427-0537a21b7948
 	github.com/minio/minio-go/v6 v6.0.58-0.20200612001654-a57fec8037ec
