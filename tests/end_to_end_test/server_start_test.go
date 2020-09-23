@@ -74,7 +74,7 @@ func TestServerStart(t *testing.T) {
 		"--address=localhost:0",
 		"--random-password",
 		"--tls-generate-cert",
-		"--auto-shutdown=60s",
+		"--auto-shutdown=180s",
 		"--override-hostname=fake-hostname",
 		"--override-username=fake-username",
 	)
@@ -204,7 +204,7 @@ func TestServerStartWithoutInitialRepository(t *testing.T) {
 		},
 	}
 
-	e.RunAndProcessStderr(t, sp.ProcessOutput, "server", "start", "--ui", "--address=localhost:0", "--random-password", "--tls-generate-cert", "--auto-shutdown=60s")
+	e.RunAndProcessStderr(t, sp.ProcessOutput, "server", "start", "--ui", "--address=localhost:0", "--random-password", "--tls-generate-cert", "--auto-shutdown=180s")
 	t.Logf("detected server parameters %#v", sp)
 
 	cli, err := apiclient.NewKopiaAPIClient(apiclient.Options{
@@ -358,6 +358,8 @@ func verifyUIServedWithCorrectTitle(t *testing.T, cli *apiclient.KopiaAPIClient,
 }
 
 func waitUntilServerStarted(ctx context.Context, t *testing.T, cli *apiclient.KopiaAPIClient) {
+	t.Helper()
+
 	if err := retry.PeriodicallyNoValue(ctx, 1*time.Second, 180, "wait for server start", func() error {
 		_, err := serverapi.Status(testlogging.Context(t), cli)
 		return err

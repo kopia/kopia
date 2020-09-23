@@ -171,7 +171,7 @@ func (d *ignoreDirectory) buildContext(ctx context.Context, entries fs.Entries) 
 	}
 
 	if pol != nil {
-		if err := newic.overrideFromPolicy(pol.FilesPolicy, d.relativePath); err != nil {
+		if err := newic.overrideFromPolicy(&pol.FilesPolicy, d.relativePath); err != nil {
 			return nil, err
 		}
 	}
@@ -183,8 +183,7 @@ func (d *ignoreDirectory) buildContext(ctx context.Context, entries fs.Entries) 
 	return newic, nil
 }
 
-// nolint:gocritic
-func (c *ignoreContext) overrideFromPolicy(fp policy.FilesPolicy, dirPath string) error {
+func (c *ignoreContext) overrideFromPolicy(fp *policy.FilesPolicy, dirPath string) error {
 	if fp.NoParentDotIgnoreFiles {
 		c.dotIgnoreFiles = nil
 	}
