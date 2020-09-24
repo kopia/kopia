@@ -7,6 +7,7 @@ import (
 
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
@@ -89,6 +90,9 @@ func (s *sourceManager) setUploader(u *snapshotfs.Uploader) {
 }
 
 func (s *sourceManager) run(ctx context.Context) {
+	// make sure we run in a detached context, which ignores outside cancelation and deadline.
+	ctx = ctxutil.Detach(ctx)
+
 	s.setStatus("INITIALIZING")
 	defer s.setStatus("STOPPED")
 

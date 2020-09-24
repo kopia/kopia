@@ -24,7 +24,9 @@ import (
 )
 
 const (
-	repoPassword        = "qWQPJ2hiiLgWRRCr"
+	// TestRepoPassword is a password for repositories created in tests.
+	TestRepoPassword = "qWQPJ2hiiLgWRRCr"
+
 	maxOutputLinesToLog = 40
 )
 
@@ -93,7 +95,7 @@ func NewCLITest(t *testing.T) *CLITest {
 		fixedArgs: fixedArgs,
 		LogsDir:   logsDir,
 		Environment: []string{
-			"KOPIA_PASSWORD=" + repoPassword,
+			"KOPIA_PASSWORD=" + TestRepoPassword,
 			"KOPIA_ADVANCED_COMMANDS=enabled",
 		},
 	}
