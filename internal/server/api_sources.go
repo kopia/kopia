@@ -9,7 +9,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
@@ -104,7 +103,7 @@ func (s *Server) handleSourcesCreate(ctx context.Context, r *http.Request, body 
 		sm := newSourceManager(sourceInfo, s)
 		s.sourceManagers[sourceInfo] = sm
 
-		go sm.run(ctxutil.Detach(ctx))
+		go sm.run(ctx)
 	}
 	s.mu.Unlock()
 	s.mu.RLock()
