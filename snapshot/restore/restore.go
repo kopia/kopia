@@ -10,10 +10,6 @@ import (
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/logging"
-	"github.com/kopia/kopia/repo/manifest"
-	"github.com/kopia/kopia/repo/object"
-	"github.com/kopia/kopia/snapshot"
-	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
 var log = logging.GetContextLoggerFunc("restore")
@@ -35,28 +31,9 @@ type Stats struct {
 	SymlinkCount  int32
 }
 
-// Snapshot walks a snapshot root with given snapshot ID and restores it to the provided output.
-func Snapshot(ctx context.Context, rep repo.Repository, output Output, snapID manifest.ID) (Stats, error) {
-	m, err := snapshot.LoadSnapshot(ctx, rep, snapID)
-	if err != nil {
-		return Stats{}, err
-	}
-
-	if m.RootEntry == nil {
-		return Stats{}, errors.Errorf("No root entry found in manifest (%v)", snapID)
-	}
-
-	rootEntry, err := snapshotfs.SnapshotRoot(rep, m)
-	if err != nil {
-		return Stats{}, err
-	}
-
+// Entry walks a snapshot root with given root entry and restores it to the provided output.
+func Entry(ctx context.Context, rep repo.Repository, output Output, rootEntry fs.Entry) (Stats, error) {
 	return copyToOutput(ctx, output, rootEntry)
-}
-
-// Root walks a snapshot root with given object ID and restores it to the provided output.
-func Root(ctx context.Context, rep repo.Repository, output Output, oid object.ID) (Stats, error) {
-	return copyToOutput(ctx, output, snapshotfs.DirectoryEntry(rep, oid, nil))
 }
 
 func copyToOutput(ctx context.Context, output Output, rootEntry fs.Entry) (Stats, error) {

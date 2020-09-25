@@ -57,7 +57,7 @@ func (o *FilesystemOutput) Close(ctx context.Context) error {
 
 // WriteFile implements restore.Output interface.
 func (o *FilesystemOutput) WriteFile(ctx context.Context, relativePath string, f fs.File) error {
-	log(ctx).Infof("WriteFile %v %v", relativePath, f.Size())
+	log(ctx).Infof("WriteFile %v (%v bytes) %v", filepath.Join(o.TargetPath, relativePath), f.Size(), f.Mode())
 	path := filepath.Join(o.TargetPath, filepath.FromSlash(relativePath))
 
 	if err := o.copyFileContent(ctx, path, f); err != nil {
@@ -78,7 +78,7 @@ func (o *FilesystemOutput) CreateSymlink(ctx context.Context, relativePath strin
 		return errors.Wrap(err, "error reading link target")
 	}
 
-	log(ctx).Infof("CreateSymlink %v => %v", relativePath, targetPath)
+	log(ctx).Infof("CreateSymlink %v => %v", filepath.Join(o.TargetPath, relativePath), targetPath)
 
 	path := filepath.Join(o.TargetPath, filepath.FromSlash(relativePath))
 

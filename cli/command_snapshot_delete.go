@@ -50,30 +50,19 @@ func deleteSnapshot(ctx context.Context, rep repo.Repository, m *snapshot.Manife
 }
 
 func deleteSnapshotsByRootObjectID(ctx context.Context, rep repo.Repository, rootID object.ID) error {
-	ids, err := snapshot.ListSnapshotManifests(ctx, rep, nil)
+	manifests, err := findSnapshotsByRootObjectID(ctx, rep, rootID)
 	if err != nil {
-		return errors.Wrap(err, "error listing snapshot manifests")
+		return err
 	}
 
-	manifests, err := snapshot.LoadSnapshots(ctx, rep, ids)
-	if err != nil {
-		return errors.Wrap(err, "error loading snapshot manifests")
+	if len(manifests) == 0 {
+		return errors.Errorf("no snapshots matched %v", rootID)
 	}
-
-	cnt := 0
 
 	for _, m := range manifests {
-		if m.RootObjectID() == rootID {
-			cnt++
-
-			if err := deleteSnapshot(ctx, rep, m); err != nil {
-				return errors.Wrap(err, "error deleting")
-			}
+		if err := deleteSnapshot(ctx, rep, m); err != nil {
+			return errors.Wrap(err, "error deleting")
 		}
-	}
-
-	if cnt == 0 {
-		return errors.Errorf("no snapshots matched %v", rootID)
 	}
 
 	return nil

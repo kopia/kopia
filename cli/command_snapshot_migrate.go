@@ -231,7 +231,10 @@ func migrateSingleSourceSnapshot(ctx context.Context, uploader *snapshotfs.Uploa
 		return nil
 	}
 
-	sourceEntry := snapshotfs.DirectoryEntry(sourceRepo, m.RootObjectID(), nil)
+	sourceEntry, err := snapshotfs.SnapshotRoot(sourceRepo, m)
+	if err != nil {
+		return err
+	}
 
 	existing, err := findPreviousSnapshotManifestWithStartTime(ctx, destRepo, m.Source, m.StartTime)
 	if err != nil {
