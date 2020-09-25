@@ -102,10 +102,6 @@ func (fsd *filesystemDirectory) Size() int64 {
 	return 0
 }
 
-func (fsd *filesystemDirectory) Summary() *fs.DirectorySummary {
-	return nil
-}
-
 func (fsd *filesystemDirectory) Child(ctx context.Context, name string) (fs.Entry, error) {
 	fullPath := fsd.fullPath()
 

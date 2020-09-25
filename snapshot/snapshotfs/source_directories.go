@@ -35,10 +35,6 @@ func (s *sourceDirectories) Sys() interface{} {
 	return nil
 }
 
-func (s *sourceDirectories) Summary() *fs.DirectorySummary {
-	return nil
-}
-
 func (s *sourceDirectories) Size() int64 {
 	return 0
 }

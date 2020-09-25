@@ -73,11 +73,6 @@ type Directory struct {
 	onReaddir    func()
 }
 
-// Summary returns summary of a directory.
-func (imd *Directory) Summary() *fs.DirectorySummary {
-	return nil
-}
-
 // AddFileLines adds a mock file with the specified name, text content and permissions.
 func (imd *Directory) AddFileLines(name string, lines []string, permissions os.FileMode) *File {
 	return imd.AddFile(name, []byte(strings.Join(lines, "\n")), permissions)

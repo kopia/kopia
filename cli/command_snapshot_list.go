@@ -194,7 +194,7 @@ func outputManifestFromSingleSource(ctx context.Context, rep repo.Repository, ma
 			continue
 		}
 
-		bits, col := entryBits(m, ent, lastTotalFileSize)
+		bits, col := entryBits(ctx, m, ent, lastTotalFileSize)
 
 		oid := ent.(object.HasObjectID).ObjectID()
 		if !*snapshotListShowIdentical && oid == previousOID {
@@ -224,7 +224,7 @@ func outputManifestFromSingleSource(ctx context.Context, rep repo.Repository, ma
 	return nil
 }
 
-func entryBits(m *snapshot.Manifest, ent fs.Entry, lastTotalFileSize int64) (bits []string, col *color.Color) {
+func entryBits(ctx context.Context, m *snapshot.Manifest, ent fs.Entry, lastTotalFileSize int64) (bits []string, col *color.Color) {
 	col = color.New() // default color
 
 	if m.IncompleteReason != "" {
@@ -252,9 +252,8 @@ func entryBits(m *snapshot.Manifest, ent fs.Entry, lastTotalFileSize int64) (bit
 		bits = append(bits, deltaBytes(ent.Size()-lastTotalFileSize))
 	}
 
-	if d, ok := ent.(fs.Directory); ok {
-		s := d.Summary()
-		if s != nil {
+	if dws, ok := ent.(fs.DirectoryWithSummary); ok {
+		if s, _ := dws.Summary(ctx); s != nil {
 			bits = append(bits,
 				fmt.Sprintf("files:%v", s.TotalFileCount),
 				fmt.Sprintf("dirs:%v", s.TotalDirCount))

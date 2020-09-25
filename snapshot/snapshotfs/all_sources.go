@@ -15,10 +15,6 @@ type repositoryAllSources struct {
 	rep repo.Repository
 }
 
-func (s *repositoryAllSources) Summary() *fs.DirectorySummary {
-	return nil
-}
-
 func (s *repositoryAllSources) IsDir() bool {
 	return true
 }

@@ -83,8 +83,23 @@ type repositorySymlink struct {
 	repositoryEntry
 }
 
-func (rd *repositoryDirectory) Summary() *fs.DirectorySummary {
-	return rd.summary
+func (rd *repositoryDirectory) Summary(ctx context.Context) (*fs.DirectorySummary, error) {
+	if rd.summary != nil {
+		return rd.summary, nil
+	}
+
+	r, err := rd.repo.OpenObject(ctx, rd.metadata.ObjectID)
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close() //nolint:errcheck
+
+	_, summ, err := readDirEntries(r)
+	if err != nil {
+		return nil, err
+	}
+
+	return summ, nil
 }
 
 func (rd *repositoryDirectory) Child(ctx context.Context, name string) (fs.Entry, error) {
