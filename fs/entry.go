@@ -43,7 +43,11 @@ type Directory interface {
 	Entry
 	Child(ctx context.Context, name string) (Entry, error)
 	Readdir(ctx context.Context) (Entries, error)
-	Summary() *DirectorySummary
+}
+
+// DirectoryWithSummary is optionally implemented by Directory that provide summary.
+type DirectoryWithSummary interface {
+	Summary(ctx context.Context) (*DirectorySummary, error)
 }
 
 // ErrEntryNotFound is returned when an entry is not found.

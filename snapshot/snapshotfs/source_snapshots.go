@@ -52,10 +52,6 @@ func safeName(path string) string {
 	return strings.Replace(path, "/", "_", -1)
 }
 
-func (s *sourceSnapshots) Summary() *fs.DirectorySummary {
-	return nil
-}
-
 func (s *sourceSnapshots) Child(ctx context.Context, name string) (fs.Entry, error) {
 	return fs.ReadDirAndFindChild(ctx, s, name)
 }

@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/kopia/kopia/fs"
@@ -14,10 +15,11 @@ import (
 var (
 	lsCommand = app.Command("list", "List a directory stored in repository object.").Alias("ls")
 
-	lsCommandLong      = lsCommand.Flag("long", "Long output").Short('l').Bool()
-	lsCommandRecursive = lsCommand.Flag("recursive", "Recursive output").Short('r').Bool()
-	lsCommandShowOID   = lsCommand.Flag("show-object-id", "Show object IDs").Short('o').Bool()
-	lsCommandPath      = lsCommand.Arg("object-path", "Path").Required().String()
+	lsCommandLong         = lsCommand.Flag("long", "Long output").Short('l').Bool()
+	lsCommandRecursive    = lsCommand.Flag("recursive", "Recursive output").Short('r').Bool()
+	lsCommandShowOID      = lsCommand.Flag("show-object-id", "Show object IDs").Short('o').Bool()
+	lsCommandErrorSummary = lsCommand.Flag("error-summary", "Emit error summary").Default("true").Bool()
+	lsCommandPath         = lsCommand.Arg("object-path", "Path").Required().String()
 )
 
 func runLSCommand(ctx context.Context, rep repo.Repository) error {
@@ -41,6 +43,7 @@ func init() {
 	lsCommand.Action(repositoryAction(runLSCommand))
 }
 
+// nolint:gocyclo
 func listDirectory(ctx context.Context, rep repo.Repository, prefix string, oid object.ID, indent string) error {
 	d := snapshotfs.DirectoryEntry(rep, oid, nil)
 
@@ -59,8 +62,8 @@ func listDirectory(ctx context.Context, rep repo.Repository, prefix string, oid 
 			info         string
 		)
 
-		if dir, ok := e.(fs.Directory); ok {
-			if ds := dir.Summary(); ds != nil && ds.NumFailed > 0 {
+		if dws, ok := e.(fs.DirectoryWithSummary); ok && *lsCommandErrorSummary {
+			if ds, _ := dws.Summary(ctx); ds != nil && ds.NumFailed > 0 {
 				errorSummary = fmt.Sprintf(" (%v errors)", ds.NumFailed)
 				col = errorColor
 			}
@@ -89,6 +92,16 @@ func listDirectory(ctx context.Context, rep repo.Repository, prefix string, oid 
 		if *lsCommandRecursive && e.Mode().IsDir() {
 			if listerr := listDirectory(ctx, rep, prefix+e.Name()+"/", objectID, indent+"  "); listerr != nil {
 				return listerr
+			}
+		}
+	}
+
+	if dws, ok := d.(fs.DirectoryWithSummary); ok && *lsCommandErrorSummary {
+		if ds, _ := dws.Summary(ctx); ds != nil && ds.NumFailed > 0 {
+			errorColor.Fprintf(os.Stderr, "\nNOTE: Encountered %v errors while snapshotting this directory:\n\n", ds.NumFailed) //nolint:errcheck
+
+			for _, e := range ds.FailedEntries {
+				errorColor.Fprintf(os.Stderr, "- Error in \"%v\": %v\n", e.EntryPath, e.Error) //nolint:errcheck
 			}
 		}
 	}
