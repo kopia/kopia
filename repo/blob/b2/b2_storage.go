@@ -131,7 +131,7 @@ func translateError(err error) error {
 			return blob.ErrBlobNotFound
 		}
 
-		if b2err.Status == http.StatusBadRequest && b2err.Code == "already_hidden" {
+		if b2err.Status == http.StatusBadRequest && (b2err.Code == "already_hidden" || b2err.Code == "no_such_file") {
 			// Special case when hiding a file that is already hidden. It's basically
 			// not found.
 			return blob.ErrBlobNotFound
