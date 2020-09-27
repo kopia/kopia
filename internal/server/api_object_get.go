@@ -9,6 +9,7 @@ import (
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/object"
+	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
 func (s *Server) handleObjectGet(w http.ResponseWriter, r *http.Request) {
@@ -26,7 +27,7 @@ func (s *Server) handleObjectGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if cid, _, ok := oid.ContentID(); ok && cid.Prefix() == "k" {
+	if snapshotfs.IsDirectoryID(oid) {
 		w.Header().Set("Content-Type", "application/json")
 	}
 

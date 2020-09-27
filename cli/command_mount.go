@@ -29,11 +29,11 @@ func runMountCommand(ctx context.Context, rep repo.Repository) error {
 	if *mountObjectID == "all" {
 		entry = snapshotfs.AllSourcesEntry(rep)
 	} else {
-		oid, err := parseObjectID(ctx, rep, *mountObjectID)
+		var err error
+		entry, err = snapshotfs.FilesystemDirectoryFromIDWithPath(ctx, rep, *mountObjectID, false)
 		if err != nil {
 			return err
 		}
-		entry = snapshotfs.DirectoryEntry(rep, oid, nil)
 	}
 
 	if *mountTraceFS {

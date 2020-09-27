@@ -14,6 +14,7 @@ import (
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot/restore"
+	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
 const (
@@ -50,6 +51,7 @@ var (
 	restoreTargetPath           = ""
 	restoreOverwriteDirectories = true
 	restoreOverwriteFiles       = true
+	restoreConsistentAttributes = false
 	restoreMode                 = restoreModeAuto
 )
 
@@ -67,6 +69,7 @@ func addRestoreFlags(cmd *kingpin.CmdClause) {
 	cmd.Arg("target-path", "Path of the directory for the contents to be restored").Required().StringVar(&restoreTargetPath)
 	cmd.Flag("overwrite-directories", "Overwrite existing directories").BoolVar(&restoreOverwriteDirectories)
 	cmd.Flag("overwrite-files", "Specifies whether or not to overwrite already existing files").BoolVar(&restoreOverwriteFiles)
+	cmd.Flag("consistent-attributes", "When multiple snapshots match, fail if they have inconsistent attributes").Envar("KOPIA_RESTORE_CONSISTENT_ATTRIBUTES").BoolVar(&restoreConsistentAttributes)
 	cmd.Flag("mode", "Override restore mode").EnumVar(&restoreMode, restoreModeAuto, restoreModeLocal, restoreModeZip, restoreModeZipNoCompress, restoreModeTar, restoreModeTgz)
 }
 
@@ -153,7 +156,7 @@ func runRestoreCommand(ctx context.Context, rep repo.Repository) error {
 		return errors.Wrap(err, "unable to initialize output")
 	}
 
-	rootEntry, err := filesystemEntryFromID(ctx, rep, restoreSourceID)
+	rootEntry, err := snapshotfs.FilesystemEntryFromIDWithPath(ctx, rep, restoreSourceID, restoreConsistentAttributes)
 	if err != nil {
 		return errors.Wrap(err, "unable to get filesystem entry")
 	}

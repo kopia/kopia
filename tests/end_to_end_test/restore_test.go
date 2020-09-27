@@ -305,8 +305,13 @@ func TestRestoreSnapshotOfSingleFile(t *testing.T) {
 	e.RunAndExpectSuccess(t, "snapshot", "create", sourceFile)
 
 	// when restoring by root Kopia needs to pick which manifest to apply since they are conflicting
-	// in this case the latest one is picked and we get 654
+	// We're passing --consistent-attributes which causes it to fail, since otherwise we'd restore arbitrary
+	// top-level object permissions.
+	e.RunAndExpectFailure(t, "snapshot", "restore", rootID, "--consistent-attributes", filepath.Join(restoreDir, "restored-3"))
+
+	// Without the flag kopia picks the attributes from the latest snapshot.
 	e.RunAndExpectSuccess(t, "snapshot", "restore", rootID, filepath.Join(restoreDir, "restored-3"))
+
 	verifyFileMode(t, filepath.Join(restoreDir, "restored-3"), os.FileMode(0o654))
 
 	// restoring using snapshot ID is unambiguous and always produces file with 0o653

@@ -6,6 +6,7 @@ import (
 
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
 var (
@@ -14,7 +15,7 @@ var (
 )
 
 func runCatCommand(ctx context.Context, rep repo.Repository) error {
-	oid, err := parseObjectID(ctx, rep, *catCommandPath)
+	oid, err := snapshotfs.ParseObjectIDWithPath(ctx, rep, *catCommandPath)
 	if err != nil {
 		return err
 	}

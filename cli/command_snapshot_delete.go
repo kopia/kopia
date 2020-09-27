@@ -50,7 +50,7 @@ func deleteSnapshot(ctx context.Context, rep repo.Repository, m *snapshot.Manife
 }
 
 func deleteSnapshotsByRootObjectID(ctx context.Context, rep repo.Repository, rootID object.ID) error {
-	manifests, err := findSnapshotsByRootObjectID(ctx, rep, rootID)
+	manifests, err := snapshot.FindSnapshotsByRootObjectID(ctx, rep, rootID)
 	if err != nil {
 		return err
 	}

@@ -15,6 +15,11 @@ import (
 	"github.com/kopia/kopia/snapshot"
 )
 
+// Well-known object ID prefixes.
+const (
+	objectIDPrefixDirectory = "k"
+)
+
 type repositoryEntry struct {
 	metadata *snapshot.DirEntry
 	repo     repo.Repository
@@ -226,7 +231,7 @@ func SnapshotRoot(rep repo.Repository, man *snapshot.Manifest) (fs.Entry, error)
 // AutoDetectEntryFromObjectID returns fs.Entry (either file or directory) for the provided object ID.
 // It uses heuristics to determine whether object ID is possibly a directory and treats it as such.
 func AutoDetectEntryFromObjectID(ctx context.Context, rep repo.Repository, oid object.ID, maybeName string) fs.Entry {
-	if isPossiblyDirectoryID(oid) {
+	if IsDirectoryID(oid) {
 		dirEntry := DirectoryEntry(rep, oid, nil)
 		if _, err := dirEntry.Readdir(ctx); err == nil {
 			log(ctx).Debugf("%v auto-detected as directory", oid)
@@ -259,13 +264,14 @@ func AutoDetectEntryFromObjectID(ctx context.Context, rep repo.Repository, oid o
 	return f
 }
 
-func isPossiblyDirectoryID(oid object.ID) bool {
+// IsDirectoryID determines whether given object ID represents a directory.
+func IsDirectoryID(oid object.ID) bool {
 	if ndx, ok := oid.IndexObjectID(); ok {
-		return isPossiblyDirectoryID(ndx)
+		return IsDirectoryID(ndx)
 	}
 
 	if cid, _, ok := oid.ContentID(); ok {
-		return cid.Prefix() == "k"
+		return cid.Prefix() == objectIDPrefixDirectory
 	}
 
 	return false
