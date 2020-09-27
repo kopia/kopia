@@ -21,9 +21,10 @@ type RetriableT struct {
 	failedCount    int32
 }
 
-func (t *RetriableT) maybeSuppressAndSkip(cnt int32) {
+func (t *RetriableT) maybeSuppressAndSkip(cnt int32, msg string) {
 	if t.suppressErrors {
 		atomic.AddInt32(&t.failedCount, cnt)
+		t.Logf("suppressing failure: %v", msg)
 		t.SkipNow()
 
 		return
@@ -33,56 +34,56 @@ func (t *RetriableT) maybeSuppressAndSkip(cnt int32) {
 // Fail wraps testing.T.Fail().
 func (t *RetriableT) Fail() {
 	t.T.Helper()
-	t.maybeSuppressAndSkip(1)
+	t.maybeSuppressAndSkip(1, "Fail")
 	t.T.Fail()
 }
 
 // FailNow wraps testing.T.FailNow().
 func (t *RetriableT) FailNow() {
 	t.T.Helper()
-	t.maybeSuppressAndSkip(1)
+	t.maybeSuppressAndSkip(1, "FailNow")
 	t.T.FailNow()
 }
 
 // Error wraps testing.T.Error().
 func (t *RetriableT) Error(args ...interface{}) {
 	t.T.Helper()
-	t.maybeSuppressAndSkip(1)
+	t.maybeSuppressAndSkip(1, fmt.Sprint(args...))
 	t.T.Error(args...)
 }
 
 // Errorf wraps testing.T.Errorf().
 func (t *RetriableT) Errorf(msg string, args ...interface{}) {
 	t.T.Helper()
-	t.maybeSuppressAndSkip(1)
+	t.maybeSuppressAndSkip(1, fmt.Sprintf(msg, args...))
 	t.T.Errorf(msg, args...)
 }
 
 // Fatal wraps testing.T.Fatal().
 func (t *RetriableT) Fatal(args ...interface{}) {
 	t.T.Helper()
-	t.maybeSuppressAndSkip(1)
+	t.maybeSuppressAndSkip(1, fmt.Sprint(args...))
 	t.T.Fatal(args...)
 }
 
 // Fatalf wraps testing.T.Fatalf().
 func (t *RetriableT) Fatalf(msg string, args ...interface{}) {
 	t.T.Helper()
-	t.maybeSuppressAndSkip(1)
+	t.maybeSuppressAndSkip(1, fmt.Sprintf(msg, args...))
 	t.T.Fatalf(msg, args...)
 }
 
 // Skip wraps testing.T.Skip().
 func (t *RetriableT) Skip(args ...interface{}) {
 	t.T.Helper()
-	t.maybeSuppressAndSkip(0)
+	t.maybeSuppressAndSkip(0, fmt.Sprint(args...))
 	t.T.Skip(args...)
 }
 
 // Skipf wraps testing.T.Skipf().
 func (t *RetriableT) Skipf(msg string, args ...interface{}) {
 	t.T.Helper()
-	t.maybeSuppressAndSkip(0)
+	t.maybeSuppressAndSkip(0, fmt.Sprintf(msg, args...))
 	t.T.Skipf(msg, args...)
 }
 

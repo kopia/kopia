@@ -32,6 +32,10 @@ func VerifyStorage(ctx context.Context, t testingT, r blob.Storage) {
 		AssertGetBlobNotFound(ctx, t, r, b.blk)
 	}
 
+	if err := r.DeleteBlob(ctx, "no-such-blob"); err != nil && !errors.Is(err, blob.ErrBlobNotFound) {
+		t.Errorf("invalid error when deleting non-existent blob: %v", err)
+	}
+
 	// Now add blocks.
 	for _, b := range blocks {
 		if err := r.PutBlob(ctx, b.blk, gather.FromSlice(b.contents)); err != nil {
