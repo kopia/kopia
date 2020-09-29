@@ -15,11 +15,11 @@ import (
 	"runtime/debug"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/compression"
@@ -202,7 +202,7 @@ func TestCheckpointing(t *testing.T) {
 }
 
 func TestObjectWriterRaceBetweenCheckpointAndResult(t *testing.T) {
-	rand.Seed(time.Now().UnixNano())
+	rand.Seed(clock.Now().UnixNano())
 
 	ctx := testlogging.Context(t)
 	data := map[content.ID][]byte{}
