@@ -18,6 +18,7 @@ func TestCheckpointRegistry(t *testing.T) {
 	f1 := d.AddFile("f1", []byte{1, 2, 3}, os.FileMode(0o755))
 	f2 := d.AddFile("f2", []byte{2, 3, 4}, os.FileMode(0o755))
 	f3 := d.AddFile("f3", []byte{2, 3, 4}, os.FileMode(0o755))
+	f4 := d.AddFile("f3", []byte{2, 3, 4}, os.FileMode(0o755))
 
 	cp.addCheckpointCallback(dir1, func() (*snapshot.DirEntry, error) {
 		return &snapshot.DirEntry{
@@ -42,6 +43,10 @@ func TestCheckpointRegistry(t *testing.T) {
 		return &snapshot.DirEntry{
 			Name: "other",
 		}, nil
+	})
+
+	cp.addCheckpointCallback(f4, func() (*snapshot.DirEntry, error) {
+		return nil, nil
 	})
 
 	// remove callback before it has a chance of firing
