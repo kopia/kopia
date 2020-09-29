@@ -22,14 +22,22 @@ func TestPool(t *testing.T) {
 
 	runtime.ReadMemStats(&ms1)
 
+	repeat := 1000000
+	numGoRoutines := 30
+
+	if runtime.GOARCH != "amd64" {
+		repeat = 10000
+		numGoRoutines = 10
+	}
+
 	// 30 gorouties, each allocating and releasing memory 1 M times
-	for i := 0; i < 30; i++ {
+	for i := 0; i < numGoRoutines; i++ {
 		wg.Add(1)
 
 		go func() {
 			defer wg.Done()
 
-			for j := 0; j < 1000000; j++ {
+			for j := 0; j < repeat; j++ {
 				const allocSize = 100000
 
 				b := a.Allocate(allocSize)
