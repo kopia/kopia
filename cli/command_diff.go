@@ -7,6 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/diff"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
@@ -21,18 +22,18 @@ var (
 )
 
 func runDiffCommand(ctx context.Context, rep repo.Repository) error {
-	oid1, err := parseObjectID(ctx, rep, *diffFirstObjectPath)
+	ent1, err := snapshotfs.FilesystemEntryFromIDWithPath(ctx, rep, *diffFirstObjectPath, false)
 	if err != nil {
 		return err
 	}
 
-	oid2, err := parseObjectID(ctx, rep, *diffSecondObjectPath)
+	ent2, err := snapshotfs.FilesystemEntryFromIDWithPath(ctx, rep, *diffSecondObjectPath, false)
 	if err != nil {
 		return err
 	}
 
-	isDir1 := strings.HasPrefix(string(oid1), "k")
-	isDir2 := strings.HasPrefix(string(oid2), "k")
+	_, isDir1 := ent1.(fs.Directory)
+	_, isDir2 := ent2.(fs.Directory)
 
 	if isDir1 != isDir2 {
 		return errors.New("arguments do diff must both be directories or both non-directories")
@@ -51,11 +52,7 @@ func runDiffCommand(ctx context.Context, rep repo.Repository) error {
 	}
 
 	if isDir1 {
-		return d.Compare(
-			ctx,
-			snapshotfs.DirectoryEntry(rep, oid1, nil),
-			snapshotfs.DirectoryEntry(rep, oid2, nil),
-		)
+		return d.Compare(ctx, ent1, ent2)
 	}
 
 	return errors.New("comparing files not implemented yet")

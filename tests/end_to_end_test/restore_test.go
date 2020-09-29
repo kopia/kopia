@@ -4,9 +4,11 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"compress/gzip"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -18,6 +20,8 @@ import (
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/tests/testenv"
 )
+
+const windowsOSName = "windows"
 
 func TestRestoreCommand(t *testing.T) {
 	t.Parallel()
@@ -61,7 +65,7 @@ func TestRestoreCommand(t *testing.T) {
 
 	// Attempt to restore using snapshot ID
 	restoreFailDir := t.TempDir()
-	e.RunAndExpectFailure(t, "restore", snapID, restoreFailDir)
+	e.RunAndExpectSuccess(t, "restore", snapID, restoreFailDir)
 
 	// Restore last snapshot
 	restoreDir := t.TempDir()
@@ -116,13 +120,32 @@ func TestSnapshotRestore(t *testing.T) {
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
 	source := t.TempDir()
-	testenv.MustCreateDirectoryTree(t, source, testenv.DirectoryTreeOptions{
+	testenv.MustCreateDirectoryTree(t, filepath.Join(source, "subdir1"), testenv.DirectoryTreeOptions{
 		Depth:                              5,
 		MaxSubdirsPerDirectory:             5,
 		MaxFilesPerDirectory:               5,
 		MaxSymlinksPerDirectory:            4,
 		NonExistingSymlinkTargetPercentage: 50,
 	})
+	testenv.MustCreateDirectoryTree(t, filepath.Join(source, "subdir2"), testenv.DirectoryTreeOptions{
+		Depth:                   2,
+		MaxSubdirsPerDirectory:  1,
+		MaxFilesPerDirectory:    5,
+		MaxSymlinksPerDirectory: 4,
+	})
+
+	// create a file with well-known name.
+	f, err := os.Create(filepath.Join(source, "single-file"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fmt.Fprintf(f, "some-data")
+	f.Close()
+
+	// change file permissions to something unique we can test later
+	os.Chmod(filepath.Join(source, "single-file"), 0o651)
+	os.Chmod(filepath.Join(source, "subdir1"), 0o752)
 
 	restoreDir := t.TempDir()
 	r1 := t.TempDir()
@@ -151,8 +174,23 @@ func TestSnapshotRestore(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// Attempt to restore snapshot with root ID
-	restoreFailDir := t.TempDir()
-	e.RunAndExpectFailure(t, "snapshot", "restore", rootID, restoreFailDir)
+	restoreByObjectIDDir := t.TempDir()
+	e.RunAndExpectSuccess(t, "snapshot", "restore", rootID, restoreByObjectIDDir)
+
+	// restore using <root-id>/subdirectory.
+	restoreByOIDSubdir := t.TempDir()
+	e.RunAndExpectSuccess(t, "snapshot", "restore", rootID+"/subdir1", restoreByOIDSubdir)
+
+	verifyFileMode(t, restoreByOIDSubdir, os.ModeDir|os.FileMode(0o752))
+
+	restoreByOIDFile := t.TempDir()
+
+	// restoring single file onto a directory fails
+	e.RunAndExpectFailure(t, "snapshot", "restore", rootID+"/single-file", restoreByOIDFile)
+
+	// restoring single file
+	e.RunAndExpectSuccess(t, "snapshot", "restore", rootID+"/single-file", filepath.Join(restoreByOIDFile, "output-file"))
+	verifyFileMode(t, filepath.Join(restoreByOIDFile, "output-file"), os.FileMode(0o651))
 
 	// Restore last snapshot using the snapshot ID
 	e.RunAndExpectSuccess(t, "snapshot", "restore", snapID, restoreDir)
@@ -197,8 +235,10 @@ func TestSnapshotRestore(t *testing.T) {
 	// verify we got a directory
 	st, err := os.Stat(zipDir)
 	if err != nil || !st.IsDir() {
-		t.Errorf("unexpected stat() results on output.zip directory %v %v", st, err)
+		t.Fatalf("unexpected stat() results on output.zip directory %v %v", st, err)
 	}
+
+	restoreFailDir := t.TempDir()
 
 	// Attempt to restore snapshot with an already-existing target directory
 	// It should fail because the directory is not empty
@@ -211,6 +251,96 @@ func TestSnapshotRestore(t *testing.T) {
 	_ = os.MkdirAll(restoreFailDir, 0o700)
 
 	e.RunAndExpectFailure(t, "snapshot", "restore", "--no-overwrite-files", snapID, restoreDir)
+}
+
+func TestRestoreSnapshotOfSingleFile(t *testing.T) {
+	t.Parallel()
+
+	e := testenv.NewCLITest(t)
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+
+	sourceDir := t.TempDir()
+	sourceFile := filepath.Join(sourceDir, "single-file")
+
+	f, err := os.Create(sourceFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fmt.Fprintf(f, "some-data")
+	f.Close()
+
+	// set up unique file mode which will be verified later.
+	os.Chmod(sourceFile, 0o653)
+
+	e.RunAndExpectSuccess(t, "snapshot", "create", sourceFile)
+
+	// obtain snapshot root id and use it for restore
+	si := e.ListSnapshotsAndExpectSuccess(t, sourceFile)
+	if got, want := len(si), 1; got != want {
+		t.Fatalf("got %v sources, wanted %v", got, want)
+	}
+
+	if got, want := len(si[0].Snapshots), 1; got != want {
+		t.Fatalf("got %v snapshots, wanted %v", got, want)
+	}
+
+	snapID := si[0].Snapshots[0].SnapshotID
+	rootID := si[0].Snapshots[0].ObjectID
+
+	restoreDir := t.TempDir()
+
+	// restoring a file to a directory destination fails.
+	e.RunAndExpectFailure(t, "snapshot", "restore", snapID, restoreDir)
+
+	e.RunAndExpectSuccess(t, "snapshot", "restore", snapID, filepath.Join(restoreDir, "restored-1"))
+	verifyFileMode(t, filepath.Join(restoreDir, "restored-1"), os.FileMode(0o653))
+
+	// we can restore using rootID because it's unambiguous
+	e.RunAndExpectSuccess(t, "snapshot", "restore", rootID, filepath.Join(restoreDir, "restored-2"))
+	verifyFileMode(t, filepath.Join(restoreDir, "restored-2"), os.FileMode(0o653))
+
+	if runtime.GOOS != windowsOSName {
+		// change source file permissions and create one more snapshot
+		// at this poing we will have multiple snapshot manifests with one root but different attributes.
+		os.Chmod(sourceFile, 0o654)
+		e.RunAndExpectSuccess(t, "snapshot", "create", sourceFile)
+
+		// when restoring by root Kopia needs to pick which manifest to apply since they are conflicting
+		// We're passing --consistent-attributes which causes it to fail, since otherwise we'd restore arbitrary
+		// top-level object permissions.
+		e.RunAndExpectFailure(t, "snapshot", "restore", rootID, "--consistent-attributes", filepath.Join(restoreDir, "restored-3"))
+	}
+
+	// Without the flag kopia picks the attributes from the latest snapshot.
+	e.RunAndExpectSuccess(t, "snapshot", "restore", rootID, filepath.Join(restoreDir, "restored-3"))
+
+	verifyFileMode(t, filepath.Join(restoreDir, "restored-3"), os.FileMode(0o654))
+
+	// restoring using snapshot ID is unambiguous and always produces file with 0o653
+	e.RunAndExpectSuccess(t, "snapshot", "restore", snapID, filepath.Join(restoreDir, "restored-4"))
+	verifyFileMode(t, filepath.Join(restoreDir, "restored-4"), os.FileMode(0o653))
+}
+
+func verifyFileMode(t *testing.T, filename string, want os.FileMode) {
+	t.Helper()
+
+	if runtime.GOOS == windowsOSName {
+		// do not compare Unix filemodes on Windows.
+		return
+	}
+
+	s, err := os.Stat(filename)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// make sure we restored permissions correctly
+	if s.Mode() != want {
+		t.Fatalf("invalid mode on %v: %v, want %v", filename, s.Mode(), want)
+	}
 }
 
 func verifyValidZipFile(t *testing.T, fname string) {
@@ -245,7 +375,7 @@ func verifyValidTarReader(t *testing.T, tr *tar.Reader) {
 	}
 
 	if err != io.EOF {
-		t.Errorf("invalid tar file: %v", err)
+		t.Fatalf("invalid tar file: %v", err)
 	}
 }
 

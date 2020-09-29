@@ -848,7 +848,7 @@ func uploadDirInternal(
 func (u *Uploader) writeDirManifest(ctx context.Context, dirRelativePath string, dirManifest *snapshot.DirManifest) (object.ID, error) {
 	writer := u.repo.NewObjectWriter(ctx, object.WriterOptions{
 		Description: "DIR:" + dirRelativePath,
-		Prefix:      "k",
+		Prefix:      objectIDPrefixDirectory,
 	})
 
 	defer writer.Close() //nolint:errcheck

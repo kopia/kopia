@@ -105,7 +105,7 @@ func NewCLITest(t *testing.T) *CLITest {
 func (e *CLITest) RunAndExpectSuccess(t *testing.T, args ...string) []string {
 	t.Helper()
 
-	stdout, _, err := e.Run(t, args...)
+	stdout, _, err := e.Run(t, false, args...)
 	if err != nil {
 		t.Fatalf("'kopia %v' failed with %v", strings.Join(args, " "), err)
 	}
@@ -152,7 +152,7 @@ func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) b
 func (e *CLITest) RunAndExpectSuccessWithErrOut(t *testing.T, args ...string) (stdout, stderr []string) {
 	t.Helper()
 
-	stdout, stderr, err := e.Run(t, args...)
+	stdout, stderr, err := e.Run(t, false, args...)
 	if err != nil {
 		t.Fatalf("'kopia %v' failed with %v", strings.Join(args, " "), err)
 	}
@@ -164,7 +164,7 @@ func (e *CLITest) RunAndExpectSuccessWithErrOut(t *testing.T, args ...string) (s
 func (e *CLITest) RunAndExpectFailure(t *testing.T, args ...string) []string {
 	t.Helper()
 
-	stdout, _, err := e.Run(t, args...)
+	stdout, _, err := e.Run(t, true, args...)
 	if err == nil {
 		t.Fatalf("'kopia %v' succeeded, but expected failure", strings.Join(args, " "))
 	}
@@ -185,7 +185,7 @@ func (e *CLITest) RunAndVerifyOutputLineCount(t *testing.T, wantLines int, args 
 }
 
 // Run executes kopia with given arguments and returns the output lines.
-func (e *CLITest) Run(t *testing.T, args ...string) (stdout, stderr []string, err error) {
+func (e *CLITest) Run(t *testing.T, expectedError bool, args ...string) (stdout, stderr []string, err error) {
 	t.Helper()
 	t.Logf("running '%v %v'", e.Exe, strings.Join(args, " "))
 	cmdArgs := append(append([]string(nil), e.fixedArgs...), args...)
@@ -202,7 +202,9 @@ func (e *CLITest) Run(t *testing.T, args ...string) (stdout, stderr []string, er
 
 	o, err := c.Output()
 
-	t.Logf("finished 'kopia %v' with err=%v and output:\n%v\nstderr:\n%v\n", strings.Join(args, " "), err, trimOutput(string(o)), trimOutput(errOut.String()))
+	if err != nil && !expectedError {
+		t.Logf("finished 'kopia %v' with err=%v (expected=%v) and output:\n%v\nstderr:\n%v\n", strings.Join(args, " "), err, expectedError, trimOutput(string(o)), trimOutput(errOut.String()))
+	}
 
 	return splitLines(string(o)), splitLines(errOut.String()), err
 }
@@ -280,7 +282,7 @@ func MustCreateDirectoryTree(t *testing.T, dirname string, options DirectoryTree
 
 	var counters DirectoryTreeCounters
 	if err := createDirectoryTreeInternal(dirname, options, &counters); err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	t.Logf("created directory tree %#v", counters)
@@ -299,7 +301,7 @@ func CreateDirectoryTree(dirname string, options DirectoryTreeOptions, counters 
 // It will fail with a test error if the creation does not succeed.
 func MustCreateRandomFile(t *testing.T, filePath string, options DirectoryTreeOptions, counters *DirectoryTreeCounters) {
 	if err := CreateRandomFile(filePath, options, counters); err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 }
 

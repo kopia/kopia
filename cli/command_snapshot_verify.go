@@ -223,7 +223,7 @@ func enqueueRootsToVerify(ctx context.Context, v *verifier, rep repo.Repository)
 	}
 
 	for _, oidStr := range *verifyCommandDirObjectIDs {
-		oid, err := parseObjectID(ctx, rep, oidStr)
+		oid, err := snapshotfs.ParseObjectIDWithPath(ctx, rep, oidStr)
 		if err != nil {
 			return err
 		}
@@ -232,7 +232,7 @@ func enqueueRootsToVerify(ctx context.Context, v *verifier, rep repo.Repository)
 	}
 
 	for _, oidStr := range *verifyCommandFileObjectIDs {
-		oid, err := parseObjectID(ctx, rep, oidStr)
+		oid, err := snapshotfs.ParseObjectIDWithPath(ctx, rep, oidStr)
 		if err != nil {
 			return err
 		}

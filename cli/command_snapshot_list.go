@@ -179,7 +179,7 @@ func outputManifestFromSingleSource(ctx context.Context, rep repo.Repository, ma
 			continue
 		}
 
-		ent, err := getNestedEntry(ctx, root, parts)
+		ent, err := snapshotfs.GetNestedEntry(ctx, root, parts)
 		if err != nil {
 			fmt.Printf("  %v <ERROR> %v\n", formatTimestamp(m.StartTime), err)
 			continue

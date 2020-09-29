@@ -14,15 +14,16 @@ import (
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot/restore"
+	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
 const (
-	restoreCommandHelp = `Restore a directory from a snapshot into the specified target path.
+	restoreCommandHelp = `Restore a directory or file from a snapshot into the specified target path.
 
 By default, the target path will be created by the restore command if it does
 not exist.
 
-The source to be restored is specified in the form of a directory ID and
+The source to be restored is specified in the form of a directory or file ID and
 optionally a sub-directory path.
 
 For example, the following source and target arguments will restore the contents
@@ -45,12 +46,12 @@ directory ID and optionally a sub-directory path. For example,
 )
 
 var (
-	restoreCommand           = app.Command("restore", restoreCommandHelp)
-	restoreCommandSourcePath = restoreCommand.Arg("source-path", restoreCommandSourcePathHelp).Required().String()
-
+	restoreCommand              = app.Command("restore", restoreCommandHelp)
+	restoreSourceID             = ""
 	restoreTargetPath           = ""
 	restoreOverwriteDirectories = true
 	restoreOverwriteFiles       = true
+	restoreConsistentAttributes = false
 	restoreMode                 = restoreModeAuto
 )
 
@@ -64,9 +65,11 @@ const (
 )
 
 func addRestoreFlags(cmd *kingpin.CmdClause) {
+	cmd.Arg("source", restoreCommandSourcePathHelp).Required().StringVar(&restoreSourceID)
 	cmd.Arg("target-path", "Path of the directory for the contents to be restored").Required().StringVar(&restoreTargetPath)
 	cmd.Flag("overwrite-directories", "Overwrite existing directories").BoolVar(&restoreOverwriteDirectories)
 	cmd.Flag("overwrite-files", "Specifies whether or not to overwrite already existing files").BoolVar(&restoreOverwriteFiles)
+	cmd.Flag("consistent-attributes", "When multiple snapshots match, fail if they have inconsistent attributes").Envar("KOPIA_RESTORE_CONSISTENT_ATTRIBUTES").BoolVar(&restoreConsistentAttributes)
 	cmd.Flag("mode", "Override restore mode").EnumVar(&restoreMode, restoreModeAuto, restoreModeLocal, restoreModeZip, restoreModeZipNoCompress, restoreModeTar, restoreModeTgz)
 }
 
@@ -148,17 +151,17 @@ func printRestoreStats(st restore.Stats) {
 }
 
 func runRestoreCommand(ctx context.Context, rep repo.Repository) error {
-	oid, err := parseObjectID(ctx, rep, *restoreCommandSourcePath)
-	if err != nil {
-		return err
-	}
-
 	output, err := restoreOutput()
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize output")
 	}
 
-	st, err := restore.Root(ctx, rep, output, oid)
+	rootEntry, err := snapshotfs.FilesystemEntryFromIDWithPath(ctx, rep, restoreSourceID, restoreConsistentAttributes)
+	if err != nil {
+		return errors.Wrap(err, "unable to get filesystem entry")
+	}
+
+	st, err := restore.Entry(ctx, rep, output, rootEntry)
 	if err != nil {
 		return err
 	}
