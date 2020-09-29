@@ -17,7 +17,9 @@ import (
 	"testing"
 
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/compression"
@@ -187,9 +189,80 @@ func TestCheckpointing(t *testing.T) {
 		t.Errorf("unexpected checkpoint2: %v err: %v", checkpoint2, err)
 	}
 
+	result2, err := writer.Checkpoint()
+	verifyNoError(t, err)
+
+	if result2 != result {
+		t.Errorf("invalid checkpoint after result: %v vs %v", result2, result)
+	}
+
 	verifyFull(ctx, t, om, checkpoint3, allZeroes)
 	verifyFull(ctx, t, om, checkpoint4, make([]byte, 2<<20))
 	verifyFull(ctx, t, om, result, make([]byte, 2<<20+50))
+}
+
+func TestObjectWriterRaceBetweenCheckpointAndResult(t *testing.T) {
+	rand.Seed(clock.Now().UnixNano())
+
+	ctx := testlogging.Context(t)
+	data := map[content.ID][]byte{}
+	fcm := &fakeContentManager{
+		data: data,
+	}
+
+	om, err := NewObjectManager(testlogging.Context(t), fcm, Format{
+		Splitter: "FIXED-1M",
+	}, ManagerOptions{})
+	if err != nil {
+		t.Fatalf("can't create object manager: %v", err)
+	}
+
+	allZeroes := make([]byte, 1<<20-5)
+	repeat := 100
+
+	if runtime.GOARCH == "arm" {
+		repeat = 10
+	}
+
+	for i := 0; i < repeat; i++ {
+		w := om.NewWriter(ctx, WriterOptions{
+			AsyncWrites: 1,
+		})
+
+		w.Write(allZeroes)
+		w.Write(allZeroes)
+		w.Write(allZeroes)
+
+		var eg errgroup.Group
+
+		eg.Go(func() error {
+			_, rerr := w.Result()
+
+			return rerr
+		})
+
+		eg.Go(func() error {
+			cpID, cperr := w.Checkpoint()
+			if cperr == nil && cpID != "" {
+				ids, verr := om.VerifyObject(ctx, cpID)
+				if verr != nil {
+					return errors.Wrapf(err, "Checkpoint() returned invalid object %v", cpID)
+				}
+
+				for _, id := range ids {
+					if id == "" {
+						return errors.Errorf("checkpoint returned empty id")
+					}
+				}
+			}
+
+			return nil
+		})
+
+		if err := eg.Wait(); err != nil {
+			t.Fatal(err)
+		}
+	}
 }
 
 func verifyFull(ctx context.Context, t *testing.T, om *Manager, oid ID, want []byte) {

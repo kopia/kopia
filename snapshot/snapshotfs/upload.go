@@ -127,6 +127,10 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, parentCheckpointRegis
 			return nil, err
 		}
 
+		if checkpointID == "" {
+			return nil, nil
+		}
+
 		return newDirEntry(f, checkpointID)
 	})
 

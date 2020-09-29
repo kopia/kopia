@@ -51,6 +51,11 @@ func (r *checkpointRegistry) runCheckpoints(checkpointBuilder *dirManifestBuilde
 			return errors.Wrapf(err, "error checkpointing %v", n)
 		}
 
+		if de == nil {
+			// no checkpoint.
+			continue
+		}
+
 		if de.Type != snapshot.EntryTypeDirectory {
 			de.Name = ".checkpointed." + de.Name + "." + uuid.New().String()
 		}

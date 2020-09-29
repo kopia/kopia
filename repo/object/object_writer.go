@@ -83,7 +83,8 @@ type objectWriter struct {
 
 	splitter splitter.Splitter
 
-	writeMutex sync.Mutex
+	// provides mutual exclusion of all public APIs (Write, Result, Checkpoint)
+	mu sync.Mutex
 
 	asyncWritesSemaphore chan struct{} // async writes semaphore or  nil
 	asyncWritesWG        sync.WaitGroup
@@ -111,8 +112,8 @@ func (w *objectWriter) Close() error {
 }
 
 func (w *objectWriter) Write(data []byte) (n int, err error) {
-	w.writeMutex.Lock()
-	defer w.writeMutex.Unlock()
+	w.mu.Lock()
+	defer w.mu.Unlock()
 
 	dataLen := len(data)
 	w.totalLength += int64(dataLen)
@@ -240,18 +241,10 @@ func maybeCompressedContentBytes(comp compression.Compressor, output *bytes.Buff
 	return input, false, nil
 }
 
-func (w *objectWriter) drainWrites() {
-	w.writeMutex.Lock()
-
-	// wait for any in-flight asynchronous writes to finish
-	w.asyncWritesWG.Wait()
-}
-
-func (w *objectWriter) undrainWrites() {
-	w.writeMutex.Unlock()
-}
-
 func (w *objectWriter) Result() (ID, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	// no need to hold a lock on w.indirectIndexGrowMutex, since growing index only happens synchronously
 	// and never in parallel with calling Result()
 	if w.buffer.Len() > 0 || len(w.indirectIndex) == 0 {
@@ -260,14 +253,21 @@ func (w *objectWriter) Result() (ID, error) {
 		}
 	}
 
-	return w.Checkpoint()
+	return w.checkpointLocked()
 }
 
 // Checkpoint returns object ID which represents portion of the object that has already been written.
 // The result may be an empty object ID if nothing has been flushed yet.
 func (w *objectWriter) Checkpoint() (ID, error) {
-	w.drainWrites()
-	defer w.undrainWrites()
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	return w.checkpointLocked()
+}
+
+func (w *objectWriter) checkpointLocked() (ID, error) {
+	// wait for any in-flight asynchronous writes to finish
+	w.asyncWritesWG.Wait()
 
 	if w.contentWriteError != nil {
 		return "", w.contentWriteError
