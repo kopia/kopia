@@ -86,11 +86,11 @@ func TestFileStorageTouch(t *testing.T) {
 
 	assertNoError(t, fs.TouchBlob(ctx, t1, 0)) // moves t1 to the top of the pile
 	verifyBlobTimestampOrder(t, fs, t2, t3, t1)
-	time.Sleep(1 * time.Second)
+	time.Sleep(2 * time.Second) // sleep a bit to accommodate Apple filesystems with low timestamp resolution
 
 	assertNoError(t, fs.TouchBlob(ctx, t2, 0)) // moves t2 to the top of the pile
 	verifyBlobTimestampOrder(t, fs, t3, t1, t2)
-	time.Sleep(1 * time.Second)
+	time.Sleep(2 * time.Second) // sleep a bit to accommodate Apple filesystems with low timestamp resolution
 
 	assertNoError(t, fs.TouchBlob(ctx, t1, 0)) // moves t1 to the top of the pile
 	verifyBlobTimestampOrder(t, fs, t3, t2, t1)
