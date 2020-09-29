@@ -643,6 +643,8 @@ github.com/stretchr/testify v1.6.1 h1:hDPOHmpOpP40lSULcqw7IrRb/u7w6RpDC9399XyoNd
 github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/studio-b12/gowebdav v0.0.0-20200303150724-9380631c29a1 h1:TPyHV/OgChqNcnYqCoCvIFjR9TU60gFXXBKnhOBzVEI=
 github.com/studio-b12/gowebdav v0.0.0-20200303150724-9380631c29a1/go.mod h1:gCcfDlA1Y7GqOaeEKw5l9dOGx1VLdc/HuQSlQAaZ30s=
+github.com/studio-b12/gowebdav v0.0.0-20200929080739-bdacfab94796 h1:vkok9HUaplVRvHgwuyEGxBhdGtOUdMr7/KprS+6k8TQ=
+github.com/studio-b12/gowebdav v0.0.0-20200929080739-bdacfab94796/go.mod h1:gCcfDlA1Y7GqOaeEKw5l9dOGx1VLdc/HuQSlQAaZ30s=
 github.com/tg123/go-htpasswd v1.0.0 h1:Ze/pZsz73JiCwXIyJBPvNs75asKBgfodCf8iTEkgkXs=
 github.com/tg123/go-htpasswd v1.0.0/go.mod h1:eQTgl67UrNKQvEPKrDLGBssjVwYQClFZjALVLhIv8C0=
 github.com/tidwall/gjson v1.3.5 h1:2oW9FBNu8qt9jy5URgrzsVx/T/KSn3qn/smJQ0crlDQ=
