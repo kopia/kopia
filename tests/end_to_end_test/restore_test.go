@@ -233,7 +233,7 @@ func TestSnapshotRestore(t *testing.T) {
 	// verify we got a directory
 	st, err := os.Stat(zipDir)
 	if err != nil || !st.IsDir() {
-		t.Errorf("unexpected stat() results on output.zip directory %v %v", st, err)
+		t.Fatalf("unexpected stat() results on output.zip directory %v %v", st, err)
 	}
 
 	restoreFailDir := t.TempDir()
@@ -300,15 +300,17 @@ func TestRestoreSnapshotOfSingleFile(t *testing.T) {
 	e.RunAndExpectSuccess(t, "snapshot", "restore", rootID, filepath.Join(restoreDir, "restored-2"))
 	verifyFileMode(t, filepath.Join(restoreDir, "restored-2"), os.FileMode(0o653))
 
-	// change source file permissions and create one more snapshot
-	// at this poing we will have multiple snapshot manifests with one root but different attributes.
-	os.Chmod(sourceFile, 0o654)
-	e.RunAndExpectSuccess(t, "snapshot", "create", sourceFile)
+	if runtime.GOOS != "windows" {
+		// change source file permissions and create one more snapshot
+		// at this poing we will have multiple snapshot manifests with one root but different attributes.
+		os.Chmod(sourceFile, 0o654)
+		e.RunAndExpectSuccess(t, "snapshot", "create", sourceFile)
 
-	// when restoring by root Kopia needs to pick which manifest to apply since they are conflicting
-	// We're passing --consistent-attributes which causes it to fail, since otherwise we'd restore arbitrary
-	// top-level object permissions.
-	e.RunAndExpectFailure(t, "snapshot", "restore", rootID, "--consistent-attributes", filepath.Join(restoreDir, "restored-3"))
+		// when restoring by root Kopia needs to pick which manifest to apply since they are conflicting
+		// We're passing --consistent-attributes which causes it to fail, since otherwise we'd restore arbitrary
+		// top-level object permissions.
+		e.RunAndExpectFailure(t, "snapshot", "restore", rootID, "--consistent-attributes", filepath.Join(restoreDir, "restored-3"))
+	}
 
 	// Without the flag kopia picks the attributes from the latest snapshot.
 	e.RunAndExpectSuccess(t, "snapshot", "restore", rootID, filepath.Join(restoreDir, "restored-3"))
@@ -371,7 +373,7 @@ func verifyValidTarReader(t *testing.T, tr *tar.Reader) {
 	}
 
 	if err != io.EOF {
-		t.Errorf("invalid tar file: %v", err)
+		t.Fatalf("invalid tar file: %v", err)
 	}
 }
 
