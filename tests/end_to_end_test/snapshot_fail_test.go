@@ -30,7 +30,7 @@ func TestSnapshotNonexistent(t *testing.T) {
 func TestSnapshotFail(t *testing.T) {
 	t.Parallel()
 
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windowsOSName {
 		t.Skip("this test does not work on Windows")
 	}
 

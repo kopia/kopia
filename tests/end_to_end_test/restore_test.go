@@ -21,6 +21,8 @@ import (
 	"github.com/kopia/kopia/tests/testenv"
 )
 
+const windowsOSName = "windows"
+
 func TestRestoreCommand(t *testing.T) {
 	t.Parallel()
 
@@ -300,7 +302,7 @@ func TestRestoreSnapshotOfSingleFile(t *testing.T) {
 	e.RunAndExpectSuccess(t, "snapshot", "restore", rootID, filepath.Join(restoreDir, "restored-2"))
 	verifyFileMode(t, filepath.Join(restoreDir, "restored-2"), os.FileMode(0o653))
 
-	if runtime.GOOS != "windows" {
+	if runtime.GOOS != windowsOSName {
 		// change source file permissions and create one more snapshot
 		// at this poing we will have multiple snapshot manifests with one root but different attributes.
 		os.Chmod(sourceFile, 0o654)
@@ -325,7 +327,7 @@ func TestRestoreSnapshotOfSingleFile(t *testing.T) {
 func verifyFileMode(t *testing.T, filename string, want os.FileMode) {
 	t.Helper()
 
-	if runtime.GOOS == "windows" {
+	if runtime.GOOS == windowsOSName {
 		// do not compare Unix filemodes on Windows.
 		return
 	}
