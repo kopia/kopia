@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/studio-b12/gowebdav"
 
@@ -212,13 +211,6 @@ func New(ctx context.Context, opts *Options) (blob.Storage, error) {
 			Suffix:   fsStorageChunkSuffix,
 			Shards:   opts.shards(),
 		},
-	}
-
-	// temporary workaround to a race condition problem in https://github.com/studio-b12/gowebdav/issues/36
-	// the race condition is only during first request to the server, so to fix it we force the first request
-	// to read a non-existent blob, which sets the authentication method.
-	if _, err := s.GetBlob(ctx, blob.ID(uuid.New().String()), 0, -1); !errors.Is(err, blob.ErrBlobNotFound) {
-		return nil, errors.Errorf("unexpected error when initializing webdav: %v", err)
 	}
 
 	return s, nil
