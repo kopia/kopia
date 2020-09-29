@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -321,6 +322,11 @@ func TestRestoreSnapshotOfSingleFile(t *testing.T) {
 
 func verifyFileMode(t *testing.T, filename string, want os.FileMode) {
 	t.Helper()
+
+	if runtime.GOOS == "windows" {
+		// do not compare Unix filemodes on Windows.
+		return
+	}
 
 	s, err := os.Stat(filename)
 	if err != nil {
