@@ -218,8 +218,13 @@ func TestObjectWriterRaceBetweenCheckpointAndResult(t *testing.T) {
 	}
 
 	allZeroes := make([]byte, 1<<20-5)
+	repeat := 100
 
-	for i := 0; i < 100; i++ {
+	if runtime.GOARCH == "arm" {
+		repeat = 10
+	}
+
+	for i := 0; i < repeat; i++ {
 		w := om.NewWriter(ctx, WriterOptions{
 			AsyncWrites: 1,
 		})
