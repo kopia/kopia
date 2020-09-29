@@ -37,7 +37,7 @@ require (
 	github.com/prometheus/client_golang v1.7.1
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
 	github.com/stretchr/testify v1.6.1
-	github.com/studio-b12/gowebdav v0.0.0-20200303150724-9380631c29a1
+	github.com/studio-b12/gowebdav v0.0.0-20200929080739-bdacfab94796
 	github.com/tg123/go-htpasswd v1.0.0
 	github.com/zalando/go-keyring v0.1.0
 	github.com/zeebo/blake3 v0.0.4
