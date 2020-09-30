@@ -28,6 +28,9 @@ const CacheDirMarkerFile = "CACHEDIR.TAG"
 // CacheDirMarkerHeader is the header signature for cache dir marker files.
 const CacheDirMarkerHeader = "Signature: 8a477f597d28d172789f06886806bc55"
 
+// refresh indexes every 15 minutes while the repository remains open.
+const backgroundRefreshInterval = 15 * time.Minute
+
 const cacheDirMarkerContents = CacheDirMarkerHeader + `
 #
 # This file is a cache directory tag created by Kopia - Fast And Secure Open-Source Backup.
@@ -178,7 +181,7 @@ func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		return nil, errors.Wrap(err, "unable to open manifests")
 	}
 
-	return &DirectRepository{
+	dr := &DirectRepository{
 		Content:   cm,
 		Objects:   om,
 		Blobs:     st,
@@ -188,7 +191,13 @@ func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		formatBlob: f,
 		masterKey:  masterKey,
 		timeNow:    cmOpts.TimeNow,
-	}, nil
+
+		closed: make(chan struct{}),
+	}
+
+	go dr.RefreshPeriodically(ctx, backgroundRefreshInterval)
+
+	return dr, nil
 }
 
 func writeCacheMarker(cacheDir string) error {

@@ -50,7 +50,7 @@ type DirectRepository struct {
 	formatBlob *formatBlob
 	masterKey  []byte
 
-	closed bool
+	closed chan struct{}
 }
 
 // DeriveKey derives encryption key of the provided length from the master key.
@@ -126,8 +126,12 @@ func (r *DirectRepository) UpdateDescription(d string) {
 
 // Close closes the repository and releases all resources.
 func (r *DirectRepository) Close(ctx context.Context) error {
-	if r.closed {
+	select {
+	case <-r.closed:
+		// already closed
 		return nil
+
+	default:
 	}
 
 	if err := r.Flush(ctx); err != nil {
@@ -146,7 +150,7 @@ func (r *DirectRepository) Close(ctx context.Context) error {
 		return errors.Wrap(err, "error closing blob storage")
 	}
 
-	r.closed = true
+	close(r.closed)
 
 	return nil
 }
@@ -186,6 +190,10 @@ func (r *DirectRepository) Refresh(ctx context.Context) error {
 func (r *DirectRepository) RefreshPeriodically(ctx context.Context, interval time.Duration) {
 	for {
 		select {
+		case <-r.closed:
+			// stop background refresh when repository is closed
+			return
+
 		case <-ctx.Done():
 			return
 
