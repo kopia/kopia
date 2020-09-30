@@ -109,8 +109,7 @@ func TestTimeAdvanceConcurrent(t *testing.T) {
 	wg.Add(parallelism)
 
 	for i := 0; i < parallelism; i++ {
-		t.Run("worker", func(t *testing.T) {
-			t.Parallel()
+		go func() {
 			defer wg.Done()
 
 			times := make([]time.Time, iterations)
@@ -121,6 +120,7 @@ func TestTimeAdvanceConcurrent(t *testing.T) {
 				if advanceProbability > rand.Float64() {
 					ta.Advance(17 * time.Second)
 				}
+
 				times[j] = ta.NowFunc()()
 
 				if times[j].Before(prev) {
@@ -131,7 +131,7 @@ func TestTimeAdvanceConcurrent(t *testing.T) {
 			for _, ts := range times {
 				tchan <- ts
 			}
-		})
+		}()
 	}
 
 	go func() {
@@ -139,21 +139,17 @@ func TestTimeAdvanceConcurrent(t *testing.T) {
 		close(tchan)
 	}()
 
-	t.Run("verify", func(t *testing.T) {
-		t.Parallel()
+	tMap := make(map[time.Time]struct{}, iterations*parallelism)
 
-		tMap := make(map[time.Time]struct{}, iterations*parallelism)
-
-		for ts := range tchan {
-			if _, ok := tMap[ts]; ok {
-				t.Error("Found repeated time value: ", ts)
-			}
-
-			tMap[ts] = struct{}{}
+	for ts := range tchan {
+		if _, ok := tMap[ts]; ok {
+			t.Error("Found repeated time value: ", ts)
 		}
 
-		if got, want := len(tMap), parallelism*iterations; got != want {
-			t.Fatalf("number of generated times does not match, got: %v, want: %v", got, want)
-		}
-	})
+		tMap[ts] = struct{}{}
+	}
+
+	if got, want := len(tMap), parallelism*iterations; got != want {
+		t.Fatalf("number of generated times does not match, got: %v, want: %v", got, want)
+	}
 }
