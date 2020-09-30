@@ -41,6 +41,8 @@ type CLITest struct {
 	fixedArgs   []string
 	Environment []string
 
+	DefaultRepositoryCreateFlags []string
+
 	PassthroughStderr bool
 
 	LogsDir string
@@ -87,13 +89,24 @@ func NewCLITest(t *testing.T) *CLITest {
 		fixedArgs = append(fixedArgs, "--no-use-keyring")
 	}
 
+	var formatFlags []string
+
+	switch runtime.GOARCH {
+	case "arm64", "arm":
+		formatFlags = []string{
+			"--encryption", "CHACHA20-POLY1305-HMAC-SHA256",
+			"--block-hash", "BLAKE2S-256",
+		}
+	}
+
 	return &CLITest{
-		startTime: clock.Now(),
-		RepoDir:   t.TempDir(),
-		ConfigDir: configDir,
-		Exe:       filepath.FromSlash(exe),
-		fixedArgs: fixedArgs,
-		LogsDir:   logsDir,
+		startTime:                    clock.Now(),
+		RepoDir:                      t.TempDir(),
+		ConfigDir:                    configDir,
+		Exe:                          filepath.FromSlash(exe),
+		fixedArgs:                    fixedArgs,
+		DefaultRepositoryCreateFlags: formatFlags,
+		LogsDir:                      logsDir,
 		Environment: []string{
 			"KOPIA_PASSWORD=" + TestRepoPassword,
 			"KOPIA_ADVANCED_COMMANDS=enabled",
@@ -117,11 +130,9 @@ func (e *CLITest) RunAndExpectSuccess(t *testing.T, args ...string) []string {
 func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) bool, args ...string) *exec.Cmd {
 	t.Helper()
 
-	t.Logf("running 'kopia %v'", strings.Join(args, " "))
-	cmdArgs := append(append([]string(nil), e.fixedArgs...), args...)
-
-	c := exec.Command(e.Exe, cmdArgs...)
+	c := exec.Command(e.Exe, e.cmdArgs(args)...)
 	c.Env = append(os.Environ(), e.Environment...)
+	t.Logf("running '%v %v'", c.Path, c.Args)
 
 	stderrPipe, err := c.StderrPipe()
 	if err != nil {
@@ -184,14 +195,26 @@ func (e *CLITest) RunAndVerifyOutputLineCount(t *testing.T, wantLines int, args 
 	return lines
 }
 
+func (e *CLITest) cmdArgs(args []string) []string {
+	var suffix []string
+
+	// detect repository creation and override DefaultRepositoryCreateFlags for best
+	// performance on the current platform.
+	if len(args) >= 2 && (args[0] == "repo" && args[1] == "create") {
+		suffix = e.DefaultRepositoryCreateFlags
+	}
+
+	return append(append(append([]string(nil), e.fixedArgs...), args...), suffix...)
+}
+
 // Run executes kopia with given arguments and returns the output lines.
 func (e *CLITest) Run(t *testing.T, expectedError bool, args ...string) (stdout, stderr []string, err error) {
 	t.Helper()
-	t.Logf("running '%v %v'", e.Exe, strings.Join(args, " "))
-	cmdArgs := append(append([]string(nil), e.fixedArgs...), args...)
 
-	c := exec.Command(e.Exe, cmdArgs...)
+	c := exec.Command(e.Exe, e.cmdArgs(args)...)
 	c.Env = append(os.Environ(), e.Environment...)
+
+	t.Logf("running '%v %v'", c.Path, c.Args)
 
 	errOut := &bytes.Buffer{}
 	c.Stderr = errOut

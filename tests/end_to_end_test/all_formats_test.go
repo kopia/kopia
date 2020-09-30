@@ -9,6 +9,16 @@ import (
 )
 
 func TestAllFormatsSmokeTest(t *testing.T) {
+	srcDir := t.TempDir()
+
+	// 3-level directory with <=10 files and <=10 subdirectories at each level
+	testenv.CreateDirectoryTree(srcDir, testenv.DirectoryTreeOptions{
+		Depth:                  2,
+		MaxSubdirsPerDirectory: 5,
+		MaxFilesPerDirectory:   5,
+		MaxFileSize:            100,
+	}, nil)
+
 	for _, encryptionAlgo := range encryption.SupportedAlgorithms(false) {
 		encryptionAlgo := encryptionAlgo
 
@@ -22,8 +32,10 @@ func TestAllFormatsSmokeTest(t *testing.T) {
 					e := testenv.NewCLITest(t)
 					defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
+					e.DefaultRepositoryCreateFlags = nil
+
 					e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--block-hash", hashAlgo, "--encryption", encryptionAlgo)
-					e.RunAndExpectSuccess(t, "snap", "create", sharedTestDataDir1)
+					e.RunAndExpectSuccess(t, "snap", "create", srcDir)
 
 					sources := e.ListSnapshotsAndExpectSuccess(t)
 					if got, want := len(sources), 1; got != want {
