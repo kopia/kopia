@@ -107,13 +107,14 @@ TOOLS_DIR:=$(SELF_DIR)$(slash).tools
 GOLANGCI_LINT_VERSION=1.30.0
 NODE_VERSION=12.18.3
 HUGO_VERSION=0.74.3
+GOTESTSUM_VERSION=0.5.3
 GORELEASER_VERSION=v0.140.1
 
 # goveralls
 GOVERALLS_TOOL=$(TOOLS_DIR)/bin/goveralls
 
 $(GOVERALLS_TOOL):
-	$(mkdir) $(TOOLS_DIR)
+	-$(mkdir) $(TOOLS_DIR)
 	GO111MODULE=off GOPATH=$(TOOLS_DIR) go get github.com/mattn/goveralls
 
 # nodejs / npm
@@ -187,7 +188,7 @@ hugo=$(hugo_dir)$(slash)hugo$(exe_suffix)
 
 $(hugo):
 	@echo Downloading Hugo v$(HUGO_VERSION) to $(hugo)
-	$(mkdir) $(TOOLS_DIR)$(slash)hugo-$(HUGO_VERSION)
+	-$(mkdir) $(TOOLS_DIR)$(slash)hugo-$(HUGO_VERSION)
 
 ifeq ($(uname),Windows)
 	curl -LsS -o $(hugo_dir).zip https://github.com/gohugoio/hugo/releases/download/v$(HUGO_VERSION)/hugo_extended_$(HUGO_VERSION)_Windows-64bit.zip
@@ -201,6 +202,14 @@ else
 endif
 
 endif
+
+gotestsum=$(TOOLS_DIR)/bin/gotestsum
+
+$(gotestsum): export GO111MODULE=off
+$(gotestsum): export GOPATH=$(TOOLS_DIR)
+$(gotestsum):
+	-$(mkdir) $(TOOLS_DIR)
+	go get gotest.tools/gotestsum
 
 # goreleaser
 goreleaser_dir=$(TOOLS_DIR)$(slash)goreleaser-$(GORELEASER_VERSION)
@@ -264,5 +273,5 @@ else
 maybehugo=
 endif
 
-all-tools: $(npm) $(goreleaser) $(linter) $(maybehugo) $(go_bindata) windows-signing-tools
+all-tools: $(gotestsum) $(npm) $(goreleaser) $(linter) $(maybehugo) $(go_bindata) windows-signing-tools
 

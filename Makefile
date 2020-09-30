@@ -1,5 +1,4 @@
 COVERAGE_PACKAGES=github.com/kopia/kopia/repo/...,github.com/kopia/kopia/fs/...,github.com/kopia/kopia/snapshot/...
-GO_TEST=go test
 TEST_FLAGS?=
 KOPIA_INTEGRATION_EXE=$(CURDIR)/dist/integration/kopia.exe
 FIO_DOCKER_TAG=ljishen/fio
@@ -15,6 +14,8 @@ retry=$(CURDIR)/tools/retry.sh
 endif
 
 include tools/tools.mk
+
+GO_TEST=$(gotestsum) --format=pkgname-and-test-fails --
 
 LINTER_DEADLINE=300s
 UNIT_TESTS_TIMEOUT=300s
@@ -60,7 +61,7 @@ vet-time-inject:
 ifneq ($(TRAVIS_OS_NAME),windows)
 	! find . -name '*.go' \
 	-exec grep -n -e time.Now -e time.Since -e time.Until {} + \
-	| grep -v -e allow:no-inject-time
+	grep -v src/golang.org | grep -v -e allow:no-inject-time
 endif
 
 vet: vet-time-inject
@@ -186,28 +187,28 @@ test-with-coverage:
 test-with-coverage-pkgonly:
 	$(GO_TEST) -count=1 -coverprofile=tmp.cov -timeout 300s github.com/kopia/kopia/...
 
-test:
+test: $(gotestsum)
 	$(GO_TEST) -count=1 -timeout $(UNIT_TESTS_TIMEOUT) ./...
 
-vtest:
+vtest: $(gotestsum)
 	$(GO_TEST) -count=1 -short -v -timeout $(UNIT_TESTS_TIMEOUT) ./...
 
 dist-binary:
 	go build -o $(KOPIA_INTEGRATION_EXE) -tags testing github.com/kopia/kopia
 
 integration-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
-integration-tests: dist-binary
+integration-tests: dist-binary $(gotestsum)
 	 $(GO_TEST) $(TEST_FLAGS) -count=1 -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/end_to_end_test
 
 endurance-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
-endurance-tests: dist-binary
+endurance-tests: dist-binary $(gotestsum)
 	 $(GO_TEST) $(TEST_FLAGS) -count=1 -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/endurance_test
 
-robustness-tool-tests:
+robustness-tool-tests: $(gotestsum)
 	FIO_DOCKER_IMAGE=$(FIO_DOCKER_TAG) \
 	$(GO_TEST) $(TEST_FLAGS) -count=1 -timeout 90s github.com/kopia/kopia/tests/tools/...
 
-stress-test:
+stress-test: $(gotestsum)
 	KOPIA_LONG_STRESS_TEST=1 $(GO_TEST) -count=1 -timeout 200s github.com/kopia/kopia/tests/stress_test
 	$(GO_TEST) -count=1 -timeout 200s github.com/kopia/kopia/tests/repository_stress_test
 
