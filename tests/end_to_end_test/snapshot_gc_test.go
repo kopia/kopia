@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kopia/kopia/tests/testenv"
 )
@@ -60,6 +61,9 @@ how are you
 
 	// data block + directory block + manifest block + manifest block from manifest deletion
 	e.RunAndVerifyOutputLineCount(t, expectedContentCount, "content", "list")
+
+	// make sure we are not too quick
+	time.Sleep(2 * time.Second)
 
 	// garbage-collect for real, this time without age limit
 	e.RunAndExpectSuccess(t, "snapshot", "gc", "--delete", "--min-age", "0s")
