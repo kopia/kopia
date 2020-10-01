@@ -72,7 +72,22 @@ func NewCLITest(t *testing.T) *CLITest {
 	}
 
 	configDir := t.TempDir()
-	logsDir := t.TempDir()
+
+	cleanName := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(
+		t.Name(),
+		"/", "_"), "\\", "_"), ":", "_")
+
+	logsDir := filepath.Join(os.TempDir(), "kopia-logs", cleanName+"."+clock.Now().Local().Format("20060102150405"))
+
+	t.Cleanup(func() {
+		if t.Failed() {
+			t.Logf("logs are available in %v", logsDir)
+			return
+		}
+
+		os.RemoveAll(logsDir)
+	})
+
 	fixedArgs := []string{
 		// use per-test config file, to avoid clobbering current user's setup.
 		"--config-file", filepath.Join(configDir, ".kopia.config"),
