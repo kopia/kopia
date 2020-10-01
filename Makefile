@@ -193,15 +193,15 @@ test: $(gotestsum)
 vtest: $(gotestsum)
 	$(GO_TEST) -count=1 -short -v -timeout $(UNIT_TESTS_TIMEOUT) ./...
 
-dist-binary:
+build-integration-test-binary:
 	go build -o $(KOPIA_INTEGRATION_EXE) -tags testing github.com/kopia/kopia
 
 integration-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
-integration-tests: dist-binary $(gotestsum)
+integration-tests: build-integration-test-binary $(gotestsum)
 	 $(GO_TEST) $(TEST_FLAGS) -count=1 -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/end_to_end_test
 
 endurance-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
-endurance-tests: dist-binary $(gotestsum)
+endurance-tests: build-integration-test-binary $(gotestsum)
 	 $(GO_TEST) $(TEST_FLAGS) -count=1 -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/endurance_test
 
 robustness-tool-tests: $(gotestsum)
@@ -279,7 +279,7 @@ endif
 
 ifneq ($(TRAVIS_TAG),)
 
-travis-create-long-term-repository: dist-binary travis-install-cloud-sdk
+travis-create-long-term-repository: build-integration-test-binary travis-install-cloud-sdk
 	echo Creating long-term repository $(TRAVIS_TAG)...
 	KOPIA_EXE=$(KOPIA_INTEGRATION_EXE) ./tests/compat_test/gen-compat-repo.sh
 
