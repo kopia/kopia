@@ -15,7 +15,7 @@ endif
 
 include tools/tools.mk
 
-GO_TEST=$(gotestsum) --format=pkgname-and-test-fails --
+GO_TEST=$(gotestsum) --format=pkgname-and-test-fails --no-summary=skipped --
 
 LINTER_DEADLINE=300s
 UNIT_TESTS_TIMEOUT=300s
