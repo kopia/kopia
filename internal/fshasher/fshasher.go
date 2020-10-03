@@ -92,7 +92,10 @@ func header(ctx context.Context, fullpath string, e os.FileInfo) (*tar.Header, e
 		h.ModTime = time.Time{}
 	}
 
-	h.ModTime = h.ModTime.UTC()
+	// when hashing, compare time to within a second resolution because of
+	// filesystems that don't preserve full timestamp fidelity.
+	// https://travis-ci.org/github/kopia/kopia/jobs/732592885
+	h.ModTime = h.ModTime.Truncate(time.Second).UTC()
 	h.AccessTime = h.ModTime
 	h.ChangeTime = h.ModTime
 
