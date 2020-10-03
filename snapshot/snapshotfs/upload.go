@@ -341,6 +341,10 @@ func (u *Uploader) checkpointRoot(ctx context.Context, cp *checkpointRegistry, p
 		return errors.Wrap(err, "error saving checkpoint snapshot")
 	}
 
+	if _, err := policy.ApplyRetentionPolicy(ctx, u.repo, man.Source, true); err != nil {
+		return errors.Wrap(err, "unable to apply retention policy")
+	}
+
 	if err := u.repo.Flush(ctx); err != nil {
 		return errors.Wrap(err, "error flushing after checkpoint")
 	}
