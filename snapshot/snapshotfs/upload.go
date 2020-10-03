@@ -792,7 +792,7 @@ func uploadDirInternal(
 	thisDirBuilder *dirManifestBuilder,
 	thisCheckpointRegistry *checkpointRegistry,
 ) (*snapshot.DirEntry, error) {
-	u.stats.TotalDirectoryCount++
+	atomic.AddInt32(&u.stats.TotalDirectoryCount, 1)
 
 	u.Progress.StartedDirectory(dirRelativePath)
 	defer u.Progress.FinishedDirectory(dirRelativePath)
