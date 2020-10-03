@@ -1,6 +1,8 @@
 package snapshot
 
 import (
+	"sync/atomic"
+
 	"github.com/kopia/kopia/fs"
 )
 
@@ -15,20 +17,18 @@ type Stats struct {
 	CachedFiles    int32 `json:"cachedFiles"`
 	NonCachedFiles int32 `json:"nonCachedFiles"`
 
-	TotalDirectoryCount int `json:"dirCount"`
+	TotalDirectoryCount int32 `json:"dirCount"`
 
-	ExcludedFileCount int `json:"excludedFileCount"`
-	ExcludedDirCount  int `json:"excludedDirCount"`
-
-	ReadErrors int `json:"readErrors"`
+	ExcludedFileCount int32 `json:"excludedFileCount"`
+	ExcludedDirCount  int32 `json:"excludedDirCount"`
 }
 
 // AddExcluded adds the information about excluded file to the statistics.
 func (s *Stats) AddExcluded(md fs.Entry) {
 	if md.IsDir() {
-		s.ExcludedDirCount++
+		atomic.AddInt32(&s.ExcludedDirCount, 1)
 	} else {
-		s.ExcludedFileCount++
-		s.ExcludedTotalFileSize += md.Size()
+		atomic.AddInt32(&s.ExcludedFileCount, 1)
+		atomic.AddInt64(&s.ExcludedTotalFileSize, md.Size())
 	}
 }

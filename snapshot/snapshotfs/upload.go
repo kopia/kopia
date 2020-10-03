@@ -792,7 +792,7 @@ func uploadDirInternal(
 	thisDirBuilder *dirManifestBuilder,
 	thisCheckpointRegistry *checkpointRegistry,
 ) (*snapshot.DirEntry, error) {
-	u.stats.TotalDirectoryCount++
+	atomic.AddInt32(&u.stats.TotalDirectoryCount, 1)
 
 	u.Progress.StartedDirectory(dirRelativePath)
 	defer u.Progress.FinishedDirectory(dirRelativePath)
@@ -963,7 +963,10 @@ func (u *Uploader) Upload(
 
 	s.StartTime = u.repo.Time()
 
+	var scanWG sync.WaitGroup
+
 	scanctx, cancelScan := context.WithCancel(ctx)
+
 	defer cancelScan()
 
 	switch entry := source.(type) {
@@ -980,7 +983,11 @@ func (u *Uploader) Upload(
 			u.stats.AddExcluded(md)
 		}))
 
+		scanWG.Add(1)
+
 		go func() {
+			defer scanWG.Done()
+
 			ds, _ := u.scanDirectory(scanctx, entry)
 
 			u.Progress.EstimatedDataSize(ds.numFiles, ds.totalFileSize)
@@ -999,6 +1006,9 @@ func (u *Uploader) Upload(
 	if err != nil {
 		return nil, err
 	}
+
+	cancelScan()
+	scanWG.Wait()
 
 	s.IncompleteReason = u.incompleteReason()
 	s.EndTime = u.repo.Time()

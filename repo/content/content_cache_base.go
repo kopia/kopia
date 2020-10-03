@@ -154,7 +154,7 @@ func (c *cacheBase) sweepMutexes() {
 	// since the mutexes are only for performance (to avoid loading duplicates)
 	// and not for correctness, it's always safe to remove them.
 	c.loadingMap.Range(func(key, value interface{}) bool {
-		if m := value.(*mutexLRU); m.lastUsedNanoseconds < cutoffTime {
+		if m := value.(*mutexLRU); atomic.LoadInt64(&m.lastUsedNanoseconds) < cutoffTime {
 			c.loadingMap.Delete(key)
 		}
 
