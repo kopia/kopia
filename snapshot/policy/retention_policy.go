@@ -4,8 +4,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/snapshot"
+)
+
+const (
+	// keep all snapshots younger than this.
+	retainIncompleteSnapshotsYoungerThan = 4 * time.Hour
+
+	// minimal number of incomplete snapshots to keep.
+	retainIncompleteSnapshotMinimumCount = 3
 )
 
 // RetentionPolicy describes snapshot retention policy.
@@ -21,12 +28,31 @@ type RetentionPolicy struct {
 // ComputeRetentionReasons computes the reasons why each snapshot is retained, based on
 // the settings in retention policy and stores them in RetentionReason field.
 func (r *RetentionPolicy) ComputeRetentionReasons(manifests []*snapshot.Manifest) {
-	now := clock.Now()
-	maxTime := now.Add(365 * 24 * time.Hour)
+	if len(manifests) == 0 {
+		return
+	}
+
+	// compute max time across all and complete snapshots
+	var (
+		maxCompleteStartTime time.Time
+		maxStartTime         time.Time
+	)
+
+	for _, m := range manifests {
+		if m.StartTime.After(maxStartTime) {
+			maxStartTime = m.StartTime
+		}
+
+		if m.IncompleteReason == "" && m.StartTime.After(maxCompleteStartTime) {
+			maxCompleteStartTime = m.StartTime
+		}
+	}
+
+	maxTime := maxCompleteStartTime.Add(365 * 24 * time.Hour)
 
 	cutoffTime := func(setting *int, add func(time.Time, int) time.Time) time.Time {
 		if setting != nil {
-			return add(now, *setting)
+			return add(maxCompleteStartTime, *setting)
 		}
 
 		return maxTime
@@ -43,13 +69,28 @@ func (r *RetentionPolicy) ComputeRetentionReasons(manifests []*snapshot.Manifest
 	ids := make(map[string]bool)
 	idCounters := make(map[string]int)
 
+	// sort manifests in descending time order (most recent first)
 	sorted := snapshot.SortByTime(manifests, true)
+
+	// apply retention reasons to complete snapshots
 	for i, s := range sorted {
-		s.RetentionReasons = r.getRetentionReasons(i, s, cutoff, ids, idCounters)
+		if s.IncompleteReason == "" {
+			s.RetentionReasons = r.getRetentionReasons(i, s, cutoff, ids, idCounters)
+		} else {
+			s.RetentionReasons = []string{}
+		}
 	}
 
-	for _, s := range sorted {
-		if s.IncompleteReason != "" {
+	// attach 'retention reason' tag to incomplete snapshots until we run into first complete one
+	// or we have enough incomplete ones and we run into an old one.
+	for i, s := range sorted {
+		if s.IncompleteReason == "" {
+			break
+		}
+
+		age := maxStartTime.Sub(s.StartTime)
+		// retain incomplete snapshots below certain age and below maximum count.
+		if age < retainIncompleteSnapshotsYoungerThan || i < retainIncompleteSnapshotMinimumCount {
 			s.RetentionReasons = append(s.RetentionReasons, "incomplete")
 		} else {
 			break
