@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/fatih/color"
 	logging "github.com/op/go-logging"
 	"github.com/pkg/errors"
 	"gopkg.in/alecthomas/kingpin.v2"
@@ -45,6 +46,8 @@ var (
 	contentLogDirMaxAge   = cli.App().Flag("content-log-dir-max-age", "Maximum age of content log files to retain").Envar("KOPIA_CONTENT_LOG_DIR_MAX_AGE").Default("720h").Hidden().Duration()
 	logLevel              = cli.App().Flag("log-level", "Console log level").Default("info").Enum(logLevels...)
 	fileLogLevel          = cli.App().Flag("file-log-level", "File log level").Default("debug").Enum(logLevels...)
+	forceColor            = cli.App().Flag("force-color", "Force color output").Hidden().Envar("KOPIA_FORCE_COLOR").Bool()
+	disableColor          = cli.App().Flag("disable-color", "Disable color output").Hidden().Envar("KOPIA_DISABLE_COLOR").Bool()
 )
 
 var log = repologging.GetContextLoggerFunc("kopia")
@@ -69,6 +72,14 @@ func Initialize(ctx *kingpin.ParseContext) error {
 		setupLogFileBackend(now, suffix),
 		setupContentLogFileBackend(now, suffix),
 	)
+
+	if *forceColor {
+		color.NoColor = false
+	}
+
+	if *disableColor {
+		color.NoColor = true
+	}
 
 	return nil
 }
