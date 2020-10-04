@@ -252,6 +252,10 @@ func (p *cliProgress) Finish() {
 	atomic.StoreInt32(&p.uploading, 0)
 
 	p.output(defaultColor, "")
+
+	if *enableProgress {
+		printStderr("\n")
+	}
 }
 
 var progress = &cliProgress{}
