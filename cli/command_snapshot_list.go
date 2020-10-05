@@ -32,7 +32,7 @@ var (
 	shapshotListShowOwner            = snapshotListCommand.Flag("owner", "Include owner").Bool()
 	snapshotListShowIdentical        = snapshotListCommand.Flag("show-identical", "Show identical snapshots").Short('l').Bool()
 	snapshotListShowAll              = snapshotListCommand.Flag("all", "Show all shapshots (not just current username/host)").Short('a').Bool()
-	maxResultsPerPath                = snapshotListCommand.Flag("max-results", "Maximum number of entries per source.").Default("100").Short('n').Int()
+	maxResultsPerPath                = snapshotListCommand.Flag("max-results", "Maximum number of entries per source.").Short('n').Int()
 )
 
 func findSnapshotsForSource(ctx context.Context, rep repo.Repository, sourceInfo snapshot.SourceInfo) (manifestIDs []manifest.ID, relPath string, err error) {
@@ -158,7 +158,7 @@ func outputManifestFromSingleSource(ctx context.Context, rep repo.Repository, ma
 	)
 
 	manifests = snapshot.SortByTime(manifests, false)
-	if len(manifests) > *maxResultsPerPath {
+	if *maxResultsPerPath > 0 && len(manifests) > *maxResultsPerPath {
 		manifests = manifests[len(manifests)-*maxResultsPerPath:]
 	}
 
