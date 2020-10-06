@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -67,7 +66,7 @@ func runSnapshotCommand(ctx context.Context, rep repo.Repository) error {
 
 	for _, snapshotDir := range sources {
 		if u.IsCanceled() {
-			printStderr("Upload canceled\n")
+			log(ctx).Infof("Upload canceled")
 			break
 		}
 
@@ -144,7 +143,7 @@ func startTimeAfterEndTime(startTime, endTime time.Time) bool {
 }
 
 func snapshotSingleSource(ctx context.Context, rep repo.Repository, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo) error {
-	printStderr("Snapshotting %v ...\n", sourceInfo)
+	log(ctx).Infof("Snapshotting %v ...", sourceInfo)
 
 	t0 := clock.Now()
 
@@ -215,11 +214,11 @@ func snapshotSingleSource(ctx context.Context, rep repo.Repository, u *snapshotf
 
 	if ds := manifest.RootEntry.DirSummary; ds != nil {
 		if ds.NumFailed > 0 {
-			errorColor.Fprintf(os.Stderr, "\nIgnored %v errors while snapshotting.", ds.NumFailed) //nolint:errcheck
+			log(ctx).Warningf("Ignored %v errors while snapshotting %v.", ds.NumFailed, sourceInfo)
 		}
 	}
 
-	printStderr("\nCreated%v snapshot with root %v and ID %v in %v\n", maybePartial, manifest.RootObjectID(), snapID, clock.Since(t0).Truncate(time.Second))
+	log(ctx).Infof("Created%v snapshot with root %v and ID %v in %v", maybePartial, manifest.RootObjectID(), snapID, clock.Since(t0).Truncate(time.Second))
 
 	return err
 }
