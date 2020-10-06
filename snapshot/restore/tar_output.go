@@ -16,6 +16,11 @@ type TarOutput struct {
 	tf *tar.Writer
 }
 
+// Parallelizable implements restore.Output interface.
+func (o *TarOutput) Parallelizable() bool {
+	return false
+}
+
 // BeginDirectory implements restore.Output interface.
 func (o *TarOutput) BeginDirectory(ctx context.Context, relativePath string, d fs.Directory) error {
 	if relativePath == "" {

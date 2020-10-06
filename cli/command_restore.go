@@ -53,6 +53,7 @@ var (
 	restoreOverwriteFiles       = true
 	restoreConsistentAttributes = false
 	restoreMode                 = restoreModeAuto
+	restoreParallel             = 8
 )
 
 const (
@@ -71,6 +72,7 @@ func addRestoreFlags(cmd *kingpin.CmdClause) {
 	cmd.Flag("overwrite-files", "Specifies whether or not to overwrite already existing files").BoolVar(&restoreOverwriteFiles)
 	cmd.Flag("consistent-attributes", "When multiple snapshots match, fail if they have inconsistent attributes").Envar("KOPIA_RESTORE_CONSISTENT_ATTRIBUTES").BoolVar(&restoreConsistentAttributes)
 	cmd.Flag("mode", "Override restore mode").EnumVar(&restoreMode, restoreModeAuto, restoreModeLocal, restoreModeZip, restoreModeZipNoCompress, restoreModeTar, restoreModeTgz)
+	cmd.Flag("parallel", "Restore parallelism (1=disable)").IntVar(&restoreParallel)
 }
 
 func restoreOutput() (restore.Output, error) {
@@ -141,7 +143,7 @@ func detectRestoreMode(m string) string {
 		return restoreModeTgz
 
 	default:
-		printStderr("Restoring to local filesystem (%v)...\n", restoreTargetPath)
+		printStderr("Restoring to local filesystem (%v) with parallelism=%v...\n", restoreTargetPath, restoreParallel)
 		return restoreModeLocal
 	}
 }
@@ -161,7 +163,12 @@ func runRestoreCommand(ctx context.Context, rep repo.Repository) error {
 		return errors.Wrap(err, "unable to get filesystem entry")
 	}
 
-	st, err := restore.Entry(ctx, rep, output, rootEntry)
+	st, err := restore.Entry(ctx, rep, output, rootEntry, restore.Options{
+		Parallel: restoreParallel,
+		ProgressCallback: func(enqueued, processing, completed int64) {
+			log(ctx).Infof("Restored %v/%v. Processing %v...", completed, enqueued, processing)
+		},
+	})
 	if err != nil {
 		return err
 	}
