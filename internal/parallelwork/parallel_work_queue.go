@@ -138,6 +138,24 @@ func (v *Queue) maybeReportProgress() {
 	cb(v.enqueuedWork, v.activeWorkerCount, v.completedWork)
 }
 
+// OnNthCompletion invokes the provided callback once the returned callback function has been invoked exactly n times.
+func OnNthCompletion(n int, callback CallbackFunc) CallbackFunc {
+	var mu sync.Mutex
+
+	return func() error {
+		mu.Lock()
+		n--
+		call := n == 0
+		mu.Unlock()
+
+		if call {
+			return callback()
+		}
+
+		return nil
+	}
+}
+
 // NewQueue returns new parallel work queue.
 func NewQueue() *Queue {
 	return &Queue{

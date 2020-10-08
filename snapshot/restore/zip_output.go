@@ -17,6 +17,11 @@ type ZipOutput struct {
 	method uint16
 }
 
+// Parallelizable implements restore.Output interface.
+func (o *ZipOutput) Parallelizable() bool {
+	return false
+}
+
 // BeginDirectory implements restore.Output interface.
 func (o *ZipOutput) BeginDirectory(ctx context.Context, relativePath string, e fs.Directory) error {
 	return nil
