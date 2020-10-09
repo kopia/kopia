@@ -479,15 +479,18 @@ func (b *dirManifestBuilder) addEntry(de *snapshot.DirEntry) {
 
 	b.entries = append(b.entries, de)
 
+	if de.ModTime.After(b.summary.MaxModTime) {
+		b.summary.MaxModTime = de.ModTime
+	}
+
 	// nolint:exhaustive
 	switch de.Type {
+	case snapshot.EntryTypeSymlink:
+		b.summary.TotalSymlinkCount++
+
 	case snapshot.EntryTypeFile:
 		b.summary.TotalFileCount++
 		b.summary.TotalFileSize += de.FileSize
-
-		if de.ModTime.After(b.summary.MaxModTime) {
-			b.summary.MaxModTime = de.ModTime
-		}
 
 	case snapshot.EntryTypeDirectory:
 		if childSummary := de.DirSummary; childSummary != nil {

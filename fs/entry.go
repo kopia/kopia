@@ -80,11 +80,12 @@ type EntryWithError struct {
 
 // DirectorySummary represents summary information about a directory.
 type DirectorySummary struct {
-	TotalFileSize    int64     `json:"size"`
-	TotalFileCount   int64     `json:"files"`
-	TotalDirCount    int64     `json:"dirs"`
-	MaxModTime       time.Time `json:"maxTime"`
-	IncompleteReason string    `json:"incomplete,omitempty"`
+	TotalFileSize     int64     `json:"size"`
+	TotalFileCount    int64     `json:"files"`
+	TotalSymlinkCount int64     `json:"symlinks"`
+	TotalDirCount     int64     `json:"dirs"`
+	MaxModTime        time.Time `json:"maxTime"`
+	IncompleteReason  string    `json:"incomplete,omitempty"`
 
 	// number of failed files
 	NumFailed int `json:"numFailed"`
