@@ -3,6 +3,7 @@ set -e
 GS_PREFIX=gs://packages.kopia.io/apt
 GPG_KEY_ID=A3B5843ED70529C23162E3687713E6D88ED70D9D
 PKGDIR=$1
+RETAIN_UNSTABLE_DEB_COUNT=15
 
 if [ -z "$PKGDIR" ]; then
   echo usage $0: /path/to/dist
@@ -14,27 +15,39 @@ if [ ! -d "$PKGDIR" ]; then
   exit 1
 fi
 
-distributions="stable testing unstable"
+delete_old_deb() {
+  ls -tp1 $1/*.deb | tail -n +$RETAIN_UNSTABLE_DEB_COUNT | xargs -I {} rm -v -- {}
+}
+
+distributions="unstable"
+
+if [ "$TRAVIS_TAG" != "" ]; then
+  distributions="stable testing"
+fi
 
 # note we don't produce packages for i386 but lack of it confuses some amd64 clients.
 architectures="amd64 arm64 armhf i386"
 
 WORK_DIR=/tmp/apt-publish
-rm -rf "$WORK_DIR"
+# rm -rf "$WORK_DIR"
 mkdir -p "$WORK_DIR"
 
-echo Downloading Package lists...
+echo Downloading packages...
 
 deb_files=$(find $1 -name '*.deb')
 
-# download 'Packages' files from GCS for all supported distributions and architectures
+# download files files from GCS for all supported distributions and architectures
 for d in $distributions; do
+  mkdir -pv $WORK_DIR/dists/$d
+  gsutil -m rsync -r -d $GS_PREFIX/dists/$d $WORK_DIR/dists/$d
   for a in $architectures; do
-    mkdir -pv $WORK_DIR/dists/$d/main/binary-$a
-    touch $WORK_DIR/dists/$d/main/binary-$a/Packages
-    gsutil cp -av $GS_PREFIX/dists/$d/main/binary-$a/Packages $WORK_DIR/dists/$d/main/binary-$a/Packages
+    if [ "$d" == "unstable" ]; then
+      delete_old_deb $WORK_DIR/dists/$d/main/binary-$a
+    fi
   done
 done
+
+echo Sorting...
 
 # sort all files into appropriate binary directories
 for f in $deb_files; do
@@ -77,14 +90,18 @@ for f in $deb_files; do
   fi
 done
 
+echo Generating Packages...
+
 # append to 'Packages' file for all files placed in the work directory
 for d in $distributions; do
   for a in $architectures; do
     mkdir -pv $WORK_DIR/dists/$d/main/binary-$a
-    (cd $WORK_DIR && dpkg-scanpackages --multiversion -a $a dists/$d/main/binary-$a >> dists/$d/main/binary-$a/Packages)
-    gzip -k $WORK_DIR/dists/$d/main/binary-$a/Packages
+    (cd $WORK_DIR && dpkg-scanpackages --multiversion -a $a dists/$d/main/binary-$a > dists/$d/main/binary-$a/Packages)
+    gzip -kf $WORK_DIR/dists/$d/main/binary-$a/Packages
   done
 done
+
+echo Generating Release files
 
 # generate Release/InRelease/Release.gpg files for all distributions
 for d in $distributions; do
@@ -98,13 +115,15 @@ for d in $distributions; do
   gpg --default-key $GPG_KEY_ID --clearsign -o - $WORK_DIR/dists/$d/Release > $WORK_DIR/dists/$d/InRelease
 done
 
-# sync back to GCS
-echo Synchronizing...
-gsutil -m rsync -r $WORK_DIR/ $GS_PREFIX/
+for d in $distributions; do
+  # sync back to GCS
+  echo Synchronizing...
+  gsutil -m rsync -r -d $WORK_DIR/dists/$d $GS_PREFIX/dists/$d
 
-# reapply caching parameters
-echo Setting caching parameters...
-gsutil -m setmeta -h "Cache-Control:no-cache, max-age=0" $GS_PREFIX/dists/{stable,testing,unstable}/{Release,Release.gpg,InRelease}
-gsutil -m setmeta -h "Cache-Control:no-cache, max-age=0" $GS_PREFIX/dists/{stable,testing,unstable}/main/binary-{amd64,arm64,armhf}/Packages{,.gz}
+  # reapply caching parameters
+  echo Setting caching parameters...
+  gsutil -m setmeta -h "Cache-Control:no-cache, max-age=0" $GS_PREFIX/dists/$d/{Release,Release.gpg,InRelease}
+  gsutil -m setmeta -h "Cache-Control:no-cache, max-age=0" $GS_PREFIX/dists/$d/main/binary-{amd64,arm64,armhf}/Packages{,.gz}
+done
 
 echo Done.
