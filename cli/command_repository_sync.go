@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -35,17 +34,19 @@ const syncProgressInterval = 300 * time.Millisecond
 func runSyncWithStorage(ctx context.Context, src, dst blob.Storage) error {
 	var ()
 
-	noticeColor.Fprintf(os.Stderr, "Synchronizing repositories:\n\n  Source:      %v\n  Destination: %v\n\n", src.DisplayName(), dst.DisplayName()) //nolint:errcheck
+	log(ctx).Infof("Synchronizing repositories:")
+	log(ctx).Infof("  Source:      %v", src.DisplayName())
+	log(ctx).Infof("  Destination: %v", dst.DisplayName())
 
 	if !*repositorySyncDelete {
-		noticeColor.Fprintf(os.Stderr, "NOTE: By default no BLOBs are deleted, pass --delete to allow it.\n\n") //nolint:errcheck
+		log(ctx).Noticef("NOTE: By default no BLOBs are deleted, pass --delete to allow it.")
 	}
 
 	if err := ensureRepositoriesHaveSameFormatBlob(ctx, src, dst); err != nil {
 		return err
 	}
 
-	printStderr("Looking for BLOBs to synchronize...\n")
+	log(ctx).Infof("Looking for BLOBs to synchronize...")
 
 	var (
 		inSyncBlobs int
@@ -104,8 +105,8 @@ func runSyncWithStorage(ctx context.Context, src, dst blob.Storage) error {
 		}
 	}
 
-	printStderr(
-		"  Found %v BLOBs to delete (%v), %v in sync (%v)\n",
+	log(ctx).Infof(
+		"  Found %v BLOBs to delete (%v), %v in sync (%v)",
 		len(blobsToDelete), units.BytesStringBase10(totalDeleteBytes),
 		inSyncBlobs, units.BytesStringBase10(inSyncBytes),
 	)
@@ -114,7 +115,7 @@ func runSyncWithStorage(ctx context.Context, src, dst blob.Storage) error {
 		return nil
 	}
 
-	printStderr("Copying...\n")
+	log(ctx).Infof("Copying...")
 
 	beginSyncProgress()
 

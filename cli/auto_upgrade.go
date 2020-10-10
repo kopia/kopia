@@ -21,7 +21,7 @@ func maybeAutoUpgradeRepository(ctx context.Context, r repo.Repository) {
 
 	has, err := maintenance.HasParams(ctx, mr)
 	if err == nil && !has {
-		_, _ = noticeColor.Printf("Setting default maintenance parameters...\n")
+		log(ctx).Noticef("Setting default maintenance parameters...")
 
 		if err := setDefaultMaintenanceParameters(ctx, mr); err != nil {
 			log(ctx).Warningf("unable to set default maintenance parameters: %v", err)
@@ -37,7 +37,7 @@ func setDefaultMaintenanceParameters(ctx context.Context, rep maintenance.Mainta
 		return errors.Wrap(err, "unable to set maintenance params")
 	}
 
-	_, _ = noticeColor.Printf(`
+	log(ctx).Noticef(`
 Kopia will perform quick maintenance of the repository automatically every %v
 when running as %v. This operation never deletes any data.
 

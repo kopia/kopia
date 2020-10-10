@@ -37,7 +37,7 @@ type Stats struct {
 // Options provides optional restore parameters.
 type Options struct {
 	Parallel         int
-	ProgressCallback func(enqueued, active, completed int64)
+	ProgressCallback func(ctx context.Context, enqueued, active, completed int64)
 }
 
 // Entry walks a snapshot root with given root entry and restores it to the provided output.
@@ -46,7 +46,7 @@ func Entry(ctx context.Context, rep repo.Repository, output Output, rootEntry fs
 
 	c.q.ProgressCallback = options.ProgressCallback
 
-	c.q.EnqueueBack(func() error {
+	c.q.EnqueueBack(ctx, func() error {
 		return errors.Wrap(c.copyEntry(ctx, rootEntry, "", func() error { return nil }), "error copying")
 	})
 
@@ -59,7 +59,7 @@ func Entry(ctx context.Context, rep repo.Repository, output Output, rootEntry fs
 		numWorkers = 1
 	}
 
-	if err := c.q.Process(numWorkers); err != nil {
+	if err := c.q.Process(ctx, numWorkers); err != nil {
 		return Stats{}, errors.Wrap(err, "restore error")
 	}
 
@@ -139,7 +139,7 @@ func (c *copier) copyDirectoryContent(ctx context.Context, d fs.Directory, targe
 	for _, e := range entries {
 		e := e
 
-		c.q.EnqueueBack(func() error {
+		c.q.EnqueueBack(ctx, func() error {
 			return c.copyEntry(ctx, e, path.Join(targetPath, e.Name()), onItemCompletion)
 		})
 	}

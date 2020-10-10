@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fatih/color"
 	"github.com/natefinch/atomic"
 	"github.com/pkg/errors"
 	"golang.org/x/mod/semver"
@@ -48,8 +47,6 @@ Visit https://github.com/kopia/kopia/releases/latest to download it.
 
 `
 )
-
-var noticeColor = color.New(color.FgCyan)
 
 // updateState is persisted in a JSON file and used to determine when to check for updates
 // and whether to notify user about updates.
@@ -108,7 +105,7 @@ func maybeInitializeUpdateCheck(ctx context.Context) {
 			return
 		}
 
-		noticeColor.Fprintf(os.Stderr, autoUpdateNotice, updateStateFilename()) //nolint:errcheck
+		log(ctx).Noticef(autoUpdateNotice, updateStateFilename())
 	} else {
 		removeUpdateState()
 	}
@@ -256,7 +253,7 @@ func maybePrintUpdateNotification(ctx context.Context) {
 		return
 	}
 
-	noticeColor.Fprintf(os.Stderr, updateAvailableNotice, ensureVPrefix(repo.BuildVersion), ensureVPrefix(updatedVersion)) //nolint:errcheck
+	log(ctx).Noticef(updateAvailableNotice, ensureVPrefix(repo.BuildVersion), ensureVPrefix(updatedVersion))
 }
 
 func ensureVPrefix(s string) string {

@@ -70,7 +70,7 @@ func editPolicy(ctx context.Context, rep repo.Repository) error {
 			original = &policy.Policy{}
 		}
 
-		printStderr("Editing policy for %v using external editor...\n", target)
+		log(ctx).Infof("Editing policy for %v using external editor...", target)
 
 		s := policyEditHelpText + prettyJSON(original)
 		s = insertHelpText(s, `  "retention": {`, policyEditRetentionHelpText)
@@ -89,11 +89,11 @@ func editPolicy(ctx context.Context, rep repo.Repository) error {
 		}
 
 		if jsonEqual(updated, original) {
-			printStderr("Policy for %v unchanged\n", target)
+			log(ctx).Infof("Policy for %v unchanged", target)
 			continue
 		}
 
-		printStderr("Updated policy for %v\n%v\n", target, prettyJSON(updated))
+		log(ctx).Infof("Updated policy for %v\n%v", target, prettyJSON(updated))
 
 		fmt.Print("Save updated policy? (y/N) ")
 

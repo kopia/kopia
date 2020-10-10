@@ -25,7 +25,7 @@ var (
 	maintenanceSetPauseFull  = maintenanceSetCommand.Flag("pause-full", "Pause full maintenance for a specified duration").DurationList()
 )
 
-func setMaintenanceOwnerFromFlags(p *maintenance.Params, rep *repo.DirectRepository, changed *bool) {
+func setMaintenanceOwnerFromFlags(ctx context.Context, p *maintenance.Params, rep *repo.DirectRepository, changed *bool) {
 	if v := *maintenanceSetOwner; v != "" {
 		if v == "me" {
 			p.Owner = rep.Username() + "@" + rep.Hostname()
@@ -35,11 +35,11 @@ func setMaintenanceOwnerFromFlags(p *maintenance.Params, rep *repo.DirectReposit
 
 		*changed = true
 
-		printStderr("Setting maintenance owner to %v\n", p.Owner)
+		log(ctx).Infof("Setting maintenance owner to %v", p.Owner)
 	}
 }
 
-func setMaintenanceEnabledAndIntervalFromFlags(c *maintenance.CycleParams, cycleName string, enableFlag []bool, intervalFlag []time.Duration, changed *bool) {
+func setMaintenanceEnabledAndIntervalFromFlags(ctx context.Context, c *maintenance.CycleParams, cycleName string, enableFlag []bool, intervalFlag []time.Duration, changed *bool) {
 	// we use lists to distinguish between flag not set
 	// Zero elements == not set, more than zero - flag set, in which case we pick the last value
 	if len(enableFlag) > 0 {
@@ -48,9 +48,9 @@ func setMaintenanceEnabledAndIntervalFromFlags(c *maintenance.CycleParams, cycle
 		*changed = true
 
 		if lastVal {
-			printStderr("Periodic %v maintenance enabled.\n", cycleName)
+			log(ctx).Infof("Periodic %v maintenance enabled.", cycleName)
 		} else {
-			printStderr("Periodic %v maintenance disabled.\n", cycleName)
+			log(ctx).Infof("Periodic %v maintenance disabled.", cycleName)
 		}
 	}
 
@@ -59,7 +59,7 @@ func setMaintenanceEnabledAndIntervalFromFlags(c *maintenance.CycleParams, cycle
 		c.Interval = lastVal
 		*changed = true
 
-		printStderr("Interval for %v maintenance set to %v.\n", cycleName, lastVal)
+		log(ctx).Infof("Interval for %v maintenance set to %v.", cycleName, lastVal)
 	}
 }
 
@@ -76,16 +76,16 @@ func runMaintenanceSetParams(ctx context.Context, rep *repo.DirectRepository) er
 
 	var changedParams, changedSchedule bool
 
-	setMaintenanceOwnerFromFlags(p, rep, &changedParams)
-	setMaintenanceEnabledAndIntervalFromFlags(&p.QuickCycle, "quick", *maintenanceSetEnableQuick, *maintenanceSetQuickFrequency, &changedParams)
-	setMaintenanceEnabledAndIntervalFromFlags(&p.FullCycle, "full", *maintenanceSetEnableFull, *maintenanceSetFullFrequency, &changedParams)
+	setMaintenanceOwnerFromFlags(ctx, p, rep, &changedParams)
+	setMaintenanceEnabledAndIntervalFromFlags(ctx, &p.QuickCycle, "quick", *maintenanceSetEnableQuick, *maintenanceSetQuickFrequency, &changedParams)
+	setMaintenanceEnabledAndIntervalFromFlags(ctx, &p.FullCycle, "full", *maintenanceSetEnableFull, *maintenanceSetFullFrequency, &changedParams)
 
 	if v := *maintenanceSetPauseQuick; len(v) > 0 {
 		pauseDuration := v[len(v)-1]
 		s.NextQuickMaintenanceTime = rep.Time().Add(pauseDuration)
 		changedSchedule = true
 
-		printStderr("Quick maintenance paused until %v", formatTimestamp(s.NextQuickMaintenanceTime))
+		log(ctx).Infof("Quick maintenance paused until %v", formatTimestamp(s.NextQuickMaintenanceTime))
 	}
 
 	if v := *maintenanceSetPauseFull; len(v) > 0 {
@@ -93,7 +93,7 @@ func runMaintenanceSetParams(ctx context.Context, rep *repo.DirectRepository) er
 		s.NextFullMaintenanceTime = rep.Time().Add(pauseDuration)
 		changedSchedule = true
 
-		printStderr("Full maintenance paused until %v", formatTimestamp(s.NextFullMaintenanceTime))
+		log(ctx).Infof("Full maintenance paused until %v", formatTimestamp(s.NextFullMaintenanceTime))
 	}
 
 	if !changedParams && !changedSchedule {

@@ -17,7 +17,7 @@ var (
 )
 
 func runBlobGarbageCollectCommand(ctx context.Context, rep *repo.DirectRepository) error {
-	advancedCommand()
+	advancedCommand(ctx)
 
 	opts := maintenance.DeleteUnreferencedBlobsOptions{
 		DryRun:   *blobGarbageCollectCommandDelete != "yes",
@@ -32,7 +32,7 @@ func runBlobGarbageCollectCommand(ctx context.Context, rep *repo.DirectRepositor
 	}
 
 	if opts.DryRun && n > 0 {
-		printStderr("Pass --delete=yes to delete.\n")
+		log(ctx).Infof("Pass --delete=yes to delete.")
 	}
 
 	return err

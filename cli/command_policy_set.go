@@ -92,10 +92,10 @@ func setPolicy(ctx context.Context, rep repo.Repository) error {
 			return errors.Wrap(err, "could not get defined policy")
 		}
 
-		printStderr("Setting policy for %v\n", target)
+		log(ctx).Infof("Setting policy for %v\n", target)
 
 		changeCount := 0
-		if err := setPolicyFromFlags(p, &changeCount); err != nil {
+		if err := setPolicyFromFlags(ctx, p, &changeCount); err != nil {
 			return err
 		}
 
@@ -111,28 +111,28 @@ func setPolicy(ctx context.Context, rep repo.Repository) error {
 	return nil
 }
 
-func setPolicyFromFlags(p *policy.Policy, changeCount *int) error {
-	if err := setRetentionPolicyFromFlags(&p.RetentionPolicy, changeCount); err != nil {
+func setPolicyFromFlags(ctx context.Context, p *policy.Policy, changeCount *int) error {
+	if err := setRetentionPolicyFromFlags(ctx, &p.RetentionPolicy, changeCount); err != nil {
 		return errors.Wrap(err, "retention policy")
 	}
 
-	if err := setFilesPolicyFromFlags(&p.FilesPolicy, changeCount); err != nil {
+	if err := setFilesPolicyFromFlags(ctx, &p.FilesPolicy, changeCount); err != nil {
 		return errors.Wrap(err, "files policy")
 	}
 
-	if err := setErrorHandlingPolicyFromFlags(&p.ErrorHandlingPolicy, changeCount); err != nil {
+	if err := setErrorHandlingPolicyFromFlags(ctx, &p.ErrorHandlingPolicy, changeCount); err != nil {
 		return errors.Wrap(err, "error handling policy")
 	}
 
-	if err := setCompressionPolicyFromFlags(&p.CompressionPolicy, changeCount); err != nil {
+	if err := setCompressionPolicyFromFlags(ctx, &p.CompressionPolicy, changeCount); err != nil {
 		return errors.Wrap(err, "compression policy")
 	}
 
-	if err := setSchedulingPolicyFromFlags(&p.SchedulingPolicy, changeCount); err != nil {
+	if err := setSchedulingPolicyFromFlags(ctx, &p.SchedulingPolicy, changeCount); err != nil {
 		return errors.Wrap(err, "scheduling policy")
 	}
 
-	if err := applyPolicyNumber64("maximum file size", &p.FilesPolicy.MaxFileSize, *policySetMaxFileSize, changeCount); err != nil {
+	if err := applyPolicyNumber64(ctx, "maximum file size", &p.FilesPolicy.MaxFileSize, *policySetMaxFileSize, changeCount); err != nil {
 		return errors.Wrap(err, "maximum file size")
 	}
 
@@ -146,15 +146,15 @@ func setPolicyFromFlags(p *policy.Policy, changeCount *int) error {
 	return nil
 }
 
-func setFilesPolicyFromFlags(fp *policy.FilesPolicy, changeCount *int) error {
+func setFilesPolicyFromFlags(ctx context.Context, fp *policy.FilesPolicy, changeCount *int) error {
 	if *policySetClearDotIgnore {
 		*changeCount++
 
-		printStderr(" - removing all rules for dot-ignore files\n")
+		log(ctx).Infof(" - removing all rules for dot-ignore files\n")
 
 		fp.DotIgnoreFiles = nil
 	} else {
-		fp.DotIgnoreFiles = addRemoveDedupeAndSort("dot-ignore files", fp.DotIgnoreFiles, *policySetAddDotIgnore, *policySetRemoveDotIgnore, changeCount)
+		fp.DotIgnoreFiles = addRemoveDedupeAndSort(ctx, "dot-ignore files", fp.DotIgnoreFiles, *policySetAddDotIgnore, *policySetRemoveDotIgnore, changeCount)
 	}
 
 	if *policySetClearIgnore {
@@ -162,9 +162,9 @@ func setFilesPolicyFromFlags(fp *policy.FilesPolicy, changeCount *int) error {
 
 		fp.IgnoreRules = nil
 
-		printStderr(" - removing all ignore rules\n")
+		log(ctx).Infof(" - removing all ignore rules\n")
 	} else {
-		fp.IgnoreRules = addRemoveDedupeAndSort("ignored files", fp.IgnoreRules, *policySetAddIgnore, *policySetRemoveIgnore, changeCount)
+		fp.IgnoreRules = addRemoveDedupeAndSort(ctx, "ignored files", fp.IgnoreRules, *policySetAddIgnore, *policySetRemoveIgnore, changeCount)
 	}
 
 	switch {
@@ -174,7 +174,7 @@ func setFilesPolicyFromFlags(fp *policy.FilesPolicy, changeCount *int) error {
 
 		fp.IgnoreCacheDirs = nil
 
-		printStderr(" - inherit ignoring cache dirs from parent\n")
+		log(ctx).Infof(" - inherit ignoring cache dirs from parent\n")
 
 	default:
 		val, err := strconv.ParseBool(*policyIgnoreCacheDirs)
@@ -186,13 +186,13 @@ func setFilesPolicyFromFlags(fp *policy.FilesPolicy, changeCount *int) error {
 
 		fp.IgnoreCacheDirs = &val
 
-		printStderr(" - setting ignore cache dirs to %v\n", val)
+		log(ctx).Infof(" - setting ignore cache dirs to %v\n", val)
 	}
 
 	return nil
 }
 
-func setErrorHandlingPolicyFromFlags(fp *policy.ErrorHandlingPolicy, changeCount *int) error {
+func setErrorHandlingPolicyFromFlags(ctx context.Context, fp *policy.ErrorHandlingPolicy, changeCount *int) error {
 	switch {
 	case *policyIgnoreFileErrors == "":
 	case *policyIgnoreFileErrors == inheritPolicyString:
@@ -200,7 +200,7 @@ func setErrorHandlingPolicyFromFlags(fp *policy.ErrorHandlingPolicy, changeCount
 
 		fp.IgnoreFileErrors = nil
 
-		printStderr(" - inherit file read error behavior from parent\n")
+		log(ctx).Infof(" - inherit file read error behavior from parent\n")
 	default:
 		val, err := strconv.ParseBool(*policyIgnoreFileErrors)
 		if err != nil {
@@ -211,7 +211,7 @@ func setErrorHandlingPolicyFromFlags(fp *policy.ErrorHandlingPolicy, changeCount
 
 		fp.IgnoreFileErrors = &val
 
-		printStderr(" - setting ignore file read errors to %v\n", val)
+		log(ctx).Infof(" - setting ignore file read errors to %v\n", val)
 	}
 
 	switch {
@@ -221,7 +221,7 @@ func setErrorHandlingPolicyFromFlags(fp *policy.ErrorHandlingPolicy, changeCount
 
 		fp.IgnoreDirectoryErrors = nil
 
-		printStderr(" - inherit directory read error behavior from parent\n")
+		log(ctx).Infof(" - inherit directory read error behavior from parent\n")
 	default:
 		val, err := strconv.ParseBool(*policyIgnoreDirectoryErrors)
 		if err != nil {
@@ -232,13 +232,13 @@ func setErrorHandlingPolicyFromFlags(fp *policy.ErrorHandlingPolicy, changeCount
 
 		fp.IgnoreDirectoryErrors = &val
 
-		printStderr(" - setting ignore directory read errors to %v\n", val)
+		log(ctx).Infof(" - setting ignore directory read errors to %v\n", val)
 	}
 
 	return nil
 }
 
-func setRetentionPolicyFromFlags(rp *policy.RetentionPolicy, changeCount *int) error {
+func setRetentionPolicyFromFlags(ctx context.Context, rp *policy.RetentionPolicy, changeCount *int) error {
 	cases := []struct {
 		desc      string
 		max       **int
@@ -253,7 +253,7 @@ func setRetentionPolicyFromFlags(rp *policy.RetentionPolicy, changeCount *int) e
 	}
 
 	for _, c := range cases {
-		if err := applyPolicyNumber(c.desc, c.max, *c.flagValue, changeCount); err != nil {
+		if err := applyPolicyNumber(ctx, c.desc, c.max, *c.flagValue, changeCount); err != nil {
 			return err
 		}
 	}
@@ -261,13 +261,13 @@ func setRetentionPolicyFromFlags(rp *policy.RetentionPolicy, changeCount *int) e
 	return nil
 }
 
-func setSchedulingPolicyFromFlags(sp *policy.SchedulingPolicy, changeCount *int) error {
+func setSchedulingPolicyFromFlags(ctx context.Context, sp *policy.SchedulingPolicy, changeCount *int) error {
 	// It's not really a list, just optional value.
 	for _, interval := range *policySetInterval {
 		*changeCount++
 
 		sp.SetInterval(interval)
-		printStderr(" - setting snapshot interval to %v\n", sp.Interval())
+		log(ctx).Infof(" - setting snapshot interval to %v\n", sp.Interval())
 
 		break
 	}
@@ -295,21 +295,21 @@ func setSchedulingPolicyFromFlags(sp *policy.SchedulingPolicy, changeCount *int)
 		sp.TimesOfDay = policy.SortAndDedupeTimesOfDay(timesOfDay)
 
 		if timesOfDay == nil {
-			printStderr(" - resetting snapshot times of day to default\n")
+			log(ctx).Infof(" - resetting snapshot times of day to default\n")
 		} else {
-			printStderr(" - setting snapshot times to %v\n", timesOfDay)
+			log(ctx).Infof(" - setting snapshot times to %v\n", timesOfDay)
 		}
 	}
 
 	return nil
 }
 
-func setCompressionPolicyFromFlags(p *policy.CompressionPolicy, changeCount *int) error {
-	if err := applyPolicyNumber64("minimum file size subject to compression", &p.MinSize, *policySetCompressionMinSize, changeCount); err != nil {
+func setCompressionPolicyFromFlags(ctx context.Context, p *policy.CompressionPolicy, changeCount *int) error {
+	if err := applyPolicyNumber64(ctx, "minimum file size subject to compression", &p.MinSize, *policySetCompressionMinSize, changeCount); err != nil {
 		return errors.Wrap(err, "minimum file size subject to compression")
 	}
 
-	if err := applyPolicyNumber64("maximum file size subject to compression", &p.MaxSize, *policySetCompressionMaxSize, changeCount); err != nil {
+	if err := applyPolicyNumber64(ctx, "maximum file size subject to compression", &p.MaxSize, *policySetCompressionMaxSize, changeCount); err != nil {
 		return errors.Wrap(err, "maximum file size subject to compression")
 	}
 
@@ -317,11 +317,11 @@ func setCompressionPolicyFromFlags(p *policy.CompressionPolicy, changeCount *int
 		*changeCount++
 
 		if v == inheritPolicyString {
-			printStderr(" - resetting compression algorithm to default value inherited from parent\n")
+			log(ctx).Infof(" - resetting compression algorithm to default value inherited from parent\n")
 
 			p.CompressorName = ""
 		} else {
-			printStderr(" - setting compression algorithm to %v\n", v)
+			log(ctx).Infof(" - setting compression algorithm to %v\n", v)
 
 			p.CompressorName = compression.Name(v)
 		}
@@ -332,9 +332,9 @@ func setCompressionPolicyFromFlags(p *policy.CompressionPolicy, changeCount *int
 
 		p.OnlyCompress = nil
 
-		printStderr(" - removing all only-compress extensions\n")
+		log(ctx).Infof(" - removing all only-compress extensions\n")
 	} else {
-		p.OnlyCompress = addRemoveDedupeAndSort("only-compress extensions",
+		p.OnlyCompress = addRemoveDedupeAndSort(ctx, "only-compress extensions",
 			p.OnlyCompress, *policySetAddOnlyCompress, *policySetRemoveOnlyCompress, changeCount)
 	}
 
@@ -343,16 +343,16 @@ func setCompressionPolicyFromFlags(p *policy.CompressionPolicy, changeCount *int
 
 		p.NeverCompress = nil
 
-		printStderr(" - removing all never-compress extensions\n")
+		log(ctx).Infof(" - removing all never-compress extensions\n")
 	} else {
-		p.NeverCompress = addRemoveDedupeAndSort("never-compress extensions",
+		p.NeverCompress = addRemoveDedupeAndSort(ctx, "never-compress extensions",
 			p.NeverCompress, *policySetAddNeverCompress, *policySetRemoveNeverCompress, changeCount)
 	}
 
 	return nil
 }
 
-func addRemoveDedupeAndSort(desc string, base, add, remove []string, changeCount *int) []string {
+func addRemoveDedupeAndSort(ctx context.Context, desc string, base, add, remove []string, changeCount *int) []string {
 	entries := map[string]bool{}
 	for _, b := range base {
 		entries[b] = true
@@ -361,7 +361,7 @@ func addRemoveDedupeAndSort(desc string, base, add, remove []string, changeCount
 	for _, b := range add {
 		*changeCount++
 
-		printStderr(" - adding %v to %v\n", b, desc)
+		log(ctx).Infof(" - adding %v to %v\n", b, desc)
 
 		entries[b] = true
 	}
@@ -369,7 +369,7 @@ func addRemoveDedupeAndSort(desc string, base, add, remove []string, changeCount
 	for _, b := range remove {
 		*changeCount++
 
-		printStderr(" - removing %v from %v\n", b, desc)
+		log(ctx).Infof(" - removing %v from %v\n", b, desc)
 		delete(entries, b)
 	}
 
@@ -383,7 +383,7 @@ func addRemoveDedupeAndSort(desc string, base, add, remove []string, changeCount
 	return s
 }
 
-func applyPolicyNumber(desc string, val **int, str string, changeCount *int) error {
+func applyPolicyNumber(ctx context.Context, desc string, val **int, str string, changeCount *int) error {
 	if str == "" {
 		// not changed
 		return nil
@@ -392,7 +392,7 @@ func applyPolicyNumber(desc string, val **int, str string, changeCount *int) err
 	if str == inheritPolicyString || str == "default" {
 		*changeCount++
 
-		printStderr(" - resetting %v to a default value inherited from parent.\n", desc)
+		log(ctx).Infof(" - resetting %v to a default value inherited from parent.\n", desc)
 
 		*val = nil
 
@@ -407,13 +407,13 @@ func applyPolicyNumber(desc string, val **int, str string, changeCount *int) err
 	i := int(v)
 	*changeCount++
 
-	printStderr(" - setting %v to %v.\n", desc, i)
+	log(ctx).Infof(" - setting %v to %v.\n", desc, i)
 	*val = &i
 
 	return nil
 }
 
-func applyPolicyNumber64(desc string, val *int64, str string, changeCount *int) error {
+func applyPolicyNumber64(ctx context.Context, desc string, val *int64, str string, changeCount *int) error {
 	if str == "" {
 		// not changed
 		return nil
@@ -422,7 +422,7 @@ func applyPolicyNumber64(desc string, val *int64, str string, changeCount *int) 
 	if str == inheritPolicyString || str == "default" {
 		*changeCount++
 
-		printStderr(" - resetting %v to a default value inherited from parent.\n", desc)
+		log(ctx).Infof(" - resetting %v to a default value inherited from parent.\n", desc)
 
 		*val = 0
 
@@ -436,7 +436,7 @@ func applyPolicyNumber64(desc string, val *int64, str string, changeCount *int) 
 
 	*changeCount++
 
-	printStderr(" - setting %v to %v.\n", desc, v)
+	log(ctx).Infof(" - setting %v to %v.\n", desc, v)
 	*val = v
 
 	return nil

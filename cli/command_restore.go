@@ -75,13 +75,13 @@ func addRestoreFlags(cmd *kingpin.CmdClause) {
 	cmd.Flag("parallel", "Restore parallelism (1=disable)").IntVar(&restoreParallel)
 }
 
-func restoreOutput() (restore.Output, error) {
+func restoreOutput(ctx context.Context) (restore.Output, error) {
 	p, err := filepath.Abs(restoreTargetPath)
 	if err != nil {
 		return nil, err
 	}
 
-	m := detectRestoreMode(restoreMode)
+	m := detectRestoreMode(ctx, restoreMode)
 	switch m {
 	case restoreModeLocal:
 		return &restore.FilesystemOutput{
@@ -124,36 +124,36 @@ func restoreOutput() (restore.Output, error) {
 	}
 }
 
-func detectRestoreMode(m string) string {
+func detectRestoreMode(ctx context.Context, m string) string {
 	if m != "auto" {
 		return m
 	}
 
 	switch {
 	case strings.HasSuffix(restoreTargetPath, ".zip"):
-		printStderr("Restoring to a zip file (%v)...\n", restoreTargetPath)
+		log(ctx).Infof("Restoring to a zip file (%v)...", restoreTargetPath)
 		return restoreModeZip
 
 	case strings.HasSuffix(restoreTargetPath, ".tar"):
-		printStderr("Restoring to an uncompressed tar file (%v)...\n", restoreTargetPath)
+		log(ctx).Infof("Restoring to an uncompressed tar file (%v)...", restoreTargetPath)
 		return restoreModeTar
 
 	case strings.HasSuffix(restoreTargetPath, ".tar.gz") || strings.HasSuffix(restoreTargetPath, ".tgz"):
-		printStderr("Restoring to a tar+gzip file (%v)...\n", restoreTargetPath)
+		log(ctx).Infof("Restoring to a tar+gzip file (%v)...", restoreTargetPath)
 		return restoreModeTgz
 
 	default:
-		printStderr("Restoring to local filesystem (%v) with parallelism=%v...\n", restoreTargetPath, restoreParallel)
+		log(ctx).Infof("Restoring to local filesystem (%v) with parallelism=%v...", restoreTargetPath, restoreParallel)
 		return restoreModeLocal
 	}
 }
 
-func printRestoreStats(st restore.Stats) {
-	printStderr("Restored %v files, %v directories and %v symbolic links (%v)\n", st.FileCount, st.DirCount, st.SymlinkCount, units.BytesStringBase10(st.TotalFileSize))
+func printRestoreStats(ctx context.Context, st restore.Stats) {
+	log(ctx).Infof("Restored %v files, %v directories and %v symbolic links (%v)\n", st.FileCount, st.DirCount, st.SymlinkCount, units.BytesStringBase10(st.TotalFileSize))
 }
 
 func runRestoreCommand(ctx context.Context, rep repo.Repository) error {
-	output, err := restoreOutput()
+	output, err := restoreOutput(ctx)
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize output")
 	}
@@ -165,7 +165,7 @@ func runRestoreCommand(ctx context.Context, rep repo.Repository) error {
 
 	st, err := restore.Entry(ctx, rep, output, rootEntry, restore.Options{
 		Parallel: restoreParallel,
-		ProgressCallback: func(enqueued, processing, completed int64) {
+		ProgressCallback: func(ctx context.Context, enqueued, processing, completed int64) {
 			log(ctx).Infof("Restored %v/%v. Processing %v...", completed, enqueued, processing)
 		},
 	})
@@ -173,7 +173,7 @@ func runRestoreCommand(ctx context.Context, rep repo.Repository) error {
 		return err
 	}
 
-	printRestoreStats(st)
+	printRestoreStats(ctx, st)
 
 	return nil
 }

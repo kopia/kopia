@@ -4,12 +4,15 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
 func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 	initialFileFlagVal := *policyIgnoreFileErrors
 	initialDirFlagVal := *policyIgnoreDirectoryErrors
+
+	ctx := testlogging.Context(t)
 
 	defer func() {
 		*policyIgnoreFileErrors = initialFileFlagVal
@@ -171,7 +174,7 @@ func TestSetErrorHandlingPolicyFromFlags(t *testing.T) {
 		*policyIgnoreFileErrors = tc.fileArg
 		*policyIgnoreDirectoryErrors = tc.dirArg
 
-		setErrorHandlingPolicyFromFlags(tc.startingPolicy, &changeCount)
+		setErrorHandlingPolicyFromFlags(ctx, tc.startingPolicy, &changeCount)
 
 		if !reflect.DeepEqual(tc.startingPolicy, tc.expResult) {
 			t.Errorf("Did not get expected output: (actual) %v != %v (expected)", tc.startingPolicy, tc.expResult)

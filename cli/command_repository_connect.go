@@ -78,7 +78,7 @@ func runConnectCommandWithStorageAndPassword(ctx context.Context, st blob.Storag
 		return err
 	}
 
-	printStderr("Connected to repository.\n")
+	log(ctx).Infof("Connected to repository.")
 	maybeInitializeUpdateCheck(ctx)
 
 	return nil

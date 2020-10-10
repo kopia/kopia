@@ -23,24 +23,24 @@ func runContentVerifyCommand(ctx context.Context, rep *repo.DirectRepository) er
 	blobMap := map[blob.ID]blob.Metadata{}
 
 	if !*contentVerifyFull {
-		printStderr("Listing blobs...\n")
+		log(ctx).Infof("Listing blobs...")
 
 		if err := rep.Blobs.ListBlobs(ctx, "", func(bm blob.Metadata) error {
 			blobMap[bm.BlobID] = bm
 			if len(blobMap)%10000 == 0 {
-				printStderr("  %v blobs...\n", len(blobMap))
+				log(ctx).Infof("  %v blobs...", len(blobMap))
 			}
 			return nil
 		}); err != nil {
 			return errors.Wrap(err, "unable to list blobs")
 		}
 
-		printStderr("Listed %v blobs.\n", len(blobMap))
+		log(ctx).Infof("Listed %v blobs.", len(blobMap))
 	}
 
 	var totalCount, successCount, errorCount int32
 
-	printStderr("Verifying all contents...\n")
+	log(ctx).Infof("Verifying all contents...")
 
 	err := rep.Content.IterateContents(ctx, content.IterateOptions{
 		Range:          contentIDRange(),
@@ -55,7 +55,7 @@ func runContentVerifyCommand(ctx context.Context, rep *repo.DirectRepository) er
 		}
 
 		if t := atomic.AddInt32(&totalCount, 1); t%100000 == 0 {
-			printStderr("  %v contents, %v errors...\n", t, atomic.LoadInt32(&errorCount))
+			log(ctx).Infof("  %v contents, %v errors...", t, atomic.LoadInt32(&errorCount))
 		}
 
 		return nil
@@ -64,7 +64,7 @@ func runContentVerifyCommand(ctx context.Context, rep *repo.DirectRepository) er
 		return errors.Wrap(err, "iterate contents")
 	}
 
-	printStderr("Finished verifying %v contents, found %v errors.\n", totalCount, errorCount)
+	log(ctx).Infof("Finished verifying %v contents, found %v errors.", totalCount, errorCount)
 
 	if errorCount == 0 {
 		return nil

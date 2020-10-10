@@ -25,23 +25,23 @@ func runRepoClientOptionsCommand(ctx context.Context, rep repo.Repository) error
 
 	if *repoClientOptionsReadOnly {
 		if opt.ReadOnly {
-			printStderr("Repository is already in read-only mode.\n")
+			log(ctx).Infof("Repository is already in read-only mode.")
 		} else {
 			opt.ReadOnly = true
 			anyChange = true
 
-			printStderr("Setting repository to read-only mode.\n")
+			log(ctx).Infof("Setting repository to read-only mode.")
 		}
 	}
 
 	if *repoClientOptionsReadWrite {
 		if !opt.ReadOnly {
-			printStderr("Repository is already in read-write mode.\n")
+			log(ctx).Infof("Repository is already in read-write mode.")
 		} else {
 			opt.ReadOnly = false
 			anyChange = true
 
-			printStderr("Setting repository to read-write mode.\n")
+			log(ctx).Infof("Setting repository to read-write mode.")
 		}
 	}
 
@@ -49,21 +49,21 @@ func runRepoClientOptionsCommand(ctx context.Context, rep repo.Repository) error
 		opt.Description = v[0]
 		anyChange = true
 
-		printStderr("Setting description to %v\n", opt.Description)
+		log(ctx).Infof("Setting description to %v", opt.Description)
 	}
 
 	if v := *repoClientOptionsUsername; len(v) > 0 {
 		opt.Username = v[0]
 		anyChange = true
 
-		printStderr("Setting local username to %v\n", opt.Username)
+		log(ctx).Infof("Setting local username to %v", opt.Username)
 	}
 
 	if v := *repoClientOptionsHostname; len(v) > 0 {
 		opt.Hostname = v[0]
 		anyChange = true
 
-		printStderr("Setting local hostname to %v\n", opt.Hostname)
+		log(ctx).Infof("Setting local hostname to %v", opt.Hostname)
 	}
 
 	if !anyChange {

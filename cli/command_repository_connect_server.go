@@ -32,7 +32,7 @@ func runConnectAPIServerCommand(ctx context.Context) error {
 		return err
 	}
 
-	printStderr("Connected to repository API Server.\n")
+	log(ctx).Infof("Connected to repository API Server.")
 	maybeInitializeUpdateCheck(ctx)
 
 	return nil
