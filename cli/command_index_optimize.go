@@ -17,7 +17,7 @@ var (
 )
 
 func runOptimizeCommand(ctx context.Context, rep *repo.DirectRepository) error {
-	advancedCommand()
+	advancedCommand(ctx)
 
 	opt := content.CompactOptions{
 		MaxSmallBlobs: *optimizeMaxSmallBlobs,

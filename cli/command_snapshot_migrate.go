@@ -243,11 +243,11 @@ func migrateSingleSourceSnapshot(ctx context.Context, uploader *snapshotfs.Uploa
 	}
 
 	if existing != nil {
-		printStderr("\ralready migrated %v at %v\n", s, formatTimestamp(m.StartTime))
+		log(ctx).Infof("already migrated %v at %v", s, formatTimestamp(m.StartTime))
 		return nil
 	}
 
-	printStderr("\rmigrating snapshot of %v at %v\n", s, formatTimestamp(m.StartTime))
+	log(ctx).Infof("migrating snapshot of %v at %v", s, formatTimestamp(m.StartTime))
 
 	previous, err := findPreviousSnapshotManifest(ctx, destRepo, m.Source, &m.StartTime)
 	if err != nil {

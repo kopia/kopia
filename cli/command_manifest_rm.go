@@ -12,7 +12,7 @@ var (
 )
 
 func runManifestRemoveCommand(ctx context.Context, rep repo.Repository) error {
-	advancedCommand()
+	advancedCommand(ctx)
 
 	for _, it := range toManifestIDs(*manifestRemoveItems) {
 		if err := rep.DeleteManifest(ctx, it); err != nil {
