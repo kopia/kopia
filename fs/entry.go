@@ -13,12 +13,19 @@ import (
 type Entry interface {
 	os.FileInfo
 	Owner() OwnerInfo
+	Device() DeviceInfo
 }
 
 // OwnerInfo describes owner of a filesystem entry.
 type OwnerInfo struct {
 	UserID  uint32
 	GroupID uint32
+}
+
+// DeviceInfo describes the device this filesystem entry is on.
+type DeviceInfo struct {
+	Dev  uint64
+	Rdev uint64
 }
 
 // Entries is a list of entries sorted by name.

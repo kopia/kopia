@@ -28,6 +28,8 @@ type ignoreContext struct {
 	dotIgnoreFiles []string         // which files to look for more ignore rules
 	matchers       []ignore.Matcher // current set of rules to ignore files
 	maxFileSize    int64            // maximum size of file allowed
+
+	oneFileSystem bool // should we enter other mounted filesystems
 }
 
 func (c *ignoreContext) shouldIncludeByName(path string, e fs.Entry) bool {
@@ -46,6 +48,14 @@ func (c *ignoreContext) shouldIncludeByName(path string, e fs.Entry) bool {
 	}
 
 	return c.parent.shouldIncludeByName(path, e)
+}
+
+func (c *ignoreContext) shouldIncludeByDevice(e fs.Entry, parent *ignoreDirectory) bool {
+	if !c.oneFileSystem {
+		return true
+	}
+
+	return e.Device().Dev == parent.Device().Dev
 }
 
 type ignoreDirectory struct {
@@ -132,6 +142,10 @@ func (d *ignoreDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
 			continue
 		}
 
+		if !thisContext.shouldIncludeByDevice(e, d) {
+			continue
+		}
+
 		if dir, ok := e.(fs.Directory); ok {
 			e = &ignoreDirectory{d.relativePath + "/" + e.Name(), thisContext, d.policyTree.Child(e.Name()), dir}
 		}
@@ -168,6 +182,7 @@ func (d *ignoreDirectory) buildContext(ctx context.Context, entries fs.Entries) 
 		onIgnore:       d.parentContext.onIgnore,
 		dotIgnoreFiles: effectiveDotIgnoreFiles,
 		maxFileSize:    d.parentContext.maxFileSize,
+		oneFileSystem:  d.parentContext.oneFileSystem,
 	}
 
 	if pol != nil {
@@ -196,6 +211,8 @@ func (c *ignoreContext) overrideFromPolicy(fp *policy.FilesPolicy, dirPath strin
 	if fp.MaxFileSize != 0 {
 		c.maxFileSize = fp.MaxFileSize
 	}
+
+	c.oneFileSystem = fp.OneFileSystemOrDefault(false)
 
 	// append policy-level rules
 	for _, rule := range fp.IgnoreRules {

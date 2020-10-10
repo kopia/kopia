@@ -71,6 +71,10 @@ func (e *repositoryEntry) Owner() fs.OwnerInfo {
 	}
 }
 
+func (e *repositoryEntry) Device() fs.DeviceInfo {
+	return fs.DeviceInfo{}
+}
+
 func (e *repositoryEntry) DirEntry() *snapshot.DirEntry {
 	return e.metadata
 }

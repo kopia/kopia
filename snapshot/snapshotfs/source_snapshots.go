@@ -47,6 +47,10 @@ func (s *sourceSnapshots) Owner() fs.OwnerInfo {
 	return fs.OwnerInfo{}
 }
 
+func (s *sourceSnapshots) Device() fs.DeviceInfo {
+	return fs.DeviceInfo{}
+}
+
 func safeName(path string) string {
 	path = strings.TrimLeft(path, "/")
 	return strings.Replace(path, "/", "_", -1)

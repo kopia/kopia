@@ -34,6 +34,7 @@ type entry struct {
 	size    int64
 	modTime time.Time
 	owner   fs.OwnerInfo
+	device  fs.DeviceInfo
 }
 
 func (e entry) Name() string {
@@ -62,6 +63,10 @@ func (e entry) Sys() interface{} {
 
 func (e entry) Owner() fs.OwnerInfo {
 	return e.owner
+}
+
+func (e *entry) Device() fs.DeviceInfo {
+	return e.device
 }
 
 // Directory is mock in-memory implementation of fs.Directory.

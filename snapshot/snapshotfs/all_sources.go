@@ -39,6 +39,10 @@ func (s *repositoryAllSources) Owner() fs.OwnerInfo {
 	return fs.OwnerInfo{}
 }
 
+func (s *repositoryAllSources) Device() fs.DeviceInfo {
+	return fs.DeviceInfo{}
+}
+
 func (s *repositoryAllSources) Sys() interface{} {
 	return nil
 }

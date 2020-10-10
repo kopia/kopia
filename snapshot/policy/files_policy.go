@@ -11,6 +11,8 @@ type FilesPolicy struct {
 	IgnoreCacheDirs *bool `json:"ignoreCacheDirs,omitempty"`
 
 	MaxFileSize int64 `json:"maxFileSize,omitempty"`
+
+	OneFileSystem *bool `json:"oneFileSystem,omitempty"`
 }
 
 // Merge applies default values from the provided policy.
@@ -31,6 +33,10 @@ func (p *FilesPolicy) Merge(src FilesPolicy) {
 	if p.IgnoreCacheDirs == nil {
 		p.IgnoreCacheDirs = src.IgnoreCacheDirs
 	}
+
+	if p.OneFileSystem == nil {
+		p.OneFileSystem = src.OneFileSystem
+	}
 }
 
 // IgnoreCacheDirectoriesOrDefault gets the value of IgnoreCacheDirs or the provided default if not set.
@@ -40,6 +46,15 @@ func (p *FilesPolicy) IgnoreCacheDirectoriesOrDefault(def bool) bool {
 	}
 
 	return *p.IgnoreCacheDirs
+}
+
+// OneFileSystemOrDefault gets the value of OneFileSystem or the provided default if not set.
+func (p *FilesPolicy) OneFileSystemOrDefault(def bool) bool {
+	if p.OneFileSystem == nil {
+		return def
+	}
+
+	return *p.OneFileSystem
 }
 
 // defaultFilesPolicy is the default file ignore policy.
