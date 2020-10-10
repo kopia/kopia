@@ -46,14 +46,18 @@ directory ID and optionally a sub-directory path. For example,
 )
 
 var (
-	restoreCommand              = app.Command("restore", restoreCommandHelp)
-	restoreSourceID             = ""
-	restoreTargetPath           = ""
-	restoreOverwriteDirectories = true
-	restoreOverwriteFiles       = true
-	restoreConsistentAttributes = false
-	restoreMode                 = restoreModeAuto
-	restoreParallel             = 8
+	restoreCommand                = app.Command("restore", restoreCommandHelp)
+	restoreSourceID               = ""
+	restoreTargetPath             = ""
+	restoreOverwriteDirectories   = true
+	restoreOverwriteFiles         = true
+	restoreConsistentAttributes   = false
+	restoreMode                   = restoreModeAuto
+	restoreParallel               = 8
+	restoreIgnorePermissionErrors = true
+	restoreSkipTimes              = false
+	restoreSkipOwners             = false
+	restoreSkipPermissions        = false
 )
 
 const (
@@ -73,6 +77,10 @@ func addRestoreFlags(cmd *kingpin.CmdClause) {
 	cmd.Flag("consistent-attributes", "When multiple snapshots match, fail if they have inconsistent attributes").Envar("KOPIA_RESTORE_CONSISTENT_ATTRIBUTES").BoolVar(&restoreConsistentAttributes)
 	cmd.Flag("mode", "Override restore mode").EnumVar(&restoreMode, restoreModeAuto, restoreModeLocal, restoreModeZip, restoreModeZipNoCompress, restoreModeTar, restoreModeTgz)
 	cmd.Flag("parallel", "Restore parallelism (1=disable)").IntVar(&restoreParallel)
+	cmd.Flag("skip-owners", "Skip owners during restore").BoolVar(&restoreSkipOwners)
+	cmd.Flag("skip-permissions", "Skip permissions during restore").BoolVar(&restoreSkipPermissions)
+	cmd.Flag("skip-times", "Skip times during restore").BoolVar(&restoreSkipTimes)
+	cmd.Flag("ignore-permission-errors", "Ignore permission errors").BoolVar(&restoreIgnorePermissionErrors)
 }
 
 func restoreOutput(ctx context.Context) (restore.Output, error) {
@@ -85,9 +93,13 @@ func restoreOutput(ctx context.Context) (restore.Output, error) {
 	switch m {
 	case restoreModeLocal:
 		return &restore.FilesystemOutput{
-			TargetPath:           p,
-			OverwriteDirectories: restoreOverwriteDirectories,
-			OverwriteFiles:       restoreOverwriteFiles,
+			TargetPath:             p,
+			OverwriteDirectories:   restoreOverwriteDirectories,
+			OverwriteFiles:         restoreOverwriteFiles,
+			IgnorePermissionErrors: restoreIgnorePermissionErrors,
+			SkipOwners:             restoreSkipOwners,
+			SkipPermissions:        restoreSkipPermissions,
+			SkipTimes:              restoreSkipTimes,
 		}, nil
 
 	case restoreModeZip, restoreModeZipNoCompress:

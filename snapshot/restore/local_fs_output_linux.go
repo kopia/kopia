@@ -1,5 +1,3 @@
-// +build darwin
-
 package restore
 
 import (
@@ -14,7 +12,8 @@ func symlinkChown(path string, uid, gid int) error {
 }
 
 func symlinkChmod(path string, mode os.FileMode) error {
-	return unix.Fchmodat(unix.AT_FDCWD, path, uint32(mode), unix.AT_SYMLINK_NOFOLLOW)
+	// linux does not support permissions on symlinks
+	return nil
 }
 
 func symlinkChtimes(linkPath string, atime, mtime time.Time) error {

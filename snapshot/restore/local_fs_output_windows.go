@@ -1,14 +1,22 @@
 package restore
 
 import (
-	"context"
+	"os"
 	"time"
 
 	"github.com/pkg/errors"
 	"golang.org/x/sys/windows"
 )
 
-func symlinkChtimes(ctx context.Context, linkPath string, atime, mtime time.Time) error {
+func symlinkChown(path string, uid, gid int) error {
+	return nil
+}
+
+func symlinkChmod(path string, mode os.FileMode) error {
+	return nil
+}
+
+func symlinkChtimes(linkPath string, atime, mtime time.Time) error {
 	fta := windows.NsecToFiletime(atime.UnixNano())
 	ftw := windows.NsecToFiletime(mtime.UnixNano())
 

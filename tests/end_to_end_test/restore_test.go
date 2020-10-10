@@ -21,7 +21,13 @@ import (
 	"github.com/kopia/kopia/tests/testenv"
 )
 
-const windowsOSName = "windows"
+const (
+	windowsOSName                 = "windows"
+	defaultRestoredFilePermission = 0o600
+
+	overriddenFilePermissions = 0o651
+	overriddenDirPermissions  = 0o752
+)
 
 func TestRestoreCommand(t *testing.T) {
 	t.Parallel()
@@ -144,8 +150,8 @@ func TestSnapshotRestore(t *testing.T) {
 	f.Close()
 
 	// change file permissions to something unique we can test later
-	os.Chmod(filepath.Join(source, "single-file"), 0o651)
-	os.Chmod(filepath.Join(source, "subdir1"), 0o752)
+	os.Chmod(filepath.Join(source, "single-file"), overriddenFilePermissions)
+	os.Chmod(filepath.Join(source, "subdir1"), overriddenDirPermissions)
 
 	restoreDir := t.TempDir()
 	r1 := t.TempDir()
@@ -180,8 +186,33 @@ func TestSnapshotRestore(t *testing.T) {
 	// restore using <root-id>/subdirectory.
 	restoreByOIDSubdir := t.TempDir()
 	e.RunAndExpectSuccess(t, "snapshot", "restore", rootID+"/subdir1", restoreByOIDSubdir)
+	verifyFileMode(t, restoreByOIDSubdir, os.ModeDir|os.FileMode(overriddenDirPermissions))
 
-	verifyFileMode(t, restoreByOIDSubdir, os.ModeDir|os.FileMode(0o752))
+	restoreByOIDSubdir2 := t.TempDir()
+
+	originalDirInfo, err := os.Stat(restoreByOIDSubdir2)
+	if err != nil {
+		t.Fatalf("unable to get dir permissions: %v", err)
+	}
+
+	e.RunAndExpectSuccess(t, "snapshot", "restore", "--skip-times", "--skip-owners", "--skip-permissions", rootID+"/subdir1", restoreByOIDSubdir2)
+
+	currentDirPerm, err := os.Stat(restoreByOIDSubdir2)
+	if err != nil {
+		t.Fatalf("unable to get current dir permissions: %v", err)
+	}
+
+	if currentDirPerm.Mode() != originalDirInfo.Mode() {
+		t.Fatalf("dir mode have changed, original %v, current %v", originalDirInfo.Mode(), currentDirPerm.Mode())
+	}
+
+	// current must be always at or after original, if it's not it must have been restored.
+	if currentDirPerm.ModTime().Before(originalDirInfo.ModTime()) {
+		t.Fatalf("dir ModTime has been restore, original %v, current %v", originalDirInfo.ModTime(), currentDirPerm.ModTime())
+	}
+
+	// TODO(jkowalski): find a way to verify owners, we currently cannot even change it since the test is running as
+	// non-root.
 
 	restoreByOIDFile := t.TempDir()
 
@@ -253,6 +284,40 @@ func TestSnapshotRestore(t *testing.T) {
 	e.RunAndExpectFailure(t, "snapshot", "restore", "--no-overwrite-files", snapID, restoreDir)
 }
 
+func TestRestoreSymlinkWithoutTarget(t *testing.T) {
+	t.Parallel()
+
+	e := testenv.NewCLITest(t)
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+
+	source := t.TempDir()
+
+	lnk := filepath.Join(source, "lnk")
+
+	if err := os.Symlink(".no-such-file", lnk); err != nil {
+		t.Fatal(err)
+	}
+
+	e.RunAndExpectSuccess(t, "snapshot", "create", source)
+
+	// obtain snapshot root id and use it for restore
+	si := e.ListSnapshotsAndExpectSuccess(t, source)
+	if got, want := len(si), 1; got != want {
+		t.Fatalf("got %v sources, wanted %v", got, want)
+	}
+
+	if got, want := len(si[0].Snapshots), 1; got != want {
+		t.Fatalf("got %v snapshots, wanted %v", got, want)
+	}
+
+	snapID := si[0].Snapshots[0].SnapshotID
+
+	restoredDir := t.TempDir()
+	e.RunAndExpectSuccess(t, "snapshot", "restore", "--no-ignore-permission-errors", snapID, restoredDir)
+}
+
 func TestRestoreSnapshotOfSingleFile(t *testing.T) {
 	t.Parallel()
 
@@ -322,6 +387,11 @@ func TestRestoreSnapshotOfSingleFile(t *testing.T) {
 	// restoring using snapshot ID is unambiguous and always produces file with 0o653
 	e.RunAndExpectSuccess(t, "snapshot", "restore", snapID, filepath.Join(restoreDir, "restored-4"))
 	verifyFileMode(t, filepath.Join(restoreDir, "restored-4"), os.FileMode(0o653))
+
+	// skip permissions when restoring, which results in default defaultRestoredFilePermission
+	e.RunAndExpectSuccess(t, "snapshot", "restore", rootID, "--skip-permissions", filepath.Join(restoreDir, "restored-5"))
+
+	verifyFileMode(t, filepath.Join(restoreDir, "restored-5"), defaultRestoredFilePermission)
 }
 
 func verifyFileMode(t *testing.T, filename string, want os.FileMode) {
@@ -332,7 +402,7 @@ func verifyFileMode(t *testing.T, filename string, want os.FileMode) {
 		return
 	}
 
-	s, err := os.Stat(filename)
+	s, err := os.Lstat(filename)
 	if err != nil {
 		t.Fatal(err)
 	}
