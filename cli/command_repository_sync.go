@@ -45,7 +45,7 @@ func runSyncWithStorage(ctx context.Context, src, dst blob.Storage) error {
 		return err
 	}
 
-	printStderr("Looking for BLOBs to synchronize...\n")
+	log(ctx).Infof("Looking for BLOBs to synchronize...")
 
 	var (
 		inSyncBlobs int
@@ -104,8 +104,8 @@ func runSyncWithStorage(ctx context.Context, src, dst blob.Storage) error {
 		}
 	}
 
-	printStderr(
-		"  Found %v BLOBs to delete (%v), %v in sync (%v)\n",
+	log(ctx).Infof(
+		"  Found %v BLOBs to delete (%v), %v in sync (%v)",
 		len(blobsToDelete), units.BytesStringBase10(totalDeleteBytes),
 		inSyncBlobs, units.BytesStringBase10(inSyncBytes),
 	)
@@ -114,7 +114,7 @@ func runSyncWithStorage(ctx context.Context, src, dst blob.Storage) error {
 		return nil
 	}
 
-	printStderr("Copying...\n")
+	log(ctx).Infof("Copying...\n")
 
 	beginSyncProgress()
 

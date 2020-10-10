@@ -43,7 +43,7 @@ type verifier struct {
 	errors []error
 }
 
-func (v *verifier) progressCallback(enqueued, active, completed int64) {
+func (v *verifier) progressCallback(ctx context.Context, enqueued, active, completed int64) {
 	elapsed := clock.Since(v.startTime)
 	maybeTimeRemaining := ""
 
@@ -58,7 +58,7 @@ func (v *verifier) progressCallback(enqueued, active, completed int64) {
 		}
 	}
 
-	printStderr("Found %v objects, verifying %v, completed %v objects%v.\n", enqueued, active, completed, maybeTimeRemaining)
+	log(ctx).Infof("Found %v objects, verifying %v, completed %v objects%v.", enqueued, active, completed, maybeTimeRemaining)
 }
 
 func (v *verifier) tooManyErrors() bool {
@@ -99,7 +99,7 @@ func (v *verifier) enqueueVerifyDirectory(ctx context.Context, oid object.ID, pa
 		return
 	}
 
-	v.workQueue.EnqueueFront(func() error {
+	v.workQueue.EnqueueFront(ctx, func() error {
 		return v.doVerifyDirectory(ctx, oid, path)
 	})
 }
@@ -110,7 +110,7 @@ func (v *verifier) enqueueVerifyObject(ctx context.Context, oid object.ID, path 
 		return
 	}
 
-	v.workQueue.EnqueueBack(func() error {
+	v.workQueue.EnqueueBack(ctx, func() error {
 		return v.doVerifyObject(ctx, oid, path)
 	})
 }
@@ -191,7 +191,7 @@ func runVerifyCommand(ctx context.Context, rep repo.Repository) error {
 	}
 
 	v.workQueue.ProgressCallback = v.progressCallback
-	if err := v.workQueue.Process(*verifyCommandParallel); err != nil {
+	if err := v.workQueue.Process(ctx, *verifyCommandParallel); err != nil {
 		return errors.Wrap(err, "error processing work queue")
 	}
 

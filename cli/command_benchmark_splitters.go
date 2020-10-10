@@ -1,13 +1,13 @@
 package cli
 
 import (
+	"context"
 	"math/rand"
 	"sort"
 	"time"
 
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
-
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/splitter"
 )
 
@@ -18,7 +18,7 @@ var (
 	benchmarkSplitterBlockCount = benchmarkSplitterCommand.Flag("block-count", "Number of data blocks to split").Default("16").Int()
 )
 
-func runBenchmarkSplitterAction(ctx *kingpin.ParseContext) error {
+func runBenchmarkSplitterAction(ctx context.Context, rep repo.Repository) error {
 	type benchResult struct {
 		splitter     string
 		duration     time.Duration
@@ -48,7 +48,7 @@ func runBenchmarkSplitterAction(ctx *kingpin.ParseContext) error {
 		dataBlocks = append(dataBlocks, b)
 	}
 
-	printStderr("splitting %v blocks of %v each\n", *benchmarkSplitterBlockCount, *benchmarkSplitterBlockSize)
+	log(ctx).Infof("splitting %v blocks of %v each", *benchmarkSplitterBlockCount, *benchmarkSplitterBlockSize)
 
 	for _, sp := range splitter.SupportedAlgorithms() {
 		fact := splitter.GetFactory(sp)
@@ -117,5 +117,5 @@ func runBenchmarkSplitterAction(ctx *kingpin.ParseContext) error {
 }
 
 func init() {
-	benchmarkSplitterCommand.Action(runBenchmarkSplitterAction)
+	benchmarkSplitterCommand.Action(maybeRepositoryAction(runBenchmarkSplitterAction, false))
 }

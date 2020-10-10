@@ -53,17 +53,17 @@ func runExpireCommand(ctx context.Context, rep repo.Repository) error {
 		}
 
 		if len(deleted) == 0 {
-			printStderr("Nothing to delete for %v.\n", src)
+			log(ctx).Infof("Nothing to delete for %v.", src)
 			continue
 		}
 
 		if *snapshotExpireDelete {
-			printStderr("Deleted %v snapshots of %v...\n", len(deleted), src)
+			log(ctx).Infof("Deleted %v snapshots of %v...", len(deleted), src)
 		} else {
-			printStderr("%v snapshot(s) of %v would be deleted. Pass --delete to do it.\n", len(deleted), src)
+			log(ctx).Infof("%v snapshot(s) of %v would be deleted. Pass --delete to do it.", len(deleted), src)
 
 			for _, it := range deleted {
-				printStderr("  %v\n", formatTimestamp(it.StartTime))
+				log(ctx).Infof("  %v", formatTimestamp(it.StartTime))
 			}
 		}
 	}

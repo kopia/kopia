@@ -39,12 +39,12 @@ func showManifestItems(ctx context.Context, rep repo.Repository) error {
 			return errors.Wrapf(err, "error getting metadata for %q", it)
 		}
 
-		printStderr("// id: %v\n", it)
-		printStderr("// length: %v\n", md.Length)
-		printStderr("// modified: %v\n", formatTimestamp(md.ModTime))
+		printStdout("// id: %v\n", it)
+		printStdout("// length: %v\n", md.Length)
+		printStdout("// modified: %v\n", formatTimestamp(md.ModTime))
 
 		for k, v := range md.Labels {
-			printStderr("// label %v:%v\n", k, v)
+			printStdout("// label %v:%v\n", k, v)
 		}
 
 		if showerr := showContentWithFlags(bytes.NewReader(b), false, true); showerr != nil {

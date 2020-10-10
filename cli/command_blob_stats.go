@@ -39,7 +39,7 @@ func runBlobStatsCommand(ctx context.Context, rep *repo.DirectRepository) error 
 			totalSize += b.Length
 			count++
 			if count%10000 == 0 {
-				printStderr("Got %v blobs...\n", count)
+				log(ctx).Infof("Got %v blobs...", count)
 			}
 			for s := range countMap {
 				if b.Length < s {

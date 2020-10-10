@@ -48,13 +48,13 @@ func runMountCommand(ctx context.Context, rep repo.Repository) error {
 		return errors.Wrap(mountErr, "mount error")
 	}
 
-	printStderr("Mounted '%v' on %v\n", *mountObjectID, ctrl.MountPath())
+	log(ctx).Infof("Mounted '%v' on %v", *mountObjectID, ctrl.MountPath())
 
 	if *mountPoint == "*" && !*mountPointBrowse {
-		printStderr("HINT: Pass --browse to automatically open file browser.\n")
+		log(ctx).Infof("HINT: Pass --browse to automatically open file browser.")
 	}
 
-	printStderr("Press Ctrl-C to unmount.\n")
+	log(ctx).Infof("Press Ctrl-C to unmount.")
 
 	if *mountPointBrowse {
 		if err := open.Start(ctrl.MountPath()); err != nil {
@@ -70,11 +70,11 @@ func runMountCommand(ctx context.Context, rep repo.Repository) error {
 	})
 	select {
 	case <-ctrlCPressed:
-		printStderr("Unmounting...\n")
+		log(ctx).Infof("Unmounting...")
 		return ctrl.Unmount(ctx)
 
 	case <-ctrl.Done():
-		printStderr("Unmounted.\n")
+		log(ctx).Infof("Unmounted.")
 		return nil
 	}
 }

@@ -108,7 +108,8 @@ func runMigrateCommand(ctx context.Context, destRepo repo.Repository) error {
 
 	wg.Wait()
 	progress.FinishShared()
-	printStderr("\r\nMigration finished.\n")
+	printStderr("\r\n")
+	log(ctx).Infof("Migration finished.")
 
 	return nil
 }
@@ -169,7 +170,7 @@ func migrateSinglePolicy(ctx context.Context, sourceRepo, destRepo repo.Reposito
 	_, err = policy.GetDefinedPolicy(ctx, destRepo, si)
 	if err == nil {
 		if !*migrateOverwritePolicies {
-			printStderr("\rpolicy already set for %v\n", si)
+			log(ctx).Infof("policy already set for %v", si)
 			// already have destination policy
 			return nil
 		}
@@ -177,7 +178,7 @@ func migrateSinglePolicy(ctx context.Context, sourceRepo, destRepo repo.Reposito
 		return errors.Wrapf(err, "unable to migrate policy for %v", si)
 	}
 
-	printStderr("\rmigrating policy for %v\n", si)
+	log(ctx).Infof("migrating policy for %v", si)
 
 	return policy.SetPolicy(ctx, destRepo, si, pol)
 }

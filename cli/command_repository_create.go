@@ -69,10 +69,10 @@ func runCreateCommandWithStorage(ctx context.Context, st blob.Storage) error {
 		return errors.Wrap(err, "getting password")
 	}
 
-	printStderr("Initializing repository with:\n")
-	printStderr("  block hash:          %v\n", options.BlockFormat.Hash)
-	printStderr("  encryption:          %v\n", options.BlockFormat.Encryption)
-	printStderr("  splitter:            %v\n", options.ObjectFormat.Splitter)
+	log(ctx).Infof("Initializing repository with:")
+	log(ctx).Infof("  block hash:          %v", options.BlockFormat.Hash)
+	log(ctx).Infof("  encryption:          %v", options.BlockFormat.Encryption)
+	log(ctx).Infof("  splitter:            %v", options.ObjectFormat.Splitter)
 
 	if err := repo.Initialize(ctx, st, options, password); err != nil {
 		return errors.Wrap(err, "cannot initialize repository")

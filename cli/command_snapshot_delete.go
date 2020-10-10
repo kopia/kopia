@@ -40,11 +40,11 @@ func deleteSnapshot(ctx context.Context, rep repo.Repository, m *snapshot.Manife
 	desc := fmt.Sprintf("snapshot %v of %v at %v", m.ID, m.Source, formatTimestamp(m.StartTime))
 
 	if !*snapshotDeleteConfirm {
-		printStderr("Would delete %v (pass --delete to confirm)\n", desc)
+		log(ctx).Infof("Would delete %v (pass --delete to confirm)\n", desc)
 		return nil
 	}
 
-	printStderr("Deleting %v...\n", desc)
+	log(ctx).Infof("Deleting %v...", desc)
 
 	return rep.DeleteManifest(ctx, m.ID)
 }

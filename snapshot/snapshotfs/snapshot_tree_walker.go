@@ -33,7 +33,7 @@ func (w *TreeWalker) enqueueEntry(ctx context.Context, entry fs.Entry) {
 		return
 	}
 
-	w.queue.EnqueueBack(func() error { return w.processEntry(ctx, entry) })
+	w.queue.EnqueueBack(ctx, func() error { return w.processEntry(ctx, entry) })
 }
 
 func (w *TreeWalker) processEntry(ctx context.Context, entry fs.Entry) error {
@@ -62,11 +62,11 @@ func (w *TreeWalker) Run(ctx context.Context) error {
 		w.enqueueEntry(ctx, root)
 	}
 
-	w.queue.ProgressCallback = func(enqueued, active, completed int64) {
+	w.queue.ProgressCallback = func(ctx context.Context, enqueued, active, completed int64) {
 		log(ctx).Infof("processed(%v/%v) active %v", completed, enqueued, active)
 	}
 
-	return w.queue.Process(w.Parallelism)
+	return w.queue.Process(ctx, w.Parallelism)
 }
 
 // NewTreeWalker creates new tree walker.

@@ -149,7 +149,7 @@ func estimate(ctx context.Context, relativePath string, entry fs.Entry, stats *s
 	switch entry := entry.(type) {
 	case fs.Directory:
 		if !*snapshotEstimateQuiet {
-			printStderr("Scanning %v\n", relativePath)
+			log(ctx).Infof("Scanning %v\n", relativePath)
 		}
 
 		children, err := entry.Readdir(ctx)
