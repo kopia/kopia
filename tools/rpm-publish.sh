@@ -2,6 +2,11 @@
 set -e
 GS_PREFIX=gs://packages.kopia.io/rpm
 PKGDIR=$1
+RETAIN_UNSTABLE_RPM_COUNT=15
+
+delete_old_rpms() {
+  ls -tp1 $1/*.rpm | tail -n +$RETAIN_UNSTABLE_RPM_COUNT | xargs -I {} rm -v -- {}
+}
 
 if [ -z "$PKGDIR" ]; then
   echo usage $0: /path/to/dist
@@ -33,6 +38,15 @@ for d in $distributions; do
     mkdir -p $WORK_DIR/$d/$a
   done
   gsutil -m rsync -r -d $GS_PREFIX/$d $WORK_DIR/$d
+done
+
+for d in $distributions; do
+  if [ "$d" == "unstable" ]; then
+    # for unstable, keep only last few RPM versions.
+    for a in $architectures; do
+      delete_old_rpms $WORK_DIR/$d/$a
+    done
+  fi
 done
 
 rpm_files=$(find $1 -name '*.rpm')
