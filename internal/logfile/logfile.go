@@ -31,9 +31,6 @@ var contentLogFormat = logging.MustStringFormatter(
 var fileLogFormat = logging.MustStringFormatter(
 	`%{time:2006-01-02 15:04:05.000} %{level:.1s} [%{shortfile}] %{message}`)
 
-var consoleLogFormat = logging.MustStringFormatter(
-	`%{color}%{time:15:04:05.000} [%{module}] %{message}%{color:reset}`)
-
 var logLevels = []string{"debug", "info", "warning", "error"}
 var (
 	logFile        = cli.App().Flag("log-file", "Override log file.").String()
@@ -48,6 +45,7 @@ var (
 	fileLogLevel          = cli.App().Flag("file-log-level", "File log level").Default("debug").Enum(logLevels...)
 	forceColor            = cli.App().Flag("force-color", "Force color output").Hidden().Envar("KOPIA_FORCE_COLOR").Bool()
 	disableColor          = cli.App().Flag("disable-color", "Disable color output").Hidden().Envar("KOPIA_DISABLE_COLOR").Bool()
+	consoleLogTimestamps  = cli.App().Flag("console-timestamps", "Log timestamps to stderr.").Hidden().Default("false").Envar("KOPIA_CONSOLE_TIMESTAMPS").Bool()
 )
 
 var log = repologging.GetContextLoggerFunc("kopia")
@@ -85,9 +83,19 @@ func Initialize(ctx *kingpin.ParseContext) error {
 }
 
 func setupConsoleBackend() logging.Backend {
+	var (
+		prefix         = "%{color}"
+		suffix         = "%{message}%{color:reset}"
+		maybeTimestamp = "%{time:15:04:05.000} "
+	)
+
+	if !*consoleLogTimestamps {
+		maybeTimestamp = ""
+	}
+
 	l := logging.AddModuleLevel(logging.NewBackendFormatter(
 		logging.NewLogBackend(os.Stderr, "", 0),
-		consoleLogFormat))
+		logging.MustStringFormatter(prefix+maybeTimestamp+suffix)))
 
 	// do not output content logs to the console
 	l.SetLevel(logging.CRITICAL, content.FormatLogModule)
