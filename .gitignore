@@ -22,3 +22,4 @@ node_modules/
 .tmp.*
 .boto
 *.log
+*~
