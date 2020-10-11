@@ -28,25 +28,45 @@ type Output interface {
 
 // Stats represents restore statistics.
 type Stats struct {
-	TotalFileSize int64
-	FileCount     int32
-	DirCount      int32
-	SymlinkCount  int32
+	RestoredTotalFileSize int64
+	EnqueuedTotalFileSize int64
+
+	RestoredFileCount    int32
+	RestoredDirCount     int32
+	RestoredSymlinkCount int32
+	EnqueuedFileCount    int32
+	EnqueuedDirCount     int32
+	EnqueuedSymlinkCount int32
+}
+
+func (s *Stats) clone() Stats {
+	return Stats{
+		RestoredTotalFileSize: atomic.LoadInt64(&s.RestoredTotalFileSize),
+		EnqueuedTotalFileSize: atomic.LoadInt64(&s.EnqueuedTotalFileSize),
+		RestoredFileCount:     atomic.LoadInt32(&s.RestoredFileCount),
+		RestoredDirCount:      atomic.LoadInt32(&s.RestoredDirCount),
+		RestoredSymlinkCount:  atomic.LoadInt32(&s.RestoredSymlinkCount),
+		EnqueuedFileCount:     atomic.LoadInt32(&s.EnqueuedFileCount),
+		EnqueuedDirCount:      atomic.LoadInt32(&s.EnqueuedDirCount),
+		EnqueuedSymlinkCount:  atomic.LoadInt32(&s.EnqueuedSymlinkCount),
+	}
 }
 
 // Options provides optional restore parameters.
 type Options struct {
 	Parallel         int
-	ProgressCallback func(ctx context.Context, enqueued, active, completed int64)
+	ProgressCallback func(ctx context.Context, s Stats)
 }
 
 // Entry walks a snapshot root with given root entry and restores it to the provided output.
 func Entry(ctx context.Context, rep repo.Repository, output Output, rootEntry fs.Entry, options Options) (Stats, error) {
 	c := copier{output: output, q: parallelwork.NewQueue()}
 
-	c.q.ProgressCallback = options.ProgressCallback
+	c.q.ProgressCallback = func(ctx context.Context, enqueued, active, completed int64) {
+		options.ProgressCallback(ctx, c.stats.clone())
+	}
 
-	c.q.EnqueueBack(ctx, func() error {
+	c.q.EnqueueFront(ctx, func() error {
 		return errors.Wrap(c.copyEntry(ctx, rootEntry, "", func() error { return nil }), "error copying")
 	})
 
@@ -84,8 +104,8 @@ func (c *copier) copyEntry(ctx context.Context, e fs.Entry, targetPath string, o
 	case fs.File:
 		log(ctx).Debugf("file: '%v'", targetPath)
 
-		atomic.AddInt32(&c.stats.FileCount, 1)
-		atomic.AddInt64(&c.stats.TotalFileSize, e.Size())
+		atomic.AddInt32(&c.stats.RestoredFileCount, 1)
+		atomic.AddInt64(&c.stats.RestoredTotalFileSize, e.Size())
 
 		if err := c.output.WriteFile(ctx, targetPath, e); err != nil {
 			return errors.Wrap(err, "copy file")
@@ -94,7 +114,7 @@ func (c *copier) copyEntry(ctx context.Context, e fs.Entry, targetPath string, o
 		return onCompletion()
 
 	case fs.Symlink:
-		atomic.AddInt32(&c.stats.SymlinkCount, 1)
+		atomic.AddInt32(&c.stats.RestoredSymlinkCount, 1)
 		log(ctx).Debugf("symlink: '%v'", targetPath)
 
 		if err := c.output.CreateSymlink(ctx, targetPath, e); err != nil {
@@ -109,7 +129,7 @@ func (c *copier) copyEntry(ctx context.Context, e fs.Entry, targetPath string, o
 }
 
 func (c *copier) copyDirectory(ctx context.Context, d fs.Directory, targetPath string, onCompletion parallelwork.CallbackFunc) error {
-	atomic.AddInt32(&c.stats.DirCount, 1)
+	atomic.AddInt32(&c.stats.RestoredDirCount, 1)
 
 	if err := c.output.BeginDirectory(ctx, targetPath, d); err != nil {
 		return errors.Wrap(err, "create directory")
@@ -139,9 +159,25 @@ func (c *copier) copyDirectoryContent(ctx context.Context, d fs.Directory, targe
 	for _, e := range entries {
 		e := e
 
-		c.q.EnqueueBack(ctx, func() error {
-			return c.copyEntry(ctx, e, path.Join(targetPath, e.Name()), onItemCompletion)
-		})
+		if e.IsDir() {
+			atomic.AddInt32(&c.stats.EnqueuedDirCount, 1)
+			// enqueue directories first, so that we quickly determine the total number and size of items.
+			c.q.EnqueueFront(ctx, func() error {
+				return c.copyEntry(ctx, e, path.Join(targetPath, e.Name()), onItemCompletion)
+			})
+		} else {
+			if isSymlink(e) {
+				atomic.AddInt32(&c.stats.EnqueuedSymlinkCount, 1)
+			} else {
+				atomic.AddInt32(&c.stats.EnqueuedFileCount, 1)
+			}
+
+			atomic.AddInt64(&c.stats.EnqueuedTotalFileSize, e.Size())
+
+			c.q.EnqueueBack(ctx, func() error {
+				return c.copyEntry(ctx, e, path.Join(targetPath, e.Name()), onItemCompletion)
+			})
+		}
 	}
 
 	return nil

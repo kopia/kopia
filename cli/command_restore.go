@@ -4,13 +4,16 @@ import (
 	"archive/zip"
 	"compress/gzip"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	"gopkg.in/alecthomas/kingpin.v2"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot/restore"
@@ -43,6 +46,8 @@ directory ID and optionally a sub-directory path. For example,
 'kffbb7c28ea6c34d6cbe555d1cf80faa9' or
 'kffbb7c28ea6c34d6cbe555d1cf80faa9/subdir1/subdir2'
 `
+
+	bitsPerByte = 8
 )
 
 var (
@@ -161,7 +166,7 @@ func detectRestoreMode(ctx context.Context, m string) string {
 }
 
 func printRestoreStats(ctx context.Context, st restore.Stats) {
-	log(ctx).Infof("Restored %v files, %v directories and %v symbolic links (%v)\n", st.FileCount, st.DirCount, st.SymlinkCount, units.BytesStringBase10(st.TotalFileSize))
+	log(ctx).Infof("Restored %v files, %v directories and %v symbolic links (%v)\n", st.RestoredFileCount, st.RestoredDirCount, st.RestoredSymlinkCount, units.BytesStringBase10(st.RestoredTotalFileSize))
 }
 
 func runRestoreCommand(ctx context.Context, rep repo.Repository) error {
@@ -175,10 +180,37 @@ func runRestoreCommand(ctx context.Context, rep repo.Repository) error {
 		return errors.Wrap(err, "unable to get filesystem entry")
 	}
 
+	t0 := clock.Now()
+
 	st, err := restore.Entry(ctx, rep, output, rootEntry, restore.Options{
 		Parallel: restoreParallel,
-		ProgressCallback: func(ctx context.Context, enqueued, processing, completed int64) {
-			log(ctx).Infof("Restored %v/%v. Processing %v...", completed, enqueued, processing)
+		ProgressCallback: func(ctx context.Context, stats restore.Stats) {
+			restoredCount := stats.RestoredFileCount + stats.RestoredDirCount + stats.RestoredSymlinkCount
+			enqueuedCount := stats.EnqueuedFileCount + stats.EnqueuedDirCount + stats.EnqueuedSymlinkCount
+
+			if restoredCount == 0 {
+				return
+			}
+
+			var maybeRemaining string
+
+			if stats.EnqueuedTotalFileSize > 0 {
+				progress := float64(stats.RestoredTotalFileSize) / float64(stats.EnqueuedTotalFileSize)
+				elapsed := clock.Since(t0)
+				if progress > 0 && elapsed.Seconds() > 1 {
+					predictedDuration := time.Duration(1e9 * elapsed.Seconds() / progress)
+					remaining := clock.Until(t0.Add(predictedDuration)).Truncate(time.Second)
+					bitsPerSecond := float64(stats.RestoredTotalFileSize) * bitsPerByte / elapsed.Seconds()
+					if remaining > time.Second {
+						maybeRemaining = fmt.Sprintf(" %v (%.1f%%) remaining %v", units.BitsPerSecondsString(bitsPerSecond), hundredPercent*progress, remaining)
+					}
+				}
+			}
+
+			log(ctx).Infof("Processed %v (%v) of %v (%v)%v.",
+				restoredCount, units.BytesStringBase10(stats.RestoredTotalFileSize),
+				enqueuedCount, units.BytesStringBase10(stats.EnqueuedTotalFileSize),
+				maybeRemaining)
 		},
 	})
 	if err != nil {
