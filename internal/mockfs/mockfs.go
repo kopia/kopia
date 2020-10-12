@@ -37,31 +37,31 @@ type entry struct {
 	device  fs.DeviceInfo
 }
 
-func (e entry) Name() string {
+func (e *entry) Name() string {
 	return e.name
 }
 
-func (e entry) IsDir() bool {
+func (e *entry) IsDir() bool {
 	return e.mode.IsDir()
 }
 
-func (e entry) Mode() os.FileMode {
+func (e *entry) Mode() os.FileMode {
 	return e.mode
 }
 
-func (e entry) ModTime() time.Time {
+func (e *entry) ModTime() time.Time {
 	return e.modTime
 }
 
-func (e entry) Size() int64 {
+func (e *entry) Size() int64 {
 	return e.size
 }
 
-func (e entry) Sys() interface{} {
+func (e *entry) Sys() interface{} {
 	return nil
 }
 
-func (e entry) Owner() fs.OwnerInfo {
+func (e *entry) Owner() fs.OwnerInfo {
 	return e.owner
 }
 
