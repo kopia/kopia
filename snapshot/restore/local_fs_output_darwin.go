@@ -1,5 +1,3 @@
-// +build darwin
-
 package restore
 
 import (
