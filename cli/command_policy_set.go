@@ -60,6 +60,9 @@ var (
 	policySetClearDotIgnore  = policySetCommand.Flag("clear-dot-ignore", "Clear list of paths in the dot-ignore list").Bool()
 	policySetMaxFileSize     = policySetCommand.Flag("max-file-size", "Exclude files above given size").PlaceHolder("N").String()
 
+	// Ignore other mounted fileystems.
+	policyOneFileSystem = policySetCommand.Flag("one-file-system", "Stay in parent filesystem when finding files ('true', 'false', 'inherit')").Enum(booleanEnumValues...)
+
 	// Error handling behavior.
 	policyIgnoreFileErrors      = policySetCommand.Flag("ignore-file-errors", "Ignore errors reading files while traversing ('true', 'false', 'inherit')").Enum(booleanEnumValues...)
 	policyIgnoreDirectoryErrors = policySetCommand.Flag("ignore-dir-errors", "Ignore errors reading directories while traversing ('true', 'false', 'inherit").Enum(booleanEnumValues...)
@@ -187,6 +190,28 @@ func setFilesPolicyFromFlags(ctx context.Context, fp *policy.FilesPolicy, change
 		fp.IgnoreCacheDirs = &val
 
 		log(ctx).Infof(" - setting ignore cache dirs to %v\n", val)
+	}
+
+	switch {
+	case *policyOneFileSystem == "":
+	case *policyOneFileSystem == inheritPolicyString:
+		*changeCount++
+
+		fp.OneFileSystem = nil
+
+		printStderr(" - inherit one file system from parent\n")
+
+	default:
+		val, err := strconv.ParseBool(*policyOneFileSystem)
+		if err != nil {
+			return err
+		}
+
+		*changeCount++
+
+		fp.OneFileSystem = &val
+
+		printStderr(" - setting one file system to %v\n", val)
 	}
 
 	return nil

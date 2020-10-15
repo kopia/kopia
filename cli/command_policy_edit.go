@@ -40,6 +40,7 @@ const policyEditFilesHelpText = `
   #   "maxFileSize": number
   #   "noParentDotFiles": true
   #   "noParentIgnore": true
+  #   "oneFileSystem": false
 `
 
 const policyEditSchedulingHelpText = `

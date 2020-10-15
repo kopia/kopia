@@ -43,6 +43,10 @@ func (s *sourceDirectories) Owner() fs.OwnerInfo {
 	return fs.OwnerInfo{}
 }
 
+func (s *sourceDirectories) Device() fs.DeviceInfo {
+	return fs.DeviceInfo{}
+}
+
 func (s *sourceDirectories) Child(ctx context.Context, name string) (fs.Entry, error) {
 	return fs.ReadDirAndFindChild(ctx, s, name)
 }

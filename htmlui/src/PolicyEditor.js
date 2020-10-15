@@ -182,6 +182,9 @@ export class PolicyEditor extends Component {
                         <Form.Row>
                             {OptionalBoolean(this, "Ignore Well-Known Cache Directories", "policy.files.ignoreCacheDirs", "inherit from parent")}
                         </Form.Row>
+                        <Form.Row>
+                            {OptionalBoolean(this, "Scan only one filesystem", "policy.files.oneFileSystem", "inherit from parent")}
+                        </Form.Row>
                     </div>
                 </Tab>
                 <Tab eventKey="errors" title="Errors">

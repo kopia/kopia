@@ -18,3 +18,14 @@ func platformSpecificOwnerInfo(fi os.FileInfo) fs.OwnerInfo {
 
 	return oi
 }
+
+func platformSpecificDeviceInfo(fi os.FileInfo) fs.DeviceInfo {
+	var oi fs.DeviceInfo
+	if stat, ok := fi.Sys().(*syscall.Stat_t); ok {
+		// not making a separate type for 32-bit platforms here..
+		oi.Dev = platformSpecificWidenDev(stat.Dev)
+		oi.Rdev = platformSpecificWidenDev(stat.Rdev)
+	}
+
+	return oi
+}

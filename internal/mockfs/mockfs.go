@@ -34,34 +34,39 @@ type entry struct {
 	size    int64
 	modTime time.Time
 	owner   fs.OwnerInfo
+	device  fs.DeviceInfo
 }
 
-func (e entry) Name() string {
+func (e *entry) Name() string {
 	return e.name
 }
 
-func (e entry) IsDir() bool {
+func (e *entry) IsDir() bool {
 	return e.mode.IsDir()
 }
 
-func (e entry) Mode() os.FileMode {
+func (e *entry) Mode() os.FileMode {
 	return e.mode
 }
 
-func (e entry) ModTime() time.Time {
+func (e *entry) ModTime() time.Time {
 	return e.modTime
 }
 
-func (e entry) Size() int64 {
+func (e *entry) Size() int64 {
 	return e.size
 }
 
-func (e entry) Sys() interface{} {
+func (e *entry) Sys() interface{} {
 	return nil
 }
 
-func (e entry) Owner() fs.OwnerInfo {
+func (e *entry) Owner() fs.OwnerInfo {
 	return e.owner
+}
+
+func (e *entry) Device() fs.DeviceInfo {
+	return e.device
 }
 
 // Directory is mock in-memory implementation of fs.Directory.
@@ -97,6 +102,26 @@ func (imd *Directory) AddFile(name string, content []byte, permissions os.FileMo
 	return file
 }
 
+// AddFileDevice adds a mock file with the specified name, content, permissions, and device info.
+func (imd *Directory) AddFileDevice(name string, content []byte, permissions os.FileMode, deviceInfo fs.DeviceInfo) *File {
+	imd, name = imd.resolveSubdir(name)
+	file := &File{
+		entry: entry{
+			name:   name,
+			mode:   permissions,
+			size:   int64(len(content)),
+			device: deviceInfo,
+		},
+		source: func() (ReaderSeekerCloser, error) {
+			return readerSeekerCloser{bytes.NewReader(content)}, nil
+		},
+	}
+
+	imd.addChild(file)
+
+	return file
+}
+
 // AddDir adds a fake directory with a given name and permissions.
 func (imd *Directory) AddDir(name string, permissions os.FileMode) *Directory {
 	imd, name = imd.resolveSubdir(name)
@@ -105,6 +130,23 @@ func (imd *Directory) AddDir(name string, permissions os.FileMode) *Directory {
 		entry: entry{
 			name: name,
 			mode: permissions | os.ModeDir,
+		},
+	}
+
+	imd.addChild(subdir)
+
+	return subdir
+}
+
+// AddDirDevice adds a fake directory with a given name and permissions.
+func (imd *Directory) AddDirDevice(name string, permissions os.FileMode, deviceInfo fs.DeviceInfo) *Directory {
+	imd, name = imd.resolveSubdir(name)
+
+	subdir := &Directory{
+		entry: entry{
+			name:   name,
+			mode:   permissions | os.ModeDir,
+			device: deviceInfo,
 		},
 	}
 

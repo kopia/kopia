@@ -28,15 +28,18 @@ func setupFilesystem() *mockfs.Directory {
 	root.AddFile("ignored-by-rule", dummyFileContents, 0)
 	root.AddFile("largefile1", tooLargeFileContents, 0)
 
+	dev1 := fs.DeviceInfo{Dev: 1, Rdev: 0}
+	dev2 := fs.DeviceInfo{Dev: 2, Rdev: 0}
+
 	d1 := root.AddDir("bin", 0)
-	d2 := root.AddDir("pkg", 0)
-	d3 := root.AddDir("src", 0)
+	d2 := root.AddDirDevice("pkg", 0, dev1)
+	d3 := root.AddDirDevice("src", 0, dev2)
 
 	d1.AddFile("some-bin", dummyFileContents, 0)
-	d2.AddFile("some-pkg", dummyFileContents, 0)
+	d2.AddFileDevice("some-pkg", dummyFileContents, 0, dev1)
 
-	d4 := d3.AddDir("some-src", 0)
-	d4.AddFile("f1", dummyFileContents, 0)
+	d4 := d3.AddDirDevice("some-src", 0, dev2)
+	d4.AddFileDevice("f1", dummyFileContents, 0, dev2)
 
 	return root
 }
@@ -75,6 +78,16 @@ var rootAndSrcPolicy = policy.BuildTree(map[string]*policy.Policy{
 			IgnoreRules: []string{
 				"some-*",
 			},
+		},
+	},
+}, policy.DefaultPolicy)
+
+var trueValue = true
+
+var oneFileSystemPolicy = policy.BuildTree(map[string]*policy.Policy{
+	".": {
+		FilesPolicy: policy.FilesPolicy{
+			OneFileSystem: &trueValue,
 		},
 	},
 }, policy.DefaultPolicy)
@@ -213,6 +226,18 @@ var cases = []struct {
 		},
 		ignoredFiles: []string{
 			"./src/some-src/", // excluded by policy at './src'
+			"./src/some-src/f1",
+		},
+	},
+	{
+		desc:       "policy with one-file-system",
+		policyTree: oneFileSystemPolicy,
+		addedFiles: nil,
+		ignoredFiles: []string{
+			"./pkg/",
+			"./pkg/some-pkg",
+			"./src/",
+			"./src/some-src/",
 			"./src/some-src/f1",
 		},
 	},

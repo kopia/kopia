@@ -36,6 +36,7 @@ type filesystemEntry struct {
 	mtimeNanos int64
 	mode       os.FileMode
 	owner      fs.OwnerInfo
+	device     fs.DeviceInfo
 
 	parentDir string
 }
@@ -72,6 +73,10 @@ func (e *filesystemEntry) Owner() fs.OwnerInfo {
 	return e.owner
 }
 
+func (e *filesystemEntry) Device() fs.DeviceInfo {
+	return e.device
+}
+
 var _ os.FileInfo = (*filesystemEntry)(nil)
 
 func newEntry(fi os.FileInfo, parentDir string) filesystemEntry {
@@ -81,6 +86,7 @@ func newEntry(fi os.FileInfo, parentDir string) filesystemEntry {
 		fi.ModTime().UnixNano(),
 		fi.Mode(),
 		platformSpecificOwnerInfo(fi),
+		platformSpecificDeviceInfo(fi),
 		parentDir,
 	}
 }

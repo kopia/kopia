@@ -160,6 +160,12 @@ func printFilesPolicy(p *policy.Policy, parents []*policy.Policy) {
 				return pol.FilesPolicy.MaxFileSize != 0
 			}))
 	}
+
+	printStdout("  Scan one filesystem only:       %5v       %v\n",
+		p.FilesPolicy.OneFileSystemOrDefault(false),
+		getDefinitionPoint(parents, func(pol *policy.Policy) bool {
+			return pol.FilesPolicy.OneFileSystem != nil
+		}))
 }
 
 func printErrorHandlingPolicy(p *policy.Policy, parents []*policy.Policy) {
