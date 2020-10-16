@@ -10,6 +10,7 @@ type Snapshotter interface {
 	CreateSnapshot(sourceDir string) (snapID string, err error)
 	RestoreSnapshot(snapID string, restoreDir string) error
 	DeleteSnapshot(snapID string) error
+	RunGC() error
 	ListSnapshots() ([]string, error)
 	Run(args ...string) (stdout, stderr string, err error)
 }

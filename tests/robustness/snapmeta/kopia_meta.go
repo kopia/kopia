@@ -16,6 +16,7 @@ var _ Persister = &kopiaMetadata{}
 type kopiaMetadata struct {
 	*Simple
 	localMetadataDir string
+	persistenceDir   string
 	snap             *kopiarunner.KopiaSnapshotter
 }
 
@@ -31,8 +32,14 @@ func New(baseDir string) (Persister, error) {
 		return nil, err
 	}
 
+	persistenceDir, err := ioutil.TempDir(localDir, "kopia-persistence-root")
+	if err != nil {
+		return nil, err
+	}
+
 	return &kopiaMetadata{
 		localMetadataDir: localDir,
+		persistenceDir:   persistenceDir,
 		Simple:           NewSimple(),
 		snap:             snap,
 	}, nil
@@ -61,6 +68,8 @@ func (store *kopiaMetadata) ConnectOrCreateFilesystem(path string) error {
 	return store.snap.ConnectOrCreateFilesystem(path)
 }
 
+const metadataStoreFileName = "metadata-store-latest"
+
 // LoadMetadata implements the DataPersister interface, restores the latest
 // snapshot from the kopia repository and decodes its contents, populating
 // its metadata on the snapshots residing in the target test repository.
@@ -76,21 +85,21 @@ func (store *kopiaMetadata) LoadMetadata() error {
 
 	lastSnapID := snapIDs[len(snapIDs)-1]
 
-	restorePath := filepath.Join(store.localMetadataDir, "kopia-metadata-latest")
-
-	err = store.snap.RestoreSnapshot(lastSnapID, restorePath)
+	err = store.snap.RestoreSnapshot(lastSnapID, store.persistenceDir)
 	if err != nil {
 		return err
 	}
 
-	defer os.Remove(restorePath) //nolint:errcheck
+	metadataPath := filepath.Join(store.persistenceDir, metadataStoreFileName)
 
-	f, err := os.Open(restorePath) //nolint:gosec
+	defer os.Remove(metadataPath) //nolint:errcheck
+
+	f, err := os.Open(metadataPath) //nolint:gosec
 	if err != nil {
 		return err
 	}
 
-	err = json.NewDecoder(f).Decode(&(store.Simple.m))
+	err = json.NewDecoder(f).Decode(&(store.Simple))
 	if err != nil {
 		return err
 	}
@@ -98,26 +107,34 @@ func (store *kopiaMetadata) LoadMetadata() error {
 	return nil
 }
 
+// GetPersistDir returns the path to the directory that will be persisted
+// as a snapshot to the kopia repository.
+func (store *kopiaMetadata) GetPersistDir() string {
+	return store.persistenceDir
+}
+
 // FlushMetadata implements the DataPersister interface, flushing the local
 // metadata on the target test repo's snapshots to the metadata Kopia repository
 // as a snapshot create.
 func (store *kopiaMetadata) FlushMetadata() error {
-	f, err := ioutil.TempFile(store.localMetadataDir, "kopia-metadata-")
+	metadataPath := filepath.Join(store.persistenceDir, metadataStoreFileName)
+
+	f, err := os.Create(metadataPath)
 	if err != nil {
 		return err
 	}
 
 	defer func() {
-		f.Close()           //nolint:errcheck
-		os.Remove(f.Name()) //nolint:errcheck
+		f.Close()               //nolint:errcheck
+		os.Remove(metadataPath) //nolint:errcheck
 	}()
 
-	err = json.NewEncoder(f).Encode(store.Simple.m)
+	err = json.NewEncoder(f).Encode(store.Simple)
 	if err != nil {
 		return err
 	}
 
-	_, err = store.snap.CreateSnapshot(f.Name())
+	_, err = store.snap.CreateSnapshot(store.persistenceDir)
 	if err != nil {
 		return err
 	}

@@ -205,9 +205,16 @@ endurance-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
 endurance-tests: build-integration-test-binary $(gotestsum)
 	 $(GO_TEST) $(TEST_FLAGS) -count=1 -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/endurance_test
 
-robustness-tool-tests: $(gotestsum)
+robustness_tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
+robustness-tests: build-integration-test-binary $(gotestsum)
 	FIO_DOCKER_IMAGE=$(FIO_DOCKER_TAG) \
-	$(GO_TEST) $(TEST_FLAGS) -count=1 -timeout 90s github.com/kopia/kopia/tests/tools/...
+	$(GO_TEST) -count=1 github.com/kopia/kopia/tests/robustness/robustness_test $(TEST_FLAGS)
+
+robustness-tool-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
+robustness-tool-tests: build-integration-test-binary $(gotestsum)
+	KOPIA_EXE=$(KOPIA_INTEGRATION_EXE) \
+	FIO_DOCKER_IMAGE=$(FIO_DOCKER_TAG) \
+	$(GO_TEST) -count=1 github.com/kopia/kopia/tests/tools/... github.com/kopia/kopia/tests/robustness/engine/... $(TEST_FLAGS)
 
 stress-test: $(gotestsum)
 	KOPIA_LONG_STRESS_TEST=1 $(GO_TEST) -count=1 -timeout 200s github.com/kopia/kopia/tests/stress_test

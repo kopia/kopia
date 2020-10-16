@@ -38,6 +38,8 @@ func NewWalkCompare() *WalkCompare {
 			filterFileTimeDiffs,
 			isRootDirectoryRename,
 			dirSizeMightBeOffByBlockSizeMultiple,
+			ignoreGIDIfZero,
+			ignoreUIDIfZero,
 		},
 	}
 }
@@ -202,6 +204,28 @@ func dirSizeMightBeOffByBlockSizeMultiple(str string, mod fswalker.ActionData) b
 
 func filterFileTimeDiffs(str string, mod fswalker.ActionData) bool {
 	return strings.Contains(str, "ctime:") || strings.Contains(str, "atime:") || strings.Contains(str, "mtime:")
+}
+
+func ignoreGIDIfZero(str string, mod fswalker.ActionData) bool {
+	if !strings.Contains(str, "gid:") {
+		return false
+	}
+
+	beforeGID := mod.Before.Stat.Gid
+	afterGID := mod.After.Stat.Gid
+
+	return beforeGID != afterGID && beforeGID == 0
+}
+
+func ignoreUIDIfZero(str string, mod fswalker.ActionData) bool {
+	if !strings.Contains(str, "uid:") {
+		return false
+	}
+
+	beforeUID := mod.Before.Stat.Uid
+	afterUID := mod.After.Stat.Uid
+
+	return beforeUID != afterUID && beforeUID == 0
 }
 
 func validateReport(report *fswalker.Report) error {
