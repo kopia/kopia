@@ -15,3 +15,12 @@ type Controller interface {
 	MountPath() string
 	Done() <-chan struct{}
 }
+
+// Options cary set of flags passed to the mount layer.
+type Options struct {
+	// AllowOther allows other users to access the file system. Supported on FUSE"
+	FuseAllowOther bool
+	// Allows the mounting over a non-empty directory. The files in it will be shadowed by the freshly created mount.
+	// Supported only on Fuse.
+	FuseAllowNonEmptyMount bool
+}
