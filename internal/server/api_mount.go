@@ -31,7 +31,7 @@ func (s *Server) handleMountCreate(ctx context.Context, r *http.Request, body []
 		log(ctx).Debugf("mount controller for %v not found, starting", oid)
 
 		var err error
-		c, err = mount.Directory(ctx, snapshotfs.DirectoryEntry(s.rep, oid, nil), "*")
+		c, err = mount.Directory(ctx, snapshotfs.DirectoryEntry(s.rep, oid, nil), "*", mount.Options{})
 
 		if err != nil {
 			return nil, internalServerError(err)

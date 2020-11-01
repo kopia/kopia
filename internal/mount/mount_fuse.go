@@ -23,8 +23,27 @@ func (r *root) Root() (fusefs.Node, error) {
 	return r.Node, nil
 }
 
+func (mo *Options) toFuseMountOptions() []fuse.MountOption {
+	options := []fuse.MountOption{
+		fuse.ReadOnly(),
+		fuse.FSName("kopia"),
+		fuse.Subtype("kopia"),
+		fuse.VolumeName("Kopia"),
+	}
+
+	if mo.FuseAllowOther {
+		options = append(options, fuse.AllowOther())
+	}
+
+	if mo.FuseAllowNonEmptyMount {
+		options = append(options, fuse.AllowNonEmptyMount())
+	}
+
+	return options
+}
+
 // Directory mounts the given directory using FUSE.
-func Directory(ctx context.Context, entry fs.Directory, mountPoint string) (Controller, error) {
+func Directory(ctx context.Context, entry fs.Directory, mountPoint string, mountOptions Options) (Controller, error) {
 	isTempDir := false
 
 	if mountPoint == "*" {
@@ -40,13 +59,14 @@ func Directory(ctx context.Context, entry fs.Directory, mountPoint string) (Cont
 
 	rootNode := fusemount.NewDirectoryNode(entry)
 
-	fuseConnection, err := fuse.Mount(
-		mountPoint,
+	options := append(
+		mountOptions.toFuseMountOptions(),
 		fuse.ReadOnly(),
 		fuse.FSName("kopia"),
 		fuse.Subtype("kopia"),
-		fuse.VolumeName("Kopia"),
-	)
+		fuse.VolumeName("Kopia"))
+
+	fuseConnection, err := fuse.Mount(mountPoint, options...)
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating fuse connection")
 	}

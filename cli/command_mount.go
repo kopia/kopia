@@ -21,6 +21,9 @@ var (
 	mountPoint       = mountCommand.Arg("mountPoint", "Mount point").Default("*").String()
 	mountPointBrowse = mountCommand.Flag("browse", "Open file browser").Bool()
 	mountTraceFS     = mountCommand.Flag("trace-fs", "Trace filesystem operations").Bool()
+
+	mountFuseAllowOther         = mountCommand.Flag("fuse-allow-other", "Allows other users to access the file system.").Bool()
+	mountFuseAllowNonEmptyMount = mountCommand.Flag("fuse-allow-non-empty-mount", "Allows the mounting over a non-empty directory. The files in it will be shadowed by the freshly created mount.").Bool()
 )
 
 func runMountCommand(ctx context.Context, rep repo.Repository) error {
@@ -42,7 +45,11 @@ func runMountCommand(ctx context.Context, rep repo.Repository) error {
 
 	entry = cachefs.Wrap(entry, newFSCache()).(fs.Directory)
 
-	ctrl, mountErr := mount.Directory(ctx, entry, *mountPoint)
+	ctrl, mountErr := mount.Directory(ctx, entry, *mountPoint,
+		mount.Options{
+			FuseAllowOther:         *mountFuseAllowOther,
+			FuseAllowNonEmptyMount: *mountFuseAllowNonEmptyMount,
+		})
 
 	if mountErr != nil {
 		return errors.Wrap(mountErr, "mount error")
@@ -68,15 +75,27 @@ func runMountCommand(ctx context.Context, rep repo.Repository) error {
 	onCtrlC(func() {
 		close(ctrlCPressed)
 	})
+
 	select {
 	case <-ctrlCPressed:
 		log(ctx).Infof("Unmounting...")
-		return ctrl.Unmount(ctx)
+		// TODO: Consider lazy unmounting (-z) and polling till the filesystem is unmounted instead of failing with:
+		// "unmount error: exit status 1: fusermount: failed to unmount /tmp/kopia-mount719819963: Device or resource busy, try --help"
+		err := ctrl.Unmount(ctx)
+		if err != nil {
+			return err
+		}
 
 	case <-ctrl.Done():
 		log(ctx).Infof("Unmounted.")
 		return nil
 	}
+
+	// Reporting clean unmount in case of interrupt signal.
+	<-ctrl.Done()
+	log(ctx).Infof("Unmounted.")
+
+	return nil
 }
 
 func init() {
