@@ -18,7 +18,7 @@ To install it follow the [Installation Guide](../installation/).
 ## Kopia UI
 
 If you prefer a graphical user interface,
-Kopia comes with a user-friendly desktop app for Windows, macOS, and Linux called `KopiaUI`which runs in the background and allows you to create snapshots, define policies and restore files quickly. More advanced features require the use of the CLI tool.
+Kopia comes with a user-friendly desktop app for Windows, macOS, and Linux called `KopiaUI`, which runs in the background and allows you to create snapshots, define policies and restore files quickly. More advanced features require the use of the CLI tool.
 
 The Kopia UI is new and experimental. See the tutorial on Youtube:
 
@@ -32,13 +32,13 @@ To create a repository use one of the subcommands of `kopia repository create`.
 
 > NOTE: This guide focuses on simple scenarios, more command-line features are described in the [Command-Line Reference](../reference/command-line/).
 
-When creating the repository must provide a password that will be used to encrypt all files. The password never leaves your machine and is never sent to the server.
+When creating the repository, you must provide a password that will be used to encrypt all files. The password never leaves your machine and is never sent to the server.
 
 **There's absolutely no way to recover contents of the repository if you forget the password. Remember to keep it secure!**
 
 ### Filesystem
 
-To create a repository in a locally-mounted filesystem simply use:
+To create a repository in a locally-mounted filesystem, simply use:
 
 ```shell
 $ kopia repository create filesystem --path /tmp/my-repository
@@ -55,7 +55,7 @@ $ find /tmp/my-repository -type f
 
 ### Google Cloud Storage
 
-To create a repository in Google Cloud Storage you need to provision a storage bucket and install local credentials that can access that bucket. To do so:
+To create a repository in Google Cloud Storage, you need to provision a storage bucket and install local credentials that can access that bucket. To do so:
 
 1. Create a storage bucket in [Google Cloud Console](https://console.cloud.google.com/storage/)
 2. Install [Google Cloud SDK](https://cloud.google.com/sdk/)
@@ -65,13 +65,13 @@ To create a repository in Google Cloud Storage you need to provision a storage b
 $ gcloud auth application-default login
 ```
 
-After these preparations we can create Kopia repository (assuming bucket named `kopia-test-123`):
+After these preparations, we can create Kopia repository (assuming bucket named `kopia-test-123`):
 
 ```shell
 $ kopia repository create google --bucket kopia-test-123
 ```
 
-At this point we should be able to confirm that Kopia has created the skeleton of the repository with 3
+At this point, we should be able to confirm that Kopia has created the skeleton of the repository with 3
 files in it:
 
 ```shell
@@ -83,7 +83,7 @@ gs://kopia-test-123/p78e034ac8b891168df97f9897d7ec316
 
 ## Connecting To Repository
 
-To connect to a repository that already, simply use `kopia repository connect` instead of `kopia repository create`. You can connect as many computers as you like to any repository, even simultaneously.
+To connect to an existing repository, simply use `kopia repository connect` instead of `kopia repository create`. You can connect as many computers as you like to any repository, even simultaneously.
 
 For example:
 
@@ -111,7 +111,7 @@ uploaded snapshot 9a622e33ab134ef440f76ed755f79c2f
 ## Incremental Snapshots
 
 Let's take the snapshot again. Assuming we did not make any changes to the source code, the snapshot root
-will be identical, because all object identifiers in Kopia are derived from contents of data
+will be identical, because all object identifiers in Kopia are derived from contents of data.
 
 ```
 uploaded snapshot 8a45c3b079cf5e7b99fb855a3701607a
@@ -137,7 +137,7 @@ jarek@jareks-mbp:/Users/jarek/Projects/Kopia
   + 1 identical snapshots until 2019-06-22 20:21:44 PDT
 ```
 
-To compare contents of two snapshots use `kopia diff`:
+To compare contents of two snapshots, use `kopia diff`:
 
 ```
 $ kopia diff kb9a8420bf6b8ea280d6637ad1adbd4c5 ke2e07d38a8a902ad07eda5d2d0d3025d
@@ -176,7 +176,7 @@ To examine contents of files use `kopia show` passing the object identifier of e
 $ kopia show 8c9e27bed2f577b31b07b07da4bdfffb
 ```
 
-Directories are stored as JSON objects, so it's possible to see their contents as if they were regular files (`-j` displays pretty-printed JSON)
+Directories are stored as JSON objects, so it's possible to see their contents as if they were regular files (`-j` displays pretty-printed JSON):
 
 ```shell
 $ kopia content show -j kb9a8420bf6b8ea280d6637ad1adbd4c5
@@ -283,7 +283,7 @@ Files policy:
     .kopiaignore                   (defined for this target)
 ```
 
-We can define the policy for a particular directory, by using `kopia policy set` command. For example to ignore two directories we can use:
+We can define the policy for a particular directory, by using `kopia policy set` command. For example, to ignore two directories, we can use:
 
 ```
 $ kopia policy set --add-ignore public/ --add-ignore node_modules/ .
@@ -292,7 +292,9 @@ Setting policy for jarek@jareks-mbp:/Users/jarek/Projects/Kopia/site
  - adding node_modules/ to ignored files
 ```
 
-To set maximum number of weekly snapshots we might do:
+Now when taking snapshot, the directories will be skipped.
+
+To set maximum number of weekly snapshots, we might do:
 
 ```
 $ kopia policy set --keep-weekly 30 .
@@ -300,9 +302,7 @@ Setting policy for jarek@jareks-mbp:/Users/jarek/Projects/Kopia/site
  - setting number of weekly backups to keep to 30.
 ```
 
-Now when taking snapshot, the directories will be skipped.
-
-To examine a policy for a particular directory use `kopia policy show`:
+To examine a policy for a particular directory, use `kopia policy show`:
 
 ```
 $ kopia policy show .
@@ -324,7 +324,7 @@ Files policy:
     .kopiaignore                   inherited from (global)
 ```
 
-Finally to list all policies we can use `kopia policy list`:
+Finally to list all policies, we can use `kopia policy list`:
 
 ```
 $ kopia policy list
@@ -366,7 +366,7 @@ pfbaba06c70b6aed2c0ed3aa9c709dc47     22823458 2019-06-22 20:04:50 PDT
 
 ### Content-Addressable Block Storage
 
-To list individual contents stored in the Repository use `kopia content list`:
+To list individual contents stored in the Repository, use `kopia content list`:
 
 ```shell
 $ kopia content list
@@ -400,7 +400,7 @@ m8401800f69795ed0137365c3e6f627bc
 
 ### Manifest Storage
 
-To list manifests (snapshot manifests and policies) stored in repository use `kopia manifest list`
+To list manifests (snapshot manifests and policies) stored in repository, use `kopia manifest list`:
 
 ```
 $ kopia manifest list
@@ -416,7 +416,7 @@ a1646120c7a2450cd9e77fd98369d260        761 2019-06-22 20:21:43 PDT type:snapsho
 63fc854c283ad63cafbca54eaa4509e9        102 2019-06-22 21:22:20 PDT type:policy hostname:jareks-mbp path:/Users/jarek/Projects/Kopia/site policyType:path username:jarek
 ```
 
-To examine individual manifests use `kopia manifest show`:
+To examine individual manifests, use `kopia manifest show`:
 
 ```shell
 $ kopia manifest show 2d73b31af65d4ac7196641eeea9c475c
@@ -476,7 +476,7 @@ $ kopia manifest show 2d73b31af65d4ac7196641eeea9c475c
 
 ### Cache
 
-For better performance Kopia maintains local cache directory where most-recently used blocks are stored.
+For better performance, Kopia maintains local cache directory where most-recently used blocks are stored.
 You can examine the cache by using:
 
 ```
@@ -492,7 +492,7 @@ To clear the cache:
 $ kopia cache clear
 ```
 
-Finally to set caching parameters, such as maximum size of each cache use `kopia cache set`:
+Finally, to set caching parameters, such as maximum size of each cache, use `kopia cache set`:
 
 ```
 $ kopia cache set --metadata-cache-size-mb=500
