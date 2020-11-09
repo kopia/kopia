@@ -241,6 +241,104 @@ var cases = []struct {
 			"./src/some-src/f1",
 		},
 	},
+	{
+		desc: "absolut match",
+		setup: func(root *mockfs.Directory) {
+			root.Subdir("src").AddFileLines(".extraignore", []string{
+				"/sub/*.foo",
+			}, 0)
+			root.Subdir("src").AddDir("sub", 0)
+			root.Subdir("src").Subdir("sub").AddFile("a.foo", dummyFileContents, 0) // ignored by .extraignore
+			root.Subdir("src").Subdir("sub").AddFile("b.fooX", dummyFileContents, 0)
+			root.Subdir("src").Subdir("sub").AddFile("foo", dummyFileContents, 0)
+			root.Subdir("src").AddFile("c.foo", dummyFileContents, 0) // not ignored, at parent level
+		},
+		policyTree: policy.BuildTree(map[string]*policy.Policy{
+			"./src": {
+				FilesPolicy: policy.FilesPolicy{
+					DotIgnoreFiles: []string{
+						".extraignore",
+					},
+				},
+			},
+		}, policy.DefaultPolicy),
+		addedFiles: []string{
+			"./src/.extraignore",
+			"./src/sub/",
+			"./src/sub/b.fooX",
+			"./src/sub/foo",
+			"./src/c.foo",
+		},
+		ignoredFiles: []string{
+			"./src/sub/a.foo",
+		},
+	},
+	// Requeres major refactoring of ignore logic: https://github.com/kopia/kopia/pull/496#issuecomment-678790009
+	// {
+	// 	desc: "exclude include",
+	// 	setup: func(root *mockfs.Directory) {
+	// 		root.Subdir("src").AddFileLines(".extraignore", []string{
+	// 			"/sub/*.foo",
+	// 			"!/sub/special.foo",
+	// 		}, 0)
+	// 		root.Subdir("src").AddDir("sub", 0)
+	// 		root.Subdir("src").Subdir("sub").AddFile("ignore.foo", dummyFileContents, 0) // ignored by wildcard rule
+	// 		root.Subdir("src").Subdir("sub").AddFile("special.foo", dummyFileContents, 0) // explicitly included
+	// 	},
+	// 	policyTree: policy.BuildTree(map[string]*policy.Policy{
+	// 		"./src": {
+	// 			FilesPolicy: policy.FilesPolicy{
+	// 				DotIgnoreFiles: []string{
+	// 					".extraignore",
+	// 				},
+	// 			},
+	// 		},
+	// 	}, policy.DefaultPolicy),
+	// 	addedFiles: []string{
+	// 		"./src/.extraignore",
+	// 		"./src/sub/",
+	// 		"./src/sub/special.foo",
+	// 	},
+	// 	ignoredFiles: []string{
+	// 		"./src/sub/ignore.foo",
+	// 	},
+	// },
+	//  Not supported according to spec: https://git-scm.com/docs/gitignore#_pattern_format
+	// {
+	// 	desc: "exclude include wildcard",
+	// 	setup: func(root *mockfs.Directory) {
+	// 		root.Subdir("src").AddFileLines(".extraignore", []string{
+	// 		  ".config/",
+	// 			"!.config/App/**/special/",
+	// 		}, 0)
+	// 		root.Subdir("src").AddDir(".config", 0)
+	// 		root.Subdir("src").Subdir(".config").AddDir("App", 0)
+	// 		root.Subdir("src").Subdir(".config").Subdir("App").AddDir("some", 0)
+	// 		root.Subdir("src").Subdir(".config").Subdir("App").Subdir("some").AddDir("thing", 0)
+	// 		root.Subdir("src").Subdir(".config").Subdir("App").Subdir("some").Subdir("thing").AddFile("ignored_file.txt", dummyFileContents, 0)
+	// 		root.Subdir("src").Subdir(".config").Subdir("App").Subdir("some").Subdir("thing").AddDir("special", 0)
+	// 		root.Subdir("src").Subdir(".config").Subdir("App").Subdir("some").Subdir("thing").Subdir("special").AddFile("included_file.txt", dummyFileContents, 0)
+	// 	},
+	// 	policyTree: policy.BuildTree(map[string]*policy.Policy{
+	// 		"./src": {
+	// 			FilesPolicy: policy.FilesPolicy{
+	// 				DotIgnoreFiles: []string{
+	// 					".extraignore",
+	// 				},
+	// 			},
+	// 		},
+	// 	}, policy.DefaultPolicy),
+	// 	addedFiles: []string{
+	// 		"./src/.config/App/",
+	// 		"./src/.config/App/some/",
+	// 		"./src/.config/App/some/thing/",
+	// 		"./src/.config/App/some/thing/special/",
+	// 		"./src/.config/App/some/thing/special/included_file.txt",
+	// 	},
+	// 	ignoredFiles: []string{
+	// 		"./src/.config/App/some/thing/ignored_file.txt",
+	// 	},
+	// },
 }
 
 func TestIgnoreFS(t *testing.T) {

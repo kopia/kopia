@@ -27,6 +27,11 @@ func TestIgnore(t *testing.T) {
 		// negated match
 		{"!foo", "/base/dir", "/base/dir/foo", false, false},
 		{"!foo", "/base/dir", "/base/dir/foo2", false, true},
+		{"!foo/bar", "/base/dir", "/base/dir/foo/bar", false, false},
+		{"!foo/bar*", "/base/dir", "/base/dir/foo/bar.txt", false, false},
+		{"!foo/s*b/bar", "/base/dir", "/base/dir/foo/sub/bar", false, false},
+		{"!foo/**/bar", "/base/dir", "/base/dir/foo/a/b/bar", false, false},
+		{"!foo/**/bar/", "/base/dir", "/base/dir/foo/a/b/bar", true, false},
 
 		// escaped !
 		{"\\!important.txt", "/base/dir", "/base/dir/!important.txt", false, true},
@@ -40,6 +45,21 @@ func TestIgnore(t *testing.T) {
 		{"*.foo", "/base/dir", "/base/dir/a/a.foo", true, true},
 
 		{"*.foo", "/", "/a.foo", true, true},
+
+		// absolute match (relative to baseDir)
+		//  pattern must be relative to baseDir "If there is a separator at the beginning or middle (or both) of the pattern"
+
+		{"sub/foo", "/base/dir", "/base/dir/sub/foo", false, true},
+		{"sub/bar/", "/base/dir", "/base/dir/sub/bar", true, true},
+
+		{"/sub/foo", "/base/dir", "/base/dir/sub/foo", false, true},
+		{"/sub/bar/", "/base/dir", "/base/dir/sub/bar", true, true},
+
+		{"bar/*.foo", "/base/dir", "/base/dir/bar/a.foo", false, true},
+		{"bar/*.foo", "/base/dir", "/base/dir/sub/bar/a.foo", false, false},
+
+		{"/bar/*.foo", "/base/dir", "/base/dir/bar/a.foo", false, true},
+		{"/bar/*.foo", "/base/dir", "/base/dir/sub/bar/a.foo", false, false},
 
 		// no match outside of base directory
 		{"foo", "/base/dir", "/base/other-dir/foo", false, false},
