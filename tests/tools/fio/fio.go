@@ -69,7 +69,6 @@ func NewRunner() (fr *Runner, err error) {
 	exeStr := os.Getenv(FioExeEnvKey)
 	imgStr := os.Getenv(FioDockerImageEnvKey)
 	localFioDataPathStr := os.Getenv(LocalFioDataPathEnvKey)
-	hostFioDataPathStr := os.Getenv(HostFioDataPathEnvKey)
 
 	var exeArgs []string
 
@@ -98,6 +97,7 @@ func NewRunner() (fr *Runner, err error) {
 
 		// If the host path wasn't provided, assume it's the same as the local
 		// data directory path and we are not running from within a container already
+		hostFioDataPathStr := os.Getenv(HostFioDataPathEnvKey)
 		if hostFioDataPathStr == "" {
 			hostFioDataPathStr = dataDirParent
 		}
