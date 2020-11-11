@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"path"
@@ -39,8 +38,11 @@ func TestMain(m *testing.M) {
 	eng, err = engine.NewEngine("")
 
 	switch {
-	case err == kopiarunner.ErrExeVariableNotSet || errors.Is(err, fio.ErrEnvNotSet):
-		fmt.Println("Skipping robustness tests if KOPIA_EXE is not set")
+	case err == kopiarunner.ErrExeVariableNotSet:
+		log.Println("Skipping robustness tests because KOPIA_EXE is not set")
+		os.Exit(0)
+	case errors.Is(err, fio.ErrEnvNotSet):
+		log.Println("Skipping robustness tests because FIO environment is not set")
 		os.Exit(0)
 	case err != nil:
 		log.Fatalln("error on engine creation:", err)
