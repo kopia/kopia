@@ -3,77 +3,112 @@
 package robustness
 
 import (
-	"context"
 	"fmt"
-	"io/ioutil"
-	"math/rand"
-	"path/filepath"
+	"strconv"
 	"testing"
+	"time"
 
+	"github.com/kopia/kopia/tests/robustness/engine"
 	"github.com/kopia/kopia/tests/testenv"
-	"github.com/kopia/kopia/tests/tools/fio"
 )
 
 func TestManySmallFiles(t *testing.T) {
-	fileSize := int64(4096)
-	numFiles := 100
+	fileSize := 4096
+	numFiles := 10000
 
-	fioOpt := fio.Options{}.WithFileSize(fileSize).WithNumFiles(numFiles).WithBlockSize(4096)
+	fileWriteOpts := map[string]string{
+		engine.MaxDirDepthField:         strconv.Itoa(1),
+		engine.MaxFileSizeField:         strconv.Itoa(fileSize),
+		engine.MinFileSizeField:         strconv.Itoa(fileSize),
+		engine.MaxNumFilesPerWriteField: strconv.Itoa(numFiles),
+		engine.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
+	}
 
-	err := eng.FileWriter.WriteFiles("", fioOpt)
+	_, err := eng.ExecAction(engine.WriteRandomFilesActionKey, fileWriteOpts)
 	testenv.AssertNoError(t, err)
 
-	ctx := context.TODO()
-	snapID, err := eng.Checker.TakeSnapshot(ctx, eng.FileWriter.LocalDataDir)
+	snapOut, err := eng.ExecAction(engine.SnapshotRootDirActionKey, nil)
 	testenv.AssertNoError(t, err)
 
-	output, err := ioutil.TempFile("", t.Name())
-	testenv.AssertNoError(t, err)
-
-	defer output.Close()
-
-	err = eng.Checker.RestoreSnapshot(ctx, snapID, output)
+	_, err = eng.ExecAction(engine.RestoreSnapshotActionKey, snapOut)
 	testenv.AssertNoError(t, err)
 }
 
-func TestModifyWorkload(t *testing.T) {
-	const (
-		numSnapshots = 10
-		numDirs      = 10
-		maxOpsPerMod = 5
-	)
+func TestOneLargeFile(t *testing.T) {
+	fileSize := 40 * 1024 * 1024
+	numFiles := 1
 
-	numFiles := 10
-	writeSize := int64(65536 * numFiles)
-	fioOpt := fio.Options{}.
-		WithDedupePercentage(35).
-		WithRandRepeat(false).
-		WithBlockSize(4096).
-		WithFileSize(writeSize).
-		WithNumFiles(numFiles)
-
-	var resultIDs []string
-
-	ctx := context.Background()
-
-	for snapNum := 0; snapNum < numSnapshots; snapNum++ {
-		opsThisLoop := rand.Intn(maxOpsPerMod) + 1
-		for mod := 0; mod < opsThisLoop; mod++ {
-			dirIdxToMod := rand.Intn(numDirs)
-			writeToDir := filepath.Join(t.Name(), fmt.Sprintf("dir%d", dirIdxToMod))
-
-			err := eng.FileWriter.WriteFiles(writeToDir, fioOpt)
-			testenv.AssertNoError(t, err)
-		}
-
-		snapID, err := eng.Checker.TakeSnapshot(ctx, eng.FileWriter.LocalDataDir)
-		testenv.AssertNoError(t, err)
-
-		resultIDs = append(resultIDs, snapID)
+	fileWriteOpts := map[string]string{
+		engine.MaxDirDepthField:         strconv.Itoa(1),
+		engine.MaxFileSizeField:         strconv.Itoa(fileSize),
+		engine.MinFileSizeField:         strconv.Itoa(fileSize),
+		engine.MaxNumFilesPerWriteField: strconv.Itoa(numFiles),
+		engine.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
 	}
 
-	for _, snapID := range resultIDs {
-		err := eng.Checker.RestoreSnapshot(ctx, snapID, nil)
+	_, err := eng.ExecAction(engine.WriteRandomFilesActionKey, fileWriteOpts)
+	testenv.AssertNoError(t, err)
+
+	snapOut, err := eng.ExecAction(engine.SnapshotRootDirActionKey, nil)
+	testenv.AssertNoError(t, err)
+
+	_, err = eng.ExecAction(engine.RestoreSnapshotActionKey, snapOut)
+	testenv.AssertNoError(t, err)
+}
+
+func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
+	// TODO: Test takes too long - need to address performance issues with fio writes
+	fileSize := 4096
+	numFiles := 1000
+	filesPerWrite := 10
+	actionRepeats := numFiles / filesPerWrite
+
+	fileWriteOpts := map[string]string{
+		engine.MaxDirDepthField:         strconv.Itoa(15),
+		engine.MaxFileSizeField:         strconv.Itoa(fileSize),
+		engine.MinFileSizeField:         strconv.Itoa(fileSize),
+		engine.MaxNumFilesPerWriteField: strconv.Itoa(filesPerWrite),
+		engine.MinNumFilesPerWriteField: strconv.Itoa(filesPerWrite),
+		engine.ActionRepeaterField:      strconv.Itoa(actionRepeats),
+	}
+
+	_, err := eng.ExecAction(engine.WriteRandomFilesActionKey, fileWriteOpts)
+	testenv.AssertNoError(t, err)
+
+	snapOut, err := eng.ExecAction(engine.SnapshotRootDirActionKey, nil)
+	testenv.AssertNoError(t, err)
+
+	_, err = eng.ExecAction(engine.RestoreSnapshotActionKey, snapOut)
+	testenv.AssertNoError(t, err)
+}
+
+func TestRandomizedSmall(t *testing.T) {
+	st := time.Now()
+
+	opts := engine.ActionOpts{
+		engine.ActionControlActionKey: map[string]string{
+			string(engine.SnapshotRootDirActionKey):          strconv.Itoa(2),
+			string(engine.RestoreSnapshotActionKey):          strconv.Itoa(2),
+			string(engine.DeleteRandomSnapshotActionKey):     strconv.Itoa(1),
+			string(engine.WriteRandomFilesActionKey):         strconv.Itoa(8),
+			string(engine.DeleteRandomSubdirectoryActionKey): strconv.Itoa(1),
+		},
+		engine.WriteRandomFilesActionKey: map[string]string{
+			engine.IOLimitPerWriteAction:    fmt.Sprintf("%d", 512*1024*1024),
+			engine.MaxNumFilesPerWriteField: strconv.Itoa(100),
+			engine.MaxFileSizeField:         strconv.Itoa(64 * 1024 * 1024),
+			engine.MaxDirDepthField:         strconv.Itoa(3),
+		},
+	}
+
+	for time.Since(st) <= *randomizedTestDur {
+		err := eng.RandomAction(opts)
+		if err == engine.ErrNoOp {
+			t.Log("Random action resulted in no-op")
+
+			err = nil
+		}
+
 		testenv.AssertNoError(t, err)
 	}
 }
