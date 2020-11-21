@@ -69,6 +69,10 @@ func (e *entry) Device() fs.DeviceInfo {
 	return e.device
 }
 
+func (e *entry) LocalFilesystemPath() string {
+	return ""
+}
+
 // Directory is mock in-memory implementation of fs.Directory.
 type Directory struct {
 	entry

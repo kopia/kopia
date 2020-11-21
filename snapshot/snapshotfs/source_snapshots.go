@@ -51,6 +51,10 @@ func (s *sourceSnapshots) Device() fs.DeviceInfo {
 	return fs.DeviceInfo{}
 }
 
+func (s *sourceSnapshots) LocalFilesystemPath() string {
+	return ""
+}
+
 func safeName(path string) string {
 	path = strings.TrimLeft(path, "/")
 	return strings.Replace(path, "/", "_", -1)

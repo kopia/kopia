@@ -47,6 +47,10 @@ func (s *repositoryAllSources) Sys() interface{} {
 	return nil
 }
 
+func (s *repositoryAllSources) LocalFilesystemPath() string {
+	return ""
+}
+
 func (s *repositoryAllSources) Child(ctx context.Context, name string) (fs.Entry, error) {
 	return fs.ReadDirAndFindChild(ctx, s, name)
 }

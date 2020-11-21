@@ -47,6 +47,10 @@ func (s *sourceDirectories) Device() fs.DeviceInfo {
 	return fs.DeviceInfo{}
 }
 
+func (s *sourceDirectories) LocalFilesystemPath() string {
+	return ""
+}
+
 func (s *sourceDirectories) Child(ctx context.Context, name string) (fs.Entry, error) {
 	return fs.ReadDirAndFindChild(ctx, s, name)
 }

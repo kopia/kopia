@@ -77,6 +77,10 @@ func (e *filesystemEntry) Device() fs.DeviceInfo {
 	return e.device
 }
 
+func (e *filesystemEntry) LocalFilesystemPath() string {
+	return e.fullPath()
+}
+
 var _ os.FileInfo = (*filesystemEntry)(nil)
 
 func newEntry(fi os.FileInfo, parentDir string) filesystemEntry {
