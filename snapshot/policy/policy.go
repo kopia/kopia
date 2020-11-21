@@ -19,6 +19,7 @@ type Policy struct {
 	ErrorHandlingPolicy ErrorHandlingPolicy `json:"errorHandling,omitempty"`
 	SchedulingPolicy    SchedulingPolicy    `json:"scheduling,omitempty"`
 	CompressionPolicy   CompressionPolicy   `json:"compression,omitempty"`
+	Hooks               HooksPolicy         `json:"hooks"`
 	NoParent            bool                `json:"noParent,omitempty"`
 }
 
@@ -63,6 +64,7 @@ func MergePolicies(policies []*Policy) *Policy {
 		merged.ErrorHandlingPolicy.Merge(p.ErrorHandlingPolicy)
 		merged.SchedulingPolicy.Merge(p.SchedulingPolicy)
 		merged.CompressionPolicy.Merge(p.CompressionPolicy)
+		merged.Hooks.Merge(p.Hooks)
 	}
 
 	// Merge default expiration policy.
@@ -71,6 +73,11 @@ func MergePolicies(policies []*Policy) *Policy {
 	merged.ErrorHandlingPolicy.Merge(defaultErrorHandlingPolicy)
 	merged.SchedulingPolicy.Merge(defaultSchedulingPolicy)
 	merged.CompressionPolicy.Merge(defaultCompressionPolicy)
+	merged.Hooks.Merge(defaultHooksPolicy)
+
+	if len(policies) > 0 {
+		merged.Hooks.MergeNonInheritable(policies[0].Hooks)
+	}
 
 	return &merged
 }
