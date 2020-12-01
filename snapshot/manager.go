@@ -53,12 +53,20 @@ func sourceInfoFromLabels(labels map[string]string) SourceInfo {
 }
 
 func sourceInfoToLabels(si SourceInfo) map[string]string {
-	return map[string]string{
+	m := map[string]string{
 		typeKey:    ManifestType,
 		"hostname": si.Host,
-		"username": si.UserName,
-		"path":     si.Path,
 	}
+
+	if si.UserName != "" {
+		m["username"] = si.UserName
+	}
+
+	if si.Path != "" {
+		m["path"] = si.Path
+	}
+
+	return m
 }
 
 // ListSnapshots lists all snapshots for a given source.
