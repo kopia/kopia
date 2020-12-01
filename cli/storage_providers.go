@@ -3,8 +3,8 @@ package cli
 import (
 	"context"
 
+	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"

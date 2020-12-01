@@ -8,7 +8,8 @@ require (
 	contrib.go.opencensus.io/exporter/prometheus v0.2.0
 	github.com/Azure/azure-pipeline-go v0.2.3 // indirect
 	github.com/Azure/azure-storage-blob-go v0.10.0
-	github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d // indirect
+	github.com/alecthomas/kingpin v0.0.0-20200323085623-b6657d9477a6
+	github.com/alecthomas/units v0.0.0-20201120081800-1786d5ef83d4 // indirect
 	github.com/aws/aws-sdk-go v1.34.29
 	github.com/bgentry/speakeasy v0.1.0
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
@@ -52,6 +53,5 @@ require (
 	golang.org/x/sys v0.0.0-20200922070232-aee5d888a860
 	google.golang.org/api v0.32.0
 	google.golang.org/protobuf v1.25.0
-	gopkg.in/alecthomas/kingpin.v2 v2.2.6
 	gopkg.in/kothar/go-backblaze.v0 v0.0.0-20191215213626-7594ed38700f
 )

@@ -4,8 +4,8 @@ import (
 	"context"
 	"io/ioutil"
 
+	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
-	"gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/sftp"
