@@ -18,8 +18,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/minio/minio-go/v6"
-	"github.com/minio/minio-go/v6/pkg/credentials"
+	"github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 
 	"github.com/kopia/kopia/tests/robustness/snapmeta"
 	"github.com/kopia/kopia/tests/testenv"
@@ -100,18 +100,22 @@ func makeTempS3Bucket(t *testing.T) (bucketName string, cleanupCB func()) {
 		t.Skip("Skipping S3 tests if no creds provided")
 	}
 
-	secure := true
-	region := ""
-	cli, err := minio.NewWithCredentials(endpoint, credentials.NewStaticV4(accessKeyID, secretAccessKey, sessionToken), secure, region)
+	ctx := context.Background()
+
+	cli, err := minio.New(endpoint, &minio.Options{
+		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, sessionToken),
+		Secure: true,
+		Region: "",
+	})
 	testenv.AssertNoError(t, err)
 
 	bucketName = fmt.Sprintf("engine-unit-tests-%s", randomString(4))
-	err = cli.MakeBucket(bucketName, "")
+	err = cli.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{})
 	testenv.AssertNoError(t, err)
 
 	return bucketName, func() {
-		objNameCh := make(chan string)
-		errCh := cli.RemoveObjects(bucketName, objNameCh)
+		objChan := make(chan minio.ObjectInfo)
+		errCh := cli.RemoveObjects(ctx, bucketName, objChan, minio.RemoveObjectsOptions{})
 
 		go func() {
 			for removeErr := range errCh {
@@ -119,16 +123,14 @@ func makeTempS3Bucket(t *testing.T) (bucketName string, cleanupCB func()) {
 			}
 		}()
 
-		recursive := true
-		doneCh := make(chan struct{})
-
-		defer close(doneCh)
-
-		for obj := range cli.ListObjects(bucketName, "", recursive, doneCh) {
-			objNameCh <- obj.Key
+		for obj := range cli.ListObjects(ctx, bucketName, minio.ListObjectsOptions{
+			Prefix:    "",
+			Recursive: true,
+		}) {
+			objChan <- obj
 		}
 
-		close(objNameCh)
+		close(objChan)
 
 		retries := 10
 		retryPeriod := 1 * time.Second
@@ -138,7 +140,7 @@ func makeTempS3Bucket(t *testing.T) (bucketName string, cleanupCB func()) {
 		for retry := 0; retry < retries; retry++ {
 			time.Sleep(retryPeriod)
 
-			err = cli.RemoveBucket(bucketName)
+			err = cli.RemoveBucket(ctx, bucketName)
 			if err == nil {
 				break
 			}

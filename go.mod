@@ -22,12 +22,12 @@ require (
 	github.com/google/readahead v0.0.0-20161222183148-eaceba169032 // indirect
 	github.com/google/uuid v1.1.2
 	github.com/gorilla/mux v1.8.0
-	github.com/klauspost/compress v1.11.0
+	github.com/klauspost/compress v1.11.3
 	github.com/klauspost/pgzip v1.2.5
 	github.com/kylelemons/godebug v1.1.0
 	github.com/mattn/go-colorable v0.1.7 // indirect
-	github.com/minio/minio v0.0.0-20200922223427-0537a21b7948
-	github.com/minio/minio-go/v6 v6.0.58-0.20200612001654-a57fec8037ec
+	github.com/minio/minio v0.0.0-20201202102351-ce0e17b62bcc
+	github.com/minio/minio-go/v7 v7.0.6
 	github.com/natefinch/atomic v0.0.0-20200526193002-18c0533a5b09
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
 	github.com/pkg/errors v0.9.1
