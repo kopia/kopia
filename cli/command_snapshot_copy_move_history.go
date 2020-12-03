@@ -13,8 +13,8 @@ import (
 )
 
 var (
-	snapshotCopyCommand = snapshotCommands.Command("copy", snapshotCopyMoveHelp("copy"))
-	snapshotMoveCommand = snapshotCommands.Command("move", snapshotCopyMoveHelp("move"))
+	snapshotCopyCommand = snapshotCommands.Command("copy-history", snapshotCopyMoveHelp("copy"))
+	snapshotMoveCommand = snapshotCommands.Command("move-history", snapshotCopyMoveHelp("move"))
 
 	snapshotCopyOrMoveDryRun      bool
 	snapshotCopyOrMoveSource      string
