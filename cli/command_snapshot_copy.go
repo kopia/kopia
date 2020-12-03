@@ -2,8 +2,10 @@ package cli
 
 import (
 	"context"
+	"strings"
 	"time"
 
+	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo"
@@ -11,12 +13,43 @@ import (
 )
 
 var (
-	snapshotCopyCommand     = snapshotCommands.Command("copy", "Copy snapshot history from another user or host").Alias("cp")
-	snapshotCopyDryRun      = snapshotCopyCommand.Flag("dry-run", "Do not actually copy snapshots, only print what would happen").Short('n').Bool()
-	snapshotCopyMove        = snapshotCopyCommand.Flag("move", "Delete original copied snapshots").Bool()
-	snapshotCopySource      = snapshotCopyCommand.Arg("source", "Source (user@host or user@host:path)").Required().String()
-	snapshotCopyDestination = snapshotCopyCommand.Arg("destination", "Destination (defaults to current user@host)").String()
+	snapshotCopyCommand = snapshotCommands.Command("copy", snapshotCopyMoveHelp("copy"))
+	snapshotMoveCommand = snapshotCommands.Command("move", snapshotCopyMoveHelp("move"))
+
+	snapshotCopyOrMoveDryRun      bool
+	snapshotCopyOrMoveSource      string
+	snapshotCopyOrMoveDestination string
 )
+
+func snapshotCopyMoveHelp(verb string) string {
+	return strings.ReplaceAll(`Performs a VERB of the history of snapshots from another user or host.
+	This command will VERB snapshot manifests of the specified source to the respective destination.
+	This is typically used when renaming a host, switching username or moving directory
+	around to maintain snapshot history.
+
+	Both source and destination can be specified using user@host, @host or user@host:/path
+	where destination values override the corresponding parts of the source, so both targeted
+	and mass VERB is supported.
+
+	Source:             Destination         Behavior
+	---------------------------------------------------
+	@host1              @host2              VERB snapshots from all users of host1
+	@host1              user2@host2         (disallowed as it would potentially collapse users)
+	@host1              user2@host2:/path2  (disallowed as it would potentially collapse paths)
+	user1@host1         @host2              VERB all snapshots to user1@host2
+	user1@host1         user2@host2         VERB all snapshots to user2@host2
+	user1@host1         user2@host2:/path2  (disallowed as it would potentially collapse paths)
+	user1@host1:/path1  @host2              VERB to user1@host2:/path1
+	user1@host1:/path1  user2@host2         VERB to user2@host2:/path1
+	user1@host1:/path1  user2@host2:/path2  VERB snapshots from single path.
+`, "VERB", verb)
+}
+
+func registerSnapshotCopyFlags(cmd *kingpin.CmdClause) {
+	cmd.Flag("dry-run", "Do not actually copy snapshots, only print what would happen").Short('n').BoolVar(&snapshotCopyOrMoveDryRun)
+	cmd.Arg("source", "Source (user@host or user@host:path)").Required().StringVar(&snapshotCopyOrMoveSource)
+	cmd.Arg("destination", "Destination (defaults to current user@host)").StringVar(&snapshotCopyOrMoveDestination)
+}
 
 // runSnapshotCopyCommand copies snapshot manifests of the specified source
 // to the respective destination. This is typically used when renaming a host,
@@ -39,7 +72,7 @@ var (
 // user1@host1:/path1  @host2              copy to user1@host2:/path1
 // user1@host1:/path1  user2@host2         copy to user2@host2:/path1
 // user1@host1:/path1  user2@host2:/path2  copy snapshots from single path.
-func runSnapshotCopyCommand(ctx context.Context, rep repo.Repository) error {
+func runSnapshotCopyCommand(ctx context.Context, rep repo.Repository, isMoveCommand bool) error {
 	si, di, err := getCopySourceAndDestination(rep)
 	if err != nil {
 		return err
@@ -67,7 +100,7 @@ func runSnapshotCopyCommand(ctx context.Context, rep repo.Repository) error {
 		}
 
 		if snapshotExists(dstSnapshots, dstSource, manifest.StartTime) {
-			if *snapshotCopyMove && !*snapshotCopyDryRun {
+			if isMoveCommand && !snapshotCopyOrMoveDryRun {
 				log(ctx).Infof("%v (%v) already exists - deleting source", dstSource, formatTimestamp(manifest.StartTime))
 
 				if err := rep.DeleteManifest(ctx, manifest.ID); err != nil {
@@ -82,9 +115,9 @@ func runSnapshotCopyCommand(ctx context.Context, rep repo.Repository) error {
 
 		srcID := manifest.ID
 
-		log(ctx).Infof("%v %v (%v) => %v", getCopySnapshotAction(), manifest.Source, formatTimestamp(manifest.StartTime), dstSource)
+		log(ctx).Infof("%v %v (%v) => %v", getCopySnapshotAction(isMoveCommand), manifest.Source, formatTimestamp(manifest.StartTime), dstSource)
 
-		if *snapshotCopyDryRun {
+		if snapshotCopyOrMoveDryRun {
 			continue
 		}
 
@@ -95,7 +128,7 @@ func runSnapshotCopyCommand(ctx context.Context, rep repo.Repository) error {
 			return errors.Wrap(err, "unable to save snapshot")
 		}
 
-		if *snapshotCopyMove {
+		if isMoveCommand {
 			if err := rep.DeleteManifest(ctx, srcID); err != nil {
 				return errors.Wrap(err, "unable to delete source manifest")
 			}
@@ -105,13 +138,13 @@ func runSnapshotCopyCommand(ctx context.Context, rep repo.Repository) error {
 	return nil
 }
 
-func getCopySnapshotAction() string {
+func getCopySnapshotAction(isMoveCommand bool) string {
 	action := "copying"
-	if *snapshotCopyMove {
+	if isMoveCommand {
 		action = "moving"
 	}
 
-	if *snapshotCopyDryRun {
+	if snapshotCopyOrMoveDryRun {
 		action += " (dry run)"
 	}
 
@@ -119,17 +152,17 @@ func getCopySnapshotAction() string {
 }
 
 func getCopySourceAndDestination(rep repo.Repository) (si, di snapshot.SourceInfo, err error) {
-	si, err = snapshot.ParseSourceInfo(*snapshotCopySource, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
+	si, err = snapshot.ParseSourceInfo(snapshotCopyOrMoveSource, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
 	if err != nil {
 		return si, di, errors.Wrap(err, "invalid source")
 	}
 
-	if *snapshotCopyDestination == "" {
+	if snapshotCopyOrMoveDestination == "" {
 		// no destination - assume current user@hostname
 		di.UserName = rep.ClientOptions().Username
 		di.Host = rep.ClientOptions().Hostname
 	} else {
-		di, err = snapshot.ParseSourceInfo(*snapshotCopyDestination, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
+		di, err = snapshot.ParseSourceInfo(snapshotCopyOrMoveDestination, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
 		if err != nil {
 			return si, di, errors.Wrap(err, "invalid destination")
 		}
@@ -186,5 +219,14 @@ func getCopyDestination(source, overrides snapshot.SourceInfo) snapshot.SourceIn
 }
 
 func init() {
-	snapshotCopyCommand.Action(repositoryAction(runSnapshotCopyCommand))
+	registerSnapshotCopyFlags(snapshotCopyCommand)
+
+	snapshotCopyCommand.Action(repositoryAction(func(ctx context.Context, rep repo.Repository) error {
+		return runSnapshotCopyCommand(ctx, rep, false)
+	}))
+
+	registerSnapshotCopyFlags(snapshotMoveCommand)
+	snapshotMoveCommand.Action(repositoryAction(func(ctx context.Context, rep repo.Repository) error {
+		return runSnapshotCopyCommand(ctx, rep, true)
+	}))
 }

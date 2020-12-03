@@ -8,7 +8,7 @@ require (
 	contrib.go.opencensus.io/exporter/prometheus v0.2.0
 	github.com/Azure/azure-pipeline-go v0.2.3 // indirect
 	github.com/Azure/azure-storage-blob-go v0.10.0
-	github.com/alecthomas/kingpin v0.0.0-20200323085623-b6657d9477a6
+	github.com/alecthomas/kingpin v0.0.0-20200323085623-b6657d9477a6 // this is pulling master, which is newer than v2
 	github.com/alecthomas/units v0.0.0-20201120081800-1786d5ef83d4 // indirect
 	github.com/aws/aws-sdk-go v1.34.29
 	github.com/bgentry/speakeasy v0.1.0

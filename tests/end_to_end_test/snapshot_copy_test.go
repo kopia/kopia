@@ -41,7 +41,7 @@ func TestSnapshotCopy(t *testing.T) {
 	})
 
 	// move user1@host2 to user3@host3
-	e.RunAndExpectSuccess(t, "snapshot", "copy", "--move", "user1@host2", "user1@host3")
+	e.RunAndExpectSuccess(t, "snapshot", "move", "user1@host2", "user1@host3")
 	assertSnapshotCount(t, e, map[snapshot.SourceInfo]int{
 		{Host: "host1", UserName: "user1", Path: sharedTestDataDir1}: 2,
 		{Host: "host1", UserName: "user2", Path: sharedTestDataDir1}: 2,
@@ -50,7 +50,7 @@ func TestSnapshotCopy(t *testing.T) {
 	})
 
 	// move user1@host2 to @host4
-	e.RunAndExpectSuccess(t, "snapshot", "copy", "--move", "user1@host3", "@host4")
+	e.RunAndExpectSuccess(t, "snapshot", "move", "user1@host3", "@host4")
 	assertSnapshotCount(t, e, map[snapshot.SourceInfo]int{
 		{Host: "host1", UserName: "user1", Path: sharedTestDataDir1}: 2,
 		{Host: "host1", UserName: "user2", Path: sharedTestDataDir1}: 2,
