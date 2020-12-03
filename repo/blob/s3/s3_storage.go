@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/efarrer/iothrottler"
-	minio "github.com/minio/minio-go/v6"
-	"github.com/minio/minio-go/v6/pkg/credentials"
+	minio "github.com/minio/minio-go/v7"
+	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/retry"
@@ -46,7 +46,7 @@ func (s *s3Storage) GetBlob(ctx context.Context, b blob.ID, offset, length int64
 			}
 		}
 
-		o, err := s.cli.GetObject(s.BucketName, s.getObjectNameString(b), opt)
+		o, err := s.cli.GetObject(ctx, s.BucketName, s.getObjectNameString(b), opt)
 		if err != nil {
 			return 0, err
 		}
@@ -116,7 +116,7 @@ func translateError(err error) error {
 
 func (s *s3Storage) GetMetadata(ctx context.Context, b blob.ID) (blob.Metadata, error) {
 	v, err := retry.WithExponentialBackoff(ctx, fmt.Sprintf("GetMetadata(%v)", b), func() (interface{}, error) {
-		oi, err := s.cli.StatObject(s.BucketName, s.getObjectNameString(b), minio.StatObjectOptions{})
+		oi, err := s.cli.StatObject(ctx, s.BucketName, s.getObjectNameString(b), minio.StatObjectOptions{})
 		if err != nil {
 			return blob.Metadata{}, err
 		}
@@ -146,14 +146,14 @@ func (s *s3Storage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) err
 			defer progressCallback(string(b), int64(combinedLength), int64(combinedLength))
 		}
 
-		n, err := s.cli.PutObject(s.BucketName, s.getObjectNameString(b), throttled, int64(combinedLength), minio.PutObjectOptions{
+		uploadInfo, err := s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), throttled, int64(combinedLength), minio.PutObjectOptions{
 			ContentType: "application/x-kopia",
 			Progress:    newProgressReader(progressCallback, string(b), int64(combinedLength)),
 		})
 
-		if err == io.EOF && n == 0 {
+		if err == io.EOF && uploadInfo.Size == 0 {
 			// special case empty stream
-			_, err = s.cli.PutObject(s.BucketName, s.getObjectNameString(b), bytes.NewBuffer(nil), 0, minio.PutObjectOptions{
+			_, err = s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), bytes.NewBuffer(nil), 0, minio.PutObjectOptions{
 				ContentType: "application/x-kopia",
 			})
 		}
@@ -168,7 +168,7 @@ func (s *s3Storage) SetTime(ctx context.Context, b blob.ID, t time.Time) error {
 
 func (s *s3Storage) DeleteBlob(ctx context.Context, b blob.ID) error {
 	attempt := func() (interface{}, error) {
-		return nil, s.cli.RemoveObject(s.BucketName, s.getObjectNameString(b))
+		return nil, s.cli.RemoveObject(ctx, s.BucketName, s.getObjectNameString(b), minio.RemoveObjectOptions{})
 	}
 
 	_, err := exponentialBackoff(ctx, fmt.Sprintf("DeleteBlob(%q)", b), attempt)
@@ -181,7 +181,9 @@ func (s *s3Storage) getObjectNameString(b blob.ID) string {
 }
 
 func (s *s3Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(blob.Metadata) error) error {
-	oi := s.cli.ListObjects(s.BucketName, s.getObjectNameString(prefix), false, ctx.Done())
+	oi := s.cli.ListObjects(ctx, s.BucketName, minio.ListObjectsOptions{
+		Prefix: s.getObjectNameString(prefix),
+	})
 	for o := range oi {
 		if err := o.Err; err != nil {
 			return err
@@ -268,19 +270,25 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		return nil, errors.New("bucket name must be specified")
 	}
 
-	cli, err := minio.NewWithCredentials(opt.Endpoint, credentials.NewStaticV4(opt.AccessKeyID, opt.SecretAccessKey, opt.SessionToken), !opt.DoNotUseTLS, opt.Region)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to create client")
+	minioOpts := &minio.Options{
+		Creds:  credentials.NewStaticV4(opt.AccessKeyID, opt.SecretAccessKey, opt.SessionToken),
+		Secure: !opt.DoNotUseTLS,
+		Region: opt.Region,
 	}
 
 	if opt.DoNotVerifyTLS {
-		cli.SetCustomTransport(getCustomTransport(true))
+		minioOpts.Transport = getCustomTransport(true)
+	}
+
+	cli, err := minio.New(opt.Endpoint, minioOpts)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to create client")
 	}
 
 	downloadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.MaxDownloadSpeedBytesPerSecond))
 	uploadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.MaxUploadSpeedBytesPerSecond))
 
-	ok, err := cli.BucketExistsWithContext(ctx, opt.BucketName)
+	ok, err := cli.BucketExists(ctx, opt.BucketName)
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to determine if bucket %q exists", opt.BucketName)
 	}

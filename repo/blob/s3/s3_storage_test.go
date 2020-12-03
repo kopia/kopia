@@ -16,7 +16,8 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sts"
-	minio "github.com/minio/minio-go/v6"
+	minio "github.com/minio/minio-go/v7"
+	miniocreds "github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/minio/minio/pkg/madmin"
 
 	"github.com/kopia/kopia/internal/blobtesting"
@@ -280,12 +281,18 @@ func testURL(url string, t *testing.T) {
 }
 
 func createBucket(t *testutil.RetriableT, opt *Options) {
-	minioClient, err := minio.New(opt.Endpoint, opt.AccessKeyID, opt.SecretAccessKey, !opt.DoNotUseTLS)
+	minioClient, err := minio.New(opt.Endpoint,
+		&minio.Options{
+			Creds:  miniocreds.NewStaticV4(opt.AccessKeyID, opt.SecretAccessKey, ""),
+			Secure: !opt.DoNotUseTLS,
+		})
 	if err != nil {
 		t.Fatalf("can't initialize minio client: %v", err)
 	}
 	// ignore error
-	_ = minioClient.MakeBucket(opt.BucketName, opt.Region)
+	_ = minioClient.MakeBucket(context.Background(), opt.BucketName, minio.MakeBucketOptions{
+		Region: opt.Region,
+	})
 }
 
 func createMinioUser(t *testutil.RetriableT, kopiaUserName, kopiaPasswd string) {
