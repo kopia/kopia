@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"strings"
-	"time"
 
 	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
@@ -99,7 +98,7 @@ func runSnapshotCopyCommand(ctx context.Context, rep repo.Repository, isMoveComm
 			continue
 		}
 
-		if snapshotExists(dstSnapshots, dstSource, manifest.StartTime) {
+		if snapshotExists(dstSnapshots, dstSource, manifest) {
 			if isMoveCommand && !snapshotCopyOrMoveDryRun {
 				log(ctx).Infof("%v (%v) already exists - deleting source", dstSource, formatTimestamp(manifest.StartTime))
 
@@ -183,20 +182,31 @@ func getCopySourceAndDestination(rep repo.Repository) (si, di snapshot.SourceInf
 	return si, di, nil
 }
 
-func snapshotExists(snaps []*snapshot.Manifest, src snapshot.SourceInfo, startTime time.Time) bool {
+func snapshotExists(snaps []*snapshot.Manifest, src snapshot.SourceInfo, srcManifest *snapshot.Manifest) bool {
 	for _, s := range snaps {
-		if !startTime.Equal(s.StartTime) {
-			continue
-		}
-
 		if src != s.Source {
 			continue
 		}
 
-		return true
+		if sameSnapshot(srcManifest, s) {
+			return true
+		}
 	}
 
 	return false
+}
+
+// sameSnapshot returns true if snapshot manifests have the same start time and root object ID.
+func sameSnapshot(a, b *snapshot.Manifest) bool {
+	if !a.StartTime.Equal(b.StartTime) {
+		return false
+	}
+
+	if a.RootObjectID() != b.RootObjectID() {
+		return false
+	}
+
+	return true
 }
 
 // getCopyDestination returns the source modified by applying non-empty fields specified in the overrides.
