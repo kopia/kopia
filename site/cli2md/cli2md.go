@@ -10,8 +10,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
-	"gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/kopia/kopia/cli"
 	_ "github.com/kopia/kopia/internal/logfile"

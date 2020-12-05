@@ -10,8 +10,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
-	"gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/units"

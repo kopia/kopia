@@ -4,7 +4,7 @@ import (
 	"context"
 	"io/ioutil"
 
-	"gopkg.in/alecthomas/kingpin.v2"
+	"github.com/alecthomas/kingpin"
 
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/rclone"

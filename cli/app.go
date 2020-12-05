@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/alecthomas/kingpin"
 	"github.com/fatih/color"
 	"github.com/pkg/errors"
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/kopia/kopia/internal/apiclient"
 	"github.com/kopia/kopia/repo"

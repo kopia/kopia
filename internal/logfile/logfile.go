@@ -13,10 +13,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/alecthomas/kingpin"
 	"github.com/fatih/color"
 	logging "github.com/op/go-logging"
 	"github.com/pkg/errors"
-	"gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/internal/clock"

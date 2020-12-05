@@ -12,8 +12,8 @@ package main
 import (
 	"os"
 
+	"github.com/alecthomas/kingpin"
 	gologging "github.com/op/go-logging"
-	"gopkg.in/alecthomas/kingpin.v2"
 
 	"github.com/kopia/kopia/cli"
 	"github.com/kopia/kopia/internal/logfile"
@@ -68,11 +68,15 @@ Commands (use --help-full to list all commands):
 func main() {
 	app := cli.App()
 
+	kingpin.EnableFileExpansion = false
+
 	logging.SetDefault(func(module string) logging.Logger {
 		return gologging.MustGetLogger(module)
 	})
+
 	app.Version(repo.BuildVersion + " build: " + repo.BuildInfo)
 	app.PreAction(logfile.Initialize)
 	app.UsageTemplate(usageTemplate)
+
 	kingpin.MustParse(app.Parse(os.Args[1:]))
 }
