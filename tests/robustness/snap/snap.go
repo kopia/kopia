@@ -2,6 +2,8 @@
 // common snapshot operations
 package snap
 
+import "os/exec"
+
 // Snapshotter is an interface that describes methods
 // for taking, restoring, deleting snapshots, and
 // tracking them by a string snapshot ID.
@@ -20,4 +22,6 @@ type Snapshotter interface {
 type RepoManager interface {
 	ConnectOrCreateS3(bucketName, pathPrefix string) error
 	ConnectOrCreateFilesystem(path string) error
+	ConnectOrCreateS3WithServer(serverAddr, bucketName, pathPrefix string) (*exec.Cmd, error)
+	ConnectOrCreateFilesystemWithServer(serverAddr, repoPath string) (*exec.Cmd, error)
 }
