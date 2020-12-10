@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/kopia/kopia/tests/robustness/checker"
@@ -333,7 +334,11 @@ func (e *Engine) InitFilesystemWithServer(ctx context.Context, testRepoPath, met
 
 // cleanUpServer cleans up the server process.
 func (e *Engine) cleanUpServer() {
-	if e.serverCmd != nil {
-		e.serverCmd.Process.Kill() // nolint:errcheck
+	if e.serverCmd == nil {
+		return
+	}
+
+	if err := e.serverCmd.Process.Signal(syscall.SIGTERM); err != nil {
+		log.Println("Failed to send termination signal to kopia server process:", err)
 	}
 }
