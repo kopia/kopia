@@ -86,6 +86,8 @@ func (kr *Runner) RunAsync(args ...string) (*exec.Cmd, error) {
 	c.Env = append(os.Environ(), kr.environment...)
 	c.Stderr = &bytes.Buffer{}
 
+	setpdeath(c)
+
 	err := c.Start()
 	if err != nil {
 		return nil, err
