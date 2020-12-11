@@ -1,3 +1,5 @@
+// +build darwin freebsd netbsd openbsd
+
 package restore
 
 import (
