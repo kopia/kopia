@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"strconv"
 
 	"github.com/pkg/errors"
 
@@ -32,68 +31,15 @@ func setFilesPolicyFromFlags(ctx context.Context, fp *policy.FilesPolicy, change
 		return errors.Wrap(err, "maximum file size")
 	}
 
-	if *policySetClearDotIgnore {
-		*changeCount++
+	applyPolicyStringList(ctx, "dot-ignore filenames", &fp.DotIgnoreFiles, *policySetAddDotIgnore, *policySetRemoveDotIgnore, *policySetClearDotIgnore, changeCount)
+	applyPolicyStringList(ctx, "ignore rules", &fp.IgnoreRules, *policySetAddIgnore, *policySetRemoveIgnore, *policySetClearIgnore, changeCount)
 
-		log(ctx).Infof(" - removing all rules for dot-ignore files\n")
-
-		fp.DotIgnoreFiles = nil
-	} else {
-		fp.DotIgnoreFiles = addRemoveDedupeAndSort(ctx, "dot-ignore files", fp.DotIgnoreFiles, *policySetAddDotIgnore, *policySetRemoveDotIgnore, changeCount)
+	if err := applyPolicyBoolPtr(ctx, "ignore cache dirs", &fp.IgnoreCacheDirs, *policyIgnoreCacheDirs, changeCount); err != nil {
+		return err
 	}
 
-	if *policySetClearIgnore {
-		*changeCount++
-
-		fp.IgnoreRules = nil
-
-		log(ctx).Infof(" - removing all ignore rules\n")
-	} else {
-		fp.IgnoreRules = addRemoveDedupeAndSort(ctx, "ignored files", fp.IgnoreRules, *policySetAddIgnore, *policySetRemoveIgnore, changeCount)
-	}
-
-	switch {
-	case *policyIgnoreCacheDirs == "":
-	case *policyIgnoreCacheDirs == inheritPolicyString:
-		*changeCount++
-
-		fp.IgnoreCacheDirs = nil
-
-		log(ctx).Infof(" - inherit ignoring cache dirs from parent\n")
-
-	default:
-		val, err := strconv.ParseBool(*policyIgnoreCacheDirs)
-		if err != nil {
-			return err
-		}
-
-		*changeCount++
-
-		fp.IgnoreCacheDirs = &val
-
-		log(ctx).Infof(" - setting ignore cache dirs to %v\n", val)
-	}
-
-	switch {
-	case *policyOneFileSystem == "":
-	case *policyOneFileSystem == inheritPolicyString:
-		*changeCount++
-
-		fp.OneFileSystem = nil
-
-		printStderr(" - inherit one file system from parent\n")
-
-	default:
-		val, err := strconv.ParseBool(*policyOneFileSystem)
-		if err != nil {
-			return err
-		}
-
-		*changeCount++
-
-		fp.OneFileSystem = &val
-
-		printStderr(" - setting one file system to %v\n", val)
+	if err := applyPolicyBoolPtr(ctx, "one filesystem", &fp.OneFileSystem, *policyOneFileSystem, changeCount); err != nil {
+		return err
 	}
 
 	return nil

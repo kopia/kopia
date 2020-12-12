@@ -23,6 +23,7 @@ var (
 
 const (
 	inheritPolicyString = "inherit"
+	defaultPolicyString = "default"
 )
 
 func init() {
@@ -95,16 +96,26 @@ func setPolicyFromFlags(ctx context.Context, p *policy.Policy, changeCount *int)
 	return nil
 }
 
-func addRemoveDedupeAndSort(ctx context.Context, desc string, base, add, remove []string, changeCount *int) []string {
+func applyPolicyStringList(ctx context.Context, desc string, val *[]string, add, remove []string, clear bool, changeCount *int) {
+	if clear {
+		log(ctx).Infof(" - removing all from %q\n", desc)
+
+		*changeCount++
+
+		*val = nil
+
+		return
+	}
+
 	entries := map[string]bool{}
-	for _, b := range base {
+	for _, b := range *val {
 		entries[b] = true
 	}
 
 	for _, b := range add {
 		*changeCount++
 
-		log(ctx).Infof(" - adding %v to %v\n", b, desc)
+		log(ctx).Infof(" - adding %q to %q\n", b, desc)
 
 		entries[b] = true
 	}
@@ -112,7 +123,7 @@ func addRemoveDedupeAndSort(ctx context.Context, desc string, base, add, remove 
 	for _, b := range remove {
 		*changeCount++
 
-		log(ctx).Infof(" - removing %v from %v\n", b, desc)
+		log(ctx).Infof(" - removing %q from %q\n", b, desc)
 		delete(entries, b)
 	}
 
@@ -123,7 +134,7 @@ func addRemoveDedupeAndSort(ctx context.Context, desc string, base, add, remove 
 
 	sort.Strings(s)
 
-	return s
+	*val = s
 }
 
 func applyPolicyNumber(ctx context.Context, desc string, val **int, str string, changeCount *int) error {
@@ -132,10 +143,10 @@ func applyPolicyNumber(ctx context.Context, desc string, val **int, str string, 
 		return nil
 	}
 
-	if str == inheritPolicyString || str == "default" {
+	if str == inheritPolicyString || str == defaultPolicyString {
 		*changeCount++
 
-		log(ctx).Infof(" - resetting %v to a default value inherited from parent.\n", desc)
+		log(ctx).Infof(" - resetting %q to a default value inherited from parent.\n", desc)
 
 		*val = nil
 
@@ -150,7 +161,7 @@ func applyPolicyNumber(ctx context.Context, desc string, val **int, str string, 
 	i := int(v)
 	*changeCount++
 
-	log(ctx).Infof(" - setting %v to %v.\n", desc, i)
+	log(ctx).Infof(" - setting %q to %v.\n", desc, i)
 	*val = &i
 
 	return nil
@@ -162,10 +173,10 @@ func applyPolicyNumber64(ctx context.Context, desc string, val *int64, str strin
 		return nil
 	}
 
-	if str == inheritPolicyString || str == "default" {
+	if str == inheritPolicyString || str == defaultPolicyString {
 		*changeCount++
 
-		log(ctx).Infof(" - resetting %v to a default value inherited from parent.\n", desc)
+		log(ctx).Infof(" - resetting %q to a default value inherited from parent.\n", desc)
 
 		*val = 0
 
@@ -174,13 +185,42 @@ func applyPolicyNumber64(ctx context.Context, desc string, val *int64, str strin
 
 	v, err := strconv.ParseInt(str, 10, 64)
 	if err != nil {
-		return errors.Wrapf(err, "can't parse the %v %q", desc, str)
+		return errors.Wrapf(err, "can't parse the %q %q", desc, str)
 	}
 
 	*changeCount++
 
-	log(ctx).Infof(" - setting %v to %v.\n", desc, v)
+	log(ctx).Infof(" - setting %q to %v.\n", desc, v)
 	*val = v
+
+	return nil
+}
+
+func applyPolicyBoolPtr(ctx context.Context, desc string, val **bool, str string, changeCount *int) error {
+	if str == "" {
+		// not changed
+		return nil
+	}
+
+	if str == inheritPolicyString || str == "default" {
+		*changeCount++
+
+		log(ctx).Infof(" - resetting %q to a default value inherited from parent.\n", desc)
+
+		*val = nil
+
+		return nil
+	}
+
+	v, err := strconv.ParseBool(str)
+	if err != nil {
+		return errors.Wrapf(err, "can't parse the %q %q", desc, str)
+	}
+
+	*changeCount++
+
+	log(ctx).Infof(" - setting %q to %v.\n", desc, v)
+	*val = &v
 
 	return nil
 }

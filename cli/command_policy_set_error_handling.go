@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"strconv"
 
 	"github.com/kopia/kopia/snapshot/policy"
 )
@@ -14,46 +13,12 @@ var (
 )
 
 func setErrorHandlingPolicyFromFlags(ctx context.Context, fp *policy.ErrorHandlingPolicy, changeCount *int) error {
-	switch {
-	case *policyIgnoreFileErrors == "":
-	case *policyIgnoreFileErrors == inheritPolicyString:
-		*changeCount++
-
-		fp.IgnoreFileErrors = nil
-
-		log(ctx).Infof(" - inherit file read error behavior from parent\n")
-	default:
-		val, err := strconv.ParseBool(*policyIgnoreFileErrors)
-		if err != nil {
-			return err
-		}
-
-		*changeCount++
-
-		fp.IgnoreFileErrors = &val
-
-		log(ctx).Infof(" - setting ignore file read errors to %v\n", val)
+	if err := applyPolicyBoolPtr(ctx, "ignore file read errors", &fp.IgnoreFileErrors, *policyIgnoreFileErrors, changeCount); err != nil {
+		return err
 	}
 
-	switch {
-	case *policyIgnoreDirectoryErrors == "":
-	case *policyIgnoreDirectoryErrors == inheritPolicyString:
-		*changeCount++
-
-		fp.IgnoreDirectoryErrors = nil
-
-		log(ctx).Infof(" - inherit directory read error behavior from parent\n")
-	default:
-		val, err := strconv.ParseBool(*policyIgnoreDirectoryErrors)
-		if err != nil {
-			return err
-		}
-
-		*changeCount++
-
-		fp.IgnoreDirectoryErrors = &val
-
-		log(ctx).Infof(" - setting ignore directory read errors to %v\n", val)
+	if err := applyPolicyBoolPtr(ctx, "ignore dir read errors", &fp.IgnoreDirectoryErrors, *policyIgnoreDirectoryErrors, changeCount); err != nil {
+		return err
 	}
 
 	return nil

@@ -50,27 +50,11 @@ func setCompressionPolicyFromFlags(ctx context.Context, p *policy.CompressionPol
 		}
 	}
 
-	if *policySetClearOnlyCompress {
-		*changeCount++
+	applyPolicyStringList(ctx, "only-compress extensions",
+		&p.OnlyCompress, *policySetAddOnlyCompress, *policySetRemoveOnlyCompress, *policySetClearOnlyCompress, changeCount)
 
-		p.OnlyCompress = nil
-
-		log(ctx).Infof(" - removing all only-compress extensions\n")
-	} else {
-		p.OnlyCompress = addRemoveDedupeAndSort(ctx, "only-compress extensions",
-			p.OnlyCompress, *policySetAddOnlyCompress, *policySetRemoveOnlyCompress, changeCount)
-	}
-
-	if *policySetClearNeverCompress {
-		*changeCount++
-
-		p.NeverCompress = nil
-
-		log(ctx).Infof(" - removing all never-compress extensions\n")
-	} else {
-		p.NeverCompress = addRemoveDedupeAndSort(ctx, "never-compress extensions",
-			p.NeverCompress, *policySetAddNeverCompress, *policySetRemoveNeverCompress, changeCount)
-	}
+	applyPolicyStringList(ctx, "never-compress extensions",
+		&p.NeverCompress, *policySetAddNeverCompress, *policySetRemoveNeverCompress, *policySetClearNeverCompress, changeCount)
 
 	return nil
 }
