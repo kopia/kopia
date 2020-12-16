@@ -64,7 +64,6 @@ func (kr *Runner) Run(args ...string) (stdout, stderr string, err error) {
 	argsStr := strings.Join(args, " ")
 	log.Printf("running '%s %v'", kr.Exe, argsStr)
 	cmdArgs := append(append([]string(nil), kr.fixedArgs...), args...)
-
 	// nolint:gosec
 	c := exec.Command(kr.Exe, cmdArgs...)
 	c.Env = append(os.Environ(), kr.environment...)
@@ -73,8 +72,27 @@ func (kr *Runner) Run(args ...string) (stdout, stderr string, err error) {
 	c.Stderr = errOut
 
 	o, err := c.Output()
-
 	log.Printf("finished '%s %v' with err=%v and output:\nSTDOUT:\n%v\nSTDERR:\n%v", kr.Exe, argsStr, err, string(o), errOut.String())
 
 	return string(o), errOut.String(), err
+}
+
+// RunAsync will execute the kopia command with the given args in background.
+func (kr *Runner) RunAsync(args ...string) (*exec.Cmd, error) {
+	argsStr := strings.Join(args, " ")
+	log.Printf("running async '%s %v'", kr.Exe, argsStr)
+	cmdArgs := append(append([]string(nil), kr.fixedArgs...), args...)
+	//nolint:gosec //G204
+	c := exec.Command(kr.Exe, cmdArgs...)
+	c.Env = append(os.Environ(), kr.environment...)
+
+	errOut := &bytes.Buffer{}
+	c.Stderr = errOut
+
+	err := c.Start()
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
 }
