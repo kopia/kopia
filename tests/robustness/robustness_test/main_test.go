@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"path"
@@ -39,12 +38,14 @@ func TestMain(m *testing.M) {
 	eng, err = engine.NewEngine("")
 
 	switch {
-	case err == kopiarunner.ErrExeVariableNotSet || errors.Is(err, fio.ErrEnvNotSet):
-		fmt.Println("Skipping robustness tests if KOPIA_EXE is not set")
+	case err == kopiarunner.ErrExeVariableNotSet:
+		log.Println("Skipping robustness tests because KOPIA_EXE is not set")
+		os.Exit(0)
+	case errors.Is(err, fio.ErrEnvNotSet):
+		log.Println("Skipping robustness tests because FIO environment is not set")
 		os.Exit(0)
 	case err != nil:
-		fmt.Printf("error on engine creation: %s\n", err.Error())
-		os.Exit(1)
+		log.Fatalln("error on engine creation:", err)
 	}
 
 	dataRepoPath := path.Join(*repoPathPrefix, dataSubPath)
@@ -59,16 +60,14 @@ func TestMain(m *testing.M) {
 		// Clean the temporary dirs from the file system, don't write out the
 		// metadata, in case there was an issue loading it
 		eng.CleanComponents()
-		fmt.Printf("error initializing engine for S3: %s\n", err.Error())
-		os.Exit(1)
+		log.Fatalln("error initializing engine for S3:", err)
 	}
 
 	// Restore a random snapshot into the data directory
 	_, err = eng.ExecAction(engine.RestoreIntoDataDirectoryActionKey, nil)
 	if err != nil && err != engine.ErrNoOp {
 		eng.Cleanup()
-		fmt.Printf("error restoring into the data directory: %s\n", err.Error())
-		os.Exit(1)
+		log.Fatalln("error restoring into the data directory:", err)
 	}
 
 	result := m.Run()
