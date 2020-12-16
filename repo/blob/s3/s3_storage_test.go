@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/sha1"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -362,7 +361,7 @@ func createMinioSessionToken(t *testutil.RetriableT, kopiaUserName, kopiaUserPas
 		t.Fatalf("couldn't find aws creds in aws assume role response")
 	}
 
-	log.Printf("created session token with assume role: expiration: %s", result.Credentials.Expiration)
+	t.Logf("created session token with assume role: expiration: %s", result.Credentials.Expiration)
 
 	return *result.Credentials.AccessKeyId, *result.Credentials.SecretAccessKey, *result.Credentials.SessionToken
 }
