@@ -26,8 +26,8 @@ before_install:
         sudo xcode-select -r
         ;;
     esac
-install: travis_retry make travis-setup
-script: make travis-release
+install: travis_retry make -j4 travis-setup
+script: make -j4 travis-release
 cache:
   directories:
   - $HOME/.cache/electron
