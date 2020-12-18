@@ -68,13 +68,18 @@ endif
 vet: vet-time-inject
 	go vet -all .
 
-travis-setup: travis-install-gpg-key travis-install-test-credentials all-tools
+go-modules:
 	go mod download
-	make -C htmlui node_modules
+
+app-node-modules: $(npm)
 ifeq ($(kopia_arch_name),amd64)
 	make -C app node_modules
 endif
 
+htmlui-node-modules: $(npm)
+	make -C htmlui node_modules
+
+travis-setup: travis-install-gpg-key travis-install-test-credentials htmlui-node-modules app-node-modules go-modules all-tools
 ifneq ($(TRAVIS_OS_NAME),)
 	-git checkout go.mod go.sum
 endif
@@ -97,6 +102,12 @@ html-ui-bindata-fallback: $(go_bindata)
 kopia-ui:
 	$(MAKE) -C app build-electron
 
+# build-current-os compiles a binary for the current os/arch in the same location as goreleaser
+# kopia-ui build needs this particular location to embed the correct server binary.
+# the binary does not embed actual UI.
+build-current-os: html-ui-bindata
+	go build -o dist/kopia_$(shell go env GOOS)_$(shell go env GOARCH)$(exe_suffix) -tags embedhtml
+
 ifeq ($(kopia_arch_name),arm64)
 travis-release:
 	$(MAKE) test
@@ -105,7 +116,11 @@ travis-release:
 else
 
 travis-release:
+ifeq ($(TRAVIS_PULL_REQUEST),false)
 	$(retry) $(MAKE) goreleaser
+else
+	$(retry) $(MAKE) build-current-os
+endif
 	$(retry) $(MAKE) kopia-ui
 	$(MAKE) lint vet test-with-coverage html-ui-tests
 	$(retry) $(MAKE) layering-test
