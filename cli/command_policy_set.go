@@ -202,7 +202,7 @@ func applyPolicyBoolPtr(ctx context.Context, desc string, val **bool, str string
 		return nil
 	}
 
-	if str == inheritPolicyString || str == "default" {
+	if str == inheritPolicyString || str == defaultPolicyString {
 		*changeCount++
 
 		log(ctx).Infof(" - resetting %q to a default value inherited from parent.\n", desc)
