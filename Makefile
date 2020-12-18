@@ -104,7 +104,6 @@ kopia-ui:
 
 # build-current-os compiles a binary for the current os/arch in the same location as goreleaser
 # kopia-ui build needs this particular location to embed the correct server binary.
-# the binary does not embed actual UI.
 build-current-os: html-ui-bindata
 	go build -o dist/kopia_$(shell go env GOOS)_$(shell go env GOARCH)$(exe_suffix) -tags embedhtml
 
