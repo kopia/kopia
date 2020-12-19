@@ -125,7 +125,8 @@ func (s *b2Storage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata,
 }
 
 func translateError(err error) error {
-	if b2err, ok := err.(*backblaze.B2Error); ok {
+	var b2err *backblaze.B2Error
+	if errors.As(err, &b2err) {
 		if b2err.Status == http.StatusNotFound {
 			// Normal "not found". That's fine.
 			return blob.ErrBlobNotFound
@@ -146,7 +147,9 @@ func exponentialBackoff(ctx context.Context, desc string, att retry.AttemptFunc)
 }
 
 func isRetriableError(err error) bool {
-	if b2err, ok := err.(*backblaze.B2Error); ok {
+	var b2err *backblaze.B2Error
+
+	if errors.As(err, &b2err) {
 		switch b2err.Status {
 		case http.StatusRequestTimeout:
 			return true

@@ -87,7 +87,9 @@ func exponentialBackoff(ctx context.Context, desc string, att retry.AttemptFunc)
 }
 
 func isRetriableError(err error) bool {
-	if me, ok := err.(minio.ErrorResponse); ok {
+	var me minio.ErrorResponse
+
+	if errors.As(err, &me) {
 		// retry on server errors, not on client errors
 		return me.StatusCode >= 500
 	}
@@ -101,7 +103,9 @@ func isRetriableError(err error) bool {
 }
 
 func translateError(err error) error {
-	if me, ok := err.(minio.ErrorResponse); ok {
+	var me minio.ErrorResponse
+
+	if errors.As(err, &me) {
 		if me.StatusCode == http.StatusOK {
 			return nil
 		}
@@ -151,7 +155,7 @@ func (s *s3Storage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) err
 			Progress:    newProgressReader(progressCallback, string(b), int64(combinedLength)),
 		})
 
-		if err == io.EOF && uploadInfo.Size == 0 {
+		if errors.Is(err, io.EOF) && uploadInfo.Size == 0 {
 			// special case empty stream
 			_, err = s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), bytes.NewBuffer(nil), 0, minio.PutObjectOptions{
 				ContentType: "application/x-kopia",

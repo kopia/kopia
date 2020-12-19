@@ -585,7 +585,7 @@ func TestReaderStoredBlockNotFound(t *testing.T) {
 	}
 
 	reader, err := om.Open(ctx, objectID)
-	if err != ErrObjectNotFound || reader != nil {
+	if !errors.Is(err, ErrObjectNotFound) || reader != nil {
 		t.Errorf("unexpected result: reader: %v err: %v", reader, err)
 	}
 }
@@ -787,7 +787,7 @@ func TestSeek(t *testing.T) {
 		}
 
 		buf := make([]byte, 5)
-		if n, err := r.Read(buf); n != 0 || err != io.EOF {
+		if n, err := r.Read(buf); n != 0 || !errors.Is(err, io.EOF) {
 			t.Errorf("unexpected read result %v %v", n, err)
 		}
 	}

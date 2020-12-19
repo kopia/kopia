@@ -95,16 +95,17 @@ func exponentialBackoff(ctx context.Context, desc string, att retry.AttemptFunc)
 }
 
 func isRetriableError(err error) bool {
-	if apiError, ok := err.(*googleapi.Error); ok {
+	var apiError *googleapi.Error
+	if errors.As(err, &apiError) {
 		return apiError.Code >= 500
 	}
 
-	switch err {
-	case nil:
+	switch {
+	case err == nil:
 		return false
-	case gcsclient.ErrObjectNotExist:
+	case errors.Is(err, gcsclient.ErrObjectNotExist):
 		return false
-	case gcsclient.ErrBucketNotExist:
+	case errors.Is(err, gcsclient.ErrBucketNotExist):
 		return false
 	default:
 		return true
@@ -112,10 +113,10 @@ func isRetriableError(err error) bool {
 }
 
 func translateError(err error) error {
-	switch err {
-	case nil:
+	switch {
+	case err == nil:
 		return nil
-	case gcsclient.ErrObjectNotExist:
+	case errors.Is(err, gcsclient.ErrObjectNotExist):
 		return blob.ErrBlobNotFound
 	default:
 		return errors.Wrap(err, "unexpected GCS error")

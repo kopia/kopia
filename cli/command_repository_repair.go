@@ -79,11 +79,11 @@ func recoverFormatBlob(ctx context.Context, st blob.Storage, prefixes []string) 
 			return nil
 		})
 
-		switch err {
-		case errSuccess:
-			return nil
-		case nil:
+		switch {
+		case err == nil:
 			// do nothing
+		case errors.Is(err, errSuccess):
+			return nil
 		default:
 			return err
 		}

@@ -71,14 +71,15 @@ func (s *Server) handleSourcesCreate(ctx context.Context, r *http.Request, body 
 	// ensure we have the policy for this source, otherwise it will not show up in the
 	// list of sources at all.
 	_, err = policy.GetDefinedPolicy(ctx, s.rep, sourceInfo)
-	switch err {
-	case nil:
+
+	switch {
+	case err == nil:
 		// already have policy, do nothing
 		log(ctx).Debugf("policy for %v already exists", sourceInfo)
 
 		resp.Created = false
 
-	case policy.ErrPolicyNotFound:
+	case errors.Is(err, policy.ErrPolicyNotFound):
 		resp.Created = true
 		// don't have policy - create an empty one
 		log(ctx).Debugf("policy for %v not found, creating empty one", sourceInfo)

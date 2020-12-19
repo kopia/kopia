@@ -93,7 +93,7 @@ func TestCacheExpiration(t *testing.T) {
 
 	for _, tc := range cases {
 		_, got := cache.getContent(ctx, cacheKey(tc.blobID), "content-4k", 0, -1)
-		if want := tc.expectedError; got != want {
+		if want := tc.expectedError; !errors.Is(got, want) {
 			t.Errorf("unexpected error when getting content %v: %v wanted %v", tc.blobID, got, want)
 		} else {
 			t.Logf("got correct error %v when reading content %v", tc.expectedError, tc.blobID)
@@ -148,8 +148,8 @@ func verifyContentCache(t *testing.T, cache contentCache) {
 			{"xf0f0f3", "no-such-content", 0, -1, nil, blob.ErrBlobNotFound},
 			{"xf0f0f4", "no-such-content", 10, 5, nil, blob.ErrBlobNotFound},
 			{"f0f0f5", "content-1", 7, 3, []byte{8, 9, 10}, nil},
-			{"xf0f0f6", "content-1", 11, 10, nil, errors.Errorf("invalid offset: 11")},
-			{"xf0f0f6", "content-1", -1, 5, nil, errors.Errorf("invalid offset: -1")},
+			{"xf0f0f6", "content-1", 11, 10, nil, errors.Errorf("error getting content from cache: invalid offset: 11")},
+			{"xf0f0f6", "content-1", -1, 5, nil, errors.Errorf("error getting content from cache: invalid offset: -1")},
 		}
 
 		for _, tc := range cases {
@@ -157,7 +157,7 @@ func verifyContentCache(t *testing.T, cache contentCache) {
 			if (err != nil) != (tc.err != nil) {
 				t.Errorf("unexpected error for %v: %+v, wanted %+v", tc.cacheKey, err, tc.err)
 			} else if err != nil && err.Error() != tc.err.Error() {
-				t.Errorf("unexpected error for %v: %+v, wanted %+v", tc.cacheKey, err, tc.err)
+				t.Errorf("unexpected error for %v: %q, wanted %q", tc.cacheKey, err.Error(), tc.err.Error())
 			}
 			if !bytes.Equal(v, tc.expected) {
 				t.Errorf("unexpected data for %v: %x, wanted %x", tc.cacheKey, v, tc.expected)

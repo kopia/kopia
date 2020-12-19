@@ -59,12 +59,14 @@ func isRetriable(err error) bool {
 	}
 
 	// retry errors during file operations
-	if _, ok := err.(*os.PathError); ok {
+	var pe *os.PathError
+	if errors.As(err, &pe) {
 		return true
 	}
 
 	// retry errors during rename
-	if _, ok := err.(*os.LinkError); ok {
+	var le *os.LinkError
+	if errors.As(err, &le) {
 		return true
 	}
 

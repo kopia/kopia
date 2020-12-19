@@ -49,7 +49,9 @@ func ensureEmpty(ctx context.Context, s blob.Storage) error {
 	err := s.ListBlobs(ctx, "", func(cb blob.Metadata) error {
 		return hasDataError
 	})
-	if err == hasDataError { //nolint:goerr113
+
+	// nolint:goerr113,errorlint
+	if err == hasDataError {
 		return errors.New("found existing data in storage location")
 	}
 

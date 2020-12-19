@@ -97,7 +97,9 @@ func exponentialBackoff(ctx context.Context, desc string, att retry.AttemptFunc)
 }
 
 func isRetriableError(err error) bool {
-	if me, ok := err.(azblob.ResponseError); ok {
+	var me azblob.ResponseError
+
+	if errors.As(err, &me) {
 		if me.Response() == nil {
 			return true
 		}
@@ -188,7 +190,7 @@ func (az *azStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback fun
 	// iterate over list iterator
 	for {
 		lo, err := li.Next(ctx)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 

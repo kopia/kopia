@@ -188,12 +188,12 @@ func TestContentManagerEmpty(t *testing.T) {
 	noSuchContentID := ID(hashValue([]byte("foo")))
 
 	b, err := bm.GetContent(ctx, noSuchContentID)
-	if err != ErrContentNotFound {
+	if !errors.Is(err, ErrContentNotFound) {
 		t.Errorf("unexpected error when getting non-existent content: %v, %v", b, err)
 	}
 
 	bi, err := bm.ContentInfo(ctx, noSuchContentID)
-	if err != ErrContentNotFound {
+	if !errors.Is(err, ErrContentNotFound) {
 		t.Errorf("unexpected error when getting non-existent content info: %v, %v", bi, err)
 	}
 
@@ -1291,7 +1291,7 @@ func TestRewriteDeleted(t *testing.T) {
 					assertNoError(t, bm.DeleteContent(ctx, content1))
 					applyStep(action2)
 
-					if got, want := bm.RewriteContent(ctx, content1), ErrContentNotFound; got != want && got != nil {
+					if got, want := bm.RewriteContent(ctx, content1), ErrContentNotFound; !errors.Is(got, want) && got != nil {
 						t.Errorf("unexpected error %v, wanted %v", got, want)
 					}
 					applyStep(action3)
@@ -1500,7 +1500,7 @@ func TestIterateContents(t *testing.T) {
 				return nil
 			})
 
-			if tc.fail != err {
+			if !errors.Is(err, tc.fail) {
 				t.Errorf("error iterating: %v", err)
 			}
 
@@ -1888,7 +1888,7 @@ func verifyContentNotFound(ctx context.Context, t *testing.T, bm *Manager, conte
 	t.Helper()
 
 	b, err := bm.GetContent(ctx, contentID)
-	if err != ErrContentNotFound {
+	if !errors.Is(err, ErrContentNotFound) {
 		t.Fatalf("unexpected response from GetContent(%q), got %v,%v, expected %v", contentID, b, err, ErrContentNotFound)
 	}
 }

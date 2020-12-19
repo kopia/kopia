@@ -240,7 +240,7 @@ func (u *Uploader) copyWithProgress(dst io.Writer, src io.Reader, completed, len
 		}
 
 		if readErr != nil {
-			if readErr == io.EOF {
+			if errors.Is(readErr, io.EOF) {
 				break
 			}
 
@@ -466,7 +466,9 @@ func (u *Uploader) foreachEntryUnlessCanceled(ctx context.Context, parallel int,
 
 func rootCauseError(err error) error {
 	err = errors.Cause(err)
-	if oserr, ok := err.(*os.PathError); ok {
+
+	var oserr *os.PathError
+	if errors.As(err, &oserr) {
 		err = oserr.Err
 	}
 
@@ -647,7 +649,9 @@ func (u *Uploader) processSubdirectories(
 			// root itself. The intention is to always fail if the top level directory can't be read,
 			// otherwise a meaningless, empty snapshot is created that can't be restored.
 			ignoreDirErr := u.shouldIgnoreDirectoryReadErrors(policyTree)
-			if dre, ok := err.(dirReadError); ok && ignoreDirErr {
+
+			var dre dirReadError
+			if errors.As(err, &dre) && ignoreDirErr {
 				rc := rootCauseError(dre.error)
 
 				u.Progress.IgnoredError(entryRelativePath, rc)

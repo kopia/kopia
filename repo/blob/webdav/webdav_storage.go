@@ -88,8 +88,10 @@ func (d *davStorageImpl) GetMetadataFromPath(ctx context.Context, dirPath, path 
 }
 
 func httpErrorCode(err error) int {
-	if err, ok := err.(*os.PathError); ok {
-		code, err := strconv.Atoi(strings.Split(err.Err.Error(), " ")[0])
+	var pe *os.PathError
+
+	if errors.As(err, &pe) {
+		code, err := strconv.Atoi(strings.Split(pe.Err.Error(), " ")[0])
 		if err == nil {
 			return code
 		}
@@ -99,9 +101,11 @@ func httpErrorCode(err error) int {
 }
 
 func (d *davStorageImpl) translateError(err error) error {
-	switch err := err.(type) {
-	case *os.PathError:
-		switch httpErrorCode(err) {
+	var pe *os.PathError
+
+	switch {
+	case errors.As(err, &pe):
+		switch httpErrorCode(pe) {
 		case http.StatusNotFound:
 			return blob.ErrBlobNotFound
 		default:
@@ -180,12 +184,14 @@ func (d *davStorage) Close(ctx context.Context) error {
 }
 
 func isRetriable(err error) bool {
-	switch err := err.(type) {
-	case nil:
+	var pe *os.PathError
+
+	switch {
+	case err == nil:
 		return false
 
-	case *os.PathError:
-		httpCode := httpErrorCode(err)
+	case errors.As(err, &pe):
+		httpCode := httpErrorCode(pe)
 		return httpCode == 429 || httpCode >= 500
 
 	default:

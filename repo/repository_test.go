@@ -13,6 +13,7 @@ import (
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/object"
+	"github.com/pkg/errors"
 )
 
 func TestWriters(t *testing.T) {
@@ -190,7 +191,7 @@ func TestReaderStoredBlockNotFound(t *testing.T) {
 	}
 
 	reader, err := env.Repository.OpenObject(ctx, objectID)
-	if err != object.ErrObjectNotFound || reader != nil {
+	if !errors.Is(err, object.ErrObjectNotFound) || reader != nil {
 		t.Errorf("unexpected result: reader: %v err: %v", reader, err)
 	}
 }

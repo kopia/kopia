@@ -159,7 +159,7 @@ func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error)
 				continue
 			}
 
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 

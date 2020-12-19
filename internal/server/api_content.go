@@ -37,11 +37,12 @@ func (s *Server) handleContentInfo(ctx context.Context, r *http.Request, body []
 	cid := content.ID(mux.Vars(r)["contentID"])
 
 	ci, err := dr.Content.ContentInfo(ctx, cid)
-	switch err {
-	case nil:
+
+	switch {
+	case err == nil:
 		return ci, nil
 
-	case content.ErrContentNotFound:
+	case errors.Is(err, content.ErrContentNotFound):
 		return nil, notFoundError("content not found")
 
 	default:
