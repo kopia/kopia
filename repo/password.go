@@ -55,7 +55,7 @@ func persistPassword(ctx context.Context, configFile, password string) error {
 			return nil
 		}
 
-		return err
+		return errors.Wrap(err, "error saving password in key ring")
 	}
 
 	fn := passwordFileName(configFile)

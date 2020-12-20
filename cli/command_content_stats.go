@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
@@ -47,7 +49,7 @@ func runContentStatsCommand(ctx context.Context, rep *repo.DirectRepository) err
 			}
 			return nil
 		}); err != nil {
-		return err
+		return errors.Wrap(err, "error iterating contents")
 	}
 
 	sizeToString := units.BytesStringBase10

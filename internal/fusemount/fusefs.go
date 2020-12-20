@@ -43,6 +43,7 @@ var _ fusefs.NodeOpener = (*fuseFileNode)(nil)
 func (f *fuseFileNode) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fusefs.Handle, error) {
 	reader, err := f.entry.(fs.File).Open(ctx)
 	if err != nil {
+		// nolint:wrapcheck
 		return nil, err
 	}
 
@@ -61,11 +62,13 @@ func (f *fuseFileHandle) Read(ctx context.Context, req *fuse.ReadRequest, resp *
 
 	_, err := f.reader.Seek(req.Offset, io.SeekStart)
 	if err != nil {
+		// nolint:wrapcheck
 		return err
 	}
 
 	n, err := f.reader.Read(resp.Data[:req.Size])
 	if err != nil {
+		// nolint:wrapcheck
 		return err
 	}
 
@@ -86,6 +89,7 @@ var (
 func (f *fuseFileNode) ReadAll(ctx context.Context) ([]byte, error) {
 	reader, err := f.entry.(fs.File).Open(ctx)
 	if err != nil {
+		// nolint:wrapcheck
 		return nil, err
 	}
 	defer reader.Close() //nolint:errcheck
@@ -108,6 +112,7 @@ func (dir *fuseDirectoryNode) Lookup(ctx context.Context, fileName string) (fuse
 			return nil, fuse.ENOENT
 		}
 
+		// nolint:wrapcheck
 		return nil, err
 	}
 
@@ -122,6 +127,7 @@ func (dir *fuseDirectoryNode) Lookup(ctx context.Context, fileName string) (fuse
 func (dir *fuseDirectoryNode) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
 	entries, err := dir.directory().Readdir(ctx)
 	if err != nil {
+		// nolint:wrapcheck
 		return nil, err
 	}
 

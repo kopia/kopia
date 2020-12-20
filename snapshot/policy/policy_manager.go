@@ -30,7 +30,7 @@ func GetEffectivePolicy(ctx context.Context, rep repo.Repository, si snapshot.So
 	for tmp := si; len(si.Path) > 0; {
 		manifests, err := rep.FindManifests(ctx, labelsForSource(tmp))
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, errors.Wrapf(err, "unable to find manifest for source %v", tmp)
 		}
 
 		md = append(md, manifests...)
@@ -46,7 +46,7 @@ func GetEffectivePolicy(ctx context.Context, rep repo.Repository, si snapshot.So
 	// Try user@host policy
 	userHostManifests, err := rep.FindManifests(ctx, labelsForSource(snapshot.SourceInfo{Host: si.Host, UserName: si.UserName}))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Wrap(err, "unable to find user@host manifest")
 	}
 
 	md = append(md, userHostManifests...)
@@ -54,7 +54,7 @@ func GetEffectivePolicy(ctx context.Context, rep repo.Repository, si snapshot.So
 	// Try host-level policy.
 	hostManifests, err := rep.FindManifests(ctx, labelsForSource(snapshot.SourceInfo{Host: si.Host}))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Wrap(err, "unable to find host-level manifest")
 	}
 
 	md = append(md, hostManifests...)
@@ -62,7 +62,7 @@ func GetEffectivePolicy(ctx context.Context, rep repo.Repository, si snapshot.So
 	// Global policy.
 	globalManifests, err := rep.FindManifests(ctx, labelsForSource(GlobalPolicySourceInfo))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Wrap(err, "unable to find global manifest")
 	}
 
 	md = append(md, globalManifests...)
@@ -119,7 +119,7 @@ func SetPolicy(ctx context.Context, rep repo.Repository, si snapshot.SourceInfo,
 	}
 
 	if _, err := rep.PutManifest(ctx, labelsForSource(si), pol); err != nil {
-		return err
+		return errors.Wrap(err, "error writing policy manifest")
 	}
 
 	for _, em := range md {
@@ -254,7 +254,7 @@ func loadPolicyFromManifest(ctx context.Context, rep repo.Repository, id manifes
 			return ErrPolicyNotFound
 		}
 
-		return err
+		return errors.Wrapf(err, "error loading policy for manifest %v", id)
 	}
 
 	pol.Labels = md.Labels

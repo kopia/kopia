@@ -56,9 +56,11 @@ func maybeDecryptBlob(ctx context.Context, w io.Writer, rep *repo.DirectReposito
 		return errors.Wrapf(err, "error getting %v", blobID)
 	}
 
-	_, err = iocopy.Copy(w, bytes.NewReader(d))
+	if _, err := iocopy.Copy(w, bytes.NewReader(d)); err != nil {
+		return errors.Wrap(err, "error copying data")
+	}
 
-	return err
+	return nil
 }
 
 func canDecryptBlob(b blob.ID) bool {

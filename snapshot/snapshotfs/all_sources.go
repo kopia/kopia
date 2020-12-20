@@ -6,6 +6,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
@@ -58,7 +60,7 @@ func (s *repositoryAllSources) Child(ctx context.Context, name string) (fs.Entry
 func (s *repositoryAllSources) Readdir(ctx context.Context) (fs.Entries, error) {
 	srcs, err := snapshot.ListSources(ctx, s.rep)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error listing sources")
 	}
 
 	users := map[string]bool{}

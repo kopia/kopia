@@ -47,7 +47,7 @@ func GetNestedEntry(ctx context.Context, startingDir fs.Entry, pathElements []st
 
 		entries, err := dir.Readdir(ctx)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "error reading directory")
 		}
 
 		e := entries.FindByName(part)
@@ -83,7 +83,7 @@ func findSnapshotByRootObjectIDOrManifestID(ctx context.Context, rep repo.Reposi
 
 	mans, err := snapshot.FindSnapshotsByRootObjectID(ctx, rep, object.ID(rootID))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "unable to find shapshots by ID %v", rootID)
 	}
 
 	// no matching snapshots.

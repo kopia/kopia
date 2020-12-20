@@ -35,7 +35,7 @@ func runMountCommand(ctx context.Context, rep repo.Repository) error {
 		var err error
 		entry, err = snapshotfs.FilesystemDirectoryFromIDWithPath(ctx, rep, *mountObjectID, false)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "unable to get directory entry for %v", *mountObjectID)
 		}
 	}
 
@@ -83,7 +83,7 @@ func runMountCommand(ctx context.Context, rep repo.Repository) error {
 		// "unmount error: exit status 1: fusermount: failed to unmount /tmp/kopia-mount719819963: Device or resource busy, try --help"
 		err := ctrl.Unmount(ctx)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "unmount error")
 		}
 
 	case <-ctrl.Done():

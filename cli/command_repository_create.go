@@ -47,15 +47,15 @@ func ensureEmpty(ctx context.Context, s blob.Storage) error {
 	hasDataError := errors.Errorf("has data")
 
 	err := s.ListBlobs(ctx, "", func(cb blob.Metadata) error {
+		// nolint:wrapcheck
 		return hasDataError
 	})
 
-	// nolint:goerr113,errorlint
-	if err == hasDataError {
+	if errors.Is(err, hasDataError) {
 		return errors.New("found existing data in storage location")
 	}
 
-	return err
+	return errors.Wrap(err, "error listing blobs")
 }
 
 func runCreateCommandWithStorage(ctx context.Context, st blob.Storage) error {

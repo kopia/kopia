@@ -158,7 +158,7 @@ func (r *DirectRepository) Close(ctx context.Context) error {
 // Flush waits for all in-flight writes to complete.
 func (r *DirectRepository) Flush(ctx context.Context) error {
 	if err := r.Manifests.Flush(ctx); err != nil {
-		return err
+		return errors.Wrap(err, "error flushing manifests")
 	}
 
 	return r.Content.Flush(ctx)

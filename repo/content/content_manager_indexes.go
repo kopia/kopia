@@ -192,7 +192,7 @@ func (bm *Manager) ParseIndexBlob(ctx context.Context, blobID blob.ID) ([]Info, 
 		return nil
 	})
 
-	return results, err
+	return results, errors.Wrap(err, "error iterating index entries")
 }
 
 func addBlobsToIndex(ndx map[blob.ID]*IndexBlobInfo, blobs []blob.Metadata) {

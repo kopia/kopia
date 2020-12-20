@@ -26,6 +26,7 @@ func (ld *loggingDirectory) Child(ctx context.Context, name string) (fs.Entry, e
 	ld.options.printf(ld.options.prefix+"Child(%v) took %v and returned %v", ld.relativePath, dt, err)
 
 	if err != nil {
+		// nolint:wrapcheck
 		return nil, err
 	}
 
@@ -43,6 +44,7 @@ func (ld *loggingDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
 		loggingEntries[i] = wrapWithOptions(entry, ld.options, ld.relativePath+"/"+entry.Name())
 	}
 
+	// nolint:wrapcheck
 	return loggingEntries, err
 }
 

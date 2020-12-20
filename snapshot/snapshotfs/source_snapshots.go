@@ -67,7 +67,7 @@ func (s *sourceSnapshots) Child(ctx context.Context, name string) (fs.Entry, err
 func (s *sourceSnapshots) Readdir(ctx context.Context) (fs.Entries, error) {
 	manifests, err := snapshot.ListSnapshots(ctx, s.rep, s.src)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "unable to list snapshots")
 	}
 
 	var result fs.Entries

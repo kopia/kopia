@@ -67,7 +67,7 @@ func openRepository(ctx context.Context, opts *repo.Options, required bool) (rep
 		return nil, errors.New("not connected to a repository, use 'kopia connect'")
 	}
 
-	return r, err
+	return r, errors.Wrap(err, "unable to open repository")
 }
 
 func applyOptionsFromFlags(ctx context.Context, opts *repo.Options) *repo.Options {

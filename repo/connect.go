@@ -36,6 +36,7 @@ func Connect(ctx context.Context, configFile string, st blob.Storage, password s
 	formatBytes, err := st.GetBlob(ctx, FormatBlobID, 0, -1)
 	if err != nil {
 		if errors.Is(err, blob.ErrBlobNotFound) {
+			// nolint:wrapcheck
 			return ErrRepositoryNotInitialized
 		}
 
@@ -59,7 +60,7 @@ func Connect(ctx context.Context, configFile string, st blob.Storage, password s
 
 	d, err := json.MarshalIndent(&lc, "", "  ")
 	if err != nil {
-		return err
+		return errors.Wrap(err, "unable to serialize JSON")
 	}
 
 	if err = os.MkdirAll(filepath.Dir(configFile), 0o700); err != nil {
@@ -178,7 +179,7 @@ func SetClientOptions(ctx context.Context, configFile string, cliOpt ClientOptio
 
 	d, err := json.MarshalIndent(lc, "", "  ")
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error marshaling config JSON")
 	}
 
 	if err = ioutil.WriteFile(configFile, d, 0o600); err != nil {

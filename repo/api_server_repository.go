@@ -70,7 +70,7 @@ func (r *apiServerRepository) GetManifest(ctx context.Context, id manifest.ID, d
 	var mm remoterepoapi.ManifestWithMetadata
 
 	if err := r.cli.Get(ctx, "manifests/"+string(id), manifest.ErrNotFound, &mm); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetManifest")
 	}
 
 	return mm.Metadata, json.Unmarshal(mm.Payload, data)
@@ -92,7 +92,7 @@ func (r *apiServerRepository) PutManifest(ctx context.Context, labels map[string
 	resp := &manifest.EntryMetadata{}
 
 	if err := r.cli.Post(ctx, "manifests", req, resp); err != nil {
-		return "", err
+		return "", errors.Wrap(err, "PutManifest")
 	}
 
 	return resp.ID, nil
@@ -108,14 +108,14 @@ func (r *apiServerRepository) FindManifests(ctx context.Context, labels map[stri
 	var mm []*manifest.EntryMetadata
 
 	if err := r.cli.Get(ctx, "manifests?"+uv.Encode(), nil, &mm); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "FindManifests")
 	}
 
 	return mm, nil
 }
 
 func (r *apiServerRepository) DeleteManifest(ctx context.Context, id manifest.ID) error {
-	return r.cli.Delete(ctx, "manifests/"+string(id), nil, nil)
+	return errors.Wrap(r.cli.Delete(ctx, "manifests/"+string(id), nil, nil), "DeleteManifest")
 }
 
 func (r *apiServerRepository) Time() time.Time {
@@ -127,7 +127,7 @@ func (r *apiServerRepository) Refresh(ctx context.Context) error {
 }
 
 func (r *apiServerRepository) Flush(ctx context.Context) error {
-	return r.cli.Post(ctx, "flush", nil, nil)
+	return errors.Wrap(r.cli.Post(ctx, "flush", nil, nil), "Flush")
 }
 
 func (r *apiServerRepository) Close(ctx context.Context) error {
@@ -135,14 +135,14 @@ func (r *apiServerRepository) Close(ctx context.Context) error {
 		return errors.Wrap(err, "error closing object manager")
 	}
 
-	return r.Flush(ctx)
+	return errors.Wrap(r.Flush(ctx), "Close")
 }
 
 func (r *apiServerRepository) ContentInfo(ctx context.Context, contentID content.ID) (content.Info, error) {
 	var bi content.Info
 
 	if err := r.cli.Get(ctx, "contents/"+string(contentID)+"?info=1", content.ErrContentNotFound, &bi); err != nil {
-		return content.Info{}, err
+		return content.Info{}, errors.Wrap(err, "ContentInfo")
 	}
 
 	return bi, nil
@@ -152,7 +152,7 @@ func (r *apiServerRepository) GetContent(ctx context.Context, contentID content.
 	var result []byte
 
 	if err := r.cli.Get(ctx, "contents/"+string(contentID), content.ErrContentNotFound, &result); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetContent")
 	}
 
 	return result, nil
@@ -160,7 +160,7 @@ func (r *apiServerRepository) GetContent(ctx context.Context, contentID content.
 
 func (r *apiServerRepository) WriteContent(ctx context.Context, data []byte, prefix content.ID) (content.ID, error) {
 	if err := content.ValidatePrefix(prefix); err != nil {
-		return "", err
+		return "", errors.Wrap(err, "invalid prefix")
 	}
 
 	var hashOutput [128]byte
@@ -168,7 +168,7 @@ func (r *apiServerRepository) WriteContent(ctx context.Context, data []byte, pre
 	contentID := prefix + content.ID(hex.EncodeToString(r.h(hashOutput[:0], data)))
 
 	if err := r.cli.Put(ctx, "contents/"+string(contentID), data, nil); err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "error writing content %v", contentID)
 	}
 
 	return contentID, nil
@@ -232,7 +232,7 @@ func ConnectAPIServer(ctx context.Context, configFile string, si *APIServerInfo,
 
 	d, err := json.MarshalIndent(&lc, "", "  ")
 	if err != nil {
-		return err
+		return errors.Wrap(err, "unable to marshal config JSON")
 	}
 
 	if err = os.MkdirAll(filepath.Dir(configFile), 0o700); err != nil {

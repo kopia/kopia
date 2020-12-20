@@ -239,7 +239,7 @@ func (om *Manager) verifyObjectInternal(ctx context.Context, oid ID, tracker *co
 
 	if contentID, _, ok := oid.ContentID(); ok {
 		if _, err := om.contentMgr.ContentInfo(ctx, contentID); err != nil {
-			return err
+			return errors.Wrapf(err, "error getting content info for %v", contentID)
 		}
 
 		tracker.addContentID(contentID)
@@ -336,7 +336,7 @@ func (om *Manager) newRawReader(ctx context.Context, objectID ID, assertLength i
 
 	payload, err := om.contentMgr.GetContent(ctx, contentID)
 	if errors.Is(err, content.ErrContentNotFound) {
-		return nil, ErrObjectNotFound
+		return nil, errors.Wrapf(ErrObjectNotFound, "content %v not found", contentID)
 	}
 
 	if err != nil {

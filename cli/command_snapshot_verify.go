@@ -169,13 +169,13 @@ func (v *verifier) readEntireObject(ctx context.Context, oid object.ID, path str
 	// also read the entire file
 	r, err := v.rep.OpenObject(ctx, oid)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "unable to open object %v", oid)
 	}
 	defer r.Close() //nolint:errcheck
 
 	_, err = iocopy.Copy(ioutil.Discard, r)
 
-	return err
+	return errors.Wrap(err, "unable to read data")
 }
 
 func runVerifyCommand(ctx context.Context, rep repo.Repository) error {
@@ -225,7 +225,7 @@ func enqueueRootsToVerify(ctx context.Context, v *verifier, rep repo.Repository)
 	for _, oidStr := range *verifyCommandDirObjectIDs {
 		oid, err := snapshotfs.ParseObjectIDWithPath(ctx, rep, oidStr)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "unable to parse: %q", oidStr)
 		}
 
 		v.enqueueVerifyDirectory(ctx, oid, oidStr)
@@ -234,7 +234,7 @@ func enqueueRootsToVerify(ctx context.Context, v *verifier, rep repo.Repository)
 	for _, oidStr := range *verifyCommandFileObjectIDs {
 		oid, err := snapshotfs.ParseObjectIDWithPath(ctx, rep, oidStr)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "unable to parse %q", oidStr)
 		}
 
 		v.enqueueVerifyObject(ctx, oid, oidStr)
@@ -249,7 +249,7 @@ func loadSourceManifests(ctx context.Context, rep repo.Repository, sources []str
 	if *verifyCommandAllSources {
 		man, err := snapshot.ListSnapshotManifests(ctx, rep, nil)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "unable to list snapshot manifests")
 		}
 
 		manifestIDs = append(manifestIDs, man...)
@@ -261,7 +261,7 @@ func loadSourceManifests(ctx context.Context, rep repo.Repository, sources []str
 			}
 			man, err := snapshot.ListSnapshotManifests(ctx, rep, &src)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrapf(err, "unable to list snapshot manifests for %v", src)
 			}
 			manifestIDs = append(manifestIDs, man...)
 		}

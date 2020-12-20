@@ -78,7 +78,7 @@ func writeRandomBytesToBuffer(b *gather.WriteBuffer, count int) error {
 	var rnd [defaultPaddingUnit]byte
 
 	if _, err := io.ReadFull(cryptorand.Reader, rnd[0:count]); err != nil {
-		return err
+		return errors.Wrap(err, "error getting random bytes")
 	}
 
 	b.Append(rnd[0:count])
@@ -91,6 +91,7 @@ func (bm *lockFreeManager) loadPackIndexesUnlocked(ctx context.Context) ([]Index
 
 	for i := 0; i < indexLoadAttempts; i++ {
 		if err := ctx.Err(); err != nil {
+			// nolint:wrapcheck
 			return nil, false, err
 		}
 
@@ -103,7 +104,7 @@ func (bm *lockFreeManager) loadPackIndexesUnlocked(ctx context.Context) ([]Index
 
 		indexBlobs, err := bm.indexBlobManager.listIndexBlobs(ctx, false)
 		if err != nil {
-			return nil, false, err
+			return nil, false, errors.Wrap(err, "error listing index blobs")
 		}
 
 		err = bm.tryLoadPackIndexBlobsUnlocked(ctx, indexBlobs)
@@ -193,7 +194,7 @@ func (bm *lockFreeManager) unprocessedIndexBlobsUnlocked(ctx context.Context, co
 	for _, c := range contents {
 		has, err := bm.committedContents.cache.hasIndexBlobID(ctx, c.BlobID)
 		if err != nil {
-			return nil, 0, err
+			return nil, 0, errors.Wrapf(err, "error determining whether index blob %v has been downloaded", c.BlobID)
 		}
 
 		if has {
@@ -240,7 +241,7 @@ func (bm *lockFreeManager) getContentDataUnlocked(ctx context.Context, pp *pendi
 
 		payload, err = bm.getCacheForContentID(bi.ID).getContent(ctx, cacheKey(bi.ID), bi.PackBlobID, int64(bi.PackOffset), int64(bi.Length))
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "getCacheForContentID")
 		}
 	}
 
@@ -330,7 +331,7 @@ func (bm *lockFreeManager) IndexBlobs(ctx context.Context, includeInactive bool)
 func getPackedContentIV(output []byte, contentID ID) ([]byte, error) {
 	n, err := hex.Decode(output, []byte(contentID[len(contentID)-(aes.BlockSize*2):]))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "error decoding content IV from %v", contentID)
 	}
 
 	return output[0:n], nil

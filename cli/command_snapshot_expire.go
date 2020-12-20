@@ -4,6 +4,8 @@ import (
 	"context"
 	"sort"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
@@ -27,7 +29,7 @@ func getSnapshotSourcesToExpire(ctx context.Context, rep repo.Repository) ([]sna
 	for _, p := range *snapshotExpirePaths {
 		src, err := snapshot.ParseSourceInfo(p, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "unable to parse %q", p)
 		}
 
 		result = append(result, src)
@@ -49,7 +51,7 @@ func runExpireCommand(ctx context.Context, rep repo.Repository) error {
 	for _, src := range sources {
 		deleted, err := policy.ApplyRetentionPolicy(ctx, rep, src, *snapshotExpireDelete)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "error applying retention policy to %v", src)
 		}
 
 		if len(deleted) == 0 {

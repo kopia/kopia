@@ -137,7 +137,7 @@ func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error)
 
 	f, direrr := os.Open(fullPath) //nolint:gosec
 	if direrr != nil {
-		return nil, direrr
+		return nil, errors.Wrap(direrr, "unable to read directory")
 	}
 	defer f.Close() //nolint:errcheck,gosec
 
@@ -239,7 +239,7 @@ type fileWithMetadata struct {
 func (f *fileWithMetadata) Entry() (fs.Entry, error) {
 	fi, err := f.Stat()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "unable to stat() local file")
 	}
 
 	return &filesystemFile{newEntry(fi, filepath.Dir(f.Name()))}, nil
@@ -248,7 +248,7 @@ func (f *fileWithMetadata) Entry() (fs.Entry, error) {
 func (fsf *filesystemFile) Open(ctx context.Context) (fs.Reader, error) {
 	f, err := os.Open(fsf.fullPath())
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "unable to open local file")
 	}
 
 	return &fileWithMetadata{f}, nil
@@ -262,7 +262,7 @@ func (fsl *filesystemSymlink) Readlink(ctx context.Context) (string, error) {
 func NewEntry(path string) (fs.Entry, error) {
 	fi, err := os.Lstat(path)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "unable to determine entry type")
 	}
 
 	switch fi.Mode() & os.ModeType {

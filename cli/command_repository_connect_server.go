@@ -29,7 +29,7 @@ func runConnectAPIServerCommand(ctx context.Context) error {
 
 	configFile := repositoryConfigFileName()
 	if err := repo.ConnectAPIServer(ctx, configFile, as, password, connectOptions()); err != nil {
-		return err
+		return errors.Wrap(err, "error connecting to API server")
 	}
 
 	log(ctx).Infof("Connected to repository API Server.")

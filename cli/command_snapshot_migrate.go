@@ -201,7 +201,7 @@ func findPreviousSnapshotManifestWithStartTime(ctx context.Context, rep repo.Rep
 func migrateSingleSource(ctx context.Context, uploader *snapshotfs.Uploader, sourceRepo, destRepo repo.Repository, s snapshot.SourceInfo) error {
 	manifests, err := snapshot.ListSnapshotManifests(ctx, sourceRepo, &s)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "error listing snapshot manifests for %v", s)
 	}
 
 	snapshots, err := snapshot.LoadSnapshots(ctx, sourceRepo, manifests)
@@ -234,7 +234,7 @@ func migrateSingleSourceSnapshot(ctx context.Context, uploader *snapshotfs.Uploa
 
 	sourceEntry, err := snapshotfs.SnapshotRoot(sourceRepo, m)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error getting snapshot root entry")
 	}
 
 	existing, err := findPreviousSnapshotManifestWithStartTime(ctx, destRepo, m.Source, m.StartTime)
@@ -289,7 +289,7 @@ func getSourcesToMigrate(ctx context.Context, rep repo.Repository) ([]snapshot.S
 		for _, s := range *migrateSources {
 			si, err := snapshot.ParseSourceInfo(s, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
 			if err != nil {
-				return nil, err
+				return nil, errors.Wrapf(err, "unable to parse %q", s)
 			}
 
 			result = append(result, si)

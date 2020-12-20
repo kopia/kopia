@@ -92,7 +92,7 @@ func runSyncWithStorage(ctx context.Context, src, dst blob.Storage) error {
 
 		return nil
 	}); err != nil {
-		return err
+		return errors.Wrap(err, "error listing blobs")
 	}
 
 	finishSyncProcess()
@@ -296,7 +296,7 @@ func syncDeleteBlob(ctx context.Context, m blob.Metadata, dst blob.Storage) erro
 		return nil
 	}
 
-	return err
+	return errors.Wrap(err, "error deleting blob")
 }
 
 func ensureRepositoriesHaveSameFormatBlob(ctx context.Context, src, dst blob.Storage) error {

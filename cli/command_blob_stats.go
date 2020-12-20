@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
@@ -49,7 +51,7 @@ func runBlobStatsCommand(ctx context.Context, rep *repo.DirectRepository) error 
 			}
 			return nil
 		}); err != nil {
-		return err
+		return errors.Wrap(err, "error listing blobs")
 	}
 
 	sizeToString := units.BytesStringBase10

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot/policy"
 )
@@ -18,7 +20,7 @@ func init() {
 func listPolicies(ctx context.Context, rep repo.Repository) error {
 	policies, err := policy.ListPolicies(ctx, rep)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error listing policies")
 	}
 
 	sort.Slice(policies, func(i, j int) bool {

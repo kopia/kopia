@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 
 	"github.com/alecthomas/kingpin"
+	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/gcs"
@@ -32,7 +33,7 @@ func init() {
 			if embedCredentials {
 				data, err := ioutil.ReadFile(options.ServiceAccountCredentialsFile)
 				if err != nil {
-					return nil, err
+					return nil, errors.Wrap(err, "unable to open service account credentials file")
 				}
 
 				options.ServiceAccountCredentialJSON = json.RawMessage(data)

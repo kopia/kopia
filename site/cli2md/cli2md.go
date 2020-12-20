@@ -141,7 +141,7 @@ weight: 3
 func generateCommands(app *kingpin.ApplicationModel, section string, weight int, advanced bool) error {
 	dir := filepath.Join(baseDir, section)
 	if err := os.MkdirAll(dir, 0o750); err != nil {
-		return err
+		return errors.Wrapf(err, "error creating section directory for %v", section)
 	}
 
 	f, err := os.Create(filepath.Join(dir, "_index.md"))

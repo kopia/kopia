@@ -124,7 +124,7 @@ func (d *davStorageImpl) ReadDir(ctx context.Context, dir string) ([]os.FileInfo
 		return v.([]os.FileInfo), nil
 	}
 
-	return nil, err
+	return nil, errors.Wrap(err, "error reading WebDAV dir")
 }
 
 func (d *davStorageImpl) PutBlobInPath(ctx context.Context, dirPath, filePath string, data blob.Bytes) error {

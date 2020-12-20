@@ -33,7 +33,7 @@ func policyTargets(ctx context.Context, rep repo.Repository, globalFlag *bool, t
 
 		target, err := snapshot.ParseSourceInfo(ts, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "unable to parse source info: %q", ts)
 		}
 
 		res = append(res, target)

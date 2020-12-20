@@ -268,25 +268,25 @@ func (c *Comparer) compareFiles(ctx context.Context, f1, f2 fs.File, fname strin
 
 func downloadFile(ctx context.Context, f fs.File, fname string) error {
 	if err := os.MkdirAll(filepath.Dir(fname), 0o700); err != nil {
-		return err
+		return errors.Wrap(err, "error making directory")
 	}
 
 	src, err := f.Open(ctx)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error opening object")
 	}
 	defer src.Close() //nolint:errcheck
 
 	dst, err := os.Create(fname)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error creating file to edit")
 	}
 
 	defer dst.Close() //nolint:errcheck,gosec
 
 	_, err = iocopy.Copy(dst, src)
 
-	return err
+	return errors.Wrap(err, "error downloading file")
 }
 
 func (c *Comparer) output(msg string, args ...interface{}) {
@@ -297,7 +297,7 @@ func (c *Comparer) output(msg string, args ...interface{}) {
 func NewComparer(out io.Writer) (*Comparer, error) {
 	tmp, err := ioutil.TempDir("", "kopia")
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error creating temp directory")
 	}
 
 	return &Comparer{out: out, tmpDir: tmp}, nil

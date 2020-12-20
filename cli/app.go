@@ -183,7 +183,7 @@ func maybeRunMaintenance(ctx context.Context, rep repo.Repository) error {
 		return nil
 	}
 
-	return err
+	return errors.Wrap(err, "error running maintenance")
 }
 
 func advancedCommand(ctx context.Context) {

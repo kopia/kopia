@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/object"
@@ -96,14 +98,14 @@ func (lc *LocalConfig) Save(w io.Writer) error {
 
 	_, err = w.Write(b)
 
-	return err
+	return errors.Wrap(err, "error saving local config")
 }
 
 // loadConfigFromFile reads the local configuration from the specified file.
 func loadConfigFromFile(fileName string) (*LocalConfig, error) {
 	f, err := os.Open(fileName) //nolint:gosec
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error loading config file")
 	}
 	defer f.Close() //nolint:errcheck,gosec
 

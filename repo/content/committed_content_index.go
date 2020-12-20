@@ -43,7 +43,7 @@ func (b *committedContentIndex) getContent(contentID ID) (Info, error) {
 
 func (b *committedContentIndex) addContent(ctx context.Context, indexBlobID blob.ID, data []byte, use bool) error {
 	if err := b.cache.addContentToCache(ctx, indexBlobID, data); err != nil {
-		return err
+		return errors.Wrap(err, "error adding content to cache")
 	}
 
 	if !use {

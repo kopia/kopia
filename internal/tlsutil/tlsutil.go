@@ -83,7 +83,7 @@ func GenerateServerCertificate(ctx context.Context, keySize int, certValid time.
 func WritePrivateKeyToFile(fname string, priv *rsa.PrivateKey) error {
 	f, err := os.OpenFile(fname, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600) //nolint:gosec
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error opening private key file")
 	}
 	defer f.Close() //nolint:errcheck,gosec
 
@@ -103,7 +103,7 @@ func WritePrivateKeyToFile(fname string, priv *rsa.PrivateKey) error {
 func WriteCertificateToFile(fname string, cert *x509.Certificate) error {
 	f, err := os.OpenFile(fname, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600) //nolint:gosec
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error opening certificate file")
 	}
 	defer f.Close() //nolint:errcheck,gosec
 

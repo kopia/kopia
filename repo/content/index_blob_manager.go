@@ -164,12 +164,12 @@ func (m *indexBlobManagerImpl) getIndexBlob(ctx context.Context, blobID blob.ID)
 func (m *indexBlobManagerImpl) getEncryptedBlob(ctx context.Context, blobID blob.ID) ([]byte, error) {
 	payload, err := m.indexBlobCache.getContent(ctx, cacheKey(blobID), blobID, 0, -1)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "getContent")
 	}
 
 	iv, err := getIndexBlobIV(blobID)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "unable to get index blob IV")
 	}
 
 	payload, err = m.encryptor.Decrypt(nil, payload, iv)
@@ -217,7 +217,7 @@ func (m *indexBlobManagerImpl) encryptAndWriteBlob(ctx context.Context, data []b
 
 	data2, err := m.encryptor.Encrypt(nil, data, iv)
 	if err != nil {
-		return blob.Metadata{}, err
+		return blob.Metadata{}, errors.Wrapf(err, "error encrypting blob %v", blobID)
 	}
 
 	m.listCache.deleteListCache(prefix)
@@ -225,7 +225,7 @@ func (m *indexBlobManagerImpl) encryptAndWriteBlob(ctx context.Context, data []b
 	err = m.st.PutBlob(ctx, blobID, gather.FromSlice(data2))
 	if err != nil {
 		formatLog(ctx).Debugf("write-index-blob %v failed %v", blobID, err)
-		return blob.Metadata{}, err
+		return blob.Metadata{}, errors.Wrapf(err, "error writing blob %v", blobID)
 	}
 
 	bm, err := m.st.GetMetadata(ctx, blobID)

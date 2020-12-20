@@ -88,7 +88,7 @@ func (r *objectReader) openCurrentChunk() error {
 
 	b := make([]byte, st.Length)
 	if _, err := io.ReadFull(rd, b); err != nil {
-		return err
+		return errors.Wrap(err, "error reading chunk")
 	}
 
 	r.currentChunkData = b

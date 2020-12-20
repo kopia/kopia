@@ -68,7 +68,7 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 
 	configFile, err = filepath.Abs(configFile)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error resolving config file path")
 	}
 
 	lc, err := loadConfigFromFile(configFile)
@@ -149,6 +149,7 @@ func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 
 	repoConfig, err := f.decryptFormatBytes(masterKey)
 	if err != nil {
+		// nolint:wrapcheck
 		return nil, ErrInvalidPassword
 	}
 
@@ -214,12 +215,12 @@ func writeCacheMarker(cacheDir string) error {
 	}
 
 	if !os.IsNotExist(err) {
-		return err
+		return errors.Wrap(err, "unexpected cache marker error")
 	}
 
 	f, err := os.Create(markerFile)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error creating cache marker")
 	}
 
 	if _, err := f.WriteString(cacheDirMarkerContents); err != nil {
@@ -242,7 +243,7 @@ func (r *DirectRepository) SetCachingConfig(ctx context.Context, opt *content.Ca
 
 	d, err := json.MarshalIndent(&lc, "", "  ")
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error marshaling JSON")
 	}
 
 	if err := ioutil.WriteFile(r.ConfigFile, d, 0o600); err != nil {
@@ -269,7 +270,7 @@ func readAndCacheFormatBlobBytes(ctx context.Context, st blob.Storage, cacheDire
 
 	b, err := st.GetBlob(ctx, FormatBlobID, 0, -1)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error getting format blob")
 	}
 
 	if cacheDirectory != "" {

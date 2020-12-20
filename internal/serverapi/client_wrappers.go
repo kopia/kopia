@@ -4,6 +4,8 @@ import (
 	"context"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/internal/apiclient"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
@@ -13,7 +15,7 @@ import (
 func CreateSnapshotSource(ctx context.Context, c *apiclient.KopiaAPIClient, req *CreateSnapshotSourceRequest) (*CreateSnapshotSourceResponse, error) {
 	resp := &CreateSnapshotSourceResponse{}
 	if err := c.Post(ctx, "sources", req, resp); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "CreateSnapshotSource")
 	}
 
 	return resp, nil
@@ -23,7 +25,7 @@ func CreateSnapshotSource(ctx context.Context, c *apiclient.KopiaAPIClient, req 
 func UploadSnapshots(ctx context.Context, c *apiclient.KopiaAPIClient, match *snapshot.SourceInfo) (*MultipleSourceActionResponse, error) {
 	resp := &MultipleSourceActionResponse{}
 	if err := c.Post(ctx, "sources/upload"+matchSourceParameters(match), &Empty{}, resp); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "UploadSnapshots")
 	}
 
 	return resp, nil
@@ -33,7 +35,7 @@ func UploadSnapshots(ctx context.Context, c *apiclient.KopiaAPIClient, match *sn
 func CancelUpload(ctx context.Context, c *apiclient.KopiaAPIClient, match *snapshot.SourceInfo) (*MultipleSourceActionResponse, error) {
 	resp := &MultipleSourceActionResponse{}
 	if err := c.Post(ctx, "sources/cancel"+matchSourceParameters(match), &Empty{}, resp); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "CancelUpload")
 	}
 
 	return resp, nil
@@ -63,7 +65,7 @@ func Shutdown(ctx context.Context, c *apiclient.KopiaAPIClient) {
 func Status(ctx context.Context, c *apiclient.KopiaAPIClient) (*StatusResponse, error) {
 	resp := &StatusResponse{}
 	if err := c.Get(ctx, "repo/status", nil, resp); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "Status")
 	}
 
 	return resp, nil
@@ -73,7 +75,7 @@ func Status(ctx context.Context, c *apiclient.KopiaAPIClient) (*StatusResponse, 
 func ListSources(ctx context.Context, c *apiclient.KopiaAPIClient, match *snapshot.SourceInfo) (*SourcesResponse, error) {
 	resp := &SourcesResponse{}
 	if err := c.Get(ctx, "sources"+matchSourceParameters(match), nil, resp); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "ListSources")
 	}
 
 	return resp, nil
@@ -83,7 +85,7 @@ func ListSources(ctx context.Context, c *apiclient.KopiaAPIClient, match *snapsh
 func ListSnapshots(ctx context.Context, c *apiclient.KopiaAPIClient, match *snapshot.SourceInfo) (*SnapshotsResponse, error) {
 	resp := &SnapshotsResponse{}
 	if err := c.Get(ctx, "snapshots"+matchSourceParameters(match), nil, resp); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "ListSnapshots")
 	}
 
 	return resp, nil
@@ -93,7 +95,7 @@ func ListSnapshots(ctx context.Context, c *apiclient.KopiaAPIClient, match *snap
 func ListPolicies(ctx context.Context, c *apiclient.KopiaAPIClient, match *snapshot.SourceInfo) (*PoliciesResponse, error) {
 	resp := &PoliciesResponse{}
 	if err := c.Get(ctx, "policies"+matchSourceParameters(match), nil, resp); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "ListPolicies")
 	}
 
 	return resp, nil
@@ -104,7 +106,7 @@ func GetObject(ctx context.Context, c *apiclient.KopiaAPIClient, objectID string
 	var b []byte
 
 	if err := c.Get(ctx, "objects/"+objectID, object.ErrObjectNotFound, &b); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "GetObject")
 	}
 
 	return b, nil

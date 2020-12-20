@@ -47,7 +47,7 @@ func init() {
 					if sftpo.KeyData == "" {
 						d, err := ioutil.ReadFile(sftpo.Keyfile)
 						if err != nil {
-							return nil, err
+							return nil, errors.Wrap(err, "unable to read key file")
 						}
 
 						sftpo.KeyData = string(d)
@@ -57,7 +57,7 @@ func init() {
 					if sftpo.KnownHostsData == "" && sftpo.KnownHostsFile != "" {
 						d, err := ioutil.ReadFile(sftpo.KnownHostsFile)
 						if err != nil {
-							return nil, err
+							return nil, errors.Wrap(err, "unable to read known hosts file")
 						}
 
 						sftpo.KnownHostsData = string(d)

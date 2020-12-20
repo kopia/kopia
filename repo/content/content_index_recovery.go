@@ -36,7 +36,7 @@ func (bm *Manager) RecoverIndexFromPackBlob(ctx context.Context, packFile blob.I
 		return nil
 	})
 
-	return recovered, err
+	return recovered, errors.Wrap(err, "error iterating index entries")
 }
 
 type packContentPostamble struct {
@@ -180,7 +180,7 @@ func (bm *lockFreeManager) writePackFileIndexRecoveryData(buf *gather.WriteBuffe
 
 	encryptedLocalIndex, err := bm.encryptor.Encrypt(nil, localIndex, localIndexIV)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "encryption error")
 	}
 
 	postamble := packContentPostamble{
@@ -207,7 +207,7 @@ func (bm *lockFreeManager) readPackFileLocalIndex(ctx context.Context, packFile 
 
 	payload, err := bm.st.GetBlob(ctx, packFile, 0, -1)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "error getting blob %v", packFile)
 	}
 
 	postamble := findPostamble(payload)

@@ -51,12 +51,12 @@ func (c *KopiaAPIClient) Delete(ctx context.Context, urlSuffix string, reqPayloa
 func (c *KopiaAPIClient) runRequest(ctx context.Context, method, url string, notFoundError error, reqPayload, respPayload interface{}) error {
 	payload, contentType, err := requestReader(reqPayload)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error getting reader")
 	}
 
 	req, err := http.NewRequestWithContext(ctx, method, url, payload)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error creating request")
 	}
 
 	if contentType != "" {
@@ -65,7 +65,7 @@ func (c *KopiaAPIClient) runRequest(ctx context.Context, method, url string, not
 
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error running http request")
 	}
 
 	defer resp.Body.Close() //nolint:errcheck
@@ -180,7 +180,7 @@ func (t loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	resp, err := t.base.RoundTrip(req)
 	if err != nil {
 		log(req.Context()).Debugf("%v %v took %v and failed with %v", req.Method, req.URL, clock.Since(t0), err)
-		return nil, err
+		return nil, errors.Wrap(err, "round-trip error")
 	}
 
 	log(req.Context()).Debugf("%v %v took %v and returned %v", req.Method, req.URL, clock.Since(t0), resp.Status)

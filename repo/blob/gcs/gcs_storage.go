@@ -48,7 +48,7 @@ func (gcs *gcsStorage) GetBlob(ctx context.Context, b blob.ID, offset, length in
 	attempt := func() (interface{}, error) {
 		reader, err := gcs.bucket.Object(gcs.getObjectNameString(b)).NewRangeReader(gcs.ctx, offset, length)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "NewRangeReader")
 		}
 		defer reader.Close() //nolint:errcheck
 
@@ -72,7 +72,7 @@ func (gcs *gcsStorage) GetMetadata(ctx context.Context, b blob.ID) (blob.Metadat
 	attempt := func() (interface{}, error) {
 		attrs, err := gcs.bucket.Object(gcs.getObjectNameString(b)).Attrs(ctx)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "Attrs")
 		}
 
 		return blob.Metadata{
@@ -203,7 +203,7 @@ func (gcs *gcsStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback f
 	}
 
 	if !errors.Is(err, iterator.Done) {
-		return err
+		return errors.Wrap(err, "ListBlobs")
 	}
 
 	return nil
@@ -235,7 +235,7 @@ func toBandwidth(bytesPerSecond int) iothrottler.Bandwidth {
 func tokenSourceFromCredentialsFile(ctx context.Context, fn string, scopes ...string) (oauth2.TokenSource, error) {
 	data, err := ioutil.ReadFile(fn) //nolint:gosec
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error reading credentials file")
 	}
 
 	cfg, err := google.JWTConfigFromJSON(data, scopes...)
@@ -280,7 +280,7 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 	}
 
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "unable to initialize token source")
 	}
 
 	downloadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.MaxDownloadSpeedBytesPerSecond))
@@ -291,7 +291,7 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 
 	cli, err := gcsclient.NewClient(ctx, option.WithHTTPClient(hc))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "unable to create GCS client")
 	}
 
 	if opt.BucketName == "" {

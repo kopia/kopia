@@ -28,6 +28,7 @@ func (s *loggingStorage) GetBlob(ctx context.Context, id blob.ID, offset, length
 		s.printf(s.prefix+"GetBlob(%q,%v,%v)=({%v bytes}, %#v) took %v", id, offset, length, len(result), err, dt)
 	}
 
+	// nolint:wrapcheck
 	return result, err
 }
 
@@ -38,6 +39,7 @@ func (s *loggingStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Meta
 
 	s.printf(s.prefix+"GetMetadata(%q)=(%v, %#v) took %v", id, result, err, dt)
 
+	// nolint:wrapcheck
 	return result, err
 }
 
@@ -47,6 +49,7 @@ func (s *loggingStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Byte
 	dt := clock.Since(t0)
 	s.printf(s.prefix+"PutBlob(%q,len=%v)=%#v took %v", id, data.Length(), err, dt)
 
+	// nolint:wrapcheck
 	return err
 }
 
@@ -56,6 +59,7 @@ func (s *loggingStorage) SetTime(ctx context.Context, id blob.ID, t time.Time) e
 	dt := clock.Since(t0)
 	s.printf(s.prefix+"SetTime(%q,%v)=%#v took %v", id, t, err, dt)
 
+	// nolint:wrapcheck
 	return err
 }
 
@@ -65,6 +69,7 @@ func (s *loggingStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
 	dt := clock.Since(t0)
 	s.printf(s.prefix+"DeleteBlob(%q)=%#v took %v", id, err, dt)
 
+	// nolint:wrapcheck
 	return err
 }
 
@@ -77,6 +82,7 @@ func (s *loggingStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback
 	})
 	s.printf(s.prefix+"ListBlobs(%q)=%v returned %v items and took %v", prefix, err, cnt, clock.Since(t0))
 
+	// nolint:wrapcheck
 	return err
 }
 
@@ -86,6 +92,7 @@ func (s *loggingStorage) Close(ctx context.Context) error {
 	dt := clock.Since(t0)
 	s.printf(s.prefix+"Close()=%#v took %v", err, dt)
 
+	// nolint:wrapcheck
 	return err
 }
 

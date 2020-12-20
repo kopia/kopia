@@ -311,7 +311,7 @@ func (bm *Manager) flushPackIndexesLocked(ctx context.Context) error {
 
 		indexBlobMD, err := bm.indexBlobManager.writeIndexBlob(ctx, data)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "error writing index blob")
 		}
 
 		if err := bm.committedContents.addContent(ctx, indexBlobMD.BlobID, dataCopy, true); err != nil {

@@ -39,7 +39,7 @@ func findSnapshotsForSource(ctx context.Context, rep repo.Repository, sourceInfo
 	for len(sourceInfo.Path) > 0 {
 		list, err := snapshot.ListSnapshotManifests(ctx, rep, &sourceInfo)
 		if err != nil {
-			return nil, "", err
+			return nil, "", errors.Wrapf(err, "error listing manifests for %v", sourceInfo)
 		}
 
 		if len(list) > 0 {
@@ -68,7 +68,7 @@ func findSnapshotsForSource(ctx context.Context, rep repo.Repository, sourceInfo
 func findManifestIDs(ctx context.Context, rep repo.Repository, source string) ([]manifest.ID, string, error) {
 	if source == "" {
 		man, err := snapshot.ListSnapshotManifests(ctx, rep, nil)
-		return man, "", err
+		return man, "", errors.Wrap(err, "error listing all snapshot manifests")
 	}
 
 	si, err := snapshot.ParseSourceInfo(source, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
@@ -92,7 +92,7 @@ func runSnapshotsCommand(ctx context.Context, rep repo.Repository) error {
 
 	manifests, err := snapshot.LoadSnapshots(ctx, rep, manifestIDs)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "unable to load snapshots")
 	}
 
 	return outputManifestGroups(ctx, rep, manifests, strings.Split(relPath, "/"))

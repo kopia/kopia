@@ -133,7 +133,7 @@ func (d *persistentOwnWritesCache) merge(ctx context.Context, prefix blob.ID, so
 		return nil
 	})
 
-	return mergeOwnWrites(source, myWrites), err
+	return mergeOwnWrites(source, myWrites), errors.Wrap(err, "error listing blobs")
 }
 
 func (d *persistentOwnWritesCache) delete(ctx context.Context, blobID blob.ID) error {

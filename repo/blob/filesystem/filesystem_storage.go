@@ -77,6 +77,7 @@ func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, off
 	val, err := retry.WithExponentialBackoff(ctx, "GetBlobFromPath:"+path, func() (interface{}, error) {
 		f, err := os.Open(path) //nolint:gosec
 		if err != nil {
+			//nolint:wrapcheck
 			return nil, err
 		}
 
@@ -93,6 +94,7 @@ func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, off
 
 		b, err := ioutil.ReadAll(io.LimitReader(f, length))
 		if err != nil {
+			//nolint:wrapcheck
 			return nil, err
 		}
 
@@ -102,6 +104,7 @@ func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, off
 					// this sometimes fails on macOS for unknown reasons, likely a bug in the filesystem
 					// retry deals with this transient state.
 					// see see https://github.com/kopia/kopia/issues/299
+					// nolint:wrapcheck
 					return nil, errRetriableInvalidLength
 				}
 			}
@@ -116,6 +119,7 @@ func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, off
 			return nil, blob.ErrBlobNotFound
 		}
 
+		// nolint:wrapcheck
 		return nil, err
 	}
 
@@ -125,6 +129,7 @@ func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, off
 func (fs *fsImpl) GetMetadataFromPath(ctx context.Context, dirPath, path string) (blob.Metadata, error) {
 	fi, err := os.Stat(path)
 	if err != nil {
+		// nolint:wrapcheck
 		return blob.Metadata{}, err
 	}
 
@@ -133,6 +138,7 @@ func (fs *fsImpl) GetMetadataFromPath(ctx context.Context, dirPath, path string)
 			return blob.Metadata{}, blob.ErrBlobNotFound
 		}
 
+		// nolint:wrapcheck
 		return blob.Metadata{}, err
 	}
 
@@ -179,6 +185,7 @@ func (fs *fsImpl) PutBlobInPath(ctx context.Context, dirPath, path string, data 
 				log(ctx).Warningf("can't remove temp file: %v", removeErr)
 			}
 
+			// nolint:wrapcheck
 			return err
 		}
 
@@ -204,6 +211,7 @@ func (fs *fsImpl) createTempFileAndDir(tempFile string) (*os.File, error) {
 		return os.OpenFile(tempFile, flags, fs.fileMode()) //nolint:gosec
 	}
 
+	// nolint:wrapcheck
 	return f, err
 }
 
@@ -214,6 +222,7 @@ func (fs *fsImpl) DeleteBlobInPath(ctx context.Context, dirPath, path string) er
 			return nil
 		}
 
+		// nolint:wrapcheck
 		return err
 	}, isRetriable)
 }
@@ -221,9 +230,11 @@ func (fs *fsImpl) DeleteBlobInPath(ctx context.Context, dirPath, path string) er
 func (fs *fsImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, error) {
 	v, err := retry.WithExponentialBackoff(ctx, "ReadDir:"+dirname, func() (interface{}, error) {
 		v, err := ioutil.ReadDir(dirname)
+		// nolint:wrapcheck
 		return v, err
 	}, isRetriable)
 	if err != nil {
+		// nolint:wrapcheck
 		return nil, err
 	}
 
@@ -243,6 +254,7 @@ func (fs *fsStorage) TouchBlob(ctx context.Context, blobID blob.ID, threshold ti
 
 	st, err := os.Stat(path)
 	if err != nil {
+		// nolint:wrapcheck
 		return err
 	}
 

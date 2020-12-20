@@ -91,7 +91,7 @@ func addRestoreFlags(cmd *kingpin.CmdClause) {
 func restoreOutput(ctx context.Context) (restore.Output, error) {
 	p, err := filepath.Abs(restoreTargetPath)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "unable to resolve path")
 	}
 
 	m := detectRestoreMode(ctx, restoreMode)
@@ -214,7 +214,7 @@ func runRestoreCommand(ctx context.Context, rep repo.Repository) error {
 		},
 	})
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error restoring")
 	}
 
 	printRestoreStats(ctx, st)

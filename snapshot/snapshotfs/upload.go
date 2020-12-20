@@ -127,7 +127,7 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, parentCheckpointRegis
 		// nolint:govet
 		checkpointID, err := writer.Checkpoint()
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "checkpoint error")
 		}
 
 		if checkpointID == "" {
@@ -146,12 +146,12 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, parentCheckpointRegis
 
 	fi2, err := file.Entry()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "unable to get file entry after copying")
 	}
 
 	r, err := writer.Result()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "unable to get result")
 	}
 
 	de, err := newDirEntry(fi2, r)
@@ -188,7 +188,7 @@ func (u *Uploader) uploadSymlinkInternal(ctx context.Context, relativePath strin
 
 	r, err := writer.Result()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "unable to get result")
 	}
 
 	de, err := newDirEntry(f, r)
@@ -211,7 +211,7 @@ func (u *Uploader) copyWithProgress(dst io.Writer, src io.Reader, completed, len
 
 	for {
 		if u.IsCanceled() {
-			return 0, errCanceled
+			return 0, errors.Wrap(errCanceled, "canceled when copying data")
 		}
 
 		readBytes, readErr := src.Read(uploadBuf)
@@ -231,6 +231,7 @@ func (u *Uploader) copyWithProgress(dst io.Writer, src io.Reader, completed, len
 			}
 
 			if writeErr != nil {
+				// nolint:wrapcheck
 				return written, writeErr
 			}
 
@@ -244,6 +245,7 @@ func (u *Uploader) copyWithProgress(dst io.Writer, src io.Reader, completed, len
 				break
 			}
 
+			// nolint:wrapcheck
 			return written, readErr
 		}
 	}
@@ -448,6 +450,7 @@ func (u *Uploader) foreachEntryUnlessCanceled(ctx context.Context, parallel int,
 		eg.Go(func() error {
 			for entry := range ch {
 				if u.IsCanceled() {
+					// nolint:wrapcheck
 					return errCanceled
 				}
 

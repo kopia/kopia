@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/internal/apiclient"
 	"github.com/kopia/kopia/internal/serverapi"
 )
@@ -17,7 +19,7 @@ func init() {
 func runServerStatus(ctx context.Context, cli *apiclient.KopiaAPIClient) error {
 	var status serverapi.SourcesResponse
 	if err := cli.Get(ctx, "sources", nil, &status); err != nil {
-		return err
+		return errors.Wrap(err, "unable to list sources")
 	}
 
 	for _, src := range status.Sources {

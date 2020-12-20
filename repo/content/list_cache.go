@@ -48,7 +48,7 @@ func (c *listCache) listBlobs(ctx context.Context, prefix blob.ID) ([]blob.Metad
 
 	log(ctx).Debugf("listed %v index blobs with prefix %v from source", len(blobs), prefix)
 
-	return blobs, err
+	return blobs, errors.Wrap(err, "error listing blobs")
 }
 
 func (c *listCache) saveListToCache(ctx context.Context, prefix blob.ID, ci *cachedList) {
@@ -87,7 +87,7 @@ func (c *listCache) readBlobsFromCache(ctx context.Context, prefix blob.ID) (*ca
 			return nil, blob.ErrBlobNotFound
 		}
 
-		return nil, err
+		return nil, errors.Wrap(err, "error reading blobs from cache")
 	}
 
 	data, err = hmac.VerifyAndStrip(data, c.hmacSecret)
@@ -115,7 +115,7 @@ func newListCache(st blob.Storage, caching *CachingOptions) (*listCache, error) 
 
 		if _, err := os.Stat(caching.CacheDirectory); os.IsNotExist(err) {
 			if err := os.MkdirAll(caching.CacheDirectory, 0o700); err != nil {
-				return nil, err
+				return nil, errors.Wrap(err, "error creating list cache directory")
 			}
 		}
 	}

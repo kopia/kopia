@@ -177,6 +177,7 @@ func newContentCacheBase(ctx context.Context, cacheStorage blob.Storage, maxSize
 
 	// verify that cache storage is functional by listing from it
 	if err := c.cacheStorage.ListBlobs(ctx, "", func(it blob.Metadata) error {
+		// nolint:wrapcheck
 		return errGood
 	}); err != nil && !errors.Is(err, errGood) {
 		return nil, errors.Wrap(err, "unable to open cache")

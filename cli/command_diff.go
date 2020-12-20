@@ -24,12 +24,12 @@ var (
 func runDiffCommand(ctx context.Context, rep repo.Repository) error {
 	ent1, err := snapshotfs.FilesystemEntryFromIDWithPath(ctx, rep, *diffFirstObjectPath, false)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "error getting filesystem entry for %v", *diffFirstObjectPath)
 	}
 
 	ent2, err := snapshotfs.FilesystemEntryFromIDWithPath(ctx, rep, *diffSecondObjectPath, false)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "error getting filesystem entry for %v", *diffSecondObjectPath)
 	}
 
 	_, isDir1 := ent1.(fs.Directory)
@@ -41,7 +41,7 @@ func runDiffCommand(ctx context.Context, rep repo.Repository) error {
 
 	d, err := diff.NewComparer(os.Stdout)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error creating comparer")
 	}
 	defer d.Close() //nolint:errcheck
 

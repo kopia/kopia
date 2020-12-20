@@ -82,7 +82,7 @@ func Run(ctx context.Context, rep *repo.DirectRepository, params maintenance.Sna
 		return runInternal(ctx, rep, params, gcDelete, &st)
 	})
 
-	return st, err
+	return st, errors.Wrap(err, "error running snapshot gc")
 }
 
 func runInternal(ctx context.Context, rep *repo.DirectRepository, params maintenance.SnapshotGCParams, gcDelete bool, st *Stats) error {

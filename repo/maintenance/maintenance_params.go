@@ -117,5 +117,5 @@ func manifestIDs(ctx context.Context, rep MaintainableRepository) ([]*manifest.E
 		return nil, errors.Wrap(err, "error looking for maintenance manifest")
 	}
 
-	return md, err
+	return md, nil
 }

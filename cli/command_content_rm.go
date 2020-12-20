@@ -3,6 +3,8 @@ package cli
 import (
 	"context"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/repo"
 )
 
@@ -17,7 +19,7 @@ func runContentRemoveCommand(ctx context.Context, rep *repo.DirectRepository) er
 
 	for _, contentID := range toContentIDs(*contentRemoveIDs) {
 		if err := rep.Content.DeleteContent(ctx, contentID); err != nil {
-			return err
+			return errors.Wrapf(err, "error deleting content %v", contentID)
 		}
 	}
 

@@ -249,7 +249,7 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 func isEmptyDirectory(name string) (bool, error) {
 	f, err := os.Open(name) //nolint:gosec
 	if err != nil {
-		return false, err
+		return false, errors.Wrap(err, "error opening directory")
 	}
 
 	defer f.Close() //nolint:errcheck,gosec
@@ -258,5 +258,5 @@ func isEmptyDirectory(name string) (bool, error) {
 		return true, nil
 	}
 
-	return false, err // Either not empty or error
+	return false, errors.Wrap(err, "error reading directory") // Either not empty or error
 }

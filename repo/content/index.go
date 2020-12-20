@@ -215,7 +215,7 @@ func (b *index) findEntry(output []byte, contentID ID) ([]byte, error) {
 	}
 
 	if _, err := b.readerAt.ReadAt(entryBuf, int64(packHeaderSize+stride*position)); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error reading header")
 	}
 
 	if bytes.Equal(entryBuf[0:len(key)], key) {

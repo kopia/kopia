@@ -54,6 +54,7 @@ func (c *contentCacheForData) getContent(ctx context.Context, cacheKey cacheKey,
 
 	if errors.Is(err, blob.ErrBlobNotFound) {
 		// not found in underlying storage
+		// nolint:wrapcheck
 		return nil, err
 	}
 
@@ -69,7 +70,7 @@ func (c *contentCacheForData) getContent(ctx context.Context, cacheKey cacheKey,
 		}
 	}
 
-	return b, err
+	return b, errors.Wrap(err, "error getting content from cache")
 }
 
 func (c *contentCacheForData) readAndVerifyCacheContent(ctx context.Context, cacheKey cacheKey) []byte {

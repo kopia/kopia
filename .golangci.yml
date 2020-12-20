@@ -55,7 +55,7 @@ run:
 issues:
   exclude-use-default: false
   exclude-rules:
-    - path: _test\.go|testing|test_env
+    - path: _test\.go|testing|tests|test_env|fshasher
       linters:
       - gomnd
       - gocognit

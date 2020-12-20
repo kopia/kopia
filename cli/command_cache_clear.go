@@ -25,11 +25,11 @@ func runCacheClearCommand(ctx context.Context, rep *repo.DirectRepository) error
 			return os.RemoveAll(d)
 		}, retry.Always)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "error removing cache directory")
 		}
 
 		if err := os.MkdirAll(d, 0o700); err != nil {
-			return err
+			return errors.Wrap(err, "error creating cache directory")
 		}
 
 		log(ctx).Infof("Cache cleared.")

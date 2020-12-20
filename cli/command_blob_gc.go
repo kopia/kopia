@@ -3,6 +3,8 @@ package cli
 import (
 	"context"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/maintenance"
@@ -28,14 +30,14 @@ func runBlobGarbageCollectCommand(ctx context.Context, rep *repo.DirectRepositor
 
 	n, err := maintenance.DeleteUnreferencedBlobs(ctx, rep, opts)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error deleting unreferenced blobs")
 	}
 
 	if opts.DryRun && n > 0 {
 		log(ctx).Infof("Pass --delete=yes to delete.")
 	}
 
-	return err
+	return nil
 }
 
 func init() {

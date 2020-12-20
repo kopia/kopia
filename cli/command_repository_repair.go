@@ -68,11 +68,13 @@ func recoverFormatBlob(ctx context.Context, st blob.Storage, prefixes []string) 
 			if b, err := repo.RecoverFormatBlob(ctx, st, bi.BlobID, bi.Length); err == nil {
 				if !*repairDryDrun {
 					if puterr := st.PutBlob(ctx, repo.FormatBlobID, gather.FromSlice(b)); puterr != nil {
-						return puterr
+						return errors.Wrap(puterr, "error writing format blob")
 					}
 				}
 
 				log(ctx).Infof("recovered replica block from %v", bi.BlobID)
+
+				// nolint:wrapcheck
 				return errSuccess
 			}
 
@@ -85,7 +87,7 @@ func recoverFormatBlob(ctx context.Context, st blob.Storage, prefixes []string) 
 		case errors.Is(err, errSuccess):
 			return nil
 		default:
-			return err
+			return errors.Wrap(err, "unexpected error when listing blobs")
 		}
 	}
 
