@@ -43,7 +43,7 @@ func netUse(ctx context.Context, args ...string) (string, error) {
 	out, err := nu.Output()
 	log(ctx).Debugf("net use finished with %v %v", string(out), err)
 
-	return string(out), err
+	return string(out), errors.Wrap(err, "error running 'net use'")
 }
 
 func netUseMount(ctx context.Context, driveLetter, webdavURL string) (string, error) {

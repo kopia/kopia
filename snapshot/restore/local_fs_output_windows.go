@@ -31,7 +31,7 @@ func symlinkChtimes(linkPath string, atime, mtime time.Time) error {
 		nil, windows.OPEN_EXISTING,
 		windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "CreateFile error")
 	}
 
 	defer windows.CloseHandle(h) //nolint:errcheck
