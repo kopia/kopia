@@ -299,7 +299,7 @@ func (ks *KopiaSnapshotter) createAndConnectServer(serverAddr string, args ...st
 		return nil, tempDirErr
 	}
 
-	defer os.RemoveAll(tempDir) // nolint:errcheck
+	defer os.RemoveAll(tempDir)
 
 	tlsCertFile := filepath.Join(tempDir, "kopiaserver.cert")
 	tlsKeyFile := filepath.Join(tempDir, "kopiaserver.key")

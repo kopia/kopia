@@ -130,11 +130,9 @@ func VerifyConcurrentAccess(t testingT, st blob.Storage, options ConcurrentAcces
 					prefix = "zzz"
 				}
 
-				err := st.ListBlobs(ctx, prefix, func(blob.Metadata) error {
+				if err := st.ListBlobs(ctx, prefix, func(blob.Metadata) error {
 					return nil
-				})
-
-				if err != nil {
+				}); err != nil {
 					return errors.Wrapf(err, "ListBlobs(%v) returned unexpected error", prefix)
 				}
 			}

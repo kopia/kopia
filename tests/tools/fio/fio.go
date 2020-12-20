@@ -238,7 +238,6 @@ func (fr *Runner) Run(args ...string) (stdout, stderr string, err error) {
 		log.Printf("running '%s %v'", fr.Exe, argsStr)
 	}
 
-	// nolint:gosec
 	c := exec.Command(fr.Exe, args...)
 
 	errOut := &bytes.Buffer{}

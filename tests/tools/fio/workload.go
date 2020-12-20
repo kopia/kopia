@@ -68,7 +68,7 @@ func (fr *Runner) WriteFilesAtDepthRandomBranch(relBasePath string, depth int, o
 		return errors.Wrapf(err, "unable to make base dir %v for writing at depth with a branch", fullBasePath)
 	}
 
-	return fr.writeFilesAtDepth(fullBasePath, depth, rand.Intn(depth+1), opt) // nolint:gosec
+	return fr.writeFilesAtDepth(fullBasePath, depth, rand.Intn(depth+1), opt)
 }
 
 // DeleteRelDir deletes a relative directory in the runner's data directory.
@@ -102,7 +102,7 @@ func (fr *Runner) DeleteContentsAtDepth(relBasePath string, depth int, prob floa
 		}
 
 		for _, fi := range fileInfoList {
-			if rand.Float32() < prob { // nolint:gosec
+			if rand.Float32() < prob {
 				path := filepath.Join(dirPath, fi.Name())
 				err = os.RemoveAll(path)
 				if err != nil {

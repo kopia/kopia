@@ -8,12 +8,13 @@ import (
 	"runtime/debug"
 	"testing"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/object"
-	"github.com/pkg/errors"
 )
 
 func TestWriters(t *testing.T) {
