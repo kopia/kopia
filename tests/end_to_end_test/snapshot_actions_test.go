@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -217,6 +218,50 @@ func TestSnapshotActionsBeforeAfterFolder(t *testing.T) {
 
 	// the action will fail to run the next time since all 'actionRan*' files already exist.
 	e.RunAndExpectFailure(t, "snapshot", "create", rootDir)
+}
+
+func TestSnapshotActionsEmbeddedScript(t *testing.T) {
+	t.Parallel()
+
+	e := testenv.NewCLITest(t)
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	var (
+		successScript      = tmpfileWithContents(t, "echo Hello world!")
+		successScript2     = tmpfileWithContents(t, "echo Hello world!")
+		failingScript      string
+		goodRedirectScript = tmpfileWithContents(t, "echo KOPIA_SNAPSHOT_PATH="+sharedTestDataDir2)
+		badRedirectScript  = tmpfileWithContents(t, "echo KOPIA_SNAPSHOT_PATH=/no/such/directory")
+	)
+
+	if runtime.GOOS == "windows" {
+		failingScript = tmpfileWithContents(t, "exit /b 1")
+	} else {
+		failingScript = tmpfileWithContents(t, "#!/bin/sh\nexit 1")
+		successScript2 = tmpfileWithContents(t, "#!/bin/sh\necho Hello world!")
+	}
+
+	e.RunAndExpectSuccess(t, "policy", "set", sharedTestDataDir1, "--before-folder-action", successScript, "--persist-action-script")
+	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
+
+	e.RunAndExpectSuccess(t, "policy", "set", sharedTestDataDir1, "--before-folder-action", goodRedirectScript, "--persist-action-script")
+	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
+
+	e.RunAndExpectSuccess(t, "policy", "set", sharedTestDataDir1, "--before-folder-action", successScript2, "--persist-action-script")
+	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
+
+	snaps1 := e.ListSnapshotsAndExpectSuccess(t, sharedTestDataDir1)[0].Snapshots
+	if snaps1[0].ObjectID == snaps1[1].ObjectID {
+		t.Fatalf("redirection did not happen!")
+	}
+
+	e.RunAndExpectSuccess(t, "policy", "set", sharedTestDataDir1, "--before-folder-action", badRedirectScript, "--persist-action-script")
+	e.RunAndExpectFailure(t, "snapshot", "create", sharedTestDataDir1)
+
+	e.RunAndExpectSuccess(t, "policy", "set", sharedTestDataDir1, "--before-folder-action", failingScript, "--persist-action-script")
+	e.RunAndExpectFailure(t, "snapshot", "create", sharedTestDataDir1)
 }
 
 func tmpfileWithContents(t *testing.T, contents string) string {
