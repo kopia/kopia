@@ -3,11 +3,13 @@ package cli
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 )
 
@@ -44,10 +46,10 @@ func showPolicy(ctx context.Context, rep repo.Repository) error {
 	return nil
 }
 
-func getDefinitionPoint(parents []*policy.Policy, match func(p *policy.Policy) bool) string {
-	for i, p := range parents {
+func getDefinitionPoint(target snapshot.SourceInfo, parents []*policy.Policy, match func(p *policy.Policy) bool) string {
+	for _, p := range parents {
 		if match(p) {
-			if i == 0 {
+			if p.Target() == target {
 				return "(defined for this target)"
 			}
 
@@ -84,38 +86,40 @@ func printPolicy(p *policy.Policy, parents []*policy.Policy) {
 	printSchedulingPolicy(p, parents)
 	printStdout("\n")
 	printCompressionPolicy(p, parents)
+	printStdout("\n")
+	printActions(p, parents)
 }
 
 func printRetentionPolicy(p *policy.Policy, parents []*policy.Policy) {
 	printStdout("Retention:\n")
 	printStdout("  Annual snapshots:  %3v           %v\n",
 		valueOrNotSet(p.RetentionPolicy.KeepAnnual),
-		getDefinitionPoint(parents, func(pol *policy.Policy) bool {
+		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
 			return pol.RetentionPolicy.KeepAnnual != nil
 		}))
 	printStdout("  Monthly snapshots: %3v           %v\n",
 		valueOrNotSet(p.RetentionPolicy.KeepMonthly),
-		getDefinitionPoint(parents, func(pol *policy.Policy) bool {
+		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
 			return pol.RetentionPolicy.KeepMonthly != nil
 		}))
 	printStdout("  Weekly snapshots:  %3v           %v\n",
 		valueOrNotSet(p.RetentionPolicy.KeepWeekly),
-		getDefinitionPoint(parents, func(pol *policy.Policy) bool {
+		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
 			return pol.RetentionPolicy.KeepWeekly != nil
 		}))
 	printStdout("  Daily snapshots:   %3v           %v\n",
 		valueOrNotSet(p.RetentionPolicy.KeepDaily),
-		getDefinitionPoint(parents, func(pol *policy.Policy) bool {
+		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
 			return pol.RetentionPolicy.KeepDaily != nil
 		}))
 	printStdout("  Hourly snapshots:  %3v           %v\n",
 		valueOrNotSet(p.RetentionPolicy.KeepHourly),
-		getDefinitionPoint(parents, func(pol *policy.Policy) bool {
+		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
 			return pol.RetentionPolicy.KeepHourly != nil
 		}))
 	printStdout("  Latest snapshots:  %3v           %v\n",
 		valueOrNotSet(p.RetentionPolicy.KeepLatest),
-		getDefinitionPoint(parents, func(pol *policy.Policy) bool {
+		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
 			return pol.RetentionPolicy.KeepLatest != nil
 		}))
 }
@@ -125,7 +129,7 @@ func printFilesPolicy(p *policy.Policy, parents []*policy.Policy) {
 
 	printStdout("  Ignore cache directories:       %5v       %v\n",
 		p.FilesPolicy.IgnoreCacheDirectoriesOrDefault(true),
-		getDefinitionPoint(parents, func(pol *policy.Policy) bool {
+		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
 			return pol.FilesPolicy.IgnoreCacheDirs != nil
 		}))
 
@@ -137,7 +141,7 @@ func printFilesPolicy(p *policy.Policy, parents []*policy.Policy) {
 
 	for _, rule := range p.FilesPolicy.IgnoreRules {
 		rule := rule
-		printStdout("    %-30v %v\n", rule, getDefinitionPoint(parents, func(pol *policy.Policy) bool {
+		printStdout("    %-30v %v\n", rule, getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
 			return containsString(pol.FilesPolicy.IgnoreRules, rule)
 		}))
 	}
@@ -148,7 +152,7 @@ func printFilesPolicy(p *policy.Policy, parents []*policy.Policy) {
 
 	for _, dotFile := range p.FilesPolicy.DotIgnoreFiles {
 		dotFile := dotFile
-		printStdout("    %-30v %v\n", dotFile, getDefinitionPoint(parents, func(pol *policy.Policy) bool {
+		printStdout("    %-30v %v\n", dotFile, getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
 			return containsString(pol.FilesPolicy.DotIgnoreFiles, dotFile)
 		}))
 	}
@@ -156,14 +160,14 @@ func printFilesPolicy(p *policy.Policy, parents []*policy.Policy) {
 	if maxSize := p.FilesPolicy.MaxFileSize; maxSize > 0 {
 		printStdout("  Ignore files above: %10v  %v\n",
 			units.BytesStringBase2(maxSize),
-			getDefinitionPoint(parents, func(pol *policy.Policy) bool {
+			getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
 				return pol.FilesPolicy.MaxFileSize != 0
 			}))
 	}
 
 	printStdout("  Scan one filesystem only:       %5v       %v\n",
 		p.FilesPolicy.OneFileSystemOrDefault(false),
-		getDefinitionPoint(parents, func(pol *policy.Policy) bool {
+		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
 			return pol.FilesPolicy.OneFileSystem != nil
 		}))
 }
@@ -173,13 +177,13 @@ func printErrorHandlingPolicy(p *policy.Policy, parents []*policy.Policy) {
 
 	printStdout("  Ignore file read errors:       %5v       %v\n",
 		p.ErrorHandlingPolicy.IgnoreFileErrorsOrDefault(false),
-		getDefinitionPoint(parents, func(pol *policy.Policy) bool {
+		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
 			return pol.ErrorHandlingPolicy.IgnoreFileErrors != nil
 		}))
 
 	printStdout("  Ignore directory read errors:  %5v       %v\n",
 		p.ErrorHandlingPolicy.IgnoreDirectoryErrorsOrDefault(false),
-		getDefinitionPoint(parents, func(pol *policy.Policy) bool {
+		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
 			return pol.ErrorHandlingPolicy.IgnoreDirectoryErrors != nil
 		}))
 }
@@ -190,7 +194,7 @@ func printSchedulingPolicy(p *policy.Policy, parents []*policy.Policy) {
 	any := false
 
 	if p.SchedulingPolicy.Interval() != 0 {
-		printStdout("  Snapshot interval:   %10v  %v\n", p.SchedulingPolicy.Interval(), getDefinitionPoint(parents, func(pol *policy.Policy) bool {
+		printStdout("  Snapshot interval:   %10v  %v\n", p.SchedulingPolicy.Interval(), getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
 			return pol.SchedulingPolicy.Interval() != 0
 		}))
 
@@ -202,7 +206,7 @@ func printSchedulingPolicy(p *policy.Policy, parents []*policy.Policy) {
 
 		for _, tod := range p.SchedulingPolicy.TimesOfDay {
 			tod := tod
-			printStdout("    %9v                      %v\n", tod, getDefinitionPoint(parents, func(pol *policy.Policy) bool {
+			printStdout("    %9v                      %v\n", tod, getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
 				for _, t := range pol.SchedulingPolicy.TimesOfDay {
 					if t == tod {
 						return true
@@ -224,7 +228,7 @@ func printSchedulingPolicy(p *policy.Policy, parents []*policy.Policy) {
 func printCompressionPolicy(p *policy.Policy, parents []*policy.Policy) {
 	if p.CompressionPolicy.CompressorName != "" && p.CompressionPolicy.CompressorName != "none" {
 		printStdout("Compression:\n")
-		printStdout("  Compressor: %q %v\n", p.CompressionPolicy.CompressorName, getDefinitionPoint(parents, func(pol *policy.Policy) bool {
+		printStdout("  Compressor: %q %v\n", p.CompressionPolicy.CompressorName, getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
 			return pol.CompressionPolicy.CompressorName != ""
 		}))
 	} else {
@@ -238,7 +242,7 @@ func printCompressionPolicy(p *policy.Policy, parents []*policy.Policy) {
 
 		for _, rule := range p.CompressionPolicy.OnlyCompress {
 			rule := rule
-			printStdout("    %-30v %v\n", rule, getDefinitionPoint(parents, func(pol *policy.Policy) bool {
+			printStdout("    %-30v %v\n", rule, getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
 				return containsString(pol.CompressionPolicy.OnlyCompress, rule)
 			}))
 		}
@@ -248,7 +252,7 @@ func printCompressionPolicy(p *policy.Policy, parents []*policy.Policy) {
 
 		for _, rule := range p.CompressionPolicy.NeverCompress {
 			rule := rule
-			printStdout("    %-30v %v\n", rule, getDefinitionPoint(parents, func(pol *policy.Policy) bool {
+			printStdout("    %-30v %v\n", rule, getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
 				return containsString(pol.CompressionPolicy.NeverCompress, rule)
 			}))
 		}
@@ -267,6 +271,60 @@ func printCompressionPolicy(p *policy.Policy, parents []*policy.Policy) {
 	default:
 		printStdout("  Compress files of all sizes.\n")
 	}
+}
+
+func printActions(p *policy.Policy, parents []*policy.Policy) {
+	var anyActions bool
+
+	if h := p.Actions.BeforeSnapshotRoot; h != nil {
+		printStdout("Run command before snapshot root:  %v\n", getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
+			return pol.Actions.BeforeSnapshotRoot == h
+		}))
+
+		printActionCommand(h)
+
+		anyActions = true
+	}
+
+	if h := p.Actions.AfterSnapshotRoot; h != nil {
+		printStdout("Run command after snapshot root:   %v\n", getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
+			return pol.Actions.AfterSnapshotRoot == h
+		}))
+		printActionCommand(h)
+
+		anyActions = true
+	}
+
+	if h := p.Actions.BeforeFolder; h != nil {
+		printStdout("Run command before this folder:    (non-inheritable)\n")
+
+		printActionCommand(h)
+
+		anyActions = true
+	}
+
+	if h := p.Actions.AfterFolder; h != nil {
+		printStdout("Run command after this folder:    (non-inheritable)\n")
+		printActionCommand(h)
+
+		anyActions = true
+	}
+
+	if !anyActions {
+		printStdout("No actions defined.\n")
+	}
+}
+
+func printActionCommand(h *policy.ActionCommand) {
+	if h.Script != "" {
+		printStdout("  Embedded Script: %q\n", h.Script)
+	} else {
+		printStdout("  Command: %v %v\n", h.Command, strings.Join(h.Arguments, " "))
+	}
+
+	printStdout("  Mode: %v\n", h.Mode)
+	printStdout("  Timeout: %v\n", h.TimeoutSeconds)
+	printStdout("\n")
 }
 
 func valueOrNotSet(p *int) string {

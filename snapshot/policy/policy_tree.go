@@ -1,6 +1,8 @@
 package policy
 
-import "strings"
+import (
+	"strings"
+)
 
 // DefaultPolicy is a default policy returned by policy tree in absence of other policies.
 var DefaultPolicy = &Policy{
@@ -9,6 +11,7 @@ var DefaultPolicy = &Policy{
 	CompressionPolicy:   defaultCompressionPolicy,
 	ErrorHandlingPolicy: defaultErrorHandlingPolicy,
 	SchedulingPolicy:    defaultSchedulingPolicy,
+	Actions:             defaultActionsPolicy,
 }
 
 // Tree represents a node in the policy tree, where a policy can be

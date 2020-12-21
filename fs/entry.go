@@ -14,6 +14,7 @@ type Entry interface {
 	os.FileInfo
 	Owner() OwnerInfo
 	Device() DeviceInfo
+	LocalFilesystemPath() string // returns full local filesystem path or "" if not a local filesystem
 }
 
 // OwnerInfo describes owner of a filesystem entry.

@@ -1,6 +1,7 @@
 COVERAGE_PACKAGES=github.com/kopia/kopia/repo/...,github.com/kopia/kopia/fs/...,github.com/kopia/kopia/snapshot/...
 TEST_FLAGS?=
 KOPIA_INTEGRATION_EXE=$(CURDIR)/dist/integration/kopia.exe
+TESTING_ACTION_EXE=$(CURDIR)/dist/integration/testingaction.exe
 FIO_DOCKER_TAG=ljishen/fio
 
 export BOTO_PATH=$(CURDIR)/tools/.boto
@@ -219,8 +220,12 @@ vtest: $(gotestsum)
 build-integration-test-binary:
 	go build -o $(KOPIA_INTEGRATION_EXE) -tags testing github.com/kopia/kopia
 
+$(TESTING_ACTION_EXE): tests/testingaction/main.go
+	go build -o $(TESTING_ACTION_EXE) -tags testing github.com/kopia/kopia/tests/testingaction
+
 integration-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
-integration-tests: build-integration-test-binary $(gotestsum)
+integration-tests: export TESTING_ACTION_EXE ?= $(TESTING_ACTION_EXE)
+integration-tests: build-integration-test-binary $(gotestsum) $(TESTING_ACTION_EXE)
 	 $(GO_TEST) $(TEST_FLAGS) -count=1 -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/end_to_end_test
 
 endurance-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)

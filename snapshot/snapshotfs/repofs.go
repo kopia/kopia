@@ -79,6 +79,10 @@ func (e *repositoryEntry) DirEntry() *snapshot.DirEntry {
 	return e.metadata
 }
 
+func (e *repositoryEntry) LocalFilesystemPath() string {
+	return ""
+}
+
 type repositoryDirectory struct {
 	repositoryEntry
 	summary *fs.DirectorySummary
