@@ -1,18 +1,18 @@
 package policy
 
-// HooksPolicy describes hooks to be invoked when taking snapshots.
-type HooksPolicy struct {
+// ActionsPolicy describes actions to be invoked when taking snapshots.
+type ActionsPolicy struct {
 	// command runs once before and after the folder it's attached to (not inherited).
-	BeforeFolder *HookCommand `json:"beforeFolder,omitempty"`
-	AfterFolder  *HookCommand `json:"afterFolder,omitempty"`
+	BeforeFolder *ActionCommand `json:"beforeFolder,omitempty"`
+	AfterFolder  *ActionCommand `json:"afterFolder,omitempty"`
 
 	// commands run once before and after each snapshot root (can be inherited).
-	BeforeSnapshotRoot *HookCommand `json:"beforeSnapshotRoot,omitempty"`
-	AfterSnapshotRoot  *HookCommand `json:"afterSnapshotRoot,omitempty"`
+	BeforeSnapshotRoot *ActionCommand `json:"beforeSnapshotRoot,omitempty"`
+	AfterSnapshotRoot  *ActionCommand `json:"afterSnapshotRoot,omitempty"`
 }
 
-// HookCommand configures a hook command.
-type HookCommand struct {
+// ActionCommand configures a action command.
+type ActionCommand struct {
 	// command + args to run
 	Command   string   `json:"path,omitempty"`
 	Arguments []string `json:"args,omitempty"`
@@ -26,7 +26,7 @@ type HookCommand struct {
 
 // Merge applies default values from the provided policy.
 // nolint:gocritic
-func (p *HooksPolicy) Merge(src HooksPolicy) {
+func (p *ActionsPolicy) Merge(src ActionsPolicy) {
 	if p.BeforeSnapshotRoot == nil {
 		p.BeforeSnapshotRoot = src.BeforeSnapshotRoot
 	}
@@ -36,11 +36,11 @@ func (p *HooksPolicy) Merge(src HooksPolicy) {
 	}
 }
 
-// MergeNonInheritable copies non-inheritable properties from the provided hooks policy.
-func (p *HooksPolicy) MergeNonInheritable(src HooksPolicy) {
+// MergeNonInheritable copies non-inheritable properties from the provided actions policy.
+func (p *ActionsPolicy) MergeNonInheritable(src ActionsPolicy) {
 	p.BeforeFolder = src.BeforeFolder
 	p.AfterFolder = src.AfterFolder
 }
 
-// defaultHooksPolicy is the default hooks policy.
-var defaultHooksPolicy = HooksPolicy{}
+// defaultActionsPolicy is the default actions policy.
+var defaultActionsPolicy = ActionsPolicy{}

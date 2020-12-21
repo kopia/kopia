@@ -778,7 +778,7 @@ func setupCaches(ctx context.Context, m *Manager, caching *CachingOptions) error
 	}
 
 	if caching.ownWritesCache == nil {
-		// this is test hook to allow test to specify custom cache
+		// this is test action to allow test to specify custom cache
 		caching.ownWritesCache, err = newOwnWritesCache(ctx, caching, m.timeNow)
 		if err != nil {
 			return errors.Wrap(err, "unable to initialize own writes cache")

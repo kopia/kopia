@@ -11,7 +11,7 @@ var DefaultPolicy = &Policy{
 	CompressionPolicy:   defaultCompressionPolicy,
 	ErrorHandlingPolicy: defaultErrorHandlingPolicy,
 	SchedulingPolicy:    defaultSchedulingPolicy,
-	Hooks:               defaultHooksPolicy,
+	Actions:             defaultActionsPolicy,
 }
 
 // Tree represents a node in the policy tree, where a policy can be

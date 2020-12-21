@@ -372,7 +372,7 @@ func (u *Uploader) periodicallyCheckpoint(ctx context.Context, cp *checkpointReg
 					return
 				}
 
-				// test hook
+				// test action
 				if u.checkpointFinished != nil {
 					u.checkpointFinished <- struct{}{}
 				}
@@ -395,20 +395,20 @@ func (u *Uploader) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Di
 	cancelCheckpointer := u.periodicallyCheckpoint(ctx, &cp, &snapshot.Manifest{Source: sourceInfo})
 	defer cancelCheckpointer()
 
-	var hc hookContext
+	var hc actionContext
 
 	localDirPathOrEmpty := rootDir.LocalFilesystemPath()
 
-	overrideDir, err := executeBeforeFolderHook(ctx, "before-snapshot-root", policyTree.EffectivePolicy().Hooks.BeforeSnapshotRoot, localDirPathOrEmpty, &hc)
+	overrideDir, err := executeBeforeFolderAction(ctx, "before-snapshot-root", policyTree.EffectivePolicy().Actions.BeforeSnapshotRoot, localDirPathOrEmpty, &hc)
 	if err != nil {
-		return nil, dirReadError{errors.Wrap(err, "error executing before-snapshot-root hook")}
+		return nil, dirReadError{errors.Wrap(err, "error executing before-snapshot-root action")}
 	}
 
 	if overrideDir != nil {
 		rootDir = overrideDir
 	}
 
-	defer executeAfterFolderHook(ctx, "after-snapshot-root", policyTree.EffectivePolicy().Hooks.AfterSnapshotRoot, localDirPathOrEmpty, &hc)
+	defer executeAfterFolderAction(ctx, "after-snapshot-root", policyTree.EffectivePolicy().Actions.AfterSnapshotRoot, localDirPathOrEmpty, &hc)
 
 	return uploadDirInternal(ctx, u, rootDir, policyTree, previousDirs, localDirPathOrEmpty, ".", &dmb, &cp)
 }
@@ -840,21 +840,21 @@ func uploadDirInternal(
 	u.Progress.StartedDirectory(dirRelativePath)
 	defer u.Progress.FinishedDirectory(dirRelativePath)
 
-	var definedHooks policy.HooksPolicy
+	var definedActions policy.ActionsPolicy
 
 	if p := policyTree.DefinedPolicy(); p != nil {
-		definedHooks = p.Hooks
+		definedActions = p.Actions
 	}
 
-	var hc hookContext
-	defer cleanupHookContext(ctx, &hc)
+	var hc actionContext
+	defer cleanupActionContext(ctx, &hc)
 
-	overrideDir, herr := executeBeforeFolderHook(ctx, "before-folder", definedHooks.BeforeFolder, localDirPathOrEmpty, &hc)
+	overrideDir, herr := executeBeforeFolderAction(ctx, "before-folder", definedActions.BeforeFolder, localDirPathOrEmpty, &hc)
 	if herr != nil {
-		return nil, dirReadError{errors.Wrap(herr, "error executing before-folder hook")}
+		return nil, dirReadError{errors.Wrap(herr, "error executing before-folder action")}
 	}
 
-	defer executeAfterFolderHook(ctx, "after-folder", definedHooks.AfterFolder, localDirPathOrEmpty, &hc)
+	defer executeAfterFolderAction(ctx, "after-folder", definedActions.AfterFolder, localDirPathOrEmpty, &hc)
 
 	if overrideDir != nil {
 		directory = overrideDir

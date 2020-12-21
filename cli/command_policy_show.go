@@ -87,7 +87,7 @@ func printPolicy(p *policy.Policy, parents []*policy.Policy) {
 	printStdout("\n")
 	printCompressionPolicy(p, parents)
 	printStdout("\n")
-	printHooks(p, parents)
+	printActions(p, parents)
 }
 
 func printRetentionPolicy(p *policy.Policy, parents []*policy.Policy) {
@@ -273,49 +273,49 @@ func printCompressionPolicy(p *policy.Policy, parents []*policy.Policy) {
 	}
 }
 
-func printHooks(p *policy.Policy, parents []*policy.Policy) {
-	var anyHooks bool
+func printActions(p *policy.Policy, parents []*policy.Policy) {
+	var anyActions bool
 
-	if h := p.Hooks.BeforeSnapshotRoot; h != nil {
+	if h := p.Actions.BeforeSnapshotRoot; h != nil {
 		printStdout("Run command before snapshot root:  %v\n", getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
-			return pol.Hooks.BeforeSnapshotRoot == h
+			return pol.Actions.BeforeSnapshotRoot == h
 		}))
 
-		printHookCommand(h)
+		printActionCommand(h)
 
-		anyHooks = true
+		anyActions = true
 	}
 
-	if h := p.Hooks.AfterSnapshotRoot; h != nil {
+	if h := p.Actions.AfterSnapshotRoot; h != nil {
 		printStdout("Run command after snapshot root:   %v\n", getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
-			return pol.Hooks.AfterSnapshotRoot == h
+			return pol.Actions.AfterSnapshotRoot == h
 		}))
-		printHookCommand(h)
+		printActionCommand(h)
 
-		anyHooks = true
+		anyActions = true
 	}
 
-	if h := p.Hooks.BeforeFolder; h != nil {
+	if h := p.Actions.BeforeFolder; h != nil {
 		printStdout("Run command before this folder:    (non-inheritable)\n")
 
-		printHookCommand(h)
+		printActionCommand(h)
 
-		anyHooks = true
+		anyActions = true
 	}
 
-	if h := p.Hooks.AfterFolder; h != nil {
+	if h := p.Actions.AfterFolder; h != nil {
 		printStdout("Run command after this folder:    (non-inheritable)\n")
-		printHookCommand(h)
+		printActionCommand(h)
 
-		anyHooks = true
+		anyActions = true
 	}
 
-	if !anyHooks {
-		printStdout("No hooks defined.\n")
+	if !anyActions {
+		printStdout("No actions defined.\n")
 	}
 }
 
-func printHookCommand(h *policy.HookCommand) {
+func printActionCommand(h *policy.ActionCommand) {
 	if h.Script != "" {
 		printStdout("  Embedded Script: %q\n", h.Script)
 	} else {

@@ -1,4 +1,4 @@
-// Command testinghook implements a hook that is used in various tests.
+// Command testingaction implements a action that is used in various tests.
 package main
 
 import (

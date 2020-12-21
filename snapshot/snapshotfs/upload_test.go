@@ -309,7 +309,7 @@ func TestUploadWithCheckpointing(t *testing.T) {
 		Path:     "path",
 	}
 
-	// inject a hook into mock filesystem to trigger and wait for checkpoints at few places.
+	// inject a action into mock filesystem to trigger and wait for checkpoints at few places.
 	// the places are not important, what's important that those are 3 separate points in time.
 	dirsToCheckpointAt := []*mockfs.Directory{
 		th.sourceDir.Subdir("d1"),

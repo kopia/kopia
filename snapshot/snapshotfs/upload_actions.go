@@ -22,20 +22,20 @@ import (
 )
 
 const (
-	hookCommandTimeout    = 3 * time.Minute
-	hookScriptPermissions = 0o700
+	actionCommandTimeout    = 3 * time.Minute
+	actionScriptPermissions = 0o700
 )
 
-// hookContext carries state between before/after hooks.
-type hookContext struct {
-	HooksEnabled bool
-	SnapshotID   string
-	SourcePath   string
-	SnapshotPath string
-	WorkDir      string
+// actionContext carries state between before/after actions.
+type actionContext struct {
+	ActionsEnabled bool
+	SnapshotID     string
+	SourcePath     string
+	SnapshotPath   string
+	WorkDir        string
 }
 
-func (hc *hookContext) envars() []string {
+func (hc *actionContext) envars() []string {
 	return []string{
 		fmt.Sprintf("KOPIA_SNAPSHOT_ID=%v", hc.SnapshotID),
 		fmt.Sprintf("KOPIA_SOURCE_PATH=%v", hc.SourcePath),
@@ -43,12 +43,12 @@ func (hc *hookContext) envars() []string {
 	}
 }
 
-func (hc *hookContext) ensureInitialized(dirPathOrEmpty string) error {
+func (hc *actionContext) ensureInitialized(dirPathOrEmpty string) error {
 	if dirPathOrEmpty == "" {
 		return nil
 	}
 
-	if hc.HooksEnabled {
+	if hc.ActionsEnabled {
 		// already initialized
 		return nil
 	}
@@ -63,18 +63,18 @@ func (hc *hookContext) ensureInitialized(dirPathOrEmpty string) error {
 	hc.SourcePath = dirPathOrEmpty
 	hc.SnapshotPath = hc.SourcePath
 
-	wd, err := ioutil.TempDir("", "kopia-hook")
+	wd, err := ioutil.TempDir("", "kopia-action")
 	if err != nil {
 		return err
 	}
 
 	hc.WorkDir = wd
-	hc.HooksEnabled = true
+	hc.ActionsEnabled = true
 
 	return nil
 }
 
-func hookScriptExtension() string {
+func actionScriptExtension() string {
 	if runtime.GOOS == "windows" {
 		return ".cmd"
 	}
@@ -82,10 +82,10 @@ func hookScriptExtension() string {
 	return ".sh"
 }
 
-// prepareCommandForHook prepares *exec.Cmd that will run the provided hook command in the provided
+// prepareCommandForAction prepares *exec.Cmd that will run the provided action command in the provided
 // working directory.
-func prepareCommandForHook(ctx context.Context, hookType string, h *policy.HookCommand, workDir string) (*exec.Cmd, context.CancelFunc, error) {
-	timeout := hookCommandTimeout
+func prepareCommandForAction(ctx context.Context, actionType string, h *policy.ActionCommand, workDir string) (*exec.Cmd, context.CancelFunc, error) {
+	timeout := actionCommandTimeout
 	if h.TimeoutSeconds != 0 {
 		timeout = time.Duration(h.TimeoutSeconds) * time.Second
 	}
@@ -96,8 +96,8 @@ func prepareCommandForHook(ctx context.Context, hookType string, h *policy.HookC
 
 	switch {
 	case h.Script != "":
-		scriptFile := filepath.Join(workDir, hookType+hookScriptExtension())
-		if err := ioutil.WriteFile(scriptFile, []byte(h.Script), hookScriptPermissions); err != nil {
+		scriptFile := filepath.Join(workDir, actionType+actionScriptExtension())
+		if err := ioutil.WriteFile(scriptFile, []byte(h.Script), actionScriptPermissions); err != nil {
 			cancel()
 
 			return nil, nil, err
@@ -116,27 +116,27 @@ func prepareCommandForHook(ctx context.Context, hookType string, h *policy.HookC
 	default:
 		cancel()
 
-		return nil, nil, errors.Errorf("hook did not provide either script nor command to run")
+		return nil, nil, errors.Errorf("action did not provide either script nor command to run")
 	}
 
-	// all hooks run inside temporary working directory
+	// all actions run inside temporary working directory
 	c.Dir = workDir
 
 	return c, cancel, nil
 }
 
-// runHookCommand executes the hook command passing the provided inputs as environment
+// runActionCommand executes the action command passing the provided inputs as environment
 // variables. It analyzes the standard output of the command looking for 'key=value'
 // where the key is present in the provided outputs map and sets the corresponding map value.
-func runHookCommand(
+func runActionCommand(
 	ctx context.Context,
-	hookType string,
-	h *policy.HookCommand,
+	actionType string,
+	h *policy.ActionCommand,
 	inputs []string,
 	captures map[string]string,
 	workDir string,
 ) error {
-	cmd, cancel, err := prepareCommandForHook(ctx, hookType, h, workDir)
+	cmd, cancel, err := prepareCommandForAction(ctx, actionType, h, workDir)
 	if err != nil {
 		return errors.Wrap(err, "error preparing command")
 	}
@@ -156,7 +156,7 @@ func runHookCommand(
 			return err
 		}
 
-		log(ctx).Warningf("error running non-essential hook command: %v", err)
+		log(ctx).Warningf("error running non-essential action command: %v", err)
 	}
 
 	return parseCaptures(v, captures)
@@ -181,27 +181,27 @@ func parseCaptures(v []byte, captures map[string]string) error {
 	return s.Err()
 }
 
-func executeBeforeFolderHook(ctx context.Context, hookType string, h *policy.HookCommand, dirPathOrEmpty string, hc *hookContext) (fs.Directory, error) {
+func executeBeforeFolderAction(ctx context.Context, actionType string, h *policy.ActionCommand, dirPathOrEmpty string, hc *actionContext) (fs.Directory, error) {
 	if h == nil {
 		return nil, nil
 	}
 
 	if err := hc.ensureInitialized(dirPathOrEmpty); err != nil {
-		return nil, errors.Wrap(err, "error initializing hook context")
+		return nil, errors.Wrap(err, "error initializing action context")
 	}
 
-	if !hc.HooksEnabled {
+	if !hc.ActionsEnabled {
 		return nil, nil
 	}
 
-	log(ctx).Debugf("running hook %v on %v %#v", hookType, hc.SourcePath, *h)
+	log(ctx).Debugf("running action %v on %v %#v", actionType, hc.SourcePath, *h)
 
 	captures := map[string]string{
 		"KOPIA_SNAPSHOT_PATH": "",
 	}
 
-	if err := runHookCommand(ctx, hookType, h, hc.envars(), captures, hc.WorkDir); err != nil {
-		return nil, errors.Wrapf(err, "error running '%v' hook", hookType)
+	if err := runActionCommand(ctx, actionType, h, hc.envars(), captures, hc.WorkDir); err != nil {
+		return nil, errors.Wrapf(err, "error running '%v' action", actionType)
 	}
 
 	if p := captures["KOPIA_SNAPSHOT_PATH"]; p != "" {
@@ -212,28 +212,28 @@ func executeBeforeFolderHook(ctx context.Context, hookType string, h *policy.Hoo
 	return nil, nil
 }
 
-func executeAfterFolderHook(ctx context.Context, hookType string, h *policy.HookCommand, dirPathOrEmpty string, hc *hookContext) {
+func executeAfterFolderAction(ctx context.Context, actionType string, h *policy.ActionCommand, dirPathOrEmpty string, hc *actionContext) {
 	if h == nil {
 		return
 	}
 
 	if err := hc.ensureInitialized(dirPathOrEmpty); err != nil {
-		log(ctx).Warningf("error initializing hook context: %v", err)
+		log(ctx).Warningf("error initializing action context: %v", err)
 	}
 
-	if !hc.HooksEnabled {
+	if !hc.ActionsEnabled {
 		return
 	}
 
-	if err := runHookCommand(ctx, hookType, h, hc.envars(), nil, hc.WorkDir); err != nil {
-		log(ctx).Warningf("error running '%v' hook: %v", hookType, err)
+	if err := runActionCommand(ctx, actionType, h, hc.envars(), nil, hc.WorkDir); err != nil {
+		log(ctx).Warningf("error running '%v' action: %v", actionType, err)
 	}
 }
 
-func cleanupHookContext(ctx context.Context, hc *hookContext) {
+func cleanupActionContext(ctx context.Context, hc *actionContext) {
 	if hc.WorkDir != "" {
 		if err := os.RemoveAll(hc.WorkDir); err != nil {
-			log(ctx).Debugf("unable to remove hook working directory: %v", err)
+			log(ctx).Debugf("unable to remove action working directory: %v", err)
 		}
 	}
 }

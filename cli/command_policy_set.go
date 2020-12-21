@@ -86,8 +86,8 @@ func setPolicyFromFlags(ctx context.Context, p *policy.Policy, changeCount *int)
 		return errors.Wrap(err, "scheduling policy")
 	}
 
-	if err := setHooksFromFlags(ctx, &p.Hooks, changeCount); err != nil {
-		return errors.Wrap(err, "hooks")
+	if err := setActionsFromFlags(ctx, &p.Actions, changeCount); err != nil {
+		return errors.Wrap(err, "actions policy")
 	}
 
 	// It's not really a list, just optional boolean, last one wins.

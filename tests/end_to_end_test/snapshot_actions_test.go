@@ -12,12 +12,12 @@ import (
 	"github.com/kopia/kopia/tests/testenv"
 )
 
-func TestSnapshotHooksBeforeSnapshotRoot(t *testing.T) {
+func TestSnapshotActionsBeforeSnapshotRoot(t *testing.T) {
 	t.Parallel()
 
-	th := os.Getenv("TESTINGHOOK_EXE")
+	th := os.Getenv("TESTING_ACTION_EXE")
 	if th == "" {
-		t.Skip("TESTINGHOOK_EXE verifyNoError be set")
+		t.Skip("TESTING_ACTION_EXE verifyNoError be set")
 	}
 
 	e := testenv.NewCLITest(t)
@@ -29,10 +29,10 @@ func TestSnapshotHooksBeforeSnapshotRoot(t *testing.T) {
 
 	envFile1 := filepath.Join(e.LogsDir, "env1.txt")
 
-	// set a hook before-snapshot-root that fails and which saves the environment to a file.
+	// set a action before-snapshot-root that fails and which saves the environment to a file.
 	e.RunAndExpectSuccess(t,
 		"policy", "set", sharedTestDataDir1,
-		"--before-snapshot-root-hook",
+		"--before-snapshot-root-action",
 		th+" --exit-code=3 --save-env="+envFile1)
 
 	// this prevents the snapshot from being created
@@ -40,10 +40,10 @@ func TestSnapshotHooksBeforeSnapshotRoot(t *testing.T) {
 
 	envFile2 := filepath.Join(e.LogsDir, "env2.txt")
 
-	// now set a hook before-snapshot-root that succeeds and saves environment to a different file
+	// now set a action before-snapshot-root that succeeds and saves environment to a different file
 	e.RunAndExpectSuccess(t,
 		"policy", "set", sharedTestDataDir1,
-		"--before-snapshot-root-hook",
+		"--before-snapshot-root-action",
 		th+" --save-env="+envFile2)
 
 	// snapshot now succeeds.
@@ -54,65 +54,65 @@ func TestSnapshotHooksBeforeSnapshotRoot(t *testing.T) {
 
 	// make sure snapshot IDs are different between two attempts
 	if id1, id2 := env1["KOPIA_SNAPSHOT_ID"], env2["KOPIA_SNAPSHOT_ID"]; id1 == id2 {
-		t.Errorf("KOPIA_SNAPSHOT_ID passed to hook was not different between runs %v", id1)
+		t.Errorf("KOPIA_SNAPSHOT_ID passed to action was not different between runs %v", id1)
 	}
 
-	// Now set up the hook again, in optional mode,
+	// Now set up the action again, in optional mode,
 	e.RunAndExpectSuccess(t,
 		"policy", "set", sharedTestDataDir1,
-		"--before-snapshot-root-hook",
+		"--before-snapshot-root-action",
 		th+" --exit-code=3",
-		"--hook-command-mode=optional")
+		"--action-command-mode=optional")
 
 	// this will not prevent snapshot creation.
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
 
-	// Now set up the hook again, in async mode and pass --sleep so that the command takes some time.
-	// because the hook is async it will not wait for the command.
+	// Now set up the action again, in async mode and pass --sleep so that the command takes some time.
+	// because the action is async it will not wait for the command.
 	e.RunAndExpectSuccess(t,
 		"policy", "set", sharedTestDataDir1,
-		"--before-snapshot-root-hook",
+		"--before-snapshot-root-action",
 		th+" --exit-code=3 --sleep=30s",
-		"--hook-command-mode=async")
+		"--action-command-mode=async")
 
 	t0 := time.Now()
 
 	// at this point the data is all cached so this will be quick, definitely less than 30s,
-	// async hook failure will not prevent snapshot success.
+	// async action failure will not prevent snapshot success.
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
 
 	if dur := time.Since(t0); dur > 30*time.Second {
 		t.Errorf("command did not execute asynchronously (took %v)", dur)
 	}
 
-	// Now set up essential hook with a timeout of 3s and have the hook sleep for 30s
+	// Now set up essential action with a timeout of 3s and have the action sleep for 30s
 	e.RunAndExpectSuccess(t,
 		"policy", "set", sharedTestDataDir1,
-		"--before-snapshot-root-hook",
+		"--before-snapshot-root-action",
 		th+" --sleep=30s",
-		"--hook-command-timeout=3s")
+		"--action-command-timeout=3s")
 
 	t0 = time.Now()
 
-	// the hook will be killed after 3s and cause a failure.
+	// the action will be killed after 3s and cause a failure.
 	e.RunAndExpectFailure(t, "snapshot", "create", sharedTestDataDir1)
 
 	if dur := time.Since(t0); dur > 30*time.Second {
 		t.Errorf("command did not apply timeout (took %v)", dur)
 	}
 
-	// Now set up essential hook that will cause redirection to an alternative folder which does not exist.
+	// Now set up essential action that will cause redirection to an alternative folder which does not exist.
 	e.RunAndExpectSuccess(t,
 		"policy", "set", sharedTestDataDir1,
-		"--before-snapshot-root-hook",
+		"--before-snapshot-root-action",
 		th+" --stdout-file="+tmpfileWithContents(t, "KOPIA_SNAPSHOT_PATH=/no/such/directory\n"))
 
 	e.RunAndExpectFailure(t, "snapshot", "create", sharedTestDataDir1)
 
-	// Now set up essential hook that will cause redirection to an alternative folder which does exist.
+	// Now set up essential action that will cause redirection to an alternative folder which does exist.
 	e.RunAndExpectSuccess(t,
 		"policy", "set", sharedTestDataDir1,
-		"--before-snapshot-root-hook",
+		"--before-snapshot-root-action",
 		th+" --stdout-file="+tmpfileWithContents(t, "KOPIA_SNAPSHOT_PATH="+sharedTestDataDir2+"\n"))
 
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
@@ -131,27 +131,27 @@ func TestSnapshotHooksBeforeSnapshotRoot(t *testing.T) {
 	}
 
 	// not setup the same redirection but in async mode - will be ignored because Kopia does not wait for asynchronous
-	// hooks at all or parse their output.
+	// actions at all or parse their output.
 	e.RunAndExpectSuccess(t,
 		"policy", "set", sharedTestDataDir1,
-		"--before-snapshot-root-hook",
+		"--before-snapshot-root-action",
 		th+" --stdout-file="+tmpfileWithContents(t, "KOPIA_SNAPSHOT_PATH="+sharedTestDataDir2+"\n"),
-		"--hook-command-mode=async")
+		"--action-command-mode=async")
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
 
 	// verify redirection had no effect - last snapshot will be the same as the first one
 	snaps1 = e.ListSnapshotsAndExpectSuccess(t, sharedTestDataDir1)[0].Snapshots
 	if got, want := snaps1[len(snaps1)-1].ObjectID, snaps1[0].ObjectID; got != want {
-		t.Fatalf("invalid snapshot ID after async hook %v, wanted %v", got, want)
+		t.Fatalf("invalid snapshot ID after async action %v, wanted %v", got, want)
 	}
 }
 
-func TestSnapshotHooksBeforeAfterFolder(t *testing.T) {
+func TestSnapshotActionsBeforeAfterFolder(t *testing.T) {
 	t.Parallel()
 
-	th := os.Getenv("TESTINGHOOK_EXE")
+	th := os.Getenv("TESTING_ACTION_EXE")
 	if th == "" {
-		t.Skip("TESTINGHOOK_EXE verifyNoError be set")
+		t.Skip("TESTING_ACTION_EXE verifyNoError be set")
 	}
 
 	e := testenv.NewCLITest(t)
@@ -171,51 +171,51 @@ func TestSnapshotHooksBeforeAfterFolder(t *testing.T) {
 	verifyNoError(t, os.Mkdir(sd11, 0700))
 	verifyNoError(t, os.Mkdir(sd12, 0700))
 
-	hookRanDir := t.TempDir()
+	actionRanDir := t.TempDir()
 
-	hookRanFileBeforeRoot := filepath.Join(hookRanDir, "before-root")
-	hookRanFileAfterRoot := filepath.Join(hookRanDir, "before-root")
-	hookRanFileBeforeSD1 := filepath.Join(hookRanDir, "before-sd1")
-	hookRanFileAfterSD1 := filepath.Join(hookRanDir, "before-sd1")
-	hookRanFileBeforeSD11 := filepath.Join(hookRanDir, "before-sd11")
-	hookRanFileAfterSD11 := filepath.Join(hookRanDir, "before-sd11")
-	hookRanFileBeforeSD2 := filepath.Join(hookRanDir, "before-sd2")
-	hookRanFileAfterSD2 := filepath.Join(hookRanDir, "before-sd2")
+	actionRanFileBeforeRoot := filepath.Join(actionRanDir, "before-root")
+	actionRanFileAfterRoot := filepath.Join(actionRanDir, "before-root")
+	actionRanFileBeforeSD1 := filepath.Join(actionRanDir, "before-sd1")
+	actionRanFileAfterSD1 := filepath.Join(actionRanDir, "before-sd1")
+	actionRanFileBeforeSD11 := filepath.Join(actionRanDir, "before-sd11")
+	actionRanFileAfterSD11 := filepath.Join(actionRanDir, "before-sd11")
+	actionRanFileBeforeSD2 := filepath.Join(actionRanDir, "before-sd2")
+	actionRanFileAfterSD2 := filepath.Join(actionRanDir, "before-sd2")
 
-	// setup hooks that will write a marker file when the hook is executed.
+	// setup actions that will write a marker file when the action is executed.
 	//
 	// We are not setting a policy on 'sd12' to ensure it's not inherited
-	// from sd1. If it was inherited, the hook would fail since it refuses to create the
+	// from sd1. If it was inherited, the action would fail since it refuses to create the
 	// file if one already exists.
 	e.RunAndExpectSuccess(t, "policy", "set", rootDir,
-		"--before-folder-hook", th+" --create-file="+hookRanFileBeforeRoot)
+		"--before-folder-action", th+" --create-file="+actionRanFileBeforeRoot)
 	e.RunAndExpectSuccess(t, "policy", "set", rootDir,
-		"--after-folder-hook", th+" --create-file="+hookRanFileAfterRoot)
+		"--after-folder-action", th+" --create-file="+actionRanFileAfterRoot)
 	e.RunAndExpectSuccess(t, "policy", "set", sd1,
-		"--before-folder-hook", th+" --create-file="+hookRanFileBeforeSD1)
+		"--before-folder-action", th+" --create-file="+actionRanFileBeforeSD1)
 	e.RunAndExpectSuccess(t, "policy", "set", sd1,
-		"--after-folder-hook", th+" --create-file="+hookRanFileAfterSD1)
+		"--after-folder-action", th+" --create-file="+actionRanFileAfterSD1)
 	e.RunAndExpectSuccess(t, "policy", "set", sd2,
-		"--before-folder-hook", th+" --create-file="+hookRanFileBeforeSD2)
+		"--before-folder-action", th+" --create-file="+actionRanFileBeforeSD2)
 	e.RunAndExpectSuccess(t, "policy", "set", sd2,
-		"--after-folder-hook", th+" --create-file="+hookRanFileAfterSD2)
+		"--after-folder-action", th+" --create-file="+actionRanFileAfterSD2)
 	e.RunAndExpectSuccess(t, "policy", "set", sd11,
-		"--before-folder-hook", th+" --create-file="+hookRanFileBeforeSD11)
+		"--before-folder-action", th+" --create-file="+actionRanFileBeforeSD11)
 	e.RunAndExpectSuccess(t, "policy", "set", sd11,
-		"--after-folder-hook", th+" --create-file="+hookRanFileAfterSD11)
+		"--after-folder-action", th+" --create-file="+actionRanFileAfterSD11)
 
 	e.RunAndExpectSuccess(t, "snapshot", "create", rootDir)
 
-	verifyFileExists(t, hookRanFileBeforeRoot)
-	verifyFileExists(t, hookRanFileAfterRoot)
-	verifyFileExists(t, hookRanFileBeforeSD1)
-	verifyFileExists(t, hookRanFileBeforeSD11)
-	verifyFileExists(t, hookRanFileAfterSD11)
-	verifyFileExists(t, hookRanFileAfterSD1)
-	verifyFileExists(t, hookRanFileBeforeSD2)
-	verifyFileExists(t, hookRanFileAfterSD2)
+	verifyFileExists(t, actionRanFileBeforeRoot)
+	verifyFileExists(t, actionRanFileAfterRoot)
+	verifyFileExists(t, actionRanFileBeforeSD1)
+	verifyFileExists(t, actionRanFileBeforeSD11)
+	verifyFileExists(t, actionRanFileAfterSD11)
+	verifyFileExists(t, actionRanFileAfterSD1)
+	verifyFileExists(t, actionRanFileBeforeSD2)
+	verifyFileExists(t, actionRanFileAfterSD2)
 
-	// the hook will fail to run the next time since all 'hookRan*' files already exist.
+	// the action will fail to run the next time since all 'actionRan*' files already exist.
 	e.RunAndExpectFailure(t, "snapshot", "create", rootDir)
 }
 
