@@ -2,6 +2,13 @@ name: Build
 on:
   pull_request:
     branches: [ master ]
+  push:
+    branches:
+      - "master"
+    tags:
+      - "v*"
+  schedule:
+    - cron:  '0 8,15 * * *'
 jobs:
   build:
     strategy:
