@@ -143,7 +143,7 @@ func runHookCommand(
 
 	defer cancel()
 
-	cmd.Env = append(append([]string(nil), os.Environ()...), inputs...)
+	cmd.Env = append(os.Environ(), inputs...)
 	cmd.Stderr = os.Stderr
 
 	if h.Mode == "async" {
