@@ -14,6 +14,7 @@ import (
 	"github.com/kopia/kopia/internal/iocopy"
 	"github.com/kopia/kopia/internal/parallelwork"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
@@ -26,7 +27,7 @@ var (
 	verifyCommandErrorThreshold = verifyCommand.Flag("max-errors", "Maximum number of errors before stopping").Default("0").Int()
 	verifyCommandDirObjectIDs   = verifyCommand.Flag("directory-id", "Directory object IDs to verify").Strings()
 	verifyCommandFileObjectIDs  = verifyCommand.Flag("file-id", "File object IDs to verify").Strings()
-	verifyCommandAllSources     = verifyCommand.Flag("all-sources", "Verify all snapshots").Bool()
+	verifyCommandAllSources     = verifyCommand.Flag("all-sources", "Verify all snapshots (DEPRECATED)").Hidden().Bool()
 	verifyCommandSources        = verifyCommand.Flag("sources", "Verify the provided sources").Strings()
 	verifyCommandParallel       = verifyCommand.Flag("parallel", "Parallelization").Default("16").Int()
 	verifyCommandFilesPercent   = verifyCommand.Flag("verify-files-percent", "Randomly verify a percentage of files").Default("0").Int()
@@ -39,6 +40,8 @@ type verifier struct {
 
 	mu   sync.Mutex
 	seen map[object.ID]bool
+
+	blobMap map[blob.ID]blob.Metadata
 
 	errors []error
 }
@@ -147,8 +150,24 @@ func (v *verifier) doVerifyDirectory(ctx context.Context, oid object.ID, path st
 func (v *verifier) doVerifyObject(ctx context.Context, oid object.ID, path string) error {
 	log(ctx).Debugf("verifying object %v", oid)
 
-	if _, err := v.rep.VerifyObject(ctx, oid); err != nil {
+	contentIDs, err := v.rep.VerifyObject(ctx, oid)
+	if err != nil {
 		v.reportError(ctx, path, errors.Wrapf(err, "error verifying %v", oid))
+	}
+
+	if dr, ok := v.rep.(*repo.DirectRepository); v.blobMap != nil && ok {
+		for _, cid := range contentIDs {
+			ci, err := dr.Content.ContentInfo(ctx, cid)
+			if err != nil {
+				v.reportError(ctx, path, errors.Wrapf(err, "error verifying content %v: %v", cid, err))
+				continue
+			}
+
+			if _, ok := v.blobMap[ci.PackBlobID]; !ok {
+				v.reportError(ctx, path, errors.Errorf("object %v is backed by missing blob %v", oid, ci.PackBlobID))
+				continue
+			}
+		}
 	}
 
 	//nolint:gomnd,gosec
@@ -179,11 +198,24 @@ func (v *verifier) readEntireObject(ctx context.Context, oid object.ID, path str
 }
 
 func runVerifyCommand(ctx context.Context, rep repo.Repository) error {
+	if *verifyCommandAllSources {
+		log(ctx).Noticef("DEPRECATED: --all-sources flag has no effect and is the default when no sources are provided.")
+	}
+
 	v := &verifier{
 		rep:       rep,
 		startTime: clock.Now(),
 		workQueue: parallelwork.NewQueue(),
 		seen:      map[object.ID]bool{},
+	}
+
+	if dr, ok := rep.(*repo.DirectRepository); ok {
+		blobMap, err := readBlobMap(ctx, dr)
+		if err != nil {
+			return err
+		}
+
+		v.blobMap = blobMap
 	}
 
 	if err := enqueueRootsToVerify(ctx, v, rep); err != nil {
@@ -246,7 +278,7 @@ func enqueueRootsToVerify(ctx context.Context, v *verifier, rep repo.Repository)
 func loadSourceManifests(ctx context.Context, rep repo.Repository, sources []string) ([]*snapshot.Manifest, error) {
 	var manifestIDs []manifest.ID
 
-	if *verifyCommandAllSources {
+	if len(sources)+len(*verifyCommandDirObjectIDs)+len(*verifyCommandFileObjectIDs) == 0 {
 		man, err := snapshot.ListSnapshotManifests(ctx, rep, nil)
 		if err != nil {
 			return nil, err

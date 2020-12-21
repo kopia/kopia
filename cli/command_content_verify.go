@@ -19,23 +19,36 @@ var (
 	contentVerifyIncludeDeleted = contentVerifyCommand.Flag("include-deleted", "Include deleted contents").Bool()
 )
 
+func readBlobMap(ctx context.Context, rep *repo.DirectRepository) (map[blob.ID]blob.Metadata, error) {
+	blobMap := map[blob.ID]blob.Metadata{}
+
+	log(ctx).Infof("Listing blobs...")
+
+	if err := rep.Blobs.ListBlobs(ctx, "", func(bm blob.Metadata) error {
+		blobMap[bm.BlobID] = bm
+		if len(blobMap)%10000 == 0 {
+			log(ctx).Infof("  %v blobs...", len(blobMap))
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Wrap(err, "unable to list blobs")
+	}
+
+	log(ctx).Infof("Listed %v blobs.", len(blobMap))
+
+	return blobMap, nil
+}
+
 func runContentVerifyCommand(ctx context.Context, rep *repo.DirectRepository) error {
 	blobMap := map[blob.ID]blob.Metadata{}
 
 	if !*contentVerifyFull {
-		log(ctx).Infof("Listing blobs...")
-
-		if err := rep.Blobs.ListBlobs(ctx, "", func(bm blob.Metadata) error {
-			blobMap[bm.BlobID] = bm
-			if len(blobMap)%10000 == 0 {
-				log(ctx).Infof("  %v blobs...", len(blobMap))
-			}
-			return nil
-		}); err != nil {
-			return errors.Wrap(err, "unable to list blobs")
+		m, err := readBlobMap(ctx, rep)
+		if err != nil {
+			return err
 		}
 
-		log(ctx).Infof("Listed %v blobs.", len(blobMap))
+		blobMap = m
 	}
 
 	var totalCount, successCount, errorCount int32
