@@ -57,7 +57,7 @@ func main() {
 		}
 
 		if err := ioutil.WriteFile(fn, nil, 0600); err != nil {
-			log.Fatalf("unable to copy files: %v", err)
+			log.Fatalf("unable to create file: %v", err)
 		}
 	}
 
