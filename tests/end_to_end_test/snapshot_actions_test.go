@@ -230,7 +230,7 @@ func TestSnapshotActionsEmbeddedScript(t *testing.T) {
 
 	var (
 		successScript      = tmpfileWithContents(t, "echo Hello world!")
-		successScript2     = tmpfileWithContents(t, "echo Hello world!")
+		successScript2     string
 		failingScript      string
 		goodRedirectScript = tmpfileWithContents(t, "echo KOPIA_SNAPSHOT_PATH="+sharedTestDataDir2)
 		badRedirectScript  = tmpfileWithContents(t, "echo KOPIA_SNAPSHOT_PATH=/no/such/directory")
@@ -238,6 +238,7 @@ func TestSnapshotActionsEmbeddedScript(t *testing.T) {
 
 	if runtime.GOOS == "windows" {
 		failingScript = tmpfileWithContents(t, "exit /b 1")
+		successScript2 = tmpfileWithContents(t, "echo Hello world!")
 	} else {
 		failingScript = tmpfileWithContents(t, "#!/bin/sh\nexit 1")
 		successScript2 = tmpfileWithContents(t, "#!/bin/sh\necho Hello world!")
