@@ -79,7 +79,7 @@ endif
 htmlui-node-modules: $(npm)
 	make -C htmlui node_modules
 
-travis-setup: travis-install-gpg-key travis-install-test-credentials htmlui-node-modules app-node-modules go-modules all-tools
+travis-setup: travis-install-gpg-key travis-install-test-credentials go-modules all-tools
 ifneq ($(TRAVIS_OS_NAME),)
 	-git checkout go.mod go.sum
 endif
@@ -87,10 +87,10 @@ endif
 website:
 	$(MAKE) -C site build
 
-html-ui:
+html-ui: htmlui-node-modules
 	$(MAKE) -C htmlui build-html CI=true
 
-html-ui-tests:
+html-ui-tests: htmlui-node-modules
 	$(MAKE) -C htmlui test CI=true
 
 html-ui-bindata: html-ui $(go_bindata)
@@ -102,10 +102,18 @@ html-ui-bindata-fallback: $(go_bindata)
 kopia-ui:
 	$(MAKE) -C app build-electron
 
-# build-current-os compiles a binary for the current os/arch in the same location as goreleaser
+# build-current-os-noui compiles a binary for the current os/arch in the same location as goreleaser
 # kopia-ui build needs this particular location to embed the correct server binary.
-build-current-os: html-ui-bindata
+# note we're not building or embedding HTML UI to speed up PR testing process.
+build-current-os-noui:
+	go build -o dist/kopia_$(shell go env GOOS)_$(shell go env GOARCH)$(exe_suffix)
+
+build-current-os-with-ui: html-ui-bindata
 	go build -o dist/kopia_$(shell go env GOOS)_$(shell go env GOARCH)$(exe_suffix) -tags embedhtml
+
+kopia-ui-pr-test: app-node-modules htmlui-node-modules
+	$(MAKE) build-current-os-with-ui
+	$(MAKE) html-ui-tests kopia-ui
 
 ifeq ($(kopia_arch_name),arm64)
 travis-release:
@@ -117,11 +125,11 @@ else
 travis-release:
 ifeq ($(TRAVIS_PULL_REQUEST),false)
 	$(retry) $(MAKE) goreleaser
-else
-	$(retry) $(MAKE) build-current-os
-endif
 	$(retry) $(MAKE) kopia-ui
-	$(MAKE) lint vet test-with-coverage html-ui-tests
+else
+	$(retry) $(MAKE) build-current-os-noui
+endif
+	$(MAKE) lint vet test-with-coverage
 	$(retry) $(MAKE) layering-test
 	$(retry) $(MAKE) integration-tests
 ifeq ($(TRAVIS_OS_NAME),linux)

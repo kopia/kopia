@@ -1,0 +1,24 @@
+name: Test-UI
+
+on:
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    name: Test-UI
+    runs-on: ubuntu-latest
+    steps:
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: ^1.15
+      id: go
+
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v2
+
+    - name: Build and test HTML UI and KopiaUI
+      run: |
+        make kopia-ui-pr-test
