@@ -48,7 +48,7 @@ how are you
 	expectedContentCount++
 
 	// run verification
-	e.RunAndExpectSuccess(t, "snapshot", "verify", "--all-sources")
+	e.RunAndExpectSuccess(t, "snapshot", "verify")
 
 	// garbage-collect in dry run mode
 	e.RunAndExpectSuccess(t, "snapshot", "gc")
