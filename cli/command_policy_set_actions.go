@@ -70,7 +70,7 @@ func setActionCommandFromFlags(ctx context.Context, actionName string, cmd **pol
 	if *policySetPersistActionScript {
 		script, err := ioutil.ReadFile(value) //nolint:gosec
 		if err != nil {
-			return err
+			return errors.Wrap(err, "unable to read script file")
 		}
 
 		if len(script) > maxScriptLength {
