@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"archive/zip"
 	"compress/gzip"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -444,7 +445,7 @@ func verifyValidTarReader(t *testing.T, tr *tar.Reader) {
 		_, err = tr.Next()
 	}
 
-	if err != io.EOF {
+	if !errors.Is(err, io.EOF) {
 		t.Fatalf("invalid tar file: %v", err)
 	}
 }

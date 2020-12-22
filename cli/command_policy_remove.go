@@ -3,6 +3,8 @@ package cli
 import (
 	"context"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot/policy"
 )
@@ -32,7 +34,7 @@ func removePolicy(ctx context.Context, rep repo.Repository) error {
 		}
 
 		if err := policy.RemovePolicy(ctx, rep, target); err != nil {
-			return err
+			return errors.Wrapf(err, "error removing policy on %v", target)
 		}
 	}
 

@@ -78,7 +78,7 @@ func runConnectCommandWithStorage(ctx context.Context, st blob.Storage) error {
 func runConnectCommandWithStorageAndPassword(ctx context.Context, st blob.Storage, password string) error {
 	configFile := repositoryConfigFileName()
 	if err := repo.Connect(ctx, configFile, st, password, connectOptions()); err != nil {
-		return err
+		return errors.Wrap(err, "error connecting to repository")
 	}
 
 	log(ctx).Infof("Connected to repository.")

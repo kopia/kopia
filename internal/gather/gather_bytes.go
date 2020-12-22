@@ -116,6 +116,7 @@ func (b Bytes) WriteTo(w io.Writer) (int64, error) {
 		totalN += int64(n)
 
 		if err != nil {
+			// nolint:wrapcheck
 			return totalN, err
 		}
 	}

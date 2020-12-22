@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/object"
@@ -25,7 +27,7 @@ var (
 func runLSCommand(ctx context.Context, rep repo.Repository) error {
 	dir, err := snapshotfs.FilesystemDirectoryFromIDWithPath(ctx, rep, *lsCommandPath, false)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "unable to get filesystem directory entry")
 	}
 
 	var prefix string
@@ -46,12 +48,12 @@ func init() {
 func listDirectory(ctx context.Context, d fs.Directory, prefix, indent string) error {
 	entries, err := d.Readdir(ctx)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error reading directory")
 	}
 
 	for _, e := range entries {
 		if err := printDirectoryEntry(ctx, e, prefix, indent); err != nil {
-			return err
+			return errors.Wrap(err, "unable to print directory entry")
 		}
 	}
 

@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
@@ -67,7 +69,7 @@ func TestFormatBlobRecovery(t *testing.T) {
 					t.Errorf("unexpected result or error: v=%v err=%v, expected success", v, err)
 				}
 			} else {
-				if v != nil || err != tc.err {
+				if v != nil || !errors.Is(err, tc.err) {
 					t.Errorf("unexpected result or error: v=%v err=%v, expected %v", v, err, tc.err)
 				}
 			}

@@ -47,18 +47,18 @@ func (s *b2Storage) GetBlob(ctx context.Context, id blob.ID, offset, length int6
 
 		_, r, err := s.bucket.DownloadFileRangeByName(fileName, fileRange)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "DownloadFileRangeByName")
 		}
 		defer r.Close() //nolint:errcheck
 
 		throttled, err := s.downloadThrottler.AddReader(r)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "DownloadFileRangeByName")
 		}
 
 		b, err := ioutil.ReadAll(throttled)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "ReadAll")
 		}
 
 		if len(b) != int(length) && length > 0 {
@@ -83,7 +83,7 @@ func (s *b2Storage) GetBlob(ctx context.Context, id blob.ID, offset, length int6
 func (s *b2Storage) resolveFileID(fileName string) (string, error) {
 	resp, err := s.bucket.ListFileVersions(fileName, "", 1)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "ListFileVersions")
 	}
 
 	if len(resp.Files) > 0 {
@@ -106,7 +106,7 @@ func (s *b2Storage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata,
 
 		fi, err := s.bucket.GetFileInfo(fileID)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "GetFileInfo")
 		}
 
 		return blob.Metadata{
@@ -125,7 +125,8 @@ func (s *b2Storage) GetMetadata(ctx context.Context, id blob.ID) (blob.Metadata,
 }
 
 func translateError(err error) error {
-	if b2err, ok := err.(*backblaze.B2Error); ok {
+	var b2err *backblaze.B2Error
+	if errors.As(err, &b2err) {
 		if b2err.Status == http.StatusNotFound {
 			// Normal "not found". That's fine.
 			return blob.ErrBlobNotFound
@@ -146,7 +147,9 @@ func exponentialBackoff(ctx context.Context, desc string, att retry.AttemptFunc)
 }
 
 func isRetriableError(err error) bool {
-	if b2err, ok := err.(*backblaze.B2Error); ok {
+	var b2err *backblaze.B2Error
+
+	if errors.As(err, &b2err) {
 		switch b2err.Status {
 		case http.StatusRequestTimeout:
 			return true
@@ -174,12 +177,14 @@ func (s *b2Storage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes) er
 	attempt := func() (interface{}, error) {
 		throttled, err := s.uploadThrottler.AddReader(ioutil.NopCloser(data.Reader()))
 		if err != nil {
+			// nolint:wrapcheck
 			return nil, err
 		}
 
 		fileName := s.getObjectNameString(id)
 		_, err = s.bucket.UploadFile(fileName, nil, throttled)
 
+		// nolint:wrapcheck
 		return nil, err
 	}
 
@@ -224,6 +229,7 @@ func (s *b2Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func
 	for {
 		resp, err := s.bucket.ListFileNamesWithPrefix(nextFile, maxFileQuery, fullPrefix, "")
 		if err != nil {
+			// nolint:wrapcheck
 			return err
 		}
 

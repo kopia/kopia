@@ -112,6 +112,7 @@ func (m *Manager) GetMetadata(ctx context.Context, id ID) (*EntryMetadata, error
 	}
 
 	if e == nil || e.Deleted {
+		// nolint:wrapcheck
 		return nil, ErrNotFound
 	}
 
@@ -139,6 +140,7 @@ func (m *Manager) Get(ctx context.Context, id ID, data interface{}) (*EntryMetad
 	}
 
 	if e == nil || e.Deleted {
+		// nolint:wrapcheck
 		return nil, ErrNotFound
 	}
 
@@ -235,7 +237,7 @@ func (m *Manager) flushPendingEntriesLocked(ctx context.Context) (content.ID, er
 
 	contentID, err := m.b.WriteContent(ctx, buf.Bytes(), ContentPrefix)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "unable to write content")
 	}
 
 	for _, e := range m.pendingEntries {
@@ -357,9 +359,7 @@ func (m *Manager) loadManifestContent(ctx context.Context, contentID content.ID)
 
 	blk, err := m.b.GetContent(ctx, contentID)
 	if err != nil {
-		// do not wrap the error here, we want to propagate original ErrNotFound
-		// which causes a retry if we lose list/delete race.
-		return man, err
+		return man, errors.Wrap(err, "error loading manifest content")
 	}
 
 	gz, err := gzip.NewReader(bytes.NewReader(blk))

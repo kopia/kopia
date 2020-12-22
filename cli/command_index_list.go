@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/repo"
 )
 
@@ -18,7 +20,7 @@ var (
 func runListBlockIndexesAction(ctx context.Context, rep *repo.DirectRepository) error {
 	blks, err := rep.Content.IndexBlobs(ctx, *blockIndexListIncludeSuperseded)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error listing index blobs")
 	}
 
 	switch *blockIndexListSort {

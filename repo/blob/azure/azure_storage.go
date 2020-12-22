@@ -44,14 +44,14 @@ func (az *azStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int6
 	attempt := func() (interface{}, error) {
 		reader, err := az.bucket.NewRangeReader(ctx, az.getObjectNameString(b), offset, length, nil)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "NewRangeReader")
 		}
 
 		defer reader.Close() //nolint:errcheck
 
 		throttled, err := az.downloadThrottler.AddReader(reader)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "AddReader")
 		}
 
 		return ioutil.ReadAll(throttled)
@@ -74,7 +74,7 @@ func (az *azStorage) GetMetadata(ctx context.Context, b blob.ID) (blob.Metadata,
 	attempt := func() (interface{}, error) {
 		fi, err := az.bucket.Attributes(ctx, az.getObjectNameString(b))
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "Attributes")
 		}
 
 		return blob.Metadata{
@@ -97,7 +97,9 @@ func exponentialBackoff(ctx context.Context, desc string, att retry.AttemptFunc)
 }
 
 func isRetriableError(err error) bool {
-	if me, ok := err.(azblob.ResponseError); ok {
+	var me azblob.ResponseError
+
+	if errors.As(err, &me) {
 		if me.Response() == nil {
 			return true
 		}
@@ -133,12 +135,14 @@ func (az *azStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) er
 
 	throttled, err := az.uploadThrottler.AddReader(ioutil.NopCloser(data.Reader()))
 	if err != nil {
+		// nolint:wrapcheck
 		return err
 	}
 
 	// create azure Bucket writer
 	writer, err := az.bucket.NewWriter(ctx, az.getObjectNameString(b), &gblob.WriterOptions{ContentType: "application/x-kopia"})
 	if err != nil {
+		// nolint:wrapcheck
 		return err
 	}
 
@@ -188,11 +192,12 @@ func (az *azStorage) ListBlobs(ctx context.Context, prefix blob.ID, callback fun
 	// iterate over list iterator
 	for {
 		lo, err := li.Next(ctx)
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 
 		if err != nil {
+			// nolint:wrapcheck
 			return err
 		}
 
@@ -244,7 +249,7 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 	// create a credentials object.
 	credential, err := azureblob.NewCredential(azureblob.AccountName(opt.StorageAccount), azureblob.AccountKey(opt.StorageKey))
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "unable to initialize credentials")
 	}
 
 	// create a Pipeline with credentials.
@@ -253,7 +258,7 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 	// create a *blob.Bucket.
 	bucket, err := azureblob.OpenBucket(ctx, pipeline, azureblob.AccountName(opt.StorageAccount), opt.Container, &azureblob.Options{Credential: credential})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "unable to open bucket")
 	}
 
 	downloadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.MaxDownloadSpeedBytesPerSecond))

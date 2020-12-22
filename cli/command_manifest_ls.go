@@ -35,7 +35,7 @@ func listManifestItems(ctx context.Context, rep repo.Repository) error {
 
 	items, err := rep.FindManifests(ctx, filter)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "unable to find manifests")
 	}
 
 	sort.Slice(items, func(i, j int) bool {

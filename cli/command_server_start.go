@@ -198,7 +198,7 @@ func requireCredentials(handler http.Handler) (*http.ServeMux, error) {
 	case *serverStartHtpasswdFile != "":
 		f, err := htpasswd.New(*serverStartHtpasswdFile, htpasswd.DefaultSystems, nil)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "error initializing htpasswd")
 		}
 
 		handler = requireAuth{inner: handler, htpasswdFile: f}

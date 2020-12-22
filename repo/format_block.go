@@ -103,13 +103,14 @@ func recoverFormatBlobWithLength(ctx context.Context, st blob.Storage, blobID bl
 	}
 
 	if chunkLength <= minRecoverableChunkLength {
+		// nolint:wrapcheck
 		return nil, errFormatBlobNotFound
 	}
 
 	// try prefix
 	prefixChunk, err := st.GetBlob(ctx, blobID, 0, chunkLength)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "error getting blob %v prefix", blobID)
 	}
 
 	l := decodeInt16(prefixChunk)
@@ -122,7 +123,7 @@ func recoverFormatBlobWithLength(ctx context.Context, st blob.Storage, blobID bl
 	// try the suffix
 	suffixChunk, err := st.GetBlob(ctx, blobID, length-chunkLength, chunkLength)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "error getting blob %v suffix", blobID)
 	}
 
 	l = decodeInt16(suffixChunk[len(suffixChunk)-lengthOfRecoverBlockLength:])
@@ -132,6 +133,7 @@ func recoverFormatBlobWithLength(ctx context.Context, st blob.Storage, blobID bl
 		}
 	}
 
+	// nolint:wrapcheck
 	return nil, errFormatBlobNotFound
 }
 
@@ -249,7 +251,7 @@ func encryptFormatBytes(f *formatBlob, format *repositoryObjectFormat, masterKey
 		// Store nonce at the beginning of ciphertext.
 		nonce := cipherText[0:nonceLength]
 		if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-			return err
+			return errors.Wrap(err, "error reading random bytes for nonce")
 		}
 
 		b := aead.Seal(cipherText[nonceLength:nonceLength], nonce, content, authData)

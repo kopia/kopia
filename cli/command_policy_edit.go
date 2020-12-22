@@ -86,7 +86,7 @@ func editPolicy(ctx context.Context, rep repo.Repository) error {
 			d.DisallowUnknownFields()
 			return d.Decode(updated)
 		}); err != nil {
-			return err
+			return errors.Wrap(err, "unable to launch editor")
 		}
 
 		if jsonEqual(updated, original) {

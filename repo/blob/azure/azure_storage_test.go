@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/Azure/azure-storage-blob-go/azblob"
+	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
@@ -53,7 +54,8 @@ func createContainer(t *testing.T, container, storageAccount, storageKey string)
 	}
 
 	// return if already exists
-	if stgErr, ok := err.(azblob.StorageError); ok {
+	var stgErr azblob.StorageError
+	if errors.As(err, &stgErr) {
 		if stgErr.ServiceCode() == azblob.ServiceCodeContainerAlreadyExists {
 			return
 		}

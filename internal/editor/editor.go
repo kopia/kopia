@@ -25,24 +25,24 @@ var log = logging.GetContextLoggerFunc("editor")
 func EditLoop(ctx context.Context, fname, initial string, parse func(updated string) error) error {
 	tmpDir, err := ioutil.TempDir("", "kopia")
 	if err != nil {
-		return err
+		return errors.Wrap(err, "unable to create temp directory")
 	}
 
 	tmpFile := filepath.Join(tmpDir, fname)
 	defer os.RemoveAll(tmpDir) //nolint:errcheck
 
 	if err := ioutil.WriteFile(tmpFile, []byte(initial), 0o600); err != nil {
-		return err
+		return errors.Wrap(err, "unable to write file to edit")
 	}
 
 	for {
 		if err := editFile(ctx, tmpFile); err != nil {
-			return err
+			return errors.Wrap(err, "error launching editor")
 		}
 
 		txt, err := readAndStripComments(tmpFile)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "error parsing edited file")
 		}
 
 		err = parse(txt)
@@ -66,7 +66,7 @@ func EditLoop(ctx context.Context, fname, initial string, parse func(updated str
 func readAndStripComments(fname string) (string, error) {
 	f, err := os.Open(fname) //nolint:gosec
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "error opening edited file")
 	}
 	defer f.Close() //nolint:errcheck,gosec
 
@@ -101,7 +101,7 @@ func editFile(ctx context.Context, file string) error {
 
 	err := cmd.Run()
 	if err != nil {
-		log(ctx).Errorf("unable to launch editor: %v", err)
+		return errors.Wrap(err, "error running editor command")
 	}
 
 	return nil

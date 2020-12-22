@@ -622,7 +622,7 @@ var errGetAllFakeContentsRetry = errors.New("retry")
 func getAllFakeContents(ctx context.Context, m indexBlobManager) (map[string]fakeContentIndexEntry, []IndexBlobInfo, error) {
 	allContents, allBlobs, err := getAllFakeContentsInternal(ctx, m)
 
-	for err == errGetAllFakeContentsRetry {
+	for errors.Is(err, errGetAllFakeContentsRetry) {
 		allContents, allBlobs, err = getAllFakeContentsInternal(ctx, m)
 	}
 

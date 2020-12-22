@@ -176,7 +176,7 @@ func snapshotSingleSource(ctx context.Context, rep repo.Repository, u *snapshotf
 
 	manifest, err := u.Upload(ctx, localEntry, policyTree, sourceInfo, previous...)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "upload error")
 	}
 
 	manifest.Description = *snapshotCreateDescription
@@ -230,7 +230,7 @@ func snapshotSingleSource(ctx context.Context, rep repo.Repository, u *snapshotf
 
 	log(ctx).Infof("Created%v snapshot with root %v and ID %v in %v", maybePartial, manifest.RootObjectID(), snapID, clock.Since(t0).Truncate(time.Second))
 
-	return err
+	return errors.Wrap(err, "error snapshotting")
 }
 
 // findPreviousSnapshotManifest returns the list of previous snapshots for a given source, including

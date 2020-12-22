@@ -3,6 +3,8 @@ package cli
 import (
 	"context"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/repo"
 )
 
@@ -16,7 +18,7 @@ func runManifestRemoveCommand(ctx context.Context, rep repo.Repository) error {
 
 	for _, it := range toManifestIDs(*manifestRemoveItems) {
 		if err := rep.DeleteManifest(ctx, it); err != nil {
-			return err
+			return errors.Wrapf(err, "unable to delete manifest %v", it)
 		}
 	}
 

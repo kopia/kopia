@@ -48,11 +48,12 @@ func Initialize(ctx context.Context, st blob.Storage, opt *NewRepositoryOptions,
 	// get the blob - expect ErrNotFound
 	_, err := st.GetBlob(ctx, FormatBlobID, 0, -1)
 	if err == nil {
+		// nolint:wrapcheck
 		return ErrAlreadyInitialized
 	}
 
 	if !errors.Is(err, blob.ErrBlobNotFound) {
-		return err
+		return errors.Wrap(err, "unexpected error when checking for format blob")
 	}
 
 	format := formatBlobFromOptions(opt)

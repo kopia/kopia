@@ -44,7 +44,7 @@ var (
 
 func TestEngineWritefilesBasicFS(t *testing.T) {
 	eng, err := NewEngine("")
-	if err == kopiarunner.ErrExeVariableNotSet || errors.Is(err, fio.ErrEnvNotSet) {
+	if errors.Is(err, kopiarunner.ErrExeVariableNotSet) || errors.Is(err, fio.ErrEnvNotSet) {
 		t.Skip(err)
 	}
 
@@ -154,7 +154,7 @@ func TestWriteFilesBasicS3(t *testing.T) {
 	defer cleanupCB()
 
 	eng, err := NewEngine("")
-	if err == kopiarunner.ErrExeVariableNotSet || errors.Is(err, fio.ErrEnvNotSet) {
+	if errors.Is(err, kopiarunner.ErrExeVariableNotSet) || errors.Is(err, fio.ErrEnvNotSet) {
 		t.Skip(err)
 	}
 
@@ -196,7 +196,7 @@ func TestDeleteSnapshotS3(t *testing.T) {
 	defer cleanupCB()
 
 	eng, err := NewEngine("")
-	if err == kopiarunner.ErrExeVariableNotSet || errors.Is(err, fio.ErrEnvNotSet) {
+	if errors.Is(err, kopiarunner.ErrExeVariableNotSet) || errors.Is(err, fio.ErrEnvNotSet) {
 		t.Skip(err)
 	}
 
@@ -239,7 +239,7 @@ func TestSnapshotVerificationFail(t *testing.T) {
 	defer cleanupCB()
 
 	eng, err := NewEngine("")
-	if err == kopiarunner.ErrExeVariableNotSet || errors.Is(err, fio.ErrEnvNotSet) {
+	if errors.Is(err, kopiarunner.ErrExeVariableNotSet) || errors.Is(err, fio.ErrEnvNotSet) {
 		t.Skip(err)
 	}
 
@@ -304,7 +304,7 @@ func TestDataPersistency(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	eng, err := NewEngine("")
-	if err == kopiarunner.ErrExeVariableNotSet || errors.Is(err, fio.ErrEnvNotSet) {
+	if errors.Is(err, kopiarunner.ErrExeVariableNotSet) || errors.Is(err, fio.ErrEnvNotSet) {
 		t.Skip(err)
 	}
 
@@ -461,7 +461,7 @@ func TestPickActionWeighted(t *testing.T) {
 
 func TestActionsFilesystem(t *testing.T) {
 	eng, err := NewEngine("")
-	if err == kopiarunner.ErrExeVariableNotSet || errors.Is(err, fio.ErrEnvNotSet) {
+	if errors.Is(err, kopiarunner.ErrExeVariableNotSet) || errors.Is(err, fio.ErrEnvNotSet) {
 		t.Skip(err)
 	}
 
@@ -495,7 +495,7 @@ func TestActionsFilesystem(t *testing.T) {
 	numActions := 10
 	for loop := 0; loop < numActions; loop++ {
 		err := eng.RandomAction(actionOpts)
-		if !(err == nil || err == ErrNoOp) {
+		if !(err == nil || errors.Is(err, ErrNoOp)) {
 			t.Error("Hit error", err)
 		}
 	}
@@ -506,7 +506,7 @@ func TestActionsS3(t *testing.T) {
 	defer cleanupCB()
 
 	eng, err := NewEngine("")
-	if err == kopiarunner.ErrExeVariableNotSet || errors.Is(err, fio.ErrEnvNotSet) {
+	if errors.Is(err, kopiarunner.ErrExeVariableNotSet) || errors.Is(err, fio.ErrEnvNotSet) {
 		t.Skip(err)
 	}
 
@@ -538,7 +538,7 @@ func TestActionsS3(t *testing.T) {
 	numActions := 10
 	for loop := 0; loop < numActions; loop++ {
 		err := eng.RandomAction(actionOpts)
-		if !(err == nil || err == ErrNoOp) {
+		if !(err == nil || errors.Is(err, ErrNoOp)) {
 			t.Error("Hit error", err)
 		}
 	}
@@ -553,7 +553,7 @@ func TestIOLimitPerWriteAction(t *testing.T) {
 	const timeout = 10 * time.Second
 
 	eng, err := NewEngine("")
-	if err == kopiarunner.ErrExeVariableNotSet || errors.Is(err, fio.ErrEnvNotSet) {
+	if errors.Is(err, kopiarunner.ErrExeVariableNotSet) || errors.Is(err, fio.ErrEnvNotSet) {
 		t.Skip(err)
 	}
 

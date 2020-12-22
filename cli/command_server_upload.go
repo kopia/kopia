@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/internal/apiclient"
 	"github.com/kopia/kopia/internal/serverapi"
 )
@@ -22,7 +24,7 @@ func triggerActionOnMatchingSources(ctx context.Context, cli *apiclient.KopiaAPI
 	var resp serverapi.MultipleSourceActionResponse
 
 	if err := cli.Post(ctx, path, &serverapi.Empty{}, &resp); err != nil {
-		return err
+		return errors.Wrapf(err, "unable to start upload on %v", path)
 	}
 
 	for src, resp := range resp.Sources {

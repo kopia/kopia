@@ -2,7 +2,8 @@ package content
 
 import (
 	"container/heap"
-	"errors"
+
+	"github.com/pkg/errors"
 )
 
 const iterateParallelism = 16
@@ -14,7 +15,7 @@ type mergedIndex []packIndex
 func (m mergedIndex) Close() error {
 	for _, ndx := range m {
 		if err := ndx.Close(); err != nil {
-			return err
+			return errors.Wrap(err, "error closing index shard")
 		}
 	}
 
@@ -28,7 +29,7 @@ func (m mergedIndex) GetInfo(id ID) (*Info, error) {
 	for _, ndx := range m {
 		i, err := ndx.GetInfo(id)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "error getting id %v from index shard", id)
 		}
 
 		if i != nil {
@@ -84,7 +85,7 @@ func iterateChan(r IDRange, ndx packIndex, done chan bool) <-chan Info {
 		_ = ndx.Iterate(r, func(i Info) error {
 			select {
 			case <-done:
-				return errors.New("end of iteration") // nolint:goerr113
+				return errors.New("end of iteration")
 			case ch <- i:
 				return nil
 			}

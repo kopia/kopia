@@ -60,7 +60,7 @@ func mmapOpenWithRetry(ctx context.Context, path string) (*mmap.ReaderAt, error)
 		f, err = mmap.Open(path)
 	}
 
-	return f, err
+	return f, errors.Wrap(err, "mmap() error")
 }
 
 func (c *diskCommittedContentIndexCache) hasIndexBlobID(ctx context.Context, indexBlobID blob.ID) (bool, error) {
@@ -73,7 +73,7 @@ func (c *diskCommittedContentIndexCache) hasIndexBlobID(ctx context.Context, ind
 		return false, nil
 	}
 
-	return false, err
+	return false, errors.Wrapf(err, "error checking %v", indexBlobID)
 }
 
 func (c *diskCommittedContentIndexCache) addContentToCache(ctx context.Context, indexBlobID blob.ID, data []byte) error {

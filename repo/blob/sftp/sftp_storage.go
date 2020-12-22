@@ -55,7 +55,7 @@ func (s *sftpImpl) GetBlobFromPath(ctx context.Context, dirPath, fullPath string
 	}
 
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "unrecognized error when opening SFTP file %v", fullPath)
 	}
 	defer r.Close() //nolint:errcheck
 
@@ -90,7 +90,7 @@ func (s *sftpImpl) GetMetadataFromPath(ctx context.Context, dirPath, fullPath st
 	}
 
 	if err != nil {
-		return blob.Metadata{}, err
+		return blob.Metadata{}, errors.Wrapf(err, "unrecognized error when calling stat() on SFTP file %v", fullPath)
 	}
 
 	return blob.Metadata{
@@ -134,7 +134,7 @@ func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, fullPath string, 
 			fmt.Printf("warning: can't remove temp file: %v", removeErr)
 		}
 
-		return err
+		return errors.Wrap(err, "unexpected error renaming file on SFTP")
 	}
 
 	return nil
@@ -157,7 +157,7 @@ func (s *sftpImpl) createTempFileAndDir(tempFile string) (*sftp.File, error) {
 		return s.cli.OpenFile(tempFile, flags)
 	}
 
-	return f, err
+	return f, errors.Wrapf(err, "unrecognized error when creating temp file on SFTP: %v", tempFile)
 }
 
 func isNotExist(err error) bool {
@@ -178,7 +178,7 @@ func (s *sftpImpl) DeleteBlobInPath(ctx context.Context, dirPath, fullPath strin
 		return nil
 	}
 
-	return err
+	return errors.Wrapf(err, "error deleting SFTP file %v", fullPath)
 }
 
 func (s *sftpImpl) ReadDir(ctx context.Context, dirname string) ([]os.FileInfo, error) {
@@ -212,7 +212,7 @@ func (s *sftpStorage) Close(ctx context.Context) error {
 func writeKnownHostsDataStringToTempFile(data string) (string, error) {
 	tf, err := ioutil.TempFile("", "kopia-known-hosts")
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "error creating temp file")
 	}
 
 	defer tf.Close() //nolint:errcheck,gosec
@@ -259,13 +259,13 @@ func getSigner(opts *Options) (ssh.Signer, error) {
 
 		privateKeyData, err = ioutil.ReadFile(opts.Keyfile)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "error reading private key file")
 		}
 	}
 
 	key, err := ssh.ParsePrivateKey(privateKeyData)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error parsing private key")
 	}
 
 	return key, nil
@@ -321,12 +321,12 @@ func getSFTPClientExternal(ctx context.Context, opt *Options) (*sftp.Client, clo
 	// get stdin and stdout
 	wr, err := cmd.StdinPipe()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Wrap(err, "error opening SSH stdin pipe")
 	}
 
 	rd, err := cmd.StdoutPipe()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, errors.Wrap(err, "error opening SSH stdout pipe")
 	}
 
 	if err = cmd.Start(); err != nil {
@@ -347,7 +347,7 @@ func getSFTPClientExternal(ctx context.Context, opt *Options) (*sftp.Client, clo
 	if err != nil {
 		closeFunc() // nolint:errcheck
 
-		return nil, nil, err
+		return nil, nil, errors.Wrap(err, "error creating sftp client pipe")
 	}
 
 	return c, closeFunc, nil

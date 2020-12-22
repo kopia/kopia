@@ -47,18 +47,18 @@ func showContentWithFlags(rd io.Reader, unzip, indentJSON bool) error {
 
 	if indentJSON {
 		if _, err := iocopy.Copy(&buf1, rd); err != nil {
-			return err
+			return errors.Wrap(err, "error copying data")
 		}
 
 		if err := json.Indent(&buf2, buf1.Bytes(), "", "  "); err != nil {
-			return err
+			return errors.Wrap(err, "errors indenting JSON")
 		}
 
 		rd = ioutil.NopCloser(&buf2)
 	}
 
 	if _, err := iocopy.Copy(os.Stdout, rd); err != nil {
-		return err
+		return errors.Wrap(err, "error copying data")
 	}
 
 	return nil

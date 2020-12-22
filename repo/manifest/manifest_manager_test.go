@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/content"
@@ -261,7 +263,7 @@ func verifyItemNotFound(ctx context.Context, t *testing.T, mgr *Manager, id ID) 
 	t.Helper()
 
 	_, err := mgr.GetMetadata(ctx, id)
-	if got, want := err, ErrNotFound; got != want {
+	if got, want := err, ErrNotFound; !errors.Is(got, want) {
 		t.Errorf("invalid error when getting %q %v, expected %v", id, err, ErrNotFound)
 		return
 	}

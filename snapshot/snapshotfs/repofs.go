@@ -103,7 +103,7 @@ func (rd *repositoryDirectory) Summary(ctx context.Context) (*fs.DirectorySummar
 
 	r, err := rd.repo.OpenObject(ctx, rd.metadata.ObjectID)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "unable to open object: %v", rd.metadata.ObjectID)
 	}
 	defer r.Close() //nolint:errcheck
 
@@ -122,7 +122,7 @@ func (rd *repositoryDirectory) Child(ctx context.Context, name string) (fs.Entry
 func (rd *repositoryDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
 	r, err := rd.repo.OpenObject(ctx, rd.metadata.ObjectID)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "unable to open object: %v", rd.metadata.ObjectID)
 	}
 	defer r.Close() //nolint:errcheck
 
@@ -147,7 +147,7 @@ func (rd *repositoryDirectory) Readdir(ctx context.Context) (fs.Entries, error) 
 func (rf *repositoryFile) Open(ctx context.Context) (fs.Reader, error) {
 	r, err := rf.repo.OpenObject(ctx, rf.metadata.ObjectID)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "unable to open object: %v", rf.metadata.ObjectID)
 	}
 
 	return withFileInfo(r, rf), nil
@@ -156,14 +156,14 @@ func (rf *repositoryFile) Open(ctx context.Context) (fs.Reader, error) {
 func (rsl *repositorySymlink) Readlink(ctx context.Context) (string, error) {
 	r, err := rsl.repo.OpenObject(ctx, rsl.metadata.ObjectID)
 	if err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "unable to open object: %v", rsl.metadata.ObjectID)
 	}
 
 	defer r.Close() //nolint:errcheck
 
 	b, err := ioutil.ReadAll(r)
 	if err != nil {
-		return "", err
+		return "", errors.Wrapf(err, "unable to read object: %v", rsl.metadata.ObjectID)
 	}
 
 	return string(b), nil

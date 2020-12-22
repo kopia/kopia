@@ -48,19 +48,19 @@ func (s *s3Storage) GetBlob(ctx context.Context, b blob.ID, offset, length int64
 
 		o, err := s.cli.GetObject(ctx, s.BucketName, s.getObjectNameString(b), opt)
 		if err != nil {
-			return 0, err
+			return nil, errors.Wrap(err, "GetObject")
 		}
 
 		defer o.Close() //nolint:errcheck
 
 		throttled, err := s.downloadThrottler.AddReader(o)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "AddReader")
 		}
 
 		b, err := ioutil.ReadAll(throttled)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "ReadAll")
 		}
 
 		if len(b) != int(length) && length > 0 {
@@ -87,7 +87,9 @@ func exponentialBackoff(ctx context.Context, desc string, att retry.AttemptFunc)
 }
 
 func isRetriableError(err error) bool {
-	if me, ok := err.(minio.ErrorResponse); ok {
+	var me minio.ErrorResponse
+
+	if errors.As(err, &me) {
 		// retry on server errors, not on client errors
 		return me.StatusCode >= 500
 	}
@@ -101,7 +103,9 @@ func isRetriableError(err error) bool {
 }
 
 func translateError(err error) error {
-	if me, ok := err.(minio.ErrorResponse); ok {
+	var me minio.ErrorResponse
+
+	if errors.As(err, &me) {
 		if me.StatusCode == http.StatusOK {
 			return nil
 		}
@@ -118,7 +122,7 @@ func (s *s3Storage) GetMetadata(ctx context.Context, b blob.ID) (blob.Metadata, 
 	v, err := retry.WithExponentialBackoff(ctx, fmt.Sprintf("GetMetadata(%v)", b), func() (interface{}, error) {
 		oi, err := s.cli.StatObject(ctx, s.BucketName, s.getObjectNameString(b), minio.StatObjectOptions{})
 		if err != nil {
-			return blob.Metadata{}, err
+			return blob.Metadata{}, errors.Wrap(err, "StatObject")
 		}
 
 		return blob.Metadata{
@@ -135,7 +139,7 @@ func (s *s3Storage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) err
 	return translateError(retry.WithExponentialBackoffNoValue(ctx, fmt.Sprintf("PutBlob(%v)", b), func() error {
 		throttled, err := s.uploadThrottler.AddReader(ioutil.NopCloser(data.Reader()))
 		if err != nil {
-			return err
+			return errors.Wrap(err, "AddReader")
 		}
 
 		combinedLength := data.Length()
@@ -151,13 +155,14 @@ func (s *s3Storage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) err
 			Progress:    newProgressReader(progressCallback, string(b), int64(combinedLength)),
 		})
 
-		if err == io.EOF && uploadInfo.Size == 0 {
+		if errors.Is(err, io.EOF) && uploadInfo.Size == 0 {
 			// special case empty stream
 			_, err = s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), bytes.NewBuffer(nil), 0, minio.PutObjectOptions{
 				ContentType: "application/x-kopia",
 			})
 		}
 
+		// nolint:wrapcheck
 		return err
 	}, isRetriableError))
 }

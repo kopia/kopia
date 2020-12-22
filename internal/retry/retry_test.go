@@ -12,7 +12,7 @@ import (
 var errRetriable = errors.New("retriable")
 
 func isRetriable(e error) bool {
-	return e == errRetriable
+	return errors.Is(e, errRetriable)
 }
 
 func TestRetry(t *testing.T) {

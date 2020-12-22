@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
@@ -58,12 +60,12 @@ func (p *Permissions) UnmarshalJSON(b []byte) error {
 	var s string
 
 	if err := json.Unmarshal(b, &s); err != nil {
-		return err
+		return errors.Wrap(err, "unable to unmarshal JSON")
 	}
 
 	v, err := strconv.ParseInt(s, 0, 32)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "unable to parse permission string")
 	}
 
 	*p = Permissions(v)

@@ -8,6 +8,8 @@ import (
 	"runtime/debug"
 	"testing"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo"
@@ -190,7 +192,7 @@ func TestReaderStoredBlockNotFound(t *testing.T) {
 	}
 
 	reader, err := env.Repository.OpenObject(ctx, objectID)
-	if err != object.ErrObjectNotFound || reader != nil {
+	if !errors.Is(err, object.ErrObjectNotFound) || reader != nil {
 		t.Errorf("unexpected result: reader: %v err: %v", reader, err)
 	}
 }

@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/testlogging"
@@ -108,7 +110,7 @@ func verifyChild(t *testing.T, dir fs.Directory) {
 		t.Errorf("child error: %v", err)
 	}
 
-	if _, err = dir.Child(ctx, "f4"); err != fs.ErrEntryNotFound {
+	if _, err = dir.Child(ctx, "f4"); !errors.Is(err, fs.ErrEntryNotFound) {
 		t.Errorf("unexpected child error: %v", err)
 	}
 
@@ -120,7 +122,7 @@ func verifyChild(t *testing.T, dir fs.Directory) {
 		t.Errorf("unexpected child size: %v, want %v", got, want)
 	}
 
-	if _, err = fs.ReadDirAndFindChild(ctx, dir, "f4"); err != fs.ErrEntryNotFound {
+	if _, err = fs.ReadDirAndFindChild(ctx, dir, "f4"); !errors.Is(err, fs.ErrEntryNotFound) {
 		t.Errorf("unexpected child error: %v", err)
 	}
 

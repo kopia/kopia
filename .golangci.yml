@@ -44,6 +44,9 @@ linters:
     - whitespace
     - nlreturn
     - testpackage
+    - exhaustivestruct
+    - paralleltest
+    - tparallel
 
 run:
   skip-dirs:
@@ -52,7 +55,7 @@ run:
 issues:
   exclude-use-default: false
   exclude-rules:
-    - path: _test\.go|testing|test_env
+    - path: _test\.go|testing|tests|test_env|fshasher
       linters:
       - gomnd
       - gocognit
@@ -60,14 +63,16 @@ issues:
       - errcheck
       - gosec
       - nestif
-      - goerr113
+      - wrapcheck
     - text: "Magic number: 1e"
       linters:
       - gomnd
     - text: "unnecessaryDefer"
-      linters: gocritic
+      linters:
+      - gocritic
     - text: "filepathJoin"
-      linters: gocritic
+      linters:
+      - gocritic
     - text: "weak cryptographic primitive"
       linters:
         - gosec
@@ -86,9 +91,3 @@ issues:
     - path: cli
       linters:
       - gochecknoglobals
-
-# golangci.com configuration
-# https://github.com/golangci/golangci/wiki/Configuration
-service:
-  golangci-lint-version: 1.24.x # use the fixed version to not introduce new linters unexpectedly
-

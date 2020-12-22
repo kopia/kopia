@@ -74,7 +74,7 @@ func askPass(prompt string) (string, error) {
 	for i := 0; i < 5; i++ {
 		p, err := speakeasy.Ask(prompt)
 		if err != nil {
-			return "", err
+			return "", errors.Wrap(err, "password prompt error")
 		}
 
 		if p == "" {

@@ -68,7 +68,7 @@ func runStatusCommand(ctx context.Context, rep repo.Repository) error {
 
 	tok, err := dr.Token(pass)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error computing repository token")
 	}
 
 	fmt.Printf("\nTo reconnect to the repository use:\n\n$ kopia repository connect from-config --token %v\n\n", tok)

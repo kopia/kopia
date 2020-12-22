@@ -1,6 +1,7 @@
 package kopiarunner
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -22,7 +23,7 @@ func TestParseSnapListAllExeTest(t *testing.T) {
 	testenv.AssertNoError(t, err)
 
 	ks, err := NewKopiaSnapshotter(repoDir)
-	if err == ErrExeVariableNotSet {
+	if errors.Is(err, ErrExeVariableNotSet) {
 		t.Skip("KOPIA_EXE not set, skipping test")
 	}
 

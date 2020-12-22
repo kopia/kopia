@@ -81,10 +81,12 @@ func (c *contentCacheForMetadata) getContent(ctx context.Context, cacheKey cache
 
 	if errors.Is(err, blob.ErrBlobNotFound) {
 		// not found in underlying storage
+		// nolint:wrapcheck
 		return nil, err
 	}
 
 	if err != nil {
+		// nolint:wrapcheck
 		return nil, err
 	}
 
@@ -101,7 +103,7 @@ func (c *contentCacheForMetadata) getContent(ctx context.Context, cacheKey cache
 	}
 
 	if offset == 0 && length == -1 {
-		return blobData, err
+		return blobData, nil
 	}
 
 	if offset < 0 || offset+length > int64(len(blobData)) {

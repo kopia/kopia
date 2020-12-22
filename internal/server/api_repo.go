@@ -316,12 +316,12 @@ func (s *Server) handleRepoSync(ctx context.Context, r *http.Request, body []byt
 }
 
 func repoErrorToAPIError(err error) *apiError {
-	switch err {
-	case repo.ErrRepositoryNotInitialized:
+	switch {
+	case errors.Is(err, repo.ErrRepositoryNotInitialized):
 		return requestError(serverapi.ErrorNotInitialized, "repository not initialized")
-	case repo.ErrInvalidPassword:
+	case errors.Is(err, repo.ErrInvalidPassword):
 		return requestError(serverapi.ErrorInvalidPassword, "invalid password")
-	case repo.ErrAlreadyInitialized:
+	case errors.Is(err, repo.ErrAlreadyInitialized):
 		return requestError(serverapi.ErrorAlreadyInitialized, "repository already initialized")
 	default:
 		return internalServerError(errors.Wrap(err, "connect error"))

@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 
 	"github.com/alecthomas/kingpin"
+	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/rclone"
@@ -36,7 +37,7 @@ func init() {
 			if embedRCloneConfigFile != "" {
 				cfg, err := ioutil.ReadFile(embedRCloneConfigFile) //nolint:gosec
 				if err != nil {
-					return nil, err
+					return nil, errors.Wrap(err, "unable to read rclone config file")
 				}
 
 				opt.EmbeddedConfig = string(cfg)

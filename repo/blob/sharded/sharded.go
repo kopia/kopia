@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -57,7 +59,7 @@ func (s Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(bl
 	walkDir = func(directory string, currentPrefix string) error {
 		entries, err := s.Impl.ReadDir(ctx, directory)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "error reading directory")
 		}
 
 		for _, e := range entries {
@@ -103,7 +105,7 @@ func (s Storage) GetMetadata(ctx context.Context, blobID blob.ID) (blob.Metadata
 	m, err := s.Impl.GetMetadataFromPath(ctx, dirPath, filePath)
 	m.BlobID = blobID
 
-	return m, err
+	return m, errors.Wrap(err, "error getting metadata")
 }
 
 // PutBlob implements blob.Storage.

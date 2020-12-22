@@ -4,6 +4,8 @@ package throttle
 import (
 	"io"
 	"net/http"
+
+	"github.com/pkg/errors"
 )
 
 type throttlerPool interface {
@@ -22,15 +24,20 @@ func (rt *throttlingRoundTripper) RoundTrip(req *http.Request) (*http.Response, 
 
 		req.Body, err = rt.uploadPool.AddReader(req.Body)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "unable to attach request throttler")
 		}
 	}
 
 	resp, err := rt.base.RoundTrip(req)
+
 	if resp != nil && resp.Body != nil && rt.downloadPool != nil {
 		resp.Body, err = rt.downloadPool.AddReader(resp.Body)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to attach response throttler")
+		}
 	}
 
+	// nolint:wrapcheck
 	return resp, err
 }
 

@@ -3,6 +3,8 @@ package snapshotfs
 import (
 	"context"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/fs"
 )
 
@@ -22,12 +24,13 @@ func (u *Uploader) scanDirectory(ctx context.Context, dir fs.Directory) (scanRes
 
 	entries, err := dir.Readdir(ctx)
 	if err != nil {
-		return res, err
+		return res, errors.Wrap(err, "unable to read directory")
 	}
 
 	for _, e := range entries {
 		if err := ctx.Err(); err != nil {
 			// terminate early if context got canceled
+			// nolint:wrapcheck
 			return res, err
 		}
 

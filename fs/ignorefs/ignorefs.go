@@ -78,7 +78,7 @@ func isCorrectCacheDirSignature(ctx context.Context, f fs.File) (bool, error) {
 
 	r, err := f.Open(ctx)
 	if err != nil {
-		return false, err
+		return false, errors.Wrap(err, "unable to open cache dir marker file")
 	}
 
 	defer r.Close() //nolint:errcheck
@@ -86,7 +86,7 @@ func isCorrectCacheDirSignature(ctx context.Context, f fs.File) (bool, error) {
 	sig := make([]byte, validSignatureLen)
 
 	if _, err := r.Read(sig); err != nil {
-		return false, err
+		return false, errors.Wrap(err, "unable to read cache dir marker file")
 	}
 
 	return string(sig) == validSignature, nil
@@ -121,6 +121,7 @@ func (d *ignoreDirectory) skipCacheDirectory(ctx context.Context, entries fs.Ent
 func (d *ignoreDirectory) Readdir(ctx context.Context) (fs.Entries, error) {
 	entries, err := d.Directory.Readdir(ctx)
 	if err != nil {
+		// nolint:wrapcheck
 		return nil, err
 	}
 

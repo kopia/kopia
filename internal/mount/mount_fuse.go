@@ -51,7 +51,7 @@ func Directory(ctx context.Context, entry fs.Directory, mountPoint string, mount
 
 		mountPoint, err = ioutil.TempDir("", "kopia-mount")
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "error creating temp directory")
 		}
 
 		isTempDir = true

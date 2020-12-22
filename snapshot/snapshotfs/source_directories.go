@@ -5,6 +5,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
@@ -58,7 +60,7 @@ func (s *sourceDirectories) Child(ctx context.Context, name string) (fs.Entry, e
 func (s *sourceDirectories) Readdir(ctx context.Context) (fs.Entries, error) {
 	sources, err := snapshot.ListSources(ctx, s.rep)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "unable to list sources")
 	}
 
 	var result fs.Entries

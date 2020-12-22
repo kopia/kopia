@@ -94,7 +94,7 @@ func ListAllBlobs(ctx context.Context, st Storage, prefix ID) ([]Metadata, error
 		return nil
 	})
 
-	return result, err
+	return result, errors.Wrap(err, "error listing all blobs")
 }
 
 // IterateAllPrefixesInParallel invokes the provided callback and returns the first error returned by the callback or nil.

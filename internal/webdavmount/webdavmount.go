@@ -45,7 +45,7 @@ func (f *webdavFile) getReader() (fs.Reader, error) {
 	if f.r == nil {
 		r, err := f.entry.Open(f.ctx)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "error opening webdav file")
 		}
 
 		f.r = r
@@ -98,7 +98,7 @@ type webdavDir struct {
 func (d *webdavDir) Readdir(n int) ([]os.FileInfo, error) {
 	entries, err := d.entry.Readdir(d.ctx)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error reading directory")
 	}
 
 	if n > 0 && n < len(entries) {
@@ -192,7 +192,7 @@ func (w *webdavFS) findEntry(ctx context.Context, path string) (fs.Entry, error)
 
 		entries, err := d.Readdir(ctx)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "error reading directory")
 		}
 
 		e = entries.FindByName(p)

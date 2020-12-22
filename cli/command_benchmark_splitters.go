@@ -6,6 +6,8 @@ import (
 	"sort"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/splitter"
@@ -42,7 +44,7 @@ func runBenchmarkSplitterAction(ctx context.Context, rep repo.Repository) error 
 	for i := 0; i < *benchmarkSplitterBlockCount; i++ {
 		b := make([]byte, *benchmarkSplitterBlockSize)
 		if _, err := rnd.Read(b); err != nil {
-			return err
+			return errors.Wrap(err, "error generating random data")
 		}
 
 		dataBlocks = append(dataBlocks, b)

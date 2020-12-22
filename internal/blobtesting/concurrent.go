@@ -64,13 +64,13 @@ func VerifyConcurrentAccess(t testingT, st blob.Storage, options ConcurrentAcces
 				}
 
 				data, err := st.GetBlob(ctx, blobID, offset, length)
-				switch err {
-				case nil:
+				switch {
+				case err == nil:
 					if got, want := string(data), string(blobID); !strings.HasPrefix(got, want) {
 						return errors.Wrapf(err, "GetBlob returned invalid data for %v: %v, want prefix of %v", blobID, got, want)
 					}
 
-				case blob.ErrBlobNotFound:
+				case errors.Is(err, blob.ErrBlobNotFound):
 					// clean error
 
 				default:
@@ -89,11 +89,7 @@ func VerifyConcurrentAccess(t testingT, st blob.Storage, options ConcurrentAcces
 				blobID := randomBlobID()
 				data := fmt.Sprintf("%v-%v", blobID, rand.Int63())
 				err := st.PutBlob(ctx, blobID, gather.FromSlice([]byte(data)))
-				switch err {
-				case nil:
-					// clean success
-
-				default:
+				if err != nil {
 					return errors.Wrapf(err, "PutBlob %v returned unexpected error", blobID)
 				}
 			}
@@ -108,11 +104,11 @@ func VerifyConcurrentAccess(t testingT, st blob.Storage, options ConcurrentAcces
 			for i := 0; i < options.Iterations; i++ {
 				blobID := randomBlobID()
 				err := st.DeleteBlob(ctx, blobID)
-				switch err {
-				case nil:
+				switch {
+				case err == nil:
 					// clean success
 
-				case blob.ErrBlobNotFound:
+				case errors.Is(err, blob.ErrBlobNotFound):
 					// clean error
 
 				default:
@@ -134,14 +130,9 @@ func VerifyConcurrentAccess(t testingT, st blob.Storage, options ConcurrentAcces
 					prefix = "zzz"
 				}
 
-				err := st.ListBlobs(ctx, prefix, func(blob.Metadata) error {
+				if err := st.ListBlobs(ctx, prefix, func(blob.Metadata) error {
 					return nil
-				})
-				switch err {
-				case nil:
-					// clean success
-
-				default:
+				}); err != nil {
 					return errors.Wrapf(err, "ListBlobs(%v) returned unexpected error", prefix)
 				}
 			}

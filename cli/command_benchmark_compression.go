@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"sort"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
@@ -36,7 +38,7 @@ func runBenchmarkCompressionAction(ctx context.Context, rep repo.Repository) err
 	if *benchmarkCompressionDataFile != "" {
 		d, err := ioutil.ReadFile(*benchmarkCompressionDataFile)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "error reading compression data file")
 		}
 
 		data = d

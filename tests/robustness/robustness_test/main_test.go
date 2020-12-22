@@ -38,7 +38,7 @@ func TestMain(m *testing.M) {
 	eng, err = engine.NewEngine("")
 
 	switch {
-	case err == kopiarunner.ErrExeVariableNotSet:
+	case errors.Is(err, kopiarunner.ErrExeVariableNotSet):
 		log.Println("Skipping robustness tests because KOPIA_EXE is not set")
 		os.Exit(0)
 	case errors.Is(err, fio.ErrEnvNotSet):
@@ -65,7 +65,7 @@ func TestMain(m *testing.M) {
 
 	// Restore a random snapshot into the data directory
 	_, err = eng.ExecAction(engine.RestoreIntoDataDirectoryActionKey, nil)
-	if err != nil && err != engine.ErrNoOp {
+	if err != nil && !errors.Is(err, engine.ErrNoOp) {
 		eng.Cleanup()
 		log.Fatalln("error restoring into the data directory:", err)
 	}

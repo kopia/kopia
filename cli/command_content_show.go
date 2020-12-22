@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
 )
@@ -27,7 +29,7 @@ func runContentShowCommand(ctx context.Context, rep *repo.DirectRepository) erro
 func contentShow(ctx context.Context, r *repo.DirectRepository, contentID content.ID) error {
 	data, err := r.Content.GetContent(ctx, contentID)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "error getting content %v", contentID)
 	}
 
 	return showContent(bytes.NewReader(data))

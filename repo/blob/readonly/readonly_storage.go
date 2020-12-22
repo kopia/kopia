@@ -27,14 +27,17 @@ func (s readonlyStorage) GetMetadata(ctx context.Context, id blob.ID) (blob.Meta
 }
 
 func (s readonlyStorage) SetTime(ctx context.Context, id blob.ID, t time.Time) error {
+	// nolint:wrapcheck
 	return ErrReadonly
 }
 
 func (s readonlyStorage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes) error {
+	// nolint:wrapcheck
 	return ErrReadonly
 }
 
 func (s readonlyStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
+	// nolint:wrapcheck
 	return ErrReadonly
 }
 

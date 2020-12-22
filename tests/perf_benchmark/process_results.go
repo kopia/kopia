@@ -108,7 +108,7 @@ func parseRepoSize(fname string) (int64, error) {
 	s.Scan()
 
 	fields := strings.Fields(s.Text())
-	if len(fields) != 2 { // nolint:gomnd
+	if len(fields) != 2 {
 		return 0, errors.Errorf("unvalid repo size format")
 	}
 

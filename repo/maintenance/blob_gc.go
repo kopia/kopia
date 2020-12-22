@@ -94,7 +94,7 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep MaintainableRepository, op
 
 	// wait for all delete workers to finish.
 	if err := eg.Wait(); err != nil {
-		return 0, err
+		return 0, errors.Wrap(err, "worker error")
 	}
 
 	if opt.DryRun {

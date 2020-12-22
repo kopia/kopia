@@ -24,6 +24,7 @@ type directory struct {
 func (d *directory) Child(ctx context.Context, name string) (fs.Entry, error) {
 	e, err := d.Directory.Child(ctx, name)
 	if err != nil {
+		// nolint:wrapcheck
 		return nil, err
 	}
 
@@ -33,6 +34,7 @@ func (d *directory) Child(ctx context.Context, name string) (fs.Entry, error) {
 func (d *directory) Readdir(ctx context.Context) (fs.Entries, error) {
 	entries, err := d.ctx.cacher.Readdir(ctx, d.Directory)
 	if err != nil {
+		// nolint:wrapcheck
 		return entries, err
 	}
 
@@ -41,6 +43,7 @@ func (d *directory) Readdir(ctx context.Context) (fs.Entries, error) {
 		wrapped[i] = wrapWithContext(entry, d.ctx)
 	}
 
+	// nolint:wrapcheck
 	return wrapped, err
 }
 

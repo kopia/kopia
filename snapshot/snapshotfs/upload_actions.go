@@ -70,7 +70,7 @@ func (hc *actionContext) ensureInitialized(ctx context.Context, actionType, dirP
 
 	wd, err := ioutil.TempDir("", "kopia-action")
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error temporary directory for action execution")
 	}
 
 	hc.WorkDir = wd
@@ -105,7 +105,7 @@ func prepareCommandForAction(ctx context.Context, actionType string, h *policy.A
 		if err := ioutil.WriteFile(scriptFile, []byte(h.Script), actionScriptPermissions); err != nil {
 			cancel()
 
-			return nil, nil, err
+			return nil, nil, errors.Wrap(err, "error writing script for execution")
 		}
 
 		switch {
@@ -161,7 +161,7 @@ func runActionCommand(
 	v, err := cmd.Output()
 	if err != nil {
 		if h.Mode == "essential" {
-			return err
+			return errors.Wrap(err, "essential action failed")
 		}
 
 		log(ctx).Warningf("error running non-essential action command: %v", err)

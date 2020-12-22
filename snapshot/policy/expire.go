@@ -4,6 +4,8 @@ import (
 	"context"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 )
@@ -12,18 +14,18 @@ import (
 func ApplyRetentionPolicy(ctx context.Context, rep repo.Repository, sourceInfo snapshot.SourceInfo, reallyDelete bool) ([]*snapshot.Manifest, error) {
 	snapshots, err := snapshot.ListSnapshots(ctx, rep, sourceInfo)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error listing snapshots")
 	}
 
 	toDelete, err := getExpiredSnapshots(ctx, rep, snapshots)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "unable to compute snapshots to delete")
 	}
 
 	if reallyDelete {
 		for _, it := range toDelete {
 			if err := rep.DeleteManifest(ctx, it.ID); err != nil {
-				return toDelete, err
+				return toDelete, errors.Wrapf(err, "error deleting manifest %v", it.ID)
 			}
 		}
 	}

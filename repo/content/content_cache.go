@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/filesystem"
@@ -27,7 +29,7 @@ func newCacheStorageOrNil(ctx context.Context, cacheDir string, maxBytes int64, 
 
 		if _, err = os.Stat(contentCacheDir); os.IsNotExist(err) {
 			if mkdirerr := os.MkdirAll(contentCacheDir, 0o700); mkdirerr != nil {
-				return nil, mkdirerr
+				return nil, errors.Wrap(mkdirerr, "error creating cache directory")
 			}
 		}
 
@@ -36,7 +38,7 @@ func newCacheStorageOrNil(ctx context.Context, cacheDir string, maxBytes int64, 
 			DirectoryShards: []int{2},
 		})
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "error initializing filesystem cache")
 		}
 	}
 

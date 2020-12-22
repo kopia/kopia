@@ -24,8 +24,8 @@ import (
 //		7. Issue kopia blob delete on the ID of the found pack blob
 //		8. Attempt a snapshot restore on the snapshot, expecting failure
 // Pass Criteria: Kopia commands issue successfully, except the final restore
-//		command is expected to fail. Expect to find new blobs after a snapshot
-//		and expect one of them is a pack blob type prefixed with "p".
+// command is expected to fail. Expect to find new blobs after a snapshot
+// and expect one of them is a pack blob type prefixed with "p".
 func TestRestoreFail(t *testing.T) {
 	t.Parallel()
 

@@ -86,6 +86,7 @@ func LoadSnapshot(ctx context.Context, rep repo.Repository, manifestID manifest.
 	em, err := rep.GetManifest(ctx, manifestID, sm)
 	if err != nil {
 		if errors.Is(err, manifest.ErrNotFound) {
+			// nolint:wrapcheck
 			return nil, ErrSnapshotNotFound
 		}
 
@@ -117,7 +118,7 @@ func SaveSnapshot(ctx context.Context, rep repo.Repository, man *Manifest) (mani
 
 	id, err := rep.PutManifest(ctx, sourceInfoToLabels(man.Source), man)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "error putting manifest")
 	}
 
 	man.ID = id

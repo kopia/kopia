@@ -103,7 +103,7 @@ func runSnapshotEstimateCommand(ctx context.Context, rep repo.Repository) error 
 	if dir, ok := entry.(fs.Directory); ok {
 		policyTree, err := policy.TreeForSource(ctx, rep, sourceInfo)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "error creating policy tree for %v", sourceInfo)
 		}
 
 		entry = ignorefs.New(dir, policyTree, ignorefs.ReportIgnoredFiles(onIgnoredFile))
@@ -154,7 +154,7 @@ func estimate(ctx context.Context, relativePath string, entry fs.Entry, stats *s
 
 		children, err := entry.Readdir(ctx)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "unable to read directory")
 		}
 
 		for _, child := range children {

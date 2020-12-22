@@ -311,7 +311,7 @@ func (bm *Manager) flushPackIndexesLocked(ctx context.Context) error {
 
 		indexBlobMD, err := bm.indexBlobManager.writeIndexBlob(ctx, data)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "error writing index blob")
 		}
 
 		if err := bm.committedContents.addContent(ctx, indexBlobMD.BlobID, dataCopy, true); err != nil {
@@ -565,12 +565,12 @@ func (bm *Manager) WriteContent(ctx context.Context, data []byte, prefix ID) (ID
 // GetContent gets the contents of a given content. If the content is not found returns ErrContentNotFound.
 func (bm *Manager) GetContent(ctx context.Context, contentID ID) (v []byte, err error) {
 	defer func() {
-		switch err {
-		case nil:
+		switch {
+		case err == nil:
 			stats.Record(ctx,
 				metricContentGetCount.M(1),
 				metricContentGetBytes.M(int64(len(v))))
-		case ErrContentNotFound:
+		case errors.Is(err, ErrContentNotFound):
 			stats.Record(ctx, metricContentGetNotFoundCount.M(1))
 		default:
 			stats.Record(ctx, metricContentGetErrorCount.M(1))

@@ -176,12 +176,14 @@ func maybeRunMaintenance(ctx context.Context, rep repo.Repository) error {
 		return nil
 	}
 
-	if _, ok := err.(maintenance.NotOwnedError); ok {
+	var noe maintenance.NotOwnedError
+
+	if errors.As(err, &noe) {
 		// do not report the NotOwnedError to the user since this is automatic maintenance.
 		return nil
 	}
 
-	return err
+	return errors.Wrap(err, "error running maintenance")
 }
 
 func advancedCommand(ctx context.Context) {

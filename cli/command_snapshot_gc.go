@@ -3,6 +3,8 @@ package cli
 import (
 	"context"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/maintenance"
@@ -25,7 +27,7 @@ func runSnapshotGCCommand(ctx context.Context, rep *repo.DirectRepository) error
 	log(ctx).Infof("GC found %v in-use contents (%v bytes)", st.InUseCount, units.BytesStringBase2(st.InUseBytes))
 	log(ctx).Infof("GC found %v in-use system-contents (%v bytes)", st.SystemCount, units.BytesStringBase2(st.SystemBytes))
 
-	return err
+	return errors.Wrap(err, "error running snapshot GC")
 }
 
 func init() {
