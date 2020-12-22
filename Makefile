@@ -187,7 +187,11 @@ goreleaser: $(goreleaser) print_build_info
 ifeq ($(TRAVIS_PULL_REQUEST),false)
 
 upload-coverage: $(GOVERALLS_TOOL)
-	$(GOVERALLS_TOOL) -service=travis-ci -coverprofile=tmp.cov
+ifeq ($(REPO_OWNER),kopia)
+	$(GOVERALLS_TOOL) -service=$(GOVERALLS_SERVICE) -coverprofile=tmp.cov
+else
+	@echo Not uploading coverage from a fork.
+endif
 
 else
 
@@ -315,8 +319,13 @@ endif
 ifneq ($(TRAVIS_TAG),)
 
 travis-create-long-term-repository: build-integration-test-binary travis-install-cloud-sdk
+
+ifeq ($(REPO_OWNER),kopia)
 	echo Creating long-term repository $(TRAVIS_TAG)...
 	KOPIA_EXE=$(KOPIA_INTEGRATION_EXE) ./tests/compat_test/gen-compat-repo.sh
+else
+	@echo Not creating long-term repository from a fork.
+endif
 
 else
 
@@ -325,7 +334,7 @@ travis-create-long-term-repository:
 
 endif
 
-ifeq ($(TRAVIS_OS_NAME)/$(kopia_arch_name)/$(TRAVIS_PULL_REQUEST),linux/amd64/false)
+ifeq ($(REPO_OWNER)/$(TRAVIS_OS_NAME)/$(kopia_arch_name)/$(TRAVIS_PULL_REQUEST),kopia/linux/amd64/false)
 publish-packages:
 	$(CURDIR)/tools/apt-publish.sh $(CURDIR)/dist
 	$(CURDIR)/tools/rpm-publish.sh $(CURDIR)/dist

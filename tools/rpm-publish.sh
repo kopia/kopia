@@ -13,6 +13,11 @@ if [ -z "$PKGDIR" ]; then
   exit 1
 fi
 
+if [ "$REPO_OWNER" != "kopia" ]; then
+  echo Not publishing RPM package because current repo owner is $REPO_OWNER
+  exit 0
+fi
+
 if [ ! -d "$PKGDIR" ]; then
   echo $PKGDIR must be a directory containing '*.rpm' files
   exit 1

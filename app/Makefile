@@ -1,5 +1,4 @@
 SHELL:=/bin/bash
-REPO_OWNER=kopia
 
 include ../tools/tools.mk
 
