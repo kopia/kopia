@@ -25,7 +25,7 @@ func TestSnapshotActionsBeforeSnapshotRoot(t *testing.T) {
 
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
-	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--override-hostname=foo", "--override-username=foo")
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--override-hostname=foo", "--override-username=foo", "--enable-actions")
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2)
 
 	envFile1 := filepath.Join(e.LogsDir, "env1.txt")
@@ -157,7 +157,7 @@ func TestSnapshotActionsBeforeAfterFolder(t *testing.T) {
 
 	e := testenv.NewCLITest(t)
 
-	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--enable-actions")
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	// create directory structure
@@ -225,7 +225,7 @@ func TestSnapshotActionsEmbeddedScript(t *testing.T) {
 
 	e := testenv.NewCLITest(t)
 
-	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--enable-actions")
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	var (
@@ -263,6 +263,61 @@ func TestSnapshotActionsEmbeddedScript(t *testing.T) {
 
 	e.RunAndExpectSuccess(t, "policy", "set", sharedTestDataDir1, "--before-folder-action", failingScript, "--persist-action-script")
 	e.RunAndExpectFailure(t, "snapshot", "create", sharedTestDataDir1)
+}
+
+func TestSnapshotActionsEnable(t *testing.T) {
+	t.Parallel()
+
+	th := os.Getenv("TESTING_ACTION_EXE")
+	if th == "" {
+		t.Skip("TESTING_ACTION_EXE verifyNoError be set")
+	}
+
+	cases := []struct {
+		desc          string
+		connectFlags  []string
+		snapshotFlags []string
+		wantRun       bool
+	}{
+		{desc: "defaults", connectFlags: nil, snapshotFlags: nil, wantRun: false},
+		{desc: "override-connect-disable", connectFlags: []string{"--enable-actions"}, snapshotFlags: nil, wantRun: true},
+		{desc: "override-connect-disable", connectFlags: []string{"--no-enable-actions"}, snapshotFlags: nil, wantRun: false},
+		{desc: "override-snapshot-enable", connectFlags: nil, snapshotFlags: []string{"--force-enable-actions"}, wantRun: true},
+		{desc: "override-snapshot-disable", connectFlags: nil, snapshotFlags: []string{"--force-disable-actions"}, wantRun: false},
+		{desc: "snapshot-takes-precedence-enable", connectFlags: []string{"--no-enable-actions"}, snapshotFlags: []string{"--force-enable-actions"}, wantRun: true},
+		{desc: "snapshot-takes-precedence-disable", connectFlags: []string{"--enable-actions"}, snapshotFlags: []string{"--force-disable-actions"}, wantRun: false},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+
+		t.Run(tc.desc, func(t *testing.T) {
+			t.Parallel()
+
+			e := testenv.NewCLITest(t)
+
+			defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+			e.RunAndExpectSuccess(t, append([]string{"repo", "create", "filesystem", "--path", e.RepoDir}, tc.connectFlags...)...)
+
+			envFile := filepath.Join(e.LogsDir, "env1.txt")
+
+			// set an action before-snapshot-root that fails and which saves the environment to a file.
+			e.RunAndExpectSuccess(t,
+				"policy", "set",
+				sharedTestDataDir1,
+				"--before-snapshot-root-action",
+				th+" --save-env="+envFile)
+
+			e.RunAndExpectSuccess(t, append([]string{"snapshot", "create", sharedTestDataDir1}, tc.snapshotFlags...)...)
+
+			_, err := os.Stat(envFile)
+			didRun := err == nil
+			if didRun != tc.wantRun {
+				t.Errorf("unexpected behavior. did run: %v want run: %v", didRun, tc.wantRun)
+			}
+		})
+	}
 }
 
 func tmpfileWithContents(t *testing.T, contents string) string {

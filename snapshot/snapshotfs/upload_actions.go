@@ -43,13 +43,18 @@ func (hc *actionContext) envars() []string {
 	}
 }
 
-func (hc *actionContext) ensureInitialized(dirPathOrEmpty string) error {
+func (hc *actionContext) ensureInitialized(ctx context.Context, actionType, dirPathOrEmpty string, uploaderEnabled bool) error {
 	if dirPathOrEmpty == "" {
 		return nil
 	}
 
 	if hc.ActionsEnabled {
 		// already initialized
+		return nil
+	}
+
+	if !uploaderEnabled {
+		log(ctx).Noticef("Not executing %v action on %v because it's been disabled for this client.", actionType, dirPathOrEmpty)
 		return nil
 	}
 
@@ -184,12 +189,12 @@ func parseCaptures(v []byte, captures map[string]string) error {
 	return s.Err()
 }
 
-func executeBeforeFolderAction(ctx context.Context, actionType string, h *policy.ActionCommand, dirPathOrEmpty string, hc *actionContext) (fs.Directory, error) {
+func (u *Uploader) executeBeforeFolderAction(ctx context.Context, actionType string, h *policy.ActionCommand, dirPathOrEmpty string, hc *actionContext) (fs.Directory, error) {
 	if h == nil {
 		return nil, nil
 	}
 
-	if err := hc.ensureInitialized(dirPathOrEmpty); err != nil {
+	if err := hc.ensureInitialized(ctx, actionType, dirPathOrEmpty, u.EnableActions); err != nil {
 		return nil, errors.Wrap(err, "error initializing action context")
 	}
 
@@ -215,12 +220,12 @@ func executeBeforeFolderAction(ctx context.Context, actionType string, h *policy
 	return nil, nil
 }
 
-func executeAfterFolderAction(ctx context.Context, actionType string, h *policy.ActionCommand, dirPathOrEmpty string, hc *actionContext) {
+func (u *Uploader) executeAfterFolderAction(ctx context.Context, actionType string, h *policy.ActionCommand, dirPathOrEmpty string, hc *actionContext) {
 	if h == nil {
 		return
 	}
 
-	if err := hc.ensureInitialized(dirPathOrEmpty); err != nil {
+	if err := hc.ensureInitialized(ctx, actionType, dirPathOrEmpty, u.EnableActions); err != nil {
 		log(ctx).Warningf("error initializing action context: %v", err)
 	}
 

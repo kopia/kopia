@@ -20,6 +20,8 @@ type ClientOptions struct {
 
 	// Description is human-readable description of the repository to use in the UI.
 	Description string `json:"description,omitempty"`
+
+	EnableActions bool `json:"enableActions"`
 }
 
 // ApplyDefaults returns a copy of ClientOptions with defaults filled out.
