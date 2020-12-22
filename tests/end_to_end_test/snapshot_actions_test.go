@@ -302,7 +302,7 @@ func TestSnapshotActionsEnable(t *testing.T) {
 
 			envFile := filepath.Join(e.LogsDir, "env1.txt")
 
-			// set a action before-snapshot-root that fails and which saves the environment to a file.
+			// set an action before-snapshot-root that fails and which saves the environment to a file.
 			e.RunAndExpectSuccess(t,
 				"policy", "set",
 				sharedTestDataDir1,
