@@ -20,7 +20,7 @@ var (
 func runListBlockIndexesAction(ctx context.Context, rep *repo.DirectRepository) error {
 	blks, err := rep.Content.IndexBlobs(ctx, *blockIndexListIncludeSuperseded)
 	if err != nil {
-		return errors.Wrap(err, "errir listing index blobs")
+		return errors.Wrap(err, "error listing index blobs")
 	}
 
 	switch *blockIndexListSort {
