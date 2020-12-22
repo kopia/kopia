@@ -1,0 +1,36 @@
+name: Build
+on:
+  pull_request:
+    branches: [ master ]
+  push:
+    branches:
+      - "master"
+    tags:
+      - "v*"
+  schedule:
+    - cron:  '0 8,15 * * *'
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest, [self-hosted, armhf]]
+    name: Make
+    runs-on: ${{ matrix.os }}
+    steps:
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      if: ${{ !contains(matrix.os, 'self-hosted') }}
+      with:
+        go-version: ^1.15
+      id: go
+    - name: Install Windows-specific packages
+      run: "choco install --no-progress -y make unzip curl"
+      if: ${{ contains(matrix.os, 'windows') }}
+    - name: Install macOS-specific packages
+      run: "sudo xcode-select -r"
+      if: ${{ contains(matrix.os, 'macos') }}
+    - name: Check out code into the Go module directory
+      uses: actions/checkout@v2
+    - name: Make
+      run: make

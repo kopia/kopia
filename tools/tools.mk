@@ -10,6 +10,10 @@ ifeq ($(TRAVIS_OS_NAME),windows)
 UNIX_SHELL_ON_WINDOWS=true
 endif
 
+ifeq ($(GITHUB_ACTIONS),true)
+UNIX_SHELL_ON_WINDOWS=true
+endif
+
 kopia_arch_name=amd64
 node_arch_name=x64
 goreleaser_arch_name=x86_64
