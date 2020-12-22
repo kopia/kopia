@@ -64,6 +64,9 @@ type Uploader struct {
 	// Number of files to hash and upload in parallel.
 	ParallelUploads int
 
+	// Enable snapshot actions
+	EnableActions bool
+
 	// How frequently to create checkpoint snapshot entries.
 	CheckpointInterval time.Duration
 
@@ -399,7 +402,7 @@ func (u *Uploader) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Di
 
 	localDirPathOrEmpty := rootDir.LocalFilesystemPath()
 
-	overrideDir, err := executeBeforeFolderAction(ctx, "before-snapshot-root", policyTree.EffectivePolicy().Actions.BeforeSnapshotRoot, localDirPathOrEmpty, &hc)
+	overrideDir, err := u.executeBeforeFolderAction(ctx, "before-snapshot-root", policyTree.EffectivePolicy().Actions.BeforeSnapshotRoot, localDirPathOrEmpty, &hc)
 	if err != nil {
 		return nil, dirReadError{errors.Wrap(err, "error executing before-snapshot-root action")}
 	}
@@ -408,7 +411,7 @@ func (u *Uploader) uploadDirWithCheckpointing(ctx context.Context, rootDir fs.Di
 		rootDir = overrideDir
 	}
 
-	defer executeAfterFolderAction(ctx, "after-snapshot-root", policyTree.EffectivePolicy().Actions.AfterSnapshotRoot, localDirPathOrEmpty, &hc)
+	defer u.executeAfterFolderAction(ctx, "after-snapshot-root", policyTree.EffectivePolicy().Actions.AfterSnapshotRoot, localDirPathOrEmpty, &hc)
 
 	return uploadDirInternal(ctx, u, rootDir, policyTree, previousDirs, localDirPathOrEmpty, ".", &dmb, &cp)
 }
@@ -849,12 +852,12 @@ func uploadDirInternal(
 	var hc actionContext
 	defer cleanupActionContext(ctx, &hc)
 
-	overrideDir, herr := executeBeforeFolderAction(ctx, "before-folder", definedActions.BeforeFolder, localDirPathOrEmpty, &hc)
+	overrideDir, herr := u.executeBeforeFolderAction(ctx, "before-folder", definedActions.BeforeFolder, localDirPathOrEmpty, &hc)
 	if herr != nil {
 		return nil, dirReadError{errors.Wrap(herr, "error executing before-folder action")}
 	}
 
-	defer executeAfterFolderAction(ctx, "after-folder", definedActions.AfterFolder, localDirPathOrEmpty, &hc)
+	defer u.executeAfterFolderAction(ctx, "after-folder", definedActions.AfterFolder, localDirPathOrEmpty, &hc)
 
 	if overrideDir != nil {
 		directory = overrideDir
@@ -963,6 +966,7 @@ func NewUploader(r repo.Repository) *Uploader {
 		Progress:           &NullUploadProgress{},
 		IgnoreReadErrors:   false,
 		ParallelUploads:    1,
+		EnableActions:      r.ClientOptions().EnableActions,
 		CheckpointInterval: DefaultCheckpointInterval,
 		getTicker:          time.Tick,
 		uploadBufPool: sync.Pool{

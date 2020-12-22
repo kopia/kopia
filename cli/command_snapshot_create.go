@@ -32,6 +32,8 @@ var (
 	snapshotCreateParallelUploads         = snapshotCreateCommand.Flag("parallel", "Upload N files in parallel").PlaceHolder("N").Default("0").Int()
 	snapshotCreateStartTime               = snapshotCreateCommand.Flag("start-time", "Override snapshot start timestamp.").String()
 	snapshotCreateEndTime                 = snapshotCreateCommand.Flag("end-time", "Override snapshot end timestamp.").String()
+	snapshotCreateForceEnableActions      = snapshotCreateCommand.Flag("force-enable-actions", "Enable snapshot actions even if globally disabled on this client").Hidden().Bool()
+	snapshotCreateForceDisableActions     = snapshotCreateCommand.Flag("force-disable-actions", "Disable snapshot actions even if globally enabled on this client").Hidden().Bool()
 )
 
 func runSnapshotCommand(ctx context.Context, rep repo.Repository) error {
@@ -114,6 +116,14 @@ func validateStartEndTime(st, et string) error {
 func setupUploader(rep repo.Repository) *snapshotfs.Uploader {
 	u := snapshotfs.NewUploader(rep)
 	u.MaxUploadBytes = *snapshotCreateCheckpointUploadLimitMB << 20 //nolint:gomnd
+
+	if *snapshotCreateForceEnableActions {
+		u.EnableActions = true
+	}
+
+	if *snapshotCreateForceDisableActions {
+		u.EnableActions = false
+	}
 
 	if interval := *snapshotCreateCheckpointInterval; interval != 0 {
 		u.CheckpointInterval = interval
