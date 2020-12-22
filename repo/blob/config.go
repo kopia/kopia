@@ -20,7 +20,7 @@ func (c *ConnectionInfo) UnmarshalJSON(b []byte) error {
 	}{}
 
 	if err := json.Unmarshal(b, &raw); err != nil {
-		return errors.Wrap(err, "erro unmarshaling connection info JSON")
+		return errors.Wrap(err, "error unmarshaling connection info JSON")
 	}
 
 	c.Type = raw.Type
