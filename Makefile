@@ -133,7 +133,7 @@ endif
 	$(MAKE) lint vet test-with-coverage
 	$(retry) $(MAKE) layering-test
 	$(retry) $(MAKE) integration-tests
-ifeq ($(TRAVIS_OS_NAME),linux)
+ifeq ($(TRAVIS_OS_NAME)/$(kopia_arch_name),linux/amd64)
 	$(MAKE) publish-packages
 	$(MAKE) robustness-tool-tests
 	$(MAKE) website
