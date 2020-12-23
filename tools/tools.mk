@@ -34,27 +34,6 @@ ifeq ($(raw_arch),armv7l)
 	linter_arch_name=armv7
 endif
 
-ifneq ($(APPVEYOR),)
-
-UNIX_SHELL_ON_WINDOWS=false
-
-# running Windows build on AppVeyor
-# emulate Travis CI environment variables, so we can use TRAVIS logic everywhere
-
-ifeq ($(APPVEYOR_PULL_REQUEST_NUMBER),)
-export TRAVIS_PULL_REQUEST=false
-else
-export TRAVIS_PULL_REQUEST=$(APPVEYOR_PULL_REQUEST_NUMBER)
-endif
-
-ifneq ($(APPVEYOR_REPO_TAG_NAME),)
-export TRAVIS_TAG=$(APPVEYOR_REPO_TAG_NAME)
-endif
-
-TRAVIS_OS_NAME=windows
-
-endif
-
 # uname will be Windows, Darwin, Linux
 ifeq ($(OS),Windows_NT)
 	exe_suffix := .exe
