@@ -86,8 +86,8 @@ func generateName(name string) string {
 }
 
 func getEnvOrSkip(t *testutil.RetriableT, name string) string {
-	value, ok := os.LookupEnv(name)
-	if !ok {
+	value := os.Getenv(name)
+	if value == "" {
 		t.Skip(fmt.Sprintf("Environment variable '%s' not provided", name))
 	}
 

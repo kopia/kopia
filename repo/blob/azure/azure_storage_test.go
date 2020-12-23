@@ -24,8 +24,8 @@ const (
 )
 
 func getEnvOrSkip(t *testing.T, name string) string {
-	value, ok := os.LookupEnv(name)
-	if !ok {
+	value := os.Getenv(name)
+	if value == "" {
 		t.Skip(fmt.Sprintf("%s not provided", name))
 	}
 
