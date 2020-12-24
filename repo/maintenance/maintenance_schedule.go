@@ -87,7 +87,7 @@ func GetSchedule(ctx context.Context, rep MaintainableRepository) (*Schedule, er
 	}
 
 	if len(v) < c.NonceSize() {
-		return nil, errors.Wrap(err, "invalid schedule blob")
+		return nil, errors.Errorf("invalid schedule blob")
 	}
 
 	j, err := c.Open(nil, v[0:c.NonceSize()], v[c.NonceSize():], maintenanceScheduleAEADExtraData)

@@ -214,7 +214,7 @@ func writeCacheMarker(cacheDir string) error {
 		return nil
 	}
 
-	if !os.IsNotExist(err) {
+	if err != nil && !os.IsNotExist(err) {
 		return errors.Wrap(err, "unexpected cache marker error")
 	}
 

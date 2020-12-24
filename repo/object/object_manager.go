@@ -354,7 +354,7 @@ func (om *Manager) newRawReader(ctx context.Context, objectID ID, assertLength i
 	}
 
 	if assertLength != -1 && int64(len(payload)) != assertLength {
-		return nil, errors.Wrapf(err, "unexpected chunk length %v, expected %v", len(payload), assertLength)
+		return nil, errors.Errorf("unexpected chunk length %v, expected %v", len(payload), assertLength)
 	}
 
 	return newObjectReaderWithData(payload), nil
