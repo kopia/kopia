@@ -136,7 +136,6 @@ endif
 ifeq ($(TRAVIS_OS_NAME),linux)
 	$(MAKE) publish-packages
 	$(MAKE) robustness-tool-tests
-	$(MAKE) website
 	$(MAKE) stress-test
 	$(MAKE) travis-create-long-term-repository
 	$(MAKE) upload-coverage
