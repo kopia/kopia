@@ -116,7 +116,7 @@ kopia-ui-pr-test: app-node-modules htmlui-node-modules
 	$(MAKE) build-current-os-with-ui
 	$(MAKE) html-ui-tests kopia-ui
 
-ifeq ($(kopia_arch_name),arm64)
+ifneq ($(kopia_arch_name),amd64)
 travis-release:
 	$(MAKE) test
 	$(MAKE) integration-tests
@@ -133,7 +133,7 @@ endif
 	$(MAKE) lint vet test-with-coverage
 	$(retry) $(MAKE) layering-test
 	$(retry) $(MAKE) integration-tests
-ifeq ($(TRAVIS_OS_NAME)/$(kopia_arch_name),linux/amd64)
+ifeq ($(TRAVIS_OS_NAME),linux)
 	$(MAKE) publish-packages
 	$(MAKE) robustness-tool-tests
 	$(MAKE) website
