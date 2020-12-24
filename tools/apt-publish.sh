@@ -111,7 +111,7 @@ echo Generating Release files
 # generate Release/InRelease/Release.gpg files for all distributions
 for d in $distributions; do
   echo Generating $WORK_DIR/dists/$d/Release...
-  docker run -it --rm -v $WORK_DIR/dists/$d:/root marshallofsound/apt-ftparchive release \
+  docker run -i --rm -v $WORK_DIR/dists/$d:/root marshallofsound/apt-ftparchive release \
     -o APT::FTPArchive::Release::Architectures="$architectures" \
     -o APT::FTPArchive::Release::Codename="$d" \
     -o APT::FTPArchive::Release::Suite="$d" \
