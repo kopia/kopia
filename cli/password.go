@@ -47,26 +47,26 @@ func askForExistingRepositoryPassword() (string, error) {
 var passwordFromToken string
 
 func getPasswordFromFlags(ctx context.Context, isNew, allowPersistent bool) (string, error) {
-	if passwordFromToken != "" {
-		// password provided via token
+	switch {
+	case passwordFromToken != "":
+		// password extracted from connection token
 		return passwordFromToken, nil
-	}
-
-	if !isNew && allowPersistent {
+	case *password != "":
+		// password provided via --password flag or KOPIA_PASSWORD environment variable
+		return strings.TrimSpace(*password), nil
+	case isNew:
+		// this is a new repository, ask for password
+		return askForNewRepositoryPassword()
+	case allowPersistent:
+		// try fetching the password from persistent storage specific to the configuration file.
 		pass, ok := repo.GetPersistedPassword(ctx, repositoryConfigFileName())
 		if ok {
 			return pass, nil
 		}
 	}
 
-	switch {
-	case *password != "":
-		return strings.TrimSpace(*password), nil
-	case isNew:
-		return askForNewRepositoryPassword()
-	default:
-		return askForExistingRepositoryPassword()
-	}
+	// fall back to asking for existing password
+	return askForExistingRepositoryPassword()
 }
 
 // askPass presents a given prompt and asks the user for password.

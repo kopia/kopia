@@ -129,6 +129,19 @@ func NewCLITest(t *testing.T) *CLITest {
 	}
 }
 
+// RemoveDefaultPassword prevents KOPIA_PASSWORD from being passed to kopia.
+func (e *CLITest) RemoveDefaultPassword() {
+	var newEnv []string
+
+	for _, s := range e.Environment {
+		if !strings.HasPrefix(s, "KOPIA_PASSWORD=") {
+			newEnv = append(newEnv, s)
+		}
+	}
+
+	e.Environment = newEnv
+}
+
 // RunAndExpectSuccess runs the given command, expects it to succeed and returns its output lines.
 func (e *CLITest) RunAndExpectSuccess(t *testing.T, args ...string) []string {
 	t.Helper()
