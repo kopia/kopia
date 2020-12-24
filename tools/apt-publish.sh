@@ -5,6 +5,11 @@ GPG_KEY_ID=A3B5843ED70529C23162E3687713E6D88ED70D9D
 PKGDIR=$1
 RETAIN_UNSTABLE_DEB_COUNT=15
 
+if [ "$REPO_OWNER" != "kopia" ]; then
+  echo Not publishing APT package because current repo owner is $REPO_OWNER
+  exit 0
+fi
+
 if [ -z "$PKGDIR" ]; then
   echo usage $0: /path/to/dist
   exit 1

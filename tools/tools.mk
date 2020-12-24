@@ -10,7 +10,7 @@ ifeq ($(TRAVIS_OS_NAME),windows)
 UNIX_SHELL_ON_WINDOWS=true
 endif
 
-ifeq ($(GITHUB_ACTIONS),true)
+ifneq ($(GITHUB_ACTIONS),)
 UNIX_SHELL_ON_WINDOWS=true
 endif
 
@@ -32,27 +32,6 @@ ifeq ($(raw_arch),armv7l)
 	node_arch_name=armv7l
 	goreleaser_arch_name=armv6
 	linter_arch_name=armv7
-endif
-
-ifneq ($(APPVEYOR),)
-
-UNIX_SHELL_ON_WINDOWS=false
-
-# running Windows build on AppVeyor
-# emulate Travis CI environment variables, so we can use TRAVIS logic everywhere
-
-ifeq ($(APPVEYOR_PULL_REQUEST_NUMBER),)
-export TRAVIS_PULL_REQUEST=false
-else
-export TRAVIS_PULL_REQUEST=$(APPVEYOR_PULL_REQUEST_NUMBER)
-endif
-
-ifneq ($(APPVEYOR_REPO_TAG_NAME),)
-export TRAVIS_TAG=$(APPVEYOR_REPO_TAG_NAME)
-endif
-
-TRAVIS_OS_NAME=windows
-
 endif
 
 # uname will be Windows, Darwin, Linux
@@ -82,6 +61,53 @@ else
 	mkdir=mkdir -p
 	date_ymd := $(shell date +%Y%m%d)
 	date_full := $(shell date)
+endif
+
+ifneq ($(GITHUB_ACTIONS),)
+
+# running on GitHub actions.
+# emulate Travis CI environment variables, so we can use TRAVIS logic everywhere
+
+ifeq ($(GITHUB_HEAD_REF),)
+export TRAVIS_PULL_REQUEST=false
+else
+export TRAVIS_PULL_REQUEST=true
+endif
+
+# try parsing tag name out of GITHUB_REF
+gh_tag_tmp=$(GITHUB_REF:refs/tags/%=%)
+
+ifneq ($(gh_tag_tmp),$(GITHUB_REF))
+export TRAVIS_TAG=$(gh_tag_tmp)
+endif
+
+ifeq ($(uname),Windows)
+export TRAVIS_OS_NAME=windows
+endif
+
+ifeq ($(uname),Linux)
+export TRAVIS_OS_NAME=linux
+endif
+
+ifeq ($(uname),Darwin)
+export TRAVIS_OS_NAME=osx
+endif
+
+endif
+
+# detect REPO_OWNER
+export REPO_OWNER=unknown-repo-owner
+
+# running on Travis
+ifneq ($(TRAVIS_REPO_SLUG),)
+GOVERALLS_SERVICE=travis-ci
+export REPO_OWNER=$(TRAVIS_REPO_SLUG:%/kopia=%)
+endif
+
+# When running on GitHub actions
+ifneq ($(GITHUB_REPOSITORY),)
+export REPO_OWNER=$(GITHUB_REPOSITORY:%/kopia=%)
+GOVERALLS_SERVICE=github
 endif
 
 # compute build date and time from the current commit
@@ -264,7 +290,7 @@ ifneq ($(WINDOWS_SIGNING_TOOLS_URL),)
 	-$(mkdir) $(windows_signing_dir)
 	curl -LsS -o $(windows_signing_dir).zip $(WINDOWS_SIGNING_TOOLS_URL)
 	unzip -a -q $(windows_signing_dir).zip -d $(windows_signing_dir)
-	powershell -noprofile -executionpolicy bypass $(windows_signing_dir)\\setup.ps1
+	pwsh -noprofile -executionpolicy bypass $(windows_signing_dir)\\setup.ps1
 else
 	echo Not installing Windows signing tools because WINDOWS_SIGNING_TOOLS_URL is not set
 endif
