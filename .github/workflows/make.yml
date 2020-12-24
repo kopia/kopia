@@ -75,6 +75,9 @@ jobs:
       KOPIA_WEBDAV_TEST_USERNAME: ${{ secrets.KOPIA_WEBDAV_TEST_USERNAME }}
       KOPIA_WEBDAV_TEST_PASSWORD: ${{ secrets.KOPIA_WEBDAV_TEST_PASSWORD }}
 
+      # Code Coverage publishing
+      COVERALLS_REPO_TOKEN: ${{ secrets.GH_TOKEN }}
+
     strategy:
       fail-fast: false
       matrix:
