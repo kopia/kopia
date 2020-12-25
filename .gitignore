@@ -23,3 +23,4 @@ node_modules/
 .boto
 *.log
 *~
+.logs/

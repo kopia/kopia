@@ -77,7 +77,12 @@ func NewCLITest(t *testing.T) *CLITest {
 		t.Name(),
 		"/", "_"), "\\", "_"), ":", "_")
 
-	logsDir := filepath.Join(os.TempDir(), "kopia-logs", cleanName+"."+clock.Now().Local().Format("20060102150405"))
+	logsBaseDir := filepath.Join(os.TempDir(), "kopia-logs")
+	if w := os.Getenv("GITHUB_WORKSPACE"); w != "" {
+		logsBaseDir = filepath.Join(w, ".logs")
+	}
+
+	logsDir := filepath.Join(logsBaseDir, cleanName+"."+clock.Now().Local().Format("20060102150405"))
 
 	t.Cleanup(func() {
 		if t.Failed() {
@@ -85,7 +90,10 @@ func NewCLITest(t *testing.T) *CLITest {
 			return
 		}
 
-		os.RemoveAll(logsDir)
+		// do not remove logs on GitHub actions so they can be analyzed later.
+		if os.Getenv("GITHUB_WORKSPACE") == "" {
+			os.RemoveAll(logsDir)
+		}
 	})
 
 	fixedArgs := []string{

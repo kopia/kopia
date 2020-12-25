@@ -105,3 +105,10 @@ jobs:
       run: make travis-setup
     - name: Build
       run: make travis-release
+    - name: Store Kopia Logs
+      uses: actions/upload-artifact@v2
+      if: ${{ always() }}
+      with:
+        name: kopia-logs
+        path: |
+          .logs
