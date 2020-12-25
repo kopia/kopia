@@ -75,6 +75,11 @@ func TestAPIServerRepository(t *testing.T) {
 		"--password", "baz",
 	)
 
+	// we are providing custom password to connect, make sure we won't be providing
+	// (different) default password via environment variable, as command-line password
+	// takes precedence over persisted password.
+	e2.RemoveDefaultPassword()
+
 	// should see one snapshot
 	snapshots := e2.ListSnapshotsAndExpectSuccess(t)
 	if got, want := len(snapshots), 1; got != want {
