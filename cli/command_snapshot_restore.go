@@ -4,5 +4,5 @@ var snapshotRestoreCommand = snapshotCommands.Command("restore", restoreCommandH
 
 func init() {
 	addRestoreFlags(snapshotRestoreCommand)
-	snapshotRestoreCommand.Action(repositoryAction(runRestoreCommand))
+	snapshotRestoreCommand.Action(repositoryReaderAction(runRestoreCommand))
 }

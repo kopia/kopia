@@ -9,7 +9,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/clock"
-	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/splitter"
 )
 
@@ -20,7 +19,7 @@ var (
 	benchmarkSplitterBlockCount = benchmarkSplitterCommand.Flag("block-count", "Number of data blocks to split").Default("16").Int()
 )
 
-func runBenchmarkSplitterAction(ctx context.Context, rep repo.Repository) error {
+func runBenchmarkSplitterAction(ctx context.Context) error {
 	type benchResult struct {
 		splitter     string
 		duration     time.Duration
@@ -119,5 +118,5 @@ func runBenchmarkSplitterAction(ctx context.Context, rep repo.Repository) error 
 }
 
 func init() {
-	benchmarkSplitterCommand.Action(maybeRepositoryAction(runBenchmarkSplitterAction, false))
+	benchmarkSplitterCommand.Action(noRepositoryAction(runBenchmarkSplitterAction))
 }

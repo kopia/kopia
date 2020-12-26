@@ -106,6 +106,18 @@ func repositoryAction(act func(ctx context.Context, rep repo.Repository) error) 
 	return maybeRepositoryAction(act, true)
 }
 
+func repositoryReaderAction(act func(ctx context.Context, rep repo.Reader) error) func(ctx *kingpin.ParseContext) error {
+	return maybeRepositoryAction(func(ctx context.Context, rep repo.Repository) error {
+		return act(ctx, rep)
+	}, true)
+}
+
+func repositoryWriterAction(act func(ctx context.Context, rep repo.Writer) error) func(ctx *kingpin.ParseContext) error {
+	return maybeRepositoryAction(func(ctx context.Context, rep repo.Repository) error {
+		return act(ctx, rep)
+	}, true)
+}
+
 func rootContext() context.Context {
 	ctx := context.Background()
 	ctx = content.UsingContentCache(ctx, *enableCaching)
@@ -162,7 +174,7 @@ func maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) er
 	}
 }
 
-func maybeRunMaintenance(ctx context.Context, rep repo.Repository) error {
+func maybeRunMaintenance(ctx context.Context, rep repo.Writer) error {
 	if !*enableAutomaticMaintenance {
 		return nil
 	}

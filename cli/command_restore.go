@@ -169,7 +169,7 @@ func printRestoreStats(ctx context.Context, st restore.Stats) {
 	log(ctx).Infof("Restored %v files, %v directories and %v symbolic links (%v)\n", st.RestoredFileCount, st.RestoredDirCount, st.RestoredSymlinkCount, units.BytesStringBase10(st.RestoredTotalFileSize))
 }
 
-func runRestoreCommand(ctx context.Context, rep repo.Repository) error {
+func runRestoreCommand(ctx context.Context, rep repo.Reader) error {
 	output, err := restoreOutput(ctx)
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize output")
@@ -224,5 +224,5 @@ func runRestoreCommand(ctx context.Context, rep repo.Repository) error {
 
 func init() {
 	addRestoreFlags(restoreCommand)
-	restoreCommand.Action(repositoryAction(runRestoreCommand))
+	restoreCommand.Action(repositoryReaderAction(runRestoreCommand))
 }

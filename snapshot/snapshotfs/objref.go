@@ -16,7 +16,7 @@ import (
 
 // ParseObjectIDWithPath interprets the given ID string (which could be an object ID optionally followed by
 // nested path specification) and returns corresponding object.ID.
-func ParseObjectIDWithPath(ctx context.Context, rep repo.Repository, objectIDWithPath string) (object.ID, error) {
+func ParseObjectIDWithPath(ctx context.Context, rep repo.Reader, objectIDWithPath string) (object.ID, error) {
 	parts := strings.Split(objectIDWithPath, "/")
 
 	oid, err := object.ParseID(parts[0])
@@ -75,7 +75,7 @@ func parseNestedObjectID(ctx context.Context, startingDir fs.Entry, parts []stri
 // or the root object ID (which can match arbitrary number of snapshots).
 // If multiple snapshots match and they don't agree on root object attributes and consistentAttributes==true
 // the function fails, otherwise it returns the latest of the snapshots.
-func findSnapshotByRootObjectIDOrManifestID(ctx context.Context, rep repo.Repository, rootID string, consistentAttributes bool) (*snapshot.Manifest, error) {
+func findSnapshotByRootObjectIDOrManifestID(ctx context.Context, rep repo.Reader, rootID string, consistentAttributes bool) (*snapshot.Manifest, error) {
 	m, err := snapshot.LoadSnapshot(ctx, rep, manifest.ID(rootID))
 	if err == nil {
 		return m, nil
@@ -133,7 +133,7 @@ func latestManifest(mans []*snapshot.Manifest) *snapshot.Manifest {
 // can be a snapshot manifest ID or an object ID with path.
 // If multiple snapshots match and they don't agree on root object attributes and consistentAttributes==true
 // the function fails, otherwise it returns the latest of the snapshots.
-func FilesystemEntryFromIDWithPath(ctx context.Context, rep repo.Repository, rootID string, consistentAttributes bool) (fs.Entry, error) {
+func FilesystemEntryFromIDWithPath(ctx context.Context, rep repo.Reader, rootID string, consistentAttributes bool) (fs.Entry, error) {
 	pathElements := strings.Split(rootID, "/")
 
 	if len(pathElements) > 1 {
@@ -169,7 +169,7 @@ func FilesystemEntryFromIDWithPath(ctx context.Context, rep repo.Repository, roo
 
 // FilesystemDirectoryFromIDWithPath returns a filesystem directory entry for the provided object ID, which
 // can be a snapshot manifest ID or an object ID with path.
-func FilesystemDirectoryFromIDWithPath(ctx context.Context, rep repo.Repository, rootID string, consistentAttributes bool) (fs.Directory, error) {
+func FilesystemDirectoryFromIDWithPath(ctx context.Context, rep repo.Reader, rootID string, consistentAttributes bool) (fs.Directory, error) {
 	e, err := FilesystemEntryFromIDWithPath(ctx, rep, rootID, consistentAttributes)
 	if err != nil {
 		return nil, err

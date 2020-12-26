@@ -17,10 +17,10 @@ var (
 )
 
 func init() {
-	policyRemoveCommand.Action(repositoryAction(removePolicy))
+	policyRemoveCommand.Action(repositoryWriterAction(removePolicy))
 }
 
-func removePolicy(ctx context.Context, rep repo.Repository) error {
+func removePolicy(ctx context.Context, rep repo.Writer) error {
 	targets, err := policyTargets(ctx, rep, policyRemoveGlobal, policyRemoveTargets)
 	if err != nil {
 		return err

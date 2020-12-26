@@ -26,7 +26,7 @@ func oidOf(entry fs.Entry) object.ID {
 	return entry.(object.HasObjectID).ObjectID()
 }
 
-func findInUseContentIDs(ctx context.Context, rep repo.Repository, used *sync.Map) error {
+func findInUseContentIDs(ctx context.Context, rep repo.Reader, used *sync.Map) error {
 	ids, err := snapshot.ListSnapshotManifests(ctx, rep, nil)
 	if err != nil {
 		return errors.Wrap(err, "unable to list snapshot manifest IDs")

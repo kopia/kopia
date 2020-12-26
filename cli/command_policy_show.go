@@ -21,10 +21,10 @@ var (
 )
 
 func init() {
-	policyShowCommand.Action(repositoryAction(showPolicy))
+	policyShowCommand.Action(repositoryReaderAction(showPolicy))
 }
 
-func showPolicy(ctx context.Context, rep repo.Repository) error {
+func showPolicy(ctx context.Context, rep repo.Reader) error {
 	targets, err := policyTargets(ctx, rep, policyShowGlobal, policyShowTargets)
 	if err != nil {
 		return err

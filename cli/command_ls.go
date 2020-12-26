@@ -24,7 +24,7 @@ var (
 	lsCommandPath         = lsCommand.Arg("object-path", "Path").Required().String()
 )
 
-func runLSCommand(ctx context.Context, rep repo.Repository) error {
+func runLSCommand(ctx context.Context, rep repo.Reader) error {
 	dir, err := snapshotfs.FilesystemDirectoryFromIDWithPath(ctx, rep, *lsCommandPath, false)
 	if err != nil {
 		return errors.Wrap(err, "unable to get filesystem directory entry")
@@ -42,7 +42,7 @@ func runLSCommand(ctx context.Context, rep repo.Repository) error {
 }
 
 func init() {
-	lsCommand.Action(repositoryAction(runLSCommand))
+	lsCommand.Action(repositoryReaderAction(runLSCommand))
 }
 
 func listDirectory(ctx context.Context, d fs.Directory, prefix, indent string) error {
