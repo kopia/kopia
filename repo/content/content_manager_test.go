@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/blobtesting"
@@ -315,6 +316,8 @@ func TestContentManagerFailedToWritePack(t *testing.T) {
 	}
 	st = faulty
 
+	ta := faketime.NewTimeAdvance(fakeTime, 0)
+
 	bm, err := NewManager(testlogging.Context(t), st, &FormattingOptions{
 		Version:     1,
 		Hash:        "HMAC-SHA256-128",
@@ -322,16 +325,19 @@ func TestContentManagerFailedToWritePack(t *testing.T) {
 		MaxPackSize: maxPackSize,
 		HMACSecret:  []byte("foo"),
 		MasterKey:   []byte("0123456789abcdef0123456789abcdef"),
-	}, nil, &ManagerOptions{TimeNow: faketime.Frozen(fakeTime)})
+	}, nil, &ManagerOptions{TimeNow: ta.NowFunc()})
 	if err != nil {
 		t.Fatalf("can't create bm: %v", err)
 	}
 
 	defer bm.Close(ctx)
 
+	firstPutErr := errors.New("booboo1")
+	secondPutErr := errors.New("booboo2")
 	faulty.Faults = map[string][]*blobtesting.Fault{
-		"PutContent": {
-			{Err: errors.New("booboo")},
+		"PutBlob": {
+			{Err: firstPutErr},
+			{Err: secondPutErr},
 		},
 	}
 
@@ -340,11 +346,26 @@ func TestContentManagerFailedToWritePack(t *testing.T) {
 		t.Fatalf("can't create content: %v", err)
 	}
 
-	if err := bm.Flush(ctx); err != nil {
+	// advance time enough to cause auto-flush, which will fail (firstPutErr)
+	ta.Advance(1 * time.Hour)
+
+	if _, err := bm.WriteContent(ctx, seededRandomData(2, 10), ""); !errors.Is(err, firstPutErr) {
+		t.Fatalf("can't create 2nd content: %v", err)
+	}
+
+	// manual flush will fail because we're unable to write the blob (secondPutErr)
+	if err := bm.Flush(ctx); !errors.Is(err, secondPutErr) {
 		t.Logf("expected flush error: %v", err)
 	}
 
+	// flush will now succeed.
+	if err := bm.Flush(ctx); err != nil {
+		t.Logf("unexpected 2nd flush error: %v", err)
+	}
+
 	verifyContent(ctx, t, bm, b1, seededRandomData(1, 10))
+
+	faulty.VerifyAllFaultsExercised(t)
 }
 
 func TestIndexCompactionDropsContent(t *testing.T) {
@@ -1097,8 +1118,6 @@ func verifyAllDataPresent(ctx context.Context, t *testing.T, data map[blob.ID][]
 }
 
 func TestHandleWriteErrors(t *testing.T) {
-	ctx := testlogging.Context(t)
-
 	// genFaults(S0,F0,S1,F1,...,) generates a list of faults
 	// where success is returned Sn times followed by failure returned Fn times
 	genFaults := func(counts ...int) []*blobtesting.Fault {
@@ -1106,14 +1125,18 @@ func TestHandleWriteErrors(t *testing.T) {
 
 		for i, cnt := range counts {
 			if i%2 == 0 {
-				result = append(result, &blobtesting.Fault{
-					Repeat: cnt - 1,
-				})
+				if cnt > 0 {
+					result = append(result, &blobtesting.Fault{
+						Repeat: cnt - 1,
+					})
+				}
 			} else {
-				result = append(result, &blobtesting.Fault{
-					Repeat: cnt - 1,
-					Err:    errors.Errorf("some write error"),
-				})
+				if cnt > 0 {
+					result = append(result, &blobtesting.Fault{
+						Repeat: cnt - 1,
+						Err:    errors.Errorf("some write error"),
+					})
+				}
 			}
 		}
 
@@ -1125,23 +1148,31 @@ func TestHandleWriteErrors(t *testing.T) {
 	// also, verify that all the data is durable
 	cases := []struct {
 		faults               []*blobtesting.Fault // failures to similuate
-		numContents          int                  // how many contents to write
-		contentSize          int                  // size of each content
+		contentSizes         []int                // sizes of contents to write
+		expectedWriteRetries []int
 		expectedFlushRetries int
-		expectedWriteRetries int
 	}{
-		{faults: genFaults(0, 10, 10, 10, 10, 10, 10, 10, 10, 10), numContents: 5, contentSize: maxPackSize, expectedWriteRetries: 10, expectedFlushRetries: 0},
-		{faults: genFaults(1, 2), numContents: 1, contentSize: maxPackSize, expectedWriteRetries: 0, expectedFlushRetries: 2},
-		{faults: genFaults(1, 2), numContents: 10, contentSize: maxPackSize, expectedWriteRetries: 2, expectedFlushRetries: 0},
-		// 2 failures, 2 successes (pack blobs), 1 failure (flush), 1 success (flush)
-		{faults: genFaults(0, 2, 2, 1, 1, 1, 1), numContents: 2, contentSize: maxPackSize, expectedWriteRetries: 2, expectedFlushRetries: 1},
-		{faults: genFaults(0, 2, 2, 1, 1, 1, 1), numContents: 4, contentSize: maxPackSize / 2, expectedWriteRetries: 2, expectedFlushRetries: 1},
+		// write 3 packs, first requires 7 retries, second 4, third 2, then 9 retries at flush
+		{faults: genFaults(0, 7, 1, 4, 1, 2, 1, 9), contentSizes: []int{maxPackSize, maxPackSize, maxPackSize}, expectedWriteRetries: []int{7, 4, 2}, expectedFlushRetries: 9},
+
+		// write 1 content which succeeds, then flush which will fail 5 times before succeeding.
+		{faults: genFaults(1, 5), contentSizes: []int{maxPackSize}, expectedWriteRetries: []int{0}, expectedFlushRetries: 5},
+
+		// write 4 contents, first write succeeds, next one fails 7 times, then all successes.
+		{faults: genFaults(1, 7), contentSizes: []int{maxPackSize, maxPackSize, maxPackSize, maxPackSize}, expectedWriteRetries: []int{0, 7, 0, 0}, expectedFlushRetries: 0},
+
+		// first flush fill fail on pack write, next 3 will fail on index writes.
+		{faults: genFaults(0, 1, 0, 3), contentSizes: []int{maxPackSize / 2}, expectedWriteRetries: []int{0}, expectedFlushRetries: 4},
+
+		// second write will be retried once, flush will be retried 3 times.
+		{faults: genFaults(0, 1, 0, 3), contentSizes: []int{maxPackSize / 2, maxPackSize / 2}, expectedWriteRetries: []int{0, 1}, expectedFlushRetries: 3},
 	}
 
 	for n, tc := range cases {
 		tc := tc
 
 		t.Run(fmt.Sprintf("case-%v", n), func(t *testing.T) {
+			ctx := testlogging.Context(t)
 			data := blobtesting.DataMap{}
 			keyTime := map[blob.ID]time.Time{}
 			st := blobtesting.NewMapStorage(data, keyTime, nil)
@@ -1157,26 +1188,28 @@ func TestHandleWriteErrors(t *testing.T) {
 			bm := newTestContentManagerWithStorage(t, fs, nil)
 			defer bm.Close(ctx)
 
-			writeRetries := 0
+			var writeRetries []int
 			var cids []ID
-			for i := 0; i < tc.numContents; i++ {
-				cid, retries := writeContentWithRetriesAndVerify(ctx, t, bm, seededRandomData(i, tc.contentSize))
-				writeRetries += retries
+			for i, size := range tc.contentSizes {
+				cid, retries := writeContentWithRetriesAndVerify(ctx, t, bm, seededRandomData(i, size))
+				writeRetries = append(writeRetries, retries)
 				cids = append(cids, cid)
 			}
 			if got, want := flushWithRetries(ctx, t, bm), tc.expectedFlushRetries; got != want {
 				t.Errorf("invalid # of flush retries %v, wanted %v", got, want)
 			}
-			if got, want := writeRetries, tc.expectedWriteRetries; got != want {
-				t.Errorf("invalid # of write retries %v, wanted %v", got, want)
+			if diff := cmp.Diff(writeRetries, tc.expectedWriteRetries); diff != "" {
+				t.Errorf("invalid # of write retries (-got,+want): %v", diff)
 			}
 
 			bm2 := newTestContentManagerWithStorage(t, st, nil)
 			defer bm2.Close(ctx)
 
 			for i, cid := range cids {
-				verifyContent(ctx, t, bm2, cid, seededRandomData(i, tc.contentSize))
+				verifyContent(ctx, t, bm2, cid, seededRandomData(i, tc.contentSizes[i]))
 			}
+
+			fs.VerifyAllFaultsExercised(t)
 		})
 	}
 }

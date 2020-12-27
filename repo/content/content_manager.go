@@ -158,7 +158,24 @@ func (bm *Manager) deletePreexistingContent(ci Info) error {
 	return nil
 }
 
+func (bm *Manager) maybeFlushBasedOnTimeUnlocked(ctx context.Context) error {
+	bm.lock()
+	shouldFlush := bm.timeNow().After(bm.flushPackIndexesAfter)
+	bm.unlock()
+
+	if !shouldFlush {
+		return nil
+	}
+
+	return bm.Flush(ctx)
+}
+
 func (bm *Manager) addToPackUnlocked(ctx context.Context, contentID ID, data []byte, isDeleted bool) error {
+	// see if the current index is old enough to cause automatic flush.
+	if err := bm.maybeFlushBasedOnTimeUnlocked(ctx); err != nil {
+		return errors.Wrap(err, "unable to flush old pending writes")
+	}
+
 	prefix := packPrefixForContentID(contentID)
 
 	bm.lock()
@@ -167,26 +184,6 @@ func (bm *Manager) addToPackUnlocked(ctx context.Context, contentID ID, data []b
 	for bm.flushing {
 		formatLog(ctx).Debugf("wait-before-flush")
 		bm.cond.Wait()
-	}
-
-	// see if we have any packs that have failed previously
-	// retry writing them now.
-	//
-	// we're making a copy of bm.failedPacks since bm.writePackAndAddToIndex()
-	// will remove from it on success.
-	fp := append([]*pendingPackInfo(nil), bm.failedPacks...)
-	for _, pp := range fp {
-		if err := bm.writePackAndAddToIndex(ctx, pp, true); err != nil {
-			bm.unlock()
-			return errors.Wrap(err, "error writing previously failed pack")
-		}
-	}
-
-	if bm.timeNow().After(bm.flushPackIndexesAfter) {
-		if err := bm.flushPackIndexesLocked(ctx); err != nil {
-			bm.unlock()
-			return err
-		}
 	}
 
 	pp, err := bm.getOrCreatePendingPackInfoLocked(prefix)
@@ -383,7 +380,7 @@ func (bm *Manager) prepareAndWritePackInternal(ctx context.Context, pp *pendingP
 	if pp.currentPackData.Length() > 0 {
 		if err := bm.writePackFileNotLocked(ctx, pp.packBlobID, pp.currentPackData.Bytes); err != nil {
 			formatLog(ctx).Debugf("failed-pack %v %v", pp.packBlobID, err)
-			return nil, errors.Wrap(err, "can't save pack data content")
+			return nil, errors.Wrapf(err, "can't save pack data blob %v", pp.packBlobID)
 		}
 
 		formatLog(ctx).Debugf("wrote-pack %v %v", pp.packBlobID, pp.currentPackData.Length())
@@ -438,6 +435,18 @@ func (bm *Manager) Flush(ctx context.Context) error {
 		// we finished flushing, notify goroutines that were waiting for it.
 		bm.cond.Broadcast()
 	}()
+
+	// see if we have any packs that have failed previously
+	// retry writing them now.
+	//
+	// we're making a copy of bm.failedPacks since bm.writePackAndAddToIndex()
+	// will remove from it on success.
+	fp := append([]*pendingPackInfo(nil), bm.failedPacks...)
+	for _, pp := range fp {
+		if err := bm.writePackAndAddToIndex(ctx, pp, true); err != nil {
+			return errors.Wrap(err, "error writing previously failed pack")
+		}
+	}
 
 	for len(bm.writingPacks) > 0 {
 		log(ctx).Debugf("waiting for %v in-progress packs to finish", len(bm.writingPacks))
