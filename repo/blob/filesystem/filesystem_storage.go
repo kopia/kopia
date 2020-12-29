@@ -129,11 +129,6 @@ func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, off
 func (fs *fsImpl) GetMetadataFromPath(ctx context.Context, dirPath, path string) (blob.Metadata, error) {
 	fi, err := os.Stat(path)
 	if err != nil {
-		// nolint:wrapcheck
-		return blob.Metadata{}, err
-	}
-
-	if err != nil {
 		if os.IsNotExist(err) {
 			return blob.Metadata{}, blob.ErrBlobNotFound
 		}
