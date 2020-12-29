@@ -106,15 +106,10 @@ func TestContentManagerSmallContentWrites(t *testing.T) {
 		writeContentAndVerify(ctx, t, bm, seededRandomData(i, 10))
 	}
 
-	if got, want := len(data), 0; got != want {
-		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
-	}
-
+	verifyBlobCount(t, data, map[blob.ID]int{"s": 1})
 	bm.Flush(ctx)
 
-	if got, want := len(data), 2; got != want {
-		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
-	}
+	verifyBlobCount(t, data, map[blob.ID]int{"n": 1, "p": 1})
 }
 
 func TestContentManagerDedupesPendingContents(t *testing.T) {
@@ -129,15 +124,13 @@ func TestContentManagerDedupesPendingContents(t *testing.T) {
 		writeContentAndVerify(ctx, t, bm, seededRandomData(0, maxPackCapacity/2))
 	}
 
-	if got, want := len(data), 0; got != want {
-		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
-	}
+	// expect one blob which is a session marker.
+	verifyBlobCount(t, data, map[blob.ID]int{"s": 1})
 
 	bm.Flush(ctx)
 
-	if got, want := len(data), 2; got != want {
-		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
-	}
+	// session marker will be deleted and replaced with data + index.
+	verifyBlobCount(t, data, map[blob.ID]int{"n": 1, "p": 1})
 }
 
 func TestContentManagerDedupesPendingAndUncommittedContents(t *testing.T) {
@@ -152,30 +145,26 @@ func TestContentManagerDedupesPendingAndUncommittedContents(t *testing.T) {
 	contentSize := maxPackCapacity/3 - encryptionOverhead - 1
 
 	// no writes here, all data fits in a single pack.
+	// but we will have a session marker.
 	writeContentAndVerify(ctx, t, bm, seededRandomData(0, contentSize))
 	writeContentAndVerify(ctx, t, bm, seededRandomData(1, contentSize))
 	writeContentAndVerify(ctx, t, bm, seededRandomData(2, contentSize))
 
-	if got, want := len(data), 0; got != want {
-		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
-	}
+	// expect one blob which is a session marker.
+	verifyBlobCount(t, data, map[blob.ID]int{"s": 1})
 
 	// no writes here
 	writeContentAndVerify(ctx, t, bm, seededRandomData(0, contentSize))
 	writeContentAndVerify(ctx, t, bm, seededRandomData(1, contentSize))
 	writeContentAndVerify(ctx, t, bm, seededRandomData(2, contentSize))
 
-	if got, want := len(data), 0; got != want {
-		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
-	}
+	// expect one blob which is a session marker.
+	verifyBlobCount(t, data, map[blob.ID]int{"s": 1})
 
 	bm.Flush(ctx)
 
-	// this flushes the pack content + index blob
-	if got, want := len(data), 2; got != want {
-		dumpContentManagerData(ctx, t, data)
-		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
-	}
+	// this flushes the pack content + index blob and deletes session marker.
+	verifyBlobCount(t, data, map[blob.ID]int{"n": 1, "p": 1})
 }
 
 func TestContentManagerEmpty(t *testing.T) {
@@ -198,9 +187,7 @@ func TestContentManagerEmpty(t *testing.T) {
 		t.Errorf("unexpected error when getting non-existent content info: %v, %v", bi, err)
 	}
 
-	if got, want := len(data), 0; got != want {
-		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
-	}
+	verifyBlobCount(t, data, map[blob.ID]int{})
 }
 
 func verifyActiveIndexBlobCount(ctx context.Context, t *testing.T, bm *Manager, expected int) {
@@ -232,10 +219,8 @@ func TestContentManagerInternalFlush(t *testing.T) {
 		writeContentAndVerify(ctx, t, bm, b)
 	}
 
-	// 1 data content written, but no index yet.
-	if got, want := len(data), 1; got != want {
-		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
-	}
+	// 1 data blobs + session marker written, but no index yet.
+	verifyBlobCount(t, data, map[blob.ID]int{"s": 1, "p": 1})
 
 	// do it again - should be 2 blobs + some bytes pending.
 	for i := 0; i < itemsToOverflow; i++ {
@@ -244,18 +229,13 @@ func TestContentManagerInternalFlush(t *testing.T) {
 		writeContentAndVerify(ctx, t, bm, b)
 	}
 
-	// 2 data contents written, but no index yet.
-	if got, want := len(data), 2; got != want {
-		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
-	}
+	// 2 data blobs written + session marker, but no index yet.
+	verifyBlobCount(t, data, map[blob.ID]int{"s": 1, "p": 2})
 
 	bm.Flush(ctx)
 
-	// third content gets written, followed by index.
-	if got, want := len(data), 4; got != want {
-		dumpContentManagerData(ctx, t, data)
-		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
-	}
+	// third data blob gets written, followed by index, session marker gets deleted.
+	verifyBlobCount(t, data, map[blob.ID]int{"n": 1, "p": 3})
 }
 
 func TestContentManagerWriteMultiple(t *testing.T) {
@@ -332,13 +312,20 @@ func TestContentManagerFailedToWritePack(t *testing.T) {
 
 	defer bm.Close(ctx)
 
+	sessionPutErr := errors.New("booboo0")
 	firstPutErr := errors.New("booboo1")
 	secondPutErr := errors.New("booboo2")
 	faulty.Faults = map[string][]*blobtesting.Fault{
 		"PutBlob": {
+			{Err: sessionPutErr},
 			{Err: firstPutErr},
 			{Err: secondPutErr},
 		},
+	}
+
+	_, err = bm.WriteContent(ctx, seededRandomData(1, 10), "")
+	if !errors.Is(err, sessionPutErr) {
+		t.Fatalf("can't create first content: %v", err)
 	}
 
 	b1, err := bm.WriteContent(ctx, seededRandomData(1, 10), "")
@@ -1104,6 +1091,58 @@ func TestFlushResumesWriters(t *testing.T) {
 	})
 }
 
+func TestFlushWaitsForAllPendingWriters(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+
+	data := blobtesting.DataMap{}
+	keyTime := map[blob.ID]time.Time{}
+	st := blobtesting.NewMapStorage(data, keyTime, nil)
+
+	fs := &blobtesting.FaultyStorage{
+		Base: st,
+		Faults: map[string][]*blobtesting.Fault{
+			"PutBlob": {
+				// first write is fast (session ID blobs)
+				{},
+				// second write is slow
+				{Sleep: 2 * time.Second},
+			},
+		},
+	}
+
+	bm := newTestContentManagerWithStorage(t, fs, nil)
+	defer bm.Close(ctx)
+
+	// write one content in another goroutine
+	// 'fs' is configured so that blob write takes several seconds to complete.
+	go writeContentAndVerify(ctx, t, bm, seededRandomData(1, maxPackSize))
+
+	// wait enough time for the goroutine to start writing.
+	time.Sleep(100 * time.Millisecond)
+
+	// write second short content
+	writeContentAndVerify(ctx, t, bm, seededRandomData(1, maxPackSize/4))
+
+	// flush will wait for both writes to complete.
+	t.Logf(">>> start of flushing")
+	bm.Flush(ctx)
+	t.Logf("<<< end of flushing")
+
+	verifyBlobCount(t, data, map[blob.ID]int{
+		PackBlobIDPrefixRegular: 2,
+		indexBlobPrefix:         1,
+	})
+
+	bm.Flush(ctx)
+
+	verifyBlobCount(t, data, map[blob.ID]int{
+		PackBlobIDPrefixRegular: 2,
+		indexBlobPrefix:         1,
+	})
+}
+
 func verifyAllDataPresent(ctx context.Context, t *testing.T, data map[blob.ID][]byte, contentIDs map[ID]bool) {
 	bm := newTestContentManager(t, data, nil, nil)
 	defer bm.Close(ctx)
@@ -1156,16 +1195,16 @@ func TestHandleWriteErrors(t *testing.T) {
 		{faults: genFaults(0, 7, 1, 4, 1, 2, 1, 9), contentSizes: []int{maxPackSize, maxPackSize, maxPackSize}, expectedWriteRetries: []int{7, 4, 2}, expectedFlushRetries: 9},
 
 		// write 1 content which succeeds, then flush which will fail 5 times before succeeding.
-		{faults: genFaults(1, 5), contentSizes: []int{maxPackSize}, expectedWriteRetries: []int{0}, expectedFlushRetries: 5},
+		{faults: genFaults(2, 5), contentSizes: []int{maxPackSize}, expectedWriteRetries: []int{0}, expectedFlushRetries: 5},
 
 		// write 4 contents, first write succeeds, next one fails 7 times, then all successes.
-		{faults: genFaults(1, 7), contentSizes: []int{maxPackSize, maxPackSize, maxPackSize, maxPackSize}, expectedWriteRetries: []int{0, 7, 0, 0}, expectedFlushRetries: 0},
+		{faults: genFaults(2, 7), contentSizes: []int{maxPackSize, maxPackSize, maxPackSize, maxPackSize}, expectedWriteRetries: []int{0, 7, 0, 0}, expectedFlushRetries: 0},
 
 		// first flush fill fail on pack write, next 3 will fail on index writes.
-		{faults: genFaults(0, 1, 0, 3), contentSizes: []int{maxPackSize / 2}, expectedWriteRetries: []int{0}, expectedFlushRetries: 4},
+		{faults: genFaults(1, 1, 0, 3), contentSizes: []int{maxPackSize / 2}, expectedWriteRetries: []int{0}, expectedFlushRetries: 4},
 
 		// second write will be retried once, flush will be retried 3 times.
-		{faults: genFaults(0, 1, 0, 3), contentSizes: []int{maxPackSize / 2, maxPackSize / 2}, expectedWriteRetries: []int{0, 1}, expectedFlushRetries: 3},
+		{faults: genFaults(1, 1, 0, 3), contentSizes: []int{maxPackSize / 2, maxPackSize / 2}, expectedWriteRetries: []int{0, 1}, expectedFlushRetries: 3},
 	}
 
 	for n, tc := range cases {
@@ -2090,5 +2129,19 @@ func must(t *testing.T, err error) {
 
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func verifyBlobCount(t *testing.T, data blobtesting.DataMap, want map[blob.ID]int) {
+	t.Helper()
+
+	got := map[blob.ID]int{}
+
+	for k := range data {
+		got[k[0:1]]++
+	}
+
+	if !cmp.Equal(got, want) {
+		t.Fatalf("unexpected blob count %v, want %v", got, want)
 	}
 }
