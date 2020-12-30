@@ -1,12 +1,8 @@
 package content
 
 import (
-	"bytes"
 	"context"
-	"crypto/aes"
-	"encoding/hex"
 	"encoding/json"
-	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -19,7 +15,7 @@ import (
 
 // indexBlobManager is the API of index blob manager as used by content manager.
 type indexBlobManager interface {
-	writeIndexBlob(ctx context.Context, data []byte) (blob.Metadata, error)
+	writeIndexBlob(ctx context.Context, data []byte, sessionID SessionID) (blob.Metadata, error)
 	listIndexBlobs(ctx context.Context, includeInactive bool) ([]IndexBlobInfo, error)
 	getIndexBlob(ctx context.Context, blobID blob.ID) ([]byte, error)
 	registerCompaction(ctx context.Context, inputs, outputs []blob.Metadata) error
@@ -135,7 +131,7 @@ func (m *indexBlobManagerImpl) registerCompaction(ctx context.Context, inputs, o
 		return errors.Wrap(err, "unable to marshal log entry bytes")
 	}
 
-	compactionLogBlobMetadata, err := m.encryptAndWriteBlob(ctx, logEntryBytes, compactionLogBlobPrefix)
+	compactionLogBlobMetadata, err := m.encryptAndWriteBlob(ctx, logEntryBytes, compactionLogBlobPrefix, "")
 	if err != nil {
 		return errors.Wrap(err, "unable to write compaction log")
 	}
@@ -167,57 +163,17 @@ func (m *indexBlobManagerImpl) getEncryptedBlob(ctx context.Context, blobID blob
 		return nil, errors.Wrap(err, "getContent")
 	}
 
-	iv, err := getIndexBlobIV(blobID)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to get index blob IV")
-	}
-
-	payload, err = m.encryptor.Decrypt(nil, payload, iv)
-
-	if err != nil {
-		return nil, errors.Wrap(err, "decrypt error")
-	}
-
-	// Since the encryption key is a function of data, we must be able to generate exactly the same key
-	// after decrypting the content. This serves as a checksum.
-	if err := m.verifyChecksum(payload, iv); err != nil {
-		return nil, err
-	}
-
-	return payload, nil
+	return decryptFullBlob(m.hasher, m.encryptor, payload, blobID)
 }
 
-func (m *indexBlobManagerImpl) verifyChecksum(data, contentID []byte) error {
-	var hashOutput [maxHashSize]byte
-
-	expected := m.hasher(hashOutput[:0], data)
-	expected = expected[len(expected)-aes.BlockSize:]
-
-	if !bytes.HasSuffix(contentID, expected) {
-		return errors.Errorf("invalid checksum for blob %x, expected %x", contentID, expected)
-	}
-
-	return nil
+func (m *indexBlobManagerImpl) writeIndexBlob(ctx context.Context, data []byte, sessionID SessionID) (blob.Metadata, error) {
+	return m.encryptAndWriteBlob(ctx, data, indexBlobPrefix, sessionID)
 }
 
-func (m *indexBlobManagerImpl) writeIndexBlob(ctx context.Context, data []byte) (blob.Metadata, error) {
-	return m.encryptAndWriteBlob(ctx, data, indexBlobPrefix)
-}
-
-func (m *indexBlobManagerImpl) encryptAndWriteBlob(ctx context.Context, data []byte, prefix blob.ID) (blob.Metadata, error) {
-	var hashOutput [maxHashSize]byte
-
-	hash := m.hasher(hashOutput[:0], data)
-	blobID := prefix + blob.ID(hex.EncodeToString(hash))
-
-	iv, err := getIndexBlobIV(blobID)
+func (m *indexBlobManagerImpl) encryptAndWriteBlob(ctx context.Context, data []byte, prefix blob.ID, sessionID SessionID) (blob.Metadata, error) {
+	blobID, data2, err := encryptFullBlob(m.hasher, m.encryptor, data, prefix, sessionID)
 	if err != nil {
-		return blob.Metadata{}, err
-	}
-
-	data2, err := m.encryptor.Encrypt(nil, data, iv)
-	if err != nil {
-		return blob.Metadata{}, errors.Wrapf(err, "error encrypting blob %v", blobID)
+		return blob.Metadata{}, errors.Wrap(err, "error encrypting")
 	}
 
 	m.listCache.deleteListCache(prefix)
@@ -395,7 +351,7 @@ func (m *indexBlobManagerImpl) delayCleanupBlobs(ctx context.Context, blobIDs []
 		return errors.Wrap(err, "unable to marshal cleanup log bytes")
 	}
 
-	if _, err := m.encryptAndWriteBlob(ctx, payload, cleanupBlobPrefix); err != nil {
+	if _, err := m.encryptAndWriteBlob(ctx, payload, cleanupBlobPrefix, ""); err != nil {
 		return errors.Wrap(err, "unable to cleanup log")
 	}
 
@@ -466,14 +422,6 @@ func blobsOlderThan(m []blob.Metadata, cutoffTime time.Time) []blob.Metadata {
 	}
 
 	return res
-}
-
-func getIndexBlobIV(s blob.ID) ([]byte, error) {
-	if p := strings.Index(string(s), "-"); p >= 0 { // nolint:gocritic
-		s = s[0:p]
-	}
-
-	return hex.DecodeString(string(s[len(s)-(aes.BlockSize*2):]))
 }
 
 func removeCompactedIndexes(ctx context.Context, m map[blob.ID]*IndexBlobInfo, compactionLogs map[blob.ID]*compactionLogEntry, markAsSuperseded bool) {
