@@ -57,6 +57,10 @@ const (
 
 // Initialize is invoked as part of command execution to create log file just before it's needed.
 func Initialize(ctx *kingpin.ParseContext) error {
+	if *logDir == "" {
+		return nil
+	}
+
 	now := clock.Now()
 
 	suffix := "unknown"
