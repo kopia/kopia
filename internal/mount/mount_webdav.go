@@ -56,6 +56,10 @@ func DirectoryWebDAV(ctx context.Context, entry fs.Directory) (Controller, error
 
 	done := make(chan struct{})
 
+	srv.RegisterOnShutdown(func() {
+		close(done)
+	})
+
 	go func() {
 		log(ctx).Debugf("web server finished with %v", srv.Serve(l))
 	}()
