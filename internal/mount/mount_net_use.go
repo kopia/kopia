@@ -49,7 +49,7 @@ func netUse(ctx context.Context, args ...string) (string, error) {
 func netUseMount(ctx context.Context, driveLetter, webdavURL string) (string, error) {
 	out, err := netUse(ctx, driveLetter, webdavURL)
 	if err != nil {
-		return "", errors.Wrapf(err, "unable to run 'net use' (%v)", out)
+		return "", errors.Wrapf(err, "unable to run 'net use' (%v), see https://kopia.io/docs/mounting/#windows for more information", out)
 	}
 
 	if driveLetter != "*" {
