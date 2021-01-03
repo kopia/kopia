@@ -20,13 +20,13 @@ To install it follow the [Installation Guide](../installation/).
 If you prefer a graphical user interface,
 Kopia comes with a user-friendly desktop app for Windows, macOS, and Linux called `KopiaUI`, which runs in the background and allows you to create snapshots, define policies and restore files quickly. More advanced features require the use of the CLI tool.
 
-The Kopia UI is new and experimental. See the tutorial on Youtube:
+The Kopia UI is new and experimental. See the tutorial on YouTube:
 
 {{< youtube sHJjSpasWIo >}}
 
 ## Setting Up Repository
 
-Repository is a place where Kopia stores all its snapshot data. It's typically remote storage, such as [Google Cloud Storage](https://cloud.google.com/storage/), [Amazon S3](https://aws.amazon.com/s3/) (or copmatible such as Minio.io, Wasabi, B2), [Azure](https://azure.microsoft.com/services/storage/), sftp, http/s, webdav or similar. You can also use any locally-mounted storage (using SMB, NFS or similar). For more details about repository see [Architecture](../architecture/) and [Repositories](../repositories).
+Repository is a place where Kopia stores all its snapshot data. It's typically remote storage, such as [Google Cloud Storage](https://cloud.google.com/storage/), [Amazon S3](https://aws.amazon.com/s3/) (or compatible such as Minio.io, Wasabi, B2), [Azure](https://azure.microsoft.com/services/storage/), sftp, http/s, webdav or similar. You can also use any locally-mounted storage (using SMB, NFS or similar). For more details about repository see [Architecture](../architecture/) and [Repositories](../repositories).
 
 To create a repository use one of the subcommands of `kopia repository create`. 
 
@@ -260,7 +260,7 @@ Policies can be used to specify how the snapshots are taken and retained.
 We can define:
 
 - which files to ignore
-- how many hourly, daily, weekly, monthly and yearly shapshots to maintain
+- how many hourly, daily, weekly, monthly and yearly snapshots to maintain
 - how frequently snapshots should be made
 
 Each repository has a `global` policy, which contains defaults used when more specific policies are not defined.
