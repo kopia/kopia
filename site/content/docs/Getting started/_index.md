@@ -5,13 +5,13 @@ linkTitle: "Getting Started"
 weight: 10
 ---
 
-This guide will walk you through installing Kopia, creating, managing and restoring snapshots and defining snapshot policies. 
+This guide will walk you through installing Kopia, creating, managing and restoring snapshots and defining snapshot policies.
 
 Make sure to familiarize yourself with Kopia [features](../features/) before following along.
 
 ## Installation
 
-Kopia is distributed as a single command-line (CLI) binary called `kopia`. 
+Kopia is distributed as a single command-line (CLI) binary called `kopia`.
 
 To install it follow the [Installation Guide](../installation/).
 
@@ -28,7 +28,7 @@ The Kopia UI is new and experimental. See the tutorial on YouTube:
 
 Repository is a place where Kopia stores all its snapshot data. It's typically remote storage, such as [Google Cloud Storage](https://cloud.google.com/storage/), [Amazon S3](https://aws.amazon.com/s3/) (or compatible such as Minio.io, Wasabi, B2), [Azure](https://azure.microsoft.com/services/storage/), sftp, http/s, webdav or similar. You can also use any locally-mounted storage (using SMB, NFS or similar). For more details about repository see [Architecture](../architecture/) and [Repositories](../repositories).
 
-To create a repository use one of the subcommands of `kopia repository create`. 
+To create a repository use one of the subcommands of `kopia repository create`.
 
 > NOTE: This guide focuses on simple scenarios, more command-line features are described in the [Command-Line Reference](../reference/command-line/).
 
@@ -94,7 +94,7 @@ $ kopia repository connect google --bucket kopia-test-123
 
 ## Creating Initial Snapshot
 
-Let's create our first snapshot. That's as simple as `kopia snapshot create`. 
+Let's create our first snapshot. That's as simple as `kopia snapshot create`.
 We will create the snapshot of the source code of Kopia itself:
 
 ```shell
@@ -104,7 +104,7 @@ $ kopia snapshot create $HOME/Projects/github.com/kopia/kopia
 After completion, Kopia prints the identifier of the root of the snapshot, which starts with `k`:
 
 ```
-uploaded snapshot 9a622e33ab134ef440f76ed755f79c2f 
+uploaded snapshot 9a622e33ab134ef440f76ed755f79c2f
   (root kfe997567fb1cf8a13341e4ca11652f70) in 1m42.044883302s
 ```
 
@@ -226,7 +226,7 @@ Which returns:
 
 ## Mounting Snapshots
 
-We can mount the directory in a local filesystem and examine it using regular file commands to examine the contents.
+We can [mount](../mounting/) the directory in a local filesystem and examine it using regular file commands to examine the contents.
 This is currently the recommended way of restoring files from snapshots.
 
 ```shell
