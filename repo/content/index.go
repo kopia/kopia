@@ -21,6 +21,8 @@ const (
 type packIndex interface {
 	io.Closer
 
+	ApproximateCount() int
+
 	GetInfo(contentID ID) (*Info, error)
 
 	// invoked the provided callback for all entries such that entry.ID >= startID and entry.ID < endID
@@ -87,6 +89,10 @@ func readHeader(readerAt io.ReaderAt) (headerInfo, error) {
 	}
 
 	return hi, nil
+}
+
+func (b *index) ApproximateCount() int {
+	return b.hdr.entryCount
 }
 
 // Iterate invokes the provided callback function for a range of contents in the index, sorted alphabetically.
