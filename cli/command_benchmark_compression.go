@@ -16,7 +16,7 @@ import (
 
 var (
 	benchmarkCompressionCommand      = benchmarkCommands.Command("compression", "Run compression benchmarks")
-	benchmarkCompressionBlockSize    = benchmarkCompressionCommand.Flag("block-size", "Size of a block to encrypt").Default("1MB").Bytes()
+	benchmarkCompressionBlockSize    = benchmarkCompressionCommand.Flag("block-size", "Size of a block to compress").Default("1MB").Bytes()
 	benchmarkCompressionRepeat       = benchmarkCompressionCommand.Flag("repeat", "Number of repetitions").Default("100").Int()
 	benchmarkCompressionDataFile     = benchmarkCompressionCommand.Flag("data-file", "Use data from the given file instead of empty").ExistingFile()
 	benchmarkCompressionBySize       = benchmarkCompressionCommand.Flag("by-size", "Sort results by size").Bool()
