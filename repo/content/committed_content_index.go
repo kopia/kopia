@@ -11,10 +11,11 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-// combineSmallIndexThreshold is the count threshold below which indexes
+// smallIndexEntryCountThreshold is the threshold to determine whether an
+// index is small. Any index with fewer entries than this threshold 
 // will be combined in-memory to reduce the number of segments and speed up
 // large index operations (such as verification of all contents).
-const combineSmallIndexThreshold = 100
+const smallIndexEntryCountThreshold = 100
 
 type committedContentIndex struct {
 	cache committedContentIndexCache
@@ -148,7 +149,7 @@ func combineSmallIndexes(m mergedIndex) (mergedIndex, error) {
 	var toKeep, toMerge mergedIndex
 
 	for _, ndx := range m {
-		if ndx.ApproximateCount() < combineSmallIndexThreshold {
+		if ndx.ApproximateCount() < smallIndexEntryCountThreshold {
 			toMerge = append(toMerge, ndx)
 		} else {
 			toKeep = append(toKeep, ndx)
