@@ -12,7 +12,7 @@ import (
 )
 
 // smallIndexEntryCountThreshold is the threshold to determine whether an
-// index is small. Any index with fewer entries than this threshold 
+// index is small. Any index with fewer entries than this threshold
 // will be combined in-memory to reduce the number of segments and speed up
 // large index operations (such as verification of all contents).
 const smallIndexEntryCountThreshold = 100
