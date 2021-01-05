@@ -3,7 +3,6 @@ package diff
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -22,11 +21,12 @@ var log = logging.GetContextLoggerFunc("diff")
 
 // Comparer outputs diff information between two filesystems.
 type Comparer struct {
-	out    io.Writer
 	tmpDir string
 
 	DiffCommand   string
 	DiffArguments []string
+
+	output ComparerOutput
 }
 
 // Compare compares two filesystem entries and emits their diff information.
@@ -34,8 +34,9 @@ func (c *Comparer) Compare(ctx context.Context, e1, e2 fs.Entry) error {
 	return c.compareEntry(ctx, e1, e2, ".")
 }
 
-// Close removes all temporary files used by the comparer.
+// Close output, remove all temporary files used by the comparer.
 func (c *Comparer) Close() error {
+	c.output.Close()
 	return os.RemoveAll(c.tmpDir)
 }
 
@@ -77,11 +78,11 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 
 	if e1 == nil {
 		if dir2, isDir2 := e2.(fs.Directory); isDir2 {
-			c.output("added directory %v\n", path)
+			c.output.AddDirectory(path)
 			return c.compareDirectories(ctx, nil, dir2, path)
 		}
 
-		c.output("added file %v (%v bytes)\n", path, e2.Size())
+		c.output.AddFile(path, e2.Size())
 
 		if f, ok := e2.(fs.File); ok {
 			if err := c.compareFiles(ctx, nil, f, path); err != nil {
@@ -94,11 +95,11 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 
 	if e2 == nil {
 		if dir1, isDir1 := e1.(fs.Directory); isDir1 {
-			c.output("removed directory %v\n", path)
+			c.output.RemoveDirectory(path)
 			return c.compareDirectories(ctx, dir1, nil, path)
 		}
 
-		c.output("removed file %v (%v bytes)\n", path, e1.Size())
+		c.output.RemoveFile(path, e1.Size())
 
 		if f, ok := e1.(fs.File); ok {
 			if err := c.compareFiles(ctx, f, nil, path); err != nil {
@@ -109,7 +110,7 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 		return nil
 	}
 
-	compareEntry(e1, e2, path, c.out)
+	compareEntry(e1, e2, path, c.output)
 
 	dir1, isDir1 := e1.(fs.Directory)
 	dir2, isDir2 := e2.(fs.Directory)
@@ -117,7 +118,7 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 	if isDir1 {
 		if !isDir2 {
 			// right is a non-directory, left is a directory
-			c.output("changed %v from directory to non-directory\n", path)
+			c.output.ChangeDirNondir(path)
 			return nil
 		}
 
@@ -126,13 +127,13 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 
 	if isDir2 {
 		// left is non-directory, right is a directory
-		log(ctx).Infof("changed %v from non-directory to a directory", path)
+		c.output.ChangeNondirDir(path)
 		return nil
 	}
 
 	if f1, ok := e1.(fs.File); ok {
 		if f2, ok := e2.(fs.File); ok {
-			c.output("changed %v at %v (size %v -> %v)\n", path, e2.ModTime().String(), e1.Size(), e2.Size())
+			c.output.ChangeFile(path, e2.ModTime(), e1.Size(), e2.Size())
 
 			if err := c.compareFiles(ctx, f1, f2, path); err != nil {
 				return err
@@ -143,18 +144,18 @@ func (c *Comparer) compareEntry(ctx context.Context, e1, e2 fs.Entry, path strin
 	return nil
 }
 
-func compareEntry(e1, e2 fs.Entry, fullpath string, out io.Writer) bool {
+func compareEntry(e1, e2 fs.Entry, fullpath string, out ComparerOutput) bool {
 	if e1 == e2 { // in particular e1 == nil && e2 == nil
 		return true
 	}
 
 	if e1 == nil {
-		fmt.Fprintln(out, fullpath, "does not exist in source directory")
+		out.NotExistSource(fullpath)
 		return false
 	}
 
 	if e2 == nil {
-		fmt.Fprintln(out, fullpath, "does not exist in destination directory")
+		out.NotExistDest(fullpath)
 		return false
 	}
 
@@ -163,32 +164,32 @@ func compareEntry(e1, e2 fs.Entry, fullpath string, out io.Writer) bool {
 	if m1, m2 := e1.Mode(), e2.Mode(); m1 != m2 {
 		equal = false
 
-		fmt.Fprintln(out, fullpath, "modes differ: ", m1, m2)
+		out.ModesDiffer(fullpath, m1, m2)
 	}
 
 	if s1, s2 := e1.Size(), e2.Size(); s1 != s2 {
 		equal = false
 
-		fmt.Fprintln(out, fullpath, "sizes differ: ", s1, s2)
+		out.SizesDiffer(fullpath, s1, s2)
 	}
 
 	if mt1, mt2 := e1.ModTime(), e2.ModTime(); !mt1.Equal(mt2) {
 		equal = false
 
-		fmt.Fprintln(out, fullpath, "modification times differ: ", mt1, mt2)
+		out.ModTimeDiffer(fullpath, mt1, mt2)
 	}
 
 	o1, o2 := e1.Owner(), e2.Owner()
 	if o1.UserID != o2.UserID {
 		equal = false
 
-		fmt.Fprintln(out, fullpath, "owner users differ: ", o1.UserID, o2.UserID)
+		out.OwnerDiffer(fullpath, o1.UserID, o2.UserID)
 	}
 
 	if o1.GroupID != o2.GroupID {
 		equal = false
 
-		fmt.Fprintln(out, fullpath, "owner groups differ: ", o1.GroupID, o2.GroupID)
+		out.GroupDiffer(fullpath, o1.GroupID, o2.GroupID)
 	}
 
 	// don't compare filesystem boundaries (e1.Device()), it's pretty useless and is not stored in backups
@@ -259,9 +260,7 @@ func (c *Comparer) compareFiles(ctx context.Context, f1, f2 fs.File, fname strin
 
 	cmd := exec.CommandContext(ctx, c.DiffCommand, args...) // nolint:gosec
 	cmd.Dir = c.tmpDir
-	cmd.Stdout = c.out
-	cmd.Stderr = c.out
-	cmd.Run() //nolint:errcheck
+	c.output.RunDiffCommand(oldName, newName, cmd)
 
 	return nil
 }
@@ -289,10 +288,6 @@ func downloadFile(ctx context.Context, f fs.File, fname string) error {
 	return errors.Wrap(err, "error downloading file")
 }
 
-func (c *Comparer) output(msg string, args ...interface{}) {
-	fmt.Fprintf(c.out, msg, args...)
-}
-
 // NewComparer creates a comparer for a given repository that will output the results to a given writer.
 func NewComparer(out io.Writer) (*Comparer, error) {
 	tmp, err := ioutil.TempDir("", "kopia")
@@ -300,5 +295,7 @@ func NewComparer(out io.Writer) (*Comparer, error) {
 		return nil, errors.Wrap(err, "error creating temp directory")
 	}
 
-	return &Comparer{out: out, tmpDir: tmp}, nil
+	output := &ComparerOutputText{out: out}
+
+	return &Comparer{tmpDir: tmp, output: output}, nil
 }
