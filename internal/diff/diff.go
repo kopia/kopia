@@ -19,6 +19,17 @@ import (
 
 var log = logging.GetContextLoggerFunc("diff")
 
+// OutputFormat to use; processed by the NewComparer function.
+type OutputFormat int
+
+const (
+	// OutputText is the basic textual line-by-line output.
+	OutputText OutputFormat = iota
+
+	// OutputJSON is the JSON object output format.
+	OutputJSON = iota
+)
+
 // Comparer outputs diff information between two filesystems.
 type Comparer struct {
 	tmpDir string
@@ -289,13 +300,20 @@ func downloadFile(ctx context.Context, f fs.File, fname string) error {
 }
 
 // NewComparer creates a comparer for a given repository that will output the results to a given writer.
-func NewComparer(out io.Writer) (*Comparer, error) {
+func NewComparer(out io.Writer, outputFormat OutputFormat) (*Comparer, error) {
 	tmp, err := ioutil.TempDir("", "kopia")
 	if err != nil {
 		return nil, errors.Wrap(err, "error creating temp directory")
 	}
 
-	output := &ComparerOutputText{out: out}
+	var output ComparerOutput
+
+	switch outputFormat {
+	case OutputText:
+		output = &ComparerOutputText{out: out}
+	case OutputJSON:
+		output = &ComparerOutputJSON{out: out}
+	}
 
 	return &Comparer{tmpDir: tmp, output: output}, nil
 }

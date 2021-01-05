@@ -17,6 +17,7 @@ var (
 	diffCommand          = app.Command("diff", "Displays differences between two repository objects (files or directories)").Alias("compare")
 	diffFirstObjectPath  = diffCommand.Arg("object-path1", "First object/path").Required().String()
 	diffSecondObjectPath = diffCommand.Arg("object-path2", "Second object/path").Required().String()
+	diffJSON             = diffCommand.Flag("json", "Use JSON formatted output").Bool()
 	diffCompareFiles     = diffCommand.Flag("files", "Compare files by launching diff command for all pairs of (old,new)").Short('f').Bool()
 	diffCommandCommand   = diffCommand.Flag("diff-command", "Displays differences between two repository objects (files or directories)").Default(defaultDiffCommand()).Envar("KOPIA_DIFF").String()
 )
@@ -39,7 +40,12 @@ func runDiffCommand(ctx context.Context, rep repo.Reader) error {
 		return errors.New("arguments do diff must both be directories or both non-directories")
 	}
 
-	d, err := diff.NewComparer(os.Stdout)
+	outputFormat := diff.OutputText
+	if *diffJSON {
+		outputFormat = diff.OutputJSON
+	}
+
+	d, err := diff.NewComparer(os.Stdout, outputFormat)
 	if err != nil {
 		return errors.Wrap(err, "error creating comparer")
 	}
