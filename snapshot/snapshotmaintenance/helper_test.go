@@ -14,7 +14,7 @@ import (
 )
 
 // Create snapshots an FS entry.
-func createSnapshot(ctx context.Context, rep repo.Repository, e fs.Entry, si snapshot.SourceInfo, description string) (*snapshot.Manifest, error) {
+func createSnapshot(ctx context.Context, rep repo.Writer, e fs.Entry, si snapshot.SourceInfo, description string) (*snapshot.Manifest, error) {
 	// sanitize source path
 	si.Path = filepath.Clean(si.Path)
 
@@ -46,7 +46,7 @@ func createSnapshot(ctx context.Context, rep repo.Repository, e fs.Entry, si sna
 // findPreviousSnapshotManifest returns the list of previous snapshots for a given source, including
 // last complete snapshot and possibly some number of incomplete snapshots following it.
 // this would belong in the snapshot package.
-func findPreviousSnapshotManifest(ctx context.Context, rep repo.Repository, sourceInfo snapshot.SourceInfo) ([]*snapshot.Manifest, error) {
+func findPreviousSnapshotManifest(ctx context.Context, rep repo.Reader, sourceInfo snapshot.SourceInfo) ([]*snapshot.Manifest, error) {
 	man, err := snapshot.ListSnapshots(ctx, rep, sourceInfo)
 	if err != nil {
 		return nil, errors.Wrap(err, "error listing previous snapshots")

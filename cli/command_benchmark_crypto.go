@@ -6,7 +6,6 @@ import (
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/units"
-	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/hashing"
@@ -19,7 +18,7 @@ var (
 	benchmarkCryptoDeprecatedAlgorithms = benchmarkCryptoCommand.Flag("deprecated", "Include deprecated algorithms").Bool()
 )
 
-func runBenchmarkCryptoAction(ctx context.Context, rep repo.Repository) error {
+func runBenchmarkCryptoAction(ctx context.Context) error {
 	type benchResult struct {
 		hash       string
 		encryption string
@@ -86,5 +85,5 @@ func runBenchmarkCryptoAction(ctx context.Context, rep repo.Repository) error {
 }
 
 func init() {
-	benchmarkCryptoCommand.Action(maybeRepositoryAction(runBenchmarkCryptoAction, false))
+	benchmarkCryptoCommand.Action(noRepositoryAction(runBenchmarkCryptoAction))
 }

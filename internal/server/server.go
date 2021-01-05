@@ -291,7 +291,7 @@ func (s *Server) refreshPeriodically(ctx context.Context, r repo.Repository) {
 	}
 }
 
-func (s *Server) periodicMaintenance(ctx context.Context, r repo.Repository) {
+func (s *Server) periodicMaintenance(ctx context.Context, r repo.Writer) {
 	for {
 		select {
 		case <-ctx.Done():

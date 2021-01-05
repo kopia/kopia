@@ -9,7 +9,7 @@ import (
 	"github.com/kopia/kopia/repo/maintenance"
 )
 
-func maybeAutoUpgradeRepository(ctx context.Context, r repo.Repository) {
+func maybeAutoUpgradeRepository(ctx context.Context, r repo.Writer) {
 	if r == nil {
 		return
 	}

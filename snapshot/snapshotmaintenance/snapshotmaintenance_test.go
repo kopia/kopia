@@ -195,13 +195,13 @@ func (th *testHarness) openAnother(t *testing.T) repo.Repository {
 	return r
 }
 
-func mustFlush(t *testing.T, r repo.Repository) {
+func mustFlush(t *testing.T, r repo.Writer) {
 	t.Helper()
 	require.NotNil(t, r, "nil repository")
 	require.NoError(t, r.Flush(testlogging.Context(t)))
 }
 
-func mustSnapshot(t *testing.T, r repo.Repository, source fs.Entry, si snapshot.SourceInfo) *snapshot.Manifest {
+func mustSnapshot(t *testing.T, r repo.Writer, source fs.Entry, si snapshot.SourceInfo) *snapshot.Manifest {
 	t.Helper()
 
 	s1, err := createSnapshot(testlogging.Context(t), r, source, si, "")

@@ -26,7 +26,7 @@ var (
 	mountFuseAllowNonEmptyMount = mountCommand.Flag("fuse-allow-non-empty-mount", "Allows the mounting over a non-empty directory. The files in it will be shadowed by the freshly created mount.").Bool()
 )
 
-func runMountCommand(ctx context.Context, rep repo.Repository) error {
+func runMountCommand(ctx context.Context, rep repo.Reader) error {
 	var entry fs.Directory
 
 	if *mountObjectID == "all" {
@@ -100,5 +100,5 @@ func runMountCommand(ctx context.Context, rep repo.Repository) error {
 
 func init() {
 	setupFSCacheFlags(mountCommand)
-	mountCommand.Action(repositoryAction(runMountCommand))
+	mountCommand.Action(repositoryReaderAction(runMountCommand))
 }

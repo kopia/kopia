@@ -34,7 +34,7 @@ var (
 )
 
 type verifier struct {
-	rep       repo.Repository
+	rep       repo.Reader
 	workQueue *parallelwork.Queue
 	startTime time.Time
 
@@ -197,7 +197,7 @@ func (v *verifier) readEntireObject(ctx context.Context, oid object.ID, path str
 	return errors.Wrap(err, "unable to read data")
 }
 
-func runVerifyCommand(ctx context.Context, rep repo.Repository) error {
+func runVerifyCommand(ctx context.Context, rep repo.Reader) error {
 	if *verifyCommandAllSources {
 		log(ctx).Noticef("DEPRECATED: --all-sources flag has no effect and is the default when no sources are provided.")
 	}
@@ -234,7 +234,7 @@ func runVerifyCommand(ctx context.Context, rep repo.Repository) error {
 	return errors.Errorf("encountered %v errors", len(v.errors))
 }
 
-func enqueueRootsToVerify(ctx context.Context, v *verifier, rep repo.Repository) error {
+func enqueueRootsToVerify(ctx context.Context, v *verifier, rep repo.Reader) error {
 	manifests, err := loadSourceManifests(ctx, rep, *verifyCommandSources)
 	if err != nil {
 		return err
@@ -275,7 +275,7 @@ func enqueueRootsToVerify(ctx context.Context, v *verifier, rep repo.Repository)
 	return nil
 }
 
-func loadSourceManifests(ctx context.Context, rep repo.Repository, sources []string) ([]*snapshot.Manifest, error) {
+func loadSourceManifests(ctx context.Context, rep repo.Reader, sources []string) ([]*snapshot.Manifest, error) {
 	var manifestIDs []manifest.ID
 
 	if len(sources)+len(*verifyCommandDirObjectIDs)+len(*verifyCommandFileObjectIDs) == 0 {
@@ -303,5 +303,5 @@ func loadSourceManifests(ctx context.Context, rep repo.Repository, sources []str
 }
 
 func init() {
-	verifyCommand.Action(repositoryAction(runVerifyCommand))
+	verifyCommand.Action(repositoryReaderAction(runVerifyCommand))
 }

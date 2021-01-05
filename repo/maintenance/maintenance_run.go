@@ -9,10 +9,10 @@ import (
 	"github.com/gofrs/flock"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/logging"
-	"github.com/kopia/kopia/repo/manifest"
 )
 
 // safetyMarginBetweenSnapshotGC is the minimal amount of time that must pass between snapshot
@@ -34,16 +34,12 @@ type Mode string
 type MaintainableRepository interface {
 	Username() string
 	Hostname() string
-	Time() time.Time
 	ConfigFilename() string
 
 	BlobStorage() blob.Storage
 	ContentManager() *content.Manager
 
-	GetManifest(ctx context.Context, id manifest.ID, data interface{}) (*manifest.EntryMetadata, error)
-	PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error)
-	FindManifests(ctx context.Context, labels map[string]string) ([]*manifest.EntryMetadata, error)
-	DeleteManifest(ctx context.Context, id manifest.ID) error
+	repo.Writer
 
 	DeriveKey(purpose []byte, keyLength int) []byte
 }

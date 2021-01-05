@@ -59,7 +59,7 @@ type Options struct {
 }
 
 // Entry walks a snapshot root with given root entry and restores it to the provided output.
-func Entry(ctx context.Context, rep repo.Repository, output Output, rootEntry fs.Entry, options Options) (Stats, error) {
+func Entry(ctx context.Context, rep repo.Reader, output Output, rootEntry fs.Entry, options Options) (Stats, error) {
 	c := copier{output: output, q: parallelwork.NewQueue()}
 
 	c.q.ProgressCallback = func(ctx context.Context, enqueued, active, completed int64) {

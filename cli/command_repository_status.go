@@ -21,7 +21,7 @@ var (
 	statusReconnectTokenIncludePassword = statusCommand.Flag("reconnect-token-with-password", "Include password in reconnect token").Short('s').Bool()
 )
 
-func runStatusCommand(ctx context.Context, rep repo.Repository) error {
+func runStatusCommand(ctx context.Context, rep repo.Reader) error {
 	fmt.Printf("Config file:         %v\n", repositoryConfigFileName())
 	fmt.Println()
 	fmt.Printf("Description:         %v\n", rep.ClientOptions().Description)
@@ -110,5 +110,5 @@ func scanCacheDir(dirname string) (fileCount int, totalFileLength int64, err err
 }
 
 func init() {
-	statusCommand.Action(repositoryAction(runStatusCommand))
+	statusCommand.Action(repositoryReaderAction(runStatusCommand))
 }
