@@ -1,6 +1,7 @@
 package content
 
 import (
+	"bytes"
 	"context"
 	"path/filepath"
 	"sync"
@@ -9,6 +10,11 @@ import (
 
 	"github.com/kopia/kopia/repo/blob"
 )
+
+// combineSmallIndexThreshold is the count threshold below which indexes
+// will be combined in-memory to reduce the number of segments and speed up
+// large index operations (such as verification of all contents).
+const combineSmallIndexThreshold = 100
 
 type committedContentIndex struct {
 	cache committedContentIndexCache
@@ -119,7 +125,14 @@ func (b *committedContentIndex) use(ctx context.Context, packFiles []blob.ID) (b
 		newInUse[e] = ndx
 	}
 
-	b.merged = newMerged
+	mergedAndCombined, err := combineSmallIndexes(newMerged)
+	if err != nil {
+		return false, errors.Wrap(err, "unable to combine small indexes")
+	}
+
+	log(ctx).Debugf("combined %v into %v index segments", len(newMerged), len(mergedAndCombined))
+
+	b.merged = mergedAndCombined
 	b.inUse = newInUse
 
 	if err := b.cache.expireUnused(ctx, packFiles); err != nil {
@@ -129,6 +142,46 @@ func (b *committedContentIndex) use(ctx context.Context, packFiles []blob.ID) (b
 	newMerged = nil // prevent closing newMerged indices
 
 	return true, nil
+}
+
+func combineSmallIndexes(m mergedIndex) (mergedIndex, error) {
+	var toKeep, toMerge mergedIndex
+
+	for _, ndx := range m {
+		if ndx.ApproximateCount() < combineSmallIndexThreshold {
+			toMerge = append(toMerge, ndx)
+		} else {
+			toKeep = append(toKeep, ndx)
+		}
+	}
+
+	if len(toMerge) <= 1 {
+		return m, nil
+	}
+
+	b := packIndexBuilder{}
+
+	for _, ndx := range toMerge {
+		if err := ndx.Iterate(AllIDs, func(i Info) error {
+			b.Add(i)
+			return nil
+		}); err != nil {
+			return nil, errors.Wrap(err, "unable to iterate index entries")
+		}
+	}
+
+	var buf bytes.Buffer
+
+	if err := b.Build(&buf); err != nil {
+		return nil, errors.Wrap(err, "error building combined in-memory index")
+	}
+
+	combined, err := openPackIndex(bytes.NewReader(buf.Bytes()))
+	if err != nil {
+		return nil, errors.Wrap(err, "error opening combined in-memory index")
+	}
+
+	return append(toKeep, combined), nil
 }
 
 func (b *committedContentIndex) close() error {
