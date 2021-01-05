@@ -74,7 +74,7 @@ func main() {
 		return gologging.MustGetLogger(module)
 	})
 
-	app.Version(repo.BuildVersion + " build: " + repo.BuildInfo)
+	app.Version(repo.BuildVersion + " build: " + repo.BuildInfo + " from: " + repo.BuildGitHubRepo)
 	app.PreAction(logfile.Initialize)
 	app.UsageTemplate(usageTemplate)
 

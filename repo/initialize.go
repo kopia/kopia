@@ -17,8 +17,9 @@ import (
 
 // BuildInfo is the build information of Kopia.
 var (
-	BuildInfo    = "unknown"
-	BuildVersion = "v0-unofficial"
+	BuildInfo       = "unknown"
+	BuildVersion    = "v0-unofficial"
+	BuildGitHubRepo = ""
 )
 
 const (
