@@ -12,6 +12,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/timetrack"
+	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot/restore"
@@ -25,7 +27,7 @@ By default, the target path will be created by the restore command if it does
 not exist.
 
 The source to be restored is specified in the form of a directory or file ID and
-optionally a sub-directory path.
+optionally a sub-directory path or a shallow placeholder file.
 
 For example, the following source and target arguments will restore the contents
 of the 'kffbb7c28ea6c34d6cbe555d1cf80faa9' directory into a new, local directory
@@ -51,6 +53,16 @@ The restore will only attempt to overwrite an existing file system entry if
 it is the same type as in the source. For example a if restoring a symlink,
 an existing symlink with the same name will be overwritten, but a directory
 with the same name will not; an error will be thrown instead.
+
+Shallow files unambiguously specify a previously backed up file or tree in the
+repository and can be restored directly. For example:
+
+'restore d3.kopiadir'
+
+will remove the d3.kopiadir placeholder and restore the referenced repository
+contents into path d3. Similarly for files:
+
+'restore f3.kopiafile'
 `
 	restoreCommandSourcePathHelp = `Source directory ID/path in the form of a
 directory ID and optionally a sub-directory path. For example,
@@ -81,7 +93,7 @@ type commandRestore struct {
 func (c *commandRestore) setup(svc appServices, parent commandParent) {
 	cmd := parent.Command("restore", restoreCommandHelp)
 	cmd.Arg("source", restoreCommandSourcePathHelp).Required().StringVar(&c.restoreSourceID)
-	cmd.Arg("target-path", "Path of the directory for the contents to be restored").Required().StringVar(&c.restoreTargetPath)
+	cmd.Arg("target-path", "Path of the directory for the contents to be restored. Required unless restoring a shallow placeholder.").StringVar(&c.restoreTargetPath)
 	cmd.Flag("overwrite-directories", "Overwrite existing directories").Default("true").BoolVar(&c.restoreOverwriteDirectories)
 	cmd.Flag("overwrite-files", "Specifies whether or not to overwrite already existing files").Default("true").BoolVar(&c.restoreOverwriteFiles)
 	cmd.Flag("overwrite-symlinks", "Specifies whether or not to overwrite already existing symlinks").Default("true").BoolVar(&c.restoreOverwriteSymlinks)
@@ -107,7 +119,16 @@ const (
 )
 
 func (c *commandRestore) restoreOutput(ctx context.Context) (restore.Output, error) {
-	p, err := filepath.Abs(c.restoreTargetPath)
+	targetpath, placeholderrestore := restore.PathIfPlaceholder(c.restoreSourceID)
+	if !placeholderrestore {
+		if c.restoreTargetPath == "" {
+			return nil, errors.Errorf("restore requires a target-path unless restoring a placeholder")
+		}
+
+		targetpath = c.restoreTargetPath
+	}
+
+	p, err := filepath.Abs(targetpath)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to resolve path")
 	}
@@ -204,14 +225,27 @@ func printRestoreStats(ctx context.Context, st restore.Stats) {
 }
 
 func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
-	output, err := c.restoreOutput(ctx)
-	if err != nil {
-		return errors.Wrap(err, "unable to initialize output")
+	output, oerr := c.restoreOutput(ctx)
+	if oerr != nil {
+		return errors.Wrap(oerr, "unable to initialize output")
 	}
 
-	rootEntry, err := snapshotfs.FilesystemEntryFromIDWithPath(ctx, rep, c.restoreSourceID, c.restoreConsistentAttributes)
-	if err != nil {
-		return errors.Wrap(err, "unable to get filesystem entry")
+	var rootEntry fs.Entry
+
+	if _, placeholderrestore := restore.PathIfPlaceholder(c.restoreSourceID); placeholderrestore {
+		re, err := snapshotfs.GetEntryFromPlaceholder(ctx, rep, localfs.PlaceholderFilePath(c.restoreSourceID))
+		if err != nil {
+			return errors.Wrapf(err, "unable to get filesystem entry for placeholder %q", c.restoreSourceID)
+		}
+
+		rootEntry = re
+	} else {
+		re, err := snapshotfs.FilesystemEntryFromIDWithPath(ctx, rep, c.restoreSourceID, c.restoreConsistentAttributes)
+		if err != nil {
+			return errors.Wrap(err, "unable to get filesystem entry")
+		}
+
+		rootEntry = re
 	}
 
 	eta := timetrack.Start()

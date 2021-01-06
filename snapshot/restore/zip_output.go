@@ -32,6 +32,11 @@ func (o *ZipOutput) FinishDirectory(ctx context.Context, relativePath string, e 
 	return nil
 }
 
+// WriteShallowDirectory implements restore.Output interface.
+func (o *ZipOutput) WriteShallowDirectory(ctx context.Context, relativePath string, e fs.Directory) error {
+	return nil
+}
+
 // Close implements restore.Output interface.
 func (o *ZipOutput) Close(ctx context.Context) error {
 	if err := o.zf.Close(); err != nil {
@@ -90,3 +95,5 @@ func (o *ZipOutput) SymlinkExists(ctx context.Context, relativePath string, l fs
 func NewZipOutput(w io.WriteCloser, method uint16) *ZipOutput {
 	return &ZipOutput{w, zip.NewWriter(w), method}
 }
+
+var _ Output = (*ZipOutput)(nil)

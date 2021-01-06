@@ -48,6 +48,11 @@ func (o *TarOutput) FinishDirectory(ctx context.Context, relativePath string, e 
 	return nil
 }
 
+// WriteShallowDirectory implements restore.Output interface.
+func (o *TarOutput) WriteShallowDirectory(ctx context.Context, relativePath string, e fs.Directory) error {
+	return nil
+}
+
 // Close implements restore.Output interface.
 func (o *TarOutput) Close(ctx context.Context) error {
 	if err := o.tf.Close(); err != nil {
@@ -125,3 +130,5 @@ func (o *TarOutput) SymlinkExists(ctx context.Context, relativePath string, l fs
 func NewTarOutput(w io.WriteCloser) *TarOutput {
 	return &TarOutput{w, tar.NewWriter(w)}
 }
+
+var _ Output = (*TarOutput)(nil)

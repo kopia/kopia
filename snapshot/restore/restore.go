@@ -20,6 +20,7 @@ var log = logging.GetContextLoggerFunc("restore")
 type Output interface {
 	Parallelizable() bool
 	BeginDirectory(ctx context.Context, relativePath string, e fs.Directory) error
+	WriteShallowDirectory(ctx context.Context, relativePath string, e fs.Directory) error
 	FinishDirectory(ctx context.Context, relativePath string, e fs.Directory) error
 	WriteFile(ctx context.Context, relativePath string, e fs.File) error
 	FileExists(ctx context.Context, relativePath string, e fs.File) bool
@@ -66,6 +67,7 @@ type Options struct {
 	Parallel     int  `json:"parallel"`
 	Incremental  bool `json:"incremental"`
 	IgnoreErrors bool `json:"ignoreErrors"`
+	MaxDepth     int  `json:"maxdepth"`
 
 	ProgressCallback func(ctx context.Context, s Stats)
 	Cancel           chan struct{} // channel that can be externally closed to signal cancelation
@@ -87,8 +89,14 @@ func Entry(ctx context.Context, rep repo.Repository, output Output, rootEntry fs
 		}
 	}
 
+	// Control the depth of a restore. Default (options.MaxDepth = 0) is to restore to full depth.
+	sd := options.MaxDepth
+	if sd > 0 {
+		sd = -sd - 1
+	}
+
 	c.q.EnqueueFront(ctx, func() error {
-		return errors.Wrap(c.copyEntry(ctx, rootEntry, "", func() error { return nil }), "error copying")
+		return errors.Wrap(c.copyEntry(ctx, rootEntry, "", sd, func() error { return nil }), "error copying")
 	})
 
 	numWorkers := options.Parallel
@@ -120,7 +128,7 @@ type copier struct {
 	cancel       chan struct{}
 }
 
-func (c *copier) copyEntry(ctx context.Context, e fs.Entry, targetPath string, onCompletion func() error) error {
+func (c *copier) copyEntry(ctx context.Context, e fs.Entry, targetPath string, depth int, onCompletion func() error) error {
 	if c.cancel != nil {
 		select {
 		case <-c.cancel:
@@ -152,7 +160,7 @@ func (c *copier) copyEntry(ctx context.Context, e fs.Entry, targetPath string, o
 		}
 	}
 
-	err := c.copyEntryInternal(ctx, e, targetPath, onCompletion)
+	err := c.copyEntryInternal(ctx, e, targetPath, depth, onCompletion)
 	if err == nil {
 		return nil
 	}
@@ -167,11 +175,11 @@ func (c *copier) copyEntry(ctx context.Context, e fs.Entry, targetPath string, o
 	return err
 }
 
-func (c *copier) copyEntryInternal(ctx context.Context, e fs.Entry, targetPath string, onCompletion func() error) error {
+func (c *copier) copyEntryInternal(ctx context.Context, e fs.Entry, targetPath string, depth int, onCompletion func() error) error {
 	switch e := e.(type) {
 	case fs.Directory:
 		log(ctx).Debugf("dir: '%v'", targetPath)
-		return c.copyDirectory(ctx, e, targetPath, onCompletion)
+		return c.copyDirectory(ctx, e, targetPath, depth, onCompletion)
 	case fs.File:
 		log(ctx).Debugf("file: '%v'", targetPath)
 
@@ -199,14 +207,22 @@ func (c *copier) copyEntryInternal(ctx context.Context, e fs.Entry, targetPath s
 	}
 }
 
-func (c *copier) copyDirectory(ctx context.Context, d fs.Directory, targetPath string, onCompletion parallelwork.CallbackFunc) error {
+func (c *copier) copyDirectory(ctx context.Context, d fs.Directory, targetPath string, depth int, onCompletion parallelwork.CallbackFunc) error {
 	atomic.AddInt32(&c.stats.RestoredDirCount, 1)
+
+	if depth == -1 {
+		if err := c.output.WriteShallowDirectory(ctx, targetPath, d); err != nil {
+			return errors.Wrap(err, "create directory")
+		}
+
+		return onCompletion()
+	}
 
 	if err := c.output.BeginDirectory(ctx, targetPath, d); err != nil {
 		return errors.Wrap(err, "create directory")
 	}
 
-	return errors.Wrap(c.copyDirectoryContent(ctx, d, targetPath, func() error {
+	return errors.Wrap(c.copyDirectoryContent(ctx, d, targetPath, depth+1, func() error {
 		if err := c.output.FinishDirectory(ctx, targetPath, d); err != nil {
 			return errors.Wrap(err, "finish directory")
 		}
@@ -215,7 +231,7 @@ func (c *copier) copyDirectory(ctx context.Context, d fs.Directory, targetPath s
 	}), "copy directory contents")
 }
 
-func (c *copier) copyDirectoryContent(ctx context.Context, d fs.Directory, targetPath string, onCompletion parallelwork.CallbackFunc) error {
+func (c *copier) copyDirectoryContent(ctx context.Context, d fs.Directory, targetPath string, depth int, onCompletion parallelwork.CallbackFunc) error {
 	entries, err := d.Readdir(ctx)
 	if err != nil {
 		return errors.Wrap(err, "error reading directory")
@@ -234,7 +250,7 @@ func (c *copier) copyDirectoryContent(ctx context.Context, d fs.Directory, targe
 			atomic.AddInt32(&c.stats.EnqueuedDirCount, 1)
 			// enqueue directories first, so that we quickly determine the total number and size of items.
 			c.q.EnqueueFront(ctx, func() error {
-				return c.copyEntry(ctx, e, path.Join(targetPath, e.Name()), onItemCompletion)
+				return c.copyEntry(ctx, e, path.Join(targetPath, e.Name()), depth, onItemCompletion)
 			})
 		} else {
 			if isSymlink(e) {
@@ -246,7 +262,7 @@ func (c *copier) copyDirectoryContent(ctx context.Context, d fs.Directory, targe
 			atomic.AddInt64(&c.stats.EnqueuedTotalFileSize, e.Size())
 
 			c.q.EnqueueBack(ctx, func() error {
-				return c.copyEntry(ctx, e, path.Join(targetPath, e.Name()), onItemCompletion)
+				return c.copyEntry(ctx, e, path.Join(targetPath, e.Name()), depth, onItemCompletion)
 			})
 		}
 	}
