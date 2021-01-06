@@ -167,7 +167,7 @@ func (bm *lockFreeManager) buildLocalIndex(pending packIndexBuilder) ([]byte, er
 }
 
 // writePackFileIndexRecoveryData appends data designed to help with recovery of pack index in case it gets damaged or lost.
-func (bm *lockFreeManager) writePackFileIndexRecoveryData(buf *gather.WriteBuffer, pending packIndexBuilder) error {
+func (bm *Manager) writePackFileIndexRecoveryData(buf *gather.WriteBuffer, pending packIndexBuilder) error {
 	// build, encrypt and append local index
 	localIndexOffset := buf.Length()
 
@@ -201,7 +201,7 @@ func (bm *lockFreeManager) writePackFileIndexRecoveryData(buf *gather.WriteBuffe
 	return nil
 }
 
-func (bm *lockFreeManager) readPackFileLocalIndex(ctx context.Context, packFile blob.ID, packFileLength int64) ([]byte, error) {
+func (bm *CommittedReadManager) readPackFileLocalIndex(ctx context.Context, packFile blob.ID, packFileLength int64) ([]byte, error) {
 	// TODO(jkowalski): optimize read when packFileLength is provided
 	_ = packFileLength
 

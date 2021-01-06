@@ -23,35 +23,24 @@ const indexBlobCompactionWarningThreshold = 100
 
 // lockFreeManager contains parts of Manager state that can be accessed without locking.
 type lockFreeManager struct {
-	Stats *Stats
-
-	st             blob.Storage
 	Format         FormattingOptions
 	CachingOptions CachingOptions
-
-	indexBlobManager  indexBlobManager
-	contentCache      contentCache
-	metadataCache     contentCache
-	committedContents *committedContentIndex
 
 	checkInvariantsOnUnlock bool
 
 	writeFormatVersion int32 // format version to write
 
 	maxPackSize       int
-	hasher            hashing.HashFunc
-	encryptor         encryption.Encryptor
 	minPreambleLength int
 	maxPreambleLength int
 	paddingUnit       int
-	timeNow           func() time.Time
 
 	repositoryFormatBytes []byte
 
 	encryptionBufferPool *buf.Pool
 }
 
-func (bm *lockFreeManager) maybeEncryptContentDataForPacking(output *gather.WriteBuffer, data []byte, contentID ID) error {
+func (bm *Manager) maybeEncryptContentDataForPacking(output *gather.WriteBuffer, data []byte, contentID ID) error {
 	var hashOutput [maxHashSize]byte
 
 	iv, err := getPackedContentIV(hashOutput[:], contentID)
@@ -86,7 +75,7 @@ func writeRandomBytesToBuffer(b *gather.WriteBuffer, count int) error {
 	return nil
 }
 
-func (bm *lockFreeManager) loadPackIndexesUnlocked(ctx context.Context) ([]IndexBlobInfo, bool, error) {
+func (bm *CommittedReadManager) loadPackIndexesUnlocked(ctx context.Context) ([]IndexBlobInfo, bool, error) {
 	nextSleepTime := 100 * time.Millisecond //nolint:gomnd
 
 	for i := 0; i < indexLoadAttempts; i++ {
@@ -136,7 +125,7 @@ func (bm *lockFreeManager) loadPackIndexesUnlocked(ctx context.Context) ([]Index
 	return nil, false, errors.Errorf("unable to load pack indexes despite %v retries", indexLoadAttempts)
 }
 
-func (bm *lockFreeManager) tryLoadPackIndexBlobsUnlocked(ctx context.Context, indexBlobs []IndexBlobInfo) error {
+func (bm *CommittedReadManager) tryLoadPackIndexBlobsUnlocked(ctx context.Context, indexBlobs []IndexBlobInfo) error {
 	ch, unprocessedIndexesSize, err := bm.unprocessedIndexBlobsUnlocked(ctx, indexBlobs)
 	if err != nil {
 		return err
@@ -187,7 +176,7 @@ func (bm *lockFreeManager) tryLoadPackIndexBlobsUnlocked(ctx context.Context, in
 }
 
 // unprocessedIndexBlobsUnlocked returns a closed channel filled with content IDs that are not in committedContents cache.
-func (bm *lockFreeManager) unprocessedIndexBlobsUnlocked(ctx context.Context, contents []IndexBlobInfo) (resultCh <-chan blob.ID, totalSize int64, err error) {
+func (bm *CommittedReadManager) unprocessedIndexBlobsUnlocked(ctx context.Context, contents []IndexBlobInfo) (resultCh <-chan blob.ID, totalSize int64, err error) {
 	ch := make(chan blob.ID, len(contents))
 	defer close(ch)
 
@@ -223,7 +212,7 @@ func ValidatePrefix(prefix ID) error {
 	return errors.Errorf("invalid prefix, must be a empty or single letter between 'g' and 'z'")
 }
 
-func (bm *lockFreeManager) getCacheForContentID(id ID) contentCache {
+func (bm *CommittedReadManager) getCacheForContentID(id ID) contentCache {
 	if id.HasPrefix() {
 		return bm.metadataCache
 	}
@@ -231,7 +220,7 @@ func (bm *lockFreeManager) getCacheForContentID(id ID) contentCache {
 	return bm.contentCache
 }
 
-func (bm *lockFreeManager) getContentDataUnlocked(ctx context.Context, pp *pendingPackInfo, bi *Info) ([]byte, error) {
+func (bm *Manager) getContentDataUnlocked(ctx context.Context, pp *pendingPackInfo, bi *Info) ([]byte, error) {
 	var payload []byte
 
 	if pp != nil && pp.packBlobID == bi.PackBlobID {
@@ -245,6 +234,10 @@ func (bm *lockFreeManager) getContentDataUnlocked(ctx context.Context, pp *pendi
 		}
 	}
 
+	return bm.decryptContentAndVerify(payload, bi)
+}
+
+func (bm *CommittedReadManager) decryptContentAndVerify(payload []byte, bi *Info) ([]byte, error) {
 	bm.Stats.readContent(len(payload))
 
 	var hashBuf [maxHashSize]byte
@@ -262,7 +255,7 @@ func (bm *lockFreeManager) getContentDataUnlocked(ctx context.Context, pp *pendi
 	return decrypted, nil
 }
 
-func (bm *lockFreeManager) decryptAndVerify(encrypted, iv []byte) ([]byte, error) {
+func (bm *CommittedReadManager) decryptAndVerify(encrypted, iv []byte) ([]byte, error) {
 	decrypted, err := bm.encryptor.Decrypt(nil, encrypted, iv)
 	if err != nil {
 		return nil, errors.Wrap(err, "decrypt")
@@ -280,7 +273,7 @@ func (bm *lockFreeManager) decryptAndVerify(encrypted, iv []byte) ([]byte, error
 	return decrypted, bm.verifyChecksum(decrypted, iv)
 }
 
-func (bm *lockFreeManager) preparePackDataContent(ctx context.Context, pp *pendingPackInfo) (packIndexBuilder, error) {
+func (bm *Manager) preparePackDataContent(ctx context.Context, pp *pendingPackInfo) (packIndexBuilder, error) {
 	packFileIndex := packIndexBuilder{}
 	haveContent := false
 
@@ -324,7 +317,7 @@ func (bm *lockFreeManager) preparePackDataContent(ctx context.Context, pp *pendi
 }
 
 // IndexBlobs returns the list of active index blobs.
-func (bm *lockFreeManager) IndexBlobs(ctx context.Context, includeInactive bool) ([]IndexBlobInfo, error) {
+func (bm *CommittedReadManager) IndexBlobs(ctx context.Context, includeInactive bool) ([]IndexBlobInfo, error) {
 	return bm.indexBlobManager.listIndexBlobs(ctx, includeInactive)
 }
 
@@ -337,13 +330,13 @@ func getPackedContentIV(output []byte, contentID ID) ([]byte, error) {
 	return output[0:n], nil
 }
 
-func (bm *lockFreeManager) writePackFileNotLocked(ctx context.Context, packFile blob.ID, data gather.Bytes) error {
+func (bm *Manager) writePackFileNotLocked(ctx context.Context, packFile blob.ID, data gather.Bytes) error {
 	bm.Stats.wroteContent(data.Length())
 
 	return bm.st.PutBlob(ctx, packFile, data)
 }
 
-func (bm *lockFreeManager) hashData(output, data []byte) []byte {
+func (bm *Manager) hashData(output, data []byte) []byte {
 	// Hash the content and compute encryption key.
 	contentID := bm.hasher(output, data)
 	bm.Stats.hashedContent(len(data))
@@ -351,7 +344,7 @@ func (bm *lockFreeManager) hashData(output, data []byte) []byte {
 	return contentID
 }
 
-func (bm *lockFreeManager) verifyChecksum(data, contentID []byte) error {
+func (bm *CommittedReadManager) verifyChecksum(data, contentID []byte) error {
 	var hashOutput [maxHashSize]byte
 
 	expected := bm.hasher(hashOutput[:0], data)

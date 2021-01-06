@@ -87,6 +87,8 @@ type Manager struct {
 	flushPackIndexesAfter  time.Time // time when those indexes should be flushed
 
 	lockFreeManager
+
+	CommittedReadManager
 }
 
 type pendingPackInfo struct {
@@ -709,20 +711,23 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 	mu := &sync.RWMutex{}
 	m := &Manager{
 		lockFreeManager: lockFreeManager{
-			Stats:                   new(Stats),
 			Format:                  *f,
-			timeNow:                 timeNow,
 			maxPackSize:             f.MaxPackSize,
-			encryptor:               encryptor,
-			hasher:                  hasher,
 			minPreambleLength:       defaultMinPreambleLength,
 			maxPreambleLength:       defaultMaxPreambleLength,
 			paddingUnit:             defaultPaddingUnit,
-			st:                      st,
 			repositoryFormatBytes:   repositoryFormatBytes,
 			checkInvariantsOnUnlock: os.Getenv("KOPIA_VERIFY_INVARIANTS") != "",
 			writeFormatVersion:      int32(f.Version),
 			encryptionBufferPool:    buf.NewPool(ctx, defaultEncryptionBufferPoolSegmentSize+encryptor.MaxOverhead(), "content-manager-encryption"),
+		},
+
+		CommittedReadManager: CommittedReadManager{
+			st:        st,
+			encryptor: encryptor,
+			hasher:    hasher,
+			Stats:     new(Stats),
+			timeNow:   timeNow,
 		},
 
 		mu:   mu,
@@ -747,6 +752,16 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 func setupCaches(ctx context.Context, m *Manager, caching *CachingOptions) error {
 	caching = caching.CloneOrDefault()
 
+	if err := setupReadManagerCaches(ctx, &m.CommittedReadManager, caching); err != nil {
+		return errors.Wrap(err, "error setting up read manager caches")
+	}
+
+	m.CachingOptions = *caching
+
+	return nil
+}
+
+func setupReadManagerCaches(ctx context.Context, m *CommittedReadManager, caching *CachingOptions) error {
 	dataCacheStorage, err := newCacheStorageOrNil(ctx, caching.CacheDirectory, caching.MaxCacheSizeBytes, "contents")
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize data cache storage")
@@ -788,7 +803,6 @@ func setupCaches(ctx context.Context, m *Manager, caching *CachingOptions) error
 	contentIndex := newCommittedContentIndex(caching)
 
 	// once everything is ready, set it up
-	m.CachingOptions = *caching
 	m.contentCache = dataCache
 	m.metadataCache = metadataCache
 	m.committedContents = contentIndex
