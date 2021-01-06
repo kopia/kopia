@@ -111,6 +111,22 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, parentCheckpointRegis
 	u.Progress.HashingFile(relativePath)
 	defer u.Progress.FinishedHashingFile(relativePath, f.Size())
 
+	if pf, ok := f.(snapshot.HasDirEntryFromPlaceholder); ok {
+		switch de, err := pf.DirEntryFromPlaceholder(ctx); {
+		case err != nil:
+			return nil, errors.Wrap(err, "can't read placeholder")
+		case err == nil && de != nil:
+			// We have read sufficient information from the shallow file's extended
+			// attribute to construct DirEntry.
+			_, err := u.repo.VerifyObject(ctx, de.ObjectID)
+			if err != nil {
+				return nil, errors.Wrapf(err, "invalid placeholder for %q contains foreign object.ID", f.Name())
+			}
+
+			return de, nil
+		}
+	}
+
 	file, err := f.Open(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open file")
@@ -299,6 +315,7 @@ func (u *Uploader) copyWithProgress(dst io.Writer, src io.Reader, completed, len
 	return written, nil
 }
 
+// newDirEntryWithSummary makes DirEntry objects for directory Entries that need a DirectorySummary.
 func newDirEntryWithSummary(d fs.Entry, oid object.ID, summ *fs.DirectorySummary) (*snapshot.DirEntry, error) {
 	de, err := newDirEntry(d, oid)
 	if err != nil {
@@ -310,6 +327,7 @@ func newDirEntryWithSummary(d fs.Entry, oid object.ID, summ *fs.DirectorySummary
 	return de, nil
 }
 
+// newDirEntry makes DirEntry objects for any type of Entry.
 func newDirEntry(md fs.Entry, oid object.ID) (*snapshot.DirEntry, error) {
 	var entryType snapshot.EntryType
 
@@ -923,6 +941,23 @@ type dirReadError struct {
 	error
 }
 
+func uploadShallowDirInternal(ctx context.Context, directory fs.Directory, u *Uploader) (*snapshot.DirEntry, error) {
+	if pf, ok := directory.(snapshot.HasDirEntryFromPlaceholder); ok {
+		switch de, err := pf.DirEntryFromPlaceholder(ctx); {
+		case err != nil:
+			return nil, errors.Wrapf(err, "error reading placeholder for %q", directory.Name())
+		case err == nil && de != nil:
+			if _, err := u.repo.VerifyObject(ctx, de.ObjectID); err != nil {
+				return nil, errors.Wrapf(err, "invalid placeholder for %q contains foreign object.ID", directory.Name())
+			}
+
+			return de, nil
+		}
+	}
+	// No placeholder file exists, proceed as before.
+	return nil, nil
+}
+
 func uploadDirInternal(
 	ctx context.Context,
 	u *Uploader,
@@ -956,6 +991,10 @@ func uploadDirInternal(
 
 	if overrideDir != nil {
 		directory = overrideDir
+	}
+
+	if de, err := uploadShallowDirInternal(ctx, directory, u); de != nil || err != nil {
+		return de, err
 	}
 
 	t0 := u.repo.Time()
