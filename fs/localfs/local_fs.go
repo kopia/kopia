@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/snapshot"
 )
 
 const (
@@ -73,7 +74,7 @@ var _ os.FileInfo = (*filesystemEntry)(nil)
 
 func newEntry(fi os.FileInfo, parentDir string) filesystemEntry {
 	return filesystemEntry{
-		fi.Name(),
+		TrimShallowSuffix(fi.Name()),
 		fi.Size(),
 		fi.ModTime().UnixNano(),
 		fi.Mode(),
@@ -239,6 +240,14 @@ func (fsf *filesystemFile) Open(ctx context.Context) (fs.Reader, error) {
 	}
 
 	return &fileWithMetadata{f}, nil
+}
+
+func (fsf *filesystemFile) DirEntryFromPlaceholder(ctx context.Context) (*snapshot.DirEntry, error) {
+	return ReadShallowPlaceholder(fsf.fullPath())
+}
+
+func (fsd *filesystemDirectory) DirEntryFromPlaceholder(ctx context.Context) (*snapshot.DirEntry, error) {
+	return ReadShallowPlaceholder(fsd.fullPath())
 }
 
 func (fsl *filesystemSymlink) Readlink(ctx context.Context) (string, error) {
