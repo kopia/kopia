@@ -11,7 +11,6 @@ func TestSnapshotCopy(t *testing.T) {
 	t.Parallel()
 
 	e := testenv.NewCLITest(t)
-	e.PassthroughStderr = true
 
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 

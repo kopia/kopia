@@ -194,8 +194,6 @@ func pickRandomEnduranceTestAction() action {
 func enduranceRunner(t *testing.T, runnerID int, fakeTimeServer, webdavServer string) {
 	e := testenv.NewCLITest(t)
 
-	e.PassthroughStderr = true
-
 	e.Environment = append(e.Environment,
 		"KOPIA_FAKE_CLOCK_ENDPOINT="+fakeTimeServer,
 		"KOPIA_CHECK_FOR_UPDATES=false",

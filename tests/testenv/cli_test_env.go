@@ -43,7 +43,7 @@ type CLITest struct {
 
 	DefaultRepositoryCreateFlags []string
 
-	PassthroughStderr bool
+	PassthroughStderr bool // this is for debugging only
 
 	LogsDir string
 }
