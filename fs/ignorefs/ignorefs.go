@@ -33,7 +33,6 @@ type ignoreContext struct {
 }
 
 func (c *ignoreContext) shouldIncludeByName(path string, e fs.Entry) bool {
-
 	shouldIgnore := false
 	for _, m := range c.matchers {
 		// If we already matched a pattern and concluded that the path should be ignored, we only check
@@ -311,7 +310,6 @@ func parseIgnoreFile(ctx context.Context, baseDir string, file fs.File) ([]wcmat
 		}
 
 		m, err := wcmatch.NewWildcardMatcher(line, wcmatch.IgnoreCase(false), wcmatch.BaseDir(trimLeadingCurrentDir(baseDir)))
-
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to parse ignore entry %v", line)
 		}
@@ -322,11 +320,12 @@ func parseIgnoreFile(ctx context.Context, baseDir string, file fs.File) ([]wcmat
 	return matchers, nil
 }
 
-// trimLeadingCurrentDir strips a leading "./" from a directory, or replace with empty string if the directory contains only a "."
+// trimLeadingCurrentDir strips a leading "./" from a directory, or replace with empty string if the directory contains only a ".".
 func trimLeadingCurrentDir(dir string) string {
 	if dir == "." || strings.HasPrefix(dir, "./") {
 		dir = dir[1:]
 	}
+
 	return dir
 }
 

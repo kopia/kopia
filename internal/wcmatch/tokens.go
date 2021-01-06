@@ -7,31 +7,32 @@ import (
 
 type token interface{}
 
-// Represents a '?' in a pattern
+// Represents a '?' in a pattern.
 type tokenAnyChar struct{}
 
 func (tokenAnyChar) String() string {
 	return "?"
 }
 
-// Represents a directory separator
+// Represents a directory separator.
 type tokenDirSep struct{}
 
 func (tokenDirSep) String() string {
 	return "/"
 }
 
-// Represents a '*' or '**' in a pattern
+// Represents a '*' or '**' in a pattern.
 type tokenStar struct{ doubleStar bool }
 
 func (tkn tokenStar) String() string {
 	if tkn.doubleStar {
 		return "**"
 	}
+
 	return "*"
 }
 
-// Represents a single character to match in a pattern
+// Represents a single character to match in a pattern.
 type tokenRune struct{ Ch rune }
 
 func (t tokenRune) String() string {
@@ -46,7 +47,9 @@ type tokenSeq struct {
 
 func (t tokenSeq) String() string {
 	var b strings.Builder
+
 	b.WriteRune('[')
+
 	if t.negated {
 		b.WriteRune('!')
 	}
@@ -56,15 +59,16 @@ func (t tokenSeq) String() string {
 	}
 
 	b.WriteRune(']')
+
 	return b.String()
 }
 
-// Represents a token inside a tokenSeq
+// Represents a token inside a tokenSeq.
 type seqToken interface {
 	match(ch rune) bool
 }
 
-// Represents a range in a sequence, eg. a-z or A-F
+// Represents a range in a sequence, eg. a-z or A-F.
 type seqTokenRuneRange struct {
 	Start, End rune
 	negated    bool
@@ -99,6 +103,7 @@ type seqTokenClass struct {
 func (t seqTokenClass) String() string {
 	return "[:" + t.class + ":]"
 }
+
 func (t seqTokenClass) match(ch rune) bool {
 	return t.matcher(ch)
 }
@@ -109,10 +114,7 @@ func isStar(token token) bool {
 	_, ok := token.(tokenStar)
 	return ok
 }
-func isDoubleStar(token token) bool {
-	tkn, ok := token.(tokenStar)
-	return ok && tkn.doubleStar
-}
+
 func isDirSep(token token) bool {
 	_, ok := token.(tokenDirSep)
 	return ok

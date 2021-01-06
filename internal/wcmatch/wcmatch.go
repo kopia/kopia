@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"unicode"
+
+	"github.com/pkg/errors"
 )
 
 // WildcardMatcher represents a wildcard-pattern (in .gitignore syntax) and options used to match against file paths.
@@ -16,16 +18,16 @@ type WildcardMatcher struct {
 	options Options
 }
 
-// Options defines flags that controls a WildcardMatcher
+// Options defines flags that controls a WildcardMatcher.
 type Options struct {
 	IgnoreCase bool
 	BaseDir    string
 }
 
-// Option supports the functional option pattern for NewWildcardMatcher
+// Option supports the functional option pattern for NewWildcardMatcher.
 type Option func(*Options)
 
-// IgnoreCase is used to enable/disable case-insensitive operation when creating a WildcardMatcher
+// IgnoreCase is used to enable/disable case-insensitive operation when creating a WildcardMatcher.
 func IgnoreCase(enabled bool) Option {
 	return func(args *Options) {
 		args.IgnoreCase = enabled
@@ -53,18 +55,19 @@ func (matcher *WildcardMatcher) Pattern() string {
 	return matcher.pattern
 }
 
-// Negated inidicates whether the pattern used by this matcher is a negated pattern, i.e. starts with a '!'
+// Negated inidicates whether the pattern used by this matcher is a negated pattern, i.e. starts with a '!'.
 func (matcher *WildcardMatcher) Negated() bool {
 	return matcher.negated
 }
 
-// Options gets the options used when constructing the WildcardMatcher
+// Options gets the options used when constructing the WildcardMatcher.
 func (matcher *WildcardMatcher) Options() Options {
 	return matcher.options
 }
 
 // NewWildcardMatcher creates a new WildcardMatcher with the specified pattern and options.
 // The default option is for the matcher to be case-sensitive without a base dir.
+// nolint:funlen,gocognit,gocyclo
 func NewWildcardMatcher(pattern string, options ...Option) (matcher *WildcardMatcher, err error) {
 	var result []token
 
@@ -96,6 +99,7 @@ func NewWildcardMatcher(pattern string, options ...Option) (matcher *WildcardMat
 	negated := false
 	if p.peek(0) == '!' {
 		negated = true
+
 		p.read()
 	}
 
@@ -119,8 +123,7 @@ func NewWildcardMatcher(pattern string, options ...Option) (matcher *WildcardMat
 	// If the pattern isn't rooted, i.e. doesn't start with a '/', then we want it to match
 	// anywhere, so we add an implicit '**/' to the start of the pattern.
 	if !isPatternRooted && !strings.HasPrefix(pattern, "**/") && pattern != "**" && pattern != "" {
-		result = append(result, tokenStar{true})
-		result = append(result, tokenDirSep{})
+		result = append(result, tokenStar{true}, tokenDirSep{})
 	}
 
 	dirOnly := false
@@ -133,8 +136,9 @@ func NewWildcardMatcher(pattern string, options ...Option) (matcher *WildcardMat
 		switch ch {
 		case '\\':
 			if p.eos() {
-				return nil, fmt.Errorf("invalid pattern \"%v\": end of line found after '\\' character. Use '\\\\' to indicate a literal backslash in a pattern", pattern)
+				return nil, errors.Errorf("invalid pattern \"%v\": end of line found after '\\' character. Use '\\\\' to indicate a literal backslash in a pattern", pattern)
 			}
+
 			ch = p.read()
 			result = append(result, tokenRune{ch})
 
@@ -164,8 +168,9 @@ func NewWildcardMatcher(pattern string, options ...Option) (matcher *WildcardMat
 
 		case '[':
 			ch = p.read()
-			negated := ch == '!'
-			if negated {
+			negatedSeq := ch == '!'
+
+			if negatedSeq {
 				ch = p.read()
 			}
 
@@ -173,32 +178,35 @@ func NewWildcardMatcher(pattern string, options ...Option) (matcher *WildcardMat
 
 			for ; ch != ']' && ch != 0; ch = p.read() {
 				if ch == 0 {
-					return nil, fmt.Errorf("invalid pattern \"%v\": end of line found, expected ']'", pattern)
+					return nil, errors.Errorf("invalid pattern \"%v\": end of line found, expected ']'", pattern)
 				}
 
 				if ch == '\\' {
 					ch = p.read()
 					if ch == 0 {
-						return nil, fmt.Errorf("invalid pattern \"%v\": end of line found after '\\' character. Use '\\\\' to indicate a literal backslash in a pattern", pattern)
+						return nil, errors.Errorf("invalid pattern \"%v\": end of line found after '\\' character. Use '\\\\' to indicate a literal backslash in a pattern", pattern)
 					}
 				}
 
-				if p.peek(0) == '-' && p.peek(1) != ']' && p.peek(1) != 0 {
+				switch {
+				case p.peek(0) == '-' && p.peek(1) != ']' && p.peek(1) != 0:
 					// we have a range
 					p.read() // consume the '-'
 					endCh := p.read()
+
 					if endCh == '\\' {
 						endCh = p.read()
 						if endCh == 0 {
-							return nil, fmt.Errorf("invalid pattern \"%v\": end of line found after '\\' character. Use '\\\\' to indicate a literal backslash in a pattern", pattern)
+							return nil, errors.Errorf("invalid pattern \"%v\": end of line found after '\\' character. Use '\\\\' to indicate a literal backslash in a pattern", pattern)
 						}
 					}
 
-					seq = append(seq, seqTokenRuneRange{ch, endCh, negated})
-				} else if ch == '[' && p.peek(0) == ':' {
+					seq = append(seq, seqTokenRuneRange{ch, endCh, negatedSeq})
+
+				case ch == '[' && p.peek(0) == ':':
 					closingBracketIndex := p.indexOf(']')
 					if closingBracketIndex == -1 {
-						return nil, fmt.Errorf("invalid pattern \"%v\": unterminated sequence, expected ']'", pattern)
+						return nil, errors.Errorf("invalid pattern \"%v\": unterminated sequence, expected ']'", pattern)
 					}
 
 					if closingBracketIndex-1 <= p.pos || p.peek(closingBracketIndex-1) != ':' {
@@ -218,9 +226,8 @@ func NewWildcardMatcher(pattern string, options ...Option) (matcher *WildcardMat
 							return unicode.IsLetter(ch) || unicode.IsDigit(ch)
 						}
 					case "alpha":
-						m = func(ch rune) bool {
-							return unicode.IsLetter(ch)
-						}
+						m = unicode.IsLetter
+
 					case "ascii":
 						m = func(ch rune) bool {
 							return ch >= 0 && ch <= 127
@@ -230,42 +237,34 @@ func NewWildcardMatcher(pattern string, options ...Option) (matcher *WildcardMat
 							return unicode.Is(unicode.Zs, ch) || ch == '\t'
 						}
 					case "cntrl":
-						m = func(ch rune) bool {
-							return unicode.IsControl(ch)
-						}
+						m = unicode.IsControl
+
 					case "digit":
-						m = func(ch rune) bool {
-							return unicode.IsDigit(ch)
-						}
+						m = unicode.IsDigit
+
 					case "graph":
-						m = func(ch rune) bool {
-							return unicode.IsGraphic(ch)
-						}
+						m = unicode.IsGraphic
+
 					case "lower":
-						m = func(ch rune) bool {
-							return unicode.IsLower(ch)
-						}
+						m = unicode.IsLower
+
 					case "print":
-						m = func(ch rune) bool {
-							return unicode.IsPrint(ch)
-						}
+						m = unicode.IsPrint
+
 					case "punct":
 						m = func(ch rune) bool {
 							return unicode.IsPunct(ch) || unicode.IsSymbol(ch)
 						}
 					case "space":
-						m = func(ch rune) bool {
-							return unicode.IsSpace(ch)
-						}
+						m = unicode.IsSpace
+
 					case "upper":
 						if args.IgnoreCase {
 							m = func(ch rune) bool {
 								return unicode.IsUpper(ch) || unicode.IsLower(ch)
 							}
 						} else {
-							m = func(ch rune) bool {
-								return unicode.IsUpper(ch)
-							}
+							m = unicode.IsUpper
 						}
 					case "xdigit":
 						m = func(ch rune) bool {
@@ -275,20 +274,20 @@ func NewWildcardMatcher(pattern string, options ...Option) (matcher *WildcardMat
 						}
 
 					default:
-						return nil, fmt.Errorf("invalid pattern %#v: unrecognized character class [:%v:]", pattern, class)
+						return nil, errors.Errorf("invalid pattern %#v: unrecognized character class [:%v:]", pattern, class)
 					}
 
 					seq = append(seq, seqTokenClass{class, m})
-				} else {
+				default:
 					seq = append(seq, seqTokenRune{ch})
 				}
 			}
 
 			if ch != ']' {
-				return nil, fmt.Errorf("invalid pattern %#v: unterminated sequence, expected ']'", pattern)
+				return nil, errors.Errorf("invalid pattern %#v: unterminated sequence, expected ']'", pattern)
 			}
 
-			result = append(result, tokenSeq{seq, negated})
+			result = append(result, tokenSeq{seq, negatedSeq})
 
 		default:
 			result = append(result, tokenRune{ch})
@@ -300,7 +299,8 @@ func NewWildcardMatcher(pattern string, options ...Option) (matcher *WildcardMat
 		tokens:  result,
 		options: *args,
 		dirOnly: dirOnly,
-		negated: negated}, nil
+		negated: negated,
+	}, nil
 }
 
 type matchResult int
@@ -312,9 +312,10 @@ const (
 	wcAbortToDoubleStar
 )
 
-// Match is a func
+// Match matches the specified text against the pattern of this WildcardMatcher. Returns true if it is a match,
+// and false if it is not.  isDir should be set to true to indicate that the specified text is a directory, and
+// false if it is a file.
 func (matcher *WildcardMatcher) Match(text string, isDir bool) bool {
-
 	if matcher.dirOnly && !isDir {
 		return matcher.negated
 	}
@@ -322,13 +323,14 @@ func (matcher *WildcardMatcher) Match(text string, isDir bool) bool {
 	return (doMatch(matcher.tokens, []rune(text), matcher.options.IgnoreCase) == wcMatch) != matcher.negated
 }
 
+//nolint:gocognit,gocyclo
 func doMatch(tokens []token, text []rune, ignoreCase bool) matchResult {
-
 	t := runeScanner{0, text, ignoreCase}
+
 	var tch rune
 	for pi := 0; pi < len(tokens); pi, _ = pi+1, t.read() {
-
 		tch = t.peek(0)
+
 		if t.eos() && !isStar(tokens[pi]) {
 			// We have reached the end of the text but with pattern still remaining without an '*'. This is not a match.
 			return wcAbortAll
@@ -348,6 +350,7 @@ func doMatch(tokens []token, text []rune, ignoreCase bool) matchResult {
 			if tch == '/' {
 				return wcNoMatch
 			}
+
 			continue
 
 		case tokenStar:
@@ -372,6 +375,7 @@ func doMatch(tokens []token, text []rune, ignoreCase bool) matchResult {
 				}
 
 				t.pos = slashIndex
+
 				break
 			}
 
@@ -398,6 +402,7 @@ func doMatch(tokens []token, text []rune, ignoreCase bool) matchResult {
 
 		case tokenSeq:
 			match := false
+
 			for _, r := range token.items {
 				if r.match(tch) {
 					match = true
@@ -427,5 +432,6 @@ func indexOf(slice []rune, ch rune) int {
 			return i
 		}
 	}
+
 	return -1
 }

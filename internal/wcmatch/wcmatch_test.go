@@ -4,11 +4,6 @@ import (
 	"testing"
 )
 
-const BenchPattern = "/foo/**/a?a/*.txt"
-const BenchPath = "/foo/bar/pelle/apa/tightest.txt"
-
-var result bool
-
 type wcCase struct {
 	// The pattern to match the path against.
 	pattern string
@@ -61,11 +56,11 @@ func TestMatchWithBaseDir(t *testing.T) {
 				t.Errorf("(%v) error matching  pattern %#v with path %#v (case-sensitive): got %v want %v", i, tc.pattern, tc.path, actual, tc.expected)
 			}
 		}
-
 	}
 }
+
 func TestMatch(t *testing.T) {
-	var cases = []wcCase{
+	cases := []wcCase{
 		// Basic
 		{"", "", true, true},
 		{"*", "", true, true},
@@ -200,7 +195,7 @@ func TestErrorCases(t *testing.T) {
 }
 
 func TestCharacterClasses(t *testing.T) {
-	var cases = []wcCase{
+	cases := []wcCase{
 		// Character classes
 		{"[[:alnum:]]", "c", true, true},
 		{"[[:alnum:]]", "3", true, true},
