@@ -246,3 +246,63 @@ func (rm *CommittedReadManager) verifyChecksum(data, contentID []byte) error {
 
 	return nil
 }
+
+func (rm *CommittedReadManager) setupReadManagerCaches(ctx context.Context, caching *CachingOptions) error {
+	dataCacheStorage, err := newCacheStorageOrNil(ctx, caching.CacheDirectory, caching.MaxCacheSizeBytes, "contents")
+	if err != nil {
+		return errors.Wrap(err, "unable to initialize data cache storage")
+	}
+
+	dataCache, err := newContentCacheForData(ctx, rm.st, dataCacheStorage, caching.MaxCacheSizeBytes, caching.HMACSecret)
+	if err != nil {
+		return errors.Wrap(err, "unable to initialize content cache")
+	}
+
+	metadataCacheSize := caching.MaxMetadataCacheSizeBytes
+	if metadataCacheSize == 0 && caching.MaxCacheSizeBytes > 0 {
+		metadataCacheSize = caching.MaxCacheSizeBytes
+	}
+
+	metadataCacheStorage, err := newCacheStorageOrNil(ctx, caching.CacheDirectory, metadataCacheSize, "metadata")
+	if err != nil {
+		return errors.Wrap(err, "unable to initialize data cache storage")
+	}
+
+	metadataCache, err := newContentCacheForMetadata(ctx, rm.st, metadataCacheStorage, metadataCacheSize)
+	if err != nil {
+		return errors.Wrap(err, "unable to initialize metadata cache")
+	}
+
+	listCache, err := newListCache(rm.st, caching)
+	if err != nil {
+		return errors.Wrap(err, "unable to initialize list cache")
+	}
+
+	if caching.ownWritesCache == nil {
+		// this is test action to allow test to specify custom cache
+		caching.ownWritesCache, err = newOwnWritesCache(ctx, caching, rm.timeNow)
+		if err != nil {
+			return errors.Wrap(err, "unable to initialize own writes cache")
+		}
+	}
+
+	contentIndex := newCommittedContentIndex(caching)
+
+	// once everything is ready, set it up
+	rm.contentCache = dataCache
+	rm.metadataCache = metadataCache
+	rm.committedContents = contentIndex
+
+	rm.indexBlobManager = &indexBlobManagerImpl{
+		st:                               rm.st,
+		encryptor:                        rm.encryptor,
+		hasher:                           rm.hasher,
+		timeNow:                          rm.timeNow,
+		ownWritesCache:                   caching.ownWritesCache,
+		listCache:                        listCache,
+		indexBlobCache:                   metadataCache,
+		maxEventualConsistencySettleTime: defaultEventualConsistencySettleTime,
+	}
+
+	return nil
+}

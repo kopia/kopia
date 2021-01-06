@@ -752,71 +752,11 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 func setupCaches(ctx context.Context, m *Manager, caching *CachingOptions) error {
 	caching = caching.CloneOrDefault()
 
-	if err := setupReadManagerCaches(ctx, &m.CommittedReadManager, caching); err != nil {
+	if err := m.setupReadManagerCaches(ctx, caching); err != nil {
 		return errors.Wrap(err, "error setting up read manager caches")
 	}
 
 	m.CachingOptions = *caching
-
-	return nil
-}
-
-func setupReadManagerCaches(ctx context.Context, m *CommittedReadManager, caching *CachingOptions) error {
-	dataCacheStorage, err := newCacheStorageOrNil(ctx, caching.CacheDirectory, caching.MaxCacheSizeBytes, "contents")
-	if err != nil {
-		return errors.Wrap(err, "unable to initialize data cache storage")
-	}
-
-	dataCache, err := newContentCacheForData(ctx, m.st, dataCacheStorage, caching.MaxCacheSizeBytes, caching.HMACSecret)
-	if err != nil {
-		return errors.Wrap(err, "unable to initialize content cache")
-	}
-
-	metadataCacheSize := caching.MaxMetadataCacheSizeBytes
-	if metadataCacheSize == 0 && caching.MaxCacheSizeBytes > 0 {
-		metadataCacheSize = caching.MaxCacheSizeBytes
-	}
-
-	metadataCacheStorage, err := newCacheStorageOrNil(ctx, caching.CacheDirectory, metadataCacheSize, "metadata")
-	if err != nil {
-		return errors.Wrap(err, "unable to initialize data cache storage")
-	}
-
-	metadataCache, err := newContentCacheForMetadata(ctx, m.st, metadataCacheStorage, metadataCacheSize)
-	if err != nil {
-		return errors.Wrap(err, "unable to initialize metadata cache")
-	}
-
-	listCache, err := newListCache(m.st, caching)
-	if err != nil {
-		return errors.Wrap(err, "unable to initialize list cache")
-	}
-
-	if caching.ownWritesCache == nil {
-		// this is test action to allow test to specify custom cache
-		caching.ownWritesCache, err = newOwnWritesCache(ctx, caching, m.timeNow)
-		if err != nil {
-			return errors.Wrap(err, "unable to initialize own writes cache")
-		}
-	}
-
-	contentIndex := newCommittedContentIndex(caching)
-
-	// once everything is ready, set it up
-	m.contentCache = dataCache
-	m.metadataCache = metadataCache
-	m.committedContents = contentIndex
-
-	m.indexBlobManager = &indexBlobManagerImpl{
-		st:                               m.st,
-		encryptor:                        m.encryptor,
-		hasher:                           m.hasher,
-		timeNow:                          m.timeNow,
-		ownWritesCache:                   caching.ownWritesCache,
-		listCache:                        listCache,
-		indexBlobCache:                   metadataCache,
-		maxEventualConsistencySettleTime: defaultEventualConsistencySettleTime,
-	}
 
 	return nil
 }
