@@ -104,7 +104,7 @@ func verifyEndToEndFormatter(ctx context.Context, t *testing.T, hashAlgo, encryp
 		MaxPackSize: maxPackSize,
 		MasterKey:   make([]byte, 32), // zero key, does not matter
 		Version:     1,
-	}, nil, clock.Now, nil)
+	}, nil, &ManagerOptions{TimeNow: clock.Now})
 	if err != nil {
 		t.Errorf("can't create content manager with hash %v and encryption %v: %v", hashAlgo, encryptionAlgo, err.Error())
 		return

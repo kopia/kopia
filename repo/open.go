@@ -162,7 +162,7 @@ func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		fo.MaxPackSize = 20 << 20 // nolint:gomnd
 	}
 
-	cmOpts := content.ManagerOptions{
+	cmOpts := &content.ManagerOptions{
 		RepositoryFormatBytes: fb,
 		TimeNow:               defaultTime(options.TimeNowFunc),
 	}

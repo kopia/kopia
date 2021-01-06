@@ -278,12 +278,10 @@ func (rm *CommittedReadManager) setupReadManagerCaches(ctx context.Context, cach
 		return errors.Wrap(err, "unable to initialize list cache")
 	}
 
-	if caching.ownWritesCache == nil {
-		// this is test action to allow test to specify custom cache
-		caching.ownWritesCache, err = newOwnWritesCache(ctx, caching, rm.timeNow)
-		if err != nil {
-			return errors.Wrap(err, "unable to initialize own writes cache")
-		}
+	// this is test action to allow test to specify custom cache
+	owc, err := newOwnWritesCache(ctx, caching, rm.timeNow)
+	if err != nil {
+		return errors.Wrap(err, "unable to initialize own writes cache")
 	}
 
 	contentIndex := newCommittedContentIndex(caching)
@@ -298,7 +296,7 @@ func (rm *CommittedReadManager) setupReadManagerCaches(ctx context.Context, cach
 		encryptor:                        rm.encryptor,
 		hasher:                           rm.hasher,
 		timeNow:                          rm.timeNow,
-		ownWritesCache:                   caching.ownWritesCache,
+		ownWritesCache:                   owc,
 		listCache:                        listCache,
 		indexBlobCache:                   metadataCache,
 		maxEventualConsistencySettleTime: defaultEventualConsistencySettleTime,
@@ -307,7 +305,7 @@ func (rm *CommittedReadManager) setupReadManagerCaches(ctx context.Context, cach
 	return nil
 }
 
-func newReadManager(ctx context.Context, st blob.Storage, f *FormattingOptions, caching *CachingOptions, timeNow func() time.Time) (*CommittedReadManager, error) {
+func newReadManager(ctx context.Context, st blob.Storage, f *FormattingOptions, caching *CachingOptions, opts *ManagerOptions) (*CommittedReadManager, error) {
 	hasher, encryptor, err := CreateHashAndEncryptor(f)
 	if err != nil {
 		return nil, err
@@ -318,7 +316,7 @@ func newReadManager(ctx context.Context, st blob.Storage, f *FormattingOptions, 
 		encryptor: encryptor,
 		hasher:    hasher,
 		Stats:     new(Stats),
-		timeNow:   timeNow,
+		timeNow:   opts.TimeNow,
 	}
 
 	caching = caching.CloneOrDefault()

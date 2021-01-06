@@ -684,19 +684,32 @@ func (bm *Manager) DecryptBlob(ctx context.Context, blobID blob.ID) ([]byte, err
 type ManagerOptions struct {
 	RepositoryFormatBytes []byte
 	TimeNow               func() time.Time // Time provider
+
+	ownWritesCache ownWritesCache // test hook to allow overriding own-writes cache
+}
+
+// CloneOrDefault returns a clone of provided ManagerOptions or default empty struct if nil.
+func (o *ManagerOptions) CloneOrDefault() *ManagerOptions {
+	if o == nil {
+		return &ManagerOptions{}
+	}
+
+	o2 := *o
+
+	return &o2
 }
 
 // NewManager creates new content manager with given packing options and a formatter.
-func NewManager(ctx context.Context, st blob.Storage, f *FormattingOptions, caching *CachingOptions, options ManagerOptions) (*Manager, error) {
-	nowFn := options.TimeNow
-	if nowFn == nil {
-		nowFn = clock.Now
+func NewManager(ctx context.Context, st blob.Storage, f *FormattingOptions, caching *CachingOptions, options *ManagerOptions) (*Manager, error) {
+	options = options.CloneOrDefault()
+	if options.TimeNow == nil {
+		options.TimeNow = clock.Now
 	}
 
-	return newManagerWithOptions(ctx, st, f, caching, nowFn, options.RepositoryFormatBytes)
+	return newManagerWithOptions(ctx, st, f, caching, options)
 }
 
-func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOptions, caching *CachingOptions, timeNow func() time.Time, repositoryFormatBytes []byte) (*Manager, error) {
+func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOptions, caching *CachingOptions, options *ManagerOptions) (*Manager, error) {
 	if f.Version < minSupportedReadVersion || f.Version > currentWriteVersion {
 		return nil, errors.Errorf("can't handle repositories created using version %v (min supported %v, max supported %v)", f.Version, minSupportedReadVersion, maxSupportedReadVersion)
 	}
@@ -707,7 +720,7 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 
 	caching = caching.CloneOrDefault()
 
-	readManager, err := newReadManager(ctx, st, f, caching, options.TimeNow)
+	readManager, err := newReadManager(ctx, st, f, caching, options)
 	if err != nil {
 		return nil, errors.Wrap(err, "error initializing read manager")
 	}
@@ -720,7 +733,7 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 			minPreambleLength:       defaultMinPreambleLength,
 			maxPreambleLength:       defaultMaxPreambleLength,
 			paddingUnit:             defaultPaddingUnit,
-			repositoryFormatBytes:   repositoryFormatBytes,
+			repositoryFormatBytes:   options.RepositoryFormatBytes,
 			checkInvariantsOnUnlock: os.Getenv("KOPIA_VERIFY_INVARIANTS") != "",
 			writeFormatVersion:      int32(f.Version),
 			encryptionBufferPool:    buf.NewPool(ctx, defaultEncryptionBufferPoolSegmentSize+readManager.encryptor.MaxOverhead(), "content-manager-encryption"),
@@ -732,7 +745,7 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 		mu:   mu,
 		cond: sync.NewCond(mu),
 
-		flushPackIndexesAfter: timeNow().Add(flushPackIndexTimeout),
+		flushPackIndexesAfter: options.TimeNow().Add(flushPackIndexTimeout),
 		pendingPacks:          map[blob.ID]*pendingPackInfo{},
 		packIndexBuilder:      make(packIndexBuilder),
 	}
