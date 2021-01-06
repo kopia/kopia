@@ -100,6 +100,13 @@ func directRepositoryAction(act func(ctx context.Context, rep *repo.DirectReposi
 	})
 }
 
+func directRepositoryReadAction(act func(ctx context.Context, rep *repo.DirectRepository) error) func(ctx *kingpin.ParseContext) error {
+	return maybeRepositoryAction(assertDirectRepository(act), repositoryAccessMode{
+		mustBeConnected:    true,
+		disableMaintenance: true,
+	})
+}
+
 func optionalRepositoryAction(act func(ctx context.Context, rep repo.Repository) error) func(ctx *kingpin.ParseContext) error {
 	return maybeRepositoryAction(act, repositoryAccessMode{
 		mustBeConnected: false,

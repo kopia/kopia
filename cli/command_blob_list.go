@@ -31,5 +31,5 @@ func runBlobList(ctx context.Context, rep *repo.DirectRepository) error {
 }
 
 func init() {
-	blobListCommand.Action(directRepositoryAction(runBlobList))
+	blobListCommand.Action(directRepositoryReadAction(runBlobList))
 }

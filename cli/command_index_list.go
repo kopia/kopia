@@ -50,5 +50,5 @@ func runListBlockIndexesAction(ctx context.Context, rep *repo.DirectRepository) 
 }
 
 func init() {
-	blockIndexListCommand.Action(directRepositoryAction(runListBlockIndexesAction))
+	blockIndexListCommand.Action(directRepositoryReadAction(runListBlockIndexesAction))
 }
