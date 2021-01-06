@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/internal/ignore"
+	"github.com/kopia/kopia/internal/wcmatch"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/snapshot/policy"
@@ -25,22 +25,30 @@ type ignoreContext struct {
 
 	onIgnore []IgnoreCallback
 
-	dotIgnoreFiles []string         // which files to look for more ignore rules
-	matchers       []ignore.Matcher // current set of rules to ignore files
-	maxFileSize    int64            // maximum size of file allowed
+	dotIgnoreFiles []string                  // which files to look for more ignore rules
+	matchers       []wcmatch.WildcardMatcher // current set of rules to ignore files
+	maxFileSize    int64                     // maximum size of file allowed
 
 	oneFileSystem bool // should we enter other mounted filesystems
 }
 
 func (c *ignoreContext) shouldIncludeByName(path string, e fs.Entry) bool {
-	for _, m := range c.matchers {
-		if m(path, e.IsDir()) {
-			for _, oi := range c.onIgnore {
-				oi(path, e)
-			}
 
-			return false
+	shouldIgnore := false
+	for _, m := range c.matchers {
+		// If we already matched a pattern and concluded that the path should be ignored, we only check
+		// negated patterns (and vice versa)
+		if !shouldIgnore && !m.Negated() || shouldIgnore && m.Negated() {
+			shouldIgnore = m.Match(trimLeadingCurrentDir(path), e.IsDir())
 		}
+	}
+
+	if shouldIgnore {
+		for _, oi := range c.onIgnore {
+			oi(path, e)
+		}
+
+		return false
 	}
 
 	if c.parent == nil {
@@ -217,12 +225,12 @@ func (c *ignoreContext) overrideFromPolicy(fp *policy.FilesPolicy, dirPath strin
 
 	// append policy-level rules
 	for _, rule := range fp.IgnoreRules {
-		m, err := ignore.ParseGitIgnore(dirPath, rule)
+		m, err := wcmatch.NewWildcardMatcher(rule, wcmatch.IgnoreCase(false), wcmatch.BaseDir(trimLeadingCurrentDir(dirPath)))
 		if err != nil {
 			return errors.Wrapf(err, "unable to parse ignore entry %v", dirPath)
 		}
 
-		c.matchers = append(c.matchers, m)
+		c.matchers = append(c.matchers, *m)
 	}
 
 	return nil
@@ -273,14 +281,20 @@ func combineAndDedupe(slices ...[]string) []string {
 	return result
 }
 
-func parseIgnoreFile(ctx context.Context, baseDir string, file fs.File) ([]ignore.Matcher, error) {
+func parseIgnoreFile(ctx context.Context, baseDir string, file fs.File) ([]wcmatch.WildcardMatcher, error) {
 	f, err := file.Open(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open ignore file")
 	}
 	defer f.Close() //nolint:errcheck
 
-	var matchers []ignore.Matcher
+	var matchers []wcmatch.WildcardMatcher
+
+	// Remove the "current directory" indicator from the baseDir if present, since wcmatch does
+	// not deal with that.
+	if strings.HasPrefix(baseDir, "./") || baseDir == "." {
+		baseDir = baseDir[1:]
+	}
 
 	s := bufio.NewScanner(f)
 	for s.Scan() {
@@ -296,15 +310,24 @@ func parseIgnoreFile(ctx context.Context, baseDir string, file fs.File) ([]ignor
 			continue
 		}
 
-		m, err := ignore.ParseGitIgnore(baseDir, line)
+		m, err := wcmatch.NewWildcardMatcher(line, wcmatch.IgnoreCase(false), wcmatch.BaseDir(trimLeadingCurrentDir(baseDir)))
+
 		if err != nil {
 			return nil, errors.Wrapf(err, "unable to parse ignore entry %v", line)
 		}
 
-		matchers = append(matchers, m)
+		matchers = append(matchers, *m)
 	}
 
 	return matchers, nil
+}
+
+// trimLeadingCurrentDir strips a leading "./" from a directory, or replace with empty string if the directory contains only a "."
+func trimLeadingCurrentDir(dir string) string {
+	if dir == "." || strings.HasPrefix(dir, "./") {
+		dir = dir[1:]
+	}
+	return dir
 }
 
 // Option modifies the behavior of ignorefs.

@@ -277,36 +277,35 @@ var cases = []struct {
 			"./src/sub/a.foo",
 		},
 	},
-	// Requeres major refactoring of ignore logic: https://github.com/kopia/kopia/pull/496#issuecomment-678790009
-	// {
-	// 	desc: "exclude include",
-	// 	setup: func(root *mockfs.Directory) {
-	// 		root.Subdir("src").AddFileLines(".extraignore", []string{
-	// 			"/sub/*.foo",
-	// 			"!/sub/special.foo",
-	// 		}, 0)
-	// 		root.Subdir("src").AddDir("sub", 0)
-	// 		root.Subdir("src").Subdir("sub").AddFile("ignore.foo", dummyFileContents, 0) // ignored by wildcard rule
-	// 		root.Subdir("src").Subdir("sub").AddFile("special.foo", dummyFileContents, 0) // explicitly included
-	// 	},
-	// 	policyTree: policy.BuildTree(map[string]*policy.Policy{
-	// 		"./src": {
-	// 			FilesPolicy: policy.FilesPolicy{
-	// 				DotIgnoreFiles: []string{
-	// 					".extraignore",
-	// 				},
-	// 			},
-	// 		},
-	// 	}, policy.DefaultPolicy),
-	// 	addedFiles: []string{
-	// 		"./src/.extraignore",
-	// 		"./src/sub/",
-	// 		"./src/sub/special.foo",
-	// 	},
-	// 	ignoredFiles: []string{
-	// 		"./src/sub/ignore.foo",
-	// 	},
-	// },
+	{
+		desc: "exclude include",
+		setup: func(root *mockfs.Directory) {
+			root.Subdir("src").AddFileLines(".extraignore", []string{
+				"/sub/*.foo",
+				"!/sub/special.foo",
+			}, 0)
+			root.Subdir("src").AddDir("sub", 0)
+			root.Subdir("src").Subdir("sub").AddFile("ignore.foo", dummyFileContents, 0)  // ignored by wildcard rule
+			root.Subdir("src").Subdir("sub").AddFile("special.foo", dummyFileContents, 0) // explicitly included
+		},
+		policyTree: policy.BuildTree(map[string]*policy.Policy{
+			"./src": {
+				FilesPolicy: policy.FilesPolicy{
+					DotIgnoreFiles: []string{
+						".extraignore",
+					},
+				},
+			},
+		}, policy.DefaultPolicy),
+		addedFiles: []string{
+			"./src/.extraignore",
+			"./src/sub/",
+			"./src/sub/special.foo",
+		},
+		ignoredFiles: []string{
+			"./src/sub/ignore.foo",
+		},
+	},
 	// {
 	// 	desc:       "exclude all but specific wildcard",
 	// 	policyTree: defaultPolicy,
