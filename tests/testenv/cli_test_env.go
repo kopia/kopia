@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -481,6 +482,8 @@ func mustParseSnapshots(t *testing.T, lines []string) []SourceInfo {
 	return result
 }
 
+var globalRandomNameCounter = new(int32)
+
 func randomName(opt DirectoryTreeOptions) string {
 	maxNameLength := intOrDefault(opt.MaxNameLength, 15)
 	minNameLength := intOrDefault(opt.MinNameLength, 3)
@@ -490,7 +493,7 @@ func randomName(opt DirectoryTreeOptions) string {
 
 	cryptorand.Read(b)
 
-	return hex.EncodeToString(b)[:l]
+	return fmt.Sprintf("%v.%v", hex.EncodeToString(b)[:l], atomic.AddInt32(globalRandomNameCounter, 1))
 }
 
 func mustParseSnaphotInfo(t *testing.T, l string) SnapshotInfo {
