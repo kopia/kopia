@@ -44,6 +44,7 @@ require (
 	github.com/pquerna/ffjson v0.0.0-20190930134022-aa0246cd15f7 // indirect
 	github.com/prometheus/client_golang v1.10.0
 	github.com/prometheus/common v0.19.0 // indirect
+	github.com/sanity-io/litter v1.3.0
 	github.com/shirou/gopsutil/v3 v3.21.2 // indirect
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/skratchdot/open-golang v0.0.0-20200116055534-eef842397966
