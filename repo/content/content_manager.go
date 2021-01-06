@@ -74,6 +74,8 @@ type IndexBlobInfo struct {
 
 // Manager builds content-addressable storage with encryption, deduplication and packaging on top of BLOB store.
 type Manager struct {
+	CachingOptions CachingOptions
+
 	mu       *sync.RWMutex
 	cond     *sync.Cond
 	flushing bool
@@ -88,7 +90,7 @@ type Manager struct {
 
 	lockFreeManager
 
-	CommittedReadManager
+	*CommittedReadManager
 }
 
 type pendingPackInfo struct {
@@ -703,9 +705,11 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 		return nil, errors.Errorf("can't handle repositories created using version %v (min supported %v, max supported %v)", f.Version, minSupportedWriteVersion, maxSupportedWriteVersion)
 	}
 
-	hasher, encryptor, err := CreateHashAndEncryptor(f)
+	caching = caching.CloneOrDefault()
+
+	readManager, err := newReadManager(ctx, st, f, caching, options.TimeNow)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error initializing read manager")
 	}
 
 	mu := &sync.RWMutex{}
@@ -719,16 +723,11 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 			repositoryFormatBytes:   repositoryFormatBytes,
 			checkInvariantsOnUnlock: os.Getenv("KOPIA_VERIFY_INVARIANTS") != "",
 			writeFormatVersion:      int32(f.Version),
-			encryptionBufferPool:    buf.NewPool(ctx, defaultEncryptionBufferPoolSegmentSize+encryptor.MaxOverhead(), "content-manager-encryption"),
+			encryptionBufferPool:    buf.NewPool(ctx, defaultEncryptionBufferPoolSegmentSize+readManager.encryptor.MaxOverhead(), "content-manager-encryption"),
 		},
 
-		CommittedReadManager: CommittedReadManager{
-			st:        st,
-			encryptor: encryptor,
-			hasher:    hasher,
-			Stats:     new(Stats),
-			timeNow:   timeNow,
-		},
+		CachingOptions:       *caching,
+		CommittedReadManager: readManager,
 
 		mu:   mu,
 		cond: sync.NewCond(mu),
@@ -738,25 +737,9 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 		packIndexBuilder:      make(packIndexBuilder),
 	}
 
-	if err := setupCaches(ctx, m, caching); err != nil {
-		return nil, errors.Wrap(err, "unable to set up caches")
-	}
-
 	if _, _, err := m.loadPackIndexesUnlocked(ctx); err != nil {
 		return nil, errors.Wrap(err, "error loading indexes")
 	}
 
 	return m, nil
-}
-
-func setupCaches(ctx context.Context, m *Manager, caching *CachingOptions) error {
-	caching = caching.CloneOrDefault()
-
-	if err := m.setupReadManagerCaches(ctx, caching); err != nil {
-		return errors.Wrap(err, "error setting up read manager caches")
-	}
-
-	m.CachingOptions = *caching
-
-	return nil
 }

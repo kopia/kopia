@@ -306,3 +306,26 @@ func (rm *CommittedReadManager) setupReadManagerCaches(ctx context.Context, cach
 
 	return nil
 }
+
+func newReadManager(ctx context.Context, st blob.Storage, f *FormattingOptions, caching *CachingOptions, timeNow func() time.Time) (*CommittedReadManager, error) {
+	hasher, encryptor, err := CreateHashAndEncryptor(f)
+	if err != nil {
+		return nil, err
+	}
+
+	rm := &CommittedReadManager{
+		st:        st,
+		encryptor: encryptor,
+		hasher:    hasher,
+		Stats:     new(Stats),
+		timeNow:   timeNow,
+	}
+
+	caching = caching.CloneOrDefault()
+
+	if err := rm.setupReadManagerCaches(ctx, caching); err != nil {
+		return nil, errors.Wrap(err, "error setting up read manager caches")
+	}
+
+	return rm, nil
+}

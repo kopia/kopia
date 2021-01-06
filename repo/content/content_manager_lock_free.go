@@ -20,8 +20,7 @@ const indexBlobCompactionWarningThreshold = 100
 
 // lockFreeManager contains parts of Manager state that can be accessed without locking.
 type lockFreeManager struct {
-	Format         FormattingOptions
-	CachingOptions CachingOptions
+	Format FormattingOptions
 
 	checkInvariantsOnUnlock bool
 
