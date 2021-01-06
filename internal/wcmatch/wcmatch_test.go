@@ -33,9 +33,12 @@ func TestMatchWithBaseDir(t *testing.T) {
 		{"*.txt", "/base/", "/base/foo.txt", true},
 		{"*.txt", "/base/", "/other/foo.txt", false},
 		{"/src/file.txt", "/base", "/base/src/file.txt", true},
+		{"/src/file.txt", "/base", "/other/src/file.txt", false},
 		{"**/src/file.txt", "/base", "/base/foo/src/file.txt", true},
-		{"src/file.txt", "/base", "/base/foo/src/file.txt", true},
+		{"src/file.txt", "/base", "/base/foo/src/file.txt", false},
 		{"src/file.txt", "/base", "/other/foo/src/file.txt", false},
+		{"file.txt", "/base", "/base/foo/src/file.txt", true},
+		{"file.txt", "/base", "/other/foo/src/file.txt", false},
 	}
 
 	for i, tc := range cases {
@@ -48,6 +51,7 @@ func TestMatchWithBaseDir(t *testing.T) {
 		}
 
 		matcher, err := NewWildcardMatcher(tc.pattern, BaseDir(tc.baseDir))
+
 		if err != nil {
 			t.Errorf("(%v) unexpected error returned for pattern %#v: %v", i, tc.pattern, err)
 		} else {
@@ -69,7 +73,6 @@ func TestMatch(t *testing.T) {
 		{"*.*", "foo.txt", true, true},
 		{"foo\\.txt", "foo.txt", true, true},
 		{"*/", ".git/", true, true},
-		{"!*/", "/.git/", false, false},
 
 		// Sequences
 		{"ab[cd]", "abc", true, true},
@@ -133,13 +136,13 @@ func TestMatch(t *testing.T) {
 		{"/foo/**/bar/**/p.txt", "/foo/bar/p.txt", true, true},
 		{"/foo/**/bar/**/p.txt", "/foo/x/bar/p.txt", true, true},
 		{"/foo/**/bar/**/p.txt", "/foo/x/x/bar/x/y/p.txt", true, true},
+		{"**/bar/a.txt", "/foo/x/x/bar/a.txt", true, true},
 
 		// Rooted/Unrooted
-		{"bar/a.txt", "/foo/bar/a.txt", true, true},
-		{"bar/a.txt", "/bar/a.txt", true, true},
-		{"bar/a.txt", "/foo/bar/car/a.txt", false, false},
-		{"*.txt", "/foo/bar/a.txt", true, true},
+		{"bar/a.txt", "/foo/bar/a.txt", false, false},
 		{"/bar/a.txt", "/foo/bar/a.txt", false, false},
+		{"bar/a.txt", "/bar/a.txt", true, true},
+		{"*.txt", "/foo/bar/a.txt", true, true},
 		{"/*.txt", "/foo/bar/a.txt", false, false},
 		{"**/*.txt", "/foo/bar/a.txt", true, true},
 
@@ -160,6 +163,12 @@ func TestMatch(t *testing.T) {
 		{"!foo", "/bar", true, true},
 		{"!foo", "foo/", false, false},
 		{"!*", "/foo", false, false},
+		{"!*/", "/.git/", false, false},
+		{"!*/", "/foo/bar/", false, false},
+		{"!foo/bar", "/foo/bar", false, false},
+		{"!foo/bar", "/car/foo/bar", true, true},
+		{"!foo/bar/", "/foo/bar/", false, false},
+		{"!foo/bar/", "/car/foo/bar/", true, true},
 
 		// Whitespace trimming
 		{"  \tfoo", "foo", true, true},
@@ -319,6 +328,8 @@ func TestCharacterClasses(t *testing.T) {
 }
 
 func testHelper(t *testing.T, cases []wcCase) {
+	t.Helper()
+
 	for i, tc := range cases {
 		isDir := false
 

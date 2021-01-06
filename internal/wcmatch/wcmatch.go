@@ -120,10 +120,18 @@ func NewWildcardMatcher(pattern string, options ...Option) (matcher *WildcardMat
 		}
 	}
 
-	// If the pattern isn't rooted, i.e. doesn't start with a '/', then we want it to match
+	// If the pattern isn't rooted, i.e. doesn't start with a '/', nor contain a '/' in the middle somewhere, then we want it to match
 	// anywhere, so we add an implicit '**/' to the start of the pattern.
-	if !isPatternRooted && !strings.HasPrefix(pattern, "**/") && pattern != "**" && pattern != "" {
-		result = append(result, tokenStar{true}, tokenDirSep{})
+	firstSlashIndex := p.indexOf('/')
+	if !isPatternRooted && pattern != "**" && pattern != "" {
+		if firstSlashIndex == -1 || firstSlashIndex == len(p.text)-1-p.pos {
+			result = append(result, tokenStar{true}, tokenDirSep{})
+		} else if args.BaseDir == "" {
+			// An unrooted pattern that contains a slash in the middle should be considered rooted, so
+			// prepend the pattern with a '/', unless we have a baseDir, in which case we already have rooted
+			// the pattern above.
+			result = append(result, tokenDirSep{})
+		}
 	}
 
 	dirOnly := false
