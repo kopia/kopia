@@ -55,5 +55,5 @@ func inspectSingleIndexBlob(ctx context.Context, rep *repo.DirectRepository, blo
 }
 
 func init() {
-	indexInspectCommand.Action(directRepositoryAction(runInspectIndexAction))
+	indexInspectCommand.Action(directRepositoryReadAction(runInspectIndexAction))
 }

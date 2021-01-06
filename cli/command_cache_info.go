@@ -57,5 +57,5 @@ func runCacheInfoCommand(ctx context.Context, rep *repo.DirectRepository) error 
 }
 
 func init() {
-	cacheInfoCommand.Action(directRepositoryAction(runCacheInfoCommand))
+	cacheInfoCommand.Action(directRepositoryReadAction(runCacheInfoCommand))
 }

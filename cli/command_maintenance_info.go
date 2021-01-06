@@ -83,5 +83,5 @@ func displayCycleInfo(c *maintenance.CycleParams, t time.Time, rep *repo.DirectR
 }
 
 func init() {
-	maintenanceInfoCommand.Action(directRepositoryAction(runMaintenanceInfoCommand))
+	maintenanceInfoCommand.Action(directRepositoryReadAction(runMaintenanceInfoCommand))
 }

@@ -95,27 +95,39 @@ func assertDirectRepository(act func(ctx context.Context, rep *repo.DirectReposi
 }
 
 func directRepositoryAction(act func(ctx context.Context, rep *repo.DirectRepository) error) func(ctx *kingpin.ParseContext) error {
-	return maybeRepositoryAction(assertDirectRepository(act), true)
+	return maybeRepositoryAction(assertDirectRepository(act), repositoryAccessMode{
+		mustBeConnected: true,
+	})
+}
+
+func directRepositoryReadAction(act func(ctx context.Context, rep *repo.DirectRepository) error) func(ctx *kingpin.ParseContext) error {
+	return maybeRepositoryAction(assertDirectRepository(act), repositoryAccessMode{
+		mustBeConnected:    true,
+		disableMaintenance: true,
+	})
 }
 
 func optionalRepositoryAction(act func(ctx context.Context, rep repo.Repository) error) func(ctx *kingpin.ParseContext) error {
-	return maybeRepositoryAction(act, false)
-}
-
-func repositoryAction(act func(ctx context.Context, rep repo.Repository) error) func(ctx *kingpin.ParseContext) error {
-	return maybeRepositoryAction(act, true)
+	return maybeRepositoryAction(act, repositoryAccessMode{
+		mustBeConnected: false,
+	})
 }
 
 func repositoryReaderAction(act func(ctx context.Context, rep repo.Reader) error) func(ctx *kingpin.ParseContext) error {
 	return maybeRepositoryAction(func(ctx context.Context, rep repo.Repository) error {
 		return act(ctx, rep)
-	}, true)
+	}, repositoryAccessMode{
+		mustBeConnected:    true,
+		disableMaintenance: true,
+	})
 }
 
 func repositoryWriterAction(act func(ctx context.Context, rep repo.Writer) error) func(ctx *kingpin.ParseContext) error {
 	return maybeRepositoryAction(func(ctx context.Context, rep repo.Repository) error {
 		return act(ctx, rep)
-	}, true)
+	}, repositoryAccessMode{
+		mustBeConnected: true,
+	})
 }
 
 func rootContext() context.Context {
@@ -132,7 +144,12 @@ func rootContext() context.Context {
 	return ctx
 }
 
-func maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, required bool) func(ctx *kingpin.ParseContext) error {
+type repositoryAccessMode struct {
+	mustBeConnected    bool
+	disableMaintenance bool
+}
+
+func maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error {
 	return func(kpc *kingpin.ParseContext) error {
 		return withProfiling(func() error {
 			ctx := rootContext()
@@ -150,20 +167,20 @@ func maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) er
 				go http.ListenAndServe(*metricsListenAddr, mux) // nolint:errcheck
 			}
 
-			rep, err := openRepository(ctx, nil, required)
-			if err != nil && required {
+			rep, err := openRepository(ctx, nil, mode.mustBeConnected)
+			if err != nil && mode.mustBeConnected {
 				return errors.Wrap(err, "open repository")
 			}
 
 			err = act(ctx, rep)
 
-			if rep != nil {
+			if rep != nil && !mode.disableMaintenance {
 				if merr := maybeRunMaintenance(ctx, rep); merr != nil {
 					log(ctx).Warningf("error running maintenance: %v", merr)
 				}
 			}
 
-			if rep != nil && required {
+			if rep != nil && mode.mustBeConnected {
 				if cerr := rep.Close(ctx); cerr != nil {
 					return errors.Wrap(cerr, "unable to close repository")
 				}

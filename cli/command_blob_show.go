@@ -82,5 +82,5 @@ func isJSONBlob(b blob.ID) bool {
 }
 
 func init() {
-	blobShowCommand.Action(directRepositoryAction(runBlobShow))
+	blobShowCommand.Action(directRepositoryReadAction(runBlobShow))
 }
