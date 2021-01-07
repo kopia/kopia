@@ -143,34 +143,34 @@ func TestSnapshotCreateWithIgnore(t *testing.T) {
 			},
 			expected: []string{},
 		},
-		// {
-		// 	desc: "ignore_all_but_text_files",
-		// 	files: []testFileEntry{
-		// 		{
-		// 			Name: "/.kopiaignore",
-		// 			Content: []string{
-		// 				"*",
-		// 				"!*.txt",
-		// 				"!*/",
-		// 			},
-		// 		},
-		// 		{Name: "foo/bar/file.txt"},
-		// 		{Name: "foo/bar/file.png"},
-		// 		{Name: "foo/file.txt"},
-		// 		{Name: "foo/file.jpg"},
-		// 		{Name: "car/car.jpg"},
-		// 		{Name: "file.txt"},
-		// 		{Name: "file.bmp"},
-		// 	},
-		// 	expected: []string{
-		// 		"foo/",
-		// 		"foo/bar/",
-		// 		"car/", // all files in this are ignored, but the directory is still included.
-		// 		"foo/bar/file.txt",
-		// 		"foo/file.txt",
-		// 		"file.txt",
-		// 	},
-		// },
+		{
+			desc: "ignore_all_but_text_files",
+			files: []testFileEntry{
+				{
+					Name: "/.kopiaignore",
+					Content: []string{
+						"*",
+						"!*.txt",
+						"!*/",
+					},
+				},
+				{Name: "foo/bar/file.txt"},
+				{Name: "foo/bar/file.png"},
+				{Name: "foo/file.txt"},
+				{Name: "foo/file.jpg"},
+				{Name: "car/car.jpg"},
+				{Name: "file.txt"},
+				{Name: "file.bmp"},
+			},
+			expected: []string{
+				"foo/",
+				"foo/bar/",
+				"car/", // all files in this are ignored, but the directory is still included.
+				"foo/bar/file.txt",
+				"foo/file.txt",
+				"file.txt",
+			},
+		},
 		{
 			desc: "ignore_rooted_vs_unrooted_1",
 			files: []testFileEntry{
@@ -285,24 +285,24 @@ func TestSnapshotCreateWithIgnore(t *testing.T) {
 				"B/",   // directory is empty because all contents are ignored, but the empty directory is still included.
 			},
 		},
-		// {
-		// 	desc: "ignore_rooted_vs_unrooted_6",
-		// 	files: []testFileEntry{
-		// 		{
-		// 			Name: "/.kopiaignore",
-		// 			Content: []string{
-		// 				"# This is a comment  ",
-		// 				"/test1",
-		// 			},
-		// 		},
-		// 		{Name: "A/test1"},
-		// 		{Name: "test1"},
-		// 	},
-		// 	expected: []string{
-		// 		".kopiaignore",
-		// 		"A/test1",
-		// 	},
-		// },
+		{
+			desc: "ignore_rooted_vs_unrooted_6",
+			files: []testFileEntry{
+				{
+					Name: "/.kopiaignore",
+					Content: []string{
+						"# This is a comment  ",
+						"/test1",
+					},
+				},
+				{Name: "A/test1"},
+				{Name: "test1"},
+			},
+			expected: []string{
+				".kopiaignore",
+				"A/test1",
+			},
+		},
 		// {
 		// 	desc: "multiple_ignore_files_1",
 		// 	files: []testFileEntry{
