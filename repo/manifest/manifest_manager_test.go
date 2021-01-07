@@ -149,7 +149,7 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 	}
 
 	// write some data to storage
-	bm, err := content.NewManager(ctx, st, f, nil, content.ManagerOptions{})
+	bm, err := content.NewManager(ctx, st, f, nil, nil)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -175,7 +175,7 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 	}
 
 	// make a new content manager based on corrupted data.
-	bm, err = content.NewManager(ctx, st, f, nil, content.ManagerOptions{})
+	bm, err = content.NewManager(ctx, st, f, nil, nil)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -306,7 +306,7 @@ func newManagerForTesting(ctx context.Context, t *testing.T, data blobtesting.Da
 		Encryption:  encryption.DefaultAlgorithm,
 		MaxPackSize: 100000,
 		Version:     1,
-	}, nil, content.ManagerOptions{})
+	}, nil, nil)
 	if err != nil {
 		t.Fatalf("can't create content manager: %v", err)
 	}

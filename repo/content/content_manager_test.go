@@ -322,7 +322,7 @@ func TestContentManagerFailedToWritePack(t *testing.T) {
 		MaxPackSize: maxPackSize,
 		HMACSecret:  []byte("foo"),
 		MasterKey:   []byte("0123456789abcdef0123456789abcdef"),
-	}, nil, faketime.Frozen(fakeTime), nil)
+	}, nil, &ManagerOptions{TimeNow: faketime.Frozen(fakeTime)})
 	if err != nil {
 		t.Fatalf("can't create bm: %v", err)
 	}
@@ -1809,11 +1809,12 @@ func TestReadsOwnWritesWithEventualConsistencyInMemoryOwnWritesCache(t *testing.
 
 func verifyReadsOwnWrites(t *testing.T, st blob.Storage, timeNow func() time.Time, sharedOwnWritesCache ownWritesCache) {
 	ctx := testlogging.Context(t)
-	cachingOptions := &CachingOptions{
-		ownWritesCache: sharedOwnWritesCache,
-	}
+	cachingOptions := &CachingOptions{}
 
-	bm := newTestContentManagerWithStorageAndCaching(t, st, cachingOptions, timeNow)
+	bm := newTestContentManagerWithStorageAndOptions(t, st, cachingOptions, &ManagerOptions{
+		TimeNow:        timeNow,
+		ownWritesCache: sharedOwnWritesCache,
+	})
 
 	ids := make([]ID, 100)
 	for i := 0; i < len(ids); i++ {
@@ -1863,18 +1864,14 @@ func newTestContentManagerWithStorage(t *testing.T, st blob.Storage, timeFunc fu
 	return newTestContentManagerWithStorageAndCaching(t, st, nil, timeFunc)
 }
 
-func newTestContentManagerWithStorageAndCaching(t *testing.T, st blob.Storage, co *CachingOptions, timeFunc func() time.Time) *Manager {
-	if timeFunc == nil {
-		timeFunc = faketime.AutoAdvance(fakeTime, 1*time.Second)
-	}
-
-	bm, err := newManagerWithOptions(testlogging.Context(t), st, &FormattingOptions{
+func newTestContentManagerWithStorageAndOptions(t *testing.T, st blob.Storage, co *CachingOptions, opts *ManagerOptions) *Manager {
+	bm, err := NewManager(testlogging.Context(t), st, &FormattingOptions{
 		Hash:        "HMAC-SHA256",
 		Encryption:  "AES256-GCM-HMAC-SHA256",
 		HMACSecret:  hmacSecret,
 		MaxPackSize: maxPackSize,
 		Version:     1,
-	}, co, timeFunc, nil)
+	}, co, opts)
 	if err != nil {
 		panic("can't create content manager: " + err.Error())
 	}
@@ -1882,6 +1879,14 @@ func newTestContentManagerWithStorageAndCaching(t *testing.T, st blob.Storage, c
 	bm.checkInvariantsOnUnlock = true
 
 	return bm
+}
+
+func newTestContentManagerWithStorageAndCaching(t *testing.T, st blob.Storage, co *CachingOptions, timeFunc func() time.Time) *Manager {
+	if timeFunc == nil {
+		timeFunc = faketime.AutoAdvance(fakeTime, 1*time.Second)
+	}
+
+	return newTestContentManagerWithStorageAndOptions(t, st, co, &ManagerOptions{TimeNow: timeFunc})
 }
 
 func verifyContentNotFound(ctx context.Context, t *testing.T, bm *Manager, contentID ID) {
