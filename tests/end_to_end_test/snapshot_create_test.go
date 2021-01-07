@@ -143,34 +143,34 @@ func TestSnapshotCreateWithIgnore(t *testing.T) {
 			},
 			expected: []string{},
 		},
-		// {
-		// 	desc: "ignore_all_but_text_files",
-		// 	files: []testFileEntry{
-		// 		{
-		// 			Name: "/.kopiaignore",
-		// 			Content: []string{
-		// 				"*",
-		// 				"!*.txt",
-		// 				"!*/",
-		// 			},
-		// 		},
-		// 		{Name: "foo/bar/file.txt"},
-		// 		{Name: "foo/bar/file.png"},
-		// 		{Name: "foo/file.txt"},
-		// 		{Name: "foo/file.jpg"},
-		// 		{Name: "car/car.jpg"},
-		// 		{Name: "file.txt"},
-		// 		{Name: "file.bmp"},
-		// 	},
-		// 	expected: []string{
-		// 		"foo/",
-		// 		"foo/bar/",
-		// 		"car/", // all files in this are ignored, but the directory is still included.
-		// 		"foo/bar/file.txt",
-		// 		"foo/file.txt",
-		// 		"file.txt",
-		// 	},
-		// },
+		{
+			desc: "ignore_all_but_text_files",
+			files: []testFileEntry{
+				{
+					Name: "/.kopiaignore",
+					Content: []string{
+						"*",
+						"!*.txt",
+						"!*/",
+					},
+				},
+				{Name: "foo/bar/file.txt"},
+				{Name: "foo/bar/file.png"},
+				{Name: "foo/file.txt"},
+				{Name: "foo/file.jpg"},
+				{Name: "car/car.jpg"},
+				{Name: "file.txt"},
+				{Name: "file.bmp"},
+			},
+			expected: []string{
+				"foo/",
+				"foo/bar/",
+				"car/", // all files in this are ignored, but the directory is still included.
+				"foo/bar/file.txt",
+				"foo/file.txt",
+				"file.txt",
+			},
+		},
 		{
 			desc: "ignore_rooted_vs_unrooted_1",
 			files: []testFileEntry{
@@ -285,115 +285,24 @@ func TestSnapshotCreateWithIgnore(t *testing.T) {
 				"B/",   // directory is empty because all contents are ignored, but the empty directory is still included.
 			},
 		},
-		// {
-		// 	desc: "ignore_rooted_vs_unrooted_6",
-		// 	files: []testFileEntry{
-		// 		{
-		// 			Name: "/.kopiaignore",
-		// 			Content: []string{
-		// 				"# This is a comment  ",
-		// 				"/test1",
-		// 			},
-		// 		},
-		// 		{Name: "A/test1"},
-		// 		{Name: "test1"},
-		// 	},
-		// 	expected: []string{
-		// 		".kopiaignore",
-		// 		"A/test1",
-		// 	},
-		// },
-		// {
-		// 	desc: "multiple_ignore_files_1",
-		// 	files: []testFileEntry{
-		// 		{
-		// 			Name: "/.kopiaignore",
-		// 			Content: []string{
-		// 				"# Exclude everything except *.txt files anywhere.",
-		// 				"*",
-		// 				"!*.txt  ", // trailing spaces intentional
-		// 				"!*/",
-		// 				"AB/",
-		// 			},
-		// 		},
-		// 		{
-		// 			Name: "A/.kopiaignore",
-		// 			Content: []string{
-		// 				"*.txt",
-		// 				"# Negate *.go from the file above in the hierarchy.",
-		// 				"!*.go",
-		// 			},
-		// 		},
-		// 		{Name: "A/file.txt"},
-		// 		{Name: "A/file.go"},
-		// 		{Name: "A/AA/file.txt"},
-		// 		{Name: "A/AA/file.go"},
-		// 		{Name: "A/AB/file.txt"},
-		// 		{Name: "A/AB/file.go"},
-		// 		{Name: "B/file.txt"},
-		// 		{Name: "B/file.go"},
-		// 		{Name: "B/AA/file.txt"},
-		// 		{Name: "B/AA/file.go"},
-		// 		{Name: "B/AB/file.txt"},
-		// 		{Name: "B/AB/file.go"},
-		// 	},
-		// 	expected: []string{
-		// 		"A/file.go",
-		// 		"A/AA/file.go",
-		// 		"B/file.txt",
-		// 		"B/AA/file.txt",
-		// 	},
-		// },
-		// {
-		// 	desc: "multiple_ignore_files_2",
-		// 	files: []testFileEntry{
-		// 		{
-		// 			Name: "/.kopiaignore",
-		// 			Content: []string{
-		// 				"# Exclude everything except *.txt files anywhere.",
-		// 				"*",
-		// 				"!*.txt  ", // trailing spaces intentional
-		// 				"!*/",
-		// 				"AB/",
-		// 			},
-		// 		},
-		// 		{
-		// 			Name: "A/.kopiaignore",
-		// 			Content: []string{
-		// 				"*.txt",
-		// 				"# Negate *.go from the file above in the hierarchy.",
-		// 				"!*.go",
-		// 				"!/AB/",
-		// 			},
-		// 		},
-		// 		{
-		// 			Name: "A/AB/.kopiaignore",
-		// 			Content: []string{
-		// 				"!*.txt",
-		// 			},
-		// 		},
-		// 		{Name: "A/file.txt"},
-		// 		{Name: "A/file.go"},
-		// 		{Name: "A/AA/file.txt"},
-		// 		{Name: "A/AA/file.go"},
-		// 		{Name: "A/AB/file.txt"},
-		// 		{Name: "A/AB/file.go"},
-		// 		{Name: "B/file.txt"},
-		// 		{Name: "B/file.go"},
-		// 		{Name: "B/AA/file.txt"},
-		// 		{Name: "B/AA/file.go"},
-		// 		{Name: "B/AB/file.txt"},
-		// 		{Name: "B/AB/file.go"},
-		// 	},
-		// 	expected: []string{
-		// 		"A/file.go",
-		// 		"A/AA/file.go",
-		// 		"A/AB/file.go",
-		// 		"A/AB/file.txt",
-		// 		"B/file.txt",
-		// 		"B/AA/file.txt",
-		// 	},
-		// },
+		{
+			desc: "ignore_rooted_vs_unrooted_6",
+			files: []testFileEntry{
+				{
+					Name: "/.kopiaignore",
+					Content: []string{
+						"# This is a comment  ",
+						"test1",
+					},
+				},
+				{Name: "A/test1"},
+				{Name: "test1"},
+			},
+			expected: []string{
+				".kopiaignore",
+				"A/test1",
+			},
+		},
 	}
 
 	for _, tc := range cases {
