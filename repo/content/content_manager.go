@@ -74,8 +74,6 @@ type IndexBlobInfo struct {
 
 // Manager builds content-addressable storage with encryption, deduplication and packaging on top of BLOB store.
 type Manager struct {
-	CachingOptions CachingOptions
-
 	mu       *sync.RWMutex
 	cond     *sync.Cond
 	flushing bool
@@ -706,27 +704,18 @@ func NewManager(ctx context.Context, st blob.Storage, f *FormattingOptions, cach
 		options.TimeNow = clock.Now
 	}
 
-	return newManagerWithOptions(ctx, st, f, caching, options)
-}
-
-func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOptions, caching *CachingOptions, options *ManagerOptions) (*Manager, error) {
-	if f.Version < minSupportedReadVersion || f.Version > currentWriteVersion {
-		return nil, errors.Errorf("can't handle repositories created using version %v (min supported %v, max supported %v)", f.Version, minSupportedReadVersion, maxSupportedReadVersion)
-	}
-
-	if f.Version < minSupportedWriteVersion || f.Version > currentWriteVersion {
-		return nil, errors.Errorf("can't handle repositories created using version %v (min supported %v, max supported %v)", f.Version, minSupportedWriteVersion, maxSupportedWriteVersion)
-	}
-
-	caching = caching.CloneOrDefault()
-
 	readManager, err := newReadManager(ctx, st, f, caching, options)
 	if err != nil {
 		return nil, errors.Wrap(err, "error initializing read manager")
 	}
 
+	return newManagerWithReadManager(ctx, f, readManager, options), nil
+}
+
+func newManagerWithReadManager(ctx context.Context, f *FormattingOptions, readManager *CommittedReadManager, options *ManagerOptions) *Manager {
 	mu := &sync.RWMutex{}
-	m := &Manager{
+
+	return &Manager{
 		lockFreeManager: lockFreeManager{
 			Format:                  *f,
 			maxPackSize:             f.MaxPackSize,
@@ -739,7 +728,6 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 			encryptionBufferPool:    buf.NewPool(ctx, defaultEncryptionBufferPoolSegmentSize+readManager.encryptor.MaxOverhead(), "content-manager-encryption"),
 		},
 
-		CachingOptions:       *caching,
 		CommittedReadManager: readManager,
 
 		mu:   mu,
@@ -749,10 +737,4 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 		pendingPacks:          map[blob.ID]*pendingPackInfo{},
 		packIndexBuilder:      make(packIndexBuilder),
 	}
-
-	if _, _, err := m.loadPackIndexesUnlocked(ctx); err != nil {
-		return nil, errors.Wrap(err, "error loading indexes")
-	}
-
-	return m, nil
 }

@@ -49,7 +49,7 @@ func (s *Server) handleRepoStatus(ctx context.Context, r *http.Request, body []b
 		return &serverapi.StatusResponse{
 			Connected:     true,
 			ConfigFile:    dr.ConfigFile,
-			CacheDir:      dr.Content.CachingOptions.CacheDirectory,
+			CacheDir:      dr.Cache.CacheDirectory,
 			Hash:          dr.Content.Format.Hash,
 			Encryption:    dr.Content.Format.Encryption,
 			MaxPackSize:   dr.Content.Format.MaxPackSize,

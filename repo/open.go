@@ -183,6 +183,7 @@ func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 	}
 
 	dr := &DirectRepository{
+		Cache:     *caching,
 		Content:   cm,
 		Objects:   om,
 		Blobs:     st,

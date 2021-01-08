@@ -306,6 +306,14 @@ func (rm *CommittedReadManager) setupReadManagerCaches(ctx context.Context, cach
 }
 
 func newReadManager(ctx context.Context, st blob.Storage, f *FormattingOptions, caching *CachingOptions, opts *ManagerOptions) (*CommittedReadManager, error) {
+	if f.Version < minSupportedReadVersion || f.Version > currentWriteVersion {
+		return nil, errors.Errorf("can't handle repositories created using version %v (min supported %v, max supported %v)", f.Version, minSupportedReadVersion, maxSupportedReadVersion)
+	}
+
+	if f.Version < minSupportedWriteVersion || f.Version > currentWriteVersion {
+		return nil, errors.Errorf("can't handle repositories created using version %v (min supported %v, max supported %v)", f.Version, minSupportedWriteVersion, maxSupportedWriteVersion)
+	}
+
 	hasher, encryptor, err := CreateHashAndEncryptor(f)
 	if err != nil {
 		return nil, err
@@ -323,6 +331,10 @@ func newReadManager(ctx context.Context, st blob.Storage, f *FormattingOptions, 
 
 	if err := rm.setupReadManagerCaches(ctx, caching); err != nil {
 		return nil, errors.Wrap(err, "error setting up read manager caches")
+	}
+
+	if _, _, err := rm.loadPackIndexesUnlocked(ctx); err != nil {
+		return nil, errors.Wrap(err, "error loading indexes")
 	}
 
 	return rm, nil
