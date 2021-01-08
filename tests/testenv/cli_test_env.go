@@ -292,6 +292,12 @@ func (e *CLITest) ListDirectory(t *testing.T, targets ...string) []DirEntry {
 	return mustParseDirectoryEntries(lines)
 }
 
+// ListDirectoryRecursive lists a given directory recursively and returns directory entries.
+func (e *CLITest) ListDirectoryRecursive(t *testing.T, targets ...string) []DirEntry {
+	lines := e.RunAndExpectSuccess(t, append([]string{"ls", "-lr"}, targets...)...)
+	return mustParseDirectoryEntries(lines)
+}
+
 func mustParseDirectoryEntries(lines []string) []DirEntry {
 	var result []DirEntry
 
