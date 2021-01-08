@@ -23,7 +23,7 @@ type committedManifestManager struct {
 	committedContentIDs map[content.ID]bool
 }
 
-func (m *committedManifestManager) getCommittedEntry(ctx context.Context, id ID) (*manifestEntry, error) {
+func (m *committedManifestManager) getCommittedEntryOrNil(ctx context.Context, id ID) (*manifestEntry, error) {
 	if err := m.ensureInitialized(ctx); err != nil {
 		return nil, err
 	}

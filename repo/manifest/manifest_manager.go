@@ -64,9 +64,6 @@ func (m *Manager) Put(ctx context.Context, labels map[string]string, payload int
 		return "", errors.Errorf("'type' label is required")
 	}
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	random := make([]byte, 16)
 	if _, err := rand.Read(random); err != nil {
 		return "", errors.Wrap(err, "can't initialize randomness")
@@ -84,58 +81,29 @@ func (m *Manager) Put(ctx context.Context, labels map[string]string, payload int
 		Content: b,
 	}
 
+	m.mu.Lock()
 	m.pendingEntries[e.ID] = e
+	m.mu.Unlock()
 
 	return e.ID, nil
 }
 
 // GetMetadata returns metadata about provided manifest item or ErrNotFound if the item can't be found.
 func (m *Manager) GetMetadata(ctx context.Context, id ID) (*EntryMetadata, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	e := m.pendingEntries[id]
-	if e == nil {
-		var err error
-
-		e, err = m.committed.getCommittedEntry(ctx, id)
-		if err != nil {
-			return nil, err
-		}
+	e, err := m.getPendingOrCommitted(ctx, id)
+	if err != nil {
+		return nil, err
 	}
 
-	if e == nil || e.Deleted {
-		// nolint:wrapcheck
-		return nil, ErrNotFound
-	}
-
-	return &EntryMetadata{
-		ID:      id,
-		ModTime: e.ModTime,
-		Length:  len(e.Content),
-		Labels:  copyLabels(e.Labels),
-	}, nil
+	return cloneEntryMetadata(e), nil
 }
 
 // Get retrieves the contents of the provided manifest item by deserializing it as JSON to provided object.
 // If the manifest is not found, returns ErrNotFound.
 func (m *Manager) Get(ctx context.Context, id ID, data interface{}) (*EntryMetadata, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	e := m.pendingEntries[id]
-	if e == nil {
-		var err error
-
-		e, err = m.committed.getCommittedEntry(ctx, id)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if e == nil || e.Deleted {
-		// nolint:wrapcheck
-		return nil, ErrNotFound
+	e, err := m.getPendingOrCommitted(ctx, id)
+	if err != nil {
+		return nil, err
 	}
 
 	if data != nil {
@@ -145,6 +113,27 @@ func (m *Manager) Get(ctx context.Context, id ID, data interface{}) (*EntryMetad
 	}
 
 	return cloneEntryMetadata(e), nil
+}
+
+func (m *Manager) getPendingOrCommitted(ctx context.Context, id ID) (*manifestEntry, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	e := m.pendingEntries[id]
+	if e == nil {
+		var err error
+
+		e, err = m.committed.getCommittedEntryOrNil(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if e == nil || e.Deleted {
+		return nil, errors.Wrapf(ErrNotFound, "manifest %v", id)
+	}
+
+	return e, nil
 }
 
 func findEntriesMatchingLabels(m map[ID]*manifestEntry, labels map[string]string) map[ID]*manifestEntry {
@@ -161,6 +150,11 @@ func findEntriesMatchingLabels(m map[ID]*manifestEntry, labels map[string]string
 
 // Find returns the list of EntryMetadata for manifest entries matching all provided labels.
 func (m *Manager) Find(ctx context.Context, labels map[string]string) ([]*EntryMetadata, error) {
+	committedMatches, err := m.committed.findCommittedEntries(ctx, labels)
+	if err != nil {
+		return nil, err
+	}
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -170,20 +164,13 @@ func (m *Manager) Find(ctx context.Context, labels map[string]string) ([]*EntryM
 		matches = append(matches, cloneEntryMetadata(e))
 	}
 
-	committed, err := m.committed.findCommittedEntries(ctx, labels)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, e := range committed {
+	for _, e := range committedMatches {
 		if m.pendingEntries[e.ID] != nil {
 			// ignore committed that are also in pending
 			continue
 		}
 
-		if matchesLabels(e.Labels, labels) {
-			matches = append(matches, cloneEntryMetadata(e))
-		}
+		matches = append(matches, cloneEntryMetadata(e))
 	}
 
 	sort.Slice(matches, func(i, j int) bool {
@@ -231,7 +218,7 @@ func mustSucceed(e error) {
 
 // Delete marks the specified manifest ID for deletion.
 func (m *Manager) Delete(ctx context.Context, id ID) error {
-	com, err := m.committed.getCommittedEntry(ctx, id)
+	com, err := m.committed.getCommittedEntryOrNil(ctx, id)
 	if err != nil {
 		return err
 	}
