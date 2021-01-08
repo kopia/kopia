@@ -303,97 +303,97 @@ func TestSnapshotCreateWithIgnore(t *testing.T) {
 				"A/test1",
 			},
 		},
-		// {
-		// 	desc: "multiple_ignore_files_1",
-		// 	files: []testFileEntry{
-		// 		{
-		// 			Name: "/.kopiaignore",
-		// 			Content: []string{
-		// 				"# Exclude everything except *.txt files anywhere.",
-		// 				"*",
-		// 				"!*.txt  ", // trailing spaces intentional
-		// 				"!*/",
-		// 				"AB/",
-		// 			},
-		// 		},
-		// 		{
-		// 			Name: "A/.kopiaignore",
-		// 			Content: []string{
-		// 				"*.txt",
-		// 				"# Negate *.go from the file above in the hierarchy.",
-		// 				"!*.go",
-		// 			},
-		// 		},
-		// 		{Name: "A/file.txt"},
-		// 		{Name: "A/file.go"},
-		// 		{Name: "A/AA/file.txt"},
-		// 		{Name: "A/AA/file.go"},
-		// 		{Name: "A/AB/file.txt"},
-		// 		{Name: "A/AB/file.go"},
-		// 		{Name: "B/file.txt"},
-		// 		{Name: "B/file.go"},
-		// 		{Name: "B/AA/file.txt"},
-		// 		{Name: "B/AA/file.go"},
-		// 		{Name: "B/AB/file.txt"},
-		// 		{Name: "B/AB/file.go"},
-		// 	},
-		// 	expected: []string{
-		// 		"A/file.go",
-		// 		"A/AA/file.go",
-		// 		"B/file.txt",
-		// 		"B/AA/file.txt",
-		// 	},
-		// },
-		// {
-		// 	desc: "multiple_ignore_files_2",
-		// 	files: []testFileEntry{
-		// 		{
-		// 			Name: "/.kopiaignore",
-		// 			Content: []string{
-		// 				"# Exclude everything except *.txt files anywhere.",
-		// 				"*",
-		// 				"!*.txt  ", // trailing spaces intentional
-		// 				"!*/",
-		// 				"AB/",
-		// 			},
-		// 		},
-		// 		{
-		// 			Name: "A/.kopiaignore",
-		// 			Content: []string{
-		// 				"*.txt",
-		// 				"# Negate *.go from the file above in the hierarchy.",
-		// 				"!*.go",
-		// 				"!/AB/",
-		// 			},
-		// 		},
-		// 		{
-		// 			Name: "A/AB/.kopiaignore",
-		// 			Content: []string{
-		// 				"!*.txt",
-		// 			},
-		// 		},
-		// 		{Name: "A/file.txt"},
-		// 		{Name: "A/file.go"},
-		// 		{Name: "A/AA/file.txt"},
-		// 		{Name: "A/AA/file.go"},
-		// 		{Name: "A/AB/file.txt"},
-		// 		{Name: "A/AB/file.go"},
-		// 		{Name: "B/file.txt"},
-		// 		{Name: "B/file.go"},
-		// 		{Name: "B/AA/file.txt"},
-		// 		{Name: "B/AA/file.go"},
-		// 		{Name: "B/AB/file.txt"},
-		// 		{Name: "B/AB/file.go"},
-		// 	},
-		// 	expected: []string{
-		// 		"A/file.go",
-		// 		"A/AA/file.go",
-		// 		"A/AB/file.go",
-		// 		"A/AB/file.txt",
-		// 		"B/file.txt",
-		// 		"B/AA/file.txt",
-		// 	},
-		// },
+		{
+			desc: "multiple_ignore_files_1",
+			files: []testFileEntry{
+				{
+					Name: "/.kopiaignore",
+					Content: []string{
+						"# Exclude everything except *.txt files anywhere.",
+						"*",
+						"!*.txt  ", // trailing spaces intentional
+						"!*/",
+						"AB/",
+					},
+				},
+				{
+					Name: "A/.kopiaignore",
+					Content: []string{
+						"*.txt",
+						"# Negate *.go from the file above in the hierarchy.",
+						"!*.go",
+					},
+				},
+				{Name: "A/file.txt"},
+				{Name: "A/file.go"},
+				{Name: "A/AA/file.txt"},
+				{Name: "A/AA/file.go"},
+				{Name: "A/AB/file.txt"},
+				{Name: "A/AB/file.go"},
+				{Name: "B/file.txt"},
+				{Name: "B/file.go"},
+				{Name: "B/AA/file.txt"},
+				{Name: "B/AA/file.go"},
+				{Name: "B/AB/file.txt"},
+				{Name: "B/AB/file.go"},
+			},
+			expected: []string{
+				"A/file.go",
+				"A/AA/file.go",
+				"B/file.txt",
+				"B/AA/file.txt",
+			},
+		},
+		{
+			desc: "multiple_ignore_files_2",
+			files: []testFileEntry{
+				{
+					Name: "/.kopiaignore",
+					Content: []string{
+						"# Exclude everything except *.txt files anywhere.",
+						"*",
+						"!*.txt  ", // trailing spaces intentional
+						"!*/",
+						"AB/",
+					},
+				},
+				{
+					Name: "A/.kopiaignore",
+					Content: []string{
+						"*.txt",
+						"# Negate *.go from the file above in the hierarchy.",
+						"!*.go",
+						"!/AB/",
+					},
+				},
+				{
+					Name: "A/AB/.kopiaignore",
+					Content: []string{
+						"!*.txt",
+					},
+				},
+				{Name: "A/file.txt"},
+				{Name: "A/file.go"},
+				{Name: "A/AA/file.txt"},
+				{Name: "A/AA/file.go"},
+				{Name: "A/AB/file.txt"},
+				{Name: "A/AB/file.go"},
+				{Name: "B/file.txt"},
+				{Name: "B/file.go"},
+				{Name: "B/AA/file.txt"},
+				{Name: "B/AA/file.go"},
+				{Name: "B/AB/file.txt"},
+				{Name: "B/AB/file.go"},
+			},
+			expected: []string{
+				"A/file.go",
+				"A/AA/file.go",
+				"A/AB/file.go",
+				"A/AB/file.txt",
+				"B/file.txt",
+				"B/AA/file.txt",
+			},
+		},
 	}
 
 	for _, tc := range cases {
