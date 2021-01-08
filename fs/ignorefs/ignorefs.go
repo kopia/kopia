@@ -34,6 +34,13 @@ type ignoreContext struct {
 
 func (c *ignoreContext) shouldIncludeByName(path string, e fs.Entry) bool {
 	shouldIgnore := false
+
+	// Start by checking with any ignores defined in a parent directory (if there is one).
+	// Any matches here may be negated by .ignore-files in lower directories.
+	if c.parent != nil {
+		shouldIgnore = !c.parent.shouldIncludeByName(path, e)
+	}
+
 	for _, m := range c.matchers {
 		// If we already matched a pattern and concluded that the path should be ignored, we only check
 		// negated patterns (and vice versa)
@@ -50,11 +57,7 @@ func (c *ignoreContext) shouldIncludeByName(path string, e fs.Entry) bool {
 		return false
 	}
 
-	if c.parent == nil {
-		return true
-	}
-
-	return c.parent.shouldIncludeByName(path, e)
+	return true
 }
 
 func (c *ignoreContext) shouldIncludeByDevice(e fs.Entry, parent *ignoreDirectory) bool {
