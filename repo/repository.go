@@ -53,6 +53,7 @@ type DirectRepository struct {
 	Content   *content.Manager
 	Objects   *object.Manager
 	Manifests *manifest.Manager
+	Cache     content.CachingOptions
 	UniqueID  []byte
 
 	ConfigFile string

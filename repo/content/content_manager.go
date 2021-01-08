@@ -74,8 +74,6 @@ type IndexBlobInfo struct {
 
 // Manager builds content-addressable storage with encryption, deduplication and packaging on top of BLOB store.
 type Manager struct {
-	CachingOptions CachingOptions
-
 	mu       *sync.RWMutex
 	cond     *sync.Cond
 	flushing bool
@@ -739,7 +737,6 @@ func newManagerWithOptions(ctx context.Context, st blob.Storage, f *FormattingOp
 			encryptionBufferPool:    buf.NewPool(ctx, defaultEncryptionBufferPoolSegmentSize+readManager.encryptor.MaxOverhead(), "content-manager-encryption"),
 		},
 
-		CachingOptions:       *caching,
 		CommittedReadManager: readManager,
 
 		mu:   mu,
