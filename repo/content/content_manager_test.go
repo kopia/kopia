@@ -315,7 +315,7 @@ func TestContentManagerFailedToWritePack(t *testing.T) {
 	}
 	st = faulty
 
-	bm, err := newManagerWithOptions(testlogging.Context(t), st, &FormattingOptions{
+	bm, err := NewManager(testlogging.Context(t), st, &FormattingOptions{
 		Version:     1,
 		Hash:        "HMAC-SHA256-128",
 		Encryption:  "AES256-GCM-HMAC-SHA256",
