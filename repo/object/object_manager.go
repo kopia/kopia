@@ -29,9 +29,13 @@ type Reader interface {
 	Length() int64
 }
 
-type contentManager interface {
+type contentReader interface {
 	ContentInfo(ctx context.Context, contentID content.ID) (content.Info, error)
 	GetContent(ctx context.Context, contentID content.ID) ([]byte, error)
+}
+
+type contentManager interface {
+	contentReader
 	WriteContent(ctx context.Context, data []byte, prefix content.ID) (content.ID, error)
 }
 
@@ -76,8 +80,8 @@ func (om *Manager) NewWriter(ctx context.Context, opt WriterOptions) Writer {
 }
 
 // Open creates new ObjectReader for reading given object from a repository.
-func (om *Manager) Open(ctx context.Context, objectID ID) (Reader, error) {
-	return om.openAndAssertLength(ctx, objectID, -1)
+func Open(ctx context.Context, r contentReader, objectID ID) (Reader, error) {
+	return openAndAssertLength(ctx, r, objectID, -1)
 }
 
 // Concatenate creates an object that's a result of concatenation of other objects. This is more efficient than reading
@@ -108,7 +112,7 @@ func (om *Manager) Concatenate(ctx context.Context, objectIDs []ID) (ID, error) 
 	)
 
 	for _, objectID := range objectIDs {
-		concatenatedEntries, totalLength, err = om.appendIndexEntriesForObject(ctx, concatenatedEntries, totalLength, objectID)
+		concatenatedEntries, totalLength, err = appendIndexEntriesForObject(ctx, om.contentMgr, concatenatedEntries, totalLength, objectID)
 		if err != nil {
 			return "", errors.Wrapf(err, "error appending %v", objectID)
 		}
@@ -134,9 +138,9 @@ func (om *Manager) Concatenate(ctx context.Context, objectIDs []ID) (ID, error) 
 	return IndirectObjectID(concatID), nil
 }
 
-func (om *Manager) appendIndexEntriesForObject(ctx context.Context, indexEntries []indirectObjectEntry, startingLength int64, objectID ID) (result []indirectObjectEntry, totalLength int64, _ error) {
+func appendIndexEntriesForObject(ctx context.Context, cr contentReader, indexEntries []indirectObjectEntry, startingLength int64, objectID ID) (result []indirectObjectEntry, totalLength int64, _ error) {
 	if indexObjectID, ok := objectID.IndexObjectID(); ok {
-		ndx, err := om.loadSeekTable(ctx, indexObjectID)
+		ndx, err := loadSeekTable(ctx, cr, indexObjectID)
 		if err != nil {
 			return nil, 0, errors.Wrapf(err, "error reading index of %v", objectID)
 		}
@@ -148,7 +152,7 @@ func (om *Manager) appendIndexEntriesForObject(ctx context.Context, indexEntries
 
 	// non-index object - the precise length of the object cannot be determined from content due to compression and padding,
 	// so we must open the object to read its length.
-	r, err := om.Open(ctx, objectID)
+	r, err := Open(ctx, cr, objectID)
 	if err != nil {
 		return nil, 0, errors.Wrapf(err, "error opening %v", objectID)
 	}
@@ -179,10 +183,10 @@ func appendIndexEntries(indexEntries []indirectObjectEntry, startingLength int64
 	return indexEntries, totalLength
 }
 
-func (om *Manager) openAndAssertLength(ctx context.Context, objectID ID, assertLength int64) (Reader, error) {
+func openAndAssertLength(ctx context.Context, cr contentReader, objectID ID, assertLength int64) (Reader, error) {
 	if indexObjectID, ok := objectID.IndexObjectID(); ok {
 		// recursively calls openAndAssertLength
-		seekTable, err := om.loadSeekTable(ctx, indexObjectID)
+		seekTable, err := loadSeekTable(ctx, cr, indexObjectID)
 		if err != nil {
 			return nil, err
 		}
@@ -191,39 +195,39 @@ func (om *Manager) openAndAssertLength(ctx context.Context, objectID ID, assertL
 
 		return &objectReader{
 			ctx:         ctx,
-			repo:        om,
+			cr:          cr,
 			seekTable:   seekTable,
 			totalLength: totalLength,
 		}, nil
 	}
 
-	return om.newRawReader(ctx, objectID, assertLength)
+	return newRawReader(ctx, cr, objectID, assertLength)
 }
 
 // VerifyObject ensures that all objects backing ObjectID are present in the repository
 // and returns the content IDs of which it is composed.
-func (om *Manager) VerifyObject(ctx context.Context, oid ID) ([]content.ID, error) {
+func VerifyObject(ctx context.Context, cr contentReader, oid ID) ([]content.ID, error) {
 	tracker := &contentIDTracker{}
 
-	if err := om.verifyObjectInternal(ctx, oid, tracker); err != nil {
+	if err := verifyObjectInternal(ctx, cr, oid, tracker); err != nil {
 		return nil, err
 	}
 
 	return tracker.contentIDs(), nil
 }
 
-func (om *Manager) verifyIndirectObjectInternal(ctx context.Context, indexObjectID ID, tracker *contentIDTracker) error {
-	if err := om.verifyObjectInternal(ctx, indexObjectID, tracker); err != nil {
+func verifyIndirectObjectInternal(ctx context.Context, cr contentReader, indexObjectID ID, tracker *contentIDTracker) error {
+	if err := verifyObjectInternal(ctx, cr, indexObjectID, tracker); err != nil {
 		return errors.Wrap(err, "unable to read index")
 	}
 
-	seekTable, err := om.loadSeekTable(ctx, indexObjectID)
+	seekTable, err := loadSeekTable(ctx, cr, indexObjectID)
 	if err != nil {
 		return err
 	}
 
 	for _, m := range seekTable {
-		err := om.verifyObjectInternal(ctx, m.Object, tracker)
+		err := verifyObjectInternal(ctx, cr, m.Object, tracker)
 		if err != nil {
 			return err
 		}
@@ -232,13 +236,13 @@ func (om *Manager) verifyIndirectObjectInternal(ctx context.Context, indexObject
 	return nil
 }
 
-func (om *Manager) verifyObjectInternal(ctx context.Context, oid ID, tracker *contentIDTracker) error {
+func verifyObjectInternal(ctx context.Context, r contentReader, oid ID, tracker *contentIDTracker) error {
 	if indexObjectID, ok := oid.IndexObjectID(); ok {
-		return om.verifyIndirectObjectInternal(ctx, indexObjectID, tracker)
+		return verifyIndirectObjectInternal(ctx, r, indexObjectID, tracker)
 	}
 
 	if contentID, _, ok := oid.ContentID(); ok {
-		if _, err := om.contentMgr.ContentInfo(ctx, contentID); err != nil {
+		if _, err := r.ContentInfo(ctx, contentID); err != nil {
 			return errors.Wrapf(err, "error getting content info for %v", contentID)
 		}
 
@@ -312,8 +316,8 @@ type indirectObject struct {
 	Entries  []indirectObjectEntry `json:"entries"`
 }
 
-func (om *Manager) loadSeekTable(ctx context.Context, indexObjectID ID) ([]indirectObjectEntry, error) {
-	r, err := om.openAndAssertLength(ctx, indexObjectID, -1)
+func loadSeekTable(ctx context.Context, cr contentReader, indexObjectID ID) ([]indirectObjectEntry, error) {
+	r, err := openAndAssertLength(ctx, cr, indexObjectID, -1)
 	if err != nil {
 		return nil, err
 	}
@@ -328,13 +332,13 @@ func (om *Manager) loadSeekTable(ctx context.Context, indexObjectID ID) ([]indir
 	return ind.Entries, nil
 }
 
-func (om *Manager) newRawReader(ctx context.Context, objectID ID, assertLength int64) (Reader, error) {
+func newRawReader(ctx context.Context, cr contentReader, objectID ID, assertLength int64) (Reader, error) {
 	contentID, compressed, ok := objectID.ContentID()
 	if !ok {
 		return nil, errors.Errorf("unsupported object ID: %v", objectID)
 	}
 
-	payload, err := om.contentMgr.GetContent(ctx, contentID)
+	payload, err := cr.GetContent(ctx, contentID)
 	if errors.Is(err, content.ErrContentNotFound) {
 		return nil, errors.Wrapf(ErrObjectNotFound, "content %v not found", contentID)
 	}
@@ -346,7 +350,7 @@ func (om *Manager) newRawReader(ctx context.Context, objectID ID, assertLength i
 	if compressed {
 		var b bytes.Buffer
 
-		if err = om.decompress(&b, payload); err != nil {
+		if err = decompress(&b, payload); err != nil {
 			return nil, errors.Wrap(err, "decompression error")
 		}
 
@@ -360,7 +364,7 @@ func (om *Manager) newRawReader(ctx context.Context, objectID ID, assertLength i
 	return newObjectReaderWithData(payload), nil
 }
 
-func (om *Manager) decompress(output *bytes.Buffer, b []byte) error {
+func decompress(output *bytes.Buffer, b []byte) error {
 	compressorID, err := compression.IDFromHeader(b)
 	if err != nil {
 		return errors.Wrap(err, "invalid compression header")

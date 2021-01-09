@@ -244,7 +244,7 @@ func TestObjectWriterRaceBetweenCheckpointAndResult(t *testing.T) {
 		eg.Go(func() error {
 			cpID, cperr := w.Checkpoint()
 			if cperr == nil && cpID != "" {
-				ids, verr := om.VerifyObject(ctx, cpID)
+				ids, verr := VerifyObject(ctx, om.contentMgr, cpID)
 				if verr != nil {
 					return errors.Wrapf(err, "Checkpoint() returned invalid object %v", cpID)
 				}
@@ -268,7 +268,7 @@ func TestObjectWriterRaceBetweenCheckpointAndResult(t *testing.T) {
 func verifyFull(ctx context.Context, t *testing.T, om *Manager, oid ID, want []byte) {
 	t.Helper()
 
-	r, err := om.Open(ctx, oid)
+	r, err := Open(ctx, om.contentMgr, oid)
 	if err != nil {
 		t.Fatalf("unable to open %v: %v", oid, err)
 	}
@@ -293,7 +293,7 @@ func verifyNoError(t *testing.T, err error) {
 	}
 }
 
-func verifyIndirectBlock(ctx context.Context, t *testing.T, r *Manager, oid ID) {
+func verifyIndirectBlock(ctx context.Context, t *testing.T, om *Manager, oid ID) {
 	for indexContentID, isIndirect := oid.IndexObjectID(); isIndirect; indexContentID, isIndirect = indexContentID.IndexObjectID() {
 		if c, _, ok := indexContentID.ContentID(); ok {
 			if !c.HasPrefix() {
@@ -301,7 +301,7 @@ func verifyIndirectBlock(ctx context.Context, t *testing.T, r *Manager, oid ID) 
 			}
 		}
 
-		rd, err := r.Open(ctx, indexContentID)
+		rd, err := Open(ctx, om.contentMgr, indexContentID)
 		if err != nil {
 			t.Errorf("unable to open %v: %v", oid.String(), err)
 			return
@@ -362,7 +362,7 @@ func TestIndirection(t *testing.T) {
 			t.Errorf("unexpected blob count for %v: %v, expected %v", c.dataLength, got, want)
 		}
 
-		b, err := om.VerifyObject(ctx, result)
+		b, err := VerifyObject(ctx, om.contentMgr, result)
 		if err != nil {
 			t.Errorf("error verifying %q: %v", result, err)
 		}
@@ -463,7 +463,7 @@ func TestConcatenate(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		r, err := om.Open(ctx, concatenatedOID)
+		r, err := Open(ctx, om.contentMgr, concatenatedOID)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -492,7 +492,7 @@ func TestConcatenate(t *testing.T) {
 			}
 		}
 
-		if _, err = om.VerifyObject(ctx, concatenatedOID); err != nil {
+		if _, err = VerifyObject(ctx, om.contentMgr, concatenatedOID); err != nil {
 			t.Fatalf("verify error: %v", err)
 		}
 
@@ -502,7 +502,7 @@ func TestConcatenate(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		r, err = om.Open(ctx, concatenated3OID)
+		r, err = Open(ctx, om.contentMgr, concatenated3OID)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -556,7 +556,7 @@ func TestReader(t *testing.T) {
 			continue
 		}
 
-		reader, err := om.Open(ctx, objectID)
+		reader, err := Open(ctx, om.contentMgr, objectID)
 		if err != nil {
 			t.Errorf("cannot create reader for %v: %v", objectID, err)
 			continue
@@ -584,7 +584,7 @@ func TestReaderStoredBlockNotFound(t *testing.T) {
 		t.Errorf("cannot parse object ID: %v", err)
 	}
 
-	reader, err := om.Open(ctx, objectID)
+	reader, err := Open(ctx, om.contentMgr, objectID)
 	if !errors.Is(err, ErrObjectNotFound) || reader != nil {
 		t.Errorf("unexpected result: reader: %v err: %v", reader, err)
 	}
@@ -620,7 +620,7 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 					continue
 				}
 
-				verify(ctx, t, om, objectID, randomData, fmt.Sprintf("%v %v", objectID, size))
+				verify(ctx, t, om.contentMgr, objectID, randomData, fmt.Sprintf("%v %v", objectID, size))
 			}
 		})
 	}
@@ -671,7 +671,7 @@ func TestEndToEndReadAndSeekWithCompression(t *testing.T) {
 								continue
 							}
 
-							verify(ctx, t, om, objectID, randomData, fmt.Sprintf("%v %v", objectID, size))
+							verify(ctx, t, om.contentMgr, objectID, randomData, fmt.Sprintf("%v %v", objectID, size))
 						}
 
 						if compressible {
@@ -705,10 +705,10 @@ func makeMaybeCompressibleData(size int, compressible bool) []byte {
 	return b
 }
 
-func verify(ctx context.Context, t *testing.T, om *Manager, objectID ID, expectedData []byte, testCaseID string) {
+func verify(ctx context.Context, t *testing.T, cr contentReader, objectID ID, expectedData []byte, testCaseID string) {
 	t.Helper()
 
-	reader, err := om.Open(ctx, objectID)
+	reader, err := Open(ctx, cr, objectID)
 	if err != nil {
 		t.Errorf("cannot get reader for %v (%v): %v %v", testCaseID, objectID, err, string(debug.Stack()))
 		return
@@ -761,7 +761,7 @@ func TestSeek(t *testing.T) {
 			t.Fatalf("unable to write: %v", err)
 		}
 
-		r, err := om.Open(ctx, objectID)
+		r, err := Open(ctx, om.contentMgr, objectID)
 		if err != nil {
 			t.Fatalf("open error: %v", err)
 		}

@@ -12,8 +12,8 @@ func (i *indirectObjectEntry) endOffset() int64 {
 }
 
 type objectReader struct {
-	ctx  context.Context
-	repo *Manager
+	ctx context.Context
+	cr  contentReader
 
 	seekTable []indirectObjectEntry
 
@@ -79,7 +79,7 @@ func (r *objectReader) Read(buffer []byte) (int, error) {
 func (r *objectReader) openCurrentChunk() error {
 	st := r.seekTable[r.currentChunkIndex]
 
-	rd, err := r.repo.openAndAssertLength(r.ctx, st.Object, st.Length)
+	rd, err := openAndAssertLength(r.ctx, r.cr, st.Object, st.Length)
 	if err != nil {
 		return err
 	}
