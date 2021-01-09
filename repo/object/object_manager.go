@@ -46,12 +46,9 @@ type Format struct {
 type Manager struct {
 	Format Format
 
-	contentMgr contentManager
-	trace      func(message string, args ...interface{})
-
+	contentMgr  contentManager
 	newSplitter splitter.Factory
-
-	bufferPool *buf.Pool
+	bufferPool  *buf.Pool
 }
 
 // NewWriter creates an ObjectWriter for writing to the repository.
@@ -176,20 +173,11 @@ func appendIndexEntries(indexEntries []indirectObjectEntry, startingLength int64
 	return indexEntries, totalLength
 }
 
-func nullTrace(message string, args ...interface{}) {
-}
-
-// ManagerOptions specifies object manager options.
-type ManagerOptions struct {
-	Trace func(message string, args ...interface{})
-}
-
 // NewObjectManager creates an ObjectManager with the specified content manager and format.
-func NewObjectManager(ctx context.Context, bm contentManager, f Format, opts ManagerOptions) (*Manager, error) {
+func NewObjectManager(ctx context.Context, bm contentManager, f Format) (*Manager, error) {
 	om := &Manager{
 		contentMgr: bm,
 		Format:     f,
-		trace:      nullTrace,
 	}
 
 	splitterID := f.Splitter
@@ -205,12 +193,6 @@ func NewObjectManager(ctx context.Context, bm contentManager, f Format, opts Man
 	om.newSplitter = splitter.Pooled(os)
 
 	om.bufferPool = buf.NewPool(ctx, om.newSplitter().MaxSegmentSize()+maxCompressionOverheadPerSegment, "object-manager")
-
-	if opts.Trace != nil {
-		om.trace = opts.Trace
-	} else {
-		om.trace = nullTrace
-	}
 
 	return om, nil
 }

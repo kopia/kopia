@@ -72,13 +72,13 @@ func (f *fakeContentManager) Flush(ctx context.Context) error {
 }
 
 func setupTest(t *testing.T) (map[content.ID][]byte, *Manager) {
-	return setupTestWithData(t, map[content.ID][]byte{}, ManagerOptions{})
+	return setupTestWithData(t, map[content.ID][]byte{})
 }
 
-func setupTestWithData(t *testing.T, data map[content.ID][]byte, opts ManagerOptions) (map[content.ID][]byte, *Manager) {
+func setupTestWithData(t *testing.T, data map[content.ID][]byte) (map[content.ID][]byte, *Manager) {
 	r, err := NewObjectManager(testlogging.Context(t), &fakeContentManager{data: data}, Format{
 		Splitter: "FIXED-1M",
-	}, opts)
+	})
 	if err != nil {
 		t.Fatalf("can't create object manager: %v", err)
 	}
@@ -212,7 +212,7 @@ func TestObjectWriterRaceBetweenCheckpointAndResult(t *testing.T) {
 
 	om, err := NewObjectManager(testlogging.Context(t), fcm, Format{
 		Splitter: "FIXED-1M",
-	}, ManagerOptions{})
+	})
 	if err != nil {
 		t.Fatalf("can't create object manager: %v", err)
 	}

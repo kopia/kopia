@@ -213,7 +213,7 @@ func openAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions
 	rr.h = hf
 
 	// create object manager using rr as contentManager implementation.
-	omgr, err := object.NewObjectManager(ctx, rr, p.Format, object.ManagerOptions{})
+	omgr, err := object.NewObjectManager(ctx, rr, p.Format)
 	if err != nil {
 		return nil, errors.Wrap(err, "error initializing object manager")
 	}

@@ -46,9 +46,8 @@ var log = logging.GetContextLoggerFunc("kopia/repo")
 
 // Options provides configuration parameters for connection to a repository.
 type Options struct {
-	TraceStorage         func(f string, args ...interface{}) // Logs all storage access using provided Printf-style function
-	ObjectManagerOptions object.ManagerOptions
-	TimeNowFunc          func() time.Time // Time provider
+	TraceStorage func(f string, args ...interface{}) // Logs all storage access using provided Printf-style function
+	TimeNowFunc  func() time.Time                    // Time provider
 }
 
 // ErrInvalidPassword is returned when repository password is invalid.
@@ -172,7 +171,7 @@ func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		return nil, errors.Wrap(err, "unable to open content manager")
 	}
 
-	om, err := object.NewObjectManager(ctx, cm, repoConfig.Format, options.ObjectManagerOptions)
+	om, err := object.NewObjectManager(ctx, cm, repoConfig.Format)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open object manager")
 	}
