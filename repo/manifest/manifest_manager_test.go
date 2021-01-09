@@ -103,7 +103,7 @@ func TestManifest(t *testing.T) {
 	// still found in another
 	verifyItem(ctx, t, mgr2, id3, labels3, item3)
 
-	if err := mgr2.loadCommittedContentsLocked(ctx); err != nil {
+	if err := mgr2.Refresh(ctx); err != nil {
 		t.Errorf("unable to load: %v", err)
 	}
 
@@ -201,14 +201,7 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 		}},
 		{"Delete", func() error { return mgr.Delete(ctx, "anything") }},
 		{"Find", func() error { _, err := mgr.Find(ctx, nil); return err }},
-		{"Put", func() error {
-			_, err := mgr.Put(ctx, map[string]string{
-				"type": "foo",
-			}, map[string]string{
-				"some": "value",
-			})
-			return err
-		}},
+		// Put does not need to initialize
 	}
 
 	for _, tc := range cases {
