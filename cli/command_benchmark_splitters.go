@@ -2,8 +2,10 @@ package cli
 
 import (
 	"context"
+	"math"
 	"math/rand"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -14,13 +16,14 @@ import (
 )
 
 var (
-	benchmarkSplitterCommand    = benchmarkCommands.Command("splitter", "Run splitter benchmarks")
-	benchmarkSplitterRandSeed   = benchmarkSplitterCommand.Flag("rand-seed", "Random seed").Default("42").Int64()
-	benchmarkSplitterBlockSize  = benchmarkSplitterCommand.Flag("data-size", "Size of a data to split").Default("32MB").Bytes()
-	benchmarkSplitterBlockCount = benchmarkSplitterCommand.Flag("block-count", "Number of data blocks to split").Default("16").Int()
+	benchmarkSplitterCommand     = benchmarkCommands.Command("splitter", "Run splitter benchmarks")
+	benchmarkSplitterRandSeed    = benchmarkSplitterCommand.Flag("rand-seed", "Random seed").Default("42").Int64()
+	benchmarkSplitterBlockSize   = benchmarkSplitterCommand.Flag("data-size", "Size of a data to split").Default("32MB").Bytes()
+	benchmarkSplitterBlockCount  = benchmarkSplitterCommand.Flag("block-count", "Number of data blocks to split").Default("16").Int()
+	benchmarkSplitterPrintOption = benchmarkSplitterCommand.Flag("print-options", "Print out fastest dynamic splitter option").Bool()
 )
 
-func runBenchmarkSplitterAction(ctx context.Context, rep repo.Repository) error {
+func runBenchmarkSplitterAction(ctx context.Context, rep repo.Repository) error { //nolint:funlen
 	type benchResult struct {
 		splitter     string
 		duration     time.Duration
@@ -35,6 +38,10 @@ func runBenchmarkSplitterAction(ctx context.Context, rep repo.Repository) error 
 	}
 
 	var results []benchResult
+
+	var best benchResult
+
+	best.duration = math.MaxInt64
 
 	// generate data blocks
 	var dataBlocks [][]byte
@@ -113,6 +120,14 @@ func runBenchmarkSplitterAction(ctx context.Context, rep repo.Repository) error 
 			r.duration.Nanoseconds()/1e6,
 			r.segmentCount,
 			r.min, r.p10, r.p25, r.p50, r.p75, r.p90, r.max)
+
+		if best.duration > r.duration && !strings.HasPrefix(r.splitter, "FIXED") {
+			best = r
+		}
+	}
+
+	if *benchmarkSplitterPrintOption {
+		printStdout("Fastest option for this machine is: --object-splitter=%s\n", best.splitter)
 	}
 
 	return nil

@@ -22,6 +22,7 @@ var (
 	benchmarkCompressionDataFile     = benchmarkCompressionCommand.Flag("data-file", "Use data from the given file instead of empty").ExistingFile()
 	benchmarkCompressionBySize       = benchmarkCompressionCommand.Flag("by-size", "Sort results by size").Bool()
 	benchmarkCompressionVerifyStable = benchmarkCompressionCommand.Flag("verify-stable", "Verify that compression is stable").Bool()
+	benchmarkCompressionOptionPrint  = benchmarkCompressionCommand.Flag("print-options", "Print out options usable for repository creation").Bool()
 )
 
 func runBenchmarkCompressionAction(ctx context.Context, rep repo.Repository) error {
@@ -99,7 +100,13 @@ func runBenchmarkCompressionAction(ctx context.Context, rep repo.Repository) err
 	printStdout("-----------------------------------------------------------------\n")
 
 	for ndx, r := range results {
-		printStdout("%3d. %-30v %-15v %v / second\n", ndx, r.compression, r.compressedSize, units.BytesStringBase2(int64(r.throughput)))
+		printStdout("%3d. %-30v %-15v %v / second", ndx, r.compression, r.compressedSize, units.BytesStringBase2(int64(r.throughput)))
+
+		if *benchmarkCompressionOptionPrint {
+			printStdout(", --compression=%s", r.compression)
+		}
+
+		printStdout("\n")
 	}
 
 	return nil
