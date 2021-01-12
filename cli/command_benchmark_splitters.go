@@ -22,7 +22,7 @@ var (
 	benchmarkSplitterPrintOption = benchmarkSplitterCommand.Flag("print-options", "Print out fastest dynamic splitter option").Bool()
 )
 
-func runBenchmarkSplitterAction(ctx context.Context, rep repo.Repository) error { //nolint:funlen
+func runBenchmarkSplitterAction(ctx context.Context) error { //nolint:funlen
 	type benchResult struct {
 		splitter     string
 		duration     time.Duration
