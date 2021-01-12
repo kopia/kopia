@@ -33,17 +33,17 @@ var (
 )
 
 const (
-	latestReleaseGitHubURL = "https://api.github.com/repos/kopia/kopia/releases/latest"
-	checksumsURL           = "https://github.com/kopia/kopia/releases/download/%v/checksums.txt.sig"
-	autoUpdateNotice       = `
+	latestReleaseGitHubURLFormat = "https://api.github.com/repos/%v/releases/latest"
+	checksumsURLFormat           = "https://github.com/%v/releases/download/%v/checksums.txt.sig"
+	autoUpdateNotice             = `
 NOTICE: Kopia will check for updates on GitHub every 7 days, starting 24 hours after first use.
 To disable this behavior, set environment variable ` + checkForUpdatesEnvar + `=false
 Alternatively you can remove the file "%v".
 
 `
-	updateAvailableNotice = `
+	updateAvailableNoticeFormat = `
 Upgrade of Kopia from %v to %v is available.
-Visit https://github.com/kopia/kopia/releases/latest to download it.
+Visit https://github.com/%v/releases/latest to download it.
 
 `
 )
@@ -116,7 +116,7 @@ func getLatestReleaseNameFromGitHub(ctx context.Context) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, githubTimeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, "GET", latestReleaseGitHubURL, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf(latestReleaseGitHubURLFormat, repo.BuildGitHubRepo), nil)
 	if err != nil {
 		return "", errors.Wrap(err, "unable to get latest release from github")
 	}
@@ -147,7 +147,7 @@ func verifyGitHubReleaseIsComplete(ctx context.Context, releaseName string) erro
 	ctx, cancel := context.WithTimeout(ctx, githubTimeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf(checksumsURL, releaseName), nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", fmt.Sprintf(checksumsURLFormat, repo.BuildGitHubRepo, releaseName), nil)
 	if err != nil {
 		return errors.Wrap(err, "unable to download releases checksum")
 	}
@@ -242,6 +242,11 @@ func maybeCheckGithub(ctx context.Context, us *updateState) error {
 
 // maybePrintUpdateNotification prints notification about available version.
 func maybePrintUpdateNotification(ctx context.Context) {
+	if repo.BuildGitHubRepo == "" {
+		// not built from GH repo.
+		return
+	}
+
 	updatedVersion, err := maybeCheckForUpdates(ctx)
 	if err != nil {
 		log(ctx).Debugf("unable to check for updates: %v", err)
@@ -253,7 +258,7 @@ func maybePrintUpdateNotification(ctx context.Context) {
 		return
 	}
 
-	log(ctx).Noticef(updateAvailableNotice, ensureVPrefix(repo.BuildVersion), ensureVPrefix(updatedVersion))
+	log(ctx).Noticef(updateAvailableNoticeFormat, ensureVPrefix(repo.BuildVersion), ensureVPrefix(updatedVersion), repo.BuildGitHubRepo)
 }
 
 func ensureVPrefix(s string) string {

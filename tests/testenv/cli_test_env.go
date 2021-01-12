@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -43,7 +44,7 @@ type CLITest struct {
 
 	DefaultRepositoryCreateFlags []string
 
-	PassthroughStderr bool
+	PassthroughStderr bool // this is for debugging only
 
 	LogsDir string
 }
@@ -291,6 +292,12 @@ func (e *CLITest) ListDirectory(t *testing.T, targets ...string) []DirEntry {
 	return mustParseDirectoryEntries(lines)
 }
 
+// ListDirectoryRecursive lists a given directory recursively and returns directory entries.
+func (e *CLITest) ListDirectoryRecursive(t *testing.T, targets ...string) []DirEntry {
+	lines := e.RunAndExpectSuccess(t, append([]string{"ls", "-lr"}, targets...)...)
+	return mustParseDirectoryEntries(lines)
+}
+
 func mustParseDirectoryEntries(lines []string) []DirEntry {
 	var result []DirEntry
 
@@ -481,6 +488,8 @@ func mustParseSnapshots(t *testing.T, lines []string) []SourceInfo {
 	return result
 }
 
+var globalRandomNameCounter = new(int32)
+
 func randomName(opt DirectoryTreeOptions) string {
 	maxNameLength := intOrDefault(opt.MaxNameLength, 15)
 	minNameLength := intOrDefault(opt.MinNameLength, 3)
@@ -490,7 +499,7 @@ func randomName(opt DirectoryTreeOptions) string {
 
 	cryptorand.Read(b)
 
-	return hex.EncodeToString(b)[:l]
+	return fmt.Sprintf("%v.%v", hex.EncodeToString(b)[:l], atomic.AddInt32(globalRandomNameCounter, 1))
 }
 
 func mustParseSnaphotInfo(t *testing.T, l string) SnapshotInfo {

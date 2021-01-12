@@ -103,7 +103,7 @@ func TestManifest(t *testing.T) {
 	// still found in another
 	verifyItem(ctx, t, mgr2, id3, labels3, item3)
 
-	if err := mgr2.loadCommittedContentsLocked(ctx); err != nil {
+	if err := mgr2.Refresh(ctx); err != nil {
 		t.Errorf("unable to load: %v", err)
 	}
 
@@ -149,7 +149,7 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 	}
 
 	// write some data to storage
-	bm, err := content.NewManager(ctx, st, f, nil, content.ManagerOptions{})
+	bm, err := content.NewManager(ctx, st, f, nil, nil)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -175,7 +175,7 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 	}
 
 	// make a new content manager based on corrupted data.
-	bm, err = content.NewManager(ctx, st, f, nil, content.ManagerOptions{})
+	bm, err = content.NewManager(ctx, st, f, nil, nil)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -201,14 +201,7 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 		}},
 		{"Delete", func() error { return mgr.Delete(ctx, "anything") }},
 		{"Find", func() error { _, err := mgr.Find(ctx, nil); return err }},
-		{"Put", func() error {
-			_, err := mgr.Put(ctx, map[string]string{
-				"type": "foo",
-			}, map[string]string{
-				"some": "value",
-			})
-			return err
-		}},
+		// Put does not need to initialize
 	}
 
 	for _, tc := range cases {
@@ -306,7 +299,7 @@ func newManagerForTesting(ctx context.Context, t *testing.T, data blobtesting.Da
 		Encryption:  encryption.DefaultAlgorithm,
 		MaxPackSize: 100000,
 		Version:     1,
-	}, nil, content.ManagerOptions{})
+	}, nil, nil)
 	if err != nil {
 		t.Fatalf("can't create content manager: %v", err)
 	}

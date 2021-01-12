@@ -108,6 +108,6 @@ func contentVerify(ctx context.Context, r *repo.DirectRepository, ci *content.In
 }
 
 func init() {
-	contentVerifyCommand.Action(directRepositoryAction(runContentVerifyCommand))
+	contentVerifyCommand.Action(directRepositoryReadAction(runContentVerifyCommand))
 	setupContentIDRangeFlags(contentVerifyCommand)
 }

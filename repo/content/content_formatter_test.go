@@ -97,14 +97,14 @@ func verifyEndToEndFormatter(ctx context.Context, t *testing.T, hashAlgo, encryp
 	keyTime := map[blob.ID]time.Time{}
 	st := blobtesting.NewMapStorage(data, keyTime, nil)
 
-	bm, err := newManagerWithOptions(testlogging.Context(t), st, &FormattingOptions{
+	bm, err := NewManager(testlogging.Context(t), st, &FormattingOptions{
 		Hash:        hashAlgo,
 		Encryption:  encryptionAlgo,
 		HMACSecret:  hmacSecret,
 		MaxPackSize: maxPackSize,
 		MasterKey:   make([]byte, 32), // zero key, does not matter
 		Version:     1,
-	}, nil, clock.Now, nil)
+	}, nil, &ManagerOptions{TimeNow: clock.Now})
 	if err != nil {
 		t.Errorf("can't create content manager with hash %v and encryption %v: %v", hashAlgo, encryptionAlgo, err.Error())
 		return

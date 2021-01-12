@@ -32,7 +32,7 @@ const (
 type uploadTestHarness struct {
 	sourceDir *mockfs.Directory
 	repoDir   string
-	repo      repo.Repository
+	repo      repo.Writer
 	ft        *faketime.TimeAdvance
 }
 

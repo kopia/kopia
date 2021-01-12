@@ -37,5 +37,5 @@ func contentShow(ctx context.Context, r *repo.DirectRepository, contentID conten
 
 func init() {
 	setupShowCommand(contentShowCommand)
-	contentShowCommand.Action(directRepositoryAction(runContentShowCommand))
+	contentShowCommand.Action(directRepositoryReadAction(runContentShowCommand))
 }

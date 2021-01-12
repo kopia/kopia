@@ -20,26 +20,29 @@ var (
 	notSoLargeFileContents = tooLargeFileContents[0 : len(tooLargeFileContents)-1]
 )
 
-func setupFilesystem() *mockfs.Directory {
+func setupFilesystem(skipDefaultFiles bool) *mockfs.Directory {
 	root := mockfs.NewDirectory()
-	root.AddFile("file1", dummyFileContents, 0)
-	root.AddFile("file2", dummyFileContents, 0)
-	root.AddFile("file3", notSoLargeFileContents, 0)
-	root.AddFile("ignored-by-rule", dummyFileContents, 0)
-	root.AddFile("largefile1", tooLargeFileContents, 0)
 
-	dev1 := fs.DeviceInfo{Dev: 1, Rdev: 0}
-	dev2 := fs.DeviceInfo{Dev: 2, Rdev: 0}
+	if !skipDefaultFiles {
+		root.AddFile("file1", dummyFileContents, 0)
+		root.AddFile("file2", dummyFileContents, 0)
+		root.AddFile("file3", notSoLargeFileContents, 0)
+		root.AddFile("ignored-by-rule", dummyFileContents, 0)
+		root.AddFile("largefile1", tooLargeFileContents, 0)
 
-	d1 := root.AddDir("bin", 0)
-	d2 := root.AddDirDevice("pkg", 0, dev1)
-	d3 := root.AddDirDevice("src", 0, dev2)
+		dev1 := fs.DeviceInfo{Dev: 1, Rdev: 0}
+		dev2 := fs.DeviceInfo{Dev: 2, Rdev: 0}
 
-	d1.AddFile("some-bin", dummyFileContents, 0)
-	d2.AddFileDevice("some-pkg", dummyFileContents, 0, dev1)
+		d1 := root.AddDir("bin", 0)
+		d2 := root.AddDirDevice("pkg", 0, dev1)
+		d3 := root.AddDirDevice("src", 0, dev2)
 
-	d4 := d3.AddDirDevice("some-src", 0, dev2)
-	d4.AddFileDevice("f1", dummyFileContents, 0, dev2)
+		d1.AddFile("some-bin", dummyFileContents, 0)
+		d2.AddFileDevice("some-pkg", dummyFileContents, 0, dev1)
+
+		d4 := d3.AddDirDevice("some-src", 0, dev2)
+		d4.AddFileDevice("f1", dummyFileContents, 0, dev2)
+	}
 
 	return root
 }
@@ -93,11 +96,12 @@ var oneFileSystemPolicy = policy.BuildTree(map[string]*policy.Policy{
 }, policy.DefaultPolicy)
 
 var cases = []struct {
-	desc         string
-	policyTree   *policy.Tree
-	setup        func(root *mockfs.Directory)
-	addedFiles   []string
-	ignoredFiles []string
+	desc             string
+	policyTree       *policy.Tree
+	setup            func(root *mockfs.Directory)
+	skipDefaultFiles bool
+	addedFiles       []string
+	ignoredFiles     []string
 }{
 	{desc: "null policy, missing dotignore"},
 	{
@@ -273,79 +277,227 @@ var cases = []struct {
 			"./src/sub/a.foo",
 		},
 	},
-	// Requeres major refactoring of ignore logic: https://github.com/kopia/kopia/pull/496#issuecomment-678790009
-	// {
-	// 	desc: "exclude include",
-	// 	setup: func(root *mockfs.Directory) {
-	// 		root.Subdir("src").AddFileLines(".extraignore", []string{
-	// 			"/sub/*.foo",
-	// 			"!/sub/special.foo",
-	// 		}, 0)
-	// 		root.Subdir("src").AddDir("sub", 0)
-	// 		root.Subdir("src").Subdir("sub").AddFile("ignore.foo", dummyFileContents, 0) // ignored by wildcard rule
-	// 		root.Subdir("src").Subdir("sub").AddFile("special.foo", dummyFileContents, 0) // explicitly included
-	// 	},
-	// 	policyTree: policy.BuildTree(map[string]*policy.Policy{
-	// 		"./src": {
-	// 			FilesPolicy: policy.FilesPolicy{
-	// 				DotIgnoreFiles: []string{
-	// 					".extraignore",
-	// 				},
-	// 			},
-	// 		},
-	// 	}, policy.DefaultPolicy),
-	// 	addedFiles: []string{
-	// 		"./src/.extraignore",
-	// 		"./src/sub/",
-	// 		"./src/sub/special.foo",
-	// 	},
-	// 	ignoredFiles: []string{
-	// 		"./src/sub/ignore.foo",
-	// 	},
-	// },
-	//  Not supported according to spec: https://git-scm.com/docs/gitignore#_pattern_format
-	// {
-	// 	desc: "exclude include wildcard",
-	// 	setup: func(root *mockfs.Directory) {
-	// 		root.Subdir("src").AddFileLines(".extraignore", []string{
-	// 		  ".config/",
-	// 			"!.config/App/**/special/",
-	// 		}, 0)
-	// 		root.Subdir("src").AddDir(".config", 0)
-	// 		root.Subdir("src").Subdir(".config").AddDir("App", 0)
-	// 		root.Subdir("src").Subdir(".config").Subdir("App").AddDir("some", 0)
-	// 		root.Subdir("src").Subdir(".config").Subdir("App").Subdir("some").AddDir("thing", 0)
-	// 		root.Subdir("src").Subdir(".config").Subdir("App").Subdir("some").Subdir("thing").AddFile("ignored_file.txt", dummyFileContents, 0)
-	// 		root.Subdir("src").Subdir(".config").Subdir("App").Subdir("some").Subdir("thing").AddDir("special", 0)
-	// 		root.Subdir("src").Subdir(".config").Subdir("App").Subdir("some").Subdir("thing").Subdir("special").AddFile("included_file.txt", dummyFileContents, 0)
-	// 	},
-	// 	policyTree: policy.BuildTree(map[string]*policy.Policy{
-	// 		"./src": {
-	// 			FilesPolicy: policy.FilesPolicy{
-	// 				DotIgnoreFiles: []string{
-	// 					".extraignore",
-	// 				},
-	// 			},
-	// 		},
-	// 	}, policy.DefaultPolicy),
-	// 	addedFiles: []string{
-	// 		"./src/.config/App/",
-	// 		"./src/.config/App/some/",
-	// 		"./src/.config/App/some/thing/",
-	// 		"./src/.config/App/some/thing/special/",
-	// 		"./src/.config/App/some/thing/special/included_file.txt",
-	// 	},
-	// 	ignoredFiles: []string{
-	// 		"./src/.config/App/some/thing/ignored_file.txt",
-	// 	},
-	// },
+	{
+		desc: "exclude include",
+		setup: func(root *mockfs.Directory) {
+			root.Subdir("src").AddFileLines(".extraignore", []string{
+				"/sub/*.foo",
+				"!/sub/special.foo",
+			}, 0)
+			root.Subdir("src").AddDir("sub", 0)
+			root.Subdir("src").Subdir("sub").AddFile("ignore.foo", dummyFileContents, 0)  // ignored by wildcard rule
+			root.Subdir("src").Subdir("sub").AddFile("special.foo", dummyFileContents, 0) // explicitly included
+		},
+		policyTree: policy.BuildTree(map[string]*policy.Policy{
+			"./src": {
+				FilesPolicy: policy.FilesPolicy{
+					DotIgnoreFiles: []string{
+						".extraignore",
+					},
+				},
+			},
+		}, policy.DefaultPolicy),
+		addedFiles: []string{
+			"./src/.extraignore",
+			"./src/sub/",
+			"./src/sub/special.foo",
+		},
+		ignoredFiles: []string{
+			"./src/sub/ignore.foo",
+		},
+	},
+	{
+		desc:       "exclude all but specific wildcard",
+		policyTree: defaultPolicy,
+		setup: func(root *mockfs.Directory) {
+			root.AddFileLines(".kopiaignore", []string{
+				"*",
+				"!*.txt  ",
+				"!*/",
+			}, 0)
+			root.AddDir("foo", 0).AddDir("subfoo", 0)
+			root.AddDir("bar", 0).AddDir("subbar", 0)
+			root.AddFile("a.png", dummyFileContents, 0)
+			root.AddFile("a.txt", dummyFileContents, 0)
+			root.Subdir("bar").AddFile("a.txt", dummyFileContents, 0)
+			root.Subdir("bar").AddFile("a.bmp", dummyFileContents, 0)
+			root.Subdir("bar").Subdir("subbar").AddFile("a.txt", dummyFileContents, 0)
+		},
+		addedFiles: []string{
+			"./a.txt",
+			"./bar/",
+			"./bar/a.txt",
+			"./bar/subbar/",
+			"./bar/subbar/a.txt",
+			// Note: Preferably we probably would not want these empty subdirectories since all their contents are ignored. But this is how
+			//       .gitignore works, with the difference of course that git does not commit directories, only files.
+			"./bin/",
+			"./foo/",
+			"./foo/subfoo/",
+		},
+		ignoredFiles: []string{
+			"./ignored-by-rule",
+			"./largefile1",
+			"./file1",
+			"./file2",
+			"./file3",
+			"./pkg/some-pkg",
+			"./bin/some-bin",
+			"./src/some-src/f1",
+		},
+	},
+	{
+		desc:             "overlapping exclude files with negate in previous file #1",
+		policyTree:       defaultPolicy,
+		skipDefaultFiles: true,
+		setup: func(root *mockfs.Directory) {
+			root.AddFileLines(".kopiaignore", []string{
+				"*",
+				"!*.txt",
+				"!*/",
+				"AB/",
+			}, 0)
+
+			root.AddDir("A", 0).AddDir("AA", 0)
+			root.Subdir("A").AddDir("AB", 0)
+			root.Subdir("A").AddFile("file.txt", dummyFileContents, 0)
+			root.Subdir("A").AddFile("file.go", dummyFileContents, 0)
+			root.Subdir("A").Subdir("AA").AddFile("file.txt", dummyFileContents, 0)
+			root.Subdir("A").Subdir("AA").AddFile("file.go", dummyFileContents, 0)
+			root.Subdir("A").Subdir("AB").AddFile("file.txt", dummyFileContents, 0)
+			root.Subdir("A").Subdir("AB").AddFile("file.go", dummyFileContents, 0)
+			root.Subdir("A").AddFileLines(".kopiaignore", []string{
+				"*.txt",
+				"!*.go",
+			}, 0)
+
+			root.AddDir("B", 0).AddDir("AA", 0)
+			root.Subdir("B").AddDir("AB", 0)
+			root.Subdir("B").AddFile("file.txt", dummyFileContents, 0)
+			root.Subdir("B").AddFile("file.go", dummyFileContents, 0)
+			root.Subdir("B").Subdir("AA").AddFile("file.txt", dummyFileContents, 0)
+			root.Subdir("B").Subdir("AA").AddFile("file.go", dummyFileContents, 0)
+			root.Subdir("B").Subdir("AB").AddFile("file.txt", dummyFileContents, 0)
+			root.Subdir("B").Subdir("AB").AddFile("file.go", dummyFileContents, 0)
+		},
+		addedFiles: []string{
+			"./A/",
+			"./B/",
+			"./A/AA/",
+			"./B/AA/",
+			"./A/file.go",
+			"./A/AA/file.go",
+			"./B/file.txt",
+			"./B/AA/file.txt",
+		},
+		ignoredFiles: []string{},
+	},
+	{
+		desc:             "overlapping exclude files with negate in previous file #2",
+		policyTree:       defaultPolicy,
+		skipDefaultFiles: true,
+		setup: func(root *mockfs.Directory) {
+			root.AddFileLines(".kopiaignore", []string{
+				"*",
+				"!*.txt",
+				"!*/",
+				"AB/",
+			}, 0)
+
+			root.AddDir("A", 0).AddDir("AA", 0)
+			root.Subdir("A").AddDir("AB", 0)
+			root.Subdir("A").AddFile("file.txt", dummyFileContents, 0)
+			root.Subdir("A").AddFile("file.go", dummyFileContents, 0)
+			root.Subdir("A").Subdir("AA").AddFile("file.txt", dummyFileContents, 0)
+			root.Subdir("A").Subdir("AA").AddFile("file.go", dummyFileContents, 0)
+			root.Subdir("A").Subdir("AB").AddFile("file.txt", dummyFileContents, 0)
+			root.Subdir("A").Subdir("AB").AddFile("file.go", dummyFileContents, 0)
+			root.Subdir("A").Subdir("AB").AddFileLines(".kopiaignore", []string{
+				"!*.txt",
+			}, 0)
+
+			root.Subdir("A").AddFileLines(".kopiaignore", []string{
+				"*.txt",
+				"!*.go",
+				"!/AB/",
+			}, 0)
+
+			root.AddDir("B", 0).AddDir("AA", 0)
+			root.Subdir("B").AddDir("AB", 0)
+			root.Subdir("B").AddFile("file.txt", dummyFileContents, 0)
+			root.Subdir("B").AddFile("file.go", dummyFileContents, 0)
+			root.Subdir("B").Subdir("AA").AddFile("file.txt", dummyFileContents, 0)
+			root.Subdir("B").Subdir("AA").AddFile("file.go", dummyFileContents, 0)
+			root.Subdir("B").Subdir("AB").AddFile("file.txt", dummyFileContents, 0)
+			root.Subdir("B").Subdir("AB").AddFile("file.go", dummyFileContents, 0)
+		},
+		addedFiles: []string{
+			"./A/",
+			"./B/",
+			"./A/AA/",
+			"./A/AB/",
+			"./B/AA/",
+			"./A/file.go",
+			"./A/AA/file.go",
+			"./A/AB/file.go",
+			"./A/AB/file.txt",
+			"./B/file.txt",
+			"./B/AA/file.txt",
+		},
+		ignoredFiles: []string{},
+	},
+	{
+		desc:             "multiple ignore files with none in root",
+		policyTree:       defaultPolicy,
+		skipDefaultFiles: true,
+		setup: func(root *mockfs.Directory) {
+			root.AddDir("A", 0).AddDir("AA", 0)
+			root.Subdir("A").AddDir("AB", 0)
+			root.Subdir("A").AddFile("file.txt", dummyFileContents, 0)
+			root.Subdir("A").AddFile("file.go", dummyFileContents, 0)
+			root.Subdir("A").Subdir("AA").AddFile("file.txt", dummyFileContents, 0)
+			root.Subdir("A").Subdir("AA").AddFile("file.go", dummyFileContents, 0)
+			root.Subdir("A").Subdir("AB").AddFile("file.txt", dummyFileContents, 0)
+			root.Subdir("A").Subdir("AB").AddFile("file.go", dummyFileContents, 0)
+			root.Subdir("A").AddFileLines(".kopiaignore", []string{
+				"AB/",
+				"*.go",
+			}, 0)
+
+			root.AddDir("B", 0).AddDir("AA", 0)
+			root.Subdir("B").AddDir("AB", 0)
+			root.Subdir("B").AddFile("file.txt", dummyFileContents, 0)
+			root.Subdir("B").AddFile("file.go", dummyFileContents, 0)
+			root.Subdir("B").Subdir("AA").AddFile("file.txt", dummyFileContents, 0)
+			root.Subdir("B").Subdir("AA").AddFile("file.go", dummyFileContents, 0)
+			root.Subdir("B").Subdir("AB").AddFile("file.txt", dummyFileContents, 0)
+			root.Subdir("B").Subdir("AB").AddFile("file.go", dummyFileContents, 0)
+			root.Subdir("B").AddFileLines(".kopiaignore", []string{
+				"AA/",
+				"*.txt",
+			}, 0)
+		},
+		addedFiles: []string{
+			"./A/",
+			"./A/.kopiaignore",
+			"./A/file.txt",
+			"./A/AA/",
+			"./A/AA/file.txt",
+			"./B/",
+			"./B/.kopiaignore",
+			"./B/file.go",
+			"./B/AB/",
+			"./B/AB/file.go",
+		},
+		ignoredFiles: []string{},
+	},
 }
 
 func TestIgnoreFS(t *testing.T) {
 	for _, tc := range cases {
 		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
-			root := setupFilesystem()
+			root := setupFilesystem(tc.skipDefaultFiles)
 			originalFiles := walkTree(t, root)
 
 			if tc.setup != nil {
@@ -387,6 +539,8 @@ func addAndSubtractFiles(original, added, removed []string) []string {
 }
 
 func walkTree(t *testing.T, dir fs.Directory) []string {
+	t.Helper()
+
 	var output []string
 
 	var walk func(path string, d fs.Directory) error

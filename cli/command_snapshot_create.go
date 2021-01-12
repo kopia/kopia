@@ -36,7 +36,7 @@ var (
 	snapshotCreateForceDisableActions     = snapshotCreateCommand.Flag("force-disable-actions", "Disable snapshot actions even if globally enabled on this client").Hidden().Bool()
 )
 
-func runSnapshotCommand(ctx context.Context, rep repo.Repository) error {
+func runSnapshotCommand(ctx context.Context, rep repo.Writer) error {
 	sources := *snapshotCreateSources
 
 	maybeAutoUpgradeRepository(ctx, rep)
@@ -113,7 +113,7 @@ func validateStartEndTime(st, et string) error {
 	return nil
 }
 
-func setupUploader(rep repo.Repository) *snapshotfs.Uploader {
+func setupUploader(rep repo.Writer) *snapshotfs.Uploader {
 	u := snapshotfs.NewUploader(rep)
 	u.MaxUploadBytes = *snapshotCreateCheckpointUploadLimitMB << 20 //nolint:gomnd
 
@@ -152,7 +152,7 @@ func startTimeAfterEndTime(startTime, endTime time.Time) bool {
 		startTime.After(endTime)
 }
 
-func snapshotSingleSource(ctx context.Context, rep repo.Repository, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo) error {
+func snapshotSingleSource(ctx context.Context, rep repo.Writer, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo) error {
 	log(ctx).Infof("Snapshotting %v ...", sourceInfo)
 
 	t0 := clock.Now()
@@ -235,7 +235,7 @@ func snapshotSingleSource(ctx context.Context, rep repo.Repository, u *snapshotf
 
 // findPreviousSnapshotManifest returns the list of previous snapshots for a given source, including
 // last complete snapshot and possibly some number of incomplete snapshots following it.
-func findPreviousSnapshotManifest(ctx context.Context, rep repo.Repository, sourceInfo snapshot.SourceInfo, noLaterThan *time.Time) ([]*snapshot.Manifest, error) {
+func findPreviousSnapshotManifest(ctx context.Context, rep repo.Reader, sourceInfo snapshot.SourceInfo, noLaterThan *time.Time) ([]*snapshot.Manifest, error) {
 	man, err := snapshot.ListSnapshots(ctx, rep, sourceInfo)
 	if err != nil {
 		return nil, errors.Wrap(err, "error listing previous snapshots")
@@ -277,7 +277,7 @@ func findPreviousSnapshotManifest(ctx context.Context, rep repo.Repository, sour
 	return result, nil
 }
 
-func getLocalBackupPaths(ctx context.Context, rep repo.Repository) ([]string, error) {
+func getLocalBackupPaths(ctx context.Context, rep repo.Reader) ([]string, error) {
 	log(ctx).Debugf("Looking for previous backups of '%v@%v'...", rep.ClientOptions().Hostname, rep.ClientOptions().Username)
 
 	sources, err := snapshot.ListSources(ctx, rep)
@@ -297,5 +297,5 @@ func getLocalBackupPaths(ctx context.Context, rep repo.Repository) ([]string, er
 }
 
 func init() {
-	snapshotCreateCommand.Action(repositoryAction(runSnapshotCommand))
+	snapshotCreateCommand.Action(repositoryWriterAction(runSnapshotCommand))
 }

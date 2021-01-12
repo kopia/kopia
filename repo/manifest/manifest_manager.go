@@ -2,8 +2,6 @@
 package manifest
 
 import (
-	"bytes"
-	"compress/gzip"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -53,11 +51,9 @@ type Manager struct {
 	mu sync.Mutex
 	b  contentManager
 
-	initialized    bool
 	pendingEntries map[ID]*manifestEntry
 
-	committedEntries    map[ID]*manifestEntry
-	committedContentIDs map[content.ID]bool
+	committed *committedManifestManager
 
 	timeNow func() time.Time // Time provider
 }
@@ -67,13 +63,6 @@ func (m *Manager) Put(ctx context.Context, labels map[string]string, payload int
 	if labels[TypeLabelKey] == "" {
 		return "", errors.Errorf("'type' label is required")
 	}
-
-	if err := m.ensureInitialized(ctx); err != nil {
-		return "", err
-	}
-
-	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	random := make([]byte, 16)
 	if _, err := rand.Read(random); err != nil {
@@ -92,56 +81,29 @@ func (m *Manager) Put(ctx context.Context, labels map[string]string, payload int
 		Content: b,
 	}
 
+	m.mu.Lock()
 	m.pendingEntries[e.ID] = e
+	m.mu.Unlock()
 
 	return e.ID, nil
 }
 
 // GetMetadata returns metadata about provided manifest item or ErrNotFound if the item can't be found.
 func (m *Manager) GetMetadata(ctx context.Context, id ID) (*EntryMetadata, error) {
-	if err := m.ensureInitialized(ctx); err != nil {
+	e, err := m.getPendingOrCommitted(ctx, id)
+	if err != nil {
 		return nil, err
 	}
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	e := m.pendingEntries[id]
-	if e == nil {
-		e = m.committedEntries[id]
-	}
-
-	if e == nil || e.Deleted {
-		// nolint:wrapcheck
-		return nil, ErrNotFound
-	}
-
-	return &EntryMetadata{
-		ID:      id,
-		ModTime: e.ModTime,
-		Length:  len(e.Content),
-		Labels:  copyLabels(e.Labels),
-	}, nil
+	return cloneEntryMetadata(e), nil
 }
 
 // Get retrieves the contents of the provided manifest item by deserializing it as JSON to provided object.
 // If the manifest is not found, returns ErrNotFound.
 func (m *Manager) Get(ctx context.Context, id ID, data interface{}) (*EntryMetadata, error) {
-	if err := m.ensureInitialized(ctx); err != nil {
+	e, err := m.getPendingOrCommitted(ctx, id)
+	if err != nil {
 		return nil, err
-	}
-
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	e := m.pendingEntries[id]
-	if e == nil {
-		e = m.committedEntries[id]
-	}
-
-	if e == nil || e.Deleted {
-		// nolint:wrapcheck
-		return nil, ErrNotFound
 	}
 
 	if data != nil {
@@ -153,9 +115,43 @@ func (m *Manager) Get(ctx context.Context, id ID, data interface{}) (*EntryMetad
 	return cloneEntryMetadata(e), nil
 }
 
+func (m *Manager) getPendingOrCommitted(ctx context.Context, id ID) (*manifestEntry, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	e := m.pendingEntries[id]
+	if e == nil {
+		var err error
+
+		e, err = m.committed.getCommittedEntryOrNil(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if e == nil || e.Deleted {
+		return nil, errors.Wrapf(ErrNotFound, "manifest %v", id)
+	}
+
+	return e, nil
+}
+
+func findEntriesMatchingLabels(m map[ID]*manifestEntry, labels map[string]string) map[ID]*manifestEntry {
+	matches := map[ID]*manifestEntry{}
+
+	for id, e := range m {
+		if matchesLabels(e.Labels, labels) {
+			matches[id] = e
+		}
+	}
+
+	return matches
+}
+
 // Find returns the list of EntryMetadata for manifest entries matching all provided labels.
 func (m *Manager) Find(ctx context.Context, labels map[string]string) ([]*EntryMetadata, error) {
-	if err := m.ensureInitialized(ctx); err != nil {
+	committedMatches, err := m.committed.findCommittedEntries(ctx, labels)
+	if err != nil {
 		return nil, err
 	}
 
@@ -164,21 +160,17 @@ func (m *Manager) Find(ctx context.Context, labels map[string]string) ([]*EntryM
 
 	var matches []*EntryMetadata
 
-	for _, e := range m.pendingEntries {
-		if matchesLabels(e.Labels, labels) {
-			matches = append(matches, cloneEntryMetadata(e))
-		}
+	for _, e := range findEntriesMatchingLabels(m.pendingEntries, labels) {
+		matches = append(matches, cloneEntryMetadata(e))
 	}
 
-	for _, e := range m.committedEntries {
+	for _, e := range committedMatches {
 		if m.pendingEntries[e.ID] != nil {
 			// ignore committed that are also in pending
 			continue
 		}
 
-		if matchesLabels(e.Labels, labels) {
-			matches = append(matches, cloneEntryMetadata(e))
-		}
+		matches = append(matches, cloneEntryMetadata(e))
 	}
 
 	sort.Slice(matches, func(i, j int) bool {
@@ -213,41 +205,9 @@ func (m *Manager) Flush(ctx context.Context) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	_, err := m.flushPendingEntriesLocked(ctx)
+	_, err := m.committed.commitEntries(ctx, m.pendingEntries)
 
 	return err
-}
-
-func (m *Manager) flushPendingEntriesLocked(ctx context.Context) (content.ID, error) {
-	if len(m.pendingEntries) == 0 {
-		return "", nil
-	}
-
-	man := manifest{}
-
-	for _, e := range m.pendingEntries {
-		man.Entries = append(man.Entries, e)
-	}
-
-	var buf bytes.Buffer
-	gz := gzip.NewWriter(&buf)
-	mustSucceed(json.NewEncoder(gz).Encode(man))
-	mustSucceed(gz.Flush())
-	mustSucceed(gz.Close())
-
-	contentID, err := m.b.WriteContent(ctx, buf.Bytes(), ContentPrefix)
-	if err != nil {
-		return "", errors.Wrap(err, "unable to write content")
-	}
-
-	for _, e := range m.pendingEntries {
-		m.committedEntries[e.ID] = e
-		delete(m.pendingEntries, e.ID)
-	}
-
-	m.committedContentIDs[contentID] = true
-
-	return contentID, nil
 }
 
 func mustSucceed(e error) {
@@ -258,14 +218,15 @@ func mustSucceed(e error) {
 
 // Delete marks the specified manifest ID for deletion.
 func (m *Manager) Delete(ctx context.Context, id ID) error {
-	if err := m.ensureInitialized(ctx); err != nil {
+	com, err := m.committed.getCommittedEntryOrNil(ctx, id)
+	if err != nil {
 		return err
 	}
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	if m.pendingEntries[id] == nil && m.committedEntries[id] == nil {
+	if m.pendingEntries[id] == nil && com == nil {
 		return nil
 	}
 
@@ -280,191 +241,12 @@ func (m *Manager) Delete(ctx context.Context, id ID) error {
 
 // Refresh updates the committed contents from the underlying storage.
 func (m *Manager) Refresh(ctx context.Context) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	return m.loadCommittedContentsLocked(ctx)
-}
-
-func (m *Manager) loadCommittedContentsLocked(ctx context.Context) error {
-	log(ctx).Debugf("listing manifest contents")
-
-	var (
-		mu        sync.Mutex
-		manifests map[content.ID]manifest
-	)
-
-	for {
-		manifests = map[content.ID]manifest{}
-
-		err := m.b.IterateContents(ctx, content.IterateOptions{
-			Range:    content.PrefixRange(ContentPrefix),
-			Parallel: manifestLoadParallelism,
-		}, func(ci content.Info) error {
-			man, err := m.loadManifestContent(ctx, ci.ID)
-			if err != nil {
-				return err
-			}
-			mu.Lock()
-			manifests[ci.ID] = man
-			mu.Unlock()
-			return nil
-		})
-		if err == nil {
-			// success
-			break
-		}
-
-		if errors.Is(err, content.ErrContentNotFound) {
-			// try again, lost a race with another manifest manager which just did compaction
-			continue
-		}
-
-		return errors.Wrap(err, "unable to load manifest contents")
-	}
-
-	m.loadManifestContentsLocked(manifests)
-
-	if err := m.maybeCompactLocked(ctx); err != nil {
-		return errors.Errorf("error auto-compacting contents")
-	}
-
-	return nil
-}
-
-func (m *Manager) loadManifestContentsLocked(manifests map[content.ID]manifest) {
-	m.committedEntries = map[ID]*manifestEntry{}
-	m.committedContentIDs = map[content.ID]bool{}
-
-	for contentID := range manifests {
-		m.committedContentIDs[contentID] = true
-	}
-
-	for _, man := range manifests {
-		for _, e := range man.Entries {
-			m.mergeEntry(e)
-		}
-	}
-
-	// after merging, remove contents marked as deleted.
-	for k, e := range m.committedEntries {
-		if e.Deleted {
-			delete(m.committedEntries, k)
-		}
-	}
-}
-
-func (m *Manager) loadManifestContent(ctx context.Context, contentID content.ID) (manifest, error) {
-	man := manifest{}
-
-	blk, err := m.b.GetContent(ctx, contentID)
-	if err != nil {
-		return man, errors.Wrap(err, "error loading manifest content")
-	}
-
-	gz, err := gzip.NewReader(bytes.NewReader(blk))
-	if err != nil {
-		return man, errors.Wrapf(err, "unable to unpack manifest data %q", contentID)
-	}
-
-	if err := json.NewDecoder(gz).Decode(&man); err != nil {
-		return man, errors.Wrapf(err, "unable to parse manifest %q", contentID)
-	}
-
-	return man, nil
+	return m.committed.refresh(ctx)
 }
 
 // Compact performs compaction of manifest contents.
 func (m *Manager) Compact(ctx context.Context) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	return m.compactLocked(ctx)
-}
-
-func (m *Manager) maybeCompactLocked(ctx context.Context) error {
-	if len(m.committedContentIDs) < autoCompactionContentCount {
-		return nil
-	}
-
-	log(ctx).Debugf("performing automatic compaction of %v contents", len(m.committedContentIDs))
-
-	if err := m.compactLocked(ctx); err != nil {
-		return errors.Wrap(err, "unable to compact manifest contents")
-	}
-
-	if err := m.b.Flush(ctx); err != nil {
-		return errors.Wrap(err, "unable to flush contents after auto-compaction")
-	}
-
-	return nil
-}
-
-func (m *Manager) compactLocked(ctx context.Context) error {
-	log(ctx).Debugf("compactLocked: pendingEntries=%v contentIDs=%v", len(m.pendingEntries), len(m.committedContentIDs))
-
-	if len(m.committedContentIDs) == 1 && len(m.pendingEntries) == 0 {
-		return nil
-	}
-
-	// compaction needs to be atomic (deletes and rewrite should show up in one index blob or not show up at all)
-	// that's why we want to prevent index flushes while we're d.
-	m.b.DisableIndexFlush(ctx)
-	defer m.b.EnableIndexFlush(ctx)
-
-	for _, e := range m.committedEntries {
-		m.pendingEntries[e.ID] = e
-	}
-
-	contentID, err := m.flushPendingEntriesLocked(ctx)
-	if err != nil {
-		return err
-	}
-
-	// add the newly-created content to the list, could be duplicate
-	for b := range m.committedContentIDs {
-		if b == contentID {
-			// do not delete content that was just written.
-			continue
-		}
-
-		if err := m.b.DeleteContent(ctx, b); err != nil {
-			return errors.Wrapf(err, "unable to delete content %q", b)
-		}
-
-		delete(m.committedContentIDs, b)
-	}
-
-	return nil
-}
-
-func (m *Manager) mergeEntry(e *manifestEntry) {
-	prev := m.committedEntries[e.ID]
-	if prev == nil {
-		m.committedEntries[e.ID] = e
-		return
-	}
-
-	if e.ModTime.After(prev.ModTime) {
-		m.committedEntries[e.ID] = e
-	}
-}
-
-func (m *Manager) ensureInitialized(ctx context.Context) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if m.initialized {
-		return nil
-	}
-
-	if err := m.loadCommittedContentsLocked(ctx); err != nil {
-		return err
-	}
-
-	m.initialized = true
-
-	return nil
+	return m.committed.compact(ctx)
 }
 
 func copyLabels(m map[string]string) map[string]string {
@@ -489,11 +271,10 @@ func NewManager(ctx context.Context, b contentManager, options ManagerOptions) (
 	}
 
 	m := &Manager{
-		b:                   b,
-		pendingEntries:      map[ID]*manifestEntry{},
-		committedEntries:    map[ID]*manifestEntry{},
-		committedContentIDs: map[content.ID]bool{},
-		timeNow:             timeNow,
+		b:              b,
+		pendingEntries: map[ID]*manifestEntry{},
+		timeNow:        timeNow,
+		committed:      newCommittedManager(b),
 	}
 
 	return m, nil

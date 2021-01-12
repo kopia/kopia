@@ -11,6 +11,16 @@ const iterateParallelism = 16
 // mergedIndex is an implementation of Index that transparently merges returns from underlying Indexes.
 type mergedIndex []packIndex
 
+func (m mergedIndex) ApproximateCount() int {
+	c := 0
+
+	for _, ndx := range m {
+		c += ndx.ApproximateCount()
+	}
+
+	return c
+}
+
 // Close closes all underlying indexes.
 func (m mergedIndex) Close() error {
 	for _, ndx := range m {

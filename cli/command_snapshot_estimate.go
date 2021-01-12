@@ -64,7 +64,7 @@ func makeBuckets() buckets {
 	}
 }
 
-func runSnapshotEstimateCommand(ctx context.Context, rep repo.Repository) error {
+func runSnapshotEstimateCommand(ctx context.Context, rep repo.Reader) error {
 	path, err := filepath.Abs(*snapshotEstimateSource)
 	if err != nil {
 		return errors.Errorf("invalid path: '%s': %s", path, err)
@@ -173,5 +173,5 @@ func estimate(ctx context.Context, relativePath string, entry fs.Entry, stats *s
 }
 
 func init() {
-	snapshotEstimate.Action(repositoryAction(runSnapshotEstimateCommand))
+	snapshotEstimate.Action(repositoryReaderAction(runSnapshotEstimateCommand))
 }

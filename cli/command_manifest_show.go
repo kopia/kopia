@@ -17,7 +17,7 @@ var (
 )
 
 func init() {
-	manifestShowCommand.Action(repositoryAction(showManifestItems))
+	manifestShowCommand.Action(repositoryReaderAction(showManifestItems))
 }
 
 func toManifestIDs(s []string) []manifest.ID {
@@ -30,7 +30,7 @@ func toManifestIDs(s []string) []manifest.ID {
 	return result
 }
 
-func showManifestItems(ctx context.Context, rep repo.Repository) error {
+func showManifestItems(ctx context.Context, rep repo.Reader) error {
 	for _, it := range toManifestIDs(*manifestShowItems) {
 		var b json.RawMessage
 

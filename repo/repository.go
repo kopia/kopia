@@ -13,24 +13,37 @@ import (
 	"github.com/kopia/kopia/repo/object"
 )
 
-// Repository exposes public API of Kopia repository, including objects and manifests.
-type Repository interface {
+// Reader provides methods to read from a repository.
+type Reader interface {
 	OpenObject(ctx context.Context, id object.ID) (object.Reader, error)
-	NewObjectWriter(ctx context.Context, opt object.WriterOptions) object.Writer
 	VerifyObject(ctx context.Context, id object.ID) ([]content.ID, error)
 
 	GetManifest(ctx context.Context, id manifest.ID, data interface{}) (*manifest.EntryMetadata, error)
-	PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error)
 	FindManifests(ctx context.Context, labels map[string]string) ([]*manifest.EntryMetadata, error)
-	DeleteManifest(ctx context.Context, id manifest.ID) error
-
-	ClientOptions() ClientOptions
-	UpdateDescription(d string)
 
 	Time() time.Time
+	ClientOptions() ClientOptions
+}
+
+// Writer provides methods to write to a repository.
+type Writer interface {
+	Reader
+
+	NewObjectWriter(ctx context.Context, opt object.WriterOptions) object.Writer
+	PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error)
+	DeleteManifest(ctx context.Context, id manifest.ID) error
+
+	Flush(ctx context.Context) error
+}
+
+// Repository exposes public API of Kopia repository, including objects and manifests.
+type Repository interface {
+	Reader
+	Writer
+
+	UpdateDescription(d string)
 
 	Refresh(ctx context.Context) error
-	Flush(ctx context.Context) error
 	Close(ctx context.Context) error
 }
 
@@ -40,6 +53,7 @@ type DirectRepository struct {
 	Content   *content.Manager
 	Objects   *object.Manager
 	Manifests *manifest.Manager
+	Cache     content.CachingOptions
 	UniqueID  []byte
 
 	ConfigFile string

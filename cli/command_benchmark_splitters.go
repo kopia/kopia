@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/clock"
-	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/splitter"
 )
 
@@ -134,5 +133,5 @@ func runBenchmarkSplitterAction(ctx context.Context, rep repo.Repository) error 
 }
 
 func init() {
-	benchmarkSplitterCommand.Action(maybeRepositoryAction(runBenchmarkSplitterAction, false))
+	benchmarkSplitterCommand.Action(noRepositoryAction(runBenchmarkSplitterAction))
 }

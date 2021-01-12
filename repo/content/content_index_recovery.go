@@ -167,7 +167,7 @@ func (bm *lockFreeManager) buildLocalIndex(pending packIndexBuilder) ([]byte, er
 }
 
 // writePackFileIndexRecoveryData appends data designed to help with recovery of pack index in case it gets damaged or lost.
-func (bm *lockFreeManager) writePackFileIndexRecoveryData(buf *gather.WriteBuffer, pending packIndexBuilder) error {
+func (bm *Manager) writePackFileIndexRecoveryData(buf *gather.WriteBuffer, pending packIndexBuilder) error {
 	// build, encrypt and append local index
 	localIndexOffset := buf.Length()
 
@@ -199,36 +199,4 @@ func (bm *lockFreeManager) writePackFileIndexRecoveryData(buf *gather.WriteBuffe
 	buf.Append(postambleBytes)
 
 	return nil
-}
-
-func (bm *lockFreeManager) readPackFileLocalIndex(ctx context.Context, packFile blob.ID, packFileLength int64) ([]byte, error) {
-	// TODO(jkowalski): optimize read when packFileLength is provided
-	_ = packFileLength
-
-	payload, err := bm.st.GetBlob(ctx, packFile, 0, -1)
-	if err != nil {
-		return nil, errors.Wrapf(err, "error getting blob %v", packFile)
-	}
-
-	postamble := findPostamble(payload)
-	if postamble == nil {
-		return nil, errors.Errorf("unable to find valid postamble in file %v", packFile)
-	}
-
-	if uint64(postamble.localIndexOffset+postamble.localIndexLength) > uint64(len(payload)) {
-		// invalid offset/length
-		return nil, errors.Errorf("unable to find valid local index in file %v", packFile)
-	}
-
-	encryptedLocalIndexBytes := payload[postamble.localIndexOffset : postamble.localIndexOffset+postamble.localIndexLength]
-	if encryptedLocalIndexBytes == nil {
-		return nil, errors.Errorf("unable to find valid local index in file %v", packFile)
-	}
-
-	localIndexBytes, err := bm.decryptAndVerify(encryptedLocalIndexBytes, postamble.localIndexIV)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to decrypt local index")
-	}
-
-	return localIndexBytes, nil
 }

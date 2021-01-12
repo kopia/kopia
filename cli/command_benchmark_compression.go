@@ -11,13 +11,12 @@ import (
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/units"
-	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/compression"
 )
 
 var (
 	benchmarkCompressionCommand      = benchmarkCommands.Command("compression", "Run compression benchmarks")
-	benchmarkCompressionBlockSize    = benchmarkCompressionCommand.Flag("block-size", "Size of a block to encrypt").Default("1MB").Bytes()
+	benchmarkCompressionBlockSize    = benchmarkCompressionCommand.Flag("block-size", "Size of a block to compress").Default("1MB").Bytes()
 	benchmarkCompressionRepeat       = benchmarkCompressionCommand.Flag("repeat", "Number of repetitions").Default("100").Int()
 	benchmarkCompressionDataFile     = benchmarkCompressionCommand.Flag("data-file", "Use data from the given file instead of empty").ExistingFile()
 	benchmarkCompressionBySize       = benchmarkCompressionCommand.Flag("by-size", "Sort results by size").Bool()
@@ -25,7 +24,7 @@ var (
 	benchmarkCompressionOptionPrint  = benchmarkCompressionCommand.Flag("print-options", "Print out options usable for repository creation").Bool()
 )
 
-func runBenchmarkCompressionAction(ctx context.Context, rep repo.Repository) error {
+func runBenchmarkCompressionAction(ctx context.Context) error {
 	type benchResult struct {
 		compression    compression.Name
 		throughput     float64
@@ -113,7 +112,7 @@ func runBenchmarkCompressionAction(ctx context.Context, rep repo.Repository) err
 }
 
 func init() {
-	benchmarkCompressionCommand.Action(maybeRepositoryAction(runBenchmarkCompressionAction, false))
+	benchmarkCompressionCommand.Action(noRepositoryAction(runBenchmarkCompressionAction))
 }
 
 func hashOf(b []byte) uint64 {

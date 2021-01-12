@@ -14,10 +14,10 @@ import (
 var policyListCommand = policyCommands.Command("list", "List policies.").Alias("ls")
 
 func init() {
-	policyListCommand.Action(repositoryAction(listPolicies))
+	policyListCommand.Action(repositoryReaderAction(listPolicies))
 }
 
-func listPolicies(ctx context.Context, rep repo.Repository) error {
+func listPolicies(ctx context.Context, rep repo.Reader) error {
 	policies, err := policy.ListPolicies(ctx, rep)
 	if err != nil {
 		return errors.Wrap(err, "error listing policies")

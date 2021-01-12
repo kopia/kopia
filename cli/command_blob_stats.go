@@ -87,5 +87,5 @@ func runBlobStatsCommand(ctx context.Context, rep *repo.DirectRepository) error 
 }
 
 func init() {
-	blobStatsCommand.Action(directRepositoryAction(runBlobStatsCommand))
+	blobStatsCommand.Action(directRepositoryReadAction(runBlobStatsCommand))
 }

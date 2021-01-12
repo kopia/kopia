@@ -69,6 +69,6 @@ func runContentListCommand(ctx context.Context, rep *repo.DirectRepository) erro
 }
 
 func init() {
-	contentListCommand.Action(directRepositoryAction(runContentListCommand))
+	contentListCommand.Action(directRepositoryReadAction(runContentListCommand))
 	setupContentIDRangeFlags(contentListCommand)
 }
