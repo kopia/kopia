@@ -55,7 +55,7 @@ func (r *apiServerRepository) ClientOptions() ClientOptions {
 }
 
 func (r *apiServerRepository) OpenObject(ctx context.Context, id object.ID) (object.Reader, error) {
-	return r.omgr.Open(ctx, id)
+	return object.Open(ctx, r, id)
 }
 
 func (r *apiServerRepository) NewObjectWriter(ctx context.Context, opt object.WriterOptions) object.Writer {
@@ -63,7 +63,7 @@ func (r *apiServerRepository) NewObjectWriter(ctx context.Context, opt object.Wr
 }
 
 func (r *apiServerRepository) VerifyObject(ctx context.Context, id object.ID) ([]content.ID, error) {
-	return r.omgr.VerifyObject(ctx, id)
+	return object.VerifyObject(ctx, r, id)
 }
 
 func (r *apiServerRepository) GetManifest(ctx context.Context, id manifest.ID, data interface{}) (*manifest.EntryMetadata, error) {
@@ -213,7 +213,7 @@ func openAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions
 	rr.h = hf
 
 	// create object manager using rr as contentManager implementation.
-	omgr, err := object.NewObjectManager(ctx, rr, p.Format, object.ManagerOptions{})
+	omgr, err := object.NewObjectManager(ctx, rr, p.Format)
 	if err != nil {
 		return nil, errors.Wrap(err, "error initializing object manager")
 	}
