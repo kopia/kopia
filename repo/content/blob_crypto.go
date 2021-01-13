@@ -14,12 +14,12 @@ import (
 )
 
 func getIndexBlobIV(s blob.ID) ([]byte, error) {
-	if len(s) < 2*aes.BlockSize {
-		return nil, errors.Errorf("blob id too short: %v", s)
-	}
-
 	if p := strings.Index(string(s), "-"); p >= 0 { // nolint:gocritic
 		s = s[0:p]
+	}
+
+	if len(s) < 2*aes.BlockSize {
+		return nil, errors.Errorf("blob id too short: %v", s)
 	}
 
 	return hex.DecodeString(string(s[len(s)-(aes.BlockSize*2):]))
@@ -68,14 +68,14 @@ func decryptFullBlob(h hashing.HashFunc, enc encryption.Encryptor, payload []byt
 	return payload, nil
 }
 
-func verifyChecksum(h hashing.HashFunc, data, contentID []byte) error {
+func verifyChecksum(h hashing.HashFunc, data, iv []byte) error {
 	var hashOutput [maxHashSize]byte
 
 	expected := h(hashOutput[:0], data)
 	expected = expected[len(expected)-aes.BlockSize:]
 
-	if !bytes.HasSuffix(contentID, expected) {
-		return errors.Errorf("invalid checksum for blob %x, expected %x", contentID, expected)
+	if !bytes.HasSuffix(iv, expected) {
+		return errors.Errorf("invalid checksum for blob %x, expected %x", iv, expected)
 	}
 
 	return nil

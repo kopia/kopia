@@ -38,7 +38,7 @@ var (
 // generateSessionID generates a random session identifier.
 func generateSessionID(now time.Time) (SessionID, error) {
 	// generate session ID as {random-64-bit}{epoch-number}
-	// where epoch number is roughly the number of months since 2020-01-01
+	// where epoch number is roughly the number of months since 2000-01-01
 	// so our 64-bit number only needs to be unique per month.
 	// Given number of seconds per month, this allows >1000 sessions per
 	// second before significant probability of collision while keeping the
