@@ -82,7 +82,7 @@ func runBenchmarkCryptoAction(ctx context.Context) error {
 		printStdout("%3d. %-20v %-20v %v / second", ndx, r.hash, r.encryption, units.BytesStringBase2(int64(r.throughput)))
 
 		if *benchmarkCryptoOptionPrint {
-			printStdout(",   --block-hash==%s --encryption=%s", r.hash, r.encryption)
+			printStdout(",   --block-hash=%s --encryption=%s", r.hash, r.encryption)
 		}
 
 		printStdout("\n")
