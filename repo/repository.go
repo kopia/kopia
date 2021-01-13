@@ -100,7 +100,7 @@ func (r *DirectRepository) ConfigFilename() string {
 
 // OpenObject opens the reader for a given object, returns object.ErrNotFound.
 func (r *DirectRepository) OpenObject(ctx context.Context, id object.ID) (object.Reader, error) {
-	return r.Objects.Open(ctx, id)
+	return object.Open(ctx, r.Content, id)
 }
 
 // NewObjectWriter creates an object writer.
@@ -110,7 +110,7 @@ func (r *DirectRepository) NewObjectWriter(ctx context.Context, opt object.Write
 
 // VerifyObject verifies that the given object is stored properly in a repository and returns backing content IDs.
 func (r *DirectRepository) VerifyObject(ctx context.Context, id object.ID) ([]content.ID, error) {
-	return r.Objects.VerifyObject(ctx, id)
+	return object.VerifyObject(ctx, r.Content, id)
 }
 
 // GetManifest returns the given manifest data and metadata.
