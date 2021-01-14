@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/blobtesting"
@@ -105,15 +106,10 @@ func TestContentManagerSmallContentWrites(t *testing.T) {
 		writeContentAndVerify(ctx, t, bm, seededRandomData(i, 10))
 	}
 
-	if got, want := len(data), 0; got != want {
-		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
-	}
-
+	verifyBlobCount(t, data, map[blob.ID]int{"s": 1})
 	bm.Flush(ctx)
 
-	if got, want := len(data), 2; got != want {
-		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
-	}
+	verifyBlobCount(t, data, map[blob.ID]int{"n": 1, "p": 1})
 }
 
 func TestContentManagerDedupesPendingContents(t *testing.T) {
@@ -128,15 +124,13 @@ func TestContentManagerDedupesPendingContents(t *testing.T) {
 		writeContentAndVerify(ctx, t, bm, seededRandomData(0, maxPackCapacity/2))
 	}
 
-	if got, want := len(data), 0; got != want {
-		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
-	}
+	// expect one blob which is a session marker.
+	verifyBlobCount(t, data, map[blob.ID]int{"s": 1})
 
 	bm.Flush(ctx)
 
-	if got, want := len(data), 2; got != want {
-		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
-	}
+	// session marker will be deleted and replaced with data + index.
+	verifyBlobCount(t, data, map[blob.ID]int{"n": 1, "p": 1})
 }
 
 func TestContentManagerDedupesPendingAndUncommittedContents(t *testing.T) {
@@ -151,30 +145,26 @@ func TestContentManagerDedupesPendingAndUncommittedContents(t *testing.T) {
 	contentSize := maxPackCapacity/3 - encryptionOverhead - 1
 
 	// no writes here, all data fits in a single pack.
+	// but we will have a session marker.
 	writeContentAndVerify(ctx, t, bm, seededRandomData(0, contentSize))
 	writeContentAndVerify(ctx, t, bm, seededRandomData(1, contentSize))
 	writeContentAndVerify(ctx, t, bm, seededRandomData(2, contentSize))
 
-	if got, want := len(data), 0; got != want {
-		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
-	}
+	// expect one blob which is a session marker.
+	verifyBlobCount(t, data, map[blob.ID]int{"s": 1})
 
 	// no writes here
 	writeContentAndVerify(ctx, t, bm, seededRandomData(0, contentSize))
 	writeContentAndVerify(ctx, t, bm, seededRandomData(1, contentSize))
 	writeContentAndVerify(ctx, t, bm, seededRandomData(2, contentSize))
 
-	if got, want := len(data), 0; got != want {
-		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
-	}
+	// expect one blob which is a session marker.
+	verifyBlobCount(t, data, map[blob.ID]int{"s": 1})
 
 	bm.Flush(ctx)
 
-	// this flushes the pack content + index blob
-	if got, want := len(data), 2; got != want {
-		dumpContentManagerData(ctx, t, data)
-		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
-	}
+	// this flushes the pack content + index blob and deletes session marker.
+	verifyBlobCount(t, data, map[blob.ID]int{"n": 1, "p": 1})
 }
 
 func TestContentManagerEmpty(t *testing.T) {
@@ -197,9 +187,7 @@ func TestContentManagerEmpty(t *testing.T) {
 		t.Errorf("unexpected error when getting non-existent content info: %v, %v", bi, err)
 	}
 
-	if got, want := len(data), 0; got != want {
-		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
-	}
+	verifyBlobCount(t, data, map[blob.ID]int{})
 }
 
 func verifyActiveIndexBlobCount(ctx context.Context, t *testing.T, bm *Manager, expected int) {
@@ -231,10 +219,8 @@ func TestContentManagerInternalFlush(t *testing.T) {
 		writeContentAndVerify(ctx, t, bm, b)
 	}
 
-	// 1 data content written, but no index yet.
-	if got, want := len(data), 1; got != want {
-		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
-	}
+	// 1 data blobs + session marker written, but no index yet.
+	verifyBlobCount(t, data, map[blob.ID]int{"s": 1, "p": 1})
 
 	// do it again - should be 2 blobs + some bytes pending.
 	for i := 0; i < itemsToOverflow; i++ {
@@ -243,18 +229,13 @@ func TestContentManagerInternalFlush(t *testing.T) {
 		writeContentAndVerify(ctx, t, bm, b)
 	}
 
-	// 2 data contents written, but no index yet.
-	if got, want := len(data), 2; got != want {
-		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
-	}
+	// 2 data blobs written + session marker, but no index yet.
+	verifyBlobCount(t, data, map[blob.ID]int{"s": 1, "p": 2})
 
 	bm.Flush(ctx)
 
-	// third content gets written, followed by index.
-	if got, want := len(data), 4; got != want {
-		dumpContentManagerData(ctx, t, data)
-		t.Errorf("unexpected number of contents: %v, wanted %v", got, want)
-	}
+	// third data blob gets written, followed by index, session marker gets deleted.
+	verifyBlobCount(t, data, map[blob.ID]int{"n": 1, "p": 3})
 }
 
 func TestContentManagerWriteMultiple(t *testing.T) {
@@ -315,6 +296,8 @@ func TestContentManagerFailedToWritePack(t *testing.T) {
 	}
 	st = faulty
 
+	ta := faketime.NewTimeAdvance(fakeTime, 0)
+
 	bm, err := NewManager(testlogging.Context(t), st, &FormattingOptions{
 		Version:     1,
 		Hash:        "HMAC-SHA256-128",
@@ -322,17 +305,27 @@ func TestContentManagerFailedToWritePack(t *testing.T) {
 		MaxPackSize: maxPackSize,
 		HMACSecret:  []byte("foo"),
 		MasterKey:   []byte("0123456789abcdef0123456789abcdef"),
-	}, nil, &ManagerOptions{TimeNow: faketime.Frozen(fakeTime)})
+	}, nil, &ManagerOptions{TimeNow: ta.NowFunc()})
 	if err != nil {
 		t.Fatalf("can't create bm: %v", err)
 	}
 
 	defer bm.Close(ctx)
 
+	sessionPutErr := errors.New("booboo0")
+	firstPutErr := errors.New("booboo1")
+	secondPutErr := errors.New("booboo2")
 	faulty.Faults = map[string][]*blobtesting.Fault{
-		"PutContent": {
-			{Err: errors.New("booboo")},
+		"PutBlob": {
+			{Err: sessionPutErr},
+			{Err: firstPutErr},
+			{Err: secondPutErr},
 		},
+	}
+
+	_, err = bm.WriteContent(ctx, seededRandomData(1, 10), "")
+	if !errors.Is(err, sessionPutErr) {
+		t.Fatalf("can't create first content: %v", err)
 	}
 
 	b1, err := bm.WriteContent(ctx, seededRandomData(1, 10), "")
@@ -340,11 +333,26 @@ func TestContentManagerFailedToWritePack(t *testing.T) {
 		t.Fatalf("can't create content: %v", err)
 	}
 
-	if err := bm.Flush(ctx); err != nil {
+	// advance time enough to cause auto-flush, which will fail (firstPutErr)
+	ta.Advance(1 * time.Hour)
+
+	if _, err := bm.WriteContent(ctx, seededRandomData(2, 10), ""); !errors.Is(err, firstPutErr) {
+		t.Fatalf("can't create 2nd content: %v", err)
+	}
+
+	// manual flush will fail because we're unable to write the blob (secondPutErr)
+	if err := bm.Flush(ctx); !errors.Is(err, secondPutErr) {
 		t.Logf("expected flush error: %v", err)
 	}
 
+	// flush will now succeed.
+	if err := bm.Flush(ctx); err != nil {
+		t.Logf("unexpected 2nd flush error: %v", err)
+	}
+
 	verifyContent(ctx, t, bm, b1, seededRandomData(1, 10))
+
+	faulty.VerifyAllFaultsExercised(t)
 }
 
 func TestIndexCompactionDropsContent(t *testing.T) {
@@ -1083,6 +1091,58 @@ func TestFlushResumesWriters(t *testing.T) {
 	})
 }
 
+func TestFlushWaitsForAllPendingWriters(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+
+	data := blobtesting.DataMap{}
+	keyTime := map[blob.ID]time.Time{}
+	st := blobtesting.NewMapStorage(data, keyTime, nil)
+
+	fs := &blobtesting.FaultyStorage{
+		Base: st,
+		Faults: map[string][]*blobtesting.Fault{
+			"PutBlob": {
+				// first write is fast (session ID blobs)
+				{},
+				// second write is slow
+				{Sleep: 2 * time.Second},
+			},
+		},
+	}
+
+	bm := newTestContentManagerWithStorage(t, fs, nil)
+	defer bm.Close(ctx)
+
+	// write one content in another goroutine
+	// 'fs' is configured so that blob write takes several seconds to complete.
+	go writeContentAndVerify(ctx, t, bm, seededRandomData(1, maxPackSize))
+
+	// wait enough time for the goroutine to start writing.
+	time.Sleep(100 * time.Millisecond)
+
+	// write second short content
+	writeContentAndVerify(ctx, t, bm, seededRandomData(1, maxPackSize/4))
+
+	// flush will wait for both writes to complete.
+	t.Logf(">>> start of flushing")
+	bm.Flush(ctx)
+	t.Logf("<<< end of flushing")
+
+	verifyBlobCount(t, data, map[blob.ID]int{
+		PackBlobIDPrefixRegular: 2,
+		indexBlobPrefix:         1,
+	})
+
+	bm.Flush(ctx)
+
+	verifyBlobCount(t, data, map[blob.ID]int{
+		PackBlobIDPrefixRegular: 2,
+		indexBlobPrefix:         1,
+	})
+}
+
 func verifyAllDataPresent(ctx context.Context, t *testing.T, data map[blob.ID][]byte, contentIDs map[ID]bool) {
 	bm := newTestContentManager(t, data, nil, nil)
 	defer bm.Close(ctx)
@@ -1097,8 +1157,6 @@ func verifyAllDataPresent(ctx context.Context, t *testing.T, data map[blob.ID][]
 }
 
 func TestHandleWriteErrors(t *testing.T) {
-	ctx := testlogging.Context(t)
-
 	// genFaults(S0,F0,S1,F1,...,) generates a list of faults
 	// where success is returned Sn times followed by failure returned Fn times
 	genFaults := func(counts ...int) []*blobtesting.Fault {
@@ -1106,14 +1164,18 @@ func TestHandleWriteErrors(t *testing.T) {
 
 		for i, cnt := range counts {
 			if i%2 == 0 {
-				result = append(result, &blobtesting.Fault{
-					Repeat: cnt - 1,
-				})
+				if cnt > 0 {
+					result = append(result, &blobtesting.Fault{
+						Repeat: cnt - 1,
+					})
+				}
 			} else {
-				result = append(result, &blobtesting.Fault{
-					Repeat: cnt - 1,
-					Err:    errors.Errorf("some write error"),
-				})
+				if cnt > 0 {
+					result = append(result, &blobtesting.Fault{
+						Repeat: cnt - 1,
+						Err:    errors.Errorf("some write error"),
+					})
+				}
 			}
 		}
 
@@ -1125,23 +1187,32 @@ func TestHandleWriteErrors(t *testing.T) {
 	// also, verify that all the data is durable
 	cases := []struct {
 		faults               []*blobtesting.Fault // failures to similuate
-		numContents          int                  // how many contents to write
-		contentSize          int                  // size of each content
+		contentSizes         []int                // sizes of contents to write
+		expectedWriteRetries []int
 		expectedFlushRetries int
-		expectedWriteRetries int
 	}{
-		{faults: genFaults(0, 10, 10, 10, 10, 10, 10, 10, 10, 10), numContents: 5, contentSize: maxPackSize, expectedWriteRetries: 10, expectedFlushRetries: 0},
-		{faults: genFaults(1, 2), numContents: 1, contentSize: maxPackSize, expectedWriteRetries: 0, expectedFlushRetries: 2},
-		{faults: genFaults(1, 2), numContents: 10, contentSize: maxPackSize, expectedWriteRetries: 2, expectedFlushRetries: 0},
-		// 2 failures, 2 successes (pack blobs), 1 failure (flush), 1 success (flush)
-		{faults: genFaults(0, 2, 2, 1, 1, 1, 1), numContents: 2, contentSize: maxPackSize, expectedWriteRetries: 2, expectedFlushRetries: 1},
-		{faults: genFaults(0, 2, 2, 1, 1, 1, 1), numContents: 4, contentSize: maxPackSize / 2, expectedWriteRetries: 2, expectedFlushRetries: 1},
+		// write 3 packs of maxPackSize
+		// PutBlob: {1 x SUCCESS (session marker), 5 x FAILURE, 3 x SUCCESS, 9 x FAILURE }
+		{faults: genFaults(1, 5, 3, 9), contentSizes: []int{maxPackSize, maxPackSize, maxPackSize}, expectedWriteRetries: []int{5, 0, 0}, expectedFlushRetries: 9},
+
+		// write 1 content which succeeds, then flush which will fail 5 times before succeeding.
+		{faults: genFaults(2, 5), contentSizes: []int{maxPackSize}, expectedWriteRetries: []int{0}, expectedFlushRetries: 5},
+
+		// write 4 contents, first write succeeds, next one fails 7 times, then all successes.
+		{faults: genFaults(2, 7), contentSizes: []int{maxPackSize, maxPackSize, maxPackSize, maxPackSize}, expectedWriteRetries: []int{0, 7, 0, 0}, expectedFlushRetries: 0},
+
+		// first flush fill fail on pack write, next 3 will fail on index writes.
+		{faults: genFaults(1, 1, 0, 3), contentSizes: []int{maxPackSize / 2}, expectedWriteRetries: []int{0}, expectedFlushRetries: 4},
+
+		// second write will be retried 5 times, flush will be retried 3 times.
+		{faults: genFaults(1, 5, 1, 3), contentSizes: []int{maxPackSize / 2, maxPackSize / 2}, expectedWriteRetries: []int{0, 5}, expectedFlushRetries: 3},
 	}
 
 	for n, tc := range cases {
 		tc := tc
 
 		t.Run(fmt.Sprintf("case-%v", n), func(t *testing.T) {
+			ctx := testlogging.Context(t)
 			data := blobtesting.DataMap{}
 			keyTime := map[blob.ID]time.Time{}
 			st := blobtesting.NewMapStorage(data, keyTime, nil)
@@ -1157,26 +1228,29 @@ func TestHandleWriteErrors(t *testing.T) {
 			bm := newTestContentManagerWithStorage(t, fs, nil)
 			defer bm.Close(ctx)
 
-			writeRetries := 0
+			var writeRetries []int
 			var cids []ID
-			for i := 0; i < tc.numContents; i++ {
-				cid, retries := writeContentWithRetriesAndVerify(ctx, t, bm, seededRandomData(i, tc.contentSize))
-				writeRetries += retries
+			for i, size := range tc.contentSizes {
+				t.Logf(">>>> writing %v", i)
+				cid, retries := writeContentWithRetriesAndVerify(ctx, t, bm, seededRandomData(i, size))
+				writeRetries = append(writeRetries, retries)
 				cids = append(cids, cid)
 			}
 			if got, want := flushWithRetries(ctx, t, bm), tc.expectedFlushRetries; got != want {
 				t.Errorf("invalid # of flush retries %v, wanted %v", got, want)
 			}
-			if got, want := writeRetries, tc.expectedWriteRetries; got != want {
-				t.Errorf("invalid # of write retries %v, wanted %v", got, want)
+			if diff := cmp.Diff(writeRetries, tc.expectedWriteRetries); diff != "" {
+				t.Errorf("invalid # of write retries (-got,+want): %v", diff)
 			}
 
 			bm2 := newTestContentManagerWithStorage(t, st, nil)
 			defer bm2.Close(ctx)
 
 			for i, cid := range cids {
-				verifyContent(ctx, t, bm2, cid, seededRandomData(i, tc.contentSize))
+				verifyContent(ctx, t, bm2, cid, seededRandomData(i, tc.contentSizes[i]))
 			}
+
+			fs.VerifyAllFaultsExercised(t)
 		})
 	}
 }
@@ -1970,11 +2044,13 @@ func flushWithRetries(ctx context.Context, t *testing.T, bm *Manager) int {
 func writeContentWithRetriesAndVerify(ctx context.Context, t *testing.T, bm *Manager, b []byte) (contentID ID, retryCount int) {
 	t.Helper()
 
+	log(ctx).Infof("*** starting writeContentWithRetriesAndVerify")
+
 	contentID, err := bm.WriteContent(ctx, b, "")
 	for i := 0; err != nil && i < maxRetries; i++ {
 		retryCount++
 
-		log(ctx).Warningf("WriteContent failed %v, retrying", err)
+		log(ctx).Infof("*** try %v", retryCount)
 
 		contentID, err = bm.WriteContent(ctx, b, "")
 	}
@@ -1988,6 +2064,7 @@ func writeContentWithRetriesAndVerify(ctx context.Context, t *testing.T, bm *Man
 	}
 
 	verifyContent(ctx, t, bm, contentID, b)
+	log(ctx).Infof("*** finished after %v retries", retryCount)
 
 	return contentID, retryCount
 }
@@ -2057,5 +2134,19 @@ func must(t *testing.T, err error) {
 
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+func verifyBlobCount(t *testing.T, data blobtesting.DataMap, want map[blob.ID]int) {
+	t.Helper()
+
+	got := map[blob.ID]int{}
+
+	for k := range data {
+		got[k[0:1]]++
+	}
+
+	if !cmp.Equal(got, want) {
+		t.Fatalf("unexpected blob count %v, want %v", got, want)
 	}
 }

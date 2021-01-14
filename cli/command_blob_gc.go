@@ -11,21 +11,23 @@ import (
 )
 
 var (
-	blobGarbageCollectCommand       = blobCommands.Command("gc", "Garbage-collect unused blobs")
-	blobGarbageCollectCommandDelete = blobGarbageCollectCommand.Flag("delete", "Whether to delete unused blobs").String()
-	blobGarbageCollectParallel      = blobGarbageCollectCommand.Flag("parallel", "Number of parallel blob scans").Default("16").Int()
-	blobGarbageCollectMinAge        = blobGarbageCollectCommand.Flag("min-age", "Garbage-collect blobs with minimum age").Default("24h").Duration()
-	blobGarbageCollectPrefix        = blobGarbageCollectCommand.Flag("prefix", "Only GC blobs with given prefix").String()
+	blobGarbageCollectCommand              = blobCommands.Command("gc", "Garbage-collect unused blobs")
+	blobGarbageCollectCommandDelete        = blobGarbageCollectCommand.Flag("delete", "Whether to delete unused blobs").String()
+	blobGarbageCollectParallel             = blobGarbageCollectCommand.Flag("parallel", "Number of parallel blob scans").Default("16").Int()
+	blobGarbageCollectMinAge               = blobGarbageCollectCommand.Flag("min-age", "Garbage-collect blobs with minimum age").Default("24h").Duration()
+	blobGarbageCollectSessionExpirationAge = blobGarbageCollectCommand.Flag("session-expiration-age", "Garbage-collect blobs belonging to sessions that have not been updated recently").Default("96h").Duration()
+	blobGarbageCollectPrefix               = blobGarbageCollectCommand.Flag("prefix", "Only GC blobs with given prefix").String()
 )
 
 func runBlobGarbageCollectCommand(ctx context.Context, rep *repo.DirectRepository) error {
 	advancedCommand(ctx)
 
 	opts := maintenance.DeleteUnreferencedBlobsOptions{
-		DryRun:   *blobGarbageCollectCommandDelete != "yes",
-		MinAge:   *blobGarbageCollectMinAge,
-		Parallel: *blobGarbageCollectParallel,
-		Prefix:   blob.ID(*blobGarbageCollectPrefix),
+		DryRun:               *blobGarbageCollectCommandDelete != "yes",
+		MinAge:               *blobGarbageCollectMinAge,
+		SessionExpirationAge: *blobGarbageCollectSessionExpirationAge,
+		Parallel:             *blobGarbageCollectParallel,
+		Prefix:               blob.ID(*blobGarbageCollectPrefix),
 	}
 
 	n, err := maintenance.DeleteUnreferencedBlobs(ctx, rep, opts)

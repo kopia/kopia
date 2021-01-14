@@ -605,7 +605,7 @@ func writeFakeIndex(ctx context.Context, m indexBlobManager, ndx map[string]fake
 		return blob.Metadata{}, errors.Wrap(err, "json error")
 	}
 
-	bm, err := m.writeIndexBlob(ctx, j)
+	bm, err := m.writeIndexBlob(ctx, j, "")
 	if err != nil {
 		return blob.Metadata{}, errors.Wrap(err, "error writing blob")
 	}
@@ -702,7 +702,7 @@ func mustRegisterCompaction(t *testing.T, m indexBlobManager, inputs, outputs []
 func mustWriteIndexBlob(t *testing.T, m indexBlobManager, data string) blob.Metadata {
 	t.Logf("writing index blob %q", data)
 
-	blobMD, err := m.writeIndexBlob(testlogging.Context(t), []byte(data))
+	blobMD, err := m.writeIndexBlob(testlogging.Context(t), []byte(data), "")
 	if err != nil {
 		t.Fatalf("failed to write index blob: %v", err)
 	}

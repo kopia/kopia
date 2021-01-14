@@ -3,6 +3,7 @@ package blobtesting
 import (
 	"context"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/kopia/kopia/repo/blob"
@@ -117,12 +118,18 @@ func (s *FaultyStorage) getNextFault(ctx context.Context, method string, args ..
 		return nil
 	}
 
+	log(ctx).Infof("got fault for %v %v", method, faults[0])
+
 	f := faults[0]
 	if f.Repeat > 0 {
 		f.Repeat--
 		log(ctx).Debugf("will repeat %v more times the fault for %v %v", f.Repeat, method, args)
 	} else {
-		s.Faults[method] = faults[1:]
+		if remaining := faults[1:]; len(remaining) > 0 {
+			s.Faults[method] = remaining
+		} else {
+			delete(s.Faults, method)
+		}
 	}
 
 	s.mu.Unlock()
@@ -147,6 +154,13 @@ func (s *FaultyStorage) getNextFault(ctx context.Context, method string, args ..
 	log(ctx).Debugf("returning %v for %v %v", f.Err, method, args)
 
 	return f.Err
+}
+
+// VerifyAllFaultsExercised fails the test if some faults have not been exercised.
+func (s *FaultyStorage) VerifyAllFaultsExercised(t *testing.T) {
+	if len(s.Faults) != 0 {
+		t.Fatalf("not all defined faults have been hit: %#v", s.Faults)
+	}
 }
 
 var _ blob.Storage = (*FaultyStorage)(nil)
