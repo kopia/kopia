@@ -1191,8 +1191,9 @@ func TestHandleWriteErrors(t *testing.T) {
 		expectedWriteRetries []int
 		expectedFlushRetries int
 	}{
-		// write 3 packs, first requires 7 retries, second 4, third 2, then 9 retries at flush
-		{faults: genFaults(0, 7, 1, 4, 1, 2, 1, 9), contentSizes: []int{maxPackSize, maxPackSize, maxPackSize}, expectedWriteRetries: []int{7, 4, 2}, expectedFlushRetries: 9},
+		// write 3 packs of maxPackSize
+		// PutBlob: {1 x SUCCESS (session marker), 5 x FAILURE, 3 x SUCCESS, 9 x FAILURE }
+		{faults: genFaults(1, 5, 3, 9), contentSizes: []int{maxPackSize, maxPackSize, maxPackSize}, expectedWriteRetries: []int{5, 0, 0}, expectedFlushRetries: 9},
 
 		// write 1 content which succeeds, then flush which will fail 5 times before succeeding.
 		{faults: genFaults(2, 5), contentSizes: []int{maxPackSize}, expectedWriteRetries: []int{0}, expectedFlushRetries: 5},
@@ -1203,8 +1204,8 @@ func TestHandleWriteErrors(t *testing.T) {
 		// first flush fill fail on pack write, next 3 will fail on index writes.
 		{faults: genFaults(1, 1, 0, 3), contentSizes: []int{maxPackSize / 2}, expectedWriteRetries: []int{0}, expectedFlushRetries: 4},
 
-		// second write will be retried once, flush will be retried 3 times.
-		{faults: genFaults(1, 1, 0, 3), contentSizes: []int{maxPackSize / 2, maxPackSize / 2}, expectedWriteRetries: []int{0, 1}, expectedFlushRetries: 3},
+		// second write will be retried 5 times, flush will be retried 3 times.
+		{faults: genFaults(1, 5, 1, 3), contentSizes: []int{maxPackSize / 2, maxPackSize / 2}, expectedWriteRetries: []int{0, 5}, expectedFlushRetries: 3},
 	}
 
 	for n, tc := range cases {
@@ -1230,6 +1231,7 @@ func TestHandleWriteErrors(t *testing.T) {
 			var writeRetries []int
 			var cids []ID
 			for i, size := range tc.contentSizes {
+				t.Logf(">>>> writing %v", i)
 				cid, retries := writeContentWithRetriesAndVerify(ctx, t, bm, seededRandomData(i, size))
 				writeRetries = append(writeRetries, retries)
 				cids = append(cids, cid)
@@ -2042,11 +2044,13 @@ func flushWithRetries(ctx context.Context, t *testing.T, bm *Manager) int {
 func writeContentWithRetriesAndVerify(ctx context.Context, t *testing.T, bm *Manager, b []byte) (contentID ID, retryCount int) {
 	t.Helper()
 
+	log(ctx).Infof("*** starting writeContentWithRetriesAndVerify")
+
 	contentID, err := bm.WriteContent(ctx, b, "")
 	for i := 0; err != nil && i < maxRetries; i++ {
 		retryCount++
 
-		log(ctx).Warningf("WriteContent failed %v, retrying", err)
+		log(ctx).Infof("*** try %v", retryCount)
 
 		contentID, err = bm.WriteContent(ctx, b, "")
 	}
@@ -2060,6 +2064,7 @@ func writeContentWithRetriesAndVerify(ctx context.Context, t *testing.T, bm *Man
 	}
 
 	verifyContent(ctx, t, bm, contentID, b)
+	log(ctx).Infof("*** finished after %v retries", retryCount)
 
 	return contentID, retryCount
 }

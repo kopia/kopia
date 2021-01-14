@@ -176,6 +176,33 @@ func (bm *Manager) maybeFlushBasedOnTimeUnlocked(ctx context.Context) error {
 	return bm.Flush(ctx)
 }
 
+func (bm *Manager) maybeRetryWritingFailedPacksUnlocked(ctx context.Context) error {
+	bm.lock()
+	defer bm.unlock()
+
+	// do not start new uploads while flushing
+	for bm.flushing {
+		formatLog(ctx).Debugf("wait-before-retry")
+		bm.cond.Wait()
+	}
+
+	// see if we have any packs that have failed previously
+	// retry writing them now.
+	//
+	// we're making a copy of bm.failedPacks since bm.writePackAndAddToIndex()
+	// will remove from it on success.
+	fp := append([]*pendingPackInfo(nil), bm.failedPacks...)
+	for _, pp := range fp {
+		formatLog(ctx).Debugf("retry-write %v", pp.packBlobID)
+
+		if err := bm.writePackAndAddToIndex(ctx, pp, true); err != nil {
+			return errors.Wrap(err, "error writing previously failed pack")
+		}
+	}
+
+	return nil
+}
+
 func (bm *Manager) addToPackUnlocked(ctx context.Context, contentID ID, data []byte, isDeleted bool) error {
 	// see if the current index is old enough to cause automatic flush.
 	if err := bm.maybeFlushBasedOnTimeUnlocked(ctx); err != nil {
@@ -190,6 +217,21 @@ func (bm *Manager) addToPackUnlocked(ctx context.Context, contentID ID, data []b
 	for bm.flushing {
 		formatLog(ctx).Debugf("wait-before-flush")
 		bm.cond.Wait()
+	}
+
+	// see if we have any packs that have failed previously
+	// retry writing them now.
+	//
+	// we're making a copy of bm.failedPacks since bm.writePackAndAddToIndex()
+	// will remove from it on success.
+	fp := append([]*pendingPackInfo(nil), bm.failedPacks...)
+	for _, pp := range fp {
+		formatLog(ctx).Debugf("retry-write %v", pp.packBlobID)
+
+		if err := bm.writePackAndAddToIndex(ctx, pp, true); err != nil {
+			bm.unlock()
+			return errors.Wrap(err, "error writing previously failed pack")
+		}
 	}
 
 	pp, err := bm.getOrCreatePendingPackInfoLocked(ctx, prefix)
@@ -456,6 +498,8 @@ func (bm *Manager) Flush(ctx context.Context) error {
 	// will remove from it on success.
 	fp := append([]*pendingPackInfo(nil), bm.failedPacks...)
 	for _, pp := range fp {
+		formatLog(ctx).Debugf("retry-write %v", pp.packBlobID)
+
 		if err := bm.writePackAndAddToIndex(ctx, pp, true); err != nil {
 			return errors.Wrap(err, "error writing previously failed pack")
 		}
@@ -565,6 +609,10 @@ func (bm *Manager) getOrCreatePendingPackInfoLocked(ctx context.Context, prefix 
 // WriteContent saves a given content of data to a pack group with a provided name and returns a contentID
 // that's based on the contents of data written.
 func (bm *Manager) WriteContent(ctx context.Context, data []byte, prefix ID) (ID, error) {
+	if err := bm.maybeRetryWritingFailedPacksUnlocked(ctx); err != nil {
+		return "", err
+	}
+
 	stats.Record(ctx, metricContentWriteContentCount.M(1))
 	stats.Record(ctx, metricContentWriteContentBytes.M(int64(len(data))))
 
