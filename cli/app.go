@@ -45,6 +45,7 @@ var (
 	indexCommands       = app.Command("index", "Commands to manipulate content index.").Hidden()
 	benchmarkCommands   = app.Command("benchmark", "Commands to test performance of algorithms.").Hidden()
 	maintenanceCommands = app.Command("maintenance", "Maintenance commands.").Hidden().Alias("gc")
+	sessionCommands     = app.Command("session", "Session commands.").Hidden()
 )
 
 func helpFullAction(ctx *kingpin.ParseContext) error {

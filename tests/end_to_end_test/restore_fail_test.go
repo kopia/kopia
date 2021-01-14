@@ -69,7 +69,7 @@ func TestRestoreFail(t *testing.T) {
 func findPackBlob(blobIDs []string) string {
 	// Pattern to match "p" followed by hexadecimal digits
 	// Ex) "pd4c69d72b75a9d3d7d9da21096c6b60a"
-	patternStr := fmt.Sprintf("^%s[0-9a-f]+$", content.PackBlobIDPrefixRegular)
+	patternStr := fmt.Sprintf("^%s[0-9a-f]+", content.PackBlobIDPrefixRegular)
 	pattern := regexp.MustCompile(patternStr)
 
 	for _, blobID := range blobIDs {

@@ -10,6 +10,7 @@ import (
 	"github.com/kopia/kopia/internal/stats"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/content"
 )
 
 // defaultBlobGCMinAge is a default MinAge for blob GC.
@@ -17,15 +18,20 @@ import (
 // will periodically flush its indexes more frequently than 1/hour.
 const defaultBlobGCMinAge = 2 * time.Hour
 
+// treat sessions that have not been updated in 4 days as expired.
+const defaultSessionExpirationAge = 4 * 24 * time.Hour
+
 // DeleteUnreferencedBlobsOptions provides option for blob garbage collection algorithm.
 type DeleteUnreferencedBlobsOptions struct {
-	Parallel int
-	Prefix   blob.ID
-	MinAge   time.Duration
-	DryRun   bool
+	Parallel             int
+	Prefix               blob.ID
+	MinAge               time.Duration
+	SessionExpirationAge time.Duration // treat sessions that have not been written for more than X time as expired
+	DryRun               bool
 }
 
 // DeleteUnreferencedBlobs deletes old blobs that are no longer referenced by index entries.
+// nolint:gocyclo
 func DeleteUnreferencedBlobs(ctx context.Context, rep MaintainableRepository, opt DeleteUnreferencedBlobsOptions) (int, error) {
 	if opt.Parallel == 0 {
 		opt.Parallel = 16
@@ -33,6 +39,10 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep MaintainableRepository, op
 
 	if opt.MinAge == 0 {
 		opt.MinAge = defaultBlobGCMinAge
+	}
+
+	if opt.SessionExpirationAge == 0 {
+		opt.SessionExpirationAge = defaultSessionExpirationAge
 	}
 
 	const deleteQueueSize = 100
@@ -68,12 +78,29 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep MaintainableRepository, op
 	var prefixes []blob.ID
 	if p := opt.Prefix; p != "" {
 		prefixes = append(prefixes, p)
+	} else {
+		prefixes = append(prefixes, content.PackBlobIDPrefixRegular, content.PackBlobIDPrefixSpecial, content.BlobIDPrefixSession)
 	}
 
+	activeSessions, err := rep.ListActiveSessions(ctx)
+	if err != nil {
+		return 0, errors.Wrap(err, "unable to load active sessions")
+	}
+
+	// iterate all pack blobs + session blobs and keep ones that are too young or
+	// belong to alive sessions.
 	if err := rep.ContentManager().IterateUnreferencedBlobs(ctx, prefixes, opt.Parallel, func(bm blob.Metadata) error {
 		if age := rep.Time().Sub(bm.Timestamp); age < opt.MinAge {
 			log(ctx).Debugf("  preserving %v because it's too new (age: %v)", bm.BlobID, age)
 			return nil
+		}
+
+		sid := content.SessionIDFromBlobID(bm.BlobID)
+		if s, ok := activeSessions[sid]; ok {
+			if age := rep.Time().Sub(s.CheckpointTime); age < opt.SessionExpirationAge {
+				log(ctx).Debugf("  preserving %v because it's part of an active session (%v)", bm.BlobID, sid)
+				return nil
+			}
 		}
 
 		unreferenced.Add(bm.Length)

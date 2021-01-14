@@ -42,6 +42,8 @@ type MaintainableRepository interface {
 	repo.Writer
 
 	DeriveKey(purpose []byte, keyLength int) []byte
+
+	ListActiveSessions(ctx context.Context) (map[content.SessionID]*content.SessionInfo, error)
 }
 
 // Supported maintenance modes.

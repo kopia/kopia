@@ -133,6 +133,11 @@ func (r *DirectRepository) DeleteManifest(ctx context.Context, id manifest.ID) e
 	return r.Manifests.Delete(ctx, id)
 }
 
+// ListActiveSessions returns the map of active sessions.
+func (r *DirectRepository) ListActiveSessions(ctx context.Context) (map[content.SessionID]*content.SessionInfo, error) {
+	return r.Content.ListActiveSessions(ctx)
+}
+
 // UpdateDescription updates the description of a connected repository.
 func (r *DirectRepository) UpdateDescription(d string) {
 	r.cliOpts.Description = d

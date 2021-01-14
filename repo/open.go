@@ -164,6 +164,8 @@ func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 	cmOpts := &content.ManagerOptions{
 		RepositoryFormatBytes: fb,
 		TimeNow:               defaultTime(options.TimeNowFunc),
+		SessionUser:           lc.ClientOptions.Username,
+		SessionHost:           lc.ClientOptions.Hostname,
 	}
 
 	cm, err := content.NewManager(ctx, st, fo, caching, cmOpts)

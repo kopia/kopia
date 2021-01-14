@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/internal/blobtesting"
-	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/encryption"
@@ -104,7 +103,7 @@ func verifyEndToEndFormatter(ctx context.Context, t *testing.T, hashAlgo, encryp
 		MaxPackSize: maxPackSize,
 		MasterKey:   make([]byte, 32), // zero key, does not matter
 		Version:     1,
-	}, nil, &ManagerOptions{TimeNow: clock.Now})
+	}, nil, nil)
 	if err != nil {
 		t.Errorf("can't create content manager with hash %v and encryption %v: %v", hashAlgo, encryptionAlgo, err.Error())
 		return

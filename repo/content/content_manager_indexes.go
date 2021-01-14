@@ -109,7 +109,7 @@ func (bm *Manager) compactIndexBlobs(ctx context.Context, indexBlobs []IndexBlob
 		return errors.Wrap(err, "unable to build an index")
 	}
 
-	compactedIndexBlob, err := bm.indexBlobManager.writeIndexBlob(ctx, buf.Bytes())
+	compactedIndexBlob, err := bm.indexBlobManager.writeIndexBlob(ctx, buf.Bytes(), "")
 	if err != nil {
 		return errors.Wrap(err, "unable to write compacted indexes")
 	}
