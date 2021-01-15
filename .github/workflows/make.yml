@@ -81,7 +81,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest, [self-hosted, armhf]]
+        #os: [windows-latest, ubuntu-latest, macos-latest, [self-hosted, armhf]]
+        os: [windows-latest, ubuntu-latest, macos-latest]
     name: Make
     runs-on: ${{ matrix.os }}
     steps:
