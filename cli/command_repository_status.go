@@ -45,11 +45,11 @@ func runStatusCommand(ctx context.Context, rep repo.Reader) error {
 
 	fmt.Println()
 	fmt.Printf("Unique ID:           %x\n", dr.UniqueID)
-	fmt.Printf("Hash:                %v\n", dr.Content.Format.Hash)
-	fmt.Printf("Encryption:          %v\n", dr.Content.Format.Encryption)
+	fmt.Printf("Hash:                %v\n", dr.Content.Format().Hash)
+	fmt.Printf("Encryption:          %v\n", dr.Content.Format().Encryption)
 	fmt.Printf("Splitter:            %v\n", dr.Objects.Format.Splitter)
-	fmt.Printf("Format version:      %v\n", dr.Content.Format.Version)
-	fmt.Printf("Max pack length:     %v\n", units.BytesStringBase2(int64(dr.Content.Format.MaxPackSize)))
+	fmt.Printf("Format version:      %v\n", dr.Content.Format().Version)
+	fmt.Printf("Max pack length:     %v\n", units.BytesStringBase2(int64(dr.Content.Format().MaxPackSize)))
 
 	if !*statusReconnectToken {
 		return nil

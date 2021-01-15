@@ -21,7 +21,7 @@ type CompactOptions struct {
 }
 
 // CompactIndexes performs compaction of index blobs ensuring that # of small index blobs is below opt.maxSmallBlobs.
-func (bm *Manager) CompactIndexes(ctx context.Context, opt CompactOptions) error {
+func (bm *WriteManager) CompactIndexes(ctx context.Context, opt CompactOptions) error {
 	log(ctx).Debugf("CompactIndexes(%+v)", opt)
 
 	bm.lock()
@@ -41,7 +41,7 @@ func (bm *Manager) CompactIndexes(ctx context.Context, opt CompactOptions) error
 	return bm.indexBlobManager.cleanup(ctx)
 }
 
-func (bm *Manager) getBlobsToCompact(ctx context.Context, indexBlobs []IndexBlobInfo, opt CompactOptions) []IndexBlobInfo {
+func (sm *SharedManager) getBlobsToCompact(ctx context.Context, indexBlobs []IndexBlobInfo, opt CompactOptions) []IndexBlobInfo {
 	var nonCompactedBlobs, verySmallBlobs []IndexBlobInfo
 
 	var totalSizeNonCompactedBlobs, totalSizeVerySmallBlobs, totalSizeMediumSizedBlobs int64
@@ -49,14 +49,14 @@ func (bm *Manager) getBlobsToCompact(ctx context.Context, indexBlobs []IndexBlob
 	var mediumSizedBlobCount int
 
 	for _, b := range indexBlobs {
-		if b.Length > int64(bm.maxPackSize) && !opt.AllIndexes {
+		if b.Length > int64(sm.maxPackSize) && !opt.AllIndexes {
 			continue
 		}
 
 		nonCompactedBlobs = append(nonCompactedBlobs, b)
 		totalSizeNonCompactedBlobs += b.Length
 
-		if b.Length < int64(bm.maxPackSize/verySmallContentFraction) {
+		if b.Length < int64(sm.maxPackSize/verySmallContentFraction) {
 			verySmallBlobs = append(verySmallBlobs, b)
 			totalSizeVerySmallBlobs += b.Length
 		} else {
@@ -81,7 +81,7 @@ func (bm *Manager) getBlobsToCompact(ctx context.Context, indexBlobs []IndexBlob
 	return nonCompactedBlobs
 }
 
-func (bm *Manager) compactIndexBlobs(ctx context.Context, indexBlobs []IndexBlobInfo, opt CompactOptions) error {
+func (sm *SharedManager) compactIndexBlobs(ctx context.Context, indexBlobs []IndexBlobInfo, opt CompactOptions) error {
 	if len(indexBlobs) <= 1 && opt.DropDeletedBefore.IsZero() && len(opt.DropContents) == 0 {
 		return nil
 	}
@@ -93,7 +93,7 @@ func (bm *Manager) compactIndexBlobs(ctx context.Context, indexBlobs []IndexBlob
 	for i, indexBlob := range indexBlobs {
 		formatLog(ctx).Debugf("compacting-entries[%v/%v] %v", i, len(indexBlobs), indexBlob)
 
-		if err := bm.addIndexBlobsToBuilder(ctx, bld, indexBlob); err != nil {
+		if err := sm.addIndexBlobsToBuilder(ctx, bld, indexBlob); err != nil {
 			return errors.Wrap(err, "error adding index to builder")
 		}
 
@@ -109,7 +109,7 @@ func (bm *Manager) compactIndexBlobs(ctx context.Context, indexBlobs []IndexBlob
 		return errors.Wrap(err, "unable to build an index")
 	}
 
-	compactedIndexBlob, err := bm.indexBlobManager.writeIndexBlob(ctx, buf.Bytes(), "")
+	compactedIndexBlob, err := sm.indexBlobManager.writeIndexBlob(ctx, buf.Bytes(), "")
 	if err != nil {
 		return errors.Wrap(err, "unable to write compacted indexes")
 	}
@@ -125,7 +125,7 @@ func (bm *Manager) compactIndexBlobs(ctx context.Context, indexBlobs []IndexBlob
 
 	outputs = append(outputs, compactedIndexBlob)
 
-	if err := bm.indexBlobManager.registerCompaction(ctx, inputs, outputs); err != nil {
+	if err := sm.indexBlobManager.registerCompaction(ctx, inputs, outputs); err != nil {
 		return errors.Wrap(err, "unable to register compaction")
 	}
 
@@ -154,8 +154,8 @@ func dropContentsFromBuilder(ctx context.Context, bld packIndexBuilder, opt Comp
 	}
 }
 
-func (bm *Manager) addIndexBlobsToBuilder(ctx context.Context, bld packIndexBuilder, indexBlob IndexBlobInfo) error {
-	data, err := bm.indexBlobManager.getIndexBlob(ctx, indexBlob.BlobID)
+func (sm *SharedManager) addIndexBlobsToBuilder(ctx context.Context, bld packIndexBuilder, indexBlob IndexBlobInfo) error {
+	data, err := sm.indexBlobManager.getIndexBlob(ctx, indexBlob.BlobID)
 	if err != nil {
 		return errors.Wrapf(err, "error getting index %q", indexBlob.BlobID)
 	}
@@ -174,8 +174,8 @@ func (bm *Manager) addIndexBlobsToBuilder(ctx context.Context, bld packIndexBuil
 }
 
 // ParseIndexBlob loads entries in a given index blob and returns them.
-func (bm *Manager) ParseIndexBlob(ctx context.Context, blobID blob.ID) ([]Info, error) {
-	data, err := bm.indexBlobManager.getIndexBlob(ctx, blobID)
+func (sm *SharedManager) ParseIndexBlob(ctx context.Context, blobID blob.ID) ([]Info, error) {
+	data, err := sm.indexBlobManager.getIndexBlob(ctx, blobID)
 	if err != nil {
 		return nil, errors.Wrapf(err, "error getting index %q", blobID)
 	}

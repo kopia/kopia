@@ -29,8 +29,8 @@ func (s *Server) handleRepoParameters(ctx context.Context, r *http.Request, body
 	}
 
 	rp := &remoterepoapi.Parameters{
-		HashFunction: dr.Content.Format.Hash,
-		HMACSecret:   dr.Content.Format.HMACSecret,
+		HashFunction: dr.Content.Format().Hash,
+		HMACSecret:   dr.Content.Format().HMACSecret,
 		Format:       dr.Objects.Format,
 	}
 
@@ -50,9 +50,9 @@ func (s *Server) handleRepoStatus(ctx context.Context, r *http.Request, body []b
 			Connected:     true,
 			ConfigFile:    dr.ConfigFile,
 			CacheDir:      dr.Cache.CacheDirectory,
-			Hash:          dr.Content.Format.Hash,
-			Encryption:    dr.Content.Format.Encryption,
-			MaxPackSize:   dr.Content.Format.MaxPackSize,
+			Hash:          dr.Content.Format().Hash,
+			Encryption:    dr.Content.Format().Encryption,
+			MaxPackSize:   dr.Content.Format().MaxPackSize,
 			Splitter:      dr.Objects.Format.Splitter,
 			Storage:       dr.Blobs.ConnectionInfo().Type,
 			ClientOptions: dr.ClientOptions(),
