@@ -14,7 +14,7 @@ import (
 
 // RecoverIndexFromPackBlob attempts to recover index blob entries from a given pack file.
 // Pack file length may be provided (if known) to reduce the number of bytes that are read from the storage.
-func (bm *Manager) RecoverIndexFromPackBlob(ctx context.Context, packFile blob.ID, packFileLength int64, commit bool) ([]Info, error) {
+func (bm *WriteManager) RecoverIndexFromPackBlob(ctx context.Context, packFile blob.ID, packFileLength int64, commit bool) ([]Info, error) {
 	localIndexBytes, err := bm.readPackFileLocalIndex(ctx, packFile, packFileLength)
 	if err != nil {
 		return nil, err
@@ -157,7 +157,7 @@ func decodePostamble(payload []byte) *packContentPostamble {
 	}
 }
 
-func (bm *lockFreeManager) buildLocalIndex(pending packIndexBuilder) ([]byte, error) {
+func buildLocalIndex(pending packIndexBuilder) ([]byte, error) {
 	var buf bytes.Buffer
 	if err := pending.Build(&buf); err != nil {
 		return nil, errors.Wrap(err, "unable to build local index")
@@ -167,18 +167,18 @@ func (bm *lockFreeManager) buildLocalIndex(pending packIndexBuilder) ([]byte, er
 }
 
 // writePackFileIndexRecoveryData appends data designed to help with recovery of pack index in case it gets damaged or lost.
-func (bm *Manager) writePackFileIndexRecoveryData(buf *gather.WriteBuffer, pending packIndexBuilder) error {
+func (sm *SharedManager) writePackFileIndexRecoveryData(buf *gather.WriteBuffer, pending packIndexBuilder) error {
 	// build, encrypt and append local index
 	localIndexOffset := buf.Length()
 
-	localIndex, err := bm.buildLocalIndex(pending)
+	localIndex, err := buildLocalIndex(pending)
 	if err != nil {
 		return err
 	}
 
-	localIndexIV := bm.hashData(nil, localIndex)
+	localIndexIV := sm.hashData(nil, localIndex)
 
-	encryptedLocalIndex, err := bm.encryptor.Encrypt(nil, localIndex, localIndexIV)
+	encryptedLocalIndex, err := sm.encryptor.Encrypt(nil, localIndex, localIndexIV)
 	if err != nil {
 		return errors.Wrap(err, "encryption error")
 	}

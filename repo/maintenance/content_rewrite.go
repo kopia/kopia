@@ -135,7 +135,7 @@ func getContentToRewrite(ctx context.Context, rep MaintainableRepository, opt *R
 
 		// add all content IDs from short packs
 		if opt.ShortPacks {
-			threshold := int64(rep.ContentManager().Format.MaxPackSize * shortPackThresholdPercent / 100) //nolint:gomnd
+			threshold := int64(rep.ContentManager().Format().MaxPackSize * shortPackThresholdPercent / 100) //nolint:gomnd
 			findContentInShortPacks(ctx, rep, ch, threshold, opt)
 		}
 

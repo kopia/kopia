@@ -164,14 +164,17 @@ func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 	cmOpts := &content.ManagerOptions{
 		RepositoryFormatBytes: fb,
 		TimeNow:               defaultTime(options.TimeNowFunc),
-		SessionUser:           lc.ClientOptions.Username,
-		SessionHost:           lc.ClientOptions.Hostname,
 	}
 
-	cm, err := content.NewManager(ctx, st, fo, caching, cmOpts)
+	scm, err := content.NewSharedManager(ctx, st, fo, caching, cmOpts)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to open content manager")
+		return nil, errors.Wrap(err, "unable to create shared content manager")
 	}
+
+	cm := content.NewWriteManager(scm, content.SessionOptions{
+		SessionUser: lc.Username,
+		SessionHost: lc.Hostname,
+	})
 
 	om, err := object.NewObjectManager(ctx, cm, repoConfig.Format)
 	if err != nil {
@@ -190,6 +193,8 @@ func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		Blobs:     st,
 		Manifests: manifests,
 		UniqueID:  f.UniqueID,
+
+		sharedContentManager: scm,
 
 		formatBlob: f,
 		masterKey:  masterKey,
