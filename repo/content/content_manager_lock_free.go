@@ -9,7 +9,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/buf"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/encryption"
@@ -18,25 +17,7 @@ import (
 
 const indexBlobCompactionWarningThreshold = 100
 
-// lockFreeManager contains parts of Manager state that can be accessed without locking.
-type lockFreeManager struct {
-	Format FormattingOptions
-
-	checkInvariantsOnUnlock bool
-
-	writeFormatVersion int32 // format version to write
-
-	maxPackSize       int
-	minPreambleLength int
-	maxPreambleLength int
-	paddingUnit       int
-
-	repositoryFormatBytes []byte
-
-	encryptionBufferPool *buf.Pool
-}
-
-func (bm *Manager) maybeEncryptContentDataForPacking(output *gather.WriteBuffer, data []byte, contentID ID) error {
+func (sm *SharedManager) maybeEncryptContentDataForPacking(output *gather.WriteBuffer, data []byte, contentID ID) error {
 	var hashOutput [maxHashSize]byte
 
 	iv, err := getPackedContentIV(hashOutput[:], contentID)
@@ -44,15 +25,15 @@ func (bm *Manager) maybeEncryptContentDataForPacking(output *gather.WriteBuffer,
 		return errors.Wrapf(err, "unable to get packed content IV for %q", contentID)
 	}
 
-	b := bm.encryptionBufferPool.Allocate(len(data) + bm.encryptor.MaxOverhead())
+	b := sm.encryptionBufferPool.Allocate(len(data) + sm.encryptor.MaxOverhead())
 	defer b.Release()
 
-	cipherText, err := bm.encryptor.Encrypt(b.Data[:0], data, iv)
+	cipherText, err := sm.encryptor.Encrypt(b.Data[:0], data, iv)
 	if err != nil {
 		return errors.Wrap(err, "unable to encrypt")
 	}
 
-	bm.Stats.encrypted(len(data))
+	sm.Stats.encrypted(len(data))
 
 	output.Append(cipherText)
 
@@ -85,7 +66,7 @@ func ValidatePrefix(prefix ID) error {
 	return errors.Errorf("invalid prefix, must be a empty or single letter between 'g' and 'z'")
 }
 
-func (bm *Manager) getContentDataUnlocked(ctx context.Context, pp *pendingPackInfo, bi *Info) ([]byte, error) {
+func (bm *WriteManager) getContentDataUnlocked(ctx context.Context, pp *pendingPackInfo, bi *Info) ([]byte, error) {
 	var payload []byte
 
 	if pp != nil && pp.packBlobID == bi.PackBlobID {
@@ -102,7 +83,7 @@ func (bm *Manager) getContentDataUnlocked(ctx context.Context, pp *pendingPackIn
 	return bm.decryptContentAndVerify(payload, bi)
 }
 
-func (bm *Manager) preparePackDataContent(ctx context.Context, pp *pendingPackInfo) (packIndexBuilder, error) {
+func (bm *WriteManager) preparePackDataContent(ctx context.Context, pp *pendingPackInfo) (packIndexBuilder, error) {
 	packFileIndex := packIndexBuilder{}
 	haveContent := false
 
@@ -154,16 +135,16 @@ func getPackedContentIV(output []byte, contentID ID) ([]byte, error) {
 	return output[0:n], nil
 }
 
-func (bm *Manager) writePackFileNotLocked(ctx context.Context, packFile blob.ID, data gather.Bytes) error {
+func (bm *WriteManager) writePackFileNotLocked(ctx context.Context, packFile blob.ID, data gather.Bytes) error {
 	bm.Stats.wroteContent(data.Length())
 
 	return bm.st.PutBlob(ctx, packFile, data)
 }
 
-func (bm *Manager) hashData(output, data []byte) []byte {
+func (sm *SharedManager) hashData(output, data []byte) []byte {
 	// Hash the content and compute encryption key.
-	contentID := bm.hasher(output, data)
-	bm.Stats.hashedContent(len(data))
+	contentID := sm.hasher(output, data)
+	sm.Stats.hashedContent(len(data))
 
 	return contentID
 }

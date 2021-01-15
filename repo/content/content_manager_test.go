@@ -190,7 +190,7 @@ func TestContentManagerEmpty(t *testing.T) {
 	verifyBlobCount(t, data, map[blob.ID]int{})
 }
 
-func verifyActiveIndexBlobCount(ctx context.Context, t *testing.T, bm *Manager, expected int) {
+func verifyActiveIndexBlobCount(ctx context.Context, t *testing.T, bm *WriteManager, expected int) {
 	t.Helper()
 
 	blks, err := bm.IndexBlobs(ctx, false)
@@ -881,7 +881,7 @@ func TestDeleteAfterUndelete(t *testing.T) {
 	deleteContentAfterUndeleteAndCheck(ctx, t, bm, content2, c2Want)
 }
 
-func deleteContentAfterUndeleteAndCheck(ctx context.Context, t *testing.T, bm *Manager, id ID, want Info) {
+func deleteContentAfterUndeleteAndCheck(ctx context.Context, t *testing.T, bm *WriteManager, id ID, want Info) {
 	t.Helper()
 	deleteContent(ctx, t, bm, id)
 
@@ -1670,7 +1670,7 @@ func TestFindUnreferencedBlobs2(t *testing.T) {
 	verifyUnreferencedBlobsCount(ctx, t, bm, 0)
 }
 
-func dumpContents(ctx context.Context, t *testing.T, bm *Manager, caption string) {
+func dumpContents(ctx context.Context, t *testing.T, bm *WriteManager, caption string) {
 	t.Helper()
 
 	count := 0
@@ -1690,7 +1690,7 @@ func dumpContents(ctx context.Context, t *testing.T, bm *Manager, caption string
 	log(ctx).Infof("finished dumping %v %v contents", count, caption)
 }
 
-func verifyUnreferencedBlobsCount(ctx context.Context, t *testing.T, bm *Manager, want int) {
+func verifyUnreferencedBlobsCount(ctx context.Context, t *testing.T, bm *WriteManager, want int) {
 	t.Helper()
 
 	var unrefCount int32
@@ -1915,7 +1915,7 @@ func verifyReadsOwnWrites(t *testing.T, st blob.Storage, timeNow func() time.Tim
 	}
 }
 
-func verifyContentManagerDataSet(ctx context.Context, t *testing.T, mgr *Manager, dataSet map[ID][]byte) {
+func verifyContentManagerDataSet(ctx context.Context, t *testing.T, mgr *WriteManager, dataSet map[ID][]byte) {
 	for contentID, originalPayload := range dataSet {
 		v, err := mgr.GetContent(ctx, contentID)
 		if err != nil {
@@ -1929,16 +1929,16 @@ func verifyContentManagerDataSet(ctx context.Context, t *testing.T, mgr *Manager
 	}
 }
 
-func newTestContentManager(t *testing.T, data blobtesting.DataMap, keyTime map[blob.ID]time.Time, timeFunc func() time.Time) *Manager {
+func newTestContentManager(t *testing.T, data blobtesting.DataMap, keyTime map[blob.ID]time.Time, timeFunc func() time.Time) *WriteManager {
 	st := blobtesting.NewMapStorage(data, keyTime, timeFunc)
 	return newTestContentManagerWithStorage(t, st, timeFunc)
 }
 
-func newTestContentManagerWithStorage(t *testing.T, st blob.Storage, timeFunc func() time.Time) *Manager {
+func newTestContentManagerWithStorage(t *testing.T, st blob.Storage, timeFunc func() time.Time) *WriteManager {
 	return newTestContentManagerWithStorageAndCaching(t, st, nil, timeFunc)
 }
 
-func newTestContentManagerWithStorageAndOptions(t *testing.T, st blob.Storage, co *CachingOptions, opts *ManagerOptions) *Manager {
+func newTestContentManagerWithStorageAndOptions(t *testing.T, st blob.Storage, co *CachingOptions, opts *ManagerOptions) *WriteManager {
 	bm, err := NewManager(testlogging.Context(t), st, &FormattingOptions{
 		Hash:        "HMAC-SHA256",
 		Encryption:  "AES256-GCM-HMAC-SHA256",
@@ -1955,7 +1955,7 @@ func newTestContentManagerWithStorageAndOptions(t *testing.T, st blob.Storage, c
 	return bm
 }
 
-func newTestContentManagerWithStorageAndCaching(t *testing.T, st blob.Storage, co *CachingOptions, timeFunc func() time.Time) *Manager {
+func newTestContentManagerWithStorageAndCaching(t *testing.T, st blob.Storage, co *CachingOptions, timeFunc func() time.Time) *WriteManager {
 	if timeFunc == nil {
 		timeFunc = faketime.AutoAdvance(fakeTime, 1*time.Second)
 	}
@@ -1963,7 +1963,7 @@ func newTestContentManagerWithStorageAndCaching(t *testing.T, st blob.Storage, c
 	return newTestContentManagerWithStorageAndOptions(t, st, co, &ManagerOptions{TimeNow: timeFunc})
 }
 
-func verifyContentNotFound(ctx context.Context, t *testing.T, bm *Manager, contentID ID) {
+func verifyContentNotFound(ctx context.Context, t *testing.T, bm *WriteManager, contentID ID) {
 	t.Helper()
 
 	b, err := bm.GetContent(ctx, contentID)
@@ -1972,7 +1972,7 @@ func verifyContentNotFound(ctx context.Context, t *testing.T, bm *Manager, conte
 	}
 }
 
-func verifyDeletedContentRead(ctx context.Context, t *testing.T, bm *Manager, contentID ID, b []byte) {
+func verifyDeletedContentRead(ctx context.Context, t *testing.T, bm *WriteManager, contentID ID, b []byte) {
 	t.Helper()
 	verifyContent(ctx, t, bm, contentID, b)
 
@@ -1987,7 +1987,7 @@ func verifyDeletedContentRead(ctx context.Context, t *testing.T, bm *Manager, co
 	}
 }
 
-func verifyContent(ctx context.Context, t *testing.T, bm *Manager, contentID ID, b []byte) {
+func verifyContent(ctx context.Context, t *testing.T, bm *WriteManager, contentID ID, b []byte) {
 	t.Helper()
 
 	b2, err := bm.GetContent(ctx, contentID)
@@ -2005,7 +2005,7 @@ func verifyContent(ctx context.Context, t *testing.T, bm *Manager, contentID ID,
 	}
 }
 
-func writeContentAndVerify(ctx context.Context, t *testing.T, bm *Manager, b []byte) ID {
+func writeContentAndVerify(ctx context.Context, t *testing.T, bm *WriteManager, b []byte) ID {
 	t.Helper()
 
 	contentID, err := bm.WriteContent(ctx, b, "")
@@ -2022,7 +2022,7 @@ func writeContentAndVerify(ctx context.Context, t *testing.T, bm *Manager, b []b
 	return contentID
 }
 
-func flushWithRetries(ctx context.Context, t *testing.T, bm *Manager) int {
+func flushWithRetries(ctx context.Context, t *testing.T, bm *WriteManager) int {
 	t.Helper()
 
 	var retryCount int
@@ -2041,7 +2041,7 @@ func flushWithRetries(ctx context.Context, t *testing.T, bm *Manager) int {
 	return retryCount
 }
 
-func writeContentWithRetriesAndVerify(ctx context.Context, t *testing.T, bm *Manager, b []byte) (contentID ID, retryCount int) {
+func writeContentWithRetriesAndVerify(ctx context.Context, t *testing.T, bm *WriteManager, b []byte) (contentID ID, retryCount int) {
 	t.Helper()
 
 	log(ctx).Infof("*** starting writeContentWithRetriesAndVerify")
@@ -2110,7 +2110,7 @@ func makeRandomHexString(t *testing.T, length int) string {
 	return hex.EncodeToString(b)
 }
 
-func deleteContent(ctx context.Context, t *testing.T, bm *Manager, c ID) {
+func deleteContent(ctx context.Context, t *testing.T, bm *WriteManager, c ID) {
 	t.Helper()
 
 	if err := bm.DeleteContent(ctx, c); err != nil {
@@ -2118,7 +2118,7 @@ func deleteContent(ctx context.Context, t *testing.T, bm *Manager, c ID) {
 	}
 }
 
-func getContentInfo(t *testing.T, bm *Manager, c ID) Info {
+func getContentInfo(t *testing.T, bm *WriteManager, c ID) Info {
 	t.Helper()
 
 	_, i, err := bm.getContentInfo(c)

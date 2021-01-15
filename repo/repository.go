@@ -50,11 +50,13 @@ type Repository interface {
 // DirectRepository is an implementation of repository that directly manipulates underlying storage.
 type DirectRepository struct {
 	Blobs     blob.Storage
-	Content   *content.Manager
+	Content   *content.WriteManager
 	Objects   *object.Manager
 	Manifests *manifest.Manager
 	Cache     content.CachingOptions
 	UniqueID  []byte
+
+	sharedContentManager *content.SharedManager
 
 	ConfigFile string
 
@@ -89,7 +91,7 @@ func (r *DirectRepository) BlobStorage() blob.Storage {
 }
 
 // ContentManager returns the content manager.
-func (r *DirectRepository) ContentManager() *content.Manager {
+func (r *DirectRepository) ContentManager() *content.WriteManager {
 	return r.Content
 }
 

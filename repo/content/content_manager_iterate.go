@@ -81,7 +81,7 @@ func maybeParallelExecutor(parallel int, originalCallback IterateCallback) (Iter
 	return callback, cleanup
 }
 
-func (bm *Manager) snapshotUncommittedItems() packIndexBuilder {
+func (bm *WriteManager) snapshotUncommittedItems() packIndexBuilder {
 	bm.lock()
 	defer bm.unlock()
 
@@ -104,7 +104,7 @@ func (bm *Manager) snapshotUncommittedItems() packIndexBuilder {
 
 // IterateContents invokes the provided callback for each content starting with a specified prefix
 // and possibly including deleted items.
-func (bm *Manager) IterateContents(ctx context.Context, opts IterateOptions, callback IterateCallback) error {
+func (bm *WriteManager) IterateContents(ctx context.Context, opts IterateOptions, callback IterateCallback) error {
 	if opts.Range == (IDRange{}) {
 		// range not specified - default to AllIDs
 		opts.Range = AllIDs
@@ -182,7 +182,7 @@ type PackInfo struct {
 type IteratePacksCallback func(PackInfo) error
 
 // IteratePacks invokes the provided callback for all pack blobs.
-func (bm *Manager) IteratePacks(ctx context.Context, options IteratePackOptions, callback IteratePacksCallback) error {
+func (bm *WriteManager) IteratePacks(ctx context.Context, options IteratePackOptions, callback IteratePacksCallback) error {
 	packUsage := map[blob.ID]*PackInfo{}
 
 	if err := bm.IterateContents(
@@ -221,7 +221,7 @@ func (bm *Manager) IteratePacks(ctx context.Context, options IteratePackOptions,
 }
 
 // IterateUnreferencedBlobs returns the list of unreferenced storage blobs.
-func (bm *Manager) IterateUnreferencedBlobs(ctx context.Context, blobPrefixes []blob.ID, parallellism int, callback func(blob.Metadata) error) error {
+func (bm *WriteManager) IterateUnreferencedBlobs(ctx context.Context, blobPrefixes []blob.ID, parallellism int, callback func(blob.Metadata) error) error {
 	usedPacks := map[blob.ID]bool{}
 
 	log(ctx).Debugf("determining blobs in use")

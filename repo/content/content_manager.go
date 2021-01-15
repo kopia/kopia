@@ -8,14 +8,12 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/rand"
-	"os"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/stats"
 
-	"github.com/kopia/kopia/internal/buf"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
@@ -72,8 +70,8 @@ type IndexBlobInfo struct {
 	Superseded []blob.Metadata
 }
 
-// Manager builds content-addressable storage with encryption, deduplication and packaging on top of BLOB store.
-type Manager struct {
+// WriteManager builds content-addressable storage with encryption, deduplication and packaging on top of BLOB store.
+type WriteManager struct {
 	mu       *sync.RWMutex
 	cond     *sync.Cond
 	flushing bool
@@ -92,9 +90,7 @@ type Manager struct {
 	disableIndexFlushCount int
 	flushPackIndexesAfter  time.Time // time when those indexes should be flushed
 
-	lockFreeManager
-
-	*CommittedReadManager
+	*SharedManager
 }
 
 type pendingPackInfo struct {
@@ -110,7 +106,7 @@ type pendingPackInfo struct {
 // NOTE: To avoid race conditions only contents that cannot be possibly re-created
 // should ever be deleted. That means that contents of such contents should include some element
 // of randomness or a contemporaneous timestamp that will never reappear.
-func (bm *Manager) DeleteContent(ctx context.Context, contentID ID) error {
+func (bm *WriteManager) DeleteContent(ctx context.Context, contentID ID) error {
 	bm.lock()
 	defer bm.unlock()
 
@@ -147,7 +143,7 @@ func (bm *Manager) DeleteContent(ctx context.Context, contentID ID) error {
 
 // Intentionally passing bi by value.
 // nolint:gocritic
-func (bm *Manager) deletePreexistingContent(ctx context.Context, ci Info) error {
+func (bm *WriteManager) deletePreexistingContent(ctx context.Context, ci Info) error {
 	if ci.Deleted {
 		return nil
 	}
@@ -164,7 +160,7 @@ func (bm *Manager) deletePreexistingContent(ctx context.Context, ci Info) error 
 	return nil
 }
 
-func (bm *Manager) maybeFlushBasedOnTimeUnlocked(ctx context.Context) error {
+func (bm *WriteManager) maybeFlushBasedOnTimeUnlocked(ctx context.Context) error {
 	bm.lock()
 	shouldFlush := bm.timeNow().After(bm.flushPackIndexesAfter)
 	bm.unlock()
@@ -176,7 +172,7 @@ func (bm *Manager) maybeFlushBasedOnTimeUnlocked(ctx context.Context) error {
 	return bm.Flush(ctx)
 }
 
-func (bm *Manager) maybeRetryWritingFailedPacksUnlocked(ctx context.Context) error {
+func (bm *WriteManager) maybeRetryWritingFailedPacksUnlocked(ctx context.Context) error {
 	bm.lock()
 	defer bm.unlock()
 
@@ -203,7 +199,7 @@ func (bm *Manager) maybeRetryWritingFailedPacksUnlocked(ctx context.Context) err
 	return nil
 }
 
-func (bm *Manager) addToPackUnlocked(ctx context.Context, contentID ID, data []byte, isDeleted bool) error {
+func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, data []byte, isDeleted bool) error {
 	// see if the current index is old enough to cause automatic flush.
 	if err := bm.maybeFlushBasedOnTimeUnlocked(ctx); err != nil {
 		return errors.Wrap(err, "unable to flush old pending writes")
@@ -279,7 +275,7 @@ func (bm *Manager) addToPackUnlocked(ctx context.Context, contentID ID, data []b
 }
 
 // DisableIndexFlush increments the counter preventing automatic index flushes.
-func (bm *Manager) DisableIndexFlush(ctx context.Context) {
+func (bm *WriteManager) DisableIndexFlush(ctx context.Context) {
 	bm.lock()
 	defer bm.unlock()
 	log(ctx).Debugf("DisableIndexFlush()")
@@ -288,19 +284,19 @@ func (bm *Manager) DisableIndexFlush(ctx context.Context) {
 
 // EnableIndexFlush decrements the counter preventing automatic index flushes.
 // The flushes will be reenabled when the index drops to zero.
-func (bm *Manager) EnableIndexFlush(ctx context.Context) {
+func (bm *WriteManager) EnableIndexFlush(ctx context.Context) {
 	bm.lock()
 	defer bm.unlock()
 	log(ctx).Debugf("EnableIndexFlush()")
 	bm.disableIndexFlushCount--
 }
 
-func (bm *Manager) verifyInvariantsLocked() {
+func (bm *WriteManager) verifyInvariantsLocked() {
 	bm.verifyCurrentPackItemsLocked()
 	bm.verifyPackIndexBuilderLocked()
 }
 
-func (bm *Manager) verifyCurrentPackItemsLocked() {
+func (bm *WriteManager) verifyCurrentPackItemsLocked() {
 	for _, pp := range bm.pendingPacks {
 		for k, cpi := range pp.currentPackItems {
 			bm.assertInvariant(cpi.ID == k, "content ID entry has invalid key: %v %v", cpi.ID, k)
@@ -314,7 +310,7 @@ func (bm *Manager) verifyCurrentPackItemsLocked() {
 	}
 }
 
-func (bm *Manager) verifyPackIndexBuilderLocked() {
+func (bm *WriteManager) verifyPackIndexBuilderLocked() {
 	for k, cpi := range bm.packIndexBuilder {
 		bm.assertInvariant(cpi.ID == k, "content ID entry has invalid key: %v %v", cpi.ID, k)
 
@@ -329,7 +325,7 @@ func (bm *Manager) verifyPackIndexBuilderLocked() {
 	}
 }
 
-func (bm *Manager) assertInvariant(ok bool, errorMsg string, arg ...interface{}) {
+func (bm *WriteManager) assertInvariant(ok bool, errorMsg string, arg ...interface{}) {
 	if ok {
 		return
 	}
@@ -341,7 +337,7 @@ func (bm *Manager) assertInvariant(ok bool, errorMsg string, arg ...interface{})
 	panic(errorMsg)
 }
 
-func (bm *Manager) flushPackIndexesLocked(ctx context.Context) error {
+func (bm *WriteManager) flushPackIndexesLocked(ctx context.Context) error {
 	if bm.disableIndexFlushCount > 0 {
 		log(ctx).Debugf("not flushing index because flushes are currently disabled")
 		return nil
@@ -380,7 +376,7 @@ func (bm *Manager) flushPackIndexesLocked(ctx context.Context) error {
 	return nil
 }
 
-func (bm *Manager) finishAllPacksLocked(ctx context.Context) error {
+func (bm *WriteManager) finishAllPacksLocked(ctx context.Context) error {
 	for prefix, pp := range bm.pendingPacks {
 		delete(bm.pendingPacks, prefix)
 		bm.writingPacks = append(bm.writingPacks, pp)
@@ -393,7 +389,7 @@ func (bm *Manager) finishAllPacksLocked(ctx context.Context) error {
 	return nil
 }
 
-func (bm *Manager) writePackAndAddToIndex(ctx context.Context, pp *pendingPackInfo, holdingLock bool) error {
+func (bm *WriteManager) writePackAndAddToIndex(ctx context.Context, pp *pendingPackInfo, holdingLock bool) error {
 	packFileIndex, err := bm.prepareAndWritePackInternal(ctx, pp)
 
 	if !holdingLock {
@@ -426,7 +422,7 @@ func (bm *Manager) writePackAndAddToIndex(ctx context.Context, pp *pendingPackIn
 	return errors.Wrap(err, "error writing pack")
 }
 
-func (bm *Manager) prepareAndWritePackInternal(ctx context.Context, pp *pendingPackInfo) (packIndexBuilder, error) {
+func (bm *WriteManager) prepareAndWritePackInternal(ctx context.Context, pp *pendingPackInfo) (packIndexBuilder, error) {
 	packFileIndex, err := bm.preparePackDataContent(ctx, pp)
 	if err != nil {
 		return nil, errors.Wrap(err, "error preparing data content")
@@ -456,8 +452,13 @@ func removePendingPack(slice []*pendingPackInfo, pp *pendingPackInfo) []*pending
 	return result
 }
 
+// Format returns formatting options.
+func (bm *WriteManager) Format() FormattingOptions {
+	return bm.format
+}
+
 // Close closes the content manager.
-func (bm *Manager) Close(ctx context.Context) error {
+func (bm *WriteManager) Close(ctx context.Context) error {
 	if err := bm.Flush(ctx); err != nil {
 		return errors.Wrap(err, "error flushing")
 	}
@@ -476,7 +477,7 @@ func (bm *Manager) Close(ctx context.Context) error {
 // Flush completes writing any pending packs and writes pack indexes to the underlying storage.
 // Any pending writes completed before Flush() has started are guaranteed to be committed to the
 // repository before Flush() returns.
-func (bm *Manager) Flush(ctx context.Context) error {
+func (bm *WriteManager) Flush(ctx context.Context) error {
 	bm.lock()
 	defer bm.unlock()
 
@@ -525,7 +526,7 @@ func (bm *Manager) Flush(ctx context.Context) error {
 }
 
 // RewriteContent causes reads and re-writes a given content using the most recent format.
-func (bm *Manager) RewriteContent(ctx context.Context, contentID ID) error {
+func (bm *WriteManager) RewriteContent(ctx context.Context, contentID ID) error {
 	formatLog(ctx).Debugf("rewrite-content %v", contentID)
 
 	pp, bi, err := bm.getContentInfo(contentID)
@@ -544,7 +545,7 @@ func (bm *Manager) RewriteContent(ctx context.Context, contentID ID) error {
 // UndeleteContent rewrites the content with the given ID if the content exists
 // and is mark deleted. If the content exists and is not marked deleted, this
 // operation is a no-op.
-func (bm *Manager) UndeleteContent(ctx context.Context, contentID ID) error {
+func (bm *WriteManager) UndeleteContent(ctx context.Context, contentID ID) error {
 	log(ctx).Debugf("UndeleteContent(%q)", contentID)
 
 	pp, bi, err := bm.getContentInfo(contentID)
@@ -572,7 +573,7 @@ func packPrefixForContentID(contentID ID) blob.ID {
 	return PackBlobIDPrefixRegular
 }
 
-func (bm *Manager) getOrCreatePendingPackInfoLocked(ctx context.Context, prefix blob.ID) (*pendingPackInfo, error) {
+func (bm *WriteManager) getOrCreatePendingPackInfoLocked(ctx context.Context, prefix blob.ID) (*pendingPackInfo, error) {
 	if pp := bm.pendingPacks[prefix]; pp != nil {
 		return pp, nil
 	}
@@ -608,7 +609,7 @@ func (bm *Manager) getOrCreatePendingPackInfoLocked(ctx context.Context, prefix 
 
 // WriteContent saves a given content of data to a pack group with a provided name and returns a contentID
 // that's based on the contents of data written.
-func (bm *Manager) WriteContent(ctx context.Context, data []byte, prefix ID) (ID, error) {
+func (bm *WriteManager) WriteContent(ctx context.Context, data []byte, prefix ID) (ID, error) {
 	if err := bm.maybeRetryWritingFailedPacksUnlocked(ctx); err != nil {
 		return "", err
 	}
@@ -642,7 +643,7 @@ func (bm *Manager) WriteContent(ctx context.Context, data []byte, prefix ID) (ID
 }
 
 // GetContent gets the contents of a given content. If the content is not found returns ErrContentNotFound.
-func (bm *Manager) GetContent(ctx context.Context, contentID ID) (v []byte, err error) {
+func (bm *WriteManager) GetContent(ctx context.Context, contentID ID) (v []byte, err error) {
 	defer func() {
 		switch {
 		case err == nil:
@@ -665,7 +666,7 @@ func (bm *Manager) GetContent(ctx context.Context, contentID ID) (v []byte, err 
 	return bm.getContentDataUnlocked(ctx, pp, &bi)
 }
 
-func (bm *Manager) getOverlayContentInfo(contentID ID) (*pendingPackInfo, Info, bool) {
+func (bm *WriteManager) getOverlayContentInfo(contentID ID) (*pendingPackInfo, Info, bool) {
 	bm.mu.RLock()
 	defer bm.mu.RUnlock()
 
@@ -691,7 +692,7 @@ func (bm *Manager) getOverlayContentInfo(contentID ID) (*pendingPackInfo, Info, 
 	return nil, Info{}, false
 }
 
-func (bm *Manager) getContentInfo(contentID ID) (*pendingPackInfo, Info, error) {
+func (bm *WriteManager) getContentInfo(contentID ID) (*pendingPackInfo, Info, error) {
 	if pp, ci, ok := bm.getOverlayContentInfo(contentID); ok {
 		return pp, ci, nil
 	}
@@ -702,7 +703,7 @@ func (bm *Manager) getContentInfo(contentID ID) (*pendingPackInfo, Info, error) 
 }
 
 // ContentInfo returns information about a single content.
-func (bm *Manager) ContentInfo(ctx context.Context, contentID ID) (Info, error) {
+func (bm *WriteManager) ContentInfo(ctx context.Context, contentID ID) (Info, error) {
 	_, bi, err := bm.getContentInfo(contentID)
 	if err != nil {
 		log(ctx).Debugf("ContentInfo(%q) - error %v", err)
@@ -712,11 +713,11 @@ func (bm *Manager) ContentInfo(ctx context.Context, contentID ID) (Info, error) 
 	return bi, err
 }
 
-func (bm *Manager) lock() {
+func (bm *WriteManager) lock() {
 	bm.mu.Lock()
 }
 
-func (bm *Manager) unlock() {
+func (bm *WriteManager) unlock() {
 	if bm.checkInvariantsOnUnlock {
 		bm.verifyInvariantsLocked()
 	}
@@ -725,7 +726,7 @@ func (bm *Manager) unlock() {
 }
 
 // Refresh reloads the committed content indexes.
-func (bm *Manager) Refresh(ctx context.Context) (bool, error) {
+func (bm *WriteManager) Refresh(ctx context.Context) (bool, error) {
 	bm.lock()
 	defer bm.unlock()
 
@@ -740,7 +741,7 @@ func (bm *Manager) Refresh(ctx context.Context) (bool, error) {
 }
 
 // SyncMetadataCache synchronizes metadata cache with metadata blobs in storage.
-func (bm *Manager) SyncMetadataCache(ctx context.Context) error {
+func (bm *WriteManager) SyncMetadataCache(ctx context.Context) error {
 	if cm, ok := bm.metadataCache.(*contentCacheForMetadata); ok {
 		return cm.sync(ctx)
 	}
@@ -751,7 +752,7 @@ func (bm *Manager) SyncMetadataCache(ctx context.Context) error {
 }
 
 // DecryptBlob returns the contents of an encrypted blob that can be decrypted (n,m,l).
-func (bm *Manager) DecryptBlob(ctx context.Context, blobID blob.ID) ([]byte, error) {
+func (bm *WriteManager) DecryptBlob(ctx context.Context, blobID blob.ID) ([]byte, error) {
 	return bm.indexBlobManager.getIndexBlob(ctx, blobID)
 }
 
@@ -759,8 +760,6 @@ func (bm *Manager) DecryptBlob(ctx context.Context, blobID blob.ID) ([]byte, err
 type ManagerOptions struct {
 	RepositoryFormatBytes []byte
 	TimeNow               func() time.Time // Time provider
-	SessionUser           string           // optional username to report as session owner
-	SessionHost           string           // optional hostname to report as session owner
 
 	ownWritesCache ownWritesCache // test hook to allow overriding own-writes cache
 }
@@ -777,42 +776,37 @@ func (o *ManagerOptions) CloneOrDefault() *ManagerOptions {
 }
 
 // NewManager creates new content manager with given packing options and a formatter.
-func NewManager(ctx context.Context, st blob.Storage, f *FormattingOptions, caching *CachingOptions, options *ManagerOptions) (*Manager, error) {
+func NewManager(ctx context.Context, st blob.Storage, f *FormattingOptions, caching *CachingOptions, options *ManagerOptions) (*WriteManager, error) {
 	options = options.CloneOrDefault()
 	if options.TimeNow == nil {
 		options.TimeNow = clock.Now
 	}
 
-	readManager, err := newReadManager(ctx, st, f, caching, options)
+	sharedManager, err := NewSharedManager(ctx, st, f, caching, options)
 	if err != nil {
 		return nil, errors.Wrap(err, "error initializing read manager")
 	}
 
-	return newManagerWithReadManager(ctx, f, readManager, options), nil
+	return NewWriteManager(sharedManager, SessionOptions{}), nil
 }
 
-func newManagerWithReadManager(ctx context.Context, f *FormattingOptions, readManager *CommittedReadManager, options *ManagerOptions) *Manager {
+// SessionOptions specifies session options.
+type SessionOptions struct {
+	SessionUser string
+	SessionHost string
+}
+
+// NewWriteManager returns a session write manager.
+func NewWriteManager(sm *SharedManager, options SessionOptions) *WriteManager {
 	mu := &sync.RWMutex{}
 
-	return &Manager{
-		lockFreeManager: lockFreeManager{
-			Format:                  *f,
-			maxPackSize:             f.MaxPackSize,
-			minPreambleLength:       defaultMinPreambleLength,
-			maxPreambleLength:       defaultMaxPreambleLength,
-			paddingUnit:             defaultPaddingUnit,
-			repositoryFormatBytes:   options.RepositoryFormatBytes,
-			checkInvariantsOnUnlock: os.Getenv("KOPIA_VERIFY_INVARIANTS") != "",
-			writeFormatVersion:      int32(f.Version),
-			encryptionBufferPool:    buf.NewPool(ctx, defaultEncryptionBufferPoolSegmentSize+readManager.encryptor.MaxOverhead(), "content-manager-encryption"),
-		},
-
-		CommittedReadManager: readManager,
+	return &WriteManager{
+		SharedManager: sm,
 
 		mu:   mu,
 		cond: sync.NewCond(mu),
 
-		flushPackIndexesAfter: options.TimeNow().Add(flushPackIndexTimeout),
+		flushPackIndexesAfter: sm.timeNow().Add(flushPackIndexTimeout),
 		pendingPacks:          map[blob.ID]*pendingPackInfo{},
 		packIndexBuilder:      make(packIndexBuilder),
 		sessionUser:           options.SessionUser,

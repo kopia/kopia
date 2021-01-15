@@ -37,7 +37,7 @@ type MaintainableRepository interface {
 	ConfigFilename() string
 
 	BlobStorage() blob.Storage
-	ContentManager() *content.Manager
+	ContentManager() *content.WriteManager
 
 	repo.Writer
 

@@ -38,7 +38,7 @@ func TestStressBlockManager(t *testing.T) {
 func stressTestWithStorage(t *testing.T, st blob.Storage, duration time.Duration) {
 	ctx := testlogging.Context(t)
 
-	openMgr := func() (*content.Manager, error) {
+	openMgr := func() (*content.WriteManager, error) {
 		return content.NewManager(ctx, st, &content.FormattingOptions{
 			Version:     1,
 			Hash:        "HMAC-SHA256-128",
@@ -65,7 +65,7 @@ func stressTestWithStorage(t *testing.T, st blob.Storage, duration time.Duration
 	})
 }
 
-func stressWorker(ctx context.Context, t *testing.T, deadline time.Time, openMgr func() (*content.Manager, error), seed int64) {
+func stressWorker(ctx context.Context, t *testing.T, deadline time.Time, openMgr func() (*content.WriteManager, error), seed int64) {
 	src := rand.NewSource(seed)
 	rnd := rand.New(src)
 

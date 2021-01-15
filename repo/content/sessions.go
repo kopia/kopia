@@ -53,7 +53,7 @@ func generateSessionID(now time.Time) (SessionID, error) {
 	return SessionID(fmt.Sprintf("%v%016x%x", BlobIDPrefixSession, r, epochNumber)), nil
 }
 
-func (bm *Manager) getOrStartSessionLocked(ctx context.Context) (SessionID, error) {
+func (bm *WriteManager) getOrStartSessionLocked(ctx context.Context) (SessionID, error) {
 	if bm.currentSessionInfo.ID != "" {
 		return bm.currentSessionInfo.ID, nil
 	}
@@ -80,7 +80,7 @@ func (bm *Manager) getOrStartSessionLocked(ctx context.Context) (SessionID, erro
 
 // commitSession commits the current session by deleting all session marker blobs
 // that got written.
-func (bm *Manager) commitSession(ctx context.Context) error {
+func (bm *WriteManager) commitSession(ctx context.Context) error {
 	for _, b := range bm.sessionMarkerBlobIDs {
 		if err := bm.st.DeleteBlob(ctx, b); err != nil && !errors.Is(err, blob.ErrBlobNotFound) {
 			return errors.Wrapf(err, "failed to delete session marker %v", b)
@@ -96,7 +96,7 @@ func (bm *Manager) commitSession(ctx context.Context) error {
 // writeSessionMarkerLocked writes a session marker indicating last time the session
 // was known to be alive.
 // TODO(jkowalski): write this periodically when sessions span the duration of an upload.
-func (bm *Manager) writeSessionMarkerLocked(ctx context.Context) error {
+func (bm *WriteManager) writeSessionMarkerLocked(ctx context.Context) error {
 	cp := bm.currentSessionInfo
 	cp.CheckpointTime = bm.timeNow()
 
@@ -136,7 +136,7 @@ func SessionIDFromBlobID(b blob.ID) SessionID {
 }
 
 // ListActiveSessions returns a set of all active sessions in a given storage.
-func (bm *Manager) ListActiveSessions(ctx context.Context) (map[SessionID]*SessionInfo, error) {
+func (bm *WriteManager) ListActiveSessions(ctx context.Context) (map[SessionID]*SessionInfo, error) {
 	blobs, err := blob.ListAllBlobs(ctx, bm.st, BlobIDPrefixSession)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to list session blobs")
