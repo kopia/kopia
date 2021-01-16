@@ -2,6 +2,7 @@ package content
 
 import (
 	"encoding/binary"
+	"math"
 
 	"github.com/pkg/errors"
 )
@@ -68,7 +69,7 @@ func (e *entry) PackFileOffset() uint32 {
 }
 
 func (e *entry) PackedOffset() uint32 {
-	return e.packedOffset & 0x7fffffff
+	return e.packedOffset & math.MaxInt32
 }
 
 func (e *entry) PackedLength() uint32 {

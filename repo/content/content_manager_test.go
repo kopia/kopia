@@ -1144,6 +1144,8 @@ func TestFlushWaitsForAllPendingWriters(t *testing.T) {
 }
 
 func verifyAllDataPresent(ctx context.Context, t *testing.T, data map[blob.ID][]byte, contentIDs map[ID]bool) {
+	t.Helper()
+
 	bm := newTestContentManager(t, data, nil, nil)
 	defer bm.Close(ctx)
 	_ = bm.IterateContents(ctx, IterateOptions{}, func(ci Info) error {
@@ -1771,6 +1773,8 @@ func TestVersionCompatibility(t *testing.T) {
 }
 
 func verifyVersionCompat(t *testing.T, writeVersion int) {
+	t.Helper()
+
 	ctx := testlogging.Context(t)
 
 	// create content manager that writes 'writeVersion' and reads all versions >= minSupportedReadVersion
@@ -1882,6 +1886,8 @@ func TestReadsOwnWritesWithEventualConsistencyInMemoryOwnWritesCache(t *testing.
 }
 
 func verifyReadsOwnWrites(t *testing.T, st blob.Storage, timeNow func() time.Time, sharedOwnWritesCache ownWritesCache) {
+	t.Helper()
+
 	ctx := testlogging.Context(t)
 	cachingOptions := &CachingOptions{}
 
@@ -1916,6 +1922,8 @@ func verifyReadsOwnWrites(t *testing.T, st blob.Storage, timeNow func() time.Tim
 }
 
 func verifyContentManagerDataSet(ctx context.Context, t *testing.T, mgr *WriteManager, dataSet map[ID][]byte) {
+	t.Helper()
+
 	for contentID, originalPayload := range dataSet {
 		v, err := mgr.GetContent(ctx, contentID)
 		if err != nil {
@@ -1930,15 +1938,22 @@ func verifyContentManagerDataSet(ctx context.Context, t *testing.T, mgr *WriteMa
 }
 
 func newTestContentManager(t *testing.T, data blobtesting.DataMap, keyTime map[blob.ID]time.Time, timeFunc func() time.Time) *WriteManager {
+	t.Helper()
+
 	st := blobtesting.NewMapStorage(data, keyTime, timeFunc)
+
 	return newTestContentManagerWithStorage(t, st, timeFunc)
 }
 
 func newTestContentManagerWithStorage(t *testing.T, st blob.Storage, timeFunc func() time.Time) *WriteManager {
+	t.Helper()
+
 	return newTestContentManagerWithStorageAndCaching(t, st, nil, timeFunc)
 }
 
 func newTestContentManagerWithStorageAndOptions(t *testing.T, st blob.Storage, co *CachingOptions, opts *ManagerOptions) *WriteManager {
+	t.Helper()
+
 	bm, err := NewManager(testlogging.Context(t), st, &FormattingOptions{
 		Hash:        "HMAC-SHA256",
 		Encryption:  "AES256-GCM-HMAC-SHA256",
@@ -1956,6 +1971,8 @@ func newTestContentManagerWithStorageAndOptions(t *testing.T, st blob.Storage, c
 }
 
 func newTestContentManagerWithStorageAndCaching(t *testing.T, st blob.Storage, co *CachingOptions, timeFunc func() time.Time) *WriteManager {
+	t.Helper()
+
 	if timeFunc == nil {
 		timeFunc = faketime.AutoAdvance(fakeTime, 1*time.Second)
 	}

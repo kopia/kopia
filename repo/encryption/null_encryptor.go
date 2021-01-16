@@ -1,8 +1,7 @@
 package encryption
 
 // nullEncryptor implements non-encrypted format.
-type nullEncryptor struct {
-}
+type nullEncryptor struct{}
 
 func (fi nullEncryptor) Encrypt(output, plainText, contentID []byte) ([]byte, error) {
 	return append(output, plainText...), nil

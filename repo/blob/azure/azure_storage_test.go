@@ -24,6 +24,8 @@ const (
 )
 
 func getEnvOrSkip(t *testing.T, name string) string {
+	t.Helper()
+
 	value := os.Getenv(name)
 	if value == "" {
 		t.Skip(fmt.Sprintf("%s not provided", name))
@@ -33,6 +35,8 @@ func getEnvOrSkip(t *testing.T, name string) string {
 }
 
 func createContainer(t *testing.T, container, storageAccount, storageKey string) {
+	t.Helper()
+
 	credential, err := azblob.NewSharedKeyCredential(storageAccount, storageKey)
 	if err != nil {
 		t.Fatalf("failed to create Azure credentials: %v", err)

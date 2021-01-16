@@ -142,7 +142,6 @@ func (bm *WriteManager) DeleteContent(ctx context.Context, contentID ID) error {
 }
 
 // Intentionally passing bi by value.
-// nolint:gocritic
 func (bm *WriteManager) deletePreexistingContent(ctx context.Context, ci Info) error {
 	if ci.Deleted {
 		return nil
