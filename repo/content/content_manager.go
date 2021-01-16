@@ -443,10 +443,6 @@ func (bm *WriteManager) ContentFormat() FormattingOptions {
 
 // Close closes the content manager.
 func (bm *WriteManager) Close(ctx context.Context) error {
-	if err := bm.Flush(ctx); err != nil {
-		return errors.Wrap(err, "error flushing")
-	}
-
 	return bm.SharedManager.release(ctx)
 }
 

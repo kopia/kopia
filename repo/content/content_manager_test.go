@@ -364,14 +364,16 @@ func TestIndexCompactionDropsContent(t *testing.T) {
 	// create record in index #1
 	bm := newTestContentManager(t, data, keyTime, timeFunc)
 	content1 := writeContentAndVerify(ctx, t, bm, seededRandomData(10, 100))
-	bm.Close(ctx)
+	must(t, bm.Flush(ctx))
+	must(t, bm.Close(ctx))
 
 	timeFunc()
 
 	// create record in index #2
 	bm = newTestContentManager(t, data, keyTime, timeFunc)
 	deleteContent(ctx, t, bm, content1)
-	bm.Close(ctx)
+	must(t, bm.Flush(ctx))
+	must(t, bm.Close(ctx))
 
 	timeFunc()
 
@@ -385,7 +387,8 @@ func TestIndexCompactionDropsContent(t *testing.T) {
 		DropDeletedBefore: deleteThreshold,
 		AllIndexes:        true,
 	}))
-	bm.Close(ctx)
+	must(t, bm.Flush(ctx))
+	must(t, bm.Close(ctx))
 
 	bm = newTestContentManager(t, data, keyTime, timeFunc)
 	verifyContentNotFound(ctx, t, bm, content1)
@@ -1907,12 +1910,14 @@ func verifyReadsOwnWrites(t *testing.T, st blob.Storage, timeNow func() time.Tim
 
 		// every 10 contents, create new content manager
 		if i%10 == 0 {
-			t.Logf("------- reopening -----")
+			t.Logf("------- flushing & reopening -----")
+			must(t, bm.Flush(ctx))
 			must(t, bm.Close(ctx))
 			bm = newTestContentManagerWithStorageAndCaching(t, st, cachingOptions, timeNow)
 		}
 	}
 
+	must(t, bm.Flush(ctx))
 	must(t, bm.Close(ctx))
 	bm = newTestContentManagerWithStorageAndCaching(t, st, cachingOptions, timeNow)
 
