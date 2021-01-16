@@ -214,10 +214,6 @@ func (r *directRepository) Close(ctx context.Context) error {
 	default:
 	}
 
-	if err := r.Flush(ctx); err != nil {
-		return errors.Wrap(err, "error flushing")
-	}
-
 	if err := r.omgr.Close(); err != nil {
 		return errors.Wrap(err, "error closing object manager")
 	}
@@ -330,30 +326,20 @@ func WriteSession(ctx context.Context, r Repository, opt WriteSessionOptions, cb
 		return errors.Wrap(err, "unable to create writer")
 	}
 
-	resultErr := cb(w)
-
-	if resultErr == nil || opt.FlushOnFailure {
-		if err := w.Flush(ctx); err != nil {
-			return errors.Wrap(err, "error flushing writer")
-		}
-	}
-
-	if err := w.Close(ctx); err != nil {
-		return errors.Wrap(err, "error closing writer")
-	}
-
-	return resultErr
+	return handleWriteSessionResult(ctx, w, opt, cb(w))
 }
 
 // DirectWriteSession executes the provided callback in a DirectRepositoryWriter created for the purpose and flushes writes.
 func DirectWriteSession(ctx context.Context, r DirectRepository, opt WriteSessionOptions, cb func(dw DirectRepositoryWriter) error) error {
 	w, err := r.NewDirectWriter(ctx, opt.Purpose)
 	if err != nil {
-		return errors.Wrap(err, "unable to create writer")
+		return errors.Wrap(err, "unable to create direct writer")
 	}
 
-	resultErr := cb(w)
+	return handleWriteSessionResult(ctx, w, opt, cb(w))
+}
 
+func handleWriteSessionResult(ctx context.Context, w RepositoryWriter, opt WriteSessionOptions, resultErr error) error {
 	if resultErr == nil || opt.FlushOnFailure {
 		if err := w.Flush(ctx); err != nil {
 			return errors.Wrap(err, "error flushing writer")

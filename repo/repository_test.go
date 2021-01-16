@@ -421,6 +421,66 @@ func TestWriterScope(t *testing.T) {
 	verify(ctx, t, rep, o4, o4Data, "o3-rep")
 }
 
+func TestWriteSessionFlushOnSuccess(t *testing.T) {
+	var env repotesting.Environment
+
+	ctx := context.Background()
+	defer env.Setup(t, repotesting.Options{}).Close(ctx, t)
+
+	var oid object.ID
+
+	must(t, repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{}, func(w repo.RepositoryWriter) error {
+		oid = writeObject(ctx, t, w, []byte{1, 2, 3}, "test-1")
+		return nil
+	}))
+
+	verify(ctx, t, env.Repository, oid, []byte{1, 2, 3}, "test-1")
+}
+
+func TestWriteSessionNoFlushOnFailure(t *testing.T) {
+	var env repotesting.Environment
+
+	ctx := context.Background()
+	defer env.Setup(t, repotesting.Options{}).Close(ctx, t)
+
+	var oid object.ID
+
+	someErr := errors.New("some error")
+	err := repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{}, func(w repo.RepositoryWriter) error {
+		oid = writeObject(ctx, t, w, []byte{1, 2, 3}, "test-1")
+		return someErr
+	})
+
+	if !errors.Is(err, someErr) {
+		t.Fatalf("invalid error: %v want %v", err, someErr)
+	}
+
+	verifyNotFound(ctx, t, env.Repository, oid, "test-1")
+}
+
+func TestWriteSessionFlushOnFailure(t *testing.T) {
+	var env repotesting.Environment
+
+	ctx := context.Background()
+	defer env.Setup(t, repotesting.Options{}).Close(ctx, t)
+
+	var oid object.ID
+
+	someErr := errors.New("some error")
+	err := repo.WriteSession(ctx, env.Repository, repo.WriteSessionOptions{
+		FlushOnFailure: true,
+	}, func(w repo.RepositoryWriter) error {
+		oid = writeObject(ctx, t, w, []byte{1, 2, 3}, "test-1")
+		return someErr
+	})
+
+	if !errors.Is(err, someErr) {
+		t.Fatalf("invalid error: %v want %v", err, someErr)
+	}
+
+	verify(ctx, t, env.Repository, oid, []byte{1, 2, 3}, "test-1")
+}
+
 func verifyNotFound(ctx context.Context, t *testing.T, rep repo.Repository, objectID object.ID, testCaseID string) {
 	t.Helper()
 
