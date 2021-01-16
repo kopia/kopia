@@ -134,7 +134,7 @@ SELF_DIR := $(subst /,$(slash),$(realpath $(dir $(lastword $(MAKEFILE_LIST)))))
 TOOLS_DIR:=$(SELF_DIR)$(slash).tools
 
 # tool versions
-GOLANGCI_LINT_VERSION=1.33.0
+GOLANGCI_LINT_VERSION=1.35.2
 NODE_VERSION=12.18.3
 HUGO_VERSION=0.74.3
 GOTESTSUM_VERSION=0.5.3

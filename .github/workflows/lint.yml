@@ -5,21 +5,12 @@ on:
     branches: [ master ]
 
 jobs:
-
-  build:
-    name: Build
+  golangci:
+    name: Lint
     runs-on: ubuntu-latest
     steps:
-
-    - name: Set up Go
-      uses: actions/setup-go@v2
-      with:
-        go-version: ^1.14
-      id: go
-
-    - name: Check out code into the Go module directory
-      uses: actions/checkout@v2
-
-    - name: Lint
-      run: |
-        make lint
+      - uses: actions/checkout@v2
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v2
+        with:
+          version: v1.35

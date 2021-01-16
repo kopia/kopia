@@ -64,6 +64,7 @@ issues:
       - gosec
       - nestif
       - wrapcheck
+      - forbidigo
     - text: "Magic number: 1e"
       linters:
       - gomnd

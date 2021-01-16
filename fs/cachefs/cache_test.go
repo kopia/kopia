@@ -64,6 +64,8 @@ type cacheVerifier struct {
 }
 
 func (cv *cacheVerifier) verifyCacheMiss(t *testing.T, id string) {
+	t.Helper()
+
 	actual := cv.cacheSource.callCounter[id]
 	expected := cv.lastCallCounter[id] + 1
 
@@ -75,6 +77,8 @@ func (cv *cacheVerifier) verifyCacheMiss(t *testing.T, id string) {
 }
 
 func (cv *cacheVerifier) verifyCacheHit(t *testing.T, id string) {
+	t.Helper()
+
 	if !reflect.DeepEqual(cv.lastCallCounter, cv.cacheSource.callCounter) {
 		t.Errorf(errorPrefix()+" unexpected call counters for %v, got %v, expected %v", id, cv.cacheSource.callCounter, cv.lastCallCounter)
 	}
