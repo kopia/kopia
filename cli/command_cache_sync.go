@@ -8,10 +8,10 @@ import (
 
 var cacheSyncCommand = cacheCommands.Command("sync", "Synchronizes the metadata cache with blobs in storage")
 
-func runCacheSyncCommand(ctx context.Context, rep *repo.DirectRepository) error {
-	return rep.Content.SyncMetadataCache(ctx)
+func runCacheSyncCommand(ctx context.Context, rep repo.DirectRepositoryWriter) error {
+	return rep.ContentManager().SyncMetadataCache(ctx)
 }
 
 func init() {
-	cacheSyncCommand.Action(directRepositoryAction(runCacheSyncCommand))
+	cacheSyncCommand.Action(directRepositoryWriteAction(runCacheSyncCommand))
 }

@@ -20,7 +20,8 @@ const masterPassword = "foobarbazfoobarbaz"
 
 // Environment encapsulates details of a test environment.
 type Environment struct {
-	Repository *repo.DirectRepository
+	Repository       repo.Repository
+	RepositoryWriter repo.DirectRepositoryWriter
 
 	configDir  string
 	storageDir string
@@ -85,7 +86,12 @@ func (e *Environment) Setup(t *testing.T, opts ...Options) *Environment {
 		t.Fatalf("can't open: %v", err)
 	}
 
-	e.Repository = rep.(*repo.DirectRepository)
+	e.Repository = rep
+
+	e.RepositoryWriter, err = rep.(repo.DirectRepository).NewDirectWriter(ctx, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	return e
 }
@@ -94,7 +100,7 @@ func (e *Environment) Setup(t *testing.T, opts ...Options) *Environment {
 func (e *Environment) Close(ctx context.Context, t *testing.T) {
 	t.Helper()
 
-	if err := e.Repository.Close(ctx); err != nil {
+	if err := e.RepositoryWriter.Close(ctx); err != nil {
 		t.Fatalf("unable to close: %v", err)
 	}
 
@@ -118,33 +124,45 @@ func (e *Environment) configFile() string {
 func (e *Environment) MustReopen(t *testing.T, openOpts ...func(*repo.Options)) {
 	t.Helper()
 
-	err := e.Repository.Close(testlogging.Context(t))
+	ctx := testlogging.Context(t)
+
+	err := e.RepositoryWriter.Close(ctx)
 	if err != nil {
 		t.Fatalf("close error: %v", err)
 	}
 
-	rep, err := repo.Open(testlogging.Context(t), e.configFile(), masterPassword, repoOptions(openOpts))
+	rep, err := repo.Open(ctx, e.configFile(), masterPassword, repoOptions(openOpts))
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
-	e.Repository = rep.(*repo.DirectRepository)
+	e.RepositoryWriter, err = rep.(repo.DirectRepository).NewDirectWriter(ctx, "test")
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
 }
 
 // MustOpenAnother opens another repository backend by the same storage.
-func (e *Environment) MustOpenAnother(t *testing.T) repo.Repository {
+func (e *Environment) MustOpenAnother(t *testing.T) repo.RepositoryWriter {
 	t.Helper()
 
-	rep2, err := repo.Open(testlogging.Context(t), e.configFile(), masterPassword, &repo.Options{})
+	ctx := testlogging.Context(t)
+
+	rep2, err := repo.Open(ctx, e.configFile(), masterPassword, &repo.Options{})
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
 	t.Cleanup(func() {
-		rep2.Close(testlogging.Context(t))
+		rep2.Close(ctx)
 	})
 
-	return rep2
+	w, err := rep2.NewWriter(ctx, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return w
 }
 
 // MustConnectOpenAnother opens another repository backend by the same storage,
@@ -186,7 +204,7 @@ func (e *Environment) VerifyBlobCount(t *testing.T, want int) {
 
 	var got int
 
-	_ = e.Repository.Blobs.ListBlobs(testlogging.Context(t), "", func(_ blob.Metadata) error {
+	_ = e.RepositoryWriter.BlobReader().ListBlobs(testlogging.Context(t), "", func(_ blob.Metadata) error {
 		got++
 		return nil
 	})

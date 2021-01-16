@@ -14,11 +14,11 @@ var (
 	blobDeleteBlobIDs = blobDeleteCommand.Arg("blobIDs", "Blob IDs").Required().Strings()
 )
 
-func runDeleteBlobs(ctx context.Context, rep *repo.DirectRepository) error {
+func runDeleteBlobs(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	advancedCommand(ctx)
 
 	for _, b := range *blobDeleteBlobIDs {
-		err := rep.Blobs.DeleteBlob(ctx, blob.ID(b))
+		err := rep.BlobStorage().DeleteBlob(ctx, blob.ID(b))
 		if err != nil {
 			return errors.Wrapf(err, "error deleting %v", b)
 		}
@@ -28,5 +28,5 @@ func runDeleteBlobs(ctx context.Context, rep *repo.DirectRepository) error {
 }
 
 func init() {
-	blobDeleteCommand.Action(directRepositoryAction(runDeleteBlobs))
+	blobDeleteCommand.Action(directRepositoryWriteAction(runDeleteBlobs))
 }

@@ -18,7 +18,7 @@ var (
 	maintenanceInfoJSON    = maintenanceInfoCommand.Flag("json", "Show raw JSON data").Short('j').Bool()
 )
 
-func runMaintenanceInfoCommand(ctx context.Context, rep *repo.DirectRepository) error {
+func runMaintenanceInfoCommand(ctx context.Context, rep repo.DirectRepository) error {
 	p, err := maintenance.GetParams(ctx, rep)
 	if err != nil {
 		return errors.Wrap(err, "unable to get maintenance params")
@@ -68,7 +68,7 @@ func runMaintenanceInfoCommand(ctx context.Context, rep *repo.DirectRepository) 
 	return nil
 }
 
-func displayCycleInfo(c *maintenance.CycleParams, t time.Time, rep *repo.DirectRepository) {
+func displayCycleInfo(c *maintenance.CycleParams, t time.Time, rep repo.DirectRepository) {
 	printStdout("  scheduled: %v\n", c.Enabled)
 
 	if c.Enabled {

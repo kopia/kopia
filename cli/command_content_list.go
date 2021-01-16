@@ -20,10 +20,10 @@ var (
 	contentListHuman          = contentListCommand.Flag("human", "Human-readable output").Short('h').Bool()
 )
 
-func runContentListCommand(ctx context.Context, rep *repo.DirectRepository) error {
+func runContentListCommand(ctx context.Context, rep repo.DirectRepository) error {
 	var totalSize stats.CountSum
 
-	err := rep.Content.IterateContents(
+	err := rep.ContentReader().IterateContents(
 		ctx,
 		content.IterateOptions{
 			Range:          contentIDRange(),

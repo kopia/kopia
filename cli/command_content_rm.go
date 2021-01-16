@@ -14,11 +14,11 @@ var (
 	contentRemoveIDs = contentRemoveCommand.Arg("id", "IDs of content to remove").Required().Strings()
 )
 
-func runContentRemoveCommand(ctx context.Context, rep *repo.DirectRepository) error {
+func runContentRemoveCommand(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	advancedCommand(ctx)
 
 	for _, contentID := range toContentIDs(*contentRemoveIDs) {
-		if err := rep.Content.DeleteContent(ctx, contentID); err != nil {
+		if err := rep.ContentManager().DeleteContent(ctx, contentID); err != nil {
 			return errors.Wrapf(err, "error deleting content %v", contentID)
 		}
 	}
@@ -28,5 +28,5 @@ func runContentRemoveCommand(ctx context.Context, rep *repo.DirectRepository) er
 
 func init() {
 	setupShowCommand(contentRemoveCommand)
-	contentRemoveCommand.Action(directRepositoryAction(runContentRemoveCommand))
+	contentRemoveCommand.Action(directRepositoryWriteAction(runContentRemoveCommand))
 }

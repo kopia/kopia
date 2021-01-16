@@ -9,6 +9,7 @@ import (
 
 	"github.com/kopia/kopia/internal/stats"
 	"github.com/kopia/kopia/internal/units"
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 )
@@ -32,7 +33,7 @@ type DeleteUnreferencedBlobsOptions struct {
 
 // DeleteUnreferencedBlobs deletes old blobs that are no longer referenced by index entries.
 // nolint:gocyclo
-func DeleteUnreferencedBlobs(ctx context.Context, rep MaintainableRepository, opt DeleteUnreferencedBlobsOptions) (int, error) {
+func DeleteUnreferencedBlobs(ctx context.Context, rep repo.DirectRepositoryWriter, opt DeleteUnreferencedBlobsOptions) (int, error) {
 	if opt.Parallel == 0 {
 		opt.Parallel = 16
 	}
@@ -82,7 +83,7 @@ func DeleteUnreferencedBlobs(ctx context.Context, rep MaintainableRepository, op
 		prefixes = append(prefixes, content.PackBlobIDPrefixRegular, content.PackBlobIDPrefixSpecial, content.BlobIDPrefixSession)
 	}
 
-	activeSessions, err := rep.ListActiveSessions(ctx)
+	activeSessions, err := rep.ContentManager().ListActiveSessions(ctx)
 	if err != nil {
 		return 0, errors.Wrap(err, "unable to load active sessions")
 	}

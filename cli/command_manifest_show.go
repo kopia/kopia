@@ -30,7 +30,7 @@ func toManifestIDs(s []string) []manifest.ID {
 	return result
 }
 
-func showManifestItems(ctx context.Context, rep repo.Reader) error {
+func showManifestItems(ctx context.Context, rep repo.Repository) error {
 	for _, it := range toManifestIDs(*manifestShowItems) {
 		var b json.RawMessage
 

@@ -19,38 +19,41 @@ func TestTimeFuncWiring(t *testing.T) {
 	ctx := testlogging.Context(t)
 	defer env.Setup(t).Close(ctx, t)
 
-	env.Repository.Close(ctx)
+	env.RepositoryWriter.Close(ctx)
 
 	ft := faketime.NewTimeAdvance(time.Date(2018, time.February, 6, 0, 0, 0, 0, time.UTC), 0)
 
 	// Re open with injected time
-	rep, err := repo.Open(ctx, env.Repository.ConfigFile, masterPassword, &repo.Options{TimeNowFunc: ft.NowFunc()})
+	rep, err := repo.Open(ctx, env.RepositoryWriter.ConfigFilename(), masterPassword, &repo.Options{TimeNowFunc: ft.NowFunc()})
 	if err != nil {
 		t.Fatal("Failed to open repo:", err)
 	}
 
-	r := rep.(*repo.DirectRepository)
+	r0 := rep.(repo.DirectRepository)
 
-	env.Repository = r
+	env.RepositoryWriter, err = r0.NewDirectWriter(ctx, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// verify wiring for the repo layer
-	if got, want := r.Time(), ft.NowFunc()(); !got.Equal(want) {
+	if got, want := env.RepositoryWriter.Time(), ft.NowFunc()(); !got.Equal(want) {
 		t.Errorf("times don't match, got %v, want %v", got, want)
 	}
 
-	if want, got := ft.Advance(10*time.Minute), r.Time(); !got.Equal(want) {
+	if want, got := ft.Advance(10*time.Minute), env.RepositoryWriter.Time(); !got.Equal(want) {
 		t.Errorf("times don't match, got %v, want %v", got, want)
 	}
 
 	// verify wiring for the content layer
 	nt := ft.Advance(20 * time.Second)
 
-	cid, err := r.Content.WriteContent(ctx, []byte("foo"), "")
+	cid, err := env.RepositoryWriter.ContentManager().WriteContent(ctx, []byte("foo"), "")
 	if err != nil {
 		t.Fatal("failed to write content:", err)
 	}
 
-	info, err := r.Content.ContentInfo(ctx, cid)
+	info, err := env.RepositoryWriter.ContentReader().ContentInfo(ctx, cid)
 	if err != nil {
 		t.Fatal("failed to get content info for", cid, err)
 	}
@@ -64,12 +67,12 @@ func TestTimeFuncWiring(t *testing.T) {
 
 	labels := map[string]string{"l1": "v1", "l2": "v2", "type": "my-manifest"}
 
-	mid, err := r.Manifests.Put(ctx, labels, "manifest content")
+	mid, err := env.RepositoryWriter.PutManifest(ctx, labels, "manifest content")
 	if err != nil {
 		t.Fatal("failed to put manifest:", err)
 	}
 
-	meta, err := r.Manifests.GetMetadata(ctx, mid)
+	meta, err := env.RepositoryWriter.GetManifest(ctx, mid, nil)
 	if err != nil {
 		t.Fatal("failed to get manifest metadata:", err)
 	}
@@ -85,7 +88,7 @@ func TestTimeFuncWiring(t *testing.T) {
 	sourceDir.AddFile("f1", []byte{1, 2, 3}, defaultPermissions)
 
 	nt = ft.Advance(1 * time.Hour)
-	u := snapshotfs.NewUploader(r)
+	u := snapshotfs.NewUploader(env.RepositoryWriter)
 	policyTree := policy.BuildTree(nil, policy.DefaultPolicy)
 
 	s1, err := u.Upload(ctx, sourceDir, policyTree, snapshot.SourceInfo{})

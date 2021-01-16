@@ -19,7 +19,7 @@ var (
 	blobGarbageCollectPrefix               = blobGarbageCollectCommand.Flag("prefix", "Only GC blobs with given prefix").String()
 )
 
-func runBlobGarbageCollectCommand(ctx context.Context, rep *repo.DirectRepository) error {
+func runBlobGarbageCollectCommand(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	advancedCommand(ctx)
 
 	opts := maintenance.DeleteUnreferencedBlobsOptions{
@@ -43,5 +43,5 @@ func runBlobGarbageCollectCommand(ctx context.Context, rep *repo.DirectRepositor
 }
 
 func init() {
-	blobGarbageCollectCommand.Action(directRepositoryAction(runBlobGarbageCollectCommand))
+	blobGarbageCollectCommand.Action(directRepositoryWriteAction(runBlobGarbageCollectCommand))
 }

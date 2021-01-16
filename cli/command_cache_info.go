@@ -17,20 +17,20 @@ var (
 	cacheInfoPathOnly = cacheInfoCommand.Flag("path", "Only display cache path").Bool()
 )
 
-func runCacheInfoCommand(ctx context.Context, rep *repo.DirectRepository) error {
+func runCacheInfoCommand(ctx context.Context, rep repo.DirectRepository) error {
 	if *cacheInfoPathOnly {
-		fmt.Println(rep.Cache.CacheDirectory)
+		fmt.Println(rep.CachingOptions().CacheDirectory)
 		return nil
 	}
 
-	entries, err := ioutil.ReadDir(rep.Cache.CacheDirectory)
+	entries, err := ioutil.ReadDir(rep.CachingOptions().CacheDirectory)
 	if err != nil {
 		return errors.Wrap(err, "unable to scan cache directory")
 	}
 
 	path2Limit := map[string]int64{
-		"contents": rep.Cache.MaxCacheSizeBytes,
-		"metadata": rep.Cache.MaxMetadataCacheSizeBytes,
+		"contents": rep.CachingOptions().MaxCacheSizeBytes,
+		"metadata": rep.CachingOptions().MaxMetadataCacheSizeBytes,
 	}
 
 	for _, ent := range entries {
@@ -38,7 +38,7 @@ func runCacheInfoCommand(ctx context.Context, rep *repo.DirectRepository) error 
 			continue
 		}
 
-		subdir := filepath.Join(rep.Cache.CacheDirectory, ent.Name())
+		subdir := filepath.Join(rep.CachingOptions().CacheDirectory, ent.Name())
 
 		fileCount, totalFileSize, err := scanCacheDir(subdir)
 		if err != nil {

@@ -23,7 +23,7 @@ var log = logging.GetContextLoggerFunc("kopia/snapshot/policy")
 // GetEffectivePolicy calculates effective snapshot policy for a given source by combining the source-specifc policy (if any)
 // with parent policies. The source must contain a path.
 // Returns the effective policies and all source policies that contributed to that (most specific first).
-func GetEffectivePolicy(ctx context.Context, rep repo.Reader, si snapshot.SourceInfo) (effective *Policy, sources []*Policy, e error) {
+func GetEffectivePolicy(ctx context.Context, rep repo.Repository, si snapshot.SourceInfo) (effective *Policy, sources []*Policy, e error) {
 	var md []*manifest.EntryMetadata
 
 	// Find policies applying to paths all the way up to the root.
@@ -86,7 +86,7 @@ func GetEffectivePolicy(ctx context.Context, rep repo.Reader, si snapshot.Source
 }
 
 // GetDefinedPolicy returns the policy defined on the provided snapshot.SourceInfo or ErrPolicyNotFound if not present.
-func GetDefinedPolicy(ctx context.Context, rep repo.Reader, si snapshot.SourceInfo) (*Policy, error) {
+func GetDefinedPolicy(ctx context.Context, rep repo.Repository, si snapshot.SourceInfo) (*Policy, error) {
 	md, err := rep.FindManifests(ctx, labelsForSource(si))
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to find policy for source")
@@ -112,7 +112,7 @@ func GetDefinedPolicy(ctx context.Context, rep repo.Reader, si snapshot.SourceIn
 }
 
 // SetPolicy sets the policy on a given source.
-func SetPolicy(ctx context.Context, rep repo.Writer, si snapshot.SourceInfo, pol *Policy) error {
+func SetPolicy(ctx context.Context, rep repo.RepositoryWriter, si snapshot.SourceInfo, pol *Policy) error {
 	md, err := rep.FindManifests(ctx, labelsForSource(si))
 	if err != nil {
 		return errors.Wrapf(err, "unable to load manifests for %v", si)
@@ -132,7 +132,7 @@ func SetPolicy(ctx context.Context, rep repo.Writer, si snapshot.SourceInfo, pol
 }
 
 // RemovePolicy removes the policy for a given source.
-func RemovePolicy(ctx context.Context, rep repo.Writer, si snapshot.SourceInfo) error {
+func RemovePolicy(ctx context.Context, rep repo.RepositoryWriter, si snapshot.SourceInfo) error {
 	md, err := rep.FindManifests(ctx, labelsForSource(si))
 	if err != nil {
 		return errors.Wrapf(err, "unable to load manifests for %v", si)
@@ -148,7 +148,7 @@ func RemovePolicy(ctx context.Context, rep repo.Writer, si snapshot.SourceInfo) 
 }
 
 // GetPolicyByID gets the policy for a given unique ID or ErrPolicyNotFound if not found.
-func GetPolicyByID(ctx context.Context, rep repo.Reader, id manifest.ID) (*Policy, error) {
+func GetPolicyByID(ctx context.Context, rep repo.Repository, id manifest.ID) (*Policy, error) {
 	p := &Policy{}
 	if err := loadPolicyFromManifest(ctx, rep, id, p); err != nil {
 		return nil, err
@@ -158,7 +158,7 @@ func GetPolicyByID(ctx context.Context, rep repo.Reader, id manifest.ID) (*Polic
 }
 
 // ListPolicies returns a list of all policies.
-func ListPolicies(ctx context.Context, rep repo.Reader) ([]*Policy, error) {
+func ListPolicies(ctx context.Context, rep repo.Repository) ([]*Policy, error) {
 	ids, err := rep.FindManifests(ctx, map[string]string{
 		typeKey: "policy",
 	})
@@ -190,7 +190,7 @@ func (m SubdirectoryPolicyMap) GetPolicyForPath(relativePath string) (*Policy, e
 }
 
 // TreeForSource returns policy Tree for a given source.
-func TreeForSource(ctx context.Context, rep repo.Reader, si snapshot.SourceInfo) (*Tree, error) {
+func TreeForSource(ctx context.Context, rep repo.Repository, si snapshot.SourceInfo) (*Tree, error) {
 	pols, err := applicablePoliciesForSource(ctx, rep, si)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to get policies")
@@ -199,7 +199,7 @@ func TreeForSource(ctx context.Context, rep repo.Reader, si snapshot.SourceInfo)
 	return BuildTree(pols, DefaultPolicy), nil
 }
 
-func applicablePoliciesForSource(ctx context.Context, rep repo.Reader, si snapshot.SourceInfo) (map[string]*Policy, error) {
+func applicablePoliciesForSource(ctx context.Context, rep repo.Repository, si snapshot.SourceInfo) (map[string]*Policy, error) {
 	result := map[string]*Policy{}
 
 	pol, _, err := GetEffectivePolicy(ctx, rep, si)
@@ -247,7 +247,7 @@ func applicablePoliciesForSource(ctx context.Context, rep repo.Reader, si snapsh
 	return result, nil
 }
 
-func loadPolicyFromManifest(ctx context.Context, rep repo.Reader, id manifest.ID, pol *Policy) error {
+func loadPolicyFromManifest(ctx context.Context, rep repo.Repository, id manifest.ID, pol *Policy) error {
 	md, err := rep.GetManifest(ctx, id, pol)
 	if err != nil {
 		if errors.Is(err, manifest.ErrNotFound) {

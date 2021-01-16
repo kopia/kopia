@@ -15,7 +15,7 @@ var (
 	indexInspectBlobIDs = indexInspectCommand.Arg("blobs", "Names of index blobs to inspect").Strings()
 )
 
-func runInspectIndexAction(ctx context.Context, rep *repo.DirectRepository) error {
+func runInspectIndexAction(ctx context.Context, rep repo.DirectRepository) error {
 	for _, indexBlobID := range *indexInspectBlobIDs {
 		if err := inspectSingleIndexBlob(ctx, rep, blob.ID(indexBlobID)); err != nil {
 			return err
@@ -38,13 +38,13 @@ func dumpIndexBlobEntries(bm blob.Metadata, entries []content.Info) {
 	}
 }
 
-func inspectSingleIndexBlob(ctx context.Context, rep *repo.DirectRepository, blobID blob.ID) error {
-	bm, err := rep.Blobs.GetMetadata(ctx, blobID)
+func inspectSingleIndexBlob(ctx context.Context, rep repo.DirectRepository, blobID blob.ID) error {
+	bm, err := rep.BlobReader().GetMetadata(ctx, blobID)
 	if err != nil {
 		return errors.Wrapf(err, "unable to get metadata for %v", blobID)
 	}
 
-	entries, err := rep.Content.ParseIndexBlob(ctx, blobID)
+	entries, err := rep.IndexBlobReader().ParseIndexBlob(ctx, blobID)
 	if err != nil {
 		return errors.Wrapf(err, "unable to recover index from %v", blobID)
 	}

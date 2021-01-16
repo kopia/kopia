@@ -20,7 +20,7 @@ func init() {
 	policyRemoveCommand.Action(repositoryWriterAction(removePolicy))
 }
 
-func removePolicy(ctx context.Context, rep repo.Writer) error {
+func removePolicy(ctx context.Context, rep repo.RepositoryWriter) error {
 	targets, err := policyTargets(ctx, rep, policyRemoveGlobal, policyRemoveTargets)
 	if err != nil {
 		return err

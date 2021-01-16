@@ -214,21 +214,6 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 		bm.cond.Wait()
 	}
 
-	// see if we have any packs that have failed previously
-	// retry writing them now.
-	//
-	// we're making a copy of bm.failedPacks since bm.writePackAndAddToIndex()
-	// will remove from it on success.
-	fp := append([]*pendingPackInfo(nil), bm.failedPacks...)
-	for _, pp := range fp {
-		formatLog(ctx).Debugf("retry-write %v", pp.packBlobID)
-
-		if err := bm.writePackAndAddToIndex(ctx, pp, true); err != nil {
-			bm.unlock()
-			return errors.Wrap(err, "error writing previously failed pack")
-		}
-	}
-
 	pp, err := bm.getOrCreatePendingPackInfoLocked(ctx, prefix)
 	if err != nil {
 		bm.unlock()
@@ -451,8 +436,8 @@ func removePendingPack(slice []*pendingPackInfo, pp *pendingPackInfo) []*pending
 	return result
 }
 
-// Format returns formatting options.
-func (bm *WriteManager) Format() FormattingOptions {
+// ContentFormat returns formatting options.
+func (bm *WriteManager) ContentFormat() FormattingOptions {
 	return bm.format
 }
 
@@ -462,15 +447,7 @@ func (bm *WriteManager) Close(ctx context.Context) error {
 		return errors.Wrap(err, "error flushing")
 	}
 
-	if err := bm.committedContents.close(); err != nil {
-		return errors.Wrap(err, "error closed committed content index")
-	}
-
-	bm.contentCache.close()
-	bm.metadataCache.close()
-	bm.encryptionBufferPool.Close()
-
-	return nil
+	return bm.SharedManager.release(ctx)
 }
 
 // Flush completes writing any pending packs and writes pack indexes to the underlying storage.
@@ -798,6 +775,8 @@ type SessionOptions struct {
 // NewWriteManager returns a session write manager.
 func NewWriteManager(sm *SharedManager, options SessionOptions) *WriteManager {
 	mu := &sync.RWMutex{}
+
+	sm.addRef()
 
 	return &WriteManager{
 		SharedManager: sm,

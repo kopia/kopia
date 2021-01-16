@@ -20,7 +20,7 @@ var (
 	blobShowIDs     = blobShowCommand.Arg("blobID", "Blob IDs").Required().Strings()
 )
 
-func runBlobShow(ctx context.Context, rep *repo.DirectRepository) error {
+func runBlobShow(ctx context.Context, rep repo.DirectRepository) error {
 	for _, blobID := range *blobShowIDs {
 		if err := maybeDecryptBlob(ctx, os.Stdout, rep, blob.ID(blobID)); err != nil {
 			return errors.Wrap(err, "error presenting blob")
@@ -30,14 +30,14 @@ func runBlobShow(ctx context.Context, rep *repo.DirectRepository) error {
 	return nil
 }
 
-func maybeDecryptBlob(ctx context.Context, w io.Writer, rep *repo.DirectRepository, blobID blob.ID) error {
+func maybeDecryptBlob(ctx context.Context, w io.Writer, rep repo.DirectRepository, blobID blob.ID) error {
 	var (
 		d   []byte
 		err error
 	)
 
 	if *blobShowDecrypt && canDecryptBlob(blobID) {
-		d, err = rep.Content.DecryptBlob(ctx, blobID)
+		d, err = rep.IndexBlobReader().DecryptBlob(ctx, blobID)
 
 		if isJSONBlob(blobID) && err == nil {
 			var b bytes.Buffer
@@ -49,7 +49,7 @@ func maybeDecryptBlob(ctx context.Context, w io.Writer, rep *repo.DirectReposito
 			d = b.Bytes()
 		}
 	} else {
-		d, err = rep.Blobs.GetBlob(ctx, blobID, 0, -1)
+		d, err = rep.BlobReader().GetBlob(ctx, blobID, 0, -1)
 	}
 
 	if err != nil {

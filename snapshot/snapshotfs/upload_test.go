@@ -32,7 +32,7 @@ const (
 type uploadTestHarness struct {
 	sourceDir *mockfs.Directory
 	repoDir   string
-	repo      repo.Writer
+	repo      repo.RepositoryWriter
 	ft        *faketime.TimeAdvance
 }
 
@@ -95,10 +95,15 @@ func newUploadTestHarness(ctx context.Context) *uploadTestHarness {
 	sourceDir.AddFile("d2/d1/f1", []byte{1, 2, 3}, defaultPermissions)
 	sourceDir.AddFile("d2/d1/f2", []byte{1, 2, 3, 4}, defaultPermissions)
 
+	w, err := rep.NewWriter(ctx, "test")
+	if err != nil {
+		panic("writer creation error: " + err.Error())
+	}
+
 	th := &uploadTestHarness{
 		sourceDir: sourceDir,
 		repoDir:   repoDir,
-		repo:      rep,
+		repo:      w,
 		ft:        ft,
 	}
 

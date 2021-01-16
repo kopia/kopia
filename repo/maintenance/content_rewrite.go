@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/units"
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 )
@@ -39,7 +40,7 @@ type contentInfoOrError struct {
 
 // RewriteContents rewrites contents according to provided criteria and creates new
 // blobs and index entries to point at the.
-func RewriteContents(ctx context.Context, rep MaintainableRepository, opt *RewriteContentsOptions) error {
+func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *RewriteContentsOptions) error {
 	if opt == nil {
 		return errors.Errorf("missing options")
 	}
@@ -124,7 +125,7 @@ func RewriteContents(ctx context.Context, rep MaintainableRepository, opt *Rewri
 	return errors.Errorf("failed to rewrite %v contents", failedCount)
 }
 
-func getContentToRewrite(ctx context.Context, rep MaintainableRepository, opt *RewriteContentsOptions) <-chan contentInfoOrError {
+func getContentToRewrite(ctx context.Context, rep repo.DirectRepository, opt *RewriteContentsOptions) <-chan contentInfoOrError {
 	ch := make(chan contentInfoOrError)
 
 	go func() {
@@ -135,7 +136,7 @@ func getContentToRewrite(ctx context.Context, rep MaintainableRepository, opt *R
 
 		// add all content IDs from short packs
 		if opt.ShortPacks {
-			threshold := int64(rep.ContentManager().Format().MaxPackSize * shortPackThresholdPercent / 100) //nolint:gomnd
+			threshold := int64(rep.ContentReader().ContentFormat().MaxPackSize * shortPackThresholdPercent / 100) //nolint:gomnd
 			findContentInShortPacks(ctx, rep, ch, threshold, opt)
 		}
 
@@ -148,9 +149,9 @@ func getContentToRewrite(ctx context.Context, rep MaintainableRepository, opt *R
 	return ch
 }
 
-func findContentInfos(ctx context.Context, rep MaintainableRepository, ch chan contentInfoOrError, contentIDs []content.ID) {
+func findContentInfos(ctx context.Context, rep repo.DirectRepository, ch chan contentInfoOrError, contentIDs []content.ID) {
 	for _, contentID := range contentIDs {
-		i, err := rep.ContentManager().ContentInfo(ctx, contentID)
+		i, err := rep.ContentReader().ContentInfo(ctx, contentID)
 		if err != nil {
 			ch <- contentInfoOrError{err: errors.Wrapf(err, "unable to get info for content %q", contentID)}
 		} else {
@@ -159,8 +160,8 @@ func findContentInfos(ctx context.Context, rep MaintainableRepository, ch chan c
 	}
 }
 
-func findContentWithFormatVersion(ctx context.Context, rep MaintainableRepository, ch chan contentInfoOrError, opt *RewriteContentsOptions) {
-	_ = rep.ContentManager().IterateContents(
+func findContentWithFormatVersion(ctx context.Context, rep repo.DirectRepository, ch chan contentInfoOrError, opt *RewriteContentsOptions) {
+	_ = rep.ContentReader().IterateContents(
 		ctx,
 		content.IterateOptions{
 			Range:          opt.ContentIDRange,
@@ -174,14 +175,14 @@ func findContentWithFormatVersion(ctx context.Context, rep MaintainableRepositor
 		})
 }
 
-func findContentInShortPacks(ctx context.Context, rep MaintainableRepository, ch chan contentInfoOrError, threshold int64, opt *RewriteContentsOptions) {
+func findContentInShortPacks(ctx context.Context, rep repo.DirectRepository, ch chan contentInfoOrError, threshold int64, opt *RewriteContentsOptions) {
 	var prefixes []blob.ID
 
 	if opt.PackPrefix != "" {
 		prefixes = append(prefixes, opt.PackPrefix)
 	}
 
-	err := rep.ContentManager().IteratePacks(
+	err := rep.ContentReader().IteratePacks(
 		ctx,
 		content.IteratePackOptions{
 			Prefixes:                           prefixes,

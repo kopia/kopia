@@ -1,4 +1,4 @@
-// Package snapshotfs implements virtual filesystem on top of snapshots in repo.Reader.
+// Package snapshotfs implements virtual filesystem on top of snapshots in repo.Repository.
 package snapshotfs
 
 import (
@@ -22,7 +22,7 @@ const (
 
 type repositoryEntry struct {
 	metadata *snapshot.DirEntry
-	repo     repo.Reader
+	repo     repo.Repository
 }
 
 func (e *repositoryEntry) IsDir() bool {
@@ -170,7 +170,7 @@ func (rsl *repositorySymlink) Readlink(ctx context.Context) (string, error) {
 }
 
 // EntryFromDirEntry returns a filesystem entry based on the directory entry.
-func EntryFromDirEntry(r repo.Reader, md *snapshot.DirEntry) (fs.Entry, error) {
+func EntryFromDirEntry(r repo.Repository, md *snapshot.DirEntry) (fs.Entry, error) {
 	re := repositoryEntry{
 		metadata: md,
 		repo:     r,
@@ -214,7 +214,7 @@ func withFileInfo(r object.Reader, e fs.Entry) fs.Reader {
 
 // DirectoryEntry returns fs.Directory based on repository object with the specified ID.
 // The existence or validity of the directory object is not validated until its contents are read.
-func DirectoryEntry(rep repo.Reader, objectID object.ID, dirSummary *fs.DirectorySummary) fs.Directory {
+func DirectoryEntry(rep repo.Repository, objectID object.ID, dirSummary *fs.DirectorySummary) fs.Directory {
 	d, _ := EntryFromDirEntry(rep, &snapshot.DirEntry{
 		Name:        "/",
 		Permissions: 0o555, //nolint:gomnd
@@ -227,7 +227,7 @@ func DirectoryEntry(rep repo.Reader, objectID object.ID, dirSummary *fs.Director
 }
 
 // SnapshotRoot returns fs.Entry representing the root of a snapshot.
-func SnapshotRoot(rep repo.Reader, man *snapshot.Manifest) (fs.Entry, error) {
+func SnapshotRoot(rep repo.Repository, man *snapshot.Manifest) (fs.Entry, error) {
 	oid := man.RootObjectID()
 	if oid == "" {
 		return nil, errors.New("manifest root object ID")
@@ -238,7 +238,7 @@ func SnapshotRoot(rep repo.Reader, man *snapshot.Manifest) (fs.Entry, error) {
 
 // AutoDetectEntryFromObjectID returns fs.Entry (either file or directory) for the provided object ID.
 // It uses heuristics to determine whether object ID is possibly a directory and treats it as such.
-func AutoDetectEntryFromObjectID(ctx context.Context, rep repo.Reader, oid object.ID, maybeName string) fs.Entry {
+func AutoDetectEntryFromObjectID(ctx context.Context, rep repo.Repository, oid object.ID, maybeName string) fs.Entry {
 	if IsDirectoryID(oid) {
 		dirEntry := DirectoryEntry(rep, oid, nil)
 		if _, err := dirEntry.Readdir(ctx); err == nil {

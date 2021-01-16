@@ -22,28 +22,8 @@ type Bytes interface {
 	Reader() io.Reader
 }
 
-// Storage encapsulates API for connecting to blob storage.
-//
-// The underlying storage system must provide:
-//
-// * high durability, availability and bit-rot protection
-// * read-after-write - blob written using PubBlob() must be immediately readable using GetBlob() and ListBlobs()
-// * atomicity - it mustn't be possible to observe partial results of PubBlob() via either GetBlob() or ListBlobs()
-// * timestamps that don't go back in time (small clock skew up to minutes is allowed)
-// * reasonably low latency for retrievals
-//
-// The required semantics are provided by existing commercial cloud storage products (Google Cloud, AWS, Azure).
-type Storage interface {
-	// PutBlob uploads the blob with given data to the repository or replaces existing blob with the provided
-	// id with contents gathered from the specified list of slices.
-	PutBlob(ctx context.Context, blobID ID, data Bytes) error
-
-	// SetTime changes last modification time of a given blob, if supported, returns ErrSetTimeUnsupported otherwise.
-	SetTime(ctx context.Context, blobID ID, t time.Time) error
-
-	// DeleteBlob removes the blob from storage. Future Get() operations will fail with ErrNotFound.
-	DeleteBlob(ctx context.Context, blobID ID) error
-
+// Reader defines read access API to blob storage.
+type Reader interface {
 	// GetBlob returns full or partial contents of a blob with given ID.
 	// If length>0, the the function retrieves a range of bytes [offset,offset+length)
 	// If length<0, the entire blob must be fetched.
@@ -60,11 +40,36 @@ type Storage interface {
 	// connect to storage.
 	ConnectionInfo() ConnectionInfo
 
-	// Close releases all resources associated with storage.
-	Close(ctx context.Context) error
-
 	// Name of the storage used for quick identification by humans.
 	DisplayName() string
+}
+
+// Storage encapsulates API for connecting to blob storage.
+//
+// The underlying storage system must provide:
+//
+// * high durability, availability and bit-rot protection
+// * read-after-write - blob written using PubBlob() must be immediately readable using GetBlob() and ListBlobs()
+// * atomicity - it mustn't be possible to observe partial results of PubBlob() via either GetBlob() or ListBlobs()
+// * timestamps that don't go back in time (small clock skew up to minutes is allowed)
+// * reasonably low latency for retrievals
+//
+// The required semantics are provided by existing commercial cloud storage products (Google Cloud, AWS, Azure).
+type Storage interface {
+	Reader
+
+	// PutBlob uploads the blob with given data to the repository or replaces existing blob with the provided
+	// id with contents gathered from the specified list of slices.
+	PutBlob(ctx context.Context, blobID ID, data Bytes) error
+
+	// SetTime changes last modification time of a given blob, if supported, returns ErrSetTimeUnsupported otherwise.
+	SetTime(ctx context.Context, blobID ID, t time.Time) error
+
+	// DeleteBlob removes the blob from storage. Future Get() operations will fail with ErrNotFound.
+	DeleteBlob(ctx context.Context, blobID ID) error
+
+	// Close releases all resources associated with storage.
+	Close(ctx context.Context) error
 }
 
 // ID is a string that represents blob identifier.

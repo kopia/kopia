@@ -25,7 +25,7 @@ func TestPolicyManagerInheritanceTest(t *testing.T) {
 		"type":       "policy",
 	})
 
-	must(t, SetPolicy(ctx, env.Repository, snapshot.SourceInfo{
+	must(t, SetPolicy(ctx, env.RepositoryWriter, snapshot.SourceInfo{
 		Host: "host-a",
 	}, &Policy{
 		RetentionPolicy: RetentionPolicy{
@@ -33,7 +33,7 @@ func TestPolicyManagerInheritanceTest(t *testing.T) {
 		},
 	}))
 
-	must(t, SetPolicy(ctx, env.Repository, snapshot.SourceInfo{
+	must(t, SetPolicy(ctx, env.RepositoryWriter, snapshot.SourceInfo{
 		Host:     "host-a",
 		UserName: "myuser",
 		Path:     "/some/path2",
@@ -43,7 +43,7 @@ func TestPolicyManagerInheritanceTest(t *testing.T) {
 		},
 	}))
 
-	must(t, SetPolicy(ctx, env.Repository, snapshot.SourceInfo{
+	must(t, SetPolicy(ctx, env.RepositoryWriter, snapshot.SourceInfo{
 		Host: "host-b",
 	}, &Policy{
 		RetentionPolicy: RetentionPolicy{
@@ -114,7 +114,7 @@ func TestPolicyManagerInheritanceTest(t *testing.T) {
 	for _, tc := range cases {
 		tc := tc
 		t.Run(fmt.Sprintf("%v", tc.sourceInfo), func(t *testing.T) {
-			pol, src, err := GetEffectivePolicy(ctx, env.Repository, tc.sourceInfo)
+			pol, src, err := GetEffectivePolicy(ctx, env.RepositoryWriter, tc.sourceInfo)
 			if err != nil {
 				t.Fatalf("err: %v", err)
 			}
@@ -175,7 +175,7 @@ func TestPolicyManagerResolvesConflicts(t *testing.T) {
 
 	defer env.Setup(t).Close(ctx, t)
 
-	r1 := env.Repository
+	r1 := env.RepositoryWriter
 	r2 := env.MustOpenAnother(t)
 	sourceInfo := GlobalPolicySourceInfo
 
@@ -333,7 +333,7 @@ func TestApplicablePoliciesForSource(t *testing.T) {
 	}
 
 	for si, pol := range setPols {
-		must(t, SetPolicy(ctx, env.Repository, si, pol))
+		must(t, SetPolicy(ctx, env.RepositoryWriter, si, pol))
 	}
 
 	cases := []struct {
@@ -405,7 +405,7 @@ func TestApplicablePoliciesForSource(t *testing.T) {
 	for _, tc := range cases {
 		tc := tc
 		t.Run(fmt.Sprintf("%v", tc.si), func(t *testing.T) {
-			res, err := applicablePoliciesForSource(ctx, env.Repository, tc.si)
+			res, err := applicablePoliciesForSource(ctx, env.RepositoryWriter, tc.si)
 			if err != nil {
 				t.Fatalf("error in applicablePoliciesForSource(%v): %v", tc.si, err)
 			}

@@ -8,6 +8,7 @@ import (
 	"net/url"
 
 	"github.com/kopia/kopia/internal/serverapi"
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 )
@@ -60,11 +61,16 @@ func (s *Server) handlePolicyGet(ctx context.Context, r *http.Request, body []by
 }
 
 func (s *Server) handlePolicyDelete(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	if err := policy.RemovePolicy(ctx, s.rep, getPolicyTargetFromURL(r.URL)); err != nil {
+	w, ok := s.rep.(repo.RepositoryWriter)
+	if !ok {
+		return nil, requestError(serverapi.ErrorNotFound, "policy not found")
+	}
+
+	if err := policy.RemovePolicy(ctx, w, getPolicyTargetFromURL(r.URL)); err != nil {
 		return nil, internalServerError(err)
 	}
 
-	if err := s.rep.Flush(ctx); err != nil {
+	if err := w.Flush(ctx); err != nil {
 		return nil, internalServerError(err)
 	}
 
@@ -77,11 +83,16 @@ func (s *Server) handlePolicyPut(ctx context.Context, r *http.Request, body []by
 		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed request body")
 	}
 
-	if err := policy.SetPolicy(ctx, s.rep, getPolicyTargetFromURL(r.URL), newPolicy); err != nil {
+	w, ok := s.rep.(repo.RepositoryWriter)
+	if !ok {
+		return nil, requestError(serverapi.ErrorNotFound, "policy not found")
+	}
+
+	if err := policy.SetPolicy(ctx, w, getPolicyTargetFromURL(r.URL), newPolicy); err != nil {
 		return nil, internalServerError(err)
 	}
 
-	if err := s.rep.Flush(ctx); err != nil {
+	if err := w.Flush(ctx); err != nil {
 		return nil, internalServerError(err)
 	}
 

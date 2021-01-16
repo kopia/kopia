@@ -13,8 +13,8 @@ import (
 	"github.com/kopia/kopia/repo/object"
 )
 
-// Reader provides methods to read from a repository.
-type Reader interface {
+// Repository exposes public API of Kopia repository, including objects and manifests.
+type Repository interface {
 	OpenObject(ctx context.Context, id object.ID) (object.Reader, error)
 	VerifyObject(ctx context.Context, id object.ID) ([]content.ID, error)
 
@@ -23,11 +23,18 @@ type Reader interface {
 
 	Time() time.Time
 	ClientOptions() ClientOptions
+
+	NewWriter(ctx context.Context, purpose string) (RepositoryWriter, error)
+
+	UpdateDescription(d string)
+
+	Refresh(ctx context.Context) error
+	Close(ctx context.Context) error
 }
 
-// Writer provides methods to write to a repository.
-type Writer interface {
-	Reader
+// RepositoryWriter provides methods to write to a repository.
+type RepositoryWriter interface {
+	Repository
 
 	NewObjectWriter(ctx context.Context, opt object.WriterOptions) object.Writer
 	PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error)
@@ -36,117 +43,169 @@ type Writer interface {
 	Flush(ctx context.Context) error
 }
 
-// Repository exposes public API of Kopia repository, including objects and manifests.
-type Repository interface {
-	Reader
-	Writer
+// DirectRepository provides additional low-level repository functionality.
+type DirectRepository interface {
+	Repository
 
-	UpdateDescription(d string)
+	ObjectFormat() object.Format
+	BlobReader() blob.Reader
+	ContentReader() content.Reader
+	IndexBlobReader() content.IndexBlobReader
 
-	Refresh(ctx context.Context) error
-	Close(ctx context.Context) error
+	NewDirectWriter(ctx context.Context, purpose string) (DirectRepositoryWriter, error)
+
+	// misc
+	UniqueID() []byte
+	ConfigFilename() string
+	DeriveKey(purpose []byte, keyLength int) []byte
+	Token(password string) (string, error)
+
+	CachingOptions() *content.CachingOptions
+	SetCachingOptions(ctx context.Context, opt *content.CachingOptions) error
 }
 
-// DirectRepository is an implementation of repository that directly manipulates underlying storage.
-type DirectRepository struct {
-	Blobs     blob.Storage
-	Content   *content.WriteManager
-	Objects   *object.Manager
-	Manifests *manifest.Manager
-	Cache     content.CachingOptions
-	UniqueID  []byte
+// DirectRepositoryWriter provides low-level write access to the repository.
+type DirectRepositoryWriter interface {
+	RepositoryWriter
+	DirectRepository
 
-	sharedContentManager *content.SharedManager
+	BlobStorage() blob.Storage
+	ContentManager() *content.WriteManager
+	Upgrade(ctx context.Context) error
+}
 
-	ConfigFile string
+type directRepositoryParameters struct {
+	uniqueID       []byte
+	configFile     string
+	cachingOptions content.CachingOptions
+	cliOpts        ClientOptions
+	timeNow        func() time.Time
+	formatBlob     *formatBlob
+	masterKey      []byte
+}
 
-	cliOpts ClientOptions
+// directRepository is an implementation of repository that directly manipulates underlying storage.
+type directRepository struct {
+	directRepositoryParameters
 
-	timeNow    func() time.Time
-	formatBlob *formatBlob
-	masterKey  []byte
+	blobs blob.Storage
+	cmgr  *content.WriteManager
+	omgr  *object.Manager
+	mmgr  *manifest.Manager
+	sm    *content.SharedManager
 
 	closed chan struct{}
 }
 
 // DeriveKey derives encryption key of the provided length from the master key.
-func (r *DirectRepository) DeriveKey(purpose []byte, keyLength int) []byte {
-	return deriveKeyFromMasterKey(r.masterKey, r.UniqueID, purpose, keyLength)
+func (r *directRepository) DeriveKey(purpose []byte, keyLength int) []byte {
+	return deriveKeyFromMasterKey(r.masterKey, r.uniqueID, purpose, keyLength)
 }
 
 // ClientOptions returns client options.
-func (r *DirectRepository) ClientOptions() ClientOptions {
+func (r *directRepository) ClientOptions() ClientOptions {
 	return r.cliOpts
 }
 
-// Hostname returns the hostname that connected to the repository.
-func (r *DirectRepository) Hostname() string { return r.cliOpts.Hostname }
-
-// Username returns the username that's connect to the repository.
-func (r *DirectRepository) Username() string { return r.cliOpts.Username }
-
 // BlobStorage returns the blob storage.
-func (r *DirectRepository) BlobStorage() blob.Storage {
-	return r.Blobs
+func (r *directRepository) BlobStorage() blob.Storage {
+	return r.blobs
 }
 
 // ContentManager returns the content manager.
-func (r *DirectRepository) ContentManager() *content.WriteManager {
-	return r.Content
+func (r *directRepository) ContentManager() *content.WriteManager {
+	return r.cmgr
 }
 
 // ConfigFilename returns the name of the configuration file.
-func (r *DirectRepository) ConfigFilename() string {
-	return r.ConfigFile
-}
-
-// OpenObject opens the reader for a given object, returns object.ErrNotFound.
-func (r *DirectRepository) OpenObject(ctx context.Context, id object.ID) (object.Reader, error) {
-	return object.Open(ctx, r.Content, id)
+func (r *directRepository) ConfigFilename() string {
+	return r.configFile
 }
 
 // NewObjectWriter creates an object writer.
-func (r *DirectRepository) NewObjectWriter(ctx context.Context, opt object.WriterOptions) object.Writer {
-	return r.Objects.NewWriter(ctx, opt)
+func (r *directRepository) NewObjectWriter(ctx context.Context, opt object.WriterOptions) object.Writer {
+	return r.omgr.NewWriter(ctx, opt)
+}
+
+// OpenObject opens the reader for a given object, returns object.ErrNotFound.
+func (r *directRepository) OpenObject(ctx context.Context, id object.ID) (object.Reader, error) {
+	return object.Open(ctx, r.cmgr, id)
 }
 
 // VerifyObject verifies that the given object is stored properly in a repository and returns backing content IDs.
-func (r *DirectRepository) VerifyObject(ctx context.Context, id object.ID) ([]content.ID, error) {
-	return object.VerifyObject(ctx, r.Content, id)
+func (r *directRepository) VerifyObject(ctx context.Context, id object.ID) ([]content.ID, error) {
+	return object.VerifyObject(ctx, r.cmgr, id)
 }
 
 // GetManifest returns the given manifest data and metadata.
-func (r *DirectRepository) GetManifest(ctx context.Context, id manifest.ID, data interface{}) (*manifest.EntryMetadata, error) {
-	return r.Manifests.Get(ctx, id, data)
+func (r *directRepository) GetManifest(ctx context.Context, id manifest.ID, data interface{}) (*manifest.EntryMetadata, error) {
+	return r.mmgr.Get(ctx, id, data)
 }
 
 // PutManifest saves the given manifest payload with a set of labels.
-func (r *DirectRepository) PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error) {
-	return r.Manifests.Put(ctx, labels, payload)
+func (r *directRepository) PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error) {
+	return r.mmgr.Put(ctx, labels, payload)
 }
 
 // FindManifests returns metadata for manifests matching given set of labels.
-func (r *DirectRepository) FindManifests(ctx context.Context, labels map[string]string) ([]*manifest.EntryMetadata, error) {
-	return r.Manifests.Find(ctx, labels)
+func (r *directRepository) FindManifests(ctx context.Context, labels map[string]string) ([]*manifest.EntryMetadata, error) {
+	return r.mmgr.Find(ctx, labels)
 }
 
 // DeleteManifest deletes the manifest with a given ID.
-func (r *DirectRepository) DeleteManifest(ctx context.Context, id manifest.ID) error {
-	return r.Manifests.Delete(ctx, id)
+func (r *directRepository) DeleteManifest(ctx context.Context, id manifest.ID) error {
+	return r.mmgr.Delete(ctx, id)
 }
 
 // ListActiveSessions returns the map of active sessions.
-func (r *DirectRepository) ListActiveSessions(ctx context.Context) (map[content.SessionID]*content.SessionInfo, error) {
-	return r.Content.ListActiveSessions(ctx)
+func (r *directRepository) ListActiveSessions(ctx context.Context) (map[content.SessionID]*content.SessionInfo, error) {
+	return r.cmgr.ListActiveSessions(ctx)
 }
 
 // UpdateDescription updates the description of a connected repository.
-func (r *DirectRepository) UpdateDescription(d string) {
+func (r *directRepository) UpdateDescription(d string) {
 	r.cliOpts.Description = d
 }
 
+// NewWriter returns new RepositoryWriter session for repository.
+func (r *directRepository) NewWriter(ctx context.Context, purpose string) (RepositoryWriter, error) {
+	return r.NewDirectWriter(ctx, purpose)
+}
+
+// NewDirectWriter returns new DirectRepositoryWriter session for repository.
+func (r *directRepository) NewDirectWriter(ctx context.Context, purpose string) (DirectRepositoryWriter, error) {
+	cmgr := content.NewWriteManager(r.sm, content.SessionOptions{
+		SessionUser: r.cliOpts.Username,
+		SessionHost: r.cliOpts.Hostname,
+	})
+
+	mmgr, err := manifest.NewManager(ctx, cmgr, manifest.ManagerOptions{
+		TimeNow: r.timeNow,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "error creating manifest manager")
+	}
+
+	omgr, err := object.NewObjectManager(ctx, cmgr, r.omgr.Format)
+	if err != nil {
+		return nil, errors.Wrap(err, "error creating object manager")
+	}
+
+	w := &directRepository{
+		directRepositoryParameters: r.directRepositoryParameters,
+		blobs:                      r.blobs,
+		cmgr:                       cmgr,
+		omgr:                       omgr,
+		mmgr:                       mmgr,
+		sm:                         r.sm,
+		closed:                     make(chan struct{}),
+	}
+
+	return w, nil
+}
+
 // Close closes the repository and releases all resources.
-func (r *DirectRepository) Close(ctx context.Context) error {
+func (r *directRepository) Close(ctx context.Context) error {
 	select {
 	case <-r.closed:
 		// already closed
@@ -159,16 +218,13 @@ func (r *DirectRepository) Close(ctx context.Context) error {
 		return errors.Wrap(err, "error flushing")
 	}
 
-	if err := r.Objects.Close(); err != nil {
+	if err := r.omgr.Close(); err != nil {
 		return errors.Wrap(err, "error closing object manager")
 	}
 
-	if err := r.Content.Close(ctx); err != nil {
+	// this will release shared manager and MAY release blob.Store (on last outstanding reference).
+	if err := r.cmgr.Close(ctx); err != nil {
 		return errors.Wrap(err, "error closing content-addressable storage manager")
-	}
-
-	if err := r.Blobs.Close(ctx); err != nil {
-		return errors.Wrap(err, "error closing blob storage")
 	}
 
 	close(r.closed)
@@ -177,17 +233,47 @@ func (r *DirectRepository) Close(ctx context.Context) error {
 }
 
 // Flush waits for all in-flight writes to complete.
-func (r *DirectRepository) Flush(ctx context.Context) error {
-	if err := r.Manifests.Flush(ctx); err != nil {
+func (r *directRepository) Flush(ctx context.Context) error {
+	if err := r.mmgr.Flush(ctx); err != nil {
 		return errors.Wrap(err, "error flushing manifests")
 	}
 
-	return r.Content.Flush(ctx)
+	return r.cmgr.Flush(ctx)
+}
+
+// CachingOptions returns caching options.
+func (r *directRepository) CachingOptions() *content.CachingOptions {
+	return r.cachingOptions.CloneOrDefault()
+}
+
+// ObjectFormat returns the object format.
+func (r *directRepository) ObjectFormat() object.Format {
+	return r.omgr.Format
+}
+
+// UniqueID returns unique repository ID from which many keys and secrets are derived.
+func (r *directRepository) UniqueID() []byte {
+	return r.uniqueID
+}
+
+// BlobReader returns the blob reader.
+func (r *directRepository) BlobReader() blob.Reader {
+	return r.blobs
+}
+
+// ContentReader returns the content reader.
+func (r *directRepository) ContentReader() content.Reader {
+	return r.cmgr
+}
+
+// IndexBlobReader returns the index blob reader.
+func (r *directRepository) IndexBlobReader() content.IndexBlobReader {
+	return r.cmgr
 }
 
 // Refresh periodically makes external changes visible to repository.
-func (r *DirectRepository) Refresh(ctx context.Context) error {
-	updated, err := r.Content.Refresh(ctx)
+func (r *directRepository) Refresh(ctx context.Context) error {
+	updated, err := r.cmgr.Refresh(ctx)
 	if err != nil {
 		return errors.Wrap(err, "error refreshing content index")
 	}
@@ -198,7 +284,7 @@ func (r *DirectRepository) Refresh(ctx context.Context) error {
 
 	log(ctx).Debugf("content index refreshed")
 
-	if err := r.Manifests.Refresh(ctx); err != nil {
+	if err := r.mmgr.Refresh(ctx); err != nil {
 		return errors.Wrap(err, "error reloading manifests")
 	}
 
@@ -208,7 +294,7 @@ func (r *DirectRepository) Refresh(ctx context.Context) error {
 }
 
 // RefreshPeriodically periodically refreshes the repository to reflect the changes made by other hosts.
-func (r *DirectRepository) RefreshPeriodically(ctx context.Context, interval time.Duration) {
+func (r *directRepository) RefreshPeriodically(ctx context.Context, interval time.Duration) {
 	for {
 		select {
 		case <-r.closed:
@@ -227,8 +313,58 @@ func (r *DirectRepository) RefreshPeriodically(ctx context.Context, interval tim
 }
 
 // Time returns the current local time for the repo.
-func (r *DirectRepository) Time() time.Time {
+func (r *directRepository) Time() time.Time {
 	return defaultTime(r.timeNow)()
+}
+
+// WriteSessionOptions describes options for a write session.
+type WriteSessionOptions struct {
+	Purpose        string
+	FlushOnFailure bool // whether to flush regardless of write sessionr result.
+}
+
+// WriteSession executes the provided callback in a repository writer created for the purpose and flushes writes.
+func WriteSession(ctx context.Context, r Repository, opt WriteSessionOptions, cb func(w RepositoryWriter) error) error {
+	w, err := r.NewWriter(ctx, opt.Purpose)
+	if err != nil {
+		return errors.Wrap(err, "unable to create writer")
+	}
+
+	resultErr := cb(w)
+
+	if resultErr == nil || opt.FlushOnFailure {
+		if err := w.Flush(ctx); err != nil {
+			return errors.Wrap(err, "error flushing writer")
+		}
+	}
+
+	if err := w.Close(ctx); err != nil {
+		return errors.Wrap(err, "error closing writer")
+	}
+
+	return resultErr
+}
+
+// DirectWriteSession executes the provided callback in a DirectRepositoryWriter created for the purpose and flushes writes.
+func DirectWriteSession(ctx context.Context, r DirectRepository, opt WriteSessionOptions, cb func(dw DirectRepositoryWriter) error) error {
+	w, err := r.NewDirectWriter(ctx, opt.Purpose)
+	if err != nil {
+		return errors.Wrap(err, "unable to create writer")
+	}
+
+	resultErr := cb(w)
+
+	if resultErr == nil || opt.FlushOnFailure {
+		if err := w.Flush(ctx); err != nil {
+			return errors.Wrap(err, "error flushing writer")
+		}
+	}
+
+	if err := w.Close(ctx); err != nil {
+		return errors.Wrap(err, "error closing writer")
+	}
+
+	return resultErr
 }
 
 func defaultTime(f func() time.Time) func() time.Time {
@@ -238,3 +374,5 @@ func defaultTime(f func() time.Time) func() time.Time {
 
 	return clock.Now
 }
+
+var _ DirectRepositoryWriter = (*directRepository)(nil)

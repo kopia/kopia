@@ -21,7 +21,7 @@ var (
 	statusReconnectTokenIncludePassword = statusCommand.Flag("reconnect-token-with-password", "Include password in reconnect token").Short('s').Bool()
 )
 
-func runStatusCommand(ctx context.Context, rep repo.Reader) error {
+func runStatusCommand(ctx context.Context, rep repo.Repository) error {
 	fmt.Printf("Config file:         %v\n", repositoryConfigFileName())
 	fmt.Println()
 	fmt.Printf("Description:         %v\n", rep.ClientOptions().Description)
@@ -29,14 +29,14 @@ func runStatusCommand(ctx context.Context, rep repo.Reader) error {
 	fmt.Printf("Username:            %v\n", rep.ClientOptions().Username)
 	fmt.Printf("Read-only:           %v\n", rep.ClientOptions().ReadOnly)
 
-	dr, ok := rep.(*repo.DirectRepository)
+	dr, ok := rep.(repo.DirectRepository)
 	if !ok {
 		return nil
 	}
 
 	fmt.Println()
 
-	ci := dr.Blobs.ConnectionInfo()
+	ci := dr.BlobReader().ConnectionInfo()
 	fmt.Printf("Storage type:        %v\n", ci.Type)
 
 	if cjson, err := json.MarshalIndent(scrubber.ScrubSensitiveData(reflect.ValueOf(ci.Config)).Interface(), "                     ", "  "); err == nil {
@@ -44,12 +44,12 @@ func runStatusCommand(ctx context.Context, rep repo.Reader) error {
 	}
 
 	fmt.Println()
-	fmt.Printf("Unique ID:           %x\n", dr.UniqueID)
-	fmt.Printf("Hash:                %v\n", dr.Content.Format().Hash)
-	fmt.Printf("Encryption:          %v\n", dr.Content.Format().Encryption)
-	fmt.Printf("Splitter:            %v\n", dr.Objects.Format.Splitter)
-	fmt.Printf("Format version:      %v\n", dr.Content.Format().Version)
-	fmt.Printf("Max pack length:     %v\n", units.BytesStringBase2(int64(dr.Content.Format().MaxPackSize)))
+	fmt.Printf("Unique ID:           %x\n", dr.UniqueID())
+	fmt.Printf("Hash:                %v\n", dr.ContentReader().ContentFormat().Hash)
+	fmt.Printf("Encryption:          %v\n", dr.ContentReader().ContentFormat().Encryption)
+	fmt.Printf("Splitter:            %v\n", dr.ObjectFormat().Splitter)
+	fmt.Printf("Format version:      %v\n", dr.ContentReader().ContentFormat().Version)
+	fmt.Printf("Max pack length:     %v\n", units.BytesStringBase2(int64(dr.ContentReader().ContentFormat().MaxPackSize)))
 
 	if !*statusReconnectToken {
 		return nil

@@ -21,7 +21,7 @@ import (
 )
 
 func (s *Server) handleRepoParameters(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	dr, ok := s.rep.(*repo.DirectRepository)
+	dr, ok := s.rep.(repo.DirectRepository)
 	if !ok {
 		return &serverapi.StatusResponse{
 			Connected: false,
@@ -29,9 +29,9 @@ func (s *Server) handleRepoParameters(ctx context.Context, r *http.Request, body
 	}
 
 	rp := &remoterepoapi.Parameters{
-		HashFunction: dr.Content.Format().Hash,
-		HMACSecret:   dr.Content.Format().HMACSecret,
-		Format:       dr.Objects.Format,
+		HashFunction: dr.ContentReader().ContentFormat().Hash,
+		HMACSecret:   dr.ContentReader().ContentFormat().HMACSecret,
+		Format:       dr.ObjectFormat(),
 	}
 
 	return rp, nil
@@ -44,17 +44,17 @@ func (s *Server) handleRepoStatus(ctx context.Context, r *http.Request, body []b
 		}, nil
 	}
 
-	dr, ok := s.rep.(*repo.DirectRepository)
+	dr, ok := s.rep.(repo.DirectRepository)
 	if ok {
 		return &serverapi.StatusResponse{
 			Connected:     true,
-			ConfigFile:    dr.ConfigFile,
-			CacheDir:      dr.Cache.CacheDirectory,
-			Hash:          dr.Content.Format().Hash,
-			Encryption:    dr.Content.Format().Encryption,
-			MaxPackSize:   dr.Content.Format().MaxPackSize,
-			Splitter:      dr.Objects.Format.Splitter,
-			Storage:       dr.Blobs.ConnectionInfo().Type,
+			ConfigFile:    dr.ConfigFilename(),
+			CacheDir:      dr.CachingOptions().CacheDirectory,
+			Hash:          dr.ContentReader().ContentFormat().Hash,
+			Encryption:    dr.ContentReader().ContentFormat().Encryption,
+			MaxPackSize:   dr.ContentReader().ContentFormat().MaxPackSize,
+			Splitter:      dr.ObjectFormat().Splitter,
+			Storage:       dr.BlobReader().ConnectionInfo().Type,
 			ClientOptions: dr.ClientOptions(),
 		}, nil
 	}
@@ -112,7 +112,7 @@ func (s *Server) handleRepoCreate(ctx context.Context, r *http.Request, body []b
 	}
 	defer st.Close(ctx) //nolint:errcheck
 
-	if err := repo.Initialize(ctx, st, &req.NewRepositoryOptions, req.Password); err != nil {
+	if err = repo.Initialize(ctx, st, &req.NewRepositoryOptions, req.Password); err != nil {
 		return nil, repoErrorToAPIError(err)
 	}
 
@@ -120,21 +120,23 @@ func (s *Server) handleRepoCreate(ctx context.Context, r *http.Request, body []b
 		return nil, err
 	}
 
-	if err := policy.SetPolicy(ctx, s.rep, policy.GlobalPolicySourceInfo, policy.DefaultPolicy); err != nil {
-		return nil, internalServerError(errors.Wrap(err, "set global policy"))
-	}
-
-	if dr, ok := s.rep.(*repo.DirectRepository); ok {
-		p := maintenance.DefaultParams()
-		p.Owner = dr.Username() + "@" + dr.Hostname()
-
-		if err := maintenance.SetParams(ctx, dr, &p); err != nil {
-			return nil, internalServerError(errors.Wrap(err, "unable to set maintenance params"))
+	if err := repo.WriteSession(ctx, s.rep, repo.WriteSessionOptions{
+		Purpose: "handleRepoCreate",
+	}, func(w repo.RepositoryWriter) error {
+		if err := policy.SetPolicy(ctx, w, policy.GlobalPolicySourceInfo, policy.DefaultPolicy); err != nil {
+			return errors.Wrap(err, "set global policy")
 		}
-	}
 
-	if err := s.rep.Flush(ctx); err != nil {
-		return nil, internalServerError(errors.Wrap(err, "flush"))
+		p := maintenance.DefaultParams()
+		p.Owner = w.ClientOptions().UsernameAtHost()
+
+		if err := maintenance.SetParams(ctx, w, &p); err != nil {
+			return errors.Wrap(err, "unable to set maintenance params")
+		}
+
+		return nil
+	}); err != nil {
+		return nil, internalServerError(err)
 	}
 
 	return s.handleRepoStatus(ctx, r, nil)

@@ -7,7 +7,7 @@ import (
 )
 
 // Upgrade upgrades repository data structures to the latest version.
-func (r *DirectRepository) Upgrade(ctx context.Context) error {
+func (r *directRepository) Upgrade(ctx context.Context) error {
 	f := r.formatBlob
 
 	repoConfig, err := f.decryptFormatBytes(r.masterKey)
@@ -29,5 +29,5 @@ func (r *DirectRepository) Upgrade(ctx context.Context) error {
 
 	log(ctx).Infof("writing updated format content...")
 
-	return writeFormatBlob(ctx, r.Blobs, f)
+	return writeFormatBlob(ctx, r.blobs, f)
 }

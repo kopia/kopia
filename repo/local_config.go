@@ -64,6 +64,11 @@ func (o ClientOptions) Override(other ClientOptions) ClientOptions {
 	return o
 }
 
+// UsernameAtHost returns 'username@hostname' string.
+func (o ClientOptions) UsernameAtHost() string {
+	return o.Username + "@" + o.Hostname
+}
+
 // LocalConfig is a configuration of Kopia stored in a configuration file.
 type LocalConfig struct {
 	// APIServer is only provided for remote repository.

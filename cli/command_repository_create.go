@@ -10,7 +10,6 @@ import (
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/hashing"
-	"github.com/kopia/kopia/repo/maintenance"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/repo/splitter"
 	"github.com/kopia/kopia/snapshot/policy"
@@ -98,14 +97,22 @@ func populateRepository(ctx context.Context, password string) error {
 	}
 	defer rep.Close(ctx) //nolint:errcheck
 
-	if err := policy.SetPolicy(ctx, rep, policy.GlobalPolicySourceInfo, policy.DefaultPolicy); err != nil {
-		return errors.Wrap(err, "unable to set global policy")
-	}
+	return repo.WriteSession(ctx, rep, repo.WriteSessionOptions{
+		Purpose: "populateRepository",
+	}, func(w repo.RepositoryWriter) error {
+		if err := policy.SetPolicy(ctx, w, policy.GlobalPolicySourceInfo, policy.DefaultPolicy); err != nil {
+			return errors.Wrap(err, "unable to set global policy")
+		}
 
-	printPolicy(policy.DefaultPolicy, nil)
-	printStdout("\n")
-	printStdout("To change the policy use:\n  kopia policy set --global <options>\n")
-	printStdout("or\n  kopia policy set <dir> <options>\n")
+		printPolicy(policy.DefaultPolicy, nil)
+		printStdout("\n")
+		printStdout("To change the policy use:\n  kopia policy set --global <options>\n")
+		printStdout("or\n  kopia policy set <dir> <options>\n")
 
-	return setDefaultMaintenanceParameters(ctx, rep.(maintenance.MaintainableRepository))
+		if err := setDefaultMaintenanceParameters(ctx, w); err != nil {
+			return errors.Wrap(err, "unable to set maintenance parameters")
+		}
+
+		return nil
+	})
 }

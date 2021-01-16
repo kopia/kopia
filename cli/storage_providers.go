@@ -73,11 +73,11 @@ func RegisterStorageConnectFlags(
 			return errors.Wrap(err, "open repository")
 		}
 
-		dr, ok := rep.(*repo.DirectRepository)
+		dr, ok := rep.(repo.DirectRepository)
 		if !ok {
 			return errors.Errorf("sync only supports directly-connected repositories")
 		}
 
-		return runSyncWithStorage(ctx, dr.BlobStorage(), st)
+		return runSyncWithStorage(ctx, dr.BlobReader(), st)
 	})
 }

@@ -16,7 +16,7 @@ var (
 	optimizeAllIndexes           = optimizeCommand.Flag("all", "Optimize all indexes, even those above maximum size.").Bool()
 )
 
-func runOptimizeCommand(ctx context.Context, rep *repo.DirectRepository) error {
+func runOptimizeCommand(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	advancedCommand(ctx)
 
 	opt := content.CompactOptions{
@@ -29,9 +29,9 @@ func runOptimizeCommand(ctx context.Context, rep *repo.DirectRepository) error {
 		opt.DropDeletedBefore = clock.Now().Add(-age)
 	}
 
-	return rep.Content.CompactIndexes(ctx, opt)
+	return rep.ContentManager().CompactIndexes(ctx, opt)
 }
 
 func init() {
-	optimizeCommand.Action(directRepositoryAction(runOptimizeCommand))
+	optimizeCommand.Action(directRepositoryWriteAction(runOptimizeCommand))
 }

@@ -83,7 +83,7 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 }
 
 // openDirect opens the repository that directly manipulates blob storage..
-func openDirect(ctx context.Context, configFile string, lc *LocalConfig, password string, options *Options) (rep *DirectRepository, err error) {
+func openDirect(ctx context.Context, configFile string, lc *LocalConfig, password string, options *Options) (rep Repository, err error) {
 	if lc.Caching.CacheDirectory != "" && !filepath.IsAbs(lc.Caching.CacheDirectory) {
 		lc.Caching.CacheDirectory = filepath.Join(filepath.Dir(configFile), lc.Caching.CacheDirectory)
 	}
@@ -105,20 +105,17 @@ func openDirect(ctx context.Context, configFile string, lc *LocalConfig, passwor
 		st = readonly.NewWrapper(st)
 	}
 
-	r, err := OpenWithConfig(ctx, st, lc, password, options, lc.Caching)
+	r, err := openWithConfig(ctx, st, lc, password, options, lc.Caching, configFile)
 	if err != nil {
 		st.Close(ctx) //nolint:errcheck
 		return nil, err
 	}
 
-	r.cliOpts = lc.ClientOptions.ApplyDefaults(ctx, "Repository in "+st.DisplayName())
-	r.ConfigFile = configFile
-
 	return r, nil
 }
 
-// OpenWithConfig opens the repository with a given configuration, avoiding the need for a config file.
-func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, password string, options *Options, caching *content.CachingOptions) (*DirectRepository, error) {
+// openWithConfig opens the repository with a given configuration, avoiding the need for a config file.
+func openWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, password string, options *Options, caching *content.CachingOptions, configFile string) (DirectRepository, error) {
 	caching = caching.CloneOrDefault()
 
 	// Read format blob, potentially from cache.
@@ -186,20 +183,21 @@ func OpenWithConfig(ctx context.Context, st blob.Storage, lc *LocalConfig, passw
 		return nil, errors.Wrap(err, "unable to open manifests")
 	}
 
-	dr := &DirectRepository{
-		Cache:     *caching,
-		Content:   cm,
-		Objects:   om,
-		Blobs:     st,
-		Manifests: manifests,
-		UniqueID:  f.UniqueID,
-
-		sharedContentManager: scm,
-
-		formatBlob: f,
-		masterKey:  masterKey,
-		timeNow:    cmOpts.TimeNow,
-
+	dr := &directRepository{
+		cmgr:  cm,
+		omgr:  om,
+		blobs: st,
+		mmgr:  manifests,
+		sm:    scm,
+		directRepositoryParameters: directRepositoryParameters{
+			uniqueID:       f.UniqueID,
+			cachingOptions: *caching,
+			formatBlob:     f,
+			masterKey:      masterKey,
+			timeNow:        cmOpts.TimeNow,
+			cliOpts:        lc.ClientOptions.ApplyDefaults(ctx, "Repository in "+st.DisplayName()),
+			configFile:     configFile,
+		},
 		closed: make(chan struct{}),
 	}
 
@@ -237,14 +235,14 @@ func writeCacheMarker(cacheDir string) error {
 	return f.Close()
 }
 
-// SetCachingConfig changes caching configuration for a given repository.
-func (r *DirectRepository) SetCachingConfig(ctx context.Context, opt *content.CachingOptions) error {
-	lc, err := loadConfigFromFile(r.ConfigFile)
+// SetCachingOptions changes caching configuration for a given repository.
+func (r *directRepository) SetCachingOptions(ctx context.Context, opt *content.CachingOptions) error {
+	lc, err := loadConfigFromFile(r.configFile)
 	if err != nil {
 		return err
 	}
 
-	if err = setupCaching(ctx, r.ConfigFile, lc, opt, r.UniqueID); err != nil {
+	if err = setupCaching(ctx, r.configFile, lc, opt, r.uniqueID); err != nil {
 		return errors.Wrap(err, "unable to set up caching")
 	}
 
@@ -253,7 +251,7 @@ func (r *DirectRepository) SetCachingConfig(ctx context.Context, opt *content.Ca
 		return errors.Wrap(err, "error marshaling JSON")
 	}
 
-	if err := ioutil.WriteFile(r.ConfigFile, d, 0o600); err != nil {
+	if err := ioutil.WriteFile(r.configFile, d, 0o600); err != nil {
 		return nil
 	}
 

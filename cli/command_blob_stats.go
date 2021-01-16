@@ -18,7 +18,7 @@ var (
 	blobStatsPrefix  = blobStatsCommand.Flag("prefix", "Blob name prefix").String()
 )
 
-func runBlobStatsCommand(ctx context.Context, rep *repo.DirectRepository) error {
+func runBlobStatsCommand(ctx context.Context, rep repo.DirectRepository) error {
 	var sizeThreshold int64 = 10
 
 	countMap := map[int64]int{}
@@ -34,7 +34,7 @@ func runBlobStatsCommand(ctx context.Context, rep *repo.DirectRepository) error 
 
 	var totalSize, count int64
 
-	if err := rep.Blobs.ListBlobs(
+	if err := rep.BlobReader().ListBlobs(
 		ctx,
 		blob.ID(*blobStatsPrefix),
 		func(b blob.Metadata) error {

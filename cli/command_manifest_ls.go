@@ -21,7 +21,7 @@ func init() {
 	manifestListCommand.Action(repositoryReaderAction(listManifestItems))
 }
 
-func listManifestItems(ctx context.Context, rep repo.Reader) error {
+func listManifestItems(ctx context.Context, rep repo.Repository) error {
 	filter := map[string]string{}
 
 	for _, kv := range *manifestListFilter {

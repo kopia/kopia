@@ -17,7 +17,7 @@ func TestMaintenanceSchedule(t *testing.T) {
 	var env repotesting.Environment
 	defer env.Setup(t).Close(ctx, t)
 
-	s, err := GetSchedule(ctx, env.Repository)
+	s, err := GetSchedule(ctx, env.RepositoryWriter)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -38,11 +38,11 @@ func TestMaintenanceSchedule(t *testing.T) {
 		Success: true,
 	})
 
-	if err = SetSchedule(ctx, env.Repository, s); err != nil {
+	if err = SetSchedule(ctx, env.RepositoryWriter, s); err != nil {
 		t.Fatalf("unable to set schedule: %v", err)
 	}
 
-	s2, err := GetSchedule(ctx, env.Repository)
+	s2, err := GetSchedule(ctx, env.RepositoryWriter)
 	if err != nil {
 		t.Fatalf("unable to get schedule: %v", err)
 	}

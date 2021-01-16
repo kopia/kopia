@@ -16,7 +16,7 @@ import (
 )
 
 func (s *Server) handleSourcesList(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	_, multiUser := s.rep.(*repo.DirectRepository)
+	_, multiUser := s.rep.(repo.DirectRepository)
 
 	resp := &serverapi.SourcesResponse{
 		Sources:       []*serverapi.SourceStatus{},
@@ -84,12 +84,12 @@ func (s *Server) handleSourcesCreate(ctx context.Context, r *http.Request, body 
 		// don't have policy - create an empty one
 		log(ctx).Debugf("policy for %v not found, creating empty one", sourceInfo)
 
-		if err = policy.SetPolicy(ctx, s.rep, sourceInfo, &req.InitialPolicy); err != nil {
+		if err = repo.WriteSession(ctx, s.rep, repo.WriteSessionOptions{
+			Purpose: "handleSourcesCreate",
+		}, func(w repo.RepositoryWriter) error {
+			return policy.SetPolicy(ctx, w, sourceInfo, &req.InitialPolicy)
+		}); err != nil {
 			return nil, internalServerError(errors.Wrap(err, "unable to set initial policy"))
-		}
-
-		if err = s.rep.Flush(ctx); err != nil {
-			return nil, internalServerError(errors.Wrap(err, "unable to flush"))
 		}
 
 	default:
