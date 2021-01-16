@@ -42,8 +42,7 @@ type UploadProgress interface {
 }
 
 // NullUploadProgress is an implementation of UploadProgress that does not produce any output.
-type NullUploadProgress struct {
-}
+type NullUploadProgress struct{}
 
 // UploadStarted implements UploadProgress.
 func (p *NullUploadProgress) UploadStarted() {}

@@ -35,6 +35,8 @@ type Options struct {
 
 // Setup sets up a test environment.
 func (e *Environment) Setup(t *testing.T, opts ...Options) *Environment {
+	t.Helper()
+
 	ctx := testlogging.Context(t)
 	e.configDir = t.TempDir()
 	e.storageDir = t.TempDir()
@@ -90,6 +92,8 @@ func (e *Environment) Setup(t *testing.T, opts ...Options) *Environment {
 
 // Close closes testing environment.
 func (e *Environment) Close(ctx context.Context, t *testing.T) {
+	t.Helper()
+
 	if err := e.Repository.Close(ctx); err != nil {
 		t.Fatalf("unable to close: %v", err)
 	}
@@ -112,6 +116,8 @@ func (e *Environment) configFile() string {
 
 // MustReopen closes and reopens the repository.
 func (e *Environment) MustReopen(t *testing.T, openOpts ...func(*repo.Options)) {
+	t.Helper()
+
 	err := e.Repository.Close(testlogging.Context(t))
 	if err != nil {
 		t.Fatalf("close error: %v", err)
@@ -127,6 +133,8 @@ func (e *Environment) MustReopen(t *testing.T, openOpts ...func(*repo.Options)) 
 
 // MustOpenAnother opens another repository backend by the same storage.
 func (e *Environment) MustOpenAnother(t *testing.T) repo.Repository {
+	t.Helper()
+
 	rep2, err := repo.Open(testlogging.Context(t), e.configFile(), masterPassword, &repo.Options{})
 	if err != nil {
 		t.Fatalf("err: %v", err)
@@ -142,6 +150,8 @@ func (e *Environment) MustOpenAnother(t *testing.T) repo.Repository {
 // MustConnectOpenAnother opens another repository backend by the same storage,
 // with independent config and cache options.
 func (e *Environment) MustConnectOpenAnother(t *testing.T, openOpts ...func(*repo.Options)) repo.Repository {
+	t.Helper()
+
 	ctx := testlogging.Context(t)
 
 	st, err := filesystem.New(ctx, &filesystem.Options{
@@ -172,6 +182,8 @@ func (e *Environment) MustConnectOpenAnother(t *testing.T, openOpts ...func(*rep
 
 // VerifyBlobCount verifies that the underlying storage contains the specified number of blobs.
 func (e *Environment) VerifyBlobCount(t *testing.T, want int) {
+	t.Helper()
+
 	var got int
 
 	_ = e.Repository.Blobs.ListBlobs(testlogging.Context(t), "", func(_ blob.Metadata) error {

@@ -35,6 +35,7 @@ func TestStressBlockManager(t *testing.T) {
 	stressTestWithStorage(t, memst, duration)
 }
 
+// nolint:thelper
 func stressTestWithStorage(t *testing.T, st blob.Storage, duration time.Duration) {
 	ctx := testlogging.Context(t)
 
@@ -65,6 +66,7 @@ func stressTestWithStorage(t *testing.T, st blob.Storage, duration time.Duration
 	})
 }
 
+// nolint:thelper
 func stressWorker(ctx context.Context, t *testing.T, deadline time.Time, openMgr func() (*content.WriteManager, error), seed int64) {
 	src := rand.NewSource(seed)
 	rnd := rand.New(src)

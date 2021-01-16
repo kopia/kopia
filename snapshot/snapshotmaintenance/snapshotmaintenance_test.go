@@ -186,6 +186,8 @@ func (th *testHarness) fakeTimeOpenRepoOption(o *repo.Options) {
 }
 
 func (th *testHarness) openAnother(t *testing.T) repo.Repository {
+	t.Helper()
+
 	r := th.MustConnectOpenAnother(t, th.fakeTimeOpenRepoOption)
 
 	t.Cleanup(func() {

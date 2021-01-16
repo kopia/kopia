@@ -103,6 +103,8 @@ func TestFiles(t *testing.T) {
 }
 
 func verifyChild(t *testing.T, dir fs.Directory) {
+	t.Helper()
+
 	ctx := testlogging.Context(t)
 
 	child, err := dir.Child(ctx, "f3")

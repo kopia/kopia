@@ -91,6 +91,8 @@ func randomString(n int) string {
 }
 
 func makeTempS3Bucket(t *testing.T) (bucketName string, cleanupCB func()) {
+	t.Helper()
+
 	endpoint := "s3.amazonaws.com"
 	accessKeyID := os.Getenv("AWS_ACCESS_KEY_ID")
 	secretAccessKey := os.Getenv("AWS_SECRET_ACCESS_KEY")

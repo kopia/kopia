@@ -55,6 +55,9 @@ run:
 issues:
   exclude-use-default: false
   exclude-rules:
+    - path: cli
+      linters:
+      - forbidigo # allow fmt.Printf in the CLI
     - path: _test\.go|testing|tests|test_env|fshasher
       linters:
       - gomnd

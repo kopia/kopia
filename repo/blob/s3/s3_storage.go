@@ -91,7 +91,7 @@ func isRetriableError(err error) bool {
 
 	if errors.As(err, &me) {
 		// retry on server errors, not on client errors
-		return me.StatusCode >= 500
+		return me.StatusCode >= http.StatusInternalServerError
 	}
 
 	if strings.Contains(strings.ToLower(err.Error()), "http") {

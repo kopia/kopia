@@ -207,7 +207,7 @@ func TestSnapshotFail(t *testing.T) {
 
 					e.RunAndExpectSuccess(t, "policy", "set", snapSource, "--ignore-dir-errors", tcIgnoreDirErr, "--ignore-file-errors", tcIgnoreFileErr)
 					restoreDir := fmt.Sprintf("%s%d_%v_%v", restoreDirPrefix, tcIdx, tcIgnoreDirErr, tcIgnoreFileErr)
-					testPermissions(e, t, snapSource, modifyEntry, restoreDir, tc.expectSuccess)
+					testPermissions(t, e, snapSource, modifyEntry, restoreDir, tc.expectSuccess)
 
 					e.RunAndExpectSuccess(t, "policy", "remove", snapSource)
 				})
@@ -217,6 +217,8 @@ func TestSnapshotFail(t *testing.T) {
 }
 
 func createSimplestFileTree(t *testing.T, dirDepth, currDepth int, currPath string) {
+	t.Helper()
+
 	dirname := fmt.Sprintf("dir%d", currDepth)
 	dirPath := filepath.Join(currPath, dirname)
 	err := os.MkdirAll(dirPath, 0o700)
@@ -243,7 +245,7 @@ func createSimplestFileTree(t *testing.T, dirDepth, currDepth int, currPath stri
 // files and directories (if present). It issues the kopia snapshot command
 // against "source" and will test permissions against all entries in "parentDir".
 // It returns the number of successful snapshot operations.
-func testPermissions(e *testenv.CLITest, t *testing.T, source, modifyEntry, restoreDir string, expectSuccess map[os.FileMode]bool) int {
+func testPermissions(t *testing.T, e *testenv.CLITest, source, modifyEntry, restoreDir string, expectSuccess map[os.FileMode]bool) int {
 	t.Helper()
 
 	var numSuccessfulSnapshots int
@@ -283,6 +285,8 @@ func testPermissions(e *testenv.CLITest, t *testing.T, source, modifyEntry, rest
 }
 
 func parseSnapID(t *testing.T, lines []string) string {
+	t.Helper()
+
 	pattern := regexp.MustCompile(`Created snapshot with root \S+ and ID (\S+) in .*`)
 
 	for _, l := range lines {

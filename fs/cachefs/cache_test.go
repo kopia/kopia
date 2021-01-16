@@ -87,9 +87,12 @@ func (cv *cacheVerifier) verifyCacheHit(t *testing.T, id string) {
 }
 
 func (cv *cacheVerifier) verifyCacheOrdering(t *testing.T, expectedOrdering ...string) {
-	var actualOrdering []string
+	t.Helper()
 
-	var totalDirectoryEntries, totalDirectories int
+	var (
+		actualOrdering                          []string
+		totalDirectoryEntries, totalDirectories int
+	)
 
 	for e := cv.cache.head; e != nil; e = e.next {
 		actualOrdering = append(actualOrdering, e.id)

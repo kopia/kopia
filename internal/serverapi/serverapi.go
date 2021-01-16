@@ -63,8 +63,7 @@ type PoliciesResponse struct {
 }
 
 // Empty represents empty request/response.
-type Empty struct {
-}
+type Empty struct{}
 
 // APIErrorCode indicates machine-readable error code returned in API responses.
 type APIErrorCode string

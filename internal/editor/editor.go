@@ -51,7 +51,7 @@ func EditLoop(ctx context.Context, fname, initial string, parse func(updated str
 		}
 
 		log(ctx).Errorf("%v", err)
-		fmt.Print("Reopen editor to fix? (Y/n) ")
+		fmt.Print("Reopen editor to fix? (Y/n) ") //nolint:forbidigo
 
 		var shouldReopen string
 

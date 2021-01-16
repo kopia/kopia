@@ -189,6 +189,8 @@ func sourcesToStrings(sources ...snapshot.SourceInfo) []string {
 }
 
 func mustAbs(t *testing.T, p string) string {
+	t.Helper()
+
 	p2, err := filepath.Abs(p)
 	if err != nil {
 		t.Fatal(err)

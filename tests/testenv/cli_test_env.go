@@ -66,6 +66,8 @@ type SnapshotInfo struct {
 
 // NewCLITest creates a new instance of *CLITest.
 func NewCLITest(t *testing.T) *CLITest {
+	t.Helper()
+
 	exe := os.Getenv("KOPIA_EXE")
 	if exe == "" {
 		// exe = "kopia"
@@ -276,7 +278,10 @@ func trimOutput(s string) string {
 
 // ListSnapshotsAndExpectSuccess lists given snapshots and parses the output.
 func (e *CLITest) ListSnapshotsAndExpectSuccess(t *testing.T, targets ...string) []SourceInfo {
+	t.Helper()
+
 	lines := e.RunAndExpectSuccess(t, append([]string{"snapshot", "list", "-l", "--manifest-id"}, targets...)...)
+
 	return mustParseSnapshots(t, lines)
 }
 
@@ -288,13 +293,19 @@ type DirEntry struct {
 
 // ListDirectory lists a given directory and returns directory entries.
 func (e *CLITest) ListDirectory(t *testing.T, targets ...string) []DirEntry {
+	t.Helper()
+
 	lines := e.RunAndExpectSuccess(t, append([]string{"ls", "-l"}, targets...)...)
+
 	return mustParseDirectoryEntries(lines)
 }
 
 // ListDirectoryRecursive lists a given directory recursively and returns directory entries.
 func (e *CLITest) ListDirectoryRecursive(t *testing.T, targets ...string) []DirEntry {
+	t.Helper()
+
 	lines := e.RunAndExpectSuccess(t, append([]string{"ls", "-lr"}, targets...)...)
+
 	return mustParseDirectoryEntries(lines)
 }
 
@@ -358,6 +369,8 @@ func CreateDirectoryTree(dirname string, options DirectoryTreeOptions, counters 
 // MustCreateRandomFile creates a new file at the provided path with randomized contents.
 // It will fail with a test error if the creation does not succeed.
 func MustCreateRandomFile(t *testing.T, filePath string, options DirectoryTreeOptions, counters *DirectoryTreeCounters) {
+	t.Helper()
+
 	if err := CreateRandomFile(filePath, options, counters); err != nil {
 		t.Fatal(err)
 	}
@@ -460,9 +473,12 @@ func createRandomSymlink(filename string, existingFiles []string, options Direct
 }
 
 func mustParseSnapshots(t *testing.T, lines []string) []SourceInfo {
-	var result []SourceInfo
+	t.Helper()
 
-	var currentSource *SourceInfo
+	var (
+		result        []SourceInfo
+		currentSource *SourceInfo
+	)
 
 	for _, l := range lines {
 		if l == "" {
@@ -503,6 +519,8 @@ func randomName(opt DirectoryTreeOptions) string {
 }
 
 func mustParseSnaphotInfo(t *testing.T, l string) SnapshotInfo {
+	t.Helper()
+
 	parts := strings.Split(l, " ")
 
 	ts, err := time.Parse("2006-01-02 15:04:05 MST", strings.Join(parts[0:3], " "))
@@ -521,6 +539,8 @@ func mustParseSnaphotInfo(t *testing.T, l string) SnapshotInfo {
 }
 
 func mustParseSourceInfo(t *testing.T, l string) SourceInfo {
+	t.Helper()
+
 	p1 := strings.Index(l, "@")
 
 	p2 := strings.Index(l, ":")

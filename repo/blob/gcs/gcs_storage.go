@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"time"
 
 	gcsclient "cloud.google.com/go/storage"
@@ -97,7 +98,7 @@ func exponentialBackoff(ctx context.Context, desc string, att retry.AttemptFunc)
 func isRetriableError(err error) bool {
 	var apiError *googleapi.Error
 	if errors.As(err, &apiError) {
-		return apiError.Code >= 500
+		return apiError.Code >= http.StatusInternalServerError
 	}
 
 	switch {
