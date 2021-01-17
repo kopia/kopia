@@ -115,6 +115,8 @@ func mustSaveSnapshot(t *testing.T, rep repo.Writer, man *snapshot.Manifest) man
 }
 
 func verifySources(t *testing.T, rep repo.Reader, sources ...snapshot.SourceInfo) {
+	t.Helper()
+
 	actualSources, err := snapshot.ListSources(testlogging.Context(t), rep)
 	if err != nil {
 		t.Errorf("error listing sources: %v", err)
@@ -148,6 +150,8 @@ func verifyListSnapshots(t *testing.T, rep repo.Reader, src snapshot.SourceInfo,
 }
 
 func verifyLoadSnapshots(t *testing.T, rep repo.Reader, ids []manifest.ID, expected []*snapshot.Manifest) {
+	t.Helper()
+
 	got, err := snapshot.LoadSnapshots(testlogging.Context(t), rep, ids)
 	if err != nil {
 		t.Errorf("error loading manifests: %v", err)
@@ -185,6 +189,8 @@ func sourcesToStrings(sources ...snapshot.SourceInfo) []string {
 }
 
 func mustAbs(t *testing.T, p string) string {
+	t.Helper()
+
 	p2, err := filepath.Abs(p)
 	if err != nil {
 		t.Fatal(err)

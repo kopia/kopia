@@ -158,6 +158,8 @@ func (s *FaultyStorage) getNextFault(ctx context.Context, method string, args ..
 
 // VerifyAllFaultsExercised fails the test if some faults have not been exercised.
 func (s *FaultyStorage) VerifyAllFaultsExercised(t *testing.T) {
+	t.Helper()
+
 	if len(s.Faults) != 0 {
 		t.Fatalf("not all defined faults have been hit: %#v", s.Faults)
 	}

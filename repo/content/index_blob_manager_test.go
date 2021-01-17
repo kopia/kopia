@@ -345,6 +345,8 @@ func randomDuration(max time.Duration) time.Duration {
 }
 
 func verifyIndexBlobManagerPreventsResurrectOfDeletedContents(t *testing.T, delay1, delay2, delay3, delay4, delay5 time.Duration) {
+	t.Helper()
+
 	t.Logf("delays: %v %v %v %v %v", delay1, delay2, delay3, delay4, delay5)
 
 	storageData := blobtesting.DataMap{}
@@ -691,6 +693,8 @@ func keysWithPrefix(data blobtesting.DataMap, prefix blob.ID) []blob.ID {
 }
 
 func mustRegisterCompaction(t *testing.T, m indexBlobManager, inputs, outputs []blob.Metadata) {
+	t.Helper()
+
 	t.Logf("compacting %v to %v", inputs, outputs)
 
 	err := m.registerCompaction(testlogging.Context(t), inputs, outputs)
@@ -700,6 +704,8 @@ func mustRegisterCompaction(t *testing.T, m indexBlobManager, inputs, outputs []
 }
 
 func mustWriteIndexBlob(t *testing.T, m indexBlobManager, data string) blob.Metadata {
+	t.Helper()
+
 	t.Logf("writing index blob %q", data)
 
 	blobMD, err := m.writeIndexBlob(testlogging.Context(t), []byte(data), "")
@@ -734,6 +740,8 @@ func assertIndexBlobList(t *testing.T, m indexBlobManager, wantMD ...blob.Metada
 }
 
 func newIndexBlobManagerForTesting(t *testing.T, st blob.Storage, localTimeNow func() time.Time) indexBlobManager {
+	t.Helper()
+
 	p := &FormattingOptions{
 		Encryption: encryption.DeprecatedNoneAlgorithm,
 		Hash:       hashing.DefaultAlgorithm,

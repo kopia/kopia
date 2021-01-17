@@ -89,6 +89,8 @@ func (t *RetriableT) Skipf(msg string, args ...interface{}) {
 
 // Retry invokes the provided test multiple tests until it succeeds.
 func Retry(t *testing.T, testFun func(t *RetriableT)) {
+	t.Helper()
+
 	nextSleepTime := initialSleep
 
 	for att := 1; att <= maxRetries; att++ {

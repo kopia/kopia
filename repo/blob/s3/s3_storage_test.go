@@ -249,10 +249,10 @@ func testStorage(t *testutil.RetriableT, options *Options) {
 }
 
 func TestCustomTransportNoSSLVerify(t *testing.T) {
-	testURL(expiredBadSSL, t)
-	testURL(selfSignedBadSSL, t)
-	testURL(untrustedRootBadSSL, t)
-	testURL(wrongHostBadSSL, t)
+	testURL(t, expiredBadSSL)
+	testURL(t, selfSignedBadSSL)
+	testURL(t, untrustedRootBadSSL)
+	testURL(t, wrongHostBadSSL)
 }
 
 func getURL(url string, insecureSkipVerify bool) error {
@@ -268,7 +268,9 @@ func getURL(url string, insecureSkipVerify bool) error {
 	return nil
 }
 
-func testURL(url string, t *testing.T) {
+func testURL(t *testing.T, url string) {
+	t.Helper()
+
 	err := getURL(url, true)
 	if err != nil {
 		t.Fatalf("could not get url:%s, error:%v", url, err)

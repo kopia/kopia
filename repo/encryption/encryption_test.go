@@ -177,6 +177,8 @@ func TestCiphertextSamples(t *testing.T) {
 }
 
 func verifyCiphertextSamples(t *testing.T, masterKey, contentID, payload []byte, samples map[string]string) {
+	t.Helper()
+
 	for _, encryptionAlgo := range encryption.SupportedAlgorithms(true) {
 		enc, err := encryption.CreateEncryptor(parameters{encryptionAlgo, masterKey})
 		if err != nil {

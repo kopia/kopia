@@ -93,6 +93,8 @@ func TestWriteFilesAtDepth(t *testing.T) {
 }
 
 func testWriteAtDepth(t *testing.T, r *Runner, depth, expFileCount int) {
+	t.Helper()
+
 	testSubdir := "test"
 	testDirAbs := filepath.Join(r.LocalDataDir, testSubdir)
 
@@ -189,6 +191,8 @@ func TestDeleteFilesAtDepth(t *testing.T) {
 }
 
 func testDeleteAtDepth(t *testing.T, r *Runner, wrDepth, delDepth, expDirCount int, expErr bool) {
+	t.Helper()
+
 	testSubdir := "test"
 	testDirAbs := filepath.Join(r.LocalDataDir, testSubdir)
 
@@ -243,6 +247,8 @@ func TestDeleteContentsAtDepth(t *testing.T) {
 		{
 			prob: 0.0,
 			expFileCountChecker: func(t *testing.T, fileCount int) {
+				t.Helper()
+
 				if fileCount != 100 {
 					t.Error("some files were deleted despite 0% probability")
 				}
@@ -251,6 +257,8 @@ func TestDeleteContentsAtDepth(t *testing.T) {
 		{
 			prob: 1.0,
 			expFileCountChecker: func(t *testing.T, fileCount int) {
+				t.Helper()
+
 				if fileCount != 0 {
 					t.Error("not all files were deleted despite 100% probability")
 				}
@@ -259,6 +267,8 @@ func TestDeleteContentsAtDepth(t *testing.T) {
 		{
 			prob: 0.5,
 			expFileCountChecker: func(t *testing.T, fileCount int) {
+				t.Helper()
+
 				// Broad check: just make sure a 50% probability deleted something.
 				// Extremely improbable that this causes a false failure;
 				// akin to 100 coin flips all landing on the same side.
@@ -272,6 +282,7 @@ func TestDeleteContentsAtDepth(t *testing.T) {
 	}
 }
 
+// nolint:thelper
 func testDeleteContentsAtDepth(t *testing.T, prob float32, checker func(t *testing.T, fileCount int)) {
 	r, err := NewRunner()
 	testenv.AssertNoError(t, err)

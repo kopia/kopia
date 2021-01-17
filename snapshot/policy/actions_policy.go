@@ -25,7 +25,6 @@ type ActionCommand struct {
 }
 
 // Merge applies default values from the provided policy.
-// nolint:gocritic
 func (p *ActionsPolicy) Merge(src ActionsPolicy) {
 	if p.BeforeSnapshotRoot == nil {
 		p.BeforeSnapshotRoot = src.BeforeSnapshotRoot

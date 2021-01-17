@@ -72,10 +72,14 @@ func (f *fakeContentManager) Flush(ctx context.Context) error {
 }
 
 func setupTest(t *testing.T) (map[content.ID][]byte, *Manager) {
+	t.Helper()
+
 	return setupTestWithData(t, map[content.ID][]byte{})
 }
 
 func setupTestWithData(t *testing.T, data map[content.ID][]byte) (map[content.ID][]byte, *Manager) {
+	t.Helper()
+
 	r, err := NewObjectManager(testlogging.Context(t), &fakeContentManager{data: data}, Format{
 		Splitter: "FIXED-1M",
 	})
@@ -294,6 +298,8 @@ func verifyNoError(t *testing.T, err error) {
 }
 
 func verifyIndirectBlock(ctx context.Context, t *testing.T, om *Manager, oid ID) {
+	t.Helper()
+
 	for indexContentID, isIndirect := oid.IndexObjectID(); isIndirect; indexContentID, isIndirect = indexContentID.IndexObjectID() {
 		if c, _, ok := indexContentID.ContentID(); ok {
 			if !c.HasPrefix() {

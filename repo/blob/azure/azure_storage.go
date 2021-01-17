@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"time"
 
 	"github.com/Azure/azure-storage-blob-go/azblob"
@@ -100,11 +101,13 @@ func isRetriableError(err error) bool {
 	var me azblob.ResponseError
 
 	if errors.As(err, &me) {
-		if me.Response() == nil {
+		r := me.Response() //nolint:bodyclose
+		if r == nil {
 			return true
 		}
+
 		// retry on server errors, not on client errors
-		return me.Response().StatusCode >= 500
+		return r.StatusCode >= http.StatusInternalServerError
 	}
 
 	// https://pkg.go.dev/gocloud.dev/gcerrors?tab=doc#ErrorCode

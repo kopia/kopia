@@ -139,6 +139,8 @@ func TestPolicyManagerInheritanceTest(t *testing.T) {
 }
 
 func clonePolicy(t *testing.T, p *Policy) *Policy {
+	t.Helper()
+
 	j, err := json.Marshal(p)
 	if err != nil {
 		t.Fatalf("unable to marshal JSON: %v", err.Error())
@@ -158,6 +160,8 @@ func policyWithLabels(p *Policy, l map[string]string) *Policy {
 }
 
 func defaultPolicyWithKeepDaily(t *testing.T, keepDaily int) *Policy {
+	t.Helper()
+
 	p := clonePolicy(t, DefaultPolicy)
 	p.RetentionPolicy.KeepDaily = &keepDaily
 

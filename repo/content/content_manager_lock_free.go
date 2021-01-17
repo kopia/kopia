@@ -127,7 +127,7 @@ func (bm *WriteManager) preparePackDataContent(ctx context.Context, pp *pendingP
 }
 
 func getPackedContentIV(output []byte, contentID ID) ([]byte, error) {
-	n, err := hex.Decode(output, []byte(contentID[len(contentID)-(aes.BlockSize*2):]))
+	n, err := hex.Decode(output, []byte(contentID[len(contentID)-(aes.BlockSize*2):])) //nolint:gomnd
 	if err != nil {
 		return nil, errors.Wrapf(err, "error decoding content IV from %v", contentID)
 	}

@@ -292,6 +292,8 @@ func sortIDs(s []ID) {
 }
 
 func newManagerForTesting(ctx context.Context, t *testing.T, data blobtesting.DataMap) *Manager {
+	t.Helper()
+
 	st := blobtesting.NewMapStorage(data, nil, nil)
 
 	bm, err := content.NewManager(ctx, st, &content.FormattingOptions{

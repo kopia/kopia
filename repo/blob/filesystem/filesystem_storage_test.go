@@ -124,6 +124,8 @@ func TestFileStorageConcurrency(t *testing.T) {
 }
 
 func verifyBlobTimestampOrder(t *testing.T, st blob.Storage, want ...blob.ID) {
+	t.Helper()
+
 	blobs, err := blob.ListAllBlobs(testlogging.Context(t), st, "")
 	if err != nil {
 		t.Errorf("error listing blobs: %v", err)

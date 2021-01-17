@@ -102,6 +102,8 @@ func TestSnapshotDelete(t *testing.T) {
 }
 
 func testSnapshotDelete(t *testing.T, argMaker deleteArgMaker, expectDeleteSucceeds bool) {
+	t.Helper()
+
 	e := testenv.NewCLITest(t)
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
@@ -232,6 +234,8 @@ func TestSnapshotDeleteRestore(t *testing.T) {
 }
 
 func assertEmptyDir(t *testing.T, dir string) {
+	t.Helper()
+
 	// Make sure the restore did not happen from the deleted snapshot
 	fileInfo, err := ioutil.ReadDir(dir)
 	testenv.AssertNoError(t, err)

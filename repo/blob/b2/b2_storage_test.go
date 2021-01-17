@@ -21,6 +21,8 @@ const (
 )
 
 func getEnvOrSkip(t *testing.T, name string) string {
+	t.Helper()
+
 	value := os.Getenv(name)
 	if value == "" {
 		t.Skip(fmt.Sprintf("%s not provided", name))

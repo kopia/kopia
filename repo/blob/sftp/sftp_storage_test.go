@@ -41,6 +41,8 @@ func TestSFTPStorageValid(t *testing.T) {
 }
 
 func deleteBlobs(ctx context.Context, t *testing.T, st blob.Storage) {
+	t.Helper()
+
 	if err := st.ListBlobs(ctx, "", func(bm blob.Metadata) error {
 		return st.DeleteBlob(ctx, bm.BlobID)
 	}); err != nil {
@@ -49,6 +51,8 @@ func deleteBlobs(ctx context.Context, t *testing.T, st blob.Storage) {
 }
 
 func createSFTPStorage(ctx context.Context, t *testing.T, embed bool) (blob.Storage, error) {
+	t.Helper()
+
 	host := os.Getenv("KOPIA_SFTP_TEST_HOST")
 	if host == "" {
 		t.Skip("KOPIA_SFTP_TEST_HOST not provided")
@@ -105,6 +109,8 @@ func createSFTPStorage(ctx context.Context, t *testing.T, embed bool) (blob.Stor
 }
 
 func mustReadFileToString(t *testing.T, fname string) string {
+	t.Helper()
+
 	data, err := ioutil.ReadFile(fname)
 	if err != nil {
 		t.Fatal(err)

@@ -131,7 +131,7 @@ func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, fullPath string, 
 	err = s.cli.PosixRename(tempFile, fullPath)
 	if err != nil {
 		if removeErr := s.cli.Remove(tempFile); removeErr != nil {
-			fmt.Printf("warning: can't remove temp file: %v", removeErr)
+			log(ctx).Warningf("warning: can't remove temp file: %v", removeErr)
 		}
 
 		return errors.Wrap(err, "unexpected error renaming file on SFTP")

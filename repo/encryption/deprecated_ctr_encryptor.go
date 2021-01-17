@@ -7,6 +7,12 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	aes128KeyLength = 16
+	aes192KeyLength = 24
+	aes256KeyLength = 32
+)
+
 // ctrEncryptor implements encrypted format which uses CTR mode of a content cipher with nonce==IV.
 type ctrEncryptor struct {
 	createCipher func() (cipher.Block, error)
@@ -79,7 +85,7 @@ func newCTREncryptorFactory(keySize int, createCipherWithKey func(key []byte) (c
 }
 
 func init() {
-	Register("AES-128-CTR", "DEPRECATED: AES-128 in CTR mode", true, newCTREncryptorFactory(16, aes.NewCipher)) //nolint:gomnd
-	Register("AES-192-CTR", "DEPRECATED: AES-192 in CTR mode", true, newCTREncryptorFactory(24, aes.NewCipher)) //nolint:gomnd
-	Register("AES-256-CTR", "DEPRECATED: AES-256 in CTR mode", true, newCTREncryptorFactory(32, aes.NewCipher)) //nolint:gomnd
+	Register("AES-128-CTR", "DEPRECATED: AES-128 in CTR mode", true, newCTREncryptorFactory(aes128KeyLength, aes.NewCipher))
+	Register("AES-192-CTR", "DEPRECATED: AES-192 in CTR mode", true, newCTREncryptorFactory(aes192KeyLength, aes.NewCipher))
+	Register("AES-256-CTR", "DEPRECATED: AES-256 in CTR mode", true, newCTREncryptorFactory(aes256KeyLength, aes.NewCipher))
 }

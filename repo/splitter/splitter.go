@@ -63,7 +63,7 @@ var splitterFactories = map[string]Factory{
 }
 
 func megabytes(mb int) int {
-	return mb << 20
+	return mb << 20 //nolint:gomnd
 }
 
 // GetFactory gets splitter factory with a specified name or nil if not found.

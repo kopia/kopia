@@ -134,6 +134,8 @@ func TestMerged(t *testing.T) {
 }
 
 func iterateIDRange(t *testing.T, m packIndex, r IDRange) []ID {
+	t.Helper()
+
 	var inOrder []ID
 
 	assertNoError(t, m.Iterate(r, func(i Info) error {

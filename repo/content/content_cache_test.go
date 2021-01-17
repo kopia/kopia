@@ -21,6 +21,8 @@ import (
 )
 
 func newUnderlyingStorageForContentCacheTesting(t *testing.T) blob.Storage {
+	t.Helper()
+
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 	st := blobtesting.NewMapStorage(data, nil, nil)
@@ -129,6 +131,8 @@ func TestDiskContentCache(t *testing.T) {
 }
 
 func verifyContentCache(t *testing.T, cache contentCache) {
+	t.Helper()
+
 	ctx := testlogging.Context(t)
 
 	t.Run("GetContentContent", func(t *testing.T) {

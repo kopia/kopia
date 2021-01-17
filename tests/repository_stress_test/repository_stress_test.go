@@ -130,6 +130,8 @@ func TestStressRepository(t *testing.T) {
 }
 
 func longLivedRepositoryTest(ctx context.Context, t *testing.T, cancel chan struct{}, configFile string, wg *sync.WaitGroup) {
+	t.Helper()
+
 	defer wg.Done()
 
 	rep, err := repo.Open(ctx, configFile, masterPassword, &repo.Options{})
@@ -155,6 +157,8 @@ func longLivedRepositoryTest(ctx context.Context, t *testing.T, cancel chan stru
 }
 
 func repositoryTest(ctx context.Context, t *testing.T, cancel chan struct{}, rep *repo.DirectRepository) {
+	t.Helper()
+
 	workTypes := []*struct {
 		name     string
 		fun      func(ctx context.Context, t *testing.T, r *repo.DirectRepository) error
@@ -218,6 +222,8 @@ func repositoryTest(ctx context.Context, t *testing.T, cancel chan struct{}, rep
 }
 
 func writeRandomBlock(ctx context.Context, t *testing.T, r *repo.DirectRepository) error {
+	t.Helper()
+
 	data := make([]byte, 1000)
 	cryptorand.Read(data)
 
@@ -237,6 +243,8 @@ func writeRandomBlock(ctx context.Context, t *testing.T, r *repo.DirectRepositor
 }
 
 func readKnownBlock(ctx context.Context, t *testing.T, r *repo.DirectRepository) error {
+	t.Helper()
+
 	knownBlocksMutex.Lock()
 	if len(knownBlocks) == 0 {
 		knownBlocksMutex.Unlock()
@@ -255,6 +263,8 @@ func readKnownBlock(ctx context.Context, t *testing.T, r *repo.DirectRepository)
 }
 
 func listContents(ctx context.Context, t *testing.T, r *repo.DirectRepository) error {
+	t.Helper()
+
 	return r.Content.IterateContents(
 		ctx,
 		content.IterateOptions{},
@@ -263,6 +273,8 @@ func listContents(ctx context.Context, t *testing.T, r *repo.DirectRepository) e
 }
 
 func listAndReadAllContents(ctx context.Context, t *testing.T, r *repo.DirectRepository) error {
+	t.Helper()
+
 	return r.Content.IterateContents(
 		ctx,
 		content.IterateOptions{},
@@ -282,18 +294,26 @@ func listAndReadAllContents(ctx context.Context, t *testing.T, r *repo.DirectRep
 }
 
 func compact(ctx context.Context, t *testing.T, r *repo.DirectRepository) error {
+	t.Helper()
+
 	return r.Content.CompactIndexes(ctx, content.CompactOptions{MaxSmallBlobs: 1})
 }
 
 func flush(ctx context.Context, t *testing.T, r *repo.DirectRepository) error {
+	t.Helper()
+
 	return r.Flush(ctx)
 }
 
 func refresh(ctx context.Context, t *testing.T, r *repo.DirectRepository) error {
+	t.Helper()
+
 	return r.Refresh(ctx)
 }
 
 func readRandomManifest(ctx context.Context, t *testing.T, r *repo.DirectRepository) error {
+	t.Helper()
+
 	manifests, err := r.FindManifests(ctx, nil)
 	if err != nil {
 		return err
@@ -311,6 +331,8 @@ func readRandomManifest(ctx context.Context, t *testing.T, r *repo.DirectReposit
 }
 
 func writeRandomManifest(ctx context.Context, t *testing.T, r *repo.DirectRepository) error {
+	t.Helper()
+
 	key1 := fmt.Sprintf("key-%v", rand.Intn(10))
 	key2 := fmt.Sprintf("key-%v", rand.Intn(10))
 	val1 := fmt.Sprintf("val1-%v", rand.Intn(10))

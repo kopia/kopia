@@ -112,6 +112,8 @@ var actionsTestIndexBlobManagerStress = []struct {
 }
 
 func actionSnapshotExisting(t *testing.T, e *testenv.CLITest, s *runnerState) {
+	t.Helper()
+
 	randomPath := s.dirs[rand.Intn(len(s.dirs))]
 	e.RunAndExpectSuccess(t, "snapshot", "create", randomPath, "--no-progress")
 
@@ -119,6 +121,8 @@ func actionSnapshotExisting(t *testing.T, e *testenv.CLITest, s *runnerState) {
 }
 
 func actionSnapshotAll(t *testing.T, e *testenv.CLITest, s *runnerState) {
+	t.Helper()
+
 	if !s.snapshottedAnything {
 		return
 	}
@@ -127,6 +131,8 @@ func actionSnapshotAll(t *testing.T, e *testenv.CLITest, s *runnerState) {
 }
 
 func actionSnapshotVerify(t *testing.T, e *testenv.CLITest, s *runnerState) {
+	t.Helper()
+
 	if !s.snapshottedAnything {
 		return
 	}
@@ -135,6 +141,8 @@ func actionSnapshotVerify(t *testing.T, e *testenv.CLITest, s *runnerState) {
 }
 
 func actionContentVerify(t *testing.T, e *testenv.CLITest, s *runnerState) {
+	t.Helper()
+
 	if !s.snapshottedAnything {
 		return
 	}
@@ -143,6 +151,8 @@ func actionContentVerify(t *testing.T, e *testenv.CLITest, s *runnerState) {
 }
 
 func actionAddNewSource(t *testing.T, e *testenv.CLITest, s *runnerState) {
+	t.Helper()
+
 	if len(s.dirs) >= maxSourcesPerEnduranceRunner {
 		return
 	}
@@ -163,6 +173,8 @@ func actionAddNewSource(t *testing.T, e *testenv.CLITest, s *runnerState) {
 }
 
 func actionMutateDirectoryTree(t *testing.T, e *testenv.CLITest, s *runnerState) {
+	t.Helper()
+
 	randomPath := s.dirs[rand.Intn(len(s.dirs))]
 
 	testenv.CreateDirectoryTree(randomPath, testenv.DirectoryTreeOptions{
@@ -192,6 +204,8 @@ func pickRandomEnduranceTestAction() action {
 }
 
 func enduranceRunner(t *testing.T, runnerID int, fakeTimeServer, webdavServer string) {
+	t.Helper()
+
 	e := testenv.NewCLITest(t)
 
 	e.Environment = append(e.Environment,

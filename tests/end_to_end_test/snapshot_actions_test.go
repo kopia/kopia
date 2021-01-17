@@ -321,6 +321,8 @@ func TestSnapshotActionsEnable(t *testing.T) {
 }
 
 func tmpfileWithContents(t *testing.T, contents string) string {
+	t.Helper()
+
 	f, err := ioutil.TempFile("", "kopia-test")
 	verifyNoError(t, err)
 
@@ -350,6 +352,8 @@ func verifyNoError(t *testing.T, err error) {
 }
 
 func mustReadEnvFile(t *testing.T, fname string) map[string]string {
+	t.Helper()
+
 	f, err := os.Open(fname)
 
 	verifyNoError(t, err)

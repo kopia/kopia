@@ -28,7 +28,7 @@ func (s *sourceSnapshots) Name() string {
 }
 
 func (s *sourceSnapshots) Mode() os.FileMode {
-	return 0o555 | os.ModeDir
+	return 0o555 | os.ModeDir // nolint:gomnd
 }
 
 func (s *sourceSnapshots) Size() int64 {

@@ -198,6 +198,8 @@ func TestReaderStoredBlockNotFound(t *testing.T) {
 }
 
 func writeObject(ctx context.Context, t *testing.T, rep repo.Repository, data []byte, testCaseID string) object.ID {
+	t.Helper()
+
 	w := rep.NewObjectWriter(ctx, object.WriterOptions{})
 	if _, err := w.Write(data); err != nil {
 		t.Fatalf("can't write object %q - write failed: %v", testCaseID, err)

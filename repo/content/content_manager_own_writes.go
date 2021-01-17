@@ -25,8 +25,7 @@ type ownWritesCache interface {
 }
 
 // nullOwnWritesCache is an implementation of ownWritesCache that ignores all changes.
-type nullOwnWritesCache struct {
-}
+type nullOwnWritesCache struct{}
 
 func (n *nullOwnWritesCache) add(ctx context.Context, mb blob.Metadata) error {
 	return nil
