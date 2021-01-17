@@ -7,6 +7,11 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	timestampShift           = 16
+	packedFormatVersionShift = 8
+)
+
 // Format describes a format of a single pack index. The actual structure is not used,
 // it's purely for documentation purposes.
 // The struct is byte-aligned.
@@ -53,11 +58,11 @@ func (e *entry) IsDeleted() bool {
 }
 
 func (e *entry) TimestampSeconds() int64 {
-	return int64(e.timestampAndFlags >> 16) // nolint:gomnd
+	return int64(e.timestampAndFlags >> timestampShift)
 }
 
 func (e *entry) PackedFormatVersion() byte {
-	return byte(e.timestampAndFlags >> 8) // nolint:gomnd
+	return byte(e.timestampAndFlags >> packedFormatVersionShift)
 }
 
 func (e *entry) PackFileLength() byte {
