@@ -130,7 +130,6 @@ type Options struct {
 }
 
 // NewKopiaAPIClient creates a client for connecting to Kopia HTTP API.
-// nolint:gocritic
 func NewKopiaAPIClient(options Options) (*KopiaAPIClient, error) {
 	var transport http.RoundTripper
 

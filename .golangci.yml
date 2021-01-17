@@ -68,6 +68,7 @@ issues:
       - nestif
       - wrapcheck
       - forbidigo
+      - nolintlint
     - text: "Magic number: 1e"
       linters:
       - gomnd

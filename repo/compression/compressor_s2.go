@@ -10,11 +10,16 @@ import (
 	"github.com/kopia/kopia/internal/iocopy"
 )
 
+const (
+	s2Parallel4Concurrency = 4
+	s2Parallel8Concurrency = 8
+)
+
 func init() {
 	RegisterCompressor("s2-default", newS2Compressor(headerS2Default))
 	RegisterCompressor("s2-better", newS2Compressor(headerS2Better, s2.WriterBetterCompression()))
-	RegisterCompressor("s2-parallel-4", newS2Compressor(headerS2Parallel4, s2.WriterConcurrency(4))) //nolint:gomnd
-	RegisterCompressor("s2-parallel-8", newS2Compressor(headerS2Parallel8, s2.WriterConcurrency(8))) //nolint:gomnd
+	RegisterCompressor("s2-parallel-4", newS2Compressor(headerS2Parallel4, s2.WriterConcurrency(s2Parallel4Concurrency)))
+	RegisterCompressor("s2-parallel-8", newS2Compressor(headerS2Parallel8, s2.WriterConcurrency(s2Parallel8Concurrency)))
 }
 
 func newS2Compressor(id HeaderID, opts ...s2.WriterOption) Compressor {

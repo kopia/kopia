@@ -248,7 +248,7 @@ var actions = map[ActionKey]Action{
 		f: func(e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
 			// Directory depth
 			maxDirDepth := getOptAsIntOrDefault(MaxDirDepthField, opts, defaultMaxDirDepth)
-			dirDepth := rand.Intn(maxDirDepth + 1) //nolint:gosec
+			dirDepth := rand.Intn(maxDirDepth + 1)
 
 			// File size range
 			maxFileSizeB := getOptAsIntOrDefault(MaxFileSizeField, opts, defaultMaxFileSize)

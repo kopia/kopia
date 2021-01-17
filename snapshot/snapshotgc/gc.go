@@ -74,7 +74,6 @@ func findInUseContentIDs(ctx context.Context, rep repo.Reader, used *sync.Map) e
 }
 
 // Run performs garbage collection on all the snapshots in the repository.
-// nolint:gocognit
 func Run(ctx context.Context, rep *repo.DirectRepository, params maintenance.SnapshotGCParams, gcDelete bool) (Stats, error) {
 	var st Stats
 
