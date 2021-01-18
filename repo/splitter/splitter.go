@@ -7,6 +7,11 @@ import (
 
 const (
 	splitterSlidingWindowSize = 64
+
+	splitterSize1MB = 1 << 20
+	splitterSize2MB = 2 << 20
+	splitterSize4MB = 4 << 20
+	splitterSize8MB = 8 << 20
 )
 
 // Splitter determines when to split a given object.
@@ -39,31 +44,27 @@ type Factory func() Splitter
 
 // splitterFactories is a map of registered splitter factories.
 var splitterFactories = map[string]Factory{
-	"FIXED-1M": Fixed(megabytes(1)),
-	"FIXED-2M": Fixed(megabytes(2)), //nolint:gomnd
-	"FIXED-4M": Fixed(megabytes(4)), //nolint:gomnd
-	"FIXED-8M": Fixed(megabytes(8)), //nolint:gomnd
+	"FIXED-1M": Fixed(splitterSize1MB),
+	"FIXED-2M": Fixed(splitterSize2MB),
+	"FIXED-4M": Fixed(splitterSize4MB),
+	"FIXED-8M": Fixed(splitterSize8MB),
 
-	"DYNAMIC-1M-BUZHASH": newBuzHash32SplitterFactory(megabytes(1)),
-	"DYNAMIC-2M-BUZHASH": newBuzHash32SplitterFactory(megabytes(2)), //nolint:gomnd
-	"DYNAMIC-4M-BUZHASH": newBuzHash32SplitterFactory(megabytes(4)), //nolint:gomnd
-	"DYNAMIC-8M-BUZHASH": newBuzHash32SplitterFactory(megabytes(8)), //nolint:gomnd
+	"DYNAMIC-1M-BUZHASH": newBuzHash32SplitterFactory(splitterSize1MB),
+	"DYNAMIC-2M-BUZHASH": newBuzHash32SplitterFactory(splitterSize2MB),
+	"DYNAMIC-4M-BUZHASH": newBuzHash32SplitterFactory(splitterSize4MB),
+	"DYNAMIC-8M-BUZHASH": newBuzHash32SplitterFactory(splitterSize8MB),
 
-	"DYNAMIC-1M-RABINKARP": newRabinKarp64SplitterFactory(megabytes(1)),
-	"DYNAMIC-2M-RABINKARP": newRabinKarp64SplitterFactory(megabytes(2)), //nolint:gomnd
-	"DYNAMIC-4M-RABINKARP": newRabinKarp64SplitterFactory(megabytes(4)), //nolint:gomnd
-	"DYNAMIC-8M-RABINKARP": newRabinKarp64SplitterFactory(megabytes(8)), //nolint:gomnd
+	"DYNAMIC-1M-RABINKARP": newRabinKarp64SplitterFactory(splitterSize1MB),
+	"DYNAMIC-2M-RABINKARP": newRabinKarp64SplitterFactory(splitterSize2MB),
+	"DYNAMIC-4M-RABINKARP": newRabinKarp64SplitterFactory(splitterSize4MB),
+	"DYNAMIC-8M-RABINKARP": newRabinKarp64SplitterFactory(splitterSize8MB),
 
 	// handle deprecated legacy names to splitters of arbitrary size
-	"FIXED": Fixed(4 << 20), //nolint:gomnd
+	"FIXED": Fixed(splitterSize4MB),
 
 	// we don't want to use old DYNAMIC splitter because of its license, so
 	// map this one to arbitrary buzhash32 (different)
-	"DYNAMIC": newBuzHash32SplitterFactory(megabytes(4)), //nolint:gomnd
-}
-
-func megabytes(mb int) int {
-	return mb << 20 //nolint:gomnd
+	"DYNAMIC": newBuzHash32SplitterFactory(splitterSize4MB),
 }
 
 // GetFactory gets splitter factory with a specified name or nil if not found.
