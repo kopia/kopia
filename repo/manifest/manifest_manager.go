@@ -241,7 +241,7 @@ func (m *Manager) Delete(ctx context.Context, id ID) error {
 
 // Refresh updates the committed contents from the underlying storage.
 func (m *Manager) Refresh(ctx context.Context) error {
-	return m.committed.refresh(ctx)
+	return m.committed.invalidate()
 }
 
 // Compact performs compaction of manifest contents.

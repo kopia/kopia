@@ -91,11 +91,15 @@ func (m *committedManifestManager) writeEntriesLocked(ctx context.Context, entri
 	return map[content.ID]bool{contentID: true}, nil
 }
 
-func (m *committedManifestManager) refresh(ctx context.Context) error {
+func (m *committedManifestManager) invalidate() error {
 	m.lock()
 	defer m.unlock()
 
-	return m.loadCommittedContentsLocked(ctx)
+	m.initialized = false
+	m.committedContentIDs = map[content.ID]bool{}
+	m.committedEntries = map[ID]*manifestEntry{}
+
+	return nil
 }
 
 func (m *committedManifestManager) loadCommittedContentsLocked(ctx context.Context) error {
