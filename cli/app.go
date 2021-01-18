@@ -115,12 +115,6 @@ func directRepositoryReadAction(act func(ctx context.Context, rep repo.DirectRep
 	})
 }
 
-func optionalRepositoryAction(act func(ctx context.Context, rep repo.Repository) error) func(ctx *kingpin.ParseContext) error {
-	return maybeRepositoryAction(act, repositoryAccessMode{
-		mustBeConnected: false,
-	})
-}
-
 func repositoryReaderAction(act func(ctx context.Context, rep repo.Repository) error) func(ctx *kingpin.ParseContext) error {
 	return maybeRepositoryAction(func(ctx context.Context, rep repo.Repository) error {
 		return act(ctx, rep)
