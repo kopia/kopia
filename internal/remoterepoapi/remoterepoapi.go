@@ -20,8 +20,8 @@ type Parameters struct {
 // GetHashFunction returns the name of the hash function for remote repository.
 func (p *Parameters) GetHashFunction() string { return p.HashFunction }
 
-// GetHMACSecret returns the HMAC secret for the remote repository.
-func (p *Parameters) GetHMACSecret() []byte { return p.HMACSecret }
+// GetHmacSecret returns the HMAC secret for the remote repository.
+func (p *Parameters) GetHmacSecret() []byte { return p.HMACSecret }
 
 // ManifestWithMetadata represents manifest payload and metadata.
 type ManifestWithMetadata struct {

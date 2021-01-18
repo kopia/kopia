@@ -13,7 +13,7 @@ import (
 // Parameters encapsulates all hashing-relevant parameters.
 type Parameters interface {
 	GetHashFunction() string
-	GetHMACSecret() []byte
+	GetHmacSecret() []byte
 }
 
 // HashFunc computes hash of content of data using a cryptographic hash function, possibly with HMAC and/or truncation.
@@ -50,7 +50,7 @@ func truncatedHMACHashFuncFactory(hf func() hash.Hash, truncate int) HashFuncFac
 	return func(p Parameters) (HashFunc, error) {
 		pool := sync.Pool{
 			New: func() interface{} {
-				return hmac.New(hf, p.GetHMACSecret())
+				return hmac.New(hf, p.GetHmacSecret())
 			},
 		}
 
@@ -70,7 +70,7 @@ func truncatedHMACHashFuncFactory(hf func() hash.Hash, truncate int) HashFuncFac
 // and truncates results to the given size.
 func truncatedKeyedHashFuncFactory(hf func(key []byte) (hash.Hash, error), truncate int) HashFuncFactory {
 	return func(p Parameters) (HashFunc, error) {
-		secret := p.GetHMACSecret()
+		secret := p.GetHmacSecret()
 		if _, err := hf(secret); err != nil {
 			return nil, err
 		}
