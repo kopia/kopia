@@ -3,10 +3,10 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/remoterepoapi"
 	"github.com/kopia/kopia/internal/serverapi"
@@ -44,7 +44,7 @@ func (s *Server) handleManifestGet(ctx context.Context, r *http.Request, body []
 func (s *Server) handleManifestDelete(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	rw, ok := s.rep.(repo.RepositoryWriter)
 	if !ok {
-		return nil, notFoundError("manifest not found")
+		return nil, repositoryNotWritableError()
 	}
 
 	mid := manifest.ID(mux.Vars(r)["manifestID"])
@@ -104,7 +104,7 @@ func filterManifests(manifests []*manifest.EntryMetadata, userAtHost string) []*
 func (s *Server) handleManifestCreate(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	rw, ok := s.rep.(repo.RepositoryWriter)
 	if !ok {
-		return nil, notFoundError("manifest not found")
+		return nil, repositoryNotWritableError()
 	}
 
 	var req remoterepoapi.ManifestWithMetadata

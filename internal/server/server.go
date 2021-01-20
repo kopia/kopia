@@ -166,10 +166,13 @@ func (s *Server) handleRefresh(ctx context.Context, r *http.Request, body []byte
 }
 
 func (s *Server) handleFlush(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	if rw, ok := s.rep.(repo.RepositoryWriter); ok {
-		if err := rw.Flush(ctx); err != nil {
-			return nil, internalServerError(err)
-		}
+	rw, ok := s.rep.(repo.RepositoryWriter)
+	if !ok {
+		return nil, repositoryNotWritableError()
+	}
+
+	if err := rw.Flush(ctx); err != nil {
+		return nil, internalServerError(err)
 	}
 
 	return &serverapi.Empty{}, nil

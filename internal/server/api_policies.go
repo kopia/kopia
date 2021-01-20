@@ -3,9 +3,10 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/url"
+
+	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo"
@@ -63,7 +64,7 @@ func (s *Server) handlePolicyGet(ctx context.Context, r *http.Request, body []by
 func (s *Server) handlePolicyDelete(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	w, ok := s.rep.(repo.RepositoryWriter)
 	if !ok {
-		return nil, requestError(serverapi.ErrorNotFound, "policy not found")
+		return nil, repositoryNotWritableError()
 	}
 
 	if err := policy.RemovePolicy(ctx, w, getPolicyTargetFromURL(r.URL)); err != nil {
@@ -85,7 +86,7 @@ func (s *Server) handlePolicyPut(ctx context.Context, r *http.Request, body []by
 
 	w, ok := s.rep.(repo.RepositoryWriter)
 	if !ok {
-		return nil, requestError(serverapi.ErrorNotFound, "policy not found")
+		return nil, repositoryNotWritableError()
 	}
 
 	if err := policy.SetPolicy(ctx, w, getPolicyTargetFromURL(r.URL), newPolicy); err != nil {

@@ -53,7 +53,7 @@ func (s *Server) handleContentInfo(ctx context.Context, r *http.Request, body []
 func (s *Server) handleContentPut(ctx context.Context, r *http.Request, data []byte) (interface{}, *apiError) {
 	dr, ok := s.rep.(repo.DirectRepositoryWriter)
 	if !ok {
-		return nil, notFoundError("content not found")
+		return nil, repositoryNotWritableError()
 	}
 
 	cid := content.ID(mux.Vars(r)["contentID"])
