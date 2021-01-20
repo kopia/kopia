@@ -31,11 +31,11 @@ type APIServerInfo struct {
 // remoteRepository is an implementation of Repository that connects to an instance of
 // API server hosted by `kopia server`, instead of directly manipulating files in the BLOB storage.
 type apiServerRepository struct {
-	cli *apiclient.KopiaAPIClient
-	h   hashing.HashFunc
-
-	omgr    *object.Manager
-	cliOpts ClientOptions
+	cli          *apiclient.KopiaAPIClient
+	h            hashing.HashFunc
+	objectFormat object.Format
+	cliOpts      ClientOptions
+	omgr         *object.Manager
 }
 
 func (r *apiServerRepository) APIServerURL() string {
@@ -130,12 +130,20 @@ func (r *apiServerRepository) Flush(ctx context.Context) error {
 	return errors.Wrap(r.cli.Post(ctx, "flush", nil, nil), "Flush")
 }
 
-func (r *apiServerRepository) Close(ctx context.Context) error {
-	if err := r.omgr.Close(); err != nil {
-		return errors.Wrap(err, "error closing object manager")
+func (r *apiServerRepository) NewWriter(ctx context.Context, purpose string) (RepositoryWriter, error) {
+	// apiServerRepository is stateless except object manager.
+	r2 := *r
+	w := &r2
+
+	// create object manager using a remote repo as contentManager implementation.
+	omgr, err := object.NewObjectManager(ctx, w, r.objectFormat)
+	if err != nil {
+		return nil, errors.Wrap(err, "error initializing object manager")
 	}
 
-	return errors.Wrap(r.Flush(ctx), "Close")
+	w.omgr = omgr
+
+	return w, nil
 }
 
 func (r *apiServerRepository) ContentInfo(ctx context.Context, contentID content.ID) (content.Info, error) {
@@ -179,6 +187,14 @@ func (r *apiServerRepository) UpdateDescription(d string) {
 	r.cliOpts.Description = d
 }
 
+func (r *apiServerRepository) Close(ctx context.Context) error {
+	if err := r.omgr.Close(); err != nil {
+		return errors.Wrap(err, "error closing object manager")
+	}
+
+	return nil
+}
+
 var _ Repository = (*apiServerRepository)(nil)
 
 // openAPIServer connects remote repository over Kopia API.
@@ -186,7 +202,7 @@ func openAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions
 	cli, err := apiclient.NewKopiaAPIClient(apiclient.Options{
 		BaseURL:                             si.BaseURL,
 		TrustedServerCertificateFingerprint: si.TrustedServerCertificateFingerprint,
-		Username:                            cliOpts.Username + "@" + cliOpts.Hostname,
+		Username:                            cliOpts.UsernameAtHost(),
 		Password:                            password,
 		LogRequests:                         true,
 	})
@@ -211,9 +227,10 @@ func openAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions
 	}
 
 	rr.h = hf
+	rr.objectFormat = p.Format
 
 	// create object manager using rr as contentManager implementation.
-	omgr, err := object.NewObjectManager(ctx, rr, p.Format)
+	omgr, err := object.NewObjectManager(ctx, rr, rr.objectFormat)
 	if err != nil {
 		return nil, errors.Wrap(err, "error initializing object manager")
 	}

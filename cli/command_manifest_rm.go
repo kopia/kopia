@@ -13,7 +13,7 @@ var (
 	manifestRemoveItems   = manifestRemoveCommand.Arg("item", "Items to remove").Required().Strings()
 )
 
-func runManifestRemoveCommand(ctx context.Context, rep repo.Writer) error {
+func runManifestRemoveCommand(ctx context.Context, rep repo.RepositoryWriter) error {
 	advancedCommand(ctx)
 
 	for _, it := range toManifestIDs(*manifestRemoveItems) {

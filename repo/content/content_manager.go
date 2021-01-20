@@ -451,26 +451,14 @@ func removePendingPack(slice []*pendingPackInfo, pp *pendingPackInfo) []*pending
 	return result
 }
 
-// Format returns formatting options.
-func (bm *WriteManager) Format() FormattingOptions {
+// ContentFormat returns formatting options.
+func (bm *WriteManager) ContentFormat() FormattingOptions {
 	return bm.format
 }
 
 // Close closes the content manager.
 func (bm *WriteManager) Close(ctx context.Context) error {
-	if err := bm.Flush(ctx); err != nil {
-		return errors.Wrap(err, "error flushing")
-	}
-
-	if err := bm.committedContents.close(); err != nil {
-		return errors.Wrap(err, "error closed committed content index")
-	}
-
-	bm.contentCache.close()
-	bm.metadataCache.close()
-	bm.encryptionBufferPool.Close()
-
-	return nil
+	return bm.SharedManager.release(ctx)
 }
 
 // Flush completes writing any pending packs and writes pack indexes to the underlying storage.
@@ -798,6 +786,8 @@ type SessionOptions struct {
 // NewWriteManager returns a session write manager.
 func NewWriteManager(sm *SharedManager, options SessionOptions) *WriteManager {
 	mu := &sync.RWMutex{}
+
+	sm.addRef()
 
 	return &WriteManager{
 		SharedManager: sm,

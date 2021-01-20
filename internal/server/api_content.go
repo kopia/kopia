@@ -13,14 +13,14 @@ import (
 )
 
 func (s *Server) handleContentGet(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	dr, ok := s.rep.(*repo.DirectRepository)
+	dr, ok := s.rep.(repo.DirectRepository)
 	if !ok {
 		return nil, notFoundError("content not found")
 	}
 
 	cid := content.ID(mux.Vars(r)["contentID"])
 
-	data, err := dr.Content.GetContent(ctx, cid)
+	data, err := dr.ContentReader().GetContent(ctx, cid)
 	if errors.Is(err, content.ErrContentNotFound) {
 		return nil, notFoundError("content not found")
 	}
@@ -29,14 +29,14 @@ func (s *Server) handleContentGet(ctx context.Context, r *http.Request, body []b
 }
 
 func (s *Server) handleContentInfo(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	dr, ok := s.rep.(*repo.DirectRepository)
+	dr, ok := s.rep.(repo.DirectRepository)
 	if !ok {
 		return nil, notFoundError("content not found")
 	}
 
 	cid := content.ID(mux.Vars(r)["contentID"])
 
-	ci, err := dr.Content.ContentInfo(ctx, cid)
+	ci, err := dr.ContentReader().ContentInfo(ctx, cid)
 
 	switch {
 	case err == nil:
@@ -51,15 +51,15 @@ func (s *Server) handleContentInfo(ctx context.Context, r *http.Request, body []
 }
 
 func (s *Server) handleContentPut(ctx context.Context, r *http.Request, data []byte) (interface{}, *apiError) {
-	dr, ok := s.rep.(*repo.DirectRepository)
+	dr, ok := s.rep.(repo.DirectRepositoryWriter)
 	if !ok {
-		return nil, notFoundError("content not found")
+		return nil, repositoryNotWritableError()
 	}
 
 	cid := content.ID(mux.Vars(r)["contentID"])
 	prefix := cid.Prefix()
 
-	actualCID, err := dr.Content.WriteContent(ctx, data, prefix)
+	actualCID, err := dr.ContentManager().WriteContent(ctx, data, prefix)
 	if err != nil {
 		return nil, internalServerError(err)
 	}

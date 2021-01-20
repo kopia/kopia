@@ -59,7 +59,7 @@ func init() {
 	policyEditCommand.Action(repositoryWriterAction(editPolicy))
 }
 
-func editPolicy(ctx context.Context, rep repo.Writer) error {
+func editPolicy(ctx context.Context, rep repo.RepositoryWriter) error {
 	targets, err := policyTargets(ctx, rep, policyEditGlobal, policyEditTargets)
 	if err != nil {
 		return err

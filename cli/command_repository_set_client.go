@@ -18,7 +18,7 @@ var (
 	repoClientOptionsHostname    = repoClientOptionsCommand.Flag("hostname", "Change hostname").Strings()
 )
 
-func runRepoClientOptionsCommand(ctx context.Context, rep repo.Reader) error {
+func runRepoClientOptionsCommand(ctx context.Context, rep repo.Repository) error {
 	var anyChange bool
 
 	opt := rep.ClientOptions()

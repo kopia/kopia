@@ -12,8 +12,8 @@ import (
 
 var cacheClearCommand = cacheCommands.Command("clear", "Clears the cache")
 
-func runCacheClearCommand(ctx context.Context, rep *repo.DirectRepository) error {
-	if d := rep.Cache.CacheDirectory; d != "" {
+func runCacheClearCommand(ctx context.Context, rep repo.DirectRepository) error {
+	if d := rep.CachingOptions().CacheDirectory; d != "" {
 		log(ctx).Infof("Clearing cache directory: %v.", d)
 
 		// close repository before removing cache
@@ -41,5 +41,5 @@ func runCacheClearCommand(ctx context.Context, rep *repo.DirectRepository) error
 }
 
 func init() {
-	cacheClearCommand.Action(directRepositoryAction(runCacheClearCommand))
+	cacheClearCommand.Action(directRepositoryReadAction(runCacheClearCommand))
 }

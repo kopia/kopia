@@ -12,12 +12,7 @@ import (
 )
 
 // Run runs the complete snapshot and repository maintenance.
-func Run(ctx context.Context, rep repo.Writer, mode maintenance.Mode, force bool) error {
-	dr, ok := rep.(*repo.DirectRepository)
-	if !ok {
-		return nil
-	}
-
+func Run(ctx context.Context, dr repo.DirectRepositoryWriter, mode maintenance.Mode, force bool) error {
 	return maintenance.RunExclusive(ctx, dr, mode, force,
 		func(runParams maintenance.RunParameters) error {
 			// run snapshot GC before full maintenance

@@ -141,6 +141,12 @@ func longLivedRepositoryTest(ctx context.Context, t *testing.T, cancel chan stru
 	}
 	defer rep.Close(ctx)
 
+	w, err := rep.(repo.DirectRepository).NewDirectWriter(ctx, "longLivedRepositoryTest")
+	if err != nil {
+		t.Errorf("error opening writer: %v", err)
+		return
+	}
+
 	var wg2 sync.WaitGroup
 
 	for i := 0; i < 4; i++ {
@@ -149,19 +155,19 @@ func longLivedRepositoryTest(ctx context.Context, t *testing.T, cancel chan stru
 		go func() {
 			defer wg2.Done()
 
-			repositoryTest(ctx, t, cancel, rep.(*repo.DirectRepository))
+			repositoryTest(ctx, t, cancel, w)
 		}()
 	}
 
 	wg2.Wait()
 }
 
-func repositoryTest(ctx context.Context, t *testing.T, cancel chan struct{}, rep *repo.DirectRepository) {
+func repositoryTest(ctx context.Context, t *testing.T, cancel chan struct{}, rep repo.DirectRepositoryWriter) {
 	t.Helper()
 
 	workTypes := []*struct {
 		name     string
-		fun      func(ctx context.Context, t *testing.T, r *repo.DirectRepository) error
+		fun      func(ctx context.Context, t *testing.T, r repo.DirectRepositoryWriter) error
 		weight   int
 		hitCount int
 	}{
@@ -221,13 +227,13 @@ func repositoryTest(ctx context.Context, t *testing.T, cancel chan struct{}, rep
 	}
 }
 
-func writeRandomBlock(ctx context.Context, t *testing.T, r *repo.DirectRepository) error {
+func writeRandomBlock(ctx context.Context, t *testing.T, r repo.DirectRepositoryWriter) error {
 	t.Helper()
 
 	data := make([]byte, 1000)
 	cryptorand.Read(data)
 
-	contentID, err := r.Content.WriteContent(ctx, data, "")
+	contentID, err := r.ContentManager().WriteContent(ctx, data, "")
 	if err == nil {
 		knownBlocksMutex.Lock()
 		if len(knownBlocks) >= 1000 {
@@ -242,7 +248,7 @@ func writeRandomBlock(ctx context.Context, t *testing.T, r *repo.DirectRepositor
 	return err
 }
 
-func readKnownBlock(ctx context.Context, t *testing.T, r *repo.DirectRepository) error {
+func readKnownBlock(ctx context.Context, t *testing.T, r repo.DirectRepositoryWriter) error {
 	t.Helper()
 
 	knownBlocksMutex.Lock()
@@ -254,7 +260,7 @@ func readKnownBlock(ctx context.Context, t *testing.T, r *repo.DirectRepository)
 	contentID := knownBlocks[rand.Intn(len(knownBlocks))]
 	knownBlocksMutex.Unlock()
 
-	_, err := r.Content.GetContent(ctx, contentID)
+	_, err := r.ContentReader().GetContent(ctx, contentID)
 	if err == nil || errors.Is(err, content.ErrContentNotFound) {
 		return nil
 	}
@@ -262,25 +268,25 @@ func readKnownBlock(ctx context.Context, t *testing.T, r *repo.DirectRepository)
 	return err
 }
 
-func listContents(ctx context.Context, t *testing.T, r *repo.DirectRepository) error {
+func listContents(ctx context.Context, t *testing.T, r repo.DirectRepositoryWriter) error {
 	t.Helper()
 
-	return r.Content.IterateContents(
+	return r.ContentReader().IterateContents(
 		ctx,
 		content.IterateOptions{},
 		func(i content.Info) error { return nil },
 	)
 }
 
-func listAndReadAllContents(ctx context.Context, t *testing.T, r *repo.DirectRepository) error {
+func listAndReadAllContents(ctx context.Context, t *testing.T, r repo.DirectRepositoryWriter) error {
 	t.Helper()
 
-	return r.Content.IterateContents(
+	return r.ContentReader().IterateContents(
 		ctx,
 		content.IterateOptions{},
 		func(ci content.Info) error {
 			cid := ci.ID
-			_, err := r.Content.GetContent(ctx, cid)
+			_, err := r.ContentReader().GetContent(ctx, cid)
 			if err != nil {
 				if errors.Is(err, content.ErrContentNotFound) && strings.HasPrefix(string(cid), "m") {
 					// this is ok, sometimes manifest manager will perform compaction and 'm' contents will be marked as deleted
@@ -293,25 +299,25 @@ func listAndReadAllContents(ctx context.Context, t *testing.T, r *repo.DirectRep
 		})
 }
 
-func compact(ctx context.Context, t *testing.T, r *repo.DirectRepository) error {
+func compact(ctx context.Context, t *testing.T, r repo.DirectRepositoryWriter) error {
 	t.Helper()
 
-	return r.Content.CompactIndexes(ctx, content.CompactOptions{MaxSmallBlobs: 1})
+	return r.ContentManager().CompactIndexes(ctx, content.CompactOptions{MaxSmallBlobs: 1})
 }
 
-func flush(ctx context.Context, t *testing.T, r *repo.DirectRepository) error {
+func flush(ctx context.Context, t *testing.T, r repo.DirectRepositoryWriter) error {
 	t.Helper()
 
 	return r.Flush(ctx)
 }
 
-func refresh(ctx context.Context, t *testing.T, r *repo.DirectRepository) error {
+func refresh(ctx context.Context, t *testing.T, r repo.DirectRepositoryWriter) error {
 	t.Helper()
 
 	return r.Refresh(ctx)
 }
 
-func readRandomManifest(ctx context.Context, t *testing.T, r *repo.DirectRepository) error {
+func readRandomManifest(ctx context.Context, t *testing.T, r repo.DirectRepositoryWriter) error {
 	t.Helper()
 
 	manifests, err := r.FindManifests(ctx, nil)
@@ -330,7 +336,7 @@ func readRandomManifest(ctx context.Context, t *testing.T, r *repo.DirectReposit
 	return err
 }
 
-func writeRandomManifest(ctx context.Context, t *testing.T, r *repo.DirectRepository) error {
+func writeRandomManifest(ctx context.Context, t *testing.T, r repo.DirectRepositoryWriter) error {
 	t.Helper()
 
 	key1 := fmt.Sprintf("key-%v", rand.Intn(10))

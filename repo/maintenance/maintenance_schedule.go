@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -59,7 +60,7 @@ func (s *Schedule) ReportRun(runType string, info RunInfo) {
 	s.Runs[runType] = history
 }
 
-func getAES256GCM(rep MaintainableRepository) (cipher.AEAD, error) {
+func getAES256GCM(rep repo.DirectRepository) (cipher.AEAD, error) {
 	c, err := aes.NewCipher(rep.DeriveKey(maintenanceScheduleKeyPurpose, maintenanceScheduleKeySize))
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create AES-256 cipher")
@@ -69,9 +70,9 @@ func getAES256GCM(rep MaintainableRepository) (cipher.AEAD, error) {
 }
 
 // GetSchedule gets the scheduled maintenance times.
-func GetSchedule(ctx context.Context, rep MaintainableRepository) (*Schedule, error) {
+func GetSchedule(ctx context.Context, rep repo.DirectRepository) (*Schedule, error) {
 	// read
-	v, err := rep.BlobStorage().GetBlob(ctx, maintenanceScheduleBlobID, 0, -1)
+	v, err := rep.BlobReader().GetBlob(ctx, maintenanceScheduleBlobID, 0, -1)
 	if errors.Is(err, blob.ErrBlobNotFound) {
 		return &Schedule{}, nil
 	}
@@ -105,7 +106,7 @@ func GetSchedule(ctx context.Context, rep MaintainableRepository) (*Schedule, er
 }
 
 // SetSchedule updates scheduled maintenance times.
-func SetSchedule(ctx context.Context, rep MaintainableRepository, s *Schedule) error {
+func SetSchedule(ctx context.Context, rep repo.DirectRepositoryWriter, s *Schedule) error {
 	// encode JSON
 	v, err := json.Marshal(s)
 	if err != nil {
@@ -131,7 +132,7 @@ func SetSchedule(ctx context.Context, rep MaintainableRepository, s *Schedule) e
 }
 
 // ReportRun reports timing of a maintenance run and persists it in repository.
-func ReportRun(ctx context.Context, rep MaintainableRepository, runType string, run func() error) error {
+func ReportRun(ctx context.Context, rep repo.DirectRepositoryWriter, runType string, run func() error) error {
 	ri := RunInfo{
 		Start: rep.Time(),
 	}

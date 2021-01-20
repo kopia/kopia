@@ -26,7 +26,7 @@ func oidOf(entry fs.Entry) object.ID {
 	return entry.(object.HasObjectID).ObjectID()
 }
 
-func findInUseContentIDs(ctx context.Context, rep repo.Reader, used *sync.Map) error {
+func findInUseContentIDs(ctx context.Context, rep repo.Repository, used *sync.Map) error {
 	ids, err := snapshot.ListSnapshotManifests(ctx, rep, nil)
 	if err != nil {
 		return errors.Wrap(err, "unable to list snapshot manifest IDs")
@@ -74,7 +74,7 @@ func findInUseContentIDs(ctx context.Context, rep repo.Reader, used *sync.Map) e
 }
 
 // Run performs garbage collection on all the snapshots in the repository.
-func Run(ctx context.Context, rep *repo.DirectRepository, params maintenance.SnapshotGCParams, gcDelete bool) (Stats, error) {
+func Run(ctx context.Context, rep repo.DirectRepositoryWriter, params maintenance.SnapshotGCParams, gcDelete bool) (Stats, error) {
 	var st Stats
 
 	err := maintenance.ReportRun(ctx, rep, "snapshot-gc", func() error {
@@ -84,7 +84,7 @@ func Run(ctx context.Context, rep *repo.DirectRepository, params maintenance.Sna
 	return st, errors.Wrap(err, "error running snapshot gc")
 }
 
-func runInternal(ctx context.Context, rep *repo.DirectRepository, params maintenance.SnapshotGCParams, gcDelete bool, st *Stats) error {
+func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, params maintenance.SnapshotGCParams, gcDelete bool, st *Stats) error {
 	var (
 		used sync.Map
 
@@ -99,7 +99,7 @@ func runInternal(ctx context.Context, rep *repo.DirectRepository, params mainten
 
 	// Ensure that the iteration includes deleted contents, so those can be
 	// undeleted (recovered).
-	err := rep.Content.IterateContents(ctx, content.IterateOptions{IncludeDeleted: true}, func(ci content.Info) error {
+	err := rep.ContentReader().IterateContents(ctx, content.IterateOptions{IncludeDeleted: true}, func(ci content.Info) error {
 		if manifest.ContentPrefix == ci.ID.Prefix() {
 			system.Add(int64(ci.Length))
 			return nil
@@ -107,7 +107,7 @@ func runInternal(ctx context.Context, rep *repo.DirectRepository, params mainten
 
 		if _, ok := used.Load(ci.ID); ok {
 			if ci.Deleted {
-				if err := rep.Content.UndeleteContent(ctx, ci.ID); err != nil {
+				if err := rep.ContentManager().UndeleteContent(ctx, ci.ID); err != nil {
 					return errors.Wrapf(err, "Could not undelete referenced content: %v", ci)
 				}
 				undeleted.Add(int64(ci.Length))
@@ -127,7 +127,7 @@ func runInternal(ctx context.Context, rep *repo.DirectRepository, params mainten
 		cnt, totalSize := unused.Add(int64(ci.Length))
 
 		if gcDelete {
-			if err := rep.Content.DeleteContent(ctx, ci.ID); err != nil {
+			if err := rep.ContentManager().DeleteContent(ctx, ci.ID); err != nil {
 				return errors.Wrap(err, "error deleting content")
 			}
 		}

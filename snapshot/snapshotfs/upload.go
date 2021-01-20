@@ -70,7 +70,7 @@ type Uploader struct {
 	// How frequently to create checkpoint snapshot entries.
 	CheckpointInterval time.Duration
 
-	repo repo.Writer
+	repo repo.RepositoryWriter
 
 	// stats must be allocated on heap to enforce 64-bit alignment due to atomic access on ARM.
 	stats    *snapshot.Stats
@@ -967,7 +967,7 @@ func (u *Uploader) shouldIgnoreDirectoryReadErrors(policyTree *policy.Tree) bool
 }
 
 // NewUploader creates new Uploader object for a given repository.
-func NewUploader(r repo.Writer) *Uploader {
+func NewUploader(r repo.RepositoryWriter) *Uploader {
 	return &Uploader{
 		repo:               r,
 		Progress:           &NullUploadProgress{},

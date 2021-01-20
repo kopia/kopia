@@ -3,6 +3,8 @@ package server
 import (
 	"fmt"
 
+	"github.com/pkg/errors"
+
 	"github.com/kopia/kopia/internal/serverapi"
 )
 
@@ -18,6 +20,10 @@ func requestError(apiErrorCode serverapi.APIErrorCode, message string) *apiError
 
 func notFoundError(message string) *apiError {
 	return &apiError{404, serverapi.ErrorNotFound, message}
+}
+
+func repositoryNotWritableError() *apiError {
+	return internalServerError(errors.Errorf("repository is not writable"))
 }
 
 func internalServerError(err error) *apiError {

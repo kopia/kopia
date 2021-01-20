@@ -43,14 +43,14 @@ func TestDeleteUnreferencedBlobs(t *testing.T) {
 		},
 	}).Close(ctx, t)
 
-	w := env.Repository.NewObjectWriter(ctx, object.WriterOptions{})
+	w := env.RepositoryWriter.NewObjectWriter(ctx, object.WriterOptions{})
 	io.WriteString(w, "hello world!")
 	w.Result()
 	w.Close()
 
-	env.Repository.Flush(ctx)
+	env.RepositoryWriter.Flush(ctx)
 
-	blobsBefore, err := blob.ListAllBlobs(ctx, env.Repository.Blobs, "")
+	blobsBefore, err := blob.ListAllBlobs(ctx, env.RepositoryWriter.BlobStorage(), "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,30 +65,30 @@ func TestDeleteUnreferencedBlobs(t *testing.T) {
 		extraBlobID2 blob.ID = "pdeadbeef2"
 	)
 
-	mustPutDummyBlob(t, env.Repository.Blobs, extraBlobID1)
-	mustPutDummyBlob(t, env.Repository.Blobs, extraBlobID2)
-	verifyBlobExists(t, env.Repository.Blobs, extraBlobID1)
-	verifyBlobExists(t, env.Repository.Blobs, extraBlobID2)
+	mustPutDummyBlob(t, env.RepositoryWriter.BlobStorage(), extraBlobID1)
+	mustPutDummyBlob(t, env.RepositoryWriter.BlobStorage(), extraBlobID2)
+	verifyBlobExists(t, env.RepositoryWriter.BlobStorage(), extraBlobID1)
+	verifyBlobExists(t, env.RepositoryWriter.BlobStorage(), extraBlobID2)
 
 	// new blobs not will be deleted because of minimum age requirement
-	if _, err = DeleteUnreferencedBlobs(ctx, env.Repository, DeleteUnreferencedBlobsOptions{
+	if _, err = DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, DeleteUnreferencedBlobsOptions{
 		MinAge: 1 * time.Hour,
 	}); err != nil {
 		t.Fatal(err)
 	}
 
-	verifyBlobExists(t, env.Repository.Blobs, extraBlobID1)
-	verifyBlobExists(t, env.Repository.Blobs, extraBlobID2)
+	verifyBlobExists(t, env.RepositoryWriter.BlobStorage(), extraBlobID1)
+	verifyBlobExists(t, env.RepositoryWriter.BlobStorage(), extraBlobID2)
 
 	// new blobs will be deleted
-	if _, err = DeleteUnreferencedBlobs(ctx, env.Repository, DeleteUnreferencedBlobsOptions{
+	if _, err = DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, DeleteUnreferencedBlobsOptions{
 		MinAge: 1,
 	}); err != nil {
 		t.Fatal(err)
 	}
 
-	verifyBlobNotFound(t, env.Repository.Blobs, extraBlobID1)
-	verifyBlobNotFound(t, env.Repository.Blobs, extraBlobID2)
+	verifyBlobNotFound(t, env.RepositoryWriter.BlobStorage(), extraBlobID1)
+	verifyBlobNotFound(t, env.RepositoryWriter.BlobStorage(), extraBlobID2)
 
 	// add blobs again and
 	const (
@@ -97,62 +97,62 @@ func TestDeleteUnreferencedBlobs(t *testing.T) {
 		extraBlobIDWithSession3 blob.ID = "pdeadbeef3-s02"
 	)
 
-	mustPutDummyBlob(t, env.Repository.Blobs, extraBlobIDWithSession1)
-	mustPutDummyBlob(t, env.Repository.Blobs, extraBlobIDWithSession2)
-	mustPutDummyBlob(t, env.Repository.Blobs, extraBlobIDWithSession3)
+	mustPutDummyBlob(t, env.RepositoryWriter.BlobStorage(), extraBlobIDWithSession1)
+	mustPutDummyBlob(t, env.RepositoryWriter.BlobStorage(), extraBlobIDWithSession2)
+	mustPutDummyBlob(t, env.RepositoryWriter.BlobStorage(), extraBlobIDWithSession3)
 
-	session1Marker := mustPutDummySessionBlob(t, env.Repository.Blobs, "s01", &content.SessionInfo{
+	session1Marker := mustPutDummySessionBlob(t, env.RepositoryWriter.BlobStorage(), "s01", &content.SessionInfo{
 		CheckpointTime: ta.NowFunc()(),
 	})
-	session2Marker := mustPutDummySessionBlob(t, env.Repository.Blobs, "s02", &content.SessionInfo{
+	session2Marker := mustPutDummySessionBlob(t, env.RepositoryWriter.BlobStorage(), "s02", &content.SessionInfo{
 		CheckpointTime: ta.NowFunc()(),
 	})
 
-	if _, err = DeleteUnreferencedBlobs(ctx, env.Repository, DeleteUnreferencedBlobsOptions{
+	if _, err = DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, DeleteUnreferencedBlobsOptions{
 		MinAge: 1,
 	}); err != nil {
 		t.Fatal(err)
 	}
 
-	verifyBlobExists(t, env.Repository.Blobs, extraBlobIDWithSession1)
-	verifyBlobExists(t, env.Repository.Blobs, extraBlobIDWithSession2)
-	verifyBlobExists(t, env.Repository.Blobs, extraBlobIDWithSession3)
-	verifyBlobExists(t, env.Repository.Blobs, session1Marker)
-	verifyBlobExists(t, env.Repository.Blobs, session2Marker)
+	verifyBlobExists(t, env.RepositoryWriter.BlobStorage(), extraBlobIDWithSession1)
+	verifyBlobExists(t, env.RepositoryWriter.BlobStorage(), extraBlobIDWithSession2)
+	verifyBlobExists(t, env.RepositoryWriter.BlobStorage(), extraBlobIDWithSession3)
+	verifyBlobExists(t, env.RepositoryWriter.BlobStorage(), session1Marker)
+	verifyBlobExists(t, env.RepositoryWriter.BlobStorage(), session2Marker)
 
 	// now finish session 2
-	env.Repository.Blobs.DeleteBlob(ctx, session2Marker)
+	env.RepositoryWriter.BlobStorage().DeleteBlob(ctx, session2Marker)
 
-	if _, err = DeleteUnreferencedBlobs(ctx, env.Repository, DeleteUnreferencedBlobsOptions{
+	if _, err = DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, DeleteUnreferencedBlobsOptions{
 		MinAge: 1,
 	}); err != nil {
 		t.Fatal(err)
 	}
 
-	verifyBlobExists(t, env.Repository.Blobs, extraBlobIDWithSession1)
-	verifyBlobExists(t, env.Repository.Blobs, extraBlobIDWithSession2)
-	verifyBlobNotFound(t, env.Repository.Blobs, extraBlobIDWithSession3)
-	verifyBlobExists(t, env.Repository.Blobs, session1Marker)
-	verifyBlobNotFound(t, env.Repository.Blobs, session2Marker)
+	verifyBlobExists(t, env.RepositoryWriter.BlobStorage(), extraBlobIDWithSession1)
+	verifyBlobExists(t, env.RepositoryWriter.BlobStorage(), extraBlobIDWithSession2)
+	verifyBlobNotFound(t, env.RepositoryWriter.BlobStorage(), extraBlobIDWithSession3)
+	verifyBlobExists(t, env.RepositoryWriter.BlobStorage(), session1Marker)
+	verifyBlobNotFound(t, env.RepositoryWriter.BlobStorage(), session2Marker)
 
 	// now move time into the future making session 1 timed out
 	ta.Advance(7 * 24 * time.Hour)
 
-	if _, err = DeleteUnreferencedBlobs(ctx, env.Repository, DeleteUnreferencedBlobsOptions{
+	if _, err = DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, DeleteUnreferencedBlobsOptions{
 		MinAge: 1,
 	}); err != nil {
 		t.Fatal(err)
 	}
 
-	verifyBlobNotFound(t, env.Repository.Blobs, extraBlobIDWithSession1)
-	verifyBlobNotFound(t, env.Repository.Blobs, extraBlobIDWithSession2)
-	verifyBlobNotFound(t, env.Repository.Blobs, extraBlobIDWithSession3)
-	verifyBlobNotFound(t, env.Repository.Blobs, session1Marker)
-	verifyBlobNotFound(t, env.Repository.Blobs, session2Marker)
+	verifyBlobNotFound(t, env.RepositoryWriter.BlobStorage(), extraBlobIDWithSession1)
+	verifyBlobNotFound(t, env.RepositoryWriter.BlobStorage(), extraBlobIDWithSession2)
+	verifyBlobNotFound(t, env.RepositoryWriter.BlobStorage(), extraBlobIDWithSession3)
+	verifyBlobNotFound(t, env.RepositoryWriter.BlobStorage(), session1Marker)
+	verifyBlobNotFound(t, env.RepositoryWriter.BlobStorage(), session2Marker)
 
 	// make sure we're back to the starting point.
 
-	blobsAfter, err := blob.ListAllBlobs(ctx, env.Repository.Blobs, "")
+	blobsAfter, err := blob.ListAllBlobs(ctx, env.RepositoryWriter.BlobStorage(), "")
 	if err != nil {
 		t.Fatal(err)
 	}

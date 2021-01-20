@@ -71,7 +71,7 @@ func registerSnapshotCopyFlags(cmd *kingpin.CmdClause) {
 // user1@host1:/path1  @host2              copy to user1@host2:/path1
 // user1@host1:/path1  user2@host2         copy to user2@host2:/path1
 // user1@host1:/path1  user2@host2:/path2  copy snapshots from single path.
-func runSnapshotCopyCommand(ctx context.Context, rep repo.Writer, isMoveCommand bool) error {
+func runSnapshotCopyCommand(ctx context.Context, rep repo.RepositoryWriter, isMoveCommand bool) error {
 	si, di, err := getCopySourceAndDestination(rep)
 	if err != nil {
 		return err
@@ -150,7 +150,7 @@ func getCopySnapshotAction(isMoveCommand bool) string {
 	return action
 }
 
-func getCopySourceAndDestination(rep repo.Writer) (si, di snapshot.SourceInfo, err error) {
+func getCopySourceAndDestination(rep repo.RepositoryWriter) (si, di snapshot.SourceInfo, err error) {
 	si, err = snapshot.ParseSourceInfo(snapshotCopyOrMoveSource, rep.ClientOptions().Hostname, rep.ClientOptions().Username)
 	if err != nil {
 		return si, di, errors.Wrap(err, "invalid source")
@@ -231,12 +231,12 @@ func getCopyDestination(source, overrides snapshot.SourceInfo) snapshot.SourceIn
 func init() {
 	registerSnapshotCopyFlags(snapshotCopyCommand)
 
-	snapshotCopyCommand.Action(repositoryWriterAction(func(ctx context.Context, rep repo.Writer) error {
+	snapshotCopyCommand.Action(repositoryWriterAction(func(ctx context.Context, rep repo.RepositoryWriter) error {
 		return runSnapshotCopyCommand(ctx, rep, false)
 	}))
 
 	registerSnapshotCopyFlags(snapshotMoveCommand)
-	snapshotMoveCommand.Action(repositoryWriterAction(func(ctx context.Context, rep repo.Writer) error {
+	snapshotMoveCommand.Action(repositoryWriterAction(func(ctx context.Context, rep repo.RepositoryWriter) error {
 		return runSnapshotCopyCommand(ctx, rep, true)
 	}))
 }

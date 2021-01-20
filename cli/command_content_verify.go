@@ -19,12 +19,12 @@ var (
 	contentVerifyIncludeDeleted = contentVerifyCommand.Flag("include-deleted", "Include deleted contents").Bool()
 )
 
-func readBlobMap(ctx context.Context, rep *repo.DirectRepository) (map[blob.ID]blob.Metadata, error) {
+func readBlobMap(ctx context.Context, br blob.Reader) (map[blob.ID]blob.Metadata, error) {
 	blobMap := map[blob.ID]blob.Metadata{}
 
 	log(ctx).Infof("Listing blobs...")
 
-	if err := rep.Blobs.ListBlobs(ctx, "", func(bm blob.Metadata) error {
+	if err := br.ListBlobs(ctx, "", func(bm blob.Metadata) error {
 		blobMap[bm.BlobID] = bm
 		if len(blobMap)%10000 == 0 {
 			log(ctx).Infof("  %v blobs...", len(blobMap))
@@ -39,11 +39,11 @@ func readBlobMap(ctx context.Context, rep *repo.DirectRepository) (map[blob.ID]b
 	return blobMap, nil
 }
 
-func runContentVerifyCommand(ctx context.Context, rep *repo.DirectRepository) error {
+func runContentVerifyCommand(ctx context.Context, rep repo.DirectRepository) error {
 	blobMap := map[blob.ID]blob.Metadata{}
 
 	if !*contentVerifyFull {
-		m, err := readBlobMap(ctx, rep)
+		m, err := readBlobMap(ctx, rep.BlobReader())
 		if err != nil {
 			return err
 		}
@@ -55,12 +55,12 @@ func runContentVerifyCommand(ctx context.Context, rep *repo.DirectRepository) er
 
 	log(ctx).Infof("Verifying all contents...")
 
-	err := rep.Content.IterateContents(ctx, content.IterateOptions{
+	err := rep.ContentReader().IterateContents(ctx, content.IterateOptions{
 		Range:          contentIDRange(),
 		Parallel:       *contentVerifyParallel,
 		IncludeDeleted: *contentVerifyIncludeDeleted,
 	}, func(ci content.Info) error {
-		if err := contentVerify(ctx, rep, &ci, blobMap); err != nil {
+		if err := contentVerify(ctx, rep.ContentReader(), &ci, blobMap); err != nil {
 			log(ctx).Errorf("error %v", err)
 			atomic.AddInt32(&errorCount, 1)
 		} else {
@@ -86,9 +86,9 @@ func runContentVerifyCommand(ctx context.Context, rep *repo.DirectRepository) er
 	return errors.Errorf("encountered %v errors", errorCount)
 }
 
-func contentVerify(ctx context.Context, r *repo.DirectRepository, ci *content.Info, blobMap map[blob.ID]blob.Metadata) error {
+func contentVerify(ctx context.Context, r content.Reader, ci *content.Info, blobMap map[blob.ID]blob.Metadata) error {
 	if *contentVerifyFull {
-		if _, err := r.Content.GetContent(ctx, ci.ID); err != nil {
+		if _, err := r.GetContent(ctx, ci.ID); err != nil {
 			return errors.Wrapf(err, "content %v is invalid", ci.ID)
 		}
 

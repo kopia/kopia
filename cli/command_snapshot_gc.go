@@ -17,7 +17,7 @@ var (
 	snapshotGCDelete        = snapshotGCCommand.Flag("delete", "Delete unreferenced contents").Bool()
 )
 
-func runSnapshotGCCommand(ctx context.Context, rep *repo.DirectRepository) error {
+func runSnapshotGCCommand(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	st, err := snapshotgc.Run(ctx, rep, maintenance.SnapshotGCParams{
 		MinContentAge: *snapshotGCMinContentAge,
 	}, *snapshotGCDelete)
@@ -31,5 +31,5 @@ func runSnapshotGCCommand(ctx context.Context, rep *repo.DirectRepository) error
 }
 
 func init() {
-	snapshotGCCommand.Action(directRepositoryAction(runSnapshotGCCommand))
+	snapshotGCCommand.Action(directRepositoryWriteAction(runSnapshotGCCommand))
 }

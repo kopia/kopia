@@ -3,13 +3,14 @@ package server
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/remoterepoapi"
 	"github.com/kopia/kopia/internal/serverapi"
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/manifest"
 )
 
@@ -41,9 +42,14 @@ func (s *Server) handleManifestGet(ctx context.Context, r *http.Request, body []
 }
 
 func (s *Server) handleManifestDelete(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+	rw, ok := s.rep.(repo.RepositoryWriter)
+	if !ok {
+		return nil, repositoryNotWritableError()
+	}
+
 	mid := manifest.ID(mux.Vars(r)["manifestID"])
 
-	err := s.rep.DeleteManifest(ctx, mid)
+	err := rw.DeleteManifest(ctx, mid)
 	if errors.Is(err, manifest.ErrNotFound) {
 		return nil, notFoundError("manifest not found")
 	}
@@ -96,13 +102,18 @@ func filterManifests(manifests []*manifest.EntryMetadata, userAtHost string) []*
 }
 
 func (s *Server) handleManifestCreate(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+	rw, ok := s.rep.(repo.RepositoryWriter)
+	if !ok {
+		return nil, repositoryNotWritableError()
+	}
+
 	var req remoterepoapi.ManifestWithMetadata
 
 	if err := json.Unmarshal(body, &req); err != nil {
 		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed request")
 	}
 
-	id, err := s.rep.PutManifest(ctx, req.Metadata.Labels, req.Payload)
+	id, err := rw.PutManifest(ctx, req.Metadata.Labels, req.Payload)
 	if err != nil {
 		return nil, internalServerError(err)
 	}

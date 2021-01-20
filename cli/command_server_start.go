@@ -38,7 +38,10 @@ var (
 
 func init() {
 	setupConnectOptions(serverStartCommand)
-	serverStartCommand.Action(optionalRepositoryAction(runServer))
+	serverStartCommand.Action(maybeRepositoryAction(runServer, repositoryAccessMode{
+		mustBeConnected:    false,
+		disableMaintenance: true, // server closes the repository so maintenance can't run.
+	}))
 }
 
 func runServer(ctx context.Context, rep repo.Repository) error {
@@ -51,7 +54,9 @@ func runServer(ctx context.Context, rep repo.Repository) error {
 		return errors.Wrap(err, "unable to initialize server")
 	}
 
-	maybeAutoUpgradeRepository(ctx, rep)
+	if err = maybeAutoUpgradeRepository(ctx, rep); err != nil {
+		return errors.Wrap(err, "error upgrading repository")
+	}
 
 	if err = srv.SetRepository(ctx, rep); err != nil {
 		return errors.Wrap(err, "error connecting to repository")

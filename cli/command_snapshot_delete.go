@@ -18,7 +18,7 @@ var (
 	snapshotDeleteConfirm = snapshotDeleteCommand.Flag("delete", "Confirm deletion").Bool()
 )
 
-func runDeleteCommand(ctx context.Context, rep repo.Writer) error {
+func runDeleteCommand(ctx context.Context, rep repo.RepositoryWriter) error {
 	for _, id := range *snapshotDeleteIDs {
 		m, err := snapshot.LoadSnapshot(ctx, rep, manifest.ID(id))
 		if err == nil {
@@ -36,7 +36,7 @@ func runDeleteCommand(ctx context.Context, rep repo.Writer) error {
 	return nil
 }
 
-func deleteSnapshot(ctx context.Context, rep repo.Writer, m *snapshot.Manifest) error {
+func deleteSnapshot(ctx context.Context, rep repo.RepositoryWriter, m *snapshot.Manifest) error {
 	desc := fmt.Sprintf("snapshot %v of %v at %v", m.ID, m.Source, formatTimestamp(m.StartTime))
 
 	if !*snapshotDeleteConfirm {
@@ -49,7 +49,7 @@ func deleteSnapshot(ctx context.Context, rep repo.Writer, m *snapshot.Manifest) 
 	return rep.DeleteManifest(ctx, m.ID)
 }
 
-func deleteSnapshotsByRootObjectID(ctx context.Context, rep repo.Writer, rootID object.ID) error {
+func deleteSnapshotsByRootObjectID(ctx context.Context, rep repo.RepositoryWriter, rootID object.ID) error {
 	manifests, err := snapshot.FindSnapshotsByRootObjectID(ctx, rep, rootID)
 	if err != nil {
 		return errors.Wrapf(err, "unable to find snapshots by root %v", rootID)

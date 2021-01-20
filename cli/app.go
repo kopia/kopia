@@ -78,7 +78,7 @@ func serverAction(act func(ctx context.Context, cli *apiclient.KopiaAPIClient) e
 	}
 }
 
-func assertDirectRepository(act func(ctx context.Context, rep *repo.DirectRepository) error) func(ctx context.Context, rep repo.Repository) error {
+func assertDirectRepository(act func(ctx context.Context, rep repo.DirectRepository) error) func(ctx context.Context, rep repo.Repository) error {
 	return func(ctx context.Context, rep repo.Repository) error {
 		if rep == nil {
 			return act(ctx, nil)
@@ -86,7 +86,7 @@ func assertDirectRepository(act func(ctx context.Context, rep *repo.DirectReposi
 
 		// right now this assertion never fails,
 		// but will fail in the future when we have remote repository implementation
-		lr, ok := rep.(*repo.DirectRepository)
+		lr, ok := rep.(repo.DirectRepository)
 		if !ok {
 			return errors.Errorf("operation supported only on direct repository")
 		}
@@ -95,26 +95,27 @@ func assertDirectRepository(act func(ctx context.Context, rep *repo.DirectReposi
 	}
 }
 
-func directRepositoryAction(act func(ctx context.Context, rep *repo.DirectRepository) error) func(ctx *kingpin.ParseContext) error {
-	return maybeRepositoryAction(assertDirectRepository(act), repositoryAccessMode{
-		mustBeConnected: true,
-	})
-}
-
-func directRepositoryReadAction(act func(ctx context.Context, rep *repo.DirectRepository) error) func(ctx *kingpin.ParseContext) error {
-	return maybeRepositoryAction(assertDirectRepository(act), repositoryAccessMode{
+func directRepositoryWriteAction(act func(ctx context.Context, rep repo.DirectRepositoryWriter) error) func(ctx *kingpin.ParseContext) error {
+	return maybeRepositoryAction(assertDirectRepository(func(ctx context.Context, rep repo.DirectRepository) error {
+		return repo.DirectWriteSession(ctx, rep, repo.WriteSessionOptions{
+			Purpose: "directRepositoryWriteAction",
+		}, func(dw repo.DirectRepositoryWriter) error { return act(ctx, dw) })
+	}), repositoryAccessMode{
 		mustBeConnected:    true,
 		disableMaintenance: true,
 	})
 }
 
-func optionalRepositoryAction(act func(ctx context.Context, rep repo.Repository) error) func(ctx *kingpin.ParseContext) error {
-	return maybeRepositoryAction(act, repositoryAccessMode{
-		mustBeConnected: false,
+func directRepositoryReadAction(act func(ctx context.Context, rep repo.DirectRepository) error) func(ctx *kingpin.ParseContext) error {
+	return maybeRepositoryAction(assertDirectRepository(func(ctx context.Context, rep repo.DirectRepository) error {
+		return act(ctx, rep)
+	}), repositoryAccessMode{
+		mustBeConnected:    true,
+		disableMaintenance: true,
 	})
 }
 
-func repositoryReaderAction(act func(ctx context.Context, rep repo.Reader) error) func(ctx *kingpin.ParseContext) error {
+func repositoryReaderAction(act func(ctx context.Context, rep repo.Repository) error) func(ctx *kingpin.ParseContext) error {
 	return maybeRepositoryAction(func(ctx context.Context, rep repo.Repository) error {
 		return act(ctx, rep)
 	}, repositoryAccessMode{
@@ -123,9 +124,13 @@ func repositoryReaderAction(act func(ctx context.Context, rep repo.Reader) error
 	})
 }
 
-func repositoryWriterAction(act func(ctx context.Context, rep repo.Writer) error) func(ctx *kingpin.ParseContext) error {
+func repositoryWriterAction(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error {
 	return maybeRepositoryAction(func(ctx context.Context, rep repo.Repository) error {
-		return act(ctx, rep)
+		return repo.WriteSession(ctx, rep, repo.WriteSessionOptions{
+			Purpose: "repositoryWriterAction",
+		}, func(w repo.RepositoryWriter) error {
+			return act(ctx, w)
+		})
 	}, repositoryAccessMode{
 		mustBeConnected: true,
 	})
@@ -192,7 +197,7 @@ func maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) er
 	}
 }
 
-func maybeRunMaintenance(ctx context.Context, rep repo.Writer) error {
+func maybeRunMaintenance(ctx context.Context, rep repo.Repository) error {
 	if !*enableAutomaticMaintenance {
 		return nil
 	}
@@ -201,10 +206,16 @@ func maybeRunMaintenance(ctx context.Context, rep repo.Writer) error {
 		return nil
 	}
 
-	err := snapshotmaintenance.Run(ctx, rep, maintenance.ModeAuto, false)
-	if err == nil {
+	dr, ok := rep.(repo.DirectRepository)
+	if !ok {
 		return nil
 	}
+
+	err := repo.DirectWriteSession(ctx, dr, repo.WriteSessionOptions{
+		Purpose: "maybeRunMaintenance",
+	}, func(w repo.DirectRepositoryWriter) error {
+		return snapshotmaintenance.Run(ctx, w, maintenance.ModeAuto, false)
+	})
 
 	var noe maintenance.NotOwnedError
 

@@ -9,29 +9,32 @@ import (
 	"github.com/kopia/kopia/repo/maintenance"
 )
 
-func maybeAutoUpgradeRepository(ctx context.Context, r repo.Writer) {
+func maybeAutoUpgradeRepository(ctx context.Context, r repo.Repository) error {
 	if r == nil {
-		return
+		return nil
 	}
 
-	mr, ok := r.(maintenance.MaintainableRepository)
-	if !ok {
-		return
+	has, err := maintenance.HasParams(ctx, r)
+	if err != nil {
+		return errors.Wrap(err, "error looking for maintenance parameters")
 	}
 
-	has, err := maintenance.HasParams(ctx, mr)
-	if err == nil && !has {
-		log(ctx).Noticef("Setting default maintenance parameters...")
-
-		if err := setDefaultMaintenanceParameters(ctx, mr); err != nil {
-			log(ctx).Warningf("unable to set default maintenance parameters: %v", err)
-		}
+	if has {
+		return nil
 	}
+
+	log(ctx).Noticef("Setting default maintenance parameters...")
+
+	return repo.WriteSession(ctx, r, repo.WriteSessionOptions{
+		Purpose: "setDefaultMaintenanceParameters",
+	}, func(w repo.RepositoryWriter) error {
+		return setDefaultMaintenanceParameters(ctx, w)
+	})
 }
 
-func setDefaultMaintenanceParameters(ctx context.Context, rep maintenance.MaintainableRepository) error {
+func setDefaultMaintenanceParameters(ctx context.Context, rep repo.RepositoryWriter) error {
 	p := maintenance.DefaultParams()
-	p.Owner = rep.Username() + "@" + rep.Hostname()
+	p.Owner = rep.ClientOptions().UsernameAtHost()
 
 	if err := maintenance.SetParams(ctx, rep, &p); err != nil {
 		return errors.Wrap(err, "unable to set maintenance params")

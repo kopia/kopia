@@ -31,7 +31,7 @@ var (
 
 const syncProgressInterval = 300 * time.Millisecond
 
-func runSyncWithStorage(ctx context.Context, src, dst blob.Storage) error {
+func runSyncWithStorage(ctx context.Context, src blob.Reader, dst blob.Storage) error {
 	var ()
 
 	log(ctx).Infof("Synchronizing repositories:")
@@ -178,7 +178,7 @@ func finishSyncProcess() {
 	printStderr("\r%v\n", lastSyncProgress)
 }
 
-func runSyncBlobs(ctx context.Context, src, dst blob.Storage, blobsToCopy, blobsToDelete []blob.Metadata, totalBytes int64) error {
+func runSyncBlobs(ctx context.Context, src blob.Reader, dst blob.Storage, blobsToCopy, blobsToDelete []blob.Metadata, totalBytes int64) error {
 	eg, ctx := errgroup.WithContext(ctx)
 	copyCh := sliceToChannel(ctx, blobsToCopy)
 	deleteCh := sliceToChannel(ctx, blobsToDelete)
@@ -259,7 +259,7 @@ func sliceToChannel(ctx context.Context, md []blob.Metadata) chan blob.Metadata 
 
 var setTimeUnsupportedOnce sync.Once
 
-func syncCopyBlob(ctx context.Context, m blob.Metadata, src, dst blob.Storage) error {
+func syncCopyBlob(ctx context.Context, m blob.Metadata, src blob.Reader, dst blob.Storage) error {
 	data, err := src.GetBlob(ctx, m.BlobID, 0, -1)
 	if err != nil {
 		if errors.Is(err, blob.ErrBlobNotFound) {
@@ -299,7 +299,7 @@ func syncDeleteBlob(ctx context.Context, m blob.Metadata, dst blob.Storage) erro
 	return errors.Wrap(err, "error deleting blob")
 }
 
-func ensureRepositoriesHaveSameFormatBlob(ctx context.Context, src, dst blob.Storage) error {
+func ensureRepositoriesHaveSameFormatBlob(ctx context.Context, src blob.Reader, dst blob.Storage) error {
 	srcData, err := src.GetBlob(ctx, repo.FormatBlobID, 0, -1)
 	if err != nil {
 		return errors.Wrap(err, "error reading format blob")

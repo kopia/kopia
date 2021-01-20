@@ -21,7 +21,7 @@ var (
 	contentRewriteMinAge        = contentRewriteCommand.Flag("min-age", "Only rewrite contents above given age").Default("1h").Duration()
 )
 
-func runContentRewriteCommand(ctx context.Context, rep *repo.DirectRepository) error {
+func runContentRewriteCommand(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	advancedCommand(ctx)
 
 	return maintenance.RewriteContents(ctx, rep, &maintenance.RewriteContentsOptions{
@@ -46,6 +46,6 @@ func toContentIDs(s []string) []content.ID {
 }
 
 func init() {
-	contentRewriteCommand.Action(directRepositoryAction(runContentRewriteCommand))
+	contentRewriteCommand.Action(directRepositoryWriteAction(runContentRewriteCommand))
 	setupContentIDRangeFlags(contentRewriteCommand)
 }

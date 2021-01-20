@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/manifest"
 )
 
@@ -55,7 +56,7 @@ type CycleParams struct {
 }
 
 // HasParams determines whether repository-wide maintenance parameters have been set.
-func HasParams(ctx context.Context, rep MaintainableRepository) (bool, error) {
+func HasParams(ctx context.Context, rep repo.Repository) (bool, error) {
 	md, err := manifestIDs(ctx, rep)
 	if err != nil {
 		return false, err
@@ -65,7 +66,7 @@ func HasParams(ctx context.Context, rep MaintainableRepository) (bool, error) {
 }
 
 // GetParams returns repository-wide maintenance parameters.
-func GetParams(ctx context.Context, rep MaintainableRepository) (*Params, error) {
+func GetParams(ctx context.Context, rep repo.Repository) (*Params, error) {
 	md, err := manifestIDs(ctx, rep)
 	if err != nil {
 		return nil, err
@@ -92,7 +93,7 @@ func GetParams(ctx context.Context, rep MaintainableRepository) (*Params, error)
 }
 
 // SetParams sets the maintenance parameters.
-func SetParams(ctx context.Context, rep MaintainableRepository, par *Params) error {
+func SetParams(ctx context.Context, rep repo.RepositoryWriter, par *Params) error {
 	md, err := manifestIDs(ctx, rep)
 	if err != nil {
 		return err
@@ -111,7 +112,7 @@ func SetParams(ctx context.Context, rep MaintainableRepository, par *Params) err
 	return nil
 }
 
-func manifestIDs(ctx context.Context, rep MaintainableRepository) ([]*manifest.EntryMetadata, error) {
+func manifestIDs(ctx context.Context, rep repo.Repository) ([]*manifest.EntryMetadata, error) {
 	md, err := rep.FindManifests(ctx, manifestLabels)
 	if err != nil {
 		return nil, errors.Wrap(err, "error looking for maintenance manifest")

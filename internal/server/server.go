@@ -166,7 +166,12 @@ func (s *Server) handleRefresh(ctx context.Context, r *http.Request, body []byte
 }
 
 func (s *Server) handleFlush(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	if err := s.rep.Flush(ctx); err != nil {
+	rw, ok := s.rep.(repo.RepositoryWriter)
+	if !ok {
+		return nil, repositoryNotWritableError()
+	}
+
+	if err := rw.Flush(ctx); err != nil {
 		return nil, internalServerError(err)
 	}
 
@@ -291,18 +296,31 @@ func (s *Server) refreshPeriodically(ctx context.Context, r repo.Repository) {
 	}
 }
 
-func (s *Server) periodicMaintenance(ctx context.Context, r repo.Writer) {
+func (s *Server) periodicMaintenance(ctx context.Context, rep repo.Repository) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
 
 		case <-time.After(maintenanceAttemptFrequency):
-			if err := snapshotmaintenance.Run(ctx, r, maintenance.ModeAuto, false); err != nil {
+			if err := periodicMaintenanceOnce(ctx, rep); err != nil {
 				log(ctx).Warningf("unable to run maintenance: %v", err)
 			}
 		}
 	}
+}
+
+func periodicMaintenanceOnce(ctx context.Context, rep repo.Repository) error {
+	dr, ok := rep.(repo.DirectRepository)
+	if !ok {
+		return errors.Errorf("not a direct repository")
+	}
+
+	return repo.DirectWriteSession(ctx, dr, repo.WriteSessionOptions{
+		Purpose: "periodicMaintenanceOnce",
+	}, func(w repo.DirectRepositoryWriter) error {
+		return snapshotmaintenance.Run(ctx, w, maintenance.ModeAuto, false)
+	})
 }
 
 // SyncSources synchronizes the repository and source managers.

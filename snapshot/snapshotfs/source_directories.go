@@ -13,7 +13,7 @@ import (
 )
 
 type sourceDirectories struct {
-	rep      repo.Reader
+	rep      repo.Repository
 	userHost string
 }
 

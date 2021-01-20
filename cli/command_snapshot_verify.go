@@ -34,7 +34,7 @@ var (
 )
 
 type verifier struct {
-	rep       repo.Reader
+	rep       repo.Repository
 	workQueue *parallelwork.Queue
 	startTime time.Time
 
@@ -155,9 +155,9 @@ func (v *verifier) doVerifyObject(ctx context.Context, oid object.ID, path strin
 		v.reportError(ctx, path, errors.Wrapf(err, "error verifying %v", oid))
 	}
 
-	if dr, ok := v.rep.(*repo.DirectRepository); v.blobMap != nil && ok {
+	if dr, ok := v.rep.(repo.DirectRepository); v.blobMap != nil && ok {
 		for _, cid := range contentIDs {
-			ci, err := dr.Content.ContentInfo(ctx, cid)
+			ci, err := dr.ContentReader().ContentInfo(ctx, cid)
 			if err != nil {
 				v.reportError(ctx, path, errors.Wrapf(err, "error verifying content %v: %v", cid, err))
 				continue
@@ -197,7 +197,7 @@ func (v *verifier) readEntireObject(ctx context.Context, oid object.ID, path str
 	return errors.Wrap(err, "unable to read data")
 }
 
-func runVerifyCommand(ctx context.Context, rep repo.Reader) error {
+func runVerifyCommand(ctx context.Context, rep repo.Repository) error {
 	if *verifyCommandAllSources {
 		log(ctx).Noticef("DEPRECATED: --all-sources flag has no effect and is the default when no sources are provided.")
 	}
@@ -209,8 +209,8 @@ func runVerifyCommand(ctx context.Context, rep repo.Reader) error {
 		seen:      map[object.ID]bool{},
 	}
 
-	if dr, ok := rep.(*repo.DirectRepository); ok {
-		blobMap, err := readBlobMap(ctx, dr)
+	if dr, ok := rep.(repo.DirectRepository); ok {
+		blobMap, err := readBlobMap(ctx, dr.BlobReader())
 		if err != nil {
 			return err
 		}
@@ -234,7 +234,7 @@ func runVerifyCommand(ctx context.Context, rep repo.Reader) error {
 	return errors.Errorf("encountered %v errors", len(v.errors))
 }
 
-func enqueueRootsToVerify(ctx context.Context, v *verifier, rep repo.Reader) error {
+func enqueueRootsToVerify(ctx context.Context, v *verifier, rep repo.Repository) error {
 	manifests, err := loadSourceManifests(ctx, rep, *verifyCommandSources)
 	if err != nil {
 		return err
@@ -275,7 +275,7 @@ func enqueueRootsToVerify(ctx context.Context, v *verifier, rep repo.Reader) err
 	return nil
 }
 
-func loadSourceManifests(ctx context.Context, rep repo.Reader, sources []string) ([]*snapshot.Manifest, error) {
+func loadSourceManifests(ctx context.Context, rep repo.Repository, sources []string) ([]*snapshot.Manifest, error) {
 	var manifestIDs []manifest.ID
 
 	if len(sources)+len(*verifyCommandDirObjectIDs)+len(*verifyCommandFileObjectIDs) == 0 {

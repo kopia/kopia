@@ -14,7 +14,7 @@ var (
 	maintenanceRunForce   = maintenanceRunCommand.Flag("force", "Run maintenance even if not owned (unsafe)").Hidden().Bool()
 )
 
-func runMaintenanceCommand(ctx context.Context, rep *repo.DirectRepository) error {
+func runMaintenanceCommand(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	mode := maintenance.ModeQuick
 	if *maintenanceRunFull {
 		mode = maintenance.ModeFull
@@ -24,5 +24,5 @@ func runMaintenanceCommand(ctx context.Context, rep *repo.DirectRepository) erro
 }
 
 func init() {
-	maintenanceRunCommand.Action(directRepositoryAction(runMaintenanceCommand))
+	maintenanceRunCommand.Action(directRepositoryWriteAction(runMaintenanceCommand))
 }

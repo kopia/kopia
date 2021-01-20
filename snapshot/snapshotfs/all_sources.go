@@ -14,7 +14,7 @@ import (
 )
 
 type repositoryAllSources struct {
-	rep repo.Reader
+	rep repo.Repository
 }
 
 func (s *repositoryAllSources) IsDir() bool {
@@ -82,6 +82,6 @@ func (s *repositoryAllSources) Readdir(ctx context.Context) (fs.Entries, error) 
 }
 
 // AllSourcesEntry returns fs.Directory that contains the list of all snapshot sources found in the repository.
-func AllSourcesEntry(rep repo.Reader) fs.Directory {
+func AllSourcesEntry(rep repo.Repository) fs.Directory {
 	return &repositoryAllSources{rep: rep}
 }

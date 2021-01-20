@@ -25,10 +25,10 @@ var (
 	maintenanceSetPauseFull  = maintenanceSetCommand.Flag("pause-full", "Pause full maintenance for a specified duration").DurationList()
 )
 
-func setMaintenanceOwnerFromFlags(ctx context.Context, p *maintenance.Params, rep *repo.DirectRepository, changed *bool) {
+func setMaintenanceOwnerFromFlags(ctx context.Context, p *maintenance.Params, rep repo.DirectRepositoryWriter, changed *bool) {
 	if v := *maintenanceSetOwner; v != "" {
 		if v == "me" {
-			p.Owner = rep.Username() + "@" + rep.Hostname()
+			p.Owner = rep.ClientOptions().UsernameAtHost()
 		} else {
 			p.Owner = v
 		}
@@ -63,7 +63,7 @@ func setMaintenanceEnabledAndIntervalFromFlags(ctx context.Context, c *maintenan
 	}
 }
 
-func runMaintenanceSetParams(ctx context.Context, rep *repo.DirectRepository) error {
+func runMaintenanceSetParams(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	p, err := maintenance.GetParams(ctx, rep)
 	if err != nil {
 		return errors.Wrap(err, "unable to get current parameters")
@@ -116,5 +116,5 @@ func runMaintenanceSetParams(ctx context.Context, rep *repo.DirectRepository) er
 }
 
 func init() {
-	maintenanceSetCommand.Action(directRepositoryAction(runMaintenanceSetParams))
+	maintenanceSetCommand.Action(directRepositoryWriteAction(runMaintenanceSetParams))
 }

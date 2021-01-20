@@ -11,7 +11,7 @@ import (
 )
 
 // ApplyRetentionPolicy applies retention policy to a given source by deleting expired snapshots.
-func ApplyRetentionPolicy(ctx context.Context, rep repo.Writer, sourceInfo snapshot.SourceInfo, reallyDelete bool) ([]*snapshot.Manifest, error) {
+func ApplyRetentionPolicy(ctx context.Context, rep repo.RepositoryWriter, sourceInfo snapshot.SourceInfo, reallyDelete bool) ([]*snapshot.Manifest, error) {
 	snapshots, err := snapshot.ListSnapshots(ctx, rep, sourceInfo)
 	if err != nil {
 		return nil, errors.Wrap(err, "error listing snapshots")
@@ -33,7 +33,7 @@ func ApplyRetentionPolicy(ctx context.Context, rep repo.Writer, sourceInfo snaps
 	return toDelete, nil
 }
 
-func getExpiredSnapshots(ctx context.Context, rep repo.Reader, snapshots []*snapshot.Manifest) ([]*snapshot.Manifest, error) {
+func getExpiredSnapshots(ctx context.Context, rep repo.Repository, snapshots []*snapshot.Manifest) ([]*snapshot.Manifest, error) {
 	var toDelete []*snapshot.Manifest
 
 	for _, snapshotGroup := range snapshot.GroupBySource(snapshots) {
@@ -48,7 +48,7 @@ func getExpiredSnapshots(ctx context.Context, rep repo.Reader, snapshots []*snap
 	return toDelete, nil
 }
 
-func getExpiredSnapshotsForSource(ctx context.Context, rep repo.Reader, snapshots []*snapshot.Manifest) ([]*snapshot.Manifest, error) {
+func getExpiredSnapshotsForSource(ctx context.Context, rep repo.Repository, snapshots []*snapshot.Manifest) ([]*snapshot.Manifest, error) {
 	src := snapshots[0].Source
 
 	pol, _, err := GetEffectivePolicy(ctx, rep, src)

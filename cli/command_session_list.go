@@ -10,8 +10,8 @@ import (
 
 var sessionListCommand = sessionCommands.Command("list", "List sessions").Alias("ls")
 
-func runSessionList(ctx context.Context, rep *repo.DirectRepository) error {
-	sessions, err := rep.ListActiveSessions(ctx)
+func runSessionList(ctx context.Context, rep repo.DirectRepository) error {
+	sessions, err := rep.ContentReader().ListActiveSessions(ctx)
 	if err != nil {
 		return errors.Wrap(err, "error listing sessions")
 	}
@@ -24,5 +24,5 @@ func runSessionList(ctx context.Context, rep *repo.DirectRepository) error {
 }
 
 func init() {
-	sessionListCommand.Action(directRepositoryAction(runSessionList))
+	sessionListCommand.Action(directRepositoryReadAction(runSessionList))
 }

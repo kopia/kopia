@@ -11,6 +11,7 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/serverapi"
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
@@ -240,40 +241,40 @@ func (s *sourceManager) snapshot(ctx context.Context) error {
 		return errors.Wrap(err, "unable to create local filesystem")
 	}
 
-	u := snapshotfs.NewUploader(s.server.rep)
+	return repo.WriteSession(ctx, s.server.rep, repo.WriteSessionOptions{
+		Purpose: "Source Manager Uploader",
+	}, func(w repo.RepositoryWriter) error {
+		log(ctx).Debugf("uploading %v", s.src)
+		u := snapshotfs.NewUploader(w)
 
-	policyTree, err := policy.TreeForSource(ctx, s.server.rep, s.src)
-	if err != nil {
-		return errors.Wrap(err, "unable to create policy getter")
-	}
+		policyTree, err := policy.TreeForSource(ctx, w, s.src)
+		if err != nil {
+			return errors.Wrap(err, "unable to create policy getter")
+		}
 
-	u.Progress = s.progress
+		u.Progress = s.progress
 
-	log(ctx).Debugf("starting upload of %v", s.src)
-	s.setUploader(u)
-	manifest, err := u.Upload(ctx, localEntry, policyTree, s.src, s.manifestsSinceLastCompleteSnapshot...)
-	s.setUploader(nil)
+		log(ctx).Debugf("starting upload of %v", s.src)
+		s.setUploader(u)
+		manifest, err := u.Upload(ctx, localEntry, policyTree, s.src, s.manifestsSinceLastCompleteSnapshot...)
+		s.setUploader(nil)
 
-	if err != nil {
-		return errors.Wrap(err, "upload error")
-	}
+		if err != nil {
+			return errors.Wrap(err, "upload error")
+		}
 
-	snapshotID, err := snapshot.SaveSnapshot(ctx, s.server.rep, manifest)
-	if err != nil {
-		return errors.Wrap(err, "unable to save snapshot")
-	}
+		snapshotID, err := snapshot.SaveSnapshot(ctx, w, manifest)
+		if err != nil {
+			return errors.Wrap(err, "unable to save snapshot")
+		}
 
-	if _, err := policy.ApplyRetentionPolicy(ctx, s.server.rep, s.src, true); err != nil {
-		return errors.Wrap(err, "unable to apply retention policy")
-	}
+		if _, err := policy.ApplyRetentionPolicy(ctx, w, s.src, true); err != nil {
+			return errors.Wrap(err, "unable to apply retention policy")
+		}
 
-	log(ctx).Debugf("created snapshot %v", snapshotID)
-
-	if err := s.server.rep.Flush(ctx); err != nil {
-		return errors.Wrap(err, "unable to flush")
-	}
-
-	return nil
+		log(ctx).Debugf("created snapshot %v", snapshotID)
+		return nil
+	})
 }
 
 func (s *sourceManager) findClosestNextSnapshotTime() *time.Time {

@@ -16,7 +16,7 @@ var (
 	catCommandPath = catCommand.Arg("object-path", "Path").Required().String()
 )
 
-func runCatCommand(ctx context.Context, rep repo.Reader) error {
+func runCatCommand(ctx context.Context, rep repo.Repository) error {
 	oid, err := snapshotfs.ParseObjectIDWithPath(ctx, rep, *catCommandPath)
 	if err != nil {
 		return errors.Wrapf(err, "unable to parse ID: %v", *catCommandPath)

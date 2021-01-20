@@ -8,10 +8,10 @@ import (
 
 var upgradeCommand = repositoryCommands.Command("upgrade", "Upgrade repository format.")
 
-func runUpgradeCommand(ctx context.Context, rep *repo.DirectRepository) error {
+func runUpgradeCommand(ctx context.Context, rep repo.DirectRepositoryWriter) error {
 	return rep.Upgrade(ctx)
 }
 
 func init() {
-	upgradeCommand.Action(directRepositoryAction(runUpgradeCommand))
+	upgradeCommand.Action(directRepositoryWriteAction(runUpgradeCommand))
 }

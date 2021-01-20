@@ -35,7 +35,7 @@ var (
 	maxResultsPerPath                = snapshotListCommand.Flag("max-results", "Maximum number of entries per source.").Short('n').Int()
 )
 
-func findSnapshotsForSource(ctx context.Context, rep repo.Reader, sourceInfo snapshot.SourceInfo) (manifestIDs []manifest.ID, relPath string, err error) {
+func findSnapshotsForSource(ctx context.Context, rep repo.Repository, sourceInfo snapshot.SourceInfo) (manifestIDs []manifest.ID, relPath string, err error) {
 	for len(sourceInfo.Path) > 0 {
 		list, err := snapshot.ListSnapshotManifests(ctx, rep, &sourceInfo)
 		if err != nil {
@@ -65,7 +65,7 @@ func findSnapshotsForSource(ctx context.Context, rep repo.Reader, sourceInfo sna
 	return nil, "", nil
 }
 
-func findManifestIDs(ctx context.Context, rep repo.Reader, source string) ([]manifest.ID, string, error) {
+func findManifestIDs(ctx context.Context, rep repo.Repository, source string) ([]manifest.ID, string, error) {
 	if source == "" {
 		man, err := snapshot.ListSnapshotManifests(ctx, rep, nil)
 		return man, "", errors.Wrap(err, "error listing all snapshot manifests")
@@ -84,7 +84,7 @@ func findManifestIDs(ctx context.Context, rep repo.Reader, source string) ([]man
 	return manifestIDs, relPath, err
 }
 
-func runSnapshotsCommand(ctx context.Context, rep repo.Reader) error {
+func runSnapshotsCommand(ctx context.Context, rep repo.Repository) error {
 	manifestIDs, relPath, err := findManifestIDs(ctx, rep, *snapshotListPath)
 	if err != nil {
 		return err
@@ -98,7 +98,7 @@ func runSnapshotsCommand(ctx context.Context, rep repo.Reader) error {
 	return outputManifestGroups(ctx, rep, manifests, strings.Split(relPath, "/"))
 }
 
-func shouldOutputSnapshotSource(rep repo.Reader, src snapshot.SourceInfo) bool {
+func shouldOutputSnapshotSource(rep repo.Repository, src snapshot.SourceInfo) bool {
 	if *snapshotListShowAll {
 		return true
 	}
@@ -112,7 +112,7 @@ func shouldOutputSnapshotSource(rep repo.Reader, src snapshot.SourceInfo) bool {
 	return src.UserName == co.Username
 }
 
-func outputManifestGroups(ctx context.Context, rep repo.Reader, manifests []*snapshot.Manifest, relPathParts []string) error {
+func outputManifestGroups(ctx context.Context, rep repo.Repository, manifests []*snapshot.Manifest, relPathParts []string) error {
 	separator := ""
 
 	var anyOutput bool
@@ -148,7 +148,7 @@ func outputManifestGroups(ctx context.Context, rep repo.Reader, manifests []*sna
 	return nil
 }
 
-func outputManifestFromSingleSource(ctx context.Context, rep repo.Reader, manifests []*snapshot.Manifest, parts []string) error {
+func outputManifestFromSingleSource(ctx context.Context, rep repo.Repository, manifests []*snapshot.Manifest, parts []string) error {
 	var (
 		count             int
 		lastTotalFileSize int64

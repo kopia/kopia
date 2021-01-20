@@ -21,7 +21,7 @@ var (
 	diffCommandCommand   = diffCommand.Flag("diff-command", "Displays differences between two repository objects (files or directories)").Default(defaultDiffCommand()).Envar("KOPIA_DIFF").String()
 )
 
-func runDiffCommand(ctx context.Context, rep repo.Reader) error {
+func runDiffCommand(ctx context.Context, rep repo.Repository) error {
 	ent1, err := snapshotfs.FilesystemEntryFromIDWithPath(ctx, rep, *diffFirstObjectPath, false)
 	if err != nil {
 		return errors.Wrapf(err, "error getting filesystem entry for %v", *diffFirstObjectPath)
