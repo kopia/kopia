@@ -21,6 +21,7 @@ import (
 // SharedManager is responsible for read-only access to committed data.
 type SharedManager struct {
 	refCount int32 // number of Manager objects that refer to this SharedManager
+	closed   bool
 
 	Stats             *Stats
 	st                blob.Storage
@@ -324,6 +325,10 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 
 // AddRef adds a reference to shared manager to prevents its closing on Release().
 func (sm *SharedManager) addRef() {
+	if sm.closed {
+		panic("attempted to re-use closed SharedManager")
+	}
+
 	atomic.AddInt32(&sm.refCount, 1)
 }
 
@@ -334,6 +339,8 @@ func (sm *SharedManager) release(ctx context.Context) error {
 		log(ctx).Debugf("not closing shared manager, remaining = %v", remaining)
 		return nil
 	}
+
+	sm.closed = true
 
 	log(ctx).Debugf("closing shared manager")
 
