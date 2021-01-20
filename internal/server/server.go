@@ -13,6 +13,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/auth"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/logging"
@@ -35,6 +36,9 @@ type Server struct {
 	options   Options
 	rep       repo.Repository
 	cancelRep context.CancelFunc
+
+	authenticator auth.Authenticator
+	authorizer    auth.AuthorizerFunc
 
 	// all API requests run with shared lock on this mutex
 	// administrative actions run with an exclusive lock and block API calls.
@@ -67,7 +71,7 @@ func (s *Server) APIHandlers() http.Handler {
 	m.HandleFunc("/api/v1/flush", s.handleAPI(s.handleFlush)).Methods(http.MethodPost)
 	m.HandleFunc("/api/v1/shutdown", s.handleAPIPossiblyNotConnected(s.handleShutdown)).Methods(http.MethodPost)
 
-	m.HandleFunc("/api/v1/objects/{objectID}", s.handleObjectGet).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/objects/{objectID}", s.requireAuth(s.handleObjectGet)).Methods(http.MethodGet)
 
 	m.HandleFunc("/api/v1/repo/status", s.handleAPIPossiblyNotConnected(s.handleRepoStatus)).Methods(http.MethodGet)
 	m.HandleFunc("/api/v1/repo/connect", s.handleAPIPossiblyNotConnected(s.handleRepoConnect)).Methods(http.MethodPost)
@@ -99,6 +103,49 @@ func (s *Server) APIHandlers() http.Handler {
 	return m
 }
 
+func (s *Server) isAuthenticated(w http.ResponseWriter, r *http.Request) bool {
+	if s.authenticator != nil {
+		username, password, ok := r.BasicAuth()
+		if !ok {
+			w.Header().Set("WWW-Authenticate", `Basic realm="Kopia"`)
+			http.Error(w, "Missing credentials.\n", http.StatusUnauthorized)
+
+			return false
+		}
+
+		if !s.authenticator(r.Context(), s.rep, username, password) {
+			w.Header().Set("WWW-Authenticate", `Basic realm="Kopia"`)
+			http.Error(w, "Access denied.\n", http.StatusUnauthorized)
+
+			return false
+		}
+	}
+
+	return true
+}
+
+func (s *Server) requireAuth(f http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !s.isAuthenticated(w, r) {
+			return
+		}
+
+		f(w, r)
+	}
+}
+
+func (s *Server) httpAuthorizationInfo(r *http.Request) auth.AuthorizationInfo {
+	// authentication already done
+	userAtHost, _, _ := r.BasicAuth()
+
+	authz := s.authorizer(r.Context(), s.rep, userAtHost)
+	if authz == nil {
+		authz = auth.NoAccess
+	}
+
+	return authz
+}
+
 func (s *Server) handleAPI(f apiRequestFunc) http.HandlerFunc {
 	return s.handleAPIPossiblyNotConnected(func(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 		if s.rep == nil {
@@ -110,7 +157,7 @@ func (s *Server) handleAPI(f apiRequestFunc) http.HandlerFunc {
 }
 
 func (s *Server) handleAPIPossiblyNotConnected(f apiRequestFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+	return s.requireAuth(func(w http.ResponseWriter, r *http.Request) {
 		// we must pre-read request body before acquiring the lock as it sometimes leads to deadlock
 		// in HTTP/2 server.
 		// See https://github.com/golang/go/issues/40816
@@ -154,7 +201,7 @@ func (s *Server) handleAPIPossiblyNotConnected(f apiRequestFunc) http.HandlerFun
 			Code:  err.apiErrorCode,
 			Error: err.message,
 		})
-	}
+	})
 }
 
 func (s *Server) handleRefresh(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
@@ -414,15 +461,23 @@ type Options struct {
 	ConfigFile      string
 	ConnectOptions  *repo.ConnectOptions
 	RefreshInterval time.Duration
+	Authenticator   auth.Authenticator
+	Authorizer      auth.AuthorizerFunc
 }
 
 // New creates a Server.
 // The server will manage sources for a given username@hostname.
 func New(ctx context.Context, options Options) (*Server, error) {
+	if options.Authorizer == nil {
+		return nil, errors.Errorf("missing authorizer")
+	}
+
 	s := &Server{
 		options:         options,
 		sourceManagers:  map[snapshot.SourceInfo]*sourceManager{},
 		uploadSemaphore: make(chan struct{}, 1),
+		authenticator:   options.Authenticator,
+		authorizer:      options.Authorizer,
 	}
 
 	return s, nil
