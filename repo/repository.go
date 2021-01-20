@@ -332,14 +332,16 @@ func DirectWriteSession(ctx context.Context, r DirectRepository, opt WriteSessio
 }
 
 func handleWriteSessionResult(ctx context.Context, r Repository, w RepositoryWriter, opt WriteSessionOptions, resultErr error) error {
+	defer func() {
+		if err := w.Close(ctx); err != nil {
+			log(ctx).Warningf("error closing writer: %v", err)
+		}
+	}()
+
 	if resultErr == nil || opt.FlushOnFailure {
 		if err := w.Flush(ctx); err != nil {
 			return errors.Wrap(err, "error flushing writer")
 		}
-	}
-
-	if err := w.Close(ctx); err != nil {
-		return errors.Wrap(err, "error closing writer")
 	}
 
 	if err := r.Refresh(ctx); err != nil {
