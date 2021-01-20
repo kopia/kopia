@@ -214,6 +214,21 @@ func (bm *WriteManager) addToPackUnlocked(ctx context.Context, contentID ID, dat
 		bm.cond.Wait()
 	}
 
+	// see if we have any packs that have failed previously
+	// retry writing them now.
+	//
+	// we're making a copy of bm.failedPacks since bm.writePackAndAddToIndex()
+	// will remove from it on success.
+	fp := append([]*pendingPackInfo(nil), bm.failedPacks...)
+	for _, pp := range fp {
+		formatLog(ctx).Debugf("retry-write %v", pp.packBlobID)
+
+		if err := bm.writePackAndAddToIndex(ctx, pp, true); err != nil {
+			bm.unlock()
+			return errors.Wrap(err, "error writing previously failed pack")
+		}
+	}
+
 	pp, err := bm.getOrCreatePendingPackInfoLocked(ctx, prefix)
 	if err != nil {
 		bm.unlock()
