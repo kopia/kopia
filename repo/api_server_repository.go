@@ -135,7 +135,7 @@ func (r *apiServerRepository) NewWriter(ctx context.Context, purpose string) (Re
 	r2 := *r
 	w := &r2
 
-	// create object manager using rr as contentManager implementation.
+	// create object manager using a remote repo as contentManager implementation.
 	omgr, err := object.NewObjectManager(ctx, w, r.objectFormat)
 	if err != nil {
 		return nil, errors.Wrap(err, "error initializing object manager")
