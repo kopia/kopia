@@ -30,6 +30,11 @@ type FilesystemOutput struct {
 	// instead.
 	OverwriteFiles bool
 
+	// If a symlink already exists, remove it and create a new one. When set to
+	// false, the copier does not modify existing symlinks and will return an
+	// error instead.
+	OverwriteSymlinks bool
+
 	// IgnorePermissionErrors causes restore to ignore errors due to invalid permissions.
 	IgnorePermissionErrors bool
 
@@ -101,6 +106,24 @@ func (o *FilesystemOutput) CreateSymlink(ctx context.Context, relativePath strin
 
 	path := filepath.Join(o.TargetPath, filepath.FromSlash(relativePath))
 
+	switch stat, err := os.Lstat(path); {
+	case os.IsNotExist(err): // Proceed to symlink creation
+	case err != nil:
+		return errors.Wrap(err, "lstat error at symlink path")
+	case fileIsSymlink(stat):
+		// Throw error if we are not overwriting symlinks
+		if !o.OverwriteSymlinks {
+			return errors.Errorf("will not overwrite existing symlink")
+		}
+
+		// Remove the existing symlink before symlink creation
+		if err := os.Remove(path); err != nil {
+			return errors.Wrap(err, "removing existing symlink")
+		}
+	default:
+		return errors.Errorf("unable to create symlink, %q already exists and is not a symlink", path)
+	}
+
 	if err := os.Symlink(targetPath, path); err != nil {
 		return errors.Wrap(err, "error creating symlink")
 	}
@@ -110,6 +133,10 @@ func (o *FilesystemOutput) CreateSymlink(ctx context.Context, relativePath strin
 	}
 
 	return nil
+}
+
+func fileIsSymlink(stat os.FileInfo) bool {
+	return stat.Mode()&os.ModeSymlink != 0
 }
 
 // set permission, modification time and user/group ids on targetPath.

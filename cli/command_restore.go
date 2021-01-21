@@ -40,6 +40,19 @@ Similarly, the following command will restore the contents of a subdirectory
 directory named 'sd2'
 
 'restore kffbb7c28ea6c34d6cbe555d1cf80faa9/subdir1/subdir2 sd2'
+
+When restoring to a target path that already has existing data, by default
+the restore will attempt to overwrite, unless one or more of the following flags
+has been set (to prevent overwrite of each type):
+
+--no-overwrite-files
+--no-overwrite-directories
+--no-overwrite-symlinks
+
+The restore will only attempt to overwrite an existing file system entry if
+it is the same type as in the source. For example a if restoring a symlink,
+an existing symlink with the same name will be overwritten, but a directory
+with the same name will not; an error will be thrown instead.
 `
 	restoreCommandSourcePathHelp = `Source directory ID/path in the form of a
 directory ID and optionally a sub-directory path. For example,
@@ -56,6 +69,7 @@ var (
 	restoreTargetPath             = ""
 	restoreOverwriteDirectories   = true
 	restoreOverwriteFiles         = true
+	restoreOverwriteSymlinks      = true
 	restoreConsistentAttributes   = false
 	restoreMode                   = restoreModeAuto
 	restoreParallel               = 8
@@ -79,6 +93,7 @@ func addRestoreFlags(cmd *kingpin.CmdClause) {
 	cmd.Arg("target-path", "Path of the directory for the contents to be restored").Required().StringVar(&restoreTargetPath)
 	cmd.Flag("overwrite-directories", "Overwrite existing directories").BoolVar(&restoreOverwriteDirectories)
 	cmd.Flag("overwrite-files", "Specifies whether or not to overwrite already existing files").BoolVar(&restoreOverwriteFiles)
+	cmd.Flag("overwrite-symlinks", "Specifies whether or not to overwrite already existing symlinks").BoolVar(&restoreOverwriteSymlinks)
 	cmd.Flag("consistent-attributes", "When multiple snapshots match, fail if they have inconsistent attributes").Envar("KOPIA_RESTORE_CONSISTENT_ATTRIBUTES").BoolVar(&restoreConsistentAttributes)
 	cmd.Flag("mode", "Override restore mode").EnumVar(&restoreMode, restoreModeAuto, restoreModeLocal, restoreModeZip, restoreModeZipNoCompress, restoreModeTar, restoreModeTgz)
 	cmd.Flag("parallel", "Restore parallelism (1=disable)").IntVar(&restoreParallel)
@@ -101,6 +116,7 @@ func restoreOutput(ctx context.Context) (restore.Output, error) {
 			TargetPath:             p,
 			OverwriteDirectories:   restoreOverwriteDirectories,
 			OverwriteFiles:         restoreOverwriteFiles,
+			OverwriteSymlinks:      restoreOverwriteSymlinks,
 			IgnorePermissionErrors: restoreIgnorePermissionErrors,
 			SkipOwners:             restoreSkipOwners,
 			SkipPermissions:        restoreSkipPermissions,

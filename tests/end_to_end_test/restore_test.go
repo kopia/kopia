@@ -230,6 +230,16 @@ func TestSnapshotRestore(t *testing.T) {
 	// Restored contents should match source
 	compareDirs(t, source, restoreDir)
 
+	// Check restore idempotency. Repeat the restore into the already-restored directory.
+	// If running the test as non-admin on Windows, there may not be sufficient permissions
+	// to overwrite the existing files, so skip this check to avoid "Access is denied" errors.
+	if runtime.GOOS != windowsOSName {
+		e.RunAndExpectSuccess(t, "snapshot", "restore", snapID, restoreDir)
+	}
+
+	// Restored contents should still match source
+	compareDirs(t, source, restoreDir)
+
 	cases := []struct {
 		fname     string
 		args      []string
@@ -270,19 +280,17 @@ func TestSnapshotRestore(t *testing.T) {
 		t.Fatalf("unexpected stat() results on output.zip directory %v %v", st, err)
 	}
 
-	restoreFailDir := t.TempDir()
-
 	// Attempt to restore snapshot with an already-existing target directory
 	// It should fail because the directory is not empty
-	_ = os.MkdirAll(restoreFailDir, 0o700)
-
 	e.RunAndExpectFailure(t, "snapshot", "restore", "--no-overwrite-directories", snapID, restoreDir)
 
 	// Attempt to restore snapshot with an already-existing target directory
 	// It should fail because target files already exist
-	_ = os.MkdirAll(restoreFailDir, 0o700)
-
 	e.RunAndExpectFailure(t, "snapshot", "restore", "--no-overwrite-files", snapID, restoreDir)
+
+	// Attempt to restore snapshot with an already-existing target directory
+	// It should fail because target symlinks already exist
+	e.RunAndExpectFailure(t, "snapshot", "restore", "--no-overwrite-symlinks", snapID, restoreDir)
 }
 
 func TestRestoreSymlinkWithoutTarget(t *testing.T) {
@@ -317,6 +325,49 @@ func TestRestoreSymlinkWithoutTarget(t *testing.T) {
 
 	restoredDir := t.TempDir()
 	e.RunAndExpectSuccess(t, "snapshot", "restore", "--no-ignore-permission-errors", snapID, restoredDir)
+}
+
+func TestRestoreSymlinkWithNonSymlinkOverwrite(t *testing.T) {
+	t.Parallel()
+
+	e := testenv.NewCLITest(t)
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+
+	source := t.TempDir()
+
+	testLinkName := "lnk"
+	lnkPath := filepath.Join(source, testLinkName)
+
+	if err := os.Symlink(".no-such-file", lnkPath); err != nil {
+		t.Fatal(err)
+	}
+
+	e.RunAndExpectSuccess(t, "snapshot", "create", source)
+
+	// obtain snapshot root id and use it for restore
+	si := e.ListSnapshotsAndExpectSuccess(t, source)
+	if got, want := len(si), 1; got != want {
+		t.Fatalf("got %v sources, wanted %v", got, want)
+	}
+
+	if got, want := len(si[0].Snapshots), 1; got != want {
+		t.Fatalf("got %v snapshots, wanted %v", got, want)
+	}
+
+	snapID := si[0].Snapshots[0].SnapshotID
+
+	restoreDir := t.TempDir()
+
+	// Make a directory containing a non-symlink entry named the same as the link captured by the snapshot
+	dirWithLinkName := filepath.Join(restoreDir, testLinkName)
+
+	if err := os.Mkdir(dirWithLinkName, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	e.RunAndExpectFailure(t, "snapshot", "restore", snapID, restoreDir)
 }
 
 func TestRestoreSnapshotOfSingleFile(t *testing.T) {
