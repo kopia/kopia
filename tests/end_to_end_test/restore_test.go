@@ -231,7 +231,11 @@ func TestSnapshotRestore(t *testing.T) {
 	compareDirs(t, source, restoreDir)
 
 	// Check restore idempotency. Repeat the restore into the already-restored directory.
-	e.RunAndExpectSuccess(t, "snapshot", "restore", snapID, restoreDir)
+	// If running the test as non-admin on Windows, there may not be sufficient permissions
+	// to overwrite the existing files, so skip this check to avoid "Access is denied" errors.
+	if runtime.GOOS != windowsOSName {
+		e.RunAndExpectSuccess(t, "snapshot", "restore", snapID, restoreDir)
+	}
 
 	// Restored contents should still match source
 	compareDirs(t, source, restoreDir)
