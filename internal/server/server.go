@@ -140,7 +140,7 @@ func (s *Server) httpAuthorizationInfo(r *http.Request) auth.AuthorizationInfo {
 
 	authz := s.authorizer(r.Context(), s.rep, userAtHost)
 	if authz == nil {
-		authz = auth.NoAccess
+		authz = auth.NoAccess()
 	}
 
 	return authz

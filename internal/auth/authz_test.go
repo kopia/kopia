@@ -69,7 +69,7 @@ var bazPolicy = map[string]string{
 }
 
 func TestNoAccess(t *testing.T) {
-	na := auth.NoAccess
+	na := auth.NoAccess()
 
 	if got, want := na.ContentAccessLevel(), auth.AccessLevelNone; got != want {
 		t.Errorf("invalid content access level: %v, want %v", got, want)

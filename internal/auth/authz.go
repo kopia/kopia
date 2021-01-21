@@ -37,8 +37,10 @@ func (noAccessAuthorizer) ManifestAccessLevel(labels map[string]string) AccessLe
 	return AccessLevelNone
 }
 
-// NoAccess implements AuthorizationInfo which grants no permissions.
-var NoAccess AuthorizationInfo = noAccessAuthorizer{}
+// NoAccess returns AuthorizationInfo which grants no permissions.
+func NoAccess() AuthorizationInfo {
+	return noAccessAuthorizer{}
+}
 
 type legacyAuthorizer struct {
 	usernameAtHostname string
