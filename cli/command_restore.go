@@ -40,6 +40,19 @@ Similarly, the following command will restore the contents of a subdirectory
 directory named 'sd2'
 
 'restore kffbb7c28ea6c34d6cbe555d1cf80faa9/subdir1/subdir2 sd2'
+
+When restoring to a target path that already has existing data, by default
+the restore will attempt to overwrite, unless one or more of the following flags
+has been set (to prevent overwrite of each type):
+
+--no-overwrite-files
+--no-overwrite-directories
+--no-overwrite-symlinks
+
+The restore will only attempt to overwrite an existing file system entry if
+it is the same type as in the source. For example a if restoring a symlink,
+an existing symlink with the same name will be overwritten, but a directory
+with the same name will not; an error will be thrown instead.
 `
 	restoreCommandSourcePathHelp = `Source directory ID/path in the form of a
 directory ID and optionally a sub-directory path. For example,
