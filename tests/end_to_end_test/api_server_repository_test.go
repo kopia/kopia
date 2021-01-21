@@ -14,7 +14,20 @@ import (
 // foo@bar - password baz.
 var htpasswdFileContents = []byte("foo@bar:$2y$05$JWrExvBe5Knh0.AMLk5WHu.EzfOP.LhrqMIRf1YseZ/rulBjKqGJ.\n")
 
-func TestAPIServerRepository(t *testing.T) {
+func TestAPIServerRepository_GRPC(t *testing.T) {
+	t.Parallel()
+
+	testAPIServerRepository(t, nil, nil)
+}
+
+func TestAPIServerRepository_DisableGRPC(t *testing.T) {
+	t.Parallel()
+
+	testAPIServerRepository(t, []string{"--no-grpc"}, []string{"--disable-grpc"})
+}
+
+// nolint:thelper
+func testAPIServerRepository(t *testing.T, serverStartArgs, connectArgs []string) {
 	ctx := testlogging.Context(t)
 
 	e := testenv.NewCLITest(t)
@@ -40,13 +53,14 @@ func TestAPIServerRepository(t *testing.T) {
 	var sp serverParameters
 
 	e.RunAndProcessStderr(t, sp.ProcessOutput,
-		"server", "start",
-		"--address=localhost:0",
-		"--random-password",
-		"--tls-generate-cert",
-		"--auto-shutdown=60s",
-		"--htpasswd-file", htpasswordFile,
-	)
+		append([]string{
+			"server", "start",
+			"--address=localhost:0",
+			"--random-password",
+			"--tls-generate-cert",
+			"--auto-shutdown=60s",
+			"--htpasswd-file", htpasswordFile,
+		}, serverStartArgs...)...)
 	t.Logf("detected server parameters %#v", sp)
 
 	cli, err := apiclient.NewKopiaAPIClient(apiclient.Options{
@@ -67,13 +81,14 @@ func TestAPIServerRepository(t *testing.T) {
 	e2 := testenv.NewCLITest(t)
 	defer e2.RunAndExpectSuccess(t, "repo", "disconnect")
 
-	e2.RunAndExpectSuccess(t, "repo", "connect", "server",
-		"--url", sp.baseURL+"/",
+	e2.RunAndExpectSuccess(t, append([]string{
+		"repo", "connect", "server",
+		"--url", sp.baseURL + "/",
 		"--server-cert-fingerprint", sp.sha256Fingerprint,
 		"--override-username", "foo",
 		"--override-hostname", "bar",
 		"--password", "baz",
-	)
+	}, connectArgs...)...)
 
 	// we are providing custom password to connect, make sure we won't be providing
 	// (different) default password via environment variable, as command-line password
