@@ -1,0 +1,450 @@
+package server
+
+import (
+	"context"
+	"encoding/json"
+	"runtime"
+	"strings"
+	"sync"
+
+	"github.com/pkg/errors"
+	"golang.org/x/sync/semaphore"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/peer"
+	"google.golang.org/grpc/status"
+
+	"github.com/kopia/kopia/internal/auth"
+	"github.com/kopia/kopia/internal/grpcapi"
+	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/manifest"
+	"github.com/kopia/kopia/repo/object"
+)
+
+type grpcServerState struct {
+	sendMutex sync.RWMutex
+
+	grpcapi.UnimplementedKopiaRepositoryServer
+
+	sem *semaphore.Weighted
+}
+
+// send sends the provided session response with the provided request ID.
+func (s *Server) send(srv grpcapi.KopiaRepository_SessionServer, requestID int64, resp *grpcapi.SessionResponse) error {
+	s.grpcServerState.sendMutex.Lock()
+	defer s.grpcServerState.sendMutex.Unlock()
+
+	resp.RequestId = requestID
+
+	if err := srv.Send(resp); err != nil {
+		return errors.Wrap(err, "unable to send response")
+	}
+
+	return nil
+}
+
+func (s *Server) authenticateGRPCSession(ctx context.Context) (string, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return "", status.Errorf(codes.PermissionDenied, "metadata not found in context")
+	}
+
+	if s.authenticator == nil {
+		return "", status.Errorf(codes.PermissionDenied, "no authenticator")
+	}
+
+	if u, h, p := md.Get("kopia-username"), md.Get("kopia-hostname"), md.Get("kopia-password"); len(u) == 1 && len(p) == 1 && len(h) == 1 {
+		username := u[0] + "@" + h[0]
+		password := p[0]
+
+		if s.authenticator(ctx, s.rep, username, password) {
+			return username, nil
+		}
+	}
+
+	return "", status.Errorf(codes.PermissionDenied, "access denied")
+}
+
+// Session handles GRPC session from a repository client.
+func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
+	ctx := srv.Context()
+
+	dr, ok := s.rep.(repo.DirectRepository)
+	if !ok {
+		return status.Errorf(codes.Unavailable, "not connected to a direct repository")
+	}
+
+	username, err := s.authenticateGRPCSession(ctx)
+	if err != nil {
+		return err
+	}
+
+	authz := s.authorizer(ctx, dr, username)
+	if authz == nil {
+		authz = auth.NoAccess()
+	}
+
+	p, ok := peer.FromContext(ctx)
+	if !ok {
+		return status.Errorf(codes.PermissionDenied, "peer not found in context")
+	}
+
+	log(ctx).Infof("starting session for user %q from %v", username, p.Addr)
+	defer log(ctx).Infof("session ended for user %q from %v", username, p.Addr)
+
+	opt, err := s.handleInitialSessionHandshake(srv, dr)
+	if err != nil {
+		log(ctx).Warningf("session handshake error: %v", err)
+		return err
+	}
+
+	return repo.DirectWriteSession(ctx, dr, opt, func(dw repo.DirectRepositoryWriter) error {
+		// channel to which workers will be sending errors, only holds 1 slot and sends are non-blocking.
+		lastErr := make(chan error, 1)
+
+		for req, err := srv.Recv(); err == nil; req, err = srv.Recv() {
+			req := req
+
+			// propagate any error from the goroutines
+			select {
+			case err := <-lastErr:
+				log(ctx).Warningf("error handling session request: %v", err)
+				return err
+
+			default:
+			}
+
+			// enforce limit on concurrent handling
+			if err := s.grpcServerState.sem.Acquire(ctx, 1); err != nil {
+				return errors.Wrap(err, "unable to acquire semaphore")
+			}
+
+			go func() {
+				defer s.grpcServerState.sem.Release(1)
+
+				resp := handleSessionRequest(ctx, dw, authz, req)
+
+				if err := s.send(srv, req.RequestId, resp); err != nil {
+					select {
+					case lastErr <- err:
+					default:
+					}
+				}
+			}()
+		}
+
+		return nil
+	})
+}
+
+func handleSessionRequest(ctx context.Context, dw repo.DirectRepositoryWriter, authz auth.AuthorizationInfo, req *grpcapi.SessionRequest) *grpcapi.SessionResponse {
+	switch inner := req.GetRequest().(type) {
+	case *grpcapi.SessionRequest_GetContentInfo:
+		return handleGetContentInfoRequest(ctx, dw, authz, inner.GetContentInfo)
+
+	case *grpcapi.SessionRequest_GetContent:
+		return handleGetContentRequest(ctx, dw, authz, inner.GetContent)
+
+	case *grpcapi.SessionRequest_WriteContent:
+		return handleWriteContentRequest(ctx, dw, authz, inner.WriteContent)
+
+	case *grpcapi.SessionRequest_Flush:
+		return handleFlushRequest(ctx, dw, authz, inner.Flush)
+
+	case *grpcapi.SessionRequest_GetManifest:
+		return handleGetManifestRequest(ctx, dw, authz, inner.GetManifest)
+
+	case *grpcapi.SessionRequest_PutManifest:
+		return handlePutManifestRequest(ctx, dw, authz, inner.PutManifest)
+
+	case *grpcapi.SessionRequest_FindManifests:
+		return handleFindManifestsRequest(ctx, dw, authz, inner.FindManifests)
+
+	case *grpcapi.SessionRequest_DeleteManifest:
+		return handleDeleteManifestRequest(ctx, dw, authz, inner.DeleteManifest)
+
+	case *grpcapi.SessionRequest_InitializeSession:
+		return errorResponse(errors.Errorf("InitializeSession must be the first request in a session"))
+
+	default:
+		return errorResponse(errors.Errorf("unhandled session request"))
+	}
+}
+
+func handleGetContentInfoRequest(ctx context.Context, dw repo.DirectRepositoryWriter, authz auth.AuthorizationInfo, req *grpcapi.GetContentInfoRequest) *grpcapi.SessionResponse {
+	if authz.ContentAccessLevel() < auth.AccessLevelRead {
+		return accessDeniedResponse()
+	}
+
+	ci, err := dw.ContentManager().ContentInfo(ctx, content.ID(req.GetContentId()))
+	if err != nil {
+		return errorResponse(err)
+	}
+
+	return &grpcapi.SessionResponse{
+		Response: &grpcapi.SessionResponse_GetContentInfo{
+			GetContentInfo: &grpcapi.GetContentInfoResponse{
+				Info: &grpcapi.ContentInfo{
+					Id:               string(ci.ID),
+					Length:           ci.Length,
+					TimestampSeconds: ci.TimestampSeconds,
+					PackBlobId:       string(ci.PackBlobID),
+					PackOffset:       ci.PackOffset,
+					Deleted:          ci.Deleted,
+					FormatVersion:    uint32(ci.FormatVersion),
+				},
+			},
+		},
+	}
+}
+
+func handleGetContentRequest(ctx context.Context, dw repo.DirectRepositoryWriter, authz auth.AuthorizationInfo, req *grpcapi.GetContentRequest) *grpcapi.SessionResponse {
+	if authz.ContentAccessLevel() < auth.AccessLevelRead {
+		return accessDeniedResponse()
+	}
+
+	data, err := dw.ContentManager().GetContent(ctx, content.ID(req.GetContentId()))
+	if err != nil {
+		return errorResponse(err)
+	}
+
+	return &grpcapi.SessionResponse{
+		Response: &grpcapi.SessionResponse_GetContent{
+			GetContent: &grpcapi.GetContentResponse{
+				Data: data,
+			},
+		},
+	}
+}
+
+func handleWriteContentRequest(ctx context.Context, dw repo.DirectRepositoryWriter, authz auth.AuthorizationInfo, req *grpcapi.WriteContentRequest) *grpcapi.SessionResponse {
+	if authz.ContentAccessLevel() < auth.AccessLevelAppend {
+		return accessDeniedResponse()
+	}
+
+	if strings.HasPrefix(req.GetPrefix(), manifest.ContentPrefix) {
+		// it's not allowed to create contents prefixed with 'm' since those could be mistaken for manifest contents.
+		return accessDeniedResponse()
+	}
+
+	contentID, err := dw.ContentManager().WriteContent(ctx, req.GetData(), content.ID(req.GetPrefix()))
+	if err != nil {
+		return errorResponse(err)
+	}
+
+	return &grpcapi.SessionResponse{
+		Response: &grpcapi.SessionResponse_WriteContent{
+			WriteContent: &grpcapi.WriteContentResponse{
+				ContentId: string(contentID),
+			},
+		},
+	}
+}
+
+func handleFlushRequest(ctx context.Context, dw repo.DirectRepositoryWriter, authz auth.AuthorizationInfo, _ *grpcapi.FlushRequest) *grpcapi.SessionResponse {
+	if authz.ContentAccessLevel() < auth.AccessLevelAppend {
+		return accessDeniedResponse()
+	}
+
+	err := dw.Flush(ctx)
+	if err != nil {
+		return errorResponse(err)
+	}
+
+	return &grpcapi.SessionResponse{
+		Response: &grpcapi.SessionResponse_Flush{
+			Flush: &grpcapi.FlushResponse{},
+		},
+	}
+}
+
+func handleGetManifestRequest(ctx context.Context, dw repo.DirectRepositoryWriter, authz auth.AuthorizationInfo, req *grpcapi.GetManifestRequest) *grpcapi.SessionResponse {
+	var data json.RawMessage
+
+	em, err := dw.GetManifest(ctx, manifest.ID(req.GetManifestId()), &data)
+	if err != nil {
+		return errorResponse(err)
+	}
+
+	if authz.ManifestAccessLevel(em.Labels) < auth.AccessLevelRead {
+		return accessDeniedResponse()
+	}
+
+	return &grpcapi.SessionResponse{
+		Response: &grpcapi.SessionResponse_GetManifest{
+			GetManifest: &grpcapi.GetManifestResponse{
+				JsonData: data,
+				Metadata: makeEntryMetadata(em),
+			},
+		},
+	}
+}
+
+func handlePutManifestRequest(ctx context.Context, dw repo.DirectRepositoryWriter, authz auth.AuthorizationInfo, req *grpcapi.PutManifestRequest) *grpcapi.SessionResponse {
+	if authz.ManifestAccessLevel(req.GetLabels()) < auth.AccessLevelAppend {
+		return accessDeniedResponse()
+	}
+
+	manifestID, err := dw.PutManifest(ctx, req.GetLabels(), json.RawMessage(req.GetJsonData()))
+	if err != nil {
+		return errorResponse(err)
+	}
+
+	return &grpcapi.SessionResponse{
+		Response: &grpcapi.SessionResponse_PutManifest{
+			PutManifest: &grpcapi.PutManifestResponse{
+				ManifestId: string(manifestID),
+			},
+		},
+	}
+}
+
+func handleFindManifestsRequest(ctx context.Context, dw repo.DirectRepositoryWriter, authz auth.AuthorizationInfo, req *grpcapi.FindManifestsRequest) *grpcapi.SessionResponse {
+	em, err := dw.FindManifests(ctx, req.GetLabels())
+	if err != nil {
+		return errorResponse(err)
+	}
+
+	// only return manifests which the caller can read
+	var filtered []*manifest.EntryMetadata
+
+	for _, m := range em {
+		if authz.ManifestAccessLevel(m.Labels) < auth.AccessLevelRead {
+			continue
+		}
+
+		filtered = append(filtered, m)
+	}
+
+	return &grpcapi.SessionResponse{
+		Response: &grpcapi.SessionResponse_FindManifests{
+			FindManifests: &grpcapi.FindManifestsResponse{
+				Metadata: makeEntryMetadataList(filtered),
+			},
+		},
+	}
+}
+
+func handleDeleteManifestRequest(ctx context.Context, dw repo.DirectRepositoryWriter, authz auth.AuthorizationInfo, req *grpcapi.DeleteManifestRequest) *grpcapi.SessionResponse {
+	var data json.RawMessage
+
+	em, err := dw.GetManifest(ctx, manifest.ID(req.GetManifestId()), &data)
+	if err != nil {
+		return errorResponse(err)
+	}
+
+	if authz.ManifestAccessLevel(em.Labels) < auth.AccessLevelFull {
+		return accessDeniedResponse()
+	}
+
+	if err := dw.DeleteManifest(ctx, manifest.ID(req.GetManifestId())); err != nil {
+		return errorResponse(err)
+	}
+
+	return &grpcapi.SessionResponse{
+		Response: &grpcapi.SessionResponse_DeleteManifest{
+			DeleteManifest: &grpcapi.DeleteManifestResponse{},
+		},
+	}
+}
+
+func accessDeniedResponse() *grpcapi.SessionResponse {
+	return &grpcapi.SessionResponse{
+		Response: &grpcapi.SessionResponse_Error{
+			Error: &grpcapi.ErrorResponse{
+				Code:    grpcapi.ErrorResponse_ACCESS_DENIED,
+				Message: "access denied",
+			},
+		},
+	}
+}
+
+func errorResponse(err error) *grpcapi.SessionResponse {
+	var errorCode grpcapi.ErrorResponse_Code
+
+	switch {
+	case errors.Is(err, content.ErrContentNotFound):
+		errorCode = grpcapi.ErrorResponse_CONTENT_NOT_FOUND
+	case errors.Is(err, manifest.ErrNotFound):
+		errorCode = grpcapi.ErrorResponse_MANIFEST_NOT_FOUND
+	case errors.Is(err, object.ErrObjectNotFound):
+		errorCode = grpcapi.ErrorResponse_OBJECT_NOT_FOUND
+	default:
+		errorCode = grpcapi.ErrorResponse_UNKNOWN_ERROR
+	}
+
+	return &grpcapi.SessionResponse{
+		Response: &grpcapi.SessionResponse_Error{
+			Error: &grpcapi.ErrorResponse{
+				Code:    errorCode,
+				Message: err.Error(),
+			},
+		},
+	}
+}
+
+func makeEntryMetadataList(em []*manifest.EntryMetadata) []*grpcapi.ManifestEntryMetadata {
+	var result []*grpcapi.ManifestEntryMetadata
+
+	for _, v := range em {
+		result = append(result, makeEntryMetadata(v))
+	}
+
+	return result
+}
+
+func makeEntryMetadata(em *manifest.EntryMetadata) *grpcapi.ManifestEntryMetadata {
+	return &grpcapi.ManifestEntryMetadata{
+		Id:           string(em.ID),
+		Length:       int32(em.Length),
+		ModTimeNanos: em.ModTime.UnixNano(),
+		Labels:       em.Labels,
+	}
+}
+
+func (s *Server) handleInitialSessionHandshake(srv grpcapi.KopiaRepository_SessionServer, dr repo.DirectRepository) (repo.WriteSessionOptions, error) {
+	initializeReq, err := srv.Recv()
+	if err != nil {
+		return repo.WriteSessionOptions{}, errors.Wrap(err, "unable to read initialization request")
+	}
+
+	ir := initializeReq.GetInitializeSession()
+	if ir == nil {
+		return repo.WriteSessionOptions{}, errors.Errorf("missing initialization request")
+	}
+
+	if err := s.send(srv, initializeReq.GetRequestId(), &grpcapi.SessionResponse{
+		Response: &grpcapi.SessionResponse_InitializeSession{
+			InitializeSession: &grpcapi.InitializeSessionResponse{
+				Parameters: &grpcapi.RepositoryParameters{
+					HashFunction: dr.ContentReader().ContentFormat().Hash,
+					HmacSecret:   dr.ContentReader().ContentFormat().HMACSecret,
+					Splitter:     dr.ObjectFormat().Splitter,
+				},
+			},
+		},
+	}); err != nil {
+		return repo.WriteSessionOptions{}, errors.Wrap(err, "unable to send response")
+	}
+
+	return repo.WriteSessionOptions{
+		Purpose: ir.GetPurpose(),
+	}, nil
+}
+
+// RegisterGRPCHandlers registers server gRPC handler.
+func (s *Server) RegisterGRPCHandlers(r grpc.ServiceRegistrar) {
+	grpcapi.RegisterKopiaRepositoryServer(r, s)
+}
+
+func makeGRPCServerState(maxConcurrency int) grpcServerState {
+	if maxConcurrency == 0 {
+		maxConcurrency = 2 * runtime.NumCPU() //nolint:gomnd
+	}
+
+	return grpcServerState{
+		sem: semaphore.NewWeighted(int64(maxConcurrency)),
+	}
+}

@@ -46,6 +46,8 @@ type Server struct {
 	sourceManagers  map[snapshot.SourceInfo]*sourceManager
 	mounts          sync.Map // object.ID -> mount.Controller
 	uploadSemaphore chan struct{}
+
+	grpcServerState
 }
 
 // APIHandlers handles API requests.
@@ -461,6 +463,7 @@ type Options struct {
 	ConfigFile      string
 	ConnectOptions  *repo.ConnectOptions
 	RefreshInterval time.Duration
+	MaxConcurrency  int
 	Authenticator   auth.Authenticator
 	Authorizer      auth.AuthorizerFunc
 }
@@ -476,6 +479,7 @@ func New(ctx context.Context, options Options) (*Server, error) {
 		options:         options,
 		sourceManagers:  map[snapshot.SourceInfo]*sourceManager{},
 		uploadSemaphore: make(chan struct{}, 1),
+		grpcServerState: makeGRPCServerState(options.MaxConcurrency),
 		authenticator:   options.Authenticator,
 		authorizer:      options.Authorizer,
 	}
