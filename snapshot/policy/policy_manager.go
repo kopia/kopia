@@ -76,7 +76,6 @@ func GetEffectivePolicy(ctx context.Context, rep repo.Repository, si snapshot.So
 		}
 
 		policies = append(policies, p)
-		log(ctx).Debugf("loaded parent policy for %v: %v", si, p.Target())
 	}
 
 	merged := MergePolicies(policies)
