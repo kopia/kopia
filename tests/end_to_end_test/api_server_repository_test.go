@@ -17,7 +17,7 @@ var htpasswdFileContents = []byte("foo@bar:$2y$05$JWrExvBe5Knh0.AMLk5WHu.EzfOP.L
 func TestAPIServerRepository_GRPC(t *testing.T) {
 	t.Parallel()
 
-	testAPIServerRepository(t, nil, nil)
+	testAPIServerRepository(t, []string{"--no-legacy-api"}, nil)
 }
 
 func TestAPIServerRepository_DisableGRPC(t *testing.T) {

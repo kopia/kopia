@@ -27,10 +27,13 @@ import (
 )
 
 var (
-	serverStartCommand         = serverCommands.Command("start", "Start Kopia server").Default()
-	serverStartHTMLPath        = serverStartCommand.Flag("html", "Server the provided HTML at the root URL").ExistingDir()
-	serverStartUI              = serverStartCommand.Flag("ui", "Start the server with HTML UI").Default("true").Bool()
-	serverStartGRPC            = serverStartCommand.Flag("grpc", "Start the GRPC server").Default("true").Bool()
+	serverStartCommand  = serverCommands.Command("start", "Start Kopia server").Default()
+	serverStartHTMLPath = serverStartCommand.Flag("html", "Server the provided HTML at the root URL").ExistingDir()
+	serverStartUI       = serverStartCommand.Flag("ui", "Start the server with HTML UI").Default("true").Bool()
+
+	serverStartLegacyRepositoryAPI = serverStartCommand.Flag("legacy-api", "Start the legacy server API").Default("true").Bool()
+	serverStartGRPC                = serverStartCommand.Flag("grpc", "Start the GRPC server").Default("true").Bool()
+
 	serverStartRefreshInterval = serverStartCommand.Flag("refresh-interval", "Frequency for refreshing repository status").Default("300s").Duration()
 	serverStartMaxConcurrency  = serverStartCommand.Flag("max-concurrency", "Maximum number of server goroutines").Default("0").Int()
 
@@ -75,7 +78,7 @@ func runServer(ctx context.Context, rep repo.Repository) error {
 
 	mux := http.NewServeMux()
 
-	mux.Handle("/api/", srv.APIHandlers())
+	mux.Handle("/api/", srv.APIHandlers(*serverStartLegacyRepositoryAPI))
 
 	if *serverStartHTMLPath != "" {
 		fileServer := serveIndexFileForKnownUIRoutes(http.Dir(*serverStartHTMLPath))
