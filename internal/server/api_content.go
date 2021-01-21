@@ -4,15 +4,22 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/gorilla/mux"
 
+	"github.com/kopia/kopia/internal/auth"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/manifest"
 )
 
 func (s *Server) handleContentGet(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+	if s.httpAuthorizationInfo(r).ContentAccessLevel() < auth.AccessLevelRead {
+		return nil, accessDeniedError()
+	}
+
 	dr, ok := s.rep.(repo.DirectRepository)
 	if !ok {
 		return nil, notFoundError("content not found")
@@ -29,6 +36,10 @@ func (s *Server) handleContentGet(ctx context.Context, r *http.Request, body []b
 }
 
 func (s *Server) handleContentInfo(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+	if s.httpAuthorizationInfo(r).ContentAccessLevel() < auth.AccessLevelRead {
+		return nil, accessDeniedError()
+	}
+
 	dr, ok := s.rep.(repo.DirectRepository)
 	if !ok {
 		return nil, notFoundError("content not found")
@@ -51,6 +62,10 @@ func (s *Server) handleContentInfo(ctx context.Context, r *http.Request, body []
 }
 
 func (s *Server) handleContentPut(ctx context.Context, r *http.Request, data []byte) (interface{}, *apiError) {
+	if s.httpAuthorizationInfo(r).ContentAccessLevel() < auth.AccessLevelAppend {
+		return nil, accessDeniedError()
+	}
+
 	dr, ok := s.rep.(repo.DirectRepositoryWriter)
 	if !ok {
 		return nil, repositoryNotWritableError()
@@ -58,6 +73,11 @@ func (s *Server) handleContentPut(ctx context.Context, r *http.Request, data []b
 
 	cid := content.ID(mux.Vars(r)["contentID"])
 	prefix := cid.Prefix()
+
+	if strings.HasPrefix(string(prefix), manifest.ContentPrefix) {
+		// it's not allowed to create contents prefixed with 'm' since those could be mistaken for manifest contents.
+		return nil, accessDeniedError()
+	}
 
 	actualCID, err := dr.ContentManager().WriteContent(ctx, data, prefix)
 	if err != nil {

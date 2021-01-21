@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
-	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
 	"html"
@@ -20,6 +19,7 @@ import (
 	prom "github.com/prometheus/client_golang/prometheus"
 	htpasswd "github.com/tg123/go-htpasswd"
 
+	"github.com/kopia/kopia/internal/auth"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/server"
 	"github.com/kopia/kopia/repo"
@@ -45,10 +45,17 @@ func init() {
 }
 
 func runServer(ctx context.Context, rep repo.Repository) error {
+	authn, err := getAuthenticatorFunc()
+	if err != nil {
+		return errors.Wrap(err, "unable to initialize authn")
+	}
+
 	srv, err := server.New(ctx, server.Options{
 		ConfigFile:      repositoryConfigFileName(),
 		ConnectOptions:  connectOptions(),
 		RefreshInterval: *serverStartRefreshInterval,
+		Authenticator:   authn,
+		Authorizer:      auth.LegacyAuthorizerForUser,
 	})
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize server")
@@ -83,11 +90,6 @@ func runServer(ctx context.Context, rep repo.Repository) error {
 			log(ctx).Warningf("unable to shut down: %v", err)
 		}
 	})
-
-	mux, err = requireCredentials(mux)
-	if err != nil {
-		return errors.Wrap(err, "unable to setup credentials")
-	}
 
 	// init prometheus after adding interceptors that require credentials, so that this
 	// handler can be called without auth
@@ -198,7 +200,7 @@ func serveIndexFileForKnownUIRoutes(fs http.FileSystem) http.Handler {
 	})
 }
 
-func requireCredentials(handler http.Handler) (*http.ServeMux, error) {
+func getAuthenticatorFunc() (auth.Authenticator, error) {
 	switch {
 	case *serverStartHtpasswdFile != "":
 		f, err := htpasswd.New(*serverStartHtpasswdFile, htpasswd.DefaultSystems, nil)
@@ -206,14 +208,13 @@ func requireCredentials(handler http.Handler) (*http.ServeMux, error) {
 			return nil, errors.Wrap(err, "error initializing htpasswd")
 		}
 
-		handler = requireAuth{inner: handler, htpasswdFile: f}
+		// f.Match happens to match auth.Authenticator
+		return func(ctx context.Context, rep repo.Repository, username, password string) bool {
+			return f.Match(username, password)
+		}, nil
 
 	case *serverPassword != "":
-		handler = requireAuth{
-			inner:            handler,
-			expectedUsername: *serverUsername,
-			expectedPassword: *serverPassword,
-		}
+		return auth.AuthenticateSingleUser(*serverUsername, *serverPassword), nil
 
 	case *serverStartRandomPassword:
 		// generate very long random one-time password
@@ -225,52 +226,9 @@ func requireCredentials(handler http.Handler) (*http.ServeMux, error) {
 		// print it to the stderr bypassing any log file so that the user or calling process can connect
 		fmt.Fprintln(os.Stderr, "SERVER PASSWORD:", randomPassword)
 
-		handler = requireAuth{
-			inner:            handler,
-			expectedUsername: *serverUsername,
-			expectedPassword: randomPassword,
-		}
+		return auth.AuthenticateSingleUser(*serverUsername, randomPassword), nil
+
+	default:
+		return nil, nil
 	}
-
-	mux := http.NewServeMux()
-	mux.Handle("/", handler)
-
-	return mux, nil
-}
-
-type requireAuth struct {
-	inner            http.Handler
-	expectedUsername string
-	expectedPassword string
-	htpasswdFile     *htpasswd.File
-}
-
-func (a requireAuth) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	user, pass, ok := r.BasicAuth()
-	if !ok {
-		w.Header().Set("WWW-Authenticate", `Basic realm="Kopia"`)
-		http.Error(w, "Missing credentials.\n", http.StatusUnauthorized)
-
-		return
-	}
-
-	var valid int
-
-	if a.htpasswdFile != nil {
-		if a.htpasswdFile.Match(user, pass) {
-			valid = 1
-		}
-	} else {
-		valid = subtle.ConstantTimeCompare([]byte(user), []byte(a.expectedUsername)) *
-			subtle.ConstantTimeCompare([]byte(pass), []byte(a.expectedPassword))
-	}
-
-	if valid != 1 {
-		w.Header().Set("WWW-Authenticate", `Basic realm="Kopia"`)
-		http.Error(w, "Access denied.\n", http.StatusUnauthorized)
-
-		return
-	}
-
-	a.inner.ServeHTTP(w, r)
 }

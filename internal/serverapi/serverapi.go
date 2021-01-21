@@ -81,6 +81,7 @@ const (
 	ErrorNotInitialized     APIErrorCode = "NOT_INITIALIZED"
 	ErrorPathNotFound       APIErrorCode = "PATH_NOT_FOUND"
 	ErrorStorageConnection  APIErrorCode = "STORAGE_CONNECTION"
+	ErrorAccessDenied       APIErrorCode = "ACCESS_DENIED"
 )
 
 // ErrorResponse represents error response.

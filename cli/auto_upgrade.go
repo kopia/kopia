@@ -10,7 +10,9 @@ import (
 )
 
 func maybeAutoUpgradeRepository(ctx context.Context, r repo.Repository) error {
-	if r == nil {
+	// only upgrade repository when it's directly connected, not via API.
+	dr, _ := r.(repo.DirectRepository)
+	if dr == nil {
 		return nil
 	}
 
@@ -25,9 +27,9 @@ func maybeAutoUpgradeRepository(ctx context.Context, r repo.Repository) error {
 
 	log(ctx).Noticef("Setting default maintenance parameters...")
 
-	return repo.WriteSession(ctx, r, repo.WriteSessionOptions{
+	return repo.DirectWriteSession(ctx, dr, repo.WriteSessionOptions{
 		Purpose: "setDefaultMaintenanceParameters",
-	}, func(w repo.RepositoryWriter) error {
+	}, func(w repo.DirectRepositoryWriter) error {
 		return setDefaultMaintenanceParameters(ctx, w)
 	})
 }

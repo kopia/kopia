@@ -8,6 +8,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/auth"
 	"github.com/kopia/kopia/internal/remoterepoapi"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo"
@@ -15,9 +16,6 @@ import (
 )
 
 func (s *Server) handleManifestGet(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	// password already validated by a wrapper, no need to check here.
-	userAtHost, _, _ := r.BasicAuth()
-
 	mid := manifest.ID(mux.Vars(r)["manifestID"])
 
 	var data json.RawMessage
@@ -31,8 +29,8 @@ func (s *Server) handleManifestGet(ctx context.Context, r *http.Request, body []
 		return nil, internalServerError(err)
 	}
 
-	if !manifestMatchesUser(md, userAtHost) {
-		return nil, notFoundError("manifest not found")
+	if s.httpAuthorizationInfo(r).ManifestAccessLevel(md.Labels) < auth.AccessLevelRead {
+		return nil, accessDeniedError()
 	}
 
 	return &remoterepoapi.ManifestWithMetadata{
@@ -49,7 +47,22 @@ func (s *Server) handleManifestDelete(ctx context.Context, r *http.Request, body
 
 	mid := manifest.ID(mux.Vars(r)["manifestID"])
 
-	err := rw.DeleteManifest(ctx, mid)
+	var data json.RawMessage
+
+	em, err := s.rep.GetManifest(ctx, mid, &data)
+	if errors.Is(err, manifest.ErrNotFound) {
+		return nil, notFoundError("manifest not found")
+	}
+
+	if err != nil {
+		return nil, internalServerError(err)
+	}
+
+	if s.httpAuthorizationInfo(r).ManifestAccessLevel(em.Labels) < auth.AccessLevelFull {
+		return nil, accessDeniedError()
+	}
+
+	err = rw.DeleteManifest(ctx, mid)
 	if errors.Is(err, manifest.ErrNotFound) {
 		return nil, notFoundError("manifest not found")
 	}
@@ -63,8 +76,6 @@ func (s *Server) handleManifestDelete(ctx context.Context, r *http.Request, body
 
 func (s *Server) handleManifestList(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	// password already validated by a wrapper, no need to check here.
-	userAtHost, _, _ := r.BasicAuth()
-
 	labels := map[string]string{}
 
 	for k, v := range r.URL.Query() {
@@ -76,24 +87,14 @@ func (s *Server) handleManifestList(ctx context.Context, r *http.Request, body [
 		return nil, internalServerError(err)
 	}
 
-	return filterManifests(m, userAtHost), nil
+	return filterManifests(m, s.httpAuthorizationInfo(r)), nil
 }
 
-func manifestMatchesUser(m *manifest.EntryMetadata, userAtHost string) bool {
-	if userAtHost == "" {
-		return true
-	}
-
-	actualUser := m.Labels["username"] + "@" + m.Labels["hostname"]
-
-	return actualUser == userAtHost
-}
-
-func filterManifests(manifests []*manifest.EntryMetadata, userAtHost string) []*manifest.EntryMetadata {
+func filterManifests(manifests []*manifest.EntryMetadata, authz auth.AuthorizationInfo) []*manifest.EntryMetadata {
 	result := []*manifest.EntryMetadata{}
 
 	for _, m := range manifests {
-		if manifestMatchesUser(m, userAtHost) {
+		if authz.ManifestAccessLevel(m.Labels) >= auth.AccessLevelRead {
 			result = append(result, m)
 		}
 	}
@@ -111,6 +112,10 @@ func (s *Server) handleManifestCreate(ctx context.Context, r *http.Request, body
 
 	if err := json.Unmarshal(body, &req); err != nil {
 		return nil, requestError(serverapi.ErrorMalformedRequest, "malformed request")
+	}
+
+	if s.httpAuthorizationInfo(r).ManifestAccessLevel(req.Metadata.Labels) < auth.AccessLevelAppend {
+		return nil, accessDeniedError()
 	}
 
 	id, err := rw.PutManifest(ctx, req.Metadata.Labels, req.Payload)
