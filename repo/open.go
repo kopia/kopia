@@ -82,6 +82,15 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 	return openDirect(ctx, configFile, lc, password, options)
 }
 
+// openAPIServer connects remote repository over Kopia API.
+func openAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions, password string) (Repository, error) {
+	if si.DisableGRPC {
+		return openRestAPIRepository(ctx, si, cliOpts, password)
+	}
+
+	return OpenGRPCAPIRepository(ctx, si, cliOpts, password)
+}
+
 // openDirect opens the repository that directly manipulates blob storage..
 func openDirect(ctx context.Context, configFile string, lc *LocalConfig, password string, options *Options) (rep Repository, err error) {
 	if lc.Caching.CacheDirectory != "" && !filepath.IsAbs(lc.Caching.CacheDirectory) {

@@ -26,6 +26,7 @@ import (
 type APIServerInfo struct {
 	BaseURL                             string `json:"url"`
 	TrustedServerCertificateFingerprint string `json:"serverCertFingerprint"`
+	DisableGRPC                         bool   `json:"disableGRPC,omitempty"`
 }
 
 // remoteRepository is an implementation of Repository that connects to an instance of
@@ -197,8 +198,8 @@ func (r *apiServerRepository) Close(ctx context.Context) error {
 
 var _ Repository = (*apiServerRepository)(nil)
 
-// openAPIServer connects remote repository over Kopia API.
-func openAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions, password string) (Repository, error) {
+// openRestAPIRepository connects remote repository over Kopia API.
+func openRestAPIRepository(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions, password string) (Repository, error) {
 	cli, err := apiclient.NewKopiaAPIClient(apiclient.Options{
 		BaseURL:                             si.BaseURL,
 		TrustedServerCertificateFingerprint: si.TrustedServerCertificateFingerprint,
