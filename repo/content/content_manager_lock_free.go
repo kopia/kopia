@@ -15,7 +15,7 @@ import (
 	"github.com/kopia/kopia/repo/hashing"
 )
 
-const indexBlobCompactionWarningThreshold = 100
+const indexBlobCompactionWarningThreshold = 1000
 
 func (sm *SharedManager) maybeEncryptContentDataForPacking(output *gather.WriteBuffer, data []byte, contentID ID) error {
 	var hashOutput [maxHashSize]byte
