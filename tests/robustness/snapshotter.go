@@ -20,7 +20,7 @@ type Snapshotter interface {
 
 // RepoManager is an interface that describes connecting to
 // a repository.
-// TBD: may not be needed once initialization refactored
+// TBD: may not be needed once initialization refactored.
 type RepoManager interface {
 	ConnectOrCreateS3(bucketName, pathPrefix string) error
 	ConnectOrCreateFilesystem(path string) error
