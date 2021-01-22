@@ -16,8 +16,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/clock"
-	"github.com/kopia/kopia/tests/robustness/snap"
-	"github.com/kopia/kopia/tests/robustness/snapmeta"
+	"github.com/kopia/kopia/tests/robustness"
 )
 
 const (
@@ -29,16 +28,16 @@ const (
 // a validation for data consistency.
 type Checker struct {
 	RestoreDir            string
-	snapshotIssuer        snap.Snapshotter
-	snapshotMetadataStore snapmeta.Store
-	validator             Comparer
+	snapshotIssuer        robustness.Snapshotter
+	snapshotMetadataStore robustness.Store
+	validator             robustness.Comparer
 	RecoveryMode          bool
 	DeleteLimit           int
 }
 
 // NewChecker instantiates a new Checker, returning its pointer. A temporary
 // directory is created to mount restored data.
-func NewChecker(snapIssuer snap.Snapshotter, snapmetaStore snapmeta.Store, validator Comparer, restoreDir string) (*Checker, error) {
+func NewChecker(snapIssuer robustness.Snapshotter, snapmetaStore robustness.Store, validator robustness.Comparer, restoreDir string) (*Checker, error) {
 	restoreDir, err := ioutil.TempDir(restoreDir, "restore-data-")
 	if err != nil {
 		return nil, err

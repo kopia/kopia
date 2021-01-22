@@ -1,8 +1,4 @@
-// Package snapmeta describes entities that can accept
-// arbitrary metadata and flush it to a persistent repository.
-package snapmeta
-
-import "github.com/kopia/kopia/tests/robustness/snap"
+package robustness
 
 // Store describes the ability to store and retrieve
 // a buffer of metadata, indexed by a string key.
@@ -24,7 +20,7 @@ type Indexer interface {
 // to, and load it again, from a repository.
 type Persister interface {
 	Store
-	snap.RepoManager
+	RepoManager // TBD: may not be needed once initialization refactored
 	LoadMetadata() error
 	FlushMetadata() error
 	GetPersistDir() string
