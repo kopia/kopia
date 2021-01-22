@@ -87,3 +87,8 @@ func WithExponentialBackoffNoValue(ctx context.Context, desc string, attempt fun
 func Always(err error) bool {
 	return true
 }
+
+// Never is a retry function that never retries.
+func Never(err error) bool {
+	return false
+}

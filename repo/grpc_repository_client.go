@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/url"
 	"runtime"
 	"sync"
@@ -14,7 +15,9 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/ctxutil"
 	apipb "github.com/kopia/kopia/internal/grpcapi"
+	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/internal/tlsutil"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
@@ -28,6 +31,8 @@ import (
 // defined by supported splitters.
 const MaxGRPCMessageSize = 20 << 20
 
+var errShouldRetry = errors.New("should retry")
+
 func errNoSessionResponse() error {
 	return errors.New("did not receive response from the server")
 }
@@ -37,25 +42,36 @@ func errNoSessionResponse() error {
 type grpcRepositoryClient struct {
 	connRefCount *int32
 	conn         *grpc.ClientConn
-	sess         apipb.KopiaRepository_SessionClient
+
+	innerSessionMutex sync.Mutex
+	innerSession      *grpcInnerSession
+	hadInnerSession   bool
+
+	purpose            string
+	isReadOnly         bool
+	transparentRetries bool
 
 	h            hashing.HashFunc
 	objectFormat object.Format
 	cliOpts      ClientOptions
 	omgr         *object.Manager
+}
 
+type grpcInnerSession struct {
 	sendMutex sync.Mutex
 
 	activeRequestsMutex sync.Mutex
 	nextRequestID       int64
 	activeRequests      map[int64]chan *apipb.SessionResponse
+	cli                 apipb.KopiaRepository_SessionClient
+	repoParams          *apipb.RepositoryParameters
 }
 
 // readLoop runs in a goroutine and consumes all messages in session and forwards them to appropriate channels.
-func (r *grpcRepositoryClient) readLoop() {
-	msg, err := r.sess.Recv()
+func (r *grpcInnerSession) readLoop(ctx context.Context) {
+	msg, err := r.cli.Recv()
 
-	for ; err == nil; msg, err = r.sess.Recv() {
+	for ; err == nil; msg, err = r.cli.Recv() {
 		r.activeRequestsMutex.Lock()
 		ch := r.activeRequests[msg.RequestId]
 		delete(r.activeRequests, msg.RequestId)
@@ -66,6 +82,8 @@ func (r *grpcRepositoryClient) readLoop() {
 		close(ch)
 	}
 
+	log(ctx).Debugf("GRPC stream read loop terminated with %v", err)
+
 	// when a read loop error occurs, close all pending client channels with an artificial error.
 	r.activeRequestsMutex.Lock()
 	defer r.activeRequestsMutex.Unlock()
@@ -73,7 +91,7 @@ func (r *grpcRepositoryClient) readLoop() {
 	errResponse := &apipb.SessionResponse{
 		Response: &apipb.SessionResponse_Error{
 			Error: &apipb.ErrorResponse{
-				Code:    apipb.ErrorResponse_UNKNOWN_ERROR,
+				Code:    apipb.ErrorResponse_STREAM_BROKEN,
 				Message: err.Error(),
 			},
 		},
@@ -89,7 +107,9 @@ func (r *grpcRepositoryClient) readLoop() {
 
 // sendRequest sends the provided request to the server and returns a channel on which the
 // caller can receive session response(s).
-func (r *grpcRepositoryClient) sendRequest(req *apipb.SessionRequest) chan *apipb.SessionResponse {
+func (r *grpcInnerSession) sendRequest(ctx context.Context, req *apipb.SessionRequest) chan *apipb.SessionResponse {
+	_ = ctx
+
 	// allocate request ID and create channel to which we're forwarding the responses.
 	r.activeRequestsMutex.Lock()
 	rid := r.nextRequestID
@@ -108,11 +128,11 @@ func (r *grpcRepositoryClient) sendRequest(req *apipb.SessionRequest) chan *apip
 
 	// try sending the request and if unable to do so, stuff an error response to the channel
 	// to simplify client code.
-	if err := r.sess.Send(req); err != nil {
+	if err := r.cli.Send(req); err != nil {
 		ch <- &apipb.SessionResponse{
 			Response: &apipb.SessionResponse_Error{
 				Error: &apipb.ErrorResponse{
-					Code:    apipb.ErrorResponse_CLIENT_ERROR,
+					Code:    apipb.ErrorResponse_STREAM_BROKEN,
 					Message: err.Error(),
 				},
 			},
@@ -151,8 +171,8 @@ func (r *grpcRepositoryClient) VerifyObject(ctx context.Context, id object.ID) (
 	return object.VerifyObject(ctx, r, id)
 }
 
-func (r *grpcRepositoryClient) initializeSession(purpose string, readOnly bool) (*apipb.RepositoryParameters, error) {
-	for resp := range r.sendRequest(&apipb.SessionRequest{
+func (r *grpcInnerSession) initializeSession(ctx context.Context, purpose string, readOnly bool) (*apipb.RepositoryParameters, error) {
+	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_InitializeSession{
 			InitializeSession: &apipb.InitializeSessionRequest{
 				Purpose:  purpose,
@@ -173,7 +193,18 @@ func (r *grpcRepositoryClient) initializeSession(purpose string, readOnly bool) 
 }
 
 func (r *grpcRepositoryClient) GetManifest(ctx context.Context, id manifest.ID, data interface{}) (*manifest.EntryMetadata, error) {
-	for resp := range r.sendRequest(&apipb.SessionRequest{
+	v, err := r.maybeRetry(ctx, func(ctx context.Context, sess *grpcInnerSession) (interface{}, error) {
+		return sess.GetManifest(ctx, id, data)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return v.(*manifest.EntryMetadata), nil
+}
+
+func (r *grpcInnerSession) GetManifest(ctx context.Context, id manifest.ID, data interface{}) (*manifest.EntryMetadata, error) {
+	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_GetManifest{
 			GetManifest: &apipb.GetManifestRequest{
 				ManifestId: string(id),
@@ -212,12 +243,23 @@ func decodeManifestEntryMetadata(md *apipb.ManifestEntryMetadata) *manifest.Entr
 }
 
 func (r *grpcRepositoryClient) PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error) {
+	v, err := r.inSessionWithoutRetry(ctx, func(ctx context.Context, sess *grpcInnerSession) (interface{}, error) {
+		return sess.PutManifest(ctx, labels, payload)
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return v.(manifest.ID), nil
+}
+
+func (r *grpcInnerSession) PutManifest(ctx context.Context, labels map[string]string, payload interface{}) (manifest.ID, error) {
 	v, err := json.Marshal(payload)
 	if err != nil {
 		return "", errors.Wrap(err, "unable to marshal JSON")
 	}
 
-	for resp := range r.sendRequest(&apipb.SessionRequest{
+	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_PutManifest{
 			PutManifest: &apipb.PutManifestRequest{
 				JsonData: v,
@@ -238,7 +280,18 @@ func (r *grpcRepositoryClient) PutManifest(ctx context.Context, labels map[strin
 }
 
 func (r *grpcRepositoryClient) FindManifests(ctx context.Context, labels map[string]string) ([]*manifest.EntryMetadata, error) {
-	for resp := range r.sendRequest(&apipb.SessionRequest{
+	v, err := r.maybeRetry(ctx, func(ctx context.Context, sess *grpcInnerSession) (interface{}, error) {
+		return sess.FindManifests(ctx, labels)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return v.([]*manifest.EntryMetadata), nil
+}
+
+func (r *grpcInnerSession) FindManifests(ctx context.Context, labels map[string]string) ([]*manifest.EntryMetadata, error) {
+	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_FindManifests{
 			FindManifests: &apipb.FindManifestsRequest{
 				Labels: labels,
@@ -258,7 +311,15 @@ func (r *grpcRepositoryClient) FindManifests(ctx context.Context, labels map[str
 }
 
 func (r *grpcRepositoryClient) DeleteManifest(ctx context.Context, id manifest.ID) error {
-	for resp := range r.sendRequest(&apipb.SessionRequest{
+	_, err := r.inSessionWithoutRetry(ctx, func(ctx context.Context, sess *grpcInnerSession) (interface{}, error) {
+		return false, sess.DeleteManifest(ctx, id)
+	})
+
+	return err
+}
+
+func (r *grpcInnerSession) DeleteManifest(ctx context.Context, id manifest.ID) error {
+	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_DeleteManifest{
 			DeleteManifest: &apipb.DeleteManifestRequest{
 				ManifestId: string(id),
@@ -286,7 +347,15 @@ func (r *grpcRepositoryClient) Refresh(ctx context.Context) error {
 }
 
 func (r *grpcRepositoryClient) Flush(ctx context.Context) error {
-	for resp := range r.sendRequest(&apipb.SessionRequest{
+	_, err := r.inSessionWithoutRetry(ctx, func(ctx context.Context, sess *grpcInnerSession) (interface{}, error) {
+		return false, sess.Flush(ctx)
+	})
+
+	return err
+}
+
+func (r *grpcInnerSession) Flush(ctx context.Context) error {
+	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_Flush{
 			Flush: &apipb.FlushRequest{},
 		},
@@ -304,11 +373,66 @@ func (r *grpcRepositoryClient) Flush(ctx context.Context) error {
 }
 
 func (r *grpcRepositoryClient) NewWriter(ctx context.Context, purpose string) (RepositoryWriter, error) {
-	return NewGRPCAPIRepositoryForConnection(ctx, r.conn, r.connRefCount, r.cliOpts, purpose)
+	w, err := newGRPCAPIRepositoryForConnection(ctx, r.conn, r.connRefCount, r.cliOpts, purpose, false)
+	if err != nil {
+		return nil, err
+	}
+
+	return w, nil
+}
+
+type sessionAttemptFunc func(ctx context.Context, sess *grpcInnerSession) (interface{}, error)
+
+// maybeRetry executes the provided callback with or without automatic retries depending on how
+// the grpcRepositoryClient is configured.
+func (r *grpcRepositoryClient) maybeRetry(ctx context.Context, attempt sessionAttemptFunc) (interface{}, error) {
+	if !r.transparentRetries {
+		return r.inSessionWithoutRetry(ctx, attempt)
+	}
+
+	return r.retry(ctx, attempt)
+}
+
+// retry executes the provided callback and provides it with *grpcInnerSession.
+// If the grpcRepositoryClient set to automatically retry and the provided callback returns io.EOF,
+// the inner session will be killed and re-established as necessary.
+func (r *grpcRepositoryClient) retry(ctx context.Context, attempt sessionAttemptFunc) (interface{}, error) {
+	return retry.WithExponentialBackoff(ctx, "invoking GRPC API", func() (interface{}, error) {
+		v, err := r.inSessionWithoutRetry(ctx, attempt)
+		if errors.Is(err, io.EOF) {
+			r.killInnerSession()
+
+			return nil, errShouldRetry //nolint:wrapcheck
+		}
+
+		return v, err
+	}, func(err error) bool {
+		return errors.Is(err, errShouldRetry)
+	})
+}
+
+func (r *grpcRepositoryClient) inSessionWithoutRetry(ctx context.Context, attempt sessionAttemptFunc) (interface{}, error) {
+	sess, err := r.getOrEstablishInnerSession(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to establish session")
+	}
+
+	return attempt(ctx, sess)
 }
 
 func (r *grpcRepositoryClient) ContentInfo(ctx context.Context, contentID content.ID) (content.Info, error) {
-	for resp := range r.sendRequest(&apipb.SessionRequest{
+	v, err := r.maybeRetry(ctx, func(ctx context.Context, sess *grpcInnerSession) (interface{}, error) {
+		return sess.contentInfo(ctx, contentID)
+	})
+	if err != nil {
+		return content.Info{}, err
+	}
+
+	return v.(content.Info), nil
+}
+
+func (r *grpcInnerSession) contentInfo(ctx context.Context, contentID content.ID) (content.Info, error) {
+	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_GetContentInfo{
 			GetContentInfo: &apipb.GetContentInfoRequest{
 				ContentId: string(contentID),
@@ -343,6 +467,8 @@ func errorFromSessionResponse(rr *apipb.ErrorResponse) error {
 		return object.ErrObjectNotFound
 	case apipb.ErrorResponse_CONTENT_NOT_FOUND:
 		return content.ErrContentNotFound
+	case apipb.ErrorResponse_STREAM_BROKEN:
+		return io.EOF
 	default:
 		return errors.New(rr.Message)
 	}
@@ -357,7 +483,18 @@ func unhandledSessionResponse(resp *apipb.SessionResponse) error {
 }
 
 func (r *grpcRepositoryClient) GetContent(ctx context.Context, contentID content.ID) ([]byte, error) {
-	for resp := range r.sendRequest(&apipb.SessionRequest{
+	v, err := r.maybeRetry(ctx, func(ctx context.Context, sess *grpcInnerSession) (interface{}, error) {
+		return sess.GetContent(ctx, contentID)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return v.([]byte), nil
+}
+
+func (r *grpcInnerSession) GetContent(ctx context.Context, contentID content.ID) ([]byte, error) {
+	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_GetContent{
 			GetContent: &apipb.GetContentRequest{
 				ContentId: string(contentID),
@@ -377,11 +514,22 @@ func (r *grpcRepositoryClient) GetContent(ctx context.Context, contentID content
 }
 
 func (r *grpcRepositoryClient) WriteContent(ctx context.Context, data []byte, prefix content.ID) (content.ID, error) {
+	v, err := r.inSessionWithoutRetry(ctx, func(ctx context.Context, sess *grpcInnerSession) (interface{}, error) {
+		return sess.WriteContent(ctx, data, prefix)
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return v.(content.ID), nil
+}
+
+func (r *grpcInnerSession) WriteContent(ctx context.Context, data []byte, prefix content.ID) (content.ID, error) {
 	if err := content.ValidatePrefix(prefix); err != nil {
 		return "", errors.Wrap(err, "invalid prefix")
 	}
 
-	for resp := range r.sendRequest(&apipb.SessionRequest{
+	for resp := range r.sendRequest(ctx, &apipb.SessionRequest{
 		Request: &apipb.SessionRequest_WriteContent{
 			WriteContent: &apipb.WriteContentRequest{
 				Data:   data,
@@ -477,7 +625,7 @@ func OpenGRPCAPIRepository(ctx context.Context, si *APIServerInfo, cliOpts Clien
 		return nil, errors.Wrap(err, "dial error")
 	}
 
-	rep, err := NewGRPCAPIRepositoryForConnection(ctx, conn, new(int32), cliOpts, "")
+	rep, err := newGRPCAPIRepositoryForConnection(ctx, conn, new(int32), cliOpts, "", true)
 	if err != nil {
 		return nil, err
 	}
@@ -485,48 +633,99 @@ func OpenGRPCAPIRepository(ctx context.Context, si *APIServerInfo, cliOpts Clien
 	return rep, nil
 }
 
-// NewGRPCAPIRepositoryForConnection opens GRPC-based repository connection.
-func NewGRPCAPIRepositoryForConnection(ctx context.Context, conn *grpc.ClientConn, connRefCount *int32, cliOpts ClientOptions, purpose string) (RepositoryWriter, error) {
-	cli := apipb.NewKopiaRepositoryClient(conn)
+func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (*grpcInnerSession, error) {
+	r.innerSessionMutex.Lock()
+	defer r.innerSessionMutex.Unlock()
 
-	sess, err := cli.Session(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "error starting session")
+	if r.innerSession == nil {
+		cli := apipb.NewKopiaRepositoryClient(r.conn)
+
+		log(ctx).Debugf("establishing new GRPC streaming session")
+
+		retryPolicy := retry.Always
+		if !r.hadInnerSession && r.transparentRetries {
+			// the first time the read-only session is established, don't do retries
+			// to avoid spinning in place while the server is not connectable.
+			retryPolicy = retry.Never
+		}
+
+		v, err := retry.WithExponentialBackoff(ctx, "establishing session", func() (interface{}, error) {
+			sess, err := cli.Session(ctxutil.Detach(ctx))
+			if err != nil {
+				return nil, errors.Wrap(err, "Session()")
+			}
+
+			newSess := &grpcInnerSession{
+				cli:            sess,
+				activeRequests: make(map[int64]chan *apipb.SessionResponse),
+				nextRequestID:  1,
+			}
+
+			go newSess.readLoop(ctx)
+
+			newSess.repoParams, err = newSess.initializeSession(ctx, r.purpose, r.isReadOnly)
+			if err != nil {
+				return nil, errors.Wrap(err, "unable to initialize session")
+			}
+
+			return newSess, nil
+		}, retryPolicy)
+		if err != nil {
+			return nil, errors.Wrap(err, "error establishing session")
+		}
+
+		r.innerSession = v.(*grpcInnerSession)
 	}
 
+	return r.innerSession, nil
+}
+
+func (r *grpcRepositoryClient) killInnerSession() {
+	r.innerSessionMutex.Lock()
+	defer r.innerSessionMutex.Unlock()
+
+	if r.innerSession != nil {
+		r.innerSession.cli.CloseSend() //nolint:errcheck
+		r.innerSession = nil
+	}
+}
+
+// newGRPCAPIRepositoryForConnection opens GRPC-based repository connection.
+func newGRPCAPIRepositoryForConnection(ctx context.Context, conn *grpc.ClientConn, connRefCount *int32, cliOpts ClientOptions, purpose string, transparentRetries bool) (*grpcRepositoryClient, error) {
 	rr := &grpcRepositoryClient{
-		connRefCount:   connRefCount,
-		conn:           conn,
-		cliOpts:        cliOpts,
-		sess:           sess,
-		activeRequests: make(map[int64]chan *apipb.SessionResponse),
-		nextRequestID:  1,
+		connRefCount:       connRefCount,
+		conn:               conn,
+		cliOpts:            cliOpts,
+		transparentRetries: transparentRetries,
+		purpose:            purpose,
+		isReadOnly:         cliOpts.ReadOnly,
 	}
 
-	go rr.readLoop()
+	v, err := rr.inSessionWithoutRetry(ctx, func(ctx context.Context, sess *grpcInnerSession) (interface{}, error) {
+		p := sess.repoParams
+		hf, err := hashing.CreateHashFunc(p)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to create hash function")
+		}
 
-	p, err := rr.initializeSession(purpose, cliOpts.ReadOnly)
+		rr.h = hf
+
+		rr.objectFormat = object.Format{
+			Splitter: p.Splitter,
+		}
+
+		rr.omgr, err = object.NewObjectManager(ctx, rr, rr.objectFormat)
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to initialize object manager")
+		}
+
+		atomic.AddInt32(connRefCount, 1)
+
+		return rr, nil
+	})
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to initialize session")
+		return nil, err
 	}
 
-	hf, err := hashing.CreateHashFunc(p)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to create hash function")
-	}
-
-	rr.h = hf
-
-	rr.objectFormat = object.Format{
-		Splitter: p.Splitter,
-	}
-
-	rr.omgr, err = object.NewObjectManager(ctx, rr, rr.objectFormat)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to initialize object manager")
-	}
-
-	atomic.AddInt32(connRefCount, 1)
-
-	return rr, nil
+	return v.(*grpcRepositoryClient), nil
 }

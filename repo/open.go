@@ -76,14 +76,14 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 	}
 
 	if lc.APIServer != nil {
-		return openAPIServer(ctx, lc.APIServer, lc.ClientOptions, password)
+		return OpenAPIServer(ctx, lc.APIServer, lc.ClientOptions, password)
 	}
 
 	return openDirect(ctx, configFile, lc, password, options)
 }
 
-// openAPIServer connects remote repository over Kopia API.
-func openAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions, password string) (Repository, error) {
+// OpenAPIServer connects remote repository over Kopia API.
+func OpenAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions, password string) (Repository, error) {
 	if si.DisableGRPC {
 		return openRestAPIRepository(ctx, si, cliOpts, password)
 	}

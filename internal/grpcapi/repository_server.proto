@@ -32,6 +32,7 @@ message ErrorResponse {
     MANIFEST_NOT_FOUND = 3;
     OBJECT_NOT_FOUND = 4;
     ACCESS_DENIED = 5;
+    STREAM_BROKEN = 6;
   }
 
   Code code = 1;
