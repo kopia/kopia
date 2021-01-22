@@ -17,8 +17,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/kopia/kopia/tests/robustness"
 	"github.com/kopia/kopia/tests/robustness/checker"
-	"github.com/kopia/kopia/tests/robustness/snap"
 	"github.com/kopia/kopia/tests/robustness/snapmeta"
 	"github.com/kopia/kopia/tests/tools/fio"
 	"github.com/kopia/kopia/tests/tools/fswalker"
@@ -52,8 +52,8 @@ var (
 // Engine is the outer level testing framework for robustness testing.
 type Engine struct {
 	FileWriter      *fio.Runner
-	TestRepo        snap.Snapshotter
-	MetaStore       snapmeta.Persister
+	TestRepo        robustness.Snapshotter
+	MetaStore       robustness.Persister
 	Checker         *checker.Checker
 	cleanupRoutines []func()
 	baseDirPath     string

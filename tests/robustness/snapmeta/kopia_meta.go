@@ -1,3 +1,5 @@
+// Package snapmeta describes entities that can accept
+// arbitrary metadata and flush it to a persistent repository.
 package snapmeta
 
 import (
@@ -7,10 +9,11 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/kopia/kopia/tests/robustness"
 	"github.com/kopia/kopia/tests/tools/kopiarunner"
 )
 
-var _ Persister = &kopiaMetadata{}
+var _ robustness.Persister = &kopiaMetadata{}
 
 // kopiaMetadata handles metadata persistency of a snapshot store, using a Kopia
 // repository as the persistency mechanism.
@@ -22,7 +25,7 @@ type kopiaMetadata struct {
 }
 
 // New instantiates a new Persister and returns it.
-func New(baseDir string) (Persister, error) {
+func New(baseDir string) (robustness.Persister, error) {
 	localDir, err := ioutil.TempDir(baseDir, "kopia-local-metadata-")
 	if err != nil {
 		return nil, err

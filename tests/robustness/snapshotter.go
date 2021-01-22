@@ -1,6 +1,7 @@
-// Package snap describes entities that are capable of performing
-// common snapshot operations
-package snap
+// Package robustness contains tests that that validate data stability over time.
+// The package, while designed for Kopia, is written with abstractions that
+// can be used to test other environments.
+package robustness
 
 import "os/exec"
 
@@ -8,17 +9,18 @@ import "os/exec"
 // for taking, restoring, deleting snapshots, and
 // tracking them by a string snapshot ID.
 type Snapshotter interface {
-	RepoManager
+	RepoManager // TBD: may not be needed once initialization refactored
 	CreateSnapshot(sourceDir string) (snapID string, err error)
 	RestoreSnapshot(snapID string, restoreDir string) error
 	DeleteSnapshot(snapID string) error
 	RunGC() error
 	ListSnapshots() ([]string, error)
-	Run(args ...string) (stdout, stderr string, err error)
+	Run(args ...string) (stdout, stderr string, err error) // TBD: remove once initialization refactored
 }
 
 // RepoManager is an interface that describes connecting to
 // a repository.
+// TBD: may not be needed once initialization refactored
 type RepoManager interface {
 	ConnectOrCreateS3(bucketName, pathPrefix string) error
 	ConnectOrCreateFilesystem(path string) error
