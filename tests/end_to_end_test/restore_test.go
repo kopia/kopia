@@ -9,7 +9,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
+	"strconv"
 	"testing"
 	"time"
 
@@ -87,6 +89,33 @@ func TestRestoreCommand(t *testing.T) {
 
 	// Attempt to restore into a target directory that already exists
 	e.RunAndExpectFailure(t, "restore", rootID, restoreDir, "--no-overwrite-directories")
+
+	// Very quick incremental restore where all files already exist.
+	// Look for status output that indicates files were skipped.
+	re := regexp.MustCompile(`Restored (\d+) files.*skipped (\d+) `)
+	foundStatus := false
+	lastFileCount := 0
+	_, stderr := e.RunAndExpectSuccessWithErrOut(t, "restore", rootID, restoreDir, "--incremental")
+
+	for _, l := range stderr {
+		if m := re.FindStringSubmatch(l); m != nil {
+			fileCount, _ := strconv.Atoi(m[1])
+			skippedCount, _ := strconv.Atoi(m[2])
+			lastFileCount = fileCount
+
+			if fileCount == 0 && skippedCount > 0 {
+				foundStatus = true
+			}
+		}
+	}
+
+	if !foundStatus {
+		t.Fatalf("expected status line indicating files were skipped, none found: %v", stderr)
+	}
+
+	if lastFileCount != 0 {
+		t.Fatalf("not all files were skipped: %v", stderr)
+	}
 
 	// Attempt to restore into a target directory that already exists
 	e.RunAndExpectFailure(t, "restore", rootID, restoreDir, "--no-overwrite-files")
