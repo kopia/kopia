@@ -3,22 +3,22 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@fortawesome/fontawesome-svg-core": "^1.2.30",
-    "@fortawesome/free-regular-svg-icons": "^5.14.0",
-    "@fortawesome/free-solid-svg-icons": "^5.14.0",
-    "@fortawesome/react-fontawesome": "^0.1.11",
-    "@testing-library/jest-dom": "^5.1.1",
+    "@fortawesome/fontawesome-svg-core": "^1.2.34",
+    "@fortawesome/free-regular-svg-icons": "^5.15.2",
+    "@fortawesome/free-solid-svg-icons": "^5.15.2",
+    "@fortawesome/react-fontawesome": "^0.1.14",
+    "@testing-library/jest-dom": "^5.11.9",
     "@testing-library/react": "^9.5.0",
     "axios": "^0.21.1",
-    "bootstrap": "^4.4.1",
-    "moment": "^2.24.0",
+    "bootstrap": "^4.6.0",
+    "moment": "^2.29.1",
     "pretty": "^2.0.0",
-    "react": "^16.13.0",
-    "react-bootstrap": "^1.0.0-beta.17",
-    "react-dom": "^16.13.0",
-    "react-router-dom": "^5.1.2",
-    "react-scripts": "^3.4.3",
-    "react-table": "^7.0.0"
+    "react": "^16.14.0",
+    "react-bootstrap": "^1.4.3",
+    "react-dom": "^16.14.0",
+    "react-router-dom": "^5.2.0",
+    "react-scripts": "^3.4.4",
+    "react-table": "^7.6.3"
   },
   "scripts": {
     "start": "react-scripts start",
@@ -43,8 +43,8 @@
     ]
   },
   "devDependencies": {
-    "axios-mock-adapter": "^1.17.0",
+    "axios-mock-adapter": "^1.19.0",
     "enzyme": "^3.11.0",
-    "enzyme-adapter-react-16": "^1.15.2"
+    "enzyme-adapter-react-16": "^1.15.6"
   }
 }
