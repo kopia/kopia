@@ -20,9 +20,9 @@ import (
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/iocopy"
-	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/internal/throttle"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/retrying"
 )
 
 const (
@@ -43,10 +43,10 @@ type gcsStorage struct {
 
 func (gcs *gcsStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int64) ([]byte, error) {
 	if offset < 0 {
-		return nil, errors.Errorf("invalid offset")
+		return nil, blob.ErrInvalidRange
 	}
 
-	attempt := func() (interface{}, error) {
+	attempt := func() ([]byte, error) {
 		reader, err := gcs.bucket.Object(gcs.getObjectNameString(b)).NewRangeReader(gcs.ctx, offset, length)
 		if err != nil {
 			return nil, errors.Wrap(err, "NewRangeReader")
@@ -56,64 +56,36 @@ func (gcs *gcsStorage) GetBlob(ctx context.Context, b blob.ID, offset, length in
 		return ioutil.ReadAll(reader)
 	}
 
-	v, err := exponentialBackoff(ctx, fmt.Sprintf("GetBlob(%q,%v,%v)", b, offset, length), attempt)
+	fetched, err := attempt()
 	if err != nil {
 		return nil, translateError(err)
 	}
 
-	fetched := v.([]byte)
-	if len(fetched) != int(length) && length >= 0 {
-		return nil, errors.Errorf("invalid offset/length")
-	}
-
-	return fetched, nil
+	return blob.EnsureLengthExactly(fetched, length)
 }
 
 func (gcs *gcsStorage) GetMetadata(ctx context.Context, b blob.ID) (blob.Metadata, error) {
-	attempt := func() (interface{}, error) {
-		attrs, err := gcs.bucket.Object(gcs.getObjectNameString(b)).Attrs(ctx)
-		if err != nil {
-			return nil, errors.Wrap(err, "Attrs")
-		}
-
-		return blob.Metadata{
-			BlobID:    b,
-			Length:    attrs.Size,
-			Timestamp: attrs.Created,
-		}, nil
-	}
-
-	v, err := exponentialBackoff(ctx, fmt.Sprintf("GetMetadata(%q)", b), attempt)
+	attrs, err := gcs.bucket.Object(gcs.getObjectNameString(b)).Attrs(ctx)
 	if err != nil {
-		return blob.Metadata{}, translateError(err)
+		return blob.Metadata{}, errors.Wrap(translateError(err), "Attrs")
 	}
 
-	return v.(blob.Metadata), nil
-}
-
-func exponentialBackoff(ctx context.Context, desc string, att retry.AttemptFunc) (interface{}, error) {
-	return retry.WithExponentialBackoff(ctx, desc, att, isRetriableError)
-}
-
-func isRetriableError(err error) bool {
-	var apiError *googleapi.Error
-	if errors.As(err, &apiError) {
-		return apiError.Code >= http.StatusInternalServerError
-	}
-
-	switch {
-	case err == nil:
-		return false
-	case errors.Is(err, gcsclient.ErrObjectNotExist):
-		return false
-	case errors.Is(err, gcsclient.ErrBucketNotExist):
-		return false
-	default:
-		return true
-	}
+	return blob.Metadata{
+		BlobID:    b,
+		Length:    attrs.Size,
+		Timestamp: attrs.Created,
+	}, nil
 }
 
 func translateError(err error) error {
+	var ae *googleapi.Error
+
+	if errors.As(err, &ae) {
+		if ae.Code == http.StatusRequestedRangeNotSatisfiable {
+			return blob.ErrInvalidRange
+		}
+	}
+
 	switch {
 	case err == nil:
 		return nil
@@ -167,13 +139,7 @@ func (gcs *gcsStorage) SetTime(ctx context.Context, b blob.ID, t time.Time) erro
 }
 
 func (gcs *gcsStorage) DeleteBlob(ctx context.Context, b blob.ID) error {
-	attempt := func() (interface{}, error) {
-		return nil, gcs.bucket.Object(gcs.getObjectNameString(b)).Delete(gcs.ctx)
-	}
-
-	_, err := exponentialBackoff(ctx, fmt.Sprintf("DeleteBlob(%q)", b), attempt)
-	err = translateError(err)
-
+	err := translateError(gcs.bucket.Object(gcs.getObjectNameString(b)).Delete(gcs.ctx))
 	if errors.Is(err, blob.ErrBlobNotFound) {
 		return nil
 	}
@@ -319,7 +285,7 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		return nil, errors.Wrap(err, "unable to list from the bucket")
 	}
 
-	return gcs, nil
+	return retrying.NewWrapper(gcs), nil
 }
 
 func init() {

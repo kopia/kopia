@@ -18,6 +18,7 @@ import (
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/internal/tlsutil"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/retrying"
 	"github.com/kopia/kopia/repo/blob/sharded"
 )
 
@@ -46,40 +47,23 @@ type davStorageImpl struct {
 }
 
 func (d *davStorageImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, offset, length int64) ([]byte, error) {
-	v, err := retry.WithExponentialBackoff(ctx, "GetBlobFromPath", func() (interface{}, error) {
-		return d.cli.Read(path)
-	}, isRetriable)
+	data, err := d.cli.Read(path)
 	if err != nil {
 		return nil, d.translateError(err)
 	}
 
-	data := v.([]byte)
-
-	if length < 0 {
-		return data, nil
-	}
-
 	if int(offset) > len(data) || offset < 0 {
-		return nil, errors.New("invalid offset")
+		return nil, errors.Wrap(blob.ErrInvalidRange, "invalid offset")
 	}
 
-	data = data[offset:]
-	if int(length) > len(data) {
-		return nil, errors.New("invalid length")
-	}
-
-	return data[0:length], nil
+	return blob.EnsureLengthAndTruncate(data[offset:], length)
 }
 
 func (d *davStorageImpl) GetMetadataFromPath(ctx context.Context, dirPath, path string) (blob.Metadata, error) {
-	v, err := retry.WithExponentialBackoff(ctx, "GetMetadataFromPath", func() (interface{}, error) {
-		return d.cli.Stat(path)
-	}, isRetriable)
+	fi, err := d.cli.Stat(path)
 	if err != nil {
 		return blob.Metadata{}, d.translateError(err)
 	}
-
-	fi := v.(os.FileInfo)
 
 	return blob.Metadata{
 		Length:    fi.Size(),
@@ -103,25 +87,23 @@ func httpErrorCode(err error) int {
 func (d *davStorageImpl) translateError(err error) error {
 	var pe *os.PathError
 
-	switch {
-	case errors.As(err, &pe):
+	if errors.As(err, &pe) {
 		switch httpErrorCode(pe) {
+		case http.StatusRequestedRangeNotSatisfiable:
+			return blob.ErrInvalidRange
+
 		case http.StatusNotFound:
 			return blob.ErrBlobNotFound
-		default:
-			return err
 		}
-	default:
-		return err
 	}
+
+	return err
 }
 
 func (d *davStorageImpl) ReadDir(ctx context.Context, dir string) ([]os.FileInfo, error) {
-	v, err := retry.WithExponentialBackoff(ctx, "ReadDir("+dir+")", func() (interface{}, error) {
-		return d.cli.ReadDir(gowebdav.FixSlash(dir))
-	}, isRetriable)
+	entries, err := d.cli.ReadDir(gowebdav.FixSlash(dir))
 	if err == nil {
-		return v.([]os.FileInfo), nil
+		return entries, nil
 	}
 
 	return nil, errors.Wrap(err, "error reading WebDAV dir")
@@ -207,7 +189,7 @@ func New(ctx context.Context, opts *Options) (blob.Storage, error) {
 		cli.SetTransport(tlsutil.TransportTrustingSingleCertificate(opts.TrustedServerCertificateFingerprint))
 	}
 
-	s := &davStorage{
+	s := retrying.NewWrapper(&davStorage{
 		sharded.Storage{
 			Impl: &davStorageImpl{
 				Options: *opts,
@@ -217,7 +199,7 @@ func New(ctx context.Context, opts *Options) (blob.Storage, error) {
 			Suffix:   fsStorageChunkSuffix,
 			Shards:   opts.shards(),
 		},
-	}
+	})
 
 	return s, nil
 }

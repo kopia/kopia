@@ -221,7 +221,7 @@ func TestS3StorageMinioSTS(t *testing.T) {
 }
 
 func testStorage(t *testutil.RetriableT, options *Options) {
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 
 	data := make([]byte, 8)
 	rand.Read(data)

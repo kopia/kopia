@@ -71,16 +71,11 @@ func (s *sftpImpl) GetBlobFromPath(ctx context.Context, dirPath, fullPath string
 
 	b := make([]byte, length)
 
-	n, err := r.Read(b)
-	if err != nil {
+	if _, err := r.Read(b); err != nil {
 		return nil, errors.Wrap(err, "read error")
 	}
 
-	if n != len(b) {
-		return nil, errors.Errorf("truncated read")
-	}
-
-	return b, nil
+	return blob.EnsureLengthExactly(b, length)
 }
 
 func (s *sftpImpl) GetMetadataFromPath(ctx context.Context, dirPath, fullPath string) (blob.Metadata, error) {
