@@ -97,8 +97,13 @@ func runRCloneAndWaitForServerAddress(c *exec.Cmd, startupTimeout time.Duration)
 			s := bufio.NewScanner(stderr)
 			for s.Scan() {
 				l := s.Text()
+
 				if p := strings.Index(l, "https://"); p >= 0 {
 					rcloneAddressChan <- l[p:]
+
+					// consume the remainder of stderr to avoid blocking rclone
+					go ioutil.ReadAll(stderr) //nolint:errcheck
+
 					return
 				}
 			}
@@ -165,7 +170,7 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 	webdavUsername := "u" + uuid.New().String()
 	webdavPassword := "p" + uuid.New().String()
 
-	if err = htpasswd.SetPassword(temporaryHtpassword, webdavUsername, webdavPassword, htpasswd.HashBCrypt); err != nil {
+	if err = htpasswd.SetPassword(temporaryHtpassword, webdavUsername, webdavPassword, htpasswd.HashAPR1); err != nil {
 		return nil, errors.Wrap(err, "unable to write htpasswd file")
 	}
 
@@ -175,6 +180,7 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 	}
 
 	arguments := append([]string{
+		"-vv",
 		"serve", "webdav", opt.RemotePath,
 		"--addr", "127.0.0.1:0", // allocate random port,
 		"--cert", temporaryCertPath,
