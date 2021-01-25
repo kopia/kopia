@@ -19,9 +19,21 @@ import (
 func TestRCloneStorage(t *testing.T) {
 	ctx := testlogging.Context(t)
 
-	if err := exec.Command("rclone", "version").Run(); err != nil {
-		t.Skip("rclone not installed")
+	rcloneExe := os.Getenv("RCLONE_EXE")
+	if rcloneExe == "" {
+		rcloneExe = "rclone"
 	}
+
+	if err := exec.Command(rcloneExe, "version").Run(); err != nil {
+		if os.Getenv("CI") == "" {
+			t.Skip("rclone not installed")
+		} else {
+			// on CI fail hard
+			t.Fatal("rclone not installed")
+		}
+	}
+
+	t.Logf("using rclone exe: %v", rcloneExe)
 
 	// directory where rclone will store files
 	dataDir, err := ioutil.TempDir("", "rclonetest")
@@ -34,6 +46,7 @@ func TestRCloneStorage(t *testing.T) {
 	st, err := rclone.New(ctx, &rclone.Options{
 		// pass local file as remote path.
 		RemotePath: dataDir,
+		RCloneExe:  rcloneExe,
 	})
 	if err != nil {
 		t.Fatalf("unable to connect to rclone backend: %v", err)

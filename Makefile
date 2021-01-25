@@ -208,13 +208,16 @@ dev-deps:
 	GO111MODULE=off go get -u github.com/newhook/go-symbols
 	GO111MODULE=off go get -u github.com/sqs/goreturns
 
-test-with-coverage:
+
+test-with-coverage: export RCLONE_EXE=$(rclone)
+test-with-coverage: $(rclone) 
 	$(GO_TEST) -count=1 -coverprofile=tmp.cov --coverpkg $(COVERAGE_PACKAGES) -timeout 300s $(shell go list ./...)
 
 test-with-coverage-pkgonly:
 	$(GO_TEST) -count=1 -coverprofile=tmp.cov -timeout 300s github.com/kopia/kopia/...
 
-test: $(gotestsum)
+test: export RCLONE_EXE=$(rclone)
+test: $(gotestsum) $(rclone)
 	$(GO_TEST) -count=1 -timeout $(UNIT_TESTS_TIMEOUT) ./...
 
 vtest: $(gotestsum)
