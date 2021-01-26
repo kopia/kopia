@@ -62,18 +62,9 @@ func (s retryingStorage) DeleteBlob(ctx context.Context, id blob.ID) error {
 	return err // nolint:wrapcheck
 }
 
-// NewWrapper returns a readonly Storage wrapper that prevents any mutations to the underlying storage.
+// NewWrapper returns a Storage wrapper that adds retry loop around all operations of the underlying storage.
 func NewWrapper(wrapped blob.Storage) blob.Storage {
 	return &retryingStorage{Storage: wrapped}
-}
-
-// NonRetriable wraps an error tha is not retriable.
-type NonRetriable struct {
-	Err error
-}
-
-func (e NonRetriable) Error() string {
-	return e.Err.Error()
 }
 
 func isRetriable(err error) bool {

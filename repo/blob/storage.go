@@ -160,7 +160,7 @@ func EnsureLengthExactly(b []byte, length int64) ([]byte, error) {
 		return nil, errors.Wrapf(ErrInvalidRange, "invalid length %v, expected %v", len(b), length)
 	}
 
-	return b[0:length], nil
+	return b, nil
 }
 
 // EnsureLengthAndTruncate validates that length of the given slice is at least the provided value
