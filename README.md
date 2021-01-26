@@ -2,7 +2,7 @@ Kopia
 =====
 
 ![Kopia](icons/kopia.svg)
-[![Linux/macOS Build Status](https://travis-ci.org/kopia/kopia.svg?branch=master)](https://travis-ci.org/kopia/kopia)
+[![Build Status](https://github.com/kopia/kopia/workflows/Build/badge.svg)](https://github.com/kopia/kopia/actions?query=workflow%3ABuild)
 [![Slack](https://img.shields.io/badge/discuss-slack-blue.svg)](https://slack.kopia.io/) 
 [![GoDoc](https://godoc.org/github.com/kopia/kopia/repo?status.svg)](https://godoc.org/github.com/kopia/kopia/repo)
 [![Coverage Status](https://coveralls.io/repos/github/kopia/kopia/badge.svg?branch=master)](https://coveralls.io/github/kopia/kopia?branch=master)
