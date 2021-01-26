@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kopia/kopia/tests/robustness"
 	"github.com/kopia/kopia/tests/robustness/engine"
 	"github.com/kopia/kopia/tests/tools/fio"
 	"github.com/kopia/kopia/tests/tools/kopiarunner"
@@ -65,7 +66,7 @@ func TestMain(m *testing.M) {
 
 	// Restore a random snapshot into the data directory
 	_, err = eng.ExecAction(engine.RestoreIntoDataDirectoryActionKey, nil)
-	if err != nil && !errors.Is(err, engine.ErrNoOp) {
+	if err != nil && !errors.Is(err, robustness.ErrNoOp) {
 		eng.Cleanup()
 		log.Fatalln("error restoring into the data directory:", err)
 	}
