@@ -51,10 +51,10 @@ func mustRunOrSkip(t *testing.T, cmd string, args ...string) []byte {
 
 	o, err := exec.Command(cmd, args...).CombinedOutput()
 	if err != nil {
-		t.Fatal(string(o), err)
+		t.Fatalf("%s: %v", o, err)
 	}
 
-	t.Logf("output: %v", string(o))
+	t.Logf("output: %s", o)
 
 	return o
 }

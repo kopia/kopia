@@ -23,7 +23,7 @@ func RunDockerAndGetOutputOrSkip(t *testing.T, args ...string) string {
 	out, err := c.Output()
 	if err != nil {
 		// skip or fail hard when running in CI environment.
-		TestSkipUnlessCI(t, "unable to run docker: %v %v (stderr %v)", err, string(out), stderr.String())
+		TestSkipUnlessCI(t, "unable to run docker: %v %s (stderr %v)", err, out, stderr.String())
 	}
 
 	return strings.TrimSpace(string(out))
