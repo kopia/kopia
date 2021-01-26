@@ -19,7 +19,7 @@ func TestSkipUnlessCI(t *testing.T, msg string, args ...interface{}) {
 	if os.Getenv("CI") != "" {
 		t.Fatal(msg)
 	} else {
-		t.Skip()
+		t.Skip(msg)
 	}
 }
 
