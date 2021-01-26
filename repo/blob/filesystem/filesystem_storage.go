@@ -123,7 +123,7 @@ func (fs *fsImpl) GetBlobFromPath(ctx context.Context, dirPath, path string, off
 		return nil, err
 	}
 
-	return val.([]byte), nil
+	return blob.EnsureLengthExactly(val.([]byte), length)
 }
 
 func (fs *fsImpl) GetMetadataFromPath(ctx context.Context, dirPath, path string) (blob.Metadata, error) {

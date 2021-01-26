@@ -13,6 +13,7 @@ import (
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/azure"
 )
@@ -80,7 +81,7 @@ func TestAzureStorage(t *testing.T) {
 	data := make([]byte, 8)
 	rand.Read(data)
 
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 
 	st, err := azure.New(ctx, &azure.Options{
 		Container:      container,

@@ -13,6 +13,9 @@ import (
 // ErrSetTimeUnsupported is returned by implementations of Storage that don't support SetTime.
 var ErrSetTimeUnsupported = errors.Errorf("SetTime is not supported")
 
+// ErrInvalidRange is returned when the requested blob offset or length is invalid.
+var ErrInvalidRange = errors.Errorf("invalid blob offset or length")
+
 // Bytes encapsulates a sequence of bytes, possibly stored in a non-contiguous buffers,
 // which can be written sequentially or treated as a io.Reader.
 type Bytes interface {
@@ -27,6 +30,7 @@ type Reader interface {
 	// GetBlob returns full or partial contents of a blob with given ID.
 	// If length>0, the the function retrieves a range of bytes [offset,offset+length)
 	// If length<0, the entire blob must be fetched.
+	// Returns ErrInvalidRange if the fetched blob length is invalid.
 	GetBlob(ctx context.Context, blobID ID, offset, length int64) ([]byte, error)
 
 	// GetMetadata returns Metadata about single blob.
@@ -142,4 +146,34 @@ func IterateAllPrefixesInParallel(ctx context.Context, parallelism int, st Stora
 
 	// return first error or nil
 	return <-errch
+}
+
+// EnsureLengthExactly validates that length of the given slice is exactly the provided value.
+// and returns ErrInvalidRange if the length is of the slice if not.
+// As a special case length < 0 disables validation.
+func EnsureLengthExactly(b []byte, length int64) ([]byte, error) {
+	if length < 0 {
+		return b, nil
+	}
+
+	if len(b) != int(length) {
+		return nil, errors.Wrapf(ErrInvalidRange, "invalid length %v, expected %v", len(b), length)
+	}
+
+	return b, nil
+}
+
+// EnsureLengthAndTruncate validates that length of the given slice is at least the provided value
+// and returns ErrInvalidRange if the length is of the slice if not.
+// As a special case length < 0 disables validation.
+func EnsureLengthAndTruncate(b []byte, length int64) ([]byte, error) {
+	if length < 0 {
+		return b, nil
+	}
+
+	if len(b) < int(length) {
+		return nil, errors.Wrapf(ErrInvalidRange, "invalid length %v, expected at least %v", len(b), length)
+	}
+
+	return b[0:length], nil
 }

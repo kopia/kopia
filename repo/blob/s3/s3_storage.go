@@ -9,7 +9,6 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/efarrer/iothrottler"
@@ -17,8 +16,8 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/retrying"
 )
 
 const (
@@ -37,12 +36,12 @@ type s3Storage struct {
 }
 
 func (s *s3Storage) GetBlob(ctx context.Context, b blob.ID, offset, length int64) ([]byte, error) {
-	attempt := func() (interface{}, error) {
+	attempt := func() ([]byte, error) {
 		var opt minio.GetObjectOptions
 
 		if length > 0 {
 			if err := opt.SetRange(offset, offset+length-1); err != nil {
-				return nil, errors.Wrap(err, "unable to set range")
+				return nil, errors.Wrap(blob.ErrInvalidRange, "unable to set range")
 			}
 		}
 
@@ -58,60 +57,39 @@ func (s *s3Storage) GetBlob(ctx context.Context, b blob.ID, offset, length int64
 			return nil, errors.Wrap(err, "AddReader")
 		}
 
-		b, err := ioutil.ReadAll(throttled)
+		v, err := ioutil.ReadAll(throttled)
 		if err != nil {
 			return nil, errors.Wrap(err, "ReadAll")
-		}
-
-		if len(b) != int(length) && length > 0 {
-			return nil, errors.Errorf("invalid length, got %v bytes, but expected %v", len(b), length)
 		}
 
 		if length == 0 {
 			return []byte{}, nil
 		}
 
-		return b, nil
+		return v, nil
 	}
 
-	v, err := exponentialBackoff(ctx, fmt.Sprintf("GetBlob(%q,%v,%v)", b, offset, length), attempt)
+	fetched, err := attempt()
 	if err != nil {
 		return nil, translateError(err)
 	}
 
-	return v.([]byte), nil
-}
-
-func exponentialBackoff(ctx context.Context, desc string, att retry.AttemptFunc) (interface{}, error) {
-	return retry.WithExponentialBackoff(ctx, desc, att, isRetriableError)
-}
-
-func isRetriableError(err error) bool {
-	var me minio.ErrorResponse
-
-	if errors.As(err, &me) {
-		// retry on server errors, not on client errors
-		return me.StatusCode >= http.StatusInternalServerError
-	}
-
-	if strings.Contains(strings.ToLower(err.Error()), "http") {
-		// retry http transport errors, unfortunately no other way to detect them
-		return true
-	}
-
-	return false
+	return blob.EnsureLengthExactly(fetched, length)
 }
 
 func translateError(err error) error {
 	var me minio.ErrorResponse
 
 	if errors.As(err, &me) {
-		if me.StatusCode == http.StatusOK {
+		switch me.StatusCode {
+		case http.StatusOK:
 			return nil
-		}
 
-		if me.StatusCode == http.StatusNotFound {
+		case http.StatusNotFound:
 			return blob.ErrBlobNotFound
+
+		case http.StatusRequestedRangeNotSatisfiable:
+			return blob.ErrInvalidRange
 		}
 	}
 
@@ -119,52 +97,46 @@ func translateError(err error) error {
 }
 
 func (s *s3Storage) GetMetadata(ctx context.Context, b blob.ID) (blob.Metadata, error) {
-	v, err := retry.WithExponentialBackoff(ctx, fmt.Sprintf("GetMetadata(%v)", b), func() (interface{}, error) {
-		oi, err := s.cli.StatObject(ctx, s.BucketName, s.getObjectNameString(b), minio.StatObjectOptions{})
-		if err != nil {
-			return blob.Metadata{}, errors.Wrap(err, "StatObject")
-		}
+	oi, err := s.cli.StatObject(ctx, s.BucketName, s.getObjectNameString(b), minio.StatObjectOptions{})
+	if err != nil {
+		return blob.Metadata{}, errors.Wrap(translateError(err), "StatObject")
+	}
 
-		return blob.Metadata{
-			BlobID:    b,
-			Length:    oi.Size,
-			Timestamp: oi.LastModified,
-		}, nil
-	}, isRetriableError)
-
-	return v.(blob.Metadata), translateError(err)
+	return blob.Metadata{
+		BlobID:    b,
+		Length:    oi.Size,
+		Timestamp: oi.LastModified,
+	}, nil
 }
 
 func (s *s3Storage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) error {
-	return translateError(retry.WithExponentialBackoffNoValue(ctx, fmt.Sprintf("PutBlob(%v)", b), func() error {
-		throttled, err := s.uploadThrottler.AddReader(ioutil.NopCloser(data.Reader()))
-		if err != nil {
-			return errors.Wrap(err, "AddReader")
-		}
+	throttled, err := s.uploadThrottler.AddReader(ioutil.NopCloser(data.Reader()))
+	if err != nil {
+		return errors.Wrap(err, "AddReader")
+	}
 
-		combinedLength := data.Length()
+	combinedLength := data.Length()
 
-		progressCallback := blob.ProgressCallback(ctx)
-		if progressCallback != nil {
-			progressCallback(string(b), 0, int64(combinedLength))
-			defer progressCallback(string(b), int64(combinedLength), int64(combinedLength))
-		}
+	progressCallback := blob.ProgressCallback(ctx)
+	if progressCallback != nil {
+		progressCallback(string(b), 0, int64(combinedLength))
+		defer progressCallback(string(b), int64(combinedLength), int64(combinedLength))
+	}
 
-		uploadInfo, err := s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), throttled, int64(combinedLength), minio.PutObjectOptions{
+	uploadInfo, err := s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), throttled, int64(combinedLength), minio.PutObjectOptions{
+		ContentType: "application/x-kopia",
+		Progress:    newProgressReader(progressCallback, string(b), int64(combinedLength)),
+	})
+
+	if errors.Is(err, io.EOF) && uploadInfo.Size == 0 {
+		// special case empty stream
+		_, err = s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), bytes.NewBuffer(nil), 0, minio.PutObjectOptions{
 			ContentType: "application/x-kopia",
-			Progress:    newProgressReader(progressCallback, string(b), int64(combinedLength)),
 		})
+	}
 
-		if errors.Is(err, io.EOF) && uploadInfo.Size == 0 {
-			// special case empty stream
-			_, err = s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), bytes.NewBuffer(nil), 0, minio.PutObjectOptions{
-				ContentType: "application/x-kopia",
-			})
-		}
-
-		// nolint:wrapcheck
-		return err
-	}, isRetriableError))
+	// nolint:wrapcheck
+	return err
 }
 
 func (s *s3Storage) SetTime(ctx context.Context, b blob.ID, t time.Time) error {
@@ -172,11 +144,10 @@ func (s *s3Storage) SetTime(ctx context.Context, b blob.ID, t time.Time) error {
 }
 
 func (s *s3Storage) DeleteBlob(ctx context.Context, b blob.ID) error {
-	attempt := func() (interface{}, error) {
-		return nil, s.cli.RemoveObject(ctx, s.BucketName, s.getObjectNameString(b), minio.RemoveObjectOptions{})
+	err := translateError(s.cli.RemoveObject(ctx, s.BucketName, s.getObjectNameString(b), minio.RemoveObjectOptions{}))
+	if errors.Is(err, blob.ErrBlobNotFound) {
+		return nil
 	}
-
-	_, err := exponentialBackoff(ctx, fmt.Sprintf("DeleteBlob(%q)", b), attempt)
 
 	return translateError(err)
 }
@@ -302,13 +273,13 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		return nil, errors.Errorf("bucket %q does not exist", opt.BucketName)
 	}
 
-	return &s3Storage{
+	return retrying.NewWrapper(&s3Storage{
 		Options:           *opt,
 		ctx:               ctx,
 		cli:               cli,
 		downloadThrottler: downloadThrottler,
 		uploadThrottler:   uploadThrottler,
-	}, nil
+	}), nil
 }
 
 func init() {

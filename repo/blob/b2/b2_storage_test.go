@@ -9,6 +9,7 @@ import (
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/b2"
@@ -40,7 +41,7 @@ func TestB2Storage(t *testing.T) {
 		data := make([]byte, 8)
 		rand.Read(data)
 
-		ctx := context.Background()
+		ctx := testlogging.Context(t)
 		st, err := b2.New(ctx, &b2.Options{
 			BucketName: bucket,
 			KeyID:      keyID,

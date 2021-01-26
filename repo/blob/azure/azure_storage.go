@@ -18,8 +18,8 @@ import (
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/iocopy"
-	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/retrying"
 )
 
 const (
@@ -39,10 +39,10 @@ type azStorage struct {
 
 func (az *azStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int64) ([]byte, error) {
 	if offset < 0 {
-		return nil, errors.Errorf("invalid offset")
+		return nil, errors.Wrap(blob.ErrInvalidRange, "invalid offset")
 	}
 
-	attempt := func() (interface{}, error) {
+	attempt := func() ([]byte, error) {
 		reader, err := az.bucket.NewRangeReader(ctx, az.getObjectNameString(b), offset, length, nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "NewRangeReader")
@@ -58,75 +58,46 @@ func (az *azStorage) GetBlob(ctx context.Context, b blob.ID, offset, length int6
 		return ioutil.ReadAll(throttled)
 	}
 
-	v, err := exponentialBackoff(ctx, fmt.Sprintf("GetBlob(%q,%v,%v)", b, offset, length), attempt)
+	fetched, err := attempt()
 	if err != nil {
 		return nil, translateError(err)
 	}
 
-	fetched := v.([]byte)
-	if len(fetched) != int(length) && length >= 0 {
-		return nil, errors.Errorf("invalid offset/length")
-	}
-
-	return fetched, nil
+	return blob.EnsureLengthExactly(fetched, length)
 }
 
 func (az *azStorage) GetMetadata(ctx context.Context, b blob.ID) (blob.Metadata, error) {
-	attempt := func() (interface{}, error) {
-		fi, err := az.bucket.Attributes(ctx, az.getObjectNameString(b))
-		if err != nil {
-			return nil, errors.Wrap(err, "Attributes")
-		}
-
-		return blob.Metadata{
-			BlobID:    b,
-			Length:    fi.Size,
-			Timestamp: fi.ModTime,
-		}, nil
-	}
-
-	v, err := exponentialBackoff(ctx, fmt.Sprintf("GetMetadaa(%q)", b), attempt)
+	fi, err := az.bucket.Attributes(ctx, az.getObjectNameString(b))
 	if err != nil {
-		return blob.Metadata{}, translateError(err)
+		return blob.Metadata{}, errors.Wrap(translateError(err), "Attributes")
 	}
 
-	return v.(blob.Metadata), nil
-}
-
-func exponentialBackoff(ctx context.Context, desc string, att retry.AttemptFunc) (interface{}, error) {
-	return retry.WithExponentialBackoff(ctx, desc, att, isRetriableError)
-}
-
-func isRetriableError(err error) bool {
-	var me azblob.ResponseError
-
-	if errors.As(err, &me) {
-		r := me.Response() //nolint:bodyclose
-		if r == nil {
-			return true
-		}
-
-		// retry on server errors, not on client errors
-		return r.StatusCode >= http.StatusInternalServerError
-	}
-
-	// https://pkg.go.dev/gocloud.dev/gcerrors?tab=doc#ErrorCode
-	switch gcerrors.Code(err) {
-	case gcerrors.Internal:
-		return true
-	case gcerrors.ResourceExhausted:
-		return true
-	default:
-		return false
-	}
+	return blob.Metadata{
+		BlobID:    b,
+		Length:    fi.Size,
+		Timestamp: fi.ModTime,
+	}, nil
 }
 
 func translateError(err error) error {
+	if err == nil {
+		return nil
+	}
+
+	var re azblob.ResponseError
+	if errors.As(err, &re) {
+		if re.Response().StatusCode == http.StatusRequestedRangeNotSatisfiable { //nolint:bodyclose
+			return blob.ErrInvalidRange
+		}
+	}
+
 	switch gcerrors.Code(err) {
 	case gcerrors.OK:
 		return nil
 	case gcerrors.NotFound:
 		return blob.ErrBlobNotFound
+	case gcerrors.InvalidArgument:
+		return blob.ErrInvalidRange
 	default:
 		return err
 	}
@@ -169,11 +140,7 @@ func (az *azStorage) SetTime(ctx context.Context, b blob.ID, t time.Time) error 
 
 // DeleteBlob deletes azure blob from container with given ID.
 func (az *azStorage) DeleteBlob(ctx context.Context, b blob.ID) error {
-	attempt := func() (interface{}, error) {
-		return nil, az.bucket.Delete(ctx, az.getObjectNameString(b))
-	}
-	_, err := exponentialBackoff(ctx, fmt.Sprintf("DeleteBlob(%q)", b), attempt)
-	err = translateError(err)
+	err := translateError(az.bucket.Delete(ctx, az.getObjectNameString(b)))
 
 	// don't return error if blob is already deleted
 	if errors.Is(err, blob.ErrBlobNotFound) {
@@ -267,13 +234,13 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 	downloadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.MaxDownloadSpeedBytesPerSecond))
 	uploadThrottler := iothrottler.NewIOThrottlerPool(toBandwidth(opt.MaxUploadSpeedBytesPerSecond))
 
-	az := &azStorage{
+	az := retrying.NewWrapper(&azStorage{
 		Options:           *opt,
 		ctx:               ctx,
 		bucket:            bucket,
 		downloadThrottler: downloadThrottler,
 		uploadThrottler:   uploadThrottler,
-	}
+	})
 
 	// verify Azure connection is functional by listing blobs in a bucket, which will fail if the container
 	// does not exist. We list with a prefix that will not exist, to avoid iterating through any objects.
