@@ -19,6 +19,7 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 
 	"github.com/kopia/kopia/repo/blob"
+	"github.com/kopia/kopia/repo/blob/retrying"
 	"github.com/kopia/kopia/repo/blob/sharded"
 	"github.com/kopia/kopia/repo/logging"
 )
@@ -72,6 +73,16 @@ func (s *sftpImpl) GetBlobFromPath(ctx context.Context, dirPath, fullPath string
 	b := make([]byte, length)
 
 	if _, err := r.Read(b); err != nil {
+		var se *sftp.StatusError
+
+		if errors.As(err, &se) {
+			return nil, blob.ErrInvalidRange
+		}
+
+		if errors.Is(err, io.EOF) {
+			return nil, blob.ErrInvalidRange
+		}
+
 		return nil, errors.Wrap(err, "read error")
 	}
 
@@ -404,7 +415,7 @@ func New(ctx context.Context, opts *Options) (blob.Storage, error) {
 		},
 	}
 
-	return r, nil
+	return retrying.NewWrapper(r), nil
 }
 
 func init() {
