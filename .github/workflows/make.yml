@@ -8,7 +8,8 @@ on:
     tags:
       - v*
   schedule:
-    - cron:  '0 8,15 * * *'
+    # run on Mondays at 8AM
+    - cron:  '0 8 * * 1'
 jobs:
   build:
     env:

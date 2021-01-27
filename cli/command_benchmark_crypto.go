@@ -16,6 +16,7 @@ var (
 	benchmarkCryptoBlockSize            = benchmarkCryptoCommand.Flag("block-size", "Size of a block to encrypt").Default("1MB").Bytes()
 	benchmarkCryptoRepeat               = benchmarkCryptoCommand.Flag("repeat", "Number of repetitions").Default("100").Int()
 	benchmarkCryptoDeprecatedAlgorithms = benchmarkCryptoCommand.Flag("deprecated", "Include deprecated algorithms").Bool()
+	benchmarkCryptoOptionPrint          = benchmarkCryptoCommand.Flag("print-options", "Print out options usable for repository creation").Bool()
 )
 
 func runBenchmarkCryptoAction(ctx context.Context) error {
@@ -78,8 +79,17 @@ func runBenchmarkCryptoAction(ctx context.Context) error {
 	printStdout("-----------------------------------------------------------------\n")
 
 	for ndx, r := range results {
-		printStdout("%3d. %-20v %-20v %v / second\n", ndx, r.hash, r.encryption, units.BytesStringBase2(int64(r.throughput)))
+		printStdout("%3d. %-20v %-20v %v / second", ndx, r.hash, r.encryption, units.BytesStringBase2(int64(r.throughput)))
+
+		if *benchmarkCryptoOptionPrint {
+			printStdout(",   --block-hash=%s --encryption=%s", r.hash, r.encryption)
+		}
+
+		printStdout("\n")
 	}
+
+	printStdout("-----------------------------------------------------------------\n")
+	printStdout("Fastest option for this machine is: --block-hash==%s --encryption=%s\n", results[0].hash, results[0].encryption)
 
 	return nil
 }

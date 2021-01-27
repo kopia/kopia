@@ -40,6 +40,19 @@ Similarly, the following command will restore the contents of a subdirectory
 directory named 'sd2'
 
 'restore kffbb7c28ea6c34d6cbe555d1cf80faa9/subdir1/subdir2 sd2'
+
+When restoring to a target path that already has existing data, by default
+the restore will attempt to overwrite, unless one or more of the following flags
+has been set (to prevent overwrite of each type):
+
+--no-overwrite-files
+--no-overwrite-directories
+--no-overwrite-symlinks
+
+The restore will only attempt to overwrite an existing file system entry if
+it is the same type as in the source. For example a if restoring a symlink,
+an existing symlink with the same name will be overwritten, but a directory
+with the same name will not; an error will be thrown instead.
 `
 	restoreCommandSourcePathHelp = `Source directory ID/path in the form of a
 directory ID and optionally a sub-directory path. For example,
@@ -56,6 +69,7 @@ var (
 	restoreTargetPath             = ""
 	restoreOverwriteDirectories   = true
 	restoreOverwriteFiles         = true
+	restoreOverwriteSymlinks      = true
 	restoreConsistentAttributes   = false
 	restoreMode                   = restoreModeAuto
 	restoreParallel               = 8
@@ -63,6 +77,8 @@ var (
 	restoreSkipTimes              = false
 	restoreSkipOwners             = false
 	restoreSkipPermissions        = false
+	restoreIncremental            = false
+	restoreIgnoreErrors           = false
 )
 
 const (
@@ -79,6 +95,7 @@ func addRestoreFlags(cmd *kingpin.CmdClause) {
 	cmd.Arg("target-path", "Path of the directory for the contents to be restored").Required().StringVar(&restoreTargetPath)
 	cmd.Flag("overwrite-directories", "Overwrite existing directories").BoolVar(&restoreOverwriteDirectories)
 	cmd.Flag("overwrite-files", "Specifies whether or not to overwrite already existing files").BoolVar(&restoreOverwriteFiles)
+	cmd.Flag("overwrite-symlinks", "Specifies whether or not to overwrite already existing symlinks").BoolVar(&restoreOverwriteSymlinks)
 	cmd.Flag("consistent-attributes", "When multiple snapshots match, fail if they have inconsistent attributes").Envar("KOPIA_RESTORE_CONSISTENT_ATTRIBUTES").BoolVar(&restoreConsistentAttributes)
 	cmd.Flag("mode", "Override restore mode").EnumVar(&restoreMode, restoreModeAuto, restoreModeLocal, restoreModeZip, restoreModeZipNoCompress, restoreModeTar, restoreModeTgz)
 	cmd.Flag("parallel", "Restore parallelism (1=disable)").IntVar(&restoreParallel)
@@ -86,6 +103,8 @@ func addRestoreFlags(cmd *kingpin.CmdClause) {
 	cmd.Flag("skip-permissions", "Skip permissions during restore").BoolVar(&restoreSkipPermissions)
 	cmd.Flag("skip-times", "Skip times during restore").BoolVar(&restoreSkipTimes)
 	cmd.Flag("ignore-permission-errors", "Ignore permission errors").BoolVar(&restoreIgnorePermissionErrors)
+	cmd.Flag("ignore-errors", "Ignore all errors").BoolVar(&restoreIgnoreErrors)
+	cmd.Flag("skip-existing", "Skip files and symlinks that exist in the output").BoolVar(&restoreIncremental)
 }
 
 func restoreOutput(ctx context.Context) (restore.Output, error) {
@@ -101,6 +120,7 @@ func restoreOutput(ctx context.Context) (restore.Output, error) {
 			TargetPath:             p,
 			OverwriteDirectories:   restoreOverwriteDirectories,
 			OverwriteFiles:         restoreOverwriteFiles,
+			OverwriteSymlinks:      restoreOverwriteSymlinks,
 			IgnorePermissionErrors: restoreIgnorePermissionErrors,
 			SkipOwners:             restoreSkipOwners,
 			SkipPermissions:        restoreSkipPermissions,
@@ -166,7 +186,22 @@ func detectRestoreMode(ctx context.Context, m string) string {
 }
 
 func printRestoreStats(ctx context.Context, st restore.Stats) {
-	log(ctx).Infof("Restored %v files, %v directories and %v symbolic links (%v)\n", st.RestoredFileCount, st.RestoredDirCount, st.RestoredSymlinkCount, units.BytesStringBase10(st.RestoredTotalFileSize))
+	var maybeSkipped, maybeErrors string
+
+	if st.SkippedCount > 0 {
+		maybeSkipped = fmt.Sprintf(", skipped %v (%v)", st.SkippedCount, units.BytesStringBase10(st.SkippedTotalFileSize))
+	}
+
+	if st.IgnoredErrorCount > 0 {
+		maybeErrors = fmt.Sprintf(", ignored %v errors", st.IgnoredErrorCount)
+	}
+
+	log(ctx).Infof("Restored %v files, %v directories and %v symbolic links (%v)%v%v.\n",
+		st.RestoredFileCount,
+		st.RestoredDirCount,
+		st.RestoredSymlinkCount,
+		units.BytesStringBase10(st.RestoredTotalFileSize),
+		maybeSkipped, maybeErrors)
 }
 
 func runRestoreCommand(ctx context.Context, rep repo.Repository) error {
@@ -183,16 +218,18 @@ func runRestoreCommand(ctx context.Context, rep repo.Repository) error {
 	t0 := clock.Now()
 
 	st, err := restore.Entry(ctx, rep, output, rootEntry, restore.Options{
-		Parallel: restoreParallel,
+		Parallel:     restoreParallel,
+		Incremental:  restoreIncremental,
+		IgnoreErrors: restoreIgnoreErrors,
 		ProgressCallback: func(ctx context.Context, stats restore.Stats) {
-			restoredCount := stats.RestoredFileCount + stats.RestoredDirCount + stats.RestoredSymlinkCount
+			restoredCount := stats.RestoredFileCount + stats.RestoredDirCount + stats.RestoredSymlinkCount + stats.SkippedCount
 			enqueuedCount := stats.EnqueuedFileCount + stats.EnqueuedDirCount + stats.EnqueuedSymlinkCount
 
 			if restoredCount == 0 {
 				return
 			}
 
-			var maybeRemaining string
+			var maybeRemaining, maybeSkipped, maybeErrors string
 
 			if stats.EnqueuedTotalFileSize > 0 {
 				progress := float64(stats.RestoredTotalFileSize) / float64(stats.EnqueuedTotalFileSize)
@@ -207,9 +244,19 @@ func runRestoreCommand(ctx context.Context, rep repo.Repository) error {
 				}
 			}
 
-			log(ctx).Infof("Processed %v (%v) of %v (%v)%v.",
+			if stats.SkippedCount > 0 {
+				maybeSkipped = fmt.Sprintf(", skipped %v (%v)", stats.SkippedCount, units.BytesStringBase10(stats.SkippedTotalFileSize))
+			}
+
+			if stats.IgnoredErrorCount > 0 {
+				maybeErrors = fmt.Sprintf(", ignored %v errors", stats.IgnoredErrorCount)
+			}
+
+			log(ctx).Infof("Processed %v (%v) of %v (%v)%v%v.",
 				restoredCount, units.BytesStringBase10(stats.RestoredTotalFileSize),
 				enqueuedCount, units.BytesStringBase10(stats.EnqueuedTotalFileSize),
+				maybeSkipped,
+				maybeErrors,
 				maybeRemaining)
 		},
 	})

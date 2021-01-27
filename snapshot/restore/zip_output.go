@@ -69,10 +69,20 @@ func (o *ZipOutput) WriteFile(ctx context.Context, relativePath string, f fs.Fil
 	return nil
 }
 
+// FileExists implements restore.Output interface.
+func (o *ZipOutput) FileExists(ctx context.Context, relativePath string, l fs.File) bool {
+	return false
+}
+
 // CreateSymlink implements restore.Output interface.
 func (o *ZipOutput) CreateSymlink(ctx context.Context, relativePath string, e fs.Symlink) error {
 	log(ctx).Debugf("create symlink not implemented yet")
 	return nil
+}
+
+// SymlinkExists implements restore.Output interface.
+func (o *ZipOutput) SymlinkExists(ctx context.Context, relativePath string, l fs.Symlink) bool {
+	return false
 }
 
 // NewZipOutput creates new zip writer output.

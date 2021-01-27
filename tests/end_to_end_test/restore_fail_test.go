@@ -64,6 +64,9 @@ func TestRestoreFail(t *testing.T) {
 
 	// Expect a subsequent restore to fail
 	e.RunAndExpectFailure(t, "snapshot", "restore", snapID, targetDir)
+
+	// --ignore-errors allows the snapshot to succeed despite missing blob.
+	e.RunAndExpectSuccess(t, "snapshot", "restore", "--ignore-errors", snapID, targetDir)
 }
 
 func findPackBlob(blobIDs []string) string {

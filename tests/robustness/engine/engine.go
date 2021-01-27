@@ -17,10 +17,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/kopia/kopia/tests/robustness"
 	"github.com/kopia/kopia/tests/robustness/checker"
-	"github.com/kopia/kopia/tests/robustness/snap"
+	"github.com/kopia/kopia/tests/robustness/fiofilewriter"
 	"github.com/kopia/kopia/tests/robustness/snapmeta"
-	"github.com/kopia/kopia/tests/tools/fio"
 	"github.com/kopia/kopia/tests/tools/fswalker"
 	"github.com/kopia/kopia/tests/tools/kopiarunner"
 )
@@ -39,11 +39,6 @@ const (
 )
 
 var (
-	// ErrNoOp is thrown when an action could not do anything useful.
-	ErrNoOp = fmt.Errorf("no-op")
-	// ErrCannotPerformIO is returned if the engine determines there is not enough space
-	// to write files.
-	ErrCannotPerformIO = fmt.Errorf("cannot perform i/o")
 	// ErrS3BucketNameEnvUnset is the error returned when the S3BucketNameEnvKey environment variable is not set.
 	ErrS3BucketNameEnvUnset = fmt.Errorf("environment variable required: %v", S3BucketNameEnvKey)
 	noSpaceOnDeviceMatchStr = "no space left on device"
@@ -51,9 +46,9 @@ var (
 
 // Engine is the outer level testing framework for robustness testing.
 type Engine struct {
-	FileWriter      *fio.Runner
-	TestRepo        snap.Snapshotter
-	MetaStore       snapmeta.Persister
+	FileWriter      robustness.FileWriter
+	TestRepo        robustness.Snapshotter
+	MetaStore       robustness.Persister
 	Checker         *checker.Checker
 	cleanupRoutines []func()
 	baseDirPath     string
@@ -85,8 +80,8 @@ func NewEngine(workingDir string) (*Engine, error) {
 		},
 	}
 
-	// Fill the file writer
-	e.FileWriter, err = fio.NewRunner()
+	// Create an FIO file writer
+	e.FileWriter, err = fiofilewriter.New()
 	if err != nil {
 		e.CleanComponents()
 		return nil, err

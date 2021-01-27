@@ -21,6 +21,8 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
+	"github.com/kopia/kopia/tests/robustness"
+	"github.com/kopia/kopia/tests/robustness/fiofilewriter"
 	"github.com/kopia/kopia/tests/robustness/snapmeta"
 	"github.com/kopia/kopia/tests/testenv"
 	"github.com/kopia/kopia/tests/tools/fio"
@@ -65,13 +67,13 @@ func TestEngineWritefilesBasicFS(t *testing.T) {
 	numFiles := 10
 
 	fioOpts := fio.Options{}.WithFileSize(fileSize).WithNumFiles(numFiles)
-
-	err = eng.FileWriter.WriteFiles("", fioOpts)
+	fioRunner := engineFioRunner(t, eng)
+	err = fioRunner.WriteFiles("", fioOpts)
 	testenv.AssertNoError(t, err)
 
 	snapIDs := eng.Checker.GetSnapIDs()
 
-	snapID, err := eng.Checker.TakeSnapshot(ctx, eng.FileWriter.LocalDataDir)
+	snapID, err := eng.Checker.TakeSnapshot(ctx, fioRunner.LocalDataDir)
 	testenv.AssertNoError(t, err)
 
 	err = eng.Checker.RestoreSnapshot(ctx, snapID, os.Stdout)
@@ -175,13 +177,13 @@ func TestWriteFilesBasicS3(t *testing.T) {
 	numFiles := 10
 
 	fioOpts := fio.Options{}.WithFileSize(fileSize).WithNumFiles(numFiles)
-
-	err = eng.FileWriter.WriteFiles("", fioOpts)
+	fioRunner := engineFioRunner(t, eng)
+	err = fioRunner.WriteFiles("", fioOpts)
 	testenv.AssertNoError(t, err)
 
 	snapIDs := eng.Checker.GetLiveSnapIDs()
 
-	snapID, err := eng.Checker.TakeSnapshot(ctx, eng.FileWriter.LocalDataDir)
+	snapID, err := eng.Checker.TakeSnapshot(ctx, fioRunner.LocalDataDir)
 	testenv.AssertNoError(t, err)
 
 	err = eng.Checker.RestoreSnapshot(ctx, snapID, os.Stdout)
@@ -217,11 +219,11 @@ func TestDeleteSnapshotS3(t *testing.T) {
 	numFiles := 10
 
 	fioOpts := fio.Options{}.WithFileSize(fileSize).WithNumFiles(numFiles)
-
-	err = eng.FileWriter.WriteFiles("", fioOpts)
+	fioRunner := engineFioRunner(t, eng)
+	err = fioRunner.WriteFiles("", fioOpts)
 	testenv.AssertNoError(t, err)
 
-	snapID, err := eng.Checker.TakeSnapshot(ctx, eng.FileWriter.LocalDataDir)
+	snapID, err := eng.Checker.TakeSnapshot(ctx, fioRunner.LocalDataDir)
 	testenv.AssertNoError(t, err)
 
 	err = eng.Checker.RestoreSnapshot(ctx, snapID, os.Stdout)
@@ -261,11 +263,12 @@ func TestSnapshotVerificationFail(t *testing.T) {
 	numFiles := 10
 	fioOpt := fio.Options{}.WithFileSize(fileSize).WithNumFiles(numFiles)
 
-	err = eng.FileWriter.WriteFiles("", fioOpt)
+	fioRunner := engineFioRunner(t, eng)
+	err = fioRunner.WriteFiles("", fioOpt)
 	testenv.AssertNoError(t, err)
 
 	// Take a first snapshot
-	snapID1, err := eng.Checker.TakeSnapshot(ctx, eng.FileWriter.LocalDataDir)
+	snapID1, err := eng.Checker.TakeSnapshot(ctx, fioRunner.LocalDataDir)
 	testenv.AssertNoError(t, err)
 
 	// Get the metadata collected on that snapshot
@@ -273,11 +276,11 @@ func TestSnapshotVerificationFail(t *testing.T) {
 	testenv.AssertNoError(t, err)
 
 	// Do additional writes, writing 1 extra byte than before
-	err = eng.FileWriter.WriteFiles("", fioOpt.WithFileSize(fileSize+1))
+	err = fioRunner.WriteFiles("", fioOpt.WithFileSize(fileSize+1))
 	testenv.AssertNoError(t, err)
 
 	// Take a second snapshot
-	snapID2, err := eng.Checker.TakeSnapshot(ctx, eng.FileWriter.LocalDataDir)
+	snapID2, err := eng.Checker.TakeSnapshot(ctx, fioRunner.LocalDataDir)
 	testenv.AssertNoError(t, err)
 
 	// Get the second snapshot's metadata
@@ -329,12 +332,12 @@ func TestDataPersistency(t *testing.T) {
 	numFiles := 10
 
 	fioOpt := fio.Options{}.WithFileSize(fileSize).WithNumFiles(numFiles)
-
-	err = eng.FileWriter.WriteFiles("", fioOpt)
+	fioRunner := engineFioRunner(t, eng)
+	err = fioRunner.WriteFiles("", fioOpt)
 	testenv.AssertNoError(t, err)
 
 	// Take a snapshot
-	snapID, err := eng.Checker.TakeSnapshot(ctx, eng.FileWriter.LocalDataDir)
+	snapID, err := eng.Checker.TakeSnapshot(ctx, fioRunner.LocalDataDir)
 	testenv.AssertNoError(t, err)
 
 	// Get the walk data associated with the snapshot that was taken
@@ -358,12 +361,13 @@ func TestDataPersistency(t *testing.T) {
 	err = eng2.InitFilesystem(ctx, dataRepoPath, metadataRepoPath)
 	testenv.AssertNoError(t, err)
 
-	err = eng2.Checker.RestoreSnapshotToPath(ctx, snapID, eng2.FileWriter.LocalDataDir, os.Stdout)
+	fioRunner2 := engineFioRunner(t, eng2)
+	err = eng2.Checker.RestoreSnapshotToPath(ctx, snapID, fioRunner2.LocalDataDir, os.Stdout)
 	testenv.AssertNoError(t, err)
 
 	// Compare the data directory of the second engine with the fingerprint
 	// of the snapshot taken earlier. They should match.
-	err = fswalker.NewWalkCompare().Compare(ctx, eng2.FileWriter.LocalDataDir, dataDirWalk.ValidationData, os.Stdout)
+	err = fswalker.NewWalkCompare().Compare(ctx, fioRunner2.LocalDataDir, dataDirWalk.ValidationData, os.Stdout)
 	testenv.AssertNoError(t, err)
 }
 
@@ -482,22 +486,22 @@ func TestActionsFilesystem(t *testing.T) {
 
 	actionOpts := ActionOpts{
 		WriteRandomFilesActionKey: map[string]string{
-			MaxDirDepthField:         "20",
-			MaxFileSizeField:         strconv.Itoa(10 * 1024 * 1024),
-			MinFileSizeField:         strconv.Itoa(10 * 1024 * 1024),
-			MaxNumFilesPerWriteField: "10",
-			MinNumFilesPerWriteField: "10",
-			MaxDedupePercentField:    "100",
-			MinDedupePercentField:    "100",
-			DedupePercentStepField:   "1",
-			IOLimitPerWriteAction:    "0",
+			fiofilewriter.MaxDirDepthField:         "20",
+			fiofilewriter.MaxFileSizeField:         strconv.Itoa(10 * 1024 * 1024),
+			fiofilewriter.MinFileSizeField:         strconv.Itoa(10 * 1024 * 1024),
+			fiofilewriter.MaxNumFilesPerWriteField: "10",
+			fiofilewriter.MinNumFilesPerWriteField: "10",
+			fiofilewriter.MaxDedupePercentField:    "100",
+			fiofilewriter.MinDedupePercentField:    "100",
+			fiofilewriter.DedupePercentStepField:   "1",
+			fiofilewriter.IOLimitPerWriteAction:    "0",
 		},
 	}
 
 	numActions := 10
 	for loop := 0; loop < numActions; loop++ {
 		err := eng.RandomAction(actionOpts)
-		if !(err == nil || errors.Is(err, ErrNoOp)) {
+		if !(err == nil || errors.Is(err, robustness.ErrNoOp)) {
 			t.Error("Hit error", err)
 		}
 	}
@@ -525,22 +529,22 @@ func TestActionsS3(t *testing.T) {
 
 	actionOpts := ActionOpts{
 		WriteRandomFilesActionKey: map[string]string{
-			MaxDirDepthField:         "20",
-			MaxFileSizeField:         strconv.Itoa(10 * 1024 * 1024),
-			MinFileSizeField:         strconv.Itoa(10 * 1024 * 1024),
-			MaxNumFilesPerWriteField: "10",
-			MinNumFilesPerWriteField: "10",
-			MaxDedupePercentField:    "100",
-			MinDedupePercentField:    "100",
-			DedupePercentStepField:   "1",
-			IOLimitPerWriteAction:    "0",
+			fiofilewriter.MaxDirDepthField:         "20",
+			fiofilewriter.MaxFileSizeField:         strconv.Itoa(10 * 1024 * 1024),
+			fiofilewriter.MinFileSizeField:         strconv.Itoa(10 * 1024 * 1024),
+			fiofilewriter.MaxNumFilesPerWriteField: "10",
+			fiofilewriter.MinNumFilesPerWriteField: "10",
+			fiofilewriter.MaxDedupePercentField:    "100",
+			fiofilewriter.MinDedupePercentField:    "100",
+			fiofilewriter.DedupePercentStepField:   "1",
+			fiofilewriter.IOLimitPerWriteAction:    "0",
 		},
 	}
 
 	numActions := 10
 	for loop := 0; loop < numActions; loop++ {
 		err := eng.RandomAction(actionOpts)
-		if !(err == nil || errors.Is(err, ErrNoOp)) {
+		if !(err == nil || errors.Is(err, robustness.ErrNoOp)) {
 			t.Error("Hit error", err)
 		}
 	}
@@ -581,12 +585,12 @@ func TestIOLimitPerWriteAction(t *testing.T) {
 			string(DeleteRandomSubdirectoryActionKey): strconv.Itoa(0),
 		},
 		WriteRandomFilesActionKey: map[string]string{
-			MaxDirDepthField:         "2",
-			MaxFileSizeField:         strconv.Itoa(10 * 1024 * 1024),
-			MinFileSizeField:         strconv.Itoa(10 * 1024 * 1024),
-			MaxNumFilesPerWriteField: "100",
-			MinNumFilesPerWriteField: "100",
-			IOLimitPerWriteAction:    strconv.Itoa(1 * 1024 * 1024),
+			fiofilewriter.MaxDirDepthField:         "2",
+			fiofilewriter.MaxFileSizeField:         strconv.Itoa(10 * 1024 * 1024),
+			fiofilewriter.MinFileSizeField:         strconv.Itoa(10 * 1024 * 1024),
+			fiofilewriter.MaxNumFilesPerWriteField: "100",
+			fiofilewriter.MinNumFilesPerWriteField: "100",
+			fiofilewriter.IOLimitPerWriteAction:    strconv.Itoa(1 * 1024 * 1024),
 		},
 	}
 
@@ -736,4 +740,16 @@ func TestLogsPersist(t *testing.T) {
 	if got, want := engNew.EngineLog.String(), eng.EngineLog.String(); got != want {
 		t.Errorf("Logs do not match\n%v\n%v", got, want)
 	}
+}
+
+// engineFioRunner extracts the fio.Runner used by the engine.
+func engineFioRunner(t *testing.T, eng *Engine) *fio.Runner {
+	t.Helper()
+
+	fiofw, ok := eng.FileWriter.(*fiofilewriter.FileWriter)
+	if !ok {
+		t.Fatal("engine does not have a fiofilewriter.FileWriter")
+	}
+
+	return fiofw.Runner
 }

@@ -9,7 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kopia/kopia/tests/robustness"
 	"github.com/kopia/kopia/tests/robustness/engine"
+	"github.com/kopia/kopia/tests/robustness/fiofilewriter"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -18,11 +20,11 @@ func TestManySmallFiles(t *testing.T) {
 	numFiles := 10000
 
 	fileWriteOpts := map[string]string{
-		engine.MaxDirDepthField:         strconv.Itoa(1),
-		engine.MaxFileSizeField:         strconv.Itoa(fileSize),
-		engine.MinFileSizeField:         strconv.Itoa(fileSize),
-		engine.MaxNumFilesPerWriteField: strconv.Itoa(numFiles),
-		engine.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
+		fiofilewriter.MaxDirDepthField:         strconv.Itoa(1),
+		fiofilewriter.MaxFileSizeField:         strconv.Itoa(fileSize),
+		fiofilewriter.MinFileSizeField:         strconv.Itoa(fileSize),
+		fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(numFiles),
+		fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
 	}
 
 	_, err := eng.ExecAction(engine.WriteRandomFilesActionKey, fileWriteOpts)
@@ -40,11 +42,11 @@ func TestOneLargeFile(t *testing.T) {
 	numFiles := 1
 
 	fileWriteOpts := map[string]string{
-		engine.MaxDirDepthField:         strconv.Itoa(1),
-		engine.MaxFileSizeField:         strconv.Itoa(fileSize),
-		engine.MinFileSizeField:         strconv.Itoa(fileSize),
-		engine.MaxNumFilesPerWriteField: strconv.Itoa(numFiles),
-		engine.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
+		fiofilewriter.MaxDirDepthField:         strconv.Itoa(1),
+		fiofilewriter.MaxFileSizeField:         strconv.Itoa(fileSize),
+		fiofilewriter.MinFileSizeField:         strconv.Itoa(fileSize),
+		fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(numFiles),
+		fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(numFiles),
 	}
 
 	_, err := eng.ExecAction(engine.WriteRandomFilesActionKey, fileWriteOpts)
@@ -65,12 +67,12 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 	actionRepeats := numFiles / filesPerWrite
 
 	fileWriteOpts := map[string]string{
-		engine.MaxDirDepthField:         strconv.Itoa(15),
-		engine.MaxFileSizeField:         strconv.Itoa(fileSize),
-		engine.MinFileSizeField:         strconv.Itoa(fileSize),
-		engine.MaxNumFilesPerWriteField: strconv.Itoa(filesPerWrite),
-		engine.MinNumFilesPerWriteField: strconv.Itoa(filesPerWrite),
-		engine.ActionRepeaterField:      strconv.Itoa(actionRepeats),
+		fiofilewriter.MaxDirDepthField:         strconv.Itoa(15),
+		fiofilewriter.MaxFileSizeField:         strconv.Itoa(fileSize),
+		fiofilewriter.MinFileSizeField:         strconv.Itoa(fileSize),
+		fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(filesPerWrite),
+		fiofilewriter.MinNumFilesPerWriteField: strconv.Itoa(filesPerWrite),
+		engine.ActionRepeaterField:             strconv.Itoa(actionRepeats),
 	}
 
 	_, err := eng.ExecAction(engine.WriteRandomFilesActionKey, fileWriteOpts)
@@ -95,16 +97,16 @@ func TestRandomizedSmall(t *testing.T) {
 			string(engine.DeleteRandomSubdirectoryActionKey): strconv.Itoa(1),
 		},
 		engine.WriteRandomFilesActionKey: map[string]string{
-			engine.IOLimitPerWriteAction:    fmt.Sprintf("%d", 512*1024*1024),
-			engine.MaxNumFilesPerWriteField: strconv.Itoa(100),
-			engine.MaxFileSizeField:         strconv.Itoa(64 * 1024 * 1024),
-			engine.MaxDirDepthField:         strconv.Itoa(3),
+			fiofilewriter.IOLimitPerWriteAction:    fmt.Sprintf("%d", 512*1024*1024),
+			fiofilewriter.MaxNumFilesPerWriteField: strconv.Itoa(100),
+			fiofilewriter.MaxFileSizeField:         strconv.Itoa(64 * 1024 * 1024),
+			fiofilewriter.MaxDirDepthField:         strconv.Itoa(3),
 		},
 	}
 
 	for time.Since(st) <= *randomizedTestDur {
 		err := eng.RandomAction(opts)
-		if errors.Is(err, engine.ErrNoOp) {
+		if errors.Is(err, robustness.ErrNoOp) {
 			t.Log("Random action resulted in no-op")
 
 			err = nil

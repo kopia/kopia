@@ -44,6 +44,7 @@ linters:
     - whitespace
     - nlreturn
     - testpackage
+    - ifshort
     - exhaustivestruct
     - paralleltest
     - tparallel

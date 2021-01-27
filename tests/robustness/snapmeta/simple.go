@@ -3,12 +3,14 @@ package snapmeta
 import (
 	"errors"
 	"sync"
+
+	"github.com/kopia/kopia/tests/robustness"
 )
 
 // ErrKeyNotFound is returned when the store can't find the key provided.
 var ErrKeyNotFound = errors.New("key not found")
 
-var _ Store = &Simple{}
+var _ robustness.Store = &Simple{}
 
 // Simple is a snapstore implementation that stores
 // snapshot metadata as a byte slice in a map in memory.

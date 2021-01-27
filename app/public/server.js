@@ -75,7 +75,7 @@ function newServerForRepo(repoID) {
                     method: "GET",
                     path: "/api/v1/repo/status",
                     headers: {
-                        'Authorization': 'Basic ' + new Buffer("kopia" + ':' + runningServerPassword).toString('base64')
+                        'Authorization': 'Basic ' + Buffer.from("kopia" + ':' + runningServerPassword).toString('base64')
                      }  
                 }, (resp) => {
                     if (resp.statusCode === 200) {
@@ -138,7 +138,7 @@ function newServerForRepo(repoID) {
                         break;
 
                     case "SERVER CERTIFICATE":
-                        runningServerCertificate = new Buffer(value, 'base64').toString('ascii');
+                        runningServerCertificate = Buffer.from(value, 'base64').toString('ascii');
                         this.raiseStatusUpdatedEvent();
                         break;
 

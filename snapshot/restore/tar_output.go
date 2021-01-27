@@ -86,6 +86,11 @@ func (o *TarOutput) WriteFile(ctx context.Context, relativePath string, f fs.Fil
 	return nil
 }
 
+// FileExists implements restore.Output interface.
+func (o *TarOutput) FileExists(ctx context.Context, relativePath string, f fs.File) bool {
+	return false
+}
+
 // CreateSymlink implements restore.Output interface.
 func (o *TarOutput) CreateSymlink(ctx context.Context, relativePath string, l fs.Symlink) error {
 	target, err := l.Readlink(ctx)
@@ -108,6 +113,11 @@ func (o *TarOutput) CreateSymlink(ctx context.Context, relativePath string, l fs
 	}
 
 	return nil
+}
+
+// SymlinkExists implements restore.Output interface.
+func (o *TarOutput) SymlinkExists(ctx context.Context, relativePath string, l fs.Symlink) bool {
+	return false
 }
 
 // NewTarOutput creates new tar writer output.

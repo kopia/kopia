@@ -18,6 +18,7 @@ kopia_arch_name=amd64
 node_arch_name=x64
 goreleaser_arch_name=x86_64
 linter_arch_name=amd64
+rclone_arch_name=amd64
 
 raw_arch:=$(shell uname -m)
 ifeq ($(raw_arch),aarch64)
@@ -25,6 +26,7 @@ ifeq ($(raw_arch),aarch64)
 	node_arch_name=arm64
 	goreleaser_arch_name=arm64
 	linter_arch_name=arm64
+	rclone_arch_name=arm64
 endif
 
 ifeq ($(raw_arch),armv7l)
@@ -32,6 +34,7 @@ ifeq ($(raw_arch),armv7l)
 	node_arch_name=armv7l
 	goreleaser_arch_name=armv6
 	linter_arch_name=armv7
+	rclone_arch_name=arm
 endif
 
 # uname will be Windows, Darwin, Linux
@@ -43,6 +46,7 @@ ifeq ($(OS),Windows_NT)
 	path_separator=;
 	date_ymd := $(shell powershell -noprofile -executionpolicy bypass -Command "(Get-Date).ToString('yyyyMMdd')")
 	date_full := $(shell powershell -noprofile -executionpolicy bypass -Command "(Get-Date).datetime")
+
 ifeq ($(UNIX_SHELL_ON_WINDOWS),true)
 	mkdir=mkdir -p
 	move=mv
@@ -81,6 +85,8 @@ ifneq ($(gh_tag_tmp),$(GITHUB_REF))
 export TRAVIS_TAG=$(gh_tag_tmp)
 endif
 
+endif
+
 ifeq ($(uname),Windows)
 export TRAVIS_OS_NAME=windows
 endif
@@ -91,8 +97,6 @@ endif
 
 ifeq ($(uname),Darwin)
 export TRAVIS_OS_NAME=osx
-endif
-
 endif
 
 # detect REPO_OWNER
@@ -134,11 +138,12 @@ SELF_DIR := $(subst /,$(slash),$(realpath $(dir $(lastword $(MAKEFILE_LIST)))))
 TOOLS_DIR:=$(SELF_DIR)$(slash).tools
 
 # tool versions
-GOLANGCI_LINT_VERSION=1.35.2
-NODE_VERSION=12.18.3
+GOLANGCI_LINT_VERSION=1.36.0
+NODE_VERSION=14.15.4
 HUGO_VERSION=0.74.3
 GOTESTSUM_VERSION=0.5.3
 GORELEASER_VERSION=v0.140.1
+RCLONE_VERSION=1.53.4
 
 # goveralls
 GOVERALLS_TOOL=$(TOOLS_DIR)/bin/goveralls
@@ -232,6 +237,18 @@ else
 endif
 
 endif
+
+
+# rclone
+rclone_dir=$(TOOLS_DIR)$(slash)rclone-$(RCLONE_VERSION)
+rclone=$(rclone_dir)$(slash)rclone$(exe_suffix)
+
+$(rclone):
+	@echo Downloading RCLONE_VERSION v$(RCLONE_VERSION) to $(rclone)
+	-$(mkdir) $(TOOLS_DIR)$(slash)rclone-$(RCLONE_VERSION)
+
+	curl -LsS -o $(rclone_dir).zip https://github.com/rclone/rclone/releases/download/v$(RCLONE_VERSION)/rclone-v$(RCLONE_VERSION)-$(TRAVIS_OS_NAME)-$(kopia_arch_name).zip
+	unzip -j -q $(rclone_dir).zip -d $(rclone_dir)
 
 gotestsum=$(TOOLS_DIR)/bin/gotestsum
 

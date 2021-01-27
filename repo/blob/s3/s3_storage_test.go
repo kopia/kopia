@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/sha1"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -185,6 +184,30 @@ func TestS3StorageMinio(t *testing.T) {
 	}
 }
 
+func TestInvalidCredsFailsFast(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+
+	t0 := time.Now()
+
+	if _, err := New(ctx, &Options{
+		Endpoint:        minioEndpoint,
+		AccessKeyID:     minioAccessKeyID,
+		SecretAccessKey: minioSecretAccessKey + "bad",
+		BucketName:      minioBucketName,
+		Region:          minioRegion,
+		DoNotUseTLS:     false,
+		DoNotVerifyTLS:  false,
+	}); err == nil {
+		t.Fatalf("unexpected success with bad credentials")
+	}
+
+	if dt := time.Since(t0); dt > 10*time.Second {
+		t.Fatalf("opening storage took too long, probably due to retries")
+	}
+}
+
 func TestS3StorageMinioSTS(t *testing.T) {
 	t.Parallel()
 
@@ -222,7 +245,7 @@ func TestS3StorageMinioSTS(t *testing.T) {
 }
 
 func testStorage(t *testutil.RetriableT, options *Options) {
-	ctx := context.Background()
+	ctx := testlogging.Context(t)
 
 	data := make([]byte, 8)
 	rand.Read(data)
@@ -362,7 +385,7 @@ func createMinioSessionToken(t *testutil.RetriableT, kopiaUserName, kopiaUserPas
 		t.Fatalf("couldn't find aws creds in aws assume role response")
 	}
 
-	log.Printf("created session token with assume role: expiration: %s", result.Credentials.Expiration)
+	t.Logf("created session token with assume role: expiration: %s", result.Credentials.Expiration)
 
 	return *result.Credentials.AccessKeyId, *result.Credentials.SecretAccessKey, *result.Credentials.SessionToken
 }
