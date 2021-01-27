@@ -104,7 +104,7 @@ func addRestoreFlags(cmd *kingpin.CmdClause) {
 	cmd.Flag("skip-times", "Skip times during restore").BoolVar(&restoreSkipTimes)
 	cmd.Flag("ignore-permission-errors", "Ignore permission errors").BoolVar(&restoreIgnorePermissionErrors)
 	cmd.Flag("ignore-errors", "Ignore all errors").BoolVar(&restoreIgnoreErrors)
-	cmd.Flag("incremental", "Incremental restore, do not download files that already exist in the destination").BoolVar(&restoreIncremental)
+	cmd.Flag("skip-existing", "Skip files and symlinks that exist in the output").BoolVar(&restoreIncremental)
 }
 
 func restoreOutput(ctx context.Context) (restore.Output, error) {

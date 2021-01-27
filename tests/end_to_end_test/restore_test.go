@@ -95,7 +95,7 @@ func TestRestoreCommand(t *testing.T) {
 	re := regexp.MustCompile(`Restored (\d+) files.*skipped (\d+) `)
 	foundStatus := false
 	lastFileCount := 0
-	_, stderr := e.RunAndExpectSuccessWithErrOut(t, "restore", rootID, restoreDir, "--incremental")
+	_, stderr := e.RunAndExpectSuccessWithErrOut(t, "restore", rootID, restoreDir, "--skip-existing")
 
 	for _, l := range stderr {
 		if m := re.FindStringSubmatch(l); m != nil {
