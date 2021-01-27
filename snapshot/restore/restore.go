@@ -120,7 +120,7 @@ func (c *copier) copyEntry(ctx context.Context, e fs.Entry, targetPath string, o
 		switch e := e.(type) {
 		case fs.File:
 			if c.output.FileExists(ctx, targetPath, e) {
-				log(ctx).Debugf("skipping file %v because it already exists and is correct", targetPath)
+				log(ctx).Debugf("skipping file %v because it already exists and metadata matches", targetPath)
 				atomic.AddInt32(&c.stats.SkippedCount, 1)
 				atomic.AddInt64(&c.stats.SkippedTotalFileSize, e.Size())
 
