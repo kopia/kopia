@@ -45,7 +45,6 @@ type grpcRepositoryClient struct {
 
 	innerSessionMutex sync.Mutex
 	innerSession      *grpcInnerSession
-	hadInnerSession   bool
 
 	purpose            string
 	isReadOnly         bool
@@ -137,6 +136,8 @@ func (r *grpcInnerSession) sendRequest(ctx context.Context, req *apipb.SessionRe
 				},
 			},
 		}
+
+		close(ch)
 	}
 
 	return ch
@@ -643,9 +644,7 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 		log(ctx).Debugf("establishing new GRPC streaming session")
 
 		retryPolicy := retry.Always
-		if !r.hadInnerSession && r.transparentRetries {
-			// the first time the read-only session is established, don't do retries
-			// to avoid spinning in place while the server is not connectable.
+		if r.transparentRetries {
 			retryPolicy = retry.Never
 		}
 

@@ -36,7 +36,7 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC boo
 	var connectArgs []string
 
 	if !useGRPC {
-		connectArgs = []string{"--disable-grpc"}
+		connectArgs = []string{"--no-grpc"}
 	}
 
 	e := testenv.NewCLITest(t)
