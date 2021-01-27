@@ -147,6 +147,29 @@ func TestSFTPStorageValid(t *testing.T) {
 	}
 }
 
+func TestInvalidServerFailsFast(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+
+	tmpDir := mustGetLocalTmpDir(t)
+	idRSA := filepath.Join(tmpDir, "id_rsa")
+	knownHostsFile := filepath.Join(tmpDir, "known_hosts")
+
+	mustRunOrSkip(t, "ssh-keygen", "-t", "rsa", "-P", "", "-f", idRSA)
+	ioutil.WriteFile(knownHostsFile, nil, 0600)
+
+	t0 := time.Now()
+
+	if _, err := createSFTPStorage(ctx, t, "no-such-host", 22, idRSA, knownHostsFile, false); err == nil {
+		t.Fatalf("unexpected success with bad credentials")
+	}
+
+	if dt := time.Since(t0); dt > 10*time.Second {
+		t.Fatalf("opening storage took too long, probably due to retries")
+	}
+}
+
 func deleteBlobs(ctx context.Context, t *testing.T, st blob.Storage) {
 	t.Helper()
 
