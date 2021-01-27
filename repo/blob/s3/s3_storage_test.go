@@ -184,6 +184,30 @@ func TestS3StorageMinio(t *testing.T) {
 	}
 }
 
+func TestInvalidCredsFailsFast(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+
+	t0 := time.Now()
+
+	if _, err := New(ctx, &Options{
+		Endpoint:        minioEndpoint,
+		AccessKeyID:     minioAccessKeyID,
+		SecretAccessKey: minioSecretAccessKey + "bad",
+		BucketName:      minioBucketName,
+		Region:          minioRegion,
+		DoNotUseTLS:     false,
+		DoNotVerifyTLS:  false,
+	}); err == nil {
+		t.Fatalf("unexpected success with bad credentials")
+	}
+
+	if dt := time.Since(t0); dt > 10*time.Second {
+		t.Fatalf("opening storage took too long, probably due to retries")
+	}
+}
+
 func TestS3StorageMinioSTS(t *testing.T) {
 	t.Parallel()
 
