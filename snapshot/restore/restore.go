@@ -130,7 +130,7 @@ func (c *copier) copyEntry(ctx context.Context, e fs.Entry, targetPath string, o
 		case fs.Symlink:
 			if c.output.SymlinkExists(ctx, targetPath, e) {
 				atomic.AddInt32(&c.stats.SkippedCount, 1)
-				log(ctx).Debugf("skipping symlink %v because it already exists and is correct", targetPath)
+				log(ctx).Debugf("skipping symlink %v because it already exists", targetPath)
 
 				return onCompletion()
 			}
