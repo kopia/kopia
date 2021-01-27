@@ -3,6 +3,7 @@ TEST_FLAGS?=
 KOPIA_INTEGRATION_EXE=$(CURDIR)/dist/integration/kopia.exe
 TESTING_ACTION_EXE=$(CURDIR)/dist/integration/testingaction.exe
 FIO_DOCKER_TAG=ljishen/fio
+REPEAT_TEST=1
 
 export BOTO_PATH=$(CURDIR)/tools/.boto
 
@@ -209,16 +210,16 @@ dev-deps:
 	GO111MODULE=off go get -u github.com/sqs/goreturns
 
 test-with-coverage:
-	$(GO_TEST) -count=1 -coverprofile=tmp.cov --coverpkg $(COVERAGE_PACKAGES) -timeout 300s $(shell go list ./...)
+	$(GO_TEST) -count=$(REPEAT_TEST) -coverprofile=tmp.cov --coverpkg $(COVERAGE_PACKAGES) -timeout 300s $(shell go list ./...)
 
 test-with-coverage-pkgonly:
-	$(GO_TEST) -count=1 -coverprofile=tmp.cov -timeout 300s github.com/kopia/kopia/...
+	$(GO_TEST) -count=$(REPEAT_TEST) -coverprofile=tmp.cov -timeout 300s github.com/kopia/kopia/...
 
 test: $(gotestsum)
-	$(GO_TEST) -count=1 -timeout $(UNIT_TESTS_TIMEOUT) ./...
+	$(GO_TEST) -count=$(REPEAT_TEST) -timeout $(UNIT_TESTS_TIMEOUT) ./...
 
 vtest: $(gotestsum)
-	$(GO_TEST) -count=1 -short -v -timeout $(UNIT_TESTS_TIMEOUT) ./...
+	$(GO_TEST) -count=$(REPEAT_TEST) -short -v -timeout $(UNIT_TESTS_TIMEOUT) ./...
 
 build-integration-test-binary:
 	go build -o $(KOPIA_INTEGRATION_EXE) -tags testing github.com/kopia/kopia
@@ -229,26 +230,26 @@ $(TESTING_ACTION_EXE): tests/testingaction/main.go
 integration-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
 integration-tests: export TESTING_ACTION_EXE ?= $(TESTING_ACTION_EXE)
 integration-tests: build-integration-test-binary $(gotestsum) $(TESTING_ACTION_EXE)
-	 $(GO_TEST) $(TEST_FLAGS) -count=1 -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/end_to_end_test
+	 $(GO_TEST) $(TEST_FLAGS) -count=$(REPEAT_TEST) -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/end_to_end_test
 
 endurance-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
 endurance-tests: build-integration-test-binary $(gotestsum)
-	 $(GO_TEST) $(TEST_FLAGS) -count=1 -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/endurance_test
+	 $(GO_TEST) $(TEST_FLAGS) -count=$(REPEAT_TEST) -parallel $(PARALLEL) -timeout 3600s github.com/kopia/kopia/tests/endurance_test
 
 robustness-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
 robustness-tests: build-integration-test-binary $(gotestsum)
 	FIO_DOCKER_IMAGE=$(FIO_DOCKER_TAG) \
-	$(GO_TEST) -count=1 github.com/kopia/kopia/tests/robustness/robustness_test $(TEST_FLAGS)
+	$(GO_TEST) -count=$(REPEAT_TEST) github.com/kopia/kopia/tests/robustness/robustness_test $(TEST_FLAGS)
 
 robustness-tool-tests: export KOPIA_EXE ?= $(KOPIA_INTEGRATION_EXE)
 robustness-tool-tests: build-integration-test-binary $(gotestsum)
 	KOPIA_EXE=$(KOPIA_INTEGRATION_EXE) \
 	FIO_DOCKER_IMAGE=$(FIO_DOCKER_TAG) \
-	$(GO_TEST) -count=1 github.com/kopia/kopia/tests/tools/... github.com/kopia/kopia/tests/robustness/engine/... $(TEST_FLAGS)
+	$(GO_TEST) -count=$(REPEAT_TEST) github.com/kopia/kopia/tests/tools/... github.com/kopia/kopia/tests/robustness/engine/... $(TEST_FLAGS)
 
 stress-test: $(gotestsum)
-	KOPIA_LONG_STRESS_TEST=1 $(GO_TEST) -count=1 -timeout 200s github.com/kopia/kopia/tests/stress_test
-	$(GO_TEST) -count=1 -timeout 200s github.com/kopia/kopia/tests/repository_stress_test
+	KOPIA_LONG_STRESS_TEST=1 $(GO_TEST) -count=$(REPEAT_TEST) -timeout 200s github.com/kopia/kopia/tests/stress_test
+	$(GO_TEST) -count=$(REPEAT_TEST) -timeout 200s github.com/kopia/kopia/tests/repository_stress_test
 
 layering-test:
 ifneq ($(uname),Windows)

@@ -112,6 +112,9 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC boo
 
 	serverapi.Shutdown(ctx, cli)
 
+	// give the server a moment to wind down.
+	time.Sleep(1 * time.Second)
+
 	defer rep.Close(ctx)
 
 	// start the server again, using the same address & TLS key+cert, so existing connection
