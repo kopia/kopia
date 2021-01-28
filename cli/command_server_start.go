@@ -54,7 +54,7 @@ func init() {
 func runServer(ctx context.Context, rep repo.Repository) error {
 	authn, err := getAuthenticatorFunc()
 	if err != nil {
-		return errors.Wrap(err, "unable to initialize authn")
+		return errors.Wrap(err, "unable to initialize authentication")
 	}
 
 	srv, err := server.New(ctx, server.Options{
