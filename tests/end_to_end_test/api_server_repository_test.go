@@ -130,7 +130,6 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC boo
 			"--htpasswd-file", htpasswordFile,
 		}, serverStartArgs...)...)
 	t.Logf("detected server parameters %#v", sp)
-	waitUntilServerStarted(ctx, t, cli)
 
 	cli, err = apiclient.NewKopiaAPIClient(apiclient.Options{
 		BaseURL:                             sp.baseURL,
@@ -142,6 +141,8 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC boo
 	if err != nil {
 		t.Fatalf("unable to create API apiclient")
 	}
+
+	waitUntilServerStarted(ctx, t, cli)
 
 	defer serverapi.Shutdown(ctx, cli)
 

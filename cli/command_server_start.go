@@ -116,6 +116,7 @@ func runServer(ctx context.Context, rep repo.Repository) error {
 	}
 
 	if *serverStartGRPC {
+		log(ctx).Debugf("starting GRPC/HTTP server...")
 		grpcServer := grpc.NewServer(
 			grpc.MaxSendMsgSize(repo.MaxGRPCMessageSize),
 			grpc.MaxRecvMsgSize(repo.MaxGRPCMessageSize),
@@ -130,6 +131,7 @@ func runServer(ctx context.Context, rep repo.Repository) error {
 			}
 		})
 	} else {
+		log(ctx).Debugf("starting HTTP-only server...")
 		httpServer.Handler = handler
 	}
 

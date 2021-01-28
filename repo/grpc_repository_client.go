@@ -50,6 +50,9 @@ type grpcRepositoryClient struct {
 	isReadOnly         bool
 	transparentRetries bool
 
+	// how many times we tried to establish inner session
+	innerSessionAttemptCount int
+
 	h            hashing.HashFunc
 	objectFormat object.Format
 	cliOpts      ClientOptions
@@ -137,6 +140,13 @@ func (r *grpcInnerSession) sendRequest(ctx context.Context, req *apipb.SessionRe
 			},
 		}
 
+		// remove request from the map, so that when a response to it does arrive the read loop does not try
+		// to write to a closed channel.
+		r.activeRequestsMutex.Lock()
+		delete(r.activeRequests, rid)
+		r.activeRequestsMutex.Unlock()
+
+		// make sure we close the channel, so that client will finish waiting.
 		close(ch)
 	}
 
@@ -415,7 +425,7 @@ func (r *grpcRepositoryClient) retry(ctx context.Context, attempt sessionAttempt
 func (r *grpcRepositoryClient) inSessionWithoutRetry(ctx context.Context, attempt sessionAttemptFunc) (interface{}, error) {
 	sess, err := r.getOrEstablishInnerSession(ctx)
 	if err != nil {
-		return nil, errors.Wrap(err, "unable to establish session")
+		return nil, errors.Wrapf(err, "unable to establish session for purpose=%v", r.purpose)
 	}
 
 	return attempt(ctx, sess)
@@ -641,12 +651,16 @@ func (r *grpcRepositoryClient) getOrEstablishInnerSession(ctx context.Context) (
 	if r.innerSession == nil {
 		cli := apipb.NewKopiaRepositoryClient(r.conn)
 
-		log(ctx).Debugf("establishing new GRPC streaming session")
+		log(ctx).Debugf("establishing new GRPC streaming session (purpose=%v)", r.purpose)
 
 		retryPolicy := retry.Always
-		if r.transparentRetries {
+		if r.transparentRetries && r.innerSessionAttemptCount == 0 {
+			// the first time the read-only session is established, don't do retries
+			// to avoid spinning in place while the server is not connectable.
 			retryPolicy = retry.Never
 		}
+
+		r.innerSessionAttemptCount++
 
 		v, err := retry.WithExponentialBackoff(ctx, "establishing session", func() (interface{}, error) {
 			sess, err := cli.Session(ctxutil.Detach(ctx))
