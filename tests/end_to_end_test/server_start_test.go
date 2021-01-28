@@ -335,6 +335,47 @@ func TestConnectToExistingRepositoryViaAPI(t *testing.T) {
 	}
 }
 
+func TestServerStartInsecure(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+
+	e := testenv.NewCLITest(t)
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir, "--override-hostname=fake-hostname", "--override-username=fake-username")
+
+	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
+
+	var sp serverParameters
+
+	// server starts without password and no TLS when --insecure is provided.
+	e.RunAndProcessStderr(t, sp.ProcessOutput,
+		"server", "start",
+		"--ui",
+		"--address=localhost:0",
+		"--insecure",
+	)
+
+	cli, err := apiclient.NewKopiaAPIClient(apiclient.Options{
+		BaseURL: sp.baseURL,
+	})
+	if err != nil {
+		t.Fatalf("unable to create API apiclient")
+	}
+
+	defer serverapi.Shutdown(ctx, cli)
+
+	waitUntilServerStarted(ctx, t, cli)
+
+	// server fails to start without a password but with TLS.
+	e.RunAndExpectFailure(t, "server", "start", "--ui", "--address=localhost:0", "--tls-generate-cert")
+
+	// server fails to start with TLS but without password.
+	e.RunAndExpectFailure(t, "server", "start", "--ui", "--address=localhost:0", "--password=foo")
+	e.RunAndExpectFailure(t, "server", "start", "--ui", "--address=localhost:0")
+}
+
 func verifyServerConnected(t *testing.T, cli *apiclient.KopiaAPIClient, want bool) *serverapi.StatusResponse {
 	t.Helper()
 

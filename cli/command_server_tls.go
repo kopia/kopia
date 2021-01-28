@@ -139,6 +139,10 @@ func startServerWithOptionalTLSAndListener(ctx context.Context, httpServer *http
 		return httpServer.ServeTLS(listener, "", "")
 
 	default:
+		if !*serverStartInsecure {
+			return errors.Errorf("TLS not configured. To start server without encryption pass --insecure.")
+		}
+
 		fmt.Fprintf(os.Stderr, "SERVER ADDRESS: http://%v\n", httpServer.Addr)
 		showServerUIPrompt(ctx)
 
