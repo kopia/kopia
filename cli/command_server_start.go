@@ -116,12 +116,13 @@ func runServer(ctx context.Context, rep repo.Repository) error {
 	}
 
 	if *serverStartGRPC {
-		log(ctx).Debugf("starting GRPC/HTTP server...")
 		grpcServer := grpc.NewServer(
 			grpc.MaxSendMsgSize(repo.MaxGRPCMessageSize),
 			grpc.MaxRecvMsgSize(repo.MaxGRPCMessageSize),
 		)
 		srv.RegisterGRPCHandlers(grpcServer)
+
+		log(ctx).Debugf("starting GRPC/HTTP server...")
 
 		httpServer.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.ProtoMajor == 2 && strings.Contains(r.Header.Get("Content-Type"), "application/grpc") {
