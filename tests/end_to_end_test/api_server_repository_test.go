@@ -1,21 +1,43 @@
 package endtoend_test
 
 import (
+	"context"
 	"io/ioutil"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/kopia/kopia/internal/apiclient"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
 // foo@bar - password baz.
 var htpasswdFileContents = []byte("foo@bar:$2y$05$JWrExvBe5Knh0.AMLk5WHu.EzfOP.LhrqMIRf1YseZ/rulBjKqGJ.\n")
 
-func TestAPIServerRepository(t *testing.T) {
+func TestAPIServerRepository_GRPC(t *testing.T) {
+	t.Parallel()
+
+	testAPIServerRepository(t, []string{"--no-legacy-api"}, true)
+}
+
+func TestAPIServerRepository_DisableGRPC(t *testing.T) {
+	t.Parallel()
+
+	testAPIServerRepository(t, []string{"--no-grpc"}, false)
+}
+
+// nolint:thelper
+func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC bool) {
 	ctx := testlogging.Context(t)
+
+	var connectArgs []string
+
+	if !useGRPC {
+		connectArgs = []string{"--no-grpc"}
+	}
 
 	e := testenv.NewCLITest(t)
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
@@ -35,18 +57,24 @@ func TestAPIServerRepository(t *testing.T) {
 	originalQBlobCount := len(e1.RunAndExpectSuccess(t, "blob", "list", "--prefix=q"))
 
 	htpasswordFile := filepath.Join(e.ConfigDir, "htpasswd.txt")
+	tlsCert := filepath.Join(e.ConfigDir, "tls.cert")
+	tlsKey := filepath.Join(e.ConfigDir, "tls.key")
+
 	ioutil.WriteFile(htpasswordFile, htpasswdFileContents, 0o755)
 
 	var sp serverParameters
 
 	e.RunAndProcessStderr(t, sp.ProcessOutput,
-		"server", "start",
-		"--address=localhost:0",
-		"--random-password",
-		"--tls-generate-cert",
-		"--auto-shutdown=60s",
-		"--htpasswd-file", htpasswordFile,
-	)
+		append([]string{
+			"server", "start",
+			"--address=localhost:0",
+			"--random-password",
+			"--tls-generate-cert",
+			"--tls-key-file", tlsKey,
+			"--tls-cert-file", tlsCert,
+			"--auto-shutdown=60s",
+			"--htpasswd-file", htpasswordFile,
+		}, serverStartArgs...)...)
 	t.Logf("detected server parameters %#v", sp)
 
 	cli, err := apiclient.NewKopiaAPIClient(apiclient.Options{
@@ -60,20 +88,95 @@ func TestAPIServerRepository(t *testing.T) {
 		t.Fatalf("unable to create API apiclient")
 	}
 
-	defer serverapi.Shutdown(ctx, cli)
+	waitUntilServerStarted(ctx, t, cli)
+
+	// open repository client.
+	rep, err := repo.OpenAPIServer(ctx, &repo.APIServerInfo{
+		BaseURL:                             sp.baseURL,
+		TrustedServerCertificateFingerprint: sp.sha256Fingerprint,
+		DisableGRPC:                         !useGRPC,
+	}, repo.ClientOptions{
+		Username: "foo",
+		Hostname: "bar",
+	}, "baz")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// open new write session in repository client
+
+	writeSess, err := rep.NewWriter(ctx, "some writer")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	serverapi.Shutdown(ctx, cli)
+
+	// give the server a moment to wind down.
+	time.Sleep(1 * time.Second)
+
+	defer rep.Close(ctx)
+
+	// start the server again, using the same address & TLS key+cert, so existing connection
+	// should be re-established.
+	e.RunAndProcessStderr(t, sp.ProcessOutput,
+		append([]string{
+			"server", "start",
+			"--address=" + sp.baseURL,
+			"--random-password",
+			"--tls-key-file", tlsKey,
+			"--tls-cert-file", tlsCert,
+			"--auto-shutdown=60s",
+			"--htpasswd-file", htpasswordFile,
+		}, serverStartArgs...)...)
+	t.Logf("detected server parameters %#v", sp)
+
+	cli, err = apiclient.NewKopiaAPIClient(apiclient.Options{
+		BaseURL:                             sp.baseURL,
+		Username:                            "foo@bar",
+		Password:                            "baz",
+		TrustedServerCertificateFingerprint: sp.sha256Fingerprint,
+		LogRequests:                         true,
+	})
+	if err != nil {
+		t.Fatalf("unable to create API apiclient")
+	}
 
 	waitUntilServerStarted(ctx, t, cli)
+
+	defer serverapi.Shutdown(ctx, cli)
+
+	someLabels := map[string]string{
+		"type":     "snapshot",
+		"username": "foo",
+		"hostname": "bar",
+	}
+
+	// invoke some read method, the repository will automatically reconnect to the server.
+	verifyFindManifestCount(ctx, t, rep, someLabels, 1)
+
+	if useGRPC {
+		// the same method on a GRPC write session should fail because the stream was broken.
+		if _, err := writeSess.FindManifests(ctx, someLabels); err == nil {
+			t.Fatalf("expected failure on write session method, got success.")
+		}
+	} else {
+		// invoke some method on write session, this will succeed because legacy API is stateless
+		// (also incorrect in this case).
+		verifyFindManifestCount(ctx, t, writeSess, someLabels, 1)
+	}
 
 	e2 := testenv.NewCLITest(t)
 	defer e2.RunAndExpectSuccess(t, "repo", "disconnect")
 
-	e2.RunAndExpectSuccess(t, "repo", "connect", "server",
-		"--url", sp.baseURL+"/",
+	e2.RunAndExpectSuccess(t, append([]string{
+		"repo", "connect", "server",
+		"--url", sp.baseURL + "/",
 		"--server-cert-fingerprint", sp.sha256Fingerprint,
 		"--override-username", "foo",
 		"--override-hostname", "bar",
 		"--password", "baz",
-	)
+	}, connectArgs...)...)
 
 	// we are providing custom password to connect, make sure we won't be providing
 	// (different) default password via environment variable, as command-line password
@@ -116,5 +219,37 @@ func TestAPIServerRepository(t *testing.T) {
 	snapshots = e2.ListSnapshotsAndExpectSuccess(t)
 	if got, want := len(snapshots), 3; got != want {
 		t.Errorf("invalid number of snapshots for foo@bar")
+	}
+
+	// shutdown the server
+	serverapi.Shutdown(ctx, cli)
+
+	// open repository client to a dead server, this should fail quickly instead of retrying forever.
+	t0 := time.Now()
+
+	repo.OpenAPIServer(ctx, &repo.APIServerInfo{
+		BaseURL:                             sp.baseURL,
+		TrustedServerCertificateFingerprint: sp.sha256Fingerprint,
+		DisableGRPC:                         !useGRPC,
+	}, repo.ClientOptions{
+		Username: "foo",
+		Hostname: "bar",
+	}, "baz")
+
+	if dur := time.Since(t0); dur > 15*time.Second {
+		t.Fatalf("failed connection took %v", dur)
+	}
+}
+
+func verifyFindManifestCount(ctx context.Context, t *testing.T, rep repo.Repository, labels map[string]string, wantCount int) {
+	t.Helper()
+
+	man, err := rep.FindManifests(ctx, labels)
+	if err != nil {
+		t.Fatalf("unable to list manifests using repository %v", err)
+	}
+
+	if got, want := len(man), wantCount; got != want {
+		t.Fatalf("invalid number of manifests: %v, want %v", got, want)
 	}
 }

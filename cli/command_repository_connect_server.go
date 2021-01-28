@@ -14,6 +14,7 @@ var (
 
 	connectAPIServerURL             = connectAPIServerCommand.Flag("url", "Server URL").Required().String()
 	connectAPIServerCertFingerprint = connectAPIServerCommand.Flag("server-cert-fingerprint", "Server certificate fingerprint").String()
+	connectAPIServerUseGRPCAPI      = connectAPIServerCommand.Flag("grpc", "Use GRPC API").Default("true").Bool()
 )
 
 func runConnectAPIServerCommand(ctx context.Context) error {
@@ -25,6 +26,7 @@ func runConnectAPIServerCommand(ctx context.Context) error {
 	as := &repo.APIServerInfo{
 		BaseURL:                             strings.TrimSuffix(*connectAPIServerURL, "/"),
 		TrustedServerCertificateFingerprint: strings.ToLower(*connectAPIServerCertFingerprint),
+		DisableGRPC:                         !*connectAPIServerUseGRPCAPI,
 	}
 
 	configFile := repositoryConfigFileName()

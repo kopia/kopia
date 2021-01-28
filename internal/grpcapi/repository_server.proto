@@ -1,0 +1,164 @@
+syntax = "proto3";
+
+option go_package="github.com/kopia/kopia/internal/grpcapi";
+
+package kopia_repository;
+
+// corresponds to content.Info
+message ContentInfo {
+  string id = 1;
+  uint32 length = 2;
+  int64 timestamp_seconds = 3;
+  string pack_blob_id = 4;
+  uint32 pack_offset = 5;
+  bool deleted = 6;
+  uint32 format_version = 7;
+}
+
+// corresponds to manifest.EntryMetadata
+message ManifestEntryMetadata {
+  string id = 1;
+  int64 mod_time_nanos = 2;
+  int32 length = 3;
+  map<string, string> labels = 4;
+}
+
+// ErrorResponse can be sent in response to any request.
+message ErrorResponse {
+  enum Code {
+    UNKNOWN_ERROR = 0;
+    CLIENT_ERROR = 1;
+    CONTENT_NOT_FOUND = 2;
+    MANIFEST_NOT_FOUND = 3;
+    OBJECT_NOT_FOUND = 4;
+    ACCESS_DENIED = 5;
+    STREAM_BROKEN = 6;
+  }
+
+  Code code = 1;
+  string message = 2;
+}
+
+// RepositoryParameters describes repository parameters.
+message RepositoryParameters {
+  string hash_function = 1;
+  bytes hmac_secret = 2;
+  string splitter = 3;
+}
+
+// InitializeSessionRequest must be sent by the client as the first request in a session.
+message InitializeSessionRequest {
+  string purpose = 1;
+  bool read_only = 2;
+}
+
+// InitializeSessionResponse will be sent as the first response by the server.
+message InitializeSessionResponse {
+  RepositoryParameters parameters = 1;
+}
+
+message GetContentInfoRequest {
+  string content_id = 1;
+}
+
+message GetContentInfoResponse {
+  ContentInfo info = 1;
+}
+
+message GetContentRequest {
+  string content_id = 1;
+}
+
+message GetContentResponse {
+  bytes data = 1;
+}
+
+message FlushRequest {
+}
+
+message FlushResponse {
+}
+
+message WriteContentRequest {
+  string prefix = 1;
+  bytes data = 2;
+}
+
+message WriteContentResponse {
+  string content_id = 1;
+}
+
+message GetManifestRequest {
+  string manifest_id = 1;
+}
+
+message GetManifestResponse {
+  bytes json_data = 1;
+  ManifestEntryMetadata metadata = 2;
+}
+
+message PutManifestRequest {
+  bytes json_data = 1;
+  map<string, string> labels = 2;
+}
+
+message PutManifestResponse {
+  string manifest_id = 1;
+}
+
+message DeleteManifestRequest {
+  string manifest_id = 1;
+}
+
+message DeleteManifestResponse {
+}
+
+message FindManifestsRequest {
+  map<string, string> labels = 1;
+}
+
+message FindManifestsResponse {
+  repeated ManifestEntryMetadata metadata = 1;
+}
+
+message SessionRequest {
+  int64 request_id = 1;
+
+  // each SessionRequest returns SessionResponse with request_id matching the request
+  // and corresponding type specific to each request. In case of an error, ErrorResponse
+  // is returned instead.
+  oneof request {
+    InitializeSessionRequest initialize_session = 10;
+    GetContentInfoRequest get_content_info = 11;
+    FlushRequest flush = 12;
+    WriteContentRequest write_content = 13;
+    GetContentRequest get_content = 14;
+    GetManifestRequest get_manifest = 15;
+    PutManifestRequest put_manifest = 16;
+    FindManifestsRequest find_manifests = 17;
+    DeleteManifestRequest delete_manifest = 18;
+  }
+}
+
+message SessionResponse {
+  int64 request_id = 1; // corresponds to request ID
+
+  oneof response {
+    ErrorResponse error = 2;
+
+    InitializeSessionResponse initialize_session = 10;
+    GetContentInfoResponse get_content_info = 11;
+    FlushResponse flush = 12;
+    WriteContentResponse write_content = 13;
+    GetContentResponse get_content = 14;
+    GetManifestResponse get_manifest = 15;
+    PutManifestResponse put_manifest = 16;
+    FindManifestsResponse find_manifests = 17;
+    DeleteManifestResponse delete_manifest = 18;
+  }
+}
+
+service KopiaRepository {
+  // Session starts a long-running repository session.
+  rpc Session(stream SessionRequest) returns (stream SessionResponse);
+}

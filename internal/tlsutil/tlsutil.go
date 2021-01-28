@@ -114,14 +114,20 @@ func WriteCertificateToFile(fname string, cert *x509.Certificate) error {
 	return nil
 }
 
+// TLSConfigTrustingSingleCertificate return tls.Config which trusts exactly one TLS certificate with
+// provided SHA256 fingerprint.
+func TLSConfigTrustingSingleCertificate(sha256Fingerprint string) *tls.Config {
+	return &tls.Config{
+		InsecureSkipVerify:    true, //nolint:gosec
+		VerifyPeerCertificate: verifyPeerCertificate(sha256Fingerprint),
+	}
+}
+
 // TransportTrustingSingleCertificate return http.RoundTripper which trusts exactly one TLS certificate with
 // provided SHA256 fingerprint.
 func TransportTrustingSingleCertificate(sha256Fingerprint string) http.RoundTripper {
 	t2 := http.DefaultTransport.(*http.Transport).Clone()
-	t2.TLSClientConfig = &tls.Config{
-		InsecureSkipVerify:    true, //nolint:gosec
-		VerifyPeerCertificate: verifyPeerCertificate(sha256Fingerprint),
-	}
+	t2.TLSClientConfig = TLSConfigTrustingSingleCertificate(sha256Fingerprint)
 
 	return t2
 }

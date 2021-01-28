@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 	prom "github.com/prometheus/client_golang/prometheus"
 	htpasswd "github.com/tg123/go-htpasswd"
+	"google.golang.org/grpc"
 
 	"github.com/kopia/kopia/internal/auth"
 	"github.com/kopia/kopia/internal/clock"
@@ -26,10 +27,15 @@ import (
 )
 
 var (
-	serverStartCommand         = serverCommands.Command("start", "Start Kopia server").Default()
-	serverStartHTMLPath        = serverStartCommand.Flag("html", "Server the provided HTML at the root URL").ExistingDir()
-	serverStartUI              = serverStartCommand.Flag("ui", "Start the server with HTML UI").Default("true").Bool()
-	serverStartRefreshInterval = serverStartCommand.Flag("refresh-interval", "Frequency for refreshing repository status").Default("10s").Duration()
+	serverStartCommand  = serverCommands.Command("start", "Start Kopia server").Default()
+	serverStartHTMLPath = serverStartCommand.Flag("html", "Server the provided HTML at the root URL").ExistingDir()
+	serverStartUI       = serverStartCommand.Flag("ui", "Start the server with HTML UI").Default("true").Bool()
+
+	serverStartLegacyRepositoryAPI = serverStartCommand.Flag("legacy-api", "Start the legacy server API").Default("true").Bool()
+	serverStartGRPC                = serverStartCommand.Flag("grpc", "Start the GRPC server").Default("true").Bool()
+
+	serverStartRefreshInterval = serverStartCommand.Flag("refresh-interval", "Frequency for refreshing repository status").Default("300s").Duration()
+	serverStartMaxConcurrency  = serverStartCommand.Flag("max-concurrency", "Maximum number of server goroutines").Default("0").Int()
 
 	serverStartRandomPassword = serverStartCommand.Flag("random-password", "Generate random password and print to stderr").Hidden().Bool()
 	serverStartAutoShutdown   = serverStartCommand.Flag("auto-shutdown", "Auto shutdown the server if API requests not received within given time").Hidden().Duration()
@@ -54,6 +60,7 @@ func runServer(ctx context.Context, rep repo.Repository) error {
 		ConfigFile:      repositoryConfigFileName(),
 		ConnectOptions:  connectOptions(),
 		RefreshInterval: *serverStartRefreshInterval,
+		MaxConcurrency:  *serverStartMaxConcurrency,
 		Authenticator:   authn,
 		Authorizer:      auth.LegacyAuthorizerForUser,
 	})
@@ -71,7 +78,7 @@ func runServer(ctx context.Context, rep repo.Repository) error {
 
 	mux := http.NewServeMux()
 
-	mux.Handle("/api/", srv.APIHandlers())
+	mux.Handle("/api/", srv.APIHandlers(*serverStartLegacyRepositoryAPI))
 
 	if *serverStartHTMLPath != "" {
 		fileServer := serveIndexFileForKnownUIRoutes(http.Dir(*serverStartHTMLPath))
@@ -108,7 +115,26 @@ func runServer(ctx context.Context, rep repo.Repository) error {
 		})
 	}
 
-	httpServer.Handler = handler
+	if *serverStartGRPC {
+		grpcServer := grpc.NewServer(
+			grpc.MaxSendMsgSize(repo.MaxGRPCMessageSize),
+			grpc.MaxRecvMsgSize(repo.MaxGRPCMessageSize),
+		)
+		srv.RegisterGRPCHandlers(grpcServer)
+
+		log(ctx).Debugf("starting GRPC/HTTP server...")
+
+		httpServer.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.ProtoMajor == 2 && strings.Contains(r.Header.Get("Content-Type"), "application/grpc") {
+				grpcServer.ServeHTTP(w, r)
+			} else {
+				handler.ServeHTTP(w, r)
+			}
+		})
+	} else {
+		log(ctx).Debugf("starting HTTP-only server...")
+		httpServer.Handler = handler
+	}
 
 	err = startServerWithOptionalTLS(ctx, httpServer)
 	if !errors.Is(err, http.ErrServerClosed) {

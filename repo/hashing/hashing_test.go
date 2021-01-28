@@ -14,7 +14,7 @@ type parameters struct {
 }
 
 func (p parameters) GetHashFunction() string { return p.hashingAlgo }
-func (p parameters) GetHMACSecret() []byte   { return p.hmacSecret }
+func (p parameters) GetHmacSecret() []byte   { return p.hmacSecret }
 
 func TestRoundTrip(t *testing.T) {
 	data1 := make([]byte, 100)

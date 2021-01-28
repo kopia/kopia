@@ -121,9 +121,7 @@ func (s *sourceManager) runLocal(ctx context.Context) {
 
 		if s.nextSnapshotTime != nil {
 			waitTime = clock.Until(*s.nextSnapshotTime)
-			log(ctx).Debugf("time to next snapshot %v is %v", s.src, waitTime)
 		} else {
-			log(ctx).Debugf("no scheduled snapshot for %v", s.src)
 			waitTime = oneDay
 		}
 
@@ -306,8 +304,6 @@ func (s *sourceManager) findClosestNextSnapshotTime() *time.Time {
 func (s *sourceManager) refreshStatus(ctx context.Context) {
 	ctx, cancel := context.WithTimeout(ctx, refreshTimeout)
 	defer cancel()
-
-	log(ctx).Debugf("refreshing state for %v", s.src)
 
 	pol, _, err := policy.GetEffectivePolicy(ctx, s.server.rep, s.src)
 	if err != nil {

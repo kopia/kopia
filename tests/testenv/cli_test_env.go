@@ -28,7 +28,7 @@ const (
 	// TestRepoPassword is a password for repositories created in tests.
 	TestRepoPassword = "qWQPJ2hiiLgWRRCr"
 
-	maxOutputLinesToLog = 40
+	maxOutputLinesToLog = 4000
 )
 
 // CLITest encapsulates state for a CLI-based test.

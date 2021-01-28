@@ -46,10 +46,12 @@ type Server struct {
 	sourceManagers  map[snapshot.SourceInfo]*sourceManager
 	mounts          sync.Map // object.ID -> mount.Controller
 	uploadSemaphore chan struct{}
+
+	grpcServerState
 }
 
 // APIHandlers handles API requests.
-func (s *Server) APIHandlers() http.Handler {
+func (s *Server) APIHandlers(legacyAPI bool) http.Handler {
 	m := mux.NewRouter()
 
 	// sources
@@ -82,16 +84,19 @@ func (s *Server) APIHandlers() http.Handler {
 	m.HandleFunc("/api/v1/repo/disconnect", s.handleAPI(s.handleRepoDisconnect)).Methods(http.MethodPost)
 	m.HandleFunc("/api/v1/repo/algorithms", s.handleAPIPossiblyNotConnected(s.handleRepoSupportedAlgorithms)).Methods(http.MethodGet)
 	m.HandleFunc("/api/v1/repo/sync", s.handleAPI(s.handleRepoSync)).Methods(http.MethodPost)
-	m.HandleFunc("/api/v1/repo/parameters", s.handleAPI(s.handleRepoParameters)).Methods(http.MethodGet)
 
-	m.HandleFunc("/api/v1/contents/{contentID}", s.handleAPI(s.handleContentInfo)).Methods(http.MethodGet).Queries("info", "1")
-	m.HandleFunc("/api/v1/contents/{contentID}", s.handleAPI(s.handleContentGet)).Methods(http.MethodGet)
-	m.HandleFunc("/api/v1/contents/{contentID}", s.handleAPI(s.handleContentPut)).Methods(http.MethodPut)
+	if legacyAPI {
+		m.HandleFunc("/api/v1/repo/parameters", s.handleAPI(s.handleRepoParameters)).Methods(http.MethodGet)
 
-	m.HandleFunc("/api/v1/manifests/{manifestID}", s.handleAPI(s.handleManifestGet)).Methods(http.MethodGet)
-	m.HandleFunc("/api/v1/manifests/{manifestID}", s.handleAPI(s.handleManifestDelete)).Methods(http.MethodDelete)
-	m.HandleFunc("/api/v1/manifests", s.handleAPI(s.handleManifestCreate)).Methods(http.MethodPost)
-	m.HandleFunc("/api/v1/manifests", s.handleAPI(s.handleManifestList)).Methods(http.MethodGet)
+		m.HandleFunc("/api/v1/contents/{contentID}", s.handleAPI(s.handleContentInfo)).Methods(http.MethodGet).Queries("info", "1")
+		m.HandleFunc("/api/v1/contents/{contentID}", s.handleAPI(s.handleContentGet)).Methods(http.MethodGet)
+		m.HandleFunc("/api/v1/contents/{contentID}", s.handleAPI(s.handleContentPut)).Methods(http.MethodPut)
+
+		m.HandleFunc("/api/v1/manifests/{manifestID}", s.handleAPI(s.handleManifestGet)).Methods(http.MethodGet)
+		m.HandleFunc("/api/v1/manifests/{manifestID}", s.handleAPI(s.handleManifestDelete)).Methods(http.MethodDelete)
+		m.HandleFunc("/api/v1/manifests", s.handleAPI(s.handleManifestCreate)).Methods(http.MethodPost)
+		m.HandleFunc("/api/v1/manifests", s.handleAPI(s.handleManifestList)).Methods(http.MethodGet)
+	}
 
 	m.HandleFunc("/api/v1/mounts", s.handleAPI(s.handleMountCreate)).Methods(http.MethodPost)
 	m.HandleFunc("/api/v1/mounts/{rootObjectID}", s.handleAPI(s.handleMountDelete)).Methods(http.MethodDelete)
@@ -461,6 +466,7 @@ type Options struct {
 	ConfigFile      string
 	ConnectOptions  *repo.ConnectOptions
 	RefreshInterval time.Duration
+	MaxConcurrency  int
 	Authenticator   auth.Authenticator
 	Authorizer      auth.AuthorizerFunc
 }
@@ -476,6 +482,7 @@ func New(ctx context.Context, options Options) (*Server, error) {
 		options:         options,
 		sourceManagers:  map[snapshot.SourceInfo]*sourceManager{},
 		uploadSemaphore: make(chan struct{}, 1),
+		grpcServerState: makeGRPCServerState(options.MaxConcurrency),
 		authenticator:   options.Authenticator,
 		authorizer:      options.Authorizer,
 	}

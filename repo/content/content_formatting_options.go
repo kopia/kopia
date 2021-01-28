@@ -25,7 +25,7 @@ func (f *FormattingOptions) GetHashFunction() string {
 	return f.Hash
 }
 
-// GetHMACSecret implements hashing.Parameters.
-func (f *FormattingOptions) GetHMACSecret() []byte {
+// GetHmacSecret implements hashing.Parameters.
+func (f *FormattingOptions) GetHmacSecret() []byte {
 	return f.HMACSecret
 }
