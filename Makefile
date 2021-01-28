@@ -213,6 +213,7 @@ test-with-coverage: export RCLONE_EXE=$(rclone)
 test-with-coverage:
 	$(GO_TEST) -count=$(REPEAT_TEST) -coverprofile=tmp.cov --coverpkg $(COVERAGE_PACKAGES) -timeout 300s $(shell go list ./...)
 
+test-with-coverage-pkgonly: export RCLONE_EXE=$(rclone)
 test-with-coverage-pkgonly:
 	$(GO_TEST) -count=$(REPEAT_TEST) -coverprofile=tmp.cov -timeout 300s github.com/kopia/kopia/...
 
