@@ -35,6 +35,7 @@ var (
 	serverStartGRPC                = serverStartCommand.Flag("grpc", "Start the GRPC server").Default("true").Bool()
 
 	serverStartRefreshInterval = serverStartCommand.Flag("refresh-interval", "Frequency for refreshing repository status").Default("300s").Duration()
+	serverStartInsecure        = serverStartCommand.Flag("insecure", "Allow insecure configurations (do not use in production)").Hidden().Bool()
 	serverStartMaxConcurrency  = serverStartCommand.Flag("max-concurrency", "Maximum number of server goroutines").Default("0").Int()
 
 	serverStartRandomPassword = serverStartCommand.Flag("random-password", "Generate random password and print to stderr").Hidden().Bool()
@@ -53,7 +54,7 @@ func init() {
 func runServer(ctx context.Context, rep repo.Repository) error {
 	authn, err := getAuthenticatorFunc()
 	if err != nil {
-		return errors.Wrap(err, "unable to initialize authn")
+		return errors.Wrap(err, "unable to initialize authentication")
 	}
 
 	srv, err := server.New(ctx, server.Options{
@@ -255,6 +256,10 @@ func getAuthenticatorFunc() (auth.Authenticator, error) {
 		return auth.AuthenticateSingleUser(*serverUsername, randomPassword), nil
 
 	default:
+		if !*serverStartInsecure {
+			return nil, errors.Errorf("no password option specified, refusing to start server. To start non-authenticated server pass --insecure.")
+		}
+
 		return nil, nil
 	}
 }

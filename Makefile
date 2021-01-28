@@ -210,15 +210,15 @@ dev-deps:
 	GO111MODULE=off go get -u github.com/sqs/goreturns
 
 test-with-coverage: export RCLONE_EXE=$(rclone)
-test-with-coverage:
+test-with-coverage: $(gotestsum) $(rclone)
 	$(GO_TEST) -count=$(REPEAT_TEST) -coverprofile=tmp.cov --coverpkg $(COVERAGE_PACKAGES) -timeout 300s $(shell go list ./...)
 
 test-with-coverage-pkgonly: export RCLONE_EXE=$(rclone)
-test-with-coverage-pkgonly:
+test-with-coverage-pkgonly: $(gotestsum) $(rclone)
 	$(GO_TEST) -count=$(REPEAT_TEST) -coverprofile=tmp.cov -timeout 300s github.com/kopia/kopia/...
 
 test: export RCLONE_EXE=$(rclone)
-test: $(gotestsum)
+test: $(gotestsum) $(rclone)
 	$(GO_TEST) -count=$(REPEAT_TEST) -timeout $(UNIT_TESTS_TIMEOUT) ./...
 
 vtest: $(gotestsum)
