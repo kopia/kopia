@@ -98,6 +98,9 @@ func startDockerSFTPServerOrSkip(t *testing.T, idRSA string) (host string, port 
 		host = parts[0]
 		port, _ = strconv.Atoi(parts[1])
 		knownHostsFile = filepath.Join(t.TempDir(), "known_hosts")
+
+		time.Sleep(3 * time.Second)
+
 		knownHostsData := mustRunOrSkip(t, "ssh-keyscan", "-t", "rsa", "-p", strconv.Itoa(port), host)
 
 		t.Logf("knownHostsData: %s", knownHostsData)
