@@ -113,7 +113,7 @@
   "devDependencies": {
     "asar": "^2.1.0",
     "concurrently": "^5.3.0",
-    "electron": "^7.3.3",
+    "electron": "^9.4.0",
     "electron-builder": "^22.9.1",
     "electron-notarize": "^0.2.1"
   },
