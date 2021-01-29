@@ -6,7 +6,10 @@ import (
 	"crypto/subtle"
 
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/logging"
 )
+
+var log = logging.GetContextLoggerFunc("auth")
 
 // Authenticator verifies that the provided username/password is valid.
 type Authenticator func(ctx context.Context, rep repo.Repository, username, password string) bool
