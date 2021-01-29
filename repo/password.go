@@ -35,13 +35,15 @@ func GetPersistedPassword(ctx context.Context, configFile string) (string, bool)
 	b, err := ioutil.ReadFile(passwordFileName(configFile))
 	if err == nil {
 		if strings.HasPrefix(string(b), "CMD:") {
-			cmdString := shlex.Split(strings.TrimPrefix(string(b), "CMD:"))
-			cmd := exec.Command(cmdString)
-			cmdOut, err := cmd.Output()
+			cmdString, err := shlex.Split(strings.TrimPrefix(string(b), "CMD:"))
+			if err == nil {	
+				cmd := exec.Command(cmdString)
+				cmdOut, err := cmd.Output()
 			
-			if err == nil {
-				log(ctx).Debugf("password for %v retrieved from command", configFile)
-				return string(cmdOut), true
+				if err == nil {
+					log(ctx).Debugf("password for %v retrieved from command", configFile)
+					return string(cmdOut), true
+				}
 			}
 		} else {	
 			s, err := base64.StdEncoding.DecodeString(string(b))
