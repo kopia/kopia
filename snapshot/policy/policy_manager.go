@@ -99,7 +99,7 @@ func GetDefinedPolicy(ctx context.Context, rep repo.Repository, si snapshot.Sour
 	// this is possible when two repository clients independently create manifests at approximately the same time
 	// so it should not really matter which one we pick.
 	// see https://github.com/kopia/kopia/issues/391
-	manifestID := md[0].ID
+	manifestID := manifest.PickLatestID(md)
 
 	p := &Policy{}
 
