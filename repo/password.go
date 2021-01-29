@@ -8,11 +8,13 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"os/user"
 	"path/filepath"
 	"runtime"
 	"strings"
 
+	"github.com/google/shlex"
 	"github.com/pkg/errors"
 	"github.com/zalando/go-keyring"
 )
@@ -32,10 +34,21 @@ func GetPersistedPassword(ctx context.Context, configFile string) (string, bool)
 
 	b, err := ioutil.ReadFile(passwordFileName(configFile))
 	if err == nil {
-		s, err := base64.StdEncoding.DecodeString(string(b))
-		if err == nil {
-			log(ctx).Debugf("password for %v retrieved from password file", configFile)
-			return string(s), true
+		if strings.HasPrefix(string(b), "CMD:") {
+			cmdString := shlex.Split(strings.TrimPrefix(string(b), "CMD:"))
+			cmd := exec.Command(cmdString)
+			cmdOut, err := cmd.Output()
+			
+			if err == nil {
+				log(ctx).Debugf("password for %v retrieved from command", configFile)
+				return string(cmdOut), true
+			}
+		} else {	
+			s, err := base64.StdEncoding.DecodeString(string(b))
+			if err == nil {
+				log(ctx).Debugf("password for %v retrieved from password file", configFile)
+				return string(s), true
+			}
 		}
 	}
 
