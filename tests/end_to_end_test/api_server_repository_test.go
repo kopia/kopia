@@ -17,20 +17,26 @@ import (
 // foo@bar - password baz.
 var htpasswdFileContents = []byte("foo@bar:$2y$05$JWrExvBe5Knh0.AMLk5WHu.EzfOP.LhrqMIRf1YseZ/rulBjKqGJ.\n")
 
-func TestAPIServerRepository_GRPC(t *testing.T) {
+func TestAPIServerRepository_GRPC_htpasswd(t *testing.T) {
 	t.Parallel()
 
-	testAPIServerRepository(t, []string{"--no-legacy-api"}, true)
+	testAPIServerRepository(t, []string{"--no-legacy-api"}, true, false)
 }
 
-func TestAPIServerRepository_DisableGRPC(t *testing.T) {
+func TestAPIServerRepository_GRPC_RepositoryUsers(t *testing.T) {
 	t.Parallel()
 
-	testAPIServerRepository(t, []string{"--no-grpc"}, false)
+	testAPIServerRepository(t, []string{"--no-legacy-api"}, true, true)
+}
+
+func TestAPIServerRepository_DisableGRPC_htpasswd(t *testing.T) {
+	t.Parallel()
+
+	testAPIServerRepository(t, []string{"--no-grpc"}, false, false)
 }
 
 // nolint:thelper
-func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC bool) {
+func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, allowRepositoryUsers bool) {
 	ctx := testlogging.Context(t)
 
 	var connectArgs []string
@@ -56,11 +62,18 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC boo
 	originalPBlobCount := len(e1.RunAndExpectSuccess(t, "blob", "list", "--prefix=p"))
 	originalQBlobCount := len(e1.RunAndExpectSuccess(t, "blob", "list", "--prefix=q"))
 
-	htpasswordFile := filepath.Join(e.ConfigDir, "htpasswd.txt")
 	tlsCert := filepath.Join(e.ConfigDir, "tls.cert")
 	tlsKey := filepath.Join(e.ConfigDir, "tls.key")
 
-	ioutil.WriteFile(htpasswordFile, htpasswdFileContents, 0o755)
+	if allowRepositoryUsers {
+		e.RunAndExpectSuccess(t, "users", "add", "foo@bar", "--user-password", "baz")
+
+		serverStartArgs = append(serverStartArgs, "--allow-repository-users")
+	} else {
+		htpasswordFile := filepath.Join(e.ConfigDir, "htpasswd.txt")
+		ioutil.WriteFile(htpasswordFile, htpasswdFileContents, 0o755)
+		serverStartArgs = append(serverStartArgs, "--htpasswd-file", htpasswordFile)
+	}
 
 	var sp serverParameters
 
@@ -68,12 +81,10 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC boo
 		append([]string{
 			"server", "start",
 			"--address=localhost:0",
-			"--random-password",
 			"--tls-generate-cert",
 			"--tls-key-file", tlsKey,
 			"--tls-cert-file", tlsCert,
 			"--auto-shutdown=60s",
-			"--htpasswd-file", htpasswordFile,
 		}, serverStartArgs...)...)
 	t.Logf("detected server parameters %#v", sp)
 
@@ -123,11 +134,9 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC boo
 		append([]string{
 			"server", "start",
 			"--address=" + sp.baseURL,
-			"--random-password",
 			"--tls-key-file", tlsKey,
 			"--tls-cert-file", tlsCert,
 			"--auto-shutdown=60s",
-			"--htpasswd-file", htpasswordFile,
 		}, serverStartArgs...)...)
 	t.Logf("detected server parameters %#v", sp)
 
