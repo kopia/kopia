@@ -13,6 +13,9 @@ import (
 	"github.com/kopia/kopia/snapshot"
 )
 
+// ManifestType is the type of the manifest that represents policy.
+const ManifestType = "policy"
+
 const typeKey = manifest.TypeLabelKey
 
 // GlobalPolicySourceInfo is a source where global policy is attached.
@@ -159,7 +162,7 @@ func GetPolicyByID(ctx context.Context, rep repo.Repository, id manifest.ID) (*P
 // ListPolicies returns a list of all policies.
 func ListPolicies(ctx context.Context, rep repo.Repository) ([]*Policy, error) {
 	ids, err := rep.FindManifests(ctx, map[string]string{
-		typeKey: "policy",
+		typeKey: ManifestType,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to list manifests")
@@ -210,7 +213,7 @@ func applicablePoliciesForSource(ctx context.Context, rep repo.Repository, si sn
 
 	// Find all policies for this host and user
 	policies, err := rep.FindManifests(ctx, map[string]string{
-		typeKey:      "policy",
+		typeKey:      ManifestType,
 		"policyType": "path",
 		"username":   si.UserName,
 		"hostname":   si.Host,
@@ -266,7 +269,7 @@ func labelsForSource(si snapshot.SourceInfo) map[string]string {
 	switch {
 	case si.Path != "":
 		return map[string]string{
-			typeKey:      "policy",
+			typeKey:      ManifestType,
 			"policyType": "path",
 			"username":   si.UserName,
 			"hostname":   si.Host,
@@ -274,20 +277,20 @@ func labelsForSource(si snapshot.SourceInfo) map[string]string {
 		}
 	case si.UserName != "":
 		return map[string]string{
-			typeKey:      "policy",
+			typeKey:      ManifestType,
 			"policyType": "user",
 			"username":   si.UserName,
 			"hostname":   si.Host,
 		}
 	case si.Host != "":
 		return map[string]string{
-			typeKey:      "policy",
+			typeKey:      ManifestType,
 			"policyType": "host",
 			"hostname":   si.Host,
 		}
 	default:
 		return map[string]string{
-			typeKey:      "policy",
+			typeKey:      ManifestType,
 			"policyType": "global",
 		}
 	}

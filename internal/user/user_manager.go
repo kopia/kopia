@@ -11,11 +11,10 @@ import (
 	"github.com/kopia/kopia/repo/manifest"
 )
 
-const (
-	usernameLabel = "username"
+// ManifestType is the type of the manifest used to represent user accounts.
+const ManifestType = "user"
 
-	userManifestType = "user"
-)
+const usernameLabel = "username"
 
 // ErrUserNotFound is returned to indicate that a user was not found in the system.
 var ErrUserNotFound = errors.New("user not found")
@@ -26,7 +25,7 @@ func LoadProfileMap(ctx context.Context, rep repo.Repository, old map[string]*Pr
 		return nil, nil
 	}
 
-	entries, err := rep.FindManifests(ctx, map[string]string{manifest.TypeLabelKey: userManifestType})
+	entries, err := rep.FindManifests(ctx, map[string]string{manifest.TypeLabelKey: ManifestType})
 	if err != nil {
 		return nil, errors.Wrap(err, "error listing user manifests")
 	}
@@ -78,7 +77,7 @@ func ListUserProfiles(ctx context.Context, rep repo.Repository) ([]*Profile, err
 // GetUserProfile returns the user profile with a given username.
 func GetUserProfile(ctx context.Context, r repo.Repository, username string) (*Profile, error) {
 	manifests, err := r.FindManifests(ctx, map[string]string{
-		manifest.TypeLabelKey: userManifestType,
+		manifest.TypeLabelKey: ManifestType,
 		usernameLabel:         username,
 	})
 	if err != nil {
@@ -104,7 +103,7 @@ func SetUserProfile(ctx context.Context, w repo.RepositoryWriter, p *Profile) er
 	}
 
 	manifests, err := w.FindManifests(ctx, map[string]string{
-		manifest.TypeLabelKey: userManifestType,
+		manifest.TypeLabelKey: ManifestType,
 		usernameLabel:         p.Username,
 	})
 	if err != nil {
@@ -112,7 +111,7 @@ func SetUserProfile(ctx context.Context, w repo.RepositoryWriter, p *Profile) er
 	}
 
 	id, err := w.PutManifest(ctx, map[string]string{
-		manifest.TypeLabelKey: userManifestType,
+		manifest.TypeLabelKey: ManifestType,
 		usernameLabel:         p.Username,
 	}, p)
 	if err != nil {
@@ -137,7 +136,7 @@ func DeleteUserProfile(ctx context.Context, w repo.RepositoryWriter, username st
 	}
 
 	manifests, err := w.FindManifests(ctx, map[string]string{
-		manifest.TypeLabelKey: userManifestType,
+		manifest.TypeLabelKey: ManifestType,
 		usernameLabel:         username,
 	})
 	if err != nil {

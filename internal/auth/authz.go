@@ -2,8 +2,8 @@ package auth
 
 import (
 	"context"
-	"strings"
 
+	"github.com/kopia/kopia/internal/acl"
 	"github.com/kopia/kopia/repo"
 )
 
@@ -11,14 +11,14 @@ import (
 type AuthorizerFunc func(ctx context.Context, rep repo.Repository, username string) AuthorizationInfo
 
 // AccessLevel specifies access level when accessing repository objects.
-type AccessLevel int
+type AccessLevel = acl.AccessLevel
 
-// Access levels.
+// Access levels forwarded to 'acl' package to allow it to easily implement AuthorizationInfo interface.
 const (
-	AccessLevelNone   AccessLevel = iota
-	AccessLevelRead               // RO access
-	AccessLevelAppend             // RO + create new
-	AccessLevelFull               // read/write/delete
+	AccessLevelNone   = acl.AccessLevelNone
+	AccessLevelRead   = acl.AccessLevelView   // RO access
+	AccessLevelAppend = acl.AccessLevelAppend // RO + create new
+	AccessLevelFull   = acl.AccessLevelFull   // read/write/delete
 )
 
 // AuthorizationInfo determines logged in user's access level.
@@ -41,39 +41,3 @@ func (noAccessAuthorizer) ManifestAccessLevel(labels map[string]string) AccessLe
 func NoAccess() AuthorizationInfo {
 	return noAccessAuthorizer{}
 }
-
-type legacyAuthorizer struct {
-	usernameAtHostname string
-}
-
-func (la legacyAuthorizer) ContentAccessLevel() AccessLevel { return AccessLevelFull }
-func (la legacyAuthorizer) ManifestAccessLevel(labels map[string]string) AccessLevel {
-	if labels["type"] == "policy" {
-		// everybody can read global policy.
-		switch labels["policyType"] {
-		case "global":
-			return AccessLevelRead
-
-		case "host":
-			if strings.HasSuffix(la.usernameAtHostname, "@"+labels["hostname"]) {
-				return AccessLevelRead
-			}
-		}
-	}
-
-	// full access to policies/snapshots for the username@hostname
-	if labels["username"]+"@"+labels["hostname"] == la.usernameAtHostname {
-		return AccessLevelFull
-	}
-
-	// no access otherwise
-	return AccessLevelNone
-}
-
-// LegacyAuthorizerForUser is an AuthorizerFunc that returns authorizer with legacy (pre-ACL)
-// authorization rules (authenticated users can see their own snapshots/policies only).
-func LegacyAuthorizerForUser(ctx context.Context, rep repo.Repository, usernameAtHostname string) AuthorizationInfo {
-	return legacyAuthorizer{usernameAtHostname}
-}
-
-var _ AuthorizerFunc = LegacyAuthorizerForUser

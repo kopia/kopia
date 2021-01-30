@@ -1,10 +1,11 @@
 package auth_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/kopia/kopia/internal/auth"
+	"github.com/kopia/kopia/internal/repotesting"
+	"github.com/kopia/kopia/internal/testlogging"
 )
 
 var globalPolicyLabels = map[string]string{
@@ -86,7 +87,7 @@ func TestNoAccess(t *testing.T) {
 	verifyManifestAccessLevel(t, na, fooAtBazSnapshot, auth.AccessLevelNone)
 }
 
-func TestLegacyAuthorizer(t *testing.T) {
+func TestDefaultACL(t *testing.T) {
 	cases := []struct {
 		usernameAtHost           string
 		globalPolicyAccess       auth.AccessLevel
@@ -137,12 +138,17 @@ func TestLegacyAuthorizer(t *testing.T) {
 		},
 	}
 
-	ctx := context.Background()
+	var env repotesting.Environment
+
+	ctx := testlogging.Context(t)
+	defer env.Setup(t).Close(ctx, t)
+
+	authorizer := auth.ACLAuthorizer()
 
 	for _, tc := range cases {
 		tc := tc
 		t.Run(tc.usernameAtHost, func(t *testing.T) {
-			a := auth.LegacyAuthorizerForUser(ctx, nil, tc.usernameAtHost)
+			a := authorizer(ctx, env.Repository, tc.usernameAtHost)
 
 			if got, want := a.ContentAccessLevel(), auth.AccessLevelFull; got != want {
 				t.Errorf("invalid content access level: %v, want %v", got, want)

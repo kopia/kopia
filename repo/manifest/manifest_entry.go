@@ -47,6 +47,39 @@ func DedupeEntryMetadataByLabel(entries []*EntryMetadata, label string) []*Entry
 	return result
 }
 
+// DedupeEntryMetadataByLabels deduplicates EntryMetadata in a provided slice by picking
+// the latest one for a given set of two labels.
+func DedupeEntryMetadataByLabels(entries []*EntryMetadata, label1, label2 string) []*EntryMetadata {
+	var result []*EntryMetadata
+
+	m := map[string]*EntryMetadata{}
+
+	for _, e := range entries {
+		u := e.Labels[label1] + "\n" + e.Labels[label2]
+		if isLaterThan(e, m[u]) {
+			m[u] = e
+		}
+	}
+
+	for _, v := range m {
+		result = append(result, v)
+	}
+
+	sort.Slice(result, func(i, j int) bool {
+		if l, r := result[i].ModTime, result[j].ModTime; !l.Equal(r) {
+			return l.Before(r)
+		}
+
+		if l, r := result[i].ID, result[j].ID; l != r {
+			return l < r
+		}
+
+		return false
+	})
+
+	return result
+}
+
 // PickLatestID picks the ID of latest EntryMetadata in a given slice.
 func PickLatestID(entries []*EntryMetadata) ID {
 	var latest *EntryMetadata

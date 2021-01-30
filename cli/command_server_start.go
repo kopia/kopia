@@ -64,7 +64,7 @@ func runServer(ctx context.Context, rep repo.Repository) error {
 		RefreshInterval: *serverStartRefreshInterval,
 		MaxConcurrency:  *serverStartMaxConcurrency,
 		Authenticator:   authn,
-		Authorizer:      auth.LegacyAuthorizerForUser,
+		Authorizer:      auth.ACLAuthorizer(),
 	})
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize server")
