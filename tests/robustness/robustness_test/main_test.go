@@ -6,19 +6,24 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"io/ioutil"
 	"log"
 	"os"
 	"path"
+	"syscall"
 	"testing"
 	"time"
 
 	"github.com/kopia/kopia/tests/robustness"
 	"github.com/kopia/kopia/tests/robustness/engine"
+	"github.com/kopia/kopia/tests/robustness/fiofilewriter"
+	"github.com/kopia/kopia/tests/robustness/snapmeta"
 	"github.com/kopia/kopia/tests/tools/fio"
+	"github.com/kopia/kopia/tests/tools/fswalker"
 	"github.com/kopia/kopia/tests/tools/kopiarunner"
 )
 
-var eng *engine.Engine
+var eng *engine.Engine // for use in the test functions
 
 const (
 	dataSubPath     = "robustness-data"
@@ -34,50 +39,205 @@ var (
 func TestMain(m *testing.M) {
 	flag.Parse()
 
-	var err error
-
-	eng, err = engine.NewEngine("")
-
-	switch {
-	case errors.Is(err, kopiarunner.ErrExeVariableNotSet):
-		log.Println("Skipping robustness tests because KOPIA_EXE is not set")
-		os.Exit(0)
-	case errors.Is(err, fio.ErrEnvNotSet):
-		log.Println("Skipping robustness tests because FIO environment is not set")
-		os.Exit(0)
-	case err != nil:
-		log.Fatalln("error on engine creation:", err)
-	}
-
 	dataRepoPath := path.Join(*repoPathPrefix, dataSubPath)
 	metadataRepoPath := path.Join(*repoPathPrefix, metadataSubPath)
 
-	// Try to reconcile metadata if it is out of sync with the repo state
-	eng.Checker.RecoveryMode = true
-
-	// Initialize the engine, connecting it to the repositories
-	err = eng.Init(context.Background(), dataRepoPath, metadataRepoPath)
-	if err != nil {
-		// Clean the temporary dirs from the file system, don't write out the
-		// metadata, in case there was an issue loading it
-		eng.CleanComponents()
-		log.Fatalln("error initializing engine for S3:", err)
-	}
+	th := &kopiaRobustnessTestHarness{}
+	th.init(dataRepoPath, metadataRepoPath)
+	eng = th.engine
 
 	// Restore a random snapshot into the data directory
-	_, err = eng.ExecAction(engine.RestoreIntoDataDirectoryActionKey, nil)
+	_, err := eng.ExecAction(engine.RestoreIntoDataDirectoryActionKey, nil)
 	if err != nil && !errors.Is(err, robustness.ErrNoOp) {
-		eng.Cleanup()
-		log.Fatalln("error restoring into the data directory:", err)
+		th.cleanup()
+		log.Fatalln("Error restoring into the data directory:", err)
 	}
 
+	// run the tests
 	result := m.Run()
 
-	err = eng.Cleanup()
+	err = th.cleanup()
 	if err != nil {
-		log.Printf("error cleaning up the engine: %s\n", err.Error())
+		log.Printf("Error cleaning up the engine: %s\n", err.Error())
 		os.Exit(2)
 	}
 
 	os.Exit(result)
+}
+
+type kopiaRobustnessTestHarness struct {
+	dataRepoPath string
+	metaRepoPath string
+
+	baseDirPath string
+	fileWriter  *fiofilewriter.FileWriter
+	snapshotter *snapmeta.KopiaSnapshotter
+	persister   *snapmeta.KopiaPersister
+	comparer    *fswalker.WalkCompare
+	engine      *engine.Engine
+
+	skipTest bool
+}
+
+func (th *kopiaRobustnessTestHarness) init(dataRepoPath, metaRepoPath string) {
+	th.dataRepoPath = dataRepoPath
+	th.metaRepoPath = metaRepoPath
+
+	// the initialization state machine is linear and bails out on first failure
+	if th.makeBaseDir() && th.getFileWriter() && th.getSnapshotter() &&
+		th.getPersister() && th.getComparer() && th.getEngine() {
+		return // success!
+	}
+
+	th.cleanup()
+
+	if th.skipTest {
+		os.Exit(0)
+	}
+
+	os.Exit(1)
+}
+
+func (th *kopiaRobustnessTestHarness) makeBaseDir() bool {
+	baseDir, err := ioutil.TempDir("", "engine-data-")
+	if err != nil {
+		log.Println("Error creating temp dir:", err)
+		return false
+	}
+
+	th.baseDirPath = baseDir
+
+	return true
+}
+
+func (th *kopiaRobustnessTestHarness) getFileWriter() bool {
+	fw, err := fiofilewriter.New()
+	if err != nil {
+		if errors.Is(err, fio.ErrEnvNotSet) {
+			log.Println("Skipping robustness tests because FIO environment is not set")
+
+			th.skipTest = true
+		} else {
+			log.Println("Error creating fio FileWriter:", err)
+		}
+
+		return false
+	}
+
+	th.fileWriter = fw
+
+	return true
+}
+
+func (th *kopiaRobustnessTestHarness) getSnapshotter() bool {
+	ks, err := snapmeta.NewSnapshotter(th.baseDirPath)
+	if err != nil {
+		if errors.Is(err, kopiarunner.ErrExeVariableNotSet) {
+			log.Println("Skipping robustness tests because KOPIA_EXE is not set")
+
+			th.skipTest = true
+		} else {
+			log.Println("Error creating kopia Snapshotter:", err)
+		}
+
+		return false
+	}
+
+	th.snapshotter = ks
+
+	if err = ks.ConnectOrCreateRepo(th.dataRepoPath); err != nil {
+		log.Println("Error initializing kopia Snapshotter:", err)
+		return false
+	}
+
+	return true
+}
+
+func (th *kopiaRobustnessTestHarness) getPersister() bool {
+	kp, err := snapmeta.NewPersister(th.baseDirPath)
+	if err != nil {
+		if errors.Is(err, kopiarunner.ErrExeVariableNotSet) {
+			log.Println("Skipping robustness tests because KOPIA_EXE is not set")
+
+			th.skipTest = true
+		} else {
+			log.Println("Error creating kopia Persister:", err)
+		}
+
+		return false
+	}
+
+	th.persister = kp
+
+	if err = kp.ConnectOrCreateRepo(th.metaRepoPath); err != nil {
+		log.Println("Error initializing kopia Persister:", err)
+		return false
+	}
+
+	return true
+}
+
+func (th *kopiaRobustnessTestHarness) getComparer() bool {
+	th.comparer = fswalker.NewWalkCompare()
+	return true
+}
+
+func (th *kopiaRobustnessTestHarness) getEngine() bool {
+	args := &engine.Args{
+		MetaStore:        th.persister,
+		TestRepo:         th.snapshotter,
+		Validator:        th.comparer,
+		FileWriter:       th.fileWriter,
+		WorkingDir:       th.baseDirPath,
+		SyncRepositories: true,
+	}
+
+	eng, err := engine.New(args) // nolint:govet
+	if err != nil {
+		log.Println("Error on engine creation:", err)
+		return false
+	}
+
+	// Initialize the engine, connecting it to the repositories.
+	// Note that th.engine is not yet set so that metadata will not be
+	// flushed on cleanup in case there was an issue while loading.
+	err = eng.Init(context.Background())
+	if err != nil {
+		log.Println("Error initializing engine for S3:", err)
+		return false
+	}
+
+	th.engine = eng
+
+	return true
+}
+
+func (th *kopiaRobustnessTestHarness) cleanup() (retErr error) {
+	if th.engine != nil {
+		retErr = th.engine.Shutdown()
+	}
+
+	if th.persister != nil {
+		th.persister.Cleanup()
+	}
+
+	if th.snapshotter != nil {
+		if sc := th.snapshotter.ServerCmd(); sc != nil {
+			if err := sc.Process.Signal(syscall.SIGTERM); err != nil {
+				log.Println("Warning: Failed to send termination signal to kopia server process:", err)
+			}
+		}
+
+		th.snapshotter.Cleanup()
+	}
+
+	if th.fileWriter != nil {
+		th.fileWriter.Cleanup()
+	}
+
+	if th.baseDirPath != "" {
+		os.RemoveAll(th.baseDirPath)
+	}
+
+	return
 }

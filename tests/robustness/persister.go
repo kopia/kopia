@@ -20,9 +20,7 @@ type Indexer interface {
 // to, and load it again, from a repository.
 type Persister interface {
 	Store
-	RepoManager // TBD: may not be needed once initialization refactored
 	LoadMetadata() error
 	FlushMetadata() error
 	GetPersistDir() string
-	Cleanup()
 }

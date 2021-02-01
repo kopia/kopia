@@ -7,133 +7,104 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/kopia/kopia/tests/robustness"
 	"github.com/kopia/kopia/tests/robustness/checker"
-	"github.com/kopia/kopia/tests/robustness/fiofilewriter"
-	"github.com/kopia/kopia/tests/robustness/snapmeta"
-	"github.com/kopia/kopia/tests/tools/fswalker"
-	"github.com/kopia/kopia/tests/tools/kopiarunner"
-)
-
-const (
-	// S3BucketNameEnvKey is the environment variable required to connect to a repo on S3.
-	S3BucketNameEnvKey = "S3_BUCKET_NAME"
-	// EngineModeEnvKey is the environment variable required to switch between basic and server/client model.
-	EngineModeEnvKey = "ENGINE_MODE"
-	// EngineModeBasic is a constant used to check the engineMode.
-	EngineModeBasic = "BASIC"
-	// EngineModeServer is a constant used to check the engineMode.
-	EngineModeServer = "SERVER"
-	// defaultAddr is used for setting the address of Kopia Server.
-	defaultAddr = "localhost:51515"
 )
 
 var (
-	// ErrS3BucketNameEnvUnset is the error returned when the S3BucketNameEnvKey environment variable is not set.
-	ErrS3BucketNameEnvUnset = fmt.Errorf("environment variable required: %v", S3BucketNameEnvKey)
+	// ErrorInvalidArgs is returned if the constructor arguments are incorrect.
+	ErrorInvalidArgs = fmt.Errorf("invalid arguments")
+
 	noSpaceOnDeviceMatchStr = "no space left on device"
 )
 
+// Args contain the parameters for the engine constructor.
+type Args struct {
+	// Interfaces used by the engine.
+	MetaStore  robustness.Persister
+	TestRepo   robustness.Snapshotter
+	Validator  robustness.Comparer
+	FileWriter robustness.FileWriter
+
+	// WorkingDir is a directory to use for temporary data.
+	WorkingDir string
+
+	// SyncRepositories should be set to true to reconcile differences.
+	SyncRepositories bool
+}
+
+// Validate checks the arguments for correctness.
+func (a *Args) Validate() error {
+	if a.MetaStore == nil || a.TestRepo == nil || a.Validator == nil || a.FileWriter == nil || a.WorkingDir == "" {
+		return ErrorInvalidArgs
+	}
+
+	return nil
+}
+
+// New creates an Engine.
+func New(args *Args) (*Engine, error) {
+	if err := args.Validate(); err != nil {
+		return nil, err
+	}
+
+	var (
+		e = &Engine{
+			MetaStore:   args.MetaStore,
+			TestRepo:    args.TestRepo,
+			Validator:   args.Validator,
+			FileWriter:  args.FileWriter,
+			baseDirPath: args.WorkingDir,
+			RunStats: Stats{
+				RunCounter:     1,
+				CreationTime:   time.Now(),
+				PerActionStats: make(map[ActionKey]*ActionStats),
+			},
+		}
+		err error
+	)
+
+	if err = e.setupLogging(); err != nil {
+		e.cleanComponents()
+		return nil, err
+	}
+
+	e.Checker, err = checker.NewChecker(e.TestRepo, e.MetaStore, e.Validator, e.baseDirPath)
+	if err != nil {
+		e.cleanComponents()
+		return nil, err
+	}
+
+	e.Checker.RecoveryMode = args.SyncRepositories
+	e.cleanupRoutines = append(e.cleanupRoutines, e.Checker.Cleanup)
+
+	return e, nil
+}
+
 // Engine is the outer level testing framework for robustness testing.
 type Engine struct {
-	FileWriter      robustness.FileWriter
-	TestRepo        robustness.Snapshotter
-	MetaStore       robustness.Persister
+	FileWriter robustness.FileWriter
+	TestRepo   robustness.Snapshotter
+	MetaStore  robustness.Persister
+	Validator  robustness.Comparer
+
 	Checker         *checker.Checker
 	cleanupRoutines []func()
 	baseDirPath     string
-	serverCmd       *exec.Cmd
 
 	RunStats        Stats
 	CumulativeStats Stats
 	EngineLog       Log
 }
 
-// NewEngine instantiates a new Engine and returns its pointer. It is
-// currently created with:
-// - FIO file writer
-// - Kopia test repo snapshotter
-// - Kopia metadata storage repo
-// - FSWalker data integrity checker.
-func NewEngine(workingDir string) (*Engine, error) {
-	baseDirPath, err := ioutil.TempDir(workingDir, "engine-data-")
-	if err != nil {
-		return nil, err
-	}
-
-	e := &Engine{
-		baseDirPath: baseDirPath,
-		RunStats: Stats{
-			RunCounter:     1,
-			CreationTime:   time.Now(),
-			PerActionStats: make(map[ActionKey]*ActionStats),
-		},
-	}
-
-	// Create an FIO file writer
-	e.FileWriter, err = fiofilewriter.New()
-	if err != nil {
-		e.CleanComponents()
-		return nil, err
-	}
-
-	e.cleanupRoutines = append(e.cleanupRoutines, e.FileWriter.Cleanup)
-
-	// Fill Snapshotter interface
-	kopiaSnapper, err := kopiarunner.NewKopiaSnapshotter(baseDirPath)
-	if err != nil {
-		e.CleanComponents()
-		return nil, err
-	}
-
-	e.cleanupRoutines = append(e.cleanupRoutines, kopiaSnapper.Cleanup)
-	e.TestRepo = kopiaSnapper
-
-	// Fill the snapshot store interface
-	snapStore, err := snapmeta.New(baseDirPath)
-	if err != nil {
-		e.CleanComponents()
-		return nil, err
-	}
-
-	e.cleanupRoutines = append(e.cleanupRoutines, snapStore.Cleanup)
-
-	e.MetaStore = snapStore
-
-	err = e.setupLogging()
-	if err != nil {
-		e.CleanComponents()
-		return nil, err
-	}
-
-	// Create the data integrity checker
-	chk, err := checker.NewChecker(kopiaSnapper, snapStore, fswalker.NewWalkCompare(), baseDirPath)
-	e.cleanupRoutines = append(e.cleanupRoutines, chk.Cleanup)
-
-	if err != nil {
-		e.CleanComponents()
-		return nil, err
-	}
-
-	e.cleanupRoutines = append(e.cleanupRoutines, e.cleanUpServer)
-
-	e.Checker = chk
-
-	return e, nil
-}
-
-// Cleanup cleans up after each component of the test engine.
-func (e *Engine) Cleanup() error {
+// Shutdown makes a last snapshot then flushes the metadata and prints the final statistics.
+func (e *Engine) Shutdown() error {
 	// Perform a snapshot action to capture the state of the data directory
 	// at the end of the run
 	lastWriteEntry := e.EngineLog.FindLastThisRun(WriteRandomFilesActionKey)
@@ -159,15 +130,15 @@ func (e *Engine) Cleanup() error {
 	e.RunStats.RunTime = time.Since(e.RunStats.CreationTime)
 	e.CumulativeStats.RunTime += e.RunStats.RunTime
 
-	defer e.CleanComponents()
+	defer e.cleanComponents()
 
 	if e.MetaStore != nil {
-		err := e.SaveLog()
+		err := e.saveLog()
 		if err != nil {
 			return err
 		}
 
-		err = e.SaveStats()
+		err = e.saveStats()
 		if err != nil {
 			return err
 		}
@@ -200,140 +171,33 @@ func (e *Engine) formatLogName() string {
 	return fmt.Sprintf("Log_%s", st.Format("2006_01_02_15_04_05"))
 }
 
-// CleanComponents cleans up each component part of the test engine.
-func (e *Engine) CleanComponents() {
+// cleanComponents cleans up each component part of the test engine.
+func (e *Engine) cleanComponents() {
 	for _, f := range e.cleanupRoutines {
 		if f != nil {
 			f()
 		}
 	}
-
-	os.RemoveAll(e.baseDirPath) //nolint:errcheck
 }
 
-// Init initializes the Engine to a repository location according to the environment setup.
-// - If S3_BUCKET_NAME is set, initialize S3
-// - Else initialize filesystem.
-func (e *Engine) Init(ctx context.Context, testRepoPath, metaRepoPath string) error {
-	bucketName := os.Getenv(S3BucketNameEnvKey)
-	engineMode := os.Getenv(EngineModeEnvKey)
-
-	switch {
-	case bucketName != "" && engineMode == EngineModeBasic:
-		return e.InitS3(ctx, bucketName, testRepoPath, metaRepoPath)
-
-	case bucketName != "" && engineMode == EngineModeServer:
-		return e.InitS3WithServer(ctx, bucketName, testRepoPath, metaRepoPath, defaultAddr)
-
-	case bucketName == "" && engineMode == EngineModeServer:
-		return e.InitFilesystemWithServer(ctx, testRepoPath, metaRepoPath, defaultAddr)
-
-	default:
-		return e.InitFilesystem(ctx, testRepoPath, metaRepoPath)
-	}
-}
-
-// InitS3 attempts to connect to a test repo and metadata repo on S3. If connection
-// is successful, the engine is populated with the metadata associated with the
-// snapshot in that repo. A new repo will be created if one does not already
-// exist.
-func (e *Engine) InitS3(ctx context.Context, bucketName, testRepoPath, metaRepoPath string) error {
-	err := e.MetaStore.ConnectOrCreateS3(bucketName, metaRepoPath)
-	if err != nil {
-		return err
-	}
-
-	err = e.TestRepo.ConnectOrCreateS3(bucketName, testRepoPath)
-	if err != nil {
-		return err
-	}
-
-	return e.init(ctx)
-}
-
-// InitFilesystem attempts to connect to a test repo and metadata repo on the local
-// filesystem. If connection is successful, the engine is populated with the
-// metadata associated with the snapshot in that repo. A new repo will be created if
-// one does not already exist.
-func (e *Engine) InitFilesystem(ctx context.Context, testRepoPath, metaRepoPath string) error {
-	err := e.MetaStore.ConnectOrCreateFilesystem(metaRepoPath)
-	if err != nil {
-		return err
-	}
-
-	err = e.TestRepo.ConnectOrCreateFilesystem(testRepoPath)
-	if err != nil {
-		return err
-	}
-
-	return e.init(ctx)
-}
-
-func (e *Engine) init(ctx context.Context) error {
+// Init initializes the Engine and performs a consistency check.
+func (e *Engine) Init(ctx context.Context) error {
 	err := e.MetaStore.LoadMetadata()
 	if err != nil {
 		return err
 	}
 
-	err = e.LoadStats()
+	err = e.loadStats()
 	if err != nil {
 		return err
 	}
 
 	e.CumulativeStats.RunCounter++
 
-	err = e.LoadLog()
-	if err != nil {
-		return err
-	}
-
-	_, _, err = e.TestRepo.Run("policy", "set", "--global", "--keep-latest", strconv.Itoa(1<<31-1), "--compression", "s2-default")
+	err = e.loadLog()
 	if err != nil {
 		return err
 	}
 
 	return e.Checker.VerifySnapshotMetadata()
-}
-
-// InitS3WithServer initializes the Engine with InitS3 for use with the server/client model.
-func (e *Engine) InitS3WithServer(ctx context.Context, bucketName, testRepoPath, metaRepoPath, addr string) error {
-	if err := e.MetaStore.ConnectOrCreateS3(bucketName, metaRepoPath); err != nil {
-		return err
-	}
-
-	cmd, err := e.TestRepo.ConnectOrCreateS3WithServer(addr, bucketName, testRepoPath)
-	if err != nil {
-		return err
-	}
-
-	e.serverCmd = cmd
-
-	return e.init(ctx)
-}
-
-// InitFilesystemWithServer initializes the Engine for testing the server/client model with a local filesystem repository.
-func (e *Engine) InitFilesystemWithServer(ctx context.Context, testRepoPath, metaRepoPath, addr string) error {
-	if err := e.MetaStore.ConnectOrCreateFilesystem(metaRepoPath); err != nil {
-		return err
-	}
-
-	cmd, err := e.TestRepo.ConnectOrCreateFilesystemWithServer(addr, testRepoPath)
-	if err != nil {
-		return err
-	}
-
-	e.serverCmd = cmd
-
-	return e.init(ctx)
-}
-
-// cleanUpServer cleans up the server process.
-func (e *Engine) cleanUpServer() {
-	if e.serverCmd == nil {
-		return
-	}
-
-	if err := e.serverCmd.Process.Signal(syscall.SIGTERM); err != nil {
-		log.Println("Failed to send termination signal to kopia server process:", err)
-	}
 }

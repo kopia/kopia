@@ -161,7 +161,7 @@ func (chk *Checker) VerifySnapshotMetadata() error {
 			// Might as well delete the snapshot since we don't have metadata for it
 			log.Printf("Deleting snapshot ID %s", liveSnapID)
 
-			err = chk.snapshotIssuer.DeleteSnapshot(liveSnapID)
+			err = chk.snapshotIssuer.DeleteSnapshot(liveSnapID, map[string]string{})
 			if err != nil {
 				log.Printf("error deleting snapshot: %s", err)
 				errCount++
@@ -182,15 +182,15 @@ func (chk *Checker) VerifySnapshotMetadata() error {
 
 // TakeSnapshot gathers state information on the requested snapshot path, then
 // performs the snapshot action defined by the Checker's Snapshotter.
-func (chk *Checker) TakeSnapshot(ctx context.Context, sourceDir string) (snapID string, err error) {
-	b, err := chk.validator.Gather(ctx, sourceDir)
+func (chk *Checker) TakeSnapshot(ctx context.Context, sourceDir string, opts map[string]string) (snapID string, err error) {
+	b, err := chk.validator.Gather(ctx, sourceDir, opts)
 	if err != nil {
 		return "", err
 	}
 
 	ssStart := clock.Now()
 
-	snapID, err = chk.snapshotIssuer.CreateSnapshot(sourceDir)
+	snapID, err = chk.snapshotIssuer.CreateSnapshot(sourceDir, opts)
 	if err != nil {
 		return snapID, err
 	}
@@ -218,7 +218,7 @@ func (chk *Checker) TakeSnapshot(ctx context.Context, sourceDir string) (snapID 
 // RestoreSnapshot restores a snapshot to the Checker's temporary restore directory
 // using the Checker's Snapshotter, and performs a data consistency check on the
 // resulting tree using the saved snapshot data.
-func (chk *Checker) RestoreSnapshot(ctx context.Context, snapID string, reportOut io.Writer) error {
+func (chk *Checker) RestoreSnapshot(ctx context.Context, snapID string, reportOut io.Writer, opts map[string]string) error {
 	// Make an independent directory for the restore
 	restoreSubDir, err := ioutil.TempDir(chk.RestoreDir, fmt.Sprintf("restore-snap-%v", snapID))
 	if err != nil {
@@ -227,25 +227,25 @@ func (chk *Checker) RestoreSnapshot(ctx context.Context, snapID string, reportOu
 
 	defer os.RemoveAll(restoreSubDir) //nolint:errcheck
 
-	return chk.RestoreSnapshotToPath(ctx, snapID, restoreSubDir, reportOut)
+	return chk.RestoreSnapshotToPath(ctx, snapID, restoreSubDir, reportOut, opts)
 }
 
 // RestoreSnapshotToPath restores a snapshot to the requested path
 // using the Checker's Snapshotter, and performs a data consistency check on the
 // resulting tree using the saved snapshot data.
-func (chk *Checker) RestoreSnapshotToPath(ctx context.Context, snapID, destPath string, reportOut io.Writer) error {
+func (chk *Checker) RestoreSnapshotToPath(ctx context.Context, snapID, destPath string, reportOut io.Writer, opts map[string]string) error {
 	ssMeta, err := chk.loadSnapshotMetadata(snapID)
 	if err != nil {
 		return err
 	}
 
-	return chk.RestoreVerifySnapshot(ctx, snapID, destPath, ssMeta, reportOut)
+	return chk.RestoreVerifySnapshot(ctx, snapID, destPath, ssMeta, reportOut, opts)
 }
 
 // RestoreVerifySnapshot restores a snapshot and verifies its integrity against
 // the metadata provided.
-func (chk *Checker) RestoreVerifySnapshot(ctx context.Context, snapID, destPath string, ssMeta *SnapshotMetadata, reportOut io.Writer) error {
-	err := chk.snapshotIssuer.RestoreSnapshot(snapID, destPath)
+func (chk *Checker) RestoreVerifySnapshot(ctx context.Context, snapID, destPath string, ssMeta *SnapshotMetadata, reportOut io.Writer, opts map[string]string) error {
+	err := chk.snapshotIssuer.RestoreSnapshot(snapID, destPath, opts)
 	if err != nil {
 		return err
 	}
@@ -253,7 +253,7 @@ func (chk *Checker) RestoreVerifySnapshot(ctx context.Context, snapID, destPath 
 	if ssMeta == nil && chk.RecoveryMode {
 		var b []byte
 
-		b, err = chk.validator.Gather(ctx, destPath)
+		b, err = chk.validator.Gather(ctx, destPath, opts)
 		if err != nil {
 			return err
 		}
@@ -266,7 +266,7 @@ func (chk *Checker) RestoreVerifySnapshot(ctx context.Context, snapID, destPath 
 		return chk.saveSnapshotMetadata(ssMeta)
 	}
 
-	err = chk.validator.Compare(ctx, destPath, ssMeta.ValidationData, reportOut)
+	err = chk.validator.Compare(ctx, destPath, ssMeta.ValidationData, reportOut, opts)
 	if err != nil {
 		return err
 	}
@@ -282,8 +282,8 @@ const (
 
 // DeleteSnapshot performs the Snapshotter's DeleteSnapshot action, and
 // marks the snapshot with the given snapshot ID as deleted.
-func (chk *Checker) DeleteSnapshot(ctx context.Context, snapID string) error {
-	err := chk.snapshotIssuer.DeleteSnapshot(snapID)
+func (chk *Checker) DeleteSnapshot(ctx context.Context, snapID string, opts map[string]string) error {
+	err := chk.snapshotIssuer.DeleteSnapshot(snapID, opts)
 	if err != nil {
 		return err
 	}
