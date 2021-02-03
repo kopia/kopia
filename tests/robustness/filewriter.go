@@ -2,10 +2,6 @@ package robustness
 
 // FileWriter is an interface used for filesystem related actions.
 type FileWriter interface {
-	// Cleanup is called prior to termination.
-	// TBD: Will be removed when initialization refactored.
-	Cleanup()
-
 	// DataDirectory returns the absolute path of the data directory configured.
 	DataDirectory() string
 

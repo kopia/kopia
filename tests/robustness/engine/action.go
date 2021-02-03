@@ -175,7 +175,7 @@ var actions = map[ActionKey]Action{
 			log.Printf("Creating snapshot of root directory %s", e.FileWriter.DataDirectory())
 
 			ctx := context.TODO()
-			snapID, err := e.Checker.TakeSnapshot(ctx, e.FileWriter.DataDirectory())
+			snapID, err := e.Checker.TakeSnapshot(ctx, e.FileWriter.DataDirectory(), opts)
 
 			setLogEntryCmdOpts(l, map[string]string{
 				"snap-dir": e.FileWriter.DataDirectory(),
@@ -201,7 +201,7 @@ var actions = map[ActionKey]Action{
 			ctx := context.Background()
 			b := &bytes.Buffer{}
 
-			err = e.Checker.RestoreSnapshot(ctx, snapID, b)
+			err = e.Checker.RestoreSnapshot(ctx, snapID, b, opts)
 			if err != nil {
 				log.Print(b.String())
 			}
@@ -221,13 +221,13 @@ var actions = map[ActionKey]Action{
 			setLogEntryCmdOpts(l, map[string]string{"snapID": snapID})
 
 			ctx := context.Background()
-			err = e.Checker.DeleteSnapshot(ctx, snapID)
+			err = e.Checker.DeleteSnapshot(ctx, snapID, opts)
 			return nil, err
 		},
 	},
 	GCActionKey: {
 		f: func(e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
-			return nil, e.TestRepo.RunGC()
+			return nil, e.TestRepo.RunGC(opts)
 		},
 	},
 	WriteRandomFilesActionKey: {
@@ -266,7 +266,7 @@ var actions = map[ActionKey]Action{
 			setLogEntryCmdOpts(l, map[string]string{"snapID": snapID})
 
 			b := &bytes.Buffer{}
-			err = e.Checker.RestoreSnapshotToPath(context.Background(), snapID, e.FileWriter.DataDirectory(), b)
+			err = e.Checker.RestoreSnapshotToPath(context.Background(), snapID, e.FileWriter.DataDirectory(), b, opts)
 			if err != nil {
 				log.Print(b.String())
 				return nil, err

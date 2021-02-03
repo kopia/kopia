@@ -213,7 +213,7 @@ func TestWalkChecker_GatherCompare(t *testing.T) {
 
 		ctx := context.TODO()
 
-		walk, err := chk.Gather(ctx, tmpDir)
+		walk, err := chk.Gather(ctx, tmpDir, nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -221,7 +221,7 @@ func TestWalkChecker_GatherCompare(t *testing.T) {
 		tt.fileTreeModifier(tmpDir)
 
 		reportOut := &bytes.Buffer{}
-		if err := chk.Compare(ctx, tmpDir, walk, reportOut); (err != nil) != tt.wantErr {
+		if err := chk.Compare(ctx, tmpDir, walk, reportOut, nil); (err != nil) != tt.wantErr {
 			t.Errorf("Compare error = %v, wantErr %v", err, tt.wantErr)
 			return
 		}

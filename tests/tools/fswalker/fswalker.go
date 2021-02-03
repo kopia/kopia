@@ -46,7 +46,7 @@ func NewWalkCompare() *WalkCompare {
 
 // Gather meets the checker.Comparer interface. It performs a fswalker Walk
 // and returns the resulting Walk as a protobuf Marshaled buffer.
-func (chk *WalkCompare) Gather(ctx context.Context, path string) ([]byte, error) {
+func (chk *WalkCompare) Gather(ctx context.Context, path string, opts map[string]string) ([]byte, error) {
 	walkData, err := performWalk(ctx, path)
 	if err != nil {
 		return nil, errors.Wrap(err, "walk with hashing error during gather phase")
@@ -91,7 +91,7 @@ func clearHostname(walk *fspb.Walk) {
 // and generates a fswalker report comparing the two Walks. If there are any differences
 // an error is returned, and the full report will be written to the provided writer
 // as JSON.
-func (chk *WalkCompare) Compare(ctx context.Context, path string, data []byte, reportOut io.Writer) error {
+func (chk *WalkCompare) Compare(ctx context.Context, path string, data []byte, reportOut io.Writer, opts map[string]string) error {
 	beforeWalk := &fspb.Walk{}
 
 	err := proto.Unmarshal(data, beforeWalk)

@@ -46,7 +46,7 @@ const (
 
 // New returns a FileWriter based on FIO.
 // See tests/tools/fio for configuration details.
-func New() (robustness.FileWriter, error) {
+func New() (*FileWriter, error) {
 	runner, err := fio.NewRunner()
 	if err != nil {
 		return nil, err
@@ -59,6 +59,8 @@ func New() (robustness.FileWriter, error) {
 type FileWriter struct {
 	Runner *fio.Runner
 }
+
+var _ robustness.FileWriter = (*FileWriter)(nil)
 
 // DataDirectory returns the data directory configured.
 // See tests/tools/fio for details.

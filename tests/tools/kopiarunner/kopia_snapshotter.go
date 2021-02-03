@@ -19,10 +19,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/retry"
-	"github.com/kopia/kopia/tests/robustness"
 )
-
-var _ robustness.Snapshotter = &KopiaSnapshotter{}
 
 const (
 	contentCacheSizeMBFlag  = "--content-cache-size-mb"
