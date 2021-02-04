@@ -41,6 +41,7 @@ var (
 	serverStartRandomPassword = serverStartCommand.Flag("random-password", "Generate random password and print to stderr").Hidden().Bool()
 	serverStartAutoShutdown   = serverStartCommand.Flag("auto-shutdown", "Auto shutdown the server if API requests not received within given time").Hidden().Duration()
 	serverStartHtpasswdFile   = serverStartCommand.Flag("htpasswd-file", "Path to htpasswd file that contains allowed user@hostname entries").Hidden().ExistingFile()
+	serverStartAllowRepoUsers = serverStartCommand.Flag("allow-repository-users", "Allow users defined in the repository to connect").Bool()
 )
 
 func init() {
@@ -52,7 +53,7 @@ func init() {
 }
 
 func runServer(ctx context.Context, rep repo.Repository) error {
-	authn, err := getAuthenticatorFunc()
+	authn, err := getAuthenticatorFunc(ctx)
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize authentication")
 	}
@@ -227,7 +228,7 @@ func serveIndexFileForKnownUIRoutes(fs http.FileSystem) http.Handler {
 	})
 }
 
-func getAuthenticatorFunc() (auth.Authenticator, error) {
+func getAuthenticatorFunc(ctx context.Context) (auth.Authenticator, error) {
 	switch {
 	case *serverStartHtpasswdFile != "":
 		f, err := htpasswd.New(*serverStartHtpasswdFile, htpasswd.DefaultSystems, nil)
@@ -254,6 +255,14 @@ func getAuthenticatorFunc() (auth.Authenticator, error) {
 		fmt.Fprintln(os.Stderr, "SERVER PASSWORD:", randomPassword)
 
 		return auth.AuthenticateSingleUser(*serverUsername, randomPassword), nil
+
+	case *serverStartAllowRepoUsers:
+		log(ctx).Noticef(`
+Server will allow connections from users whose accounts are stored in the repository.
+User accounts can be added using 'kopia user add'.
+`)
+
+		return auth.AuthenticateRepositoryUsers(), nil
 
 	default:
 		if !*serverStartInsecure {
