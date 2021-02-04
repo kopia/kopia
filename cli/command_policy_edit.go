@@ -46,7 +46,8 @@ const policyEditFilesHelpText = `
 const policyEditSchedulingHelpText = `
   # Snapshot scheduling options. Options include:
   #   "intervalSeconds": number /* 86400-day, 3600-hour, 60-minute */
-  #   "timesOfDay": [{"hour":H,"min":M},{"hour":H,"min":M}]
+  #   "timeOfDay": [{"hour":H,"min":M},{"hour":H,"min":M}]
+  #   "manual": false /* Only create snapshots manually if set to true. NOTE: cannot be used with the above two fields */
 `
 
 var (
@@ -103,6 +104,10 @@ func editPolicy(ctx context.Context, rep repo.RepositoryWriter) error {
 		fmt.Scanf("%v", &shouldSave)
 
 		if strings.HasPrefix(strings.ToLower(shouldSave), "y") {
+			if err := policy.ValidatePolicy(updated); err != nil {
+				return errors.Wrap(err, "failed to validate policy")
+			}
+
 			if err := policy.SetPolicy(ctx, rep, target, updated); err != nil {
 				return errors.Wrapf(err, "can't save policy for %v", target)
 			}
