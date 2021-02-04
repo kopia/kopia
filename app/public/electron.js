@@ -206,8 +206,6 @@ app.on('ready', () => {
 
   allConfigs().forEach(repoID => serverForRepo(repoID).actuateServer());
 
-  tray.on('balloon-click', tray.popUpContextMenu);
-  tray.on('click', tray.popUpContextMenu);
   tray.on('double-click', showAllRepoWindows);
 
   if (isFirstRun()) {
