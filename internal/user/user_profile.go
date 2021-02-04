@@ -23,7 +23,9 @@ func (p *Profile) IsValidPassword(password string) bool {
 	if p == nil {
 		// if the user is invalid, return false but use the same amount of time as when we
 		// compare against valid user to avoid revealing whether the user account exists.
-		return isValidPasswordV1(password, dummyV1HashThatNeverMatchesAnyPassword)
+		isValidPasswordV1(password, dummyV1HashThatNeverMatchesAnyPassword)
+
+		return false
 	}
 
 	switch p.PasswordHashVersion {
