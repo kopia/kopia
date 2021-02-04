@@ -53,7 +53,7 @@ func getExistingOrNewUserProfile(ctx context.Context, rep repo.Repository, usern
 		}
 	}
 
-	return up, err
+	return up, errors.Wrap(err, "error getting user profile")
 }
 
 func runServerUserAddSet(ctx context.Context, rep repo.RepositoryWriter, isNew bool) error {
@@ -61,7 +61,7 @@ func runServerUserAddSet(ctx context.Context, rep repo.RepositoryWriter, isNew b
 
 	up, err := getExistingOrNewUserProfile(ctx, rep, username, isNew)
 	if err != nil {
-		return errors.Wrap(err, "error getting user profile")
+		return err
 	}
 
 	if p := userSetPassword; p != "" {
