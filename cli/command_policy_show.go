@@ -189,12 +189,14 @@ func printErrorHandlingPolicy(p *policy.Policy, parents []*policy.Policy) {
 }
 
 func printSchedulingPolicy(p *policy.Policy, parents []*policy.Policy) {
-	printStdout("Scheduled snapshots:\n")
+	printStdout("Scheduling policy:\n")
 
 	any := false
 
+	printStdout("  Scheduled snapshots:\n")
+
 	if p.SchedulingPolicy.Interval() != 0 {
-		printStdout("  Snapshot interval:   %10v  %v\n", p.SchedulingPolicy.Interval(), getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
+		printStdout("    Snapshot interval:   %10v  %v\n", p.SchedulingPolicy.Interval(), getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
 			return pol.SchedulingPolicy.Interval() != 0
 		}))
 
@@ -202,11 +204,11 @@ func printSchedulingPolicy(p *policy.Policy, parents []*policy.Policy) {
 	}
 
 	if len(p.SchedulingPolicy.TimesOfDay) > 0 {
-		printStdout("  Snapshot times:\n")
+		printStdout("    Snapshot times:\n")
 
 		for _, tod := range p.SchedulingPolicy.TimesOfDay {
 			tod := tod
-			printStdout("    %9v                      %v\n", tod, getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
+			printStdout("      %9v                      %v\n", tod, getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
 				for _, t := range pol.SchedulingPolicy.TimesOfDay {
 					if t == tod {
 						return true
@@ -221,8 +223,14 @@ func printSchedulingPolicy(p *policy.Policy, parents []*policy.Policy) {
 	}
 
 	if !any {
-		printStdout("  None\n")
+		printStdout("    None\n")
 	}
+
+	printStdout("  Manual snapshot:           %5v   %v\n",
+		p.SchedulingPolicy.Manual,
+		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
+			return pol.SchedulingPolicy.Manual
+		}))
 }
 
 func printCompressionPolicy(p *policy.Policy, parents []*policy.Policy) {
