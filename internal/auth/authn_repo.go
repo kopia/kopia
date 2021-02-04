@@ -30,6 +30,9 @@ func (ac *repositoryUserAuthenticator) authenticate(ctx context.Context, rep rep
 	if rep != ac.lastRep {
 		ac.userProfiles = nil
 		ac.lastRep = rep
+
+		// ensure profiles are reloaded below
+		ac.nextRefreshTime = time.Time{}
 	}
 
 	// see if we're due for a refresh and refresh userProfiles map
@@ -44,12 +47,9 @@ func (ac *repositoryUserAuthenticator) authenticate(ctx context.Context, rep rep
 		}
 	}
 
-	u := ac.userProfiles[username]
-	if u == nil {
-		return false
-	}
-
-	return u.IsValidPassword(password)
+	// IsValidPassword can be safely called on nil and the call will take as much time as for a valid user
+	// thus not revealing anything about whether the user exists.
+	return ac.userProfiles[username].IsValidPassword(password)
 }
 
 // AuthenticateRepositoryUsers returns authenticator that accepts username/password combinations

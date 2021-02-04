@@ -3,7 +3,6 @@ package user
 import (
 	"crypto/rand"
 	"crypto/subtle"
-	"encoding/base64"
 	"io"
 
 	"github.com/pkg/errors"
@@ -12,7 +11,7 @@ import (
 
 //  parameters for v1 hashing.
 const (
-	v1Prefix = "v1:"
+	hashVersion1 = 1
 
 	v1ScryptN    = 65536
 	v1ScryptR    = 8
@@ -21,18 +20,21 @@ const (
 	v1KeyLength  = 32
 )
 
+var dummyV1HashThatNeverMatchesAnyPassword = make([]byte, v1KeyLength+v1SaltLength)
+
 func (p *Profile) setPasswordV1(password string) error {
 	salt := make([]byte, v1SaltLength)
 	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
 		return errors.Wrap(err, "error generating salt")
 	}
 
+	p.PasswordHashVersion = 1
 	p.PasswordHash = computePasswordHashV1(password, salt)
 
 	return nil
 }
 
-func computePasswordHashV1(password string, salt []byte) string {
+func computePasswordHashV1(password string, salt []byte) []byte {
 	key, err := scrypt.Key([]byte(password), salt, v1ScryptN, v1ScryptR, v1ScryptP, v1KeyLength)
 	if err != nil {
 		panic("unexpected scrypt error")
@@ -40,26 +42,17 @@ func computePasswordHashV1(password string, salt []byte) string {
 
 	payload := append(append([]byte(nil), salt...), key...)
 
-	return v1Prefix + base64.RawURLEncoding.EncodeToString(payload)
+	return payload
 }
 
-func isValidPasswordV1(password, hashedPassword string) bool {
-	if len(hashedPassword) < len(v1Prefix) {
+func isValidPasswordV1(password string, hashedPassword []byte) bool {
+	if len(hashedPassword) != v1SaltLength+v1KeyLength {
 		return false
 	}
 
-	data, err := base64.RawURLEncoding.DecodeString(hashedPassword[len(v1Prefix):])
-	if err != nil {
-		return false
-	}
-
-	if len(data) != v1SaltLength+v1KeyLength {
-		return false
-	}
-
-	salt := data[0:v1SaltLength]
+	salt := hashedPassword[0:v1SaltLength]
 
 	h := computePasswordHashV1(password, salt)
 
-	return subtle.ConstantTimeCompare([]byte(h), []byte(hashedPassword)) != 0
+	return subtle.ConstantTimeCompare(h, hashedPassword) != 0
 }

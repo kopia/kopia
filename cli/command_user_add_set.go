@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/base64"
 
 	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
@@ -14,16 +15,18 @@ var (
 	userCreateCommand = userCommands.Command("add", "Add new repository user").Alias("create")
 	userUpdateCommand = userCommands.Command("set", "Set password for a repository user.").Alias("update")
 
-	userAskPassword     bool
-	userSetName         string
-	userSetPassword     string
-	userSetPasswordHash string
+	userAskPassword            bool
+	userSetName                string
+	userSetPassword            string
+	userSetPasswordHashVersion int = 1
+	userSetPasswordHash        string
 )
 
 func registerAddSetUserCommandArguments(cmd *kingpin.CmdClause) {
 	cmd.Flag("ask-password", "Ask for user password").BoolVar(&userAskPassword)
 	cmd.Flag("user-password", "Password").StringVar(&userSetPassword)
 	cmd.Flag("user-password-hash", "Password hash").StringVar(&userSetPasswordHash)
+	cmd.Flag("user-password-hash-version", "Password hash version").Default("1").IntVar(&userSetPasswordHashVersion)
 	cmd.Arg("username", "Username").Required().StringVar(&userSetName)
 }
 
@@ -35,24 +38,28 @@ func runUserUpdate(ctx context.Context, rep repo.RepositoryWriter) error {
 	return runServerUserAddSet(ctx, rep, false)
 }
 
-func runServerUserAddSet(ctx context.Context, rep repo.RepositoryWriter, isNew bool) error {
-	username := userSetName
-
+func getExistingOrNewUserProfile(ctx context.Context, rep repo.Repository, username string, isNew bool) (*user.Profile, error) {
 	up, err := user.GetUserProfile(ctx, rep, username)
 
 	if isNew {
 		switch {
 		case err == nil:
-			return errors.Errorf("user %q already exists", username)
+			return nil, errors.Errorf("user %q already exists", username)
 
 		case errors.Is(err, user.ErrUserNotFound):
-			up = &user.Profile{
+			return &user.Profile{
 				Username: username,
-			}
-			err = nil
+			}, nil
 		}
 	}
 
+	return up, err
+}
+
+func runServerUserAddSet(ctx context.Context, rep repo.RepositoryWriter, isNew bool) error {
+	username := userSetName
+
+	up, err := getExistingOrNewUserProfile(ctx, rep, username, isNew)
 	if err != nil {
 		return errors.Wrap(err, "error getting user profile")
 	}
@@ -64,10 +71,16 @@ func runServerUserAddSet(ctx context.Context, rep repo.RepositoryWriter, isNew b
 	}
 
 	if p := userSetPasswordHash; p != "" {
-		up.PasswordHash = p
+		ph, err := base64.StdEncoding.DecodeString(p)
+		if err != nil {
+			return errors.Wrap(err, "invalid password hash, must be valid base64 string")
+		}
+
+		up.PasswordHashVersion = userSetPasswordHashVersion
+		up.PasswordHash = ph
 	}
 
-	if up.PasswordHash == "" || userAskPassword {
+	if up.PasswordHash == nil || userAskPassword {
 		pwd, err := askPass("Enter new password for user " + username + ": ")
 		if err != nil {
 			return errors.Wrap(err, "error asking for password")

@@ -21,7 +21,7 @@ func TestUserManager(t *testing.T) {
 
 	must(t, user.SetUserProfile(ctx, env.RepositoryWriter, &user.Profile{
 		Username:     "alice",
-		PasswordHash: "hahaha",
+		PasswordHash: []byte("hahaha"),
 	}))
 
 	if _, err := user.GetUserProfile(ctx, env.RepositoryWriter, "bob"); !errors.Is(err, user.ErrUserNotFound) {
@@ -33,13 +33,13 @@ func TestUserManager(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if got, want := a.PasswordHash, "hahaha"; got != want {
+	if got, want := string(a.PasswordHash), "hahaha"; got != want {
 		t.Errorf("unexpected password hash: %v, want %v", got, want)
 	}
 
 	must(t, user.SetUserProfile(ctx, env.RepositoryWriter, &user.Profile{
 		Username:     "alice",
-		PasswordHash: "hehehehe",
+		PasswordHash: []byte("hehehehe"),
 	}))
 
 	a, err = user.GetUserProfile(ctx, env.RepositoryWriter, "alice")
@@ -47,7 +47,7 @@ func TestUserManager(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if got, want := a.PasswordHash, "hehehehe"; got != want {
+	if got, want := string(a.PasswordHash), "hehehehe"; got != want {
 		t.Errorf("unexpected password hash: %v, want %v", got, want)
 	}
 

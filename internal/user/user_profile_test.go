@@ -24,12 +24,18 @@ func TestUserProfile(t *testing.T) {
 	}
 }
 
+func TestNilUserProfile(t *testing.T) {
+	var p *user.Profile
+
+	if p.IsValidPassword("bar") {
+		t.Fatalf("password unexpectedly valid!")
+	}
+}
+
 func TestInvalidPasswordHash(t *testing.T) {
-	cases := []string{
-		"",
-		"v1",
-		"v1:**invalid*base64*",
-		"???",
+	cases := [][]byte{
+		[]byte("**invalid*base64*"),
+		[]byte(""),
 	}
 
 	for _, tc := range cases {
