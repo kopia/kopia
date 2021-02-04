@@ -26,7 +26,7 @@ func runUserInfo(ctx context.Context, rep repo.DirectRepository) error {
 		return errors.Wrap(err, "error marshaling JSON")
 	}
 
-	printStdout("%v", string(j))
+	printStdout("%s", j)
 
 	return nil
 }
