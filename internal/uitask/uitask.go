@@ -82,6 +82,20 @@ func (t *runningTaskInfo) OnCancel(f context.CancelFunc) {
 	}
 }
 
+func (t *runningTaskInfo) cancel() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if t.Status == StatusRunning {
+		for _, c := range t.taskCancel {
+			c()
+		}
+
+		t.taskCancel = nil
+		t.Status = StatusCanceled
+	}
+}
+
 func (t *runningTaskInfo) loggerForModule(module string) logging.Logger {
 	return runningTaskLogger{t, module}
 }

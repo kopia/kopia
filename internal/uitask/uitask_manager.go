@@ -51,18 +51,9 @@ func (m *Manager) Run(ctx context.Context, kind, description string, task TaskFu
 	ctx = logging.WithLogger(ctx, r.loggerForModule)
 
 	m.startTask(r)
-	defer m.completeTask(r)
 
 	err := task(ctx, r)
-
-	if r.Status != StatusCanceled {
-		if err != nil {
-			r.Status = StatusFailed
-			r.ErrorMessage = err.Error()
-		} else {
-			r.Status = StatusSuccess
-		}
-	}
+	m.completeTask(r, err)
 
 	return err
 }
@@ -142,16 +133,13 @@ func (m *Manager) GetTask(taskID string) (Info, bool) {
 func (m *Manager) CancelTask(taskID string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	t := m.running[taskID]
-
-	if t.Status == StatusRunning {
-		for _, c := range t.taskCancel {
-			c()
-		}
-
-		t.taskCancel = nil
-		t.Status = StatusCanceled
+	if t == nil {
+		return
 	}
+
+	t.cancel()
 }
 
 func (m *Manager) startTask(r *runningTaskInfo) string {
@@ -168,9 +156,21 @@ func (m *Manager) startTask(r *runningTaskInfo) string {
 	return taskID
 }
 
-func (m *Manager) completeTask(r *runningTaskInfo) {
+func (m *Manager) completeTask(r *runningTaskInfo, err error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.Status != StatusCanceled {
+		if err != nil {
+			r.Status = StatusFailed
+			r.ErrorMessage = err.Error()
+		} else {
+			r.Status = StatusSuccess
+		}
+	}
 
 	now := clock.Now()
 	r.EndTime = &now
