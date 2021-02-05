@@ -15,6 +15,7 @@ import (
 
 	"github.com/kopia/kopia/internal/auth"
 	"github.com/kopia/kopia/internal/serverapi"
+	"github.com/kopia/kopia/internal/uitask"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/maintenance"
@@ -46,6 +47,8 @@ type Server struct {
 	sourceManagers  map[snapshot.SourceInfo]*sourceManager
 	mounts          sync.Map // object.ID -> mount.Controller
 	uploadSemaphore chan struct{}
+
+	taskmgr *uitask.Manager
 
 	grpcServerState
 }
@@ -104,6 +107,12 @@ func (s *Server) APIHandlers(legacyAPI bool) http.Handler {
 	m.HandleFunc("/api/v1/mounts", s.handleAPI(s.handleMountList)).Methods(http.MethodGet)
 
 	m.HandleFunc("/api/v1/current-user", s.handleAPIPossiblyNotConnected(s.handleCurrentUser)).Methods(http.MethodGet)
+
+	m.HandleFunc("/api/v1/tasks-summary", s.handleAPI(s.handleTaskSummary)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/tasks", s.handleAPI(s.handleTaskList)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/tasks/{taskID}", s.handleAPI(s.handleTaskInfo)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/tasks/{taskID}/logs", s.handleAPI(s.handleTaskLogs)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/tasks/{taskID}/cancel", s.handleAPI(s.handleTaskCancel)).Methods(http.MethodPost)
 
 	return m
 }
@@ -355,7 +364,9 @@ func (s *Server) periodicMaintenance(ctx context.Context, rep repo.Repository) {
 			return
 
 		case <-time.After(maintenanceAttemptFrequency):
-			if err := periodicMaintenanceOnce(ctx, rep); err != nil {
+			if err := s.taskmgr.Run(ctx, "Maintenance", "Periodic maintenance", func(ctx context.Context, _ uitask.Controller) error {
+				return periodicMaintenanceOnce(ctx, rep)
+			}); err != nil {
 				log(ctx).Warningf("unable to run maintenance: %v", err)
 			}
 		}
@@ -485,6 +496,7 @@ func New(ctx context.Context, options Options) (*Server, error) {
 		grpcServerState: makeGRPCServerState(options.MaxConcurrency),
 		authenticator:   options.Authenticator,
 		authorizer:      options.Authorizer,
+		taskmgr:         uitask.NewManager(),
 	}
 
 	return s, nil

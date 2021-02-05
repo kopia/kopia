@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/internal/uitask"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/manifest"
@@ -48,6 +49,7 @@ type SourceStatus struct {
 	LastSnapshot     *snapshot.Manifest         `json:"lastSnapshot,omitempty"`
 	NextSnapshotTime *time.Time                 `json:"nextSnapshotTime,omitempty"`
 	UploadCounters   *snapshotfs.UploadCounters `json:"upload,omitempty"`
+	CurrentTask      string                     `json:"currentTask,omitempty"`
 }
 
 // PolicyListEntry describes single policy.
@@ -187,4 +189,14 @@ type MountedSnapshots struct {
 type CurrentUserResponse struct {
 	Username string `json:"username"`
 	Hostname string `json:"hostname"`
+}
+
+// TaskListResponse contains a list of tasks.
+type TaskListResponse struct {
+	Tasks []uitask.Info `json:"tasks"`
+}
+
+// TaskLogResponse contains a task log.
+type TaskLogResponse struct {
+	Logs []uitask.LogEntry `json:"logs"`
 }

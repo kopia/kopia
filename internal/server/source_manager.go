@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/serverapi"
+	"github.com/kopia/kopia/internal/uitask"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
@@ -50,7 +52,8 @@ type sourceManager struct {
 	lastCompleteSnapshot               *snapshot.Manifest
 	manifestsSinceLastCompleteSnapshot []*snapshot.Manifest
 
-	progress *snapshotfs.CountingUploadProgress
+	progress    *snapshotfs.CountingUploadProgress
+	currentTask string
 }
 
 func (s *sourceManager) Status() *serverapi.SourceStatus {
@@ -69,6 +72,8 @@ func (s *sourceManager) Status() *serverapi.SourceStatus {
 		c := s.progress.Snapshot()
 
 		st.UploadCounters = &c
+
+		st.CurrentTask = s.currentTask
 	}
 
 	return st
@@ -223,7 +228,18 @@ func (s *sourceManager) snapshot(ctx context.Context) error {
 	s.server.beginUpload(ctx, s.src)
 	defer s.server.endUpload(ctx, s.src)
 
+	return s.server.taskmgr.Run(ctx,
+		"Snapshot",
+		fmt.Sprintf("%v at %v", s.src, clock.Now().Format(time.RFC3339)),
+		s.snapshotInternal)
+}
+
+func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Controller) error {
 	s.setStatus("UPLOADING")
+
+	s.currentTask = ctrl.CurrentTaskID()
+
+	defer func() { s.currentTask = "" }()
 
 	// check if we got closed while waiting on semaphore
 	select {
@@ -244,6 +260,8 @@ func (s *sourceManager) snapshot(ctx context.Context) error {
 	}, func(w repo.RepositoryWriter) error {
 		log(ctx).Debugf("uploading %v", s.src)
 		u := snapshotfs.NewUploader(w)
+
+		ctrl.OnCancel(u.Cancel)
 
 		policyTree, err := policy.TreeForSource(ctx, w, s.src)
 		if err != nil {
