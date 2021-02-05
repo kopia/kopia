@@ -1,9 +1,10 @@
+import axios from 'axios';
 import 'bootstrap/dist/css/bootstrap.min.css';
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Container from 'react-bootstrap/Container';
 import Nav from 'react-bootstrap/Nav';
 import Navbar from 'react-bootstrap/Navbar';
-import { BrowserRouter as Router, NavLink, Route, Switch, Redirect } from 'react-router-dom';
+import { BrowserRouter as Router, NavLink, Redirect, Route, Switch } from 'react-router-dom';
 import './App.css';
 import { DirectoryObject } from "./DirectoryObject";
 import logo from './kopia-flat.svg';
@@ -11,8 +12,40 @@ import { PoliciesTable } from "./PoliciesTable";
 import { RepoStatus } from "./RepoStatus";
 import { SnapshotsTable } from "./SnapshotsTable";
 import { SourcesTable } from "./SourcesTable";
+import { TaskDetails } from './TaskDetails';
+import { TasksTable } from './TasksTable';
+
+function useInterval(callback, delay) {
+  const savedCallback = useRef();
+
+  // Remember the latest callback.
+  useEffect(() => {
+    savedCallback.current = callback;
+  }, [callback]);
+
+  // Set up the interval.
+  useEffect(() => {
+    function tick() {
+      savedCallback.current();
+    }
+    if (delay !== null) {
+      let id = setInterval(tick, delay);
+      return () => clearInterval(id);
+    }
+  }, [delay]);
+}
 
 function App() {
+  const [runningTaskCount, setRunningTaskCount] = useState(0);
+
+  useInterval(() => {
+      axios.get('/api/v1/tasks-summary').then(result => {
+        setRunningTaskCount(result.data["RUNNING"] || 0);
+    }).catch(error => {
+      setRunningTaskCount(-1);
+    });
+  }, 1000);
+
   return (
     <Router>
       <Navbar bg="light" expand="sm">
@@ -22,6 +55,10 @@ function App() {
           <Nav className="mr-auto">
             <NavLink className="nav-link" activeClassName="active" to="/snapshots">Snapshots</NavLink>
             <NavLink className="nav-link" activeClassName="active" to="/policies">Policies</NavLink>
+            <NavLink className="nav-link" activeClassName="active" to="/tasks">Tasks <>
+            {runningTaskCount > 0 && <>({runningTaskCount})</>}
+            </>
+            </NavLink>
             <NavLink className="nav-link" activeClassName="active" to="/repo">Repository</NavLink>
           </Nav>
         </Navbar.Collapse>
@@ -33,6 +70,8 @@ function App() {
           <Route path="/snapshots/dir/:oid" component={DirectoryObject} />
           <Route path="/snapshots" component={SourcesTable} />
           <Route path="/policies" component={PoliciesTable} />
+          <Route path="/tasks/:tid" component={TaskDetails} />
+          <Route path="/tasks" component={TasksTable} />
           <Route path="/repo" component={RepoStatus} />
           <Route exact path="/">
             <Redirect to="/snapshots" />

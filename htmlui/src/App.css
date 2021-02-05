@@ -1,3 +1,15 @@
+body {
+  line-height: 1;
+}
+
+.popover {
+  max-width: 1000px;
+}
+
+.elide {
+  text-overflow: ellipsis;
+}
+
 .App-logo {
   height: 32px;
 }
@@ -95,3 +107,19 @@ div.tab-body {
   padding: 4px;
   border: 1px solid #aaa;
 }
+
+.logs-table {
+  background-color: #ffffe0;
+  font-family: monospace;
+  font-size: 12px;
+  font-weight: bold;
+  overflow: auto;
+  max-height: 400px;
+}
+
+.loglevel-0 { color: #444; } /* debug */
+.loglevel-1 { color: black; } /* info */
+.loglevel-2 { color: blue; font-weight: bold; } /* notice */
+.loglevel-3 { color: rgb(169, 112, 5); font-weight: bold;} /* warning */
+.loglevel-4 { color: red; font-weight: bold; } /* error */
+.loglevel-5 { color: red; font-weight: bold; } /* fatal */

@@ -113,7 +113,8 @@ export class RepoStatus extends Component {
                                     isInvalid={!this.state.status.description}
                                     name="status.description"
                                     value={this.state.status.description}
-                                    onChange={this.handleChange} />
+                                    onChange={this.handleChange}
+                                    size="sm" />
                                 <InputGroup.Append>
                                     <Button size="sm" type="submit">Update Description</Button>
                                 </InputGroup.Append>
@@ -170,7 +171,7 @@ export class RepoStatus extends Component {
                             <Form.Control readOnly defaultValue={this.state.status.username + "@" + this.state.status.hostname} />
                         </Form.Group>
                     </Form.Row>
-                    <Button variant="danger" onClick={this.disconnect}>Disconnect</Button>
+                    <Button size="sm" variant="danger" onClick={this.disconnect}>Disconnect</Button>
                 </Form>
             </> : <SetupRepository />
     }

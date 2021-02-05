@@ -1,4 +1,4 @@
-import { faArrowLeft, faCopy } from '@fortawesome/free-solid-svg-icons';
+import { faChevronLeft, faCopy } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
 import React, { Component } from 'react';
@@ -117,18 +117,18 @@ export class DirectoryObject extends Component {
 
         return <div class="padded">
             <Row>
-            <Button size="xxl" variant="secondary" onClick={this.props.history.goBack} ><FontAwesomeIcon icon={faArrowLeft} /></Button>
+            <Button size="sm" variant="outline-secondary" onClick={this.props.history.goBack} ><FontAwesomeIcon icon={faChevronLeft} /> Return </Button>
             &nbsp;
             { this.state.mountInfo.path ? <>
-            <Button size="xxl" variant="info" onClick={this.unmount} >Unmount</Button>
+            <Button size="sm" variant="info" onClick={this.unmount} >Unmount</Button>
             {browsingSupported && <>
             &nbsp;
-            <Button size="xxl" variant="info" onClick={this.browseMounted} >Browse</Button>
+            <Button size="sm" variant="info" onClick={this.browseMounted} >Browse</Button>
             </>}
             &nbsp;<input id="mountedPath" value={this.state.mountInfo.path } />
-            <Button size="xxl" variant="primary" onClick={this.copyPath} ><FontAwesomeIcon icon={faCopy} /></Button>
+            <Button size="sm" variant="primary" onClick={this.copyPath} ><FontAwesomeIcon icon={faCopy} /></Button>
             </> : <>
-            <Button size="xxl" variant="primary" onClick={this.mount} >Mount</Button>
+            <Button size="sm" variant="primary" onClick={this.mount} >Mount</Button>
             </>}
             </Row>
             <hr/>

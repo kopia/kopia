@@ -1,4 +1,4 @@
-import { faStopCircle, faSync, faUserFriends } from '@fortawesome/free-solid-svg-icons';
+import { faSync, faUserFriends } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
 import moment from 'moment';
@@ -216,9 +216,7 @@ export class SourcesTable extends Component {
                 return <>
                     <Spinner animation="border" variant="primary" size="sm" title={title} />&nbsp;Uploading {totals}
                     &nbsp;
-                    <Button variant="danger" size="sm" onClick={() => {
-                        parent.cancelSnapshot(x.row.original.source);
-                    }}><FontAwesomeIcon icon={faStopCircle} /></Button>
+                    {x.row.original.currentTask && <Link to={"/tasks/"+x.row.original.currentTask}>Details</Link>}
                 </>;
 
             default:
@@ -335,7 +333,7 @@ export class SourcesTable extends Component {
                 &nbsp;
                 <ButtonGroup>
                     <Dropdown>
-                        <Dropdown.Toggle variant="outline-primary" id="dropdown-basic">
+                        <Dropdown.Toggle size="sm" variant="outline-primary" id="dropdown-basic">
                         <FontAwesomeIcon icon={faUserFriends} />&nbsp;{this.state.selectedOwner}
                         </Dropdown.Toggle>
 
@@ -349,7 +347,7 @@ export class SourcesTable extends Component {
                 </ButtonGroup>
                 &nbsp;
                 <ButtonGroup>
-                    <Button variant="primary"><FontAwesomeIcon icon={faSync} /></Button>
+                    <Button size="sm" variant="primary"><FontAwesomeIcon icon={faSync} /></Button>
                 </ButtonGroup>
             </ButtonToolbar>}
             <ButtonToolbar>
@@ -360,6 +358,7 @@ export class SourcesTable extends Component {
                         name="selectedDirectory"
                         value={this.state.selectedDirectory}
                         onChange={this.handleChange}
+                        size="sm" 
                     />
                     {selectSupported && <Button as={InputGroup.Prepend}
                         title="Snapshot"
@@ -372,7 +371,8 @@ export class SourcesTable extends Component {
                     as={InputGroup.Append}
                     variant="success"
                     title="New Snapshot"
-                    id="dropdown1">
+                    id="dropdown1"
+                    size="sm">
                     <Dropdown.Item href="#" onClick={this.snapshotOnce}>Snapshot Once</Dropdown.Item>
                     <Dropdown.Item href="#" onClick={this.snapshotEveryHour}>Snapshot Every Hour</Dropdown.Item>
                     <Dropdown.Item href="#" onClick={this.snapshotEveryDay}>Snapshot Every Day</Dropdown.Item>

@@ -162,7 +162,7 @@ export class PoliciesTable extends Component {
                         {RequiredField(this, "Target Host", "targetHost", {})}
                         {OptionalField(this, "Target Path", "targetPath", {}, "Specify * all empty to target all filesystem paths")}
                     </Form.Row>
-                    <Button variant="primary" onClick={this.setNewPolicy}>Set New Policy</Button>
+                    <Button size="sm" variant="primary" onClick={this.setNewPolicy}>Set New Policy</Button>
                 </Form>
                 </div>
             </div>
