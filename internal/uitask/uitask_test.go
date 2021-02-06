@@ -296,7 +296,7 @@ func mustFindTask(t *testing.T, tasks []uitask.Info, tid string) uitask.Info {
 		}
 	}
 
-	t.Fatalf("task %v not found", tid)
+	t.Fatalf("task %v not found among %v", tid, tasks)
 
 	return uitask.Info{}
 }

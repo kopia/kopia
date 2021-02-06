@@ -53,6 +53,8 @@ type Info struct {
 	Status       Status     `json:"status"`
 	ErrorMessage string     `json:"errorMessage,omitempty"`
 	LogLines     []LogEntry `json:"-"`
+
+	sequenceNumber int
 }
 
 // runningTaskInfo encapsulates running task.

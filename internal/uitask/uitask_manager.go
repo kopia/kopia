@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"sort"
 	"sync"
-	"time"
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/logging"
@@ -75,7 +74,7 @@ func (m *Manager) ListTasks() []Info {
 
 	// most recent first
 	sort.Slice(res, func(i, j int) bool {
-		return res[i].StartTime.After(res[j].StartTime)
+		return res[i].sequenceNumber < res[j].sequenceNumber
 	})
 
 	return res
@@ -151,6 +150,7 @@ func (m *Manager) startTask(r *runningTaskInfo) string {
 	taskID := fmt.Sprintf("%x", m.nextTaskID)
 	r.StartTime = clock.Now()
 	r.TaskID = taskID
+	r.sequenceNumber = m.nextTaskID
 	m.running[taskID] = r
 
 	return taskID
@@ -181,13 +181,13 @@ func (m *Manager) completeTask(r *runningTaskInfo, err error) {
 	// delete oldest finished tasks up to configured limit.
 	for len(m.finished) > m.MaxFinishedTasks {
 		var (
-			oldestStartTime time.Time
-			oldestID        string
+			oldestSequenceNumber int
+			oldestID             string
 		)
 
 		for _, v := range m.finished {
-			if oldestStartTime.IsZero() || v.StartTime.Before(oldestStartTime) {
-				oldestStartTime = v.StartTime
+			if oldestSequenceNumber == 0 || v.sequenceNumber < oldestSequenceNumber {
+				oldestSequenceNumber = v.sequenceNumber
 				oldestID = v.TaskID
 			}
 		}
