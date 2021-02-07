@@ -77,6 +77,7 @@ func (s *Server) APIHandlers(legacyAPI bool) http.Handler {
 	m.HandleFunc("/api/v1/shutdown", s.handleAPIPossiblyNotConnected(s.handleShutdown)).Methods(http.MethodPost)
 
 	m.HandleFunc("/api/v1/objects/{objectID}", s.requireAuth(s.handleObjectGet)).Methods(http.MethodGet)
+	m.HandleFunc("/api/v1/restore", s.handleAPI(s.handleRestore)).Methods(http.MethodPost)
 
 	m.HandleFunc("/api/v1/repo/status", s.handleAPIPossiblyNotConnected(s.handleRepoStatus)).Methods(http.MethodGet)
 	m.HandleFunc("/api/v1/repo/connect", s.handleAPIPossiblyNotConnected(s.handleRepoConnect)).Methods(http.MethodPost)

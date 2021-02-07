@@ -63,10 +63,12 @@ func (s *Stats) clone() Stats {
 
 // Options provides optional restore parameters.
 type Options struct {
-	Parallel         int
+	Parallel     int  `json:"parallel"`
+	Incremental  bool `json:"incremental"`
+	IgnoreErrors bool `json:"ignoreErrors"`
+
 	ProgressCallback func(ctx context.Context, s Stats)
-	Incremental      bool
-	IgnoreErrors     bool
+	Cancel           chan struct{} // channel that can be externally closed to signal cancelation
 }
 
 // Entry walks a snapshot root with given root entry and restores it to the provided output.
@@ -76,10 +78,13 @@ func Entry(ctx context.Context, rep repo.Repository, output Output, rootEntry fs
 		q:            parallelwork.NewQueue(),
 		incremental:  options.Incremental,
 		ignoreErrors: options.IgnoreErrors,
+		cancel:       options.Cancel,
 	}
 
 	c.q.ProgressCallback = func(ctx context.Context, enqueued, active, completed int64) {
-		options.ProgressCallback(ctx, c.stats.clone())
+		if options.ProgressCallback != nil {
+			options.ProgressCallback(ctx, c.stats.clone())
+		}
 	}
 
 	c.q.EnqueueFront(ctx, func() error {
@@ -112,9 +117,19 @@ type copier struct {
 	q            *parallelwork.Queue
 	incremental  bool
 	ignoreErrors bool
+	cancel       chan struct{}
 }
 
 func (c *copier) copyEntry(ctx context.Context, e fs.Entry, targetPath string, onCompletion func() error) error {
+	if c.cancel != nil {
+		select {
+		case <-c.cancel:
+			return onCompletion()
+
+		default:
+		}
+	}
+
 	if c.incremental {
 		// in incremental mode, do not copy if the output already exists
 		switch e := e.(type) {

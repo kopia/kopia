@@ -12,6 +12,7 @@ import (
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
+	"github.com/kopia/kopia/snapshot/restore"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
@@ -199,4 +200,17 @@ type TaskListResponse struct {
 // TaskLogResponse contains a task log.
 type TaskLogResponse struct {
 	Logs []uitask.LogEntry `json:"logs"`
+}
+
+// RestoreRequest contains request to restore an object (file or directory) to a given destination.
+type RestoreRequest struct {
+	Root string `json:"root"`
+
+	Filesystem *restore.FilesystemOutput `json:"fsOutput"`
+
+	ZipFile         string `json:"zipFile"`
+	UncompressedZip bool   `json:"uncompressedZip"`
+
+	TarFile string          `json:"tarFile"`
+	Options restore.Options `json:"options"`
 }
