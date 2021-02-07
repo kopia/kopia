@@ -131,6 +131,8 @@ export class DirectoryObject extends Component {
             </> : <>
             <Button size="sm" variant="primary" onClick={this.mount} >Mount</Button>
             </>}
+            &nbsp;
+            <Button size="sm" variant="info" href={"/snapshots/dir/" + this.props.match.params.oid +"/restore"}>Restore...</Button>
             </Row>
             <hr/>
             <Row>

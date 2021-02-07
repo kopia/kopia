@@ -56,6 +56,10 @@ body {
   padding: 10px;
 }
 
+.padded-top {
+  padding-top: 10px;
+}
+
 .debug-json {
   font-size: 60%;
 }
@@ -124,3 +128,15 @@ div.tab-body {
 .loglevel-3 { color: rgb(169, 112, 5); font-weight: bold;} /* warning */
 .loglevel-4 { color: red; font-weight: bold; } /* error */
 .loglevel-5 { color: red; font-weight: bold; } /* fatal */
+
+.counter-badge {
+  font-size: 100%;
+}
+
+.page-title {
+  margin-left: 10px;
+  font-weight: bold;
+  height: 40px;
+  font-size: 125%;
+  vertical-align: text-bottom;
+}
