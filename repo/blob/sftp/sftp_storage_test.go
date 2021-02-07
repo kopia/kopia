@@ -1,6 +1,7 @@
 package sftp_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io/ioutil"
@@ -12,6 +13,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/testlogging"
@@ -46,17 +49,37 @@ func mustGetLocalTmpDir(t *testing.T) string {
 	return tmpDir
 }
 
-func mustRunOrSkip(t *testing.T, cmd string, args ...string) []byte {
+// nolint:unparam
+func runAndGetOutput(t *testing.T, cmd string, args ...string) ([]byte, error) {
 	t.Helper()
 
-	o, err := exec.Command(cmd, args...).CombinedOutput()
+	t.Logf("running %v %v", cmd, args)
+
+	var stderr bytes.Buffer
+
+	c := exec.Command(cmd, args...)
+	c.Stderr = &stderr
+
+	o, err := c.Output()
 	if err != nil {
-		t.Fatalf("%s: %v", o, err)
+		return nil, errors.Wrapf(err, "error running %v %v (stdout %s stderr %s)", cmd, args, o, stderr.Bytes())
 	}
 
-	t.Logf("output: %s", o)
+	t.Logf("output: %s stderr: %s", o, stderr.Bytes())
 
-	return o
+	return o, nil
+}
+
+// nolint:unparam
+func mustRunCommand(t *testing.T, cmd string, args ...string) []byte {
+	t.Helper()
+
+	v, err := runAndGetOutput(t, cmd, args...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return v
 }
 
 func startDockerSFTPServerOrSkip(t *testing.T, idRSA string) (host string, port int, knownHostsFile string) {
@@ -66,8 +89,8 @@ func startDockerSFTPServerOrSkip(t *testing.T, idRSA string) (host string, port 
 	sshHostED25519Key := filepath.Join(tmpDir, "ssh_host_ed25519_key")
 	sshHostRSAKey := filepath.Join(tmpDir, "ssh_host_rsa_key")
 
-	mustRunOrSkip(t, "ssh-keygen", "-t", "ed25519", "-P", "", "-f", sshHostED25519Key)
-	mustRunOrSkip(t, "ssh-keygen", "-t", "rsa", "-P", "", "-f", sshHostRSAKey)
+	mustRunCommand(t, "ssh-keygen", "-t", "ed25519", "-P", "", "-f", sshHostED25519Key)
+	mustRunCommand(t, "ssh-keygen", "-t", "rsa", "-P", "", "-f", sshHostRSAKey)
 
 	// see https://github.com/atmoz/sftp for instructions
 	shortContainerID := testutil.RunContainerAndKillOnCloseOrSkip(t,
@@ -92,7 +115,20 @@ func startDockerSFTPServerOrSkip(t *testing.T, idRSA string) (host string, port 
 			continue
 		}
 
-		defer conn.Close()
+		banner := make([]byte, 100)
+
+		n, err := conn.Read(banner)
+		if err != nil {
+			t.Logf("error reading banner: %v", err)
+			conn.Close()
+			time.Sleep(time.Second)
+
+			continue
+		}
+
+		conn.Close()
+
+		t.Logf("got banner: %s", banner[0:n])
 
 		parts := strings.Split(sftpEndpoint, ":")
 		host = parts[0]
@@ -101,7 +137,13 @@ func startDockerSFTPServerOrSkip(t *testing.T, idRSA string) (host string, port 
 
 		time.Sleep(3 * time.Second)
 
-		knownHostsData := mustRunOrSkip(t, "ssh-keyscan", "-t", "rsa", "-p", strconv.Itoa(port), host)
+		knownHostsData, err := runAndGetOutput(t, "ssh-keyscan", "-t", "rsa", "-p", strconv.Itoa(port), host)
+		if err != nil || len(knownHostsData) == 0 {
+			t.Logf("error scanning keys: %v", err)
+			time.Sleep(time.Second)
+
+			continue
+		}
 
 		t.Logf("knownHostsData: %s", knownHostsData)
 
@@ -123,7 +165,7 @@ func TestSFTPStorageValid(t *testing.T) {
 	tmpDir := mustGetLocalTmpDir(t)
 	idRSA := filepath.Join(tmpDir, "id_rsa")
 
-	mustRunOrSkip(t, "ssh-keygen", "-t", "rsa", "-P", "", "-f", idRSA)
+	mustRunCommand(t, "ssh-keygen", "-t", "rsa", "-P", "", "-f", idRSA)
 
 	host, port, knownHostsFile := startDockerSFTPServerOrSkip(t, idRSA)
 
@@ -161,7 +203,7 @@ func TestInvalidServerFailsFast(t *testing.T) {
 	idRSA := filepath.Join(tmpDir, "id_rsa")
 	knownHostsFile := filepath.Join(tmpDir, "known_hosts")
 
-	mustRunOrSkip(t, "ssh-keygen", "-t", "rsa", "-P", "", "-f", idRSA)
+	mustRunCommand(t, "ssh-keygen", "-t", "rsa", "-P", "", "-f", idRSA)
 	ioutil.WriteFile(knownHostsFile, nil, 0600)
 
 	t0 := time.Now()
