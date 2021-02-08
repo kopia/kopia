@@ -3,6 +3,8 @@ package snapshotfs
 import (
 	"sync"
 	"sync/atomic"
+
+	"github.com/kopia/kopia/internal/uitask"
 )
 
 // UploadProgress is invoked by by uploader to report status of file and directory uploads.
@@ -18,6 +20,12 @@ type UploadProgress interface {
 
 	// HashingFile is emitted at the beginning of hashing of a given file.
 	HashingFile(fname string)
+
+	// ExcludedFile is emitted when a file is excluded.
+	ExcludedFile(fname string, size int64)
+
+	// ExcludedDir is emitted when a directory is excluded.
+	ExcludedDir(dirname string)
 
 	// FinishedHashingFile is emitted at the end of hashing of a given file.
 	FinishedHashingFile(fname string, numBytes int64)
@@ -56,6 +64,12 @@ func (p *NullUploadProgress) UploadFinished() {}
 // HashedBytes implements UploadProgress.
 func (p *NullUploadProgress) HashedBytes(numBytes int64) {}
 
+// ExcludedFile implements UploadProgress.
+func (p *NullUploadProgress) ExcludedFile(fname string, numBytes int64) {}
+
+// ExcludedDir implements UploadProgress.
+func (p *NullUploadProgress) ExcludedDir(dirname string) {}
+
 // CachedFile implements UploadProgress.
 func (p *NullUploadProgress) CachedFile(fname string, numBytes int64) {}
 
@@ -81,13 +95,17 @@ var _ UploadProgress = (*NullUploadProgress)(nil)
 
 // UploadCounters represents a snapshot of upload counters.
 type UploadCounters struct {
-	TotalCachedBytes int64 `json:"cachedBytes"`
-	TotalHashedBytes int64 `json:"hashedBytes"`
+	TotalCachedBytes   int64 `json:"cachedBytes"`
+	TotalHashedBytes   int64 `json:"hashedBytes"`
+	TotalUploadedBytes int64 `json:"uploadedBytes"`
 
 	EstimatedBytes int64 `json:"estimatedBytes"`
 
 	TotalCachedFiles int32 `json:"cachedFiles"`
 	TotalHashedFiles int32 `json:"hashedFiles"`
+
+	TotalExcludedFiles int32 `json:"excludedFiles"`
+	TotalExcludedDirs  int32 `json:"excludedDirs"`
 
 	TotalIgnoredErrors int32 `json:"ignoredErrors"`
 	EstimatedFiles     int32 `json:"estimatedFiles"`
@@ -113,6 +131,11 @@ func (p *CountingUploadProgress) UploadStarted() {
 	p.counters = UploadCounters{}
 }
 
+// UploadedBytes implements UploadProgress.
+func (p *CountingUploadProgress) UploadedBytes(numBytes int64) {
+	atomic.AddInt64(&p.counters.TotalUploadedBytes, numBytes)
+}
+
 // EstimatedDataSize implements UploadProgress.
 func (p *CountingUploadProgress) EstimatedDataSize(numFiles int, numBytes int64) {
 	atomic.StoreInt64(&p.counters.EstimatedBytes, numBytes)
@@ -133,6 +156,16 @@ func (p *CountingUploadProgress) CachedFile(fname string, numBytes int64) {
 // FinishedHashingFile implements UploadProgress.
 func (p *CountingUploadProgress) FinishedHashingFile(fname string, numBytes int64) {
 	atomic.AddInt32(&p.counters.TotalHashedFiles, 1)
+}
+
+// ExcludedDir implements UploadProgress.
+func (p *CountingUploadProgress) ExcludedDir(dirname string) {
+	atomic.AddInt32(&p.counters.TotalExcludedDirs, 1)
+}
+
+// ExcludedFile implements UploadProgress.
+func (p *CountingUploadProgress) ExcludedFile(fname string, numBytes int64) {
+	atomic.AddInt32(&p.counters.TotalExcludedFiles, 1)
 }
 
 // IgnoredError implements UploadProgress.
@@ -169,6 +202,30 @@ func (p *CountingUploadProgress) Snapshot() UploadCounters {
 		LastErrorPath:    p.counters.LastErrorPath,
 		LastError:        p.counters.LastError,
 	}
+}
+
+// UITaskCounters returns UI task counters.
+func (p *CountingUploadProgress) UITaskCounters(final bool) map[string]uitask.CounterValue {
+	m := map[string]uitask.CounterValue{
+		"Cached Files": uitask.SimpleCounter(int64(atomic.LoadInt32(&p.counters.TotalCachedFiles))),
+		"Hashed Files": uitask.SimpleCounter(int64(atomic.LoadInt32(&p.counters.TotalHashedFiles))),
+
+		"Cached Bytes":   uitask.BytesCounter(atomic.LoadInt64(&p.counters.TotalCachedBytes)),
+		"Hashed Bytes":   uitask.BytesCounter(atomic.LoadInt64(&p.counters.TotalHashedBytes)),
+		"Uploaded Bytes": uitask.BytesCounter(atomic.LoadInt64(&p.counters.TotalUploadedBytes)),
+
+		"Excluded Files":       uitask.SimpleCounter(int64(atomic.LoadInt32(&p.counters.TotalExcludedFiles))),
+		"Excluded Directories": uitask.SimpleCounter(int64(atomic.LoadInt32(&p.counters.TotalExcludedDirs))),
+
+		"Errors": uitask.ErrorCounter(int64(atomic.LoadInt32(&p.counters.TotalIgnoredErrors))),
+	}
+
+	if !final {
+		m["Estimated Files"] = uitask.NoticeCounter(int64(atomic.LoadInt32(&p.counters.EstimatedFiles)))
+		m["Estimated Bytes"] = uitask.NoticeBytesCounter(atomic.LoadInt64(&p.counters.EstimatedBytes))
+	}
+
+	return m
 }
 
 var _ UploadProgress = (*CountingUploadProgress)(nil)
