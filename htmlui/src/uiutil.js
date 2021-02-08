@@ -1,11 +1,12 @@
-import { faBan, faCheck, faExclamationCircle, faExclamationTriangle, faWindowClose } from '@fortawesome/free-solid-svg-icons';
+import { faBan, faCheck, faChevronLeft, faExclamationCircle, faExclamationTriangle, faWindowClose } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
 import React from 'react';
-import Spinner from 'react-bootstrap/Spinner';
+import Button from 'react-bootstrap/Button';
 import ListGroup from 'react-bootstrap/ListGroup';
 import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
 import Popover from 'react-bootstrap/Popover';
+import Spinner from 'react-bootstrap/Spinner';
 
 const base10UnitPrefixes = ["", "K", "M", "G", "T"];
 
@@ -167,4 +168,8 @@ export function cancelTask(tid) {
     axios.post('/api/v1/tasks/' + tid + '/cancel', {}).then(result => {
     }).catch(error => {
     });
+}
+
+export function GoBackButton(props) {
+    return <Button size="sm" variant="outline-secondary" {...props}><FontAwesomeIcon icon={faChevronLeft} /> Return </Button>;
 }

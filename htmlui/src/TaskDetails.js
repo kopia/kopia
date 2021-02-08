@@ -1,14 +1,17 @@
 
-import { faChevronLeft, faStopCircle } from '@fortawesome/free-solid-svg-icons';
+import { faStopCircle } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
 import React, { Component } from 'react';
 import Alert from 'react-bootstrap/Alert';
-import Col from 'react-bootstrap/Col';
+import Badge from 'react-bootstrap/Badge';
 import Button from 'react-bootstrap/Button';
+import Col from 'react-bootstrap/Col';
 import Form from 'react-bootstrap/Form';
+import Spinner from 'react-bootstrap/Spinner';
+import { sizeDisplayName } from './uiutil';
 import { TaskLogs } from './TaskLogs';
-import { cancelTask, redirectIfNotConnected, taskStatusSymbol } from './uiutil';
+import { cancelTask, formatDuration, GoBackButton, redirectIfNotConnected } from './uiutil';
 
 export class TaskDetails extends Component {
     constructor() {
@@ -17,10 +20,13 @@ export class TaskDetails extends Component {
             items: [],
             isLoading: true,
             error: null,
+            showLog: false,
         };
 
         this.fetchTask = this.fetchTask.bind(this);
-        this.interval = window.setInterval(() => this.fetchTask(this.props), 3000);
+        
+        // poll frequently, we will stop as soon as the task ends.
+        this.interval = window.setInterval(() => this.fetchTask(this.props), 500);
     }
 
     componentDidMount() {
@@ -32,7 +38,9 @@ export class TaskDetails extends Component {
     }
 
     componentWillUnmount() {
-        window.clearInterval(this.interval);
+        if (this.interval) {
+            window.clearInterval(this.interval);
+        }
     }
 
     fetchTask(props) {
@@ -43,6 +51,11 @@ export class TaskDetails extends Component {
                 task: result.data,
                 isLoading: false,
             });
+
+            if (result.data.endTime) {
+                window.clearInterval(this.interval);
+                this.interval = null;
+            }
         }).catch(error => {
             redirectIfNotConnected(error);
             this.setState({
@@ -54,6 +67,57 @@ export class TaskDetails extends Component {
 
     componentWillReceiveProps(props) {
         this.fetchTask(props);
+    }
+
+    summaryControl(task) {
+        const dur = formatDuration(task.startTime, task.endTime)
+
+        switch (task.status) {
+
+        case "SUCCESS":
+            return <Alert variant="success">Task succeeded after {dur}.</Alert>;
+
+        case "FAILED":
+            return <Alert variant="danger"><b>Error:</b> {task.errorMessage}.</Alert>;
+
+        case "CANCELING":
+            return <Alert variant="warning">Cancelation requested...</Alert>;
+
+        case "CANCELED":
+            return <Alert variant="warning">Task canceled.</Alert>;
+
+        default:
+            return <Alert variant="primary"> <Spinner animation="border" variant="primary" size="sm" /> Task in progress ({dur}).</Alert>;
+        }
+    }
+
+    counterBadge(label, c) {
+        if (!c.value) {
+            return "";
+        }
+
+        let formatted = c.value.toLocaleString();
+        if (c.units === "bytes") {
+            formatted = sizeDisplayName(c.value);
+        }
+
+        let variant = "secondary";
+        switch (c.level) {
+            case "warning":
+                variant = "warning";
+                break;
+            case "error":
+                variant = "danger";
+                break;
+            case "notice":
+                variant = "info";
+                break;
+            default:
+                variant = "secondary";
+                break;
+        }
+
+        return <Badge variant={variant}>{label}: {formatted}</Badge>
     }
 
     render() {
@@ -68,43 +132,44 @@ export class TaskDetails extends Component {
 
         return <Form>
             <Form.Row>
-                <Col xs={6}>
                 <Form.Group>
-                    <Button size="sm" variant="outline-secondary" onClick={this.props.history.goBack} ><FontAwesomeIcon icon={faChevronLeft} /> Return </Button>
+                    <GoBackButton onClick={this.props.history.goBack} />
                     {task.status === "RUNNING" && <>
                         &nbsp;<Button size="sm" variant="danger" onClick={() => cancelTask(task.id)} ><FontAwesomeIcon icon={faStopCircle} /> Stop </Button>
                     </>}
-                    </Form.Group>
-                    </Col>
-                    <Col xs={4}>
-                        Started at <b>{new Date(task.startTime).toLocaleString()}</b>
-                    </Col>
-                    <Col xs={2}>
-                        {taskStatusSymbol(task)}
-                    </Col>
+                </Form.Group>
             </Form.Row>
             <Form.Row>
                 <Col xs={3} >
                     <Form.Group>
-                        <Form.Label>Kind</Form.Label>
                         <Form.Control type="text" readOnly={true} value={task.kind} />
                     </Form.Group>
                 </Col>
                 <Col xs={9} >
                     <Form.Group>
-                        <Form.Label>Description</Form.Label>
                         <Form.Control type="text" readOnly={true} value={task.description} />
                     </Form.Group>
                 </Col>
             </Form.Row>
-            {task.errorMessage && <Form.Row>
+            <Form.Row>
+                <Col xs={9}>
+                    {this.summaryControl(task)}
+                </Col>
+                <Col xs={3}>
+                    <Form.Group>
+                        <Form.Control type="text" readOnly={true} value={"Started: " + new Date(task.startTime).toLocaleString()} />
+                    </Form.Group>
+                </Col>
+            </Form.Row>
+            {task.counters && <Form.Row>
                 <Col>
-                    <Alert variant="danger">Task failed with: {task.errorMessage}</Alert>
+                {Object.keys(task.counters).map(c => (task.counters[c].value > 0) && <>{this.counterBadge(c, task.counters[c])} </>)}
                 </Col>
             </Form.Row>}
+            <hr/>
             <Form.Row>
                 <Col>
-                    <TaskLogs taskID={this.props.match.params.tid} />
+                {this.state.showLog ? <TaskLogs taskID={this.props.match.params.tid} /> : <Button click={() => this.setState({showLog:true})}>Show Log</Button>}
                 </Col>
             </Form.Row>
         </Form>

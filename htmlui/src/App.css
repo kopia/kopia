@@ -109,7 +109,8 @@ div.tab-body {
 }
 
 .logs-table {
-  background-color: #ffffe0;
+  border: 1px solid #ccc;
+  background-color: #f0f0f0;
   font-family: monospace;
   font-size: 12px;
   font-weight: bold;

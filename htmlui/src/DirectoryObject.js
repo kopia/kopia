@@ -1,4 +1,4 @@
-import { faChevronLeft, faCopy } from '@fortawesome/free-solid-svg-icons';
+import { faCopy } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
 import React, { Component } from 'react';
@@ -6,6 +6,7 @@ import Button from 'react-bootstrap/Button';
 import Row from 'react-bootstrap/Row';
 import Spinner from 'react-bootstrap/Spinner';
 import { DirectoryItems } from "./DirectoryItems";
+import { GoBackButton } from './uiutil';
 
 
 export class DirectoryObject extends Component {
@@ -117,7 +118,7 @@ export class DirectoryObject extends Component {
 
         return <div class="padded">
             <Row>
-            <Button size="sm" variant="outline-secondary" onClick={this.props.history.goBack} ><FontAwesomeIcon icon={faChevronLeft} /> Return </Button>
+            <GoBackButton onClick={this.props.history.goBack} />
             &nbsp;
             { this.state.mountInfo.path ? <>
             <Button size="sm" variant="info" onClick={this.unmount} >Unmount</Button>
