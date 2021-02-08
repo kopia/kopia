@@ -31,6 +31,7 @@ type Manager struct {
 type Controller interface {
 	CurrentTaskID() string
 	OnCancel(cancelFunc context.CancelFunc)
+	ReportCounters(counters map[string]CounterValue)
 }
 
 // TaskFunc represents a task function.
@@ -65,7 +66,7 @@ func (m *Manager) ListTasks() []Info {
 	var res []Info
 
 	for _, v := range m.running {
-		res = append(res, v.Info)
+		res = append(res, v.info())
 	}
 
 	for _, v := range m.finished {
@@ -74,7 +75,7 @@ func (m *Manager) ListTasks() []Info {
 
 	// most recent first
 	sort.Slice(res, func(i, j int) bool {
-		return res[i].sequenceNumber < res[j].sequenceNumber
+		return res[i].sequenceNumber > res[j].sequenceNumber
 	})
 
 	return res
@@ -118,7 +119,7 @@ func (m *Manager) GetTask(taskID string) (Info, bool) {
 	defer m.mu.Unlock()
 
 	if r := m.running[taskID]; r != nil {
-		return r.Info, true
+		return r.info(), true
 	}
 
 	if f, ok := m.finished[taskID]; ok {
@@ -163,13 +164,18 @@ func (m *Manager) completeTask(r *runningTaskInfo, err error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if r.Status != StatusCanceled {
+	if err != nil {
+		r.ErrorMessage = err.Error()
+	}
+
+	if r.Status != StatusCanceling {
 		if err != nil {
 			r.Status = StatusFailed
-			r.ErrorMessage = err.Error()
 		} else {
 			r.Status = StatusSuccess
 		}
+	} else {
+		r.Status = StatusCanceled
 	}
 
 	now := clock.Now()

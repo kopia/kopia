@@ -16,10 +16,11 @@ type Status string
 
 // Supported task statuses.
 const (
-	StatusRunning  Status = "RUNNING"
-	StatusCanceled Status = "CANCELED"
-	StatusSuccess  Status = "SUCCESS"
-	StatusFailed   Status = "FAILED"
+	StatusRunning   Status = "RUNNING"
+	StatusCanceling Status = "CANCELING"
+	StatusCanceled  Status = "CANCELED"
+	StatusSuccess   Status = "SUCCESS"
+	StatusFailed    Status = "FAILED"
 )
 
 // LogLevel represents the log level associated with LogEntry.
@@ -45,14 +46,15 @@ type LogEntry struct {
 
 // Info represents information about a task (running or finished).
 type Info struct {
-	TaskID       string     `json:"id"`
-	StartTime    time.Time  `json:"startTime"`
-	EndTime      *time.Time `json:"endTime,omitempty"`
-	Kind         string     `json:"kind"` // Maintenance, Snapshot, Restore, etc.
-	Description  string     `json:"description"`
-	Status       Status     `json:"status"`
-	ErrorMessage string     `json:"errorMessage,omitempty"`
-	LogLines     []LogEntry `json:"-"`
+	TaskID       string                  `json:"id"`
+	StartTime    time.Time               `json:"startTime"`
+	EndTime      *time.Time              `json:"endTime,omitempty"`
+	Kind         string                  `json:"kind"` // Maintenance, Snapshot, Restore, etc.
+	Description  string                  `json:"description"`
+	Status       Status                  `json:"status"`
+	ErrorMessage string                  `json:"errorMessage,omitempty"`
+	Counters     map[string]CounterValue `json:"counters"`
+	LogLines     []LogEntry              `json:"-"`
 
 	sequenceNumber int
 }
@@ -76,11 +78,11 @@ func (t *runningTaskInfo) OnCancel(f context.CancelFunc) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	if t.Status == StatusCanceled {
-		// already canceled, run the function immediately
-		f()
-	} else {
+	if t.Status != StatusCanceling {
 		t.taskCancel = append(t.taskCancel, f)
+	} else {
+		// already canceled, run the function immediately on a goroutine without holding a lock
+		go f()
 	}
 }
 
@@ -89,13 +91,33 @@ func (t *runningTaskInfo) cancel() {
 	defer t.mu.Unlock()
 
 	if t.Status == StatusRunning {
+		t.Status = StatusCanceling
 		for _, c := range t.taskCancel {
-			c()
+			// run cancelation functions on their own goroutines
+			go c()
 		}
 
 		t.taskCancel = nil
-		t.Status = StatusCanceled
 	}
+}
+
+// ReportCounters implements the Controller interface.
+func (t *runningTaskInfo) ReportCounters(c map[string]CounterValue) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.Counters = cloneCounters(c)
+}
+
+// info returns a copy of task information while holding a lock.
+func (t *runningTaskInfo) info() Info {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	i := t.Info
+	i.Counters = cloneCounters(i.Counters)
+
+	return i
 }
 
 func (t *runningTaskInfo) loggerForModule(module string) logging.Logger {

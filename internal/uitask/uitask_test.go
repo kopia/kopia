@@ -79,6 +79,30 @@ func TestUITask(t *testing.T) {
 			"fff",
 		})
 
+		ctrl.ReportCounters(map[string]uitask.CounterValue{
+			"foo":        uitask.SimpleCounter(1),
+			"bar":        uitask.BytesCounter(2),
+			"foo-warn":   uitask.WarningCounter(3),
+			"bar-warn":   uitask.WarningBytesCounter(4),
+			"foo-err":    uitask.ErrorCounter(5),
+			"bar-err":    uitask.ErrorBytesCounter(6),
+			"foo-notice": uitask.NoticeCounter(7),
+			"bar-notice": uitask.NoticeBytesCounter(8),
+		})
+		tsk, _ = m.GetTask(tid1a)
+		if diff := cmp.Diff(tsk.Counters, map[string]uitask.CounterValue{
+			"foo":        {1, "", ""},
+			"bar":        {2, "bytes", ""},
+			"foo-warn":   {3, "", "warning"},
+			"bar-warn":   {4, "bytes", "warning"},
+			"foo-err":    {5, "", "error"},
+			"bar-err":    {6, "bytes", "error"},
+			"foo-notice": {7, "", "notice"},
+			"bar-notice": {8, "bytes", "notice"},
+		}); diff != "" {
+			t.Fatalf("unexpected counters, diff: %v", diff)
+		}
+
 		return nil
 	})
 
@@ -196,6 +220,13 @@ func verifyTaskList(t *testing.T, m *uitask.Manager, wantStatuses map[string]uit
 	}
 }
 
+func TestUITaskCancel_NonExistent(t *testing.T) {
+	t.Parallel()
+
+	m := uitask.NewManager()
+	m.CancelTask("no-such-task")
+}
+
 func TestUITaskCancel_AfterOnCancel(t *testing.T) {
 	t.Parallel()
 
@@ -208,20 +239,35 @@ func TestUITaskCancel_AfterOnCancel(t *testing.T) {
 		childTaskID := <-ch
 
 		time.Sleep(time.Second)
+
+		t.Logf("requesting cancelation of %v", childTaskID)
 		m.CancelTask(childTaskID)
 	}()
 
+	var tid string
+
 	m.Run(ctx, "some-kind", "test-1", func(ctx context.Context, ctrl uitask.Controller) error {
+		tid = ctrl.CurrentTaskID()
+
 		// send my task ID to the goroutine which will cancel our task
-		ch <- ctrl.CurrentTaskID()
+		ch <- tid
 		canceled := make(chan struct{})
+
 		ctrl.OnCancel(func() {
+			verifyTaskList(t, m, map[string]uitask.Status{
+				tid: uitask.StatusCanceling,
+			})
+
 			close(canceled)
 		})
 
 		<-canceled
 
 		return nil
+	})
+
+	verifyTaskList(t, m, map[string]uitask.Status{
+		tid: uitask.StatusCanceled,
 	})
 }
 
@@ -238,18 +284,29 @@ func TestUITaskCancel_BeforeOnCancel(t *testing.T) {
 		m.CancelTask(childTaskID)
 	}()
 
+	var tid string
+
 	m.Run(ctx, "some-kind", "test-1", func(ctx context.Context, ctrl uitask.Controller) error {
 		// send my task ID to the goroutine which will cancel our task
-		ch <- ctrl.CurrentTaskID()
+		tid = ctrl.CurrentTaskID()
+		ch <- tid
 		time.Sleep(1 * time.Second)
 		canceled := make(chan struct{})
 		ctrl.OnCancel(func() {
+			verifyTaskList(t, m, map[string]uitask.Status{
+				tid: uitask.StatusCanceling,
+			})
+
 			close(canceled)
 		})
 
 		<-canceled
 
 		return nil
+	})
+
+	verifyTaskList(t, m, map[string]uitask.Status{
+		tid: uitask.StatusCanceled,
 	})
 }
 
