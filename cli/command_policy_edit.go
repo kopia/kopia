@@ -104,10 +104,6 @@ func editPolicy(ctx context.Context, rep repo.RepositoryWriter) error {
 		fmt.Scanf("%v", &shouldSave)
 
 		if strings.HasPrefix(strings.ToLower(shouldSave), "y") {
-			if err := policy.ValidatePolicy(updated); err != nil {
-				return errors.Wrap(err, "failed to validate policy")
-			}
-
 			if err := policy.SetPolicy(ctx, rep, target, updated); err != nil {
 				return errors.Wrapf(err, "can't save policy for %v", target)
 			}

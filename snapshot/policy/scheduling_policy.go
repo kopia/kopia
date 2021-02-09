@@ -3,6 +3,7 @@ package policy
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"sort"
 	"time"
 
@@ -111,12 +112,8 @@ func SetManual(ctx context.Context, rep repo.RepositoryWriter, sourceInfo snapsh
 
 // ValidateSchedulingPolicy returns an error if manual field is set along with scheduling fields.
 func ValidateSchedulingPolicy(p SchedulingPolicy) error {
-	if p.IntervalSeconds != 0 && p.Manual {
-		return errors.New("invalid scheduling policy: cannot set manual snapshot field with intervals")
-	}
-
-	if len(p.TimesOfDay) > 0 && p.Manual {
-		return errors.New("invalid scheduling policy: cannot set manual snapshot field with times of day")
+	if p.Manual && !reflect.DeepEqual(p, SchedulingPolicy{Manual: true}) {
+		return errors.New("invalid scheduling policy: manual cannot be combined with other scheduling policies")
 	}
 
 	return nil
