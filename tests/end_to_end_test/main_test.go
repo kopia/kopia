@@ -1,14 +1,15 @@
 package endtoend_test
 
 import (
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -22,9 +23,15 @@ var (
 func oneTimeSetup() error {
 	var err error
 
-	sharedTestDataDirBase, err = ioutil.TempDir("", "kopia-test")
+	sharedTestDataDirBase, err = testutil.GetInterestingTempDirectoryName()
 	if err != nil {
 		return errors.Wrap(err, "unable to create data directory")
+	}
+
+	// make sure the base directory is quite long to trigger very long filenames on Windows.
+	if n, targetLen := len(sharedTestDataDirBase), 270; n < targetLen {
+		sharedTestDataDirBase = filepath.Join(sharedTestDataDirBase, strings.Repeat("f", targetLen-n))
+		os.MkdirAll(sharedTestDataDirBase, 0700)
 	}
 
 	log.Printf("creating test data in %q", sharedTestDataDirBase)

@@ -6,6 +6,8 @@ import (
 
 	"github.com/pkg/errors"
 	"golang.org/x/sys/windows"
+
+	"github.com/kopia/kopia/internal/atomicfile"
 )
 
 func symlinkChown(path string, uid, gid int) error {
@@ -20,6 +22,8 @@ func symlinkChtimes(linkPath string, atime, mtime time.Time) error {
 	fta := windows.NsecToFiletime(atime.UnixNano())
 	ftw := windows.NsecToFiletime(mtime.UnixNano())
 
+	linkPath = atomicfile.MaybePrefixLongFilenameOnWindows(linkPath)
+
 	fn, err := windows.UTF16PtrFromString(linkPath)
 	if err != nil {
 		return errors.Wrap(err, "UTF16PtrFromString")
@@ -31,7 +35,7 @@ func symlinkChtimes(linkPath string, atime, mtime time.Time) error {
 		nil, windows.OPEN_EXISTING,
 		windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
 	if err != nil {
-		return errors.Wrap(err, "CreateFile error")
+		return errors.Wrapf(err, "CreateFile error on %v", linkPath)
 	}
 
 	defer windows.CloseHandle(h) //nolint:errcheck

@@ -12,6 +12,7 @@ import (
 	"github.com/kylelemons/godebug/pretty"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/tests/testenv"
 )
@@ -401,7 +402,7 @@ func TestSnapshotCreateWithIgnore(t *testing.T) {
 		t.Run(tc.desc, func(t *testing.T) {
 			e := testenv.NewCLITest(t)
 
-			baseDir := t.TempDir()
+			baseDir := testutil.TempDirectory(t)
 
 			if err := createFileStructure(baseDir, tc.files); err != nil {
 				t.Fatal("Failed to create file structure", err)

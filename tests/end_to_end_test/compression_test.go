@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -21,7 +22,7 @@ func TestCompression(t *testing.T) {
 	// set global policy
 	e.RunAndExpectSuccess(t, "policy", "set", "--global", "--compression", "pgzip")
 
-	dataDir := t.TempDir()
+	dataDir := testutil.TempDirectory(t)
 
 	dataLines := []string{
 		"hello world",

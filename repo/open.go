@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/natefinch/atomic"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/atomicfile"
 	"github.com/kopia/kopia/repo/blob"
 	loggingwrapper "github.com/kopia/kopia/repo/blob/logging"
 	"github.com/kopia/kopia/repo/blob/readonly"
@@ -288,7 +288,7 @@ func readAndCacheFormatBlobBytes(ctx context.Context, st blob.Storage, cacheDire
 	}
 
 	if cacheDirectory != "" {
-		if err := atomic.WriteFile(cachedFile, bytes.NewReader(b)); err != nil {
+		if err := atomicfile.Write(cachedFile, bytes.NewReader(b)); err != nil {
 			log(ctx).Warningf("warning: unable to write cache: %v", err)
 		}
 	}

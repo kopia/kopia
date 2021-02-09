@@ -22,6 +22,7 @@ import (
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/iocopy"
+	"github.com/kopia/kopia/internal/testutil"
 )
 
 const (
@@ -74,7 +75,7 @@ func NewCLITest(t *testing.T) *CLITest {
 		t.Skip()
 	}
 
-	configDir := t.TempDir()
+	configDir := testutil.TempDirectory(t)
 
 	cleanName := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(
 		t.Name(),
@@ -119,7 +120,7 @@ func NewCLITest(t *testing.T) *CLITest {
 
 	return &CLITest{
 		startTime:                    clock.Now(),
-		RepoDir:                      t.TempDir(),
+		RepoDir:                      testutil.TempDirectory(t),
 		ConfigDir:                    configDir,
 		Exe:                          filepath.FromSlash(exe),
 		fixedArgs:                    fixedArgs,

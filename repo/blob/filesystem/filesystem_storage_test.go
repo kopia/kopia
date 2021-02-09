@@ -1,8 +1,6 @@
 package filesystem
 
 import (
-	"io/ioutil"
-	"os"
 	"reflect"
 	"sort"
 	"testing"
@@ -11,6 +9,7 @@ import (
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -29,8 +28,7 @@ func TestFileStorage(t *testing.T) {
 		{1, 2},
 		{2, 2, 2},
 	} {
-		path, _ := ioutil.TempDir("", "r-fs")
-		defer os.RemoveAll(path)
+		path := testutil.TempDirectory(t)
 
 		r, err := New(ctx, &Options{
 			Path:            path,
@@ -61,8 +59,7 @@ func TestFileStorageTouch(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 
-	path, _ := ioutil.TempDir("", "r-fs")
-	defer os.RemoveAll(path)
+	path := testutil.TempDirectory(t)
 
 	r, err := New(ctx, &Options{
 		Path: path,
@@ -99,8 +96,7 @@ func TestFileStorageTouch(t *testing.T) {
 }
 
 func TestFileStorageConcurrency(t *testing.T) {
-	path, _ := ioutil.TempDir("", "fs-concurrency")
-	defer os.RemoveAll(path)
+	path := testutil.TempDirectory(t)
 
 	ctx := testlogging.Context(t)
 

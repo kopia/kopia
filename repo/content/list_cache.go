@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/natefinch/atomic"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/atomicfile"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/hmac"
 	"github.com/kopia/kopia/repo/blob"
@@ -60,7 +60,7 @@ func (c *listCache) saveListToCache(ctx context.Context, prefix blob.ID, ci *cac
 
 	if data, err := json.Marshal(ci); err == nil {
 		b := hmac.Append(data, c.hmacSecret)
-		if err := atomic.WriteFile(c.cacheFilePrefix+string(prefix), bytes.NewReader(b)); err != nil {
+		if err := atomicfile.Write(c.cacheFilePrefix+string(prefix), bytes.NewReader(b)); err != nil {
 			log(ctx).Warningf("unable to write list cache: %v", err)
 		}
 	}

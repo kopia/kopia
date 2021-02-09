@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/filesystem"
@@ -39,8 +40,8 @@ func (e *Environment) Setup(t *testing.T, opts ...Options) *Environment {
 	t.Helper()
 
 	ctx := testlogging.Context(t)
-	e.configDir = t.TempDir()
-	e.storageDir = t.TempDir()
+	e.configDir = testutil.TempDirectory(t)
+	e.storageDir = testutil.TempDirectory(t)
 	openOpt := &repo.Options{}
 
 	opt := &repo.NewRepositoryOptions{
@@ -179,10 +180,10 @@ func (e *Environment) MustConnectOpenAnother(t *testing.T, openOpts ...func(*rep
 		t.Fatal("err:", err)
 	}
 
-	config := filepath.Join(t.TempDir(), "kopia.config")
+	config := filepath.Join(testutil.TempDirectory(t), "kopia.config")
 	connOpts := &repo.ConnectOptions{
 		CachingOptions: content.CachingOptions{
-			CacheDirectory: t.TempDir(),
+			CacheDirectory: testutil.TempDirectory(t),
 		},
 	}
 

@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/tests/testenv"
 )
@@ -35,7 +36,7 @@ func TestRestoreFail(t *testing.T) {
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
-	scratchDir := t.TempDir()
+	scratchDir := testutil.TempDirectory(t)
 	sourceDir := filepath.Join(scratchDir, "source")
 	targetDir := filepath.Join(scratchDir, "target")
 

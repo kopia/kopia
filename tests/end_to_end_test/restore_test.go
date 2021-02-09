@@ -21,6 +21,7 @@ import (
 	"github.com/kopia/kopia/internal/diff"
 	"github.com/kopia/kopia/internal/fshasher"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -39,7 +40,7 @@ func TestRestoreCommand(t *testing.T) {
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
-	source := filepath.Join(t.TempDir(), "source")
+	source := filepath.Join(testutil.TempDirectory(t), "source")
 	testenv.MustCreateDirectoryTree(t, source, testenv.DirectoryTreeOptions{
 		Depth:                              1,
 		MaxFilesPerDirectory:               10,
@@ -47,7 +48,7 @@ func TestRestoreCommand(t *testing.T) {
 		NonExistingSymlinkTargetPercentage: 50,
 	})
 
-	r1 := t.TempDir()
+	r1 := testutil.TempDirectory(t)
 	// Attempt to restore a snapshot from an empty repo.
 	e.RunAndExpectFailure(t, "restore", "kffbb7c28ea6c34d6cbe555d1cf80faa9", r1)
 	e.RunAndExpectSuccess(t, "snapshot", "create", source)
@@ -65,7 +66,7 @@ func TestRestoreCommand(t *testing.T) {
 	snapID := si[0].Snapshots[0].SnapshotID
 	rootID := si[0].Snapshots[0].ObjectID
 
-	r2 := t.TempDir()
+	r2 := testutil.TempDirectory(t)
 	// Attempt to restore a non-existing snapshot.
 	e.RunAndExpectFailure(t, "restore", "kffbb7c28ea6c34d6cbe555d1cf80fdd9", r2)
 
@@ -73,11 +74,11 @@ func TestRestoreCommand(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// Attempt to restore using snapshot ID
-	restoreFailDir := t.TempDir()
+	restoreFailDir := testutil.TempDirectory(t)
 	e.RunAndExpectSuccess(t, "restore", snapID, restoreFailDir)
 
 	// Restore last snapshot
-	restoreDir := t.TempDir()
+	restoreDir := testutil.TempDirectory(t)
 	e.RunAndExpectSuccess(t, "restore", rootID, restoreDir)
 
 	// Note: restore does not reset the permissions for the top directory due to
@@ -155,7 +156,7 @@ func TestSnapshotRestore(t *testing.T) {
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
-	source := t.TempDir()
+	source := testutil.TempDirectory(t)
 	testenv.MustCreateDirectoryTree(t, filepath.Join(source, "subdir1"), testenv.DirectoryTreeOptions{
 		Depth:                              5,
 		MaxSubdirsPerDirectory:             5,
@@ -183,8 +184,8 @@ func TestSnapshotRestore(t *testing.T) {
 	os.Chmod(filepath.Join(source, "single-file"), overriddenFilePermissions)
 	os.Chmod(filepath.Join(source, "subdir1"), overriddenDirPermissions)
 
-	restoreDir := t.TempDir()
-	r1 := t.TempDir()
+	restoreDir := testutil.TempDirectory(t)
+	r1 := testutil.TempDirectory(t)
 	// Attempt to restore a snapshot from an empty repo.
 	e.RunAndExpectFailure(t, "snapshot", "restore", "kffbb7c28ea6c34d6cbe555d1cf80faa9", r1)
 	e.RunAndExpectSuccess(t, "snapshot", "create", source)
@@ -203,22 +204,22 @@ func TestSnapshotRestore(t *testing.T) {
 	rootID := si[0].Snapshots[0].ObjectID
 
 	// Attempt to restore a non-existing snapshot.
-	r2 := t.TempDir()
+	r2 := testutil.TempDirectory(t)
 	e.RunAndExpectFailure(t, "snapshot", "restore", "kffbb7c28ea6c34d6cbe555d1cf80fdd9", r2)
 
 	// Ensure restored files are created with a different ModTime
 	time.Sleep(time.Second)
 
 	// Attempt to restore snapshot with root ID
-	restoreByObjectIDDir := t.TempDir()
+	restoreByObjectIDDir := testutil.TempDirectory(t)
 	e.RunAndExpectSuccess(t, "snapshot", "restore", rootID, restoreByObjectIDDir)
 
 	// restore using <root-id>/subdirectory.
-	restoreByOIDSubdir := t.TempDir()
+	restoreByOIDSubdir := testutil.TempDirectory(t)
 	e.RunAndExpectSuccess(t, "snapshot", "restore", rootID+"/subdir1", restoreByOIDSubdir)
 	verifyFileMode(t, restoreByOIDSubdir, os.ModeDir|os.FileMode(overriddenDirPermissions))
 
-	restoreByOIDSubdir2 := t.TempDir()
+	restoreByOIDSubdir2 := testutil.TempDirectory(t)
 
 	originalDirInfo, err := os.Stat(restoreByOIDSubdir2)
 	if err != nil {
@@ -244,7 +245,7 @@ func TestSnapshotRestore(t *testing.T) {
 	// TODO(jkowalski): find a way to verify owners, we currently cannot even change it since the test is running as
 	// non-root.
 
-	restoreByOIDFile := t.TempDir()
+	restoreByOIDFile := testutil.TempDirectory(t)
 
 	// restoring single file onto a directory fails
 	e.RunAndExpectFailure(t, "snapshot", "restore", rootID+"/single-file", restoreByOIDFile)
@@ -285,7 +286,7 @@ func TestSnapshotRestore(t *testing.T) {
 		{fname: "output.notargz.blah", args: []string{"--mode=tgz"}, validator: verifyValidTarGzipFile},
 	}
 
-	restoreArchiveDir := t.TempDir()
+	restoreArchiveDir := testutil.TempDirectory(t)
 
 	t.Run("modes", func(t *testing.T) {
 		for _, tc := range cases {
@@ -330,7 +331,7 @@ func TestRestoreSymlinkWithoutTarget(t *testing.T) {
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
-	source := t.TempDir()
+	source := testutil.TempDirectory(t)
 
 	lnk := filepath.Join(source, "lnk")
 
@@ -352,7 +353,7 @@ func TestRestoreSymlinkWithoutTarget(t *testing.T) {
 
 	snapID := si[0].Snapshots[0].SnapshotID
 
-	restoredDir := t.TempDir()
+	restoredDir := testutil.TempDirectory(t)
 	e.RunAndExpectSuccess(t, "snapshot", "restore", "--no-ignore-permission-errors", snapID, restoredDir)
 }
 
@@ -364,7 +365,7 @@ func TestRestoreSymlinkWithNonSymlinkOverwrite(t *testing.T) {
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
-	source := t.TempDir()
+	source := testutil.TempDirectory(t)
 
 	testLinkName := "lnk"
 	lnkPath := filepath.Join(source, testLinkName)
@@ -387,7 +388,7 @@ func TestRestoreSymlinkWithNonSymlinkOverwrite(t *testing.T) {
 
 	snapID := si[0].Snapshots[0].SnapshotID
 
-	restoreDir := t.TempDir()
+	restoreDir := testutil.TempDirectory(t)
 
 	// Make a directory containing a non-symlink entry named the same as the link captured by the snapshot
 	dirWithLinkName := filepath.Join(restoreDir, testLinkName)
@@ -407,7 +408,7 @@ func TestRestoreSnapshotOfSingleFile(t *testing.T) {
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
-	sourceDir := t.TempDir()
+	sourceDir := testutil.TempDirectory(t)
 	sourceFile := filepath.Join(sourceDir, "single-file")
 
 	f, err := os.Create(sourceFile)
@@ -436,7 +437,7 @@ func TestRestoreSnapshotOfSingleFile(t *testing.T) {
 	snapID := si[0].Snapshots[0].SnapshotID
 	rootID := si[0].Snapshots[0].ObjectID
 
-	restoreDir := t.TempDir()
+	restoreDir := testutil.TempDirectory(t)
 
 	// restoring a file to a directory destination fails.
 	e.RunAndExpectFailure(t, "snapshot", "restore", snapID, restoreDir)

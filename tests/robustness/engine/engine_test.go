@@ -23,6 +23,7 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/tests/robustness"
 	"github.com/kopia/kopia/tests/robustness/fiofilewriter"
 	"github.com/kopia/kopia/tests/robustness/snapmeta"
@@ -324,10 +325,7 @@ func TestDataPersistency(t *testing.T) {
 	os.Setenv(snapmeta.EngineModeEnvKey, snapmeta.EngineModeBasic)
 	os.Setenv(snapmeta.S3BucketNameEnvKey, "")
 
-	tempDir, err := ioutil.TempDir("", "")
-	testenv.AssertNoError(t, err)
-
-	defer os.RemoveAll(tempDir)
+	tempDir := testutil.TempDirectory(t)
 
 	dataRepoPath := filepath.Join(tempDir, "data-repo-")
 	metadataRepoPath := filepath.Join(tempDir, "metadata-repo-")

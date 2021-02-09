@@ -89,10 +89,23 @@ func defaultConfigFileName() string {
 	return filepath.Join(ospath.ConfigDir(), "repository.config")
 }
 
-func getLocalFSEntry(ctx context.Context, path0 string) (fs.Entry, error) {
-	path, err := filepath.EvalSymlinks(path0)
+func resolveSymlink(path string) (string, error) {
+	st, err := os.Lstat(path)
 	if err != nil {
-		return nil, errors.Wrap(err, "evaluate symlink")
+		return "", errors.Wrap(err, "stat")
+	}
+
+	if (st.Mode() & os.ModeSymlink) == 0 {
+		return path, nil
+	}
+
+	return filepath.EvalSymlinks(path)
+}
+
+func getLocalFSEntry(ctx context.Context, path0 string) (fs.Entry, error) {
+	path, err := resolveSymlink(path0)
+	if err != nil {
+		return nil, errors.Wrap(err, "resolveSymlink")
 	}
 
 	if path != path0 {

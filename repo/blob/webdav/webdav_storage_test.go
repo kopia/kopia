@@ -2,7 +2,6 @@ package webdav
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -54,8 +54,7 @@ func TestWebDAVStorageExternalServer(t *testing.T) {
 }
 
 func TestWebDAVStorageBuiltInServer(t *testing.T) {
-	tmpDir, _ := ioutil.TempDir("", "webdav")
-	defer os.RemoveAll(tmpDir)
+	tmpDir := testutil.TempDirectory(t)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", basicAuth(&webdav.Handler{
