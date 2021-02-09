@@ -1053,7 +1053,13 @@ func (u *Uploader) Upload(
 			}
 		}
 
-		entry = ignorefs.New(entry, policyTree, ignorefs.ReportIgnoredFiles(func(_ string, md fs.Entry) {
+		entry = ignorefs.New(entry, policyTree, ignorefs.ReportIgnoredFiles(func(fname string, md fs.Entry) {
+			if md.IsDir() {
+				u.Progress.ExcludedDir(fname)
+			} else {
+				u.Progress.ExcludedFile(fname, md.Size())
+			}
+
 			u.stats.AddExcluded(md)
 		}))
 

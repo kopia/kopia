@@ -1,4 +1,4 @@
-import { faArrowLeft, faCopy } from '@fortawesome/free-solid-svg-icons';
+import { faCopy } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
 import React, { Component } from 'react';
@@ -6,6 +6,7 @@ import Button from 'react-bootstrap/Button';
 import Row from 'react-bootstrap/Row';
 import Spinner from 'react-bootstrap/Spinner';
 import { DirectoryItems } from "./DirectoryItems";
+import { GoBackButton } from './uiutil';
 
 
 export class DirectoryObject extends Component {
@@ -117,18 +118,18 @@ export class DirectoryObject extends Component {
 
         return <div class="padded">
             <Row>
-            <Button size="xxl" variant="secondary" onClick={this.props.history.goBack} ><FontAwesomeIcon icon={faArrowLeft} /></Button>
+            <GoBackButton onClick={this.props.history.goBack} />
             &nbsp;
             { this.state.mountInfo.path ? <>
-            <Button size="xxl" variant="info" onClick={this.unmount} >Unmount</Button>
+            <Button size="sm" variant="info" onClick={this.unmount} >Unmount</Button>
             {browsingSupported && <>
             &nbsp;
-            <Button size="xxl" variant="info" onClick={this.browseMounted} >Browse</Button>
+            <Button size="sm" variant="info" onClick={this.browseMounted} >Browse</Button>
             </>}
             &nbsp;<input id="mountedPath" value={this.state.mountInfo.path } />
-            <Button size="xxl" variant="primary" onClick={this.copyPath} ><FontAwesomeIcon icon={faCopy} /></Button>
+            <Button size="sm" variant="primary" onClick={this.copyPath} ><FontAwesomeIcon icon={faCopy} /></Button>
             </> : <>
-            <Button size="xxl" variant="primary" onClick={this.mount} >Mount</Button>
+            <Button size="sm" variant="primary" onClick={this.mount} >Mount</Button>
             </>}
             </Row>
             <hr/>

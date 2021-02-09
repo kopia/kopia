@@ -2,7 +2,9 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -11,6 +13,7 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/ctxutil"
 	"github.com/kopia/kopia/internal/serverapi"
+	"github.com/kopia/kopia/internal/uitask"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
@@ -50,7 +53,8 @@ type sourceManager struct {
 	lastCompleteSnapshot               *snapshot.Manifest
 	manifestsSinceLastCompleteSnapshot []*snapshot.Manifest
 
-	progress *snapshotfs.CountingUploadProgress
+	progress    *snapshotfs.CountingUploadProgress
+	currentTask string
 }
 
 func (s *sourceManager) Status() *serverapi.SourceStatus {
@@ -69,6 +73,8 @@ func (s *sourceManager) Status() *serverapi.SourceStatus {
 		c := s.progress.Snapshot()
 
 		st.UploadCounters = &c
+
+		st.CurrentTask = s.currentTask
 	}
 
 	return st
@@ -223,7 +229,18 @@ func (s *sourceManager) snapshot(ctx context.Context) error {
 	s.server.beginUpload(ctx, s.src)
 	defer s.server.endUpload(ctx, s.src)
 
+	return s.server.taskmgr.Run(ctx,
+		"Snapshot",
+		fmt.Sprintf("%v at %v", s.src, clock.Now().Format(time.RFC3339)),
+		s.snapshotInternal)
+}
+
+func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Controller) error {
 	s.setStatus("UPLOADING")
+
+	s.currentTask = ctrl.CurrentTaskID()
+
+	defer func() { s.currentTask = "" }()
 
 	// check if we got closed while waiting on semaphore
 	select {
@@ -245,16 +262,23 @@ func (s *sourceManager) snapshot(ctx context.Context) error {
 		log(ctx).Debugf("uploading %v", s.src)
 		u := snapshotfs.NewUploader(w)
 
+		ctrl.OnCancel(u.Cancel)
+
 		policyTree, err := policy.TreeForSource(ctx, w, s.src)
 		if err != nil {
 			return errors.Wrap(err, "unable to create policy getter")
 		}
 
-		u.Progress = s.progress
+		// set up progress that will keep counters and report to the uitask.
+		prog := &uitaskProgress{s.progress, ctrl, 0}
+		u.Progress = prog
 
 		log(ctx).Debugf("starting upload of %v", s.src)
 		s.setUploader(u)
+
 		manifest, err := u.Upload(ctx, localEntry, policyTree, s.src, s.manifestsSinceLastCompleteSnapshot...)
+		prog.report(true)
+
 		s.setUploader(nil)
 
 		if err != nil {
@@ -340,6 +364,107 @@ func (s *sourceManager) refreshStatus(ctx context.Context) {
 		s.nextSnapshotTime = nil
 		s.lastSnapshot = nil
 	}
+}
+
+type uitaskProgress struct {
+	p *snapshotfs.CountingUploadProgress
+
+	ctrl uitask.Controller
+
+	nextReportTimeNanos int64
+}
+
+// report reports the current progress to UITask.
+func (t *uitaskProgress) report(final bool) {
+	t.ctrl.ReportCounters(t.p.UITaskCounters(final))
+}
+
+// maybeReport occasionally reports current progress to UI task.
+func (t *uitaskProgress) maybeReport() {
+	n := clock.Now().UnixNano()
+
+	nrt := atomic.LoadInt64(&t.nextReportTimeNanos)
+	if n > nrt && atomic.CompareAndSwapInt64(&t.nextReportTimeNanos, nrt, n+time.Second.Nanoseconds()) {
+		t.report(false)
+	}
+}
+
+// UploadStarted is emitted once at the start of an upload.
+func (t *uitaskProgress) UploadStarted() {
+	t.p.UploadStarted()
+	t.maybeReport()
+}
+
+// UploadFinished is emitted once at the end of an upload.
+func (t *uitaskProgress) UploadFinished() {
+	t.p.UploadFinished()
+	t.maybeReport()
+}
+
+// CachedFile is emitted whenever uploader reuses previously uploaded entry without hashing the file.
+func (t *uitaskProgress) CachedFile(path string, size int64) {
+	t.p.CachedFile(path, size)
+	t.maybeReport()
+}
+
+// HashingFile is emitted at the beginning of hashing of a given file.
+func (t *uitaskProgress) HashingFile(fname string) {
+	t.p.HashingFile(fname)
+	t.maybeReport()
+}
+
+// FinishedHashingFile is emitted at the end of hashing of a given file.
+func (t *uitaskProgress) FinishedHashingFile(fname string, numBytes int64) {
+	t.p.FinishedHashingFile(fname, numBytes)
+	t.maybeReport()
+}
+
+// HashedBytes is emitted while hashing any blocks of bytes.
+func (t *uitaskProgress) HashedBytes(numBytes int64) {
+	t.p.HashedBytes(numBytes)
+	t.maybeReport()
+}
+
+// IgnoredError is emitted when an error is encountered and ignored.
+func (t *uitaskProgress) IgnoredError(path string, err error) {
+	t.p.IgnoredError(path, err)
+	t.maybeReport()
+}
+
+// UploadedBytes is emitted whenever bytes are written to the blob storage.
+func (t *uitaskProgress) UploadedBytes(numBytes int64) {
+	t.p.UploadedBytes(numBytes)
+	t.maybeReport()
+}
+
+// StartedDirectory is emitted whenever a directory starts being uploaded.
+func (t *uitaskProgress) StartedDirectory(dirname string) {
+	t.p.StartedDirectory(dirname)
+	t.maybeReport()
+}
+
+// FinishedDirectory is emitted whenever a directory is finished uploading.
+func (t *uitaskProgress) FinishedDirectory(dirname string) {
+	t.p.FinishedDirectory(dirname)
+	t.maybeReport()
+}
+
+// ExcludedFile is emitted whenever a file is excluded.
+func (t *uitaskProgress) ExcludedFile(fname string, numBytes int64) {
+	t.p.ExcludedFile(fname, numBytes)
+	t.maybeReport()
+}
+
+// ExcludedDir is emitted whenever a directory is excluded.
+func (t *uitaskProgress) ExcludedDir(dirname string) {
+	t.p.ExcludedDir(dirname)
+	t.maybeReport()
+}
+
+// EstimatedDataSize is emitted whenever the size of upload is estimated.
+func (t *uitaskProgress) EstimatedDataSize(fileCount int, totalBytes int64) {
+	t.p.EstimatedDataSize(fileCount, totalBytes)
+	t.maybeReport()
 }
 
 func newSourceManager(src snapshot.SourceInfo, server *Server) *sourceManager {

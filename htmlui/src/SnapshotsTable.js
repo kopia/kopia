@@ -1,15 +1,12 @@
-import { faArrowLeft } from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
 import React, { Component } from 'react';
 import Badge from 'react-bootstrap/Badge';
-import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
 import Row from 'react-bootstrap/Row';
 import Spinner from 'react-bootstrap/Spinner';
 import { Link } from "react-router-dom";
 import MyTable from './Table';
-import { compare, objectLink, parseQuery, rfc3339TimestampForDisplay, sizeWithFailures } from './uiutil';
+import { compare, GoBackButton, objectLink, parseQuery, rfc3339TimestampForDisplay, sizeWithFailures } from './uiutil';
 
 function pillVariant(tag) {
     if (tag.startsWith("latest-")) {
@@ -147,7 +144,7 @@ export class SnapshotsTable extends Component {
 
         return <div class="padded">
             <Row>
-                <Button size="xxl" variant="secondary" onClick={this.props.history.goBack}><FontAwesomeIcon icon={faArrowLeft} /></Button>
+            <GoBackButton onClick={this.props.history.goBack} />
             &nbsp;
             Displaying {filteredSnapshots.length !== snapshots.length ? filteredSnapshots.length + ' out of ' + snapshots.length : snapshots.length} snapshots of&nbsp;<b>{this.state.userName}@{this.state.host}:{this.state.path}</b>
                 {hiddenCount > 0 &&

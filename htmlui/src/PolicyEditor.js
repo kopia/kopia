@@ -1,3 +1,5 @@
+import { faChevronLeft } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
 import React, { Component } from 'react';
 import Button from 'react-bootstrap/Button';
@@ -150,7 +152,7 @@ export class PolicyEditor extends Component {
         }
 
         return <div className="padded">
-            <h3>{this.props.isNew && "New "}Policy: {sourceDisplayName(this.props)}</h3>
+            <h3><Button size="sm" variant="outline-secondary" onClick={this.props.close} ><FontAwesomeIcon icon={faChevronLeft} /> Return </Button> {this.props.isNew && "New "}Policy: {sourceDisplayName(this.props)}</h3>
 
             <Tabs defaultActiveKey="retention">
                 <Tab eventKey="retention" title="Retention">
@@ -232,12 +234,10 @@ export class PolicyEditor extends Component {
                 {RequiredBoolean(this, "Disable Parent Policy Evaluation (prevents any parent policies from affecting this directory and subdirectories)", "policy.noParent")}
             </Form.Row>
 
-            <Button variant="success" onClick={this.saveChanges}>Save Policy</Button>
+            <Button size="sm" variant="success" onClick={this.saveChanges}>Save Policy</Button>
             {!this.props.isNew && <>&nbsp;
-            <Button variant="danger" disabled={this.isGlobal()} onClick={this.deletePolicy}>Delete Policy</Button>
+            <Button size="sm" variant="danger" disabled={this.isGlobal()} onClick={this.deletePolicy}>Delete Policy</Button>
             </>}
-            &nbsp;
-            <Button variant="dark" onClick={this.props.close}>Back To List</Button>
             <hr />
             <h5>JSON representation</h5>
             <pre className="debug-json">{JSON.stringify(this.state.policy, null, 4)}

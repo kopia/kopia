@@ -1,8 +1,12 @@
+import { faBan, faCheck, faChevronLeft, faExclamationCircle, faExclamationTriangle, faWindowClose } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import axios from 'axios';
 import React from 'react';
 import Button from 'react-bootstrap/Button';
 import ListGroup from 'react-bootstrap/ListGroup';
 import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
 import Popover from 'react-bootstrap/Popover';
+import Spinner from 'react-bootstrap/Spinner';
 
 const base10UnitPrefixes = ["", "K", "M", "G", "T"];
 
@@ -39,17 +43,17 @@ export function sizeWithFailures(size, summ) {
         <Popover.Title as="h3">{caption} During Snapshot</Popover.Title>
         <Popover.Content>
             <ListGroup>
-                {summ.errors.map(x => <ListGroup.Item key={x.path}>Path: <code>{x.path}</code><br />Error: <span className="error">{x.error}</span></ListGroup.Item>)}
+                {summ.errors.map(x => <ListGroup.Item key={x.path}><code>{x.path}</code>: <span className="error">{x.error}</span></ListGroup.Item>)}
             </ListGroup>
         </Popover.Content>
     </Popover>;
 
     return <span>
-        {sizeDisplayName(size)}<br />
+        {sizeDisplayName(size)}&nbsp;
         <OverlayTrigger placement="bottom"
             delay={{ show: 0, hide: 1000 }}
             overlay={overlay}>
-            <Button size="sm" variant="danger">{caption}</Button>
+            <FontAwesomeIcon color="red" icon={faExclamationTriangle} title="{caption}" />
         </OverlayTrigger>
     </span>;
 }
@@ -111,4 +115,61 @@ export function redirectIfNotConnected(e) {
         window.location.replace("/repo");
         return;
     }
+}
+
+export function formatMilliseconds(ms) {
+    return Math.round(ms / 100.0) / 10.0 + "s"
+}
+
+export function formatDuration(from, to) {
+    if (!from) {
+        return "";
+    }
+
+    if (!to) {
+        const ms = new Date().valueOf() - new Date(from).valueOf();
+        if (ms < 0) {
+            return ""
+        }
+
+        return formatMilliseconds(ms)
+    }
+
+    return formatMilliseconds(new Date(to).valueOf() - new Date(from).valueOf());
+}
+
+export function taskStatusSymbol(task) {
+    const st = task.status;
+    const dur = formatDuration(task.startTime, task.endTime);
+
+    switch (st) {
+        case "RUNNING":
+            return <>
+                <Spinner animation="border" variant="primary" size="sm" /> Running for {dur}
+            &nbsp;
+                <FontAwesomeIcon size="sm" color="red" icon={faWindowClose} title="Cancel task" onClick={() => cancelTask(task.id)} />
+            </>;
+
+        case "SUCCESS":
+            return <p><FontAwesomeIcon icon={faCheck} color="green" /> Finished in {dur}</p>;
+
+        case "FAILED":
+            return <p><FontAwesomeIcon icon={faExclamationCircle} color="red" /> Failed after {dur}</p>;
+
+        case "CANCELED":
+            return <p><FontAwesomeIcon icon={faBan} /> Canceled after {dur}</p>;
+
+        default:
+            return st;
+    }
+}
+
+export function cancelTask(tid) {
+    axios.post('/api/v1/tasks/' + tid + '/cancel', {}).then(result => {
+    }).catch(error => {
+    });
+}
+
+export function GoBackButton(props) {
+    return <Button size="sm" variant="outline-secondary" {...props}><FontAwesomeIcon icon={faChevronLeft} /> Return </Button>;
 }
