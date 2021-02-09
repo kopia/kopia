@@ -80,20 +80,20 @@ export class PolicyEditor extends Component {
             if (!l) {
                 return l;
             }
-    
+
             let result = [];
             for (let i = 0; i < l.length; i++) {
                 const s = l[i];
                 if (s === "") {
                     continue;
                 }
-    
+
                 result.push(s);
             }
-    
+
             return result;
         }
-        
+
         // clean up policy before saving
         let policy = JSON.parse(JSON.stringify(this.state.policy));
         if (policy.files) {
@@ -117,7 +117,7 @@ export class PolicyEditor extends Component {
         axios.put(this.snapshotURL(this.props), policy).then(result => {
             this.props.close();
         }).catch(error => {
-            alert('Error saving snapshot: ' + error);
+            alert('Error saving policy: ' + error);
         });
     }
 
@@ -224,6 +224,9 @@ export class PolicyEditor extends Component {
                         <p className="policy-help">Controls when snapshots are automatically created.</p>
                         <Form.Row>
                             {OptionalNumberField(this, "Snapshot Interval", "policy.scheduling.intervalSeconds", { placeholder: "seconds" })}
+                        </Form.Row>
+                        <Form.Row>
+                            {OptionalBoolean(this, "Only create snapshots manually (disables scheduled snapshots)", "policy.scheduling.manual")}
                         </Form.Row>
                     </div>
                 </Tab>
