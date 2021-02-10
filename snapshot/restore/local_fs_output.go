@@ -293,7 +293,6 @@ func (o *FilesystemOutput) createDirectory(ctx context.Context, path string) err
 
 		return nil
 	case stat.Mode().IsRegular():
-		// TODO(rjk): This seems wrong here.
 		// Might be a shallow directory placeholder.
 		de, err := localfs.ReadShallowPlaceholder(path)
 		if err != nil {
