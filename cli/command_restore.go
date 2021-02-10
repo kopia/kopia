@@ -252,7 +252,7 @@ func runRestoreCommand(ctx context.Context, rep repo.Repository) error {
 				maybeErrors = fmt.Sprintf(", ignored %v errors", stats.IgnoredErrorCount)
 			}
 
-			log(ctx).Infof("Processed %v (%v) of %v (%v)%v%v.",
+			log(ctx).Infof("Processed %v (%v) of %v (%v)%v%v%v.",
 				restoredCount, units.BytesStringBase10(stats.RestoredTotalFileSize),
 				enqueuedCount, units.BytesStringBase10(stats.EnqueuedTotalFileSize),
 				maybeSkipped,
