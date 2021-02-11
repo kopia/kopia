@@ -443,6 +443,33 @@ func TestSnapshotCreateWithIgnore(t *testing.T) {
 	}
 }
 
+func TestSnapshotCreateAllWithManualSnapshot(t *testing.T) {
+	t.Parallel()
+
+	e := testenv.NewCLITest(t)
+
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+
+	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
+	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2)
+
+	sourceSnapshotCount := len(e.RunAndExpectSuccess(t, "snapshot", "list", "-a"))
+
+	// set manual field in the scheduling policy for `sharedTestDataDir1`
+	e.RunAndExpectSuccess(t, "policy", "set", "--manual", sharedTestDataDir1)
+
+	// make sure the policy is visible in the policy list, includes global policy
+	e.RunAndVerifyOutputLineCount(t, 2, "policy", "list")
+
+	// create snapshot for all sources
+	e.RunAndExpectSuccess(t, "snapshot", "create", "--all")
+
+	// snapshot count must increase by 1 since `sharedTestDataDir1` is ignored
+	expectedSnapshotCount := sourceSnapshotCount + 1
+	e.RunAndVerifyOutputLineCount(t, expectedSnapshotCount, "snapshot", "list", "--show-identical", "-a")
+}
+
 func appendIfMissing(slice []string, i string) []string {
 	for _, ele := range slice {
 		if ele == i {

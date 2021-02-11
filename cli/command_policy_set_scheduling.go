@@ -13,9 +13,18 @@ var (
 	// Frequency.
 	policySetInterval   = policySetCommand.Flag("snapshot-interval", "Interval between snapshots").DurationList()
 	policySetTimesOfDay = policySetCommand.Flag("snapshot-time", "Times of day when to take snapshot (HH:mm)").Strings()
+	policySetManual     = policySetCommand.Flag("manual", "Only create snapshots manually").Bool()
 )
 
 func setSchedulingPolicyFromFlags(ctx context.Context, sp *policy.SchedulingPolicy, changeCount *int) error {
+	if *policySetManual {
+		return setManualFromFlags(ctx, sp, changeCount)
+	}
+
+	return setScheduleFromFlags(ctx, sp, changeCount)
+}
+
+func setScheduleFromFlags(ctx context.Context, sp *policy.SchedulingPolicy, changeCount *int) error {
 	// It's not really a list, just optional value.
 	for _, interval := range *policySetInterval {
 		*changeCount++
@@ -54,6 +63,45 @@ func setSchedulingPolicyFromFlags(ctx context.Context, sp *policy.SchedulingPoli
 			log(ctx).Infof(" - setting snapshot times to %v\n", timesOfDay)
 		}
 	}
+
+	if sp.Manual {
+		*changeCount++
+
+		sp.Manual = false
+
+		log(ctx).Infof(" - resetting manual snapshot field to false\n")
+	}
+
+	return nil
+}
+
+func setManualFromFlags(ctx context.Context, sp *policy.SchedulingPolicy, changeCount *int) error {
+	// Cannot set both schedule and manual setting
+	if len(*policySetInterval) > 0 || len(*policySetTimesOfDay) > 0 {
+		return errors.New("cannot set manual field when scheduling snapshots")
+	}
+
+	// Reset the existing policy schedule, if present
+	if sp.IntervalSeconds != 0 {
+		*changeCount++
+
+		sp.IntervalSeconds = 0
+
+		log(ctx).Infof(" - resetting snapshot interval to default\n")
+	}
+
+	if len(sp.TimesOfDay) > 0 {
+		*changeCount++
+
+		sp.TimesOfDay = nil
+
+		log(ctx).Infof(" - resetting snapshot times of day to default\n")
+	}
+
+	*changeCount++
+
+	sp.Manual = *policySetManual
+	log(ctx).Infof(" - setting manual snapshot field to %v\n", *policySetManual)
 
 	return nil
 }

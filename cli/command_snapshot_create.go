@@ -290,12 +290,30 @@ func getLocalBackupPaths(ctx context.Context, rep repo.Repository) ([]string, er
 	var result []string
 
 	for _, src := range sources {
-		if src.Host == rep.ClientOptions().Hostname && src.UserName == rep.ClientOptions().Username {
+		// add all sources belonging to the repository user@host
+		// ignore sources that have Manual field set to true in the SchedulingPolicy
+		includeSource, err := shouldSnapshotSource(ctx, src, rep)
+		if err != nil {
+			return nil, err
+		}
+
+		if includeSource {
 			result = append(result, src.Path)
 		}
 	}
 
 	return result, nil
+}
+
+func shouldSnapshotSource(ctx context.Context, src snapshot.SourceInfo, rep repo.Repository) (bool, error) {
+	policyTree, err := policy.TreeForSource(ctx, rep, src)
+	if err != nil {
+		return false, errors.Wrapf(err, "unable to get policy tree for source %v", src)
+	}
+
+	return src.Host == rep.ClientOptions().Hostname &&
+		src.UserName == rep.ClientOptions().Username &&
+		!policy.IsManualSnapshot(policyTree), nil
 }
 
 func init() {

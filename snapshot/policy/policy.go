@@ -82,6 +82,12 @@ func MergePolicies(policies []*Policy) *Policy {
 	return &merged
 }
 
+// ValidatePolicy returns error if the given policy is invalid.
+// Currently, only SchedulingPolicy is validated.
+func ValidatePolicy(pol *Policy) error {
+	return ValidateSchedulingPolicy(pol.SchedulingPolicy)
+}
+
 func intPtr(n int) *int {
 	return &n
 }

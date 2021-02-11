@@ -46,7 +46,8 @@ const policyEditFilesHelpText = `
 const policyEditSchedulingHelpText = `
   # Snapshot scheduling options. Options include:
   #   "intervalSeconds": number /* 86400-day, 3600-hour, 60-minute */
-  #   "timesOfDay": [{"hour":H,"min":M},{"hour":H,"min":M}]
+  #   "timeOfDay": [{"hour":H,"min":M},{"hour":H,"min":M}]
+  #   "manual": false /* Only create snapshots manually if set to true. NOTE: cannot be used with the above two fields */
 `
 
 var (

@@ -1,11 +1,16 @@
 package policy
 
 import (
+	"context"
 	"fmt"
+	"reflect"
 	"sort"
 	"time"
 
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot"
 )
 
 // TimeOfDay represents the time of day (hh:mm) using 24-hour time format.
@@ -52,6 +57,7 @@ func SortAndDedupeTimesOfDay(tod []TimeOfDay) []TimeOfDay {
 type SchedulingPolicy struct {
 	IntervalSeconds int64       `json:"intervalSeconds,omitempty"`
 	TimesOfDay      []TimeOfDay `json:"timeOfDay,omitempty"`
+	Manual          bool        `json:"manual,omitempty"`
 }
 
 // Interval returns the snapshot interval or zero if not specified.
@@ -72,6 +78,45 @@ func (p *SchedulingPolicy) Merge(src SchedulingPolicy) {
 
 	p.TimesOfDay = SortAndDedupeTimesOfDay(
 		append(append([]TimeOfDay(nil), src.TimesOfDay...), p.TimesOfDay...))
+
+	if !p.Manual {
+		p.Manual = src.Manual
+	}
+}
+
+// IsManualSnapshot returns the SchedulingPolicy manual value from the given policy tree.
+func IsManualSnapshot(policyTree *Tree) bool {
+	return policyTree.EffectivePolicy().SchedulingPolicy.Manual
+}
+
+// SetManual sets the manual setting in the SchedulingPolicy on the given source.
+func SetManual(ctx context.Context, rep repo.RepositoryWriter, sourceInfo snapshot.SourceInfo) error {
+	// Get existing defined policy for the source
+	p, err := GetDefinedPolicy(ctx, rep, sourceInfo)
+
+	switch {
+	case errors.Is(err, ErrPolicyNotFound):
+		p = &Policy{}
+	case err != nil:
+		return errors.Wrap(err, "could not get defined policy for source")
+	}
+
+	p.SchedulingPolicy.Manual = true
+
+	if err := SetPolicy(ctx, rep, sourceInfo, p); err != nil {
+		return errors.Wrapf(err, "can't save policy for %v", sourceInfo)
+	}
+
+	return nil
+}
+
+// ValidateSchedulingPolicy returns an error if manual field is set along with scheduling fields.
+func ValidateSchedulingPolicy(p SchedulingPolicy) error {
+	if p.Manual && !reflect.DeepEqual(p, SchedulingPolicy{Manual: true}) {
+		return errors.New("invalid scheduling policy: manual cannot be combined with other scheduling policies")
+	}
+
+	return nil
 }
 
 var defaultSchedulingPolicy = SchedulingPolicy{}
