@@ -3,7 +3,6 @@ module github.com/kopia/kopia
 go 1.15
 
 require (
-	bazil.org/fuse v0.0.0-20200117225306-7b5117fecadc
 	cloud.google.com/go/storage v1.12.0
 	contrib.go.opencensus.io/exporter/prometheus v0.2.0
 	github.com/Azure/azure-pipeline-go v0.2.3 // indirect
@@ -23,6 +22,7 @@ require (
 	github.com/google/readahead v0.0.0-20161222183148-eaceba169032 // indirect
 	github.com/google/uuid v1.1.2
 	github.com/gorilla/mux v1.8.0
+	github.com/hanwen/go-fuse/v2 v2.0.4-0.20210104155004-09a3c381714c
 	github.com/klauspost/compress v1.11.3
 	github.com/klauspost/pgzip v1.2.5
 	github.com/kylelemons/godebug v1.1.0
