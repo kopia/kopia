@@ -6,6 +6,7 @@ import Nav from 'react-bootstrap/Nav';
 import Navbar from 'react-bootstrap/Navbar';
 import { BrowserRouter as Router, NavLink, Redirect, Route, Switch } from 'react-router-dom';
 import './App.css';
+import { BeginRestore } from './BeginRestore';
 import { DirectoryObject } from "./DirectoryObject";
 import logo from './kopia-flat.svg';
 import { PoliciesTable } from "./PoliciesTable";
@@ -67,6 +68,7 @@ function App() {
       <Container fluid>
         <Switch>
           <Route path="/snapshots/single-source/" component={SnapshotsTable} />
+          <Route path="/snapshots/dir/:oid/restore" component={BeginRestore} />
           <Route path="/snapshots/dir/:oid" component={DirectoryObject} />
           <Route path="/snapshots" component={SourcesTable} />
           <Route path="/policies" component={PoliciesTable} />

@@ -117,7 +117,7 @@ export class TaskDetails extends Component {
                 break;
         }
 
-        return <Badge variant={variant}>{label}: {formatted}</Badge>
+        return <Badge className="counter-badge" variant={variant}>{label}: {formatted}</Badge>
     }
 
     render() {
@@ -169,7 +169,7 @@ export class TaskDetails extends Component {
             <hr/>
             <Form.Row>
                 <Col>
-                {this.state.showLog ? <TaskLogs taskID={this.props.match.params.tid} /> : <Button click={() => this.setState({showLog:true})}>Show Log</Button>}
+                {this.state.showLog ? <TaskLogs taskID={this.props.match.params.tid} /> : <Button onClick={() => this.setState({showLog:true})}>Show Log</Button>}
                 </Col>
             </Form.Row>
         </Form>
