@@ -119,7 +119,6 @@ func (dir *fuseDirectoryNode) Lookup(ctx context.Context, fileName string, out *
 
 	e := entries.FindByName(fileName)
 	if e == nil {
-		log(ctx).Warningf("not found %q in %v", fileName, dir.entry.Name())
 		return nil, syscall.ENOENT
 	}
 
