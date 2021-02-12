@@ -25,6 +25,7 @@ func (mo *Options) toFuseMountOptions() *gofusefs.Options {
 			AllowOther: mo.FuseAllowOther,
 			Name:       "kopia",
 			FsName:     "kopia",
+			Debug:      os.Getenv("KOPIA_DEBUG_FUSE") != "",
 		},
 		EntryTimeout:    &cacheTimeout,
 		AttrTimeout:     &cacheTimeout,

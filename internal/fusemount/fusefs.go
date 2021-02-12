@@ -61,7 +61,7 @@ func (f *fuseFileNode) Open(ctx context.Context, flags uint32) (gofusefs.FileHan
 		return nil, 0, syscall.EIO
 	}
 
-	return &fuseFileHandle{reader: reader, file: f.entry.(fs.File)}, fuse.FOPEN_DIRECT_IO, gofusefs.OK
+	return &fuseFileHandle{reader: reader, file: f.entry.(fs.File)}, 0, gofusefs.OK
 }
 
 type fuseFileHandle struct {
@@ -119,6 +119,7 @@ func (dir *fuseDirectoryNode) Lookup(ctx context.Context, fileName string, out *
 
 	e := entries.FindByName(fileName)
 	if e == nil {
+		log(ctx).Warningf("not found %q in %v", fileName, dir.entry.Name())
 		return nil, syscall.ENOENT
 	}
 
