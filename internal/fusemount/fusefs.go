@@ -2,99 +2,99 @@
 
 // Package fusemount implements FUSE filesystem nodes for mounting contents of filesystem stored in repository.
 //
-// The FUSE implementation used is from bazil.org/fuse
+// The FUSE implementation used is from github.com/hanwen/go-fuse/v2
 package fusemount
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 	"sync"
+	"syscall"
 
-	"bazil.org/fuse"
-	fusefs "bazil.org/fuse/fs"
+	gofusefs "github.com/hanwen/go-fuse/v2/fs"
+	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/repo/logging"
 )
 
+var log = logging.GetContextLoggerFunc("fuse")
+
+const fakeBlockSize = 4096
+
 type fuseNode struct {
+	gofusefs.Inode
 	entry fs.Entry
 }
 
-func (n *fuseNode) Attr(ctx context.Context, a *fuse.Attr) error {
-	m := n.entry
-	a.Mode = m.Mode()
-	a.Size = uint64(m.Size())
-	a.Mtime = m.ModTime()
-	a.Uid = m.Owner().UserID
-	a.Gid = m.Owner().GroupID
+func populateAttributes(a *fuse.Attr, e fs.Entry) {
+	a.Mode = uint32(e.Mode()) & uint32(os.ModePerm)
+	a.Size = uint64(e.Size())
+	a.Mtime = uint64(e.ModTime().Unix())
+	a.Ctime = a.Mtime
+	a.Atime = a.Mtime
+	a.Nlink = 1
+	a.Uid = e.Owner().UserID
+	a.Gid = e.Owner().GroupID
+	a.Blocks = (a.Size + fakeBlockSize - 1) / fakeBlockSize
+}
 
-	return nil
+func (n *fuseNode) Getattr(ctx context.Context, fh gofusefs.FileHandle, a *fuse.AttrOut) syscall.Errno {
+	populateAttributes(&a.Attr, n.entry)
+
+	a.Ino = n.StableAttr().Ino
+
+	return gofusefs.OK
 }
 
 type fuseFileNode struct {
 	fuseNode
 }
 
-var _ fusefs.NodeOpener = (*fuseFileNode)(nil)
-
-func (f *fuseFileNode) Open(ctx context.Context, req *fuse.OpenRequest, resp *fuse.OpenResponse) (fusefs.Handle, error) {
+func (f *fuseFileNode) Open(ctx context.Context, flags uint32) (gofusefs.FileHandle, uint32, syscall.Errno) {
 	reader, err := f.entry.(fs.File).Open(ctx)
 	if err != nil {
-		// nolint:wrapcheck
-		return nil, err
+		log(ctx).Warningf("error opening %v: %v", f.entry.Name(), err)
+
+		return nil, 0, syscall.EIO
 	}
 
-	return &fuseFileHandle{reader: reader, size: f.entry.Size()}, nil
+	return &fuseFileHandle{reader: reader, file: f.entry.(fs.File)}, 0, gofusefs.OK
 }
 
 type fuseFileHandle struct {
 	mu     sync.Mutex
 	reader fs.Reader
-	size   int64
+	file   fs.File
 }
 
-func (f *fuseFileHandle) Read(ctx context.Context, req *fuse.ReadRequest, resp *fuse.ReadResponse) error {
+func (f *fuseFileHandle) Read(ctx context.Context, dest []byte, off int64) (fuse.ReadResult, syscall.Errno) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
-	_, err := f.reader.Seek(req.Offset, io.SeekStart)
+	_, err := f.reader.Seek(off, io.SeekStart)
 	if err != nil {
-		// nolint:wrapcheck
-		return err
+		log(ctx).Warningf("seek error: %v %v: %v", f.file.Name(), off, err)
+
+		return nil, syscall.EIO
 	}
 
-	n, err := f.reader.Read(resp.Data[:req.Size])
-	if err != nil {
-		// nolint:wrapcheck
-		return err
+	n, err := f.reader.Read(dest)
+
+	if err != nil && !errors.Is(err, io.EOF) {
+		log(ctx).Warningf("read error: %v: %v", f.file.Name(), err)
+		return nil, syscall.EIO
 	}
 
-	resp.Data = resp.Data[:n]
-
-	return nil
+	return fuse.ReadResultData(dest[0:n]), gofusefs.OK
 }
 
-func (f *fuseFileHandle) Release(ctx context.Context, req *fuse.ReleaseRequest) error {
-	return f.reader.Close()
-}
+func (f *fuseFileHandle) Release(ctx context.Context) syscall.Errno {
+	f.reader.Close() //nolint:errcheck
 
-var (
-	_ fusefs.HandleReleaser = (*fuseFileHandle)(nil)
-	_ fusefs.HandleReader   = (*fuseFileHandle)(nil)
-)
-
-func (f *fuseFileNode) ReadAll(ctx context.Context) ([]byte, error) {
-	reader, err := f.entry.(fs.File).Open(ctx)
-	if err != nil {
-		// nolint:wrapcheck
-		return nil, err
-	}
-	defer reader.Close() //nolint:errcheck
-
-	return ioutil.ReadAll(reader)
+	return gofusefs.OK
 }
 
 type fuseDirectoryNode struct {
@@ -105,81 +105,112 @@ func (dir *fuseDirectoryNode) directory() fs.Directory {
 	return dir.entry.(fs.Directory)
 }
 
-func (dir *fuseDirectoryNode) Lookup(ctx context.Context, fileName string) (fusefs.Node, error) {
+func (dir *fuseDirectoryNode) Lookup(ctx context.Context, fileName string, out *fuse.EntryOut) (*gofusefs.Inode, syscall.Errno) {
 	entries, err := dir.directory().Readdir(ctx)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, fuse.ENOENT
+			return nil, syscall.ENOENT
 		}
 
-		// nolint:wrapcheck
-		return nil, err
+		log(ctx).Warningf("lookup error %v in %v: %v", fileName, dir.entry.Name(), err)
+
+		return nil, syscall.EIO
 	}
 
 	e := entries.FindByName(fileName)
 	if e == nil {
-		return nil, fuse.ENOENT
+		return nil, syscall.ENOENT
 	}
 
-	return newFuseNode(e)
+	stable := gofusefs.StableAttr{
+		Mode: entryToFuseMode(e),
+	}
+
+	n, err := newFuseNode(e)
+	if err != nil {
+		return nil, syscall.EIO
+	}
+
+	child := dir.NewInode(ctx, n, stable)
+
+	populateAttributes(&out.Attr, e)
+
+	return child, gofusefs.OK
 }
 
-func (dir *fuseDirectoryNode) ReadDirAll(ctx context.Context) ([]fuse.Dirent, error) {
+func (dir *fuseDirectoryNode) Readdir(ctx context.Context) (gofusefs.DirStream, syscall.Errno) {
 	entries, err := dir.directory().Readdir(ctx)
 	if err != nil {
-		// nolint:wrapcheck
-		return nil, err
+		log(ctx).Warningf("error reading directory %v: %v", dir.entry.Name(), err)
+		return nil, syscall.EIO
 	}
 
-	result := []fuse.Dirent{}
-
+	result := []fuse.DirEntry{}
 	for _, e := range entries {
-		dirent := fuse.Dirent{
+		result = append(result, fuse.DirEntry{
 			Name: e.Name(),
-		}
-
-		// nolint:exhaustive
-		switch e.Mode() & os.ModeType {
-		case os.ModeDir:
-			dirent.Type = fuse.DT_Dir
-		case 0:
-			dirent.Type = fuse.DT_File
-		case os.ModeSymlink:
-			dirent.Type = fuse.DT_Link
-		}
-
-		result = append(result, dirent)
+			Mode: entryToFuseMode(e),
+		})
 	}
 
-	return result, nil
+	return gofusefs.NewListDirStream(result), gofusefs.OK
 }
 
 type fuseSymlinkNode struct {
 	fuseNode
 }
 
-func (sl *fuseSymlinkNode) Readlink(ctx context.Context, req *fuse.ReadlinkRequest) (string, error) {
-	return sl.entry.(fs.Symlink).Readlink(ctx)
+func (sl *fuseSymlinkNode) Readlink(ctx context.Context) ([]byte, syscall.Errno) {
+	v, err := sl.entry.(fs.Symlink).Readlink(ctx)
+	if err != nil {
+		log(ctx).Warningf("error reading symlink %v: %v", sl.entry.Name(), err)
+		return nil, syscall.EIO
+	}
+
+	return []byte(v), gofusefs.OK
 }
 
-func newFuseNode(e fs.Entry) (fusefs.Node, error) {
+func entryToFuseMode(e fs.Entry) uint32 {
+	switch e.(type) {
+	case fs.File:
+		return fuse.S_IFREG
+	case fs.Directory:
+		return fuse.S_IFDIR
+	case fs.Symlink:
+		return fuse.S_IFLNK
+	default:
+		return fuse.S_IFREG
+	}
+}
+
+func newFuseNode(e fs.Entry) (gofusefs.InodeEmbedder, error) {
 	switch e := e.(type) {
 	case fs.Directory:
 		return newDirectoryNode(e), nil
 	case fs.File:
-		return &fuseFileNode{fuseNode{e}}, nil
+		return &fuseFileNode{fuseNode{entry: e}}, nil
 	case fs.Symlink:
-		return &fuseSymlinkNode{fuseNode{e}}, nil
+		return &fuseSymlinkNode{fuseNode{entry: e}}, nil
 	default:
 		return nil, errors.Errorf("entry type not supported: %v", e.Mode())
 	}
 }
 
-func newDirectoryNode(dir fs.Directory) fusefs.Node {
-	return &fuseDirectoryNode{fuseNode{dir}}
+func newDirectoryNode(dir fs.Directory) gofusefs.InodeEmbedder {
+	return &fuseDirectoryNode{fuseNode{entry: dir}}
 }
 
 // NewDirectoryNode returns FUSE Node for a given fs.Directory.
-func NewDirectoryNode(dir fs.Directory) fusefs.Node {
+func NewDirectoryNode(dir fs.Directory) gofusefs.InodeEmbedder {
 	return newDirectoryNode(dir)
 }
+
+var (
+	_ gofusefs.NodeGetattrer  = (*fuseNode)(nil)
+	_ gofusefs.NodeOpener     = (*fuseFileNode)(nil)
+	_ gofusefs.NodeLookuper   = (*fuseDirectoryNode)(nil)
+	_ gofusefs.NodeReaddirer  = (*fuseDirectoryNode)(nil)
+	_ gofusefs.NodeReadlinker = (*fuseSymlinkNode)(nil)
+	_ gofusefs.FileReleaser   = (*fuseFileHandle)(nil)
+	_ gofusefs.FileReader     = (*fuseFileHandle)(nil)
+)

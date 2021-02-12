@@ -6,40 +6,38 @@ import (
 	"context"
 	"io/ioutil"
 	"os"
+	"time"
 
-	"bazil.org/fuse"
-	fusefs "bazil.org/fuse/fs"
+	gofusefs "github.com/hanwen/go-fuse/v2/fs"
+	"github.com/hanwen/go-fuse/v2/fuse"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/fusemount"
 )
 
-type root struct {
-	fusefs.Node
-}
+// we're serving read-only filesystem, cache some attributes for 30 seconds.
+var cacheTimeout = 30 * time.Second
 
-func (r *root) Root() (fusefs.Node, error) {
-	return r.Node, nil
-}
-
-func (mo *Options) toFuseMountOptions() []fuse.MountOption {
-	options := []fuse.MountOption{
-		fuse.ReadOnly(),
-		fuse.FSName("kopia"),
-		fuse.Subtype("kopia"),
-		fuse.VolumeName("Kopia"),
+func (mo *Options) toFuseMountOptions() *gofusefs.Options {
+	o := &gofusefs.Options{
+		MountOptions: fuse.MountOptions{
+			AllowOther: mo.FuseAllowOther,
+			Name:       "kopia",
+			FsName:     "kopia",
+			Debug:      os.Getenv("KOPIA_DEBUG_FUSE") != "",
+		},
+		EntryTimeout:    &cacheTimeout,
+		AttrTimeout:     &cacheTimeout,
+		NegativeTimeout: &cacheTimeout,
 	}
 
-	if mo.FuseAllowOther {
-		options = append(options, fuse.AllowOther())
-	}
-
+	o.Options = append(o.Options, "noatime")
 	if mo.FuseAllowNonEmptyMount {
-		options = append(options, fuse.AllowNonEmptyMount())
+		o.Options = append(o.Options, "nonempty")
 	}
 
-	return options
+	return o
 }
 
 // Directory mounts the given directory using FUSE.
@@ -59,47 +57,24 @@ func Directory(ctx context.Context, entry fs.Directory, mountPoint string, mount
 
 	rootNode := fusemount.NewDirectoryNode(entry)
 
-	options := append(
-		mountOptions.toFuseMountOptions(),
-		fuse.ReadOnly(),
-		fuse.FSName("kopia"),
-		fuse.Subtype("kopia"),
-		fuse.VolumeName("Kopia"))
-
-	fuseConnection, err := fuse.Mount(mountPoint, options...)
+	fuseServer, err := gofusefs.Mount(mountPoint, rootNode, mountOptions.toFuseMountOptions())
 	if err != nil {
-		return nil, errors.Wrap(err, "error creating fuse connection")
+		return nil, errors.Wrap(err, "mounting error")
 	}
 
-	serveError := make(chan error, 1)
 	done := make(chan struct{})
 
 	go func() {
-		serveError <- fusefs.Serve(fuseConnection, &root{rootNode})
-
-		fuseConnection.Close() // nolint:errcheck
+		fuseServer.Wait()
 		close(done)
 	}()
 
-	select {
-	case err := <-serveError:
-		log(ctx).Debugf("serve error: %v", err)
-		return nil, errors.Wrap(err, "serve error")
-
-	case <-fuseConnection.Ready:
-		log(ctx).Debugf("connection ready: %v", fuseConnection.MountError)
-
-		if err := fuseConnection.MountError; err != nil {
-			return nil, errors.Wrap(err, "mount error")
-		}
-	}
-
-	return fuseController{mountPoint, fuseConnection, done, isTempDir}, nil
+	return fuseController{mountPoint, fuseServer, done, isTempDir}, nil
 }
 
 type fuseController struct {
 	mountPoint     string
-	fuseConnection *fuse.Conn
+	fuseConnection *fuse.Server
 	done           chan struct{}
 	isTempDir      bool
 }
@@ -109,7 +84,7 @@ func (fc fuseController) MountPath() string {
 }
 
 func (fc fuseController) Unmount(ctx context.Context) error {
-	if err := fuse.Unmount(fc.mountPoint); err != nil {
+	if err := fc.fuseConnection.Unmount(); err != nil {
 		return errors.Wrap(err, "unmount error")
 	}
 
