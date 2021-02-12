@@ -10,7 +10,9 @@ import (
 	"github.com/natefinch/atomic"
 )
 
-const maxPathLength = 260
+// Do not prefix files shorter than this, we are intentionally using less than MAX_PATH
+// in Windows to allow some suffixes.
+const maxPathLength = 240
 
 // MaybePrefixLongFilenameOnWindows prefixes the given filename with \\?\ on Windows
 // if the filename is longer than 260 characters, which is required to be able to
@@ -28,7 +30,7 @@ func MaybePrefixLongFilenameOnWindows(fname string) string {
 	}
 
 	if !filepath.IsAbs(fname) {
-		// only convert relative paths
+		// only convert absolute paths
 		return fname
 	}
 
