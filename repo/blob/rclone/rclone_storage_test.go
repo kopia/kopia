@@ -1,7 +1,6 @@
 package rclone_test
 
 import (
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"testing"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/rclone"
 )
@@ -35,13 +35,7 @@ func TestRCloneStorage(t *testing.T) {
 
 	t.Logf("using rclone exe: %v", rcloneExe)
 
-	// directory where rclone will store files
-	dataDir, err := ioutil.TempDir("", "rclonetest")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	defer os.RemoveAll(dataDir)
+	dataDir := testutil.TempDirectory(t)
 
 	st, err := rclone.New(ctx, &rclone.Options{
 		// pass local file as remote path.

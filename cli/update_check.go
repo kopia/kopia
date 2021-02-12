@@ -12,10 +12,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/natefinch/atomic"
 	"github.com/pkg/errors"
 	"golang.org/x/mod/semver"
 
+	"github.com/kopia/kopia/internal/atomicfile"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo"
 )
@@ -69,7 +69,7 @@ func writeUpdateState(us *updateState) error {
 		return errors.Wrap(err, "unable to marshal JSON")
 	}
 
-	return atomic.WriteFile(updateStateFilename(), &buf)
+	return atomicfile.Write(updateStateFilename(), &buf)
 }
 
 func removeUpdateState() {

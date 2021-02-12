@@ -133,7 +133,7 @@ func startDockerSFTPServerOrSkip(t *testing.T, idRSA string) (host string, port 
 		parts := strings.Split(sftpEndpoint, ":")
 		host = parts[0]
 		port, _ = strconv.Atoi(parts[1])
-		knownHostsFile = filepath.Join(t.TempDir(), "known_hosts")
+		knownHostsFile = filepath.Join(testutil.TempDirectory(t), "known_hosts")
 
 		time.Sleep(3 * time.Second)
 

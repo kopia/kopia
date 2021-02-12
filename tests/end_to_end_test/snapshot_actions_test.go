@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -161,7 +162,7 @@ func TestSnapshotActionsBeforeAfterFolder(t *testing.T) {
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	// create directory structure
-	rootDir := t.TempDir()
+	rootDir := testutil.TempDirectory(t)
 	sd1 := filepath.Join(rootDir, "subdir1")
 	sd2 := filepath.Join(rootDir, "subdir2")
 	sd11 := filepath.Join(rootDir, "subdir1", "subdir1")
@@ -172,7 +173,7 @@ func TestSnapshotActionsBeforeAfterFolder(t *testing.T) {
 	verifyNoError(t, os.Mkdir(sd11, 0700))
 	verifyNoError(t, os.Mkdir(sd12, 0700))
 
-	actionRanDir := t.TempDir()
+	actionRanDir := testutil.TempDirectory(t)
 
 	actionRanFileBeforeRoot := filepath.Join(actionRanDir, "before-root")
 	actionRanFileAfterRoot := filepath.Join(actionRanDir, "before-root")

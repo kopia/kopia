@@ -9,11 +9,11 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/natefinch/atomic"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
+	"github.com/kopia/kopia/internal/atomicfile"
 )
 
 const modBits = os.ModePerm | os.ModeSetgid | os.ModeSetuid | os.ModeSticky
@@ -308,7 +308,7 @@ func (o *FilesystemOutput) copyFileContent(ctx context.Context, targetPath strin
 
 	log(ctx).Debugf("copying file contents to: %v", targetPath)
 
-	return atomic.WriteFile(targetPath, r)
+	return atomicfile.Write(targetPath, r)
 }
 
 func isEmptyDirectory(name string) (bool, error) {

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -17,7 +18,7 @@ func TestDiff(t *testing.T) {
 
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
-	dataDir := t.TempDir()
+	dataDir := testutil.TempDirectory(t)
 
 	// initial snapshot
 	testenv.AssertNoError(t, os.MkdirAll(dataDir, 0o777))

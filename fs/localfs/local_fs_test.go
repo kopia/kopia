@@ -12,6 +12,7 @@ import (
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 )
 
 //nolint:gocyclo
@@ -20,13 +21,7 @@ func TestFiles(t *testing.T) {
 
 	var err error
 
-	tmp, err := ioutil.TempDir("", "kopia")
-	if err != nil {
-		t.Errorf("cannot create temp directory: %v", err)
-		return
-	}
-
-	defer os.RemoveAll(tmp)
+	tmp := testutil.TempDirectory(t)
 
 	var dir fs.Directory
 

@@ -250,7 +250,7 @@ $(rclone):
 	curl -LsS -o $(rclone_dir).zip https://github.com/rclone/rclone/releases/download/v$(RCLONE_VERSION)/rclone-v$(RCLONE_VERSION)-$(TRAVIS_OS_NAME)-$(kopia_arch_name).zip
 	unzip -j -q $(rclone_dir).zip -d $(rclone_dir)
 
-gotestsum=$(TOOLS_DIR)/bin/gotestsum
+gotestsum=$(TOOLS_DIR)/bin/gotestsum$(exe_suffix)
 
 $(gotestsum): export GO111MODULE=off
 $(gotestsum): export GOPATH=$(TOOLS_DIR)

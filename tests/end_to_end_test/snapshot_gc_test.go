@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -20,7 +21,7 @@ func TestSnapshotGC(t *testing.T) {
 
 	expectedContentCount := len(e.RunAndExpectSuccess(t, "content", "list"))
 
-	dataDir := t.TempDir()
+	dataDir := testutil.TempDirectory(t)
 	testenv.AssertNoError(t, os.MkdirAll(dataDir, 0o777))
 	testenv.AssertNoError(t, ioutil.WriteFile(filepath.Join(dataDir, "some-file1"), []byte(`
 hello world

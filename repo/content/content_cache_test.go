@@ -2,8 +2,6 @@ package content
 
 import (
 	"bytes"
-	"io/ioutil"
-	"os"
 	"reflect"
 	"sort"
 	"strings"
@@ -17,6 +15,7 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -106,12 +105,7 @@ func TestCacheExpiration(t *testing.T) {
 func TestDiskContentCache(t *testing.T) {
 	ctx := testlogging.Context(t)
 
-	tmpDir, err := ioutil.TempDir("", "kopia")
-	if err != nil {
-		t.Fatalf("error getting temp dir: %v", err)
-	}
-
-	defer os.RemoveAll(tmpDir)
+	tmpDir := testutil.TempDirectory(t)
 
 	const maxBytes = 10000
 

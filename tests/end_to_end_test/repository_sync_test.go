@@ -3,6 +3,7 @@ package endtoend_test
 import (
 	"testing"
 
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -21,11 +22,11 @@ func TestRepositorySync(t *testing.T) {
 	sources := e.ListSnapshotsAndExpectSuccess(t)
 
 	// synchronize repository blobs to another directory
-	dir2 := t.TempDir()
+	dir2 := testutil.TempDirectory(t)
 	e.RunAndExpectSuccess(t, "repo", "sync-to", "filesystem", "--path", dir2, "--times")
 
 	// synchronizing to empty directory fails with --must-exist
-	dir3 := t.TempDir()
+	dir3 := testutil.TempDirectory(t)
 	e.RunAndExpectFailure(t, "repo", "sync-to", "filesystem", "--path", dir3, "--must-exist")
 
 	// now connect to the new repository in new location

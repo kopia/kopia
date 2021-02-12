@@ -2,7 +2,6 @@ package snapshotfs
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -17,6 +16,7 @@ import (
 	"github.com/kopia/kopia/internal/faketime"
 	"github.com/kopia/kopia/internal/mockfs"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob/filesystem"
 	"github.com/kopia/kopia/repo/object"
@@ -42,11 +42,10 @@ func (th *uploadTestHarness) cleanup() {
 	os.RemoveAll(th.repoDir)
 }
 
-func newUploadTestHarness(ctx context.Context) *uploadTestHarness {
-	repoDir, err := ioutil.TempDir("", "kopia-repo")
-	if err != nil {
-		panic("cannot create temp directory: " + err.Error())
-	}
+func newUploadTestHarness(ctx context.Context, t *testing.T) *uploadTestHarness {
+	t.Helper()
+
+	repoDir := testutil.TempDirectory(t)
 
 	storage, err := filesystem.New(ctx, &filesystem.Options{
 		Path: repoDir,
@@ -113,7 +112,7 @@ func newUploadTestHarness(ctx context.Context) *uploadTestHarness {
 // nolint:gocyclo
 func TestUpload(t *testing.T) {
 	ctx := testlogging.Context(t)
-	th := newUploadTestHarness(ctx)
+	th := newUploadTestHarness(ctx, t)
 
 	defer th.cleanup()
 
@@ -205,7 +204,7 @@ func TestUpload(t *testing.T) {
 
 func TestUpload_TopLevelDirectoryReadFailure(t *testing.T) {
 	ctx := testlogging.Context(t)
-	th := newUploadTestHarness(ctx)
+	th := newUploadTestHarness(ctx, t)
 
 	defer th.cleanup()
 
@@ -227,7 +226,7 @@ func TestUpload_TopLevelDirectoryReadFailure(t *testing.T) {
 
 func TestUpload_SubDirectoryReadFailure(t *testing.T) {
 	ctx := testlogging.Context(t)
-	th := newUploadTestHarness(ctx)
+	th := newUploadTestHarness(ctx, t)
 
 	defer th.cleanup()
 
@@ -249,7 +248,7 @@ func objectIDsEqual(o1, o2 object.ID) bool {
 
 func TestUpload_SubDirectoryReadFailureIgnoreFailures(t *testing.T) {
 	ctx := testlogging.Context(t)
-	th := newUploadTestHarness(ctx)
+	th := newUploadTestHarness(ctx, t)
 
 	defer th.cleanup()
 
@@ -289,7 +288,7 @@ func TestUpload_SubDirectoryReadFailureIgnoreFailures(t *testing.T) {
 
 func TestUploadWithCheckpointing(t *testing.T) {
 	ctx := testlogging.Context(t)
-	th := newUploadTestHarness(ctx)
+	th := newUploadTestHarness(ctx, t)
 
 	defer th.cleanup()
 
