@@ -2,6 +2,7 @@ package content
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/stats"
@@ -92,6 +93,8 @@ func (c *contentCacheForMetadata) getContent(ctx context.Context, cacheKey cache
 
 	if useCache {
 		// store the whole blob in the cache.
+		atomic.StoreInt32(&c.anyChange, 1)
+
 		if puterr := c.cacheStorage.PutBlob(ctx, blobID, gather.FromSlice(blobData)); puterr != nil {
 			stats.Record(ctx, metricContentCacheStoreErrors.M(1))
 			log(ctx).Warningf("unable to write cache item %v: %v", blobID, puterr)
@@ -114,7 +117,7 @@ func newContentCacheForMetadata(ctx context.Context, st, cacheStorage blob.Stora
 		return passthroughContentCache{st}, nil
 	}
 
-	cb, err := newContentCacheBase(ctx, cacheStorage, maxSizeBytes, defaultTouchThreshold, defaultSweepFrequency)
+	cb, err := newContentCacheBase(ctx, "metadata cache", cacheStorage, maxSizeBytes, defaultTouchThreshold, defaultSweepFrequency)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create base cache")
 	}

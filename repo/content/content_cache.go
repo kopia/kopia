@@ -15,7 +15,7 @@ import (
 type cacheKey string
 
 type contentCache interface {
-	close()
+	close(ctx context.Context)
 	getContent(ctx context.Context, cacheKey cacheKey, blobID blob.ID, offset, length int64) ([]byte, error)
 }
 
