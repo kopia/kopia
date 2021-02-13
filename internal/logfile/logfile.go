@@ -34,7 +34,7 @@ var fileLogFormat = logging.MustStringFormatter(
 var logLevels = []string{"debug", "info", "warning", "error"}
 var (
 	logFile        = cli.App().Flag("log-file", "Override log file.").String()
-	contentLogFile = cli.App().Flag("content-log-file", "Override content log file.").String()
+	contentLogFile = cli.App().Flag("content-log-file", "Override content log file.").Hidden().String()
 
 	logDir                = cli.App().Flag("log-dir", "Directory where log files should be written.").Envar("KOPIA_LOG_DIR").Default(ospath.LogsDir()).String()
 	logDirMaxFiles        = cli.App().Flag("log-dir-max-files", "Maximum number of log files to retain").Envar("KOPIA_LOG_DIR_MAX_FILES").Default("1000").Hidden().Int()

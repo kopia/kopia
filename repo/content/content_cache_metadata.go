@@ -55,17 +55,14 @@ func (c *contentCacheForMetadata) getContent(ctx context.Context, cacheKey cache
 	m.Lock()
 	defer m.Unlock()
 
-	useCache := shouldUseContentCache(ctx)
-	if useCache {
-		if v, err := c.cacheBase.cacheStorage.GetBlob(ctx, blobID, offset, length); err == nil {
-			// cache hit
-			stats.Record(ctx,
-				metricContentCacheHitCount.M(1),
-				metricContentCacheHitBytes.M(int64(len(v))),
-			)
+	if v, err := c.cacheBase.cacheStorage.GetBlob(ctx, blobID, offset, length); err == nil {
+		// cache hit
+		stats.Record(ctx,
+			metricContentCacheHitCount.M(1),
+			metricContentCacheHitBytes.M(int64(len(v))),
+		)
 
-			return v, nil
-		}
+		return v, nil
 	}
 
 	stats.Record(ctx, metricContentCacheMissCount.M(1))
@@ -91,14 +88,12 @@ func (c *contentCacheForMetadata) getContent(ctx context.Context, cacheKey cache
 		return nil, err
 	}
 
-	if useCache {
-		// store the whole blob in the cache.
-		atomic.StoreInt32(&c.anyChange, 1)
+	atomic.StoreInt32(&c.anyChange, 1)
 
-		if puterr := c.cacheStorage.PutBlob(ctx, blobID, gather.FromSlice(blobData)); puterr != nil {
-			stats.Record(ctx, metricContentCacheStoreErrors.M(1))
-			log(ctx).Warningf("unable to write cache item %v: %v", blobID, puterr)
-		}
+	// store the whole blob in the cache.
+	if puterr := c.cacheStorage.PutBlob(ctx, blobID, gather.FromSlice(blobData)); puterr != nil {
+		stats.Record(ctx, metricContentCacheStoreErrors.M(1))
+		log(ctx).Warningf("unable to write cache item %v: %v", blobID, puterr)
 	}
 
 	if offset == 0 && length == -1 {

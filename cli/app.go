@@ -12,7 +12,6 @@ import (
 
 	"github.com/kopia/kopia/internal/apiclient"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/maintenance"
 	"github.com/kopia/kopia/snapshot/snapshotmaintenance"
@@ -139,11 +138,7 @@ func repositoryWriterAction(act func(ctx context.Context, rep repo.RepositoryWri
 }
 
 func rootContext() context.Context {
-	ctx := context.Background()
-	ctx = content.UsingContentCache(ctx, *enableCaching)
-	ctx = content.UsingListCache(ctx, *enableListCaching)
-
-	return ctx
+	return context.Background()
 }
 
 type repositoryAccessMode struct {
