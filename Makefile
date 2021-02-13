@@ -108,10 +108,10 @@ kopia-ui:
 # kopia-ui build needs this particular location to embed the correct server binary.
 # note we're not building or embedding HTML UI to speed up PR testing process.
 build-current-os-noui:
-	go build -o dist/kopia_$(shell go env GOOS)_$(shell go env GOARCH)$(exe_suffix)
+	go build -o dist/kopia_$(shell go env GOOS)_$(shell go env GOARCH)/kopia$(exe_suffix)
 
 build-current-os-with-ui: html-ui-bindata
-	go build -o dist/kopia_$(shell go env GOOS)_$(shell go env GOARCH)$(exe_suffix) -tags embedhtml
+	go build -o dist/kopia_$(shell go env GOOS)_$(shell go env GOARCH)/kopia$(exe_suffix) -tags embedhtml
 
 kopia-ui-pr-test: app-node-modules htmlui-node-modules
 	$(MAKE) build-current-os-with-ui
