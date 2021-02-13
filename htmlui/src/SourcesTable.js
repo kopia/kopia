@@ -214,7 +214,7 @@ export class SourcesTable extends Component {
                 }
 
                 return <>
-                    <Spinner animation="border" variant="primary" size="sm" title={title} />&nbsp;Uploading {totals}
+                    <Spinner animation="border" variant="primary" size="sm" title={title} />&nbsp;{totals}
                     &nbsp;
                     {x.row.original.currentTask && <Link to={"/tasks/"+x.row.original.currentTask}>Details</Link>}
                 </>;

@@ -117,7 +117,43 @@ export class TaskDetails extends Component {
                 break;
         }
 
-        return <Badge className="counter-badge" variant={variant}>{label}: {formatted}</Badge>
+        return <Badge key={label} className="counter-badge" variant={variant}>{label}: {formatted}</Badge>
+    }
+
+    counterLevelToSortOrder(l) {
+        switch (l) {
+            case "error":
+                return 30
+            case "notice":
+                return 10;
+            case "warning":
+                return 5;
+            default:
+                return 0;
+        }
+    }
+
+    sortedBadges(counters) {
+        let keys = Object.keys(counters);
+
+        // sort keys by their level and the name alphabetically.
+        keys.sort((a, b) => {
+            if (counters[a].level !== counters[b].level) {
+                return this.counterLevelToSortOrder(counters[b].level) - this.counterLevelToSortOrder(counters[a].level);
+            }
+
+            if (a < b) {
+                return -1;
+            }
+
+            if (a > b) {
+                return 1;
+            }
+
+            return 0;
+        });
+
+        return keys.map(c => (counters[c].value > 0) && this.counterBadge(c, counters[c]));
     }
 
     render() {
@@ -163,7 +199,7 @@ export class TaskDetails extends Component {
             </Form.Row>
             {task.counters && <Form.Row>
                 <Col>
-                {Object.keys(task.counters).map(c => (task.counters[c].value > 0) && <>{this.counterBadge(c, task.counters[c])} </>)}
+                {this.sortedBadges(task.counters)}
                 </Col>
             </Form.Row>}
             <hr/>
