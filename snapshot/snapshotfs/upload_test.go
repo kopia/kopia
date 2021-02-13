@@ -94,7 +94,7 @@ func newUploadTestHarness(ctx context.Context, t *testing.T) *uploadTestHarness 
 	sourceDir.AddFile("d2/d1/f1", []byte{1, 2, 3}, defaultPermissions)
 	sourceDir.AddFile("d2/d1/f2", []byte{1, 2, 3, 4}, defaultPermissions)
 
-	w, err := rep.NewWriter(ctx, "test")
+	w, err := rep.NewWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
 	if err != nil {
 		panic("writer creation error: " + err.Error())
 	}

@@ -137,6 +137,7 @@ func getPackedContentIV(output []byte, contentID ID) ([]byte, error) {
 
 func (bm *WriteManager) writePackFileNotLocked(ctx context.Context, packFile blob.ID, data gather.Bytes) error {
 	bm.Stats.wroteContent(data.Length())
+	bm.onUpload(int64(data.Length()))
 
 	return bm.st.PutBlob(ctx, packFile, data)
 }

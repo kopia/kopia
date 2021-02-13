@@ -131,7 +131,7 @@ func (r *apiServerRepository) Flush(ctx context.Context) error {
 	return errors.Wrap(r.cli.Post(ctx, "flush", nil, nil), "Flush")
 }
 
-func (r *apiServerRepository) NewWriter(ctx context.Context, purpose string) (RepositoryWriter, error) {
+func (r *apiServerRepository) NewWriter(ctx context.Context, opt WriteSessionOptions) (RepositoryWriter, error) {
 	// apiServerRepository is stateless except object manager.
 	r2 := *r
 	w := &r2

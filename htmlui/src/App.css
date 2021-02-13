@@ -130,7 +130,8 @@ div.tab-body {
 .loglevel-5 { color: red; font-weight: bold; } /* fatal */
 
 .counter-badge {
-  font-size: 100%;
+  font-size: 90%;
+  margin: 2px;
 }
 
 .page-title {

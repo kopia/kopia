@@ -111,14 +111,6 @@ func (s *sftpImpl) PutBlobInPath(ctx context.Context, dirPath, fullPath string, 
 		return errors.Wrap(err, "can't get random bytes")
 	}
 
-	progressCallback := blob.ProgressCallback(ctx)
-	combinedLength := data.Length()
-
-	if progressCallback != nil {
-		progressCallback(fullPath, 0, int64(combinedLength))
-		defer progressCallback(fullPath, int64(combinedLength), int64(combinedLength))
-	}
-
 	tempFile := fmt.Sprintf("%s.tmp.%x", fullPath, randSuffix)
 
 	f, err := s.createTempFileAndDir(tempFile)

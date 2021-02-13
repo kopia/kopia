@@ -104,20 +104,6 @@ func (gcs *gcsStorage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) 
 	writer.ChunkSize = writerChunkSize
 	writer.ContentType = "application/x-kopia"
 
-	combinedLength := data.Length()
-	progressCallback := blob.ProgressCallback(ctx)
-
-	if progressCallback != nil {
-		progressCallback(string(b), 0, int64(combinedLength))
-		defer progressCallback(string(b), int64(combinedLength), int64(combinedLength))
-
-		writer.ProgressFunc = func(completed int64) {
-			if completed != int64(combinedLength) {
-				progressCallback(string(b), completed, int64(combinedLength))
-			}
-		}
-	}
-
 	_, err := iocopy.Copy(writer, data.Reader())
 	if err != nil {
 		// cancel context before closing the writer causes it to abandon the upload.

@@ -141,7 +141,7 @@ func longLivedRepositoryTest(ctx context.Context, t *testing.T, cancel chan stru
 	}
 	defer rep.Close(ctx)
 
-	w, err := rep.(repo.DirectRepository).NewDirectWriter(ctx, "longLivedRepositoryTest")
+	w, err := rep.(repo.DirectRepository).NewDirectWriter(ctx, repo.WriteSessionOptions{Purpose: "longLivedRepositoryTest"})
 	if err != nil {
 		t.Errorf("error opening writer: %v", err)
 		return

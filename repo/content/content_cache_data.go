@@ -59,12 +59,7 @@ func (c *contentCacheForData) getContent(ctx context.Context, cacheKey cacheKey,
 	}
 
 	if err == nil && useCache {
-		// do not report cache writes as uploads.
-		if puterr := c.cacheStorage.PutBlob(
-			blob.WithUploadProgressCallback(ctx, nil),
-			blob.ID(cacheKey),
-			gather.FromSlice(hmac.Append(b, c.hmacSecret)),
-		); puterr != nil {
+		if puterr := c.cacheStorage.PutBlob(ctx, blob.ID(cacheKey), gather.FromSlice(hmac.Append(b, c.hmacSecret))); puterr != nil {
 			stats.Record(ctx, metricContentCacheStoreErrors.M(1))
 			log(ctx).Warningf("unable to write cache item %v: %v", cacheKey, puterr)
 		}
