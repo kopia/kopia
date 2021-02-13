@@ -90,6 +90,8 @@ type WriteManager struct {
 	disableIndexFlushCount int
 	flushPackIndexesAfter  time.Time // time when those indexes should be flushed
 
+	onUpload func(int64)
+
 	*SharedManager
 }
 
@@ -351,6 +353,8 @@ func (bm *WriteManager) flushPackIndexesLocked(ctx context.Context) error {
 
 		data := b.Bytes()
 		dataCopy := append([]byte(nil), data...)
+
+		bm.onUpload(int64(len(data)))
 
 		indexBlobMD, err := bm.indexBlobManager.writeIndexBlob(ctx, data, bm.currentSessionInfo.ID)
 		if err != nil {
@@ -781,6 +785,7 @@ func NewManager(ctx context.Context, st blob.Storage, f *FormattingOptions, cach
 type SessionOptions struct {
 	SessionUser string
 	SessionHost string
+	OnUpload    func(int64)
 }
 
 // NewWriteManager returns a session write manager.
@@ -788,6 +793,10 @@ func NewWriteManager(sm *SharedManager, options SessionOptions) *WriteManager {
 	mu := &sync.RWMutex{}
 
 	sm.addRef()
+
+	if options.OnUpload == nil {
+		options.OnUpload = func(int64) {}
+	}
 
 	return &WriteManager{
 		SharedManager: sm,
@@ -800,5 +809,6 @@ func NewWriteManager(sm *SharedManager, options SessionOptions) *WriteManager {
 		packIndexBuilder:      make(packIndexBuilder),
 		sessionUser:           options.SessionUser,
 		sessionHost:           options.SessionHost,
+		onUpload:              options.OnUpload,
 	}
 }

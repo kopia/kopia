@@ -139,12 +139,6 @@ func translateError(err error) error {
 }
 
 func (s *b2Storage) PutBlob(ctx context.Context, id blob.ID, data blob.Bytes) error {
-	progressCallback := blob.ProgressCallback(ctx)
-	if progressCallback != nil {
-		progressCallback(string(id), 0, int64(data.Length()))
-		defer progressCallback(string(id), int64(data.Length()), int64(data.Length()))
-	}
-
 	throttled, err := s.uploadThrottler.AddReader(ioutil.NopCloser(data.Reader()))
 	if err != nil {
 		return translateError(err)

@@ -336,17 +336,17 @@ func TestWriterScope(t *testing.T) {
 	lw := rep.(repo.RepositoryWriter)
 
 	// w1, w2, w3 are indepdendent sessions.
-	w1, err := rep.NewWriter(ctx, "writer1")
+	w1, err := rep.NewWriter(ctx, repo.WriteSessionOptions{Purpose: "writer1"})
 	must(t, err)
 
 	defer w1.Close(ctx)
 
-	w2, err := rep.NewWriter(ctx, "writer2")
+	w2, err := rep.NewWriter(ctx, repo.WriteSessionOptions{Purpose: "writer2"})
 	must(t, err)
 
 	defer w2.Close(ctx)
 
-	w3, err := rep.NewWriter(ctx, "writer3")
+	w3, err := rep.NewWriter(ctx, repo.WriteSessionOptions{Purpose: "writer3"})
 	must(t, err)
 
 	defer w3.Close(ctx)

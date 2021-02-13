@@ -256,8 +256,15 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 		return errors.Wrap(err, "unable to create local filesystem")
 	}
 
+	onUpload := func(int64) {}
+
 	return repo.WriteSession(ctx, s.server.rep, repo.WriteSessionOptions{
 		Purpose: "Source Manager Uploader",
+		OnUpload: func(numBytes int64) {
+			// extra indirection to allow changing onUpload function later
+			// once we have the uploader
+			onUpload(numBytes)
+		},
 	}, func(w repo.RepositoryWriter) error {
 		log(ctx).Debugf("uploading %v", s.src)
 		u := snapshotfs.NewUploader(w)
@@ -272,6 +279,9 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 		// set up progress that will keep counters and report to the uitask.
 		prog := &uitaskProgress{s.progress, ctrl, 0}
 		u.Progress = prog
+		onUpload = func(numBytes int64) {
+			u.Progress.UploadedBytes(numBytes)
+		}
 
 		log(ctx).Debugf("starting upload of %v", s.src)
 		s.setUploader(u)

@@ -110,6 +110,8 @@ func (bm *WriteManager) writeSessionMarkerLocked(ctx context.Context) error {
 		return errors.Wrap(err, "unable to encrypt session marker")
 	}
 
+	bm.onUpload(int64(len(encrypted)))
+
 	if err := bm.st.PutBlob(ctx, sessionBlobID, gather.FromSlice(encrypted)); err != nil {
 		return errors.Wrapf(err, "unable to write session marker: %v", string(sessionBlobID))
 	}

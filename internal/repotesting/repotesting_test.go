@@ -31,7 +31,7 @@ func TestTimeFuncWiring(t *testing.T) {
 
 	r0 := rep.(repo.DirectRepository)
 
-	env.RepositoryWriter, err = r0.NewDirectWriter(ctx, "test")
+	env.RepositoryWriter, err = r0.NewDirectWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
 	if err != nil {
 		t.Fatal(err)
 	}

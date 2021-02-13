@@ -12,7 +12,6 @@ import (
 
 	"github.com/kopia/kopia/internal/apiclient"
 	"github.com/kopia/kopia/repo"
-	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/maintenance"
@@ -99,7 +98,8 @@ func assertDirectRepository(act func(ctx context.Context, rep repo.DirectReposit
 func directRepositoryWriteAction(act func(ctx context.Context, rep repo.DirectRepositoryWriter) error) func(ctx *kingpin.ParseContext) error {
 	return maybeRepositoryAction(assertDirectRepository(func(ctx context.Context, rep repo.DirectRepository) error {
 		return repo.DirectWriteSession(ctx, rep, repo.WriteSessionOptions{
-			Purpose: "directRepositoryWriteAction",
+			Purpose:  "directRepositoryWriteAction",
+			OnUpload: progress.UploadedBytes,
 		}, func(dw repo.DirectRepositoryWriter) error { return act(ctx, dw) })
 	}), repositoryAccessMode{
 		mustBeConnected:    true,
@@ -128,7 +128,8 @@ func repositoryReaderAction(act func(ctx context.Context, rep repo.Repository) e
 func repositoryWriterAction(act func(ctx context.Context, rep repo.RepositoryWriter) error) func(ctx *kingpin.ParseContext) error {
 	return maybeRepositoryAction(func(ctx context.Context, rep repo.Repository) error {
 		return repo.WriteSession(ctx, rep, repo.WriteSessionOptions{
-			Purpose: "repositoryWriterAction",
+			Purpose:  "repositoryWriterAction",
+			OnUpload: progress.UploadedBytes,
 		}, func(w repo.RepositoryWriter) error {
 			return act(ctx, w)
 		})
@@ -141,12 +142,6 @@ func rootContext() context.Context {
 	ctx := context.Background()
 	ctx = content.UsingContentCache(ctx, *enableCaching)
 	ctx = content.UsingListCache(ctx, *enableListCaching)
-	ctx = blob.WithUploadProgressCallback(ctx, func(desc string, bytesSent, totalBytes int64) {
-		if bytesSent >= totalBytes {
-			log(ctx).Debugf("Uploaded %v %v %v", desc, bytesSent, totalBytes)
-			progress.UploadedBytes(totalBytes)
-		}
-	})
 
 	return ctx
 }
@@ -213,7 +208,8 @@ func maybeRunMaintenance(ctx context.Context, rep repo.Repository) error {
 	}
 
 	err := repo.DirectWriteSession(ctx, dr, repo.WriteSessionOptions{
-		Purpose: "maybeRunMaintenance",
+		Purpose:  "maybeRunMaintenance",
+		OnUpload: progress.UploadedBytes,
 	}, func(w repo.DirectRepositoryWriter) error {
 		return snapshotmaintenance.Run(ctx, w, maintenance.ModeAuto, false)
 	})

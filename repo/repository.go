@@ -24,7 +24,7 @@ type Repository interface {
 	Time() time.Time
 	ClientOptions() ClientOptions
 
-	NewWriter(ctx context.Context, purpose string) (RepositoryWriter, error)
+	NewWriter(ctx context.Context, opt WriteSessionOptions) (RepositoryWriter, error)
 
 	UpdateDescription(d string)
 
@@ -52,7 +52,7 @@ type DirectRepository interface {
 	ContentReader() content.Reader
 	IndexBlobReader() content.IndexBlobReader
 
-	NewDirectWriter(ctx context.Context, purpose string) (DirectRepositoryWriter, error)
+	NewDirectWriter(ctx context.Context, opt WriteSessionOptions) (DirectRepositoryWriter, error)
 
 	// misc
 	UniqueID() []byte
@@ -168,15 +168,16 @@ func (r *directRepository) UpdateDescription(d string) {
 }
 
 // NewWriter returns new RepositoryWriter session for repository.
-func (r *directRepository) NewWriter(ctx context.Context, purpose string) (RepositoryWriter, error) {
-	return r.NewDirectWriter(ctx, purpose)
+func (r *directRepository) NewWriter(ctx context.Context, opt WriteSessionOptions) (RepositoryWriter, error) {
+	return r.NewDirectWriter(ctx, opt)
 }
 
 // NewDirectWriter returns new DirectRepositoryWriter session for repository.
-func (r *directRepository) NewDirectWriter(ctx context.Context, purpose string) (DirectRepositoryWriter, error) {
+func (r *directRepository) NewDirectWriter(ctx context.Context, opt WriteSessionOptions) (DirectRepositoryWriter, error) {
 	cmgr := content.NewWriteManager(r.sm, content.SessionOptions{
 		SessionUser: r.cliOpts.Username,
 		SessionHost: r.cliOpts.Hostname,
+		OnUpload:    opt.OnUpload,
 	})
 
 	mmgr, err := manifest.NewManager(ctx, cmgr, manifest.ManagerOptions{
@@ -308,12 +309,13 @@ func (r *directRepository) Time() time.Time {
 // WriteSessionOptions describes options for a write session.
 type WriteSessionOptions struct {
 	Purpose        string
-	FlushOnFailure bool // whether to flush regardless of write sessionr result.
+	FlushOnFailure bool        // whether to flush regardless of write sessionr result.
+	OnUpload       func(int64) // invoke the provided function on each upload in the session
 }
 
 // WriteSession executes the provided callback in a repository writer created for the purpose and flushes writes.
 func WriteSession(ctx context.Context, r Repository, opt WriteSessionOptions, cb func(w RepositoryWriter) error) error {
-	w, err := r.NewWriter(ctx, opt.Purpose)
+	w, err := r.NewWriter(ctx, opt)
 	if err != nil {
 		return errors.Wrap(err, "unable to create writer")
 	}
@@ -323,7 +325,7 @@ func WriteSession(ctx context.Context, r Repository, opt WriteSessionOptions, cb
 
 // DirectWriteSession executes the provided callback in a DirectRepositoryWriter created for the purpose and flushes writes.
 func DirectWriteSession(ctx context.Context, r DirectRepository, opt WriteSessionOptions, cb func(dw DirectRepositoryWriter) error) error {
-	w, err := r.NewDirectWriter(ctx, opt.Purpose)
+	w, err := r.NewDirectWriter(ctx, opt)
 	if err != nil {
 		return errors.Wrap(err, "unable to create direct writer")
 	}

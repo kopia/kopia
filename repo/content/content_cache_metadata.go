@@ -91,12 +91,8 @@ func (c *contentCacheForMetadata) getContent(ctx context.Context, cacheKey cache
 	}
 
 	if useCache {
-		// store the whole blob in the cache, do not report cache writes as uploads.
-		if puterr := c.cacheStorage.PutBlob(
-			blob.WithUploadProgressCallback(ctx, nil),
-			blobID,
-			gather.FromSlice(blobData),
-		); puterr != nil {
+		// store the whole blob in the cache.
+		if puterr := c.cacheStorage.PutBlob(ctx, blobID, gather.FromSlice(blobData)); puterr != nil {
 			stats.Record(ctx, metricContentCacheStoreErrors.M(1))
 			log(ctx).Warningf("unable to write cache item %v: %v", blobID, puterr)
 		}

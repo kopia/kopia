@@ -116,7 +116,7 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 
 	// open new write session in repository client
 
-	writeSess, err := rep.NewWriter(ctx, "some writer")
+	writeSess, err := rep.NewWriter(ctx, repo.WriteSessionOptions{Purpose: "some writer"})
 	if err != nil {
 		t.Fatal(err)
 	}
