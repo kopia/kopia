@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -85,8 +86,7 @@ func NewCLITest(t *testing.T) *CLITest {
 
 	t.Cleanup(func() {
 		if t.Failed() {
-			t.Logf("logs are available in %v", logsDir)
-			return
+			dumpLogs(t, logsDir)
 		}
 
 		os.RemoveAll(logsDir)
@@ -131,6 +131,38 @@ func NewCLITest(t *testing.T) *CLITest {
 			"KOPIA_ADVANCED_COMMANDS=enabled",
 		},
 	}
+}
+
+func dumpLogs(t *testing.T, dirname string) {
+	t.Helper()
+
+	entries, err := ioutil.ReadDir(dirname)
+	if err != nil {
+		t.Errorf("unable to read %v: %v", dirname, err)
+
+		return
+	}
+
+	for _, e := range entries {
+		if e.IsDir() {
+			dumpLogs(t, filepath.Join(dirname, e.Name()))
+			continue
+		}
+
+		dumpLogFile(t, filepath.Join(dirname, e.Name()))
+	}
+}
+
+func dumpLogFile(t *testing.T, fname string) {
+	t.Helper()
+
+	data, err := ioutil.ReadFile(fname)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	t.Logf("LOG FILE: %v %v", fname, trimOutput(string(data)))
 }
 
 // RemoveDefaultPassword prevents KOPIA_PASSWORD from being passed to kopia.
@@ -185,6 +217,7 @@ func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) b
 	// complete the scan in background without processing lines.
 	go func() {
 		for scanner.Scan() {
+			t.Logf("[stderr] %v", scanner.Text())
 		}
 	}()
 
