@@ -567,7 +567,7 @@ func (rdc *repoDirEntryCache) getRepoDirEntry(t *testing.T, rop string) *snapsho
 		rdc.direntries = make(map[string]*snapshot.DirEntry)
 	}
 
-	rop = filepath.FromSlash(rop)
+	rop = filepath.ToSlash(rop)
 	repopath := path.Join(rdc.rootid, rop)
 	t.Logf("getRepoDirEntry repopath %q", repopath)
 
