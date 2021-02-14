@@ -39,9 +39,10 @@ var (
 	serverStartMaxConcurrency  = serverStartCommand.Flag("max-concurrency", "Maximum number of server goroutines").Default("0").Int()
 
 	serverStartRandomPassword = serverStartCommand.Flag("random-password", "Generate random password and print to stderr").Hidden().Bool()
-	serverStartAutoShutdown   = serverStartCommand.Flag("auto-shutdown", "Auto shutdown the server if API requests not received within given time").Hidden().Duration()
 	serverStartHtpasswdFile   = serverStartCommand.Flag("htpasswd-file", "Path to htpasswd file that contains allowed user@hostname entries").Hidden().ExistingFile()
 	serverStartAllowRepoUsers = serverStartCommand.Flag("allow-repository-users", "Allow users defined in the repository to connect").Bool()
+
+	serverStartShutdownWhenStdinClosed = serverStartCommand.Flag("shutdown-on-stdin", "Shut down the server when stdin handle has closed.").Hidden().Bool()
 )
 
 func init() {
@@ -108,15 +109,6 @@ func runServer(ctx context.Context, rep repo.Repository) error {
 
 	var handler http.Handler = mux
 
-	if as := *serverStartAutoShutdown; as > 0 {
-		log(ctx).Infof("starting a watchdog to stop the server if there's no activity for %v", as)
-		handler = startServerWatchdog(handler, as, func() {
-			if serr := httpServer.Shutdown(ctx); err != nil {
-				log(ctx).Warningf("unable to stop the server: %v", serr)
-			}
-		})
-	}
-
 	if *serverStartGRPC {
 		grpcServer := grpc.NewServer(
 			grpc.MaxSendMsgSize(repo.MaxGRPCMessageSize),
@@ -136,6 +128,17 @@ func runServer(ctx context.Context, rep repo.Repository) error {
 	} else {
 		log(ctx).Debugf("starting HTTP-only server...")
 		httpServer.Handler = handler
+	}
+
+	if *serverStartShutdownWhenStdinClosed {
+		log(ctx).Infof("Server will close when stdin is closed...")
+
+		go func() {
+			// consume all stdin and close the server when it closes
+			ioutil.ReadAll(os.Stdin) //nolint:errcheck
+			log(ctx).Infof("Shutting down server...")
+			httpServer.Shutdown(ctx) //nolint:errcheck
+		}()
 	}
 
 	err = startServerWithOptionalTLS(ctx, httpServer)

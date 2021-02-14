@@ -74,7 +74,6 @@ func TestServerStart(t *testing.T) {
 		"--random-password",
 		"--tls-generate-cert",
 		"--tls-generate-rsa-key-size=2048", // use shorter key size to speed up generation
-		"--auto-shutdown=180s",
 		"--override-hostname=fake-hostname",
 		"--override-username=fake-username",
 	)
@@ -209,7 +208,6 @@ func TestServerCreateAndConnectViaAPI(t *testing.T) {
 		"--address=localhost:0", "--random-password",
 		"--tls-generate-cert",
 		"--tls-generate-rsa-key-size=2048", // use shorter key size to speed up generation,
-		"--auto-shutdown=180s",
 	)
 	t.Logf("detected server parameters %#v", sp)
 
@@ -280,7 +278,6 @@ func TestConnectToExistingRepositoryViaAPI(t *testing.T) {
 		"--ui", "--address=localhost:0", "--random-password",
 		"--tls-generate-cert",
 		"--tls-generate-rsa-key-size=2048", // use shorter key size to speed up generation
-		"--auto-shutdown=180s",
 		"--override-hostname=fake-hostname", "--override-username=fake-username")
 	t.Logf("detected server parameters %#v", sp)
 
