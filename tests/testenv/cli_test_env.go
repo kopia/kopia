@@ -154,6 +154,8 @@ func dumpLogs(t *testing.T, dirname string) {
 }
 
 func dumpLogFile(t *testing.T, fname string) {
+	t.Helper()
+
 	data, err := ioutil.ReadFile(fname)
 	if err != nil {
 		t.Error(err)
@@ -215,6 +217,7 @@ func (e *CLITest) RunAndProcessStderr(t *testing.T, callback func(line string) b
 	// complete the scan in background without processing lines.
 	go func() {
 		for scanner.Scan() {
+			t.Logf("[stderr] %v", scanner.Text())
 		}
 	}()
 
