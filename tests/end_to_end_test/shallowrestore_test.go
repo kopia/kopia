@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -414,12 +415,12 @@ func TestPlaceholderAndRealFails(t *testing.T) {
 			ext: localfs.SHALLOWFILESUFFIX,
 		},
 	} {
-		path := s.p + s.ext
-		phf, err := os.Create(path)
+		fpath := s.p + s.ext
+		phf, err := os.Create(fpath)
 		testenv.AssertNoError(t, err)
 		testenv.AssertNoError(t, phf.Close())
 		e.RunAndExpectFailure(t, "snapshot", "create", source)
-		testenv.AssertNoError(t, os.RemoveAll(path))
+		testenv.AssertNoError(t, os.RemoveAll(fpath))
 	}
 }
 
@@ -464,19 +465,19 @@ func TestForeignReposCauseErrors(t *testing.T) {
 			},
 		},
 	} {
-		path := filepath.Join(source, "badplaceholder"+s.ext)
+		fpath := filepath.Join(source, "badplaceholder"+s.ext)
 		buffy := &bytes.Buffer{}
 		encoder := json.NewEncoder(buffy)
 		testenv.AssertNoError(t, encoder.Encode(s.de))
-		testenv.AssertNoError(t, ioutil.WriteFile(path, buffy.Bytes(), 0o444))
+		testenv.AssertNoError(t, ioutil.WriteFile(fpath, buffy.Bytes(), 0o444))
 		e.RunAndExpectFailure(t, "snapshot", "create", source)
-		testenv.AssertNoError(t, os.RemoveAll(path))
+		testenv.AssertNoError(t, os.RemoveAll(fpath))
 	}
 }
 
 // --- Helper routines start here.
 
-func getShallowDirEntry(t *testing.T, path string) *snapshot.DirEntry {
+func getShallowDirEntry(t *testing.T, fpath string) *snapshot.DirEntry {
 	t.Helper()
 
 	var (
@@ -485,8 +486,8 @@ func getShallowDirEntry(t *testing.T, path string) *snapshot.DirEntry {
 	)
 
 	for _, s := range []string{localfs.SHALLOWDIRSUFFIX, localfs.SHALLOWFILESUFFIX} {
-		p := path
-		if !strings.HasSuffix(path, s) {
+		p := fpath
+		if !strings.HasSuffix(fpath, s) {
 			p += s
 		}
 
@@ -545,10 +546,10 @@ type repoDirEntryCache struct {
 // the rdc.rootid. In particular, the repo entry
 // rdc.rootid/repoRootRel(path) should be the same as the localfs whose
 // snapshot is rdc.rootid.
-func (rdc *repoDirEntryCache) repoRootRel(t *testing.T, path string) string {
+func (rdc *repoDirEntryCache) repoRootRel(t *testing.T, fpath string) string {
 	t.Helper()
 
-	rp, err := filepath.Rel(rdc.reporootdir, path)
+	rp, err := filepath.Rel(rdc.reporootdir, fpath)
 	testenv.AssertNoError(t, err)
 
 	return rp
@@ -556,6 +557,7 @@ func (rdc *repoDirEntryCache) repoRootRel(t *testing.T, path string) string {
 
 // getRepoDirEntry retrieves the directory entry for rdc.rootid/rop via kopia
 // show of the repository rdc.rootid's directory contaning rdc.rootid/rop.
+// Assumption: repository paths are paths and not filepaths.
 func (rdc *repoDirEntryCache) getRepoDirEntry(t *testing.T, rop string) *snapshot.DirEntry {
 	t.Helper()
 
@@ -565,7 +567,8 @@ func (rdc *repoDirEntryCache) getRepoDirEntry(t *testing.T, rop string) *snapsho
 		rdc.direntries = make(map[string]*snapshot.DirEntry)
 	}
 
-	repopath := filepath.Join(rdc.rootid, rop)
+	rop = filepath.FromSlash(rop)
+	repopath := path.Join(rdc.rootid, rop)
 	t.Logf("getRepoDirEntry repopath %q", repopath)
 
 	if de, ok := rdc.direntries[repopath]; ok {
@@ -574,7 +577,7 @@ func (rdc *repoDirEntryCache) getRepoDirEntry(t *testing.T, rop string) *snapsho
 
 	// Cache miss so fill it up.
 	dir := filepath.Dir(rop)
-	repodirpath := filepath.Join(rdc.rootid, dir)
+	repodirpath := path.Join(rdc.rootid, dir)
 	t.Logf("original directory dir %q containing rop %q giving repodirpath %q", dir, rop, repodirpath)
 	spew := rdc.e.RunAndExpectSuccess(t, append([]string{"show"}, repodirpath)...)
 
@@ -586,7 +589,7 @@ func (rdc *repoDirEntryCache) getRepoDirEntry(t *testing.T, rop string) *snapsho
 
 	for _, de := range dirmnst.Entries {
 		t.Logf("%v", de)
-		rdc.direntries[filepath.Join(repodirpath, de.Name)] = de
+		rdc.direntries[path.Join(repodirpath, de.Name)] = de
 	}
 
 	if de, ok := rdc.direntries[repopath]; ok {
@@ -630,16 +633,16 @@ type mutatorArgs struct {
 type filesystemmutator func(m *mutatorArgs)
 
 // getSnapID gets a snapshot hash for path.
-func getSnapID(t *testing.T, sources []testenv.SourceInfo, path string) string {
+func getSnapID(t *testing.T, sources []testenv.SourceInfo, fpath string) string {
 	t.Helper()
 
 	for _, si := range sources {
-		if path == si.Path {
+		if fpath == si.Path {
 			return si.Snapshots[0].SnapshotID
 		}
 	}
 
-	t.Fatalf("no snapshot for %q in sources %v", path, sources)
+	t.Fatalf("no snapshot for %q in sources %v", fpath, sources)
 
 	return ""
 }
