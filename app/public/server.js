@@ -38,6 +38,7 @@ function newServerForRepo(repoID) {
                 '--tls-generate-cert-name=localhost',
                 '--random-password',
                 '--tls-generate-cert',
+                '--shutdown-on-stdin', // shutdown the server when parent dies
                 '--address=localhost:0');
     
 

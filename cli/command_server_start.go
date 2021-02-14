@@ -41,6 +41,8 @@ var (
 	serverStartRandomPassword = serverStartCommand.Flag("random-password", "Generate random password and print to stderr").Hidden().Bool()
 	serverStartHtpasswdFile   = serverStartCommand.Flag("htpasswd-file", "Path to htpasswd file that contains allowed user@hostname entries").Hidden().ExistingFile()
 	serverStartAllowRepoUsers = serverStartCommand.Flag("allow-repository-users", "Allow users defined in the repository to connect").Bool()
+
+	serverStartShutdownWhenStdinClosed = serverStartCommand.Flag("shutdown-on-stdin", "Shut down the server when stdin handle has closed.").Hidden().Bool()
 )
 
 func init() {
@@ -126,6 +128,17 @@ func runServer(ctx context.Context, rep repo.Repository) error {
 	} else {
 		log(ctx).Debugf("starting HTTP-only server...")
 		httpServer.Handler = handler
+	}
+
+	if *serverStartShutdownWhenStdinClosed {
+		log(ctx).Infof("Server will close when stdin is closed...")
+
+		go func() {
+			// consume all stdin and close the server when it closes
+			ioutil.ReadAll(os.Stdin) //nolint:errcheck
+			log(ctx).Infof("Shutting down server...")
+			httpServer.Shutdown(ctx) //nolint:errcheck
+		}()
 	}
 
 	err = startServerWithOptionalTLS(ctx, httpServer)
