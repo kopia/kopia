@@ -84,7 +84,6 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 			"--tls-generate-cert",
 			"--tls-key-file", tlsKey,
 			"--tls-cert-file", tlsCert,
-			"--auto-shutdown=60s",
 		}, serverStartArgs...)...)
 	t.Logf("detected server parameters %#v", sp)
 
@@ -136,7 +135,6 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 			"--address=" + sp.baseURL,
 			"--tls-key-file", tlsKey,
 			"--tls-cert-file", tlsCert,
-			"--auto-shutdown=60s",
 		}, serverStartArgs...)...)
 	t.Logf("detected server parameters %#v", sp)
 
