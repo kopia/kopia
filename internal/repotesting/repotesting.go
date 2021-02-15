@@ -76,13 +76,13 @@ func (e *Environment) Setup(t *testing.T, opts ...Options) *Environment {
 		t.Fatalf("err: %v", err)
 	}
 
-	if err = repo.Connect(ctx, e.configFile(), st, masterPassword, nil); err != nil {
+	if err = repo.Connect(ctx, e.ConfigFile(), st, masterPassword, nil); err != nil {
 		t.Fatalf("can't connect: %v", err)
 	}
 
 	e.connected = true
 
-	rep, err := repo.Open(ctx, e.configFile(), masterPassword, openOpt)
+	rep, err := repo.Open(ctx, e.ConfigFile(), masterPassword, openOpt)
 	if err != nil {
 		t.Fatalf("can't open: %v", err)
 	}
@@ -106,7 +106,7 @@ func (e *Environment) Close(ctx context.Context, t *testing.T) {
 	}
 
 	if e.connected {
-		if err := repo.Disconnect(ctx, e.configFile()); err != nil {
+		if err := repo.Disconnect(ctx, e.ConfigFile()); err != nil {
 			t.Errorf("error disconnecting: %v", err)
 		}
 	}
@@ -117,7 +117,8 @@ func (e *Environment) Close(ctx context.Context, t *testing.T) {
 	}
 }
 
-func (e *Environment) configFile() string {
+// ConfigFile returns the name of the config file.
+func (e *Environment) ConfigFile() string {
 	return filepath.Join(e.configDir, "kopia.config")
 }
 
@@ -132,7 +133,7 @@ func (e *Environment) MustReopen(t *testing.T, openOpts ...func(*repo.Options)) 
 		t.Fatalf("close error: %v", err)
 	}
 
-	rep, err := repo.Open(ctx, e.configFile(), masterPassword, repoOptions(openOpts))
+	rep, err := repo.Open(ctx, e.ConfigFile(), masterPassword, repoOptions(openOpts))
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -149,7 +150,7 @@ func (e *Environment) MustOpenAnother(t *testing.T) repo.RepositoryWriter {
 
 	ctx := testlogging.Context(t)
 
-	rep2, err := repo.Open(ctx, e.configFile(), masterPassword, &repo.Options{})
+	rep2, err := repo.Open(ctx, e.ConfigFile(), masterPassword, &repo.Options{})
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -191,7 +192,7 @@ func (e *Environment) MustConnectOpenAnother(t *testing.T, openOpts ...func(*rep
 		t.Fatal("can't connect:", err)
 	}
 
-	rep, err := repo.Open(ctx, e.configFile(), masterPassword, repoOptions(openOpts))
+	rep, err := repo.Open(ctx, e.ConfigFile(), masterPassword, repoOptions(openOpts))
 	if err != nil {
 		t.Fatal("can't open:", err)
 	}

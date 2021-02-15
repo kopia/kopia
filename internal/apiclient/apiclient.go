@@ -44,8 +44,8 @@ func (c *KopiaAPIClient) Put(ctx context.Context, urlSuffix string, reqPayload, 
 
 // Delete is a helper that performs HTTP DELETE on a URL with the specified body from reqPayload and decodes the response
 // onto respPayload which must be a pointer to byte slice or JSON-serializable structure.
-func (c *KopiaAPIClient) Delete(ctx context.Context, urlSuffix string, reqPayload, respPayload interface{}) error {
-	return c.runRequest(ctx, http.MethodDelete, c.BaseURL+urlSuffix, nil, reqPayload, respPayload)
+func (c *KopiaAPIClient) Delete(ctx context.Context, urlSuffix string, onNotFound error, reqPayload, respPayload interface{}) error {
+	return c.runRequest(ctx, http.MethodDelete, c.BaseURL+urlSuffix, onNotFound, reqPayload, respPayload)
 }
 
 func (c *KopiaAPIClient) runRequest(ctx context.Context, method, url string, notFoundError error, reqPayload, respPayload interface{}) error {

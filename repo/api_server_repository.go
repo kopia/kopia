@@ -116,7 +116,7 @@ func (r *apiServerRepository) FindManifests(ctx context.Context, labels map[stri
 }
 
 func (r *apiServerRepository) DeleteManifest(ctx context.Context, id manifest.ID) error {
-	return errors.Wrap(r.cli.Delete(ctx, "manifests/"+string(id), nil, nil), "DeleteManifest")
+	return errors.Wrap(r.cli.Delete(ctx, "manifests/"+string(id), manifest.ErrNotFound, nil, nil), "DeleteManifest")
 }
 
 func (r *apiServerRepository) Time() time.Time {
