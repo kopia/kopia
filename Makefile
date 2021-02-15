@@ -139,7 +139,6 @@ ifeq ($(TRAVIS_OS_NAME)/$(kopia_arch_name),linux/amd64)
 	$(MAKE) robustness-tool-tests
 	$(MAKE) stress-test
 	$(MAKE) travis-create-long-term-repository
-	$(MAKE) upload-coverage
 endif
 
 endif
@@ -184,9 +183,6 @@ goreleaser: $(goreleaser) print_build_info
 	-git diff | cat
 	$(goreleaser) release $(GORELEASER_OPTIONS)
 
-upload-coverage:
-	curl -s https://codecov.io/bash | bash
-
 dev-deps:
 	GO111MODULE=off go get -u golang.org/x/tools/cmd/gorename
 	GO111MODULE=off go get -u golang.org/x/tools/cmd/guru
@@ -199,10 +195,6 @@ dev-deps:
 test-with-coverage: export RCLONE_EXE=$(rclone)
 test-with-coverage: $(gotestsum) $(rclone)
 	$(GO_TEST) -count=$(REPEAT_TEST) -covermode=atomic -coverprofile=coverage.txt --coverpkg $(COVERAGE_PACKAGES) -timeout 300s ./...
-
-test-with-coverage-pkgonly: export RCLONE_EXE=$(rclone)
-test-with-coverage-pkgonly: $(gotestsum) $(rclone)
-	$(GO_TEST) -count=$(REPEAT_TEST) -covermode=atomic -coverprofile=coverage.txt -timeout 300s github.com/kopia/kopia/...
 
 test: export RCLONE_EXE=$(rclone)
 test: $(gotestsum) $(rclone)
