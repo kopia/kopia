@@ -87,7 +87,8 @@ export class TaskDetails extends Component {
             return <Alert variant="warning">Task canceled.</Alert>;
 
         default:
-            return <Alert variant="primary"> <Spinner animation="border" variant="primary" size="sm" /> Task in progress ({dur}).</Alert>;
+            return <Alert variant="primary">
+                <Spinner animation="border" variant="primary" size="sm" /> Running {dur}: {task.progressInfo}.</Alert>;
         }
     }
 

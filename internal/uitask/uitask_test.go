@@ -79,6 +79,7 @@ func TestUITask(t *testing.T) {
 			"fff",
 		})
 
+		ctrl.ReportProgressInfo("doing something")
 		ctrl.ReportCounters(map[string]uitask.CounterValue{
 			"foo":        uitask.SimpleCounter(1),
 			"bar":        uitask.BytesCounter(2),
@@ -103,6 +104,10 @@ func TestUITask(t *testing.T) {
 			t.Fatalf("unexpected counters, diff: %v", diff)
 		}
 
+		if got, want := tsk.ProgressInfo, "doing something"; got != want {
+			t.Fatalf("invalid progress info: %v, want %v", got, want)
+		}
+
 		return nil
 	})
 
@@ -114,6 +119,10 @@ func TestUITask(t *testing.T) {
 	tsk, ok := m.GetTask(tid1)
 	if !ok {
 		t.Fatalf("task not found")
+	}
+
+	if got, want := tsk.ProgressInfo, ""; got != want {
+		t.Fatalf("invalid progress info: %v, want %v", got, want)
 	}
 
 	if got, want := tsk.Description, "test-1"; got != want {
