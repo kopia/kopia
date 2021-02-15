@@ -198,11 +198,11 @@ dev-deps:
 
 test-with-coverage: export RCLONE_EXE=$(rclone)
 test-with-coverage: $(gotestsum) $(rclone)
-	$(GO_TEST) -count=$(REPEAT_TEST) -coverprofile=tmp.cov --coverpkg $(COVERAGE_PACKAGES) -timeout 300s ./...
+	$(GO_TEST) -count=$(REPEAT_TEST) -covermode=atomic -coverprofile=coverage.txt --coverpkg $(COVERAGE_PACKAGES) -timeout 300s ./...
 
 test-with-coverage-pkgonly: export RCLONE_EXE=$(rclone)
 test-with-coverage-pkgonly: $(gotestsum) $(rclone)
-	$(GO_TEST) -count=$(REPEAT_TEST) -coverprofile=tmp.cov -timeout 300s github.com/kopia/kopia/...
+	$(GO_TEST) -count=$(REPEAT_TEST) -covermode=atomic -coverprofile=coverage.txt -timeout 300s github.com/kopia/kopia/...
 
 test: export RCLONE_EXE=$(rclone)
 test: $(gotestsum) $(rclone)
@@ -257,7 +257,7 @@ godoc:
 coverage: test-with-coverage coverage-html
 
 coverage-html:
-	go tool cover -html=tmp.cov
+	go tool cover -html=coverage.txt
 
 official-release:
 	git tag $(RELEASE_VERSION) -m $(RELEASE_VERSION)
