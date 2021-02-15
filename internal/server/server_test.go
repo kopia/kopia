@@ -121,8 +121,13 @@ func remoteRepositoryTest(ctx context.Context, t *testing.T, rep repo.Repository
 		}
 	)
 
+	var uploaded int64
+
 	must(t, repo.WriteSession(ctx, rep, repo.WriteSessionOptions{
 		Purpose: "write test",
+		OnUpload: func(i int64) {
+			uploaded += i
+		},
 	}, func(w repo.RepositoryWriter) error {
 		mustGetObjectNotFound(ctx, t, w, "abcd")
 		mustGetManifestNotFound(ctx, t, w, "mnosuchmanifest")
@@ -130,7 +135,16 @@ func remoteRepositoryTest(ctx context.Context, t *testing.T, rep repo.Repository
 		mustListSnapshotCount(ctx, t, w, 0)
 
 		result = mustWriteObject(ctx, t, w, written)
+
+		if uploaded == 0 {
+			t.Fatalf("did not report uploaded bytes")
+		}
+
+		uploaded = 0
 		result2 := mustWriteObject(ctx, t, w, written)
+		if uploaded != 0 {
+			t.Fatalf("unexpected upload when writing duplicate object")
+		}
 
 		if result != result2 {
 			t.Fatalf("two identical object with different IDs: %v vs %v", result, result2)
