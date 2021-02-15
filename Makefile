@@ -185,7 +185,7 @@ goreleaser: $(goreleaser) print_build_info
 	$(goreleaser) release $(GORELEASER_OPTIONS)
 
 upload-coverage:
-	bash <(curl -s https://codecov.io/bash)
+	curl -s https://codecov.io/bash | bash
 
 dev-deps:
 	GO111MODULE=off go get -u golang.org/x/tools/cmd/gorename
