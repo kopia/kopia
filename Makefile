@@ -134,7 +134,7 @@ endif
 	$(MAKE) lint vet test-with-coverage
 	$(retry) $(MAKE) layering-test
 	$(retry) $(MAKE) integration-tests
-ifeq ($(TRAVIS_OS_NAME),linux)
+ifeq ($(TRAVIS_OS_NAME)/$(kopia_arch_name),linux/amd64)
 	$(MAKE) publish-packages
 	$(MAKE) robustness-tool-tests
 	$(MAKE) stress-test
@@ -184,21 +184,8 @@ goreleaser: $(goreleaser) print_build_info
 	-git diff | cat
 	$(goreleaser) release $(GORELEASER_OPTIONS)
 
-ifeq ($(TRAVIS_PULL_REQUEST),false)
-
-upload-coverage: $(GOVERALLS_TOOL)
-ifeq ($(REPO_OWNER),kopia)
-	-$(GOVERALLS_TOOL) -service=$(GOVERALLS_SERVICE) -coverprofile=tmp.cov
-else
-	@echo Not uploading coverage from a fork.
-endif
-
-else
-
 upload-coverage:
-	@echo Not uploading coverage during PR build.
-
-endif
+	curl -s https://codecov.io/bash | bash
 
 dev-deps:
 	GO111MODULE=off go get -u golang.org/x/tools/cmd/gorename
@@ -211,7 +198,7 @@ dev-deps:
 
 test-with-coverage: export RCLONE_EXE=$(rclone)
 test-with-coverage: $(gotestsum) $(rclone)
-	$(GO_TEST) -count=$(REPEAT_TEST) -coverprofile=tmp.cov --coverpkg $(COVERAGE_PACKAGES) -timeout 300s $(shell go list ./...)
+	$(GO_TEST) -count=$(REPEAT_TEST) -coverprofile=tmp.cov --coverpkg $(COVERAGE_PACKAGES) -timeout 300s ./...
 
 test-with-coverage-pkgonly: export RCLONE_EXE=$(rclone)
 test-with-coverage-pkgonly: $(gotestsum) $(rclone)
