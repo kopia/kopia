@@ -18,7 +18,6 @@ import (
 	"github.com/pkg/errors"
 	prom "github.com/prometheus/client_golang/prometheus"
 	htpasswd "github.com/tg123/go-htpasswd"
-	"google.golang.org/grpc"
 
 	"github.com/kopia/kopia/internal/auth"
 	"github.com/kopia/kopia/internal/clock"
@@ -110,25 +109,10 @@ func runServer(ctx context.Context, rep repo.Repository) error {
 	var handler http.Handler = mux
 
 	if *serverStartGRPC {
-		grpcServer := grpc.NewServer(
-			grpc.MaxSendMsgSize(repo.MaxGRPCMessageSize),
-			grpc.MaxRecvMsgSize(repo.MaxGRPCMessageSize),
-		)
-		srv.RegisterGRPCHandlers(grpcServer)
-
-		log(ctx).Debugf("starting GRPC/HTTP server...")
-
-		httpServer.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.ProtoMajor == 2 && strings.Contains(r.Header.Get("Content-Type"), "application/grpc") {
-				grpcServer.ServeHTTP(w, r)
-			} else {
-				handler.ServeHTTP(w, r)
-			}
-		})
-	} else {
-		log(ctx).Debugf("starting HTTP-only server...")
-		httpServer.Handler = handler
+		handler = srv.GRPCRouterHandler(handler)
 	}
+
+	httpServer.Handler = handler
 
 	if *serverStartShutdownWhenStdinClosed {
 		log(ctx).Infof("Server will close when stdin is closed...")

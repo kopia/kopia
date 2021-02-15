@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"runtime"
 	"strings"
 	"sync"
@@ -49,10 +50,6 @@ func (s *Server) authenticateGRPCSession(ctx context.Context) (string, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return "", status.Errorf(codes.PermissionDenied, "metadata not found in context")
-	}
-
-	if s.authenticator == nil {
-		return "", status.Errorf(codes.PermissionDenied, "no authenticator")
 	}
 
 	if u, h, p := md.Get("kopia-username"), md.Get("kopia-hostname"), md.Get("kopia-password"); len(u) == 1 && len(p) == 1 && len(h) == 1 {
@@ -447,4 +444,23 @@ func makeGRPCServerState(maxConcurrency int) grpcServerState {
 	return grpcServerState{
 		sem: semaphore.NewWeighted(int64(maxConcurrency)),
 	}
+}
+
+// GRPCRouterHandler returns HTTP handler that supports GRPC services and
+// routes non-GRPC calls to the provided handler.
+func (s *Server) GRPCRouterHandler(handler http.Handler) http.Handler {
+	grpcServer := grpc.NewServer(
+		grpc.MaxSendMsgSize(repo.MaxGRPCMessageSize),
+		grpc.MaxRecvMsgSize(repo.MaxGRPCMessageSize),
+	)
+
+	s.RegisterGRPCHandlers(grpcServer)
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.ProtoMajor == 2 && strings.Contains(r.Header.Get("Content-Type"), "application/grpc") {
+			grpcServer.ServeHTTP(w, r)
+		} else {
+			handler.ServeHTTP(w, r)
+		}
+	})
 }
