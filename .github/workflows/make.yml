@@ -109,6 +109,7 @@ jobs:
       run: make travis-release
     - name: Upload Coverage report to CodeCov
       uses: codecov/codecov-action@v1.0.0
+      if: ${{ contains(matrix.os, 'ubuntu') }}
       with:
         token: ${{secrets.CODECOV_TOKEN}}
         file: ./coverage.txt
