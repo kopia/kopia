@@ -34,6 +34,7 @@ const (
 const TypeLabelKey = "type"
 
 type contentManager interface {
+	Revision() int64
 	GetContent(ctx context.Context, contentID content.ID) ([]byte, error)
 	WriteContent(ctx context.Context, data []byte, prefix content.ID) (content.ID, error)
 	DeleteContent(ctx context.Context, contentID content.ID) error
@@ -237,11 +238,6 @@ func (m *Manager) Delete(ctx context.Context, id ID) error {
 	}
 
 	return nil
-}
-
-// Refresh updates the committed contents from the underlying storage.
-func (m *Manager) Refresh(ctx context.Context) error {
-	return m.committed.invalidate()
 }
 
 // Compact performs compaction of manifest contents.

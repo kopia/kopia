@@ -275,10 +275,6 @@ func (r *directRepository) Refresh(ctx context.Context) error {
 		return errors.Wrap(err, "error refreshing content index")
 	}
 
-	if err := r.mmgr.Refresh(ctx); err != nil {
-		return errors.Wrap(err, "error reloading manifests")
-	}
-
 	return nil
 }
 
@@ -320,7 +316,7 @@ func WriteSession(ctx context.Context, r Repository, opt WriteSessionOptions, cb
 		return errors.Wrap(err, "unable to create writer")
 	}
 
-	return handleWriteSessionResult(ctx, r, w, opt, cb(w))
+	return handleWriteSessionResult(ctx, w, opt, cb(w))
 }
 
 // DirectWriteSession executes the provided callback in a DirectRepositoryWriter created for the purpose and flushes writes.
@@ -330,10 +326,10 @@ func DirectWriteSession(ctx context.Context, r DirectRepository, opt WriteSessio
 		return errors.Wrap(err, "unable to create direct writer")
 	}
 
-	return handleWriteSessionResult(ctx, r, w, opt, cb(w))
+	return handleWriteSessionResult(ctx, w, opt, cb(w))
 }
 
-func handleWriteSessionResult(ctx context.Context, r Repository, w RepositoryWriter, opt WriteSessionOptions, resultErr error) error {
+func handleWriteSessionResult(ctx context.Context, w RepositoryWriter, opt WriteSessionOptions, resultErr error) error {
 	defer func() {
 		if err := w.Close(ctx); err != nil {
 			log(ctx).Warningf("error closing writer: %v", err)
@@ -344,10 +340,6 @@ func handleWriteSessionResult(ctx context.Context, r Repository, w RepositoryWri
 		if err := w.Flush(ctx); err != nil {
 			return errors.Wrap(err, "error flushing writer")
 		}
-	}
-
-	if err := r.Refresh(ctx); err != nil {
-		return errors.Wrap(err, "error refreshing repository")
 	}
 
 	return resultErr

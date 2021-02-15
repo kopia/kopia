@@ -103,10 +103,6 @@ func TestManifest(t *testing.T) {
 	// still found in another
 	verifyItem(ctx, t, mgr2, id3, labels3, item3)
 
-	if err := mgr2.Refresh(ctx); err != nil {
-		t.Errorf("unable to load: %v", err)
-	}
-
 	if err := mgr.Compact(ctx); err != nil {
 		t.Errorf("can't compact: %v", err)
 	}

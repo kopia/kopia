@@ -5,6 +5,7 @@ import (
 	"context"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 
 	"github.com/pkg/errors"
 
@@ -18,6 +19,7 @@ import (
 const smallIndexEntryCountThreshold = 100
 
 type committedContentIndex struct {
+	rev   int64
 	cache committedContentIndexCache
 
 	mu     sync.Mutex
@@ -30,6 +32,10 @@ type committedContentIndexCache interface {
 	addContentToCache(ctx context.Context, indexBlob blob.ID, data []byte) error
 	openIndex(ctx context.Context, indexBlob blob.ID) (packIndex, error)
 	expireUnused(ctx context.Context, used []blob.ID) error
+}
+
+func (b *committedContentIndex) revision() int64 {
+	return atomic.LoadInt64(&b.rev)
 }
 
 func (b *committedContentIndex) getContent(contentID ID) (Info, error) {
@@ -49,6 +55,8 @@ func (b *committedContentIndex) getContent(contentID ID) (Info, error) {
 }
 
 func (b *committedContentIndex) addContent(ctx context.Context, indexBlobID blob.ID, data []byte, use bool) error {
+	atomic.AddInt64(&b.rev, 1)
+
 	if err := b.cache.addContentToCache(ctx, indexBlobID, data); err != nil {
 		return errors.Wrap(err, "error adding content to cache")
 	}
@@ -107,6 +115,8 @@ func (b *committedContentIndex) use(ctx context.Context, packFiles []blob.ID) (b
 	if !b.packFilesChanged(packFiles) {
 		return false, nil
 	}
+
+	atomic.AddInt64(&b.rev, 1)
 
 	var newMerged mergedIndex
 
