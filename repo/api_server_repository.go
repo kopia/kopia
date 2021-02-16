@@ -37,6 +37,7 @@ type apiServerRepository struct {
 	objectFormat object.Format
 	cliOpts      ClientOptions
 	omgr         *object.Manager
+	wso          WriteSessionOptions
 }
 
 func (r *apiServerRepository) APIServerURL() string {
@@ -116,7 +117,7 @@ func (r *apiServerRepository) FindManifests(ctx context.Context, labels map[stri
 }
 
 func (r *apiServerRepository) DeleteManifest(ctx context.Context, id manifest.ID) error {
-	return errors.Wrap(r.cli.Delete(ctx, "manifests/"+string(id), nil, nil), "DeleteManifest")
+	return errors.Wrap(r.cli.Delete(ctx, "manifests/"+string(id), manifest.ErrNotFound, nil, nil), "DeleteManifest")
 }
 
 func (r *apiServerRepository) Time() time.Time {
@@ -143,6 +144,7 @@ func (r *apiServerRepository) NewWriter(ctx context.Context, opt WriteSessionOpt
 	}
 
 	w.omgr = omgr
+	w.wso = opt
 
 	return w, nil
 }
@@ -175,6 +177,14 @@ func (r *apiServerRepository) WriteContent(ctx context.Context, data []byte, pre
 	var hashOutput [128]byte
 
 	contentID := prefix + content.ID(hex.EncodeToString(r.h(hashOutput[:0], data)))
+
+	// avoid uploading the content body if it already exists.
+	if _, err := r.ContentInfo(ctx, contentID); err == nil {
+		// content already exists
+		return contentID, nil
+	}
+
+	r.wso.OnUpload(int64(len(data)))
 
 	if err := r.cli.Put(ctx, "contents/"+string(contentID), data, nil); err != nil {
 		return "", errors.Wrapf(err, "error writing content %v", contentID)
@@ -214,6 +224,9 @@ func openRestAPIRepository(ctx context.Context, si *APIServerInfo, cliOpts Clien
 	rr := &apiServerRepository{
 		cli:     cli,
 		cliOpts: cliOpts,
+		wso: WriteSessionOptions{
+			OnUpload: func(i int64) {},
+		},
 	}
 
 	var p remoterepoapi.Parameters

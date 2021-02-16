@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net/url"
@@ -525,6 +526,20 @@ func (r *grpcInnerSession) GetContent(ctx context.Context, contentID content.ID)
 }
 
 func (r *grpcRepositoryClient) WriteContent(ctx context.Context, data []byte, prefix content.ID) (content.ID, error) {
+	if err := content.ValidatePrefix(prefix); err != nil {
+		return "", errors.Wrap(err, "invalid prefix")
+	}
+
+	var hashOutput [128]byte
+
+	contentID := prefix + content.ID(hex.EncodeToString(r.h(hashOutput[:0], data)))
+
+	// avoid uploading the content body if it already exists.
+	if _, err := r.ContentInfo(ctx, contentID); err == nil {
+		// content already exists
+		return contentID, nil
+	}
+
 	r.opt.OnUpload(int64(len(data)))
 
 	v, err := r.inSessionWithoutRetry(ctx, func(ctx context.Context, sess *grpcInnerSession) (interface{}, error) {

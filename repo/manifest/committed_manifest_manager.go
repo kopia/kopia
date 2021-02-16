@@ -17,8 +17,8 @@ type committedManifestManager struct {
 	b contentManager
 
 	cmmu                sync.Mutex
+	lastRevision        int64
 	locked              bool
-	initialized         bool
 	committedEntries    map[ID]*manifestEntry
 	committedContentIDs map[content.ID]bool
 }
@@ -89,17 +89,6 @@ func (m *committedManifestManager) writeEntriesLocked(ctx context.Context, entri
 	m.committedContentIDs[contentID] = true
 
 	return map[content.ID]bool{contentID: true}, nil
-}
-
-func (m *committedManifestManager) invalidate() error {
-	m.lock()
-	defer m.unlock()
-
-	m.initialized = false
-	m.committedContentIDs = map[content.ID]bool{}
-	m.committedEntries = map[ID]*manifestEntry{}
-
-	return nil
 }
 
 func (m *committedManifestManager) loadCommittedContentsLocked(ctx context.Context) error {
@@ -258,7 +247,8 @@ func (m *committedManifestManager) ensureInitialized(ctx context.Context) error 
 	m.lock()
 	defer m.unlock()
 
-	if m.initialized {
+	rev := m.b.Revision()
+	if m.lastRevision == rev {
 		return nil
 	}
 
@@ -266,7 +256,10 @@ func (m *committedManifestManager) ensureInitialized(ctx context.Context) error 
 		return err
 	}
 
-	m.initialized = true
+	m.lastRevision = rev
+
+	// it is possible that the content manager revision has changed while we were reading it,
+	// that's ok - we read __some__ consistent set of data and next time we will invalidate again.
 
 	return nil
 }
