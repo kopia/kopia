@@ -309,8 +309,8 @@ func (r *directRepository) Time() time.Time {
 // WriteSessionOptions describes options for a write session.
 type WriteSessionOptions struct {
 	Purpose        string
-	FlushOnFailure bool        // whether to flush regardless of write sessionr result.
-	OnUpload       func(int64) // invoke the provided function on each upload in the session
+	FlushOnFailure bool        // whether to flush regardless of write session result.
+	OnUpload       func(int64) // function to invoke after completing each upload in the session.
 }
 
 // WriteSession executes the provided callback in a repository writer created for the purpose and flushes writes.
