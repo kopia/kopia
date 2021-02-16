@@ -449,6 +449,8 @@ func (t *uitaskProgress) UploadedBytes(numBytes int64) {
 func (t *uitaskProgress) StartedDirectory(dirname string) {
 	t.p.StartedDirectory(dirname)
 	t.maybeReport()
+
+	t.ctrl.ReportProgressInfo(dirname)
 }
 
 // FinishedDirectory is emitted whenever a directory is finished uploading.
