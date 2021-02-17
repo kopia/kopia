@@ -46,6 +46,9 @@ func startServer(ctx context.Context, t *testing.T) *repo.APIServerInfo {
 
 	s.SetRepository(ctx, env.Repository)
 
+	// ensure we disconnect the repository before shutting down the server.
+	t.Cleanup(func() { s.SetRepository(ctx, nil) })
+
 	if err != nil {
 		t.Fatal(err)
 	}
