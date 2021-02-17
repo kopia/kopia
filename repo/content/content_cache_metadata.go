@@ -2,6 +2,7 @@ package content
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/stats"
@@ -54,17 +55,14 @@ func (c *contentCacheForMetadata) getContent(ctx context.Context, cacheKey cache
 	m.Lock()
 	defer m.Unlock()
 
-	useCache := shouldUseContentCache(ctx)
-	if useCache {
-		if v, err := c.cacheBase.cacheStorage.GetBlob(ctx, blobID, offset, length); err == nil {
-			// cache hit
-			stats.Record(ctx,
-				metricContentCacheHitCount.M(1),
-				metricContentCacheHitBytes.M(int64(len(v))),
-			)
+	if v, err := c.cacheBase.cacheStorage.GetBlob(ctx, blobID, offset, length); err == nil {
+		// cache hit
+		stats.Record(ctx,
+			metricContentCacheHitCount.M(1),
+			metricContentCacheHitBytes.M(int64(len(v))),
+		)
 
-			return v, nil
-		}
+		return v, nil
 	}
 
 	stats.Record(ctx, metricContentCacheMissCount.M(1))
@@ -90,12 +88,12 @@ func (c *contentCacheForMetadata) getContent(ctx context.Context, cacheKey cache
 		return nil, err
 	}
 
-	if useCache {
-		// store the whole blob in the cache.
-		if puterr := c.cacheStorage.PutBlob(ctx, blobID, gather.FromSlice(blobData)); puterr != nil {
-			stats.Record(ctx, metricContentCacheStoreErrors.M(1))
-			log(ctx).Warningf("unable to write cache item %v: %v", blobID, puterr)
-		}
+	atomic.StoreInt32(&c.anyChange, 1)
+
+	// store the whole blob in the cache.
+	if puterr := c.cacheStorage.PutBlob(ctx, blobID, gather.FromSlice(blobData)); puterr != nil {
+		stats.Record(ctx, metricContentCacheStoreErrors.M(1))
+		log(ctx).Warningf("unable to write cache item %v: %v", blobID, puterr)
 	}
 
 	if offset == 0 && length == -1 {
@@ -114,7 +112,7 @@ func newContentCacheForMetadata(ctx context.Context, st, cacheStorage blob.Stora
 		return passthroughContentCache{st}, nil
 	}
 
-	cb, err := newContentCacheBase(ctx, cacheStorage, maxSizeBytes, defaultTouchThreshold, defaultSweepFrequency)
+	cb, err := newContentCacheBase(ctx, "metadata cache", cacheStorage, maxSizeBytes, defaultTouchThreshold, defaultSweepFrequency)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create base cache")
 	}

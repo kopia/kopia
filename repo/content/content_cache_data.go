@@ -2,6 +2,7 @@ package content
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/stats"
@@ -31,16 +32,13 @@ func adjustCacheKey(cacheKey cacheKey) cacheKey {
 func (c *contentCacheForData) getContent(ctx context.Context, cacheKey cacheKey, blobID blob.ID, offset, length int64) ([]byte, error) {
 	cacheKey = adjustCacheKey(cacheKey)
 
-	useCache := shouldUseContentCache(ctx)
-	if useCache {
-		if b := c.readAndVerifyCacheContent(ctx, cacheKey); b != nil {
-			stats.Record(ctx,
-				metricContentCacheHitCount.M(1),
-				metricContentCacheHitBytes.M(int64(len(b))),
-			)
+	if b := c.readAndVerifyCacheContent(ctx, cacheKey); b != nil {
+		stats.Record(ctx,
+			metricContentCacheHitCount.M(1),
+			metricContentCacheHitBytes.M(int64(len(b))),
+		)
 
-			return b, nil
-		}
+		return b, nil
 	}
 
 	stats.Record(ctx, metricContentCacheMissCount.M(1))
@@ -58,14 +56,18 @@ func (c *contentCacheForData) getContent(ctx context.Context, cacheKey cacheKey,
 		return nil, err
 	}
 
-	if err == nil && useCache {
-		if puterr := c.cacheStorage.PutBlob(ctx, blob.ID(cacheKey), gather.FromSlice(hmac.Append(b, c.hmacSecret))); puterr != nil {
-			stats.Record(ctx, metricContentCacheStoreErrors.M(1))
-			log(ctx).Warningf("unable to write cache item %v: %v", cacheKey, puterr)
-		}
+	if err != nil {
+		return nil, errors.Wrap(err, "error getting content from cache")
 	}
 
-	return b, errors.Wrap(err, "error getting content from cache")
+	atomic.StoreInt32(&c.anyChange, 1)
+
+	if puterr := c.cacheStorage.PutBlob(ctx, blob.ID(cacheKey), gather.FromSlice(hmac.Append(b, c.hmacSecret))); puterr != nil {
+		stats.Record(ctx, metricContentCacheStoreErrors.M(1))
+		log(ctx).Warningf("unable to write cache item %v: %v", cacheKey, puterr)
+	}
+
+	return b, nil
 }
 
 func (c *contentCacheForData) readAndVerifyCacheContent(ctx context.Context, cacheKey cacheKey) []byte {
@@ -97,7 +99,7 @@ func newContentCacheForData(ctx context.Context, st, cacheStorage blob.Storage, 
 		return passthroughContentCache{st}, nil
 	}
 
-	cb, err := newContentCacheBase(ctx, cacheStorage, maxSizeBytes, defaultTouchThreshold, defaultSweepFrequency)
+	cb, err := newContentCacheBase(ctx, "content cache", cacheStorage, maxSizeBytes, defaultTouchThreshold, defaultSweepFrequency)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create base cache")
 	}

@@ -348,8 +348,8 @@ func (sm *SharedManager) release(ctx context.Context) error {
 		return errors.Wrap(err, "error closed committed content index")
 	}
 
-	sm.contentCache.close()
-	sm.metadataCache.close()
+	sm.contentCache.close(ctx)
+	sm.metadataCache.close(ctx)
 	sm.encryptionBufferPool.Close()
 
 	return sm.st.Close(ctx)

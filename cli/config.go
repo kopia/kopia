@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
@@ -19,13 +20,26 @@ import (
 
 var (
 	traceStorage      = app.Flag("trace-storage", "Enables tracing of storage operations.").Default("true").Hidden().Bool()
-	traceLocalFS      = app.Flag("trace-localfs", "Enables tracing of local filesystem operations").Envar("KOPIA_TRACE_FS").Bool()
-	enableCaching     = app.Flag("caching", "Enables caching of objects (disable with --no-caching)").Default("true").Hidden().Bool()
-	enableListCaching = app.Flag("list-caching", "Enables caching of list results (disable with --no-list-caching)").Default("true").Hidden().Bool()
+	traceLocalFS      = app.Flag("trace-localfs", "Enables tracing of local filesystem operations").Envar("KOPIA_TRACE_FS").Hidden().Bool()
 	metricsListenAddr = app.Flag("metrics-listen-addr", "Expose Prometheus metrics on a given host:port").Hidden().String()
+
+	_ = app.Flag("caching", "Enables caching of objects (disable with --no-caching)").Default("true").Hidden().Action(
+		deprecatedFlag("The '--caching' flag is deprecated and has no effect, use 'kopia cache set' instead."),
+	).Bool()
+
+	_ = app.Flag("list-caching", "Enables caching of list results (disable with --no-list-caching)").Default("true").Hidden().Action(
+		deprecatedFlag("The '--list-caching' flag is deprecated and has no effect, use 'kopia cache set' instead."),
+	).Bool()
 
 	configPath = app.Flag("config-file", "Specify the config file to use.").Default(defaultConfigFileName()).Envar("KOPIA_CONFIG_PATH").String()
 )
+
+func deprecatedFlag(help string) func(_ *kingpin.ParseContext) error {
+	return func(_ *kingpin.ParseContext) error {
+		printStderr("DEPRECATED: %v\n", help)
+		return nil
+	}
+}
 
 func printStderr(msg string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, msg, args...)

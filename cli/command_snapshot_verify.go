@@ -15,7 +15,6 @@ import (
 	"github.com/kopia/kopia/internal/parallelwork"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/blob"
-	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/manifest"
 	"github.com/kopia/kopia/repo/object"
 	"github.com/kopia/kopia/snapshot"
@@ -182,8 +181,6 @@ func (v *verifier) doVerifyObject(ctx context.Context, oid object.ID, path strin
 
 func (v *verifier) readEntireObject(ctx context.Context, oid object.ID, path string) error {
 	log(ctx).Debugf("reading object %v %v", oid, path)
-
-	ctx = content.UsingContentCache(ctx, false)
 
 	// also read the entire file
 	r, err := v.rep.OpenObject(ctx, oid)

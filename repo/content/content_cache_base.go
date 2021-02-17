@@ -28,32 +28,42 @@ type mutexLRU struct {
 
 // cacheBase provides common implementation for per-content and per-blob caches.
 type cacheBase struct {
+	anyChange int32
+
 	cacheStorage   blob.Storage
 	maxSizeBytes   int64
 	sweepFrequency time.Duration
 	touchThreshold time.Duration
+	description    string
 
-	asyncWG sync.WaitGroup
-	closed  chan struct{}
+	periodicSweepRunning sync.WaitGroup
+	periodicSweepClosed  chan struct{}
 
 	// stores key to *mutexLRU mapping which is periodically garbage-collected
 	// and used to eliminate/minimize concurrent fetches of the same cached item.
 	loadingMap sync.Map
 }
 
-type contentToucher interface {
+type blobToucher interface {
 	TouchBlob(ctx context.Context, contentID blob.ID, threshold time.Duration) error
 }
 
 func (c *cacheBase) touch(ctx context.Context, blobID blob.ID) {
-	if t, ok := c.cacheStorage.(contentToucher); ok {
+	if t, ok := c.cacheStorage.(blobToucher); ok {
 		t.TouchBlob(ctx, blobID, c.touchThreshold) //nolint:errcheck
 	}
 }
 
-func (c *cacheBase) close() {
-	close(c.closed)
-	c.asyncWG.Wait()
+func (c *cacheBase) close(ctx context.Context) {
+	close(c.periodicSweepClosed)
+	c.periodicSweepRunning.Wait()
+
+	// if we added anything to the cache in this sesion, run one last sweep before shutting down.
+	if atomic.LoadInt32(&c.anyChange) == 1 {
+		if err := c.sweepDirectory(ctx); err != nil {
+			log(ctx).Warningf("error during final sweep of the %v: %v", c.description, err)
+		}
+	}
 }
 
 func (c *cacheBase) perItemMutex(key interface{}) *sync.Mutex {
@@ -74,18 +84,18 @@ func (c *cacheBase) perItemMutex(key interface{}) *sync.Mutex {
 }
 
 func (c *cacheBase) sweepDirectoryPeriodically(ctx context.Context) {
-	defer c.asyncWG.Done()
+	defer c.periodicSweepRunning.Done()
 
 	for {
 		select {
-		case <-c.closed:
+		case <-c.periodicSweepClosed:
 			return
 
 		case <-time.After(c.sweepFrequency):
 			c.sweepMutexes()
 
 			if err := c.sweepDirectory(ctx); err != nil {
-				log(ctx).Warningf("cache sweep failed: %v", err)
+				log(ctx).Warningf("error during periodic sweep of %v: %v", c.description, err)
 			}
 		}
 	}
@@ -139,10 +149,10 @@ func (c *cacheBase) sweepDirectory(ctx context.Context) (err error) {
 		return nil
 	})
 	if err != nil {
-		return errors.Wrap(err, "error listing cache")
+		return errors.Wrapf(err, "error listing %v", c.description)
 	}
 
-	log(ctx).Debugf("finished sweeping directory in %v and retained %v/%v bytes (%v %%)", clock.Since(t0), totalRetainedSize, c.maxSizeBytes, 100*totalRetainedSize/c.maxSizeBytes)
+	log(ctx).Debugf("finished sweeping %v in %v and retained %v/%v bytes (%v %%)", c.description, clock.Since(t0), totalRetainedSize, c.maxSizeBytes, 100*totalRetainedSize/c.maxSizeBytes)
 
 	return nil
 }
@@ -162,13 +172,14 @@ func (c *cacheBase) sweepMutexes() {
 	})
 }
 
-func newContentCacheBase(ctx context.Context, cacheStorage blob.Storage, maxSizeBytes int64, touchThreshold, sweepFrequency time.Duration) (*cacheBase, error) {
+func newContentCacheBase(ctx context.Context, description string, cacheStorage blob.Storage, maxSizeBytes int64, touchThreshold, sweepFrequency time.Duration) (*cacheBase, error) {
 	c := &cacheBase{
-		cacheStorage:   cacheStorage,
-		maxSizeBytes:   maxSizeBytes,
-		closed:         make(chan struct{}),
-		touchThreshold: touchThreshold,
-		sweepFrequency: sweepFrequency,
+		cacheStorage:        cacheStorage,
+		maxSizeBytes:        maxSizeBytes,
+		periodicSweepClosed: make(chan struct{}),
+		touchThreshold:      touchThreshold,
+		sweepFrequency:      sweepFrequency,
+		description:         description,
 	}
 
 	// errGood is a marker error to stop blob iteration quickly, does not
@@ -180,10 +191,10 @@ func newContentCacheBase(ctx context.Context, cacheStorage blob.Storage, maxSize
 		// nolint:wrapcheck
 		return errGood
 	}); err != nil && !errors.Is(err, errGood) {
-		return nil, errors.Wrap(err, "unable to open cache")
+		return nil, errors.Wrapf(err, "unable to open %v", c.description)
 	}
 
-	c.asyncWG.Add(1)
+	c.periodicSweepRunning.Add(1)
 
 	go c.sweepDirectoryPeriodically(ctx)
 

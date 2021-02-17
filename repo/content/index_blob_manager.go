@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/repo/blob"
@@ -65,25 +66,40 @@ type indexBlobManagerImpl struct {
 	maxEventualConsistencySettleTime time.Duration
 }
 
+func (m *indexBlobManagerImpl) listAndMergeOwnWrites(ctx context.Context, prefix blob.ID) ([]blob.Metadata, error) {
+	found, err := m.listCache.listBlobs(ctx, prefix)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error listing %v blobs", prefix)
+	}
+
+	merged, err := m.ownWritesCache.merge(ctx, prefix, found)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error merging local writes for %v blobs", prefix)
+	}
+
+	return merged, nil
+}
+
 func (m *indexBlobManagerImpl) listIndexBlobs(ctx context.Context, includeInactive bool) ([]IndexBlobInfo, error) {
-	compactionLogMetadata, err := m.listCache.listBlobs(ctx, compactionLogBlobPrefix)
-	if err != nil {
-		return nil, errors.Wrap(err, "error listing compaction log entries")
-	}
+	var compactionLogMetadata, storageIndexBlobs []blob.Metadata
 
-	compactionLogMetadata, err = m.ownWritesCache.merge(ctx, compactionLogBlobPrefix, compactionLogMetadata)
-	if err != nil {
-		return nil, errors.Wrap(err, "error merging local writes for compaction log entries")
-	}
+	var eg errgroup.Group
 
-	storageIndexBlobs, err := m.listCache.listBlobs(ctx, indexBlobPrefix)
-	if err != nil {
-		return nil, errors.Wrap(err, "error listing index blobs")
-	}
+	// list index and cleanup blobs in parallel and merge with own-writes cache.
+	eg.Go(func() error {
+		v, err := m.listAndMergeOwnWrites(ctx, compactionLogBlobPrefix)
+		compactionLogMetadata = v
+		return err
+	})
 
-	storageIndexBlobs, err = m.ownWritesCache.merge(ctx, indexBlobPrefix, storageIndexBlobs)
-	if err != nil {
-		return nil, errors.Wrap(err, "error merging local writes for index blobs")
+	eg.Go(func() error {
+		v, err := m.listAndMergeOwnWrites(ctx, indexBlobPrefix)
+		storageIndexBlobs = v
+		return err
+	})
+
+	if err := eg.Wait(); err != nil {
+		return nil, errors.Wrap(err, "error listing indexes")
 	}
 
 	for i, sib := range storageIndexBlobs {

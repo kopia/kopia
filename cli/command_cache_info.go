@@ -50,8 +50,15 @@ func runCacheInfoCommand(ctx context.Context, rep repo.DirectRepository) error {
 			maybeLimit = fmt.Sprintf(" (limit %v)", units.BytesStringBase10(l))
 		}
 
+		if ent.Name() == "blob-list" {
+			maybeLimit = fmt.Sprintf(" (duration %vs)", rep.CachingOptions().MaxListCacheDurationSec)
+		}
+
 		fmt.Printf("%v: %v files %v%v\n", subdir, fileCount, units.BytesStringBase10(totalFileSize), maybeLimit)
 	}
+
+	printStderr("To adjust cache sizes use 'kopia cache set'.\n")
+	printStderr("To clear caches use 'kopia cache clear'.\n")
 
 	return nil
 }
