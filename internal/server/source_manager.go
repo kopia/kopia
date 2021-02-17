@@ -435,9 +435,9 @@ func (t *uitaskProgress) HashedBytes(numBytes int64) {
 	t.maybeReport()
 }
 
-// IgnoredError is emitted when an error is encountered and ignored.
-func (t *uitaskProgress) IgnoredError(path string, err error) {
-	t.p.IgnoredError(path, err)
+// Error is emitted when an error is encountered.
+func (t *uitaskProgress) Error(path string, err error, isIgnored bool) {
+	t.p.Error(path, err, isIgnored)
 	t.maybeReport()
 }
 

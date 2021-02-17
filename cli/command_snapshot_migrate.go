@@ -22,7 +22,6 @@ var (
 	migratePolicies          = migrateCommand.Flag("policies", "Migrate policies too").Default("true").Bool()
 	migrateOverwritePolicies = migrateCommand.Flag("overwrite-policies", "Overwrite policies").Bool()
 	migrateLatestOnly        = migrateCommand.Flag("latest-only", "Only migrate the latest snapshot").Bool()
-	migrateIgnoreErrors      = migrateCommand.Flag("ignore-errors", "Ignore errors when reading source snapshot").Bool()
 	migrateParallel          = migrateCommand.Flag("parallel", "Number of sources to migrate in parallel").Default("1").Int()
 )
 
@@ -83,7 +82,6 @@ func runMigrateCommand(ctx context.Context, destRepo repo.RepositoryWriter) erro
 
 		uploader := snapshotfs.NewUploader(destRepo)
 		uploader.Progress = progress
-		uploader.IgnoreReadErrors = *migrateIgnoreErrors
 		activeUploaders[s] = uploader
 		mu.Unlock()
 

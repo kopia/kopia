@@ -38,7 +38,8 @@ type cliProgress struct {
 	inProgressHashing int32
 	hashedFiles       int32
 	uploadedFiles     int32
-	errorCount        int32
+	ignoredErrorCount int32
+	fatalErrorCount   int32
 
 	uploading      int32
 	uploadFinished int32
@@ -78,9 +79,14 @@ func (p *cliProgress) HashedBytes(numBytes int64) {
 	p.maybeOutput()
 }
 
-func (p *cliProgress) IgnoredError(path string, err error) {
-	atomic.AddInt32(&p.errorCount, 1)
-	p.output(warningColor, fmt.Sprintf("Ignored error when processing \"%v\": %v\n", path, err))
+func (p *cliProgress) Error(path string, err error, isIgnored bool) {
+	if isIgnored {
+		atomic.AddInt32(&p.ignoredErrorCount, 1)
+		p.output(warningColor, fmt.Sprintf("Ignored error when processing \"%v\": %v\n", path, err))
+	} else {
+		atomic.AddInt32(&p.fatalErrorCount, 1)
+		p.output(warningColor, fmt.Sprintf("Error when processing \"%v\": %v\n", path, err))
+	}
 }
 
 func (p *cliProgress) CachedFile(fname string, numBytes int64) {
@@ -118,11 +124,11 @@ func (p *cliProgress) output(col *color.Color, msg string) {
 	cachedFiles := atomic.LoadInt32(&p.cachedFiles)
 	inProgressHashing := atomic.LoadInt32(&p.inProgressHashing)
 	hashedFiles := atomic.LoadInt32(&p.hashedFiles)
-	uploadedFiles := atomic.LoadInt32(&p.uploadedFiles)
-	errorCount := atomic.LoadInt32(&p.errorCount)
+	ignoredErrorCount := atomic.LoadInt32(&p.ignoredErrorCount)
+	fatalErrorCount := atomic.LoadInt32(&p.fatalErrorCount)
 
 	line := fmt.Sprintf(
-		" %v %v hashing, %v hashed (%v), %v cached (%v), %v uploaded (%v), %v errors",
+		" %v %v hashing, %v hashed (%v), %v cached (%v), uploaded %v",
 		p.spinnerCharacter(),
 
 		inProgressHashing,
@@ -133,11 +139,16 @@ func (p *cliProgress) output(col *color.Color, msg string) {
 		cachedFiles,
 		units.BytesStringBase10(cachedBytes),
 
-		uploadedFiles,
 		units.BytesStringBase10(uploadedBytes),
-
-		errorCount,
 	)
+
+	if fatalErrorCount > 0 {
+		line += fmt.Sprintf(" (%v fatal errors)", fatalErrorCount)
+	}
+
+	if ignoredErrorCount > 0 {
+		line += fmt.Sprintf(" (%v errors ignored)", ignoredErrorCount)
+	}
 
 	if msg != "" {
 		prefix := "\n ! "

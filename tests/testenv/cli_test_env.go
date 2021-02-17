@@ -85,7 +85,7 @@ func NewCLITest(t *testing.T) *CLITest {
 	logsDir := filepath.Join(os.TempDir(), "kopia-logs", cleanName+"."+clock.Now().Local().Format("20060102150405"))
 
 	t.Cleanup(func() {
-		if t.Failed() {
+		if t.Failed() && os.Getenv("KOPIA_DISABLE_LOG_DUMP_ON_FAILURE") == "" {
 			dumpLogs(t, logsDir)
 		}
 

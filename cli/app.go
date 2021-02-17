@@ -148,9 +148,9 @@ type repositoryAccessMode struct {
 
 func maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) error, mode repositoryAccessMode) func(ctx *kingpin.ParseContext) error {
 	return func(kpc *kingpin.ParseContext) error {
-		return withProfiling(func() error {
-			ctx := rootContext()
+		ctx := rootContext()
 
+		if err := withProfiling(func() error {
 			startMemoryTracking(ctx)
 			defer finishMemoryTracking(ctx)
 
@@ -184,7 +184,13 @@ func maybeRepositoryAction(act func(ctx context.Context, rep repo.Repository) er
 			}
 
 			return err
-		})
+		}); err != nil {
+			// print error in red
+			log(ctx).Errorf("ERROR: %v", err.Error())
+			os.Exit(1)
+		}
+
+		return nil
 	}
 }
 

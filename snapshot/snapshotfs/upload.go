@@ -53,9 +53,6 @@ type Uploader struct {
 	// automatically cancel the Upload after certain number of bytes
 	MaxUploadBytes int64
 
-	// ignore read errors
-	IgnoreReadErrors bool
-
 	// probability with cached entries will be ignored, must be [0..100]
 	// 0=always use cached object entries if possible
 	// 100=never use cached entries
@@ -66,6 +63,9 @@ type Uploader struct {
 
 	// Enable snapshot actions
 	EnableActions bool
+
+	// Fail the entire snapshot on source file/directory error.
+	FailFast bool
 
 	// How frequently to create checkpoint snapshot entries.
 	CheckpointInterval time.Duration
@@ -520,7 +520,8 @@ func (b *dirManifestBuilder) addEntry(de *snapshot.DirEntry) {
 			b.summary.TotalFileCount += childSummary.TotalFileCount
 			b.summary.TotalFileSize += childSummary.TotalFileSize
 			b.summary.TotalDirCount += childSummary.TotalDirCount
-			b.summary.NumFailed += childSummary.NumFailed
+			b.summary.FatalErrorCount += childSummary.FatalErrorCount
+			b.summary.IgnoredErrorCount += childSummary.IgnoredErrorCount
 			b.summary.FailedEntries = append(b.summary.FailedEntries, childSummary.FailedEntries...)
 
 			if childSummary.MaxModTime.After(b.summary.MaxModTime) {
@@ -530,11 +531,16 @@ func (b *dirManifestBuilder) addEntry(de *snapshot.DirEntry) {
 	}
 }
 
-func (b *dirManifestBuilder) addFailedEntry(relPath string, err error) {
+func (b *dirManifestBuilder) addFailedEntry(relPath string, isIgnoredError bool, err error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	b.summary.NumFailed++
+	if isIgnoredError {
+		b.summary.IgnoredErrorCount++
+	} else {
+		b.summary.FatalErrorCount++
+	}
+
 	b.summary.FailedEntries = append(b.summary.FailedEntries, &fs.EntryWithError{
 		EntryPath: relPath,
 		Error:     err.Error(),
@@ -554,16 +560,7 @@ func (b *dirManifestBuilder) Build(dirModTime time.Time, incompleteReason string
 
 	s.IncompleteReason = incompleteReason
 
-	// take top N sorted failed entries
-	if len(b.summary.FailedEntries) > 0 {
-		sort.Slice(b.summary.FailedEntries, func(i, j int) bool {
-			return b.summary.FailedEntries[i].EntryPath < b.summary.FailedEntries[j].EntryPath
-		})
-
-		if len(b.summary.FailedEntries) > fs.MaxFailedEntriesPerDirectorySummary {
-			b.summary.FailedEntries = b.summary.FailedEntries[0:fs.MaxFailedEntriesPerDirectorySummary]
-		}
-	}
+	b.summary.FailedEntries = sortedTopFailures(b.summary.FailedEntries)
 
 	// sort the result, directories first, then non-directories, ordered by name
 	sort.Slice(b.entries, func(i, j int) bool {
@@ -580,6 +577,18 @@ func (b *dirManifestBuilder) Build(dirModTime time.Time, incompleteReason string
 		Summary:    &s,
 		Entries:    b.entries,
 	}
+}
+
+func sortedTopFailures(entries []*fs.EntryWithError) []*fs.EntryWithError {
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].EntryPath < entries[j].EntryPath
+	})
+
+	if len(entries) > fs.MaxFailedEntriesPerDirectorySummary {
+		entries = entries[0:fs.MaxFailedEntriesPerDirectorySummary]
+	}
+
+	return entries
 }
 
 func isDir(e *snapshot.DirEntry) bool {
@@ -642,7 +651,9 @@ func (u *Uploader) processSubdirectories(
 			childLocalDirPathOrEmpty = filepath.Join(localDirPathOrEmpty, entry.Name())
 		}
 
-		de, err := uploadDirInternal(ctx, u, dir, policyTree.Child(entry.Name()), previousDirs, childLocalDirPathOrEmpty, entryRelativePath, childDirBuilder, parentDirCheckpointRegistry)
+		childTree := policyTree.Child(entry.Name())
+
+		de, err := uploadDirInternal(ctx, u, dir, childTree, previousDirs, childLocalDirPathOrEmpty, entryRelativePath, childDirBuilder, parentDirCheckpointRegistry)
 		if errors.Is(err, errCanceled) {
 			return err
 		}
@@ -651,21 +662,19 @@ func (u *Uploader) processSubdirectories(
 			// Note: This only catches errors in subdirectories of the snapshot root, not on the snapshot
 			// root itself. The intention is to always fail if the top level directory can't be read,
 			// otherwise a meaningless, empty snapshot is created that can't be restored.
-			ignoreDirErr := u.shouldIgnoreDirectoryReadErrors(policyTree)
 
 			var dre dirReadError
-			if errors.As(err, &dre) && ignoreDirErr {
-				rc := rootCauseError(dre.error)
-
-				u.Progress.IgnoredError(entryRelativePath, rc)
-				parentDirBuilder.addFailedEntry(entryRelativePath, rc)
-				return nil
+			if errors.As(err, &dre) {
+				u.reportErrorAndMaybeCancel(dre.error,
+					childTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreDirectoryErrorsOrDefault(false),
+					parentDirBuilder,
+					entryRelativePath)
+			} else {
+				return errors.Wrapf(err, "unable to process directory %q", entry.Name())
 			}
-
-			return errors.Errorf("unable to process directory %q: %s", entry.Name(), err)
+		} else {
+			parentDirBuilder.addEntry(de)
 		}
-
-		parentDirBuilder.addEntry(de)
 
 		return nil
 	})
@@ -772,20 +781,27 @@ func (u *Uploader) processNonDirectories(ctx context.Context, parentCheckpointRe
 		case fs.Symlink:
 			de, err := u.uploadSymlinkInternal(ctx, entryRelativePath, entry)
 			if err != nil {
-				return u.maybeIgnoreFileReadError(err, parentDirBuilder, entryRelativePath, policyTree)
+				u.reportErrorAndMaybeCancel(
+					err,
+					policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrorsOrDefault(false),
+					parentDirBuilder, entryRelativePath)
+			} else {
+				parentDirBuilder.addEntry(de)
 			}
 
-			parentDirBuilder.addEntry(de)
 			return nil
 
 		case fs.File:
 			atomic.AddInt32(&u.stats.NonCachedFiles, 1)
 			de, err := u.uploadFileInternal(ctx, parentCheckpointRegistry, entryRelativePath, entry, policyTree.Child(entry.Name()).EffectivePolicy(), asyncWritesPerFile)
 			if err != nil {
-				return u.maybeIgnoreFileReadError(err, parentDirBuilder, entryRelativePath, policyTree)
+				u.reportErrorAndMaybeCancel(
+					err, policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrorsOrDefault(false),
+					parentDirBuilder, entryRelativePath)
+			} else {
+				parentDirBuilder.addEntry(de)
 			}
 
-			parentDirBuilder.addEntry(de)
 			return nil
 
 		default:
@@ -942,28 +958,20 @@ func (u *Uploader) writeDirManifest(ctx context.Context, dirRelativePath string,
 	return oid, nil
 }
 
-func (u *Uploader) maybeIgnoreFileReadError(err error, dmb *dirManifestBuilder, entryRelativePath string, policyTree *policy.Tree) error {
-	errHandlingPolicy := policyTree.EffectivePolicy().ErrorHandlingPolicy
-
-	if u.IgnoreReadErrors || errHandlingPolicy.IgnoreFileErrorsOrDefault(false) {
-		err = rootCauseError(err)
-		u.Progress.IgnoredError(entryRelativePath, err)
-		dmb.addFailedEntry(entryRelativePath, err)
-
-		return nil
+func (u *Uploader) reportErrorAndMaybeCancel(err error, isIgnored bool, dmb *dirManifestBuilder, entryRelativePath string) {
+	if isIgnored {
+		atomic.AddInt32(&u.stats.IgnoredErrorCount, 1)
+	} else {
+		atomic.AddInt32(&u.stats.ErrorCount, 1)
 	}
 
-	return err
-}
+	rc := rootCauseError(err)
+	u.Progress.Error(entryRelativePath, rc, isIgnored)
+	dmb.addFailedEntry(entryRelativePath, isIgnored, rc)
 
-func (u *Uploader) shouldIgnoreDirectoryReadErrors(policyTree *policy.Tree) bool {
-	errHandlingPolicy := policyTree.EffectivePolicy().ErrorHandlingPolicy
-
-	if u.IgnoreReadErrors {
-		return true
+	if u.FailFast && !isIgnored {
+		u.Cancel()
 	}
-
-	return errHandlingPolicy.IgnoreDirectoryErrorsOrDefault(false)
 }
 
 // NewUploader creates new Uploader object for a given repository.
@@ -971,7 +979,6 @@ func NewUploader(r repo.RepositoryWriter) *Uploader {
 	return &Uploader{
 		repo:               r,
 		Progress:           &NullUploadProgress{},
-		IgnoreReadErrors:   false,
 		ParallelUploads:    1,
 		EnableActions:      r.ClientOptions().EnableActions,
 		CheckpointInterval: DefaultCheckpointInterval,

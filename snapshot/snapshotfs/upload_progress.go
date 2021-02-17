@@ -33,8 +33,8 @@ type UploadProgress interface {
 	// HashedBytes is emitted while hashing any blocks of bytes.
 	HashedBytes(numBytes int64)
 
-	// IgnoredError is emitted when an error is encountered and ignored
-	IgnoredError(path string, err error)
+	// Error is emitted when an error is encountered.
+	Error(path string, err error, isIgnored bool)
 
 	// UploadedBytes is emitted whenever bytes are written to the blob storage.
 	UploadedBytes(numBytes int64)
@@ -88,8 +88,8 @@ func (p *NullUploadProgress) StartedDirectory(dirname string) {}
 // FinishedDirectory implements UploadProgress.
 func (p *NullUploadProgress) FinishedDirectory(dirname string) {}
 
-// IgnoredError implements UploadProgress.
-func (p *NullUploadProgress) IgnoredError(path string, err error) {}
+// Error implements UploadProgress.
+func (p *NullUploadProgress) Error(path string, err error, isIgnored bool) {}
 
 var _ UploadProgress = (*NullUploadProgress)(nil)
 
@@ -107,8 +107,9 @@ type UploadCounters struct {
 	TotalExcludedFiles int32 `json:"excludedFiles"`
 	TotalExcludedDirs  int32 `json:"excludedDirs"`
 
-	TotalIgnoredErrors int32 `json:"ignoredErrors"`
-	EstimatedFiles     int32 `json:"estimatedFiles"`
+	FatalErrorCount   int32 `json:"errors"`
+	IgnoredErrorCount int32 `json:"ignoredErrors"`
+	EstimatedFiles    int32 `json:"estimatedFiles"`
 
 	CurrentDirectory string `json:"directory"`
 
@@ -168,12 +169,17 @@ func (p *CountingUploadProgress) ExcludedFile(fname string, numBytes int64) {
 	atomic.AddInt32(&p.counters.TotalExcludedFiles, 1)
 }
 
-// IgnoredError implements UploadProgress.
-func (p *CountingUploadProgress) IgnoredError(path string, err error) {
+// Error implements UploadProgress.
+func (p *CountingUploadProgress) Error(path string, err error, isIgnored bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	p.counters.TotalIgnoredErrors++
+	if isIgnored {
+		p.counters.IgnoredErrorCount++
+	} else {
+		p.counters.FatalErrorCount++
+	}
+
 	p.counters.LastErrorPath = path
 	p.counters.LastError = err.Error()
 }
@@ -227,7 +233,7 @@ func (p *CountingUploadProgress) UITaskCounters(final bool) map[string]uitask.Co
 		"Excluded Files":       uitask.SimpleCounter(int64(atomic.LoadInt32(&p.counters.TotalExcludedFiles))),
 		"Excluded Directories": uitask.SimpleCounter(int64(atomic.LoadInt32(&p.counters.TotalExcludedDirs))),
 
-		"Errors": uitask.ErrorCounter(int64(atomic.LoadInt32(&p.counters.TotalIgnoredErrors))),
+		"Errors": uitask.ErrorCounter(int64(atomic.LoadInt32(&p.counters.IgnoredErrorCount))),
 	}
 
 	if !final {

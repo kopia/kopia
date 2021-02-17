@@ -21,6 +21,9 @@ type Stats struct {
 
 	ExcludedFileCount int32 `json:"excludedFileCount"`
 	ExcludedDirCount  int32 `json:"excludedDirCount"`
+
+	IgnoredErrorCount int32 `json:"ignoredErrorCount"`
+	ErrorCount        int32 `json:"errorCount"`
 }
 
 // AddExcluded adds the information about excluded file to the statistics.

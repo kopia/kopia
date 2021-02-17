@@ -98,7 +98,8 @@ type DirectorySummary struct {
 	IncompleteReason  string    `json:"incomplete,omitempty"`
 
 	// number of failed files
-	NumFailed int `json:"numFailed"`
+	FatalErrorCount   int `json:"numFailed"`
+	IgnoredErrorCount int `json:"numIgnoredErrors,omitempty"`
 
 	// first 10 failed entries
 	FailedEntries []*EntryWithError `json:"errors,omitempty"`
