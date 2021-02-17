@@ -257,8 +257,8 @@ func entryBits(ctx context.Context, m *snapshot.Manifest, ent fs.Entry, lastTota
 			bits = append(bits,
 				fmt.Sprintf("files:%v", s.TotalFileCount),
 				fmt.Sprintf("dirs:%v", s.TotalDirCount))
-			if s.NumFailed > 0 {
-				bits = append(bits, fmt.Sprintf("errors:%v", s.NumFailed))
+			if s.FatalErrorCount > 0 {
+				bits = append(bits, fmt.Sprintf("errors:%v", s.FatalErrorCount))
 				col = errorColor
 			}
 		}

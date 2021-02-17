@@ -8,7 +8,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
@@ -28,6 +27,7 @@ var (
 	snapshotCreateCheckpointUploadLimitMB = snapshotCreateCommand.Flag("upload-limit-mb", "Stop the backup process after the specified amount of data (in MB) has been uploaded.").PlaceHolder("MB").Default("0").Int64()
 	snapshotCreateCheckpointInterval      = snapshotCreateCommand.Flag("checkpoint-interval", "Frequency for creating periodic checkpoint.").Duration()
 	snapshotCreateDescription             = snapshotCreateCommand.Flag("description", "Free-form snapshot description.").String()
+	snapshotCreateFailFast                = snapshotCreateCommand.Flag("fail-fast", "Fail fast when creating snapshot.").Envar("KOPIA_SNAPSHOT_FAIL_FAST").Bool()
 	snapshotCreateForceHash               = snapshotCreateCommand.Flag("force-hash", "Force hashing of source files for a given percentage of files [0..100]").Default("0").Int()
 	snapshotCreateParallelUploads         = snapshotCreateCommand.Flag("parallel", "Upload N files in parallel").PlaceHolder("N").Default("0").Int()
 	snapshotCreateStartTime               = snapshotCreateCommand.Flag("start-time", "Override snapshot start timestamp.").String()
@@ -94,6 +94,10 @@ func runSnapshotCommand(ctx context.Context, rep repo.RepositoryWriter) error {
 		return nil
 	}
 
+	if len(finalErrors) == 1 {
+		return errors.New(finalErrors[0])
+	}
+
 	return errors.Errorf("encountered %v errors:\n%v", len(finalErrors), strings.Join(finalErrors, "\n"))
 }
 
@@ -131,10 +135,12 @@ func setupUploader(rep repo.RepositoryWriter) *snapshotfs.Uploader {
 		u.CheckpointInterval = interval
 	}
 
-	u.ForceHashPercentage = *snapshotCreateForceHash
-	u.ParallelUploads = *snapshotCreateParallelUploads
 	onCtrlC(u.Cancel)
 
+	u.ForceHashPercentage = *snapshotCreateForceHash
+	u.ParallelUploads = *snapshotCreateParallelUploads
+
+	u.FailFast = *snapshotCreateFailFast
 	u.Progress = progress
 
 	return u
@@ -157,8 +163,6 @@ func startTimeAfterEndTime(startTime, endTime time.Time) bool {
 func snapshotSingleSource(ctx context.Context, rep repo.RepositoryWriter, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo) error {
 	log(ctx).Infof("Snapshotting %v ...", sourceInfo)
 
-	t0 := clock.Now()
-
 	localEntry, err := getLocalFSEntry(ctx, sourceInfo.Path)
 	if err != nil {
 		return errors.Wrap(err, "unable to get local filesystem entry")
@@ -178,6 +182,8 @@ func snapshotSingleSource(ctx context.Context, rep repo.RepositoryWriter, u *sna
 
 	manifest, err := u.Upload(ctx, localEntry, policyTree, sourceInfo, previous...)
 	if err != nil {
+		// fail-fast uploads will fail here without recording a manifest, other uploads will
+		// possibly fail later.
 		return errors.Wrap(err, "upload error")
 	}
 
@@ -204,8 +210,7 @@ func snapshotSingleSource(ctx context.Context, rep repo.RepositoryWriter, u *sna
 		manifest.EndTime = endTimeOverride
 	}
 
-	snapID, err := snapshot.SaveSnapshot(ctx, rep, manifest)
-	if err != nil {
+	if _, err = snapshot.SaveSnapshot(ctx, rep, manifest); err != nil {
 		return errors.Wrap(err, "cannot save manifest")
 	}
 
@@ -219,20 +224,32 @@ func snapshotSingleSource(ctx context.Context, rep repo.RepositoryWriter, u *sna
 
 	progress.Finish()
 
+	return reportSnapshotStatus(ctx, manifest)
+}
+
+func reportSnapshotStatus(ctx context.Context, manifest *snapshot.Manifest) error {
 	var maybePartial string
 	if manifest.IncompleteReason != "" {
 		maybePartial = " partial"
 	}
 
+	sourceInfo := manifest.Source
+
+	snapID := manifest.ID
+
+	log(ctx).Infof("Created%v snapshot with root %v and ID %v in %v", maybePartial, manifest.RootObjectID(), snapID, manifest.EndTime.Sub(manifest.StartTime).Truncate(time.Second))
+
 	if ds := manifest.RootEntry.DirSummary; ds != nil {
-		if ds.NumFailed > 0 {
-			log(ctx).Warningf("Ignored %v errors while snapshotting %v.", ds.NumFailed, sourceInfo)
+		if ds.IgnoredErrorCount > 0 {
+			log(ctx).Warningf("Ignored %v error(s) while snapshotting %v.", ds.IgnoredErrorCount, sourceInfo)
+		}
+
+		if ds.FatalErrorCount > 0 {
+			return errors.Errorf("Found %v fatal error(s) while snapshotting %v.", ds.FatalErrorCount, sourceInfo)
 		}
 	}
 
-	log(ctx).Infof("Created%v snapshot with root %v and ID %v in %v", maybePartial, manifest.RootObjectID(), snapID, clock.Since(t0).Truncate(time.Second))
-
-	return errors.Wrap(err, "error snapshotting")
+	return nil
 }
 
 // findPreviousSnapshotManifest returns the list of previous snapshots for a given source, including

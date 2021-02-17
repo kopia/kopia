@@ -58,8 +58,8 @@ func listDirectory(ctx context.Context, d fs.Directory, prefix, indent string) e
 	}
 
 	if dws, ok := d.(fs.DirectoryWithSummary); ok && *lsCommandErrorSummary {
-		if ds, _ := dws.Summary(ctx); ds != nil && ds.NumFailed > 0 {
-			errorColor.Fprintf(os.Stderr, "\nNOTE: Encountered %v errors while snapshotting this directory:\n\n", ds.NumFailed) //nolint:errcheck
+		if ds, _ := dws.Summary(ctx); ds != nil && ds.FatalErrorCount > 0 {
+			errorColor.Fprintf(os.Stderr, "\nNOTE: Encountered %v errors while snapshotting this directory:\n\n", ds.FatalErrorCount) //nolint:errcheck
 
 			for _, e := range ds.FailedEntries {
 				errorColor.Fprintf(os.Stderr, "- Error in \"%v\": %v\n", e.EntryPath, e.Error) //nolint:errcheck
@@ -81,8 +81,8 @@ func printDirectoryEntry(ctx context.Context, e fs.Entry, prefix, indent string)
 	)
 
 	if dws, ok := e.(fs.DirectoryWithSummary); ok && *lsCommandErrorSummary {
-		if ds, _ := dws.Summary(ctx); ds != nil && ds.NumFailed > 0 {
-			errorSummary = fmt.Sprintf(" (%v errors)", ds.NumFailed)
+		if ds, _ := dws.Summary(ctx); ds != nil && ds.FatalErrorCount > 0 {
+			errorSummary = fmt.Sprintf(" (%v errors)", ds.FatalErrorCount)
 			col = errorColor
 		}
 	}
