@@ -1,3 +1,5 @@
+// +build !windows
+
 package mount
 
 import (
@@ -22,7 +24,7 @@ func newPosixWedavController(ctx context.Context, entry fs.Directory, mountPoint
 		return nil, err
 	}
 
-	if err := mountWebDavHelper(c.MountPath(), mountPoint); err != nil {
+	if err := mountWebDavHelper(ctx, c.MountPath(), mountPoint); err != nil {
 		return nil, err
 	}
 
@@ -34,7 +36,7 @@ func newPosixWedavController(ctx context.Context, entry fs.Directory, mountPoint
 }
 
 func (c posixWedavController) Unmount(ctx context.Context) error {
-	if err := unmountWebDevHelper(c.mountPoint); err != nil {
+	if err := unmountWebDevHelper(ctx, c.mountPoint); err != nil {
 		return err
 	}
 
@@ -57,6 +59,5 @@ func (c posixWedavController) MountPath() string {
 }
 
 func (c posixWedavController) Done() <-chan struct{} {
-	// TODO(rjk): Do I need to do something else?
 	return c.inner.Done()
 }
