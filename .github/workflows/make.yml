@@ -91,7 +91,7 @@ jobs:
       uses: actions/setup-go@v2
       if: ${{ !contains(matrix.os, 'self-hosted') }}
       with:
-        go-version: ^1.15
+        go-version: ^1.16
       id: go
     - name: Install Windows-specific packages
       run: "choco install --no-progress -y make unzip curl"
