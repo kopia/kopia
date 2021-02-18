@@ -23,4 +23,6 @@ type Options struct {
 	// Allows the mounting over a non-empty directory. The files in it will be shadowed by the freshly created mount.
 	// Supported only on Fuse.
 	FuseAllowNonEmptyMount bool
+	// Use WebDAV even on platforms that support FUSE.
+	PreferWebDAV bool
 }

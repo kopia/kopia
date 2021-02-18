@@ -24,6 +24,7 @@ var (
 
 	mountFuseAllowOther         = mountCommand.Flag("fuse-allow-other", "Allows other users to access the file system.").Bool()
 	mountFuseAllowNonEmptyMount = mountCommand.Flag("fuse-allow-non-empty-mount", "Allows the mounting over a non-empty directory. The files in it will be shadowed by the freshly created mount.").Bool()
+	mountPreferWebDAV           = mountCommand.Flag("webdav", "Use WebDAV to mount the repository object regardless of fuse availability.").Bool()
 )
 
 func runMountCommand(ctx context.Context, rep repo.Repository) error {
@@ -49,6 +50,7 @@ func runMountCommand(ctx context.Context, rep repo.Repository) error {
 		mount.Options{
 			FuseAllowOther:         *mountFuseAllowOther,
 			FuseAllowNonEmptyMount: *mountFuseAllowNonEmptyMount,
+			PreferWebDAV:           *mountPreferWebDAV,
 		})
 
 	if mountErr != nil {

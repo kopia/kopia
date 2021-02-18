@@ -55,6 +55,10 @@ func Directory(ctx context.Context, entry fs.Directory, mountPoint string, mount
 		isTempDir = true
 	}
 
+	if mountOptions.PreferWebDAV {
+		return newPosixWedavController(ctx, entry, mountPoint, isTempDir)
+	}
+
 	rootNode := fusemount.NewDirectoryNode(entry)
 
 	fuseServer, err := gofusefs.Mount(mountPoint, rootNode, mountOptions.toFuseMountOptions())
