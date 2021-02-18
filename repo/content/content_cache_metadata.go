@@ -2,22 +2,28 @@ package content
 
 import (
 	"context"
-	"sync/atomic"
+	"hash/fnv"
+	"io"
+	"sync"
 
 	"github.com/pkg/errors"
 	"go.opencensus.io/stats"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/kopia/kopia/internal/gather"
+	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/repo/blob"
 )
 
-const metadataCacheSyncParallelism = 16
+const (
+	metadataCacheSyncParallelism = 16
+	metadataCacheMutexShards     = 16
+)
 
 type contentCacheForMetadata struct {
-	*cacheBase
+	pc *cache.PersistentCache
 
-	st blob.Storage
+	st             blob.Storage
+	shardedMutexes [metadataCacheMutexShards]sync.Mutex
 }
 
 // sync synchronizes metadata cache with all blobs found in the storage.
@@ -50,31 +56,31 @@ func (c *contentCacheForMetadata) sync(ctx context.Context) error {
 	return eg.Wait()
 }
 
+func (c *contentCacheForMetadata) mutexForBlob(blobID blob.ID) *sync.Mutex {
+	// hash the blob ID to pick one of the sharded mutexes.
+	h := fnv.New32()
+	io.WriteString(h, string(blobID)) //nolint:errcheck
+	mutexID := h.Sum32() % metadataCacheMutexShards
+
+	return &c.shardedMutexes[mutexID]
+}
+
 func (c *contentCacheForMetadata) getContent(ctx context.Context, cacheKey cacheKey, blobID blob.ID, offset, length int64) ([]byte, error) {
-	m := c.perItemMutex(blobID)
+	m := c.mutexForBlob(blobID)
 	m.Lock()
 	defer m.Unlock()
 
-	if v, err := c.cacheBase.cacheStorage.GetBlob(ctx, blobID, offset, length); err == nil {
-		// cache hit
-		stats.Record(ctx,
-			metricContentCacheHitCount.M(1),
-			metricContentCacheHitBytes.M(int64(len(v))),
-		)
-
+	if v := c.pc.Get(ctx, string(blobID), offset, length); v != nil {
 		return v, nil
 	}
 
-	stats.Record(ctx, metricContentCacheMissCount.M(1))
-
 	// read the entire blob
-	log(ctx).Debugf("fetching metadata blob %q", blobID)
 	blobData, err := c.st.GetBlob(ctx, blobID, 0, -1)
 
 	if err != nil {
-		stats.Record(ctx, metricContentCacheMissErrors.M(1))
+		stats.Record(ctx, cache.MetricMissErrors.M(1))
 	} else {
-		stats.Record(ctx, metricContentCacheMissBytes.M(int64(len(blobData))))
+		stats.Record(ctx, cache.MetricMissBytes.M(int64(len(blobData))))
 	}
 
 	if errors.Is(err, blob.ErrBlobNotFound) {
@@ -88,13 +94,8 @@ func (c *contentCacheForMetadata) getContent(ctx context.Context, cacheKey cache
 		return nil, err
 	}
 
-	atomic.StoreInt32(&c.anyChange, 1)
-
 	// store the whole blob in the cache.
-	if puterr := c.cacheStorage.PutBlob(ctx, blobID, gather.FromSlice(blobData)); puterr != nil {
-		stats.Record(ctx, metricContentCacheStoreErrors.M(1))
-		log(ctx).Warningf("unable to write cache item %v: %v", blobID, puterr)
-	}
+	c.pc.Put(ctx, string(blobID), blobData)
 
 	if offset == 0 && length == -1 {
 		return blobData, nil
@@ -107,18 +108,22 @@ func (c *contentCacheForMetadata) getContent(ctx context.Context, cacheKey cache
 	return blobData[offset : offset+length], nil
 }
 
-func newContentCacheForMetadata(ctx context.Context, st, cacheStorage blob.Storage, maxSizeBytes int64) (contentCache, error) {
+func (c *contentCacheForMetadata) close(ctx context.Context) {
+	c.pc.Close(ctx)
+}
+
+func newContentCacheForMetadata(ctx context.Context, st blob.Storage, cacheStorage cache.Storage, maxSizeBytes int64) (contentCache, error) {
 	if cacheStorage == nil {
 		return passthroughContentCache{st}, nil
 	}
 
-	cb, err := newContentCacheBase(ctx, "metadata cache", cacheStorage, maxSizeBytes, defaultTouchThreshold, defaultSweepFrequency)
+	pc, err := cache.NewPersistentCache(ctx, "metadata cache", cacheStorage, cache.NoProtection(), maxSizeBytes, cache.DefaultTouchThreshold, cache.DefaultSweepFrequency)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create base cache")
 	}
 
 	return &contentCacheForMetadata{
-		st:        st,
-		cacheBase: cb,
+		st: st,
+		pc: pc,
 	}, nil
 }
