@@ -32,7 +32,7 @@ endif
 
 -include ./Makefile.local.mk
 
-install: html-ui-bindata
+install: html-ui
 	go install -tags embedhtml
 
 quick-install:
@@ -48,7 +48,6 @@ escape-analysis:
 clean:
 	make clean-tools
 	make -C htmlui clean
-	rm -rf dist/ internal/server/htmlui_bindata.go
 
 play:
 	go run cmd/playground/main.go
@@ -95,9 +94,6 @@ html-ui: htmlui-node-modules
 html-ui-tests: htmlui-node-modules
 	$(MAKE) -C htmlui test CI=true
 
-html-ui-bindata: html-ui $(go_bindata)
-	(cd htmlui/build && $(go_bindata) -fs -tags embedhtml -o "$(CURDIR)/internal/server/htmlui_bindata.go" -pkg server -ignore '.map' . static/css static/js static/media)
-
 kopia-ui:
 	$(MAKE) -C app build-electron
 
@@ -107,7 +103,7 @@ kopia-ui:
 build-current-os-noui:
 	go build -o dist/kopia_$(shell go env GOOS)_$(shell go env GOARCH)/kopia$(exe_suffix)
 
-build-current-os-with-ui: html-ui-bindata
+build-current-os-with-ui: html-ui
 	go build -o dist/kopia_$(shell go env GOOS)_$(shell go env GOARCH)/kopia$(exe_suffix) -tags embedhtml
 
 kopia-ui-pr-test: app-node-modules htmlui-node-modules
