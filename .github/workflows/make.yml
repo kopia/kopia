@@ -12,6 +12,7 @@ on:
     - cron:  '0 8 * * 1'
 jobs:
   build:
+    if: github.repository == 'kopia/kopia'
     env:
       # encrypt various secrets stored as files
       encrypted_fa1db4b894bb_key: ${{ secrets.ENCRYPTED_FA1DB4B894BB_KEY }}
