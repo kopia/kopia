@@ -10,7 +10,7 @@ import (
 // true if path is a placeholder directory or file path. Otherwise,
 // returns path unchanged and false.
 func PathIfPlaceholder(path string) (string, bool) {
-	if strings.HasSuffix(path, localfs.SHALLOWDIRSUFFIX) || strings.HasSuffix(path, localfs.SHALLOWFILESUFFIX) {
+	if strings.HasSuffix(path, localfs.SHALLOWENTRYSUFFIX) {
 		return localfs.TrimShallowSuffix(path), true
 	}
 

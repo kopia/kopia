@@ -7,16 +7,12 @@ import (
 	"github.com/kopia/kopia/snapshot"
 )
 
-// Reserved suffixes to identify shallow placeholders for directories and
-// files respectively.
-const (
-	SHALLOWDIRSUFFIX  = ".kopiadir"
-	SHALLOWFILESUFFIX = ".kopiafile"
-)
+// SHALLOWENTRYSUFFIX is a suffix identifying placeholder files.
+const SHALLOWENTRYSUFFIX = ".kopia-entry"
 
-// TrimShallowSuffix returns the path without the placeholder suffixes.
+// TrimShallowSuffix returns the path without the placeholder suffix.
 func TrimShallowSuffix(path string) string {
-	return strings.TrimSuffix(strings.TrimSuffix(path, SHALLOWDIRSUFFIX), SHALLOWFILESUFFIX)
+	return strings.TrimSuffix(path, SHALLOWENTRYSUFFIX)
 }
 
 // PlaceholderFilePath is a filesystem path of a shallow placeholder file.

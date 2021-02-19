@@ -18,10 +18,8 @@ import (
 
 func placeholderPath(path string, f fs.Entry) (string, error) {
 	switch f.Mode() & os.ModeType {
-	case os.ModeDir:
-		return path + SHALLOWDIRSUFFIX, nil
-	case 0: // Regular file
-		return path + SHALLOWFILESUFFIX, nil
+	case os.ModeDir, 0: // Directories and regular files
+		return path + SHALLOWENTRYSUFFIX, nil
 	default:
 		// Shouldn't be used on links or other file types.
 		return "", errors.Errorf("unsupported filesystem entry: %v", f)
@@ -67,16 +65,14 @@ func ReadShallowPlaceholder(path string) (*snapshot.DirEntry, error) {
 		originalpresent = true
 	}
 
-	// Otherwise, the path should have one of the placeholders.
-	for _, s := range []string{SHALLOWDIRSUFFIX, SHALLOWFILESUFFIX} {
-		php := path + s
-		if _, err := os.Lstat(php); err == nil && originalpresent {
-			return nil, errors.Errorf("%q, %q exist: shallowrestore tree is corrupt probably because a previous restore into a shallow tree was interrupted", path, php)
-		}
+	// Otherwise, the path should be a placeholder.
+	php := path + SHALLOWENTRYSUFFIX
+	if _, err := os.Lstat(php); err == nil && originalpresent {
+		return nil, errors.Errorf("%q, %q exist: shallowrestore tree is corrupt probably because a previous restore into a shallow tree was interrupted", path, php)
+	}
 
-		if de, err := dirEntryFromPlaceholder(php); err == nil {
-			return de, nil
-		}
+	if de, err := dirEntryFromPlaceholder(php); err == nil {
+		return de, nil
 	}
 
 	if originalpresent {

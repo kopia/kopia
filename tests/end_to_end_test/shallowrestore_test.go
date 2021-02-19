@@ -408,11 +408,11 @@ func TestPlaceholderAndRealFails(t *testing.T) {
 	}{
 		{
 			p:   origdir,
-			ext: localfs.SHALLOWDIRSUFFIX,
+			ext: localfs.SHALLOWENTRYSUFFIX,
 		},
 		{
 			p:   origfile,
-			ext: localfs.SHALLOWFILESUFFIX,
+			ext: localfs.SHALLOWENTRYSUFFIX,
 		},
 	} {
 		fpath := s.p + s.ext
@@ -449,7 +449,7 @@ func TestForeignReposCauseErrors(t *testing.T) {
 		de  *snapshot.DirEntry
 	}{
 		{
-			ext: localfs.SHALLOWDIRSUFFIX,
+			ext: localfs.SHALLOWENTRYSUFFIX,
 			de: &snapshot.DirEntry{
 				Name:     "badplaceholder",
 				Type:     "d",
@@ -457,7 +457,7 @@ func TestForeignReposCauseErrors(t *testing.T) {
 			},
 		},
 		{
-			ext: localfs.SHALLOWFILESUFFIX,
+			ext: localfs.SHALLOWENTRYSUFFIX,
 			de: &snapshot.DirEntry{
 				Name:     "badplaceholder",
 				Type:     "f",
@@ -480,22 +480,14 @@ func TestForeignReposCauseErrors(t *testing.T) {
 func getShallowDirEntry(t *testing.T, fpath string) *snapshot.DirEntry {
 	t.Helper()
 
-	var (
-		b   []byte
-		err error
-	)
+	t.Logf("fpath %q", fpath)
 
-	for _, s := range []string{localfs.SHALLOWDIRSUFFIX, localfs.SHALLOWFILESUFFIX} {
-		p := fpath
-		if !strings.HasSuffix(fpath, s) {
-			p += s
-		}
-
-		b, err = ioutil.ReadFile(p)
-		if err == nil {
-			break
-		}
+	p := fpath
+	if !strings.HasSuffix(fpath, localfs.SHALLOWENTRYSUFFIX) {
+		p += localfs.SHALLOWENTRYSUFFIX
 	}
+
+	b, err := ioutil.ReadFile(p)
 
 	testenv.AssertNoError(t, err)
 
@@ -679,12 +671,12 @@ func findFileDir(t *testing.T, shallow string) (dirinshallow, fileinshallow stri
 func getShallowInfo(t *testing.T, srp string) os.FileInfo {
 	t.Helper()
 
-	shallowinfos := make([]os.FileInfo, 3)
-	errors := make([]error, 3)
-	paths := make([]string, 3)
+	shallowinfos := make([]os.FileInfo, 2)
+	errors := make([]error, 2)
+	paths := make([]string, 2)
 
 	v := -1
-	for i, s := range []string{"", localfs.SHALLOWDIRSUFFIX, localfs.SHALLOWFILESUFFIX} { // nolint(wsl)
+	for i, s := range []string{"", localfs.SHALLOWENTRYSUFFIX} { // nolint(wsl)
 		paths[i] = srp + s
 		t.Logf("getting info for %q", paths[i])
 		shallowinfos[i], errors[i] = os.Lstat(paths[i])
@@ -694,7 +686,7 @@ func getShallowInfo(t *testing.T, srp string) os.FileInfo {
 		}
 	}
 
-	// Always there should be 2 errors (i.e. one and only one of the file paths should exist.)
+	// Always there should be 1 error (i.e. one and only one the real or placeholder file paths should exist.)
 	errcount := 0
 	for _, e := range errors { // nolint(wsl)
 		if e != nil {
@@ -703,9 +695,9 @@ func getShallowInfo(t *testing.T, srp string) os.FileInfo {
 	}
 
 	switch {
-	case errcount == 2:
+	case errcount == 1:
 		return shallowinfos[v]
-	case errcount < 2:
+	case errcount < 1:
 		nonfaultingpaths := make([]string, 0)
 
 		for i, s := range paths {
