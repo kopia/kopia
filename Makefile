@@ -98,9 +98,6 @@ html-ui-tests: htmlui-node-modules
 html-ui-bindata: html-ui $(go_bindata)
 	(cd htmlui/build && $(go_bindata) -fs -tags embedhtml -o "$(CURDIR)/internal/server/htmlui_bindata.go" -pkg server -ignore '.map' . static/css static/js static/media)
 
-html-ui-bindata-fallback: $(go_bindata)
-	(cd internal/server && $(go_bindata) -fs -tags !embedhtml -o "$(CURDIR)/internal/server/htmlui_fallback.go" -pkg server index.html)
-
 kopia-ui:
 	$(MAKE) -C app build-electron
 
