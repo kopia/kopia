@@ -605,11 +605,11 @@ func (u *Uploader) processChildren(
 	previousEntries []fs.Entries,
 ) error {
 	if err := u.processSubdirectories(ctx, parentDirCheckpointRegistry, parentDirBuilder, localDirPathOrEmpty, relativePath, entries, policyTree, previousEntries); err != nil {
-		return err
+		return errors.Wrap(err, "processing subdirectories")
 	}
 
 	if err := u.processNonDirectories(ctx, parentDirCheckpointRegistry, parentDirBuilder, relativePath, entries, policyTree, previousEntries); err != nil {
-		return err
+		return errors.Wrap(err, "processing non-directories")
 	}
 
 	return nil

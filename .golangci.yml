@@ -8,6 +8,9 @@ linters-settings:
     min-complexity: 40
   gocyclo:
     min-complexity: 15
+  cyclop:
+    max-complexity: 20
+    skip-tests: true
   maligned:
     suggest-new: true
   goconst:

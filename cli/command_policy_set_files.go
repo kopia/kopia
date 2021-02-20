@@ -38,9 +38,5 @@ func setFilesPolicyFromFlags(ctx context.Context, fp *policy.FilesPolicy, change
 		return err
 	}
 
-	if err := applyPolicyBoolPtr(ctx, "one filesystem", &fp.OneFileSystem, *policyOneFileSystem, changeCount); err != nil {
-		return err
-	}
-
-	return nil
+	return applyPolicyBoolPtr(ctx, "one filesystem", &fp.OneFileSystem, *policyOneFileSystem, changeCount)
 }

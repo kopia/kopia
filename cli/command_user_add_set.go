@@ -18,7 +18,7 @@ var (
 	userAskPassword            bool
 	userSetName                string
 	userSetPassword            string
-	userSetPasswordHashVersion int = 1
+	userSetPasswordHashVersion = 1
 	userSetPasswordHash        string
 )
 
