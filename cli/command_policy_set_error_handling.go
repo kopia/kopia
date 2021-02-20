@@ -17,9 +17,5 @@ func setErrorHandlingPolicyFromFlags(ctx context.Context, fp *policy.ErrorHandli
 		return err
 	}
 
-	if err := applyPolicyBoolPtr(ctx, "ignore dir read errors", &fp.IgnoreDirectoryErrors, *policyIgnoreDirectoryErrors, changeCount); err != nil {
-		return err
-	}
-
-	return nil
+	return applyPolicyBoolPtr(ctx, "ignore dir read errors", &fp.IgnoreDirectoryErrors, *policyIgnoreDirectoryErrors, changeCount)
 }

@@ -67,7 +67,7 @@ func (matcher *WildcardMatcher) Options() Options {
 
 // NewWildcardMatcher creates a new WildcardMatcher with the specified pattern and options.
 // The default option is for the matcher to be case-sensitive without a base dir.
-// nolint:funlen,gocognit,gocyclo
+// nolint:funlen,gocognit,gocyclo,cyclop
 func NewWildcardMatcher(pattern string, options ...Option) (matcher *WildcardMatcher, err error) {
 	var result []token
 
@@ -331,7 +331,7 @@ func (matcher *WildcardMatcher) Match(text string, isDir bool) bool {
 	return (doMatch(matcher.tokens, []rune(text), matcher.options.IgnoreCase) == wcMatch) != matcher.negated
 }
 
-//nolint:gocognit,gocyclo
+//nolint:gocognit,gocyclo,cyclop
 func doMatch(tokens []token, text []rune, ignoreCase bool) matchResult {
 	t := runeScanner{0, text, ignoreCase}
 

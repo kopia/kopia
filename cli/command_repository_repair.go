@@ -30,14 +30,6 @@ func packBlockPrefixes() []string {
 }
 
 func runRepairCommandWithStorage(ctx context.Context, st blob.Storage) error {
-	if err := maybeRecoverFormatBlob(ctx, st); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func maybeRecoverFormatBlob(ctx context.Context, st blob.Storage) error {
 	switch *repairCommandRecoverFormatBlob {
 	case "auto":
 		log(ctx).Infof("looking for format blob...")

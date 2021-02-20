@@ -37,7 +37,7 @@ func generateServerCertificate(ctx context.Context) (*x509.Certificate, *rsa.Pri
 	return tlsutil.GenerateServerCertificate(
 		ctx,
 		*serverStartTLSGenerateRSAKeySize,
-		time.Duration(*serverStartTLSGenerateCertValidDays)*oneDay,
+		time.Duration(*serverStartTLSGenerateCertValidDays)*oneDay, //nolint:durationcheck
 		*serverStartTLSGenerateCertNames)
 }
 
