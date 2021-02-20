@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/apiclient"
+	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/remoterepoapi"
 	"github.com/kopia/kopia/repo/content"
@@ -38,6 +39,8 @@ type apiServerRepository struct {
 	cliOpts      ClientOptions
 	omgr         *object.Manager
 	wso          WriteSessionOptions
+
+	contentCache *cache.PersistentCache
 }
 
 func (r *apiServerRepository) APIServerURL() string {
@@ -160,13 +163,15 @@ func (r *apiServerRepository) ContentInfo(ctx context.Context, contentID content
 }
 
 func (r *apiServerRepository) GetContent(ctx context.Context, contentID content.ID) ([]byte, error) {
-	var result []byte
+	return r.contentCache.GetOrLoad(ctx, string(contentID), func() ([]byte, error) {
+		var result []byte
 
-	if err := r.cli.Get(ctx, "contents/"+string(contentID), content.ErrContentNotFound, &result); err != nil {
-		return nil, errors.Wrap(err, "GetContent")
-	}
+		if err := r.cli.Get(ctx, "contents/"+string(contentID), content.ErrContentNotFound, &result); err != nil {
+			return nil, errors.Wrap(err, "GetContent")
+		}
 
-	return result, nil
+		return result, nil
+	})
 }
 
 func (r *apiServerRepository) WriteContent(ctx context.Context, data []byte, prefix content.ID) (content.ID, error) {
@@ -209,7 +214,7 @@ func (r *apiServerRepository) Close(ctx context.Context) error {
 var _ Repository = (*apiServerRepository)(nil)
 
 // openRestAPIRepository connects remote repository over Kopia API.
-func openRestAPIRepository(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions, password string) (Repository, error) {
+func openRestAPIRepository(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions, contentCache *cache.PersistentCache, password string) (Repository, error) {
 	cli, err := apiclient.NewKopiaAPIClient(apiclient.Options{
 		BaseURL:                             si.BaseURL,
 		TrustedServerCertificateFingerprint: si.TrustedServerCertificateFingerprint,
@@ -222,8 +227,9 @@ func openRestAPIRepository(ctx context.Context, si *APIServerInfo, cliOpts Clien
 	}
 
 	rr := &apiServerRepository{
-		cli:     cli,
-		cliOpts: cliOpts,
+		cli:          cli,
+		cliOpts:      cliOpts,
+		contentCache: contentCache,
 		wso: WriteSessionOptions{
 			OnUpload: func(i int64) {},
 		},
@@ -259,6 +265,7 @@ func ConnectAPIServer(ctx context.Context, configFile string, si *APIServerInfo,
 	lc := LocalConfig{
 		APIServer:     si,
 		ClientOptions: opt.ClientOptions.ApplyDefaults(ctx, "API Server: "+si.BaseURL),
+		Caching:       opt.CachingOptions.CloneOrDefault(),
 	}
 
 	d, err := json.MarshalIndent(&lc, "", "  ")

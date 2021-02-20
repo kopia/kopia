@@ -109,7 +109,7 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 	}, repo.ClientOptions{
 		Username: "foo",
 		Hostname: "bar",
-	}, "baz")
+	}, nil, "baz")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -242,7 +242,7 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 	}, repo.ClientOptions{
 		Username: "foo",
 		Hostname: "bar",
-	}, "baz")
+	}, nil, "baz")
 
 	if dur := clock.Since(t0); dur > 15*time.Second {
 		t.Fatalf("failed connection took %v", dur)

@@ -13,9 +13,11 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/kopia/kopia/internal/auth"
+	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/internal/server"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/manifest"
@@ -28,6 +30,8 @@ const (
 	testHostname = "bar"
 	testPassword = "123"
 	testPathname = "/tmp/path"
+
+	maxCacheSizeBytes = 1e6
 )
 
 // nolint:thelper
@@ -82,10 +86,22 @@ func testServer(t *testing.T, disableGRPC bool) {
 
 	apiServerInfo.DisableGRPC = disableGRPC
 
+	cacheDir := testutil.TempDirectory(t)
+
+	cs, err := cache.NewStorageOrNil(ctx, cacheDir, maxCacheSizeBytes, "subdir")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pc, err := cache.NewPersistentCache(ctx, "testing", cs, cache.ChecksumProtection([]byte{1, 2, 3}), maxCacheSizeBytes, cache.DefaultTouchThreshold, cache.DefaultSweepFrequency)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	rep, err := repo.OpenAPIServer(ctx, apiServerInfo, repo.ClientOptions{
 		Username: testUsername,
 		Hostname: testHostname,
-	}, testPassword)
+	}, pc, testPassword)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +118,7 @@ func TestGPRServer_AuthenticationError(t *testing.T) {
 	if _, err := repo.OpenGRPCAPIRepository(ctx, apiServerInfo, repo.ClientOptions{
 		Username: "bad-username",
 		Hostname: "bad-hostname",
-	}, "bad-password"); err == nil {
+	}, nil, "bad-password"); err == nil {
 		t.Fatal("unexpected success when connecting with invalid username")
 	}
 }

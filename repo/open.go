@@ -10,8 +10,10 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"golang.org/x/crypto/scrypt"
 
 	"github.com/kopia/kopia/internal/atomicfile"
+	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/repo/blob"
 	loggingwrapper "github.com/kopia/kopia/repo/blob/logging"
 	"github.com/kopia/kopia/repo/blob/readonly"
@@ -76,19 +78,47 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 	}
 
 	if lc.APIServer != nil {
-		return OpenAPIServer(ctx, lc.APIServer, lc.ClientOptions, password)
+		contentCache, err := getContentCacheOrNil(ctx, lc.Caching.CloneOrDefault(), password)
+		if err != nil {
+			return nil, errors.Wrap(err, "error opening content cache")
+		}
+
+		return OpenAPIServer(ctx, lc.APIServer, lc.ClientOptions, contentCache, password)
 	}
 
 	return openDirect(ctx, configFile, lc, password, options)
 }
 
-// OpenAPIServer connects remote repository over Kopia API.
-func OpenAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions, password string) (Repository, error) {
-	if si.DisableGRPC {
-		return openRestAPIRepository(ctx, si, cliOpts, password)
+func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, password string) (*cache.PersistentCache, error) {
+	cs, err := cache.NewStorageOrNil(ctx, opt.CacheDirectory, opt.MaxCacheSizeBytes, "server-contents")
+	if cs == nil {
+		// this may be (nil, nil) or (nil, err)
+		return nil, errors.Wrap(err, "error opening storage")
 	}
 
-	return OpenGRPCAPIRepository(ctx, si, cliOpts, password)
+	// derive content cache key from the password & HMAC secret using scrypt.
+	salt := append([]byte("content-cache-protection"), opt.HMACSecret...)
+
+	cacheEncryptionKey, err := scrypt.Key([]byte(password), salt, 65536, 8, 1, 32)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to derive cache encryption key from password")
+	}
+
+	prot, err := cache.AuthenticatedEncryptionProtection(cacheEncryptionKey)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to initialize protection")
+	}
+
+	return cache.NewPersistentCache(ctx, "cache-storage", cs, prot, opt.MaxCacheSizeBytes, cache.DefaultTouchThreshold, cache.DefaultSweepFrequency)
+}
+
+// OpenAPIServer connects remote repository over Kopia API.
+func OpenAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions, contentCache *cache.PersistentCache, password string) (Repository, error) {
+	if si.DisableGRPC {
+		return openRestAPIRepository(ctx, si, cliOpts, contentCache, password)
+	}
+
+	return OpenGRPCAPIRepository(ctx, si, cliOpts, contentCache, password)
 }
 
 // openDirect opens the repository that directly manipulates blob storage..
