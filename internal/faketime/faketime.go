@@ -4,6 +4,8 @@ package faketime
 import (
 	"sync/atomic"
 	"time"
+
+	"github.com/kopia/kopia/internal/clock"
 )
 
 // Frozen returns a function that always returns t.
@@ -52,4 +54,29 @@ func (t *TimeAdvance) Advance(dt time.Duration) time.Time {
 	advance := atomic.AddInt64(&t.delta, int64(dt))
 
 	return t.base.Add(time.Duration(advance))
+}
+
+// ClockTimeWithOffset allows controlling the passage of time. Intended to be used in
+// tests.
+type ClockTimeWithOffset struct {
+	offset time.Duration
+}
+
+// NewClockTimeWithOffset creates a ClockTimeWithOffset with the given start time.
+func NewClockTimeWithOffset(offset time.Duration) *ClockTimeWithOffset {
+	return &ClockTimeWithOffset{}
+}
+
+// NowFunc returns a time provider function for t.
+func (t *ClockTimeWithOffset) NowFunc() func() time.Time {
+	return func() time.Time {
+		return clock.Now().Add(t.offset)
+	}
+}
+
+// Advance advances t by dt, such that the next call to t.NowFunc()() returns
+// current t + dt.
+func (t *ClockTimeWithOffset) Advance(dt time.Duration) time.Time {
+	t.offset += dt
+	return clock.Now().Add(t.offset)
 }

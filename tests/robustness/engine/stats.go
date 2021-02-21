@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/kopia/kopia/internal/clock"
 )
 
 var (
@@ -112,7 +114,7 @@ func (s *ActionStats) AverageRuntime() time.Duration {
 // Record records the current time against the provided start time
 // and updates the stats accordingly.
 func (s *ActionStats) Record(st time.Time, err error) {
-	thisRuntime := time.Since(st)
+	thisRuntime := clock.Since(st)
 	s.TotalRuntime += thisRuntime
 
 	if thisRuntime > s.MaxRuntime {
@@ -131,7 +133,7 @@ func (s *ActionStats) Record(st time.Time, err error) {
 }
 
 func (stats *Stats) getLifetimeSeconds() int64 {
-	return durationToSec(time.Since(stats.CreationTime))
+	return durationToSec(clock.Since(stats.CreationTime))
 }
 
 func durationToSec(dur time.Duration) int64 {
@@ -151,5 +153,5 @@ func (e *Engine) getTimestampS() int64 {
 }
 
 func (e *Engine) getRuntimeSeconds() int64 {
-	return durationToSec(e.CumulativeStats.RunTime + time.Since(e.RunStats.CreationTime))
+	return durationToSec(e.CumulativeStats.RunTime + clock.Since(e.RunStats.CreationTime))
 }

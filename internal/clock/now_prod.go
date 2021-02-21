@@ -6,5 +6,5 @@ import "time"
 
 // Now returns current wall clock time.
 func Now() time.Time {
-	return time.Now() // allow:no-inject-time
+	return time.Now() // nolint:forbidigo
 }

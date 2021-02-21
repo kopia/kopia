@@ -10,8 +10,8 @@ import (
 	"math/rand"
 	"strconv"
 	"strings"
-	"time"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/tests/robustness"
 )
 
@@ -26,7 +26,7 @@ func (e *Engine) ExecAction(actionKey ActionKey, opts map[string]string) (map[st
 	log.Printf("Engine executing ACTION: name=%q actionCount=%v totActCount=%v t=%vs (%vs)", actionKey, e.RunStats.ActionCounter, e.CumulativeStats.ActionCounter, e.RunStats.getLifetimeSeconds(), e.getRuntimeSeconds())
 
 	action := actions[actionKey]
-	st := time.Now()
+	st := clock.Now()
 
 	logEntry := &LogEntry{
 		StartTime:       st,

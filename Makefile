@@ -60,14 +60,7 @@ lint-and-log: $(linter)
 	$(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags) | tee .linterr.txt
 
 
-vet-time-inject:
-ifneq ($(TRAVIS_OS_NAME),windows)
-	! find . -name '*.go' \
-	-exec grep -n -e time.Now -e time.Since -e time.Until {} + \
-	grep -v src/golang.org | grep -v -e allow:no-inject-time
-endif
-
-vet: vet-time-inject
+vet:
 	go vet -all .
 
 go-modules:
