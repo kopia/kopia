@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
-if [[ $TRAVIS_TAG == "" ]]; then
-    echo TRAVIS_TAG must be set.
+if [[ $CI_TAG == "" ]]; then
+    echo CI_TAG must be set.
     exit 0
 fi
 
@@ -10,7 +10,7 @@ if [[ $KOPIA_EXE == "" ]]; then
     exit 0
 fi
 
-OUTPUT_DIR="compat-test/$TRAVIS_TAG"
+OUTPUT_DIR="compat-test/$CI_TAG"
 rm -rf "$OUTPUT_DIR"
 
 mkdir -pv "$OUTPUT_DIR"

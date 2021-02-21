@@ -26,7 +26,7 @@ delete_old_deb() {
 
 distributions="unstable"
 
-if [ "$TRAVIS_TAG" != "" ]; then
+if [ "$CI_TAG" != "" ]; then
   distributions="stable testing"
 fi
 

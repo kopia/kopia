@@ -9,11 +9,11 @@ electron_builder_flags:=
 electron_builder_flags+=-c.extraMetadata.version=$(KOPIA_VERSION:v%=%)
 electron_publish_flag:=never
 
-ifeq ($(TRAVIS_PULL_REQUEST),false)
+ifeq ($(PUBLISH_BINARIES)/$(IS_PULL_REQUEST),true/false)
 
 electron_publish_flag=always
 
-ifneq ($(TRAVIS_TAG),)
+ifneq ($(CI_TAG),)
 # tagged release - create draft release, but don't publish
 electron_builder_flags+=-c.publish.releaseType=release
 electron_builder_flags+=-c.publish.owner=$(REPO_OWNER)
@@ -34,10 +34,20 @@ endif
 
 endif
 
-ifeq ($(TRAVIS_OS_NAME),windows)
+# empty CSC_LINK, unset completely since empty value confuses electron builder.
+ifeq ($(CSC_LINK),)
+
+unexport CSC_LINK
+unexport CSC_KEY_PASSWORD
+
+endif
+
+ifeq ($(GOOS),windows)
+
 # disable Kopia UI code signing on Windows.
-undefine CSC_LINK
-undefine CSC_KEY_PASSWORD
+unexport CSC_LINK
+unexport CSC_KEY_PASSWORD
+
 endif
 
 dev: node_modules

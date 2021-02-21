@@ -4,7 +4,7 @@ on:
     branches: [ master ]
   push:
     # ci-sandbox is a branch dedicated to testing post-submit code.
-    branches: [ master, ci-sandbox ]
+    branches: [ master, ci-sandbox, ci-refactor ]
     tags:
       - v*
   schedule:
@@ -13,14 +13,20 @@ on:
 jobs:
   build:
     env:
+      # required by Makefile
+      UNIX_SHELL_ON_WINDOWS: true
+
+      # PUBLISH_BINARIES=true publishes the binaries to github
+      PUBLISH_BINARIES: ${{ secrets.PUBLISH_BINARIES }}
+
       # encrypt various secrets stored as files
-      encrypted_fa1db4b894bb_key: ${{ secrets.ENCRYPTED_FA1DB4B894BB_KEY }}
-      encrypted_fa1db4b894bb_iv: ${{ secrets.ENCRYPTED_FA1DB4B894BB_IV }}
+      CREDENTIAL_ENCRYPTION_KEY: ${{ secrets.CREDENTIAL_ENCRYPTION_KEY }}
+      CREDENTIAL_ENCRYPTION_IV: ${{ secrets.CREDENTIAL_ENCRYPTION_IV }}
 
       # Apple ID and app-specific password for notarizaton
       APPLEID: ${{ secrets.APPLEID }}
       APPLEIDPASS: ${{ secrets.APPLEIDPASS }}
-      KOPIA_UI_NOTARIZE: yes
+      KOPIA_UI_NOTARIZE: ${{ secrets.KOPIA_UI_NOTARIZE }}
 
       # tool to install Windows signing certificate
       WINDOWS_SIGNING_TOOLS_URL: ${{ secrets.WINDOWS_SIGNING_TOOLS_URL }}
@@ -82,17 +88,20 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        #os: [windows-latest, ubuntu-latest, macos-latest, [self-hosted, armhf]]
-        os: [windows-latest, ubuntu-latest, macos-latest]
+        os: [windows-latest, ubuntu-latest, macos-latest, [self-hosted, ARM64], [self-hosted, ARMHF]]
+        #os: [windows-latest, ubuntu-latest, macos-latest]
     name: Make
     runs-on: ${{ matrix.os }}
     steps:
-    - name: Set up Go
+    - name: Set up Go.
       uses: actions/setup-go@v2
-      if: ${{ !contains(matrix.os, 'self-hosted') }}
       with:
         go-version: ^1.16
       id: go
+      if: ${{ !contains(matrix.os, 'ARMHF') }}
+    - name: Install GoLang for ARMHF
+      run: "echo /usr/local/go/bin >> $GITHUB_PATH; mkdir -p /usr/local/go && curl -s -L https://golang.org/dl/go1.16.linux-armv6l.tar.gz | tar -C /usr/local -xz"
+      if: ${{ contains(matrix.os, 'ARMHF') }}
     - name: Install Windows-specific packages
       run: "choco install --no-progress -y make unzip curl"
       if: ${{ contains(matrix.os, 'windows') }}
@@ -104,6 +113,12 @@ jobs:
       with:
         fetch-depth: 0
     - name: Setup
-      run: make travis-setup
-    - name: Build
-      run: make travis-release
+      run: make -j4 ci-setup
+    - name: Build 
+      run: make ci-build
+    - name: Tests
+      run: make ci-tests
+    - name: Integration Tests
+      run: make -j2 ci-integration-tests
+    - name: Publish
+      run: make ci-publish
