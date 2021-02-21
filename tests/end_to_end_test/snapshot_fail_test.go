@@ -65,10 +65,14 @@ func cond(c bool, a, b int) int {
 	return b
 }
 
-// nolint:thelper
+// nolint:thelper,cyclop
 func testSnapshotFail(t *testing.T, isFailFast bool, snapshotCreateFlags, snapshotCreateEnv []string) {
 	if runtime.GOOS == windowsOSName {
 		t.Skip("this test does not work on Windows")
+	}
+
+	if os.Getuid() == 0 {
+		t.Skip("this test does not work as root, because we're unable to remove permissions.")
 	}
 
 	dir0Path := "dir0"

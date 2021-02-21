@@ -157,19 +157,19 @@ func TestSnapshotRestore(t *testing.T) {
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
 	source := testutil.TempDirectory(t)
-	testenv.MustCreateDirectoryTree(t, filepath.Join(source, "subdir1"), testenv.DirectoryTreeOptions{
-		Depth:                              5,
-		MaxSubdirsPerDirectory:             5,
-		MaxFilesPerDirectory:               5,
+	testenv.MustCreateDirectoryTree(t, filepath.Join(source, "subdir1"), testenv.MaybeSimplifyFilesystem(testenv.DirectoryTreeOptions{
+		Depth:                              3,
+		MaxSubdirsPerDirectory:             3,
+		MaxFilesPerDirectory:               3,
 		MaxSymlinksPerDirectory:            4,
 		NonExistingSymlinkTargetPercentage: 50,
-	})
-	testenv.MustCreateDirectoryTree(t, filepath.Join(source, "subdir2"), testenv.DirectoryTreeOptions{
+	}))
+	testenv.MustCreateDirectoryTree(t, filepath.Join(source, "subdir2"), testenv.MaybeSimplifyFilesystem(testenv.DirectoryTreeOptions{
 		Depth:                   2,
 		MaxSubdirsPerDirectory:  1,
 		MaxFilesPerDirectory:    5,
 		MaxSymlinksPerDirectory: 4,
-	})
+	}))
 
 	// create a file with well-known name.
 	f, err := os.Create(filepath.Join(source, "single-file"))

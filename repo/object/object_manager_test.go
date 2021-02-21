@@ -21,6 +21,7 @@ import (
 
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/compression"
 	"github.com/kopia/kopia/repo/content"
@@ -222,10 +223,10 @@ func TestObjectWriterRaceBetweenCheckpointAndResult(t *testing.T) {
 	}
 
 	allZeroes := make([]byte, 1<<20-5)
-	repeat := 100
 
-	if runtime.GOARCH == "arm" {
-		repeat = 10
+	repeat := 100
+	if testutil.ShouldReduceTestComplexity() {
+		repeat = 5
 	}
 
 	for i := 0; i < repeat; i++ {
@@ -638,6 +639,7 @@ func TestEndToEndReadAndSeekWithCompression(t *testing.T) {
 
 	if runtime.GOARCH != "amd64" {
 		sizes = []int{1, 199, 200, 201, 9999, 512434}
+		asyncWritesList = []int{0, 2}
 	}
 
 	for _, compressible := range []bool{false, true} {

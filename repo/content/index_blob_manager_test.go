@@ -18,6 +18,7 @@ import (
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/faketime"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/logging"
 	"github.com/kopia/kopia/repo/encryption"
@@ -324,8 +325,13 @@ func TestCompactionCreatesPreviousIndex(t *testing.T) {
 func TestIndexBlobManagerPreventsResurrectOfDeletedContents_RandomizedTimings(t *testing.T) {
 	rand.Seed(clock.Now().UnixNano())
 
+	numAttempts := 1000
+	if testutil.ShouldReduceTestComplexity() {
+		numAttempts = 100
+	}
+
 	// the test is randomized and runs very quickly, run it lots of times
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < numAttempts; i++ {
 		t.Run(fmt.Sprintf("attempt-%v", i), func(t *testing.T) {
 			verifyIndexBlobManagerPreventsResurrectOfDeletedContents(
 				t,

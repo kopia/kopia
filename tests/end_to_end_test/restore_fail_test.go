@@ -40,11 +40,11 @@ func TestRestoreFail(t *testing.T) {
 	sourceDir := filepath.Join(scratchDir, "source")
 	targetDir := filepath.Join(scratchDir, "target")
 
-	testenv.MustCreateDirectoryTree(t, sourceDir, testenv.DirectoryTreeOptions{
+	testenv.MustCreateDirectoryTree(t, sourceDir, testenv.MaybeSimplifyFilesystem(testenv.DirectoryTreeOptions{
 		Depth:                  2,
-		MaxSubdirsPerDirectory: 10,
-		MaxFilesPerDirectory:   10,
-	})
+		MaxSubdirsPerDirectory: 5,
+		MaxFilesPerDirectory:   5,
+	}))
 
 	beforeBlobList := e.RunAndExpectSuccess(t, "blob", "list")
 

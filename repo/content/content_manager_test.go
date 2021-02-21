@@ -22,6 +22,7 @@ import (
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/faketime"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/blob/logging"
 )
@@ -249,7 +250,12 @@ func TestContentManagerWriteMultiple(t *testing.T) {
 
 	var contentIDs []ID
 
-	for i := 0; i < 5000; i++ {
+	repeatCount := 5000
+	if testutil.ShouldReduceTestComplexity() {
+		repeatCount = 500
+	}
+
+	for i := 0; i < repeatCount; i++ {
 		b := seededRandomData(i, i%113)
 
 		blkID, err := bm.WriteContent(ctx, b, "")

@@ -277,7 +277,7 @@ func (s *sourceManager) snapshotInternal(ctx context.Context, ctrl uitask.Contro
 		}
 
 		// set up progress that will keep counters and report to the uitask.
-		prog := &uitaskProgress{s.progress, ctrl, 0}
+		prog := &uitaskProgress{0, s.progress, ctrl}
 		u.Progress = prog
 		onUpload = func(numBytes int64) {
 			u.Progress.UploadedBytes(numBytes)
@@ -377,11 +377,9 @@ func (s *sourceManager) refreshStatus(ctx context.Context) {
 }
 
 type uitaskProgress struct {
-	p *snapshotfs.CountingUploadProgress
-
-	ctrl uitask.Controller
-
-	nextReportTimeNanos int64
+	nextReportTimeNanos int64 // must be aligned due to atomic access
+	p                   *snapshotfs.CountingUploadProgress
+	ctrl                uitask.Controller
 }
 
 // report reports the current progress to UITask.
