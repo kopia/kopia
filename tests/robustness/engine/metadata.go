@@ -5,8 +5,8 @@ package engine
 import (
 	"encoding/json"
 	"errors"
-	"time"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/tests/robustness/snapmeta"
 )
 
@@ -65,7 +65,7 @@ func (e *Engine) loadStats() error {
 			// Swallow key-not-found error. We may not have historical
 			// stats data. Initialize the action map for the cumulative stats
 			e.CumulativeStats.PerActionStats = make(map[ActionKey]*ActionStats)
-			e.CumulativeStats.CreationTime = time.Now()
+			e.CumulativeStats.CreationTime = clock.Now()
 
 			return nil
 		}

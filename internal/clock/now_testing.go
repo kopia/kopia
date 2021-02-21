@@ -14,7 +14,7 @@ import (
 const refreshServerTimeEvery = 3 * time.Second
 
 // Now is overridable function that returns current wall clock time.
-var Now = time.Now // allow:no-inject-time
+var Now = time.Now // nolint:forbidigo
 
 func init() {
 	fakeTimeServer := os.Getenv("KOPIA_FAKE_CLOCK_ENDPOINT")
@@ -40,13 +40,13 @@ func getTimeFromServer(endpoint string) func() time.Time {
 		Until int64 `json:"until"`
 	}
 
-	nextRefreshRealTime := time.Now() // allow:no-inject-time
+	nextRefreshRealTime := time.Now() // nolint:forbidigo
 
 	return func() time.Time {
 		mu.Lock()
 		defer mu.Unlock()
 
-		if timeInfo.Next >= timeInfo.Until || time.Now().After(nextRefreshRealTime) { // allow:no-inject-time
+		if timeInfo.Next >= timeInfo.Until || time.Now().After(nextRefreshRealTime) { // nolint:forbidigo
 			resp, err := http.Get(endpoint) //nolint:gosec,noctx
 			if err != nil {
 				log.Fatalf("unable to get fake time from server: %v", err)
@@ -61,7 +61,7 @@ func getTimeFromServer(endpoint string) func() time.Time {
 				log.Fatalf("invalid time received from fake time server: %v", err)
 			}
 
-			nextRefreshRealTime = time.Now().Add(refreshServerTimeEvery) // allow:no-inject-time
+			nextRefreshRealTime = time.Now().Add(refreshServerTimeEvery) // nolint:forbidigo
 		}
 
 		v := timeInfo.Next

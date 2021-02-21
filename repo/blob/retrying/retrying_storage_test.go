@@ -2,11 +2,11 @@ package retrying_test
 
 import (
 	"testing"
-	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/blobtesting"
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo/blob"
@@ -47,7 +47,7 @@ func TestRetrying(t *testing.T) {
 
 	must(t, rs.PutBlob(ctx, blobID2, gather.FromSlice([]byte{1, 2, 3, 4})))
 
-	must(t, rs.SetTime(ctx, blobID, time.Now()))
+	must(t, rs.SetTime(ctx, blobID, clock.Now()))
 
 	_, err := rs.GetBlob(ctx, blobID, 0, -1)
 	must(t, err)

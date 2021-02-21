@@ -189,7 +189,7 @@ func TestInvalidCredsFailsFast(t *testing.T) {
 
 	ctx := testlogging.Context(t)
 
-	t0 := time.Now()
+	t0 := clock.Now()
 
 	if _, err := New(ctx, &Options{
 		Endpoint:        minioEndpoint,
@@ -203,7 +203,7 @@ func TestInvalidCredsFailsFast(t *testing.T) {
 		t.Fatalf("unexpected success with bad credentials")
 	}
 
-	if dt := time.Since(t0); dt > 10*time.Second {
+	if dt := clock.Since(t0); dt > 10*time.Second {
 		t.Fatalf("opening storage took too long, probably due to retries")
 	}
 }

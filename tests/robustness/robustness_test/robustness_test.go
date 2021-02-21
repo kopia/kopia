@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strconv"
 	"testing"
-	"time"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/tests/robustness"
 	"github.com/kopia/kopia/tests/robustness/engine"
 	"github.com/kopia/kopia/tests/robustness/fiofilewriter"
@@ -86,7 +86,7 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 }
 
 func TestRandomizedSmall(t *testing.T) {
-	st := time.Now()
+	st := clock.Now()
 
 	opts := engine.ActionOpts{
 		engine.ActionControlActionKey: map[string]string{
@@ -104,7 +104,7 @@ func TestRandomizedSmall(t *testing.T) {
 		},
 	}
 
-	for time.Since(st) <= *randomizedTestDur {
+	for clock.Since(st) <= *randomizedTestDur {
 		err := eng.RandomAction(opts)
 		if errors.Is(err, robustness.ErrNoOp) {
 			t.Log("Random action resulted in no-op")

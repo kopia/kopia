@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/kopia/kopia/internal/clock"
 )
 
 // Log keeps track of the actions taken by the engine.
@@ -83,7 +85,7 @@ func (elog *Log) AddEntry(l *LogEntry) {
 // AddCompleted finalizes a log entry at the time it is called
 // and with the provided error, before adding it to the Log.
 func (elog *Log) AddCompleted(logEntry *LogEntry, err error) {
-	logEntry.EndTime = time.Now()
+	logEntry.EndTime = clock.Now()
 	if err != nil {
 		logEntry.Error = err.Error()
 	}

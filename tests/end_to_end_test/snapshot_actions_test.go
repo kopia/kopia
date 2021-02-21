@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/tests/testenv"
 )
@@ -77,13 +78,13 @@ func TestSnapshotActionsBeforeSnapshotRoot(t *testing.T) {
 		th+" --exit-code=3 --sleep=30s",
 		"--action-command-mode=async")
 
-	t0 := time.Now()
+	t0 := clock.Now()
 
 	// at this point the data is all cached so this will be quick, definitely less than 30s,
 	// async action failure will not prevent snapshot success.
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
 
-	if dur := time.Since(t0); dur > 30*time.Second {
+	if dur := clock.Since(t0); dur > 30*time.Second {
 		t.Errorf("command did not execute asynchronously (took %v)", dur)
 	}
 
@@ -94,12 +95,12 @@ func TestSnapshotActionsBeforeSnapshotRoot(t *testing.T) {
 		th+" --sleep=30s",
 		"--action-command-timeout=3s")
 
-	t0 = time.Now()
+	t0 = clock.Now()
 
 	// the action will be killed after 3s and cause a failure.
 	e.RunAndExpectFailure(t, "snapshot", "create", sharedTestDataDir1)
 
-	if dur := time.Since(t0); dur > 30*time.Second {
+	if dur := clock.Since(t0); dur > 30*time.Second {
 		t.Errorf("command did not apply timeout (took %v)", dur)
 	}
 

@@ -12,6 +12,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/faketime"
 	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/repotesting"
@@ -29,7 +30,9 @@ func TestDeleteUnreferencedBlobs(t *testing.T) {
 
 	var env repotesting.Environment
 
-	ta := faketime.NewTimeAdvance(time.Now(), 1*time.Second)
+	// set up fake clock which is initially synchronized to wall clock time
+	// and moved at the same speed but which can be moved forward.
+	ta := faketime.NewClockTimeWithOffset(0)
 
 	// setup repository without encryption and without HMAC so we can implant session blobs
 	defer env.Setup(t, repotesting.Options{
@@ -102,7 +105,7 @@ func TestDeleteUnreferencedBlobs(t *testing.T) {
 	mustPutDummyBlob(t, env.RepositoryWriter.BlobStorage(), extraBlobIDWithSession3)
 
 	session1Marker := mustPutDummySessionBlob(t, env.RepositoryWriter.BlobStorage(), "s01", &content.SessionInfo{
-		CheckpointTime: ta.NowFunc()(),
+		CheckpointTime: clock.Now(),
 	})
 	session2Marker := mustPutDummySessionBlob(t, env.RepositoryWriter.BlobStorage(), "s02", &content.SessionInfo{
 		CheckpointTime: ta.NowFunc()(),

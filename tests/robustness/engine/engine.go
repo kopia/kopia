@@ -11,8 +11,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/tests/robustness"
 	"github.com/kopia/kopia/tests/robustness/checker"
 )
@@ -63,7 +63,7 @@ func New(args *Args) (*Engine, error) {
 			baseDirPath: args.WorkingDir,
 			RunStats: Stats{
 				RunCounter:     1,
-				CreationTime:   time.Now(),
+				CreationTime:   clock.Now(),
 				PerActionStats: make(map[ActionKey]*ActionStats),
 			},
 		}
@@ -127,7 +127,7 @@ func (e *Engine) Shutdown() error {
 
 	log.Print(cleanupSummaryBuilder.String())
 
-	e.RunStats.RunTime = time.Since(e.RunStats.CreationTime)
+	e.RunStats.RunTime = clock.Since(e.RunStats.CreationTime)
 	e.CumulativeStats.RunTime += e.RunStats.RunTime
 
 	defer e.cleanComponents()

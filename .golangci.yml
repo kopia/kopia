@@ -4,6 +4,11 @@ linters-settings:
   funlen:
     lines: 100
     statements: 60
+  forbidigo:
+    forbid:
+    - time.Now # use clock.Now
+    - time.Since # use clock.Since
+    - time.Until # use clock.Until
   gocognit:
     min-complexity: 40
   gocyclo:
@@ -59,9 +64,6 @@ run:
 issues:
   exclude-use-default: false
   exclude-rules:
-    - path: cli
-      linters:
-      - forbidigo # allow fmt.Printf in the CLI
     - path: _test\.go|testing|tests|test_env|fshasher
       linters:
       - gomnd
@@ -71,7 +73,6 @@ issues:
       - gosec
       - nestif
       - wrapcheck
-      - forbidigo
       - nolintlint
     - text: "Magic number: 1e"
       linters:
