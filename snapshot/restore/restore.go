@@ -12,6 +12,7 @@ import (
 	"github.com/kopia/kopia/internal/parallelwork"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/logging"
+	"github.com/kopia/kopia/snapshot"
 )
 
 var log = logging.GetContextLoggerFunc("restore")
@@ -20,7 +21,7 @@ var log = logging.GetContextLoggerFunc("restore")
 type Output interface {
 	Parallelizable() bool
 	BeginDirectory(ctx context.Context, relativePath string, e fs.Directory) error
-	WriteShallowDirectory(ctx context.Context, relativePath string, e fs.Directory) error
+	WriteDirEntry(ctx context.Context, relativePath string, de *snapshot.DirEntry, e fs.Directory) error
 	FinishDirectory(ctx context.Context, relativePath string, e fs.Directory) error
 	WriteFile(ctx context.Context, relativePath string, e fs.File) error
 	FileExists(ctx context.Context, relativePath string, e fs.File) bool
@@ -211,7 +212,12 @@ func (c *copier) copyDirectory(ctx context.Context, d fs.Directory, targetPath s
 	atomic.AddInt32(&c.stats.RestoredDirCount, 1)
 
 	if depth == -1 {
-		if err := c.output.WriteShallowDirectory(ctx, targetPath, d); err != nil {
+		de, ok := d.(snapshot.HasDirEntry)
+		if !ok {
+			return errors.Errorf("fs.Directory object is not HasDirEntry?")
+		}
+
+		if err := c.output.WriteDirEntry(ctx, targetPath, de.DirEntry(), d); err != nil {
 			return errors.Wrap(err, "create directory")
 		}
 

@@ -9,20 +9,19 @@ import (
 	"github.com/natefinch/atomic"
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/snapshot"
 )
 
 // Helpers to implement storing of "shallow" placeholders for files or
 // directory trees in a restore image.
 
-func placeholderPath(path string, f fs.Entry) (string, error) {
-	switch f.Mode() & os.ModeType {
-	case os.ModeDir, 0: // Directories and regular files
+func placeholderPath(path string, et snapshot.EntryType) (string, error) {
+	switch et {
+	case snapshot.EntryTypeFile, snapshot.EntryTypeDirectory: // Directories and regular files
 		return path + SHALLOWENTRYSUFFIX, nil
 	default:
 		// Shouldn't be used on links or other file types.
-		return "", errors.Errorf("unsupported filesystem entry: %v", f)
+		return "", errors.Errorf("unsupported entry type: %v", et)
 	}
 }
 
@@ -31,20 +30,15 @@ func placeholderPath(path string, f fs.Entry) (string, error) {
 // snapshot/restore without needing to be realized in the local
 // filesystem.
 // TODO(rjk): Should the placeholder use the complete fs.Entry?
-func WriteShallowPlaceholder(path string, f fs.Entry) (string, error) {
-	mdg, ok := f.(snapshot.HasDirEntry)
-	if !ok {
-		return "", errors.Errorf("fs object is not HasDirEntry?")
-	}
-
+func WriteShallowPlaceholder(path string, de *snapshot.DirEntry) (string, error) {
 	buffy := &bytes.Buffer{}
 	encoder := json.NewEncoder(buffy)
 
-	if err := encoder.Encode(mdg.DirEntry()); err != nil {
+	if err := encoder.Encode(de); err != nil {
 		return "", errors.Wrapf(err, "json encoding DirEntry")
 	}
 
-	mp, err := placeholderPath(path, f)
+	mp, err := placeholderPath(path, de.Type)
 	if err != nil {
 		return "", errors.Wrapf(err, "computing placeholder path: %q", path)
 	}

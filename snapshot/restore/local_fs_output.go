@@ -78,8 +78,8 @@ func (o *FilesystemOutput) FinishDirectory(ctx context.Context, relativePath str
 	return os.RemoveAll(path + localfs.SHALLOWENTRYSUFFIX)
 }
 
-// WriteShallowDirectory implements restore.Output interface.
-func (o *FilesystemOutput) WriteShallowDirectory(ctx context.Context, relativePath string, e fs.Directory) error {
+// WriteDirEntry implements restore.Output interface.
+func (o *FilesystemOutput) WriteDirEntry(ctx context.Context, relativePath string, de *snapshot.DirEntry, e fs.Directory) error {
 	return nil
 }
 

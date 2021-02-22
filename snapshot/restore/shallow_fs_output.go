@@ -10,6 +10,7 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/localfs"
+	"github.com/kopia/kopia/snapshot"
 )
 
 // ShallowFilesystemOutput contains the options for doing a shallow output of a filesystem tree.
@@ -21,36 +22,52 @@ type ShallowFilesystemOutput struct {
 // BeginDirectory delegates to FilesystemOutput.
 // FinishDirectory delegates to restore.Output interface.
 
-// WriteShallowDirectory implements restore.Output interface.
-func (o *ShallowFilesystemOutput) WriteShallowDirectory(ctx context.Context, relativePath string, e fs.Directory) error {
-	return o.writeShallowEntry(ctx, relativePath, e)
+// WriteDirEntry implements restore.Output interface.
+func (o *ShallowFilesystemOutput) WriteDirEntry(ctx context.Context, relativePath string, de *snapshot.DirEntry, e fs.Directory) error {
+	placeholderpath, err := o.writeShallowEntry(ctx, relativePath, de)
+	if err != nil {
+		return errors.Wrap(err, "shallow WriteDirEntry")
+	}
+
+	return o.setAttributes(placeholderpath, e, readonlyfilemode)
 }
 
 // WriteFile implements restore.Output interface.
 func (o *ShallowFilesystemOutput) WriteFile(ctx context.Context, relativePath string, f fs.File) error {
 	log(ctx).Debugf("(Shallow) WriteFile %v (%v bytes) %v, %v", filepath.Join(o.TargetPath, relativePath), f.Size(), f.Mode(), f.ModTime())
-	return o.writeShallowEntry(ctx, relativePath, f)
+
+	mde, ok := f.(snapshot.HasDirEntry)
+	if !ok {
+		return errors.Errorf("fs object is not HasDirEntry?")
+	}
+
+	placeholderpath, err := o.writeShallowEntry(ctx, relativePath, mde.DirEntry())
+	if err != nil {
+		return errors.Wrap(err, "shallow WriteFile")
+	}
+
+	return o.setAttributes(placeholderpath, f, readonlyfilemode)
 }
 
 const readonlyfilemode = 0222
 
-func (o *ShallowFilesystemOutput) writeShallowEntry(ctx context.Context, relativePath string, f fs.Entry) error {
+func (o *ShallowFilesystemOutput) writeShallowEntry(ctx context.Context, relativePath string, de *snapshot.DirEntry) (string, error) {
 	path := filepath.Join(o.TargetPath, filepath.FromSlash(relativePath))
 	if _, err := os.Lstat(path); err == nil {
 		// Having both a placeholder and a real will cause snapshot to fail. But
 		// removing the real path risks destroying data forever.
-		return errors.Errorf("real path %v exists. cowardly refusing to add placeholder", path)
+		return "", errors.Errorf("real path %v exists. cowardly refusing to add placeholder", path)
 	}
 
 	log(ctx).Debugf("ShallowFilesystemOutput.writeShallowEntry %v ", path)
 
 	// TODO(rjk): Conceivably one could write small files instead of writing files with metadata.
-	placeholderpath, err := localfs.WriteShallowPlaceholder(path, f)
+	placeholderpath, err := localfs.WriteShallowPlaceholder(path, de)
 	if err != nil {
-		return errors.Wrap(err, "error writing placeholder")
+		return "", errors.Wrap(err, "error writing placeholder")
 	}
 
-	return o.setAttributes(placeholderpath, f, readonlyfilemode)
+	return placeholderpath, nil
 }
 
 // CreateSymlink identical to FilesystemOutput.
