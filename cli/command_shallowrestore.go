@@ -127,7 +127,7 @@ func (c *commandShallowRestore) run(ctx context.Context, rep repo.Repository) er
 	st, rerr := restore.Entry(ctx, rep, output, rootEntry, restore.Options{
 		Parallel: c.shallowRestoreParallel,
 		// TODO(rjk): Consider supporting depths greater than 1.
-		MaxDepth: 1,
+		RestoreDirEntryAtDepth: 1,
 		ProgressCallback: func(ctx context.Context, stats restore.Stats) {
 			// TODO(rjk): Add progress logging when depth is configurable.
 		},

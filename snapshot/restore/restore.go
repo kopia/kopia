@@ -64,10 +64,10 @@ func (s *Stats) clone() Stats {
 
 // Options provides optional restore parameters.
 type Options struct {
-	Parallel     int  `json:"parallel"`
-	Incremental  bool `json:"incremental"`
-	IgnoreErrors bool `json:"ignoreErrors"`
-	MaxDepth     int  `json:"maxdepth"`
+	Parallel               int  `json:"parallel"`
+	Incremental            bool `json:"incremental"`
+	IgnoreErrors           bool `json:"ignoreErrors"`
+	RestoreDirEntryAtDepth int  `json:"restoreDirEntryAtDepth"`
 
 	ProgressCallback func(ctx context.Context, s Stats)
 	Cancel           chan struct{} // channel that can be externally closed to signal cancelation
@@ -90,7 +90,7 @@ func Entry(ctx context.Context, rep repo.Repository, output Output, rootEntry fs
 	}
 
 	// Control the depth of a restore. Default (options.MaxDepth = 0) is to restore to full depth.
-	sd := options.MaxDepth
+	sd := options.RestoreDirEntryAtDepth
 	if sd > 0 {
 		sd = -sd - 1
 	}
