@@ -95,10 +95,10 @@ type HasDirEntry interface {
 	DirEntry() *DirEntry
 }
 
-// HasDirEntryFromPlaceholder is implemented by objects that may have a DirEntry
+// HasDirEntryOrNil is implemented by objects that may have a DirEntry
 // stored in the object's corresponding shallow placeholder file.
-type HasDirEntryFromPlaceholder interface {
-	DirEntryFromPlaceholder(ctx context.Context) (*DirEntry, error)
+type HasDirEntryOrNil interface {
+	DirEntryOrNil(ctx context.Context) (*DirEntry, error)
 }
 
 // DirManifest represents serialized contents of a directory.

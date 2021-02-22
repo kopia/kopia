@@ -242,11 +242,11 @@ func (fsf *filesystemFile) Open(ctx context.Context) (fs.Reader, error) {
 	return &fileWithMetadata{f}, nil
 }
 
-func (fsf *filesystemFile) DirEntryFromPlaceholder(ctx context.Context) (*snapshot.DirEntry, error) {
+func (fsf *filesystemFile) DirEntryOrNil(ctx context.Context) (*snapshot.DirEntry, error) {
 	return ReadShallowPlaceholder(fsf.fullPath())
 }
 
-func (fsd *filesystemDirectory) DirEntryFromPlaceholder(ctx context.Context) (*snapshot.DirEntry, error) {
+func (fsd *filesystemDirectory) DirEntryOrNil(ctx context.Context) (*snapshot.DirEntry, error) {
 	return ReadShallowPlaceholder(fsd.fullPath())
 }
 

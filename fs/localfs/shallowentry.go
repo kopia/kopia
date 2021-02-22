@@ -18,9 +18,9 @@ func TrimShallowSuffix(path string) string {
 // PlaceholderFilePath is a filesystem path of a shallow placeholder file.
 type PlaceholderFilePath string
 
-// DirEntryFromPlaceholder returns the snapshot.DirEntry corresponding to this PlaceholderFilePath.
-func (pf PlaceholderFilePath) DirEntryFromPlaceholder(ctx context.Context) (*snapshot.DirEntry, error) {
+// DirEntryOrNil returns the snapshot.DirEntry corresponding to this PlaceholderFilePath.
+func (pf PlaceholderFilePath) DirEntryOrNil(ctx context.Context) (*snapshot.DirEntry, error) {
 	return dirEntryFromPlaceholder(string(pf))
 }
 
-var _ snapshot.HasDirEntryFromPlaceholder = PlaceholderFilePath("")
+var _ snapshot.HasDirEntryOrNil = PlaceholderFilePath("")

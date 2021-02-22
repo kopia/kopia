@@ -130,11 +130,11 @@ func (d *ignoreDirectory) skipCacheDirectory(ctx context.Context, entries fs.Ent
 }
 
 // Make sure that ignoreDirectory implements HasDirEntryFromPlaceholder.
-var _ snapshot.HasDirEntryFromPlaceholder = &ignoreDirectory{}
+var _ snapshot.HasDirEntryOrNil = &ignoreDirectory{}
 
-func (d *ignoreDirectory) DirEntryFromPlaceholder(ctx context.Context) (*snapshot.DirEntry, error) {
-	if defp, ok := d.Directory.(snapshot.HasDirEntryFromPlaceholder); ok {
-		return defp.DirEntryFromPlaceholder(ctx)
+func (d *ignoreDirectory) DirEntryOrNil(ctx context.Context) (*snapshot.DirEntry, error) {
+	if defp, ok := d.Directory.(snapshot.HasDirEntryOrNil); ok {
+		return defp.DirEntryOrNil(ctx)
 	}
 	// Entry implementations don't have to have
 	return nil, nil

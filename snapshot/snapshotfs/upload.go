@@ -111,8 +111,8 @@ func (u *Uploader) uploadFileInternal(ctx context.Context, parentCheckpointRegis
 	u.Progress.HashingFile(relativePath)
 	defer u.Progress.FinishedHashingFile(relativePath, f.Size())
 
-	if pf, ok := f.(snapshot.HasDirEntryFromPlaceholder); ok {
-		switch de, err := pf.DirEntryFromPlaceholder(ctx); {
+	if pf, ok := f.(snapshot.HasDirEntryOrNil); ok {
+		switch de, err := pf.DirEntryOrNil(ctx); {
 		case err != nil:
 			return nil, errors.Wrap(err, "can't read placeholder")
 		case err == nil && de != nil:
@@ -942,8 +942,8 @@ type dirReadError struct {
 }
 
 func uploadShallowDirInternal(ctx context.Context, directory fs.Directory, u *Uploader) (*snapshot.DirEntry, error) {
-	if pf, ok := directory.(snapshot.HasDirEntryFromPlaceholder); ok {
-		switch de, err := pf.DirEntryFromPlaceholder(ctx); {
+	if pf, ok := directory.(snapshot.HasDirEntryOrNil); ok {
+		switch de, err := pf.DirEntryOrNil(ctx); {
 		case err != nil:
 			return nil, errors.Wrapf(err, "error reading placeholder for %q", directory.Name())
 		case err == nil && de != nil:

@@ -102,6 +102,6 @@ func dirEntryFromPlaceholder(path string) (*snapshot.DirEntry, error) {
 
 var (
 	// Make sure we implement HasDirEntryFromPlaceholder.
-	_ snapshot.HasDirEntryFromPlaceholder = (*filesystemFile)(nil)
-	_ snapshot.HasDirEntryFromPlaceholder = (*filesystemDirectory)(nil)
+	_ snapshot.HasDirEntryOrNil = (*filesystemFile)(nil)
+	_ snapshot.HasDirEntryOrNil = (*filesystemDirectory)(nil)
 )
