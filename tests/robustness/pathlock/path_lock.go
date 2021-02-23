@@ -57,7 +57,7 @@ func (l *lock) Unlock() {
 }
 
 // busyCounter is for unit testing, to determine whether a Lock has been
-// called and blocked
+// called and blocked.
 var busyCounter uint64
 
 // Lock will lock the given path, preventing concurrent calls to Lock

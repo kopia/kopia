@@ -149,7 +149,6 @@ func TestPathLockBasic(t *testing.T) {
 		if path2Err != nil {
 			t.Fatalf("Error in second lock path: %v", path2Err)
 		}
-
 	}
 }
 
