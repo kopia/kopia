@@ -137,13 +137,6 @@ endif
 	mv $(node_base_dir)/node-v$(NODE_VERSION)*/* $(node_base_dir)/node
 endif
 
-go_bindata=$(TOOLS_DIR)$(slash)bin$(slash)go-bindata$(exe_suffix)
-
-$(go_bindata): export GO111MODULE=off
-$(go_bindata): export GOPATH=$(TOOLS_DIR)
-$(go_bindata):
-	go get github.com/go-bindata/go-bindata/go-bindata
-
 # linter
 linter_dir=$(TOOLS_DIR)$(slash)golangci-lint-$(GOLANGCI_LINT_VERSION)
 linter=$(linter_dir)$(slash)golangci-lint$(exe_suffix)
@@ -296,5 +289,5 @@ else
 maybehugo=
 endif
 
-all-tools: $(gotestsum) $(npm) $(goreleaser) $(linter) $(maybehugo) $(go_bindata) windows-signing-tools
+all-tools: $(gotestsum) $(npm) $(goreleaser) $(linter) $(maybehugo) windows-signing-tools
 

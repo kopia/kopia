@@ -32,7 +32,7 @@ The following picture provides high-level overview of the build pipeline.
 
 ## HTML UI
 
-THe HTML UI builds HTML-based user interface that is embedded in Kopia binary by using [go-bindata](github.com/go-bindata/go-bindata).
+THe HTML UI builds HTML-based user interface that is embedded in Kopia binary by using [go:embed](https://pkg.go.dev/embed).
 
 The UI is build using [React](https://reactjs.org) and more specifically [Create React App](https://reactjs.org/docs/create-a-new-react-app.html#create-react-app) toolchain.
 
@@ -56,12 +56,6 @@ To make sure HTML pages compile correctly use:
 
 ```shell
 $ make -C htmlui build-html
-```
-
-To convert generated HTML to embedded go source code use:
-
-```shell
-$ make html-ui-bindata
 ```
 
 To manually build the `kopia` binary with the embedded HTML that was just generated in the previous step:

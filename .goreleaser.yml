@@ -2,7 +2,7 @@
 # Make sure to check the documentation at http://goreleaser.com
 before:
   hooks:
-    - make html-ui-bindata
+    - make html-ui
 builds:
 - env:
   - CGO_ENABLED=0

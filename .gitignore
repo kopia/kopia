@@ -18,7 +18,6 @@ test_service_account.json
 id_kopia
 known_hosts
 node_modules/
-*_bindata.go
 .tmp.*
 .boto
 *.log
