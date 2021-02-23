@@ -365,6 +365,10 @@ func TestDataPersistency(t *testing.T) {
 	dataDirWalk, err := eng.Checker.GetSnapshotMetadata(snapID)
 	testenv.AssertNoError(t, err)
 
+	// Save the snapshot ID index
+	err = eng.saveSnapIDIndex()
+	testenv.AssertNoError(t, err)
+
 	// Flush the snapshot metadata to persistent storage
 	err = eng.MetaStore.FlushMetadata()
 	testenv.AssertNoError(t, err)

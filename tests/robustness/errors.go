@@ -18,4 +18,7 @@ var (
 
 	// ErrInvalidOption is returned if an option value is invalid or missing.
 	ErrInvalidOption = errors.New("invalid option setting")
+
+	// ErrKeyNotFound is returned when the store can't find the key provided.
+	ErrKeyNotFound = errors.New("key not found")
 )
