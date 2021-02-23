@@ -110,8 +110,7 @@ func NewCLITest(t *testing.T) *CLITest {
 
 	var formatFlags []string
 
-	switch runtime.GOARCH {
-	case "arm64", "arm":
+	if testutil.ShouldReduceTestComplexity() {
 		formatFlags = []string{
 			"--encryption", "CHACHA20-POLY1305-HMAC-SHA256",
 			"--block-hash", "BLAKE2S-256",
@@ -368,6 +367,36 @@ type DirectoryTreeOptions struct {
 	MinNameLength                      int
 	MaxNameLength                      int
 	NonExistingSymlinkTargetPercentage int // 0..100
+}
+
+// MaybeSimplifyFilesystem applies caps to the provided DirectoryTreeOptions to reduce
+// test time on ARM.
+func MaybeSimplifyFilesystem(o DirectoryTreeOptions) DirectoryTreeOptions {
+	if !testutil.ShouldReduceTestComplexity() {
+		return o
+	}
+
+	if o.Depth > 2 {
+		o.Depth = 2
+	}
+
+	if o.MaxFilesPerDirectory > 5 {
+		o.MaxFilesPerDirectory = 5
+	}
+
+	if o.MaxSubdirsPerDirectory > 3 {
+		o.MaxFilesPerDirectory = 3
+	}
+
+	if o.MaxSymlinksPerDirectory > 3 {
+		o.MaxSymlinksPerDirectory = 3
+	}
+
+	if o.MaxFileSize > 100000 {
+		o.MaxFileSize = 100000
+	}
+
+	return o
 }
 
 // DirectoryTreeCounters stores stats about files and directories created by CreateDirectoryTree.

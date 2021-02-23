@@ -46,7 +46,6 @@ func (p *CompressionPolicy) CompressorForFile(e fs.File) compression.Name {
 }
 
 // Merge applies default values from the provided policy.
-// nolint:gocritic
 func (p *CompressionPolicy) Merge(src CompressionPolicy) {
 	if p.CompressorName == "" {
 		p.CompressorName = src.CompressorName

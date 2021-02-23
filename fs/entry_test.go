@@ -1,7 +1,6 @@
 package fs
 
 import (
-	"log"
 	"testing"
 
 	"github.com/kylelemons/godebug/pretty"
@@ -168,7 +167,7 @@ func TestEntriesUpdate(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		log.Printf("starting %q", tc.desc)
+		t.Logf("starting %q", tc.desc)
 		updated := tc.base.Update(tc.updatedEntry)
 
 		if diff := pretty.Compare(updated, tc.want); diff != "" {
@@ -274,7 +273,7 @@ func TestEntriesRemove(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		log.Printf("starting %q", tc.desc)
+		t.Logf("starting %q", tc.desc)
 		updated := tc.base.Remove(tc.removedEntry)
 
 		if diff := pretty.Compare(updated, tc.want); diff != "" {

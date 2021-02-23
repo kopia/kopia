@@ -16,7 +16,6 @@ type FilesPolicy struct {
 }
 
 // Merge applies default values from the provided policy.
-// nolint:gocritic
 func (p *FilesPolicy) Merge(src FilesPolicy) {
 	if p.MaxFileSize == 0 {
 		p.MaxFileSize = src.MaxFileSize

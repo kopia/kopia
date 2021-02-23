@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -30,4 +31,9 @@ func TestSkipOnCIUnlessLinuxAMD64(t *testing.T) {
 	if os.Getenv("CI") != "" && runtime.GOOS+"/"+runtime.GOARCH != "linux/amd64" {
 		t.Skip("test not supported in this environment.")
 	}
+}
+
+// ShouldReduceTestComplexity returns true if test complexity should be reduced on the current machine.
+func ShouldReduceTestComplexity() bool {
+	return strings.Contains(runtime.GOARCH, "arm")
 }

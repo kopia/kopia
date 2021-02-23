@@ -34,40 +34,33 @@ func oneTimeSetup() error {
 		os.MkdirAll(sharedTestDataDirBase, 0700)
 	}
 
-	log.Printf("creating test data in %q", sharedTestDataDirBase)
-
 	var counters1, counters2, counters3 testenv.DirectoryTreeCounters
 
 	sharedTestDataDir1 = filepath.Join(sharedTestDataDirBase, "dir1")
 	// 3-level directory with <=10 files and <=10 subdirectories at each level
-	testenv.CreateDirectoryTree(sharedTestDataDir1, testenv.DirectoryTreeOptions{
+	testenv.CreateDirectoryTree(sharedTestDataDir1, testenv.MaybeSimplifyFilesystem(testenv.DirectoryTreeOptions{
 		Depth:                  3,
 		MaxSubdirsPerDirectory: 10,
 		MaxFilesPerDirectory:   10,
 		MaxFileSize:            100,
-	}, &counters1)
-	log.Printf("created dir1 with %#v", counters1)
+	}), &counters1)
 
 	// directory with very few big files
 	sharedTestDataDir2 = filepath.Join(sharedTestDataDirBase, "dir2")
-	testenv.CreateDirectoryTree(sharedTestDataDir2, testenv.DirectoryTreeOptions{
+	testenv.CreateDirectoryTree(sharedTestDataDir2, testenv.MaybeSimplifyFilesystem(testenv.DirectoryTreeOptions{
 		Depth:                  5,
 		MaxSubdirsPerDirectory: 2,
 		MaxFilesPerDirectory:   2,
 		MaxFileSize:            50000000,
-	}, &counters2)
-	log.Printf("created dir2 with %#v", counters2)
+	}), &counters2)
 
 	sharedTestDataDir3 = filepath.Join(sharedTestDataDirBase, "dir3")
-	testenv.CreateDirectoryTree(sharedTestDataDir3, testenv.DirectoryTreeOptions{
+	testenv.CreateDirectoryTree(sharedTestDataDir3, testenv.MaybeSimplifyFilesystem(testenv.DirectoryTreeOptions{
 		Depth:                  3,
 		MaxFilesPerDirectory:   500,
 		MaxSubdirsPerDirectory: 3,
 		MaxFileSize:            500,
-	}, &counters3)
-	log.Printf("created dir3 with %#v", counters3)
-
-	log.Printf("finished creating test data...")
+	}), &counters3)
 
 	return nil
 }

@@ -164,12 +164,12 @@ func actionAddNewSource(t *testing.T, e *testenv.CLITest, s *runnerState) {
 
 	s.dirs = append(s.dirs, srcDir)
 
-	testenv.CreateDirectoryTree(srcDir, testenv.DirectoryTreeOptions{
+	testenv.CreateDirectoryTree(srcDir, testenv.MaybeSimplifyFilesystem(testenv.DirectoryTreeOptions{
 		Depth:                  3,
 		MaxSubdirsPerDirectory: 10,
 		MaxFilesPerDirectory:   10,
 		MaxFileSize:            100,
-	}, &testenv.DirectoryTreeCounters{})
+	}), &testenv.DirectoryTreeCounters{})
 }
 
 func actionMutateDirectoryTree(t *testing.T, e *testenv.CLITest, s *runnerState) {

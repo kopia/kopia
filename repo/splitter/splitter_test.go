@@ -5,6 +5,8 @@ import (
 	"math"
 	"math/rand"
 	"testing"
+
+	"github.com/kopia/kopia/internal/testutil"
 )
 
 func TestSplitterStability(t *testing.T) {
@@ -50,6 +52,18 @@ func TestSplitterStability(t *testing.T) {
 		{Pooled(newRabinKarp64SplitterFactory(65536)), 53, 94339, 35875, 131072},
 	}
 
+	// run each test twice to rule out the possibility of some state leaking through splitter reuse
+	numRepeats := 2
+
+	if testutil.ShouldReduceTestComplexity() {
+		// on ARM pick random 1/4 of cases
+		rand.Shuffle(len(cases), func(i, j int) {
+			cases[i], cases[j] = cases[j], cases[i]
+		})
+
+		cases = cases[:len(cases)/4]
+	}
+
 	getSplitPointsFunctions := map[string]func(data []byte, s Splitter) (minSplit, maxSplit, count int){
 		"getSplitPoints":             getSplitPoints,
 		"getSplitPointsByteByByte":   getSplitPointsByteByByte,
@@ -66,8 +80,7 @@ func TestSplitterStability(t *testing.T) {
 				getSplitPointsFunc := getSplitPointsFunc
 
 				t.Run(name, func(t *testing.T) {
-					// run each test twice to rule out the possibility of some state leaking through splitter reuse
-					for repeat := 0; repeat < 2; repeat++ {
+					for repeat := 0; repeat < numRepeats; repeat++ {
 						s := tc.factory()
 
 						if got, want := s.MaxSegmentSize(), tc.maxSplit; got != want {

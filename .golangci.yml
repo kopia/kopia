@@ -33,6 +33,10 @@ linters-settings:
   goimports:
     local-prefixes: github.com/kopia/kopia
   gocritic:
+    settings:
+      hugeParam:
+        # size in bytes that makes the warning trigger (default 80)
+        sizeThreshold: 160
     enabled-tags:
       - diagnostic
       - performance
