@@ -261,7 +261,7 @@ ifneq ($(GOOS),windows)
 	@echo Installing GPG key...
 	openssl aes-256-cbc -K "$(CREDENTIAL_ENCRYPTION_KEY)" -iv "$(CREDENTIAL_ENCRYPTION_IV)" -in kopia.gpg.enc -out /tmp/kopia.gpg -d
 	gpg --import /tmp/kopia.gpg
-openssl aes-256-cbc -K "$(CREDENTIAL_ENCRYPTION_KEY)" -iv "$(CREDENTIAL_ENCRYPTION_IV)" -in tests/credentials/gcs/test_service_account.json.enc -out repo/blob/gcs/test_service_account.json -d
+	openssl aes-256-cbc -K "$(CREDENTIAL_ENCRYPTION_KEY)" -iv "$(CREDENTIAL_ENCRYPTION_IV)" -in tests/credentials/gcs/test_service_account.json.enc -out repo/blob/gcs/test_service_account.json -d
 	openssl aes-256-cbc -K "$(CREDENTIAL_ENCRYPTION_KEY)" -iv "$(CREDENTIAL_ENCRYPTION_IV)" -in tests/credentials/sftp/id_kopia.enc -out repo/blob/sftp/id_kopia -d
 	openssl aes-256-cbc -K "$(CREDENTIAL_ENCRYPTION_KEY)" -iv "$(CREDENTIAL_ENCRYPTION_IV)" -in tests/credentials/sftp/known_hosts.enc -out repo/blob/sftp/known_hosts -d
 	openssl aes-256-cbc -K "$(CREDENTIAL_ENCRYPTION_KEY)" -iv "$(CREDENTIAL_ENCRYPTION_IV)" -in tools/boto.enc -out tools/.boto -d
