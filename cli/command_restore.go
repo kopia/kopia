@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -254,6 +255,7 @@ func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 		Parallel:     c.restoreParallel,
 		Incremental:  c.restoreIncremental,
 		IgnoreErrors: c.restoreIgnoreErrors,
+		RestoreDirEntryAtDepth: math.MaxInt32,
 		ProgressCallback: func(ctx context.Context, stats restore.Stats) {
 			restoredCount := stats.RestoredFileCount + stats.RestoredDirCount + stats.RestoredSymlinkCount + stats.SkippedCount
 			enqueuedCount := stats.EnqueuedFileCount + stats.EnqueuedDirCount + stats.EnqueuedSymlinkCount

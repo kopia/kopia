@@ -13,14 +13,20 @@ import (
 	"time"
 
 	"github.com/sanity-io/litter"
+	"github.com/stretchr/testify/require"
 
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/tests/clitestutil"
 	"github.com/kopia/kopia/tests/testenv"
+	"github.com/kopia/kopia/tests/testdirtree"
 )
 
 func TestShallowrestore(t *testing.T) {
-	e := testenv.NewCLITest(t)
+	t.Parallel()
+
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, runner)
 
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
@@ -28,7 +34,7 @@ func TestShallowrestore(t *testing.T) {
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
 	source := filepath.Join(t.TempDir(), "source")
-	testenv.MustCreateDirectoryTree(t, source, testenv.DirectoryTreeOptions{
+	testdirtree.MustCreateDirectoryTree(t, source, testdirtree.DirectoryTreeOptions{
 		Depth:                              1,
 		MaxFilesPerDirectory:               10,
 		MaxSymlinksPerDirectory:            4,
@@ -36,7 +42,7 @@ func TestShallowrestore(t *testing.T) {
 	})
 
 	e.RunAndExpectSuccess(t, "snapshot", "create", source)
-	sources := e.ListSnapshotsAndExpectSuccess(t)
+	sources := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
 
 	if got, want := len(sources), 1; got != want {
 		t.Errorf("unexpected number of sources: %v, want %v in %#v", got, want, sources)
@@ -61,7 +67,8 @@ func TestShallowrestore(t *testing.T) {
 
 func TestShallowFullCycle(t *testing.T) {
 	t.Parallel()
-	e := testenv.NewCLITest(t)
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, runner)
 
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
@@ -69,7 +76,7 @@ func TestShallowFullCycle(t *testing.T) {
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
 	source := filepath.Join(t.TempDir(), "source")
-	testenv.MustCreateDirectoryTree(t, source, testenv.DirectoryTreeOptions{
+	testdirtree.MustCreateDirectoryTree(t, source, testdirtree.DirectoryTreeOptions{
 		Depth:                              3,
 		MaxFilesPerDirectory:               10,
 		MaxSymlinksPerDirectory:            4,
@@ -81,11 +88,11 @@ func TestShallowFullCycle(t *testing.T) {
 	dirpath := filepath.Join(source, "atleastonedir")
 	fpath := filepath.Join(source, "atleastonedir", "nestedfile")
 
-	testenv.AssertNoError(t, os.Mkdir(dirpath, 0o755))
-	testenv.MustCreateRandomFile(t, fpath, testenv.DirectoryTreeOptions{}, (*testenv.DirectoryTreeCounters)(nil))
+	require.NoError(t, os.Mkdir(dirpath, 0o755))
+	testdirtree.MustCreateRandomFile(t, fpath, testdirtree.DirectoryTreeOptions{}, (*testdirtree.DirectoryTreeCounters)(nil))
 
 	e.RunAndExpectSuccess(t, "snapshot", "create", source)
-	sources := e.ListSnapshotsAndExpectSuccess(t)
+	sources := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
 	originalsnapshotid := sources[0].Snapshots[0].SnapshotID
 	rootID := sources[0].Snapshots[0].ObjectID
 
@@ -107,7 +114,7 @@ func TestShallowFullCycle(t *testing.T) {
 		e.RunAndExpectSuccess(t, "restore", originalsnapshotid, mutatedoriginal)
 
 		// Make sure that the mutatedoriginal and the source are really the same.
-		testenv.AssertNoError(t, os.Chmod(mutatedoriginal, 0o700))
+		require.NoError(t, os.Chmod(mutatedoriginal, 0o700))
 		compareDirs(t, source, mutatedoriginal)
 
 		// Make a shallowrestore of the test directory.
@@ -133,15 +140,15 @@ func TestShallowFullCycle(t *testing.T) {
 		e.RunAndExpectSuccess(t, "snapshot", "create", shallow)
 
 		// Get snapshot id for the shallow tree's snapshot.
-		shallowsnapshotid := getSnapID(t, e.ListSnapshotsAndExpectSuccess(t), shallow)
+		shallowsnapshotid := getSnapID(t, clitestutil.ListSnapshotsAndExpectSuccess(t, e), shallow)
 
 		full := t.TempDir()
 		e.RunAndExpectSuccess(t, "restore", shallowsnapshotid, full)
 
 		// Force permissions to be reset so that the recursive directory comparison works
 		// per comment in restore_test.go
-		testenv.AssertNoError(t, os.Chmod(mutatedoriginal, 0o700))
-		testenv.AssertNoError(t, os.Chmod(full, 0o700))
+		require.NoError(t, os.Chmod(mutatedoriginal, 0o700))
+		require.NoError(t, os.Chmod(full, 0o700))
 
 		compareDirs(t, mutatedoriginal, full)
 	}
@@ -152,8 +159,8 @@ func TestShallowFullCycle(t *testing.T) {
 func addOneFile(m *mutatorArgs) {
 	origpath := filepath.Join(m.original, "testfile")
 	shallowpath := filepath.Join(m.shallow, "testfile")
-	testenv.MustCreateRandomFile(m.t, origpath, testenv.DirectoryTreeOptions{}, (*testenv.DirectoryTreeCounters)(nil))
-	testenv.AssertNoError(m.t, os.Link(origpath, shallowpath))
+	testdirtree.MustCreateRandomFile(m.t, origpath, testdirtree.DirectoryTreeOptions{}, (*testdirtree.DirectoryTreeCounters)(nil))
+	require.NoError(m.t, os.Link(origpath, shallowpath))
 }
 
 // doNothing is a nop mutation of the provided test file tree.
@@ -179,18 +186,18 @@ func moveDirectory(m *mutatorArgs) {
 	neworiginaldir := filepath.Join(m.original, "newdir")
 	m.t.Log("moveDirectory", "newshallowdir:", newshallowdir, "neworiginaldir:", neworiginaldir, "relpathinreal:", relpathinreal)
 
-	testenv.AssertNoError(m.t, os.Mkdir(newshallowdir, 0o755))
-	testenv.AssertNoError(m.t, os.Mkdir(neworiginaldir, 0o755))
+	require.NoError(m.t, os.Mkdir(newshallowdir, 0o755))
+	require.NoError(m.t, os.Mkdir(neworiginaldir, 0o755))
 
 	// 3. move shallow dir into new dir, original dir into new dir
-	testenv.AssertNoError(m.t, os.Rename(dirinshallow, filepath.Join(newshallowdir, relpath)))
-	testenv.AssertNoError(m.t, os.Rename(filepath.Join(m.original, relpathinreal), filepath.Join(neworiginaldir, relpathinreal)))
+	require.NoError(m.t, os.Rename(dirinshallow, filepath.Join(newshallowdir, relpath)))
+	require.NoError(m.t, os.Rename(filepath.Join(m.original, relpathinreal), filepath.Join(neworiginaldir, relpathinreal)))
 
 	// 4. fix new directory timestamp to be the same
 	fi, err := os.Stat(newshallowdir)
-	testenv.AssertNoError(m.t, err)
-	testenv.AssertNoError(m.t, os.Chtimes(neworiginaldir, fi.ModTime(), fi.ModTime()))
-	testenv.AssertNoError(m.t, os.Chtimes(newshallowdir, fi.ModTime(), fi.ModTime()))
+	require.NoError(m.t, err)
+	require.NoError(m.t, os.Chtimes(neworiginaldir, fi.ModTime(), fi.ModTime()))
+	require.NoError(m.t, os.Chtimes(newshallowdir, fi.ModTime(), fi.ModTime()))
 }
 
 // moveFile moves a file from one location to another (in the shallow and original trees).
@@ -210,18 +217,18 @@ func moveFile(m *mutatorArgs) {
 	neworiginaldir := filepath.Join(m.original, "newdir")
 	m.t.Log("moveDirectory", "newshallowdir:", newshallowdir, "neworiginaldir:", neworiginaldir)
 
-	testenv.AssertNoError(m.t, os.Mkdir(newshallowdir, 0o755))
-	testenv.AssertNoError(m.t, os.Mkdir(neworiginaldir, 0o755))
+	require.NoError(m.t, os.Mkdir(newshallowdir, 0o755))
+	require.NoError(m.t, os.Mkdir(neworiginaldir, 0o755))
 
 	// 3. move shallow file into new dir, original dir into new dir
-	testenv.AssertNoError(m.t, os.Rename(fileinshallow, filepath.Join(newshallowdir, relpath)))
-	testenv.AssertNoError(m.t, os.Rename(filepath.Join(m.original, localfs.TrimShallowSuffix(relpath)), filepath.Join(neworiginaldir, localfs.TrimShallowSuffix(relpath))))
+	require.NoError(m.t, os.Rename(fileinshallow, filepath.Join(newshallowdir, relpath)))
+	require.NoError(m.t, os.Rename(filepath.Join(m.original, localfs.TrimShallowSuffix(relpath)), filepath.Join(neworiginaldir, localfs.TrimShallowSuffix(relpath))))
 
 	// 4. fix new directory timestamp to be the same
 	fi, err := os.Stat(newshallowdir)
-	testenv.AssertNoError(m.t, err)
-	testenv.AssertNoError(m.t, os.Chtimes(neworiginaldir, fi.ModTime(), fi.ModTime()))
-	testenv.AssertNoError(m.t, os.Chtimes(newshallowdir, fi.ModTime(), fi.ModTime()))
+	require.NoError(m.t, err)
+	require.NoError(m.t, os.Chtimes(neworiginaldir, fi.ModTime(), fi.ModTime()))
+	require.NoError(m.t, os.Chtimes(newshallowdir, fi.ModTime(), fi.ModTime()))
 }
 
 // deepenSubtreeDirectory reifies a shallow directory entry with its actual
@@ -301,28 +308,28 @@ func removeEntry(m *mutatorArgs) {
 	m.t.Log(">> relpath", filerelpath, dirrelpath, fileinshallow, dirinshallow)
 
 	// 2. remove
-	testenv.AssertNoError(m.t, os.Remove(fileinshallow))
-	testenv.AssertNoError(m.t, os.Remove(dirinshallow))
+	require.NoError(m.t, os.Remove(fileinshallow))
+	require.NoError(m.t, os.Remove(dirinshallow))
 
 	// 3. remove from full
 	fopath := filepath.Join(m.original, filerelpath)
 	dopath := filepath.Join(m.original, dirrelpath)
-	testenv.AssertNoError(m.t, os.RemoveAll(fopath))
-	testenv.AssertNoError(m.t, os.RemoveAll(dopath))
+	require.NoError(m.t, os.RemoveAll(fopath))
+	require.NoError(m.t, os.RemoveAll(dopath))
 }
 
 // addForeignSnapshotTree adds a completely different snapshot to a tree.
 func addForeignSnapshotTree(m *mutatorArgs) {
 	// 1. make a completely different snapshot of a different tree
 	foreign := filepath.Join(m.t.TempDir(), "foreign")
-	testenv.MustCreateDirectoryTree(m.t, foreign, testenv.DirectoryTreeOptions{
+	testdirtree.MustCreateDirectoryTree(m.t, foreign, testdirtree.DirectoryTreeOptions{
 		Depth:                              3,
 		MaxFilesPerDirectory:               10,
 		MaxSymlinksPerDirectory:            4,
 		NonExistingSymlinkTargetPercentage: 50,
 	})
 	m.e.RunAndExpectSuccess(m.t, "snapshot", "create", foreign)
-	foreignsnapshotid := getSnapID(m.t, m.e.ListSnapshotsAndExpectSuccess(m.t), foreign)
+	foreignsnapshotid := getSnapID(m.t, clitestutil.ListSnapshotsAndExpectSuccess(m.t, m.e), foreign)
 
 	foreignshallowdir := filepath.Join(m.shallow, "foreigndir")
 	foreignoriginaldir := filepath.Join(m.original, "foreigndir")
@@ -336,22 +343,23 @@ func addForeignSnapshotTree(m *mutatorArgs) {
 
 	// 4. make the times match.
 	fi, err := os.Stat(foreignshallowdir)
-	testenv.AssertNoError(m.t, err)
-	testenv.AssertNoError(m.t, os.Chtimes(foreignshallowdir, fi.ModTime(), fi.ModTime()))
-	testenv.AssertNoError(m.t, os.Chtimes(foreignoriginaldir, fi.ModTime(), fi.ModTime()))
+	require.NoError(m.t, err)
+	require.NoError(m.t, os.Chtimes(foreignshallowdir, fi.ModTime(), fi.ModTime()))
+	require.NoError(m.t, os.Chtimes(foreignoriginaldir, fi.ModTime(), fi.ModTime()))
 }
 
 func TestShallowifyTree(t *testing.T) {
 	t.Parallel()
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, runner)
 
-	e := testenv.NewCLITest(t)
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	// create a snapshot.
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
 	source := filepath.Join(t.TempDir(), "source")
-	testenv.MustCreateDirectoryTree(t, source, testenv.DirectoryTreeOptions{
+	testdirtree.MustCreateDirectoryTree(t, source, testdirtree.DirectoryTreeOptions{
 		Depth:                              3,
 		MaxFilesPerDirectory:               10,
 		MaxSymlinksPerDirectory:            4,
@@ -360,7 +368,7 @@ func TestShallowifyTree(t *testing.T) {
 
 	// Snapshot original tree.
 	e.RunAndExpectSuccess(t, "snapshot", "create", source)
-	sources := e.ListSnapshotsAndExpectSuccess(t)
+	sources := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
 	originalsnapshotid := sources[0].Snapshots[0].SnapshotID
 
 	// 1. Create a full restore of the tree.
@@ -375,14 +383,16 @@ func TestShallowifyTree(t *testing.T) {
 func TestPlaceholderAndRealFails(t *testing.T) {
 	t.Parallel()
 
-	e := testenv.NewCLITest(t)
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, runner)
+
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	// create a snapshot.
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
 	source := filepath.Join(t.TempDir(), "source")
-	testenv.MustCreateDirectoryTree(t, source, testenv.DirectoryTreeOptions{
+	testdirtree.MustCreateDirectoryTree(t, source, testdirtree.DirectoryTreeOptions{
 		Depth:                              3,
 		MaxFilesPerDirectory:               10,
 		MaxSymlinksPerDirectory:            4,
@@ -393,9 +403,9 @@ func TestPlaceholderAndRealFails(t *testing.T) {
 	dirpath := filepath.Join(source, "atleastonedir")
 	fpath := filepath.Join(source, "atleastonedir", "nestedfile")
 
-	testenv.AssertNoError(t, os.Mkdir(dirpath, 0o755))
+	require.NoError(t, os.Mkdir(dirpath, 0o755))
 
-	testenv.MustCreateRandomFile(t, fpath, testenv.DirectoryTreeOptions{}, (*testenv.DirectoryTreeCounters)(nil))
+	testdirtree.MustCreateRandomFile(t, fpath, testdirtree.DirectoryTreeOptions{}, (*testdirtree.DirectoryTreeCounters)(nil))
 
 	origdir, origfile := findRealFileDir(t, source)
 	if origdir == "" || origfile == "" {
@@ -417,10 +427,10 @@ func TestPlaceholderAndRealFails(t *testing.T) {
 	} {
 		fpath := s.p + s.ext
 		phf, err := os.Create(fpath)
-		testenv.AssertNoError(t, err)
-		testenv.AssertNoError(t, phf.Close())
+		require.NoError(t, err)
+		require.NoError(t, phf.Close())
 		e.RunAndExpectFailure(t, "snapshot", "create", source)
-		testenv.AssertNoError(t, os.RemoveAll(fpath))
+		require.NoError(t, os.RemoveAll(fpath))
 	}
 }
 
@@ -430,14 +440,16 @@ func TestPlaceholderAndRealFails(t *testing.T) {
 func TestForeignReposCauseErrors(t *testing.T) {
 	t.Parallel()
 
-	e := testenv.NewCLITest(t)
+	runner := testenv.NewInProcRunner(t)
+	e := testenv.NewCLITest(t, runner)
+
 	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
 
 	// create a snapshot.
 	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
 
 	source := filepath.Join(t.TempDir(), "source")
-	testenv.MustCreateDirectoryTree(t, source, testenv.DirectoryTreeOptions{
+	testdirtree.MustCreateDirectoryTree(t, source, testdirtree.DirectoryTreeOptions{
 		Depth:                              3,
 		MaxFilesPerDirectory:               10,
 		MaxSymlinksPerDirectory:            4,
@@ -468,10 +480,10 @@ func TestForeignReposCauseErrors(t *testing.T) {
 		fpath := filepath.Join(source, "badplaceholder"+s.ext)
 		buffy := &bytes.Buffer{}
 		encoder := json.NewEncoder(buffy)
-		testenv.AssertNoError(t, encoder.Encode(s.de))
-		testenv.AssertNoError(t, ioutil.WriteFile(fpath, buffy.Bytes(), 0o444))
+		require.NoError(t, encoder.Encode(s.de))
+		require.NoError(t, ioutil.WriteFile(fpath, buffy.Bytes(), 0o444))
 		e.RunAndExpectFailure(t, "snapshot", "create", source)
-		testenv.AssertNoError(t, os.RemoveAll(fpath))
+		require.NoError(t, os.RemoveAll(fpath))
 	}
 }
 
@@ -489,13 +501,13 @@ func getShallowDirEntry(t *testing.T, fpath string) *snapshot.DirEntry {
 
 	b, err := ioutil.ReadFile(p)
 
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	dirent := &snapshot.DirEntry{}
 	buffy := bytes.NewBuffer(b)
 	decoder := json.NewDecoder(buffy)
 
-	testenv.AssertNoError(t, decoder.Decode(dirent))
+	require.NoError(t, decoder.Decode(dirent))
 
 	return dirent
 }
@@ -505,7 +517,7 @@ func findRealFileDir(t *testing.T, original string) (dir, file string) {
 
 	err := filepath.Walk(original, func(path string, info os.FileInfo, err error) error {
 		// The file walk shouldn't have generated an error.
-		testenv.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		if path == original {
 			// The root of the comparison tree is not interesting.
@@ -522,7 +534,7 @@ func findRealFileDir(t *testing.T, original string) (dir, file string) {
 		}
 		return nil
 	})
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	return dir, file
 }
@@ -542,7 +554,7 @@ func (rdc *repoDirEntryCache) repoRootRel(t *testing.T, fpath string) string {
 	t.Helper()
 
 	rp, err := filepath.Rel(rdc.reporootdir, fpath)
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	return rp
 }
@@ -577,7 +589,7 @@ func (rdc *repoDirEntryCache) getRepoDirEntry(t *testing.T, rop string) *snapsho
 
 	dirmnst := &snapshot.DirManifest{}
 	dirmnstdecoder := json.NewDecoder(strings.NewReader(joinedspew))
-	testenv.AssertNoError(t, dirmnstdecoder.Decode(dirmnst))
+	require.NoError(t, dirmnstdecoder.Decode(dirmnst))
 
 	for _, de := range dirmnst.Entries {
 		t.Logf("%v", de)
@@ -625,7 +637,7 @@ type mutatorArgs struct {
 type filesystemmutator func(m *mutatorArgs)
 
 // getSnapID gets a snapshot hash for path.
-func getSnapID(t *testing.T, sources []testenv.SourceInfo, fpath string) string {
+func getSnapID(t *testing.T, sources []clitestutil.SourceInfo, fpath string) string {
 	t.Helper()
 
 	for _, si := range sources {
@@ -647,11 +659,11 @@ func findFileDir(t *testing.T, shallow string) (dirinshallow, fileinshallow stri
 	t.Helper()
 
 	files, err := filepath.Glob(filepath.Join(shallow, "*"))
-	testenv.AssertNoError(t, err)
+	require.NoError(t, err)
 
 	for _, f := range files {
 		fi, err := os.Lstat(f)
-		testenv.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		if !(fi.Mode().IsDir() || fi.Mode().IsRegular()) {
 			continue
@@ -725,7 +737,7 @@ func compareShallowToOriginalDir(t *testing.T, rdc *repoDirEntryCache, original,
 	t.Logf("comparing %q and %q", original, shallow)
 	err2 := filepath.Walk(original, func(path string, info os.FileInfo, err error) error {
 		// The file walk shouldn't have generated an error.
-		testenv.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		if path == original {
 			// The root of the comparison tree is not interesting.
@@ -734,7 +746,7 @@ func compareShallowToOriginalDir(t *testing.T, rdc *repoDirEntryCache, original,
 
 		reporelpath := rdc.repoRootRel(t, path)
 		orginalrelpath, err := filepath.Rel(original, path)
-		testenv.AssertNoError(t, err)
+		require.NoError(t, err)
 
 		t.Logf("rp after relativizing reporelpath %q orginalrelpath %q", reporelpath, orginalrelpath)
 
@@ -789,5 +801,5 @@ func compareShallowToOriginalDir(t *testing.T, rdc *repoDirEntryCache, original,
 		}
 		return nil
 	})
-	testenv.CheckNoError(t, err2)
+	require.NoError(t, err2)
 }
