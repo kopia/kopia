@@ -14,7 +14,6 @@ import (
 
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot/restore"
@@ -28,7 +27,7 @@ By default, the target path will be created by the restore command if it does
 not exist.
 
 The source to be restored is specified in the form of a directory or file ID and
-optionally a sub-directory path or a shallow placeholder file.
+optionally a sub-directory path.
 
 For example, the following source and target arguments will restore the contents
 of the 'kffbb7c28ea6c34d6cbe555d1cf80faa9' directory into a new, local directory
@@ -50,20 +49,12 @@ has been set (to prevent overwrite of each type):
 --no-overwrite-directories
 --no-overwrite-symlinks
 
-The restore will only attempt to overwrite an existing file system entry if
-it is the same type as in the source. For example a if restoring a symlink,
-an existing symlink with the same name will be overwritten, but a directory
-with the same name will not; an error will be thrown instead.
-
-Shallow files unambiguously specify a previously backed up file or tree in the
-repository and can be restored directly. For example:
-
-'restore d3.kopiadir'
-
-will remove the d3.kopiadir placeholder and restore the referenced repository
-contents into path d3. Similarly for files:
-
-'restore f3.kopiafile'
+If the '--shallow-restore-at-depth' option is provided, files and
+directories this depth and below in the directory hierarchy will be
+represented by compact placeholder files of the form
+'entry.kopia-entry' instead of being restored. Snapshots created of
+directory contents represented by placeholder files will be identical
+to snapshots of the equivalent fully expanded tree.
 `
 	restoreCommandSourcePathHelp = `Source directory ID/path in the form of a
 directory ID and optionally a sub-directory path. For example,
@@ -74,6 +65,7 @@ directory ID and optionally a sub-directory path. For example,
 	bitsPerByte = 8
 )
 
+<<<<<<< HEAD
 type commandRestore struct {
 	restoreSourceID               string
 	restoreTargetPath             string
@@ -89,6 +81,7 @@ type commandRestore struct {
 	restoreSkipPermissions        bool
 	restoreIncremental            bool
 	restoreIgnoreErrors           bool
+	restoreShallowAtDepth int32
 }
 
 func (c *commandRestore) setup(svc appServices, parent commandParent) {
@@ -107,6 +100,7 @@ func (c *commandRestore) setup(svc appServices, parent commandParent) {
 	cmd.Flag("ignore-permission-errors", "Ignore permission errors").Default("true").BoolVar(&c.restoreIgnorePermissionErrors)
 	cmd.Flag("ignore-errors", "Ignore all errors").BoolVar(&c.restoreIgnoreErrors)
 	cmd.Flag("skip-existing", "Skip files and symlinks that exist in the output").BoolVar(&c.restoreIncremental)
+	cmd.Flag("shallow-restore-at-depth", "Shallow restore the directory hierarchy starting at this level (default is to deep restore the entire hierarchy.)").Short('d').Default(math.MaxInt32).IntVar(&c.restoreShallowAtDepth)
 	cmd.Action(svc.repositoryReaderAction(c.run))
 }
 
@@ -249,13 +243,17 @@ func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 		rootEntry = re
 	}
 
+	return runRestoreAndEntryCommand(ctx, rep, rootEntry, output)
+}
+
+func runRestoreAndEntryCommand(ctx context.Context, rep repo.Repository, rootEntry fs.Entry, output restore.Output) error {
 	eta := timetrack.Start()
 
 	st, err := restore.Entry(ctx, rep, output, rootEntry, restore.Options{
 		Parallel:     c.restoreParallel,
 		Incremental:  c.restoreIncremental,
 		IgnoreErrors: c.restoreIgnoreErrors,
-		RestoreDirEntryAtDepth: math.MaxInt32,
+		RestoreDirEntryAtDepth: c.restoreShallowAtDepth,
 		ProgressCallback: func(ctx context.Context, stats restore.Stats) {
 			restoredCount := stats.RestoredFileCount + stats.RestoredDirCount + stats.RestoredSymlinkCount + stats.SkippedCount
 			enqueuedCount := stats.EnqueuedFileCount + stats.EnqueuedDirCount + stats.EnqueuedSymlinkCount

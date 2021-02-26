@@ -77,11 +77,12 @@ type Options struct {
 // Entry walks a snapshot root with given root entry and restores it to the provided output.
 func Entry(ctx context.Context, rep repo.Repository, output Output, rootEntry fs.Entry, options Options) (Stats, error) {
 	c := copier{
-		output:       output,
-		q:            parallelwork.NewQueue(),
-		incremental:  options.Incremental,
-		ignoreErrors: options.IgnoreErrors,
-		cancel:       options.Cancel,
+		output:        output,
+		shallowoutput: makeShallowFilesystemOutput(output),
+		q:             parallelwork.NewQueue(),
+		incremental:   options.Incremental,
+		ignoreErrors:  options.IgnoreErrors,
+		cancel:        options.Cancel,
 	}
 
 	c.q.ProgressCallback = func(ctx context.Context, enqueued, active, completed int64) {
@@ -118,12 +119,13 @@ func Entry(ctx context.Context, rep repo.Repository, output Output, rootEntry fs
 }
 
 type copier struct {
-	stats        Stats
-	output       Output
-	q            *parallelwork.Queue
-	incremental  bool
-	ignoreErrors bool
-	cancel       chan struct{}
+	stats         Stats
+	output        Output
+	shallowoutput Output
+	q             *parallelwork.Queue
+	incremental   bool
+	ignoreErrors  bool
+	cancel        chan struct{}
 }
 
 func (c *copier) copyEntry(ctx context.Context, e fs.Entry, targetPath string, currentdepth, maxdepth int, onCompletion func() error) error {
@@ -184,8 +186,14 @@ func (c *copier) copyEntryInternal(ctx context.Context, e fs.Entry, targetPath s
 		atomic.AddInt32(&c.stats.RestoredFileCount, 1)
 		atomic.AddInt64(&c.stats.RestoredTotalFileSize, e.Size())
 
-		if err := c.output.WriteFile(ctx, targetPath, e); err != nil {
-			return errors.Wrap(err, "copy file")
+		if currentdepth > maxdepth {
+			if err := c.shallowoutput.WriteFile(ctx, targetPath, e); err != nil {
+				return errors.Wrap(err, "copy file")
+			}
+		} else {
+			if err := c.output.WriteFile(ctx, targetPath, e); err != nil {
+				return errors.Wrap(err, "copy file")
+			}
 		}
 
 		return onCompletion()
@@ -214,7 +222,7 @@ func (c *copier) copyDirectory(ctx context.Context, d fs.Directory, targetPath s
 			return errors.Errorf("fs.Directory object is not HasDirEntry?")
 		}
 
-		if err := c.output.WriteDirEntry(ctx, targetPath, de.DirEntry(), d); err != nil {
+		if err := c.shallowoutput.WriteDirEntry(ctx, targetPath, de.DirEntry(), d); err != nil {
 			return errors.Wrap(err, "create directory")
 		}
 

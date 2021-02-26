@@ -35,7 +35,7 @@ func TestShallowrestore(t *testing.T) {
 
 	source := filepath.Join(t.TempDir(), "source")
 	testdirtree.MustCreateDirectoryTree(t, source, testdirtree.DirectoryTreeOptions{
-		Depth:                              1,
+		Depth:                              3,
 		MaxFilesPerDirectory:               10,
 		MaxSymlinksPerDirectory:            4,
 		NonExistingSymlinkTargetPercentage: 50,
@@ -60,7 +60,7 @@ func TestShallowrestore(t *testing.T) {
 	// TODO(rjk): Extend once shallowrestores with depths > 1 are supported.
 	for depth := 1; depth < 2; depth++ {
 		shallowrestoredir := filepath.Join(t.TempDir(), "shallowrestoredir")
-		e.RunAndExpectSuccess(t, "shallowrestore", snapID, shallowrestoredir)
+		e.RunAndExpectSuccess(t, "restore", "--shallow-restore-at-depth=0", snapID, shallowrestoredir)
 		compareShallowToOriginalDir(t, rdc, source, shallowrestoredir, depth)
 	}
 }
@@ -119,7 +119,7 @@ func TestShallowFullCycle(t *testing.T) {
 
 		// Make a shallowrestore of the test directory.
 		shallow := t.TempDir()
-		e.RunAndExpectSuccess(t, "shallowrestore", originalsnapshotid, shallow)
+		e.RunAndExpectSuccess(t, "restore", "--shallow-restore-at-depth=0", originalsnapshotid, shallow)
 
 		// Apply the change to both the shallow restore and the original. (Single function to
 		// share state.)
@@ -242,7 +242,7 @@ func deepenSubtreeDirectory(m *mutatorArgs) {
 	}
 
 	// 2. do a full restore of it.
-	m.e.RunAndExpectSuccess(m.t, "restore", dirinshallow)
+	m.e.RunAndExpectSuccess(m.t, "restore-entry", "-d", "1000", dirinshallow)
 
 	// 3. Original shouldn't require any changes as the entire tree should
 	// be there.
@@ -258,7 +258,7 @@ func deepenSubtreeFile(m *mutatorArgs) {
 	}
 
 	// 2. do a full restore of it.
-	m.e.RunAndExpectSuccess(m.t, "restore", fileinshallow)
+	m.e.RunAndExpectSuccess(m.t, "restore-entry", "-d", "1000", fileinshallow)
 
 	// 3. Original shouldn't require any changes.
 } // nolint:wsl
@@ -282,7 +282,7 @@ func deepenOneSubtreeLevel(m *mutatorArgs) {
 	m.t.Log("relpath", relpath)
 
 	// 2. shallow restore it into the shallow tree
-	m.e.RunAndExpectSuccess(m.t, "shallowrestore", dirinshallow)
+	m.e.RunAndExpectSuccess(m.t, "restore-entry", dirinshallow)
 
 	// 2.5 verify that the restored subtree is correctly real and shallow
 	origpath := filepath.Join(m.original, relpath)
@@ -336,7 +336,7 @@ func addForeignSnapshotTree(m *mutatorArgs) {
 	m.t.Log("addForeignRepoTree", "foreignshallowdir:", foreignshallowdir, "foreignoriginaldir:", foreignoriginaldir)
 
 	// 2. shallowrestore it into shallow
-	m.e.RunAndExpectSuccess(m.t, "shallowrestore", foreignsnapshotid, foreignshallowdir)
+	m.e.RunAndExpectSuccess(m.t, "restore", "--shallow-restore-at-depth=0", foreignsnapshotid, foreignshallowdir)
 
 	// 3. full restore it into deep
 	m.e.RunAndExpectSuccess(m.t, "restore", foreignsnapshotid, foreignoriginaldir)
