@@ -165,6 +165,7 @@ print_build_info:
 	@echo GOOS: $(GOOS)
 	@echo GOARCH: $(GOARCH)
 
+goreleaser: export GITHUB_REPOSITORY:=$(GITHUB_REPOSITORY)
 goreleaser: $(goreleaser) print_build_info
 	-git diff | cat
 	$(goreleaser) release $(GORELEASER_OPTIONS)
