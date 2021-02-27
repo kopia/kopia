@@ -336,12 +336,33 @@ func TestManifestAutoCompaction(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
 
-	for i := 0; i < 100; i++ {
-		mgr := newManagerForTesting(ctx, t, data)
+	mgr := newManagerForTesting(ctx, t, data)
 
+	for i := 0; i < 100; i++ {
 		item1 := map[string]int{"foo": 1, "bar": 2}
 		labels1 := map[string]string{"type": "item", "color": "red"}
+		found, err := mgr.Find(ctx, labels1)
+		must(t, err)
+
+		if i%30 == 0 {
+			must(t, mgr.Compact(ctx))
+		}
+
+		if got, want := len(found), i; got != want {
+			t.Fatalf("unexpected number of manifests found: %v, want %v", got, want)
+		}
+
 		addAndVerify(ctx, t, mgr, labels1, item1)
-		mgr.Flush(ctx)
+
+		must(t, mgr.Flush(ctx))
+		must(t, mgr.b.Flush(ctx))
+	}
+}
+
+func must(t *testing.T, err error) {
+	t.Helper()
+
+	if err != nil {
+		t.Fatal(err)
 	}
 }
