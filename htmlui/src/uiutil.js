@@ -53,7 +53,7 @@ export function sizeWithFailures(size, summ) {
         <OverlayTrigger placement="bottom"
             delay={{ show: 0, hide: 1000 }}
             overlay={overlay}>
-            <FontAwesomeIcon color="red" icon={faExclamationTriangle} title="{caption}" />
+            <FontAwesomeIcon color="red" icon={faExclamationTriangle} title={caption} />
         </OverlayTrigger>
     </span>;
 }
