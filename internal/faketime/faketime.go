@@ -64,7 +64,7 @@ type ClockTimeWithOffset struct {
 
 // NewClockTimeWithOffset creates a ClockTimeWithOffset with the given start time.
 func NewClockTimeWithOffset(offset time.Duration) *ClockTimeWithOffset {
-	return &ClockTimeWithOffset{}
+	return &ClockTimeWithOffset{offset: offset}
 }
 
 // NowFunc returns a time provider function for t.
