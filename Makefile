@@ -117,7 +117,11 @@ ci-publish:
 ifeq ($(GOOS)/$(GOARCH),linux/amd64)
 	$(MAKE) publish-packages
 	$(MAKE) create-long-term-repository
+	$(MAKE) publish-coverage-results
 endif
+
+publish-coverage-results:
+	-bash -c "bash <(curl -s https://codecov.io/bash) -f coverage.txt"
 
 # goreleaser - builds binaries for all platforms
 GORELEASER_OPTIONS=--rm-dist --parallelism=6
