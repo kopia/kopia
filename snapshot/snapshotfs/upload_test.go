@@ -294,6 +294,102 @@ func TestUpload_SubDirectoryReadFailureIgnoredNoFailFast(t *testing.T) {
 	)
 }
 
+func TestUpload_ErrorEntries(t *testing.T) {
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+
+	defer th.cleanup()
+
+	th.sourceDir.Subdir("d1").AddErrorEntry("some-unknown-entry", os.ModeIrregular, fs.ErrUnknown)
+	th.sourceDir.Subdir("d1").AddErrorEntry("some-failed-entry", 0, errors.Errorf("some-other-error"))
+	th.sourceDir.Subdir("d2").AddErrorEntry("another-failed-entry", os.ModeIrregular, errors.Errorf("another-error"))
+
+	trueValue := true
+	falseValue := false
+
+	cases := []struct {
+		desc              string
+		rootEntry         fs.Entry
+		ehp               policy.ErrorHandlingPolicy
+		wantFatalErrors   int
+		wantIgnoredErrors int
+	}{
+		{
+			desc:              "default ignore rules",
+			rootEntry:         th.sourceDir,
+			ehp:               policy.ErrorHandlingPolicy{},
+			wantFatalErrors:   2,
+			wantIgnoredErrors: 1,
+		},
+		{
+			desc:      "ignore both unknown types and other errors",
+			rootEntry: th.sourceDir,
+			ehp: policy.ErrorHandlingPolicy{
+				IgnoreFileErrors:      &trueValue,
+				IgnoreDirectoryErrors: &trueValue,
+				IgnoreUnknownTypes:    &trueValue,
+			},
+			wantFatalErrors:   0,
+			wantIgnoredErrors: 3,
+		},
+		{
+			desc:      "ignore no errors",
+			rootEntry: th.sourceDir,
+			ehp: policy.ErrorHandlingPolicy{
+				IgnoreFileErrors:      &falseValue,
+				IgnoreDirectoryErrors: &falseValue,
+				IgnoreUnknownTypes:    &falseValue,
+			},
+			wantFatalErrors:   3,
+			wantIgnoredErrors: 0,
+		},
+		{
+			desc:      "ignore unknown type errors",
+			rootEntry: th.sourceDir,
+			ehp: policy.ErrorHandlingPolicy{
+				IgnoreFileErrors:      &falseValue,
+				IgnoreDirectoryErrors: &falseValue,
+				IgnoreUnknownTypes:    &trueValue,
+			},
+			wantFatalErrors:   2,
+			wantIgnoredErrors: 1,
+		},
+		{
+			desc:      "ignore errors except unknown type errors",
+			rootEntry: th.sourceDir,
+			ehp: policy.ErrorHandlingPolicy{
+				IgnoreFileErrors:      &trueValue,
+				IgnoreDirectoryErrors: &trueValue,
+				IgnoreUnknownTypes:    &falseValue,
+			},
+			wantFatalErrors:   1,
+			wantIgnoredErrors: 2,
+		},
+	}
+
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.desc, func(t *testing.T) {
+			u := NewUploader(th.repo)
+
+			policyTree := policy.BuildTree(nil, &policy.Policy{
+				ErrorHandlingPolicy: tc.ehp,
+			})
+
+			man, err := u.Upload(ctx, th.sourceDir, policyTree, snapshot.SourceInfo{})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			verifyErrors(t, man, tc.wantFatalErrors, tc.wantIgnoredErrors, []*fs.EntryWithError{
+				{EntryPath: "d1/some-failed-entry", Error: "some-other-error"},
+				{EntryPath: "d1/some-unknown-entry", Error: "unknown or unsupported entry type"},
+				{EntryPath: "d2/another-failed-entry", Error: "another-error"},
+			})
+		})
+	}
+}
+
 func TestUpload_SubDirectoryReadFailureNoFailFast(t *testing.T) {
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
