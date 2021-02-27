@@ -9,6 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/blob"
 )
 
@@ -213,7 +214,7 @@ func newCommittedContentIndex(caching *CachingOptions) *committedContentIndex {
 
 	if caching.CacheDirectory != "" {
 		dirname := filepath.Join(caching.CacheDirectory, "indexes")
-		cache = &diskCommittedContentIndexCache{dirname}
+		cache = &diskCommittedContentIndexCache{dirname, clock.Now}
 	} else {
 		cache = &memoryCommittedContentIndexCache{
 			contents: map[blob.ID]packIndex{},
