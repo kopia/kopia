@@ -96,6 +96,11 @@ type repositorySymlink struct {
 	repositoryEntry
 }
 
+type repositoryEntryError struct {
+	repositoryEntry
+	err error
+}
+
 func (rd *repositoryDirectory) Summary(ctx context.Context) (*fs.DirectorySummary, error) {
 	if rd.summary != nil {
 		return rd.summary, nil
@@ -133,10 +138,7 @@ func (rd *repositoryDirectory) Readdir(ctx context.Context) (fs.Entries, error) 
 
 	entries := make(fs.Entries, len(metadata))
 	for i, m := range metadata {
-		entries[i], err = EntryFromDirEntry(rd.repo, m)
-		if err != nil {
-			return nil, errors.Wrapf(err, "error parsing entry %v", m)
-		}
+		entries[i] = EntryFromDirEntry(rd.repo, m)
 	}
 
 	entries.Sort()
@@ -169,8 +171,12 @@ func (rsl *repositorySymlink) Readlink(ctx context.Context) (string, error) {
 	return string(b), nil
 }
 
+func (ee *repositoryEntryError) ErrorInfo() error {
+	return ee.err
+}
+
 // EntryFromDirEntry returns a filesystem entry based on the directory entry.
-func EntryFromDirEntry(r repo.Repository, md *snapshot.DirEntry) (fs.Entry, error) {
+func EntryFromDirEntry(r repo.Repository, md *snapshot.DirEntry) fs.Entry {
 	re := repositoryEntry{
 		metadata: md,
 		repo:     r,
@@ -183,19 +189,16 @@ func EntryFromDirEntry(r repo.Repository, md *snapshot.DirEntry) (fs.Entry, erro
 			md.ModTime = md.DirSummary.MaxModTime
 		}
 
-		return fs.Directory(&repositoryDirectory{re, md.DirSummary}), nil
+		return fs.Directory(&repositoryDirectory{re, md.DirSummary})
 
 	case snapshot.EntryTypeSymlink:
-		return fs.Symlink(&repositorySymlink{re}), nil
+		return fs.Symlink(&repositorySymlink{re})
 
 	case snapshot.EntryTypeFile:
-		return fs.File(&repositoryFile{re}), nil
-
-	case snapshot.EntryTypeUnknown:
-		return nil, errors.Errorf("not supported entry metadata type: %q", md.Type)
+		return fs.File(&repositoryFile{re})
 
 	default:
-		return nil, errors.Errorf("not supported entry metadata type: %q", md.Type)
+		return fs.ErrorEntry(&repositoryEntryError{re, fs.ErrUnknown})
 	}
 }
 
@@ -215,7 +218,7 @@ func withFileInfo(r object.Reader, e fs.Entry) fs.Reader {
 // DirectoryEntry returns fs.Directory based on repository object with the specified ID.
 // The existence or validity of the directory object is not validated until its contents are read.
 func DirectoryEntry(rep repo.Repository, objectID object.ID, dirSummary *fs.DirectorySummary) fs.Directory {
-	d, _ := EntryFromDirEntry(rep, &snapshot.DirEntry{
+	d := EntryFromDirEntry(rep, &snapshot.DirEntry{
 		Name:        "/",
 		Permissions: 0o555, //nolint:gomnd
 		Type:        snapshot.EntryTypeDirectory,
@@ -233,7 +236,7 @@ func SnapshotRoot(rep repo.Repository, man *snapshot.Manifest) (fs.Entry, error)
 		return nil, errors.New("manifest root object ID")
 	}
 
-	return EntryFromDirEntry(rep, man.RootEntry)
+	return EntryFromDirEntry(rep, man.RootEntry), nil
 }
 
 // AutoDetectEntryFromObjectID returns fs.Entry (either file or directory) for the provided object ID.
@@ -261,7 +264,7 @@ func AutoDetectEntryFromObjectID(ctx context.Context, rep repo.Repository, oid o
 
 	log(ctx).Debugf("%v auto-detected as a file with name %v and size %v", oid, maybeName, fileSize)
 
-	f, _ := EntryFromDirEntry(rep, &snapshot.DirEntry{
+	f := EntryFromDirEntry(rep, &snapshot.DirEntry{
 		Name:        maybeName,
 		Permissions: 0o644, //nolint:gomnd
 		Type:        snapshot.EntryTypeFile,

@@ -10,6 +10,9 @@ import (
 	"github.com/pkg/errors"
 )
 
+// ErrUnknown is returned by ErrorEntry.ErrorInfo() to indicate that type of an entry is unknown.
+var ErrUnknown = errors.Errorf("unknown or unsupported entry type")
+
 // Entry represents a filesystem entry, which can be Directory, File, or Symlink.
 type Entry interface {
 	os.FileInfo
@@ -57,6 +60,13 @@ type Directory interface {
 // DirectoryWithSummary is optionally implemented by Directory that provide summary.
 type DirectoryWithSummary interface {
 	Summary(ctx context.Context) (*DirectorySummary, error)
+}
+
+// ErrorEntry represents entry in a Directory that had encountered an error or is unknown/unsupported (ErrUnknown).
+type ErrorEntry interface {
+	Entry
+
+	ErrorInfo() error
 }
 
 // ErrEntryNotFound is returned when an entry is not found.
