@@ -1,0 +1,9 @@
+services:
+    - docker
+deploy:
+    provider: script
+    script: docker/push.sh kanisterio/kopia
+    on:
+      branch:
+      - /^docker.*/
+      - publish-image

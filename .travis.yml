@@ -1,0 +1,15 @@
+dist: bionic
+language: go
+go:
+- 1.16.x
+os:
+- linux
+install:
+- git fetch origin master
+- git branch master FETCH_HEAD
+script: docker/kopia-alpine/build.sh kanisterio/kopia
+git:
+  depth: false
+env:
+- GO111MODULE=on
+import: docker/travis.yml
