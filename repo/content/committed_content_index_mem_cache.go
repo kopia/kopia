@@ -49,5 +49,18 @@ func (m *memoryCommittedContentIndexCache) openIndex(ctx context.Context, indexB
 }
 
 func (m *memoryCommittedContentIndexCache) expireUnused(ctx context.Context, used []blob.ID) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	n := map[blob.ID]packIndex{}
+
+	for _, u := range used {
+		if v, ok := m.contents[u]; ok {
+			n[u] = v
+		}
+	}
+
+	m.contents = n
+
 	return nil
 }

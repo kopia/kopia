@@ -1,0 +1,6 @@
+ignore:
+ - repo/blob/gcs/
+ - repo/blob/s3/
+ - repo/blob/azure/
+ - repo/blob/gcs/
+ - repo/blob/b2/
