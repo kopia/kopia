@@ -91,20 +91,8 @@ func (r *grpcInnerSession) readLoop(ctx context.Context) {
 	r.activeRequestsMutex.Lock()
 	defer r.activeRequestsMutex.Unlock()
 
-	errResponse := &apipb.SessionResponse{
-		Response: &apipb.SessionResponse_Error{
-			Error: &apipb.ErrorResponse{
-				Code:    apipb.ErrorResponse_STREAM_BROKEN,
-				Message: err.Error(),
-			},
-		},
-	}
-
-	for id, ch := range r.activeRequests {
-		delete(r.activeRequests, id)
-
-		ch <- errResponse
-		close(ch)
+	for id := range r.activeRequests {
+		r.sendStreamBrokenAndClose(r.getAndDeleteResponseChannelLocked(id), err)
 	}
 }
 
@@ -132,6 +120,25 @@ func (r *grpcInnerSession) sendRequest(ctx context.Context, req *apipb.SessionRe
 	// try sending the request and if unable to do so, stuff an error response to the channel
 	// to simplify client code.
 	if err := r.cli.Send(req); err != nil {
+		r.activeRequestsMutex.Lock()
+		ch2 := r.getAndDeleteResponseChannelLocked(rid)
+		r.activeRequestsMutex.Unlock()
+
+		r.sendStreamBrokenAndClose(ch2, err)
+	}
+
+	return ch
+}
+
+func (r *grpcInnerSession) getAndDeleteResponseChannelLocked(rid int64) chan *apipb.SessionResponse {
+	ch := r.activeRequests[rid]
+	delete(r.activeRequests, rid)
+
+	return ch
+}
+
+func (r *grpcInnerSession) sendStreamBrokenAndClose(ch chan *apipb.SessionResponse, err error) {
+	if ch != nil {
 		ch <- &apipb.SessionResponse{
 			Response: &apipb.SessionResponse_Error{
 				Error: &apipb.ErrorResponse{
@@ -141,17 +148,8 @@ func (r *grpcInnerSession) sendRequest(ctx context.Context, req *apipb.SessionRe
 			},
 		}
 
-		// remove request from the map, so that when a response to it does arrive the read loop does not try
-		// to write to a closed channel.
-		r.activeRequestsMutex.Lock()
-		delete(r.activeRequests, rid)
-		r.activeRequestsMutex.Unlock()
-
-		// make sure we close the channel, so that client will finish waiting.
 		close(ch)
 	}
-
-	return ch
 }
 
 // Description returns description associated with a repository client.
