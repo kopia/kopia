@@ -41,6 +41,8 @@ var (
 	serverStartHtpasswdFile   = serverStartCommand.Flag("htpasswd-file", "Path to htpasswd file that contains allowed user@hostname entries").Hidden().ExistingFile()
 	serverStartAllowRepoUsers = serverStartCommand.Flag("allow-repository-users", "Allow users defined in the repository to connect").Bool()
 
+	serverAuthCookieSingingKey = serverStartCommand.Flag("auth-cookie-signing-key", "Force particular auth cookie signing key").Envar("KOPIA_AUTH_COOKIE_SIGNING_KEY").Hidden().String()
+
 	serverStartShutdownWhenStdinClosed = serverStartCommand.Flag("shutdown-on-stdin", "Shut down the server when stdin handle has closed.").Hidden().Bool()
 )
 
@@ -59,12 +61,13 @@ func runServer(ctx context.Context, rep repo.Repository) error {
 	}
 
 	srv, err := server.New(ctx, server.Options{
-		ConfigFile:      repositoryConfigFileName(),
-		ConnectOptions:  connectOptions(),
-		RefreshInterval: *serverStartRefreshInterval,
-		MaxConcurrency:  *serverStartMaxConcurrency,
-		Authenticator:   authn,
-		Authorizer:      auth.LegacyAuthorizerForUser,
+		ConfigFile:           repositoryConfigFileName(),
+		ConnectOptions:       connectOptions(),
+		RefreshInterval:      *serverStartRefreshInterval,
+		MaxConcurrency:       *serverStartMaxConcurrency,
+		Authenticator:        authn,
+		Authorizer:           auth.LegacyAuthorizerForUser,
+		AuthCookieSigningKey: *serverAuthCookieSingingKey,
 	})
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize server")

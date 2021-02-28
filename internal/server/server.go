@@ -10,10 +10,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dgrijalva/jwt-go"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/auth"
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/internal/uitask"
 	"github.com/kopia/kopia/repo"
@@ -26,7 +29,13 @@ import (
 
 var log = logging.GetContextLoggerFunc("kopia/server")
 
-const maintenanceAttemptFrequency = 10 * time.Minute
+const (
+	maintenanceAttemptFrequency = 10 * time.Minute
+	kopiaAuthCookie             = "Kopia-Auth"
+	kopiaAuthCookieTTL          = 1 * time.Minute
+	kopiaAuthCookieAudience     = "kopia"
+	kopiaAuthCookieIssuer       = "kopia-server"
+)
 
 type apiRequestFunc func(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError)
 
@@ -49,6 +58,8 @@ type Server struct {
 	uploadSemaphore chan struct{}
 
 	taskmgr *uitask.Manager
+
+	authCookieSigningKey []byte
 
 	grpcServerState
 }
@@ -119,24 +130,75 @@ func (s *Server) APIHandlers(legacyAPI bool) http.Handler {
 }
 
 func (s *Server) isAuthenticated(w http.ResponseWriter, r *http.Request) bool {
-	if s.authenticator != nil {
-		username, password, ok := r.BasicAuth()
-		if !ok {
-			w.Header().Set("WWW-Authenticate", `Basic realm="Kopia"`)
-			http.Error(w, "Missing credentials.\n", http.StatusUnauthorized)
+	if s.authenticator == nil {
+		return true
+	}
 
-			return false
-		}
+	username, password, ok := r.BasicAuth()
+	if !ok {
+		w.Header().Set("WWW-Authenticate", `Basic realm="Kopia"`)
+		http.Error(w, "Missing credentials.\n", http.StatusUnauthorized)
 
-		if !s.authenticator(r.Context(), s.rep, username, password) {
-			w.Header().Set("WWW-Authenticate", `Basic realm="Kopia"`)
-			http.Error(w, "Access denied.\n", http.StatusUnauthorized)
+		return false
+	}
 
-			return false
+	if c, err := r.Cookie(kopiaAuthCookie); err == nil && c != nil {
+		if s.isAuthCookieValid(username, c.Value) {
+			// found a short-term JWT cookie that matches given username, trust it.
+			// this avoids potentially expensive password hashing inside the authenticator.
+			return true
 		}
 	}
 
+	if !s.authenticator(r.Context(), s.rep, username, password) {
+		w.Header().Set("WWW-Authenticate", `Basic realm="Kopia"`)
+		http.Error(w, "Access denied.\n", http.StatusUnauthorized)
+
+		return false
+	}
+
+	now := clock.Now()
+
+	ac, err := s.generateShortTermAuthCookie(username, now)
+	if err != nil {
+		log(r.Context()).Warningf("unable to generate short-term auth cookie: %v", err)
+	} else {
+		http.SetCookie(w, &http.Cookie{
+			Name:    kopiaAuthCookie,
+			Value:   ac,
+			Expires: now.Add(kopiaAuthCookieTTL),
+		})
+	}
+
 	return true
+}
+
+func (s *Server) isAuthCookieValid(username, cookieValue string) bool {
+	tok, err := jwt.ParseWithClaims(cookieValue, &jwt.StandardClaims{}, func(t *jwt.Token) (interface{}, error) {
+		return s.authCookieSigningKey, nil
+	})
+	if err != nil {
+		return false
+	}
+
+	sc, ok := tok.Claims.(*jwt.StandardClaims)
+	if !ok {
+		return false
+	}
+
+	return sc.Subject == username
+}
+
+func (s *Server) generateShortTermAuthCookie(username string, now time.Time) (string, error) {
+	return jwt.NewWithClaims(jwt.SigningMethodHS256, &jwt.StandardClaims{
+		Subject:   username,
+		NotBefore: now.Add(-time.Minute).Unix(),
+		ExpiresAt: now.Add(kopiaAuthCookieTTL).Unix(),
+		IssuedAt:  now.Unix(),
+		Audience:  kopiaAuthCookieAudience,
+		Id:        uuid.New().String(),
+		Issuer:    kopiaAuthCookieIssuer,
+	}).SignedString(s.authCookieSigningKey)
 }
 
 func (s *Server) requireAuth(f http.HandlerFunc) http.HandlerFunc {
@@ -475,12 +537,13 @@ func (s *Server) syncSourcesLocked(ctx context.Context) error {
 
 // Options encompasses all API server options.
 type Options struct {
-	ConfigFile      string
-	ConnectOptions  *repo.ConnectOptions
-	RefreshInterval time.Duration
-	MaxConcurrency  int
-	Authenticator   auth.Authenticator
-	Authorizer      auth.AuthorizerFunc
+	ConfigFile           string
+	ConnectOptions       *repo.ConnectOptions
+	RefreshInterval      time.Duration
+	MaxConcurrency       int
+	Authenticator        auth.Authenticator
+	Authorizer           auth.AuthorizerFunc
+	AuthCookieSigningKey string
 }
 
 // New creates a Server.
@@ -490,14 +553,21 @@ func New(ctx context.Context, options Options) (*Server, error) {
 		return nil, errors.Errorf("missing authorizer")
 	}
 
+	if options.AuthCookieSigningKey == "" {
+		// generate random signing key
+		options.AuthCookieSigningKey = uuid.New().String()
+		log(ctx).Debugf("generated random auth cookie signing key: %v", options.AuthCookieSigningKey)
+	}
+
 	s := &Server{
-		options:         options,
-		sourceManagers:  map[snapshot.SourceInfo]*sourceManager{},
-		uploadSemaphore: make(chan struct{}, 1),
-		grpcServerState: makeGRPCServerState(options.MaxConcurrency),
-		authenticator:   options.Authenticator,
-		authorizer:      options.Authorizer,
-		taskmgr:         uitask.NewManager(),
+		options:              options,
+		sourceManagers:       map[snapshot.SourceInfo]*sourceManager{},
+		uploadSemaphore:      make(chan struct{}, 1),
+		grpcServerState:      makeGRPCServerState(options.MaxConcurrency),
+		authenticator:        options.Authenticator,
+		authorizer:           options.Authorizer,
+		taskmgr:              uitask.NewManager(),
+		authCookieSigningKey: []byte(options.AuthCookieSigningKey),
 	}
 
 	return s, nil
