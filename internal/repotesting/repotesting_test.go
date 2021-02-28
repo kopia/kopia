@@ -19,7 +19,7 @@ func TestTimeFuncWiring(t *testing.T) {
 	ft := faketime.NewTimeAdvance(time.Date(2018, time.February, 6, 0, 0, 0, 0, time.UTC), 0)
 
 	// Re open with injected time
-	rep, err := repo.Open(ctx, env.RepositoryWriter.ConfigFilename(), masterPassword, &repo.Options{TimeNowFunc: ft.NowFunc()})
+	rep, err := repo.Open(ctx, env.RepositoryWriter.ConfigFilename(), env.Password, &repo.Options{TimeNowFunc: ft.NowFunc()})
 	if err != nil {
 		t.Fatal("Failed to open repo:", err)
 	}

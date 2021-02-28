@@ -437,6 +437,17 @@ func TestWriteSessionFlushOnFailure(t *testing.T) {
 	verify(ctx, t, env.Repository, oid, []byte{1, 2, 3}, "test-1")
 }
 
+func TestChangePassword(t *testing.T) {
+	ctx, env := repotesting.NewEnvironment(t)
+
+	require.NoError(t, env.RepositoryWriter.ChangePassword(ctx, "new-password"))
+
+	r, err := repo.Open(ctx, env.RepositoryWriter.ConfigFilename(), "new-password", nil)
+	defer r.Close(ctx)
+
+	require.NoError(t, err)
+}
+
 func verifyNotFound(ctx context.Context, t *testing.T, rep repo.Repository, objectID object.ID, testCaseID string) {
 	t.Helper()
 
