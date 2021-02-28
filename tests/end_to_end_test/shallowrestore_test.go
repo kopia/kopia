@@ -308,8 +308,13 @@ func removeEntry(m *mutatorArgs) {
 	m.t.Log(">> relpath", filerelpath, dirrelpath, fileinshallow, dirinshallow)
 
 	// 2. remove
+<<<<<<< HEAD
 	require.NoError(m.t, os.Remove(fileinshallow))
 	require.NoError(m.t, os.Remove(dirinshallow))
+=======
+	testenv.AssertNoError(m.t, os.Remove(fileinshallow))
+	testenv.AssertNoError(m.t, os.RemoveAll(dirinshallow))
+>>>>>>> d86855be (Embed directory placeholders in directories)
 
 	// 3. remove from full
 	fopath := filepath.Join(m.original, filerelpath)
@@ -412,6 +417,7 @@ func TestPlaceholderAndRealFails(t *testing.T) {
 		t.Fatalf("missing paths %q, %q", origdir, origfile)
 	}
 
+<<<<<<< HEAD
 	for _, s := range []struct {
 		p   string
 		ext string
@@ -432,6 +438,32 @@ func TestPlaceholderAndRealFails(t *testing.T) {
 		e.RunAndExpectFailure(t, "snapshot", "create", source)
 		require.NoError(t, os.RemoveAll(fpath))
 	}
+=======
+	// Placeholder file.
+	pfpath := origfile + localfs.SHALLOWENTRYSUFFIX
+	phfd, err := os.Create(pfpath)
+	testenv.AssertNoError(t, err)
+	testenv.AssertNoError(t, phfd.Close())
+	e.RunAndExpectFailure(t, "snapshot", "create", source)
+	testenv.AssertNoError(t, os.RemoveAll(pfpath))
+
+	// Placeholder dir, no file.
+	pfdirpath := origfile + localfs.SHALLOWENTRYSUFFIX
+	testenv.AssertNoError(t, os.MkdirAll(pfdirpath, os.FileMode(dIRMODE)))
+	e.RunAndExpectFailure(t, "snapshot", "create", source)
+	testenv.AssertNoError(t, os.RemoveAll(pfdirpath))
+
+	// Placeholder dir, and file.
+	pfdirfilepath := origfile + dIRPH
+
+	testenv.AssertNoError(t, os.MkdirAll(pfdirpath, os.FileMode(dIRMODE)))
+
+	pfdirfd, err := os.Create(pfdirfilepath)
+	testenv.AssertNoError(t, err)
+	testenv.AssertNoError(t, pfdirfd.Close())
+	e.RunAndExpectFailure(t, "snapshot", "create", source)
+	testenv.AssertNoError(t, os.RemoveAll(pfdirfilepath))
+>>>>>>> d86855be (Embed directory placeholders in directories)
 }
 
 // TestForeignReposCauseErrors detects that shallow placeholders from
@@ -457,11 +489,11 @@ func TestForeignReposCauseErrors(t *testing.T) {
 	})
 
 	for _, s := range []struct {
-		ext string
-		de  *snapshot.DirEntry
+		mkdir bool
+		de    *snapshot.DirEntry
 	}{
 		{
-			ext: localfs.SHALLOWENTRYSUFFIX,
+			mkdir: true,
 			de: &snapshot.DirEntry{
 				Name:     "badplaceholder",
 				Type:     "d",
@@ -469,7 +501,6 @@ func TestForeignReposCauseErrors(t *testing.T) {
 			},
 		},
 		{
-			ext: localfs.SHALLOWENTRYSUFFIX,
 			de: &snapshot.DirEntry{
 				Name:     "badplaceholder",
 				Type:     "f",
@@ -477,29 +508,66 @@ func TestForeignReposCauseErrors(t *testing.T) {
 			},
 		},
 	} {
-		fpath := filepath.Join(source, "badplaceholder"+s.ext)
+		spath := filepath.Join(source, "badplaceholder"+localfs.SHALLOWENTRYSUFFIX)
+		depath := spath
+
+		if s.mkdir {
+			testenv.AssertNoError(t, os.MkdirAll(spath, os.FileMode(dIRMODE)))
+			depath = filepath.Join(spath, localfs.SHALLOWENTRYSUFFIX)
+		}
+
 		buffy := &bytes.Buffer{}
 		encoder := json.NewEncoder(buffy)
+<<<<<<< HEAD
 		require.NoError(t, encoder.Encode(s.de))
 		require.NoError(t, ioutil.WriteFile(fpath, buffy.Bytes(), 0o444))
 		e.RunAndExpectFailure(t, "snapshot", "create", source)
 		require.NoError(t, os.RemoveAll(fpath))
+=======
+
+		testenv.AssertNoError(t, encoder.Encode(s.de))
+		testenv.AssertNoError(t, ioutil.WriteFile(depath, buffy.Bytes(), 0o444))
+		e.RunAndExpectFailure(t, "snapshot", "create", source)
+		testenv.AssertNoError(t, os.RemoveAll(spath))
+>>>>>>> d86855be (Embed directory placeholders in directories)
 	}
 }
 
 // --- Helper routines start here.
 
+const (
+	// d1 + kDIRPH is the DirEntry placeholder for original directory d1.
+	dIRPH = localfs.SHALLOWENTRYSUFFIX + string(filepath.Separator) + localfs.SHALLOWENTRYSUFFIX
+
+	// d1 + kSUBFILE is the DirEntry placeholder for placeholder directory d1.kopia-entry.
+	sUBFILE = string(filepath.Separator) + localfs.SHALLOWENTRYSUFFIX
+
+	dIRMODE = 0700
+)
+
+// getShallowDirEntry reads the DirEntry in the placeholder associated
+// with fpath, fpath.kopia-dir, fpath.kopia-dir/.kopia-dir.
 func getShallowDirEntry(t *testing.T, fpath string) *snapshot.DirEntry {
 	t.Helper()
 
+	var (
+		b   []byte
+		err error
+	)
+
 	t.Logf("fpath %q", fpath)
 
-	p := fpath
-	if !strings.HasSuffix(fpath, localfs.SHALLOWENTRYSUFFIX) {
-		p += localfs.SHALLOWENTRYSUFFIX
-	}
+	for _, s := range []string{localfs.SHALLOWENTRYSUFFIX, sUBFILE, dIRPH} {
+		p := fpath
+		if !strings.HasSuffix(fpath, s) {
+			p += s
+		}
 
-	b, err := ioutil.ReadFile(p)
+		b, err = ioutil.ReadFile(p)
+		if err == nil {
+			break
+		}
+	}
 
 	require.NoError(t, err)
 
@@ -683,12 +751,13 @@ func findFileDir(t *testing.T, shallow string) (dirinshallow, fileinshallow stri
 func getShallowInfo(t *testing.T, srp string) os.FileInfo {
 	t.Helper()
 
-	shallowinfos := make([]os.FileInfo, 2)
-	errors := make([]error, 2)
-	paths := make([]string, 2)
+	const ENTRYTYPES = 3
+	shallowinfos := make([]os.FileInfo, ENTRYTYPES)
+	errors := make([]error, ENTRYTYPES)
+	paths := make([]string, ENTRYTYPES)
 
 	v := -1
-	for i, s := range []string{"", localfs.SHALLOWENTRYSUFFIX} { // nolint(wsl)
+	for i, s := range []string{"", localfs.SHALLOWENTRYSUFFIX, dIRPH} { // nolint(wsl)
 		paths[i] = srp + s
 		t.Logf("getting info for %q", paths[i])
 		shallowinfos[i], errors[i] = os.Lstat(paths[i])
@@ -698,7 +767,8 @@ func getShallowInfo(t *testing.T, srp string) os.FileInfo {
 		}
 	}
 
-	// Always there should be 1 error (i.e. one and only one the real or placeholder file paths should exist.)
+	// Always there should be ENTRYTYPES-1 errors (i.e. one and only one of
+	// the file paths should exist.)
 	errcount := 0
 	for _, e := range errors { // nolint(wsl)
 		if e != nil {
@@ -707,9 +777,9 @@ func getShallowInfo(t *testing.T, srp string) os.FileInfo {
 	}
 
 	switch {
-	case errcount == 1:
+	case errcount == ENTRYTYPES-1:
 		return shallowinfos[v]
-	case errcount < 1:
+	case errcount < ENTRYTYPES-1:
 		nonfaultingpaths := make([]string, 0)
 
 		for i, s := range paths {

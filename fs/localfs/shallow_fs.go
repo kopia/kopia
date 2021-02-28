@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"github.com/natefinch/atomic"
 	"github.com/pkg/errors"
@@ -13,12 +14,22 @@ import (
 )
 
 // Helpers to implement storing of "shallow" placeholders for files or
-// directory trees in a restore image.
+// directory trees in a restore image. A placeholder for directory d1 is
+// d1.kopia-entry/.kopia-entry. As a result, d1.kopia-entry will stat as
+// a directory and show up nicely in colorized ls output. A placeholder
+// for a file f1 is f1.kopia-entry.
 
 func placeholderPath(path string, et snapshot.EntryType) (string, error) {
 	switch et {
-	case snapshot.EntryTypeFile, snapshot.EntryTypeDirectory: // Directories and regular files
+	case snapshot.EntryTypeFile:
 		return path + SHALLOWENTRYSUFFIX, nil
+	case snapshot.EntryTypeDirectory: // Directories and regular files
+		dirpath := path + SHALLOWENTRYSUFFIX
+		if err := os.MkdirAll(dirpath, os.FileMode(dIRMODE)); err != nil {
+			return "", errors.Wrap(err, "placeholderPath dir creation")
+		}
+
+		return filepath.Join(dirpath, SHALLOWENTRYSUFFIX), nil
 	default:
 		// Shouldn't be used on links or other file types.
 		return "", errors.Errorf("unsupported entry type: %v", et)
@@ -61,8 +72,14 @@ func ReadShallowPlaceholder(path string) (*snapshot.DirEntry, error) {
 
 	// Otherwise, the path should be a placeholder.
 	php := path + SHALLOWENTRYSUFFIX
-	if _, err := os.Lstat(php); err == nil && originalpresent {
+
+	fi, err := os.Lstat(php)
+
+	switch {
+	case err == nil && originalpresent:
 		return nil, errors.Errorf("%q, %q exist: shallowrestore tree is corrupt probably because a previous restore into a shallow tree was interrupted", path, php)
+	case err == nil && fi.IsDir():
+		php = filepath.Join(php, SHALLOWENTRYSUFFIX)
 	}
 
 	if de, err := dirEntryFromPlaceholder(php); err == nil {
