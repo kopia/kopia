@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/buf"
+	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/repo/encryption"
@@ -266,7 +267,7 @@ func (sm *SharedManager) verifyChecksum(data, contentID []byte) error {
 }
 
 func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *CachingOptions) error {
-	dataCacheStorage, err := newCacheStorageOrNil(ctx, caching.CacheDirectory, caching.MaxCacheSizeBytes, "contents")
+	dataCacheStorage, err := cache.NewStorageOrNil(ctx, caching.CacheDirectory, caching.MaxCacheSizeBytes, "contents")
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize data cache storage")
 	}
@@ -281,7 +282,7 @@ func (sm *SharedManager) setupReadManagerCaches(ctx context.Context, caching *Ca
 		metadataCacheSize = caching.MaxCacheSizeBytes
 	}
 
-	metadataCacheStorage, err := newCacheStorageOrNil(ctx, caching.CacheDirectory, metadataCacheSize, "metadata")
+	metadataCacheStorage, err := cache.NewStorageOrNil(ctx, caching.CacheDirectory, metadataCacheSize, "metadata")
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize data cache storage")
 	}

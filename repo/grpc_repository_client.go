@@ -15,6 +15,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 
+	"github.com/kopia/kopia/internal/cache"
 	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/internal/ctxutil"
 	apipb "github.com/kopia/kopia/internal/grpcapi"
@@ -58,6 +59,8 @@ type grpcRepositoryClient struct {
 	objectFormat object.Format
 	cliOpts      ClientOptions
 	omgr         *object.Manager
+
+	contentCache *cache.PersistentCache
 }
 
 type grpcInnerSession struct {
@@ -383,7 +386,7 @@ func (r *grpcInnerSession) Flush(ctx context.Context) error {
 }
 
 func (r *grpcRepositoryClient) NewWriter(ctx context.Context, opt WriteSessionOptions) (RepositoryWriter, error) {
-	w, err := newGRPCAPIRepositoryForConnection(ctx, r.conn, r.connRefCount, r.cliOpts, opt, false)
+	w, err := newGRPCAPIRepositoryForConnection(ctx, r.conn, r.connRefCount, r.cliOpts, opt, r.contentCache, false)
 	if err != nil {
 		return nil, err
 	}
@@ -493,14 +496,16 @@ func unhandledSessionResponse(resp *apipb.SessionResponse) error {
 }
 
 func (r *grpcRepositoryClient) GetContent(ctx context.Context, contentID content.ID) ([]byte, error) {
-	v, err := r.maybeRetry(ctx, func(ctx context.Context, sess *grpcInnerSession) (interface{}, error) {
-		return sess.GetContent(ctx, contentID)
-	})
-	if err != nil {
-		return nil, err
-	}
+	return r.contentCache.GetOrLoad(ctx, string(contentID), func() ([]byte, error) {
+		v, err := r.maybeRetry(ctx, func(ctx context.Context, sess *grpcInnerSession) (interface{}, error) {
+			return sess.GetContent(ctx, contentID)
+		})
+		if err != nil {
+			return nil, err
+		}
 
-	return v.([]byte), nil
+		return v.([]byte), nil
+	})
 }
 
 func (r *grpcInnerSession) GetContent(ctx context.Context, contentID content.ID) ([]byte, error) {
@@ -587,6 +592,9 @@ func (r *grpcRepositoryClient) Close(ctx context.Context) error {
 
 	if atomic.AddInt32(r.connRefCount, -1) == 0 {
 		log(ctx).Debugf("closing GPRC connection to %v", r.conn.Target())
+
+		defer r.contentCache.Close(ctx)
+
 		return errors.Wrap(r.conn.Close(), "error closing GRPC connection")
 	}
 
@@ -620,7 +628,7 @@ func (c grpcCreds) RequireTransportSecurity() bool {
 
 // OpenGRPCAPIRepository opens the Repository based on remote GRPC server.
 // The APIServerInfo must have the address of the repository as 'kopia://host:port'
-func OpenGRPCAPIRepository(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions, password string) (Repository, error) {
+func OpenGRPCAPIRepository(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions, contentCache *cache.PersistentCache, password string) (Repository, error) {
 	var transportCreds credentials.TransportCredentials
 
 	if si.TrustedServerCertificateFingerprint != "" {
@@ -651,7 +659,7 @@ func OpenGRPCAPIRepository(ctx context.Context, si *APIServerInfo, cliOpts Clien
 		return nil, errors.Wrap(err, "dial error")
 	}
 
-	rep, err := newGRPCAPIRepositoryForConnection(ctx, conn, new(int32), cliOpts, WriteSessionOptions{}, true)
+	rep, err := newGRPCAPIRepositoryForConnection(ctx, conn, new(int32), cliOpts, WriteSessionOptions{}, contentCache, true)
 	if err != nil {
 		return nil, err
 	}
@@ -719,7 +727,7 @@ func (r *grpcRepositoryClient) killInnerSession() {
 }
 
 // newGRPCAPIRepositoryForConnection opens GRPC-based repository connection.
-func newGRPCAPIRepositoryForConnection(ctx context.Context, conn *grpc.ClientConn, connRefCount *int32, cliOpts ClientOptions, opt WriteSessionOptions, transparentRetries bool) (*grpcRepositoryClient, error) {
+func newGRPCAPIRepositoryForConnection(ctx context.Context, conn *grpc.ClientConn, connRefCount *int32, cliOpts ClientOptions, opt WriteSessionOptions, contentCache *cache.PersistentCache, transparentRetries bool) (*grpcRepositoryClient, error) {
 	if opt.OnUpload == nil {
 		opt.OnUpload = func(i int64) {}
 	}
@@ -731,6 +739,7 @@ func newGRPCAPIRepositoryForConnection(ctx context.Context, conn *grpc.ClientCon
 		transparentRetries: transparentRetries,
 		opt:                opt,
 		isReadOnly:         cliOpts.ReadOnly,
+		contentCache:       contentCache,
 	}
 
 	v, err := rr.inSessionWithoutRetry(ctx, func(ctx context.Context, sess *grpcInnerSession) (interface{}, error) {

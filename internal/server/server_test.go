@@ -16,6 +16,7 @@ import (
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/internal/server"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/manifest"
@@ -28,6 +29,8 @@ const (
 	testHostname = "bar"
 	testPassword = "123"
 	testPathname = "/tmp/path"
+
+	maxCacheSizeBytes = 1e6
 )
 
 // nolint:thelper
@@ -85,6 +88,9 @@ func testServer(t *testing.T, disableGRPC bool) {
 	rep, err := repo.OpenAPIServer(ctx, apiServerInfo, repo.ClientOptions{
 		Username: testUsername,
 		Hostname: testHostname,
+	}, &content.CachingOptions{
+		CacheDirectory:    testutil.TempDirectory(t),
+		MaxCacheSizeBytes: maxCacheSizeBytes,
 	}, testPassword)
 	if err != nil {
 		t.Fatal(err)
@@ -102,7 +108,7 @@ func TestGPRServer_AuthenticationError(t *testing.T) {
 	if _, err := repo.OpenGRPCAPIRepository(ctx, apiServerInfo, repo.ClientOptions{
 		Username: "bad-username",
 		Hostname: "bad-hostname",
-	}, "bad-password"); err == nil {
+	}, nil, "bad-password"); err == nil {
 		t.Fatal("unexpected success when connecting with invalid username")
 	}
 }
