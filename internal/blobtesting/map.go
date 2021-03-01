@@ -37,12 +37,12 @@ func (s *mapStorage) GetBlob(ctx context.Context, id blob.ID, offset, length int
 		}
 
 		if int(offset) > len(data) || offset < 0 {
-			return nil, errors.Errorf("invalid offset: %v", offset)
+			return nil, errors.Wrapf(blob.ErrInvalidRange, "invalid offset: %v", offset)
 		}
 
 		data = data[offset:]
 		if int(length) > len(data) {
-			return nil, errors.Errorf("invalid length: %v", length)
+			return nil, errors.Wrapf(blob.ErrInvalidRange, "invalid length: %v", length)
 		}
 
 		return data[0:length], nil

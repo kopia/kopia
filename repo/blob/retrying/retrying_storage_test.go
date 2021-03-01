@@ -55,10 +55,28 @@ func TestRetrying(t *testing.T) {
 	_, err = rs.GetMetadata(ctx, blobID)
 	must(t, err)
 
+	if _, err = rs.GetBlob(ctx, blobID, 4, 10000); !errors.Is(err, blob.ErrInvalidRange) {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
 	must(t, rs.DeleteBlob(ctx, blobID))
 
 	if _, err = rs.GetBlob(ctx, blobID, 0, -1); !errors.Is(err, blob.ErrBlobNotFound) {
 		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if _, err = rs.GetMetadata(ctx, blobID); !errors.Is(err, blob.ErrBlobNotFound) {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	fs.VerifyAllFaultsExercised(t)
+
+	fs.Faults["SetTime"] = []*blobtesting.Fault{
+		{Err: blob.ErrSetTimeUnsupported},
+	}
+
+	if err := rs.SetTime(ctx, blobID, clock.Now()); !errors.Is(err, blob.ErrSetTimeUnsupported) {
+		t.Fatalf("unexpected error from SetTime: %v", err)
 	}
 
 	fs.VerifyAllFaultsExercised(t)
