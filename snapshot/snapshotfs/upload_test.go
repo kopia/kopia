@@ -449,3 +449,27 @@ func TestUploadWithCheckpointing(t *testing.T) {
 		}
 	}
 }
+
+func TestUploadScan(t *testing.T) {
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+
+	defer th.cleanup()
+
+	u := NewUploader(th.repo)
+
+	scanctx, cancel := context.WithCancel(ctx)
+
+	th.sourceDir.Subdir("d1").Subdir("d2").OnReaddir(func() {
+		cancel()
+	})
+
+	result, err := u.scanDirectory(scanctx, th.sourceDir)
+	if !errors.Is(err, scanctx.Err()) {
+		t.Fatalf("invalid scan error: %v", err)
+	}
+
+	if result.numFiles == 0 && result.totalFileSize == 0 {
+		t.Fatalf("should have returned partial results, got zeros")
+	}
+}
