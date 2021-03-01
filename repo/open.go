@@ -78,18 +78,15 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 	}
 
 	if lc.APIServer != nil {
-		contentCache, err := getContentCacheOrNil(ctx, lc.Caching.CloneOrDefault(), password)
-		if err != nil {
-			return nil, errors.Wrap(err, "error opening content cache")
-		}
-
-		return OpenAPIServer(ctx, lc.APIServer, lc.ClientOptions, contentCache, password)
+		return OpenAPIServer(ctx, lc.APIServer, lc.ClientOptions, lc.Caching, password)
 	}
 
 	return openDirect(ctx, configFile, lc, password, options)
 }
 
 func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, password string) (*cache.PersistentCache, error) {
+	opt = opt.CloneOrDefault()
+
 	cs, err := cache.NewStorageOrNil(ctx, opt.CacheDirectory, opt.MaxCacheSizeBytes, "server-contents")
 	if cs == nil {
 		// this may be (nil, nil) or (nil, err)
@@ -113,7 +110,12 @@ func getContentCacheOrNil(ctx context.Context, opt *content.CachingOptions, pass
 }
 
 // OpenAPIServer connects remote repository over Kopia API.
-func OpenAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions, contentCache *cache.PersistentCache, password string) (Repository, error) {
+func OpenAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions, cachingOptions *content.CachingOptions, password string) (Repository, error) {
+	contentCache, err := getContentCacheOrNil(ctx, cachingOptions, password)
+	if err != nil {
+		return nil, errors.Wrap(err, "error opening content cache")
+	}
+
 	if si.DisableGRPC {
 		return openRestAPIRepository(ctx, si, cliOpts, contentCache, password)
 	}
