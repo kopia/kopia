@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/http/cookiejar"
 
 	"github.com/pkg/errors"
 
@@ -149,9 +150,15 @@ func NewKopiaAPIClient(options Options) (*KopiaAPIClient, error) {
 		transport = loggingTransport{transport}
 	}
 
+	cj, err := cookiejar.New(nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to create cookie jar")
+	}
+
 	return &KopiaAPIClient{
 		options.BaseURL + "/api/v1/",
 		&http.Client{
+			Jar:       cj,
 			Transport: transport,
 		},
 	}, nil
@@ -182,7 +189,7 @@ func (t loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, errors.Wrap(err, "round-trip error")
 	}
 
-	log(req.Context()).Debugf("%v %v took %v and returned %v", req.Method, req.URL, clock.Since(t0), resp.Status)
+	log(req.Context()).Debugf("%v %v took %v and returned %v with cookies %v", req.Method, req.URL, clock.Since(t0), resp.Status, resp.Cookies())
 
 	return resp, nil
 }
