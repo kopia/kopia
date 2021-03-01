@@ -147,8 +147,8 @@ func verifyContentCache(t *testing.T, cache contentCache) {
 			{"xf0f0f3", "no-such-content", 0, -1, nil, blob.ErrBlobNotFound},
 			{"xf0f0f4", "no-such-content", 10, 5, nil, blob.ErrBlobNotFound},
 			{"f0f0f5", "content-1", 7, 3, []byte{8, 9, 10}, nil},
-			{"xf0f0f6", "content-1", 11, 10, nil, errors.Errorf("error getting content from cache: invalid offset: 11")},
-			{"xf0f0f6", "content-1", -1, 5, nil, errors.Errorf("error getting content from cache: invalid offset: -1")},
+			{"xf0f0f6", "content-1", 11, 10, nil, errors.Errorf("error getting content from cache: invalid offset: 11: invalid blob offset or length")},
+			{"xf0f0f6", "content-1", -1, 5, nil, errors.Errorf("error getting content from cache: invalid offset: -1: invalid blob offset or length")},
 		}
 
 		for _, tc := range cases {
