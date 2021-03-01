@@ -93,6 +93,11 @@ func setupConsoleBackend() logging.Backend {
 		maybeTimestamp = "%{time:15:04:05.000} "
 	)
 
+	if *disableColor {
+		prefix = ""
+		suffix = "%{message}"
+	}
+
 	if !*consoleLogTimestamps {
 		maybeTimestamp = ""
 	}
