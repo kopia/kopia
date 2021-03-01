@@ -77,6 +77,13 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 		return nil, err
 	}
 
+	// cache directory is stored as relative to config file name, resolve it to absolute.
+	if lc.Caching != nil {
+		if lc.Caching.CacheDirectory != "" && !filepath.IsAbs(lc.Caching.CacheDirectory) {
+			lc.Caching.CacheDirectory = filepath.Join(filepath.Dir(configFile), lc.Caching.CacheDirectory)
+		}
+	}
+
 	if lc.APIServer != nil {
 		return OpenAPIServer(ctx, lc.APIServer, lc.ClientOptions, lc.Caching, password)
 	}
@@ -125,10 +132,6 @@ func OpenAPIServer(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions
 
 // openDirect opens the repository that directly manipulates blob storage..
 func openDirect(ctx context.Context, configFile string, lc *LocalConfig, password string, options *Options) (rep Repository, err error) {
-	if lc.Caching.CacheDirectory != "" && !filepath.IsAbs(lc.Caching.CacheDirectory) {
-		lc.Caching.CacheDirectory = filepath.Join(filepath.Dir(configFile), lc.Caching.CacheDirectory)
-	}
-
 	if lc.Storage == nil {
 		return nil, errors.Errorf("storage not set in the configuration file")
 	}
