@@ -90,12 +90,7 @@ func (s *sourceSnapshots) Readdir(ctx context.Context) (fs.Entries, error) {
 			de.DirSummary = m.RootEntry.DirSummary
 		}
 
-		e, err := EntryFromDirEntry(s.rep, de)
-		if err != nil {
-			return nil, errors.Wrap(err, "unable to create entry")
-		}
-
-		result = append(result, e)
+		result = append(result, EntryFromDirEntry(s.rep, de))
 	}
 
 	result.Sort()

@@ -781,10 +781,9 @@ func (u *Uploader) processNonDirectories(ctx context.Context, parentCheckpointRe
 		case fs.Symlink:
 			de, err := u.uploadSymlinkInternal(ctx, entryRelativePath, entry)
 			if err != nil {
-				u.reportErrorAndMaybeCancel(
-					err,
-					policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrorsOrDefault(false),
-					parentDirBuilder, entryRelativePath)
+				isIgnoredError := policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrorsOrDefault(false)
+
+				u.reportErrorAndMaybeCancel(err, isIgnoredError, parentDirBuilder, entryRelativePath)
 			} else {
 				parentDirBuilder.addEntry(de)
 			}
@@ -793,19 +792,32 @@ func (u *Uploader) processNonDirectories(ctx context.Context, parentCheckpointRe
 
 		case fs.File:
 			atomic.AddInt32(&u.stats.NonCachedFiles, 1)
+
 			de, err := u.uploadFileInternal(ctx, parentCheckpointRegistry, entryRelativePath, entry, policyTree.Child(entry.Name()).EffectivePolicy(), asyncWritesPerFile)
 			if err != nil {
-				u.reportErrorAndMaybeCancel(
-					err, policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrorsOrDefault(false),
-					parentDirBuilder, entryRelativePath)
+				isIgnoredError := policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrorsOrDefault(false)
+
+				u.reportErrorAndMaybeCancel(err, isIgnoredError, parentDirBuilder, entryRelativePath)
 			} else {
 				parentDirBuilder.addEntry(de)
 			}
 
 			return nil
 
+		case fs.ErrorEntry:
+			var isIgnoredError bool
+			if errors.Is(entry.ErrorInfo(), fs.ErrUnknown) {
+				isIgnoredError = policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreUnknownTypesOrDefault(true)
+			} else {
+				isIgnoredError = policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrorsOrDefault(false)
+			}
+
+			u.reportErrorAndMaybeCancel(entry.ErrorInfo(), isIgnoredError, parentDirBuilder, entryRelativePath)
+
+			return nil
+
 		default:
-			return errors.Errorf("file type not supported: %v", entry.Mode())
+			return errors.Errorf("unexpected entry type: %T %v", entry, entry.Mode())
 		}
 	})
 }
@@ -1003,11 +1015,7 @@ func (u *Uploader) maybeOpenDirectoryFromManifest(ctx context.Context, man *snap
 		return nil
 	}
 
-	ent, err := EntryFromDirEntry(u.repo, man.RootEntry)
-	if err != nil {
-		log(ctx).Warningf("invalid previous manifest root entry %v: %v", man.RootEntry, err)
-		return nil
-	}
+	ent := EntryFromDirEntry(u.repo, man.RootEntry)
 
 	dir, ok := ent.(fs.Directory)
 	if !ok {

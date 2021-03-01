@@ -195,6 +195,7 @@ export class PolicyEditor extends Component {
                         <Form.Row>
                             {OptionalBoolean(this, "Ignore Directory Errors", "policy.errorHandling.ignoreDirectoryErrors", "inherit from parent")}
                             {OptionalBoolean(this, "Ignore File Errors", "policy.errorHandling.ignoreFileErrors", "inherit from parent")}
+                            {OptionalBoolean(this, "Ignore Unknown Types", "policy.errorHandling.ignoreUnknownTypes", "inherit from parent")}
                         </Form.Row>
                     </div>
                 </Tab>

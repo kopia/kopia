@@ -142,6 +142,23 @@ func (imd *Directory) AddDir(name string, permissions os.FileMode) *Directory {
 	return subdir
 }
 
+// AddErrorEntry adds a fake directory with a given name and permissions.
+func (imd *Directory) AddErrorEntry(name string, permissions os.FileMode, err error) *ErrorEntry {
+	imd, name = imd.resolveSubdir(name)
+
+	ee := &ErrorEntry{
+		entry: entry{
+			name: name,
+			mode: permissions | os.ModeDir,
+		},
+		err: err,
+	}
+
+	imd.addChild(ee)
+
+	return ee
+}
+
 // AddDirDevice adds a fake directory with a given name and permissions.
 func (imd *Directory) AddDirDevice(name string, permissions os.FileMode, deviceInfo fs.DeviceInfo) *Directory {
 	imd, name = imd.resolveSubdir(name)
@@ -292,8 +309,20 @@ func NewDirectory() *Directory {
 	}
 }
 
+// ErrorEntry is mock in-memory implementation of fs.ErrorEntry.
+type ErrorEntry struct {
+	entry
+	err error
+}
+
+// ErrorInfo implements fs.ErrorErntry.
+func (e *ErrorEntry) ErrorInfo() error {
+	return e.err
+}
+
 var (
-	_ fs.Directory = &Directory{}
-	_ fs.File      = &File{}
-	_ fs.Symlink   = &inmemorySymlink{}
+	_ fs.Directory  = &Directory{}
+	_ fs.File       = &File{}
+	_ fs.Symlink    = &inmemorySymlink{}
+	_ fs.ErrorEntry = &ErrorEntry{}
 )

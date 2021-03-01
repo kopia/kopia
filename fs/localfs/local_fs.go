@@ -5,30 +5,18 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/repo/logging"
 )
 
 const (
 	numEntriesToRead   = 100 // number of directory entries to read in one shot
 	dirListingPrefetch = 200 // number of directory items to os.Lstat() in advance
 )
-
-var log = logging.GetContextLoggerFunc("kopia/localfs")
-
-type sortedEntries fs.Entries
-
-func (e sortedEntries) Len() int      { return len(e) }
-func (e sortedEntries) Swap(i, j int) { e[i], e[j] = e[j], e[i] }
-func (e sortedEntries) Less(i, j int) bool {
-	return e[i].Name() < e[j].Name()
-}
 
 type filesystemEntry struct {
 	name       string
@@ -107,6 +95,11 @@ type filesystemFile struct {
 	filesystemEntry
 }
 
+type filesystemErrorEntry struct {
+	filesystemEntry
+	err error
+}
+
 func (fsd *filesystemDirectory) Size() int64 {
 	// force directory size to always be zero
 	return 0
@@ -124,7 +117,7 @@ func (fsd *filesystemDirectory) Child(ctx context.Context, name string) (fs.Entr
 		return nil, errors.Wrap(err, "unable to get child")
 	}
 
-	return entryFromChildFileInfo(st, fullPath)
+	return entryFromChildFileInfo(st, fullPath), nil
 }
 
 type entryWithError struct {
@@ -193,13 +186,7 @@ func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error)
 					continue
 				}
 
-				e, fierr := entryFromChildFileInfo(fi, fullPath)
-				if fierr != nil {
-					log(ctx).Warningf("unable to create directory entry %q: %v", fi.Name(), fierr)
-					continue
-				}
-
-				entriesCh <- entryWithError{entry: e}
+				entriesCh <- entryWithError{entry: entryFromChildFileInfo(fi, fullPath)}
 			}
 		}()
 	}
@@ -226,7 +213,7 @@ func (fsd *filesystemDirectory) Readdir(ctx context.Context) (fs.Entries, error)
 		entries = append(entries, e.entry)
 	}
 
-	sort.Sort(sortedEntries(entries))
+	entries.Sort()
 
 	// return any error encountered when listing or reading the directory
 	return entries, readDirErr
@@ -258,7 +245,12 @@ func (fsl *filesystemSymlink) Readlink(ctx context.Context) (string, error) {
 	return os.Readlink(fsl.fullPath())
 }
 
-// NewEntry returns fs.Entry for the specified path, the result will be one of supported entry types: fs.File, fs.Directory, fs.Symlink.
+func (e *filesystemErrorEntry) ErrorInfo() error {
+	return e.err
+}
+
+// NewEntry returns fs.Entry for the specified path, the result will be one of supported entry types: fs.File, fs.Directory, fs.Symlink
+// or fs.UnsupportedEntry.
 func NewEntry(path string) (fs.Entry, error) {
 	fi, err := os.Lstat(path)
 	if err != nil {
@@ -276,7 +268,7 @@ func NewEntry(path string) (fs.Entry, error) {
 		return &filesystemFile{newEntry(fi, filepath.Dir(path))}, nil
 
 	default:
-		return nil, errors.Errorf("unsupported filesystem entry: %v", fi)
+		return &filesystemErrorEntry{newEntry(fi, filepath.Dir(path)), fs.ErrUnknown}, nil
 	}
 }
 
@@ -294,24 +286,25 @@ func Directory(path string) (fs.Directory, error) {
 	return nil, errors.Errorf("not a directory: %v", path)
 }
 
-func entryFromChildFileInfo(fi os.FileInfo, parentDir string) (fs.Entry, error) {
+func entryFromChildFileInfo(fi os.FileInfo, parentDir string) fs.Entry {
 	switch fi.Mode() & os.ModeType {
 	case os.ModeDir:
-		return &filesystemDirectory{newEntry(fi, parentDir)}, nil
+		return &filesystemDirectory{newEntry(fi, parentDir)}
 
 	case os.ModeSymlink:
-		return &filesystemSymlink{newEntry(fi, parentDir)}, nil
+		return &filesystemSymlink{newEntry(fi, parentDir)}
 
 	case 0:
-		return &filesystemFile{newEntry(fi, parentDir)}, nil
+		return &filesystemFile{newEntry(fi, parentDir)}
 
 	default:
-		return nil, errors.Errorf("unsupported filesystem entry: %v", fi)
+		return &filesystemErrorEntry{newEntry(fi, parentDir), fs.ErrUnknown}
 	}
 }
 
 var (
-	_ fs.Directory = &filesystemDirectory{}
-	_ fs.File      = &filesystemFile{}
-	_ fs.Symlink   = &filesystemSymlink{}
+	_ fs.Directory  = &filesystemDirectory{}
+	_ fs.File       = &filesystemFile{}
+	_ fs.Symlink    = &filesystemSymlink{}
+	_ fs.ErrorEntry = &filesystemErrorEntry{}
 )

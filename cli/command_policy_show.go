@@ -186,6 +186,12 @@ func printErrorHandlingPolicy(p *policy.Policy, parents []*policy.Policy) {
 		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
 			return pol.ErrorHandlingPolicy.IgnoreDirectoryErrors != nil
 		}))
+
+	printStdout("  Ignore unknown types:          %5v       %v\n",
+		p.ErrorHandlingPolicy.IgnoreUnknownTypesOrDefault(true),
+		getDefinitionPoint(p.Target(), parents, func(pol *policy.Policy) bool {
+			return pol.ErrorHandlingPolicy.IgnoreUnknownTypes != nil
+		}))
 }
 
 func printSchedulingPolicy(p *policy.Policy, parents []*policy.Policy) {
