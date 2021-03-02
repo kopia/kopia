@@ -30,14 +30,14 @@ endif
 -include ./Makefile.local.mk
 
 install: html-ui
-	go install -tags embedhtml
+	go install $(KOPIA_BUILD_FLAGS) -tags embedhtml
 
 quick-install:
 	# same as install but assumes HTMLUI has been built
-	go install -tags embedhtml
+	go install $(KOPIA_BUILD_FLAGS) -tags embedhtml
 
 install-noui:
-	go install
+	go install $(KOPIA_BUILD_FLAGS)
 
 escape-analysis:
 	go build -gcflags '-m -l' github.com/kopia/kopia/...
@@ -91,21 +91,34 @@ kopia-ui:
 # kopia-ui build needs this particular location to embed the correct server binary.
 # note we're not building or embedding HTML UI to speed up PR testing process.
 build-current-os-noui:
-	go build -o dist/kopia_$(shell go env GOOS)_$(shell go env GOARCH)/kopia$(exe_suffix)
+	go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_$(shell go env GOOS)_$(shell go env GOARCH)/kopia$(exe_suffix)
 
 build-current-os-with-ui: html-ui
-	go build -o dist/kopia_$(shell go env GOOS)_$(shell go env GOARCH)/kopia$(exe_suffix) -tags embedhtml
+	go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_$(shell go env GOOS)_$(shell go env GOARCH)/kopia$(exe_suffix) -tags embedhtml
 
 kopia-ui-pr-test: app-node-modules htmlui-node-modules
 	$(MAKE) build-current-os-with-ui
 	$(MAKE) html-ui-tests kopia-ui
 
 ci-build:
-ifeq ($(IS_PULL_REQUEST)/$(GOARCH),false/amd64)
-	$(retry) $(MAKE) goreleaser
-	$(retry) $(MAKE) kopia-ui
-else
+ifeq ($(IS_PULL_REQUEST),true)
+	# PR mode - run very quick build of just the binary without embedded UI.
 	$(retry) $(MAKE) build-current-os-noui
+else
+
+ifeq ($(GOOS)/$(GOARCH),linux/amd64)
+	# on linux/amd64 run goreleaser which publishes Kopia binaries, and packages for all platforms
+	$(retry) $(MAKE) goreleaser
+else
+	# everywhere else (windows, mac, arm linux) build only kopia binary in the same location so we
+	# can later build the UI.
+	$(retry) $(MAKE) build-current-os-with-ui
+endif
+
+ifeq ($(GOARCH),amd64)
+	$(retry) $(MAKE) kopia-ui
+endif
+
 endif
 
 ci-tests: lint vet test-with-coverage
@@ -193,7 +206,7 @@ vtest: $(gotestsum)
 	$(GO_TEST) -count=$(REPEAT_TEST) -short -v -timeout $(UNIT_TESTS_TIMEOUT) ./...
 
 build-integration-test-binary:
-	go build -o $(KOPIA_INTEGRATION_EXE) -tags testing github.com/kopia/kopia
+	go build $(KOPIA_BUILD_FLAGS) -o $(KOPIA_INTEGRATION_EXE) -tags testing github.com/kopia/kopia
 
 $(TESTING_ACTION_EXE): tests/testingaction/main.go
 	go build -o $(TESTING_ACTION_EXE) -tags testing github.com/kopia/kopia/tests/testingaction
