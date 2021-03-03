@@ -20,7 +20,6 @@ import (
 type StatusResponse struct {
 	Connected    bool   `json:"connected"`
 	ConfigFile   string `json:"configFile,omitempty"`
-	CacheDir     string `json:"cacheDir,omitempty"`
 	Hash         string `json:"hash,omitempty"`
 	Encryption   string `json:"encryption,omitempty"`
 	Splitter     string `json:"splitter,omitempty"`

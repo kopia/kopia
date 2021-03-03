@@ -141,10 +141,6 @@ export class RepoStatus extends Component {
                                     <Form.Label>Config File</Form.Label>
                                     <Form.Control readOnly defaultValue={this.state.status.configFile} />
                                 </Form.Group>
-                                <Form.Group as={Col}>
-                                    <Form.Label>Cache Directory</Form.Label>
-                                    <Form.Control readOnly defaultValue={this.state.status.cacheDir} />
-                                </Form.Group>
                             </Form.Row>
                             <Form.Row>
                                 <Form.Group as={Col}>
