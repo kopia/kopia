@@ -481,7 +481,7 @@ func errorFromSessionResponse(rr *apipb.ErrorResponse) error {
 	case apipb.ErrorResponse_CONTENT_NOT_FOUND:
 		return content.ErrContentNotFound
 	case apipb.ErrorResponse_STREAM_BROKEN:
-		return io.EOF
+		return errors.Wrap(io.EOF, rr.Message)
 	default:
 		return errors.New(rr.Message)
 	}
@@ -552,6 +552,11 @@ func (r *grpcRepositoryClient) WriteContent(ctx context.Context, data []byte, pr
 		return "", err
 	}
 
+	if prefix != "" {
+		// add all prefixed contents to the cache.
+		r.contentCache.Put(ctx, string(contentID), data)
+	}
+
 	return v.(content.ID), nil
 }
 
@@ -586,9 +591,16 @@ func (r *grpcRepositoryClient) UpdateDescription(d string) {
 }
 
 func (r *grpcRepositoryClient) Close(ctx context.Context) error {
+	if r.omgr == nil {
+		// already closed
+		return nil
+	}
+
 	if err := r.omgr.Close(); err != nil {
 		return errors.Wrap(err, "error closing object manager")
 	}
+
+	r.omgr = nil
 
 	if atomic.AddInt32(r.connRefCount, -1) == 0 {
 		log(ctx).Debugf("closing GPRC connection to %v", r.conn.Target())

@@ -59,9 +59,6 @@ type DirectRepository interface {
 	ConfigFilename() string
 	DeriveKey(purpose []byte, keyLength int) []byte
 	Token(password string) (string, error)
-
-	CachingOptions() *content.CachingOptions
-	SetCachingOptions(ctx context.Context, opt *content.CachingOptions) error
 }
 
 // DirectRepositoryWriter provides low-level write access to the repository.
@@ -236,11 +233,6 @@ func (r *directRepository) Flush(ctx context.Context) error {
 	}
 
 	return r.cmgr.Flush(ctx)
-}
-
-// CachingOptions returns caching options.
-func (r *directRepository) CachingOptions() *content.CachingOptions {
-	return r.cachingOptions.CloneOrDefault()
 }
 
 // ObjectFormat returns the object format.

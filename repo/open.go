@@ -3,7 +3,6 @@ package repo
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -72,16 +71,9 @@ func Open(ctx context.Context, configFile, password string, options *Options) (r
 		return nil, errors.Wrap(err, "error resolving config file path")
 	}
 
-	lc, err := loadConfigFromFile(configFile)
+	lc, err := LoadConfigFromFile(configFile)
 	if err != nil {
 		return nil, err
-	}
-
-	// cache directory is stored as relative to config file name, resolve it to absolute.
-	if lc.Caching != nil {
-		if lc.Caching.CacheDirectory != "" && !filepath.IsAbs(lc.Caching.CacheDirectory) {
-			lc.Caching.CacheDirectory = filepath.Join(filepath.Dir(configFile), lc.Caching.CacheDirectory)
-		}
 	}
 
 	if lc.APIServer != nil {
@@ -277,29 +269,6 @@ func writeCacheMarker(cacheDir string) error {
 	}
 
 	return f.Close()
-}
-
-// SetCachingOptions changes caching configuration for a given repository.
-func (r *directRepository) SetCachingOptions(ctx context.Context, opt *content.CachingOptions) error {
-	lc, err := loadConfigFromFile(r.configFile)
-	if err != nil {
-		return err
-	}
-
-	if err = setupCaching(ctx, r.configFile, lc, opt, r.uniqueID); err != nil {
-		return errors.Wrap(err, "unable to set up caching")
-	}
-
-	d, err := json.MarshalIndent(&lc, "", "  ")
-	if err != nil {
-		return errors.Wrap(err, "error marshaling JSON")
-	}
-
-	if err := ioutil.WriteFile(r.configFile, d, 0o600); err != nil {
-		return nil
-	}
-
-	return nil
 }
 
 func readAndCacheFormatBlobBytes(ctx context.Context, st blob.Storage, cacheDirectory string) ([]byte, error) {
