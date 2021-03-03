@@ -1,25 +1,46 @@
 package snapmeta
 
 import (
+	"bytes"
+	"errors"
 	"testing"
+
+	"github.com/kopia/kopia/tests/robustness"
 )
 
-func TestSimpleWithIndex(t *testing.T) {
+func TestSimpleBasic(t *testing.T) {
 	simple := NewSimple()
+
+	gotData, err := simple.Load("non-existent-key")
+	if !errors.Is(err, robustness.ErrKeyNotFound) {
+		t.Fatalf("Did not get expected error: %q", err)
+	}
+
+	if gotData != nil {
+		t.Fatalf("Expecting nil data return from a key that does not exist")
+	}
 
 	storeKey := "key-to-store"
 	data := []byte("some stored data")
 	simple.Store(storeKey, data)
 
-	idxName := "index-name"
-	simple.AddToIndex(storeKey, idxName)
-
-	idxKeys := simple.GetKeys(idxName)
-	if got, want := len(idxKeys), 1; got != want {
-		t.Fatalf("expected %v keys but got %v", want, got)
+	gotData, err = simple.Load(storeKey)
+	if err != nil {
+		t.Fatalf("Error getting key: %v", err)
 	}
 
-	if got, want := idxKeys[0], storeKey; got != want {
-		t.Fatalf("expected key %v but got %v", want, got)
+	if !bytes.Equal(gotData, data) {
+		t.Fatalf("Did not get the correct data")
+	}
+
+	simple.Delete(storeKey)
+
+	gotData, err = simple.Load(storeKey)
+	if !errors.Is(err, robustness.ErrKeyNotFound) {
+		t.Fatalf("Did not get expected error: %q", err)
+	}
+
+	if gotData != nil {
+		t.Fatalf("Expecting nil data return from a deleted key")
 	}
 }

@@ -34,3 +34,14 @@ func (idx Index) GetKeys(indexName string) (ret []string) {
 
 	return ret
 }
+
+// IsKeyInIndex will return true if the given index name contains the
+// provided key.
+func (idx Index) IsKeyInIndex(key, indexName string) bool {
+	if _, ok := idx[indexName]; ok {
+		_, keyExists := idx[indexName][key]
+		return keyExists
+	}
+
+	return false
+}

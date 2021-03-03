@@ -143,6 +143,11 @@ func (e *Engine) Shutdown() error {
 			return err
 		}
 
+		err = e.saveSnapIDIndex()
+		if err != nil {
+			return err
+		}
+
 		return e.MetaStore.FlushMetadata()
 	}
 
@@ -195,6 +200,11 @@ func (e *Engine) Init(ctx context.Context) error {
 	e.CumulativeStats.RunCounter++
 
 	err = e.loadLog()
+	if err != nil {
+		return err
+	}
+
+	err = e.loadSnapIDIndex()
 	if err != nil {
 		return err
 	}
