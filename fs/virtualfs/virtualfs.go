@@ -1,4 +1,4 @@
-// Package virtualfs implements an in-memory abstraction fs.Directory and fs.StreamingFile.
+// Package virtualfs implements an in-memory abstraction of fs.Directory and fs.StreamingFile.
 package virtualfs
 
 import (
@@ -97,6 +97,8 @@ type virtualFile struct {
 var errReaderAlreadyUsed = errors.New("cannot use streaming file reader more than once")
 
 // GetReader returns the streaming file's reader.
+// Note: Caller of this function has to ensure concurrency safety.
+// The file's reader is set to nil after the first call.
 func (vf *virtualFile) GetReader(ctx context.Context) (io.Reader, error) {
 	if vf.reader == nil {
 		return nil, errReaderAlreadyUsed

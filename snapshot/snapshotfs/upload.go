@@ -203,13 +203,18 @@ func (u *Uploader) uploadSymlinkInternal(ctx context.Context, relativePath strin
 }
 
 func (u *Uploader) uploadStreamingFileInternal(ctx context.Context, relativePath string, f fs.StreamingFile) (*snapshot.DirEntry, error) {
-	u.Progress.HashingFile(relativePath)
-	defer u.Progress.FinishedHashingFile(relativePath, f.Size())
-
 	reader, err := f.GetReader(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to get streaming file reader")
 	}
+
+	var streamSize int64
+
+	u.Progress.HashingFile(relativePath)
+
+	defer func() {
+		u.Progress.FinishedHashingFile(relativePath, streamSize)
+	}()
 
 	writer := u.repo.NewObjectWriter(ctx, object.WriterOptions{
 		Description: "STREAMFILE:" + f.Name(),
@@ -232,6 +237,7 @@ func (u *Uploader) uploadStreamingFileInternal(ctx context.Context, relativePath
 	}
 
 	de.FileSize = written
+	streamSize = written
 	de.ModTime = clock.Now()
 
 	atomic.AddInt32(&u.stats.TotalFileCount, 1)

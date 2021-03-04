@@ -2,6 +2,7 @@ package virtualfs
 
 import (
 	"context"
+	"errors"
 	"os"
 	"reflect"
 	"testing"
@@ -61,5 +62,50 @@ func TestStreamingFile(t *testing.T) {
 
 	if !reflect.DeepEqual(result, content) {
 		t.Fatalf("did not get expected file content: (actual) %v != %v (expected)", result, content)
+	}
+}
+
+func TestStreamingFileGetReader(t *testing.T) {
+	// Create a temporary file with test data
+	content := []byte("Temporary file content")
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("error creating pipe file: %v", err)
+	}
+
+	if _, err = w.Write(content); err != nil {
+		t.Fatalf("error writing to pipe file: %v", err)
+	}
+
+	w.Close()
+
+	filename := "stream-file"
+	f := StreamingFileFromReader(filename, r)
+
+	// Read and compare data
+	reader, err := f.GetReader(context.TODO())
+	if err != nil {
+		t.Fatalf("error getting streaming file reader: %v", err)
+	}
+
+	result := make([]byte, len(content))
+
+	if _, err = reader.Read(result); err != nil {
+		t.Fatalf("error reading streaming file: %v", err)
+	}
+
+	if !reflect.DeepEqual(result, content) {
+		t.Fatalf("did not get expected file content: (actual) %v != %v (expected)", result, content)
+	}
+
+	// Second call to GetReader must fail
+	_, err = f.GetReader(context.TODO())
+	if err == nil {
+		t.Fatal("expected error, got none")
+	}
+
+	if !errors.Is(err, errReaderAlreadyUsed) {
+		t.Fatalf("did not get expected error: (actual) %v != %v (expected)", err, errReaderAlreadyUsed)
 	}
 }
