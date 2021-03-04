@@ -4,6 +4,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
@@ -469,6 +470,69 @@ func TestSnapshotCreateAllWithManualSnapshot(t *testing.T) {
 	// snapshot count must increase by 1 since `sharedTestDataDir1` is ignored
 	expectedSnapshotCount := sourceSnapshotCount + 1
 	e.RunAndVerifyOutputLineCount(t, expectedSnapshotCount, "snapshot", "list", "--show-identical", "-a")
+}
+
+func TestSnapshotCreateWithStdinStream(t *testing.T) {
+	t.Parallel()
+
+	e := testenv.NewCLITest(t)
+
+	defer e.RunAndExpectSuccess(t, "repo", "disconnect")
+	e.RunAndExpectSuccess(t, "repo", "create", "filesystem", "--path", e.RepoDir)
+
+	// Create a temporary pipe file with test data
+	content := []byte("Streaming Temporary file content")
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("error creating pipe file: %v", err)
+	}
+
+	if _, err = w.Write(content); err != nil {
+		t.Fatalf("error writing to pipe file: %v", err)
+	}
+
+	w.Close()
+
+	streamFileName := "stream-file"
+	e.NextCommandStdin = r
+
+	e.RunAndExpectSuccess(t, "snapshot", "create", "rootdir", "--stdin-file", streamFileName)
+
+	// Make sure the scheduling policy with manual field is set and visible in the policy list, includes global policy
+	e.RunAndVerifyOutputLineCount(t, 2, "policy", "list")
+
+	// Obtain snapshot root id and use it for restore
+	si := e.ListSnapshotsAndExpectSuccess(t)
+	if got, want := len(si), 1; got != want {
+		t.Fatalf("got %v sources, wanted %v", got, want)
+	}
+
+	if got, want := len(si[0].Snapshots), 1; got != want {
+		t.Fatalf("got %v snapshots, wanted %v", got, want)
+	}
+
+	rootID := si[0].Snapshots[0].ObjectID
+
+	// Restore using <root-id>/stream-file directly
+	restoredStreamFile := path.Join(testutil.TempDirectory(t), streamFileName)
+	e.RunAndExpectSuccess(t, "snapshot", "restore", rootID+"/"+streamFileName, restoredStreamFile)
+
+	// Compare restored data with content
+	rFile, err := os.Open(restoredStreamFile)
+	if err != nil {
+		t.Fatalf("error opening restored file: %v", err)
+	}
+
+	gotContent := make([]byte, len(content))
+
+	if _, err := rFile.Read(gotContent); err != nil {
+		t.Fatalf("error reading restored file: %v", err)
+	}
+
+	if !reflect.DeepEqual(gotContent, content) {
+		t.Fatalf("did not get expected file contents: (actual) %v != %v (expected)", gotContent, content)
+	}
 }
 
 func appendIfMissing(slice []string, i string) []string {

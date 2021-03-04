@@ -47,6 +47,9 @@ func (u *Uploader) scanDirectory(ctx context.Context, dir fs.Directory) (scanRes
 		case fs.File:
 			res.numFiles++
 			res.totalFileSize += e.Size()
+
+		case fs.StreamingFile:
+			res.numFiles++
 		}
 	}
 
