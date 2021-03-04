@@ -29,7 +29,6 @@ type Args struct {
 	// Interfaces used by the engine.
 	MetaStore  robustness.Persister
 	TestRepo   robustness.Snapshotter
-	Validator  robustness.Comparer
 	FileWriter robustness.FileWriter
 
 	// WorkingDir is a directory to use for temporary data.
@@ -41,7 +40,7 @@ type Args struct {
 
 // Validate checks the arguments for correctness.
 func (a *Args) Validate() error {
-	if a.MetaStore == nil || a.TestRepo == nil || a.Validator == nil || a.FileWriter == nil || a.WorkingDir == "" {
+	if a.MetaStore == nil || a.TestRepo == nil || a.FileWriter == nil || a.WorkingDir == "" {
 		return ErrorInvalidArgs
 	}
 
@@ -58,7 +57,6 @@ func New(args *Args) (*Engine, error) {
 		e = &Engine{
 			MetaStore:   args.MetaStore,
 			TestRepo:    args.TestRepo,
-			Validator:   args.Validator,
 			FileWriter:  args.FileWriter,
 			baseDirPath: args.WorkingDir,
 			RunStats: Stats{
@@ -75,7 +73,7 @@ func New(args *Args) (*Engine, error) {
 		return nil, err
 	}
 
-	e.Checker, err = checker.NewChecker(e.TestRepo, e.MetaStore, e.Validator, e.baseDirPath)
+	e.Checker, err = checker.NewChecker(e.TestRepo, e.MetaStore, e.baseDirPath)
 	if err != nil {
 		e.cleanComponents()
 		return nil, err
@@ -92,7 +90,6 @@ type Engine struct {
 	FileWriter robustness.FileWriter
 	TestRepo   robustness.Snapshotter
 	MetaStore  robustness.Persister
-	Validator  robustness.Comparer
 
 	Checker         *checker.Checker
 	cleanupRoutines []func()
@@ -108,12 +105,12 @@ func (e *Engine) Shutdown() error {
 	// Perform a snapshot action to capture the state of the data directory
 	// at the end of the run
 	lastWriteEntry := e.EngineLog.FindLastThisRun(WriteRandomFilesActionKey)
-	lastSnapEntry := e.EngineLog.FindLastThisRun(SnapshotRootDirActionKey)
+	lastSnapEntry := e.EngineLog.FindLastThisRun(SnapshotDirActionKey)
 
 	if lastWriteEntry != nil {
 		if lastSnapEntry == nil || lastSnapEntry.Idx < lastWriteEntry.Idx {
 			// Only force a final snapshot if the data tree has been modified since the last snapshot
-			e.ExecAction(SnapshotRootDirActionKey, make(map[string]string)) //nolint:errcheck
+			e.ExecAction(SnapshotDirActionKey, make(map[string]string)) //nolint:errcheck
 		}
 	}
 

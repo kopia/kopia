@@ -30,7 +30,7 @@ func TestManySmallFiles(t *testing.T) {
 	_, err := eng.ExecAction(engine.WriteRandomFilesActionKey, fileWriteOpts)
 	testenv.AssertNoError(t, err)
 
-	snapOut, err := eng.ExecAction(engine.SnapshotRootDirActionKey, nil)
+	snapOut, err := eng.ExecAction(engine.SnapshotDirActionKey, nil)
 	testenv.AssertNoError(t, err)
 
 	_, err = eng.ExecAction(engine.RestoreSnapshotActionKey, snapOut)
@@ -52,7 +52,7 @@ func TestOneLargeFile(t *testing.T) {
 	_, err := eng.ExecAction(engine.WriteRandomFilesActionKey, fileWriteOpts)
 	testenv.AssertNoError(t, err)
 
-	snapOut, err := eng.ExecAction(engine.SnapshotRootDirActionKey, nil)
+	snapOut, err := eng.ExecAction(engine.SnapshotDirActionKey, nil)
 	testenv.AssertNoError(t, err)
 
 	_, err = eng.ExecAction(engine.RestoreSnapshotActionKey, snapOut)
@@ -78,7 +78,7 @@ func TestManySmallFilesAcrossDirecoryTree(t *testing.T) {
 	_, err := eng.ExecAction(engine.WriteRandomFilesActionKey, fileWriteOpts)
 	testenv.AssertNoError(t, err)
 
-	snapOut, err := eng.ExecAction(engine.SnapshotRootDirActionKey, nil)
+	snapOut, err := eng.ExecAction(engine.SnapshotDirActionKey, nil)
 	testenv.AssertNoError(t, err)
 
 	_, err = eng.ExecAction(engine.RestoreSnapshotActionKey, snapOut)
@@ -90,7 +90,7 @@ func TestRandomizedSmall(t *testing.T) {
 
 	opts := engine.ActionOpts{
 		engine.ActionControlActionKey: map[string]string{
-			string(engine.SnapshotRootDirActionKey):          strconv.Itoa(2),
+			string(engine.SnapshotDirActionKey):              strconv.Itoa(2),
 			string(engine.RestoreSnapshotActionKey):          strconv.Itoa(2),
 			string(engine.DeleteRandomSnapshotActionKey):     strconv.Itoa(1),
 			string(engine.WriteRandomFilesActionKey):         strconv.Itoa(8),

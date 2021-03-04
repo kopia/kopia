@@ -32,7 +32,6 @@ type Checker struct {
 	RestoreDir            string
 	snapshotIssuer        robustness.Snapshotter
 	snapshotMetadataStore robustness.Store
-	validator             robustness.Comparer
 	RecoveryMode          bool
 	DeleteLimit           int
 
@@ -42,7 +41,7 @@ type Checker struct {
 
 // NewChecker instantiates a new Checker, returning its pointer. A temporary
 // directory is created to mount restored data.
-func NewChecker(snapIssuer robustness.Snapshotter, snapmetaStore robustness.Store, validator robustness.Comparer, restoreDir string) (*Checker, error) {
+func NewChecker(snapIssuer robustness.Snapshotter, snapmetaStore robustness.Store, restoreDir string) (*Checker, error) {
 	restoreDir, err := ioutil.TempDir(restoreDir, "restore-data-")
 	if err != nil {
 		return nil, err
@@ -60,7 +59,6 @@ func NewChecker(snapIssuer robustness.Snapshotter, snapmetaStore robustness.Stor
 		RestoreDir:            restoreDir,
 		snapshotIssuer:        snapIssuer,
 		snapshotMetadataStore: snapmetaStore,
-		validator:             validator,
 		RecoveryMode:          false,
 		DeleteLimit:           delLimit,
 		SnapIDIndex:           make(snapmeta.Index),
@@ -79,7 +77,7 @@ func (chk *Checker) GetSnapIDs() []string {
 	chk.mu.RLock()
 	defer chk.mu.RUnlock()
 
-	return chk.SnapIDIndex.GetKeys(allSnapshotsIdxName)
+	return chk.SnapIDIndex.GetKeys(AllSnapshotsIdxName)
 }
 
 // SnapshotMetadata holds metadata associated with a given snapshot.
@@ -89,6 +87,12 @@ type SnapshotMetadata struct {
 	SnapEndTime    time.Time `json:"snapEndTime"`
 	DeletionTime   time.Time `json:"deletionTime"`
 	ValidationData []byte    `json:"validationData"`
+}
+
+// IsDeleted returns true if the SnapshotMetadata references a snapshot ID that
+// has been deleted.
+func (ssMeta *SnapshotMetadata) IsDeleted() bool {
+	return !ssMeta.DeletionTime.IsZero()
 }
 
 // GetSnapshotMetadata gets the metadata associated with the given snapshot ID.
@@ -105,7 +109,18 @@ func (chk *Checker) GetLiveSnapIDs() []string {
 	chk.mu.RLock()
 	defer chk.mu.RUnlock()
 
-	return chk.SnapIDIndex.GetKeys(liveSnapshotsIdxName)
+	return chk.SnapIDIndex.GetKeys(LiveSnapshotsIdxName)
+}
+
+// IsSnapshotIDDeleted reports whether the metadata associated with the provided snapshot ID
+// has it marked as deleted.
+func (chk *Checker) IsSnapshotIDDeleted(snapID string) (bool, error) {
+	md, err := chk.loadSnapshotMetadata(snapID)
+	if err != nil {
+		return false, err
+	}
+
+	return md.IsDeleted(), nil
 }
 
 // VerifySnapshotMetadata compares the list of live snapshot IDs present in
@@ -141,7 +156,7 @@ func (chk *Checker) VerifySnapshotMetadata() error {
 			if chk.RecoveryMode {
 				chk.mu.Lock()
 				chk.snapshotMetadataStore.Delete(metaSnapID)
-				chk.SnapIDIndex.RemoveFromIndex(metaSnapID, liveSnapshotsIdxName)
+				chk.SnapIDIndex.RemoveFromIndex(metaSnapID, LiveSnapshotsIdxName)
 				chk.mu.Unlock()
 			} else {
 				errCount++
@@ -190,25 +205,13 @@ func (chk *Checker) VerifySnapshotMetadata() error {
 // TakeSnapshot gathers state information on the requested snapshot path, then
 // performs the snapshot action defined by the Checker's Snapshotter.
 func (chk *Checker) TakeSnapshot(ctx context.Context, sourceDir string, opts map[string]string) (snapID string, err error) {
-	b, err := chk.validator.Gather(ctx, sourceDir, opts)
-	if err != nil {
-		return "", err
-	}
-
-	ssStart := clock.Now()
-
-	snapID, err = chk.snapshotIssuer.CreateSnapshot(sourceDir, opts)
-	if err != nil {
-		return snapID, err
-	}
-
-	ssEnd := clock.Now()
+	snapID, fingerprint, stats, err := chk.snapshotIssuer.CreateSnapshot(sourceDir, opts)
 
 	ssMeta := &SnapshotMetadata{
 		SnapID:         snapID,
-		SnapStartTime:  ssStart,
-		SnapEndTime:    ssEnd,
-		ValidationData: b,
+		SnapStartTime:  stats.SnapStartTime,
+		SnapEndTime:    stats.SnapEndTime,
+		ValidationData: fingerprint,
 	}
 
 	chk.mu.Lock()
@@ -219,8 +222,8 @@ func (chk *Checker) TakeSnapshot(ctx context.Context, sourceDir string, opts map
 		return snapID, err
 	}
 
-	chk.SnapIDIndex.AddToIndex(snapID, allSnapshotsIdxName)
-	chk.SnapIDIndex.AddToIndex(snapID, liveSnapshotsIdxName)
+	chk.SnapIDIndex.AddToIndex(snapID, AllSnapshotsIdxName)
+	chk.SnapIDIndex.AddToIndex(snapID, LiveSnapshotsIdxName)
 
 	return snapID, nil
 }
@@ -258,10 +261,10 @@ func (chk *Checker) safeRestorePrepare(snapID string) (*SnapshotMetadata, error)
 	chk.mu.RLock()
 	defer chk.mu.RUnlock()
 
-	if !chk.SnapIDIndex.IsKeyInIndex(snapID, liveSnapshotsIdxName) {
+	if !chk.SnapIDIndex.IsKeyInIndex(snapID, LiveSnapshotsIdxName) {
 		// Preventing restore of a snapshot ID that has been (or is currently
 		// being) deleted.
-		log.Printf("Snapshot ID %s is flagged for deletion", snapID)
+		log.Printf("Snapshot ID %s could not be found as a live snapshot", snapID)
 		return nil, robustness.ErrNoOp
 	}
 
@@ -276,50 +279,47 @@ func (chk *Checker) safeRestorePrepare(snapID string) (*SnapshotMetadata, error)
 // RestoreVerifySnapshot restores a snapshot and verifies its integrity against
 // the metadata provided.
 func (chk *Checker) RestoreVerifySnapshot(ctx context.Context, snapID, destPath string, ssMeta *SnapshotMetadata, reportOut io.Writer, opts map[string]string) error {
-	err := chk.snapshotIssuer.RestoreSnapshot(snapID, destPath, opts)
+	if ssMeta != nil {
+		return chk.snapshotIssuer.RestoreSnapshotCompare(snapID, destPath, ssMeta.ValidationData, reportOut, opts)
+	}
+
+	// We have no metadata for this snapshot ID.
+	if !chk.RecoveryMode {
+		return robustness.ErrMetadataMissing
+	}
+
+	// Recovery path:
+	// If in recovery mode, restore the snapshot by snapshot ID and gather
+	// its fingerprint (i.e. assume the snapshot will restore properly).
+	fingerprint, err := chk.snapshotIssuer.RestoreSnapshot(snapID, destPath, opts)
 	if err != nil {
 		return err
 	}
 
-	if ssMeta == nil && chk.RecoveryMode {
-		var b []byte
-
-		b, err = chk.validator.Gather(ctx, destPath, opts)
-		if err != nil {
-			return err
-		}
-
-		ssMeta = &SnapshotMetadata{
-			SnapID:         snapID,
-			ValidationData: b,
-		}
-
-		chk.mu.Lock()
-		defer chk.mu.Unlock()
-
-		err = chk.saveSnapshotMetadata(ssMeta)
-		if err != nil {
-			return err
-		}
-
-		chk.SnapIDIndex.AddToIndex(snapID, allSnapshotsIdxName)
-		chk.SnapIDIndex.AddToIndex(snapID, liveSnapshotsIdxName)
-
-		return nil
+	ssMeta = &SnapshotMetadata{
+		SnapID:         snapID,
+		ValidationData: fingerprint,
 	}
 
-	err = chk.validator.Compare(ctx, destPath, ssMeta.ValidationData, reportOut, opts)
+	chk.mu.Lock()
+	defer chk.mu.Unlock()
+
+	err = chk.saveSnapshotMetadata(ssMeta)
 	if err != nil {
 		return err
 	}
+
+	chk.SnapIDIndex.AddToIndex(snapID, AllSnapshotsIdxName)
+	chk.SnapIDIndex.AddToIndex(snapID, LiveSnapshotsIdxName)
 
 	return nil
 }
 
+// Index names for categorizing snapshot lookups.
 const (
-	deletedSnapshotsIdxName = "deleted-snapshots-idx"
-	liveSnapshotsIdxName    = "live-snapshots-idx"
-	allSnapshotsIdxName     = "all-snapshots-idx"
+	DeletedSnapshotsIdxName = "deleted-snapshots-idx"
+	LiveSnapshotsIdxName    = "live-snapshots-idx"
+	AllSnapshotsIdxName     = "all-snapshots-idx"
 )
 
 // DeleteSnapshot performs the Snapshotter's DeleteSnapshot action, and
@@ -353,7 +353,7 @@ func (chk *Checker) safeDeletePrepare(snapID string) (*SnapshotMetadata, error) 
 	chk.mu.Lock()
 	defer chk.mu.Unlock()
 
-	if !chk.SnapIDIndex.IsKeyInIndex(snapID, liveSnapshotsIdxName) {
+	if !chk.SnapIDIndex.IsKeyInIndex(snapID, LiveSnapshotsIdxName) {
 		// Preventing restore of a snapshot ID that has been already deleted.
 		log.Printf("Cannot delete snapshot ID %s as it is not a live snapshot", snapID)
 		return nil, robustness.ErrNoOp
@@ -369,7 +369,7 @@ func (chk *Checker) safeDeletePrepare(snapID string) (*SnapshotMetadata, error) 
 	// Place the snapshot ID in the list of IDs with unknown state. If we
 	// hit an error during delete, we don't know whether to expect it to
 	// still be valid or not.
-	chk.SnapIDIndex.RemoveFromIndex(snapID, liveSnapshotsIdxName)
+	chk.SnapIDIndex.RemoveFromIndex(snapID, LiveSnapshotsIdxName)
 
 	return ssMeta, nil
 }
@@ -380,7 +380,7 @@ func (chk *Checker) safeDeleteFinish(ssMeta *SnapshotMetadata) error {
 	chk.mu.Lock()
 	defer chk.mu.Unlock()
 
-	chk.SnapIDIndex.AddToIndex(ssMeta.SnapID, deletedSnapshotsIdxName)
+	chk.SnapIDIndex.AddToIndex(ssMeta.SnapID, DeletedSnapshotsIdxName)
 
 	err := chk.saveSnapshotMetadata(ssMeta)
 	if err != nil {

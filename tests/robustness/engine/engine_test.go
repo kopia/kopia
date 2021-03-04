@@ -616,7 +616,7 @@ func TestIOLimitPerWriteAction(t *testing.T) {
 
 	actionOpts := ActionOpts{
 		ActionControlActionKey: map[string]string{
-			string(SnapshotRootDirActionKey):          strconv.Itoa(0),
+			string(SnapshotDirActionKey):              strconv.Itoa(0),
 			string(RestoreSnapshotActionKey):          strconv.Itoa(0),
 			string(DeleteRandomSnapshotActionKey):     strconv.Itoa(0),
 			string(WriteRandomFilesActionKey):         strconv.Itoa(1),
@@ -784,7 +784,6 @@ type testHarness struct {
 	fw *fiofilewriter.FileWriter
 	ks *snapmeta.KopiaSnapshotter
 	kp *snapmeta.KopiaPersister
-	wc *fswalker.WalkCompare
 
 	baseDir string
 
@@ -828,8 +827,6 @@ func newTestHarness(t *testing.T, dataRepoPath, metaRepoPath string) (*testHarne
 		return nil, nil, err
 	}
 
-	th.wc = fswalker.NewWalkCompare()
-
 	if th.eng, err = New(th.args()); err != nil {
 		th.Cleanup()
 		return nil, nil, err
@@ -842,7 +839,6 @@ func (th *testHarness) args() *Args {
 	return &Args{
 		MetaStore:  th.kp,
 		TestRepo:   th.ks,
-		Validator:  th.wc,
 		FileWriter: th.fw,
 		WorkingDir: th.baseDir,
 	}
