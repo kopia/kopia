@@ -2,12 +2,15 @@ package cli
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/fs/virtualfs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
@@ -34,6 +37,8 @@ var (
 	snapshotCreateEndTime                 = snapshotCreateCommand.Flag("end-time", "Override snapshot end timestamp.").String()
 	snapshotCreateForceEnableActions      = snapshotCreateCommand.Flag("force-enable-actions", "Enable snapshot actions even if globally disabled on this client").Hidden().Bool()
 	snapshotCreateForceDisableActions     = snapshotCreateCommand.Flag("force-disable-actions", "Disable snapshot actions even if globally enabled on this client").Hidden().Bool()
+	snapshotCreateStdinFileName           = snapshotCreateCommand.Flag("stdin-file", "File path to be used for stdin data snapshot.").String()
+	snapshotCreateStdinDirName            = snapshotCreateCommand.Flag("stdin-dir", "Root directory to be used for stdin data snapshot. (`rootdir` by default)").Default("rootdir").String()
 )
 
 func runSnapshotCommand(ctx context.Context, rep repo.RepositoryWriter) error {
@@ -52,7 +57,7 @@ func runSnapshotCommand(ctx context.Context, rep repo.RepositoryWriter) error {
 		sources = append(sources, local...)
 	}
 
-	if len(sources) == 0 {
+	if len(sources) == 0 && *snapshotCreateStdinFileName == "" {
 		return errors.New("no snapshot sources")
 	}
 
@@ -67,6 +72,10 @@ func runSnapshotCommand(ctx context.Context, rep repo.RepositoryWriter) error {
 	u := setupUploader(rep)
 
 	var finalErrors []string
+
+	if *snapshotCreateStdinFileName != "" {
+		return snapshotStdinSource(ctx, rep, u)
+	}
 
 	for _, snapshotDir := range sources {
 		if u.IsCanceled() {
@@ -168,6 +177,31 @@ func snapshotSingleSource(ctx context.Context, rep repo.RepositoryWriter, u *sna
 		return errors.Wrap(err, "unable to get local filesystem entry")
 	}
 
+	return snapshotSource(ctx, rep, u, sourceInfo, localEntry, false)
+}
+
+func snapshotStdinSource(ctx context.Context, rep repo.RepositoryWriter, u *snapshotfs.Uploader) error {
+	rootDirName := *snapshotCreateStdinDirName
+	stdinFileName := *snapshotCreateStdinFileName
+
+	log(ctx).Infof("Snapshotting stdin source as %v ...", rootDirName)
+
+	// stdin source will be snapshotted using a virtual static root directory with a single streaming file entry
+	// Create a new static directory with the given name and add a streaming file entry with os.Stdin reader
+	staticDir := virtualfs.NewStaticDirectory(rootDirName, fs.Entries{
+		virtualfs.StreamingFileFromReader(stdinFileName, os.Stdin),
+	})
+
+	sourceInfo := snapshot.SourceInfo{
+		Path:     staticDir.Name(),
+		Host:     rep.ClientOptions().Hostname,
+		UserName: rep.ClientOptions().Username,
+	}
+
+	return snapshotSource(ctx, rep, u, sourceInfo, staticDir, true)
+}
+
+func snapshotSource(ctx context.Context, rep repo.RepositoryWriter, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo, entry fs.Entry, setManual bool) error {
 	previous, err := findPreviousSnapshotManifest(ctx, rep, sourceInfo, nil)
 	if err != nil {
 		return err
@@ -180,7 +214,7 @@ func snapshotSingleSource(ctx context.Context, rep repo.RepositoryWriter, u *sna
 
 	log(ctx).Debugf("uploading %v using %v previous manifests", sourceInfo, len(previous))
 
-	manifest, err := u.Upload(ctx, localEntry, policyTree, sourceInfo, previous...)
+	manifest, err := u.Upload(ctx, entry, policyTree, sourceInfo, previous...)
 	if err != nil {
 		// fail-fast uploads will fail here without recording a manifest, other uploads will
 		// possibly fail later.
@@ -216,6 +250,12 @@ func snapshotSingleSource(ctx context.Context, rep repo.RepositoryWriter, u *sna
 
 	if _, err = policy.ApplyRetentionPolicy(ctx, rep, sourceInfo, true); err != nil {
 		return errors.Wrap(err, "unable to apply retention policy")
+	}
+
+	if setManual {
+		if err = policy.SetManual(ctx, rep, sourceInfo); err != nil {
+			return errors.Wrap(err, "unable to set manual field in scheduling policy for source")
+		}
 	}
 
 	if ferr := rep.Flush(ctx); ferr != nil {
