@@ -48,6 +48,8 @@ type CLITest struct {
 
 	PassthroughStderr bool // this is for debugging only
 
+	PassthroughStdin bool // used for stdin source tests
+
 	LogsDir string
 }
 
@@ -285,6 +287,10 @@ func (e *CLITest) Run(t *testing.T, expectedError bool, args ...string) (stdout,
 
 	if e.PassthroughStderr {
 		c.Stderr = os.Stderr
+	}
+
+	if e.PassthroughStdin {
+		c.Stdin = os.Stdin
 	}
 
 	o, err := c.Output()
