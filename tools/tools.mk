@@ -271,8 +271,12 @@ clean-tools:
 
 windows_signing_dir=$(TOOLS_DIR)$(slash)win_signing
 
-windows-signing-tools:
-ifeq ($(GOOS),windows)
+# name of the temporary keychain to import signing keys into (will be deleted and re-created by 'signing-tools' target)
+MACOS_KEYCHAIN=kopia-build.keychain
+
+signing-tools:
+
+ifeq ($(GOOS)/$(CI),windows/true)
 ifneq ($(WINDOWS_SIGNING_TOOLS_URL),)
 	echo Installing Windows signing tools to $(windows_signing_dir)...
 	-$(mkdir) $(windows_signing_dir)
@@ -284,6 +288,22 @@ else
 endif
 endif
 
+ifeq ($(GOOS)/$(CI),darwin/true)
+ifneq ($(CSC_LINK),)
+# create and unlock a keychain with random strong password and import macOS signing certificate from .p12.
+signing-tools: KEYCHAIN_PASSWORD:=$(shell uuidgen)
+signing-tools:
+	@rm -fv $(HOME)/Library/Keychains/$(MACOS_KEYCHAIN)-db
+	@echo "$(CSC_LINK)" | base64 -d > /tmp/certs.p12
+	@security create-keychain -p $(KEYCHAIN_PASSWORD) $(MACOS_KEYCHAIN)
+	@security unlock-keychain -p $(KEYCHAIN_PASSWORD) $(MACOS_KEYCHAIN)
+	@security list-keychain -s $(MACOS_KEYCHAIN) login.keychain
+	@security import /tmp/certs.p12 -k $(MACOS_KEYCHAIN) -P $(CSC_KEY_PASSWORD) -T /usr/bin/codesign;
+	@rm -f /tmp/certs.p12
+	@security set-key-partition-list -S apple-tool:,apple: -s -k $(KEYCHAIN_PASSWORD) $(MACOS_KEYCHAIN) > /dev/null
+endif
+endif
+
 # disable some tools on non-default architectures
 ifeq ($(GOARCH),amd64)
 maybehugo=$(hugo)
@@ -291,5 +311,5 @@ else
 maybehugo=
 endif
 
-all-tools: $(gotestsum) $(npm) $(goreleaser) $(linter) $(maybehugo) windows-signing-tools
+all-tools: $(gotestsum) $(npm) $(goreleaser) $(linter) $(maybehugo) signing-tools
 
