@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"log"
 	"math"
@@ -586,13 +587,9 @@ func TestActionsS3(t *testing.T) {
 }
 
 func TestIOLimitPerWriteAction(t *testing.T) {
-	// Instruct a write action to write an enormous amount of data
-	// that should take longer than this timeout without "io_limit",
-	// but finish in less time with "io_limit". Command instructs fio
-	// to generate 100 files x 10 MB each = 1 GB of i/o. The limit is
-	// set to 1 MB.
-	const timeout = 10 * time.Second
-
+	// Instruct a write action to write a large amount of data, but add
+	// an I/O limit parameter. Expect that the FIO action should limit
+	// the amount of data it writes.
 	os.Setenv(snapmeta.EngineModeEnvKey, snapmeta.EngineModeBasic)
 	os.Setenv(snapmeta.S3BucketNameEnvKey, "")
 
@@ -614,6 +611,8 @@ func TestIOLimitPerWriteAction(t *testing.T) {
 	err = eng.Init(ctx)
 	testenv.AssertNoError(t, err)
 
+	ioLimitBytes := 1 * 1024 * 1024
+
 	actionOpts := ActionOpts{
 		ActionControlActionKey: map[string]string{
 			string(SnapshotRootDirActionKey):          strconv.Itoa(0),
@@ -628,20 +627,59 @@ func TestIOLimitPerWriteAction(t *testing.T) {
 			fiofilewriter.MinFileSizeField:         strconv.Itoa(10 * 1024 * 1024),
 			fiofilewriter.MaxNumFilesPerWriteField: "100",
 			fiofilewriter.MinNumFilesPerWriteField: "100",
-			fiofilewriter.IOLimitPerWriteAction:    strconv.Itoa(1 * 1024 * 1024),
+			fiofilewriter.IOLimitPerWriteAction:    strconv.Itoa(ioLimitBytes),
 		},
 	}
 
-	st := clock.Now()
+	err = eng.RandomAction(actionOpts)
+	testenv.AssertNoError(t, err)
 
-	numActions := 1
-	for loop := 0; loop < numActions; loop++ {
-		err := eng.RandomAction(actionOpts)
-		testenv.AssertNoError(t, err)
+	size := 0
+
+	// The FIO write operation is expected to create multiple files.
+	// The behavior is that I/O will begin on a file, writing randomly
+	// to that file until the I/O limit is hit. Thus we expect to see
+	// one file with non-zero size (should be approx. between min-max file size
+	// parameters, i.e. 10 MiB) and 1 MiB or less of non-zero data
+	// written to it, due to the I/O limit.
+	walkFunc := func(path string, info fs.FileInfo, err error) error {
+		if !info.IsDir() && info.Size() > 0 {
+			fileContentB, err := ioutil.ReadFile(path)
+			testenv.AssertNoError(t, err)
+
+			nonZeroByteCount := 0
+
+			for _, byteVal := range fileContentB {
+				if byteVal > 0 {
+					nonZeroByteCount++
+				}
+			}
+
+			size += nonZeroByteCount
+		}
+
+		return nil
 	}
 
-	if clock.Since(st) > timeout {
-		t.Errorf("IO limit parameter did not cut down on the fio runtime")
+	fioPath := eng.FileWriter.DataDirectory()
+
+	// Walk the FIO data directory tree, counting the non-zero data written.
+	err = filepath.Walk(fioPath, walkFunc)
+	testenv.AssertNoError(t, err)
+
+	if got, want := size, ioLimitBytes; got > want {
+		t.Fatalf("IO write limit exceeded for write action. Wrote %v B with io limit %v", got, want)
+	}
+
+	// We might expect that a '0' gets written as part of the FIO data. This
+	// means the count of non-zero bytes above might be a bit less than the exact
+	// i/o limit parameter. We shouldn't expect a large percent of '0' though, so
+	// this check will ensure fio didn't write significantly less than the limit.
+	// A fraction of at least 95% non-zero should be very conservative.
+	const thresholdNonZeroFraction = 0.95
+
+	if got, want := float64(size), float64(ioLimitBytes)*thresholdNonZeroFraction; got <= want {
+		t.Fatalf("IO write limit exceeded for write action. Wrote %v B with io limit %v", got, want)
 	}
 }
 
