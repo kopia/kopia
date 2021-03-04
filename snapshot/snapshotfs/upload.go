@@ -201,6 +201,43 @@ func (u *Uploader) uploadSymlinkInternal(ctx context.Context, relativePath strin
 	return de, nil
 }
 
+func (u *Uploader) uploadStreamingFileInternal(ctx context.Context, relativePath string, f fs.StreamingFile) (*snapshot.DirEntry, error) {
+	u.Progress.HashingFile(relativePath)
+	defer u.Progress.FinishedHashingFile(relativePath, f.Size())
+
+	reader, err := f.GetReader(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to get streaming file reader")
+	}
+
+	writer := u.repo.NewObjectWriter(ctx, object.WriterOptions{
+		Description: "STREAMFILE:" + f.Name(),
+	})
+	defer writer.Close() //nolint:errcheck
+
+	written, err := u.copyWithProgress(writer, reader, 0, f.Size())
+	if err != nil {
+		return nil, err
+	}
+
+	r, err := writer.Result()
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to get result")
+	}
+
+	de, err := newDirEntry(f, r)
+	if err != nil {
+		return nil, errors.Wrap(err, "unable to create dir entry")
+	}
+
+	de.FileSize = written
+
+	atomic.AddInt32(&u.stats.TotalFileCount, 1)
+	atomic.AddInt64(&u.stats.TotalFileSize, de.FileSize)
+
+	return de, nil
+}
+
 func (u *Uploader) copyWithProgress(dst io.Writer, src io.Reader, completed, length int64) (int64, error) {
 	uploadBufPtr := u.uploadBufPool.Get().(*[]byte)
 	defer u.uploadBufPool.Put(uploadBufPtr)
@@ -272,7 +309,7 @@ func newDirEntry(md fs.Entry, oid object.ID) (*snapshot.DirEntry, error) {
 		entryType = snapshot.EntryTypeDirectory
 	case fs.Symlink:
 		entryType = snapshot.EntryTypeSymlink
-	case fs.File:
+	case fs.File, fs.StreamingFile:
 		entryType = snapshot.EntryTypeFile
 	default:
 		return nil, errors.Errorf("invalid entry type %T", md)
@@ -813,6 +850,20 @@ func (u *Uploader) processNonDirectories(ctx context.Context, parentCheckpointRe
 			}
 
 			u.reportErrorAndMaybeCancel(entry.ErrorInfo(), isIgnoredError, parentDirBuilder, entryRelativePath)
+
+			return nil
+
+		case fs.StreamingFile:
+			atomic.AddInt32(&u.stats.NonCachedFiles, 1)
+
+			de, err := u.uploadStreamingFileInternal(ctx, entryRelativePath, entry)
+			if err != nil {
+				isIgnoredError := policyTree.EffectivePolicy().ErrorHandlingPolicy.IgnoreFileErrorsOrDefault(false)
+
+				u.reportErrorAndMaybeCancel(err, isIgnoredError, parentDirBuilder, entryRelativePath)
+			} else {
+				parentDirBuilder.addEntry(de)
+			}
 
 			return nil
 
