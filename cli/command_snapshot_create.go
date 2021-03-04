@@ -25,7 +25,7 @@ const (
 var (
 	snapshotCreateCommand = snapshotCommands.Command("create", "Creates a snapshot of local directory or file.").Default()
 
-	snapshotCreateSources                 = snapshotCreateCommand.Arg("source", "Files or directories to create snapshot(s) of.").ExistingFilesOrDirs()
+	snapshotCreateSources                 = snapshotCreateCommand.Arg("source", "Files or directories to create snapshot(s) of.").Strings()
 	snapshotCreateAll                     = snapshotCreateCommand.Flag("all", "Create snapshots for files or directories previously backed up by this user on this computer").Bool()
 	snapshotCreateCheckpointUploadLimitMB = snapshotCreateCommand.Flag("upload-limit-mb", "Stop the backup process after the specified amount of data (in MB) has been uploaded.").PlaceHolder("MB").Default("0").Int64()
 	snapshotCreateCheckpointInterval      = snapshotCreateCommand.Flag("checkpoint-interval", "Frequency for creating periodic checkpoint.").Duration()
@@ -38,7 +38,6 @@ var (
 	snapshotCreateForceEnableActions      = snapshotCreateCommand.Flag("force-enable-actions", "Enable snapshot actions even if globally disabled on this client").Hidden().Bool()
 	snapshotCreateForceDisableActions     = snapshotCreateCommand.Flag("force-disable-actions", "Disable snapshot actions even if globally enabled on this client").Hidden().Bool()
 	snapshotCreateStdinFileName           = snapshotCreateCommand.Flag("stdin-file", "File path to be used for stdin data snapshot.").String()
-	snapshotCreateStdinDirName            = snapshotCreateCommand.Flag("stdin-dir", "Root directory to be used for stdin data snapshot. (`rootdir` by default)").Default("rootdir").String()
 )
 
 func runSnapshotCommand(ctx context.Context, rep repo.RepositoryWriter) error {
@@ -57,7 +56,7 @@ func runSnapshotCommand(ctx context.Context, rep repo.RepositoryWriter) error {
 		sources = append(sources, local...)
 	}
 
-	if len(sources) == 0 && *snapshotCreateStdinFileName == "" {
+	if len(sources) == 0 {
 		return errors.New("no snapshot sources")
 	}
 
@@ -72,10 +71,6 @@ func runSnapshotCommand(ctx context.Context, rep repo.RepositoryWriter) error {
 	u := setupUploader(rep)
 
 	var finalErrors []string
-
-	if *snapshotCreateStdinFileName != "" {
-		return snapshotStdinSource(ctx, rep, u)
-	}
 
 	for _, snapshotDir := range sources {
 		if u.IsCanceled() {
@@ -172,36 +167,26 @@ func startTimeAfterEndTime(startTime, endTime time.Time) bool {
 func snapshotSingleSource(ctx context.Context, rep repo.RepositoryWriter, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo) error {
 	log(ctx).Infof("Snapshotting %v ...", sourceInfo)
 
-	localEntry, err := getLocalFSEntry(ctx, sourceInfo.Path)
-	if err != nil {
-		return errors.Wrap(err, "unable to get local filesystem entry")
+	var (
+		err       error
+		fsEntry   fs.Entry
+		setManual bool
+	)
+
+	if *snapshotCreateStdinFileName != "" {
+		// stdin source will be snapshotted using a virtual static root directory with a single streaming file entry
+		// Create a new static directory with the given name and add a streaming file entry with os.Stdin reader
+		fsEntry = virtualfs.NewStaticDirectory(sourceInfo.Path, fs.Entries{
+			virtualfs.StreamingFileFromReader(*snapshotCreateStdinFileName, os.Stdin),
+		})
+		setManual = true
+	} else {
+		fsEntry, err = getLocalFSEntry(ctx, sourceInfo.Path)
+		if err != nil {
+			return errors.Wrap(err, "unable to get local filesystem entry")
+		}
 	}
 
-	return snapshotSource(ctx, rep, u, sourceInfo, localEntry, false)
-}
-
-func snapshotStdinSource(ctx context.Context, rep repo.RepositoryWriter, u *snapshotfs.Uploader) error {
-	rootDirName := *snapshotCreateStdinDirName
-	stdinFileName := *snapshotCreateStdinFileName
-
-	log(ctx).Infof("Snapshotting stdin source as %v ...", rootDirName)
-
-	// stdin source will be snapshotted using a virtual static root directory with a single streaming file entry
-	// Create a new static directory with the given name and add a streaming file entry with os.Stdin reader
-	staticDir := virtualfs.NewStaticDirectory(rootDirName, fs.Entries{
-		virtualfs.StreamingFileFromReader(stdinFileName, os.Stdin),
-	})
-
-	sourceInfo := snapshot.SourceInfo{
-		Path:     staticDir.Name(),
-		Host:     rep.ClientOptions().Hostname,
-		UserName: rep.ClientOptions().Username,
-	}
-
-	return snapshotSource(ctx, rep, u, sourceInfo, staticDir, true)
-}
-
-func snapshotSource(ctx context.Context, rep repo.RepositoryWriter, u *snapshotfs.Uploader, sourceInfo snapshot.SourceInfo, entry fs.Entry, setManual bool) error {
 	previous, err := findPreviousSnapshotManifest(ctx, rep, sourceInfo, nil)
 	if err != nil {
 		return err
@@ -214,7 +199,7 @@ func snapshotSource(ctx context.Context, rep repo.RepositoryWriter, u *snapshotf
 
 	log(ctx).Debugf("uploading %v using %v previous manifests", sourceInfo, len(previous))
 
-	manifest, err := u.Upload(ctx, entry, policyTree, sourceInfo, previous...)
+	manifest, err := u.Upload(ctx, fsEntry, policyTree, sourceInfo, previous...)
 	if err != nil {
 		// fail-fast uploads will fail here without recording a manifest, other uploads will
 		// possibly fail later.

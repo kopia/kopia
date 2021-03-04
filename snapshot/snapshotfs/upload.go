@@ -20,6 +20,7 @@ import (
 
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/fs/ignorefs"
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/logging"
 	"github.com/kopia/kopia/repo/object"
@@ -231,6 +232,7 @@ func (u *Uploader) uploadStreamingFileInternal(ctx context.Context, relativePath
 	}
 
 	de.FileSize = written
+	de.ModTime = clock.Now()
 
 	atomic.AddInt32(&u.stats.TotalFileCount, 1)
 	atomic.AddInt64(&u.stats.TotalFileSize, de.FileSize)

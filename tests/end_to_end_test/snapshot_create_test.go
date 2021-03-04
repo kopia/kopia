@@ -494,20 +494,10 @@ func TestSnapshotCreateWithStdinStream(t *testing.T) {
 
 	w.Close()
 
-	// Use the pipe file as stdin
-	initialStdin := os.Stdin
-
-	defer func() {
-		// Reset stdin
-		os.Stdin = initialStdin
-	}()
-
-	os.Stdin = r
-
 	streamFileName := "stream-file"
-	e.PassthroughStdin = true
+	e.NextCommandStdin = r
 
-	e.RunAndExpectSuccess(t, "snapshot", "create", "--stdin-file", streamFileName)
+	e.RunAndExpectSuccess(t, "snapshot", "create", "rootdir", "--stdin-file", streamFileName)
 
 	// Make sure the scheduling policy with manual field is set and visible in the policy list, includes global policy
 	e.RunAndVerifyOutputLineCount(t, 2, "policy", "list")

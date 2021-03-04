@@ -3,6 +3,7 @@ package virtualfs
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 	"time"
@@ -93,9 +94,19 @@ type virtualFile struct {
 	reader io.Reader
 }
 
+var errReaderAlreadyUsed = errors.New("cannot use streaming file reader more than once")
+
 // GetReader returns the streaming file's reader.
 func (vf *virtualFile) GetReader(ctx context.Context) (io.Reader, error) {
-	return vf.reader, nil
+	if vf.reader == nil {
+		return nil, errReaderAlreadyUsed
+	}
+
+	// reader must be fetched only once
+	ret := vf.reader
+	vf.reader = nil
+
+	return ret, nil
 }
 
 // StreamingFileFromReader returns a streaming file with given name and reader.
