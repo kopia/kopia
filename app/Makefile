@@ -7,22 +7,17 @@ node_modules: $(npm)
 
 electron_builder_flags:=
 electron_builder_flags+=-c.extraMetadata.version=$(KOPIA_VERSION:v%=%)
+
 electron_publish_flag:=never
 
-ifeq ($(PUBLISH_BINARIES)/$(IS_PULL_REQUEST),true/false)
+ifeq ($(IS_PULL_REQUEST),false)
 
-electron_publish_flag=always
+electron_builder_flags+=-c.publish.owner=$(REPO_OWNER)
 
-ifneq ($(CI_TAG),)
-# tagged release - create draft release, but don't publish
-electron_builder_flags+=-c.publish.releaseType=release
-electron_builder_flags+=-c.publish.owner=$(REPO_OWNER)
-electron_builder_flags+=-c.publish.repo=kopia
-else
-# post-submit run, create a release in another repo
-electron_builder_flags+=-c.publish.owner=$(REPO_OWNER)
-electron_builder_flags+=-c.publish.repo=kopia-ui-release
-electron_builder_flags+=-c.publish.releaseType=release
+ifeq ($(CI_TAG),)
+ifneq ($(NON_TAG_RELEASE_REPO),)
+electron_builder_flags+=-c.publish.repo=$(NON_TAG_RELEASE_REPO)
+endif
 endif
 
 else
