@@ -100,7 +100,9 @@ ifeq ($(GOOS)/$(CI),darwin/true)
 	GOARCH=arm64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_darwin_arm64/.kopia-arm64 -tags embedhtml
 	GOARCH=amd64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_darwin_amd64/.kopia-amd64 -tags embedhtml
 	lipo -create -output dist/kopia_darwin_$(GOARCH)/kopia dist/kopia_darwin_arm64/.kopia-arm64 dist/kopia_darwin_amd64/.kopia-amd64
+ifneq ($(MACOS_SIGNING_IDENTITY),)
 	codesign -v --keychain $(MACOS_KEYCHAIN) -s $(MACOS_SIGNING_IDENTITY) --force dist/kopia_$(GOOS)_$(GOARCH)/kopia$(exe_suffix)
+endif
 else
 	go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_$(GOOS)_$(GOARCH)/kopia$(exe_suffix) -tags embedhtml
 endif
