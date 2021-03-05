@@ -91,10 +91,19 @@ kopia-ui:
 # kopia-ui build needs this particular location to embed the correct server binary.
 # note we're not building or embedding HTML UI to speed up PR testing process.
 build-current-os-noui:
-	go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_$(shell go env GOOS)_$(shell go env GOARCH)/kopia$(exe_suffix)
+	go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_$(GOOS)_$(GOARCH)/kopia$(exe_suffix)
 
 build-current-os-with-ui: html-ui
-	go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_$(shell go env GOOS)_$(shell go env GOARCH)/kopia$(exe_suffix) -tags embedhtml
+ifeq ($(GOOS)/$(CI),darwin/true)
+	# build a fat binary that runs on both AMD64 and ARM64, this will be embedded in KopiaUI
+	# and will run optimally on both architectures.
+	GOARCH=arm64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_darwin_arm64/.kopia-arm64 -tags embedhtml
+	GOARCH=amd64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_darwin_amd64/.kopia-amd64 -tags embedhtml
+	lipo -create -output dist/kopia_darwin_$(GOARCH)/kopia dist/kopia_darwin_arm64/.kopia-arm64 dist/kopia_darwin_amd64/.kopia-amd64
+	codesign -v --keychain $(MACOS_KEYCHAIN) -s $(MACOS_SIGNING_IDENTITY) --force dist/kopia_$(GOOS)_$(GOARCH)/kopia$(exe_suffix)
+else
+	go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_$(GOOS)_$(GOARCH)/kopia$(exe_suffix) -tags embedhtml
+endif
 
 kopia-ui-pr-test: app-node-modules htmlui-node-modules
 	$(MAKE) build-current-os-with-ui
@@ -283,6 +292,7 @@ ifneq ($(GOOS),windows)
 	openssl aes-256-cbc -K "$(CREDENTIAL_ENCRYPTION_KEY)" -iv "$(CREDENTIAL_ENCRYPTION_IV)" -in tests/credentials/sftp/id_kopia.enc -out repo/blob/sftp/id_kopia -d
 	openssl aes-256-cbc -K "$(CREDENTIAL_ENCRYPTION_KEY)" -iv "$(CREDENTIAL_ENCRYPTION_IV)" -in tests/credentials/sftp/known_hosts.enc -out repo/blob/sftp/known_hosts -d
 	openssl aes-256-cbc -K "$(CREDENTIAL_ENCRYPTION_KEY)" -iv "$(CREDENTIAL_ENCRYPTION_IV)" -in tools/boto.enc -out tools/.boto -d
+
 ifeq ($(GOARCH),amd64)
 	if [ ! -d $(HOME)/google-cloud-sdk ]; then curl https://sdk.cloud.google.com | CLOUDSDK_CORE_DISABLE_PROMPTS=1 bash; fi
 	$(HOME)/google-cloud-sdk/bin/gcloud auth activate-service-account --key-file repo/blob/gcs/test_service_account.json

@@ -38,6 +38,7 @@ jobs:
       # macOS signing certificate (base64-encoded), used by Electron Builder
       CSC_LINK: ${{ secrets.CSC_LINK }}
       CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+      MACOS_SIGNING_IDENTITY: ${{ secrets.MACOS_SIGNING_IDENTITY }}
 
       # used to publish releases to GitHub by Electron Builder
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
