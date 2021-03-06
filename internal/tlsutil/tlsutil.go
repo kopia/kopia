@@ -136,13 +136,19 @@ func verifyPeerCertificate(sha256Fingerprint string) func(rawCerts [][]byte, ver
 	sha256Fingerprint = strings.ToLower(sha256Fingerprint)
 
 	return func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+		var serverCerts []string
+
 		for _, c := range rawCerts {
 			h := sha256.Sum256(c)
-			if hex.EncodeToString(h[:]) == sha256Fingerprint {
+			serverCert := hex.EncodeToString(h[:])
+
+			if serverCert == sha256Fingerprint {
 				return nil
 			}
+
+			serverCerts = append(serverCerts, serverCert)
 		}
 
-		return errors.Errorf("can't find certificate matching SHA256 fingerprint %q", sha256Fingerprint)
+		return errors.Errorf("can't find certificate matching SHA256 fingerprint %q (server had %v)", sha256Fingerprint, serverCerts)
 	}
 }
