@@ -34,8 +34,9 @@ func runCacheInfoCommand(ctx context.Context, rep repo.Repository) error {
 	}
 
 	path2Limit := map[string]int64{
-		"contents": opts.MaxCacheSizeBytes,
-		"metadata": opts.MaxMetadataCacheSizeBytes,
+		"contents":        opts.MaxCacheSizeBytes,
+		"metadata":        opts.MaxMetadataCacheSizeBytes,
+		"server-contents": opts.MaxCacheSizeBytes,
 	}
 
 	for _, ent := range entries {
