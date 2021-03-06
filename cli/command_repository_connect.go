@@ -31,7 +31,7 @@ func setupConnectOptions(cmd *kingpin.CmdClause) {
 	// Set up flags shared between 'create' and 'connect'. Note that because those flags are used by both command
 	// we must use *Var() methods, otherwise one of the commands would always get default flag values.
 	cmd.Flag("persist-credentials", "Persist credentials").Default("true").BoolVar(&connectPersistCredentials)
-	cmd.Flag("cache-directory", "Cache directory").PlaceHolder("PATH").StringVar(&connectCacheDirectory)
+	cmd.Flag("cache-directory", "Cache directory").PlaceHolder("PATH").Envar("KOPIA_CACHE_DIRECTORY").StringVar(&connectCacheDirectory)
 	cmd.Flag("content-cache-size-mb", "Size of local content cache").PlaceHolder("MB").Default("5000").Int64Var(&connectMaxCacheSizeMB)
 	cmd.Flag("metadata-cache-size-mb", "Size of local metadata cache").PlaceHolder("MB").Default("5000").Int64Var(&connectMaxMetadataCacheSizeMB)
 	cmd.Flag("max-list-cache-duration", "Duration of index cache").Default("30s").Hidden().DurationVar(&connectMaxListCacheDuration)
