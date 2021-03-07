@@ -92,6 +92,16 @@ func AssertGetBlobNotFound(ctx context.Context, t testingT, s blob.Storage, blob
 	}
 }
 
+// AssertGetMetadataNotFound asserts that GetMetadata() for specified blobID returns ErrNotFound.
+func AssertGetMetadataNotFound(ctx context.Context, t testingT, s blob.Storage, blobID blob.ID) {
+	t.Helper()
+
+	_, err := s.GetMetadata(ctx, blobID)
+	if !errors.Is(err, blob.ErrBlobNotFound) {
+		t.Errorf("GetMetadata(%v) returned %v, %v but expected ErrNotFound", blobID, err)
+	}
+}
+
 // AssertListResults asserts that the list results with given prefix return the specified list of names in order.
 func AssertListResults(ctx context.Context, t testingT, s blob.Storage, prefix blob.ID, want ...blob.ID) {
 	t.Helper()
