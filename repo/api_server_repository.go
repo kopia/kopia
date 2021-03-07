@@ -5,10 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/url"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/pkg/errors"
@@ -40,7 +37,8 @@ type apiServerRepository struct {
 	omgr         *object.Manager
 	wso          WriteSessionOptions
 
-	contentCache *cache.PersistentCache
+	isSharedReadOnlySession bool
+	contentCache            *cache.PersistentCache
 }
 
 func (r *apiServerRepository) APIServerURL() string {
@@ -148,6 +146,7 @@ func (r *apiServerRepository) NewWriter(ctx context.Context, opt WriteSessionOpt
 
 	w.omgr = omgr
 	w.wso = opt
+	w.isSharedReadOnlySession = false
 
 	return w, nil
 }
@@ -195,6 +194,11 @@ func (r *apiServerRepository) WriteContent(ctx context.Context, data []byte, pre
 		return "", errors.Wrapf(err, "error writing content %v", contentID)
 	}
 
+	if prefix != "" {
+		// add all prefixed contents to the cache.
+		r.contentCache.Put(ctx, string(contentID), data)
+	}
+
 	return contentID, nil
 }
 
@@ -204,8 +208,17 @@ func (r *apiServerRepository) UpdateDescription(d string) {
 }
 
 func (r *apiServerRepository) Close(ctx context.Context) error {
-	if err := r.omgr.Close(); err != nil {
-		return errors.Wrap(err, "error closing object manager")
+	if r.omgr != nil {
+		if err := r.omgr.Close(); err != nil {
+			return errors.Wrap(err, "error closing object manager")
+		}
+
+		r.omgr = nil
+	}
+
+	if r.isSharedReadOnlySession && r.contentCache != nil {
+		r.contentCache.Close(ctx)
+		r.contentCache = nil
 	}
 
 	return nil
@@ -233,6 +246,7 @@ func openRestAPIRepository(ctx context.Context, si *APIServerInfo, cliOpts Clien
 		wso: WriteSessionOptions{
 			OnUpload: func(i int64) {},
 		},
+		isSharedReadOnlySession: true,
 	}
 
 	var p remoterepoapi.Parameters
@@ -265,19 +279,13 @@ func ConnectAPIServer(ctx context.Context, configFile string, si *APIServerInfo,
 	lc := LocalConfig{
 		APIServer:     si,
 		ClientOptions: opt.ClientOptions.ApplyDefaults(ctx, "API Server: "+si.BaseURL),
-		Caching:       opt.CachingOptions.CloneOrDefault(),
 	}
 
-	d, err := json.MarshalIndent(&lc, "", "  ")
-	if err != nil {
-		return errors.Wrap(err, "unable to marshal config JSON")
+	if err := setupCachingOptionsWithDefaults(ctx, configFile, &lc, &opt.CachingOptions, []byte(si.BaseURL)); err != nil {
+		return errors.Wrap(err, "unable to set up caching")
 	}
 
-	if err = os.MkdirAll(filepath.Dir(configFile), 0o700); err != nil {
-		return errors.Wrap(err, "unable to create config directory")
-	}
-
-	if err = ioutil.WriteFile(configFile, d, 0o600); err != nil {
+	if err := lc.writeToFile(configFile); err != nil {
 		return errors.Wrap(err, "unable to write config file")
 	}
 

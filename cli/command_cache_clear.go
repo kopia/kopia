@@ -16,8 +16,13 @@ var (
 	cacheClearCommandPartial = cacheClearCommand.Flag("partial", "Specifies the cache to clear").Enum("contents", "indexes", "metadata", "own-writes", "blob-list")
 )
 
-func runCacheClearCommand(ctx context.Context, rep repo.DirectRepository) error {
-	d := rep.CachingOptions().CacheDirectory
+func runCacheClearCommand(ctx context.Context, rep repo.Repository) error {
+	opts, err := repo.GetCachingOptions(ctx, repositoryConfigFileName())
+	if err != nil {
+		return errors.Wrap(err, "error getting caching options")
+	}
+
+	d := opts.CacheDirectory
 	if d == "" {
 		return errors.New("caching not enabled")
 	}
@@ -52,5 +57,5 @@ func clearCacheDirectory(ctx context.Context, d string) error {
 }
 
 func init() {
-	cacheClearCommand.Action(directRepositoryReadAction(runCacheClearCommand))
+	cacheClearCommand.Action(repositoryReaderAction(runCacheClearCommand))
 }

@@ -59,9 +59,11 @@ func (s *Server) authenticateGRPCSession(ctx context.Context) (string, error) {
 		if s.authenticator(ctx, s.rep, username, password) {
 			return username, nil
 		}
+
+		return "", status.Errorf(codes.PermissionDenied, "access denied for %v", username)
 	}
 
-	return "", status.Errorf(codes.PermissionDenied, "access denied")
+	return "", status.Errorf(codes.PermissionDenied, "missing credentials")
 }
 
 // Session handles GRPC session from a repository client.

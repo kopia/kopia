@@ -17,20 +17,26 @@ var (
 	cacheInfoPathOnly = cacheInfoCommand.Flag("path", "Only display cache path").Bool()
 )
 
-func runCacheInfoCommand(ctx context.Context, rep repo.DirectRepository) error {
+func runCacheInfoCommand(ctx context.Context, rep repo.Repository) error {
+	opts, err := repo.GetCachingOptions(ctx, repositoryConfigFileName())
+	if err != nil {
+		return errors.Wrap(err, "error getting cache options")
+	}
+
 	if *cacheInfoPathOnly {
-		fmt.Println(rep.CachingOptions().CacheDirectory)
+		fmt.Println(opts.CacheDirectory)
 		return nil
 	}
 
-	entries, err := ioutil.ReadDir(rep.CachingOptions().CacheDirectory)
+	entries, err := ioutil.ReadDir(opts.CacheDirectory)
 	if err != nil {
 		return errors.Wrap(err, "unable to scan cache directory")
 	}
 
 	path2Limit := map[string]int64{
-		"contents": rep.CachingOptions().MaxCacheSizeBytes,
-		"metadata": rep.CachingOptions().MaxMetadataCacheSizeBytes,
+		"contents":        opts.MaxCacheSizeBytes,
+		"metadata":        opts.MaxMetadataCacheSizeBytes,
+		"server-contents": opts.MaxCacheSizeBytes,
 	}
 
 	for _, ent := range entries {
@@ -38,7 +44,7 @@ func runCacheInfoCommand(ctx context.Context, rep repo.DirectRepository) error {
 			continue
 		}
 
-		subdir := filepath.Join(rep.CachingOptions().CacheDirectory, ent.Name())
+		subdir := filepath.Join(opts.CacheDirectory, ent.Name())
 
 		fileCount, totalFileSize, err := scanCacheDir(subdir)
 		if err != nil {
@@ -51,7 +57,7 @@ func runCacheInfoCommand(ctx context.Context, rep repo.DirectRepository) error {
 		}
 
 		if ent.Name() == "blob-list" {
-			maybeLimit = fmt.Sprintf(" (duration %vs)", rep.CachingOptions().MaxListCacheDurationSec)
+			maybeLimit = fmt.Sprintf(" (duration %vs)", opts.MaxListCacheDurationSec)
 		}
 
 		fmt.Printf("%v: %v files %v%v\n", subdir, fileCount, units.BytesStringBase10(totalFileSize), maybeLimit)
@@ -64,5 +70,5 @@ func runCacheInfoCommand(ctx context.Context, rep repo.DirectRepository) error {
 }
 
 func init() {
-	cacheInfoCommand.Action(directRepositoryReadAction(runCacheInfoCommand))
+	cacheInfoCommand.Action(repositoryReaderAction(runCacheInfoCommand))
 }

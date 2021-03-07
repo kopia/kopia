@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"os"
 
 	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
@@ -33,16 +32,9 @@ func connectToStorageFromConfig(ctx context.Context, isNew bool) (blob.Storage, 
 }
 
 func connectToStorageFromConfigFile(ctx context.Context) (blob.Storage, error) {
-	var cfg repo.LocalConfig
-
-	f, err := os.Open(connectFromConfigFile) //nolint:gosec
+	cfg, err := repo.LoadConfigFromFile(connectFromConfigFile)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open config")
-	}
-	defer f.Close() //nolint:errcheck,gosec
-
-	if err := cfg.Load(f); err != nil {
-		return nil, errors.Wrap(err, "unable to load config")
 	}
 
 	return blob.NewStorage(ctx, *cfg.Storage)

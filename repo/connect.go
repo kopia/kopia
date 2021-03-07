@@ -2,10 +2,6 @@ package repo
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -54,20 +50,11 @@ func Connect(ctx context.Context, configFile string, st blob.Storage, password s
 	lc.Storage = &ci
 	lc.ClientOptions = opt.ClientOptions.ApplyDefaults(ctx, "Repository in "+st.DisplayName())
 
-	if err = setupCaching(ctx, configFile, &lc, &opt.CachingOptions, f.UniqueID); err != nil {
+	if err = setupCachingOptionsWithDefaults(ctx, configFile, &lc, &opt.CachingOptions, f.UniqueID); err != nil {
 		return errors.Wrap(err, "unable to set up caching")
 	}
 
-	d, err := json.MarshalIndent(&lc, "", "  ")
-	if err != nil {
-		return errors.Wrap(err, "unable to serialize JSON")
-	}
-
-	if err = os.MkdirAll(filepath.Dir(configFile), 0o700); err != nil {
-		return errors.Wrap(err, "unable to create config directory")
-	}
-
-	if err = ioutil.WriteFile(configFile, d, 0o600); err != nil {
+	if err := lc.writeToFile(configFile); err != nil {
 		return errors.Wrap(err, "unable to write config file")
 	}
 
@@ -98,56 +85,9 @@ func verifyConnect(ctx context.Context, configFile, password string, persist boo
 	return r.Close(ctx)
 }
 
-func setupCaching(ctx context.Context, configPath string, lc *LocalConfig, opt *content.CachingOptions, uniqueID []byte) error {
-	opt = opt.CloneOrDefault()
-
-	if opt.MaxCacheSizeBytes == 0 {
-		lc.Caching = &content.CachingOptions{}
-		return nil
-	}
-
-	if lc.Caching == nil {
-		lc.Caching = &content.CachingOptions{}
-	}
-
-	if opt.CacheDirectory == "" {
-		cacheDir, err := os.UserCacheDir()
-		if err != nil {
-			return errors.Wrap(err, "unable to determine cache directory")
-		}
-
-		h := sha256.New()
-		h.Write(uniqueID)           //nolint:errcheck
-		h.Write([]byte(configPath)) //nolint:errcheck
-		opt.CacheDirectory = filepath.Join(cacheDir, "kopia", hex.EncodeToString(h.Sum(nil))[0:16])
-	}
-
-	var err error
-
-	// try computing relative pathname from config dir to the cache dir.
-	lc.Caching.CacheDirectory, err = filepath.Rel(filepath.Dir(configPath), opt.CacheDirectory)
-
-	if err != nil {
-		// fall back to storing absolute path
-		lc.Caching.CacheDirectory, err = filepath.Abs(opt.CacheDirectory)
-	}
-
-	if err != nil {
-		return errors.Wrap(err, "error computing cache directory")
-	}
-
-	lc.Caching.MaxCacheSizeBytes = opt.MaxCacheSizeBytes
-	lc.Caching.MaxMetadataCacheSizeBytes = opt.MaxMetadataCacheSizeBytes
-	lc.Caching.MaxListCacheDurationSec = opt.MaxListCacheDurationSec
-
-	log(ctx).Debugf("Creating cache directory '%v' with max size %v", lc.Caching.CacheDirectory, lc.Caching.MaxCacheSizeBytes)
-
-	return nil
-}
-
 // Disconnect removes the specified configuration file and any local cache directories.
 func Disconnect(ctx context.Context, configFile string) error {
-	cfg, err := loadConfigFromFile(configFile)
+	cfg, err := LoadConfigFromFile(configFile)
 	if err != nil {
 		return err
 	}
@@ -155,6 +95,10 @@ func Disconnect(ctx context.Context, configFile string) error {
 	deletePassword(ctx, configFile)
 
 	if cfg.Caching != nil && cfg.Caching.CacheDirectory != "" {
+		if !filepath.IsAbs(cfg.Caching.CacheDirectory) {
+			return errors.Errorf("cache directory was not absolute, refusing to delete")
+		}
+
 		if err = os.RemoveAll(cfg.Caching.CacheDirectory); err != nil {
 			log(ctx).Warningf("unable to remove cache directory: %v", err)
 		}
@@ -170,21 +114,12 @@ func Disconnect(ctx context.Context, configFile string) error {
 
 // SetClientOptions updates client options stored in the provided configuration file.
 func SetClientOptions(ctx context.Context, configFile string, cliOpt ClientOptions) error {
-	lc, err := loadConfigFromFile(configFile)
+	lc, err := LoadConfigFromFile(configFile)
 	if err != nil {
 		return err
 	}
 
 	lc.ClientOptions = cliOpt
 
-	d, err := json.MarshalIndent(lc, "", "  ")
-	if err != nil {
-		return errors.Wrap(err, "error marshaling config JSON")
-	}
-
-	if err = ioutil.WriteFile(configFile, d, 0o600); err != nil {
-		return errors.Wrap(err, "unable to write config file")
-	}
-
-	return nil
+	return lc.writeToFile(configFile)
 }
