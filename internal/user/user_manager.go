@@ -3,7 +3,9 @@ package user
 
 import (
 	"context"
+	"regexp"
 	"sort"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -97,10 +99,30 @@ func GetUserProfile(ctx context.Context, r repo.Repository, username string) (*P
 	return p, nil
 }
 
+// all-lowercase subset of RFC 1123 without domain name (no dots allowed).
+var validHostnameRegexp = regexp.MustCompile(`^[a-z0-9]([a-z0-9\-]*[a-z0-9])*$`)
+
+// valid user is a superset of valid hostname (it allows _ and .)
+var validUserRegexp = regexp.MustCompile(`^[a-z0-9]([a-z0-9\-_.]*[a-z0-9])*$`)
+
+// ValidateUsername returns an error if the given username is invalid.
+func ValidateUsername(name string) error {
+	if name == "" {
+		return errors.Errorf("username is required")
+	}
+
+	parts := strings.Split(name, "@")
+	if len(parts) != 2 || !validUserRegexp.MatchString(parts[0]) || !validHostnameRegexp.MatchString(parts[1]) {
+		return errors.Errorf("username must be specified as lowercase 'user@hostnames' (using only simple hostnames)")
+	}
+
+	return nil
+}
+
 // SetUserProfile creates or updates user profile.
 func SetUserProfile(ctx context.Context, w repo.RepositoryWriter, p *Profile) error {
-	if p.Username == "" {
-		return errors.Errorf("username is required")
+	if err := ValidateUsername(p.Username); err != nil {
+		return err
 	}
 
 	manifests, err := w.FindManifests(ctx, map[string]string{

@@ -64,7 +64,11 @@ func runServerUserAddSet(ctx context.Context, rep repo.RepositoryWriter, isNew b
 		return err
 	}
 
+	changed := false
+
 	if p := userSetPassword; p != "" {
+		changed = true
+
 		if err := up.SetPassword(p); err != nil {
 			return errors.Wrap(err, "error setting password")
 		}
@@ -78,6 +82,7 @@ func runServerUserAddSet(ctx context.Context, rep repo.RepositoryWriter, isNew b
 
 		up.PasswordHashVersion = userSetPasswordHashVersion
 		up.PasswordHash = ph
+		changed = true
 	}
 
 	if up.PasswordHash == nil || userAskPassword {
@@ -95,9 +100,15 @@ func runServerUserAddSet(ctx context.Context, rep repo.RepositoryWriter, isNew b
 			return errors.Wrap(err, "passwords don't match")
 		}
 
+		changed = true
+
 		if err := up.SetPassword(pwd); err != nil {
 			return errors.Wrap(err, "error setting password")
 		}
+	}
+
+	if !changed && !isNew {
+		return errors.Errorf("no change")
 	}
 
 	if err := user.SetUserProfile(ctx, rep, up); err != nil {

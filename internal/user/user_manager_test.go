@@ -15,12 +15,12 @@ func TestUserManager(t *testing.T) {
 	ctx := testlogging.Context(t)
 	defer env.Setup(t).Close(ctx, t)
 
-	if _, err := user.GetUserProfile(ctx, env.RepositoryWriter, "alice"); !errors.Is(err, user.ErrUserNotFound) {
+	if _, err := user.GetUserProfile(ctx, env.RepositoryWriter, "alice@somehost"); !errors.Is(err, user.ErrUserNotFound) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	must(t, user.SetUserProfile(ctx, env.RepositoryWriter, &user.Profile{
-		Username:     "alice",
+		Username:     "alice@somehost",
 		PasswordHash: []byte("hahaha"),
 	}))
 
@@ -28,7 +28,7 @@ func TestUserManager(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	a, err := user.GetUserProfile(ctx, env.RepositoryWriter, "alice")
+	a, err := user.GetUserProfile(ctx, env.RepositoryWriter, "alice@somehost")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -38,11 +38,11 @@ func TestUserManager(t *testing.T) {
 	}
 
 	must(t, user.SetUserProfile(ctx, env.RepositoryWriter, &user.Profile{
-		Username:     "alice",
+		Username:     "alice@somehost",
 		PasswordHash: []byte("hehehehe"),
 	}))
 
-	a, err = user.GetUserProfile(ctx, env.RepositoryWriter, "alice")
+	a, err = user.GetUserProfile(ctx, env.RepositoryWriter, "alice@somehost")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -51,13 +51,53 @@ func TestUserManager(t *testing.T) {
 		t.Errorf("unexpected password hash: %v, want %v", got, want)
 	}
 
-	err = user.DeleteUserProfile(ctx, env.RepositoryWriter, "alice")
+	err = user.DeleteUserProfile(ctx, env.RepositoryWriter, "alice@somehost")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if _, err = user.GetUserProfile(ctx, env.RepositoryWriter, "alice"); !errors.Is(err, user.ErrUserNotFound) {
+	if _, err = user.GetUserProfile(ctx, env.RepositoryWriter, "alice@somehost"); !errors.Is(err, user.ErrUserNotFound) {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidateUsername_Valid(t *testing.T) {
+	cases := []string{
+		"foo@bar",
+		"foo@barbar",
+		"some_user@barbar",
+		"some.user@barbar",
+		"some-user@some-host",
+		"some-user123@some-host123",
+		"foo--foo@bar", // probably illegal, but we're not rejecting that
+		"foo@bar--bar", // probably illegal, but we're not rejecting that
+	}
+
+	for _, tc := range cases {
+		if err := user.ValidateUsername(tc); err != nil {
+			t.Fatalf("unexpected invalid username %q: %v", tc, err)
+		}
+	}
+}
+
+func TestValidateUsername_Invalid(t *testing.T) {
+	cases := []string{
+		"foo@",
+		"foo!bar@baz",
+		"foo@bar@baz",
+		"foo@baz@",
+		"@",
+		"@bar",
+		"-foo@bar",
+		"foo-@bar",
+		"foo@-bar",
+		"foo@bar-",
+	}
+
+	for _, tc := range cases {
+		if user.ValidateUsername(tc) == nil {
+			t.Fatalf("username should be invalid %q", tc)
+		}
 	}
 }
 
