@@ -59,6 +59,11 @@ func testCache(t *testing.T, cache committedContentIndexCache, fakeTime *faketim
 		"c4": &Info{PackBlobID: "p2345", ID: "c4"},
 	})))
 
+	must(t, cache.addContentToCache(ctx, "ndx2", mustBuildPackIndex(t, packIndexBuilder{
+		"c3": &Info{PackBlobID: "p2345", ID: "c3"},
+		"c4": &Info{PackBlobID: "p2345", ID: "c4"},
+	})))
+
 	ndx1, err := cache.openIndex(ctx, "ndx1")
 	must(t, err)
 
