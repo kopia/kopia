@@ -30,6 +30,7 @@ func VerifyStorage(ctx context.Context, t testingT, r blob.Storage) {
 	// First verify that blocks don't exist.
 	for _, b := range blocks {
 		AssertGetBlobNotFound(ctx, t, r, b.blk)
+		AssertGetMetadataNotFound(ctx, t, r, b.blk)
 	}
 
 	if err := r.DeleteBlob(ctx, "no-such-blob"); err != nil && !errors.Is(err, blob.ErrBlobNotFound) {
