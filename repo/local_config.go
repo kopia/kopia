@@ -106,14 +106,14 @@ func (lc *LocalConfig) writeToFile(filename string) error {
 
 	b, err := json.MarshalIndent(lc2, "", "  ")
 	if err != nil {
-		return errors.Wrap(err, "error writing config file")
+		return errors.Wrap(err, "error creating config file contents")
 	}
 
 	if err = os.MkdirAll(filepath.Dir(filename), 0o700); err != nil {
 		return errors.Wrap(err, "unable to create config directory")
 	}
 
-	return atomicfile.Write(filename, bytes.NewReader(b))
+	return errors.Wrap(atomicfile.Write(filename, bytes.NewReader(b)), "error writing file")
 }
 
 // LoadConfigFromFile reads the local configuration from the specified file.
