@@ -68,6 +68,7 @@ func runServer(ctx context.Context, rep repo.Repository) error {
 		Authenticator:        authn,
 		Authorizer:           auth.LegacyAuthorizerForUser,
 		AuthCookieSigningKey: *serverAuthCookieSingingKey,
+		UIUser:               *serverUsername,
 	})
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize server")
@@ -220,20 +221,22 @@ func serveIndexFileForKnownUIRoutes(fs http.FileSystem) http.Handler {
 }
 
 func getAuthenticatorFunc(ctx context.Context) (auth.Authenticator, error) {
-	switch {
-	case *serverStartHtpasswdFile != "":
+	var authenticators []auth.Authenticator
+
+	if *serverStartHtpasswdFile != "" {
 		f, err := htpasswd.New(*serverStartHtpasswdFile, htpasswd.DefaultSystems, nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "error initializing htpasswd")
 		}
 
-		// f.Match happens to match auth.Authenticator
-		return func(ctx context.Context, rep repo.Repository, username, password string) bool {
+		authenticators = append(authenticators, func(ctx context.Context, rep repo.Repository, username, password string) bool {
 			return f.Match(username, password)
-		}, nil
+		})
+	}
 
+	switch {
 	case *serverPassword != "":
-		return auth.AuthenticateSingleUser(*serverUsername, *serverPassword), nil
+		authenticators = append(authenticators, auth.AuthenticateSingleUser(*serverUsername, *serverPassword))
 
 	case *serverStartRandomPassword:
 		// generate very long random one-time password
@@ -245,21 +248,21 @@ func getAuthenticatorFunc(ctx context.Context) (auth.Authenticator, error) {
 		// print it to the stderr bypassing any log file so that the user or calling process can connect
 		fmt.Fprintln(os.Stderr, "SERVER PASSWORD:", randomPassword)
 
-		return auth.AuthenticateSingleUser(*serverUsername, randomPassword), nil
+		authenticators = append(authenticators, auth.AuthenticateSingleUser(*serverUsername, randomPassword))
+	}
 
-	case *serverStartAllowRepoUsers:
+	if *serverStartAllowRepoUsers {
 		log(ctx).Noticef(`
 Server will allow connections from users whose accounts are stored in the repository.
 User accounts can be added using 'kopia user add'.
 `)
 
-		return auth.AuthenticateRepositoryUsers(), nil
-
-	default:
-		if !*serverStartInsecure {
-			return nil, errors.Errorf("no password option specified, refusing to start server. To start non-authenticated server pass --insecure.")
-		}
-
-		return nil, nil
+		authenticators = append(authenticators, auth.AuthenticateRepositoryUsers())
 	}
+
+	if len(authenticators) == 0 && !*serverStartInsecure {
+		return nil, errors.Errorf("no password option specified, refusing to start server. To start non-authenticated server pass --insecure.")
+	}
+
+	return auth.CombineAuthenticators(authenticators...), nil
 }

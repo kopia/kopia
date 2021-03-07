@@ -6,12 +6,14 @@ import (
 	"encoding/hex"
 	"errors"
 	"io/ioutil"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
 
+	"github.com/kopia/kopia/internal/apiclient"
 	"github.com/kopia/kopia/internal/auth"
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/internal/server"
@@ -30,6 +32,9 @@ const (
 	testPassword = "123"
 	testPathname = "/tmp/path"
 
+	testUIUsername = "ui-user"
+	testUIPassword = "123456"
+
 	maxCacheSizeBytes = 1e6
 )
 
@@ -41,10 +46,14 @@ func startServer(ctx context.Context, t *testing.T) *repo.APIServerInfo {
 	t.Cleanup(func() { env.Close(ctx, t) })
 
 	s, err := server.New(ctx, server.Options{
-		ConfigFile:      env.ConfigFile(),
-		Authorizer:      auth.LegacyAuthorizerForUser,
-		Authenticator:   auth.AuthenticateSingleUser(testUsername+"@"+testHostname, testPassword),
+		ConfigFile: env.ConfigFile(),
+		Authorizer: auth.LegacyAuthorizerForUser,
+		Authenticator: auth.CombineAuthenticators(
+			auth.AuthenticateSingleUser(testUsername+"@"+testHostname, testPassword),
+			auth.AuthenticateSingleUser(testUIUsername, testUIPassword),
+		),
 		RefreshInterval: 1 * time.Minute,
+		UIUser:          testUIUsername,
 	})
 
 	s.SetRepository(ctx, env.Repository)
@@ -110,6 +119,61 @@ func TestGPRServer_AuthenticationError(t *testing.T) {
 		Hostname: "bad-hostname",
 	}, nil, "bad-password"); err == nil {
 		t.Fatal("unexpected success when connecting with invalid username")
+	}
+}
+
+func TestServerUIAccessDeniedToRemoteUser(t *testing.T) {
+	ctx := testlogging.ContextWithLevel(t, testlogging.LevelDebug)
+	si := startServer(ctx, t)
+
+	remoteUserClient, err := apiclient.NewKopiaAPIClient(apiclient.Options{
+		BaseURL:                             si.BaseURL,
+		TrustedServerCertificateFingerprint: si.TrustedServerCertificateFingerprint,
+		Username:                            testUsername + "@" + testHostname,
+		Password:                            testPassword,
+	})
+
+	must(t, err)
+
+	uiUserClient, err := apiclient.NewKopiaAPIClient(apiclient.Options{
+		BaseURL:                             si.BaseURL,
+		TrustedServerCertificateFingerprint: si.TrustedServerCertificateFingerprint,
+		Username:                            testUIUsername,
+		Password:                            testUIPassword,
+	})
+
+	must(t, err)
+
+	// examples of URLs and expected statuses returned when UI user calls them, but which must return 403 when
+	// remote user calls them.
+	getUrls := map[string]int{
+		"mounts":          http.StatusOK,
+		"repo/algorithms": http.StatusOK,
+		"objects/abcd":    http.StatusNotFound,
+		"tasks-summary":   http.StatusOK,
+		"tasks":           http.StatusOK,
+		"policy":          http.StatusBadRequest,
+	}
+
+	for urlSuffix, wantStatus := range getUrls {
+		urlSuffix := urlSuffix
+		wantStatus := wantStatus
+
+		t.Run(urlSuffix, func(t *testing.T) {
+			var hsr apiclient.HTTPStatusError
+
+			if err := remoteUserClient.Get(ctx, urlSuffix, nil, nil); !errors.As(err, &hsr) || hsr.HTTPStatusCode != http.StatusForbidden {
+				t.Fatalf("error returned expected to be HTTPStatusError %v, want %v", hsr.HTTPStatusCode, http.StatusForbidden)
+			}
+
+			if wantStatus == http.StatusOK {
+				if err := uiUserClient.Get(ctx, urlSuffix, nil, nil); err != nil {
+					t.Fatalf("expected success, got %v", err)
+				}
+			} else if err := uiUserClient.Get(ctx, urlSuffix, nil, nil); !errors.As(err, &hsr) || hsr.HTTPStatusCode != wantStatus {
+				t.Fatalf("error returned expected to be HTTPStatusError %v, want %v", hsr.HTTPStatusCode, wantStatus)
+			}
+		})
 	}
 }
 

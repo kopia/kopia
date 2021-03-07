@@ -8,7 +8,6 @@ import (
 
 	"github.com/gorilla/mux"
 
-	"github.com/kopia/kopia/internal/auth"
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
@@ -16,10 +15,6 @@ import (
 )
 
 func (s *Server) handleContentGet(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	if s.httpAuthorizationInfo(r).ContentAccessLevel() < auth.AccessLevelRead {
-		return nil, accessDeniedError()
-	}
-
 	dr, ok := s.rep.(repo.DirectRepository)
 	if !ok {
 		return nil, notFoundError("content not found")
@@ -36,10 +31,6 @@ func (s *Server) handleContentGet(ctx context.Context, r *http.Request, body []b
 }
 
 func (s *Server) handleContentInfo(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	if s.httpAuthorizationInfo(r).ContentAccessLevel() < auth.AccessLevelRead {
-		return nil, accessDeniedError()
-	}
-
 	dr, ok := s.rep.(repo.DirectRepository)
 	if !ok {
 		return nil, notFoundError("content not found")
@@ -62,10 +53,6 @@ func (s *Server) handleContentInfo(ctx context.Context, r *http.Request, body []
 }
 
 func (s *Server) handleContentPut(ctx context.Context, r *http.Request, data []byte) (interface{}, *apiError) {
-	if s.httpAuthorizationInfo(r).ContentAccessLevel() < auth.AccessLevelAppend {
-		return nil, accessDeniedError()
-	}
-
 	dr, ok := s.rep.(repo.DirectRepositoryWriter)
 	if !ok {
 		return nil, repositoryNotWritableError()

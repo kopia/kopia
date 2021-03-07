@@ -15,6 +15,11 @@ import (
 func (s *Server) handleObjectGet(w http.ResponseWriter, r *http.Request) {
 	oidstr := mux.Vars(r)["objectID"]
 
+	if !requireUIUser(s, r) {
+		http.Error(w, "access denied", http.StatusForbidden)
+		return
+	}
+
 	oid, err := object.ParseID(oidstr)
 	if err != nil {
 		http.Error(w, "invalid object id", http.StatusBadRequest)
