@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/efarrer/iothrottler"
@@ -127,6 +128,11 @@ func translateError(err error) error {
 			if b2err.Code == "already_hidden" || b2err.Code == "no_such_file" {
 				// Special case when hiding a file that is already hidden. It's basically
 				// not found.
+				return blob.ErrBlobNotFound
+			}
+
+			if b2err.Code == "bad_request" && strings.HasPrefix(b2err.Message, "Bad fileId") {
+				// returned in GetMetadata() when fileId is not found.
 				return blob.ErrBlobNotFound
 			}
 
