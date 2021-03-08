@@ -148,6 +148,10 @@ func (s *s3Storage) getObjectNameString(b blob.ID) string {
 }
 
 func (s *s3Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(blob.Metadata) error) error {
+	ctx, cancel := context.WithCancel(ctx)
+
+	defer cancel()
+
 	oi := s.cli.ListObjects(ctx, s.BucketName, minio.ListObjectsOptions{
 		Prefix: s.getObjectNameString(prefix),
 	})
