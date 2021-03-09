@@ -64,13 +64,25 @@ func TestUserManager(t *testing.T) {
 func TestValidateUsername_Valid(t *testing.T) {
 	cases := []string{
 		"foo@bar",
+		"foo.foo@bar",
+		"foo.foo@bar.bar",
+		"foo_foo@bar",
+		"foo_foo@bar_bar",
+		"foo-foo@bar",
+		"foo-foo@bar-bar",
+		"foo0@0bar.com",
 		"foo@barbar",
 		"some_user@barbar",
 		"some.user@barbar",
 		"some-user@some-host",
 		"some-user123@some-host123",
+		"0@0",          // probably illegal username and hostname, but we're not rejecting that
 		"foo--foo@bar", // probably illegal, but we're not rejecting that
 		"foo@bar--bar", // probably illegal, but we're not rejecting that
+		"-foo@bar",     // probably illegal username, but we're not rejecting that
+		"foo@bar-",     // probably illegal hostname, but we're not rejecting that
+		"foo-@bar",     // probably illegal username, but we're not rejecting that
+		"foo@-bar",     // probably illegal hostname, but we're not rejecting that
 	}
 
 	for _, tc := range cases {
@@ -83,15 +95,13 @@ func TestValidateUsername_Valid(t *testing.T) {
 func TestValidateUsername_Invalid(t *testing.T) {
 	cases := []string{
 		"foo@",
+		"Foo@bar", // uppercase not allowed
+		"foo@Bar",
 		"foo!bar@baz",
 		"foo@bar@baz",
 		"foo@baz@",
 		"@",
 		"@bar",
-		"-foo@bar",
-		"foo-@bar",
-		"foo@-bar",
-		"foo@bar-",
 	}
 
 	for _, tc := range cases {
