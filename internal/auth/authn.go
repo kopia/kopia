@@ -24,3 +24,21 @@ func AuthenticateSingleUser(expectedUsername, expectedPassword string) Authentic
 			subtle.ConstantTimeCompare([]byte(password), expectedPasswordBytes) == 1
 	}
 }
+
+// CombineAuthenticators return authenticator that applies the provided authenticators in order
+// and returns true if any of them accepts given username/password combination.
+func CombineAuthenticators(authenticators ...Authenticator) Authenticator {
+	if len(authenticators) == 0 {
+		return nil
+	}
+
+	return func(ctx context.Context, rep repo.Repository, username, password string) bool {
+		for _, a := range authenticators {
+			if a(ctx, rep, username, password) {
+				return true
+			}
+		}
+
+		return false
+	}
+}

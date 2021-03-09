@@ -57,8 +57,8 @@ func DisconnectFromRepository(ctx context.Context, c *apiclient.KopiaAPIClient) 
 }
 
 // Shutdown invokes the 'repo/shutdown' API.
-func Shutdown(ctx context.Context, c *apiclient.KopiaAPIClient) {
-	_ = c.Post(ctx, "shutdown", &Empty{}, &Empty{})
+func Shutdown(ctx context.Context, c *apiclient.KopiaAPIClient) error {
+	return c.Post(ctx, "shutdown", &Empty{}, &Empty{})
 }
 
 // Status invokes the 'repo/status' API.

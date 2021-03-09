@@ -18,6 +18,11 @@ import (
 // foo@bar - password baz.
 var htpasswdFileContents = []byte("foo@bar:$2y$05$JWrExvBe5Knh0.AMLk5WHu.EzfOP.LhrqMIRf1YseZ/rulBjKqGJ.\n")
 
+const (
+	uiUsername = "ui-user-password"
+	uiPassword = "ui-password"
+)
+
 func TestAPIServerRepository_GRPC_htpasswd(t *testing.T) {
 	t.Parallel()
 
@@ -85,6 +90,8 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 			"--tls-generate-cert",
 			"--tls-key-file", tlsKey,
 			"--tls-cert-file", tlsCert,
+			"--server-username", uiUsername,
+			"--server-password", uiPassword,
 		}, serverStartArgs...)...)
 	t.Logf("detected server parameters %#v", sp)
 
@@ -92,6 +99,17 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 		BaseURL:                             sp.baseURL,
 		Username:                            "foo@bar",
 		Password:                            "baz",
+		TrustedServerCertificateFingerprint: sp.sha256Fingerprint,
+		LogRequests:                         true,
+	})
+	if err != nil {
+		t.Fatalf("unable to create API apiclient")
+	}
+
+	uiUserCLI, err := apiclient.NewKopiaAPIClient(apiclient.Options{
+		BaseURL:                             sp.baseURL,
+		Username:                            uiUsername,
+		Password:                            uiPassword,
 		TrustedServerCertificateFingerprint: sp.sha256Fingerprint,
 		LogRequests:                         true,
 	})
@@ -121,7 +139,7 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 		t.Fatal(err)
 	}
 
-	serverapi.Shutdown(ctx, cli)
+	logErrorAndIgnore(t, serverapi.Shutdown(ctx, uiUserCLI))
 
 	// give the server a moment to wind down.
 	time.Sleep(1 * time.Second)
@@ -136,6 +154,8 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 			"--address=" + sp.baseURL,
 			"--tls-key-file", tlsKey,
 			"--tls-cert-file", tlsCert,
+			"--server-username", uiUsername,
+			"--server-password", uiPassword,
 		}, serverStartArgs...)...)
 	t.Logf("detected server parameters %#v", sp)
 
@@ -152,7 +172,7 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 
 	waitUntilServerStarted(ctx, t, cli)
 
-	defer serverapi.Shutdown(ctx, cli)
+	defer serverapi.Shutdown(ctx, uiUserCLI)
 
 	someLabels := map[string]string{
 		"type":     "snapshot",
@@ -230,7 +250,7 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 	}
 
 	// shutdown the server
-	serverapi.Shutdown(ctx, cli)
+	logErrorAndIgnore(t, serverapi.Shutdown(ctx, uiUserCLI))
 
 	// open repository client to a dead server, this should fail quickly instead of retrying forever.
 	t0 := clock.Now()
@@ -259,5 +279,13 @@ func verifyFindManifestCount(ctx context.Context, t *testing.T, rep repo.Reposit
 
 	if got, want := len(man), wantCount; got != want {
 		t.Fatalf("invalid number of manifests: %v, want %v", got, want)
+	}
+}
+
+func logErrorAndIgnore(t *testing.T, err error) {
+	t.Helper()
+
+	if err != nil {
+		t.Log(err)
 	}
 }

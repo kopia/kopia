@@ -95,9 +95,19 @@ func requestReader(reqPayload interface{}) (io.Reader, string, error) {
 	return bytes.NewReader(b.Bytes()), "application/json", nil
 }
 
+// HTTPStatusError encapsulates HTTP status error.
+type HTTPStatusError struct {
+	HTTPStatusCode int
+	ErrorMessage   string
+}
+
+func (e HTTPStatusError) Error() string {
+	return e.ErrorMessage
+}
+
 func decodeResponse(resp *http.Response, respPayload interface{}) error {
 	if resp.StatusCode != http.StatusOK {
-		return errors.Errorf("server error: %v", resp.Status)
+		return HTTPStatusError{resp.StatusCode, resp.Status}
 	}
 
 	if respPayload == nil {
