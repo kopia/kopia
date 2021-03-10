@@ -17,7 +17,37 @@ In repository server mode, each user is limited to seeing their own snapshots an
 
 Repository Server should be started on a dedicated server in LAN, such that all clients can directly connect to it.
 
-Before we can start repository server, we must first create a list of usernames and passwords that will be allowed access. The list must be put in a text file formatted using the [htpasswd](https://httpd.apache.org/docs/2.4/programs/htpasswd.html) utility from Apache. Each username must be named:
+Before we can start repository server, we must first create a list of usernames and passwords that will be allowed access.
+
+## Configuring Allowed Users - Kopia v0.8
+
+Starting in Kopia v0.8, allowed repository users can be configured using `kopia user` commands. Each user is identified by its lowercase `username@hostname` where hostname by default is the name of the computer the client is connecting from (without domain name suffix).
+
+To add a user:
+
+```
+$ kopia user add myuser@mylaptop
+Enter new password for user myuser@mylaptop: 
+Re-enter new password for verification: 
+
+Updated user credentials will take effect in 5-10 minutes or when the server is restarted.
+To refresh credentials in a running server use 'kopia server refresh' command.
+```
+
+Other commands are also available:
+
+* `kopia user list` - lists user accounts
+* `kopia user set` - changes password
+* `kopia user delete` - deletes user account
+
+## Configuring Allowed Users - Kopia v0.7
+
+>NOTE: This method is still supported in v0.8 but it's recommended to use `kopia user` to manage users
+instead.
+
+In Kopia v7.0 the user list must be put in a text file formatted using the [htpasswd](https://httpd.apache.org/docs/2.4/programs/htpasswd.html) utility from Apache. 
+
+Each username must be named:
 
 ```
 <client-username>@<client-host-name-lowercase-without-domain>
@@ -61,6 +91,13 @@ To start repository server with auto-generated TLS certificate for the first tim
 ```
 kopia server start --htpasswd-file ~/password.txt --tls-generate-cert --tls-cert-file ~/my.cert --tls-key-file ~/my.key --address 0.0.0.0:51515
 ```
+
+or when using repository users in Kopia v0.8 and newer:
+
+```
+kopia server start --allow-repository-users --tls-generate-cert --tls-cert-file ~/my.cert --tls-key-file ~/my.key --address 0.0.0.0:51515
+```
+
 
 This will generate TLS certificate and key files and store them in the provided paths (`~/my.cert` and `~/my.key` respectively). It will also print certificate SHA256 fingerprint, which will be used later:
 

@@ -109,7 +109,7 @@ func ValidateUsername(name string) error {
 	}
 
 	if !validUsernameRegexp.MatchString(name) {
-		return errors.Errorf("username must be specified as lowercase 'user@hostnames' (using only simple hostnames)")
+		return errors.Errorf("username must be specified as lowercase 'user@hostname'")
 	}
 
 	return nil
