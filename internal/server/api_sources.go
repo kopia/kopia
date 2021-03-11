@@ -51,6 +51,8 @@ func (s *Server) handleSourcesCreate(ctx context.Context, r *http.Request, body 
 		return nil, requestError(serverapi.ErrorMalformedRequest, "missing path")
 	}
 
+	req.Path = resolveUserFriendlyPath(req.Path)
+
 	_, err := os.Stat(req.Path)
 	if os.IsNotExist(err) {
 		return nil, requestError(serverapi.ErrorPathNotFound, "path does not exist")

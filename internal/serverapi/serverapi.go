@@ -213,3 +213,8 @@ type RestoreRequest struct {
 	TarFile string          `json:"tarFile"`
 	Options restore.Options `json:"options"`
 }
+
+// EstimateRequest contains request to estimate the size of the snapshot in a given root.
+type EstimateRequest struct {
+	Root string `json:"root"`
+}
