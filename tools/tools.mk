@@ -297,7 +297,7 @@ signing-tools:
 	@echo "$(CSC_LINK)" | base64 -d > /tmp/certs.p12
 	@security create-keychain -p $(KEYCHAIN_PASSWORD) $(MACOS_KEYCHAIN)
 	@security unlock-keychain -p $(KEYCHAIN_PASSWORD) $(MACOS_KEYCHAIN)
-	@security list-keychain -s $(MACOS_KEYCHAIN) login.keychain
+	@security default-keychain -s $(MACOS_KEYCHAIN)
 	@security import /tmp/certs.p12 -k $(MACOS_KEYCHAIN) -P $(CSC_KEY_PASSWORD) -T /usr/bin/codesign;
 	@rm -f /tmp/certs.p12
 	@security set-key-partition-list -S apple-tool:,apple: -s -k $(KEYCHAIN_PASSWORD) $(MACOS_KEYCHAIN) > /dev/null
