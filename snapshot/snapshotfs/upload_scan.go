@@ -3,9 +3,9 @@ package snapshotfs
 import (
 	"context"
 
-	"github.com/pkg/errors"
-
 	"github.com/kopia/kopia/fs"
+	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/policy"
 )
 
 type scanResults struct {
@@ -13,45 +13,29 @@ type scanResults struct {
 	totalFileSize int64
 }
 
+func (e *scanResults) Error(ctx context.Context, filename string, err error, isIgnored bool) {}
+
+func (e *scanResults) Processing(ctx context.Context, pathname string) {}
+
+func (e *scanResults) Stats(ctx context.Context, s *snapshot.Stats, includedFiles, excludedFiles SampleBuckets, excludedDirs []string, final bool) {
+	if final {
+		e.numFiles = int(s.TotalFileCount)
+		e.totalFileSize = s.TotalFileSize
+	}
+}
+
+var _ EstimateProgress = (*scanResults)(nil)
+
 // scanDirectory computes the number of files and their total size in a given directory recursively descending
 // into subdirectories. The scan teminates early as soon as the provided context is canceled.
-func (u *Uploader) scanDirectory(ctx context.Context, dir fs.Directory) (scanResults, error) {
+func (u *Uploader) scanDirectory(ctx context.Context, dir fs.Directory, policyTree *policy.Tree) (scanResults, error) {
 	var res scanResults
 
 	if u.disableEstimation {
 		return res, nil
 	}
 
-	entries, err := dir.Readdir(ctx)
-	if err != nil {
-		return res, errors.Wrap(err, "unable to read directory")
-	}
+	err := Estimate(ctx, u.repo, dir, policyTree, &res)
 
-	for _, e := range entries {
-		if err := ctx.Err(); err != nil {
-			// terminate early if context got canceled
-			// nolint:wrapcheck
-			return res, err
-		}
-
-		switch e := e.(type) {
-		case fs.Directory:
-			dr, err := u.scanDirectory(ctx, e)
-			res.numFiles += dr.numFiles
-			res.totalFileSize += dr.totalFileSize
-
-			if err != nil {
-				return res, err
-			}
-
-		case fs.File:
-			res.numFiles++
-			res.totalFileSize += e.Size()
-
-		case fs.StreamingFile:
-			res.numFiles++
-		}
-	}
-
-	return res, nil
+	return res, err
 }
