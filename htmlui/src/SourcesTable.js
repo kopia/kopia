@@ -5,12 +5,8 @@ import moment from 'moment';
 import React, { Component } from 'react';
 import Badge from 'react-bootstrap/Badge';
 import Button from 'react-bootstrap/Button';
-import ButtonGroup from 'react-bootstrap/ButtonGroup';
-import ButtonToolbar from 'react-bootstrap/ButtonToolbar';
+import Col from 'react-bootstrap/Col';
 import Dropdown from 'react-bootstrap/Dropdown';
-import DropdownButton from 'react-bootstrap/DropdownButton';
-import FormControl from 'react-bootstrap/FormControl';
-import InputGroup from 'react-bootstrap/InputGroup';
 import Row from 'react-bootstrap/Row';
 import Spinner from 'react-bootstrap/Spinner';
 import { Link } from 'react-router-dom';
@@ -37,13 +33,8 @@ export class SourcesTable extends Component {
 
         this.sync = this.sync.bind(this);
         this.fetchSourcesWithoutSpinner = this.fetchSourcesWithoutSpinner.bind(this);
-        this.selectDirectory = this.selectDirectory.bind(this);
         this.handleChange = handleChange.bind(this);
 
-        this.snapshotOnce = this.snapshotOnce.bind(this);
-        this.snapshotEveryDay = this.snapshotEveryDay.bind(this);
-        this.snapshotEveryHour = this.snapshotEveryHour.bind(this);
-        this.createPolicy = this.createPolicy.bind(this);
         this.cancelSnapshot = this.cancelSnapshot.bind(this);
         this.startSnapshot = this.startSnapshot.bind(this);
     }
@@ -94,87 +85,6 @@ export class SourcesTable extends Component {
         });
     }
 
-    selectDirectory() {
-        // populated in 'preload.js' in Electron
-        if (!window.require) {
-            alert('Directory selection is not supported in a web browser.\n\nPlease enter path manually.');
-            return;
-        }
-
-        const { dialog } = window.require('electron').remote;
-        try {
-            let dir = dialog.showOpenDialogSync({
-                properties: ['openDirectory']
-            });
-            if (dir) {
-                this.setState({
-                    selectedDirectory: dir[0],
-                });
-            }
-        } catch (e) {
-            window.alert('Error: ' + e);
-        }
-    }
-
-    createSource(request) {
-        if (!this.state.selectedDirectory) {
-            alert('Must specify directory to snapshot.');
-            return
-        }
-
-        axios.post('/api/v1/sources', request).then(result => {
-            this.fetchSourcesWithoutSpinner();
-        }).catch(error => {
-            if (error.response) {
-                alert('Error: ' + error.response.data.error + " (" + error.response.data.code + ")");
-                return
-            }
-
-            this.setState({
-                error,
-                isLoading: false
-            });
-        });
-    }
-
-    snapshotOnce() {
-        this.createSource({
-            path: this.state.selectedDirectory,
-            createSnapshot: true,
-            initialPolicy: {
-            }
-        });
-    }
-
-    snapshotEveryDay() {
-        this.createSource({
-            path: this.state.selectedDirectory,
-            createSnapshot: true,
-            initialPolicy: {
-                scheduling: { intervalSeconds: 86400 },
-            }
-        });
-    }
-
-    snapshotEveryHour() {
-        this.createSource({
-            path: this.state.selectedDirectory,
-            createSnapshot: true,
-            initialPolicy: {
-                scheduling: { intervalSeconds: 3600 },
-            }
-        });
-    }
-
-    createPolicy() {
-        this.createSource({
-            path: this.state.selectedDirectory,
-            createSnapshot: false,
-            initialPolicy: {
-                scheduling: { intervalSeconds: 3600 },
-            }
-        });
-    }
 
     statusCell(x, parent) {
         switch (x.cell.value) {
@@ -216,7 +126,7 @@ export class SourcesTable extends Component {
                 return <>
                     <Spinner animation="border" variant="primary" size="sm" title={title} />&nbsp;{totals}
                     &nbsp;
-                    {x.row.original.currentTask && <Link to={"/tasks/"+x.row.original.currentTask}>Details</Link>}
+                    {x.row.original.currentTask && <Link to={"/tasks/" + x.row.original.currentTask}>Details</Link>}
                 </>;
 
             default:
@@ -326,63 +236,35 @@ export class SourcesTable extends Component {
             Cell: x => this.statusCell(x, this),
         }]
 
-        const selectSupported = !!window.require;
-
         return <div className="padded">
-            {this.state.multiUser && <ButtonToolbar className="float-sm-right">
-                &nbsp;
-                <ButtonGroup>
-                    <Dropdown>
-                        <Dropdown.Toggle size="sm" variant="outline-primary" id="dropdown-basic">
-                        <FontAwesomeIcon icon={faUserFriends} />&nbsp;{this.state.selectedOwner}
-                        </Dropdown.Toggle>
+            <div class="list-actions">
+                <Row>
+                    {this.state.multiUser && <><Col xs="auto">
+                        <Dropdown>
+                            <Dropdown.Toggle size="sm" variant="outline-primary" id="dropdown-basic">
+                                <FontAwesomeIcon icon={faUserFriends} />&nbsp;{this.state.selectedOwner}
+                            </Dropdown.Toggle>
 
-                        <Dropdown.Menu>
-                            <Dropdown.Item onClick={() => this.selectOwner(localSnapshots)}>{localSnapshots}</Dropdown.Item>
-                            <Dropdown.Item onClick={() => this.selectOwner(allSnapshots)}>{allSnapshots}</Dropdown.Item>
-                            <Dropdown.Divider />
-                            {uniqueOwners.map(v => <Dropdown.Item key={v} onClick={() => this.selectOwner(v)}>{v}</Dropdown.Item>)}
-                        </Dropdown.Menu>
-                    </Dropdown>
-                </ButtonGroup>
-                &nbsp;
-                <ButtonGroup>
-                    <Button size="sm" variant="primary"><FontAwesomeIcon icon={faSync} /></Button>
-                </ButtonGroup>
-            </ButtonToolbar>}
-            <ButtonToolbar>
-                <InputGroup>
-                    <FormControl
-                        id="snapshot-path"
-                        placeholder="Enter source path to create new snapshot"
-                        name="selectedDirectory"
-                        value={this.state.selectedDirectory}
-                        onChange={this.handleChange}
-                        size="sm" 
-                    />
-                    {selectSupported && <Button as={InputGroup.Prepend}
-                        title="Snapshot"
-                        variant="primary"
-                        id="input-group-dropdown-2"
-                        onClick={this.selectDirectory}>...</Button>}
-                </InputGroup>
-                &nbsp;
-                <DropdownButton
-                    as={InputGroup.Append}
-                    variant="success"
-                    title="New Snapshot"
-                    id="dropdown1"
-                    size="sm">
-                    <Dropdown.Item href="#" onClick={this.snapshotOnce}>Snapshot Once</Dropdown.Item>
-                    <Dropdown.Item href="#" onClick={this.snapshotEveryHour}>Snapshot Every Hour</Dropdown.Item>
-                    <Dropdown.Item href="#" onClick={this.snapshotEveryDay}>Snapshot Every Day</Dropdown.Item>
-                    {/* <Dropdown.Item href="#" onClick={this.createPolicy}>Create Policy</Dropdown.Item> */}
-                </DropdownButton>
-            </ButtonToolbar>
-            <hr />
-            <Row>
-                <MyTable data={sources} columns={columns} />
-            </Row>
+                            <Dropdown.Menu>
+                                <Dropdown.Item onClick={() => this.selectOwner(localSnapshots)}>{localSnapshots}</Dropdown.Item>
+                                <Dropdown.Item onClick={() => this.selectOwner(allSnapshots)}>{allSnapshots}</Dropdown.Item>
+                                <Dropdown.Divider />
+                                {uniqueOwners.map(v => <Dropdown.Item key={v} onClick={() => this.selectOwner(v)}>{v}</Dropdown.Item>)}
+                            </Dropdown.Menu>
+                        </Dropdown>
+                    </Col></>}
+                    <Col xs="auto">
+                        <Button size="sm" variant="success" href="/snapshots/new">New Snapshot</Button>
+                    </Col>
+                    <Col>
+                    </Col>
+                    <Col xs="auto">
+                        <Button size="sm" variant="primary"><FontAwesomeIcon icon={faSync} /></Button>
+                    </Col>
+                </Row>
+            </div>
+
+            <MyTable data={sources} columns={columns} />
         </div>;
     }
 }

@@ -15,6 +15,8 @@ import { SnapshotsTable } from "./SnapshotsTable";
 import { SourcesTable } from "./SourcesTable";
 import { TaskDetails } from './TaskDetails';
 import { TasksTable } from './TasksTable';
+import { NewSnapshot } from './NewSnapshot';
+import { PolicyEditor } from './PolicyEditor';
 
 function useInterval(callback, delay) {
   const savedCallback = useRef();
@@ -40,8 +42,8 @@ function App() {
   const [runningTaskCount, setRunningTaskCount] = useState(0);
 
   useInterval(() => {
-      axios.get('/api/v1/tasks-summary').then(result => {
-        setRunningTaskCount(result.data["RUNNING"] || 0);
+    axios.get('/api/v1/tasks-summary').then(result => {
+      setRunningTaskCount(result.data["RUNNING"] || 0);
     }).catch(error => {
       setRunningTaskCount(-1);
     });
@@ -57,7 +59,7 @@ function App() {
             <NavLink className="nav-link" activeClassName="active" to="/snapshots">Snapshots</NavLink>
             <NavLink className="nav-link" activeClassName="active" to="/policies">Policies</NavLink>
             <NavLink className="nav-link" activeClassName="active" to="/tasks">Tasks <>
-            {runningTaskCount > 0 && <>({runningTaskCount})</>}
+              {runningTaskCount > 0 && <>({runningTaskCount})</>}
             </>
             </NavLink>
             <NavLink className="nav-link" activeClassName="active" to="/repo">Repository</NavLink>
@@ -67,10 +69,12 @@ function App() {
 
       <Container fluid>
         <Switch>
+          <Route path="/snapshots/new" component={NewSnapshot} />
           <Route path="/snapshots/single-source/" component={SnapshotsTable} />
           <Route path="/snapshots/dir/:oid/restore" component={BeginRestore} />
           <Route path="/snapshots/dir/:oid" component={DirectoryObject} />
           <Route path="/snapshots" component={SourcesTable} />
+          <Route path="/policies/edit/" component={PolicyEditor} />
           <Route path="/policies" component={PoliciesTable} />
           <Route path="/tasks/:tid" component={TaskDetails} />
           <Route path="/tasks" component={TasksTable} />

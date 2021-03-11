@@ -1,4 +1,4 @@
-import { faBan, faCheck, faChevronLeft, faExclamationCircle, faExclamationTriangle, faWindowClose } from '@fortawesome/free-solid-svg-icons';
+import { faBan, faCheck, faChevronLeft, faExclamationCircle, faExclamationTriangle, faFolderOpen, faWindowClose } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
 import React from 'react';
@@ -7,6 +7,9 @@ import ListGroup from 'react-bootstrap/ListGroup';
 import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
 import Popover from 'react-bootstrap/Popover';
 import Spinner from 'react-bootstrap/Spinner';
+import InputGroup from 'react-bootstrap/InputGroup';
+import Form from 'react-bootstrap/Form';
+import FormControl from 'react-bootstrap/FormControl';
 
 const base10UnitPrefixes = ["", "K", "M", "G", "T"];
 
@@ -172,4 +175,64 @@ export function cancelTask(tid) {
 
 export function GoBackButton(props) {
     return <Button size="sm" variant="outline-secondary" {...props}><FontAwesomeIcon icon={faChevronLeft} /> Return </Button>;
+}
+
+function selectDirectory(onSelected) {
+    // populated in 'preload.js' in Electron
+    if (!window.require) {
+        alert('Directory selection is not supported in a web browser.\n\nPlease enter path manually.');
+        return;
+    }
+
+    const { dialog } = window.require('electron').remote;
+    try {
+        let dir = dialog.showOpenDialogSync({
+            properties: ['openDirectory']
+        });
+        if (dir) {
+            onSelected(dir[0]);
+        }
+    } catch (e) {
+        window.alert('Error: ' + e);
+    }
+}
+
+export function isAbsolutePath(p) {
+    // Unix-style path.
+    if (p.startsWith("/")) {
+        return true;
+    }
+
+    // Windows-style X:\... path.
+    if (p.length >= 3 && p.substring(1,3) === ":\\") {
+        const letter = p.substring(0, 1).toUpperCase();
+
+        return letter >= "A" && letter <= "Z";
+    }
+
+    // Windows UNC path.
+    if (p.startsWith("\\\\")) {
+        return true;
+    }
+
+    return false;
+}
+
+export function DirectorySelector(props) {
+    const selectSupported = !!window.require;
+
+    let { onDirectorySelected, ...inputProps } = props;
+
+    if (!selectSupported) {
+        return <Form.Control size="sm" {...inputProps} />
+    }
+
+    return <InputGroup>
+        <FormControl size="sm" {...inputProps} />
+        <InputGroup.Append>
+            <Button size="sm" onClick={() => selectDirectory(onDirectorySelected)}>
+                <FontAwesomeIcon icon={faFolderOpen} />
+            </Button>
+        </InputGroup.Append>
+    </InputGroup>;
 }

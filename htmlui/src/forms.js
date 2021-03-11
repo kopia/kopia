@@ -71,6 +71,7 @@ export function RequiredField(component, label, name, props = {}, helpText = nul
     return <Form.Group as={Col}>
         <Form.Label className="required">{label}</Form.Label>
         <Form.Control
+            size="sm"
             isInvalid={stateProperty(component, name, null) === ''}
             name={name}
             value={stateProperty(component, name)}
@@ -86,6 +87,7 @@ export function OptionalField(component, label, name, props = {}, helpText = nul
     return <Form.Group as={Col}>
         <Form.Label>{label}</Form.Label>
         <Form.Control
+            size="sm"
             name={name}
             value={stateProperty(component, name)}
             data-testid={'control-' + name}
@@ -125,6 +127,7 @@ export function OptionalNumberField(component, label, name, props = {}) {
     return <Form.Group as={Col}>
         <Form.Label>{label}</Form.Label>
         <Form.Control
+            size="sm"
             name={name}
             isInvalid={isInvalidNumber(stateProperty(component, name))}
             value={stateProperty(component, name)}
@@ -184,6 +187,7 @@ export function OptionalBoolean(component, label, name, defaultLabel) {
     return <Form.Group as={Col}>
         <Form.Label>{label}</Form.Label>
         <Form.Control
+            size="sm"
             name={name}
             value={stateProperty(component, name)}
             onChange={e => component.handleChange(e, optionalBooleanValue)}
@@ -216,6 +220,7 @@ export function StringList(component, label, name, helpText) {
     return <Form.Group as={Col}>
         <Form.Label>{label}</Form.Label>
         <Form.Control
+            size="sm"
             name={name}
             value={listToMultilineString(stateProperty(component, name))}
             onChange={e => component.handleChange(e, multilineStringToList)}
