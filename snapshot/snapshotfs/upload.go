@@ -1127,6 +1127,16 @@ func (u *Uploader) Upload(
 			}
 		}
 
+		scanWG.Add(1)
+
+		go func() {
+			defer scanWG.Done()
+
+			ds, _ := u.scanDirectory(scanctx, entry, policyTree)
+
+			u.Progress.EstimatedDataSize(ds.numFiles, ds.totalFileSize)
+		}()
+
 		entry = ignorefs.New(entry, policyTree, ignorefs.ReportIgnoredFiles(func(fname string, md fs.Entry) {
 			if md.IsDir() {
 				u.Progress.ExcludedDir(fname)
@@ -1136,17 +1146,6 @@ func (u *Uploader) Upload(
 
 			u.stats.AddExcluded(md)
 		}))
-
-		scanWG.Add(1)
-
-		go func() {
-			defer scanWG.Done()
-
-			ds, _ := u.scanDirectory(scanctx, entry)
-
-			u.Progress.EstimatedDataSize(ds.numFiles, ds.totalFileSize)
-		}()
-
 		s.RootEntry, err = u.uploadDirWithCheckpointing(ctx, entry, policyTree, previousDirs, sourceInfo)
 
 	case fs.File:

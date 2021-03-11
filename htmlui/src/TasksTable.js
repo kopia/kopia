@@ -4,10 +4,9 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
 import moment from 'moment';
 import React, { Component } from 'react';
-import ButtonGroup from 'react-bootstrap/ButtonGroup';
+import Alert from 'react-bootstrap/Alert';
 import Col from 'react-bootstrap/Col';
 import Dropdown from 'react-bootstrap/Dropdown';
-import Alert from 'react-bootstrap/Alert';
 import Form from 'react-bootstrap/Form';
 import Row from 'react-bootstrap/Row';
 import { Link } from 'react-router-dom';
@@ -128,35 +127,34 @@ export class TasksTable extends Component {
 
         return <div className="padded">
             <Form>
+                <div class="list-actions">
                 <Row>
-                    <Col>
-                        <ButtonGroup>
-                            <Dropdown>
-                                <Dropdown.Toggle size="sm" variant="primary">Status: {this.state.showStatus}</Dropdown.Toggle>
-                                <Dropdown.Menu>
-                                    <Dropdown.Item onClick={() => this.setState({ showStatus: "All" })}>All</Dropdown.Item>
-                                    <Dropdown.Divider />
-                                    <Dropdown.Item onClick={() => this.setState({ showStatus: "Running" })}>Running</Dropdown.Item>
-                                    <Dropdown.Item onClick={() => this.setState({ showStatus: "Failed" })}>Failed</Dropdown.Item>
-                                </Dropdown.Menu>
-                            </Dropdown>
-                            &nbsp;
-                            <Dropdown>
-                                <Dropdown.Toggle size="sm" variant="primary">Kind: {this.state.showKind}</Dropdown.Toggle>
-                                <Dropdown.Menu>
-                                    <Dropdown.Item onClick={() => this.setState({ showKind: "All" })}>All</Dropdown.Item>
-                                    <Dropdown.Divider />
-                                    {this.state.uniqueKinds.map(k => <Dropdown.Item onClick={() => this.setState({ showKind: k })}>{k}</Dropdown.Item>)}
-                                </Dropdown.Menu>
-                            </Dropdown>
-                            &nbsp;
-                            <Form.Control size="sm" type="text" name="searchDescription" placeholder="search description" value={this.state.searchDescription} onChange={this.handleChange} autoFocus={true} />
-                        </ButtonGroup>
+                    <Col xs="auto">
+                        <Dropdown>
+                            <Dropdown.Toggle size="sm" variant="primary">Status: {this.state.showStatus}</Dropdown.Toggle>
+                            <Dropdown.Menu>
+                                <Dropdown.Item onClick={() => this.setState({ showStatus: "All" })}>All</Dropdown.Item>
+                                <Dropdown.Divider />
+                                <Dropdown.Item onClick={() => this.setState({ showStatus: "Running" })}>Running</Dropdown.Item>
+                                <Dropdown.Item onClick={() => this.setState({ showStatus: "Failed" })}>Failed</Dropdown.Item>
+                            </Dropdown.Menu>
+                        </Dropdown>
+                    </Col>
+                    <Col xs="auto">
+                        <Dropdown>
+                            <Dropdown.Toggle size="sm" variant="primary">Kind: {this.state.showKind}</Dropdown.Toggle>
+                            <Dropdown.Menu>
+                                <Dropdown.Item onClick={() => this.setState({ showKind: "All" })}>All</Dropdown.Item>
+                                <Dropdown.Divider />
+                                {this.state.uniqueKinds.map(k => <Dropdown.Item onClick={() => this.setState({ showKind: k })}>{k}</Dropdown.Item>)}
+                            </Dropdown.Menu>
+                        </Dropdown>
+                    </Col>
+                    <Col xs="4">
+                        <Form.Control size="sm" type="text" name="searchDescription" placeholder="search description" value={this.state.searchDescription} onChange={this.handleChange} autoFocus={true} />
                     </Col>
                 </Row>
-                <Form.Row>
-                    <hr />
-                </Form.Row>
+                </div>
                 <Form.Row>
                     <Col>
                         {!items.length ?

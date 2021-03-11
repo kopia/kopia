@@ -32,6 +32,7 @@ type Controller interface {
 	CurrentTaskID() string
 	OnCancel(cancelFunc context.CancelFunc)
 	ReportCounters(counters map[string]CounterValue)
+	ReportProgressInfo(text string)
 }
 
 // TaskFunc represents a task function.
@@ -177,6 +178,8 @@ func (m *Manager) completeTask(r *runningTaskInfo, err error) {
 	} else {
 		r.Status = StatusCanceled
 	}
+
+	r.ProgressInfo = ""
 
 	now := clock.Now()
 	r.EndTime = &now

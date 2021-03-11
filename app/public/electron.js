@@ -32,6 +32,7 @@ function showRepoWindow(repoID) {
     autoHideMenuBar: true,
     webPreferences: {
       nodeIntegration: true,
+      enableRemoteModule: true,
     },
   })
 

@@ -52,6 +52,7 @@ type Info struct {
 	Kind         string                  `json:"kind"` // Maintenance, Snapshot, Restore, etc.
 	Description  string                  `json:"description"`
 	Status       Status                  `json:"status"`
+	ProgressInfo string                  `json:"progressInfo"`
 	ErrorMessage string                  `json:"errorMessage,omitempty"`
 	Counters     map[string]CounterValue `json:"counters"`
 	LogLines     []LogEntry              `json:"-"`
@@ -99,6 +100,14 @@ func (t *runningTaskInfo) cancel() {
 
 		t.taskCancel = nil
 	}
+}
+
+// ReportProgressInfo implements the Controller interface.
+func (t *runningTaskInfo) ReportProgressInfo(pi string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	t.ProgressInfo = pi
 }
 
 // ReportCounters implements the Controller interface.

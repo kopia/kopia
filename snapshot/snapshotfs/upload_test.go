@@ -547,7 +547,7 @@ func TestUploadWithCheckpointing(t *testing.T) {
 	}
 }
 
-func TestUploadScan(t *testing.T) {
+func TestUploadScanStopsOnContextCancel(t *testing.T) {
 	ctx := testlogging.Context(t)
 	th := newUploadTestHarness(ctx, t)
 
@@ -561,13 +561,54 @@ func TestUploadScan(t *testing.T) {
 		cancel()
 	})
 
-	result, err := u.scanDirectory(scanctx, th.sourceDir)
+	result, err := u.scanDirectory(scanctx, th.sourceDir, nil)
 	if !errors.Is(err, scanctx.Err()) {
 		t.Fatalf("invalid scan error: %v", err)
 	}
 
 	if result.numFiles == 0 && result.totalFileSize == 0 {
 		t.Fatalf("should have returned partial results, got zeros")
+	}
+}
+
+func TestUploadScanIgnoresFiles(t *testing.T) {
+	ctx := testlogging.Context(t)
+	th := newUploadTestHarness(ctx, t)
+
+	defer th.cleanup()
+
+	u := NewUploader(th.repo)
+
+	// set up a policy tree where that ignores some files.
+	policyTree := policy.BuildTree(map[string]*policy.Policy{
+		".": {
+			FilesPolicy: policy.FilesPolicy{
+				IgnoreRules: []string{"f1"},
+			},
+		},
+	}, policy.DefaultPolicy)
+
+	// no policy
+	result1, err := u.scanDirectory(ctx, th.sourceDir, nil)
+	must(t, err)
+
+	result2, err := u.scanDirectory(ctx, th.sourceDir, policyTree)
+	must(t, err)
+
+	if result1.numFiles == 0 {
+		t.Fatalf("no files scanned")
+	}
+
+	if result2.numFiles == 0 {
+		t.Fatalf("no files scanned")
+	}
+
+	if got, want := result2.numFiles, result1.numFiles; got >= want {
+		t.Fatalf("expected lower number of files %v, wanted %v", got, want)
+	}
+
+	if got, want := result2.totalFileSize, result1.totalFileSize; got >= want {
+		t.Fatalf("expected lower file size %v, wanted %v", got, want)
 	}
 }
 
@@ -623,5 +664,13 @@ func TestUpload_VirtualDirectoryWithStreamingFile(t *testing.T) {
 	if got, want := man.Stats.TotalFileCount, int32(1); got != want {
 		// must have one file
 		t.Fatalf("unexpected manifest file count: %v, want %v", got, want)
+	}
+}
+
+func must(t *testing.T, err error) {
+	t.Helper()
+
+	if err != nil {
+		t.Fatal(err)
 	}
 }

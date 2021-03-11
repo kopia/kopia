@@ -1,5 +1,5 @@
 
-import { faStopCircle } from '@fortawesome/free-solid-svg-icons';
+import { faChevronCircleDown, faChevronCircleUp, faStopCircle } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
 import React, { Component } from 'react';
@@ -9,9 +9,8 @@ import Button from 'react-bootstrap/Button';
 import Col from 'react-bootstrap/Col';
 import Form from 'react-bootstrap/Form';
 import Spinner from 'react-bootstrap/Spinner';
-import { sizeDisplayName } from './uiutil';
 import { TaskLogs } from './TaskLogs';
-import { cancelTask, formatDuration, GoBackButton, redirectIfNotConnected } from './uiutil';
+import { cancelTask, formatDuration, GoBackButton, redirectIfNotConnected, sizeDisplayName } from './uiutil';
 
 export class TaskDetails extends Component {
     constructor() {
@@ -23,8 +22,9 @@ export class TaskDetails extends Component {
             showLog: false,
         };
 
+        this.taskID = this.taskID.bind(this);
         this.fetchTask = this.fetchTask.bind(this);
-        
+
         // poll frequently, we will stop as soon as the task ends.
         this.interval = window.setInterval(() => this.fetchTask(this.props), 500);
     }
@@ -43,10 +43,12 @@ export class TaskDetails extends Component {
         }
     }
 
-    fetchTask(props) {
-        let tid = props.match.params.tid;
+    taskID(props) {
+        return props.taskID || props.match.params.tid;
+    }
 
-        axios.get('/api/v1/tasks/' + tid).then(result => {
+    fetchTask(props) {
+        axios.get('/api/v1/tasks/' + this.taskID(props)).then(result => {
             this.setState({
                 task: result.data,
                 isLoading: false,
@@ -74,25 +76,35 @@ export class TaskDetails extends Component {
 
         switch (task.status) {
 
-        case "SUCCESS":
-            return <Alert variant="success">Task succeeded after {dur}.</Alert>;
+            case "SUCCESS":
+                return <Alert variant="success">Task succeeded after {dur}.</Alert>;
 
-        case "FAILED":
-            return <Alert variant="danger"><b>Error:</b> {task.errorMessage}.</Alert>;
+            case "FAILED":
+                return <Alert variant="danger"><b>Error:</b> {task.errorMessage}.</Alert>;
 
-        case "CANCELING":
-            return <Alert variant="warning">Cancelation requested...</Alert>;
+            case "CANCELED":
+                return <Alert variant="warning">Task canceled.</Alert>;
 
-        case "CANCELED":
-            return <Alert variant="warning">Task canceled.</Alert>;
+            case "CANCELING":
+                return <Alert variant="primary">
+                    <Spinner animation="border" variant="warning" size="sm" /> Canceling {dur}: {task.progressInfo}.</Alert>;
 
-        default:
-            return <Alert variant="primary"> <Spinner animation="border" variant="primary" size="sm" /> Task in progress ({dur}).</Alert>;
+            default:
+                return <Alert variant="primary">
+                    <Spinner animation="border" variant="primary" size="sm" /> Running for {dur}: {task.progressInfo}.</Alert>;
         }
     }
 
+    valueThreshold() {
+        if (this.props.showZeroCounters) {
+            return -1;
+        }
+
+        return 0
+    }
+
     counterBadge(label, c) {
-        if (!c.value) {
+        if (c.value < this.valueThreshold()) {
             return "";
         }
 
@@ -153,7 +165,7 @@ export class TaskDetails extends Component {
             return 0;
         });
 
-        return keys.map(c => (counters[c].value > 0) && this.counterBadge(c, counters[c]));
+        return keys.map(c => (counters[c].value > this.valueThreshold()) && this.counterBadge(c, counters[c]));
     }
 
     render() {
@@ -167,15 +179,16 @@ export class TaskDetails extends Component {
         }
 
         return <Form>
-            <Form.Row>
-                <Form.Group>
-                    <GoBackButton onClick={this.props.history.goBack} />
-                    {task.status === "RUNNING" && <>
-                        &nbsp;<Button size="sm" variant="danger" onClick={() => cancelTask(task.id)} ><FontAwesomeIcon icon={faStopCircle} /> Stop </Button>
-                    </>}
-                </Form.Group>
-            </Form.Row>
-            <Form.Row>
+            {this.props.history &&
+                <Form.Row>
+                    <Form.Group>
+                        <GoBackButton onClick={this.props.history.goBack} />
+                        {task.status === "RUNNING" && <>
+                            &nbsp;<Button size="sm" variant="danger" onClick={() => cancelTask(task.id)} ><FontAwesomeIcon icon={faStopCircle} /> Stop </Button>
+                        </>}
+                    </Form.Group>
+                </Form.Row>}
+            {!this.props.hideDescription && <Form.Row>
                 <Col xs={3} >
                     <Form.Group>
                         <Form.Control type="text" readOnly={true} value={task.kind} />
@@ -186,7 +199,7 @@ export class TaskDetails extends Component {
                         <Form.Control type="text" readOnly={true} value={task.description} />
                     </Form.Group>
                 </Col>
-            </Form.Row>
+            </Form.Row>}
             <Form.Row>
                 <Col xs={9}>
                     {this.summaryControl(task)}
@@ -199,13 +212,16 @@ export class TaskDetails extends Component {
             </Form.Row>
             {task.counters && <Form.Row>
                 <Col>
-                {this.sortedBadges(task.counters)}
+                    {this.sortedBadges(task.counters)}
                 </Col>
             </Form.Row>}
-            <hr/>
+            <hr />
             <Form.Row>
                 <Col>
-                {this.state.showLog ? <TaskLogs taskID={this.props.match.params.tid} /> : <Button onClick={() => this.setState({showLog:true})}>Show Log</Button>}
+                    {this.state.showLog ? <>
+                        <Button size="sm" onClick={() => this.setState({ showLog: false })}><FontAwesomeIcon icon={faChevronCircleUp} /> Hide Log</Button>
+                        <TaskLogs taskID={this.taskID(this.props)} />
+                    </> : <Button size="sm" onClick={() => this.setState({ showLog: true })}><FontAwesomeIcon icon={faChevronCircleDown} /> Show Log</Button>}
                 </Col>
             </Form.Row>
         </Form>

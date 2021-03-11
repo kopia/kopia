@@ -113,8 +113,8 @@ div.tab-body {
 }
 
 .logs-table {
-  border: 1px solid #ccc;
-  background-color: #f0f0f0;
+  border: 1px solid #ccd;
+  background-color: #f0f0ff;
   font-family: monospace;
   font-size: 12px;
   font-weight: bold;
@@ -140,4 +140,21 @@ div.tab-body {
   height: 40px;
   font-size: 125%;
   vertical-align: text-bottom;
+}
+
+.nested-task {
+  padding: 10px;
+  padding-left: 40px;
+}
+
+.estimate-results {
+  margin: 10px;
+  margin-left: 15px;
+  padding: 15px;
+  border: 1px solid #ccc;
+  background-color: #f8f8ff;
+}
+
+.list-actions {
+  min-height: 40px;
 }
