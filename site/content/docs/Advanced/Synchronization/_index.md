@@ -1,6 +1,6 @@
 ---
-title: "Repository Synchronization"
-linkTitle: "Repository Synchronization"
+title: "Synchronization"
+linkTitle: "Synchronization"
 weight: 46
 ---
 

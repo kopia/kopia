@@ -10,7 +10,7 @@ Kopia functionality is organized into [Common Commands](common/) for typical use
 
 ### Connecting to Repository
 
-Most commands require a [Repository](../../architecture/) to be connected first. The first time you use Kopia, repository must be created, later on it can be connected to from one or more machines.
+Most commands require a [Repository](../../advanced/architecture/) to be connected first. The first time you use Kopia, repository must be created, later on it can be connected to from one or more machines.
 
 Creating a repository is as simple as:
 

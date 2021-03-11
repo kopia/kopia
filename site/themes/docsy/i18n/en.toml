@@ -22,10 +22,6 @@ other = "in"
 [footer_all_rights_reserved]
 other = "All Rights Reserved"
 
-[footer_privacy_policy]
-other = "Privacy Policy"
-
-
 # Post (blog, articles etc.)
 [post_byline_by]
 other = "By"
