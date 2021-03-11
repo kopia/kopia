@@ -9,11 +9,11 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/fs"
-	"github.com/kopia/kopia/fs/ignorefs"
 	"github.com/kopia/kopia/internal/units"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/snapshot/policy"
+	"github.com/kopia/kopia/snapshot/snapshotfs"
 )
 
 var (
@@ -24,44 +24,32 @@ var (
 	snapshotEstimateUploadSpeed = snapshotEstimate.Flag("upload-speed", "Upload speed to use for estimation").Default("10").PlaceHolder("mbit/s").Float64()
 )
 
-const maxExamplesPerBucket = 10
-
-type bucket struct {
-	MinSize   int64    `json:"minSize"`
-	Count     int      `json:"count"`
-	TotalSize int64    `json:"totalSize"`
-	Examples  []string `json:"examples,omitempty"`
+type estimateProgress struct {
+	stats        snapshot.Stats
+	included     snapshotfs.SampleBuckets
+	excluded     snapshotfs.SampleBuckets
+	excludedDirs []string
 }
 
-func (b *bucket) add(fname string, size int64) {
-	b.Count++
-	b.TotalSize += size
-
-	if len(b.Examples) < maxExamplesPerBucket {
-		b.Examples = append(b.Examples, fmt.Sprintf("%v - %v", fname, units.BytesStringBase10(size)))
+func (ep *estimateProgress) Processing(ctx context.Context, dirname string) {
+	if !*snapshotEstimateQuiet {
+		log(ctx).Infof("Analyzing %v...", dirname)
 	}
 }
 
-type buckets []*bucket
-
-func (b buckets) add(fname string, size int64) {
-	for _, bucket := range b {
-		if size >= bucket.MinSize {
-			bucket.add(fname, size)
-			break
-		}
+func (ep *estimateProgress) Error(ctx context.Context, filename string, err error, isIgnored bool) {
+	if isIgnored {
+		log(ctx).Warningf("Ignored error in %v: %v", filename, err)
+	} else {
+		log(ctx).Errorf("Error in %v: %v", filename, err)
 	}
 }
 
-func makeBuckets() buckets {
-	return buckets{
-		&bucket{MinSize: 1e15},
-		&bucket{MinSize: 1e12},
-		&bucket{MinSize: 1e9},
-		&bucket{MinSize: 1e6},
-		&bucket{MinSize: 1e3},
-		&bucket{MinSize: 0},
-	}
+func (ep *estimateProgress) Stats(ctx context.Context, st *snapshot.Stats, included, excluded snapshotfs.SampleBuckets, excludedDirs []string, final bool) {
+	ep.stats = *st
+	ep.included = included
+	ep.excluded = excluded
+	ep.excludedDirs = excludedDirs
 }
 
 func runSnapshotEstimateCommand(ctx context.Context, rep repo.Repository) error {
@@ -76,51 +64,53 @@ func runSnapshotEstimateCommand(ctx context.Context, rep repo.Repository) error 
 		UserName: rep.ClientOptions().Username,
 	}
 
-	var stats snapshot.Stats
-
-	ib := makeBuckets()
-	eb := makeBuckets()
-
-	onIgnoredFile := func(relativePath string, e fs.Entry) {
-		eb.add(relativePath, e.Size())
-
-		if e.IsDir() {
-			stats.ExcludedDirCount++
-
-			log(ctx).Infof("excluded dir %v", relativePath)
-		} else {
-			log(ctx).Infof("excluded file %v (%v)", relativePath, units.BytesStringBase10(e.Size()))
-			stats.ExcludedFileCount++
-			stats.ExcludedTotalFileSize += e.Size()
-		}
-	}
-
 	entry, err := getLocalFSEntry(ctx, path)
 	if err != nil {
 		return err
 	}
 
-	if dir, ok := entry.(fs.Directory); ok {
-		policyTree, err := policy.TreeForSource(ctx, rep, sourceInfo)
-		if err != nil {
-			return errors.Wrapf(err, "error creating policy tree for %v", sourceInfo)
-		}
-
-		entry = ignorefs.New(dir, policyTree, ignorefs.ReportIgnoredFiles(onIgnoredFile))
+	dir, ok := entry.(fs.Directory)
+	if !ok {
+		return errors.Errorf("invalid path: '%s': must be a directory", path)
 	}
 
-	if err := estimate(ctx, ".", entry, &stats, ib); err != nil {
-		return err
+	var ep estimateProgress
+
+	policyTree, err := policy.TreeForSource(ctx, rep, sourceInfo)
+	if err != nil {
+		return errors.Wrapf(err, "error creating policy tree for %v", sourceInfo)
 	}
 
-	fmt.Printf("Snapshot includes %v files, total size %v\n", stats.TotalFileCount, units.BytesStringBase10(stats.TotalFileSize))
-	showBuckets(ib)
+	if err := snapshotfs.Estimate(ctx, rep, dir, policyTree, &ep); err != nil {
+		return errors.Wrap(err, "error estimating")
+	}
+
+	fmt.Printf("Snapshot includes %v files, total size %v\n", ep.stats.TotalFileCount, units.BytesStringBase10(ep.stats.TotalFileSize))
+	showBuckets(ep.included, *snapshotEstimateShowFiles)
 	fmt.Println()
 
-	fmt.Printf("Snapshot excludes %v directories and %v files with total size %v\n", stats.ExcludedDirCount, stats.ExcludedFileCount, units.BytesStringBase10(stats.ExcludedTotalFileSize))
-	showBuckets(eb)
+	if ep.stats.ExcludedFileCount > 0 {
+		fmt.Printf("Snapshot excludes %v files, total size %v\n", ep.stats.ExcludedFileCount, ep.stats.ExcludedTotalFileSize)
+		showBuckets(ep.excluded, true)
+	} else {
+		fmt.Printf("Snapshots excludes no files.\n")
+	}
 
-	megabits := float64(stats.TotalFileSize) * 8 / 1000000 //nolint:gomnd
+	if ep.stats.ExcludedDirCount > 0 {
+		fmt.Printf("Snapshots excludes %v directories. Examples:\n", ep.stats.ExcludedDirCount)
+
+		for _, ed := range ep.excludedDirs {
+			fmt.Printf(" - %v\n", ed)
+		}
+	} else {
+		fmt.Printf("Snapshots excludes no directories.\n")
+	}
+
+	if ep.stats.ErrorCount > 0 {
+		fmt.Printf("Encountered %v errors.\n", ep.stats.ErrorCount)
+	}
+
+	megabits := float64(ep.stats.TotalFileSize) * 8 / 1000000 //nolint:gomnd
 	seconds := megabits / *snapshotEstimateUploadSpeed
 
 	fmt.Println()
@@ -129,47 +119,33 @@ func runSnapshotEstimateCommand(ctx context.Context, rep repo.Repository) error 
 	return nil
 }
 
-func showBuckets(b buckets) {
-	for _, bucket := range b {
+func showBuckets(buckets snapshotfs.SampleBuckets, showFiles bool) {
+	for i, bucket := range buckets {
 		if bucket.Count == 0 {
 			continue
 		}
 
-		fmt.Printf("  with size over %-5v: %7v files, total size %v\n", units.BytesStringBase10(bucket.MinSize), bucket.Count, units.BytesStringBase10(bucket.TotalSize))
+		var sizeRange string
 
-		if *snapshotEstimateShowFiles {
+		if i == 0 {
+			sizeRange = fmt.Sprintf("< %-6v",
+				units.BytesStringBase10(bucket.MinSize))
+		} else {
+			sizeRange = fmt.Sprintf("%-6v...%6v",
+				units.BytesStringBase10(bucket.MinSize),
+				units.BytesStringBase10(buckets[i-1].MinSize))
+		}
+
+		fmt.Printf("%18v: %7v files, total size %v\n",
+			sizeRange,
+			bucket.Count, units.BytesStringBase10(bucket.TotalSize))
+
+		if showFiles {
 			for _, sample := range bucket.Examples {
-				fmt.Printf("    %v\n", sample)
+				fmt.Printf(" - %v\n", sample)
 			}
 		}
 	}
-}
-
-func estimate(ctx context.Context, relativePath string, entry fs.Entry, stats *snapshot.Stats, ib buckets) error {
-	switch entry := entry.(type) {
-	case fs.Directory:
-		if !*snapshotEstimateQuiet {
-			log(ctx).Infof("Scanning %v\n", relativePath)
-		}
-
-		children, err := entry.Readdir(ctx)
-		if err != nil {
-			return errors.Wrap(err, "unable to read directory")
-		}
-
-		for _, child := range children {
-			if err := estimate(ctx, filepath.Join(relativePath, child.Name()), child, stats, ib); err != nil {
-				return err
-			}
-		}
-
-	case fs.File:
-		ib.add(relativePath, entry.Size())
-		stats.TotalFileCount++
-		stats.TotalFileSize += entry.Size()
-	}
-
-	return nil
 }
 
 func init() {
