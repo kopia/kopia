@@ -104,10 +104,10 @@ func populateRepository(ctx context.Context, password string) error {
 			return errors.Wrap(err, "unable to set global policy")
 		}
 
-		printPolicy(policy.DefaultPolicy, nil)
-		printStdout("\n")
-		printStdout("To change the policy use:\n  kopia policy set --global <options>\n")
-		printStdout("or\n  kopia policy set <dir> <options>\n")
+		printRetentionPolicy(policy.DefaultPolicy, nil)
+		printCompressionPolicy(policy.DefaultPolicy, nil)
+
+		printStderr("\nTo find more information about default policy run 'kopia policy get'.\nTo change the policy use 'kopia policy set' command.\n")
 
 		if err := setDefaultMaintenanceParameters(ctx, w); err != nil {
 			return errors.Wrap(err, "unable to set maintenance parameters")
