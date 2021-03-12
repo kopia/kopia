@@ -35,9 +35,8 @@ type SnapshotGCParams struct {
 func DefaultParams() Params {
 	return Params{
 		FullCycle: CycleParams{
-			// TODO: enable this when ready for public consumption
-			// Enabled:  true,
-			Interval: 7 * 24 * time.Hour,
+			Enabled:  true,
+			Interval: 24 * time.Hour, //nolint:gomnd
 		},
 		QuickCycle: CycleParams{
 			Enabled:  true,

@@ -39,7 +39,6 @@ const (
 NOTICE: Kopia will check for updates on GitHub every 7 days, starting 24 hours after first use.
 To disable this behavior, set environment variable ` + checkForUpdatesEnvar + `=false
 Alternatively you can remove the file "%v".
-
 `
 	updateAvailableNoticeFormat = `
 Upgrade of Kopia from %v to %v is available.

@@ -44,18 +44,10 @@ func setDefaultMaintenanceParameters(ctx context.Context, rep repo.RepositoryWri
 
 	log(ctx).Noticef(`
 Kopia will perform quick maintenance of the repository automatically every %v
-when running as %v. This operation never deletes any data.
+and full maintenance every %v when running as %v.
 
-Full maintenance (which also deletes unreferenced data) is disabled by default.
-
-To run it manually use:
-
-$ kopia maintenance run --full
-
-Alternatively you can schedule full maintenance to run periodically using:
-
-$ kopia maintenance set --enable-full=true --full-interval=4h
-`, p.QuickCycle.Interval, p.Owner)
+See https://kopia.io/docs/advanced/maintenance/ for more information.
+`, p.QuickCycle.Interval, p.FullCycle.Interval, p.Owner)
 
 	return nil
 }
