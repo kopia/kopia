@@ -3,13 +3,10 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import axios from 'axios';
 import React from 'react';
 import Button from 'react-bootstrap/Button';
-import ListGroup from 'react-bootstrap/ListGroup';
-import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
-import Popover from 'react-bootstrap/Popover';
-import Spinner from 'react-bootstrap/Spinner';
-import InputGroup from 'react-bootstrap/InputGroup';
 import Form from 'react-bootstrap/Form';
 import FormControl from 'react-bootstrap/FormControl';
+import InputGroup from 'react-bootstrap/InputGroup';
+import Spinner from 'react-bootstrap/Spinner';
 
 const base10UnitPrefixes = ["", "K", "M", "G", "T"];
 
@@ -37,27 +34,18 @@ export function sizeWithFailures(size, summ) {
         return <span>{sizeDisplayName(size)}</span>
     }
 
-    let caption = summ.numFailed + " Errors";
+    let caption = "Encountered " + summ.numFailed + " errors:\n\n";
+    let prefix = "- "
     if (summ.numFailed === 1) {
-        caption = "Error";
+        caption = "Error: ";
+        prefix = "";
     }
 
-    let overlay = <Popover id="popover-basic">
-        <Popover.Title as="h3">{caption} During Snapshot</Popover.Title>
-        <Popover.Content>
-            <ListGroup>
-                {summ.errors.map(x => <ListGroup.Item key={x.path}><code>{x.path}</code>: <span className="error">{x.error}</span></ListGroup.Item>)}
-            </ListGroup>
-        </Popover.Content>
-    </Popover>;
+    caption += summ.errors.map(x => prefix + x.path + ": " + x.error).join("\n");
 
     return <span>
         {sizeDisplayName(size)}&nbsp;
-        <OverlayTrigger placement="bottom"
-            delay={{ show: 0, hide: 1000 }}
-            overlay={overlay}>
-            <FontAwesomeIcon color="red" icon={faExclamationTriangle} title={caption} />
-        </OverlayTrigger>
+        <FontAwesomeIcon color="red" icon={faExclamationTriangle} title={caption} />
     </span>;
 }
 

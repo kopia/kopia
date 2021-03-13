@@ -216,7 +216,7 @@ export class PolicyEditor extends Component {
                     </div>
                 </Tab>
                 <Tab eventKey="errors" title="Errors">
-                    <div class="tab-body">
+                    <div className="tab-body">
                         <p className="policy-help">Controls how errors detected while snapshotting are handled.</p>
                         <Form.Row>
                             {OptionalBoolean(this, "Ignore Directory Errors", "policy.errorHandling.ignoreDirectoryErrors", "inherit from parent")}
@@ -226,7 +226,7 @@ export class PolicyEditor extends Component {
                     </div>
                 </Tab>
                 <Tab eventKey="compression" title="Compression">
-                    <div class="tab-body">
+                    <div className="tab-body">
                         <p className="policy-help">Controls which files are compressed.</p>
                         <Form.Row>
                             <Form.Group as={Col}>
@@ -249,7 +249,7 @@ export class PolicyEditor extends Component {
                     </div>
                 </Tab>
                 <Tab eventKey="scheduling" title="Scheduling">
-                    <div class="tab-body">
+                    <div className="tab-body">
                         <p className="policy-help">Controls when snapshots are automatically created.</p>
                         <Form.Row>
                             {OptionalNumberField(this, "Snapshot Interval", "policy.scheduling.intervalSeconds", { placeholder: "seconds" })}
