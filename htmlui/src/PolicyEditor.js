@@ -9,6 +9,7 @@ import Form from 'react-bootstrap/Form';
 import Tab from 'react-bootstrap/Tab';
 import Tabs from 'react-bootstrap/Tabs';
 import { handleChange, OptionalBoolean, OptionalNumberField, RequiredBoolean, stateProperty, StringList } from './forms';
+import { sourceQueryStringParams } from './uiutil';
 
 function policyTypeName(s) {
     if (!s.host && !s.userName) {
@@ -138,7 +139,7 @@ export class PolicyEditor extends Component {
     }
 
     snapshotURL(props) {
-        return '/api/v1/policy?host=' + props.host + '&userName=' + props.userName + '&path=' + props.path;
+        return '/api/v1/policy?' + sourceQueryStringParams(props);
     }
 
     isGlobal() {
