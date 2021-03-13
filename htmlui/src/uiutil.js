@@ -197,6 +197,10 @@ function selectDirectory(onSelected) {
     }
 }
 
+export function sourceQueryStringParams(src) {
+    return 'userName=' + encodeURIComponent(src.userName) + '&host=' + encodeURIComponent(src.host) + '&path=' + encodeURIComponent(src.path);
+}
+
 export function isAbsolutePath(p) {
     // Unix-style path.
     if (p.startsWith("/")) {

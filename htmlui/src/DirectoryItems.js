@@ -28,7 +28,7 @@ function directoryLinkOrDownload(x) {
         return <Link to={objectLink(x.obj)}>{objectName(x.name, x.type)}</Link>;
     }
 
-    return <a href={"/api/v1/objects/" + x.obj + "?fname=" + x.name}>{x.name}</a>;
+    return <a href={"/api/v1/objects/" + x.obj + "?fname=" + encodeURIComponent(x.name)}>{x.name}</a>;
 }
 
 export class DirectoryItems extends Component {

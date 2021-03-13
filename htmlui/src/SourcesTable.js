@@ -12,7 +12,7 @@ import Spinner from 'react-bootstrap/Spinner';
 import { Link } from 'react-router-dom';
 import { handleChange } from './forms';
 import MyTable from './Table';
-import { compare, ownerName, redirectIfNotConnected, sizeDisplayName, sizeWithFailures } from './uiutil';
+import { compare, ownerName, redirectIfNotConnected, sizeDisplayName, sizeWithFailures, sourceQueryStringParams } from './uiutil';
 
 const localSnapshots = "Local Snapshots"
 const allSnapshots = "All Snapshots"
@@ -135,7 +135,7 @@ export class SourcesTable extends Component {
     }
 
     cancelSnapshot(source) {
-        axios.post('/api/v1/sources/cancel?userName=' + source.userName + '&host=' + source.host + '&path=' + source.path, {}).then(result => {
+        axios.post('/api/v1/sources/cancel?' + sourceQueryStringParams(source), {}).then(result => {
             this.fetchSourcesWithoutSpinner();
         }).catch(error => {
             alert('failed');
@@ -143,7 +143,7 @@ export class SourcesTable extends Component {
     }
 
     startSnapshot(source) {
-        axios.post('/api/v1/sources/upload?userName=' + source.userName + '&host=' + source.host + '&path=' + source.path, {}).then(result => {
+        axios.post('/api/v1/sources/upload?' + sourceQueryStringParams(source), {}).then(result => {
             this.fetchSourcesWithoutSpinner();
         }).catch(error => {
             alert('failed');
@@ -195,7 +195,7 @@ export class SourcesTable extends Component {
                 return compare(ownerName(a.original.source), ownerName(b.original.source));
             },
             width: "",
-            Cell: x => <Link to={'/snapshots/single-source?userName=' + x.cell.value.userName + '&host=' + x.cell.value.host + '&path=' + x.cell.value.path}>{x.cell.value.path}</Link>,
+            Cell: x => <Link to={'/snapshots/single-source?' + sourceQueryStringParams(x.cell.value)}>{x.cell.value.path}</Link>,
         }, {
             id: 'owner',
             Header: 'Owner',

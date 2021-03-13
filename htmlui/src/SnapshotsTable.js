@@ -6,7 +6,7 @@ import Row from 'react-bootstrap/Row';
 import Spinner from 'react-bootstrap/Spinner';
 import { Link } from "react-router-dom";
 import MyTable from './Table';
-import { compare, GoBackButton, objectLink, parseQuery, rfc3339TimestampForDisplay, sizeWithFailures } from './uiutil';
+import { compare, GoBackButton, objectLink, parseQuery, rfc3339TimestampForDisplay, sizeWithFailures, sourceQueryStringParams } from './uiutil';
 
 function pillVariant(tag) {
     if (tag.startsWith("latest-")) {
@@ -49,7 +49,7 @@ export class SnapshotsTable extends Component {
             hiddenCount: 0,
             selectedSnapshot: null,
         });
-        const u = '/api/v1/snapshots?host=' + q.host + '&userName=' + q.userName + '&path=' + q.path;
+        const u = '/api/v1/snapshots?' + sourceQueryStringParams(q);
         axios.get(u).then(result => {
             console.log('got snapshots', result.data);
             this.setState({
