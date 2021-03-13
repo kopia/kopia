@@ -238,6 +238,18 @@ func (s *Server) handleAPI(isAuthorized isAuthorizedFunc, f apiRequestFunc) http
 	})
 }
 
+// RequireUIUserAuth wraps the provided http.Handler to only allow UI user and return 403 otherwise.
+func (s *Server) RequireUIUserAuth(hf http.Handler) http.Handler {
+	return s.requireAuth(func(rw http.ResponseWriter, r *http.Request) {
+		if !requireUIUser(s, r) {
+			http.Error(rw, `UI Access denied. See https://github.com/kopia/kopia/issues/880#issuecomment-798421751 for more information.`, http.StatusForbidden)
+			return
+		}
+
+		hf.ServeHTTP(rw, r)
+	})
+}
+
 func (s *Server) handleAPIPossiblyNotConnected(isAuthorized isAuthorizedFunc, f apiRequestFunc) http.HandlerFunc {
 	return s.requireAuth(func(w http.ResponseWriter, r *http.Request) {
 		// we must pre-read request body before acquiring the lock as it sometimes leads to deadlock
