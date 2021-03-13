@@ -142,7 +142,7 @@ export class SnapshotsTable extends Component {
             width: 100,
         }]
 
-        return <div class="padded">
+        return <div className="padded">
             <Row>
             <GoBackButton onClick={this.props.history.goBack} />
             &nbsp;

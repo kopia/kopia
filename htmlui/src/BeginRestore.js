@@ -86,7 +86,7 @@ export class BeginRestore extends Component {
             </p>;
         }
 
-        return <div class="padded-top">
+        return <div className="padded-top">
             <GoBackButton onClick={this.props.history.goBack} />&nbsp;<span className="page-title">Restore</span>
             <hr/>
             <Form onSubmit={this.start}>

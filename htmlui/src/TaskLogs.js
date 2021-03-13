@@ -98,7 +98,7 @@ export class TaskLogs extends Component {
         }
 
         if (logs) {
-            return <div class="logs-table"><Table size="sm">
+            return <div className="logs-table"><Table size="sm">
                 <tbody>
                     {logs.map(v => <tr className={'loglevel-' + v.level}>
                         <td title={this.fullLogTime(v.ts)}>{this.formatLogTime(v.ts)}</td>

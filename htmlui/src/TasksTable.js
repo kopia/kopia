@@ -127,7 +127,7 @@ export class TasksTable extends Component {
 
         return <div className="padded">
             <Form>
-                <div class="list-actions">
+                <div className="list-actions">
                 <Row>
                     <Col xs="auto">
                         <Dropdown>

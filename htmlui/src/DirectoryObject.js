@@ -116,7 +116,7 @@ export class DirectoryObject extends Component {
 
         const browsingSupported = !!window.require;
 
-        return <div class="padded">
+        return <div className="padded">
             <Row>
             <GoBackButton onClick={this.props.history.goBack} />
             &nbsp;

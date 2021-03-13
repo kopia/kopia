@@ -237,7 +237,7 @@ export class SourcesTable extends Component {
         }]
 
         return <div className="padded">
-            <div class="list-actions">
+            <div className="list-actions">
                 <Row>
                     {this.state.multiUser && <><Col xs="auto">
                         <Dropdown>
