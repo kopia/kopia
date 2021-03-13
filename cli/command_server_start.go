@@ -87,10 +87,10 @@ func runServer(ctx context.Context, rep repo.Repository) error {
 	mux.Handle("/api/", srv.APIHandlers(*serverStartLegacyRepositoryAPI))
 
 	if *serverStartHTMLPath != "" {
-		fileServer := serveIndexFileForKnownUIRoutes(http.Dir(*serverStartHTMLPath))
+		fileServer := srv.RequireUIUserAuth(serveIndexFileForKnownUIRoutes(http.Dir(*serverStartHTMLPath)))
 		mux.Handle("/", fileServer)
 	} else if *serverStartUI {
-		mux.Handle("/", serveIndexFileForKnownUIRoutes(server.AssetFile()))
+		mux.Handle("/", srv.RequireUIUserAuth(serveIndexFileForKnownUIRoutes(server.AssetFile())))
 	}
 
 	httpServer := &http.Server{Addr: stripProtocol(*serverAddress)}
