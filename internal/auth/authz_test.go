@@ -4,7 +4,11 @@ import (
 	"context"
 	"testing"
 
+	"github.com/kopia/kopia/internal/acl"
 	"github.com/kopia/kopia/internal/auth"
+	"github.com/kopia/kopia/internal/repotesting"
+	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/repo"
 )
 
 var globalPolicyLabels = map[string]string{
@@ -87,6 +91,40 @@ func TestNoAccess(t *testing.T) {
 }
 
 func TestLegacyAuthorizer(t *testing.T) {
+	var env repotesting.Environment
+
+	ctx := testlogging.Context(t)
+	defer env.Setup(t).Close(ctx, t)
+
+	verifyLegacyAuthorizer(ctx, t, env.Repository, auth.LegacyAuthorizerForUser)
+}
+
+// repository with no ACLs.
+func TestDefaultAuthorizer_NoACLs(t *testing.T) {
+	var env repotesting.Environment
+
+	ctx := testlogging.Context(t)
+	defer env.Setup(t).Close(ctx, t)
+
+	verifyLegacyAuthorizer(ctx, t, env.Repository, auth.DefaultAuthorizer())
+}
+
+// repository with default ACLs.
+func TestDefaultAuthorizer_DefaultACLs(t *testing.T) {
+	var env repotesting.Environment
+
+	ctx := testlogging.Context(t)
+	defer env.Setup(t).Close(ctx, t)
+
+	for _, e := range auth.DefaultACLs {
+		must(t, acl.AddACL(ctx, env.RepositoryWriter, e))
+	}
+
+	verifyLegacyAuthorizer(ctx, t, env.Repository, auth.DefaultAuthorizer())
+}
+
+// nolint:thelper
+func verifyLegacyAuthorizer(ctx context.Context, t *testing.T, rep repo.Repository, authorizer auth.AuthorizerFunc) {
 	cases := []struct {
 		usernameAtHost           string
 		globalPolicyAccess       auth.AccessLevel
@@ -137,12 +175,10 @@ func TestLegacyAuthorizer(t *testing.T) {
 		},
 	}
 
-	ctx := context.Background()
-
 	for _, tc := range cases {
 		tc := tc
 		t.Run(tc.usernameAtHost, func(t *testing.T) {
-			a := auth.LegacyAuthorizerForUser(ctx, nil, tc.usernameAtHost)
+			a := authorizer(ctx, rep, tc.usernameAtHost)
 
 			if got, want := a.ContentAccessLevel(), auth.AccessLevelFull; got != want {
 				t.Errorf("invalid content access level: %v, want %v", got, want)

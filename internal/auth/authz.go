@@ -4,21 +4,25 @@ import (
 	"context"
 	"strings"
 
+	"github.com/kopia/kopia/internal/acl"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/manifest"
+	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/policy"
 )
 
 // AuthorizerFunc gets the authorizations for given user.
 type AuthorizerFunc func(ctx context.Context, rep repo.Repository, username string) AuthorizationInfo
 
 // AccessLevel specifies access level when accessing repository objects.
-type AccessLevel int
+type AccessLevel = acl.AccessLevel
 
-// Access levels.
+// Access levels forwarded to 'acl' package to allow it to easily implement AuthorizationInfo interface.
 const (
-	AccessLevelNone   AccessLevel = iota
-	AccessLevelRead               // RO access
-	AccessLevelAppend             // RO + create new
-	AccessLevelFull               // read/write/delete
+	AccessLevelNone   = acl.AccessLevelNone
+	AccessLevelRead   = acl.AccessLevelRead   // RO access
+	AccessLevelAppend = acl.AccessLevelAppend // RO + create new
+	AccessLevelFull   = acl.AccessLevelFull   // read/write/delete
 )
 
 // AuthorizationInfo determines logged in user's access level.
@@ -48,21 +52,21 @@ type legacyAuthorizer struct {
 
 func (la legacyAuthorizer) ContentAccessLevel() AccessLevel { return AccessLevelFull }
 func (la legacyAuthorizer) ManifestAccessLevel(labels map[string]string) AccessLevel {
-	if labels["type"] == "policy" {
+	if labels[manifest.TypeLabelKey] == policy.ManifestType {
 		// everybody can read global policy.
-		switch labels["policyType"] {
-		case "global":
+		switch labels[policy.PolicyTypeLabel] {
+		case policy.PolicyTypeGlobal:
 			return AccessLevelRead
 
-		case "host":
-			if strings.HasSuffix(la.usernameAtHostname, "@"+labels["hostname"]) {
+		case policy.PolicyTypeHost:
+			if strings.HasSuffix(la.usernameAtHostname, "@"+labels[snapshot.HostnameLabel]) {
 				return AccessLevelRead
 			}
 		}
 	}
 
 	// full access to policies/snapshots for the username@hostname
-	if labels["username"]+"@"+labels["hostname"] == la.usernameAtHostname {
+	if labels[snapshot.UsernameLabel]+"@"+labels[snapshot.HostnameLabel] == la.usernameAtHostname {
 		return AccessLevelFull
 	}
 
