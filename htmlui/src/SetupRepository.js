@@ -313,7 +313,7 @@ export class SetupRepository extends Component {
             {!this.state.showAdvanced ? <>
                 <FontAwesomeIcon icon={faAngleDoubleDown} />&nbsp;Show Advanced Options
                             </> : <>
-                    <FontAwesomeIcon icon={faAngleDoubleUp} />&nbsp;Hide Advanced Options
+                <FontAwesomeIcon icon={faAngleDoubleUp} />&nbsp;Hide Advanced Options
                             </>}
         </Button>;
     }
@@ -396,6 +396,16 @@ export class SetupRepository extends Component {
     renderConfirmConnect() {
         return <Form onSubmit={this.connectToRepository}>
             <h3>Connect To Repository</h3>
+            <Form.Row>
+                <Form.Group as={Col}>
+                    <Form.Label className="required">Connect As</Form.Label>
+                    <Form.Control
+                        value={this.state.username + '@' + this.state.hostname}
+                        readOnly={true}
+                        size="sm" />
+                    <Form.Text className="text-muted">To override, click 'Show Advanced Options'</Form.Text>
+                </Form.Group>
+            </Form.Row>
             <Form.Row>
                 {(this.state.provider !== "_token" && this.state.provider !== "_server") && RequiredField(this, "Repository Password", "password", { autoFocus: true, type: "password", placeholder: "enter repository password" }, "The password used to encrypt repository contents.")}
                 {this.state.provider === "_server" && RequiredField(this, "Server Password", "password", { autoFocus: true, type: "password", placeholder: "enter password to connect to server" })}
