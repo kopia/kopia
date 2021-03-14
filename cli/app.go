@@ -45,6 +45,7 @@ var (
 	maintenanceCommands = app.Command("maintenance", "Maintenance commands.").Hidden().Alias("gc")
 	sessionCommands     = app.Command("session", "Session commands.").Hidden()
 	userCommands        = app.Command("users", "Manager repository users").Alias("user")
+	aclCommands         = serverCommands.Command("acl", "Manager server access control list entries")
 )
 
 func helpFullAction(ctx *kingpin.ParseContext) error {
