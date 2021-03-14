@@ -66,7 +66,7 @@ func runServer(ctx context.Context, rep repo.Repository) error {
 		RefreshInterval:      *serverStartRefreshInterval,
 		MaxConcurrency:       *serverStartMaxConcurrency,
 		Authenticator:        authn,
-		Authorizer:           auth.LegacyAuthorizerForUser,
+		Authorizer:           auth.DefaultAuthorizer(),
 		AuthCookieSigningKey: *serverAuthCookieSingingKey,
 		UIUser:               *serverUsername,
 	})
