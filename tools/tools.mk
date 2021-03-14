@@ -299,6 +299,7 @@ signing-tools:
 	@security unlock-keychain -p $(KEYCHAIN_PASSWORD) $(MACOS_KEYCHAIN)
 	@security list-keychain -s $(MACOS_KEYCHAIN) login.keychain
 	@security import /tmp/certs.p12 -k $(MACOS_KEYCHAIN) -P $(CSC_KEY_PASSWORD) -T /usr/bin/codesign;
+	@security set-keychain-settings -lut 3600
 	@rm -f /tmp/certs.p12
 	@security set-key-partition-list -S apple: -s -k $(KEYCHAIN_PASSWORD) $(MACOS_KEYCHAIN) > /dev/null
 endif
