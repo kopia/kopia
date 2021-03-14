@@ -18,11 +18,6 @@ var (
 )
 
 func runConnectAPIServerCommand(ctx context.Context) error {
-	password, err := getPasswordFromFlags(ctx, false, false)
-	if err != nil {
-		return errors.Wrap(err, "getting password")
-	}
-
 	as := &repo.APIServerInfo{
 		BaseURL:                             strings.TrimSuffix(*connectAPIServerURL, "/"),
 		TrustedServerCertificateFingerprint: strings.ToLower(*connectAPIServerCertFingerprint),
@@ -30,7 +25,26 @@ func runConnectAPIServerCommand(ctx context.Context) error {
 	}
 
 	configFile := repositoryConfigFileName()
-	if err := repo.ConnectAPIServer(ctx, configFile, as, password, connectOptions()); err != nil {
+	opt := connectOptions()
+
+	u := opt.Username
+	if u == "" {
+		u = repo.GetDefaultUserName(ctx)
+	}
+
+	h := opt.Hostname
+	if h == "" {
+		h = repo.GetDefaultHostName(ctx)
+	}
+
+	log(ctx).Infof("Connecting to server '%v' as '%v@%v'...", as.BaseURL, u, h)
+
+	password, err := getPasswordFromFlags(ctx, false, false)
+	if err != nil {
+		return errors.Wrap(err, "getting password")
+	}
+
+	if err := repo.ConnectAPIServer(ctx, configFile, as, password, opt); err != nil {
 		return errors.Wrap(err, "error connecting to API server")
 	}
 

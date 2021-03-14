@@ -639,7 +639,7 @@ func (c grpcCreds) RequireTransportSecurity() bool {
 }
 
 // OpenGRPCAPIRepository opens the Repository based on remote GRPC server.
-// The APIServerInfo must have the address of the repository as 'kopia://host:port'
+// The APIServerInfo must have the address of the repository as 'https://host:port'
 func OpenGRPCAPIRepository(ctx context.Context, si *APIServerInfo, cliOpts ClientOptions, contentCache *cache.PersistentCache, password string) (Repository, error) {
 	var transportCreds credentials.TransportCredentials
 
@@ -655,7 +655,7 @@ func OpenGRPCAPIRepository(ctx context.Context, si *APIServerInfo, cliOpts Clien
 	}
 
 	if u.Scheme != "kopia" && u.Scheme != "https" {
-		return nil, errors.Errorf("invalid server address, must be 'kopia://host:port'")
+		return nil, errors.Errorf("invalid server address, must be 'https://host:port'")
 	}
 
 	conn, err := grpc.Dial(
