@@ -12,11 +12,11 @@ import (
 	"github.com/kopia/kopia/repo/manifest"
 )
 
-const (
-	usernameLabel = "username"
+// ManifestType is the type of the manifest used to represent user accounts.
+const ManifestType = "user"
 
-	userManifestType = "user"
-)
+// UsernameAtHostnameLabel is the manifest label identifying users by username@hostname.
+const UsernameAtHostnameLabel = "username"
 
 // ErrUserNotFound is returned to indicate that a user was not found in the system.
 var ErrUserNotFound = errors.New("user not found")
@@ -27,15 +27,15 @@ func LoadProfileMap(ctx context.Context, rep repo.Repository, old map[string]*Pr
 		return nil, nil
 	}
 
-	entries, err := rep.FindManifests(ctx, map[string]string{manifest.TypeLabelKey: userManifestType})
+	entries, err := rep.FindManifests(ctx, map[string]string{manifest.TypeLabelKey: ManifestType})
 	if err != nil {
 		return nil, errors.Wrap(err, "error listing user manifests")
 	}
 
 	result := map[string]*Profile{}
 
-	for _, m := range manifest.DedupeEntryMetadataByLabel(entries, usernameLabel) {
-		user := m.Labels[usernameLabel]
+	for _, m := range manifest.DedupeEntryMetadataByLabel(entries, UsernameAtHostnameLabel) {
+		user := m.Labels[UsernameAtHostnameLabel]
 
 		// same user info as before
 		if o := old[user]; o != nil && o.ManifestID == m.ID {
@@ -79,8 +79,8 @@ func ListUserProfiles(ctx context.Context, rep repo.Repository) ([]*Profile, err
 // GetUserProfile returns the user profile with a given username.
 func GetUserProfile(ctx context.Context, r repo.Repository, username string) (*Profile, error) {
 	manifests, err := r.FindManifests(ctx, map[string]string{
-		manifest.TypeLabelKey: userManifestType,
-		usernameLabel:         username,
+		manifest.TypeLabelKey:   ManifestType,
+		UsernameAtHostnameLabel: username,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "error looking for user profile")
@@ -122,16 +122,16 @@ func SetUserProfile(ctx context.Context, w repo.RepositoryWriter, p *Profile) er
 	}
 
 	manifests, err := w.FindManifests(ctx, map[string]string{
-		manifest.TypeLabelKey: userManifestType,
-		usernameLabel:         p.Username,
+		manifest.TypeLabelKey:   ManifestType,
+		UsernameAtHostnameLabel: p.Username,
 	})
 	if err != nil {
 		return errors.Wrap(err, "error looking for user profile")
 	}
 
 	id, err := w.PutManifest(ctx, map[string]string{
-		manifest.TypeLabelKey: userManifestType,
-		usernameLabel:         p.Username,
+		manifest.TypeLabelKey:   ManifestType,
+		UsernameAtHostnameLabel: p.Username,
 	}, p)
 	if err != nil {
 		return errors.Wrap(err, "error writing user profile")
@@ -155,8 +155,8 @@ func DeleteUserProfile(ctx context.Context, w repo.RepositoryWriter, username st
 	}
 
 	manifests, err := w.FindManifests(ctx, map[string]string{
-		manifest.TypeLabelKey: userManifestType,
-		usernameLabel:         username,
+		manifest.TypeLabelKey:   ManifestType,
+		UsernameAtHostnameLabel: username,
 	})
 	if err != nil {
 		return errors.Wrap(err, "error looking for user profile")

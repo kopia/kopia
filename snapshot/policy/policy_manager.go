@@ -13,6 +13,23 @@ import (
 	"github.com/kopia/kopia/snapshot"
 )
 
+// ManifestType is the type of the manifest that represents policy.
+const ManifestType = "policy"
+
+// Manifest labels identifying snapshots.
+const (
+	PolicyTypeLabel = "policyType"
+
+	PolicyTypePath   = "path"
+	PolicyTypeGlobal = "global"
+	PolicyTypeHost   = "host"
+	PolicyTypeUser   = "user"
+
+	PathLabel     = snapshot.PathLabel
+	UsernameLabel = snapshot.UsernameLabel
+	HostnameLabel = snapshot.HostnameLabel
+)
+
 const typeKey = manifest.TypeLabelKey
 
 // GlobalPolicySourceInfo is a source where global policy is attached.
@@ -163,7 +180,7 @@ func GetPolicyByID(ctx context.Context, rep repo.Repository, id manifest.ID) (*P
 // ListPolicies returns a list of all policies.
 func ListPolicies(ctx context.Context, rep repo.Repository) ([]*Policy, error) {
 	ids, err := rep.FindManifests(ctx, map[string]string{
-		typeKey: "policy",
+		typeKey: ManifestType,
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to list manifests")
@@ -214,10 +231,10 @@ func applicablePoliciesForSource(ctx context.Context, rep repo.Repository, si sn
 
 	// Find all policies for this host and user
 	policies, err := rep.FindManifests(ctx, map[string]string{
-		typeKey:      "policy",
-		"policyType": "path",
-		"username":   si.UserName,
-		"hostname":   si.Host,
+		typeKey:         ManifestType,
+		PolicyTypeLabel: PolicyTypePath,
+		UsernameLabel:   si.UserName,
+		HostnameLabel:   si.Host,
 	})
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to find manifests for %v@%v", si.UserName, si.Host)
@@ -233,7 +250,7 @@ func applicablePoliciesForSource(ctx context.Context, rep repo.Repository, si sn
 			return nil, err
 		}
 
-		policyPath := pol.Labels["path"]
+		policyPath := pol.Labels[snapshot.PathLabel]
 
 		rel := nestedRelativePathNormalizedToSlashes(si.Path, policyPath)
 		if rel == "" {
@@ -270,29 +287,29 @@ func labelsForSource(si snapshot.SourceInfo) map[string]string {
 	switch {
 	case si.Path != "":
 		return map[string]string{
-			typeKey:      "policy",
-			"policyType": "path",
-			"username":   si.UserName,
-			"hostname":   si.Host,
-			"path":       si.Path,
+			typeKey:         ManifestType,
+			PolicyTypeLabel: PolicyTypePath,
+			UsernameLabel:   si.UserName,
+			HostnameLabel:   si.Host,
+			PathLabel:       si.Path,
 		}
 	case si.UserName != "":
 		return map[string]string{
-			typeKey:      "policy",
-			"policyType": "user",
-			"username":   si.UserName,
-			"hostname":   si.Host,
+			typeKey:         ManifestType,
+			PolicyTypeLabel: PolicyTypeUser,
+			UsernameLabel:   si.UserName,
+			HostnameLabel:   si.Host,
 		}
 	case si.Host != "":
 		return map[string]string{
-			typeKey:      "policy",
-			"policyType": "host",
-			"hostname":   si.Host,
+			typeKey:         ManifestType,
+			PolicyTypeLabel: PolicyTypeHost,
+			HostnameLabel:   si.Host,
 		}
 	default:
 		return map[string]string{
-			typeKey:      "policy",
-			"policyType": "global",
+			typeKey:         ManifestType,
+			PolicyTypeLabel: PolicyTypeGlobal,
 		}
 	}
 }
