@@ -56,7 +56,7 @@ func (s *Server) authenticateGRPCSession(ctx context.Context) (string, error) {
 		username := u[0] + "@" + h[0]
 		password := p[0]
 
-		if s.authenticator(ctx, s.rep, username, password) {
+		if s.authenticator.IsValid(ctx, s.rep, username, password) {
 			return username, nil
 		}
 

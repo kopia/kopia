@@ -21,8 +21,7 @@ type repositoryUserAuthenticator struct {
 	userProfileRefreshFrequency time.Duration
 }
 
-// AuthenticateSingleUser returns an Authenticator that only allows one username/password combination.
-func (ac *repositoryUserAuthenticator) authenticate(ctx context.Context, rep repo.Repository, username, password string) bool {
+func (ac *repositoryUserAuthenticator) IsValid(ctx context.Context, rep repo.Repository, username, password string) bool {
 	ac.mu.Lock()
 	defer ac.mu.Unlock()
 
@@ -52,6 +51,15 @@ func (ac *repositoryUserAuthenticator) authenticate(ctx context.Context, rep rep
 	return ac.userProfiles[username].IsValidPassword(password)
 }
 
+func (ac *repositoryUserAuthenticator) Refresh(ctx context.Context) error {
+	ac.mu.Lock()
+	defer ac.mu.Unlock()
+
+	ac.nextRefreshTime = time.Time{}
+
+	return nil
+}
+
 // AuthenticateRepositoryUsers returns authenticator that accepts username/password combinations
 // stored in 'user' manifests in the repository.
 func AuthenticateRepositoryUsers() Authenticator {
@@ -59,5 +67,5 @@ func AuthenticateRepositoryUsers() Authenticator {
 		userProfileRefreshFrequency: defaultProfileRefreshFrequency,
 	}
 
-	return a.authenticate
+	return a
 }

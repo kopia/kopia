@@ -39,7 +39,7 @@ func TestRepositoryAuthenticator(t *testing.T) {
 func verifyRepoAuthenticator(ctx context.Context, t *testing.T, a auth.Authenticator, r repo.Repository, username, password string, want bool) {
 	t.Helper()
 
-	if got := a(ctx, r, username, password); got != want {
+	if got := a.IsValid(ctx, r, username, password); got != want {
 		t.Errorf("invalid authenticator result for %v/%v: %v, want %v", username, password, got, want)
 	}
 }

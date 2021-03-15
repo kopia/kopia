@@ -229,9 +229,7 @@ func getAuthenticatorFunc(ctx context.Context) (auth.Authenticator, error) {
 			return nil, errors.Wrap(err, "error initializing htpasswd")
 		}
 
-		authenticators = append(authenticators, func(ctx context.Context, rep repo.Repository, username, password string) bool {
-			return f.Match(username, password)
-		})
+		authenticators = append(authenticators, auth.AuthenticateHtpasswdFile(f))
 	}
 
 	switch {

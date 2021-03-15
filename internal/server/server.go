@@ -83,7 +83,7 @@ func (s *Server) APIHandlers(legacyAPI bool) http.Handler {
 
 	m.HandleFunc("/api/v1/policies", s.handleAPI(requireUIUser, s.handlePolicyList)).Methods(http.MethodGet)
 
-	m.HandleFunc("/api/v1/refresh", s.handleAPI(requireUIUser, s.handleRefresh)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/refresh", s.handleAPI(anyAuthenticatedUser, s.handleRefresh)).Methods(http.MethodPost)
 	m.HandleFunc("/api/v1/shutdown", s.handleAPIPossiblyNotConnected(requireUIUser, s.handleShutdown)).Methods(http.MethodPost)
 
 	m.HandleFunc("/api/v1/objects/{objectID}", s.requireAuth(s.handleObjectGet)).Methods(http.MethodGet)
@@ -153,7 +153,7 @@ func (s *Server) isAuthenticated(w http.ResponseWriter, r *http.Request) bool {
 		}
 	}
 
-	if !s.authenticator(r.Context(), s.rep, username, password) {
+	if !s.authenticator.IsValid(r.Context(), s.rep, username, password) {
 		w.Header().Set("WWW-Authenticate", `Basic realm="Kopia"`)
 		http.Error(w, "Access denied.\n", http.StatusUnauthorized)
 
@@ -306,11 +306,8 @@ func (s *Server) handleAPIPossiblyNotConnected(isAuthorized isAuthorizedFunc, f 
 }
 
 func (s *Server) handleRefresh(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	if err := s.rep.Refresh(ctx); err != nil {
-		return nil, internalServerError(err)
-	}
-
-	return &serverapi.Empty{}, nil
+	// refresh is an alias for /repo/sync
+	return s.handleRepoSync(ctx, r, body)
 }
 
 func (s *Server) handleFlush(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
