@@ -305,6 +305,14 @@ func (s *Server) handleRepoSync(ctx context.Context, r *http.Request, body []byt
 		return nil, internalServerError(errors.Wrap(err, "unable to refresh repository"))
 	}
 
+	if err := s.authenticator.Refresh(ctx); err != nil {
+		log(ctx).Warningf("unable to refresh authenticator: %v", err)
+	}
+
+	if err := s.authorizer.Refresh(ctx); err != nil {
+		log(ctx).Warningf("unable to refresh authorizer: %v", err)
+	}
+
 	// release shared lock so that SyncSources can acquire exclusive lock
 	s.mu.RUnlock()
 	err := s.SyncSources(ctx)
