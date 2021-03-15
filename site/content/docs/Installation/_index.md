@@ -124,6 +124,38 @@ sudo yum install kopia
 sudo yum install kopia-ui
 ```
 
+### Linux installation using AUR (Arch, Manjaro)
+
+Those using Arch-based distributions have the option of building Kopia from source or installing pre-complied binaries:
+
+To build and install Kopia from source:
+
+```shell
+git clone https://aur.archlinux.org/kopia.git
+cd kopia
+makepkg -si
+```
+
+or if you use an AUR helper such as yay:
+
+```shell
+yay -S kopia
+```
+
+To install the binary version:
+
+```shell
+git clone https://aur.archlinux.org/kopia-bin.git
+cd kopia-bin
+makepkg -si
+```
+
+or if you use an AUR helper such as yay:
+
+```shell
+yay -S kopia-bin
+```
+
 ### Verifying package integrity
 
 When downloading from GitHub it's recommended to verify SHA256 checksum of the binary and comparing that to `checksums.txt`. For extra security you may want to verify that the checksums have been signed by official Kopia builder, by running GPG:
