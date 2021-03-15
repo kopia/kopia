@@ -101,8 +101,9 @@ type aclCache struct {
 	aclEntries      []*acl.Entry
 }
 
-// authorize is an AuthorizerFunc that returns authorizer that uses ACLs stored in the repository.
-func (ac *aclCache) authorize(ctx context.Context, rep repo.Repository, usernameAtHostname string) AuthorizationInfo {
+// Authorize returns authorization info based on ACLs stored in the repository falling back to legacy authorizer
+// if no ACL entries are defined.
+func (ac *aclCache) Authorize(ctx context.Context, rep repo.Repository, usernameAtHostname string) AuthorizationInfo {
 	ac.mu.Lock()
 	defer ac.mu.Unlock()
 
@@ -136,10 +137,20 @@ func (ac *aclCache) authorize(ctx context.Context, rep repo.Repository, username
 	}
 
 	if len(ac.aclEntries) == 0 {
-		return legacyAuthorizer{usernameAtHostname}
+		return legacyAuthorizationInfo{usernameAtHostname}
 	}
 
 	return aclEntriesAuthorizer{acl.EntriesForUser(ac.aclEntries, u, h), u, h}
+}
+
+func (ac *aclCache) Refresh(ctx context.Context) error {
+	ac.mu.Lock()
+	defer ac.mu.Unlock()
+
+	// ensure ACL entries are reloaded
+	ac.nextRefreshTime = time.Time{}
+
+	return nil
 }
 
 type aclEntriesAuthorizer struct {
@@ -156,13 +167,11 @@ func (a aclEntriesAuthorizer) ManifestAccessLevel(labels map[string]string) Acce
 	return acl.EffectivePermissions(a.username, a.hostname, labels, a.entries)
 }
 
-// DefaultAuthorizer returns AuthorizerFunc that will fetch ACLs from the repository
+// DefaultAuthorizer returns Authorizer that will fetch ACLs from the repository
 // and evaluate them in the context of current user to determine their permision levels.
 // It will fall back to legacy authorizer if no ACL entries are defined in the repository.
-func DefaultAuthorizer() AuthorizerFunc {
-	c := &aclCache{
+func DefaultAuthorizer() Authorizer {
+	return &aclCache{
 		aclRefreshFrequency: defaultACLRefreshFrequency,
 	}
-
-	return c.authorize
 }

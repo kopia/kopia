@@ -47,7 +47,7 @@ func startServer(ctx context.Context, t *testing.T) *repo.APIServerInfo {
 
 	s, err := server.New(ctx, server.Options{
 		ConfigFile: env.ConfigFile(),
-		Authorizer: auth.LegacyAuthorizerForUser,
+		Authorizer: auth.LegacyAuthorizer(),
 		Authenticator: auth.CombineAuthenticators(
 			auth.AuthenticateSingleUser(testUsername+"@"+testHostname, testPassword),
 			auth.AuthenticateSingleUser(testUIUsername, testUIPassword),

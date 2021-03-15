@@ -80,7 +80,7 @@ func (s *Server) Session(srv grpcapi.KopiaRepository_SessionServer) error {
 		return err
 	}
 
-	authz := s.authorizer(ctx, dr, username)
+	authz := s.authorizer.Authorize(ctx, dr, username)
 	if authz == nil {
 		authz = auth.NoAccess()
 	}

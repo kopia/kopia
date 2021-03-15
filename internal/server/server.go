@@ -48,7 +48,7 @@ type Server struct {
 	cancelRep context.CancelFunc
 
 	authenticator auth.Authenticator
-	authorizer    auth.AuthorizerFunc
+	authorizer    auth.Authorizer
 
 	// all API requests run with shared lock on this mutex
 	// administrative actions run with an exclusive lock and block API calls.
@@ -218,7 +218,7 @@ func (s *Server) httpAuthorizationInfo(r *http.Request) auth.AuthorizationInfo {
 	// authentication already done
 	userAtHost, _, _ := r.BasicAuth()
 
-	authz := s.authorizer(r.Context(), s.rep, userAtHost)
+	authz := s.authorizer.Authorize(r.Context(), s.rep, userAtHost)
 	if authz == nil {
 		authz = auth.NoAccess()
 	}
@@ -563,7 +563,7 @@ type Options struct {
 	RefreshInterval      time.Duration
 	MaxConcurrency       int
 	Authenticator        auth.Authenticator
-	Authorizer           auth.AuthorizerFunc
+	Authorizer           auth.Authorizer
 	AuthCookieSigningKey string
 	UIUser               string // name of the user allowed to access the UI
 }

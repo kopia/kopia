@@ -96,7 +96,7 @@ func TestLegacyAuthorizer(t *testing.T) {
 	ctx := testlogging.Context(t)
 	defer env.Setup(t).Close(ctx, t)
 
-	verifyLegacyAuthorizer(ctx, t, env.Repository, auth.LegacyAuthorizerForUser)
+	verifyLegacyAuthorizer(ctx, t, env.Repository, auth.LegacyAuthorizer())
 }
 
 // repository with no ACLs.
@@ -124,7 +124,7 @@ func TestDefaultAuthorizer_DefaultACLs(t *testing.T) {
 }
 
 // nolint:thelper
-func verifyLegacyAuthorizer(ctx context.Context, t *testing.T, rep repo.Repository, authorizer auth.AuthorizerFunc) {
+func verifyLegacyAuthorizer(ctx context.Context, t *testing.T, rep repo.Repository, authorizer auth.Authorizer) {
 	cases := []struct {
 		usernameAtHost           string
 		globalPolicyAccess       auth.AccessLevel
@@ -178,7 +178,7 @@ func verifyLegacyAuthorizer(ctx context.Context, t *testing.T, rep repo.Reposito
 	for _, tc := range cases {
 		tc := tc
 		t.Run(tc.usernameAtHost, func(t *testing.T) {
-			a := authorizer(ctx, rep, tc.usernameAtHost)
+			a := authorizer.Authorize(ctx, rep, tc.usernameAtHost)
 
 			if got, want := a.ContentAccessLevel(), auth.AccessLevelFull; got != want {
 				t.Errorf("invalid content access level: %v, want %v", got, want)
