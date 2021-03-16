@@ -13,7 +13,14 @@ import (
 // WriteFiles writes files to the directory specified by path, up to the
 // provided size and number of files.
 func (fr *Runner) WriteFiles(relPath string, opt Options) error {
+	lock, err := fr.PathLock.Lock(relPath)
+	if err != nil {
+		return err
+	}
+	defer lock.Unlock()
+
 	fullPath := filepath.Join(fr.LocalDataDir, relPath)
+
 	return fr.writeFiles(fullPath, opt)
 }
 
@@ -48,9 +55,15 @@ func (fr *Runner) writeFiles(fullPath string, opt Options) error {
 // WriteFilesAtDepth writes files to a directory "depth" layers deep below
 // the base data directory.
 func (fr *Runner) WriteFilesAtDepth(relBasePath string, depth int, opt Options) error {
+	lock, err := fr.PathLock.Lock(relBasePath)
+	if err != nil {
+		return err
+	}
+	defer lock.Unlock()
+
 	fullBasePath := filepath.Join(fr.LocalDataDir, relBasePath)
 
-	err := os.MkdirAll(fullBasePath, 0700)
+	err = os.MkdirAll(fullBasePath, 0700)
 	if err != nil {
 		return errors.Wrapf(err, "unable to make base dir %v for writing at depth", fullBasePath)
 	}
@@ -61,9 +74,15 @@ func (fr *Runner) WriteFilesAtDepth(relBasePath string, depth int, opt Options) 
 // WriteFilesAtDepthRandomBranch writes files to a directory "depth" layers deep below
 // the base data directory and branches at a random depth.
 func (fr *Runner) WriteFilesAtDepthRandomBranch(relBasePath string, depth int, opt Options) error {
+	lock, err := fr.PathLock.Lock(relBasePath)
+	if err != nil {
+		return err
+	}
+	defer lock.Unlock()
+
 	fullBasePath := filepath.Join(fr.LocalDataDir, relBasePath)
 
-	err := os.MkdirAll(fullBasePath, 0700)
+	err = os.MkdirAll(fullBasePath, 0700)
 	if err != nil {
 		return errors.Wrapf(err, "unable to make base dir %v for writing at depth with a branch", fullBasePath)
 	}
@@ -73,11 +92,23 @@ func (fr *Runner) WriteFilesAtDepthRandomBranch(relBasePath string, depth int, o
 
 // DeleteRelDir deletes a relative directory in the runner's data directory.
 func (fr *Runner) DeleteRelDir(relDirPath string) error {
+	lock, err := fr.PathLock.Lock(relDirPath)
+	if err != nil {
+		return err
+	}
+	defer lock.Unlock()
+
 	return os.RemoveAll(filepath.Join(fr.LocalDataDir, relDirPath))
 }
 
 // DeleteDirAtDepth deletes a random directory at the given depth.
 func (fr *Runner) DeleteDirAtDepth(relBasePath string, depth int) error {
+	lock, err := fr.PathLock.Lock(relBasePath)
+	if err != nil {
+		return err
+	}
+	defer lock.Unlock()
+
 	if depth == 0 {
 		return ErrCanNotDeleteRoot
 	}
@@ -93,6 +124,12 @@ func (fr *Runner) DeleteDirAtDepth(relBasePath string, depth int) error {
 // deleted. Probability set to 0 will delete nothing. Probability set to 1 will delete
 // everything.
 func (fr *Runner) DeleteContentsAtDepth(relBasePath string, depth int, prob float32) error {
+	lock, err := fr.PathLock.Lock(relBasePath)
+	if err != nil {
+		return err
+	}
+	defer lock.Unlock()
+
 	fullBasePath := filepath.Join(fr.LocalDataDir, relBasePath)
 
 	return fr.operateAtDepth(fullBasePath, depth, func(dirPath string) error {

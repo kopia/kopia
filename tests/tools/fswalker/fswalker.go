@@ -18,12 +18,9 @@ import (
 	fspb "github.com/google/fswalker/proto/fswalker"
 	"github.com/pkg/errors"
 
-	"github.com/kopia/kopia/tests/robustness"
 	"github.com/kopia/kopia/tests/tools/fswalker/reporter"
 	"github.com/kopia/kopia/tests/tools/fswalker/walker"
 )
-
-var _ robustness.Comparer = &WalkCompare{}
 
 // WalkCompare is a checker.Comparer that utilizes the fswalker
 // libraries to perform the data consistency check.

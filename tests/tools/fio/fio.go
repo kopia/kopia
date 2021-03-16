@@ -17,6 +17,8 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+
+	"github.com/kopia/kopia/tests/robustness/pathlock"
 )
 
 // List of fio flags.
@@ -62,7 +64,22 @@ type Runner struct {
 	FioWriteBaseDir string
 	Global          Config
 	Debug           bool
+
+	PathLock pathlock.Locker
 }
+
+// NullPathLocker satisfies the pathlock.Locker interface but is a no-op.
+type NullPathLocker struct{}
+
+var _ pathlock.Locker = (*NullPathLocker)(nil)
+
+// Lock implements the pathlock.Locker interface.
+func (l *NullPathLocker) Lock(lockPath string) (pathlock.Unlocker, error) {
+	return l, nil
+}
+
+// Unlock satisfies the pathlock.Unlocker interface.
+func (l *NullPathLocker) Unlock() {}
 
 // NewRunner creates a new fio runner.
 func NewRunner() (fr *Runner, err error) {
@@ -136,6 +153,7 @@ func NewRunner() (fr *Runner, err error) {
 				}.WithDirectory(fioWriteBaseDir),
 			},
 		},
+		PathLock: &NullPathLocker{},
 	}
 
 	err = fr.verifySetupWithTestWrites()

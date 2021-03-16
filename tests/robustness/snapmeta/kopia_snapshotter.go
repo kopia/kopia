@@ -1,23 +1,34 @@
+// +build darwin,amd64 linux,amd64
+
 package snapmeta
 
 import (
+	"context"
+	"io"
 	"os/exec"
 	"strconv"
 
+	"github.com/kopia/kopia/internal/clock"
 	"github.com/kopia/kopia/tests/robustness"
+	"github.com/kopia/kopia/tests/tools/fswalker"
 )
 
-// KopiaSnapshotter implements robustness.Snapshotter.
+// KopiaSnapshotter wraps the functionality to connect to a kopia repository with
+// the fswalker WalkCompare.
 type KopiaSnapshotter struct {
+	comparer *fswalker.WalkCompare
 	kopiaConnector
 }
 
+// KopiaSnapshotter implements robustness.Snapshotter.
 var _ robustness.Snapshotter = (*KopiaSnapshotter)(nil)
 
 // NewSnapshotter returns a Kopia based Snapshotter.
 // ConnectOrCreateRepo must be invoked to enable the interface.
 func NewSnapshotter(baseDirPath string) (*KopiaSnapshotter, error) {
-	ks := &KopiaSnapshotter{}
+	ks := &KopiaSnapshotter{
+		comparer: fswalker.NewWalkCompare(),
+	}
 
 	if err := ks.initializeConnector(baseDirPath); err != nil {
 		return nil, err
@@ -43,13 +54,49 @@ func (ks *KopiaSnapshotter) ServerCmd() *exec.Cmd {
 }
 
 // CreateSnapshot is part of Snapshotter.
-func (ks *KopiaSnapshotter) CreateSnapshot(sourceDir string, opts map[string]string) (snapID string, err error) {
-	return ks.snap.CreateSnapshot(sourceDir)
+func (ks *KopiaSnapshotter) CreateSnapshot(sourceDir string, opts map[string]string) (snapID string, fingerprint []byte, snapStats *robustness.CreateSnapshotStats, err error) {
+	fingerprint, err = ks.comparer.Gather(context.TODO(), sourceDir, opts)
+	if err != nil {
+		return
+	}
+
+	ssStart := clock.Now()
+
+	snapID, err = ks.snap.CreateSnapshot(sourceDir)
+	if err != nil {
+		return
+	}
+
+	ssEnd := clock.Now()
+
+	snapStats = &robustness.CreateSnapshotStats{
+		SnapStartTime: ssStart,
+		SnapEndTime:   ssEnd,
+	}
+
+	return
 }
 
-// RestoreSnapshot is part of Snapshotter.
-func (ks *KopiaSnapshotter) RestoreSnapshot(snapID, restoreDir string, opts map[string]string) error {
-	return ks.snap.RestoreSnapshot(snapID, restoreDir)
+// RestoreSnapshot restores the snapshot with the given ID to the provided restore directory. It returns
+// fingerprint verification data of the restored snapshot directory.
+func (ks *KopiaSnapshotter) RestoreSnapshot(snapID, restoreDir string, opts map[string]string) (fingerprint []byte, err error) {
+	err = ks.snap.RestoreSnapshot(snapID, restoreDir)
+	if err != nil {
+		return
+	}
+
+	return ks.comparer.Gather(context.TODO(), restoreDir, opts)
+}
+
+// RestoreSnapshotCompare restores the snapshot with the given ID to the provided restore directory, then verifies the data
+// that has been restored against the provided fingerprint validation data.
+func (ks *KopiaSnapshotter) RestoreSnapshotCompare(snapID, restoreDir string, validationData []byte, reportOut io.Writer, opts map[string]string) (err error) {
+	err = ks.snap.RestoreSnapshot(snapID, restoreDir)
+	if err != nil {
+		return err
+	}
+
+	return ks.comparer.Compare(context.TODO(), restoreDir, validationData, reportOut, opts)
 }
 
 // DeleteSnapshot is part of Snapshotter.

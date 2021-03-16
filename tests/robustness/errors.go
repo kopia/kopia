@@ -21,4 +21,7 @@ var (
 
 	// ErrKeyNotFound is returned when the store can't find the key provided.
 	ErrKeyNotFound = errors.New("key not found")
+
+	// ErrMetadataMissing is returned when the metadata can't be found.
+	ErrMetadataMissing = errors.New("metadata missing")
 )

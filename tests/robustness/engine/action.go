@@ -8,6 +8,7 @@ import (
 	"errors"
 	"log"
 	"math/rand"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -137,7 +138,7 @@ func (e *Engine) checkErrRecovery(incomingErr error, actionOpts ActionOpts) (out
 // List of action keys.
 const (
 	ActionControlActionKey            ActionKey = "action-control"
-	SnapshotRootDirActionKey          ActionKey = "snapshot-root"
+	SnapshotDirActionKey              ActionKey = "snapshot-root"
 	RestoreSnapshotActionKey          ActionKey = "restore-random-snapID"
 	DeleteRandomSnapshotActionKey     ActionKey = "delete-random-snapID"
 	WriteRandomFilesActionKey         ActionKey = "write-random-files"
@@ -170,15 +171,20 @@ type Action struct {
 type ActionKey string
 
 var actions = map[ActionKey]Action{
-	SnapshotRootDirActionKey: {
+	SnapshotDirActionKey: {
 		f: func(e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
-			log.Printf("Creating snapshot of root directory %s", e.FileWriter.DataDirectory())
+			snapPath := e.FileWriter.DataDirectory()
+			if opts != nil && opts[SubPathOptionName] != "" {
+				snapPath = filepath.Join(snapPath, opts[SubPathOptionName])
+			}
+
+			log.Printf("Creating snapshot of directory %s", snapPath)
 
 			ctx := context.TODO()
-			snapID, err := e.Checker.TakeSnapshot(ctx, e.FileWriter.DataDirectory(), opts)
+			snapID, err := e.Checker.TakeSnapshot(ctx, snapPath, opts)
 
 			setLogEntryCmdOpts(l, map[string]string{
-				"snap-dir": e.FileWriter.DataDirectory(),
+				"snap-dir": snapPath,
 				"snapID":   snapID,
 			})
 
@@ -287,6 +293,7 @@ const (
 	ActionRepeaterField          = "repeat-action"
 	ThrowNoSpaceOnDeviceErrField = "throw-no-space-error"
 	SnapshotIDField              = "snapshot-ID"
+	SubPathOptionName            = "sub-path"
 )
 
 func defaultActionControls() map[string]string {
