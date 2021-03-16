@@ -72,7 +72,7 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 	tlsKey := filepath.Join(e.ConfigDir, "tls.key")
 
 	if allowRepositoryUsers {
-		e.RunAndExpectSuccess(t, "users", "add", "foo@bar", "--user-password", "baz")
+		e.RunAndExpectSuccess(t, "server", "users", "add", "foo@bar", "--user-password", "baz")
 	} else {
 		htpasswordFile := filepath.Join(e.ConfigDir, "htpasswd.txt")
 		ioutil.WriteFile(htpasswordFile, htpasswdFileContents, 0o755)

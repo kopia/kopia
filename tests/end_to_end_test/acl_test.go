@@ -33,8 +33,8 @@ func TestACL(t *testing.T) {
 	// add full access to global policy for all users
 	serverEnvironment.RunAndExpectSuccess(t, "server", "acl", "add", "--user", "*@*", "--target", "type=policy,policytype=global", "--access=FULL")
 
-	serverEnvironment.RunAndExpectSuccess(t, "users", "add", "foo@bar", "--user-password", "baz")
-	serverEnvironment.RunAndExpectSuccess(t, "users", "add", "alice@wonderland", "--user-password", "baz")
+	serverEnvironment.RunAndExpectSuccess(t, "server", "users", "add", "foo@bar", "--user-password", "baz")
+	serverEnvironment.RunAndExpectSuccess(t, "server", "users", "add", "alice@wonderland", "--user-password", "baz")
 
 	var sp serverParameters
 
@@ -107,7 +107,7 @@ func TestACL(t *testing.T) {
 	}
 
 	// alice changes her own password and reconnects
-	aliceInWonderlandClientEnvironment.RunAndExpectSuccess(t, "users", "set", "alice@wonderland", "--user-password", "new-password")
+	aliceInWonderlandClientEnvironment.RunAndExpectSuccess(t, "server", "users", "set", "alice@wonderland", "--user-password", "new-password")
 	serverEnvironment.RunAndExpectSuccess(t, "server", "refresh",
 		"--address", sp.baseURL,
 		"--server-username", "alice@wonderland",

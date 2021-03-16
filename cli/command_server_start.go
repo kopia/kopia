@@ -266,7 +266,7 @@ func getAuthenticator(ctx context.Context) (auth.Authenticator, error) {
 
 	log(ctx).Noticef(`
 Server will allow connections from users whose accounts are stored in the repository.
-User accounts can be added using 'kopia user add'.
+User accounts can be added using 'kopia server user add'.
 `)
 
 	// handle user accounts stored in the repository
