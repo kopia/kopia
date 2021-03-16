@@ -68,18 +68,18 @@ type Runner struct {
 	PathLock pathlock.Locker
 }
 
-// InactivePathLocker satisfies the pathlock.Locker interface but is a no-op.
-type InactivePathLocker struct{}
+// NullPathLocker satisfies the pathlock.Locker interface but is a no-op.
+type NullPathLocker struct{}
 
-var _ pathlock.Locker = (*InactivePathLocker)(nil)
+var _ pathlock.Locker = (*NullPathLocker)(nil)
 
 // Lock implements the pathlock.Locker interface.
-func (l *InactivePathLocker) Lock(lockPath string) (pathlock.Unlocker, error) {
+func (l *NullPathLocker) Lock(lockPath string) (pathlock.Unlocker, error) {
 	return l, nil
 }
 
 // Unlock satisfies the pathlock.Unlocker interface.
-func (l *InactivePathLocker) Unlock() {}
+func (l *NullPathLocker) Unlock() {}
 
 // NewRunner creates a new fio runner.
 func NewRunner() (fr *Runner, err error) {
