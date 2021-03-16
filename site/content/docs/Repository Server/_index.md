@@ -95,7 +95,7 @@ kopia server start --htpasswd-file ~/password.txt --tls-generate-cert --tls-cert
 or when using repository users in Kopia v0.8 and newer:
 
 ```
-kopia server start --allow-repository-users --tls-generate-cert --tls-cert-file ~/my.cert --tls-key-file ~/my.key --address 0.0.0.0:51515
+kopia server start --tls-generate-cert --tls-cert-file ~/my.cert --tls-key-file ~/my.key --address 0.0.0.0:51515
 ```
 
 

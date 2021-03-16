@@ -43,7 +43,6 @@ func TestACL(t *testing.T) {
 		"--address=localhost:0",
 		"--tls-generate-cert",
 		"--tls-generate-rsa-key-size=2048", // use shorter key size to speed up generation
-		"--allow-repository-users",
 	)
 
 	t.Logf("detected server parameters %#v", sp)

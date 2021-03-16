@@ -73,8 +73,6 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 
 	if allowRepositoryUsers {
 		e.RunAndExpectSuccess(t, "users", "add", "foo@bar", "--user-password", "baz")
-
-		serverStartArgs = append(serverStartArgs, "--allow-repository-users")
 	} else {
 		htpasswordFile := filepath.Join(e.ConfigDir, "htpasswd.txt")
 		ioutil.WriteFile(htpasswordFile, htpasswdFileContents, 0o755)

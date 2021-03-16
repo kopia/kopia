@@ -37,9 +37,9 @@ var (
 	serverStartInsecure        = serverStartCommand.Flag("insecure", "Allow insecure configurations (do not use in production)").Hidden().Bool()
 	serverStartMaxConcurrency  = serverStartCommand.Flag("max-concurrency", "Maximum number of server goroutines").Default("0").Int()
 
-	serverStartRandomPassword = serverStartCommand.Flag("random-password", "Generate random password and print to stderr").Hidden().Bool()
-	serverStartHtpasswdFile   = serverStartCommand.Flag("htpasswd-file", "Path to htpasswd file that contains allowed user@hostname entries").Hidden().ExistingFile()
-	serverStartAllowRepoUsers = serverStartCommand.Flag("allow-repository-users", "Allow users defined in the repository to connect").Bool()
+	serverStartWithoutPassword = serverStartCommand.Flag("without-password", "Start the server without a password").Hidden().Bool()
+	serverStartRandomPassword  = serverStartCommand.Flag("random-password", "Generate random password and print to stderr").Hidden().Bool()
+	serverStartHtpasswdFile    = serverStartCommand.Flag("htpasswd-file", "Path to htpasswd file that contains allowed user@hostname entries").Hidden().ExistingFile()
 
 	serverAuthCookieSingingKey = serverStartCommand.Flag("auth-cookie-signing-key", "Force particular auth cookie signing key").Envar("KOPIA_AUTH_COOKIE_SIGNING_KEY").Hidden().String()
 
@@ -55,7 +55,7 @@ func init() {
 }
 
 func runServer(ctx context.Context, rep repo.Repository) error {
-	authn, err := getAuthenticatorFunc(ctx)
+	authn, err := getAuthenticator(ctx)
 	if err != nil {
 		return errors.Wrap(err, "unable to initialize authentication")
 	}
@@ -226,9 +226,10 @@ func serveIndexFileForKnownUIRoutes(fs http.FileSystem) http.Handler {
 	})
 }
 
-func getAuthenticatorFunc(ctx context.Context) (auth.Authenticator, error) {
+func getAuthenticator(ctx context.Context) (auth.Authenticator, error) {
 	var authenticators []auth.Authenticator
 
+	// handle passwords (UI and remote) from htpasswd file.
 	if *serverStartHtpasswdFile != "" {
 		f, err := htpasswd.New(*serverStartHtpasswdFile, htpasswd.DefaultSystems, nil)
 		if err != nil {
@@ -238,7 +239,15 @@ func getAuthenticatorFunc(ctx context.Context) (auth.Authenticator, error) {
 		authenticators = append(authenticators, auth.AuthenticateHtpasswdFile(f))
 	}
 
+	// handle UI password (--without-password, --password or --random-password)
 	switch {
+	case *serverStartWithoutPassword:
+		if !*serverStartInsecure {
+			return nil, errors.Errorf("--without-password specified without --insecure, refusing to start server.")
+		}
+
+		return nil, nil
+
 	case *serverPassword != "":
 		authenticators = append(authenticators, auth.AuthenticateSingleUser(*serverUsername, *serverPassword))
 
@@ -255,18 +264,13 @@ func getAuthenticatorFunc(ctx context.Context) (auth.Authenticator, error) {
 		authenticators = append(authenticators, auth.AuthenticateSingleUser(*serverUsername, randomPassword))
 	}
 
-	if *serverStartAllowRepoUsers {
-		log(ctx).Noticef(`
+	log(ctx).Noticef(`
 Server will allow connections from users whose accounts are stored in the repository.
 User accounts can be added using 'kopia user add'.
 `)
 
-		authenticators = append(authenticators, auth.AuthenticateRepositoryUsers())
-	}
-
-	if len(authenticators) == 0 && !*serverStartInsecure {
-		return nil, errors.Errorf("no password option specified, refusing to start server. To start non-authenticated server pass --insecure.")
-	}
+	// handle user accounts stored in the repository
+	authenticators = append(authenticators, auth.AuthenticateRepositoryUsers())
 
 	return auth.CombineAuthenticators(authenticators...), nil
 }
