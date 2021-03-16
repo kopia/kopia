@@ -301,24 +301,8 @@ func (s *Server) handleRepoDisconnect(ctx context.Context, r *http.Request, body
 }
 
 func (s *Server) handleRepoSync(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	if err := s.rep.Refresh(ctx); err != nil {
+	if err := s.internalRefreshRLocked(ctx); err != nil {
 		return nil, internalServerError(errors.Wrap(err, "unable to refresh repository"))
-	}
-
-	if err := s.authenticator.Refresh(ctx); err != nil {
-		log(ctx).Warningf("unable to refresh authenticator: %v", err)
-	}
-
-	if err := s.authorizer.Refresh(ctx); err != nil {
-		log(ctx).Warningf("unable to refresh authorizer: %v", err)
-	}
-
-	// release shared lock so that SyncSources can acquire exclusive lock
-	s.mu.RUnlock()
-	err := s.SyncSources(ctx)
-	s.mu.RLock()
-	if err != nil {
-		return nil, internalServerError(errors.Wrap(err, "unable to sync sources"))
 	}
 
 	return &serverapi.Empty{}, nil

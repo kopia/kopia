@@ -129,6 +129,12 @@ func runServer(ctx context.Context, rep repo.Repository) error {
 		}()
 	}
 
+	onExternalConfigReloadRequest(func() {
+		if rerr := srv.Refresh(ctx); rerr != nil {
+			log(ctx).Warningf("refresh failed: %v", rerr)
+		}
+	})
+
 	err = startServerWithOptionalTLS(ctx, httpServer)
 	if !errors.Is(err, http.ErrServerClosed) {
 		return err

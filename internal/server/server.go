@@ -305,6 +305,46 @@ func (s *Server) handleAPIPossiblyNotConnected(isAuthorized isAuthorizedFunc, f 
 	})
 }
 
+// Refresh refreshes the state of the server in response to external signal (e.g. SIGHUP).
+func (s *Server) Refresh(ctx context.Context) error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.internalRefreshRLocked(ctx)
+}
+
+func (s *Server) internalRefreshRLocked(ctx context.Context) error {
+	if s.rep == nil {
+		return nil
+	}
+
+	if err := s.rep.Refresh(ctx); err != nil {
+		return errors.Wrap(err, "unable to refresh repository")
+	}
+
+	if s.authenticator != nil {
+		if err := s.authenticator.Refresh(ctx); err != nil {
+			log(ctx).Warningf("unable to refresh authenticator: %v", err)
+		}
+	}
+
+	if s.authorizer != nil {
+		if err := s.authorizer.Refresh(ctx); err != nil {
+			log(ctx).Warningf("unable to refresh authorizer: %v", err)
+		}
+	}
+
+	// release shared lock so that SyncSources can acquire exclusive lock
+	s.mu.RUnlock()
+	err := s.SyncSources(ctx)
+	s.mu.RLock()
+	if err != nil {
+		return errors.Wrap(err, "unable to sync sources")
+	}
+
+	return nil
+}
+
 func (s *Server) handleRefresh(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
 	// refresh is an alias for /repo/sync
 	return s.handleRepoSync(ctx, r, body)
