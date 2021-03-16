@@ -153,7 +153,7 @@ func NewRunner() (fr *Runner, err error) {
 				}.WithDirectory(fioWriteBaseDir),
 			},
 		},
-		PathLock: &InactivePathLocker{},
+		PathLock: &NullPathLocker{},
 	}
 
 	err = fr.verifySetupWithTestWrites()
