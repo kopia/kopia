@@ -41,7 +41,7 @@ func TestMain(m *testing.M) {
 	dataRepoPath := path.Join(*repoPathPrefix, dataSubPath)
 	metadataRepoPath := path.Join(*repoPathPrefix, metadataSubPath)
 
-	ctx := context.TODO()
+	ctx := context.Background()
 
 	th := &kopiaRobustnessTestHarness{}
 	th.init(ctx, dataRepoPath, metadataRepoPath)
