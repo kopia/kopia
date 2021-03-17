@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rand"
 	"fmt"
+	"sort"
 	"testing"
 )
 
@@ -76,5 +77,79 @@ func TestCompressor(t *testing.T) {
 
 			t.Logf("compressed %v => %v", len(data), cData.Bytes())
 		})
+	}
+}
+
+const benchmarkDataSize = 10000000
+
+func BenchmarkCompressor(b *testing.B) {
+	compressibleData := bytes.Repeat([]byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, benchmarkDataSize/10)
+	zeroData := make([]byte, benchmarkDataSize)
+
+	rndData := make([]byte, benchmarkDataSize)
+	rand.Read(rndData)
+
+	var cData, dData bytes.Buffer
+
+	var sortedNames []Name
+	for id := range ByName {
+		sortedNames = append(sortedNames, id)
+	}
+
+	sort.Slice(sortedNames, func(i, j int) bool {
+		return sortedNames[i] < sortedNames[j]
+	})
+
+	for _, id := range sortedNames {
+		comp := ByName[id]
+
+		b.Run(fmt.Sprintf("%v-compress-zeroes", id), func(b *testing.B) {
+			compressionBenchmark(b, comp, zeroData, &cData)
+		})
+		b.Run(fmt.Sprintf("%v-decompress-zeroes", id), func(b *testing.B) {
+			decompressionBenchmark(b, comp, cData.Bytes(), &dData)
+		})
+
+		b.Run(fmt.Sprintf("%v-compress-compressible", id), func(b *testing.B) {
+			compressionBenchmark(b, comp, compressibleData, &cData)
+		})
+		b.Run(fmt.Sprintf("%v-decompress-compressible", id), func(b *testing.B) {
+			decompressionBenchmark(b, comp, cData.Bytes(), &dData)
+		})
+
+		b.Run(fmt.Sprintf("%v-compress-random", id), func(b *testing.B) {
+			compressionBenchmark(b, comp, rndData, &cData)
+		})
+		b.Run(fmt.Sprintf("%v-decompress-random", id), func(b *testing.B) {
+			decompressionBenchmark(b, comp, cData.Bytes(), &dData)
+		})
+	}
+}
+
+func compressionBenchmark(b *testing.B, comp Compressor, input []byte, output *bytes.Buffer) {
+	b.Helper()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		output.Reset()
+
+		if err := comp.Compress(output, input); err != nil {
+			b.Fatalf("compression error %v", err)
+			return
+		}
+	}
+}
+
+func decompressionBenchmark(b *testing.B, comp Compressor, input []byte, output *bytes.Buffer) {
+	b.Helper()
+	b.ReportAllocs()
+
+	for i := 0; i < b.N; i++ {
+		output.Reset()
+
+		if err := comp.Decompress(output, input); err != nil {
+			b.Fatalf("compression error %v", err)
+			return
+		}
 	}
 }
