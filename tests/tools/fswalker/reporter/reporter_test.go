@@ -3,18 +3,18 @@
 package reporter
 
 import (
-	"context"
 	"path/filepath"
 	"testing"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	fspb "github.com/google/fswalker/proto/fswalker"
 
+	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
 func TestReporterWithFiles(t *testing.T) {
-	ctx := context.TODO()
+	ctx := testlogging.Context(t)
 
 	config := &fspb.ReportConfig{
 		Version:    1,

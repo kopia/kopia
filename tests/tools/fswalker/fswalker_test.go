@@ -4,7 +4,6 @@ package fswalker
 
 import (
 	"bytes"
-	"context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/google/fswalker"
 	fspb "github.com/google/fswalker/proto/fswalker"
+	"github.com/kopia/kopia/internal/testlogging"
 )
 
 func TestWalkChecker_GatherCompare(t *testing.T) {
@@ -211,7 +211,7 @@ func TestWalkChecker_GatherCompare(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		ctx := context.TODO()
+		ctx := testlogging.Context(t)
 
 		walk, err := chk.Gather(ctx, tmpDir, nil)
 		if err != nil {

@@ -127,12 +127,12 @@ func (chk *Checker) IsSnapshotIDDeleted(snapID string) (bool, error) {
 // the Checker's metadata against a list of live snapshot IDs in the connected
 // repository. This should not be called concurrently, as there is no thread
 // safety guaranteed.
-func (chk *Checker) VerifySnapshotMetadata() error {
+func (chk *Checker) VerifySnapshotMetadata(ctx context.Context) error {
 	// Get live snapshot metadata keys
 	liveSnapsInMetadata := chk.GetLiveSnapIDs()
 
 	// Get live snapshots listed in the repo itself
-	liveSnapsInRepo, err := chk.snapshotIssuer.ListSnapshots()
+	liveSnapsInRepo, err := chk.snapshotIssuer.ListSnapshots(ctx)
 	if err != nil {
 		return err
 	}
@@ -183,7 +183,7 @@ func (chk *Checker) VerifySnapshotMetadata() error {
 			// Might as well delete the snapshot since we don't have metadata for it
 			log.Printf("Deleting snapshot ID %s", liveSnapID)
 
-			err = chk.snapshotIssuer.DeleteSnapshot(liveSnapID, map[string]string{})
+			err = chk.snapshotIssuer.DeleteSnapshot(ctx, liveSnapID, map[string]string{})
 			if err != nil {
 				log.Printf("error deleting snapshot: %s", err)
 				errCount++
@@ -205,7 +205,7 @@ func (chk *Checker) VerifySnapshotMetadata() error {
 // TakeSnapshot gathers state information on the requested snapshot path, then
 // performs the snapshot action defined by the Checker's Snapshotter.
 func (chk *Checker) TakeSnapshot(ctx context.Context, sourceDir string, opts map[string]string) (snapID string, err error) {
-	snapID, fingerprint, stats, err := chk.snapshotIssuer.CreateSnapshot(sourceDir, opts)
+	snapID, fingerprint, stats, err := chk.snapshotIssuer.CreateSnapshot(ctx, sourceDir, opts)
 
 	ssMeta := &SnapshotMetadata{
 		SnapID:         snapID,
@@ -280,7 +280,7 @@ func (chk *Checker) safeRestorePrepare(snapID string) (*SnapshotMetadata, error)
 // the metadata provided.
 func (chk *Checker) RestoreVerifySnapshot(ctx context.Context, snapID, destPath string, ssMeta *SnapshotMetadata, reportOut io.Writer, opts map[string]string) error {
 	if ssMeta != nil {
-		return chk.snapshotIssuer.RestoreSnapshotCompare(snapID, destPath, ssMeta.ValidationData, reportOut, opts)
+		return chk.snapshotIssuer.RestoreSnapshotCompare(ctx, snapID, destPath, ssMeta.ValidationData, reportOut, opts)
 	}
 
 	// We have no metadata for this snapshot ID.
@@ -291,7 +291,7 @@ func (chk *Checker) RestoreVerifySnapshot(ctx context.Context, snapID, destPath 
 	// Recovery path:
 	// If in recovery mode, restore the snapshot by snapshot ID and gather
 	// its fingerprint (i.e. assume the snapshot will restore properly).
-	fingerprint, err := chk.snapshotIssuer.RestoreSnapshot(snapID, destPath, opts)
+	fingerprint, err := chk.snapshotIssuer.RestoreSnapshot(ctx, snapID, destPath, opts)
 	if err != nil {
 		return err
 	}
@@ -333,7 +333,7 @@ func (chk *Checker) DeleteSnapshot(ctx context.Context, snapID string, opts map[
 		return err
 	}
 
-	err = chk.snapshotIssuer.DeleteSnapshot(snapID, opts)
+	err = chk.snapshotIssuer.DeleteSnapshot(ctx, snapID, opts)
 	if err != nil {
 		return err
 	}

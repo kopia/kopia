@@ -41,21 +41,23 @@ func TestMain(m *testing.M) {
 	dataRepoPath := path.Join(*repoPathPrefix, dataSubPath)
 	metadataRepoPath := path.Join(*repoPathPrefix, metadataSubPath)
 
+	ctx := context.TODO()
+
 	th := &kopiaRobustnessTestHarness{}
-	th.init(dataRepoPath, metadataRepoPath)
+	th.init(ctx, dataRepoPath, metadataRepoPath)
 	eng = th.engine
 
 	// Restore a random snapshot into the data directory
-	_, err := eng.ExecAction(engine.RestoreIntoDataDirectoryActionKey, nil)
+	_, err := eng.ExecAction(ctx, engine.RestoreIntoDataDirectoryActionKey, nil)
 	if err != nil && !errors.Is(err, robustness.ErrNoOp) {
-		th.cleanup()
+		th.cleanup(ctx)
 		log.Fatalln("Error restoring into the data directory:", err)
 	}
 
 	// run the tests
 	result := m.Run()
 
-	err = th.cleanup()
+	err = th.cleanup(ctx)
 	if err != nil {
 		log.Printf("Error cleaning up the engine: %s\n", err.Error())
 		os.Exit(2)
@@ -77,7 +79,7 @@ type kopiaRobustnessTestHarness struct {
 	skipTest bool
 }
 
-func (th *kopiaRobustnessTestHarness) init(dataRepoPath, metaRepoPath string) {
+func (th *kopiaRobustnessTestHarness) init(ctx context.Context, dataRepoPath, metaRepoPath string) {
 	th.dataRepoPath = dataRepoPath
 	th.metaRepoPath = metaRepoPath
 
@@ -87,7 +89,7 @@ func (th *kopiaRobustnessTestHarness) init(dataRepoPath, metaRepoPath string) {
 		return // success!
 	}
 
-	th.cleanup()
+	th.cleanup(ctx)
 
 	if th.skipTest {
 		os.Exit(0)
@@ -204,9 +206,9 @@ func (th *kopiaRobustnessTestHarness) getEngine() bool {
 	return true
 }
 
-func (th *kopiaRobustnessTestHarness) cleanup() (retErr error) {
+func (th *kopiaRobustnessTestHarness) cleanup(ctx context.Context) (retErr error) {
 	if th.engine != nil {
-		retErr = th.engine.Shutdown()
+		retErr = th.engine.Shutdown(ctx)
 	}
 
 	if th.persister != nil {

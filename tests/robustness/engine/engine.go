@@ -101,7 +101,7 @@ type Engine struct {
 }
 
 // Shutdown makes a last snapshot then flushes the metadata and prints the final statistics.
-func (e *Engine) Shutdown() error {
+func (e *Engine) Shutdown(ctx context.Context) error {
 	// Perform a snapshot action to capture the state of the data directory
 	// at the end of the run
 	lastWriteEntry := e.EngineLog.FindLastThisRun(WriteRandomFilesActionKey)
@@ -110,7 +110,7 @@ func (e *Engine) Shutdown() error {
 	if lastWriteEntry != nil {
 		if lastSnapEntry == nil || lastSnapEntry.Idx < lastWriteEntry.Idx {
 			// Only force a final snapshot if the data tree has been modified since the last snapshot
-			e.ExecAction(SnapshotDirActionKey, make(map[string]string)) //nolint:errcheck
+			e.ExecAction(ctx, SnapshotDirActionKey, make(map[string]string)) //nolint:errcheck
 		}
 	}
 
@@ -206,5 +206,5 @@ func (e *Engine) Init(ctx context.Context) error {
 		return err
 	}
 
-	return e.Checker.VerifySnapshotMetadata()
+	return e.Checker.VerifySnapshotMetadata(ctx)
 }

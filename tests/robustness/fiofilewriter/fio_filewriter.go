@@ -4,6 +4,7 @@
 package fiofilewriter
 
 import (
+	"context"
 	"errors"
 	"log"
 	"math/rand"
@@ -64,7 +65,7 @@ var _ robustness.FileWriter = (*FileWriter)(nil)
 
 // DataDirectory returns the data directory configured.
 // See tests/tools/fio for details.
-func (fw *FileWriter) DataDirectory() string {
+func (fw *FileWriter) DataDirectory(ctx context.Context) string {
 	return fw.Runner.LocalDataDir
 }
 
@@ -83,7 +84,7 @@ func (fw *FileWriter) DataDirectory() string {
 // Default values are used for missing options. The method
 // returns the effective options used along with the selected depth
 // and the error if any.
-func (fw *FileWriter) WriteRandomFiles(opts map[string]string) (map[string]string, error) {
+func (fw *FileWriter) WriteRandomFiles(ctx context.Context, opts map[string]string) (map[string]string, error) {
 	// Directory depth
 	maxDirDepth := robustness.GetOptAsIntOrDefault(MaxDirDepthField, opts, defaultMaxDirDepth)
 	dirDepth := rand.Intn(maxDirDepth + 1)
@@ -167,7 +168,7 @@ func (fw *FileWriter) WriteRandomFiles(opts map[string]string) (map[string]strin
 // Default values are used for missing options. The method
 // returns the effective options used along with the selected depth
 // and the error if any. ErrNoOp is returned if no directory is found.
-func (fw *FileWriter) DeleteRandomSubdirectory(opts map[string]string) (map[string]string, error) {
+func (fw *FileWriter) DeleteRandomSubdirectory(ctx context.Context, opts map[string]string) (map[string]string, error) {
 	maxDirDepth := robustness.GetOptAsIntOrDefault(MaxDirDepthField, opts, defaultMaxDirDepth)
 	if maxDirDepth <= 0 {
 		return nil, robustness.ErrInvalidOption
@@ -202,7 +203,7 @@ func (fw *FileWriter) DeleteRandomSubdirectory(opts map[string]string) (map[stri
 // Default values are used for missing options. The method
 // returns the effective options used along with the selected depth
 // and the error if any. ErrNoOp is returned if no directory is found.
-func (fw *FileWriter) DeleteDirectoryContents(opts map[string]string) (map[string]string, error) {
+func (fw *FileWriter) DeleteDirectoryContents(ctx context.Context, opts map[string]string) (map[string]string, error) {
 	maxDirDepth := robustness.GetOptAsIntOrDefault(MaxDirDepthField, opts, defaultMaxDirDepth)
 	dirDepth := rand.Intn(maxDirDepth + 1) //nolint:gosec
 
@@ -230,8 +231,8 @@ func (fw *FileWriter) DeleteDirectoryContents(opts map[string]string) (map[strin
 }
 
 // DeleteEverything deletes all content.
-func (fw *FileWriter) DeleteEverything() error {
-	_, err := fw.DeleteDirectoryContents(map[string]string{
+func (fw *FileWriter) DeleteEverything(ctx context.Context) error {
+	_, err := fw.DeleteDirectoryContents(ctx, map[string]string{
 		MaxDirDepthField:             strconv.Itoa(0),
 		DeletePercentOfContentsField: strconv.Itoa(100),
 	})
