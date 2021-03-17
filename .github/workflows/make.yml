@@ -9,9 +9,7 @@ on:
       - v*
   schedule:
     # run on Mondays at 8AM
-    #- cron:  '0 8 * * 1'
-    # temporarily run every 4 hours to get more test samples
-    - cron:  '0 */4 * * *'
+    - cron:  '0 8 * * 1'
 jobs:
   build:
     env:
