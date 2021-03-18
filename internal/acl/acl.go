@@ -82,7 +82,7 @@ func (e *Entry) Validate() error {
 		return errors.Errorf("ACL target must have a '%v' label", manifest.TypeLabelKey)
 	}
 
-	if AccessLevelToString[e.Access] == "" {
+	if accessLevelToString[e.Access] == "" {
 		return errors.Errorf("valid access level must be specified")
 	}
 

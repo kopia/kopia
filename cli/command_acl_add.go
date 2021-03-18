@@ -30,10 +30,15 @@ func runACLAdd(ctx context.Context, rep repo.RepositoryWriter) error {
 		r[parts[0]] = parts[1]
 	}
 
+	al, err := acl.ParseAccessLevel(*aclAddCommandAccessLevel)
+	if err != nil {
+		return errors.Wrap(err, "invalid access level")
+	}
+
 	e := &acl.Entry{
 		User:     *aclAddCommandUser,
 		Target:   r,
-		Access:   acl.StringToAccessLevel[*aclAddCommandAccessLevel],
+		Access:   al,
 		Priority: *aclAddCommandPriority,
 	}
 

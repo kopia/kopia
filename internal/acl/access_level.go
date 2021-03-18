@@ -10,25 +10,25 @@ import (
 // AccessLevel specifies access level.
 type AccessLevel int
 
-// AccessLevelToString maps supported access levels to strings.
-var AccessLevelToString = map[AccessLevel]string{
+// accessLevelToString maps supported access levels to strings.
+var accessLevelToString = map[AccessLevel]string{
 	AccessLevelNone:   "NONE",
 	AccessLevelRead:   "READ",
 	AccessLevelAppend: "APPEND",
 	AccessLevelFull:   "FULL",
 }
 
-// StringToAccessLevel maps strings to supported access levels.
-var StringToAccessLevel = map[string]AccessLevel{}
+// stringToAccessLevel maps strings to supported access levels.
+var stringToAccessLevel = map[string]AccessLevel{}
 
 func init() {
-	for k, v := range AccessLevelToString {
-		StringToAccessLevel[v] = k
+	for k, v := range accessLevelToString {
+		stringToAccessLevel[v] = k
 	}
 }
 
 func (a AccessLevel) String() string {
-	s, ok := AccessLevelToString[a]
+	s, ok := accessLevelToString[a]
 	if !ok {
 		return strconv.Itoa(int(a))
 	}
@@ -38,7 +38,7 @@ func (a AccessLevel) String() string {
 
 // MarshalJSON implements json.Marshaler.
 func (a AccessLevel) MarshalJSON() ([]byte, error) {
-	j, ok := AccessLevelToString[a]
+	j, ok := accessLevelToString[a]
 	if !ok {
 		return nil, errors.Errorf("Invalid access level: %v", a)
 	}
@@ -54,7 +54,7 @@ func (a *AccessLevel) UnmarshalJSON(b []byte) error {
 		return errors.Wrap(err, "error unmarshaling access level")
 	}
 
-	*a = StringToAccessLevel[s]
+	*a = stringToAccessLevel[s]
 
 	return nil
 }
@@ -75,4 +75,14 @@ const (
 // SupportedAccessLevels returns the list of supported access levels.
 func SupportedAccessLevels() []string {
 	return []string{"NONE", "READ", "APPEND", "FULL"}
+}
+
+// ParseAccessLevel parses the provided string into an AccessLevel.
+func ParseAccessLevel(s string) (AccessLevel, error) {
+	al, ok := stringToAccessLevel[s]
+	if ok {
+		return al, nil
+	}
+
+	return 0, errors.Errorf("access level '%v' is unsupported", al)
 }

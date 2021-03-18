@@ -14,7 +14,9 @@ func onExternalConfigReloadRequest(f func()) {
 	signal.Notify(c, syscall.SIGHUP)
 
 	go func() {
-		<-c
-		f()
+		for {
+			<-c
+			f()
+		}
 	}()
 }
