@@ -364,6 +364,8 @@ func TestServerStartInsecure(t *testing.T) {
 		t.Fatalf("unable to create API apiclient")
 	}
 
+	defer serverapi.Shutdown(ctx, cli)
+
 	waitUntilServerStarted(ctx, t, cli)
 
 	// server fails to start without a password but with TLS.
