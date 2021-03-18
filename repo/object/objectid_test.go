@@ -2,7 +2,11 @@ package object
 
 import (
 	"testing"
+
+	"github.com/kopia/kopia/internal/testutil"
 )
+
+func TestMain(m *testing.M) { testutil.MyTestMain(m) }
 
 func TestParseObjectID(t *testing.T) {
 	cases := []struct {

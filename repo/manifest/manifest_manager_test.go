@@ -13,10 +13,13 @@ import (
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/hashing"
 )
+
+func TestMain(m *testing.M) { testutil.MyTestMain(m) }
 
 func TestManifest(t *testing.T) {
 	ctx := testlogging.Context(t)
@@ -150,6 +153,10 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 		t.Fatalf("err: %v", err)
 	}
 
+	bm0 := bm
+
+	t.Cleanup(func() { bm0.Close(ctx) })
+
 	mgr, err := NewManager(ctx, bm, ManagerOptions{})
 	if err != nil {
 		t.Fatalf("err: %v", err)
@@ -175,6 +182,8 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
+
+	t.Cleanup(func() { bm.Close(ctx) })
 
 	mgr, err = NewManager(ctx, bm, ManagerOptions{})
 	if err != nil {
@@ -301,6 +310,8 @@ func newManagerForTesting(ctx context.Context, t *testing.T, data blobtesting.Da
 	if err != nil {
 		t.Fatalf("can't create content manager: %v", err)
 	}
+
+	t.Cleanup(func() { bm.Close(ctx) })
 
 	mm, err := NewManager(ctx, bm, ManagerOptions{})
 	if err != nil {

@@ -40,6 +40,8 @@ var (
 	hmacSecret = []byte{1, 2, 3}
 )
 
+func TestMain(m *testing.M) { testutil.MyTestMain(m) }
+
 func TestContentManagerEmptyFlush(t *testing.T) {
 	ctx := testlogging.Context(t)
 	data := blobtesting.DataMap{}
@@ -1971,7 +1973,9 @@ func newTestContentManagerWithStorage(t *testing.T, st blob.Storage, timeFunc fu
 func newTestContentManagerWithStorageAndOptions(t *testing.T, st blob.Storage, co *CachingOptions, opts *ManagerOptions) *WriteManager {
 	t.Helper()
 
-	bm, err := NewManager(testlogging.Context(t), st, &FormattingOptions{
+	ctx := testlogging.Context(t)
+
+	bm, err := NewManager(ctx, st, &FormattingOptions{
 		Hash:        "HMAC-SHA256",
 		Encryption:  "AES256-GCM-HMAC-SHA256",
 		HMACSecret:  hmacSecret,
@@ -1981,6 +1985,8 @@ func newTestContentManagerWithStorageAndOptions(t *testing.T, st blob.Storage, c
 	if err != nil {
 		panic("can't create content manager: " + err.Error())
 	}
+
+	t.Cleanup(func() { bm.Close(ctx) })
 
 	bm.checkInvariantsOnUnlock = true
 

@@ -94,6 +94,8 @@ func (e *Environment) Setup(t *testing.T, opts ...Options) *Environment {
 		t.Fatal(err)
 	}
 
+	t.Cleanup(func() { rep.Close(ctx) })
+
 	return e
 }
 
@@ -137,6 +139,8 @@ func (e *Environment) MustReopen(t *testing.T, openOpts ...func(*repo.Options)) 
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
+
+	t.Cleanup(func() { rep.Close(ctx) })
 
 	e.RepositoryWriter, err = rep.(repo.DirectRepository).NewDirectWriter(ctx, repo.WriteSessionOptions{Purpose: "test"})
 	if err != nil {

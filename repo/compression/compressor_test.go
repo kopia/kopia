@@ -6,7 +6,11 @@ import (
 	"fmt"
 	"sort"
 	"testing"
+
+	"github.com/kopia/kopia/internal/testutil"
 )
+
+func TestMain(m *testing.M) { testutil.MyTestMain(m) }
 
 func TestCompressor(t *testing.T) {
 	for id, comp := range ByHeaderID {

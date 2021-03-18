@@ -12,10 +12,13 @@ import (
 
 	"github.com/kopia/kopia/internal/repotesting"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/object"
 )
+
+func TestMain(m *testing.M) { testutil.MyTestMain(m) }
 
 func TestWriters(t *testing.T) {
 	cases := []struct {
