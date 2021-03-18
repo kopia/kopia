@@ -153,6 +153,10 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 		t.Fatalf("err: %v", err)
 	}
 
+	bm0 := bm
+
+	t.Cleanup(func() { bm0.Close(ctx) })
+
 	mgr, err := NewManager(ctx, bm, ManagerOptions{})
 	if err != nil {
 		t.Fatalf("err: %v", err)
@@ -178,6 +182,8 @@ func TestManifestInitCorruptedBlock(t *testing.T) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
+
+	t.Cleanup(func() { bm.Close(ctx) })
 
 	mgr, err = NewManager(ctx, bm, ManagerOptions{})
 	if err != nil {
@@ -304,6 +310,8 @@ func newManagerForTesting(ctx context.Context, t *testing.T, data blobtesting.Da
 	if err != nil {
 		t.Fatalf("can't create content manager: %v", err)
 	}
+
+	t.Cleanup(func() { bm.Close(ctx) })
 
 	mm, err := NewManager(ctx, bm, ManagerOptions{})
 	if err != nil {
