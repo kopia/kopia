@@ -13,10 +13,13 @@ import (
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/testlogging"
+	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/repo/encryption"
 	"github.com/kopia/kopia/repo/hashing"
 )
+
+func TestMain(m *testing.M) { testutil.MyTestMain(m) }
 
 func TestManifest(t *testing.T) {
 	ctx := testlogging.Context(t)

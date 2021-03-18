@@ -3,6 +3,7 @@ package buf
 
 import (
 	"context"
+	"runtime/debug"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -131,6 +132,11 @@ type Pool struct {
 	segments    []*segment
 }
 
+var (
+	activePoolsMutex sync.Mutex
+	activePools      = map[*Pool]string{}
+)
+
 // NewPool creates a buffer pool, composed of fixed-length segments of specified maximum size.
 func NewPool(ctx context.Context, segmentSize int, poolID string) *Pool {
 	p := &Pool{
@@ -139,6 +145,10 @@ func NewPool(ctx context.Context, segmentSize int, poolID string) *Pool {
 		segmentSize: segmentSize,
 		closed:      make(chan struct{}),
 	}
+
+	activePoolsMutex.Lock()
+	activePools[p] = string(debug.Stack())
+	activePoolsMutex.Unlock()
 
 	go func() {
 		for {
@@ -158,6 +168,23 @@ func NewPool(ctx context.Context, segmentSize int, poolID string) *Pool {
 // Close closes the pool.
 func (p *Pool) Close() {
 	close(p.closed)
+
+	activePoolsMutex.Lock()
+	delete(activePools, p)
+	activePoolsMutex.Unlock()
+}
+
+// ActivePools returns the number of active activePools.
+func ActivePools() map[*Pool]string {
+	activePoolsMutex.Lock()
+	defer activePoolsMutex.Unlock()
+
+	r := map[*Pool]string{}
+	for k, v := range activePools {
+		r[k] = v
+	}
+
+	return r
 }
 
 func (p *Pool) reportMetrics(ctx context.Context) {

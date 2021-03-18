@@ -88,6 +88,10 @@ func setupTestWithData(t *testing.T, data map[content.ID][]byte) (map[content.ID
 		t.Fatalf("can't create object manager: %v", err)
 	}
 
+	t.Cleanup(func() {
+		r.Close()
+	})
+
 	return data, r
 }
 
@@ -221,6 +225,7 @@ func TestObjectWriterRaceBetweenCheckpointAndResult(t *testing.T) {
 	if err != nil {
 		t.Fatalf("can't create object manager: %v", err)
 	}
+	defer om.Close()
 
 	allZeroes := make([]byte, 1<<20-5)
 

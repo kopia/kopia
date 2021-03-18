@@ -6,6 +6,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/kopia/kopia/internal/buf"
 )
 
 // TestSkipUnlessCI skips the current test with a provided message, except when running
@@ -36,4 +38,19 @@ func TestSkipOnCIUnlessLinuxAMD64(t *testing.T) {
 // ShouldReduceTestComplexity returns true if test complexity should be reduced on the current machine.
 func ShouldReduceTestComplexity() bool {
 	return strings.Contains(runtime.GOARCH, "arm")
+}
+
+// MyTestMain runs tests and verifies some post-run invariants.
+func MyTestMain(m *testing.M) {
+	v := m.Run()
+
+	if ap := buf.ActivePools(); len(ap) != 0 {
+		for _, v := range ap {
+			fmt.Fprintf(os.Stderr, "test did not release pool allocated from: %v\n", v)
+		}
+
+		os.Exit(1)
+	}
+
+	os.Exit(v)
 }
