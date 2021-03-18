@@ -639,12 +639,18 @@ func TestEndToEndReadAndSeek(t *testing.T) {
 }
 
 func TestEndToEndReadAndSeekWithCompression(t *testing.T) {
-	sizes := []int{1, 199, 200, 201, 9999, 512434, 5012434, 15000000}
-	asyncWritesList := []int{0, 4, 8}
+	sizes := []int{1, 199, 9999, 512434, 5012434, 15000000}
 
 	if runtime.GOARCH != "amd64" {
-		sizes = []int{1, 199, 200, 201, 9999, 512434}
-		asyncWritesList = []int{0, 2}
+		sizes = []int{1, 199, 9999, 512434}
+	}
+
+	compressibleData := map[int][]byte{}
+	nonCompressibleData := map[int][]byte{}
+
+	for _, s := range sizes {
+		compressibleData[s] = makeMaybeCompressibleData(s, true)
+		nonCompressibleData[s] = makeMaybeCompressibleData(s, false)
 	}
 
 	for _, compressible := range []bool{false, true} {
@@ -653,53 +659,51 @@ func TestEndToEndReadAndSeekWithCompression(t *testing.T) {
 		for compressorName := range compression.ByName {
 			compressorName := compressorName
 			t.Run(string(compressorName), func(t *testing.T) {
-				t.Parallel()
-
 				ctx := testlogging.Context(t)
 
-				for _, asyncWrites := range asyncWritesList {
-					asyncWrites := asyncWrites
-					totalBytesWritten := 0
-					data, om := setupTest(t)
+				totalBytesWritten := 0
 
-					t.Run(fmt.Sprintf("async-%v", asyncWrites), func(t *testing.T) {
-						t.Parallel()
-						for _, size := range sizes {
+				data, om := setupTest(t)
 
-							randomData := makeMaybeCompressibleData(size, compressible)
+				for _, size := range sizes {
+					var inputData []byte
 
-							writer := om.NewWriter(ctx, WriterOptions{Compressor: compressorName, AsyncWrites: asyncWrites})
-							if _, err := writer.Write(randomData); err != nil {
-								t.Errorf("write error: %v", err)
-							}
+					if compressible {
+						inputData = compressibleData[size]
+					} else {
+						inputData = nonCompressibleData[size]
+					}
 
-							totalBytesWritten += size
+					writer := om.NewWriter(ctx, WriterOptions{Compressor: compressorName})
+					if _, err := writer.Write(inputData); err != nil {
+						t.Errorf("write error: %v", err)
+					}
 
-							objectID, err := writer.Result()
+					totalBytesWritten += size
 
-							writer.Close()
+					objectID, err := writer.Result()
 
-							if err != nil {
-								t.Errorf("cannot get writer result for %v: %v", size, err)
-								continue
-							}
+					writer.Close()
 
-							verify(ctx, t, om.contentMgr, objectID, randomData, fmt.Sprintf("%v %v", objectID, size))
-						}
+					if err != nil {
+						t.Errorf("cannot get writer result for %v: %v", size, err)
+						continue
+					}
 
-						if compressible {
-							compressedBytes := 0
-							for _, d := range data {
-								compressedBytes += len(d)
-							}
+					verify(ctx, t, om.contentMgr, objectID, inputData, fmt.Sprintf("%v %v", objectID, size))
+				}
 
-							// data is highly compressible, should easily compress to 1% of original size or less
-							ratio := float64(compressedBytes) / float64(totalBytesWritten)
-							if ratio > 0.01 {
-								t.Errorf("compression not effective for %v wrote %v, compressed %v, ratio %v", compressorName, totalBytesWritten, compressedBytes, ratio)
-							}
-						}
-					})
+				if compressible {
+					compressedBytes := 0
+					for _, d := range data {
+						compressedBytes += len(d)
+					}
+
+					// data is highly compressible, should easily compress to 1% of original size or less
+					ratio := float64(compressedBytes) / float64(totalBytesWritten)
+					if ratio > 0.01 {
+						t.Errorf("compression not effective for %v wrote %v, compressed %v, ratio %v", compressorName, totalBytesWritten, compressedBytes, ratio)
+					}
 				}
 			})
 		}
