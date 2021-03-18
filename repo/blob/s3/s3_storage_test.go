@@ -3,9 +3,8 @@ package s3
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha1"
+	"errors"
 	"fmt"
-	"net"
 	"net/http"
 	"os"
 	"testing"
@@ -29,12 +28,13 @@ import (
 
 const (
 	// https://github.com/minio/minio-go
-	minioEndpoint        = "play.minio.io:9000"
-	minioHost            = "play.minio.io"
-	minioAccessKeyID     = "Q3AM3UQ867SPQQA43P2F"
-	minioSecretAccessKey = "zuf+tfteSlswRu7BJ86wekitnifILbZam1KYY3TG"
-	minioUseSSL          = true
-	minioRegion          = "us-east-1"
+
+	// fake creadentials used by minio server we're launching.
+	minioAccessKeyID     = "fake-key"
+	minioSecretAccessKey = "fake-secret"
+	minioUseSSL          = false
+	minioRegion          = "fake-region-1"
+	minioBucketName      = "my-bucket" // we use ephemeral minio for each test so this does not need to be unique
 
 	// default aws S3 endpoint.
 	awsEndpoint = "s3.amazonaws.com"
@@ -59,18 +59,23 @@ const (
 	wrongHostBadSSL     = "https://wrong.host.badssl.com/"
 )
 
-var minioBucketName = getBucketName()
+// startDockerMinioOrSkip starts ephemeral minio instance on a random port and returns the endpoint ("localhost:xxx").
+func startDockerMinioOrSkip(t *testing.T) string {
+	t.Helper()
 
-func getBucketName() string {
-	hn, err := os.Hostname()
-	if err != nil {
-		return "kopia-test-1"
-	}
+	testutil.TestSkipOnCIUnlessLinuxAMD64(t)
 
-	h := sha1.New()
-	fmt.Fprintf(h, "%v", hn)
+	containerID := testutil.RunContainerAndKillOnCloseOrSkip(t,
+		"run", "--rm", "-p", "0:9000",
+		"-e", "MINIO_ROOT_USER="+minioAccessKeyID,
+		"-e", "MINIO_ROOT_PASSWORD="+minioSecretAccessKey,
+		"-e", "MINIO_REGION_NAME="+minioRegion,
+		"-d", "minio/minio", "server", "/data")
+	endpoint := testutil.GetContainerMappedPortAddress(t, containerID, "9000")
 
-	return fmt.Sprintf("kopia-test-%x", h.Sum(nil)[0:8])
+	t.Logf("endpoint: %v", endpoint)
+
+	return endpoint
 }
 
 func generateName(name string) string {
@@ -100,16 +105,6 @@ func getEnv(name, defValue string) string {
 	}
 
 	return value
-}
-
-func endpointReachable(endpoint string) bool {
-	conn, err := net.DialTimeout("tcp4", endpoint, 5*time.Second)
-	if err == nil {
-		conn.Close()
-		return true
-	}
-
-	return false
 }
 
 func TestS3StorageAWS(t *testing.T) {
@@ -160,6 +155,8 @@ func TestS3StorageAWSSTS(t *testing.T) {
 func TestS3StorageMinio(t *testing.T) {
 	t.Parallel()
 
+	minioEndpoint := startDockerMinioOrSkip(t)
+
 	for _, disableTLSVerify := range []bool{true, false} {
 		disableTLSVerify := disableTLSVerify
 
@@ -174,10 +171,6 @@ func TestS3StorageMinio(t *testing.T) {
 				DoNotVerifyTLS:  disableTLSVerify,
 			}
 
-			if !endpointReachable(options.Endpoint) {
-				t.Skip("endpoint not reachable")
-			}
-
 			createBucket(t, options)
 			testStorage(t, options)
 		})
@@ -186,6 +179,8 @@ func TestS3StorageMinio(t *testing.T) {
 
 func TestInvalidCredsFailsFast(t *testing.T) {
 	t.Parallel()
+
+	minioEndpoint := startDockerMinioOrSkip(t)
 
 	ctx := testlogging.Context(t)
 
@@ -211,6 +206,8 @@ func TestInvalidCredsFailsFast(t *testing.T) {
 func TestS3StorageMinioSTS(t *testing.T) {
 	t.Parallel()
 
+	minioEndpoint := startDockerMinioOrSkip(t)
+
 	for _, disableTLSVerify := range []bool{true, false} {
 		disableTLSVerify := disableTLSVerify
 
@@ -219,9 +216,9 @@ func TestS3StorageMinioSTS(t *testing.T) {
 			kopiaUserName := generateName("kopiauser")
 			kopiaUserPasswd := generateName("kopiapassword")
 
-			createMinioUser(t, kopiaUserName, kopiaUserPasswd)
-			defer deleteMinioUser(t, kopiaUserName)
-			kopiaAccessKeyID, kopiaSecretKey, kopiaSessionToken := createMinioSessionToken(t, kopiaUserName, kopiaUserPasswd, minioBucketName)
+			createMinioUser(t, minioEndpoint, kopiaUserName, kopiaUserPasswd)
+			defer deleteMinioUser(t, minioEndpoint, kopiaUserName)
+			kopiaAccessKeyID, kopiaSecretKey, kopiaSessionToken := createMinioSessionToken(t, minioEndpoint, kopiaUserName, kopiaUserPasswd, minioBucketName)
 
 			options := &Options{
 				Endpoint:        minioEndpoint,
@@ -234,11 +231,15 @@ func TestS3StorageMinioSTS(t *testing.T) {
 				DoNotVerifyTLS:  disableTLSVerify,
 			}
 
-			if !endpointReachable(options.Endpoint) {
-				t.Skip("endpoint not reachable")
-			}
-
-			createBucket(t, options)
+			createBucket(t, &Options{
+				Endpoint:        minioEndpoint,
+				AccessKeyID:     minioAccessKeyID,
+				SecretAccessKey: minioSecretAccessKey,
+				BucketName:      minioBucketName,
+				Region:          minioRegion,
+				DoNotUseTLS:     !minioUseSSL,
+				DoNotVerifyTLS:  disableTLSVerify,
+			})
 			testStorage(t, options)
 		})
 	}
@@ -310,17 +311,27 @@ func createBucket(t *testutil.RetriableT, opt *Options) {
 		&minio.Options{
 			Creds:  miniocreds.NewStaticV4(opt.AccessKeyID, opt.SecretAccessKey, ""),
 			Secure: !opt.DoNotUseTLS,
+			Region: opt.Region,
 		})
 	if err != nil {
 		t.Fatalf("can't initialize minio client: %v", err)
 	}
+
 	// ignore error
-	_ = minioClient.MakeBucket(context.Background(), opt.BucketName, minio.MakeBucketOptions{
+	if err := minioClient.MakeBucket(context.Background(), opt.BucketName, minio.MakeBucketOptions{
 		Region: opt.Region,
-	})
+	}); err != nil {
+		var er minio.ErrorResponse
+
+		if errors.As(err, &er) && er.Code == "BucketAlreadyOwnedByYou" {
+			return
+		}
+
+		t.Fatalf("unable to create bucket: %v", err)
+	}
 }
 
-func createMinioUser(t *testutil.RetriableT, kopiaUserName, kopiaPasswd string) {
+func createMinioUser(t *testutil.RetriableT, minioEndpoint, kopiaUserName, kopiaPasswd string) {
 	// create minio admin client
 	adminCli, err := madmin.New(minioEndpoint, minioAccessKeyID, minioSecretAccessKey, minioUseSSL)
 	if err != nil {
@@ -339,7 +350,7 @@ func createMinioUser(t *testutil.RetriableT, kopiaUserName, kopiaPasswd string) 
 	}
 }
 
-func deleteMinioUser(t *testutil.RetriableT, kopiaUserName string) {
+func deleteMinioUser(t *testutil.RetriableT, minioEndpoint, kopiaUserName string) {
 	// create minio admin client
 	adminCli, err := madmin.New(minioEndpoint, minioAccessKeyID, minioSecretAccessKey, minioUseSSL)
 	if err != nil {
@@ -351,13 +362,14 @@ func deleteMinioUser(t *testutil.RetriableT, kopiaUserName string) {
 	_ = adminCli.RemoveUser(testlogging.Context(t), kopiaUserName)
 }
 
-func createMinioSessionToken(t *testutil.RetriableT, kopiaUserName, kopiaUserPasswd, bucketName string) (accessID, secretKey, sessionToken string) {
+func createMinioSessionToken(t *testutil.RetriableT, minioEndpoint, kopiaUserName, kopiaUserPasswd, bucketName string) (accessID, secretKey, sessionToken string) {
 	// Configure to use MinIO Server
 	awsConfig := &aws.Config{
 		Credentials:      credentials.NewStaticCredentials(kopiaUserName, kopiaUserPasswd, ""),
-		Endpoint:         aws.String(minioHost),
-		Region:           aws.String("us-east-1"),
+		Endpoint:         aws.String(minioEndpoint),
+		Region:           aws.String(minioRegion),
 		S3ForcePathStyle: aws.Bool(true),
+		DisableSSL:       aws.Bool(!minioUseSSL),
 	}
 
 	awsSession, err := session.NewSession(awsConfig)
