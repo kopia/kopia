@@ -174,7 +174,7 @@ func (p *Pool) Close() {
 	activePoolsMutex.Unlock()
 }
 
-// ActivePools returns the number of active activePools.
+// ActivePools returns the set of active activePools.
 func ActivePools() map[*Pool]string {
 	activePoolsMutex.Lock()
 	defer activePoolsMutex.Unlock()
