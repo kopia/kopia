@@ -54,8 +54,8 @@ func (ks *KopiaSnapshotter) ServerCmd() *exec.Cmd {
 }
 
 // CreateSnapshot is part of Snapshotter.
-func (ks *KopiaSnapshotter) CreateSnapshot(sourceDir string, opts map[string]string) (snapID string, fingerprint []byte, snapStats *robustness.CreateSnapshotStats, err error) {
-	fingerprint, err = ks.comparer.Gather(context.TODO(), sourceDir, opts)
+func (ks *KopiaSnapshotter) CreateSnapshot(ctx context.Context, sourceDir string, opts map[string]string) (snapID string, fingerprint []byte, snapStats *robustness.CreateSnapshotStats, err error) {
+	fingerprint, err = ks.comparer.Gather(ctx, sourceDir, opts)
 	if err != nil {
 		return
 	}
@@ -79,38 +79,38 @@ func (ks *KopiaSnapshotter) CreateSnapshot(sourceDir string, opts map[string]str
 
 // RestoreSnapshot restores the snapshot with the given ID to the provided restore directory. It returns
 // fingerprint verification data of the restored snapshot directory.
-func (ks *KopiaSnapshotter) RestoreSnapshot(snapID, restoreDir string, opts map[string]string) (fingerprint []byte, err error) {
+func (ks *KopiaSnapshotter) RestoreSnapshot(ctx context.Context, snapID, restoreDir string, opts map[string]string) (fingerprint []byte, err error) {
 	err = ks.snap.RestoreSnapshot(snapID, restoreDir)
 	if err != nil {
 		return
 	}
 
-	return ks.comparer.Gather(context.TODO(), restoreDir, opts)
+	return ks.comparer.Gather(ctx, restoreDir, opts)
 }
 
 // RestoreSnapshotCompare restores the snapshot with the given ID to the provided restore directory, then verifies the data
 // that has been restored against the provided fingerprint validation data.
-func (ks *KopiaSnapshotter) RestoreSnapshotCompare(snapID, restoreDir string, validationData []byte, reportOut io.Writer, opts map[string]string) (err error) {
+func (ks *KopiaSnapshotter) RestoreSnapshotCompare(ctx context.Context, snapID, restoreDir string, validationData []byte, reportOut io.Writer, opts map[string]string) (err error) {
 	err = ks.snap.RestoreSnapshot(snapID, restoreDir)
 	if err != nil {
 		return err
 	}
 
-	return ks.comparer.Compare(context.TODO(), restoreDir, validationData, reportOut, opts)
+	return ks.comparer.Compare(ctx, restoreDir, validationData, reportOut, opts)
 }
 
 // DeleteSnapshot is part of Snapshotter.
-func (ks *KopiaSnapshotter) DeleteSnapshot(snapID string, opts map[string]string) error {
+func (ks *KopiaSnapshotter) DeleteSnapshot(ctx context.Context, snapID string, opts map[string]string) error {
 	return ks.snap.DeleteSnapshot(snapID)
 }
 
 // RunGC is part of Snapshotter.
-func (ks *KopiaSnapshotter) RunGC(opts map[string]string) error {
+func (ks *KopiaSnapshotter) RunGC(ctx context.Context, opts map[string]string) error {
 	return ks.snap.RunGC()
 }
 
 // ListSnapshots is part of Snapshotter.
-func (ks *KopiaSnapshotter) ListSnapshots() ([]string, error) {
+func (ks *KopiaSnapshotter) ListSnapshots(ctx context.Context) ([]string, error) {
 	return ks.snap.ListSnapshots()
 }
 

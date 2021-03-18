@@ -17,7 +17,7 @@ import (
 )
 
 // ExecAction executes the action denoted by the provided ActionKey.
-func (e *Engine) ExecAction(actionKey ActionKey, opts map[string]string) (map[string]string, error) {
+func (e *Engine) ExecAction(ctx context.Context, actionKey ActionKey, opts map[string]string) (map[string]string, error) {
 	if opts == nil {
 		opts = make(map[string]string)
 	}
@@ -44,7 +44,7 @@ func (e *Engine) ExecAction(actionKey ActionKey, opts map[string]string) (map[st
 
 	n := robustness.GetOptAsIntOrDefault(ActionRepeaterField, opts, defaultActionRepeats)
 	for i := 0; i < n; i++ {
-		out, err = action.f(e, opts, logEntry)
+		out, err = action.f(ctx, e, opts, logEntry)
 		if err != nil {
 			break
 		}
@@ -81,7 +81,7 @@ func (e *Engine) ExecAction(actionKey ActionKey, opts map[string]string) (map[st
 // RandomAction executes a random action picked by the relative weights given
 // in actionOpts[ActionControlActionKey], or uniform probability if that
 // key is not present in the input options.
-func (e *Engine) RandomAction(actionOpts ActionOpts) error {
+func (e *Engine) RandomAction(ctx context.Context, actionOpts ActionOpts) error {
 	actionControlOpts := actionOpts.getActionControlOpts()
 
 	actionName := pickActionWeighted(actionControlOpts, actions)
@@ -89,13 +89,13 @@ func (e *Engine) RandomAction(actionOpts ActionOpts) error {
 		return robustness.ErrNoActionPicked
 	}
 
-	_, err := e.ExecAction(actionName, actionOpts[actionName])
-	err = e.checkErrRecovery(err, actionOpts)
+	_, err := e.ExecAction(ctx, actionName, actionOpts[actionName])
+	err = e.checkErrRecovery(ctx, err, actionOpts)
 
 	return err
 }
 
-func (e *Engine) checkErrRecovery(incomingErr error, actionOpts ActionOpts) (outgoingErr error) {
+func (e *Engine) checkErrRecovery(ctx context.Context, incomingErr error, actionOpts ActionOpts) (outgoingErr error) {
 	outgoingErr = incomingErr
 
 	if incomingErr == nil {
@@ -107,7 +107,7 @@ func (e *Engine) checkErrRecovery(incomingErr error, actionOpts ActionOpts) (out
 	if errIsNotEnoughSpace(incomingErr) && ctrl[ThrowNoSpaceOnDeviceErrField] == "" {
 		// no space left on device
 		// Delete everything in the data directory
-		outgoingErr = e.FileWriter.DeleteEverything()
+		outgoingErr = e.FileWriter.DeleteEverything(ctx)
 		if outgoingErr != nil {
 			return outgoingErr
 		}
@@ -117,7 +117,7 @@ func (e *Engine) checkErrRecovery(incomingErr error, actionOpts ActionOpts) (out
 
 		// Restore a previoius snapshot to the data directory
 		restoreActionKey := RestoreIntoDataDirectoryActionKey
-		_, outgoingErr = e.ExecAction(restoreActionKey, actionOpts[restoreActionKey])
+		_, outgoingErr = e.ExecAction(ctx, restoreActionKey, actionOpts[restoreActionKey])
 
 		if errors.Is(outgoingErr, robustness.ErrNoOp) {
 			outgoingErr = nil
@@ -164,7 +164,7 @@ func (actionOpts ActionOpts) getActionControlOpts() map[string]string {
 // Action is a unit of functionality that can be executed by
 // the engine.
 type Action struct {
-	f func(eng *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error)
+	f func(ctx context.Context, eng *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error)
 }
 
 // ActionKey refers to an action that can be executed by the engine.
@@ -172,15 +172,14 @@ type ActionKey string
 
 var actions = map[ActionKey]Action{
 	SnapshotDirActionKey: {
-		f: func(e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
-			snapPath := e.FileWriter.DataDirectory()
+		f: func(ctx context.Context, e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
+			snapPath := e.FileWriter.DataDirectory(ctx)
 			if opts != nil && opts[SubPathOptionName] != "" {
 				snapPath = filepath.Join(snapPath, opts[SubPathOptionName])
 			}
 
 			log.Printf("Creating snapshot of directory %s", snapPath)
 
-			ctx := context.TODO()
 			snapID, err := e.Checker.TakeSnapshot(ctx, snapPath, opts)
 
 			setLogEntryCmdOpts(l, map[string]string{
@@ -194,7 +193,7 @@ var actions = map[ActionKey]Action{
 		},
 	},
 	RestoreSnapshotActionKey: {
-		f: func(e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
+		f: func(ctx context.Context, e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
 			snapID, err := e.getSnapIDOptOrRandLive(opts)
 			if err != nil {
 				return nil, err
@@ -204,7 +203,6 @@ var actions = map[ActionKey]Action{
 
 			log.Printf("Restoring snapshot %s", snapID)
 
-			ctx := context.Background()
 			b := &bytes.Buffer{}
 
 			err = e.Checker.RestoreSnapshot(ctx, snapID, b, opts)
@@ -216,7 +214,7 @@ var actions = map[ActionKey]Action{
 		},
 	},
 	DeleteRandomSnapshotActionKey: {
-		f: func(e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
+		f: func(ctx context.Context, e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
 			snapID, err := e.getSnapIDOptOrRandLive(opts)
 			if err != nil {
 				return nil, err
@@ -226,42 +224,41 @@ var actions = map[ActionKey]Action{
 
 			setLogEntryCmdOpts(l, map[string]string{"snapID": snapID})
 
-			ctx := context.Background()
 			err = e.Checker.DeleteSnapshot(ctx, snapID, opts)
 			return nil, err
 		},
 	},
 	GCActionKey: {
-		f: func(e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
-			return nil, e.TestRepo.RunGC(opts)
+		f: func(ctx context.Context, e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
+			return nil, e.TestRepo.RunGC(ctx, opts)
 		},
 	},
 	WriteRandomFilesActionKey: {
-		f: func(e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
-			out, err = e.FileWriter.WriteRandomFiles(opts)
+		f: func(ctx context.Context, e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
+			out, err = e.FileWriter.WriteRandomFiles(ctx, opts)
 			setLogEntryCmdOpts(l, out)
 
 			return
 		},
 	},
 	DeleteRandomSubdirectoryActionKey: {
-		f: func(e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
-			out, err = e.FileWriter.DeleteRandomSubdirectory(opts)
+		f: func(ctx context.Context, e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
+			out, err = e.FileWriter.DeleteRandomSubdirectory(ctx, opts)
 			setLogEntryCmdOpts(l, out)
 
 			return
 		},
 	},
 	DeleteDirectoryContentsActionKey: {
-		f: func(e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
-			out, err = e.FileWriter.DeleteDirectoryContents(opts)
+		f: func(ctx context.Context, e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
+			out, err = e.FileWriter.DeleteDirectoryContents(ctx, opts)
 			setLogEntryCmdOpts(l, out)
 
 			return
 		},
 	},
 	RestoreIntoDataDirectoryActionKey: {
-		f: func(e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
+		f: func(ctx context.Context, e *Engine, opts map[string]string, l *LogEntry) (out map[string]string, err error) {
 			snapID, err := e.getSnapIDOptOrRandLive(opts)
 			if err != nil {
 				return nil, err
@@ -272,7 +269,7 @@ var actions = map[ActionKey]Action{
 			setLogEntryCmdOpts(l, map[string]string{"snapID": snapID})
 
 			b := &bytes.Buffer{}
-			err = e.Checker.RestoreSnapshotToPath(context.Background(), snapID, e.FileWriter.DataDirectory(), b, opts)
+			err = e.Checker.RestoreSnapshotToPath(ctx, snapID, e.FileWriter.DataDirectory(ctx), b, opts)
 			if err != nil {
 				log.Print(b.String())
 				return nil, err

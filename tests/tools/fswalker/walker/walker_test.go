@@ -3,7 +3,6 @@
 package walker
 
 import (
-	"context"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -11,6 +10,7 @@ import (
 
 	fspb "github.com/google/fswalker/proto/fswalker"
 
+	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -32,7 +32,9 @@ func TestWalk(t *testing.T) {
 	)
 	testenv.AssertNoError(t, err)
 
-	walk, err := Walk(context.TODO(),
+	ctx := testlogging.Context(t)
+
+	walk, err := Walk(ctx,
 		&fspb.Policy{
 			Include: []string{
 				dataDir,
@@ -48,8 +50,10 @@ func TestWalk(t *testing.T) {
 }
 
 func TestWalkFail(t *testing.T) {
+	ctx := testlogging.Context(t)
+
 	_, err := Walk(
-		context.TODO(),
+		ctx,
 		&fspb.Policy{
 			Include: []string{
 				"some/nonexistent/directory",
