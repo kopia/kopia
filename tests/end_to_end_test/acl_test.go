@@ -41,6 +41,8 @@ func TestACL(t *testing.T) {
 	srv := serverEnvironment.RunAndProcessStderr(t, sp.ProcessOutput,
 		"server", "start",
 		"--address=localhost:0",
+		"--server-username=admin-user",
+		"--server-password=admin-pwd",
 		"--tls-generate-cert",
 		"--tls-generate-rsa-key-size=2048", // use shorter key size to speed up generation
 	)
@@ -108,12 +110,26 @@ func TestACL(t *testing.T) {
 
 	// alice changes her own password and reconnects
 	aliceInWonderlandClientEnvironment.RunAndExpectSuccess(t, "server", "users", "set", "alice@wonderland", "--user-password", "new-password")
+
+	// refresh the auth cache using admin username/password.
 	serverEnvironment.RunAndExpectSuccess(t, "server", "refresh",
 		"--address", sp.baseURL,
-		"--server-username", "alice@wonderland",
+		"--server-username", "admin-user",
+		"--server-password", "admin-pwd",
+		"--server-cert-fingerprint", sp.sha256Fingerprint,
+	)
+
+	// we could use foo@bar's credentials as well (any valid user/password will do)
+	// since the password was and is valid, but using alice@wonderland with password 'baz'
+	// is not reliable since we don't know whether the server has already picked up the
+	// change or is still using the old password.
+	serverEnvironment.RunAndExpectSuccess(t, "server", "refresh",
+		"--address", sp.baseURL,
+		"--server-username", "foo@bar",
 		"--server-password", "baz",
 		"--server-cert-fingerprint", sp.sha256Fingerprint,
 	)
+
 	aliceInWonderlandClientEnvironment.RunAndExpectSuccess(t, "repo", "disconnect")
 	aliceInWonderlandClientEnvironment.RunAndExpectSuccess(t, "repo", "connect", "server",
 		"--url", sp.baseURL+"/",
