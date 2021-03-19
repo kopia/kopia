@@ -325,6 +325,7 @@ publish-packages:
 ifeq ($(REPO_OWNER)/$(GOOS)/$(GOARCH)/$(IS_PULL_REQUEST),kopia/linux/amd64/false)
 	$(CURDIR)/tools/apt-publish.sh $(CURDIR)/dist
 	$(CURDIR)/tools/rpm-publish.sh $(CURDIR)/dist
+	@echo $(DOCKERHUB_TOKEN) | docker login --username $(DOCKERHUB_USERNAME) --password-stdin
 	$(CURDIR)/tools/docker-publish.sh
 else
 	@echo Not pushing to Linux repositories on pull request builds.
