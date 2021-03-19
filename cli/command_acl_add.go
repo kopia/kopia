@@ -15,7 +15,6 @@ var (
 	aclAddCommandUser        = aclAddCommand.Flag("user", "User the ACL targets").Required().String()
 	aclAddCommandTarget      = aclAddCommand.Flag("target", "Manifests targeted by the rule (type:T,key1:value1,...,keyN:valueN)").Required().String()
 	aclAddCommandAccessLevel = aclAddCommand.Flag("access", "Access the user gets to subject").Required().Enum(acl.SupportedAccessLevels()...)
-	aclAddCommandPriority    = aclAddCommand.Flag("priority", "Priority the ACL").Default("50").Int()
 )
 
 func runACLAdd(ctx context.Context, rep repo.RepositoryWriter) error {
@@ -36,10 +35,9 @@ func runACLAdd(ctx context.Context, rep repo.RepositoryWriter) error {
 	}
 
 	e := &acl.Entry{
-		User:     *aclAddCommandUser,
-		Target:   r,
-		Access:   al,
-		Priority: *aclAddCommandPriority,
+		User:   *aclAddCommandUser,
+		Target: r,
+		Access: al,
 	}
 
 	return acl.AddACL(ctx, rep, e)

@@ -22,9 +22,6 @@ var ContentRule = acl.TargetRule{
 	"type": "content",
 }
 
-// defaultACLPriority is the priority at which default ACLs are specified.
-const defaultACLPriority = 50
-
 // anyUser matches any user at any host.
 const anyUser = "*@*"
 
@@ -32,10 +29,9 @@ const anyUser = "*@*"
 var DefaultACLs = []*acl.Entry{
 	{
 		// everybody can write contents
-		User:     anyUser,
-		Target:   ContentRule,
-		Access:   acl.AccessLevelAppend,
-		Priority: defaultACLPriority,
+		User:   anyUser,
+		Target: ContentRule,
+		Access: acl.AccessLevelAppend,
 	},
 	{
 		// everybody can read global policy.
@@ -44,8 +40,7 @@ var DefaultACLs = []*acl.Entry{
 			manifest.TypeLabelKey:  policy.ManifestType,
 			policy.PolicyTypeLabel: policy.PolicyTypeGlobal,
 		},
-		Access:   AccessLevelRead,
-		Priority: defaultACLPriority,
+		Access: AccessLevelRead,
 	},
 	{
 		// users *@host can read own host's policy.
@@ -55,8 +50,7 @@ var DefaultACLs = []*acl.Entry{
 			policy.PolicyTypeLabel: policy.PolicyTypeHost,
 			policy.HostnameLabel:   acl.OwnHost,
 		},
-		Access:   AccessLevelRead,
-		Priority: defaultACLPriority,
+		Access: AccessLevelRead,
 	},
 	{
 		// username@hostname has full access to their own policies
@@ -66,8 +60,7 @@ var DefaultACLs = []*acl.Entry{
 			policy.UsernameLabel:  acl.OwnUser,
 			policy.HostnameLabel:  acl.OwnHost,
 		},
-		Access:   acl.AccessLevelFull,
-		Priority: defaultACLPriority,
+		Access: acl.AccessLevelFull,
 	},
 	{
 		// username@hostname has full access to their own snapshots
@@ -77,8 +70,7 @@ var DefaultACLs = []*acl.Entry{
 			snapshot.UsernameLabel: acl.OwnUser,
 			snapshot.HostnameLabel: acl.OwnHost,
 		},
-		Access:   acl.AccessLevelFull,
-		Priority: defaultACLPriority,
+		Access: acl.AccessLevelFull,
 	},
 	{
 		// username@hostname has full access to their user account and can change password
@@ -87,8 +79,7 @@ var DefaultACLs = []*acl.Entry{
 			manifest.TypeLabelKey:        user.ManifestType,
 			user.UsernameAtHostnameLabel: acl.OwnUser + "@" + acl.OwnHost,
 		},
-		Access:   acl.AccessLevelFull,
-		Priority: defaultACLPriority,
+		Access: acl.AccessLevelFull,
 	},
 }
 

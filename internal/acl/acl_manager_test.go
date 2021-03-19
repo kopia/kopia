@@ -175,8 +175,7 @@ func TestLoadEntries(t *testing.T) {
 		Target: acl.TargetRule{
 			manifest.TypeLabelKey: "content",
 		},
-		Access:   acl.AccessLevelFull,
-		Priority: 10,
+		Access: acl.AccessLevelFull,
 	}
 
 	must(t, acl.AddACL(ctx, env.RepositoryWriter, e1))
@@ -193,8 +192,7 @@ func TestLoadEntries(t *testing.T) {
 		Target: acl.TargetRule{
 			manifest.TypeLabelKey: snapshot.ManifestType,
 		},
-		Access:   acl.AccessLevelFull,
-		Priority: 20,
+		Access: acl.AccessLevelFull,
 	}
 
 	must(t, acl.AddACL(ctx, env.RepositoryWriter, e2))
@@ -223,8 +221,7 @@ func TestACLEntryValidation(t *testing.T) {
 					"type": "foo",
 					"bar":  "baz",
 				},
-				Access:   acl.AccessLevelFull,
-				Priority: 50,
+				Access: acl.AccessLevelFull,
 			},
 			WantErr: "",
 		},
@@ -235,8 +232,7 @@ func TestACLEntryValidation(t *testing.T) {
 					"type": "foo",
 					"bar":  "baz",
 				},
-				Access:   acl.AccessLevelFull,
-				Priority: 50,
+				Access: acl.AccessLevelFull,
 			},
 			WantErr: "user must be 'username@hostname' possibly including wildcards",
 		},
@@ -246,8 +242,7 @@ func TestACLEntryValidation(t *testing.T) {
 				Target: acl.TargetRule{
 					"bar": "baz",
 				},
-				Access:   acl.AccessLevelFull,
-				Priority: 50,
+				Access: acl.AccessLevelFull,
 			},
 			WantErr: "ACL target must have a 'type' label",
 		},
@@ -258,33 +253,9 @@ func TestACLEntryValidation(t *testing.T) {
 					"type": "foo",
 					"bar":  "baz",
 				},
-				Access:   -1,
-				Priority: 50,
+				Access: -1,
 			},
 			WantErr: "valid access level must be specified",
-		},
-		{
-			Entry: &acl.Entry{
-				User: "foo@bar",
-				Target: acl.TargetRule{
-					"type": "foo",
-					"bar":  "baz",
-				},
-				Access:   acl.AccessLevelFull,
-				Priority: 150,
-			},
-			WantErr: "invalid priority, must be 1 (highest) to 100 (lowest)",
-		},
-		{
-			Entry: &acl.Entry{
-				User: "foo@bar",
-				Target: acl.TargetRule{
-					"type": "foo",
-					"bar":  "baz",
-				},
-				Access: acl.AccessLevelFull,
-			},
-			WantErr: "invalid priority, must be 1 (highest) to 100 (lowest)",
 		},
 	}
 

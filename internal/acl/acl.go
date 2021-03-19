@@ -15,11 +15,6 @@ const (
 	OwnHost = "OWN_HOST"
 )
 
-const (
-	highestPriority = 1
-	lowestPriority  = 100
-)
-
 // TargetRule specifies a list of key and values that must match labels on the target manifest.
 // The value can have two special placeholders - OWN_USER and OWN_VALUE representing the matched user
 // and host respectively if wildcards are being used.
@@ -64,7 +59,6 @@ type Entry struct {
 	User       string      `json:"user"`   // supports wildcards such as "*@*", "user@host", "*@host, user@*"
 	Target     TargetRule  `json:"target"` // supports OwnUser and OwnHost in labels
 	Access     AccessLevel `json:"access,omitempty"`
-	Priority   int         `json:"priority,omitempty"`
 }
 
 // Validate validates entry.
@@ -84,10 +78,6 @@ func (e *Entry) Validate() error {
 
 	if accessLevelToString[e.Access] == "" {
 		return errors.Errorf("valid access level must be specified")
-	}
-
-	if e.Priority < highestPriority || e.Priority > lowestPriority {
-		return errors.Errorf("invalid priority, must be %v (highest) to %v (lowest)", highestPriority, lowestPriority)
 	}
 
 	return nil

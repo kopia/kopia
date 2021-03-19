@@ -18,7 +18,7 @@ func runACLList(ctx context.Context, rep repo.Repository) error {
 	}
 
 	for _, e := range entries {
-		printStdout("id:%v user:%v access:%v target:%v priority:%v \n", e.ManifestID, e.User, e.Access, e.Target, e.Priority)
+		printStdout("id:%v user:%v access:%v target:%v\n", e.ManifestID, e.User, e.Access, e.Target)
 	}
 
 	return nil
