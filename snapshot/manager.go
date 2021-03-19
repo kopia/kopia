@@ -15,6 +15,13 @@ import (
 // ManifestType is the value of the "type" label for snapshot manifests.
 const ManifestType = "snapshot"
 
+// Manifest labels identifying snapshots.
+const (
+	UsernameLabel = "username"
+	HostnameLabel = "hostname"
+	PathLabel     = "path"
+)
+
 // ErrSnapshotNotFound is returned when a snapshot is not found.
 var ErrSnapshotNotFound = errors.Errorf("snapshot not found")
 
@@ -49,21 +56,21 @@ func ListSources(ctx context.Context, rep repo.Repository) ([]SourceInfo, error)
 }
 
 func sourceInfoFromLabels(labels map[string]string) SourceInfo {
-	return SourceInfo{Host: labels["hostname"], UserName: labels["username"], Path: labels["path"]}
+	return SourceInfo{Host: labels[HostnameLabel], UserName: labels[UsernameLabel], Path: labels[PathLabel]}
 }
 
 func sourceInfoToLabels(si SourceInfo) map[string]string {
 	m := map[string]string{
-		typeKey:    ManifestType,
-		"hostname": si.Host,
+		typeKey:       ManifestType,
+		HostnameLabel: si.Host,
 	}
 
 	if si.UserName != "" {
-		m["username"] = si.UserName
+		m[UsernameLabel] = si.UserName
 	}
 
 	if si.Path != "" {
-		m["path"] = si.Path
+		m[PathLabel] = si.Path
 	}
 
 	return m

@@ -48,7 +48,7 @@ type Server struct {
 	cancelRep context.CancelFunc
 
 	authenticator auth.Authenticator
-	authorizer    auth.AuthorizerFunc
+	authorizer    auth.Authorizer
 
 	// all API requests run with shared lock on this mutex
 	// administrative actions run with an exclusive lock and block API calls.
@@ -83,7 +83,7 @@ func (s *Server) APIHandlers(legacyAPI bool) http.Handler {
 
 	m.HandleFunc("/api/v1/policies", s.handleAPI(requireUIUser, s.handlePolicyList)).Methods(http.MethodGet)
 
-	m.HandleFunc("/api/v1/refresh", s.handleAPI(requireUIUser, s.handleRefresh)).Methods(http.MethodPost)
+	m.HandleFunc("/api/v1/refresh", s.handleAPI(anyAuthenticatedUser, s.handleRefresh)).Methods(http.MethodPost)
 	m.HandleFunc("/api/v1/shutdown", s.handleAPIPossiblyNotConnected(requireUIUser, s.handleShutdown)).Methods(http.MethodPost)
 
 	m.HandleFunc("/api/v1/objects/{objectID}", s.requireAuth(s.handleObjectGet)).Methods(http.MethodGet)
@@ -153,7 +153,7 @@ func (s *Server) isAuthenticated(w http.ResponseWriter, r *http.Request) bool {
 		}
 	}
 
-	if !s.authenticator(r.Context(), s.rep, username, password) {
+	if !s.authenticator.IsValid(r.Context(), s.rep, username, password) {
 		w.Header().Set("WWW-Authenticate", `Basic realm="Kopia"`)
 		http.Error(w, "Access denied.\n", http.StatusUnauthorized)
 
@@ -218,7 +218,7 @@ func (s *Server) httpAuthorizationInfo(r *http.Request) auth.AuthorizationInfo {
 	// authentication already done
 	userAtHost, _, _ := r.BasicAuth()
 
-	authz := s.authorizer(r.Context(), s.rep, userAtHost)
+	authz := s.authorizer.Authorize(r.Context(), s.rep, userAtHost)
 	if authz == nil {
 		authz = auth.NoAccess()
 	}
@@ -305,12 +305,49 @@ func (s *Server) handleAPIPossiblyNotConnected(isAuthorized isAuthorizedFunc, f 
 	})
 }
 
-func (s *Server) handleRefresh(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
-	if err := s.rep.Refresh(ctx); err != nil {
-		return nil, internalServerError(err)
+// Refresh refreshes the state of the server in response to external signal (e.g. SIGHUP).
+func (s *Server) Refresh(ctx context.Context) error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.internalRefreshRLocked(ctx)
+}
+
+func (s *Server) internalRefreshRLocked(ctx context.Context) error {
+	if s.rep == nil {
+		return nil
 	}
 
-	return &serverapi.Empty{}, nil
+	if err := s.rep.Refresh(ctx); err != nil {
+		return errors.Wrap(err, "unable to refresh repository")
+	}
+
+	if s.authenticator != nil {
+		if err := s.authenticator.Refresh(ctx); err != nil {
+			log(ctx).Warningf("unable to refresh authenticator: %v", err)
+		}
+	}
+
+	if s.authorizer != nil {
+		if err := s.authorizer.Refresh(ctx); err != nil {
+			log(ctx).Warningf("unable to refresh authorizer: %v", err)
+		}
+	}
+
+	// release shared lock so that SyncSources can acquire exclusive lock
+	s.mu.RUnlock()
+	err := s.SyncSources(ctx)
+	s.mu.RLock()
+	if err != nil {
+		return errors.Wrap(err, "unable to sync sources")
+	}
+
+	return nil
+}
+
+func (s *Server) handleRefresh(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
+	// refresh is an alias for /repo/sync
+	return s.handleRepoSync(ctx, r, body)
 }
 
 func (s *Server) handleFlush(ctx context.Context, r *http.Request, body []byte) (interface{}, *apiError) {
@@ -566,7 +603,7 @@ type Options struct {
 	RefreshInterval      time.Duration
 	MaxConcurrency       int
 	Authenticator        auth.Authenticator
-	Authorizer           auth.AuthorizerFunc
+	Authorizer           auth.Authorizer
 	AuthCookieSigningKey string
 	UIUser               string // name of the user allowed to access the UI
 }

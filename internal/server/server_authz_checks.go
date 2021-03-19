@@ -7,6 +7,10 @@ import (
 )
 
 func requireUIUser(s *Server, r *http.Request) bool {
+	if s.authenticator == nil {
+		return true
+	}
+
 	user, _, _ := r.BasicAuth()
 
 	return user == s.options.UIUser

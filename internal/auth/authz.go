@@ -4,21 +4,28 @@ import (
 	"context"
 	"strings"
 
+	"github.com/kopia/kopia/internal/acl"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/manifest"
+	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/policy"
 )
 
-// AuthorizerFunc gets the authorizations for given user.
-type AuthorizerFunc func(ctx context.Context, rep repo.Repository, username string) AuthorizationInfo
+// Authorizer gets authorization info for logged in user.
+type Authorizer interface {
+	Authorize(ctx context.Context, rep repo.Repository, username string) AuthorizationInfo
+	Refresh(ctx context.Context) error
+}
 
 // AccessLevel specifies access level when accessing repository objects.
-type AccessLevel int
+type AccessLevel = acl.AccessLevel
 
-// Access levels.
+// Access levels forwarded to 'acl' package to allow it to easily implement AuthorizationInfo interface.
 const (
-	AccessLevelNone   AccessLevel = iota
-	AccessLevelRead               // RO access
-	AccessLevelAppend             // RO + create new
-	AccessLevelFull               // read/write/delete
+	AccessLevelNone   = acl.AccessLevelNone
+	AccessLevelRead   = acl.AccessLevelRead   // RO access
+	AccessLevelAppend = acl.AccessLevelAppend // RO + create new
+	AccessLevelFull   = acl.AccessLevelFull   // read/write/delete
 )
 
 // AuthorizationInfo determines logged in user's access level.
@@ -30,39 +37,39 @@ type AuthorizationInfo interface {
 	ManifestAccessLevel(labels map[string]string) AccessLevel
 }
 
-type noAccessAuthorizer struct{}
+type noAccessAuthorizationInfo struct{}
 
-func (noAccessAuthorizer) ContentAccessLevel() AccessLevel { return AccessLevelNone }
-func (noAccessAuthorizer) ManifestAccessLevel(labels map[string]string) AccessLevel {
+func (noAccessAuthorizationInfo) ContentAccessLevel() AccessLevel { return AccessLevelNone }
+func (noAccessAuthorizationInfo) ManifestAccessLevel(labels map[string]string) AccessLevel {
 	return AccessLevelNone
 }
 
 // NoAccess returns AuthorizationInfo which grants no permissions.
 func NoAccess() AuthorizationInfo {
-	return noAccessAuthorizer{}
+	return noAccessAuthorizationInfo{}
 }
 
-type legacyAuthorizer struct {
+type legacyAuthorizationInfo struct {
 	usernameAtHostname string
 }
 
-func (la legacyAuthorizer) ContentAccessLevel() AccessLevel { return AccessLevelFull }
-func (la legacyAuthorizer) ManifestAccessLevel(labels map[string]string) AccessLevel {
-	if labels["type"] == "policy" {
+func (la legacyAuthorizationInfo) ContentAccessLevel() AccessLevel { return AccessLevelFull }
+func (la legacyAuthorizationInfo) ManifestAccessLevel(labels map[string]string) AccessLevel {
+	if labels[manifest.TypeLabelKey] == policy.ManifestType {
 		// everybody can read global policy.
-		switch labels["policyType"] {
-		case "global":
+		switch labels[policy.PolicyTypeLabel] {
+		case policy.PolicyTypeGlobal:
 			return AccessLevelRead
 
-		case "host":
-			if strings.HasSuffix(la.usernameAtHostname, "@"+labels["hostname"]) {
+		case policy.PolicyTypeHost:
+			if strings.HasSuffix(la.usernameAtHostname, "@"+labels[snapshot.HostnameLabel]) {
 				return AccessLevelRead
 			}
 		}
 	}
 
 	// full access to policies/snapshots for the username@hostname
-	if labels["username"]+"@"+labels["hostname"] == la.usernameAtHostname {
+	if labels[snapshot.UsernameLabel]+"@"+labels[snapshot.HostnameLabel] == la.usernameAtHostname {
 		return AccessLevelFull
 	}
 
@@ -70,10 +77,18 @@ func (la legacyAuthorizer) ManifestAccessLevel(labels map[string]string) AccessL
 	return AccessLevelNone
 }
 
-// LegacyAuthorizerForUser is an AuthorizerFunc that returns authorizer with legacy (pre-ACL)
-// authorization rules (authenticated users can see their own snapshots/policies only).
-func LegacyAuthorizerForUser(ctx context.Context, rep repo.Repository, usernameAtHostname string) AuthorizationInfo {
-	return legacyAuthorizer{usernameAtHostname}
+type legacyAuthorizer struct{}
+
+func (legacyAuthorizer) Authorize(ctx context.Context, rep repo.Repository, username string) AuthorizationInfo {
+	return legacyAuthorizationInfo{usernameAtHostname: username}
 }
 
-var _ AuthorizerFunc = LegacyAuthorizerForUser
+func (legacyAuthorizer) Refresh(ctx context.Context) error {
+	return nil
+}
+
+// LegacyAuthorizer is an Authorizer that returns authorizer with legacy (pre-ACL)
+// authorization rules (authenticated users can see their own snapshots/policies only).
+func LegacyAuthorizer() Authorizer {
+	return legacyAuthorizer{}
+}

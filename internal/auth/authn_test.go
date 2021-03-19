@@ -38,7 +38,7 @@ func TestCombineAuthenticators(t *testing.T) {
 func verifyAuthenticator(t *testing.T, a auth.Authenticator, username, password string, want bool) {
 	t.Helper()
 
-	if got := a(context.Background(), nil, username, password); got != want {
+	if got := a.IsValid(context.Background(), nil, username, password); got != want {
 		t.Errorf("invalid authenticator result for %v/%v: %v, want %v", username, password, got, want)
 	}
 }

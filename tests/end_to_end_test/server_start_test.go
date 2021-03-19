@@ -347,12 +347,15 @@ func TestServerStartInsecure(t *testing.T) {
 	var sp serverParameters
 
 	// server starts without password and no TLS when --insecure is provided.
-	e.RunAndProcessStderr(t, sp.ProcessOutput,
+	c := e.RunAndProcessStderr(t, sp.ProcessOutput,
 		"server", "start",
 		"--ui",
 		"--address=localhost:0",
+		"--without-password",
 		"--insecure",
 	)
+
+	defer c.Process.Kill()
 
 	cli, err := apiclient.NewKopiaAPIClient(apiclient.Options{
 		BaseURL: sp.baseURL,
@@ -366,11 +369,11 @@ func TestServerStartInsecure(t *testing.T) {
 	waitUntilServerStarted(ctx, t, cli)
 
 	// server fails to start without a password but with TLS.
-	e.RunAndExpectFailure(t, "server", "start", "--ui", "--address=localhost:0", "--tls-generate-cert")
+	e.RunAndExpectFailure(t, "server", "start", "--ui", "--address=localhost:0", "--tls-generate-cert", "--without-password")
 
 	// server fails to start with TLS but without password.
 	e.RunAndExpectFailure(t, "server", "start", "--ui", "--address=localhost:0", "--password=foo")
-	e.RunAndExpectFailure(t, "server", "start", "--ui", "--address=localhost:0")
+	e.RunAndExpectFailure(t, "server", "start", "--ui", "--address=localhost:0", "--without-password")
 }
 
 func verifyServerConnected(t *testing.T, cli *apiclient.KopiaAPIClient, want bool) *serverapi.StatusResponse {
