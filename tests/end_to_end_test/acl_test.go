@@ -31,7 +31,7 @@ func TestACL(t *testing.T) {
 	serverEnvironment.RunAndExpectSuccess(t, "server", "acl", "add", "--user", "foo@bar", "--target", "type=policy", "--access=READ")
 
 	// add full access to global policy for all users
-	serverEnvironment.RunAndExpectSuccess(t, "server", "acl", "add", "--user", "*@*", "--target", "type=policy,policytype=global", "--access=FULL")
+	serverEnvironment.RunAndExpectSuccess(t, "server", "acl", "add", "--user", "*@*", "--target", "type=policy,policyType=global", "--access=FULL")
 
 	serverEnvironment.RunAndExpectSuccess(t, "server", "users", "add", "foo@bar", "--user-password", "baz")
 	serverEnvironment.RunAndExpectSuccess(t, "server", "users", "add", "alice@wonderland", "--user-password", "baz")
