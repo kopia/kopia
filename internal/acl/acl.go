@@ -2,12 +2,20 @@ package acl
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/pkg/errors"
 
+	"github.com/kopia/kopia/internal/user"
 	"github.com/kopia/kopia/repo/manifest"
+	"github.com/kopia/kopia/snapshot"
+	"github.com/kopia/kopia/snapshot/policy"
 )
+
+// ContentManifestType is a type that can be used in TargetRule to specify
+// access level to contents as opposed to metadata.
+const ContentManifestType = "content"
 
 // placeholders that can be used in ACL definitions to refer to the current user.
 const (
@@ -61,6 +69,52 @@ type Entry struct {
 	Access     AccessLevel `json:"access,omitempty"`
 }
 
+type valueValidatorFunc func(v string) error
+
+func nonEmptyString(v string) error {
+	if v == "" {
+		return errors.Errorf("must be non-empty")
+	}
+
+	return nil
+}
+
+func oneOf(allowed ...string) valueValidatorFunc {
+	return func(v string) error {
+		for _, a := range allowed {
+			if v == a {
+				return nil
+			}
+		}
+
+		return errors.Errorf("must be one of: %v", strings.Join(allowed, ", "))
+	}
+}
+
+var allowedLabelsForType = map[string]map[string]valueValidatorFunc{
+	ContentManifestType: {},
+	policy.ManifestType: {
+		policy.HostnameLabel: nonEmptyString,
+		policy.UsernameLabel: nonEmptyString,
+		policy.PathLabel:     nonEmptyString,
+		policy.PolicyTypeLabel: oneOf(
+			policy.PolicyTypeGlobal,
+			policy.PolicyTypeHost,
+			policy.PolicyTypeUser,
+			policy.PolicyTypePath,
+		),
+	},
+	snapshot.ManifestType: {
+		snapshot.HostnameLabel: nonEmptyString,
+		snapshot.UsernameLabel: nonEmptyString,
+		snapshot.PathLabel:     nonEmptyString,
+	},
+	user.ManifestType: {
+		user.UsernameAtHostnameLabel: nonEmptyString,
+	},
+	aclManifestType: {},
+}
+
 // Validate validates entry.
 func (e *Entry) Validate() error {
 	if e == nil {
@@ -72,8 +126,29 @@ func (e *Entry) Validate() error {
 		return errors.Errorf("user must be 'username@hostname' possibly including wildcards")
 	}
 
-	if e.Target[manifest.TypeLabelKey] == "" {
+	typ := e.Target[manifest.TypeLabelKey]
+	if typ == "" {
 		return errors.Errorf("ACL target must have a '%v' label", manifest.TypeLabelKey)
+	}
+
+	allowedLabels, ok := allowedLabelsForType[typ]
+	if !ok {
+		return errors.Errorf("invalid '%v' label, must be one of: %v", manifest.TypeLabelKey, strings.Join(allowedTypeNames(), ", "))
+	}
+
+	for k, v := range e.Target {
+		if k == manifest.TypeLabelKey {
+			continue
+		}
+
+		val := allowedLabels[k]
+		if val == nil {
+			return errors.Errorf("unsupported label '%v' for type '%v', must be one of: %v", k, typ, strings.Join(allowedLabelNames(allowedLabels), ", "))
+		}
+
+		if err := val(v); err != nil {
+			return errors.Errorf("invalid label '%v=%v' for type '%v': %v", k, v, typ, err)
+		}
 	}
 
 	if accessLevelToString[e.Access] == "" {
@@ -81,4 +156,28 @@ func (e *Entry) Validate() error {
 	}
 
 	return nil
+}
+
+func allowedTypeNames() []string {
+	var result []string
+
+	for k := range allowedLabelsForType {
+		result = append(result, k)
+	}
+
+	sort.Strings(result)
+
+	return result
+}
+
+func allowedLabelNames(m map[string]valueValidatorFunc) []string {
+	var result []string
+
+	for k := range m {
+		result = append(result, k)
+	}
+
+	sort.Strings(result)
+
+	return result
 }

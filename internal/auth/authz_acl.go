@@ -19,7 +19,7 @@ const defaultACLRefreshFrequency = 10 * time.Second
 
 // ContentRule is a special target rule that targets contents instead of manifests.
 var ContentRule = acl.TargetRule{
-	"type": "content",
+	manifest.TypeLabelKey: acl.ContentManifestType,
 }
 
 // anyUser matches any user at any host.

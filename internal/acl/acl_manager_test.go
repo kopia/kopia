@@ -33,7 +33,7 @@ func TestEffectivePermissions(t *testing.T) {
 		},
 		{
 			entries: []*acl.Entry{},
-			target:  map[string]string{manifest.TypeLabelKey: "content"},
+			target:  map[string]string{manifest.TypeLabelKey: acl.ContentManifestType},
 			want:    acl.AccessLevelNone,
 		},
 		// multiple rules that match subject, highest access wins
@@ -173,7 +173,7 @@ func TestLoadEntries(t *testing.T) {
 	e1 := &acl.Entry{
 		User: actualUserAtHostname,
 		Target: acl.TargetRule{
-			manifest.TypeLabelKey: "content",
+			manifest.TypeLabelKey: acl.ContentManifestType,
 		},
 		Access: acl.AccessLevelFull,
 	}
@@ -223,14 +223,109 @@ func TestACLEntryValidation(t *testing.T) {
 				},
 				Access: acl.AccessLevelFull,
 			},
+			WantErr: "invalid 'type' label, must be one of: acl, content, policy, snapshot, user",
+		},
+		{
+			Entry: &acl.Entry{
+				User: "foo@bar",
+				Target: acl.TargetRule{
+					"type": "snapshot",
+					"bar":  "baz",
+				},
+				Access: acl.AccessLevelFull,
+			},
+			WantErr: "unsupported label 'bar' for type 'snapshot', must be one of: hostname, path, username",
+		},
+		{
+			Entry: &acl.Entry{
+				User: "foo@bar",
+				Target: acl.TargetRule{
+					"type":     "snapshot",
+					"hostname": "",
+				},
+				Access: acl.AccessLevelFull,
+			},
+			WantErr: "invalid label 'hostname=' for type 'snapshot': must be non-empty",
+		},
+		{
+			Entry: &acl.Entry{
+				User: "foo@bar",
+				Target: acl.TargetRule{
+					"type":       "policy",
+					"policyType": "blah",
+				},
+				Access: acl.AccessLevelFull,
+			},
+			WantErr: "invalid label 'policyType=blah' for type 'policy': must be one of: global, host, user, path",
+		},
+		{
+			Entry: &acl.Entry{
+				User: "foo@bar",
+				Target: acl.TargetRule{
+					"type":     "snapshot",
+					"hostname": "somehost",
+					"username": "someuser",
+					"path":     "/",
+				},
+				Access: acl.AccessLevelFull,
+			},
+			WantErr: "",
+		},
+		{
+			// valid policy
+			Entry: &acl.Entry{
+				User: "foo@bar",
+				Target: acl.TargetRule{
+					"type":       "policy",
+					"hostname":   "somehost",
+					"username":   "someuser",
+					"path":       "/",
+					"policyType": "path",
+				},
+				Access: acl.AccessLevelFull,
+			},
+			WantErr: "",
+		},
+		{
+			// global policy
+			Entry: &acl.Entry{
+				User: "foo@bar",
+				Target: acl.TargetRule{
+					"type":       "policy",
+					"policyType": "global",
+				},
+				Access: acl.AccessLevelFull,
+			},
+			WantErr: "",
+		},
+		{
+			Entry: &acl.Entry{
+				User: "foo@bar",
+				Target: acl.TargetRule{
+					// ACL that gives access to set ACLs
+					"type": "acl",
+				},
+				Access: acl.AccessLevelFull,
+			},
+			WantErr: "",
+		},
+		{
+			Entry: &acl.Entry{
+				User: "foo@bar",
+				Target: acl.TargetRule{
+					// ACL that gives access to set other user passwords
+					"type":     "user",
+					"username": "user@host1",
+				},
+				Access: acl.AccessLevelFull,
+			},
 			WantErr: "",
 		},
 		{
 			Entry: &acl.Entry{
 				User: "foo@bar@baz",
 				Target: acl.TargetRule{
-					"type": "foo",
-					"bar":  "baz",
+					"type": "snapshot",
 				},
 				Access: acl.AccessLevelFull,
 			},
@@ -250,8 +345,7 @@ func TestACLEntryValidation(t *testing.T) {
 			Entry: &acl.Entry{
 				User: "foo@bar",
 				Target: acl.TargetRule{
-					"type": "foo",
-					"bar":  "baz",
+					"type": "snapshot",
 				},
 				Access: -1,
 			},
