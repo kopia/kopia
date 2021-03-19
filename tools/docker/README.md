@@ -1,2 +1,1 @@
-# this is a temporary from which we produce docker images from pre-built binaries in dist/ directory
-# this avoids having to send the entire codebase to docker daemon.
+This is a directory for staging pre-built binaries from the  `dist/` directory to prevent sending the entire codebase to the docker daemon.
