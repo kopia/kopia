@@ -137,6 +137,7 @@ jobs:
       with:
         name: kopia
         path: |
+          dist/*.md
           dist/*.zip
           dist/*.tar.gz
           dist/*.rpm
