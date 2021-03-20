@@ -4,13 +4,15 @@ linkTitle: "Installation"
 weight: 20
 ---
 
-### Installing Kopia 
+### Installing Kopia
 
 Kopia is an open source software (OSS) developed by a community on GitHub.
 
 The recommended way of installing Kopia is to use a package manager for your operating system (YUM or APT for Linux, Homebrew for macOS, Scoop for Windows). They offer quick and convenient way of installing and keeping Kopia up-to-date. See below for more information.
 
 You can also download the [Source Code](https://github.com/kopia/kopia/) or [Binary Releases](https://github.com/kopia/kopia/releases/latest) directly from GitHub. 
+
+Pre-built [Docker Images](#docker-images) are also available.
 
 Kopia is available in two variants:
 
@@ -185,14 +187,55 @@ $ chmod u+x path/to/kopia
 $ sudo mv path/to/kopia /usr/local/bin/kopia
 ```
 
+### Docker Images
+
+Kopia provides pre-built Docker container images for `amd64`, `arm64` and `arm` on [DockerHub](https://hub.docker.com/r/kopia/kopia).
+
+The following tags are available:
+
+* `latest` - tracks latest stable release
+* `testing` - tracks latest stable or pre-release (such as a beta or release candidate)
+* `unstable` - tracks latest unstable nightly build
+* `major.minor` - latest patch release for a given major and minor version (e.g. `0.8`)
+* `major.minor.patch` - specific stable release
+
+In order to run Kopia in a container, you must:
+
+* provide repository password via `KOPIA_PASSWORD` environment variable
+* mount `/app/config` directory in which Kopia will look for `repository.config` file
+* (recommended) mount `/app/cache` directory in which Kopia will be keeping a cache of downloaded data
+* (optional) mount `/app/logs` directory in which Kopia will be writing logs
+* mount any data directory used for locally-attached repository
+
+Invocation of `kopia/kopia` in a container will be similar to the following example: 
+
+```shell
+$ docker pull kopia/kopia:testing
+$ docker run -e KOPIA_PASSWORD \
+    -v /path/to/config/dir:/app/config \
+    -v /path/to/cache/dir:/app/cache \
+    kopia/kopia:testing snapshot list
+```
+
+(Adjust `testing` tag to the appropriate version)
+
+>NOTE Kopia in container overrides default values of some environment variables, see https://github.com/kopia/kopia/blob/master/tools/docker/Dockerfile for more details.
+
+Because Docker environment uses random hostnames it is recommended to explicitly set them using `--override-hostname` and `--override-username` parameters to Kopia when connecting
+to a repository. The names will be persisted in a configuration file and used afterwards.
+
 ### Compilation From Source
 
-If you have [Go 1.15](https://golang.org/) or newer, you may download and build Kopia yourself. No special setup is necessary, other than the Go compiler. You can simply run:
+If you have [Go 1.16](https://golang.org/) or newer, you may download and build Kopia yourself. No special setup is necessary, other than the Go compiler. You can simply run:
 
 ```shell
 $ go get github.com/kopia/kopia
 ```
 
 The resulting binary will be available in `$HOME/go/bin`. Note that this will produce basic binary that has all the features except support for HTML-based UI. To build full binary, download the source from GitHub and run:
+
+```shell
+$ make install
+```
 
 Additional information about building Kopia from source is available at https://github.com/kopia/kopia/blob/master/BUILD.md
