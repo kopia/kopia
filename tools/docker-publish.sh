@@ -2,7 +2,9 @@
 set -e
 DIST_DIR=dist
 DOCKER_BUILD_DIR=tools/docker
-DOCKERHUB_REPO=kopia/kopia
+if [ "$DOCKERHUB_REPO" == "" ]; then
+    DOCKERHUB_REPO=kopia/kopia
+fi
 
 cp -r "$DIST_DIR/kopia_linux_amd64/" "$DOCKER_BUILD_DIR/bin-amd64/"
 cp -r "$DIST_DIR/kopia_linux_arm64/" "$DOCKER_BUILD_DIR/bin-arm64/"
