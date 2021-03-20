@@ -199,7 +199,7 @@ func (t loggingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 		return nil, errors.Wrap(err, "round-trip error")
 	}
 
-	log(req.Context()).Debugf("%v %v took %v and returned %v with cookies %v", req.Method, req.URL, clock.Since(t0), resp.Status, resp.Cookies())
+	log(req.Context()).Debugf("%v %v took %v and returned %v", req.Method, req.URL, clock.Since(t0), resp.Status)
 
 	return resp, nil
 }
