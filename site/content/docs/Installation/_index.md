@@ -6,19 +6,30 @@ weight: 20
 
 ### Installing Kopia
 
-Kopia is an open source software (OSS) developed by a community on GitHub.
-
-The recommended way of installing Kopia is to use a package manager for your operating system (YUM or APT for Linux, Homebrew for macOS, Scoop for Windows). They offer quick and convenient way of installing and keeping Kopia up-to-date. See below for more information.
-
-You can also download the [Source Code](https://github.com/kopia/kopia/) or [Binary Releases](https://github.com/kopia/kopia/releases/latest) directly from GitHub. 
-
-Pre-built [Docker Images](#docker-images) are also available.
-
-Kopia is available in two variants:
+Kopia is an open source software (OSS) developed by a community on GitHub. It is available in two variants:
 
 * `Command Line Interface (CLI)` which is a stand-alone binary called `kopia` and which can be used a terminal window or scripts. This is typically the preferred option for power users, system administrators, etc.
 
 * `Graphical User Interface (GUI)`: It is a desktop application, called `KopiaUI`, that offers a friendly user interface.
+
+The following installation options are available:
+
+* [Official Releases](https://github.com/kopia/kopia/releases/latest)
+* [Windows CLI (Scoop)](#windows-cli-installation-using-scoop)
+* [Windows GUI](#windows-gui-installation)
+* [Debian/Ubuntu Linux (APT Repository)](#linux-installation-using-apt-debian-ubuntu)
+* [RedHat/CentOS/Fedora Linux (Linux YUM Repository)](#linux-installation-using-rpm-redhat-centos-fedora)
+* [Arch Linux/Manjaro (AUR)](#linux-installation-using-aur-arch-manjaro)
+* [macOS CLI Homebrew](#macos-cli-using-homebrew)
+* [macOS GUI](#macos-gui-installer)
+* [Docker Images](#docker-images)
+
+If you like to test the latest unreleased version of Kopia:
+
+* [Test Builds](https://github.com/kopia/kopia-test-builds/releases/latest) on GitHub
+* [Debian/Ubuntu Linux (APT Repository)](#linux-installation-using-apt-debian-ubuntu) offers `unstable` channel
+* [RedHat/CentOS/Fedora Linux (Linux YUM Repository)](#linux-installation-using-rpm-redhat-centos-fedora) offers `unstable` channel
+* [Source Code](https://github.com/kopia/kopia/) - see [compilation instructions](#compilation-from-source)
 
 ### Operating System Support
 
