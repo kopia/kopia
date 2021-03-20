@@ -78,6 +78,9 @@ func NewCLITest(t *testing.T) *CLITest {
 		t.Skip()
 	}
 
+	// unset environment variables that disrupt tests when passed to subprocesses.
+	os.Unsetenv("KOPIA_PASSWORD")
+
 	configDir := testutil.TempDirectory(t)
 
 	cleanName := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(
