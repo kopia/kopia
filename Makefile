@@ -94,6 +94,7 @@ build-current-os-noui:
 	go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_$(GOOS)_$(GOARCH)/kopia$(exe_suffix)
 
 build-current-os-with-ui: html-ui
+	$(MAKE) signing-tools
 ifeq ($(GOOS)/$(CI),darwin/true)
 	# build a fat binary that runs on both AMD64 and ARM64, this will be embedded in KopiaUI
 	# and will run optimally on both architectures.
