@@ -147,40 +147,16 @@ endif
 publish-coverage-results:
 	-bash -c "bash <(curl -s https://codecov.io/bash) -f coverage.txt"
 
-# goreleaser - builds binaries for all platforms
-GORELEASER_OPTIONS=--rm-dist --parallelism=6
+# goreleaser - builds packages for all platforms when on linux/amd64,
+# but don't publish here, we'll upload to GitHub separately.
+GORELEASER_OPTIONS=--rm-dist --parallelism=6 --skip-publish
 
-sign_gpg=1
-publish_binaries=1
-
-ifneq ($(PUBLISH_BINARIES),true)
-	publish_binaries=0
-	sign_gpg=0
+ifneq ($(PUBLISH_BINARIES)/$(IS_PULL_REQUEST)/$(GOOS)/$(GOARCH),true/false/linux/amd64)
+	GORELEASER_OPTIONS+=--skip-sign
 endif
 
-ifneq ($(IS_PULL_REQUEST),false)
-	# not running on CI, or CI in PR mode, skip signing
-	sign_gpg=0
-endif
-
-# publish and sign only from linux/amd64 to avoid duplicates
-ifneq ($(GOOS)/$(GOARCH),linux/amd64)
-	sign_gpg=0
-	publish_binaries=0
-endif
-
-ifeq ($(sign_gpg),0)
-GORELEASER_OPTIONS+=--skip-sign
-endif
-
-# publish only from tagged releases
 ifeq ($(CI_TAG),)
 	GORELEASER_OPTIONS+=--snapshot
-	publish_binaries=0
-endif
-
-ifeq ($(publish_binaries),0)
-GORELEASER_OPTIONS+=--skip-publish
 endif
 
 print_build_info:
@@ -282,9 +258,18 @@ ifeq ($(CREDENTIAL_ENCRYPTION_KEY),)
 ci-credentials:
 	@echo CI credentials not available.
 
+ci-gpg-key:
+	@echo Not installing GPG keys.
+
 else
 
-ci-credentials:
+ci-gpg-key:
+ifneq ($(GOOS),windows)
+	openssl aes-256-cbc -K "$(CREDENTIAL_ENCRYPTION_KEY)" -iv "$(CREDENTIAL_ENCRYPTION_IV)" -in kopia.gpg.enc -out /tmp/kopia.gpg -d
+	gpg --import /tmp/kopia.gpg
+endif
+
+ci-credentials: ci-gpg-key
 
 ifneq ($(GOOS),windows)
 	@echo Installing GPG key...
@@ -301,6 +286,43 @@ ifeq ($(GOARCH),amd64)
 endif
 endif
 
+endif
+
+RELEASE_STAGING_DIR=$(CURDIR)/.release
+
+stage-release:
+	rm -rf $(RELEASE_STAGING_DIR)
+	mkdir -p $(RELEASE_STAGING_DIR)
+	find dist -type f -exec cp -v {} $(RELEASE_STAGING_DIR) \;
+	(cd $(RELEASE_STAGING_DIR) && sha256sum * > checksums.txt)
+	cat $(RELEASE_STAGING_DIR)/checksums.txt
+ifneq ($(CREDENTIAL_ENCRYPTION_KEY),)
+	gpg --output $(RELEASE_STAGING_DIR)/checksums.txt.sig --detach-sig $(RELEASE_STAGING_DIR)/checksums.txt
+endif
+
+ifeq ($(IS_PULL_REQUEST),false)
+ifneq ($(CI_TAG),)
+GH_RELEASE_REPO=$(GITHUB_REPOSITORY)
+GH_RELEASE_FLAGS=--draft
+GH_RELEASE_NAME=v$(KOPIA_VERSION_NO_PREFIX)
+else
+ifeq ($(GITHUB_REF),refs/heads/master)
+ifneq ($(NON_TAG_RELEASE_REPO),)
+GH_RELEASE_REPO=$(REPO_OWNER)/$(NON_TAG_RELEASE_REPO)
+GH_RELEASE_FLAGS=
+GH_RELEASE_NAME=v$(KOPIA_VERSION_NO_PREFIX)
+endif
+endif
+endif
+endif
+
+push-github-release: $(github_release)
+ifneq ($(GH_RELEASE_REPO),)
+	@echo Creating Github Release $(GH_RELEASE_NAME) in $(GH_RELEASE_REPO) with flags $(GH_RELEASE_FLAGS)
+	gh --repo $(GH_RELEASE_REPO) release view $(GH_RELEASE_NAME) || gh --repo $(GH_RELEASE_REPO) release create $(GH_RELEASE_FLAGS) $(GH_RELEASE_NAME)
+	gh --repo $(GH_RELEASE_REPO) release upload $(GH_RELEASE_NAME) $(RELEASE_STAGING_DIR)/*
+else
+	@echo Not creating Github Release
 endif
 
 ifneq ($(CI_TAG),)
