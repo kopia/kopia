@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/bgentry/speakeasy"
 	"github.com/pkg/errors"
+	"golang.org/x/term"
 
 	"github.com/kopia/kopia/repo"
 )
@@ -72,16 +72,20 @@ func getPasswordFromFlags(ctx context.Context, isNew, allowPersistent bool) (str
 // askPass presents a given prompt and asks the user for password.
 func askPass(prompt string) (string, error) {
 	for i := 0; i < 5; i++ {
-		p, err := speakeasy.Ask(prompt)
+		fmt.Print(prompt)
+
+		passBytes, err := term.ReadPassword(0)
 		if err != nil {
 			return "", errors.Wrap(err, "password prompt error")
 		}
 
-		if p == "" {
+		fmt.Println()
+
+		if len(passBytes) == 0 {
 			continue
 		}
 
-		return p, nil
+		return string(passBytes), nil
 	}
 
 	return "", errors.New("can't get password")
