@@ -1,7 +1,7 @@
 COVERAGE_PACKAGES=github.com/kopia/kopia/repo/...,github.com/kopia/kopia/fs/...,github.com/kopia/kopia/snapshot/...
 TEST_FLAGS?=
-KOPIA_INTEGRATION_EXE=$(CURDIR)/dist/integration/kopia.exe
-TESTING_ACTION_EXE=$(CURDIR)/dist/integration/testingaction.exe
+KOPIA_INTEGRATION_EXE=$(CURDIR)/dist/testing_$(GOOS)_$(GOARCH)/kopia.exe
+TESTING_ACTION_EXE=$(CURDIR)/dist/testing_$(GOOS)_$(GOARCH)/testingaction.exe
 FIO_DOCKER_TAG=ljishen/fio
 REPEAT_TEST=1
 

@@ -138,6 +138,7 @@ jobs:
         name: kopia
         path: |
           dist/*.md
+          dist/*.rb
           dist/*.zip
           dist/*.tar.gz
           dist/*.rpm
@@ -151,6 +152,14 @@ jobs:
           dist/kopia-ui/*.exe
           dist/kopia-ui/*.AppImage
           dist/kopia-ui/*.yml
+        if-no-files-found: ignore
+    - name: Upload Kopia Binary
+      uses: actions/upload-artifact@v2
+      with:
+        name: kopia_binaries
+        path: |
+          dist/*/kopia
+          dist/*/kopia.exe
         if-no-files-found: ignore
   publish:
     name: Stage And Publish Artifacts
