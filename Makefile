@@ -70,7 +70,7 @@ endif
 htmlui-node-modules: $(npm)
 	make -C htmlui node_modules
 
-ci-setup: ci-credentials go-modules all-tools
+ci-setup: ci-credentials go-modules all-tools htmlui-node-modules app-node-modules
 ifeq ($(CI),true)
 	-git checkout go.mod go.sum
 endif
