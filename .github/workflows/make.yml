@@ -128,8 +128,10 @@ jobs:
       run: make ci-build
     - name: Tests
       run: make ci-tests
+      continue-on-error: ${{ github.event_name != 'pull_request' }}
     - name: Integration Tests
       run: make -j2 ci-integration-tests
+      continue-on-error: ${{ github.event_name != 'pull_request' }}
     - name: Publish
       run: make ci-publish
     - name: Upload Kopia Artifacts
