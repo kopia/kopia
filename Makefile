@@ -138,7 +138,6 @@ ci-integration-tests: integration-tests robustness-tool-tests
 
 ci-publish:
 ifeq ($(GOOS)/$(GOARCH),linux/amd64)
-	$(MAKE) publish-packages
 	$(MAKE) create-long-term-repository
 	$(MAKE) publish-coverage-results
 endif
@@ -347,9 +346,9 @@ ifeq ($(REPO_OWNER)/$(GOOS)/$(GOARCH)/$(IS_PULL_REQUEST),kopia/linux/amd64/false
 	$(CURDIR)/tools/apt-publish.sh $(CURDIR)/dist
 	$(CURDIR)/tools/rpm-publish.sh $(CURDIR)/dist
 	@echo $(DOCKERHUB_TOKEN) | docker login --username $(DOCKERHUB_USERNAME) --password-stdin
-	$(CURDIR)/tools/docker-publish.sh
+	$(CURDIR)/tools/docker-publish.sh $(CURDIR)/dist_binaries
 else
-	@echo Not pushing to Linux repositories on pull request builds.
+	@echo Not pushing packages on pull request builds.
 endif
 
 PERF_BENCHMARK_INSTANCE=kopia-perf

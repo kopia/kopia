@@ -175,8 +175,13 @@ jobs:
       with:
         name: kopia
         path: dist
+    - name: Download Kopia Binaries
+      uses: actions/download-artifact@v2
+      with:
+        name: kopia_binaries
+        path: dist_binaries
     - name: Display structure of downloaded files
-      run: ls -lR dist/
+      run: ls -lR dist/ dist_binaries/
     - name: Install GPG Key
       run: make -j4 ci-gpg-key
     - name: Stage Release
@@ -185,3 +190,6 @@ jobs:
       run: make push-github-release
       env:
         GITHUB_TOKEN: ${{secrets.GH_TOKEN}}
+    - name: Publish Other Packages
+      run: make publish-packages
+
