@@ -1,15 +1,13 @@
 COVERAGE_PACKAGES=github.com/kopia/kopia/repo/...,github.com/kopia/kopia/fs/...,github.com/kopia/kopia/snapshot/...
 TEST_FLAGS?=
-KOPIA_INTEGRATION_EXE=$(CURDIR)/dist/integration/kopia.exe
-TESTING_ACTION_EXE=$(CURDIR)/dist/integration/testingaction.exe
+KOPIA_INTEGRATION_EXE=$(CURDIR)/dist/testing_$(GOOS)_$(GOARCH)/kopia.exe
+TESTING_ACTION_EXE=$(CURDIR)/dist/testing_$(GOOS)_$(GOARCH)/testingaction.exe
 FIO_DOCKER_TAG=ljishen/fio
 REPEAT_TEST=1
 
 export BOTO_PATH=$(CURDIR)/tools/.boto
 
 all: test lint vet integration-tests
-
-retry:=$(CURDIR)/tools/retry.sh
 
 include tools/tools.mk
 
@@ -70,7 +68,7 @@ endif
 htmlui-node-modules: $(npm)
 	make -C htmlui node_modules
 
-ci-setup: ci-credentials go-modules all-tools
+ci-setup: ci-credentials go-modules all-tools htmlui-node-modules app-node-modules
 ifeq ($(CI),true)
 	-git checkout go.mod go.sum
 endif
@@ -140,7 +138,6 @@ ci-integration-tests: integration-tests robustness-tool-tests
 
 ci-publish:
 ifeq ($(GOOS)/$(GOARCH),linux/amd64)
-	$(MAKE) publish-packages
 	$(MAKE) create-long-term-repository
 	$(MAKE) publish-coverage-results
 endif
@@ -349,9 +346,9 @@ ifeq ($(REPO_OWNER)/$(GOOS)/$(GOARCH)/$(IS_PULL_REQUEST),kopia/linux/amd64/false
 	$(CURDIR)/tools/apt-publish.sh $(CURDIR)/dist
 	$(CURDIR)/tools/rpm-publish.sh $(CURDIR)/dist
 	@echo $(DOCKERHUB_TOKEN) | docker login --username $(DOCKERHUB_USERNAME) --password-stdin
-	$(CURDIR)/tools/docker-publish.sh
+	$(CURDIR)/tools/docker-publish.sh $(CURDIR)/dist_binaries
 else
-	@echo Not pushing to Linux repositories on pull request builds.
+	@echo Not pushing packages on pull request builds.
 endif
 
 PERF_BENCHMARK_INSTANCE=kopia-perf

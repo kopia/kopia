@@ -3,7 +3,7 @@ SHELL:=/bin/bash
 include ../tools/tools.mk
 
 node_modules: $(npm)
-	$(npm) $(npm_flags) install
+	$(retry) $(npm) $(npm_flags) install
 
 electron_builder_flags:=
 electron_builder_flags+=-c.extraMetadata.version=$(KOPIA_VERSION:v%=%)
@@ -55,4 +55,4 @@ build-html: node_modules
 	$(npm) $(npm_flags) run build-html
 
 build-electron: node_modules build-html
-	$(npm) $(npm_flags) run build-electron -- $(electron_builder_flags) -p $(electron_publish_flag)
+	$(retry) $(npm) $(npm_flags) run build-electron -- $(electron_builder_flags) -p $(electron_publish_flag)

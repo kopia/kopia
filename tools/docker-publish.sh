@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-DIST_DIR=dist
+DIST_DIR=${1:-dist}
 DOCKER_BUILD_DIR=tools/docker
 if [ "$DOCKERHUB_REPO" == "" ]; then
     DOCKERHUB_REPO=kopia/kopia
