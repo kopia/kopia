@@ -182,8 +182,8 @@ jobs:
         path: dist_binaries
     - name: Display structure of downloaded files
       run: ls -lR dist/ dist_binaries/
-    - name: Install GPG Key
-      run: make -j4 ci-gpg-key
+    - name: Install CI Credentials
+      run: make -j4 ci-credentials
     - name: Stage Release
       run: make stage-release
     - name: Push Github Release
