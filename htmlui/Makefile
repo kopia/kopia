@@ -9,7 +9,7 @@ build-html: node_modules
 	$(npm) $(npm_flags) run build
 
 node_modules: $(npm)
-	$(npm) $(npm_flags) install
+	$(retry) $(npm) $(npm_flags) install
 
 clean:
 	rm -rf node_modules build

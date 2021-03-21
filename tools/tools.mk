@@ -95,6 +95,8 @@ commit_time_of_day=$(commit_time_stripped4:0%=%)
 SELF_DIR := $(subst /,$(slash),$(realpath $(dir $(lastword $(MAKEFILE_LIST)))))
 TOOLS_DIR:=$(SELF_DIR)$(slash).tools
 
+retry:=$(SELF_DIR)/retry.sh
+
 # tool versions
 GOLANGCI_LINT_VERSION=1.37.1
 NODE_VERSION=14.15.4

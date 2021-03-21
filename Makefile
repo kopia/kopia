@@ -9,8 +9,6 @@ export BOTO_PATH=$(CURDIR)/tools/.boto
 
 all: test lint vet integration-tests
 
-retry:=$(CURDIR)/tools/retry.sh
-
 include tools/tools.mk
 
 GOTESTSUM_FORMAT=pkgname-and-test-fails
