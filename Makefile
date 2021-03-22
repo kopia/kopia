@@ -96,12 +96,18 @@ build-current-os-with-ui: html-ui
 ifeq ($(GOOS)/$(CI),darwin/true)
 	# build a fat binary that runs on both AMD64 and ARM64, this will be embedded in KopiaUI
 	# and will run optimally on both architectures.
-	GOARCH=arm64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_darwin_arm64/.kopia-arm64 -tags embedhtml
-	GOARCH=amd64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_darwin_amd64/.kopia-amd64 -tags embedhtml
-	lipo -create -output dist/kopia_darwin_$(GOARCH)/kopia dist/kopia_darwin_arm64/.kopia-arm64 dist/kopia_darwin_amd64/.kopia-amd64
+	GOARCH=arm64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_darwin_arm64/kopia -tags embedhtml
+	GOARCH=amd64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_darwin_amd64/kopia -tags embedhtml
+	mkdir -p dist/kopia_darwin_universal
+	lipo -create -output dist/kopia_darwin_universal/kopia dist/kopia_darwin_arm64/kopia dist/kopia_darwin_amd64/kopia
 ifneq ($(MACOS_SIGNING_IDENTITY),)
-	codesign -v --keychain $(MACOS_KEYCHAIN) -s $(MACOS_SIGNING_IDENTITY) --force dist/kopia_$(GOOS)_$(GOARCH)/kopia$(exe_suffix)
+	codesign -v --keychain $(MACOS_KEYCHAIN) -s $(MACOS_SIGNING_IDENTITY) --force dist/kopia_darwin_amd64/kopia
+	codesign -v --keychain $(MACOS_KEYCHAIN) -s $(MACOS_SIGNING_IDENTITY) --force dist/kopia_darwin_arm/kopia
+	codesign -v --keychain $(MACOS_KEYCHAIN) -s $(MACOS_SIGNING_IDENTITY) --force dist/kopia_darwin_universal/kopia
 endif
+	tools/make-tgz.sh dist kopia-$(KOPIA_VERSION_NO_PREFIX)-macOS-x64 dist/kopia_darwin_amd64/kopia
+	tools/make-tgz.sh dist kopia-$(KOPIA_VERSION_NO_PREFIX)-macOS-arm64 dist/kopia_darwin_arm64/kopia
+	tools/make-tgz.sh dist kopia-$(KOPIA_VERSION_NO_PREFIX)-macOS-universal dist/kopia_darwin_universal/kopia
 else
 	go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_$(GOOS)_$(GOARCH)/kopia$(exe_suffix) -tags embedhtml
 endif

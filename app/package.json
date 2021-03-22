@@ -85,7 +85,7 @@
       "category": "public.app-category.utilities",
       "extraResources": [
         {
-          "from": "../dist/kopia_darwin_amd64",
+          "from": "../dist/kopia_darwin_universal",
           "to": "server",
           "filter": [
             "kopia"
