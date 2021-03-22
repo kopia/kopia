@@ -190,4 +190,5 @@ jobs:
         GITHUB_TOKEN: ${{secrets.GH_TOKEN}}
     - name: Publish Other Packages
       run: make publish-packages
-
+      env:
+        GITHUB_TOKEN: ${{secrets.GH_TOKEN}}
