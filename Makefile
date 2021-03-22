@@ -297,8 +297,8 @@ install-google-cloud-sdk-if-not-present:
 
 install-google-cloud-sdk:
 	-rm -rf $(HOME)/google-cloud-sdk
-	echo Installing Google Cloud SDK.
-	curl https://sdk.cloud.google.com | CLOUDSDK_CORE_DISABLE_PROMPTS=1 bash 2>/dev/null
+	echo Installing Google Cloud SDK...
+	curl -s https://sdk.cloud.google.com | CLOUDSDK_CORE_DISABLE_PROMPTS=1 bash 2>/dev/null >/dev/null
 	echo Finished Installing Google Cloud SDK.
 
 RELEASE_STAGING_DIR=$(CURDIR)/.release
