@@ -18,7 +18,7 @@ exports.default = async function (configuration) {
     "sign",
     "/sha1", sha1,
     "/fd", configuration.hash,
-    "/tr", "http://time.certum.pl",
+    "/tr", "http://timestamp.digicert.com",
   ];
 
   if (configuration.isNest) {
