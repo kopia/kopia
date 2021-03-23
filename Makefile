@@ -118,7 +118,7 @@ dist/kopia_windows_amd64/kopia.exe: htmlui/build/index.html $(all_go_sources)
 	$(MAKE) signing-tools
 	GOOS=windows GOARCH=amd64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_windows_amd64/kopia.exe -tags embedhtml
 ifneq ($(WINDOWS_SIGN_TOOL),)
-	$(WINDOWS_SIGN_TOOL) sign /sha1 $(WINDOWS_CERT_SHA1) /fd sha256 /tr "http://time.certum.pl" /f dist\kopia_windows_amd64\kopia.exe
+	tools/.tools/signtool.exe sign /sha1 $(WINDOWS_CERT_SHA1) /fd sha256 /tr "http://time.certum.pl" /f dist/kopia_windows_amd64/kopia.exe
 endif
 	mkdir -p dist/kopia-$(KOPIA_VERSION_NO_PREFIX)-windows-x64
 	cp dist/kopia_windows_amd64/kopia.exe LICENSE README.md dist/kopia-$(KOPIA_VERSION_NO_PREFIX)-windows-x64

@@ -8,6 +8,7 @@ source_repo=kopia/kopia
 
 if [ "$CI_TAG" == "" ]; then
   target_repo=kopia/scoop-test-builds
+  source_repo=kopia/kopia-test-builds
 fi
 
 if [ "$GITHUB_TOKEN" == "" ]; then
