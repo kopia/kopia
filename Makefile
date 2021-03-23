@@ -370,6 +370,7 @@ ifeq ($(REPO_OWNER)/$(GOOS)/$(GOARCH)/$(IS_PULL_REQUEST),kopia/linux/amd64/false
 	$(CURDIR)/tools/apt-publish.sh $(CURDIR)/dist
 	$(CURDIR)/tools/rpm-publish.sh $(CURDIR)/dist
 	$(CURDIR)/tools/homebrew-publish.sh $(CURDIR)/dist $(KOPIA_VERSION_NO_PREFIX)
+	$(CURDIR)/tools/scoop-publish.sh $(CURDIR)/dist $(KOPIA_VERSION_NO_PREFIX)
 	@echo $(DOCKERHUB_TOKEN) | docker login --username $(DOCKERHUB_USERNAME) --password-stdin
 	$(CURDIR)/tools/docker-publish.sh $(CURDIR)/dist_binaries
 else

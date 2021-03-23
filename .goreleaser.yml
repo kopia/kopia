@@ -57,16 +57,6 @@ nfpms:
           amd64: x86_64
           arm64: aarch64
           arm: armhfp
-scoop:
-  bucket:
-    owner: kopia
-    name: scoop-bucket
-  commit_author:
-    name: Kopia Builder
-    email: builder@kopia.io
-  homepage: "https://kopia.io/"
-  description: "Fast and secure open source backup."
-  license: Apache-2.0
 signs:
   - id: all
     artifacts: checksum
