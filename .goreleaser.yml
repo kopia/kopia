@@ -8,7 +8,6 @@ builds:
   - CGO_ENABLED=0
   goos:
   - linux
-  - windows
   goarch:
     - amd64
     - arm
@@ -58,24 +57,6 @@ nfpms:
           amd64: x86_64
           arm64: aarch64
           arm: armhfp
-brews:
-  - homepage: "https://kopia.io"
-    tap:
-      owner: kopia
-      name: homebrew-kopia
-    description: "Fast and secure open source backup."
-    install:
-      bin.install "kopia"
-scoop:
-  bucket:
-    owner: kopia
-    name: scoop-bucket
-  commit_author:
-    name: Kopia Builder
-    email: builder@kopia.io
-  homepage: "https://kopia.io/"
-  description: "Fast and secure open source backup."
-  license: Apache-2.0
 signs:
   - id: all
     artifacts: checksum

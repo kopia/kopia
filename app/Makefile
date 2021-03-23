@@ -2,8 +2,11 @@ SHELL:=/bin/bash
 
 include ../tools/tools.mk
 
-node_modules: $(npm)
+deps: node_modules/.up-to-date
+
+node_modules/.up-to-date: $(npm) package.json package-lock.json
 	$(retry) $(npm) $(npm_flags) install
+	echo updated > node_modules/.up-to-date
 
 electron_builder_flags:=
 electron_builder_flags+=-c.extraMetadata.version=$(KOPIA_VERSION:v%=%)
@@ -45,14 +48,20 @@ unexport CSC_KEY_PASSWORD
 
 endif
 
-dev: node_modules
+dev: node_modules/.up-to-date
 	$(npm) $(npm_flags) run dev
 
 run: build-html
 	$(npm) $(npm_flags) run start-electron-prebuilt
 
-build-html: node_modules
+build-html: build/index.html
+
+build/index.html: node_modules/.up-to-date src/* public/* resources/*/*/*
 	$(npm) $(npm_flags) run build-html
 
-build-electron: node_modules build-html
+build-electron: ../dist/kopia-ui/.up-to-date
+
+# rebuild packages if HTML, embedded EXE or build config changed.
+../dist/kopia-ui/.up-to-date: build/index.html package.json ../dist/kopia_*/kopia*
 	$(retry) $(npm) $(npm_flags) run build-electron -- $(electron_builder_flags) -p $(electron_publish_flag)
+	echo updated > ../dist/kopia-ui/.up-to-date

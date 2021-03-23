@@ -314,5 +314,5 @@ else
 maybehugo=
 endif
 
-all-tools: $(gotestsum) $(npm) $(goreleaser) $(linter) $(maybehugo)
+all-tools: $(gotestsum) $(npm) $(linter) $(maybehugo)
 
