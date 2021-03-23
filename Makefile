@@ -1,5 +1,6 @@
 COVERAGE_PACKAGES=github.com/kopia/kopia/repo/...,github.com/kopia/kopia/fs/...,github.com/kopia/kopia/snapshot/...
 TEST_FLAGS?=
+
 KOPIA_INTEGRATION_EXE=$(CURDIR)/dist/testing_$(GOOS)_$(GOARCH)/kopia.exe
 TESTING_ACTION_EXE=$(CURDIR)/dist/testing_$(GOOS)_$(GOARCH)/testingaction.exe
 FIO_DOCKER_TAG=ljishen/fio
@@ -7,9 +8,25 @@ REPEAT_TEST=1
 
 export BOTO_PATH=$(CURDIR)/tools/.boto
 
+# get a list all go files
+rwildcard=$(foreach d,$(wildcard $1*),$(call rwildcard,$d/,$2) $(filter $(subst *,%,$2),$d))
+go_source_dirs=cli fs internal repo snapshot
+all_go_sources=$(foreach d,$(go_source_dirs),$(call rwildcard,$d/,*.go)) $(wildcard *.go)
+
 all: test lint vet integration-tests
 
 include tools/tools.mk
+
+kopia_ui_embedded_exe=dist/kopia_$(GOOS)_$(GOARCH)/kopia$(exe_suffix)
+
+ifeq ($(GOOS),darwin)
+	# on macOS, Kopia uses universal binary that works for AMD64 and ARM64
+	kopia_ui_embedded_exe=dist/kopia_darwin_universal/kopia
+endif
+
+ifeq ($(GOARCH),arm)
+	kopia_ui_embedded_exe=dist/kopia_linux_arm_6/kopia
+endif
 
 GOTESTSUM_FORMAT=pkgname-and-test-fails
 GOTESTSUM_FLAGS=--format=$(GOTESTSUM_FORMAT) --no-summary=skipped 
@@ -30,22 +47,8 @@ endif
 install: html-ui
 	go install $(KOPIA_BUILD_FLAGS) -tags embedhtml
 
-quick-install:
-	# same as install but assumes HTMLUI has been built
-	go install $(KOPIA_BUILD_FLAGS) -tags embedhtml
-
 install-noui:
 	go install $(KOPIA_BUILD_FLAGS)
-
-escape-analysis:
-	go build -gcflags '-m -l' github.com/kopia/kopia/...
-
-clean:
-	make clean-tools
-	make -C htmlui clean
-
-play:
-	go run cmd/playground/main.go
 
 lint: $(linter)
 	$(linter) --deadline $(LINTER_DEADLINE) run $(linter_flags)
@@ -62,11 +65,11 @@ go-modules:
 
 app-node-modules: $(npm)
 ifeq ($(GOARCH),amd64)
-	make -C app node_modules
+	make -C app deps
 endif
 
 htmlui-node-modules: $(npm)
-	make -C htmlui node_modules
+	make -C htmlui deps
 
 ci-setup: ci-credentials go-modules all-tools htmlui-node-modules app-node-modules
 ifeq ($(CI),true)
@@ -82,20 +85,21 @@ html-ui: htmlui-node-modules
 html-ui-tests: htmlui-node-modules
 	$(MAKE) -C htmlui test CI=true
 
-kopia-ui:
+kopia-ui: $(kopia_ui_embedded_exe)
 	$(MAKE) -C app build-electron
 
 # build-current-os-noui compiles a binary for the current os/arch in the same location as goreleaser
 # kopia-ui build needs this particular location to embed the correct server binary.
 # note we're not building or embedding HTML UI to speed up PR testing process.
 build-current-os-noui:
-	go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_$(GOOS)_$(GOARCH)/kopia$(exe_suffix)
+	go build $(KOPIA_BUILD_FLAGS) -o $(kopia_ui_embedded_exe)
 
-build-current-os-with-ui: html-ui
+# build HTML UI files to be embedded in Kopia binary.
+htmlui/build/index.html: html-ui
+
+# on macOS build and sign AMD64, ARM64 and Universal binary and *.tar.gz files for them
+dist/kopia_darwin_universal/kopia dist/kopia_darwin_amd64/kopia dist/kopia_darwin_arm6/kopia: htmlui/build/index.html $(all_go_sources)
 	$(MAKE) signing-tools
-ifeq ($(GOOS)/$(CI),darwin/true)
-	# build a fat binary that runs on both AMD64 and ARM64, this will be embedded in KopiaUI
-	# and will run optimally on both architectures.
 	GOARCH=arm64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_darwin_arm64/kopia -tags embedhtml
 	GOARCH=amd64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_darwin_amd64/kopia -tags embedhtml
 	mkdir -p dist/kopia_darwin_universal
@@ -108,33 +112,38 @@ endif
 	tools/make-tgz.sh dist kopia-$(KOPIA_VERSION_NO_PREFIX)-macOS-x64 dist/kopia_darwin_amd64/kopia
 	tools/make-tgz.sh dist kopia-$(KOPIA_VERSION_NO_PREFIX)-macOS-arm64 dist/kopia_darwin_arm64/kopia
 	tools/make-tgz.sh dist kopia-$(KOPIA_VERSION_NO_PREFIX)-macOS-universal dist/kopia_darwin_universal/kopia
+
+# on Windows build and sign AMD64 and *.zip file
+dist/kopia_windows_amd64/kopia.exe: htmlui/build/index.html $(all_go_sources)
+	$(MAKE) signing-tools
+	GOOS=windows GOARCH=amd64 go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_windows_amd64/kopia.exe -tags embedhtml
+ifneq ($(WINDOWS_SIGN_TOOL),)
+	$(WINDOWS_SIGN_TOOL) sign /sha1 $(WINDOWS_CERT_SHA1) /fd sha256 /tr "http://time.certum.pl" /f dist\kopia_windows_amd64\kopia.exe
+endif
+	mkdir -p dist/kopia-$(KOPIA_VERSION_NO_PREFIX)-windows-x64
+	cp dist/kopia_windows_amd64/kopia.exe LICENSE README.md dist/kopia-$(KOPIA_VERSION_NO_PREFIX)-windows-x64
+	(cd dist && zip -r kopia-$(KOPIA_VERSION_NO_PREFIX)-windows-x64.zip kopia-$(KOPIA_VERSION_NO_PREFIX)-windows-x64)
+	rm -rf dist/kopia-$(KOPIA_VERSION_NO_PREFIX)-windows-x64
+
+# On Linux use use goreleaser which will build Kopia for all supported Linux architectures
+# and creates .tar.gz, rpm and deb packages.
+dist/kopia_linux_amd64/kopia dist/kopia_linux_arm64/kopia dist/kopia_linux_arm_6/kopia: htmlui/build/index.html $(all_go_sources)
+ifeq ($(GOARCH),amd64)
+	make goreleaser
 else
-	go build $(KOPIA_BUILD_FLAGS) -o dist/kopia_$(GOOS)_$(GOARCH)/kopia$(exe_suffix) -tags embedhtml
+	go build $(KOPIA_BUILD_FLAGS) -o $(kopia_ui_embedded_exe) -tags embedhtml
 endif
 
+# builds kopia CLI binary that will be later used as a server for kopia-ui.
+kopia: $(kopia_ui_embedded_exe)
+
 kopia-ui-pr-test: app-node-modules htmlui-node-modules
-	$(MAKE) build-current-os-with-ui
 	$(MAKE) html-ui-tests kopia-ui
 
 ci-build:
-ifeq ($(IS_PULL_REQUEST),true)
-	# PR mode - run very quick build of just the binary without embedded UI.
-	$(retry) $(MAKE) build-current-os-noui
-else
-
-ifeq ($(GOOS)/$(GOARCH),linux/amd64)
-	# on linux/amd64 run goreleaser which publishes Kopia binaries, and packages for all platforms
-	$(retry) $(MAKE) goreleaser
-else
-	# everywhere else (windows, mac, arm linux) build only kopia binary in the same location so we
-	# can later build the UI.
-	$(retry) $(MAKE) build-current-os-with-ui
-endif
-
+	$(retry) $(MAKE) kopia
 ifeq ($(GOARCH),amd64)
 	$(retry) $(MAKE) kopia-ui
-endif
-
 endif
 
 ci-tests: lint vet test-with-coverage

@@ -107,7 +107,7 @@ jobs:
       run: "echo /usr/local/go/bin >> $GITHUB_PATH; mkdir -p /usr/local/go && curl -s -L https://golang.org/dl/go1.16.linux-armv6l.tar.gz | tar -C /usr/local -xz"
       if: ${{ contains(matrix.os, 'ARMHF') }}
     - name: Install Windows-specific packages
-      run: "choco install --no-progress -y make unzip curl"
+      run: "choco install --no-progress -y make zip unzip curl"
       if: ${{ contains(matrix.os, 'windows') }}
     - name: Install macOS-specific packages
       run: "sudo xcode-select -r"
