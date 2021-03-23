@@ -27,6 +27,8 @@ The following installation options are available:
 If you like to test the latest unreleased version of Kopia:
 
 * [Test Builds](https://github.com/kopia/kopia-test-builds/releases/latest) on GitHub
+* [Windows CLI (Scoop)](#windows-cli-installation-using-scoop) offers `test-builds` bucket
+* [macOS CLI Homebrew](#macos-cli-using-homebrew) offers `test-builds` TAP
 * [Debian/Ubuntu Linux (APT Repository)](#linux-installation-using-apt-debian-ubuntu) offers `unstable` channel
 * [RedHat/CentOS/Fedora Linux (Linux YUM Repository)](#linux-installation-using-rpm-redhat-centos-fedora) offers `unstable` channel
 * [Source Code](https://github.com/kopia/kopia/) - see [compilation instructions](#compilation-from-source)
@@ -52,6 +54,12 @@ Using Scoop, installing Kopia is as easy as:
 
 See the [Scoop Website](https://scoop.sh) for more information.
 
+Alternatively, to install the latest unreleased version of Kopia use the following bucket instead:
+
+```shell
+> scoop bucket add kopia https://github.com/kopia/scoop-test-builds.git
+```
+
 ### Windows GUI installation
 
 Graphical installer of KopiaUI is available on the [Releases](https://github.com/kopia/kopia/releases/latest) page.
@@ -65,14 +73,19 @@ On macOS you can use [Homebrew](https://brew.sh) to install and keep Kopia up-to
 To install:
 
 ```shell
-$ brew tap kopia/kopia
-$ brew install kopia
+$ brew install kopia/kopia/kopia
 ```
 
 To upgrade Kopia:
 
 ```shell
 $ brew upgrade kopia
+```
+
+Alternatively, to install the latest unreleased version of Kopia use the following TAP instead:
+
+```shell
+$ brew install kopia/test-builds/kopia
 ```
 
 ### macOS GUI installer

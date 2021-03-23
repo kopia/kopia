@@ -7,8 +7,7 @@ target_repo=kopia/scoop-bucket
 source_repo=kopia/kopia
 
 if [ "$CI_TAG" == "" ]; then
-  echo Not publishing Scoop package because CI_TAG is not set.
-  exit 0
+  target_repo=kopia/scoop-test-builds
 fi
 
 if [ "$GITHUB_TOKEN" == "" ]; then
