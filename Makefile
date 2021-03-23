@@ -141,7 +141,7 @@ kopia-ui-pr-test: app-node-modules htmlui-node-modules
 	$(MAKE) html-ui-tests kopia-ui
 
 ci-build:
-	$(retry) $(MAKE) kopia
+	$(MAKE) kopia
 ifeq ($(GOARCH),amd64)
 	$(retry) $(MAKE) kopia-ui
 endif
