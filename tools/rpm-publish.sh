@@ -2,7 +2,7 @@
 set -e
 GS_PREFIX=gs://packages.kopia.io/rpm
 PKGDIR=$1
-RETAIN_UNSTABLE_RPM_COUNT=15
+RETAIN_UNSTABLE_RPM_COUNT=2
 
 delete_old_rpms() {
   ls -tp1 $1/*.rpm | tail -n +$RETAIN_UNSTABLE_RPM_COUNT | xargs -I {} rm -v -- {}
