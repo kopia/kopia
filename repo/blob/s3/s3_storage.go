@@ -27,8 +27,6 @@ const (
 type s3Storage struct {
 	Options
 
-	ctx context.Context
-
 	cli *minio.Client
 
 	downloadThrottler *iothrottler.IOThrottlerPool
@@ -244,7 +242,6 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 
 	return retrying.NewWrapper(&s3Storage{
 		Options:           *opt,
-		ctx:               ctx,
 		cli:               cli,
 		downloadThrottler: downloadThrottler,
 		uploadThrottler:   uploadThrottler,
