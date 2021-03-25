@@ -21,6 +21,11 @@ var (
 )
 
 func runContentListCommand(ctx context.Context, rep repo.DirectRepository) error {
+	var jl jsonList
+
+	jl.begin()
+	defer jl.end()
+
 	var totalSize stats.CountSum
 
 	err := rep.ContentReader().IterateContents(
@@ -35,6 +40,11 @@ func runContentListCommand(ctx context.Context, rep repo.DirectRepository) error
 			}
 
 			totalSize.Add(int64(b.Length))
+
+			if jsonOutput {
+				jl.emit(b)
+				return nil
+			}
 
 			if *contentListLong {
 				optionalDeleted := ""
@@ -69,6 +79,7 @@ func runContentListCommand(ctx context.Context, rep repo.DirectRepository) error
 }
 
 func init() {
+	registerJSONOutputFlags(contentListCommand)
 	contentListCommand.Action(directRepositoryReadAction(runContentListCommand))
 	setupContentIDRangeFlags(contentListCommand)
 }

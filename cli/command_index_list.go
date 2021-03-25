@@ -18,6 +18,11 @@ var (
 )
 
 func runListBlockIndexesAction(ctx context.Context, rep repo.DirectRepository) error {
+	var jl jsonList
+
+	jl.begin()
+	defer jl.end()
+
 	blks, err := rep.IndexBlobReader().IndexBlobs(ctx, *blockIndexListIncludeSuperseded)
 	if err != nil {
 		return errors.Wrap(err, "error listing index blobs")
@@ -39,10 +44,14 @@ func runListBlockIndexesAction(ctx context.Context, rep repo.DirectRepository) e
 	}
 
 	for _, b := range blks {
-		fmt.Printf("%-40v %10v %v %v\n", b.BlobID, b.Length, formatTimestampPrecise(b.Timestamp), b.Superseded)
+		if jsonOutput {
+			jl.emit(b)
+		} else {
+			fmt.Printf("%-40v %10v %v %v\n", b.BlobID, b.Length, formatTimestampPrecise(b.Timestamp), b.Superseded)
+		}
 	}
 
-	if *blockIndexListSummary {
+	if *blockIndexListSummary && !jsonOutput {
 		fmt.Printf("total %v indexes\n", len(blks))
 	}
 
@@ -50,5 +59,6 @@ func runListBlockIndexesAction(ctx context.Context, rep repo.DirectRepository) e
 }
 
 func init() {
+	registerJSONOutputFlags(blockIndexListCommand)
 	blockIndexListCommand.Action(directRepositoryReadAction(runListBlockIndexesAction))
 }

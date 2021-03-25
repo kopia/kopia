@@ -14,10 +14,16 @@ import (
 var policyListCommand = policyCommands.Command("list", "List policies.").Alias("ls")
 
 func init() {
+	registerJSONOutputFlags(policyListCommand)
 	policyListCommand.Action(repositoryReaderAction(listPolicies))
 }
 
 func listPolicies(ctx context.Context, rep repo.Repository) error {
+	var jl jsonList
+
+	jl.begin()
+	defer jl.end()
+
 	policies, err := policy.ListPolicies(ctx, rep)
 	if err != nil {
 		return errors.Wrap(err, "error listing policies")
@@ -28,7 +34,11 @@ func listPolicies(ctx context.Context, rep repo.Repository) error {
 	})
 
 	for _, pol := range policies {
-		fmt.Println(pol.ID(), pol.Target())
+		if jsonOutput {
+			jl.emit(policy.TargetWithPolicy{ID: pol.ID(), Target: pol.Target(), Policy: pol})
+		} else {
+			fmt.Println(pol.ID(), pol.Target())
+		}
 	}
 
 	return nil

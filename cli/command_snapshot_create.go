@@ -262,6 +262,11 @@ func reportSnapshotStatus(ctx context.Context, manifest *snapshot.Manifest) erro
 
 	snapID := manifest.ID
 
+	if jsonOutput {
+		printStdout("%s\n", jsonIndentedBytes(manifest, "  "))
+		return nil
+	}
+
 	log(ctx).Infof("Created%v snapshot with root %v and ID %v in %v", maybePartial, manifest.RootObjectID(), snapID, manifest.EndTime.Sub(manifest.StartTime).Truncate(time.Second))
 
 	if ds := manifest.RootEntry.DirSummary; ds != nil {
@@ -359,5 +364,6 @@ func shouldSnapshotSource(ctx context.Context, src snapshot.SourceInfo, rep repo
 }
 
 func init() {
+	registerJSONOutputFlags(snapshotCreateCommand)
 	snapshotCreateCommand.Action(repositoryWriterAction(runSnapshotCommand))
 }

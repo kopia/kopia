@@ -12,6 +12,7 @@ import (
 	"github.com/kopia/kopia/internal/serverapi"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/repo/blob"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -65,8 +66,13 @@ func testAPIServerRepository(t *testing.T, serverStartArgs []string, useGRPC, al
 	e1.RunAndExpectSuccess(t, "repo", "connect", "filesystem", "--path", e.RepoDir, "--override-username", "not-foo", "--override-hostname", "bar")
 	e1.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
 
-	originalPBlobCount := len(e1.RunAndExpectSuccess(t, "blob", "list", "--prefix=p"))
-	originalQBlobCount := len(e1.RunAndExpectSuccess(t, "blob", "list", "--prefix=q"))
+	var pBlobsBefore, qBlobsBefore []blob.Metadata
+
+	mustParseJSONLines(t, e1.RunAndExpectSuccess(t, "blob", "list", "--prefix=p", "--json"), &pBlobsBefore)
+	mustParseJSONLines(t, e1.RunAndExpectSuccess(t, "blob", "list", "--prefix=q", "--json"), &qBlobsBefore)
+
+	originalPBlobCount := len(pBlobsBefore)
+	originalQBlobCount := len(qBlobsBefore)
 
 	tlsCert := filepath.Join(e.ConfigDir, "tls.cert")
 	tlsKey := filepath.Join(e.ConfigDir, "tls.key")

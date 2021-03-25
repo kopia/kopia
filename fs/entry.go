@@ -23,14 +23,14 @@ type Entry interface {
 
 // OwnerInfo describes owner of a filesystem entry.
 type OwnerInfo struct {
-	UserID  uint32
-	GroupID uint32
+	UserID  uint32 `json:"uid"`
+	GroupID uint32 `json:"gid"`
 }
 
 // DeviceInfo describes the device this filesystem entry is on.
 type DeviceInfo struct {
-	Dev  uint64
-	Rdev uint64
+	Dev  uint64 `json:"dev"`
+	Rdev uint64 `json:"rdev"`
 }
 
 // Entries is a list of entries sorted by name.

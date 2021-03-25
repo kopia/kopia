@@ -16,6 +16,11 @@ var (
 )
 
 func runBlobList(ctx context.Context, rep repo.DirectRepository) error {
+	var jl jsonList
+
+	jl.begin()
+	defer jl.end()
+
 	return rep.BlobReader().ListBlobs(ctx, blob.ID(*blobListPrefix), func(b blob.Metadata) error {
 		if *blobListMaxSize != 0 && b.Length > *blobListMaxSize {
 			return nil
@@ -25,11 +30,16 @@ func runBlobList(ctx context.Context, rep repo.DirectRepository) error {
 			return nil
 		}
 
-		fmt.Printf("%-70v %10v %v\n", b.BlobID, b.Length, formatTimestamp(b.Timestamp))
+		if jsonOutput {
+			jl.emit(b)
+		} else {
+			fmt.Printf("%-70v %10v %v\n", b.BlobID, b.Length, formatTimestamp(b.Timestamp))
+		}
 		return nil
 	})
 }
 
 func init() {
+	registerJSONOutputFlags(blobListCommand)
 	blobListCommand.Action(directRepositoryReadAction(runBlobList))
 }

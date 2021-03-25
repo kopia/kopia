@@ -85,6 +85,11 @@ func findManifestIDs(ctx context.Context, rep repo.Repository, source string) ([
 }
 
 func runSnapshotsCommand(ctx context.Context, rep repo.Repository) error {
+	var jl jsonList
+
+	jl.begin()
+	defer jl.end()
+
 	manifestIDs, relPath, err := findManifestIDs(ctx, rep, *snapshotListPath)
 	if err != nil {
 		return err
@@ -93,6 +98,16 @@ func runSnapshotsCommand(ctx context.Context, rep repo.Repository) error {
 	manifests, err := snapshot.LoadSnapshots(ctx, rep, manifestIDs)
 	if err != nil {
 		return errors.Wrap(err, "unable to load snapshots")
+	}
+
+	if jsonOutput {
+		for _, snapshotGroup := range snapshot.GroupBySource(manifests) {
+			for _, m := range snapshotGroup {
+				jl.emit(m)
+			}
+		}
+
+		return nil
 	}
 
 	return outputManifestGroups(ctx, rep, manifests, strings.Split(relPath, "/"))
@@ -282,5 +297,6 @@ func deltaBytes(b int64) string {
 }
 
 func init() {
+	registerJSONOutputFlags(snapshotListCommand)
 	snapshotListCommand.Action(repositoryReaderAction(runSnapshotsCommand))
 }

@@ -3,6 +3,9 @@ package endtoend_test
 import (
 	"testing"
 
+	"github.com/kopia/kopia/repo/content"
+	"github.com/kopia/kopia/repo/manifest"
+	"github.com/kopia/kopia/snapshot/policy"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -17,12 +20,33 @@ func TestDefaultGlobalPolicy(t *testing.T) {
 	e.RunAndExpectSuccess(t, "policy", "show", "--global")
 
 	// verify we created global policy entry
-	globalPolicyBlockID := e.RunAndVerifyOutputLineCount(t, 1, "content", "ls")[0]
-	e.RunAndExpectSuccess(t, "content", "show", "-jz", globalPolicyBlockID)
+
+	var contents []content.Info
+
+	mustParseJSONLines(t, e.RunAndExpectSuccess(t, "content", "ls", "--json"), &contents)
+
+	if got, want := len(contents), 1; got != want {
+		t.Fatalf("unexpected number of contents %v, want %v", got, want)
+	}
+
+	globalPolicyContentID := contents[0].ID
+	e.RunAndExpectSuccess(t, "content", "show", "-jz", string(globalPolicyContentID))
 
 	// make sure the policy is visible in the manifest list
-	e.RunAndVerifyOutputLineCount(t, 1, "manifest", "list", "--filter=type:policy", "--filter=policyType:global")
+	var manifests []manifest.EntryMetadata
+
+	mustParseJSONLines(t, e.RunAndExpectSuccess(t, "manifest", "list", "--filter=type:policy", "--filter=policyType:global", "--json"), &manifests)
+
+	if got, want := len(manifests), 1; got != want {
+		t.Fatalf("unexpected number of manifests %v, want %v", got, want)
+	}
 
 	// make sure the policy is visible in the policy list
-	e.RunAndVerifyOutputLineCount(t, 1, "policy", "list")
+	var plist []policy.TargetWithPolicy
+
+	mustParseJSONLines(t, e.RunAndExpectSuccess(t, "policy", "list", "--json"), &plist)
+
+	if got, want := len(plist), 1; got != want {
+		t.Fatalf("unexpected number of policies %v, want %v", got, want)
+	}
 }
