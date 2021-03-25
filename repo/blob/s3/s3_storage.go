@@ -27,8 +27,6 @@ const (
 type s3Storage struct {
 	Options
 
-	ctx context.Context
-
 	cli *minio.Client
 
 	downloadThrottler *iothrottler.IOThrottlerPool
@@ -148,6 +146,10 @@ func (s *s3Storage) getObjectNameString(b blob.ID) string {
 }
 
 func (s *s3Storage) ListBlobs(ctx context.Context, prefix blob.ID, callback func(blob.Metadata) error) error {
+	ctx, cancel := context.WithCancel(ctx)
+
+	defer cancel()
+
 	oi := s.cli.ListObjects(ctx, s.BucketName, minio.ListObjectsOptions{
 		Prefix: s.getObjectNameString(prefix),
 	})
@@ -240,7 +242,6 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 
 	return retrying.NewWrapper(&s3Storage{
 		Options:           *opt,
-		ctx:               ctx,
 		cli:               cli,
 		downloadThrottler: downloadThrottler,
 		uploadThrottler:   uploadThrottler,
