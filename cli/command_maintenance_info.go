@@ -2,8 +2,6 @@ package cli
 
 import (
 	"context"
-	"encoding/json"
-	"os"
 	"time"
 
 	"github.com/pkg/errors"
@@ -13,10 +11,7 @@ import (
 	"github.com/kopia/kopia/repo/maintenance"
 )
 
-var (
-	maintenanceInfoCommand = maintenanceCommands.Command("info", "Display maintenance information").Alias("status")
-	maintenanceInfoJSON    = maintenanceInfoCommand.Flag("json", "Show raw JSON data").Short('j').Bool()
-)
+var maintenanceInfoCommand = maintenanceCommands.Command("info", "Display maintenance information").Alias("status")
 
 func runMaintenanceInfoCommand(ctx context.Context, rep repo.DirectRepository) error {
 	p, err := maintenance.GetParams(ctx, rep)
@@ -29,11 +24,8 @@ func runMaintenanceInfoCommand(ctx context.Context, rep repo.DirectRepository) e
 		return errors.Wrap(err, "unable to get maintenance schedule")
 	}
 
-	if *maintenanceInfoJSON {
-		e := json.NewEncoder(os.Stdout)
-		e.SetIndent("", "  ")
-		e.Encode(s) //nolint:errcheck
-
+	if jsonOutput {
+		printStdout("%s\n", jsonBytes(s))
 		return nil
 	}
 
@@ -83,5 +75,6 @@ func displayCycleInfo(c *maintenance.CycleParams, t time.Time, rep repo.DirectRe
 }
 
 func init() {
+	registerJSONOutputFlags(maintenanceInfoCommand)
 	maintenanceInfoCommand.Action(directRepositoryReadAction(runMaintenanceInfoCommand))
 }

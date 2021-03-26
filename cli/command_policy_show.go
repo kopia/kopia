@@ -17,10 +17,10 @@ var (
 	policyShowCommand = policyCommands.Command("show", "Show snapshot policy.").Alias("get")
 	policyShowGlobal  = policyShowCommand.Flag("global", "Get global policy").Bool()
 	policyShowTargets = policyShowCommand.Arg("target", "Target to show the policy for").Strings()
-	policyShowJSON    = policyShowCommand.Flag("json", "Show JSON").Short('j').Bool()
 )
 
 func init() {
+	registerJSONOutputFlags(policyShowCommand)
 	policyShowCommand.Action(repositoryReaderAction(showPolicy))
 }
 
@@ -36,8 +36,8 @@ func showPolicy(ctx context.Context, rep repo.Repository) error {
 			return errors.Wrapf(err, "can't get effective policy for %q", target)
 		}
 
-		if *policyShowJSON {
-			fmt.Println(effective)
+		if jsonOutput {
+			printStdout("%s\n", jsonBytes(effective))
 		} else {
 			printPolicy(effective, policies)
 		}

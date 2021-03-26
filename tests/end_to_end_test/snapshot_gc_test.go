@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/kopia/kopia/internal/testutil"
+	"github.com/kopia/kopia/repo/content"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -55,7 +56,13 @@ how are you
 	e.RunAndExpectSuccess(t, "snapshot", "gc")
 
 	// data block + directory block + manifest block + manifest block from manifest deletion
-	e.RunAndVerifyOutputLineCount(t, expectedContentCount, "content", "list")
+	var contentInfo []content.Info
+
+	mustParseJSONLines(t, e.RunAndExpectSuccess(t, "content", "list", "--json"), &contentInfo)
+
+	if got, want := len(contentInfo), expectedContentCount; got != want {
+		t.Fatalf("unexpected number of contents: %v, want %v", got, want)
+	}
 
 	// garbage-collect for real, but contents are too recent so won't be deleted
 	e.RunAndExpectSuccess(t, "snapshot", "gc", "--delete")

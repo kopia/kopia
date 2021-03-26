@@ -11,6 +11,13 @@ import (
 // ErrPolicyNotFound is returned when the policy is not found.
 var ErrPolicyNotFound = errors.New("policy not found")
 
+// TargetWithPolicy wraps a policy with its target and ID.
+type TargetWithPolicy struct {
+	ID     string              `json:"id"`
+	Target snapshot.SourceInfo `json:"target"`
+	*Policy
+}
+
 // Policy describes snapshot policy for a single source.
 type Policy struct {
 	Labels              map[string]string   `json:"-"`

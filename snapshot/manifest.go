@@ -22,7 +22,7 @@ type Manifest struct {
 	StartTime   time.Time `json:"startTime"`
 	EndTime     time.Time `json:"endTime"`
 
-	Stats            Stats  `json:"stats"`
+	Stats            Stats  `json:"stats,omitempty"`
 	IncompleteReason string `json:"incomplete,omitempty"`
 
 	RootEntry *DirEntry `json:"rootEntry"`

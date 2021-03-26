@@ -1,6 +1,7 @@
 package endtoend_test
 
 import (
+	"encoding/json"
 	"os"
 	"path"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/kopia/kopia/internal/testutil"
 	"github.com/kopia/kopia/repo"
+	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/tests/testenv"
 )
 
@@ -39,8 +41,26 @@ func TestSnapshotCreate(t *testing.T) {
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
 	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir1)
 
-	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2)
-	e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2)
+	var man1, man2 snapshot.Manifest
+
+	mustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2, "--json"), &man1)
+	mustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "create", sharedTestDataDir2, "--json"), &man2)
+
+	if man1.RootEntry.ObjectID == "" {
+		t.Fatalf("missing root id")
+	}
+
+	if man1.RootEntry.ObjectID != man2.RootEntry.ObjectID {
+		t.Fatalf("unexpected difference in root objects %v vs %v", man1.RootEntry.ObjectID, man2.RootEntry.ObjectID)
+	}
+
+	var manifests []snapshot.Manifest
+
+	mustParseJSONLines(t, e.RunAndExpectSuccess(t, "snapshot", "list", "-a", "--json"), &manifests)
+
+	if got, want := len(manifests), 6; got != want {
+		t.Fatalf("unexpected number of snapshots %v want %v", got, want)
+	}
 
 	sources := e.ListSnapshotsAndExpectSuccess(t)
 	// will only list snapshots we created, not foo@foo
@@ -589,4 +609,16 @@ func createFileStructure(baseDir string, files []testFileEntry) error {
 	}
 
 	return nil
+}
+
+func mustParseJSONLines(t *testing.T, lines []string, v interface{}) {
+	t.Helper()
+
+	allJSON := strings.Join(lines, "\n")
+	dec := json.NewDecoder(strings.NewReader(allJSON))
+	dec.DisallowUnknownFields()
+
+	if err := dec.Decode(v); err != nil {
+		t.Fatalf("failed to parse JSON %v: %v", allJSON, err)
+	}
 }

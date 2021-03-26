@@ -18,10 +18,16 @@ var (
 )
 
 func init() {
+	registerJSONOutputFlags(manifestListCommand)
 	manifestListCommand.Action(repositoryReaderAction(listManifestItems))
 }
 
 func listManifestItems(ctx context.Context, rep repo.Repository) error {
+	var jl jsonList
+
+	jl.begin()
+	defer jl.end()
+
 	filter := map[string]string{}
 
 	for _, kv := range *manifestListFilter {
@@ -49,8 +55,12 @@ func listManifestItems(ctx context.Context, rep repo.Repository) error {
 	})
 
 	for _, it := range items {
-		t := it.Labels["type"]
-		fmt.Printf("%v %10v %v type:%v %v\n", it.ID, it.Length, formatTimestamp(it.ModTime.Local()), t, sortedMapValues(it.Labels))
+		if jsonOutput {
+			jl.emit(it)
+		} else {
+			t := it.Labels["type"]
+			fmt.Printf("%v %10v %v type:%v %v\n", it.ID, it.Length, formatTimestamp(it.ModTime.Local()), t, sortedMapValues(it.Labels))
+		}
 	}
 
 	return nil
