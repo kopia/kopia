@@ -361,7 +361,9 @@ func testURL(t *testing.T, url string) {
 	}
 }
 
-func createBucket(t *testutil.RetriableT, opt *Options) {
+func createClient(tb testing.TB, opt *Options) *minio.Client {
+	tb.Helper()
+
 	minioClient, err := minio.New(opt.Endpoint,
 		&minio.Options{
 			Creds:  miniocreds.NewStaticV4(opt.AccessKeyID, opt.SecretAccessKey, ""),
@@ -369,20 +371,35 @@ func createBucket(t *testutil.RetriableT, opt *Options) {
 			Region: opt.Region,
 		})
 	if err != nil {
-		t.Fatalf("can't initialize minio client: %v", err)
+		tb.Fatalf("can't initialize minio client: %v", err)
 	}
 
-	// ignore error
-	if err := minioClient.MakeBucket(context.Background(), opt.BucketName, minio.MakeBucketOptions{
-		Region: opt.Region,
+	return minioClient
+}
+
+func createBucket(tb testing.TB, opt *Options) {
+	tb.Helper()
+
+	minioClient := createClient(tb, opt)
+
+	makeBucket(tb, minioClient, opt, false)
+}
+
+func makeBucket(tb testing.TB, cli *minio.Client, opt *Options, objectLocking bool) {
+	tb.Helper()
+
+	if err := cli.MakeBucket(context.Background(), opt.BucketName, minio.MakeBucketOptions{
+		Region:        opt.Region,
+		ObjectLocking: objectLocking,
 	}); err != nil {
 		var er minio.ErrorResponse
 
 		if errors.As(err, &er) && er.Code == "BucketAlreadyOwnedByYou" {
+			// ignore error
 			return
 		}
 
-		t.Fatalf("unable to create bucket: %v", err)
+		tb.Fatalf("unable to create bucket: %v", err)
 	}
 }
 
