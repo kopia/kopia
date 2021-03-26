@@ -27,7 +27,8 @@ const (
 type s3Storage struct {
 	Options
 
-	cli *minio.Client
+	cli     *minio.Client
+	sendMD5 bool
 
 	downloadThrottler *iothrottler.IOThrottlerPool
 	uploadThrottler   *iothrottler.IOThrottlerPool
@@ -114,7 +115,8 @@ func (s *s3Storage) PutBlob(ctx context.Context, b blob.ID, data blob.Bytes) err
 	}
 
 	uploadInfo, err := s.cli.PutObject(ctx, s.BucketName, s.getObjectNameString(b), throttled, int64(data.Length()), minio.PutObjectOptions{
-		ContentType: "application/x-kopia",
+		ContentType:    "application/x-kopia",
+		SendContentMd5: s.sendMD5,
 	})
 
 	if errors.Is(err, io.EOF) && uploadInfo.Size == 0 {
@@ -257,9 +259,15 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 		return nil, errors.Errorf("bucket %q does not exist", opt.BucketName)
 	}
 
+	sendMD5, err := needMD5(ctx, cli, opt.BucketName)
+	if err != nil {
+		return nil, err
+	}
+
 	return retrying.NewWrapper(&s3Storage{
 		Options:           *opt,
 		cli:               cli,
+		sendMD5:           sendMD5,
 		downloadThrottler: downloadThrottler,
 		uploadThrottler:   uploadThrottler,
 	}), nil
