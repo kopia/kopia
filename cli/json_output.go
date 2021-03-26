@@ -16,7 +16,7 @@ var (
 
 func registerJSONOutputFlags(cmd *kingpin.CmdClause) {
 	cmd.Flag("json", "Output result in JSON format to stdout").BoolVar(&jsonOutput)
-	cmd.Flag("json-indent", "Output result in JSON format to stdout").Hidden().BoolVar(&jsonIndent)
+	cmd.Flag("json-indent", "Output result in indented JSON format to stdout").Hidden().BoolVar(&jsonIndent)
 	cmd.Flag("json-verbose", "Output non-essential data (e.g. statistics) in JSON format").Hidden().BoolVar(&jsonVerbose)
 }
 
