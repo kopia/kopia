@@ -3,10 +3,12 @@ package s3
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/sts"
+	"github.com/google/uuid"
 	minio "github.com/minio/minio-go/v7"
 	miniocreds "github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/minio/minio/pkg/madmin"
@@ -40,7 +43,7 @@ const (
 	awsEndpoint = "s3.amazonaws.com"
 
 	// the test takes a few seconds, delete stuff older than 1h to avoid accumulating cruft.
-	cleanupAge = 1 * time.Hour
+	defaultCleanupAge = 1 * time.Hour
 
 	// env vars need to be set to execute TestS3StorageAWS.
 	testEndpointEnv        = "KOPIA_S3_TEST_ENDPOINT"
@@ -58,6 +61,12 @@ const (
 	untrustedRootBadSSL = "https://untrusted-root.badssl.com/"
 	wrongHostBadSSL     = "https://wrong.host.badssl.com/"
 )
+
+var providerCreds = map[string]string{
+	"S3":               "KOPIA_S3_CREDS",
+	"Wasabi":           "KOPIA_S3_WASABI_CREDS",
+	"Wasabi-Versioned": "KOPIA_S3_WASABI_VERSIONED_CREDS",
+}
 
 // startDockerMinioOrSkip starts ephemeral minio instance on a random port and returns the endpoint ("localhost:xxx").
 func startDockerMinioOrSkip(t *testing.T) string {
@@ -89,10 +98,12 @@ func generateName(name string) string {
 	return fmt.Sprintf("%s-%x", name, b)
 }
 
-func getEnvOrSkip(t *testutil.RetriableT, name string) string {
+func getEnvOrSkip(tb testing.TB, name string) string {
+	tb.Helper()
+
 	value := os.Getenv(name)
 	if value == "" {
-		t.Skip(fmt.Sprintf("Environment variable '%s' not provided", name))
+		tb.Skip(fmt.Sprintf("Environment variable '%s' not provided", name))
 	}
 
 	return value
@@ -105,6 +116,47 @@ func getEnv(name, defValue string) string {
 	}
 
 	return value
+}
+
+func getProviderOptionsAndCleanup(tb testing.TB, envName string) *Options {
+	tb.Helper()
+
+	value := getEnvOrSkip(tb, envName)
+
+	var o Options
+	if err := json.NewDecoder(strings.NewReader(value)).Decode(&o); err != nil {
+		tb.Skipf("invalid credentials JSON provided in '%v'", envName)
+	}
+
+	if o.Prefix != "" {
+		tb.Fatalf("options providd in '%v' must not specify a prefix", envName)
+	}
+
+	cleanupOldData(context.Background(), tb, &o, defaultCleanupAge)
+
+	o.Prefix = uuid.NewString() + "-"
+
+	tb.Cleanup(func() {
+		cleanupOldData(context.Background(), tb, &o, 0)
+	})
+
+	return &o
+}
+
+func TestS3StorageProviders(t *testing.T) {
+	t.Parallel()
+
+	for k, env := range providerCreds {
+		env := env
+
+		t.Run(k, func(t *testing.T) {
+			options := getProviderOptionsAndCleanup(t, env)
+
+			testutil.Retry(t, func(t *testutil.RetriableT) {
+				testStorage(t, options)
+			})
+		})
+	}
 }
 
 func TestS3StorageAWS(t *testing.T) {
@@ -251,9 +303,12 @@ func testStorage(t *testutil.RetriableT, options *Options) {
 	data := make([]byte, 8)
 	rand.Read(data)
 
-	cleanupOldData(ctx, t, options)
+	cleanupOldData(ctx, t, options, time.Hour)
 
-	options.Prefix = fmt.Sprintf("test-%v-%x-", clock.Now().Unix(), data)
+	if options.Prefix == "" {
+		options.Prefix = fmt.Sprintf("test-%v-%x-", clock.Now().Unix(), data)
+	}
+
 	attempt := func() (interface{}, error) {
 		return New(testlogging.Context(t), options)
 	}
@@ -402,18 +457,22 @@ func createMinioSessionToken(t *testutil.RetriableT, minioEndpoint, kopiaUserNam
 	return *result.Credentials.AccessKeyId, *result.Credentials.SecretAccessKey, *result.Credentials.SessionToken
 }
 
-func cleanupOldData(ctx context.Context, t *testutil.RetriableT, options *Options) {
+func cleanupOldData(ctx context.Context, tb testing.TB, options *Options, cleanupAge time.Duration) {
+	tb.Helper()
+
+	tb.Logf("cleaning up prefix %q", options.Prefix)
+
 	// cleanup old data from the bucket
-	st, err := New(testlogging.Context(t), options)
+	st, err := New(testlogging.Context(tb), options)
 	if err != nil {
-		t.Fatalf("err: %v", err)
+		tb.Fatalf("err: %v", err)
 	}
 
 	_ = st.ListBlobs(ctx, "", func(it blob.Metadata) error {
 		age := clock.Since(it.Timestamp)
 		if age > cleanupAge {
 			if err := st.DeleteBlob(ctx, it.BlobID); err != nil {
-				t.Errorf("warning: unable to delete %q: %v", it.BlobID, err)
+				tb.Errorf("warning: unable to delete %q: %v", it.BlobID, err)
 			}
 		}
 		return nil
