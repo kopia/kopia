@@ -45,7 +45,7 @@ func TestFindSafeDropTime(t *testing.T) {
 				{Start: t0700, End: t0715, Success: true},
 				{Start: t1300, End: t1315, Success: true},
 			},
-			wantTime: t0700.Add(extraSafetyMarginBeforeDroppingContentFromIndex),
+			wantTime: t0700.Add(-SafetyFull.ExtraDropContentFromIndexBuffer),
 		},
 		// three runs spaced enough
 		{
@@ -54,7 +54,7 @@ func TestFindSafeDropTime(t *testing.T) {
 				{Start: t0900, End: t0915, Success: true},
 				{Start: t1300, End: t1315, Success: true},
 			},
-			wantTime: t0700.Add(extraSafetyMarginBeforeDroppingContentFromIndex),
+			wantTime: t0700.Add(-SafetyFull.ExtraDropContentFromIndexBuffer),
 		},
 		// three runs spaced enough, not successful
 		{
@@ -68,7 +68,7 @@ func TestFindSafeDropTime(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		if got, want := findSafeDropTime(tc.runs), tc.wantTime; !got.Equal(want) {
+		if got, want := findSafeDropTime(tc.runs, SafetyFull), tc.wantTime; !got.Equal(want) {
 			t.Errorf("invalid safe drop time for %v: %v, want %v", tc.runs, got, want)
 		}
 	}

@@ -48,6 +48,31 @@ var (
 	aclCommands         = serverCommands.Command("acl", "Manager server access control list entries")
 )
 
+var safetyByName = map[string]maintenance.SafetyParameters{
+	"none": maintenance.SafetyNone,
+	"full": maintenance.SafetyFull,
+}
+
+// safetyFlag defines a --safety=none|full flag that returns SafetyParameters.
+func safetyFlag(c *kingpin.CmdClause) *maintenance.SafetyParameters {
+	var (
+		result = maintenance.SafetyFull
+		str    string
+	)
+
+	c.Flag("safety", "Safety level").Default("full").PreAction(func(pc *kingpin.ParseContext) error {
+		var ok bool
+		result, ok = safetyByName[str]
+		if !ok {
+			return errors.Errorf("unhandled safety level")
+		}
+
+		return nil
+	}).EnumVar(&str, "full", "minimal", "none")
+
+	return &result
+}
+
 func helpFullAction(ctx *kingpin.ParseContext) error {
 	_ = app.UsageForContextWithTemplate(ctx, 0, kingpin.DefaultUsageTemplate)
 
@@ -213,7 +238,7 @@ func maybeRunMaintenance(ctx context.Context, rep repo.Repository) error {
 		Purpose:  "maybeRunMaintenance",
 		OnUpload: progress.UploadedBytes,
 	}, func(w repo.DirectRepositoryWriter) error {
-		return snapshotmaintenance.Run(ctx, w, maintenance.ModeAuto, false)
+		return snapshotmaintenance.Run(ctx, w, maintenance.ModeAuto, false, maintenance.SafetyFull)
 	})
 
 	var noe maintenance.NotOwnedError

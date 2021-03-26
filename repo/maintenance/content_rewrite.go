@@ -5,7 +5,6 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/pkg/errors"
 
@@ -15,14 +14,11 @@ import (
 	"github.com/kopia/kopia/repo/content"
 )
 
-const defaultRewriteContentsMinAge = 2 * time.Hour
-
 const parallelContentRewritesCPUMultiplier = 2
 
 // RewriteContentsOptions provides options for RewriteContents.
 type RewriteContentsOptions struct {
 	Parallel       int
-	MinAge         time.Duration
 	ContentIDs     []content.ID
 	ContentIDRange content.IDRange
 	PackPrefix     blob.ID
@@ -40,13 +36,9 @@ type contentInfoOrError struct {
 
 // RewriteContents rewrites contents according to provided criteria and creates new
 // blobs and index entries to point at the.
-func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *RewriteContentsOptions) error {
+func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *RewriteContentsOptions, safety SafetyParameters) error {
 	if opt == nil {
 		return errors.Errorf("missing options")
-	}
-
-	if opt.MinAge == 0 {
-		opt.MinAge = defaultRewriteContentsMinAge
 	}
 
 	if opt.ShortPacks {
@@ -90,7 +82,7 @@ func RewriteContents(ctx context.Context, rep repo.DirectRepositoryWriter, opt *
 				}
 
 				age := rep.Time().Sub(c.Timestamp())
-				if age < opt.MinAge {
+				if age < safety.RewriteMinAge {
 					log(ctx).Debugf("Not rewriting content %v (%v bytes) from pack %v%v %v, because it's too new.", c.ID, c.Length, c.PackBlobID, optDeleted, age)
 					continue
 				}

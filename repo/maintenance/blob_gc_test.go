@@ -68,19 +68,21 @@ func TestDeleteUnreferencedBlobs(t *testing.T) {
 	verifyBlobExists(t, env.RepositoryWriter.BlobStorage(), extraBlobID2)
 
 	// new blobs not will be deleted because of minimum age requirement
-	if _, err = DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, DeleteUnreferencedBlobsOptions{
-		MinAge: 1 * time.Hour,
-	}); err != nil {
+	if _, err = DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, DeleteUnreferencedBlobsOptions{}, SafetyFull); err != nil {
 		t.Fatal(err)
 	}
 
 	verifyBlobExists(t, env.RepositoryWriter.BlobStorage(), extraBlobID1)
 	verifyBlobExists(t, env.RepositoryWriter.BlobStorage(), extraBlobID2)
 
+	// mixed safety parameters
+	safetyFastDeleteLongSessionExpiration := SafetyParameters{
+		BlobDeleteMinAge:     1,
+		SessionExpirationAge: 4 * 24 * time.Hour,
+	}
+
 	// new blobs will be deleted
-	if _, err = DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, DeleteUnreferencedBlobsOptions{
-		MinAge: 1,
-	}); err != nil {
+	if _, err = DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, DeleteUnreferencedBlobsOptions{}, SafetyNone); err != nil {
 		t.Fatal(err)
 	}
 
@@ -105,9 +107,7 @@ func TestDeleteUnreferencedBlobs(t *testing.T) {
 		CheckpointTime: ta.NowFunc()(),
 	})
 
-	if _, err = DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, DeleteUnreferencedBlobsOptions{
-		MinAge: 1,
-	}); err != nil {
+	if _, err = DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, DeleteUnreferencedBlobsOptions{}, safetyFastDeleteLongSessionExpiration); err != nil {
 		t.Fatal(err)
 	}
 
@@ -120,9 +120,7 @@ func TestDeleteUnreferencedBlobs(t *testing.T) {
 	// now finish session 2
 	env.RepositoryWriter.BlobStorage().DeleteBlob(ctx, session2Marker)
 
-	if _, err = DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, DeleteUnreferencedBlobsOptions{
-		MinAge: 1,
-	}); err != nil {
+	if _, err = DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, DeleteUnreferencedBlobsOptions{}, safetyFastDeleteLongSessionExpiration); err != nil {
 		t.Fatal(err)
 	}
 
@@ -135,9 +133,7 @@ func TestDeleteUnreferencedBlobs(t *testing.T) {
 	// now move time into the future making session 1 timed out
 	ta.Advance(7 * 24 * time.Hour)
 
-	if _, err = DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, DeleteUnreferencedBlobsOptions{
-		MinAge: 1,
-	}); err != nil {
+	if _, err = DeleteUnreferencedBlobs(ctx, env.RepositoryWriter, DeleteUnreferencedBlobsOptions{}, SafetyFull); err != nil {
 		t.Fatal(err)
 	}
 
@@ -155,7 +151,7 @@ func TestDeleteUnreferencedBlobs(t *testing.T) {
 	}
 
 	if diff := cmp.Diff(blobsBefore, blobsAfter); diff != "" {
-		t.Errorf("unexpected diff: %v", diff)
+		t.Fatalf("unexpected diff: %v", diff)
 	}
 }
 

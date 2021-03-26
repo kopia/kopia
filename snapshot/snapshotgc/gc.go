@@ -74,17 +74,17 @@ func findInUseContentIDs(ctx context.Context, rep repo.Repository, used *sync.Ma
 }
 
 // Run performs garbage collection on all the snapshots in the repository.
-func Run(ctx context.Context, rep repo.DirectRepositoryWriter, params maintenance.SnapshotGCParams, gcDelete bool) (Stats, error) {
+func Run(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, safety maintenance.SafetyParameters) (Stats, error) {
 	var st Stats
 
 	err := maintenance.ReportRun(ctx, rep, "snapshot-gc", func() error {
-		return runInternal(ctx, rep, params, gcDelete, &st)
+		return runInternal(ctx, rep, gcDelete, safety, &st)
 	})
 
 	return st, errors.Wrap(err, "error running snapshot gc")
 }
 
-func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, params maintenance.SnapshotGCParams, gcDelete bool, st *Stats) error {
+func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, gcDelete bool, safety maintenance.SafetyParameters, st *Stats) error {
 	var (
 		used sync.Map
 
@@ -117,7 +117,7 @@ func runInternal(ctx context.Context, rep repo.DirectRepositoryWriter, params ma
 			return nil
 		}
 
-		if rep.Time().Sub(ci.Timestamp()) < params.MinContentAge {
+		if rep.Time().Sub(ci.Timestamp()) < safety.MinContentAgeSubjectToGC {
 			log(ctx).Debugf("recent unreferenced content %v (%v bytes, modified %v)", ci.ID, ci.Length, ci.Timestamp())
 			tooRecent.Add(int64(ci.Length))
 			return nil

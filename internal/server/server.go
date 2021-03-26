@@ -506,7 +506,7 @@ func periodicMaintenanceOnce(ctx context.Context, rep repo.Repository) error {
 	return repo.DirectWriteSession(ctx, dr, repo.WriteSessionOptions{
 		Purpose: "periodicMaintenanceOnce",
 	}, func(w repo.DirectRepositoryWriter) error {
-		return snapshotmaintenance.Run(ctx, w, maintenance.ModeAuto, false)
+		return snapshotmaintenance.Run(ctx, w, maintenance.ModeAuto, false, maintenance.SafetyFull)
 	})
 }
 

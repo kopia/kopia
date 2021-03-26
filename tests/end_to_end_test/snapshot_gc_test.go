@@ -52,8 +52,13 @@ how are you
 	// run verification
 	e.RunAndExpectSuccess(t, "snapshot", "verify")
 
-	// garbage-collect in dry run mode
+	// garbage-collect in dry run mode - this will not fail because of default safety level
+	// which only looks at contents above certain age.
 	e.RunAndExpectSuccess(t, "snapshot", "gc")
+
+	// garbage-collect in dry run mode - this will fail because of --safety=none
+	// makes contents subject to GC immediately but we're not specifying --delete flag.
+	e.RunAndExpectFailure(t, "snapshot", "gc", "--safety=none")
 
 	// data block + directory block + manifest block + manifest block from manifest deletion
 	var contentInfo []content.Info
@@ -74,7 +79,7 @@ how are you
 	time.Sleep(2 * time.Second)
 
 	// garbage-collect for real, this time without age limit
-	e.RunAndExpectSuccess(t, "snapshot", "gc", "--delete", "--min-age", "0s")
+	e.RunAndExpectSuccess(t, "snapshot", "gc", "--delete", "--safety=none")
 
 	// two contents are deleted
 	expectedContentCount -= 2
