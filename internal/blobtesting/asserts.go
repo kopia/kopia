@@ -124,9 +124,14 @@ func AssertListResults(ctx context.Context, t testingT, s blob.Storage, prefix b
 			t.Errorf("invalid length on %v: %v, want %v", m.BlobID, got, want)
 		}
 
+		timeDiff := m2.Timestamp.Sub(m.Timestamp)
+		if timeDiff < 0 {
+			timeDiff = -timeDiff
+		}
+
 		// truncated time comparison, because some providers return different precision of time in list vs get
-		if got, want := m2.Timestamp, m.Timestamp; !got.Truncate(time.Second).Equal(want.Truncate(time.Second)) {
-			t.Errorf("invalid timestamp on %v: %v, want %v", m.BlobID, got, want)
+		if timeDiff > 2*time.Second {
+			t.Errorf("invalid timestamp on %v: getmetadata returned %v, list returned %v", m.BlobID, m2.Timestamp, m.Timestamp)
 		}
 
 		return nil
