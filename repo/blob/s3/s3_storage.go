@@ -205,6 +205,23 @@ func getCustomTransport(insecureSkipVerify bool) (transport *http.Transport) {
 	return customTransport
 }
 
+// returns whether put blob requires sending the content's MD5.
+func needMD5(ctx context.Context, cli *minio.Client, bucketName string) (bool, error) {
+	var er minio.ErrorResponse
+
+	mode, _, _, err := cli.GetBucketObjectLockConfig(ctx, bucketName)
+
+	if errors.As(err, &er) && er.Code == "ObjectLockConfigurationNotFoundError" {
+		return false, nil
+	}
+
+	if err != nil {
+		return false, errors.Wrapf(err, "could not get object locking config for bucket %s", bucketName)
+	}
+
+	return mode != nil && mode.IsValid(), nil
+}
+
 // New creates new S3-backed storage with specified options:
 //
 // - the 'BucketName' field is required and all other parameters are optional.

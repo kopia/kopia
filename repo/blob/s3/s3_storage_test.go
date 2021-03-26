@@ -23,6 +23,7 @@ import (
 
 	"github.com/kopia/kopia/internal/blobtesting"
 	"github.com/kopia/kopia/internal/clock"
+	"github.com/kopia/kopia/internal/gather"
 	"github.com/kopia/kopia/internal/retry"
 	"github.com/kopia/kopia/internal/testlogging"
 	"github.com/kopia/kopia/internal/testutil"
@@ -50,6 +51,7 @@ const (
 	testAccessKeyIDEnv     = "KOPIA_S3_TEST_ACCESS_KEY_ID"
 	testSecretAccessKeyEnv = "KOPIA_S3_TEST_SECRET_ACCESS_KEY"
 	testBucketEnv          = "KOPIA_S3_TEST_BUCKET"
+	testLockedBucketEnv    = "KOPIA_S3_TEST_LOCKED_BUCKET"
 	testRegionEnv          = "KOPIA_S3_TEST_REGION"
 	// additional env vars need to be set to execute TestS3StorageAWSSTS.
 	testSTSAccessKeyIDEnv     = "KOPIA_S3_TEST_STS_ACCESS_KEY_ID"
@@ -297,6 +299,88 @@ func TestS3StorageMinioSTS(t *testing.T) {
 	}
 }
 
+func TestNeedMD5AWS(t *testing.T) {
+	t.Parallel()
+
+	// skip the test if AWS creds are not provided
+	options := &Options{
+		Endpoint:        getEnv(testEndpointEnv, awsEndpoint),
+		AccessKeyID:     getEnvOrSkip(t, testAccessKeyIDEnv),
+		SecretAccessKey: getEnvOrSkip(t, testSecretAccessKeyEnv),
+		BucketName:      getEnvOrSkip(t, testLockedBucketEnv),
+		Region:          getEnvOrSkip(t, testRegionEnv),
+	}
+
+	testutil.Retry(t, func(t *testutil.RetriableT) {
+		ctx := testlogging.Context(t)
+		cli := createClient(t, options)
+		makeBucket(t, cli, options, true)
+
+		// ensure it is a bucket with object locking enabled
+		want := "Enabled"
+		if got, _, _, _, _ := cli.GetObjectLockConfig(ctx, options.BucketName); got != want {
+			t.Fatalf("object locking is not enabled: got '%s', want '%s'", got, want)
+		}
+
+		// ensure a locking configuration is in place
+		lockingMode := minio.Governance
+		unit := uint(1)
+		days := minio.Days
+		err := cli.SetBucketObjectLockConfig(ctx, options.BucketName, &lockingMode, &unit, &days)
+		noError(t, err, "could not set object lock config")
+
+		got, err := needMD5(ctx, cli, options.BucketName)
+		noError(t, err, "could not determine whether PUT blob requires MD5")
+
+		if got != true {
+			t.Fatal("expected bucket to require MD5 for PUT blob, but got not required")
+		}
+
+		options.Prefix = uuid.NewString() + "/"
+
+		s, err := New(ctx, options)
+		noError(t, err, "could not create storage")
+
+		t.Cleanup(func() {
+			cleanupOldData(context.Background(), t, options, 0)
+		})
+
+		err = s.PutBlob(ctx, blob.ID("test-put-blob-0"), gather.FromSlice([]byte("xxyasdf243z")))
+
+		noError(t, err, "could not put test blob")
+	})
+}
+
+func TestNoNeedMD5Minio(t *testing.T) {
+	t.Parallel()
+
+	ctx := testlogging.Context(t)
+	minioEndpoint := startDockerMinioOrSkip(t)
+
+	var cli *minio.Client
+
+	options := &Options{
+		Endpoint:        minioEndpoint,
+		AccessKeyID:     minioAccessKeyID,
+		SecretAccessKey: minioSecretAccessKey,
+		BucketName:      minioBucketName,
+		Region:          minioRegion,
+		DoNotUseTLS:     !minioUseSSL,
+	}
+
+	testutil.Retry(t, func(t *testutil.RetriableT) {
+		cli = createClient(t, options)
+		makeBucket(t, cli, options, false)
+
+		got, err := needMD5(ctx, cli, minioBucketName)
+		noError(t, err, "could not determine whether PUT blob requires MD5")
+
+		if got != false {
+			t.Fatal("expected bucket to not require MD5 for PUT blob, but got required")
+		}
+	})
+}
+
 func testStorage(t *testutil.RetriableT, options *Options) {
 	ctx := testlogging.Context(t)
 
@@ -494,4 +578,12 @@ func cleanupOldData(ctx context.Context, tb testing.TB, options *Options, cleanu
 		}
 		return nil
 	})
+}
+
+func noError(tb testing.TB, err error, msg string) {
+	tb.Helper()
+
+	if err != nil {
+		tb.Fatal(msg, "error: ", err)
+	}
 }
