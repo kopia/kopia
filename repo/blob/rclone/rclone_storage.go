@@ -77,9 +77,11 @@ func (r *rcloneStorage) DisplayName() string {
 	return "RClone " + r.Options.RemotePath
 }
 
-func runRCloneAndWaitForServerAddress(c *exec.Cmd, startupTimeout time.Duration) (string, error) {
+func runRCloneAndWaitForServerAddress(ctx context.Context, c *exec.Cmd, startupTimeout time.Duration) (string, error) {
 	rcloneAddressChan := make(chan string)
 	rcloneErrChan := make(chan error)
+
+	log(ctx).Debugf("starting %v", c.Path)
 
 	go func() {
 		stderr, err := c.StderrPipe()
@@ -95,8 +97,12 @@ func runRCloneAndWaitForServerAddress(c *exec.Cmd, startupTimeout time.Duration)
 
 		go func() {
 			s := bufio.NewScanner(stderr)
+
+			var lastOutput string
+
 			for s.Scan() {
 				l := s.Text()
+				lastOutput = l
 
 				if p := strings.Index(l, "https://"); p >= 0 {
 					rcloneAddressChan <- l[p:]
@@ -107,6 +113,11 @@ func runRCloneAndWaitForServerAddress(c *exec.Cmd, startupTimeout time.Duration)
 					return
 				}
 			}
+
+			select {
+			case rcloneErrChan <- errors.Errorf("rclone server failed to start: %v", lastOutput):
+			default:
+			}
 		}()
 	}()
 
@@ -115,7 +126,7 @@ func runRCloneAndWaitForServerAddress(c *exec.Cmd, startupTimeout time.Duration)
 		return addr, nil
 
 	case err := <-rcloneErrChan:
-		return "", errors.Wrap(err, "rclone failed to start")
+		return "", err
 
 	case <-time.After(startupTimeout):
 		return "", errors.Errorf("timed out waiting for rclone to start")
@@ -201,14 +212,12 @@ func New(ctx context.Context, opt *Options) (blob.Storage, error) {
 	r.cmd = exec.CommandContext(ctx, rcloneExe, arguments...) //nolint:gosec
 	r.cmd.Env = append(r.cmd.Env, opt.RCloneEnv...)
 
-	log(ctx).Debugf("starting %v %v", rcloneExe, arguments)
-
 	startupTimeout := rcloneStartupTimeout
 	if opt.StartupTimeout != 0 {
 		startupTimeout = time.Duration(opt.StartupTimeout) * time.Second
 	}
 
-	rcloneAddr, err := runRCloneAndWaitForServerAddress(r.cmd, startupTimeout)
+	rcloneAddr, err := runRCloneAndWaitForServerAddress(ctx, r.cmd, startupTimeout)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to start rclone")
 	}

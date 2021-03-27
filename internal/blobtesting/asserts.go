@@ -5,6 +5,7 @@ import (
 	"context"
 	"reflect"
 	"sort"
+	"testing"
 	"time"
 
 	"github.com/pkg/errors"
@@ -12,15 +13,8 @@ import (
 	"github.com/kopia/kopia/repo/blob"
 )
 
-type testingT interface {
-	Helper()
-	Errorf(string, ...interface{})
-	Fatalf(string, ...interface{})
-	Logf(string, ...interface{})
-}
-
 // AssertGetBlob asserts that the specified BLOB has correct content.
-func AssertGetBlob(ctx context.Context, t testingT, s blob.Storage, blobID blob.ID, expected []byte) {
+func AssertGetBlob(ctx context.Context, t *testing.T, s blob.Storage, blobID blob.ID, expected []byte) {
 	t.Helper()
 
 	b, err := s.GetBlob(ctx, blobID, 0, -1)
@@ -76,14 +70,16 @@ func AssertGetBlob(ctx context.Context, t testingT, s blob.Storage, blobID blob.
 }
 
 // AssertInvalidOffsetLength verifies that the given combination of (offset,length) fails on GetBlob().
-func AssertInvalidOffsetLength(ctx context.Context, t testingT, s blob.Storage, blobID blob.ID, offset, length int64) {
+func AssertInvalidOffsetLength(ctx context.Context, t *testing.T, s blob.Storage, blobID blob.ID, offset, length int64) {
+	t.Helper()
+
 	if _, err := s.GetBlob(ctx, blobID, offset, length); err == nil {
 		t.Errorf("GetBlob(%v,%v,%v) did not return error for invalid offset/length", blobID, offset, length)
 	}
 }
 
 // AssertGetBlobNotFound asserts that GetBlob() for specified blobID returns ErrNotFound.
-func AssertGetBlobNotFound(ctx context.Context, t testingT, s blob.Storage, blobID blob.ID) {
+func AssertGetBlobNotFound(ctx context.Context, t *testing.T, s blob.Storage, blobID blob.ID) {
 	t.Helper()
 
 	b, err := s.GetBlob(ctx, blobID, 0, -1)
@@ -93,17 +89,17 @@ func AssertGetBlobNotFound(ctx context.Context, t testingT, s blob.Storage, blob
 }
 
 // AssertGetMetadataNotFound asserts that GetMetadata() for specified blobID returns ErrNotFound.
-func AssertGetMetadataNotFound(ctx context.Context, t testingT, s blob.Storage, blobID blob.ID) {
+func AssertGetMetadataNotFound(ctx context.Context, t *testing.T, s blob.Storage, blobID blob.ID) {
 	t.Helper()
 
 	_, err := s.GetMetadata(ctx, blobID)
 	if !errors.Is(err, blob.ErrBlobNotFound) {
-		t.Errorf("GetMetadata(%v) returned %v, %v but expected ErrNotFound", blobID, err)
+		t.Errorf("GetMetadata(%v) returned %v but expected ErrNotFound", blobID, err)
 	}
 }
 
 // AssertListResults asserts that the list results with given prefix return the specified list of names in order.
-func AssertListResults(ctx context.Context, t testingT, s blob.Storage, prefix blob.ID, want ...blob.ID) {
+func AssertListResults(ctx context.Context, t *testing.T, s blob.Storage, prefix blob.ID, want ...blob.ID) {
 	t.Helper()
 
 	var names []blob.ID
@@ -136,7 +132,7 @@ func AssertListResults(ctx context.Context, t testingT, s blob.Storage, prefix b
 
 		return nil
 	}); err != nil {
-		t.Fatalf("err: %v", err)
+		t.Errorf("err: %v", err)
 	}
 
 	names = sorted(names)
