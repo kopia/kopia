@@ -329,10 +329,7 @@ func TestNeedMD5AWS(t *testing.T) {
 		err := cli.SetBucketObjectLockConfig(ctx, options.BucketName, &lockingMode, &unit, &days)
 		noError(t, err, "could not set object lock config")
 
-		got, err := needMD5(ctx, cli, options.BucketName)
-		noError(t, err, "could not determine whether PUT blob requires MD5")
-
-		if got != true {
+		if !needMD5(ctx, cli, options.BucketName) {
 			t.Fatal("expected bucket to require MD5 for PUT blob, but got not required")
 		}
 
@@ -372,10 +369,7 @@ func TestNoNeedMD5Minio(t *testing.T) {
 		cli = createClient(t, options)
 		makeBucket(t, cli, options, false)
 
-		got, err := needMD5(ctx, cli, minioBucketName)
-		noError(t, err, "could not determine whether PUT blob requires MD5")
-
-		if got != false {
+		if needMD5(ctx, cli, minioBucketName) {
 			t.Fatal("expected bucket to not require MD5 for PUT blob, but got required")
 		}
 	})
