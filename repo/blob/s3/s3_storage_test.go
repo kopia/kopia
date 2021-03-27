@@ -383,6 +383,24 @@ func TestNoNeedMD5Minio(t *testing.T) {
 	})
 }
 
+func TestNoNeedMD5Providers(t *testing.T) {
+	t.Parallel()
+
+	for k, env := range providerCreds {
+		env := env
+
+		t.Run(k, func(t *testing.T) {
+			ctx := testlogging.Context(t)
+			options := getProviderOptions(t, env)
+			cli := createClient(t, options)
+
+			if needMD5(ctx, cli, options.BucketName) {
+				t.Fatal("expected bucket to not require MD5 for PUT blob, but got required")
+			}
+		})
+	}
+}
+
 func testStorage(t *testutil.RetriableT, options *Options) {
 	ctx := testlogging.Context(t)
 
