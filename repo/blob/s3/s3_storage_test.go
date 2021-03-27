@@ -120,7 +120,7 @@ func getEnv(name, defValue string) string {
 	return value
 }
 
-func getProviderOptionsAndCleanup(tb testing.TB, envName string) *Options {
+func getProviderOptions(tb testing.TB, envName string) *Options {
 	tb.Helper()
 
 	value := getEnvOrSkip(tb, envName)
@@ -134,15 +134,23 @@ func getProviderOptionsAndCleanup(tb testing.TB, envName string) *Options {
 		tb.Fatalf("options providd in '%v' must not specify a prefix", envName)
 	}
 
-	cleanupOldData(context.Background(), tb, &o, defaultCleanupAge)
+	return &o
+}
+
+func getProviderOptionsAndCleanup(tb testing.TB, envName string) *Options {
+	tb.Helper()
+
+	o := getProviderOptions(tb, envName)
+
+	cleanupOldData(context.Background(), tb, o, defaultCleanupAge)
 
 	o.Prefix = uuid.NewString() + "-"
 
 	tb.Cleanup(func() {
-		cleanupOldData(context.Background(), tb, &o, 0)
+		cleanupOldData(context.Background(), tb, o, 0)
 	})
 
-	return &o
+	return o
 }
 
 func TestS3StorageProviders(t *testing.T) {
