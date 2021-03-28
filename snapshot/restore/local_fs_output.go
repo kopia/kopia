@@ -75,7 +75,7 @@ func (o *FilesystemOutput) FinishDirectory(ctx context.Context, relativePath str
 		return errors.Wrap(err, "error setting attributes")
 	}
 
-	return os.RemoveAll(path + localfs.SHALLOWENTRYSUFFIX)
+	return SafeRemoveAll(path)
 }
 
 // WriteDirEntry implements restore.Output interface.
@@ -101,7 +101,7 @@ func (o *FilesystemOutput) WriteFile(ctx context.Context, relativePath string, f
 		return errors.Wrap(err, "error setting attributes")
 	}
 
-	return os.RemoveAll(path + localfs.SHALLOWENTRYSUFFIX)
+	return SafeRemoveAll(path)
 }
 
 // FileExists implements restore.Output interface.
