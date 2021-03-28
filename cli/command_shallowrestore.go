@@ -73,8 +73,8 @@ func (c *commandShallowRestore) setup(svc appServices, parent commandParent) {
 }
 
 func (c *commandShallowRestore) shallowrestoreOutput() (restore.Output, error) {
-	targetpath, placeholderrestore := restore.PathIfPlaceholder(c.srSourceID)
-	if !placeholderrestore {
+	targetpath := restore.PathIfPlaceholder(c.srSourceID)
+	if targetpath == "" {
 		if c.srTargetPath == "" {
 			return nil, errors.Errorf("restore requires a target-path unless shallow-restoring a placeholder")
 		}
@@ -108,7 +108,7 @@ func (c *commandShallowRestore) run(ctx context.Context, rep repo.Repository) er
 
 	var rootEntry fs.Entry
 
-	if _, placeholderrestore := restore.PathIfPlaceholder(c.srSourceID); placeholderrestore {
+	if placeholderrestore := restore.PathIfPlaceholder(c.srSourceID); placeholderrestore != "" {
 		re, err := snapshotfs.GetEntryFromPlaceholder(ctx, rep, localfs.PlaceholderFilePath(c.srSourceID))
 		if err != nil {
 			return errors.Wrapf(err, "unable to get filesystem entry for placeholder %q", c.srSourceID)

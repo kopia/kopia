@@ -68,7 +68,7 @@ type Options struct {
 	Parallel               int  `json:"parallel"`
 	Incremental            bool `json:"incremental"`
 	IgnoreErrors           bool `json:"ignoreErrors"`
-	RestoreDirEntryAtDepth int  `json:"restoreDirEntryAtDepth"`
+	RestoreDirEntryAtDepth int32  `json:"restoreDirEntryAtDepth"`
 
 	ProgressCallback func(ctx context.Context, s Stats)
 	Cancel           chan struct{} // channel that can be externally closed to signal cancelation
@@ -92,7 +92,7 @@ func Entry(ctx context.Context, rep repo.Repository, output Output, rootEntry fs
 	}
 
 	// Control the depth of a restore. Default (options.MaxDepth = 0) is to restore to full depth.
-	currentdepth := 0
+	currentdepth := int32(0)
 
 	c.q.EnqueueFront(ctx, func() error {
 		return errors.Wrap(c.copyEntry(ctx, rootEntry, "", currentdepth, options.RestoreDirEntryAtDepth, func() error { return nil }), "error copying")
@@ -128,7 +128,7 @@ type copier struct {
 	cancel        chan struct{}
 }
 
-func (c *copier) copyEntry(ctx context.Context, e fs.Entry, targetPath string, currentdepth, maxdepth int, onCompletion func() error) error {
+func (c *copier) copyEntry(ctx context.Context, e fs.Entry, targetPath string, currentdepth, maxdepth int32, onCompletion func() error) error {
 	if c.cancel != nil {
 		select {
 		case <-c.cancel:
@@ -175,7 +175,7 @@ func (c *copier) copyEntry(ctx context.Context, e fs.Entry, targetPath string, c
 	return err
 }
 
-func (c *copier) copyEntryInternal(ctx context.Context, e fs.Entry, targetPath string, currentdepth, maxdepth int, onCompletion func() error) error {
+func (c *copier) copyEntryInternal(ctx context.Context, e fs.Entry, targetPath string, currentdepth, maxdepth int32, onCompletion func() error) error {
 	switch e := e.(type) {
 	case fs.Directory:
 		log(ctx).Debugf("dir: '%v'", targetPath)
@@ -213,10 +213,10 @@ func (c *copier) copyEntryInternal(ctx context.Context, e fs.Entry, targetPath s
 	}
 }
 
-func (c *copier) copyDirectory(ctx context.Context, d fs.Directory, targetPath string, currentdepth, maxdepth int, onCompletion parallelwork.CallbackFunc) error {
+func (c *copier) copyDirectory(ctx context.Context, d fs.Directory, targetPath string, currentdepth, maxdepth int32, onCompletion parallelwork.CallbackFunc) error {
 	atomic.AddInt32(&c.stats.RestoredDirCount, 1)
 
-	if currentdepth > maxdepth {
+	if SafelySuffixablePath(targetPath) && currentdepth > maxdepth {
 		de, ok := d.(snapshot.HasDirEntry)
 		if !ok {
 			return errors.Errorf("fs.Directory object is not HasDirEntry?")
@@ -242,7 +242,7 @@ func (c *copier) copyDirectory(ctx context.Context, d fs.Directory, targetPath s
 	}), "copy directory contents")
 }
 
-func (c *copier) copyDirectoryContent(ctx context.Context, d fs.Directory, targetPath string, currentdepth, maxdepth int, onCompletion parallelwork.CallbackFunc) error {
+func (c *copier) copyDirectoryContent(ctx context.Context, d fs.Directory, targetPath string, currentdepth, maxdepth int32, onCompletion parallelwork.CallbackFunc) error {
 	entries, err := d.Readdir(ctx)
 	if err != nil {
 		return errors.Wrap(err, "error reading directory")

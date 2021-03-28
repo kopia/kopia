@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/snapshot"
 	"github.com/kopia/kopia/tests/clitestutil"
+	"github.com/kopia/kopia/snapshot/restore"
 	"github.com/kopia/kopia/tests/testenv"
 	"github.com/kopia/kopia/tests/testdirtree"
 )
@@ -90,6 +92,15 @@ func TestShallowFullCycle(t *testing.T) {
 
 	require.NoError(t, os.Mkdir(dirpath, 0o755))
 	testdirtree.MustCreateRandomFile(t, fpath, testdirtree.DirectoryTreeOptions{}, (*testdirtree.DirectoryTreeCounters)(nil))
+
+	// Directories with very long names are not representable in
+	// shallow restores. So make one to show that it works.
+	// Restores (and shallow restores) with overly-long names will both fail.
+	dirpathlong := filepath.Join(source, makeLongName('d'))
+	fpathinlong := filepath.Join(dirpathlong, "nestedfile")
+
+	require.NoError(t, os.Mkdir(dirpathlong, 0o755))
+	testdirtree.MustCreateRandomFile(t, fpathinlong, testdirtree.DirectoryTreeOptions{}, (*testdirtree.DirectoryTreeCounters)(nil))
 
 	e.RunAndExpectSuccess(t, "snapshot", "create", source)
 	sources := clitestutil.ListSnapshotsAndExpectSuccess(t, e)
@@ -308,13 +319,8 @@ func removeEntry(m *mutatorArgs) {
 	m.t.Log(">> relpath", filerelpath, dirrelpath, fileinshallow, dirinshallow)
 
 	// 2. remove
-<<<<<<< HEAD
 	require.NoError(m.t, os.Remove(fileinshallow))
 	require.NoError(m.t, os.Remove(dirinshallow))
-=======
-	testenv.AssertNoError(m.t, os.Remove(fileinshallow))
-	testenv.AssertNoError(m.t, os.RemoveAll(dirinshallow))
->>>>>>> d86855be (Embed directory placeholders in directories)
 
 	// 3. remove from full
 	fopath := filepath.Join(m.original, filerelpath)
@@ -417,53 +423,30 @@ func TestPlaceholderAndRealFails(t *testing.T) {
 		t.Fatalf("missing paths %q, %q", origdir, origfile)
 	}
 
-<<<<<<< HEAD
-	for _, s := range []struct {
-		p   string
-		ext string
-	}{
-		{
-			p:   origdir,
-			ext: localfs.SHALLOWENTRYSUFFIX,
-		},
-		{
-			p:   origfile,
-			ext: localfs.SHALLOWENTRYSUFFIX,
-		},
-	} {
-		fpath := s.p + s.ext
-		phf, err := os.Create(fpath)
-		require.NoError(t, err)
-		require.NoError(t, phf.Close())
-		e.RunAndExpectFailure(t, "snapshot", "create", source)
-		require.NoError(t, os.RemoveAll(fpath))
-	}
-=======
 	// Placeholder file.
 	pfpath := origfile + localfs.SHALLOWENTRYSUFFIX
 	phfd, err := os.Create(pfpath)
-	testenv.AssertNoError(t, err)
-	testenv.AssertNoError(t, phfd.Close())
+	require.NoError(t, err)
+	require.NoError(t, phfd.Close())
 	e.RunAndExpectFailure(t, "snapshot", "create", source)
-	testenv.AssertNoError(t, os.RemoveAll(pfpath))
+	require.NoError(t, os.RemoveAll(pfpath))
 
 	// Placeholder dir, no file.
 	pfdirpath := origfile + localfs.SHALLOWENTRYSUFFIX
-	testenv.AssertNoError(t, os.MkdirAll(pfdirpath, os.FileMode(dIRMODE)))
+	require.NoError(t, os.MkdirAll(pfdirpath, os.FileMode(dIRMODE)))
 	e.RunAndExpectFailure(t, "snapshot", "create", source)
-	testenv.AssertNoError(t, os.RemoveAll(pfdirpath))
+	require.NoError(t, os.RemoveAll(pfdirpath))
 
 	// Placeholder dir, and file.
 	pfdirfilepath := origfile + dIRPH
 
-	testenv.AssertNoError(t, os.MkdirAll(pfdirpath, os.FileMode(dIRMODE)))
+	require.NoError(t, os.MkdirAll(pfdirpath, os.FileMode(dIRMODE)))
 
 	pfdirfd, err := os.Create(pfdirfilepath)
-	testenv.AssertNoError(t, err)
-	testenv.AssertNoError(t, pfdirfd.Close())
+	require.NoError(t, err)
+	require.NoError(t, pfdirfd.Close())
 	e.RunAndExpectFailure(t, "snapshot", "create", source)
-	testenv.AssertNoError(t, os.RemoveAll(pfdirfilepath))
->>>>>>> d86855be (Embed directory placeholders in directories)
+	require.NoError(t, os.RemoveAll(pfdirfilepath))
 }
 
 // TestForeignReposCauseErrors detects that shallow placeholders from
@@ -512,24 +495,16 @@ func TestForeignReposCauseErrors(t *testing.T) {
 		depath := spath
 
 		if s.mkdir {
-			testenv.AssertNoError(t, os.MkdirAll(spath, os.FileMode(dIRMODE)))
+			require.NoError(t, os.MkdirAll(spath, os.FileMode(dIRMODE)))
 			depath = filepath.Join(spath, localfs.SHALLOWENTRYSUFFIX)
 		}
 
 		buffy := &bytes.Buffer{}
 		encoder := json.NewEncoder(buffy)
-<<<<<<< HEAD
 		require.NoError(t, encoder.Encode(s.de))
-		require.NoError(t, ioutil.WriteFile(fpath, buffy.Bytes(), 0o444))
+		require.NoError(t, ioutil.WriteFile(depath, buffy.Bytes(), 0o444))
 		e.RunAndExpectFailure(t, "snapshot", "create", source)
-		require.NoError(t, os.RemoveAll(fpath))
-=======
-
-		testenv.AssertNoError(t, encoder.Encode(s.de))
-		testenv.AssertNoError(t, ioutil.WriteFile(depath, buffy.Bytes(), 0o444))
-		e.RunAndExpectFailure(t, "snapshot", "create", source)
-		testenv.AssertNoError(t, os.RemoveAll(spath))
->>>>>>> d86855be (Embed directory placeholders in directories)
+		require.NoError(t, os.RemoveAll(spath))
 	}
 }
 
@@ -737,6 +712,12 @@ func findFileDir(t *testing.T, shallow string) (dirinshallow, fileinshallow stri
 			continue
 		}
 
+		// Really long directories can't participate in shallow restores and will
+		// be real in a shallow tree. Skip them.
+		if !restore.SafelySuffixablePath(f) {
+			continue
+		}
+
 		switch direntry := getShallowDirEntry(t, f); {
 		case direntry.Type == snapshot.EntryTypeFile && fileinshallow == "":
 			fileinshallow = f
@@ -872,4 +853,13 @@ func compareShallowToOriginalDir(t *testing.T, rdc *repoDirEntryCache, original,
 		return nil
 	})
 	require.NoError(t, err2)
+}
+
+func makeLongName(c rune) string {
+	buffy := make([]byte, 0, syscall.NAME_MAX)
+	for i := 0; i < syscall.NAME_MAX; i++ {
+		buffy = append(buffy, byte(c))
+	}
+
+	return string(buffy)
 }

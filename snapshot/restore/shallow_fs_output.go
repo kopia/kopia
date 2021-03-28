@@ -15,15 +15,15 @@ import (
 
 // shallowFilesystemOutput overrides methods in FilesystemOutput with
 // shallow versions.
-type shallowFilesystemOutput struct {
-	*FilesystemOutput
+type ShallowFilesystemOutput struct {
+	FilesystemOutput
 }
 
 func makeShallowFilesystemOutput(o Output) Output {
 	fso, ok := o.(*FilesystemOutput)
 	if ok {
-		return &shallowFilesystemOutput{
-			FilesystemOutput: fso,
+		return &ShallowFilesystemOutput{
+			FilesystemOutput: *fso,
 		}
 	}
 
@@ -35,7 +35,7 @@ func makeShallowFilesystemOutput(o Output) Output {
 // FinishDirectory delegates to restore.Output interface.
 
 // WriteDirEntry implements restore.Output interface.
-func (o *shallowFilesystemOutput) WriteDirEntry(ctx context.Context, relativePath string, de *snapshot.DirEntry, e fs.Directory) error {
+func (o *ShallowFilesystemOutput) WriteDirEntry(ctx context.Context, relativePath string, de *snapshot.DirEntry, e fs.Directory) error {
 	placeholderpath, err := o.writeShallowEntry(ctx, relativePath, de)
 	if err != nil {
 		return errors.Wrap(err, "shallow WriteDirEntry")
@@ -45,7 +45,7 @@ func (o *shallowFilesystemOutput) WriteDirEntry(ctx context.Context, relativePat
 }
 
 // WriteFile implements restore.Output interface.
-func (o *shallowFilesystemOutput) WriteFile(ctx context.Context, relativePath string, f fs.File) error {
+func (o *ShallowFilesystemOutput) WriteFile(ctx context.Context, relativePath string, f fs.File) error {
 	log(ctx).Debugf("(Shallow) WriteFile %v (%v bytes) %v, %v", filepath.Join(o.TargetPath, relativePath), f.Size(), f.Mode(), f.ModTime())
 
 	mde, ok := f.(snapshot.HasDirEntry)
@@ -63,7 +63,7 @@ func (o *shallowFilesystemOutput) WriteFile(ctx context.Context, relativePath st
 
 const readonlyfilemode = 0222
 
-func (o *shallowFilesystemOutput) writeShallowEntry(ctx context.Context, relativePath string, de *snapshot.DirEntry) (string, error) {
+func (o *ShallowFilesystemOutput) writeShallowEntry(ctx context.Context, relativePath string, de *snapshot.DirEntry) (string, error) {
 	path := filepath.Join(o.TargetPath, filepath.FromSlash(relativePath))
 	if _, err := os.Lstat(path); err == nil {
 		// Having both a placeholder and a real will cause snapshot to fail. But
@@ -84,4 +84,4 @@ func (o *shallowFilesystemOutput) writeShallowEntry(ctx context.Context, relativ
 
 // CreateSymlink identical to FilesystemOutput.
 
-var _ Output = (*shallowFilesystemOutput)(nil)
+var _ Output = (*ShallowFilesystemOutput)(nil)

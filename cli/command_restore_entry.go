@@ -27,22 +27,32 @@ placeholder for a directory, it will recursively expand
 `
 )
 
-var (
-	restoryEntryCommand = app.Command("restore-entry", restoreEntryCommandHelp).Alias("expand")
-	srDirEntryPath      = ""
-)
+type commandRestoreEntry struct {
+	commandRestore
+	srDirEntryPath     string
+}
+
+func (c *commandRestoreEntry) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("restore-entry", restoreEntryCommandHelp).Alias("expand")
+	cmd.Arg("entry-path", "A shallow placeholder file `*.kopia-entry`").Required().StringVar(&c.srDirEntryPath)
+
+	// TODO(rjk): need to go fix this up.
+
+	c.addRestoreAndEntryFlags(cmd)
+	cmd.Action(svc.repositoryReaderAction(c.run))
+}
 
 // addShallowRestoreFlags sets up command line flags for the
 // shallowrestore command on the kingpin command framework.
-func addShallowRestoreFlags(cmd *kingpin.CmdClause) {
-	cmd.Arg("entry-path", "A shallow placeholder file `*.kopia-entry`").Required().StringVar(&srDirEntryPath)
+func (c *commandRestoreEntry) addShallowRestoreFlags(cmd *kingpin.CmdClause) {
+	cmd.Arg("entry-path", "A shallow placeholder file `*.kopia-entry`").Required().StringVar(&c.srDirEntryPath)
 
 	// Add all of the necessary state from restore.
-	addRestoreAndEntryFlags(cmd)
+	c.addRestoreAndEntryFlags(cmd)
 }
 
-func restoreEntryOutput() (restore.Output, error) {
-	targetpath := restore.PathIfPlaceholder(srDirEntryPath)
+func (c *commandRestoreEntry) restoreEntryOutput() (restore.Output, error) {
+	targetpath := restore.PathIfPlaceholder(c.srDirEntryPath)
 	if targetpath == "" {
 		return nil, errors.Errorf("restore-entry requires a placeholder argument")
 	}
@@ -52,28 +62,37 @@ func restoreEntryOutput() (restore.Output, error) {
 		return nil, errors.Wrapf(err, "can't find absolute %q", targetpath)
 	}
 
-	return makeFileSystemOutput(p), nil
+	// TODO(rjk): this might be wrongs...
+		return &restore.FilesystemOutput{
+			TargetPath:             p,
+			OverwriteDirectories:   c.restoreOverwriteDirectories,
+			OverwriteFiles:         c.restoreOverwriteFiles,
+			OverwriteSymlinks:      c.restoreOverwriteSymlinks,
+			IgnorePermissionErrors: c.restoreIgnorePermissionErrors,
+			SkipOwners:             c.restoreSkipOwners,
+			SkipPermissions:        c.restoreSkipPermissions,
+			SkipTimes:              c.restoreSkipTimes,
+		}, nil
 }
 
-func runRestoreEntryCommand(ctx context.Context, rep repo.Repository) error {
-	output, oerr := restoreEntryOutput()
+func (c *commandRestoreEntry) run(ctx context.Context, rep repo.Repository) error {
+	_, oerr := c.restoreEntryOutput()
 	if oerr != nil {
 		return errors.Wrap(oerr, "unable to initialize output")
 	}
 
-	rootEntry, err := snapshotfs.GetEntryFromPlaceholder(ctx, rep, localfs.PlaceholderFilePath(srDirEntryPath))
+	// rootEntry
+	_, err := snapshotfs.GetEntryFromPlaceholder(ctx, rep, localfs.PlaceholderFilePath(c.srDirEntryPath))
 	if err != nil {
-		return errors.Wrapf(err, "unable to get filesystem entry for placeholder %q", srDirEntryPath)
+		return errors.Wrapf(err, "unable to get filesystem entry for placeholder %q", c.srDirEntryPath)
 	}
 
-	if restoreShallowAtDepth == math.MaxInt32 {
-		restoreShallowAtDepth = 0
+	if c.restoreShallowAtDepth == math.MaxInt32 {
+		c.restoreShallowAtDepth = 0
 	}
 
-	return runRestoreAndEntryCommand(ctx, rep, rootEntry, output)
-}
+	// TODO(rjk): where did this go? (I think that I need to fix things up a bit.)
+	// return c.runRestoreAndEntryCommand(ctx, rep, rootEntry, output)
 
-func init() {
-	addShallowRestoreFlags(restoryEntryCommand)
-	restoryEntryCommand.Action(repositoryReaderAction(runRestoreEntryCommand))
+	return nil
 }

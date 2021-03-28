@@ -8,13 +8,16 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
+	"github.com/alecthomas/kingpin"
 	"github.com/pkg/errors"
 
 	"github.com/kopia/kopia/internal/timetrack"
 	"github.com/kopia/kopia/fs"
 	"github.com/kopia/kopia/internal/units"
+	"github.com/kopia/kopia/fs/localfs"
 	"github.com/kopia/kopia/repo"
 	"github.com/kopia/kopia/snapshot/restore"
 	"github.com/kopia/kopia/snapshot/snapshotfs"
@@ -65,7 +68,6 @@ directory ID and optionally a sub-directory path. For example,
 	bitsPerByte = 8
 )
 
-<<<<<<< HEAD
 type commandRestore struct {
 	restoreSourceID               string
 	restoreTargetPath             string
@@ -84,10 +86,7 @@ type commandRestore struct {
 	restoreShallowAtDepth int32
 }
 
-func (c *commandRestore) setup(svc appServices, parent commandParent) {
-	cmd := parent.Command("restore", restoreCommandHelp)
-	cmd.Arg("source", restoreCommandSourcePathHelp).Required().StringVar(&c.restoreSourceID)
-	cmd.Arg("target-path", "Path of the directory for the contents to be restored. Required unless restoring a shallow placeholder.").StringVar(&c.restoreTargetPath)
+func (c *commandRestore) addRestoreAndEntryFlags(cmd *kingpin.CmdClause) {
 	cmd.Flag("overwrite-directories", "Overwrite existing directories").Default("true").BoolVar(&c.restoreOverwriteDirectories)
 	cmd.Flag("overwrite-files", "Specifies whether or not to overwrite already existing files").Default("true").BoolVar(&c.restoreOverwriteFiles)
 	cmd.Flag("overwrite-symlinks", "Specifies whether or not to overwrite already existing symlinks").Default("true").BoolVar(&c.restoreOverwriteSymlinks)
@@ -100,7 +99,14 @@ func (c *commandRestore) setup(svc appServices, parent commandParent) {
 	cmd.Flag("ignore-permission-errors", "Ignore permission errors").Default("true").BoolVar(&c.restoreIgnorePermissionErrors)
 	cmd.Flag("ignore-errors", "Ignore all errors").BoolVar(&c.restoreIgnoreErrors)
 	cmd.Flag("skip-existing", "Skip files and symlinks that exist in the output").BoolVar(&c.restoreIncremental)
-	cmd.Flag("shallow-restore-at-depth", "Shallow restore the directory hierarchy starting at this level (default is to deep restore the entire hierarchy.)").Short('d').Default(math.MaxInt32).IntVar(&c.restoreShallowAtDepth)
+	cmd.Flag("shallow-restore-at-depth", "Shallow restore the directory hierarchy starting at this level (default is to deep restore the entire hierarchy.)").Short('d').Default(strconv.FormatInt(math.MaxInt32, 10)).Int32Var(&c.restoreShallowAtDepth)
+}
+
+func (c *commandRestore) setup(svc appServices, parent commandParent) {
+	cmd := parent.Command("restore", restoreCommandHelp)
+	cmd.Arg("source", restoreCommandSourcePathHelp).Required().StringVar(&c.restoreSourceID)
+	cmd.Arg("target-path", "Path of the directory for the contents to be restored. Required unless restoring a shallow placeholder.").StringVar(&c.restoreTargetPath)
+	c.addRestoreAndEntryFlags(cmd)
 	cmd.Action(svc.repositoryReaderAction(c.run))
 }
 
@@ -114,8 +120,8 @@ const (
 )
 
 func (c *commandRestore) restoreOutput(ctx context.Context) (restore.Output, error) {
-	targetpath, placeholderrestore := restore.PathIfPlaceholder(c.restoreSourceID)
-	if !placeholderrestore {
+	targetpath := restore.PathIfPlaceholder(c.restoreSourceID)
+	if targetpath != "" {
 		if c.restoreTargetPath == "" {
 			return nil, errors.Errorf("restore requires a target-path unless restoring a placeholder")
 		}
@@ -227,10 +233,10 @@ func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 
 	var rootEntry fs.Entry
 
-	if _, placeholderrestore := restore.PathIfPlaceholder(c.restoreSourceID); placeholderrestore {
-		re, err := snapshotfs.GetEntryFromPlaceholder(ctx, rep, localfs.PlaceholderFilePath(c.restoreSourceID))
+	if placeholderpath := restore.PathIfPlaceholder(c.restoreSourceID); placeholderpath != "" {
+		re, err := snapshotfs.GetEntryFromPlaceholder(ctx, rep, localfs.PlaceholderFilePath(placeholderpath))
 		if err != nil {
-			return errors.Wrapf(err, "unable to get filesystem entry for placeholder %q", c.restoreSourceID)
+			return errors.Wrapf(err, "unable to get filesystem entry for placeholder %q", placeholderpath)
 		}
 
 		rootEntry = re
@@ -243,10 +249,6 @@ func (c *commandRestore) run(ctx context.Context, rep repo.Repository) error {
 		rootEntry = re
 	}
 
-	return runRestoreAndEntryCommand(ctx, rep, rootEntry, output)
-}
-
-func runRestoreAndEntryCommand(ctx context.Context, rep repo.Repository, rootEntry fs.Entry, output restore.Output) error {
 	eta := timetrack.Start()
 
 	st, err := restore.Entry(ctx, rep, output, rootEntry, restore.Options{

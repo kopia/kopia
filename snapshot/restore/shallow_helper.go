@@ -23,11 +23,17 @@ func PathIfPlaceholder(path string) string {
 // SafeRemoveAll removes the shallow placeholder file(s) for path if they
 // exist without experiencing errors caused by long file names.
 func SafeRemoveAll(path string) error {
-	if len(filepath.Base(path))+len(localfs.SHALLOWENTRYSUFFIX) <= syscall.NAME_MAX {
+	if SafelySuffixablePath(path) {
 		return os.RemoveAll(path + localfs.SHALLOWENTRYSUFFIX)
 	}
 
 	// path can't possibly exist because we could have never written a file
 	// whose path name is too long.
 	return nil
+}
+
+// SafelySuffixablePath returns true if path can be suffixed with the
+// placeholder suffix and written to the filesystem.
+func SafelySuffixablePath(path string) bool {
+	return len(filepath.Base(path))+len(localfs.SHALLOWENTRYSUFFIX) <= syscall.NAME_MAX
 }
