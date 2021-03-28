@@ -22,14 +22,14 @@ import (
 func placeholderPath(path string, et snapshot.EntryType) (string, error) {
 	switch et {
 	case snapshot.EntryTypeFile:
-		return path + SHALLOWENTRYSUFFIX, nil
+		return path + ShallowEntrySuffix, nil
 	case snapshot.EntryTypeDirectory: // Directories and regular files
-		dirpath := path + SHALLOWENTRYSUFFIX
-		if err := os.MkdirAll(dirpath, os.FileMode(dIRMODE)); err != nil {
+		dirpath := path + ShallowEntrySuffix
+		if err := os.MkdirAll(dirpath, os.FileMode(dirMode)); err != nil {
 			return "", errors.Wrap(err, "placeholderPath dir creation")
 		}
 
-		return filepath.Join(dirpath, SHALLOWENTRYSUFFIX), nil
+		return filepath.Join(dirpath, ShallowEntrySuffix), nil
 	default:
 		// Shouldn't be used on links or other file types.
 		return "", errors.Errorf("unsupported entry type: %v", et)
@@ -71,7 +71,7 @@ func ReadShallowPlaceholder(path string) (*snapshot.DirEntry, error) {
 	}
 
 	// Otherwise, the path should be a placeholder.
-	php := path + SHALLOWENTRYSUFFIX
+	php := path + ShallowEntrySuffix
 
 	fi, err := os.Lstat(php)
 
@@ -79,7 +79,7 @@ func ReadShallowPlaceholder(path string) (*snapshot.DirEntry, error) {
 	case err == nil && originalpresent:
 		return nil, errors.Errorf("%q, %q exist: shallowrestore tree is corrupt probably because a previous restore into a shallow tree was interrupted", path, php)
 	case err == nil && fi.IsDir():
-		php = filepath.Join(php, SHALLOWENTRYSUFFIX)
+		php = filepath.Join(php, ShallowEntrySuffix)
 	}
 
 	if de, err := dirEntryFromPlaceholder(php); err == nil {

@@ -11,15 +11,15 @@ import (
 
 const (
 	// SHALLOWENTRYSUFFIX is a suffix identifying placeholder files.
-	SHALLOWENTRYSUFFIX = ".kopia-entry"
+	ShallowEntrySuffix = ".kopia-entry"
 
 	// FileMode for placeholder directories.
-	dIRMODE = 0700
+	dirMode = 0700
 )
 
 // TrimShallowSuffix returns the path without the placeholder suffix.
 func TrimShallowSuffix(path string) string {
-	return strings.TrimSuffix(path, SHALLOWENTRYSUFFIX)
+	return strings.TrimSuffix(path, ShallowEntrySuffix)
 }
 
 // PlaceholderFilePath is a filesystem path of a shallow placeholder file or directory.
@@ -29,7 +29,7 @@ type PlaceholderFilePath string
 func (pf PlaceholderFilePath) DirEntryOrNil(ctx context.Context) (*snapshot.DirEntry, error) {
 	path := string(pf)
 	if fi, err := os.Lstat(path); err == nil && fi.IsDir() {
-		return dirEntryFromPlaceholder(filepath.Join(path, SHALLOWENTRYSUFFIX))
+		return dirEntryFromPlaceholder(filepath.Join(path, ShallowEntrySuffix))
 	}
 
 	return dirEntryFromPlaceholder(path)

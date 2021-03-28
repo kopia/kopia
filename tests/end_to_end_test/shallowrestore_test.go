@@ -424,7 +424,7 @@ func TestPlaceholderAndRealFails(t *testing.T) {
 	}
 
 	// Placeholder file.
-	pfpath := origfile + localfs.SHALLOWENTRYSUFFIX
+	pfpath := origfile + localfs.ShallowEntrySuffix
 	phfd, err := os.Create(pfpath)
 	require.NoError(t, err)
 	require.NoError(t, phfd.Close())
@@ -432,15 +432,15 @@ func TestPlaceholderAndRealFails(t *testing.T) {
 	require.NoError(t, os.RemoveAll(pfpath))
 
 	// Placeholder dir, no file.
-	pfdirpath := origfile + localfs.SHALLOWENTRYSUFFIX
-	require.NoError(t, os.MkdirAll(pfdirpath, os.FileMode(dIRMODE)))
+	pfdirpath := origfile + localfs.ShallowEntrySuffix
+	require.NoError(t, os.MkdirAll(pfdirpath, os.FileMode(dirMode)))
 	e.RunAndExpectFailure(t, "snapshot", "create", source)
 	require.NoError(t, os.RemoveAll(pfdirpath))
 
 	// Placeholder dir, and file.
 	pfdirfilepath := origfile + dIRPH
 
-	require.NoError(t, os.MkdirAll(pfdirpath, os.FileMode(dIRMODE)))
+	require.NoError(t, os.MkdirAll(pfdirpath, os.FileMode(dirMode)))
 
 	pfdirfd, err := os.Create(pfdirfilepath)
 	require.NoError(t, err)
@@ -491,12 +491,12 @@ func TestForeignReposCauseErrors(t *testing.T) {
 			},
 		},
 	} {
-		spath := filepath.Join(source, "badplaceholder"+localfs.SHALLOWENTRYSUFFIX)
+		spath := filepath.Join(source, "badplaceholder"+localfs.ShallowEntrySuffix)
 		depath := spath
 
 		if s.mkdir {
-			require.NoError(t, os.MkdirAll(spath, os.FileMode(dIRMODE)))
-			depath = filepath.Join(spath, localfs.SHALLOWENTRYSUFFIX)
+			require.NoError(t, os.MkdirAll(spath, os.FileMode(dirMode)))
+			depath = filepath.Join(spath, localfs.ShallowEntrySuffix)
 		}
 
 		buffy := &bytes.Buffer{}
@@ -512,12 +512,12 @@ func TestForeignReposCauseErrors(t *testing.T) {
 
 const (
 	// d1 + kDIRPH is the DirEntry placeholder for original directory d1.
-	dIRPH = localfs.SHALLOWENTRYSUFFIX + string(filepath.Separator) + localfs.SHALLOWENTRYSUFFIX
+	dIRPH = localfs.ShallowEntrySuffix + string(filepath.Separator) + localfs.ShallowEntrySuffix
 
 	// d1 + kSUBFILE is the DirEntry placeholder for placeholder directory d1.kopia-entry.
-	sUBFILE = string(filepath.Separator) + localfs.SHALLOWENTRYSUFFIX
+	sUBFILE = string(filepath.Separator) + localfs.ShallowEntrySuffix
 
-	dIRMODE = 0700
+	dirMode = 0700
 )
 
 // getShallowDirEntry reads the DirEntry in the placeholder associated
@@ -532,7 +532,7 @@ func getShallowDirEntry(t *testing.T, fpath string) *snapshot.DirEntry {
 
 	t.Logf("fpath %q", fpath)
 
-	for _, s := range []string{localfs.SHALLOWENTRYSUFFIX, sUBFILE, dIRPH} {
+	for _, s := range []string{localfs.ShallowEntrySuffix, sUBFILE, dIRPH} {
 		p := fpath
 		if !strings.HasSuffix(fpath, s) {
 			p += s
@@ -738,7 +738,7 @@ func getShallowInfo(t *testing.T, srp string) os.FileInfo {
 	paths := make([]string, ENTRYTYPES)
 
 	v := -1
-	for i, s := range []string{"", localfs.SHALLOWENTRYSUFFIX, dIRPH} { // nolint(wsl)
+	for i, s := range []string{"", localfs.ShallowEntrySuffix, dIRPH} { // nolint(wsl)
 		paths[i] = srp + s
 		t.Logf("getting info for %q", paths[i])
 		shallowinfos[i], errors[i] = os.Lstat(paths[i])

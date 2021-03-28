@@ -11,7 +11,7 @@ import (
 
 func TestSafeRemoveAll(t *testing.T) {
 	tdir := t.TempDir()
-	suffleng := len(localfs.SHALLOWENTRYSUFFIX)
+	suffleng := len(localfs.ShallowEntrySuffix)
 
 	for fnl := syscall.NAME_MAX - suffleng - 1; fnl < syscall.NAME_MAX+2; fnl++ {
 		buffy := make([]byte, 0, fnl)
@@ -21,7 +21,7 @@ func TestSafeRemoveAll(t *testing.T) {
 
 		filename := string(buffy)
 		path := filepath.Join(tdir, filename)
-		filenameext := filename + localfs.SHALLOWENTRYSUFFIX
+		filenameext := filename + localfs.ShallowEntrySuffix
 		pathext := filepath.Join(tdir, filenameext)
 
 		t.Logf("x*%d + %d", fnl, suffleng)

@@ -13,7 +13,7 @@ import (
 // true if path is a placeholder directory or file path. Otherwise,
 // returns path unchanged and false.
 func PathIfPlaceholder(path string) string {
-	if strings.HasSuffix(path, localfs.SHALLOWENTRYSUFFIX) {
+	if strings.HasSuffix(path, localfs.ShallowEntrySuffix) {
 		return localfs.TrimShallowSuffix(path)
 	}
 
@@ -24,7 +24,7 @@ func PathIfPlaceholder(path string) string {
 // exist without experiencing errors caused by long file names.
 func SafeRemoveAll(path string) error {
 	if SafelySuffixablePath(path) {
-		return os.RemoveAll(path + localfs.SHALLOWENTRYSUFFIX)
+		return os.RemoveAll(path + localfs.ShallowEntrySuffix)
 	}
 
 	// path can't possibly exist because we could have never written a file
@@ -35,5 +35,5 @@ func SafeRemoveAll(path string) error {
 // SafelySuffixablePath returns true if path can be suffixed with the
 // placeholder suffix and written to the filesystem.
 func SafelySuffixablePath(path string) bool {
-	return len(filepath.Base(path))+len(localfs.SHALLOWENTRYSUFFIX) <= syscall.NAME_MAX
+	return len(filepath.Base(path))+len(localfs.ShallowEntrySuffix) <= syscall.NAME_MAX
 }
