@@ -52,7 +52,7 @@ has been set (to prevent overwrite of each type):
 --no-overwrite-directories
 --no-overwrite-symlinks
 
-If the '--shallow-restore-at-depth' option is provided, files and
+If the '--shallow' option is provided, files and
 directories this depth and below in the directory hierarchy will be
 represented by compact placeholder files of the form
 'entry.kopia-entry' instead of being restored. Snapshots created of
